@@ -262,6 +262,9 @@ binary_type -> '<<' bin_unit_type '>>'    : {type, ?anno('$1'),binary,
                                              [abstract2(0, ?anno('$1')), '$2']}.
 binary_type -> '<<' bin_base_type ',' bin_unit_type '>>'
                                     : {type, ?anno('$1'), binary, ['$2', '$4']}.
+binary_type -> '<<' string opt_bit_type_list '>>'
+                                   : build_bin_literal_type(?anno('$1'), '$2', '$3').
+binary_type -> sigil              : sigil_to_bin_type('$1').
 
 bin_base_type -> var ':' type          : build_bin_type(['$1'], '$3').
 
@@ -1196,6 +1199,7 @@ processed (see section [Error Information](#module-error-information)).
                        | af_record_type()
                        | af_remote_type()
                        | af_singleton_integer_type()
+                       | af_singleton_binary_type()
                        | af_tuple_type()
                        | af_type_union()
                        | af_type_variable()
@@ -1274,6 +1278,8 @@ processed (see section [Error Information](#module-error-information)).
                                    | af_character()
                                    | af_unary_op(af_singleton_integer_type())
                                    | af_binary_op(af_singleton_integer_type()).
+
+-type af_singleton_binary_type() :: {'bin_type', anno(), binary()}.
 
 -type af_literal() :: af_atom()
                     | af_character()
@@ -1586,6 +1592,35 @@ build_bin_type([], Int) ->
     Int;
 build_bin_type([{var, Aa, _}|_], _) ->
     ret_err(Aa, "Bad binary type").
+
+build_bin_literal_type(Anno, {string, _SAnno, Chars}, default) ->
+    case lists:all(fun(C) -> C >= 0 andalso C =< 255 end, Chars) of
+        true  -> {bin_type, Anno, list_to_binary(Chars)};
+        false -> ret_err(Anno, "binary literal type with characters > 255")
+    end;
+build_bin_literal_type(Anno, {string, _, Chars}, [Enc])
+  when Enc =:= utf8; Enc =:= utf16; Enc =:= utf32 ->
+    case unicode:characters_to_binary(Chars, unicode, Enc) of
+        Bin when is_binary(Bin) ->
+            {bin_type, Anno, Bin};
+        _ ->
+            ret_err(Anno, "invalid characters for encoding")
+    end;
+build_bin_literal_type(Anno, {string, _, Chars}, [latin1]) ->
+    build_bin_literal_type(Anno, {string, unused, Chars}, default);
+build_bin_literal_type(Anno, _String, _Other) ->
+    ret_err(Anno, "unsupported encoding in binary literal type").
+
+sigil_to_bin_type({bin, Anno,
+                   [{bin_element, _, {string, _, Chars}, default, [utf8]}]}) ->
+    case unicode:characters_to_binary(Chars, unicode, utf8) of
+        Bin when is_binary(Bin) ->
+            {bin_type, Anno, Bin};
+        _ ->
+            ret_err(Anno, "invalid characters in sigil type")
+    end;
+sigil_to_bin_type(Node) ->
+    ret_err(element(2, Node), "illegal sigil prefix in type spec").
 
 build_atom({atom, _Aa, _Name} = Atom) -> Atom;
 build_atom({var, Aa, Name}) -> {atom, Aa, Name};
@@ -2436,6 +2471,9 @@ modify_anno1({typed_record_field,Field,Type}, Ac, Mf) ->
 modify_anno1({Tag,A}, Ac, Mf) ->
     {A1,Ac1} = Mf(A, Ac),
     {{Tag,A1},Ac1};
+modify_anno1({bin_type, A, Value}, Ac, Mf) when is_binary(Value) ->
+    {A1, Ac1} = Mf(A, Ac),
+    {{bin_type, A1, Value}, Ac1};
 modify_anno1({Tag,A,E1}, Ac, Mf) ->
     {A1,Ac1} = Mf(A, Ac),
     {E11,Ac2} = modify_anno1(E1, Ac1, Mf),

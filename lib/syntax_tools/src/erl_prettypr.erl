@@ -1137,6 +1137,10 @@ lay_2(Node, Ctxt) ->
                     lay_type_application(Name, Arguments, Ctxt)
             end;
 
+        binary_literal_type ->
+            text("<<" ++ io_lib:write_string(
+                binary_to_list(erl_syntax:binary_literal_type_value(Node)), $") ++ ">>");
+
         bitstring_type ->
                 Ctxt1 = set_prec(Ctxt, max_prec()),
             M = erl_syntax:bitstring_type_m(Node),

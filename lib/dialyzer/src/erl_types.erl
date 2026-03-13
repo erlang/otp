@@ -51,6 +51,7 @@
 	 t_atoms/1,
 	 t_atom_vals/1,
 	 t_binary/0,
+         t_binary_val/1,
 	 t_bitstr/0,
 	 t_bitstr/2,
 	 t_bitstr_base/1,
@@ -290,7 +291,8 @@
 -define(unknown_qual,   unknown).
 
 -type qual() :: ?float_qual | ?integer_qual | ?nonempty_qual | ?pid_qual
-              | ?port_qual | ?reference_qual | ?unknown_qual | {_, _}.
+              | ?port_qual | ?reference_qual | ?unknown_qual | {_, _}
+              | [binary()].
 
 %%-----------------------------------------------------------------------------
 %% The type representation
@@ -330,6 +332,9 @@
 
 -define(atom(Set),                 #c{tag=?atom_tag, elements=Set}).
 -define(bitstr(Unit, Base),        #c{tag=?binary_tag, elements={Unit,Base}}).
+-define(bitstr_vals(Unit, Base, Vals),
+                                   #c{tag=?binary_tag, elements={Unit,Base},
+                                      qualifier=Vals}).
 -define(float,                     ?number(?any, ?float_qual)).
 -define(function(Domain, Range),   #c{tag=?function_tag,
                                       elements={Domain,Range}}).
@@ -663,6 +668,11 @@ t_bitstr(U, B) ->
 	B
     end,
   ?bitstr(U, NewB).
+
+-spec t_binary_val(binary()) -> erl_type().
+
+t_binary_val(Bin) ->
+  ?bitstr_vals(0, bit_size(Bin), set_singleton(Bin)).
 
 -spec t_bitstr_unit(erl_type()) -> non_neg_integer().
 
@@ -1971,6 +1981,7 @@ t_collect_vars_list([], Acc) -> Acc.
 t_from_term([H|T]) ->                  t_cons(t_from_term(H), t_from_term(T));
 t_from_term([]) ->                     t_nil();
 t_from_term(T) when is_atom(T) ->      t_atom(T);
+t_from_term(T) when erlang:is_binary(T) -> t_binary_val(T);
 t_from_term(T) when is_bitstring(T) -> t_bitstr(0, erlang:bit_size(T));
 t_from_term(T) when is_float(T) ->     t_float();
 t_from_term(T) when is_function(T) ->
@@ -2150,6 +2161,14 @@ t_sup_aux(?var(_), _) -> ?any;
 t_sup_aux(_, ?var(_)) -> ?any;
 t_sup_aux(?atom(Set1), ?atom(Set2)) ->
   ?atom(set_union(Set1, Set2));
+t_sup_aux(?bitstr_vals(U1, B1, V1), ?bitstr_vals(U2, B2, V2))
+  when is_list(V1), is_list(V2) ->
+  SupU = gcd(gcd(U1, U2), abs(B1 - B2)),
+  SupB = lists:min([B1, B2]),
+  case set_union(V1, V2) of
+    ?any -> t_bitstr(SupU, SupB);
+    NewVals -> ?bitstr_vals(SupU, SupB, NewVals)
+  end;
 t_sup_aux(?bitstr(U1, B1), ?bitstr(U2, B2)) ->
   t_bitstr(gcd(gcd(U1, U2), abs(B1-B2)), lists:min([B1, B2]));
 t_sup_aux(?function(Domain1, Range1), ?function(Domain2, Range2)) ->
@@ -2603,6 +2622,8 @@ t_elements(?nil = T) -> [T];
 t_elements(?atom(?any) = T) -> [T];
 t_elements(?atom(Atoms)) ->
   [t_atom(A) || A <- Atoms];
+t_elements(#c{tag=?binary_tag, qualifier=Vals}) when is_list(Vals) ->
+  [t_binary_val(V) || V <- Vals];
 t_elements(?bitstr(_, _) = T) -> [T];
 t_elements(?function(_, _) = T) -> [T];
 t_elements(?identifier(?any) = T) -> [T];
@@ -2686,6 +2707,22 @@ t_inf_aux(?atom(Set1), ?atom(Set2)) ->
     ?none ->  ?none;
     NewSet -> ?atom(NewSet)
   end;
+t_inf_aux(?bitstr_vals(_U1, _B1, V1), ?bitstr_vals(_U2, _B2, V2))
+  when is_list(V1), is_list(V2) ->
+  case ordsets:intersection(V1, V2) of
+    [] -> ?none;
+    NewVals -> make_bitstr_vals(NewVals)
+  end;
+t_inf_aux(?bitstr_vals(_U1, _B1, Vals), ?bitstr(U2, B2))
+  when is_list(Vals) ->
+  Filtered = [V || V <- Vals, bitstr_val_matches(V, U2, B2)],
+  case Filtered of
+    [] -> ?none;
+    _  -> make_bitstr_vals(Filtered)
+  end;
+t_inf_aux(?bitstr(U1, B1), ?bitstr_vals(U2, B2, Vals))
+  when is_list(Vals) ->
+  t_inf_aux(?bitstr_vals(U2, B2, Vals), ?bitstr(U1, B1));
 t_inf_aux(?bitstr(U1, B1), ?bitstr(0, B2)) ->
   if B2 >= B1 andalso (B2-B1) rem U1 =:= 0 -> t_bitstr(0, B2);
      true -> ?none
@@ -3149,6 +3186,19 @@ findfirst(N1, N2, U1, B1, U2, B2) ->
       findfirst(N1_1, N2, U1, B1, U2, B2)
   end.
 
+bitstr_val_matches(Bin, Unit, Base) ->
+  Sz = bit_size(Bin),
+  case Unit of
+    0 -> Sz =:= Base;
+    _ -> Sz >= Base andalso (Sz - Base) rem Unit =:= 0
+  end.
+
+make_bitstr_vals(Vals) ->
+  Sizes = [bit_size(V) || V <- Vals],
+  Base = lists:min(Sizes),
+  Unit = lists:foldl(fun(S, U) -> gcd(abs(S - Base), U) end, 0, Sizes),
+  ?bitstr_vals(Unit, Base, Vals).
+
 %%-----------------------------------------------------------------------------
 %% Substitution of variables
 %%
@@ -3402,6 +3452,12 @@ t_subtract_aux(?atom(Set1), ?atom(Set2)) ->
   case set_subtract(Set1, Set2) of
     ?none -> ?none;
     Set -> ?atom(Set)
+  end;
+t_subtract_aux(?bitstr_vals(U1, B1, V1), ?bitstr_vals(_U2, _B2, V2))
+  when is_list(V1), is_list(V2) ->
+  case ordsets:subtract(V1, V2) of
+    [] -> ?none;
+    NewVals -> ?bitstr_vals(U1, B1, NewVals)
   end;
 t_subtract_aux(?bitstr(U1, B1), ?bitstr(U2, B2)) ->
   subtract_bin(t_bitstr(U1, B1), t_inf(t_bitstr(U1, B1), t_bitstr(U2, B2)));
@@ -3998,6 +4054,9 @@ t_to_string(?atom(Set), _RecDict) ->
     _ ->
       set_to_string(Set)
   end;
+t_to_string(#c{tag=?binary_tag, qualifier=Vals}, _RecDict)
+  when is_list(Vals) ->
+  flat_join([bin_val_to_string(V) || V <- Vals], " | ");
 t_to_string(?bitstr(0, 0), _RecDict) ->
   "<<>>";
 t_to_string(?bitstr(8, 0), _RecDict) ->
@@ -4416,6 +4475,8 @@ from_form({paren_type, _Anno, [Type]}, S, D, L, C) ->
 from_form({remote_type, Anno, [{atom, _, Module}, {atom, _, Type}, Args]},
 	    S, D, L, C) ->
   remote_from_form(Anno, Module, Type, Args, S, D, L, C);
+from_form({bin_type, _Anno, Bin}, _S, _D, L, C) ->
+  {t_binary_val(Bin), L, C};
 from_form({atom, _Anno, Atom}, _S, _D, L, C) ->
   {t_atom(Atom), L, C};
 from_form({integer, _Anno, Int}, _S, _D, L, C) ->
@@ -4900,6 +4961,8 @@ separate_key(?atom(Atoms)) when Atoms =/= ?any ->
   [t_atom(A) || A <- Atoms];
 separate_key(?number(_, _) = T) ->
   t_elements(T);
+separate_key(#c{tag=?binary_tag, qualifier=Vals}) when is_list(Vals) ->
+  [t_binary_val(V) || V <- Vals];
 separate_key(?union(List)) ->
   lists:append([separate_key(K) || K <- List, not t_is_none(K)]);
 separate_key(Key) ->
@@ -4997,6 +5060,7 @@ check_record_fields({remote_type, _Anno, [{atom, _, _}, {atom, _, _}, Args]},
 check_record_fields({atom, _Anno, _}, _S, C) -> C;
 check_record_fields({integer, _Anno, _}, _S, C) -> C;
 check_record_fields({char, _Anno, _}, _S, C) -> C;
+check_record_fields({bin_type, _Anno, _}, _S, C) -> C;
 check_record_fields({op, _Anno, _Op, _Arg}, _S, C) -> C;
 check_record_fields({op, _Anno, _Op, _Arg1, _Arg2}, _S, C) -> C;
 check_record_fields({type, _Anno, tuple, any}, _S, C) -> C;
@@ -5140,6 +5204,8 @@ t_form_to_string({var, _Anno, Name}) -> atom_to_list(Name);
 t_form_to_string({atom, _Anno, Atom}) ->
   io_lib:write_string(atom_to_list(Atom), $'); % To quote or not to quote... '
 t_form_to_string({integer, _Anno, Int}) -> integer_to_list(Int);
+t_form_to_string({bin_type, _Anno, Bin}) ->
+  "<<" ++ io_lib:write_string(binary_to_list(Bin), $") ++ ">>";
 t_form_to_string({char, _Anno, Char}) -> integer_to_list(Char);
 t_form_to_string({op, _Anno, _Op, _Arg} = Op) ->
   case erl_eval:partial_eval(Op) of
@@ -5422,6 +5488,8 @@ is_singleton_type(?int_range(V, V)) ->
   true; % cannot happen
 is_singleton_type(?int_set([_])) ->
   true;
+is_singleton_type(#c{tag=?binary_tag, qualifier=[_]}) ->
+  true;
 is_singleton_type(_) ->
   false.
 
@@ -5494,6 +5562,9 @@ set_max(Set) ->
 
 flat_format(F, S) ->
   lists:flatten(io_lib:format(F, S)).
+
+bin_val_to_string(Bin) ->
+  flat_format("<<~ts>>", [io_lib:write_string(binary_to_list(Bin), $")]).
 
 flat_join(List, Sep) ->
   lists:flatten(lists:join(Sep, List)).
@@ -5638,6 +5709,8 @@ get_modules_mentioned({atom, _L, _Atom}, _D, L, Acc) ->
 get_modules_mentioned({integer, _L, _Int}, _D, L, Acc) ->
   {L, Acc};
 get_modules_mentioned({char, _L, _Char}, _D, L, Acc) ->
+  {L, Acc};
+get_modules_mentioned({bin_type, _L, _Bin}, _D, L, Acc) ->
   {L, Acc};
 get_modules_mentioned({op, _L, _Op, _Arg}, _D, L, Acc) ->
   {L, Acc};
