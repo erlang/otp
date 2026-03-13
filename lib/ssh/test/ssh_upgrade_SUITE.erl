@@ -56,7 +56,8 @@
 %%% CommonTest callbacks
 %%% 
 suite() ->
-    [{timetrap,{seconds,180}}].
+    [{ct_hooks,[cth_fips]},
+     {timetrap,{seconds,180}}].
 
 all() -> 
     [
