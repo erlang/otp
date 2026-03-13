@@ -39,7 +39,7 @@
 
 #include "sys.h"
 
-#define BEAM_TYPES_VERSION 3
+#define BEAM_TYPES_VERSION 4
 
 #define BEAM_TYPE_NONE               (0)
 
@@ -55,14 +55,15 @@
 #define BEAM_TYPE_PORT               (1 << 9)
 #define BEAM_TYPE_REFERENCE          (1 << 10)
 #define BEAM_TYPE_TUPLE              (1 << 11)
+#define BEAM_TYPE_RECORD             (1 << 12)
 
-#define BEAM_TYPE_ANY                ((1 << 12) - 1)
+#define BEAM_TYPE_ANY                ((1 << 13) - 1)
 
 /* This is not a part of the type union proper, but is present in the format
  * to signal the presence of metadata. */
-#define BEAM_TYPE_HAS_LOWER_BOUND    (1 << 12)
-#define BEAM_TYPE_HAS_UPPER_BOUND    (1 << 13)
-#define BEAM_TYPE_HAS_UNIT           (1 << 14)
+#define BEAM_TYPE_HAS_LOWER_BOUND    (1 << 13)
+#define BEAM_TYPE_HAS_UPPER_BOUND    (1 << 14)
+#define BEAM_TYPE_HAS_UNIT           (1 << 15)
 
 #define BEAM_TYPE_METADATA_MASK      (BEAM_TYPE_HAS_LOWER_BOUND | \
                                       BEAM_TYPE_HAS_UPPER_BOUND | \

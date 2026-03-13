@@ -75,6 +75,7 @@
 
 -include("core_parse.hrl").
 -include("beam_ssa.hrl").
+-include("beam_types.hrl").
 
 %% Matches collapse max segment in v3_core.
 -define(EXPAND_MAX_SIZE_SEGMENT, 1024).
@@ -156,6 +157,7 @@ get_anno(#cg_select{anno=Anno}) -> Anno.
                ds=sets:new() :: sets:set(), %Defined variables
                funs=[],                         %Fun functions
                free=#{},                        %Free variables
+               rec_defaults :: #{atom() => type()},  %Native records.
                ws=[]   :: [warning()],          %Warnings.
                beam_debug_info=false :: boolean()
               }).
@@ -166,10 +168,12 @@ get_anno(#cg_select{anno=Anno}) -> Anno.
 module(#c_module{name=#c_literal{val=Mod},exports=Es,attrs=As,defs=Fs}, Options) ->
     Records = records(As),
     Anno = #{records => Records},
+    RecDefaults = record_defaults(Records),
     Kas = attributes(As),
     Kes = map(fun (#c_var{name={_,_}=Fname}) -> Fname end, Es),
     DebugInfo = proplists:get_bool(beam_debug_info, Options),
     St0 = #kern{module=Mod,
+                rec_defaults=RecDefaults,
                 beam_debug_info=DebugInfo},
     {Kfs,St} = mapfoldl(fun function/2, St0, Fs),
     Body = Kfs ++ St#kern.funs,
@@ -231,6 +235,12 @@ record_field({record_field,_,{atom,_,Key}}) ->
     Key;
 record_field({typed_record_field,F,_}) ->
     record_field(F).
+
+record_defaults(Records) ->
+    #{Name =>
+          #{F => {present, beam_types:make_type_from_value(Val)} ||
+              {F,Val} <- Fs} ||
+        {Name,_,Fs} <:- Records}.
 
 function({#c_var{anno=Anno,name={F,Arity}=FA},Body0}, St0) ->
     try
@@ -428,7 +438,7 @@ expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
 expr(#c_primop{anno=A0,name=#c_literal{val=debug_line},
                args=Cargs}, Sub, St0) ->
     {Args,Ap,St1} = atomic_list(Cargs, Sub, St0),
-    #b_set{anno=A1} = I0 = primop(debug_line, A0, Args),
+    #b_set{anno=A1} = I0 = primop(debug_line, A0, Args, St1),
     {_,Alias0} = Sub,
     %% Get rid of of useless mapping of variables to funs (in letrecs
     %% and named funs).
@@ -442,7 +452,7 @@ expr(#c_primop{anno=A,name=#c_literal{val=match_fail},args=[Arg]}, Sub, St) ->
     translate_match_fail(Arg, Sub, A, St);
 expr(#c_primop{anno=A,name=#c_literal{val=Op},args=Cargs}, Sub, St0) ->
     {Args,Ap,St1} = atomic_list(Cargs, Sub, St0),
-    {primop(Op, A, Args),Ap,St1};
+    {primop(Op, A, Args, St0),Ap,St1};
 expr(#c_try{arg=Ca,vars=Cvs,body=Cb,evars=Evs,handler=Ch}, Sub0, St0) ->
     {Ka,Pa,St1} = body(Ca, Sub0, St0),
     {Kcvs,Sub1,St2} = pattern_list(Cvs, Sub0, St1),
@@ -458,11 +468,7 @@ expr(#c_catch{body=Cb}, Sub, St0) ->
 expr(#c_opaque{val=Check}, _Sub, St) ->
     {#cg_opaque{val=Check},[],St}.
 
-primop(raise, Anno, Args) ->
-    primop_succeeded(resume, Anno, Args);
-primop(raw_raise, Anno, Args) ->
-    primop_succeeded(raw_raise, Anno, Args);
-primop(record_field, Anno, Args0) ->
+primop(record_field, Anno0, Args0, St) ->
     Args = case Args0 of
                [Src,#b_literal{val=[]},F] ->
                    [Src,#b_literal{val='_'},F];
@@ -471,8 +477,17 @@ primop(record_field, Anno, Args0) ->
            end,
     %% For simplicity, pretend that this instruction is a guard
     %% BIF. The beam_asm pass will turn it into an instruction.
-    Set = #b_set{anno=internal_anno(Anno),op={bif,get_record_field},args=Args},
+    Anno1 = internal_anno(Anno0),
+    Anno = Anno1#{record_module => St#kern.module},
+    Set = #b_set{anno=Anno,op={bif,get_record_field},args=Args},
     #cg_succeeded{set=Set};
+primop(Op, Anno, Args, _St) ->
+    primop(Op, Anno, Args).
+
+primop(raise, Anno, Args) ->
+    primop_succeeded(resume, Anno, Args);
+primop(raw_raise, Anno, Args) ->
+    primop_succeeded(raw_raise, Anno, Args);
 primop(is_native_record, Anno, Args) ->
     #b_set{anno=internal_anno(Anno),op={bif,is_record},args=Args};
 primop(Op, Anno, Args) when Op =:= recv_peek_message;
@@ -697,16 +712,19 @@ record_split_pairs_1(A, Rec0, Id, Pairs0, Esp0, St0) ->
 record_group_pairs(A, Var, Id, Pairs0, Esp, St0) ->
     Pairs = ordsets:from_list(Pairs0),
     Flatten = append([[K,V] || {K,V} <- Pairs]),
-    {ssa_struct(A, Var, Id, Flatten),Esp,St0}.
+    {ssa_native_record(A, Var, Id, Flatten, St0),Esp,St0}.
 
-ssa_struct(A, SrcRec, Id0, Pairs) ->
+ssa_native_record(A, SrcRec, Id0, Pairs, St) ->
     Id = case Id0 of
              #b_literal{val=[]} -> #b_literal{val='_'};
              #b_literal{} -> Id0
          end,
     Args = [SrcRec,Id|Pairs],
-    LineAnno = line_anno(A),
-    Set = #b_set{anno=LineAnno,op=put_record,args=Args},
+    Defaults = maps:get(Id#b_literal.val, St#kern.rec_defaults, #{}),
+    Anno0 = line_anno(A),
+    Anno = Anno0#{record_module => St#kern.module,
+                  record_defaults => Defaults},
+    Set = #b_set{anno=Anno,op=put_record,args=Args},
     #cg_succeeded{set=Set}.
 
 %% match_vars(Kexpr, State) -> {[Kvar],[PreKexpr],State}.

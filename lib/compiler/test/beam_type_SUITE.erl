@@ -1624,17 +1624,17 @@ float_confusion_6() ->
     >>.
 
 cover_convert_ext(_Config) ->
+    Otp27AllTypes = 2#1111_1111_1111,
+    Otp27Version = 3,
+    Otp27Types = <<Otp27AllTypes:16, -1:16,0:64,0:64,1:8>>,
+    _ = beam_types:decode_ext(beam_types:convert_ext(Otp27Version, Otp27Types)),
 
     Otp26AllTypes = 2#1111_1111_1111,
     Otp26Version = 2,
     Otp26Types = <<Otp26AllTypes:16, -1:16,0:64,0:64,1:8>>,
     _ = beam_types:decode_ext(beam_types:convert_ext(Otp26Version, Otp26Types)),
 
-    Otp25AllTypes = 2#1111_1111_1111,
-    Otp25Version = 1,
-    Otp25Types = <<Otp25AllTypes:16,1:64,0:64, Otp25AllTypes:16,7:64,10:64>>,
-    _ = beam_types:decode_ext(beam_types:convert_ext(Otp25Version, Otp25Types)),
-
+    none = beam_types:convert_ext(1, <<>>),     %OTP 25
     none = beam_types:convert_ext(0, <<>>),
 
     ok.

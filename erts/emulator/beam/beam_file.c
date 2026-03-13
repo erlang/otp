@@ -619,7 +619,7 @@ static void init_fallback_type_table(BeamFile *beam) {
     types->entries[0].max = MIN_SMALL - 1;
 }
 
-static int parse_type_chunk_data(BeamFile *beam, BeamReader *p_reader) {
+static int parse_type_chunk_data(BeamFile *beam, BeamReader *p_reader, Uint version) {
     BeamFile_TypeTable *types;
 
     Sint32 count;
@@ -637,15 +637,50 @@ static int parse_type_chunk_data(BeamFile *beam, BeamReader *p_reader) {
     types->count = count;
     types->fallback = 0;
 
-    for (i = 0; i < count; i++) {
-        const byte *type_data;
-        int extra;
+    if (version == BEAM_TYPES_VERSION) {
+        for (i = 0; i < count; i++) {
+            const byte *type_data;
+            int extra;
 
-        LoadAssert(beamreader_read_bytes(p_reader, 2, &type_data));
-        extra = beam_types_decode_type(type_data, &types->entries[i]);
-        LoadAssert(extra >= 0);
-        LoadAssert(beamreader_read_bytes(p_reader, extra, &type_data));
-        beam_types_decode_extra(type_data, &types->entries[i]);
+            LoadAssert(beamreader_read_bytes(p_reader, 2, &type_data));
+            extra = beam_types_decode_type(type_data, &types->entries[i]);
+            LoadAssert(extra >= 0);
+            LoadAssert(beamreader_read_bytes(p_reader, extra, &type_data));
+            beam_types_decode_extra(type_data, &types->entries[i]);
+        }
+    } else {
+        /* OTP 27 and 28 */
+        for (i = 0; i < count; i++) {
+            const byte *type_data;
+            int extra;
+            byte type_bits[2];
+            byte extra_bits;
+            byte upper_type_bits;
+
+            LoadAssert(beamreader_read_bytes(p_reader, 2, &type_data));
+            /*
+             * The meta bits have been shifted up one position in
+             * order to fit in the native record type.
+             *
+             *    0mmmtttt_tttttttt
+             *           |
+             *           |
+             *           v
+             *    mmm0tttt_tttttttt
+             */
+            extra_bits = (type_data[0] << 1) & 0xE0;
+            upper_type_bits = type_data[0] & 0x0F;
+            if (upper_type_bits == 0x0F) {
+                /* Force to ANY. */
+                upper_type_bits = 0x1F;
+            }
+            type_bits[0] = upper_type_bits | extra_bits;
+            type_bits[1] = type_data[1];
+            extra = beam_types_decode_type(type_bits, &types->entries[i]);
+            LoadAssert(extra >= 0);
+            LoadAssert(beamreader_read_bytes(p_reader, extra, &type_data));
+            beam_types_decode_extra(type_data, &types->entries[i]);
+        }
     }
 
     /* The first entry MUST be the "any type." */
@@ -663,8 +698,8 @@ static int parse_type_chunk(BeamFile *beam, IFF_Chunk *chunk) {
 
     LoadAssert(beamreader_read_i32(&reader, &version));
 
-    if (version == BEAM_TYPES_VERSION) {
-        return parse_type_chunk_data(beam, &reader);
+    if (version == BEAM_TYPES_VERSION || version == 3) {
+        return parse_type_chunk_data(beam, &reader, version);
     } else {
         /* Incompatible type format. */
         init_fallback_type_table(beam);

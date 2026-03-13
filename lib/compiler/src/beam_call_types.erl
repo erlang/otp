@@ -420,6 +420,49 @@ types(erlang, is_pid, [Type]) ->
     sub_unsafe_type_test(Type, pid);
 types(erlang, is_port, [Type]) ->
     sub_unsafe_type_test(Type, port);
+types(erlang, is_record, [Type]) ->
+    sub_unsafe_type_test(Type, #t_record{});
+types(erlang, is_record, [Type,Mod0,Name0]=Args) ->
+    case {Mod0,Name0} of
+        {#t_atom{elements=[Mod]},
+         #t_atom{elements=[Name]}} ->
+            RetType =
+                case meet(Type, #t_record{}) of
+                    #t_record{name={Mod,Name}} ->
+                        #t_atom{elements=[true]};
+                    #t_record{name={_,_}} ->
+                        %% Wrong name.
+                        #t_atom{elements=[false]};
+                    none ->
+                        #t_atom{elements=[false]};
+                    #t_record{name=nil} ->
+                        beam_types:make_boolean();
+                    Other ->
+                        case normalize(Other) of
+                            #t_record{name=nil} ->
+                                %% This is always a native record.
+                                Recs = Other#t_union.native_record_set,
+                                maybe
+                                    false ?= any(fun(#t_record{name=RecName}) ->
+                                                         case RecName of
+                                                             nil -> true;
+                                                             {Mod,Name} -> true;
+                                                             _ -> false
+                                                         end
+                                                 end, Recs),
+                                    #t_atom{elements=[false]}
+                                else
+                                    _ ->
+                                        beam_types:make_boolean()
+                                end;
+                            _ ->
+                                beam_types:make_boolean()
+                        end
+                end,
+            sub_unsafe(RetType, Args);
+        {_, _} ->
+            sub_unsafe(beam_types:make_boolean(), Args)
+    end;
 types(erlang, is_reference, [Type]) ->
     sub_unsafe_type_test(Type, reference);
 types(erlang, is_tuple, [Type]) ->

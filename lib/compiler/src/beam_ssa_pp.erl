@@ -367,6 +367,16 @@ format_type(#t_cons{type=ET,terminator=TT}) ->
     ["nonempty_improper_list(", format_type(ET), ", ", format_type(TT), ")"];
 format_type(nil) ->
     "nil()";
+format_type(#t_record{name=Name0,type=Es}) ->
+    NameStr = case Name0 of
+                  {Mod,Name} when is_atom(Mod), is_atom(Name) ->
+                      io_lib:format("~ts:~ts", [Mod,Name]);
+                  nil ->
+                      "_"
+              end,
+    ["#",NameStr,"{",
+     string:join(format_record_elems(Es), ", "),
+     "}"];
 format_type(#t_tuple{elements=Es,exact=Ex,size=S}) ->
     ["{",
      string:join(format_tuple_elems(S, Ex, Es, 1), ", "),
@@ -419,6 +429,10 @@ format_tuple_elems(Size, Exact, Elems, Idx) ->
             _ -> any
         end,
     [format_type(T)|format_tuple_elems(Size, Exact, Elems, Idx + 1)].
+
+format_record_elems(Es) ->
+    [io_lib:format("~p:~tw=~ts", [Tag,Key,format_type(Type)]) ||
+        Key := {Tag, Type} <:- Es].
 
 format_tuple_set(#t_tuple{}=T) ->
     format_type(T);

@@ -39,6 +39,7 @@
          normalize/1]).
 
 -export([get_tuple_element/2,
+         set_record_field/3,
          set_tuple_element/3,
          update_tuple/2]).
 
@@ -107,13 +108,16 @@ meet(A, B) ->
     glb(A, B).
 
 meet_unions(#t_union{atom=AtomA,list=ListA,number=NumberA,
-                     tuple_set=TSetA,other=OtherA},
+                     tuple_set=TSetA,native_record_set=NSetA,
+                     other=OtherA},
             #t_union{atom=AtomB,list=ListB,number=NumberB,
-                     tuple_set=TSetB,other=OtherB}) ->
+                     tuple_set=TSetB,native_record_set=NSetB,
+                     other=OtherB}) ->
     Union = #t_union{atom=glb(AtomA, AtomB),
                      list=glb(ListA, ListB),
                      number=glb(NumberA, NumberB),
                      tuple_set=meet_tuple_sets(TSetA, TSetB),
+                     native_record_set=meet_native_record_sets(NSetA, NSetB),
                      other=glb(OtherA, OtherB)},
     shrink_union(Union);
 meet_unions(#t_union{atom=AtomA}, #t_atom{}=B) ->
@@ -134,6 +138,9 @@ meet_unions(#t_union{list=ListA}, B) when ?IS_LIST_TYPE(B) ->
 meet_unions(#t_union{tuple_set=Tuples}, #t_tuple{}=B) ->
     Set = meet_tuple_sets(Tuples, new_tuple_set(B)),
     shrink_union(#t_union{tuple_set=Set});
+meet_unions(#t_union{native_record_set=Records}, #t_record{}=B) ->
+    Set = meet_native_record_sets(Records, B),
+    shrink_union(#t_union{native_record_set=Set});
 meet_unions(#t_union{other=OtherA}, OtherB) ->
     case glb(OtherA, OtherB) of
         none -> none;
@@ -188,6 +195,53 @@ mts_records([], _RsB, [_|_]=Acc) ->
 mts_records(_RsA, _RsB, []) ->
     none.
 
+meet_native_record_sets(none, _) ->
+    none;
+meet_native_record_sets(_, none) ->
+    none;
+meet_native_record_sets(#t_record{}=A, #t_record{}=B) ->
+    glb(A, B);
+meet_native_record_sets(#t_record{}=Record, [_,_|_]=Records) ->
+    mnrs_merge([Record], Records, []);
+meet_native_record_sets([_,_|_]=Records, #t_record{}=Record) ->
+    mnrs_merge([Record], Records, []);
+meet_native_record_sets([_,_|_]=RecordsA, [_,_|_]=RecordsB) ->
+    mnrs_merge(RecordsA, RecordsB, []).
+
+mnrs_merge([#t_record{name=N1} | _]=RsA,
+           [#t_record{name=N2} | _]=RsB, Acc)
+               when N1 =/= N2 andalso N1 =/= nil andalso N2 =/= nil ->
+    %% Drop the name that doesn't occur in the other set.
+    case N1 < N2 of
+        true ->
+            mnrs_merge(tl(RsA), RsB, Acc);
+        false ->
+            mnrs_merge(RsA, tl(RsB), Acc)
+    end;
+mnrs_merge([#t_record{name=nil}=A], [B|RsB], Acc) ->
+    %% None of the elements of RsB can have the name nil.
+    case glb(A, B) of
+        #t_record{}=T ->
+            mnrs_merge([A], RsB, [T | Acc]);
+        _ ->
+            none
+    end;
+mnrs_merge([A|RsA], [B|RsB], Acc) ->
+    %% None of sets can have an element with the name nil.
+    case glb(A, B) of
+        #t_record{}=T ->
+            mnrs_merge(RsA, RsB, [T | Acc]);
+        _ ->
+            none
+    end;
+mnrs_merge(_RsA, _RsB, Acc) ->
+    %% At least one of the sets is empty.
+    case Acc of
+        [_,_|_] -> reverse(Acc);
+        [Record] -> Record;
+        [] -> none
+    end.
+
 %% Folds join/2 over a list.
 
 -spec join([type()]) -> type().
@@ -229,6 +283,8 @@ join(#t_atom{}=A, B) when ?IS_NUMBER_TYPE(B) ->
     #t_union{atom=A,number=B};
 join(#t_atom{}=A, #t_tuple{}=B) ->
     #t_union{atom=A,tuple_set=new_tuple_set(B)};
+join(#t_atom{}=A, #t_record{}=B) ->
+    #t_union{atom=A,native_record_set=B};
 join(#t_atom{}=A, B) ->
     #t_union{atom=A,other=B};
 join(A, #t_atom{}=B) ->
@@ -240,6 +296,8 @@ join(A, B) when ?IS_LIST_TYPE(A), ?IS_NUMBER_TYPE(B) ->
     #t_union{list=A,number=B};
 join(A, #t_tuple{}=B) when ?IS_LIST_TYPE(A) ->
     #t_union{list=A,tuple_set=new_tuple_set(B)};
+join(A, #t_record{}=B) when ?IS_LIST_TYPE(A) ->
+    #t_union{list=A,native_record_set=B};
 join(A, B) when ?IS_LIST_TYPE(A) ->
     #t_union{list=A,other=B};
 join(A, B) when ?IS_LIST_TYPE(B) ->
@@ -249,6 +307,8 @@ join(A, B) when ?IS_NUMBER_TYPE(A), ?IS_NUMBER_TYPE(B) ->
     lub(A, B);
 join(A, #t_tuple{}=B) when ?IS_NUMBER_TYPE(A) ->
     #t_union{number=A,tuple_set=new_tuple_set(B)};
+join(A, #t_record{}=B) when ?IS_NUMBER_TYPE(A) ->
+    #t_union{number=A,native_record_set=B};
 join(A, B) when ?IS_NUMBER_TYPE(A) ->
     #t_union{number=A,other=B};
 join(A, B) when ?IS_NUMBER_TYPE(B) ->
@@ -272,23 +332,47 @@ join(#t_tuple{}=A, #t_tuple{}=B) ->
                     #t_union{tuple_set=[{KeyB, B}, {KeyA, A}]}
             end
     end;
+join(#t_tuple{}=A, #t_record{}=B) ->
+    #t_union{tuple_set=new_tuple_set(A),native_record_set=B};
 join(#t_tuple{}=A, B) ->
     %% All other combinations have been tried already, so B must be 'other'
     #t_union{tuple_set=new_tuple_set(A),other=B};
 join(A, #t_tuple{}=B) ->
     join(B, A);
 
+join(#t_record{name=nil}=A, #t_record{}=B) ->
+    lub(A, B);
+join(#t_record{}=A, #t_record{name=nil}=B) ->
+    lub(B, A);
+join(#t_record{name=N}=A, #t_record{name=N}=B) ->
+    lub(A, B);
+join(#t_record{name=N1}=A, #t_record{name=N2}=B) ->
+    case N1 < N2 of
+        true ->
+            #t_union{native_record_set=[A, B]};
+        false ->
+            #t_union{native_record_set=[B, A]}
+    end;
+join(#t_record{}=A, B) ->
+    %% All other combinations have been tried already, so B must be 'other'
+    #t_union{native_record_set=A,other=B};
+join(A, #t_record{}=B) ->
+    join(B, A);
+
 join(A, B) ->
     lub(A, B).
 
 join_unions(#t_union{atom=AtomA,list=ListA,number=NumberA,
-                     tuple_set=TSetA,other=OtherA},
+                     tuple_set=TSetA,native_record_set=NSetA,
+                     other=OtherA},
             #t_union{atom=AtomB,list=ListB,number=NumberB,
-                     tuple_set=TSetB,other=OtherB}) ->
+                     tuple_set=TSetB,native_record_set=NSetB,
+                     other=OtherB}) ->
     Union = #t_union{atom=lub(AtomA, AtomB),
                      list=lub(ListA, ListB),
                      number=lub(NumberA, NumberB),
                      tuple_set=join_tuple_sets(TSetA, TSetB),
+                     native_record_set=join_native_record_sets(NSetA, NSetB),
                      other=lub(OtherA, OtherB)},
     shrink_union(Union);
 join_unions(#t_union{atom=AtomA}=A, #t_atom{}=B) ->
@@ -300,6 +384,9 @@ join_unions(#t_union{number=NumberA}=A, B) when ?IS_NUMBER_TYPE(B) ->
 join_unions(#t_union{tuple_set=TSetA}=A, #t_tuple{}=B) ->
     Set = join_tuple_sets(TSetA, new_tuple_set(B)),
     shrink_union(A#t_union{tuple_set=Set});
+join_unions(#t_union{native_record_set=NSetA}=A, #t_record{}=B) ->
+    Set = join_native_record_sets(NSetA, B),
+    shrink_union(A#t_union{native_record_set=Set});
 join_unions(#t_union{other=OtherA}=A, B) ->
     T = lub(OtherA, B),
     shrink_union(A#t_union{other=T}).
@@ -348,6 +435,57 @@ jts_records([{KeyA, A} | RsA], [], N, Acc) ->
 jts_records([], [{KeyB, B} | RsB], N, Acc) ->
     jts_records([], RsB, N + 1, [{KeyB, B} | Acc]).
 
+join_native_record_sets(A, none) ->
+    A;
+join_native_record_sets(none, B) ->
+    B;
+join_native_record_sets(#t_record{name=Same}=A,
+                        #t_record{name=Same}=B) ->
+    lub(A, B);
+join_native_record_sets(#t_record{}=A, #t_record{}=B) ->
+    jnrs_merge([A], [B], []);
+join_native_record_sets(#t_record{}=Record, [_,_|_]=Records) ->
+    jnrs_merge(Records, [Record], []);
+join_native_record_sets([_,_|_]=Records, #t_record{}=Record) ->
+    jnrs_merge(Records, [Record], []);
+join_native_record_sets([_,_|_]=RecordsA, [_,_|_]=RecordsB) ->
+    jnrs_merge(RecordsA, RecordsB, []).
+
+jnrs_merge([#t_record{name=N1}=A|TsA]=RsA,
+           [#t_record{name=N2}=B|TsB]=RsB, Acc) ->
+    case {N1, N2} of
+        {nil, _} ->
+            [] = TsA,                           %Assertion.
+            T = lub(A, B),
+            jnrs_merge([], TsB, [T]);
+        {_, nil} ->
+            [] = TsB,                           %Assertion.
+            T = lub(B, A),
+            jnrs_merge(TsA, [], [T]);
+        {Same, Same} ->
+            T = lub(A, B),
+            jnrs_merge(TsA, TsB, [T | Acc]);
+        _ ->
+            case N1 < N2 of
+                true ->
+                    jnrs_merge(TsA, RsB, [A | Acc]);
+                false ->
+                    jnrs_merge(RsA, TsB, [B | Acc])
+            end
+    end;
+jnrs_merge([A | RsA], [], [#t_record{name=nil}=Acc]) ->
+    jnrs_merge(RsA, [], [lub(A, Acc)]);
+jnrs_merge([A | RsA], [], Acc) ->
+    jnrs_merge(RsA, [], [A | Acc]);
+jnrs_merge([], [B | RsB], [#t_record{name=nil}=Acc]) ->
+    jnrs_merge([], RsB, [lub(B, Acc)]);
+jnrs_merge([], [B | RsB], Acc) ->
+    jnrs_merge([], RsB, [B | Acc]);
+jnrs_merge([], [], [Record]) ->
+    Record;
+jnrs_merge([], [], [_,_|_]=Acc) ->
+    reverse(Acc).
+
 %% Subtract Type2 from Type1. Example:
 %%    subtract(list, cons) -> nil
 
@@ -360,6 +498,7 @@ subtract(any, #t_number{elements={'-inf',Max}}) ->
              list=#t_list{},
              number=#t_number{elements={Max,'+inf'}},
              tuple_set=#t_tuple{},
+             native_record_set=#t_record{},
              other=other};
 subtract(any, nil) ->
     %%
@@ -393,6 +532,7 @@ subtract(any, nil) ->
              list=#t_cons{},
              number=#t_number{},
              tuple_set=#t_tuple{},
+             native_record_set=#t_record{},
              other=other};
 subtract(#t_atom{elements=[_|_]=Set0}, #t_atom{elements=[_|_]=Set1}) ->
     case ordsets:subtract(Set0, Set1) of
@@ -457,6 +597,19 @@ subtract(#t_union{tuple_set=#t_tuple{}=Tuple}=A, #t_tuple{}=B) ->
     %% Exclude Tuple if it's more specific than B.
     case meet(Tuple, B) of
         Tuple -> shrink_union(A#t_union{tuple_set=none});
+        _ -> A
+    end;
+subtract(#t_union{native_record_set=[_|_]=Records0}=A, #t_record{}=B) ->
+    %% Filter out all records that are more specific than B.
+    NewSet = case [T || T <:- Records0, meet(T, B) =/= T] of
+                 [_|_]=Records -> Records;
+                 [] -> none
+             end,
+    shrink_union(A#t_union{native_record_set=NewSet});
+subtract(#t_union{native_record_set=#t_record{}=Record}=A, #t_record{}=B) ->
+    %% Exclude Record if it's more specific than B.
+    case meet(Record, B) of
+        Record -> shrink_union(A#t_union{native_record_set=none});
         _ -> A
     end;
 subtract(#t_union{other=Other}=A, B) ->
@@ -558,6 +711,15 @@ set_tuple_element(Index, any, Es) ->
 set_tuple_element(Index, Type, Es) ->
     Es#{ Index => Type }.
 
+-spec set_record_field(Index, Type, Elements) -> Elements when
+      Index :: atom(),
+      Type :: type(),
+      Elements :: record_elements().
+set_record_field(F, none, Es) ->
+    Es#{ F => missing };
+set_record_field(F, Type, Es) ->
+    Es#{ F => {present, Type} }.
+
 -spec get_tuple_element(Index, Elements) -> type() when
       Index :: pos_integer(),
       Elements :: tuple_elements().
@@ -621,11 +783,14 @@ update_tuple_1([], MinSize, Es) ->
 
 -spec normalize(type()) -> normal_type().
 normalize(#t_union{atom=Atom,list=List,number=Number,
-                   tuple_set=Tuples,other=Other}) ->
+                   tuple_set=Tuples,
+                   native_record_set=NativeRecords,
+                   other=Other}) ->
     A = lub(Atom, List),
     B = lub(A, Number),
     C = lub(B, Other),
-    normalize_tuple_set(Tuples, C);
+    D = normalize_tuple_set(Tuples, C),
+    normalize_native_record_set(NativeRecords, D);
 normalize(T) ->
     verified_normal_type(T).
 
@@ -634,6 +799,13 @@ normalize_tuple_set([{_, A} | Records], B) ->
 normalize_tuple_set([], B) ->
     B;
 normalize_tuple_set(A, B) ->
+    lub(A, B).
+
+normalize_native_record_set([A | Records], B) ->
+    normalize_native_record_set(Records, lub(A, B));
+normalize_native_record_set([], B) ->
+    B;
+normalize_native_record_set(A, B) ->
     lub(A, B).
 
 %%%
@@ -744,13 +916,44 @@ limit_depth(#t_fun{}=T, Depth) ->
     limit_depth_fun(T, Depth);
 limit_depth(#t_map{}=T, Depth) ->
     limit_depth_map(T, Depth);
-limit_depth(#t_union{list=List0,tuple_set=TupleSet0,other=Other0}=U, Depth) ->
+limit_depth(#t_record{}=T, Depth) ->
+    limit_depth_record(T, Depth);
+limit_depth(#t_union{list=List0,tuple_set=TupleSet0,
+                     native_record_set=Records0,other=Other0}=U, Depth) ->
     TupleSet = limit_depth_tuple(TupleSet0, Depth),
     List = limit_depth_list(List0, Depth),
+    Records = limit_depth_record_set(Records0, Depth),
     Other = limit_depth(Other0, Depth),
-    shrink_union(U#t_union{list=List,tuple_set=TupleSet,other=Other});
+    shrink_union(U#t_union{list=List,tuple_set=TupleSet,
+                           native_record_set=Records,other=Other});
 limit_depth(Type, _Depth) ->
     Type.
+
+limit_depth_record(#t_record{type=Fields0}=T, Depth) ->
+    if
+        Depth > 0 ->
+            Fields = foldl(fun({Index, {present, Type0}}, Fields1) ->
+                        Type = limit_depth(Type0, Depth - 1),
+                        set_record_field(Index, Type, Fields1)
+                end, Fields0, maps:to_list(Fields0)),
+            T#t_record{type=Fields};
+        Depth =< 0 ->
+            #t_record{}
+    end.
+
+limit_depth_record_set([#t_record{}=Record|Records], Depth) ->
+    if Depth > 0 ->
+        Record1 = limit_depth_record(Record, Depth),
+        [Record1 | limit_depth_record_set(Records, Depth)];
+    Depth =< 0 ->
+        #t_record{}
+    end;
+limit_depth_record_set(#t_record{}=Record, Depth) ->
+    limit_depth_record(Record, Depth);
+limit_depth_record_set([], _Depth) ->
+    [];
+limit_depth_record_set(none, _Depth) ->
+    none.
 
 limit_depth_fun(#t_fun{type=Type0}=T, Depth) ->
     Type = if
@@ -927,6 +1130,9 @@ glb(#t_map{super_key=SKeyA,super_value=SValueA},
     #t_map{super_key=SKey,super_value=SValue};
 glb(#t_tuple{}=T1, #t_tuple{}=T2) ->
     glb_tuples(T1, T2);
+glb(#t_record{}=T1, #t_record{}=T2) ->
+    glb_records(T1, T2);
+
 glb(identifier, T) ->
     case is_identifier(T) of
         true ->
@@ -983,6 +1189,22 @@ glb_tuples(#t_tuple{size=Sz1,exact=Ex1,elements=Es1},
             #t_tuple{size=Size,exact=Exact,elements=Es}
     end.
 
+glb_records(#t_record{name=N1, type=Es1},
+            #t_record{name=N2, type=Es2}) ->
+    maybe
+        {ok, Name} ?=
+            case {N1, N2} of
+                {Same, Same} -> {ok, Same};
+                {nil, N} -> {ok, N};
+                {N, nil} -> {ok, N};
+                {_, _} -> error
+            end,
+        #{} ?= Es = glb_record_elements(Es1, Es2),
+        #t_record{name=Name,type=Es}
+    else
+        _ -> none
+    end.
+
 glb_elements(Es1, Es2) ->
     Keys = usort(maps:keys(Es1) ++ maps:keys(Es2)),
     glb_elements_1(Keys, Es1, Es2, #{}).
@@ -995,12 +1217,36 @@ glb_elements_1([Key | Keys], Es1, Es2, Acc) ->
                 none -> none;
                 Type -> glb_elements_1(Keys, Es1, Es2, Acc#{ Key => Type })
             end;
-        {#{ Key := Type1 }, _} ->
-            glb_elements_1(Keys, Es1, Es2, Acc#{ Key => Type1 });
-        {_, #{ Key := Type2 }} ->
-            glb_elements_1(Keys, Es1, Es2, Acc#{ Key => Type2 })
+        {#{ Key := Type }, _} ->
+            glb_elements_1(Keys, Es1, Es2, Acc#{ Key => Type });
+        {_, #{ Key := Type }} ->
+            glb_elements_1(Keys, Es1, Es2, Acc#{ Key => Type })
     end;
 glb_elements_1([], _Es1, _Es2, Acc) ->
+    Acc.
+
+glb_record_elements(Es1, Es2) ->
+    Keys = usort(maps:keys(Es1) ++ maps:keys(Es2)),
+    glb_record_elements_1(Keys, Es1, Es2, #{}).
+
+glb_record_elements_1([Key | Keys], Es1, Es2, Acc) ->
+    case {Es1, Es2} of
+        {#{ Key := {present, Type1} }, #{ Key := {present, Type2} }} ->
+            %% Note the use of meet/2; elements don't need to be normal types.
+            case meet(Type1, Type2) of
+                none -> none;
+                Type -> glb_record_elements_1(Keys, Es1, Es2, Acc#{ Key => {present, Type} })
+            end;
+        {#{ Key := {present, _ }}, #{ Key := missing}} ->
+            none;
+        {#{ Key := missing}, #{ Key := {present, _}}} ->
+            none;
+        {#{ Key := Type1 }, _} ->
+            glb_record_elements_1(Keys, Es1, Es2, Acc#{ Key => Type1 });
+        {_, #{ Key := Type2 }} ->
+            glb_record_elements_1(Keys, Es1, Es2, Acc#{ Key => Type2 })
+    end;
+glb_record_elements_1([], _Es1, _Es2, Acc) ->
     Acc.
 
 %% Return the least upper bound of the types Type1 and Type2. The LUB is a more
@@ -1119,6 +1365,8 @@ lub(#t_tuple{size=SzA,elements=EsA}, #t_tuple{size=SzB,elements=EsB}) ->
     Sz = min(SzA, SzB),
     Es = lub_tuple_elements(Sz, EsA, EsB),
     #t_tuple{size=Sz,elements=Es};
+lub(#t_record{}=A, #t_record{}=B) ->
+    lub_native_records(A, B);
 lub(T1, T2) ->
     %%io:format("~p ~p\n", [T1,T2]),
     case is_identifier(T1) andalso is_identifier(T2) of
@@ -1136,6 +1384,7 @@ is_other(Type) ->
                              list=#t_list{},
                              number=#t_number{},
                              tuple_set=#t_tuple{},
+                             native_record_set=#t_record{},
                              other=none},
     meet(AnyMinusOther, Type) =:= none.
 
@@ -1164,6 +1413,41 @@ lub_bs_matchable(UnitA, UnitB) ->
 lub_tuple_elements(MinSize, EsA, EsB) ->
     Es0 = lub_elements(EsA, EsB),
     #{Index => Type || Index := Type <- Es0, Index =< MinSize}.
+
+lub_native_records(#t_record{name=N1, type=Es1},
+                   #t_record{name=N2, type=Es2}) ->
+    Name = case {N1, N2} of
+              {Same, Same} -> Same;
+              {_, _} -> nil
+           end,
+    #t_record{name=Name,type=lub_fields(Es1, Es2)}.
+
+lub_fields(Es1, Es2) ->
+    Keys = if
+               map_size(Es1) =< map_size(Es2) -> maps:keys(Es1);
+               map_size(Es1) > map_size(Es2) -> maps:keys(Es2)
+           end,
+    lub_fields_1(Keys, Es1, Es2, #{}).
+
+lub_fields_1([Key | Keys], Es1, Es2, Acc0) ->
+    case {Es1, Es2} of
+        {#{ Key := {present, Type1 }}, #{ Key := {present, Type2} }} ->
+            %% Note the use of join/2; elements don't need to be normal types.
+            Acc = set_record_field(Key, join(Type1, Type2), Acc0),
+            lub_fields_1(Keys, Es1, Es2, Acc);
+        {#{ Key := missing }, #{ Key := missing }} ->
+            lub_fields_1(Keys, Es1, Es2, Acc0#{ Key => missing });
+        {#{ Key := {present, _ }}, #{ Key := missing }} ->
+            Acc = maps:remove(Key, Acc0),
+            lub_fields_1(Keys, Es1, Es2, Acc);
+        {#{ Key := missing }, #{ Key := {present, _} }} ->
+            Acc = maps:remove(Key, Acc0),
+            lub_fields_1(Keys, Es1, Es2, Acc);
+        {#{}, #{}} ->
+            lub_fields_1(Keys, Es1, Es2, Acc0)
+    end;
+lub_fields_1([], _Es1, _Es2, Acc) ->
+    Acc.
 
 lub_elements(Es1, Es2) ->
     Keys = if
@@ -1307,28 +1591,37 @@ new_tuple_set(T) ->
 %%
 
 shrink_union(#t_union{atom=Atom,list=none,number=none,
-                      tuple_set=none,other=none}) ->
+                      tuple_set=none,native_record_set=none,other=none}) ->
     Atom;
 shrink_union(#t_union{atom=none,list=List,number=none,
-                      tuple_set=none,other=none}) ->
+                      tuple_set=none,native_record_set=none,other=none}) ->
     List;
 shrink_union(#t_union{atom=none,list=none,number=Number,
-                      tuple_set=none,other=none}) ->
+                      tuple_set=none,native_record_set=none,other=none}) ->
     Number;
 shrink_union(#t_union{atom=none,list=none,number=none,
-                      tuple_set=#t_tuple{}=Tuple,other=none}) ->
+                      tuple_set=#t_tuple{}=Tuple,native_record_set=none,other=none}) ->
     Tuple;
 shrink_union(#t_union{atom=none,list=none,number=none,
-                      tuple_set=[{_Key, Record}],other=none}) ->
+                      tuple_set=[{_Key, Record}],native_record_set=none,other=none}) ->
     #t_tuple{} = Record;                        %Assertion.
 shrink_union(#t_union{atom=none,list=none,number=none,
-                      tuple_set=none,other=Other}) ->
+                      tuple_set=none,
+                      native_record_set=#t_record{}=Record,other=none}) ->
+    Record;
+shrink_union(#t_union{atom=none,list=none,number=none,
+                      tuple_set=none,
+                      native_record_set=[#t_record{}=Record],other=none}) ->
+    Record;
+shrink_union(#t_union{atom=none,list=none,number=none,
+                      tuple_set=none,native_record_set=none,other=Other}) ->
     Other;
 shrink_union(#t_union{atom=#t_atom{elements=any},
                       list=#t_list{type=any,terminator=any},
                       number=#t_number{elements=any},
                       tuple_set=#t_tuple{size=0,exact=false},
-                      other=other}) ->
+                      native_record_set=#t_record{name=nil,type=M},
+                      other=other}) when M =:= #{} ->
     any;
 shrink_union(#t_union{}=T) ->
     T.
@@ -1342,11 +1635,13 @@ verified_type(#t_union{atom=Atom,
                        list=List,
                        number=Number,
                        tuple_set=TSet,
+                       native_record_set=NSet,
                        other=Other}=T) ->
     _ = verified_normal_type(Atom),
     _ = verified_normal_type(List),
     _ = verified_normal_type(Number),
     _ = verify_tuple_set(TSet),
+    _ = verify_record_set(NSet),
     _ = verified_normal_type(Other),
     T;
 verified_type(T) ->
@@ -1366,6 +1661,20 @@ verify_tuple_set_1([{_Tag, Record} | Records], Size) ->
     _ = verified_normal_type(Record),
     verify_tuple_set_1(Records, Size + 1);
 verify_tuple_set_1([], _Size) ->
+    ok.
+
+verify_record_set([_,_|_]=T) ->
+    _ = verify_record_set_1(T),
+    T;
+verify_record_set(#t_record{}=T) ->
+    T;
+verify_record_set(none=T) ->
+    T.
+
+verify_record_set_1([#t_record{name={_,_}}=Record | Records]) ->
+    _ = verified_normal_type(Record),
+    verify_record_set_1(Records);
+verify_record_set_1([]) ->
     ok.
 
 -spec verified_normal_type(T) -> T when
@@ -1436,6 +1745,9 @@ verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
             is_integer(Index), 1 =< Index, Index =< Size,
             Index =< ?TUPLE_ELEMENT_LIMIT,
             Element =/= any, Element =/= none],
+    T;
+verified_normal_type(#t_record{type=Type}=T) ->
+    _ = [verified_type(V) || _K := {present, V} <- Type],
     T.
 
 %%%
@@ -1461,43 +1773,33 @@ verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
 -define(BEAM_TYPE_PORT,          (1 bsl 9)).
 -define(BEAM_TYPE_REFERENCE,     (1 bsl 10)).
 -define(BEAM_TYPE_TUPLE,         (1 bsl 11)).
+-define(BEAM_TYPE_RECORD,        (1 bsl 12)).
 
--define(BEAM_TYPE_HAS_LOWER_BOUND, (1 bsl 12)).
--define(BEAM_TYPE_HAS_UPPER_BOUND, (1 bsl 13)).
--define(BEAM_TYPE_HAS_UNIT,        (1 bsl 14)).
+-define(BEAM_TYPE_HAS_LOWER_BOUND, (1 bsl 13)).
+-define(BEAM_TYPE_HAS_UPPER_BOUND, (1 bsl 14)).
+-define(BEAM_TYPE_HAS_UNIT,        (1 bsl 15)).
 
--define(BEAM_TYPES_VERSION_27, ?BEAM_TYPES_VERSION).
+-define(BEAM_TYPES_VERSION_29, ?BEAM_TYPES_VERSION).
+-define(BEAM_TYPES_VERSION_27, 3).
 -define(BEAM_TYPES_VERSION_26, 2).
--define(BEAM_TYPES_VERSION_25, 1).
 
 -spec convert_ext(pos_integer(), binary()) -> binary() | 'none'.
-convert_ext(?BEAM_TYPES_VERSION_27, Types) ->
+convert_ext(?BEAM_TYPES_VERSION_29, Types) ->
     Types;
-convert_ext(?BEAM_TYPES_VERSION_26, Types) ->
-    convert_ext(?BEAM_TYPES_VERSION_27, convert_ext_26(Types, <<>>));
-convert_ext(?BEAM_TYPES_VERSION_25, Types0) ->
-    NumberMask = (?BEAM_TYPE_FLOAT bor ?BEAM_TYPE_INTEGER),
-    Types = << case Min =< Max of
-                   true ->
-                       true = 0 =/= (TypeBits0 band NumberMask), %Assertion.
-                       TypeBits = TypeBits0 bor
-                           ((?BEAM_TYPE_HAS_LOWER_BOUND bor
-                                 ?BEAM_TYPE_HAS_UPPER_BOUND) bsl 1),
-                       <<TypeBits:16,Min:64/signed,Max:64/signed>>;
-                   false ->
-                       <<TypeBits0:16>>
-               end || <<TypeBits0:16,Min:64/signed,Max:64/signed>> <:= Types0 >>,
-    convert_ext(?BEAM_TYPES_VERSION_26, Types);
+convert_ext(?BEAM_TYPES_VERSION_27=Version, Types) ->
+    do_convert_ext(Version, Types);
+convert_ext(?BEAM_TYPES_VERSION_26=Version, Types) ->
+    do_convert_ext(Version, Types);
 convert_ext(_Version, _Types) ->
     none.
 
-convert_ext_26(<<TypeBits0:16/big,More/binary>>, Types) ->
+do_convert_ext(Version, Types) ->
+    Rearrange = rearrange_fun(Version),
+    do_convert_ext(Rearrange, Types, <<>>).
+
+do_convert_ext(Rearrange, <<TypeBits0:16/big,More/binary>>, Types) ->
     true = TypeBits0 =/= 0,                      %Assertion.
-    %% OTP 27 removed #t_bs_context{} from the type information, which used to
-    %% occupy bit 2. As these are now considered to be a regular bitstring that
-    %% happens to be mutable, we'll combine it with the #t_bitstring{} type
-    %% bit.
-    TypeBits = (TypeBits0 band 3) bor ((TypeBits0 band (bnot 3)) bsr 1),
+    TypeBits = Rearrange(TypeBits0),
 
     Res = foldl(fun({Id, Type}, Acc) ->
                         decode_ext_bits(TypeBits, Id, Type, Acc)
@@ -1509,9 +1811,26 @@ convert_ext_26(<<TypeBits0:16/big,More/binary>>, Types) ->
         end,
 
     Encoded = encode_ext(decode_fix(Res, R, Unit)),
-    convert_ext_26(Rest, <<Types/bits, Encoded/bits>>);
-convert_ext_26(<<>>, Types) ->
+    do_convert_ext(Rearrange, Rest, <<Types/bits, Encoded/bits>>);
+do_convert_ext(_Rearrange, <<>>, Types) ->
     Types.
+
+rearrange_fun(?BEAM_TYPES_VERSION_27) ->
+    fun(Bits) ->
+            %% OTP 29 added a type bit for native records.
+            (Bits band 16#0fff) bor ((Bits bsl 1) band 16#e000)
+    end;
+rearrange_fun(?BEAM_TYPES_VERSION_26) ->
+    ToOtp29 = rearrange_fun(?BEAM_TYPES_VERSION_27),
+    fun(Bits0) ->
+            %% OTP 27 removed #t_bs_context{} from the type
+            %% information, which used to occupy bit 2. As these
+            %% are now considered to be a regular bitstring that
+            %% happens to be mutable, we'll combine it with the
+            %% #t_bitstring{} type bit.
+            Bits = (Bits0 band 3) bor ((Bits0 band (bnot 3)) bsr 1),
+            ToOtp29(Bits)
+    end.
 
 ext_type_mapping() ->
     [{?BEAM_TYPE_ATOM,          #t_atom{}},
@@ -1525,7 +1844,8 @@ ext_type_mapping() ->
      {?BEAM_TYPE_PID,           pid},
      {?BEAM_TYPE_PORT,          port},
      {?BEAM_TYPE_REFERENCE,     reference},
-     {?BEAM_TYPE_TUPLE,         #t_tuple{}}].
+     {?BEAM_TYPE_TUPLE,         #t_tuple{}},
+     {?BEAM_TYPE_RECORD,        #t_record{}}].
 
 -spec decode_ext(binary()) -> {type(),binary()} | 'done'.
 decode_ext(<<TypeBits:16/big,More/binary>>) ->
