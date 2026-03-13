@@ -131,8 +131,7 @@ jobs:
     needs: setup
     uses: ./.github/workflows/reusable-pack.yaml
     permissions:
-      contents: write
-      id-token: write
+      contents: read
     with:
       base_branch:          ${{ needs.setup.outputs.base_branch }}
       full_build_and_check: ${{ needs.setup.outputs.full_build_and_check }}

@@ -28,9 +28,6 @@ on:
         required: true
         type: string
 
-env:
-  BASE_BRANCH: ${{ inputs.base_branch }}
-
 # NOTE: This job should only be executed on the callee with `needs: pack`
 jobs:
   build-flavors:
@@ -40,12 +37,11 @@ jobs:
       matrix:
         flavor: [jit, emu]
       fail-fast: false
-
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/build-base-image
         with:
-            BASE_BRANCH: ${{ env.BASE_BRANCH }}
+            BASE_BRANCH: ${{ inputs.base_branch }}
       - name: Build Erlang/OTP flavors and types
         run: |
             TYPES="opt debug lcnt asan gcov valgrind"
