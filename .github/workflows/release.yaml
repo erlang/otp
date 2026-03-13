@@ -46,7 +46,6 @@ on:
           required: true
 
 env:
-  ORT_VERSION:          "77.0.0"
   FULL_BUILD_AND_CHECK: "false"
 
 permissions:
@@ -64,7 +63,6 @@ jobs:
     outputs:
       base_branch:          ${{ steps.setup.outputs.base_branch }}
       full_build_and_check: ${{ steps.setup.outputs.full_build_and_check }}
-      ort_version:          ${{ steps.setup.outputs.ort_version }}
       otp_sbom_version:     ${{ steps.setup.outputs.otp_sbom_version }}
       docs_base_url:        ${{ steps.setup.outputs.docs_base_url }}
     steps:
@@ -80,7 +78,6 @@ jobs:
         run: |
           echo "base_branch=${{ inputs.checkout-branch }}" >> $GITHUB_OUTPUT
           echo "full_build_and_check=${{ env.FULL_BUILD_AND_CHECK }}" >> $GITHUB_OUTPUT
-          echo "ort_version=${{ env.ORT_VERSION }}" >> $GITHUB_OUTPUT
           echo "otp_sbom_version=${{ inputs.checkout-branch }}" >> $GITHUB_OUTPUT
           echo "tag=${{ inputs.checkout-branch }}" >> $GITHUB_OUTPUT
           echo "vsn=$(echo ${{ inputs.checkout-branch }} | cut -d- -f2)" >> $GITHUB_OUTPUT
@@ -138,7 +135,6 @@ jobs:
       base_ref:                      ${{ github.base_ref }}
       pr_base_sha:                   ${{ github.event.pull_request.base.sha }}
       otp_sbom_version:              ${{ needs.setup.outputs.otp_sbom_version }}
-      ort_version:                   ${{ needs.setup.outputs.ort_version }}
       fail_on_violations:            ${{ github.ref_type == 'tag' && '' || 'violations,issues' }}
       upload_sbom_to_dependency_api: ${{ github.event_name == 'pull_request' &&
                                          github.event.action == 'closed'     &&
@@ -146,7 +142,9 @@ jobs:
 
   release-setup:
     name: Setup Release variables
-    needs: setup
+    needs:
+      - setup
+      - sbom
     runs-on: ubuntu-latest
     outputs:
       base_branch:          ${{ steps.release-setup.outputs.base_branch }}
@@ -158,7 +156,7 @@ jobs:
       - id: release-setup
         run: |
           echo "base_branch=${{ needs.setup.outputs.base_branch }}" >> $GITHUB_OUTPUT
-          echo "ort_version=${{ needs.setup.outputs.ort_version }}" >> $GITHUB_OUTPUT
+          echo "ort_version=${{ needs.sbom.outputs.ort_version }}" >> $GITHUB_OUTPUT
           echo "otp_sbom_version=${{ needs.setup.outputs.otp_sbom_version }}" >> $GITHUB_OUTPUT
           echo "tag=${{ needs.setup.outputs.base_branch }}" >> $GITHUB_OUTPUT
           echo "vsn=$(echo ${{ needs.setup.outputs.base_branch }} | cut -d- -f2)" >> $GITHUB_OUTPUT

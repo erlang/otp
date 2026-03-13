@@ -42,18 +42,20 @@ on:
       otp_sbom_version:
         required: true
         type: string
-      ort_version:
-        required: true
-        type: string
       fail_on_violations:
         required: true
         type: string
       upload_sbom_to_dependency_api:
         required: true
         type: boolean
+    outputs:
+      ort_version:
+        description: "ORT version"
+        value: ${{ jobs.create-sbom.outputs.ort_version }}
+
 
 env:
-  ORT_VERSION: ${{ inputs.ort_version }}
+  ORT_VERSION: 77.0.0
   OTP_SBOM_VERSION: ${{ inputs.otp_sbom_version }}
   SCAN_RESULT_CACHE_PATH: .ort/scan-result.json
 
@@ -61,6 +63,8 @@ jobs:
   create-sbom:
     name: Create SBOM
     runs-on: ubuntu-latest
+    outputs:
+      ort_version: ${{ steps.setup-ort-version.outputs.ort_version }}
     steps:
       - name: Use HTTPS instead of SSH for Git cloning
         run: git config --global url.https://github.com/.insteadOf ssh://git@github.com/
@@ -87,6 +91,10 @@ jobs:
 
             # Copy local configuration
             cp .ort/config/* "$HOME/.ort/config/"
+
+      - name: Setup ort_version
+        id: setup-ort-version
+        run: echo "otp_version=${{ env.ORT_VERSION }}" >> $GITHUB_OUTPUT
 
       - name: Run OSS Review Toolkit (analyzer)
         uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
