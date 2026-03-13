@@ -78,6 +78,7 @@ representations.
 - `from_list/1`
 - `intersection/1`
 - `intersection/2`
+- `is_disjoint/2`
 - `is_element/2`
 - `is_empty/1`
 - `is_equal/2`
@@ -326,9 +327,9 @@ of one set is also a member of the other set; otherwise, returns `false`.
 ```erlang
 1> Empty = sets:new().
 2> S = sets:from_list([a,b]).
-3> sets:is_equal(S, S)
+3> sets:is_equal(S, S).
 true
-4> sets:is_equal(S, Empty)
+4> sets:is_equal(S, Empty).
 false
 5> OldSet = sets:from_list([a,b], [{version,1}]).
 6> sets:is_equal(S, OldSet).
@@ -651,7 +652,7 @@ Returns `true` if `Set1` and `Set2` are disjoint; otherwise, returns
 
 Two sets are disjoint if they have no elements in common.
 
-This function is equivalent to `sets:intersection(Set1, Set2) =:= []`,
+This function is equivalent to `sets:is_empty(sets:intersection(Set1, Set2))`,
 but faster.
 
 ## Examples
@@ -910,7 +911,7 @@ value, with `true` being equivalent to `{true, Elem}`.
 
 ```erlang
 filtermap(Fun, Set1) ->
-    sets:from_list(lists:filtermap(Fun, Set1)).
+    sets:from_list(lists:filtermap(Fun, sets:to_list(Set1))).
 ```
 
 ## Examples

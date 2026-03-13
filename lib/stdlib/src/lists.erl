@@ -342,7 +342,7 @@ starting at `N+1` and continuing to the end of the list.
 """.
 -spec nthtail(N, List) -> Tail when
       N :: non_neg_integer(),
-      List :: [T,...],
+      List :: [T],
       Tail :: [T],
       T :: term().
 
@@ -1894,7 +1894,7 @@ sort(Fun, [X, Y | T]) ->
 -doc """
 Returns a sorted list formed by merging `List1` and `List2` based on `Fun`.
 
-Both `List1` and`List2` must be sorted according to the
+Both `List1` and `List2` must be sorted according to the
 [ordering function](`m:lists#ordering_function`) `Fun` before evaluating this
 function.
 
@@ -2682,7 +2682,7 @@ Combines the operations of `map/2` and `foldr/3` into one pass.
 > #### Note {: .info }
 >
 > Unless the order in which the elements are accumulated is important,
-> prefer [`mapfoldl/3`](`mapfoldl/3`) as it is slighly more efficient.
+> prefer [`mapfoldl/3`](`mapfoldl/3`) as it is slightly more efficient.
 
 ## Examples
 

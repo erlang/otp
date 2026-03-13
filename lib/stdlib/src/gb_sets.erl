@@ -207,9 +207,9 @@ of one set is also a member of the other set; otherwise, returns `false`.
 ```erlang
 1> Empty = gb_sets:new().
 2> S = gb_sets:from_list([a,b]).
-3> gb_sets:is_equal(S, S)
+3> gb_sets:is_equal(S, S).
 true
-4> gb_sets:is_equal(S, Empty)
+4> gb_sets:is_equal(S, Empty).
 false
 ```
 """.
@@ -380,7 +380,7 @@ does not rebalance the tree.
 ## Examples
 
 ```erlang
-1> S0 = gb_sets:from_ordset(lists:seq(1, 100)).
+1> S0 = gb_sets:from_list(lists:seq(1, 100)).
 2> Delete = fun(E, Set) -> gb_sets:delete(E, Set) end.
 3> S1 = lists:foldl(Delete, S0, lists:seq(1, 50)).
 4> gb_sets:size(S1).
@@ -460,7 +460,7 @@ contain duplicates.
 ## Examples
 
 ```erlang
-1> Unordered = [x,y,a,x,y,b,b,z]
+1> Unordered = [x,y,a,x,y,b,b,z].
 2> gb_sets:to_list(gb_sets:from_list(Unordered)).
 [a,b,x,y,z]
 ```
@@ -797,10 +797,10 @@ The implementation is very efficient; traversing the whole set using
 [`next/1`](`next/1`) is only slightly slower than getting the list of
 all elements using `to_list/1` and traversing that. The main advantage
 of the iterator approach is that it avoids building the complete list
-of all elements to be built in memory at once.
+of all elements in memory at once.
 
 ```erlang
-1> S = gb_sets:from_ordset([1,2,3,4,5]).
+1> S = gb_sets:from_list([1,2,3,4,5]).
 2> Iter0 = gb_sets:iterator(S, ordered).
 3> element(1, gb_sets:next(Iter0)).
 1
@@ -837,25 +837,7 @@ iterator_r({_, _, R} = T, As) ->
 iterator_r(nil, As) ->
     As.
 
--doc """
-Returns an iterator that can be used for traversing the entries of `Set`; see
-`next/1`.
-
-Unlike the iterator returned by `iterator/1` or `iterator/2`, this
-iterator starts with the first element greater than or equal to
-`Element`.
-
-Equivalent to [`iterator_from(Element, Set, ordered)`](`iterator_from/3`).
-
-## Examples
-
-```erlang
-1> S = gb_sets:from_ordset([10,20,30,40,50]).
-2> Iter = gb_sets:iterator_from(17, S).
-3> element(1, gb_sets:next(Iter)).
-20
-```
-""".
+-doc(#{equiv => iterator_from(Element, Set, ordered)}).
 -doc(#{since => <<"OTP 18.0">>}).
 -spec iterator_from(Element, Set) -> Iter when
       Set :: set(Element),
@@ -865,19 +847,19 @@ iterator_from(Element, Set) ->
     iterator_from(Element, Set, ordered).
 
 -doc """
-Returns an iterator that can be used for traversing the entries of `Set`; see
-`next/1`.
-
-Unlike the iterator returned by `iterator/1` or `iterator/2`, this
-iterator starts with the first element greater than or equal to
-`Element`.
+Returns an iterator over members of `Set` in the given `Order`, starting
+from `Element` or, if absent, the first member that follows in the
+iteration order, if any; see `next/1`.
 
 ## Examples
 
 ```erlang
-1> S = gb_sets:from_ordset([10,20,30,40,50]).
-2> Iter = gb_sets:iterator_from(17, S, reversed).
-3> element(1, gb_sets:next(Iter)).
+1> S = gb_sets:from_list([10,20,30,40,50]).
+2> Iter1 = gb_sets:iterator_from(17, S, ordered).
+3> element(1, gb_sets:next(Iter1)).
+20
+4> Iter2 = gb_sets:iterator_from(17, S, reversed).
+5> element(1, gb_sets:next(Iter2)).
 10
 ```
 """.
@@ -916,7 +898,7 @@ by iterator `Iter1`, and `Iter2` is the new iterator to be used for traversing
 the remaining elements, or the atom `none` if no elements remain.
 
 ```erlang
-1> S = gb_sets:from_ordset([1,2,3,4,5]).
+1> S = gb_sets:from_list([1,2,3,4,5]).
 2> Iter0 = gb_sets:iterator(S).
 3> {Element0, Iter1} = gb_sets:next(Iter0).
 4> Element0.
@@ -955,8 +937,8 @@ next({_, []}) ->
 %% If the sets are not very different in size, i.e., if |Y| / |X| >= c *
 %% log(|Y|), then the fastest way to do union (and the other similar set
 %% operations) is to build the lists of elements, traverse these lists
-%% in parallel while building a reversed ackumulator list, and finally
-%% rebuild the tree directly from the ackumulator. Other methods of
+%% in parallel while building a reversed accumulator list, and finally
+%% rebuild the tree directly from the accumulator. Other methods of
 %% traversing the elements can be devised, but they all have higher
 %% overhead.
 
@@ -1035,7 +1017,7 @@ union_1([], S) ->
 %% that the same is likely to apply to the next element also,
 %% statistically reducing the number of failed tests and automatically
 %% adapting to cases of lists having very different lengths. This saves
-%% 10-40% of the traversation time compared to a "fixed" strategy,
+%% 10-40% of the traversal time compared to a "fixed" strategy,
 %% depending on the sizes and contents of the lists.
 %%
 %% 3) A tail recursive version using `lists:reverse/2' is about 5-10%
@@ -1092,7 +1074,7 @@ all sets, without duplicates.
 ```erlang
 1> S0 = gb_sets:from_list([a,b,c,d]).
 2> S1 = gb_sets:from_list([d,e,f]).
-3> S2 = gb_sets:from_list([q,r])
+3> S2 = gb_sets:from_list([q,r]).
 4> Sets = [S0, S1, S2].
 5> Union = gb_sets:union(Sets).
 6> gb_sets:to_list(Union).
@@ -1100,7 +1082,7 @@ all sets, without duplicates.
 ```
 """.
 -spec union(SetList) -> Set when
-      SetList :: [set(Element),...],
+      SetList :: [set(Element)],
       Set :: set(Element).
 
 union([S | Ss]) ->
@@ -1194,7 +1176,7 @@ elements that are present in all sets.
 ```erlang
 1> S0 = gb_sets:from_list([a,b,c,d]).
 2> S1 = gb_sets:from_list([d,e,f]).
-3> S2 = gb_sets:from_list([q,r])
+3> S2 = gb_sets:from_list([q,r]).
 4> Sets = [S0, S1, S2].
 5> gb_sets:to_list(gb_sets:intersection([S0, S1, S2])).
 []
@@ -1221,7 +1203,7 @@ Returns `true` if `Set1` and `Set2` are disjoint; otherwise, returns
 
 Two sets are disjoint if they have no elements in common.
 
-This function is equivalent to `gb_sets:intersection(Set1, Set2) =:= []`,
+This function is equivalent to `gb_sets:is_empty(gb_sets:intersection(Set1, Set2))`,
 but faster.
 
 ## Examples
@@ -1229,7 +1211,7 @@ but faster.
 ```erlang
 1> S0 = gb_sets:from_list([a,b,c,d]).
 2> S1 = gb_sets:from_list([d,e,f]).
-3> S2 = gb_sets:from_list([q,r])
+3> S2 = gb_sets:from_list([q,r]).
 4> gb_sets:is_disjoint(S0, S1).
 false
 5> gb_sets:is_disjoint(S1, S2).
@@ -1493,13 +1475,13 @@ value, with `true` being equivalent to `{true, Elem}`.
 
 ```erlang
 filtermap(Fun, Set1) ->
-    gb_sets:from_list(lists:filtermap(Fun, Set1)).
+    gb_sets:from_list(lists:filtermap(Fun, gb_sets:to_list(Set1))).
 ```
 
 ## Examples
 
 ```erlang
-1> S = gb_sets:from_list([2,4,5,6,8,9])
+1> S = gb_sets:from_list([2,4,5,6,8,9]).
 2> F = fun(X) ->
            case X rem 2 of
                0 -> {true, X div 2};

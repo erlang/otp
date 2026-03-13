@@ -123,7 +123,7 @@ new() -> {[],[]}. %{RearList,FrontList}
 -doc """
 Tests if `Term` is a queue and returns `true` if so, otherwise `false`. Note
 that the test will return `true` for a term coinciding with the representation
-of a queue, even when not constructed by thus module. See also note on
+of a queue, even when not constructed by this module. See also note on
 [data types](`e:system:data_types.md#no_user_types`).
 """.
 -doc(#{group => <<"Original API">>}).
@@ -161,9 +161,11 @@ the queue becomes the head of the list.
 _Example:_
 
 ```erlang
-1> Queue = queue:from_list([1,2,3,4,5]).
+1> List = [1, 2, 3, 4, 5].
+[1,2,3,4,5]
+2> Queue = queue:from_list(List).
 {[5,4,3],[1,2]}
-2> List == queue:to_list(Queue).
+3> List =:= queue:to_list(Queue).
 true
 ```
 """.
@@ -472,7 +474,7 @@ _Example:_
 ```erlang
 1> Queue = queue:from_list([1,2,3,4,5]).
 {[5,4,3],[1,2]}
-2> Queue = queue:drop(Queue).
+2> Queue1 = queue:drop(Queue).
 {[5,4,3],[2]}
 3> queue:to_list(Queue1).
 [2,3,4,5]
@@ -507,7 +509,7 @@ _Example:_
 ```erlang
 1> Queue = queue:from_list([1,2,3,4,5]).
 {[5,4,3],[1,2]}
-2> Queue = queue:drop_r(Queue).
+2> Queue1 = queue:drop_r(Queue).
 {[4,3],[1,2]}
 3> queue:to_list(Queue1).
 [1,2,3,4]
@@ -620,7 +622,7 @@ split_r1_to_f2(N, [X|R1], F1, R2, F2) ->
 %% filter, or rather filtermap with insert, traverses in queue order
 %% 
 %% Fun(_) -> List: O(length(List) * len(Q))
-%% else:           O(len(Q)
+%% else:           O(len(Q))
 -doc """
 Returns a queue `Q2` that is the result of calling `Fun(Item)` on all items in
 `Q1`.
@@ -721,16 +723,16 @@ queue element at this position is replaced with `NewItem` in the result queue.
 _Example 1:_
 
 ```erlang
-1> Queue = queue:from_list([1,2,3,4,5]).
+1> Queue = queue:from_list([1, 2, 3, 4, 5]).
 {[5,4,3],[1,2]}
 2> Queue1 = queue:filtermap(fun (E) -> E > 2 end, Queue).
 {[5],[3,4]}
 3> queue:to_list(Queue1).
 [3,4,5]
-4> Queue1 = queue:filtermap(fun (E) -> {true, E+100} end, Queue).
-{"ihg","ef"}
-5> queue:to_list(Queue1).
-"efghi
+4> Queue2 = queue:filtermap(fun (E) -> {true, E - 100} end, Queue).
+{[-95,-96,-97],[-99,-98]}
+5> queue:to_list(Queue2).
+[-99,-98,-97,-96,-95]
 ```
 """.
 -doc(#{group => <<"Original API">>,since => <<"OTP 24.0">>}).
@@ -956,7 +958,7 @@ _Example:_
 
 ```erlang
 1> Queue = queue:from_list([100,1,2,3,4,5]).
-2> Queue1 = queue:delete_with(fun (E) -> E > 0, Queue).
+2> Queue1 = queue:delete_with(fun (E) -> E > 0 end, Queue).
 3> queue:to_list(Queue1).
 [1,2,3,4,5]
 ```
@@ -998,7 +1000,7 @@ _Example:_
 
 ```erlang
 1> Queue = queue:from_list([1,2,3,4,5,100]).
-2> Queue1 = queue:delete_with(fun (E) -> E > 10, Queue).
+2> Queue1 = queue:delete_with(fun (E) -> E > 10 end, Queue).
 3> queue:to_list(Queue1).
 [1,2,3,4,5]
 ```
@@ -1074,7 +1076,7 @@ delete_with_rear(_, []) ->
 %%
 %% An alternative would be to balance for equal list length when one side
 %% is exhausted. Although this could be better for a general double
-%% ended queue, it would more han double the amortized cost for 
+%% ended queue, it would more than double the amortized cost for 
 %% the normal case (one way queue).
 
 %% Cons to head

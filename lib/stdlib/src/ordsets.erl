@@ -60,11 +60,11 @@ Returns a new empty ordered set.
 ## Examples
 
 ```erlang
-1> ordsets:new()
+1> ordsets:new().
 []
 ```
 """.
--spec new() -> [].
+-spec new() -> ordset(none()).
 
 new() -> [].
 
@@ -146,9 +146,9 @@ of one set is also a member of the other set; otherwise, returns `false`.
 ```erlang
 1> Empty = ordsets:new().
 2> S = ordsets:from_list([a,b]).
-3> ordsets:is_equal(S, S)
+3> ordsets:is_equal(S, S).
 true
-4> ordsets:is_equal(S, Empty)
+4> ordsets:is_equal(S, Empty).
 false
 ```
 """.
@@ -305,7 +305,7 @@ all sets, without duplicates.
 ```erlang
 1> S0 = ordsets:from_list([a,b,c,d]).
 2> S1 = ordsets:from_list([d,e,f]).
-3> S2 = ordsets:from_list([q,r])
+3> S2 = ordsets:from_list([q,r]).
 4> Sets = [S0, S1, S2].
 5> ordsets:union(Sets).
 [a,b,c,d,e,f,q,r]
@@ -363,7 +363,7 @@ elements that are present in all sets.
 ```erlang
 1> S0 = ordsets:from_list([a,b,c,d]).
 2> S1 = ordsets:from_list([d,e,f]).
-3> S2 = ordsets:from_list([q,r])
+3> S2 = ordsets:from_list([q,r]).
 4> Sets = [S0, S1, S2].
 5> ordsets:intersection([S0, S1, S2]).
 []
@@ -391,8 +391,7 @@ returns `false`.
 
 Two sets are disjoint if they have no elements in common.
 
-This function is equivalent to `ordsets:intersection(Ordset1, Ordset2)
-=:= []`, but faster.
+This function is equivalent to `ordsets:is_empty(ordsets:intersection(Ordset1, Ordset2))`, but faster.
 
 ## Examples
 
@@ -555,13 +554,13 @@ value, with `true` being equivalent to `{true, Elem}`.
 
 ```erlang
 filtermap(Fun, Ordset1) ->
-    ordsets:from_list(lists:filtermap(Fun, Ordset1)).
+    ordsets:from_list(lists:filtermap(Fun, ordsets:to_list(Ordset1))).
 ```
 
 ## Examples
 
 ```erlang
-1> S = ordsets:from_list([2,4,5,6,8,9])
+1> S = ordsets:from_list([2,4,5,6,8,9]).
 2> F = fun(X) ->
            case X rem 2 of
                0 -> {true, X div 2};
@@ -574,7 +573,7 @@ filtermap(Fun, Ordset1) ->
 """.
 -doc(#{since => <<"OTP 27.0">>}).
 -spec filtermap(Fun, Ordset1) -> Ordset2 when
-      Fun :: fun((Element1 :: T1) -> boolean | ({true, Element2 :: T2})),
+      Fun :: fun((Element1 :: T1) -> boolean() | {true, Element2 :: T2}),
       Ordset1 :: ordset(T1),
       Ordset2 :: ordset(T1 | T2).
 
