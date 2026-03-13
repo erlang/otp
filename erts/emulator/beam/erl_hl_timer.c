@@ -302,6 +302,7 @@ struct ErtsHLTimerService_ {
     ErtsHLTimer *next_timeout;
     ErtsYieldingTimeoutState yield;
     ErtsTWheelTimer service_timer;
+    Uint btm_count;
 };
 
 static ERTS_INLINE int
@@ -635,6 +636,7 @@ erts_create_timer_service(void)
     srv->btm_tree = NULL;
     srv->next_timeout = NULL;
     srv->yield = init_yield;
+    srv->btm_count = 0;
     erts_twheel_init_timer(&srv->service_timer);
 
     init_canceled_queue(&srv->canceled_queue);
@@ -707,6 +709,21 @@ port_timeout_common(Port *port, void *tmr)
     return 0;
 }
 
+static ERTS_INLINE void
+insert_btm(ErtsBifTimer *tmr, ErtsHLTimerService *srv)
+{
+    btm_rbt_insert(&srv->btm_tree, tmr);
+    ++ srv->btm_count;
+}
+
+static ERTS_INLINE void
+remove_btm(ErtsBifTimer *tmr, ErtsHLTimerService *srv)
+{
+    btm_rbt_delete(&srv->btm_tree, tmr);
+    -- srv->btm_count;
+    tmr->btm.tree.parent = ERTS_HLT_PFIELD_NOT_IN_TABLE;
+}
+
 static ERTS_INLINE erts_aint_t
 init_btm_specifics(ErtsSchedulerData *esdp,
                    ErtsBifTimer *tmr, Eterm msg,
@@ -732,7 +749,7 @@ init_btm_specifics(ErtsSchedulerData *esdp,
 
     tmr->btm.proc_tree.parent = ERTS_HLT_PFIELD_NOT_IN_TABLE;
 
-    btm_rbt_insert(&esdp->timer_service->btm_tree, tmr);
+    insert_btm(tmr, esdp->timer_service);
 
     erts_atomic32_init_nob(&tmr->btm.state, ERTS_TMR_STATE_ACTIVE);
     return refc; /* refc from magic binary... */
@@ -1142,8 +1159,7 @@ bif_timer_timeout(ErtsHLTimerService *srv,
     }
 
     if (tmr->btm.tree.parent != ERTS_HLT_PFIELD_NOT_IN_TABLE) {
-	btm_rbt_delete(&srv->btm_tree, tmr);
-	tmr->btm.tree.parent = ERTS_HLT_PFIELD_NOT_IN_TABLE;
+        remove_btm(tmr, srv);
     }
 
 }
@@ -1470,8 +1486,7 @@ cleanup_sched_local_canceled_timer(ErtsSchedulerData *esdp,
     if (roflgs & ERTS_TMR_ROFLG_BIF_TMR) {
         ErtsBifTimer *btm = (ErtsBifTimer *) tmr;
 	if (btm->btm.tree.parent != ERTS_HLT_PFIELD_NOT_IN_TABLE) {
-	    btm_rbt_delete(&esdp->timer_service->btm_tree, btm);
-	    btm->btm.tree.parent = ERTS_HLT_PFIELD_NOT_IN_TABLE;
+            remove_btm(btm, esdp->timer_service);
 	}
     }
 
@@ -1779,8 +1794,7 @@ setup_bif_timer(Process *c_p, int twheel, ErtsMonotonicTime timeout_pos,
 					  ERTS_P2P_FLG_INC_REFC);
 	if (!proc) {
             if (tmr->btm.tree.parent != ERTS_HLT_PFIELD_NOT_IN_TABLE) {
-                btm_rbt_delete(&esdp->timer_service->btm_tree, tmr);
-                tmr->btm.tree.parent = ERTS_HLT_PFIELD_NOT_IN_TABLE;
+                remove_btm(tmr, esdp->timer_service);
             }
 	    if (tmr->btm.bp)
 		free_message_buffer(tmr->btm.bp);
@@ -1884,8 +1898,7 @@ access_btm(ErtsBifTimer *tmr, Uint32 sid, ErtsSchedulerData *esdp, int cancel)
     }
     else {
         if (tmr->btm.tree.parent != ERTS_HLT_PFIELD_NOT_IN_TABLE) {
-	    btm_rbt_delete(&esdp->timer_service->btm_tree, tmr);
-	    tmr->btm.tree.parent = ERTS_HLT_PFIELD_NOT_IN_TABLE;
+	    remove_btm(tmr, esdp->timer_service);
 	}
         if (is_hlt) {
             if (cncl_res > 0)
@@ -2361,8 +2374,7 @@ exit_cancel_bif_timer(ErtsBifTimer *tmr, void *vesdp, Sint reds)
         }
 
         if (tmr->btm.tree.parent != ERTS_HLT_PFIELD_NOT_IN_TABLE) {
-	    btm_rbt_delete(&esdp->timer_service->btm_tree, tmr);
-	    tmr->btm.tree.parent = ERTS_HLT_PFIELD_NOT_IN_TABLE;
+            remove_btm(tmr, esdp->timer_service);
 	}
         if (is_hlt)
             hlt_delete_timer(esdp, &tmr->type.hlt);
@@ -2896,6 +2908,12 @@ erts_read_port_timer(Port *c_prt)
     else
 	timeout_pos = erts_tweel_read_timeout(&tmr->twt.u.tw_tmr);
     return get_time_left(NULL, timeout_pos);
+}
+
+Uint
+erts_bif_timer_count_in_timer_service(ErtsHLTimerService *service)
+{
+    return service->btm_count;
 }
 
 /*

@@ -15244,6 +15244,16 @@ void erts_halt(int code, ErtsMonotonicTime htmo)
     }
 }
 
+Uint erts_bif_timer_count()
+{
+    Uint result = 0;
+    ERTS_FOREACH_RUNQ(rq,
+        ErtsHLTimerService *srv = rq->scheduler->timer_service;
+        result += erts_bif_timer_count_in_timer_service(srv);
+    );
+    return result;
+}
+
 #if defined(ERTS_ENABLE_LOCK_CHECK)
 int
 erts_dbg_check_halloc_lock(Process *p)
