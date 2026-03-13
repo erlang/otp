@@ -137,7 +137,23 @@ dnl Checks for library functions.
 AC_CHECK_FUNCS([memset socket])
 
 # ODBC
-$RM -f "$ERL_TOP/lib/odbc/SKIP"
+if test -f ./CONF_INFO; then
+   rm ./CONF_INFO
+fi
+
+ODBC_CAN_BUILD_DRIVER=true
+
+AC_DEFUN([ODBC_MSG_ERROR],
+[	echo "$1" >> ./CONF_INFO
+    ODBC_CAN_BUILD_DRIVER=false
+    if test X"$with_odbc" = X"yes" ; then
+        AC_MSG_ERROR([$1])
+    else
+        AC_MSG_WARN([$1])
+    fi
+])
+
+#$RM -f "$ERL_TOP/lib/odbc/SKIP"
 
 LM_CHECK_THR_LIB
 AC_SUBST(THR_DEFS)
@@ -206,8 +222,7 @@ AS_CASE([$host_os],
                     [yes-yes | yes-],
                     [
 			msg="Dont know where to search for odbc (setting erl_xcomp_sysroot will help)"
-			AC_MSG_WARN([$msg])
-			echo "$msg" > "$ERL_TOP/lib/odbc/SKIP"
+			ODBC_MSG_ERROR([$msg])
 			odbc_lib_link_success=wont_try
                     ],
 
@@ -235,8 +250,7 @@ AS_CASE([$host_os],
 			done
 			if  test "x$is_odbc_std_location" != "xyes"; then
 			    AC_MSG_RESULT(no)
-			    AC_MSG_WARN([No odbc library found skipping odbc])
-			    echo "No odbc library found" > "$ERL_TOP/lib/odbc/SKIP"
+			    ODBC_MSG_ERROR([No odbc library found skipping odbc])
 			else
 			    AC_MSG_RESULT($ODBC_LIB)
 			    save_LIBS="$LIBS"
@@ -272,16 +286,15 @@ AC_CHECK_HEADERS([sql.h sqlext.h], [odbc_required_headers=yes], [odbc_required_h
 CFLAGS="$save_CFLAGS"
 
 if test $odbc_required_headers = no;  then
-    AC_MSG_WARN(["ODBC library - header check failed"])
-    echo "ODBC library - header check failed" > $ERL_TOP/lib/odbc/SKIP
+    ODBC_MSG_ERROR(["ODBC library - header check failed"])
 fi
 if test $odbc_lib_link_success = no;  then
-    AC_MSG_WARN(["ODBC library - link check failed"])
-    echo "ODBC library - link check failed" > $ERL_TOP/lib/odbc/SKIP
+    ODBC_MSG_ERROR(["ODBC library - link check failed"])
 fi
 
 AC_SUBST(ODBC_LIB)
 AC_SUBST(ODBC_INCLUDE)
+AC_SUBST(ODBC_CAN_BUILD_DRIVER)
 
  ]) dnl "$with_odbc" != "no"
 

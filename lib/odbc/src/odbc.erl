@@ -63,6 +63,9 @@ See also http://msdn.microsoft.com/
 
 -define(ODBC_PORT_TIMEOUT, 5000).
 
+-deprecated([{'_','_',"Legacy protocol support will be dropped in OTP-30, does not really provide "
+              "backend transparency and known usage is low."}]).
+
 %% API --------------------------------------------------------------------
 
 -export([start/0, start/1, stop/0,

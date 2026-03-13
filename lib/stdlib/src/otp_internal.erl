@@ -272,10 +272,16 @@ obsolete(mnesia_registry, create_table, _) ->
     {removed, "use mnesia:create_table/2 instead"};
 obsolete(ssl, ssl_accept, _) ->
     {removed, "use ssl:handshake/1,2,3 instead"};
+obsolete(ct_ftp, _, _) ->
+    {deprecated, "Legacy protocol support will be dropped in OTP-30", "OTP 30"};
 obsolete(ct_slave, _, _) ->
     {deprecated, "use ?CT_PEER(), or the 'peer' module instead", "OTP 31"};
+obsolete(ftp, _, _) ->
+    {deprecated, "Legacy protocol support will be dropped in OTP-30, use more modern approach for file transfer as for instance SFTP (SSH File Transfer Protocol).", "OTP 30"};
 obsolete(gen_fsm, _, _) ->
     {deprecated, "use the 'gen_statem' module instead"};
+obsolete(odbc, _, _) ->
+    {deprecated, "Legacy protocol support will be dropped in OTP-30, does not really provide backend transparency and known usage is low.", "OTP 30"};
 obsolete(random, _, _) ->
     {deprecated, "use the 'rand' module instead"};
 obsolete(slave, _, _) ->
