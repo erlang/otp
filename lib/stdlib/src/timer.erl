@@ -141,6 +141,8 @@ done
 ```
 """.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -export([apply_after/2, apply_after/3, apply_after/4,
          send_after/3, send_after/2,
          exit_after/3, exit_after/2, kill_after/2, kill_after/1,
