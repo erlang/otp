@@ -4406,17 +4406,17 @@ do_so_priority(Config, Addr) ->
 	    case os:type() of
 		{unix,linux} ->
 		    case os:version() of
-			{X,Y,_} when (X > 2) or ((X =:= 2) and (Y >= 4)) ->
+                        {X,Y,_} when X > 2 orelse X =:= 2 andalso Y >= 4 ->
                             ?P("so prio should work on this version: "
                                "~n      ~p", [_X]),
 			    ct:fail({error,
-					   "so_priority should work on this "
-					   "OS, but does not"});
+                                     "so_priority should work on this "
+                                     "OS, but does not"});
 			_ ->
 			    {skip, "SO_PRIORITY not suppoorted"}
 		    end;
 		_ ->
-		   {skip, "SO_PRIORITY not suppoorted"}
+                    {skip, "SO_PRIORITY not suppoorted"}
 	    end
     end.
 
@@ -4771,7 +4771,7 @@ test_pktoptions(Config, Family, Spec, CheckConnect) ->
        "~n   Result2:       ~p"
        "~n   Result3:       ~p",
       [Result1, CheckConnect, Result2, Result3]),
-    (Result1 and ((not CheckConnect) or (Result2 and Result3)))
+    Result1 andalso (not CheckConnect orelse Result2 andalso Result3)
         orelse
         exit({failed,
               [{OptsVals1,OptsVals4,OptsVals},
@@ -6430,7 +6430,7 @@ do_send_timeout_check_length(Config, Addr, RNode) ->
                    end),
     Diff = get_max_diff(Pid),
     ?P("Max time for send: ~p", [Diff]),
-    true = (Diff > (SndTimeout - 500)) and (Diff < (SndTimeout + 500)),
+    true = Diff > SndTimeout - 500 andalso Diff < SndTimeout + 500,
 
     %% Wait for the process to die.
     ?P("await (timeout checker) process death"),

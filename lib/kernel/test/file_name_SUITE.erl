@@ -348,7 +348,7 @@ check_icky(Mod) ->
 	%% 	    {ok,LLL} when is_list(LLL) ->
 	%% 		ok
 	%% 	end,
-	[ true = ((is_list(El) or (UniMode and is_binary(El))))  || El <- L1],
+        [ true = is_list(El) orelse UniMode andalso is_binary(El)  || El <- L1],
 	Syms = [ {S,conv(Targ),list_to_binary(get_data(Targ,IckyDir))}
 		 || {T,S,Targ} <- IckyDir, T =:= symlink ],
 	[ {ok, Cont} = Mod:read_file(SymL) || {SymL,_,Cont} <- Syms ],
@@ -384,8 +384,8 @@ check_icky(Mod) ->
 	end,
 
 	_ = make_icky_dir(Mod, treat_icky(<<"åäö_dir"/utf8>>)),
-	if 
-	    UniMode and (OS =/= win32) ->
+        if
+            UniMode andalso OS =/= win32 ->
 		{error,enoent} = Mod:set_cwd("åäö_dir");
 	    true ->
 		ok
@@ -425,7 +425,7 @@ check_icky(Mod) ->
         Mod:rename("åäö2",treat_icky(<<"åäö_fil1">>)),
         {ok, <<"åäö2">>} = Mod:read_file(treat_icky(<<"åäö_fil1">>)),
 	if
-	    UniMode and (OS =/= win32) ->
+            UniMode andalso OS =/= win32 ->
 		{error,enoent} = Mod:read_file("åäö_fil1");
 	    true ->
 		ok
@@ -474,7 +474,7 @@ check_very_icky(Mod) ->
 	Expected = lists:sort(Actual),
 	{ok,D2} = Mod:get_cwd(),
 	true = is_list(D2),
-	[ true = ((is_list(El) or is_binary(El)))  || El <- Expected],
+        [ true = is_list(El) orelse is_binary(El)  || El <- Expected],
 	Syms = [{S,conv(Targ),list_to_binary(get_data(Targ, VeryIckyDir))}
 		|| {symlink,S,Targ} <- VeryIckyDir],
 	[ {ok, Cont} = Mod:read_file(SymL) || {SymL,_,Cont} <- Syms ],

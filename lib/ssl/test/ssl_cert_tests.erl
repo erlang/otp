@@ -1012,7 +1012,7 @@ supported_groups(Group) ->
 
 
 choose_custom_key(#'RSAPrivateKey'{} = Key, Version)
-  when (Version == 'dtlsv1') or (Version == 'tlsv1') or (Version == 'tlsv1.1') ->
+  when Version == 'dtlsv1' orelse Version == 'tlsv1' orelse Version == 'tlsv1.1' ->
     EFun = fun (PlainText, Options) ->
                    public_key:encrypt_private(PlainText, Key, Options)
           end,

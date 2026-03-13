@@ -1075,8 +1075,8 @@ param_insert_float(Config) when is_list(Config) ->
 
     ["FIELD"] = odbc_test_lib:to_upper(Fileds),
 
-    case (odbc_test_lib:match_float(Float1, 1.3, 0.000001) and 
-	  odbc_test_lib:match_float(Float2, 1.2, 0.000001)) of
+    case odbc_test_lib:match_float(Float1, 1.3, 0.000001) andalso
+        odbc_test_lib:match_float(Float2, 1.2, 0.000001) of
 	true ->
 	    ok;
 	false ->
@@ -1114,8 +1114,8 @@ param_insert_real(Config) when is_list(Config) ->
 
     ["FIELD"] = odbc_test_lib:to_upper(Fileds),
 
-    case (odbc_test_lib:match_float(Real1, 1.3, 0.000001) and 
-	  odbc_test_lib:match_float(Real2, 1.2, 0.000001)) of
+    case odbc_test_lib:match_float(Real1, 1.3, 0.000001) andalso
+        odbc_test_lib:match_float(Real2, 1.2, 0.000001) of
 	true ->
 	    ok;
 	false ->
@@ -1151,8 +1151,8 @@ param_insert_double(Config) when is_list(Config) ->
 
     ["FIELD"] = odbc_test_lib:to_upper(Fileds),
 
-    case (odbc_test_lib:match_float(Double1, 1.3, 0.000001) and 
-	  odbc_test_lib:match_float(Double2, 1.2, 0.000001)) of
+    case odbc_test_lib:match_float(Double1, 1.3, 0.000001) andalso
+        odbc_test_lib:match_float(Double2, 1.2, 0.000001) of
 	true ->
 	    ok;
 	false ->

@@ -384,7 +384,7 @@ both_known_1_test(Config) when is_list(Config) ->
 	       N1 = lists:sort(Names1_3),
 	       N2 = lists:sort(Names2_3),
 	       N3 = lists:sort(Names3_3),
-	       (N1 =:= [p1, p2]) and (N2 =:= [p1, p2]) and (N3 =:= [p1, p2])
+               N1 =:= [p1, p2] andalso N2 =:= [p1, p2] andalso N3 =:= [p1, p2]
 	   end),
 
     write_high_level_trace(Config),
@@ -684,11 +684,11 @@ do_names(Config) ->
     %% test that it is registered at all nodes
     ?P("names -> verify process has been registered on all nodes"),
         ?UNTIL(begin
-            (Pid =:= global:whereis_name(test)) and
-            (Pid =:= rpc:call(Cp1, global, whereis_name, [test])) and
-            (Pid =:= rpc:call(Cp2, global, whereis_name, [test])) and
-            (Pid =:= rpc:call(Cp3, global, whereis_name, [test])) and
-            ([test] =:= global:registered_names() -- OrigNames)
+            Pid =:= global:whereis_name(test) andalso
+            Pid =:= rpc:call(Cp1, global, whereis_name, [test]) andalso
+            Pid =:= rpc:call(Cp2, global, whereis_name, [test]) andalso
+            Pid =:= rpc:call(Cp3, global, whereis_name, [test]) andalso
+            [test] =:= global:registered_names() -- OrigNames
            end),
     
     %% try to register the same name
@@ -702,10 +702,10 @@ do_names(Config) ->
     exit_p(Pid),
 
     ?P("names -> verify 'test' process has been automatically unregistered"),
-        ?UNTIL((undefined =:= global:whereis_name(test)) and
-           (undefined =:= rpc:call(Cp1, global, whereis_name, [test])) and
-           (undefined =:= rpc:call(Cp2, global, whereis_name, [test])) and
-           (undefined =:= rpc:call(Cp3, global, whereis_name, [test]))),
+        ?UNTIL(undefined =:= global:whereis_name(test) andalso
+           undefined =:= rpc:call(Cp1, global, whereis_name, [test]) andalso
+           undefined =:= rpc:call(Cp2, global, whereis_name, [test]) andalso
+           undefined =:= rpc:call(Cp3, global, whereis_name, [test])),
     
     %% test re_register
     ?P("names -> start and register another process 'test'"),
@@ -735,10 +735,10 @@ do_names(Config) ->
 
     ?P("names -> unregister 'test' process"),
     _ = global:unregister_name(test),
-        ?UNTIL((undefined =:= global:whereis_name(test)) and
-           (undefined =:= rpc:call(Cp1, global, whereis_name, [test])) and
-           (undefined =:= rpc:call(Cp2, global, whereis_name, [test])) and
-           (undefined =:= rpc:call(Cp3, global, whereis_name, [test]))),
+        ?UNTIL(undefined =:= global:whereis_name(test) andalso
+           undefined =:= rpc:call(Cp1, global, whereis_name, [test]) andalso
+           undefined =:= rpc:call(Cp2, global, whereis_name, [test]) andalso
+           undefined =:= rpc:call(Cp3, global, whereis_name, [test])),
 
     ?P("names -> terminate process 'test'"),
     exit_p(Pid3),
@@ -796,20 +796,20 @@ names_hidden(Config) when is_list(Config) ->
     Cp3 = node(HPid),
 
     %% Check that it didn't get registered on visible nodes
-        ?UNTIL((undefined =:= global:whereis_name(test)) and
-           (undefined =:= rpc:call(Cp1, global, whereis_name, [test])) and
-           (undefined =:= rpc:call(Cp2, global, whereis_name, [test]))),
+        ?UNTIL(undefined =:= global:whereis_name(test) andalso
+           undefined =:= rpc:call(Cp1, global, whereis_name, [test]) andalso
+           undefined =:= rpc:call(Cp2, global, whereis_name, [test])),
 
     %% start a proc on visible node and register it
     {Pid, yes} = start_proc(test),
     true = (Pid =/= HPid),
 
     %% test that it is registered at all nodes
-        ?UNTIL((Pid =:= global:whereis_name(test)) and
-           (Pid =:= rpc:call(Cp1, global, whereis_name, [test])) and
-           (Pid =:= rpc:call(Cp2, global, whereis_name, [test])) and
-           (HPid =:= rpc:call(Cp3, global, whereis_name, [test])) and
-           ([test] =:= global:registered_names() -- OrigNames)),
+        ?UNTIL(Pid =:= global:whereis_name(test) andalso
+           Pid =:= rpc:call(Cp1, global, whereis_name, [test]) andalso
+           Pid =:= rpc:call(Cp2, global, whereis_name, [test]) andalso
+           HPid =:= rpc:call(Cp3, global, whereis_name, [test]) andalso
+           [test] =:= global:registered_names() -- OrigNames),
     
     %% try to register the same name
     no = global:register_name(test, self()),
@@ -818,10 +818,10 @@ names_hidden(Config) when is_list(Config) ->
     %% let process exit, check that it is unregistered automatically
     exit_p(Pid),
 
-        ?UNTIL((undefined =:= global:whereis_name(test)) and
-           (undefined =:= rpc:call(Cp1, global, whereis_name, [test])) and
-           (undefined =:= rpc:call(Cp2, global, whereis_name, [test])) and
-           (HPid      =:= rpc:call(Cp3, global, whereis_name, [test]))),
+        ?UNTIL(undefined =:= global:whereis_name(test) andalso
+           undefined =:= rpc:call(Cp1, global, whereis_name, [test]) andalso
+           undefined =:= rpc:call(Cp2, global, whereis_name, [test]) andalso
+           HPid      =:= rpc:call(Cp3, global, whereis_name, [test])),
     
     %% test re_register
     {Pid2, yes} = start_proc(test),
@@ -846,16 +846,16 @@ names_hidden(Config) when is_list(Config) ->
     end,
 
     _ = rpc:call(Cp3, global, unregister_name, [test]),
-        ?UNTIL((Pid3      =:= global:whereis_name(test)) and
-           (Pid3      =:= rpc:call(Cp1, global, whereis_name, [test])) and
-           (Pid3      =:= rpc:call(Cp2, global, whereis_name, [test])) and
-           (undefined =:= rpc:call(Cp3, global, whereis_name, [test]))),
+        ?UNTIL(Pid3      =:= global:whereis_name(test) andalso
+           Pid3      =:= rpc:call(Cp1, global, whereis_name, [test]) andalso
+           Pid3      =:= rpc:call(Cp2, global, whereis_name, [test]) andalso
+           undefined =:= rpc:call(Cp3, global, whereis_name, [test])),
 
     _ = global:unregister_name(test),
-        ?UNTIL((undefined =:= global:whereis_name(test)) and
-           (undefined =:= rpc:call(Cp1, global, whereis_name, [test])) and
-           (undefined =:= rpc:call(Cp2, global, whereis_name, [test])) and
-           (undefined =:= rpc:call(Cp3, global, whereis_name, [test]))),
+        ?UNTIL(undefined =:= global:whereis_name(test) andalso
+           undefined =:= rpc:call(Cp1, global, whereis_name, [test]) andalso
+           undefined =:= rpc:call(Cp2, global, whereis_name, [test]) andalso
+           undefined =:= rpc:call(Cp3, global, whereis_name, [test])),
 
     exit_p(Pid3),
     exit_p(HPid),
@@ -1150,9 +1150,9 @@ names_and_locks(Config) when is_list(Config) ->
     global:del_lock({test_lock, self()}, [node(), Cp1]),
     
     exit_p(Pid2),
-        ?UNTIL((undefined =:= global:whereis_name(test2)) and
-           (true =:= global:set_lock({test_lock, self()}, [Cp2, Cp3], 1)) and
-           (true =:= global:set_lock({test_lock2, self()}, [Cp2, Cp3], 1))),
+        ?UNTIL(undefined =:= global:whereis_name(test2) andalso
+           true =:= global:set_lock({test_lock, self()}, [Cp2, Cp3], 1) andalso
+           true =:= global:set_lock({test_lock2, self()}, [Cp2, Cp3], 1)),
 
     global:del_lock({test_lock, self()}, [Cp2, Cp3]),
     global:del_lock({test_lock2, self()}, [Cp2, Cp3]),
@@ -3269,11 +3269,11 @@ global_groups_change(Config) ->
                TestGG5_2 = rpc:call(CpE, global, whereis_name, [test]),
                io:format("~p~n", [[TestGG4, TestGG4_1, TestGG4_2,TestGG4_3]]),
                io:format("~p~n", [[TestGG5, TestGG5_1, TestGG5_2]]),
-               (TestGG4_1 =:= TestGG4) and
-               (TestGG4_2 =:= TestGG4) and
-               (TestGG4_3 =:= TestGG4) and
-               (TestGG5_1 =:= TestGG5) and
-               (TestGG5_2 =:= TestGG5)
+               TestGG4_1 =:= TestGG4 andalso
+               TestGG4_2 =:= TestGG4 andalso
+               TestGG4_3 =:= TestGG4 andalso
+               TestGG5_1 =:= TestGG5 andalso
+               TestGG5_2 =:= TestGG5
            end),
 
     io:format( "#### nodes() ~p~n",[nodes()]),
@@ -3367,11 +3367,11 @@ global_groups_change(Config) ->
                TestGG5e = rpc:call(CpE, global, whereis_name, [test]),
                io:format("~p~n", [[TestGG4, TestGG4a, TestGG4b]]),
                io:format("~p~n", [[TestGG5, TestGG5c, TestGG5d, TestGG5e]]),
-               (TestGG4 =:= TestGG4a) and
-               (TestGG4 =:= TestGG4b) and
-               (TestGG5 =:= TestGG5c) and
-               (TestGG5 =:= TestGG5d) and
-               (TestGG5 =:= TestGG5e)
+               TestGG4 =:= TestGG4a andalso
+               TestGG4 =:= TestGG4b andalso
+               TestGG5 =:= TestGG5c andalso
+               TestGG5 =:= TestGG5d andalso
+               TestGG5 =:= TestGG5e
            end),
 
     Info1 = rpc:call(Cp1, global_group, info, []),
@@ -4571,7 +4571,7 @@ wait_for_ready_net(Nodes0, Config) ->
                                  ?P("wait_for_ready_net => ~p", [GRes]),
                                  GRes
                          end,
-                         Nodes) and
+                         Nodes) andalso
 		   lists:all(fun(N) ->
                                      ?P("wait_for_ready_net -> "
                                         "get erlang nodes for ~p", [N]),

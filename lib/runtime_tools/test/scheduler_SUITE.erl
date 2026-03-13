@@ -93,7 +93,7 @@ check([{total, Tf, Ts} | List]=U) ->
                        List
                end,
 
-    lists:foreach(fun({Type, Id, F, S}) when ((Type =:= normal) or (Type =:= cpu) or (Type =:= io)),
+    lists:foreach(fun({Type, Id, F, S}) when Type =:= normal orelse Type =:= cpu orelse Type =:= io,
                                              is_integer(Id) ->
                           check_values(F, S, true)
                   end,

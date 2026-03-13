@@ -965,7 +965,7 @@ analyse([], [This={M,F,A}|Path], Visited, ErrCnt0) ->
 	  gb_sets, gb_trees, erts_code_purger, erts_internal, code,
 	  prim_zip, zlib],
     ErrCnt1 =
-	case lists:member(M, OK) or erlang:is_builtin(M,F,A) of
+        case lists:member(M, OK) orelse erlang:is_builtin(M,F,A) of
 	    true ->
 		0;
 	    false ->
@@ -1989,7 +1989,7 @@ on_load_deadlock(Config) ->
 
     spawn(fun() -> code:ensure_loaded(Mod) end),
     {error,Reason} = code:ensure_loaded(Mod),
-    true = (Reason =:= deadlock) or (Reason =:= on_load_failure),
+    true = Reason =:= deadlock orelse Reason =:= on_load_failure,
 
     code:del_path(Dir),
     ok.

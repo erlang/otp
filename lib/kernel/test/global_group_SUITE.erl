@@ -643,9 +643,9 @@ one_grp(Config) when is_list(Config) ->
     %% let process exit, check that it is unregistered automatically
     Pid ! die,
         ?UNTIL(begin
-               (undefined =:= rpc:call(Cp1, global, whereis_name, [test])) and
-               (undefined =:= rpc:call(Cp2, global, whereis_name, [test])) and
-               (undefined =:= rpc:call(Cp3, global, whereis_name, [test]))
+               undefined =:= rpc:call(Cp1, global, whereis_name, [test]) andalso
+               undefined =:= rpc:call(Cp2, global, whereis_name, [test]) andalso
+               undefined =:= rpc:call(Cp3, global, whereis_name, [test])
            end),
     
     %% test re_register
@@ -732,9 +732,9 @@ one_grp_x(Config) when is_list(Config) ->
     %% let process exit, check that it is unregistered automatically
     Pid ! die,
         ?UNTIL(begin
-               (undefined =:= rpc:call(Cp1, global, whereis_name, [test])) and
-               (undefined =:= rpc:call(Cp2, global, whereis_name, [test])) and
-               (undefined =:= rpc:call(Cp3, global, whereis_name, [test]))
+               undefined =:= rpc:call(Cp1, global, whereis_name, [test]) andalso
+               undefined =:= rpc:call(Cp2, global, whereis_name, [test]) andalso
+               undefined =:= rpc:call(Cp3, global, whereis_name, [test])
            end),
     
     %% test re_register
@@ -1330,7 +1330,7 @@ global_disconnect(Config) when is_list(Config) ->
 wait_for_ready_net() ->
     Nodes = lists:sort(?NODES),
     ?UNTIL(begin
-               lists:all(fun(N) -> Nodes =:= get_known(N) end, Nodes) and
+               lists:all(fun(N) -> Nodes =:= get_known(N) end, Nodes) andalso
 		   lists:all(fun(N) ->
 				     LNs = rpc:call(N, erlang, nodes, []),
 				     Nodes =:= lists:sort([N | LNs])
