@@ -433,6 +433,8 @@ atom Lt='<'
 atom machine
 atom magic_ref
 atom major
+atom maps_put
+atom maps_remove
 atom match
 atom match_limit
 atom match_limit_recursion
