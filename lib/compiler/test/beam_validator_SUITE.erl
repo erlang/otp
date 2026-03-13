@@ -49,6 +49,7 @@
          bif_inference/1,too_many_arguments/1,ensure_bits/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Config.
@@ -906,7 +907,7 @@ beam_val(M) ->
 
 val_dsetel(_Config) ->
     self() ! 13,
-    {'EXIT',{{try_clause,participating},_}} = (catch night(0)),
+    ?assertError({try_clause,participating}, night(0)),
     ok.
 
 night(Turned) ->
@@ -1048,14 +1049,14 @@ infer_relops_false(_, _) -> ge.
 
 %% OTP-18365: A brainfart in inference for '=/=' inverted the results.
 not_equal_inference(_Config) ->
-    {'EXIT', {function_clause, _}} = (catch not_equal_inference_1(id([0]))),
+    ?assertError(function_clause, not_equal_inference_1(id([0]))),
     ok.
 
 not_equal_inference_1(X) when (X /= []) /= is_port(0 div 0) ->
     [X || _ <- []].
 
 bad_bin_unit(_Config) ->
-    {'EXIT', {function_clause,_}} = catch bad_bin_unit_1(<<1:1>>),
+    ?assertError(function_clause, bad_bin_unit_1(<<1:1>>)),
     [] = bad_bin_unit_2(),
     ok.
 

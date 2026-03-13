@@ -25,6 +25,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/erl_compile.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
@@ -659,7 +660,10 @@ encrypted_abstr(Config) when is_list(Config) ->
 		  OldPath = code:get_path(),
 		  try
 		      NewPath = OldPath -- [filename:dirname(code:which(crypto))],
-		      (catch application:stop(crypto)),
+                      try
+                          application:stop(crypto)
+                      catch _:_ -> ok
+                      end,
 		      code:delete(crypto),
 		      code:purge(crypto),
 		      code:set_path(NewPath),
@@ -902,10 +906,12 @@ get_files(Config, Module, OutputName) ->
 run(Target, Func, Args) ->
     Module = list_to_atom(filename:rootname(filename:basename(Target))),
     {module, Module} = code:load_abs(filename:rootname(Target)),
-    Result = (catch apply(Module, Func, Args)),
-    true = code:delete(Module),
-    false = code:purge(Module),
-    Result.
+    try
+        apply(Module, Func, Args)
+    after
+        true = code:delete(Module),
+        false = code:purge(Module)
+    end.
 
 exists(Name) ->
     case file:read_file_info(Name) of
@@ -1026,16 +1032,16 @@ tuple_calls(Config) when is_list(Config) ->
     TupleCallsFalse = [{attribute,Anno,module,tuple_calls_false}|Forms],
     {ok,_,TupleCallsFalseBinary} = compile_forms(TupleCallsFalse, [binary]),
     code:load_binary(tuple_calls_false, "compile_SUITE.erl", TupleCallsFalseBinary),
-    {'EXIT',{badarg,_}} = (catch tuple_calls_false:store(dict())),
-    {'EXIT',{badarg,_}} = (catch tuple_calls_false:size(dict())),
-    {'EXIT',{badarg,_}} = (catch tuple_calls_false:size(empty_tuple())),
+    ?assertError(badarg, tuple_calls_false:store(dict())),
+    ?assertError(badarg, tuple_calls_false:size(dict())),
+    ?assertError(badarg, tuple_calls_false:size(empty_tuple())),
 
     TupleCallsTrue = [{attribute,Anno,module,tuple_calls_true}|Forms],
     {ok,_,TupleCallsTrueBinary} = compile_forms(TupleCallsTrue, [binary,tuple_calls]),
     code:load_binary(tuple_calls_true, "compile_SUITE.erl", TupleCallsTrueBinary),
     Dict = tuple_calls_true:store(dict()),
     1 = tuple_calls_true:size(Dict),
-    {'EXIT',{badarg,_}} = (catch tuple_calls_true:size(empty_tuple())),
+    ?assertError(badarg, tuple_calls_true:size(empty_tuple())),
 
     ok.
 
@@ -2381,23 +2387,24 @@ get_unique_beam_files() ->
 
 run(Config, Tests) ->
     F = fun({N,P,Env,Ws,Run}, _BadL) when is_function(Run, 1) ->
-                case catch run_test(Config, P, Env, Ws, Run) of
+                try run_test(Config, P, Env, Ws, Run) of
                     ok ->
-                        ok;
-                    Bad ->
+                        ok
+                catch
+                    error:Bad:Stack ->
                         io:format("~nTest ~p failed. Expected~n  ~p~n"
-                                  "but got~n  ~p~n", [N, ok, Bad]),
+                                  "but got~n  ~p ~p~n", [N, ok, Bad, Stack]),
                         fail()
                 end;
            ({N,P,Env,Ws,Expected}, BadL)
               when is_list(Expected); is_tuple(Expected) ->
                 io:format("### ~s\n", [N]),
-                case catch run_test(Config, P, Env, Ws, none) of
+                try run_test(Config, P, Env, Ws, none) of
                     Expected ->
-                        BadL;
-                    Bad ->
+                        BadL
+                catch errore:Bad:Stack ->
                         io:format("~nTest ~p failed. Expected~n  ~p~n"
-                                  "but got~n  ~p~n", [N, Expected, Bad]),
+                                  "but got~n  ~p ~p~n", [N, Expected, Bad, Stack]),
 			fail()
                 end
         end,

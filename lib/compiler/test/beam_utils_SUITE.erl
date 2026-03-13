@@ -20,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(beam_utils_SUITE).
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
@@ -90,12 +91,12 @@ do_apply_fun(X, Y) ->
 apply_mf(_Config) ->
     ok = do_apply_mf_used({a,b}, ?MODULE, id),
     error = do_apply_mf_used([a], ?MODULE, id),
-    {'EXIT',{{case_clause,{[],b}},_}} = (catch do_apply_mf_used({[],b}, ?MODULE, id)),
+    ?assertError({case_clause,{[],b}}, do_apply_mf_used({[],b}, ?MODULE, id)),
 
     error = do_apply_mf_killed({error,[a]}, ?MODULE, id),
     ok = do_apply_mf_killed([b], ?MODULE, id),
-    {'EXIT',{{case_clause,{a,[b]}},_}} = (catch do_apply_mf_killed({a,[b]}, ?MODULE, id)),
-    {'EXIT',{{case_clause,{error,[]}},_}} = (catch do_apply_mf_killed({error,[]}, ?MODULE, id)),
+    ?assertError({case_clause,{a,[b]}}, do_apply_mf_killed({a,[b]}, ?MODULE, id)),
+    ?assertError({case_clause,{error,[]}}, do_apply_mf_killed({error,[]}, ?MODULE, id)),
 
     ok.
 
@@ -125,9 +126,9 @@ bs_init(_Config) ->
 
     <<>> = do_bs_init_2([]),
     <<0:32,((1 bsl 32)-1):32>> = do_bs_init_2([0,(1 bsl 32)-1]),
-    {'EXIT',{badarg,_}} = (catch do_bs_init_2([0.5])),
-    {'EXIT',{badarg,_}} = (catch do_bs_init_2([-1])),
-    {'EXIT',{badarg,_}} = (catch do_bs_init_2([1 bsl 32])),
+    ?assertError(badarg, do_bs_init_2([0.5])),
+    ?assertError(badarg, do_bs_init_2([-1])),
+    ?assertError(badarg, do_bs_init_2([1 bsl 32])),
 
     <<>> = do_bs_init_3({tag,0}, 0, 0),
     <<0>> = do_bs_init_3({tag,0}, 2, 1),
@@ -141,10 +142,8 @@ bs_init(_Config) ->
     Domain = -8798798,
     [<<10,1:16,Id:16/signed>>,<<8,2:16,Domain:32/signed>>] =
         do_bs_init_5(#{tag=>value,id=>Id,domain=>Domain}),
-    {'EXIT',{{required,id},[_|_]}} =
-        (catch do_bs_init_5(#{tag=>value,id=>nil,domain=>Domain})),
-    {'EXIT',{{required,domain},[_|_]}} =
-        (catch do_bs_init_5(#{tag=>value,id=>Id,domain=>nil})),
+    ?assertError({required,id}, do_bs_init_5(#{tag=>value,id=>nil,domain=>Domain})),
+    ?assertError({required,domain}, do_bs_init_5(#{tag=>value,id=>Id,domain=>nil})),
 
     ok.
 
@@ -322,7 +321,7 @@ do_y_catch_2(_) -> {a,b,c}.
 otp_8949_b(_Config) ->
     self() ! something,
     value = otp_8949_b([], false),
-    {'EXIT',_} = (catch otp_8949_b([], true)),
+    ?assertError(_, otp_8949_b([], true)),
     ok.
 
 %% Would cause an endless loop in beam_utils.
@@ -374,13 +373,13 @@ liveopt_guard_bif({#alarmInfo{cause=F}=R, X}=A) ->
 coverage(_Config) ->
     42+7 = merchant([[],7,false]),
 
-    {'EXIT',{{try_clause,0},_}} = (catch resulting([0], stone)),
+    ?assertError({try_clause,0}, resulting([0], stone)),
     0.0 = resulting([true], stone),
 
-    {'EXIT',{if_clause,_}} = (catch clinic(false)),
-    {'EXIT',{{try_clause,"trials"},_}} = (catch clinic(true)),
+    ?assertError(if_clause, clinic(false)),
+    ?assertError({try_clause,"trials"}, clinic(true)),
 
-    {'EXIT',{function_clause,_}} = (catch town(overall, {{abc},alcohol})),
+    ?assertError(function_clause, town(overall, {{abc},alcohol})),
 
     self() ! junk_message,
     {"url",#{true:="url"}} = appointment(#{"resolution" => "url"}),
@@ -416,10 +415,10 @@ clinic(Damage) ->
     carefully.
 
 y_registers(_Config) ->
-    {'EXIT',{{badfun,0},_}} = (catch economic(0.0, jim)),
-    {'EXIT',{{badmatch,apartments},_}} = (catch louisiana()),
+    ?assertError({badfun,0}, economic(0.0, jim)),
+    ?assertError({badmatch,apartments}, louisiana()),
     {a,b} = (boxes(true))({a,b}),
-    {'EXIT',{{case_clause,webmaster},_}} = (catch yellow(true)),
+    ?assertError({case_clause,webmaster}, yellow(true)),
     ok.
 
 economic(0.0 = Serves, Existence) ->
@@ -577,7 +576,7 @@ is_used_fr(X, Y) ->
 unsafe_is_function(_Config) ->
     {undefined,any} = unsafe_is_function(undefined, any),
     {ok,any} = unsafe_is_function(fun() -> ok end, any),
-    {'EXIT',{{case_clause,_},_}} = (catch unsafe_is_function(fun(_) -> ok end, any)),
+    ?assertError({case_clause,_}, unsafe_is_function(fun(_) -> ok end, any)),
     ok.
 
 unsafe_is_function(F, M) ->

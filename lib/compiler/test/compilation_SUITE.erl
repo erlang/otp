@@ -64,6 +64,7 @@
          use_nifs/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -435,7 +436,7 @@ do_otp_8949_a() ->
     
 split_cases(_) ->
     dummy1 = do_split_cases(x),
-    {'EXIT',{{badmatch,b},_}} = (catch do_split_cases(y)),
+    ?assertError({badmatch,b}, do_split_cases(y)),
     ok.
 
 do_split_cases(A) ->

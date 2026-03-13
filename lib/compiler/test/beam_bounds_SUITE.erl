@@ -21,6 +21,8 @@
 %%
 
 -module(beam_bounds_SUITE).
+-include_lib("stdlib/include/assert.hrl").
+
 -export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
          addition_bounds/1, subtraction_bounds/1,
@@ -129,7 +131,7 @@ division_bounds(_Config) ->
     {2,'+inf'} = beam_bounds:bounds('div', {10,'+inf'}, {2,4}),
 
     any = beam_bounds:bounds('div', {10,'+inf'}, {0,0}),
-    {'EXIT', {badarith, _}} = catch division_bounds_1([], ok),
+    ?assertError(badarith, division_bounds_1([], ok)),
 
     {-10,10} = beam_bounds:bounds('div', {0,10}, any),
     {-50,50} = beam_bounds:bounds('div', {-50,-15}, {-10,'+inf'}),
@@ -236,13 +238,13 @@ bnot_bounds(_Config) ->
 
     -1 = bnot_bounds_2(0),
     -43 = bnot_bounds_2_coverage(id(42)),
-    {'EXIT',{badarith,_}} = catch bnot_bounds_2_coverage(id(bad)),
+    ?assertError(badarith, bnot_bounds_2_coverage(id(bad))),
 
-    {'EXIT',{_,_}} = catch bnot_bounds_3(id(true)),
-    {'EXIT',{_,_}} = catch bnot_bounds_3(id(false)),
-    {'EXIT',{_,_}} = catch bnot_bounds_3(id(0)),
+    ?assertError(_, bnot_bounds_3(id(true))),
+    ?assertError(_, bnot_bounds_3(id(false))),
+    ?assertError(_, bnot_bounds_3(id(0))),
 
-    {'EXIT',{{bad_generator,-3},_}} = catch bnot_bounds_4(),
+    ?assertError({bad_generator,-3}, bnot_bounds_4()),
 
     ok.
 

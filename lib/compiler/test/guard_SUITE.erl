@@ -28,6 +28,8 @@
 -include_lib("syntax_tools/include/merl.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
+-define(AssertFunctionClause(E), ?assertError(function_clause, (E))).
+
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 misc/1,const_cond/1,basic_not/1,complex_not/1,nested_nots/1,
@@ -134,7 +136,7 @@ misc(Config) when is_list(Config) ->
     error = if abs(Zero > One) -> ok; true -> error end,
     ok = if is_integer(Zero) >= is_integer(One) -> ok end,
 
-    {'EXIT',{function_clause,_}} = catch misc_4(),
+    ?AssertFunctionClause(misc_4()),
 
     ok.
 
@@ -1020,7 +1022,7 @@ and_guard(Config) when is_list(Config) ->
     ok = relprod({'Set',a,b}, {'Set',a,b}),
     
     ok = and_same_var(42),
-    {'EXIT',{if_clause,_}} = (catch and_same_var(x)),
+    ?assertError(if_clause, and_same_var(x)),
     ok.
 
 and_same_var(V) ->
@@ -1307,10 +1309,8 @@ is_function_2(Config) when is_list(Config) ->
     true = is_function(id(fun() -> ok end), 0),
     false = is_function(id(fun ?MODULE:all/1), 0),
     false = is_function(id(fun() -> ok end), 1),
-    {'EXIT',{badarg,_}} =
-        (catch is_function(id(fun() -> ok end), -1) orelse error),
-    {'EXIT',{badarg,_}} =
-        (catch is_function(id(fun() -> ok end), '') orelse error),
+    ?assertError(badarg, is_function(id(fun() -> ok end), -1) orelse error),
+    ?assertError(badarg, is_function(id(fun() -> ok end), '') orelse error),
 
     F = fun(_) -> ok end,
     if
@@ -1359,9 +1359,9 @@ tricky(Config) when is_list(Config) ->
     error = tricky_3(#{}),
     error = tricky_3({a,b}),
 
-    {'EXIT',_} = (catch tricky_4(x)),
-    {'EXIT',_} = (catch tricky_4(42)),
-    {'EXIT',_} = (catch tricky_4(true)),
+    ?assertError(_, tricky_4(x)),
+    ?assertError(_, tricky_4(42)),
+    ?assertError(_, tricky_4(true)),
 
     ok.
 
@@ -2328,19 +2328,19 @@ cqlc(M, F, As, St) ->
 andalso_semi(Config) when is_list(Config) ->
     ok = andalso_semi_foo(0),
     ok = andalso_semi_foo(1),
-    fc(catch andalso_semi_foo(2)),
+    ?AssertFunctionClause(andalso_semi_foo(2)),
 
     ok = andalso_semi_bar([a,b,c]),
     ok = andalso_semi_bar(1),
-    fc(catch andalso_semi_bar([a,b])),
+    ?AssertFunctionClause(andalso_semi_bar([a,b])),
 
     ok = andalso_semi_dispatch(name, fun andalso_semi/1),
     ok = andalso_semi_dispatch(name, fun ?MODULE:andalso_semi/1),
     ok = andalso_semi_dispatch(name, {?MODULE,andalso_semi,1}),
-    fc(catch andalso_semi_dispatch(42, fun andalso_semi/1)),
-    fc(catch andalso_semi_dispatch(name, not_fun)),
-    fc(catch andalso_semi_dispatch(name, fun andalso_semi_dispatch/2)),
-    fc(catch andalso_semi_dispatch(42, {a,b})),
+    ?AssertFunctionClause(andalso_semi_dispatch(42, fun andalso_semi/1)),
+    ?AssertFunctionClause(andalso_semi_dispatch(name, not_fun)),
+    ?AssertFunctionClause(andalso_semi_dispatch(name, fun andalso_semi_dispatch/2)),
+    ?AssertFunctionClause(andalso_semi_dispatch(42, {a,b})),
 
     ok.
 
@@ -2357,8 +2357,8 @@ andalso_semi_dispatch(Registry, MFAOrFun) when
 
 t_tuple_size(Config) when is_list(Config) ->
     10 = do_tuple_size({1,2,3,4}),
-    fc(catch do_tuple_size({1,2,3})),
-    fc(catch do_tuple_size(42)),
+    ?AssertFunctionClause(do_tuple_size({1,2,3})),
+    ?AssertFunctionClause(do_tuple_size(42)),
 
     error = ludicrous_tuple_size({a,b,c}),
     error = ludicrous_tuple_size([a,b,c]),
@@ -2397,11 +2397,15 @@ validate_ip(_) ->
 %%
 %% The binary_part/2,3 guard BIFs
 %%
--define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
-mask_error({'EXIT',{Err,_}}) ->
-    Err;
-mask_error(Else) ->
-    Else.
+-define(MASK_ERROR(EXPR), mask_error(fun() -> EXPR end)).
+mask_error(ExprFun) ->
+    try ExprFun() of
+        Result ->
+            Result
+    catch
+        error:Error ->
+            Error
+    end.
 
 %% Test the binary_part/2,3 guard (GC) BIFs.
 binary_part(Config) when is_list(Config) ->
@@ -2563,21 +2567,21 @@ bad_constants(Config) when is_list(Config) ->
 bad_guards(Config) when is_list(Config) ->
     if erlang:float(self()); true -> ok end,
 
-    fc(catch bad_guards_1(1, [])),
-    fc(catch bad_guards_1(1, [2])),
-    fc(catch bad_guards_1(atom, [2])),
+    ?AssertFunctionClause(bad_guards_1(1, [])),
+    ?AssertFunctionClause(bad_guards_1(1, [2])),
+    ?AssertFunctionClause(bad_guards_1(atom, [2])),
 
-    fc(catch bad_guards_2(#{a=>0,b=>0}, [])),
-    fc(catch bad_guards_2(#{a=>0,b=>0}, [x])),
-    fc(catch bad_guards_2(not_a_map, [x])),
-    fc(catch bad_guards_2(42, [x])),
+    ?AssertFunctionClause(bad_guards_2(#{a=>0,b=>0}, [])),
+    ?AssertFunctionClause(bad_guards_2(#{a=>0,b=>0}, [x])),
+    ?AssertFunctionClause(bad_guards_2(not_a_map, [x])),
+    ?AssertFunctionClause(bad_guards_2(42, [x])),
 
-    fc(catch bad_guards_3(#{a=>0,b=>0}, [])),
-    fc(catch bad_guards_3(#{a=>0,b=>0}, [x])),
-    fc(catch bad_guards_3(not_a_map, [x])),
-    fc(catch bad_guards_3(42, [x])),
+    ?AssertFunctionClause(bad_guards_3(#{a=>0,b=>0}, [])),
+    ?AssertFunctionClause(bad_guards_3(#{a=>0,b=>0}, [x])),
+    ?AssertFunctionClause(bad_guards_3(not_a_map, [x])),
+    ?AssertFunctionClause(bad_guards_3(42, [x])),
 
-    fc(catch bad_guards_4()),
+    ?AssertFunctionClause(bad_guards_4()),
 
     {0,undefined} = bad_guards_5(id(<<>>), id(undefined)),
 
@@ -2624,7 +2628,7 @@ guard_in_catch(_Config) ->
     {'EXIT',{if_clause,_}} = do_guard_in_catch_map_2(#{a=>b}),
     {'EXIT',{if_clause,_}} = do_guard_in_catch_map_2(atom),
 
-    {'EXIT',{if_clause,_}} = (catch do_guard_in_catch_map_3()),
+    ?assertError(if_clause, do_guard_in_catch_map_3()),
 
     {'EXIT',{if_clause,_}} = do_guard_in_catch_bin(42),
     {'EXIT',{if_clause,_}} = do_guard_in_catch_bin(<<1,2,3>>),
@@ -2762,9 +2766,9 @@ before_and_inside_if_2(XDo1, XDo2, Do3) ->
 
 scotland() ->
     million = do_scotland(placed),
-    {'EXIT',{{badmatch,placed},_}} = (catch do_scotland(false)),
-    {'EXIT',{{badmatch,placed},_}} = (catch do_scotland(true)),
-    {'EXIT',{{badmatch,placed},_}} = (catch do_scotland(echo)),
+    ?assertError({badmatch,placed}, do_scotland(false)),
+    ?assertError({badmatch,placed}, do_scotland(true)),
+    ?assertError({badmatch,placed}, do_scotland(echo)),
     ok.
 
 do_scotland(Echo) ->
@@ -2781,8 +2785,8 @@ found(_, _) -> million.
 
 %% ERL-143: beam_bool could not handle Y registers as a destination.
 y_registers() ->
-    {'EXIT',{badarith,[_|_]}} = (catch baker(valentine)),
-    {'EXIT',{badarith,[_|_]}} = (catch baker(clementine)),
+    ?assertError(badarith, baker(valentine)),
+    ?assertError(badarith, baker(clementine)),
 
     {not_ok,true} = potter([]),
     {ok,false} = potter([{encoding,any}]),
@@ -2809,10 +2813,10 @@ potter(Modes) ->
     {Final,Raw}.
 
 protected() ->
-    {'EXIT',{if_clause,_}} = (catch photographs({1, surprise, true}, opinions)),
+    ?assertError(if_clause, photographs({1, surprise, true}, opinions)),
 
     {{true}} = welcome({perfect, true}),
-    {'EXIT',{if_clause,_}} = (catch welcome({perfect, false})),
+    ?assertError(if_clause, welcome({perfect, false})),
     ok.
 
 photographs({_Violation, surprise, Deep}, opinions) ->
@@ -3178,7 +3182,7 @@ gh4788() ->
     ok = do_gh4788(id(0)),
     ok = do_gh4788(id(1)),
     ok = do_gh4788(id(undefined)),
-    lt_0_or_undefined = catch do_gh4788(id(-1)),
+    ?assertThrow(lt_0_or_undefined, do_gh4788(id(-1))),
     ok.
 
 do_gh4788(N) ->
@@ -3270,7 +3274,7 @@ beam_ssa_bool_coverage_6(_) ->
 
 gh_6164() ->
     true = do_gh_6164(id([])),
-    {'EXIT',{{case_clause,42},_}} = catch do_gh_6164(id(0)),
+    ?assertError({case_clause,42}, do_gh_6164(id(0))),
 
     ok.
 
@@ -3286,9 +3290,9 @@ do_gh_6164(V1) ->
     end.
 
 gh_6184() ->
-    {'EXIT',{function_clause,_}} = catch do_gh_6184(id(true), id({a,b,c})),
-    {'EXIT',{function_clause,_}} = catch do_gh_6184(true, true),
-    {'EXIT',{function_clause,_}} = catch do_gh_6184({a,b,c}, {x,y,z}),
+    ?AssertFunctionClause(do_gh_6184(id(true), id({a,b,c}))),
+    ?AssertFunctionClause(do_gh_6184(true, true)),
+    ?AssertFunctionClause(do_gh_6184({a,b,c}, {x,y,z})),
 
     ok.
 
@@ -3353,10 +3357,10 @@ gh_7370(_) ->
     b.
 
 gh_7517() ->
-    ok = catch do_gh_7517([]),
-    ok = catch do_gh_7517([a,b,c]),
-    {'EXIT',{function_clause,_}} = catch do_gh_7517(ok),
-    {'EXIT',{function_clause,_}} = catch do_gh_7517(<<>>),
+    ok = do_gh_7517([]),
+    ok = do_gh_7517([a,b,c]),
+    ?AssertFunctionClause(do_gh_7517(ok)),
+    ?AssertFunctionClause(do_gh_7517(<<>>)),
     ok.
 
 do_gh_7517(A) when (ok /= A) or is_float(is_list(A) orelse ok andalso ok) ->
@@ -3519,5 +3523,3 @@ check(F, Result) ->
 	    io:format("     Got: ~p\n", [Other]),
 	    ct:fail(check_failed)
     end.
-
-fc({'EXIT',{function_clause,_}}) -> ok.

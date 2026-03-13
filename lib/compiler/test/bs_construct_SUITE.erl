@@ -35,6 +35,7 @@
          strings/1,bad_size/1,private_append/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -88,7 +89,7 @@ id(I) -> I.
 -define(T(B, L), {B, ??B, L}).
 -define(N(B), {B, ??B, unknown}).
 
--define(FAIL(Expr), {'EXIT',{badarg,_}} = (catch Expr)).
+-define(FAIL(Expr), ?assertError(badarg, Expr)).
 
 l(I_13, I_big1, I_16, Bin) ->
     [
@@ -205,12 +206,14 @@ evaluate(Str, Vars) ->
 eval_list([], _Vars) ->
     [];
 eval_list([{C_bin, Str, Bytes} | Rest], Vars) ->
-    case catch evaluate(Str, Vars) of
-	{'EXIT', Error} ->
-	    io:format("Evaluation error: ~p, ~p, ~p~n", [Str, Vars, Error]),
-	    exit(Error);
+    try evaluate(Str, Vars) of
 	E_bin ->
 	    [{C_bin, E_bin, Str, Bytes} | eval_list(Rest, Vars)]
+    catch
+        error:Error:Stack ->
+            io:format("Evaluation error: ~p, ~p, ~p\n~p~n",
+                      [Str, Vars, Error, Stack]),
+            erlang:raise(error, Error, Stack)
     end.
 
 one_test({C_bin, E_bin, Str, Bytes}) when is_list(Bytes) ->
@@ -300,62 +303,62 @@ fail(Config) when is_list(Config) ->
     %% One negative field size, but the sum of field sizes will be 1 byte.
     %% Make sure that we reject that properly.
 
-    {'EXIT',{badarg,_}} = (catch <<I_minus_777:2048/unit:8,
+    ?assertError(badarg, <<I_minus_777:2048/unit:8,
 				   57:I_minus_2047/unit:8>>),
 
     %% Same thing, but use literals.
-    {'EXIT',{badarg,_}} = (catch <<I_minus_777:2048/unit:8,
+    ?assertError(badarg, <<I_minus_777:2048/unit:8,
 				   57:(-2047)/unit:8>>),
 
     %% Not numbers.
-    {'EXIT',{badarg,_}} = (catch <<45:(i(not_a_number))>>),
-    {'EXIT',{badarg,_}} = (catch <<13:8,45:(i(not_a_number))>>),
+    ?assertError(badarg, <<45:(i(not_a_number))>>),
+    ?assertError(badarg, <<13:8,45:(i(not_a_number))>>),
 
     %% Unaligned sizes.
     BadSz = i(7),
     Bitstr = i(<<42:17>>),
 
-    {'EXIT',{badarg,_}} = (catch <<Bitstr:4/binary>>),
-    {'EXIT',{badarg,_}} = (catch <<Bitstr:BadSz/binary>>),
+    ?assertError(badarg, <<Bitstr:4/binary>>),
+    ?assertError(badarg, <<Bitstr:BadSz/binary>>),
 
     [] = [X || {X} <- [], X == <<Bitstr:BadSz/binary>>],
     [] = [X || {X} <- [], X == <<Bitstr:4/binary>>],
 
     %% Literals with incorrect type.
-    {'EXIT',{badarg,_}} = (catch <<42.0/integer>>),
-    {'EXIT',{badarg,_}} = (catch <<42/binary>>),
-    {'EXIT',{badarg,_}} = (catch <<an_atom/integer>>),
+    ?assertError(badarg, <<42.0/integer>>),
+    ?assertError(badarg, <<42/binary>>),
+    ?assertError(badarg, <<an_atom/integer>>),
 
     %% Bad literal sizes
     Bin = i(<<>>),
-    {'EXIT',{badarg,_}} = (catch <<0:(-1)>>),
-    {'EXIT',{badarg,_}} = (catch <<Bin/binary,0:(-1)>>),
-    {'EXIT',{badarg,_}} = (catch <<0:(-(1 bsl 100))>>),
-    {'EXIT',{badarg,_}} = (catch <<Bin/binary,0:(-(1 bsl 100))>>),
+    ?assertError(badarg, <<0:(-1)>>),
+    ?assertError(badarg, <<Bin/binary,0:(-1)>>),
+    ?assertError(badarg, <<0:(-(1 bsl 100))>>),
+    ?assertError(badarg, <<Bin/binary,0:(-(1 bsl 100))>>),
 
     %% Unaligned sizes with literal binaries.
-    {'EXIT',{badarg,_}} = (catch <<0,(<<7777:17>>)/binary>>),
+    ?assertError(badarg, <<0,(<<7777:17>>)/binary>>),
 
     %% Make sure that variables are bound even if binary
     %% construction fails.
-    {'EXIT',{badarg,_}} = (catch case <<face:(V0 = 42)>> of
+    ?assertError(badarg, case <<face:(V0 = 42)>> of
                                     _Any -> V0
                                 end),
-    {'EXIT',{badarg,_}} = (catch case <<face:(V1 = 3)>> of
+    ?assertError(badarg, case <<face:(V1 = 3)>> of
                                      a when V1 ->
                                          office
                                  end),
-    {'EXIT',{badarg,_}} = (catch <<13:(put(?FUNCTION_NAME, 17))>>),
+    ?assertError(badarg, <<13:(put(?FUNCTION_NAME, 17))>>),
     17 = erase(?FUNCTION_NAME),
-    {'EXIT',{badarg,_}} = (catch fail_1()),
+    ?assertError(badarg, fail_1()),
 
     %% Size exceeds length of binary. 'native' is redundant for
     %% binaries, but when it was present sys_core_fold would not
     %% detect the overlong binary and beam_ssa_opt would crash.
-    {'EXIT',{badarg,_}} = (catch << <<$t/little-signed>>:42/native-bytes >>),
-    {'EXIT',{badarg,_}} = (catch << <<$t/little-signed>>:42/bytes >>),
+    ?assertError(badarg, << <<$t/little-signed>>:42/native-bytes >>),
+    ?assertError(badarg, << <<$t/little-signed>>:42/bytes >>),
 
-    {'EXIT',{badarg,_}} = catch fail_2(true),
+    ?assertError(badarg, fail_2(true)),
 
     ok.
 
@@ -402,7 +405,7 @@ in_guard(Config) when is_list(Config) ->
     ok = in_guard_4(<<15:4>>, 255),
     nope = in_guard_4(<<15:8>>, 255),
 
-    nope = catch in_guard_5(),
+    nope = in_guard_5(),
 
     ok.
 
@@ -502,8 +505,16 @@ nasty_literals(Config) when is_list(Config) ->
 
     %% GH-6643: Excessively large literals could cause the compiler to run out
     %% of memory.
-    catch id(<<0:16777216/big-integer-unit:1>>),
-    catch id(<<0:(16777216*2)/big-integer-unit:1>>),
+    try
+        id(<<0:16777216/big-integer-unit:1>>)
+    catch
+        error:_ -> ok
+    end,
+    try
+        id(<<0:(16777216*2)/big-integer-unit:1>>)
+    catch
+        error:_ -> ok
+    end,
 
     ok.
 
@@ -550,8 +561,8 @@ coerce_to_float(Config) when is_list(Config) ->
     ok.
 
 side_effect(Config) when is_list(Config) ->
-    {'EXIT',{badarg,_}} = (catch side_effect_1(a)),
-    {'EXIT',{badarg,_}} = (catch side_effect_1(<<>>)),
+    ?assertError(badarg, side_effect_1(a)),
+    ?assertError(badarg, side_effect_1(<<>>)),
     ok = side_effect_1(42),
     ok.
 
@@ -575,15 +586,15 @@ opt(Config) when is_list(Config) ->
     <<1,2,3,4,5,19>> = id(<<B:5/binary,19>>),
     <<1,2,3,42>> = id(<<B:3/binary,42>>),
 
-    {'EXIT',_} = (catch <<<<23,56,0,2>>:(2.5)/binary>>),
-    {'EXIT',_} = (catch <<<<23,56,0,2>>:(-16)/binary>>),
-    {'EXIT',_} = (catch <<<<23,56,0,2>>:(anka)>>),
-    {'EXIT',_} = (catch <<<<23,56,0,2>>:64/float>>),
-    {'EXIT',_} = (catch <<<<23,56,0,2:7>>/binary>>),
+    ?assertError(_, <<<<23,56,0,2>>:(2.5)/binary>>),
+    ?assertError(_, <<<<23,56,0,2>>:(-16)/binary>>),
+    ?assertError(_, <<<<23,56,0,2>>:(anka)>>),
+    ?assertError(_, <<<<23,56,0,2>>:64/float>>),
+    ?assertError(_, <<<<23,56,0,2:7>>/binary>>),
 
     %% Test constant propagation - there should be a warning.
     BadSz = 2.5,
-    {'EXIT',_} = (catch <<<<N,56,0,2>>:BadSz/binary>>),
+    ?assertError(_, <<<<N,56,0,2>>:BadSz/binary>>),
 
     case id(false) of
 	true -> opt_dont_call_me();
@@ -666,10 +677,10 @@ strings(Config) ->
     <<L:32,?LONG_STRING>> = Bin,
 
     %% Bad sizes for empty strings.
-    {'EXIT',{badarg,_}} = (catch <<"":(-42)>>),
-    {'EXIT',{badarg,_}} = (catch <<"":bad_size>>),
-    {'EXIT',{badarg,_}} = (catch bad_empty_string_1()),
-    {'EXIT',{badarg,_}} = (catch bad_empty_string_2()),
+    ?assertError(badarg, <<"":(-42)>>),
+    ?assertError(badarg, <<"":bad_size>>),
+    ?assertError(badarg, bad_empty_string_1()),
+    ?assertError(badarg, bad_empty_string_2()),
     error = bad_empty_string_3(),
     error = bad_empty_string_4(true),
     error = bad_empty_string_4(false),
@@ -691,15 +702,15 @@ bad_empty_string_4(V) when <<"","eFN"/utf8-native>>, V -> ok;
 bad_empty_string_4(_) -> error.
 
 bad_size(_Config) ->
-    {'EXIT',{badarg,_}} = (catch bad_float_size()),
-    {'EXIT',{badarg,_}} = (catch bad_float_size(<<"abc">>)),
-    {'EXIT',{badarg,_}} = (catch bad_integer_size()),
-    {'EXIT',{badarg,_}} = (catch bad_integer_size(<<"xyz">>)),
-    {'EXIT',{badarg,_}} = (catch bad_integer_size2()),
-    {'EXIT',{badarg,_}} = (catch bad_binary_size()),
-    {'EXIT',{badarg,_}} = (catch bad_binary_size(<<"xyz">>)),
-    {'EXIT',{badarg,_}} = (catch bad_binary_size2()),
-    {'EXIT',{badarg,_}} = (catch bad_binary_size3(id(<<"abc">>))),
+    ?assertError(badarg, bad_float_size()),
+    ?assertError(badarg, bad_float_size(<<"abc">>)),
+    ?assertError(badarg, bad_integer_size()),
+    ?assertError(badarg, bad_integer_size(<<"xyz">>)),
+    ?assertError(badarg, bad_integer_size2()),
+    ?assertError(badarg, bad_binary_size()),
+    ?assertError(badarg, bad_binary_size(<<"xyz">>)),
+    ?assertError(badarg, bad_binary_size2()),
+    ?assertError(badarg, bad_binary_size3(id(<<"abc">>))),
     ok.
 
 bad_float_size() ->
@@ -739,7 +750,7 @@ private_append(_Config) ->
                             <<"beta">> => <<"beta">> }),
 
     <<>> = private_append_2(false),
-    {'EXIT', _} = catch private_append_2(true),
+    ?assertError(_, private_append_2(true)),
 
     {ok,<<>>} = private_append_3(id(<<>>)),
     {error,<<"wrong parity">>} = private_append_3(id(<<1>>)),

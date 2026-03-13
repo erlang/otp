@@ -27,6 +27,7 @@
          fconv_line_numbers/1,float_zero/1,exception_signals/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -63,10 +64,7 @@ match_on_zero_and_to_binary(X) when X == 0.0 -> <<X/float>>.
 %% Shows the effect of pending exceptions on the x86.
 
 pending(Config) when is_list(Config) ->
-    case catch float_mul(1, 1.1e300, 3.14e300) of
-	{'EXIT',{badarith,_}} -> ok;
-	Other -> ct:fail({expected_exception,Other})
-    end,
+    ?assertError(badarith, float_mul(1, 1.1e300, 3.14e300)),
     0.0 = float_sub(2.0).
 
 float_sub(A)->
@@ -81,11 +79,11 @@ float_mul(Iter, A, B) when is_float(A), is_float(B) ->
 %% Thanks to Mikael Pettersson and Tobias Lindahl (HiPE).
 
 bif_calls(Config) when is_list(Config) ->
-    {'EXIT',{badarith,_}} = (catch bad_arith(2.0, 1.7)),
-    {'EXIT',{badarith,_}} = (catch bad_arith_again(2.0, [])),
-    {'EXIT',{badarith,_}} = (catch bad_arith_xor(2.0, [])),
-    {'EXIT',{badarith,_}} = (catch bad_arith_hd(2.0, [])),
-    {'EXIT',{badarith,_}} = (catch bad_negate(2.0, 1.7)),
+    ?assertError(badarith, bad_arith(2.0, 1.7)),
+    ?assertError(badarith, bad_arith_again(2.0, [])),
+    ?assertError(badarith, bad_arith_xor(2.0, [])),
+    ?assertError(badarith, bad_arith_hd(2.0, [])),
+    ?assertError(badarith, bad_negate(2.0, 1.7)),
     ok.
 
 bad_arith(X, Y) when is_float(X) ->
@@ -172,20 +170,20 @@ math_functions(Config) when is_list(Config) ->
     -1.0 = math:fmod(-4.0, 1.5),
     -0.375 = math:fmod(-3.0, -0.875),
     0.125 = math:fmod(8.125, -4),
-    {'EXIT',{badarith,_}} = (catch math:fmod(5.0, 0.0)),
+    ?assertError(badarith, math:fmod(5.0, 0.0)),
 
     %% Only for coverage (of beam_type.erl).
-    {'EXIT',{undef,_}} = (catch math:fnurfla(0)),
-    {'EXIT',{undef,_}} = (catch math:fnurfla(0, 0)),
-    {'EXIT',{badarg,_}} = (catch float(kalle)),
-    {'EXIT',{badarith,_}} = (catch name/1),
+    ?assertError(undef, math:fnurfla(0)),
+    ?assertError(undef, math:fnurfla(0, 0)),
+    ?assertError(badarg, float(kalle)),
+    ?assertError(badarith, name/1),
     ok.
 
 mixed_float_and_int(Config) when is_list(Config) ->
     129.0 = pc(77, 23, 5),
 
-    {'EXIT',{badarith,_}} = catch mixed_1(id({a,b,c})),
-    {'EXIT',{{badarg,1/42},_}} = catch mixed_1(id(42)),
+    ?assertError(badarith, mixed_1(id({a,b,c}))),
+    ?assertError({badarg,1/42}, mixed_1(id(42))),
 
     ok.
 

@@ -31,6 +31,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
+-include("test_lib.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -225,10 +226,10 @@ strict_list(Config) when is_list(Config) ->
     [] = strict_list_mixed_1([], []),
     [11,22] = strict_list_mixed_1([{i,1},{i,2}], [{i,10},{i,20}]),
     [13,25] = strict_list_mixed_1([{i,3},{i,4},{i,5}], [{i,10},bad,{i,20}]),
-    {'EXIT',{{bad_generators,{[bad,{i,5}],[{i,15},{i,20}]}},_}} =
-        catch strict_list_mixed_1([{i,3},bad,{i,5}], [{i,10},{i,15},{i,20}]),
-    {'EXIT',{{bad_generators,{[{i,5}],[]}},_}} =
-        catch strict_list_mixed_1([{i,3},{i,5}], [bad]),
+    ?assertError({bad_generators,{[bad,{i,5}],[{i,15},{i,20}]}},
+                 strict_list_mixed_1([{i,3},bad,{i,5}], [{i,10},{i,15},{i,20}])),
+    ?assertError({bad_generators,{[{i,5}],[]}},
+                 strict_list_mixed_1([{i,3},{i,5}], [bad])),
 
     [] = strict_list_mixed_2([], #{}),
     [15] = strict_list_mixed_2([{i,3}], #{{k,4} => {v,3}}),
@@ -239,21 +240,21 @@ strict_list(Config) when is_list(Config) ->
                  strict_list_mixed_2([{i,I} || I <- Seq100],
                                      #{{k,3*I} => {v,7*I} || I <- Seq100})),
     SimpleMap = #{{k,1} => {v,2}},
-    {'EXIT',{{bad_generators,{[{a,3}],{{k,1},{v,2},none}}},_}} =
-        catch strict_list_mixed_2([{a,3}], SimpleMap),
-    {'EXIT',{{bad_generators,{[],{{k,1},{v,2},none}}},_}} =
-        catch strict_list_mixed_2([], SimpleMap),
+    ?assertError({bad_generators,{[{a,3}],{{k,1},{v,2},none}}},
+                 strict_list_mixed_2([{a,3}], SimpleMap)),
+    ?assertError({bad_generators,{[],{{k,1},{v,2},none}}},
+                 strict_list_mixed_2([], SimpleMap)),
 
     [] = strict_list_strict_1([], []),
     [11,22] = strict_list_strict_1([{i,1},{i,2}], [{i,10},{i,20}]),
-    {'EXIT',{{bad_generators,{[bad,{i,5}],[{i,15},{i,20}]}},_}} =
-        catch strict_list_strict_1([{i,3},bad,{i,5}], [{i,10},{i,15},{i,20}]),
-    {'EXIT',{{bad_generators,{[{i,4},{i,5}],[{wrong_tag,7},{i,20}]}},_}} =
-        catch strict_list_strict_1([{i,3},{i,4},{i,5}], [{i,10},{wrong_tag,7},{i,20}]),
-    {'EXIT',{{bad_generators,{[{a,b,c},{i,5}],[{wrong_tag,7},{i,20}]}},_}} =
-        catch strict_list_strict_1([{i,3},{a,b,c},{i,5}], [{i,10},{wrong_tag,7},{i,20}]),
-    {'EXIT',{{bad_generators,{[{i,5}],[]}},_}} =
-        catch strict_list_strict_1([{i,3},{i,5}], [{i,7}]),
+    ?assertError({bad_generators,{[bad,{i,5}],[{i,15},{i,20}]}},
+                 strict_list_strict_1([{i,3},bad,{i,5}], [{i,10},{i,15},{i,20}])),
+    ?assertError({bad_generators,{[{i,4},{i,5}],[{wrong_tag,7},{i,20}]}},
+                 strict_list_strict_1([{i,3},{i,4},{i,5}], [{i,10},{wrong_tag,7},{i,20}])),
+    ?assertError({bad_generators,{[{a,b,c},{i,5}],[{wrong_tag,7},{i,20}]}},
+                 strict_list_strict_1([{i,3},{a,b,c},{i,5}], [{i,10},{wrong_tag,7},{i,20}])),
+    ?assertError({bad_generators,{[{i,5}],[]}},
+                 strict_list_strict_1([{i,3},{i,5}], [{i,7}])),
 
     [] = strict_list_strict_2([], [], <<>>),
     [5,23] = strict_list_strict_2([{i,1},{i,2}], [{i,2},{i,7}], <<3,9>>),
@@ -261,48 +262,47 @@ strict_list(Config) when is_list(Config) ->
                  strict_list_strict_2([{i,2*I} || I <- Seq100],
                                       [{i,3*I} || I <- Seq100],
                                       list_to_binary(Seq100))),
-    {'EXIT',{{bad_generators,{[{i,2}],[{i,7}],<<9:7>>}},_}} =
-        catch strict_list_strict_2([{i,1},{i,2}], [{i,2},{i,7}], <<3,9:7>>),
-    {'EXIT',{{bad_generators,{[],[],[]}},_}} =
-        catch strict_list_strict_2([], [], []),
-    {'EXIT',{{bad_generators,{[{i,0}],[],<<>>}},_}} =
-        catch strict_list_strict_2([{i,0}], [], <<>>),
-    {'EXIT',{{bad_generators,{[{i,0}],[{bad,5}],<<99>>}},_}} =
-        catch strict_list_strict_2([{i,0}], [{bad,5}], <<99>>),
-    {'EXIT',{{bad_generators,{[{i,20}],[{i,21}],<<42:7>>}},_}} =
-        catch strict_list_strict_2([{i,20}], [{i,21}], <<42:7>>),
+    ?assertError({bad_generators,{[{i,2}],[{i,7}],<<9:7>>}},
+                 strict_list_strict_2([{i,1},{i,2}], [{i,2},{i,7}], <<3,9:7>>)),
+    ?assertError({bad_generators,{[],[],[]}},
+                 strict_list_strict_2([], [], [])),
+    ?assertError({bad_generators,{[{i,0}],[],<<>>}},
+                 strict_list_strict_2([{i,0}], [], <<>>)),
+    ?assertError({bad_generators,{[{i,0}],[{bad,5}],<<99>>}},
+                 strict_list_strict_2([{i,0}], [{bad,5}], <<99>>)),
+    ?assertError({bad_generators,{[{i,20}],[{i,21}],<<42:7>>}},
+                 strict_list_strict_2([{i,20}], [{i,21}], <<42:7>>)),
 
     [] = strict_list_strict_3([], <<>>),
     [45] = strict_list_strict_3([{i,42}], <<3>>),
-    {'EXIT',{{bad_generators,{[],<<2>>}},_}} =
-        catch strict_list_strict_3([{i,1}], <<1,2>>),
-    {'EXIT',{{bad_generators,{[],<<0:7>>}},_}} =
-        catch strict_list_strict_3([], <<0:7>>),
-    {'EXIT',{{bad_generators,{[{i,1}],<<0:7>>}},_}} =
-        catch strict_list_strict_3([{i,1}], <<0:7>>),
+    ?assertError({bad_generators,{[],<<2>>}},
+                 strict_list_strict_3([{i,1}], <<1,2>>)),
+    ?assertError({bad_generators,{[],<<0:7>>}},
+                 strict_list_strict_3([], <<0:7>>)),
+    ?assertError({bad_generators,{[{i,1}],<<0:7>>}},
+                 strict_list_strict_3([{i,1}], <<0:7>>)),
 
     [] = strict_list_strict_4([], <<>>),
     [100] = strict_list_strict_4([{i,100}], <<42>>),
-    {'EXIT',{{bad_generators,{[{i,100}],<<0>>}},_}} =
-        catch strict_list_strict_4([{i,100}], <<0>>),
-    {'EXIT',{{bad_generators,{[{i,100}],<<>>}},_}} =
-        catch strict_list_strict_4([{i,100}], <<>>),
-    {'EXIT',{{bad_generators,{[{i,100}],<<0:8,1:1>>}},_}} =
-        catch strict_list_strict_4([{i,100}], <<0:8,1:1>>),
+    ?assertError({bad_generators,{[{i,100}],<<0>>}},
+                 strict_list_strict_4([{i,100}], <<0>>)),
+    ?assertError({bad_generators,{[{i,100}],<<>>}},
+                 strict_list_strict_4([{i,100}], <<>>)),
+    ?assertError({bad_generators,{[{i,100}],<<0:8,1:1>>}},
+                 strict_list_strict_4([{i,100}], <<0:8,1:1>>)),
 
     NaN = <<-1:64>>,
     [] = strict_list_5(<<>>, <<>>),
     [3.14] = strict_list_5(<<0:1,1:1>>, <<32,0.0:32/float, 64,3.14:64/float>>),
     [+0.0,3.14] = strict_list_5(<<1:1,1:1>>, <<32,0.0:32/float, 64,3.14:64/float>>),
-    {'EXIT',{{bad_generators,{<<>>,<<64,42.0/float>>}},_}} =
-        catch strict_list_5(<<>>, <<64,42.0/float>>),
-    {'EXIT',{{bad_generators,{<<0:1,1:1>>,
-                              <<117,-1:117/signed,32,17.0:32/float>>}},_}} =
-        catch strict_list_5(<<0:1,1:1>>, <<117,-1:117, 32,17.0:32/float>>),
-    {'EXIT',{{bad_generators,{<<0:1>>,<<64,NaN/binary>>}},_}} =
-        catch strict_list_5(<<1:1,0:1>>, <<32,42.0:32/float, 64,NaN/binary>>),
-    {'EXIT',{{bad_generators,{<<1:1>>,<<64,NaN/binary>>}},_}} =
-        catch strict_list_5(<<1:1,1:1>>, <<32,42.0:32/float, 64,NaN/binary>>),
+    ?assertError({bad_generators,{<<>>,<<64,42.0/float>>}},
+                 strict_list_5(<<>>, <<64,42.0/float>>)),
+    ?assertError({bad_generators,{<<0:1,1:1>>,<<117,-1:117/signed,32,17.0:32/float>>}},
+                 strict_list_5(<<0:1,1:1>>, <<117,-1:117, 32,17.0:32/float>>)),
+    ?assertError({bad_generators,{<<0:1>>,<<64,NaN/binary>>}},
+                 strict_list_5(<<1:1,0:1>>, <<32,42.0:32/float, 64,NaN/binary>>)),
+    ?assertError({bad_generators,{<<1:1>>,<<64,NaN/binary>>}},
+                 strict_list_5(<<1:1,1:1>>, <<32,42.0:32/float, 64,NaN/binary>>)),
 
     ok.
 
@@ -334,7 +334,8 @@ strict_binary(Config) when is_list(Config) ->
     Seq100 = lists:seq(1, 100),
 
     <<2,4,6>> = << <<(X+Y)>> || X <:- [1,2,3] && <<Y>> <= <<1,2,3>>>>,
-    {'EXIT',{{bad_generators,{<<3>>,[{2,3}]}},_}} = catch << <<(X+Y)>> || <<X>> <:= <<1,2,3>> && {X, Y} <- [{1,1},{2,2},{2,3}]>>,
+    ?assertError({bad_generators,{<<3>>,[{2,3}]}},
+                 << <<(X+Y)>> || <<X>> <:= <<1,2,3>> && {X, Y} <- [{1,1},{2,2},{2,3}]>>),
     <<2,24>> = << <<(X*Y*Z)>> || X := Y <:- #{1 => 2, 3 => 4} && <<Z>> <:= <<1,2>> >>,
 
     <<>> = strict_binary_1(#{}, <<>>),
@@ -342,9 +343,9 @@ strict_binary(Config) when is_list(Config) ->
     ?assertEqual(<< <<(5*I * 3*I * I):64>> || I <- Seq100 >>,
                  strict_binary_1(maps:iterator(#{5*I => {val,3*I} || I <- Seq100}, ordered),
                                  list_to_binary(Seq100))),
-    {'EXIT',{{bad_generators,{none,<<42:8>>}},_}} = catch strict_binary_1(#{}, <<42:8>>),
-    {'EXIT',{{bad_generators,{none,<<42:7>>}},_}} = catch strict_binary_1(#{}, <<42:7>>),
-    {'EXIT',{{bad_generators,{none,<<0:4>>}},_}} = catch strict_binary_1(#{2 => {val,3}}, <<0,0:4>>),
+    ?assertError({bad_generators,{none,<<42:8>>}}, strict_binary_1(#{}, <<42:8>>)),
+    ?assertError({bad_generators,{none,<<42:7>>}}, strict_binary_1(#{}, <<42:7>>)),
+    ?assertError({bad_generators,{none,<<0:4>>}}, strict_binary_1(#{2 => {val,3}}, <<0,0:4>>)),
 
     <<>> = strict_binary_mixed_1(<<>>, #{}, #{}),
     <<>> = strict_binary_mixed_1(<<1:2>>, #{}, #{}),
@@ -357,16 +358,16 @@ strict_binary(Config) when is_list(Config) ->
                  strict_binary_mixed_1(<<-1:100>>,
                                        #{I => {v,I} || I <- Seq100},
                                        #{I => {v,-I} || I <- Seq100})),
-    {'EXIT',{{bad_generators,{<<0:1>>,{0,0,none},{0,{v,7},none}}},_}} =
-        catch strict_binary_mixed_1(<<0:1>>, #{0 => 0}, #{0 => {v,7}}),
+    ?assertError({bad_generators,{<<0:1>>,{0,0,none},{0,{v,7},none}}},
+                 strict_binary_mixed_1(<<0:1>>, #{0 => 0}, #{0 => {v,7}})),
 
     Island = ~"skärgårdsö",
     IslandSeq = lists:seq(1, length([C || <<C/utf8>> <= Island])),
     ?assertEqual(<< <<I:8,C:32>> ||
                      {I,C} <:- lists:zip(IslandSeq, [C || <<C/utf8>> <= Island]) >>,
                  strict_binary_utf8(IslandSeq, Island)),
-    {'EXIT',{{bad_generators,{[4,5,6,7,8],<<16#ff,16#ff,"def">>}},_}} =
-        catch strict_binary_utf8(lists:seq(1, 8), <<"abc",16#ff,16#ff,"def">>),
+    ?assertError({bad_generators,{[4,5,6,7,8],<<16#ff,16#ff,"def">>}},
+                 strict_binary_utf8(lists:seq(1, 8), <<"abc",16#ff,16#ff,"def">>)),
 
     ok.
 
@@ -385,39 +386,53 @@ strict_binary_mixed_1(Bin, MapA0, MapB0) ->
       end || <<N:1>> <= Bin && _ := {v,V1} <:- MapA && _ := {v,V2} <- MapB>>.
 
 nomatch(Config) when is_list(Config) ->
-    [] = do_nomatch_1([], []),
-    [] = do_nomatch_1([1], [a]),
-    [] = do_nomatch_1([1,2], [a,b]),
-    {'EXIT',{{bad_generators,{[1,2,3],[]}},_}} = do_nomatch_1([1,2,3], []),
-    {'EXIT',{{bad_generators,{[3],[]}},_}} = do_nomatch_1([1,2,3], [a,b]),
+    [] = do_nomatch_1a([], []),
+    [] = do_nomatch_1b([], []),
+    [] = do_nomatch_1c([1], [a]),
+
+    [] = do_nomatch_1a([1,2], [a,b]),
+    [] = do_nomatch_1b([1,2], [a,b]),
+    [] = do_nomatch_1c([1,2], [a,b]),
+
+    ?assertError({bad_generators,{[],[1,2,3]}}, do_nomatch_1a([1,2,3], [])),
+    ?assertError({bad_generators,{[1,2,3],[]}}, do_nomatch_1b([1,2,3], [])),
+    ?assertError({bad_generators,{[1,2,3],[]}}, do_nomatch_1c([1,2,3], [])),
+
+    ?assertError({bad_generators,{[],[3]}}, do_nomatch_1a([1,2,3], [a,b])),
+    ?assertError({bad_generators,{[3],[]}}, do_nomatch_1b([1,2,3], [a,b])),
+    ?assertError({bad_generators,{[3],[]}}, do_nomatch_1c([1,2,3], [a,b])),
 
     <<>> = do_nomatch_2([], <<>>),
     <<>> = do_nomatch_2([a], <<1>>),
-    {'EXIT',{{bad_generators,{[2],<<>>}},_}} = do_nomatch_2([1,2], <<3>>),
+    ?assertError({bad_generators,{[2],<<>>}}, do_nomatch_2([1,2], <<3>>)),
     ok.
 
-do_nomatch_1(L1, L2) ->
-    catch [{X, Y} || Y <- L2 && a=b=X <- L1],
-    catch [{X, Y} || a=b=X <- L1 && Y <:- L2],
-    catch [{X, Y} || a=b=X <- L1 && Y <- L2].
+do_nomatch_1a(L1, L2) ->
+    [{X, Y} || Y <- L2 && a=b=X <- L1].
+
+do_nomatch_1b(L1, L2) ->
+    [{X, Y} || a=b=X <- L1 && Y <:- L2].
+
+do_nomatch_1c(L1, L2) ->
+    [{X, Y} || a=b=X <- L1 && Y <- L2].
 
 do_nomatch_2(L, Bin) ->
-    catch << <<(X+Y)/integer>> || a=b=X <- L && <<Y>> <= Bin >>.
+    << <<(X+Y)/integer>> || a=b=X <- L && <<Y>> <= Bin >>.
 
 bad_generators(Config) when is_list(Config) ->
-    {'EXIT',{{bad_generators,{x,[1,2]}},_}} =
-        catch [{X,Y} || X <- x && Y <- [1,2]],
-    {'EXIT',{{bad_generators,{[],[4]}},_}} =
-        catch [{X,Y} || X <- [1,2,3] && Y <- [1,2,3,4]],
-    {'EXIT',{{bad_generators,{[3,4],[]}},_}} =
-        catch [{X,Y} || X <- [1,2,3,4] && Y <- [1,2], X < 3],
-    {'EXIT',{{bad_generators,{[3,4],[]}},_}} =
-        catch << <<(X+Y)/integer>> || X <- [1,2,3,4] && Y <- [1,2], X < 3>>,
-    {'EXIT',{{bad_generators,{<<1,2>>,a}},_}} =
-        catch << <<X:16>> || <<X:16>> <= <<1:8,2:8>> && <<X:8>> <= a>>,
-    {'EXIT',{{bad_generator,a},_}} = catch [X || X := X <- a && _Y <- [1]],
-    {'EXIT',{{bad_generators,{[d],[]}},_}} =
-        catch #{X => Y || X <- [a,b,c,d] && Y <- [1,2,3], Y > 1},
+    ?assertError({bad_generators,{x,[1,2]}},
+                 [{X,Y} || X <- x && Y <- [1,2]]),
+    ?assertError({bad_generators,{[],[4]}},
+                 [{X,Y} || X <- [1,2,3] && Y <- [1,2,3,4]]),
+    ?assertError({bad_generators,{[3,4],[]}},
+                 [{X,Y} || X <- [1,2,3,4] && Y <- [1,2], X < 3]),
+    ?assertError({bad_generators,{[3,4],[]}},
+                 << <<(X+Y)/integer>> || X <- [1,2,3,4] && Y <- [1,2], X < 3>>),
+    ?assertError({bad_generators,{<<1,2>>,a}},
+                 << <<X:16>> || <<X:16>> <= <<1:8,2:8>> && <<X:8>> <= a>>),
+    ?assertError({bad_generator,a}, [X || X := X <- a && _Y <- [1]]),
+    ?assertError({bad_generators,{[d],[]}},
+                 #{X => Y || X <- [a,b,c,d] && Y <- [1,2,3], Y > 1}),
     ?assertError({bad_generator,gen}, [ok || 0 <:- [a] && _ := true <- gen]),
 
     %% Make sure that line numbers point out the generator.
@@ -426,27 +441,28 @@ bad_generators(Config) when is_list(Config) ->
             %% No inline suite for now. Just a guard in case we add it later.
             ok;
         _ ->
-            {'EXIT',{{bad_generators,{[],[4]}},
-                     [{?MODULE,_,_,
-                       [{file,"bad_zlc.erl"},{line,4}]}|_]}} =
-                catch bad_generators([1,2,3],[1,2,3,4]),
+            ?AssertErrorStack({bad_generators,{[],[4]}},
+                              [{?MODULE,_,_,
+                                [{file,"bad_zlc.erl"},{line,4}]}|_],
+                              bad_generators([1,2,3],[1,2,3,4])),
 
-            {'EXIT',{{bad_generators,{a,[2,3]}},
-                     [{?MODULE,_,_,
-                       [{file,"bad_zlc.erl"},{line,7}]}|_]}} =
-                catch bad_generators_bc(a,[2,3]),
+            ?AssertErrorStack({bad_generators,{a,[2,3]}},
+                              [{?MODULE,_,_,
+                                [{file,"bad_zlc.erl"},{line,7}]}|_],
+                              bad_generators_bc(a,[2,3])),
 
-            {'EXIT',{{bad_generators,{[2],[]}},
-                     [{?MODULE,_,_,
-                       [{file,"bad_zlc.erl"},{line,10}]}|_]}} =
-                catch bad_generators_mc([1,2],[1]),
+            ?AssertErrorStack({bad_generators,{[2],[]}},
+                              [{?MODULE,_,_,
+                                [{file,"bad_zlc.erl"},{line,10}]}|_],
+                              bad_generators_mc([1,2],[1])),
 
             %% List comprehensions with improper lists.
-            {'EXIT',{{bad_generators,{d,[d]}},
-                     [{?MODULE,_,_,
-                       [{file,"bad_zlc.erl"},{line,4}]}|_]}} =
-                catch bad_generators([a,b,c|d],[a,b,c,d])
+            ?AssertErrorStack({bad_generators,{d,[d]}},
+                              [{?MODULE,_,_,
+                                [{file,"bad_zlc.erl"},{line,4}]}|_],
+                              bad_generators([a,b,c|d],[a,b,c,d]))
     end,
+
     ok.
 
 %% Cover some code in sys_coverage.
@@ -479,32 +495,33 @@ do_cover_1(L1, L2) ->
 
 strict_pat(Config) when is_list(Config) ->
     [a] = strict_pat_1([a], [a], [a]),
-    {'EXIT',{{bad_generators,{[b],[a],[a]}},_}} =
-        catch strict_pat_1([b], [a], [a]),
-    {'EXIT',{{bad_generators,{[b],[a],[b]}},_}} =
-        catch strict_pat_1([b], [a], [b]),
-    {'EXIT',{{bad_generators,{[b],[a],[b]}},_}} =
-        catch strict_pat_1([a,b], [a,a], [a,b]),
+    ?assertError({bad_generators,{[b],[a],[a]}},
+                 strict_pat_1([b], [a], [a])),
+    ?assertError({bad_generators,{[b],[a],[b]}},
+                 strict_pat_1([b], [a], [b])),
+    ?assertError({bad_generators,{[b],[a],[b]}},
+                 strict_pat_1([a,b], [a,a], [a,b])),
 
     [{a,b}] = strict_pat_2([{a,b}], [b], [a]),
     [] = strict_pat_2([{a,b}], [b], [b]),
-    {'EXIT',{{bad_generators,{[{a,b}],[a],[b]}},_}} =
-        catch strict_pat_2([{a,b}], [a], [b]),
+    ?assertError({bad_generators,{[{a,b}],[a],[b]}},
+                 strict_pat_2([{a,b}], [a], [b])),
 
     #{1:= 2} = strict_pat_3(#{1=>2}, #{1=>3}),
-    {'EXIT',{{bad_generators,{{1,2,none},{2,3,none}}},_}} =
-        catch strict_pat_3(#{1=>2}, #{2=>3}),
+    ?assertError({bad_generators,{{1,2,none},{2,3,none}}},
+                 strict_pat_3(#{1=>2}, #{2=>3})),
 
     [{a,b,c}] = strict_pat_4([{{a,b},c}], [c]),
     [] = strict_pat_4([{[a,b],c}], [c]),
     [] = strict_pat_4([{no_tuple,c}], [c]),
-    {'EXIT',{{bad_generators,{[{{a,b},c}],[d]}},_}} =
-        catch strict_pat_4([{{a,b},c}], [d]),
+    ?assertError({bad_generators,{[{{a,b},c}],[d]}},
+                 strict_pat_4([{{a,b},c}], [d])),
 
     [{a,1}] = strict_pat_5([a], [#{a=>1}], [1]),
     [{a,1},{a,2}] = strict_pat_5([a], [#{a=>1},#{a=>2}], [1,2]),
-    {'EXIT',{{bad_generators,{[#{a:=1},#{a:=2}],[2,1]}},_}} =
-        catch strict_pat_5([a], [#{a=>1},#{a=>2}], [2,1]),
+    ?assertError({bad_generators,{[#{a:=1},#{a:=2}],[2,1]}},
+                 strict_pat_5([a], [#{a=>1},#{a=>2}], [2,1])),
+
     ok.
 
 strict_pat_1(G1, G2, G3) ->
@@ -516,8 +533,11 @@ strict_pat_2(G1, G2, G3) ->
     [{X,Y} || {X,Y} <- G1 && Y <:- G2 && X <- G3].
 
 strict_pat_3(G1, G2) ->
-    catch #{K => V || a=b=K := V <- G1 && K := _ <:- G2},
-    #{K => V || K := V <- G1 && K := _ <:- G2}.
+    case #{K => V || a=b=K := V <- G1 && K := _ <:- G2} of
+        Map when map_size(Map) =:= 0 ->
+            ok
+    end,
+    Res = #{K => V || K := V <- G1 && K := _ <:- G2}.
 
 strict_pat_4(G1, G2) ->
     Res = [{X,Y,Z} || {{X,Y},Z} <- G1 && Z <:- G2],
