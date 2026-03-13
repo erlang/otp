@@ -567,9 +567,11 @@ do_srv_call(Node, Request, Timeout) ->
     try
         gen_server:call({?NAME, Node}, Request, Timeout)
     of
+        {'EXIT', {{nodedown, _}, _}} -> {badrpc, nodedown};
         {'EXIT', _} = Exit -> {badrpc, Exit};
         Result -> Result
     catch
+        throw:{'EXIT', {{nodedown, _}, _}} -> {badrpc, nodedown};
         throw:{'EXIT', _} = Exit -> {badrpc, Exit};
         throw:Result -> Result;
         exit:{timeout, _} -> {badrpc, timeout};
