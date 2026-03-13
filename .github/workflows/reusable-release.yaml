@@ -127,12 +127,33 @@ jobs:
           name: "Attestations"
           path: "attestations/*.sigstore"
 
+      - name: Mark as latest
+        id: latest-release
+        run: |
+          gh api \
+          repos/erlang/otp/contents/otp_versions.table?ref=master \
+          --header "Accept: application/vnd.github.raw+json" > otp_versions.table
+
+          OTP_TAG=$(head -n1 otp_versions.table | awk '{print $1}')
+
+          echo "OTP tag in table: $OTP_TAG"
+          echo "Current release tag:    ${{ github.ref_name }}"
+
+          if [ "$OTP_TAG" = "${{ github.ref_name }}" ]; then
+            echo "latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "latest=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
       - name: Upload pre-built and doc tar archives
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           tag_name: ${{ inputs.tag }}
           name: OTP ${{ inputs.vsn }}
+          make_latest: ${{ steps.latest-release.outputs.latest }}
           files: |
             artifacts/*.tar.gz
             artifacts/*.txt
