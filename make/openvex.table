@@ -1,6 +1,33 @@
 {
   "otp-26": [
     {
+      "pkg:otp/ssh@5.0": "CVE-2026-23942",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssh@5.1.4.14",
+        "fixed": [
+          "pkg:otp/ssh@5.1.4.14"
+        ]
+      }
+    },
+    {
+      "pkg:otp/ssh@5.0": "CVE-2026-23943",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssh@5.1.4.14",
+        "fixed": [
+          "pkg:otp/ssh@5.1.4.14"
+        ]
+      }
+    },
+    {
+      "pkg:otp/inets@9.0": "CVE-2026-23941",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/inets@9.1.0.5",
+        "fixed": [
+          "pkg:otp/inets@9.1.0.5"
+        ]
+      }
+    },
+    {
       "pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc": "CVE-2026-27171",
       "status": {
         "apps": [
@@ -267,6 +294,33 @@
   ],
   "otp-27": [
     {
+      "pkg:otp/ssh@5.2": "CVE-2026-23942",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssh@5.2.11.6",
+        "fixed": [
+          "pkg:otp/ssh@5.2.11.6"
+        ]
+      }
+    },
+    {
+      "pkg:otp/ssh@5.2": "CVE-2026-23943",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssh@5.2.11.6",
+        "fixed": [
+          "pkg:otp/ssh@5.2.11.6"
+        ]
+      }
+    },
+    {
+      "pkg:otp/inets@9.2": "CVE-2026-23941",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/inets@9.3.2.3",
+        "fixed": [
+          "pkg:otp/inets@9.3.2.3"
+        ]
+      }
+    },
+    {
       "pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc": "CVE-2026-27171",
       "status": {
         "apps": [
@@ -523,6 +577,33 @@
     }
   ],
   "otp-28": [
+    {
+      "pkg:otp/ssh@5.3": "CVE-2026-23942",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssh@5.5.1",
+        "fixed": [
+          "pkg:otp/ssh@5.5.1"
+        ]
+      }
+    },
+    {
+      "pkg:otp/ssh@5.3": "CVE-2026-23943",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssh@5.5.1",
+        "fixed": [
+          "pkg:otp/ssh@5.5.1"
+        ]
+      }
+    },
+    {
+      "pkg:otp/inets@9.4": "CVE-2026-23941",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/inets@9.6.1",
+        "fixed": [
+          "pkg:otp/inets@9.6.1"
+        ]
+      }
+    },
     {
       "pkg:github//KhronosGroup/OpenGL-Refpages@dc585039bbd426829e3433002023a93f9bedd0c2": "CVE-2024-58249",
       "status": {
