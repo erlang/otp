@@ -97,7 +97,7 @@ Sets up a connection to `Node`. Returns `pong` if it is successful, otherwise
       Node :: atom().
 
 ping(Node) when is_atom(Node) ->
-    case catch gen:call({net_kernel, Node},
+    case catch gen_gen:call({net_kernel, Node},
 			'$gen_call',
 			{is_auth, node()},
 			infinity) of

@@ -571,7 +571,7 @@ start(Procs) ->
 %%
 %%       A second case where this can occur is if a child spec is
 %%       incorrect and get_modules is called against a process that
-%%       can't respond to the gen:call. Again an error is logged,
+%%       can't respond to the gen_gen:call. Again an error is logged,
 %%       an error returned and a VM restart is issued.
 %%
 %% Returns: [{SuperPid, ChildName, ChildPid, Mods}]
@@ -676,7 +676,7 @@ get_proc_state(Proc) ->
     end.
 
 maybe_get_dynamic_mods(Name, Pid) ->
-    try gen:call(Pid, self(), get_modules) of
+    try gen_gen:call(Pid, self(), get_modules) of
         {ok, Res} ->
             Res
     catch

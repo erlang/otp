@@ -3101,12 +3101,12 @@ reply_by_alias_with_payload(Config) when is_list(Config) ->
         {[[alias|Alias]|_] = Tag, Reply} ->
             ok
     end,
-    %% Check gen:reply/2 as well...
+    %% Check gen_gen:reply/2 as well...
     Reply2 = make_ref(),
     Alias2 = alias(),
     Tag2 = [[alias|Alias2], "payload"],
     spawn_link(fun () ->
-                       gen:reply({undefined, Tag2},
+                       gen_gen:reply({undefined, Tag2},
                                  Reply2)
                end),
     receive
