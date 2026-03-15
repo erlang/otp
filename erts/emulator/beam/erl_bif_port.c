@@ -1489,25 +1489,57 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
     int   code;
     char  delimiter = '\n';
 
-    switch (BIF_ARG_1) {
-    case make_small(0): case am_raw: type = TCP_PB_RAW; break;
-    case make_small(1): type = TCP_PB_1; break;
-    case make_small(2): type = TCP_PB_2; break;
-    case make_small(4): type = TCP_PB_4; break;
-    case am_asn1: type = TCP_PB_ASN1; break;
-    case am_sunrm: type = TCP_PB_RM; break;
-    case am_cdr: type = TCP_PB_CDR; break;
-    case am_fcgi: type = TCP_PB_FCGI; break;
-    case am_line: type = TCP_PB_LINE_LF; break;
-    case am_tpkt: type = TCP_PB_TPKT; break;
-    case am_http: type = TCP_PB_HTTP; break;
-    case am_httph: type = TCP_PB_HTTPH; break;
-    case am_http_bin: type = TCP_PB_HTTP_BIN; break;
-    case am_httph_bin: type = TCP_PB_HTTPH_BIN; break;
-    case am_ssl_tls: type = TCP_PB_SSL_TLS; break;
-    default:
-        BIF_P->fvalue = am_badopt;
-        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+    if (is_tuple(BIF_ARG_1)) {
+        Eterm *tpl = tuple_val(BIF_ARG_1);
+
+        if (tpl[0] == make_arityval(2)) {
+            switch (tpl[2]) {
+            case am_little:
+                switch (tpl[1]) {
+                case make_small(2): type = TCP_PB_2_LITTLE; break;
+                case make_small(3): type = TCP_PB_3_LITTLE; break;
+                case make_small(4): type = TCP_PB_4_LITTLE; break;
+                default: goto badarg;
+                };
+                break;
+            case am_big:
+                switch (tpl[1]) {
+                case make_small(2): type = TCP_PB_2; break;
+                case make_small(3): type = TCP_PB_3; break;
+                case make_small(4): type = TCP_PB_4; break;
+                default: goto badarg;
+                };
+                break;
+            default:
+                goto badarg;
+            }
+        } else {
+        badarg:
+            BIF_P->fvalue = am_badopt;
+            BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+        }
+    } else {
+        switch (BIF_ARG_1) {
+        case make_small(0): case am_raw: type = TCP_PB_RAW; break;
+        case make_small(1): type = TCP_PB_1; break;
+        case make_small(2): type = TCP_PB_2; break;
+        case make_small(3): type = TCP_PB_3; break;
+        case make_small(4): type = TCP_PB_4; break;
+        case am_asn1: type = TCP_PB_ASN1; break;
+        case am_sunrm: type = TCP_PB_RM; break;
+        case am_cdr: type = TCP_PB_CDR; break;
+        case am_fcgi: type = TCP_PB_FCGI; break;
+        case am_line: type = TCP_PB_LINE_LF; break;
+        case am_tpkt: type = TCP_PB_TPKT; break;
+        case am_http: type = TCP_PB_HTTP; break;
+        case am_httph: type = TCP_PB_HTTPH; break;
+        case am_http_bin: type = TCP_PB_HTTP_BIN; break;
+        case am_httph_bin: type = TCP_PB_HTTPH_BIN; break;
+        case am_ssl_tls: type = TCP_PB_SSL_TLS; break;
+        default:
+            BIF_P->fvalue = am_badopt;
+            BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+        }
     }
 
     if (!is_bitstring(BIF_ARG_2) ||
