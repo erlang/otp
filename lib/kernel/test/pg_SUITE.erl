@@ -1,4 +1,7 @@
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %%
 %% Copyright WhatsApp Inc. and its affiliates. All rights reserved.
 %%
@@ -13,6 +16,8 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% %CopyrightEnd%
 %%
 %%-------------------------------------------------------------------
 %% @author Maxim Fedorov <maximfca@gmail.com>
@@ -754,7 +759,7 @@ second_monitor(Scope, Group, Control, SecondMonitor) ->
 second_monitor(Msgs) ->
     receive
         {'$gen_call', Reply, flush} ->
-            gen:reply(Reply, lists:reverse(Msgs));
+            gen_gen:reply(Reply, lists:reverse(Msgs));
         Msg ->
             second_monitor([Msg | Msgs])
     end.

@@ -550,7 +550,7 @@ send(Dest, To, Message) ->
                      stdio = <<>> :: binary(),
                      %% peer state
                      peer_state = booting :: peer_state(),
-                     %% pid/ref saved for gen:reply() when node is booted, or false
+                     %% pid/ref saved for gen_gen:reply() when node is booted, or false
                      notify = false :: false | {pid(), reference()},
                      %% counter (reference) for calls.
                      %% it is not possible to use erlang reference, or pid,
@@ -989,7 +989,7 @@ handle_alternative_data(_Kind, {message, To, Content}, State) ->
     State;
 handle_alternative_data(_Kind, {reply, Seq, Class, Result}, #peer_state{outstanding = Out} = State) ->
     {From, NewOut} = maps:take(Seq, Out),
-    gen:reply(From, {Class, Result}),
+    gen_gen:reply(From, {Class, Result}),
     State#peer_state{outstanding = NewOut};
 handle_alternative_data(_Kind, {started, NodeName}, State)->
     boot_complete(NodeName, started, State).
