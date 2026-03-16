@@ -597,25 +597,63 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
  * Error is indicated by the Z flag.
  */
 void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
-    emit_enter_runtime_frame();
-    emit_enter_runtime();
+    Label exit = a.newLabel(), generic = a.newLabel();
 
-    a.mov(ARG1, c_p);
-    lea(ARG4, TMP_MEM4q); /* quotient out */
-    lea(TMP, TMP_MEM5q);  /* remainder out */
-    a.sub(a32::sp, a32::sp, imm(8)); /* keep AAPCS alignment */
-    a.str(TMP, arm::Mem(a32::sp, 0)); /* arg5 */
-    runtime_call<5>(erts_int_div_rem);
-    a.add(a32::sp, a32::sp, imm(8));
+    /* Speculatively go ahead with the division. */
+    a.asr(TMP, ARG2, imm(_TAG_IMMED1_SIZE)); /* lhs int */
+    a.asr(VAR, ARG3, imm(_TAG_IMMED1_SIZE)); /* rhs int */
+    a.sdiv(ARG4, TMP, VAR);                  /* quotient int */
+    a.mul(ARG1, ARG4, VAR);
+    a.sub(VAR, TMP, ARG1);                   /* remainder int */
 
-    emit_leave_runtime();
-    emit_leave_runtime_frame();
+    a.cmp(ARG3, imm(make_small(0)));
+    a.b_eq(exit);
 
-    /* Z=1 signals error, Z=0 success. */
-    a.tst(ARG1, ARG1);
-    a.ldr(ARG1, TMP_MEM4q);
-    a.ldr(ARG2, TMP_MEM5q);
-    a.bx(a32::lr);
+    /* Check whether both operands are small integers. */
+    ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+    a.and_(TMP, ARG2, ARG3);
+    a.and_(TMP, TMP, imm(_TAG_IMMED1_MASK));
+    a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+    a.b_ne(generic);
+
+    /* MIN_SMALL divided by -1 will overflow and must use generic path. */
+    a.asr(TMP, ARG4, imm(SMALL_BITS - 1));
+    a.cmp(TMP, imm(1));
+    a.b_ge(generic);
+
+    /* The Z flag is now clear (meaning no error). */
+    a.lsl(ARG1, ARG4, imm(_TAG_IMMED1_SIZE));
+    a.orr(ARG1, ARG1, imm(_TAG_IMMED1_SMALL));
+    a.lsl(ARG2, VAR, imm(_TAG_IMMED1_SIZE));
+    a.orr(ARG2, ARG2, imm(_TAG_IMMED1_SMALL));
+
+    a.bind(exit);
+    {
+        a.bx(a32::lr);
+    }
+
+    a.bind(generic);
+    {
+        emit_enter_runtime_frame();
+        emit_enter_runtime();
+
+        a.mov(ARG1, c_p);
+        lea(ARG4, TMP_MEM4q); /* quotient out */
+        lea(TMP, TMP_MEM5q);  /* remainder out */
+        a.sub(a32::sp, a32::sp, imm(8)); /* keep AAPCS alignment */
+        a.str(TMP, arm::Mem(a32::sp, 0)); /* arg5 */
+        runtime_call<5>(erts_int_div_rem);
+        a.add(a32::sp, a32::sp, imm(8));
+
+        emit_leave_runtime();
+        emit_leave_runtime_frame();
+
+        a.tst(ARG1, ARG1);
+        a.ldr(ARG1, TMP_MEM4q);
+        a.ldr(ARG2, TMP_MEM5q);
+
+        a.bx(a32::lr);
+    }
 }
 
 /* ARG2 = LHS
@@ -625,41 +663,86 @@ void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
  * Quotient is returned in ARG1, remainder in ARG2.
  */
 void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
-    Label generic_error = a.newLabel();
+    Label div_zero = a.newLabel(), generic_div = a.newLabel(),
+          generic_error = a.newLabel();
 
-    emit_enter_runtime_frame();
-    emit_enter_runtime();
+    /* Speculatively go ahead with the division. */
+    a.asr(VAR, ARG2, imm(_TAG_IMMED1_SIZE)); /* lhs int */
+    a.asr(TMP, ARG3, imm(_TAG_IMMED1_SIZE)); /* rhs int */
+    a.sdiv(ARG1, VAR, TMP);                  /* quotient int */
 
-    /* Save original args and MFA for the error path. */
-    a.str(ARG2, TMP_MEM1q);
-    a.str(ARG3, TMP_MEM2q);
-    a.str(ARG4, TMP_MEM3q);
+    a.cmp(ARG3, imm(make_small(0)));
+    a.b_eq(div_zero);
 
-    a.mov(ARG1, c_p);
-    lea(ARG4, TMP_MEM4q); /* quotient out */
-    lea(TMP, TMP_MEM5q);  /* remainder out */
-    a.sub(a32::sp, a32::sp, imm(8)); /* keep AAPCS alignment */
-    a.str(TMP, arm::Mem(a32::sp, 0)); /* arg5 */
-    runtime_call<5>(erts_int_div_rem);
-    a.add(a32::sp, a32::sp, imm(8));
+    /* Check whether both operands are small integers. */
+    ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+    a.and_(TMP, ARG2, ARG3);
+    a.and_(TMP, TMP, imm(_TAG_IMMED1_MASK));
+    a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+    a.b_ne(generic_div);
 
-    emit_leave_runtime();
-    emit_leave_runtime_frame();
+    /* MIN_SMALL divided by -1 will overflow and must use generic path. */
+    a.asr(TMP, ARG1, imm(SMALL_BITS - 1));
+    a.cmp(TMP, imm(1));
+    a.b_ge(generic_div);
 
-    a.tst(ARG1, ARG1);
-    a.b_eq(generic_error);
+    a.asr(TMP, ARG3, imm(_TAG_IMMED1_SIZE)); /* rhs int */
+    a.mul(ARG2, ARG1, TMP);
+    a.sub(ARG2, VAR, ARG2);                  /* remainder int */
+    a.lsl(ARG1, ARG1, imm(_TAG_IMMED1_SIZE));
+    a.orr(ARG1, ARG1, imm(_TAG_IMMED1_SMALL));
+    a.lsl(ARG2, ARG2, imm(_TAG_IMMED1_SIZE));
+    a.orr(ARG2, ARG2, imm(_TAG_IMMED1_SMALL));
 
-    a.ldr(ARG1, TMP_MEM4q);
-    a.ldr(ARG2, TMP_MEM5q);
     a.bx(a32::lr);
 
+    a.bind(generic_div);
+    {
+        emit_enter_runtime_frame();
+        emit_enter_runtime();
+
+        /* Save MFA and original arguments for the error path. */
+        a.str(ARG2, TMP_MEM1q);
+        a.str(ARG3, TMP_MEM2q);
+        a.str(ARG4, TMP_MEM3q);
+
+        a.mov(ARG1, c_p);
+        lea(ARG4, TMP_MEM4q); /* quotient out */
+        lea(TMP, TMP_MEM5q);  /* remainder out */
+        a.sub(a32::sp, a32::sp, imm(8)); /* keep AAPCS alignment */
+        a.str(TMP, arm::Mem(a32::sp, 0)); /* arg5 */
+        runtime_call<5>(erts_int_div_rem);
+        a.add(a32::sp, a32::sp, imm(8));
+
+        emit_leave_runtime();
+        emit_leave_runtime_frame();
+
+        a.tst(ARG1, ARG1);
+        a.ldr(ARG1, TMP_MEM4q);
+        a.ldr(ARG2, TMP_MEM5q);
+        a.b_eq(generic_error);
+
+        a.bx(a32::lr);
+    }
+
+    a.bind(div_zero);
+    {
+        mov_imm(TMP, EXC_BADARITH);
+        a.str(TMP, arm::Mem(c_p, offsetof(Process, freason)));
+        a.str(ARG2, getXRef(0));
+        a.str(ARG3, getXRef(1));
+        a.b(labels[raise_exception]);
+    }
+
     a.bind(generic_error);
-    a.ldr(ARG1, TMP_MEM1q);
-    a.str(ARG1, getXRef(0));
-    a.ldr(ARG1, TMP_MEM2q);
-    a.str(ARG1, getXRef(1));
-    a.ldr(ARG4, TMP_MEM3q); /* MFA */
-    a.b(labels[raise_exception]);
+    {
+        a.ldr(ARG1, TMP_MEM1q);
+        a.str(ARG1, getXRef(0));
+        a.ldr(ARG1, TMP_MEM2q);
+        a.str(ARG1, getXRef(1));
+        a.ldr(ARG4, TMP_MEM3q); /* MFA */
+        a.b(labels[raise_exception]);
+    }
 }
 
 void BeamModuleAssembler::emit_div_rem_literal(Sint divisor,
