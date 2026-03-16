@@ -61,8 +61,9 @@ void BeamModuleAssembler::emit_return() {
 }
 
 void BeamModuleAssembler::emit_move_deallocate_return() {
-    // TODO
-    emit_nyi("emit_move_deallocate_return");
+    a.ldmia(arm::Mem(E).pre(), a32::GpList({TMP, a32::lr}));
+    a.str(TMP, getXRef(0));
+    emit_dispatch_return();
 }
 
 void BeamModuleAssembler::emit_i_call(const ArgLabel &CallTarget) {

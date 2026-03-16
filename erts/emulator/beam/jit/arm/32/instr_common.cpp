@@ -717,16 +717,16 @@ void BeamModuleAssembler::emit_put_list2(const ArgSource &Hd1,
                                          const ArgSource &Hd2,
                                          const ArgSource &Tl,
                                          const ArgRegister &Dst) {
+    const arm::Mem put_cons = arm::Mem(HTOP).pre();
+    
     auto [hd1, hd2] = load_sources(Hd1, ARG1, Hd2, ARG2);
     auto tl = load_source(Tl, ARG3);
     auto dst = init_destination(Dst, ARG4);
 
-    safe_stmia(arm::Mem(HTOP), hd1.reg, tl.reg);
-    a.add(HTOP, HTOP, imm(sizeof(Eterm[2])));
+    safe_stmia(put_cons, hd1.reg, tl.reg);
     a.sub(dst.reg, HTOP, imm(sizeof(Eterm[2]) - TAG_PRIMARY_LIST));
 
-    safe_stmia(arm::Mem(HTOP), hd2.reg, dst.reg);
-    a.add(HTOP, HTOP, imm(sizeof(Eterm[2])));
+    safe_stmia(put_cons, hd2.reg, dst.reg);
     a.sub(dst.reg, HTOP, imm(sizeof(Eterm[2]) - TAG_PRIMARY_LIST));
 
     flush_var(dst);
