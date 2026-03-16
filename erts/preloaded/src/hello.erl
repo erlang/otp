@@ -17,47 +17,47 @@
 %% %CopyrightEnd%
 %%
 
-%%%
-%%% This module is a standalone module that tests most BEAM
-%%% instructions. It is designed to be replace the preloaded modules
-%%% in the Erlang runtime system. It can be useful when testing a new
-%%% JIT backend or new implementation of an Erlang machine and/or
-%%% Erlang compiler.
-%%%
+%%
+%% This module is a standalone module that tests most BEAM
+%% instructions. It is designed to be replace the preloaded modules
+%% in the Erlang runtime system. It can be useful when testing a new
+%% JIT backend or new implementation of an Erlang machine and/or
+%% Erlang compiler.
+%%
 
 %% Whether to run the embedded EStone test. Set to false to disable.
-%-define(RUN_ESTONE, true).
-%
+-define(RUN_ESTONE, true).
+
 -module(hello).
 -export([start/0, start/2, hello/1, undefined_function/3, id/1]).
-%
-%%% Internal exports.
+
+%% Internal exports.
 -export([process_main/1, basic_hibernator/1]).
-%
-%%% Internal exports for estone.
-%-compile({no_auto_import,[max/2]}).
-%-if(?RUN_ESTONE).
-%-export([lists/1,
-%         msgp/1,
-%         msgp_medium/1,
-%         msgp_huge/1,
-%         pattern/1,
-%         trav/1,
-%         large_dataset_work/1,
-%         large_local_dataset_work/1,mk_big_procs/1,big_proc/0, very_big/1,
-%         alloc/1,
-%         bif_dispatch/1,
-%         binary_h/1,echo/1,
-%         ets/1,
-%         generic/1,req/2,gserv/4,handle_call/3,
-%         int_arith/1,
-%         float_arith/1,
-%         fcalls/1,remote0/1,remote1/1,app0/1,app1/1,
-%         timer/1,
-%         links/1,lproc/1,
-%         run_micro/2,p1/1,ppp/3,ppp_loop/3,macro/1,micros/0]).
-%-endif.
-%
+
+%% Internal exports for estone.
+-compile({no_auto_import,[max/2]}).
+-if(?RUN_ESTONE).
+-export([lists/1,
+         msgp/1,
+         msgp_medium/1,
+         msgp_huge/1,
+         pattern/1,
+         trav/1,
+         large_dataset_work/1,
+         large_local_dataset_work/1,mk_big_procs/1,big_proc/0, very_big/1,
+         alloc/1,
+         bif_dispatch/1,
+         binary_h/1,echo/1,
+         ets/1,
+         generic/1,req/2,gserv/4,handle_call/3,
+         int_arith/1,
+         float_arith/1,
+         fcalls/1,remote0/1,remote1/1,app0/1,app1/1,
+         timer/1,
+         links/1,lproc/1,
+         run_micro/2,p1/1,ppp/3,ppp_loop/3,macro/1,micros/0]).
+-endif.
+
 %% Suitable entry point as the first process being started.
 %%
 %% To make the runtime system call this function as the very first
@@ -83,10 +83,10 @@ hello(BootArgs) ->
  
     erlang:display_string("Testing stuff (should not crash)...\n"),
     test(BootArgs),
-    erlang:display_string("Everything is fine!\n").
-%
-%    estone().
-%
+    erlang:display_string("Everything is fine!\n"),
+
+    estone().
+
 %% Suitable dummy process entry point for processes that must always be
 %% running such as erts_code_purger, erts_literal_area_collector, and
 %% so on.
@@ -1754,7 +1754,6 @@ test_load_nif() ->
         undefined ->
             prim_file:on_load(),
             prim_buffer:on_load(),
-            erlang:display_string("call_nifs\n"),
             call_nifs(),
 
             %% Wait for call_nif instruction to be patched in
@@ -1774,998 +1773,997 @@ call_nifs() ->
     erlang:display_string("CWD = " ++ Cwd ++ "\n"),
     ok.
 
-%%%%
-%%%% Here follows Estone, extracted from estone_SUITE. It's main
-%%%% purpose in this context is to test more instructions and
-%%%% more combinations of instructions.
-%%%%
-%
-%-if(not ?RUN_ESTONE).
-%estone() -> ok.
-%-else.
-%
-%%% EStone defines
-%-define(TOTAL, (3000 * 1000 * 100)).   %% 300 secs
-%-define(BIGPROCS, 2).
-%-define(BIGPROC_SIZE, 50).
-%-define(STONEFACTOR, 31000000).   %% Factor to make the reference
-%                             %% implementation to make 1000 TS_ESTONES.
-%-record(micro,
-%        {function, %% The name of the function implementing the micro
-%         weight,   %% How important is this in typical applications ??
-%         loops = 100,%% initial data
-%         tt1,      %% time to do one round
-%         str}).    %% Header string
-%
-%estone() ->
-%    OldErrorHandler = erlang:process_flag(error_handler, ?MODULE),
-%    erlang:display_string("\nRunning estone...\n"),
-%    Micros = micros(),
-%    L = macro(Micros),
-%    {_Total, Stones} = sum_micros(L, 0, 0),
-%    erlang:display_string(integer_to_list(Stones) ++ " ESTONES\n"),
-%    erlang:process_flag(error_handler, OldErrorHandler),
-%    ok.
-%
-%sum_micros([], Tot, Stones) -> {Tot, Stones};
-%sum_micros([H|T], Tot, Sto) ->
-%    sum_micros(T, ks(microsecs, H) + Tot, ks(estones, H) + Sto).
-%
-%ks(K, L) ->
-%    {value, {_, V}} = lists:keysearch(K, 1, L),
-%    V.
-%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%% EStone test
-%micro(lists) ->
-%     #micro{function = lists,
-%            weight = 7,
-%            loops = 6400,
-%            str = "list manipulation"};
-%micro(msgp) ->
-%    #micro{function = msgp,
-%            weight = 10,
-%            loops = 1515,
-%            str = "small messages"};
-%micro(msgp_medium) ->
-%    #micro{function = msgp_medium,
-%            weight = 14,
-%            loops = 1527,
-%            str = "medium messages"};
-%micro(msgp_huge) ->
-%    #micro{function = msgp_huge,
-%            weight = 4,
-%            loops = 52,
-%            str = "huge messages"};
-%
-%micro(pattern) ->
-%    #micro{function = pattern,
-%            weight = 5,
-%            loops = 1046,
-%            str = "pattern matching"};
-%
-%micro(trav) ->
-%    #micro{function = trav,
-%            weight = 4,
-%            loops = 2834,
-%            str = "traverse"};
-%
-%micro(large_dataset_work) ->
-%    #micro{function = large_dataset_work,
-%           weight = 3,
-%           loops = 1193,
-%           str = "Work with large dataset"};
-%
-%micro(large_local_dataset_work) ->
-%    #micro{function = large_local_dataset_work,
-%           weight = 3,
-%           loops = 1174,
-%           str = "Work with large local dataset"};
-%
-%micro(alloc) ->
-%    #micro{function = alloc,
-%           weight = 2,
-%           loops = 3710,
-%           str = "Alloc and dealloc"};
-%
-%micro(bif_dispatch) ->
-%    #micro{function = bif_dispatch,
-%           weight = 8,
-%           loops = 5623,
-%           str = "Bif dispatch"};
-%
-%micro(binary_h) ->
-%    #micro{function = binary_h,
-%           weight = 4,
-%           loops = 581,
-%           str = "Binary handling"};
-%micro(ets) ->
-%    #micro{function = ets,
-%           weight = 6,
-%           loops = 342,
-%           str = "ets datadictionary"};
-%micro(generic) ->
-%    #micro{function = generic,
-%           weight = 9,
-%           loops = 7977,
-%           str = "Generic server (with timeout)"};
-%micro(int_arith) ->
-%    #micro{function = int_arith,
-%           weight = 3,
-%           loops = 4157,
-%           str = "Small Integer arithmetic"};
-%micro(float_arith) ->
-%    #micro{function = float_arith,
-%           weight = 1,
-%           loops = 5526,
-%           str = "Float arithmetic"};
-%micro(fcalls) ->
-%    #micro{function = fcalls,
-%           weight = 5,
-%           loops = 882,
-%           str = "Function calls"};
-%
-%micro(timer) ->
-%    #micro{function = timer,
-%           weight = 2,
-%           loops = 2312,
-%           str = "Timers"};
-%
-%micro(links) ->
-%    #micro{function = links,
-%           weight = 1,
-%           loops = 30,
-%           str = "Links"}.
-%
-%
-%
-%%% Return a list of micro's
-%micros() ->
-%    [
-%     micro(lists),
-%     micro(msgp),
-%     micro(msgp_medium),
-%     micro(msgp_huge),
-%     micro(pattern),
-%     micro(trav),
-%     micro(large_dataset_work),
-%     micro(large_local_dataset_work),
-%     micro(alloc),
-%     micro(bif_dispatch),
-%     micro(binary_h),
-%     micro(ets),
-%     micro(generic),
-%     micro(int_arith),
-%     micro(float_arith),
-%     micro(fcalls),
-%     micro(timer),
-%     micro(links)
-%    ].
-%
-%macro(Ms) ->
-%    statistics(reductions),
-%    statistics(runtime),
-%    lists(500),                           % fixup cache on first round
-%    run_micros(Ms).
-%
-%run_micros([]) ->
-%    [];
-%run_micros([H|T]) ->
-%    R = run_micro(H),
-%    [R| run_micros(T)].
-%
-%run_micro(M) ->
-%    Pid = spawn(?MODULE, run_micro, [self(),M]),
-%    Res = receive {Pid, Reply} -> Reply end,
-%    {value,{title,Title}} = lists:keysearch(title,1,Reply),
-%    {value,{estones,Estones}} = lists:keysearch(estones,1,Reply),
-%    Res.
-%
-%run_micro(Top, M) ->
-%    Top ! {self(), apply_micro(M)}.
-%
-%apply_micro(M) ->
-%    statistics(reductions),
-%    Before = monotonic_time(),
-%    Compensate = apply_micro(M#micro.function, M#micro.loops),
-%    After = monotonic_time(),
-%    {_, Reds} = statistics(reductions),
-%    Elapsed = subtr(Before, After),
-%    MicroSecs = Elapsed - Compensate,
-%    [{title, M#micro.str},
-%     {tt1, M#micro.tt1},
-%     {function, M#micro.function},
-%     {weight_percentage, M#micro.weight},
-%     {loops, M#micro.loops},
-%     {microsecs,MicroSecs},
-%     {estones, (M#micro.weight * M#micro.weight * ?STONEFACTOR) div max(1,MicroSecs)},
-%     {kilo_reductions, Reds div 1000}
-%    ].
-%
-%max(A, B) when A < B -> B;
-%max(A, _) -> A.
-%
-%monotonic_time() ->
-%    erlang:monotonic_time().
-%
-%subtr(Before, After) when is_integer(Before), is_integer(After) ->
-%    convert_time_unit(After-Before, native, 1000000);
-%subtr({_,_,_}=Before, {_,_,_}=After) ->
-%    now_diff(After, Before).
-%
-%now_diff({A2, B2, C2}, {A1, B1, C1}) ->
-%    ((A2-A1)*1000000 + B2-B1)*1000000 + C2-C1.
-%
-%convert_time_unit(Time, FromUnit, ToUnit) ->
-%    try
-%        FU = case FromUnit of
-%                 native -> erts_internal:time_unit();
-%                 perf_counter -> erts_internal:perf_counter_unit();
-%                 nanosecond -> 1000*1000*1000;
-%                 microsecond -> 1000*1000;
-%                 millisecond -> 1000;
-%                 second -> 1;
-%
-%                 %% Deprecated symbolic units...
-%                 nano_seconds -> 1000*1000*1000;
-%                 micro_seconds -> 1000*1000;
-%                 milli_seconds -> 1000;
-%                 seconds -> 1;
-%
-%                 _ when FromUnit > 0 -> FromUnit
-%             end,
-%        TU = case ToUnit of
-%                 native -> erts_internal:time_unit();
-%                 perf_counter -> erts_internal:perf_counter_unit();
-%                 nanosecond -> 1000*1000*1000;
-%                 microsecond -> 1000*1000;
-%                 millisecond -> 1000;
-%                 second -> 1;
-%
-%                 %% Deprecated symbolic units...
-%                 nano_seconds -> 1000*1000*1000;
-%                 micro_seconds -> 1000*1000;
-%                 milli_seconds -> 1000;
-%                 seconds -> 1;
-%
-%                 _ when ToUnit > 0 -> ToUnit
-%             end,
-%        case Time < 0 of
-%            true -> TU*Time - (FU - 1);
-%            false -> TU*Time
-%        end div FU
-%    catch
-%        _ : _ ->
-%            error(badarg, [Time, FromUnit, ToUnit])
-%    end.
-%
-%tc(M, F, A) ->
-%    T1 = erlang:monotonic_time(),
-%    Val = apply(M, F, A),
-%    T2 = erlang:monotonic_time(),
-%    Time = convert_time_unit(T2 - T1, native, microsecond),
-%    {Time, Val}.
-%
-%duplicate(N, X) when is_integer(N), N >= 0 -> duplicate(N, X, []).
-%
-%duplicate(0, _, L) -> L;
-%duplicate(N, X, L) -> duplicate(N-1, X, [X|L]).
-%
-%apply_micro(Name, Loops) ->
-%    erlang:display({Name,Loops}),
-%    apply(?MODULE, Name, [Loops]).
-%
-%%%%%%%%%%%%% micro bench manipulating lists. %%%%%%%%%%%%%%%%%%%%%%%%%
-%lists(I) ->
-%    L1 = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-%    L2 = "aaaaaaaaaa",
-%    lists(I, L1, L2).
-%
-%lists(0, _,_) ->
-%    0;
-%lists(I, L1, L2) ->
-%    revt(10, L1),
-%    appt(10, L1, L2),
-%    lists(I-1, L1, L2).
-%
-%revt(0, _) ->
-%    done;
-%revt(I, L) ->
-%    reverse(L),
-%    revt(I-1, L).
-%
-%reverse(L) ->
-%    reverse(L, []).
-%reverse([H|T], Ack) -> reverse(T, [H|Ack]);
-%reverse([], Ack) -> Ack.
-%
-%estone_append([H|T], L) ->
-%    [H | estone_append(T, L)];
-%estone_append([], L) ->
-%    L.
-%
-%appt(0, _L1, _L2) -> ok;
-%appt(I, L1, L2) ->
-%    estone_append(L1, L2),
-%    appt(I-1, L1, L2).
-%
-%
-%%%%%%%%%%%%%%%% small message passing and ctxt switching %%%%%%%
-%msgp(I) ->
-%    msgp(I, small()).
-%
-%msgp(0, _) ->
-%    0;
-%msgp(I, Msg) ->
-%    P1 = spawn(?MODULE, p1, [self()]),
-%    P2 = spawn(?MODULE, p1, [P1]),
-%    P3 = spawn(?MODULE, p1, [P2]),
-%    P4 = spawn(?MODULE, p1, [P3]),
-%    msgp_loop(100, P4, Msg),
-%    msgp(I-1, Msg).
-%
-%p1(To) ->
-%    receive
-%        {_From, {message, X}} ->
-%            To ! {self(), {message, X}},
-%            p1(To);
-%        stop ->
-%            To ! stop,
-%            exit(normal)
-%    end.
-%
-%msgp_loop(0, P, _) ->
-%    P ! stop,
-%    receive
-%        stop -> ok
-%    end;
-%msgp_loop(I, P, Msg) ->
-%    P ! {self(), {message, Msg}},
-%    receive
-%        {_From, {message, _}} ->
-%            msgp_loop(I-1, P, Msg)
-%    end.
-%
-%%%%%%%%%%%%% large massage passing and ctxt switching %%%%%%%
-%msgp_medium(I) ->
-%        msgp_medium(I, big()).
-%
-%msgp_medium(0, _) ->
-%    0;
-%msgp_medium(I, Msg) ->
-%    P1 = spawn(?MODULE , p1, [self()]),
-%    P2 = spawn(?MODULE, p1, [P1]),
-%    P3 = spawn(?MODULE, p1, [P2]),
-%    P4 = spawn(?MODULE, p1, [P3]),
-%    msgp_loop(100, P4, Msg),
-%    msgp_medium(I-1, Msg).
-%
-%
-%
-%%%%%%%%%%%%% huge massage passing and ctxt switching %%%%%%%
-%msgp_huge(I) ->
-%        msgp_huge(I, very_big(15)).
-%
-%msgp_huge(0, _) ->
-%    0;
-%msgp_huge(I, Msg) ->
-%    P1 = spawn(?MODULE , p1, [self()]),
-%    P4 = spawn(?MODULE, p1, [P1]),
-%    msgp_loop(100, P4, Msg),
-%    msgp_huge(I-1, Msg).
-%
-%
-%%%%%%% typical protocol pattern matching %%%%%%%
-%pattern(0) ->
-%    0;
-%pattern(I) ->
-%    Tail = "aaabbaaababba",
-%    P1 = [0, 1,2,3,4,5|Tail],
-%    pat_loop1(100, P1),
-%    pat_loop2(100, P1),
-%    pat_loop3(100, P1),
-%    pat_loop4(100, P1),
-%    pat_loop5(100, P1),
-%    pattern(I-1).
-%
-%pat_loop1(0, _) ->
-%    ok;
-%pat_loop1(_I, [_, _X, _Y, 0 |_T])  ->
-%    ok;
-%pat_loop1(_I, [_, _X, _Y, 1| _T]) ->
-%    ok;
-%pat_loop1(_I, [_, _X, _Y, 2 | _T]) ->
-%    ok;
-%pat_loop1(I, [_, X, Y, 3 | T]) ->
-%    pat_loop1(I-1, [0, X,Y,3|T]).
-%
-%pat_loop2(0, _) ->
-%    ok;
-%pat_loop2(_I, [_X, Y | _Tail]) when Y bsl 1 == 0 ->
-%    ok;
-%pat_loop2(_I, [_X, Y | _Tail]) when Y bsl 2 == 0 ->
-%    ok;
-%pat_loop2(I, [X, Y | Tail]) when Y bsl 2 == 4 ->
-%    pat_loop2(I-1, [X, Y |Tail]).
-%
-%
-%pat_loop3(0, _) ->
-%    ok;
-%pat_loop3(_I, [{c, h} | _Tail]) ->
-%    ok;
-%pat_loop3(_I, [1, 0 |_T]) ->
-%    ok;
-%pat_loop3(_I, [X, _Y |_Tail]) when is_binary(X), size(X) == 1 ->
-%    ok;
-%pat_loop3(_I, [no, _Y|_Tail]) ->
-%    ok;
-%pat_loop3(_I, []) ->
-%    ok;
-%pat_loop3(_I, [X,_Y|_T]) when X /= 0 ->
-%    ok;
-%pat_loop3(_I, [2,3|_T]) ->
-%    ok;
-%pat_loop3(_I, [1, 2]) ->
-%    ok;
-%pat_loop3(I, [0, 1 |T]) ->
-%    pat_loop3(I-1, [0,1|T]).
-%
-%
-%pat_loop4(0, _) ->  ok;
-%pat_loop4(_I, [20|_T]) -> ok;
-%pat_loop4(_I, [219|_T]) -> ok;
-%pat_loop4(_I, [18|_T]) -> ok;
-%pat_loop4(_I, [17|_T]) -> ok;
-%pat_loop4(_I, [16|_T]) -> ok;
-%pat_loop4(_I, [15|_T]) -> ok;
-%pat_loop4(_I, [14|_T]) -> ok;
-%pat_loop4(_I, [13|_T]) -> ok;
-%pat_loop4(_I, [12|_T]) -> ok;
-%pat_loop4(_I, [11|_T]) -> ok;
-%pat_loop4(_I, [10|_T]) -> ok;
-%pat_loop4(_I, [9|_T]) -> ok;
-%pat_loop4(_I, [8|_T]) -> ok;
-%pat_loop4(_I, [7|_T]) -> ok;
-%pat_loop4(_I, [6|_T]) -> ok;
-%pat_loop4(_I, [5|_T]) -> ok;
-%pat_loop4(_I, [4|_T]) -> ok;
-%pat_loop4(_I, [3|_T]) -> ok;
-%pat_loop4(_I, [1|_T]) -> ok;
-%pat_loop4(_I, [21|_T]) -> ok;
-%pat_loop4(_I, [22|_T]) -> ok;
-%pat_loop4(_I, [23|_T]) -> ok;
-%pat_loop4(_I, [24|_T]) -> ok;
-%pat_loop4(_I, [25|_T]) -> ok;
-%pat_loop4(_I, [26|_T]) -> ok;
-%pat_loop4(_I, [27|_T]) -> ok;
-%pat_loop4(I, [0|T]) ->
-%    pat_loop4(I-1, [0|T]).
-%
-%pat_loop5(0, _) -> ok;
-%pat_loop5(_I, [0, 20|_T]) -> ok;
-%pat_loop5(_I, [0, 19|_T]) -> ok;
-%pat_loop5(_I, [0, 18|_T]) -> ok;
-%pat_loop5(_I, [0, 17|_T]) -> ok;
-%pat_loop5(_I, [0, 16|_T]) -> ok;
-%pat_loop5(_I, [0, 15|_T]) -> ok;
-%pat_loop5(_I, [0, 14|_T]) -> ok;
-%pat_loop5(_I, [0, 13|_T]) -> ok;
-%pat_loop5(_I, [0, 12|_T]) -> ok;
-%pat_loop5(_I, [0, 11|_T]) -> ok;
-%pat_loop5(_I, [0, 10|_T]) -> ok;
-%pat_loop5(_I, [0, 9|_T]) -> ok;
-%pat_loop5(_I, [0, 8|_T]) -> ok;
-%pat_loop5(_I, [0, 7|_T]) -> ok;
-%pat_loop5(_I, [0, 6|_T]) -> ok;
-%pat_loop5(I, [0, 1|T]) ->
-%    pat_loop5(I-1, [0,1|T]).
-%
-%%%%%%%%%%% term traversal representing simple pattern matchhing %%%
-%%%%%%%%%%                              + some arith
-%trav(I) ->
-%    X = very_big(10),
-%    trav(I, X).
-%
-%trav(0, _) -> 0;
-%trav(I, T) ->
-%    do_trav(T),
-%    trav(I-1, T).
-%
-%do_trav(T) when is_tuple(T) ->
-%    tup_trav(T, 1, 1 + size(T));
-%do_trav([H|T]) ->
-%    do_trav(H) + do_trav(T);
-%do_trav(X) when is_integer(X) -> 1;
-%do_trav(_X) -> 0.
-%tup_trav(_T, P, P) -> 0;
-%tup_trav(T, P, End) ->
-%    do_trav(element(P, T)) + tup_trav(T, P+1, End).
-%
-%ppp(Top, I, EstoneCat) ->
-%    P = open_port({spawn, EstoneCat}, []),%% cat sits at the other end
-%    Str = duplicate(200, 88), %% 200 X'es
-%    Cmd = {self(), {command, Str}},
-%    receive
-%        go -> ok
-%    end,
-%    ppp_loop(P, I, Cmd),
-%    Cmd2 = {self(), {command, "abcde"}},
-%    Res = ppp_loop(P, I, Cmd2),
-%    P ! {self(), close},
-%    receive
-%        {P, closed} ->
-%            closed
-%    end,
-%    Top ! {self(), Res}.
-%
-%ppp_loop(_P, 0, _) ->
-%    ok;
-%ppp_loop(P, I, Cmd) ->
-%    P ! Cmd,
-%    receive
-%        {P, _} ->  %% no match
-%            ppp_loop(P, I-1, Cmd)
-%    end.
-%
-%%% Working with a very large non-working data set
-%%% where the passive data resides in remote processes
-%large_dataset_work(I) ->
-%    {Minus, Ps} = tc(?MODULE, mk_big_procs, [?BIGPROCS]),
-%    trav(I),
-%    lists(I),
-%    send_procs(Ps, stop),
-%    Minus. %% Don't count time to create the big procs.
-%
-%mk_big_procs(0) -> [];
-%mk_big_procs(I) ->
-%    [ mk_big_proc()| mk_big_procs(I-1)].
-%
-%mk_big_proc() ->
-%    P = spawn(?MODULE, big_proc, []),
-%    P ! {self(), running},
-%    receive
-%        {P, yes} -> P
-%    end.
-%
-%big_proc() ->
-%    X = very_big(?BIGPROC_SIZE), %% creates a big heap
-%    Y = very_big(?BIGPROC_SIZE),
-%    Z = very_big(?BIGPROC_SIZE),
-%
-%    receive
-%        {From, running} ->
-%            From ! {self(), yes}
-%    end,
-%    receive
-%        stop ->
-%            {X, Y, Z}  %% Can't be garbed away now by very (not super)
-%                       %% smart compiler
-%    end.
-%
-%%% Working with a large non-working data set
-%%% where the data resides in the local process.
-%large_local_dataset_work(I) ->
-%    {Minus, _Data} = tc(?MODULE, very_big, [?BIGPROC_SIZE]),
-%    trav(I),
-%    lists(I),
-%    Minus.
-%
-%
-%%% Fast allocation and also deallocation that is gc test
-%%% Important to not let variable linger on the stack un-necessarily
-%alloc(0) -> 0;
-%alloc(I) ->
-%    _X11 = very_big(),
-%    _X12 = very_big(),
-%    _X13 = very_big(),
-%    _Z = [_X14 = very_big(),
-%          _X15 = very_big(),
-%          _X16 = very_big()],
-%    _X17 = very_big(),
-%    _X18 = very_big(),
-%    _X19 = very_big(),
-%    _X20 = very_big(),
-%    _X21 = very_big(),
-%    _X22 = very_big(),
-%    _X23 = very_big(),
-%    _X24 = very_big(),
-%    alloc(I-1).
-%
-%%% Time to call bif's
-%%% This benchmark was updated in OTP-24. I've tried to keep the
-%%% number of stones is creates the same, but that is impossible
-%%% to achieve across all platforms.
-%bif_dispatch(0) ->
-%    0;
-%bif_dispatch(I) ->
-%    put(mon,erlang:monitor(process,self())),
-%    disp(),    disp(),    disp(),    disp(),    disp(),    disp(),
-%    disp(),    disp(),    disp(),    disp(),    disp(),    disp(),
-%    bif_dispatch(I-1).
-%
-%disp() ->
-%    erts_debug:flat_size(true),
-%    erts_debug:size_shared(true),
-%    demonitor(get(mon)),
-%    erts_debug:flat_size(true),
-%    demonitor(get(mon)),
-%    erts_debug:size_shared(true),
-%    demonitor(get(mon)),
-%    erts_debug:flat_size(true),
-%    demonitor(get(mon)),
-%    erts_debug:size_shared(true),
-%    demonitor(get(mon)),
-%    erts_debug:flat_size(true),
-%    demonitor(get(mon)),
-%    erts_debug:size_shared(true),
-%    demonitor(get(mon)),
-%    erts_debug:flat_size(true),
-%    demonitor(get(mon)),
-%    erts_debug:size_shared(true),
-%    demonitor(get(mon)),
-%    erts_debug:flat_size(true),
-%    demonitor(get(mon)),
-%    erts_debug:size_shared(true).
-%
-%%% Generic server like behaviour
-%generic(I) ->
-%    register(funky, spawn(?MODULE, gserv, [funky, ?MODULE, [], []])),
-%    g_loop(I).
-%
-%g_loop(0) ->
-%    exit(whereis(funky), kill),
-%    0;
-%g_loop(I) ->
-%    ?MODULE:req(funky, {call, [abc]}),
-%    ?MODULE:req(funky, {call, [abc]}),
-%    ?MODULE:req(funky, {call, [abc]}),
-%    ?MODULE:req(funky, {call, [abc]}),
-%    ?MODULE:req(funky, {call, [xyz]}),
-%    ?MODULE:req(funky, {call, [abc]}),
-%    ?MODULE:req(funky, {call, [abc]}),
-%    ?MODULE:req(funky, {call, [abc]}),
-%    ?MODULE:req(funky, {call, [abc]}),
-%    ?MODULE:req(funky, {call, [abc]}),
-%    ?MODULE:req(funky, {call, [abc]}),
-%    ?MODULE:req(funky, {call, [abc]}),
-%    ?MODULE:req(funky, {call, [abc]}),
-%    ?MODULE:req(funky, {call, [abc]}),
-%    ?MODULE:req(funky, {call, [abc]}),
-%    ?MODULE:req(funky, {call, [xyz]}),
-%    ?MODULE:req(funky, {call, [abc]}),
-%    ?MODULE:req(funky, {call, [abc]}),
-%    ?MODULE:req(funky, {call, [abc]}),
-%    ?MODULE:req(funky, {call, [abc]}),
-%    ?MODULE:req(funky, {call, [abc]}),
-%    ?MODULE:req(funky, {call, [abc]}),
-%    g_loop(I-1).
-%
-%req(Name, Req) ->
-%    R = make_ref(),
-%    Name ! {self(), R, Req},
-%    receive
-%        {Name, R, Reply} -> Reply
-%    after 2000 ->
-%            exit(timeout)
-%    end.
-%
-%gserv(Name, Mod, State, Debug) ->
-%    receive
-%        {From, Ref, {call, Req}} when Debug == [] ->
-%            case catch apply(Mod, handle_call, [From, State, Req]) of
-%                {reply, Reply, State2} ->
-%                    From ! {Name, Ref, Reply},
-%                    gserv(Name, Mod, State2, Debug);
-%                {noreply, State2} ->
-%                    gserv(Name, Mod, State2, Debug);
-%                {'EXIT', Reason} ->
-%                    exit(Reason)
-%            end;
-%        {_From, _Ref, _Req} when Debug /= [] ->
-%            exit(nodebug)
-%    end.
-%
-%handle_call(_From, _State, [xyz]) ->
-%    R = atom_to_list(xyz),
-%    {reply, R, []};
-%handle_call(_From, State, [abc]) ->
-%    R = 1 + 3,
-%    {reply, R, [R | State]}.
-%
-%
-%
-%%% Binary handling, creating, manipulating and sending binaries
-%binary_h(I) ->
-%    Before = monotonic_time(),
-%    P = spawn(?MODULE, echo, [self()]),
-%    B = list_to_binary(duplicate(2000, 5)),
-%    After = monotonic_time(),
-%    Compensate = subtr(Before, After),
-%    binary_h_2(I, P, B),
-%    Compensate.
-%
-%binary_h_2(0, P, _B) ->
-%    exit(P, kill);
-%binary_h_2(I, P, B) ->
-%    echo_loop(P, 20, B),
-%    split_loop(B, {abc,1,2222,self(),"ancnd"}, 100),
-%    binary_h_2(I-1, P, B).
-%
-%split_loop(_B, _, 0) ->
-%    ok;
-%split_loop(B, Term, I) ->
-%    {X, Y} = split_binary(B, I),
-%    _ = size(X),
-%    _ = binary_to_list(Y, 1, 2),
-%    binary_to_term(term_to_binary(Term)),
-%    split_loop(B, Term, I-1).
-%
-%
-%echo_loop(_P, 0, _B) ->
-%    k;
-%echo_loop(P, I, B) ->
-%    P ! B,
-%    P ! B,
-%    P ! B,
-%    P ! B,
-%    P ! B,
-%    P ! B,
-%    P ! B,
-%    P ! B,
-%    P ! B,
-%    P ! B,
-%    receive _ -> ok end,
-%    receive _ -> ok end,
-%    receive _ -> ok end,
-%    receive _ -> ok end,
-%    receive _ -> ok end,
-%    receive _ -> ok end,
-%    receive _ -> ok end,
-%    receive _ -> ok end,
-%    receive _ -> ok end,
-%    receive _ -> ok end,
-%    echo_loop(P, I-1, B).
-%
-%
-%ets(0) ->
-%    0;
-%ets(I) ->
-%    T1 = ets:new(a, [set]),
-%    T2 = ets:new(c, [bag, private]),
-%    L = [T1, T2],
-%    run_tabs(L, L, 1),
-%    ets:delete(T1),
-%    ets:delete(T2),
-%    ets(I-1).
-%
-%run_tabs(_, _, 0) ->
-%    ok;
-%run_tabs([], L, I) ->
-%    run_tabs(L, L, I-1);
-%run_tabs([Tab|Tail], L, I) ->
-%    Begin = I * 20,
-%    End = (I+1) * 20,
-%    run_tab(Tab, Begin, End, I),
-%    run_tabs(Tail, L, I).
-%
-%run_tab(_Tab, X, X, _) ->
-%    ok;
-%run_tab(Tab, Beg, End, J) ->
-%    ets:insert(Tab, {Beg, J}),
-%    ets:insert(Tab, {J, Beg}),
-%    ets:insert(Tab, {{foo,Beg}, J}),
-%    ets:insert(Tab, {{foo, J}, Beg}),
-%    ets:delete(Tab, haha),
-%    match_delete(Tab, {k, j}),
-%    ets:match(Tab, {Beg, '$1'}),
-%    ets:match(Tab, {'$1', J}),
-%    ets:delete(Tab, Beg),
-%    K = ets:first(Tab),
-%    _K2 = ets:next(Tab, K),
-%    run_tab(Tab, Beg+1, End, J).
-%
-%match_delete(Table, Pattern) ->
-%    select_delete(Table, [{Pattern,[],[true]}]),
-%    true.
-%
-%select_delete(Tab, [{'_',[],[true]}]) ->
-%    ets:internal_delete_all(Tab, undefined);
-%select_delete(Tab, MatchSpec) ->
-%    ets:internal_select_delete(Tab, MatchSpec).
-%
-%%%%% Integer arith %%%%%
-%int_arith(0) ->
-%    0;
-%int_arith(I) ->
-%    do_arith(I) +
-%    do_arith(I) +
-%    do_arith(I) +
-%    do_arith(I) +
-%    do_arith(I) +
-%    do_arith(I) +
-%    do_arith(I) +
-%    do_arith(I) +
-%    do_arith(I) +
-%        66,
-%    int_arith(I-1).
-%
-%do_arith(I) ->
-%    do_arith2(I) -
-%    do_arith2(I) -
-%    do_arith2(I) -
-%    do_arith2(I) -
-%    do_arith2(I) -
-%    do_arith2(I) -
-%    do_arith2(I) -
-%        99.
-%
-%do_arith2(I) ->
-%    X = 23,
-%    _Y = 789 + I,
-%    Z = I + 1,
-%    U = (X bsl 1 bsr I) * X div 2 bsr 4,
-%    U1 = Z + Z + Z + Z + X bsl 4 * 2 bsl 2,
-%    Z - U + U1 div 2.
-%
-%
-%%%%% Float arith %%%%%
-%float_arith(0) ->
-%    0;
-%float_arith(I) ->
-%    f_do_arith(I) +
-%    f_do_arith(I) +
-%    f_do_arith(I) +
-%    f_do_arith(I) +
-%    f_do_arith(I) +
-%    f_do_arith(I) +
-%    f_do_arith(I) +
-%    f_do_arith(I) +
-%    f_do_arith(I) +
-%        66,
-%    float_arith(I-1).
-%
-%f_do_arith(I) ->
-%    X = 23.4,
-%    _Y = 789.99 + I,
-%    Z = I + 1.88,
-%    U = (X * 1 / I) * X / 2 * 4,
-%    U1 = Z + Z + Z + Z + X * 4 * 2 / 2,
-%    Z - U + U1 / 2.
-%
-%%%%% time to do various function calls
-%fcalls(0) ->
-%    0;
-%fcalls(I) ->
-%    local0(400),
-%    remote0(400),
-%    app0(400),
-%    local1(400),
-%    remote1(400),
-%    app1(400),
-%    fcalls(I-1).
-%
-%
-%local0(0) -> 0;
-%local0(N) ->
-%    local0(N-1).
-%
-%local1(0) -> 0;
-%local1(N) ->
-%    1+local1(N-1).
-%
-%remote0(0) -> 0;
-%remote0(N) ->
-%    ?MODULE:remote0(N-1).
-%
-%remote1(0) -> 0;
-%remote1(N) ->
-%    1+?MODULE:remote1(N-1).
-%
-%app0(0) -> 0;
-%app0(N) ->
-%    apply(?MODULE, app0, [N-1]).
-%
-%app1(0) -> 0;
-%app1(N) ->
-%    1 + apply(?MODULE, app1, [N-1]).
-%
-%%%%%%% jog the time queue implementation
-%timer(I) ->
-%    L = [50, 50, 50, 100, 1000, 3000, 8000, 50000, 100000],
-%    timer(I, L).
-%
-%timer(0, _) -> 0;
-%timer(N, L) ->
-%    send_self(100),
-%    recv(100,L, L),
-%    timer(N-1).
-%
-%recv(0, _, _) ->
-%    ok;
-%recv(N, [], L) ->
-%    recv(N, L, L);
-%recv(N, [Timeout|Tail], L) ->
-%    receive
-%        hi_dude ->
-%            recv(N-1, Tail, L)
-%    after Timeout ->
-%            erlang:display_string("XXXXX this wasn't supposed to happen???\n"),
-%            ok
-%    end.
-%
-%send_self(0) ->
-%    ok;
-%send_self(N) ->
-%    self() ! hi_dude,
-%    send_self(N-1).
-%
-%
-%%%%%%%%%%%%% managing many links %%%%%
-%links(I) ->
-%    L = mk_link_procs(100),
-%    send_procs(L, {procs, L, I}),
-%    wait_for_pids(L),
-%    0.
-%
-%mk_link_procs(0) ->
-%    [];
-%mk_link_procs(I) ->
-%    [spawn_link(?MODULE, lproc, [self()]) | mk_link_procs(I-1)].
-%
-%
-%lproc(Top) ->
-%    process_flag(trap_exit,true),
-%    receive
-%        {procs, Procs, I} ->
-%            Top ! {self(), lproc(Procs, Procs, link, I)}
-%    end.
-%
-%lproc(_, _, _, 0) ->
-%    done;
-%lproc([], Procs, link, I) ->
-%    lproc(Procs, Procs, unlink, I-1);
-%lproc([], Procs, unlink, I) ->
-%    lproc(Procs, Procs, link, I-1);
-%lproc([Pid|Tail], Procs, unlink, I) ->
-%    unlink(Pid),
-%    lproc(Tail, Procs, unlink, I);
-%lproc([Pid|Tail], Procs, link, I) ->
-%    link(Pid),
-%    lproc(Tail, Procs, unlink, I).
-%
-%
-%
-%%%%%%%%%%%% various utility functions %%%%%%%
-%
-%echo(Pid) ->
-%    receive
-%        X -> Pid ! X,
-%             echo(Pid)
-%    end.
-%
-%very_big() ->
-%    very_big(2).
-%very_big(0) -> [];
-%very_big(I) ->
-%    {1,2,3,a,v,f,r,t,y,u,self(), self(), self(),
-%     "22222222222222222", {{"234", self()}},
-%     [[very_big(I-1)]]}.
-%
-%big() ->
-%    {self(), funky_stuff, baby, {1, [123, true,[]], "abcdef"}}.
-%
-%small() -> {self(), true}.
-%
-%%% Wait for a list of children to respond
-%wait_for_pids([]) ->
-%    ok;
-%wait_for_pids([P|Tail]) ->
-%    receive
-%        {P, _Res} -> wait_for_pids(Tail)
-%    end.
-%
-%send_procs([P|Tail], Msg) -> P ! Msg, send_procs(Tail, Msg);
-%send_procs([], _) -> ok.
-%
-%-endif.
-%
+%%
+%% Here follows Estone, extracted from estone_SUITE. It's main
+%% purpose in this context is to test more instructions and
+%% more combinations of instructions.
+%%
+
+-if(not ?RUN_ESTONE).
+estone() -> ok.
+-else.
+
+%% EStone defines
+-define(TOTAL, (3000 * 1000 * 100)).   %% 300 secs
+-define(BIGPROCS, 2).
+-define(BIGPROC_SIZE, 50).
+-define(STONEFACTOR, 31000000).   %% Factor to make the reference
+                             %% implementation to make 1000 TS_ESTONES.
+-record(micro,
+        {function, %% The name of the function implementing the micro
+         weight,   %% How important is this in typical applications ??
+         loops = 100,%% initial data
+         tt1,      %% time to do one round
+         str}).    %% Header string
+
+estone() ->
+    OldErrorHandler = erlang:process_flag(error_handler, ?MODULE),
+    erlang:display_string("\nRunning estone...\n"),
+    Micros = micros(),
+    L = macro(Micros),
+    {_Total, Stones} = sum_micros(L, 0, 0),
+    erlang:display_string(integer_to_list(Stones) ++ " ESTONES\n"),
+    erlang:process_flag(error_handler, OldErrorHandler),
+    ok.
+
+sum_micros([], Tot, Stones) -> {Tot, Stones};
+sum_micros([H|T], Tot, Sto) ->
+    sum_micros(T, ks(microsecs, H) + Tot, ks(estones, H) + Sto).
+
+ks(K, L) ->
+    {value, {_, V}} = lists:keysearch(K, 1, L),
+    V.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% EStone test
+micro(lists) ->
+     #micro{function = lists,
+            weight = 7,
+            loops = 6400,
+            str = "list manipulation"};
+micro(msgp) ->
+    #micro{function = msgp,
+            weight = 10,
+            loops = 1515,
+            str = "small messages"};
+micro(msgp_medium) ->
+    #micro{function = msgp_medium,
+            weight = 14,
+            loops = 1527,
+            str = "medium messages"};
+micro(msgp_huge) ->
+    #micro{function = msgp_huge,
+            weight = 4,
+            loops = 52,
+            str = "huge messages"};
+
+micro(pattern) ->
+    #micro{function = pattern,
+            weight = 5,
+            loops = 1046,
+            str = "pattern matching"};
+
+micro(trav) ->
+    #micro{function = trav,
+            weight = 4,
+            loops = 2834,
+            str = "traverse"};
+
+micro(large_dataset_work) ->
+    #micro{function = large_dataset_work,
+           weight = 3,
+           loops = 1193,
+           str = "Work with large dataset"};
+
+micro(large_local_dataset_work) ->
+    #micro{function = large_local_dataset_work,
+           weight = 3,
+           loops = 1174,
+           str = "Work with large local dataset"};
+
+micro(alloc) ->
+    #micro{function = alloc,
+           weight = 2,
+           loops = 3710,
+           str = "Alloc and dealloc"};
+
+micro(bif_dispatch) ->
+    #micro{function = bif_dispatch,
+           weight = 8,
+           loops = 5623,
+           str = "Bif dispatch"};
+
+micro(binary_h) ->
+    #micro{function = binary_h,
+           weight = 4,
+           loops = 581,
+           str = "Binary handling"};
+micro(ets) ->
+    #micro{function = ets,
+           weight = 6,
+           loops = 342,
+           str = "ets datadictionary"};
+micro(generic) ->
+    #micro{function = generic,
+           weight = 9,
+           loops = 7977,
+           str = "Generic server (with timeout)"};
+micro(int_arith) ->
+    #micro{function = int_arith,
+           weight = 3,
+           loops = 4157,
+           str = "Small Integer arithmetic"};
+micro(float_arith) ->
+    #micro{function = float_arith,
+           weight = 1,
+           loops = 5526,
+           str = "Float arithmetic"};
+micro(fcalls) ->
+    #micro{function = fcalls,
+           weight = 5,
+           loops = 882,
+           str = "Function calls"};
+
+micro(timer) ->
+    #micro{function = timer,
+           weight = 2,
+           loops = 2312,
+           str = "Timers"};
+
+micro(links) ->
+    #micro{function = links,
+           weight = 1,
+           loops = 30,
+           str = "Links"}.
+
+
+
+%% Return a list of micro's
+micros() ->
+    [
+     micro(lists),
+     micro(msgp),
+     micro(msgp_medium),
+     micro(msgp_huge),
+     micro(pattern),
+     micro(trav),
+     micro(large_dataset_work),
+     micro(large_local_dataset_work),
+     micro(alloc),
+     micro(bif_dispatch),
+     micro(binary_h),
+     micro(ets),
+     micro(generic),
+     micro(int_arith),
+     micro(float_arith),
+     micro(fcalls),
+     micro(timer),
+     micro(links)
+    ].
+
+macro(Ms) ->
+    statistics(reductions),
+    statistics(runtime),
+    lists(500),                           % fixup cache on first round
+    run_micros(Ms).
+
+run_micros([]) ->
+    [];
+run_micros([H|T]) ->
+    R = run_micro(H),
+    [R| run_micros(T)].
+
+run_micro(M) ->
+    Pid = spawn(?MODULE, run_micro, [self(),M]),
+    Res = receive {Pid, Reply} -> Reply end,
+    {value,{title,Title}} = lists:keysearch(title,1,Reply),
+    {value,{estones,Estones}} = lists:keysearch(estones,1,Reply),
+    Res.
+
+run_micro(Top, M) ->
+    Top ! {self(), apply_micro(M)}.
+
+apply_micro(M) ->
+    statistics(reductions),
+    Before = monotonic_time(),
+    Compensate = apply_micro(M#micro.function, M#micro.loops),
+    After = monotonic_time(),
+    {_, Reds} = statistics(reductions),
+    Elapsed = subtr(Before, After),
+    MicroSecs = Elapsed - Compensate,
+    [{title, M#micro.str},
+     {tt1, M#micro.tt1},
+     {function, M#micro.function},
+     {weight_percentage, M#micro.weight},
+     {loops, M#micro.loops},
+     {microsecs,MicroSecs},
+     {estones, (M#micro.weight * M#micro.weight * ?STONEFACTOR) div max(1,MicroSecs)},
+     {kilo_reductions, Reds div 1000}
+    ].
+
+max(A, B) when A < B -> B;
+max(A, _) -> A.
+
+monotonic_time() ->
+    erlang:monotonic_time().
+
+subtr(Before, After) when is_integer(Before), is_integer(After) ->
+    convert_time_unit(After-Before, native, 1000000);
+subtr({_,_,_}=Before, {_,_,_}=After) ->
+    now_diff(After, Before).
+
+now_diff({A2, B2, C2}, {A1, B1, C1}) ->
+    ((A2-A1)*1000000 + B2-B1)*1000000 + C2-C1.
+
+convert_time_unit(Time, FromUnit, ToUnit) ->
+    try
+        FU = case FromUnit of
+                 native -> erts_internal:time_unit();
+                 perf_counter -> erts_internal:perf_counter_unit();
+                 nanosecond -> 1000*1000*1000;
+                 microsecond -> 1000*1000;
+                 millisecond -> 1000;
+                 second -> 1;
+
+                 %% Deprecated symbolic units...
+                 nano_seconds -> 1000*1000*1000;
+                 micro_seconds -> 1000*1000;
+                 milli_seconds -> 1000;
+                 seconds -> 1;
+
+                 _ when FromUnit > 0 -> FromUnit
+             end,
+        TU = case ToUnit of
+                 native -> erts_internal:time_unit();
+                 perf_counter -> erts_internal:perf_counter_unit();
+                 nanosecond -> 1000*1000*1000;
+                 microsecond -> 1000*1000;
+                 millisecond -> 1000;
+                 second -> 1;
+
+                 %% Deprecated symbolic units...
+                 nano_seconds -> 1000*1000*1000;
+                 micro_seconds -> 1000*1000;
+                 milli_seconds -> 1000;
+                 seconds -> 1;
+
+                 _ when ToUnit > 0 -> ToUnit
+             end,
+        case Time < 0 of
+            true -> TU*Time - (FU - 1);
+            false -> TU*Time
+        end div FU
+    catch
+        _ : _ ->
+            error(badarg, [Time, FromUnit, ToUnit])
+    end.
+
+tc(M, F, A) ->
+    T1 = erlang:monotonic_time(),
+    Val = apply(M, F, A),
+    T2 = erlang:monotonic_time(),
+    Time = convert_time_unit(T2 - T1, native, microsecond),
+    {Time, Val}.
+
+duplicate(N, X) when is_integer(N), N >= 0 -> duplicate(N, X, []).
+
+duplicate(0, _, L) -> L;
+duplicate(N, X, L) -> duplicate(N-1, X, [X|L]).
+
+apply_micro(Name, Loops) ->
+    erlang:display({Name,Loops}),
+    apply(?MODULE, Name, [Loops]).
+
+%%%%%%%%%%%% micro bench manipulating lists. %%%%%%%%%%%%%%%%%%%%%%%%%
+lists(I) ->
+    L1 = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    L2 = "aaaaaaaaaa",
+    lists(I, L1, L2).
+
+lists(0, _,_) ->
+    0;
+lists(I, L1, L2) ->
+    revt(10, L1),
+    appt(10, L1, L2),
+    lists(I-1, L1, L2).
+
+revt(0, _) ->
+    done;
+revt(I, L) ->
+    reverse(L),
+    revt(I-1, L).
+
+reverse(L) ->
+    reverse(L, []).
+reverse([H|T], Ack) -> reverse(T, [H|Ack]);
+reverse([], Ack) -> Ack.
+
+estone_append([H|T], L) ->
+    [H | estone_append(T, L)];
+estone_append([], L) ->
+    L.
+
+appt(0, _L1, _L2) -> ok;
+appt(I, L1, L2) ->
+    estone_append(L1, L2),
+    appt(I-1, L1, L2).
+
+
+%%%%%%%%%%%%%%% small message passing and ctxt switching %%%%%%%
+msgp(I) ->
+    msgp(I, small()).
+
+msgp(0, _) ->
+    0;
+msgp(I, Msg) ->
+    P1 = spawn(?MODULE, p1, [self()]),
+    P2 = spawn(?MODULE, p1, [P1]),
+    P3 = spawn(?MODULE, p1, [P2]),
+    P4 = spawn(?MODULE, p1, [P3]),
+    msgp_loop(100, P4, Msg),
+    msgp(I-1, Msg).
+
+p1(To) ->
+    receive
+        {_From, {message, X}} ->
+            To ! {self(), {message, X}},
+            p1(To);
+        stop ->
+            To ! stop,
+            exit(normal)
+    end.
+
+msgp_loop(0, P, _) ->
+    P ! stop,
+    receive
+        stop -> ok
+    end;
+msgp_loop(I, P, Msg) ->
+    P ! {self(), {message, Msg}},
+    receive
+        {_From, {message, _}} ->
+            msgp_loop(I-1, P, Msg)
+    end.
+
+%%%%%%%%%%%% large massage passing and ctxt switching %%%%%%%
+msgp_medium(I) ->
+        msgp_medium(I, big()).
+
+msgp_medium(0, _) ->
+    0;
+msgp_medium(I, Msg) ->
+    P1 = spawn(?MODULE , p1, [self()]),
+    P2 = spawn(?MODULE, p1, [P1]),
+    P3 = spawn(?MODULE, p1, [P2]),
+    P4 = spawn(?MODULE, p1, [P3]),
+    msgp_loop(100, P4, Msg),
+    msgp_medium(I-1, Msg).
+
+
+
+%%%%%%%%%%%% huge massage passing and ctxt switching %%%%%%%
+msgp_huge(I) ->
+        msgp_huge(I, very_big(15)).
+
+msgp_huge(0, _) ->
+    0;
+msgp_huge(I, Msg) ->
+    P1 = spawn(?MODULE , p1, [self()]),
+    P4 = spawn(?MODULE, p1, [P1]),
+    msgp_loop(100, P4, Msg),
+    msgp_huge(I-1, Msg).
+
+
+%%%%%% typical protocol pattern matching %%%%%%%
+pattern(0) ->
+    0;
+pattern(I) ->
+    Tail = "aaabbaaababba",
+    P1 = [0, 1,2,3,4,5|Tail],
+    pat_loop1(100, P1),
+    pat_loop2(100, P1),
+    pat_loop3(100, P1),
+    pat_loop4(100, P1),
+    pat_loop5(100, P1),
+    pattern(I-1).
+
+pat_loop1(0, _) ->
+    ok;
+pat_loop1(_I, [_, _X, _Y, 0 |_T])  ->
+    ok;
+pat_loop1(_I, [_, _X, _Y, 1| _T]) ->
+    ok;
+pat_loop1(_I, [_, _X, _Y, 2 | _T]) ->
+    ok;
+pat_loop1(I, [_, X, Y, 3 | T]) ->
+    pat_loop1(I-1, [0, X,Y,3|T]).
+
+pat_loop2(0, _) ->
+    ok;
+pat_loop2(_I, [_X, Y | _Tail]) when Y bsl 1 == 0 ->
+    ok;
+pat_loop2(_I, [_X, Y | _Tail]) when Y bsl 2 == 0 ->
+    ok;
+pat_loop2(I, [X, Y | Tail]) when Y bsl 2 == 4 ->
+    pat_loop2(I-1, [X, Y |Tail]).
+
+
+pat_loop3(0, _) ->
+    ok;
+pat_loop3(_I, [{c, h} | _Tail]) ->
+    ok;
+pat_loop3(_I, [1, 0 |_T]) ->
+    ok;
+pat_loop3(_I, [X, _Y |_Tail]) when is_binary(X), size(X) == 1 ->
+    ok;
+pat_loop3(_I, [no, _Y|_Tail]) ->
+    ok;
+pat_loop3(_I, []) ->
+    ok;
+pat_loop3(_I, [X,_Y|_T]) when X /= 0 ->
+    ok;
+pat_loop3(_I, [2,3|_T]) ->
+    ok;
+pat_loop3(_I, [1, 2]) ->
+    ok;
+pat_loop3(I, [0, 1 |T]) ->
+    pat_loop3(I-1, [0,1|T]).
+
+
+pat_loop4(0, _) ->  ok;
+pat_loop4(_I, [20|_T]) -> ok;
+pat_loop4(_I, [219|_T]) -> ok;
+pat_loop4(_I, [18|_T]) -> ok;
+pat_loop4(_I, [17|_T]) -> ok;
+pat_loop4(_I, [16|_T]) -> ok;
+pat_loop4(_I, [15|_T]) -> ok;
+pat_loop4(_I, [14|_T]) -> ok;
+pat_loop4(_I, [13|_T]) -> ok;
+pat_loop4(_I, [12|_T]) -> ok;
+pat_loop4(_I, [11|_T]) -> ok;
+pat_loop4(_I, [10|_T]) -> ok;
+pat_loop4(_I, [9|_T]) -> ok;
+pat_loop4(_I, [8|_T]) -> ok;
+pat_loop4(_I, [7|_T]) -> ok;
+pat_loop4(_I, [6|_T]) -> ok;
+pat_loop4(_I, [5|_T]) -> ok;
+pat_loop4(_I, [4|_T]) -> ok;
+pat_loop4(_I, [3|_T]) -> ok;
+pat_loop4(_I, [1|_T]) -> ok;
+pat_loop4(_I, [21|_T]) -> ok;
+pat_loop4(_I, [22|_T]) -> ok;
+pat_loop4(_I, [23|_T]) -> ok;
+pat_loop4(_I, [24|_T]) -> ok;
+pat_loop4(_I, [25|_T]) -> ok;
+pat_loop4(_I, [26|_T]) -> ok;
+pat_loop4(_I, [27|_T]) -> ok;
+pat_loop4(I, [0|T]) ->
+    pat_loop4(I-1, [0|T]).
+
+pat_loop5(0, _) -> ok;
+pat_loop5(_I, [0, 20|_T]) -> ok;
+pat_loop5(_I, [0, 19|_T]) -> ok;
+pat_loop5(_I, [0, 18|_T]) -> ok;
+pat_loop5(_I, [0, 17|_T]) -> ok;
+pat_loop5(_I, [0, 16|_T]) -> ok;
+pat_loop5(_I, [0, 15|_T]) -> ok;
+pat_loop5(_I, [0, 14|_T]) -> ok;
+pat_loop5(_I, [0, 13|_T]) -> ok;
+pat_loop5(_I, [0, 12|_T]) -> ok;
+pat_loop5(_I, [0, 11|_T]) -> ok;
+pat_loop5(_I, [0, 10|_T]) -> ok;
+pat_loop5(_I, [0, 9|_T]) -> ok;
+pat_loop5(_I, [0, 8|_T]) -> ok;
+pat_loop5(_I, [0, 7|_T]) -> ok;
+pat_loop5(_I, [0, 6|_T]) -> ok;
+pat_loop5(I, [0, 1|T]) ->
+    pat_loop5(I-1, [0,1|T]).
+
+%%%%%%%%%% term traversal representing simple pattern matchhing %%%
+%%%%%%%%%                              + some arith
+trav(I) ->
+    X = very_big(10),
+    trav(I, X).
+
+trav(0, _) -> 0;
+trav(I, T) ->
+    do_trav(T),
+    trav(I-1, T).
+
+do_trav(T) when is_tuple(T) ->
+    tup_trav(T, 1, 1 + size(T));
+do_trav([H|T]) ->
+    do_trav(H) + do_trav(T);
+do_trav(X) when is_integer(X) -> 1;
+do_trav(_X) -> 0.
+tup_trav(_T, P, P) -> 0;
+tup_trav(T, P, End) ->
+    do_trav(element(P, T)) + tup_trav(T, P+1, End).
+
+ppp(Top, I, EstoneCat) ->
+    P = open_port({spawn, EstoneCat}, []),%% cat sits at the other end
+    Str = duplicate(200, 88), %% 200 X'es
+    Cmd = {self(), {command, Str}},
+    receive
+        go -> ok
+    end,
+    ppp_loop(P, I, Cmd),
+    Cmd2 = {self(), {command, "abcde"}},
+    Res = ppp_loop(P, I, Cmd2),
+    P ! {self(), close},
+    receive
+        {P, closed} ->
+            closed
+    end,
+    Top ! {self(), Res}.
+
+ppp_loop(_P, 0, _) ->
+    ok;
+ppp_loop(P, I, Cmd) ->
+    P ! Cmd,
+    receive
+        {P, _} ->  %% no match
+            ppp_loop(P, I-1, Cmd)
+    end.
+
+%% Working with a very large non-working data set
+%% where the passive data resides in remote processes
+large_dataset_work(I) ->
+    {Minus, Ps} = tc(?MODULE, mk_big_procs, [?BIGPROCS]),
+    trav(I),
+    lists(I),
+    send_procs(Ps, stop),
+    Minus. %% Don't count time to create the big procs.
+
+mk_big_procs(0) -> [];
+mk_big_procs(I) ->
+    [ mk_big_proc()| mk_big_procs(I-1)].
+
+mk_big_proc() ->
+    P = spawn(?MODULE, big_proc, []),
+    P ! {self(), running},
+    receive
+        {P, yes} -> P
+    end.
+
+big_proc() ->
+    X = very_big(?BIGPROC_SIZE), %% creates a big heap
+    Y = very_big(?BIGPROC_SIZE),
+    Z = very_big(?BIGPROC_SIZE),
+
+    receive
+        {From, running} ->
+            From ! {self(), yes}
+    end,
+    receive
+        stop ->
+            {X, Y, Z}  %% Can't be garbed away now by very (not super)
+                       %% smart compiler
+    end.
+
+%% Working with a large non-working data set
+%% where the data resides in the local process.
+large_local_dataset_work(I) ->
+    {Minus, _Data} = tc(?MODULE, very_big, [?BIGPROC_SIZE]),
+    trav(I),
+    lists(I),
+    Minus.
+
+
+%% Fast allocation and also deallocation that is gc test
+%% Important to not let variable linger on the stack un-necessarily
+alloc(0) -> 0;
+alloc(I) ->
+    _X11 = very_big(),
+    _X12 = very_big(),
+    _X13 = very_big(),
+    _Z = [_X14 = very_big(),
+          _X15 = very_big(),
+          _X16 = very_big()],
+    _X17 = very_big(),
+    _X18 = very_big(),
+    _X19 = very_big(),
+    _X20 = very_big(),
+    _X21 = very_big(),
+    _X22 = very_big(),
+    _X23 = very_big(),
+    _X24 = very_big(),
+    alloc(I-1).
+
+%% Time to call bif's
+%% This benchmark was updated in OTP-24. I've tried to keep the
+%% number of stones is creates the same, but that is impossible
+%% to achieve across all platforms.
+bif_dispatch(0) ->
+    0;
+bif_dispatch(I) ->
+    put(mon,erlang:monitor(process,self())),
+    disp(),    disp(),    disp(),    disp(),    disp(),    disp(),
+    disp(),    disp(),    disp(),    disp(),    disp(),    disp(),
+    bif_dispatch(I-1).
+
+disp() ->
+    erts_debug:flat_size(true),
+    erts_debug:size_shared(true),
+    demonitor(get(mon)),
+    erts_debug:flat_size(true),
+    demonitor(get(mon)),
+    erts_debug:size_shared(true),
+    demonitor(get(mon)),
+    erts_debug:flat_size(true),
+    demonitor(get(mon)),
+    erts_debug:size_shared(true),
+    demonitor(get(mon)),
+    erts_debug:flat_size(true),
+    demonitor(get(mon)),
+    erts_debug:size_shared(true),
+    demonitor(get(mon)),
+    erts_debug:flat_size(true),
+    demonitor(get(mon)),
+    erts_debug:size_shared(true),
+    demonitor(get(mon)),
+    erts_debug:flat_size(true),
+    demonitor(get(mon)),
+    erts_debug:size_shared(true).
+
+%% Generic server like behaviour
+generic(I) ->
+    register(funky, spawn(?MODULE, gserv, [funky, ?MODULE, [], []])),
+    g_loop(I).
+
+g_loop(0) ->
+    exit(whereis(funky), kill),
+    0;
+g_loop(I) ->
+    ?MODULE:req(funky, {call, [abc]}),
+    ?MODULE:req(funky, {call, [abc]}),
+    ?MODULE:req(funky, {call, [abc]}),
+    ?MODULE:req(funky, {call, [abc]}),
+    ?MODULE:req(funky, {call, [xyz]}),
+    ?MODULE:req(funky, {call, [abc]}),
+    ?MODULE:req(funky, {call, [abc]}),
+    ?MODULE:req(funky, {call, [abc]}),
+    ?MODULE:req(funky, {call, [abc]}),
+    ?MODULE:req(funky, {call, [abc]}),
+    ?MODULE:req(funky, {call, [abc]}),
+    ?MODULE:req(funky, {call, [abc]}),
+    ?MODULE:req(funky, {call, [abc]}),
+    ?MODULE:req(funky, {call, [abc]}),
+    ?MODULE:req(funky, {call, [abc]}),
+    ?MODULE:req(funky, {call, [xyz]}),
+    ?MODULE:req(funky, {call, [abc]}),
+    ?MODULE:req(funky, {call, [abc]}),
+    ?MODULE:req(funky, {call, [abc]}),
+    ?MODULE:req(funky, {call, [abc]}),
+    ?MODULE:req(funky, {call, [abc]}),
+    ?MODULE:req(funky, {call, [abc]}),
+    g_loop(I-1).
+
+req(Name, Req) ->
+    R = make_ref(),
+    Name ! {self(), R, Req},
+    receive
+        {Name, R, Reply} -> Reply
+    after 2000 ->
+            exit(timeout)
+    end.
+
+gserv(Name, Mod, State, Debug) ->
+    receive
+        {From, Ref, {call, Req}} when Debug == [] ->
+            case catch apply(Mod, handle_call, [From, State, Req]) of
+                {reply, Reply, State2} ->
+                    From ! {Name, Ref, Reply},
+                    gserv(Name, Mod, State2, Debug);
+                {noreply, State2} ->
+                    gserv(Name, Mod, State2, Debug);
+                {'EXIT', Reason} ->
+                    exit(Reason)
+            end;
+        {_From, _Ref, _Req} when Debug /= [] ->
+            exit(nodebug)
+    end.
+
+handle_call(_From, _State, [xyz]) ->
+    R = atom_to_list(xyz),
+    {reply, R, []};
+handle_call(_From, State, [abc]) ->
+    R = 1 + 3,
+    {reply, R, [R | State]}.
+
+
+
+%% Binary handling, creating, manipulating and sending binaries
+binary_h(I) ->
+    Before = monotonic_time(),
+    P = spawn(?MODULE, echo, [self()]),
+    B = list_to_binary(duplicate(2000, 5)),
+    After = monotonic_time(),
+    Compensate = subtr(Before, After),
+    binary_h_2(I, P, B),
+    Compensate.
+
+binary_h_2(0, P, _B) ->
+    exit(P, kill);
+binary_h_2(I, P, B) ->
+    echo_loop(P, 20, B),
+    split_loop(B, {abc,1,2222,self(),"ancnd"}, 100),
+    binary_h_2(I-1, P, B).
+
+split_loop(_B, _, 0) ->
+    ok;
+split_loop(B, Term, I) ->
+    {X, Y} = split_binary(B, I),
+    _ = size(X),
+    _ = binary_to_list(Y, 1, 2),
+    binary_to_term(term_to_binary(Term)),
+    split_loop(B, Term, I-1).
+
+
+echo_loop(_P, 0, _B) ->
+    k;
+echo_loop(P, I, B) ->
+    P ! B,
+    P ! B,
+    P ! B,
+    P ! B,
+    P ! B,
+    P ! B,
+    P ! B,
+    P ! B,
+    P ! B,
+    P ! B,
+    receive _ -> ok end,
+    receive _ -> ok end,
+    receive _ -> ok end,
+    receive _ -> ok end,
+    receive _ -> ok end,
+    receive _ -> ok end,
+    receive _ -> ok end,
+    receive _ -> ok end,
+    receive _ -> ok end,
+    receive _ -> ok end,
+    echo_loop(P, I-1, B).
+
+
+ets(0) ->
+    0;
+ets(I) ->
+    T1 = ets:new(a, [set]),
+    T2 = ets:new(c, [bag, private]),
+    L = [T1, T2],
+    run_tabs(L, L, 1),
+    ets:delete(T1),
+    ets:delete(T2),
+    ets(I-1).
+
+run_tabs(_, _, 0) ->
+    ok;
+run_tabs([], L, I) ->
+    run_tabs(L, L, I-1);
+run_tabs([Tab|Tail], L, I) ->
+    Begin = I * 20,
+    End = (I+1) * 20,
+    run_tab(Tab, Begin, End, I),
+    run_tabs(Tail, L, I).
+
+run_tab(_Tab, X, X, _) ->
+    ok;
+run_tab(Tab, Beg, End, J) ->
+    ets:insert(Tab, {Beg, J}),
+    ets:insert(Tab, {J, Beg}),
+    ets:insert(Tab, {{foo,Beg}, J}),
+    ets:insert(Tab, {{foo, J}, Beg}),
+    ets:delete(Tab, haha),
+    match_delete(Tab, {k, j}),
+    ets:match(Tab, {Beg, '$1'}),
+    ets:match(Tab, {'$1', J}),
+    ets:delete(Tab, Beg),
+    K = ets:first(Tab),
+    _K2 = ets:next(Tab, K),
+    run_tab(Tab, Beg+1, End, J).
+
+match_delete(Table, Pattern) ->
+    select_delete(Table, [{Pattern,[],[true]}]),
+    true.
+
+select_delete(Tab, [{'_',[],[true]}]) ->
+    ets:internal_delete_all(Tab, undefined);
+select_delete(Tab, MatchSpec) ->
+    ets:internal_select_delete(Tab, MatchSpec).
+
+%%%% Integer arith %%%%%
+int_arith(0) ->
+    0;
+int_arith(I) ->
+    do_arith(I) +
+    do_arith(I) +
+    do_arith(I) +
+    do_arith(I) +
+    do_arith(I) +
+    do_arith(I) +
+    do_arith(I) +
+    do_arith(I) +
+    do_arith(I) +
+        66,
+    int_arith(I-1).
+
+do_arith(I) ->
+    do_arith2(I) -
+    do_arith2(I) -
+    do_arith2(I) -
+    do_arith2(I) -
+    do_arith2(I) -
+    do_arith2(I) -
+    do_arith2(I) -
+        99.
+
+do_arith2(I) ->
+    X = 23,
+    _Y = 789 + I,
+    Z = I + 1,
+    U = (X bsl 1 bsr I) * X div 2 bsr 4,
+    U1 = Z + Z + Z + Z + X bsl 4 * 2 bsl 2,
+    Z - U + U1 div 2.
+
+
+%%%% Float arith %%%%%
+float_arith(0) ->
+    0;
+float_arith(I) ->
+    f_do_arith(I) +
+    f_do_arith(I) +
+    f_do_arith(I) +
+    f_do_arith(I) +
+    f_do_arith(I) +
+    f_do_arith(I) +
+    f_do_arith(I) +
+    f_do_arith(I) +
+    f_do_arith(I) +
+        66,
+    float_arith(I-1).
+
+f_do_arith(I) ->
+    X = 23.4,
+    _Y = 789.99 + I,
+    Z = I + 1.88,
+    U = (X * 1 / I) * X / 2 * 4,
+    U1 = Z + Z + Z + Z + X * 4 * 2 / 2,
+    Z - U + U1 / 2.
+
+%%%% time to do various function calls
+fcalls(0) ->
+    0;
+fcalls(I) ->
+    local0(400),
+    remote0(400),
+    app0(400),
+    local1(400),
+    remote1(400),
+    app1(400),
+    fcalls(I-1).
+
+
+local0(0) -> 0;
+local0(N) ->
+    local0(N-1).
+
+local1(0) -> 0;
+local1(N) ->
+    1+local1(N-1).
+
+remote0(0) -> 0;
+remote0(N) ->
+    ?MODULE:remote0(N-1).
+
+remote1(0) -> 0;
+remote1(N) ->
+    1+?MODULE:remote1(N-1).
+
+app0(0) -> 0;
+app0(N) ->
+    apply(?MODULE, app0, [N-1]).
+
+app1(0) -> 0;
+app1(N) ->
+    1 + apply(?MODULE, app1, [N-1]).
+
+%%%%%% jog the time queue implementation
+timer(I) ->
+    L = [50, 50, 50, 100, 1000, 3000, 8000, 50000, 100000],
+    timer(I, L).
+
+timer(0, _) -> 0;
+timer(N, L) ->
+    send_self(100),
+    recv(100,L, L),
+    timer(N-1).
+
+recv(0, _, _) ->
+    ok;
+recv(N, [], L) ->
+    recv(N, L, L);
+recv(N, [Timeout|Tail], L) ->
+    receive
+        hi_dude ->
+            recv(N-1, Tail, L)
+    after Timeout ->
+            erlang:display_string("XXXXX this wasn't supposed to happen???\n"),
+            ok
+    end.
+
+send_self(0) ->
+    ok;
+send_self(N) ->
+    self() ! hi_dude,
+    send_self(N-1).
+
+
+%%%%%%%%%%%% managing many links %%%%%
+links(I) ->
+    L = mk_link_procs(100),
+    send_procs(L, {procs, L, I}),
+    wait_for_pids(L),
+    0.
+
+mk_link_procs(0) ->
+    [];
+mk_link_procs(I) ->
+    [spawn_link(?MODULE, lproc, [self()]) | mk_link_procs(I-1)].
+
+
+lproc(Top) ->
+    process_flag(trap_exit,true),
+    receive
+        {procs, Procs, I} ->
+            Top ! {self(), lproc(Procs, Procs, link, I)}
+    end.
+
+lproc(_, _, _, 0) ->
+    done;
+lproc([], Procs, link, I) ->
+    lproc(Procs, Procs, unlink, I-1);
+lproc([], Procs, unlink, I) ->
+    lproc(Procs, Procs, link, I-1);
+lproc([Pid|Tail], Procs, unlink, I) ->
+    unlink(Pid),
+    lproc(Tail, Procs, unlink, I);
+lproc([Pid|Tail], Procs, link, I) ->
+    link(Pid),
+    lproc(Tail, Procs, unlink, I).
+
+
+
+%%%%%%%%%%% various utility functions %%%%%%%
+
+echo(Pid) ->
+    receive
+        X -> Pid ! X,
+             echo(Pid)
+    end.
+
+very_big() ->
+    very_big(2).
+very_big(0) -> [];
+very_big(I) ->
+    {1,2,3,a,v,f,r,t,y,u,self(), self(), self(),
+     "22222222222222222", {{"234", self()}},
+     [[very_big(I-1)]]}.
+
+big() ->
+    {self(), funky_stuff, baby, {1, [123, true,[]], "abcdef"}}.
+
+small() -> {self(), true}.
+
+%% Wait for a list of children to respond
+wait_for_pids([]) ->
+    ok;
+wait_for_pids([P|Tail]) ->
+    receive
+        {P, _Res} -> wait_for_pids(Tail)
+    end.
+
+send_procs([P|Tail], Msg) -> P ! Msg, send_procs(Tail, Msg);
+send_procs([], _) -> ok.
+
+-endif.
