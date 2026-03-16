@@ -506,14 +506,8 @@ protected:
             add(to, src, -val);
         } else if (val == 0 && to != src) {
             a.mov(to, src);
-        } else if (val < (1 << 24)) {
-            if (val & 0xFFF) {                   // subtract the lower 12 bits
-                a.sub(to, src, imm(val & 0xFFF));
-                src = to;
-            }
-            if (val & 0xFFF000) {                // subtract the upper 12 bits
-                a.sub(to, src, imm(val & 0xFFF000));
-            }
+        } else if (val <= 255) {
+            a.sub(to, src, imm(val));
         } else {
             mov_imm(TMP, val);
             a.sub(to, src, TMP);
@@ -525,14 +519,8 @@ protected:
             sub(to, src, -val);
         } else if (val == 0 && to != src) {
             a.mov(to, src);
-        } else if (val < (1 << 24)) {
-            if (val & 0xFFF) {                  // add the lower 12 bits
-                a.add(to, src, imm(val & 0xFFF));
-                src = to;
-            }
-            if (val & 0xFFF000) {               // add the upper 12 bits
-                a.add(to, src, imm(val & 0xFFF000));
-            }
+        } else if (val <= 255) {
+            a.add(to, src, imm(val));
         } else {
             mov_imm(TMP, val);
             a.add(to, src, TMP);
@@ -753,7 +741,7 @@ class BeamModuleAssembler : public BeamAssembler,
         reg_cache.consolidate(a.offset());
         reg_cache.invalidate(src);
 
-        a.str(src, mem_dst);
+        safe_str(src, mem_dst);
 
         reg_cache_put(mem_dst, src);
         reg_cache.update(a.offset());
@@ -794,7 +782,7 @@ class BeamModuleAssembler : public BeamAssembler,
             }
         } else {
             /* Not cached. Load and update cache. */
-            a.ldr(dst, mem);
+            safe_ldr(dst, mem);
             reg_cache.invalidate(dst);
             reg_cache_put(mem, dst);
             reg_cache.update(a.offset());
@@ -1456,8 +1444,22 @@ protected:
     }
 
     void safe_str(a32::Gp gp, arm::Mem mem) {
-        // TODO
-        ASSERT(false);
+        size_t abs_offset = std::abs(mem.offset());
+        auto offset = mem.offset();
+
+        ASSERT(mem.hasBaseReg() && !mem.hasIndex());
+        ASSERT(gp.isGp());
+
+        if (abs_offset <= disp4KB) {
+            a.str(gp, mem);
+        } else {
+            /* Avoid clobbering the source register when materializing the
+             * effective address. */
+            a32::Gp addr = (gp != TMP) ? TMP : VAR;
+            ASSERT(addr != gp);
+            add(addr, a32::Gp(mem.baseId()), offset);
+            a.str(gp, arm::Mem(addr));
+        }
     }
 
     void safe_stmia(a32::Gp gp1,
