@@ -393,12 +393,7 @@ erl_first_process_otp(char* mod_name, int argc, char** argv)
     args = CONS(hp, boot_mod, args);
 
     ERTS_SET_DEFAULT_SPAWN_OPTS(&so);
-#if defined(__arm__) && defined(BEAMASM)
-    // ARM32 with JIT enabled just for development
-    res = erl_spawn_system_process(&parent, am_hello, am_start, args, &so);
-#else
     res = erl_spawn_system_process(&parent, am_erl_init, am_start, args, &so);
-#endif
     ASSERT(is_internal_pid(res));
 
     erts_proc_unlock(&parent, ERTS_PROC_LOCK_MAIN);
