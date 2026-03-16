@@ -670,16 +670,66 @@ void BeamModuleAssembler::emit_put_list_deallocate(const ArgSource &Hd,
                                                    const ArgSource &Tl,
                                                    const ArgRegister &Dst,
                                                    const ArgWord &Deallocate) {
-    // TODO
-    emit_nyi("emit_put_list_deallocate");
+    Sint dealloc = Deallocate.get() * sizeof(Eterm);
+    a32::Gp hd_reg, tl_reg;
+    auto dst = init_destination(Dst, TMP);
+
+    ASSERT(Deallocate.get() <= 1023);
+
+    if (Hd.isYRegister() && !Tl.isYRegister() && dealloc > 0) {
+        auto hd_index = Hd.as<ArgYRegister>().get();
+
+        if (hd_index == 0) {
+            hd_reg = ARG1;
+            a.ldr(hd_reg, arm::Mem(E).post(dealloc));
+            tl_reg = load_source(Tl, ARG2).reg;
+            dealloc = 0;
+        }
+    } else if (!Hd.isYRegister() && Tl.isYRegister() && dealloc > 0) {
+        auto tl_index = Tl.as<ArgYRegister>().get();
+
+        if (tl_index == 0) {
+            tl_reg = ARG2;
+            a.ldr(tl_reg, arm::Mem(E).post(dealloc));
+            hd_reg = load_source(Hd, ARG1).reg;
+            dealloc = 0;
+        }
+    }
+
+    if (!hd_reg.isValid()) {
+        auto [hd, tl] = load_sources(Hd, ARG1, Tl, ARG2);
+        hd_reg = hd.reg;
+        tl_reg = tl.reg;
+    }
+
+    safe_stmia(arm::Mem(HTOP), hd_reg, tl_reg);
+    a.add(HTOP, HTOP, imm(sizeof(Eterm[2])));
+    a.sub(dst.reg, HTOP, imm(sizeof(Eterm[2]) - TAG_PRIMARY_LIST));
+
+    flush_var(dst);
+
+    if (dealloc > 0) {
+        add(E, E, Deallocate.get() * sizeof(Eterm));
+    }
 }
 
 void BeamModuleAssembler::emit_put_list2(const ArgSource &Hd1,
                                          const ArgSource &Hd2,
                                          const ArgSource &Tl,
                                          const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_put_list2");
+    auto [hd1, hd2] = load_sources(Hd1, ARG1, Hd2, ARG2);
+    auto tl = load_source(Tl, ARG3);
+    auto dst = init_destination(Dst, ARG4);
+
+    safe_stmia(arm::Mem(HTOP), hd1.reg, tl.reg);
+    a.add(HTOP, HTOP, imm(sizeof(Eterm[2])));
+    a.sub(dst.reg, HTOP, imm(sizeof(Eterm[2]) - TAG_PRIMARY_LIST));
+
+    safe_stmia(arm::Mem(HTOP), hd2.reg, dst.reg);
+    a.add(HTOP, HTOP, imm(sizeof(Eterm[2])));
+    a.sub(dst.reg, HTOP, imm(sizeof(Eterm[2]) - TAG_PRIMARY_LIST));
+
+    flush_var(dst);
 }
 
 void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
