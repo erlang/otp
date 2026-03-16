@@ -432,7 +432,7 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
         }
     }
 
-    if (Support::isUInt12(args.size())) {
+    if (Support::isUInt8(args.size())) {
         a.cmp(TMP, imm(args.size()));
     } else {
         mov_imm(VAR, args.size());
@@ -448,13 +448,16 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
     if (embedInText) {
         a.adr(VAR, data);
     } else {
+        /* Emitting large jump tables can move us far enough to make pending
+         * constants go out of range. Flush them before embedding rodata. */
+        flush_pending_stubs(STUB_CHECK_INTERVAL * 4);
         embed_vararg_rodata(args, VAR);
     }
 
     a.ldr(VAR, arm::Mem(VAR, TMP, arm::lsl(2)));
     a.bx(VAR);
 
-    mark_unreachable_check_pending_stubs();
+    mark_unreachable();
 
     a.bind(data);
     if (embedInText) {
