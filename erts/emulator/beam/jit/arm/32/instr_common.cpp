@@ -280,18 +280,17 @@ void BeamModuleAssembler::emit_get_list(const ArgRegister &Src,
 
     auto hd = init_destination(Hd, ARG1);
     auto tl = init_destination(Tl, ARG2);
-
-    /* We need to get rid of tag bits before using the source register. */
-    untag_ptr_preserve_cache(TMP, src.reg);
+    a32::Gp cons_ptr = emit_ptr_val(TMP, src.reg);
 
     if (hd.reg == tl.reg) {
-        /* ldmia with two identical registers is an illegal
-         * instruction. Produce the same result as the interpreter. */
-        a.ldr(tl.reg, arm::Mem(TMP, sizeof(Eterm)));
+        /* Loading both cells into the same destination register should match
+         * the interpreter semantics (tail wins). */
+        a.ldr(tl.reg, getCDRRef(cons_ptr));
         flush_var(tl);
     } else {
         preserve_cache([&]() {
-            safe_ldmia(arm::Mem(TMP), hd.reg, tl.reg);
+            a.ldr(hd.reg, getCARRef(cons_ptr));
+            a.ldr(tl.reg, getCDRRef(cons_ptr));
         });
         flush_vars(hd, tl);
     }
@@ -1462,9 +1461,13 @@ void BeamGlobalAssembler::emit_is_eq_exact_list_shared() {
     a.bind(loop);
     emit_untag_ptr(ARG1, ARG1);
     emit_untag_ptr(ARG2, ARG2);
-    a.ldmia(arm::Mem(ARG1), a32::GpList({TMP, ARG1}));
-    a.ldmia(arm::Mem(ARG2), a32::GpList({ARG3, ARG2}));
-    a.cmp(TMP, ARG3);
+    /* Remainder: `ldmia` loads registers in ascending register-number order,
+     * The registers positioning in the list is irrelevant */
+    a.ldmia(arm::Mem(ARG1), a32::GpList({VAR, TMP}));
+    a.mov(ARG1, TMP);
+    a.ldmia(arm::Mem(ARG2), a32::GpList({ARG3, ARG4}));
+    a.mov(ARG2, ARG4);
+    a.cmp(VAR, ARG3);
     a.b_ne(done);
 
     a.bind(mid);
