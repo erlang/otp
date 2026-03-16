@@ -1472,6 +1472,8 @@ protected:
     void safe_stmia(arm::Mem mem, a32::Gp gp1, a32::Gp gp2) {
         ASSERT(gp1.isGp() && gp2.isGp());
         ASSERT(gp1 != gp2);
+        // ldmia always writes to the registers in ascending order 
+        // so we need to ensure that gp1.id() < gp2.id()
         ASSERT(gp1.id() < gp2.id());
         // We need the full memory address in a base register to use stmia
         // a LEA(TMP) will work,
@@ -1520,11 +1522,15 @@ protected:
 
     void safe_ldmia(arm::Mem mem, a32::Gp gp1, a32::Gp gp2) {
         ASSERT(gp1.isGp() && gp2.isGp());
-        // ldmia requires different registers
         ASSERT(gp1 != gp2);
         // ldmia always writes to the registers in ascending order 
         // so we need to ensure that gp1.id() < gp2.id()
         ASSERT(gp1.id() < gp2.id());
+        // We need the full memory address in a base register to use stmia
+        // a LEA(TMP) will work,
+        // but we need to make sure it's not used by the source registers
+        ASSERT(gp1.id() != TMP.id());
+        ASSERT(gp2.id() != TMP.id());
         
         lea(TMP, mem);
         preserve_cache(
