@@ -582,8 +582,7 @@ void BeamModuleAssembler::emit_send() {
 }
 
 void BeamModuleAssembler::emit_nif_start() {
-    // TODO
-    emit_nyi("emit_nif_start");
+    /* load time only instruction */
 }
 
 void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
