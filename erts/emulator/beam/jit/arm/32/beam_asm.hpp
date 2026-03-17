@@ -261,7 +261,7 @@ protected:
         ERTS_CT_ASSERT(offsetof(Export, dispatch) == 0);
         ERTS_CT_ASSERT(offsetof(ErtsDispatchable, addresses) == 0);
 
-        return arm::Mem(ARG1, CodeIndex, arm::lsl(3));
+        return arm::Mem(ARG1, CodeIndex, arm::lsl(2));
     }
 
     /* Prefer `eHeapAlloc` over `eStack | eHeap` when calling
