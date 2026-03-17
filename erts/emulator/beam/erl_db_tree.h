@@ -26,10 +26,43 @@
 #include "erl_db_util.h"
 
 typedef struct tree_db_term {
-    struct  tree_db_term *left, *right;  /* left and right child */
-    int  balance;                        /* tree balancing value */
+    struct tree_db_term *left, *right;   /* left and right child */
     DbTerm dbterm;                       /* The actual term */
 } TreeDbTerm;
+
+/*
+** AVL balance factor is encoded in the 2 low bits of the `left` pointer.
+** This works because ERTS_ALLOC_ALIGN_BYTES >= 8, giving 3 free low bits.
+**
+** Encoding: -1 → 0b11, 0 → 0b00, +1 → 0b01  (simply: balance & 3)
+** Decoding: 2-bit sign extension — if bit 1 set, value is negative.
+*/
+#define TREE_TAG_MASK ((UWord)3)
+
+/*
+** AVL tree node access.
+*/
+#define TREE_GET_LEFT(p) ((TreeDbTerm *)((UWord)(p)->left & ~TREE_TAG_MASK))
+#define TREE_GET_RIGHT(p) ((p)->right)
+#define TREE_GET_BALANCE(p)                                                    \
+    ((int)((UWord)(p)->left & TREE_TAG_MASK) |                                 \
+     -((int)(((UWord)(p)->left & 2) >> 1) << 1))
+#define TREE_SET_BALANCE(p, b)                                                 \
+    ((p)->left = (TreeDbTerm *)(((UWord)(p)->left & ~TREE_TAG_MASK) |          \
+                                ((UWord)(b) & TREE_TAG_MASK)))
+#define TREE_SET_LEFT(p, child)                                                \
+    ((p)->left = (TreeDbTerm *)(((UWord)(child)) |                             \
+                                ((UWord)(p)->left & TREE_TAG_MASK)))
+#define TREE_SET_RIGHT(p, child) ((p)->right = (child))
+
+/*
+** When traversing via TreeDbTerm** (pointer-to-pointer to a node field),
+** the pointed-to location may be a `left` field with tag bits.
+** TREE_DEREF_NODE strips tags; TREE_ASSIGN_NODE preserves existing tags.
+*/
+#define TREE_DEREF_NODE(pp) ((TreeDbTerm *)((UWord)(*(pp)) & ~TREE_TAG_MASK))
+#define TREE_ASSIGN_NODE(pp, node)                                             \
+    (*(pp) = (TreeDbTerm *)(((UWord)(node)) | ((UWord)(*(pp)) & TREE_TAG_MASK)))
 
 typedef struct {
     Uint pos;          /* Current position on stack */
