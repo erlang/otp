@@ -23,15 +23,40 @@
 /* Calls to functions that are being purged (but haven't finished) land here.
  *
  * Keep in mind that this runs in the limbo between caller and callee. It must
- * not clobber LR (x30).
+ * not clobber LR.
  *
  * ARG3 = lower 16 bits of expected header, containing FUN_SUBTAG and arity
  * ARG4 = fun thing
  *
- * ARM32 has no ARG5 register. */
+ * The call-site PC is passed via TMP_MEM2q (ARM32 has no ARG5 register). */
 void BeamGlobalAssembler::emit_unloaded_fun() {
-    // TODO
-    emit_nyi("emit_unloaded_fun");
+    Label error = a.newLabel();
+
+    emit_enter_runtime_frame();
+    emit_enter_runtime<Update::eHeapAlloc | Update::eReductions>();
+
+    a.mov(ARG1, c_p);
+    load_x_reg_array(ARG2);
+    a.lsr(ARG3, ARG3, imm(FUN_HEADER_ARITY_OFFS));
+    /* ARG4 has already been set. */
+    runtime_call<4>(beam_jit_handle_unloaded_fun);
+
+    emit_leave_runtime<Update::eHeapAlloc | Update::eReductions | 
+                       Update::eCodeIndex>();
+    emit_leave_runtime_frame();
+
+    a.tst(ARG1, ARG1);
+    a.b_eq(error);
+
+    a.ldr(TMP, emit_setup_dispatchable_call(ARG1));
+    a.bx(TMP);
+
+    a.bind(error);
+    {
+        a.ldr(ARG2, TMP_MEM2q);
+        mov_imm(ARG4, nullptr);
+        a.b(labels[raise_exception_shared]);
+    }
 }
 
 /* Handles errors for `call_fun`. Assumes that we're running on the Erlang
