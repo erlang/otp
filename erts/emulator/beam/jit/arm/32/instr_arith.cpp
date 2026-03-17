@@ -1134,8 +1134,19 @@ void BeamModuleAssembler::emit_i_bsl(const ArgLabel &Fail,
                                      const ArgSource &RHS,
                                      const ArgRegister &Dst) {
     auto dst = init_destination(Dst, ARG1);
+    bool use_small_fast_path = is_bsl_small(LHS, RHS);
 
-    if (is_bsl_small(LHS, RHS)) {
+    /* ARM32 LSL-immediate only accepts 0..31. If the shift is a literal
+     * outside that range, skip the inline fast path and use the runtime path
+     * instead to preserve semantics. */
+    if (use_small_fast_path && RHS.isSmall()) {
+        int shift = RHS.as<ArgSmall>().getSigned();
+        if (shift < 0 || shift >= 32) {
+            use_small_fast_path = false;
+        }
+    }
+
+    if (use_small_fast_path) {
         comment("skipped tests because operands and result are always small");
         if (RHS.isSmall()) {
             auto lhs = load_source(LHS);
