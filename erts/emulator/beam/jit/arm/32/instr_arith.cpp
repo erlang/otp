@@ -490,7 +490,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
         return;
     }
 
-    Label mixed = a.newLabel(), small = a.newLabel(), next = a.newLabel();
+    Label mixed = a.newLabel(), next = a.newLabel();
     auto [src1, src2] = load_sources(Src1, ARG2, Src2, ARG3);
     auto src4 = load_source(ArgXRegister(0), ARG4);
 
@@ -506,6 +506,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
     }
 
     if (sometimes_small) {
+        Label small = a.newLabel();
         if (always_small(Src1) && always_small(Src2) && always_small(Src4)) {
             comment("skipped test for small operands since they are always "
                     "small");
