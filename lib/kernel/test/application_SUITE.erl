@@ -40,7 +40,8 @@
 
 -export([config_change/1, persistent_env/1, invalid_app_file/1,
 	 distr_changed_tc1/1, distr_changed_tc2/1,
-	 ensure_started/1, ensure_all_started/1,
+	 ensure_started/1, ensure_all_started/1, ensure_all_started_limit/1,
+	 ensure_all_stopped/1, ensure_all_stopped_limit/1,
 	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1,
          shutdown_application_call/1,shutdown_deadlock/1,
          config_relative_paths/1, handle_many_config_files/1,
@@ -61,7 +62,8 @@ all() ->
     [failover, failover_comp, permissions, load,
      load_use_cache, ensure_started, {group, reported_bugs}, start_phases,
      script_start, nodedown_start, permit_false_start_local,
-     permit_false_start_dist, get_key, get_env, ensure_all_started,
+     permit_false_start_dist, get_key, get_env, ensure_all_started, ensure_all_started_limit,
+     ensure_all_stopped, ensure_all_stopped_limit,
      set_env, set_env_persistent, set_env_errors, get_supervisor,
      {group, distr_changed}, config_change, shutdown_func, shutdown_timeout,
      shutdown_application_call, shutdown_deadlock, config_relative_paths, optional_applications,
@@ -1059,6 +1061,124 @@ do_ensure_all_started(Mode) ->
     ok = application:unload(app10),
     ok = application:unload(app_chain_error2),
     ok = application:unload(app_chain_error),
+    ok.
+
+%% Test application:ensure_all_started/3 with limit option.
+ensure_all_started_limit(_Conf) ->
+    {ok, Fd9} = file:open("app9.app", [write]),
+    w_app9(Fd9),
+    file:close(Fd9),
+    {ok, Fd10} = file:open("app10.app", [write]),
+    w_app10(Fd10, [app9], []),
+    file:close(Fd10),
+
+    %% Test various limit values
+    lists:foreach(fun(Limit) ->
+        {ok, Started} = application:ensure_all_started(app10, temporary,
+                                                        #{mode => concurrent, limit => Limit}),
+        [app10, app9] = lists:sort(Started),
+        ok = application:stop(app9),
+        ok = application:unload(app9),
+        ok = application:stop(app10),
+        ok = application:unload(app10)
+    end, [1, 2, 10, inf]),
+    ok.
+
+%% Test application:ensure_all_stopped/1-2.
+ensure_all_stopped(_Conf) ->
+    do_ensure_all_stopped(serial),
+    do_ensure_all_stopped(concurrent),
+    ok.
+
+do_ensure_all_stopped(Mode) ->
+    {ok, Fd1} = file:open("app1.app", [write]),
+    w_app1(Fd1),
+    file:close(Fd1),
+    {ok, Fd9} = file:open("app9.app", [write]),
+    w_app9(Fd9),
+    file:close(Fd9),
+    {ok, Fd10} = file:open("app10.app", [write]),
+    w_app10(Fd10, [app9], []),
+    file:close(Fd10),
+
+    %% Single app stop - app not running should return empty list
+    false = lists:keyfind(app1, 1, application:which_applications()),
+    {ok, []} = application:ensure_all_stopped(app1, Mode),
+
+    %% Start and stop single app
+    {ok, [app1]} = application:ensure_all_started(app1, temporary),
+    {app1, _, _} = lists:keyfind(app1, 1, application:which_applications()),
+    {ok, [app1]} = application:ensure_all_stopped(app1, Mode),
+    false = lists:keyfind(app1, 1, application:which_applications()),
+    ok = application:unload(app1),
+
+    %% Already stopped app returns empty list
+    {ok, [app1]} = application:ensure_all_started(app1, temporary),
+    {ok, [app1]} = application:ensure_all_stopped(app1, Mode),
+    {ok, []} = application:ensure_all_stopped(app1, Mode), % already stopped
+    ok = application:unload(app1),
+
+    %% Stop app with dependencies - should stop dependents first
+    %% app10 depends on app9, so stopping app9 should also stop app10
+    {ok, [app9, app10]} = application:ensure_all_started(app10, temporary),
+    {app9, _, _} = lists:keyfind(app9, 1, application:which_applications()),
+    {app10, _, _} = lists:keyfind(app10, 1, application:which_applications()),
+    {ok, StoppedApps} = application:ensure_all_stopped(app9, Mode),
+    %% Both app10 (dependent) and app9 should be stopped
+    true = lists:member(app9, StoppedApps),
+    true = lists:member(app10, StoppedApps),
+    false = lists:keyfind(app9, 1, application:which_applications()),
+    false = lists:keyfind(app10, 1, application:which_applications()),
+    ok = application:unload(app9),
+    ok = application:unload(app10),
+
+    %% Stop only the leaf app (app10) - should not stop app9
+    {ok, [app9, app10]} = application:ensure_all_started(app10, temporary),
+    {ok, [app10]} = application:ensure_all_stopped(app10, Mode),
+    {app9, _, _} = lists:keyfind(app9, 1, application:which_applications()),
+    false = lists:keyfind(app10, 1, application:which_applications()),
+    ok = application:stop(app9),
+    ok = application:unload(app9),
+    ok = application:unload(app10),
+
+    %% Stop multiple apps at once
+    {ok, _} = application:ensure_all_started([app1, app10], temporary),
+    {app1, _, _} = lists:keyfind(app1, 1, application:which_applications()),
+    {app9, _, _} = lists:keyfind(app9, 1, application:which_applications()),
+    {app10, _, _} = lists:keyfind(app10, 1, application:which_applications()),
+    {ok, StoppedMultiple} = application:ensure_all_stopped([app1, app9], Mode),
+    %% app1, app9, and app10 (dependent of app9) should all be stopped
+    true = lists:member(app1, StoppedMultiple),
+    true = lists:member(app9, StoppedMultiple),
+    true = lists:member(app10, StoppedMultiple),
+    false = lists:keyfind(app1, 1, application:which_applications()),
+    false = lists:keyfind(app9, 1, application:which_applications()),
+    false = lists:keyfind(app10, 1, application:which_applications()),
+    ok = application:unload(app1),
+    ok = application:unload(app9),
+    ok = application:unload(app10),
+    ok.
+
+%% Test application:ensure_all_stopped/2 with limit option.
+ensure_all_stopped_limit(_Conf) ->
+    {ok, Fd9} = file:open("app9.app", [write]),
+    w_app9(Fd9),
+    file:close(Fd9),
+    {ok, Fd10} = file:open("app10.app", [write]),
+    w_app10(Fd10, [app9], []),
+    file:close(Fd10),
+
+    %% Test various limit values
+    lists:foreach(fun(Limit) ->
+        {ok, [app9, app10]} = application:ensure_all_started(app10, temporary),
+        {ok, Stopped} = application:ensure_all_stopped(app9,
+                                                        #{mode => concurrent, limit => Limit}),
+        %% Both apps should be stopped (app10 depends on app9)
+        true = lists:member(app9, Stopped),
+        true = lists:member(app10, Stopped),
+        ok = application:unload(app9),
+        ok = application:unload(app10)
+    end, [1, 2, 10, inf]),
     ok.
 
 optional_applications(_Conf) ->
