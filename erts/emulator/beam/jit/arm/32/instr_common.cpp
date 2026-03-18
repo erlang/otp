@@ -2143,8 +2143,41 @@ void BeamModuleAssembler::emit_is_int_in_range(ArgLabel const &Fail,
 void BeamModuleAssembler::emit_is_int_ge(ArgLabel const &Fail,
                                          ArgRegister const &Src,
                                          ArgConstant const &Min) {
-    // TODO
-    emit_nyi("emit_is_int_ge");
+    auto src = load_source(Src, ARG1);
+    Label small = a.newLabel(), next = a.newLabel();
+    Label fail = resolve_beam_label(Fail, dispUnknown);
+
+    if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(Src)) {
+        comment("simplified small test since all other types are boxed");
+        emit_is_boxed(small, Src, src.reg);
+    } else {
+        preserve_cache(
+                [&]() {
+                    a.and_(TMP, src.reg, imm(_TAG_IMMED1_MASK));
+                    a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+                    a.b_eq(small);
+                },
+                TMP);
+
+        emit_is_boxed(fail, Src, src.reg);
+    }
+
+    preserve_cache(
+            [&]() {
+                a32::Gp boxed_ptr = emit_ptr_val(TMP, src.reg);
+                a.ldr(TMP, emit_boxed_val(boxed_ptr));
+                a.and_(TMP, TMP, imm(_TAG_HEADER_MASK));
+                a.cmp(TMP, imm(_TAG_HEADER_POS_BIG));
+                a.b_ne(fail);
+                a.b(next);
+
+                a.bind(small);
+                cmp_arg(src.reg, Min);
+                a.b_lt(fail);
+
+                a.bind(next);
+            },
+            TMP);
 }
 
 void BeamModuleAssembler::emit_badmatch(const ArgSource &Src) {
