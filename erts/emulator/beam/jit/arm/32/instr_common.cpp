@@ -1970,8 +1970,26 @@ void BeamModuleAssembler::emit_is_ge_ge(ArgLabel const &Fail1,
                                         ArgRegister const &Src,
                                         ArgConstant const &A,
                                         ArgConstant const &B) {
-    // TODO
-    emit_nyi("emit_is_ge_ge");
+    if (!always_small(Src)) {
+        /* In practice, it is uncommon that Src is not a known small
+         * integer, so we will not bother optimizing that case. */
+        emit_is_ge(Fail1, Src, A);
+        emit_is_ge(Fail2, Src, B);
+        return;
+    }
+
+    auto src = load_source(Src, ARG1);
+
+    preserve_cache(
+            [&]() {
+                mov_imm(VAR, A.as<ArgImmed>().get());
+                a.sub(TMP, src.reg, VAR);
+                a.b_lt(resolve_beam_label(Fail1, disp32MB));
+                mov_imm(VAR, B.as<ArgImmed>().get() - A.as<ArgImmed>().get());
+                a.cmp(TMP, VAR);
+                a.b_lo(resolve_beam_label(Fail2, disp32MB));
+            },
+            TMP);
 }
 
 /*
@@ -1986,8 +2004,24 @@ void BeamModuleAssembler::emit_is_int_in_range(ArgLabel const &Fail,
                                                ArgRegister const &Src,
                                                ArgConstant const &Min,
                                                ArgConstant const &Max) {
-    // TODO
-    emit_nyi("emit_is_int_in_range");
+    auto src = load_source(Src, ARG1);
+
+    preserve_cache(
+            [&]() {
+                sub(TMP, src.reg, Min.as<ArgImmed>().get());
+
+                /* Since we have subtracted the (tagged) lower bound, the tag
+                 * bits of the difference is 0 if and only if Src is a
+                 * small. */
+                ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+                a.tst(TMP, imm(_TAG_IMMED1_MASK));
+                a.b_ne(resolve_beam_label(Fail, disp32MB));
+                mov_imm(VAR, Max.as<ArgImmed>().get() -
+                             Min.as<ArgImmed>().get());
+                a.cmp(TMP, VAR);
+                a.b_hi(resolve_beam_label(Fail, disp32MB));
+            },
+            TMP);
 }
 
 /*
