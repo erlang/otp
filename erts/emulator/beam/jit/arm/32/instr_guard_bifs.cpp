@@ -226,22 +226,87 @@ void BeamModuleAssembler::emit_bif_is_ge_lt(arm::CondCode cc,
                                             const ArgSource &LHS,
                                             const ArgSource &RHS,
                                             const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_bif_is_ge_lt");
+    auto [lhs, rhs] = load_sources(LHS, ARG1, RHS, ARG2);
+
+    Label generic = a.newLabel(), next = a.newLabel();
+
+    if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(LHS) &&
+        always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(RHS)) {
+        /* The only possible kind of immediate is a small and all
+         * other values are boxed, so we can test for smalls by
+         * testing boxed. */
+        comment("simplified small test since all other types are boxed");
+        if (always_small(LHS)) {
+            emit_is_not_boxed(generic, rhs.reg);
+        } else if (always_small(RHS)) {
+            emit_is_not_boxed(generic, lhs.reg);
+        } else {
+            a.and_(TMP, lhs.reg, rhs.reg);
+            emit_is_not_boxed(generic, TMP);
+        }
+    } else {
+        /* Relative comparisons are overwhelmingly likely to be used
+         * on smalls, so we'll specialize those and keep the rest in a
+         * shared fragment. */
+        if (always_small(RHS)) {
+            a.and_(TMP, lhs.reg, imm(_TAG_IMMED1_MASK));
+        } else if (always_small(LHS)) {
+            a.and_(TMP, rhs.reg, imm(_TAG_IMMED1_MASK));
+        } else {
+            ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+            a.and_(TMP, lhs.reg, rhs.reg);
+            a.and_(TMP, TMP, imm(_TAG_IMMED1_MASK));
+        }
+
+        a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+        a.b_ne(generic);
+    }
+
+    a.cmp(lhs.reg, rhs.reg);
+    a.b(next);
+
+    a.bind(generic);
+    {
+        a.cmp(lhs.reg, rhs.reg);
+        a.b_eq(next);
+
+        mov_var(ARG1, lhs);
+        mov_var(ARG2, rhs);
+        fragment_call(ga->get_arith_compare_shared());
+    }
+
+    a.bind(next);
+    emit_cond_to_bool(cc, Dst);
 }
 
 void BeamModuleAssembler::emit_bif_is_ge(const ArgSource &LHS,
                                          const ArgSource &RHS,
                                          const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_bif_is_ge");
+    if (always_small(LHS) && RHS.isSmall() && RHS.isImmed()) {
+        auto lhs = load_source(LHS, ARG1);
+
+        comment("simplified compare because one operand is an immediate small");
+        cmp_arg(lhs.reg, RHS);
+        emit_cond_to_bool(arm::CondCode::kGE, Dst);
+
+        return;
+    } else if (LHS.isSmall() && LHS.isImmed() && always_small(RHS)) {
+        auto rhs = load_source(RHS, ARG1);
+
+        comment("simplified compare because one operand is an immediate small");
+        cmp_arg(rhs.reg, LHS);
+        emit_cond_to_bool(arm::CondCode::kLE, Dst);
+
+        return;
+    }
+
+    emit_bif_is_ge_lt(arm::CondCode::kGE, LHS, RHS, Dst);
 }
 
 void BeamModuleAssembler::emit_bif_is_lt(const ArgSource &LHS,
                                          const ArgSource &RHS,
                                          const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_bif_is_lt");
+    emit_bif_is_ge_lt(arm::CondCode::kLT, LHS, RHS, Dst);
 }
 
 /* ================================================================
