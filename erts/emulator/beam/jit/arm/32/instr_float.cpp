@@ -170,7 +170,8 @@ void BeamModuleAssembler::emit_fconv(const ArgSource &Src,
         return;
     }
 
-    Label next = a.newLabel(), not_small = a.newLabel(),
+    Label next = a.newLabel(),
+          not_small = a.newLabel(),
           fallback = a.newLabel();
 
     a.and_(TMP, src.reg, imm(_TAG_IMMED1_MASK));
