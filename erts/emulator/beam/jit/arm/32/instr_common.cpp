@@ -1914,8 +1914,35 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
  * Result is returned in the flags.
  */
 void BeamGlobalAssembler::emit_is_in_range_shared() {
-    // TODO
-    emit_nyi("emit_is_in_range_shared");
+    Label done = a.newLabel();
+
+    emit_enter_runtime_frame();
+    emit_enter_runtime();
+
+    /* Preserve Src and Max across runtime calls. */
+    a.str(ARG1, TMP_MEM1q);
+    a.str(ARG3, TMP_MEM2q);
+
+    comment("erts_cmp_compound(Src, Min, 0, 0);");
+    mov_imm(ARG3, 0);
+    mov_imm(ARG4, 0);
+    runtime_call<4>(erts_cmp_compound);
+    a.cmp(ARG1, imm(0));
+    a.b_lt(done);
+
+    /* Compare Src with Max to establish >max in flags. */
+    a.ldr(ARG1, TMP_MEM1q);
+    a.ldr(ARG2, TMP_MEM2q);
+    comment("erts_cmp_compound(Src, Max, 0, 0);");
+    mov_imm(ARG3, 0);
+    mov_imm(ARG4, 0);
+    runtime_call<4>(erts_cmp_compound);
+    a.cmp(ARG1, imm(0));
+
+    a.bind(done);
+    emit_leave_runtime();
+    emit_leave_runtime_frame();
+    a.bx(a32::lr);
 }
 
 /*
@@ -1926,8 +1953,94 @@ void BeamModuleAssembler::emit_is_in_range(ArgLabel const &Small,
                                            ArgRegister const &Src,
                                            ArgConstant const &Min,
                                            ArgConstant const &Max) {
-    // TODO
-    emit_nyi("emit_is_in_range");
+    Label next = a.newLabel(), generic = a.newLabel();
+    bool need_generic = true;
+    auto src = load_source(Src, ARG1);
+
+    if (always_small(Src)) {
+        need_generic = false;
+        comment("skipped test for small operand since it always small");
+    } else if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       Src)) {
+        /* The only possible kind of immediate is a small and all
+         * other values are boxed, so we can test for smalls by
+         * testing boxed. */
+        comment("simplified small test since all other types are boxed");
+        if (Small == Large && never_one_of<BeamTypeId::Float>(Src)) {
+            /* Src is never a float and both failure labels are equal.
+             * Since non-small integers cannot be in range, fail directly. */
+            need_generic = false;
+            emit_is_boxed(resolve_beam_label(Small, dispUnknown), Src, src.reg);
+        } else {
+            emit_is_boxed(generic, Src, src.reg);
+        }
+    } else if (Small == Large) {
+        /* We can save one instruction if we incorporate the test for
+         * small into the range check. */
+        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+        comment("simplified small & range tests since failure labels are "
+                "equal");
+        sub(TMP, src.reg, Min.as<ArgImmed>().get());
+
+        /* Since we have subtracted the (tagged) lower bound, the tag
+         * bits of the difference is 0 if and only if Src is a
+         * small. */
+        a.tst(TMP, imm(_TAG_IMMED1_MASK));
+        a.b_ne(generic);
+
+        /* Now do the range check. */
+        mov_imm(VAR, Max.as<ArgImmed>().get() - Min.as<ArgImmed>().get());
+        a.cmp(TMP, VAR);
+        a.b_hi(resolve_beam_label(Small, disp32MB));
+
+        goto test_done;
+    } else {
+        /* We have no applicable type information and the failure
+         * labels are distinct. Emit the standard test for small
+         * and call the generic routine if Src is not a small. */
+        a.and_(TMP, src.reg, imm(_TAG_IMMED1_MASK));
+        a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+        a.b_ne(generic);
+    }
+
+    /* We have now established that the operand is small. */
+    if (Small == Large) {
+        comment("simplified range test since failure labels are equal");
+        sub(TMP, src.reg, Min.as<ArgImmed>().get());
+        mov_imm(VAR, Max.as<ArgImmed>().get() - Min.as<ArgImmed>().get());
+        a.cmp(TMP, VAR);
+        a.b_hi(resolve_beam_label(Small, disp32MB));
+    } else {
+        mov_imm(VAR, Min.as<ArgImmed>().get());
+        a.cmp(src.reg, VAR);
+        a.b_lt(resolve_beam_label(Small, disp32MB));
+        mov_imm(VAR, Max.as<ArgImmed>().get());
+        a.cmp(src.reg, VAR);
+        a.b_gt(resolve_beam_label(Large, disp32MB));
+    }
+
+test_done:
+    if (need_generic) {
+        a.b(next);
+    }
+
+    a.bind(generic);
+    if (!need_generic) {
+        comment("skipped generic comparison because it is not needed");
+    } else {
+        mov_var(ARG1, src);
+        mov_arg(ARG2, Min);
+        mov_arg(ARG3, Max);
+        fragment_call(ga->get_is_in_range_shared());
+        if (Small == Large) {
+            a.b_ne(resolve_beam_label(Small, disp32MB));
+        } else {
+            a.b_lt(resolve_beam_label(Small, disp32MB));
+            a.b_gt(resolve_beam_label(Large, disp32MB));
+        }
+    }
+
+    a.bind(next);
 }
 
 /*
