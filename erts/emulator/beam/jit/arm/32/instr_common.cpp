@@ -729,10 +729,10 @@ void BeamModuleAssembler::emit_put_list2(const ArgSource &Hd1,
     auto tl = load_source(Tl, ARG3);
     auto dst = init_destination(Dst, ARG4);
 
-    safe_stmia(put_cons, hd1.reg, tl.reg);
+    a.stmia(put_cons, a32::GpList({hd1.reg, tl.reg}));
     a.sub(dst.reg, HTOP, imm(sizeof(Eterm[2]) - TAG_PRIMARY_LIST));
 
-    safe_stmia(put_cons, hd2.reg, dst.reg);
+    a.stmia(put_cons, a32::GpList({hd2.reg, dst.reg}));
     a.sub(dst.reg, HTOP, imm(sizeof(Eterm[2]) - TAG_PRIMARY_LIST));
 
     flush_var(dst);
@@ -2134,8 +2134,13 @@ void BeamModuleAssembler::emit_try_end_move_deallocate(
         const ArgSource &Src,
         const ArgRegister &Dst,
         const ArgWord &Deallocate) {
-    // TODO
-    emit_nyi("emit_try_end_move_deallocate");
+    a.ldr(TMP, arm::Mem(c_p, offsetof(Process, catches)));
+    a.sub(TMP, TMP, imm(1));
+    a.str(TMP, arm::Mem(c_p, offsetof(Process, catches)));
+    mov_arg(Dst, Src);
+    if (Deallocate.get() > 0) {
+        add(E, E, Deallocate.get() * sizeof(Eterm));
+    }
 }
 
 void BeamModuleAssembler::emit_try_case(const ArgYRegister &CatchTag) {
