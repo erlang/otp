@@ -736,15 +736,88 @@ void BeamModuleAssembler::emit_bif_min(const ArgSource &LHS,
  */
 
 void BeamGlobalAssembler::emit_handle_node_error() {
-    // TODO
-    emit_nyi("emit_handle_node_error");
+    static ErtsCodeMFA mfa = {am_erlang, am_node, 1};
+    emit_raise_badarg(&mfa);
 }
 
 void BeamModuleAssembler::emit_bif_node(const ArgLabel &Fail,
                                         const ArgRegister &Src,
                                         const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_bif_node");
+    bool always_identifier = always_one_of<BeamTypeId::Identifier>(Src);
+    Label test_internal = a.newLabel();
+    Label internal = a.newLabel();
+    Label next = a.newLabel();
+    auto src = load_source(Src, ARG2);
+    Label fail;
+
+    if (Fail.get() != 0) {
+        fail = resolve_beam_label(Fail, dispUnknown);
+    } else if (!always_identifier) {
+        fail = a.newLabel();
+    }
+
+    emit_is_boxed(test_internal, Src, src.reg);
+
+    a32::Gp boxed_ptr = emit_ptr_val(TMP, src.reg);
+
+    if (!always_one_of<BeamTypeId::Pid, BeamTypeId::Port>(Src)) {
+        a.ldr(VAR, emit_boxed_val(boxed_ptr));
+        a.and_(VAR, VAR, imm(_TAG_HEADER_MASK));
+    }
+
+    if (maybe_one_of<BeamTypeId::Reference>(Src)) {
+        a.cmp(VAR, imm(_TAG_HEADER_REF));
+        a.b_eq(internal);
+    }
+
+    if (!always_identifier) {
+        Label external = a.newLabel();
+        ERTS_CT_ASSERT((_TAG_HEADER_EXTERNAL_PORT - _TAG_HEADER_EXTERNAL_PID) >>
+                               _TAG_PRIMARY_SIZE ==
+                       1);
+        ERTS_CT_ASSERT((_TAG_HEADER_EXTERNAL_REF - _TAG_HEADER_EXTERNAL_PORT) >>
+                               _TAG_PRIMARY_SIZE ==
+                       1);
+        a.sub(TMP, VAR, imm(_TAG_HEADER_EXTERNAL_PID));
+        a.cmp(TMP, imm(_TAG_HEADER_EXTERNAL_REF - _TAG_HEADER_EXTERNAL_PID));
+
+        if (Fail.get() != 0) {
+            a.b_hi(fail);
+        } else {
+            a.b_ls(external);
+
+            a.bind(fail);
+            {
+                mov_var(ARG1, src);
+                mov_arg(ArgXRegister(0), ARG1);
+                fragment_call(ga->get_handle_node_error());
+            }
+        }
+
+        a.bind(external);
+    }
+
+    a.ldr(TMP, emit_boxed_val(boxed_ptr, offsetof(ExternalThing, node)));
+    a.b(next);
+
+    a.bind(test_internal);
+    if (!always_identifier) {
+        /* Internal identifiers are either pid or port immediates. */
+        Label ok = a.newLabel();
+        a.and_(TMP, src.reg, imm(_TAG_IMMED1_MASK));
+        a.cmp(TMP, imm(_TAG_IMMED1_PID));
+        a.b_eq(ok);
+        a.cmp(TMP, imm(_TAG_IMMED1_PORT));
+        a.b_ne(fail);
+        a.bind(ok);
+    }
+
+    a.bind(internal);
+    mov_imm(TMP, &erts_this_node);
+    a.ldr(TMP, arm::Mem(TMP));
+
+    a.bind(next);
+    mov_arg(Dst, arm::Mem(TMP, offsetof(ErlNode, sysname)));
 }
 
 /* ================================================================
