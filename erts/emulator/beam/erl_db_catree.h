@@ -45,8 +45,7 @@ typedef struct {
 typedef struct {
     erts_rwmtx_t lock; /* The lock for this base node */
     TreeDbTerm *root; /* The root of the sequential tree */
-    bool is_valid;    /* If this base node is still valid */
-    erts_atomic_t lock_statistics;
+    erts_atomic_t lock_statistics erts_align_attribute(ERTS_CACHE_LINE_SIZE);
     ErtsThrPrgrLaterOp free_item; /* Used when freeing using thread progress */
 
     char end_of_struct__;
@@ -59,13 +58,13 @@ typedef struct {
 #ifdef ERTS_ENABLE_LOCK_CHECK
     Sint lc_order;
 #endif
-    bool is_valid; /* If this route node is still valid */
     ErtsThrPrgrLaterOp free_item; /* Used when freeing using thread progress */
     DbRouteKey key;
 } DbTableCATreeRouteNode;
 
 typedef struct DbTableCATreeNode {
     bool is_base_node;
+    bool is_valid; /* Shared by both base and route node variants */
     union {
         DbTableCATreeRouteNode route;
         DbTableCATreeBaseNode base;
