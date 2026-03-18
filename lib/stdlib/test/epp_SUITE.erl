@@ -36,7 +36,8 @@
          gh_8268/1,
          moduledoc_include/1,
          stringify/1,
-         fun_type_arg/1
+         fun_type_arg/1,
+         doctests/1
         ]).
 
 -export([epp_parse_erl_form/2]).
@@ -84,7 +85,8 @@ all() ->
      gh_8268,
      moduledoc_include,
      stringify,
-     fun_type_arg].
+     fun_type_arg,
+     doctests].
 
 groups() ->
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -2333,6 +2335,17 @@ run_test(Config, Test0, Opts0) ->
             peer:stop(Peer),
             Reply
     end.
+
+doctests(_Config) ->
+    file:write_file("example.erl",
+        ~"""
+         -module(example).
+
+         -export([foo/0]).
+
+         foo() -> ?MODULE.
+         """),
+    ct_doctest:module(epp, [{skipped_blocks, 5}]).
 
 fail() ->
     ct:fail(failed).

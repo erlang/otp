@@ -20,11 +20,31 @@
 %% %CopyrightEnd%
 
 -module(epp).
--moduledoc """
+-moduledoc """"
 An Erlang code preprocessor.
 
 The Erlang code preprocessor includes functions that are used by the `m:compile`
 module to preprocess macros and include files before the parsing takes place.
+For example:
+
+```erlang
+1> file:read_file("example.erl").
+{ok, ~"""
+      -module(example).
+
+      -export([foo/0]).
+
+      foo() -> ?MODULE.
+      """}
+2> epp:parse_file("example.erl", []).
+{ok,[{attribute,1,file,{"example.erl",1}},
+     {attribute,1,module,example},
+     {attribute,3,export,[{foo,0}]},
+     {function,5,foo,0,[{clause,5,[],[],[{atom,5,example}]}]},
+     {eof,5}]}
+```
+
+## Encoding
 
 The Erlang source file _encoding_{: #encoding } is selected by a comment in one
 of the first two lines of the source file. The first string matching the regular
@@ -32,7 +52,7 @@ expression `coding\s*[:=]\s*([-a-zA-Z0-9])+` selects the encoding. If the
 matching string is not a valid encoding, it is ignored. The valid encodings are
 `Latin-1` and `UTF-8`, where the case of the characters can be chosen freely.
 
-_Examples:_
+### Examples
 
 ```erlang
 %% coding: utf-8
@@ -64,7 +84,7 @@ Module:format_error(ErrorDescriptor)
 ### See Also
 
 `m:erl_parse`
-""".
+"""".
 
 -compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
@@ -90,6 +110,72 @@ Module:format_error(ErrorDescriptor)
 -doc "Handle to the `epp` server.".
 -type epp_handle() :: pid().
 -type source_encoding() :: latin1 | utf8.
+
+-doc """"
+The `t:option/0` are the options that can be used to customize the preprocessing.
+
+* **`{default_encoding, DefEncoding}`** - sets the default encoding of the file. The default encoding is
+  used if no valid encoding is found in the file. The valid encodings are `latin1` and `utf8`,
+  where the case of the characters can be chosen freely. If unset, it defaults to `utf8`.
+
+* **`{includes, IncludePath}`** - sets the include path for the file. The include path is used to resolve
+  `-include`, `-include_lib` directives.
+
+* **`{source_name, SourceName}`** - sets the file name of the implicit -file() attributes inserted
+  during preprocessing. If unset it will default to the name of the opened file.
+
+* **`{macros, PredefMacros}`** - sets the predefined `t:macros/0` for the file. `PredefMacros` is a list of
+  macros that are defined before preprocessing starts.
+
+* **`{deterministic, Enabled}`** - if set to `true`, will reduce the file name of the
+  implicit -file() attributes inserted during preprocessing to only the basename of the path. 
+
+* **`{extra, Enabled}`** - if set to `true`, the return value is `{ok, Epp, Extra}` instead of `{ok, Epp}`,
+  where `Extra` contains which encoding was detected from the file.
+
+* **`{location, StartLocation}`** - sets the initial location of the file. The option `location` is forwarded
+  to the Erlang token scanner, see [`erl_scan:tokens/3,4`](`erl_scan:tokens/3`). For example:
+
+  ```erlang
+  1> file:read_file("example.erl").
+  {ok, ~"""
+        -module(example).
+
+        -export([foo/0]).
+
+        foo() -> ?MODULE.
+        """}
+  2> epp:parse_file("example.erl", [{location, {1, 1}}]).
+  {ok,[{attribute,{1,1},file,{"example.erl",1}},
+       {attribute,{1,2},module,example},
+       {attribute,{3,2},export,[{foo,0}]},
+       {function,{5,1},
+                 foo,0,
+                 [{clause,{5,1},[],[],[{atom,{5,11},example}]}]},
+       {eof,{5,18}}]}
+  ```
+
+* **`{fd, FileDescriptor}`** - use an already opened file descriptor to read from instead of a file name.
+  The file descriptor is expected to be an `t:file:io_server/0`. This enables in-memory preprocessing
+  using [ram files](`m:file#ram`), where the main source file can be served from memory without touching disk.
+
+  See `parse_file/2` for an example of how to use this option.
+
+* **`{compiler_internal,term()}`** - forwarded to the Erlang token
+  scanner, see [`{compiler_internal,term()}`](`m:erl_scan#compiler_interal`) in `erl_scan:string/3`.
+"""".
+-type option() ::
+        {default_encoding, DefEncoding :: source_encoding()} |
+        {includes, IncludePath :: [ DirectoryName :: file:name()]} |
+        {macros, PredefMacros :: macros()} |
+        {source_name, SourceName :: file:name()} |
+        {deterministic, boolean()} |
+        {location, StartLocation :: erl_anno:location()} |
+        {reserved_word_fun, Fun :: fun((atom()) -> boolean())} |
+        {features, [Feature :: atom()]} |
+        {fd, OpenedFile :: file:io_server()} |
+        'extra' |
+        {'compiler_internal', [term()]}.
 
 -type ifdef() :: 'ifdef' | 'ifndef' | 'if' | 'else'.
 
@@ -147,7 +233,7 @@ Module:format_error(ErrorDescriptor)
 %% parse_file(FileName, IncludePath, PreDefMacros)
 %% macro_defs(Epp)
 
--doc "Equivalent to `epp:open([{name, FileName}, {includes, IncludePath}])`.".
+-doc #{ equiv => open([{name, FileName}, {includes, IncludePath}]) }.
 -spec open(FileName, IncludePath) ->
 	{'ok', Epp} | {'error', ErrorDescriptor} when
       FileName :: file:name(),
@@ -158,10 +244,7 @@ Module:format_error(ErrorDescriptor)
 open(Name, Path) ->
     open(Name, Path, []).
 
--doc """
-Equivalent to
-`epp:open([{name, FileName}, {includes, IncludePath}, {macros, PredefMacros}])`.
-""".
+-doc #{ equiv => open([{name, FileName}, {includes, IncludePath}, {macros, PredefMacros}]) }.
 -spec open(FileName, IncludePath, PredefMacros) ->
 	{'ok', Epp} | {'error', ErrorDescriptor} when
       FileName :: file:name(),
@@ -173,39 +256,46 @@ Equivalent to
 open(Name, Path, Pdm) ->
     open([{name, Name}, {includes, Path}, {macros, Pdm}]).
 
--doc """
+-doc """"
 Opens a file for preprocessing.
 
-If you want to change the file name of the implicit -file() attributes inserted
-during preprocessing, you can do with `{source_name, SourceName}`. If unset it
-will default to the name of the opened file.
+The function is used to start parsing of an Erlang source file. To get the forms from the file
+use `scan_erl_form/1` or `parse_erl_form/1`. When finished, the `m:epp` server should be closed with
+`close/1`. Use this function if you want to scan or parse a file incrementally. To scan or parse
+a whole file at once, use `scan_file/2` and `parse_file/3` respectively.
 
-Setting `{deterministic, Enabled}` will additionally reduce the file name of the
-implicit -file() attributes inserted during preprocessing to only the basename
-of the path.
+When using `open/1` the option `name` must always be specified and is the name of the file to
+preprocess. This name is used in error messages and in the implicit `-file()` attributes
+generated during preprocessing.
 
-If `extra` is specified in `Options`, the return value is `{ok, Epp, Extra}`
-instead of `{ok, Epp}`.
+See `t:option/0` for the other available options and what they do.
 
-The option `location` is forwarded to the Erlang token scanner, see
-[`erl_scan:tokens/3,4`](`erl_scan:tokens/3`).
+## Examples
 
-The `{compiler_internal,term()}` option is forwarded to the Erlang token
-scanner, see [`{compiler_internal,term()}`](`m:erl_scan#compiler_interal`).
-""".
+```erlang
+1> file:read_file("example.erl").
+{ok, ~"""
+      -module(example).
+
+      -export([foo/0]).
+
+      foo() -> ?MODULE.
+      """}
+2> {ok, EPP} = epp:open("example.erl", []).
+3> epp:scan_erl_form(EPP).
+{ok,[{'-',1},{atom,1,file},{'(',1},{string,1,"example.erl"},
+     {',',1},{integer,1,1},{')',1},{dot,1}]}
+4> epp:parse_erl_form(EPP).
+{ok,{attribute,1,module,example}}
+5> epp:close(EPP).
+ok
+```
+
+"""".
 -doc(#{since => <<"OTP 17.0">>}).
 -spec open(Options) ->
 		  {'ok', Epp} | {'ok', Epp, Extra} | {'error', ErrorDescriptor} when
-      Options :: [{'default_encoding', DefEncoding :: source_encoding()} |
-		  {'includes', IncludePath :: [DirectoryName :: file:name()]} |
-		  {'source_name', SourceName :: file:name()} |
-		  {'deterministic', Enabled :: boolean()} |
-		  {'macros', PredefMacros :: macros()} |
-		  {'name',FileName :: file:name()} |
-		  {'location',StartLocation :: erl_anno:location()} |
-		  {'fd',FileDescriptor :: file:io_device()} |
-		  'extra' |
-                  {'compiler_internal', [term()]}],
+      Options :: [option() | {'name',FileName :: file:name()}],
       Epp :: epp_handle(),
       Extra :: [{'encoding', source_encoding() | 'none'}],
       ErrorDescriptor :: term().
@@ -231,8 +321,7 @@ open(Options) ->
     end.
 
 -doc "Closes the preprocessing of a file.".
--spec close(Epp) -> 'ok' when
-      Epp :: epp_handle().
+-spec close(Epp :: epp_handle()) -> 'ok'.
 
 close(Epp) ->
     %% Make sure that close is synchronous as a courtesy to test
@@ -244,7 +333,9 @@ close(Epp) ->
 
 -doc """
 Returns the raw tokens of the next Erlang form from the opened Erlang source
-file. A tuple `{eof, Line}` is returned at the end of the file. The first form
+file.
+
+A tuple `{eof, Line}` is returned at the end of the file. The first form
 corresponds to an implicit attribute `-file(File,1).`, where `File` is the file
 name.
 """.
@@ -262,8 +353,9 @@ scan_erl_form(Epp) ->
     epp_request(Epp, scan_erl_form).
 
 -doc """
-Returns the next Erlang form from the opened Erlang source file. Tuple
-`{eof, Location}` is returned at the end of the file. The first form corresponds
+Returns the next Erlang form from the opened Erlang source file.
+
+Tuple `{eof, Location}` is returned at the end of the file. The first form corresponds
 to an implicit attribute `-file(File,1).`, where `File` is the file name.
 """.
 -spec parse_erl_form(Epp) ->
@@ -367,18 +459,30 @@ format_error_1(E) -> file:format_error(E).
 
 -doc """
 Preprocesses an Erlang source file returning a list of the lists of raw tokens
-of each form. Notice that the tuple `{eof, Line}` returned at the end of the
-file is included as a "form", and any failures to scan a form are included in
-the list as tuples `{error, ErrorInfo}`.
+of each form.
+
+Notice that the tuple `{eof, Line}` returned at the end of the file is included
+as a "form", and any failures to scan a form are included in the list as tuples
+`{error, ErrorInfo}`.
+
+For details on what each `Option` does, see `t:option/0`.
+
+## Examples
+
+```
+1> file:read_file("example.erl").
+{ok, <<"-module(example).\n\n-export([foo/0]).\n\nfoo() -> ?MODULE.", ...>>}
+2> epp:scan_file("example.erl", []).
+{ok,[[{'-',1},{atom,1,file},{'(',1},{string,1,"example.erl"},
+      {',',1},{integer,1,1},{')',1},{dot,1}], ...],
+    [{encoding,none}]}
+```
 """.
 -doc(#{since => <<"OTP 24.0">>}).
 -spec scan_file(FileName, Options) ->
         {'ok', [Form], Extra} | {error, OpenError} when
       FileName :: file:name(),
-      Options :: [{'includes', IncludePath :: [DirectoryName :: file:name()]} |
-		  {'source_name', SourceName :: file:name()} |
-		  {'macros', PredefMacros :: macros()} |
-		  {'default_encoding', DefEncoding :: source_encoding()}],
+      Options :: [option()],
       Form :: erl_scan:tokens() | {'error', ErrorInfo} | {'eof', Loc},
       Loc :: erl_anno:location(),
       ErrorInfo :: erl_scan:error_info(),
@@ -406,10 +510,7 @@ scan_file(Epp) ->
 	    [{eof,Location}]
     end.
 
--doc """
-Equivalent to
-`epp:parse_file(FileName, [{includes, IncludePath}, {macros, PredefMacros}])`.
-""".
+-doc #{ equiv => parse_file(Filename, [{includes, IncludePath}, {macros, PredefMacros}]) }.
 -spec parse_file(FileName, IncludePath, PredefMacros) ->
                 {'ok', [Form]} | {error, OpenError} when
       FileName :: file:name(),
@@ -426,36 +527,46 @@ parse_file(Ifile, Path, Predefs) ->
     parse_file(Ifile, [{includes, Path}, {macros, Predefs}]).
 
 -doc """
-Preprocesses and parses an Erlang source file. Notice that tuple
-`{eof, Location}` returned at the end of the file is included as a "form".
+Preprocesses and parses an Erlang source file.
 
-If you want to change the file name of the implicit -file() attributes inserted
-during preprocessing, you can do with `{source_name, SourceName}`. If unset it
-will default to the name of the opened file.
+Notice that tuple `{eof, Location}` returned at the end of the file is included as
+a "form".
 
-If `extra` is specified in `Options`, the return value is `{ok, [Form], Extra}`
-instead of `{ok, [Form]}`.
+See `t:option/0` for the available options and what they do.
 
-The option `location` is forwarded to the Erlang token scanner, see
-[`erl_scan:tokens/3,4`](`erl_scan:tokens/3`).
+## Examples
 
-The `{compiler_internal,term()}` option is forwarded to the Erlang token
-scanner, see [`{compiler_internal,term()}`](`m:erl_scan#compiler_interal`).
+Parse a file:
+
+```erlang
+1> file:read_file("example.erl").
+{ok, <<"-module(example).\n\n-export([foo/0]).\n\nfoo() -> ?MODULE.", ...>>}
+2> epp:parse_file("example.erl", []).
+{ok,[{attribute,1,file,{"example.erl",1}},
+     {attribute,1,module,example},
+     {attribute,3,export,[{foo,0}]},
+     {function,5,foo,0,[{clause,5,[],[],[{atom,5,example}]}]},
+     {eof,5}]}
+```
+
+Parse a ram file:
+
+```erlang
+1> {ok, IoDevice} = file:open(<<"-module(foo).\n-export([bar/0]).\nbar() ->\n?MODULE.">>,
+       [read, binary, ram, cooked]).
+2> epp:parse_file("foo.erl", [{fd, IoDevice}]).
+{ok,[{attribute,1,file,{"foo.erl",1}},
+     {attribute,1,module,foo},
+     {attribute,2,export,[{bar,0}]},
+     {function,3,bar,0,[{clause,3,[],[],[{atom,4,foo}]}]},
+     {eof,4}]}
+```
 """.
 -doc(#{since => <<"OTP 17.0">>}).
 -spec parse_file(FileName, Options) ->
         {'ok', [Form]} | {'ok', [Form], Extra} | {error, OpenError} when
       FileName :: file:name(),
-      Options :: [{'includes', IncludePath :: [DirectoryName :: file:name()]} |
-		  {'source_name', SourceName :: file:name()} |
-		  {'macros', PredefMacros :: macros()} |
-		  {'default_encoding', DefEncoding :: source_encoding()} |
-		  {'location',StartLocation :: erl_anno:location()} |
-                  {'reserved_word_fun', Fun :: fun((atom()) -> boolean())} |
-                  {'features', [Feature :: atom()]} |
-                  {'deterministic', boolean()} |
-		  'extra' |
-                  {'compiler_internal', [term()]}],
+      Options :: [option()],
       Form :: erl_parse:abstract_form()
             | {'error', ErrorInfo}
             | {'eof',Location},
