@@ -230,6 +230,7 @@ The `t:option/0` are the options that can be used to customize the preprocessing
        {eof,2}]}
   ```
 
+  Since OTP @OTP-12345678@
 * **`{compiler_internal,term()}`** - forwarded to the Erlang token
   scanner, see [`{compiler_internal,term()}`](`m:erl_scan#compiler_interal`) in `erl_scan:string/3`.
 """".
