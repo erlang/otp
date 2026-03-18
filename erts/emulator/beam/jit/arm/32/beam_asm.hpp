@@ -509,6 +509,7 @@ protected:
         } else if (val <= 255) {
             a.sub(to, src, imm(val));
         } else {
+            ASSERT(src != TMP);
             mov_imm(TMP, val);
             a.sub(to, src, TMP);
         }
@@ -522,14 +523,22 @@ protected:
         } else if (val <= 255) {
             a.add(to, src, imm(val));
         } else {
+            ASSERT(src != TMP);
             mov_imm(TMP, val);
             a.add(to, src, TMP);
         }
     }
 
     void subs(a32::Gp to, a32::Gp src, int64_t val) {
-        // TODO
-        ASSERT(false);
+        if (val >= 0 && val <= 255) {
+            a.subs(to, src, imm(val));
+        } else if (val < 0 && -val <= 255) {
+            a.adds(to, src, imm(-val));
+        } else {
+            ASSERT(src != TMP);
+            mov_imm(TMP, val);
+            a.subs(to, src, TMP);
+        }
     }
 
     void ldur(a32::Gp reg, arm::Mem mem) {
