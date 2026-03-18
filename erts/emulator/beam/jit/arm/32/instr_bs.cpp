@@ -341,7 +341,8 @@ void BeamModuleAssembler::emit_i_bs_match_string(const ArgRegister &Ctx,
 
     a.ldr(ARG1, TMP_MEM1q);
     a.ldr(TMP, emit_boxed_val(ARG1, offsetof(ErlSubBits, start)));
-    add(TMP, TMP, size);
+    mov_imm(VAR, size);
+    a.add(TMP, TMP, VAR);
     a.str(TMP, emit_boxed_val(ARG1, offsetof(ErlSubBits, start)));
 }
 
@@ -2256,7 +2257,8 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
                 mov_imm(TMP, ~ERL_SUB_BITS_FLAG_MASK);
                 a.and_(ARG4, ARG4, TMP);
                 a.ldr(TMP, TMP_MEM1q);
-                add(TMP, TMP, bits);
+                mov_imm(VAR, bits);
+                a.add(TMP, TMP, VAR);
                 a.str(TMP, emit_boxed_val(VAR, start_offset));
 
                 emit_enter_runtime<Update::eHeapOnlyAlloc>();
@@ -2323,7 +2325,8 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
         case BsmSegment::action::SKIP:
             mov_arg(ARG1, Ctx);
             a.ldr(TMP, emit_boxed_val(ARG1, start_offset));
-            add(TMP, TMP, seg.size);
+            mov_imm(VAR, seg.size);
+            a.add(TMP, TMP, VAR);
             a.str(TMP, emit_boxed_val(ARG1, start_offset));
             break;
         case BsmSegment::action::EQ: {
