@@ -66,6 +66,26 @@ matching string is not a valid encoding, it is ignored. The valid encodings are
 %% -*- coding: latin-1 -*-
 ```
 
+Scan a ram file using the encoding specified in the file:
+
+```erlang
+1> {ok, IoDevice} = file:open(
+       ~"""
+        %% coding: utf-8
+        -module(foo).
+        -export([bar/0]).
+        bar() ->
+            ?MODULE.
+        """, [read, binary, ram, cooked]).
+2> epp:parse_file("foo.erl", [{fd, IoDevice}, extra]).
+{ok,[{attribute,1,file,{"foo.erl",1}},
+     {attribute,2,module,foo},
+     {attribute,3,export,[{bar,0}]},
+     {function,4,bar,0,[{clause,4,[],[],[{atom,5,foo}]}]},
+     {eof,5}],
+    [{features,[]},{encoding,utf8}]}
+```
+
 ## Error Information
 
 `ErrorInfo` is the standard `ErrorInfo` structure that is returned from all I/O
@@ -79,6 +99,28 @@ A string describing the error is obtained with the following call:
 
 ```erlang
 Module:format_error(ErrorDescriptor)
+```
+
+### Examples
+
+```erlang
+1> {ok, IoDevice} = file:open(
+       ~"""
+        -module("foo").
+        -export([bar/0]).
+        bar() ->
+            ?MODULE.
+        """, [read, binary, ram, cooked]).
+2> {ok, Forms} = epp:parse_file("foo.erl", [{fd, IoDevice}]).
+{ok,[{attribute,1,file,{"foo.erl",1}},
+     {error,{1,erl_parse,[98,97,100,32,"module",32,100,101,99,108,97,114,97,116,105,111,110]}},
+     {attribute,2,export,[{bar,0}]},
+     {error,{4,epp,{undefined,'MODULE',none}}},
+     {eof,4}]}
+3> [io:format("%% ~ts~n", [M:format_error(E)]) || {error,{Loc,M,E}} <- Forms].
+%% bad module declaration
+%% undefined macro 'MODULE'
+[ok,ok]
 ```
 
 ### See Also
@@ -161,6 +203,34 @@ The `t:option/0` are the options that can be used to customize the preprocessing
 
   See `parse_file/2` for an example of how to use this option.
 
+* **`{include_path_open, Fun}`** - provide a custom function for opening include files. The function has the
+  same signature as `file:path_open/3` and is used when resolving `-include`, `-include_lib`, and
+  `-doc {file, ...}` directives. This enables fully in-memory preprocessing using [ram files](`m:file#ram`).
+  For example:
+
+  ```erlang
+  1> {ok, IoDevice} = file:open(<<"-module(foo).\n-include(\"bar.hrl\").">>,
+         [read, binary, ram, cooked]).
+  2> IncludeFileFun = fun
+         (_Path, "bar.hrl", Modes) ->
+             {ok, RamFD} = file:open(<<"-export([bar/0]).\nbar() ->\n?MODULE.">>,
+                  [ram, cooked | Modes]),
+             {ok, RamFD, "bar.hrl"};
+         (Path, Name, Modes) ->
+             file:path_open(Path, Name, Modes)
+     end.
+  3> {ok, EPP} = epp:parse_file("example.erl",
+         [{fd, IoDevice}, {include_path_open, IncludeFileFun}]).
+  {ok,[{attribute,1,file,{"example.erl",1}},
+       {attribute,1,module,foo},
+       {attribute,1,file,{"bar.hrl",1}},
+       {attribute,1,export,[{bar,0}]},
+       {function,2,bar,0,[{clause,2,[],[],[{atom,3,foo}]}]},
+       {attribute,2,file,{"example.erl",2}},
+       {eof,2}]}
+  ```
+
+  Since OTP @OTP-20341@
 * **`{compiler_internal,term()}`** - forwarded to the Erlang token
   scanner, see [`{compiler_internal,term()}`](`m:erl_scan#compiler_interal`) in `erl_scan:string/3`.
 """".
@@ -174,6 +244,12 @@ The `t:option/0` are the options that can be used to customize the preprocessing
         {reserved_word_fun, Fun :: fun((atom()) -> boolean())} |
         {features, [Feature :: atom()]} |
         {fd, OpenedFile :: file:io_server()} |
+        {include_path_open, fun((Path :: [file:name_all()],
+                                 FileName :: file:name_all(),
+                                 Modes :: [file:mode()]) ->
+                                       {ok, IoDevice :: file:io_device(),
+                                        FullName :: file:filename_all()} |
+                                       {error, term()})} |
         'extra' |
         {'compiler_internal', [term()]}.
 
@@ -217,7 +293,8 @@ The `t:option/0` are the options that can be used to customize the preprocessing
               features = [] :: [atom()],
               else_reserved = false :: boolean(),
               fname = [] :: function_name_type(),
-              deterministic = false :: boolean()
+              deterministic = false :: boolean(),
+              include_path_open = fun file:path_open/3 :: fun()
 	     }).
 
 %% open(Options)
@@ -549,7 +626,7 @@ Parse a file:
      {eof,5}]}
 ```
 
-Parse a ram file:
+Parse a module from a ram file:
 
 ```erlang
 1> {ok, IoDevice} = file:open(<<"-module(foo).\n-export([bar/0]).\nbar() ->\n?MODULE.">>,
@@ -561,6 +638,26 @@ Parse a ram file:
      {function,3,bar,0,[{clause,3,[],[],[{atom,4,foo}]}]},
      {eof,4}]}
 ```
+
+Parse a broken ram file:
+
+```erlang
+1> {ok, IoDevice} = file:open(<<"-module(Foo).\n-export([bar/0]).\nbar() ->\n?MODULE.">>,
+       [read, binary, ram, cooked]).
+2> {ok, Forms} = epp:parse_file("foo.erl", [{fd, IoDevice}]).
+{ok,[{attribute,1,file,{"foo.erl",1}},
+     {error,{1,erl_parse,
+             [98,97,100,32,"module",32,100,101,99,108,97,114,97,116,105,
+              111,110]}},
+     {attribute,2,export,[{bar,0}]},
+     {error,{4,epp,{undefined,'MODULE',none}}},
+     {eof,4}]}
+3> [io:format("%% ~ts~n", [M:format_error(E)]) || {error,{Loc,M,E}} <- Forms].
+%% bad module declaration
+%% undefined macro 'MODULE'
+[ok,ok]
+```
+
 """.
 -doc(#{since => <<"OTP 17.0">>}).
 -spec parse_file(FileName, Options) ->
@@ -940,6 +1037,8 @@ init_server(Pid, FileName, Options, St0) ->
             AtLocation = proplists:get_value(location, Options, 1),
 
             Deterministic = proplists:get_value(deterministic, Options, false),
+            PathOpen = proplists:get_value(include_path_open, Options,
+                                           fun file:path_open/3),
             St = St0#epp{delta=0, name=SourceName, name2=SourceName,
 			 path=Path, location=AtLocation, macs=Ms1,
 			 default_encoding=DefEncoding,
@@ -952,7 +1051,8 @@ init_server(Pid, FileName, Options, St0) ->
                             end,
                          features = Features,
                          else_reserved = ResWordFun('else'),
-                         deterministic = Deterministic},
+                         deterministic = Deterministic,
+                         include_path_open = PathOpen},
             From = wait_request(St),
             Anno = erl_anno:new(AtLocation),
             enter_file_reply(From, file_name(SourceName), Anno,
@@ -1106,7 +1206,7 @@ enter_file(_NewName, Inc, From, St)
     epp_reply(From, {error,{loc(Inc),epp,{depth,"include"}}}),
     wait_req_scan(St);
 enter_file(NewName, Inc, From, St) ->
-    case file:path_open(St#epp.path, NewName, [read]) of
+    case (St#epp.include_path_open)(St#epp.path, NewName, [read]) of
 	{ok,NewF,Pname} ->
             Loc = start_loc(St#epp.location),
 	    wait_req_scan(enter_file2(NewF, Pname, From, St, Loc));
@@ -1127,7 +1227,8 @@ enter_file2(NewF, Pname, From, St0, AtLocation) ->
          erl_scan_opts = ScanOpts,
          else_reserved = ElseReserved,
          features = Ftrs,
-         deterministic = Deterministic} = St0,
+         deterministic = Deterministic,
+         include_path_open = PathOpen} = St0,
     Ms = Ms0#{'FILE':={none,[{string,Anno,source_name(St0,Pname)}]}},
     %% update the head of the include path to be the directory of the new
     %% source file, so that an included file can always include other files
@@ -1144,7 +1245,8 @@ enter_file2(NewF, Pname, From, St0, AtLocation) ->
          erl_scan_opts = ScanOpts,
          else_reserved = ElseReserved,
          default_encoding=DefEncoding,
-         deterministic=Deterministic}.
+         deterministic=Deterministic,
+         include_path_open=PathOpen}.
 
 enter_file_reply(From, Name, LocationAnno, AtLocation, Where, Deterministic) ->
     Anno0 = erl_anno:new(AtLocation),
@@ -1327,7 +1429,7 @@ scan_filedoc_content({string, _A, DocFilename}, Dot,
                      {atom,DocLoc,Doc}, From, #epp{name = CurrentFilename} = St) ->
     %% The head of the path is the dir where the current file is
     Cwd = hd(St#epp.path),
-    case file:path_open([Cwd], DocFilename, [read, binary]) of
+    case (St#epp.include_path_open)([Cwd], DocFilename, [read, binary]) of
         {ok, NewF, Pname} ->
             case file:read_file_info(NewF) of
                 {ok, #file_info{ size = Sz }} ->
@@ -1619,14 +1721,15 @@ scan_include_lib1([{'(',_Alp},{string,_Af,NewName0}=N,{')',_Arp},{dot,_Ad}],
                   _Inc, From, St) ->
     NewName = expand_var(NewName0),
     Loc = start_loc(St#epp.location),
-    case file:path_open(St#epp.path, NewName, [read]) of
+    case (St#epp.include_path_open)(St#epp.path, NewName, [read]) of
 	{ok,NewF,Pname} ->
 	    wait_req_scan(enter_file2(NewF, Pname, From, St, Loc));
 	{error,_E1} ->
 	    case expand_lib_dir(NewName) of
 		{ok,Header} ->
-		    case file:open(Header, [read]) of
-			{ok,NewF} ->
+                    {ok, Cwd} = file:get_cwd(),
+                    case (St#epp.include_path_open)([Cwd], Header, [read]) of
+                        {ok,NewF,_} ->
 			    wait_req_scan(enter_file2(NewF, Header, From,
                                                       St, Loc));
 			{error,_E2} ->
