@@ -128,8 +128,12 @@ void BeamModuleAssembler::emit_move_call_ext_last(const ArgYRegister &Src,
                                                   const ArgRegister &Dst,
                                                   const ArgExport &Exp,
                                                   const ArgWord &Deallocate) {
-    // TODO
-    emit_nyi("emit_move_call_ext_last");
+    /* Conservative implementation matching the non-optimized path used
+     * by emit_move_call_last. 
+     * See arm64 implementation for future optimizations. */
+    mov_arg(Dst, Src);
+    emit_deallocate(Deallocate);
+    emit_i_call_ext_only(Exp);
 }
 
 static ErtsCodeMFA apply3_mfa = {am_erlang, am_apply, 3};
