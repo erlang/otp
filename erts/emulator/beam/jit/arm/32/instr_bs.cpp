@@ -1084,7 +1084,6 @@ void BeamModuleAssembler::update_bin_state(a32::Gp bin_offset,
  * The size of the segment is assumed to be in ARG3.
  */
 void BeamModuleAssembler::set_zero(Sint effectiveSize) {
-    Label loop_words = a.newLabel();
     Label after_words = a.newLabel();
     Label byte_loop = a.newLabel();
     Label done = a.newLabel();
@@ -1094,6 +1093,7 @@ void BeamModuleAssembler::set_zero(Sint effectiveSize) {
     mov_imm(TMP, 0);
 
     if (effectiveSize < 0 || effectiveSize > 128) {
+        Label loop_words = a.newLabel();
         a.tst(ARG3, ARG3);
         a.b_eq(done);
 
