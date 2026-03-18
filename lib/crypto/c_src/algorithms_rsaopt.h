@@ -23,8 +23,7 @@
 #pragma once
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include "common.h"
@@ -49,20 +48,23 @@ struct rsaopt_type_t {
     const rsaopt_probe_t *init = nullptr; // the rsaopt_probe_t used to create this record
 
     struct {
-        bool fips_forbidden : 1;
+        bool fips_forbidden: 1;
     } flags = {};
 
-    explicit rsaopt_type_t(const rsaopt_probe_t *init_): init(init_) {}
-    bool is_forbidden_in_fips() const {
-#    ifdef FIPS_SUPPORT
-        return this->flags.fips_forbidden && FIPS_MODE();
-#    else
-        return false;
-#    endif
+    explicit rsaopt_type_t(const rsaopt_probe_t *init_) : init(init_) {
     }
-    static bool is_available() {
-        return true;
+
+#ifdef FIPS_SUPPORT
+    bool is_available() const {
+        return !this->flags.fips_forbidden || !FIPS_MODE();
     }
+#else
+    static constexpr bool is_available() { return true; }
+#endif
+
+    // For reporting crypto:supports() allowed vs. forbidden
+    bool is_fips_forbidden() const { return this->flags.fips_forbidden; }
+
     // Return the atom which goes to the Erlang caller
     ERL_NIF_TERM get_atom() const;
 };
@@ -74,11 +76,14 @@ struct rsaopt_probe_t {
     const char *str_v3;
     ERL_NIF_TERM atom;
 
-    explicit constexpr rsaopt_probe_t(const char *str_v3_): str_v3(str_v3_), atom(CRYPTOENIF_BAD_ATOM_VALUE) {}
+    explicit constexpr rsaopt_probe_t(const char *str_v3_) : str_v3(str_v3_), atom(CRYPTOENIF_BAD_ATOM_VALUE) {
+    }
 
     // Attempt to add a new known RSA option. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_enabled, std::vector<rsaopt_type_t> &output);
-    static void post_lazy_init(std::vector<rsaopt_type_t> &) {}
+
+    static void post_lazy_init(std::vector<rsaopt_type_t> &) {
+    }
 };
 
 using rsaopt_collection_t = algorithm_collection_t<rsaopt_type_t, rsaopt_probe_t>;

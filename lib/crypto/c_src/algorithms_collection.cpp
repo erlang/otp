@@ -57,3 +57,7 @@ ERL_NIF_TERM create_or_existing_atom(ErlNifEnv *env, const char *atom_name, ERL_
     }
     return atom;
 }
+
+const char *get_fips_filter(const bool fips_enabled) {
+    return fips_enabled ? "fips=yes" : "fips=no";
+}

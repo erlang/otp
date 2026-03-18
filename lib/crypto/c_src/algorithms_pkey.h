@@ -23,26 +23,27 @@
 #pragma once
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include "common.h"
 
-    //
-    // Pubkey Algorithms storage C API
-    //
-    typedef struct pkey_type_t pkey_type_C;
+//
+// Pubkey Algorithms storage C API
+//
+typedef struct pkey_type_t pkey_type_C;
 
-    ERL_NIF_TERM pkey_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
+ERL_NIF_TERM pkey_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
 
-    pkey_type_C *get_pkey_type(ErlNifEnv *env, ERL_NIF_TERM atom);
-    ERL_NIF_TERM get_pkey_type_atom(const pkey_type_C *p);
+pkey_type_C *get_pkey_type(ErlNifEnv *env, ERL_NIF_TERM atom);
+
+ERL_NIF_TERM get_pkey_type_atom(const pkey_type_C *p);
 #ifdef HAS_PREFETCH_SIGN_INIT
-    EVP_SIGNATURE *get_pkey_type_resource(const pkey_type_C *p);
+EVP_SIGNATURE *get_pkey_type_resource(const pkey_type_C *p);
 #endif
-    bool get_pkey_type_allow_seed(const pkey_type_C *p);
-    int get_pkey_type_evp_pkey_id(const pkey_type_C *p);
+bool get_pkey_type_allow_seed(const pkey_type_C *p);
+
+int get_pkey_type_evp_pkey_id(const pkey_type_C *p);
 
 #ifdef __cplusplus
 }
@@ -56,12 +57,12 @@ extern "C"
 struct pkey_probe_t;
 
 struct pubkey_type_flags_t {
-    bool algorithm_init_failed : 1; // algorithm init failed
-    bool fips_forbidden_keygen : 1;
-    bool fips_forbidden_sign : 1;
-    bool fips_forbidden_verify : 1;
-    bool fips_forbidden_encrypt : 1;
-    bool fips_forbidden_derive : 1;
+    bool algorithm_init_failed: 1; // algorithm init failed
+    bool fips_forbidden_keygen: 1;
+    bool fips_forbidden_sign: 1;
+    bool fips_forbidden_verify: 1;
+    bool fips_forbidden_encrypt: 1;
+    bool fips_forbidden_derive: 1;
 };
 
 // Describes a public key algorithm added by the collection's probe function, and checked for compatibility
@@ -70,31 +71,41 @@ struct pubkey_type_flags_t {
 struct pkey_type_t {
     const pkey_probe_t *init = nullptr; // the pubkey_probe_t used to create this record
     pubkey_type_flags_t flags = {};
-#    ifdef HAS_PREFETCH_SIGN_INIT
+#ifdef HAS_PREFETCH_SIGN_INIT
     auto_signature_t alg; // after init
-#    endif
+#endif
     const int evp_pkey_id = 0;
 
     explicit pkey_type_t(const pkey_probe_t *probe) : init(probe) {
     }
 
-    bool is_forbidden_in_fips() const {
-#    ifdef FIPS_SUPPORT
+#ifdef FIPS_SUPPORT
+    bool is_available() const {
+        return !this->is_fips_forbidden() || !FIPS_MODE();
+    }
+#else
+    static constexpr bool is_available() { return true; }
+#endif
+
+    // Return the atom which goes to the Erlang caller
+    ERL_NIF_TERM get_atom() const;
+
+#if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
+    void check_usage_types(bool fips_enabled);
+#endif // FIPS_SUPPORT && HAS_3_0_API
+
+    // For reporting crypto:supports() allowed vs. forbidden
+    bool is_fips_forbidden() const {
+#ifdef FIPS_SUPPORT
         // Forbidden in FIPS if all operations are forbidden, or if algorithm is not available at all
         const auto all_ops_forbidden = this->flags.fips_forbidden_keygen && this->flags.fips_forbidden_sign &&
                                        this->flags.fips_forbidden_verify && this->flags.fips_forbidden_encrypt &&
                                        this->flags.fips_forbidden_derive;
         return (this->flags.algorithm_init_failed || all_ops_forbidden) && FIPS_MODE();
-#    else
+#else
         return false;
-#    endif
+#endif
     }
-    constexpr bool is_available() const { return true; }
-    // Return the atom which goes to the Erlang caller
-    ERL_NIF_TERM get_atom() const;
-#    if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
-    void check_against_fips(); // Result: flags set if FIPS is not supported
-#    endif                     // FIPS_SUPPORT && HAS_3_0_API
 };
 
 // A probe contains data required for creating the algorithm description structure and testing
@@ -128,9 +139,12 @@ struct pkey_probe_t {
     const char *get_v3_name() const {
         return this->str_v3 ? this->str_v3 : this->str;
     }
+
     // Perform a probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_enabled, std::vector<pkey_type_t> &output);
-    static void post_lazy_init(std::vector<pkey_type_t> &) {}
+
+    static void post_lazy_init(std::vector<pkey_type_t> &) {
+    }
 };
 
 using pkey_collection_t = algorithm_collection_t<pkey_type_t, pkey_probe_t>;

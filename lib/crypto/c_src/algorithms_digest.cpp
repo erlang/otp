@@ -25,59 +25,59 @@
 
 static digest_probe_t digest_probes[] = {
 #ifdef HAVE_MD4
-        digest_probe_t("md4", "MD4", &EVP_md4),
+    digest_probe_t("md4", "MD4", &EVP_md4),
 #endif
 #ifdef HAVE_MD5
-        digest_probe_t("md5", "MD5", &EVP_md5),
+    digest_probe_t("md5", "MD5", &EVP_md5),
 #endif
 #ifdef HAVE_RIPEMD160
-        digest_probe_t("ripemd160", "RIPEMD160", &EVP_ripemd160),
+    digest_probe_t("ripemd160", "RIPEMD160", &EVP_ripemd160),
 #endif
-        digest_probe_t("sha", "SHA1", &EVP_sha1).set_pbkdf(),
+    digest_probe_t("sha", "SHA1", &EVP_sha1).set_pbkdf(),
 #ifdef HAVE_SHA224
-        digest_probe_t("sha224", "SHA2-224", &EVP_sha224).set_pbkdf(),
+    digest_probe_t("sha224", "SHA2-224", &EVP_sha224).set_pbkdf(),
 #endif
 #ifdef HAVE_SHA256
-        digest_probe_t("sha256", "SHA2-256", &EVP_sha256).set_pbkdf(),
+    digest_probe_t("sha256", "SHA2-256", &EVP_sha256).set_pbkdf(),
 #endif
 #ifdef HAVE_SHA384
-        digest_probe_t("sha384", "SHA2-384", &EVP_sha384).set_pbkdf(),
+    digest_probe_t("sha384", "SHA2-384", &EVP_sha384).set_pbkdf(),
 #endif
 #ifdef HAVE_SHA512
-        digest_probe_t("sha512", "SHA2-512", &EVP_sha512).set_pbkdf(),
+    digest_probe_t("sha512", "SHA2-512", &EVP_sha512).set_pbkdf(),
 #endif
 #ifdef HAVE_SHA512_224
-        digest_probe_t("sha512_224", "SHA2-512/224", &EVP_sha512_224).set_pbkdf(),
+    digest_probe_t("sha512_224", "SHA2-512/224", &EVP_sha512_224).set_pbkdf(),
 #endif
 #ifdef HAVE_SHA512_256
-        digest_probe_t("sha512_256", "SHA2-512/256", &EVP_sha512_256).set_pbkdf(),
+    digest_probe_t("sha512_256", "SHA2-512/256", &EVP_sha512_256).set_pbkdf(),
 #endif
 #ifdef HAVE_SHA3_224
-        digest_probe_t("sha3_224", "SHA3-224", &EVP_sha3_224),
+    digest_probe_t("sha3_224", "SHA3-224", &EVP_sha3_224),
 #endif
 #ifdef HAVE_SHA3_256
-        digest_probe_t("sha3_256", "SHA3-256", &EVP_sha3_256),
+    digest_probe_t("sha3_256", "SHA3-256", &EVP_sha3_256),
 #endif
 #ifdef HAVE_SHA3_384
-        digest_probe_t("sha3_384", "SHA3-384", &EVP_sha3_384),
+    digest_probe_t("sha3_384", "SHA3-384", &EVP_sha3_384),
 #endif
 #ifdef HAVE_SHA3_512
-        digest_probe_t("sha3_512", "SHA3-512", &EVP_sha3_512),
+    digest_probe_t("sha3_512", "SHA3-512", &EVP_sha3_512),
 #endif
 #ifdef HAVE_SHAKE128
-        digest_probe_t("shake128", "SHAKE-128", &EVP_shake128).set_xof_default_length(16),
+    digest_probe_t("shake128", "SHAKE-128", &EVP_shake128).set_xof_default_length(16),
 #endif
 #ifdef HAVE_SHAKE256
-        digest_probe_t("shake256", "SHAKE-256", &EVP_shake256).set_xof_default_length(32),
+    digest_probe_t("shake256", "SHAKE-256", &EVP_shake256).set_xof_default_length(32),
 #endif
 #ifdef HAVE_SM3
-        digest_probe_t("sm3", "SM3", &EVP_sm3),
+    digest_probe_t("sm3", "SM3", &EVP_sm3),
 #endif
 #ifdef HAVE_BLAKE2
-        digest_probe_t("blake2b", "BLAKE2b512", &EVP_blake2b512),
+    digest_probe_t("blake2b", "BLAKE2b512", &EVP_blake2b512),
 #endif
 #ifdef HAVE_BLAKE2
-        digest_probe_t("blake2s", "BLAKE2s256", &EVP_blake2s256),
+    digest_probe_t("blake2s", "BLAKE2s256", &EVP_blake2s256),
 #endif
 };
 
@@ -109,12 +109,18 @@ bool digest_type_t::check_valid_in_fips(const EVP_MD *md) {
 }
 #endif // FIPS_SUPPORT && HAS_3_0_API
 
-void digest_type_t::create_md_resource(const bool fips_mode) {
+void digest_type_t::create_md_resource(const bool fips_enabled) {
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
-    auto_md_t fetched_md(EVP_MD_fetch(nullptr, this->init->get_v3_name(), nullptr));
+    auto_md_t fetched_md(
+        EVP_MD_fetch(nullptr, this->init->get_v3_name(), get_fips_filter(fips_enabled))
+    );
+    if (!fetched_md) {
+        this->flags.algorithm_init_failed = true;
+        return;
+    }
 
     // Record failed algorithm instantiation for FIPS enabled & OpenSSL API 3.0 only
-    if (fips_mode && !check_valid_in_fips(fetched_md.pointer)) {
+    if (fips_enabled && !check_valid_in_fips(fetched_md.pointer)) {
         this->flags.fips_forbidden = true;
     } else {
         this->flags.fips_forbidden = false;
@@ -126,8 +132,9 @@ void digest_type_t::create_md_resource(const bool fips_mode) {
 #endif // HAS_3_0_API && FIPS_SUPPORT
 }
 
-digest_type_t::digest_type_t(const digest_probe_t *init_) :
-    init(init_), flags(init_->flags), xof_default_length(init_->xof_default_length) {}
+digest_type_t::digest_type_t(const digest_probe_t *init_)
+    : init(init_), flags(init_->flags), xof_default_length(init_->xof_default_length) {
+}
 
 void digest_probe_t::probe(ErlNifEnv *env, const bool fips_mode, std::vector<digest_type_t> &output) {
     output.emplace_back(this);
@@ -151,7 +158,7 @@ extern "C" digest_type_C *get_digest_type(ErlNifEnv *env, ERL_NIF_TERM type) {
 }
 
 extern "C" bool is_digest_forbidden_in_fips(const digest_type_C *p) {
-    return p ? p->is_forbidden_in_fips() : true; // forbidden if p is null
+    return p ? p->is_fips_forbidden() : true; // forbidden if p is null
 }
 
 extern "C" const char *get_digest_type_str_v3(const digest_type_C *p) { return p->init->get_v3_name(); }

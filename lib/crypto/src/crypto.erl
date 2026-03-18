@@ -869,8 +869,8 @@ Example response with FIPS enabled:
 -spec supports() -> [supported_result_item() | {fips_forbidden, [supported_result_item()]}].
 supports() ->
     %% Add FIPS-disabled algorithms separately for the users to see
-    FIPSForbidden = case application:get_env(crypto, fips_mode, false) of
-                        true -> [
+    FIPSForbidden = case crypto:info_fips() of
+                        enabled -> [
                             {fips_forbidden, [
                                 {hashs, fips_forbidden(hashs)},
                                 {ciphers, fips_forbidden(ciphers)},
@@ -881,7 +881,7 @@ supports() ->
                                 {rsa_opts, []} % Always empty, added for completeness
                             ]}
                         ];
-                        false -> []
+                        _Other -> []
                     end,
      [{hashs,       supports(hashs)},
       {ciphers,     supports(ciphers)},

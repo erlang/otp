@@ -278,8 +278,8 @@ groups() ->
                      {group, eddh},
                      {group, srp},
 
-		     {group, chacha20_poly1305},
-		     {group, chacha20},
+                     {group, chacha20_poly1305},
+                     {group, chacha20},
                      {group, blowfish_cbc},
                      {group, blowfish_cfb64},
                      {group, blowfish_ecb},
@@ -325,7 +325,10 @@ groups() ->
                      {group, aes_256_cfb8},
                      {group, aes_128_ofb},
                      {group, aes_192_ofb},
-                     {group, aes_256_ofb}
+                     {group, aes_256_ofb},
+                     {api_errors_non_fips, [], [
+                        bad_cmac_name
+                     ]}
                     ]},
      {fips, [], [
                  fips_forbidden_algorithms,
@@ -500,7 +503,7 @@ groups() ->
                                  bad_hash_name,
                                  bad_mac_name,
                                  bad_hmac_name,
-                                 bad_cmac_name,
+                                 %% bad_cmac_name, % moved to non_fips group
                                  bad_sign_name,
                                  bad_verify_name
                                 ]},
@@ -570,10 +573,15 @@ is_ok(ok) -> ok;
 is_ok({error, already_started}) -> ok;
 is_ok({error,{already_started,crypto}}) -> ok.
 
-    
-
 end_per_suite(_Config) ->
     application:stop(crypto).
+
+%% Checks whether crypto:supports() has a 'fips_forbidden' group, and fips_forbidden[Section] contains Alg
+is_algorithm_forbidden(Section, Alg) ->
+    Supports = crypto:supports(),
+    Forbidden = proplists:get_value(fips_forbidden, Supports, []),
+    ForbiddenSection = proplists:get_value(Section, Forbidden, []),
+    lists:member(Alg, ForbiddenSection).
 
 %%-------------------------------------------------------------------
 init_per_group(fips, Config) ->
@@ -5309,13 +5317,9 @@ openssl_version() ->
 %% The key must appear in supports[fips_forbidden][section] and NOT appear in supports[section]
 assert_forbidden_or_not_supported(Section, Key, Supports) ->
   SupportedSection = proplists:get_value(Section, Supports),
-  AllForbidden = proplists:get_value(fips_forbidden, Supports),
-  ForbiddenSection = proplists:get_value(Section, AllForbidden),
-
-  ?assert(lists:member(Key, ForbiddenSection) and not lists:member(Key, SupportedSection),
+  ?assert(not lists:member(Key, SupportedSection),
     lists:flatten(io_lib:format(
-      "Key ~p is expected to be listed in the forbidden section ~p, "
-      "and NOT listed in the supported section ~p", [Key, Section, Section]))).
+      "Key ~p is expected to be NOT listed in the supported section ~p", [Key, Section]))).
 
 %% When FIPS is enabled, crypto:supports() returns a section with forbidden algorithms
 %% Check for a few algorithms that we know always exist and always forbidden in FIPS
@@ -5331,7 +5335,9 @@ fips_forbidden_algorithms(Config) when is_list(Config) ->
     assert_forbidden_or_not_supported(public_keys, dss, Supports),
     assert_forbidden_or_not_supported(public_keys, eddsa, Supports),
 
-    assert_forbidden_or_not_supported(macs, hmac, Supports).
+    %% Multiple MAC algorithms are gone under FIPS
+    assert_forbidden_or_not_supported(macs, cmac, Supports),
+    assert_forbidden_or_not_supported(macs, poly1305, Supports).
 
 %% When FIPS is disabled, crypto:supports() should not return forbidden algorithms section
 nofips_no_forbidden_algorithms(Config) when is_list(Config) ->

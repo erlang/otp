@@ -83,17 +83,18 @@ struct cipher_type_t {
     }
     explicit cipher_type_t(ERL_NIF_TERM atom, const size_t key_len): atom(atom), key_len(key_len) {}
 
-    bool is_forbidden_in_fips() const {
-#ifdef FIPS_SUPPORT
-        return this->flags.fips_forbidden && FIPS_MODE();
-#else
-        return false;
-#endif
-    }
     bool is_available() const {
+#ifdef FIPS_SUPPORT
+        const bool forbidden_in_fips = this->flags.fips_forbidden && FIPS_MODE();
+#else
+        constexpr bool forbidden_in_fips = false;
+#endif
         // Available if cipher could be initialized, and (has a EVP_CIPHER resource, or is AES_CTR compatible)
-        return !this->flags.algorithm_init_failed && this->resource;
+        return !forbidden_in_fips && !this->flags.algorithm_init_failed && this->resource;
     }
+
+    bool is_fips_forbidden() const { return this->flags.fips_forbidden || this->flags.algorithm_init_failed; }
+
     // The atom which goes to the Erlang caller (used by the algorithm collection generic)
     ERL_NIF_TERM get_atom() const { return this->atom; }
     void check_availability(bool fips_enabled);

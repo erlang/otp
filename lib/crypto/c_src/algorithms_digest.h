@@ -25,27 +25,26 @@
 struct digest_type_t;
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include "common.h"
 
-    // Wraps a pointer to digest_availability_t which is a C++ struct with C++ features, for use in C API
-    typedef struct digest_type_t digest_type_C;
+// Wraps a pointer to digest_availability_t which is a C++ struct with C++ features, for use in C API
+typedef struct digest_type_t digest_type_C;
 
-    //
-    // C Digest storage API
-    //
-    ERL_NIF_TERM digest_types_as_list(ErlNifEnv *env, bool fips_forbidden);
+//
+// C Digest storage API
+//
+ERL_NIF_TERM digest_types_as_list(ErlNifEnv *env, bool fips_forbidden);
 
-    // Lookup and access fields
-    digest_type_C *get_digest_type(ErlNifEnv *env, ERL_NIF_TERM type); // linear lookup by atom
-    bool is_digest_forbidden_in_fips(const digest_type_C *p);          // access C++ member from C
-    const EVP_MD *get_digest_type_resource(const digest_type_C *p);    // access field
-    size_t get_digest_type_xof_default_length(const digest_type_C *p); // access field
-    const char *get_digest_type_str_v3(const digest_type_C *p);        // access str_v3 name (field of probe)
-    bool is_digest_eligible_for_pbkdf2(const digest_type_C *p);        // check PBKDF2 availability bit
+// Lookup and access fields
+digest_type_C *get_digest_type(ErlNifEnv *env, ERL_NIF_TERM type); // linear lookup by atom
+bool is_digest_forbidden_in_fips(const digest_type_C *p); // access C++ member from C
+const EVP_MD *get_digest_type_resource(const digest_type_C *p); // access field
+size_t get_digest_type_xof_default_length(const digest_type_C *p); // access field
+const char *get_digest_type_str_v3(const digest_type_C *p); // access str_v3 name (field of probe)
+bool is_digest_eligible_for_pbkdf2(const digest_type_C *p); // check PBKDF2 availability bit
 
 #ifdef __cplusplus
 }
@@ -56,8 +55,9 @@ extern "C"
 #    include "auto_openssl_resource.h"
 
 struct digest_type_flags_t {
-    bool fips_forbidden : 1;
-    bool pbkdf2_eligible : 1;
+    bool fips_forbidden: 1;
+    bool algorithm_init_failed: 1;
+    bool pbkdf2_eligible: 1;
 };
 
 // Describes a digest method added by the init function, and checked for compatibility
@@ -74,21 +74,21 @@ struct digest_type_t {
 
     explicit digest_type_t(const digest_probe_t *init_);
 
-    bool is_forbidden_in_fips() const {
 #    ifdef FIPS_SUPPORT
-        return this->flags.fips_forbidden && FIPS_MODE();
+    bool is_available() const {
+        return !this->flags.algorithm_init_failed && (!this->flags.fips_forbidden || !FIPS_MODE());
+    }
 #    else
-        return false;
+    static constexpr bool is_available() { return true; }
 #    endif
-    }
-    static bool is_available() {
-        return true;
-    }
+
+    bool is_fips_forbidden() const { return this->flags.fips_forbidden || this->flags.algorithm_init_failed; }
+
     // Return the atom which goes to the Erlang caller
     ERL_NIF_TERM get_atom() const;
 
     // Fetches the algorithm and sets the initial flags
-    void create_md_resource(bool fips_mode);
+    void create_md_resource(bool fips_enabled);
 #    if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
     // Initialize an algorithm to check that all its dependencies are valid in FIPS
     static bool check_valid_in_fips(const EVP_MD *md);
@@ -113,12 +113,14 @@ struct digest_probe_t {
     size_t xof_default_length = 0;
 
     constexpr digest_probe_t(const char *str_, const char *str_v3_,
-                            const digest_construction_fn_t ctor_): str(str_), str_v3(str_v3_), v1_ctor(ctor_) {
+                             const digest_construction_fn_t ctor_) : str(str_), str_v3(str_v3_), v1_ctor(ctor_) {
     }
+
     constexpr digest_probe_t &set_pbkdf() {
         this->flags.pbkdf2_eligible = true;
         return *this;
     }
+
     constexpr digest_probe_t &set_xof_default_length(const size_t xof_default_length_) {
         this->xof_default_length = xof_default_length_;
         return *this;
@@ -127,9 +129,12 @@ struct digest_probe_t {
     const char *get_v3_name() const {
         return this->str_v3 ? this->str_v3 : this->str;
     }
+
     // Perform probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_mode, std::vector<digest_type_t> &output);
-    static void post_lazy_init(std::vector<digest_type_t> &) {}
+
+    static void post_lazy_init(std::vector<digest_type_t> &) {
+    }
 };
 
 using digest_collection_t = algorithm_collection_t<digest_type_t, digest_probe_t>;

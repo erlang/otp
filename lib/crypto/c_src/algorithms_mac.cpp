@@ -38,8 +38,8 @@ static constexpr mac_probe_t make_hmac_probe() {
 #if defined(HAS_EVP_PKEY_CTX) && (!DISABLE_EVP_HMAC)
     p.pkey_type = EVP_PKEY_HMAC,
 #endif
-    // HMAC is always supported, but possibly with low-level routines
-    p.type = HMAC_mac;
+            // HMAC is always supported, but possibly with low-level routines
+            p.type = HMAC_mac;
     return p;
 }
 
@@ -53,7 +53,7 @@ static constexpr mac_probe_t make_cmac_probe() {
     return p;
 }
 
-mac_probe_t mac_probes[] = { make_poly1305_probe(), make_hmac_probe(), make_cmac_probe() };
+mac_probe_t mac_probes[] = {make_poly1305_probe(), make_hmac_probe(), make_cmac_probe()};
 
 mac_collection_t mac_collection("crypto.mac_collection", mac_probes, sizeof(mac_probes) / sizeof(mac_probes[0]));
 
@@ -71,14 +71,20 @@ ERL_NIF_TERM mac_type_t::get_atom() const {
 }
 
 bool mac_type_t::is_available() const {
-    return this->init->type != NO_mac;
+#ifdef FIPS_SUPPORT
+    const bool fips_forbidden = this->flags.fips_forbidden && FIPS_MODE();
+#else
+    constexpr bool fips_forbidden = false;
+#endif
+    return !fips_forbidden && !this->flags.algorithm_init_failed; // && this->init->type != NO_mac
 }
 
 #if defined(HAS_3_0_API) && defined(FIPS_SUPPORT)
+// This must be run after this->evp_mac is already initialized in fetch_algorithm()
 void mac_type_t::update_flags_check_fips_availability(const bool fips_enabled) {
     // Initialize an algorithm to check that all its dependencies are valid in FIPS
     if (this->evp_mac) {
-        auto_mac_ctx_t ctx(EVP_MAC_CTX_new(this->evp_mac.pointer));
+        const auto_mac_ctx_t ctx(EVP_MAC_CTX_new(this->evp_mac.pointer));
 
         // Dummy key and parameters.
         constexpr unsigned char key[64] = {};
@@ -87,23 +93,20 @@ void mac_type_t::update_flags_check_fips_availability(const bool fips_enabled) {
         params[1] = OSSL_PARAM_construct_end();
 
         // Try to initialize the digest algorithm for use, this will check the dependencies
-        if (EVP_MAC_init(ctx.pointer, key, sizeof(key), params) == 1) {
+        if (EVP_MAC_init(ctx.pointer, key, sizeof(key), params) != 1) {
+            // returns 1 on success
             this->flags.fips_forbidden = true;
         }
     }
 }
 #endif // defined(HAS_3_0_API) && defined(FIPS_SUPPORT)
 
-void mac_type_t::update_flags(const bool fips_enabled) {
-#if defined(HAS_3_0_API) && defined(FIPS_SUPPORT)
-    this->update_flags_check_fips_availability(fips_enabled);
-#endif // defined(HAS_3_0_API) && defined(FIPS_SUPPORT)
-
+void mac_type_t::fetch_algorithm(const bool fips_enabled) {
 #if defined(HAS_3_0_API)
-    this->evp_mac.reset(EVP_MAC_fetch(nullptr, this->init->str_v3, nullptr));
-    if (!this->evp_mac) {
-        this->flags.algorithm_init_failed = true;
-    }
+    this->evp_mac.reset(
+        EVP_MAC_fetch(nullptr, this->init->str_v3, get_fips_filter(fips_enabled))
+    );
+    this->flags.algorithm_init_failed = !this->evp_mac;
 #endif
 }
 
@@ -116,7 +119,10 @@ void mac_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<mac
     auto &alg = output.back();
 
     alg.flags.fips_forbidden = this->fips_forbidden_hint;
-    alg.update_flags(fips_enabled);
+    alg.fetch_algorithm(fips_enabled);
+#if defined(HAS_3_0_API) && defined(FIPS_SUPPORT)
+    alg.update_flags_check_fips_availability(fips_enabled);
+#endif // defined(HAS_3_0_API) && defined(FIPS_SUPPORT)
 }
 
 extern "C" mac_type_C *find_mac_type_by_name_keylen(ErlNifEnv *env, ERL_NIF_TERM type, const size_t key_len) {
@@ -141,7 +147,7 @@ extern "C" mac_type_C *find_mac_type_by_name(ErlNifEnv *env, ERL_NIF_TERM type) 
 }
 
 extern "C" bool is_mac_forbidden_in_fips(const mac_type_C *p) {
-    return p ? p->is_forbidden_in_fips() : true; // forbidden if null
+    return p ? p->is_fips_forbidden() : true; // forbidden if null
 }
 
 extern "C" int get_mac_type_mactype(mac_type_C *p) {

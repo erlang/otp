@@ -83,10 +83,10 @@ ERL_NIF_TERM pkey_type_t::get_atom() const {
     return this->init->atom;
 }
 
-// Result: flags set if FIPS is not supported
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
-void pkey_type_t::check_against_fips() {
-    auto_pkey_ctx_t ctx(EVP_PKEY_CTX_new_from_name(nullptr, this->init->get_v3_name(), nullptr));
+void pkey_type_t::check_usage_types(const bool fips_enabled) {
+    const auto fips_filter = get_fips_filter(fips_enabled);
+    auto_pkey_ctx_t ctx(EVP_PKEY_CTX_new_from_name(nullptr, this->init->get_v3_name(), fips_filter));
 
     // failed: algorithm not available, do not add
     if (!ctx) {
@@ -98,23 +98,23 @@ void pkey_type_t::check_against_fips() {
     }
 
     // Drop previous pkey_ctx, create new
-    ctx.reset(EVP_PKEY_CTX_new_from_name(nullptr, this->init->get_v3_name(), nullptr));
+    ctx.reset(EVP_PKEY_CTX_new_from_name(nullptr, this->init->get_v3_name(), fips_filter));
     if (EVP_PKEY_sign_init(ctx.pointer) <= 0) { // can't sign?
         this->flags.fips_forbidden_sign = true;
     }
 
     // Drop previous pkey_ctx, create new
-    ctx.reset(EVP_PKEY_CTX_new_from_name(nullptr, this->init->get_v3_name(), nullptr));
+    ctx.reset(EVP_PKEY_CTX_new_from_name(nullptr, this->init->get_v3_name(), fips_filter));
     if (EVP_PKEY_verify_init(ctx.pointer) <= 0) { // can't verify?
         flags.fips_forbidden_verify = true;
     }
 
-    ctx.reset(EVP_PKEY_CTX_new_from_name(nullptr, this->init->get_v3_name(), nullptr));
+    ctx.reset(EVP_PKEY_CTX_new_from_name(nullptr, this->init->get_v3_name(), fips_filter));
     if (EVP_PKEY_encrypt_init(ctx.pointer) <= 0) { // can't encrypt/decrypt?
         flags.fips_forbidden_encrypt = true;
     }
 
-    ctx.reset(EVP_PKEY_CTX_new_from_name(nullptr, this->init->get_v3_name(), nullptr));
+    ctx.reset(EVP_PKEY_CTX_new_from_name(nullptr, this->init->get_v3_name(), fips_filter));
     if (EVP_PKEY_derive_init(ctx.pointer) <= 0) { // can't derive?
         flags.fips_forbidden_derive = true;
     }
@@ -135,9 +135,7 @@ void pkey_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<pk
 #endif // HAS_PREFETCH_SIGN_INIT
 
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
-    if (fips_enabled) { // attempt to instantiate the algorithm and set availability flags
-        output.back().check_against_fips();
-    }
+    output.back().check_usage_types(fips_enabled);
 #endif // FIPS_SUPPORT && HAS_3_0_API
 }
 

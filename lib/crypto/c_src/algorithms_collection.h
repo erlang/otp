@@ -23,20 +23,20 @@
 #pragma once
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include "common.h"
 
-    //
-    // C API which affects all collections at once
-    //
+//
+// C API which affects all collections at once
+//
 
-    // Creates protective mutex for each collection to allow for safe lazy init and reinit
-    bool create_algorithm_mutexes(ErlNifEnv *env);
-    // Deletes (and zeroes) algorithm mutexes
-    void free_algorithm_mutexes(void);
+// Creates protective mutex for each collection to allow for safe lazy init and reinit
+bool create_algorithm_mutexes(ErlNifEnv *env);
+
+// Deletes (and zeroes) algorithm mutexes
+void free_algorithm_mutexes(void);
 
 #ifdef __cplusplus
 }
@@ -59,6 +59,7 @@ struct mutex_lock_and_auto_release {
     explicit mutex_lock_and_auto_release(ErlNifMutex *m) : mutex(m) {
         enif_mutex_lock(m);
     }
+
     ~mutex_lock_and_auto_release() {
         enif_mutex_unlock(mutex);
     }
@@ -73,6 +74,7 @@ struct mutex_lock_and_auto_release {
 template<typename AlgorithmT, typename ProbeT>
 struct algorithm_collection_t {
     using ContainerT = std::vector<AlgorithmT>;
+
 private:
     // Lazy init flag for fips=false and fips=true
     bool lazy_init_done[2] = {false, false};
@@ -87,7 +89,7 @@ private:
 
 public:
     explicit algorithm_collection_t(const char *mutex_name_, ProbeT *probes_, const size_t probes_count_)
-            : probes(probes_), probes_count(probes_count_), mutex(nullptr), mutex_name(mutex_name_) {
+        : probes(probes_), probes_count(probes_count_), mutex(nullptr), mutex_name(mutex_name_) {
     }
 
     ~algorithm_collection_t() {
@@ -99,6 +101,7 @@ public:
         lazy_init(env, fips_mode);
         return this->algorithms[fips_mode ? 1 : 0].cbegin();
     }
+
     // Const pointer to one after last of the algorithms
     auto cend(const bool fips_mode) const -> typename ContainerT::const_iterator {
         return this->algorithms[fips_mode ? 1 : 0].cend();
@@ -109,6 +112,7 @@ public:
         lazy_init(env, fips_mode);
         return this->algorithms[fips_mode ? 1 : 0].begin();
     }
+
     // Mutable pointer to one after last of the algorithms
     auto end(const bool fips_mode) -> typename ContainerT::iterator {
         return this->algorithms[fips_mode ? 1 : 0].end();
@@ -137,10 +141,9 @@ public:
         const bool fips_enabled = FIPS_MODE();
         lazy_init(env, fips_enabled);
 
-        for (const auto &algo : this->algorithms[fips_enabled ? 1 : 0]) {
-            // Any of the forbidden flags is not set, then something is
-            // available
-            if (algo.is_available() && algo.is_forbidden_in_fips() == match_fips_forbidden) {
+        for (const auto &algo: this->algorithms[fips_enabled ? 1 : 0]) {
+            // Any of the forbidden flags is not set, then something is available
+            if (algo.is_available() && algo.is_fips_forbidden() == match_fips_forbidden) {
                 const auto atom = algo.get_atom();
                 ASSERT(atom != 0);
                 hd = enif_make_list_cell(env, atom, hd);
@@ -173,5 +176,7 @@ private:
 
 // Helper: Ensure atoms are not created repeatedly
 ERL_NIF_TERM create_or_existing_atom(ErlNifEnv *env, const char *atom_name, ERL_NIF_TERM atom = 0);
+// Helper: For specific selection of fips=yes or fips=no
+const char *get_fips_filter(bool fips_enabled);
 
 #endif

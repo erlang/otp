@@ -51,20 +51,23 @@ struct curve_type_t {
         bool algorithm_init_failed: 1; // not possible to create with fips=yes
     } flags = {};
 
-    explicit curve_type_t(const curve_probe_t *probe) : init(probe) {}
-
-#ifdef FIPS_SUPPORT
-    // Available if not forbidden with fips=yes, and if curve init did not fail
-    bool is_forbidden_in_fips() const {
-        return (this->flags.fips_forbidden || this->flags.algorithm_init_failed) && FIPS_MODE();
+    explicit curve_type_t(const curve_probe_t *probe) : init(probe) {
     }
-#else
-    static bool is_forbidden_in_fips() { return false; }
-#endif
 
-    bool is_available() const { return !this->flags.algorithm_init_failed; }
+    bool is_available() const {
+#ifdef FIPS_SUPPORT
+        const bool forbidden_in_fips = this->flags.fips_forbidden && FIPS_MODE();
+#else
+        constexpr bool forbidden_in_fips = false;
+#endif
+        return !forbidden_in_fips && !this->flags.algorithm_init_failed;
+    }
+
+    bool is_fips_forbidden() const { return this->flags.fips_forbidden || this->flags.algorithm_init_failed; }
+
     // Return the atom which goes to the Erlang caller
     ERL_NIF_TERM get_atom() const;
+
     // Instantiate the algorithm (if FIPS is enabled) and set flags if not available
     void check_fips_availability(bool fips_mode);
 };
@@ -84,10 +87,14 @@ struct curve_probe_t {
     // Perform a probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_mode, std::vector<curve_type_t> &output);
 
-    static void post_lazy_init(std::vector<curve_type_t> &) {}
+    static void post_lazy_init(std::vector<curve_type_t> &) {
+    }
+
 private:
     bool is_curve_valid() const;
+
     bool is_ec_group_supported() const;
+
     void resolve_nid();
 };
 

@@ -33,7 +33,7 @@ cipher_probe_t cipher_probes[] = {
 #endif
     cipher_probe_t("rc2_cbc", "rc2-cbc", CIPHER_RC2_CTOR).set_fips_forbidden(),
 #undef CIPHER_RC2_CTOR
-// --------------------------
+    // --------------------------
 #ifdef HAVE_RC4
 #    define CIPHER_RC4_CTOR &EVP_rc4
 #else
@@ -41,7 +41,7 @@ cipher_probe_t cipher_probes[] = {
 #endif
     cipher_probe_t("rc4", nullptr, CIPHER_RC4_CTOR).set_fips_forbidden(),
 #undef CIPHER_RC4_CTOR
-// --------------------------
+    // --------------------------
 #ifdef HAVE_DES
 #    define CIPHER_DES_CBC_CTOR &EVP_des_cbc
 #    define CIPHER_DES_CFB8_CTOR &EVP_des_cfb8
@@ -57,7 +57,7 @@ cipher_probe_t cipher_probes[] = {
 #undef CIPHER_DES_CBC_CTOR
 #undef CIPHER_DES_CFB8_CTOR
 #undef CIPHER_DES_ECB_CTOR
-// --------------------------
+    // --------------------------
 #ifdef HAVE_DES_ede3_cbc
 #    define CIPHER_DES_EDE3_CBC_CTOR &EVP_des_ede3_cbc
 #else
@@ -65,7 +65,7 @@ cipher_probe_t cipher_probes[] = {
 #endif
     cipher_probe_t("des_ede3_cbc", "des-ede3-cbc", CIPHER_DES_EDE3_CBC_CTOR),
 #undef CIPHER_DES_EDE3_CBC_CTOR
-// --------------------------
+    // --------------------------
 #ifdef HAVE_DES_ede3_cfb
 #    define CIPHER_DES_EDE3_CFB_CTOR &EVP_des_ede3_cfb8
 #else
@@ -73,7 +73,7 @@ cipher_probe_t cipher_probes[] = {
 #endif
     cipher_probe_t("des_ede3_cfb", "des-ede3-cfb", CIPHER_DES_EDE3_CFB_CTOR),
 #undef CIPHER_DES_EDE3_CFB_CTOR
-// --------------------------
+    // --------------------------
 #ifdef HAVE_BF
 #    define CIPHER_BF_CBC_CTOR &EVP_bf_cbc
 #    define CIPHER_BF_CFB64_CTOR &EVP_bf_cfb64
@@ -93,7 +93,7 @@ cipher_probe_t cipher_probes[] = {
 #undef CIPHER_BF_CFB64_CTOR
 #undef CIPHER_BF_OFB_CTOR
 #undef CIPHER_BF_ECB_CTOR
-// --------------------------
+    // --------------------------
 #ifdef HAVE_SM4
 #    define CIPHER_SM4_CBC_CTOR &EVP_sm4_cbc
 #    define CIPHER_SM4_ECB_CTOR &EVP_sm4_ecb
@@ -117,7 +117,7 @@ cipher_probe_t cipher_probes[] = {
 #undef CIPHER_SM4_CFB_CTOR
 #undef CIPHER_SM4_OFB_CTOR
 #undef CIPHER_SM4_CTR_CTOR
-// --------------------------
+    // --------------------------
     cipher_probe_t("aes_128_cbc", "aes-128-cbc", &EVP_aes_128_cbc).set_keylen(16),
     cipher_probe_t("aes_192_cbc", "aes-192-cbc", &EVP_aes_192_cbc).set_keylen(24),
     cipher_probe_t("aes_256_cbc", "aes-256-cbc", &EVP_aes_256_cbc).set_keylen(32),
@@ -137,7 +137,7 @@ cipher_probe_t cipher_probes[] = {
     cipher_probe_t("aes_128_ecb", "aes-128-ecb", &EVP_aes_128_ecb).set_keylen(16),
     cipher_probe_t("aes_192_ecb", "aes-192-ecb", &EVP_aes_192_ecb).set_keylen(24),
     cipher_probe_t("aes_256_ecb", "aes-256-ecb", &EVP_aes_256_ecb).set_keylen(32),
-// --------------------------
+    // --------------------------
 #if defined(HAVE_EVP_AES_CTR)
 #    define CIPHER_AES128_CTR_CTOR &EVP_aes_128_ctr
 #    define CIPHER_AES192_CTR_CTOR &EVP_aes_192_ctr
@@ -147,24 +147,24 @@ cipher_probe_t cipher_probes[] = {
 #    define CIPHER_AES192_CTR_CTOR nullptr
 #    define CIPHER_AES256_CTR_CTOR nullptr
 #endif
-     cipher_probe_t("aes_128_ctr", "aes-128-ctr", CIPHER_AES128_CTR_CTOR).set_keylen(16),
-     cipher_probe_t("aes_192_ctr", "aes-192-ctr", CIPHER_AES192_CTR_CTOR).set_keylen(24),
-     cipher_probe_t("aes_256_ctr", "aes-256-ctr", CIPHER_AES256_CTR_CTOR).set_keylen(32),
+    cipher_probe_t("aes_128_ctr", "aes-128-ctr", CIPHER_AES128_CTR_CTOR).set_keylen(16),
+    cipher_probe_t("aes_192_ctr", "aes-192-ctr", CIPHER_AES192_CTR_CTOR).set_keylen(24),
+    cipher_probe_t("aes_256_ctr", "aes-256-ctr", CIPHER_AES256_CTR_CTOR).set_keylen(32),
 #undef CIPHER_AES128_CTR_CTOR
 #undef CIPHER_AES192_CTR_CTOR
 #undef CIPHER_AES256_CTR_CTOR
-// --------------------------
+    // --------------------------
 #if defined(HAVE_CHACHA20)
 #    define CIPHER_CHACHA20_CTOR &EVP_chacha20
 #else
 #    define CIPHER_CHACHA20_CTOR nullptr
 #endif
-     cipher_probe_t("chacha20", nullptr, CIPHER_CHACHA20_CTOR).set_keylen(32).set_fips_forbidden(),
+    cipher_probe_t("chacha20", nullptr, CIPHER_CHACHA20_CTOR).set_keylen(32).set_fips_forbidden(),
 #undef CIPHER_CHACHA20_CTOR
 
-// --------------------------
-// AEAD ciphers
-// --------------------------
+    // --------------------------
+    // AEAD ciphers
+    // --------------------------
 
 #if defined(HAVE_CHACHA20_POLY1305)
 #    define CIPHER_CHACHA20_POLY1305_CTOR &EVP_chacha20_poly1305
@@ -180,16 +180,16 @@ cipher_probe_t cipher_probes[] = {
 #endif // HAVE_AEAD
 #undef CIPHER_CHACHA20_POLY1305_CTOR
 #undef CIPHER_CHACHA20_POLY1305_AEADCTRL
-// --------------------------
+    // --------------------------
 #if defined(HAVE_SM4_GCM)
     cipher_probe_t("sm4_gcm", "sm4-gcm").set_keylen(16).set_fips_forbidden().set_aead(
         AEAD_CTRL, /* ccm_mode= */ false, /* gcm_mode= */ true),
 #endif
-// --------------------------
+    // --------------------------
 #if defined(HAVE_SM4_CCM)
     cipher_probe_t("sm4_ccm", "sm4-ccm").set_keylen(16).set_fips_forbidden().set_aead(AEAD_CTRL, /* ccm_mode= */ true),
 #endif
-// --------------------------
+    // --------------------------
 #if defined(HAVE_GCM)
 #    define CIPHER_AES128_GCM_CTOR &EVP_aes_128_gcm
 #    define CIPHER_AES192_GCM_CTOR &EVP_aes_192_gcm
@@ -220,7 +220,7 @@ cipher_probe_t cipher_probes[] = {
 #undef CIPHER_AES192_GCM_CTOR
 #undef CIPHER_AES256_GCM_CTOR
 #undef CIPHER_AES_GCM_AEADCTRL
-// --------------------------
+    // --------------------------
 #if defined(HAVE_CCM)
 #    define CIPHER_AES128_CCM_CTOR &EVP_aes_128_ccm
 #    define CIPHER_AES192_CCM_CTOR &EVP_aes_192_ccm
@@ -311,14 +311,16 @@ void cipher_type_t::attempt_to_instantiate_cipher(const bool fips_enabled) {
                 // Shortcut when the fips_forbidden flag is already set from the probe data
                 return;
             }
-            this->resource.reset(EVP_CIPHER_fetch(nullptr, name, "fips=yes"));
+            this->resource.reset(
+                EVP_CIPHER_fetch(nullptr, name, get_fips_filter(fips_enabled))
+            );
             if (!this->can_cipher_be_instantiated()) {
                 this->flags.fips_forbidden = true;
                 this->resource.reset(nullptr); // free the resource
             }
         }
 #    else
-        this->resource.reset(EVP_CIPHER_fetch(nullptr, name, ""));
+        this->resource.reset(EVP_CIPHER_fetch(nullptr, name, get_fips_filter(fips_enabled)));
         if (!this->can_cipher_be_instantiated()) {
             this->flags.algorithm_init_failed = true;
             this->resource.reset(nullptr); // free the resource
@@ -333,21 +335,21 @@ void cipher_type_t::attempt_to_instantiate_cipher(const bool fips_enabled) {
 #endif
 }
 
-void cipher_type_t::check_availability(bool fips_enabled) {
+void cipher_type_t::check_availability(const bool fips_enabled) {
 #ifdef HAVE_AEAD
     switch (this->init->aead_ctrl_type) {
-    case NOT_AEAD:
-        this->aead = {0, 0, 0};
-        break;
-    case AEAD_CTRL:
-        this->aead = {EVP_CTRL_AEAD_SET_IVLEN, EVP_CTRL_AEAD_GET_TAG, EVP_CTRL_AEAD_SET_TAG};
-        break;
-    case AEAD_CTRL_GCM:
-        this->aead = {EVP_CTRL_GCM_SET_IVLEN, EVP_CTRL_GCM_GET_TAG, EVP_CTRL_GCM_SET_TAG};
-        break;
-    case AEAD_CTRL_CCM:
-        this->aead = {EVP_CTRL_CCM_SET_IVLEN, EVP_CTRL_CCM_GET_TAG, EVP_CTRL_CCM_SET_TAG};
-        break;
+        case NOT_AEAD:
+            this->aead = {0, 0, 0};
+            break;
+        case AEAD_CTRL:
+            this->aead = {EVP_CTRL_AEAD_SET_IVLEN, EVP_CTRL_AEAD_GET_TAG, EVP_CTRL_AEAD_SET_TAG};
+            break;
+        case AEAD_CTRL_GCM:
+            this->aead = {EVP_CTRL_GCM_SET_IVLEN, EVP_CTRL_GCM_GET_TAG, EVP_CTRL_GCM_SET_TAG};
+            break;
+        case AEAD_CTRL_CCM:
+            this->aead = {EVP_CTRL_CCM_SET_IVLEN, EVP_CTRL_CCM_GET_TAG, EVP_CTRL_CCM_SET_TAG};
+            break;
     }
 #endif // HAVE_AEAD
     // We do not know for sure that the algorithm is unavailable (normal or FIPS)
@@ -367,7 +369,8 @@ void cipher_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<
     algo.check_availability(fips_enabled);
 }
 
-extern "C" const cipher_type_C *find_cipher_type_by_name_keylen(ErlNifEnv *env, ERL_NIF_TERM atom, const size_t key_len) {
+extern "C" const cipher_type_C *
+find_cipher_type_by_name_keylen(ErlNifEnv *env, ERL_NIF_TERM atom, const size_t key_len) {
     cipher_type_t sample(atom, key_len);
     const bool fips_enabled = FIPS_MODE();
 
@@ -409,15 +412,19 @@ extern "C" const cipher_type_C *find_cipher_type_by_name(ErlNifEnv *env, ERL_NIF
 extern "C" cipher_type_flags_t get_cipher_type_flags(const cipher_type_C *p) {
     return p->flags;
 }
+
 extern "C" cipher_type_aead_t get_cipher_type_aead(const cipher_type_C *p) {
     return p->aead;
 }
+
 extern "C" bool is_cipher_forbidden_in_fips(const cipher_type_C *p) {
-    return p->is_forbidden_in_fips();
+    return p->is_fips_forbidden();
 }
+
 extern "C" const EVP_CIPHER *get_cipher_type_resource(const cipher_type_C *p) {
     return p->resource.pointer;
 }
+
 extern "C" const char *get_cipher_type_str_v3(const cipher_type_C *p) {
     return p->init->get_v3_name();
 }

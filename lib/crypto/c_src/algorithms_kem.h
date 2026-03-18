@@ -23,17 +23,17 @@
 #pragma once
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include "common.h"
 
-    //
-    // KEM Algorithms storage C API
-    //
-    size_t kem_algorithms_lazy_init(ErlNifEnv *env, bool fips_enabled);
-    ERL_NIF_TERM kem_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
+//
+// KEM Algorithms storage C API
+//
+size_t kem_algorithms_lazy_init(ErlNifEnv *env, bool fips_enabled);
+
+ERL_NIF_TERM kem_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
 
 #ifdef __cplusplus
 }
@@ -50,21 +50,23 @@ struct kem_type_t {
     const kem_probe_t *init = nullptr; // the rsaopt_probe_t used to create this record
 
     struct {
-        bool fips_forbidden : 1;
+        bool fips_forbidden: 1;
     } flags = {};
 
-    bool is_forbidden_in_fips() const {
-#    ifdef FIPS_SUPPORT
-        return this->flags.fips_forbidden && FIPS_MODE();
-#    else
-        return false;
-#    endif
+#ifdef FIPS_SUPPORT
+    bool is_available() const {
+        return !this->flags.fips_forbidden || !FIPS_MODE();
     }
-    static bool is_available() {
-        return true;
-    }
+#else
+    static constexpr bool is_available() { return true; }
+#endif
+
+    // For reporting crypto:supports() allowed vs. forbidden
+    bool is_fips_forbidden() const { return this->flags.fips_forbidden; }
+
     // Return the atom which goes to the Erlang caller
     ERL_NIF_TERM get_atom() const;
+
     bool check_kem_algorithm(bool fips_enabled);
 };
 
@@ -75,11 +77,14 @@ struct kem_probe_t {
     const char *str_v3;
     ERL_NIF_TERM atom;
 
-    constexpr explicit kem_probe_t(const char *str_v3_): str_v3(str_v3_), atom(CRYPTOENIF_BAD_ATOM_VALUE) {}
+    constexpr explicit kem_probe_t(const char *str_v3_) : str_v3(str_v3_), atom(CRYPTOENIF_BAD_ATOM_VALUE) {
+    }
 
     // Perform a probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_enabled, std::vector<kem_type_t> &output);
-    static void post_lazy_init(std::vector<kem_type_t> &) {}
+
+    static void post_lazy_init(std::vector<kem_type_t> &) {
+    }
 };
 
 using kem_collection_t = algorithm_collection_t<kem_type_t, kem_probe_t>;

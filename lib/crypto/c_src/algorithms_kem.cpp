@@ -25,12 +25,12 @@
 
 #ifdef HAVE_ML_KEM
 kem_probe_t kem_probes[] = {
-        kem_probe_t("mlkem512"),
-        kem_probe_t("mlkem768"),
-        kem_probe_t("mlkem1024"),
+    kem_probe_t("mlkem512"),
+    kem_probe_t("mlkem768"),
+    kem_probe_t("mlkem1024"),
 };
 
-kem_collection_t kem_collection("crypto.kem_collection", kem_probes, sizeof(kem_probes)/sizeof(kem_probes[0]));
+kem_collection_t kem_collection("crypto.kem_collection", kem_probes, sizeof(kem_probes) / sizeof(kem_probes[0]));
 #else
 // Cannot allocate array of size 0, so instead use the zero size constructor
 kem_collection_t kem_collection("crypto.kem_collection", nullptr, 0);
@@ -59,7 +59,9 @@ bool kem_type_t::check_kem_algorithm(bool fips_enabled) {
         return false; // not available by name
     }
 
-    const auto_pkey_ctx_t ctx(EVP_PKEY_CTX_new_from_name(nullptr, this->init->str_v3, nullptr));
+    const auto_pkey_ctx_t ctx(
+        EVP_PKEY_CTX_new_from_name(nullptr, this->init->str_v3, get_fips_filter(fips_enabled))
+    );
     // failed: algorithm not available, do not add
     if (ctx) {
         if (EVP_PKEY_encapsulate_init(ctx.pointer, nullptr) != 1) {
