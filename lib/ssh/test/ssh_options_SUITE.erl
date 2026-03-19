@@ -92,9 +92,7 @@
          daemon_replace_options_algs_connect/1,
          daemon_replace_options_algs_conf_file/1,
          daemon_replace_options_not_found/1,
-         max_auth_tries_option/1,
-         max_auth_tries_exceeded/1,
-         max_auth_tries_default/1
+         max_auth_tries_option/1
 	]).
 
 %%% Common test callbacks
@@ -185,9 +183,7 @@ groups() ->
      {dir_options, [], [user_dir_option,
                         user_dir_fun_option,
 			system_dir_option]},
-     {max_auth_tries, [], [max_auth_tries_option,
-                           max_auth_tries_exceeded,
-                           max_auth_tries_default]}
+     {max_auth_tries, [], [max_auth_tries_option]}
     ].
 
 
@@ -2105,19 +2101,6 @@ max_auth_tries_option(Config) ->
     {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_auth_tries, 0}]),
     {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_auth_tries, -1}]),
     {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_auth_tries, foo}]).
-
-%%--------------------------------------------------------------------
-max_auth_tries_exceeded(Config) ->
-    %% TODO: This test probably needs to use the ssh_trpt_test_lib to perform
-    %% multiple authentication in the same connection and trigger the threshold
-    Config.
-
-%%--------------------------------------------------------------------
-max_auth_tries_default(Config) ->
-    %% TODO: This test probably needs to use the ssh_trpt_test_lib to perform
-    %% multiple authentication in the same connection and it will be attempt
-    %% number 5 that will have success
-    Config.
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
