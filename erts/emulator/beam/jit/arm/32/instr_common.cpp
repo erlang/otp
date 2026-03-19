@@ -819,8 +819,8 @@ void BeamModuleAssembler::emit_update_record(const ArgAtom &Hint,
         const auto next_index = updates[0].as<ArgWord>().get();
         const auto &next_value = updates[1].as<ArgSource>();
 
-        a.ldr(TMP, arm::Mem(untagged_src, next_index * sizeof(Eterm)));
-        cmp_arg(TMP, next_value);
+        a.ldr(VAR, arm::Mem(untagged_src, next_index * sizeof(Eterm)));
+        cmp_arg(VAR, next_value);
 
         if (destination.reg != src.reg) {
             Label keep_new = a.newLabel();
@@ -1408,8 +1408,8 @@ void BeamModuleAssembler::emit_i_is_tuple_of_arity(const ArgLabel &Fail,
 
     emit_untag_ptr(ARG1, src.reg);
 
-    a.ldr(TMP, arm::Mem(ARG1));
-    cmp_arg(TMP, Arity);
+    a.ldr(VAR, arm::Mem(ARG1));
+    cmp_arg(VAR, Arity);
     a.b_ne(resolve_beam_label(Fail, disp32MB));
 }
 
@@ -1425,7 +1425,7 @@ void BeamModuleAssembler::emit_i_is_tuple_of_arity_ff(const ArgLabel &NotTuple,
 
     emit_untag_ptr(ARG1, src.reg);
 
-    a.ldr(TMP, arm::Mem(ARG1));
+    a.ldr(VAR, arm::Mem(ARG1));
 
     /* As an optimization for the `error | {ok, Value}` case, skip checking the
      * header word when we know that the only possible boxed type is a tuple. */
@@ -1433,11 +1433,11 @@ void BeamModuleAssembler::emit_i_is_tuple_of_arity_ff(const ArgLabel &NotTuple,
         comment("skipped header test since we know it's a tuple when boxed");
     } else {
         ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
-        a.tst(TMP, imm(_TAG_HEADER_MASK));
+        a.tst(VAR, imm(_TAG_HEADER_MASK));
         a.b_ne(resolve_beam_label(NotTuple, disp32MB));
     }
 
-    cmp_arg(TMP, Arity);
+    cmp_arg(VAR, Arity);
     a.b_ne(resolve_beam_label(BadArity, disp32MB));
 }
 
@@ -1449,8 +1449,8 @@ void BeamModuleAssembler::emit_i_test_arity(const ArgLabel &Fail,
     auto src = load_source(Src, ARG1);
     emit_untag_ptr(ARG1, src.reg);
 
-    a.ldr(TMP, arm::Mem(ARG1));
-    cmp_arg(TMP, Arity);
+    a.ldr(VAR, arm::Mem(ARG1));
+    cmp_arg(VAR, Arity);
     a.b_ne(resolve_beam_label(Fail, disp32MB));
 }
 
@@ -2100,8 +2100,7 @@ void BeamModuleAssembler::emit_is_ge_ge(ArgLabel const &Fail1,
 
     preserve_cache(
             [&]() {
-                mov_imm(VAR, A.as<ArgImmed>().get());
-                a.sub(TMP, src.reg, VAR);
+                subs(TMP, src.reg, A.as<ArgImmed>().get());
                 a.b_lt(resolve_beam_label(Fail1, disp32MB));
                 mov_imm(VAR, B.as<ArgImmed>().get() - A.as<ArgImmed>().get());
                 a.cmp(TMP, VAR);

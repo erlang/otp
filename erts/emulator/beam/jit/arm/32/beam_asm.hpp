@@ -1440,6 +1440,8 @@ protected:
     }
 
     void cmp_arg(a32::Gp gp, const ArgVal &arg) {
+        ASSERT(gp != TMP);
+
         if (arg.isImmed() || arg.isWord()) {
             Sint val = arg.isImmed() ? arg.as<ArgImmed>().get()
                                      : arg.as<ArgWord>().get();
