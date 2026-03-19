@@ -1966,13 +1966,18 @@ void BeamModuleAssembler::emit_is_in_range(ArgLabel const &Small,
          * other values are boxed, so we can test for smalls by
          * testing boxed. */
         comment("simplified small test since all other types are boxed");
+        ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED == (1 << 0));
         if (Small == Large && never_one_of<BeamTypeId::Float>(Src)) {
-            /* Src is never a float and both failure labels are equal.
-             * Since non-small integers cannot be in range, fail directly. */
+            /* Src is never a float and the failure labels are
+             * equal. Therefore, since a bignum will never be within
+             * the range, we can fail immediately if Src is not a
+             * small. */
             need_generic = false;
-            emit_is_boxed(resolve_beam_label(Small, dispUnknown), Src, src.reg);
+            emit_is_not_boxed(resolve_beam_label(Small, dispUnknown), src.reg);
         } else {
-            emit_is_boxed(generic, Src, src.reg);
+            /* Src can be a float or the failures labels are distinct.
+             * We need to call the generic routine if Src is not a small. */
+            emit_is_not_boxed(generic, src.reg);
         }
     } else if (Small == Large) {
         /* We can save one instruction if we incorporate the test for
