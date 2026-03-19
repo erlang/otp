@@ -315,16 +315,54 @@ void BeamModuleAssembler::emit_bif_is_lt(const ArgSource &LHS,
  */
 
 void BeamGlobalAssembler::emit_handle_and_error() {
-    // TODO
-    emit_nyi("emit_handle_and_error");
+    static ErtsCodeMFA mfa = {am_erlang, am_and, 2};
+    emit_raise_badarg(&mfa);
 }
 
 void BeamModuleAssembler::emit_bif_and(const ArgLabel &Fail,
                                        const ArgSource &Src1,
                                        const ArgSource &Src2,
                                        const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_bif_and");
+    static const Uint diff_bit = am_true - am_false;
+    Label valid = a.newLabel();
+    Label invalid = a.newLabel();
+
+    auto [src1, src2] = load_sources(Src1, ARG1, Src2, ARG2);
+    auto dst = init_destination(Dst, TMP);
+
+    ERTS_CT_ASSERT(am_false == make_atom(0));
+    ERTS_CT_ASSERT(am_true == make_atom(1));
+
+    if (exact_type<BeamTypeId::Atom>(Src1) &&
+        exact_type<BeamTypeId::Atom>(Src2)) {
+        comment("simplified type check because operands are atoms");
+        a.orr(TMP, src1.reg, src2.reg);
+        mov_imm(VAR, (-1u << (_TAG_IMMED2_SIZE + 1)));
+        a.tst(TMP, VAR);
+        a.b_eq(valid);
+    } else {
+        const Uint mask = (_TAG_IMMED2_MASK | ~diff_bit);
+        mov_imm(VAR, mask);
+        a.and_(TMP, src1.reg, VAR);
+        a.and_(VAR, src2.reg, VAR);
+        a.cmp(TMP, imm(_TAG_IMMED2_ATOM));
+        a.b_ne(invalid);
+        a.cmp(TMP, VAR);
+        a.b_eq(valid);
+    }
+
+    a.bind(invalid);
+    if (Fail.get()) {
+        a.b(resolve_beam_label(Fail, dispUnknown));
+    } else {
+        mov_var(ARG1, src1);
+        mov_var(ARG2, src2);
+        fragment_call(ga->get_handle_and_error());
+    }
+
+    a.bind(valid);
+    a.and_(dst.reg, src1.reg, src2.reg);
+    flush_var(dst);
 }
 
 /* ================================================================
@@ -641,8 +679,28 @@ void BeamModuleAssembler::emit_bif_is_map_key(const ArgWord &Bif,
                                               const ArgSource &Key,
                                               const ArgSource &Src,
                                               const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_handle_map_get_badmap");
+    if (!exact_type<BeamTypeId::Map>(Src)) {
+        emit_i_bif2(Key, Src, Fail, Bif, Dst);
+        return;
+    }
+
+    comment("inlined BIF is_map_key/2");
+
+    mov_arg(ARG1, Src);
+    mov_arg(ARG2, Key);
+
+    if (maybe_one_of<BeamTypeId::MaybeImmediate>(Key)) {
+        fragment_call(ga->get_i_get_map_element_shared());
+        emit_cond_to_bool(arm::CondCode::kEQ, Dst);
+    } else {
+        emit_enter_runtime();
+        runtime_call<2>(get_map_element);
+        emit_leave_runtime();
+
+        mov_imm(TMP, THE_NON_VALUE);
+        a.cmp(ARG1, TMP);
+        emit_cond_to_bool(arm::CondCode::kNE, Dst);
+    }
 }
 
 /* ================================================================
@@ -653,6 +711,7 @@ void BeamModuleAssembler::emit_bif_is_map_key(const ArgWord &Bif,
 void BeamGlobalAssembler::emit_handle_map_get_badmap() {
     static ErtsCodeMFA mfa = {am_erlang, am_map_get, 2};
     mov_imm(TMP, BADMAP);
+    ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
     a.str(TMP, arm::Mem(c_p, offsetof(Process, freason)));
     a.str(ARG1, arm::Mem(c_p, offsetof(Process, fvalue)));
     a.str(ARG2, getXRef(0));
@@ -664,6 +723,7 @@ void BeamGlobalAssembler::emit_handle_map_get_badmap() {
 void BeamGlobalAssembler::emit_handle_map_get_badkey() {
     static ErtsCodeMFA mfa = {am_erlang, am_map_get, 2};
     mov_imm(TMP, BADKEY);
+    ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
     a.str(TMP, arm::Mem(c_p, offsetof(Process, freason)));
     a.str(ARG2, arm::Mem(c_p, offsetof(Process, fvalue)));
     a.str(ARG2, getXRef(0));
@@ -777,22 +837,98 @@ void BeamModuleAssembler::emit_bif_min_max(arm::CondCode cc,
                                            const ArgSource &LHS,
                                            const ArgSource &RHS,
                                            const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_bif_min_max");
+    auto [lhs, rhs] = load_sources(LHS, ARG1, RHS, ARG2);
+
+    Label generic = a.newLabel(), next = a.newLabel();
+    Label select_rhs = a.newLabel(), done = a.newLabel();
+    bool both_small = always_small(LHS) && always_small(RHS);
+    bool need_generic = !both_small;
+    auto dst = init_destination(Dst, ARG1);
+
+    if (both_small) {
+        comment("skipped test for small operands");
+    } else if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       LHS) &&
+               always_small(RHS)) {
+        emit_is_not_boxed(generic, lhs.reg);
+    } else if (always_small(LHS) &&
+               always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       RHS)) {
+        emit_is_not_boxed(generic, rhs.reg);
+    } else if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       LHS) &&
+               always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       RHS)) {
+        comment("simplified test for small operands");
+        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+        a.and_(TMP, lhs.reg, rhs.reg);
+        emit_is_not_boxed(generic, TMP);
+    } else {
+        if (RHS.isSmall()) {
+            a.and_(TMP, lhs.reg, imm(_TAG_IMMED1_MASK));
+        } else if (LHS.isSmall()) {
+            a.and_(TMP, rhs.reg, imm(_TAG_IMMED1_MASK));
+        } else {
+            /* Avoid the expensive generic comparison for equal terms. */
+            a.cmp(lhs.reg, rhs.reg);
+            a.b_eq(next);
+
+            ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+            a.and_(TMP, lhs.reg, rhs.reg);
+            a.and_(TMP, TMP, imm(_TAG_IMMED1_MASK));
+        }
+
+        a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+        a.b_ne(generic);
+    }
+
+    /* Both arguments are smalls. */
+    a.cmp(lhs.reg, rhs.reg);
+    if (need_generic) {
+        a.b(next);
+    }
+
+    a.bind(generic);
+    if (need_generic) {
+        mov_var(ARG1, lhs);
+        mov_var(ARG2, rhs);
+        fragment_call(ga->get_arith_compare_shared());
+        load_sources(LHS, ARG1, RHS, ARG2);
+    }
+
+    a.bind(next);
+    switch (cc) {
+    case arm::CondCode::kLT:
+        a.b_lt(select_rhs);
+        break;
+    case arm::CondCode::kGT:
+        a.b_gt(select_rhs);
+        break;
+    default:
+        ASSERT(!"Unsupported condition code in emit_bif_min_max");
+        break;
+    }
+
+    mov_var(dst, lhs);
+    a.b(done);
+
+    a.bind(select_rhs);
+    mov_var(dst, rhs);
+
+    a.bind(done);
+    flush_var(dst);
 }
 
 void BeamModuleAssembler::emit_bif_max(const ArgSource &LHS,
                                        const ArgSource &RHS,
                                        const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_bif_max");
+    emit_bif_min_max(arm::CondCode::kLT, LHS, RHS, Dst);
 }
 
 void BeamModuleAssembler::emit_bif_min(const ArgSource &LHS,
                                        const ArgSource &RHS,
                                        const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_bif_min");
+    emit_bif_min_max(arm::CondCode::kGT, LHS, RHS, Dst);
 }
 
 /* ================================================================
