@@ -1122,8 +1122,15 @@ void BeamGlobalAssembler::emit_bif_tuple_size_body() {
 }
 
 void BeamGlobalAssembler::emit_bif_tuple_size_guard() {
-    // TODO
-    emit_nyi("emit_bif_tuple_size_guard");
+    Label error = a.newLabel();
+
+    emit_bif_tuple_size_helper(error);
+
+    a.bind(error);
+    {
+        mov_imm(ARG1, THE_NON_VALUE);
+        a.bx(a32::lr);
+    }
 }
 
 void BeamModuleAssembler::emit_bif_tuple_size(const ArgLabel &Fail,
