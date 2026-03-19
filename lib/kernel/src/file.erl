@@ -1418,6 +1418,7 @@ more of the following options:
   ram file is wrapped in a pid-based I/O server, making it compatible with the
   `m:io` module (for example, `io:get_line/2`, `io:scan_erl_form/3`).
 
+  Since OTP @OTP-123456789@
 
 - **`sync`** - On platforms supporting it, enables the POSIX `O_SYNC`
   synchronous I/O flag or its platform-dependent equivalent (for example,
