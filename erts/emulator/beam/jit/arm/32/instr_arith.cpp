@@ -1150,8 +1150,8 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
  * The result is returned in ARG1.
  */
 void BeamGlobalAssembler::emit_i_bxor_body_shared() {
-    // TODO
-    emit_nyi("emit_i_bxor_body_shared");
+    static const ErtsCodeMFA bif_mfa = {am_erlang, am_bxor, 2};
+    emit_bitwise_fallback_body(erts_bxor, &bif_mfa);
 }
 
 void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
@@ -1159,8 +1159,50 @@ void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
                                       const ArgSource &LHS,
                                       const ArgSource &RHS,
                                       const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_bxor");
+    auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
+    auto dst = init_destination(Dst, ARG1);
+
+    if (always_small(LHS) && always_small(RHS)) {
+        comment("skipped test for small operands because they are always "
+                "small");
+
+        /* TAG ^ TAG = 0, so we'll need to tag it again. */
+        a.eor(dst.reg, lhs.reg, rhs.reg);
+        a.orr(dst.reg, dst.reg, imm(_TAG_IMMED1_SMALL));
+        flush_var(dst);
+        return;
+    }
+
+    Label next = a.newLabel();
+
+    /* TAG ^ TAG = 0, so we'll need to tag it again. */
+    a.eor(ARG1, lhs.reg, rhs.reg);
+    a.orr(ARG1, ARG1, imm(_TAG_IMMED1_SMALL));
+
+    emit_are_both_small(LHS, lhs.reg, RHS, rhs.reg, next);
+
+    mov_var(ARG2, lhs);
+    mov_var(ARG3, rhs);
+
+    if (Fail.get() != 0) {
+        emit_enter_runtime();
+        a.mov(ARG1, c_p);
+        runtime_call<3>(erts_bxor);
+        emit_leave_runtime();
+        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+    } else {
+        emit_enter_runtime();
+        fragment_call(ga->get_i_bxor_body_shared());
+        emit_leave_runtime();
+    }
+
+    a.bind(next);
+    {
+        mov_var(dst, ARG1);
+        flush_var(dst);
+    }
+
+    (void)Live;
 }
 
 /*
