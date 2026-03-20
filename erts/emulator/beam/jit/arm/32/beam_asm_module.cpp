@@ -118,7 +118,7 @@ void BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
             Label patch = a.newLabel();
 
             a.bind(patch);
-            a.embedUInt64(INT_MAX);
+            a.embedUInt32(INT_MAX);
             patches.push_back({patch, 0, 0});
             break;
         }
@@ -357,8 +357,7 @@ void BeamModuleAssembler::emit_aligned_label(const ArgLabel &Label,
 }
 
 void BeamModuleAssembler::emit_on_load() {
-    // TODO
-    emit_nyi("emit_on_load");
+    on_load = current_label;
 }
 
 void BeamModuleAssembler::bind_veneer_target(const Label &target) {
