@@ -214,16 +214,83 @@ void BeamModuleAssembler::emit_i_plus(const ArgLabel &Fail,
  * The result is returned in ARG1.
  */
 void BeamGlobalAssembler::emit_unary_minus_body_shared() {
-    // TODO
-    emit_nyi("emit_unary_minus_body_shared");
+    static const ErtsCodeMFA bif_mfa = {am_erlang, am_Minus, 1};
+    Label error = a.newLabel();
+
+    /* Save original argument for the error path. */
+    a.str(ARG2, TMP_MEM1q);
+
+    emit_enter_runtime_frame();
+
+    a.mov(ARG1, c_p);
+    runtime_call<2>(erts_unary_minus);
+
+    emit_leave_runtime_frame();
+
+    emit_branch_if_not_value(ARG1, error);
+    a.bx(a32::lr);
+
+    a.bind(error);
+    {
+        /* emit_enter_runtime() was done in the module code. */
+        emit_leave_runtime();
+
+        /* Place the original argument in X0. */
+        a.ldr(VAR, TMP_MEM1q);
+        a.str(VAR, getXRef(0));
+        mov_imm(ARG4, &bif_mfa);
+        a.b(labels[raise_exception]);
+    }
 }
 
 void BeamModuleAssembler::emit_i_unary_minus(const ArgLabel &Fail,
                                              const ArgWord &Live,
                                              const ArgSource &Src,
                                              const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_unary_minus");
+    auto src = load_source(Src, ARG2);
+    auto zero = ArgImmed(make_small(0));
+    bool is_small_result = is_diff_small_if_args_are_small(zero, Src);
+
+    if (always_small(Src) && is_small_result) {
+        auto dst = init_destination(Dst, ARG1);
+        comment("no overflow test because result is always small");
+        mov_imm(TMP, _TAG_IMMED1_SMALL);
+        a.bic(VAR, src.reg, imm(_TAG_IMMED1_MASK));
+        a.sub(dst.reg, TMP, VAR);
+        flush_var(dst);
+        return;
+    }
+
+    Label next = a.newLabel(), overflow = a.newLabel();
+
+    mov_imm(TMP, _TAG_IMMED1_SMALL);
+    a.bic(VAR, src.reg, imm(_TAG_IMMED1_MASK));
+    a.subs(ARG1, TMP, VAR);
+
+    /* Test for not overflow AND small operand. */
+    a.b_vs(overflow);
+    a.and_(TMP, src.reg, imm(_TAG_IMMED1_MASK));
+    a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+    a.b_eq(next);
+    a.bind(overflow);
+
+    mov_var(ARG2, src);
+
+    if (Fail.get() != 0) {
+        emit_enter_runtime();
+        a.mov(ARG1, c_p);
+        runtime_call<2>(erts_unary_minus);
+        emit_leave_runtime();
+
+        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+    } else {
+        emit_enter_runtime();
+        fragment_call(ga->get_unary_minus_body_shared());
+        emit_leave_runtime();
+    }
+
+    a.bind(next);
+    mov_arg(Dst, ARG1);
 }
 
 /*
