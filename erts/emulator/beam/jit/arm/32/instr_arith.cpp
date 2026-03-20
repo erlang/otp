@@ -983,13 +983,40 @@ void BeamModuleAssembler::emit_i_m_div(const ArgLabel &Fail,
 template<typename T>
 void BeamGlobalAssembler::emit_bitwise_fallback_body(T(*func_ptr),
                                                      const ErtsCodeMFA *mfa) {
-    // TODO
-    emit_nyi("emit_i_band_body_shared");
+    Label error = a.newLabel();
+
+    /* Save original arguments for the error path. */
+    a.str(ARG2, TMP_MEM1q);
+    a.str(ARG3, TMP_MEM2q);
+
+    emit_enter_runtime_frame();
+
+    a.mov(ARG1, c_p);
+    runtime_call<3>(func_ptr);
+
+    emit_leave_runtime_frame();
+
+    emit_branch_if_not_value(ARG1, error);
+    a.bx(a32::lr);
+
+    a.bind(error);
+    {
+        /* emit_enter_runtime() was done in the module code. */
+        emit_leave_runtime();
+
+        /* Place the original arguments in X registers. */
+        a.ldr(ARG1, TMP_MEM1q);
+        a.str(ARG1, getXRef(0));
+        a.ldr(ARG1, TMP_MEM2q);
+        a.str(ARG1, getXRef(1));
+        mov_imm(ARG4, mfa);
+        a.b(labels[raise_exception]);
+    }
 }
 
 void BeamGlobalAssembler::emit_i_band_body_shared() {
-    // TODO
-    emit_nyi("emit_i_band_body_shared");
+    static const ErtsCodeMFA bif_mfa = {am_erlang, am_band, 2};
+    emit_bitwise_fallback_body(erts_band, &bif_mfa);
 }
 
 void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
@@ -997,8 +1024,60 @@ void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
                                       const ArgSource &LHS,
                                       const ArgSource &RHS,
                                       const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_band");
+    auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
+    auto dst = init_destination(Dst, ARG1);
+
+    if (always_small(LHS) && always_small(RHS)) {
+        comment("skipped test for small operands since they are always small");
+
+        /* TAG & TAG = TAG, so we don't need to tag it again. */
+        a.and_(dst.reg, lhs.reg, rhs.reg);
+        flush_var(dst);
+        return;
+    }
+
+    Label next = a.newLabel();
+
+    if (RHS.isLiteral()) {
+        comment("skipped test for small because one operand is never small");
+    } else {
+        /* TAG & TAG = TAG, so we don't need to tag it again. */
+        a.and_(ARG1, lhs.reg, rhs.reg);
+
+        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+        if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(LHS) &&
+            always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(RHS)) {
+            comment("simplified test for small operands since other types are "
+                    "boxed");
+            emit_is_boxed(next, ARG1);
+        } else {
+            /* All other term types has at least one zero in the low 4 bits.
+             * Therefore, the result will be a small iff both operands are
+             * small. */
+            a.and_(TMP, ARG1, imm(_TAG_IMMED1_MASK));
+            a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+            a.b_eq(next);
+        }
+    }
+
+    mov_var(ARG2, lhs);
+    mov_var(ARG3, rhs);
+
+    if (Fail.get() != 0) {
+        emit_enter_runtime();
+        a.mov(ARG1, c_p);
+        runtime_call<3>(erts_band);
+        emit_leave_runtime();
+        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+    } else {
+        emit_enter_runtime();
+        fragment_call(ga->get_i_band_body_shared());
+        emit_leave_runtime();
+    }
+
+    a.bind(next);
+    mov_var(dst, ARG1);
+    flush_var(dst);
 }
 
 /*
@@ -1011,8 +1090,8 @@ void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
  * Result is returned in RET.
  */
 void BeamGlobalAssembler::emit_i_bor_body_shared() {
-    // TODO
-    emit_nyi("emit_i_bor_body_shared");
+    static const ErtsCodeMFA bif_mfa = {am_erlang, am_bor, 2};
+    emit_bitwise_fallback_body(erts_bor, &bif_mfa);
 }
 
 void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
@@ -1020,8 +1099,45 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
                                      const ArgSource &LHS,
                                      const ArgSource &RHS,
                                      const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_bor");
+    auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
+    auto dst = init_destination(Dst, ARG1);
+
+    if (always_small(LHS) && always_small(RHS)) {
+        comment("skipped test for small operands since they are always small");
+
+        /* TAG | TAG = TAG, so we don't need to tag it again. */
+        a.orr(dst.reg, lhs.reg, rhs.reg);
+        flush_var(dst);
+        return;
+    }
+
+    Label next = a.newLabel();
+
+    /* TAG | TAG = TAG, so we don't need to tag it again. */
+    a.orr(ARG1, lhs.reg, rhs.reg);
+
+    emit_are_both_small(LHS, lhs.reg, RHS, rhs.reg, next);
+
+    mov_var(ARG2, lhs);
+    mov_var(ARG3, rhs);
+
+    if (Fail.get() != 0) {
+        emit_enter_runtime();
+        a.mov(ARG1, c_p);
+        runtime_call<3>(erts_bor);
+        emit_leave_runtime();
+        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+    } else {
+        emit_enter_runtime();
+        fragment_call(ga->get_i_bor_body_shared());
+        emit_leave_runtime();
+    }
+
+    a.bind(next);
+    mov_var(dst, ARG1);
+    flush_var(dst);
+
+    (void)Live;
 }
 
 /*
@@ -1101,8 +1217,102 @@ void BeamModuleAssembler::emit_i_bsr(const ArgLabel &Fail,
                                      const ArgSource &LHS,
                                      const ArgSource &RHS,
                                      const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_bsr");
+    Label generic = a.newLabel(), next = a.newLabel();
+    auto lhs = load_source(LHS, ARG2);
+    auto dst = init_destination(Dst, ARG1);
+    bool need_generic = true;
+
+    if (RHS.isSmall()) {
+        Sint shift = RHS.as<ArgSmall>().getSigned();
+
+        if (shift >= 0) {
+            a32::Gp small_tag = TMP;
+            if (always_small(LHS)) {
+                comment("skipped test for small left operand because it is "
+                        "always small");
+                need_generic = false;
+                mov_imm(small_tag, _TAG_IMMED1_SMALL);
+            } else if (always_one_of<BeamTypeId::Number>(LHS)) {
+                comment("simplified test for small operand since it is a "
+                        "number");
+                emit_is_not_boxed(generic, lhs.reg);
+                mov_imm(small_tag, _TAG_IMMED1_SMALL);
+            } else {
+                a.and_(small_tag, lhs.reg, imm(_TAG_IMMED1_MASK));
+                a.cmp(small_tag, imm(_TAG_IMMED1_SMALL));
+                a.b_ne(generic);
+            }
+
+            /* We don't need to clear the mask after shifting because
+             * _TAG_IMMED1_SMALL will set all the bits anyway. */
+            ERTS_CT_ASSERT(_TAG_IMMED1_MASK == _TAG_IMMED1_SMALL);
+            shift = std::min<Sint>(shift, 31);
+            if (shift == 0) {
+                a.mov(dst.reg, lhs.reg);
+            } else {
+                a.asr(dst.reg, lhs.reg, imm(shift));
+            }
+            a.orr(dst.reg, dst.reg, small_tag);
+
+            if (need_generic) {
+                a.b(next);
+            }
+        } else {
+            /* Constant shift is negative; fall back to the generic
+             * path. */
+        }
+    } else {
+        auto rhs = load_source(RHS, ARG3);
+        Label both_small = a.newLabel(), no_clamp = a.newLabel();
+
+        /* Ensure both operands are small. */
+        emit_are_both_small(LHS, lhs.reg, RHS, rhs.reg, both_small);
+        a.b(generic);
+
+        a.bind(both_small);
+        {
+            /* Calculate shift count and ensure it's positive. */
+            a.asr(TMP, rhs.reg, imm(_TAG_IMMED1_SIZE));
+            a.cmp(TMP, imm(0));
+            a.b_lt(generic);
+
+            a.cmp(TMP, imm(31));
+            a.b_le(no_clamp);
+            mov_imm(TMP, 31);
+            a.bind(no_clamp);
+
+            /* Shift right. */
+            ERTS_CT_ASSERT(_TAG_IMMED1_MASK == _TAG_IMMED1_SMALL);
+            a.asr(dst.reg, lhs.reg, TMP);
+            a.orr(dst.reg, dst.reg, imm(_TAG_IMMED1_SMALL));
+            a.b(next);
+        }
+    }
+
+    a.bind(generic);
+    if (need_generic) {
+        mov_var(ARG2, lhs);
+        mov_arg(ARG3, RHS);
+
+        if (Fail.get() != 0) {
+            emit_enter_runtime();
+            a.mov(ARG1, c_p);
+            runtime_call<3>(erts_bsr);
+            emit_leave_runtime();
+            emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+        } else {
+            emit_enter_runtime();
+            fragment_call(ga->get_i_bsr_body_shared());
+            emit_leave_runtime();
+        }
+
+        mov_var(dst, ARG1);
+    }
+
+    a.bind(next);
+    flush_var(dst);
+
+    (void)Live;
 }
 
 /*
@@ -1115,8 +1325,8 @@ void BeamModuleAssembler::emit_i_bsr(const ArgLabel &Fail,
  * The result is returned in ARG1.
  */
 void BeamGlobalAssembler::emit_i_bsl_body_shared() {
-    // TODO
-    emit_nyi("emit_i_bsl_body_shared");
+    static const ErtsCodeMFA bif_mfa = {am_erlang, am_bsl, 2};
+    emit_bitwise_fallback_body(erts_bsl, &bif_mfa);
 }
 
 static int count_leading_zeroes(UWord value) {
@@ -1176,29 +1386,9 @@ void BeamModuleAssembler::emit_i_bsl(const ArgLabel &Fail,
         emit_leave_runtime();
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
     } else {
-        Label error = a.newLabel(), done = a.newLabel();
-        static const ErtsCodeMFA bif_mfa = {am_erlang, am_bsl, 2};
-
-        /* Save original arguments for an accurate exception path. */
-        a.str(ARG2, getXRef(0));
-        a.str(ARG3, getXRef(1));
-
         emit_enter_runtime();
-        a.mov(ARG1, c_p);
-        runtime_call<3>(erts_bsl);
+        fragment_call(ga->get_i_bsl_body_shared());
         emit_leave_runtime();
-
-        emit_branch_if_not_value(ARG1, error);
-        mov_var(dst, ARG1);
-        flush_var(dst);
-        a.b(done);
-
-        a.bind(error);
-        mov_imm(ARG4, &bif_mfa);
-        emit_raise_exception();
-
-        a.bind(done);
-        return;
     }
 
     mov_var(dst, ARG1);
