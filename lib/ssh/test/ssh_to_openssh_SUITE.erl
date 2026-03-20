@@ -206,6 +206,7 @@ eclient_oserver_helper2({Shell, Prev, IO}, Config) ->
 exec_with_io_in_sshc(Config) when is_list(Config) ->
     SystemDir = proplists:get_value(data_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                             {exec, erlang_eval},
                                              ?ALIVE,
                                              {failfun, fun ssh_test_lib:failfun/2}]),
     ct:sleep(500),
@@ -302,7 +303,8 @@ eserver_oclient_renegotiate_helper1(Config) ->
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
                                              {failfun, fun ssh_test_lib:failfun/2},
                                              ?ALIVE,
-                                             {bannerfun, BannerFun}]),
+                                             {bannerfun, BannerFun},
+                                             {shell, {shell, start, []}}]),
     ct:sleep(500),
 
     RenegLimitK = 3,
@@ -368,9 +370,10 @@ tunnel_out_non_erlclient_erlserver(Config) ->
     _PrivDir = proplists:get_value(priv_dir, Config),
 
     {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_out, true},
-                                             {system_dir, SystemDir},
+                                              {system_dir, SystemDir},
                                               ?ALIVE,
-                                             {failfun, fun ssh_test_lib:failfun/2}]),
+                                              {failfun, fun ssh_test_lib:failfun/2},
+                                              {shell, {shell, start, []}}]),
     {ToSock, _ToHost, ToPort} = tunneling_listner(),
 
     ListenHost = {127,0,0,1},
@@ -401,7 +404,8 @@ tunnel_in_non_erlclient_erlserver(Config) ->
     {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_in, true},
                                               {system_dir, SystemDir},
                                               ?ALIVE,
-                                              {failfun, fun ssh_test_lib:failfun/2}]),
+                                              {failfun, fun ssh_test_lib:failfun/2},
+                                              {shell, {shell, start, []}}]),
     {ToSock, _ToHost, ToPort} = tunneling_listner(),
     
     ListenHost = {127,0,0,1},

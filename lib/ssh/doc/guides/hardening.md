@@ -303,10 +303,9 @@ _exec_ server-side service takes a string provided by the client, evaluates it
 and returns the result. The _shell_ function enables the client to open a shell
 in the shell host.
 
-Those service could - and should - be disabled when they are not needed. The
-options [exec](`t:ssh:exec_daemon_option/0`) and
-[shell](`t:ssh:shell_daemon_option/0`) are enabled per default but could be set
-to `disabled` if not needed. The same options could also install handlers for
+The options [exec](`t:ssh:exec_daemon_option/0`) and
+[shell](`t:ssh:shell_daemon_option/0`) are disabled per default.
+The same options could also install handlers for
 the string(s) passed from the client to the server.
 
 ### The id string

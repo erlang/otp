@@ -1397,9 +1397,10 @@ ssh_connect_nonegtimeout_connected(Config, Parallel) ->
     ct:log("Parallel: ~p",[Parallel]),
    
     {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
-					       {parallel_login, Parallel},
-					       {negotiation_timeout, NegTimeOut},
-					       {failfun, fun ssh_test_lib:failfun/2}]),
+                                               {parallel_login, Parallel},
+                                               {negotiation_timeout, NegTimeOut},
+                                               {failfun, fun ssh_test_lib:failfun/2},
+                                               {shell, {shell, start, []}}]),
     ct:log("~p Listen ~p:~p",[_Pid,_Host,Port]),
     ct:sleep(500),
 
@@ -1981,7 +1982,8 @@ daemon_replace_options_algs_connect(Config) ->
 
     {Pid, Host, Port} =
         ssh_test_lib:std_daemon(Config,
-                                [{preferred_algorithms,[{kex,[A1]}]}
+                                [{exec, erlang_eval},
+                                 {preferred_algorithms,[{kex,[A1]}]}
                                 ]),
     [A1] = get_preferred_algorithms(Pid, kex),
 

@@ -88,6 +88,7 @@
          parallel_login/1,
          setopts_getopts/1,
          shell/1,
+         shell_disabled/1,
          shell_exit_status/1,
          shell_no_unicode/1,
          shell_socket/1,
@@ -157,7 +158,7 @@ groups() ->
                              max_initial_idle_time,
                              openssh_zlib_basic_test,
                              misc_ssh_options, inet_option, inet6_option,
-                             shell, shell_socket, shell_ssh_conn,
+                             shell, shell_disabled, shell_socket, shell_ssh_conn,
                              shell_no_unicode, shell_unicode_string,
                              close]}].
 
@@ -199,10 +200,11 @@ init_per_testcase(TestCase, Config)
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = proplists:get_value(priv_dir, Config),
     SysDir =  proplists:get_value(data_dir, Config),
-    Sftpd = {_Pid, _Host, Port} =       
-	ssh_test_lib:daemon([{system_dir, SysDir},
-			     {user_dir, PrivDir},
-			     {user_passwords, [{"foo", "bar"}]}]),
+    Sftpd = {_Pid, _Host, Port} =
+        ssh_test_lib:daemon([{shell, {shell, start, []}},
+                             {system_dir, SysDir},
+                             {user_dir, PrivDir},
+                             {user_passwords, [{"foo", "bar"}]}]),
     ct:sleep(500),
     IO = ssh_test_lib:start_io_server(),
     Shell = ssh_test_lib:start_shell(Port, IO, [{user_dir,UserDir},
@@ -311,9 +313,10 @@ exec(Config) when is_list(Config) ->
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
     
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {user_dir, UserDir},
-					     {failfun, fun ssh_test_lib:failfun/2}]),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{exec, erlang_eval},
+                                             {system_dir, SystemDir},
+                                             {user_dir, UserDir},
+                                             {failfun, fun ssh_test_lib:failfun/2}]),
     ConnectionRef =
 	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_dir, UserDir},
@@ -354,9 +357,10 @@ exec_with_io_out(Config) when is_list(Config) ->
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
     
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {user_dir, UserDir},
-					     {failfun, fun ssh_test_lib:failfun/2}]),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{exec, erlang_eval},
+                                             {system_dir, SystemDir},
+                                             {user_dir, UserDir},
+                                             {failfun, fun ssh_test_lib:failfun/2}]),
     ConnectionRef =
 	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_dir, UserDir},
@@ -384,9 +388,10 @@ exec_with_io_in(Config) when is_list(Config) ->
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
     
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {user_dir, UserDir},
-					     {failfun, fun ssh_test_lib:failfun/2}]),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{exec, erlang_eval},
+                                             {system_dir, SystemDir},
+                                             {user_dir, UserDir},
+                                             {failfun, fun ssh_test_lib:failfun/2}]),
     C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_dir, UserDir},
 					  {user_interaction, false}]),
@@ -418,7 +423,8 @@ exec_compressed_helper(Config, CompressAlgorithm) ->
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
 
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
+    {Pid, Host, Port} = ssh_test_lib:daemon([{exec, erlang_eval},
+                                             {system_dir, SystemDir},{user_dir, UserDir},
                                              {preferred_algorithms,[{compression, [CompressAlgorithm]}]},
                                              {failfun, fun ssh_test_lib:failfun/2}]),
 
@@ -452,7 +458,8 @@ idle_time_common(DaemonExtraOpts, ClientExtraOpts, Config) ->
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
 
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+    {Pid, Host, Port} = ssh_test_lib:daemon([{exec, erlang_eval},
+                                             {system_dir, SystemDir},
 					     {user_dir, UserDir},
 					     {failfun, fun ssh_test_lib:failfun/2}
                                              | DaemonExtraOpts
@@ -507,24 +514,51 @@ shell(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
-   
-    {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
-					       {failfun, fun ssh_test_lib:failfun/2}]),
+    {_Pid, _Host, Port} = ssh_test_lib:daemon([{shell, {shell, start, []}},
+                                               {system_dir, SystemDir},{user_dir, UserDir},
+                                               {failfun, fun ssh_test_lib:failfun/2}]),
     ct:sleep(500),
-
     IO = ssh_test_lib:start_io_server(),
     Shell = ssh_test_lib:start_shell(Port, IO, [{user_dir,UserDir}]),
     receive
 	{'EXIT', _, _} = Exit ->
             ct:log("~p:~p ~p", [?MODULE,?LINE,Exit]),
-	    ct:fail(no_ssh_connection);  
+            ct:fail(no_ssh_connection);
 	ErlShellStart ->
 	    ct:log("Erlang shell start: ~p~n", [ErlShellStart]),
 	    do_shell(IO, Shell)
-    after 
+    after
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
-    
+
+shell_disabled(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
+    {_Pid, _Host, Port} = ssh_test_lib:daemon([{shell, disabled},
+                                               {system_dir, SystemDir},{user_dir, UserDir},
+                                               {failfun, fun ssh_test_lib:failfun/2}]),
+    ct:sleep(500),
+    IO = ssh_test_lib:start_io_server(),
+    Shell = ssh_test_lib:start_shell(Port, IO, [{user_dir,UserDir}]),
+    ?CT_LOG("Shell = ~p", [Shell]),
+    ExpectedMessages =
+        [<<"Prohibited.">>,
+         <<"Connection closed by peer">>,
+         <<"Status: 255">>,
+         {'EXIT', Shell, normal}],
+    [receive
+         Msg ->
+             ?CT_LOG("Received msg = ~p", [Msg]),
+             ok
+     after
+         3000 ->
+             ?CT_LOG("Missing msg = ~p", [Msg]),
+             ?CT_LOG("Message queue of ~p:~n~p",
+                     [self(), erlang:process_info(self(), messages)]),
+             ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+     end || Msg <- ExpectedMessages].
+
 %%--------------------------------------------------------------------
 %%% Test that ssh:shell/2 works when attaching to a open TCP-connection
 shell_socket(Config) when is_list(Config) ->
@@ -532,8 +566,9 @@ shell_socket(Config) when is_list(Config) ->
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
 
-    {_Pid, Host0, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
-					       {failfun, fun ssh_test_lib:failfun/2}]),
+    {_Pid, Host0, Port} = ssh_test_lib:daemon([{shell, {shell, start, []}},
+                                               {system_dir, SystemDir},{user_dir, UserDir},
+                                               {failfun, fun ssh_test_lib:failfun/2}]),
     Host = ssh_test_lib:mangle_connect_address(Host0),
     ct:sleep(500),
 
@@ -576,8 +611,9 @@ shell_ssh_conn(Config) when is_list(Config) ->
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
 
-    {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
-					       {failfun, fun ssh_test_lib:failfun/2}]),
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{shell, {shell, start, []}},
+                                              {system_dir, SystemDir},{user_dir, UserDir},
+                                              {failfun, fun ssh_test_lib:failfun/2}]),
     ct:sleep(500),
 
     IO = ssh_test_lib:start_io_server(),
@@ -606,11 +642,12 @@ cli(Config) when is_list(Config) ->
     ok = ssh_test_lib:del_dirs(TmpDir),
     ok = file:make_dir(TmpDir),
 
-    {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
-					       {password, "morot"},
-					       {ssh_cli, {ssh_test_cli, [cli,TmpDir]}}, 
-					       {subsystems, []},
-					       {failfun, fun ssh_test_lib:failfun/2}]),
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{exec, erlang_eval},
+                                              {system_dir, SystemDir},{user_dir, UserDir},
+                                              {password, "morot"},
+                                              {ssh_cli, {ssh_test_cli, [cli,TmpDir]}},
+                                              {subsystems, []},
+                                              {failfun, fun ssh_test_lib:failfun/2}]),
     ct:sleep(500),
     
     ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
@@ -1077,12 +1114,11 @@ peername_sockname(Config) when is_list(Config) ->
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
 
-    {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {user_dir, UserDir},
-					     {subsystems, [{"peername_sockname",
-							    {ssh_peername_sockname_server, []}}
-							  ]}
-					    ]),
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{exec, erlang_eval},
+                                              {system_dir, SystemDir},
+                                              {user_dir, UserDir},
+                                              {subsystems, [{"peername_sockname",
+                                                             {ssh_peername_sockname_server, []}}]}]),
     ConnectionRef =
 	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_dir, UserDir},

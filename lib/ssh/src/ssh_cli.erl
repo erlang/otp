@@ -41,19 +41,20 @@
 
 %% state
 -record(state, {
-	  cm,
-	  channel,
-	  pty,
-          encoding,
-          deduced_encoding, % OpenSSH sometimes lies about its encodeing. This variable
-                            % is for the process of guessing the peer encoding, taylord
-                            % after the behaviour of openssh.  If it says latin1 it is so.
-                            % It there arrives characters encoded in latin1 it is so. Otherwise
-                            % assume utf8 until otherwise is proved.
-	  group,
-	  shell,
-	  exec,
-      tty
+                cm,
+                channel,
+                pty,
+                encoding,
+                %% OpenSSH sometimes lies about its encodeing. This variable
+                %% is for the process of guessing the peer encoding, taylord
+                %% after the behaviour of openssh.  If it says latin1 it is so.
+                %% It there arrives characters encoded in latin1 it is so. Otherwise
+                %% assume utf8 until otherwise is proved.
+                deduced_encoding,
+                group,
+                shell,
+                exec = erlang_eval,
+                tty
 
 	 }).
 
@@ -212,16 +213,16 @@ handle_ssh_msg({ssh_cm, ConnectionHandler,  {exec, ChannelId, WantReply, Cmd0}},
                 %% The standard I/O is directed from/to the channel ChannelId.
                 exec_direct(ConnectionHandler, ChannelId, Cmd, F, WantReply, S1);
 
-            undefined when S0#state.shell == ?DEFAULT_SHELL ; 
-                           S0#state.shell == disabled ->
-                %% Exec called and the shell is the default shell (= Erlang shell).
-                %% To be exact, eval the term as an Erlang term (but not using the
-                %% ?DEFAULT_SHELL directly). This disables banner, prompts and such.
+            erlang_eval when S0#state.shell == disabled;
+                             S0#state.shell == {shell, start, []} ->
+                %% Exec called and the shell is the Erlang shell or disabled.
+                %% To be exact, eval the term as an Erlang term
+                %% This disables banner, prompts and such.
                 %% The standard I/O is directed from/to the channel ChannelId.
                 exec_in_erlang_default_shell(ConnectionHandler, ChannelId, Cmd, WantReply, S1);
 
-            undefined ->
-                %% Exec called, but the a shell other than the default shell is defined.
+            erlang_eval ->
+                %% Exec called, but the shell is custom (not Erlang shell).
                 %% No new exec shell is defined, so don't execute!
                 %% We don't know if it is intended to use the new shell or not.
                 {"Prohibited.", ?EXEC_ERROR_STATUS, 1};

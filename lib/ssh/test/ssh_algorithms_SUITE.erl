@@ -231,7 +231,7 @@ init_per_group(Tag, Algs, Alg, PA, Config) ->
             end;
 
         _ ->
-            start_std_daemon([PrefAlgs],
+            start_std_daemon([{exec, erlang_eval}] ++ [PrefAlgs],
                              [{pref_algs,PrefAlgs},
                               {tag_alg,{Tag,[Alg]}}
                               | Config])

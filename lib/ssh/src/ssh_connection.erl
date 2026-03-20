@@ -50,7 +50,6 @@ these messages are handled by
 -include("ssh.hrl").
 -include("ssh_connect.hrl").
 -include("ssh_transport.hrl").
-
 %% API
 -export([session_channel/2, session_channel/4,
 	 exec/4, shell/2, subsystem/4, send/3, send/4, send/5, 
@@ -1497,7 +1496,8 @@ start_cli(#connection{options = Options,
         no_cli ->
             {error, cli_disabled};
         {CbModule, Args} ->
-            ssh_connection_sup:start_channel(server, ConnectionSup, self(), CbModule, ChannelId, Args, Exec, Options)
+            ssh_connection_sup:start_channel(server, ConnectionSup, self(),
+                                             CbModule, ChannelId, Args, Exec, Options)
     end.
 
 
@@ -1507,7 +1507,11 @@ start_subsystem(BinName, #connection{options = Options,
     Name = binary_to_list(BinName),
     case check_subsystem(Name, Options) of
 	{Callback, Opts} when is_atom(Callback), Callback =/= none ->
-            ssh_connection_sup:start_channel(server, ConnectionSup, self(), Callback, ChannelId, Opts, undefined, Options);
+            %% Exec is not used by subsystems; undefined is filtered
+            %% out by channel_cb_init_args/1 so it won't be appended
+            %% to the callback's init args.
+            ssh_connection_sup:start_channel(server, ConnectionSup, self(),
+                                             Callback, ChannelId, Opts, undefined, Options);
         {none, _} ->
             {error, bad_subsystem};
 	{_, _} ->
