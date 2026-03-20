@@ -816,15 +816,60 @@ void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
  */
 
 void BeamGlobalAssembler::emit_handle_map_size_error() {
-    // TODO
-    emit_nyi("emit_handle_map_size_error");
+    static ErtsCodeMFA mfa = {am_erlang, am_map_size, 1};
+    mov_imm(TMP, BADMAP);
+    ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
+    a.str(TMP, arm::Mem(c_p, offsetof(Process, freason)));
+    a.str(ARG1, arm::Mem(c_p, offsetof(Process, fvalue)));
+    a.str(ARG1, getXRef(0));
+    mov_imm(ARG4, &mfa);
+    a.b(labels[raise_exception]);
 }
 
 void BeamModuleAssembler::emit_bif_map_size(const ArgLabel &Fail,
                                             const ArgSource &Src,
                                             const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_bif_map_size");
+    Label error = a.newLabel(), good_map = a.newLabel();
+    auto src = load_source(Src, TMP);
+    auto dst = init_destination(Dst, VAR);
+    mov_var(ARG1, src);
+
+    if (Fail.get() == 0) {
+        emit_is_boxed(error, Src, ARG1);
+    } else {
+        emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, ARG1);
+    }
+
+    a32::Gp boxed_ptr = emit_ptr_val(ARG2, ARG1);
+
+    if (exact_type<BeamTypeId::Map>(Src)) {
+        comment("skipped type check because the argument is always a map");
+        a.bind(error); /* Never referenced. */
+    } else {
+        a.ldr(TMP, emit_boxed_val(boxed_ptr));
+        a.and_(TMP, TMP, imm(_TAG_HEADER_MASK));
+        a.cmp(TMP, imm(_TAG_HEADER_MAP));
+
+        if (Fail.get() == 0) {
+            a.b_eq(good_map);
+            a.bind(error);
+            {
+                fragment_call(ga->get_handle_map_size_error());
+            }
+        } else {
+            a.b_ne(resolve_beam_label(Fail, dispUnknown));
+            a.bind(error); /* Never referenced. */
+        }
+    }
+
+    a.bind(good_map);
+    {
+        ERTS_CT_ASSERT(offsetof(flatmap_t, size) == sizeof(Eterm));
+        a.ldr(TMP, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+        a.lsl(dst.reg, TMP, imm(_TAG_IMMED1_SIZE));
+        a.orr(dst.reg, dst.reg, imm(_TAG_IMMED1_SMALL));
+        flush_var(dst);
+    }
 }
 
 /* ================================================================
