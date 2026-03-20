@@ -535,23 +535,37 @@ void BeamModuleAssembler::emit_bs_get_tail(const ArgRegister &Ctx,
 /* Bits to skip are passed in ARG1 */
 void BeamModuleAssembler::emit_bs_skip_bits(const ArgLabel &Fail,
                                             const ArgRegister &Ctx) {
-    // TODO
-    emit_nyi("emit_bs_skip_bits");
+    const int start_offset = offsetof(ErlSubBits, start);
+    const int end_offset = offsetof(ErlSubBits, end);
+
+    auto ctx_reg = load_source(Ctx, ARG2);
+
+    a.ldr(TMP, emit_boxed_val(ctx_reg.reg, start_offset));
+    a.ldr(VAR, emit_boxed_val(ctx_reg.reg, end_offset));
+
+    a.add(TMP, TMP, ARG1);
+    a.cmp(TMP, VAR);
+    a.b_hi(resolve_beam_label(Fail, disp32MB));
+
+    a.str(TMP, emit_boxed_val(ctx_reg.reg, start_offset));
 }
 
 void BeamModuleAssembler::emit_i_bs_skip_bits2(const ArgRegister &Ctx,
                                                const ArgRegister &Size,
                                                const ArgLabel &Fail,
                                                const ArgWord &Unit) {
-    // TODO
-    emit_nyi("emit_i_bs_skip_bits2");
+    Label fail = resolve_beam_label(Fail, dispUnknown);
+
+    if (emit_bs_get_field_size(Size, Unit.get(), fail, ARG1) >= 0) {
+        emit_bs_skip_bits(Fail, Ctx);
+    }
 }
 
 void BeamModuleAssembler::emit_i_bs_skip_bits_imm2(const ArgLabel &Fail,
                                                    const ArgRegister &Ctx,
                                                    const ArgWord &Bits) {
-    // TODO
-    emit_nyi("emit_i_bs_skip_bits_imm2");
+    mov_arg(ARG1, Bits);
+    emit_bs_skip_bits(Fail, Ctx);
 }
 
 void BeamModuleAssembler::emit_i_bs_get_binary2(const ArgRegister &Ctx,
