@@ -1215,8 +1215,18 @@ void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
  * THE_NON_VALUE.
  */
 void BeamGlobalAssembler::emit_i_bnot_guard_shared() {
-    // TODO
-    emit_nyi("emit_i_bnot_guard_shared");
+    emit_enter_runtime_frame();
+
+    /* Undo the speculative inversion in module code. */
+    mov_imm(TMP, ~_TAG_IMMED1_MASK);
+    a.eor(ARG2, ARG1, TMP);
+
+    a.mov(ARG1, c_p);
+    runtime_call<2>(erts_bnot);
+
+    emit_leave_runtime_frame();
+
+    a.bx(a32::lr);
 }
 
 /*
@@ -1228,16 +1238,76 @@ void BeamGlobalAssembler::emit_i_bnot_guard_shared() {
  * The result is returned in ARG1.
  */
 void BeamGlobalAssembler::emit_i_bnot_body_shared() {
-    // TODO
-    emit_nyi("emit_i_bnot_body_shared");
+    static const ErtsCodeMFA bif_mfa = {am_erlang, am_bnot, 1};
+    Label error = a.newLabel();
+
+    emit_enter_runtime_frame();
+
+    /* Undo the speculative inversion in module code. */
+    mov_imm(TMP, ~_TAG_IMMED1_MASK);
+    a.eor(ARG2, ARG1, TMP);
+
+    /* Save original argument for the error path. */
+    a.str(ARG2, TMP_MEM1q);
+
+    a.mov(ARG1, c_p);
+    runtime_call<2>(erts_bnot);
+
+    emit_leave_runtime_frame();
+
+    emit_branch_if_not_value(ARG1, error);
+    a.bx(a32::lr);
+
+    a.bind(error);
+    {
+        /* emit_enter_runtime() was done in the module code. */
+        emit_leave_runtime();
+
+        /* Place the original argument in X register. */
+        a.ldr(ARG1, TMP_MEM1q);
+        a.str(ARG1, getXRef(0));
+        mov_imm(ARG4, &bif_mfa);
+        a.b(labels[raise_exception]);
+    }
 }
 
 void BeamModuleAssembler::emit_i_bnot(const ArgLabel &Fail,
                                       const ArgWord &Live,
                                       const ArgSource &Src,
                                       const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_bnot");
+    Label next = a.newLabel();
+    auto src = load_source(Src, ARG2);
+    auto dst = init_destination(Dst, ARG1);
+
+    /* Invert everything except the tag so we don't have to tag it again. */
+    mov_imm(TMP, ~_TAG_IMMED1_MASK);
+    a.eor(ARG1, src.reg, TMP);
+
+    if (always_one_of<BeamTypeId::Number>(Src)) {
+        comment("simplified test for small operand since it is a number");
+        emit_is_boxed(next, Src, ARG1);
+    } else {
+        a.and_(TMP, src.reg, imm(_TAG_IMMED1_MASK));
+        a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+        a.b_eq(next);
+    }
+
+    if (Fail.get() != 0) {
+        emit_enter_runtime();
+        fragment_call(ga->get_i_bnot_guard_shared());
+        emit_leave_runtime();
+        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+    } else {
+        emit_enter_runtime();
+        fragment_call(ga->get_i_bnot_body_shared());
+        emit_leave_runtime();
+    }
+
+    a.bind(next);
+    mov_var(dst, ARG1);
+    flush_var(dst);
+
+    (void)Live;
 }
 
 /*
