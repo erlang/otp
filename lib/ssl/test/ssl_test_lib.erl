@@ -1472,7 +1472,15 @@ patch_dtls_options(Options0) ->
     case proplists:get_value(protocol, Options0) of
         dtls ->
             case proplists:get_value(recbuf, Options0, undefined) of
-                undefined -> [{recbuf, ?DTLS_RECBUF}|Options0];
+                undefined ->
+                    %% inet_backend must be the first option in the list
+                    %% for gen_tcp/gen_udp, so insert recbuf after it
+                    case Options0 of
+                        [{inet_backend, _} = InetBackend | Rest] ->
+                            [InetBackend, {recbuf, ?DTLS_RECBUF} | Rest];
+                        _ ->
+                            [{recbuf, ?DTLS_RECBUF} | Options0]
+                    end;
                 _ -> Options0
             end;
         _ ->    Options0

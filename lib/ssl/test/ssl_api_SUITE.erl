@@ -61,6 +61,8 @@
          select_best_cert/1,
          select_sha1_cert/0,
          select_sha1_cert/1,
+         inet_backend_option_order/0,
+         inet_backend_option_order/1,
          root_any_sign/0,
          root_any_sign/1,
          connection_information/0,
@@ -302,6 +304,7 @@ gen_api_tests() ->
      peercert,
      peercert_with_client_cert,
      select_sha1_cert,
+     inet_backend_option_order,
      connection_information,
      secret_connection_info,
      keylog_connection_info,
@@ -645,6 +648,30 @@ root_any_sign(Config) when is_list(Config) ->
     %% Intermediate cert signatures are validated, so sha1 signatures will fail connection                             
     ssl_test_lib:basic_alert(CFail, [{verify, verify_peer}, {signature_algs, SigAlgs} | SFail],
                              Config, unsupported_certificate).
+
+%%--------------------------------------------------------------------
+inet_backend_option_order() ->
+    [{doc,"Test that inet_backend option is preserved as first option "
+      "when passed to gen_tcp:connect"}].
+inet_backend_option_order(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, [{inet_backend, socket} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                        {host, Hostname},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, [{inet_backend, socket} | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
 connection_information() ->

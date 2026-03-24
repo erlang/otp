@@ -561,7 +561,7 @@ emulated_options([{low_watermark, Value} = Opt | Opts], Inet, Emulated) ->
 emulated_options([Opt|Opts], Inet, Emulated) ->
     emulated_options(Opts, [Opt|Inet], Emulated);
 emulated_options([], Inet,Emulated) ->
-    {Inet, Emulated}.
+    {lists:reverse(Inet), Emulated}.
 
 validate_inet_option(mode, Value)
   when Value =/= list, Value =/= binary ->

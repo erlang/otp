@@ -233,7 +233,7 @@ emulated_options() ->
     [mode, active,  packet, packet_size].
 
 emulated_options(Opts) ->
-      emulated_options(Opts, internal_inet_values(), default_inet_values()).
+      emulated_options(Opts, [], default_inet_values()).
 
 internal_inet_values() ->
     [{active, false}, {mode,binary}].
@@ -280,7 +280,7 @@ emulated_options([{packet_size, _} = Opt | _], _, _) ->
 emulated_options([Opt|Opts], Inet, Emulated) ->
     emulated_options(Opts, [Opt|Inet], Emulated);
 emulated_options([], Inet,Emulated) ->
-    {Inet, Emulated}.
+    {lists:reverse(Inet), Emulated}.
 
 validate_inet_option(mode, Value)
   when Value =/= list, Value =/= binary ->
