@@ -1072,15 +1072,38 @@ void BeamModuleAssembler::emit_bif_node(const ArgLabel &Fail,
  */
 
 void BeamGlobalAssembler::emit_handle_not_error() {
-    // TODO
-    emit_nyi("emit_handle_not_error");
+    static ErtsCodeMFA mfa = {am_erlang, am_not, 1};
+    emit_raise_badarg(&mfa);
 }
 
 void BeamModuleAssembler::emit_bif_not(const ArgLabel &Fail,
                                        const ArgRegister &Src,
                                        const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_bif_not");
+    Label next = a.newLabel();
+    auto src = load_source(Src, ARG1);
+    auto dst = init_destination(Dst, ARG2);
+
+    ERTS_CT_ASSERT(am_false == make_atom(0));
+    ERTS_CT_ASSERT(am_true == make_atom(1));
+
+    const Uint diff_bit = am_true - am_false;
+    const Uint mask = (_TAG_IMMED2_MASK | ~diff_bit);
+
+    mov_imm(VAR, mask);
+    a.and_(TMP, src.reg, VAR);
+    a.cmp(TMP, imm(_TAG_IMMED2_ATOM));
+
+    if (Fail.get() == 0) {
+        a.b_eq(next);
+        mov_var(ARG1, src);
+        fragment_call(ga->get_handle_not_error());
+    } else {
+        a.b_ne(resolve_beam_label(Fail, dispUnknown));
+    }
+
+    a.bind(next);
+    a.eor(dst.reg, src.reg, imm(diff_bit));
+    flush_var(dst);
 }
 
 /* ================================================================
@@ -1089,16 +1112,54 @@ void BeamModuleAssembler::emit_bif_not(const ArgLabel &Fail,
  */
 
 void BeamGlobalAssembler::emit_handle_or_error() {
-    // TODO
-    emit_nyi("emit_handle_or_error");
+    static ErtsCodeMFA mfa = {am_erlang, am_or, 2};
+    emit_raise_badarg(&mfa);
 }
 
 void BeamModuleAssembler::emit_bif_or(const ArgLabel &Fail,
                                       const ArgSource &Src1,
                                       const ArgSource &Src2,
                                       const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_bif_or");
+    static const Uint diff_bit = am_true - am_false;
+    Label valid = a.newLabel();
+    Label invalid = a.newLabel();
+
+    auto [src1, src2] = load_sources(Src1, ARG1, Src2, ARG2);
+    auto dst = init_destination(Dst, TMP);
+
+    ERTS_CT_ASSERT(am_false == make_atom(0));
+    ERTS_CT_ASSERT(am_true == make_atom(1));
+
+    if (exact_type<BeamTypeId::Atom>(Src1) &&
+        exact_type<BeamTypeId::Atom>(Src2)) {
+        comment("simplified type check because operands are atoms");
+        a.orr(TMP, src1.reg, src2.reg);
+        mov_imm(VAR, (-1u << (_TAG_IMMED2_SIZE + 1)));
+        a.tst(TMP, VAR);
+        a.b_eq(valid);
+    } else {
+        const Uint mask = (_TAG_IMMED2_MASK | ~diff_bit);
+        mov_imm(VAR, mask);
+        a.and_(TMP, src1.reg, VAR);
+        a.and_(VAR, src2.reg, VAR);
+        a.cmp(TMP, imm(_TAG_IMMED2_ATOM));
+        a.b_ne(invalid);
+        a.cmp(TMP, VAR);
+        a.b_eq(valid);
+    }
+
+    a.bind(invalid);
+    if (Fail.get()) {
+        a.b(resolve_beam_label(Fail, dispUnknown));
+    } else {
+        mov_var(ARG1, src1);
+        mov_var(ARG2, src2);
+        fragment_call(ga->get_handle_or_error());
+    }
+
+    a.bind(valid);
+    a.orr(dst.reg, src1.reg, src2.reg);
+    flush_var(dst);
 }
 
 /* ================================================================
