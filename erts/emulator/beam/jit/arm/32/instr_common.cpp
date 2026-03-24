@@ -964,7 +964,7 @@ void BeamModuleAssembler::emit_update_record_in_place(
 
             if (adjacent_index == next_index + 1) {
                 auto [first, second] =
-                        load_sources(next_value, ARG3, adjacent_value, ARG4);
+                        load_sources(next_value, ARG1, adjacent_value, ARG2);
                 safe_stmia(mem, first.reg, second.reg);
                 i += 2;
                 continue;
