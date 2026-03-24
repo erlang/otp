@@ -81,6 +81,8 @@ in the description of each individual BIF.
               "see the \"Time and Time Correction in Erlang\" "
               "chapter of the ERTS User's Guide for more information"}]).
 -deprecated([{phash,2, "use erlang:phash2/2 instead"}]).
+-deprecated([{exit,2,"use erlang:exit_signal/2 instead"}]).
+-deprecated([{exit,3,"use erlang:exit_signal/3 instead"}]).
 -removed([{hash,2,"use erlang:phash2/2 instead"}]).
 -removed([{get_stacktrace,0,
            "use the new try/catch syntax for retrieving the "
@@ -2556,7 +2558,7 @@ exit_signal(_Pid, _Reason) ->
 
 %% exit/2
 -doc """
-Old form of `exit_signal/2`, with a quirk when sender and receiver are the same.
+Deprecated form of `exit_signal/2`, with a quirk when sender and receiver are the same.
 
 > #### Note {: .info }
 >
