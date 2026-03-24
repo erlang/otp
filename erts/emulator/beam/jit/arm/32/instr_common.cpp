@@ -2129,8 +2129,63 @@ test_done:
  * Result is returned in the flags.
  */
 void BeamGlobalAssembler::emit_is_ge_lt_shared() {
-    // TODO
-    emit_nyi("emit_is_ge_lt_shared");
+    Label done = a.newLabel();
+
+    emit_enter_runtime_frame();
+    emit_enter_runtime();
+
+    a.str(ARG1, TMP_MEM1q);
+    a.str(ARG3, TMP_MEM2q);
+
+    comment("erts_cmp_compound(Src, A, 0, 0);");
+    mov_imm(ARG3, 0);
+    mov_imm(ARG4, 0);
+    runtime_call<4>(erts_cmp_compound);
+    a.tst(ARG1, ARG1);
+    a.b_mi(done);
+
+    comment("erts_cmp_compound(B, Src, 0, 0);");
+    a.ldr(ARG1, TMP_MEM2q);
+    a.ldr(ARG2, TMP_MEM1q);
+    mov_imm(ARG3, 0);
+    mov_imm(ARG4, 0);
+    runtime_call<4>(erts_cmp_compound);
+
+    /* The following instructions implement the signum function. */
+    {
+        Label non_negative = a.newLabel(), positive = a.newLabel(),
+              signum_ready = a.newLabel();
+
+        a.cmp(ARG1, imm(0));
+        a.b_ge(non_negative);
+        mov_imm(ARG1, -1);
+        a.b(signum_ready);
+
+        a.bind(non_negative);
+        a.cmp(ARG1, imm(0));
+        a.b_gt(positive);
+        mov_imm(ARG1, 0);
+        a.b(signum_ready);
+
+        a.bind(positive);
+        mov_imm(ARG1, 1);
+
+        a.bind(signum_ready);
+    }
+
+    /* ARG1 is now -1, 0, or 1. Prepare return value and flags.
+     *
+     * We now have:
+     *   ARG1 == 0 if B < SRC
+     *   ARG1 > 0 if B => SRC
+     * and flags set accordingly. */
+    a.adds(ARG1, ARG1, imm(1));
+
+    a.bind(done);
+    emit_leave_runtime();
+    emit_leave_runtime_frame();
+
+    a.bx(a32::lr);
 }
 
 /*
@@ -2149,8 +2204,33 @@ void BeamModuleAssembler::emit_is_ge_lt(ArgLabel const &Fail1,
                                         ArgRegister const &Src,
                                         ArgConstant const &A,
                                         ArgConstant const &B) {
-    // TODO
-    emit_nyi("emit_is_ge_lt");
+    Label generic = a.newLabel(), next = a.newLabel();
+    auto src = load_source(Src, ARG1);
+
+    mov_arg(ARG2, A);
+    mov_arg(ARG3, B);
+
+    preserve_cache(
+            [&]() {
+                a.and_(TMP, src.reg, imm(_TAG_IMMED1_MASK));
+                a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+                a.b_ne(generic);
+
+                a.cmp(src.reg, ARG2);
+                a.b_lt(resolve_beam_label(Fail1, disp32MB));
+                a.cmp(ARG3, src.reg);
+                a.b_ge(resolve_beam_label(Fail2, disp32MB));
+                a.b(next);
+
+                a.bind(generic);
+                mov_var(ARG1, src);
+                fragment_call(ga->get_is_ge_lt_shared());
+                a.b_lt(resolve_beam_label(Fail1, disp32MB));
+                a.b_gt(resolve_beam_label(Fail2, disp32MB));
+
+                a.bind(next);
+            },
+            TMP);
 }
 
 /*
