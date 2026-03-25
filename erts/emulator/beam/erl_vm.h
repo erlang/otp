@@ -105,6 +105,8 @@ extern ErtsFrameLayout ERTS_WRITE_UNLIKELY(erts_frame_layout);
 #define S_REDZONE (CP_SIZE * 3)
 #elif defined(BEAMASM) && defined(__aarch64__)
 #define S_REDZONE (CP_SIZE * 3)
+#elif defined(BEAMASM) && defined(__arm__)
+#define S_REDZONE (CP_SIZE * 3)
 #elif defined(DEBUG)
 /* Ensure that a redzone won't cause problems in the interpreter. */
 #define S_REDZONE CP_SIZE
