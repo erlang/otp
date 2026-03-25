@@ -131,13 +131,31 @@ static void return_trace(Process *c_p,
                          Eterm val,
                          ErtsTracer tracer,
                          Eterm session_id) {
-    // TODO
-    ASSERT(false);
+    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
+    erts_trace_return(c_p, mfa, val, tracer, session_id);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
 }
 
 void BeamModuleAssembler::emit_return_trace() {
-    // TODO
-    emit_nyi("emit_return_trace");
+    a.ldr(ARG2, getYRef(0));
+    a.ldr(ARG3, getXRef(0));
+    a.ldr(ARG4, getYRef(1)); /* tracer */
+
+    /* arg5 (session_id) goes on stack for AAPCS */
+    a.sub(a32::sp, a32::sp, imm(8));
+    a.ldr(TMP, getYRef(2));
+    a.str(TMP, arm::Mem(a32::sp, 0));
+
+    emit_enter_runtime<Update::eHeapAlloc>();
+
+    a.mov(ARG1, c_p);
+    runtime_call<5>(return_trace);
+
+    emit_leave_runtime<Update::eHeapAlloc>();
+    a.add(a32::sp, a32::sp, imm(8));
+
+    emit_deallocate(ArgWord(BEAM_RETURN_TRACE_FRAME_SZ));
+    emit_return();
 }
 
 void BeamModuleAssembler::emit_i_call_trace_return() {
