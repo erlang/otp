@@ -449,6 +449,8 @@ is_dom2(_) ->
 %% Parse ipv4 address or ipv6 address
 %% Return {ok, Address} | {error, Reason}
 %%
+address(Bin) when is_binary(Bin) ->
+    address(binary_to_list(Bin));
 address(Cs) when is_list(Cs) ->
     case ipv4_address(Cs) of
 	{ok,IP} ->
@@ -460,6 +462,8 @@ address(_) ->
     {error, einval}.
 
 %%Parse ipv4 strict address or ipv6 strict address
+strict_address(Bin) when is_binary(Bin) ->
+    strict_address(binary_to_list(Bin));
 strict_address(Cs) when is_list(Cs) ->
     case ipv4strict_address(Cs) of
 	{ok,IP} ->
@@ -483,6 +487,8 @@ strict_address(_) ->
 %%
 %% Return {ok, IP} | {error, einval}
 %%
+ipv4_address(Bin) when is_binary(Bin) ->
+    ipv4_address(binary_to_list(Bin));
 ipv4_address(Cs) ->
     try ipv4_addr(Cs) of
 	Addr ->
@@ -543,6 +549,8 @@ strip0(Cs) when is_list(Cs) ->
 %%
 %% Return {ok, IP} | {error, einval}
 %%
+ipv4strict_address(Bin) when is_binary(Bin) ->
+    ipv4strict_address(binary_to_list(Bin));
 ipv4strict_address(Cs) ->
     try ipv4strict_addr(Cs) of
 	Addr ->
@@ -665,6 +673,8 @@ ipv4_field(Rs, Base) ->
 %%
 %% Accepts IPv4 address and returns it as a IPv4 compatible IPv6 address
 %%
+ipv6_address(Bin) when is_binary(Bin) ->
+    ipv6_address(binary_to_list(Bin));
 ipv6_address(Cs) ->
     case ipv4_address(Cs) of
 	{ok,{D1,D2,D3,D4}} ->
@@ -689,6 +699,8 @@ ipv6_address(Cs) ->
 %%
 %% Return {ok, IP} | {error, einval}
 %%
+ipv6strict_address(Bin) when is_binary(Bin) ->
+    ipv6strict_address(binary_to_list(Bin));
 ipv6strict_address(Cs) ->
     try ipv6_addr(Cs) of
 	Addr ->
