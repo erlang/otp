@@ -2251,15 +2251,14 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             const auto Dst = seg.dst;
 
             if (bits > 64) {
-                mov_arg(VAR, Ctx);
-                a.ldr(TMP, emit_boxed_val(VAR, start_offset));
+                mov_arg(ARG1, Ctx);
+                a.ldr(TMP, emit_boxed_val(ARG1, start_offset));
                 a.str(TMP, TMP_MEM1q);
 
-                lea(ARG1, arm::Mem(c_p, offsetof(Process, htop)));
                 if (bits <= ERL_ONHEAP_BITS_LIMIT) {
                     comment("skipped setting registers not used for heap binary");
                 } else {
-                    a.ldr(ARG2, emit_boxed_val(VAR, orig_offset));
+                    a.ldr(ARG2, emit_boxed_val(ARG1, orig_offset));
                     a.mov(ARG3, ARG2);
                     mov_imm(TMP, TAG_PTR_MASK__);
                     a.and_(ARG2, ARG2, TMP);   /* br_flags */
@@ -2267,14 +2266,15 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
                     a.and_(ARG3, ARG3, TMP);   /* br */
                 }
 
-                a.ldr(ARG4, emit_boxed_val(VAR, base_offset));
+                a.ldr(ARG4, emit_boxed_val(ARG1, base_offset));
                 mov_imm(TMP, ~ERL_SUB_BITS_FLAG_MASK);
                 a.and_(ARG4, ARG4, TMP);
                 a.ldr(TMP, TMP_MEM1q);
                 mov_imm(VAR, bits);
                 a.add(TMP, TMP, VAR);
-                a.str(TMP, emit_boxed_val(VAR, start_offset));
+                a.str(TMP, emit_boxed_val(ARG1, start_offset));
 
+                lea(ARG1, arm::Mem(c_p, offsetof(Process, htop)));
                 emit_enter_runtime<Update::eHeapOnlyAlloc>();
                 a.sub(a32::sp, a32::sp, imm(8));
                 a.ldr(TMP, TMP_MEM1q);
