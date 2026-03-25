@@ -553,31 +553,91 @@ ipv4strict_address(Cs) ->
     end.
 
 ipv4strict_addr(Cs) ->
-    case ipv4strict_addr(Cs, []) of
-	[D4,D3,D2,D1] when (D4 bor D3 bor D2 bor D1) < 256 ->
-	    {D1,D2,D3,D4};
-	_ ->
-	    erlang:error(badarg)
-    end.
+    ipv4s_c1(Cs).
 
-ipv4strict_addr([_|_], [_,_,_,_]) ->
-    %% Early bailout for extra characters
-    erlang:error(badarg);
-ipv4strict_addr("0", Ds) ->
-    [0|Ds];
-ipv4strict_addr("0."++Cs, Ds) ->
-    ipv4strict_addr(Cs, [0|Ds]);
-ipv4strict_addr(Cs0, Ds) when is_list(Cs0) ->
-    case ipv4_field(Cs0, 3, [], 10) of
-	{D,""} ->
-	    [D|Ds];
-	{D,[$.|[_|_]=Cs]} ->
-	    ipv4strict_addr(Cs, [D|Ds]);
-	{_,_} ->
-	    erlang:error(badarg)
-    end.
+%% Single-pass charlist parser for strict IPv4 addresses.
+%% Four functions, one per octet — no packed accumulator, no dot
+%% counter, no bit unpacking.
 
+%% --- Octet 1 (followed by dot) ---
+ipv4s_c1([D1, D2, D3, $. | R])
+  when $1 =< D1, D1 =< $2,
+       $0 =< D2, D2 =< $9,
+       $0 =< D3, D3 =< $9 ->
+    V = (D1 - $0) * 100 + (D2 - $0) * 10 + (D3 - $0),
+    case V =< 255 of
+        true -> ipv4s_c2(R, V);
+        false -> erlang:error(badarg)
+    end;
+ipv4s_c1([D1, D2, $. | R])
+  when $1 =< D1, D1 =< $9,
+       $0 =< D2, D2 =< $9 ->
+    ipv4s_c2(R, (D1 - $0) * 10 + (D2 - $0));
+ipv4s_c1([D1, $. | R])
+  when $0 =< D1, D1 =< $9 ->
+    ipv4s_c2(R, D1 - $0);
+ipv4s_c1(_) ->
+    erlang:error(badarg).
 
+%% --- Octet 2 (followed by dot) ---
+ipv4s_c2([D1, D2, D3, $. | R], A)
+  when $1 =< D1, D1 =< $2,
+       $0 =< D2, D2 =< $9,
+       $0 =< D3, D3 =< $9 ->
+    V = (D1 - $0) * 100 + (D2 - $0) * 10 + (D3 - $0),
+    case V =< 255 of
+        true -> ipv4s_c3(R, A, V);
+        false -> erlang:error(badarg)
+    end;
+ipv4s_c2([D1, D2, $. | R], A)
+  when $1 =< D1, D1 =< $9,
+       $0 =< D2, D2 =< $9 ->
+    ipv4s_c3(R, A, (D1 - $0) * 10 + (D2 - $0));
+ipv4s_c2([D1, $. | R], A)
+  when $0 =< D1, D1 =< $9 ->
+    ipv4s_c3(R, A, D1 - $0);
+ipv4s_c2(_, _) ->
+    erlang:error(badarg).
+
+%% --- Octet 3 (followed by dot) ---
+ipv4s_c3([D1, D2, D3, $. | R], A, B)
+  when $1 =< D1, D1 =< $2,
+       $0 =< D2, D2 =< $9,
+       $0 =< D3, D3 =< $9 ->
+    V = (D1 - $0) * 100 + (D2 - $0) * 10 + (D3 - $0),
+    case V =< 255 of
+        true -> ipv4s_c4(R, A, B, V);
+        false -> erlang:error(badarg)
+    end;
+ipv4s_c3([D1, D2, $. | R], A, B)
+  when $1 =< D1, D1 =< $9,
+       $0 =< D2, D2 =< $9 ->
+    ipv4s_c4(R, A, B, (D1 - $0) * 10 + (D2 - $0));
+ipv4s_c3([D1, $. | R], A, B)
+  when $0 =< D1, D1 =< $9 ->
+    ipv4s_c4(R, A, B, D1 - $0);
+ipv4s_c3(_, _, _) ->
+    erlang:error(badarg).
+
+%% --- Octet 4 (end of list) ---
+ipv4s_c4([D1, D2, D3], A, B, C)
+  when $1 =< D1, D1 =< $2,
+       $0 =< D2, D2 =< $9,
+       $0 =< D3, D3 =< $9 ->
+    V = (D1 - $0) * 100 + (D2 - $0) * 10 + (D3 - $0),
+    case V =< 255 of
+        true -> {A, B, C, V};
+        false -> erlang:error(badarg)
+    end;
+ipv4s_c4([D1, D2], A, B, C)
+  when $1 =< D1, D1 =< $9,
+       $0 =< D2, D2 =< $9 ->
+    {A, B, C, (D1 - $0) * 10 + (D2 - $0)};
+ipv4s_c4([D1], A, B, C)
+  when $0 =< D1, D1 =< $9 ->
+    {A, B, C, D1 - $0};
+ipv4s_c4(_, _, _, _) ->
+    erlang:error(badarg).
 
 ipv4_field("", _, Rs, Base) ->
     {ipv4_field(Rs, Base),""};
@@ -641,38 +701,49 @@ ipv6strict_address(Cs) ->
 ipv6_addr("::") ->
     ipv6_addr_done([], [], 0);
 ipv6_addr("::"++Cs) ->
-    ipv6_addr(hex(Cs), [], [], 0);
+    ipv6_addr(ipv6_hex(Cs), [], [], 0);
 ipv6_addr(Cs) ->
-    ipv6_addr(hex(Cs), [], 0).
+    ipv6_addr(ipv6_hex(Cs), [], 0).
 
 %% Before "::"
-ipv6_addr({Cs0,"%"++Cs1}, A, N) when N == 7 ->
-    ipv6_addr_scope(Cs1, [hex_to_int(Cs0)|A], [], N+1, []);
-ipv6_addr({Cs0,[]}, A, N) when N == 7 ->
-    ipv6_addr_done([hex_to_int(Cs0)|A]);
-ipv6_addr({Cs0,"::%"++Cs1}, A, N) when N =< 6 ->
-    ipv6_addr_scope(Cs1, [hex_to_int(Cs0)|A], [], N+1, []);
-ipv6_addr({Cs0,"::"}, A, N) when N =< 6 ->
-    ipv6_addr_done([hex_to_int(Cs0)|A], [], N+1);
-ipv6_addr({Cs0,"::"++Cs1}, A, N) when N =< 5 ->
-    ipv6_addr(hex(Cs1), [hex_to_int(Cs0)|A], [], N+1);
-ipv6_addr({Cs0,":"++Cs1}, A, N) when N =< 6 ->
-    ipv6_addr(hex(Cs1), [hex_to_int(Cs0)|A], N+1);
-ipv6_addr({Cs0,"."++_=Cs1}, A, N) when N == 6 ->
-    ipv6_addr_done(A, [], N, ipv4strict_addr(Cs0++Cs1));
+ipv6_addr({V, _, _, "%"++Cs1}, A, N) when N == 7 ->
+    ipv6_addr_scope(Cs1, [V|A], [], N+1, []);
+ipv6_addr({V, _, _, []}, A, N) when N == 7 ->
+    ipv6_addr_done([V|A]);
+ipv6_addr({V, _, _, "::%"++Cs1}, A, N) when N =< 6 ->
+    ipv6_addr_scope(Cs1, [V|A], [], N+1, []);
+ipv6_addr({V, _, _, "::"}, A, N) when N =< 6 ->
+    ipv6_addr_done([V|A], [], N+1);
+ipv6_addr({V, _, _, "::"++Cs1}, A, N) when N =< 5 ->
+    ipv6_addr(ipv6_hex(Cs1), [V|A], [], N+1);
+ipv6_addr({V, _, _, ":"++Cs1}, A, N) when N =< 6 ->
+    ipv6_addr(ipv6_hex(Cs1), [V|A], N+1);
+ipv6_addr({_, D, Dn, "."++Cs1}, A, N) when N == 6, D >= 0, D =< 255 ->
+    ipv6_ipv4_c(D, Dn, Cs1, A, [], N);
 ipv6_addr(_, _, _) ->
     erlang:error(badarg).
 
 %% After "::"
-ipv6_addr({Cs0,"%"++Cs1}, A, B, N) when N =< 6 ->
-    ipv6_addr_scope(Cs1, A, [hex_to_int(Cs0)|B], N+1, []);
-ipv6_addr({Cs0,[]}, A, B, N) when N =< 6 ->
-    ipv6_addr_done(A, [hex_to_int(Cs0)|B], N+1);
-ipv6_addr({Cs0,":"++Cs1}, A, B, N) when N =< 5 ->
-    ipv6_addr(hex(Cs1), A, [hex_to_int(Cs0)|B], N+1);
-ipv6_addr({Cs0,"."++_=Cs1}, A, B, N) when N =< 5 ->
-    ipv6_addr_done(A, B, N, ipv4strict_addr(Cs0++Cs1));
+ipv6_addr({V, _, _, "%"++Cs1}, A, B, N) when N =< 6 ->
+    ipv6_addr_scope(Cs1, A, [V|B], N+1, []);
+ipv6_addr({V, _, _, []}, A, B, N) when N =< 6 ->
+    ipv6_addr_done(A, [V|B], N+1);
+ipv6_addr({V, _, _, ":"++Cs1}, A, B, N) when N =< 5 ->
+    ipv6_addr(ipv6_hex(Cs1), A, [V|B], N+1);
+ipv6_addr({_, D, Dn, "."++Cs1}, A, B, N) when N =< 5, D >= 0, D =< 255 ->
+    ipv6_ipv4_c(D, Dn, Cs1, A, B, N);
 ipv6_addr(_, _, _, _) ->
+    erlang:error(badarg).
+
+%% Parse remaining 3 IPv4 octets for IPv6 embedded IPv4 (charlist).
+%% D: decimal value of first octet, Dn: digit count (leading zero check).
+ipv6_ipv4_c(D, 1, Cs, A, B, N) ->
+    ipv6_addr_done(A, B, N, ipv4s_c2(Cs, D));
+ipv6_ipv4_c(D, 2, Cs, A, B, N) when D >= 10 ->
+    ipv6_addr_done(A, B, N, ipv4s_c2(Cs, D));
+ipv6_ipv4_c(D, 3, Cs, A, B, N) when D >= 100 ->
+    ipv6_addr_done(A, B, N, ipv4s_c2(Cs, D));
+ipv6_ipv4_c(_, _, _, _, _, _) ->
     erlang:error(badarg).
 
 %% After "%"
@@ -721,18 +792,22 @@ ipv6_addr_done(Ar, Br, N) ->
 ipv6_addr_done(Ar) ->
     list_to_tuple(lists:reverse(Ar)).
 
-%% Collect 1-4 Hex digits
-hex(Cs) -> hex(Cs, [], 4).
-%%
-hex([C|Cs], R, N) when C >= $0, C =< $9, N > 0 ->
-    hex(Cs, [C|R], N-1);
-hex([C|Cs], R, N) when C >= $a, C =< $f, N > 0 ->
-    hex(Cs, [C|R], N-1);
-hex([C|Cs], R, N) when C >= $A, C =< $F, N > 0 ->
-    hex(Cs, [C|R], N-1);
-hex(Cs, [_|_]=R, _) when is_list(Cs) ->
-    {lists:reverse(R),Cs};
-hex(_, _, _) ->
+%% Collect 1-4 hex digits, return {HexValue, DecValue, DigitCount, Rest}.
+%% HexValue: integer (hex interpretation).
+%% DecValue: integer (decimal interpretation) or -1 if any a-f/A-F seen.
+ipv6_hex(Cs) -> ipv6_hex(Cs, 0, 0, 0).
+
+ipv6_hex([C | Cs], V, D, N) when C >= $0, C =< $9, N < 4 ->
+    ipv6_hex(Cs, (V bsl 4) bor (C - $0),
+             if D >= 0 -> D * 10 + (C - $0); true -> D end,
+             N + 1);
+ipv6_hex([C | Cs], V, _, N) when C >= $a, C =< $f, N < 4 ->
+    ipv6_hex(Cs, (V bsl 4) bor (C - $a + 10), -1, N + 1);
+ipv6_hex([C | Cs], V, _, N) when C >= $A, C =< $F, N < 4 ->
+    ipv6_hex(Cs, (V bsl 4) bor (C - $A + 10), -1, N + 1);
+ipv6_hex(Cs, V, D, N) when N > 0 ->
+    {V, D, N, Cs};
+ipv6_hex(_, _, _, _) ->
     erlang:error(badarg).
 
 %% Parse a reverse decimal integer string, empty is 0
@@ -747,9 +822,6 @@ dec16([C|Cs], I) when C >= $0, C =< $9 ->
             dec16(Cs, J)
     end;
 dec16(_, _) -> erlang:error(badarg).
-
-%% Hex string to integer
-hex_to_int(Cs) -> erlang:list_to_integer(Cs, 16).
 
 %% Dup onto head of existing list
 dup(0, _, L) ->
