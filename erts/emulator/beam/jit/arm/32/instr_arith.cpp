@@ -488,8 +488,27 @@ void BeamGlobalAssembler::emit_mul_add_body_shared() {
  * the call failed).
  */
 void BeamGlobalAssembler::emit_mul_add_guard_shared() {
-    // TODO
-    emit_nyi("emit_mul_add_guard_shared");
+    Label mul_failed = a.newLabel();
+
+    emit_enter_runtime_frame();
+    emit_enter_runtime();
+
+    a.str(ARG4, TMP_MEM1q);
+
+    a.mov(ARG1, c_p);
+    runtime_call<3>(erts_mixed_times);
+    emit_branch_if_not_value(ARG1, mul_failed);
+
+    a.ldr(ARG3, TMP_MEM1q);
+    a.mov(ARG2, ARG1);
+    a.mov(ARG1, c_p);
+    runtime_call<3>(erts_mixed_plus);
+
+    a.bind(mul_failed);
+    emit_leave_runtime();
+    emit_leave_runtime_frame();
+
+    a.bx(a32::lr);
 }
 
 /* ARG2 = Src1
@@ -509,8 +528,8 @@ void BeamGlobalAssembler::emit_mul_body_shared() {
  * the call failed).
  */
 void BeamGlobalAssembler::emit_mul_guard_shared() {
-    // TODO
-    emit_nyi("emit_mul_guard_shared");
+    mov_imm(ARG4, make_small(0));
+    a.b(labels[mul_add_guard_shared]);
 }
 
 void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
