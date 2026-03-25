@@ -758,8 +758,7 @@ ESOCK_PRELOAD_BEAM = \
 	$(ERL_TOP)/erts/preloaded/ebin/prim_socket.beam \
 	$(ERL_TOP)/erts/preloaded/ebin/prim_net.beam
 
-PRELOAD_BEAM = $(ERL_TOP)/erts/preloaded/ebin/hello.beam \
-        $(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
+PRELOAD_BEAM = $(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/erl_init.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/init.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/prim_buffer.beam \

@@ -37,8 +37,7 @@ PRE_LOADED_ERL_ESOCK_MODULES = \
 	prim_socket \
 	prim_net
 
-PRE_LOADED_ERL_MODULES = hello \
-	erl_prim_loader \
+PRE_LOADED_ERL_MODULES = erl_prim_loader \
 	init \
 	prim_buffer \
 	prim_file \
