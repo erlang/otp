@@ -1384,9 +1384,41 @@ mandatory_exclusiveaddruse(_OsType, _OsVersion) ->
     false.
 
 create_socketpair_init(Config, ListenOptions, ConnectOptions) ->
-    {ok,LS}   = ?LISTEN(Config, 0, ListenOptions),
+    LS = case ?LISTEN(Config, 0, ListenOptions) of
+	     {ok, S1} ->
+		 S1;
+	     {error, enotsup = R1} ->
+		 ?P("~s -> failed create listen socket:"
+		    "~n   Opts:   ~p"
+		    "~n   Reason: ~p",
+		    [?FUNCTION_NAME, ListenOptions, R1]),
+		 exit({skip, {listen, R1}});
+	     {error, Reason1} ->
+		 ?P("~s -> failed create listen socket:"
+		    "~n   Opts:   ~p"
+		    "~n   Reason: ~p",
+		    [?FUNCTION_NAME, ListenOptions, Reason1]),
+		 exit({listen, Reason1})
+	 end,
     {ok,Port} = inet:port(LS),
-    {ok,CS}   = ?CONNECT(Config, localhost, Port, ConnectOptions),
+    CS = case ?CONNECT(Config, localhost, Port, ConnectOptions) of
+	     {ok, S2} ->
+		 S2;
+	     {error, enotsup = R2} ->
+		 ?P("~s -> failed connecting:"
+		    "~n   Port:   ~p"
+		    "~n   Opts:   ~p"
+		    "~n   Reason: ~p",
+		    [?FUNCTION_NAME, Port, ConnectOptions, R2]),
+		 exit({skip, {connect, R2}});
+	     {error, Reason2} ->
+		 ?P("~s -> failed connecting:"
+		    "~n   Port:   ~p"
+		    "~n   Opts:   ~p"
+		    "~n   Reason: ~p",
+		    [?FUNCTION_NAME, Port, ConnectOptions, Reason2]),
+		 exit({connect, Reason2})
+	 end,
     {ok,AS}   = gen_tcp:accept(LS),
     {LS,AS,CS}.
 
