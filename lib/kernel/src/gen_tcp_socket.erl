@@ -109,7 +109,7 @@
 %% Options that are inherited by accept/2
 -compile({inline, [socket_inherit_opts/0]}).
 socket_inherit_opts() ->
-    [priority].
+    [nodelay, keepalive, priority, linger, reuseaddr].
 
 
 %%% ========================================================================
