@@ -560,80 +560,80 @@ ipv4strict_addr(Cs) ->
 
 %% --- Octet 1 (followed by dot) ---
 ipv4s_c1([D1, D2, D3, $. | R])
-  when $1 =< D1, D1 =< $2,
-       $0 =< D2, D2 =< $9,
-       $0 =< D3, D3 =< $9 ->
+  when is_integer(D1, $1, $2),
+       is_integer(D2, $0, $9),
+       is_integer(D3, $0, $9) ->
     V = (D1 - $0) * 100 + (D2 - $0) * 10 + (D3 - $0),
     case V =< 255 of
         true -> ipv4s_c2(R, V);
         false -> erlang:error(badarg)
     end;
 ipv4s_c1([D1, D2, $. | R])
-  when $1 =< D1, D1 =< $9,
-       $0 =< D2, D2 =< $9 ->
+  when is_integer(D1, $1, $9),
+       is_integer(D2, $0, $9) ->
     ipv4s_c2(R, (D1 - $0) * 10 + (D2 - $0));
 ipv4s_c1([D1, $. | R])
-  when $0 =< D1, D1 =< $9 ->
+  when is_integer(D1, $0, $9) ->
     ipv4s_c2(R, D1 - $0);
 ipv4s_c1(_) ->
     erlang:error(badarg).
 
 %% --- Octet 2 (followed by dot) ---
 ipv4s_c2([D1, D2, D3, $. | R], A)
-  when $1 =< D1, D1 =< $2,
-       $0 =< D2, D2 =< $9,
-       $0 =< D3, D3 =< $9 ->
+  when is_integer(D1, $1, $2),
+       is_integer(D2, $0, $9),
+       is_integer(D3, $0, $9) ->
     V = (D1 - $0) * 100 + (D2 - $0) * 10 + (D3 - $0),
     case V =< 255 of
         true -> ipv4s_c3(R, A, V);
         false -> erlang:error(badarg)
     end;
 ipv4s_c2([D1, D2, $. | R], A)
-  when $1 =< D1, D1 =< $9,
-       $0 =< D2, D2 =< $9 ->
+  when is_integer(D1, $1, $9),
+       is_integer(D2, $0, $9) ->
     ipv4s_c3(R, A, (D1 - $0) * 10 + (D2 - $0));
 ipv4s_c2([D1, $. | R], A)
-  when $0 =< D1, D1 =< $9 ->
+  when is_integer(D1, $0, $9) ->
     ipv4s_c3(R, A, D1 - $0);
 ipv4s_c2(_, _) ->
     erlang:error(badarg).
 
 %% --- Octet 3 (followed by dot) ---
 ipv4s_c3([D1, D2, D3, $. | R], A, B)
-  when $1 =< D1, D1 =< $2,
-       $0 =< D2, D2 =< $9,
-       $0 =< D3, D3 =< $9 ->
+  when is_integer(D1, $1, $2),
+       is_integer(D2, $0, $9),
+       is_integer(D3, $0, $9) ->
     V = (D1 - $0) * 100 + (D2 - $0) * 10 + (D3 - $0),
     case V =< 255 of
         true -> ipv4s_c4(R, A, B, V);
         false -> erlang:error(badarg)
     end;
 ipv4s_c3([D1, D2, $. | R], A, B)
-  when $1 =< D1, D1 =< $9,
-       $0 =< D2, D2 =< $9 ->
+  when is_integer(D1, $1, $9),
+       is_integer(D2, $0, $9) ->
     ipv4s_c4(R, A, B, (D1 - $0) * 10 + (D2 - $0));
 ipv4s_c3([D1, $. | R], A, B)
-  when $0 =< D1, D1 =< $9 ->
+  when is_integer(D1, $0, $9) ->
     ipv4s_c4(R, A, B, D1 - $0);
 ipv4s_c3(_, _, _) ->
     erlang:error(badarg).
 
 %% --- Octet 4 (end of list) ---
 ipv4s_c4([D1, D2, D3], A, B, C)
-  when $1 =< D1, D1 =< $2,
-       $0 =< D2, D2 =< $9,
-       $0 =< D3, D3 =< $9 ->
+  when is_integer(D1, $1, $2),
+       is_integer(D2, $0, $9),
+       is_integer(D3, $0, $9) ->
     V = (D1 - $0) * 100 + (D2 - $0) * 10 + (D3 - $0),
     case V =< 255 of
         true -> {A, B, C, V};
         false -> erlang:error(badarg)
     end;
 ipv4s_c4([D1, D2], A, B, C)
-  when $1 =< D1, D1 =< $9,
-       $0 =< D2, D2 =< $9 ->
+  when is_integer(D1, $1, $9),
+       is_integer(D2, $0, $9) ->
     {A, B, C, (D1 - $0) * 10 + (D2 - $0)};
 ipv4s_c4([D1], A, B, C)
-  when $0 =< D1, D1 =< $9 ->
+  when is_integer(D1, $0, $9) ->
     {A, B, C, D1 - $0};
 ipv4s_c4(_, _, _, _) ->
     erlang:error(badarg).
