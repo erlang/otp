@@ -449,26 +449,32 @@ is_dom2(_) ->
 %% Return {ok, Address} | {error, Reason}
 %%
 address(Bin) when is_binary(Bin) ->
-    address(binary_to_list(Bin));
+    case ipv4strict_addr_bin(Bin) of
+        error ->
+            case ipv6strict_address(Bin) of
+                {ok, _} = Ok -> Ok;
+                {error, _} -> address(binary_to_list(Bin))
+            end;
+        IP ->
+            {ok, IP}
+    end;
 address(Cs) when is_list(Cs) ->
     case ipv4_address(Cs) of
-	{ok,IP} ->
-	    {ok,IP};
-	_ ->
-	    ipv6strict_address(Cs)
+        {ok, IP} ->
+            {ok, IP};
+        _ ->
+            ipv6strict_address(Cs)
     end;
 address(_) -> 
     {error, einval}.
 
 %%Parse ipv4 strict address or ipv6 strict address
-strict_address(Bin) when is_binary(Bin) ->
-    strict_address(binary_to_list(Bin));
-strict_address(Cs) when is_list(Cs) ->
-    case ipv4strict_address(Cs) of
-	{ok,IP} ->
-	    {ok,IP};
-	_ ->
-	    ipv6strict_address(Cs)
+strict_address(Addr) when is_list(Addr); is_binary(Addr) ->
+    case ipv4strict_address(Addr) of
+        {ok, IP} ->
+            {ok, IP};
+        _ ->
+            ipv6strict_address(Addr)
     end;
 strict_address(_) ->
     {error, einval}.
@@ -549,14 +555,19 @@ strip0(Cs) when is_list(Cs) ->
 %% Return {ok, IP} | {error, einval}
 %%
 ipv4strict_address(Bin) when is_binary(Bin) ->
-    ipv4strict_address(binary_to_list(Bin));
-ipv4strict_address(Cs) ->
+    case ipv4strict_addr_bin(Bin) of
+        error ->
+            {error, einval};
+        Addr ->
+            {ok, Addr}
+    end;
+ipv4strict_address(Cs) when is_list(Cs) ->
     try ipv4strict_addr(Cs) of
-	Addr ->
-	    {ok,Addr}
+        Addr ->
+            {ok, Addr}
     catch
-	error:badarg ->
-	    {error,einval}
+        error:badarg ->
+            {error, einval}
     end.
 
 ipv4strict_addr(Cs) ->
@@ -665,7 +676,94 @@ ipv4_field(Rs, Base) ->
 	    V
     end.
 
+-spec ipv4strict_addr_bin(binary()) -> inet:ip4_address() | error.
+ipv4strict_addr_bin(Bin) when is_binary(Bin) ->
+    ipv4s_o1(Bin).
 
+%% Single-pass binary parser for strict IPv4 addresses.
+%% Four functions, one per octet.  Each matches 1-3 digits and
+%% passes the parsed value forward as a plain parameter — no
+%% packed-integer accumulator, no dot counter, no bit unpacking.
+%% BEAM reuses the match context throughout.
+
+%% --- Octet 1 (followed by dot) ---
+ipv4s_o1(<<D1, D2, D3, $., R/binary>>)
+  when $1 =< D1, D1 =< $2,
+       $0 =< D2, D2 =< $9,
+       $0 =< D3, D3 =< $9 ->
+    V = (D1 - $0) * 100 + (D2 - $0) * 10 + (D3 - $0),
+    case V =< 255 of
+        true -> ipv4s_o2(R, V);
+        false -> error
+    end;
+ipv4s_o1(<<D1, D2, $., R/binary>>)
+  when $1 =< D1, D1 =< $9,
+       $0 =< D2, D2 =< $9 ->
+    ipv4s_o2(R, (D1 - $0) * 10 + (D2 - $0));
+ipv4s_o1(<<D1, $., R/binary>>)
+  when $0 =< D1, D1 =< $9 ->
+    ipv4s_o2(R, D1 - $0);
+ipv4s_o1(_) ->
+    error.
+
+%% --- Octet 2 (followed by dot) ---
+ipv4s_o2(<<D1, D2, D3, $., R/binary>>, A)
+  when $1 =< D1, D1 =< $2,
+       $0 =< D2, D2 =< $9,
+       $0 =< D3, D3 =< $9 ->
+    V = (D1 - $0) * 100 + (D2 - $0) * 10 + (D3 - $0),
+    case V =< 255 of
+        true -> ipv4s_o3(R, A, V);
+        false -> error
+    end;
+ipv4s_o2(<<D1, D2, $., R/binary>>, A)
+  when $1 =< D1, D1 =< $9,
+       $0 =< D2, D2 =< $9 ->
+    ipv4s_o3(R, A, (D1 - $0) * 10 + (D2 - $0));
+ipv4s_o2(<<D1, $., R/binary>>, A)
+  when $0 =< D1, D1 =< $9 ->
+    ipv4s_o3(R, A, D1 - $0);
+ipv4s_o2(_, _) ->
+    error.
+
+%% --- Octet 3 (followed by dot) ---
+ipv4s_o3(<<D1, D2, D3, $., R/binary>>, A, B)
+  when $1 =< D1, D1 =< $2,
+       $0 =< D2, D2 =< $9,
+       $0 =< D3, D3 =< $9 ->
+    V = (D1 - $0) * 100 + (D2 - $0) * 10 + (D3 - $0),
+    case V =< 255 of
+        true -> ipv4s_o4(R, A, B, V);
+        false -> error
+    end;
+ipv4s_o3(<<D1, D2, $., R/binary>>, A, B)
+  when $1 =< D1, D1 =< $9,
+       $0 =< D2, D2 =< $9 ->
+    ipv4s_o4(R, A, B, (D1 - $0) * 10 + (D2 - $0));
+ipv4s_o3(<<D1, $., R/binary>>, A, B)
+  when $0 =< D1, D1 =< $9 ->
+    ipv4s_o4(R, A, B, D1 - $0);
+ipv4s_o3(_, _, _) ->
+    error.
+
+%% --- Octet 4 (end of binary) ---
+ipv4s_o4(<<D1, D2, D3>>, A, B, C)
+  when $1 =< D1, D1 =< $2,
+       $0 =< D2, D2 =< $9,
+       $0 =< D3, D3 =< $9 ->
+    V = (D1 - $0) * 100 + (D2 - $0) * 10 + (D3 - $0),
+    case V =< 255 of
+        true -> {A, B, C, V};
+        false -> error
+    end;
+ipv4s_o4(<<D1, D2>>, A, B, C)
+  when $1 =< D1, D1 =< $9, $0 =< D2, D2 =< $9 ->
+    {A, B, C, (D1 - $0) * 10 + (D2 - $0)};
+ipv4s_o4(<<D1>>, A, B, C)
+  when $0 =< D1, D1 =< $9 ->
+    {A, B, C, D1 - $0};
+ipv4s_o4(_, _, _, _) ->
+    error.
 
 %%
 %% Forgiving IPv6 address
@@ -673,13 +771,22 @@ ipv4_field(Rs, Base) ->
 %% Accepts IPv4 address and returns it as a IPv4 compatible IPv6 address
 %%
 ipv6_address(Bin) when is_binary(Bin) ->
-    ipv6_address(binary_to_list(Bin));
+    case ipv4strict_addr_bin(Bin) of
+        error ->
+            case ipv6strict_address(Bin) of
+                {ok, _} = Ok -> Ok;
+                {error, _} -> ipv6_address(binary_to_list(Bin))
+            end;
+        {D1, D2, D3, D4} ->
+            {ok, {0, 0, 0, 0, 0, 16#ffff,
+                  (D1 bsl 8) bor D2, (D3 bsl 8) bor D4}}
+    end;
 ipv6_address(Cs) ->
     case ipv4_address(Cs) of
-	{ok,{D1,D2,D3,D4}} ->
-	    {ok,{0,0,0,0,0,16#ffff,(D1 bsl 8) bor D2,(D3 bsl 8) bor D4}};
-	_ ->
-	    ipv6strict_address(Cs)
+        {ok, {D1, D2, D3, D4}} ->
+            {ok, {0, 0, 0, 0, 0, 16#ffff, (D1 bsl 8) bor D2, (D3 bsl 8) bor D4}};
+        _ ->
+            ipv6strict_address(Cs)
     end.
 
 %%
@@ -700,14 +807,16 @@ ipv6_address(Cs) ->
 %%
 ipv6strict_address(Bin) when is_binary(Bin) ->
     ipv6strict_address(binary_to_list(Bin));
-ipv6strict_address(Cs) ->
+ipv6strict_address(Cs) when is_list(Cs) ->
     try ipv6_addr(Cs) of
-	Addr ->
-	    {ok,Addr}
+        Addr ->
+            {ok, Addr}
     catch
-	error:badarg ->
-	    {error,einval}
-    end.
+        error:badarg ->
+            {error, einval}
+    end;
+ipv6strict_address(_) ->
+    {error, einval}.
 
 ipv6_addr("::") ->
     ipv6_addr_done([], [], 0);
