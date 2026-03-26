@@ -107,6 +107,9 @@
 -define(CLOSED_SOCKET, #{rstates => [closed], wstates => [closed]}).
 
 %% Options that are inherited by accept/2
+%% Ideally we should have an option specifying which socket options
+%% should be "inherited". But for now we just try to be "comaptible"
+%% with inet (plain gen_tcp).
 -compile({inline, [socket_inherit_opts/0]}).
 socket_inherit_opts() ->
     [nodelay, keepalive, priority, linger, reuseaddr].
@@ -1221,17 +1224,32 @@ socket_copy_opt(Socket, Tag, TargetSocket) when is_atom(Tag) ->
         #{Tag := {_Level,_Key} = Opt} ->
 	    case socket:is_supported(options, Opt) of
 		true ->
+		    %% Both 'getopt' and 'setopt' can return 'enotsup'
+		    %% (or 'enoprotoopt' on Windows) even though
+		    %% 'is_supported' returned 'true'.
+		    %% Since we are supposed to be "bug" compatible 
+		    %% with the inet-driver, if we fail to get the option
+		    %% we simply skip the option (return ok anyway).
 		    case socket:getopt(Socket, Opt) of
 			{ok, Value} ->
-			    socket:setopt(TargetSocket, Opt, Value);
-			{error, _Reason} = Error ->
-			    Error
+			    case socket:setopt(TargetSocket, Opt, Value) of
+				ok ->
+				    ok;
+				{error, enotsup} ->
+				    ok;
+				{error, enoprotoopt} ->
+				    ok;
+				{error, Reason} ->
+				    {error, {Reason, Opt}}
+			    end;
+			{error, _Reason} ->
+			    ok
 		    end;
 		false ->
 		    ok
 	    end;
         #{} = _X ->
-	    {error, einval}
+	    {error, {einval, Tag}}
     end.
 
 
