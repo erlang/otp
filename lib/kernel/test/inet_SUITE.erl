@@ -884,7 +884,10 @@ parse_address(Config) when is_list(Config) ->
 	 "10.",
 	 "172.16.",
 	 "198.168.0.",
-	 "127.0.0.1."],
+         "127.0.0.1.",
+         "",
+         "1.2.3.4x",
+         " 1.2.3.4"],
     V6Err =
 	[":::",
 	 "f:::2",
@@ -910,7 +913,9 @@ parse_address(Config) when is_list(Config) ->
 	 "::10.",
 	 "::FFFF:172.16.",
 	 "fe80::198.168.0.",
-	 "fec0::fFfF:127.0.0.1."],
+         "fec0::fFfF:127.0.0.1.",
+         "::1x",
+         "1::2::3"],
     t_parse_address
       (parse_ipv6_address,
        false,
@@ -927,6 +932,15 @@ parse_address(Config) when is_list(Config) ->
       (parse_ipv4strict_address,
        true,
        V4Reversable++V4Err++V6Err++[S || {_,S} <- V4Sloppy++V6Reversable]),
+    t_parse_address
+      (parse_address,
+       false,
+       V4Reversable++V4Sloppy++V6Reversable++V6Sloppy++V4Err++V6Err),
+    t_parse_address
+      (parse_strict_address,
+       false,
+       V4Reversable++V6Reversable++V6Sloppy++
+       [S || {_,S} <- V4Sloppy]++V4Err++V6Err),
     ok = parse_address_binary_combined().
 
 t_parse_address(Func, _Reversable, []) ->
