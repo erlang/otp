@@ -624,12 +624,12 @@ terminate(_Reason, #state{scope = Scope}) ->
 %% Internal implementation
 
 handle_discover(Peer, #state{remote = Remote, local = Local} = State) ->
-    gen_server:cast(Peer, {sync, self(), all_local_pids(Local)}),
     %% do we know who is looking for us?
     case maps:is_key(Peer, Remote) of
         true ->
             {noreply, State};
         false ->
+            gen_server:cast(Peer, {sync, self(), all_local_pids(Local)}),
             MRef = erlang:monitor(process, Peer),
             erlang:send(Peer, {discover, self()}, [noconnect]),
             {noreply, State#state{remote = Remote#{Peer => {MRef, #{}}}}}
