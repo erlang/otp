@@ -46,7 +46,11 @@ enum PacketParseType {
     TCP_PB_HTTPH    = 11,
     TCP_PB_SSL_TLS  = 12,
     TCP_PB_HTTP_BIN = 13,
-    TCP_PB_HTTPH_BIN = 14
+    TCP_PB_HTTPH_BIN = 14,
+    TCP_PB_2_LITTLE = 15,
+    TCP_PB_3        = 16,
+    TCP_PB_3_LITTLE = 17,
+    TCP_PB_4_LITTLE = 18
 };
 
 typedef struct http_atom {
@@ -153,7 +157,11 @@ void packet_get_body(enum PacketParseType htype, const char** bufp, int* lenp)
 {
     switch (htype) {
     case TCP_PB_1:  *bufp += 1; *lenp -= 1; break;
+    case TCP_PB_2_LITTLE: /* fall through */
     case TCP_PB_2:  *bufp += 2; *lenp -= 2; break;
+    case TCP_PB_3_LITTLE: /* fall through */
+    case TCP_PB_3:  *bufp += 3; *lenp -= 3; break;
+    case TCP_PB_4_LITTLE: /* fall through */
     case TCP_PB_4:  *bufp += 4; *lenp -= 4; break;
     case TCP_PB_FCGI:
 	*lenp -= ((struct fcgi_head*)*bufp)->paddingLength;

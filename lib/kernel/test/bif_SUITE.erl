@@ -36,6 +36,7 @@
 
 	  run_fun/1,
 	  decode_packet_delim/1,
+	  decode_packet_endianness/1,
 	  wilderness/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -54,7 +55,8 @@ suite() ->
 
 all() -> 
     [{group, spawn_tests}, {group, spawn_link_tests},
-     {group, spawn_opt_tests}, spawn_failures, wilderness].
+     {group, spawn_opt_tests}, spawn_failures, wilderness,
+     decode_packet_endianness].
 
 groups() -> 
     [{spawn_tests, [], [spawn1, spawn2, spawn3, spawn4]},
@@ -494,6 +496,20 @@ decode_packet_delim(Config) when is_list(Config) ->
     {ok,<<"abc",0>>,<<"efg",0>>} =
         erlang:decode_packet(line, <<"abc",0,"efg",0>>, [{line_delimiter, 0}]),
     {more, undefined} = erlang:decode_packet(line, <<"abc",0,"efg",0>>, []).
+
+decode_packet_endianness(Config) when is_list(Config) ->
+    {ok, <<"abc">>, <<>>} =
+        erlang:decode_packet({2, big}, <<0, 3, "abc">>, []),
+    {ok, <<"abc">>, <<>>} =
+        erlang:decode_packet({2, little}, <<3, 0, "abc">>, []),
+    {ok, <<"abc">>, <<>>} =
+        erlang:decode_packet({3, big}, <<0, 0, 3, "abc">>, []),
+    {ok, <<"abc">>, <<>>} =
+        erlang:decode_packet({3, little}, <<3, 0, 0, "abc">>, []),
+    {ok, <<"abc">>, <<>>} =
+        erlang:decode_packet({4, big}, <<0, 0, 0, 3, "abc">>, []),
+    {ok, <<"abc">>, <<>>} =
+        erlang:decode_packet({4, little}, <<3, 0, 0, 0, "abc">>, []).
 
 %% This testcase should probably be moved somewhere else
 
