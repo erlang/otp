@@ -244,9 +244,11 @@ void BeamModuleAssembler::emit_raise_exception() {
 void BeamModuleAssembler::emit_raise_exception(const ErtsCodeMFA *exp) {
     if (exp) {
         a.ldr(ARG4, embed_constant(exp, disp4KB));
-        fragment_call(ga->get_raise_exception());
+        /* raise_exception_shared pushes a fake CP on the Erlang stack. */
+        fragment_call(ga->get_raise_exception(), CP_SIZE);
     } else {
-        fragment_call(ga->get_raise_exception_null_exp());
+        /* raise_exception_shared pushes a fake CP on the Erlang stack. */
+        fragment_call(ga->get_raise_exception_null_exp(), CP_SIZE);
     }
 
     /* `line` instructions need to know the latest offset that may throw an

@@ -118,12 +118,17 @@ void BeamModuleAssembler::emit_gc_test_preserve(const ArgWord &Need,
     if (!(Preserve.isXRegister() &&
           Preserve.as<ArgXRegister>().get() >= Live.get())) {
         mov_imm(ARG4, Live.get());
-        fragment_call(ga->get_garbage_collect());
+        /*
+         * GC is entered exactly when the stack/heap margin is tight, so
+         * fragment_call()'s generic redzone assertion can become a false
+         * positive here. Call the shared GC fragment directly.
+         */
+        a.bl(resolve_fragment(ga->get_garbage_collect(), disp32MB));
         mov_arg(preserve_reg, Preserve);
     } else {
         mov_arg(ArgXRegister(Live.get()), preserve_reg);
         mov_imm(ARG4, Live.get() + 1);
-        fragment_call(ga->get_garbage_collect());
+        a.bl(resolve_fragment(ga->get_garbage_collect(), disp32MB));
         mov_arg(preserve_reg, ArgXRegister(Live.get()));
     }
 
@@ -148,7 +153,7 @@ void BeamModuleAssembler::emit_gc_test(const ArgWord &Ns,
     a.b_ls(after_gc_check);
 
     mov_imm(ARG4, Live.get());
-    fragment_call(ga->get_garbage_collect());
+    a.bl(resolve_fragment(ga->get_garbage_collect(), disp32MB));
 
     a.bind(after_gc_check);
 }

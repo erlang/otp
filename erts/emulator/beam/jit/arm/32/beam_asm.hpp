@@ -160,12 +160,12 @@ protected:
         lea(to, getSchedulerRegRef(offset));
     }
 
-    void emit_assert_redzone_unused() {
+    void emit_assert_stack_margin_unused(int margin_words) {
 #ifdef JIT_HARD_DEBUG
-        const int REDZONE_BYTES = S_REDZONE * sizeof(Eterm);
+        const int margin_bytes = margin_words * sizeof(Eterm);
         Label next = a.newLabel();
 
-        a.sub(TMP, E, imm(REDZONE_BYTES));
+        a.sub(TMP, E, imm(margin_bytes));
         a.cmp(HTOP, TMP);
 
         a.b_ls(next);
@@ -174,13 +174,22 @@ protected:
         a.bind(next);
 #endif
     }
+
+    void emit_assert_redzone_unused() {
+        emit_assert_stack_margin_unused(S_REDZONE);
+    }
+
+    void emit_assert_cp_unused() {
+        emit_assert_stack_margin_unused(CP_SIZE);
+    }
+
     
     /*
      * Calls an Erlang function.
      */
     template<typename Any>
     void erlang_call(Any Target) {
-        emit_assert_redzone_unused();
+        emit_assert_cp_unused();
         aligned_call(Target);
     }
     
@@ -1169,8 +1178,8 @@ protected:
     /* Calls the given shared fragment, ensuring that the redzone is unused and
      * that the return address forms a valid CP. */
     template<typename Any>
-    void fragment_call(Any target) {
-        emit_assert_redzone_unused();
+    void fragment_call(Any target, unsigned transient_stack_words = 0) {
+        emit_assert_stack_margin_unused(S_REDZONE + transient_stack_words);
 
 #if defined(JIT_HARD_DEBUG)
         /* Verify that the stack has not grown. */
