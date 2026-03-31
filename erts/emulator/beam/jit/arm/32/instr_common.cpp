@@ -2363,8 +2363,8 @@ void BeamModuleAssembler::emit_if_end() {
 }
 
 void BeamModuleAssembler::emit_badrecord(const ArgSource &Src) {
-    // TODO
-    emit_nyi("emit_badrecord");
+    emit_error(EXC_BADRECORD, Src);
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_catch(const ArgYRegister &Y,
