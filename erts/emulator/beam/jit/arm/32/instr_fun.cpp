@@ -147,8 +147,14 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
  * When the active code index is ERTS_SAVE_CALLS_CODE_IX, all local fun calls
  * will land here. */
 void BeamGlobalAssembler::emit_dispatch_save_calls_fun() {
-    // TODO
-    emit_nyi("emit_dispatch_save_calls_fun");
+    /* Keep going with the actual code index.
+     *
+     * Use VAR as the temporary code index register so the final branch load
+     * can keep TMP as destination without aliasing the address index. */
+    mov_imm(VAR, &the_active_code_index);
+    a.ldr(VAR, arm::Mem(VAR));
+
+    branch(emit_setup_dispatchable_call(ARG1, VAR));
 }
 
 /* `call_fun` instructions land here to set up their environment before jumping
@@ -329,18 +335,18 @@ a32::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
     Label next = a.newLabel();
 
     /* Speculatively untag the ErlFunThing. */
-    emit_untag_ptr(TMP, ARG4);
+    emit_untag_ptr(VAR, ARG4);
 
     if (can_fail) {
         /* Load the error fragment address directly. Using ADR with a resolved
          * fragment label can overflow its displacement during finalization. */
-        mov_imm(ARG1, ga->get_handle_call_fun_error());
+        mov_imm(ARG2, ga->get_handle_call_fun_error());
     }
 
     /* ARM32 has no ARG5 register, so stash current call-site PC in TMP_MEM2q
      * for emit_handle_call_fun_error(). */
-    a.adr(VAR, next);
-    a.str(VAR, TMP_MEM2q);
+    a.adr(TMP, next);
+    a.str(TMP, TMP_MEM2q);
 
     if (skip_box_test) {
         comment("skipped box test since source is always boxed");
@@ -354,23 +360,26 @@ a32::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
     if (skip_header_test) {
         comment("skipped fun/arity test since source is always a fun of the "
                 "right arity when boxed");
-        a.ldr(VAR, arm::Mem(TMP, offsetof(ErlFunThing, entry)));
+        a.ldr(ARG1, arm::Mem(VAR, offsetof(ErlFunThing, entry)));
     } else {
         /* Load header and entry, then compare low 16 bits of header with ARG3
          * (FUN_SUBTAG + arity). */
-        a.ldr(ARG2, arm::Mem(TMP, offsetof(ErlFunThing, thing_word)));
-        a.ldr(VAR, arm::Mem(TMP, offsetof(ErlFunThing, entry)));
-        a.lsl(ARG2, ARG2, imm(16));
-        a.lsr(ARG2, ARG2, imm(16));
-        a.cmp(ARG3, ARG2);
+        a.ldr(TMP, arm::Mem(VAR, offsetof(ErlFunThing, thing_word)));
+        a.ldr(ARG1, arm::Mem(VAR, offsetof(ErlFunThing, entry)));
+        a.lsl(TMP, TMP, imm(16));
+        a.lsr(TMP, TMP, imm(16));
+        a.cmp(ARG3, TMP);
         a.b_ne(next);
     }
 
-    /* On success, switch call target from error fragment to fun entry. */
-    a.ldr(ARG1, emit_setup_dispatchable_call(VAR));
+    /* On success, switch call target from error fragment to fun entry.
+     *
+     * Keep ARG1 as fun entry for save_calls fragments; use ARG2 as call
+     * target register. */
+    a.ldr(ARG2, emit_setup_dispatchable_call(ARG1));
 
     a.bind(next);
-    return ARG1;
+    return ARG2;
 }
 
 void BeamModuleAssembler::emit_i_call_fun2(const ArgVal &Tag,
@@ -445,6 +454,5 @@ void BeamModuleAssembler::emit_i_call_fun_last(const ArgWord &Arity,
 
 /* Psuedo-instruction for signalling lambda load errors. Never actually runs. */
 void BeamModuleAssembler::emit_i_lambda_error(const ArgWord &Dummy) {
-    // TODO
     emit_nyi("emit_i_lambda_error");
 }
