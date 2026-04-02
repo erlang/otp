@@ -2674,8 +2674,7 @@ void BeamModuleAssembler::emit_i_perf_counter() {
 }
 
 void BeamModuleAssembler::emit_mark_unreachable() {
-    // TODO
-    emit_nyi("emit_mark_unreachable");
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_coverage(void *coverage, Uint index, Uint size) {
