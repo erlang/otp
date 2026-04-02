@@ -349,6 +349,7 @@ renegotiation_otp_is_server(Config) ->
                             [{system_dir, setup_local_hostdir(Config)},
                              {user_dir, UserDir},
                              {user_passwords, [{?USER,?PASSWD}]},
+                             {subsystems, [ssh_sftpd:subsystem_spec([])]},
                              {failfun, fun ssh_test_lib:failfun/2},
                              {modify_algorithms, [{append, [{public_key,PublicKeyAlgs}]}]},
                              {connectfun,

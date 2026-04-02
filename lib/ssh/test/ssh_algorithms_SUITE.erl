@@ -231,7 +231,9 @@ init_per_group(Tag, Algs, Alg, PA, Config) ->
             end;
 
         _ ->
-            start_std_daemon([{exec, erlang_eval}] ++ [PrefAlgs],
+            start_std_daemon([{exec, erlang_eval},
+                              {subsystems, [ssh_sftpd:subsystem_spec([])]}
+                              | [PrefAlgs]],
                              [{pref_algs,PrefAlgs},
                               {tag_alg,{Tag,[Alg]}}
                               | Config])

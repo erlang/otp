@@ -459,6 +459,7 @@ idle_time_common(DaemonExtraOpts, ClientExtraOpts, Config) ->
     UserDir = proplists:get_value(priv_dir, Config),
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{exec, erlang_eval},
+                                             {subsystems, [ssh_sftpd:subsystem_spec([])]},
                                              {system_dir, SystemDir},
 					     {user_dir, UserDir},
 					     {failfun, fun ssh_test_lib:failfun/2}

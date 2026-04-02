@@ -157,8 +157,9 @@ the server's emulator. The rights in that shell is independent of the just
 authenticated user.
 
 In case of an sftp request, an sftp server is started with the rights of the
-user of the Erlang emulator's OS process. So with sftp the authenticated user
-does not influence the rights.
+user of the Erlang emulator's OS process, provided the SFTP subsystem is
+enabled. So with sftp, the file access rights are those of the OS process
+running the Erlang emulator, regardless of the authenticated SSH user.
 
 So after an authentication, the user name is not used anymore and has no
 influence.

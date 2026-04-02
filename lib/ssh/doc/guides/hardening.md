@@ -122,7 +122,7 @@ excessive memory consumption.
 
 ### SFTP Server Resource Limits
 
-When running an SFTP server via `ssh_sftpd:subsystem_spec/1`, additional
+When enabling the SFTP subsystem via `ssh_sftpd:subsystem_spec/1`, additional
 resource limits can be configured to protect against resource exhaustion attacks:
 
 #### max_handles
@@ -356,6 +356,10 @@ The negotiation (session setup time) time can be limited with the _parameter_
 `ssh:connect/3`.
 
 ## SFTP Security
+
+Note that the SFTP server runs with the file access rights of the OS
+process running the Erlang emulator, regardless of the authenticated
+SSH user. See the [Terminology](terminology.md) section for details.
 
 ### Root Directory Isolation
 

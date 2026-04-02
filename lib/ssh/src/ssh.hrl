@@ -208,10 +208,13 @@ The `channel_callback` is the module that implements the `m:ssh_server_channel`
 [Creating a Subsystem](using_ssh.md#usersguide_creating_a_subsystem) in the
 User's Guide for more information and an example.
 
-If the subsystems option is not present, the value of
-`ssh_sftpd:subsystem_spec([])` is used. This enables the sftp subsystem by
-default. The option can be set to the empty list if you do not want the daemon
-to run any subsystems.
+If the subsystems option is not present, the default is an empty list
+and no subsystems are enabled.
+
+To enable the SFTP subsystem:
+```
+ssh:daemon(Port, [{subsystems, [ssh_sftpd:subsystem_spec([])]} | Options])
+```
 """.
 -doc(#{group => <<"Daemon Options">>}).
 -type subsystem_spec()        :: {Name::string(), mod_args()} .

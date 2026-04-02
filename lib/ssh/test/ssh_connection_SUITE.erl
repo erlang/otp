@@ -112,6 +112,7 @@
          trap_exit_connect/1,
          trap_exit_daemon/1,
          handler_down_before_open/1,
+         replace_options_enable_services/1,
          ssh_exec_echo/2 % called as an MFA
         ]).
 
@@ -187,7 +188,8 @@ all() ->
      no_sensitive_leak,
      start_subsystem_on_closed_channel,
      max_channels_option,
-     handler_down_before_open
+     handler_down_before_open,
+     replace_options_enable_services
     ].
 groups() ->
     [{openssh, [], payload() ++ ptty() ++ sock()}].
@@ -2091,6 +2093,52 @@ test_exec_is_disabled(ConnectionRef) ->
     after 5000 ->
             ct:fail("Exec Timeout")
     end.
+
+%%--------------------------------------------------------------------
+replace_options_enable_services(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey),
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+                                             {user_dir, UserDir},
+                                             {password, "morot"}]),
+    ConnOpts = [{silently_accept_hosts, true},
+                {user, "foo"},
+                {password, "morot"},
+                {user_dir, UserDir}],
+
+    %% Verify all services disabled before replace
+    C1 = ssh_test_lib:connect(Host, Port, ConnOpts),
+    ?CT_LOG("Checking shell is disabled before replace", []),
+    test_shell_is_disabled(C1),
+    ?CT_LOG("Checking exec is disabled before replace", []),
+    test_exec_is_disabled(C1),
+    ?CT_LOG("Checking SFTP is unavailable before replace", []),
+    {error, _} = ssh_sftp:start_channel(C1),
+    ?CT_LOG("All services confirmed disabled", []),
+    ssh:close(C1),
+
+    %% Enable shell, exec and SFTP
+    ?CT_LOG("Replacing options: enabling shell, exec and SFTP", []),
+    {ok, Pid} = ssh:daemon_replace_options(Pid,
+                    [{shell, {shell, start, []}},
+                     {exec, erlang_eval},
+                     {subsystems, [ssh_sftpd:subsystem_spec([])]}]),
+
+    %% Verify all services work after replace
+    C2 = ssh_test_lib:connect(Host, Port, ConnOpts),
+    ?CT_LOG("Checking shell is enabled after replace", []),
+    test_shell_is_enabled(C2),
+    ?CT_LOG("Checking exec is enabled after replace", []),
+    test_exec_is_enabled(C2),
+    ?CT_LOG("Checking SFTP is available after replace", []),
+    {ok, SftpPid} = ssh_sftp:start_channel(C2),
+    ssh_sftp:stop_channel(SftpPid),
+    ?CT_LOG("All services confirmed enabled after replace", []),
+
+    ssh:close(C2),
+    ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
 test_shell_is_enabled(ConnectionRef) ->

@@ -97,7 +97,8 @@ init_per_testcase(sshc_subtree, Config) ->
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
                                              {failfun, fun ssh_test_lib:failfun/2},
                                              {user_passwords,
-                                              [{?USER, ?PASSWD}]}]),
+                                              [{?USER, ?PASSWD}]},
+                                             {subsystems, [ssh_sftpd:subsystem_spec([])]}]),
     [{server, {Pid, Host, Port}} | Config];
 init_per_testcase(Case, Config) ->
     end_per_testcase(Case, Config),
@@ -160,7 +161,8 @@ sshd_subtree(Config) when is_list(Config) ->
     {Daemon, HostIP, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
                                                   {failfun, fun ssh_test_lib:failfun/2},
                                                   {user_passwords,
-                                                   [{?USER, ?PASSWD}]}]),
+                                                   [{?USER, ?PASSWD}]},
+                                                  {subsystems, [ssh_sftpd:subsystem_spec([])]}]),
     ct:log("Expect HostIP=~p, Port=~p, Daemon=~p",[HostIP,Port,Daemon]),
     ?wait_match([?SYSTEM_SUP(Daemon, #address{address=ListenIP,
                                               port=Port,
@@ -182,6 +184,7 @@ sshd_subtree_profile(Config) when is_list(Config) ->
                                                   {failfun, fun ssh_test_lib:failfun/2},
                                                   {user_passwords,
                                                    [{?USER, ?PASSWD}]},
+                                                  {subsystems, [ssh_sftpd:subsystem_spec([])]},
                                                   {profile, Profile}]),
     ct:log("Expect HostIP=~p, Port=~p, Profile=~p, Daemon=~p",[HostIP,Port,Profile,Daemon]),
     ?wait_match([?SYSTEM_SUP(Daemon, #address{address=ListenIP,
@@ -293,6 +296,7 @@ shell_channel_tree(Config) ->
     {Daemon, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
                                                 {user_dir, UserDir},
                                                 {password, "morot"},
+                                                {subsystems, [ssh_sftpd:subsystem_spec([])]},
                                                 {shell, fun(_User) ->
                                                                 spawn(TimeoutShell)
                                                         end

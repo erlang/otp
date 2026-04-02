@@ -28,8 +28,9 @@ SSH File Transfer Protocol (SFTP) client and server.
 
 The `ssh` application is an implementation of the SSH protocol in Erlang. `ssh`
 offers API functions to write customized SSH clients and servers as well as
-making the Erlang shell available over SSH. An SFTP client, `ssh_sftp`, and
-server, `ssh_sftpd`, are also included.
+making the Erlang shell available over SSH. An SFTP client (`ssh_sftp`) and
+server (`ssh_sftpd`) are also included. The SFTP server can be enabled via
+the `subsystems` daemon option.
 
 ## Dependencies
 

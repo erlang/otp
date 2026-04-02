@@ -405,7 +405,7 @@ default(server) ->
     (default(common))
         #{
       subsystems =>
-          #{default => [ssh_sftpd:subsystem_spec([])],
+          #{default => [],
             chk => fun(L) ->
                            is_list(L) andalso
                                lists:all(fun(SubSystem = {Name,{CB,Args}}) ->

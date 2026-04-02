@@ -433,7 +433,8 @@ and `ClientAddress`). See the
 
 ## SFTP Server
 
-Start the Erlang `ssh` daemon with the SFTP subsystem:
+The SFTP subsystem is not enabled by default. To start an SSH daemon with
+SFTP, configure the `subsystems` option explicitly:
 
 ```erlang
 1> ssh:start().

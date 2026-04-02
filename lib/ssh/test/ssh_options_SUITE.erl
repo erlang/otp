@@ -1551,7 +1551,8 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 					     {user_dir, UserDir},
 					     {user_passwords, [{"carni", "meat"}]},
 					     {parallel_login, ParallelLogin},
-					     {max_sessions, MaxSessions}
+                                             {max_sessions, MaxSessions},
+                                             {subsystems, [ssh_sftpd:subsystem_spec([])]}
 					    ]),
     ct:log("~p Listen ~p:~p for max ~p sessions",[Pid,Host,Port,MaxSessions]),
     try [Connect(Host,Port) || _ <- lists:seq(1,MaxSessions)]

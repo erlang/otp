@@ -124,7 +124,7 @@ init_per_testcase(TestCase, Config) ->
 		Spec = ssh_sftpd:subsystem_spec([{sftpd_vsn, 6}]),
 		[{subsystems, [Spec]}];
 	    _ ->
-		[]
+                [{subsystems, [ssh_sftpd:subsystem_spec([])]}]
 	end,
 
     {Sftpd, Host, Port} = ssh_test_lib:daemon([{preferred_algorithms,

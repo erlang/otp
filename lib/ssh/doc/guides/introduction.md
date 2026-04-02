@@ -34,8 +34,9 @@ The `ssh` application is an implementation of the SSH Transport, Connection and
 Authentication Layer Protocols in Erlang. It provides the following:
 
 - API functions to write customized SSH clients and servers applications
-- The Erlang shell available over SSH
-- An SFTP client (`m:ssh_sftp`) and server (`m:ssh_sftpd`)
+- The Erlang shell available over SSH, enabled via the `shell` daemon option
+- An SFTP client (`m:ssh_sftp`) and server (`m:ssh_sftpd`), enabled via the
+  `subsystems` daemon option
 
 ## Prerequisites
 
@@ -114,9 +115,9 @@ the application logic.
 Channels come in the following three flavors:
 
 - _Subsystem_ \- Named services that can be run as part of an SSH server, such
-  as SFTP [(ssh_sftpd)](`m:ssh_sftpd`), that is built into the SSH daemon
-  (server) by default, but it can be disabled. The Erlang `ssh` daemon can be
-  configured to run any Erlang- implemented SSH subsystem.
+  as SFTP [(ssh_sftpd)](`m:ssh_sftpd`). No subsystems are enabled by default.
+  The Erlang `ssh` daemon can be configured to run any Erlang-implemented SSH
+  subsystem.
 - _Shell_ \- Interactive shell. By default the Erlang daemon does not expose the Erlang
   shell. It can be enabled with option `{shell, {shell, start, []}}`
   The shell can be customized by providing your own read-eval-print loop.

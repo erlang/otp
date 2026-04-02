@@ -481,8 +481,9 @@ all_dbg(Config) ->
 
     {_, Host, Port} =
 	ssh_test_lib:daemon([{system_dir, SystemDir},
-			     {user_dir,   UserDir},
-			     {user_passwords, [{?USR,?PWD}]}
+                             {user_dir,   UserDir},
+                             {user_passwords, [{?USR,?PWD}]},
+                             {subsystems, [ssh_sftpd:subsystem_spec([])]}
                             ]),
 
     {ok, ChPid, _C} =

@@ -230,7 +230,8 @@ init_per_group(erlang_server, Config) ->
 	ssh_test_lib:daemon([{system_dir, SysDir},
 			     {user_dir, PrivDir},
 			     {user_passwords,
-			      [{User, Passwd}]}]),
+                              [{User, Passwd}]},
+                             {subsystems, [ssh_sftpd:subsystem_spec([])]}]),
     [{peer, {fmt_host(HostX),PortX}}, {group, erlang_server}, {sftpd, Sftpd} | Config];
 
 init_per_group(openssh_server, Config) ->
