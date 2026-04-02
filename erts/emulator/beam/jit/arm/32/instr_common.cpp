@@ -2636,8 +2636,41 @@ void BeamModuleAssembler::emit_i_yield() {
 }
 
 void BeamModuleAssembler::emit_i_perf_counter() {
-    // TODO
-    emit_nyi("emit_i_perf_counter");
+    Label next = a.newLabel(), small = a.newLabel();
+
+    emit_enter_runtime_frame();
+    runtime_call<0>(erts_sys_time_data__.r.o.perf_counter);
+    emit_leave_runtime_frame();
+
+    /* We assume perf_counter values fit in 32 bits on this target. */
+    {
+        a.str(ARG1, TMP_MEM1q);
+
+        a.asr(TMP, ARG1, imm(SMALL_BITS - 1));
+        a.add(TMP, TMP, imm(1));
+        a.cmp(TMP, imm(1));
+        a.b_ls(small);
+
+        emit_gc_test(ArgWord(0), ArgWord(1 + 1), ArgWord(0));
+
+        a.ldr(ARG1, TMP_MEM1q);
+        add(ARG3, HTOP, TAG_PRIMARY_BOXED);
+
+        mov_imm(TMP, make_pos_bignum_header(1));
+        a.str(TMP, arm::Mem(HTOP).post(sizeof(Eterm)));
+        a.str(ARG1, arm::Mem(HTOP).post(sizeof(Eterm)));
+        a.mov(ARG1, ARG3);
+        a.b(next);
+    }
+
+    a.bind(small);
+    {
+        a.lsl(ARG1, ARG1, imm(_TAG_IMMED1_SIZE));
+        a.orr(ARG1, ARG1, imm(_TAG_IMMED1_SMALL));
+    }
+
+    a.bind(next);
+    a.str(ARG1, getXRef(0));
 }
 
 void BeamModuleAssembler::emit_mark_unreachable() {
