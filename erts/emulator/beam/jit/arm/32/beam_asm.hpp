@@ -314,8 +314,10 @@ protected:
     }
 
     void emit_leave_runtime_frame() {
-        // Restore the frame pointer and the return address
-        // This also updates the stack pointer
+        // Anchor unwind on FP (like arm64) so we recover even if SP was
+        // transiently perturbed in helper/runtime paths.
+        a.mov(a32::sp, a32::fp);
+        // Restore the frame pointer and the return address.
         a.pop(a32::GpList({a32::fp, a32::lr}));
     }
 
