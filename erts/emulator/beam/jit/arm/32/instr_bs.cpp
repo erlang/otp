@@ -1795,33 +1795,48 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             }
             break;
         case am_integer:
-            if (seg.effectiveSize >= 0) {
-                mov_imm(ARG3, seg.effectiveSize);
-            } else {
-                mov_arg(ARG3, seg.size);
-                a.asr(ARG3, ARG3, imm(_TAG_IMMED1_SIZE));
-                if (seg.unit != 1) {
-                    mov_imm(ARG2, seg.unit);
-                    a.mul(ARG3, ARG3, ARG2);
-                }
-            }
-
-            if (seg.effectiveSize >= 0 && seg.src.isSmall() &&
-                seg.src.as<ArgSmall>().getSigned() == 0 &&
-                (seg.effectiveSize % 8) == 0) {
-                set_zero(seg.effectiveSize);
-            } else {
+            {
                 Label ok = a.newLabel();
-                mov_arg(ARG2, seg.src);
-                mov_imm(ARG4, seg.flags);
-                lea(ARG1,
-                    getSchedulerRegRef(offsetof(ErtsSchedulerRegisters,
-                                                aux_regs.d.erl_bits_state)));
-                emit_enter_runtime();
-                runtime_call<4>(erts_new_bs_put_integer);
-                emit_leave_runtime();
-                a.tst(ARG1, ARG1);
-                a.b_ne(ok);
+                Label op_fail = a.newLabel();
+                Label size_fail = a.newLabel();
+
+                if (seg.effectiveSize >= 0) {
+                    mov_imm(ARG3, seg.effectiveSize);
+                } else {
+                    emit_bs_get_field_size(seg.size, seg.unit, size_fail, ARG3);
+                }
+
+                if (seg.effectiveSize >= 0 && seg.src.isSmall() &&
+                    seg.src.as<ArgSmall>().getSigned() == 0 &&
+                    (seg.effectiveSize % 8) == 0) {
+                    set_zero(seg.effectiveSize);
+                    a.b(ok);
+                } else {
+                    mov_arg(ARG2, seg.src);
+                    mov_imm(ARG4, seg.flags);
+                    lea(ARG1,
+                        getSchedulerRegRef(offsetof(ErtsSchedulerRegisters,
+                                                    aux_regs.d.erl_bits_state)));
+                    emit_enter_runtime();
+                    runtime_call<4>(erts_new_bs_put_integer);
+                    emit_leave_runtime();
+                    a.tst(ARG1, ARG1);
+                    a.b_eq(op_fail);
+                    a.b(ok);
+                }
+
+                a.bind(size_fail);
+                if (Fail.get() == 0) {
+                    mov_imm(ARG4,
+                            beam_jit_update_bsc_reason_info(seg.error_info,
+                                                            BSC_REASON_DEPENDS,
+                                                            BSC_INFO_SIZE,
+                                                            BSC_VALUE_ARG3));
+                    mov_arg(ARG1, seg.size);
+                }
+                a.b(resolve_label(error, dispUnknown));
+
+                a.bind(op_fail);
                 if (Fail.get() == 0) {
                     mov_imm(ARG4,
                             beam_jit_update_bsc_reason_info(seg.error_info,
