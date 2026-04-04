@@ -61,6 +61,10 @@
          select_best_cert/1,
          select_sha1_cert/0,
          select_sha1_cert/1,
+         inet_backend_option_order/0,
+         inet_backend_option_order/1,
+         send_timeout_buffering/0,
+         send_timeout_buffering/1,
          root_any_sign/0,
          root_any_sign/1,
          connection_information/0,
@@ -225,6 +229,8 @@
          protocol_version_check/2,
          suite_check/2,
          check_peercert/2,
+         send_timeout_sink/1,
+         send_timeout_fill/1,
          %%TODO Keep?
          run_error_server/1,
          run_client_error/1
@@ -262,9 +268,11 @@ groups() ->
      {'tlsv1.1', [parallel],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2()},
      {'tlsv1', [parallel],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2() ++
           beast_mitigation_test()},
-     {'dtlsv1.2', [parallel], gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
+     {'dtlsv1.2', [parallel], gen_api_tests() -- [new_options_in_handshake, hibernate_server,
+                                                   send_timeout_buffering] ++
           handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3()},
-     {'dtlsv1', [parallel],  gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
+     {'dtlsv1', [parallel],  gen_api_tests() -- [new_options_in_handshake, hibernate_server,
+                                                   send_timeout_buffering] ++
           handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3() ++ pre_1_2()},
      {transport_socket,  [parallel], gen_api_tests() -- [ssl_not_started, dh_params]}
     ].
@@ -302,6 +310,8 @@ gen_api_tests() ->
      peercert,
      peercert_with_client_cert,
      select_sha1_cert,
+     inet_backend_option_order,
+     send_timeout_buffering,
      connection_information,
      secret_connection_info,
      keylog_connection_info,
@@ -645,6 +655,97 @@ root_any_sign(Config) when is_list(Config) ->
     %% Intermediate cert signatures are validated, so sha1 signatures will fail connection                             
     ssl_test_lib:basic_alert(CFail, [{verify, verify_peer}, {signature_algs, SigAlgs} | SFail],
                              Config, unsupported_certificate).
+
+%%--------------------------------------------------------------------
+inet_backend_option_order() ->
+    [{doc,"Test that inet_backend option is preserved as first option "
+      "when passed to gen_tcp:connect"}].
+inet_backend_option_order(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, [{inet_backend, socket} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                        {host, Hostname},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, [{inet_backend, socket} | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+send_timeout_buffering() ->
+    [{doc,"Test that ssl buffers unsent encrypted data on send timeout "
+      "when using {inet_backend, socket} and retries on next send"}].
+send_timeout_buffering(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {?MODULE, send_timeout_sink, []}},
+                                        {options, [{inet_backend, socket},
+                                                   {active, false}
+                                                   | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                        {host, Hostname},
+                                        {from, self()},
+                                        {mfa, {?MODULE, send_timeout_fill, []}},
+                                        {options, [{inet_backend, socket},
+                                                   {active, false},
+                                                   {sndbuf, 4096},
+                                                   {send_timeout, 1}
+                                                   | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+send_timeout_sink(Socket) ->
+    %% Server side: register, wait for signal, drain, signal back
+    register(send_timeout_sink_server, self()),
+    receive start_recv -> ok end,
+    send_timeout_recv_loop(Socket),
+    send_timeout_sink_client ! drained,
+    ok.
+
+send_timeout_recv_loop(Socket) ->
+    case ssl:recv(Socket, 0, 1000) of
+        {ok, _} -> send_timeout_recv_loop(Socket);
+        {error, timeout} -> ok;
+        {error, closed} -> ok
+    end.
+
+send_timeout_fill(Socket) ->
+    %% Client side: fill buffer, signal server, wait for drain, send again
+    register(send_timeout_sink_client, self()),
+    Data = <<0:(1024*8)>>,
+    send_timeout_fill_loop(Socket, Data, 0).
+
+send_timeout_fill_loop(Socket, Data, N) ->
+    case ssl:send(Socket, Data) of
+        ok ->
+            send_timeout_fill_loop(Socket, Data, N + 1);
+        {error, timeout} when N > 0 ->
+            %% Buffer filled. Signal server to start draining.
+            send_timeout_sink_server ! start_recv,
+            %% Wait for server to finish draining.
+            receive drained -> ok end,
+            %% Verify connection is still usable.
+            ok = ssl:send(Socket, <<"still alive">>),
+            ok;
+        {error, _} = Error ->
+            Error
+    end.
 
 %%--------------------------------------------------------------------
 connection_information() ->
