@@ -143,7 +143,7 @@
 
 -define(_test(Expr), {?LINE, fun () -> (Expr) end}).
 -define(_assert(BoolExpr), ?_test(?assert(BoolExpr))).
--define(_assertNot(BoolExpr), ?_assert(not (BoolExpr))).
+-define(_assertNot(BoolExpr), ?_test(?assertNot(BoolExpr))).
 -define(_assertMatch(Guard, Expr), ?_test(?assertMatch(Guard, Expr))).
 -define(_assertNotMatch(Guard, Expr), ?_test(?assertNotMatch(Guard, Expr))).
 -define(_assertEqual(Expect, Expr), ?_test(?assertEqual(Expect, Expr))).
@@ -151,9 +151,9 @@
 	?_test(?assertNotEqual(Unexpected, Expr))).
 -define(_assertException(Class, Term, Expr),
 	?_test(?assertException(Class, Term, Expr))).
--define(_assertError(Term, Expr), ?_assertException(error, Term, Expr)).
--define(_assertExit(Term, Expr), ?_assertException(exit, Term, Expr)).
--define(_assertThrow(Term, Expr), ?_assertException(throw, Term, Expr)).
+-define(_assertError(Term, Expr), ?_test(?assertError(Term, Expr))).
+-define(_assertExit(Term, Expr), ?_test(?assertExit(Term, Expr))).
+-define(_assertThrow(Term, Expr), ?_test(?assertThrow(Term, Expr))).
 -define(_assertNotException(Class, Term, Expr),
 	?_test(?assertNotException(Class, Term, Expr))).
 
