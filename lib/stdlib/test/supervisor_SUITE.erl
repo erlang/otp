@@ -95,7 +95,8 @@
 	 code_change_simple/1, code_change_simple_map/1,
          order_of_children/1, scale_start_stop_many_children/1,
          format_log_1/1, format_log_2/1, already_started_outside_supervisor/1,
-	 which_children/1, which_children_simple_one_for_one/1]).
+	 which_children/1, which_children_simple_one_for_one/1,
+	 get_tree/1, get_tree_error/1]).
 
 %%-------------------------------------------------------------------------
 
@@ -3897,6 +3898,46 @@ which_children_simple_one_for_one(Config) when is_list(Config) ->
     {error, not_found} = supervisor:which_child(SupPid, self()),
 
     {error, simple_one_for_one} = supervisor:which_child(SupPid, not_a_pid),
+
+    ok.
+
+get_tree(Config) when is_list(Config) ->
+    {ok, SupPid} = start_link({ok, {#{}, []}}),
+
+    %% Empty tree initially
+    {SupPid, []} = supervisor:get_tree(SupPid),
+
+    %% Add a worker child
+    {ok, Child1} = supervisor:start_child(SupPid, #{id => child1,
+						    start => {supervisor_1, start_child, []}}),
+    {SupPid, [{child1, Child1, worker, [supervisor_1], []}]} = supervisor:get_tree(SupPid),
+
+    %% Add another worker child
+    {ok, Child2} = supervisor:start_child(SupPid, #{id => child2,
+						    start => {supervisor_1, start_child, []}}),
+    Tree = supervisor:get_tree(SupPid),
+    {SupPid, Children} = Tree,
+    ?assertEqual(2, length(Children)),
+
+    %% Verify structure of returned tree
+    [{child2, Child2, worker, [supervisor_1], []},
+     {child1, Child1, worker, [supervisor_1], []}] = Children,
+
+    %% Terminate a child and verify tree updates
+    ok = supervisor:terminate_child(SupPid, child1),
+    {SupPid, [{child2, Child2, worker, [supervisor_1], []},
+              {child1, undefined, worker, [supervisor_1], []}]} = supervisor:get_tree(SupPid),
+
+    ok.
+
+get_tree_error(Config) when is_list(Config) ->
+    %% Test with nonexistent process
+    {error, no_supervision_info} = supervisor:get_tree(nonexistent_supervisor),
+
+    %% Test with non-supervisor pid
+    {ok, Pid} = supervisor_1:start_child(),
+    {error, no_supervision_info} = supervisor:get_tree(Pid),
+    exit(Pid, kill),
 
     ok.
 
