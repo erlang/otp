@@ -2792,13 +2792,7 @@ getfd(Socket) ->
 %% Lookup an ip address
 %%
 
--doc """
-Resolve a host to an address, in a specific addresss family.
-
-Returns the [IP address](`t:ip_address/0`) for `Host` as a tuple of integers.
-`Host` can be an [IP address](`t:ip_address/0`), a single `t:hostname/0`,
-or a fully qualified `t:hostname/0`.
-""".
+-doc(#{equiv => getaddr(Host, Family, infinity)}).
 -spec getaddr(Host, Family) -> {ok, Address} | {error, posix()} when
       Host :: ip_address() | hostname(),
       Family :: address_family(),
@@ -2807,11 +2801,20 @@ or a fully qualified `t:hostname/0`.
 getaddr(Address, Family) ->
     getaddr(Address, Family, infinity).
 
--doc false.
+-doc """
+Resolve a host to an address, in a specific address family.
+
+Returns the [IP address](`t:ip_address/0`) for `Host` as a tuple of integers.
+`Host` can be an [IP address](`t:ip_address/0`), a single `t:hostname/0`,
+or a fully qualified `t:hostname/0`.
+
+The optional `Timeout` parameter specifies a time-out in milliseconds.
+Defaults to `infinity`.
+""".
 -spec getaddr(Host :: ip_address() | hostname(),
-	      Family :: address_family(),
-	      Timeout :: non_neg_integer() | 'infinity') ->
-	{'ok', ip_address()} | {'error', posix()}.
+          Family :: address_family(),
+          Timeout :: non_neg_integer() | 'infinity') ->
+    {'ok', ip_address()} | {'error', posix()}.
 
 getaddr(Address, Family, Timeout) ->
     %% ?DBG([{address, Address}, {family, Family}, {timeout, Timeout}]),
