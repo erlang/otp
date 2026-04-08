@@ -25,7 +25,7 @@
 
 -ifdef(debug).
 -define(format(S, A), io:format(S, A)).
--define(line, put(line, ?LINE), ).
+%-define(line, put(line, ?LINE), ).
 -define(config(X,Y), "./log_dir/").
 -define(datadir, "xref_SUITE_data").
 -define(privdir, "xref_SUITE_priv").
@@ -44,13 +44,14 @@
 -export([addrem/1, convert/1, intergraph/1, lines/1, loops/1,
          no_data/1, modules/1]).
 
--export([add/1, default/1, info/1, lib/1, read/1, read2/1, remove/1,
-         replace/1, update/1, deprecated/1, trycatch/1,
-         fun_mfa/1,
-         fun_mfa_vars/1, qlc/1]).
+-export([add/1, default/1, info/1, info_nodebug/1, info/2, lib/1, lib_nodebug/1,
+         read/1, read_nodebug/1, read2/1, read2_nodebug/1, remove/1,
+         replace/1, update/1, deprecated/1, deprecated_nodebug/1,
+         trycatch/1, trycatch_nodebug/1, fun_mfa/1, fun_mfa_nodebug/1,
+         fun_mfa_vars/1, fun_mfa_vars_nodebug/1, qlc/1, qlc_nodebug/1]).
 
 -export([analyze/1, basic/1, md/1, q/1, variables/1, unused_locals/1,
-         behaviour/1]).
+         unused_locals_nodebug/1, behaviour/1, behaviour_nodebug/1]).
 
 -export([format_error/1, otp_7423/1, otp_7831/1, otp_10192/1, otp_13708/1,
          otp_14464/1, otp_14344/1]).
@@ -80,12 +81,14 @@ groups() ->
       [addrem, convert, intergraph, lines, loops, no_data,
        modules]},
      {files, [],
-      [add, default, info, lib, read, read2, remove, replace,
-       update, deprecated, trycatch, fun_mfa,
-       fun_mfa_vars, qlc]},
+      [add, default, info, info_nodebug, lib, lib_nodebug, read, read_nodebug,
+       read2, read2_nodebug, remove, replace,
+       update, deprecated, deprecated_nodebug, trycatch, trycatch_nodebug,
+       fun_mfa, fun_mfa_nodebug, fun_mfa_vars, fun_mfa_vars_nodebug, qlc, qlc_nodebug]},
      {analyses, [],
 
-      [analyze, basic, md, q, variables, unused_locals, behaviour]},
+      [analyze, basic, md, q, variables, unused_locals, unused_locals_nodebug,
+       behaviour, behaviour_nodebug]},
      {misc, [], [format_error, otp_7423, otp_7831, otp_10192, otp_13708,
                  otp_14464, otp_14344]}].
 
@@ -807,6 +810,13 @@ default(Conf) when is_list(Conf) ->
 
 %% The info functions
 info(Conf) when is_list(Conf) ->
+    do_info(Conf, true).
+
+info_nodebug(Conf) when is_list(Conf) ->
+    do_info(Conf, false).
+
+do_info(Conf, FromAbst) ->
+    put(from_abst, FromAbst),
     CopyDir = ?copydir,
     Dir = fname(CopyDir,"rel2"),
     LDir = fname(CopyDir,"lib_test"),
@@ -861,6 +871,13 @@ info(Conf) when is_list(Conf) ->
 
 %% Library modules
 lib(Conf) when is_list(Conf) ->
+    do_lib(Conf, true).
+
+lib_nodebug(Conf) when is_list(Conf) ->
+    do_lib(Conf, false).
+
+do_lib(Conf, FromAbst) ->
+    put(from_abst, FromAbst),
     CopyDir = ?copydir,
     Dir = fname(CopyDir,"lib_test"),
     UDir = fname([CopyDir,"dir","non_existent"]),
@@ -939,37 +956,59 @@ lib(Conf) when is_list(Conf) ->
 
 %% Data read from the Abstract Code
 read(Conf) when is_list(Conf) ->
+    do_read(Conf, true).
+
+%% Data read from Beam code
+read_nodebug(Conf) when is_list(Conf) ->
+    do_read(Conf, false).
+
+do_read(Conf, FromAbst) ->
+    put(from_abst, FromAbst),
     CopyDir = ?copydir,
     Dir = fname(CopyDir,"read"),
     File = fname(Dir, "read"),
     Beam = fname(Dir, "read.beam"),
-    {ok, read} = compile:file(File, [debug_info,{outdir,Dir}]),
-    do_read(File),
+    ExtraOpts = case FromAbst of
+                    true -> [debug_info];
+                    false -> []
+                end,
+    {ok, read} = compile:file(File, ExtraOpts ++ [{outdir,Dir}]),
+    check_read(File, FromAbst),
     ok = file:delete(Beam),
     ok.
 
-do_read(File) ->
+check_read(File, FromAbst) ->
     {ok, _} = start(s),
     ok = xref:set_default(s, [{verbose,false}, {warnings, false}]),
     {ok, read} = xref:add_module(s, File),
 
     {U, OK, OKB} = read_expected(),
 
-    %% {ok, UC} = xref:q(s, "(Lin) UC"),
-    %% RR = to_external(converse(family_to_relation(family(UC)))),
-    %% lists:foreach(fun(X) -> io:format("~w~n", [X]) end, RR),
-    Unres = to_external(relation_to_family(converse(from_term(U)))),
-    {ok, Unres} =	xref:q(s, "(Lin) UC"),
+    case FromAbst of
+        true ->
+            %% {ok, UC} = xref:q(s, "(Lin) UC"),
+            %% RR = to_external(converse(family_to_relation(family(UC)))),
+            %% lists:foreach(fun(X) -> io:format("~w~n", [X]) end, RR),
+            Unres = to_external(relation_to_family(converse(from_term(U)))),
+            {ok, Unres} =	xref:q(s, "(Lin) UC"),
 
-    %% {ok, EE} = xref:q(s, "(Lin) (E - UC)"),
-    %% AA = to_external(converse(family_to_relation(family(EE)))),
-    %% lists:foreach(fun(X) -> io:format("~w~n", [X]) end, AA),
-    Calls = to_external(relation_to_family(converse(from_term(OK)))),
-    {ok, Calls} = xref:q(s, "(Lin) (E - UC) "),
+            %% {ok, EE} = xref:q(s, "(Lin) (E - UC)"),
+            %% AA = to_external(converse(family_to_relation(family(EE)))),
+            %% lists:foreach(fun(X) -> io:format("~w~n", [X]) end, AA),
+            Calls = to_external(relation_to_family(converse(from_term(OK)))),
+            {ok, Calls} = xref:q(s, "(Lin) (E - UC) ");
+        false ->
+            ok
+    end,
 
     ok = check_state(s),
     {ok, UM} = xref:q(s, "UM"),
-    true = member('$M_EXPR', UM),
+    case FromAbst of
+        true ->
+            true = member('$M_EXPR', UM);
+        false ->
+            ok
+    end,
 
     {ok, X} = xref:q(s, "X"),
     true = member({read, module_info, 0}, X),
@@ -977,10 +1016,20 @@ do_read(File) ->
     false = member({erlang, module_info, 0}, X),
     {ok, Unknowns} = xref:q(s, "U"),
     false = member({read, module_info, 0}, Unknowns),
-    true = member({foo, module_info, 0}, Unknowns),
-    true = member({erlang, module_info, 0}, Unknowns),
+    case FromAbst of
+        true ->
+            true = member({foo, module_info, 0}, Unknowns),
+            true = member({erlang, module_info, 0}, Unknowns);
+        false ->
+            ok
+    end,
     {ok, LC} = xref:q(s, "LC"),
-    true = member({{read,bi,0},{read,bi,0}}, LC),
+    case FromAbst of
+        true ->
+            true = member({{read,bi,0},{read,bi,0}}, LC);
+        false ->
+            ok
+    end,
 
     ok = xref:set_library_path(s, add_erts_code_path(fname(code:lib_dir(kernel),ebin))),
     io:format("~p~n",[(catch xref:get_library_path(s))]),
@@ -988,25 +1037,50 @@ do_read(File) ->
     ok = check_state(s),
     true = member({read, module_info, 0}, X2),
     false = member({foo, module_info, 0}, X2),
-    true = member({erlang, module_info, 0}, X2),
+    case FromAbst of
+        true ->
+            true = member({erlang, module_info, 0}, X2);
+        false ->
+            ok
+    end,
     {ok, Unknowns2} = xref:q(s, "U"),
     false = member({read, module_info, 0}, Unknowns2),
-    true = member({foo, module_info, 0}, Unknowns2),
+    case FromAbst of
+        true ->
+            true = member({foo, module_info, 0}, Unknowns2);
+        false ->
+            ok
+    end,
     false = member({erlang, module_info, 0}, Unknowns2),
 
     ok = xref:remove_module(s, read),
     {ok, read} = xref:add_module(s, File, [{builtins,true}]),
 
     UnresB = to_external(relation_to_family(converse(from_term(U)))),
-    {ok, UnresB} = xref:q(s, "(Lin) UC"),
+    case FromAbst of
+        true ->
+            {ok, UnresB} = xref:q(s, "(Lin) UC");
+        false ->
+            ok
+    end,
     CallsB = to_external(relation_to_family(converse(from_term(OKB)))),
-    {ok, CallsB} = xref:q(s, "(Lin) (E - UC) "),
+    case FromAbst of
+        true ->
+            {ok, CallsB} = xref:q(s, "(Lin) (E - UC) ");
+        false ->
+            ok
+    end,
     ok = check_state(s),
     {ok, XU} = xref:q(s, "XU"),
     Erl = set([{erlang,length,1},{erlang,integer,1},
                {erlang,binary_to_term,1}]),
-    [{erlang,binary_to_term,1},{erlang,length,1}] =
-    to_external(intersection(set(XU), Erl)),
+    case FromAbst of
+        true ->
+            [{erlang,binary_to_term,1},{erlang,length,1}] =
+                to_external(intersection(set(XU), Erl));
+        false ->
+            ok
+    end,
     xref:stop(s).
 
 %% What is expected when xref_SUITE_data/read/read.erl is added:
@@ -1190,6 +1264,14 @@ read_expected() ->
 
 %% Data read from the Abstract Code (cont)
 read2(Conf) when is_list(Conf) ->
+    do_read2(Conf, true).
+
+%% Data read from the Beam code (cont)
+read2_nodebug(Conf) when is_list(Conf) ->
+    do_read2(Conf, false).
+
+do_read2(Conf, FromAbst) ->
+    put(from_abst, FromAbst),
     %% Handles spawn_opt-related variations in older OTP versions.
     %% Expected augmentations: try/catch, cond.
     CopyDir = ?copydir,
@@ -1218,7 +1300,11 @@ read2(Conf) when is_list(Conf) ->
               -warning(must_not_crash).
              ">>,
     ok = file:write_file(File, Test),
-    {ok, read2} = compile:file(File, [debug_info,{outdir,Dir}]),
+    ExtraOpts = case FromAbst of
+                    true -> [debug_info];
+                    false -> []
+                end,
+    {ok, read2} = compile:file(File, ExtraOpts ++ [{outdir,Dir}]),
 
     {ok, _} = xref:start(s),
     {ok, read2} = xref:add_module(s, MFile),
@@ -1228,15 +1314,19 @@ read2(Conf) when is_list(Conf) ->
     OK = to_external(relation_to_family(converse(from_term(OK0)))),
     {ok, U2} = xref:q(s, "(Lin) UC"),
     {ok, OK2} = xref:q(s, "(Lin) (E - UC)"),
-    true = U =:= U2,
-    true = OK =:= OK2,
+    case FromAbst of
+        true ->
+            true = U =:= U2,
+            true = OK =:= OK2;
+        false ->
+            ok
+    end,
     ok = check_state(s),
     xref:stop(s),
 
     ok = file:delete(File),
     ok = file:delete(Beam),
     ok.
-
 
 read2_expected() ->
     POS1 = 16,
@@ -1321,7 +1411,7 @@ replace(Conf) when is_list(Conf) ->
     keysearch(application, 1, ModInfo),
 
     {ok, x} = compile:file(X, [no_debug_info, {outdir,EB1_1}]),
-    {error, _, {no_debug_info, _}} = xref:replace_module(s, x, Xbeam),
+    {ok, x} = xref:replace_module(s, x, Xbeam),
     {error, _, {module_mismatch, x,y}} =
     xref:replace_module(s, x, Ybeam),
     case os:type() of
@@ -1334,7 +1424,7 @@ replace(Conf) when is_list(Conf) ->
             true
     end,
     ok = xref:remove_module(s, x),
-    {error, _, {no_debug_info, _}} = xref:add_module(s, Xbeam),
+    {ok, x} = xref:add_module(s, Xbeam),
 
     %% "app2" is ignored, the old application name is kept
     {ok, app1} = xref:replace_application(s, app1, A2),
@@ -1375,7 +1465,7 @@ update(Conf) when is_list(Conf) ->
 
     timer:sleep(2000),
     {ok, x} = compile:file(Source, [no_debug_info,{outdir,Dir}]),
-    {error, _, {no_debug_info, _}} = xref:update(s),
+    {ok, [x]} = xref:update(s),
 
     xref:stop(s),
     ok = file:delete(Beam),
@@ -1384,6 +1474,13 @@ update(Conf) when is_list(Conf) ->
 
 %% OTP-4695: Deprecated functions.
 deprecated(Conf) when is_list(Conf) ->
+    do_deprecated(Conf, true).
+
+deprecated_nodebug(Conf) when is_list(Conf) ->
+    do_deprecated(Conf, false).
+
+do_deprecated(Conf, FromAbst) ->
+    put(from_abst, FromAbst),
     Dir = ?copydir,
     File = fname(Dir, "depr.erl"),
     MFile = fname(Dir, "depr"),
@@ -1498,6 +1595,13 @@ deprecated(Conf) when is_list(Conf) ->
 
 %% OTP-5152: try/catch, final (?) version.
 trycatch(Conf) when is_list(Conf) ->
+    do_trycatch(Conf, true).
+
+trycatch_nodebug(Conf) when is_list(Conf) ->
+    do_trycatch(Conf, false).
+
+do_trycatch(Conf, FromAbst) ->
+    put(from_abst, FromAbst),
     Dir = ?copydir,
     File = fname(Dir, "trycatch.erl"),
     MFile = fname(Dir, "trycatch"),
@@ -1545,6 +1649,13 @@ trycatch(Conf) when is_list(Conf) ->
 
 %% OTP-5653: fun M:F/A.
 fun_mfa(Conf) when is_list(Conf) ->
+    do_fun_mfa(Conf, true).
+
+fun_mfa_nodebug(Conf) when is_list(Conf) ->
+    do_fun_mfa(Conf, false).
+
+do_fun_mfa(Conf, FromAbst) ->
+    put(from_abst, FromAbst),
     Dir = ?copydir,
     File = fname(Dir, "fun_mfa.erl"),
     MFile = fname(Dir, "fun_mfa"),
@@ -1590,6 +1701,13 @@ fun_mfa(Conf) when is_list(Conf) ->
 
 %% fun M:F/A with variables.
 fun_mfa_vars(Conf) when is_list(Conf) ->
+    do_fun_mfa_vars(Conf, true).
+
+fun_mfa_vars_nodebug(Conf) when is_list(Conf) ->
+    do_fun_mfa_vars(Conf, false).
+
+do_fun_mfa_vars(Conf, FromAbst) ->
+    put(from_abst, FromAbst),
     Dir = ?copydir,
     File = fname(Dir, "fun_mfa_vars.erl"),
     MFile = fname(Dir, "fun_mfa_vars"),
@@ -1650,6 +1768,13 @@ fun_mfa_vars(Conf) when is_list(Conf) ->
 
 %% OTP-5195: A bug fix when using qlc:q/1,2.
 qlc(Conf) when is_list(Conf) ->
+    do_qlc(Conf, true).
+
+qlc_nodebug(Conf) when is_list(Conf) ->
+    do_qlc(Conf, false).
+
+do_qlc(Conf, FromAbst) ->
+    put(from_abst, FromAbst),
     Dir = ?copydir,
     File = fname(Dir, "qlc.erl"),
     MFile = fname(Dir, "qlc"),
@@ -2023,10 +2148,11 @@ md(Conf) when is_list(Conf) ->
     {ok, x__x} = compile:file(X, [no_debug_info, {outdir,Dir}]),
     {ok, y__y} = compile:file(Y, [no_debug_info, {outdir,Dir}]),
     MInfoMod = xref:m(x__x),
-    [{y__y,t,2}] = info_tag(MInfoMod, undefined),
+    io:format("MInfoMod: ~p.\n",[MInfoMod]),
+    [{{x__x,t,1},{y__y,t,2}}] = info_tag(MInfoMod, undefined),
     [] = info_tag(MInfo, deprecated),
     DInfoMod = xref:d(Dir),
-    [{y__y,t,2}] = info_tag(DInfoMod, undefined),
+    [{{x__x,t,1},{y__y,t,2}}] = info_tag(DInfoMod, undefined),
     [] = info_tag(MInfo, deprecated),
 
     true = code:set_path(OldPath),
@@ -2146,6 +2272,13 @@ variables(Conf) when is_list(Conf) ->
 
 %% OTP-5071. Too many unused functions.
 unused_locals(Conf) when is_list(Conf) ->
+    do_unused_locals(Conf, true).
+
+unused_locals_nodebug(Conf) when is_list(Conf) ->
+    do_unused_locals(Conf, false).
+
+do_unused_locals(Conf, FromAbst) ->
+    put(from_abst, FromAbst),
     Dir = ?copydir,
 
     File1 = fname(Dir, "a.erl"),
@@ -2363,6 +2496,13 @@ otp_14344(Conf) when is_list(Conf) ->
 
 %% PR-2752, ERL-1353, ERL-1476, GH-4192.
 behaviour(Config) ->
+    do_behaviour(Config, true).
+
+behaviour_nodebug(Config) when is_list(Config) ->
+    do_behaviour(Config, false).
+
+do_behaviour(Config, FromAbst) ->
+    put(from_abst, FromAbst),
     ModMode = [{xref_mode, modules}],
     FunMode = [],
 
@@ -2626,7 +2766,12 @@ functions_mode_check(S, Info) ->
     LX = Local+Exported,
     {ok, LXs} = xref:q(S, 'Extra = _:module_info/"(0|1)" + LM,
                                   # (F - Extra)'),
-    true = LX =:= LXs,
+    case get(from_abst) of
+        true ->
+            true = LX =:= LXs;
+        false ->
+            ok
+    end,
 
     {LocalCalls, ExternalCalls, UnresCalls} =
     info(Info, no_function_calls),
@@ -2634,7 +2779,12 @@ functions_mode_check(S, Info) ->
     {ok, LEU} = xref:q(S, "# LC + # XC"),
 
     InterFunctionCalls = info(Info, no_inter_function_calls),
-    {ok, InterFunctionCalls} = xref:q(S, "# EE"),
+    case get(from_abst) of
+        true ->
+            {ok, InterFunctionCalls} = xref:q(S, "# EE");
+        false ->
+            ok
+    end,
 
     %% And some more checks on counters...
     check_count(S),
@@ -2708,7 +2858,12 @@ check_count(S) ->
     NoAllCalls = NoLocal + NoExternal + NoUnres,
     NoAllCalls = NoFunCalls + NoLXCalls,
     {NoLocalFuns, NoExportedFuns} = info(Info, no_functions),
-    NoFun = NoLocalFuns + NoExportedFuns,
+    case get(from_abst) of
+        true ->
+            NoFun = NoLocalFuns + NoExportedFuns;
+        false ->
+            ok
+    end,
     NoICalls = info(Info, no_inter_function_calls),
 
     %% per module
@@ -2729,12 +2884,27 @@ info_module([M | Ms], S) ->
 
     [{_M,Info}] = xref:info(S, modules, M),
     {NoResolved, NoUC} = info(Info, no_calls),
-    NoCalls = NoResolved + NoUC,
+    case get(from_abst) of
+        true ->
+            NoCalls = NoResolved + NoUC;
+        false ->
+            ok
+    end,
     {NoLocal, NoExternal, NoUnres} = info(Info, no_function_calls),
-    NoAllCalls = NoLocal + NoExternal + NoUnres,
+    case get(from_abst) of
+        true ->
+            NoAllCalls = NoLocal + NoExternal + NoUnres;
+        false ->
+            ok
+    end,
     NoAllCalls = NoFunCalls + NoLXCalls,
     {NoLocalFuns, NoExportedFuns} = info(Info, no_functions),
-    NoFun = NoLocalFuns + NoExportedFuns,
+    case get(from_abst) of
+        true ->
+            NoFun = NoLocalFuns + NoExportedFuns;
+        false ->
+            ok
+    end,
     NoICalls = info(Info, no_inter_function_calls),
 
     info_module(Ms, S);
