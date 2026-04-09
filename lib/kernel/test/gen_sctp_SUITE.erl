@@ -48,7 +48,8 @@
          open_multihoming_ipv6_socket/1,
          open_multihoming_ipv4_and_ipv6_socket/1,
          basic_stream/1, xfer_stream_min/1, active_n/1,
-         peeloff_active_once/1, peeloff_active_true/1, peeloff_active_n/1,
+         peeloff_active_once_ipv4/1, peeloff_active_once_ipv6/1,
+         peeloff_active_true/1, peeloff_active_n/1,
          buffers/1, send_block/1,
          names_unihoming_ipv4/1, names_unihoming_ipv6/1,
          names_multihoming_ipv4/1, names_multihoming_ipv6/1,
@@ -111,8 +112,10 @@ extensive_cases() ->
      open_unihoming_ipv6_socket,
      open_multihoming_ipv6_socket,
      open_multihoming_ipv4_and_ipv6_socket, active_n,
-     xfer_stream_min, peeloff_active_once,
-     peeloff_active_true, peeloff_active_n, buffers, send_block,
+     xfer_stream_min,
+     peeloff_active_once_ipv4, peeloff_active_once_ipv6,
+     peeloff_active_true, peeloff_active_n,
+     buffers, send_block,
      names_unihoming_ipv4, names_unihoming_ipv6,
      names_multihoming_ipv4, names_multihoming_ipv6,
      recv_close
@@ -1753,8 +1756,17 @@ do_from_other_process(Fun) ->
 
 %% Peel off an SCTP stream socket ({active,once}).
 
-peeloff_active_once(Config) ->
+peeloff_active_once_ipv4(Config) ->
     peeloff(Config, [{active,once}]).
+
+peeloff_active_once_ipv6(Config) ->
+    case gen_sctp:open(0, [inet6]) of
+        {ok, S} ->
+            gen_sctp:close(S),
+            peeloff(Config, [{active,once}], {0,0,0,0,0,0,0,1});
+        {error, Reason} ->
+            {skip, {"IPv6 not supported", Reason}}
+    end.
 
 %% Peel off an SCTP stream socket ({active,true}).
 
@@ -1767,7 +1779,9 @@ peeloff_active_n(Config) ->
     peeloff(Config, [{active,1}]).
 
 peeloff(Config, SockOpts) when is_list(Config) ->
-    Addr = {127,0,0,1},
+    peeloff(Config, SockOpts, {127,0,0,1}).
+
+peeloff(Config, SockOpts, Addr) when is_list(Config) ->
     Stream = 0,
     Timeout = 333,
     InheritOpts = [{priority, 3}, {sctp_nodelay, true}, {linger, {true, 7}}],
