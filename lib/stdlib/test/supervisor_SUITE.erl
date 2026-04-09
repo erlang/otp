@@ -96,7 +96,12 @@
          order_of_children/1, scale_start_stop_many_children/1,
          format_log_1/1, format_log_2/1, already_started_outside_supervisor/1,
 	 which_children/1, which_children_simple_one_for_one/1,
-	 get_tree/1, get_tree_error/1]).
+	 get_tree/1, get_tree_error/1,
+	 get_tree_with_local_name/1,
+	 get_tree_with_global_name/1,
+	 get_tree_with_undefined_children/1,
+	 get_tree_nested_supervisors/1,
+	 get_tree_mixed_child_states/1]).
 
 %%-------------------------------------------------------------------------
 
@@ -126,7 +131,8 @@ all() ->
      code_change, code_change_map, code_change_simple, code_change_simple_map,
      order_of_children, scale_start_stop_many_children,
      format_log_1, format_log_2, already_started_outside_supervisor,
-     which_children, which_children_simple_one_for_one].
+     which_children, which_children_simple_one_for_one,
+     {group, get_tree}].
 
 groups() -> 
     [{sup_start, [],
@@ -174,7 +180,14 @@ groups() ->
        significant_upgrade_never_any, significant_upgrade_any_never,
        significant_upgrade_never_all, significant_upgrade_all_never,
        significant_upgrade_any_all, significant_upgrade_all_any,
-       significant_upgrade_child]}].
+       significant_upgrade_child]},
+     {get_tree, [],
+      [get_tree, get_tree_error,
+       get_tree_with_local_name,
+       get_tree_with_global_name,
+       get_tree_with_undefined_children,
+       get_tree_nested_supervisors,
+       get_tree_mixed_child_states]}].
 
 init_per_suite(Config) ->
     Config.
@@ -3939,6 +3952,104 @@ get_tree_error(Config) when is_list(Config) ->
     {error, no_supervision_info} = supervisor:get_tree(Pid),
     exit(Pid, kill),
 
+    ok.
+
+get_tree_with_local_name(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    {ok, SupPid} = supervisor:start_link({local, sup_test}, ?MODULE,
+                                         {ok, {#{strategy => one_for_one,
+                                                 intensity => 2,
+                                                 period => 3600}, []}}),
+    {ok, CPid} = supervisor:start_child(sup_test,
+                                        #{id => child1,
+                                          start => {supervisor_1, start_child, []}}),
+
+    %% Atom name reference should resolve to the same PID
+    {SupPid, [{child1, CPid, worker, [supervisor_1], []}]} =
+        supervisor:get_tree(sup_test),
+
+    true = is_pid(SupPid),
+    terminate(SupPid, shutdown),
+    ok.
+
+get_tree_with_global_name(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    {ok, SupPid} = supervisor:start_link({global, global_sup_tree}, ?MODULE,
+                                         {ok, {#{strategy => one_for_one,
+                                                 intensity => 2,
+                                                 period => 3600}, []}}),
+    {ok, CPid} = supervisor:start_child(SupPid,
+                                        #{id => child1,
+                                          start => {supervisor_1, start_child, []}}),
+
+    %% Global reference should resolve correctly
+    {SupPid, [{child1, CPid, worker, [supervisor_1], []}]} =
+        supervisor:get_tree({global, global_sup_tree}),
+
+    terminate(SupPid, shutdown),
+    check_exit([SupPid]),
+    ok.
+
+get_tree_with_undefined_children(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    {ok, SupPid} = start_link({ok, {#{strategy => one_for_one,
+                                      intensity => 2,
+                                      period => 3600}, []}}),
+    {ok, _CPid} = supervisor:start_child(SupPid,
+                                         #{id => child1,
+                                           start => {supervisor_1, start_child, []}}),
+
+    %% Terminate child (becomes undefined, not deleted)
+    ok = supervisor:terminate_child(SupPid, child1),
+
+    {SupPid, [{child1, undefined, worker, [supervisor_1], []}]} =
+        supervisor:get_tree(SupPid),
+    ok.
+
+get_tree_nested_supervisors(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    {ok, SupPid} = start_link({ok, {#{strategy => one_for_one,
+                                      intensity => 2,
+                                      period => 3600}, []}}),
+    ChildSupSpec = #{id => child_sup,
+                     start => {supervisor, start_link,
+                                [?MODULE, {ok, {#{strategy => one_for_one,
+                                                  intensity => 2,
+                                                  period => 3600}, []}}]},
+                     type => supervisor,
+                     shutdown => infinity},
+    {ok, ChildSupPid} = supervisor:start_child(SupPid, ChildSupSpec),
+
+    {ok, WorkerPid} = supervisor:start_child(ChildSupPid,
+                                             #{id => worker1,
+                                               start => {supervisor_1, start_child, []}}),
+
+    {SupPid, [{child_sup, ChildSupPid, supervisor, _, Subtree}]} =
+        supervisor:get_tree(SupPid),
+
+    [{worker1, WorkerPid, worker, [supervisor_1], []}] = Subtree,
+    ok.
+
+get_tree_mixed_child_states(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    {ok, SupPid} = start_link({ok, {#{strategy => one_for_one,
+                                      intensity => 2,
+                                      period => 3600}, []}}),
+    {ok, CPid1} = supervisor:start_child(SupPid,
+                                         #{id => child1,
+                                           start => {supervisor_1, start_child, []}}),
+    {ok, CPid2} = supervisor:start_child(SupPid,
+                                         #{id => child2,
+                                           start => {supervisor_1, start_child, []}}),
+
+    %% Terminate child1 only; child2 keeps running
+    ok = supervisor:terminate_child(SupPid, child1),
+
+    {SupPid, Children} = supervisor:get_tree(SupPid),
+    2 = length(Children),
+
+    [{child2, CPid2, worker, [supervisor_1], []},
+     {child1, undefined, worker, [supervisor_1], []}] = Children,
     ok.
 
 %%-------------------------------------------------------------------------

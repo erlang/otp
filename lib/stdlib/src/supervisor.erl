@@ -880,8 +880,8 @@ structure of an application at runtime.
       SupRef :: sup_ref().
 get_tree(Supervisor) ->
     try
-        Children = which_children(Supervisor),
-        SupPid = get_sup_pid(Supervisor),
+        SupPid = resolve_supervisor_reference(Supervisor),
+        Children = which_children(SupPid),
         {SupPid, [build_tree_node(Id, Child, Type, Modules) ||
                   {Id, Child, Type, Modules} <- Children]}
     catch
@@ -2597,20 +2597,23 @@ dyn_init(Child,State) when ?is_temporary(Child) ->
 dyn_init(_Child,State) ->
     State#state{dynamics={maps,maps:new()}}.
 
-%% Helper function to extract supervisor PID from various reference types
-get_sup_pid(Pid) when is_pid(Pid) ->
+%% Resolve a supervisor reference (pid | atom | {global,Name} | {via,Mod,Name})
+%% to a concrete PID. Called once before any gen_server operations to avoid
+%% races where a registered name could be re-bound between two separate lookups.
+-spec resolve_supervisor_reference(sup_ref()) -> pid().
+resolve_supervisor_reference(Pid) when is_pid(Pid) ->
     Pid;
-get_sup_pid(Name) when is_atom(Name) ->
+resolve_supervisor_reference(Name) when is_atom(Name) ->
     case whereis(Name) of
         Pid when is_pid(Pid) -> Pid;
         undefined -> error({nonexistent_process, Name})
     end;
-get_sup_pid({global, Name}) ->
+resolve_supervisor_reference({global, Name}) ->
     case global:whereis_name(Name) of
         Pid when is_pid(Pid) -> Pid;
         undefined -> error({nonexistent_process, {global, Name}})
     end;
-get_sup_pid({via, Module, Name}) ->
+resolve_supervisor_reference({via, Module, Name}) ->
     case Module:whereis_name(Name) of
         Pid when is_pid(Pid) -> Pid;
         undefined -> error({nonexistent_process, {via, Module, Name}})
@@ -2619,7 +2622,7 @@ get_sup_pid({via, Module, Name}) ->
 %% Helper function to build a tree node for a single child
 build_tree_node(Id, Child, Type, Modules) ->
     Subtree = case Type of
-        supervisor when is_pid(Child), Child =/= undefined ->
+        supervisor when is_pid(Child) ->
             try which_children(Child) of
                 Children ->
                     [build_tree_node(CId, CPid, CType, CMods) ||
