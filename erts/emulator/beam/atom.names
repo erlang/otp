@@ -311,6 +311,7 @@ atom extra
 atom false
 atom fcgi
 atom fd
+atom filename
 atom first
 atom firstline
 atom flags
