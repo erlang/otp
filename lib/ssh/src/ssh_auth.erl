@@ -233,43 +233,43 @@ handle_userauth_request(#ssh_msg_service_request{name = Name = "ssh-userauth"},
     {ok, {#ssh_msg_service_accept{name = Name},
           Ssh#ssh{service = "ssh-connection"}}};
 
+%% this clause is not needed
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  service = "ssh-connection",
-						  method = "password",
+						  method = Method}, _,
+			#ssh{kb_tries_left = Tries} = Ssh) when Tries =/= infinity, Tries < 1 ->
+    userauth_failure(User, Method, "Too many authentication failures", Ssh);
+
+handle_userauth_request(#ssh_msg_userauth_request{user = User,
+						  service = "ssh-connection",
+						  method = "password" = Method,
 						  data = <<?FALSE, ?UINT32(Sz), Password:Sz/binary>>}, _, 
-			#ssh{userauth_supported_methods = Methods} = Ssh) ->
+                        Ssh) ->
     case check_password(User, Password, Ssh) of
 	{true,Ssh1} ->
 	    {authorized, User,
 	     {#ssh_msg_userauth_success{}, Ssh1}
             };
 	{false,Ssh1}  ->
-	    {not_authorized, {User, {error,"Bad user or password"}}, 
-	     {#ssh_msg_userauth_failure{authentications = Methods,
-                                        partial_success = false}, Ssh1}
-            }
+            userauth_failure(User, Method, {error,"Bad user or password"}, Ssh1)
     end;
 
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  service = "ssh-connection",
-						  method = "password",
+						  method = "password" = Method,
 						  data = <<?TRUE,
 							   _/binary
 							   %% ?UINT32(Sz1), OldBinPwd:Sz1/binary,
 							   %% ?UINT32(Sz2), NewBinPwd:Sz2/binary
 							 >>
-						 }, _, 
-			#ssh{userauth_supported_methods = Methods} = Ssh) ->
+						 }, _, Ssh) ->
     %% Password change without us having sent SSH_MSG_USERAUTH_PASSWD_CHANGEREQ (because we never do)
     %% RFC 4252 says:
     %%   SSH_MSG_USERAUTH_FAILURE without partial success - The password
     %%   has not been changed.  Either password changing was not supported,
     %%   or the old password was bad. 
 
-    {not_authorized, {User, {error,"Password change not supported"}}, 
-     {#ssh_msg_userauth_failure{authentications = Methods,
-                                partial_success = false}, Ssh}
-    };
+    userauth_failure(User, Method, "Password change not supported", Ssh);
 
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  service = "ssh-connection",
@@ -292,15 +292,13 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  service = "ssh-connection",
-						  method = "publickey",
+						  method = "publickey" = Method,
 						  data = <<?BYTE(?FALSE),
 							   ?UINT32(ALen), BAlg:ALen/binary,
 							   ?UINT32(KLen), KeyBlob:KLen/binary,
 							   _/binary
 							 >>
-						 }, 
-			_SessionId, 
-			#ssh{userauth_supported_methods = Methods} = Ssh0) ->
+						 }, _SessionId, Ssh0) ->
     Ssh =
         case check_user(User, Ssh0) of
             {true,Ssh01} -> Ssh01#ssh{user=User};
@@ -313,26 +311,21 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 	true ->
 	    {not_authorized, {User, undefined},
              {#ssh_msg_userauth_pk_ok{algorithm_name = binary_to_list(BAlg),
-                                     key_blob = KeyBlob}, Ssh}
+                                      key_blob = KeyBlob}, Ssh}
             };
 	false ->
-	    {not_authorized, {User, undefined}, 
-	     {#ssh_msg_userauth_failure{authentications = Methods,
-                                        partial_success = false}, Ssh}
-            }
+            userauth_failure(User, Method, undefined, Ssh)
     end;
 
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  service = "ssh-connection",
-						  method = "publickey",
+						  method = "publickey" = Method,
 						  data = <<?BYTE(?TRUE),
 							   ?UINT32(ALen), BAlg:ALen/binary,
 							   ?UINT32(KLen), KeyBlob:KLen/binary,
 							   SigWLen/binary>>
 						 }, 
-			SessionId, 
-			#ssh{user = PreVerifyUser,
-                             userauth_supported_methods = Methods} = Ssh0) ->
+			SessionId, #ssh{user = PreVerifyUser} = Ssh0) ->
     
     {UserOk,Ssh} = check_user(User, Ssh0),
     case
@@ -345,10 +338,7 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
              {#ssh_msg_userauth_success{}, Ssh}
             };
 	false ->
-	    {not_authorized, {User, undefined}, 
-	     {#ssh_msg_userauth_failure{authentications = Methods,
-                                        partial_success = false}, Ssh}
-            }
+            userauth_failure(User, Method, undefined, Ssh)
     end;
 
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
@@ -445,9 +435,7 @@ handle_userauth_info_request(#ssh_msg_userauth_info_request{name = Name,
 handle_userauth_info_response(#ssh_msg_userauth_info_response{num_responses = 1,
 							      data = <<?UINT32(Sz), Password:Sz/binary>>},
 			      #ssh{opts = Opts,
-				   kb_tries_left = KbTriesLeft,
-				   user = User,
-				   userauth_supported_methods = Methods} = Ssh) ->
+				   user = User} = Ssh) ->
     SendOneEmpty =
 	(?GET_OPT(tstflg,Opts) == one_empty)
 	orelse 
@@ -469,10 +457,8 @@ handle_userauth_info_response(#ssh_msg_userauth_info_response{num_responses = 1,
 	     {#ssh_msg_userauth_success{}, Ssh1}};
 
 	{false,Ssh1} ->
-	    {not_authorized, {User, {error,"Bad user or password"}}, 
-	     {#ssh_msg_userauth_failure{authentications = Methods,
-                                        partial_success = false}, 
-              Ssh1#ssh{kb_tries_left = max(KbTriesLeft-1, 0)}}}
+            Method = "keyboard-interactive",
+            userauth_failure(User, Method, {error,"Bad user or password"}, Ssh1)
     end;
 
 handle_userauth_info_response({extra,#ssh_msg_userauth_info_response{}},
@@ -665,6 +651,39 @@ keyboard_interact_fun(KbdInteractFun, Name, Instr,  PromptInfos) ->
 write_if_nonempty(_, "") -> ok;
 write_if_nonempty(_, <<>>) -> ok;
 write_if_nonempty(IoCb, Text) -> IoCb:format("~s~n",[Text]).
+
+%%@doc Create auth tries exceeded error to close the connection, or create
+%% auth failed error, to retry the password attempt (if tries are remaining).
+%% If called after authentication attempt, NewTries comes with new reduced
+%% value and we decide here whether to return {not_authorized...} or
+%% {auth_tries_exceeded...}
+%% https://github.com/openssh/openssh-portable/blob/acf749756872d7555eca48514e5aca6962116fb2/auth2.c#L443-L454
+%% openssh doesn't count the initial try if "none", we are not counting that also
+userauth_failure(User, Method, _Error,
+                 #ssh{kb_tries_left = Tries, userauth_supported_methods = Methods} = Ssh)
+  when Tries =/= infinity, Tries =< 1 ->
+    Details = #{authmethod => Method,
+                methods => Methods,
+                auth_tries_left => Tries,
+                reason => "Too many authentication failures",
+                user => User},
+    {auth_tries_exceeded, Details, Ssh};
+userauth_failure(User, Method, Reason,
+                 #ssh{kb_tries_left = Tries, userauth_supported_methods = Methods} = Ssh) ->
+    AuthTriesLeft = reduce_tries_count(Tries),
+    _Details = #{authmethod => Method,
+                 methods => Methods,
+                 auth_tries_left => AuthTriesLeft,
+                 reason => Reason,
+                 user => User},
+
+    {not_authorized, {User, Reason},
+     {#ssh_msg_userauth_failure{authentications = Methods,
+                                partial_success = false},
+      Ssh#ssh{kb_tries_left = AuthTriesLeft}}}.
+
+reduce_tries_count(infinity) -> infinity;
+reduce_tries_count(N) -> N - 1.
 
 %%%----------------------------------------------------------------
 %%% Called just for the tracer ssh_dbg

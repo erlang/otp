@@ -94,6 +94,12 @@ handle_event(internal,
                              [set_alive_timeout(D), set_max_initial_idle_timeout(D),
                               {change_callback_module,ssh_connection_handler}
                              ]};
+			{auth_tries_exceeded, _, Ssh = #ssh{}} ->
+                            {Shutdown, D} = ?send_disconnect(
+                                ?SSH_DISCONNECT_PROTOCOL_ERROR,
+                                "Too many authentication failures", StateName,
+                                D0#data{ssh_params = Ssh}),
+                            {stop, Shutdown, D};
 			{not_authorized, {User, Reason}, {Reply, Ssh}} when Method == "keyboard-interactive" ->
 			    retry_fun(User, Reason, D1),
                             D = ssh_connection_handler:send_msg(Reply, D1#data{ssh_params = Ssh}),
@@ -122,7 +128,8 @@ handle_event(internal,
             {stop, Shutdown, D}
     end;
 
-handle_event(internal, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_interactive, server}, D0) ->
+handle_event(internal, #ssh_msg_userauth_info_response{} = Msg,
+             {userauth_keyboard_interactive, server} = StateName, D0) ->
     case ssh_auth:handle_userauth_info_response(Msg, D0#data.ssh_params) of
 	{authorized, User, {Reply, Ssh1}} ->
             D = connected_state(Reply, Ssh1, User, "keyboard-interactive", D0),
@@ -134,7 +141,12 @@ handle_event(internal, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboa
 	    retry_fun(User, Reason, D0),
             D = ssh_connection_handler:send_msg(Reply, D0#data{ssh_params = Ssh}),
 	    {next_state, {userauth,server}, D};
-
+        {auth_tries_exceeded, _, Ssh = #ssh{}} ->
+            {Shutdown, D} = ?send_disconnect(
+                               ?SSH_DISCONNECT_PROTOCOL_ERROR,
+                               "Too many authentication failures", StateName,
+                               D0#data{ssh_params = Ssh}),
+            {stop, Shutdown, D};
 	{authorized_but_one_more, _User,  {Reply, Ssh}} ->
             D = ssh_connection_handler:send_msg(Reply, D0#data{ssh_params = Ssh}),
 	    {next_state, {userauth_keyboard_interactive_extra,server}, D}
