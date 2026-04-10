@@ -209,6 +209,11 @@
 # define HAVE_SHA512_256
 #endif
 
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,2,0)	\
+    && !defined(OPENSSL_NO_SIV)
+# define HAVE_GCM_SIV
+#endif
+
 // SHA3:
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,1)
 // An error in beta releases of 1.1.1 fixed in production release
