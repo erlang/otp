@@ -758,6 +758,7 @@ extern ErtsAlignedSchedulerData * ERTS_WRITE_UNLIKELY(erts_aligned_scheduler_dat
 extern ErtsAlignedSchedulerData * ERTS_WRITE_UNLIKELY(erts_aligned_dirty_cpu_scheduler_data);
 extern ErtsAlignedSchedulerData * ERTS_WRITE_UNLIKELY(erts_aligned_dirty_io_scheduler_data);
 
+Uint erts_bif_timer_count(void);
 
 #if defined(ERTS_ENABLE_LOCK_CHECK)
 int erts_lc_runq_is_locked(ErtsRunQueue *);
