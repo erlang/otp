@@ -20,8 +20,7 @@
  * %CopyrightEnd%
  */
 
-#ifndef E_DIGEST_H__
-#define E_DIGEST_H__ 1
+#pragma once
 
 #include "common.h"
 
@@ -54,5 +53,3 @@ struct digest_type_t* get_digest_type(ERL_NIF_TERM type);
 #ifdef HAS_3_0_API
 ERL_NIF_TERM digest_types_as_list(ErlNifEnv* env);
 #endif
-
-#endif /* E_DIGEST_H__ */

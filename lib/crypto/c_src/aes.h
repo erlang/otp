@@ -20,8 +20,7 @@
  * %CopyrightEnd%
  */
 
-#ifndef E_AES_H__
-#define E_AES_H__ 1
+#pragma once
 
 #include "common.h"
 
@@ -32,5 +31,3 @@ ERL_NIF_TERM aes_ctr_stream_encrypt_compat(ErlNifEnv* env, const ERL_NIF_TERM st
 #ifdef HAVE_GCM_EVP_DECRYPT_BUG
 ERL_NIF_TERM aes_gcm_decrypt_NO_EVP(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 #endif
-
-#endif /* E_AES_H__ */

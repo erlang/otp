@@ -20,8 +20,7 @@
  * %CopyrightEnd%
  */
 
-#ifndef E_CIPHER_H__
-#define E_CIPHER_H__ 1
+#pragma once
 
 #include "common.h"
 
@@ -85,5 +84,3 @@ int cmp_cipher_types(const void *keyp, const void *elemp);
 int cmp_cipher_types_no_key(const void *keyp, const void *elemp);
 
 ERL_NIF_TERM cipher_types_as_list(ErlNifEnv* env);
-
-#endif /* E_CIPHER_H__ */

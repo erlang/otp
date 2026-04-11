@@ -20,8 +20,7 @@
  * %CopyrightEnd%
  */
 
-#ifndef E_BN_H__
-#define E_BN_H__ 1
+#pragma once
 
 #include "common.h"
 
@@ -50,6 +49,3 @@ int get_ossl_param_from_bin_in_list_x(ErlNifEnv* env, char* key, ERL_NIF_TERM *l
 #define get_ossl_param_from_bin_in_list(ENV,KEY,CELL,DEST) get_ossl_param_from_bin_in_list_x(ENV,KEY,CELL,DEST,NULL)
 
 #endif
-
-#endif /* E_BN_H__ */
-

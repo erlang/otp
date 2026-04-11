@@ -20,8 +20,7 @@
  * %CopyrightEnd%
  */
 
-#ifndef E_EVP_COMPAT_H__
-#define E_EVP_COMPAT_H__ 1
+#pragma once
 
 /*
  * In OpenSSL 1.1.0, most structs are opaque. That means that
@@ -208,5 +207,3 @@ DH_get0_key(const DH *dh, const BIGNUM **pub_key, const BIGNUM **priv_key)
     if (priv_key)
         *priv_key = dh->priv_key;
 }
-
-#endif /* E_EVP_COMPAT_H__ */

@@ -20,8 +20,7 @@
  * %CopyrightEnd%
  */
 
-#ifndef E_ATOMS_H__
-#define E_ATOMS_H__ 1
+#pragma once
 
 #include <erl_nif.h>
 #include "openssl_config.h"
@@ -159,5 +158,3 @@ extern ERL_NIF_TERM atom_mlkem1024;
 #endif
 
 int init_atoms(ErlNifEnv *env);
-
-#endif /* E_ATOMS_H__ */

@@ -20,8 +20,7 @@
  * %CopyrightEnd%
  */
 
-#ifndef E_MAC_H__
-#define E_MAC_H__ 1
+#pragma once
 
 #include "common.h"
 
@@ -36,5 +35,3 @@ ERL_NIF_TERM mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM mac_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM mac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-
-#endif /* E_MAC_H__ */

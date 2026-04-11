@@ -20,8 +20,7 @@
  * %CopyrightEnd%
  */
 
-#ifndef E_OPENSSL_CONFIG_H__
-#define E_OPENSSL_CONFIG_H__ 1
+#pragma once
 
 #define OPENSSL_THREAD_DEFINES
 #include <openssl/opensslconf.h>
@@ -555,5 +554,3 @@ do {                                                    \
 
 //# define CRYPTO_DEVELOP_ERRORS
 #endif
-
-#endif /* E_OPENSSL_CONFIG_H__ */

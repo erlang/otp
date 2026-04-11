@@ -20,8 +20,7 @@
  * %CopyrightEnd%
  */
 
-#ifndef E_EC_H__
-#define E_EC_H__ 1
+#pragma once
 
 #include "common.h"
 
@@ -53,5 +52,3 @@ int term2point(ErlNifEnv* env, ERL_NIF_TERM term, EC_GROUP *group, EC_POINT **pp
 #endif
 
 ERL_NIF_TERM ec_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-
-#endif /* E_EC_H__ */

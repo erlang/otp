@@ -20,8 +20,7 @@
  * %CopyrightEnd%
  */
 
-#ifndef E_HMAC_H__
-#define E_HMAC_H__ 1
+#pragma once
 
 #include "common.h"
 
@@ -37,5 +36,3 @@ int hmac_low_level(ErlNifEnv* env, const EVP_MD *md,
                    ErlNifBinary key_bin, ErlNifBinary text,
                    ErlNifBinary *ret_bin, int *ret_bin_alloc, ERL_NIF_TERM *return_term);
 #endif
-
-#endif /* E_HMAC_H__ */

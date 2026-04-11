@@ -20,8 +20,7 @@
  * %CopyrightEnd%
  */
 
-#ifndef E_OPENSSL_VERSION_H__
-#define E_OPENSSL_VERSION_H__ 1
+#pragma once
 
 #include <openssl/opensslv.h>
 
@@ -53,5 +52,3 @@
 #define PACKED_OPENSSL_VERSION_PLAIN(MAJ, MIN, FIX) \
     PACKED_OPENSSL_VERSION(MAJ,MIN,FIX,('a'-1))
 
-
-#endif /* E_OPENSSL_VERSION_H__ */

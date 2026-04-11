@@ -20,8 +20,7 @@
  * %CopyrightEnd%
  */
 
-#ifndef E_CMAC_H__
-#define E_CMAC_H__ 1
+#pragma once
 
 #include "common.h"
 
@@ -32,5 +31,3 @@ int cmac_low_level(ErlNifEnv* env,
                    ErlNifBinary *ret_bin, int *ret_bin_alloc, ERL_NIF_TERM *return_term);
 
 #endif
-
-#endif /* E_CMAC_H__ */

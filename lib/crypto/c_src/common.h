@@ -20,8 +20,7 @@
  * %CopyrightEnd%
  */
 
-#ifndef E_COMMON_H__
-#define E_COMMON_H__ 1
+#pragma once
 
 #ifdef __WIN32__
 #include <windows.h>
@@ -37,7 +36,6 @@
 #include <erl_nif.h>
 #include "atoms.h"
 #include "openssl_config.h"
-
 
 /* All nif functions return a valid value or throws an exception */
 ERL_NIF_TERM raise_exception(ErlNifEnv *env, ERL_NIF_TERM id, int arg_num, const char *explanation, const char *file,
@@ -69,5 +67,3 @@ static inline ERL_NIF_TERM RAISE_NOTSUP(ErlNifEnv *Env) { return enif_raise_exce
         Var = (CALL);                                                                                                  \
         goto Goto;                                                                                                     \
     }
-
-#endif /* E_COMMON_H__ */

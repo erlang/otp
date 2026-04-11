@@ -20,8 +20,7 @@
  * %CopyrightEnd%
  */
 
-#ifndef E_INFO_H__
-#define E_INFO_H__ 1
+#pragma once
 
 #include "common.h"
 
@@ -47,5 +46,3 @@ const char* resource_name(const char *name, ErlNifBinary* buf);
 ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 ERL_NIF_TERM info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-
-#endif /* E_INFO_H__ */

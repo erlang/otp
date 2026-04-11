@@ -20,8 +20,7 @@
  * %CopyrightEnd%
  */
 
-#ifndef E_ENGINE_H__
-#define E_ENGINE_H__ 1
+#pragma once
 
 #include "common.h"
 
@@ -51,4 +50,3 @@ ERL_NIF_TERM engine_get_name_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 ERL_NIF_TERM engine_get_all_methods_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM ensure_engine_unloaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-#endif /* E_ENGINE_H__ */
