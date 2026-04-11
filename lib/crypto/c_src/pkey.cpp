@@ -29,6 +29,8 @@
 #include "engine.h"
 #include "rsa.h"
 
+#include <stdint.h>
+
 typedef struct PKeyCryptOptions {
     const EVP_MD *rsa_mgf1_md;
     ErlNifBinary rsa_oaep_label;
@@ -171,7 +173,7 @@ struct pkey_type_t pkey_types[] = {
     },
 #endif
 
-    {.name.atom_str = NULL}
+    {nullptr} // terminating record all zeroes
 };
 struct pkey_type_t *pkey_types_end;
 
@@ -1330,7 +1332,7 @@ ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     size_t tmplen;
 #endif
     int is_private, is_encrypt;
-    unsigned char *label_copy = NULL;
+    uint8_t *label_copy = NULL;
 
     is_private = (argv[4] == atom_true);
     is_encrypt = (argv[5] == atom_true);
@@ -1424,7 +1426,7 @@ ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
             if (crypt_opt.rsa_oaep_label.data != NULL && crypt_opt.rsa_oaep_label.size > 0) {
                 if (crypt_opt.rsa_oaep_label.size > INT_MAX)
                     assign_goto(ret, err, EXCP_BADARG_N(env, 3, "RSA oep label too large"));
-                if ((label_copy = OPENSSL_malloc(crypt_opt.rsa_oaep_label.size)) == NULL)
+                if ((label_copy = reinterpret_cast<uint8_t *>(OPENSSL_malloc(crypt_opt.rsa_oaep_label.size))) == NULL)
                     goto err;
 
                 memcpy((void *)(label_copy), (const void *)(crypt_opt.rsa_oaep_label.data),

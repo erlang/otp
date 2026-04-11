@@ -676,7 +676,7 @@ ERL_NIF_TERM ng_crypto_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     ERL_NIF_TERM ret;
 
     if (enif_is_atom(env, argv[0])) {
-        if ((ctx_res = enif_alloc_resource(evp_cipher_ctx_rtype, sizeof(struct evp_cipher_ctx))) == NULL)
+        if ((ctx_res = reinterpret_cast<evp_cipher_ctx *>(enif_alloc_resource(evp_cipher_ctx_rtype, sizeof(struct evp_cipher_ctx)))) == NULL)
             return EXCP_ERROR(env, "Can't allocate resource");
 
         if (get_init_args(env, ctx_res, argv, 0, 1, 2, 3, &cipherp, &ret))

@@ -29,7 +29,7 @@
 extern char *crypto_callback_name;
 
 int change_basename(ErlNifBinary* bin, char* buf, size_t bufsz, const char* newfile);
-void error_handler(void* null, const char* errstr);
+extern "C" void error_handler(void* null, const char* errstr);
 #endif
 
 /** @brief Construct a versioned name for resource types to try

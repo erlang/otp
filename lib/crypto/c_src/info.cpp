@@ -83,7 +83,7 @@ int change_basename(ErlNifBinary* bin, char* buf, size_t bufsz, const char* newf
     return 0;
 }
 
-void error_handler(void* null, const char* errstr)
+extern "C" void error_handler(void* null, const char* errstr)
 {
     PRINTF_ERR1("CRYPTO LOADING ERROR: '%s'", errstr);
 }

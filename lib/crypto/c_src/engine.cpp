@@ -21,6 +21,7 @@
  */
 
 #include "engine.h"
+#include "../../../erts/emulator/test/nif_SUITE_data/nif_api_2_4/erl_nif.h"
 #include "info.h"
 
 #ifdef HAS_ENGINE_SUPPORT
@@ -100,7 +101,7 @@ char *get_key_password(ErlNifEnv *env, ERL_NIF_TERM key) {
 }
 
 static int zero_terminate(ErlNifBinary bin, char **buf) {
-    if ((*buf = enif_alloc(bin.size + 1)) == NULL)
+    if ((*buf = reinterpret_cast<char*>(enif_alloc(bin.size + 1))) == NULL)
         goto err;
 
     memcpy(*buf, bin.data, bin.size);
@@ -118,7 +119,7 @@ int init_engine_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf) {
     engine_ctx_rtype = enif_open_resource_type(env, NULL,
                                                resource_name("ENGINE_CTX", rt_buf),
                                                (ErlNifResourceDtor*) engine_ctx_dtor,
-                                               ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
+                                               static_cast<ErlNifResourceFlags>(ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER),
                                                NULL);
     if (engine_ctx_rtype == NULL) {
         PRINTF_ERR0("CRYPTO: Could not open resource type 'ENGINE_CTX'");
@@ -175,7 +176,7 @@ static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, cha
     if (!enif_inspect_binary(env, tmp_tuple[0], &tmpbin))
         goto err;
 
-    if ((tuple1 = enif_alloc(tmpbin.size + 1)) == NULL)
+    if ((tuple1 = reinterpret_cast<char*>(enif_alloc(tmpbin.size + 1))) == NULL)
         goto err;
 
     (void) memcpy(tuple1, tmpbin.data, tmpbin.size);
@@ -189,7 +190,7 @@ static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, cha
     if (tmpbin.size == 0) {
         tuple2 = NULL;
     } else {
-        if ((tuple2 = enif_alloc(tmpbin.size + 1)) == NULL)
+        if ((tuple2 = reinterpret_cast<char*>(enif_alloc(tmpbin.size + 1))) == NULL)
             goto err;
         (void) memcpy(tuple2, tmpbin.data, tmpbin.size);
         tuple2[tmpbin.size] = '\0';
@@ -366,7 +367,7 @@ ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     if (!enif_inspect_binary(env, argv[0], &engine_id_bin))
         goto bad_arg;
 
-    if ((engine_id = enif_alloc(engine_id_bin.size+1)) == NULL)
+    if ((engine_id = reinterpret_cast<char*>(enif_alloc(engine_id_bin.size+1))) == NULL)
         goto err;
     (void) memcpy(engine_id, engine_id_bin.data, engine_id_bin.size);
     engine_id[engine_id_bin.size] = '\0';
@@ -377,7 +378,7 @@ ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
         ret = ERROR_Atom(env, "bad_engine_id");
         goto done;
     }
-    if ((ctx = enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx))) == NULL)
+    if ((ctx = reinterpret_cast<engine_ctx*>(enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx)))) == NULL)
         goto err;
     ctx->engine = engine;
     ctx->is_functional = 0;
@@ -516,7 +517,7 @@ ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF
 
     if ((size_t)cmds_len + 1 > SIZE_MAX / sizeof(char*))
         goto err;
-    if ((cmds = enif_alloc((cmds_len + 1) * sizeof(char*))) == NULL)
+    if ((cmds = reinterpret_cast<char**>(enif_alloc((cmds_len + 1) * sizeof(char*)))) == NULL)
         goto err;
 
     cmds_top = 0;
@@ -710,7 +711,7 @@ ERL_NIF_TERM engine_get_first_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         return enif_make_tuple2(env, atom_ok, enif_make_binary(env, &engine_bin));
     }
 
-    if ((ctx = enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx))) == NULL)
+    if ((ctx = reinterpret_cast<engine_ctx*>(enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx)))) == NULL)
         goto err;
     ctx->is_functional = 0;
     ctx->engine = engine;
@@ -734,7 +735,7 @@ ERL_NIF_TERM engine_get_first_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 }
 
 ERL_NIF_TERM engine_get_next_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Engine) */
+{/* (Engine) TODO: Engine is deprecated post OpenSSL 3.0 and must be disabled/rewritten */
 #ifdef HAS_ENGINE_SUPPORT
     ERL_NIF_TERM ret, result;
     ENGINE *engine;
@@ -763,7 +764,7 @@ ERL_NIF_TERM engine_get_next_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         return enif_make_tuple2(env, atom_ok, enif_make_binary(env, &engine_bin));
     }
 
-    if ((next_ctx = enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx))) == NULL)
+    if ((next_ctx = reinterpret_cast<engine_ctx*>(enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx)))) == NULL)
         goto err;
     next_ctx->engine = engine;
     next_ctx->is_functional = 0;
@@ -936,7 +937,7 @@ ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
     if (!enif_inspect_binary(env, argv[0], &engine_id_bin))
         goto bad_arg;
 
-    if ((engine_id = enif_alloc(engine_id_bin.size+1)) == NULL)
+    if ((engine_id = reinterpret_cast<char*>(enif_alloc(engine_id_bin.size+1))) == NULL)
         goto bad_arg;
 
     (void) memcpy(engine_id, engine_id_bin.data, engine_id_bin.size);
@@ -946,7 +947,7 @@ ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
     if (!enif_inspect_binary(env, argv[1], &library_path_bin))
         goto bad_arg;
 
-    if ((library_path = enif_alloc(library_path_bin.size+1)) == NULL)
+    if ((library_path = reinterpret_cast<char*>(enif_alloc(library_path_bin.size+1))) == NULL)
         goto bad_arg;
 
     (void) memcpy(library_path, library_path_bin.data, library_path_bin.size);
@@ -1001,7 +1002,7 @@ ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
     }
         
     /* Get structural reference to already loaded engine */
-    if ((ctx = enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx))) == NULL) {
+    if ((ctx = reinterpret_cast<engine_ctx*>(enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx)))) == NULL) {
         ret = enif_make_badarg(env);
         ENGINE_finish(engine);
         goto err;

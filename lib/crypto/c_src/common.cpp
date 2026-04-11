@@ -26,7 +26,7 @@
 #define MAX_CRYPTOLIB_ERR_SIZE 256
 #define SEP ": "
 
-ERL_NIF_TERM raise_exception(ErlNifEnv* env, ERL_NIF_TERM id, int arg_num, char* explanation, char* file, int line)
+ERL_NIF_TERM raise_exception(ErlNifEnv* env, ERL_NIF_TERM id, int arg_num, const char* explanation, const char* file, int line)
 /* Ex: raise_exception(atom_badarg, 1, "Unknown cipher", "api_ng.c", 17)
  *    -> {badarg, {"api_ng.c",17}, 1, "Unknown cipher"}
  * id = atom_error | atom_notsup | atom_badarg
@@ -34,7 +34,7 @@ ERL_NIF_TERM raise_exception(ErlNifEnv* env, ERL_NIF_TERM id, int arg_num, char*
  */
 {
     ERL_NIF_TERM file_info, exception;
-    char *error_msg;
+    const char *error_msg;
 
 #ifdef CRYPTO_DEVELOP_ERRORS
     /* Set CRYPTO_DEVELOP_ERRORS to make error messages more verbose,

@@ -21,12 +21,13 @@
  */
 
 #include "aead.h"
+#include "../../../erts/emulator/test/nif_SUITE_data/nif_api_2_4/erl_nif.h"
 #include "aes.h"
 #include "cipher.h"
 #include "info.h"
 
 
-ErlNifResourceType* aead_cipher_ctx_rtype;
+ErlNifResourceType * aead_cipher_ctx_rtype;
 
 struct aead_cipher_ctx {
     const struct cipher_type_t *cipherp;
@@ -54,7 +55,7 @@ int init_aead_cipher_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf) {
     aead_cipher_ctx_rtype = enif_open_resource_type(env, NULL,
                                                     resource_name("AEAD_CIPHER_CTX", rt_buf),
                                                     (ErlNifResourceDtor*) aead_cipher_ctx_dtor,
-                                                    ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
+                                                    static_cast<ErlNifResourceFlags>(ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER),
                                                     NULL);
     if (aead_cipher_ctx_rtype == NULL)
         goto err;
@@ -75,7 +76,8 @@ ERL_NIF_TERM aead_cipher_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     ERL_NIF_TERM ret, encflg_arg, type;
     ErlNifBinary key;
 
-    if ((ctx_res = enif_alloc_resource(aead_cipher_ctx_rtype, sizeof(struct aead_cipher_ctx))) == NULL)
+    if ((ctx_res = reinterpret_cast<aead_cipher_ctx *>(
+                 enif_alloc_resource(aead_cipher_ctx_rtype, sizeof(struct aead_cipher_ctx)))) == NULL)
         return EXCP_ERROR(env, "Can't allocate resource");
 
     ctx_res->env = enif_alloc_env();

@@ -21,8 +21,9 @@
  */
 
 #include "cipher.h"
-#include "info.h"
+#include "../../../erts/emulator/test/nif_SUITE_data/nif_api_2_4/erl_nif.h"
 #include "evp.h"
+#include "info.h"
 
 #define NOT_AEAD {{0,0,0}}
 #define AEAD_CTRL {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}
@@ -193,7 +194,7 @@ int init_cipher_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf) {
     evp_cipher_ctx_rtype = enif_open_resource_type(env, NULL,
                                                    resource_name("EVP_CIPHER_CTX", rt_buf),
                                                    (ErlNifResourceDtor*) evp_cipher_ctx_dtor,
-                                                   ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
+                                                   static_cast<ErlNifResourceFlags>(ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER),
                                                    NULL);
     if (evp_cipher_ctx_rtype == NULL)
         goto err;
@@ -246,13 +247,14 @@ const struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len)
     key.type.atom = type;
     key.key_len = key_len;
 
-    return bsearch(&key, cipher_types, num_cipher_types, sizeof(cipher_types[0]), cmp_cipher_types);
+    return reinterpret_cast<cipher_type_t *>(
+            bsearch(&key, cipher_types, num_cipher_types, sizeof(cipher_types[0]), cmp_cipher_types));
 }
 
 
 int cmp_cipher_types(const void *keyp, const void *elemp) {
-    const struct cipher_type_t *key  = keyp;
-    const struct cipher_type_t *elem = elemp;
+    auto key  = reinterpret_cast<const cipher_type_t*>(keyp);
+    auto elem = reinterpret_cast<const cipher_type_t*>(elemp);
 
     if (key->type.atom < elem->type.atom) return -1;
     else if (key->type.atom > elem->type.atom) return 1;
@@ -376,12 +378,13 @@ const struct cipher_type_t* get_cipher_type_no_key(ERL_NIF_TERM type)
 
     key.type.atom = type;
 
-    return bsearch(&key, cipher_types, num_cipher_types, sizeof(cipher_types[0]), cmp_cipher_types_no_key);
+    return reinterpret_cast<cipher_type_t *>(
+            bsearch(&key, cipher_types, num_cipher_types, sizeof(cipher_types[0]), cmp_cipher_types_no_key));
 }
 
 int cmp_cipher_types_no_key(const void *keyp, const void *elemp) {
-    const struct cipher_type_t *key  = keyp;
-    const struct cipher_type_t *elem = elemp;
+    const auto key  = reinterpret_cast<const cipher_type_t *>(keyp);
+    const auto elem = reinterpret_cast<const cipher_type_t *>(elemp);
     int ret;
 
     if (key->type.atom < elem->type.atom) ret = -1;

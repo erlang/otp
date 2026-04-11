@@ -56,7 +56,7 @@ int init_hash_ctx(ErlNifEnv* env, ErlNifBinary* rt_buf) {
     evp_md_ctx_rtype = enif_open_resource_type(env, NULL,
                                                resource_name("EVP_MD_CTX", rt_buf),
                                                (ErlNifResourceDtor*) evp_md_ctx_dtor,
-                                               ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
+                                               static_cast<ErlNifResourceFlags>(ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER),
                                                NULL);
     if (evp_md_ctx_rtype == NULL)
         goto err;
@@ -179,7 +179,7 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if (digp->md.p == NULL)
         return EXCP_NOTSUP_N(env, 0, "Unsupported digest type");
 
-    if ((ctx = enif_alloc_resource(evp_md_ctx_rtype, sizeof(struct evp_md_ctx))) == NULL)
+    if ((ctx = reinterpret_cast<evp_md_ctx*>(enif_alloc_resource(evp_md_ctx_rtype, sizeof(struct evp_md_ctx)))) == NULL)
         return EXCP_ERROR(env, "Can't allocate nif resource");
     if ((ctx->ctx = EVP_MD_CTX_new()) == NULL)
         assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_new failed"));
@@ -221,7 +221,7 @@ ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
         return EXCP_BADARG_N(env, 1, "Not iolist");
 
-    if ((new_ctx = enif_alloc_resource(evp_md_ctx_rtype, sizeof(struct evp_md_ctx))) == NULL)
+    if ((new_ctx = reinterpret_cast<evp_md_ctx*>(enif_alloc_resource(evp_md_ctx_rtype, sizeof(struct evp_md_ctx)))) == NULL)
         return EXCP_ERROR(env, "Can't allocate nif resource");
     if ((new_ctx->ctx = EVP_MD_CTX_new()) == NULL)
         assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_new failed"));

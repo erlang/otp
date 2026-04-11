@@ -23,7 +23,7 @@
 #include "eddsa.h"
 
 #ifdef HAVE_EDDSA
-int get_eddsa_key(ErlNifEnv* env, int public, ERL_NIF_TERM key, EVP_PKEY **pkey)
+int get_eddsa_key(ErlNifEnv* env, int is_public, ERL_NIF_TERM key, EVP_PKEY **pkey)
 {
     /* key=[K] */
     EVP_PKEY *result;
@@ -50,7 +50,7 @@ int get_eddsa_key(ErlNifEnv* env, int public, ERL_NIF_TERM key, EVP_PKEY **pkey)
         goto err;
     }
 
-    if (public)
+    if (is_public)
         result = EVP_PKEY_new_raw_public_key(type, NULL, bin.data, bin.size);
     else 
         result = EVP_PKEY_new_raw_private_key(type, NULL, bin.data, bin.size);

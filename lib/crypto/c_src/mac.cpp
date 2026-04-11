@@ -20,12 +20,13 @@
  * %CopyrightEnd%
  */
 
-#include "common.h"
-#include "cipher.h"
-#include "digest.h"
-#include "cmac.h"
-#include "hmac.h"
 #include "mac.h"
+#include "../../../erts/emulator/test/nif_SUITE_data/nif_api_2_4/erl_nif.h"
+#include "cipher.h"
+#include "cmac.h"
+#include "common.h"
+#include "digest.h"
+#include "hmac.h"
 #include "info.h"
 
 /***************************
@@ -528,7 +529,7 @@ int init_mac_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf) {
     mac_context_rtype = enif_open_resource_type(env, NULL,
                                                 resource_name("mac_context", rt_buf),
                                                 (ErlNifResourceDtor*) mac_context_dtor,
-                                                ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
+                                                static_cast<ErlNifResourceFlags>(ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER),
                                                 NULL);
     if (mac_context_rtype == NULL)
         goto err;
@@ -740,7 +741,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             OSSL_PARAM_construct_utf8_string("digest", (char*)digest, 0);
     params[params_n] = OSSL_PARAM_construct_end();
 
-    if ((obj = enif_alloc_resource(mac_context_rtype, sizeof(struct mac_context))) == NULL)
+    if ((obj = reinterpret_cast<mac_context*>(enif_alloc_resource(mac_context_rtype, sizeof(struct mac_context)))) == NULL)
         assign_goto(return_term, err, EXCP_ERROR(env, "Can't allocate mac_context_rtype"));
 
     if (!(obj->ctx = EVP_MAC_CTX_new(macp->evp_mac)))

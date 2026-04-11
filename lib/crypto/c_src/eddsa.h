@@ -26,7 +26,7 @@
 #include "common.h"
 
 #ifdef HAVE_EDDSA
-int get_eddsa_key(ErlNifEnv* env, int public, ERL_NIF_TERM key, EVP_PKEY **pkey);
+int get_eddsa_key(ErlNifEnv* env, int is_public, ERL_NIF_TERM key, EVP_PKEY **pkey);
 #endif
 
 #endif /* E_EDDSA_H__ */

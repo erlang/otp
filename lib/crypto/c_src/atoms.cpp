@@ -57,7 +57,6 @@ ERL_NIF_TERM atom_prop_aead;
 ERL_NIF_TERM atom_key_length;
 ERL_NIF_TERM atom_iv_length;
 ERL_NIF_TERM atom_mode;
-ERL_NIF_TERM atom_encrypt;
 ERL_NIF_TERM atom_padding_size;
 ERL_NIF_TERM atom_padding_type;
 ERL_NIF_TERM atom_ecb_mode;

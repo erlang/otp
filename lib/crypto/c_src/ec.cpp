@@ -467,7 +467,7 @@ static int mk_pub_key_binary(ErlNifEnv* env, EVP_PKEY *peer_pkey,
         assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't get EC group name size"));
 
     if (group_name_size >= sizeof(group_name_buf))
-        group_name = enif_alloc(group_name_size + 1);
+        group_name = reinterpret_cast<char*>(enif_alloc(group_name_size + 1));
     if (!EVP_PKEY_get_utf8_string_param(peer_pkey, OSSL_PKEY_PARAM_GROUP_NAME,
                                             group_name, group_name_size+1,
                                             NULL))
