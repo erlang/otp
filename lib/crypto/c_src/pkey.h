@@ -55,7 +55,7 @@ int get_pkey_from_octet_string(ErlNifEnv*,
                                ERL_NIF_TERM alg_atom,
                                ERL_NIF_TERM key_bin,
                                enum pkey_format_t,
-                               struct pkey_type_t *pkey_type,
+                               const struct pkey_type_t *pkey_type,
                                EVP_PKEY **pkey_p,
                                ERL_NIF_TERM *ret_p);
 #endif

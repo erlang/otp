@@ -36,9 +36,9 @@ ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     if (bytes > INT_MAX)
         goto bad_arg;
 
-    if ((data = enif_make_new_binary(env, bytes, &ret)) == NULL)
+    if ((data = enif_make_new_binary(env, bytes, &ret)) == nullptr)
         goto err;
-    if (RAND_bytes(data, (int)bytes) != 1)
+    if (RAND_bytes(data, static_cast<int>(bytes)) != 1)
         goto err;
 
     ERL_VALGRIND_MAKE_MEM_DEFINED(data, bytes);
@@ -53,7 +53,7 @@ ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
 ERL_NIF_TERM strong_rand_range_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Range) */
-    BIGNUM *bn_range = NULL, *bn_rand = NULL;
+    BIGNUM *bn_range = nullptr, *bn_rand = nullptr;
     ERL_NIF_TERM ret;
 
     ASSERT(argc == 1);
@@ -61,7 +61,7 @@ ERL_NIF_TERM strong_rand_range_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     if (!get_bn_from_bin(env, argv[0], &bn_range))
         goto bad_arg;
 
-    if ((bn_rand = BN_new()) == NULL)
+    if ((bn_rand = BN_new()) == nullptr)
         goto err;
     if (!BN_rand_range(bn_rand, bn_range))
         goto err;
@@ -86,7 +86,7 @@ ERL_NIF_TERM strong_rand_range_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
 ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Lo,Hi) */
-    BIGNUM *bn_from = NULL, *bn_to = NULL, *bn_rand = NULL;
+    BIGNUM *bn_from = nullptr, *bn_to = nullptr, *bn_rand = nullptr;
     unsigned char* data;
     int dlen;
     ERL_NIF_TERM ret;
@@ -98,7 +98,7 @@ ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     if (!get_bn_from_mpint(env, argv[1], &bn_rand))
         goto bad_arg;
 
-    if ((bn_to = BN_new()) == NULL)
+    if ((bn_to = BN_new()) == nullptr)
         goto err;
 
     if (!BN_sub(bn_to, bn_rand, bn_from))
@@ -114,7 +114,7 @@ ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 
     if ((dlen = BN_num_bytes(bn_rand)) < 0)
         goto err;
-    if ((data = enif_make_new_binary(env, (size_t)dlen+4, &ret)) == NULL)
+    if ((data = enif_make_new_binary(env, (size_t)dlen+4, &ret)) == nullptr)
         goto err;
 
     put_uint32(data, (unsigned int)dlen);
@@ -147,7 +147,7 @@ ERL_NIF_TERM rand_seed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if (seed_bin.size > INT_MAX)
         goto bad_arg;
 
-    RAND_seed(seed_bin.data, (int)seed_bin.size);
+    RAND_seed(seed_bin.data, static_cast<int>(seed_bin.size));
     return atom_ok;
 
  bad_arg:

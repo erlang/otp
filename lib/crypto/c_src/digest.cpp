@@ -22,11 +22,11 @@
 
 #include "digest.h"
 
-static struct digest_type_t digest_types[] =
+static digest_type_t digest_types[] =
 {
     {"md4", "MD4", 0, NO_FIPS_DIGEST,
 #ifdef HAVE_MD4
-     {&EVP_md4,NULL}
+     {&EVP_md4, nullptr}
 #else
      {NULL,NULL}
 #endif
@@ -34,7 +34,7 @@ static struct digest_type_t digest_types[] =
 
     {"md5", "MD5", 0, NO_FIPS_DIGEST,
 #ifdef HAVE_MD5
-     {&EVP_md5,NULL}
+     {&EVP_md5, nullptr}
 #else
      {NULL,NULL}
 #endif
@@ -42,19 +42,19 @@ static struct digest_type_t digest_types[] =
 
     {"ripemd160", "RIPEMD160", 0, NO_FIPS_DIGEST,
 #ifdef HAVE_RIPEMD160
-     {&EVP_ripemd160,NULL}
+     {&EVP_ripemd160, nullptr}
 #else
      {NULL,NULL}
 #endif
     },
 
     {"sha", "SHA1", 0, PBKDF2_ELIGIBLE_DIGEST,
-     {&EVP_sha1,NULL}
+     {&EVP_sha1, nullptr}
     },
     
     {"sha224", "SHA2-224", 0, PBKDF2_ELIGIBLE_DIGEST,
 #ifdef HAVE_SHA224
-     {&EVP_sha224,NULL}
+     {&EVP_sha224, nullptr}
 #else
      {NULL,NULL}
 #endif
@@ -62,7 +62,7 @@ static struct digest_type_t digest_types[] =
 
     {"sha256", "SHA2-256", 0, PBKDF2_ELIGIBLE_DIGEST,
 #ifdef HAVE_SHA256
-     {&EVP_sha256,NULL}
+     {&EVP_sha256, nullptr}
 #else
      {NULL,NULL}
 #endif
@@ -70,7 +70,7 @@ static struct digest_type_t digest_types[] =
 
     {"sha384", "SHA2-384", 0, PBKDF2_ELIGIBLE_DIGEST,
 #ifdef HAVE_SHA384
-     {&EVP_sha384,NULL}
+     {&EVP_sha384, nullptr}
 #else
      {NULL,NULL}
 #endif
@@ -78,7 +78,7 @@ static struct digest_type_t digest_types[] =
 
     {"sha512", "SHA2-512", 0, PBKDF2_ELIGIBLE_DIGEST,
 #ifdef HAVE_SHA512
-     {&EVP_sha512,NULL}
+     {&EVP_sha512, nullptr}
 #else
      {NULL,NULL}
 #endif
@@ -86,7 +86,7 @@ static struct digest_type_t digest_types[] =
 
     {"sha512_224", "SHA2-512/224", 0, PBKDF2_ELIGIBLE_DIGEST,
 #ifdef HAVE_SHA512_224
-     {&EVP_sha512_224,NULL}
+     {&EVP_sha512_224, nullptr}
 #else
      {NULL,NULL}
 #endif
@@ -94,7 +94,7 @@ static struct digest_type_t digest_types[] =
 
     {"sha512_256", "SHA2-512/256", 0, PBKDF2_ELIGIBLE_DIGEST,
 #ifdef HAVE_SHA512_256
-     {&EVP_sha512_256,NULL}
+     {&EVP_sha512_256, nullptr}
 #else
      {NULL,NULL}
 #endif
@@ -102,7 +102,7 @@ static struct digest_type_t digest_types[] =
 
     {"sha3_224", "SHA3-224", 0, 0,
 #ifdef HAVE_SHA3_224
-     {&EVP_sha3_224,NULL}
+     {&EVP_sha3_224, nullptr}
 #else
      {NULL,NULL}
 #endif
@@ -110,7 +110,7 @@ static struct digest_type_t digest_types[] =
 
     {"sha3_256", "SHA3-256", 0, 0,
 #ifdef HAVE_SHA3_256
-     {&EVP_sha3_256,NULL}
+     {&EVP_sha3_256, nullptr}
 #else
      {NULL,NULL}
 #endif
@@ -118,7 +118,7 @@ static struct digest_type_t digest_types[] =
 
     {"sha3_384", "SHA3-384", 0, 0,
 #ifdef HAVE_SHA3_384
-     {&EVP_sha3_384,NULL}
+     {&EVP_sha3_384, nullptr}
 #else
      {NULL,NULL}
 #endif
@@ -126,7 +126,7 @@ static struct digest_type_t digest_types[] =
 
     {"sha3_512", "SHA3-512", 0, 0,
 #ifdef HAVE_SHA3_512
-     {&EVP_sha3_512,NULL}
+     {&EVP_sha3_512, nullptr}
 #else
      {NULL,NULL}
 #endif
@@ -134,7 +134,7 @@ static struct digest_type_t digest_types[] =
 
     {"shake128", "SHAKE-128", 0, 0,
 #ifdef HAVE_SHAKE128
-    {&EVP_shake128, NULL},
+    {&EVP_shake128, nullptr},
     16,   /* xof_default_length */
 #else
     {NULL,NULL}
@@ -143,7 +143,7 @@ static struct digest_type_t digest_types[] =
 
     {"shake256", "SHAKE-256", 0, 0,
 #ifdef HAVE_SHAKE256
-    {&EVP_shake256, NULL},
+    {&EVP_shake256, nullptr},
     32,  /* xof_default_length */
 #else
     {NULL,NULL}
@@ -152,7 +152,7 @@ static struct digest_type_t digest_types[] =
 
     {"sm3", "SM3", 0, 0,
 #ifdef HAVE_SM3
-    {&EVP_sm3, NULL}
+    {&EVP_sm3, nullptr}
 #else
     {NULL,NULL}
 #endif
@@ -160,7 +160,7 @@ static struct digest_type_t digest_types[] =
 
     {"blake2b", "BLAKE2b512", 0, 0,
 #ifdef HAVE_BLAKE2
-     {&EVP_blake2b512,NULL}
+     {&EVP_blake2b512, nullptr}
 #else
      {NULL,NULL}
 #endif
@@ -168,28 +168,28 @@ static struct digest_type_t digest_types[] =
 
     {"blake2s", "BLAKE2s256", 0, 0,
 #ifdef HAVE_BLAKE2
-     {&EVP_blake2s256,NULL}
+     {&EVP_blake2s256, nullptr}
 #else
      {NULL,NULL}
 #endif
     },
 
     /*==== End of list ==== */
-    {NULL,  NULL, 0, 0, {NULL,NULL}}
+    {nullptr, nullptr, 0, 0, {nullptr, nullptr}}
 };
 
 void init_digest_types(ErlNifEnv* env)
 {
-    struct digest_type_t* p = digest_types;
+    digest_type_t *p;
 
     for (p = digest_types; p->str; p++) {
 #ifdef HAS_3_0_API
         if (p->str_v3) {
-            p->md.p = EVP_MD_fetch(NULL, p->str_v3, "");
+            p->md.p = EVP_MD_fetch(nullptr, p->str_v3, "");
 # ifdef FIPS_SUPPORT
             /* Try if valid in FIPS */
             {
-                EVP_MD *tmp = EVP_MD_fetch(NULL, p->str_v3, "fips=yes");
+                EVP_MD *tmp = EVP_MD_fetch(nullptr, p->str_v3, "fips=yes");
 
                 if (tmp) {
                     EVP_MD_free(tmp);
@@ -209,32 +209,28 @@ void init_digest_types(ErlNifEnv* env)
     p->atom = atom_false;  /* end marker */
 }
 
-struct digest_type_t* get_digest_type(ERL_NIF_TERM type)
+digest_type_t * get_digest_type(ERL_NIF_TERM type)
 {
-    struct digest_type_t* p = NULL;
-    for (p = digest_types; p->atom != atom_false; p++) {
-	if (type == p->atom) {
-	    return p;
-	}
+    for (digest_type_t *p = digest_types; p->atom != atom_false; p++) {
+        if (type == p->atom) {
+            return p;
+        }
     }
 
-    return NULL;
+    return nullptr;
 }
 
 
 #ifdef HAS_3_0_API
 ERL_NIF_TERM digest_types_as_list(ErlNifEnv* env)
 {
-    struct digest_type_t* p;
-    ERL_NIF_TERM hd;
+    ERL_NIF_TERM hd = enif_make_list(env, 0);
 
-    hd = enif_make_list(env, 0);
-
-    for (p = digest_types; (p->atom & (p->atom != atom_false)); p++) {
+    for (digest_type_t *p = digest_types; p->atom && p->atom != atom_false; p++) {
         if (DIGEST_FORBIDDEN_IN_FIPS(p))
             continue;
 
-        if (p->md.p != NULL)
+        if (p->md.p != nullptr)
             hd = enif_make_list_cell(env, p->atom, hd);
     }
 

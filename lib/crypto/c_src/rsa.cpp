@@ -366,24 +366,24 @@ int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
     /* key=[E,N,D]|[E,N,D,P1,P2,E1,E2,C] */
     ERL_NIF_TERM head, tail;
     OSSL_PARAM params[9];
-    EVP_PKEY_CTX *ctx = NULL;
+    EVP_PKEY_CTX *ctx = nullptr;
     int i = 0;
 
     head = key;
 
-    if (!get_ossl_param_from_bin_in_list(env, "e", &head, &params[i++]) || // Exponent E
-        !get_ossl_param_from_bin_in_list(env, "n", &head, &params[i++]) ||  // N = p*q
-        !get_ossl_param_from_bin_in_list(env, "d", &head, &params[i++]))  // Exponent D
+    if (!get_ossl_param_from_bin_in_list(env, const_cast<char *>("e"), &head, &params[i++]) || // Exponent E
+        !get_ossl_param_from_bin_in_list(env, const_cast<char *>("n"), &head, &params[i++]) ||  // N = p*q
+        !get_ossl_param_from_bin_in_list(env, const_cast<char *>("d"), &head, &params[i++]))  // Exponent D
         goto bad_arg;
     
     tail = head;
     
     if (!enif_is_empty_list(env, tail)) {
-        if (!get_ossl_param_from_bin_in_list(env, "rsa-factor1", &head, &params[i++]) || // p, Factor p
-            !get_ossl_param_from_bin_in_list(env, "rsa-factor2", &head, &params[i++]) || // q, Factor q
-            !get_ossl_param_from_bin_in_list(env, "rsa-exponent1", &head, &params[i++]) || // dmp1, D mod (p-1)
-            !get_ossl_param_from_bin_in_list(env, "rsa-exponent2", &head, &params[i++]) || // dmq1, D mod (q-1)
-            !get_ossl_param_from_bin_in_list(env, "rsa-coefficient1", &head, &params[i++]) ) // iqmp, (1/q) mod p
+        if (!get_ossl_param_from_bin_in_list(env, const_cast<char *>("rsa-factor1"), &head, &params[i++]) || // p, Factor p
+            !get_ossl_param_from_bin_in_list(env, const_cast<char *>("rsa-factor2"), &head, &params[i++]) || // q, Factor q
+            !get_ossl_param_from_bin_in_list(env, const_cast<char *>("rsa-exponent1"), &head, &params[i++]) || // dmp1, D mod (p-1)
+            !get_ossl_param_from_bin_in_list(env, const_cast<char *>("rsa-exponent2"), &head, &params[i++]) || // dmq1, D mod (q-1)
+            !get_ossl_param_from_bin_in_list(env, const_cast<char *>("rsa-coefficient1"), &head, &params[i++]) ) // iqmp, (1/q) mod p
             goto bad_arg;
 
         tail = head;
@@ -394,7 +394,7 @@ int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
 
     params[i++] = OSSL_PARAM_construct_end();
 
-    if ((ctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL)) == NULL)
+    if ((ctx = EVP_PKEY_CTX_new_from_name(nullptr, "RSA", nullptr)) == nullptr)
         goto err;
     if (EVP_PKEY_fromdata_init(ctx) <= 0)
         goto err;
@@ -415,13 +415,13 @@ int get_rsa_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
 {
     ERL_NIF_TERM head, tail;
     OSSL_PARAM params[3];
-    EVP_PKEY_CTX *ctx = NULL;
+    EVP_PKEY_CTX *ctx = nullptr;
 
     head = key;
-    if (!get_ossl_param_from_bin_in_list(env, "e", &head, &params[0]) )
+    if (!get_ossl_param_from_bin_in_list(env, const_cast<char *>("e"), &head, &params[0]) )
         goto bad_arg;
     
-    if (!get_ossl_param_from_bin_in_list(env, "n", &head, &params[1]) )
+    if (!get_ossl_param_from_bin_in_list(env, const_cast<char *>("n"), &head, &params[1]) )
         goto bad_arg;
     
     tail = head;
@@ -430,7 +430,7 @@ int get_rsa_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
 
     params[2] = OSSL_PARAM_construct_end();
 
-    if ((ctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL)) == NULL)
+    if ((ctx = EVP_PKEY_CTX_new_from_name(nullptr, "RSA", nullptr)) == nullptr)
         goto err;
     if (EVP_PKEY_fromdata_init(ctx) <= 0)
         goto err;
@@ -456,8 +456,8 @@ static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TER
     unsigned int msize;
     ErlNifBinary pub_exp;
     OSSL_PARAM params[3];
-    EVP_PKEY *pkey = NULL;
-    EVP_PKEY_CTX *pctx = NULL;
+    EVP_PKEY *pkey = nullptr;
+    EVP_PKEY_CTX *pctx = nullptr;
 
     if (!enif_get_uint(env, argv[0], &msize)) {
         ret = EXCP_BADARG_N(env, 0, "Can't get unsigned int");
@@ -474,7 +474,7 @@ static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TER
     }
 
     /* https://www.openssl.org/docs/man3.0/man7/EVP_PKEY-RSA.html */
-    pctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
+    pctx = EVP_PKEY_CTX_new_from_name(nullptr, "RSA", nullptr);
 
     if (!EVP_PKEY_keygen_init(pctx)) {
         ret = EXCP_ERROR(env, "Can't init RSA generation");
@@ -497,9 +497,9 @@ static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TER
 
     /* get priv and pub */
     {
-        BIGNUM *e = NULL, *n = NULL, *d = NULL;
-        BIGNUM *p = NULL, *q = NULL;
-        BIGNUM *dmp1 = NULL, *dmq1 = NULL, *iqmp = NULL;
+        BIGNUM *e = nullptr, *n = nullptr, *d = nullptr;
+        BIGNUM *p = nullptr, *q = nullptr;
+        BIGNUM *dmp1 = nullptr, *dmq1 = nullptr, *iqmp = nullptr;
         ERL_NIF_TERM result[8];
 
         /* https://www.openssl.org/docs/man3.0/man7/EVP_PKEY-RSA.html */
@@ -544,7 +544,7 @@ static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TER
 
 int rsa_privkey_to_pubkey(ErlNifEnv* env,  EVP_PKEY *pkey, ERL_NIF_TERM *ret)
 {
-    BIGNUM *e = NULL, *n = NULL;
+    BIGNUM *e = nullptr, *n = nullptr;
     ERL_NIF_TERM result[2];
 
     /* https://www.openssl.org/docs/man3.0/man7/EVP_PKEY-RSA.html */

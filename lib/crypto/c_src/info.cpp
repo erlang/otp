@@ -96,12 +96,10 @@ const char* resource_name(const char *name, ErlNifBinary* buf)
      * to detect and reject resource takover between different versions
      * of OpenSSL that might not be binary compatible.
      */
-    size_t len;
     for (;;) {
-        len = enif_snprintf((char*)buf->data, buf->size, "%s:%s",
-                            name, OpenSSL_version(OPENSSL_VERSION));
+        const size_t len = enif_snprintf(reinterpret_cast<char *>(buf->data), buf->size, "%s:%s", name, OpenSSL_version(OPENSSL_VERSION));
         if (len < buf->size)
-            return (char*)buf->data;
+            return reinterpret_cast<char *>(buf->data);
         enif_realloc_binary(buf, len + 1 + 20);
     }
 }
@@ -133,14 +131,14 @@ ERL_NIF_TERM info_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     cnt = 4;
 #ifdef HAS_3_0_API
     keys[cnt] = enif_make_atom(env, "fips_provider_available");
-    vals[cnt] = OSSL_PROVIDER_available(NULL, "fips") ? atom_true : atom_false;
+    vals[cnt] = OSSL_PROVIDER_available(nullptr, "fips") ? atom_true : atom_false;
     cnt++;
 # ifdef FIPS_SUPPORT
     if (fips_provider) {
-        const char *build_info = NULL;
+        const char *build_info = nullptr;
         OSSL_PARAM request[] = {
             { "buildinfo", OSSL_PARAM_UTF8_PTR, &build_info, 0, 0 },
-            { NULL, 0, NULL, 0, 0 }
+            {nullptr, 0, nullptr, 0, 0 }
         };
         if (!OSSL_PROVIDER_get_params(fips_provider, request)) {
             build_info = "Not available";
@@ -164,19 +162,15 @@ ERL_NIF_TERM info_lib(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     /* [{<<"OpenSSL">>,9470143,<<"OpenSSL 0.9.8k 25 Mar 2009">>}] */
 
     ERL_NIF_TERM name_term, ver_term;
-    static const char libname[] = "OpenSSL";
-    size_t name_sz;
-    const char* ver;
-    size_t ver_sz;
-    int ver_num;
+    static constexpr char libname[] = "OpenSSL";
     unsigned char *out_name, *out_ver;
 
     ASSERT(argc == 0);
 
-    name_sz = strlen(libname);
-    ver = OpenSSL_version(OPENSSL_VERSION);
-    ver_sz = strlen(ver);
-    ver_num = OPENSSL_VERSION_NUMBER;
+    const size_t name_sz = strlen(libname);
+    const char *ver = OpenSSL_version(OPENSSL_VERSION);
+    const size_t ver_sz = strlen(ver);
+    const int ver_num = OPENSSL_VERSION_NUMBER;
 
     /* R16:
      * Ignore library version number from SSLeay() and instead show header
@@ -187,9 +181,9 @@ ERL_NIF_TERM info_lib(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
      * Version string is still from library though.
      */
 
-    if ((out_name = enif_make_new_binary(env, name_sz, &name_term)) == NULL)
+    if ((out_name = enif_make_new_binary(env, name_sz, &name_term)) == nullptr)
         goto err;
-    if ((out_ver = enif_make_new_binary(env, ver_sz, &ver_term)) == NULL)
+    if ((out_ver = enif_make_new_binary(env, ver_sz, &ver_term)) == nullptr)
         goto err;
 
     memcpy(out_name, libname, name_sz);

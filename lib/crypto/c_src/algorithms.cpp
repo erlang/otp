@@ -63,19 +63,19 @@ void init_algorithms_types(ErlNifEnv* env)
 }
 
 
-int create_curve_mutex(void)
+int create_curve_mutex()
 {
     if (!mtx_init_curve_types) {
-        mtx_init_curve_types =  enif_mutex_create("init_curve_types");
+        mtx_init_curve_types =  enif_mutex_create(const_cast<char*>("init_curve_types"));
     }
     return !!mtx_init_curve_types;
 }
 
-void destroy_curve_mutex(void)
+void destroy_curve_mutex()
 {
     if (mtx_init_curve_types) {
         enif_mutex_destroy(mtx_init_curve_types);
-        mtx_init_curve_types = NULL;
+        mtx_init_curve_types = nullptr;
     }
 }
 
@@ -240,18 +240,15 @@ ERL_NIF_TERM mac_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 ERL_NIF_TERM curve_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    int fips_mode;
-    int algo_curve_cnt;
-
-    fips_mode = FIPS_MODE();
-    algo_curve_cnt = get_curve_cnt(env, fips_mode);
+    int fips_mode = FIPS_MODE();
+    const int algo_curve_cnt = get_curve_cnt(env, fips_mode);
 
     return enif_make_list_from_array(env, algo_curve[fips_mode], algo_curve_cnt);
 }
 
 static int init_curves(ErlNifEnv* env, int fips);
 #if defined(HAVE_EC)
-static int valid_curve(int nid);
+static bool valid_curve(int nid);
 #endif
 
 int get_curve_cnt(ErlNifEnv* env, int fips) {
@@ -650,15 +647,15 @@ int init_curves(ErlNifEnv* env, int fips) {
    current cryptolib and current FIPS state.
 */
 
-int valid_curve(int nid) {
-    int ret = 0;
+bool valid_curve(const int nid) {
+    bool ret = false;
 
 #if defined(HAVE_DH)
 # if defined(HAS_EVP_PKEY_CTX) && (! DISABLE_EVP_DH)
-    EVP_PKEY_CTX *pctx = NULL, *kctx = NULL;
-    EVP_PKEY *pkey = NULL, *params = NULL;
+    EVP_PKEY_CTX *pctx = nullptr, *kctx = nullptr;
+    EVP_PKEY *pkey = nullptr, *params = nullptr;
     
-    if (NULL == (pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL)))
+    if (nullptr == (pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, nullptr)))
         goto out;
     
     if (1 != EVP_PKEY_paramgen_init(pctx))
@@ -670,14 +667,14 @@ int valid_curve(int nid) {
     if (!EVP_PKEY_paramgen(pctx, &params))
         goto out;
 
-    if (NULL == (kctx = EVP_PKEY_CTX_new(params, NULL)))
+    if (nullptr == (kctx = EVP_PKEY_CTX_new(params, nullptr)))
         goto out;
 
     if(1 != EVP_PKEY_keygen_init(kctx))
         goto out;
     if (1 != EVP_PKEY_keygen(kctx, &pkey))
         goto out;
-    ret = 1;
+    ret = true;
  out:
     if (pkey) EVP_PKEY_free(pkey);
     if (kctx) EVP_PKEY_CTX_free(kctx);
@@ -693,7 +690,7 @@ int valid_curve(int nid) {
     if(1 != EC_KEY_generate_key(key))
         goto out;
 
-    ret = 1;
+    ret = true;
  out:
     if (key) EC_KEY_free(key);
 # endif
@@ -709,7 +706,7 @@ int valid_curve(int nid) {
 
 ERL_NIF_TERM rsa_opts_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    unsigned int cnt  =
+    const unsigned int cnt  =
         FIPS_MODE() ? algo_rsa_opts_fips_cnt : algo_rsa_opts_cnt;
 
     return enif_make_list_from_array(env, algo_rsa_opts, cnt);

@@ -30,16 +30,15 @@
 
 int get_curve_definition(ErlNifEnv* env, ERL_NIF_TERM *ret, ERL_NIF_TERM def,
                          OSSL_PARAM params[], int *i,
-                         size_t *order_size,
-                         struct get_curve_def_ctx* gcd)
+                         size_t *order_size, get_curve_def_ctx * gcd)
 {
     const ERL_NIF_TERM* curve;
-    int c_arity = -1;
     const ERL_NIF_TERM *prime;
-    int p_arity = -1;
     const ERL_NIF_TERM *field;
+    int c_arity = -1;
+    int p_arity = -1;
     int f_arity = -1;
-    BIGNUM *p = NULL;
+    BIGNUM *p = nullptr;
     int arity = -1;
     const ERL_NIF_TERM* curve_tuple;
 
@@ -75,13 +74,13 @@ int get_curve_definition(ErlNifEnv* env, ERL_NIF_TERM *ret, ERL_NIF_TERM def,
     */
 
     /* Separate the curve definition from the curve name */
-    if (!enif_get_tuple(env, def, &arity, &curve_tuple) || (arity != 2))
-        assign_goto(*ret, err, EXCP_ERROR(env, "Tuple arity 2 expected."));
+    if (!enif_get_tuple(env, def, &arity, &curve_tuple) || arity != 2)
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR(env, "Tuple arity 2 expected."));
 
     /* {Field, Prime, Point, Order, CoFactor} = CurveDef */
     if (!enif_get_tuple(env, curve_tuple[0], &c_arity, &curve) ||
         c_arity != 5)
-        assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad curve def. Expect 5-tuple."));
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "Bad curve def. Expect 5-tuple."));
 
     if (gcd->use_curve_name
         && curve_tuple[1] != atom_undefined
@@ -92,7 +91,7 @@ int get_curve_definition(ErlNifEnv* env, ERL_NIF_TERM *ret, ERL_NIF_TERM def,
 
         if (order_size) {
             if (!enif_inspect_binary(env, curve[3], &order_bin))
-                assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad order"));
+                ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "Bad order"));
             *order_size = order_bin.size;
         }
         gcd->use_curve_name = 1;
@@ -101,96 +100,96 @@ int get_curve_definition(ErlNifEnv* env, ERL_NIF_TERM *ret, ERL_NIF_TERM def,
     gcd->use_curve_name = 0;
 
     if (!get_ossl_octet_string_param_from_bin(env, "generator", curve[2], &params[(*i)++]))
-        assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad Generator (Point)"));
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "Bad Generator (Point)"));
 
     if (!get_ossl_BN_param_from_bin_sz(env, "order", curve[3], &params[(*i)++], order_size))
-        assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad order"));
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "Bad order"));
 
     if (curve[4] == atom_none)
-        assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Cofactor must be != none"));
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "Cofactor must be != none"));
                 
     if (!get_ossl_BN_param_from_bin(env, "cofactor", curve[4], &params[(*i)++]))
-        assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad cofactor"));
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "Bad cofactor"));
 
     /* {A, B, Seed} = Prime = curve[1] */
     if (!enif_get_tuple(env, curve[1], &p_arity, &prime))
-        assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad Prime"));
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "Bad Prime"));
 
-    if (!get_ossl_BN_param_from_bin(env, "a", prime[0], &params[(*i)++]))
-        assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad a"));
+    if (!get_ossl_BN_param_from_bin(env, const_cast<char*>("a"), prime[0], &params[(*i)++]))
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "Bad a"));
 
-    if (!get_ossl_BN_param_from_bin(env, "b", prime[1], &params[(*i)++]))
-        assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad b"));
+    if (!get_ossl_BN_param_from_bin(env, const_cast<char*>("b"), prime[1], &params[(*i)++]))
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "Bad b"));
 
     if (enif_is_binary(env, prime[2]))
         if (!get_ossl_octet_string_param_from_bin(env, "seed", prime[2], &params[(*i)++]))
-            assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad seed"));
+            ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "Bad seed"));
 
     /* Field = curve[0] */
     if (!enif_get_tuple(env, curve[0], &f_arity, &field)) {
-        assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad Field"));
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "Bad Field"));
     }
     else if (f_arity == 2 && field[0] == atom_prime_field) {
         /* {prime_field, Prime} */
-        params[(*i)++] = OSSL_PARAM_construct_utf8_string("field-type",  "prime-field", 0);
+        params[(*i)++] = OSSL_PARAM_construct_utf8_string("field-type", const_cast<char *>("prime-field"), 0);
                 
-        if (!get_ossl_BN_param_from_bin(env, "p", field[1], &params[(*i)++]))
-            assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad p (Prime)"));
+        if (!get_ossl_BN_param_from_bin(env, const_cast<char*>("p"), field[1], &params[(*i)++]))
+            ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "Bad p (Prime)"));
     }
 
     else if (f_arity == 3 && field[0] == atom_characteristic_two_field) {
         /* {characteristic_two_field, M, Basis} */
 #  if defined(OPENSSL_NO_EC2M)
-        assign_goto(*ret, err, EXCP_NOTSUP_N(env, 1, "Unsupported field-type (characteristic_two_field)"));
+        ASSIGN_GOTO(*ret, err, EXCP_NOTSUP_N(env, 1, "Unsupported field-type (characteristic_two_field)"));
 #  else
         int b_arity = -1;
         const ERL_NIF_TERM* basis;
         long field_bits;
 
-        params[(*i)++] = OSSL_PARAM_construct_utf8_string("field-type",  "characteristic-two-field", 0);
+        params[(*i)++] = OSSL_PARAM_construct_utf8_string("field-type", const_cast<char *>("characteristic-two-field"), 0);
 
-        if ((p = BN_new()) == NULL)
-            assign_goto(*ret, err, EXCP_ERROR(env, "Creating bignum failed"));
+        if ((p = BN_new()) == nullptr)
+            ASSIGN_GOTO(*ret, err, EXCP_ERROR(env, "Creating bignum failed"));
 
         if (!enif_get_long(env, field[1], &field_bits) ||
-            (field_bits > OPENSSL_ECC_MAX_FIELD_BITS || field_bits > INT_MAX)
-            )
-            assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad field-bits (M)"));
+            field_bits > OPENSSL_ECC_MAX_FIELD_BITS ||
+            field_bits > INT_MAX)
+            ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "Bad field-bits (M)"));
                     
         if (enif_get_tuple(env, field[2], &b_arity, &basis)) {
             if (b_arity == 2) {
                 unsigned int k1;
 
                 if (basis[0] != atom_tpbasis)
-                    assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad atom"));
+                    ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "Bad atom"));
                 if (!enif_get_uint(env, basis[1], &k1))
-                    assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "uint expected (k1)"));
+                    ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "uint expected (k1)"));
 
                 /* {tpbasis, k} = Basis */
                 if (field_bits <= k1 || k1 == 0 || k1 > INT_MAX)
-                    assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "bad values (field_bits or k1)"));
+                    ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "bad values (field_bits or k1)"));
 
                 /* create the polynomial */
                 if (!BN_set_bit(p, (int)field_bits) ||
                     !BN_set_bit(p, (int)k1) ||
                     !BN_set_bit(p, 0))
-                    assign_goto(*ret, err, EXCP_ERROR(env, "Polynom bit setting failed"));
+                    ASSIGN_GOTO(*ret, err, EXCP_ERROR(env, "Polynom bit setting failed"));
 
             } else if (b_arity == 4) {
                 /* {ppbasis, k1, k2, k3} = Basis */
                 unsigned int k1, k2, k3;
 
                 if (basis[0] != atom_ppbasis)
-                    assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad atom"));
+                    ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "Bad atom"));
 
                 if (!enif_get_uint(env, basis[1], &k1) ||
                     !enif_get_uint(env, basis[2], &k2) ||
                     !enif_get_uint(env, basis[3], &k3))
-                    assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Expecting uint (k1,k2,k3)"));
+                    ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "Expecting uint (k1,k2,k3)"));
 
                 if (field_bits <= k3 || k3 <= k2 || k2 <= k1 || k1 == 0 ||
                     k3 > INT_MAX || k2 > INT_MAX || k1 > INT_MAX)
-                    assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "bad values (field_bits, k1, k2 or k3)"));
+                    ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "bad values (field_bits, k1, k2 or k3)"));
 
                 /* create the polynomial */
                 if (!BN_set_bit(p, (int)field_bits) ||
@@ -198,24 +197,24 @@ int get_curve_definition(ErlNifEnv* env, ERL_NIF_TERM *ret, ERL_NIF_TERM def,
                     !BN_set_bit(p, (int)k2) ||
                     !BN_set_bit(p, (int)k3) ||
                     !BN_set_bit(p, 0) )
-                    assign_goto(*ret, err, EXCP_ERROR(env, "Polynom bit setting failed"));
+                    ASSIGN_GOTO(*ret, err, EXCP_ERROR(env, "Polynom bit setting failed"));
 
             } else
-                assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad tuple"));
+                ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "Bad tuple"));
 
         } else if (field[2] == atom_onbasis) {
             /* onbasis = Basis */
             /* no parameters */
-            assign_goto(*ret, err, EXCP_NOTSUP_N(env, 1, "'onbasis' not supported"));
+            ASSIGN_GOTO(*ret, err, EXCP_NOTSUP_N(env, 1, "'onbasis' not supported"));
         } else
-            assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad last field"));
+            ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "Bad last field"));
 
         if (!get_ossl_BN_param_from_bn(env, "p", p, &params[(*i)++]))
-            assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "BN padding failed"));
+            ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "BN padding failed"));
 #  endif
     }
     else
-        assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad field-type")); 
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR_N(env, 1, "Bad field-type")); 
 
     if (p) BN_free(p);
     return 1;
@@ -232,30 +231,30 @@ int get_ec_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
     int tpl_arity;
     int i = 0;
     OSSL_PARAM params[15];
-    struct get_curve_def_ctx gcd;
-    EVP_PKEY_CTX *pctx = NULL;
+    get_curve_def_ctx gcd;
+    EVP_PKEY_CTX *pctx = nullptr;
     
     if (!enif_get_tuple(env, key, &tpl_arity, &tpl_terms) ||
-        (tpl_arity != 2) ||
+        tpl_arity != 2 ||
         !enif_is_tuple(env, tpl_terms[0]) ||
         !enif_is_binary(env, tpl_terms[1]) )
-        assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Bad public key format"));
+        ASSIGN_GOTO(ret, err, EXCP_BADARG_N(env, 0, "Bad public key format"));
     
     if (!get_ossl_octet_string_param_from_bin(env, "pub",  tpl_terms[1], &params[i++]))
-        assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Bad public key"));
+        ASSIGN_GOTO(ret, err, EXCP_BADARG_N(env, 0, "Bad public key"));
 
-    if (!(pctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL)))
-        assign_goto(ret, err, EXCP_ERROR(env, "Can't make EVP_PKEY_CTX"));
+    if (!(pctx = EVP_PKEY_CTX_new_from_name(nullptr, "EC", nullptr)))
+        ASSIGN_GOTO(ret, err, EXCP_ERROR(env, "Can't make EVP_PKEY_CTX"));
 
     gcd.use_curve_name = 1;
 retry_without_name:
-    if (!get_curve_definition(env, &ret, tpl_terms[0], params, &i, NULL, &gcd))
+    if (!get_curve_definition(env, &ret, tpl_terms[0], params, &i, nullptr, &gcd))
         goto err;
 
     params[i++] = OSSL_PARAM_construct_end();
 
     if (EVP_PKEY_fromdata_init(pctx) <= 0)
-        assign_goto(ret, err, EXCP_ERROR(env, "Can't init fromdata"));
+        ASSIGN_GOTO(ret, err, EXCP_ERROR(env, "Can't init fromdata"));
     
     if (EVP_PKEY_fromdata(pctx, pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0) {
         if (gcd.use_curve_name) {
@@ -263,11 +262,11 @@ retry_without_name:
             i = 1;
             goto retry_without_name;
         }
-        assign_goto(ret, err, EXCP_ERROR(env, "Can't do fromdata"));
+        ASSIGN_GOTO(ret, err, EXCP_ERROR(env, "Can't do fromdata"));
     }
 
     if (!*pkey)
-        assign_goto(ret, err, EXCP_ERROR(env, "Couldn't get a public key"));
+        ASSIGN_GOTO(ret, err, EXCP_ERROR(env, "Couldn't get a public key"));
 
     if (pctx) EVP_PKEY_CTX_free(pctx);
     return 1;
@@ -286,14 +285,14 @@ static int get_ec_private_key_2(ErlNifEnv* env,
 {
     int i = 0;
     OSSL_PARAM params[15];
-    struct get_curve_def_ctx gcd;
-    EVP_PKEY_CTX *pctx = NULL;
+    get_curve_def_ctx gcd;
+    EVP_PKEY_CTX *pctx = nullptr;
 
-    if (!get_ossl_BN_param_from_bin(env, "priv",  key, &params[i++]))
-        assign_goto(*ret, err, EXCP_BADARG_N(env, 0, "Bad private key"));
+    if (!get_ossl_BN_param_from_bin(env, const_cast<char*>("priv"),  key, &params[i++]))
+        ASSIGN_GOTO(*ret, err, EXCP_BADARG_N(env, 0, "Bad private key"));
 
-    if (!(pctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL)))
-        assign_goto(*ret, err, EXCP_ERROR(env, "Can't make EVP_PKEY_CTX"));
+    if (!(pctx = EVP_PKEY_CTX_new_from_name(nullptr, "EC", nullptr)))
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR(env, "Can't make EVP_PKEY_CTX"));
 
     gcd.use_curve_name = 1;
 retry_without_name:
@@ -303,7 +302,7 @@ retry_without_name:
     params[i++] = OSSL_PARAM_construct_end();
 
     if (EVP_PKEY_fromdata_init(pctx) <= 0)
-        assign_goto(*ret, err, EXCP_ERROR(env, "Can't init fromdata"));
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR(env, "Can't init fromdata"));
     
     if (EVP_PKEY_fromdata(pctx, pkey, EVP_PKEY_KEYPAIR, params) <= 0) {
         if (gcd.use_curve_name) {
@@ -311,11 +310,11 @@ retry_without_name:
             i = 1;
             goto retry_without_name;
         }
-        assign_goto(*ret, err, EXCP_ERROR(env, "Can't do fromdata"));
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR(env, "Can't do fromdata"));
     }
 
     if (!*pkey)
-        assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't get a private key"));
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR(env, "Couldn't get a private key"));
     
     if (pctx) EVP_PKEY_CTX_free(pctx);
     return 1;
@@ -333,12 +332,12 @@ int get_ec_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
     int tpl_arity;
 
     if (!enif_get_tuple(env, key, &tpl_arity, &tpl_terms) ||
-        (tpl_arity != 2) ||
+        tpl_arity != 2 ||
         !enif_is_tuple(env, tpl_terms[0]) ||
         !enif_is_binary(env, tpl_terms[1]) )
-        assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Bad private key format"));
+        ASSIGN_GOTO(ret, err, EXCP_BADARG_N(env, 0, "Bad private key format"));
     
-    if (!get_ec_private_key_2(env, tpl_terms[0], tpl_terms[1], pkey, &ret, NULL))
+    if (!get_ec_private_key_2(env, tpl_terms[0], tpl_terms[1], pkey, &ret, nullptr))
         goto err;
 
     return 1;
@@ -347,7 +346,7 @@ int get_ec_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
     return 0;
 }
 
-static int mk_pub_key_binary(ErlNifEnv* env, EVP_PKEY *peer_pkey,
+static int mk_pub_key_binary(ErlNifEnv* env, const EVP_PKEY *peer_pkey,
                              ErlNifBinary *pubkey_bin, ERL_NIF_TERM *ret);
 
 ERL_NIF_TERM ec_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -355,11 +354,11 @@ ERL_NIF_TERM ec_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     ERL_NIF_TERM ret = atom_undefined;
     int i = 0;
     OSSL_PARAM params[15];
-    struct get_curve_def_ctx gcd;
-    EVP_PKEY_CTX *pctx = NULL;
-    EVP_PKEY *pkey = NULL, *peer_pkey = NULL;
+    get_curve_def_ctx gcd;
+    EVP_PKEY_CTX *pctx = nullptr;
+    EVP_PKEY *pkey = nullptr, *peer_pkey = nullptr;
     size_t sz, order_size = 0;
-    BIGNUM *priv_bn = NULL;
+    BIGNUM *priv_bn = nullptr;
     ErlNifBinary pubkey_bin;
     
     if (argv[1] != atom_undefined)
@@ -374,13 +373,13 @@ ERL_NIF_TERM ec_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
                 goto err;
 
             if (!EVP_PKEY_get_bn_param(peer_pkey, "priv", &priv_bn))
-                assign_goto(ret, err, EXCP_BADARG_N(env, 1, "Couldn't get peer priv key bytes"));
+                ASSIGN_GOTO(ret, err, EXCP_BADARG_N(env, 1, "Couldn't get peer priv key bytes"));
         }
     else
         {
             /* Neither the private nor the public key is known, so we generate the pair: */
-            if (!(pctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL)))
-                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_CTX_new_from_name"));
+            if (!(pctx = EVP_PKEY_CTX_new_from_name(nullptr, "EC", nullptr)))
+                ASSIGN_GOTO(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_CTX_new_from_name"));
 
             gcd.use_curve_name = 1;
     retry_without_name:
@@ -388,15 +387,15 @@ ERL_NIF_TERM ec_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
             if (!get_curve_definition(env, &ret, argv[0], params, &i,
                                       &order_size, &gcd))
                 // INSERT "ret" parameter in get_curve_definition !!
-                assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Couldn't get Curve definition"));
+                ASSIGN_GOTO(ret, err, EXCP_BADARG_N(env, 0, "Couldn't get Curve definition"));
     
             params[i++] = OSSL_PARAM_construct_end();
 
             if (EVP_PKEY_keygen_init(pctx) <= 0)
-                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_keygen_init"));
+                ASSIGN_GOTO(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_keygen_init"));
 
             if (!EVP_PKEY_CTX_set_params(pctx, params))
-                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_CTX_set_params"));
+                ASSIGN_GOTO(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_CTX_set_params"));
 
             if (!EVP_PKEY_generate(pctx, &pkey)) {
                 if (gcd.use_curve_name) {
@@ -404,25 +403,25 @@ ERL_NIF_TERM ec_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
                     i = 0;
                     goto retry_without_name;
                 }
-                assign_goto(ret, err, EXCP_ERROR(env, "Couldn't generate EC key"));
+                ASSIGN_GOTO(ret, err, EXCP_ERROR(env, "Couldn't generate EC key"));
             }
 
 
             /* Get the two keys, pub as binary and priv as BN */
-            if (!EVP_PKEY_get_octet_string_param(pkey, "encoded-pub-key", NULL, 0, &sz))
-                assign_goto(ret, err, EXCP_ERROR(env, "Can't get pub octet string size"));
+            if (!EVP_PKEY_get_octet_string_param(pkey, "encoded-pub-key", nullptr, 0, &sz))
+                ASSIGN_GOTO(ret, err, EXCP_ERROR(env, "Can't get pub octet string size"));
 
             if (!enif_alloc_binary(sz, &pubkey_bin))
-                assign_goto(ret, err, EXCP_ERROR(env, "Can't allocate pub octet string"));
+                ASSIGN_GOTO(ret, err, EXCP_ERROR(env, "Can't allocate pub octet string"));
 
             if (!EVP_PKEY_get_octet_string_param(pkey, "encoded-pub-key",
                                                  pubkey_bin.data,
                                                  sz,
                                                  &pubkey_bin.size))
-                assign_goto(ret, err, EXCP_ERROR(env, "Can't get pub octet string"));
+                ASSIGN_GOTO(ret, err, EXCP_ERROR(env, "Can't get pub octet string"));
 
             if (!EVP_PKEY_get_bn_param(pkey, "priv", &priv_bn))
-                assign_goto(ret, err, EXCP_BADARG_N(env, 1, "Couldn't get priv key bytes"));
+                ASSIGN_GOTO(ret, err, EXCP_BADARG_N(env, 1, "Couldn't get priv key bytes"));
         }
 
     if (order_size == 0)
@@ -439,7 +438,7 @@ ERL_NIF_TERM ec_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     return ret;
 }
 
-static int mk_pub_key_binary(ErlNifEnv* env, EVP_PKEY *peer_pkey,
+static int mk_pub_key_binary(ErlNifEnv* env, const EVP_PKEY *peer_pkey,
                              ErlNifBinary *pubkey_bin, ERL_NIF_TERM *ret)
 {
     size_t pub_key_size = 0;
@@ -447,9 +446,9 @@ static int mk_pub_key_binary(ErlNifEnv* env, EVP_PKEY *peer_pkey,
     char group_name_buf[20];
     char* group_name = group_name_buf;
     int group_nid;
-    EC_GROUP* ec_group = NULL;
-    EC_POINT* pub_key = NULL;
-    BIGNUM* priv_bn = NULL;
+    EC_GROUP* ec_group = nullptr;
+    EC_POINT* pub_key = nullptr;
+    BIGNUM* priv_bn = nullptr;
     int ok = 0;
 
     /* This code was inspired by
@@ -462,46 +461,46 @@ static int mk_pub_key_binary(ErlNifEnv* env, EVP_PKEY *peer_pkey,
      * the public key.
      */
 
-    if (!EVP_PKEY_get_utf8_string_param(peer_pkey, OSSL_PKEY_PARAM_GROUP_NAME,
-                                        NULL, 0, &group_name_size))
-        assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't get EC group name size"));
+    if (!EVP_PKEY_get_utf8_string_param(peer_pkey, OSSL_PKEY_PARAM_GROUP_NAME, nullptr, 0, &group_name_size))
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR(env, "Couldn't get EC group name size"));
 
     if (group_name_size >= sizeof(group_name_buf))
-        group_name = reinterpret_cast<char*>(enif_alloc(group_name_size + 1));
+        group_name = static_cast<char*>(enif_alloc(group_name_size + 1));
     if (!EVP_PKEY_get_utf8_string_param(peer_pkey, OSSL_PKEY_PARAM_GROUP_NAME,
                                             group_name, group_name_size+1,
-                                            NULL))
-        assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't get EC group name"));
+                                        nullptr))
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR(env, "Couldn't get EC group name"));
 
     group_nid = OBJ_sn2nid(group_name);
     if (group_nid == NID_undef)
-        assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't get EC group nid"));
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR(env, "Couldn't get EC group nid"));
 
     ec_group = EC_GROUP_new_by_curve_name(group_nid);
-    if (ec_group == NULL)
-        assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't get EC_GROUP"));
+    if (ec_group == nullptr)
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR(env, "Couldn't get EC_GROUP"));
 
     pub_key = EC_POINT_new(ec_group);
-    if (pub_key == NULL)
-        assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't create POINT"));
+    if (pub_key == nullptr)
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR(env, "Couldn't create POINT"));
 
     if (!EVP_PKEY_get_bn_param(peer_pkey, OSSL_PKEY_PARAM_PRIV_KEY, &priv_bn))
-        assign_goto(*ret, err, EXCP_BADARG_N(env, 1, "Couldn't get peer priv key bytes"));
+        ASSIGN_GOTO(*ret, err, EXCP_BADARG_N(env, 1, "Couldn't get peer priv key bytes"));
 
-    if (!EC_POINT_mul(ec_group, pub_key, priv_bn, NULL, NULL, NULL))
-        assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't multiply POINT"));
+    if (!EC_POINT_mul(ec_group, pub_key, priv_bn, nullptr, nullptr, nullptr))
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR(env, "Couldn't multiply POINT"));
 
     pub_key_size = EC_POINT_point2oct(ec_group, pub_key,
-                                      POINT_CONVERSION_UNCOMPRESSED, NULL, 0, NULL);
+                                      POINT_CONVERSION_UNCOMPRESSED, nullptr, 0, nullptr);
     if (pub_key_size == 0)
-        assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't get pub_key_size"));
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR(env, "Couldn't get pub_key_size"));
 
     enif_alloc_binary(pub_key_size, pubkey_bin);
     if (!EC_POINT_point2oct(ec_group, pub_key, POINT_CONVERSION_UNCOMPRESSED,
                             pubkey_bin->data,
-                            pubkey_bin->size, NULL)) {
+                            pubkey_bin->size,
+                            nullptr)) {
         enif_release_binary(pubkey_bin);
-        assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't get pub key bytes"));
+        ASSIGN_GOTO(*ret, err, EXCP_ERROR(env, "Couldn't get pub key bytes"));
     }
 
     *ret = enif_make_binary(env, pubkey_bin);
@@ -932,11 +931,11 @@ ERL_NIF_TERM ec_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     size_t size;
 
     if (!get_ec_key_sz(env, argv[0], argv[1], atom_undefined, &key, &size))
-        assign_goto(ret, err, EXCP_BADARG_N(env, 1, "Couldn't get EC key"));
+        ASSIGN_GOTO(ret, err, EXCP_BADARG_N(env, 1, "Couldn't get EC key"));
 
     if (argv[1] == atom_undefined) {
 	if (!EC_KEY_generate_key(key))
-            assign_goto(ret, err, EXCP_ERROR(env, "Couldn't generate EC key"));
+            ASSIGN_GOTO(ret, err, EXCP_ERROR(env, "Couldn't generate EC key"));
     }
 
     group = EC_KEY_get0_group(key);

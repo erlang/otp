@@ -42,8 +42,8 @@ struct evp_md_ctx {
 /* Define resource types for OpenSSL context structures. */
 static ErlNifResourceType* evp_md_ctx_rtype;
 
-static void evp_md_ctx_dtor(ErlNifEnv* env, struct evp_md_ctx *ctx) {
-    if (ctx == NULL)
+static void evp_md_ctx_dtor(ErlNifEnv* env, const evp_md_ctx *ctx) {
+    if (ctx == nullptr)
         return;
 
     if (ctx->ctx)
@@ -53,12 +53,11 @@ static void evp_md_ctx_dtor(ErlNifEnv* env, struct evp_md_ctx *ctx) {
 
 int init_hash_ctx(ErlNifEnv* env, ErlNifBinary* rt_buf) {
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
-    evp_md_ctx_rtype = enif_open_resource_type(env, NULL,
+    evp_md_ctx_rtype = enif_open_resource_type(env, nullptr,
                                                resource_name("EVP_MD_CTX", rt_buf),
-                                               (ErlNifResourceDtor*) evp_md_ctx_dtor,
-                                               static_cast<ErlNifResourceFlags>(ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER),
-                                               NULL);
-    if (evp_md_ctx_rtype == NULL)
+                                               reinterpret_cast<ErlNifResourceDtor *>(evp_md_ctx_dtor),
+                                               static_cast<ErlNifResourceFlags>(ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER), nullptr);
+    if (evp_md_ctx_rtype == nullptr)
         goto err;
 #endif
 
@@ -72,46 +71,45 @@ int init_hash_ctx(ErlNifEnv* env, ErlNifBinary* rt_buf) {
 }
 
 ERL_NIF_TERM hash_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Type) */
-    struct digest_type_t *digp = NULL;
+{ /* (Type) */
+    digest_type_t *digp = nullptr;
     const EVP_MD         *md;
     ERL_NIF_TERM keys[3] = { atom_type, atom_size, atom_block_size };
     ERL_NIF_TERM values[3];
     ERL_NIF_TERM ret;
-    int ok;
 
     ASSERT(argc == 1);
 
-    if ((digp = get_digest_type(argv[0])) == NULL)
+    if ((digp = get_digest_type(argv[0])) == nullptr)
         return enif_make_badarg(env);
     if (DIGEST_FORBIDDEN_IN_FIPS(digp))
         return RAISE_NOTSUP(env);
 
-    if ((md = digp->md.p) == NULL)
+    if ((md = digp->md.p) == nullptr)
         return RAISE_NOTSUP(env);
 
     values[0] = enif_make_int(env, EVP_MD_type(md));
     values[1] = enif_make_int(env, EVP_MD_size(md));
     values[2] = enif_make_int(env, EVP_MD_block_size(md));
-    ok = enif_make_map_from_arrays(env, keys, values, 3, &ret);
+    int ok = enif_make_map_from_arrays(env, keys, values, 3, &ret);
     ASSERT(ok); (void)ok;
     return ret;
 }
 
 ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Type, Data) */
-    struct digest_type_t *digp = NULL;
+{ /* (Type, Data) */
+    digest_type_t *digp = nullptr;
     const EVP_MD         *md;
     ErlNifBinary         data;
     ERL_NIF_TERM         ret;
     unsigned             ret_size;
     unsigned char        *outp;
 
-    if ((digp = get_digest_type(argv[0])) == NULL)
+    if ((digp = get_digest_type(argv[0])) == nullptr)
         return EXCP_BADARG_N(env, 0, "Bad digest type");
     if (DIGEST_FORBIDDEN_IN_FIPS(digp))
         return EXCP_NOTSUP_N(env, 0, "Bad digest type in FIPS");
-    if ((md = digp->md.p) == NULL)
+    if ((md = digp->md.p) == nullptr)
         return EXCP_NOTSUP_N(env, 0, "Digest type not supported in this cryptolib");
 
     if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
@@ -129,17 +127,17 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         params[0] = OSSL_PARAM_construct_uint("xoflen", &digp->xof_default_length);
         params[1] = OSSL_PARAM_construct_end();
         if (EVP_DigestInit_ex2(ctx, md, params) != 1) {
-            assign_goto(ret, done, EXCP_ERROR(env, "EVP_DigestInit failed"));
+            ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "EVP_DigestInit failed"));
         }
         ret_size = digp->xof_default_length;
-        if ((outp = enif_make_new_binary(env, ret_size, &ret)) == NULL) {
-            assign_goto(ret, done, EXCP_ERROR(env, "Can't allocate binary"));
+        if ((outp = enif_make_new_binary(env, ret_size, &ret)) == nullptr) {
+            ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "Can't allocate binary"));
         }
         if (EVP_DigestUpdate(ctx, data.data, data.size) != 1) {
-            assign_goto(ret, done, EXCP_ERROR(env, "EVP_DigestUpdate failed"));
+            ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "EVP_DigestUpdate failed"));
         }
         if (EVP_DigestFinalXOF(ctx, outp, ret_size) != 1) {
-            assign_goto(ret, done, EXCP_ERROR(env, "EVP_DigestFinalXOF failed"));
+            ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "EVP_DigestFinalXOF failed"));
         }
         CONSUME_REDS(env, data);
     done:
@@ -148,13 +146,13 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     }
 #endif
 
-    ret_size = (unsigned)EVP_MD_size(md);
+    ret_size = static_cast<unsigned>(EVP_MD_size(md));
     ASSERT(0 < ret_size && ret_size <= EVP_MAX_MD_SIZE);
 
-    if ((outp = enif_make_new_binary(env, ret_size, &ret)) == NULL)
+    if ((outp = enif_make_new_binary(env, ret_size, &ret)) == nullptr)
         return EXCP_ERROR(env, "Can't allocate binary");
 
-    if (EVP_Digest(data.data, data.size, outp, &ret_size, md, NULL) != 1)
+    if (EVP_Digest(data.data, data.size, outp, &ret_size, md, nullptr) != 1)
         return EXCP_ERROR(env, "Low-level call failed");
 
     ASSERT(ret_size == (unsigned)EVP_MD_size(md));
@@ -166,25 +164,25 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
 
 ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Type) */
-    struct digest_type_t *digp = NULL;
-    struct evp_md_ctx    *ctx = NULL;
+{ /* (Type) */
+    digest_type_t *digp = nullptr;
+    evp_md_ctx    *ctx = nullptr;
     ERL_NIF_TERM         ret;
 
-    if ((digp = get_digest_type(argv[0])) == NULL)
+    if ((digp = get_digest_type(argv[0])) == nullptr)
         return EXCP_BADARG_N(env, 0, "Bad digest type");
 
     if (DIGEST_FORBIDDEN_IN_FIPS(digp))
         return EXCP_NOTSUP_N(env, 0, "Digest type not supported in FIPS");
-    if (digp->md.p == NULL)
+    if (digp->md.p == nullptr)
         return EXCP_NOTSUP_N(env, 0, "Unsupported digest type");
 
-    if ((ctx = reinterpret_cast<evp_md_ctx*>(enif_alloc_resource(evp_md_ctx_rtype, sizeof(struct evp_md_ctx)))) == NULL)
+    if ((ctx = static_cast<evp_md_ctx*>(enif_alloc_resource(evp_md_ctx_rtype, sizeof(evp_md_ctx)))) == nullptr)
         return EXCP_ERROR(env, "Can't allocate nif resource");
-    if ((ctx->ctx = EVP_MD_CTX_new()) == NULL)
-        assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_new failed"));
+    if ((ctx->ctx = EVP_MD_CTX_new()) == nullptr)
+        ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_new failed"));
     if (EVP_DigestInit(ctx->ctx, digp->md.p) != 1)
-        assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_DigestInit failed"));
+        ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "Low-level call EVP_DigestInit failed"));
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,4,0)
     /*
@@ -196,7 +194,7 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         params[0] = OSSL_PARAM_construct_uint("xoflen", &digp->xof_default_length);
         params[1] = OSSL_PARAM_construct_end();
         if (!EVP_MD_CTX_set_params(ctx->ctx, params)) {
-            assign_goto(ret, done, EXCP_ERROR(env, "Can't set param xoflen"));
+            ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "Can't set param xoflen"));
         }
     }
 #endif
@@ -210,25 +208,25 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 }
 
 ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context, Data) */
-    struct evp_md_ctx   *ctx, *new_ctx = NULL;
+{ /* (Context, Data) */
+     evp_md_ctx   *ctx, *new_ctx = nullptr;
     ErlNifBinary data;
     ERL_NIF_TERM ret;
 
-    if (!enif_get_resource(env, argv[0], evp_md_ctx_rtype, (void**)&ctx))
+    if (!enif_get_resource(env, argv[0], evp_md_ctx_rtype, reinterpret_cast<void **>(&ctx)))
         return EXCP_BADARG_N(env, 0, "Bad state");
 
     if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
         return EXCP_BADARG_N(env, 1, "Not iolist");
 
-    if ((new_ctx = reinterpret_cast<evp_md_ctx*>(enif_alloc_resource(evp_md_ctx_rtype, sizeof(struct evp_md_ctx)))) == NULL)
+    if ((new_ctx = static_cast<evp_md_ctx*>(enif_alloc_resource(evp_md_ctx_rtype, sizeof(evp_md_ctx)))) == nullptr)
         return EXCP_ERROR(env, "Can't allocate nif resource");
-    if ((new_ctx->ctx = EVP_MD_CTX_new()) == NULL)
-        assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_new failed"));
+    if ((new_ctx->ctx = EVP_MD_CTX_new()) == nullptr)
+        ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_new failed"));
     if (EVP_MD_CTX_copy(new_ctx->ctx, ctx->ctx) != 1)
-        assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_copy failed"));
+        ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_copy failed"));
     if (EVP_DigestUpdate(new_ctx->ctx, data.data, data.size) != 1)
-        assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_DigestUpdate failed"));
+        ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "Low-level call EVP_DigestUpdate failed"));
 
     ret = enif_make_resource(env, new_ctx);
     CONSUME_REDS(env, data);
@@ -240,8 +238,8 @@ ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 }
 
 ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context) */
-    struct evp_md_ctx *ctx;
+{ /* (Context) */
+     evp_md_ctx *ctx;
     EVP_MD_CTX        *new_ctx;
     ERL_NIF_TERM  ret;
     unsigned      ret_size;
@@ -249,20 +247,20 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     ASSERT(argc == 1);
 
-    if (!enif_get_resource(env, argv[0], evp_md_ctx_rtype, (void**)&ctx))
+    if (!enif_get_resource(env, argv[0], evp_md_ctx_rtype, reinterpret_cast<void **>(&ctx)))
         return EXCP_BADARG_N(env, 0, "Bad state");
 
-    ret_size = (unsigned)EVP_MD_CTX_size(ctx->ctx);
+    ret_size = static_cast<unsigned>(EVP_MD_CTX_size(ctx->ctx));
     ASSERT(0 < ret_size && ret_size <= EVP_MAX_MD_SIZE);
 
-    if ((new_ctx = EVP_MD_CTX_new()) == NULL)
-        assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_new failed"));
+    if ((new_ctx = EVP_MD_CTX_new()) == nullptr)
+        ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_new failed"));
     if (EVP_MD_CTX_copy(new_ctx, ctx->ctx) != 1)
-        assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_copy failed"));
-    if ((outp = enif_make_new_binary(env, ret_size, &ret)) == NULL)
-        assign_goto(ret, done, EXCP_ERROR(env, "Can't make a new binary"));
+        ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_copy failed"));
+    if ((outp = enif_make_new_binary(env, ret_size, &ret)) == nullptr)
+        ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "Can't make a new binary"));
     if (EVP_DigestFinal(new_ctx, outp, &ret_size) != 1)
-        assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_DigestFinal failed"));
+        ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "Low-level call EVP_DigestFinal failed"));
 
     ASSERT(ret_size == (unsigned)EVP_MD_CTX_size(ctx->ctx));
 
@@ -544,10 +542,10 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     memcpy(new_ctx, ctx.data, ctx_size);
 
     if ((outp = enif_make_new_binary(env, (size_t)EVP_MD_size(md), &ret)) == NULL)
-        assign_goto(ret, done, EXCP_ERROR(env, "Can't allocate binary"));
+        ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "Can't allocate binary"));
 
     if (ctx_final(outp, new_ctx) != 1)
-        assign_goto(ret, done, EXCP_ERROR(env, "Can't do final"));
+        ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "Can't do final"));
 
  done:
     if (new_ctx)
@@ -559,28 +557,28 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 #if defined(HAVE_SHAKE128) || defined(HAVE_SHAKE256)
 ERL_NIF_TERM hash_final_xof_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context) */
-    struct evp_md_ctx   *ctx;
+{ /* (Context) */
+     evp_md_ctx   *ctx;
     EVP_MD_CTX          *new_ctx;
     ERL_NIF_TERM        ret;
     unsigned char       *outp;
     unsigned int        len;
 
     ASSERT(argc == 2);
-    if (!enif_get_resource(env, argv[0], evp_md_ctx_rtype, (void**)&ctx))
+    if (!enif_get_resource(env, argv[0], evp_md_ctx_rtype, reinterpret_cast<void **>(&ctx)))
         return EXCP_BADARG_N(env, 0, "Bad state");
     if (!enif_get_uint(env, argv[1], &len))
         return EXCP_BADARG_N(env, 1, "Bad len");
     ASSERT(0 < len);
 
-    if ((new_ctx = EVP_MD_CTX_new()) == NULL)
-        assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_new failed"));
+    if ((new_ctx = EVP_MD_CTX_new()) == nullptr)
+        ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_new failed"));
     if (EVP_MD_CTX_copy(new_ctx, ctx->ctx) != 1)
-        assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_copy failed"));
-    if ((outp = enif_make_new_binary(env, len>>3, &ret)) == NULL)
-        assign_goto(ret, done, EXCP_ERROR(env, "Can't make a new binary"));
+        ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_copy failed"));
+    if ((outp = enif_make_new_binary(env, len>>3, &ret)) == nullptr)
+        ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "Can't make a new binary"));
     if (EVP_DigestFinalXOF(new_ctx, outp, len>>3) != 1)
-        assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_DigestFinalXOF failed"));
+        ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "Low-level call EVP_DigestFinalXOF failed"));
 
  done:
     if (new_ctx)

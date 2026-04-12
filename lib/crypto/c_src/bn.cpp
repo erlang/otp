@@ -36,11 +36,11 @@ int get_bn_from_mpint(ErlNifEnv* env, ERL_NIF_TERM term, BIGNUM** bnp)
 
     if (bin.size < 4)
         goto err;
-    sz = (int)bin.size - 4;
+    sz = static_cast<int>(bin.size) - 4;
     if (get_int32(bin.data) != sz)
         goto err;
 
-    if ((ret = BN_bin2bn(bin.data+4, sz, NULL)) == NULL)
+    if ((ret = BN_bin2bn(bin.data+4, sz, nullptr)) == nullptr)
         goto err;
 
     *bnp = ret;
@@ -52,7 +52,7 @@ int get_bn_from_mpint(ErlNifEnv* env, ERL_NIF_TERM term, BIGNUM** bnp)
 
 int get_bn_from_bin(ErlNifEnv* env, ERL_NIF_TERM term, BIGNUM** bnp)
 {
-    return get_bn_from_bin_sz(env, term, bnp, NULL);
+    return get_bn_from_bin_sz(env, term, bnp, nullptr);
 }
 
 int get_bn_from_bin_sz(ErlNifEnv* env, ERL_NIF_TERM term, BIGNUM** bnp, size_t* binsize)
@@ -65,10 +65,10 @@ int get_bn_from_bin_sz(ErlNifEnv* env, ERL_NIF_TERM term, BIGNUM** bnp, size_t* 
     if (bin.size > INT_MAX)
         goto err;
 
-    if ((ret = BN_bin2bn(bin.data, (int)bin.size, NULL)) == NULL)
+    if ((ret = BN_bin2bn(bin.data, static_cast<int>(bin.size), nullptr)) == nullptr)
         goto err;
 
-    if (binsize != NULL)
+    if (binsize != nullptr)
         *binsize = bin.size;
     *bnp = ret;
     return 1;
@@ -86,7 +86,7 @@ ERL_NIF_TERM bin_from_bn(ErlNifEnv* env, const BIGNUM *bn)
     /* Copy the bignum into an erlang binary. */
     if ((bn_len = BN_num_bytes(bn)) < 0)
         goto err;
-    if ((bin_ptr = enif_make_new_binary(env, (size_t)bn_len, &term)) == NULL)
+    if ((bin_ptr = enif_make_new_binary(env, static_cast<size_t>(bn_len), &term)) == nullptr)
         goto err;
 
     if (BN_bn2bin(bn, bin_ptr) < 0)
@@ -100,8 +100,8 @@ ERL_NIF_TERM bin_from_bn(ErlNifEnv* env, const BIGNUM *bn)
 
 ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Base,Exponent,Modulo,bin_hdr) */
-    BIGNUM *bn_base = NULL, *bn_exponent = NULL, *bn_modulo = NULL, *bn_result = NULL;
-    BN_CTX *bn_ctx = NULL;
+    BIGNUM *bn_base = nullptr, *bn_exponent = nullptr, *bn_modulo = nullptr, *bn_result = nullptr;
+    BN_CTX *bn_ctx = nullptr;
     unsigned char* ptr;
     int dlen;
     unsigned bin_hdr; /* return type: 0=plain binary, 4: mpint */
@@ -119,9 +119,9 @@ ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if (bin_hdr != 0 && bin_hdr != 4)
         goto bad_arg;
 
-    if ((bn_result = BN_new()) == NULL)
+    if ((bn_result = BN_new()) == nullptr)
         goto err;
-    if ((bn_ctx = BN_CTX_new()) == NULL)
+    if ((bn_ctx = BN_CTX_new()) == nullptr)
         goto err;
 
     if (!BN_mod_exp(bn_result, bn_base, bn_exponent, bn_modulo, bn_ctx))
@@ -132,7 +132,7 @@ ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         goto bad_arg;
     extra_byte = bin_hdr && BN_is_bit_set(bn_result, dlen * 8 - 1);
 
-    if ((ptr = enif_make_new_binary(env, bin_hdr + extra_byte + (unsigned int)dlen, &ret)) == NULL)
+    if ((ptr = enif_make_new_binary(env, bin_hdr + extra_byte + static_cast<unsigned int>(dlen), &ret)) == nullptr)
         goto err;
 
     if (bin_hdr) {
@@ -163,25 +163,24 @@ ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 }
 
 #ifdef HAVE_EC
-ERL_NIF_TERM bn2term(ErlNifEnv* env, size_t size, const BIGNUM *bn)
+ERL_NIF_TERM bn2term(ErlNifEnv* env, const size_t size, const BIGNUM *bn)
 {
-    int dlen;
     unsigned char* ptr;
     ERL_NIF_TERM ret;
 
-    if (bn == NULL)
+    if (bn == nullptr)
         return atom_undefined;
 
-    dlen = BN_num_bytes(bn);
+    int dlen = BN_num_bytes(bn);
     if (dlen < 0)
         goto err;
-    if (dlen > (int)size)
+    if (dlen > static_cast<int>(size))
         goto err;
-    if ((ptr = enif_make_new_binary(env, size, &ret)) == NULL)
+    if ((ptr = enif_make_new_binary(env, size, &ret)) == nullptr)
         goto err;
 
 #ifdef HAS_BN_bn2binpad
-    BN_bn2binpad(bn, ptr, (int) size);    
+    BN_bn2binpad(bn, ptr, static_cast<int>(size));
 #else
     /* First, maybe pad with zeroes */
     memset(ptr, 0, (size-dlen) );
@@ -212,13 +211,13 @@ int get_ossl_octet_string_param_from_bin(ErlNifEnv* env, const char* key, ERL_NI
 int get_ossl_BN_param_from_bin_x(ErlNifEnv* env, char* key, ERL_NIF_TERM bin,
                                  OSSL_PARAM *dest, BIGNUM** bn_out)
 {
-    return get_ossl_BN_param_from_bin_sz_x(env, key, bin, dest, NULL, bn_out);
+    return get_ossl_BN_param_from_bin_sz_x(env, key, bin, dest, nullptr, bn_out);
 }
 
 int get_ossl_BN_param_from_bin_sz_x(ErlNifEnv* env, char* key, ERL_NIF_TERM bin,
                                     OSSL_PARAM *dest, size_t *size, BIGNUM** bn_out)
 {
-    BIGNUM *bn = NULL;
+    BIGNUM *bn = nullptr;
     int ok = 0;
 
     if (!get_bn_from_bin_sz(env, bin, &bn, size))
@@ -233,15 +232,14 @@ int get_ossl_BN_param_from_bin_sz_x(ErlNifEnv* env, char* key, ERL_NIF_TERM bin,
     return ok;
 }
 
-int get_ossl_BN_param_from_bn(ErlNifEnv* env, char* key, const BIGNUM* bn,
+int get_ossl_BN_param_from_bn(ErlNifEnv* env, const char * key, const BIGNUM* bn,
                               OSSL_PARAM *dest)
 {
     const size_t bn_sz = BN_num_bytes(bn);
-    unsigned char* tmp_buf;
     ERL_NIF_TERM dummy_term;
 
     /* Create a binary term just as a convenient tmp buffer */
-    tmp_buf = enif_make_new_binary(env, bn_sz, &dummy_term);
+    unsigned char *tmp_buf = enif_make_new_binary(env, bn_sz, &dummy_term);
     if (BN_bn2nativepad(bn, tmp_buf, bn_sz) < 0) // Fill with BN in right endianity
         return 0;
 

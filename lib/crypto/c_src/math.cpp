@@ -26,7 +26,6 @@ ERL_NIF_TERM do_exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Data1, Data2) */
     ErlNifBinary d1, d2;
     unsigned char* ret_ptr;
-    size_t i;
     ERL_NIF_TERM ret;
 
     ASSERT(argc == 2);
@@ -38,10 +37,10 @@ ERL_NIF_TERM do_exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if (d1.size != d2.size)
         goto bad_arg;
 
-    if ((ret_ptr = enif_make_new_binary(env, d1.size, &ret)) == NULL)
+    if ((ret_ptr = enif_make_new_binary(env, d1.size, &ret)) == nullptr)
         goto err;
 
-    for (i=0; i<d1.size; i++) {
+    for (size_t i = 0; i<d1.size; i++) {
 	ret_ptr[i] = d1.data[i] ^ d2.data[i];
     }
 

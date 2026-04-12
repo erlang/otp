@@ -58,7 +58,7 @@ struct mac_type_t {
 #define CMAC_mac 2
 #define POLY1305_mac 3
 
-static struct mac_type_t mac_types[] =
+static mac_type_t mac_types[] =
 {
     {{"poly1305"}, NO_FIPS_MAC,
 #ifdef HAVE_POLY1305
@@ -97,7 +97,7 @@ static struct mac_type_t mac_types[] =
     },
 
     /*==== End of list ==== */
-    {{NULL}, 0,
+    {{nullptr}, 0,
      {0}, NO_mac, 0
     }
 };
@@ -112,8 +112,8 @@ static struct mac_type_t mac_types[] =
  Mandatory prototypes
 ***************************/
 
-struct mac_type_t* get_mac_type(ERL_NIF_TERM type, size_t key_len);
-struct mac_type_t* get_mac_type_no_key(ERL_NIF_TERM type);
+mac_type_t * get_mac_type(ERL_NIF_TERM type, size_t key_len);
+mac_type_t * get_mac_type_no_key(ERL_NIF_TERM type);
 
 ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
@@ -126,12 +126,12 @@ ERL_NIF_TERM mac_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 void init_mac_types(ErlNifEnv* env)
 {
-    struct mac_type_t* p = mac_types;
+    mac_type_t * p = mac_types;
 
     for (p = mac_types; p->name.str; p++) {
 	p->name.atom = enif_make_atom(env, p->name.str);
 #if defined(HAS_3_0_API)
-        p->evp_mac = EVP_MAC_fetch(NULL, p->fetch_name, NULL);
+        p->evp_mac = EVP_MAC_fetch(nullptr, p->fetch_name, nullptr);
 #endif
     }
     p->name.atom = atom_false;  /* end marker */
@@ -139,7 +139,7 @@ void init_mac_types(ErlNifEnv* env)
 
 ERL_NIF_TERM mac_types_as_list(ErlNifEnv* env)
 {
-    struct mac_type_t* p;
+    mac_type_t * p;
     ERL_NIF_TERM prev, hd;
 
     hd = enif_make_list(env, 0);
@@ -158,27 +158,25 @@ ERL_NIF_TERM mac_types_as_list(ErlNifEnv* env)
     return hd;
 }
 
-struct mac_type_t* get_mac_type(ERL_NIF_TERM type, size_t key_len)
+mac_type_t * get_mac_type(ERL_NIF_TERM type, const size_t key_len)
 {
-    struct mac_type_t* p = NULL;
-    for (p = mac_types; p->name.atom != atom_false; p++) {
-	if (type == p->name.atom) {
-            if ((p->key_len == 0) || (p->key_len == key_len))
+    for (mac_type_t *p = mac_types; p->name.atom != atom_false; p++) {
+        if (type == p->name.atom) {
+            if (p->key_len == 0 || p->key_len == key_len)
                 return p;
-	}
+        }
     }
-    return NULL;
+    return nullptr;
 }
 
-struct mac_type_t* get_mac_type_no_key(ERL_NIF_TERM type)
+mac_type_t * get_mac_type_no_key(ERL_NIF_TERM type)
 {
-    struct mac_type_t* p = NULL;
-    for (p = mac_types; p->name.atom != atom_false; p++) {
-	if (type == p->name.atom) {
-	    return p;
-	}
+    for (mac_type_t *p = mac_types; p->name.atom != atom_false; p++) {
+        if (type == p->name.atom) {
+            return p;
+        }
     }
-    return NULL;
+    return nullptr;
 }
 
 /*******************************************************************
@@ -186,7 +184,7 @@ struct mac_type_t* get_mac_type_no_key(ERL_NIF_TERM type)
  * Mac nif
  *
  ******************************************************************/
-ERL_NIF_TERM mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+ERL_NIF_TERM mac_nif(ErlNifEnv* env, const int argc, const ERL_NIF_TERM argv[])
 {/* (MacType, SubType, Key, Text) */
     ErlNifBinary  text;
 
@@ -209,9 +207,9 @@ ERL_NIF_TERM mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 
 ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (MacType, SubType, Key, Text) */
+{ /* (MacType, SubType, Key, Text) */
 
-    struct mac_type_t *macp;
+    mac_type_t *macp;
     ErlNifBinary key_bin, text;
     int ret_bin_alloc = 0;
     ERL_NIF_TERM return_term;
@@ -219,7 +217,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 #if defined(HAS_3_0_API)
     const char *name;
     const char *subalg;
-    unsigned char *out = NULL;
+    unsigned char *out = nullptr;
     size_t outlen;
 #else
     /* Old style */
@@ -275,9 +273,9 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          ********/
     case HMAC_mac:
         {
-            struct digest_type_t *digp;
+            digest_type_t *digp;
 
-            if ((digp = get_digest_type(argv[1])) == NULL)
+            if ((digp = get_digest_type(argv[1])) == nullptr)
                 {
                     return_term = EXCP_BADARG_N(env, 1, "Bad digest algorithm for HMAC");
                     goto err;
@@ -325,7 +323,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 #ifdef HAVE_CMAC
     case CMAC_mac:
         {
-            const struct cipher_type_t *cipherp;
+            const cipher_type_t *cipherp;
             if (!(cipherp = get_cipher_type(argv[1], key_bin.size)))
                 { /* Something went wrong. Find out what by retrying in another way. */
                     if (!get_cipher_type_no_key(argv[1]))
@@ -342,7 +340,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     goto err;
                 }
 
-            if (cipherp->cipher.p == NULL)
+            if (cipherp->cipher.p == nullptr)
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Unsupported cipher algorithm");
                     goto err;
@@ -374,7 +372,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     case POLY1305_mac:
 # if defined(HAS_3_0_API)
         name = "POLY1305";
-        subalg = NULL;
+        subalg = nullptr;
 # else
         /* Old style */
         /* poly1305 implies that EVP_PKEY_new_raw_private_key exists */
@@ -398,15 +396,15 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
       Common computations when we have 3.0 API
     */
 
-    if (!(out = EVP_Q_mac(NULL, name, NULL,
-                          subalg, NULL,
+    if (!(out = EVP_Q_mac(nullptr, name, nullptr,
+                          subalg, nullptr,
                           key_bin.data, key_bin.size,
                           text.data, text.size,
-                          NULL, 0, &outlen)))
-        assign_goto(return_term, err, EXCP_ERROR(env, "Couldn't get mac"));
+                          nullptr, 0, &outlen)))
+        ASSIGN_GOTO(return_term, err, EXCP_ERROR(env, "Couldn't get mac"));
 
     if (!enif_alloc_binary(outlen, &ret_bin))
-        assign_goto(return_term, err, EXCP_ERROR(env, "Alloc binary"));
+        ASSIGN_GOTO(return_term, err, EXCP_ERROR(env, "Alloc binary"));
     ret_bin_alloc = 1;
 
     memcpy(ret_bin.data, out, outlen);
@@ -523,15 +521,14 @@ struct mac_context
 
 static ErlNifResourceType* mac_context_rtype;
 
-static void mac_context_dtor(ErlNifEnv* env, struct mac_context*);
+static void mac_context_dtor(ErlNifEnv* env, mac_context *);
 
 int init_mac_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf) {
-    mac_context_rtype = enif_open_resource_type(env, NULL,
+    mac_context_rtype = enif_open_resource_type(env, nullptr,
                                                 resource_name("mac_context", rt_buf),
-                                                (ErlNifResourceDtor*) mac_context_dtor,
-                                                static_cast<ErlNifResourceFlags>(ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER),
-                                                NULL);
-    if (mac_context_rtype == NULL)
+                                                reinterpret_cast<ErlNifResourceDtor *>(mac_context_dtor),
+                                                static_cast<ErlNifResourceFlags>(ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER), nullptr);
+    if (mac_context_rtype == nullptr)
         goto err;
 
     return 1;
@@ -542,9 +539,9 @@ int init_mac_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf) {
 }
 
 
-static void mac_context_dtor(ErlNifEnv* env, struct mac_context *obj)
+static void mac_context_dtor(ErlNifEnv* env, mac_context *obj)
 {
-    if (obj == NULL)
+    if (obj == nullptr)
         return;
 
     if (obj->ctx) {
@@ -574,13 +571,13 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 #else
     /* EVP_PKEY_CTX is available or even the 3.0 API */
-    struct mac_context  *obj = NULL;
-    struct mac_type_t *macp;
+    mac_context  *obj = nullptr;
+    mac_type_t *macp;
     ErlNifBinary key_bin;
     ERL_NIF_TERM return_term;
 # if defined(HAS_3_0_API)
-    const char *digest = NULL;
-    const char *cipher = NULL;
+    const char *digest = nullptr;
+    const char *cipher = nullptr;
     OSSL_PARAM params[3];
     size_t params_n = 0;
 # else
@@ -627,9 +624,9 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          ********/
     case HMAC_mac:
         {
-            struct digest_type_t *digp;
+            digest_type_t *digp;
 
-            if ((digp = get_digest_type(argv[1])) == NULL)
+            if ((digp = get_digest_type(argv[1])) == nullptr)
                 {
                     return_term = EXCP_BADARG_N(env, 1, "Bad digest algorithm for HMAC");
                     goto err;
@@ -667,7 +664,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 # if defined(HAVE_CMAC) && defined(HAVE_EVP_PKEY_new_CMAC_key)
     case CMAC_mac:
         {
-            const struct cipher_type_t *cipherp;
+            const cipher_type_t *cipherp;
             if (!(cipherp = get_cipher_type(argv[1], key_bin.size)))
                 { /* Something went wrong. Find out what by retrying in another way. */
                     if (!get_cipher_type_no_key(argv[1]))
@@ -684,7 +681,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     goto err;
                 }
 
-            if (cipherp->cipher.p == NULL)
+            if (cipherp->cipher.p == nullptr)
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Unsupported cipher algorithm");
                     goto err;
@@ -730,25 +727,25 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
       Common computations when we have 3.0 API
     */
     if (!macp->evp_mac) {
-        assign_goto(return_term, err, EXCP_NOTSUP_N(env, 0, "Unsupported mac algorithm"));
+        ASSIGN_GOTO(return_term, err, EXCP_NOTSUP_N(env, 0, "Unsupported mac algorithm"));
     }
 
-    if (cipher != NULL)
+    if (cipher != nullptr)
         params[params_n++] =
             OSSL_PARAM_construct_utf8_string("cipher", (char*)cipher, 0);
-    if (digest != NULL)
+    if (digest != nullptr)
         params[params_n++] =
             OSSL_PARAM_construct_utf8_string("digest", (char*)digest, 0);
     params[params_n] = OSSL_PARAM_construct_end();
 
-    if ((obj = reinterpret_cast<mac_context*>(enif_alloc_resource(mac_context_rtype, sizeof(struct mac_context)))) == NULL)
-        assign_goto(return_term, err, EXCP_ERROR(env, "Can't allocate mac_context_rtype"));
+    if ((obj = static_cast<mac_context*>(enif_alloc_resource(mac_context_rtype, sizeof(mac_context)))) == nullptr)
+        ASSIGN_GOTO(return_term, err, EXCP_ERROR(env, "Can't allocate mac_context_rtype"));
 
     if (!(obj->ctx = EVP_MAC_CTX_new(macp->evp_mac)))
-        assign_goto(return_term, err, EXCP_ERROR(env, "Can't create EVP_MAC_CTX"));
+        ASSIGN_GOTO(return_term, err, EXCP_ERROR(env, "Can't create EVP_MAC_CTX"));
     
     if (!EVP_MAC_init(obj->ctx, key_bin.data, key_bin.size, params))
-        assign_goto(return_term, err, EXCP_ERROR(env, "Can't initialize EVP_MAC_CTX"));
+        ASSIGN_GOTO(return_term, err, EXCP_ERROR(env, "Can't initialize EVP_MAC_CTX"));
 
     
 # else
@@ -800,7 +797,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 
 
-ERL_NIF_TERM mac_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+ERL_NIF_TERM mac_update_nif(ErlNifEnv* env, const int argc, const ERL_NIF_TERM argv[])
 {/* (Ref, Text) */
     ErlNifBinary  text;
 
@@ -824,10 +821,10 @@ ERL_NIF_TERM mac_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 ERL_NIF_TERM mac_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Ref, Text) */
 #if defined(HAS_EVP_PKEY_CTX) || defined(HAS_3_0_API)
-    struct mac_context *obj = NULL;
+    mac_context *obj = nullptr;
     ErlNifBinary text;
 
-    if (!enif_get_resource(env, argv[0], (ErlNifResourceType*)mac_context_rtype, (void**)&obj))
+    if (!enif_get_resource(env, argv[0], static_cast<ErlNifResourceType *>(mac_context_rtype), reinterpret_cast<void **>(&obj)))
         return EXCP_BADARG_N(env, 0, "Bad ref");
 
     if (!enif_inspect_iolist_as_binary(env, argv[1], &text))
@@ -853,15 +850,15 @@ ERL_NIF_TERM mac_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 ERL_NIF_TERM mac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Ref) */
 #if defined(HAS_EVP_PKEY_CTX) || defined(HAS_3_0_API)
-    struct mac_context *obj;
+    mac_context *obj;
     size_t size;
     ErlNifBinary ret_bin;
     
-    if (!enif_get_resource(env, argv[0], (ErlNifResourceType*)mac_context_rtype, (void**)&obj))
+    if (!enif_get_resource(env, argv[0], static_cast<ErlNifResourceType *>(mac_context_rtype), reinterpret_cast<void **>(&obj)))
         return EXCP_BADARG_N(env, 0, "Bad ref");
 
 # if defined(HAS_3_0_API)
-    if (!EVP_MAC_final(obj->ctx, NULL, &size, 0))
+    if (!EVP_MAC_final(obj->ctx, nullptr, &size, 0))
 # else
     if (EVP_DigestSignFinal(obj->ctx, NULL, &size) != 1)
 # endif

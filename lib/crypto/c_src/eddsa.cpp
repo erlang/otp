@@ -51,11 +51,11 @@ int get_eddsa_key(ErlNifEnv* env, int is_public, ERL_NIF_TERM key, EVP_PKEY **pk
     }
 
     if (is_public)
-        result = EVP_PKEY_new_raw_public_key(type, NULL, bin.data, bin.size);
+        result = EVP_PKEY_new_raw_public_key(type, nullptr, bin.data, bin.size);
     else 
-        result = EVP_PKEY_new_raw_private_key(type, NULL, bin.data, bin.size);
+        result = EVP_PKEY_new_raw_private_key(type, nullptr, bin.data, bin.size);
 
-    if (result == NULL)
+    if (result == nullptr)
         goto err;
 
     *pkey = result;

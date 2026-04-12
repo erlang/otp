@@ -25,9 +25,9 @@
 
 ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Multiplier, Verifier, Generator, Exponent, Prime) */
-    BIGNUM *bn_verifier = NULL;
-    BIGNUM *bn_exponent = NULL, *bn_generator = NULL, *bn_prime = NULL, *bn_multiplier = NULL, *bn_result = NULL;
-    BN_CTX *bn_ctx = NULL;
+    BIGNUM *bn_verifier = nullptr;
+    BIGNUM *bn_exponent = nullptr, *bn_generator = nullptr, *bn_prime = nullptr, *bn_multiplier = nullptr, *bn_result = nullptr;
+    BN_CTX *bn_ctx = nullptr;
     unsigned char* ptr;
     int dlen;
     ERL_NIF_TERM ret;
@@ -47,9 +47,9 @@ ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     if (!get_bn_from_bin(env, argv[4], &bn_prime))
         goto bad_arg;
 
-    if ((bn_result = BN_new()) == NULL)
+    if ((bn_result = BN_new()) == nullptr)
         goto err;
-    if ((bn_ctx = BN_CTX_new()) == NULL)
+    if ((bn_ctx = BN_CTX_new()) == nullptr)
         goto err;
 
     /* B = k*v + g^b % N */
@@ -76,7 +76,7 @@ ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 
     if ((dlen = BN_num_bytes(bn_result)) < 0)
         goto err;
-    if ((ptr = enif_make_new_binary(env, (size_t)dlen, &ret)) == NULL)
+    if ((ptr = enif_make_new_binary(env, static_cast<size_t>(dlen), &ret)) == nullptr)
         goto err;
 
     if (BN_bn2bin(bn_result, ptr) < 0)
@@ -115,11 +115,11 @@ ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 /*
         <premaster secret> = (B - (k * g^x)) ^ (a + (u * x)) % N
 */
-    BIGNUM *bn_exponent = NULL, *bn_a = NULL;
-    BIGNUM *bn_u = NULL, *bn_multiplier = NULL, *bn_exp2 = NULL;
-    BIGNUM *bn_base = NULL, *bn_prime = NULL, *bn_generator = NULL;
-    BIGNUM *bn_B = NULL, *bn_result = NULL;
-    BN_CTX *bn_ctx = NULL;
+    BIGNUM *bn_exponent = nullptr, *bn_a = nullptr;
+    BIGNUM *bn_u = nullptr, *bn_multiplier = nullptr, *bn_exp2 = nullptr;
+    BIGNUM *bn_base = nullptr, *bn_prime = nullptr, *bn_generator = nullptr;
+    BIGNUM *bn_B = nullptr, *bn_result = nullptr;
+    BN_CTX *bn_ctx = nullptr;
     unsigned char *ptr;
     int dlen;
     ERL_NIF_TERM ret;
@@ -143,9 +143,9 @@ ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     if (!get_bn_from_bin(env, argv[6], &bn_prime))
         goto bad_arg;
 
-    if ((bn_ctx = BN_CTX_new()) == NULL)
+    if ((bn_ctx = BN_CTX_new()) == nullptr)
         goto err;
-    if ((bn_result = BN_new()) == NULL)
+    if ((bn_result = BN_new()) == nullptr)
         goto err;
 
     /* check that B % N != 0 */
@@ -155,7 +155,7 @@ ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         goto err;
 
     /* (B - (k * g^x)) */
-    if ((bn_base = BN_new()) == NULL)
+    if ((bn_base = BN_new()) == nullptr)
         goto err;
     BN_set_flags(bn_exponent, BN_FLG_CONSTTIME);
     if (!BN_mod_exp(bn_result, bn_generator, bn_exponent, bn_prime, bn_ctx))
@@ -166,7 +166,7 @@ ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         goto err;
 
     /* a + (u * x) */
-    if ((bn_exp2 = BN_new()) == NULL)
+    if ((bn_exp2 = BN_new()) == nullptr)
         goto err;
     if (!BN_mul(bn_result, bn_u, bn_exponent, bn_ctx))
         goto err;
@@ -180,7 +180,7 @@ ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
     if ((dlen = BN_num_bytes(bn_result)) < 0)
         goto err;
-    if ((ptr = enif_make_new_binary(env, (size_t)dlen, &ret)) == NULL)
+    if ((ptr = enif_make_new_binary(env, static_cast<size_t>(dlen), &ret)) == nullptr)
         goto err;
 
     if (BN_bn2bin(bn_result, ptr) < 0)
@@ -227,9 +227,9 @@ ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 /*
         <premaster secret> = (A * v^u) ^ b % N
 */
-    BIGNUM *bn_b = NULL, *bn_verifier = NULL;
-    BIGNUM *bn_prime = NULL, *bn_A = NULL, *bn_u = NULL, *bn_base = NULL, *bn_result = NULL;
-    BN_CTX *bn_ctx = NULL;
+    BIGNUM *bn_b = nullptr, *bn_verifier = nullptr;
+    BIGNUM *bn_prime = nullptr, *bn_A = nullptr, *bn_u = nullptr, *bn_base = nullptr, *bn_result = nullptr;
+    BN_CTX *bn_ctx = nullptr;
     unsigned char *ptr;
     int dlen;
     ERL_NIF_TERM ret;
@@ -249,9 +249,9 @@ ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     if (!get_bn_from_bin(env, argv[4], &bn_prime))
         goto bad_arg;
 
-    if ((bn_ctx = BN_CTX_new()) == NULL)
+    if ((bn_ctx = BN_CTX_new()) == nullptr)
         goto err;
-    if ((bn_result = BN_new()) == NULL)
+    if ((bn_result = BN_new()) == nullptr)
         goto err;
 
     /* check that A % N != 0 */
@@ -261,7 +261,7 @@ ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         goto err;
 
     /* (A * v^u) */
-    if ((bn_base = BN_new()) == NULL)
+    if ((bn_base = BN_new()) == nullptr)
         goto err;
     BN_set_flags(bn_u, BN_FLG_CONSTTIME);
     if (!BN_mod_exp(bn_base, bn_verifier, bn_u, bn_prime, bn_ctx))
@@ -276,7 +276,7 @@ ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
     if ((dlen = BN_num_bytes(bn_result)) < 0)
         goto err;
-    if ((ptr = enif_make_new_binary(env, (size_t)dlen, &ret)) == NULL)
+    if ((ptr = enif_make_new_binary(env, static_cast<size_t>(dlen), &ret)) == nullptr)
         goto err;
 
     if (BN_bn2bin(bn_result, ptr) < 0)

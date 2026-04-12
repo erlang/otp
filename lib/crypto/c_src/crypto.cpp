@@ -155,7 +155,7 @@ int prov_cnt;
 ERL_NIF_INIT(crypto,nif_funcs,load,NULL,upgrade,unload)
 
 
-static int verify_lib_version(void)
+static int verify_lib_version()
 {
 #if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0) \
     || defined(HAS_LIBRESSL)
@@ -189,13 +189,13 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     int tpl_arity;
     const ERL_NIF_TERM* tpl_array;
     int vernum;
-    ErlNifBinary rt_buf = { 0, NULL };
+    ErlNifBinary rt_buf = { 0, nullptr};
     ErlNifBinary lib_bin;
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
     char lib_buf[1000];
     void *handle;
 #endif
-    int ret = -1;
+    int ret;
 
     if (!verify_lib_version()) {
         ret = __LINE__; goto done;
@@ -264,15 +264,15 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 #ifdef HAS_3_0_API
     prov_cnt = 0;
 # ifdef FIPS_SUPPORT
-    fips_provider = OSSL_PROVIDER_load(NULL, "fips");
+    fips_provider = OSSL_PROVIDER_load(nullptr, "fips");
 # endif
-    if (!(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "default"))) {
+    if (!(prov[prov_cnt++] = OSSL_PROVIDER_load(nullptr, "default"))) {
         ret = __LINE__; goto done;
     }
-    if (!(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "base"))) {
+    if (!(prov[prov_cnt++] = OSSL_PROVIDER_load(nullptr, "base"))) {
             ret = __LINE__; goto done;
     }
-    if ((prov[prov_cnt] = OSSL_PROVIDER_load(NULL, "legacy"))) {
+    if ((prov[prov_cnt] = OSSL_PROVIDER_load(nullptr, "legacy"))) {
         /* Don't fail loading if the legacy provider is missing */
         prov_cnt++;
     }
@@ -356,12 +356,12 @@ done:
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
-    int errline = initialize(env, load_info);
+    const int errline = initialize(env, load_info);
     if (errline) {
-	return errline;
+        return errline;
     }
 
-    *priv_data = NULL;
+    *priv_data = nullptr;
     library_refc++;
     return 0;
 }
@@ -370,10 +370,10 @@ static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
 		   ERL_NIF_TERM load_info)
 {
     int errline;
-    if (*old_priv_data != NULL) {
+    if (*old_priv_data != nullptr) {
 	return __LINE__; /* Don't know how to do that */
     }
-    if (*priv_data != NULL) {
+    if (*priv_data != nullptr) {
 	return __LINE__; /* Don't know how to do that */
     }
     errline = initialize(env, load_info);

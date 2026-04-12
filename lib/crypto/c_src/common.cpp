@@ -65,14 +65,13 @@ ERL_NIF_TERM raise_exception(ErlNifEnv* env, ERL_NIF_TERM id, int arg_num, const
     /* Make the data for exception */
     {
         ERL_NIF_TERM keys[3], vals[3];
-        int ok;
         keys[0] = enif_make_atom(env,"c_file_name");
         vals[0] = enif_make_string(env, file, ERL_NIF_LATIN1);
         keys[1] = enif_make_atom(env,"c_file_line_num");
         vals[1] = enif_make_int(env, line);
         keys[2] = enif_make_atom(env,"c_function_arg_num");
         vals[2] = enif_make_int(env, arg_num);
-        ok = enif_make_map_from_arrays(env, keys, vals, 3, &file_info);
+        int ok = enif_make_map_from_arrays(env, keys, vals, 3, &file_info);
         ASSERT(ok); (void)ok;
     }
     exception =

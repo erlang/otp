@@ -35,13 +35,13 @@ struct engine_ctx {
 #define ERROR_Atom(Env, ReasonString) ERROR_Term((Env), enif_make_atom((Env),(ReasonString)))
 
 static ErlNifResourceType* engine_ctx_rtype;
-static ErlNifMutex *ensure_engine_loaded_mtx = NULL;
+static ErlNifMutex *ensure_engine_loaded_mtx = nullptr;
 
 static int zero_terminate(ErlNifBinary bin, char **buf);
 
 
-static void engine_ctx_dtor(ErlNifEnv* env, struct engine_ctx* ctx) {
-    if (ctx == NULL)
+static void engine_ctx_dtor(ErlNifEnv* env, engine_ctx * ctx) {
+    if (ctx == nullptr)
         return;
 
     PRINTF_ERR0("engine_ctx_dtor");
@@ -63,7 +63,7 @@ static void engine_ctx_dtor(ErlNifEnv* env, struct engine_ctx* ctx) {
 int get_engine_and_key_id(ErlNifEnv *env, ERL_NIF_TERM key, char ** id, ENGINE **e)
 {
     ERL_NIF_TERM engine_res, key_id_term;
-    struct engine_ctx *ctx;
+    engine_ctx *ctx;
     ErlNifBinary key_id_bin;
 
     if (!enif_get_map_value(env, key, atom_engine, &engine_res))
@@ -85,7 +85,7 @@ int get_engine_and_key_id(ErlNifEnv *env, ERL_NIF_TERM key, char ** id, ENGINE *
 char *get_key_password(ErlNifEnv *env, ERL_NIF_TERM key) {
     ERL_NIF_TERM tmp_term;
     ErlNifBinary pwd_bin;
-    char *pwd = NULL;
+    char *pwd = nullptr;
 
     if (!enif_get_map_value(env, key, atom_password, &tmp_term))
         goto err;
@@ -97,11 +97,11 @@ char *get_key_password(ErlNifEnv *env, ERL_NIF_TERM key) {
     return pwd;
 
  err:
-    return NULL;
+    return nullptr;
 }
 
 static int zero_terminate(ErlNifBinary bin, char **buf) {
-    if ((*buf = reinterpret_cast<char*>(enif_alloc(bin.size + 1))) == NULL)
+    if ((*buf = reinterpret_cast<char*>(enif_alloc(bin.size + 1))) == nullptr)
         goto err;
 
     memcpy(*buf, bin.data, bin.size);
@@ -116,12 +116,11 @@ static int zero_terminate(ErlNifBinary bin, char **buf) {
 
 int init_engine_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf) {
 #ifdef HAS_ENGINE_SUPPORT
-    engine_ctx_rtype = enif_open_resource_type(env, NULL,
+    engine_ctx_rtype = enif_open_resource_type(env, nullptr,
                                                resource_name("ENGINE_CTX", rt_buf),
                                                (ErlNifResourceDtor*) engine_ctx_dtor,
-                                               static_cast<ErlNifResourceFlags>(ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER),
-                                               NULL);
-    if (engine_ctx_rtype == NULL) {
+                                               static_cast<ErlNifResourceFlags>(ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER), nullptr);
+    if (engine_ctx_rtype == nullptr) {
         PRINTF_ERR0("CRYPTO: Could not open resource type 'ENGINE_CTX'");
         return 0;
     }
@@ -134,7 +133,7 @@ int init_engine_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf) {
 int create_engine_mutex(ErlNifEnv *env) {
 #ifdef HAS_ENGINE_SUPPORT
 
-    if (!ensure_engine_loaded_mtx && ((ensure_engine_loaded_mtx = enif_mutex_create("crypto.ensure_engine_loaded")) == NULL)) {
+    if (!ensure_engine_loaded_mtx && (ensure_engine_loaded_mtx = enif_mutex_create(const_cast<char *>("crypto.ensure_engine_loaded"))) == nullptr) {
         PRINTF_ERR0("CRYPTO: Could not create mutex 'crypto.ensure_engine_loaded'");
         return 0;
     }
@@ -147,7 +146,7 @@ void destroy_engine_mutex(ErlNifEnv *env) {
 #ifdef HAS_ENGINE_SUPPORT
 
     enif_mutex_destroy(ensure_engine_loaded_mtx);
-    ensure_engine_loaded_mtx = NULL;
+    ensure_engine_loaded_mtx = nullptr;
 
 #endif
 }
@@ -160,10 +159,10 @@ static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, cha
     const ERL_NIF_TERM *tmp_tuple;
     ErlNifBinary tmpbin;
     int arity;
-    char *tuple1 = NULL, *tuple2 = NULL;
+    char *tuple1 = nullptr, *tuple2 = nullptr;
 
     if (enif_is_empty_list(env, term)) {
-        cmds[*cmds_top] = NULL;
+        cmds[*cmds_top] = nullptr;
         return 0;
     }
 
@@ -176,7 +175,7 @@ static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, cha
     if (!enif_inspect_binary(env, tmp_tuple[0], &tmpbin))
         goto err;
 
-    if ((tuple1 = reinterpret_cast<char*>(enif_alloc(tmpbin.size + 1))) == NULL)
+    if ((tuple1 = static_cast<char*>(enif_alloc(tmpbin.size + 1))) == nullptr)
         goto err;
 
     (void) memcpy(tuple1, tmpbin.data, tmpbin.size);
@@ -188,9 +187,9 @@ static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, cha
         goto err;
 
     if (tmpbin.size == 0) {
-        tuple2 = NULL;
+        tuple2 = nullptr;
     } else {
-        if ((tuple2 = reinterpret_cast<char*>(enif_alloc(tmpbin.size + 1))) == NULL)
+        if ((tuple2 = static_cast<char*>(enif_alloc(tmpbin.size + 1))) == nullptr)
             goto err;
         (void) memcpy(tuple2, tmpbin.data, tmpbin.size);
         tuple2[tmpbin.size] = '\0';
@@ -204,7 +203,7 @@ static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, cha
     return -1;
 }
 
-static int register_method(ENGINE *engine, unsigned int method)
+static int register_method(ENGINE *engine, const unsigned int method)
 {
     int ret = 0;
 
@@ -277,7 +276,7 @@ static int register_method(ENGINE *engine, unsigned int method)
     return ret;
 }
 
-static void unregister_method(ENGINE *engine, unsigned int method)
+static void unregister_method(ENGINE *engine, const unsigned int method)
 {
 
     switch(method)
@@ -356,9 +355,9 @@ ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 #ifdef HAS_ENGINE_SUPPORT
     ERL_NIF_TERM ret, result;
     ErlNifBinary engine_id_bin;
-    char *engine_id = NULL;
+    char *engine_id = nullptr;
     ENGINE *engine;
-    struct engine_ctx *ctx = NULL;
+    engine_ctx *ctx = nullptr;
 
     /* Get Arguments */
     ASSERT(argc == 1);
@@ -367,24 +366,24 @@ ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     if (!enif_inspect_binary(env, argv[0], &engine_id_bin))
         goto bad_arg;
 
-    if ((engine_id = reinterpret_cast<char*>(enif_alloc(engine_id_bin.size+1))) == NULL)
+    if ((engine_id = static_cast<char*>(enif_alloc(engine_id_bin.size+1))) == nullptr)
         goto err;
     (void) memcpy(engine_id, engine_id_bin.data, engine_id_bin.size);
     engine_id[engine_id_bin.size] = '\0';
 
 
-    if ((engine = ENGINE_by_id(engine_id)) == NULL) {
+    if ((engine = ENGINE_by_id(engine_id)) == nullptr) {
         PRINTF_ERR0("engine_by_id_nif Leaved: {error, bad_engine_id}");
         ret = ERROR_Atom(env, "bad_engine_id");
         goto done;
     }
-    if ((ctx = reinterpret_cast<engine_ctx*>(enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx)))) == NULL)
+    if ((ctx = static_cast<engine_ctx*>(enif_alloc_resource(engine_ctx_rtype, sizeof(engine_ctx)))) == nullptr)
         goto err;
     ctx->engine = engine;
     ctx->is_functional = 0;
     ctx->id = engine_id;
     /* ctx now owns engine_id */
-    engine_id = NULL;
+    engine_id = nullptr;
 
     result = enif_make_resource(env, ctx);
     ret = enif_make_tuple2(env, atom_ok, result);
@@ -409,13 +408,13 @@ ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 ERL_NIF_TERM engine_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Engine) */
 #ifdef HAS_ENGINE_SUPPORT
-    struct engine_ctx *ctx;
+    engine_ctx *ctx;
 
     /* Get Arguments */
     ASSERT(argc == 1);
 
     /* Engine */
-    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, reinterpret_cast<void **>(&ctx)))
         goto bad_arg;
 
     if (!ENGINE_init(ctx->engine))
@@ -434,12 +433,12 @@ ERL_NIF_TERM engine_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 ERL_NIF_TERM engine_free_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Engine) */
 #ifdef HAS_ENGINE_SUPPORT
-    struct engine_ctx *ctx;
+    engine_ctx *ctx;
 
     // Get Engine
     ASSERT(argc == 1);
 
-    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, reinterpret_cast<void **>(&ctx)))
         goto bad_arg;
 
     if (ctx->engine) {
@@ -451,12 +450,12 @@ ERL_NIF_TERM engine_free_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         }
         if (!ENGINE_free(ctx->engine))
             goto err;
-        ctx->engine = NULL;
+        ctx->engine = nullptr;
     }
     else {
         ASSERT(!ctx->is_functional);
     }
-    
+
     return atom_ok;
 
  bad_arg:
@@ -475,7 +474,7 @@ ERL_NIF_TERM engine_load_dynamic_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 # if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
     ENGINE_load_dynamic();
 # else
-    OPENSSL_init_crypto(OPENSSL_INIT_ENGINE_DYNAMIC, NULL);
+    OPENSSL_init_crypto(OPENSSL_INIT_ENGINE_DYNAMIC, nullptr);
 # endif
     return atom_ok;
 #else
@@ -489,8 +488,8 @@ ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF
     ERL_NIF_TERM ret;
     unsigned int cmds_len = 0;
     unsigned int cmds_top = 0;
-    char **cmds = NULL;
-    struct engine_ctx *ctx;
+    char **cmds = nullptr;
+    engine_ctx *ctx;
     unsigned int i;
     int optional = 0;
 
@@ -498,7 +497,7 @@ ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF
     ASSERT(argc == 3);
 
     /* Engine */
-    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, reinterpret_cast<void **>(&ctx))
         || !ctx->engine)
         goto bad_arg;
 
@@ -511,13 +510,13 @@ ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF
     if (!enif_get_list_length(env, argv[1], &cmds_len))
         goto bad_arg;
 
-    if (cmds_len > (UINT_MAX / 2) - 1)
+    if (cmds_len > UINT_MAX / 2 - 1)
         goto err;
     cmds_len *= 2; // Key-Value list from erlang
 
-    if ((size_t)cmds_len + 1 > SIZE_MAX / sizeof(char*))
+    if (static_cast<size_t>(cmds_len) + 1 > SIZE_MAX / sizeof(char*))
         goto err;
-    if ((cmds = reinterpret_cast<char**>(enif_alloc((cmds_len + 1) * sizeof(char*)))) == NULL)
+    if ((cmds = static_cast<char**>(enif_alloc((cmds_len + 1) * sizeof(char*)))) == nullptr)
         goto err;
 
     cmds_top = 0;
@@ -550,12 +549,12 @@ ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF
 
  done:
     for (i = 0; i < cmds_top; i++) {
-        if (cmds[i]) {
+        if (cmds && cmds[i]) {
             enif_free(cmds[i]);
         }
     }
 
-    if (cmds != NULL)
+    if (cmds != nullptr)
         enif_free(cmds);
 
     return ret;
@@ -568,7 +567,7 @@ ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF
 ERL_NIF_TERM engine_add_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Engine) */
 #ifdef HAS_ENGINE_SUPPORT
-    struct engine_ctx *ctx;
+    engine_ctx *ctx;
 
     /* Get Arguments */
     ASSERT(argc == 1);
@@ -597,7 +596,7 @@ ERL_NIF_TERM engine_add_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 ERL_NIF_TERM engine_remove_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Engine) */
 #ifdef HAS_ENGINE_SUPPORT
-    struct engine_ctx *ctx;
+    engine_ctx *ctx;
 
     /* Get Arguments */
     ASSERT(argc == 1);
@@ -625,7 +624,7 @@ ERL_NIF_TERM engine_remove_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 ERL_NIF_TERM engine_register_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Engine, EngineMethod) */
 #ifdef HAS_ENGINE_SUPPORT
-    struct engine_ctx *ctx;
+    engine_ctx *ctx;
     unsigned int method;
 
     /* Get Arguments */
@@ -644,10 +643,9 @@ ERL_NIF_TERM engine_register_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         break;
     case 0:
         goto failed;
-        break;
     case -1:
+    default:
         goto not_supported;
-        break;
     }
 
     return atom_ok;
@@ -669,14 +667,14 @@ ERL_NIF_TERM engine_register_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 ERL_NIF_TERM engine_unregister_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Engine, EngineMethod) */
 #ifdef HAS_ENGINE_SUPPORT
-    struct engine_ctx *ctx;
+    engine_ctx *ctx;
     unsigned int method;
 
     /* Get Arguments */
     ASSERT(argc == 2);
 
     /* Engine */
-    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, reinterpret_cast<void **>(&ctx))
         || !ctx->engine)
         goto bad_arg;
     if (!enif_get_uint(env, argv[1], &method))
@@ -700,22 +698,23 @@ ERL_NIF_TERM engine_get_first_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     ERL_NIF_TERM ret, result;
     ENGINE *engine;
     ErlNifBinary engine_bin;
-    struct engine_ctx *ctx = NULL;
+    engine_ctx *ctx = nullptr;
 
     ASSERT(argc == 0);
 
-    if ((engine = ENGINE_get_first()) == NULL) {
+    if ((engine = ENGINE_get_first()) == nullptr) {
         if (!enif_alloc_binary(0, &engine_bin))
             goto err;
         engine_bin.size = 0;
         return enif_make_tuple2(env, atom_ok, enif_make_binary(env, &engine_bin));
     }
 
-    if ((ctx = reinterpret_cast<engine_ctx*>(enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx)))) == NULL)
+    if ((ctx = reinterpret_cast<engine_ctx*>(enif_alloc_resource(engine_ctx_rtype, sizeof(engine_ctx)))) ==
+        nullptr)
         goto err;
     ctx->is_functional = 0;
     ctx->engine = engine;
-    ctx->id = NULL;
+    ctx->id = nullptr;
 
     result = enif_make_resource(env, ctx);
     ret = enif_make_tuple2(env, atom_ok, result);
@@ -740,13 +739,13 @@ ERL_NIF_TERM engine_get_next_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     ERL_NIF_TERM ret, result;
     ENGINE *engine;
     ErlNifBinary engine_bin;
-    struct engine_ctx *ctx, *next_ctx = NULL;
+    engine_ctx *ctx, *next_ctx = nullptr;
 
     /* Get Arguments */
     ASSERT(argc == 1);
 
     /* Engine */
-    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, reinterpret_cast<void **>(&ctx))
         || !ctx->engine)
         goto bad_arg;
 
@@ -755,20 +754,20 @@ ERL_NIF_TERM engine_get_next_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         ctx->is_functional = 0;
     }
     engine = ENGINE_get_next(ctx->engine);
-    ctx->engine = NULL;
+    ctx->engine = nullptr;
 
-    if (engine == NULL) {
+    if (engine == nullptr) {
         if (!enif_alloc_binary(0, &engine_bin))
             goto err;
         engine_bin.size = 0;
         return enif_make_tuple2(env, atom_ok, enif_make_binary(env, &engine_bin));
     }
 
-    if ((next_ctx = reinterpret_cast<engine_ctx*>(enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx)))) == NULL)
+    if ((next_ctx = static_cast<engine_ctx*>(enif_alloc_resource(engine_ctx_rtype, sizeof(engine_ctx)))) == nullptr)
         goto err;
     next_ctx->engine = engine;
     next_ctx->is_functional = 0;
-    next_ctx->id = NULL;
+    next_ctx->id = nullptr;
 
     result = enif_make_resource(env, next_ctx);
     ret = enif_make_tuple2(env, atom_ok, result);
@@ -794,16 +793,16 @@ ERL_NIF_TERM engine_get_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     ErlNifBinary engine_id_bin;
     const char *engine_id;
     size_t size;
-    struct engine_ctx *ctx = NULL;
+    engine_ctx *ctx = nullptr;
 
     // Get arguments
     ASSERT(argc == 1);
 
-    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, reinterpret_cast<void **>(&ctx))
         || !ctx->engine)
         goto bad_arg;
 
-    if ((engine_id = ENGINE_get_id(ctx->engine)) == NULL) {
+    if ((engine_id = ENGINE_get_id(ctx->engine)) == nullptr) {
         if (!enif_alloc_binary(0, &engine_id_bin))
             goto err;
         engine_id_bin.size = 0;
@@ -833,16 +832,16 @@ ERL_NIF_TERM engine_get_name_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     ErlNifBinary engine_name_bin;
     const char *engine_name;
     size_t size;
-    struct engine_ctx *ctx;
+    engine_ctx *ctx;
 
     // Get Engine
     ASSERT(argc == 1);
 
-    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, reinterpret_cast<void **>(&ctx))
         || !ctx->engine)
         goto bad_arg;
 
-    if ((engine_name = ENGINE_get_name(ctx->engine)) == NULL) {
+    if ((engine_name = ENGINE_get_name(ctx->engine)) == nullptr) {
         if (!enif_alloc_binary(0, &engine_name_bin))
             goto err;
         engine_name_bin.size = 0;
@@ -923,12 +922,12 @@ ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
     ERL_NIF_TERM ret, result;
     ErlNifBinary engine_id_bin,
         library_path_bin;
-    char *engine_id = NULL,
-        *library_path = NULL;
+    char *engine_id = nullptr,
+        *library_path = nullptr;
     int is_locked = 0;
 
-    ENGINE *engine = NULL;
-    struct engine_ctx *ctx = NULL;
+    ENGINE *engine = nullptr;
+    engine_ctx *ctx = nullptr;
 
     /* Get Arguments */
     ASSERT(argc == 2);
@@ -937,7 +936,7 @@ ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
     if (!enif_inspect_binary(env, argv[0], &engine_id_bin))
         goto bad_arg;
 
-    if ((engine_id = reinterpret_cast<char*>(enif_alloc(engine_id_bin.size+1))) == NULL)
+    if ((engine_id = static_cast<char*>(enif_alloc(engine_id_bin.size+1))) == nullptr)
         goto bad_arg;
 
     (void) memcpy(engine_id, engine_id_bin.data, engine_id_bin.size);
@@ -947,7 +946,7 @@ ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
     if (!enif_inspect_binary(env, argv[1], &library_path_bin))
         goto bad_arg;
 
-    if ((library_path = reinterpret_cast<char*>(enif_alloc(library_path_bin.size+1))) == NULL)
+    if ((library_path = static_cast<char*>(enif_alloc(library_path_bin.size+1))) == nullptr)
         goto bad_arg;
 
     (void) memcpy(library_path, library_path_bin.data, library_path_bin.size);
@@ -957,12 +956,12 @@ ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
     enif_mutex_lock(ensure_engine_loaded_mtx);
     is_locked = 1;
 
-    if ((engine = ENGINE_by_id(engine_id)) == NULL)
+    if ((engine = ENGINE_by_id(engine_id)) == nullptr)
     {
         PRINTF_ERR0("Load engine\r\n");
         /* Load dynamic engine */
         ENGINE_load_dynamic();
-        if ((engine = ENGINE_by_id("dynamic")) == NULL) {
+        if ((engine = ENGINE_by_id("dynamic")) == nullptr) {
             PRINTF_ERR0("ensure_engine_loaded_nif; couldn't get the dynamic engine");
             ret = ERROR_Atom(env, "bad_engine_id");
             goto done;
@@ -980,7 +979,7 @@ ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
             ret = ERROR_Atom(env, "ctrl_cmd_failed");
             goto err;
         }
-        if(!ENGINE_ctrl_cmd_string(engine, "LOAD", NULL, 0)) {
+        if(!ENGINE_ctrl_cmd_string(engine, "LOAD", nullptr, 0)) {
             PRINTF_ERR0("Cmd:  LOAD:(NULL)\r\n");
             ret = ERROR_Atom(env, "ctrl_cmd_failed");
             goto err;
@@ -992,7 +991,7 @@ ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
             goto err;
         }
     }
-  
+
     PRINTF_ERR0("Initialize engine\r\n");
 
     /* Init engine and get functional reference */
@@ -1000,9 +999,9 @@ ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
         ret = ERROR_Atom(env, "engine_init_failed");
         goto err;
     }
-        
+
     /* Get structural reference to already loaded engine */
-    if ((ctx = reinterpret_cast<engine_ctx*>(enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx)))) == NULL) {
+    if ((ctx = static_cast<engine_ctx*>(enif_alloc_resource(engine_ctx_rtype, sizeof(engine_ctx)))) == nullptr) {
         ret = enif_make_badarg(env);
         ENGINE_finish(engine);
         goto err;
@@ -1011,7 +1010,7 @@ ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
     ctx->is_functional = 1;
     ctx->id = engine_id;
     /* ctx now owns engine_id */
-    engine_id = NULL;
+    engine_id = nullptr;
 
     result = enif_make_resource(env, ctx);
     ret = enif_make_tuple2(env, atom_ok, result);

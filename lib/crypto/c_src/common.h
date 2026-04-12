@@ -60,9 +60,10 @@ static inline ERL_NIF_TERM EXCP_NOTSUP_N(ErlNifEnv *Env, int ArgNum, const char 
 static inline ERL_NIF_TERM EXCP_BADARG_N(ErlNifEnv *Env, int ArgNum, const char *Str) {
     return raise_exception(Env, atom_badarg, ArgNum, Str, __FILE__, __LINE__);
 }
+
 static inline ERL_NIF_TERM RAISE_NOTSUP(ErlNifEnv *Env) { return enif_raise_exception(Env, atom_notsup); }
 
-#define assign_goto(Var, Goto, CALL)                                                                                   \
+#define ASSIGN_GOTO(Var, Goto, CALL)                                                                                   \
     {                                                                                                                  \
         Var = (CALL);                                                                                                  \
         goto Goto;                                                                                                     \

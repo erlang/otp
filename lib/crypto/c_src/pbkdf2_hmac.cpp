@@ -30,11 +30,11 @@ static ERL_NIF_TERM pbkdf2_hmac(ErlNifEnv* env, int argc,
 {
     ErlNifBinary pass, salt, out;
     ErlNifUInt64 iter, keylen;
-    struct digest_type_t* digp = NULL;
+    struct digest_type_t* digp = nullptr;
 
-    if ((digp = get_digest_type(argv[0])) == NULL)
+    if ((digp = get_digest_type(argv[0])) == nullptr)
         return EXCP_BADARG_N(env, 0, "Bad digest type");
-    if (digp->md.p == NULL)
+    if (digp->md.p == nullptr)
         return EXCP_BADARG_N(env, 0, "md.p is not NULL");
     if ((digp->flags & PBKDF2_ELIGIBLE_DIGEST) == 0)
         return EXCP_BADARG_N(env, 0, "Not eligible digest type");
@@ -55,7 +55,7 @@ static ERL_NIF_TERM pbkdf2_hmac(ErlNifEnv* env, int argc,
     if (!enif_alloc_binary(keylen, &out))
         return EXCP_ERROR(env, "Can't allocate binary");
 
-    if (!PKCS5_PBKDF2_HMAC((const char *)pass.data, pass.size,
+    if (!PKCS5_PBKDF2_HMAC(reinterpret_cast<const char *>(pass.data), pass.size,
                            salt.data, salt.size, iter,
                            digp->md.p,
                            keylen, out.data)) {
@@ -67,7 +67,7 @@ static ERL_NIF_TERM pbkdf2_hmac(ErlNifEnv* env, int argc,
 }
 #endif /* HAS_PKCS5_PBKDF2_HMAC */
 
-ERL_NIF_TERM pbkdf2_hmac_nif(ErlNifEnv* env, int argc,
+ERL_NIF_TERM pbkdf2_hmac_nif(ErlNifEnv* env, const int argc,
                              const ERL_NIF_TERM argv[])
 {
 #ifdef HAS_PKCS5_PBKDF2_HMAC

@@ -28,7 +28,7 @@
 #define NOT_AEAD {{0,0,0}}
 #define AEAD_CTRL {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}
 
-static struct cipher_type_t cipher_types[] =
+static cipher_type_t cipher_types[] =
 {
 #ifdef HAVE_RC2
     {{"rc2_cbc"}, "rc2-cbc", {&EVP_rc2_cbc}, 0, NO_FIPS_CIPHER, NOT_AEAD},
@@ -134,10 +134,10 @@ static struct cipher_type_t cipher_types[] =
 #endif
 
 #if defined(HAVE_SM4_GCM)
-    {{"sm4_gcm"}, "sm4-gcm", {NULL}, 16, NO_FIPS_CIPHER | AEAD_CIPHER | GCM_MODE, AEAD_CTRL},
+    {{"sm4_gcm"}, "sm4-gcm", {nullptr}, 16, NO_FIPS_CIPHER | AEAD_CIPHER | GCM_MODE, AEAD_CTRL},
 #endif
 #if defined(HAVE_SM4_CCM)
-    {{"sm4_ccm"}, "sm4-ccm", {NULL}, 16, NO_FIPS_CIPHER | AEAD_CIPHER | CCM_MODE, AEAD_CTRL},
+    {{"sm4_ccm"}, "sm4-ccm", {nullptr}, 16, NO_FIPS_CIPHER | AEAD_CIPHER | CCM_MODE, AEAD_CTRL},
 #endif
 
 #if defined(HAVE_GCM) && defined(HAS_3_0_API)
@@ -170,15 +170,15 @@ static struct cipher_type_t cipher_types[] =
 
     /*==== End of list ==== */
 
-    {{NULL},NULL,{NULL},0,0,NOT_AEAD}
+    {{nullptr}, nullptr, {nullptr},0,0,NOT_AEAD}
 };
 
 ErlNifResourceType* evp_cipher_ctx_rtype;
 
 static size_t num_cipher_types = 0;
 
-static void evp_cipher_ctx_dtor(ErlNifEnv* env, struct evp_cipher_ctx* ctx) {
-    if (ctx == NULL)
+static void evp_cipher_ctx_dtor(ErlNifEnv* env, evp_cipher_ctx * ctx) {
+    if (ctx == nullptr)
         return;
 
     if (ctx->ctx)
@@ -191,12 +191,11 @@ static void evp_cipher_ctx_dtor(ErlNifEnv* env, struct evp_cipher_ctx* ctx) {
 }
 
 int init_cipher_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf) {
-    evp_cipher_ctx_rtype = enif_open_resource_type(env, NULL,
+    evp_cipher_ctx_rtype = enif_open_resource_type(env, nullptr,
                                                    resource_name("EVP_CIPHER_CTX", rt_buf),
-                                                   (ErlNifResourceDtor*) evp_cipher_ctx_dtor,
-                                                   static_cast<ErlNifResourceFlags>(ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER),
-                                                   NULL);
-    if (evp_cipher_ctx_rtype == NULL)
+                                                   reinterpret_cast<ErlNifResourceDtor *>(evp_cipher_ctx_dtor),
+                                                   static_cast<ErlNifResourceFlags>(ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER), nullptr);
+    if (evp_cipher_ctx_rtype == nullptr)
         goto err;
 
     return 1;
@@ -208,7 +207,7 @@ int init_cipher_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf) {
 
 void init_cipher_types(ErlNifEnv* env)
 {
-    struct cipher_type_t* p = cipher_types;
+    cipher_type_t * p = cipher_types;
 
     num_cipher_types = 0;
     for (p = cipher_types; p->type.str; p++) {
@@ -216,11 +215,11 @@ void init_cipher_types(ErlNifEnv* env)
 	p->type.atom = enif_make_atom(env, p->type.str);
 #ifdef HAS_3_0_API
         if (p->str_v3) {
-            p->cipher.p = EVP_CIPHER_fetch(NULL, p->str_v3, "");
+            p->cipher.p = EVP_CIPHER_fetch(nullptr, p->str_v3, "");
 # ifdef FIPS_SUPPORT
             /* Try if valid in FIPS */
             {
-                EVP_CIPHER *tmp = EVP_CIPHER_fetch(NULL, p->str_v3, "fips=yes");
+                EVP_CIPHER *tmp = EVP_CIPHER_fetch(nullptr, p->str_v3, "fips=yes");
 
                 if (tmp) {
                     EVP_CIPHER_free(tmp);
@@ -240,21 +239,21 @@ void init_cipher_types(ErlNifEnv* env)
     qsort(cipher_types, num_cipher_types, sizeof(cipher_types[0]), cmp_cipher_types);
 }
 
-const struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len)
+const cipher_type_t * get_cipher_type(ERL_NIF_TERM type, const size_t key_len)
 {
-    struct cipher_type_t key;
+    cipher_type_t key = {};
 
     key.type.atom = type;
     key.key_len = key_len;
 
-    return reinterpret_cast<cipher_type_t *>(
+    return static_cast<cipher_type_t *>(
             bsearch(&key, cipher_types, num_cipher_types, sizeof(cipher_types[0]), cmp_cipher_types));
 }
 
 
 int cmp_cipher_types(const void *keyp, const void *elemp) {
-    auto key  = reinterpret_cast<const cipher_type_t*>(keyp);
-    auto elem = reinterpret_cast<const cipher_type_t*>(elemp);
+    const auto key  = static_cast<const cipher_type_t*>(keyp);
+    const auto elem = static_cast<const cipher_type_t*>(elemp);
 
     if (key->type.atom < elem->type.atom) return -1;
     else if (key->type.atom > elem->type.atom) return 1;
@@ -267,24 +266,21 @@ int cmp_cipher_types(const void *keyp, const void *elemp) {
 
 ERL_NIF_TERM cipher_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type) */
-    const struct cipher_type_t *cipherp;
+    const cipher_type_t *cipherp;
     const EVP_CIPHER     *cipher;
     ERL_NIF_TERM         ret, ret_mode;
-    unsigned             type;
-    unsigned long        mode;
     ERL_NIF_TERM keys[6];
     ERL_NIF_TERM vals[6];
-    int ok;
 
-    if ((cipherp = get_cipher_type_no_key(argv[0])) == NULL)
+    if ((cipherp = get_cipher_type_no_key(argv[0])) == nullptr)
         return enif_make_badarg(env);
 
     if (CIPHER_FORBIDDEN_IN_FIPS(cipherp))
         return enif_raise_exception(env, atom_notsup);
-    if ((cipher = cipherp->cipher.p) == NULL)
+    if ((cipher = cipherp->cipher.p) == nullptr)
         return enif_raise_exception(env, atom_notsup);
 
-    type = EVP_CIPHER_type(cipher);
+    const unsigned type = EVP_CIPHER_type(cipher);
 
     keys[0] = atom_type;
     vals[0] = (type == NID_undef ? atom_undefined : enif_make_int(env, type));
@@ -301,7 +297,7 @@ ERL_NIF_TERM cipher_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     vals[4] = atom_false;
 #endif
 
-    mode = EVP_CIPHER_mode(cipher);
+    const auto mode = EVP_CIPHER_mode(cipher);
     switch (mode) {
         case EVP_CIPH_ECB_MODE:
             ret_mode = atom_ecb_mode;
@@ -366,25 +362,25 @@ ERL_NIF_TERM cipher_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     keys[5] = atom_mode;
     vals[5] = ret_mode;
 
-    ok = enif_make_map_from_arrays(env, keys, vals, 6, &ret);
+    auto ok = enif_make_map_from_arrays(env, keys, vals, 6, &ret);
     ASSERT(ok); (void)ok;
 
     return ret;
 }
 
-const struct cipher_type_t* get_cipher_type_no_key(ERL_NIF_TERM type)
+const cipher_type_t * get_cipher_type_no_key(ERL_NIF_TERM type)
 {
-    struct cipher_type_t key;
+    cipher_type_t key = {};
 
     key.type.atom = type;
 
-    return reinterpret_cast<cipher_type_t *>(
+    return static_cast<cipher_type_t *>(
             bsearch(&key, cipher_types, num_cipher_types, sizeof(cipher_types[0]), cmp_cipher_types_no_key));
 }
 
 int cmp_cipher_types_no_key(const void *keyp, const void *elemp) {
-    const auto key  = reinterpret_cast<const cipher_type_t *>(keyp);
-    const auto elem = reinterpret_cast<const cipher_type_t *>(elemp);
+    const auto key  = static_cast<const cipher_type_t *>(keyp);
+    const auto elem = static_cast<const cipher_type_t *>(elemp);
     int ret;
 
     if (key->type.atom < elem->type.atom) ret = -1;
@@ -397,18 +393,17 @@ int cmp_cipher_types_no_key(const void *keyp, const void *elemp) {
 
 ERL_NIF_TERM cipher_types_as_list(ErlNifEnv* env)
 {
-    struct cipher_type_t* p;
     ERL_NIF_TERM prev, hd;
 
     hd = enif_make_list(env, 0);
     prev = atom_undefined;
 
-    for (p = cipher_types; (p->type.atom & (p->type.atom != atom_false)); p++) {
+    for (cipher_type_t *p = cipher_types; (p->type.atom & (p->type.atom != atom_false)); p++) {
         if ((prev == p->type.atom) ||
             CIPHER_FORBIDDEN_IN_FIPS(p) )
             continue;
 
-        if ((p->cipher.p != NULL) ||
+        if ((p->cipher.p != nullptr) ||
             (p->flags & AES_CTR_COMPAT))
             {
                 hd = enif_make_list_cell(env, p->type.atom, hd);
