@@ -5094,7 +5094,7 @@ bad_key_length(_Config) ->
 
 bad_cipher_name(_Config) ->
     ?chk_api_name(crypto:crypto_init(foobar, <<1:128>>, true),
-                  error:{badarg,{"api_ng.c",_Line},"Unknown cipher"++_}).
+                  error:{badarg,{"api_ng.cpp",_Line},"Unknown cipher"++_}).
 
 bad_generate_key_name(_Config) ->
     ?chk_api_name(crypto:generate_key(foobar, [1024]),
@@ -5102,7 +5102,7 @@ bad_generate_key_name(_Config) ->
 
 bad_hash_name(_Config) ->
     ?chk_api_name(crypto:hash_init(foobar),
-                  error:{badarg,{"hash.c",_},"Bad digest type"++_}).
+                  error:{badarg,{"hash.cpp",_},"Bad digest type"++_}).
 
 bad_mac_name(_Config) ->
     ?chk_api_name(crypto:mac(foobar, <<1:1024>>, "nothing"),
@@ -5110,26 +5110,26 @@ bad_mac_name(_Config) ->
 
 bad_hmac_name(_Config) ->
     ?chk_api_name(crypto:mac(hmac, foobar, <<1:1024>>, "nothing"),
-                  error:{badarg,{"mac.c",_},"Bad digest algorithm"++_}).
+                  error:{badarg,{"mac.cpp",_},"Bad digest algorithm"++_}).
 
 bad_cmac_name(_Config) ->
     ?chk_api_name(crypto:mac(cmac, foobar, <<1:1024>>, "nothing"),
-                  error:{badarg,{"mac.c",_},"Unknown cipher"++_},
+                  error:{badarg,{"mac.cpp",_},"Unknown cipher"++_},
                   error:{notsup,_,          "Unsupported mac algorithm"++_},
                   error:{badarg,#{},        "Unknown cipher"++_}
                  ).
 
 bad_sign_name(_Config) ->
     ?chk_api_name(crypto:sign(rsa, foobar, "nothing", <<1:1024>>),
-                  error:{badarg, {"pkey.c",_}, "Bad digest type"++_}),
+                  error:{badarg, {"pkey.cpp",_}, "Bad digest type"++_}),
     ?chk_api_name(crypto:sign(foobar, sha, "nothing", <<1:1024>>),
-                  error:{_, {"pkey.c",_}, _}).
+                  error:{_, {"pkey.cpp",_}, _}).
     
 bad_verify_name(_Config) ->
     ?chk_api_name(crypto:verify(rsa, foobar, "nothing", <<"nothing">>,  <<1:1024>>),
-                  error:{badarg,{"pkey.c",_},"Bad digest type"++_}),
+                  error:{badarg,{"pkey.cpp",_},"Bad digest type"++_}),
     ?chk_api_name(crypto:verify(foobar, sha, "nothing", <<"nothing">>, <<1:1024>>),
-                  error:{_, {"pkey.c",_}, _}).
+                  error:{_, {"pkey.cpp",_}, _}).
 
 
 %%%----------------------------------------------------------------

@@ -37,31 +37,18 @@
 #include "atoms.h"
 #include "openssl_config.h"
 
-/* All nif functions return a valid value or throws an exception */
+// All nif functions return a valid value or throws an exception
 ERL_NIF_TERM raise_exception(ErlNifEnv *env, ERL_NIF_TERM id, int arg_num, const char *explanation, const char *file,
                              int Line);
 
-static inline ERL_NIF_TERM EXCP_ERROR(ErlNifEnv *Env, const char *Str) {
-    return raise_exception(Env, atom_error, -1, Str, __FILE__, __LINE__);
-}
-
-static inline ERL_NIF_TERM EXCP_NOTSUP(ErlNifEnv *Env, const char *Str) {
-    return raise_exception(Env, atom_notsup, -1, Str, __FILE__, __LINE__);
-}
-
-static inline ERL_NIF_TERM EXCP_ERROR_N(ErlNifEnv *Env, int ArgNum, const char *Str) {
-    return raise_exception(Env, atom_error, ArgNum, Str, __FILE__, __LINE__);
-}
-
-static inline ERL_NIF_TERM EXCP_NOTSUP_N(ErlNifEnv *Env, int ArgNum, const char *Str) {
-    return raise_exception(Env, atom_notsup, ArgNum, Str, __FILE__, __LINE__);
-}
-
-static inline ERL_NIF_TERM EXCP_BADARG_N(ErlNifEnv *Env, int ArgNum, const char *Str) {
-    return raise_exception(Env, atom_badarg, ArgNum, Str, __FILE__, __LINE__);
-}
-
-static inline ERL_NIF_TERM RAISE_NOTSUP(ErlNifEnv *Env) { return enif_raise_exception(Env, atom_notsup); }
+// Macros pass the FILE and LINE of the call site to the exception contents and are used in tests
+// see crypto_SUITE:?chk_api_name etc.
+#define EXCP_ERROR(Env, Str) raise_exception(Env, atom_error, -1, Str, __FILE__, __LINE__)
+#define EXCP_NOTSUP(Env, Str) raise_exception(Env, atom_notsup, -1, Str, __FILE__, __LINE__)
+#define EXCP_ERROR_N(Env, ArgNum, Str) raise_exception(Env, atom_error, ArgNum, Str, __FILE__, __LINE__)
+#define EXCP_NOTSUP_N(Env, ArgNum, Str) raise_exception(Env, atom_notsup, ArgNum, Str, __FILE__, __LINE__)
+#define EXCP_BADARG_N(Env, ArgNum, Str) raise_exception(Env, atom_badarg, ArgNum, Str, __FILE__, __LINE__)
+#define RAISE_NOTSUP(Env) enif_raise_exception(Env, atom_notsup)
 
 #define ASSIGN_GOTO(Var, Goto, CALL)                                                                                   \
     {                                                                                                                  \
