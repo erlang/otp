@@ -25,8 +25,7 @@
 
 #ifdef HAVE_DSA
 
-# ifdef HAS_3_0_API
-
+#ifdef HAS_3_0_API
 int get_dss_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
 // HAS_3_0_API
 {
@@ -66,7 +65,9 @@ err:
     if (ctx) EVP_PKEY_CTX_free(ctx);
     return 0;
 }
+#endif
 
+#ifdef HAS_3_0_API
 int get_dss_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
 // HAS_3_0_API
 {
@@ -106,9 +107,10 @@ err:
     if (ctx) EVP_PKEY_CTX_free(ctx);
     return 0;
 }
+#endif
 
-
-int dss_privkey_to_pubkey(ErlNifEnv* env, const EVP_PKEY *pkey, ERL_NIF_TERM *ret)
+#ifdef HAS_3_0_API
+int dss_privkey_to_pubkey(ErlNifEnv* env, EVP_PKEY *pkey, ERL_NIF_TERM *ret)
 // HAS_3_0_API
 {
     ERL_NIF_TERM result[4];
@@ -132,17 +134,16 @@ int dss_privkey_to_pubkey(ErlNifEnv* env, const EVP_PKEY *pkey, ERL_NIF_TERM *re
  err:
     return 0;
 }
+#endif
 
-# else
-/* Has NOT 3.0 API */
-
+#if !defined(HAS_3_0_API)
 int get_dss_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
 {
     /* key=[P,Q,G,KEY] */
     ERL_NIF_TERM head, tail;
-    BIGNUM *dsa_p = NULL, *dsa_q = NULL, *dsa_g = NULL;
-    BIGNUM *dummy_pub_key = NULL, *priv_key = NULL;
-    DSA *dsa = NULL;
+    BIGNUM *dsa_p = nullptr, *dsa_q = nullptr, *dsa_g = nullptr;
+    BIGNUM *dummy_pub_key = nullptr, *priv_key = nullptr;
+    DSA *dsa = nullptr;
 
     if (!enif_get_list_cell(env, key, &head, &tail))
         goto err;
@@ -172,24 +173,24 @@ int get_dss_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
      * public key. Work around this limitation by setting
      * the public key to a copy of the private key.
      */
-    if ((dummy_pub_key = BN_dup(priv_key)) == NULL)
+    if ((dummy_pub_key = BN_dup(priv_key)) == nullptr)
         goto err;
 
-    if ((dsa = DSA_new()) == NULL)
+    if ((dsa = DSA_new()) == nullptr)
         goto err;
 
     if (!DSA_set0_pqg(dsa, dsa_p, dsa_q, dsa_g))
         goto err;
     /* dsa takes ownership on success */
-    dsa_p = NULL;
-    dsa_q = NULL;
-    dsa_g = NULL;
+    dsa_p = nullptr;
+    dsa_q = nullptr;
+    dsa_g = nullptr;
 
     if (!DSA_set0_key(dsa, dummy_pub_key, priv_key))
         goto err;
     /* dsa takes ownership on success */
-    dummy_pub_key = NULL;
-    priv_key = NULL;
+    dummy_pub_key = nullptr;
+    priv_key = nullptr;
 
     *pkey = EVP_PKEY_new();
     if (EVP_PKEY_assign_DSA(*pkey, dsa) != 1)
@@ -212,13 +213,15 @@ int get_dss_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
         BN_free(dummy_pub_key);
     return 0;
 }
+#endif
 
+#if !defined(HAS_3_0_API)
 int get_dss_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
 {
     /* key=[P, Q, G, Y] */
     ERL_NIF_TERM head, tail;
-    BIGNUM *dsa_p = NULL, *dsa_q = NULL, *dsa_g = NULL, *dsa_y = NULL;
-    DSA *dsa = NULL;
+    BIGNUM *dsa_p = nullptr, *dsa_q = nullptr, *dsa_g = nullptr, *dsa_y = nullptr;
+    DSA *dsa = nullptr;
 
     if (!enif_get_list_cell(env, key, &head, &tail))
         goto err;
@@ -243,20 +246,20 @@ int get_dss_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
     if (!enif_is_empty_list(env,tail))
         goto err;
 
-    if ((dsa = DSA_new()) == NULL)
+    if ((dsa = DSA_new()) == nullptr)
         goto err;
 
     if (!DSA_set0_pqg(dsa, dsa_p, dsa_q, dsa_g))
         goto err;
     /* dsa takes ownership on success */
-    dsa_p = NULL;
-    dsa_q = NULL;
-    dsa_g = NULL;
+    dsa_p = nullptr;
+    dsa_q = nullptr;
+    dsa_g = nullptr;
 
-    if (!DSA_set0_key(dsa, dsa_y, NULL))
+    if (!DSA_set0_key(dsa, dsa_y, nullptr))
         goto err;
     /* dsa takes ownership on success */
-    dsa_y = NULL;
+    dsa_y = nullptr;
 
     *pkey = EVP_PKEY_new();
     if (EVP_PKEY_assign_DSA(*pkey, dsa) != 1)
@@ -277,19 +280,20 @@ int get_dss_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
         BN_free(dsa_y);
     return 0;
 }
+#endif
 
-
+#if !defined(HAS_3_0_API)
 int dss_privkey_to_pubkey(ErlNifEnv* env, EVP_PKEY *pkey, ERL_NIF_TERM *ret)
 {
     ERL_NIF_TERM result[4];
-    DSA *dsa = NULL;
-    const BIGNUM *p = NULL, *q = NULL, *g = NULL, *pub_key = NULL;
+    DSA *dsa = nullptr;
+    const BIGNUM *p = nullptr, *q = nullptr, *g = nullptr, *pub_key = nullptr;
 
-    if ((dsa = EVP_PKEY_get1_DSA(pkey)) == NULL)
+    if ((dsa = EVP_PKEY_get1_DSA(pkey)) == nullptr)
         goto err;
 
     DSA_get0_pqg(dsa, &p, &q, &g);
-    DSA_get0_key(dsa, &pub_key, NULL);
+    DSA_get0_key(dsa, &pub_key, nullptr);
 
     if ((result[0] = bin_from_bn(env, p)) == atom_error)
         goto err;
@@ -309,7 +313,6 @@ int dss_privkey_to_pubkey(ErlNifEnv* env, EVP_PKEY *pkey, ERL_NIF_TERM *ret)
         DSA_free(dsa);
     return 0;
 }
-
-# endif /* HAS_3_0_API */
+# endif // no 3.0 OpenSSL API
 
 #endif /* HAVE_DSA */

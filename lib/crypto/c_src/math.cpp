@@ -41,7 +41,7 @@ ERL_NIF_TERM do_exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         goto err;
 
     for (size_t i = 0; i<d1.size; i++) {
-	ret_ptr[i] = d1.data[i] ^ d2.data[i];
+        ret_ptr[i] = d1.data[i] ^ d2.data[i];
     }
 
     CONSUME_REDS(env,d1);

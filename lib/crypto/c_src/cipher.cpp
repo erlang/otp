@@ -228,14 +228,9 @@ static cipher_type_t cipher_types[] = {
                 .set_aead(ERL_CRYPTO_AEAD_ZEROES)
                 .set_ccm_mode(),
 #endif
-
-    /*==== End of list ==== */
 };
-static const size_t CIPHERS_ARRAY_SIZE = sizeof(cipher_types) / sizeof(cipher_types[0]);
-
+const auto CIPHER_TYPES_SIZE = sizeof(cipher_types) / sizeof(cipher_type_t);
 ErlNifResourceType* evp_cipher_ctx_rtype;
-
-static size_t num_cipher_types = 0;
 
 static void evp_cipher_ctx_dtor(ErlNifEnv* env, evp_cipher_ctx * ctx) {
     if (ctx == nullptr)
@@ -267,9 +262,8 @@ int init_cipher_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf) {
 
 void init_cipher_types(ErlNifEnv* env)
 {
-    for (auto i = 0; i < CIPHERS_ARRAY_SIZE; i++) {
-        auto p = &cipher_types[i];
-        p->atom = enif_make_atom(env, p->str);
+    for (auto &p: cipher_types) {
+        p.atom = enif_make_atom(env, p.str);
 #ifdef HAS_3_0_API
         if (cipher_types[i].str_v3) {
             p->resource = EVP_CIPHER_fetch(nullptr, p->str_v3, "");
@@ -288,12 +282,12 @@ void init_cipher_types(ErlNifEnv* env)
 # endif /* FIPS_SUPPORT and >=3.0.0 */
         }
 #else
-        if (p->cipher.funcp)
-            p->cipher.p = p->cipher.funcp();
+        if (p.funcp) {
+            p.resource = p.funcp();
+        }
 #endif
     }
-
-    qsort(cipher_types, CIPHERS_ARRAY_SIZE, sizeof(cipher_type_t), cmp_cipher_types);
+    qsort(cipher_types, CIPHER_TYPES_SIZE, sizeof(cipher_type_t), cmp_cipher_types);
 }
 
 const cipher_type_t * get_cipher_type(ERL_NIF_TERM type, const size_t key_len)
@@ -303,7 +297,7 @@ const cipher_type_t * get_cipher_type(ERL_NIF_TERM type, const size_t key_len)
     key.key_len = key_len;
 
     return static_cast<cipher_type_t *>(
-            bsearch(&key, cipher_types, num_cipher_types, sizeof(cipher_types[0]), cmp_cipher_types));
+            bsearch(&key, cipher_types, CIPHER_TYPES_SIZE, sizeof(cipher_types[0]), cmp_cipher_types));
 }
 
 
@@ -430,7 +424,7 @@ const cipher_type_t * get_cipher_type_no_key(ERL_NIF_TERM type)
     key.atom = type;
 
     return static_cast<cipher_type_t *>(
-            bsearch(&key, cipher_types, CIPHERS_ARRAY_SIZE, sizeof(cipher_type_t), cmp_cipher_types_no_key));
+            bsearch(&key, cipher_types, CIPHER_TYPES_SIZE, sizeof(cipher_type_t), cmp_cipher_types_no_key));
 }
 
 int cmp_cipher_types_no_key(const void *keyp, const void *elemp) {

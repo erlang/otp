@@ -22,6 +22,9 @@
 
 #include "mac.h"
 // #include "../../../erts/emulator/test/nif_SUITE_data/nif_api_2_4/erl_nif.h"
+#include <sys/stat.h>
+
+
 #include "cipher.h"
 #include "cmac.h"
 #include "common.h"
@@ -162,11 +165,11 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     size_t outlen;
 #else
     /* Old style */
-    const EVP_MD *md = NULL;
+    const EVP_MD *md = nullptr;
 # ifdef HAS_EVP_PKEY_CTX
     size_t size;
-    EVP_PKEY *pkey = NULL;
-    EVP_MD_CTX *mctx = NULL;
+    EVP_PKEY *pkey = nullptr;
+    EVP_MD_CTX *mctx = nullptr;
 # endif
 #endif
 
@@ -232,16 +235,16 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             subalg = digp->str_v3;
 #else
             /* Old style */
-            if (digp->md.p == NULL)
+            if (digp->resource == nullptr)
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Unsupported digest algorithm");
                     goto err;
                 }
-            md = digp->md.p;
+            md = digp->resource;
 # if defined(HAS_EVP_PKEY_CTX) && (! DISABLE_EVP_HMAC)
 #  ifdef HAVE_PKEY_new_raw_private_key
             /* Preferred for new applications according to EVP_PKEY_new_mac_key(3) */
-            pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_HMAC, /*engine*/ NULL, key_bin.data,  key_bin.size);
+            pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_HMAC, /*engine*/ nullptr, key_bin.data,  key_bin.size);
 #  else
             /* Available in older versions */
             pkey = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, /*engine*/ NULL, key_bin.data,  key_bin.size);
@@ -293,7 +296,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 # else
             /* Old style */
 #  ifdef HAVE_EVP_PKEY_new_CMAC_key
-            pkey = EVP_PKEY_new_CMAC_key(/*engine*/ NULL, key_bin.data,  key_bin.size, cipherp->cipher.p);
+            pkey = EVP_PKEY_new_CMAC_key(/*engine*/ nullptr, key_bin.data,  key_bin.size, cipherp->resource);
 #  else
             if (!cmac_low_level(env, key_bin, cipherp->cipher.p, text, &ret_bin, &ret_bin_alloc, &return_term))
                 goto err;
@@ -317,7 +320,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 # else
         /* Old style */
         /* poly1305 implies that EVP_PKEY_new_raw_private_key exists */
-        pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_POLY1305, /*engine*/ NULL, key_bin.data,  key_bin.size);
+        pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_POLY1305, /*engine*/ nullptr, key_bin.data,  key_bin.size);
 # endif
         break;
 #endif
@@ -360,20 +363,20 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             goto err;
         }
     
-    if ((mctx = EVP_MD_CTX_new()) == NULL)
+    if ((mctx = EVP_MD_CTX_new()) == nullptr)
         {
             return_term = EXCP_ERROR(env, "EVP_MD_CTX_new");
             goto err;
         }
 
-    if (EVP_DigestSignInit(mctx, /*&pctx*/ NULL, md, /*engine*/ NULL, pkey) != 1)
+    if (EVP_DigestSignInit(mctx, /*&pctx*/ nullptr, md, /*engine*/ nullptr, pkey) != 1)
         {
             return_term = EXCP_ERROR(env, "EVP_DigestSign");
             goto err;
         }
 
 #  ifdef HAVE_DigestSign_as_single_op
-    if (EVP_DigestSign(mctx, NULL, &size, text.data, text.size) != 1)
+    if (EVP_DigestSign(mctx, nullptr, &size, text.data, text.size) != 1)
         {
             return_term = EXCP_ERROR(env, "Can't get sign size");
             goto err;
@@ -523,8 +526,8 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     size_t params_n = 0;
 # else
     /* EVP_PKEY_CTX is available */
-    const EVP_MD *md = NULL;
-    EVP_PKEY *pkey = NULL;
+    const EVP_MD *md = nullptr;
+    EVP_PKEY *pkey = nullptr;
 # endif
 
     /*---------------------------------
@@ -580,16 +583,16 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 # if defined(HAS_3_0_API)
             digest = digp->str_v3;
 # else
-            if (digp->md.p == NULL)
+            if (digp->resource == nullptr)
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Unsupported digest algorithm");
                     goto err;
                 }
-            md = digp->md.p;
+            md = digp->resource;
 
 #  ifdef HAVE_PKEY_new_raw_private_key
             /* Preferred for new applications according to EVP_PKEY_new_mac_key(3) */
-            pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_HMAC, /*engine*/ NULL, key_bin.data,  key_bin.size);
+            pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_HMAC, /*engine*/ nullptr, key_bin.data,  key_bin.size);
 #  else
             /* Available in older versions */
             pkey = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, /*engine*/ NULL, key_bin.data,  key_bin.size);
@@ -632,7 +635,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             cipher = cipherp->str_v3;
 #  else
             /* Old style */
-            pkey = EVP_PKEY_new_CMAC_key(/*engine*/ NULL, key_bin.data,  key_bin.size, cipherp->cipher.p);
+            pkey = EVP_PKEY_new_CMAC_key(/*engine*/ nullptr, key_bin.data,  key_bin.size, cipherp->resource);
 #  endif
         }
         break;
@@ -647,7 +650,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 #  if !defined(HAS_3_0_API)
         /* Old style */
         /* poly1305 implies that EVP_PKEY_new_raw_private_key exists */
-        pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_POLY1305, /*engine*/ NULL, key_bin.data,  key_bin.size);
+        pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_POLY1305, /*engine*/ nullptr, key_bin.data,  key_bin.size);
 #  endif
         break;
 # endif
@@ -698,20 +701,20 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             return_term = EXCP_ERROR(env, "EVP_PKEY_key creation");
             goto err;
         }
-    
-    if ((obj = enif_alloc_resource(mac_context_rtype, sizeof(struct mac_context))) == NULL)
+
+    if ((obj = static_cast<mac_context *>(enif_alloc_resource(mac_context_rtype, sizeof(mac_context)))) == nullptr)
         {
             return_term = EXCP_ERROR(env, "Can't allocate mac_context_rtype");
             goto err;
         }
 
-    if ((obj->ctx = EVP_MD_CTX_new()) == NULL)
+    if ((obj->ctx = EVP_MD_CTX_new()) == nullptr)
         {
             return_term = EXCP_ERROR(env, "EVP_MD_CTX_new");
             goto err;
         }
 
-    if (EVP_DigestSignInit(obj->ctx, /*&pctx*/ NULL, md, /*engine*/ NULL, pkey) != 1)
+    if (EVP_DigestSignInit(obj->ctx, /*&pctx*/ nullptr, md, /*engine*/ nullptr, pkey) != 1)
         {
             return_term = EXCP_ERROR(env, "EVP_DigestSign");
             goto err;
@@ -801,7 +804,7 @@ ERL_NIF_TERM mac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 # if defined(HAS_3_0_API)
     if (!EVP_MAC_final(obj->ctx, nullptr, &size, 0))
 # else
-    if (EVP_DigestSignFinal(obj->ctx, NULL, &size) != 1)
+    if (EVP_DigestSignFinal(obj->ctx, nullptr, &size) != 1)
 # endif
         return EXCP_ERROR(env, "Can't get sign size");
    

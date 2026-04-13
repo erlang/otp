@@ -155,8 +155,8 @@ void init_digest_types(ErlNifEnv* env)
 # endif /* FIPS_SUPPORT and >=3.0.0 */
         }
 #else
-        if (p->md.funcp) {
-            p->md.p = p->md.funcp();
+        if (p.funcp) {
+            p.resource = p.funcp();
         }
 #endif
         p.atom = enif_make_atom(env, p.str);

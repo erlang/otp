@@ -62,7 +62,7 @@ static int check_erlang_interrupt(int maj, int min, BN_GENCB *ctxt);
 static ERL_NIF_TERM put_rsa_private_key(ErlNifEnv* env, const RSA *rsa)
 {
     ERL_NIF_TERM result[8];
-    const BIGNUM *n = NULL, *e = NULL, *d = NULL, *p = NULL, *q = NULL, *dmp1 = NULL, *dmq1 = NULL, *iqmp = NULL;
+    const BIGNUM *n = nullptr, *e = nullptr, *d = nullptr, *p = nullptr, *q = nullptr, *dmp1 = nullptr, *dmq1 = nullptr, *iqmp = nullptr;
 
     /* Return at least [E,N,D] */
     RSA_get0_key(rsa, &n, &e, &d);
@@ -99,25 +99,19 @@ static ERL_NIF_TERM put_rsa_private_key(ErlNifEnv* env, const RSA *rsa)
     return enif_make_badarg(env);
 }
 
-static int check_erlang_interrupt(int maj, int min, BN_GENCB *ctxt)
-{
-    ErlNifEnv *env = BN_GENCB_get_arg(ctxt);
-
-    if (!enif_is_current_process_alive(env)) {
-	return 0;
-    } else {
-	return 1;
-    }
+static int check_erlang_interrupt(int maj, int min, BN_GENCB *ctxt) {
+    const auto env = static_cast<ErlNifEnv *>(BN_GENCB_get_arg(ctxt));
+    return enif_is_current_process_alive(env);
 }
 
 int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
 {
     /* key=[E,N,D]|[E,N,D,P1,P2,E1,E2,C] */
     ERL_NIF_TERM head, tail;
-    BIGNUM *e = NULL, *n = NULL, *d = NULL;
-    BIGNUM *p = NULL, *q = NULL;
-    BIGNUM *dmp1 = NULL, *dmq1 = NULL, *iqmp = NULL;
-    RSA *rsa = NULL;
+    BIGNUM *e = nullptr, *n = nullptr, *d = nullptr;
+    BIGNUM *p = nullptr, *q = nullptr;
+    BIGNUM *dmp1 = nullptr, *dmq1 = nullptr, *iqmp = nullptr;
+    RSA *rsa = nullptr;
 
     if (!enif_get_list_cell(env, key, &head, &tail))
         goto bad_arg;
@@ -132,16 +126,16 @@ int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
     if (!get_bn_from_bin(env, head, &d))
         goto bad_arg;
 
-    if ((rsa = RSA_new()) == NULL)
+    if ((rsa = RSA_new()) == nullptr)
         goto err;
 
     *pkey = EVP_PKEY_new();
     if (!RSA_set0_key(rsa, n, e, d))
         goto err;
     /* rsa now owns n, e, and d */
-    n = NULL;
-    e = NULL;
-    d = NULL;
+    n = nullptr;
+    e = nullptr;
+    d = nullptr;
 
     if (enif_is_empty_list(env, tail)) {
         if (EVP_PKEY_assign_RSA(*pkey, rsa) != 1)
@@ -176,15 +170,15 @@ int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
         goto err;
 
     /* rsa now owns p and q */
-    p = NULL;
-    q = NULL;
+    p = nullptr;
+    q = nullptr;
 
     if (!RSA_set0_crt_params(rsa, dmp1, dmq1, iqmp))
         goto err;
     /* rsa now owns dmp1, dmq1, and iqmp */
-    dmp1 = NULL;
-    dmq1 = NULL;
-    iqmp = NULL;
+    dmp1 = nullptr;
+    dmq1 = nullptr;
+    iqmp = nullptr;
 
     if (EVP_PKEY_assign_RSA(*pkey, rsa) != 1)
         goto err;
@@ -220,8 +214,8 @@ int get_rsa_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
 {
     /* key=[E,N] */
     ERL_NIF_TERM head, tail;
-    BIGNUM *e = NULL, *n = NULL;
-    RSA *rsa = NULL;
+    BIGNUM *e = nullptr, *n = nullptr;
+    RSA *rsa = nullptr;
 
     if (!enif_get_list_cell(env, key, &head, &tail))
         goto bad_arg;
@@ -234,14 +228,14 @@ int get_rsa_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
     if (!enif_is_empty_list(env, tail))
         goto bad_arg;
 
-    if ((rsa = RSA_new()) == NULL)
+    if ((rsa = RSA_new()) == nullptr)
         goto err;
-    if (!RSA_set0_key(rsa, n, e, NULL))
+    if (!RSA_set0_key(rsa, n, e, nullptr))
         goto err;
 
     /* rsa now owns n and e */
-    n = NULL;
-    e = NULL;
+    n = nullptr;
+    e = nullptr;
 
     *pkey = EVP_PKEY_new();
     if (EVP_PKEY_assign_RSA(*pkey, rsa) != 1)
@@ -266,9 +260,9 @@ static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TER
 {/* (ModulusSize, PublicExponent) */
     ERL_NIF_TERM ret;
     int modulus_bits;
-    BIGNUM *pub_exp = NULL, *three = NULL;
-    RSA *rsa = NULL;
-    BN_GENCB *intr_cb = NULL;
+    BIGNUM *pub_exp = nullptr, *three = nullptr;
+    RSA *rsa = nullptr;
+    BN_GENCB *intr_cb = nullptr;
 #ifndef HAVE_OPAQUE_BN_GENCB
     BN_GENCB intr_cb_buf;
 #endif
@@ -282,7 +276,7 @@ static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TER
 
     /* Make sure the public exponent is large enough (at least 3).
      * Without this, RSA_generate_key_ex() can run forever. */
-    if ((three = BN_new()) == NULL)
+    if ((three = BN_new()) == nullptr)
         goto err;
     if (!BN_set_word(three, 3))
         goto err;
@@ -293,14 +287,14 @@ static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TER
      * the callback which we use to test whether the process has been
      * interrupted. */
 #ifdef HAVE_OPAQUE_BN_GENCB
-    if ((intr_cb = BN_GENCB_new()) == NULL)
+    if ((intr_cb = BN_GENCB_new()) == nullptr)
         goto err;
 #else
     intr_cb = &intr_cb_buf;
 #endif
     BN_GENCB_set(intr_cb, check_erlang_interrupt, env);
 
-    if ((rsa = RSA_new()) == NULL)
+    if ((rsa = RSA_new()) == nullptr)
         goto err;
 
     if (!RSA_generate_key_ex(rsa, modulus_bits, pub_exp, intr_cb))
@@ -331,11 +325,11 @@ static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TER
 
 int rsa_privkey_to_pubkey(ErlNifEnv* env,  EVP_PKEY *pkey, ERL_NIF_TERM *ret)
 {
-    const BIGNUM *n = NULL, *e = NULL, *d = NULL;
+    const BIGNUM *n = nullptr, *e = nullptr, *d = nullptr;
     ERL_NIF_TERM result[2];
-    RSA *rsa = NULL;
+    RSA *rsa = nullptr;
 
-    if ((rsa = EVP_PKEY_get1_RSA(pkey)) == NULL)
+    if ((rsa = EVP_PKEY_get1_RSA(pkey)) == nullptr)
         goto err;
 
     RSA_get0_key(rsa, &n, &e, &d);
