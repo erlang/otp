@@ -147,16 +147,38 @@ bounds('rem', R1, R2) ->
     rem_bounds(R1, R2);
 bounds('band', R1, R2) ->
     case {R1,R2} of
-        {{A,B}, {C,D}} when A bsr ?NUM_BITS =:= 0, A >= 0,
-                            C bsr ?NUM_BITS =:= 0, C >= 0,
+        {{A,B}, {C,D}} when is_integer(A), A >= 0, A bsr ?NUM_BITS =:= 0,
+                            is_integer(C), C >= 0, C bsr ?NUM_BITS =:= 0,
                             is_integer(B), is_integer(D) ->
             Min = min_band(A, B, C, D),
             Max = max_band(A, B, C, D),
             {Min,Max};
-        {_, {C,D}} when is_integer(C), C >= 0 ->
-            {0,D};
+        {{A,B}, {C,D}} when is_integer(A), A >= 0,
+                            is_integer(C), C >= 0 ->
+            %% Both non-negative, but some bounds exceed ?NUM_BITS.
+            %% x band y =< min(x, y).
+            {0, cap(inf_min(B, D))};
+        {{_,B}, {_,D}} when is_integer(B), B < 0,
+                            is_integer(D), D < 0 ->
+            %% Both strictly negative. Result is always <= min(B, D).
+            %% When min(B,D) exceeds NUM_BITS, widen to -1 (least
+            %% negative), not '-inf'.
+            Max = case inf_min(B, D) of
+                      M when is_integer(M), abs(M) bsr ?NUM_BITS =/= 0 -> -1;
+                      M -> M
+                  end,
+            {'-inf', Max};
         {{A,B}, _} when is_integer(A), A >= 0 ->
-            {0,B};
+            %% First non-negative. Result is non-negative, bounded by the first operand.
+            {0, cap(B)};
+        {_, {C,D}} when is_integer(C), C >= 0 ->
+            %% Second non-negative. Result is non-negative, bounded by the second operand.
+            {0, cap(D)};
+        {{_,B}, {_,D}} when is_integer(B), B >= 0,
+                            is_integer(D), D >= 0 ->
+            %% Both ranges straddle zero with non-negative upper
+            %% bounds. The upper bound of band cannot exceed max(B, D).
+            {'-inf', cap(inf_max(B, D))};
         {_, _} ->
             any
     end;
@@ -169,6 +191,14 @@ bounds('bor', R1, R2) ->
             Min = min_bor(A, B, C, D),
             Max = max_bor(A, B, C, D),
             normalize({Min,Max});
+        {{A,_}, {C,_}} when is_integer(A), A >= 0,
+                            is_integer(C), C >= 0 ->
+            %% Both non-negative, but some bounds exceed ?NUM_BITS.
+            {0, '+inf'};
+        {{_,B}, {_,D}} when is_integer(B), B =< 0,
+                            is_integer(D), D =< 0 ->
+            %% Both non-positive, but some bounds exceed ?NUM_BITS.
+            {'-inf', 0};
         {_, _} ->
             any
     end;
@@ -179,6 +209,15 @@ bounds('bxor', R1, R2) ->
                             is_integer(B), is_integer(D) ->
             Max = max_bxor(A, B, C, D),
             {0,Max};
+        {{A,_}, {C,_}} when is_integer(A), A >= 0,
+                            is_integer(C), C >= 0 ->
+            %% Both non-negative, but some bounds exceed ?NUM_BITS.
+            {0, '+inf'};
+        {{A,B}, {C,D}} when (is_integer(B) andalso B < 0 andalso is_integer(C) andalso C >= 0) orelse
+                            (is_integer(A) andalso A >= 0 andalso is_integer(D) andalso D < 0) ->
+            %% One strictly negative, other non-negative.
+            %% XOR of different sign bits always yields negative.
+            {'-inf', -1};
         {_, _} ->
             any
     end;
@@ -547,6 +586,12 @@ inf_neg(N) -> -N.
 
 inf_add(Int, N) when is_integer(Int) -> Int + N;
 inf_add(Inf, _N) -> Inf.
+
+%% Cap a value to '+inf' or '-inf' if it exceeds ?NUM_BITS.
+cap(A) when A =:= '-inf'; A =:= '+inf' -> A;
+cap(N) when is_integer(N), N >= 0, N bsr ?NUM_BITS =/= 0 -> '+inf';
+cap(N) when is_integer(N), N < 0, (-N) bsr ?NUM_BITS =/= 0 -> '-inf';
+cap(N) -> N.
 
 inf_bsr('-inf', _S) ->
     '-inf';

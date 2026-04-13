@@ -191,8 +191,43 @@ band_bounds(_Config) ->
     {0,42} = beam_bounds:bounds('band', {0,42}, any),
     any = beam_bounds:bounds('band', {-1,1}, any),
     any = beam_bounds:bounds('band', any, {-10,0}),
-    any = beam_bounds:bounds('band', {-10,0}, {-1,10}),
     any = beam_bounds:bounds('band', {-20,-10}, {-1,10}),
+    {'-inf',10} = beam_bounds:bounds('band', {-10,0}, {-1,10}),
+
+    %% band upper bound should be min(B, D), not just D or B.
+    %% x band y =< min(x, y) when both non-negative.
+    {0,5} = beam_bounds:bounds('band', {0,5}, {0,'+inf'}),
+    {0,5} = beam_bounds:bounds('band', {0,'+inf'}, {0,5}),
+    {0,10} = beam_bounds:bounds('band', {0,10}, {0,20}),
+
+    %% One strictly non-negative, one strictly negative.
+    %% Result is bounded by [0, PositiveMax].
+    {0,10} = beam_bounds:bounds('band', {0,10}, {-20,-5}),
+    {0,10} = beam_bounds:bounds('band', {-20,-5}, {0,10}),
+
+    %% Both strictly negative.
+    %% Lower bound drops to '-inf', upper bound is min(B, D).
+    {'-inf',-10} = beam_bounds:bounds('band', {-20,-10}, {-15,-5}),
+    {'-inf',-10} = beam_bounds:bounds('band', {-15,-5}, {-20,-10}),
+
+    %% Straddling zero.
+    %% Lower bound fails open. Upper bound is max of the positive bounds.
+    {'-inf',10} = beam_bounds:bounds('band', {-5,10}, {-20,5}),
+    {'-inf',20} = beam_bounds:bounds('band', {-10,20}, {-10,20}),
+
+    %% Large bounds exceeding ?NUM_BITS.
+    %% min(Big, +inf) = Big, but Big exceeds ?NUM_BITS so widens to +inf.
+    Big = 1 bsl 512,
+    {0,'+inf'} = beam_bounds:bounds('band', {0,Big}, {0,'+inf'}),
+    {0,'+inf'} = beam_bounds:bounds('band', {0,'+inf'}, {0,Big}),
+    {'-inf',-1} = beam_bounds:bounds('band', {-Big,-1}, {-Big,-1}),
+    {'-inf',-1} = beam_bounds:bounds('band', {-Big,-Big-1}, {-Big,-Big}),
+    {0,'+inf'} = beam_bounds:bounds('band', {0, Big}, {-Big,Big}),
+    {0,'+inf'} = beam_bounds:bounds('band', {-Big, -Big}, {0, Big}),
+
+    %% Large negative operand, small positive operand.
+    %% The small positive operand perfectly constrains the result.
+    {0,5} = beam_bounds:bounds('band', {0,5}, {-Big,-1}),
 
     ok.
 
@@ -212,6 +247,20 @@ bor_bounds(_Config) ->
     {16,'+inf'} = beam_bounds:bounds('bor', {0,8}, {16,'+inf'}),
     {16,'+inf'} = beam_bounds:bounds('bor', {3,'+inf'}, {16,'+inf'}),
 
+    %% Both non-negative, some bounds exceeding ?NUM_BITS.
+    %% Bounds that exceed ?NUM_BITS are widened to +inf/-inf.
+    Big = 1 bsl 512,
+    {0,'+inf'} = beam_bounds:bounds('bor', {0,'+inf'}, {Big,Big}),
+    {0,'+inf'} = beam_bounds:bounds('bor', {0,Big}, {0,'+inf'}),
+    {0,'+inf'} = beam_bounds:bounds('bor', {0,Big}, {Big,Big}),
+    {0,'+inf'} = beam_bounds:bounds('bor', {Big,Big}, {Big,Big}),
+
+    %% Both non-positive, some bounds exceeding ?NUM_BITS.
+    {'-inf',0} = beam_bounds:bounds('bor', {'-inf', 0}, {-Big,-Big}),
+    {'-inf',0} = beam_bounds:bounds('bor', {-Big,0}, {'-inf',0}),
+    {'-inf',0} = beam_bounds:bounds('bor', {-Big,0}, {-Big,0}),
+    {'-inf',0} = beam_bounds:bounds('bor', {-Big,-Big}, {-Big,0}),
+
     ok.
 
 bxor_bounds(_Config) ->
@@ -219,6 +268,28 @@ bxor_bounds(_Config) ->
 
     any = beam_bounds:bounds('bxor', {-10,0}, {-1,10}),
     any = beam_bounds:bounds('bxor', {-20,-10}, {-1,10}),
+
+    %% Both non-negative, at least one infinite upper bound,
+    %% with finite bounds exceeding ?NUM_BITS.
+    Big = 1 bsl 512,
+    {0,'+inf'} = beam_bounds:bounds('bxor', {0,'+inf'}, {Big,Big}),
+    {0,'+inf'} = beam_bounds:bounds('bxor', {0,Big}, {0,'+inf'}),
+
+    %% Both non-negative, both finite, exceeding ?NUM_BITS.
+    {0,'+inf'} = beam_bounds:bounds('bxor', {0,Big}, {Big,Big}),
+    {0,'+inf'} = beam_bounds:bounds('bxor', {Big,Big}, {Big,Big}),
+
+    %% One strictly negative, one strictly non-negative.
+    %% The result is guaranteed to be negative, so the upper bound is -1.
+    {'-inf',-1} = beam_bounds:bounds('bxor', {-Big,-1}, {0,Big}),
+    {'-inf',-1} = beam_bounds:bounds('bxor', {0,Big}, {-Big,-1}),
+
+    %% One strictly negative, one strictly non-negative (with infinite inputs).
+    {'-inf',-1} = beam_bounds:bounds('bxor', {'-inf',-1}, {0,'+inf'}),
+    {'-inf',-1} = beam_bounds:bounds('bxor', {0,'+inf'}, {'-inf',-1}),
+
+    %% Both finite constants exceeding ?NUM_BITS, signs mismatched.
+    {'-inf',-1} = beam_bounds:bounds('bxor', {-Big,-Big}, {Big,Big}),
 
     ok.
 
