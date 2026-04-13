@@ -33,29 +33,37 @@ enum pkey_format_t {
 };
 
 struct pkey_type_t {
-    union {
-        const char* atom_str;   // before init
-        ERL_NIF_TERM atom;      // after init
-    }name;
+    const char *atom_str;
+    ERL_NIF_TERM atom = ERL_CRYPTO_BAD_ATOM_VALUE; // initialized after init
     const int evp_pkey_id;
-    union {
-        const char* alg_str;    // before init
+
+    const char *alg_str;
 #ifdef HAS_PREFETCH_SIGN_INIT
-        EVP_SIGNATURE* alg;     // after init
+    EVP_SIGNATURE *alg = nullptr; // initialized after init
 #endif
-    } sign;
-    const bool allow_seed;
+
+    struct flags_t {
+        bool fips_forbidden: 1;
+        bool allow_seed: 1;
+    };
+    flags_t flags = {};
+
+    pkey_type_t(const char *atom_str_, const int evp_pkey_id_, const char *alg_str_)
+        : atom_str(atom_str_), evp_pkey_id(evp_pkey_id_), alg_str(alg_str_) {}
+    constexpr pkey_type_t &set_allow_seed() {
+        flags.allow_seed = true;
+        return *this;
+    }
 };
 
-struct pkey_type_t* get_pkey_type(ERL_NIF_TERM alg_atom);
+pkey_type_t * get_pkey_type(ERL_NIF_TERM alg_atom);
 ERL_NIF_TERM build_pkey_type_list(ErlNifEnv* env, ERL_NIF_TERM tail, bool fips);
 
 #ifdef HAS_3_0_API
 int get_pkey_from_octet_string(ErlNifEnv*,
                                ERL_NIF_TERM alg_atom,
-                               ERL_NIF_TERM key_bin,
-                               enum pkey_format_t,
-                               const struct pkey_type_t *pkey_type,
+                               ERL_NIF_TERM key_bin, pkey_format_t,
+                               const pkey_type_t *pkey_type,
                                EVP_PKEY **pkey_p,
                                ERL_NIF_TERM *ret_p);
 #endif

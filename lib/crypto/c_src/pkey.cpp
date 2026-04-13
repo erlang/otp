@@ -31,170 +31,78 @@
 
 #include <stdint.h>
 
-typedef struct PKeyCryptOptions {
+struct PKeyCryptOptions {
     const EVP_MD *rsa_mgf1_md = nullptr;
     ErlNifBinary rsa_oaep_label = {};
     const EVP_MD *rsa_oaep_md = nullptr;
     int rsa_padding = 0;
     const EVP_MD *signature_md = nullptr;
-} PKeyCryptOptions;
+};
 
-typedef struct PKeySignOptions {
+struct PKeySignOptions {
     const EVP_MD *rsa_mgf1_md = nullptr;
     int rsa_padding = 0;
     int rsa_pss_saltlen = 0;
-} PKeySignOptions;
+};
 
-
-static int check_pkey_algorithm_type(ErlNifEnv *env,
-                                     int alg_arg_num, ERL_NIF_TERM algorithm,
-                                     int allow_unknown,
+static int check_pkey_algorithm_type(ErlNifEnv *env, int alg_arg_num, ERL_NIF_TERM algorithm, int allow_unknown,
                                      ERL_NIF_TERM *err_return);
-static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm,
-                                const pkey_type_t *pkey_type,
-                                int type_arg_num, ERL_NIF_TERM type,
-				const EVP_MD **md,
-                                ERL_NIF_TERM *err_return);
-static int get_pkey_sign_digest(ErlNifEnv *env,
-                                const ERL_NIF_TERM argv[],
-                                int algorithm_arg_num, int type_arg_num, int data_arg_num,
-                                const pkey_type_t *pkey_type,
-				unsigned char *md_value, const EVP_MD **mdp,
-				unsigned char **tbsp, size_t *tbslenp,
-                                ERL_NIF_TERM *err_return);
-static int get_pkey_sign_options(ErlNifEnv *env,
-                                 const ERL_NIF_TERM argv[],
-                                 int algorithm_arg_num, int options_arg_num,
-                                 const pkey_type_t *pkey_type,
-                                 const EVP_MD *md, PKeySignOptions *opt,
+static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm, const pkey_type_t *pkey_type, int type_arg_num,
+                                ERL_NIF_TERM type, const EVP_MD **md, ERL_NIF_TERM *err_return);
+static int get_pkey_sign_digest(ErlNifEnv *env, const ERL_NIF_TERM argv[], int algorithm_arg_num, int type_arg_num,
+                                int data_arg_num, const pkey_type_t *pkey_type, unsigned char *md_value,
+                                const EVP_MD **mdp, unsigned char **tbsp, size_t *tbslenp, ERL_NIF_TERM *err_return);
+static int get_pkey_sign_options(ErlNifEnv *env, const ERL_NIF_TERM argv[], int algorithm_arg_num, int options_arg_num,
+                                 const pkey_type_t *pkey_type, const EVP_MD *md, PKeySignOptions *opt,
                                  ERL_NIF_TERM *err_return);
-static int get_pkey_private_key(ErlNifEnv *env,
-                               const ERL_NIF_TERM argv[],
-                               int algorithm_arg_num, int key_arg_num,
-                                pkey_type_t *pkey_type,
-			       EVP_PKEY **pkey,
-                               ERL_NIF_TERM *err_return);
-static int get_pkey_public_key(ErlNifEnv *env,
-                               const ERL_NIF_TERM argv[],
-                               int algorithm_arg_num, int key_arg_num,
-                               const pkey_type_t *pkey_type,
-			       EVP_PKEY **pkey,
-                               ERL_NIF_TERM *err_return);
-static int get_pkey_crypt_options(ErlNifEnv *env,
-                                  const ERL_NIF_TERM argv[],
-                                  int algorithm_arg_num, int options_arg_num,
-				  PKeyCryptOptions *opt,
-                                  ERL_NIF_TERM *err_return);
+static int get_pkey_private_key(ErlNifEnv *env, const ERL_NIF_TERM argv[], int algorithm_arg_num, int key_arg_num,
+                                pkey_type_t *pkey_type, EVP_PKEY **pkey, ERL_NIF_TERM *err_return);
+static int get_pkey_public_key(ErlNifEnv *env, const ERL_NIF_TERM argv[], int algorithm_arg_num, int key_arg_num,
+                               const pkey_type_t *pkey_type, EVP_PKEY **pkey, ERL_NIF_TERM *err_return);
+static int get_pkey_crypt_options(ErlNifEnv *env, const ERL_NIF_TERM argv[], int algorithm_arg_num, int options_arg_num,
+                                  PKeyCryptOptions *opt, ERL_NIF_TERM *err_return);
+
 #ifdef HAVE_RSA_SSLV23_PADDING
 static size_t size_of_RSA(EVP_PKEY *pkey);
 #endif
 
 pkey_type_t pkey_types[] = {
 #ifdef HAVE_ML_DSA
-    {
-        .name.atom_str = "mldsa44",
-        .evp_pkey_id = EVP_PKEY_ML_DSA_44,
-        .sign.alg_str = "mldsa44",
-        .allow_seed = true
-    },
-    {
-        .name.atom_str = "mldsa65",
-        .evp_pkey_id = EVP_PKEY_ML_DSA_65,
-        .sign.alg_str = "mldsa65",
-        .allow_seed = true
-    },
-    {
-        .name.atom_str = "mldsa87",
-        .evp_pkey_id = EVP_PKEY_ML_DSA_87,
-        .sign.alg_str = "mldsa87",
-        .allow_seed = true
-    },
+    pkey_type_t("mldsa44", EVP_PKEY_ML_DSA_44, "mldsa44").set_allow_seed(),
+    pkey_type_t("mldsa65", EVP_PKEY_ML_DSA_65, "mldsa65").set_allow_seed(),
+    pkey_type_t("mldsa87", EVP_PKEY_ML_DSA_87, "mldsa87").set_allow_seed(),
 #endif
 #ifdef HAVE_SLH_DSA
-    {
-        .name.atom_str = "slh_dsa_shake_128s",
-        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_128S,
-        .sign.alg_str = "SLH-DSA-SHAKE-128s"
-    },
-    {
-        .name.atom_str = "slh_dsa_shake_128f",
-        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_128F,
-        .sign.alg_str = "SLH-DSA-SHAKE-128f"
-    },
-    {
-        .name.atom_str = "slh_dsa_sha2_128s",
-        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_128S,
-        .sign.alg_str = "SLH-DSA-SHA2-128s"
-    },
-    {
-        .name.atom_str = "slh_dsa_sha2_128f",
-        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_128F,
-        .sign.alg_str = "SLH-DSA-SHA2-128f"
-    },
-    {
-        .name.atom_str = "slh_dsa_shake_192s",
-        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_192S,
-        .sign.alg_str = "SLH-DSA-SHAKE-192s"
-    },
-    {
-        .name.atom_str = "slh_dsa_shake_192f",
-        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_192F,
-        .sign.alg_str = "SLH-DSA-SHAKE-192f"
-    },
-    {
-        .name.atom_str = "slh_dsa_sha2_192s",
-        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_192S,
-        .sign.alg_str = "SLH-DSA-SHA2-192s"
-    },
-    {
-        .name.atom_str = "slh_dsa_sha2_192f",
-        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_192F,
-        .sign.alg_str = "SLH-DSA-SHA2-192f"
-    },
-    {
-        .name.atom_str = "slh_dsa_shake_256s",
-        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_256S,
-        .sign.alg_str = "SLH-DSA-SHAKE-256s"
-    },
-    {
-        .name.atom_str = "slh_dsa_shake_256f",
-        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_256F,
-        .sign.alg_str = "SLH-DSA-SHAKE-256f"
-    },
-    {
-        .name.atom_str = "slh_dsa_sha2_256s",
-        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_256S,
-        .sign.alg_str = "SLH-DSA-SHA2-256s"
-    },
-    {
-        .name.atom_str = "slh_dsa_sha2_256f",
-        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_256F,
-        .sign.alg_str = "SLH-DSA-SHA2-256f"
-    },
+    pkey_type_t("slh_dsa_shake_128s", EVP_PKEY_SLH_DSA_SHAKE_128S, "SLH-DSA-SHAKE-128s"),
+    pkey_type_t("slh_dsa_shake_128f", EVP_PKEY_SLH_DSA_SHAKE_128F, "SLH-DSA-SHAKE-128f"),
+    pkey_type_t("slh_dsa_sha2_128s", EVP_PKEY_SLH_DSA_SHA2_128S, "SLH-DSA-SHA2-128s"),
+    pkey_type_t("slh_dsa_sha2_128f", EVP_PKEY_SLH_DSA_SHA2_128F, "SLH-DSA-SHA2-128f"),
+    pkey_type_t("slh_dsa_shake_192s", EVP_PKEY_SLH_DSA_SHAKE_192S, "SLH-DSA-SHAKE-192s"),
+    pkey_type_t("slh_dsa_shake_192f", EVP_PKEY_SLH_DSA_SHAKE_192F, "SLH-DSA-SHAKE-192f"),
+    pkey_type_t("slh_dsa_sha2_192s", EVP_PKEY_SLH_DSA_SHA2_192S, "SLH-DSA-SHA2-192s"),
+    pkey_type_t("slh_dsa_sha2_192f", EVP_PKEY_SLH_DSA_SHA2_192F, "SLH-DSA-SHA2-192f"),
+    pkey_type_t("slh_dsa_shake_256s", EVP_PKEY_SLH_DSA_SHAKE_256S, "SLH-DSA-SHAKE-256s"),
+    pkey_type_t("slh_dsa_shake_256f", EVP_PKEY_SLH_DSA_SHAKE_256F, "SLH-DSA-SHAKE-256f),
+    pkey_type_t("slh_dsa_sha2_256s", EVP_PKEY_SLH_DSA_SHA2_256S, "SLH-DSA-SHA2-256s"),
+    pkey_type_t("slh_dsa_sha2_256f", EVP_PKEY_SLH_DSA_SHA2_256F,"SLH-DSA-SHA2-256f"),
 #endif
-
-    {nullptr} // terminating record all zeroes
 };
-pkey_type_t *pkey_types_end;
 
-
-void prefetched_sign_algo_init(ErlNifEnv* env)
+void prefetched_sign_algo_init(ErlNifEnv *env)
 {
-    pkey_type_t * p;
-    for (p = pkey_types; p->name.atom_str; p++) {
-        p->name.atom = enif_make_atom(env, p->name.atom_str);
+    for (auto &p: pkey_types) {
+        p.atom = enif_make_atom(env, p.atom_str);
 #ifdef HAS_PREFETCH_SIGN_INIT
-        p->sign.alg = EVP_SIGNATURE_fetch(nullptr, p->sign.alg_str, nullptr);
+        p.alg = EVP_SIGNATURE_fetch(nullptr, p.alg_str, nullptr);
 #endif
     }
-    pkey_types_end = p;
 }
 
 pkey_type_t * get_pkey_type(ERL_NIF_TERM alg_atom)
 {
-    for (pkey_type_t * p = pkey_types; p != pkey_types_end; p++) {
-        if (alg_atom == p->name.atom) {
-            return p;
+    for (auto &p: pkey_types) {
+        if (alg_atom == p.atom) {
+            return &p;
         }
     }
     return nullptr;
@@ -204,8 +112,9 @@ ERL_NIF_TERM build_pkey_type_list(ErlNifEnv* env, ERL_NIF_TERM tail, const bool 
 {
     ERL_NIF_TERM list = tail;
     if (!fips) {
-        for (pkey_type_t * p = pkey_types; p != pkey_types_end; p++) {
-            list = enif_make_list_cell(env, p->name.atom, list);
+        for (auto &p : pkey_types) {
+            ASSERT(p.atom != ERL_CRYPTO_BAD_ATOM_VALUE);
+            list = enif_make_list_cell(env, p.atom, list);
         }
     }
     return list;
@@ -254,7 +163,7 @@ static int get_pkey_digest_type(ErlNifEnv *env,
                                 ERL_NIF_TERM algorithm,
                                 const pkey_type_t *pkey_type,
                                 const int type_arg_num, ERL_NIF_TERM type,
-				const EVP_MD **md,
+                                const EVP_MD **md,
                                 ERL_NIF_TERM *err_return)
 {
     digest_type_t *digp = nullptr;
@@ -264,7 +173,7 @@ static int get_pkey_digest_type(ErlNifEnv *env,
         if (algorithm == atom_rsa) {
             return 1;
         }
-        if (pkey_type && algorithm == pkey_type->name.atom) {
+        if (pkey_type && algorithm == pkey_type->atom) {
             return 1;
         }
     }
@@ -295,8 +204,8 @@ static int get_pkey_sign_digest(ErlNifEnv *env,
                                 int algorithm_arg_num,
                                 int type_arg_num, int data_arg_num,
                                 const pkey_type_t *pkey_type,
-				unsigned char *md_value, const EVP_MD **mdp,
-				unsigned char **tbsp, size_t *tbslenp,
+                                unsigned char *md_value, const EVP_MD **mdp,
+                                unsigned char **tbsp, size_t *tbslenp,
                                 ERL_NIF_TERM *err_return)
 {
     int ret;
@@ -543,7 +452,7 @@ static int get_pkey_private_key(ErlNifEnv *env,
             && tpl_arity == 2) {
 
             if (tpl_array[0] == atom_seed) {
-                if (pkey_type && pkey_type->allow_seed) {
+                if (pkey_type && pkey_type->flags.allow_seed) {
                     pkey_format = PKEY_PRIV_SEED;
                 }
                 else {
@@ -829,8 +738,8 @@ ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
             ASSIGN_GOTO(ret, err, EXCP_ERROR(env, "Can't allocate new EVP_PKEY_CTX"));
         }
 # ifdef HAS_PREFETCH_SIGN_INIT
-        if (pkey_type && pkey_type->sign.alg) {
-            if (EVP_PKEY_sign_message_init(ctx, pkey_type->sign.alg, nullptr) != 1)
+        if (pkey_type && pkey_type->alg) {
+            if (EVP_PKEY_sign_message_init(ctx, pkey_type->alg, nullptr) != 1)
                 ASSIGN_GOTO(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_sign_message_init"));
         }
         else
@@ -1064,8 +973,8 @@ ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
             ASSIGN_GOTO(ret, err, EXCP_ERROR(env, "Can't allocate new EVP_PKEY_CTX"));
         }
 # ifdef HAS_PREFETCH_SIGN_INIT
-        if (pkey_type && pkey_type->sign.alg) {
-            if (EVP_PKEY_verify_message_init(ctx, pkey_type->sign.alg, nullptr) != 1)
+        if (pkey_type && pkey_type->alg) {
+            if (EVP_PKEY_verify_message_init(ctx, pkey_type->alg, nullptr) != 1)
                 ASSIGN_GOTO(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_verify_message_init"));
         }
         else
@@ -1170,7 +1079,7 @@ err:
 static int get_pkey_crypt_options(ErlNifEnv *env,
                                   const ERL_NIF_TERM argv[],
                                   int algorithm_arg_num, int options_arg_num,
-				  PKeyCryptOptions *opt,
+                                  PKeyCryptOptions *opt,
                                   ERL_NIF_TERM *err_return)
 {
     ERL_NIF_TERM head, tail;

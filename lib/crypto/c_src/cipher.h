@@ -97,7 +97,7 @@ struct cipher_type_t {
 };
 
 static INLINE bool CIPHER_FORBIDDEN_IN_FIPS(const cipher_type_t *p) {
-#ifdef FIPS_SUPPOR
+#ifdef FIPS_SUPPORT
     return p->flags.no_fips && FIPS_MODE();
 #else
     return false;
