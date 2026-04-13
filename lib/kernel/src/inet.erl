@@ -2808,8 +2808,7 @@ Returns the [IP address](`t:ip_address/0`) for `Host` as a tuple of integers.
 `Host` can be an [IP address](`t:ip_address/0`), a single `t:hostname/0`,
 or a fully qualified `t:hostname/0`.
 
-The optional `Timeout` parameter specifies a time-out in milliseconds.
-Defaults to `infinity`.
+`Timeout` specifies a time-out in milliseconds, or the atom `infinity`.
 """.
 -spec getaddr(Host :: ip_address() | hostname(),
           Family :: address_family(),
