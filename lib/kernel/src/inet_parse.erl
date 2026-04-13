@@ -577,83 +577,65 @@ ipv4strict_addr(Cs) ->
 %% Four functions, one per octet — no packed accumulator, no dot
 %% counter, no bit unpacking.
 
+-define(is_octet_seq(__D1), (is_integer(__D1, $0, $9))).
+-define(is_octet_seq(__D1, __D2), (is_integer(__D1, $1, $9) andalso is_integer(__D2, $0, $9))).
+-define(is_octet_seq(__D1, __D2, __D3), (__D1 =:= $2 andalso __D2 =:= $5 andalso is_integer(__D3, $0, $5) orelse
+                                         __D1 =:= $2 andalso is_integer(__D2, $0, $4) andalso is_integer(__D3, $0, $9) orelse
+                                         __D1 =:= $1 andalso is_integer(__D2, $0, $9) andalso is_integer(__D3, $0, $9))).
+
+-define(octet_seq_to_int(__D1), (__D1 - $0)).
+-define(octet_seq_to_int(__D1, __D2), (?octet_seq_to_int(__D1) * 10 + ?octet_seq_to_int(__D2))).
+-define(octet_seq_to_int(__D1, __D2, __D3), (?octet_seq_to_int(__D1) * 100 + ?octet_seq_to_int(__D2, __D3))).
+
 %% --- Octet 1 (followed by dot) ---
-ipv4s_c1([D1, D2, D3, $. | R])
-  when is_integer(D1, $1, $2),
-       is_integer(D2, $0, $9),
-       is_integer(D3, $0, $9) ->
-    V = (D1 - $0) * 100 + (D2 - $0) * 10 + (D3 - $0),
-    case V =< 255 of
-        true -> ipv4s_c2(R, V);
-        false -> erlang:error(badarg)
-    end;
-ipv4s_c1([D1, D2, $. | R])
-  when is_integer(D1, $1, $9),
-       is_integer(D2, $0, $9) ->
-    ipv4s_c2(R, (D1 - $0) * 10 + (D2 - $0));
 ipv4s_c1([D1, $. | R])
-  when is_integer(D1, $0, $9) ->
-    ipv4s_c2(R, D1 - $0);
+  when ?is_octet_seq(D1) ->
+    ipv4s_c2(R, ?octet_seq_to_int(D1));
+ipv4s_c1([D1, D2, $. | R])
+  when ?is_octet_seq(D1, D2) ->
+    ipv4s_c2(R, ?octet_seq_to_int(D1, D2));
+ipv4s_c1([D1, D2, D3, $. | R])
+  when ?is_octet_seq(D1, D2, D3) ->
+    ipv4s_c2(R, ?octet_seq_to_int(D1, D2, D3));
 ipv4s_c1(_) ->
     erlang:error(badarg).
 
 %% --- Octet 2 (followed by dot) ---
-ipv4s_c2([D1, D2, D3, $. | R], A)
-  when is_integer(D1, $1, $2),
-       is_integer(D2, $0, $9),
-       is_integer(D3, $0, $9) ->
-    V = (D1 - $0) * 100 + (D2 - $0) * 10 + (D3 - $0),
-    case V =< 255 of
-        true -> ipv4s_c3(R, A, V);
-        false -> erlang:error(badarg)
-    end;
-ipv4s_c2([D1, D2, $. | R], A)
-  when is_integer(D1, $1, $9),
-       is_integer(D2, $0, $9) ->
-    ipv4s_c3(R, A, (D1 - $0) * 10 + (D2 - $0));
 ipv4s_c2([D1, $. | R], A)
-  when is_integer(D1, $0, $9) ->
-    ipv4s_c3(R, A, D1 - $0);
+  when ?is_octet_seq(D1) ->
+    ipv4s_c3(R, A, ?octet_seq_to_int(D1));
+ipv4s_c2([D1, D2, $. | R], A)
+  when ?is_octet_seq(D1, D2) ->
+    ipv4s_c3(R, A, ?octet_seq_to_int(D1, D2));
+ipv4s_c2([D1, D2, D3, $. | R], A)
+  when ?is_octet_seq(D1, D2, D3) ->
+    ipv4s_c3(R, A, ?octet_seq_to_int(D1, D2, D3));
 ipv4s_c2(_, _) ->
     erlang:error(badarg).
 
 %% --- Octet 3 (followed by dot) ---
-ipv4s_c3([D1, D2, D3, $. | R], A, B)
-  when is_integer(D1, $1, $2),
-       is_integer(D2, $0, $9),
-       is_integer(D3, $0, $9) ->
-    V = (D1 - $0) * 100 + (D2 - $0) * 10 + (D3 - $0),
-    case V =< 255 of
-        true -> ipv4s_c4(R, A, B, V);
-        false -> erlang:error(badarg)
-    end;
-ipv4s_c3([D1, D2, $. | R], A, B)
-  when is_integer(D1, $1, $9),
-       is_integer(D2, $0, $9) ->
-    ipv4s_c4(R, A, B, (D1 - $0) * 10 + (D2 - $0));
 ipv4s_c3([D1, $. | R], A, B)
-  when is_integer(D1, $0, $9) ->
-    ipv4s_c4(R, A, B, D1 - $0);
+  when ?is_octet_seq(D1) ->
+    ipv4s_c4(R, A, B, ?octet_seq_to_int(D1));
+ipv4s_c3([D1, D2, $. | R], A, B)
+  when ?is_octet_seq(D1, D2) ->
+    ipv4s_c4(R, A, B, ?octet_seq_to_int(D1, D2));
+ipv4s_c3([D1, D2, D3, $. | R], A, B)
+  when ?is_octet_seq(D1, D2, D3) ->
+    ipv4s_c4(R, A, B, ?octet_seq_to_int(D1, D2, D3));
 ipv4s_c3(_, _, _) ->
     erlang:error(badarg).
 
 %% --- Octet 4 (end of list) ---
-ipv4s_c4([D1, D2, D3], A, B, C)
-  when is_integer(D1, $1, $2),
-       is_integer(D2, $0, $9),
-       is_integer(D3, $0, $9) ->
-    V = (D1 - $0) * 100 + (D2 - $0) * 10 + (D3 - $0),
-    case V =< 255 of
-        true -> {A, B, C, V};
-        false -> erlang:error(badarg)
-    end;
-ipv4s_c4([D1, D2], A, B, C)
-  when is_integer(D1, $1, $9),
-       is_integer(D2, $0, $9) ->
-    {A, B, C, (D1 - $0) * 10 + (D2 - $0)};
 ipv4s_c4([D1], A, B, C)
-  when is_integer(D1, $0, $9) ->
-    {A, B, C, D1 - $0};
+  when ?is_octet_seq(D1) ->
+    {A, B, C, ?octet_seq_to_int(D1)};
+ipv4s_c4([D1, D2], A, B, C)
+  when ?is_octet_seq(D1, D2) ->
+    {A, B, C, ?octet_seq_to_int(D1, D2)};
+ipv4s_c4([D1, D2, D3], A, B, C)
+  when ?is_octet_seq(D1, D2, D3) ->
+    {A, B, C, ?octet_seq_to_int(D1, D2, D3)};
 ipv4s_c4(_, _, _, _) ->
     erlang:error(badarg).
 
@@ -687,81 +669,54 @@ ipv4strict_addr_bin(Bin) when is_binary(Bin) ->
 %% BEAM reuses the match context throughout.
 
 %% --- Octet 1 (followed by dot) ---
-ipv4s_o1(<<D1, D2, D3, $., R/binary>>)
-  when $1 =< D1, D1 =< $2,
-       $0 =< D2, D2 =< $9,
-       $0 =< D3, D3 =< $9 ->
-    V = (D1 - $0) * 100 + (D2 - $0) * 10 + (D3 - $0),
-    case V =< 255 of
-        true -> ipv4s_o2(R, V);
-        false -> error
-    end;
-ipv4s_o1(<<D1, D2, $., R/binary>>)
-  when $1 =< D1, D1 =< $9,
-       $0 =< D2, D2 =< $9 ->
-    ipv4s_o2(R, (D1 - $0) * 10 + (D2 - $0));
 ipv4s_o1(<<D1, $., R/binary>>)
-  when $0 =< D1, D1 =< $9 ->
-    ipv4s_o2(R, D1 - $0);
+  when ?is_octet_seq(D1) ->
+    ipv4s_o2(R, ?octet_seq_to_int(D1));
+ipv4s_o1(<<D1, D2, $., R/binary>>)
+  when ?is_octet_seq(D1, D2) ->
+    ipv4s_o2(R, ?octet_seq_to_int(D1, D2));
+ipv4s_o1(<<D1, D2, D3, $., R/binary>>)
+  when ?is_octet_seq(D1, D2, D3) ->
+    ipv4s_o2(R, ?octet_seq_to_int(D1, D2, D3));
 ipv4s_o1(_) ->
     error.
 
 %% --- Octet 2 (followed by dot) ---
-ipv4s_o2(<<D1, D2, D3, $., R/binary>>, A)
-  when $1 =< D1, D1 =< $2,
-       $0 =< D2, D2 =< $9,
-       $0 =< D3, D3 =< $9 ->
-    V = (D1 - $0) * 100 + (D2 - $0) * 10 + (D3 - $0),
-    case V =< 255 of
-        true -> ipv4s_o3(R, A, V);
-        false -> error
-    end;
-ipv4s_o2(<<D1, D2, $., R/binary>>, A)
-  when $1 =< D1, D1 =< $9,
-       $0 =< D2, D2 =< $9 ->
-    ipv4s_o3(R, A, (D1 - $0) * 10 + (D2 - $0));
 ipv4s_o2(<<D1, $., R/binary>>, A)
-  when $0 =< D1, D1 =< $9 ->
-    ipv4s_o3(R, A, D1 - $0);
+  when ?is_octet_seq(D1) ->
+    ipv4s_o3(R, A, ?octet_seq_to_int(D1));
+ipv4s_o2(<<D1, D2, $., R/binary>>, A)
+  when ?is_octet_seq(D1, D2) ->
+    ipv4s_o3(R, A, ?octet_seq_to_int(D1, D2));
+ipv4s_o2(<<D1, D2, D3, $., R/binary>>, A)
+  when ?is_octet_seq(D1, D2, D3) ->
+    ipv4s_o3(R, A, ?octet_seq_to_int(D1, D2, D3));
 ipv4s_o2(_, _) ->
     error.
 
 %% --- Octet 3 (followed by dot) ---
-ipv4s_o3(<<D1, D2, D3, $., R/binary>>, A, B)
-  when $1 =< D1, D1 =< $2,
-       $0 =< D2, D2 =< $9,
-       $0 =< D3, D3 =< $9 ->
-    V = (D1 - $0) * 100 + (D2 - $0) * 10 + (D3 - $0),
-    case V =< 255 of
-        true -> ipv4s_o4(R, A, B, V);
-        false -> error
-    end;
-ipv4s_o3(<<D1, D2, $., R/binary>>, A, B)
-  when $1 =< D1, D1 =< $9,
-       $0 =< D2, D2 =< $9 ->
-    ipv4s_o4(R, A, B, (D1 - $0) * 10 + (D2 - $0));
 ipv4s_o3(<<D1, $., R/binary>>, A, B)
-  when $0 =< D1, D1 =< $9 ->
-    ipv4s_o4(R, A, B, D1 - $0);
+  when ?is_octet_seq(D1) ->
+    ipv4s_o4(R, A, B, ?octet_seq_to_int(D1));
+ipv4s_o3(<<D1, D2, $., R/binary>>, A, B)
+  when ?is_octet_seq(D1, D2) ->
+    ipv4s_o4(R, A, B, ?octet_seq_to_int(D1, D2));
+ipv4s_o3(<<D1, D2, D3, $., R/binary>>, A, B)
+  when ?is_octet_seq(D1, D2, D3) ->
+    ipv4s_o4(R, A, B, ?octet_seq_to_int(D1, D2, D3));
 ipv4s_o3(_, _, _) ->
     error.
 
 %% --- Octet 4 (end of binary) ---
 ipv4s_o4(<<D1, D2, D3>>, A, B, C)
-  when $1 =< D1, D1 =< $2,
-       $0 =< D2, D2 =< $9,
-       $0 =< D3, D3 =< $9 ->
-    V = (D1 - $0) * 100 + (D2 - $0) * 10 + (D3 - $0),
-    case V =< 255 of
-        true -> {A, B, C, V};
-        false -> error
-    end;
+  when ?is_octet_seq(D1, D2, D3) ->
+    {A, B, C, ?octet_seq_to_int(D1, D2, D3)};
 ipv4s_o4(<<D1, D2>>, A, B, C)
-  when $1 =< D1, D1 =< $9, $0 =< D2, D2 =< $9 ->
-    {A, B, C, (D1 - $0) * 10 + (D2 - $0)};
+  when ?is_octet_seq(D1, D2) ->
+    {A, B, C, ?octet_seq_to_int(D1, D2)};
 ipv4s_o4(<<D1>>, A, B, C)
-  when $0 =< D1, D1 =< $9 ->
-    {A, B, C, D1 - $0};
+  when ?is_octet_seq(D1) ->
+    {A, B, C, ?octet_seq_to_int(D1)};
 ipv4s_o4(_, _, _, _) ->
     error.
 
