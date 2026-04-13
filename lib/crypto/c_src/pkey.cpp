@@ -186,13 +186,13 @@ static int get_pkey_digest_type(ErlNifEnv *env,
     if ((digp = get_digest_type(type)) == nullptr)
         ASSIGN_GOTO(*err_return, notsup, EXCP_BADARG_N(env, type_arg_num, "Bad digest type"));
 
-    if (DIGEST_FORBIDDEN_IN_FIPS(digp))
+    if (digp->is_fips_forbidden())
         ASSIGN_GOTO(*err_return, notsup, EXCP_BADARG_N(env, type_arg_num, "Digest type forbidden in FIPS"));
 
-    if (digp->md.p == nullptr)
+    if (digp->resource == nullptr)
         ASSIGN_GOTO(*err_return, notsup, EXCP_BADARG_N(env, type_arg_num, "Digest type not supported"));
 
-    *md = digp->md.p;
+    *md = digp->resource;
     return 1;
 
  notsup:

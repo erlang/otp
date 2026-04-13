@@ -24,32 +24,49 @@
 
 #include "common.h"
 
+using digest_type_fn_t = const EVP_MD *(*) ();
+
 struct digest_type_t {
-    const char*  str;        /* before init, NULL for end-of-table */
-    const char* str_v3;      /* the algorithm name as in OpenSSL 3.x */
-    ERL_NIF_TERM atom;       /* after init, 'false' for end-of-table */
-    unsigned flags;
-    struct {
-        const EVP_MD* (*funcp)(void);  /* before init, NULL if notsup */
-        const EVP_MD* p;              /* after init, NULL if notsup */
-    }md;
-    unsigned int xof_default_length;  /* 0 or default digest length for XOF digests */
+    const char *str;
+    const char *str_v3; // the algorithm name as in OpenSSL 3.x
+    ERL_NIF_TERM atom = ERL_CRYPTO_BAD_ATOM_VALUE; // available after init, 'false' for end-of-table
+    struct flags_t {
+        bool fips_forbidden : 1;
+        bool pbkdf2_eligible : 1;
+    };
+    flags_t flags = {};
+    const EVP_MD *(*funcp)() = nullptr; // NULL if notsup
+    const EVP_MD *resource = nullptr; // available after init, NULL if notsup
+    // 0 or default digest length for XOF digests.
+    // Type 'unsigned int' is dictated by OSSL_PARAM_construct_uint() compatibility
+    unsigned int xof_default_length = 0;
+
+    constexpr digest_type_t(const char *str_v1, const char *str_v3, const digest_type_fn_t funcp_ = nullptr) :
+        str(str_v1), str_v3(str_v3), funcp(funcp_) {}
+    constexpr digest_type_t &no_fips() {
+        flags.fips_forbidden = true;
+        return *this;
+    }
+    constexpr digest_type_t &pbkdf2_eligible() {
+        flags.pbkdf2_eligible = true;
+        return *this;
+    }
+    constexpr digest_type_t &set_xof_default_length(const size_t len) {
+        xof_default_length = len;
+        return *this;
+    }
+    constexpr bool is_fips_forbidden() const {
+#ifdef FIPS_SUPPORT
+        return flags.fips_forbidden && FIPS_MODE();
+#else
+        return false;
+#endif
+    }
 };
 
-/* masks in the flags field if digest_type_t */
-#define NO_FIPS_DIGEST 1
-#define PBKDF2_ELIGIBLE_DIGEST 2
-
-#ifdef FIPS_SUPPORT
-# define DIGEST_FORBIDDEN_IN_FIPS(P) (((P)->flags & NO_FIPS_DIGEST) && FIPS_MODE())
-#else
-# define DIGEST_FORBIDDEN_IN_FIPS(P) 0
-#endif
-
-
-void init_digest_types(ErlNifEnv* env);
-struct digest_type_t* get_digest_type(ERL_NIF_TERM type);
+void init_digest_types(ErlNifEnv *env);
+digest_type_t *get_digest_type(ERL_NIF_TERM type);
 
 #ifdef HAS_3_0_API
-ERL_NIF_TERM digest_types_as_list(ErlNifEnv* env);
+ERL_NIF_TERM digest_types_as_list(ErlNifEnv *env);
 #endif

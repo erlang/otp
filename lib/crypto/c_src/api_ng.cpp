@@ -32,7 +32,7 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 ERL_NIF_TERM ng_crypto_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 static INLINE auto GET_IV_LEN(const cipher_type_t *cipher_type) {
-    return EVP_CIPHER_iv_length(cipher_type->p);
+    return EVP_CIPHER_iv_length(cipher_type->resource);
 }
 
 #if !defined(HAVE_EVP_CIPHER_CTX_COPY)
@@ -274,7 +274,7 @@ static int get_init_args(ErlNifEnv* env, evp_cipher_ctx *ctx_res,
     }
 #else
     /* Normal code */
-    if (!(*cipherp)->p) {
+    if (!(*cipherp)->resource) {
         *return_term =
             EXCP_NOTSUP_N(env, cipher_arg_num, "Cipher not supported in this libcrypto version");
         goto err;
@@ -344,7 +344,7 @@ static int get_init_args(ErlNifEnv* env, evp_cipher_ctx *ctx_res,
             goto err;
         }
 
-    if (!EVP_CipherInit_ex(ctx_res->ctx, (*cipherp)->p, nullptr, nullptr, nullptr, ctx_res->encflag))
+    if (!EVP_CipherInit_ex(ctx_res->ctx, (*cipherp)->resource, nullptr, nullptr, nullptr, ctx_res->encflag))
         {
             *return_term = EXCP_ERROR(env, "Can't initialize context, step 1");
             goto err;
@@ -357,7 +357,7 @@ static int get_init_args(ErlNifEnv* env, evp_cipher_ctx *ctx_res,
         }
 
 #ifdef HAVE_RC2
-    if (EVP_CIPHER_type((*cipherp)->p) == NID_rc2_cbc) {
+    if (EVP_CIPHER_type((*cipherp)->resource) == NID_rc2_cbc) {
         if (ctx_res->key_bin.size > INT_MAX / 8) {
             *return_term = EXCP_BADARG_N(env, key_arg_num, "To large rc2_cbc key");
             goto err;

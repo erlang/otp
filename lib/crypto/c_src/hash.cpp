@@ -82,10 +82,10 @@ ERL_NIF_TERM hash_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     if ((digp = get_digest_type(argv[0])) == nullptr)
         return enif_make_badarg(env);
-    if (DIGEST_FORBIDDEN_IN_FIPS(digp))
+    if (digp->is_fips_forbidden())
         return RAISE_NOTSUP(env);
 
-    if ((md = digp->md.p) == nullptr)
+    if ((md = digp->resource) == nullptr)
         return RAISE_NOTSUP(env);
 
     values[0] = enif_make_int(env, EVP_MD_type(md));
@@ -107,9 +107,9 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     if ((digp = get_digest_type(argv[0])) == nullptr)
         return EXCP_BADARG_N(env, 0, "Bad digest type");
-    if (DIGEST_FORBIDDEN_IN_FIPS(digp))
+    if (digp->is_fips_forbidden())
         return EXCP_NOTSUP_N(env, 0, "Bad digest type in FIPS");
-    if ((md = digp->md.p) == nullptr)
+    if ((md = digp->resource) == nullptr)
         return EXCP_NOTSUP_N(env, 0, "Digest type not supported in this cryptolib");
 
     if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
@@ -172,16 +172,16 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if ((digp = get_digest_type(argv[0])) == nullptr)
         return EXCP_BADARG_N(env, 0, "Bad digest type");
 
-    if (DIGEST_FORBIDDEN_IN_FIPS(digp))
+    if (digp->is_fips_forbidden())
         return EXCP_NOTSUP_N(env, 0, "Digest type not supported in FIPS");
-    if (digp->md.p == nullptr)
+    if (digp->resource == nullptr)
         return EXCP_NOTSUP_N(env, 0, "Unsupported digest type");
 
     if ((ctx = static_cast<evp_md_ctx*>(enif_alloc_resource(evp_md_ctx_rtype, sizeof(evp_md_ctx)))) == nullptr)
         return EXCP_ERROR(env, "Can't allocate nif resource");
     if ((ctx->ctx = EVP_MD_CTX_new()) == nullptr)
         ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_new failed"));
-    if (EVP_DigestInit(ctx->ctx, digp->md.p) != 1)
+    if (EVP_DigestInit(ctx->ctx, digp->resource) != 1)
         ASSIGN_GOTO(ret, done, EXCP_ERROR(env, "Low-level call EVP_DigestInit failed"));
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,4,0)

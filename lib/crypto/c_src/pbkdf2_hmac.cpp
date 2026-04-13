@@ -34,9 +34,9 @@ static ERL_NIF_TERM pbkdf2_hmac(ErlNifEnv* env, int argc,
 
     if ((digp = get_digest_type(argv[0])) == nullptr)
         return EXCP_BADARG_N(env, 0, "Bad digest type");
-    if (digp->md.p == nullptr)
+    if (digp->resource == nullptr)
         return EXCP_BADARG_N(env, 0, "md.p is not NULL");
-    if ((digp->flags & PBKDF2_ELIGIBLE_DIGEST) == 0)
+    if (!digp->flags.pbkdf2_eligible)
         return EXCP_BADARG_N(env, 0, "Not eligible digest type");
 
     if (!enif_inspect_binary(env, argv[1], &pass))
@@ -57,7 +57,7 @@ static ERL_NIF_TERM pbkdf2_hmac(ErlNifEnv* env, int argc,
 
     if (!PKCS5_PBKDF2_HMAC(reinterpret_cast<const char *>(pass.data), pass.size,
                            salt.data, salt.size, iter,
-                           digp->md.p,
+                           digp->resource,
                            keylen, out.data)) {
         enif_release_binary(&out);
         return EXCP_ERROR(env, "Low-level call failed");

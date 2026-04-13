@@ -128,12 +128,12 @@ ERL_NIF_TERM aead_cipher_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     }
 #endif
 
-    if (ctx_res->cipherp->p == nullptr)
+    if (ctx_res->cipherp->resource == nullptr)
         {ret = EXCP_NOTSUP_N(env, 0, "The cipher is not supported in this libcrypto version"); goto done;}
 
     if ((ctx_res->ctx = EVP_CIPHER_CTX_new()) == nullptr)
         {ret = EXCP_ERROR(env, "Can't allocate ctx"); goto done;}
-    if (EVP_CipherInit_ex(ctx_res->ctx, ctx_res->cipherp->p, nullptr, nullptr, nullptr, ctx_res->encflg) != 1)
+    if (EVP_CipherInit_ex(ctx_res->ctx, ctx_res->cipherp->resource, nullptr, nullptr, nullptr, ctx_res->encflg) != 1)
         {ret = EXCP_ERROR(env, "CipherInit failed"); goto done;}
 
     ret = enif_make_resource(env, ctx_res);
@@ -227,7 +227,7 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
             return aes_gcm_decrypt_NO_EVP(env, argc, argv);
         }
 #endif
-        if ((cipher = cipherp->p) == nullptr)
+        if ((cipher = cipherp->resource) == nullptr)
             {ret = EXCP_NOTSUP_N(env, 0, "The cipher is not supported in this libcrypto version"); goto done;}
 
         if ((ctx = EVP_CIPHER_CTX_new()) == nullptr)

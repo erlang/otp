@@ -45,11 +45,11 @@ struct cipher_flags_t {
 
 struct cipher_type_t {
     const char *str;
-    ERL_NIF_TERM atom = ERL_CRYPTO_BAD_ATOM_VALUE; /* updated after init */
-    const char *str_v3; /* the algorithm name as in OpenSSL 3.x */
-    const cipher_create_fn_t funcp; /* NULL if notsup */
-    const EVP_CIPHER *p = nullptr; /* updated after init, NULL if notsup */
-    size_t key_len = 0; /* != 0 to also match on key_len */
+    ERL_NIF_TERM atom = ERL_CRYPTO_BAD_ATOM_VALUE; // updated after init
+    const char *str_v3; // the algorithm name as in OpenSSL 3.x
+    const cipher_create_fn_t funcp; // NULL if notsup
+    const EVP_CIPHER *resource = nullptr; // updated after init, NULL if notsup
+    size_t key_len = 0; // != 0 to also match on key_len
     cipher_flags_t flags = {};
     struct aead_ctrl_t {
         int ctx_ctrl_set_ivlen = 0;
@@ -57,7 +57,7 @@ struct cipher_type_t {
         int ctx_ctrl_set_tag = 0;
     } aead;
 
-    constexpr cipher_type_t(const char *str_v1, const char *str_v3, const cipher_create_fn_t create_fn) :
+    constexpr cipher_type_t(const char *str_v1, const char *str_v3, const cipher_create_fn_t create_fn = nullptr) :
         str(str_v1), str_v3(str_v3), funcp(create_fn) {}
 
     constexpr cipher_type_t &no_fips() {

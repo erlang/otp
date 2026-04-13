@@ -280,7 +280,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     return_term = EXCP_BADARG_N(env, 1, "Bad digest algorithm for HMAC");
                     goto err;
                 }
-            if (DIGEST_FORBIDDEN_IN_FIPS(digp))
+            if (digp->is_fips_forbidden())
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Digest algorithm for HMAC forbidden in FIPS");
                     goto err;
@@ -340,7 +340,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     goto err;
                 }
 
-            if (cipherp->p == nullptr)
+            if (cipherp->resource == nullptr)
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Unsupported cipher algorithm");
                     goto err;
@@ -631,7 +631,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     return_term = EXCP_BADARG_N(env, 1, "Bad digest algorithm for HMAC");
                     goto err;
                 }
-            if (DIGEST_FORBIDDEN_IN_FIPS(digp))
+            if (digp->is_fips_forbidden())
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Digest algorithm for HMAC forbidden in FIPS");
                     goto err;
@@ -681,7 +681,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     goto err;
                 }
 
-            if (cipherp->p == nullptr)
+            if (cipherp->resource == nullptr)
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Unsupported cipher algorithm");
                     goto err;
