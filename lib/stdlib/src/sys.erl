@@ -80,6 +80,7 @@ the process itself to format these events.
 
 %% External exports
 -export([suspend/1, suspend/2, resume/1, resume/2,
+	 multi_suspend/1, multi_suspend/2,
 	 get_status/1, get_status/2,
 	 get_state/1, get_state/2,
 	 replace_state/2, replace_state/3,
@@ -283,6 +284,29 @@ system messages, but not other messages.
       Name :: name(),
       Timeout :: timeout().
 suspend(Name, Timeout) -> send_system_msg(Name, suspend, Timeout).
+
+-doc(#{equiv => multi_suspend(Names, 5000)}).
+-spec multi_suspend(Names) -> [{Name, Result}] when
+      Names :: [name()],
+      Name :: name(),
+      Result :: 'ok' | {'error', term()}.
+multi_suspend(Names) -> multi_suspend(Names, 5000).
+
+-doc """
+Suspends multiple processes concurrently.
+
+Sends suspend requests to all processes in `Names` simultaneously and
+collects the results. Returns a list of `{Name, Result}` tuples in
+the same order as `Names`, where `Result` is `ok` on success or
+`{error, Reason}` on failure.
+""".
+-spec multi_suspend(Names, Timeout) -> [{Name, Result}] when
+      Names :: [name()],
+      Name :: name(),
+      Timeout :: timeout(),
+      Result :: 'ok' | {'error', term()}.
+multi_suspend(Names, Timeout) ->
+    send_multi_system_msg(Names, suspend, Timeout).
 
 -doc(#{equiv => resume(Name, 5000)}).
 -spec resume(Name) -> 'ok' when
@@ -761,6 +785,31 @@ send_system_msg(Name, Request, Timeout) ->
             Res
     catch exit : Reason ->
             exit({Reason, mfa(Name, Request, Timeout)})
+    end.
+
+send_multi_system_msg(Names, Request, Timeout) ->
+    ReqIdCol = lists:foldl(
+                 fun(Name, Acc) ->
+                         gen:send_request(Name, system, Request, Name, Acc)
+                 end, gen:reqids_new(), Names),
+    ResultMap = collect_multi_responses(ReqIdCol, Timeout, #{}),
+    [{Name, maps:get(Name, ResultMap)} || Name <- Names].
+
+collect_multi_responses(ReqIdCol, Timeout, Acc) ->
+    case gen:wait_response(ReqIdCol, Timeout, true) of
+        {{reply, Reply}, Name, NewReqIdCol} ->
+            collect_multi_responses(NewReqIdCol, Timeout,
+                                    Acc#{Name => Reply});
+        {{error, {Reason, _Ref}}, Name, NewReqIdCol} ->
+            collect_multi_responses(NewReqIdCol, Timeout,
+                                    Acc#{Name => {error, Reason}});
+        timeout ->
+            Remaining = gen:reqids_to_list(ReqIdCol),
+            lists:foldl(
+              fun({_ReqId, Name}, A) -> A#{Name => {error, timeout}} end,
+              Acc, Remaining);
+        no_request ->
+            Acc
     end.
 
 mfa(Name, {debug, {Func, Arg2}}) ->
