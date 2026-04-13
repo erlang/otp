@@ -126,8 +126,9 @@ See [Counters and parallelism](#counters-and-parallelism).
 The `'zlib@openssh.com'` algorithm is recommended because it only activates
 after successful authentication.
 
-The `'zlib'` algorithm is not recommended because it activates before
-authentication completes, allowing unauthenticated clients to expose potential
+The `'zlib'` algorithm (deprecated and scheduled for removal in OTP 30.0)
+is not recommended because it activates before authentication completes,
+allowing unauthenticated clients to expose potential
 vulnerabilities in compression libraries, and increases attack surface of
 compression-based side-channel and traffic-analysis attacks.
 

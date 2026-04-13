@@ -235,7 +235,7 @@ cipher aes256-gcm@openssh.com is negotiated.
   - none
   - zlib@openssh.com
 
-The following compression algorithm is disabled by default:
+The following compression algorithm is deprecated and disabled by default:
 
 - (zlib)
 

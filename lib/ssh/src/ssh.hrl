@@ -317,9 +317,16 @@ ssh:daemon(Port, [{subsystems, [ssh_sftpd:subsystem_spec([])]} | Options])
 
 -doc(#{group => <<"Common Options">>}).
 -type compression_alg()  :: 'none' |
-                            'zlib' |
-                            'zlib@openssh.com'
+                            'zlib@openssh.com' |
+                            legacy_compression_alg()
                             .
+
+-doc """
+Deprecated: the `zlib` compression algorithm will be
+removed in OTP 30.0. Use `none` or `zlib@openssh.com` instead.
+""".
+-doc(#{group => <<"Legacy Algorithms">>, deprecated => "use 'none' or 'zlib@openssh.com' instead"}).
+-type legacy_compression_alg() :: 'zlib'.
 
 -doc """
 List of algorithms to use in the algorithm negotiation. The default

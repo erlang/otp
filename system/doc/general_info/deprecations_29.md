@@ -24,3 +24,10 @@ the format `{ssl_dist_opt, Value}`.  After OTP 20 only the
 `ssl_dist_optfile` flag should be used to configure TLS for Erlang
 distribution and most options can only be configured that way anyway.
 
+### SSH `zlib` Compression Algorithm
+
+The `zlib` compression algorithm in the SSH application is deprecated.
+Use `none` or `zlib@openssh.com` instead. The `zlib` algorithm has
+not been included in the default algorithms for some time and is
+scheduled for removal in OTP 30.0.
+
