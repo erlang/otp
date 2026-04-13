@@ -106,7 +106,7 @@ static digest_type_t digest_types[] = {
 #ifdef HAVE_SHAKE128
         digest_type_t("shake128", "SHAKE-128", &EVP_shake128).set_xof_default_length(16),
 #else
-        digest_type_t("shake128", "SHAKE-128")
+        digest_type_t("shake128", "SHAKE-128"),
 #endif
 
 #ifdef HAVE_SHAKE256

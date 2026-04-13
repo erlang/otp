@@ -100,7 +100,7 @@
  */
 #endif
 
-#if OPENSSL_VERSION_NUMBER <= PACKED_OPENSSL_VERSION_PLAIN(0,9,9)
+#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
 #error "OpenSSL 0.x is not supported, please use 1.x or later"
 #endif
 

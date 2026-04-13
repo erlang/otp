@@ -105,6 +105,7 @@ CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).cpp.o \
 	$(OBJDIR)/eddsa$(TYPEMARKER).cpp.o \
 	$(OBJDIR)/engine$(TYPEMARKER).cpp.o \
 	$(OBJDIR)/evp$(TYPEMARKER).cpp.o \
+	$(OBJDIR)/evp_compat$(TYPEMARKER).cpp.o \
 	$(OBJDIR)/fips$(TYPEMARKER).cpp.o \
 	$(OBJDIR)/hash$(TYPEMARKER).cpp.o \
 	$(OBJDIR)/hmac$(TYPEMARKER).cpp.o \

@@ -45,15 +45,14 @@ struct hmac_context
 
 static ErlNifResourceType* hmac_context_rtype;
 
-static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context*);
+static void hmac_context_dtor(ErlNifEnv* env, hmac_context *);
 
 int init_hmac_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf) {
-    hmac_context_rtype = enif_open_resource_type(env, NULL,
+    hmac_context_rtype = enif_open_resource_type(env, nullptr,
                                                  resource_name("hmac_context", rt_buf),
-						 (ErlNifResourceDtor*) hmac_context_dtor,
-						 ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
-						 NULL);
-    if (hmac_context_rtype == NULL)
+                                                 reinterpret_cast<ErlNifResourceDtor *>(hmac_context_dtor),
+                                                 static_cast<ErlNifResourceFlags>(ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER), nullptr);
+    if (hmac_context_rtype == nullptr)
         goto err;
 
     return 1;
@@ -63,9 +62,9 @@ int init_hmac_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf) {
     return 0;
 }
 
-static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context *obj)
+static void hmac_context_dtor(ErlNifEnv* env, hmac_context *obj)
 {
-    if (obj == NULL)
+    if (obj == nullptr)
         return;
 
     if (obj->alive) {
@@ -74,45 +73,45 @@ static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context *obj)
 	obj->alive = 0;
     }
 
-    if (obj->mtx != NULL)
+    if (obj->mtx != nullptr)
         enif_mutex_destroy(obj->mtx);
 }
 
 ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (hmac, Type, Key) */
-    struct digest_type_t *digp = NULL;
+{ /* (hmac, Type, Key) */
+    digest_type_t *digp = nullptr;
     ErlNifBinary         key;
     ERL_NIF_TERM         ret;
-    struct hmac_context  *obj = NULL;
+    hmac_context  *obj = nullptr;
 
     ASSERT(argc == 3);
 
-    if ((digp = get_digest_type(argv[1])) == NULL)
+    if ((digp = get_digest_type(argv[1])) == nullptr)
         goto bad_arg;
     if (!enif_inspect_iolist_as_binary(env, argv[2], &key))
         goto bad_arg;
     if (key.size > INT_MAX)
         goto bad_arg;
 
-    if (digp->md.p == NULL)
+    if (digp->resource == nullptr)
         goto err;
 
-    if ((obj = enif_alloc_resource(hmac_context_rtype, sizeof(struct hmac_context))) == NULL)
+    if ((obj = static_cast<hmac_context *>(enif_alloc_resource(hmac_context_rtype, sizeof(hmac_context)))) == nullptr)
         goto err;
-    obj->ctx = NULL;
-    obj->mtx = NULL;
+    obj->ctx = nullptr;
+    obj->mtx = nullptr;
     obj->alive = 0;
 
-    if ((obj->ctx = HMAC_CTX_new()) == NULL)
+    if ((obj->ctx = HMAC_CTX_new()) == nullptr)
         goto err;
     obj->alive = 1;
-    if ((obj->mtx = enif_mutex_create("crypto.hmac")) == NULL)
+    if ((obj->mtx = enif_mutex_create(const_cast<char*>("crypto.hmac"))) == nullptr)
         goto err;
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
     // Check the return value of HMAC_Init: it may fail in FIPS mode
     // for disabled algorithms
-    if (!HMAC_Init_ex(obj->ctx, key.data, (int)key.size, digp->md.p, NULL))
+    if (!HMAC_Init_ex(obj->ctx, key.data, static_cast<int>(key.size), digp->resource, nullptr))
         goto err;
 #else
     // In ancient versions of OpenSSL, this was a void function.
@@ -138,11 +137,11 @@ ERL_NIF_TERM hmac_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 {/* (Context, Data) */
     ERL_NIF_TERM ret;
     ErlNifBinary data;
-    struct hmac_context *obj = NULL;
+    hmac_context *obj = nullptr;
 
     ASSERT(argc == 2);
 
-    if (!enif_get_resource(env, argv[0], (ErlNifResourceType*)hmac_context_rtype, (void**)&obj))
+    if (!enif_get_resource(env, argv[0], static_cast<ErlNifResourceType *>(hmac_context_rtype), reinterpret_cast<void **>(&obj)))
         goto bad_arg;
     if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
         goto bad_arg;
@@ -177,7 +176,7 @@ ERL_NIF_TERM hmac_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 ERL_NIF_TERM hmac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context) or (Context, HashLen) */
     ERL_NIF_TERM ret;
-    struct hmac_context* obj;
+    hmac_context * obj;
     unsigned char mac_buf[EVP_MAX_MD_SIZE];
     unsigned char * mac_bin;
     unsigned int req_len = 0;
@@ -185,7 +184,7 @@ ERL_NIF_TERM hmac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     ASSERT(argc == 1 || argc == 2);
 
-    if (!enif_get_resource(env, argv[0], (ErlNifResourceType*)hmac_context_rtype, (void**)&obj))
+    if (!enif_get_resource(env, argv[0], static_cast<ErlNifResourceType *>(hmac_context_rtype), reinterpret_cast<void **>(&obj)))
         goto bad_arg;
     if (argc == 2) {
         if (!enif_get_uint(env, argv[1], &req_len))
@@ -212,7 +211,7 @@ ERL_NIF_TERM hmac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         /* Only truncate to req_len bytes if asked. */
         mac_len = req_len;
     }
-    if ((mac_bin = enif_make_new_binary(env, mac_len, &ret)) == NULL)
+    if ((mac_bin = enif_make_new_binary(env, mac_len, &ret)) == nullptr)
         goto err;
 
     memcpy(mac_bin, mac_buf, mac_len);
@@ -236,19 +235,18 @@ int hmac_low_level(ErlNifEnv* env, const EVP_MD *md,
                    ErlNifBinary *ret_bin, int *ret_bin_alloc, ERL_NIF_TERM *return_term)
 {
     unsigned int size_int;
-    size_t size;
     unsigned char buff[EVP_MAX_MD_SIZE];
 
     if (HMAC(md,
              key_bin.data, (int)key_bin.size,
              text.data, text.size,
-             buff, &size_int) == NULL)
+             buff, &size_int) == nullptr)
         {
             *return_term = EXCP_ERROR(env, "HMAC sign failed");
             return 0;
         }
 
-    size = (size_t)size_int; /* Otherwise "size" is unused in 0.9.8.... */
+    const size_t size = size_int; /* Otherwise "size" is unused in 0.9.8.... */
     ASSERT(0 < size && size <= EVP_MAX_MD_SIZE);
     if (!enif_alloc_binary(size, ret_bin))
         {

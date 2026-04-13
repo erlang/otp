@@ -298,7 +298,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 #  ifdef HAVE_EVP_PKEY_new_CMAC_key
             pkey = EVP_PKEY_new_CMAC_key(/*engine*/ nullptr, key_bin.data,  key_bin.size, cipherp->resource);
 #  else
-            if (!cmac_low_level(env, key_bin, cipherp->cipher.p, text, &ret_bin, &ret_bin_alloc, &return_term))
+            if (!cmac_low_level(env, key_bin, cipherp->resource, text, &ret_bin, &ret_bin_alloc, &return_term))
                 goto err;
             else
                 goto success;
