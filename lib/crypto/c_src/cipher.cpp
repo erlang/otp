@@ -331,7 +331,7 @@ ERL_NIF_TERM cipher_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     if ((cipherp = get_cipher_type_no_key(argv[0])) == nullptr)
         return enif_make_badarg(env);
 
-    if (CIPHER_FORBIDDEN_IN_FIPS(cipherp))
+    if (cipherp->is_fips_forbidden())
         return enif_raise_exception(env, atom_notsup);
     if ((cipher = cipherp->resource) == nullptr)
         return enif_raise_exception(env, atom_notsup);
@@ -453,13 +453,12 @@ ERL_NIF_TERM cipher_types_as_list(ErlNifEnv* env)
     hd = enif_make_list(env, 0);
     prev = atom_undefined;
 
-    for (auto i = 0; i < CIPHERS_ARRAY_SIZE; i++) {
-        auto p = &cipher_types[i];
-        if (prev == p->atom || CIPHER_FORBIDDEN_IN_FIPS(p) )
+    for (const auto &p: cipher_types) {
+        if (prev == p.atom || p.is_fips_forbidden() ) {
             continue;
-
-        if (p->resource != nullptr || p->flags.aes_ctr_compat) {
-            hd = enif_make_list_cell(env, p->atom, hd);
+        }
+        if (p.resource || p.flags.aes_ctr_compat) {
+            hd = enif_make_list_cell(env, p.atom, hd);
         }
     }
 

@@ -94,15 +94,14 @@ struct cipher_type_t {
         aead = ERL_CRYPTO_AEAD_ZEROES;
         return *this;
     }
-};
-
-static INLINE bool CIPHER_FORBIDDEN_IN_FIPS(const cipher_type_t *p) {
+    constexpr bool is_fips_forbidden() const {
 #ifdef FIPS_SUPPORT
-    return p->flags.no_fips && FIPS_MODE();
+        return flags.no_fips && FIPS_MODE();
 #else
-    return false;
+        return false;
 #endif
-}
+    }
+};
 
 extern ErlNifResourceType* evp_cipher_ctx_rtype;
 struct evp_cipher_ctx {

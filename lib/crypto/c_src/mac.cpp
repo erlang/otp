@@ -21,7 +21,7 @@
  */
 
 #include "mac.h"
-#include "../../../erts/emulator/test/nif_SUITE_data/nif_api_2_4/erl_nif.h"
+// #include "../../../erts/emulator/test/nif_SUITE_data/nif_api_2_4/erl_nif.h"
 #include "cipher.h"
 #include "cmac.h"
 #include "common.h"
@@ -29,84 +29,32 @@
 #include "hmac.h"
 #include "info.h"
 
-/***************************
-     MAC type declaration
-***************************/
-
-struct mac_type_t {
-    union {
-	const char*  str;        /* before init, NULL for end-of-table */
-	ERL_NIF_TERM atom;       /* after init, 'false' for end-of-table */
-    }name;
-    unsigned flags;
-    union {
-        const int pkey_type;
-    }alg;
-    int type;
-    size_t key_len;      /* != 0 to also match on key_len */
-#if defined(HAS_3_0_API)
-    const char* fetch_name;
-    EVP_MAC *evp_mac;
-#endif
-};
-
-/* masks in the flags field if mac_type_t */
-#define NO_FIPS_MAC 1
-
-#define NO_mac 0
-#define HMAC_mac 1
-#define CMAC_mac 2
-#define POLY1305_mac 3
-
 static mac_type_t mac_types[] =
 {
-    {{"poly1305"}, NO_FIPS_MAC,
 #ifdef HAVE_POLY1305
-     /* If we have POLY then we have EVP_PKEY */
-     {EVP_PKEY_POLY1305}, POLY1305_mac, 32
+        /* If we have POLY then we have EVP_PKEY */
+        mac_type_t("poly1305", "POLY1305", mac_type_t::POLY1305_mac)
+                .set_nid(EVP_PKEY_POLY1305)
+                .set_key_len(32)
+                .no_fips(),
 #else
-     {EVP_PKEY_NONE}, NO_mac, 0
+        mac_type_t("poly1305", "POLY1305", mac_type_t::NO_mac).set_nid(EVP_PKEY_NONE).no_fips(),
 #endif
-#if defined(HAS_3_0_API)
-     ,"POLY1305"
-#endif
-    },
 
-    {{"hmac"}, 0,
-#if defined(HAS_EVP_PKEY_CTX) && (! DISABLE_EVP_HMAC)
-     {EVP_PKEY_HMAC}, HMAC_mac, 0
+#if defined(HAS_EVP_PKEY_CTX) && (!DISABLE_EVP_HMAC)
+        mac_type_t("hmac", "HMAC", mac_type_t::HMAC_mac).set_nid(EVP_PKEY_HMAC),
 #else
-     /* HMAC is always supported, but possibly with low-level routines */
-     {EVP_PKEY_NONE}, HMAC_mac, 0
+        /* HMAC is always supported, but possibly with low-level routines */
+        mac_type_t("hmac", "HMAC", mac_type_t::HMAC_mac).set_nid(EVP_PKEY_NONE),
 #endif
-#if defined(HAS_3_0_API)
-     ,"HMAC"
-#endif
-    },
 
-    {{"cmac"}, 0,
 #ifdef HAVE_CMAC
-     /* If we have CMAC then we have EVP_PKEY */
-     {EVP_PKEY_CMAC}, CMAC_mac, 0
+        /* If we have CMAC then we have EVP_PKEY */
+        mac_type_t("cmac", "CMAC", mac_type_t::CMAC_mac).set_nid(EVP_PKEY_CMAC),
 #else
-     {EVP_PKEY_NONE}, NO_mac, 0
+        mac_type_t("cmac", "CMAC", mac_type_t::NO_mac).set_nid(EVP_PKEY_NONE),
 #endif
-#if defined(HAS_3_0_API)
-     ,"CMAC"
-#endif
-    },
-
-    /*==== End of list ==== */
-    {{nullptr}, 0,
-     {0}, NO_mac, 0
-    }
 };
-
-#ifdef FIPS_SUPPORT
-# define MAC_FORBIDDEN_IN_FIPS(P) (((P)->flags & NO_FIPS_MAC) && FIPS_MODE())
-#else
-# define MAC_FORBIDDEN_IN_FIPS(P) 0
-#endif
 
 /***************************
  Mandatory prototypes
@@ -126,33 +74,26 @@ ERL_NIF_TERM mac_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 void init_mac_types(ErlNifEnv* env)
 {
-    mac_type_t * p = mac_types;
-
-    for (p = mac_types; p->name.str; p++) {
-	p->name.atom = enif_make_atom(env, p->name.str);
+    for (auto &p: mac_types) {
+        p.atom = enif_make_atom(env, p.str);
 #if defined(HAS_3_0_API)
-        p->evp_mac = EVP_MAC_fetch(nullptr, p->fetch_name, nullptr);
+        p.evp_mac = EVP_MAC_fetch(nullptr, p.str_v3, nullptr);
 #endif
     }
-    p->name.atom = atom_false;  /* end marker */
 }
 
 ERL_NIF_TERM mac_types_as_list(ErlNifEnv* env)
 {
-    mac_type_t * p;
-    ERL_NIF_TERM prev, hd;
+    ERL_NIF_TERM prev = atom_undefined;
+    ERL_NIF_TERM hd = enif_make_list(env, 0);
 
-    hd = enif_make_list(env, 0);
-    prev = atom_undefined;
-
-    for (p = mac_types; p->name.atom != atom_false; p++) {
-        if (prev == p->name.atom)
+    for (const auto &p: mac_types) {
+        if (prev == p.atom) {
             continue;
-
-        if (p->type != NO_mac)
-            {
-                hd = enif_make_list_cell(env, p->name.atom, hd);
-            }
+        }
+        if (p.type != mac_type_t::NO_mac) {
+            hd = enif_make_list_cell(env, p.atom, hd);
+        }
     }
 
     return hd;
@@ -160,8 +101,8 @@ ERL_NIF_TERM mac_types_as_list(ErlNifEnv* env)
 
 mac_type_t * get_mac_type(ERL_NIF_TERM type, const size_t key_len)
 {
-    for (mac_type_t *p = mac_types; p->name.atom != atom_false; p++) {
-        if (type == p->name.atom) {
+    for (mac_type_t *p = mac_types; p->atom != atom_false; p++) {
+        if (type == p->atom) {
             if (p->key_len == 0 || p->key_len == key_len)
                 return p;
         }
@@ -171,8 +112,8 @@ mac_type_t * get_mac_type(ERL_NIF_TERM type, const size_t key_len)
 
 mac_type_t * get_mac_type_no_key(ERL_NIF_TERM type)
 {
-    for (mac_type_t *p = mac_types; p->name.atom != atom_false; p++) {
-        if (type == p->name.atom) {
+    for (mac_type_t *p = mac_types; p->atom != atom_false; p++) {
+        if (type == p->atom) {
             return p;
         }
     }
@@ -253,7 +194,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             goto err;
         }
 
-    if (MAC_FORBIDDEN_IN_FIPS(macp))
+    if (macp->is_fips_forbidden())
         {
             return_term = EXCP_NOTSUP_N(env, 0, "MAC algorithm forbidden in FIPS");
             goto err;
@@ -271,7 +212,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         /********
          * HMAC *
          ********/
-    case HMAC_mac:
+    case mac_type_t::HMAC_mac:
         {
             digest_type_t *digp;
 
@@ -321,7 +262,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          * CMAC *
          ********/
 #ifdef HAVE_CMAC
-    case CMAC_mac:
+    case mac_type_t::CMAC_mac:
         {
             const cipher_type_t *cipherp;
             if (!(cipherp = get_cipher_type(argv[1], key_bin.size)))
@@ -334,7 +275,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     goto err;
                 }
             
-            if (CIPHER_FORBIDDEN_IN_FIPS(cipherp))
+            if (cipherp->is_fips_forbidden())
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Cipher algorithm not supported in FIPS");
                     goto err;
@@ -369,7 +310,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          * POLY1305 *
          ************/
 #ifdef HAVE_POLY1305
-    case POLY1305_mac:
+    case mac_type_t::POLY1305_mac:
 # if defined(HAS_3_0_API)
         name = "POLY1305";
         subalg = nullptr;
@@ -384,7 +325,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         /***************
          * Unknown MAC *
          ***************/
-    case NO_mac:
+    case mac_type_t::NO_mac:
     default:
         /* We know that this mac is supported with some version(s) of cryptolib, but not here */
         return_term = EXCP_NOTSUP_N(env, 1, "Unsupported mac algorithm");
@@ -604,7 +545,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             goto err;
         }
 
-    if (MAC_FORBIDDEN_IN_FIPS(macp))
+    if (macp->is_fips_forbidden())
         {
             return_term = EXCP_NOTSUP_N(env, 0, "MAC algorithm forbidden in FIPS");
             goto err;
@@ -622,7 +563,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         /********
          * HMAC *
          ********/
-    case HMAC_mac:
+    case mac_type_t::HMAC_mac:
         {
             digest_type_t *digp;
 
@@ -662,7 +603,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          * CMAC *
          ********/
 # if defined(HAVE_CMAC) && defined(HAVE_EVP_PKEY_new_CMAC_key)
-    case CMAC_mac:
+    case mac_type_t::CMAC_mac:
         {
             const cipher_type_t *cipherp;
             if (!(cipherp = get_cipher_type(argv[1], key_bin.size)))
@@ -675,7 +616,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     goto err;
                 }
             
-            if (CIPHER_FORBIDDEN_IN_FIPS(cipherp))
+            if (cipherp->is_fips_forbidden())
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Cipher algorithm not supported in FIPS");
                     goto err;
@@ -702,7 +643,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          * POLY1305 *
          ************/
 # ifdef HAVE_POLY1305
-    case POLY1305_mac:
+    case mac_type_t::POLY1305_mac:
 #  if !defined(HAS_3_0_API)
         /* Old style */
         /* poly1305 implies that EVP_PKEY_new_raw_private_key exists */
@@ -715,7 +656,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         /***************
          * Unknown MAC *
          ***************/
-    case NO_mac:
+    case mac_type_t::NO_mac:
     default:
         /* We know that this mac is supported with some version(s) of cryptolib */
         return_term = EXCP_NOTSUP_N(env, 0, "Unsupported mac algorithm");
