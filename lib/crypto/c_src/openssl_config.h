@@ -100,6 +100,10 @@
  */
 #endif
 
+#if OPENSSL_VERSION_NUMBER <= PACKED_OPENSSL_VERSION_PLAIN(0,9,9)
+#error "OpenSSL 0.x is not supported, please use 1.x or later"
+#endif
+
 #if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 # define NEED_EVP_COMPATIBILITY_FUNCTIONS
 #endif
@@ -360,6 +364,7 @@
 # endif
 #endif
 
+// As we do not support 0.x, this will never happen
 #if OPENSSL_VERSION_NUMBER <= PACKED_OPENSSL_VERSION(0,9,8,'l')
 # define HAVE_ECB_IVEC_BUG
 # define HAVE_UPDATE_EMPTY_DATA_BUG

@@ -26,7 +26,8 @@
 #define MAX_CRYPTOLIB_ERR_SIZE 256
 #define SEP ": "
 
-ERL_NIF_TERM raise_exception(ErlNifEnv* env, ERL_NIF_TERM id, int arg_num, const char* explanation, const char* file, int line)
+ERL_NIF_TERM raise_exception(ErlNifEnv *env, ERL_NIF_TERM id, const int arg_num, const char *explanation,
+                             const char *file, const int line)
 /* Ex: raise_exception(atom_badarg, 1, "Unknown cipher", "api_ng.c", 17)
  *    -> {badarg, {"api_ng.c",17}, 1, "Unknown cipher"}
  * id = atom_error | atom_notsup | atom_badarg
@@ -34,7 +35,7 @@ ERL_NIF_TERM raise_exception(ErlNifEnv* env, ERL_NIF_TERM id, int arg_num, const
  */
 {
     ERL_NIF_TERM file_info, exception;
-    const char *error_msg;
+    char *error_msg;
 
 #ifdef CRYPTO_DEVELOP_ERRORS
     /* Set CRYPTO_DEVELOP_ERRORS to make error messages more verbose,
@@ -46,10 +47,10 @@ ERL_NIF_TERM raise_exception(ErlNifEnv* env, ERL_NIF_TERM id, int arg_num, const
        which enables the developer to locate more in detail where in the cryptolib code a test failed.
     */
 
-    char *p;
+    const auto alloc_size = strlen(explanation) + strlen(SEP) + MAX_CRYPTOLIB_ERR_SIZE;
     /* Make the error message (concat explanation, ": ", cryptolib error msg) */
-    error_msg = enif_alloc(strlen(explanation) + strlen(SEP) + MAX_CRYPTOLIB_ERR_SIZE);
-    p = error_msg;
+    error_msg = static_cast<char*>(enif_alloc(alloc_size));
+    char *p = error_msg;
 
     strcpy(p, explanation);
     p += strlen(explanation);
@@ -59,7 +60,7 @@ ERL_NIF_TERM raise_exception(ErlNifEnv* env, ERL_NIF_TERM id, int arg_num, const
 
     ERR_error_string_n(ERR_peek_last_error(), p, MAX_CRYPTOLIB_ERR_SIZE);
 #else
-    error_msg = explanation;
+    error_msg = const_cast<char*>(explanation);
 #endif
 
     /* Make the data for exception */

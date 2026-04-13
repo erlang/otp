@@ -39,7 +39,9 @@
 
 // All nif functions return a valid value or throws an exception
 ERL_NIF_TERM raise_exception(ErlNifEnv *env, ERL_NIF_TERM id, int arg_num, const char *explanation, const char *file,
-                             int Line);
+                             int line);
+
+static constexpr ERL_NIF_TERM ERL_CRYPTO_BAD_ATOM_VALUE = 0;
 
 // Macros pass the FILE and LINE of the call site to the exception contents and are used in tests
 // see crypto_SUITE:?chk_api_name etc.
