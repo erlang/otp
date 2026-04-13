@@ -265,18 +265,18 @@ void init_cipher_types(ErlNifEnv* env)
     for (auto &p: cipher_types) {
         p.atom = enif_make_atom(env, p.str);
 #ifdef HAS_3_0_API
-        if (cipher_types[i].str_v3) {
-            p->resource = EVP_CIPHER_fetch(nullptr, p->str_v3, "");
+        if (p.str_v3) {
+            p.resource = EVP_CIPHER_fetch(nullptr, p.str_v3, "");
 # ifdef FIPS_SUPPORT
             /* Try if valid in FIPS */
             {
-                EVP_CIPHER *tmp = EVP_CIPHER_fetch(nullptr, p->str_v3, "fips=yes");
+                EVP_CIPHER *tmp = EVP_CIPHER_fetch(nullptr, p.str_v3, "fips=yes");
 
                 if (tmp) {
                     EVP_CIPHER_free(tmp);
-                    p->flags.no_fips = false;
+                    p.flags.no_fips = false;
                 } else {
-                    p->flags.no_fips = true;
+                    p.flags.no_fips = true;
                 }
             }
 # endif /* FIPS_SUPPORT and >=3.0.0 */
