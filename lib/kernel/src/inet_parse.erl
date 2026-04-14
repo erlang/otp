@@ -585,8 +585,8 @@ ipv4strict_addr(Cs) ->
                                          __D1 =:= $1 andalso is_integer(__D2, $0, $9) andalso is_integer(__D3, $0, $9))).
 
 -define(octet_seq_to_int(__D1), (__D1 - $0)).
--define(octet_seq_to_int(__D1, __D2), (?octet_seq_to_int(__D1) * 10 + ?octet_seq_to_int(__D2))).
--define(octet_seq_to_int(__D1, __D2, __D3), (?octet_seq_to_int(__D1) * 100 + ?octet_seq_to_int(__D2, __D3))).
+-define(octet_seq_to_int(__D1, __D2), (__D1 * 10 + __D2 - ($0 * 11))).
+-define(octet_seq_to_int(__D1, __D2, __D3), (__D1 * 100 + __D2 * 10 + __D3 - ($0 * 111))).
 
 %% --- Octet 1 (followed by dot) ---
 ipv4s_c1([D1, $. | R])
