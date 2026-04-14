@@ -86,11 +86,14 @@ pkey_type_t pkey_types[] = {
     pkey_type_t("slh_dsa_sha2_256s", EVP_PKEY_SLH_DSA_SHA2_256S, "SLH-DSA-SHA2-256s"),
     pkey_type_t("slh_dsa_sha2_256f", EVP_PKEY_SLH_DSA_SHA2_256F,"SLH-DSA-SHA2-256f"),
 #endif
+    pkey_type_t(nullptr, 0, nullptr), // for the case of zero size array
 };
 
 void prefetched_sign_algo_init(ErlNifEnv *env)
 {
     for (auto &p: pkey_types) {
+        if (!p.atom_str)
+            break; // signal array end
         p.atom = enif_make_atom(env, p.atom_str);
 #ifdef HAS_PREFETCH_SIGN_INIT
         p.alg = EVP_SIGNATURE_fetch(nullptr, p.alg_str, nullptr);
@@ -110,12 +113,15 @@ pkey_type_t * get_pkey_type(ERL_NIF_TERM alg_atom)
 
 ERL_NIF_TERM build_pkey_type_list(ErlNifEnv* env, ERL_NIF_TERM tail, const bool fips)
 {
+    if (fips) {
+        return tail;
+    }
     ERL_NIF_TERM list = tail;
-    if (!fips) {
-        for (auto &p : pkey_types) {
-            ASSERT(p.atom != ERL_CRYPTO_BAD_ATOM_VALUE);
-            list = enif_make_list_cell(env, p.atom, list);
-        }
+    for (auto &p: pkey_types) {
+        if (!p.atom_str)
+            break; // signal array end
+        ASSERT(p.atom != ERL_CRYPTO_BAD_ATOM_VALUE);
+        list = enif_make_list_cell(env, p.atom, list);
     }
     return list;
 }

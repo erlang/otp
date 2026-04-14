@@ -34,8 +34,20 @@
 
 #ifdef HAS_3_0_API
 #else
-static unsigned int algo_hash_cnt, algo_hash_fips_cnt;
-static ERL_NIF_TERM algo_hash[17];   /* increase when extending the list */
+// Hash algorithms only exist pre OpenSSL 3.0
+struct v1_hash_type_t {
+    const char *str;
+    ERL_NIF_TERM atom = ERL_CRYPTO_BAD_ATOM_VALUE;
+
+    struct flags_t {
+        bool fips_forbidden: 1;
+    };
+    flags_t flags = {};
+
+    explicit v1_hash_type_t(const char *str_, ERL_NIF_TERM atom_ = ERL_CRYPTO_BAD_ATOM_VALUE, const flags_t flags_ = {}) :
+        str(str_), atom(atom_), flags(flags_) {}
+};
+static std::vector<v1_hash_type_t> algo_hash;
 void init_hash_types(ErlNifEnv* env);
 #endif
 
@@ -122,51 +134,63 @@ ERL_NIF_TERM hash_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 #ifdef HAS_3_0_API
     return digest_types_as_list(env);
 #else
-    unsigned int cnt  =
-        FIPS_MODE() ? algo_hash_fips_cnt : algo_hash_cnt;
+    const bool fips = FIPS_MODE();
+    ERL_NIF_TERM list = enif_make_list(env, 0);
 
-    return enif_make_list_from_array(env, algo_hash, cnt);
+    for (const auto &p: algo_hash) {
+        if (fips && p.flags.fips_forbidden) continue;
+        if (p.atom != ERL_CRYPTO_BAD_ATOM_VALUE) {
+            list = enif_make_list_cell(env, p.atom, list);
+        }
+    }
+    return list;
 #endif
 }
 
-#ifdef HAS_3_0_API
-#else
+#if !defined(HAS_3_0_API)
+void register_v1_hash(ErlNifEnv *env, const char *name, const bool fips_forbidden = false) {
+    auto atom = enif_make_atom(env, name);
+    algo_hash.emplace_back(name, atom, v1_hash_type_t::flags_t {fips_forbidden});
+}
+#endif
+
+#if !defined(HAS_3_0_API)
 void init_hash_types(ErlNifEnv* env) {
     // Validated algorithms first
-    algo_hash_cnt = 0;
-    algo_hash[algo_hash_cnt++] = atom_sha;
+    algo_hash.clear();
+    register_v1_hash(env, "sha");
 #ifdef HAVE_SHA224
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha224");
+    register_v1_hash(env, "sha224");
 #endif
 #ifdef HAVE_SHA256
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha256");
+    register_v1_hash(env, "sha256");
 #endif
 #ifdef HAVE_SHA384
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha384");
+    register_v1_hash(env, "sha384");
 #endif
 #ifdef HAVE_SHA512
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha512");
+    register_v1_hash(env, "sha512");
 #endif
 #ifdef HAVE_SHA3_224
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha3_224");
+    register_v1_hash(env, "sha3_224");
 #endif
 #ifdef HAVE_SHA3_256
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha3_256");
+    register_v1_hash(env, "sha3_256");
 #endif
 #ifdef HAVE_SHA3_384
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha3_384");
+    register_v1_hash(env, "sha3_384");
 #endif
 #ifdef HAVE_SHA3_512
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha3_512");
+    register_v1_hash(env, "sha3_512");
 #endif
 #ifdef HAVE_SHAKE128
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "shake128");
+    register_v1_hash(env, "shake128");
 #endif
 #ifdef HAVE_SHAKE256
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "shake256");
+    register_v1_hash(env, "shake256");
 #endif
 #ifdef HAVE_SM3
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sm3");
+    register_v1_hash(env, "sm3");
 #endif
 #ifdef HAVE_BLAKE2
     algo_hash[algo_hash_cnt++] = enif_make_atom(env, "blake2b");
@@ -174,18 +198,15 @@ void init_hash_types(ErlNifEnv* env) {
 #endif
 
     // Non-validated algorithms follow
-    algo_hash_fips_cnt = algo_hash_cnt;
 #ifdef HAVE_MD4
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "md4");
+    register_v1_hash(env, "md4", true);
 #endif
 #ifdef HAVE_MD5
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "md5");
+    register_v1_hash(env, "md5", true);
 #endif
 #ifdef HAVE_RIPEMD160
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "ripemd160");
+    register_v1_hash(env, "ripemd160", true);
 #endif
-
-    ASSERT(algo_hash_cnt <= sizeof(algo_hash)/sizeof(ERL_NIF_TERM));
 }
 #endif
 
