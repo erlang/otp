@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2228,24 +2228,29 @@ ctrl2ancdata([], AncData) ->
    lists:reverse(AncData);
 ctrl2ancdata([#{level := ip,
                 type  := TOS,
-                value := Value,
-                data  := _Data}| CTRL],
+		%% This is an atom: lowdelay | thoughput | reliability | mincost
+                value := _Value,
+                data  := <<DataValue:8/integer>> = _Data} = _CTRL| CTRLs],
              AncData) when (TOS =:= tos) orelse (TOS =:= recvtos) ->
-    ctrl2ancdata(CTRL, [{tos, Value}|AncData]);
+    %% 'inet' does not provide any "translation" (unlike 'socket').
+    %% Instead, it returns the data value as is.
+    %% So we have to do the same
+    %% and therefor get the value from the data field instead.
+    ctrl2ancdata(CTRLs, [{tos, DataValue}|AncData]);
 ctrl2ancdata([#{level := ip,
                 type  := TTL,
                 value := Value,
-                data  := _Data}| CTRL],
+                data  := _Data} = _CTRL| CTRLs],
              AncData) when (TTL =:= ttl) orelse (TTL =:= recvttl) ->
-    ctrl2ancdata(CTRL, [{ttl, Value}|AncData]);
+    ctrl2ancdata(CTRLs, [{ttl, Value}|AncData]);
 ctrl2ancdata([#{level := ipv6,
                 type  := tclass,
                 value := TClass,
-                data  := _Data}| CTRL],
+                data  := _Data} = _CTRL| CTRLs],
              AncData) ->
-    ctrl2ancdata(CTRL, [{tclass, TClass}|AncData]);
-ctrl2ancdata([_|CTRL], AncData) ->
-    ctrl2ancdata(CTRL, AncData).
+    ctrl2ancdata(CTRLs, [{tclass, TClass}|AncData]);
+ctrl2ancdata([_CTRL|CTRLs], AncData) ->
+    ctrl2ancdata(CTRLs, AncData).
 
 
 %% -> {ok, NewD} | {{error, Reason}, D}
