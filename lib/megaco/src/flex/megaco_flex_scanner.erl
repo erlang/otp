@@ -190,11 +190,17 @@ load_driver(Path) ->
     end.
 
 
+%% Flex scanner driver not built on Windows.
+%% This is to suppress Dialyzer warnings.
+-dialyzer({nowarn_function, open_drv_port/1}).
 open_drv_port(true) ->
     open_drv_ports(?NUM_SCHED(), []);
 open_drv_port(_) ->
     open_drv_port().
 
+%% Flex scanner driver not built on Windows.
+%% This is to suppress Dialyzer warnings.
+-dialyzer({nowarn_function, open_drv_ports/2}).
 open_drv_ports(0, Acc) ->
     list_to_tuple(Acc);
 open_drv_ports(N, Acc) when is_integer(N) andalso (N > 0) ->
