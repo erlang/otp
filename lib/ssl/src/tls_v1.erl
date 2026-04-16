@@ -1049,7 +1049,7 @@ signature_schemes(_, _) ->
 default_signature_schemes(Version) ->
     Default = [mldsa87,
                mldsa65,
-               mldsa44] ++ slh_dsa_schemes() ++
+               mldsa44] ++
         [eddsa_ed25519,
          eddsa_ed448,
          ecdsa_secp521r1_sha512,

@@ -3046,25 +3046,19 @@ Example:
 
 ```erlang
 1> ssl:signature_algs(default, 'tlsv1.3').
-[mldsa87,mldsa65,mldsa44,slh_dsa_shake_256f,slh_dsa_shake_256s,
- slh_dsa_sha2_256f,slh_dsa_sha2_256s,slh_dsa_shake_192f,slh_dsa_shake_192s,
- slh_dsa_sha2_192f,slh_dsa_sha2_192s,slh_dsa_shake_128f,slh_dsa_shake_128s,
- slh_dsa_sha2_128f,slh_dsa_sha2_128s,eddsa_ed25519,eddsa_ed448,
- ecdsa_secp521r1_sha512,ecdsa_secp384r1_sha384,ecdsa_secp256r1_sha256,
+[mldsa87,mldsa65,mldsa44,eddsa_ed25519,eddsa_ed448,ecdsa_secp521r1_sha512,
+ ecdsa_secp384r1_sha384,ecdsa_secp256r1_sha256,
  ecdsa_brainpoolP512r1tls13_sha512,ecdsa_brainpoolP384r1tls13_sha384,
  ecdsa_brainpoolP256r1tls13_sha256,rsa_pss_pss_sha512,rsa_pss_pss_sha384,
  rsa_pss_pss_sha256,rsa_pss_rsae_sha512,rsa_pss_rsae_sha384,
  rsa_pss_rsae_sha256,rsa_pkcs1_sha512,rsa_pkcs1_sha384,rsa_pkcs1_sha256,
  {sha512,ecdsa},
  {sha384,ecdsa},
- {sha256,ecdsa}].
+ {sha256,ecdsa}]
 
 2> ssl:signature_algs(all, 'tlsv1.3').
-[mldsa87,mldsa65,mldsa44,slh_dsa_shake_256f,slh_dsa_shake_256s,
- slh_dsa_sha2_256f,slh_dsa_sha2_256s,slh_dsa_shake_192f,slh_dsa_shake_192s,
- slh_dsa_sha2_192f,slh_dsa_sha2_192s,slh_dsa_shake_128f,slh_dsa_shake_128s,
- slh_dsa_sha2_128f,slh_dsa_sha2_128s,eddsa_ed25519,eddsa_ed448,
- ecdsa_secp521r1_sha512,ecdsa_secp384r1_sha384,ecdsa_secp256r1_sha256,
+[mldsa87,mldsa65,mldsa44,eddsa_ed25519,eddsa_ed448,ecdsa_secp521r1_sha512,
+ ecdsa_secp384r1_sha384,ecdsa_secp256r1_sha256,
  ecdsa_brainpoolP512r1tls13_sha512,ecdsa_brainpoolP384r1tls13_sha384,
  ecdsa_brainpoolP256r1tls13_sha256,rsa_pss_pss_sha512,rsa_pss_pss_sha384,
  rsa_pss_pss_sha256,rsa_pss_rsae_sha512,rsa_pss_rsae_sha384,
@@ -3080,12 +3074,10 @@ Example:
  {sha224,rsa},
  {sha,dsa}]
 
+
 3> [ssl:signature_algs(exclusive, 'tlsv1.3').
-[mldsa87,mldsa65,mldsa44,slh_dsa_shake_256f,slh_dsa_shake_256s,
- slh_dsa_sha2_256f,slh_dsa_sha2_256s,slh_dsa_shake_192f,slh_dsa_shake_192s,
- slh_dsa_sha2_192f,slh_dsa_sha2_192s,slh_dsa_shake_128f,slh_dsa_shake_128s,
- slh_dsa_sha2_128f,slh_dsa_sha2_128s,eddsa_ed25519,eddsa_ed448,
- ecdsa_secp521r1_sha512,ecdsa_secp384r1_sha384,ecdsa_secp256r1_sha256,
+[mldsa87,mldsa65,mldsa44,eddsa_ed25519,eddsa_ed448,ecdsa_secp521r1_sha512,
+ ecdsa_secp384r1_sha384,ecdsa_secp256r1_sha256,
  ecdsa_brainpoolP512r1tls13_sha512,ecdsa_brainpoolP384r1tls13_sha384,
  ecdsa_brainpoolP256r1tls13_sha256,rsa_pss_pss_sha512,rsa_pss_pss_sha384,
  rsa_pss_pss_sha256,rsa_pss_rsae_sha512,rsa_pss_rsae_sha384,
@@ -3115,6 +3107,7 @@ signature_algs(default, 'tlsv1.2') ->
 signature_algs(all, 'tlsv1.3') ->
     tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.3'),
                                    tls_record:protocol_version_name('tlsv1.2')]) ++
+        tls_v1:slh_dsa_schemes() ++
         [ecdsa_sha1, rsa_pkcs1_sha1 | tls_v1:legacy_signature_algs_pre_13()] --
         [{sha, ecdsa}, {sha, rsa}];
 signature_algs(all, 'tlsv1.2') ->
