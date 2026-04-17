@@ -66,6 +66,15 @@ jobs:
       id-token:     write   # attest-sbom action
       security-events: write
       actions:      read
+    # this call will fail the first time because there is not yet in master
+    # a reusable-main.yaml workflow, since it is introduced in a PR.
+    # after the merge, any maint-XX branch that has this `main.yaml` will fetch
+    # the CI configuration from `master`. the idea is that one should avoid creating
+    # thin wrappers such as maint-27.yaml unless there is a strong need to encoded them.
+    # in case of maint-27.yaml, the branch `maint-27` will have a wrapper in `main.yaml`
+    # that calls `erlang/otp/.github/workflows/main-27.yaml@master`. we try to avoid
+    # these specific wrappers, but OTP-27 was not producing the documentation nor other
+    # artifacts (sbom) in the standard fashion.
     uses: erlang/otp/.github/workflows/reusable-main.yaml@master  # ratchet:exclude
     secrets:
       TRIGGER_ERLANG_ORG_BUILD: ${{ secrets.TRIGGER_ERLANG_ORG_BUILD }}
