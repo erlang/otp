@@ -68,7 +68,8 @@
          store/3,
          retrieve/2,
 	 info/1, info/2,
-	 connection_info/2,
+         connection_info/2,
+         connection_info_server/1,
 	 channel_info/3,
          adjust_window/3, close/2,
          disconnect/1,
@@ -308,6 +309,10 @@ connection_info(ConnectionHandler, Key) when is_atom(Key) ->
     end;
 connection_info(ConnectionHandler, Options) ->
     call(ConnectionHandler, {connection_info, Options}).
+
+%%--------------------------------------------------------------------
+connection_info_server(D) when is_tuple(D) ->
+    fold_keys(conn_info_keys_base(), fun conn_info/2, D).
 
 %%--------------------------------------------------------------------
 -spec channel_info(connection_ref(),
@@ -1181,7 +1186,11 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
                          aead_data = <<>>,
                          encrypted_data_buffer = EncryptedDataRest},
 	    try
-		ssh_message:decode(set_kex_overload_prefix(DecryptedBytes,D2))
+                Msg = ssh_message:decode(set_kex_overload_prefix(DecryptedBytes,D2)),
+                %% TODO refactor the code so we don't end in the catch because of
+                %% errors in the event fun
+                ssh_event:message_received(Msg, D2),
+                Msg
             of
                 #ssh_msg_kexinit{}                   = Msg ->
                     {keep_state, D2, [{next_event, internal, prepare_next_packet},
