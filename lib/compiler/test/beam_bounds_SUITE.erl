@@ -93,16 +93,21 @@ end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 addition_bounds(_Config) ->
     test_commutative('+', {-12,12}),
 
-    {'-inf',-15} = beam_bounds:bounds('+', {'-inf',-20}, {2,5}),
-    {'-inf',55} = beam_bounds:bounds('+', {'-inf',50}, {'-inf',5}),
-    {'-inf',110} = beam_bounds:bounds('+', {1,10}, {'-inf',100}),
-    any = beam_bounds:bounds('+', {1,'+inf'}, {'-inf',100}),
+    {'-inf',-15} = do_add({'-inf',-20}, {2,5}),
+    {'-inf',55} = do_add({'-inf',50}, {'-inf',5}),
+    {'-inf',110} = do_add({1,10}, {'-inf',100}),
+    any = do_add({1,'+inf'}, {'-inf',100}),
 
-    {-8,'+inf'} = beam_bounds:bounds('+', {2,'+inf'}, {-10,20}),
-    {6,'+inf'} = beam_bounds:bounds('+', {1,10}, {5,'+inf'}),
-    {9,'+inf'} = beam_bounds:bounds('+', {2,'+inf'}, {7,'+inf'}),
+    {-8,'+inf'} = do_add({2,'+inf'}, {-10,20}),
+    {6,'+inf'} = do_add({1,10}, {5,'+inf'}),
+    {9,'+inf'} = do_add({2,'+inf'}, {7,'+inf'}),
 
     ok.
+
+do_add(A, B) ->
+    Res = beam_bounds:bounds('+', A, B),
+    Res = beam_bounds:bounds('+', B, A),
+    Res.
 
 subtraction_bounds(_Config) ->
     test_noncommutative('-', {-12,12}),
@@ -155,6 +160,28 @@ division_bounds(_Config) ->
 
     any = beam_bounds:bounds('div', {'-inf',10}, any),
     any = beam_bounds:bounds('div', {0,'+inf'}, any),
+    any = beam_bounds:bounds('div', any, {'-inf',10}),
+    any = beam_bounds:bounds('div', any, {0,'+inf'}),
+
+    {-32,32} = beam_bounds:bounds('div', {16,32}, any),
+    any = beam_bounds:bounds('div', any, {7,13}),
+
+    Big = 1 bsl 512,
+    {-100,100} = beam_bounds:bounds('div', {0,100}, {1,Big}),
+    {-100,100} = beam_bounds:bounds('div', {0,100}, {-Big,10}),
+
+    {-100,'+inf'} = beam_bounds:bounds('div', {-100,'+inf'}, {1,Big}),
+    {-25,'+inf'} = beam_bounds:bounds('div', {-100,'+inf'}, {4,Big}),
+    {'-inf',0} = beam_bounds:bounds('div', {'-inf',-5}, {1,Big}),
+    {'-inf',5} = beam_bounds:bounds('div', {'-inf',5}, {1,Big}),
+    {0,'+inf'} = beam_bounds:bounds('div', {5,'+inf'}, {1,Big}),
+
+    {'-inf',0} = beam_bounds:bounds('div', {-Big,-1}, {5,10}),
+    {'-inf',-2} = beam_bounds:bounds('div', {-Big,-20}, {5,10}),
+    {'-inf',0} = beam_bounds:bounds('div', {-Big,-1}, {7,Big}),
+    {'-inf',8} = beam_bounds:bounds('div', {-Big,17}, {2,Big}),
+    {2,'+inf'} = beam_bounds:bounds('div', {20,Big}, {5,10}),
+    {0,'+inf'} = beam_bounds:bounds('div', {1,Big}, {1,Big}),
 
     ok.
 
@@ -193,6 +220,19 @@ rem_bounds(_Config) ->
     {-1,0} = beam_bounds:bounds('rem', {-1,-1}, any),
     {-7,0} = beam_bounds:bounds('rem', {-7,-7}, any),
     {-6,0} = beam_bounds:bounds('rem', {-6,-4}, any),
+
+    {0,'+inf'} = beam_bounds:bounds('rem', {0,'+inf'}, any),
+    {0,'+inf'} = beam_bounds:bounds('rem', {7,'+inf'}, any),
+    {'-inf',0} = beam_bounds:bounds('rem', {'-inf',-5}, any),
+    {'-inf',11} = beam_bounds:bounds('rem', {'-inf',11}, any),
+
+    any = beam_bounds:bounds('rem', any, {'-inf',-7}),
+    any = beam_bounds:bounds('rem', any, {'-inf',0}),
+    any = beam_bounds:bounds('rem', any, {'-inf',1}),
+    any = beam_bounds:bounds('rem', any, {'-inf',5}),
+    any = beam_bounds:bounds('rem', any, {0,'+inf'}),
+    any = beam_bounds:bounds('rem', any, {1,'+inf'}),
+    any = beam_bounds:bounds('rem', any, {100,'+inf'}),
 
     ok.
 
@@ -603,13 +643,34 @@ abs_bounds(_Config) ->
     _ = [abs_bounds_1({A,B}) ||
             A <- Seq,
             B <- lists:nthtail(A-Min, Seq)],
+
+    Big = 1 bsl 512,
+
+    {1,'+inf'} = do_abs({'-inf',-1}),
+    {10,'+inf'} = do_abs({'-inf',-10}),
+
+    {0,'+inf'} = do_abs({'-inf',0}),
+    {0,'+inf'} = do_abs({'-inf',1}),
+    {0,'+inf'} = do_abs({'-inf',10}),
+    {0,'+inf'} = do_abs(any),
+    {1,'+inf'} = do_abs({-Big,-Big}),
+
+    {0,'+inf'} = do_abs({-5,'+inf'}),
+    {0,'+inf'} = do_abs({0,'+inf'}),
+    {1,'+inf'} = do_abs({1,'+inf'}),
+    {17,'+inf'} = do_abs({17,'+inf'}),
+    {0,'+inf'} = do_abs({Big,Big}),
+
     ok.
+
+do_abs(R) ->
+    beam_bounds:bounds('abs', R).
 
 abs_bounds_1(R) ->
     {HighestMin,LowestMax} = min_max_unary_op('abs', R),
     {Min,Max} = beam_bounds:bounds(abs, R),
     if
-        Min =< HighestMin, LowestMax =< Max ->
+        Min =:= HighestMin, LowestMax =:= Max ->
             ok;
         true ->
             io:format("~p(~p) evaluates to ~p; should be ~p\n",

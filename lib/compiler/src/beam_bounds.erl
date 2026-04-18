@@ -42,6 +42,8 @@
 -type bool_result() :: 'true' | 'false' | 'maybe'.
 -type op() :: atom().
 
+-import(lists, [foldl/3]).
+
 %% Maximum size of integers in bits to keep ranges for.
 -define(NUM_BITS, 128).
 
@@ -52,95 +54,51 @@ bounds('bnot', R0) ->
     R = {inf_add(inf_neg(B), -1), inf_add(inf_neg(A), -1)},
     normalize(R);
 bounds(abs, R) ->
-    case R of
-        {A,B} when is_integer(A), is_integer(B) ->
-            Min = 0,
-            Max = max(abs(A), abs(B)),
-            {Min,Max};
-        _ ->
-            {0,'+inf'}
-    end.
+    [A,B] = canonical_arg(R),
+    AbsA = inf_abs(A),
+    AbsB = inf_abs(B),
+    Min = case {inf_sign(A),inf_sign(B)} of
+              {'-','+'} -> 0;
+              {_,_} -> inf_min(AbsA, AbsB)
+          end,
+    Max = inf_max(AbsA, AbsB),
+    normalize({Min,Max}).
 
 -spec bounds(op(), range(), range()) -> range_result().
 
 bounds('+', R1, R2) ->
-    case {R1,R2} of
-        {{A,B}, {C,D}} when abs(A) bsr ?NUM_BITS =:= 0,
-                            abs(B) bsr ?NUM_BITS =:= 0,
-                            abs(C) bsr ?NUM_BITS =:= 0,
-                            abs(D) bsr ?NUM_BITS =:= 0 ->
-            normalize({A+C,B+D});
-        {{'-inf',B}, {_C,D}} when abs(B) bsr ?NUM_BITS =:= 0,
-                                  abs(D) bsr ?NUM_BITS =:= 0 ->
-            normalize({'-inf',B+D});
-        {{_A,B}, {'-inf',D}} when abs(B) bsr ?NUM_BITS =:= 0,
-                                  abs(D) bsr ?NUM_BITS =:= 0 ->
-            normalize({'-inf',B+D});
-        {{A,'+inf'}, {C,_D}} when abs(A) bsr ?NUM_BITS =:= 0,
-                                  abs(C) bsr ?NUM_BITS =:= 0 ->
-            normalize({A+C,'+inf'});
-        {{A,_B}, {C,'+inf'}} when abs(A) bsr ?NUM_BITS =:= 0,
-                                  abs(C) bsr ?NUM_BITS =:= 0 ->
-            normalize({A+C,'+inf'});
-        {_, _} ->
-            any
-    end;
+    [A,B,C,D] = canonical_args(R1, R2),
+    normalize({inf_add(A, C), inf_add(B, D)});
 bounds('-', R1, R2) ->
-    case {R1,R2} of
-        {{A,B}, {C,D}} when abs(A) bsr ?NUM_BITS =:= 0,
-                            abs(B) bsr ?NUM_BITS =:= 0,
-                            abs(C) bsr ?NUM_BITS =:= 0,
-                            abs(D) bsr ?NUM_BITS =:= 0 ->
+    case canonical_args(R1, R2) of
+        [A,B,C,D] when is_integer(A),
+                       is_integer(B),
+                       is_integer(C),
+                       is_integer(D) ->
             normalize({A-D,B-C});
-        {{A,'+inf'}, {_C,D}} when abs(A) bsr ?NUM_BITS =:= 0,
-                                  abs(D) bsr ?NUM_BITS =:= 0 ->
+        [A,'+inf',_C,D] when is_integer(A), is_integer(D) ->
             normalize({A-D,'+inf'});
-        {{_A,B}, {C,'+inf'}} when abs(B) bsr ?NUM_BITS =:= 0,
-                                  abs(C) bsr ?NUM_BITS =:= 0 ->
+        [_A,B,C,'+inf'] when is_integer(B), is_integer(C) ->
             normalize({'-inf',B-C});
-        {{'-inf',B}, {C,_D}} when abs(B) bsr ?NUM_BITS =:= 0,
-                                  abs(C) bsr ?NUM_BITS =:= 0 ->
+        ['-inf',B,C,_D] when is_integer(B), is_integer(C) ->
             normalize({'-inf',B-C});
-        {{A,_B}, {'-inf',D}} when abs(A) bsr ?NUM_BITS =:= 0,
-                                  abs(D) bsr ?NUM_BITS =:= 0 ->
+        [A,_B,'-inf',D] when is_integer(A), is_integer(D) ->
             normalize({A-D,'+inf'});
-        {_, _} ->
+        [_,_,_,_] ->
             any
     end;
 bounds('*', R1, R2) ->
-    case {R1,R2} of
-        {{A,B}, {C,D}} when abs(A) bsr ?NUM_BITS =:= 0,
-                            abs(B) bsr ?NUM_BITS =:= 0,
-                            abs(C) bsr ?NUM_BITS =:= 0,
-                            abs(D) bsr ?NUM_BITS =:= 0 ->
-            All = [X * Y || X <- [A,B], Y <- [C,D]],
-            Min = lists:min(All),
-            Max = lists:max(All),
-            normalize({Min,Max});
-        {{A,'+inf'}, {C,'+inf'}} when abs(A) bsr ?NUM_BITS =:= 0, A >= 0,
-                                      abs(C) bsr ?NUM_BITS =:= 0, C >= 0 ->
-            {A*C,'+inf'};
-        {{A,'+inf'}, {C,D}} when abs(A) bsr ?NUM_BITS =:= 0,
-                                 abs(C) bsr ?NUM_BITS =:= 0,
-                                 abs(D) bsr ?NUM_BITS =:= 0,
-                                 C >= 0 ->
-            {min(A*C, A*D),'+inf'};
-        {{'-inf',B}, {C,D}} when abs(B) bsr ?NUM_BITS =:= 0,
-                                 abs(C) bsr ?NUM_BITS =:= 0,
-                                 abs(D) bsr ?NUM_BITS =:= 0,
-                                 C >= 0 ->
-            {'-inf',max(B*C, B*D)};
-        {{A,B}, {'-inf',_}} when is_integer(A), is_integer(B) ->
-            bounds('*', R2, R1);
-        {{A,B}, {_,'+inf'}} when is_integer(A), is_integer(B) ->
-            bounds('*', R2, R1);
-        {_, _} ->
-            any
-    end;
+    [A,B,C,D] = canonical_args(R1, R2),
+    All = [inf_mul(X, Y) || X <- [A,B], Y <- [C,D]],
+    Min = foldl(fun inf_min/2, '+inf', All),
+    Max = foldl(fun inf_max/2, '-inf', All),
+    normalize({Min,Max});
 bounds('div', R1, R2) ->
-    div_bounds(R1, R2);
+    [A,B,C,D] = canonical_args(R1, R2),
+    div_bounds({A,B}, {C,D});
 bounds('rem', R1, R2) ->
-    rem_bounds(R1, R2);
+    [A,B,C,D] = canonical_args(R1, R2),
+    rem_bounds({A,B}, {C,D});
 bounds('band', R1, R2) ->
     [A,B,C,D] = canonical_args(R1, R2),
     normalize(min_max_band(A, B, C, D));
@@ -255,13 +213,15 @@ div_bounds({A,B}, {C,D}) when is_integer(A), is_integer(B),
     Min = lists:min(All),
     Max = lists:max(All),
     normalize({Min,Max});
-div_bounds({A,'+inf'}, {C,D}) when is_integer(C), C > 0, is_integer(D) ->
-    Min = min(A div C, A div D),
+div_bounds({A,'+inf'}, {C,D}) when is_integer(A),
+                                   is_integer(C), C > 0 ->
+    Min = min(A div C, inf_div(A, D)),
     Max = '+inf',
     normalize({Min,Max});
-div_bounds({'-inf',B}, {C,D}) when is_integer(C), C > 0, is_integer(D) ->
+div_bounds({'-inf',B}, {C,D}) when is_integer(B),
+                                   is_integer(C), C > 0 ->
     Min = '-inf',
-    Max = max(B div C, B div D),
+    Max = max(B div C, inf_div(B, D)),
     normalize({Min,Max});
 div_bounds({A,B}, _) when is_integer(A), is_integer(B) ->
     Max = max(abs(A), abs(B)),
@@ -291,9 +251,7 @@ rem_bounds({A,B}, _) ->
     %% include zero.
     Min = inf_min(0, A),
     Max = inf_max(0, B),
-    normalize({Min,Max});
-rem_bounds(_, _) ->
-    any.
+    normalize({Min,Max}).
 
 -if(false).
 min_max_band(A, B, C, D) ->
@@ -737,8 +695,28 @@ inf_neg('-inf') -> '+inf';
 inf_neg('+inf') -> '-inf';
 inf_neg(N) -> -N.
 
-inf_add(Int, N) when is_integer(Int) -> Int + N;
-inf_add(Inf, _N) -> Inf.
+inf_add(A, B) when is_integer(A), is_integer(B) -> A + B;
+inf_add(Inf, Inf) when is_atom(Inf) -> Inf;
+inf_add(Inf, _) when is_atom(Inf) -> Inf;
+inf_add(_, Inf) when is_atom(Inf) -> Inf.
+
+inf_mul(A, B) when is_integer(A), is_integer(B) ->
+    A * B;
+inf_mul(A, B) ->
+    case {inf_sign(A),inf_sign(B)} of
+        {'-','-'} -> '+inf';
+        {'+','+'} -> '+inf';
+        {_,_} -> '-inf'
+    end.
+
+inf_div(A, B) when is_integer(A), is_integer(B) ->
+    A div B;
+inf_div(A, '+inf') when is_integer(A) ->
+    0.
+
+inf_abs('-inf') -> '+inf';
+inf_abs('+inf') -> '+inf';
+inf_abs(N) when is_integer(N) -> abs(N).
 
 inf_bsr('-inf', _S) ->
     '-inf';
