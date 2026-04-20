@@ -218,6 +218,17 @@ is_responder_cert({byKey, Key}, #cert{otp = Cert}) ->
 
 is_authorized_responder(CombinedResponderCert = #cert{otp = ResponderCert},
                         IssuerCert, IsTrustedResponderFun) ->
+    case pubkey_cert:parse_and_check_validity_dates(ResponderCert) of
+        ok ->
+            check_responder_authorization(CombinedResponderCert,
+                                          ResponderCert, IssuerCert,
+                                          IsTrustedResponderFun);
+        _ExpiredOrError ->
+            not_authorized_responder
+    end.
+
+check_responder_authorization(CombinedResponderCert, ResponderCert,
+                              IssuerCert, IsTrustedResponderFun) ->
     Case1 =
         %% the CA who issued the certificate in question signed the
         %% response
