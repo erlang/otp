@@ -169,7 +169,7 @@ completion_sendv(Sock, IOV) ->
                     ERROR
             end;
         {error, {_Reason, _RestIOV}} = ERROR ->
-            %% Some part of the I/O vector was sent before an error occured
+            %% Some part of the I/O vector was sent before an error occurred
             ERROR;
         {error, _} = ERROR ->
             %% Note that 
