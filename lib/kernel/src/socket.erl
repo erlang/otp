@@ -3575,7 +3575,7 @@ about [connection time-out](#connect-timeout).
 
 The possible values for `CompletionStatus` in the completion message are:
 - **`ok`** - Complete success; A connection has been established.
-- **`{error, Reason}`** - An error occured and no connection was
+- **`{error, Reason}`** - An error occurred and no connection was
   established.
 
 > #### Note {: .info }
@@ -3801,7 +3801,7 @@ starts an [asynchronous call](#asynchronous-calls) like for `nowait`.
 
 The possible values for `CompletionStatus` in the completion message are:
 - **`{ok, NewSocket}`** - Success; A connection has been accepted.
-- **`{error, Reason}`** - An error occured and no connection was
+- **`{error, Reason}`** - An error occurred and no connection was
   established.
 
 See the note [Asynchronous Calls](#asynchronous-calls)
@@ -4145,7 +4145,7 @@ The possible values for `CompletionStatus` in the completion message are:
 - **`ok`** - Complete success; The data was written in its entirety.
 - **`{ok, Written}`** - Partial success; Some but not all data was written,
   but no error was reported. `Written` is the number of bytes that was written.
-- **`{error, Reason}`** - An error occured and no data was sent.
+- **`{error, Reason}`** - An error occurred and no data was sent.
 
 [](){: #send-cont }
 
@@ -4558,7 +4558,7 @@ The possible values for `CompletionStatus` in the completion message are:
 - **`ok`** - Complete success; The data was written in its entirety.
 - **`{ok, Written}`** - Partial success; Some but not all data was written,
   but no error was reported. `Written` is the number of bytes that was written.
-- **`{error, Reason}`** - An error occured and no data was sent.
+- **`{error, Reason}`** - An error occurred and no data was sent.
 
 After receiving a [`select` message](#async-messages);
 call [`sendto/3,4`](`sendto/3`) with `SelectInfo` as the `Cont` argument,
@@ -4794,7 +4794,7 @@ The possible values for `CompletionStatus` in the completion message are:
 - **`ok`** - Complete success; The data was written in its entirety.
 - **`{ok, Written}`** - Partial success; Some but not all data was written,
   but no error was reported. `Written` is the number of bytes that was written.
-- **`{error, Reason}`** - An error occured and no data was sent.
+- **`{error, Reason}`** - An error occurred and no data was sent.
 
 After receiving a [`select` message](#async-messages);
 call [`sendmsg/3,4`](`sendmsg/3`) with `SelectInfo` as the `Cont` argument,
@@ -5202,7 +5202,7 @@ The possible values for `CompletionStatus` in the completion message are:
   but no error was reported. `Written` is the number of bytes that was written.
   [`rest_iov(Written, IOV)`](`rest_iov/2`) can be used to calculate the rest
   I/O vector (from the original IOV).
-- **`{error, Reason}`** - An error occured and no data was sent.
+- **`{error, Reason}`** - An error occurred and no data was sent.
 
 [](){: #sendv-cont }
 
@@ -5895,7 +5895,7 @@ at the start of this module reference manual page.
 The possible values for `CompletionStatus` in the completion message are:
 - **`{ok, Data}`** - Complete success; All requested data was read.
 - **`{more, Data}`** - Partial success; Some, but not all, data was read.
-- **`{error, Reason}`** - An error occured and no data was read.
+- **`{error, Reason}`** - An error occurred and no data was read.
 
 On `select` systems, for a socket of type [`stream`](`t:type/0`),
 if `Length > 0` and there is some but not enough data available,
@@ -6384,7 +6384,7 @@ at the start of this module reference manual page.
 
 The possible values for `CompletionStatus` in the completion message are:
 - **`{ok, {Source, Data}}`** - Success.
-- **`{error, Reason}`** - An error occured and no data was read.
+- **`{error, Reason}`** - An error occurred and no data was read.
 """.
 
 -spec recvfrom(Socket, BufSz, Flags, Timeout :: 'infinity') ->
@@ -6648,7 +6648,7 @@ at the start of this module reference manual page.
 
 The possible values for `CompletionStatus` in the completion message are:
 - **`{ok, Msg}`** - Success.
-- **`{error, Reason}`** - An error occured and no data was read.
+- **`{error, Reason}`** - An error occurred and no data was read.
 """.
 -spec recvmsg(Socket, BufSz, CtrlSz, Flags, Timeout :: 'infinity') ->
           {'ok', Msg} |
