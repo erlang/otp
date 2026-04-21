@@ -123,6 +123,15 @@ $(ESRC)/%.erl $(ESRC)/%.hrl: %.asn1
 $(INCLUDE)/%.hrl: $(ESRC)/%.hrl
 	$(gen_verbose)cp -p $< $@
 
+prebuild: prebuild.skip
+
+prebuild.skip:
+	echo "Building prebuild.skip\c"
+	@touch prebuild.skip
+	@for a in $(ASN_DBS); do \
+		echo $$a >> prebuild.skip; \
+	done
+
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
