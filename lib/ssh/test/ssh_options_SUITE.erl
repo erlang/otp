@@ -190,7 +190,7 @@ groups() ->
 			   ]},
      {dir_options, [], [user_dir_option,
                         user_dir_fun_option,
-			system_dir_option]},
+                        system_dir_option]},
      {max_auth_request_size, [], [max_auth_request_size_large_enough,
                                   max_auth_request_size_too_small,
                                   max_auth_request_size_invalid_option]}
@@ -2111,17 +2111,17 @@ max_auth_request_size_large_enough(Config) when is_list(Config) ->
     SysDir = proplists:get_value(data_dir, Config),
     %% Set a large enough limit that normal auth requests pass through
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
-					     {user_dir, UserDir},
-					     {password, "morot"},
-					     {max_auth_request_size, 1024},
-					     {failfun, fun ssh_test_lib:failfun/2}]),
+                                             {user_dir, UserDir},
+                                             {password, "morot"},
+                                             {max_auth_request_size, 1024},
+                                             {failfun, fun ssh_test_lib:failfun/2}]),
 
     ConnectionRef =
-	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-					  {user, "foo"},
-					  {password, "morot"},
-					  {user_interaction, false},
-					  {user_dir, UserDir}]),
+        ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                          {user, "foo"},
+                                          {password, "morot"},
+                                          {user_interaction, false},
+                                          {user_dir, UserDir}]),
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
 
@@ -2134,18 +2134,18 @@ max_auth_request_size_too_small(Config) when is_list(Config) ->
     %% Set a very small limit so that even a normal password auth request
     %% exceeds the max_auth_request_size and the server disconnects
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
-					     {user_dir, UserDir},
-					     {password, "morot"},
-					     {max_auth_request_size, 1},
-					     {failfun, fun ssh_test_lib:failfun/2}]),
+                                             {user_dir, UserDir},
+                                             {password, "morot"},
+                                             {max_auth_request_size, 1},
+                                             {failfun, fun ssh_test_lib:failfun/2}]),
 
     {error, "Auth length exceeded."} =
-	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+        ssh:connect(Host, Port, [{silently_accept_hosts, true},
                                  {save_accepted_host, false},
-				 {user, "foo"},
-				 {password, "morot"},
-				 {user_interaction, false},
-				 {user_dir, UserDir}]),
+                                 {user, "foo"},
+                                 {password, "morot"},
+                                 {user_interaction, false},
+                                 {user_dir, UserDir}]),
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
