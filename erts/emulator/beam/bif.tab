@@ -834,3 +834,4 @@ bif erl_debugger:peek_xreg/3
 bif erts_debug:unaligned_bitstring/2
 bif re:import/1
 bif persistent_term:put_new/2
+bif persistent_term:has_key/1

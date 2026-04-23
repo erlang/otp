@@ -98,11 +98,13 @@ basic(_Config) ->
 
              {'EXIT',{badarg,_}} = (catch persistent_term:get(Key)),
              {not_present,Key} = persistent_term:get(Key, {not_present,Key}),
+             false = persistent_term:has_key(Key),
 
              ok = persistent_term:put_new(Key, {value, I}),
              ok = persistent_term:put_new(Key, {value, I}),
              {'EXIT',{badarg,_}} = (catch persistent_term:put_new(Key, {new_value, I})),
              {value, I} = persistent_term:get(Key),
+             true = persistent_term:has_key(Key),
              true = persistent_term:erase(Key)
          end || I <- Seq],
     [] = [P || {{?MODULE,_},_}=P <- pget(Chk)],
@@ -190,7 +192,7 @@ purging_tester(Parent, Key) ->
     Parent ! {self(),gotten},
     receive
         {Parent,erased} ->
-            {'EXIT',{badarg,_}} = (catch persistent_term:get(Key)),
+            false = persistent_term:has_key(Key),
             purging_tester_1(Term, 1);
         {Parent,replaced} ->
             {?MODULE,new} = persistent_term:get(Key),
