@@ -1,0 +1,1 @@
+# ERL-1260 - Invalid behaviour callback functions
