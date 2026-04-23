@@ -2143,25 +2143,14 @@ continue(_MakeErrors, _AbortIfMissingSuites) ->
     end.
 
 set_group_leader_same_as_shell(OldGL) ->
-    %% find the group leader process on the node in a dirty fashion
-    %% (check initial function call and look in the process dictionary)
-    GS2or3 = fun(P) ->
-    		     case process_info(P,initial_call) of
-    			 {initial_call,{group,server,X}} when X == 2 ; X == 3 ->
-    			     true;
-    			 _ ->
-    			     false
-    		     end
-    	     end,	
-    case [P || P <- processes(), GS2or3(P),
-    	       true == lists:keymember(shell,1,
-    				       element(2,process_info(P,dictionary)))] of
-    	[GL|_] ->
+    case shell:whereis() of
+        ShellPid when is_pid(ShellPid) ->
+            {group_leader, NewGL} = process_info(ShellPid, group_leader),
             %% check if started from remote node (skip interaction)
-            if node(OldGL) /= node(GL) -> false;
-               true -> group_leader(GL, self())
+            if node(OldGL) /= node(NewGL) -> false;
+               true -> group_leader(NewGL, self())
             end;
-    	[] ->
+        undefined ->
     	    false
     end.
 
