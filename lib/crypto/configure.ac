@@ -421,7 +421,7 @@ search_subdirs="lib"
 if test "$ac_cv_sizeof_void_p" = "8"; then
    search_subdirs="$search_subdirs lib64 lib/64"
 else
-   search_subdirs="$search_subdirs lib32 lib/32"
+   search_subdirs="$search_subdirs lib32 lib/32 libx32"
 fi
 test "$multiarch_dir" = "" || search_subdirs="lib/$multiarch_dir $search_subdirs"
 test "$with_ssl_lib_subdir" = "" || search_subdirs="$with_ssl_lib_subdir $search_subdirs"
