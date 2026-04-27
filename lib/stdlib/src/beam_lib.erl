@@ -1329,8 +1329,8 @@ pread(FD, AtPos, Size) ->
 
 filename(BB) when is_binary(BB#bb.source) ->
     BB#bb.source;
-filename(BB) -> 
-    list_to_atom(BB#bb.source).    
+filename(BB) ->
+    list_to_binary(BB#bb.source).
 
 beam_filename(Bin) when is_binary(Bin) ->
     Bin;
