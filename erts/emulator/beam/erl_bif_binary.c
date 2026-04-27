@@ -1843,6 +1843,7 @@ static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindContext
     Uint extracted_offset;
     Uint extracted_size;
     Eterm extracted;
+    Eterm empty_extracted = THE_NON_VALUE;
     Uint do_trim;
     Sint i;
     Uint offset, size;
@@ -1895,12 +1896,19 @@ static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindContext
         extracted_size = NBITS(fa->end_pos - (fad[i].pos + fad[i].len));
 
         if (!(extracted_size == 0 && do_trim)) {
-            extracted = erts_build_sub_bitstring(&fa->factory.hp,
-                                                 br_flags,
-                                                 br,
-                                                 base,
-                                                 extracted_offset,
-                                                 extracted_size);
+            if (extracted_size == 0) {
+                if (is_non_value(empty_extracted)) {
+                    empty_extracted = atom_tab(atom_val(am_Empty))->u.bin;
+                }
+                extracted = empty_extracted;
+            } else {
+                extracted = erts_build_sub_bitstring(&fa->factory.hp,
+                                                     br_flags,
+                                                     br,
+                                                     base,
+                                                     extracted_offset,
+                                                     extracted_size);
+            }
             fa->term = CONS(fa->factory.hp, extracted, fa->term);
             fa->factory.hp += 2;
 
@@ -1917,12 +1925,19 @@ static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindContext
     extracted_size = NBITS(fad[0].pos);
 
     if (!(extracted_size == 0 && do_trim)) {
-        extracted = erts_build_sub_bitstring(&fa->factory.hp,
-                                             br_flags,
-                                             br,
-                                             base,
-                                             extracted_offset,
-                                             extracted_size);
+        if (extracted_size == 0) {
+            if (is_non_value(empty_extracted)) {
+                empty_extracted = atom_tab(atom_val(am_Empty))->u.bin;
+            }
+            extracted = empty_extracted;
+        } else {
+            extracted = erts_build_sub_bitstring(&fa->factory.hp,
+                                                 br_flags,
+                                                 br,
+                                                 base,
+                                                 extracted_offset,
+                                                 extracted_size);
+        }
         fa->term = CONS(fa->factory.hp, extracted, fa->term);
         fa->factory.hp += 2;
     }
