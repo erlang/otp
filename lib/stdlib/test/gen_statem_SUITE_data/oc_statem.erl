@@ -37,7 +37,7 @@ init([]) ->
     %% (fails due to some reason), kill the state machine,
     %% just to not leak resources (process, name, ETS table, etc...)
     %%
-    Parent = gen:get_parent(),
+    Parent = gen_gen:get_parent(),
     Statem = self(),
     _Supervisor =
         spawn(
