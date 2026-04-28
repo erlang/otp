@@ -14212,6 +14212,11 @@ erts_do_exit_process(Process* p, Eterm reason)
 
     erts_proc_unlock(p, ERTS_PROC_LOCKS_ALL_MINOR);
 
+    if (erts_atomic32_read_nob(&p->xstate) & (ERTS_PXSFLG_HANDOVER_CODE_MOD_PERM |
+                                              ERTS_PXSFLG_HANDOVER_CODE_STAGE_PERM)) {
+        erts_reject_code_permissions(p);
+    }
+
     if (ERTS_IS_P_TRACED_FL(p, F_TRACE_PROCS))
         trace_proc(p, ERTS_PROC_LOCK_MAIN, p, am_exit, reason);
 

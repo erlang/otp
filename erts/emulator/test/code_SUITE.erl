@@ -32,6 +32,8 @@
          call_purged_fun_code_altered/1,
          multi_proc_purge/1, t_check_old_code/1,
          many_purges/1,
+         code_permission/1,
+         code_permission_gc/1,
          external_fun/1,get_chunk/1,module_md5/1,
          constant_pools/1,constant_refc_binaries/1,
          fake_literals/1,
@@ -45,6 +47,8 @@
 -define(line_trace, 1).
 -include_lib("common_test/include/ct.hrl").
 
+-compile([nowarn_deprecated_catch]).
+
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
@@ -55,6 +59,8 @@ all() ->
      call_purged_fun_code_altered,
      multi_proc_purge, t_check_old_code, external_fun, get_chunk,
      module_md5, many_purges,
+     code_permission,
+     code_permission_gc,
      constant_pools, constant_refc_binaries, fake_literals,
      false_dependency,
      coverage, fun_confusion, t_copy_literals, t_copy_literals_frags,
@@ -514,6 +520,169 @@ many_purges_test(File, Code, N, I) ->
     io:format("Purge #~p. Load=~p Delete=~p Purge=~p",
               [I, T1-T0, T2-T1, T3-T2]),
     many_purges_test(File, Code, N, I+1).
+
+%% Whitebox unit test for the code_mod_permission lock
+code_permission(_Config) ->
+    Tester = self(),
+    LockerFun = fun() ->
+                        receive lock -> ok end,
+                        true = erts_debug:set_internal_state(code_mod_permission, true),
+                        Tester ! {self(), locked},
+                        receive unlock -> ok end,
+                        true = erts_debug:set_internal_state(code_mod_permission, false),
+                        Tester ! {self(), unlocked}
+                end,
+    Locker1 = spawn_link(LockerFun),
+    {Locker2, MRef2} = spawn_opt(LockerFun,[link,monitor]),
+    {Locker3, MRef3} = spawn_opt(LockerFun,[link,monitor]),
+    Locker4 = spawn_link(LockerFun),
+    Locker5 = spawn_link(LockerFun),
+
+    AllLockers = [Locker1, Locker2, Locker3, Locker4, Locker5],
+    try
+        Locker1 ! lock,
+        {Locker1, locked} = receive_any(),
+
+        Locker2 ! lock,
+        wait_suspended(Locker2),
+        %% Second suspend to prevent it from seizing the permission
+        erlang:suspend_process(Locker2),
+
+        Locker3 ! lock,
+        wait_suspended(Locker3),
+
+        Locker4 ! lock,
+        wait_suspended(Locker4),
+        %% Second suspend to prevent it from seizing the permission
+        erlang:suspend_process(Locker4),
+
+        Locker5 ! lock,
+        wait_suspended(Locker5),
+
+        %% Test killing process waiting in queue
+        unlink(Locker3),
+        exit_signal(Locker3, kill),
+        {'DOWN', MRef3, process, Locker3, killed} = receive_any(),
+
+        Locker1 ! unlock,
+        {Locker1, unlocked} = receive_any(),
+
+        %% Test killing process after lock handover but before getting scheduled
+        unlink(Locker2),
+        exit_signal(Locker2, kill),
+        receive {'DOWN', MRef2, process, Locker2, killed} -> ok end,
+
+        %% Test garbing process after lock handover but before getting scheduled
+        %% It should release its lock and try again after GC.
+        true = erlang:garbage_collect(Locker4),
+        erlang:resume_process(Locker4),
+        {Locker5, locked} = receive_any(),
+        Locker5 ! unlock,
+        {Locker5, unlocked} = receive_any(),
+
+        {Locker4, locked} = receive_any(),
+        Locker4 ! unlock,
+        {Locker4, unlocked} = receive_any(),
+        ok
+    after
+        %% Spam 'unlock' to make sure we don't leave it locked
+        %% before returning back to common_test.
+        [Locker ! unlock || Locker <- AllLockers]
+    end.
+
+wait_suspended(Pid) ->
+    wait_suspended(Pid, 10_000).
+
+wait_suspended(Pid, Timeout) when Timeout > 0 ->
+    Sleep = 10,
+    timer:sleep(Sleep),
+    case process_info(Pid, status) of
+        {status,suspended} ->
+            suspended;
+        {status,_} ->
+            wait_suspended(Pid, Timeout - Sleep)
+    end.
+
+%% Whitebox unit test for the code_mod_permission lock and GC
+code_permission_gc(Config) ->
+    erts_test_sync_tracer:init(Config),
+    Tester = self(),
+    LockerFun = fun() ->
+                         receive lock -> ok end,
+                         true = erts_debug:set_internal_state(code_mod_permission, true),
+                         Tester ! {self(), locked},
+                         receive unlock -> ok end,
+                         true = erts_debug:set_internal_state(code_mod_permission, false),
+                         Tester ! {self(), unlocked}
+                 end,
+    GC_LockerFun = fun() ->
+                           %% Grow heap to make it do dirty GC when asked to
+                           DirtyGCWords = erts_debug:get_internal_state(dirty_gc_limit),
+                           put(data, lists:seq(1,DirtyGCWords div 2)),
+                           erlang:garbage_collect(),
+
+                           Tester ! {self(), ~"heap inflated"},
+                           LockerFun()
+                   end,
+
+    Locker1 = spawn_link(LockerFun),
+    Locker2 = spawn_link(GC_LockerFun),
+    Locker3 = spawn_link(LockerFun),
+
+    %% We want to unlock the code permission while the first in wait queue
+    %% is garbing and verify that it does NOT get the permission but is instead
+    %% given to the next waiter.
+    %% To make this scenario happen we make use of a NIF tracer module
+    %% that blocks inside the GC trace point and waits for a sync
+    %% from another thread.
+    Tracer = {erts_test_sync_tracer, self()},
+    TS = trace:session_create(code_permission_gc, Tracer, []),
+    {Locker2, ~"heap inflated"} = receive_any(),
+    trace:process(TS, Locker2, true, [garbage_collection]),
+
+    AllLockers = [Locker1, Locker2, Locker3],
+    try
+        Locker1 ! lock,
+        {Locker1, locked} = receive_any(),
+
+        Locker2 ! lock,
+        wait_suspended(Locker2),
+
+        Locker3 ! lock,
+        wait_suspended(Locker3),
+
+        erts_test_sync_tracer:set_sync(false),
+        erts_test_sync_tracer:enable_trace(true),
+        async = erlang:garbage_collect(Locker2, [{async, {Locker2, ~"done garbing"}},
+                                                 {type, major}]),
+
+        ok = erts_test_sync_tracer:wait_sync(true, 10_000),
+        erts_test_sync_tracer:enable_trace(false),
+
+        %% Now release lock and verify second in queue Locker3 get it
+        %% and not the garbing Locker2
+
+        Locker1 ! unlock,
+        receive {Locker1, unlocked} -> ok end,
+        receive {Locker3, locked} -> ok end,
+
+        %% Release Locker2 from blocking in GC
+        erts_test_sync_tracer:set_sync(false),
+        {garbage_collect, {Locker2, ~"done garbing"}, true} = receive_any(),
+
+        Locker3 ! unlock,
+        receive {Locker3, unlocked} -> ok end,
+        receive {Locker2, locked} -> ok end,
+        Locker2 ! unlock,
+        {Locker2, unlocked} = receive_any(),
+
+        ok
+    after
+        %% Spam 'unlock' to make sure we don't leave it locked
+        %% before returning back to common_test.
+        [Locker ! unlock || Locker <- AllLockers],
+        trace:session_destroy(TS)
+    end.
 
 external_fun(Config) when is_list(Config) ->
     false = erlang:function_exported(another_code_test, x, 1),
@@ -1441,4 +1610,10 @@ run_sys_proc_test(Test, Config) ->
         {Res1, Res2}
     after
         TestLowOSRL = erlang:system_flag(outstanding_system_requests_limit, OSRL)
+    end.
+
+receive_any() ->
+    receive M -> M
+    after 10_000 ->
+            ct:fail({timeout, receive_any})
     end.
