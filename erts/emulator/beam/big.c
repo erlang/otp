@@ -457,6 +457,12 @@ static ERTS_INLINE double lookup_log2(Uint base) {
     return lg2_lookup[base - 2];
 }
 
+#ifdef DEBUG
+static ERTS_INLINE int I_is_normalized(ErtsDigit* x, dsize_t xl) {
+    return xl == 0 || x[xl - 1] != 0 || (xl == 1 && x[0] == 0);
+}
+#endif
+
 /*
 ** compare two number vectors
 */
@@ -752,11 +758,20 @@ static dsize_t I_sqr(ErtsDigit* x, dsize_t xl, ErtsDigit* r)
  * Multiply using the Karatsuba algorithm.
  *
  * Reference: https://en.wikipedia.org/wiki/Karatsuba_algorithm
+ *
+ * Precondition: both inputs are normalized (single zero digit, or top
+ * digit non-zero). The recursive Karatsuba split sizes the internal
+ * scratch buffers from the declared lengths, so leading zero cells cause
+ * the inner I_sub to read one cell past its scratch (caught originally
+ * by AddressSanitizer). Callers that may pass zero-padded inputs must
+ * trim before calling.
  */
 static dsize_t I_mul_karatsuba(ErtsDigit* x, dsize_t xl, ErtsDigit* y,
                                dsize_t yl, ErtsDigit* r)
 {
     ASSERT(xl >= yl);
+    ASSERT(I_is_normalized(x, xl));
+    ASSERT(I_is_normalized(y, yl));
 
     if (yl < 16) {
         /* Use the basic algorithm. */
@@ -1142,6 +1157,17 @@ static dsize_t D_div(ErtsDigit* x, dsize_t xl, ErtsDigit d, ErtsDigit* q, ErtsDi
 }
 
 /*
+** Forward decls for the Burnikel-Ziegler recursive division wrapper
+** so the existing I_div definition below continues to compile, then
+** I_div_dispatch chooses the algorithm based on divisor size.
+*/
+static dsize_t I_div_dispatch(ErtsDigit* x, dsize_t xl,
+                              ErtsDigit* y, dsize_t yl,
+                              ErtsDigit* q, ErtsDigit* r, dsize_t* rlp);
+static dsize_t I_lshift(ErtsDigit* x, dsize_t xl, Sint y,
+                        short sign, ErtsDigit* r);
+
+/*
 ** Divide digits in x with digits in y and return qutient in q
 ** and remainder in r
 ** assume that integer(x) > integer(y)
@@ -1244,6 +1270,566 @@ static dsize_t I_div(ErtsDigit* x, dsize_t xl, ErtsDigit* y, dsize_t yl,
 
     *rlp = rl;
     return ql;
+}
+
+/* ============================================================
+** Burnikel-Ziegler recursive division.
+**
+** Reference: Burnikel & Ziegler, "Fast Recursive Division",
+** MPI-I-98-1-022 (1998).
+**
+** Recurrence with M(n) = cost of n-by-n multiplication:
+**   T(n) = 2 T(n/2) + M(n/2) + O(n)
+** Combined with Karatsuba M(n) = O(n^1.58) yields
+**   T(n) = O(M(n) log n) ~ O(n^1.58 log n)
+** which is sub-quadratic compared to schoolbook I_div.
+**
+** All BZ helpers operate on raw ErtsDigit arrays of fixed length.
+** They never trim leading zeros — sizes are determined by the
+** caller. Below BZ_DIV_THRESHOLD (in ErtsDigits) for the divisor
+** size n, the dispatcher falls back to schoolbook I_div.
+** ============================================================ */
+
+/*
+** BZ status: enabled (BZ_DIV_THRESHOLD = 8 ErtsDigits).
+**
+** The implementation was originally affected by a heap-buffer-overflow
+** in I_mul_karatsuba reading 1 cell past its internal scratch. AddressSanitizer
+** pinpointed the offending read in I_mul_karatsuba's I_sub call (line 991).
+** Root cause: I_mul_karatsuba assumes its inputs are normalized (top digit
+** non-zero), but BZ passes Q with leading-zero cells (the recursive
+** bz_div_2n_1n always zero-pads its Q to size n). The sub-products zip
+** along the heap until I_sub reaches a tmp_buf that's been sized assuming
+** trimmed inputs, then reads one cell past.
+**
+** Fix: trim Q (and B2 for symmetry) before each I_mul_karatsuba call in
+** bz_div_3n_2n. See the call site below.
+*/
+#ifndef BZ_DIV_THRESHOLD
+#define BZ_DIV_THRESHOLD 8
+#endif
+
+/* If non-zero: I_div_dispatch verifies BZ result against I_div on the
+ * original input. Use only for debugging. */
+#ifndef BZ_SELFCHECK
+#define BZ_SELFCHECK 0
+#endif
+
+#ifndef BARRETT_LEVEL_THRESHOLD
+#define BARRETT_LEVEL_THRESHOLD 100
+#endif
+
+/* Maximum Barrett correction iterations before falling back to I_div_dispatch.
+ * BZ correctness implies <= 2; the prod buffer is sized to hold this many
+ * carry-extensions of qhat. */
+#define BARRETT_MAX_CORRECTIONS 4
+
+/* Fixed-length addition: r = a + b, all of length n.
+ * Returns the final carry-out (0 or 1). */
+static ErtsDigit bz_add_n(const ErtsDigit *a, const ErtsDigit *b,
+                          ErtsDigit *r, dsize_t n)
+{
+    ErtsDigit c = 0;
+    dsize_t i;
+    for (i = 0; i < n; i++) {
+        ErtsDigit s = a[i] + c;
+        ErtsDigit c1 = (s < c);
+        s += b[i];
+        c1 += (s < b[i]);
+        r[i] = s;
+        c = c1;
+    }
+    return c;
+}
+
+/* Fixed-length subtraction: r = a - b, all of length n.
+ * Returns the final borrow (0 or 1). */
+static ErtsDigit bz_sub_n(const ErtsDigit *a, const ErtsDigit *b,
+                          ErtsDigit *r, dsize_t n)
+{
+    ErtsDigit borrow = 0;
+    dsize_t i;
+    for (i = 0; i < n; i++) {
+        ErtsDigit yb = b[i] + borrow;
+        ErtsDigit b1 = (yb < borrow);
+        ErtsDigit res = a[i] - yb;
+        b1 += (res > a[i]);
+        r[i] = res;
+        borrow = b1;
+    }
+    return borrow;
+}
+
+/* Compare two fixed-length n arrays: returns -1 / 0 / 1 (a vs b). */
+static int bz_cmp_n(const ErtsDigit *a, const ErtsDigit *b, dsize_t n)
+{
+    dsize_t i;
+    for (i = n; i-- > 0; ) {
+        if (a[i] != b[i]) return a[i] < b[i] ? -1 : 1;
+    }
+    return 0;
+}
+
+/* Forward declarations. */
+static void bz_div_2n_1n(ErtsDigit *A, ErtsDigit *B, dsize_t n,
+                         ErtsDigit *Q, ErtsDigit *R, ErtsDigit *scratch);
+static void bz_div_3n_2n(ErtsDigit *A, ErtsDigit *B, dsize_t n,
+                         ErtsDigit *Q, ErtsDigit *R, ErtsDigit *scratch);
+
+/* Scratch space estimator for bz_div_2n_1n with parameter n.
+ *
+ *   bz_div_2n_1n(n) needs:
+ *     - n digits for R1_temp (intermediate remainder of step 1)
+ *     - bz_div_3n_2n(half) scratch
+ *
+ *   bz_div_3n_2n(n') needs:
+ *     - 2n' digits for D (product Q*B2)
+ *     - bz_div_2n_1n(n') scratch (recursive)
+ *
+ * Loose upper bound: O(n) per recursion frame, log2(n) frames -> O(n log n).
+ * We use a single contiguous buffer and let each frame allocate its sub-slice
+ * sequentially.
+ */
+static dsize_t bz_scratch_size_2n_1n(dsize_t n)
+{
+    /* Per-frame scratch: n (R1_temp) + 2n (D) + 2n (R1 for div_3n_2n call slack)
+     * + recursive(half). Worst case ~ 6n at top + 6*(n/2) + ... ~ 12n. */
+    if (n < BZ_DIV_THRESHOLD) {
+        return n + 2 + 2*n;  /* I_div needs n+1 q_buf + 2n r_buf */
+    }
+    return 6*n + bz_scratch_size_2n_1n(n / 2);
+}
+
+/* bz_div_2n_1n: divide A (length 2n) by B (length n).
+ *   Pre: B is normalized (B[n-1] has its top bit set), A < B*beta^n
+ *        (i.e., the n+1th digit and above of A are zero — equivalently the
+ *        top n digits of A < B).
+ *   Post: Q has length n (zero-padded), R has length n.
+ *   Destroys A.
+ */
+static void bz_div_2n_1n(ErtsDigit *A, ErtsDigit *B, dsize_t n,
+                         ErtsDigit *Q, ErtsDigit *R, ErtsDigit *scratch)
+{
+    dsize_t half;
+    ErtsDigit *R1_temp;
+    ErtsDigit *sub_scratch;
+    dsize_t i;
+
+    if (n < BZ_DIV_THRESHOLD || (n & 1)) {
+        /* Base case: schoolbook. */
+        ErtsDigit *q_buf = scratch;        /* size n+1 */
+        ErtsDigit *r_buf = scratch + n + 1;/* size 2n */
+        dsize_t qsz, rsz;
+
+        ASSERT(bz_cmp_n(A + n, B, n) < 0);  /* precondition */
+
+        qsz = I_div(A, 2*n, B, n, q_buf, r_buf, &rsz);
+        ASSERT(qsz <= n);
+        if (qsz > n) qsz = n;     /* defensive cap */
+        if (rsz > n) rsz = n;
+        for (i = 0; i < qsz; i++) Q[i] = q_buf[i];
+        for (i = qsz; i < n; i++) Q[i] = 0;
+        for (i = 0; i < rsz; i++) R[i] = r_buf[i];
+        for (i = rsz; i < n; i++) R[i] = 0;
+        return;
+    }
+
+    half = n / 2;
+    R1_temp = scratch;                  /* n digits */
+    sub_scratch = scratch + n;          /* sub-frame scratch */
+
+    /* Step 1: divide top 3*half = 3n/2 digits of A by B. A's top 3*half digits
+     * sit at A[half..2n-1]. The function below treats those as a 3*half array. */
+    bz_div_3n_2n(A + half, B, half, Q + half, R1_temp, sub_scratch);
+
+    /* Step 2: write R1_temp into A[half..n+half-1] so that A[0..3*half-1]
+     * holds [A4 || R1_temp] = R1_temp * beta^half + A4. (A4 = original
+     * A[0..half-1] is undisturbed; A[half..2n-1] was destroyed in step 1.) */
+    for (i = 0; i < n; i++) {
+        A[half + i] = R1_temp[i];
+    }
+
+    /* Step 3: divide that 3*half-digit value by B (which is 2*half = n). */
+    bz_div_3n_2n(A, B, half, Q, R, sub_scratch);
+}
+
+/* bz_div_3n_2n: divide A (length 3n) by B (length 2n).
+ *   Pre: B normalized (B[2n-1] has top bit set), A < B*beta^n.
+ *   Post: Q has length n (zero-padded), R has length 2n.
+ *   Destroys A and may mutate Q/R/scratch.
+ */
+static void bz_div_3n_2n(ErtsDigit *A, ErtsDigit *B, dsize_t n,
+                         ErtsDigit *Q, ErtsDigit *R, ErtsDigit *scratch)
+{
+    ErtsDigit *A1 = A + 2*n;     /* high n */
+    ErtsDigit *A2 = A + n;       /* mid n */
+    ErtsDigit *A3 = A;           /* low n */
+    ErtsDigit *B1 = B + n;       /* high n */
+    ErtsDigit *B2 = B;           /* low n */
+
+    /* scratch layout:
+     *   D       : 2n   digits  (Q * B2)
+     *   sub_scr : ...
+     */
+    ErtsDigit *D = scratch;
+    ErtsDigit *sub_scratch = scratch + 2*n;
+    dsize_t i;
+    int q_overflow = 0;        /* Q' = beta^n in the else branch */
+
+    if (bz_cmp_n(A1, B1, n) < 0) {
+        /* (Q', R1) = bz_div_2n_1n([A1 || A2], B1).
+         * [A1 || A2] is a 2n-digit value at A + n, contiguous. */
+        ErtsDigit *R1 = R + n;   /* park R1 in the high half of R */
+        bz_div_2n_1n(A + n, B1, n, Q, R1, sub_scratch);
+        /* R now holds [garbage_low_n || R1_high_n]. Move R1 into a known
+         * scratch position: keep it in R[n..2n-1] for now. */
+    } else {
+        /* Q' = beta^n - 1 (all ones). */
+        for (i = 0; i < n; i++) Q[i] = (ErtsDigit) -1;
+
+        /* From the precondition A < B*beta^n we have that A1 == B1 in
+         * this branch (a strict A1 > B1 would imply A >= B*beta^n).
+         *
+         *   R1 = [A1 || A2] - Q'*B1
+         *      = A1*beta^n + A2 - (beta^n - 1)*B1
+         *      = (A1 - B1)*beta^n + A2 + B1
+         *      = A2 + B1                     (since A1 == B1)
+         *
+         * The sum A2 + B1 fits in n+1 digits worst case (when both are
+         * close to beta^n). We track the carry-out as part of R1.
+         */
+        {
+            ErtsDigit *R1 = R + n;          /* parked in high n of R */
+            ErtsDigit carry = bz_add_n(A2, B1, R1, n);
+            /* R1 has n digits + 1-bit carry. We must propagate this carry
+             * into the high end when forming [R1 || A3] later. We do this
+             * via a single explicit "extra digit" tracked in q_overflow. */
+            q_overflow = (int) carry;
+        }
+    }
+
+    /* D = Q' * B2 (n × n -> 2n digits).
+     * I_mul_karatsuba assumes normalized inputs (single zero digit, or
+     * top digit non-zero).
+     * Q from the recursive bz_div_2n_1n is zero-padded to n cells, and
+     * B2 (low half of normalized divisor) often has leading zeros too
+     * after several recursion levels. Trim both before the call. */
+    {
+        dsize_t qsz_trimmed = n;
+        dsize_t b2sz_trimmed = n;
+        dsize_t prod_sz;
+        while (qsz_trimmed > 1 && Q[qsz_trimmed - 1] == 0) qsz_trimmed--;
+        while (b2sz_trimmed > 1 && B2[b2sz_trimmed - 1] == 0) b2sz_trimmed--;
+        if (qsz_trimmed >= b2sz_trimmed) {
+            prod_sz = I_mul_karatsuba(Q, qsz_trimmed, B2, b2sz_trimmed, D);
+        } else {
+            prod_sz = I_mul_karatsuba(B2, b2sz_trimmed, Q, qsz_trimmed, D);
+        }
+        for (i = prod_sz; i < 2*n; i++) D[i] = 0;
+    }
+
+    /* Form [R1 || A3] in R: R[0..n-1] = A3, R[n..2n-1] = R1.
+     * R1 is currently at R[n..2n-1] from the steps above. A3 = A[0..n-1]. */
+    for (i = 0; i < n; i++) {
+        R[i] = A3[i];
+    }
+    /* R[n..2n-1] already holds R1. */
+
+    /* R = [R1 || A3] - D, 2n-digit subtract. There may be an extra
+     * "digit-of-overflow" coming from R1 in the q_overflow case, so we
+     * handle that as an extra borrow correction. */
+    {
+        ErtsDigit borrow = bz_sub_n(R, D, R, 2*n);
+
+        /* If q_overflow is set, R conceptually has a +beta^(2n) term.
+         * That fully cancels one borrow. */
+        if (q_overflow && borrow) {
+            borrow = 0;
+            q_overflow = 0;
+        }
+
+        /* While R is "negative" (borrow remains), correct: Q -= 1, R += B.
+         * BZ guarantees at most 2 iterations are required. */
+        while (borrow) {
+            ErtsDigit carry;
+            /* Q -= 1 */
+            for (i = 0; i < n; i++) {
+                if (Q[i] != 0) {
+                    Q[i]--;
+                    break;
+                }
+                Q[i] = (ErtsDigit) -1;
+            }
+            ASSERT(i < n);  /* would mean Q wrapped to 0 -> bug */
+
+            /* R += B */
+            carry = bz_add_n(R, B, R, 2*n);
+            if (carry) {
+                ASSERT(borrow);
+                borrow--;
+            }
+        }
+
+        /* If q_overflow remained set, R still has a +beta^(2n) term that we
+         * haven't applied. This can happen if no borrow occurred, in which
+         * case we need to subtract B and add 1 to Q ... but that contradicts
+         * the postcondition R < B. In practice, q_overflow without borrow
+         * cannot occur given the BZ correctness proof, so assert. */
+        ASSERT(!q_overflow);
+    }
+}
+
+/* Top-level BZ wrapper. Handles arbitrary xl, yl by:
+ *   - Choosing n = round-up-to-power-of-2 of yl (so the recursion is balanced).
+ *   - Padding y with leading zeros to length n.
+ *   - Normalizing (left-shift to put top bit of y_padded at position D_EXP-1).
+ *   - Padding x to a multiple of n digits, plus shift overflow.
+ *   - Outer loop: process the padded x in 2n-digit chunks, where the high half
+ *     of each chunk is the running remainder.
+ *   - Denormalizing the final remainder.
+ *
+ * Quotient size is returned, remainder size in *rlp. q must have capacity
+ * xl - yl + 1; r must have capacity yl. */
+static dsize_t I_div_bz(ErtsDigit *x, dsize_t xl,
+                        ErtsDigit *y, dsize_t yl,
+                        ErtsDigit *q, ErtsDigit *r, dsize_t *rlp)
+{
+    dsize_t n;
+    int shift;
+    ErtsDigit top_y;
+    ErtsDigit *y_norm;        /* n digits */
+    ErtsDigit *x_norm;        /* k*n + n digits (k chunks plus running remainder) */
+    dsize_t x_norm_capacity;
+    dsize_t k;                /* number of chunks */
+    dsize_t i;
+    ErtsDigit *q_buf;         /* k*n digits (full quotient before trimming) */
+    ErtsDigit *bz_scratch;
+    dsize_t scratch_size;
+    dsize_t qsz, rsz;
+
+    ASSERT(yl >= BZ_DIV_THRESHOLD);
+
+    /* n = round up to power of 2 of yl */
+    n = 1;
+    while (n < yl) n *= 2;
+
+    /* Compute normalization shift so the top bit of the padded y is set. */
+    top_y = y[yl - 1];
+    {
+        int p = 0;
+        ErtsDigit d = top_y;
+        while (d > 1) { d >>= 1; p++; }
+        shift = (D_EXP - 1) - p;
+    }
+    /* If yl < n (we padded with zeros at the top), the top bit isn't even
+     * in y[yl-1]; it's far below. So the shift would be huge (> D_EXP).
+     * To avoid this, we extend the shift conceptually so that y_norm[n-1]
+     * has its top bit set. The actual shift in bits is:
+     *   shift_bits = (n - yl) * D_EXP + ((D_EXP - 1) - top_bit_pos(top_y))
+     * which is fine because I_lshift handles arbitrary positive shifts. */
+    {
+        Sint shift_total = (Sint)((n - yl) * D_EXP) + shift;
+
+        /* Allocate y_norm of n digits. */
+        y_norm = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP, sizeof(ErtsDigit) * (n + 2));
+        {
+            dsize_t y_sz = I_lshift(y, yl, shift_total, 0, y_norm);
+            ASSERT(y_sz <= n);
+            /* Pad up to n with zeros. */
+            for (i = y_sz; i < n; i++) y_norm[i] = 0;
+        }
+
+        /* Pad x to length k*n where k = ceil((xl + 1) / n) (the +1 accounts
+         * for normalization shift overflow), AND ensure the top n digits of
+         * the padded x are < y_norm (so the chunked division's first
+         * 2n-by-n call satisfies its precondition).
+         *
+         * Concretely: padded_x_digits = ceil((xl + shift_in_digits + 1) / n) * n.
+         * We pad with zeros at the high end after shifting. */
+        {
+            dsize_t shift_overflow = (shift_total + D_EXP - 1) / D_EXP;
+            dsize_t padded_x = xl + shift_overflow;
+            dsize_t target;
+
+            /* k chunks, each 2n digits viewed as [running_rem || x_chunk_n].
+             * Running remainder starts at 0. We process from MSB to LSB. */
+
+            /* Round padded_x up to a multiple of n. Add one extra n for the
+             * running remainder slot (top of x_norm is the rem; rest is the
+             * dividend chunks). */
+            k = (padded_x + n - 1) / n;
+            target = (k + 1) * n;
+            x_norm_capacity = target + 4;
+            x_norm = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP,
+                                              sizeof(ErtsDigit) * x_norm_capacity);
+            for (i = 0; i < x_norm_capacity; i++) x_norm[i] = 0;
+            (void) I_lshift(x, xl, shift_total, 0, x_norm);
+        }
+    }
+
+    /* Allocate quotient buffer and scratch. */
+    q_buf = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP, sizeof(ErtsDigit) * (k * n + 1));
+    for (i = 0; i < k * n + 1; i++) q_buf[i] = 0;
+
+    scratch_size = bz_scratch_size_2n_1n(n);
+    bz_scratch = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP,
+                                          sizeof(ErtsDigit) * scratch_size);
+
+    /* Outer loop: chunk dividend MSB-first, n digits at a time.
+     * Running remainder lives in x_norm[k*n .. (k+1)*n - 1] (top slot).
+     * Initially zero. For chunk index j (counting down from k-1 to 0):
+     *   - Form a 2n-digit value: top n = rem, bottom n = x_norm[j*n..(j+1)*n-1].
+     *   - bz_div_2n_1n on that, B = y_norm.
+     *   - Quotient Q goes into q_buf[j*n..(j+1)*n-1].
+     *   - New rem replaces top.
+     */
+    {
+        ErtsDigit *rem_slot = x_norm + k * n;  /* top n */
+        ErtsDigit *tmp_2n = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP,
+                                                     sizeof(ErtsDigit) * 2 * n);
+        Sint j;
+
+        for (j = (Sint)k - 1; j >= 0; j--) {
+            /* Build [rem || chunk] in tmp_2n. */
+            for (i = 0; i < n; i++) tmp_2n[i] = x_norm[j*n + i];
+            for (i = 0; i < n; i++) tmp_2n[n + i] = rem_slot[i];
+
+            /* Precondition for bz_div_2n_1n: top n of tmp_2n < B.
+             * top n of tmp_2n = rem_slot, which we maintain as the prior
+             * remainder, satisfying < B by construction. */
+            ASSERT(bz_cmp_n(tmp_2n + n, y_norm, n) < 0);
+
+            bz_div_2n_1n(tmp_2n, y_norm, n,
+                         q_buf + j * n, rem_slot, bz_scratch);
+        }
+
+        erts_free(ERTS_ALC_T_TMP, tmp_2n);
+    }
+
+    /* Quotient: trim trailing zeros from q_buf. */
+    qsz = k * n;
+    while (qsz > 1 && q_buf[qsz - 1] == 0) qsz--;
+    /* Caller's q has capacity xl - yl + 1; verify and copy. */
+    {
+        dsize_t cap = xl - yl + 1;
+        if (qsz > cap) qsz = cap;  /* shouldn't happen since x < y * beta^cap */
+    }
+    for (i = 0; i < qsz; i++) q[i] = q_buf[i];
+
+    /* Remainder: shift right by shift_total bits. */
+    {
+        ErtsDigit *rem_slot = x_norm + k * n;
+        Sint shift_total = (Sint)((n - yl) * D_EXP) + shift;
+        rsz = I_lshift(rem_slot, n, -shift_total, 0, r);
+        /* I_lshift may return a size that exceeds the actual bit width
+         * of the value; trim any trailing zeros. */
+        while (rsz > 1 && r[rsz - 1] == 0) rsz--;
+        if (rsz == 0) rsz = 1;
+    }
+    *rlp = rsz;
+
+    erts_free(ERTS_ALC_T_TMP, bz_scratch);
+    erts_free(ERTS_ALC_T_TMP, q_buf);
+    erts_free(ERTS_ALC_T_TMP, x_norm);
+    erts_free(ERTS_ALC_T_TMP, y_norm);
+
+    return qsz;
+}
+
+/* Dispatcher: pick BZ for large divisors, schoolbook otherwise. */
+static dsize_t I_div_dispatch(ErtsDigit *x, dsize_t xl,
+                              ErtsDigit *y, dsize_t yl,
+                              ErtsDigit *q, ErtsDigit *r, dsize_t *rlp)
+{
+    if (yl >= BZ_DIV_THRESHOLD && xl >= 2 * yl) {
+#if BZ_SELFCHECK
+        /* Save x (BZ destroys it) and the expected schoolbook result. */
+        ErtsDigit *x_copy = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP,
+                                                     sizeof(ErtsDigit) * xl);
+        ErtsDigit *q_ref  = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP,
+                                                     sizeof(ErtsDigit) * (xl - yl + 1));
+        ErtsDigit *r_ref  = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP,
+                                                     sizeof(ErtsDigit) * xl);
+        ErtsDigit *x_for_ref = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP,
+                                                       sizeof(ErtsDigit) * xl);
+        dsize_t qsz_ref, rsz_ref, qsz, rsz;
+        dsize_t i;
+        int mismatch;
+
+        for (i = 0; i < xl; i++) x_copy[i] = x[i];
+        for (i = 0; i < xl; i++) x_for_ref[i] = x[i];
+
+        qsz_ref = I_div(x_for_ref, xl, y, yl, q_ref, r_ref, &rsz_ref);
+
+        qsz = I_div_bz(x, xl, y, yl, q, r, rlp);
+        rsz = *rlp;
+
+        mismatch = 0;
+        if (qsz != qsz_ref || rsz != rsz_ref) {
+            mismatch = 1;
+        } else {
+            for (i = 0; i < qsz && !mismatch; i++) {
+                if (q[i] != q_ref[i]) mismatch = 1;
+            }
+            for (i = 0; i < rsz && !mismatch; i++) {
+                if (r[i] != r_ref[i]) mismatch = 1;
+            }
+        }
+
+        if (mismatch) {
+            dsize_t maxq = qsz > qsz_ref ? qsz : qsz_ref;
+            dsize_t maxr = rsz > rsz_ref ? rsz : rsz_ref;
+            dsize_t shown;
+            fprintf(stderr,
+                "BZ MISMATCH: xl=%lu yl=%lu | qsz=%lu(ref %lu) rsz=%lu(ref %lu)\n",
+                (unsigned long)xl, (unsigned long)yl,
+                (unsigned long)qsz, (unsigned long)qsz_ref,
+                (unsigned long)rsz, (unsigned long)rsz_ref);
+            shown = 0;
+            fprintf(stderr, "  Q diffs (idx, bz, ref):");
+            for (i = 0; i < maxq && shown < 8; i++) {
+                ErtsDigit qv = (i < qsz) ? q[i] : 0;
+                ErtsDigit qr = (i < qsz_ref) ? q_ref[i] : 0;
+                if (qv != qr) {
+                    fprintf(stderr, " (%lu,%lx,%lx)",
+                            (unsigned long)i,
+                            (unsigned long)qv,
+                            (unsigned long)qr);
+                    shown++;
+                }
+            }
+            shown = 0;
+            fprintf(stderr, "\n  R diffs (idx, bz, ref):");
+            for (i = 0; i < maxr && shown < 8; i++) {
+                ErtsDigit rv = (i < rsz) ? r[i] : 0;
+                ErtsDigit rr = (i < rsz_ref) ? r_ref[i] : 0;
+                if (rv != rr) {
+                    fprintf(stderr, " (%lu,%lx,%lx)",
+                            (unsigned long)i,
+                            (unsigned long)rv,
+                            (unsigned long)rr);
+                    shown++;
+                }
+            }
+            fprintf(stderr, "\n");
+            fflush(stderr);
+            /* Fall back to the reference result so the test continues. */
+            for (i = 0; i < qsz_ref; i++) q[i] = q_ref[i];
+            for (i = 0; i < rsz_ref; i++) r[i] = r_ref[i];
+            qsz = qsz_ref;
+            *rlp = rsz_ref;
+        }
+
+        erts_free(ERTS_ALC_T_TMP, x_copy);
+        erts_free(ERTS_ALC_T_TMP, q_ref);
+        erts_free(ERTS_ALC_T_TMP, r_ref);
+        erts_free(ERTS_ALC_T_TMP, x_for_ref);
+        return qsz;
+#else
+        return I_div_bz(x, xl, y, yl, q, r, rlp);
+#endif
+    }
+    return I_div(x, xl, y, yl, q, r, rlp);
 }
 
 /*
@@ -2012,7 +2598,603 @@ int big_integer_estimate(Eterm x, Uint base)
 }
 
 /*
-** Convert a bignum into a string of numbers in given base
+** Single-digit-extraction (schoolbook) renderer.
+**
+** Renders v[0..vl] into out_end backwards (out_end is decremented past
+** each char written), most-significant char ending up at the lowest
+** address. Returns the number of chars written.
+**
+** If `width` is non-zero, the output is left-padded with leading zeros
+** to exactly `width` chars (used by the recursive divide-and-conquer
+** renderer for the low halves of splits). If `width` is zero, only
+** significant digits are emitted.
+**
+** Destroys v.
+*/
+static Uint write_big_simple(ErtsDigit *v, dsize_t vl, int base,
+                             char **out_end_pp, Uint width)
+{
+    char *p = *out_end_pp;
+    Uint n = 0;
+    const Uint digits_per_Sint = get_digits_per_signed_int(base);
+    const ErtsDigit largest_pow = (ErtsDigit) get_largest_power_of_base(base);
+    ErtsDigit rem;
+
+    if (vl == 1 && v[0] < largest_pow) {
+        rem = v[0];
+        if (rem == 0 && width == 0) {
+            *--p = '0';
+            n++;
+        } else {
+            while (rem) {
+                int d = rem % base;
+                *--p = (d < 10) ? (char)('0' + d) : (char)('A' + d - 10);
+                rem /= base;
+                n++;
+            }
+        }
+    } else {
+        while (1) {
+            vl = D_div(v, vl, largest_pow, v, &rem);
+            if (vl == 1 && v[0] == 0) {
+                while (rem) {
+                    int d = rem % base;
+                    *--p = (d < 10) ? (char)('0' + d) : (char)('A' + d - 10);
+                    rem /= base;
+                    n++;
+                }
+                break;
+            } else {
+                Uint i = digits_per_Sint;
+                while (i--) {
+                    int d = rem % base;
+                    *--p = (d < 10) ? (char)('0' + d) : (char)('A' + d - 10);
+                    rem /= base;
+                    n++;
+                }
+            }
+        }
+    }
+
+    /* Pad with leading zeros to `width` (when used for a fixed-width slot). */
+    while (n < width) {
+        *--p = '0';
+        n++;
+    }
+
+    *out_end_pp = p;
+    return n;
+}
+
+/*
+** Divide-and-conquer integer-to-string.
+**
+** The single-digit-extraction loop in write_big_simple is O(N^2) in the
+** number of decimal digits because each pass divides an N-digit value
+** by a single ErtsDigit (cost O(N)) and there are N/digits_per_Sint
+** passes.
+**
+** The divide-and-conquer wrapper splits an N-digit value at base^(N/2)
+** via a single bignum divmod, recurses on each half, and writes the
+** halves into adjacent positions in the output buffer (the low half
+** zero-padded to fill its width). Below WRITE_BIG_DC_THRESHOLD decimal
+** digits the schoolbook routine is used.
+**
+** Asymptotically the recurrence is T(N) = 2 T(N/2) + Div(N, N/2). With
+** the existing O(xl*yl) Knuth-D division (I_div) this is still O(N^2),
+** so the win is constant-factor. With a sub-quadratic division
+** (Burnikel-Ziegler) the recurrence becomes sub-quadratic.
+*/
+
+#ifndef WRITE_BIG_DC_THRESHOLD
+#define WRITE_BIG_DC_THRESHOLD 250
+#endif
+
+struct dc_pow_cache {
+    int n_levels;
+    Uint *widths;        /* widths[i] = base-`base` digit width of vals[i] */
+    dsize_t *sizes;      /* sizes[i] = ErtsDigit count of vals[i] */
+    ErtsDigit **vals;    /* vals[i] = base ^ widths[i] */
+    /* Barrett reciprocals:
+     *   mus[i] = floor(beta^(2*sizes[i] + 1) / vals[i])
+     * with one extra ErtsDigit of precision so the quotient estimate
+     * is correct after at most 2 corrections even though vals[i] is
+     * not normalized (top bit set). Per-divmod cost drops from BZ's
+     * O(M(n) log n) to Barrett's O(M(n)) — one log-factor saved per
+     * recursion level in the render D&C tree. */
+    dsize_t *mu_sizes;
+    ErtsDigit **mus;
+    void *meta_alloc;    /* metadata arrays */
+    ErtsDigit *backing;  /* digit storage for all powers */
+    ErtsDigit *mu_backing; /* digit storage for all Barrett reciprocals */
+};
+
+/* Compute base^n into out (capacity must be sufficient). Returns size. */
+static dsize_t compute_base_to_n(int base, Uint n, ErtsDigit *out)
+{
+    dsize_t sz = 1;
+    out[0] = 1;
+    while (n--) {
+        sz = D_mul(out, sz, (ErtsDigit) base, out);
+    }
+    return sz;
+}
+
+/*
+** Build the power cache for splitting a value of up to `target_width`
+** decimal digits. Levels: vals[0] = base^T, vals[1] = base^(2T),
+** vals[2] = base^(4T), ..., up to a level whose width is >= target_width.
+** This guarantees we always have a power suitable for splitting at
+** width/2 of any width <= target_width that exceeds T.
+*/
+static int build_dc_powers(struct dc_pow_cache *c, int base, Uint target_width)
+{
+    Uint t = WRITE_BIG_DC_THRESHOLD;
+    int n = 0;
+    Uint w;
+
+    c->n_levels = 0;
+    c->widths = NULL;
+    c->sizes = NULL;
+    c->vals = NULL;
+    c->mu_sizes = NULL;
+    c->mus = NULL;
+    c->meta_alloc = NULL;
+    c->backing = NULL;
+    c->mu_backing = NULL;
+
+    if (target_width <= t) {
+        return 1;
+    }
+
+    /* Count levels with width T, 2T, 4T, ... while the level is < target_width.
+     * We never split at a power whose width >= the input value's width, so
+     * those levels would be dead weight (and pay mu-build overhead). */
+    w = t;
+    n = 1;
+    while (w * 2 < target_width) {
+        if (w > (UINT_MAX / 2)) {
+            return 0;
+        }
+        w *= 2;
+        n++;
+    }
+
+    /* Total digit storage: each level i has size <= ceil(widths[i] *
+     * log2(base) / D_EXP) + 1 ErtsDigits. The sum across geometric
+     * widths is bounded by 2 * top_size. We size pessimistically. */
+
+    {
+        Uint top_width = w;  /* widths[n-1] */
+        Uint top_size_est;
+        Uint total_size;
+        Uint mu_total_size;
+        char *meta_buf;
+        Uint meta_size;
+        int i;
+        ErtsDigit *cur;
+        ErtsDigit *mu_cur;
+
+        /* Per-level upper bound: width * log2(base) / D_EXP + 2. The lookup
+         * table indices give (width * lg2(base)) bits; divide by D_EXP and
+         * round up, plus a slack digit. */
+        top_size_est = (Uint) (((double) top_width * lookup_log2(base)) / D_EXP) + 2;
+        /* Sum of sizes is <= 2 * top_size_est (geometric). Add per-level slack. */
+        total_size = 2 * top_size_est + (Uint) n * 2;
+        /* mu has <= sizes[i] + 2 ErtsDigits. Total mu storage <= 2x of vals. */
+        mu_total_size = 2 * (top_size_est + 2) + (Uint) n * 4;
+
+        meta_size = (sizeof(Uint) + sizeof(dsize_t) + sizeof(ErtsDigit *)
+                     + sizeof(dsize_t) + sizeof(ErtsDigit *)) * (Uint) n;
+        meta_buf = (char *) erts_alloc(ERTS_ALC_T_TMP, meta_size);
+        c->meta_alloc = meta_buf;
+        c->widths    = (Uint *)        meta_buf;
+        c->sizes     = (dsize_t *)    (meta_buf + sizeof(Uint) * (Uint) n);
+        c->vals      = (ErtsDigit **) (meta_buf + (sizeof(Uint) + sizeof(dsize_t)) * (Uint) n);
+        c->mu_sizes  = (dsize_t *)    (meta_buf + (sizeof(Uint) + sizeof(dsize_t) + sizeof(ErtsDigit *)) * (Uint) n);
+        c->mus       = (ErtsDigit **) (meta_buf + (sizeof(Uint) + 2*sizeof(dsize_t) + sizeof(ErtsDigit *)) * (Uint) n);
+        c->backing = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP,
+                                              sizeof(ErtsDigit) * total_size);
+        /* mu_backing is allocated lazily in the loop below if any level
+         * is large enough to merit a Barrett reciprocal. */
+        c->mu_backing = NULL;
+
+        /* Level 0: base^T computed directly. */
+        cur = c->backing;
+        c->vals[0] = cur;
+        c->widths[0] = t;
+        c->sizes[0] = compute_base_to_n(base, t, cur);
+        cur += c->sizes[0] + 1;
+        ASSERT(cur <= c->backing + total_size);
+
+        /* Levels 1..n-1: square the previous level. */
+        for (i = 1; i < n; i++) {
+            ErtsDigit *prev = c->vals[i-1];
+            dsize_t prev_sz = c->sizes[i-1];
+            dsize_t sq_sz;
+
+            c->vals[i] = cur;
+            c->widths[i] = c->widths[i-1] * 2;
+            sq_sz = I_sqr(prev, prev_sz, cur);
+            /* I_sqr writes up to 2*prev_sz+1 cells; trim trailing zeros. */
+            while (sq_sz > 1 && cur[sq_sz - 1] == 0) {
+                sq_sz--;
+            }
+            c->sizes[i] = sq_sz;
+            cur += sq_sz + 1;
+            ASSERT(cur <= c->backing + total_size);
+        }
+
+        /* For each level large enough to benefit, compute
+         *   mu = floor(beta^(2*sizes[i] + 1) / vals[i]).
+         * Numerator is a single 1 at position 2*sizes[i] + 1, zeros elsewhere.
+         * Use I_div_dispatch which picks BZ for large divisors automatically.
+         *
+         * Below BARRETT_LEVEL_THRESHOLD ErtsDigits, the per-call cost of
+         * Barrett (two Karatsuba mults + allocs) doesn't pay back the
+         * mu-build overhead, and the underlying division is in the regime
+         * where I_div is faster than BZ anyway. Skip mu for those levels;
+         * barrett_divmod will fall through to I_div_dispatch when mu is
+         * NULL. */
+        mu_cur = NULL;
+        /* Quick pre-pass: zero out mu metadata; common case is the
+         * top-level cache levels are too small to merit Barrett, so
+         * we want this no-mu fast-path well-isolated from the heavier
+         * mu-build loop body for the compiler. */
+        {
+            int any_mu = 0;
+            int j_pre;
+            for (j_pre = 0; j_pre < n; j_pre++) {
+                c->mus[j_pre] = NULL;
+                c->mu_sizes[j_pre] = 0;
+                if (c->sizes[j_pre] >= BARRETT_LEVEL_THRESHOLD) any_mu = 1;
+            }
+            if (!any_mu) {
+                c->n_levels = n;
+                return 1;
+            }
+        }
+        for (i = 0; i < n; i++) {
+            dsize_t pn = c->sizes[i];
+            dsize_t numer_sz;
+            ErtsDigit *numer;
+            ErtsDigit *qbuf, *rbuf;
+            dsize_t qsz, rsz;
+            dsize_t j;
+
+            if (pn < BARRETT_LEVEL_THRESHOLD) {
+                continue;
+            }
+
+            /* Lazy alloc mu_backing on first level that needs it. */
+            if (c->mu_backing == NULL) {
+                c->mu_backing = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP,
+                                                         sizeof(ErtsDigit) * mu_total_size);
+                mu_cur = c->mu_backing;
+            }
+
+            numer_sz = 2 * pn + 2;
+            numer = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP,
+                                             sizeof(ErtsDigit) * numer_sz);
+            for (j = 0; j < numer_sz; j++) numer[j] = 0;
+            numer[2 * pn + 1] = 1;  /* beta^(2*pn + 1) */
+
+            qbuf = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP,
+                                            sizeof(ErtsDigit) * (numer_sz - pn + 2));
+            rbuf = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP,
+                                            sizeof(ErtsDigit) * numer_sz);
+
+            qsz = I_div_dispatch(numer, numer_sz, c->vals[i], pn, qbuf, rbuf, &rsz);
+            while (qsz > 1 && qbuf[qsz - 1] == 0) qsz--;
+
+            c->mus[i] = mu_cur;
+            c->mu_sizes[i] = qsz;
+            for (j = 0; j < qsz; j++) mu_cur[j] = qbuf[j];
+            mu_cur += qsz + 1;
+            ASSERT(mu_cur <= c->mu_backing + mu_total_size);
+
+            erts_free(ERTS_ALC_T_TMP, numer);
+            erts_free(ERTS_ALC_T_TMP, qbuf);
+            erts_free(ERTS_ALC_T_TMP, rbuf);
+        }
+
+        c->n_levels = n;
+    }
+
+    return 1;
+}
+
+static void free_dc_powers(struct dc_pow_cache *c)
+{
+    if (c->mu_backing) {
+        erts_free(ERTS_ALC_T_TMP, c->mu_backing);
+    }
+    if (c->backing) {
+        erts_free(ERTS_ALC_T_TMP, c->backing);
+    }
+    if (c->meta_alloc) {
+        erts_free(ERTS_ALC_T_TMP, c->meta_alloc);
+    }
+}
+
+/*
+** Barrett divmod by vals[level] using the precomputed reciprocal mus[level].
+**
+** Computes q = floor(v / d), r = v - q*d, where d = vals[level].
+**
+** Algorithm:
+**   1. prod = v * mu
+**   2. q_hat = prod >> ((2*dsz + 1) * D_EXP) bits = top digits of prod
+**   3. r_hat = v - q_hat * d
+**   4. Correct: while r_hat >= d, r_hat -= d, q_hat += 1 (at most 2 iters)
+**
+** Caller's q has capacity vl - dsz + 1; r has capacity vl. Returns sizes via
+** output params. v is read-only here (unlike I_div which destroys it via the
+** scratch r buffer).
+*/
+static dsize_t barrett_divmod(ErtsDigit *v, dsize_t vl,
+                              int level, const struct dc_pow_cache *c,
+                              ErtsDigit *q, ErtsDigit *r, dsize_t *rsz_out)
+{
+    ErtsDigit *d = c->vals[level];
+    dsize_t dsz = c->sizes[level];
+    ErtsDigit *mu = c->mus[level];
+    dsize_t musz = c->mu_sizes[level];
+
+    dsize_t v_trim = vl;
+    dsize_t mu_trim = musz;
+    dsize_t qhat_offset = 2 * dsz + 1;
+    dsize_t prod_cap;
+    dsize_t prod_sz;
+    ErtsDigit *prod;
+    dsize_t qhat_sz;
+    ErtsDigit *qhat;
+    dsize_t qd_cap;
+    dsize_t qd_sz;
+    ErtsDigit *qd;
+    dsize_t rsz;
+    dsize_t i;
+
+    /* Fall back to I_div_dispatch when this level wasn't worth a Barrett
+     * reciprocal (small divisor — mu-build cost outweighs per-call savings).
+     * The render D&C callers don't read v after divmod, so it's safe to
+     * let I_div destroy it. */
+    if (mu == NULL) {
+        return I_div_dispatch(v, vl, d, dsz, q, r, rsz_out);
+    }
+
+    /* Trim leading zeros from v and mu before passing to Karatsuba.
+     * Karatsuba assumes normalized inputs (single zero digit, or top
+     * digit non-zero); leading zeros there cause out-of-bounds reads. */
+    while (v_trim > 1 && v[v_trim - 1] == 0) v_trim--;
+    while (mu_trim > 1 && mu[mu_trim - 1] == 0) mu_trim--;
+
+    /* Special case: v < d. */
+    if (I_comp(v, v_trim, d, dsz) < 0) {
+        q[0] = 0;
+        for (i = 0; i < v_trim; i++) r[i] = v[i];
+        rsz = v_trim;
+        if (rsz == 0) rsz = 1;
+        *rsz_out = rsz;
+        return 1;
+    }
+
+    /* prod = v * mu, full product. The +BARRETT_MAX_CORRECTIONS slack lets
+     * the correction loop's D_add carries grow qhat (a slice into prod) up
+     * to its theoretical worst case without overrunning the buffer. */
+    prod_cap = v_trim + mu_trim + 1 + BARRETT_MAX_CORRECTIONS;
+    prod = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP, sizeof(ErtsDigit) * prod_cap);
+    if (v_trim >= mu_trim) {
+        prod_sz = I_mul_karatsuba(v, v_trim, mu, mu_trim, prod);
+    } else {
+        prod_sz = I_mul_karatsuba(mu, mu_trim, v, v_trim, prod);
+    }
+    while (prod_sz > 1 && prod[prod_sz - 1] == 0) prod_sz--;
+
+    /* q_hat = prod >> (qhat_offset digits). */
+    if (prod_sz <= qhat_offset) {
+        /* q_hat is 0; rare for valid inputs but handle gracefully. */
+        q[0] = 0;
+        qhat = q;
+        qhat_sz = 1;
+    } else {
+        qhat_sz = prod_sz - qhat_offset;
+        qhat = prod + qhat_offset;  /* in-place slice of prod */
+    }
+
+    /* qd = q_hat * d. */
+    qd_cap = qhat_sz + dsz + 1;
+    qd = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP, sizeof(ErtsDigit) * qd_cap);
+    if (qhat_sz == 1 && qhat[0] == 0) {
+        qd[0] = 0;
+        qd_sz = 1;
+    } else if (qhat_sz >= dsz) {
+        qd_sz = I_mul_karatsuba(qhat, qhat_sz, d, dsz, qd);
+    } else {
+        qd_sz = I_mul_karatsuba(d, dsz, qhat, qhat_sz, qd);
+    }
+    while (qd_sz > 1 && qd[qd_sz - 1] == 0) qd_sz--;
+
+    /* r = v - qd. By Barrett property, qd <= v always (q_hat <= q_real). */
+    if (I_comp(v, v_trim, qd, qd_sz) < 0) {
+        /* Should not happen with the +1 ErtsDigit precision; safety
+         * fallback. v is unmodified at this point so I_div_dispatch
+         * may destroy it. */
+        ERTS_INTERNAL_ERROR("cannot happen");
+    }
+    rsz = I_sub(v, v_trim, qd, qd_sz, r);
+
+    /* Correction: at most a couple of iterations. */
+    {
+        int corrections = 0;
+        while (I_comp(r, rsz, d, dsz) >= 0) {
+            rsz = I_sub(r, rsz, d, dsz, r);
+            ASSERT(qhat + qhat_sz < prod + prod_cap);
+            qhat_sz = D_add(qhat, qhat_sz, 1, qhat);
+            corrections++;
+            if (corrections > BARRETT_MAX_CORRECTIONS) {
+                /* Should not exceed 2 in theory; safety fallback. v is
+                 * unmodified by the steps above (I_sub reads only). */
+                ERTS_INTERNAL_ERROR("too many corrections");
+            }
+        }
+    }
+
+    /* Copy qhat to caller's q (qhat may alias prod's interior). */
+    if (qhat != q) {
+        for (i = 0; i < qhat_sz; i++) q[i] = qhat[i];
+    }
+    if (rsz == 0) rsz = 1;
+    *rsz_out = rsz;
+
+    erts_free(ERTS_ALC_T_TMP, prod);
+    erts_free(ERTS_ALC_T_TMP, qd);
+    return qhat_sz;
+}
+
+/*
+** Render v of size vl into out_end (writing backwards, decrementing
+** *out_end_pp), padded to exactly `width` decimal digits.
+**
+** Destroys v. The caller owns v's storage.
+*/
+static void write_big_dc_padded(ErtsDigit *v, dsize_t vl, int base,
+                                Uint width, char **out_end_pp,
+                                const struct dc_pow_cache *c)
+{
+    int i;
+    dsize_t pl;
+    Uint pw;
+    ErtsDigit *p;
+    ErtsDigit *q, *r;
+    dsize_t qsz, rsz;
+    Uint hi_width;
+    Uint n;
+
+    if (width <= WRITE_BIG_DC_THRESHOLD) {
+        n = write_big_simple(v, vl, base, out_end_pp, width);
+        ASSERT(n == width);
+        (void) n;
+        return;
+    }
+
+    /* Find largest level i with widths[i] <= width/2. */
+    i = c->n_levels - 1;
+    while (i >= 0 && c->widths[i] > width / 2) {
+        i--;
+    }
+    if (i < 0) {
+        /* width > THRESHOLD but all cache widths exceed width/2 — only
+         * possible when no cache was built. */
+        ERTS_INTERNAL_ERROR("unexpected missing cache");
+    }
+
+    p = c->vals[i];
+    pl = c->sizes[i];
+    pw = c->widths[i];
+    hi_width = width - pw;
+
+    /* If v < powers[i] then the high half is zero — emit zero pad and
+     * recurse on the low half = v. */
+    if (I_comp(v, vl, p, pl) < 0) {
+        write_big_dc_padded(v, vl, base, pw, out_end_pp, c);
+        /* Pad the missing high half with zeros. */
+        {
+            char *cp = *out_end_pp;
+            Uint k = hi_width;
+            while (k--) {
+                *--cp = '0';
+            }
+            *out_end_pp = cp;
+        }
+        return;
+    }
+
+    /* divmod: q = v / p, r = v % p, using the precomputed Barrett mu. */
+    {
+        ErtsDigit *scratch;
+        dsize_t q_cap = vl - pl + 1;
+        dsize_t r_cap = vl;
+
+        scratch = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP,
+                                           sizeof(ErtsDigit) * (q_cap + r_cap));
+        q = scratch;
+        r = scratch + q_cap;
+        qsz = barrett_divmod(v, vl, i, c, q, r, &rsz);
+    }
+
+    /* Render low half (padded to pw) first — it ends up at higher
+     * addresses in the buffer, then high half before it. */
+    write_big_dc_padded(r, rsz, base, pw, out_end_pp, c);
+    write_big_dc_padded(q, qsz, base, hi_width, out_end_pp, c);
+
+    erts_free(ERTS_ALC_T_TMP, q);  /* q points at start of scratch */
+}
+
+/*
+** Top-level renderer (no padding). Walks the cache to find the largest
+** power that fits, splits there, recurses padded on the low half, and
+** recurses unpadded on the high half.
+**
+** Destroys v. Returns total chars written.
+*/
+static Uint write_big_dc_top(ErtsDigit *v, dsize_t vl, int base,
+                             char **out_end_pp,
+                             const struct dc_pow_cache *c)
+{
+    int i;
+    dsize_t pl;
+    Uint pw;
+    ErtsDigit *q, *r;
+    dsize_t qsz, rsz;
+    Uint n;
+
+    /* Walk down the cache to the largest power <= v. */
+    i = c->n_levels - 1;
+    while (i >= 0 && I_comp(v, vl, c->vals[i], c->sizes[i]) < 0) {
+        i--;
+    }
+
+    if (i < 0) {
+        /* v < base^T, fits in the schoolbook routine without recursion. */
+        return write_big_simple(v, vl, base, out_end_pp, 0);
+    }
+
+    pl = c->sizes[i];
+    pw = c->widths[i];
+
+    /* divmod via Barrett. */
+    {
+        ErtsDigit *scratch;
+        dsize_t q_cap = vl - pl + 1;
+        dsize_t r_cap = vl;
+
+        scratch = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP,
+                                           sizeof(ErtsDigit) * (q_cap + r_cap));
+        q = scratch;
+        r = scratch + q_cap;
+        qsz = barrett_divmod(v, vl, i, c, q, r, &rsz);
+    }
+
+    /* Low half: padded to pw chars. */
+    write_big_dc_padded(r, rsz, base, pw, out_end_pp, c);
+    /* High half: top-level (unpadded). */
+    n = write_big_dc_top(q, qsz, base, out_end_pp, c);
+
+    erts_free(ERTS_ALC_T_TMP, q);
+    return n + pw;
+}
+
+/*
+** Convert a bignum into a string of numbers in given base.
+**
+** For bignums whose decimal width exceeds WRITE_BIG_DC_THRESHOLD the
+** divide-and-conquer renderer is used (write_big_dc_top). Smaller
+** values use the schoolbook routine directly. Output is delivered to
+** the caller's per-char write_func in least-significant-first order
+** (matching the order produced by single-digit extraction), so the
+** existing write_string and write_list callbacks continue to work
+** unchanged.
 */
 static Uint write_big(Eterm x, int base, void (*write_func)(void *, char),
                       void *arg)
@@ -2021,68 +3203,80 @@ static Uint write_big(Eterm x, int base, void (*write_func)(void *, char),
     ErtsDigit* dx = BIG_V(xp);
     dsize_t xl = BIG_SIZE(xp);
     short sign = BIG_SIGN(xp);
-    ErtsDigit rem;
     Uint n = 0;
-    const Uint digits_per_Sint = get_digits_per_signed_int(base);
-    const Sint largest_pow_of_base = get_largest_power_of_base(base);
+    Uint width_estimate;
+    int use_dc;
 
-    if (xl == 1 && *dx < largest_pow_of_base) {
-        rem = *dx;
-        if (rem == 0) {
-            (*write_func)(arg, '0'); n++;
-        } else {
-            while(rem) {
-                int digit = rem % base;
-
-                if (digit < 10) {
-                    (*write_func)(arg, digit + '0'); n++;
-                } else {
-                    (*write_func)(arg, 'A' + (digit - 10)); n++;
+    /* Quick path for one-ErtsDigit values. */
+    {
+        const ErtsDigit largest_pow = (ErtsDigit) get_largest_power_of_base(base);
+        if (xl == 1 && dx[0] < largest_pow) {
+            ErtsDigit rem = dx[0];
+            if (rem == 0) {
+                (*write_func)(arg, '0'); n++;
+            } else {
+                while (rem) {
+                    int d = rem % base;
+                    (*write_func)(arg, (d < 10) ? (char)('0' + d) : (char)('A' + d - 10));
+                    rem /= base;
+                    n++;
                 }
-
-                rem /= base;
             }
+            if (sign) { (*write_func)(arg, '-'); n++; }
+            return n;
         }
-    } else {
-        ErtsDigit* tmp = (ErtsDigit*) erts_alloc(ERTS_ALC_T_TMP,
-                                                 sizeof(ErtsDigit) * xl);
-        dsize_t tmpl = xl;
+    }
 
+    width_estimate = (Uint) (((double) xl * D_EXP) / lookup_log2(base)) + 2;
+    /* Only invoke D&C when there's enough work to recurse at least once;
+     * otherwise the cache-build overhead dominates the saving. */
+    use_dc = (width_estimate >= 2 * WRITE_BIG_DC_THRESHOLD);
+
+    if (!use_dc) {
+        /* Small-bignum schoolbook path: write into a scratch buffer
+         * back-to-front, then feed chars to write_func in the same
+         * order the original loop did (least significant first). */
+        ErtsDigit *tmp;
+        char *buf;
+        char *out_end;
+        Uint i;
+
+        tmp = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP, sizeof(ErtsDigit) * xl);
         MOVE_DIGITS(tmp, dx, xl);
 
-        while(1) {
-            tmpl = D_div(tmp, tmpl, largest_pow_of_base, tmp, &rem);
-
-            if (tmpl == 1 && *tmp == 0) {
-                while(rem) {
-                    int digit = rem % base;
-
-                    if (digit < 10) {
-                        (*write_func)(arg, digit + '0'); n++;
-                    } else {
-                        (*write_func)(arg, 'A' + (digit - 10)); n++;
-                    }
-
-                    rem /= base;
-                }
-                break;
-            } else {
-                Uint i = digits_per_Sint;
-
-                while(i--) {
-                    int digit = rem % base;
-
-                    if (digit < 10) {
-                        (*write_func)(arg, digit + '0'); n++;
-                    } else {
-                        (*write_func)(arg, 'A' + (digit - 10)); n++;
-                    }
-
-                    rem /= base;
-                }
-            }
+        buf = (char *) erts_alloc(ERTS_ALC_T_TMP, width_estimate);
+        out_end = buf + width_estimate;
+        n = write_big_simple(tmp, xl, base, &out_end, 0);
+        /* out_end now points at the first (most-significant) char. */
+        for (i = 0; i < n; i++) {
+            (*write_func)(arg, out_end[n - 1 - i]);
         }
-        erts_free(ERTS_ALC_T_TMP, (void *) tmp);
+        erts_free(ERTS_ALC_T_TMP, buf);
+        erts_free(ERTS_ALC_T_TMP, tmp);
+    } else {
+        ErtsDigit *tmp;
+        char *buf;
+        char *out_end;
+        struct dc_pow_cache cache;
+        Uint i;
+
+        tmp = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP, sizeof(ErtsDigit) * xl);
+        MOVE_DIGITS(tmp, dx, xl);
+
+        if (!build_dc_powers(&cache, base, width_estimate)) {
+            /* Cache build refused (overflow); should be impossible. */
+            ERTS_INTERNAL_ERROR("cache build failed");
+        } else {
+            buf = (char *) erts_alloc(ERTS_ALC_T_TMP, width_estimate);
+            out_end = buf + width_estimate;
+            n = write_big_dc_top(tmp, xl, base, &out_end, &cache);
+            for (i = 0; i < n; i++) {
+                (*write_func)(arg, out_end[n - 1 - i]);
+            }
+            free_dc_powers(&cache);
+            erts_free(ERTS_ALC_T_TMP, buf);
+            erts_free(ERTS_ALC_T_TMP, tmp);
+        }
     }
 
     if (sign) {
@@ -2708,10 +3902,10 @@ int big_div_rem(Eterm lhs, Eterm rhs,
                               BIG_V(q_hp), BIG_V(r_hp));
         remainder_size = 1;
     } else {
-        quotient_size = I_div(BIG_V(lhs_val), lhs_size,
-                              BIG_V(rhs_val), rhs_size,
-                              BIG_V(q_hp), BIG_V(r_hp),
-                              &remainder_size);
+        quotient_size = I_div_dispatch(BIG_V(lhs_val), lhs_size,
+                                       BIG_V(rhs_val), rhs_size,
+                                       BIG_V(q_hp), BIG_V(r_hp),
+                                       &remainder_size);
     }
 
     quotient = big_norm(q_hp, quotient_size, div_sign);
@@ -2753,8 +3947,8 @@ Eterm big_div(Eterm x, Eterm y, Eterm *q)
 
 	qsz = xsz - ysz + 1;
 	remp = q + BIG_NEED_SIZE(qsz);
-	qsz = I_div(BIG_V(xp), xsz, BIG_V(yp), ysz, BIG_V(q), BIG_V(remp),
-		    &rem_sz);
+        qsz = I_div_dispatch(BIG_V(xp), xsz, BIG_V(yp), ysz, BIG_V(q), BIG_V(remp),
+                             &rem_sz);
     }
     return big_norm(q, qsz, sign);
 }
