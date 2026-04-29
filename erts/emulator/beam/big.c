@@ -2942,15 +2942,6 @@ static dsize_t barrett_divmod(ErtsDigit *v, dsize_t vl,
     dsize_t musz = c->mu_sizes[level];
 
     dsize_t v_trim = vl;
-
-    /* Fall back to I_div_dispatch when this level wasn't worth a Barrett
-     * reciprocal (small divisor — mu-build cost outweighs per-call savings).
-     * The render D&C callers don't read v after divmod, so it's safe to
-     * let I_div destroy it. */
-    if (mu == NULL) {
-        return I_div_dispatch(v, vl, d, dsz, q, r, rsz_out);
-    }
-
     dsize_t mu_trim = musz;
     dsize_t qhat_offset = 2 * dsz + 1;
     dsize_t prod_cap;
@@ -2963,6 +2954,14 @@ static dsize_t barrett_divmod(ErtsDigit *v, dsize_t vl,
     ErtsDigit *qd;
     dsize_t rsz;
     dsize_t i;
+
+    /* Fall back to I_div_dispatch when this level wasn't worth a Barrett
+     * reciprocal (small divisor — mu-build cost outweighs per-call savings).
+     * The render D&C callers don't read v after divmod, so it's safe to
+     * let I_div destroy it. */
+    if (mu == NULL) {
+        return I_div_dispatch(v, vl, d, dsz, q, r, rsz_out);
+    }
 
     /* Trim leading zeros from v and mu before passing to Karatsuba.
      * Karatsuba assumes normalized inputs (single zero digit, or top
@@ -3151,7 +3150,6 @@ static Uint write_big_dc_top(ErtsDigit *v, dsize_t vl, int base,
                              const struct dc_pow_cache *c)
 {
     int i;
-    ErtsDigit *p;
     dsize_t pl;
     Uint pw;
     ErtsDigit *q, *r;
@@ -3169,7 +3167,6 @@ static Uint write_big_dc_top(ErtsDigit *v, dsize_t vl, int base,
         return write_big_simple(v, vl, base, out_end_pp, 0);
     }
 
-    p = c->vals[i];
     pl = c->sizes[i];
     pw = c->widths[i];
 
@@ -3964,8 +3961,8 @@ Eterm big_div(Eterm x, Eterm y, Eterm *q)
 
 	qsz = xsz - ysz + 1;
 	remp = q + BIG_NEED_SIZE(qsz);
-	qsz = I_div_dispatch(BIG_V(xp), xsz, BIG_V(yp), ysz, BIG_V(q), BIG_V(remp),
-			     &rem_sz);
+        qsz = I_div_dispatch(BIG_V(xp), xsz, BIG_V(yp), ysz, BIG_V(q), BIG_V(remp),
+                             &rem_sz);
     }
     return big_norm(q, qsz, sign);
 }
