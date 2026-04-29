@@ -698,20 +698,27 @@ validate_extensions(OtpCert, [], ValidationState =
 	true when SelfSigned ->
 	    {ValidationState, UserState0};
 	true  ->
-            UserState = validate_ext_key_usage(OtpCert, UserState0, VerifyFun, endentity),
-	    {ValidationState#path_validation_state{max_path_length = Len - 1},
-	     UserState};
-	false ->
-	    %% basic_constraint must appear in certs used for digital sign
-	    %% see 4.2.1.10 in rfc 3280
-	    case is_digitally_sign_cert(OtpCert) of
+            %% If the cA boolean is not asserted (basic_constraint)
+            %% then the keyCertSign bit in the key usage extension MUST NOT be
+            %% asserted. See 4.2.1.9 in RFC 5280
+            case is_digitally_sign_cert(OtpCert) of
 		true ->
-		    missing_basic_constraints(OtpCert, SelfSigned,
+                    missing_basic_constraints(OtpCert, SelfSigned,
 					      ValidationState, VerifyFun,
 					      UserState0, Len);
-		false -> %% Example CRL signer only
-		    {ValidationState, UserState0}
-	    end
+                false ->
+                    UserState = validate_ext_key_usage(OtpCert, UserState0, VerifyFun, endentity),
+                    {ValidationState#path_validation_state{max_path_length = Len - 1},
+                     UserState}
+            end;
+        false ->
+            %% If the basic constraints extension is not present in a
+            %% version 3 certificate, or the extension is present but the cA boolean
+            %% is not asserted, then the certified public key MUST NOT be used to
+            %% verify certificate signature.
+            missing_basic_constraints(OtpCert, SelfSigned,
+                                      ValidationState, VerifyFun,
+                                      UserState0, Len)
     end;
 validate_extensions(OtpCert,
 		    [#'Extension'{extnID = ?'id-ce-basicConstraints',
