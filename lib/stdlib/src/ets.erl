@@ -255,7 +255,8 @@ A match specifications with excessive nesting will cause a
 -export([i/0, i/1, i/2, i/3]).
 
 -export_type([table/0, table_access/0, table_type/0,
-              tid/0, match_spec/0, compiled_match_spec/0, match_pattern/0]).
+              tid/0, match_spec/0, compiled_match_spec/0, match_pattern/0,
+              continuation/0]).
 
 %%-----------------------------------------------------------------------------
 
@@ -263,9 +264,14 @@ A match specifications with excessive nesting will cause a
 -type table()         :: atom() | tid().
 -type table_type()    :: set | ordered_set | bag | duplicate_bag.
 -doc """
-Opaque continuation used by [`select/1,3`](`select/1`),
+Semi-opaque continuation used by [`select/1,3`](`select/1`),
 [`select_reverse/1,3`](`select_reverse/1`), [`match/1,3`](`match/1`), and
 [`match_object/1,3`](`match_object/1`).
+
+> #### Note {: .info }
+>
+> It is only allowed to match a continuation against `'$end_of_table'`. All other
+> values should be considered as opaque implementation details that might change.
 """.
 -type continuation()  :: '$end_of_table'
                        | {table(),integer(),integer(),compiled_match_spec(),list(),integer()}
