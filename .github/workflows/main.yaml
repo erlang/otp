@@ -71,15 +71,32 @@ jobs:
     secrets:
       token: ${{ secrets.GITHUB_TOKEN }}
 
+  # A new OTP release that changes versions (e.g. OTP-28 -> OTP-29) relies
+  # on update-base.yml being executed before the release job. if for some
+  # reason that is not the case, the release would not be able to use the
+  # missing docker image it expects. this here simply creates the image
+  # on a release, to make sure that there are no timing dependencies.
+  build-base-docker:
+    if: github.repository == 'erlang/otp' && github.ref_type == 'tag'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/reusable-update-base.yaml
+    with:
+      branches: '["master","maint"]'
+
   setup:
     uses: ./.github/workflows/reusable-setup.yaml
 
   pack:
     name: Build Erlang/OTP (64-bit)
-    needs: setup
+    needs:
+      - build-base-docker
+      - setup
     permissions:
       contents: read
       actions: write
+    if: always()  # forces execution of 'pack' even if build-base-docker was skipped ('build-base-docker' is skipped on PRs)
     uses: ./.github/workflows/reusable-pack.yaml
     with:
       base_branch:          ${{ needs.setup.outputs.base_branch }}

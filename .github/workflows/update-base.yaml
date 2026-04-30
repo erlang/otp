@@ -32,51 +32,10 @@ permissions:
 
 ## Build base images to be used by other github workflows
 jobs:
-
   build:
-    name: Update base Erlang/OTP build images
-    if: github.repository == 'erlang/otp'
-    runs-on: ubuntu-latest
-
     permissions:
-      packages: write
       contents: read
-
-    strategy:
-      matrix:
-        type: [debian-base,ubuntu-base,i386-debian-base]
-        branch: [master, maint, maint-26, maint-27]
-      fail-fast: false
-
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
-        with:
-          ref: ${{ matrix.branch }}
-          persist-credentials: false
-      - name: Cleanup GH Runner
-        shell: bash
-        run: .github/scripts/cleanup_gh_runner.sh
-      - name: Docker login
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # ratchet:docker/login-action@v3.7.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build base image
-        id: base
-        run: >-
-            BASE_TAG=ghcr.io/${{ github.repository_owner }}/otp/${{ matrix.type }}
-            BASE_USE_CACHE=false
-            .github/scripts/build-base-image.sh "${{ matrix.branch }}"
-      - name: Push master image
-        if: matrix.branch == 'master'
-        env:
-          STEPS_BASE_OUTPUTS_BASE_TAG: ${{ steps.base.outputs.BASE_TAG }}
-        run: docker push ${STEPS_BASE_OUTPUTS_BASE_TAG}:latest
-      - name: Tag and push base image
-        env:
-          STEPS_BASE_OUTPUTS_BASE_TAG: ${{ steps.base.outputs.BASE_TAG }}
-        run: |
-            docker tag "${STEPS_BASE_OUTPUTS_BASE_TAG}:latest" \
-              "${STEPS_BASE_OUTPUTS_BASE_TAG}:${{ matrix.branch }}"
-            docker push "${STEPS_BASE_OUTPUTS_BASE_TAG}:${{ matrix.branch }}"
+      packages: write
+    uses: ./.github/workflows/reusable-update-base.yaml
+    with:
+      branches: '["master","maint","maint-26","maint-27"]'
