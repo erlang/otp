@@ -88,6 +88,8 @@
 -define(jquery_migrate_script, "jquery-migrate.js").
 -define(tablesorter_script, "jquery.tablesorter.min.js").
 
+-define(testname_width, 60).
+
 %% Logging information for error handler
 -record(conn_log, {header=true,
 		   client,

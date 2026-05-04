@@ -74,6 +74,8 @@
 -export([get_profile_data/0, get_profile_data/1,
 	 get_profile_data/2, open_url/3]).
 
+-export([get_display_name/1]).
+
 -include("ct.hrl").
 -include("ct_event.hrl").
 -include("ct_util.hrl").
@@ -1139,3 +1141,24 @@ open_url(Prog, Args, URL) ->
     io:format(?def_gl, "~nOpening ~ts with command:~n  ~ts~n", [URL,Cmd]),
     open_port({spawn,Cmd},[]),
     ok.
+
+get_display_name(SpecName) ->
+    case string:length(SpecName) =< ?testname_width of
+        true ->
+            SpecName;
+        false ->
+            [First, Rest0] = string:split(SpecName, "."),
+            [Second, Rest1] = string:split(Rest0, "."),
+            [Third, Rest2] = string:split(Rest1, "."),
+            case ?testname_width - 3 - string:length(First) - string:length(Second) - string:length(Third) of
+                RemainingLength when RemainingLength =< 3 ->
+                    First ++ "." ++ Second ++ "." ++ Third ++ "...";
+                RemainingLength ->
+                    PrefixLen = (RemainingLength - 3) div 2,
+                    SuffixLen = RemainingLength - 3 - PrefixLen,
+                    Prefix = string:slice(Rest2, 0, PrefixLen),
+                    Suffix = string:slice(Rest2, string:length(Rest2) - SuffixLen),
+                    First ++ "." ++ Second ++ "." ++ Third ++ "." ++
+                        Prefix ++ "..." ++ Suffix
+            end
+        end.

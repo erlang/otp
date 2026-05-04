@@ -47,9 +47,11 @@
 	 add_case/2, add_case/3, add_cases/2, add_cases/3]).
 -export([add_dir_with_skip/3, add_dir_with_skip/4, add_tests_with_skip/3]).
 -export([add_module_with_skip/2, add_module_with_skip/3,
-	 add_conf_with_skip/4,
+	 add_module_with_skip/4,
+	 add_conf_with_skip/5,
 	 add_case_with_skip/3, add_case_with_skip/4,
-	 add_cases_with_skip/3, add_cases_with_skip/4]).
+	 add_cases_with_skip/3, add_cases_with_skip/4,
+	 add_cases_with_skip/5]).
 -export([jobs/0, run_test/1, wait_finish/0, idle_notify/1,
 	 abort_current_testcase/1, abort/0]).
 -export([start_get_totals/1, stop_get_totals/0]).
@@ -213,11 +215,15 @@ add_module_with_skip(Mod, Skip) when is_atom(Mod) ->
 add_module_with_skip(Name, Mods, Skip) when is_list(Mods) ->
     add_job(cast_to_list(Name), lists:map(fun(Mod) -> {Mod,all} end, Mods), Skip).
 
-add_conf_with_skip(Name, Mod, Conf, Skip) when is_tuple(Conf) ->
-    add_job(cast_to_list(Name), {Mod,[Conf]}, Skip);
+add_module_with_skip(Name, SpecName, Mods, Skip) when is_list(Mods) ->
+    TopCase = lists:map(fun(Mod) -> {Mod,all} end, Mods),
+    add_job(cast_to_list(Name), cast_to_list(SpecName), TopCase, Skip).
 
-add_conf_with_skip(Name, Mod, Confs, Skip) when is_list(Confs) ->
-    add_job(cast_to_list(Name), {Mod,Confs}, Skip).
+add_conf_with_skip(Name, SpecName, Mod, Conf, Skip) when is_tuple(Conf) ->
+    add_job(cast_to_list(Name), cast_to_list(SpecName), {Mod,[Conf]}, Skip);
+
+add_conf_with_skip(Name, SpecName, Mod, Confs, Skip) when is_list(Confs) ->
+    add_job(cast_to_list(Name), cast_to_list(SpecName), {Mod,Confs}, Skip).
 
 add_case_with_skip(Mod, Case, Skip) when is_atom(Mod), is_atom(Case) ->
     add_job(atom_to_list(Mod), {Mod,Case}, Skip).
@@ -230,6 +236,9 @@ add_cases_with_skip(Mod, Cases, Skip) when is_atom(Mod), is_list(Cases) ->
 
 add_cases_with_skip(Name, Mod, Cases, Skip) when is_atom(Mod), is_list(Cases) ->
     add_job(Name, {Mod,Cases}, Skip).
+
+add_cases_with_skip(Name, SpecName, Mod, Cases, Skip) when is_atom(Mod), is_list(Cases) ->
+    add_job(Name, SpecName, {Mod, Cases}, Skip).
 
 add_tests_with_skip(LogDir, Tests, Skip) ->
     add_job(LogDir,
@@ -462,14 +471,20 @@ add_job(Name, TopCase) ->
     add_job(Name, TopCase, []).
 
 add_job(Name, TopCase, Skip) ->
-    SuiteName =
-	case Name of
-	    "." -> "current_dir";
-	    ".." -> "parent_dir";
-	    Other -> Other
-	end,
+    add_job(Name, Name, TopCase, Skip).
+
+add_job(Name, SpecName, TopCase, Skip) ->
+    SuiteName = get_job_name(Name),
     Dir = filename:absname(SuiteName),
-    controller_call({add_job,Dir,SuiteName,TopCase,Skip}).
+    SuiteSpecName = get_job_name(SpecName),
+    controller_call({add_job,Dir,SuiteName,SuiteSpecName,TopCase,Skip}).
+
+get_job_name(".") ->
+    "current_dir";
+get_job_name("..") ->
+    "parent_dir";
+get_job_name(Other) ->
+    Other.
 
 controller_call(Arg) ->
     case catch gen_server:call(?MODULE, Arg, infinity) of
@@ -565,11 +580,12 @@ handle_call(get_hosts, _From, State) ->
     {reply, Hosts, State};
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% handle_call({add_job,Dir,Name,TopCase,Skip}, _, State) ->
+%% handle_call({add_job,Dir,Name,SpecName,TopCase,Skip}, _, State) ->
 %%     ok | {error,Reason}
 %%
 %% Dir = string()
 %% Name = string()
+%% SpecName = string()
 %% TopCase = term()
 %% Skip = [SkipItem]
 %% SkipItem = {Mod,Comment} | {Mod,Case,Comment} | {Mod,Cases,Comment}
@@ -587,7 +603,7 @@ handle_call(get_hosts, _From, State) ->
 %% {command_line,SpecList} executes the list of specification instructions
 %% supplied, which should be in the format accepted by do_spec_list/1.
 
-handle_call({add_job,Dir,Name,TopCase,Skip}, _From, State) ->
+handle_call({add_job,Dir,Name,SpecName,TopCase,Skip}, _From, State) ->
     LogDir = Dir ++ ?logdir_ext,
     ExtraTools =
 	case State#state.cover of
@@ -607,7 +623,8 @@ handle_call({add_job,Dir,Name,TopCase,Skip}, _From, State) ->
 			    ?MODULE, do_spec,
 			    [SpecName,{State#state.multiply_timetraps,
 				       State#state.scale_timetraps}],
-			    LogDir, Name, State#state.levels,
+			    LogDir, Name, SpecName,
+			    State#state.levels,
 			    State#state.reject_io_reqs,
 			    State#state.create_priv_dir,
 			    State#state.testcase_callback, ExtraTools1),
@@ -618,7 +635,8 @@ handle_call({add_job,Dir,Name,TopCase,Skip}, _From, State) ->
 			    ?MODULE, do_spec_list,
 			    [SpecList,{State#state.multiply_timetraps,
 				       State#state.scale_timetraps}],
-			    LogDir, Name, State#state.levels,
+			    LogDir, Name, SpecName,
+			    State#state.levels,
 			    State#state.reject_io_reqs,
 			    State#state.create_priv_dir,
 			    State#state.testcase_callback, ExtraTools1),
@@ -637,7 +655,8 @@ handle_call({add_job,Dir,Name,TopCase,Skip}, _From, State) ->
 				    [TopCase,Skip,Cfg,
 				     {State#state.multiply_timetraps,
 				      State#state.scale_timetraps}],
-				    LogDir, Name, State#state.levels,
+				    LogDir, Name, SpecName,
+				    State#state.levels,
 				    State#state.reject_io_reqs,
 				    State#state.create_priv_dir,
 				    State#state.testcase_callback, ExtraTools1),
@@ -1079,6 +1098,7 @@ kill_all_jobs([]) ->
 %% Args = [term(),...]
 %% Dir = string()
 %% Name = string()
+%% SpecName = string()
 %% Levels = {integer(),integer(),integer()}
 %% RejectIoReqs = bool()
 %% CreatePrivDir = auto_per_run | manual_per_tc | auto_per_tc
@@ -1092,19 +1112,20 @@ kill_all_jobs([]) ->
 %% When the named function is done executing, a summary of the results
 %% is printed to the log files.
 
-spawn_tester(Mod, Func, Args, Dir, Name, Levels, RejectIoReqs,
+spawn_tester(Mod, Func, Args, Dir, Name, SpecName, Levels, RejectIoReqs,
 	     CreatePrivDir, TCCallback, ExtraTools) ->
     spawn_link(fun() ->
-	      init_tester(Mod, Func, Args, Dir, Name, Levels, RejectIoReqs,
+	      init_tester(Mod, Func, Args, Dir, Name, SpecName, Levels, RejectIoReqs,
 			   CreatePrivDir, TCCallback, ExtraTools)
       end).
 
-init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
+init_tester(Mod, Func, Args, Dir, Name, SpecName, {_,_,MinLev}=Levels,
 	    RejectIoReqs, CreatePrivDir, TCCallback, ExtraTools) ->
     process_flag(trap_exit, true),
     _ = test_server_io:start_link(),
     put(app, common_test),
     put(test_server_name, Name),
+    put(test_server_spec_name, SpecName),
     put(test_server_dir, Dir),
     put(test_server_total_time, 0.0),
     put(test_server_ok, 0),
@@ -1139,7 +1160,8 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
 
     StartedExtraTools = start_extra_tools(ExtraTools),
 
-    test_server_io:set_job_name(Name),
+    DisplayName = test_server_sup:framework_call(get_display_name, [SpecName]),
+    test_server_io:set_job_name(DisplayName),
     test_server_io:set_gl_props([{levels,Levels},
 				 {auto_nl,not lists:member(no_nl, LogOpts)},
 				 {reject_io_reqs,RejectIoReqs}]),
@@ -1513,12 +1535,9 @@ do_test_cases(TopCases, SkipCases,
 		  [print_if_known(N, {", ~w test cases",[N]},
 				  {" (with repeated test cases)",[]})]),
 	    Test = get(test_server_name),
-	    TestName = 	if is_list(Test) -> 
-				lists:flatten(io_lib:format("~ts", [Test]));
-			   true ->
-				lists:flatten(io_lib:format("~tp", [Test]))
-			end,			  
-	    TestDescr = "Test " ++ TestName ++ " results",
+	    SpecName = get(test_server_spec_name),
+	    DisplayName = test_server_sup:framework_call(get_display_name, [SpecName]),
+	    TestDescr = "Test " ++ DisplayName ++ " results",
 
 	    test_server_sup:framework_call(report, [tests_start,{Test,N}]),
 
@@ -1529,15 +1548,15 @@ do_test_cases(TopCases, SkipCases,
 		    Empty when (Empty == "") ; (element(2,Empty) == "")  ->
 			put(basic_html, true),
 			{[html_header(TestDescr),
-			  "<h2>Results for test ", TestName, "</h2>\n"],
+			  "<h2>Results for test ", DisplayName, "</h2>\n"],
 			 "\n</body>\n</html>\n"};
 		    {basic_html,Html0,Html1} ->
 			put(basic_html, true),
-			{Html0++["<h1>Results for <i>",TestName,"</i></h1>\n"],
+			{Html0++["<h1>Results for <i>",DisplayName,"</i></h1>\n"],
 			 Html1};
 		    {xhtml,Html0,Html1} ->
 			put(basic_html, false),
-			{Html0++["<h1>Results for <i>",TestName,"</i></h1>\n"],
+			{Html0++["<h1>Results for <i>",DisplayName,"</i></h1>\n"],
 			 Html1}
 		end,
 
@@ -1719,8 +1738,22 @@ start_log_file() ->
     ok = file:make_dir(PrivDir),
     put(test_server_priv_dir,PrivDir++"/"),
     print_timestamp(major, "Suite started at "),
+    TestName = get(test_server_name),
+    SpecName =
+    case get(test_server_spec_name) of
+        undefined ->
+            TestName;
+        Other ->
+            Other
+    end,
+    CacheVsn = test_server_sup:framework_call(get_spec_cache_vsn, []),
+    Content = io_lib:format("{~tp, ~tp}.~n", [CacheVsn, SpecName]),
+    ok = write_file(filename:join(Dir, "spec_name"), Content,
+                    file:native_name_encoding()),
 
-    LogInfo = [{topdir,Dir},{rundir,lists:flatten(TestDir1)}],
+    LogInfo = [{topdir,Dir},
+               {rundir,lists:flatten(TestDir1)},
+               {spec_name,SpecName}],
     test_server_sup:framework_call(report, [loginfo,LogInfo]),
     {ok,TestDir1}.
 

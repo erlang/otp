@@ -2466,7 +2466,8 @@ add_jobs([{TestDir,[Suite],all}|Tests], Skip,
 add_jobs([{TestDir,Suites,all}|Tests], Skip,
 	 Opts, CleanUp) when is_list(Suites) ->
     Name = get_name(TestDir) ++ ".suites",
-    case catch test_server_ctrl:add_module_with_skip(Name, Suites,
+    SpecName = get_name(TestDir) ++ "." ++ get_spec_name(Suites),
+    case catch test_server_ctrl:add_module_with_skip(Name, SpecName, Suites,
 						     skiplist(TestDir,Skip)) of
 	{'EXIT',_} ->
 	    CleanUp;
@@ -2521,10 +2522,13 @@ add_jobs([{TestDir,Suite,Confs}|Tests], Skip, Opts, CleanUp) when
 	    _ ->
 		".groups"
 	end,
+    SpecName = get_spec_name(Confs),
+    TestSpecName = get_name(TestDir) ++ "." ++ atom_to_list(Suite) ++ "." ++ SpecName,
     TestName = get_name(TestDir) ++ "." ++ atom_to_list(Suite) ++ GrTestName,
     case maybe_interpret(Suite, init_per_group, Opts) of
 	ok ->
 	    case catch test_server_ctrl:add_conf_with_skip(TestName,
+							   TestSpecName,
 							   Suite,
 							   Confs,
 							   skiplist(TestDir,
@@ -2556,7 +2560,8 @@ add_jobs([{TestDir,Suite,Cases}|Tests],
     case maybe_interpret(Suite, Cases1, Opts) of
 	ok ->
 	    Name =  get_name(TestDir) ++ "." ++ atom_to_list(Suite) ++ ".cases",
-	    case catch test_server_ctrl:add_cases_with_skip(Name, Suite, Cases1,
+        SpecName = get_name(TestDir) ++ "." ++ atom_to_list(Suite) ++ "." ++ get_spec_name(Cases1),
+	    case catch test_server_ctrl:add_cases_with_skip(Name, SpecName, Suite, Cases1,
 							    skiplist(TestDir,
 								     Skip)) of
 		{'EXIT',_} ->
@@ -3307,3 +3312,37 @@ ensure_atom(List) when is_list(List) ->
     [ensure_atom(Item) || Item <- List];
 ensure_atom(Other) ->				
     Other.
+
+get_spec_name(Item) when is_atom(Item) ->
+    atom_to_list(Item);
+get_spec_name(Items0) when is_list(Items0) ->
+    case lists:filtermap(fun get_spec_name_for_item/1, Items0) of
+        [Item] -> Item;
+        Items -> "[" ++ string:join(Items, ", ") ++ "]"
+    end.
+
+get_spec_name_for_item({conf, Props, _InitConf, all, _EndConf}) ->
+    case lists:member(skipped, Props) of
+        false ->
+            {true, format_group_name(proplists:get_value(name, Props))};
+        true ->
+            false
+    end;
+get_spec_name_for_item({conf, Props, _InitConf, TestSpec, _EndConf}) ->
+    case lists:member(skipped, Props) of
+        false ->
+            {true, format_group_name(proplists:get_value(name, Props)) ++
+                 "." ++ get_spec_name(TestSpec)};
+        true ->
+            false
+    end;
+get_spec_name_for_item(Other) ->
+    {true, lists:flatten(io_lib:format("~0tp", [Other]))}.
+
+format_group_name([Path|_] = Names) when is_list(Path) ->
+    string:join(lists:map(fun format_group_name/1, Names), ", ");
+format_group_name(Names) when is_list(Names) ->
+    string:join(lists:map(fun atom_to_list/1, Names), ".");
+format_group_name(Name) when is_atom(Name) ->
+    atom_to_list(Name).
+

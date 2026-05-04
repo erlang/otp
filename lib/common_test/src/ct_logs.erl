@@ -43,6 +43,7 @@
 -export([insert_javascript/1]).
 -export([uri/1]).
 -export([parse_keep_logs/1]).
+-export([get_spec_cache_vsn/0]).
 
 %% Logging stuff directly from testcase
 -export([tc_log/3, tc_log/4, tc_log/5, tc_log/6,
@@ -74,13 +75,21 @@
 -define(table_color2,"#E4F0FE").
 -define(table_color3,"#F0F8FF").
 
--define(testname_width, 60).
-
 -define(abs(Name), filename:absname(Name)).
 
 -define(now, os:timestamp()).
 -define(expected_summary_size, 5).
 -define(minimum_summary_size, 3).
+
+-define(equal_test(__TestName, __SpecName),
+    fun(Test) -> __TestName =:= element(1, Test) andalso __SpecName =:= element(2, Test) end
+).
+
+-define(not_equal_test(__TestName, __SpecName),
+    fun(Test) -> __TestName /= element(1, Test) orelse __SpecName /= element(2, Test) end
+).
+
+-define(spec_cache_vsn, 1).
 
 -record(log_cache, {version,
 		    all_runs = [],
@@ -156,7 +165,8 @@ close(Info, StartDir, CustomStylesheet) ->
 			     CacheBin ->
 				 %% save final version of the log cache to file
 				 write_log_cache(CacheBin),
-				 put(ct_log_cache,undefined)
+				 put(ct_log_cache,undefined),
+				 put(ct_spec_name_cache, undefined)
 			 end
 		 end,
 				 
@@ -1369,8 +1379,9 @@ make_last_run_index([Name|Rest], Result, TotSucc, TotFail,
                                 UserSkip, AutoSkip, TotNotBuilt, TotElapsedTime, Missing);
         LogDirs ->
             SuiteName = filename:rootname(filename:basename(Name)),
+            SuiteSpecName = get_spec_name(Name, SuiteName),
             {Result1,TotSucc1,TotFail1,UserSkip1,AutoSkip1,TotNotBuilt1,TotElapsedTime1} =
-                make_last_run_index1(SuiteName, LogDirs, Result,
+                make_last_run_index1(SuiteName, SuiteSpecName, LogDirs, Result,
                                      TotSucc, TotFail,
                                      UserSkip, AutoSkip,
                                      TotNotBuilt, TotElapsedTime,
@@ -1386,9 +1397,9 @@ make_last_run_index([], Result, TotSucc, TotFail, UserSkip, AutoSkip,
 			   TotNotBuilt, TotElapsedTime, false)],
      {TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt,TotElapsedTime}}.
 	    
-make_last_run_index1(SuiteName, [LogDir | LogDirs], Result, TotSucc, TotFail,
+make_last_run_index1(SuiteName, SuiteSpecName, [LogDir | LogDirs], Result, TotSucc, TotFail,
 		     UserSkip, AutoSkip, TotNotBuilt, TotElapsedTime, Missing) ->
-    case make_one_index_entry(SuiteName, LogDir, "-", false,
+    case make_one_index_entry(SuiteName, SuiteSpecName, LogDir, "-", false,
 			      Missing, undefined) of
 	{Result1,Succ,Fail,USkip,ASkip,NotBuilt,_URIs1,ElapsedTime} ->
 	    %% for backwards compatibility
@@ -1396,20 +1407,20 @@ make_last_run_index1(SuiteName, [LogDir | LogDirs], Result, TotSucc, TotFail,
 			    {'EXIT',_} -> undefined;
 			    Res -> Res
 			end,
-	    make_last_run_index1(SuiteName, LogDirs, [Result|Result1],
+	    make_last_run_index1(SuiteName, SuiteSpecName, LogDirs, [Result|Result1],
 				 TotSucc+Succ, 
 				 TotFail+Fail, UserSkip+USkip, AutoSkip1,
 				 TotNotBuilt+NotBuilt, TotElapsedTime+ElapsedTime,
 				 Missing);
 	error ->
-	    make_last_run_index1(SuiteName, LogDirs, Result, TotSucc, TotFail,
+	    make_last_run_index1(SuiteName, SuiteSpecName, LogDirs, Result, TotSucc, TotFail,
 				 UserSkip, AutoSkip, TotNotBuilt, TotElapsedTime, Missing)
     end;
-make_last_run_index1(_, [], Result, TotSucc, TotFail,
+make_last_run_index1(_, _, [], Result, TotSucc, TotFail,
 		     UserSkip, AutoSkip, TotNotBuilt, TotElapsedTime, _) ->
     {Result,TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt,TotElapsedTime}.
 
-make_one_index_entry(SuiteName, LogDir, Label, All, Missing, URIs) ->
+make_one_index_entry(SuiteName, SuiteSpecName, LogDir, Label, All, Missing, URIs) ->
     MaybeAddElapsedTime =
         fun(_All = false, ElapsedTime) -> ElapsedTime;
            (_, _) -> undefined
@@ -1417,7 +1428,7 @@ make_one_index_entry(SuiteName, LogDir, Label, All, Missing, URIs) ->
     case count_cases(LogDir) of
         {Succ,Fail,UserSkip,AutoSkip,ElapsedTime} ->
             NotBuilt = not_built(SuiteName, LogDir, All, Missing),
-            {NewResult,URIs1} = make_one_index_entry1(SuiteName, LogDir, Label,
+            {NewResult,URIs1} = make_one_index_entry1(SuiteName, SuiteSpecName, LogDir, Label,
                                                       Succ, Fail,
                                                       UserSkip, AutoSkip,
                                                       NotBuilt, All,
@@ -1428,7 +1439,7 @@ make_one_index_entry(SuiteName, LogDir, Label, All, Missing, URIs) ->
             error
     end.
 
-make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
+make_one_index_entry1(SuiteName, SuiteSpecName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 		      NotBuilt, All, Mode, URIs, ElapsedTime) ->
     LogFile = filename:join(Link, ?suitelog_name ++ ".html"),
     CtRunDir = filename:dirname(filename:dirname(Link)),
@@ -1533,7 +1544,7 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
     {[xhtml("<tr valign=top>\n",
 	    ["<tr class=\"",odd_or_even(),"\">\n"]),
       xhtml("<td><font size=\"-1\"><a href=\"", "<td><a href=\""),
-      LogFileURI,"\">",SuiteName,"</a>", CrashDumpLink,
+      LogFileURI,"\">",ct_util:get_display_name(SuiteSpecName),"</a>", CrashDumpLink,
       xhtml("</font></td>\n", "</td>\n"),
       Lbl, Timestamp,
       "<td align=right>",integer_to_list(Success),"</td>\n",
@@ -2317,8 +2328,11 @@ runentry(Dir, Totals={Node,Label,Logs,
 		    N -> integer_to_list(N)
 		end,
 
-    RootNames = lists:map(fun(F) -> filename:rootname(F,?logdir_ext) end, Logs),
-    TestNames = lists:flatten(lists:join(", ", RootNames)),
+    SpecNames = lists:map(fun(F) ->
+                                  RootDir = filename:rootname(F,?logdir_ext),
+                                  get_spec_name(filename:join(Dir, F), RootDir)
+                          end, Logs),
+    TestNames = lists:flatten(lists:join(", ", SpecNames)),
     TestNamesTrunc =
 	if length(TestNames) < ?testname_width ->
 		TestNames;
@@ -2542,10 +2556,10 @@ make_all_suites_index(When, CustomStylesheet) when is_atom(When) ->
 		
 %% This updates the top level index file using data from the initial
 %% index file creation, saved temporarily in a table.
-make_all_suites_index(NewTestData = {_TestName,DirName}, CustomStylesheet) ->    
+make_all_suites_index(NewTestData = {_TestName,_SpecName,DirName}, CustomStylesheet) ->    
     put(basic_html, basic_html()),
 
-    %% AllLogDirs = [{TestName,Label,Missing,
+    %% AllLogDirs = [{TestName,SpecName,Label,Missing,
     %%                {LastLogDir,Summary,URIs},OldDirs}|...]
 
     {AbsIndexName,LogDirData} = ct_util:get_testdata(test_index),
@@ -2589,7 +2603,7 @@ make_all_suites_index_from_cache(When, AbsIndexName, LogDirs, LogCache, CustomSt
 
     %% The structure of the cache:
     %%
-    %% #log_cache{tests = {TestName,Label,Missing,
+    %% #log_cache{tests = {TestName,TestSpecName,Label,Missing,
     %%                     {LastLogDir,Summary,URIs},OldDirs}
     %%           }
     %% Summary = {Succ,Fail,USkip,ASkip} | error
@@ -2624,10 +2638,10 @@ sort_and_filter_logdirs(NewDirs,_CachedTests) ->
     sort_and_filter_logdirs(NewDirs).
 
 %% sort latest dirs found and combine them with cached entries
-sort_and_filter_logdirs([{TestName,IxDirs}|Tests],CachedTests,Combined) ->
-    case lists:keysearch(TestName,1,CachedTests) of
-	{value,{TestName,_,_,{IxDir0,_,_},IxDirs0}} ->
-	    Groups = sort_and_filter_logdirs2(TestName,
+sort_and_filter_logdirs([{TestName,SpecName,IxDirs}|Tests],CachedTests,Combined) ->
+    case lists:search(?equal_test(TestName, SpecName), CachedTests) of
+	{value,{TestName,SpecName,_,_,{IxDir0,_,_},IxDirs0}} ->
+	    Groups = sort_and_filter_logdirs2(TestName, SpecName,
 					      IxDirs++[IxDir0|IxDirs0],
 					      []),
 	    sort_and_filter_logdirs(Tests,CachedTests,Groups++Combined);
@@ -2638,11 +2652,11 @@ sort_and_filter_logdirs([{TestName,IxDirs}|Tests],CachedTests,Combined) ->
 					{filename:basename(RunDir),RunDir}
 				end, IxDirs),
 	    sort_and_filter_logdirs(Tests,CachedTests,
-				    [{TestName,IxDirs1}|Combined])
+				    [{TestName,SpecName,IxDirs1}|Combined])
     end;
 sort_and_filter_logdirs([],CachedTests,Combined) ->
-    Cached1 = lists:foldl(fun({TestName,_},Cached) ->
-				  lists:keydelete(TestName,1,Cached)
+    Cached1 = lists:foldl(fun({TestName,SpecName,_},Cached) ->
+				  lists:filter(?not_equal_test(TestName, SpecName), Cached)
 			  end, CachedTests, Combined),
     lists:keysort(1,sort_each_group(Combined)++Cached1).
 
@@ -2654,7 +2668,8 @@ sort_and_filter_logdirs1([Dir|Dirs],Groups) ->
     TestName = filename:rootname(filename:basename(Dir)),
     case filelib:wildcard(filename:join(Dir,"run.*")) of
 	RunDirs = [_|_] ->
-	    Groups1 = sort_and_filter_logdirs2(TestName,RunDirs,Groups),
+	    SpecName = get_spec_name(Dir, TestName),
+	    Groups1 = sort_and_filter_logdirs2(TestName,SpecName,RunDirs,Groups),
 	    sort_and_filter_logdirs1(Dirs,Groups1);
 	_ ->					% ignore missing run directory
 	    sort_and_filter_logdirs1(Dirs,Groups)
@@ -2662,61 +2677,58 @@ sort_and_filter_logdirs1([Dir|Dirs],Groups) ->
 sort_and_filter_logdirs1([],Groups) ->
     lists:keysort(1,sort_each_group(Groups)).
 
-sort_and_filter_logdirs2(TestName,[RunDir|RunDirs],Groups) ->
-    Groups1 = insert_test(TestName,{filename:basename(RunDir),RunDir},Groups),
-    sort_and_filter_logdirs2(TestName,RunDirs,Groups1);
-sort_and_filter_logdirs2(_,[],Groups) ->
+sort_and_filter_logdirs2(TestName,SpecName,[RunDir|RunDirs],Groups) ->
+    Groups1 = insert_test(TestName, SpecName,{filename:basename(RunDir),RunDir},Groups),
+    sort_and_filter_logdirs2(TestName,SpecName,RunDirs,Groups1);
+sort_and_filter_logdirs2(_,_,[],Groups) ->
     Groups.
 
 %% new rundir for Test found, add to (not sorted) list of prev rundirs
-insert_test(Test,IxDir,[{Test,IxDirs}|Groups]) ->
-    [{Test,[IxDir|IxDirs]}|Groups];
+insert_test(Test,SpecName,IxDir,[{Test,SpecName,IxDirs}|Groups]) ->
+    [{Test,SpecName,[IxDir|IxDirs]}|Groups];
 %% first occurrence of Test
-insert_test(Test,IxDir,[]) ->
-    [{Test,[IxDir]}];
-insert_test(Test,IxDir,[TestDir|Groups]) ->
-    [TestDir|insert_test(Test,IxDir,Groups)].
+insert_test(Test,SpecName,IxDir,[]) ->
+    [{Test,SpecName,[IxDir]}];
+insert_test(Test,SpecName,IxDir,[TestDir|Groups]) ->
+    [TestDir|insert_test(Test,SpecName,IxDir,Groups)].
 
 %% sort the list of rundirs for each Test
-sort_each_group([{Test,IxDirs}|Groups]) ->
+sort_each_group([{Test,SpecName,IxDirs}|Groups]) ->
     Sorted = lists:reverse([Dir || {_,Dir} <- lists:keysort(1,IxDirs)]),
-    [{Test,Sorted}|sort_each_group(Groups)];
+    [{Test,SpecName,Sorted}|sort_each_group(Groups)];
 sort_each_group([]) ->
     [].
 
 dir_diff_tests(LogDirs, #log_cache{tests = CachedTests}) ->
     AllTestNames =
-	[TestName || {TestName,_,_,_,_} <- CachedTests],
+	[{TestName, TestSpecName} || {TestName,TestSpecName,_,_,_,_} <- CachedTests],
     dir_diff_tests(LogDirs, CachedTests, [], AllTestNames, [], []).
 
 dir_diff_tests([LogDir|LogDirs], CachedTests, NewAdded, DeletedTests,
 	       ValidLast, InvalidLast) ->
     TestName = filename:rootname(filename:basename(LogDir)),
+    SpecName = get_spec_name(LogDir, TestName),
+    Pair = {TestName, SpecName},
     Time = datestr_from_dirname(LogDir),
-    %% check if the test already exists in the cache
     {New,DeletedTests1,ValidLast1,InvalidLast1} =
-	case lists:keysearch(TestName,1,CachedTests) of
-	    {value,{_,_,_,{LastLogDir,_,_},_PrevLogDirs}} ->
+	case lists:search(?equal_test(TestName, SpecName), CachedTests) of
+	    {value,{TestName,SpecName,_,_,{LastLogDir,_,_},_PrevLogDirs}} ->
 		LastLogTime = datestr_from_dirname(LastLogDir),
 		if Time > LastLogTime ->
-			%% this is a new test run, not in cache
-			{[LogDir|NewAdded],			 
-			 lists:delete(TestName,DeletedTests),
-			 ValidLast,[{TestName,LastLogDir}|InvalidLast]};
+			{[LogDir|NewAdded],
+			 lists:delete(Pair,DeletedTests),
+			 ValidLast,[{TestName,SpecName,LastLogDir}|InvalidLast]};
 		   Time == LastLogTime ->
-			%% this is the latest test run, already in cache
-			TDir = {TestName,LastLogDir},
+			TDir = {TestName,SpecName,LastLogDir},
 			{NewAdded,
-			 lists:delete(TestName,DeletedTests),
+			 lists:delete(Pair,DeletedTests),
 			 [TDir|ValidLast],InvalidLast};
 		   true ->
-			%% this is an old test run
 			{[],
-			 lists:delete(TestName,DeletedTests),
-			 ValidLast,[{TestName,LastLogDir}|InvalidLast]}
+			 lists:delete(Pair,DeletedTests),
+			 ValidLast,[{TestName,SpecName,LastLogDir}|InvalidLast]}
 		end;
 	    _ ->
-		%% this is a test run for a new test, not in cache
 		{[LogDir|NewAdded],
 		 DeletedTests,ValidLast,InvalidLast}
 	end,
@@ -2739,12 +2751,12 @@ dir_diff_tests([], _CachedTests, NewAdded, DeletedTests,
 		    end, InvalidLast, InvalidLast),
     
     %% Collect all tests for which LastLogDir has been deleted.
-    DeletedTests1 = [T || {T,_} <- InvalidLast1] ++ DeletedTests,
+    DeletedTests1 = [{T, S} || {T,S,_} <- InvalidLast1] ++ DeletedTests,
 
     %% Make sure that directories for tests that are to be deleted are
     %% saved in NewAdded so that tests don't disappear from the log if
     %% older run dirs for them exist.
-    NewAdded1 = lists:map(fun({_TestName,RunDir}) ->
+    NewAdded1 = lists:map(fun({_TestName,_SpecName,RunDir}) ->
 				  [TopDir,TestDir|_] = filename:split(RunDir),
 				  filename:join(TopDir,TestDir)
 			  end, InvalidLast1) ++ NewAdded,
@@ -2752,8 +2764,8 @@ dir_diff_tests([], _CachedTests, NewAdded, DeletedTests,
     {NewAdded1,DeletedTests1}.
 
 delete_tests_from_cache(OldTests, LogCache=#log_cache{tests=Tests}) ->
-    Tests2 = lists:foldl(fun(T,Tests1) ->
-				 lists:keydelete(T,1,Tests1)
+    Tests2 = lists:foldl(fun({T, S},Tests1) ->
+				 lists:filter(?not_equal_test(T, S), Tests1)
 			 end, Tests, OldTests),
     LogCache#log_cache{tests = Tests2}.
 
@@ -2771,8 +2783,8 @@ update_tests_in_cache(TempData,LogCache=#log_cache{tests=Tests}) ->
 	if Tests == [] ->
 		[];
 	   true ->
-		lists:foldl(fun({TestName,_,_,_,_},Cached) ->
-				    lists:keydelete(TestName,1,Cached)
+		lists:foldl(fun({TestName,SpecName,_,_,_,_},Cached) ->
+				    lists:filter(?not_equal_test(TestName, SpecName), Cached)
 			    end, Tests, TempData)
 	end,
     Tests1 = lists:keysort(1,TempData++Cached1),
@@ -2786,8 +2798,8 @@ update_tests_in_cache(TempData,LogCache=#log_cache{tests=Tests}) ->
 
 %%
 %% AllTestLogDirs =
-%%   [{TestName,[IxDir|IxDirs]} | ...] (non-cached), or
-%%   [{TestName,Label,Missing,{IxDir,Summary,URIs},IxDirs} | ...] (cached)
+%%   [{TestName,TestSpecName,[IxDir|IxDirs]} | ...] (non-cached), or
+%%   [{TestName,TestSpecName,Label,Missing,{IxDir,Summary,URIs},IxDirs} | ...] (cached)
 %%
 make_all_suites_index1(When, AbsIndexName, AllTestLogDirs, CustomStylesheet) ->
     IndexName = ?index_name,
@@ -2834,12 +2846,12 @@ make_all_suites_index2(IndexName, AllTestLogDirs, CustomStylesheet) ->
     end.
 
 %%
-%% AllTestLogDirs = [{TestName,Label,Missing,{LogDir,Summary,URIs},OldDirs}]
+%% AllTestLogDirs = [{TestName,TestSpecName,Label,Missing,{LogDir,Summary,URIs},OldDirs}]
 %% Summary = {Succ,Fail,UserSkip,AutoSkip} | error
 %% URIs = {CtRunLogURI,LogFileURI,CrashDumpURI} | undefined
 %%
 %% this clause is for handling entries in the log cache
-make_all_suites_index3([IxEntry = {TestName,Label,Missing,
+make_all_suites_index3([IxEntry = {TestName,TestSpecName,Label,Missing,
 				   {LastLogDir,Summary,URIs},OldDirs} | Rest],
 		       Result, TotSucc, TotFail, UserSkip, AutoSkip, TotNotBuilt,
 		       Labels, TempData) ->
@@ -2850,7 +2862,7 @@ make_all_suites_index3([IxEntry = {TestName,Label,Missing,
 	    All = {true,OldDirs},
 	    NotBuilt = not_built(TestName, LastLogDir, All, Missing),
 
-	    {Result1,_} = make_one_index_entry1(TestName, LastLogDir, Label,
+	    {Result1,_} = make_one_index_entry1(TestName, TestSpecName, LastLogDir, Label,
 						Succ, Fail, USkip, ASkip,
 						NotBuilt, All, temp, URIs, undefined),
 
@@ -2869,7 +2881,7 @@ make_all_suites_index3([IxEntry = {TestName,Label,Missing,
     end;
 
 %% this clause is for handling non-cached directories
-make_all_suites_index3([{TestName,[LastLogDir|OldDirs]}|Rest],
+make_all_suites_index3([{TestName,TestSpecName,[LastLogDir|OldDirs]}|Rest],
 		       Result, TotSucc, TotFail, UserSkip, AutoSkip, TotNotBuilt,
 		       Labels, TempData) ->
     [EntryDir|_] = filename:split(LastLogDir),
@@ -2888,7 +2900,7 @@ make_all_suites_index3([{TestName,[LastLogDir|OldDirs]}|Rest],
 	    Lbl ->
 		{Lbl,Labels}
 	end,
-    case make_one_index_entry(TestName, LastLogDir, Label,
+    case make_one_index_entry(TestName, TestSpecName, LastLogDir, Label,
 			      {true,OldDirs}, Missing, undefined) of
 	{Result1,Succ,Fail,USkip,ASkip,NotBuilt,URIs,_ElapsedTime} ->
 	    %% for backwards compatibility
@@ -2896,7 +2908,7 @@ make_all_suites_index3([{TestName,[LastLogDir|OldDirs]}|Rest],
 			    {'EXIT',_} -> undefined;
 			    Res -> Res
 			end,
-	    IxEntry = {TestName,Label,Missing,
+	    IxEntry = {TestName,TestSpecName,Label,Missing,
 		       {LastLogDir,{Succ,Fail,USkip,ASkip},URIs},OldDirs},
 
 	    make_all_suites_index3(Rest, [Result|Result1], TotSucc+Succ, 
@@ -2904,7 +2916,7 @@ make_all_suites_index3([{TestName,[LastLogDir|OldDirs]}|Rest],
 				   TotNotBuilt+NotBuilt, Labels1,
 				   [IxEntry|TempData]);
 	error ->
-	    IxEntry = {TestName,Label,Missing,
+	    IxEntry = {TestName,TestSpecName,Label,Missing,
 		       {LastLogDir,error,undefined},OldDirs},
 	    make_all_suites_index3(Rest, Result, TotSucc, TotFail, 
 				   UserSkip, AutoSkip, TotNotBuilt, Labels1,
@@ -2939,23 +2951,23 @@ make_all_suites_ix_temp(AbsIndexName, NewTestData, Label, AllTestLogDirs, Custom
 	    {error,{index_write_error, Reason}}
     end.
 
-insert_new_test_data({NewTestName,NewTestDir}, NewLabel, AllTestLogDirs) ->
+insert_new_test_data({NewTestName,NewSpecName,NewTestDir}, NewLabel, AllTestLogDirs) ->
     AllTestLogDirs1 =
-	case lists:keysearch(NewTestName, 1, AllTestLogDirs) of
-	    {value,{_,_,_,{LastLogDir,_,_},OldDirs}} ->
-		[{NewTestName,NewLabel,[],{NewTestDir,{0,0,0,0},undefined},
+	case lists:search(?equal_test(NewTestName, NewSpecName), AllTestLogDirs) of
+	    {value,{_,_,_,_,{LastLogDir,_,_},OldDirs}} ->
+		[{NewTestName,NewSpecName,NewLabel,[],{NewTestDir,{0,0,0,0},undefined},
 		  [LastLogDir|OldDirs]} |
-		 lists:keydelete(NewTestName, 1, AllTestLogDirs)];
+		 lists:filter(?not_equal_test(NewTestName, NewSpecName), AllTestLogDirs)];
 	    false ->
-		[{NewTestName,NewLabel,[],{NewTestDir,{0,0,0,0},undefined},[]} |
+		[{NewTestName,NewSpecName,NewLabel,[],{NewTestDir,{0,0,0,0},undefined},[]} |
 		 AllTestLogDirs]
 	end,
     lists:keysort(1, AllTestLogDirs1).
 
-make_all_suites_ix_temp1([{TestName,Label,Missing,LastLogDirData,OldDirs}|Rest],
+make_all_suites_ix_temp1([{TestName,TestSpecName,Label,Missing,LastLogDirData,OldDirs}|Rest],
 			 Result, TotSucc, TotFail, UserSkip, AutoSkip,
 			 TotNotBuilt) ->
-    case make_one_ix_entry_temp(TestName, LastLogDirData,
+    case make_one_ix_entry_temp(TestName, TestSpecName, LastLogDirData,
 				Label, {true,OldDirs}, Missing) of
 	{Result1,Succ,Fail,USkip,ASkip,NotBuilt,_URIs} ->
 	    %% for backwards compatibility
@@ -2974,12 +2986,12 @@ make_all_suites_ix_temp1([], Result, TotSucc, TotFail, UserSkip, AutoSkip,
 			 TotNotBuilt) ->
     [Result|total_row(TotSucc, TotFail, UserSkip, AutoSkip, TotNotBuilt, undefined, true)].
 
-make_one_ix_entry_temp(TestName, {LogDir,Summary,URIs}, Label, All, Missing) ->
+make_one_ix_entry_temp(TestName, TestSpecName, {LogDir,Summary,URIs}, Label, All, Missing) ->
     case Summary of
 	{Succ,Fail,UserSkip,AutoSkip} ->
 	    NotBuilt = not_built(TestName, LogDir, All, Missing),
-	    {NewResult,URIs1} = make_one_index_entry1(TestName, LogDir, Label,
-						      Succ, Fail,
+	    {NewResult,URIs1} = make_one_index_entry1(TestName, TestSpecName, LogDir,
+						      Label, Succ, Fail,
 						      UserSkip, AutoSkip,
 						      NotBuilt, All, temp, URIs, undefined),
 	    {NewResult,Succ,Fail,UserSkip,AutoSkip,NotBuilt,URIs1};
@@ -3527,3 +3539,39 @@ write_log_cache(LogCacheBin) when is_binary(LogCacheBin) ->
     _ = file:write_file(TmpFile,LogCacheBin),
     _ = file:rename(TmpFile,?log_cache_name),
     ok.
+
+
+%% Spec name functionality
+get_spec_name(Dir, Default) ->
+    case get_spec_name_from_cache(Dir) of
+        undefined ->
+            case file:consult(filename:join(Dir, "spec_name")) of
+                {ok, [{?spec_cache_vsn, SpecName}]} ->
+                    put_spec_name_to_cache(Dir, SpecName),
+                    SpecName;
+                _ ->
+                    put_spec_name_to_cache(Dir, Default),
+                    Default
+            end;
+        SpecName ->
+            SpecName
+    end.
+
+get_spec_name_from_cache(Dir) ->
+    case get(ct_spec_name_cache) of
+        undefined -> undefined;
+        Cache ->
+            maps:get(Dir, Cache, undefined)
+    end.
+
+put_spec_name_to_cache(Dir, SpecName) ->
+    Cache0 =
+    case get(ct_spec_name_cache) of
+        undefined -> maps:new();
+        M -> M
+    end,
+    Cache = maps:put(Dir, SpecName, Cache0),
+    put(ct_spec_name_cache, Cache).
+
+get_spec_cache_vsn() ->
+    ?spec_cache_vsn.

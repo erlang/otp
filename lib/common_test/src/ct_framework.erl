@@ -31,7 +31,8 @@
 -export([init_tc/3, end_tc/3, end_tc/4, get_suite/2, get_all_cases/1]).
 -export([report/2, warn/1, error_notification/4]).
 
--export([get_log_dir/0, get_logopts/0, format_comment/1, get_html_wrapper/4]).
+-export([get_log_dir/0, get_logopts/0, format_comment/1, get_html_wrapper/4,
+         get_spec_cache_vsn/0, get_display_name/1]).
 
 -export([error_in_suite/1, init_per_suite/1, end_per_suite/1,
 	 init_per_group/2, end_per_group/2]).
@@ -1425,7 +1426,8 @@ report(What,Data) ->
 	    %% top level test index page needs to be refreshed
 	    TestName = filename:basename(?val(topdir, Data), ".logs"),
 	    RunDir = ?val(rundir, Data),
-	    _ = ct_logs:make_all_suites_index({TestName,RunDir},unknown),
+	    SpecName = ?val(spec_name, Data, TestName),
+	    _ = ct_logs:make_all_suites_index({TestName,SpecName,RunDir},unknown),
 	    ok;
 	tests_start ->
 	    ok;
@@ -1703,3 +1705,13 @@ expand_tests(Mod,[Test|Tests]) ->
     [Test|expand_tests(Mod,Tests)];
 expand_tests(_Mod,[]) ->
     [].
+
+%%%-----------------------------------------------------------------
+%%% -spec get_spec_cache_vsn() -> Vsn
+get_spec_cache_vsn() ->
+    ct_logs:get_spec_cache_vsn().
+
+%%%-----------------------------------------------------------------
+%%% -spec get_display_name(SpecName) -> DisplayName
+get_display_name(SpecName) ->
+    ct_util:get_display_name(SpecName).
