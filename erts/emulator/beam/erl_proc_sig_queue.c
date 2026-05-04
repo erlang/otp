@@ -6609,6 +6609,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                             mstate = erts_atomic_read_band_acqb(
                                 &msp->state, ~ERTS_MSUSPEND_STATE_FLG_ACTIVE);
                             if (mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE) {
+                                erts_backtrace_session_cleanup(c_p);
                                 erts_resume(c_p, ERTS_PROC_LOCK_MAIN);
                                 erts_resume_paused_proc_timer(c_p);
                                 erts_resume_paused_bif_timers(c_p);

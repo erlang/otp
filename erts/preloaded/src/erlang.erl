@@ -277,6 +277,13 @@ A timeout value that can be passed to a
 -export_type([monitor_option/0]).
 -export_type([stacktrace/0]).
 -export_type([processes_iter_ref/0]).
+-opaque process_info_backtrace_handle() :: {reference(), pid()}.
+-type process_info_backtrace_option() ::
+    {chunk_size,  pos_integer()} |
+    {frame_depth, pos_integer()} |
+    {term_depth,  pos_integer()}.
+-export_type([process_info_backtrace_handle/0,
+              process_info_backtrace_option/0]).
 
 -type stacktrace_extrainfo() ::
         {line, pos_integer()} |
@@ -477,7 +484,9 @@ A list of binaries. This datatype is useful to use together with
 -export([unique_integer/0, unique_integer/1]).
 -export([time_offset/0, time_offset/1, timestamp/0]).
 -export([process_display/2]).
--export([process_flag/3, process_info/1, processes/0, purge_module/1]).
+-export([process_flag/3, process_info/1, process_info_backtrace_start/2,
+         process_info_backtrace_next/1, process_info_backtrace_stop/1,
+         processes/0, purge_module/1]).
 -export([processes_iterator/0, processes_next/1]).
 -export([put/2, raise/3, read_timer/1, read_timer/2, ref_to_list/1, register/2]).
 -export([send_after/3, send_after/4, start_timer/3, start_timer/4]).
@@ -8693,6 +8702,73 @@ Failures:
       InfoTupleList :: [InfoTuple],
       InfoTuple :: process_info_result_item().
 process_info(_Pid,_ItemSpec) ->
+    erlang:nif_error(undefined).
+
+%% process_info_backtrace_start/2
+-doc """
+Starts a chunked backtrace session for the process identified by `Pid`.
+
+`Pid` is suspended for the duration of the session. The session must be ended
+by consuming all chunks (until `process_info_backtrace_next/1` returns `done`),
+by calling `process_info_backtrace_stop/1`, or it is ended automatically if the
+calling process exits.
+
+The returned `Handle` is an opaque reference used with
+`process_info_backtrace_next/1` and `process_info_backtrace_stop/1`.
+`Chunk` is the first chunk of the backtrace binary, at most `chunk_size` bytes.
+
+Options:
+- `{chunk_size, pos_integer()}` - Maximum bytes per chunk. Default: 4096.
+- `{frame_depth, pos_integer()}` - Maximum number of stack frames. Default: same as `erlang:system_flag(backtrace_depth)`.
+- `{term_depth, pos_integer()}` - Depth limit for printing terms on the stack. Default: 100000.
+
+Failures:
+- `badarg` - If `Pid` is not a process identifier, if `Options` is invalid,
+  or if the calling process attempts to inspect itself.
+- `noproc` - If the process identified by `Pid` is not alive.
+""".
+-doc #{ category => processes }.
+-spec process_info_backtrace_start(Pid, Options) ->
+          {ok, Handle, Chunk} | {error, Reason} when
+      Pid     :: pid(),
+      Options :: [process_info_backtrace_option()],
+      Handle  :: process_info_backtrace_handle(),
+      Chunk   :: binary(),
+      Reason  :: badarg | noproc.
+process_info_backtrace_start(_Pid, _Options) ->
+    erlang:nif_error(undefined).
+
+%% process_info_backtrace_next/1
+-doc """
+Returns the next chunk of the backtrace for a session started with
+`process_info_backtrace_start/2`.
+
+Returns `{more, Chunk}` while more data is available, or `done` when the
+backtrace has been fully delivered. When `done` is returned the session is
+automatically ended and the inspected process is resumed.
+
+Failures:
+- `badarg` - If `Handle` is not a valid active backtrace session handle.
+""".
+-doc #{ category => processes }.
+-spec process_info_backtrace_next(Handle) -> {more, Chunk} | done when
+      Handle :: process_info_backtrace_handle(),
+      Chunk  :: binary().
+process_info_backtrace_next(_Handle) ->
+    erlang:nif_error(undefined).
+
+%% process_info_backtrace_stop/1
+-doc """
+Explicitly ends a chunked backtrace session started with
+`process_info_backtrace_start/2`, resuming the inspected process.
+
+It is safe to call this at any point during a session, including after `done`
+has already been returned (in which case it is a no-op).
+""".
+-doc #{ category => processes }.
+-spec process_info_backtrace_stop(Handle) -> ok when
+      Handle :: process_info_backtrace_handle().
+process_info_backtrace_stop(_Handle) ->
     erlang:nif_error(undefined).
 
 -doc """

@@ -12208,6 +12208,7 @@ alloc_process(ErtsRunQueue *rq, int bound, erts_aint32_t state)
     ASSERT(internal_pid_serial(p->common.id) <= ERTS_MAX_INTERNAL_PID_SERIAL);
     
     p->rcount = 0;
+    p->chunked_backtrace = NULL;
     p->heap = NULL;
 
 
@@ -13215,6 +13216,7 @@ void erts_init_empty_process(Process *p)
     p->min_heap_size = 0;
     p->min_vheap_size = 0;
     p->rcount = 0;
+    p->chunked_backtrace = NULL;
     p->common.id = ERTS_INVALID_PID;
     p->reds = 0;
     p->common.tracee.first_ref = NULL;
@@ -14513,6 +14515,7 @@ restart:
         trap_state->pectxt.yield = 0;
 
         p->rcount = 0;
+        p->chunked_backtrace = NULL;
 
         if (p->flags & F_FRAGMENTED_SEND) {
             /* The process was re-scheduled while doing a fragmented
@@ -14899,6 +14902,47 @@ erts_stack_dump(fmtfn_t to, void *to_arg, Process *p)
     erts_program_counter_info(to, to_arg, p);
     for (sp = p->stop; sp < STACK_START(p); sp++) {
         yreg = stack_element_dump(to, to_arg, sp, yreg);
+    }
+}
+
+/*
+ * Lazy variant of erts_stack_dump: emit one logical unit per call.
+ * The cursor must be zero-initialised before the first call.
+ * Returns 1 if more units remain, 0 when all output has been produced.
+ * Produces the same bytes as erts_stack_dump in total.
+ */
+int
+erts_stack_dump_step(fmtfn_t to, void *to_arg, Process *p,
+                     ErtsStackDumpCursor *cur)
+{
+    if (ERTS_IS_PROC_SENSITIVE(p)) {
+        cur->phase = ERTS_STACK_DUMP_PHASE_DONE;
+        return 0;
+    }
+
+    switch (cur->phase) {
+    case ERTS_STACK_DUMP_PHASE_PC_INFO:
+        erts_program_counter_info(to, to_arg, p);
+        cur->phase = ERTS_STACK_DUMP_PHASE_STACK;
+        cur->sp    = p->stop;
+        cur->yreg  = 0;
+        if (cur->sp >= STACK_START(p)) {
+            cur->phase = ERTS_STACK_DUMP_PHASE_DONE;
+            return 0;
+        }
+        return 1;
+
+    case ERTS_STACK_DUMP_PHASE_STACK:
+        cur->yreg = stack_element_dump(to, to_arg, cur->sp, cur->yreg);
+        cur->sp++;
+        if (cur->sp >= STACK_START(p)) {
+            cur->phase = ERTS_STACK_DUMP_PHASE_DONE;
+            return 0;
+        }
+        return 1;
+
+    default: /* DONE */
+        return 0;
     }
 }
 

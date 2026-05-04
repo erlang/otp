@@ -113,7 +113,14 @@
          down_aliasmonitor/1,
          monitor_tag/1,
          no_pid_wrap/1,
-         processes_iter/1]).
+         processes_iter/1,
+         chunked_backtrace_reassembly/1,
+         chunked_backtrace_single_chunk/1,
+         chunked_backtrace_repeated/1,
+         chunked_backtrace_early_stop/1,
+         chunked_backtrace_stale_stop/1,
+         chunked_backtrace_caller_exit/1,
+         chunked_backtrace_deep_process/1]).
 
 -export([prio_server/2, prio_client/2, init/1, handle_event/2]).
 
@@ -141,6 +148,7 @@ all() ->
      otp_6237,
      {group, spawn_request},
      {group, process_info_bif},
+     {group, chunked_backtrace_bif},
      {group, suspend_process_bif},
      {group, processes_bif},
      {group, otp_7738}, garb_other_running,
@@ -197,6 +205,14 @@ groups() ->
        process_info_msgq_len_no_very_long_delay,
        process_info_dict_lookup,
        process_info_label]},
+     {chunked_backtrace_bif, [],
+      [chunked_backtrace_reassembly,
+       chunked_backtrace_single_chunk,
+       chunked_backtrace_repeated,
+       chunked_backtrace_early_stop,
+       chunked_backtrace_stale_stop,
+       chunked_backtrace_caller_exit,
+       chunked_backtrace_deep_process]},
      {suspend_process_bif, [],
       [suspend_process_pausing_proc_timer,
        suspend_process_pausing_proc_timer_multi_suspend,
@@ -6062,3 +6078,120 @@ get_hostname([_ | Rest]) ->
 
 receive_any() ->
     receive M -> M end.
+
+%%
+%% Helpers for chunked backtrace tests
+%%
+
+cb_drain(Handle, Acc) ->
+    case erlang:process_info_backtrace_next(Handle) of
+        done      -> iolist_to_binary(lists:reverse(Acc));
+        {more, B} -> cb_drain(Handle, [B | Acc])
+    end.
+
+cb_wait_loop(0) -> receive _ -> ok end;
+cb_wait_loop(N) -> cb_wait_loop(N - 1).
+
+cb_stack_deep(0, _BigTerm) ->
+    receive _ -> ok end;
+cb_stack_deep(N, BigTerm) ->
+    _R = cb_stack_deep(N - 1, BigTerm),
+    %% Reference BigTerm so it stays on the stack frame
+    case BigTerm of _ -> ok end.
+
+cb_make_big_term(0) -> leaf;
+cb_make_big_term(N) ->
+    {N, cb_make_big_term(N - 1), lists:seq(1, 5)}.
+
+%%
+%% chunked_backtrace_bif tests
+%%
+
+chunked_backtrace_reassembly(Config) when is_list(Config) ->
+    Pid = spawn(fun () -> cb_wait_loop(200) end),
+    timer:sleep(50),
+    {backtrace, Classic} = process_info(Pid, backtrace),
+    {ok, H, First} = erlang:process_info_backtrace_start(Pid, [{chunk_size, 64}]),
+    Rest = cb_drain(H, []),
+    Reassembled = iolist_to_binary([First, Rest]),
+    Classic = Reassembled,
+    {status, waiting} = process_info(Pid, status),
+    exit(Pid, kill).
+
+chunked_backtrace_single_chunk(Config) when is_list(Config) ->
+    Pid = spawn(fun () -> cb_wait_loop(200) end),
+    timer:sleep(50),
+    {backtrace, Classic} = process_info(Pid, backtrace),
+    {ok, H, Chunk} = erlang:process_info_backtrace_start(Pid, [{chunk_size, 1000000}]),
+    done = erlang:process_info_backtrace_next(H),
+    Chunk = Classic,
+    {status, waiting} = process_info(Pid, status),
+    exit(Pid, kill).
+
+chunked_backtrace_repeated(Config) when is_list(Config) ->
+    Pid = spawn(fun () -> cb_wait_loop(200) end),
+    timer:sleep(50),
+    {backtrace, Classic} = process_info(Pid, backtrace),
+    lists:foreach(
+      fun (_) ->
+              {ok, H, F} = erlang:process_info_backtrace_start(Pid, [{chunk_size, 100}]),
+              Rest = cb_drain(H, []),
+              Classic = iolist_to_binary([F, Rest])
+      end, lists:seq(1, 3)),
+    {status, waiting} = process_info(Pid, status),
+    exit(Pid, kill).
+
+chunked_backtrace_early_stop(Config) when is_list(Config) ->
+    Pid = spawn(fun () -> cb_wait_loop(200) end),
+    timer:sleep(50),
+    {ok, H, _First} = erlang:process_info_backtrace_start(Pid, [{chunk_size, 64}]),
+    ok = erlang:process_info_backtrace_stop(H),
+    %% Target must have been resumed by stop
+    {status, waiting} = process_info(Pid, status),
+    exit(Pid, kill).
+
+chunked_backtrace_stale_stop(Config) when is_list(Config) ->
+    Pid = spawn(fun () -> cb_wait_loop(200) end),
+    timer:sleep(50),
+    {backtrace, Classic} = process_info(Pid, backtrace),
+    %% Drain fully, then issue a stop on the already-finished handle (stale stop).
+    {ok, H1, F1} = erlang:process_info_backtrace_start(Pid, [{chunk_size, 200}]),
+    Rest1 = cb_drain(H1, []),
+    Classic = iolist_to_binary([F1, Rest1]),
+    {status, waiting} = process_info(Pid, status),
+    ok = erlang:process_info_backtrace_stop(H1),
+    {status, waiting} = process_info(Pid, status),
+    %% A fresh session after the stale stop must still produce correct output.
+    {ok, H2, F2} = erlang:process_info_backtrace_start(Pid, [{chunk_size, 300}]),
+    Rest2 = cb_drain(H2, []),
+    Classic = iolist_to_binary([F2, Rest2]),
+    {status, waiting} = process_info(Pid, status),
+    exit(Pid, kill).
+
+chunked_backtrace_caller_exit(Config) when is_list(Config) ->
+    Pid = spawn(fun () -> cb_wait_loop(200) end),
+    timer:sleep(50),
+    Self = self(),
+    Caller = spawn(
+               fun () ->
+                       {ok, _H, _F} = erlang:process_info_backtrace_start(Pid, [{chunk_size, 64}]),
+                       Self ! started,
+                       exit(die)
+               end),
+    receive started -> ok end,
+    %% Give the caller process time to exit and let the runtime clean up
+    timer:sleep(200),
+    false = is_process_alive(Caller),
+    %% Target must have been auto-resumed when its caller exited
+    {status, waiting} = process_info(Pid, status),
+    exit(Pid, kill).
+
+chunked_backtrace_deep_process(Config) when is_list(Config) ->
+    BigTerm = cb_make_big_term(20),
+    Pid = spawn(fun () -> cb_stack_deep(60, BigTerm) end),
+    timer:sleep(50),
+    {backtrace, Classic} = process_info(Pid, backtrace),
+    {ok, H, F} = erlang:process_info_backtrace_start(Pid, [{chunk_size, 512}]),
+    Rest = cb_drain(H, []),
+    Classic = iolist_to_binary([F, Rest]),
+    exit(Pid, kill).

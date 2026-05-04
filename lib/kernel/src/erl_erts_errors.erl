@@ -793,6 +793,17 @@ format_erlang_error(process_info, [Pid,_What], _) ->
         _ ->
             [Arg1]
     end;
+format_erlang_error(process_info_backtrace_next, [_Handle], _) ->
+    [<<"invalid backtrace handle">>];
+format_erlang_error(process_info_backtrace_start, [Pid, _Opts], _) ->
+    case must_be_local_pid(Pid, <<"cannot inspect own process">>) of
+        [] ->
+            [[],<<"invalid options">>];
+        Err ->
+            [Err]
+    end;
+format_erlang_error(process_info_backtrace_stop, [_Handle], _) ->
+    [<<"invalid backtrace handle">>];
 format_erlang_error(purge_module, [Module], _) ->
     [must_be_atom(Module)];
 format_erlang_error(read_timer, [_], _) ->
