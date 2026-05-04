@@ -766,6 +766,12 @@ error_info(_Config) ->
          {binary_to_float, [abc]},
          {binary_to_float, [<<"0">>]},
          {binary_to_float, [<<"abc">>]},
+
+         {binary_to_float, [<<"abc">>, 2]},
+         {binary_to_float, [abc, 2]},
+         {binary_to_float, [<<"42.0">>, 1]},
+         {binary_to_float, [<<"42.0">>, 37]},
+
          {binary_to_integer, [abc]},
          {binary_to_integer, [<<"abc">>]},
 
@@ -970,6 +976,11 @@ error_info(_Config) ->
 
          {list_to_float, ["abc"]},
          {list_to_float, [abc]},
+
+         {list_to_float, ["abc", 2]},
+         {list_to_float, [abc, 2]},
+         {list_to_float, ["42.0", 1]},
+         {list_to_float, ["42.0", 37]},
 
          {list_to_integer, ["abc"]},
          {list_to_integer, [[a,b,c]]},

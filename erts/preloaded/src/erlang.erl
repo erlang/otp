@@ -429,7 +429,7 @@ A list of binaries. This datatype is useful to use together with
 -export([atom_to_list/1, binary_part/2, binary_part/3]).
 -export([binary_to_atom/1, binary_to_atom/2]).
 -export([binary_to_existing_atom/1, binary_to_existing_atom/2]).
--export([binary_to_float/1]).
+-export([binary_to_float/1, binary_to_float/2]).
 -export([binary_to_integer/1,binary_to_integer/2]).
 -export([binary_to_list/1]).
 -export([binary_to_list/3, binary_to_term/1, binary_to_term/2]).
@@ -459,7 +459,8 @@ A list of binaries. This datatype is useful to use together with
 -export([iolist_size/1, iolist_to_binary/1, iolist_to_iovec/1]).
 -export([is_alive/0, is_builtin/3, is_map_key/2, is_process_alive/1, length/1]).
 -export([link/1, link/2, list_to_atom/1, list_to_binary/1]).
--export([list_to_bitstring/1, list_to_existing_atom/1, list_to_float/1]).
+-export([list_to_bitstring/1, list_to_existing_atom/1]).
+-export([list_to_float/1, list_to_float/2]).
 -export([list_to_integer/1, list_to_integer/2]).
 -export([list_to_pid/1, list_to_port/1, list_to_ref/1, list_to_tuple/1, loaded/0]).
 -export([localtime/0, make_ref/0]).
@@ -1027,6 +1028,30 @@ Failure: `badarg` if `Binary` contains an invalid representation of a float.
 -spec binary_to_float(Binary) -> float() when
       Binary :: binary().
 binary_to_float(_Binary) ->
+    erlang:nif_error(undefined).
+
+-doc """
+Returns the float whose text representation in base `Base` is `Binary`.
+
+## Example
+
+```erlang
+1> binary_to_float(<<"3FF.0">>, 16).
+1023
+2> binary_to_float(<<"101.0">>, 2).
+5.0
+```
+
+[`binary_to_float/2`](`binary_to_float/2`) accepts the same string formats
+as `list_to_float/2`.
+
+Failure: `badarg` if `Binary` contains a invalid representation of a float.
+""".
+-doc #{ category => terms }.
+-spec binary_to_float(Binary, Base) -> float() when
+      Binary :: binary(),
+      Base :: 2..36.
+binary_to_float(_Binary, _Base) ->
     erlang:nif_error(undefined).
 
 -doc """
@@ -2797,7 +2822,8 @@ decimal point formatting.
 -spec float_to_binary(Float, Options) -> binary() when
       Float :: float(),
       Options :: [Option],
-      Option  :: {decimals, Decimals :: 0..253} |
+      Option  :: {base, Base :: 2..36} |
+                 {decimals, Decimals :: 0..253} |
                  {scientific, Decimals :: 0..249} |
                  compact |
                  short.
@@ -2831,6 +2857,8 @@ Available options:
   is used (scientific notation or normal decimal notation). Floats outside the
   range (-2⁵³, 2⁵³) are always formatted using scientific notation to avoid
   confusing results when doing arithmetic operations.
+- If option `base` is specified, the float is converted in the specified base
+  (between 2 and 36). The default base is 10.
 - If `Options` is `[]`, the function behaves as `float_to_list/1`.
 
 ## Examples
@@ -2859,7 +2887,8 @@ In the last example, [`float_to_list(0.1+0.2)`](`float_to_list/1`) evaluates to
 -spec float_to_list(Float, Options) -> string() when
       Float :: float(),
       Options :: [Option],
-      Option  :: {decimals, Decimals :: 0..253} |
+      Option  :: {base, Base :: 2..36} |
+                 {decimals, Decimals :: 0..253} |
                  {scientific, Decimals :: 0..249} |
                  compact |
                  short.
@@ -4086,6 +4115,42 @@ Failure: `badarg` if `String` contains a invalid representation of a float.
 -spec list_to_float(String) -> float() when
       String :: string().
 list_to_float(_String) ->
+    erlang:nif_error(undefined).
+
+-doc """
+Returns the float whose text representation in base `Base` is `String`.
+
+The float string format is the same as the format for
+[Erlang float literals](`e:system:data_types.md`) except for that underscores
+are not permitted. 
+
+Failure: `badarg` if `String` contains an invalid representation of a float.
+
+## Examples
+
+```erlang
+1> list_to_float("1.01", 2).
+1.25
+2> list_to_float("+1.01", 2).
+1.25
+3> list_to_float("-1.01", 2).
+-1.25
+4> list_to_float("-3FF.0", 16).
+-1023.0
+5> list_to_float("Base36IsFun.0", 36).
+41313437507787071.0
+6> list_to_float("102", 2).
+** exception error: bad argument
+     in function  list_to_float/2
+        called as list_to_float("102",2)
+        *** argument 1: not a textual representation of a float
+```
+""".
+-doc #{ category => terms }.
+-spec list_to_float(String, Base) -> float() when
+      String :: string(),
+      Base :: 2..36.
+list_to_float(_String, _Base) ->
     erlang:nif_error(undefined).
 
 -doc """

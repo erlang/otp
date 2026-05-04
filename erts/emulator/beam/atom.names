@@ -130,6 +130,7 @@ atom badopt badtype
 atom bad_map_iterator
 atom bag
 atom band
+atom base
 atom big
 atom bif_handle_signals_return
 atom bif_return_trap
