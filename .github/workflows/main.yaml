@@ -350,6 +350,9 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     needs:
+      - check-files
+      - build-base-docker
+      - setup
       - pack
       - build-macos
       - build-ios
