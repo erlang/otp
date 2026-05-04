@@ -1,0 +1,1 @@
+{suites, "../tests2", t6_SUITE}.

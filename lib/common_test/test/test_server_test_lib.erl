@@ -151,6 +151,7 @@ parse_suite(Fd, S) ->
     "=successful"   ++ Succ    = fline(Fd),
     "=user_skipped" ++ UsrSkip = fline(Fd),
     "=auto_skipped" ++ AutSkip  = fline(Fd),
+    "=elapsed_time" ++ _ElapsedTime = fline(Fd),
     NewS#suite{ n_cases_failed = list_to_int(clean(Failed)),
 		n_cases_succ   = list_to_int(clean(Succ)),
 		n_cases_user_skip   = list_to_int(clean(UsrSkip)),

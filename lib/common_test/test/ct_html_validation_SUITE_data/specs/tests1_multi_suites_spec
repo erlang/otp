@@ -1,0 +1,1 @@
+{suites, "../tests1", [t3_SUITE, t4_SUITE]}.

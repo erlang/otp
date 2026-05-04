@@ -1,0 +1,1 @@
+{suites, "../tests1", all}.

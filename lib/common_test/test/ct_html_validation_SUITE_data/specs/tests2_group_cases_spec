@@ -1,0 +1,1 @@
+{groups, "../tests2", t8_SUITE, group2, {cases, [test2c, test2d]}}.

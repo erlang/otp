@@ -1,0 +1,1 @@
+{cases, "../tests2", t8_SUITE, [test1a, test1b]}.

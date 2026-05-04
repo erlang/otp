@@ -33,7 +33,7 @@
 	 init_per_testcase/2, end_per_testcase/2,
 	 write_testspec/2, write_testspec/3,
 	 run/2, run/3, run/4, run_ct_run_test/2, run_ct_script_start/2,
-	 get_opts/1, wait_for_ct_stop/1]).
+	 get_opts/1, get_overwritten_opts/1, wait_for_ct_stop/1]).
 
 -export([handle_event/2, start_event_receiver/1, get_events/2,
 	 verify_events/3, verify_events/4, reformat/2, log_events/4,
@@ -247,16 +247,14 @@ get_opts(Config) ->
 	end,
     [{logdir,LogDir} | InitOpts ++ CtTestVars].
 
-
 %%%-----------------------------------------------------------------
 %%% 
-run(Opts0, Config) when is_list(Opts0) ->
-    Opts =
+get_overwritten_opts(Opts) when is_list(Opts) ->
 	%% read (and override) opts from env variable, the form expected:
 	%% "[{some_key1,SomeVal2}, {some_key2,SomeVal2}]"
 	case os:getenv("CT_TEST_OPTS") of
-	    false -> Opts0;
-	    ""    -> Opts0;
+	    false -> Opts;
+	    ""    -> Opts;
 	    Terms ->
 		case erl_scan:string(Terms++".", 0) of
 		    {ok,Tokens,_} ->
@@ -268,14 +266,19 @@ run(Opts0, Config) when is_list(Opts0) ->
 						      "OPTION: ~tp~n", [O]),
 					    [O | lists:keydelete(Key, 1, Os)]
 				    end,
-				lists:foldl(Override, Opts0, OROpts);
+				lists:foldl(Override, Opts, OROpts);
 			    _ ->
-				Opts0
+				Opts
 			end;
 		    _ ->
-			Opts0
+			Opts
 		end
-	end,
+	end.
+
+%%%-----------------------------------------------------------------
+%%% 
+run(Opts0, Config) when is_list(Opts0) ->
+    Opts = get_overwritten_opts(Opts0),
 
     %% use ct interface
     CtRunTestResult=run_ct_run_test(Opts,Config),

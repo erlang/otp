@@ -79,10 +79,13 @@ MODULES= \
 	ct_auto_clean_SUITE \
 	ct_util_SUITE \
 	ct_tc_repeat_SUITE \
-	ct_property_test_SUITE
+	ct_property_test_SUITE \
+	ct_results_parser \
+	ct_results_validator \
+	ct_html_validation_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
-HRL_FILES= test_server_test_lib.hrl
+HRL_FILES= test_server_test_lib.hrl ct_results_parser.hrl ct_html_validation_SUITE.hrl
 
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 INSTALL_PROGS= $(TARGET_FILES)

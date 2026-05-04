@@ -1,0 +1,1 @@
+{groups, "../tests1", t4_SUITE, [[group1, subgroup1a]]}.
