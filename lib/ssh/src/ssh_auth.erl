@@ -341,9 +341,9 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
         UserOk andalso
         verify_sig(SessionId, User, "ssh-connection", BAlg, KeyBlob, SigWLen, Ssh)
     of
-	true ->
+	{true, Key} ->
 	    {authorized, User, 
-             {#ssh_msg_userauth_success{}, Ssh}
+             {#ssh_msg_userauth_success{}, Ssh#ssh{authenticated_public_key = Key}}
             };
 	false ->
 	    {not_authorized, {User, undefined}, 
@@ -569,7 +569,12 @@ verify_sig(SessionId, User, Service, AlgBin, KeyBlob, SigWLen, #ssh{opts=Opts} =
         <<?UINT32(AlgSigLen), AlgSig:AlgSigLen/binary>> = SigWLen,
         <<?UINT32(AlgLen), _Alg:AlgLen/binary,
           ?UINT32(SigLen), Sig:SigLen/binary>> = AlgSig,
-        ssh_transport:verify(PlainText, list_to_existing_atom(Alg), Sig, Key, Ssh)
+        case ssh_transport:verify(PlainText, list_to_existing_atom(Alg), Sig, Key, Ssh) of
+            true ->
+                {true, Key};
+            false ->
+                false
+        end
     catch
 	_:_ ->
 	    false

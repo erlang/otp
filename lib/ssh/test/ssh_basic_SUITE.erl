@@ -61,6 +61,7 @@
          exec_compressed_post_auth_compression/1,
          exec_with_io_in/1,
          exec_with_io_out/1,
+         exec_extended_pub_key/1,
          host_equal/2,
          idle_time_client/1,
          idle_time_server/1,
@@ -152,6 +153,7 @@ groups() ->
      {p_basic, [?PARALLEL], [send, parallel_login, peername_sockname,
                              exec, exec_compressed, exec_compressed_post_auth_compression,
                              exec_with_io_out, exec_with_io_in,
+                             exec_extended_pub_key,
                              cli, cli_exit_normal, cli_exit_status,
                              idle_time_client, idle_time_server,
                              max_initial_idle_time,
@@ -437,6 +439,49 @@ exec_compressed_helper(Config, CompressAlgorithm) ->
         Other ->
             ct:fail(Other)
     end,
+    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+%%% Test that exec_extended allows access to public key
+exec_extended_pub_key(Config) ->
+        process_flag(trap_exit, true),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
+    F = fun(Map) ->
+        {ok, maps:get(public_key, Map, no_key)}
+    end,
+    
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                             {user_dir, UserDir},
+                                             {failfun, fun ssh_test_lib:failfun/2},
+                                             {exec, {direct_extended, F}}]),
+
+    %% Extract public key that the client will use
+    {ok, #'RSAPrivateKey'{modulus = M, publicExponent = P}} =
+        ssh_key_cb:user_key('ssh-rsa', [{user_dir, UserDir}]),
+    PubKey = #'RSAPublicKey'{modulus = M, publicExponent = P},
+    PubKeyBinary = list_to_binary(io_lib:format("~p", [PubKey])),
+    
+    %% Connect using public key (no password option)
+    ConnectionRef =
+        ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                          {user_dir, UserDir},
+                                          {user_interaction, false},
+                                          {key_cb, ssh_key_cb}]),
+    
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    success = ssh_connection:exec(ConnectionRef, ChannelId, "none", infinity),
+    
+    Data = {ssh_cm, ConnectionRef, {data, ChannelId, 0, PubKeyBinary}},
+    case ssh_test_lib:receive_exec_result(Data) of
+        expected ->
+            ok;
+        Other ->
+            ct:fail(Other)
+    end,
+    
     ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).

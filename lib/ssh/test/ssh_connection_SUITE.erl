@@ -100,6 +100,7 @@
          start_shell_exec_direct_fun1_error_type/1,
          start_shell_exec_direct_fun2/1,
          start_shell_exec_direct_fun3/1,
+         start_shell_exec_direct_extended_fun/1,
          start_shell_exec_direct_fun_more_data/1,
          start_shell_exec_fun/1,
          start_shell_exec_fun2/1,
@@ -152,6 +153,7 @@ all() ->
      start_shell_exec_direct_fun,
      start_shell_exec_direct_fun2,
      start_shell_exec_direct_fun3,
+     start_shell_exec_direct_extended_fun,
      start_shell_exec_direct_fun_more_data,
      start_shell_exec_direct_fun1_error,
      start_shell_exec_direct_fun1_error_type,
@@ -1033,7 +1035,15 @@ start_shell_exec_direct_fun3(Config) ->
                             "testing", <<"echo foo testing">>, 0,
                             Config).
 
+start_shell_exec_direct_extended_fun(Config) ->
+    do_start_shell_exec_fun({direct_extended, fun(Map) -> {ok, io_lib:format("echo ~s ~s", [maps:get(user, Map), maps:get(cmd, Map)])} end},
+                            "testing", <<"echo foo testing">>, 0,
+                            Config).
+
 start_shell_exec_direct_fun_more_data(Config) ->
+    [start_shell_exec_direct_fun_more_data(Config, Variant) || Variant <- [direct, direct_extended]].
+
+start_shell_exec_direct_fun_more_data(Config, Variant) ->
     N = 60000,
     ExpectedBin = <<"testing\n">>,
     ReceiveFun =
@@ -1041,7 +1051,7 @@ start_shell_exec_direct_fun_more_data(Config) ->
                 receive_bytes(ConnectionRef, ChannelId,
                               N * byte_size(ExpectedBin), 0)
         end,
-    do_start_shell_exec_fun({direct,
+    do_start_shell_exec_fun({Variant,
                              fun(_Cmd) ->
                                      {ok,
                                       [io_lib:format("testing~n",[]) ||
@@ -1052,16 +1062,25 @@ start_shell_exec_direct_fun_more_data(Config) ->
                             Config).
 
 start_shell_exec_direct_fun1_error(Config) ->
-    do_start_shell_exec_fun({direct, fun(_Cmd) -> {error, {bad}} end},
+    [start_shell_exec_direct_fun1_error(Config, Variant) || Variant <- [direct, direct_extended]].
+
+start_shell_exec_direct_fun1_error(Config, Variant) ->
+    do_start_shell_exec_fun({Variant, fun(_Cmd) -> {error, {bad}} end},
                             "testing", <<"**Error** {bad}">>, 1,
                             Config).
 
 start_shell_exec_direct_fun1_error_type(Config) ->
-    do_start_shell_exec_fun({direct, fun(_Cmd) -> very_bad end},
+    [start_shell_exec_direct_fun1_error_type(Config, Variant) || Variant <- [direct, direct_extended]].
+
+start_shell_exec_direct_fun1_error_type(Config, Variant) ->
+    do_start_shell_exec_fun({Variant, fun(_Cmd) -> very_bad end},
                             "testing", <<"**Error** Bad exec fun in server. Invalid return value: very_bad">>, 1,
                             Config).
 
 start_exec_direct_fun1_read_write(Config) ->
+    [start_exec_direct_fun1_read_write(Config, Variant) || Variant <- [direct, direct_extended]].
+
+start_exec_direct_fun1_read_write(Config, Variant) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
@@ -1069,7 +1088,7 @@ start_exec_direct_fun1_read_write(Config) ->
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_dir, UserDir},
 					     {password, "morot"},
-					     {exec, {direct,fun read_write_loop/1}}]),
+					     {exec, {Variant,fun read_write_loop/1}}]),
 
     C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
                                           {user, "foo"},
@@ -1108,8 +1127,10 @@ start_exec_direct_fun1_read_write(Config) ->
     end,
     ssh:stop_daemon(Pid).
 
-
 start_exec_direct_fun1_read_write_advanced(Config) ->
+    [start_exec_direct_fun1_read_write_advanced(Config, Variant) || Variant <- [direct, direct_extended]].
+
+start_exec_direct_fun1_read_write_advanced(Config, Variant) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
@@ -1117,7 +1138,7 @@ start_exec_direct_fun1_read_write_advanced(Config) ->
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_dir, UserDir},
 					     {password, "morot"},
-					     {exec, {direct,fun read_write_loop/1}}]),
+					     {exec, {Variant,fun read_write_loop/1}}]),
 
     C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
                                           {user, "foo"},
@@ -1166,6 +1187,8 @@ start_exec_direct_fun1_read_write_advanced(Config) ->
 
     
 %% A tiny read-write loop ended by a 'quit.\n'
+read_write_loop(Map) when is_map(Map) ->
+    read_write_loop(maps:get(cmd, Map));
 read_write_loop(Prompt) ->
     io:format("Tiny read/write test~n", []),
     read_write_loop1(Prompt, 1).
