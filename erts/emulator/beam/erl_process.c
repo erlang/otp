@@ -559,7 +559,7 @@ do {									\
 
 static void exec_misc_ops(ErtsRunQueue *);
 static void print_function_from_pc(fmtfn_t to, void *to_arg, ErtsCodePtr x);
-static Uint stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, Uint yreg);
+static Uint stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, Uint yreg, int precision);
 
 static void aux_work_timeout(void *unused);
 static void aux_work_timeout_early_init(int max_no_aux_work_threads);
@@ -14901,7 +14901,7 @@ erts_stack_dump(fmtfn_t to, void *to_arg, Process *p)
     }
     erts_program_counter_info(to, to_arg, p);
     for (sp = p->stop; sp < STACK_START(p); sp++) {
-        yreg = stack_element_dump(to, to_arg, sp, yreg);
+        yreg = stack_element_dump(to, to_arg, sp, yreg, -1);
     }
 }
 
@@ -14933,7 +14933,7 @@ erts_stack_dump_step(fmtfn_t to, void *to_arg, Process *p,
         return 1;
 
     case ERTS_STACK_DUMP_PHASE_STACK:
-        cur->yreg = stack_element_dump(to, to_arg, cur->sp, cur->yreg);
+        cur->yreg = stack_element_dump(to, to_arg, cur->sp, cur->yreg, INT_MAX);
         cur->sp++;
         if (cur->sp >= STACK_START(p)) {
             cur->phase = ERTS_STACK_DUMP_PHASE_DONE;
@@ -15010,7 +15010,7 @@ print_function_from_pc(fmtfn_t to, void *to_arg, ErtsCodePtr x)
 }
 
 static Uint
-stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, Uint yreg)
+stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, Uint yreg, int precision)
 {
     Eterm x = *sp;
 
@@ -15033,7 +15033,7 @@ stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, Uint yreg)
         print_function_from_pc(to, to_arg, catch_pc(x));
         erts_print(to, to_arg, ")\n");
     } else {
-	erts_print(to, to_arg, "%T\n", x);
+        erts_print(to, to_arg, "%.*T\n", precision, x);
     }
     return yreg;
 }
