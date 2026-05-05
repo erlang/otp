@@ -6447,6 +6447,69 @@ static void os_info_init(void)
 #define BACKTRACE_DEFAULT_CHUNK_SIZE 1024
 
 /*
+ * The stepbuf is allocated on one scheduler (inside backtrace_start_cb) and
+ * may be freed on a *different* scheduler (inside backtrace_next_cb / _stop_cb
+ * / erts_backtrace_session_cleanup) because the target process can migrate
+ * between schedulers while suspended.
+ *
+ * ERTS_ALC_T_TMP_DSBUF uses a thread-specific (thr_spec) allocator: freeing a
+ * carrier on a different thread than the one that allocated it causes
+ * destroy_carrier() to call unlink_carrier() with the wrong carrier list,
+ * leading to the NULL-pointer dereference we observed (crr->prev->next where
+ * crr->prev == NULL).
+ *
+ * ERTS_ALC_T_SIG_DATA uses a thread-safe allocator (sl_alloc/std_alloc with a
+ * mutex) that is explicitly designed for cross-scheduler signal data.  Using
+ * it for the stepbuf is safe because the session lifetime already spans
+ * multiple scheduler contexts.
+ */
+#define BACKTRACE_DSBUF_INC_SZ 256
+
+static erts_dsprintf_buf_t *
+grow_backtrace_dsbuf(erts_dsprintf_buf_t *dsbufp, size_t need)
+{
+    size_t size;
+    size_t free_size = dsbufp->size - dsbufp->str_len;
+
+    ASSERT(dsbufp);
+
+    if (need <= free_size)
+        return dsbufp;
+    size = need - free_size + BACKTRACE_DSBUF_INC_SZ;
+    size = ((size + BACKTRACE_DSBUF_INC_SZ - 1) / BACKTRACE_DSBUF_INC_SZ)
+           * BACKTRACE_DSBUF_INC_SZ;
+    size += dsbufp->size;
+    ASSERT(dsbufp->str_len + need <= size);
+    dsbufp->str = (char *) erts_realloc(ERTS_ALC_T_SIG_DATA,
+                                        (void *) dsbufp->str,
+                                        size);
+    dsbufp->size = size;
+    return dsbufp;
+}
+
+static erts_dsprintf_buf_t *
+create_backtrace_dsbuf(Uint size)
+{
+    Uint init_size = size ? size : BACKTRACE_DSBUF_INC_SZ;
+    erts_dsprintf_buf_t init = ERTS_DSPRINTF_BUF_INITER(grow_backtrace_dsbuf);
+    erts_dsprintf_buf_t *dsbufp = erts_alloc(ERTS_ALC_T_SIG_DATA,
+                                             sizeof(erts_dsprintf_buf_t));
+    sys_memcpy((void *) dsbufp, (void *) &init, sizeof(erts_dsprintf_buf_t));
+    dsbufp->str = (char *) erts_alloc(ERTS_ALC_T_SIG_DATA, init_size);
+    dsbufp->str[0] = '\0';
+    dsbufp->size = init_size;
+    return dsbufp;
+}
+
+static void
+destroy_backtrace_dsbuf(erts_dsprintf_buf_t *dsbufp)
+{
+    if (dsbufp->str)
+        erts_free(ERTS_ALC_T_SIG_DATA, (void *) dsbufp->str);
+    erts_free(ERTS_ALC_T_SIG_DATA, (void *) dsbufp);
+}
+
+/*
  * Build a binary term from 'size' bytes of 'data' using the given heap
  * factory.  Returns the Eterm tag.
  */
@@ -6480,7 +6543,7 @@ fill_to_chunk(Process *p, ErtsBacktraceSession *ses)
         return;
 
     if (!ses->stepbuf)
-        ses->stepbuf = erts_create_tmp_dsbuf(ses->chunk_size * 2);
+        ses->stepbuf = create_backtrace_dsbuf(ses->chunk_size * 2);
 
     while (ses->stepbuf->str_len - ses->stepbuf_pos < ses->chunk_size) {
         if (!erts_stack_dump_step(ERTS_PRINT_DSBUF,
@@ -6616,7 +6679,7 @@ erts_backtrace_session_cleanup(Process *c_p)
 
     ses->mon_mdp = NULL; /* being freed by the demonitor path */
     if (ses->stepbuf)
-        erts_destroy_tmp_dsbuf(ses->stepbuf);
+        destroy_backtrace_dsbuf(ses->stepbuf);
     erts_free(ERTS_ALC_T_SIG_DATA, ses);
     c_p->chunked_backtrace = NULL;
 }
@@ -6659,7 +6722,7 @@ backtrace_start_cb(Process *c_p, void *arg, int *redsp, ErlHeapFragment **bpp)
         erts_resume_paused_bif_timers(c_p);
         erts_resume(c_p, ERTS_PROC_LOCK_MAIN);
         if (ses->stepbuf)
-            erts_destroy_tmp_dsbuf(ses->stepbuf);
+            destroy_backtrace_dsbuf(ses->stepbuf);
         erts_free(ERTS_ALC_T_SIG_DATA, ses);
         c_p->chunked_backtrace = NULL;
         return am_done;
@@ -6702,7 +6765,7 @@ backtrace_next_cb(Process *c_p, void *arg, int *redsp, ErlHeapFragment **bpp)
         erts_resume_paused_proc_timer(c_p);
         erts_resume_paused_bif_timers(c_p);
         if (ses->stepbuf)
-            erts_destroy_tmp_dsbuf(ses->stepbuf);
+            destroy_backtrace_dsbuf(ses->stepbuf);
         erts_free(ERTS_ALC_T_SIG_DATA, ses);
         c_p->chunked_backtrace = NULL;
         erts_resume(c_p, ERTS_PROC_LOCK_MAIN);
@@ -6735,7 +6798,7 @@ backtrace_stop_cb(Process *c_p, void *arg, int *redsp, ErlHeapFragment **bpp)
         erts_resume_paused_proc_timer(c_p);
         erts_resume_paused_bif_timers(c_p);
         if (ses->stepbuf)
-            erts_destroy_tmp_dsbuf(ses->stepbuf);
+            destroy_backtrace_dsbuf(ses->stepbuf);
         erts_free(ERTS_ALC_T_SIG_DATA, ses);
         c_p->chunked_backtrace = NULL;
         erts_resume(c_p, ERTS_PROC_LOCK_MAIN);
