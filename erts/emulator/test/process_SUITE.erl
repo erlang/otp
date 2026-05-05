@@ -120,7 +120,8 @@
          chunked_backtrace_early_stop/1,
          chunked_backtrace_stale_stop/1,
          chunked_backtrace_caller_exit/1,
-         chunked_backtrace_deep_process/1]).
+         chunked_backtrace_deep_process/1,
+         chunked_backtrace_cross_scheduler/1]).
 
 -export([prio_server/2, prio_client/2, init/1, handle_event/2]).
 
@@ -212,7 +213,8 @@ groups() ->
        chunked_backtrace_early_stop,
        chunked_backtrace_stale_stop,
        chunked_backtrace_caller_exit,
-       chunked_backtrace_deep_process]},
+       chunked_backtrace_deep_process,
+       chunked_backtrace_cross_scheduler]},
      {suspend_process_bif, [],
       [suspend_process_pausing_proc_timer,
        suspend_process_pausing_proc_timer_multi_suspend,
@@ -6195,3 +6197,74 @@ chunked_backtrace_deep_process(Config) when is_list(Config) ->
     Rest = cb_drain(H, []),
     Classic = iolist_to_binary([F, Rest]),
     exit(Pid, kill).
+
+chunked_backtrace_cross_scheduler(Config) when is_list(Config) ->
+    %% Verify that the step buffer survives the target process migrating
+    %% between schedulers between backtrace_start_cb and backtrace_next_cb.
+    %%
+    %% Root cause of the bug: the step buffer was allocated via
+    %% ERTS_ALC_T_TMP_DSBUF, a thread-specific allocator (one allctr instance
+    %% per scheduler).  backtrace_start_cb ran on scheduler X and allocated
+    %% the buffer via allctr[X].  If the target then migrated and
+    %% backtrace_next_cb ran on scheduler Y, the free used allctr[Y] to find
+    %% the carrier, but the carrier was in allctr[X]'s list → NULL deref in
+    %% unlink_carrier → SIGSEGV.
+    %%
+    %% The fix uses ERTS_ALC_T_SIG_DATA (a thread-safe allocator) for the
+    %% step buffer.  This test verifies the fix by deliberately engineering
+    %% scheduler migration:
+    %%
+    %%   1. Each target is spawned bound to scheduler 1, then immediately
+    %%      unbinds itself (process_flag(scheduler, 0)), leaving its home run
+    %%      queue as scheduler 1.
+    %%   2. backtrace_start_cb therefore runs on scheduler 1.
+    %%   3. Scheduler 1 is then flooded with low-priority spinners, which
+    %%      makes it appear overloaded to the load balancer.
+    %%   4. When the next-cb RPC signal is enqueued, erts_check_emigration_need
+    %%      migrates the unbound target to a less-loaded scheduler.
+    %%   5. backtrace_next_cb runs on a scheduler ≠ 1.
+    %%
+    %% On unfixed code this causes a SIGSEGV (beam.smp crash).
+    %% On fixed code all N*4 concurrent sessions complete normally.
+    case erlang:system_info(schedulers_online) of
+        1 -> {skip, "test requires at least 2 schedulers online"};
+        _ -> ok
+    end,
+    N = erlang:system_info(schedulers_online),
+    BigTerm = cb_make_big_term(20),
+    cb_cross_scheduler_run(10, N, BigTerm).
+
+cb_cross_scheduler_run(0, _N, _BigTerm) ->
+    ok;
+cb_cross_scheduler_run(Rounds, N, BigTerm) ->
+    NumSessions = N * 4,
+    %% Spawn each target bound to sched 1, then have it immediately unbind so
+    %% its home run queue is sched 1 but it is not bound (eligible for migration).
+    Targets = [spawn_opt(
+                  fun () ->
+                          process_flag(scheduler, 0),
+                          cb_stack_deep(150, BigTerm)
+                  end,
+                  [{scheduler, 1}])
+               || _ <- lists:seq(1, NumSessions)],
+    timer:sleep(50),
+    %% Flood sched 1 with low-priority spinners to create load imbalance,
+    %% making the load balancer migrate targets to other schedulers for _next.
+    Saturators = [spawn_opt(fun cb_saturate/0,
+                            [{scheduler, 1}, {priority, low}])
+                  || _ <- lists:seq(1, N * 8)],
+    Self = self(),
+    %% Start all sessions concurrently.
+    [spawn_link(
+       fun () ->
+               {ok, H, First} =
+                   erlang:process_info_backtrace_start(T, [{chunk_size, 64}]),
+               _Bt = cb_drain(H, [First]),
+               Self ! done
+       end) || T <- Targets],
+    [receive done -> ok end || _ <- lists:seq(1, NumSessions)],
+    [exit(S, kill) || S <- Saturators],
+    [exit(T, kill) || T <- Targets],
+    cb_cross_scheduler_run(Rounds - 1, N, BigTerm).
+
+cb_saturate() -> cb_saturate().
