@@ -1165,25 +1165,14 @@ pkix_verify_hostname_cn(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     {ok,Bin} = file:read_file(filename:join(DataDir,"pkix_verify_hostname_cn.pem")),
     Cert = public_key:pkix_decode_cert(element(2,hd(public_key:pem_decode(Bin))), otp),
-
-    %% Check that 1) only CNs are checked,
-    %%            2) an empty label does not match a wildcard and
-    %%            3) a wildcard does not match more than one label
+    %% Fallback hostname check against CommonName is no longer allowed
     false = public_key:pkix_verify_hostname(Cert, [{dns_id,"erlang.org"},
 						   {dns_id,"foo.EXAMPLE.com"},
 						   {dns_id,"b.a.foo.EXAMPLE.com"}]),
-
-    %% Check that a hostname is extracted from a https-uri and used for checking:
-    true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"HTTPS://EXAMPLE.com"}]),
-
-    %% Check wildcard matching one label:
-    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"a.foo.EXAMPLE.com"}]),
-
-    %% Check wildcard with surrounding chars matches one label:
-    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"accb.bar.EXAMPLE.com"}]),
-
-    %% Check that a wildcard with surrounding chars matches an empty string:
-    true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://ab.bar.EXAMPLE.com"}]).
+    false =  public_key:pkix_verify_hostname(Cert, [{uri_id,"HTTPS://EXAMPLE.com"}]),
+    false =  public_key:pkix_verify_hostname(Cert, [{dns_id,"a.foo.EXAMPLE.com"}]),
+    false =  public_key:pkix_verify_hostname(Cert, [{dns_id,"accb.bar.EXAMPLE.com"}]),
+    false =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://ab.bar.EXAMPLE.com"}]).
 
 %%--------------------------------------------------------------------
 %% To generate the PEM file contents:
@@ -1233,63 +1222,50 @@ pkix_verify_hostname_subjAltName(Config) ->
     ok.
 
 %%--------------------------------------------------------------------
-%% Uses the pem-file for pkix_verify_hostname_cn
-%% Subject: C=SE, CN=example.com, CN=*.foo.example.com, CN=a*b.bar.example.com, O=erlang.org
+%% Uses the pem-file for pkix_verify_hostname_subjAltName.pem
+%% Subject: Subject Alt Names: 
+%%              [{dNSName,"kb.example.org"},
+%%              {uniformResourceIdentifier,"http://www.example.org"},
+%%              {uniformResourceIdentifier,"https://wws.example.org"}]}]
 pkix_verify_hostname_options(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
-    {ok,Bin} = file:read_file(filename:join(DataDir,"pkix_verify_hostname_cn.pem")),
+    {ok,Bin} = file:read_file(filename:join(DataDir,"pkix_verify_hostname_subjAltName.pem")),
     Cert = public_key:pkix_decode_cert(element(2,hd(public_key:pem_decode(Bin))), otp),
     
     %% Check that the fail_callback is called and is presented the correct certificate:
-    true = public_key:pkix_verify_hostname(Cert, [{dns_id,"erlang.org"}],
+    true = public_key:pkix_verify_hostname(Cert, [{dns_id,"kb.example.org"}],
 					   [{fail_callback,
 					     fun(#'OTPCertificate'{}=C) when C==Cert -> 
 						     true; % To test the return value matters
 						(#'OTPCertificate'{}=C) -> 
 						     ct:log("~p:~p: Wrong cert:~n~p~nExpect~n~p",
 							    [?MODULE, ?LINE, C, Cert]),
-						     ct:fail("Wrong cert, see log");
-						(C) -> 
+                                                     ct:fail("Wrong cert, see log");
+						(C) ->
 						     ct:log("~p:~p: Bad cert: ~p",[?MODULE,?LINE,C]),
-						     ct:fail("Bad cert, see log")
+                                                     ct:fail("Bad cert, see log")
 					     end}]),
-    
-    %% Check the callback for user-provided match functions:
-    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"very.wrong.domain"}],
-					    [{match_fun,
-					      fun("very.wrong.domain", {cn,"example.com"}) ->
-						      true;
-						 (_, _) ->
-						      false
-					      end}]),
-    false = public_key:pkix_verify_hostname(Cert, [{dns_id,"not.example.com"}],
+    false = public_key:pkix_verify_hostname(Cert, [{dns_id,"not.example.org"}],
 					    [{match_fun, fun(_, _) -> default end}]),
-    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"example.com"}],
+    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"kb.example.org"}],
 					    [{match_fun, fun(_, _) -> default end}]),
 
     %% Check the callback for user-provided fqdn extraction:
     true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"some://very.wrong.domain"}],
-					    [{fqdn_fun,
-					      fun({uri_id, "some://very.wrong.domain"}) ->
-						      "example.com";
-						 (_) ->
-						      ""
-					      end}]),
-    true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://example.com"}],
-					    [{fqdn_fun, fun(_) -> default end}]),
+                                            [{fqdn_fun,
+                                              fun({uri_id, "some://very.wrong.domain"}) ->
+                                                      "kb.example.org";
+                                                 (_) ->
+                                                      ""
+                                              end}]),
+    true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://wws.example.org"}],
+                                            [{fqdn_fun, fun(_) -> default end}]),
     false =  public_key:pkix_verify_hostname(Cert, [{uri_id,"some://very.wrong.domain"}]),
 
-    true = public_key:pkix_verify_hostname(Cert, [{dns_id,"example.com"}]),
-    true = public_key:pkix_verify_hostname(Cert, [{dns_id,"abb.bar.example.com"}]),
-    false = public_key:pkix_verify_hostname(Cert, [{dns_id,"example.com"},
-                                                   {dns_id,"abb.bar.example.com"}],
-                                            [{fqdn_fun,fun(_)->undefined end}]),
-    %% Test that a common name is matched fully, that is do not allow prefix matches
-    %% with less dots (".")
-    {ok, PrefixBin} = file:read_file(filename:join(DataDir,"prefix-dots.pem")),
-    PrefixCert = public_key:pkix_decode_cert(element(2,hd(public_key:pem_decode(PrefixBin))), otp),
-    true = public_key:pkix_verify_hostname(PrefixCert, [{dns_id,"..a"}]),
-    false = public_key:pkix_verify_hostname(PrefixCert, [{dns_id,".a"}]).
+    true = public_key:pkix_verify_hostname(Cert,
+                                           [{dns_id,"foobar.example.org"}],
+                                           [{match_fun,
+                                             public_key:pkix_verify_hostname_match_fun(https)}]).
 
 %%--------------------------------------------------------------------
 %% To generate the PEM file contents:
