@@ -483,27 +483,21 @@ get_opt(Tag, EvalState, Default) ->
 %% goes for processes that didn't respond to the suspend message.
 %%-----------------------------------------------------------------
 suspend(Mod, Procs, Timeout) ->
-    lists:zf(fun({_Sup, _Name, Pid, Mods}) -> 
-		     case lists:member(Mod, Mods) of
-			 true ->
-			     case catch sys_suspend(Pid, Timeout) of
-				 ok -> {true, Pid};
-				 _ -> 
-				     % If the proc hangs, make sure to
-				     % resume it when it gets suspended!
-				     catch sys:resume(Pid),
-				     false
-			     end;
-			 false ->
-			     false
-		     end
-	     end,
-	     Procs).
-
-sys_suspend(Pid, default) ->
-    sys:suspend(Pid);
-sys_suspend(Pid, Timeout) ->
-    sys:suspend(Pid, Timeout).
+    Pids = [Pid || {_Sup, _Name, Pid, Mods} <- Procs,
+                   lists:member(Mod, Mods)],
+    Results = case Timeout of
+                  default -> sys:multi_suspend(Pids);
+                  _       -> sys:multi_suspend(Pids, Timeout)
+              end,
+    lists:filtermap(
+      fun({Pid, ok}) ->
+              {true, Pid};
+         ({Pid, _Error}) ->
+              % If the proc hangs, make sure to
+              % resume it when it gets suspended!
+              catch sys:resume(Pid),
+              false
+      end, Results).
 
 resume(Pids) ->
     lists:foreach(fun(Pid) -> catch sys:resume(Pid) end, Pids).

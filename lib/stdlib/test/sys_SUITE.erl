@@ -20,9 +20,10 @@
 %% %CopyrightEnd%
 %%
 -module(sys_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,log/1,log_to_file/1,
-	 stats/1,trace/1,suspend/1,install/1,special_process/1]).
+	 stats/1,trace/1,suspend/1,multi_suspend/1,
+	 install/1,special_process/1]).
 -export([handle_call/3,terminate/2,init/1]).
 -include_lib("common_test/include/ct.hrl").
 
@@ -35,7 +36,8 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [log, log_to_file, stats, trace, suspend, install, special_process].
+    [log, log_to_file, stats, trace, suspend, multi_suspend,
+     install, special_process].
 
 groups() -> 
     [].
@@ -122,6 +124,29 @@ suspend(Config) when is_list(Config) ->
     sys:resume(?server), %% doing it twice is no error
     {ok,-48} = (catch public_call(48)),
     stop(),
+    ok.
+
+multi_suspend(Config) when is_list(Config) ->
+    S1 = sys_SUITE_server1,
+    S2 = sys_SUITE_server2,
+    {ok,_} = gen_server:start_link({local,S1},?MODULE,[],[]),
+    {ok,_} = gen_server:start_link({local,S2},?MODULE,[],[]),
+    [{S1,ok},{S2,ok}] = sys:multi_suspend([S1,S2],1000),
+    {'EXIT',_} = (catch gen_server:call(S1,{req,48},1000)),
+    {'EXIT',_} = (catch gen_server:call(S2,{req,48},1000)),
+    {status,_,_,[_,suspended,_,_,_]} = sys:get_status(S1),
+    {status,_,_,[_,suspended,_,_,_]} = sys:get_status(S2),
+    sys:resume(S1),
+    sys:resume(S2),
+    {status,_,_,[_,running,_,_,_]} = sys:get_status(S1),
+    {status,_,_,[_,running,_,_,_]} = sys:get_status(S2),
+    [] = sys:multi_suspend([],1000),
+    [{S1,ok},{no_such_process,{error,noproc}}] =
+	sys:multi_suspend([S1,no_such_process],1000),
+    {status,_,_,[_,suspended,_,_,_]} = sys:get_status(S1),
+    sys:resume(S1),
+    gen_server:call(S1,stop,1000),
+    gen_server:call(S2,stop,1000),
     ok.
 
 install(Config) when is_list(Config) ->
