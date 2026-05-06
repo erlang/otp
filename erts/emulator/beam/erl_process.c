@@ -14916,6 +14916,10 @@ erts_stack_dump_step(fmtfn_t to, void *to_arg, Process *p,
                      ErtsStackDumpCursor *cur)
 {
     if (ERTS_IS_PROC_SENSITIVE(p)) {
+        if (cur->in_term) {
+            erts_print_term_cursor_destroy(&cur->term_cursor);
+            cur->in_term = 0;
+        }
         cur->phase = ERTS_STACK_DUMP_PHASE_DONE;
         return 0;
     }
@@ -14932,14 +14936,58 @@ erts_stack_dump_step(fmtfn_t to, void *to_arg, Process *p,
         }
         return 1;
 
-    case ERTS_STACK_DUMP_PHASE_STACK:
-        cur->yreg = stack_element_dump(to, to_arg, cur->sp, cur->yreg, INT_MAX);
-        cur->sp++;
-        if (cur->sp >= STACK_START(p)) {
-            cur->phase = ERTS_STACK_DUMP_PHASE_DONE;
-            return 0;
+    case ERTS_STACK_DUMP_PHASE_STACK: {
+        Eterm x = *cur->sp;
+        int term_done;
+        long max_bytes = cur->term_max_bytes ? cur->term_max_bytes : (64*1024);
+
+        if (!cur->in_term) {
+            if (is_CP(x)) {
+                erts_print(to, to_arg, "\n%p Return addr %p (",
+                           cur->sp, (Eterm *) x);
+                print_function_from_pc(to, to_arg, cp_val(x));
+                erts_print(to, to_arg, ")\n");
+                cur->yreg = 0;
+                cur->sp++;
+                if (cur->sp >= STACK_START(p)) {
+                    cur->phase = ERTS_STACK_DUMP_PHASE_DONE;
+                    return 0;
+                }
+                return 1;
+            } else {
+                char sbuf[16];
+                erts_snprintf(sbuf, sizeof(sbuf), "y(%d)", cur->yreg);
+                erts_print(to, to_arg, "%-8s ", sbuf);
+                cur->yreg++;
+                if (is_catch(x)) {
+                    erts_print(to, to_arg, "Catch %p (", catch_pc(x));
+                    print_function_from_pc(to, to_arg, catch_pc(x));
+                    erts_print(to, to_arg, ")\n");
+                    cur->sp++;
+                    if (cur->sp >= STACK_START(p)) {
+                        cur->phase = ERTS_STACK_DUMP_PHASE_DONE;
+                        return 0;
+                    }
+                    return 1;
+                }
+                erts_print_term_cursor_init(&cur->term_cursor, x);
+                cur->in_term = 1;
+            }
+        }
+
+        term_done = !erts_print_term_step(to, to_arg, &cur->term_cursor,
+                                          max_bytes);
+        if (term_done) {
+            erts_print(to, to_arg, "\n");
+            cur->in_term = 0;
+            cur->sp++;
+            if (cur->sp >= STACK_START(p)) {
+                cur->phase = ERTS_STACK_DUMP_PHASE_DONE;
+                return 0;
+            }
         }
         return 1;
+    }
 
     default: /* DONE */
         return 0;

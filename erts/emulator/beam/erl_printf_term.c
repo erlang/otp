@@ -26,6 +26,7 @@
 
 #include "erl_printf_term.h"
 #include "sys.h"
+#include "global.h"
 #include "big.h"
 #include "erl_map.h"
 #include "erl_binary.h"
@@ -821,4 +822,549 @@ erts_printf_term(fmtfn_t fn, void* arg, ErlPfEterm term, long precision) {
     if (precision <= 0)
 	PRINT_STRING(res, fn, arg, "... ");
     return res;
+}
+
+void
+erts_print_term_cursor_init(ErtsPrintTermCursor *cur, Eterm root)
+{
+    WSTACK_INIT(&cur->wstack, ERTS_ALC_T_ESTACK);
+    cur->obj = root;
+    cur->sub = PRINT_TERM_CURSOR_NORMAL;
+    cur->str_nobj = NULL;
+    cur->bin_bytep = NULL;
+    cur->bin_bytesize = 0;
+    cur->bin_bitoffs = 0;
+    cur->bin_bitsize = 0;
+    cur->bin_is_first = 0;
+    cur->big_str = NULL;
+    cur->big_pos = 0;
+    cur->big_len = 0;
+}
+
+void
+erts_print_term_cursor_destroy(ErtsPrintTermCursor *cur)
+{
+    if (cur->sub != PRINT_TERM_CURSOR_DONE) {
+        WSTACK_DESTROY(cur->wstack.ws);
+        if (cur->big_str) {
+            erts_free(ERTS_ALC_T_TMP, cur->big_str);
+            cur->big_str = NULL;
+        }
+        cur->sub = PRINT_TERM_CURSOR_DONE;
+    }
+}
+
+int
+erts_print_term_step(fmtfn_t fn, void *arg,
+                     ErtsPrintTermCursor *cur, long max_bytes)
+{
+#define ws (*(ErtsWStack *) &cur->wstack.ws)
+#define STEP_FAIL() do { erts_print_term_cursor_destroy(cur); return 0; } while (0)
+#define STEP_PRINT_CHAR(C)                                                    do {                                                                          int res__ = erts_printf_char(fn, arg, (C));                               if (res__ < 0)                                                                STEP_FAIL();                                                          res += res__;                                                         } while (0)
+#define STEP_PRINT_STRING(STR)                                                do {                                                                          int res__ = erts_printf_string(fn, arg, (STR));                           if (res__ < 0)                                                                STEP_FAIL();                                                          res += res__;                                                         } while (0)
+#define STEP_PRINT_BUF(BUF, LEN)                                              do {                                                                          int res__ = erts_printf_buf(fn, arg, (char *) (BUF), (LEN));              if (res__ < 0)                                                                STEP_FAIL();                                                          res += res__;                                                         } while (0)
+#define STEP_PRINT_POINTER(PTR)                                               do {                                                                          int res__ = erts_printf_pointer(fn, arg, (void *) (PTR));                 if (res__ < 0)                                                                STEP_FAIL();                                                          res += res__;                                                         } while (0)
+#define STEP_PRINT_UWORD(C, P, W, I)                                          do {                                                                          int res__ = erts_printf_uword(fn, arg, (C), (P), (W), (I));               if (res__ < 0)                                                                STEP_FAIL();                                                          res += res__;                                                         } while (0)
+#define STEP_PRINT_SWORD(C, P, W, I)                                          do {                                                                          int res__ = erts_printf_sword(fn, arg, (C), (P), (W), (I));               if (res__ < 0)                                                                STEP_FAIL();                                                          res += res__;                                                         } while (0)
+#define STEP_PRINT_UWORD64(C, P, W, I)                                        do {                                                                          int res__ = erts_printf_uword64(fn, arg, (C), (P), (W), (I));             if (res__ < 0)                                                                STEP_FAIL();                                                          res += res__;                                                         } while (0)
+#define STEP_PRINT_DOUBLE(C, P, W, I)                                         do {                                                                          int res__ = erts_printf_double(fn, arg, (C), (P), (W), (I));              if (res__ < 0)                                                                STEP_FAIL();                                                          res += res__;                                                         } while (0)
+#define STEP_PRINT_ATOM(ATOM, DCOUNT)                                         do {                                                                          int res__ = print_atom_name(fn, arg, (ATOM), (DCOUNT));                   if (res__ < 0)                                                                STEP_FAIL();                                                          res += res__;                                                         } while (0)
+    int res, i, c, tres, is_first;
+    long dcount, tdcount;
+    Uint32 *ref_num;
+    union {
+        UWord word;
+        Eterm *ptr;
+    } popped;
+    Eterm obj, val, wobj, key;
+    Eterm *nobj, *head, *ks, *vs, *assoc, *tpl;
+    Uint n, mapval, bitoffs, bitsize, bytesize, size, offset, sz;
+    byte *bytep, octet;
+    char *buf;
+    ErlFunThing *funp;
+    const ErlFunEntry *fe;
+    const Export *ep;
+    Atom *ap;
+    ErtsRecordInstance *instance;
+    ErtsRecordDefinition *defp;
+    FloatDef ff;
+
+    if (cur->sub == PRINT_TERM_CURSOR_DONE)
+        return 0;
+
+    res = 0;
+    dcount = LONG_MAX;
+
+    switch (cur->sub) {
+    case PRINT_TERM_CURSOR_NORMAL:
+        obj = cur->obj;
+        break;
+    case PRINT_TERM_CURSOR_STRING:
+        nobj = cur->str_nobj;
+        goto L_resume_string;
+    case PRINT_TERM_CURSOR_BINARY:
+        bytep = cur->bin_bytep;
+        bytesize = cur->bin_bytesize;
+        bitoffs = cur->bin_bitoffs;
+        bitsize = cur->bin_bitsize;
+        is_first = cur->bin_is_first;
+        goto L_resume_binary;
+    case PRINT_TERM_CURSOR_PRINTBIN:
+        bytep = cur->bin_bytep;
+        bytesize = cur->bin_bytesize;
+        bitoffs = cur->bin_bitoffs;
+        bitsize = cur->bin_bitsize;
+        goto L_resume_printbin;
+    case PRINT_TERM_CURSOR_BIGNUM:
+        goto L_resume_bignum;
+    default:
+        ASSERT(0);
+        return 0;
+    }
+
+    goto L_jump_start;
+
+ L_outer_loop:
+    while (!WSTACK_ISEMPTY(ws)) {
+        switch (val = WSTACK_POP(ws)) {
+        case PRT_COMMA:
+            STEP_PRINT_CHAR(',');
+            goto L_outer_loop;
+        case PRT_BAR:
+            STEP_PRINT_CHAR('|');
+            goto L_outer_loop;
+        case PRT_CLOSE_LIST:
+            STEP_PRINT_CHAR(']');
+            goto L_outer_loop;
+        case PRT_CLOSE_TUPLE:
+            STEP_PRINT_CHAR('}');
+            goto L_outer_loop;
+        case PRT_ASSOC:
+            STEP_PRINT_STRING("=>");
+            goto L_outer_loop;
+        case PRT_EQUALS:
+            STEP_PRINT_STRING("=");
+            goto L_outer_loop;
+        default:
+            popped.word = WSTACK_POP(ws);
+
+            switch (val) {
+            case PRT_TERM:
+                obj = (Eterm) popped.word;
+                break;
+            case PRT_ONE_CONS: {
+                Eterm *cons;
+                Eterm tl;
+
+                obj = (Eterm) popped.word;
+                cons = list_val(obj);
+                obj = CAR(cons);
+                tl = CDR(cons);
+                if (is_not_nil(tl)) {
+                    if (is_list(tl)) {
+                        WSTACK_PUSH3(ws, tl, PRT_ONE_CONS, PRT_COMMA);
+                    } else {
+                        WSTACK_PUSH3(ws, tl, PRT_TERM, PRT_BAR);
+                    }
+                }
+                break;
+            }
+            case PRT_LAST_ARRAY_ELEMENT:
+                obj = *popped.ptr;
+                break;
+            default:
+                obj = *popped.ptr;
+                WSTACK_PUSH3(ws, (UWord) (popped.ptr + 1), val - 1, PRT_COMMA);
+                break;
+            }
+            break;
+        }
+
+    L_jump_start:
+        if (res >= max_bytes) {
+            cur->obj = obj;
+            cur->sub = PRINT_TERM_CURSOR_NORMAL;
+            return 1;
+        }
+
+        if (is_non_value(obj)) {
+            STEP_PRINT_STRING("<TNV>");
+            goto L_done;
+        } else if (is_CP(obj)) {
+            const ErtsCodeMFA *mfa = erts_find_function_from_pc(cp_val(obj));
+
+            if (mfa) {
+                const UWord *func_start = erts_codemfa_to_code(mfa);
+                const UWord *cp_addr = (UWord *) cp_val(obj);
+
+                STEP_PRINT_STRING("<");
+                STEP_PRINT_ATOM(mfa->module, &dcount);
+                STEP_PRINT_STRING(":");
+                STEP_PRINT_ATOM(mfa->function, &dcount);
+                STEP_PRINT_STRING("/");
+                STEP_PRINT_UWORD('u', 0, 1, (ErlPfUWord) mfa->arity);
+                STEP_PRINT_STRING("+");
+                STEP_PRINT_UWORD('u', 0, 1,
+                                 (ErlPfUWord) (cp_addr - func_start));
+                STEP_PRINT_STRING(">");
+            } else {
+                STEP_PRINT_STRING("<cp/header:");
+                STEP_PRINT_POINTER(cp_val(obj));
+                STEP_PRINT_CHAR('>');
+            }
+            goto L_done;
+        } else if (is_catch(obj) && catch_val(obj) == 0) {
+            STEP_PRINT_STRING("<novalue>");
+            goto L_outer_loop;
+        }
+
+        switch (tag_val_def(wobj)) {
+        case NIL_DEF:
+            STEP_PRINT_STRING("[]");
+            break;
+        case ATOM_DEF:
+            STEP_PRINT_ATOM(obj, &dcount);
+            break;
+        case SMALL_DEF:
+            STEP_PRINT_SWORD('d', 0, 1, (ErlPfSWord) signed_val(obj));
+            break;
+        case BIG_DEF:
+            if (!cur->big_str) {
+                sz = (Uint) big_integer_estimate(wobj, 10);
+                sz++;
+                buf = erts_alloc(ERTS_ALC_T_TMP, sz);
+                cur->big_str = erts_big_to_string(wobj, 10, buf, sz);
+                ASSERT(cur->big_str == buf);
+                cur->big_pos = 0;
+                cur->big_len = sys_strlen(cur->big_str);
+            }
+        L_resume_bignum:
+            while (cur->big_pos < cur->big_len) {
+                if (res >= max_bytes) {
+                    cur->sub = PRINT_TERM_CURSOR_BIGNUM;
+                    return 1;
+                }
+                STEP_PRINT_CHAR(cur->big_str[cur->big_pos]);
+                cur->big_pos++;
+            }
+            erts_free(ERTS_ALC_T_TMP, cur->big_str);
+            cur->big_str = NULL;
+            cur->big_pos = 0;
+            cur->big_len = 0;
+            cur->sub = PRINT_TERM_CURSOR_NORMAL;
+            break;
+        case REF_DEF:
+            if (!ERTS_IS_CRASH_DUMPING)
+                erts_magic_ref_save_bin(obj);
+            ERTS_FALLTHROUGH();
+        case EXTERNAL_REF_DEF:
+            STEP_PRINT_STRING("#Ref<");
+            STEP_PRINT_UWORD('u', 0, 1, (ErlPfUWord) ref_channel_no(wobj));
+            ref_num = ref_numbers(wobj);
+            for (i = ref_no_numbers(wobj) - 1; i >= 0; i--) {
+                STEP_PRINT_CHAR('.');
+                STEP_PRINT_UWORD('u', 0, 1, (ErlPfUWord) ref_num[i]);
+            }
+            STEP_PRINT_CHAR('>');
+            break;
+        case PID_DEF:
+        case EXTERNAL_PID_DEF:
+            STEP_PRINT_CHAR('<');
+            STEP_PRINT_UWORD('u', 0, 1, (ErlPfUWord) pid_channel_no(wobj));
+            STEP_PRINT_CHAR('.');
+            STEP_PRINT_UWORD('u', 0, 1, (ErlPfUWord) pid_number(wobj));
+            STEP_PRINT_CHAR('.');
+            STEP_PRINT_UWORD('u', 0, 1, (ErlPfUWord) pid_serial(wobj));
+            STEP_PRINT_CHAR('>');
+            break;
+        case PORT_DEF:
+        case EXTERNAL_PORT_DEF:
+            STEP_PRINT_STRING("#Port<");
+            STEP_PRINT_UWORD('u', 0, 1, (ErlPfUWord) port_channel_no(wobj));
+            STEP_PRINT_CHAR('.');
+            STEP_PRINT_UWORD64('u', 0, 1, (ErlPfUWord64) port_number(wobj));
+            STEP_PRINT_CHAR('>');
+            break;
+        case LIST_DEF:
+            if (is_printable_string(obj)) {
+                STEP_PRINT_CHAR('"');
+                nobj = list_val(obj);
+            L_resume_string:
+                while (1) {
+                    if (res >= max_bytes) {
+                        cur->str_nobj = nobj;
+                        cur->sub = PRINT_TERM_CURSOR_STRING;
+                        return 1;
+                    }
+                    c = signed_val(*nobj++);
+                    if (c == '\n') {
+                        STEP_PRINT_STRING("\\n");
+                    } else {
+                        if (c == '"')
+                            STEP_PRINT_CHAR('\\');
+                        STEP_PRINT_CHAR((char) c);
+                    }
+                    if (is_not_list(*nobj))
+                        break;
+                    nobj = list_val(*nobj);
+                }
+                STEP_PRINT_CHAR('"');
+                cur->sub = PRINT_TERM_CURSOR_NORMAL;
+            } else {
+                STEP_PRINT_CHAR('[');
+                WSTACK_PUSH(ws, PRT_CLOSE_LIST);
+                {
+                    Eterm *cons = list_val(obj);
+                    Eterm tl;
+
+                    obj = CAR(cons);
+                    tl = CDR(cons);
+                    if (is_not_nil(tl)) {
+                        if (is_list(tl)) {
+                            WSTACK_PUSH3(ws, tl, PRT_ONE_CONS, PRT_COMMA);
+                        } else {
+                            WSTACK_PUSH3(ws, tl, PRT_TERM, PRT_BAR);
+                        }
+                    }
+                }
+            }
+            break;
+        case RECORD_DEF:
+            instance = RECORD_INST_P(wobj);
+            n = RECORD_INST_FIELD_COUNT(instance);
+            defp = RECORD_DEF_P(instance);
+            ks = defp->keys;
+            vs = instance->values;
+            STEP_PRINT_CHAR('#');
+            STEP_PRINT_ATOM(defp->module, &dcount);
+            STEP_PRINT_CHAR(':');
+            STEP_PRINT_ATOM(defp->name, &dcount);
+            STEP_PRINT_CHAR('{');
+            WSTACK_PUSH(ws, PRT_CLOSE_TUPLE);
+            if (n > 0) {
+                n--;
+                WSTACK_PUSH5(ws, vs[n], PRT_TERM, PRT_EQUALS, ks[n], PRT_TERM);
+                while (n--) {
+                    WSTACK_PUSH6(ws, PRT_COMMA, vs[n], PRT_TERM, PRT_EQUALS,
+                                 ks[n], PRT_TERM);
+                }
+            }
+            break;
+        case TUPLE_DEF:
+            nobj = tuple_val(wobj);
+            i = arityval(*nobj);
+            STEP_PRINT_CHAR('{');
+            WSTACK_PUSH(ws, PRT_CLOSE_TUPLE);
+            ++nobj;
+            if (i > 0)
+                WSTACK_PUSH2(ws, (UWord) nobj, PRT_LAST_ARRAY_ELEMENT + i - 1);
+            break;
+        case FLOAT_DEF:
+            GET_DOUBLE(wobj, ff);
+            STEP_PRINT_DOUBLE('e', 6, 0, ff.fd);
+            break;
+        case BITSTRING_DEF:
+            ERTS_GET_BITSTRING(obj, bytep, offset, size);
+            bytep += BYTE_OFFSET(offset);
+            bitoffs = BIT_OFFSET(offset);
+            bytesize = BYTE_SIZE(size);
+            bitsize = TAIL_BITS(size);
+
+            if (bitsize || !bytesize || !is_printable_ascii(bytep, bytesize, bitoffs)) {
+                is_first = 1;
+                STEP_PRINT_STRING("<<");
+            L_resume_binary:
+                while (bytesize) {
+                    if (res >= max_bytes) {
+                        cur->bin_bytep = bytep;
+                        cur->bin_bytesize = bytesize;
+                        cur->bin_bitoffs = bitoffs;
+                        cur->bin_bitsize = bitsize;
+                        cur->bin_is_first = is_first;
+                        cur->sub = PRINT_TERM_CURSOR_BINARY;
+                        return 1;
+                    }
+                    if (is_first)
+                        is_first = 0;
+                    else
+                        STEP_PRINT_CHAR(',');
+                    if (bitoffs)
+                        octet = (bytep[0] << bitoffs) | (bytep[1] >> (8 - bitoffs));
+                    else
+                        octet = bytep[0];
+                    STEP_PRINT_UWORD('u', 0, 1, octet);
+                    ++bytep;
+                    --bytesize;
+                }
+                if (bitsize) {
+                    Uint bits = bitoffs + bitsize;
+
+                    octet = bytep[0];
+                    if (bits < 8)
+                        octet >>= 8 - bits;
+                    else if (bits > 8) {
+                        bits -= 8;
+                        octet <<= bits;
+                        octet |= bytep[1] >> (8 - bits);
+                    }
+                    octet &= (1 << bitsize) - 1;
+                    if (is_first)
+                        is_first = 0;
+                    else
+                        STEP_PRINT_CHAR(',');
+                    STEP_PRINT_UWORD('u', 0, 1, octet);
+                    STEP_PRINT_CHAR(':');
+                    STEP_PRINT_UWORD('u', 0, 1, bitsize);
+                }
+                STEP_PRINT_STRING(">>");
+                cur->sub = PRINT_TERM_CURSOR_NORMAL;
+            } else {
+                STEP_PRINT_STRING("<<\"");
+            L_resume_printbin:
+                while (bytesize) {
+                    if (res >= max_bytes) {
+                        cur->bin_bytep = bytep;
+                        cur->bin_bytesize = bytesize;
+                        cur->bin_bitoffs = bitoffs;
+                        cur->bin_bitsize = bitsize;
+                        cur->sub = PRINT_TERM_CURSOR_PRINTBIN;
+                        return 1;
+                    }
+                    if (bitoffs)
+                        octet = (bytep[0] << bitoffs) | (bytep[1] >> (8 - bitoffs));
+                    else
+                        octet = bytep[0];
+                    if (octet == '"')
+                        STEP_PRINT_CHAR('\\');
+                    STEP_PRINT_CHAR(octet);
+                    ++bytep;
+                    --bytesize;
+                }
+                STEP_PRINT_STRING("\">>");
+                cur->sub = PRINT_TERM_CURSOR_NORMAL;
+            }
+            break;
+        case FUN_DEF:
+            funp = (ErlFunThing *) fun_val(wobj);
+
+            if (is_local_fun(funp)) {
+                fe = funp->entry.fun;
+                ap = atom_tab(atom_val(fe->module));
+
+                STEP_PRINT_STRING("#Fun<");
+                STEP_PRINT_BUF(erts_atom_get_name(ap), ap->len);
+                STEP_PRINT_CHAR('.');
+                STEP_PRINT_SWORD('d', 0, 1, (ErlPfSWord) fe->old_index);
+                STEP_PRINT_CHAR('.');
+                STEP_PRINT_SWORD('d', 0, 1, (ErlPfSWord) fe->old_uniq);
+                STEP_PRINT_CHAR('>');
+            } else {
+                ep = funp->entry.exp;
+
+                STEP_PRINT_STRING("fun ");
+
+                tdcount = LONG_MAX;
+                tres = print_atom_name(fn, arg, ep->info.mfa.module, &tdcount);
+                if (tres < 0)
+                    STEP_FAIL();
+                res += tres;
+
+                STEP_PRINT_CHAR(':');
+
+                tdcount = LONG_MAX;
+                tres = print_atom_name(fn, arg, ep->info.mfa.function, &tdcount);
+                if (tres < 0)
+                    STEP_FAIL();
+                res += tres;
+
+                STEP_PRINT_CHAR('/');
+                STEP_PRINT_SWORD('d', 0, 1, (ErlPfSWord) ep->info.mfa.arity);
+            }
+            break;
+        case MAP_DEF:
+            head = boxed_val(wobj);
+
+            if (is_flatmap_header(*head)) {
+                n = flatmap_get_size(head);
+                ks = flatmap_get_keys(head);
+                vs = flatmap_get_values(head);
+
+                STEP_PRINT_CHAR('#');
+                STEP_PRINT_CHAR('{');
+                WSTACK_PUSH(ws, PRT_CLOSE_TUPLE);
+                if (n > 0) {
+                    n--;
+                    WSTACK_PUSH5(ws, vs[n], PRT_TERM, PRT_ASSOC, ks[n], PRT_TERM);
+                    while (n--) {
+                        WSTACK_PUSH6(ws, PRT_COMMA, vs[n], PRT_TERM, PRT_ASSOC,
+                                     ks[n], PRT_TERM);
+                    }
+                }
+            } else {
+                mapval = MAP_HEADER_VAL(*head);
+                switch (MAP_HEADER_TYPE(*head)) {
+                case MAP_HEADER_TAG_HAMT_HEAD_ARRAY:
+                case MAP_HEADER_TAG_HAMT_HEAD_BITMAP:
+                    STEP_PRINT_STRING("#{");
+                    WSTACK_PUSH(ws, PRT_CLOSE_TUPLE);
+                    head++;
+                    ERTS_FALLTHROUGH();
+                case MAP_HEADER_TAG_HAMT_NODE_BITMAP:
+                    n = hashmap_bitcount(mapval);
+                    ASSERT(0 < n && n < 17);
+                    while (1) {
+                        if (is_list(head[n])) {
+                            assoc = list_val(head[n]);
+                            key = CAR(assoc);
+                            val = CDR(assoc);
+                            WSTACK_PUSH5(ws, val, PRT_TERM, PRT_ASSOC, key, PRT_TERM);
+                        } else if (is_tuple(head[n])) {
+                            tpl = tuple_val(head[n]);
+                            i = arityval(tpl[0]);
+                            ASSERT(i >= 2);
+                            while (1) {
+                                assoc = list_val(tpl[i]);
+                                key = CAR(assoc);
+                                val = CDR(assoc);
+                                WSTACK_PUSH5(ws, val, PRT_TERM, PRT_ASSOC, key, PRT_TERM);
+                                if (--i == 0)
+                                    break;
+                                WSTACK_PUSH(ws, PRT_COMMA);
+                            }
+                        } else {
+                            WSTACK_PUSH2(ws, head[n], PRT_TERM);
+                        }
+                        if (--n == 0)
+                            break;
+                        WSTACK_PUSH(ws, PRT_COMMA);
+                    }
+                    break;
+                }
+            }
+            break;
+        case BIN_REF_DEF:
+            STEP_PRINT_STRING("#BinRef");
+            break;
+        default:
+            STEP_PRINT_STRING("<unknown:");
+            STEP_PRINT_POINTER(wobj);
+            STEP_PRINT_CHAR('>');
+            break;
+        }
+    }
+
+ L_done:
+    erts_print_term_cursor_destroy(cur);
+    return 0;
+#undef STEP_PRINT_ATOM
+#undef STEP_PRINT_DOUBLE
+#undef STEP_PRINT_UWORD64
+#undef STEP_PRINT_SWORD
+#undef STEP_PRINT_UWORD
+#undef STEP_PRINT_POINTER
+#undef STEP_PRINT_BUF
+#undef STEP_PRINT_STRING
+#undef STEP_PRINT_CHAR
+#undef STEP_FAIL
+#undef ws
 }

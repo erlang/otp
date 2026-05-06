@@ -6444,7 +6444,10 @@ static void os_info_init(void)
  * process_info_backtrace_{start,next,stop}: chunked backtrace BIFs
  * ----------------------------------------------------------------------- */
 
-#define BACKTRACE_DEFAULT_CHUNK_SIZE 1024
+#define BACKTRACE_DEFAULT_CHUNK_SIZE (64*1024)
+/* Bounded overshoot from the resumable term printer per fill cycle.
+ * Max overshoot = one atom name (worst-case UTF-8 + quoting) + structural chars. */
+#define BACKTRACE_DSBUF_OVERSHOOT  (MAX_ATOM_SZ_LIMIT * 2 + 256)
 
 /*
  * The stepbuf is allocated on one scheduler (inside backtrace_start_cb) and
@@ -6472,35 +6475,20 @@ static void os_info_init(void)
 typedef struct {
     Uint chunk_size;
 } BacktraceStartArgs;
-#define BACKTRACE_DSBUF_INC_SZ 256
-
 static erts_dsprintf_buf_t *
-grow_backtrace_dsbuf(erts_dsprintf_buf_t *dsbufp, size_t need)
+overflow_backtrace_dsbuf(erts_dsprintf_buf_t *dsbufp, size_t need)
 {
-    size_t size;
-    size_t free_size = dsbufp->size - dsbufp->str_len;
-
     ASSERT(dsbufp);
-
-    if (need <= free_size)
-        return dsbufp;
-    size = need - free_size + BACKTRACE_DSBUF_INC_SZ;
-    size = ((size + BACKTRACE_DSBUF_INC_SZ - 1) / BACKTRACE_DSBUF_INC_SZ)
-           * BACKTRACE_DSBUF_INC_SZ;
-    size += dsbufp->size;
-    ASSERT(dsbufp->str_len + need <= size);
-    dsbufp->str = (char *) erts_realloc(ERTS_ALC_T_SIG_DATA,
-                                        (void *) dsbufp->str,
-                                        size);
-    dsbufp->size = size;
+    ASSERT(dsbufp->str_len + need <= dsbufp->size);
+    erts_exit(ERTS_ABORT_EXIT, "backtrace dsbuf overflow\n");
     return dsbufp;
 }
 
 static erts_dsprintf_buf_t *
 create_backtrace_dsbuf(Uint size)
 {
-    Uint init_size = size ? size : BACKTRACE_DSBUF_INC_SZ;
-    erts_dsprintf_buf_t init = ERTS_DSPRINTF_BUF_INITER(grow_backtrace_dsbuf);
+    Uint init_size = size ? size : BACKTRACE_DEFAULT_CHUNK_SIZE;
+    erts_dsprintf_buf_t init = ERTS_DSPRINTF_BUF_INITER(overflow_backtrace_dsbuf);
     erts_dsprintf_buf_t *dsbufp = erts_alloc(ERTS_ALC_T_SIG_DATA,
                                              sizeof(erts_dsprintf_buf_t));
     sys_memcpy((void *) dsbufp, (void *) &init, sizeof(erts_dsprintf_buf_t));
@@ -6516,6 +6504,19 @@ destroy_backtrace_dsbuf(erts_dsprintf_buf_t *dsbufp)
     if (dsbufp->str)
         erts_free(ERTS_ALC_T_SIG_DATA, (void *) dsbufp->str);
     erts_free(ERTS_ALC_T_SIG_DATA, (void *) dsbufp);
+}
+
+static void
+destroy_backtrace_session_buffers(ErtsBacktraceSession *ses)
+{
+    if (ses->stepbuf) {
+        destroy_backtrace_dsbuf(ses->stepbuf);
+        ses->stepbuf = NULL;
+    }
+    if (ses->cursor.in_term) {
+        erts_print_term_cursor_destroy(&ses->cursor.term_cursor);
+        ses->cursor.in_term = 0;
+    }
 }
 
 /*
@@ -6540,10 +6541,7 @@ backtrace_session_destructor(Binary *mbin)
         if (target) {
             erts_proc_lock(target, ERTS_PROC_LOCK_MAIN);
             if (target->chunked_backtrace == ses) {
-                if (ses->stepbuf) {
-                    destroy_backtrace_dsbuf(ses->stepbuf);
-                    ses->stepbuf = NULL;
-                }
+                destroy_backtrace_session_buffers(ses);
                 target->chunked_backtrace = NULL;
                 erts_resume_paused_proc_timer(target);
                 erts_resume_paused_bif_timers(target);
@@ -6590,7 +6588,9 @@ fill_to_chunk(Process *p, ErtsBacktraceSession *ses)
         return;
 
     if (!ses->stepbuf)
-        ses->stepbuf = create_backtrace_dsbuf(ses->chunk_size * 2);
+        ses->stepbuf = create_backtrace_dsbuf(ses->chunk_size + 2 * BACKTRACE_DSBUF_OVERSHOOT);
+
+    ses->cursor.term_max_bytes = ses->chunk_size;
 
     while (ses->stepbuf->str_len - ses->stepbuf_pos < ses->chunk_size) {
         if (!erts_stack_dump_step(ERTS_PRINT_DSBUF,
@@ -6740,9 +6740,7 @@ backtrace_next_cb(Process *c_p, void *arg, int *redsp, ErlHeapFragment **bpp)
         erts_atomic_cmpxchg_nob(&ses->active, 0, 1);
         erts_resume_paused_proc_timer(c_p);
         erts_resume_paused_bif_timers(c_p);
-        if (ses->stepbuf)
-            destroy_backtrace_dsbuf(ses->stepbuf);
-        ses->stepbuf = NULL;
+        destroy_backtrace_session_buffers(ses);
         c_p->chunked_backtrace = NULL;
         erts_resume(c_p, ERTS_PROC_LOCK_MAIN);
         return am_done;
@@ -6772,9 +6770,7 @@ backtrace_stop_cb(Process *c_p, void *arg, int *redsp, ErlHeapFragment **bpp)
         erts_atomic_cmpxchg_nob(&ses->active, 0, 1);
         erts_resume_paused_proc_timer(c_p);
         erts_resume_paused_bif_timers(c_p);
-        if (ses->stepbuf)
-            destroy_backtrace_dsbuf(ses->stepbuf);
-        ses->stepbuf = NULL;
+        destroy_backtrace_session_buffers(ses);
         c_p->chunked_backtrace = NULL;
         erts_resume(c_p, ERTS_PROC_LOCK_MAIN);
     }
@@ -6788,7 +6784,7 @@ backtrace_stop_cb(Process *c_p, void *arg, int *redsp, ErlHeapFragment **bpp)
  * erlang:process_info_backtrace_start(Pid, Options) -> {ok, Handle, Chunk} | done | badarg
  *
  * Options (all optional):
- *   {chunk_size, pos_integer()}  — bytes per chunk (default 1024)
+ *   {chunk_size, pos_integer()}  — bytes per chunk (default 64*1024)
  *
  * Handle is an opaque magic reference.
  */
