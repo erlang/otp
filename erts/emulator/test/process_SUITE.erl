@@ -122,7 +122,13 @@
          chunked_backtrace_caller_exit/1,
          chunked_backtrace_dropped_handle/1,
          chunked_backtrace_deep_process/1,
-         chunked_backtrace_cross_scheduler/1]).
+         chunked_backtrace_cross_scheduler/1,
+         chunked_backtrace_large_binary/1,
+         chunked_backtrace_large_list/1,
+         chunked_backtrace_printable_string/1,
+         chunked_backtrace_large_bignum/1,
+         chunked_backtrace_nested_tuples/1,
+         chunked_backtrace_consistency/1]).
 
 -export([prio_server/2, prio_client/2, init/1, handle_event/2]).
 
@@ -216,7 +222,13 @@ groups() ->
        chunked_backtrace_caller_exit,
        chunked_backtrace_dropped_handle,
        chunked_backtrace_deep_process,
-       chunked_backtrace_cross_scheduler]},
+       chunked_backtrace_cross_scheduler,
+       chunked_backtrace_large_binary,
+       chunked_backtrace_large_list,
+       chunked_backtrace_printable_string,
+       chunked_backtrace_large_bignum,
+       chunked_backtrace_nested_tuples,
+       chunked_backtrace_consistency]},
      {suspend_process_bif, [],
       [suspend_process_pausing_proc_timer,
        suspend_process_pausing_proc_timer_multi_suspend,
@@ -6107,6 +6119,40 @@ cb_make_big_term(0) -> leaf;
 cb_make_big_term(N) ->
     {N, cb_make_big_term(N - 1), lists:seq(1, 5)}.
 
+cb_collect_chunks(Pid, ChunkSize) ->
+    case erlang:process_info_backtrace_start(Pid, [{chunk_size, ChunkSize}]) of
+        {ok, Handle, Chunk} -> cb_collect_chunks_next(Handle, [Chunk]);
+        done -> []
+    end.
+
+cb_collect_chunks_next(Handle, Acc) ->
+    case erlang:process_info_backtrace_next(Handle) of
+        {more, Chunk} -> cb_collect_chunks_next(Handle, [Chunk | Acc]);
+        done -> lists:reverse(Acc)
+    end.
+
+cb_collect_backtrace(Pid, ChunkSize) ->
+    iolist_to_binary(cb_collect_chunks(Pid, ChunkSize)).
+
+cb_hold_term(Caller, Term) ->
+    cb_hold_term(Caller, Term, 20).
+
+cb_hold_term(Caller, Term, 0) ->
+    Caller ! ready,
+    receive stop -> ok end;
+cb_hold_term(Caller, Term, N) ->
+    _R = cb_hold_term(Caller, Term, N - 1),
+    case Term of _ -> ok end.
+
+cb_check_chunked_backtrace(Term, ChunkSize) ->
+    Self = self(),
+    Pid = spawn(fun () -> cb_hold_term(Self, Term) end),
+    receive ready -> ok end,
+    Chunked = cb_collect_backtrace(Pid, ChunkSize),
+    {backtrace, Classic} = erlang:process_info(Pid, backtrace),
+    Pid ! stop,
+    Classic = Chunked.
+
 %%
 %% chunked_backtrace_bif tests
 %%
@@ -6227,6 +6273,28 @@ chunked_backtrace_deep_process(Config) when is_list(Config) ->
     Rest = cb_drain(H, []),
     Classic = iolist_to_binary([F, Rest]),
     exit(Pid, kill).
+
+chunked_backtrace_large_binary(Config) when is_list(Config) ->
+    cb_check_chunked_backtrace(<<0:(65536*8)>>, 64).
+
+chunked_backtrace_large_list(Config) when is_list(Config) ->
+    cb_check_chunked_backtrace(lists:seq(1, 1000), 64).
+
+chunked_backtrace_printable_string(Config) when is_list(Config) ->
+    cb_check_chunked_backtrace(lists:duplicate(500, $a), 64).
+
+chunked_backtrace_large_bignum(Config) when is_list(Config) ->
+    cb_check_chunked_backtrace(1 bsl 10000, 64).
+
+chunked_backtrace_nested_tuples(Config) when is_list(Config) ->
+    cb_check_chunked_backtrace({a, {b, {c, {d, lists:seq(1, 100)}}}}, 64).
+
+chunked_backtrace_consistency(Config) when is_list(Config) ->
+    cb_check_chunked_backtrace({lists:seq(1, 1000),
+                                <<0:(65536*8)>>,
+                                lists:duplicate(500, $a),
+                                1 bsl 10000,
+                                {a, {b, {c, {d, lists:seq(1, 100)}}}}}, 64).
 
 chunked_backtrace_cross_scheduler(Config) when is_list(Config) ->
     %% Verify that the step buffer survives the target process migrating

@@ -8716,14 +8716,14 @@ The returned `Handle` is an opaque magic reference used with
 `Chunk` is the first chunk of the backtrace binary, at most `chunk_size` bytes.
 
 Options:
-- `{chunk_size, pos_integer()}` - Maximum bytes per chunk. Default: 1024.
+- `{chunk_size, pos_integer()}` - Maximum bytes per chunk. Default: 65536.
 
 Failures:
 - `badarg` - If `Pid` is not a process identifier, if `Options` is invalid,
   or if the calling process attempts to inspect itself.
 - `noproc` - If the process identified by `Pid` is not alive.
 """.
--doc #{ category => processes }.
+-doc #{ category => processes, since => ~"OTP @OTP-XXXXX@" }.
 -spec process_info_backtrace_start(Pid, Options) ->
           {ok, Handle, Chunk} | {error, Reason} when
       Pid     :: pid(),
@@ -8746,7 +8746,7 @@ automatically ended and the inspected process is resumed.
 Failures:
 - `badarg` - If `Handle` is not a valid active backtrace session handle.
 """.
--doc #{ category => processes }.
+-doc #{ category => processes, since => ~"OTP @OTP-XXXXX@" }.
 -spec process_info_backtrace_next(Handle) -> {more, Chunk} | done when
       Handle :: process_info_backtrace_handle(),
       Chunk  :: binary().
@@ -8761,7 +8761,7 @@ Explicitly ends a chunked backtrace session started with
 It is safe to call this at any point during a session, including after `done`
 has already been returned (in which case it is a no-op).
 """.
--doc #{ category => processes }.
+-doc #{ category => processes, since => ~"OTP @OTP-XXXXX@" }.
 -spec process_info_backtrace_stop(Handle) -> ok when
       Handle :: process_info_backtrace_handle().
 process_info_backtrace_stop(_Handle) ->

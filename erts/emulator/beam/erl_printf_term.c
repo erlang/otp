@@ -892,6 +892,14 @@ erts_print_term_step(fmtfn_t fn, void *arg,
     if (cur->sub == PRINT_TERM_CURSOR_DONE)
         return 0;
 
+    /* erts_printf_* functions (used by STEP_PRINT_* macros) call (*fn)()
+     * directly and cannot handle erts_print sentinel values.  Translate
+     * the only sentinel expected here to a real write callback. */
+    if ((UWord)fn == (UWord)ERTS_PRINT_DSBUF)
+        fn = erts_write_ds;
+    else
+        ASSERT((UWord)fn > (UWord)ERTS_PRINT_FD);
+
     res = 0;
     dcount = LONG_MAX;
 
@@ -1018,6 +1026,7 @@ erts_print_term_step(fmtfn_t fn, void *arg,
             goto L_outer_loop;
         }
 
+        wobj = obj;
         switch (tag_val_def(wobj)) {
         case NIL_DEF:
             STEP_PRINT_STRING("[]");
