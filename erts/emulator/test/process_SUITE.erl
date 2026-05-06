@@ -120,6 +120,7 @@
          chunked_backtrace_early_stop/1,
          chunked_backtrace_stale_stop/1,
          chunked_backtrace_caller_exit/1,
+         chunked_backtrace_dropped_handle/1,
          chunked_backtrace_deep_process/1,
          chunked_backtrace_cross_scheduler/1]).
 
@@ -213,6 +214,7 @@ groups() ->
        chunked_backtrace_early_stop,
        chunked_backtrace_stale_stop,
        chunked_backtrace_caller_exit,
+       chunked_backtrace_dropped_handle,
        chunked_backtrace_deep_process,
        chunked_backtrace_cross_scheduler]},
      {suspend_process_bif, [],
@@ -6187,6 +6189,34 @@ chunked_backtrace_caller_exit(Config) when is_list(Config) ->
     %% Target must have been auto-resumed when its caller exited
     {status, waiting} = process_info(Pid, status),
     exit(Pid, kill).
+
+chunked_backtrace_dropped_handle(Config) when is_list(Config) ->
+    %% Verify that a handle going out of scope causes the magic binary
+    %% destructor to fire and auto-resume the suspended target.
+    %%
+    %% On pre-magic-ref code (SUSPEND monitor) the target would stay suspended
+    %% until the owning *process* exits.  With the magic binary the destructor
+    %% fires as soon as the reference is no longer reachable, independent of
+    %% the process lifetime.
+    %%
+    %% We verify this by binding the handle inside cb_start_and_drop/1 and
+    %% then tail-calling into cb_assert_resumed/1 without carrying the handle
+    %% along.  The handle becomes unreachable on the tail call; the subsequent
+    %% garbage_collect() fires the destructor.
+    Pid = spawn(fun () -> cb_wait_loop(200) end),
+    timer:sleep(50),
+    cb_start_and_drop(Pid),
+    exit(Pid, kill).
+
+cb_start_and_drop(Pid) ->
+    {ok, _Handle, _Chunk} = erlang:process_info_backtrace_start(Pid, [{chunk_size, 64}]),
+    %% Tail-call without _Handle — it is now unreachable.
+    cb_assert_resumed(Pid).
+
+cb_assert_resumed(Pid) ->
+    erlang:garbage_collect(),
+    timer:sleep(100),
+    {status, waiting} = process_info(Pid, status).
 
 chunked_backtrace_deep_process(Config) when is_list(Config) ->
     BigTerm = cb_make_big_term(20),
