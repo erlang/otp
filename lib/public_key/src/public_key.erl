@@ -323,7 +323,9 @@ The value of the issuer part of a certificate.
 -doc """
 The reason that a certifcate gets rejected by the certificate path validation.
 """.
--type bad_cert_reason()      :: cert_expired | invalid_issuer | invalid_signature | name_not_permitted |
+-type bad_cert_reason()      :: cert_expired | invalid_issuer | invalid_signature |
+                                distinguished_name_not_permitted |
+                                name_not_permitted |
                                 missing_basic_constraint | invalid_key_usage | duplicate_cert_in_path |
                                 {key_usage_mismatch, term()} |
                                 {'policy_requirement_not_met', term()} | {'invalid_policy_mapping', term()} |
@@ -2011,7 +2013,11 @@ Explanations of reasons for a bad certificate:
 - **invalid_signature** - Certificate was not signed by its issuer certificate
   in the chain.
 
-- **name_not_permitted** - Invalid Subject Alternative Name extension.
+- **distinguished_name_not_permitted** - Subject Name does not adhere to name constraints
+  which is mandatory in RFC 5280.
+
+- **name_not_permitted** - Subject Alternative Name does not adhere to name constraints,
+  which is optional in RFC 5280.
 
 - **missing_basic_constraint** - Certificate, required to have the basic
   constraints extension, does not have a basic constraints extension.
