@@ -6449,7 +6449,7 @@ static void os_info_init(void)
 /*
  * The stepbuf is allocated on one scheduler (inside backtrace_start_cb) and
  * may be freed on a *different* scheduler (inside backtrace_next_cb / _stop_cb
- * / erts_backtrace_session_cleanup) because the target process can migrate
+ * / backtrace_session_destructor) because the target process can migrate
  * between schedulers while suspended.
  *
  * ERTS_ALC_T_TMP_DSBUF uses a thread-specific (thr_spec) allocator: freeing a
@@ -6463,6 +6463,15 @@ static void os_info_init(void)
  * it for the stepbuf is safe because the session lifetime already spans
  * multiple scheduler contexts.
  */
+
+/*
+ * BacktraceStartArgs: the RPC arg passed from _start_2 to backtrace_start_cb.
+ * The session itself (ErtsBacktraceSession) lives inside a magic binary that
+ * is created inside the callback once we know there is data to deliver.
+ */
+typedef struct {
+    Uint chunk_size;
+} BacktraceStartArgs;
 #define BACKTRACE_DSBUF_INC_SZ 256
 
 static erts_dsprintf_buf_t *
@@ -6510,6 +6519,44 @@ destroy_backtrace_dsbuf(erts_dsprintf_buf_t *dsbufp)
 }
 
 /*
+ * Magic binary destructor for ErtsBacktraceSession.
+ * Called by the GC when the last Erlang reference to the handle is dropped.
+ * CAS active 1→0; if successful, acquires the target's MAIN lock and resumes
+ * it — this is the "dropped handle" cleanup path.
+ */
+static int
+backtrace_session_destructor(Binary *mbin)
+{
+    ErtsBacktraceSession *ses = ERTS_MAGIC_BIN_DATA(mbin);
+    ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(mbin) == backtrace_session_destructor);
+
+    /* If already cleaned up by _next (done) or _stop, nothing to do. */
+    if (erts_atomic_cmpxchg_nob(&ses->active, 0, 1) != 1)
+        return 1;
+
+    /* Handle was dropped with session still live — resume the target. */
+    if (is_internal_pid(ses->target_pid)) {
+        Process *target = erts_proc_lookup_inc_refc(ses->target_pid);
+        if (target) {
+            erts_proc_lock(target, ERTS_PROC_LOCK_MAIN);
+            if (target->chunked_backtrace == ses) {
+                if (ses->stepbuf) {
+                    destroy_backtrace_dsbuf(ses->stepbuf);
+                    ses->stepbuf = NULL;
+                }
+                target->chunked_backtrace = NULL;
+                erts_resume_paused_proc_timer(target);
+                erts_resume_paused_bif_timers(target);
+                erts_resume(target, ERTS_PROC_LOCK_MAIN);
+            }
+            erts_proc_unlock(target, ERTS_PROC_LOCK_MAIN);
+            erts_proc_dec_refc(target);
+        }
+    }
+    return 1;
+}
+
+/*
  * Build a binary term from 'size' bytes of 'data' using the given heap
  * factory.  Returns the Eterm tag.
  */
@@ -6554,7 +6601,7 @@ fill_to_chunk(Process *p, ErtsBacktraceSession *ses)
 }
 
 /*
- * Build the {ok, {Ref, TargetPid}, ChunkBin} term for _start, or the
+ * Build the {ok, Handle, ChunkBin} term for _start, or the
  * {more, ChunkBin} / am_done term for _next.
  * Advances ses->stepbuf_pos by the number of bytes consumed.
  * Sets *bpp to the new heap fragment.
@@ -6570,14 +6617,13 @@ build_backtrace_reply(Process *c_p,
     const byte *data = ses->stepbuf
                        ? (const byte *)(ses->stepbuf->str + ses->stepbuf_pos)
                        : (const byte *)"";
-    Uint ref_words   = sizeof(ErtsORefThing) / sizeof(Eterm);
     /* Heap words for the binary structure (inline or refc). */
     Uint bin_hsz = (chunk_sz <= ERL_ONHEAP_BINARY_LIMIT)
                        ? heap_bits_size(chunk_sz * 8)
                        : ERL_REFC_BITS_SIZE;
     /* Total words needed for handle + result tuple (upper bound). */
     Uint hsz = bin_hsz
-               + (include_handle ? (ref_words + 3 + 4) : 3)
+               + (include_handle ? (ERTS_MAGIC_REF_THING_SIZE + 4) : 3)
                + 8; /* slack */
 
     ErlHeapFragment *bp = new_message_buffer(hsz);
@@ -6592,13 +6638,9 @@ build_backtrace_reply(Process *c_p,
     chunk_bin = make_backtrace_chunk_binary(&hfact, data, chunk_sz);
 
     if (include_handle) {
-        Eterm ref, handle;
-        hp     = erts_produce_heap(&hfact, ref_words + 3 + 4, 0);
-        sys_memcpy(hp, &ses->ref_thing, sizeof(ErtsORefThing));
-        ref    = make_internal_ref(hp);
-        hp    += ref_words;
-        handle = TUPLE2(hp, ref, c_p->common.id);
-        hp    += 3;
+        Eterm handle;
+        hp     = erts_produce_heap(&hfact, ERTS_MAGIC_REF_THING_SIZE + 4, 0);
+        handle = erts_mk_magic_ref(&hp, &bp->off_heap, ses->mbin);
         result = TUPLE3(hp, am_ok, handle, chunk_bin);
     } else {
         hp     = erts_produce_heap(&hfact, 3, 0);
@@ -6611,104 +6653,30 @@ build_backtrace_reply(Process *c_p,
 }
 
 /*
- * RPC callback — runs on the CALLER process (reply=0, fire-and-forget).
- * Removes the origin side of the suspend monitor from the caller's MONITORS
- * tree and releases it.  Called when a session ends normally on the target.
- * arg encodes the TARGET pid (as (void*)(UWord)target_pid).
- */
-static Eterm
-cleanup_origin_cb(Process *c_p, void *arg, int *redsp, ErlHeapFragment **bpp)
-{
-    Eterm target_pid = (Eterm)(UWord)arg;
-    ErtsMonitor *mon;
-
-    (void) bpp;
-
-    mon = erts_monitor_tree_lookup(ERTS_P_MONITORS(c_p), target_pid);
-    if (mon && ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_SUSPEND) {
-        erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), mon);
-        erts_monitor_release(mon); /* refc: 1 → 0, freed */
-    }
-    return am_ok;
-}
-
-/*
- * Called from the done/stop paths (on the target, MAIN lock held).
- * Removes the target side of the suspend monitor from LT_MONITORS, clears the
- * ACTIVE flag, releases the target side, and fires a cleanup RPC to the caller
- * to remove the origin side.  Sets ses->mon_mdp = NULL when done.
- */
-static void
-backtrace_session_monitor_cleanup(Process *c_p, ErtsBacktraceSession *ses)
-{
-    ErtsMonitorData    *mdp = ses->mon_mdp;
-    ErtsMonitorSuspend *msp;
-    Eterm               target_pid;
-
-    if (!mdp)
-        return;
-
-    msp = (ErtsMonitorSuspend *) mdp;
-    target_pid = c_p->common.id;
-
-    erts_monitor_list_delete(&ERTS_P_LT_MONITORS(c_p), &mdp->u.target);
-    erts_atomic_read_band_acqb(&msp->state, ~ERTS_MSUSPEND_STATE_FLG_ACTIVE);
-    ses->mon_mdp = NULL;
-
-    erts_monitor_release(&mdp->u.target); /* refc: 2 → 1 */
-
-    /* Fire-and-forget RPC to caller to release the origin side. */
-    erts_proc_sig_send_rpc_request(c_p, ses->caller_pid, 0,
-                                   cleanup_origin_cb,
-                                   (void *)(UWord) target_pid);
-}
-
-/*
- * Public: called from erl_proc_sig_queue.c when a SUSPEND demonitor arrives
- * because the CALLER exited mid-session.  Frees the session buffer and ses
- * struct.  Does NOT touch the monitor (demonitor path handles that) and does
- * NOT call erts_resume (demonitor path handles that too).
- */
-void
-erts_backtrace_session_cleanup(Process *c_p)
-{
-    ErtsBacktraceSession *ses = c_p->chunked_backtrace;
-
-    if (!ses)
-        return;
-
-    ses->mon_mdp = NULL; /* being freed by the demonitor path */
-    if (ses->stepbuf)
-        destroy_backtrace_dsbuf(ses->stepbuf);
-    erts_free(ERTS_ALC_T_SIG_DATA, ses);
-    c_p->chunked_backtrace = NULL;
-}
-
-/*
  * RPC callback — runs on the TARGET process at _start time.
- * Lazily fills the first chunk via the step cursor, stores the session on
- * c_p, self-suspends, and returns the first chunk.
+ * Fills the first chunk via the step cursor, embeds the session in a magic
+ * binary (so the GC destructor covers dropped handles), stores it on c_p,
+ * self-suspends, and returns the first chunk.
  */
 static Eterm
 backtrace_start_cb(Process *c_p, void *arg, int *redsp, ErlHeapFragment **bpp)
 {
-    ErtsBacktraceSession *ses = (ErtsBacktraceSession *) arg;
-    Uint available;
+    BacktraceStartArgs   *args = (BacktraceStartArgs *) arg;
+    ErtsBacktraceSession  tmp_ses;
+    Binary               *mbin;
+    ErtsBacktraceSession *ses;
+    Uint                  available;
 
-    /* Initialise lazy cursor and fill up to the first chunk. */
-    fill_to_chunk(c_p, ses);
-    available = ses->stepbuf ? (ses->stepbuf->str_len - ses->stepbuf_pos) : 0;
+    /* Initialise a stack-local session to fill the first chunk. */
+    sys_memset(&tmp_ses.cursor, 0, sizeof(tmp_ses.cursor));
+    tmp_ses.stepbuf     = NULL;
+    tmp_ses.stepbuf_pos = 0;
+    tmp_ses.chunk_size  = args->chunk_size;
 
-    c_p->chunked_backtrace = ses;
+    erts_free(ERTS_ALC_T_SIG_DATA, args);
 
-    /* Insert the target side of the suspend monitor and mark it active.
-     * This must happen before erts_suspend so that a concurrent demonitor
-     * (caller exit) finds the monitor IN_TABLE and calls erts_resume. */
-    if (ses->mon_mdp) {
-        ErtsMonitorSuspend *msp = (ErtsMonitorSuspend *) ses->mon_mdp;
-        erts_monitor_list_insert(&ERTS_P_LT_MONITORS(c_p), &ses->mon_mdp->u.target);
-        erts_atomic_read_bor_relb(&msp->state, ERTS_MSUSPEND_STATE_FLG_ACTIVE);
-    }
+    fill_to_chunk(c_p, &tmp_ses);
+    available = tmp_ses.stepbuf ? (tmp_ses.stepbuf->str_len - tmp_ses.stepbuf_pos) : 0;
 
     /* Pause timers and self-suspend: stays suspended between _next calls. */
     erts_pause_proc_timer(c_p);
@@ -6716,17 +6684,25 @@ backtrace_start_cb(Process *c_p, void *arg, int *redsp, ErlHeapFragment **bpp)
     erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
 
     if (available == 0) {
-        /* Empty backtrace (e.g. process_sensitive) — clean up and resume. */
-        backtrace_session_monitor_cleanup(c_p, ses);
+        /* Empty backtrace — resume immediately, no magic binary needed. */
+        if (tmp_ses.stepbuf)
+            destroy_backtrace_dsbuf(tmp_ses.stepbuf);
         erts_resume_paused_proc_timer(c_p);
         erts_resume_paused_bif_timers(c_p);
         erts_resume(c_p, ERTS_PROC_LOCK_MAIN);
-        if (ses->stepbuf)
-            destroy_backtrace_dsbuf(ses->stepbuf);
-        erts_free(ERTS_ALC_T_SIG_DATA, ses);
-        c_p->chunked_backtrace = NULL;
         return am_done;
     }
+
+    /* Non-empty: embed the session in a magic binary for GC-safe cleanup. */
+    mbin = erts_create_magic_binary(sizeof(ErtsBacktraceSession),
+                                    backtrace_session_destructor);
+    ses  = ERTS_MAGIC_BIN_DATA(mbin);
+    *ses = tmp_ses;   /* copy cursor, stepbuf, stepbuf_pos, chunk_size */
+    ses->mbin       = mbin;
+    ses->target_pid = c_p->common.id;
+    erts_atomic_init_nob(&ses->active, 1);
+
+    c_p->chunked_backtrace = ses;
 
     return build_backtrace_reply(c_p, ses, bpp, /*include_handle=*/1);
 }
@@ -6760,20 +6736,19 @@ backtrace_next_cb(Process *c_p, void *arg, int *redsp, ErlHeapFragment **bpp)
     available = ses->stepbuf ? (ses->stepbuf->str_len - ses->stepbuf_pos) : 0;
 
     if (available == 0) {
-        /* All data has been delivered — clean up monitor, resume timers, resume target. */
-        backtrace_session_monitor_cleanup(c_p, ses);
+        /* All data has been delivered — CAS active, resume timers, resume target. */
+        erts_atomic_cmpxchg_nob(&ses->active, 0, 1);
         erts_resume_paused_proc_timer(c_p);
         erts_resume_paused_bif_timers(c_p);
         if (ses->stepbuf)
             destroy_backtrace_dsbuf(ses->stepbuf);
-        erts_free(ERTS_ALC_T_SIG_DATA, ses);
+        ses->stepbuf = NULL;
         c_p->chunked_backtrace = NULL;
         erts_resume(c_p, ERTS_PROC_LOCK_MAIN);
         return am_done;
     }
 
-    /* Deliver the next chunk.  stepbuf_pos is advanced inside the call.
-     * If this was the last chunk, stepbuf will be empty on the next call. */
+    /* Deliver the next chunk.  stepbuf_pos is advanced inside the call. */
     return build_backtrace_reply(c_p, ses, bpp, /*include_handle=*/0);
 }
 
@@ -6794,12 +6769,12 @@ backtrace_stop_cb(Process *c_p, void *arg, int *redsp, ErlHeapFragment **bpp)
     (void) bpp;
 
     if (ses) {
-        backtrace_session_monitor_cleanup(c_p, ses);
+        erts_atomic_cmpxchg_nob(&ses->active, 0, 1);
         erts_resume_paused_proc_timer(c_p);
         erts_resume_paused_bif_timers(c_p);
         if (ses->stepbuf)
             destroy_backtrace_dsbuf(ses->stepbuf);
-        erts_free(ERTS_ALC_T_SIG_DATA, ses);
+        ses->stepbuf = NULL;
         c_p->chunked_backtrace = NULL;
         erts_resume(c_p, ERTS_PROC_LOCK_MAIN);
     }
@@ -6815,14 +6790,14 @@ backtrace_stop_cb(Process *c_p, void *arg, int *redsp, ErlHeapFragment **bpp)
  * Options (all optional):
  *   {chunk_size, pos_integer()}  — bytes per chunk (default 1024)
  *
- * Handle is an opaque {Ref, Pid} 2-tuple.
+ * Handle is an opaque magic reference.
  */
 BIF_RETTYPE process_info_backtrace_start_2(BIF_ALIST_2)
 {
     Eterm  pid  = BIF_ARG_1;
     Eterm  opts = BIF_ARG_2;
     Uint   chunk_size = BACKTRACE_DEFAULT_CHUNK_SIZE;
-    ErtsBacktraceSession *ses;
+    BacktraceStartArgs *args;
     Eterm  rpc_ref;
 
     /* Validate pid. */
@@ -6851,39 +6826,16 @@ BIF_RETTYPE process_info_backtrace_start_2(BIF_ALIST_2)
     if (!is_nil(opts))
         BIF_ERROR(BIF_P, BADARG);
 
-    ses = erts_alloc(ERTS_ALC_T_SIG_DATA, sizeof(ErtsBacktraceSession));
-    sys_memset(&ses->cursor, 0, sizeof(ses->cursor));
-    ses->stepbuf     = NULL;
-    ses->stepbuf_pos = 0;
-    ses->chunk_size  = chunk_size;
-    ses->caller_pid  = BIF_P->common.id;
-
-    /* Create a SUSPEND monitor so that if the caller exits mid-session the
-     * target is automatically resumed by the demonitor signal path. */
-    {
-        ErtsMonitorData *mdp =
-            erts_monitor_create(ERTS_MON_TYPE_SUSPEND, NIL,
-                                BIF_P->common.id, pid,
-                                NIL, THE_NON_VALUE);
-        erts_monitor_tree_insert(&ERTS_P_MONITORS(BIF_P), &mdp->origin);
-        ses->mon_mdp = mdp;
-    }
+    args = erts_alloc(ERTS_ALC_T_SIG_DATA, sizeof(BacktraceStartArgs));
+    args->chunk_size = chunk_size;
 
     rpc_ref = erts_proc_sig_send_rpc_request(BIF_P, pid, 1,
                                              backtrace_start_cb,
-                                             (void *) ses);
+                                             (void *) args);
     if (rpc_ref == THE_NON_VALUE) {
-        /* Target already dead — remove the origin we just inserted. */
-        erts_monitor_tree_delete(&ERTS_P_MONITORS(BIF_P), &ses->mon_mdp->origin);
-        erts_monitor_release_both(ses->mon_mdp);
-        erts_free(ERTS_ALC_T_SIG_DATA, ses);
+        erts_free(ERTS_ALC_T_SIG_DATA, args);
         BIF_ERROR(BIF_P, BADARG); /* noproc */
     }
-
-    /* Copy ref into session so the callback can build the handle. */
-    sys_memcpy(&ses->ref_thing,
-               internal_ref_val(rpc_ref),
-               sizeof(ErtsORefThing));
 
     BIF_TRAP1(erts_await_result, BIF_P, rpc_ref);
 }
@@ -6894,18 +6846,19 @@ BIF_RETTYPE process_info_backtrace_start_2(BIF_ALIST_2)
 BIF_RETTYPE process_info_backtrace_next_1(BIF_ALIST_1)
 {
     Eterm handle = BIF_ARG_1;
+    ErtsBacktraceSession *ses;
     Eterm target_pid;
     Eterm rpc_ref;
 
-    /* Handle is {Ref, TargetPid}. */
-    if (!is_tuple(handle))
+    if (!is_internal_magic_ref(handle))
         BIF_ERROR(BIF_P, BADARG);
     {
-        Eterm *tp = tuple_val(handle);
-        if (arityval(tp[0]) != 2 || !is_internal_pid(tp[2]))
+        Binary *mbin = erts_magic_ref2bin(handle);
+        if (ERTS_MAGIC_BIN_DESTRUCTOR(mbin) != backtrace_session_destructor)
             BIF_ERROR(BIF_P, BADARG);
-        target_pid = tp[2];
+        ses = ERTS_MAGIC_BIN_DATA(mbin);
     }
+    target_pid = ses->target_pid;
 
     rpc_ref = erts_proc_sig_send_rpc_request(BIF_P, target_pid, 1,
                                              backtrace_next_cb,
@@ -6922,16 +6875,18 @@ BIF_RETTYPE process_info_backtrace_next_1(BIF_ALIST_1)
 BIF_RETTYPE process_info_backtrace_stop_1(BIF_ALIST_1)
 {
     Eterm handle = BIF_ARG_1;
+    ErtsBacktraceSession *ses;
     Eterm target_pid;
 
-    if (!is_tuple(handle))
+    if (!is_internal_magic_ref(handle))
         BIF_ERROR(BIF_P, BADARG);
     {
-        Eterm *tp = tuple_val(handle);
-        if (arityval(tp[0]) != 2 || !is_internal_pid(tp[2]))
+        Binary *mbin = erts_magic_ref2bin(handle);
+        if (ERTS_MAGIC_BIN_DESTRUCTOR(mbin) != backtrace_session_destructor)
             BIF_ERROR(BIF_P, BADARG);
-        target_pid = tp[2];
+        ses = ERTS_MAGIC_BIN_DATA(mbin);
     }
+    target_pid = ses->target_pid;
 
     /* Fire-and-forget: no reply needed. */
     erts_proc_sig_send_rpc_request(BIF_P, target_pid, 0,

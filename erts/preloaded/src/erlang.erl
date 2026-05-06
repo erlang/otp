@@ -277,11 +277,9 @@ A timeout value that can be passed to a
 -export_type([monitor_option/0]).
 -export_type([stacktrace/0]).
 -export_type([processes_iter_ref/0]).
--opaque process_info_backtrace_handle() :: {reference(), pid()}.
+-opaque process_info_backtrace_handle() :: reference().
 -type process_info_backtrace_option() ::
-    {chunk_size,  pos_integer()} |
-    {frame_depth, pos_integer()} |
-    {term_depth,  pos_integer()}.
+    {chunk_size, pos_integer()}.
 -export_type([process_info_backtrace_handle/0,
               process_info_backtrace_option/0]).
 
@@ -8710,17 +8708,15 @@ Starts a chunked backtrace session for the process identified by `Pid`.
 
 `Pid` is suspended for the duration of the session. The session must be ended
 by consuming all chunks (until `process_info_backtrace_next/1` returns `done`),
-by calling `process_info_backtrace_stop/1`, or it is ended automatically if the
-calling process exits.
+by calling `process_info_backtrace_stop/1`. If the handle goes out of scope and
+is garbage collected, the session is ended automatically.
 
-The returned `Handle` is an opaque reference used with
+The returned `Handle` is an opaque magic reference used with
 `process_info_backtrace_next/1` and `process_info_backtrace_stop/1`.
 `Chunk` is the first chunk of the backtrace binary, at most `chunk_size` bytes.
 
 Options:
-- `{chunk_size, pos_integer()}` - Maximum bytes per chunk. Default: 4096.
-- `{frame_depth, pos_integer()}` - Maximum number of stack frames. Default: same as `erlang:system_flag(backtrace_depth)`.
-- `{term_depth, pos_integer()}` - Depth limit for printing terms on the stack. Default: 100000.
+- `{chunk_size, pos_integer()}` - Maximum bytes per chunk. Default: 1024.
 
 Failures:
 - `badarg` - If `Pid` is not a process identifier, if `Options` is invalid,

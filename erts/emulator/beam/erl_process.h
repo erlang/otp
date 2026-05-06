@@ -1056,20 +1056,18 @@ typedef struct {
 
 /*
  * State for a chunked backtrace session started by
- * process_info_backtrace_start/2.  Stored on the target process and freed
- * when the session ends (done or stop).
+ * process_info_backtrace_start/2.  Embedded inside a magic binary so that
+ * the GC destructor fires automatically when the caller drops the handle.
  */
 typedef struct {
     ErtsStackDumpCursor  cursor;      /* lazy dump state; zero-init at start  */
     erts_dsprintf_buf_t *stepbuf;     /* small C-heap buf for one step output */
     Uint                 stepbuf_pos; /* read cursor into stepbuf->str        */
     Uint                 chunk_size;  /* max bytes per chunk                  */
-    ErtsORefThing        ref_thing;   /* handle ref copied from RPC ref       */
-    ErtsMonitorData     *mon_mdp;     /* suspend monitor; NULL after teardown */
-    Eterm                caller_pid;  /* for origin-cleanup RPC on normal end */
+    Binary              *mbin;        /* back-pointer to the owning magic binary */
+    Eterm                target_pid;  /* pid of the suspended target process  */
+    erts_atomic_t        active;      /* 1 while session is live; CAS→0 on cleanup */
 } ErtsBacktraceSession;
-
-void erts_backtrace_session_cleanup(Process *c_p);
 
 struct process {
     ErtsPTabElementCommon common; /* *Need* to be first in struct */
