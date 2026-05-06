@@ -1317,7 +1317,7 @@ Eterm erts_decode_ext(ErtsHeapFactory* factory, const byte **ext, Uint32 flags)
         erts_factory_undo(factory);
 	return THE_NON_VALUE;
     }
-    ASSERT(!(flags & ~ERTS_DIST_EXT_BTT_SAFE));
+    ASSERT(!(flags & ~(ERTS_DIST_EXT_BTT_SAFE|ERTS_DIST_EXT_BTT_NON_EXECUTABLE)));
     ep = dec_term(NULL, factory, ep, &obj, NULL, flags);
     if (!ep) {
 	return THE_NON_VALUE;
@@ -2153,6 +2153,9 @@ BIF_RETTYPE binary_to_term_2(BIF_ALIST_2)
         opt = CAR(list_val(opts));
         if (opt == am_safe) {
             ctx.flags |= ERTS_DIST_EXT_BTT_SAFE;
+        }
+        else if (opt == am_non_executable) {
+            ctx.flags |= ERTS_DIST_EXT_BTT_NON_EXECUTABLE;
         }
         else if (opt == am_used) {
             ctx.used_bytes = 1;
@@ -4990,6 +4993,9 @@ dec_term_atom_common:
                 Eterm temp;
                 Sint arity;
 
+                if (flags & ERTS_DIST_EXT_BTT_NON_EXECUTABLE) {
+                    goto error;
+                }
                 if ((ep = dec_atom(edep, ep, &mod, flags)) == NULL) {
                     goto error;
                 }
@@ -5090,6 +5096,10 @@ dec_term_atom_common:
 		unsigned num_free;
 		int i;
 		Eterm temp;
+
+                if (flags & ERTS_DIST_EXT_BTT_NON_EXECUTABLE) {
+                    goto error;
+                }
 
 		ep += 4;	/* Skip total size in bytes */
 		arity = *ep++;

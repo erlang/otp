@@ -129,10 +129,11 @@ typedef struct {
  * They are used to indicate various bits of state necessary to decode binaries
  * in a variety of scenarios.
  */
-#define ERTS_DIST_EXT_DFLAG_HDR      ((Uint32) 0x1)
-#define ERTS_DIST_EXT_ATOM_TRANS_TAB ((Uint32) 0x2)
-#define ERTS_DIST_EXT_BTT_SAFE       ((Uint32) 0x4)
-#define ERTS_DIST_EXT_INTERNAL_NC    ((Uint32) 0x8)
+#define ERTS_DIST_EXT_DFLAG_HDR             ((Uint32) 0x1)
+#define ERTS_DIST_EXT_ATOM_TRANS_TAB        ((Uint32) 0x2)
+#define ERTS_DIST_EXT_BTT_SAFE              ((Uint32) 0x4)
+#define ERTS_DIST_EXT_INTERNAL_NC           ((Uint32) 0x8)
+#define ERTS_DIST_EXT_BTT_NON_EXECUTABLE    ((Uint32) 0x10)
 
 #define ERTS_DIST_CON_ID_MASK ((Uint32) 0x00ffffff)
 
