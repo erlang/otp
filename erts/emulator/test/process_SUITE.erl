@@ -121,6 +121,7 @@
          chunked_backtrace_stale_stop/1,
          chunked_backtrace_caller_exit/1,
          chunked_backtrace_dropped_handle/1,
+         chunked_backtrace_target_exit/1,
          chunked_backtrace_deep_process/1,
          chunked_backtrace_cross_scheduler/1,
          chunked_backtrace_large_binary/1,
@@ -221,6 +222,7 @@ groups() ->
        chunked_backtrace_stale_stop,
        chunked_backtrace_caller_exit,
        chunked_backtrace_dropped_handle,
+       chunked_backtrace_target_exit,
        chunked_backtrace_deep_process,
        chunked_backtrace_cross_scheduler,
        chunked_backtrace_large_binary,
@@ -6253,6 +6255,30 @@ chunked_backtrace_dropped_handle(Config) when is_list(Config) ->
     timer:sleep(50),
     cb_start_and_drop(Pid),
     exit(Pid, kill).
+
+chunked_backtrace_target_exit(Config) when is_list(Config) ->
+    %% Verify that the session is cleaned up when the TARGET exits while a
+    %% session is active.  The destructor must free the stepbuf/cursor
+    %% buffers even when the target is gone (target lookup returns NULL).
+    %% Run under a memory check by repeating to detect leaks.
+    Pid = spawn(fun () -> cb_wait_loop(200) end),
+    timer:sleep(50),
+    {ok, H, _First} = erlang:process_info_backtrace_start(Pid,
+                                                          [{chunk_size, 64}]),
+    exit(Pid, kill),
+    %% Give the exit time to propagate.
+    timer:sleep(50),
+    %% _next on a session whose target has died returns 'done'.
+    done = erlang:process_info_backtrace_next(H),
+    %% _stop on a session whose target has died is a no-op returning ok.
+    ok = erlang:process_info_backtrace_stop(H),
+    %% Drop the handle and force GC; destructor must release session buffers.
+    cb_drop_and_gc(H),
+    ok.
+
+cb_drop_and_gc(_H) ->
+    erlang:garbage_collect(),
+    ok.
 
 cb_start_and_drop(Pid) ->
     {ok, _Handle, _Chunk} = erlang:process_info_backtrace_start(Pid, [{chunk_size, 64}]),

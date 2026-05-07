@@ -6535,13 +6535,20 @@ backtrace_session_destructor(Binary *mbin)
     if (erts_atomic_cmpxchg_nob(&ses->active, 0, 1) != 1)
         return 1;
 
-    /* Handle was dropped with session still live — resume the target. */
+    /*
+     * Session was still active when the magic binary was GC'd.  We own the
+     * stepbuf and term-cursor — free them regardless of whether the target
+     * still exists.  (If the target exited first, _next/_stop returned 'done'
+     * without cleanup, leaving the buffers orphaned until we run.)
+     */
+    destroy_backtrace_session_buffers(ses);
+
+    /* If the target is still alive, clear its back-pointer and resume it. */
     if (is_internal_pid(ses->target_pid)) {
         Process *target = erts_proc_lookup_inc_refc(ses->target_pid);
         if (target) {
             erts_proc_lock(target, ERTS_PROC_LOCK_MAIN);
             if (target->chunked_backtrace == ses) {
-                destroy_backtrace_session_buffers(ses);
                 target->chunked_backtrace = NULL;
                 erts_resume_paused_proc_timer(target);
                 erts_resume_paused_bif_timers(target);
