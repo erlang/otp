@@ -1040,6 +1040,41 @@ typedef struct ErtsProcSysTaskQs_ ErtsProcSysTaskQs;
 #  define MAX_HEAP_SIZE_LOG  2
 #  define MAX_HEAP_SIZE_INCLUDE_OH_BINS 4
 
+#include "erl_printf_term.h"
+
+/*
+ * Lazy stack-dump cursor used by ErtsBacktraceSession.
+ * Zero-initialise before first call to erts_stack_dump_step; in_term starts
+ * at 0 and term_cursor is uninitialised until in_term becomes 1.
+ */
+#define ERTS_STACK_DUMP_PHASE_PC_INFO  0
+#define ERTS_STACK_DUMP_PHASE_STACK    1
+#define ERTS_STACK_DUMP_PHASE_DONE     2
+
+typedef struct {
+    int                 phase;
+    Eterm              *sp;
+    Uint                yreg;
+    ErtsPrintTermCursor term_cursor;
+    int                 in_term;
+    long                term_max_bytes;
+} ErtsStackDumpCursor;
+
+/*
+ * State for a chunked backtrace session started by
+ * process_info_backtrace_start/2.  Embedded inside a magic binary so that
+ * the GC destructor fires automatically when the caller drops the handle.
+ */
+typedef struct {
+    ErtsStackDumpCursor  cursor;      /* lazy dump state; zero-init at start  */
+    erts_dsprintf_buf_t *stepbuf;     /* small C-heap buf for one step output */
+    Uint                 stepbuf_pos; /* read cursor into stepbuf->str        */
+    Uint                 chunk_size;  /* max bytes per chunk                  */
+    Binary              *mbin;        /* back-pointer to the owning magic binary */
+    Eterm                target_pid;  /* pid of the suspended target process  */
+    erts_atomic_t        active;      /* 1 while session is live; CAS→0 on cleanup */
+} ErtsBacktraceSession;
+
 struct process {
     ErtsPTabElementCommon common; /* *Need* to be first in struct */
 
@@ -1069,6 +1104,9 @@ struct process {
 
     Uint32 rcount;              /* Suspend count */
     byte schedule_count;        /* Times left to reschedule a low prio process */
+
+    /* Chunked backtrace session (NULL when no session is active). */
+    ErtsBacktraceSession *chunked_backtrace;
 
     /* Saved x registers. */
     byte arity;                 /* Number of live argument registers (only
@@ -2146,6 +2184,15 @@ void erts_debug_verify_clean_empty_process(Process* p);
 #endif
 void erts_stack_dump(fmtfn_t to, void *to_arg, Process *);
 void erts_limited_stack_trace(fmtfn_t to, void *to_arg, Process *);
+
+/*
+ * Emit one logical unit of backtrace output (PC info or one stack element)
+ * and advance the cursor.  Returns 1 if more units remain, 0 when done.
+ * Produces the same bytes as erts_stack_dump when called repeatedly.
+ */
+int erts_stack_dump_step(fmtfn_t to, void *to_arg, Process *,
+                         ErtsStackDumpCursor *);
+
 void erts_program_counter_info(fmtfn_t to, void *to_arg, Process *);
 void erts_print_scheduler_info(fmtfn_t to, void *to_arg, ErtsSchedulerData *esdp);
 void erts_print_run_queue_info(fmtfn_t, void *to_arg, ErtsRunQueue*);

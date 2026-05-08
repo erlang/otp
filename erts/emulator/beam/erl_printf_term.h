@@ -23,6 +23,45 @@
 #ifndef ERL_PRINTF_TERM_H__
 #define ERL_PRINTF_TERM_H__
 
+#include "sys.h"
 #include "erl_printf_format.h"
+
+#define PRINT_TERM_CURSOR_NORMAL   0
+#define PRINT_TERM_CURSOR_STRING   1
+#define PRINT_TERM_CURSOR_BINARY   2
+#define PRINT_TERM_CURSOR_PRINTBIN 3
+#define PRINT_TERM_CURSOR_BIGNUM   4
+#define PRINT_TERM_CURSOR_DONE     5
+
+typedef struct {
+    UWord *wstart;
+    UWord *wsp;
+    UWord *wend;
+    UWord *wdefault;
+    int    alloc_type;
+} ErtsPrintTermWStackState;
+
+typedef struct {
+    struct {
+        UWord                 default_stack[16];
+        ErtsPrintTermWStackState ws;
+    }                  wstack;
+    Eterm              obj;
+    int                sub;
+    Eterm             *str_nobj;
+    byte              *bin_bytep;
+    Uint               bin_bytesize;
+    Uint               bin_bitoffs;
+    Uint               bin_bitsize;
+    int                bin_is_first;
+    char              *big_str;
+    Uint               big_pos;
+    Uint               big_len;
+} ErtsPrintTermCursor;
+
 int erts_printf_term(fmtfn_t fn, void* arg, ErlPfEterm term, long precision);
+void erts_print_term_cursor_init(ErtsPrintTermCursor *cur, Eterm root);
+void erts_print_term_cursor_destroy(ErtsPrintTermCursor *cur);
+int erts_print_term_step(fmtfn_t fn, void *arg,
+                         ErtsPrintTermCursor *cur, long max_bytes);
 #endif

@@ -255,6 +255,7 @@ atom dollar_endonly
 atom dotall
 atom driver
 atom driver_options
+atom done
 atom dsend_continue_trap
 atom duplicate_bag
 atom duplicated

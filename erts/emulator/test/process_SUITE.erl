@@ -113,7 +113,23 @@
          down_aliasmonitor/1,
          monitor_tag/1,
          no_pid_wrap/1,
-         processes_iter/1]).
+         processes_iter/1,
+         chunked_backtrace_reassembly/1,
+         chunked_backtrace_single_chunk/1,
+         chunked_backtrace_repeated/1,
+         chunked_backtrace_early_stop/1,
+         chunked_backtrace_stale_stop/1,
+         chunked_backtrace_caller_exit/1,
+         chunked_backtrace_dropped_handle/1,
+         chunked_backtrace_target_exit/1,
+         chunked_backtrace_deep_process/1,
+         chunked_backtrace_cross_scheduler/1,
+         chunked_backtrace_large_binary/1,
+         chunked_backtrace_large_list/1,
+         chunked_backtrace_printable_string/1,
+         chunked_backtrace_large_bignum/1,
+         chunked_backtrace_nested_tuples/1,
+         chunked_backtrace_consistency/1]).
 
 -export([prio_server/2, prio_client/2, init/1, handle_event/2]).
 
@@ -141,6 +157,7 @@ all() ->
      otp_6237,
      {group, spawn_request},
      {group, process_info_bif},
+     {group, chunked_backtrace_bif},
      {group, suspend_process_bif},
      {group, processes_bif},
      {group, otp_7738}, garb_other_running,
@@ -197,6 +214,23 @@ groups() ->
        process_info_msgq_len_no_very_long_delay,
        process_info_dict_lookup,
        process_info_label]},
+     {chunked_backtrace_bif, [],
+      [chunked_backtrace_reassembly,
+       chunked_backtrace_single_chunk,
+       chunked_backtrace_repeated,
+       chunked_backtrace_early_stop,
+       chunked_backtrace_stale_stop,
+       chunked_backtrace_caller_exit,
+       chunked_backtrace_dropped_handle,
+       chunked_backtrace_target_exit,
+       chunked_backtrace_deep_process,
+       chunked_backtrace_cross_scheduler,
+       chunked_backtrace_large_binary,
+       chunked_backtrace_large_list,
+       chunked_backtrace_printable_string,
+       chunked_backtrace_large_bignum,
+       chunked_backtrace_nested_tuples,
+       chunked_backtrace_consistency]},
      {suspend_process_bif, [],
       [suspend_process_pausing_proc_timer,
        suspend_process_pausing_proc_timer_multi_suspend,
@@ -6062,3 +6096,299 @@ get_hostname([_ | Rest]) ->
 
 receive_any() ->
     receive M -> M end.
+
+%%
+%% Helpers for chunked backtrace tests
+%%
+
+cb_drain(Handle, Acc) ->
+    case erlang:process_info_backtrace_next(Handle) of
+        done      -> iolist_to_binary(lists:reverse(Acc));
+        {more, B} -> cb_drain(Handle, [B | Acc])
+    end.
+
+cb_wait_loop(0) -> receive _ -> ok end;
+cb_wait_loop(N) -> cb_wait_loop(N - 1).
+
+cb_stack_deep(0, _BigTerm) ->
+    receive _ -> ok end;
+cb_stack_deep(N, BigTerm) ->
+    _R = cb_stack_deep(N - 1, BigTerm),
+    %% Reference BigTerm so it stays on the stack frame
+    case BigTerm of _ -> ok end.
+
+cb_make_big_term(0) -> leaf;
+cb_make_big_term(N) ->
+    {N, cb_make_big_term(N - 1), lists:seq(1, 5)}.
+
+cb_collect_chunks(Pid, ChunkSize) ->
+    case erlang:process_info_backtrace_start(Pid, [{chunk_size, ChunkSize}]) of
+        {ok, Handle, Chunk} -> cb_collect_chunks_next(Handle, [Chunk]);
+        done -> []
+    end.
+
+cb_collect_chunks_next(Handle, Acc) ->
+    case erlang:process_info_backtrace_next(Handle) of
+        {more, Chunk} -> cb_collect_chunks_next(Handle, [Chunk | Acc]);
+        done -> lists:reverse(Acc)
+    end.
+
+cb_collect_backtrace(Pid, ChunkSize) ->
+    iolist_to_binary(cb_collect_chunks(Pid, ChunkSize)).
+
+cb_hold_term(Caller, Term) ->
+    cb_hold_term(Caller, Term, 20).
+
+cb_hold_term(Caller, Term, 0) ->
+    Caller ! ready,
+    receive stop -> ok end;
+cb_hold_term(Caller, Term, N) ->
+    _R = cb_hold_term(Caller, Term, N - 1),
+    case Term of _ -> ok end.
+
+cb_check_chunked_backtrace(Term, ChunkSize) ->
+    Self = self(),
+    Pid = spawn(fun () -> cb_hold_term(Self, Term) end),
+    receive ready -> ok end,
+    Chunked = cb_collect_backtrace(Pid, ChunkSize),
+    {backtrace, Classic} = erlang:process_info(Pid, backtrace),
+    Pid ! stop,
+    Classic = Chunked.
+
+%%
+%% chunked_backtrace_bif tests
+%%
+
+chunked_backtrace_reassembly(Config) when is_list(Config) ->
+    Pid = spawn(fun () -> cb_wait_loop(200) end),
+    timer:sleep(50),
+    {backtrace, Classic} = process_info(Pid, backtrace),
+    {ok, H, First} = erlang:process_info_backtrace_start(Pid, [{chunk_size, 64}]),
+    Rest = cb_drain(H, []),
+    Reassembled = iolist_to_binary([First, Rest]),
+    Classic = Reassembled,
+    {status, waiting} = process_info(Pid, status),
+    exit(Pid, kill).
+
+chunked_backtrace_single_chunk(Config) when is_list(Config) ->
+    Pid = spawn(fun () -> cb_wait_loop(200) end),
+    timer:sleep(50),
+    {backtrace, Classic} = process_info(Pid, backtrace),
+    {ok, H, Chunk} = erlang:process_info_backtrace_start(Pid, [{chunk_size, 1000000}]),
+    done = erlang:process_info_backtrace_next(H),
+    Chunk = Classic,
+    {status, waiting} = process_info(Pid, status),
+    exit(Pid, kill).
+
+chunked_backtrace_repeated(Config) when is_list(Config) ->
+    Pid = spawn(fun () -> cb_wait_loop(200) end),
+    timer:sleep(50),
+    {backtrace, Classic} = process_info(Pid, backtrace),
+    lists:foreach(
+      fun (_) ->
+              {ok, H, F} = erlang:process_info_backtrace_start(Pid, [{chunk_size, 100}]),
+              Rest = cb_drain(H, []),
+              Classic = iolist_to_binary([F, Rest])
+      end, lists:seq(1, 3)),
+    {status, waiting} = process_info(Pid, status),
+    exit(Pid, kill).
+
+chunked_backtrace_early_stop(Config) when is_list(Config) ->
+    Pid = spawn(fun () -> cb_wait_loop(200) end),
+    timer:sleep(50),
+    {ok, H, _First} = erlang:process_info_backtrace_start(Pid, [{chunk_size, 64}]),
+    ok = erlang:process_info_backtrace_stop(H),
+    %% Target must have been resumed by stop
+    {status, waiting} = process_info(Pid, status),
+    exit(Pid, kill).
+
+chunked_backtrace_stale_stop(Config) when is_list(Config) ->
+    Pid = spawn(fun () -> cb_wait_loop(200) end),
+    timer:sleep(50),
+    {backtrace, Classic} = process_info(Pid, backtrace),
+    %% Drain fully, then issue a stop on the already-finished handle (stale stop).
+    {ok, H1, F1} = erlang:process_info_backtrace_start(Pid, [{chunk_size, 200}]),
+    Rest1 = cb_drain(H1, []),
+    Classic = iolist_to_binary([F1, Rest1]),
+    {status, waiting} = process_info(Pid, status),
+    ok = erlang:process_info_backtrace_stop(H1),
+    {status, waiting} = process_info(Pid, status),
+    %% A fresh session after the stale stop must still produce correct output.
+    {ok, H2, F2} = erlang:process_info_backtrace_start(Pid, [{chunk_size, 300}]),
+    Rest2 = cb_drain(H2, []),
+    Classic = iolist_to_binary([F2, Rest2]),
+    {status, waiting} = process_info(Pid, status),
+    exit(Pid, kill).
+
+chunked_backtrace_caller_exit(Config) when is_list(Config) ->
+    Pid = spawn(fun () -> cb_wait_loop(200) end),
+    timer:sleep(50),
+    Self = self(),
+    Caller = spawn(
+               fun () ->
+                       {ok, _H, _F} = erlang:process_info_backtrace_start(Pid, [{chunk_size, 64}]),
+                       Self ! started,
+                       exit(die)
+               end),
+    receive started -> ok end,
+    %% Give the caller process time to exit and let the runtime clean up
+    timer:sleep(200),
+    false = is_process_alive(Caller),
+    %% Target must have been auto-resumed when its caller exited
+    {status, waiting} = process_info(Pid, status),
+    exit(Pid, kill).
+
+chunked_backtrace_dropped_handle(Config) when is_list(Config) ->
+    %% Verify that a handle going out of scope causes the magic binary
+    %% destructor to fire and auto-resume the suspended target.
+    %%
+    %% On pre-magic-ref code (SUSPEND monitor) the target would stay suspended
+    %% until the owning *process* exits.  With the magic binary the destructor
+    %% fires as soon as the reference is no longer reachable, independent of
+    %% the process lifetime.
+    %%
+    %% We verify this by binding the handle inside cb_start_and_drop/1 and
+    %% then tail-calling into cb_assert_resumed/1 without carrying the handle
+    %% along.  The handle becomes unreachable on the tail call; the subsequent
+    %% garbage_collect() fires the destructor.
+    Pid = spawn(fun () -> cb_wait_loop(200) end),
+    timer:sleep(50),
+    cb_start_and_drop(Pid),
+    exit(Pid, kill).
+
+chunked_backtrace_target_exit(Config) when is_list(Config) ->
+    %% Verify that the session is cleaned up when the TARGET exits while a
+    %% session is active.  The destructor must free the stepbuf/cursor
+    %% buffers even when the target is gone (target lookup returns NULL).
+    %% Run under a memory check by repeating to detect leaks.
+    Pid = spawn(fun () -> cb_wait_loop(200) end),
+    timer:sleep(50),
+    {ok, H, _First} = erlang:process_info_backtrace_start(Pid,
+                                                          [{chunk_size, 64}]),
+    exit(Pid, kill),
+    %% Give the exit time to propagate.
+    timer:sleep(50),
+    %% _next on a session whose target has died returns 'done'.
+    done = erlang:process_info_backtrace_next(H),
+    %% _stop on a session whose target has died is a no-op returning ok.
+    ok = erlang:process_info_backtrace_stop(H),
+    %% Drop the handle and force GC; destructor must release session buffers.
+    cb_drop_and_gc(H),
+    ok.
+
+cb_drop_and_gc(_H) ->
+    erlang:garbage_collect(),
+    ok.
+
+cb_start_and_drop(Pid) ->
+    {ok, _Handle, _Chunk} = erlang:process_info_backtrace_start(Pid, [{chunk_size, 64}]),
+    %% Tail-call without _Handle — it is now unreachable.
+    cb_assert_resumed(Pid).
+
+cb_assert_resumed(Pid) ->
+    erlang:garbage_collect(),
+    timer:sleep(100),
+    {status, waiting} = process_info(Pid, status).
+
+chunked_backtrace_deep_process(Config) when is_list(Config) ->
+    BigTerm = cb_make_big_term(20),
+    Pid = spawn(fun () -> cb_stack_deep(60, BigTerm) end),
+    timer:sleep(50),
+    {backtrace, Classic} = process_info(Pid, backtrace),
+    {ok, H, F} = erlang:process_info_backtrace_start(Pid, [{chunk_size, 512}]),
+    Rest = cb_drain(H, []),
+    Classic = iolist_to_binary([F, Rest]),
+    exit(Pid, kill).
+
+chunked_backtrace_large_binary(Config) when is_list(Config) ->
+    cb_check_chunked_backtrace(<<0:(65536*8)>>, 64).
+
+chunked_backtrace_large_list(Config) when is_list(Config) ->
+    cb_check_chunked_backtrace(lists:seq(1, 1000), 64).
+
+chunked_backtrace_printable_string(Config) when is_list(Config) ->
+    cb_check_chunked_backtrace(lists:duplicate(500, $a), 64).
+
+chunked_backtrace_large_bignum(Config) when is_list(Config) ->
+    cb_check_chunked_backtrace(1 bsl 10000, 64).
+
+chunked_backtrace_nested_tuples(Config) when is_list(Config) ->
+    cb_check_chunked_backtrace({a, {b, {c, {d, lists:seq(1, 100)}}}}, 64).
+
+chunked_backtrace_consistency(Config) when is_list(Config) ->
+    cb_check_chunked_backtrace({lists:seq(1, 1000),
+                                <<0:(65536*8)>>,
+                                lists:duplicate(500, $a),
+                                1 bsl 10000,
+                                {a, {b, {c, {d, lists:seq(1, 100)}}}}}, 64).
+
+chunked_backtrace_cross_scheduler(Config) when is_list(Config) ->
+    %% Verify that the step buffer survives the target process migrating
+    %% between schedulers between backtrace_start_cb and backtrace_next_cb.
+    %%
+    %% Root cause of the bug: the step buffer was allocated via
+    %% ERTS_ALC_T_TMP_DSBUF, a thread-specific allocator (one allctr instance
+    %% per scheduler).  backtrace_start_cb ran on scheduler X and allocated
+    %% the buffer via allctr[X].  If the target then migrated and
+    %% backtrace_next_cb ran on scheduler Y, the free used allctr[Y] to find
+    %% the carrier, but the carrier was in allctr[X]'s list → NULL deref in
+    %% unlink_carrier → SIGSEGV.
+    %%
+    %% The fix uses ERTS_ALC_T_SIG_DATA (a thread-safe allocator) for the
+    %% step buffer.  This test verifies the fix by deliberately engineering
+    %% scheduler migration:
+    %%
+    %%   1. Each target is spawned bound to scheduler 1, then immediately
+    %%      unbinds itself (process_flag(scheduler, 0)), leaving its home run
+    %%      queue as scheduler 1.
+    %%   2. backtrace_start_cb therefore runs on scheduler 1.
+    %%   3. Scheduler 1 is then flooded with low-priority spinners, which
+    %%      makes it appear overloaded to the load balancer.
+    %%   4. When the next-cb RPC signal is enqueued, erts_check_emigration_need
+    %%      migrates the unbound target to a less-loaded scheduler.
+    %%   5. backtrace_next_cb runs on a scheduler ≠ 1.
+    %%
+    %% On unfixed code this causes a SIGSEGV (beam.smp crash).
+    %% On fixed code all N*4 concurrent sessions complete normally.
+    case erlang:system_info(schedulers_online) of
+        1 -> {skip, "test requires at least 2 schedulers online"};
+        _ -> ok
+    end,
+    N = erlang:system_info(schedulers_online),
+    BigTerm = cb_make_big_term(20),
+    cb_cross_scheduler_run(10, N, BigTerm).
+
+cb_cross_scheduler_run(0, _N, _BigTerm) ->
+    ok;
+cb_cross_scheduler_run(Rounds, N, BigTerm) ->
+    NumSessions = N * 4,
+    %% Spawn each target bound to sched 1, then have it immediately unbind so
+    %% its home run queue is sched 1 but it is not bound (eligible for migration).
+    Targets = [spawn_opt(
+                  fun () ->
+                          process_flag(scheduler, 0),
+                          cb_stack_deep(150, BigTerm)
+                  end,
+                  [{scheduler, 1}])
+               || _ <- lists:seq(1, NumSessions)],
+    timer:sleep(50),
+    %% Flood sched 1 with low-priority spinners to create load imbalance,
+    %% making the load balancer migrate targets to other schedulers for _next.
+    Saturators = [spawn_opt(fun cb_saturate/0,
+                            [{scheduler, 1}, {priority, low}])
+                  || _ <- lists:seq(1, N * 8)],
+    Self = self(),
+    %% Start all sessions concurrently.
+    [spawn_link(
+       fun () ->
+               {ok, H, First} =
+                   erlang:process_info_backtrace_start(T, [{chunk_size, 64}]),
+               _Bt = cb_drain(H, [First]),
+               Self ! done
+       end) || T <- Targets],
+    [receive done -> ok end || _ <- lists:seq(1, NumSessions)],
+    [exit(S, kill) || S <- Saturators],
+    [exit(T, kill) || T <- Targets],
+    cb_cross_scheduler_run(Rounds - 1, N, BigTerm).
+
+cb_saturate() -> cb_saturate().

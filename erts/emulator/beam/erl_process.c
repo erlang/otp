@@ -559,7 +559,7 @@ do {									\
 
 static void exec_misc_ops(ErtsRunQueue *);
 static void print_function_from_pc(fmtfn_t to, void *to_arg, ErtsCodePtr x);
-static Uint stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, Uint yreg);
+static Uint stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, Uint yreg, int precision);
 
 static void aux_work_timeout(void *unused);
 static void aux_work_timeout_early_init(int max_no_aux_work_threads);
@@ -12208,6 +12208,7 @@ alloc_process(ErtsRunQueue *rq, int bound, erts_aint32_t state)
     ASSERT(internal_pid_serial(p->common.id) <= ERTS_MAX_INTERNAL_PID_SERIAL);
     
     p->rcount = 0;
+    p->chunked_backtrace = NULL;
     p->heap = NULL;
 
 
@@ -13215,6 +13216,7 @@ void erts_init_empty_process(Process *p)
     p->min_heap_size = 0;
     p->min_vheap_size = 0;
     p->rcount = 0;
+    p->chunked_backtrace = NULL;
     p->common.id = ERTS_INVALID_PID;
     p->reds = 0;
     p->common.tracee.first_ref = NULL;
@@ -14513,6 +14515,7 @@ restart:
         trap_state->pectxt.yield = 0;
 
         p->rcount = 0;
+        p->chunked_backtrace = NULL;
 
         if (p->flags & F_FRAGMENTED_SEND) {
             /* The process was re-scheduled while doing a fragmented
@@ -14898,7 +14901,96 @@ erts_stack_dump(fmtfn_t to, void *to_arg, Process *p)
     }
     erts_program_counter_info(to, to_arg, p);
     for (sp = p->stop; sp < STACK_START(p); sp++) {
-        yreg = stack_element_dump(to, to_arg, sp, yreg);
+        yreg = stack_element_dump(to, to_arg, sp, yreg, -1);
+    }
+}
+
+/*
+ * Lazy variant of erts_stack_dump: emit one logical unit per call.
+ * The cursor must be zero-initialised before the first call.
+ * Returns 1 if more units remain, 0 when all output has been produced.
+ * Produces the same bytes as erts_stack_dump in total.
+ */
+int
+erts_stack_dump_step(fmtfn_t to, void *to_arg, Process *p,
+                     ErtsStackDumpCursor *cur)
+{
+    if (ERTS_IS_PROC_SENSITIVE(p)) {
+        if (cur->in_term) {
+            erts_print_term_cursor_destroy(&cur->term_cursor);
+            cur->in_term = 0;
+        }
+        cur->phase = ERTS_STACK_DUMP_PHASE_DONE;
+        return 0;
+    }
+
+    switch (cur->phase) {
+    case ERTS_STACK_DUMP_PHASE_PC_INFO:
+        erts_program_counter_info(to, to_arg, p);
+        cur->phase = ERTS_STACK_DUMP_PHASE_STACK;
+        cur->sp    = p->stop;
+        cur->yreg  = 0;
+        if (cur->sp >= STACK_START(p)) {
+            cur->phase = ERTS_STACK_DUMP_PHASE_DONE;
+            return 0;
+        }
+        return 1;
+
+    case ERTS_STACK_DUMP_PHASE_STACK: {
+        Eterm x = *cur->sp;
+        int term_done;
+        long max_bytes = cur->term_max_bytes ? cur->term_max_bytes : (64*1024);
+
+        if (!cur->in_term) {
+            if (is_CP(x)) {
+                erts_print(to, to_arg, "\n%p Return addr %p (",
+                           cur->sp, (Eterm *) x);
+                print_function_from_pc(to, to_arg, cp_val(x));
+                erts_print(to, to_arg, ")\n");
+                cur->yreg = 0;
+                cur->sp++;
+                if (cur->sp >= STACK_START(p)) {
+                    cur->phase = ERTS_STACK_DUMP_PHASE_DONE;
+                    return 0;
+                }
+                return 1;
+            } else {
+                char sbuf[16];
+                erts_snprintf(sbuf, sizeof(sbuf), "y(%d)", cur->yreg);
+                erts_print(to, to_arg, "%-8s ", sbuf);
+                cur->yreg++;
+                if (is_catch(x)) {
+                    erts_print(to, to_arg, "Catch %p (", catch_pc(x));
+                    print_function_from_pc(to, to_arg, catch_pc(x));
+                    erts_print(to, to_arg, ")\n");
+                    cur->sp++;
+                    if (cur->sp >= STACK_START(p)) {
+                        cur->phase = ERTS_STACK_DUMP_PHASE_DONE;
+                        return 0;
+                    }
+                    return 1;
+                }
+                erts_print_term_cursor_init(&cur->term_cursor, x);
+                cur->in_term = 1;
+            }
+        }
+
+        term_done = !erts_print_term_step(to, to_arg, &cur->term_cursor,
+                                          max_bytes);
+        if (term_done) {
+            erts_print(to, to_arg, "\n");
+            cur->in_term = 0;
+            cur->sp++;
+            if (cur->sp >= STACK_START(p)) {
+                cur->phase = ERTS_STACK_DUMP_PHASE_DONE;
+                return 0;
+            }
+        }
+        return 1;
+    }
+
+    default: /* DONE */
+        return 0;
     }
 }
 
@@ -14966,7 +15058,7 @@ print_function_from_pc(fmtfn_t to, void *to_arg, ErtsCodePtr x)
 }
 
 static Uint
-stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, Uint yreg)
+stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, Uint yreg, int precision)
 {
     Eterm x = *sp;
 
@@ -14989,7 +15081,7 @@ stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, Uint yreg)
         print_function_from_pc(to, to_arg, catch_pc(x));
         erts_print(to, to_arg, ")\n");
     } else {
-	erts_print(to, to_arg, "%T\n", x);
+        erts_print(to, to_arg, "%.*T\n", precision, x);
     }
     return yreg;
 }
