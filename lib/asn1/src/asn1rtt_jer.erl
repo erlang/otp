@@ -145,10 +145,7 @@ encode_jer(compact_bit_string,Compact) ->
 encode_jer({compact_bit_string,{_,_}},Compact) ->
     BitStr = jer_compact2bitstr(Compact),
     encode_jer(bit_string,BitStr);
-encode_jer({compact_bit_string,FixedLength}, {_,Binary}=Compact) when is_binary(Binary) ->
-    BitStr = jer_compact2bitstr(Compact),
-    encode_jer({bit_string,FixedLength},BitStr);
-encode_jer({compact_bit_string,FixedLength}, Compact) when is_integer(Compact) ->
+encode_jer({compact_bit_string,FixedLength}, Compact) ->
     BitStr = jer_compact2bitstr(Compact),
     encode_jer({bit_string,FixedLength},BitStr);
 encode_jer({bit_string_nnl,NNL},Value) ->
@@ -443,7 +440,10 @@ jer_bit_str2bitstr([], _NamedBitList) ->
 jer_bit_str2bitstr(BitStr,_NamedBitList) when is_bitstring(BitStr) ->
     BitStr.
 
-jer_compact2bitstr({Unused,Binary}) ->
+jer_compact2bitstr(Bitstring) when is_bitstring(Bitstring) ->
+    Bitstring;
+jer_compact2bitstr({Unused,Binary})
+    when is_integer(Unused), is_binary(Binary) ->
     Size = bit_size(Binary) - Unused,
     <<BitStr:Size/bitstring,_/bitstring >> = Binary,
     BitStr;
