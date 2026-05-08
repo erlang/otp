@@ -712,18 +712,19 @@ static void do_read(EpmdVars *g,Connection *s)
 	  return;
 	}
     }
-  
-  s->mod_time = current_time(g); /* Note activity */
-  
-  if (s->want == s->got)
-    {
-      /* Do action and close up */
-      /* Skip header bytes */
 
+    if (s->want == s->got)
+    {
+      /* Note activity. */
+      s->mod_time = current_time(g);
+
+      /* Do action and close up. +/- 2 is to skip the length prefix. */
       do_request(g, s->fd, s, s->buf + 2, s->got - 2);
 
-      if (!s->keep)
-	epmd_conn_close(g,s);		/* Normal close */
+      if (!s->keep) {
+        /* Normal close */
+        epmd_conn_close(g,s);
+      }
     }
 }
 
@@ -744,9 +745,11 @@ static int do_accept(EpmdVars *g,int listensock)
             case EAGAIN:
             case ECONNABORTED:
             case EINTR:
-	            return EPMD_FALSE;
+            case EMFILE:
+            case ENFILE:
+                return EPMD_FALSE;
             default:
-	            epmd_cleanup_exit(g,1);
+                epmd_cleanup_exit(g,1);
         }
     }
 
