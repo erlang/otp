@@ -255,7 +255,8 @@ A match specifications with excessive nesting will cause a
 -export([i/0, i/1, i/2, i/3]).
 
 -export_type([table/0, table_access/0, table_type/0,
-              tid/0, match_spec/0, compiled_match_spec/0, match_pattern/0]).
+              tid/0, match_spec/0, compiled_match_spec/0, match_pattern/0,
+              continuation/0]).
 
 %%-----------------------------------------------------------------------------
 
@@ -267,9 +268,9 @@ Opaque continuation used by [`select/1,3`](`select/1`),
 [`select_reverse/1,3`](`select_reverse/1`), [`match/1,3`](`match/1`), and
 [`match_object/1,3`](`match_object/1`).
 """.
--type continuation()  :: '$end_of_table'
-                       | {table(),integer(),integer(),compiled_match_spec(),list(),integer()}
-                       | {table(),_,_,integer(),compiled_match_spec(),list(),integer(),integer()}.
+-opaque continuation()  :: '$end_of_table'
+                         | {table(),integer(),integer(),compiled_match_spec(),list(),integer()}
+                         | {table(),_,_,integer(),compiled_match_spec(),list(),integer(),integer()}.
 
 -doc "A table identifier, as returned by `new/2`.".
 -opaque tid()         :: reference().
