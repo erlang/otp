@@ -1173,10 +1173,13 @@ expand_opt(report, Os) ->
     [report_errors,report_warnings|Os];
 expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
-expand_opt(r26, Os) ->
-    [no_bsm_opt | expand_opt(r27, Os)];
+expand_opt(r29, Os) ->
+    %% Nothing... yet.
+    Os;
+expand_opt(r28, Os) ->
+    expand_opt(r29, Os);
 expand_opt(r27, Os) ->
-    [no_long_atoms, compressed_literals | Os];
+    [no_long_atoms, compressed_literals | expand_opt(r28, Os)];
 expand_opt(beam_debug_info, Os) ->
     [beam_debug_info, no_copt, no_bsm_opt, no_bool_opt,
      no_share_opt, no_recv_opt, no_ssa_opt, no_throw_opt | Os];
@@ -2510,6 +2513,7 @@ is_obsolete(r22) -> true;
 is_obsolete(r23) -> true;
 is_obsolete(r24) -> true;
 is_obsolete(r25) -> true;
+is_obsolete(r26) -> true;
 is_obsolete(no_badrecord) -> true;
 is_obsolete(no_bs_create_bin) -> true;
 is_obsolete(no_bs_match) -> true;

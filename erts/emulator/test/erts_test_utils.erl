@@ -22,7 +22,7 @@
 
 -module(erts_test_utils).
 
--compile(r26).
+-compile(r27).
 
 %%
 %% THIS MODULE IS ALSO USED BY *OTHER* APPLICATIONS TEST CODE

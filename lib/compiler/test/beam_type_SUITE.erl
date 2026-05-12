@@ -1650,11 +1650,7 @@ cover_convert_ext(_Config) ->
     Otp27Types = <<Otp27AllTypes:16, -1:16,0:64,0:64,1:8>>,
     _ = beam_types:decode_ext(beam_types:convert_ext(Otp27Version, Otp27Types)),
 
-    Otp26AllTypes = 2#1111_1111_1111,
-    Otp26Version = 2,
-    Otp26Types = <<Otp26AllTypes:16, -1:16,0:64,0:64,1:8>>,
-    _ = beam_types:decode_ext(beam_types:convert_ext(Otp26Version, Otp26Types)),
-
+    none = beam_types:convert_ext(2, <<>>),     %OTP 26
     none = beam_types:convert_ext(1, <<>>),     %OTP 25
     none = beam_types:convert_ext(0, <<>>),
 

@@ -1088,7 +1088,6 @@ get_unique_beam_files() ->
     F = fun IsCloned(ModString) ->
                 case ModString of
                     "_dialyzer_SUITE" -> true;
-                    "_r26_SUITE" -> true;
                     [_|T] -> IsCloned(T);
                     _ -> false
                 end
