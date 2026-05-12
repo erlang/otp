@@ -1219,7 +1219,16 @@ socket_getopt_value(_Tag, {ok, _Value} = Ok) -> Ok;
 socket_getopt_value(_Tag, {error, _} = Error) -> Error.
 
 
-socket_copy_opt(Socket, Tag, TargetSocket) when is_atom(Tag) ->
+%% Copy options from one socket to another.
+%% Any error when getting a socket option will only result in
+%% that option beeing excluded from the list.
+%% Some failures when setting are accepted (ignored).
+socket_copy_opts(FromSocket, ToSocket, Tags) ->
+    socket_copy_opts(FromSocket, ToSocket, Tags, []).
+
+socket_copy_opts(_FromSocket, ToSocket, [], Opts) ->
+    socket_copy_opts(ToSocket, Opts);
+socket_copy_opts(FromSocket, ToSocket, [Tag|Tags], Opts) ->
     case socket_opts() of
         #{Tag := {_Level,_Key} = Opt} ->
 	    case socket:is_supported(options, Opt) of
@@ -1230,27 +1239,69 @@ socket_copy_opt(Socket, Tag, TargetSocket) when is_atom(Tag) ->
 		    %% Since we are supposed to be "bug" compatible 
 		    %% with the inet-driver, if we fail to get the option
 		    %% we simply skip the option (return ok anyway).
-		    case socket:getopt(Socket, Opt) of
+		    case socket:getopt(FromSocket, Opt) of
 			{ok, Value} ->
-			    case socket:setopt(TargetSocket, Opt, Value) of
-				ok ->
-				    ok;
-				{error, enotsup} ->
-				    ok;
-				{error, enoprotoopt} ->
-				    ok;
-				{error, Reason} ->
-				    {error, {Reason, Opt}}
-			    end;
-			{error, _Reason} ->
-			    ok
+			    socket_copy_opts(FromSocket, ToSocket, Tags,
+					     [{Opt, Value}|Opts]);
+			_ ->			    
+			    socket_copy_opts(FromSocket, ToSocket, Tags,
+					     Opts)
 		    end;
 		false ->
-		    ok
+		    socket_copy_opts(FromSocket, ToSocket, Tags,
+				     Opts)
 	    end;
-        #{} = _X ->
+	_ ->
 	    {error, {einval, Tag}}
     end.
+	    
+socket_copy_opts(_ToSocket, [] = _Opts) ->
+    ok;
+socket_copy_opts(ToSocket, [{Opt, Value}|Opts]) ->
+    case socket:setopt(ToSocket, Opt, Value) of
+	ok ->
+	    socket_copy_opts(ToSocket, Opts);
+	{error, enotsup} ->
+	    socket_copy_opts(ToSocket, Opts);
+	{error, enoprotoopt} ->	
+	    socket_copy_opts(ToSocket, Opts);
+	{error, Reason} ->
+	    {error, {Reason, Opt, socket:info(ToSocket)}}
+    end.
+    
+    
+%% socket_copy_opt(Socket, Tag, TargetSocket) when is_atom(Tag) ->
+%%     case socket_opts() of
+%%         #{Tag := {_Level,_Key} = Opt} ->
+%% 	    case socket:is_supported(options, Opt) of
+%% 		true ->
+%% 		    %% Both 'getopt' and 'setopt' can return 'enotsup'
+%% 		    %% (or 'enoprotoopt' on Windows) even though
+%% 		    %% 'is_supported' returned 'true'.
+%% 		    %% Since we are supposed to be "bug" compatible 
+%% 		    %% with the inet-driver, if we fail to get the option
+%% 		    %% we simply skip the option (return ok anyway).
+%% 		    case socket:getopt(Socket, Opt) of
+%% 			{ok, Value} ->
+%% 			    case socket:setopt(TargetSocket, Opt, Value) of
+%% 				ok ->
+%% 				    ok;
+%% 				{error, enotsup} ->
+%% 				    ok;
+%% 				{error, enoprotoopt} ->
+%% 				    ok;
+%% 				{error, Reason} ->
+%% 				    {error, {Reason, Opt}}
+%% 			    end;
+%% 			{error, _Reason} ->
+%% 			    ok
+%% 		    end;
+%% 		false ->
+%% 		    ok
+%% 	    end;
+%%         #{} = _X ->
+%% 	    {error, {einval, Tag}}
+%%     end.
 
 
 -compile({inline, [ignore_optname/1]}).
@@ -2293,8 +2344,9 @@ handle_accept_success(P, D, From, ListenSocket, AccSocket) ->
     %% ?DBG([{acc_socket, AccSocket}]),
     ok = socket:setopt(AccSocket, {otp,iow}, true),
     ok = socket:setopt(AccSocket, {otp,meta}, meta(D)),
-    [ok = socket_copy_opt(ListenSocket, Opt, AccSocket)
-     || Opt <- socket_inherit_opts()],
+    ok = socket_copy_opts(ListenSocket, AccSocket, socket_inherit_opts()),
+    %% [ok = socket_copy_opt(ListenSocket, Opt, AccSocket)
+    %%  || Opt <- socket_inherit_opts()],
     handle_connected(
       P#params{socket = AccSocket}, D#{type => accept},
       [{{timeout, accept}, cancel},
