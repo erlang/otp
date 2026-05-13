@@ -23,6 +23,12 @@ name: Release Erlang/OTP
 on:
   workflow_call:
     inputs:
+      otp_branch:
+        description: |
+          The OTP branch that triggered the workflow.
+          This is useful if one needs to selectively skip reusable workflows
+        required: true
+        type: string
       otp_sbom_version:
         required: true
         type: string
@@ -89,20 +95,20 @@ jobs:
           sha256sum $FILES > SHA256.txt
 
       - name: Download SBoM
-        if: inputs.otp_sbom_version != '' # needed to not account for OTP-26 and 27
+        if: ${{ inputs.otp_branch != 'maint-26' && inputs.otp_branch != 'maint-27' }} # skip for OTP-26 and 27
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # ratchet:actions/download-artifact@v6.0.0
         with:
             name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}
 
       - name: Download ORT Scan Results
-        if: inputs.otp_sbom_version != '' # needed to not account for OTP-26 and 27
+        if: ${{ inputs.otp_branch != 'maint-26' && inputs.otp_branch != 'maint-27' }} # skip for OTP-26 and 27
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # ratchet:actions/download-artifact@v6.0.0
         with:
             name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}-scan-result.json.zip
 
       - name: Attest Distribution Assets with SBoM
         id: attest-sbom
-        if: inputs.otp_sbom_version != '' # needed to not account for OTP-26 and 27
+        if: ${{ inputs.otp_branch != 'maint-26' && inputs.otp_branch != 'maint-27' }} # skip for OTP-26 and 27
         uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # ratchet:actions/attest-sbom@v3
         with:
           subject-path: |
@@ -114,7 +120,7 @@ jobs:
 
       - name: "Copy SBoM provenance"
         id: sbom-provenance
-        if: inputs.otp_sbom_version != '' # needed to not account for OTP-26 and 27
+        if: ${{ inputs.otp_branch != 'maint-26' && inputs.otp_branch != 'maint-27' }} # skip for OTP-26 and 27
         shell: bash
         run: |
           shopt -s nullglob
@@ -126,7 +132,7 @@ jobs:
           ATTESTATION: "${{ steps.attest-sbom.outputs.bundle-path }}"
 
       - name: "Assemble Distribution Attestations"
-        if: inputs.otp_sbom_version != '' # needed to not account for OTP-26 and 27
+        if: ${{ inputs.otp_branch != 'maint-26' && inputs.otp_branch != 'maint-27' }} # skip for OTP-26 and 27
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # ratchet:actions/upload-artifact@v6
         with:
           name: "Attestations"
@@ -149,20 +155,21 @@ jobs:
           echo "Current release tag:    ${TAG}"
 
           if [ "$OTP_TAG" = "${TAG}" ]; then
-            echo "latest=true" >> "$GITHUB_OUTPUT"
+            gh release edit --tag "${TAG}" --latest=true
+            echo "latest=true"
           else
-            echo "latest=false" >> "$GITHUB_OUTPUT"
+            gh release edit --tag "${TAG}" --latest=false
+            echo "latest=false"
           fi
 
       - name: Create a release
-        if: inputs.otp_sbom_version != '' # needed to not account for OTP-26 and 27
+        if: ${{ inputs.otp_branch != 'maint-26' && inputs.otp_branch != 'maint-27' }} # skip for OTP-26 and 27
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG:      ${{ inputs.tag }}
           VSN:      ${{ inputs.vsn }}
-          LATEST:   ${{ steps.latest-release.outputs.latest }}
         run: |
-          gh release create "${TAG}" --title "OTP ${VSN}" --latest=${LATEST} \
+          gh release upload "${TAG}" --clobber \
             artifacts/*.tar.gz \
             artifacts/*.txt \
             attestations/*.sigstore \
@@ -170,14 +177,14 @@ jobs:
 
       # Create a release for 26 and 27
       - name: Create Release for 26 and 27
-        if: inputs.otp_sbom_version == '' # needed to for OTP-26 and 27
+        if: ${{ inputs.otp_branch == 'maint-26' || inputs.otp_branch == 'maint-27' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG:      ${{ inputs.tag }}
           VSN:      ${{ inputs.vsn }}
           LATEST:   ${{ steps.latest-release.outputs.latest }}
         run: |
-          gh release create "${TAG}" --title "OTP ${VSN}" --latest=${LATEST} \
+          gh release upload "${TAG}" --clobber \
             artifacts/*.tar.gz \
             artifacts/*.txt
 
