@@ -246,7 +246,7 @@ setup_and_execute(TCName, Specs, TestOpts, Config) ->
 	ok ->
 	    ok;
 	Error ->
-	    ct:pal("Error executing with opts: ~p", [Opts]),
+	    ct:log("Error executing with opts: ~p", [Opts]),
 	    exit(Error)
     end,
 
