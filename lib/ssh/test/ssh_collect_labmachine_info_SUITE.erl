@@ -59,7 +59,7 @@ save_ssh_data(Host, Data, Config0) ->
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
-suite() -> [{timetrap,{seconds,40}}].
+suite() -> [{ct_hooks,[cth_fips]}, {timetrap,{seconds,40}}].
 
 all() -> [ssh_info_lib].
 
