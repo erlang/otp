@@ -137,6 +137,7 @@ ci(Opts) ->
     %%   git diff --name-only --diff-filter=d OTP-27.3 HEAD | ./scripts/license-header.es scan --no-missing --path stdin | grep ":" | grep -v "^See" | awk -F: '{print "\"" $1 "\","}' | sort
     NoWarnNewFiles = ["erts/emulator/test/big_SUITE_data/eq_big.dat",
                       "erts/emulator/test/big_SUITE_data/eq_big_rem.dat",
+                      "erts/emulator/test/big_SUITE_data/karatsuba.dat",
                       "erts/emulator/test/float_SUITE_data/fp_drv.c",
                       "lib/asn1/test/asn1_SUITE_data/PrimStrings.asn1",
                       "lib/common_test/test/ct_surefire_SUITE_data/skip_one_suite.spec",
