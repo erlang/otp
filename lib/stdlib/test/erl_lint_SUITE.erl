@@ -1291,6 +1291,65 @@ types(Config) ->
            {warnings,[{{1,22},erl_lint,
                        {redefine_builtin_type,{nonempty_bitstring,0}}}]}},
 
+          %% Singleton binary literal types.
+          {bin_type1,
+           <<"-type cmd() :: <<\"start\">> | <<\"stop\">>.\n">>,
+           [nowarn_unused_type],
+           []},
+
+          {bin_type2,
+           <<"-export([f/1]).\n"
+             "-spec f(<<\"hello\">> | <<\"world\">>) -> ok.\n"
+             "f(<<\"hello\">>) -> ok;\n"
+             "f(<<\"world\">>) -> ok.\n">>,
+           [],
+           []},
+
+          {bin_type3,
+           <<"-callback cb(<<\"x\">>) -> ok.\n">>,
+           [nowarn_unused_type],
+           []},
+
+          {bin_type4,
+           <<"-type empty() :: <<\"\">>.\n">>,
+           [nowarn_unused_type],
+           []},
+
+          {bin_type5,
+           <<"-record(msg, {tag :: <<\"hello\">> | <<\"world\">>}).\n"
+             "-export([f/0]).\n"
+             "f() -> #msg{tag = <<\"hello\">>}.\n">>,
+           [],
+           []},
+
+          %% Singleton binary literal types with encoding.
+          {bin_type6,
+           <<"-type utf8_str() :: <<\"é\"/utf8>>.\n"/utf8>>,
+           [nowarn_unused_type],
+           []},
+
+          {bin_type7,
+           <<"-type greeting() :: ~\"hello\".\n">>,
+           [nowarn_unused_type],
+           []},
+
+          {bin_type8,
+           <<"-type t() :: ~\"café\".\n"/utf8>>,
+           [nowarn_unused_type],
+           []},
+
+          {bin_type9,
+           <<"-type t() :: <<\"hello\"/utf16>>.\n">>,
+           [nowarn_unused_type],
+           []},
+
+          {bin_type10,
+           <<"-type t() :: <<\"hello\"/integer>>.\n">>,
+           [nowarn_unused_type],
+           {errors,[{{1,34},erl_parse,
+                     "unsupported encoding in binary literal type"}],
+            []}},
+
           %% Test for bad types.
           {bad_export_type1,
            <<"-export_type(no_arity).
