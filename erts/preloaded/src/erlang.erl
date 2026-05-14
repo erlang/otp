@@ -148,7 +148,7 @@ This datatype is used to represent data that is meant to be output using
 any I/O module. For example: `file:write/2` or `gen_tcp:send/2`.
 
 To convert an `t:iodata/0` term to `t:binary/0` you can use
-[iolist_to_binary/2](`iolist_to_binary/1`). To transcode a `t:string/0` or
+[iolist_to_binary/1](`iolist_to_binary/1`). To transcode a `t:string/0` or
 `t:unicode:chardata/0` to `t:iodata/0` you can use `unicode:characters_to_binary/1`.
 """.
 -type iodata() :: iolist() | binary().
