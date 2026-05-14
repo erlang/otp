@@ -1018,8 +1018,8 @@ build_bin_seg_integer(Bits, Val, Next) ->
                 seg=Seg,next=Next}.
 
 integer_fits_and_is_expandable(Int, Size)
-  when is_integer(Int), is_integer(Size),
-       0 < Size, Size =< ?EXPAND_MAX_SIZE_SEGMENT ->
+  when is_integer(Int),
+       is_integer(Size, 1, ?EXPAND_MAX_SIZE_SEGMENT) ->
     case <<Int:Size>> of
         <<Int:Size>> -> true;
         _ -> false
@@ -1481,8 +1481,9 @@ do_combine_lit_pat(_) ->
     throw(not_possible).
 
 combine_bin_segs(#cg_bin_seg{size=#b_literal{val=8},unit=1,type=integer,
-                             flags=[unsigned,big],seg=#b_literal{val=Int},next=Next})
-  when is_integer(Int), 0 =< Int, Int =< 255 ->
+                             flags=[unsigned,big],
+                             seg=#b_literal{val=Int},next=Next})
+  when is_integer(Int, 0, 255) ->
     <<Int,(combine_bin_segs(Next))/bits>>;
 combine_bin_segs(#cg_bin_end{}) ->
     <<>>;
@@ -2114,7 +2115,7 @@ clause_count_segments(_) -> error.
 count_segments(#cg_bin_seg{size=#b_literal{val=8},
                            unit=1,type=integer,flags=[unsigned,big],
                            seg=#b_literal{val=Int},next=Next}, Count)
-  when is_integer(Int), 0 =< Int, Int =< 255 ->
+  when is_integer(Int, 0, 255) ->
     count_segments(Next, Count + 1);
 count_segments(_, Count) when Count > 0 ->
     {literal,Count};

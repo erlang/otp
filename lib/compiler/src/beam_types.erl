@@ -1742,7 +1742,7 @@ verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
     %% entire tuple to 'none'.
     _ = [verified_type(Element) ||
             Index := Element <- Es,
-            is_integer(Index), 1 =< Index, Index =< Size,
+            is_integer(Index, 1, Size),
             Index =< ?TUPLE_ELEMENT_LIMIT,
             Element =/= any, Element =/= none],
     T;
@@ -1953,7 +1953,7 @@ encode_range(Max, TypeBits, Extra) ->
     end.
 
 encode_unit(#t_bitstring{size_unit=Unit}) ->
-    true = is_integer(Unit) andalso 0 < Unit andalso Unit =< 256, %Assertion.
+    true = is_integer(Unit, 1, 256),            %Assertion.
     {?BEAM_TYPE_HAS_UNIT,<<(Unit-1):8>>};
 encode_unit(#t_union{other=Other}) ->
     encode_unit(Other);
@@ -1963,7 +1963,7 @@ encode_unit(_) ->
 %% Test whether the number is a small on a 64-bit machine.
 %% (Normally the compiler doesn't know/doesn't care whether something is
 %% bignum, but because the type representation is versioned this is safe.)
-is_small(N) when is_integer(N), -(1 bsl 59) =< N andalso N =< (1 bsl 59) - 1 ->
+is_small(N) when is_integer(N, -(1 bsl 59), (1 bsl 59) - 1) ->
     true;
 is_small(_) ->
     false.

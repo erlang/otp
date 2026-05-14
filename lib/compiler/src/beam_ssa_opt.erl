@@ -3751,7 +3751,7 @@ is_bs_match_is([], _Safe) -> no.
 is_viable_match(#b_set{op=bs_match,args=Args}) ->
     case Args of
         [#b_literal{val=binary},Ctx,_,#b_literal{val=all},#b_literal{val=U}]
-          when is_integer(U), 1 =< U, U =< 256 ->
+          when is_integer(U, 1, 256) ->
             {yes,{Ctx,0,U}};
         [#b_literal{val=binary},Ctx,_,#b_literal{val=Size},#b_literal{val=U}]
           when is_integer(Size) ->

@@ -1143,9 +1143,7 @@ simplify(#b_set{op={bif,'or'},args=Args}=I, Ts, Ds) ->
     end;
 simplify(#b_set{op={bif,element},args=[#b_literal{val=Index},Tuple]}=I0, Ts, Ds) ->
     case normalized_type(Tuple, Ts) of
-        #t_tuple{size=Size} when is_integer(Index),
-                                 1 =< Index,
-                                 Index =< Size ->
+        #t_tuple{size=Size} when is_integer(Index, 1, Size) ->
             I = I0#b_set{op=get_tuple_element,
                          args=[Tuple,#b_literal{val=Index-1}]},
             simplify(I, Ts, Ds);
@@ -2460,7 +2458,7 @@ bs_size_unit([#b_literal{val=Type},#b_literal{val=[U1|_]},Value,SizeTerm|Args],
         {_,_,_} ->
             case concrete_type(SizeTerm, Ts) of
                 #t_integer{elements={Size1, Size1}}
-                  when is_integer(Size1), is_integer(U1), Size1 >= 0 ->
+                  when is_integer(Size1), Size1 >= 0, is_integer(U1) ->
                     EffectiveSize = Size1 * U1,
                     %% Adding a fixed size element
                     bs_size_unit(Args, Ts, EffectiveSize + FixedSize, Unit);
@@ -2507,9 +2505,7 @@ bs_match_type(integer, Args, Ts) ->
     case beam_types:meet(concrete_type(Size, Ts), #t_integer{}) of
         #t_integer{elements=Bounds} ->
             case beam_bounds:bounds('*', Bounds, {Unit, Unit}) of
-                {_, MaxBits} when is_integer(MaxBits),
-                                  MaxBits >= 1,
-                                  MaxBits =< 64 ->
+                {_, MaxBits} when is_integer(MaxBits, 1, 64) ->
                     case member(unsigned, Flags) of
                         true ->
                             Max = (1 bsl MaxBits) - 1,
@@ -2863,7 +2859,7 @@ infer_type({bif,is_function}, [#b_var{}=Arg], _Ts, _Ds) ->
     {[T], [T]};
 infer_type({bif,is_function}, [#b_var{}=Arg, Arity], _Ts, _Ds) ->
     case Arity of
-        #b_literal{val=V} when is_integer(V), V >= 0, V =< ?MAX_FUNC_ARGS ->
+        #b_literal{val=V} when is_integer(V, 0, ?MAX_FUNC_ARGS) ->
             T = {Arg, #t_fun{arity=V}},
             {[T], [T]};
         _ ->
