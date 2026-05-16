@@ -3798,6 +3798,93 @@ Eterm db_copy_element_from_ets(DbTableCommon *tb, Process *p, DbTerm *obj,
     }
 }
 
+Eterm db_copy_elements_from_ets(DbTableCommon *tb,
+                                Process *p,
+                                DbTerm *obj,
+                                Eterm *positions,
+                                Uint num_positions,
+                                Eterm **hpp,
+                                Uint extra)
+{
+    Uint i;
+    Uint tuple_sz = num_positions + 1;
+    Uint elems_sz = 0;
+    Eterm *tp;
+
+    if (num_positions == 0) {
+        *hpp = HAlloc(p, extra);
+        return ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+    }
+
+    if (tb->compress) {
+        ErtsHeapFactory factory;
+
+        for (i = 0; i < num_positions; i++) {
+            Uint pos = unsigned_val(positions[i]);
+            if (is_immed(obj->tpl[pos])) {
+                continue;
+            }
+            if (pos == tb->keypos) {
+                elems_sz += size_object(obj->tpl[pos]);
+            } else {
+                byte *ext = elem2ext(obj->tpl, pos);
+                elems_sz += erts_decode_ext_size_ets(
+                                ext,
+                                db_alloced_size_comp(obj));
+            }
+        }
+
+        erts_factory_proc_prealloc_init(&factory, p,
+                                        tuple_sz + elems_sz + extra);
+        tp = erts_produce_heap(&factory, tuple_sz, 0);
+        tp[0] = make_arityval(num_positions);
+        for (i = 0; i < num_positions; i++) {
+            Uint pos = unsigned_val(positions[i]);
+            if (is_immed(obj->tpl[pos])) {
+                tp[i+1] = obj->tpl[pos];
+            }
+            else if (pos == tb->keypos) {
+                Uint sz = size_object(obj->tpl[pos]);
+                Eterm *hp = erts_produce_heap(&factory, sz, 0);
+                tp[i+1] = copy_struct(obj->tpl[pos], sz, &hp,
+                                      factory.off_heap);
+            }
+            else {
+                tp[i+1] = erts_decode_ext_ets(&factory,
+                                              elem2ext(obj->tpl, pos));
+#ifdef DEBUG_CLONE
+                ASSERT(EQ(tp[i+1], obj->debug_clone[pos]));
+#endif
+            }
+        }
+        *hpp = erts_produce_heap(&factory, extra, 0);
+        erts_factory_close(&factory);
+    } else {
+        Eterm *hp;
+
+        for (i = 0; i < num_positions; i++) {
+            elems_sz += db_element_size(obj, obj->tpl,
+                                        unsigned_val(positions[i]));
+        }
+
+        tp = HAlloc(p, tuple_sz + elems_sz + extra);
+        tp[0] = make_arityval(num_positions);
+        hp = tp + tuple_sz;
+        for (i = 0; i < num_positions; i++) {
+            Uint pos = unsigned_val(positions[i]);
+            if (is_immed(obj->tpl[pos])) {
+                tp[i+1] = obj->tpl[pos];
+            } else {
+                Uint sz = db_element_size(obj, obj->tpl, pos);
+                tp[i+1] = copy_shallow_obj(obj->tpl[pos], sz, &hp, &MSO(p));
+            }
+        }
+        ASSERT(hp == tp + tuple_sz + elems_sz);
+        *hpp = hp;
+    }
+    return make_tuple(tp);
+}
+
 /*
  * Return the size of an element of an uncompressed ETS record.
  * Relies on each element of the ETS record being laid out contiguously,
