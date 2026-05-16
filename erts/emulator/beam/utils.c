@@ -2717,6 +2717,7 @@ pop_next:
 
 	    case RECORD_VALUE_PAIR:
 		a = (Eterm)WSTACK_POP(stack);
+                b = (Eterm)WSTACK_POP(stack);
 		goto tailrecur_ne;
 
             default:
