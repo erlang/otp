@@ -67,7 +67,7 @@
 -define(MIN_DH_KEY_SIZE, 400).
 
 %%% For test suites
--export([pack/3, adjust_algs_for_peer_version/2]).
+-export([pack/4, adjust_algs_for_peer_version/2]).
 
 %%%----------------------------------------------------------------------------
 %%%
@@ -1478,39 +1478,40 @@ ssh_packet(Msg, Ssh) ->
     pack(BinMsg, Ssh).
 
 pack(Data, Ssh=#ssh{}) ->
-    pack(Data, Ssh, 0).
+    pack(Data, Ssh, 0, 0).
 
-%%% Note: pack/3 is only to be called from tests that wants
-%%% to deliberetly send packets with wrong PacketLength!
+%%% Note: pack/4 is only to be called from tests that wants
+%%% to deliberetly send packets with wrong PacketLength or PaddingLength!
 %%% Use pack/2 for all other purposes!
 pack(PlainText,
      #ssh{send_sequence = SeqNum,
-	  send_mac = MacAlg,
-	  encrypt = CryptoAlg} = Ssh0,  PacketLenDeviationForTests) when is_binary(PlainText) ->
+          send_mac = MacAlg,
+          encrypt = CryptoAlg} = Ssh0, PacketLenDeviationForTests, PaddingLenDeviationForTests)
+  when is_binary(PlainText) ->
     {Ssh1, CompressedPlainText} = compress(Ssh0, PlainText),
-    {FinalPacket, Ssh2} = pack(pkt_type(CryptoAlg), mac_type(MacAlg), 
+    {FinalPacket, Ssh2} = pack(pkt_type(CryptoAlg), mac_type(MacAlg),
                                CompressedPlainText, PacketLenDeviationForTests,
-                               Ssh1),
+                               PaddingLenDeviationForTests, Ssh1),
     Ssh = Ssh2#ssh{send_sequence = (SeqNum+1) band 16#ffffffff},
     {FinalPacket, Ssh}.
 
 
-pack(common, rfc4253, PlainText, DeltaLenTst,
+pack(common, rfc4253, PlainText, DeltaLenTst, PadDeltaLenTst,
      #ssh{send_sequence = SeqNum,
           send_mac = MacAlg,
           send_mac_key = MacKey} = Ssh0) ->
-    PadLen = padding_length(4+1+byte_size(PlainText), Ssh0),
+    PadLen = padding_length(4+1+byte_size(PlainText), Ssh0) + PadDeltaLenTst,
     Pad =  ssh_bits:random(PadLen),
     TextLen = 1 + byte_size(PlainText) + PadLen + DeltaLenTst,
     PlainPkt = <<?UINT32(TextLen),?BYTE(PadLen), PlainText/binary, Pad/binary>>,
     {Ssh1, CipherPkt} = encrypt(Ssh0, PlainPkt),
     MAC0 = mac(MacAlg, MacKey, SeqNum, PlainPkt),
     {<<CipherPkt/binary,MAC0/binary>>, Ssh1};
-pack(common, enc_then_mac, PlainText, DeltaLenTst,
+pack(common, enc_then_mac, PlainText, DeltaLenTst, PadDeltaLenTst,
      #ssh{send_sequence = SeqNum,
           send_mac = MacAlg,
           send_mac_key = MacKey} = Ssh0) ->
-    PadLen = padding_length(1+byte_size(PlainText), Ssh0),
+    PadLen = padding_length(1+byte_size(PlainText), Ssh0) + PadDeltaLenTst,
     Pad =  ssh_bits:random(PadLen),
     PlainLen = 1 + byte_size(PlainText) + PadLen + DeltaLenTst,
     PlainPkt = <<?BYTE(PadLen), PlainText/binary, Pad/binary>>,
@@ -1518,8 +1519,8 @@ pack(common, enc_then_mac, PlainText, DeltaLenTst,
     EncPacketPkt = <<?UINT32(PlainLen), CipherPkt/binary>>,
     MAC0 = mac(MacAlg, MacKey, SeqNum, EncPacketPkt),
     {<<?UINT32(PlainLen), CipherPkt/binary, MAC0/binary>>, Ssh1};
-pack(aead, _, PlainText, DeltaLenTst, Ssh0) ->
-    PadLen = padding_length(1+byte_size(PlainText), Ssh0),
+pack(aead, _, PlainText, DeltaLenTst, PadDeltaLenTst, Ssh0) ->
+    PadLen = padding_length(1+byte_size(PlainText), Ssh0) + PadDeltaLenTst,
     Pad =  ssh_bits:random(PadLen),
     PlainLen = 1 + byte_size(PlainText) + PadLen + DeltaLenTst,
     PlainPkt = <<?BYTE(PadLen), PlainText/binary, Pad/binary>>,
@@ -1528,9 +1529,13 @@ pack(aead, _, PlainText, DeltaLenTst, Ssh0) ->
 
 %%%================================================================
 handle_packet_part(<<>>, Encrypted0, AEAD0, undefined, #ssh{decrypt = CryptoAlg,
-                                                            recv_mac = MacAlg} = Ssh0) ->
+                                                            recv_mac = MacAlg,
+                                                            decrypt_block_size = BlockSize0} = Ssh0) ->
     %% New ssh packet
-    case get_length(pkt_type(CryptoAlg), mac_type(MacAlg), Encrypted0, Ssh0) of
+    BlockSize = max(8, BlockSize0),
+    PktType = pkt_type(CryptoAlg),
+    MacType = mac_type(MacAlg),
+    case get_length(PktType, MacType, Encrypted0, Ssh0) of
 	get_more ->
 	    %% too short to get the length
 	    {get_more, <<>>, Encrypted0, AEAD0, undefined, Ssh0};
@@ -1538,6 +1543,28 @@ handle_packet_part(<<>>, Encrypted0, AEAD0, undefined, #ssh{decrypt = CryptoAlg,
 	{ok, PacketLen, _, _, _, _} when PacketLen > ?SSH_MAX_PACKET_SIZE ->
 	    %% far too long message than expected
 	    {error, {exceeds_max_size,PacketLen}};
+
+    {ok, PacketLen, _, _, _, _} when (4 + PacketLen) rem BlockSize /= 0, PktType /= aead, MacType /= enc_then_mac ->
+        %% RFC 4253 section 6, packet_length (including size of packet_length field itself)
+        %% must be divisible by max(8, decrypt_block_size)
+        {error, {packet_not_aligned, PacketLen}};
+
+    {ok, PacketLen, _, _, _, _} when PacketLen rem BlockSize /= 0, PktType =:= aead ->
+        %% If CryptoAlg is 'AEAD_AES_*_GCM':
+        %% RFC 5647 section 8.2 for AES-GCM packet_length is not encrypted, so it does not count
+        %% towards data that must be divisible by max(8, decrypt_block_size)
+        %% If CryptAlg is 'chacha20-poly1305@openssh.com':
+        %% draft-josefsson-ssh-chacha20-poly1305-openssh-01 section 3 packet length is encrypted
+        %% separately with key K_1 and rest of packet is encrypted with key K_2, so packet_length
+        %% does not count towards data that must be divisible by max(8, decrypt_block_size)
+        {error, {packet_not_aligned, PacketLen}};
+
+    {ok, PacketLen, _, _, _, _} when PacketLen rem BlockSize /= 0, MacType =:= enc_then_mac ->
+        %% For enc_then_mac modes, packet_length is not encrypted, so it does not count
+        %% towards data that must be divisible by max(8, decrypt_block_size)
+        %% See section 1.5 of
+        %% https://github.com/openssh/openssh-portable/blob/8ec21f6274108e93601173ec4e6f7528b90b0003/PROTOCOL
+        {error, {packet_not_aligned, PacketLen}};
 	
 	{ok, PacketLen, Decrypted, Encrypted1, AEAD,
 	 #ssh{recv_mac_size = MacSize} = Ssh1} ->
