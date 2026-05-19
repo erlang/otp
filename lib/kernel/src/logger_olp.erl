@@ -270,7 +270,7 @@ handle_info(timeout, #{mode_ref:=ModeRef,mode:=Mode} = State) ->
     State2 = maybe_notify_mode_change(async,Mode,State1),
     {noreply, State2#{idle => true,
                       mode => set_mode(ModeRef, async, Mode),
-                      burst_msg_count => 0}};
+                      burst_msg_count => 0}, hibernate};
 handle_info(Msg, #{module := Module, cb_state := CBState} = State) ->
     case try_callback_call(Module,handle_info,[Msg, CBState]) of
         {noreply,CBState1} ->
@@ -393,23 +393,22 @@ handle_load(Mode, T1, Msg, _CallOrCast,
                 ?observe(_Name,{flushed,1}),
                 {dropped,LastQLen,CBState}
         end,
-    State2 = State1#{cb_state=>CBState1},
-
-    State3 = State2#{mode => Mode},
-    State4 = ?update_calls_or_casts(_CallOrCast,1,State3),
-    State5 = ?update_max_qlen(LastQLen1,State4),
-    State6 =
-        ?update_max_time(?diff_time(T1,_T0),
-                         State5#{last_qlen := LastQLen1,
-                                 last_load_ts => T1}),
-    State7 = case Result of
+    State2 = ?update_calls_or_casts(_CallOrCast,1,
+               State1#{cb_state => CBState1,
+                       mode => Mode,
+                       last_qlen := LastQLen1,
+                       last_load_ts => T1}),
+    State3 = ?update_max_qlen(LastQLen1,State2),
+    State4 =
+        ?update_max_time(?diff_time(T1,_T0), State3),
+    State5 = case Result of
                  ok ->
-                     S = ?update_freq(T1,State6),
+                     S = ?update_freq(T1,State4),
                      ?update_other(writes,WRITES,1,S);
                  _ ->
-                     State6
+                     State4
              end,
-    {Result,State7}.
+    {Result,State5}.
 
 
 %%%-----------------------------------------------------------------
