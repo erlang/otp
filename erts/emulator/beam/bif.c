@@ -6008,13 +6008,10 @@ BIF_RETTYPE dt_append_vm_tag_data_1(BIF_ALIST_1)
     if (p) {
         byte *q;
         Uint i;
-        p = erts_get_aligned_binary_bytes(DT_UTAG(BIF_P),
-                                          &size,
-                                          &temp_alloc);
         b = erts_new_binary(BIF_P, size + 1, &q);
         for(i = 0; i < size; i++) {
             q[i] = p[i];
-        } 
+        }
         erts_free_aligned_binary_bytes(temp_alloc);
         q[size] = '\0';
     } else {
