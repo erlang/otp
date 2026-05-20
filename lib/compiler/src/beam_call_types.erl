@@ -492,9 +492,7 @@ types(erlang, 'bnot', [_]) ->
     %% between the ranges calculated by the type pass and by
     %% beam_validator.
     %%
-    %% Therefore, don't attempt to calculate a range now. Save the
-    %% range calculation for the opt_ranges pass (arith_type/2), which
-    %% is only run once.
+    %% Therefore, don't attempt to calculate a range now.
     sub_unsafe(#t_integer{}, [#t_integer{}]);
 
 %% Fixed-type arithmetic
@@ -1280,10 +1278,14 @@ beam_bounds_type(Op, Type, [LHS, RHS]) ->
 get_range(LHS, RHS, Type) ->
     get_range(meet(LHS, Type), meet(RHS, Type)).
 
-get_range(#t_float{}=LHS, #t_float{}=RHS) ->
-    {float, get_range(LHS), get_range(RHS)};
 get_range(#t_integer{}=LHS, #t_integer{}=RHS) ->
     {integer, get_range(LHS), get_range(RHS)};
+get_range(#t_float{}=LHS, #t_float{}=RHS) ->
+    {float, get_range(LHS), get_range(RHS)};
+get_range(#t_float{}=LHS, RHS) ->
+    {float, get_range(LHS), get_range(RHS)};
+get_range(LHS, #t_float{}=RHS) ->
+    {float, get_range(LHS), get_range(RHS)};
 get_range(LHS, RHS) ->
     {number, get_range(LHS), get_range(RHS)}.
 
