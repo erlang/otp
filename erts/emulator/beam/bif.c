@@ -3117,6 +3117,10 @@ BIF_RETTYPE insert_element_3(BIF_ALIST_3)
 	BIF_ERROR(BIF_P, BADARG);
     }
 
+    if (arity + 1 > ERTS_MAX_TUPLE_SIZE) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
     hp  = HAlloc(BIF_P, arity + 1 + 1);
     res = make_tuple(hp);
     *hp = make_arityval(arity + 1);
