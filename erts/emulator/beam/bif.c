@@ -4263,9 +4263,12 @@ BIF_RETTYPE display_string_2(BIF_ALIST_2)
         written = 0;
         do {
             res = write(fd, str+written, len-written);
-            if (res < 0 && errno != ERRNO_BLOCK && errno != EINTR)
-                goto error;
-            written += res;
+            if (res < 0) {
+                if (errno != ERRNO_BLOCK && errno != EINTR)
+                    goto error;
+            } else {
+                written += res;
+            }
         } while (written < len);
 #endif
     }
