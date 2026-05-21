@@ -85,7 +85,7 @@ peeloff_opts(S, NewS) ->
          tclass, recvtclass],
     case prim_inet:getopts(S, InheritOpts) of
         {ok, Opts} ->
-            case prim_inet:setopts(S, Opts) of
+            case prim_inet:setopts(NewS, Opts) of
                 ok ->
                     {ok, NewS};
                 Error1 ->
