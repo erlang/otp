@@ -53,6 +53,7 @@
          resolve_base_uri/1, resolve_return_map/1,
          transcode_basic/1, transcode_options/1, transcode_mixed/1, transcode_negative/1,
          compose_query/1, compose_query_latin1/1, compose_query_negative/1,
+         compose_query_negative_unicode_guard/1,
          dissect_query/1, dissect_query_negative/1,
          interop_query_latin1/1, interop_query_utf8/1,
          regression_parse/1, regression_recompose/1, regression_normalize/1,
@@ -146,6 +147,7 @@ all() ->
      compose_query,
      compose_query_latin1,
      compose_query_negative,
+     compose_query_negative_unicode_guard,
      dissect_query,
      dissect_query_negative,
      interop_query_latin1,
@@ -975,6 +977,15 @@ compose_query_negative(_Config) ->
     {error,invalid_input,5} = uri_string:compose_query([{5,""}]),
     {error,invalid_encoding,utf16} =
         uri_string:compose_query([{"foo bar","1"}, {<<"ö">>, "2"}],[{encoding,utf16}]).
+
+compose_query_negative_unicode_guard(_Config) ->
+    [{error,invalid_input,an_atom} =
+         uri_string:compose_query([{an_atom,"v"}], [{encoding,Enc}])
+     || Enc <- [unicode, utf8]],
+    {error,invalid_input,an_atom} =
+        uri_string:compose_query([{"k",an_atom}], [{encoding,unicode}]),
+    {error,invalid_input,42} =
+        uri_string:compose_query([{42,"v"}], [{encoding,unicode}]).
 
 dissect_query(_Config) ->
     [] = uri_string:dissect_query(""),
