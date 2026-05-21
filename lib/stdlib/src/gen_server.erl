@@ -1216,7 +1216,7 @@ call(ServerRef, Request) ->
         gen:call(ServerRef, '$gen_call', Request)
     of
 	{ok,Res} ->
-	    Res
+            Res
     catch
         exit:Reason ->
 	    exit({Reason, {?MODULE, call, [ServerRef, Request]}})
@@ -1299,7 +1299,7 @@ call(ServerRef, Request, Timeout) ->
         gen:call(ServerRef, '$gen_call', Request, Timeout)
     of
 	{ok,Res} ->
-	    Res
+            Res
     catch
         exit:Reason ->
 	    exit({Reason, {?MODULE, call, [ServerRef, Request, Timeout]}})

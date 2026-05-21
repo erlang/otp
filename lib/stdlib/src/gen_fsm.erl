@@ -1035,9 +1035,9 @@ sync_send_event(Name, Event) ->
         gen:call(Name, '$gen_sync_event', Event)
     of
 	{ok,Res} ->
-	    Res
+            Res
     catch
-	exit:Reason ->
+        exit:Reason ->
 	    exit({Reason, {?MODULE, sync_send_event, [Name, Event]}})
     end.
 
@@ -1075,7 +1075,7 @@ sync_send_event(Name, Event, Timeout) ->
         gen:call(Name, '$gen_sync_event', Event, Timeout)
     of
 	{ok,Res} ->
-	    Res
+            Res
     catch
         exit:Reason ->
 	    exit({Reason, {?MODULE, sync_send_event, [Name, Event, Timeout]}})
@@ -1124,7 +1124,7 @@ sync_send_all_state_event(Name, Event) ->
         gen:call(Name, '$gen_sync_all_state_event', Event)
     of
 	{ok,Res} ->
-	    Res
+            Res
     catch
         exit:Reason ->
 	    exit({Reason, {?MODULE, sync_send_all_state_event, [Name, Event]}})
@@ -1154,7 +1154,7 @@ sync_send_all_state_event(Name, Event, Timeout) ->
         gen:call(Name, '$gen_sync_all_state_event', Event, Timeout)
     of
 	{ok,Res} ->
-	    Res
+            Res
     catch
         exit:Reason ->
 	    exit({Reason, {?MODULE, sync_send_all_state_event,
@@ -1667,13 +1667,13 @@ reply(Name, From, Reply, Debug, StateName) ->
 terminate(Reason, Name, From, Msg, Mod, StateName, StateData, Debug) ->
     case erlang:function_exported(Mod, terminate, 3) of
 	true ->
-	    Res = try
+            Res = try
                       Mod:terminate(Reason, StateName, StateData)
                   catch
                       C1:R1:ST1 ->
                           catch_result(C1, R1, ST1)
                   end,
-	    case Res of
+            case Res of
 		{'EXIT', R} ->
 		    FmtStateData = format_status(terminate, Mod, get(), StateData),
 		    error_info(
@@ -2035,13 +2035,13 @@ format_status(Opt, Mod, PDict, State) ->
 		end,
     case erlang:function_exported(Mod, format_status, 2) of
 	true ->
-	    Res = try
+            Res = try
                       Mod:format_status(Opt, [PDict, State])
                   catch
                       C:R:ST ->
                           catch_result(C, R, ST)
                   end,
-	    case Res of
+            case Res of
 		{'EXIT', _} -> DefStatus;
 		Else -> Else
 	    end;

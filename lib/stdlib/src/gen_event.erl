@@ -1681,7 +1681,7 @@ handle_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, Debug) ->
 	    reply(Tag, Reply),
 	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, Hib);
 	{_From, Tag, stop} ->
-	    try terminate_server(normal, Parent, MSL, ServerName) catch _:_ -> ok end,
+            try terminate_server(normal, Parent, MSL, ServerName) catch _:_ -> ok end,
 	    reply(Tag, ok);
 	{_From, Tag, which_handlers} ->
 	    reply(Tag, the_handlers(MSL)),
@@ -2088,7 +2088,7 @@ server_call_update(Handler1, Query, SName) ->
 do_terminate(Mod, Handler, Args, State, LastIn, SName, Reason) ->
     case erlang:function_exported(Mod, terminate, 2) of
 	true ->
-	    Res = try
+            Res = try
                       Mod:terminate(Args, State)
                   catch
                       C:R:ST -> catch_result(C, R, ST)
