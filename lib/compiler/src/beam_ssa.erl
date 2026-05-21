@@ -61,6 +61,54 @@
 
 -include("beam_ssa.hrl").
 
+-export_record([b_module, b_function, b_blk, b_set,
+                b_ret, b_br, b_switch,
+                b_var, b_literal, b_remote, b_local]).
+
+-record #b_module {anno=#{} :: beam_ssa:anno(),
+                   name :: module(),
+                   exports :: [{atom(),arity()}],
+                   attributes :: list(),
+                   body :: [beam_ssa:b_function()]}.
+-record #b_function {anno=#{} :: beam_ssa:anno(),
+                     args :: [beam_ssa:b_var()],
+                     bs :: #{beam_ssa:label()=>beam_ssa:b_blk()},
+                     cnt :: beam_ssa:label()}.
+
+-record #b_blk {anno=#{} :: beam_ssa:anno(),
+                is :: [beam_ssa:b_set()],
+                last :: beam_ssa:terminator()}.
+-record #b_set {anno=#{} :: beam_ssa:anno(),
+                dst=none :: 'none'|beam_ssa:b_var(),
+                op :: beam_ssa:op(),
+                args=[] :: [beam_ssa:argument()]}.
+
+%% Terminators.
+-record #b_ret {anno=#{} :: beam_ssa:anno(),
+                arg :: beam_ssa:value()}.
+
+-record #b_br {anno=#{},
+               bool :: beam_ssa:value(),
+               succ :: beam_ssa:label(),
+               fail :: beam_ssa:label()}.
+
+-record #b_switch {anno=#{} :: beam_ssa:anno(),
+                   arg :: beam_ssa:value(),
+                   fail :: beam_ssa:label(),
+                   list :: [{beam_ssa:b_literal(),beam_ssa:label()}]}.
+
+%% Values.
+-record #b_var {name :: beam_ssa:var_name()}.
+
+-record #b_literal {val :: beam_ssa:literal_value()}.
+
+-record #b_remote {mod   :: beam_ssa:value(),
+                   name  :: beam_ssa:value(),
+                   arity :: non_neg_integer()}.
+
+-record #b_local {name  :: beam_ssa:b_literal(),
+                  arity :: non_neg_integer()}.
+
 -type b_module()   :: #b_module{}.
 -type b_function() :: #b_function{}.
 -type b_blk()      :: #b_blk{}.

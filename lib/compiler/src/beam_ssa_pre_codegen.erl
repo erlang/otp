@@ -883,8 +883,11 @@ sanitize_alias(Alias, Values) ->
     sanitize_alias_1(maps:keys(Alias), Values, Alias).
 
 sanitize_alias_1([Old|Vs], Values, Alias0) ->
+    %% FIXME? Note that the expression that creates a key for map
+    %% match is executed in guard context.
+    OldKey = #b_var{name=Old},
     Alias = case Values of
-                #{#b_var{name=Old} := #b_var{name=New}} ->
+                #{OldKey := #b_var{name=New}} ->
                     Alias0#{New => map_get(Old, Alias0)};
                 #{} ->
                     Alias0

@@ -30,8 +30,8 @@
 -export([opt/1]).
 
 -include("beam_ssa.hrl").
--import(lists, [append/1,foldl/3,keymember/3,last/1,member/2,
-                reverse/1,reverse/2,takewhile/2]).
+-import(lists, [append/1,foldl/3,last/1,member/2,
+                reverse/1,reverse/2,search/2,takewhile/2]).
 
 -type used_vars() :: #{beam_ssa:label():=sets:set(beam_ssa:b_var())}.
 
@@ -371,8 +371,11 @@ update_unset_vars(L, Is, Br, UnsetVars, #st{skippable=Skippable}) ->
             %% variables to the set of unset variables.
             case Br of
                 #b_br{bool=#b_var{}=Bool} ->
-                    case keymember(Bool, #b_set.dst, Is) of
-                        true ->
+                    IsExpected = fun(#b_set{dst=Dst}) ->
+                                         Dst =:= Bool
+                                 end,
+                    case search(IsExpected, Is) of
+                        {value,_} ->
                             %% Bool is a variable defined in this
                             %% block. Using the br instruction from
                             %% this block (and skipping the body of
