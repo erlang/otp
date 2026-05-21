@@ -1085,7 +1085,7 @@ handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, 
                                              protocol_cb = Connection},
                     handshake_env = #handshake_env{renegotiation = {false, first}},
                     ssl_options = #{log_level := LogLevel}
-		   } = State) when StateName == intial_hello;
+                   } = State) when StateName == initial_hello;
                                    StateName == hello;
                                    StateName == certify;
                                    StateName == abbreviated;
@@ -1099,7 +1099,7 @@ handle_alert(#alert{} = Alert, StateName,
                                              protocol_cb = Connection},
                     handshake_env = #handshake_env{renegotiation = {false, first}},
                     ssl_options = #{log_level := LogLevel}} = State) when StateName == start;
-                                                                          StateName == intial_hello;
+                                                                          StateName == initial_hello;
                                                                           StateName == hello ->
     log_alert(LogLevel, Role,
               Connection:protocol_name(), StateName, Alert#alert{role = opposite_role(Role)}),
