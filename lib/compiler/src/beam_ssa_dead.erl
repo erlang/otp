@@ -43,13 +43,13 @@
 -type test() :: {op_name(),beam_ssa:b_var(),beam_ssa:value()} |
                 {type_test(),beam_ssa:value()}.
 
--record(st,
-        {bs :: beam_ssa:block_map(),
-         us :: used_vars(),
-         skippable :: #{beam_ssa:label():='true'},
-         test=none :: 'none' | test(),
-         target=any :: 'any' | 'one_way' | beam_ssa:label()
-        }).
+-record #st{
+   bs :: beam_ssa:block_map(),
+   us :: used_vars(),
+   skippable :: #{beam_ssa:label():='true'},
+   test=none :: 'none' | test(),
+   target=any :: 'any' | 'one_way' | beam_ssa:label()
+  }.
 
 -spec opt([{Label0,Block0}]) -> [{Label,Block}] when
       Label0 :: beam_ssa:label(),

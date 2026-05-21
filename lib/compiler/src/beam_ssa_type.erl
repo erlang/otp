@@ -59,11 +59,12 @@
 -define(RETURN_LIMIT, 30).
 
 %% Constants common to all subpasses.
--record(metadata,
-        { func_id :: func_id(),
-          limit_return :: boolean(),
-          params :: [beam_ssa:b_var()],
-          used_once :: #{ beam_ssa:b_var() => _ } }).
+-record #metadata{
+   func_id :: func_id(),
+   limit_return :: boolean(),
+   params :: [beam_ssa:b_var()],
+   used_once :: #{ beam_ssa:b_var() => _ }
+  }.
 
 -type metadata() :: #metadata{}.
 -type meta_cache() :: #{ func_id() => metadata() }.
@@ -135,13 +136,14 @@ opt_start_1([], _CommittedArgs, StMap, FuncDb, _MetaCache) ->
 
 -type uvs() :: #{beam_ssa:b_var() => {_,non_neg_integer()}}.
 
--record(sig_st,
-        { wl = wl_new() :: worklist(),
-          committed = #{} :: #{ func_id() => [type()] },
-          updates = #{} :: #{ func_id() => [type()] },
-          meta_cache = #{} :: meta_cache(),
-          unstable = #{} :: #{beam_ssa:label() => uvs()},
-          uvs = #{} :: uvs()}).
+-record #sig_st{
+   wl              :: worklist(),
+   committed = #{} :: #{ func_id() => [type()] },
+   updates = #{} :: #{ func_id() => [type()] },
+   meta_cache = #{} :: meta_cache(),
+   unstable = #{} :: #{beam_ssa:label() => uvs()},
+   uvs = #{} :: uvs()
+  }.
 
 signatures(StMap, FuncDb0) ->
     State0 = init_sig_st(StMap, FuncDb0),
@@ -3173,14 +3175,16 @@ used_once_last_uses([], _, Uses) -> Uses.
 %% all earlier instances of the same element are redundant.
 %%
 
--record(worklist,
-        { counter = 0 :: integer(),
-          elements = gb_trees:empty() :: gb_trees:tree(integer(), term()),
-          indexes = #{} :: #{ term() => integer() } }).
+-record #worklist{
+   counter = 0   :: integer(),
+   elements      :: gb_trees:tree(integer(), term()),
+   indexes = #{} :: #{term() => integer()}
+  }.
 
 -type worklist() :: #worklist{}.
 
-wl_new() -> #worklist{}.
+wl_new() ->
+    #worklist{elements=gb_trees:empty()}.
 
 %% Adds an element to the worklist, or moves it to the front if it's already
 %% present.

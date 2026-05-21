@@ -603,12 +603,11 @@ extract_seq_1(_, _) -> no.
 %%% (3) (4) (5) (6) Jump and unreachable code optimizations.
 %%%
 
--record(st,
-	{
-	  entry :: beam_asm:label(), %Entry label (must not be moved).
-	  replace :: #{beam_asm:label() := beam_asm:label()}, %Labels to replace.
-	  labels :: sets:set()         %Set of referenced labels.
-	}).
+-record #st{
+   entry :: beam_asm:label(), %Entry label (must not be moved).
+   replace :: #{beam_asm:label() := beam_asm:label()}, %Labels to replace.
+   labels :: sets:set()         %Set of referenced labels.
+  }.
 
 opt(Is0, CLabel) ->
     find_fixpoint(fun(Is) ->

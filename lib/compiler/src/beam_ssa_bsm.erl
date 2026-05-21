@@ -305,10 +305,10 @@ get_fa(#b_function{ anno = Anno }) ->
              Variable :: #b_var{} } =>
                Instruction :: #b_set{} }.
 
--record(amb, { dominators :: beam_ssa:dominator_map(),
-               match_aliases :: match_alias_map(),
-               cnt :: non_neg_integer(),
-               promotions = #{} :: promotion_map() }).
+-record #amb{ dominators :: beam_ssa:dominator_map(),
+              match_aliases :: match_alias_map(),
+              cnt :: non_neg_integer(),
+              promotions = #{} :: promotion_map() }.
 
 alias_matched_binaries(Blocks0, Counter, AliasMap) when AliasMap =/= #{} ->
     RPO = beam_ssa:rpo(Blocks0),
@@ -444,12 +444,12 @@ is_var_in_args(_Var, []) -> false.
                         ValidAfter :: beam_ssa:label(),
                         Context :: #b_var{} }] }.
 
--record(cm, { definitions :: beam_ssa:definition_map(),
-              dominators :: beam_ssa:dominator_map(),
-              blocks :: beam_ssa:block_map(),
-              match_aliases = #{} :: match_alias_map(),
-              prior_matches = #{} :: prior_match_map(),
-              renames = #{} :: beam_ssa:rename_map() }).
+-record #cm{ definitions :: beam_ssa:definition_map(),
+             dominators :: beam_ssa:dominator_map(),
+             blocks :: beam_ssa:block_map(),
+             match_aliases = #{} :: match_alias_map(),
+             prior_matches = #{} :: prior_match_map(),
+             renames = #{} :: beam_ssa:rename_map() }.
 
 combine_matches({Fs0, ModInfo}) ->
     Fs = [combine_matches(F, ModInfo) || F <- Fs0],
@@ -582,10 +582,10 @@ cm_combine_tail_1(Bool, DstCtx, SrcCtx, Renames0) ->
 %% unused before the bs_start_match instruction, and it must be matched in the
 %% first block.
 
--record(aca, { unused_parameters :: ordsets:ordset(#b_var{}),
-               counter :: non_neg_integer(),
-               parameter_info = #{} :: #{ #b_var{} => param_info() },
-               match_aliases = #{} :: match_alias_map() }).
+-record #aca{ unused_parameters :: ordsets:ordset(#b_var{}),
+              counter :: non_neg_integer(),
+              parameter_info = #{} :: #{ #b_var{} => param_info() },
+              match_aliases = #{} :: match_alias_map() }.
 
 accept_context_args({Fs, ModInfo}) ->
     mapfoldl(fun accept_context_args/2, ModInfo, Fs).
@@ -868,9 +868,9 @@ acp_1(_Param, _Uses, _ModInfo, ParamInfo) ->
 %% negligible (`bs_test_unit + bs_get_tail` vs `bs_get_binary`) so we're
 %% applying it unconditionally to keep things simple.
 
--record(sote, { definitions :: beam_ssa:definition_map(),
-                mod_info :: module_info(),
-                match_aliases = #{} :: match_alias_map() }).
+-record #sote{ definitions :: beam_ssa:definition_map(),
+               mod_info :: module_info(),
+               match_aliases = #{} :: match_alias_map() }.
 
 skip_outgoing_tail_extraction({Fs0, ModInfo}) ->
     Fs = [skip_outgoing_tail_extraction(F, ModInfo) || F <- Fs0],

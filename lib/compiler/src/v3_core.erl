@@ -166,19 +166,20 @@
 
 -type warning() :: {file:filename(), [{integer(), module(), term()}]}.
 
--record(core, {vcount=0 :: non_neg_integer(),	%Variable counter
-	       fcount=0 :: non_neg_integer(),	%Function counter
-               gcount=0 :: non_neg_integer(),   %Goto counter
-               module :: module(),                %Module name.
-	       function={none,0} :: fa(),	%Current function.
-	       in_guard=false :: boolean(),	%In guard or not.
-	       wanted=true :: boolean(),	%Result wanted or not.
-	       opts=[]     :: [compile:option()], %Options.
-               dialyzer=false :: boolean(),     %Help dialyzer or not.
-	       ws=[]    :: [warning()],		%Warnings.
-               file=[{file,""}],                %File.
-               load_nif=false :: boolean()      %true if calls erlang:load_nif/2
-	      }).
+-record #core{
+   vcount=0 :: non_neg_integer(),	%Variable counter
+   fcount=0 :: non_neg_integer(),	%Function counter
+   gcount=0 :: non_neg_integer(),   %Goto counter
+   module :: module(),                %Module name.
+   function={none,0} :: fa(),	%Current function.
+   in_guard=false :: boolean(),	%In guard or not.
+   wanted=true :: boolean(),	%Result wanted or not.
+   opts=[]     :: [compile:option()], %Options.
+   dialyzer=false :: boolean(),     %Help dialyzer or not.
+   ws=[]    :: [warning()],		%Warnings.
+   file=[{file,""}],                %File.
+   load_nif=false :: boolean()      %true if calls erlang:load_nif/2
+  }.
 -type state() :: #core{}.
 
 %% XXX: The following type declarations do not belong in this module
@@ -187,18 +188,19 @@
 -type form()      :: {function, integer(), atom(), arity(), _}
                    | {attribute, integer(), attribute(), _}.
 
--record(imodule, {name = [],
-		  exports = ordsets:new(),
-                  nifs = none ::
-                    'none' | sets:set(), % Is a set if the attribute is
-                                         % present in the module.
-		  attrs = [],
-		  defs = [],
-		  file = [],
-		  opts = [],
-		  ws = [],
-                  load_nif=false :: boolean() %true if calls erlang:load_nif/2
-                 }).
+-record #imodule{
+   name = [],
+   exports = [],
+   nifs = none ::
+     'none' | sets:set(),               % Is a set if the attribute is
+                                                % present in the module.
+   attrs = [],
+   defs = [],
+   file = [],
+   opts = [],
+   ws = [],
+   load_nif=false :: boolean() %true if calls erlang:load_nif/2
+  }.
 
 -spec module([form()], [compile:option()]) ->
         {'ok',cerl:c_module(),[warning()]}.
@@ -3238,7 +3240,7 @@ annotate_cons(A, H, T, #core{dialyzer=Dialyzer}) ->
 %%% variables when rewriting the body of the fun.
 %%%
 
--record(known, {base=[],ks=[],prev_ks=[]}).
+-record #known{base=[],ks=[],prev_ks=[]}.
 -type known() :: #known{}.
 
 known_init() ->
@@ -3993,7 +3995,7 @@ cpattern(#ibinary{anno=#a{anno=Anno},segments=Segs0}) ->
 cpattern(Other) -> Other.
 
 cpat_map_pairs([#imappair{anno=#a{anno=Anno},op=Op,key=Key0,val=Val0}|T]) ->
-    {Key,_,_} = cexprs(Key0, [], #core{}),
+    {Key,_,_} = cexprs(Key0, [], #core{module=''}),
     Val = cpattern(Val0),
     Pair = #c_map_pair{anno=Anno,op=Op,key=Key,val=Val},
     [Pair|cpat_map_pairs(T)];
@@ -4008,7 +4010,7 @@ cpat_record_pairs([]) -> [].
 
 cpat_bin_seg(#ibitstr{anno=#a{anno=Anno},val=E,size=Sz0,unit=Unit,
                       type=Type,flags=Flags}) ->
-    {Sz,_,_} = cexprs(Sz0, [], #core{}),
+    {Sz,_,_} = cexprs(Sz0, [], #core{module=''}),
     #c_bitstr{anno=Anno,val=E,size=Sz,unit=Unit,type=Type,flags=Flags}.
 
 %% cexprs([Lexpr], [AfterVar], State) -> {Cexpr,[AfterVar],State}.

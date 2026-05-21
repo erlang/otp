@@ -1384,12 +1384,12 @@ are_map_keys_literals([]) ->
 %%%
 
 -type fr_status() :: 'original' | 'copy'.
--record(fs,
-        {regs=#{} :: #{beam_ssa:b_var() := {beam_ssa:b_var(),fr_status()}},
-         non_guards :: gb_sets:set(beam_ssa:label()),
-         bs :: beam_ssa:block_map(),
-         preds :: #{beam_ssa:label() => [beam_ssa:label()]}
-        }).
+-record #fs{
+   regs=#{} :: #{beam_ssa:b_var() := {beam_ssa:b_var(),fr_status()}},
+   non_guards :: gb_sets:set(beam_ssa:label()),
+   bs :: beam_ssa:block_map(),
+   preds :: #{beam_ssa:label() => [beam_ssa:label()]}
+  }.
 
 ssa_opt_float({#opt_st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
     NonGuards = non_guards(Linear0),

@@ -100,11 +100,13 @@
 -define(IS_FUNC_ARITY(A), is_integer(A, 0, ?MAX_FUNC_ARGS)).
 
 %% Variable value info.
--record(sub, {v=[],                                 %Variable substitutions
-              s=sets:new() :: sets:set(), %Variables in scope
-              t=#{} :: map(),                       %Types
-              in_guard=false,                       %In guard or not.
-              top=true}).                           %Not inside a term.
+-record #sub{
+   v=[],                                 %Variable substitutions
+   s :: sets:set(),                      %Variables in scope
+   t=#{} :: map(),                       %Types
+   in_guard=false,                       %In guard or not.
+   top=true                              %Not inside a term.
+  }.
 -type sub() :: #sub{}.
 
 -spec module(cerl:c_module(), [compile:option()]) ->
