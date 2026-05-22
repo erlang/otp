@@ -1092,6 +1092,10 @@ parse_uri_reference(<<>>, _) -> #{path => <<>>};
 parse_uri_reference(URIString, URI) ->
     try parse_scheme_start(URIString, URI)
     catch
+        throw:{hier_error,E} ->
+            %% Failed when parsing the hier (that is after the `:`), so input is
+            %% unambiguously a URI; the inner error pinpoints the real problem.
+            throw(E);
         throw:{_,_,_} ->
             parse_relative_part(URIString, URI)
     end.
@@ -1273,8 +1277,13 @@ maybe_add_path(Map) ->
 
 -spec parse_scheme(binary(), uri_map()) -> {binary(), uri_map()}.
 parse_scheme(?STRING_REST($:, Rest), URI) ->
-    {_, URI1} = parse_hier(Rest, URI),
-    {Rest, URI1};
+    %% Past the scheme separator, any error after this would use
+    %% the error location from parse_hier (GH-7862).
+    try parse_hier(Rest, URI) of
+        {_, URI1} -> {Rest, URI1}
+    catch
+        throw:{error,invalid_uri,_} = E -> throw({hier_error,E})
+    end;
 parse_scheme(?STRING_REST(Char, Rest), URI) ->
     case is_scheme(Char) of
         true  -> parse_scheme(Rest, URI);
