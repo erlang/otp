@@ -21,10 +21,10 @@
 %%
 -module(andor_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 t_case/1,t_and_or/1,t_andalso/1,t_orelse/1,inside/1,overlap/1,
-	 combined/1,in_case/1,slow_compilation/1]).
+	 combined/1,in_case/1,reused_bool_in_merge/1,slow_compilation/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
@@ -37,7 +37,7 @@ all() ->
 groups() -> 
     [{p,[parallel],
       [t_case,t_and_or,t_andalso,t_orelse,inside,overlap,
-       combined,in_case,slow_compilation]}].
+       combined,in_case,reused_bool_in_merge,slow_compilation]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -495,6 +495,23 @@ in_case_1_guard(LenUp, LenDw, LenN, Rotation, Count) ->
 	false when LenUp >= 1 orelse LenDw >= 1 orelse
 	LenN =< 1 orelse Count < 4 -> not_loop;
 	false -> loop
+    end.
+
+%% GH-11088. Do not substitute a boolean with `false` if the merge block
+%% is also reached from outside the digraph through a path on which the
+%% variable holds `true`.
+reused_bool_in_merge(_Config) ->
+    #{flag := true,  rc := 0} = reused_bool_case(true,  0),
+    #{flag := false, rc := 0} = reused_bool_case(false, 0),
+    #{flag := false, rc := 3} = reused_bool_case(false, 3),
+    error_path = reused_bool_case(true, 3),
+    ok.
+
+reused_bool_case(SP, RC) ->
+    Flag = SP =:= true,
+    case {Flag, RC} of
+        {true, R} when R =/= 0 -> error_path;
+        _ -> #{flag => Flag, rc => RC}
     end.
 
 -record(state, {stack = []}).
