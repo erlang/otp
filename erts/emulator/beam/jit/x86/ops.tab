@@ -370,7 +370,7 @@ move Src Dst => i_move Src Dst
 #
 
 swap d d
-i_move s d
+i_move Ws d
 move_two_words s d s d
 
 #
