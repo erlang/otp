@@ -1731,27 +1731,26 @@ bc_options(Config) ->
 
     DataDir = proplists:get_value(data_dir, Config),
 
-    L = [{181, small_float, []},
+    L = [{183, small_float, []},
 
-         {181, funs, [no_ssa_opt_record,
+         {183, funs, [no_ssa_opt_record,
                       no_ssa_opt_float,
                       no_line_info,
                       no_stack_trimming,
                       no_type_opt]},
 
-         {181, small_maps, [no_type_opt]},
+         {183, small_maps, [no_type_opt]},
 
-         {181, big, [no_ssa_opt_record,
+         {183, big, [no_ssa_opt_record,
                      no_ssa_opt_float,
                      no_line_info,
                      no_type_opt]},
 
-         {181, funs, []},
-         {181, big, []},
+         {183, funs, []},
+         {183, big, []},
 
-         {182, small, [r26]},
-         {182, small, []},
-         {182, small, [no_ssa_opt_record,
+         {183, small, []},
+         {183, small, [no_ssa_opt_record,
                        no_ssa_opt_float,
                        no_line_info,
                        no_type_opt]},

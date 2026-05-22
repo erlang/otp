@@ -24,8 +24,8 @@
 
 -compile([{nowarn_possibly_unsafe_function, {erlang, binary_to_term, 1}},
           {nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
-          {nowarn_unsafe_function, {os, cmd, 1}},
-          r26]).
+          {nowarn_unsafe_function, {os, cmd, 1}}]).
+-compile(r27).
 
 %% Test Controller interface
 -export([is_release_available/1, find_release/1]).

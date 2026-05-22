@@ -24,7 +24,7 @@
 %%%-----------------------------------------------------------------
 -module(kernel_SUITE).
 
--compile(r26).
+-compile(r27).
 
 -include_lib("common_test/include/ct.hrl").
 

@@ -22,7 +22,7 @@
 
 -module(crashdump_helper).
 
--compile(r26).
+-compile(r27).
 
 -export([n1_proc/2,remote_proc/2,
          dump_maps/0,create_maps/0,

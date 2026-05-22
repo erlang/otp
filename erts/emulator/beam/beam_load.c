@@ -202,14 +202,14 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
          * highest used op code to the op code for the `swap`
          * instruction introduced in OTP 23.
          *
-         * OTP 27 artificially sets the highest op code to `make_fun3`
-         * introduced in OTP 24.
+         * Newer releases sets the highest op code like this:
          *
-         * OTP 28 artificially sets the highest op code to `bs_create_bin`
-         * introduced in OTP 25.
-         *
-         * OTP 29 artificially sets the highest op code to `update_record`
-         * introduced in OTP 26.
+         * Release  Highest op code (introduced in)
+         * -------  --------------- ---------------
+         * OTP 27   make_fun3       (OTP 24)
+         * OTP 28   bs_create_bin   (OTP 25)
+         * OTP 29   update_record   (OTP 26)
+         * OTP 30   executable_line (OTP 27)
          *
          * Old BEAM files produced by OTP R12 and earlier may be
          * incompatible with the current runtime system. We used to
