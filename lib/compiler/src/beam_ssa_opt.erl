@@ -550,8 +550,7 @@ merge_tuple_update_1([], Tuple) ->
 %%%
 
 ssa_opt_split_blocks({#opt_st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) ->
-    P = fun(#b_set{op={bif,is_integer},args=[_,_,_]}) -> true;
-           (#b_set{op={bif,element}}) -> true;
+    P = fun(#b_set{op={bif,element}}) -> true;
            (#b_set{op=call}) -> true;
            (#b_set{op=bs_init_writable}) -> true;
            (#b_set{op=make_fun}) -> true;
@@ -566,42 +565,46 @@ ssa_opt_split_blocks({#opt_st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) ->
 %%% When the range is constant, rewrite it into 3 BIFs: is_integer/1 and two
 %%% =<'s to enable later optimization.
 %%%
-ssa_opt_is_between({#opt_st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) ->
-    {Blocks1, Count1} = ssa_opt_is_between_1(Blocks0, Count0),
-    {St#opt_st{ssa=Blocks1,cnt=Count1}, FuncDb}.
+ssa_opt_is_between({#opt_st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
+    {Linear1, Count1} = ssa_opt_is_between_1(Linear0, Count0),
+    {St#opt_st{ssa=Linear1,cnt=Count1}, FuncDb}.
 
-ssa_opt_is_between_1([{L,#b_blk{}=B}=Blk0|Ls0], Count0) ->
-    case B of
-        #b_blk{is=[#b_set{op={bif,is_integer},dst=Bool1,
-                          args=[_,#b_literal{val=Min},
-                                #b_literal{val=Max}]}],
-               last=#b_br{bool=Bool1}}=Blk when is_integer(Min),
-                                                is_integer(Max),
-                                                Min =< Max ->
-            {Blk1, Count1} = is_between_rewrite(Count0, L, Blk),
-            {Ls1, Count2} = ssa_opt_is_between_1(Ls0, Count1),
-            {Blk1++Ls1, Count2};
-        #b_blk{} ->
-            {Ls1, Count1} = ssa_opt_is_between_1(Ls0, Count0),
-            {[Blk0|Ls1], Count1}
+ssa_opt_is_between_1([{L,#b_blk{is=[_|_]=Is0,
+                                last=#b_br{bool=#b_var{},
+                                          fail=Fail}}=Blk0}=B|Bs0],
+                     Count0) when Fail =/= ?EXCEPTION_BLOCK ->
+    case {reverse(Is0),Blk0} of
+        {[#b_set{op={bif,is_integer},dst=Bool1,
+                 args=[_,_,_]}=IsInt | Prefix],
+         #b_blk{last=#b_br{bool=Bool1}}} ->
+            {Bs1, Count1} = is_between_rewrite(Count0, L, Prefix,
+                                               IsInt, Blk0),
+            {Bs2, Count2} = ssa_opt_is_between_1(Bs0, Count1),
+            {Bs1++Bs2, Count2};
+        {_, _} ->
+            {Bs1, Count1} = ssa_opt_is_between_1(Bs0, Count0),
+            {[B|Bs1], Count1}
     end;
+ssa_opt_is_between_1([B|Bs0], Count0) ->
+    {Bs1, Count1} = ssa_opt_is_between_1(Bs0, Count0),
+    {[B|Bs1], Count1};
 ssa_opt_is_between_1([], Count0) ->
     {[], Count0}.
 
-is_between_rewrite(Count0, L, Blk0) ->
+is_between_rewrite(Count0, L, Prefix, IsInt, Blk0) ->
     LowerL = Count0,
     UpperL = Count0 + 1,
     LowerBool = #b_var{name=Count0},
     UpperBool = #b_var{name=Count0 + 1},
     Count = Count0 + 2,
-    #b_blk{is=[#b_set{dst=Bool1,args=[Term,LB,UB]}|_],
-           last=#b_br{fail=Fail}=Br0} = Blk0,
-    Blk1 = Blk0#b_blk{is=[#b_set{op={bif,is_integer},dst=Bool1,
-                                 args=[Term]}],
-                      last=#b_br{bool=Bool1,succ=LowerL,fail=Fail}},
+    #b_set{args=[Term,LB,UB]} = IsInt,
+    #b_blk{last=#b_br{}=Br0} = Blk0,
+    I = IsInt#b_set{args=[Term]},
+    Is = reverse(Prefix, [I]),
+    Blk1 = Blk0#b_blk{is=Is,last=Br0#b_br{succ=LowerL}},
     BlkLower = #b_blk{is=[#b_set{op={bif,'=<'},dst=LowerBool,
                                  args=[LB,Term]}],
-                      last=#b_br{bool=LowerBool,succ=UpperL,fail=Fail}},
+                      last=Br0#b_br{bool=LowerBool,succ=UpperL}},
     BlkUpper = #b_blk{is=[#b_set{op={bif,'=<'},dst=UpperBool,
                                  args=[Term,UB]}],
                       last=Br0#b_br{bool=UpperBool}},
@@ -3751,7 +3754,7 @@ is_bs_match_is([], _Safe) -> no.
 is_viable_match(#b_set{op=bs_match,args=Args}) ->
     case Args of
         [#b_literal{val=binary},Ctx,_,#b_literal{val=all},#b_literal{val=U}]
-          when is_integer(U), 1 =< U, U =< 256 ->
+          when is_integer(U, 1, 256) ->
             {yes,{Ctx,0,U}};
         [#b_literal{val=binary},Ctx,_,#b_literal{val=Size},#b_literal{val=U}]
           when is_integer(Size) ->

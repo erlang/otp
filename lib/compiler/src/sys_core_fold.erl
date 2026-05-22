@@ -97,7 +97,7 @@
 -endif.
 
 -define(MAX_FUNC_ARGS, 255).
--define(IS_FUNC_ARITY(A), is_integer(A) andalso 0 =< A andalso A =< ?MAX_FUNC_ARGS).
+-define(IS_FUNC_ARITY(A), is_integer(A, 0, ?MAX_FUNC_ARGS)).
 
 %% Variable value info.
 -record(sub, {v=[],                                 %Variable substitutions

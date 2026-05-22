@@ -1581,7 +1581,7 @@ assert_bs_unit({atom,Type}, 0) ->
         utf32 -> ok;
         _ -> error({zero_unit_invalid_for_type,Type})
     end;
-assert_bs_unit({atom,_Type}, Unit) when is_integer(Unit), 0 < Unit, Unit =< 256 ->
+assert_bs_unit({atom,_Type}, Unit) when is_integer(Unit, 1, 256) ->
     ok;
 assert_bs_unit(_, Unit) ->
     error({invalid,Unit}).
@@ -1783,7 +1783,7 @@ validate_failed_bs_match([], _Ctx, Vst) ->
 
 bs_integer_type(Bounds, Unit, Flags) ->
     case beam_bounds:bounds('*', Bounds, {Unit, Unit}) of
-        {_, MaxBits} when is_integer(MaxBits), MaxBits >= 1, MaxBits =< 64 ->
+        {_, MaxBits} when is_integer(MaxBits, 1, 64) ->
             case member(signed, Flags) of
                 true ->
                     Max = (1 bsl (MaxBits - 1)) - 1,
@@ -3328,7 +3328,7 @@ verify_y_init_1(Y, Vst) ->
 
 verify_live(0, _Vst) ->
     ok;
-verify_live(Live, Vst) when is_integer(Live), 0 < Live, Live =< 1023 ->
+verify_live(Live, Vst) when is_integer(Live, 1, 1023) ->
     verify_live_1(Live - 1, Vst);
 verify_live(Live, _Vst) ->
     error({bad_number_of_live_regs,Live}).
@@ -3591,13 +3591,13 @@ check_limit({x,X}=Src) when is_integer(X) ->
     end;
 check_limit({y,Y}=Src) when is_integer(Y) ->
     if
-        0 =< Y, Y < 1024 -> ok;
+        is_integer(Y, 0, 1023) -> ok;
         1024 =< Y -> error(limit);
         Y < 0 -> error({bad_register, Src})
     end;
 check_limit({fr,Fr}=Src) when is_integer(Fr) ->
     if
-        0 =< Fr, Fr < 1023 -> ok;
+        is_integer(Fr, 0, 1022) -> ok;
         1023 =< Fr -> error(limit);
         Fr < 0 -> error({bad_register, Src})
     end.

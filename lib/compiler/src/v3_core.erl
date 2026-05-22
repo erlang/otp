@@ -274,7 +274,7 @@ defined_functions(Forms) ->
 %%     ok.
 
 function({function,_,Name,Arity,Cs0}, Module, Opts)
-  when is_integer(Arity), 0 =< Arity, Arity =< 255 ->
+  when is_integer(Arity, 0, 255) ->
     #imodule{name=Mod, file=File, ws=Ws0, nifs=Nifs} = Module,
     try
         St0 = #core{vcount=0,module=Mod,function={Name,Arity},
