@@ -66,7 +66,15 @@ DOC_TARGETS?=$(DEFAULT_DOC_TARGETS)
 
 EX_DOC_WARNINGS_AS_ERRORS?=true
 
-docs: $(DOC_TARGETS)
+check_ex_doc:
+	$(ERL_TOP)/make/check_ex_doc
+
+# If html is in $(DOC_TARGETS) wait for user's answer whether to download ex_doc
+# before processing other targets in parallel (if parallel make is enabled).
+# That could cause the question to be lost in earlier shell output because of printouts
+# from other $(DOC_TARGETS).
+docs: $(if $(filter html,$(DOC_TARGETS)),check_ex_doc)
+	$(MAKE) $(DOC_TARGETS)
 
 chunks:
 
@@ -112,7 +120,9 @@ ifneq ($(MAN1_DEPS),)
 	$(INSTALL_DIR_DATA) "$(MAN1DIR)" "$(RELSYS_MANDIR)/man1"
 endif
 
-release_docs_spec: $(DOC_TARGETS:%=release_%_spec)
+# See explanation in docs target
+release_docs_spec: $(if $(filter html,$(DOC_TARGETS)),check_ex_doc)
+	$(MAKE) $(DOC_TARGETS:%=release_%_spec)
 ifneq ($(STANDARDS),)
 	$(INSTALL_DIR) "$(RELEASE_PATH)/doc/standard"
 	$(INSTALL_DATA) $(STANDARDS) "$(RELEASE_PATH)/doc/standard"

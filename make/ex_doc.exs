@@ -158,6 +158,13 @@ annotations = Access.get(local_config, :annotations_for_docs, fn _ -> [] end)
 
 current_datetime = System.os_time() |> DateTime.from_unix!(:native)
 
+## Check if we should treat warnings as errors
+warnings_as_errors =
+  case System.get_env("EX_DOC_WARNINGS_AS_ERRORS") do
+    value when value in ["true", "default"] -> true
+    "false" -> false
+  end
+
 config = [
   proglang: :erlang,
   source_url_pattern: source_url_pattern,
@@ -242,7 +249,8 @@ config = [
 
     _ ->
       ""
-  end
+  end,
+  warnings_as_errors: warnings_as_errors
 ]
 
 Keyword.merge(
