@@ -726,6 +726,21 @@ value are listed.
 - **`nowarn_match_alias_pats`** - Turns off warnings for matches that
     unify constructors, such as the following: `m({a,B} = {Y,Z}) -> . . .`
 
+- **`nowarn_latin1_binary`** - Turns off warnings for binary string segments
+  with characters encoded in Latin-1 rather than UTF-8, such as writing
+  `<<"Motörhead">>` instead of `<<"Motörhead"/utf8>>` or simply `~"Motörhead"`.
+
+- **`nowarn_truncated_character`** - Turns off warnings for truncated
+  characters in binary string segments due to using the default Latin-1
+  encoding, as when writing `<<"空手🙂">>` instead of `<<"空手🙂"/utf8>>` or
+  simply `~"空手🙂"`. Note that truncation causes the resulting string to have
+  seemingly random content; in this example the first version gets encoded as
+  `<<"zKB">>`.
+
+- **`nowarn_truncated_integer`** - Turns off warnings for truncated integers in
+  binary string segments when the integer is outside the specified range of the
+  segment, for example `<<256>>`, `<<150:7>>`, or `<<-130:8/signed>>`
+
 - **`nowarn_export_var_subexpr`** - Turns off warnings for exporting
   variables out of subexpressions.
 

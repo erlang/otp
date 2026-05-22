@@ -4162,8 +4162,14 @@ bin_syntax_errors(Config) ->
               t(X) ->
                 {<<X/binary-integer>>,<<X/signed-unsigned-integer>>,
                  <<X/little-big>>,<<X/unit:4-unit:8>>};
-              t(<<_:{A,B}>>) -> ok.
-
+              t(<<_:{A,B}>>) -> ok;
+              t(_) ->
+                {<<\"\\x{aa}\">>,
+                 <<\"\\x{aaa}\">>,
+                 <<0>>,<<-1>>,
+                 <<255>>,<<256>>,
+                 <<32767:15>>,<<32768:15>>,
+                 <<-32768:16/signed>>,<<-32769:16/signed>>}.
               l() ->
                   foo.
 	    ">>,
@@ -4184,8 +4190,14 @@ bin_syntax_errors(Config) ->
 	    [{{1,27},erl_lint,non_integer_bitsize},
              {{4,21},erl_lint,non_integer_bitsize},
              {{7,12},erl_lint,{bad_bitsize,"float"}},
-             {{13,21},erl_lint,non_integer_bitsize}]}}
-	 ],
+             {{13,21},erl_lint,non_integer_bitsize},
+             {{15,20},erl_lint,latin1_binary},
+             {{16,20},erl_lint,truncated_character},
+             {{17,26},erl_lint,{truncated_integer,-1,8,unsigned}},
+             {{18,28},erl_lint,{truncated_integer,256,8,unsigned}},
+             {{19,33},erl_lint,{truncated_integer,32768,15,unsigned}},
+             {{20,41},erl_lint,{truncated_integer,-32769,16,signed}}
+            ]}}],
     [] = run(Config, Ts),
     ok.
 

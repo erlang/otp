@@ -1,7 +1,14 @@
 #!/usr/bin/env escript
 %% -*- erlang -*-
-
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 -export([main/1]).
+-compile(nowarn_latin1_binary).
 
 main(_) ->
     ok = io:setopts([{encoding,latin1}]),

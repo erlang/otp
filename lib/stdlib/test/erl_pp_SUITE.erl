@@ -1099,13 +1099,13 @@ otp_9147(Config) when is_list(Config) ->
 %% OTP-10302. Unicode characters scanner/parser.
 otp_10302(Config) when is_list(Config) ->
     Ts = [{uni_1,
-           <<"t() -> <<(<<\"abc\\x{aaa}\">>):3/binary>>.">>}
+           <<"t() -> <<(<<\"abc\\x{aaa}\"/utf8>>):3/binary>>.">>}
           ],
     compile(Config, Ts),
     ok = pp_expr(<<"$\\x{aaa}">>),
     ok = pp_expr(<<"\"1\\x{aaa}\"">>),
     ok = pp_expr(<<"<<<<\"hej\">>/binary>>">>),
-    ok = pp_expr(<<"<< <<\"1\\x{aaa}\">>/binary>>">>),
+    ok = pp_expr(<<"<< <<\"1\\x{aaa}\"/utf8>>/binary>>">>),
 
     U = [{encoding,unicode}],
 
