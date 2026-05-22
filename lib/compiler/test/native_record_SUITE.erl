@@ -578,6 +578,7 @@ type_opts(_Config) ->
     type_opt_nested(),
     type_opt_redundant_tests(),
     type_opt_meta(),
+    type_opt_will_succeed(),
     ok.
 
 type_opt_create() ->
@@ -766,6 +767,22 @@ type_opt_meta(Node) ->
             Node#_{anno=new_anno}
     end.
 
+%% The live optimization pass would remove the conditional branch
+%% following an `is_record_accessible` instruction, but not the
+%% instructions itself. That would cause the `beam_ssa_codegen` pass
+%% to crash because `is_record_accessible` must always be followed by
+%% a conditional branch. Bug found while dogfooding.
+
+-import_record(ext_records, [b_set]).
+type_opt_will_succeed() ->
+    'maybe' = type_opt_will_succeed_1(#b_set{op=wait_timeout}),
+    'maybe' = type_opt_will_succeed_1(#b_set{op={bif,self}}),
+    ok.
+
+type_opt_will_succeed_1(#b_set{op=wait_timeout}) ->
+    'maybe';
+type_opt_will_succeed_1(#b_set{}) ->
+    'maybe'.
 
 %%% Common utilities.
 

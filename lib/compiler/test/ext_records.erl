@@ -24,7 +24,7 @@
 
 -export([local/2]).
 
--export_record([vector, b_blk]).
+-export_record([vector, b_blk, b_set]).
 -record #vector{x=10, y=1, z=5}.
 
 -export_record([c_alias, c_apply,
@@ -54,6 +54,7 @@ local(X, Y) ->
 %% Duplicates of compiler records.
 
 -record #b_blk{anno=#{}, is, last}.
+-record #b_set{anno=#{}, dst=none, op, args=[]}.
 
 -record #c_alias{anno=[]}.
 -record #c_apply{anno=[]}.
