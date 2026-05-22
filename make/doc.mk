@@ -213,9 +213,9 @@ ifneq ($(MAN7_DEPS),)
 	$(INSTALL_DIR_DATA) "$(MAN7DIR)" "$(RELSYS_MANDIR)/man7"
 endif
 
-
-
-release_docs_spec: $(DOC_TARGETS:%=release_%_spec)
+# See explanation in docs target
+release_docs_spec: $(if $(filter html,$(DOC_TARGETS)),check_ex_doc)
+	$(MAKE) $(DOC_TARGETS:%=release_%_spec)
 ifneq ($(STANDARDS),)
 	$(INSTALL_DIR) "$(RELEASE_PATH)/doc/standard"
 	$(INSTALL_DATA) $(STANDARDS) "$(RELEASE_PATH)/doc/standard"
