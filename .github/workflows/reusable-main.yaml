@@ -33,6 +33,45 @@
 ## work due to historical reasons.
 ##
 
+# NOTE: this is the default entry point for all maint-XX branches.
+# in case of main divergence or usage between CI in maint-XX versions,
+# only then, one is expected to create a main-XX.yaml file with a
+# file similar to this one where one picks and choose what to add.
+#
+# EXAMPLE:
+# `maint-28` branch has a `maint.yaml file as follows, which is a simple
+# wrapper that delegates to the normal workflow. on the other hand,
+# `maint-27` has a `main.yaml` that looks different and is more similar to this `main.yaml` file
+# because the documentation, dialyzer, and build works in a quite different way.
+# the ways of working are documented under `HOWTO/CI.md`.
+#
+# ```
+# name: Build and check Erlang/OTP (maint-27)
+#
+# on:
+#   push:
+#   pull_request:
+#   workflow_dispatch: # allows to be triggered nightly from the default branch
+#                      # gh workflow run main.yaml --repo erlang/otp --ref maint-27
+#
+# permissions:
+#   contents: read
+#   pull-requests: read
+#
+# jobs:
+#   ci:
+#     permissions:
+#       contents:        write   # release creation, sbom, etc
+#       packages:        write   # sbom upload
+#       attestations:    write   # attest-sbom action
+#       id-token:        write   # attest-sbom action
+#       security-events: write   # static job, zizmor
+#       actions:         write   # pr vendor vulnerability analysis
+#       issues:          write   # pr vendor vulnerability analysis
+#       pull-requests:   read
+#     uses: kikofernandez/otp/.github/workflows/maint-27.yaml@master  # ratchet:exclude
+# ```
+
 name: Build and check Erlang/OTP (reusable)
 
 on:
