@@ -38,8 +38,7 @@ name: Build and check Erlang/OTP
 on:
   push:
   pull_request:
-  schedule:
-      - cron: 0 1 * * *
+  workflow_dispatch:
 
 ## We cancel any multiple runs from PRs, while runs from tags/branches are allowed
 concurrency:
