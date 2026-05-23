@@ -48,6 +48,10 @@
          sys_coverage/1
 	]).
 
+-import_record(v3_core, [c_case, c_clause, c_fun, c_literal,
+                         c_map, c_module,
+                         c_receive, c_values, c_var]).
+
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 %% To cover the stripping of 'type' and 'spec' in beam_asm.
@@ -481,17 +485,18 @@ makedep_modify_target(Mf, Target) ->
 %% Tests that conditional compilation, defining values, including files work.
 
 no_core_prepare(_Config) ->
-    Mod = {c_module,[],
-              {c_literal,[],sample_receive},
-              [{c_var,[],{discard,0}}],
-              [],
-              [{{c_var,[],{discard,0}},
-                {c_fun,[],[],
-                    {c_case,[],
-                        {c_values,[],[]},
-                        [{c_clause,[],[],
-                             {c_literal,[],true},
-                             {c_receive,[],[],{c_literal,[],0},{c_literal,[],ok}}}]}}}]},
+    Case = #c_case{arg=#c_values{es=[]},
+                   clauses=[#c_clause{pats=[],
+                                      guard=#c_literal{val=true},
+                                      body=#c_receive{clauses=[],
+                                                      timeout=#c_literal{val=0},
+                                                      action=#c_literal{val=ok}}}]},
+    Mod = #c_module{name=#c_literal{val=sample_receive},
+                    exports=[#c_var{name={discard,0}}],
+                    attrs=[],
+                    defs=[{#c_var{name={discard,0}},
+                           #c_fun{vars=[],
+                                  body=Case}}]},
 
     {ok,sample_receive,_,_} = compile_forms(Mod, [from_core,binary,return]),
     {error,_,_} = compile_forms(Mod, [from_core,binary,return,no_core_prepare]),
@@ -633,7 +638,7 @@ other_output(Config) when is_list(Config) ->
 
     io:put_chars("to_core (file)"),
     {ok,simple,Core} = compile:file(Simple, [to_core,binary,time]),
-    c_module = element(1, Core),
+    #c_module{} = Core,
     {ok,_} = core_lint:module(Core),
     io:put_chars("to_core (forms)"),
     {ok,simple,Core} = compile_forms(PP, [to_core,binary,time]),
@@ -1266,18 +1271,14 @@ diff(E, E) ->
     E;
 diff([H1|T1], [H2|T2]) ->
     [diff(H1, H2)|diff(T1, T2)];
+diff(#c_var{}=T1, #c_var{}=T2) ->
+    diff_var(T1, T2);
+diff(#c_map{}=T1, #c_map{}=T2) ->
+    diff_map(T1, T2);
+diff(T1, T2) when is_record(T1), is_record(T2) ->
+    diff_record(T1, T2);
 diff(T1, T2) when tuple_size(T1) =:= tuple_size(T2) ->
-    case cerl:is_c_var(T1) andalso cerl:is_c_var(T2) of
-        true ->
-            diff_var(T1, T2);
-        false ->
-            case cerl:is_c_map(T1) andalso cerl:is_c_map(T2) of
-                true ->
-                    diff_map(T1, T2);
-                false ->
-                    diff_tuple(T1, T2)
-            end
-    end;
+    diff_tuple(T1, T2);
 diff(E1, E2) ->
     {'DIFF',E1,E2}.
 
@@ -1306,15 +1307,35 @@ diff_map(M, M) ->
 diff_map(M1, M2) ->
     case cerl:get_ann(M1) =:= cerl:get_ann(M2) of
         false ->
-            diff_tuple(M1, M2);
+            diff_record(M1, M2);
         true ->
             case remove_compiler_gen(M1) =:= remove_compiler_gen(M2) of
                 true ->
                     M1;
                 false ->
-                    diff_tuple(M1, M2)
+                    diff_record(M1, M2)
             end
     end.
+
+diff_record(T1, T2) ->
+    L = diff(record_to_list(T1), record_to_list(T2)),
+    list_to_record(L).
+
+record_to_list(R) ->
+    v3_core = records:get_module(R),
+    Fs = [records:get(F, R) || F <- records:get_field_names(R)],
+    [records:get_name(R)|Fs].
+
+list_to_record([Name|Vs]) ->
+    Mod = v3_core,
+    {Opts,Fs0} = records:get_definition(Mod, Name),
+    Fs = [case F0 of
+              {F, _Default} ->
+                  {F, V};
+              F when is_atom(F) ->
+                  {F, V}
+          end || F0 <- Fs0 && V <- Vs],
+    records:create(Mod, Name, Fs, Opts).
 
 diff_tuple(T1, T2) ->
     L = diff(tuple_to_list(T1), tuple_to_list(T2)),

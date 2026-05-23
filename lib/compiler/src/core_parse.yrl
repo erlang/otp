@@ -218,21 +218,21 @@ map_pair_pattern -> '(' anno_expression ':=' anno_pattern '-|' annotation ')' :
 				    key='$2',val='$4'}.
 
 native_record_pattern -> '~' '#' anno_atom ':' anno_atom '{' '}' :
-                      #c_record{id = #c_literal{val={tok_val('$3'),tok_val('$5')}},
-                                es = []}.
+                      Id = #c_literal{val={tok_val('$3'),
+                                           tok_val('$5')}},
+                      c_record(Id, []).
 native_record_pattern -> '~' '#' anno_atom '{' '}' :
-                      #c_record{id = '$3',
-                                es = []}.
+                      c_record('$3', []).
 native_record_pattern -> '~' '#' anno_atom ':' anno_atom '{' native_record_pair_patterns '}' :
-                      #c_record{id = #c_literal{val={tok_val('$3'),tok_val('$5')}},
-                                es = '$7'}.
+                      Id = #c_literal{val={tok_val('$3'),
+                                           tok_val('$5')}},
+                      c_record(Id, '$7').
 native_record_pattern -> '~' '#' anno_atom '{' native_record_pair_patterns '}' :
-                      #c_record{id = '$3',
-                                es = '$5'}.
+                      c_record('$3', '$5').
 native_record_pattern -> '~' '#' '/' '{' '}' :
-                      #c_record{id = #c_literal{val=[]}, es = []}.
+                      c_record(#c_literal{val=[]}, []).
 native_record_pattern -> '~' '#' '/' '{' native_record_pair_patterns '}' :
-                      #c_record{id = #c_literal{val=[]}, es = '$5'}.
+                      c_record(#c_literal{val=[]}, '$5').
 
 native_record_pair_patterns -> native_record_pair_pattern : ['$1'].
 native_record_pair_patterns -> native_record_pair_pattern ',' native_record_pair_patterns : ['$1' | '$3'].
@@ -542,10 +542,15 @@ Erlang code.
 -include("core_parse.hrl").
 
 -import(cerl, [ann_c_map/3,ann_c_map_pattern/2,c_cons/2,c_map/1,
-	       c_map_pattern/1,c_tuple/1]).
+               c_map_pattern/1,
+               c_record/2,
+               c_tuple/1]).
 
-tok_val(T) -> element(3, T).
-tok_line(T) -> element(2, T).
+tok_line(#_{anno=Anno}) -> Anno;
+tok_line(T) when is_tuple(T) -> element(2, T).
+
+tok_val(#_{val=Val}) -> Val;
+tok_val(T) when is_tuple(T) -> element(3, T).
 
 %% make_binary([#c_bitstr{}]) -> #c_binary{} | #c_literal{}
 %%  Create either #c_binary{} or #c_literal{} from the binary segments.
