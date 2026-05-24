@@ -340,12 +340,35 @@ match(P, E, Bs) ->
 			    end;
 			cons ->
 			    none;
+                        record ->
+                            none;
 			tuple ->
 			    none;
 			_ ->
 			    {false, Bs}
 		    end
 	    end;
+        record ->
+            %% For now only say "definitely no match" if a native
+            %% record pattern is matched against non-record data.
+            case E of
+                any ->
+                    {false, Bs};
+                _ ->
+                    case type(E) of
+                        literal ->
+                            %% There are no native record literals.
+                            none;
+                        cons ->
+                            none;
+                        map ->
+                            none;
+                        tuple ->
+                            none;
+                        _ ->
+                            {false, Bs}
+                    end
+            end;
 	_ ->
 	    match_1(P, E, Bs)
     end.

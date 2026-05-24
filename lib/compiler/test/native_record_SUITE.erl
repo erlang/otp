@@ -579,6 +579,7 @@ type_opts(_Config) ->
     type_opt_redundant_tests(),
     type_opt_meta(),
     type_opt_will_succeed(),
+    type_opt_ccc(),
     ok.
 
 type_opt_create() ->
@@ -783,6 +784,19 @@ type_opt_will_succeed_1(#b_set{op=wait_timeout}) ->
     'maybe';
 type_opt_will_succeed_1(#b_set{}) ->
     'maybe'.
+
+%% cerl_clauses:match/2 did not handle native records, causing the
+%% sys_core_fold pass to crash. Bug found while dogfooding.
+
+type_opt_ccc() ->
+    ?assertError({case_clause,_}, type_opt_ccc(a, b)).
+
+type_opt_ccc(A, B) ->
+    E = {id(A), id(B)},
+    case E of
+        #b_set{} ->
+            ok
+    end.
 
 %%% Common utilities.
 
