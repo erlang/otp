@@ -1446,8 +1446,9 @@ put_record_type(Src, Id, Fs0, Vst) ->
                            #{}
                    end;
                _ ->
-                   case get_term_type(Src, Vst) of
+                   case meet(get_term_type(Src, Vst), #t_record{}) of
                        #t_record{type=Defs0} -> Defs0;
+                       #t_union{} -> #{};
                        _ -> error(not_a_native_record)
                    end
            end,
@@ -1480,29 +1481,14 @@ verify_get_record_elements(Fail, Src, List, Vst0) ->
            fun(SuccVst0) ->
                    Keys = extract_keys(List, SuccVst0),
                    verify_keys(only_literals, forbid_empty, Keys),
-                   SuccVst = extract_vals(record_get, List, Src, SuccVst0),
-                   update_native_record_type(List, Src, SuccVst)
+                   SuccVst1 = update_native_record_type(List, Src, SuccVst0),
+                   extract_vals(record_get, List, Src, SuccVst1)
            end).
 
 update_native_record_type([_|_]=Updates, Src, Vst) ->
-    {Type0, Es0} = case get_term_type(Src, Vst) of
-                       #t_record{type=F}=T -> {T, F};
-                       _ -> {#t_record{name=nil,type=#{}}, #{}}
-                   end,
-    Es = update_record_type_1(Updates, Es0, Vst),
-    Type = Type0#t_record{type=Es},
-    create_term(Type, update_native_record, [], Src, Vst).
-
-update_record_type_1([{atom,Key}, _Dst | Updates], Es0, Vst) ->
-    case Es0 of
-        #{Key := {present, _}} ->
-            update_record_type_1(Updates, Es0, Vst);
-        _ ->
-            Es1 = Es0#{Key => {present, any}},
-            update_record_type_1(Updates, Es1, Vst)
-    end;
-update_record_type_1([], Es, _Vst) ->
-    Es.
+    Es = #{Key => {present, any} || {atom,Key} <- Updates},
+    Type = #t_record{name=nil,type=Es},
+    update_type(fun meet/2, Type, Src, Vst).
 
 %% Check an update of a traditional tuple record.
 verify_update_record(Size, Src0, Dst, List0, Vst0) ->

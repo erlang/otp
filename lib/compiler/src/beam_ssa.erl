@@ -229,6 +229,7 @@ no_side_effect(#b_set{op=Op}) ->
         get_tuple_element -> true;
         has_map_field -> true;
         is_nonempty_list -> true;
+        is_record_accessible -> true;
         is_tagged_tuple -> true;
         make_fun -> true;
         match_fail -> true;
