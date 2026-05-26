@@ -23,6 +23,22 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 10.0.1
+
+### Fixed Bugs and Malfunctions
+
+- In rare circumstances, optimization of boolean expressions could invert the boolean value.
+
+  Own Id: OTP-20140 Aux Id: [GH-11088], [PR-11089]
+
+- The compiler could crash when compiling code using native records in certain ways.
+
+  Own Id: OTP-20146 Aux Id: [PR-11135]
+
+[GH-11088]: https://github.com/erlang/otp/issues/11088
+[PR-11089]: https://github.com/erlang/otp/pull/11089
+[PR-11135]: https://github.com/erlang/otp/pull/11135
+
 ## Compiler 10.0
 
 ### Fixed Bugs and Malfunctions
