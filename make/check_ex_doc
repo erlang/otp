@@ -4,7 +4,7 @@
 ##
 ## SPDX-License-Identifier: Apache-2.0
 ##
-## Copyright Ericsson AB 2024-2026. All Rights Reserved.
+## Copyright Ericsson AB 2026. All Rights Reserved.
 ##
 ## Licensed under the Apache License, Version 2.0 (the "License");
 ## you may not use this file except in compliance with the License.
@@ -20,33 +20,25 @@
 ##
 ## %CopyrightEnd%
 
-ARGS=("$@")
-
 ## If EX_DOC is not set to a file, we search the PATH for it using command -v
 if [ ! -f "${EX_DOC}" ]; then
    EX_DOC=$(command -v ex_doc)
 fi
 
-## Detect ex_doc version and store it in a variable
-## This is currently used to handle search engine changes in v0.39.0
-export EX_DOC_VERSION=$($EX_DOC --version)
-
-## If EX_DOC_WARNINGS_AS_ERRORS is not explicitly turned on
-## and any .app file is missing, we turn off warnings as errors
-if [ "${EX_DOC_WARNINGS_AS_ERRORS}" != "true" ]; then
-    for app in $ERL_TOP/lib/*/; do
-        if [ ! -f $app/ebin/*.app ]; then
-            EX_DOC_WARNINGS_AS_ERRORS=false
+if [ -z "${EX_DOC}" ]; then
+    echo -n "Could not find ex_doc! "
+    read -p "Do you want to download latest ex_doc from github? (y/n)? " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]
+    then
+        if $ERL_TOP/otp_build download_ex_doc; then
+            read -p "Press any key to continue..." -n 1 -r
+            echo "continuing"
+            EX_DOC=$(command -v ex_doc)
+        else
+            exit 1
         fi
-    done
-fi
-
-escript@EXEEXT@ "${EX_DOC}" "${ARGS[@]}"
-
-if [ "$?" != "0" ]; then
-    ## Touch the config file in order to re-trigger make
-    if [ -f "docs.exs" ]; then
-        touch "docs.exs"
+    else
+        exit 1
     fi
-    exit 1;
 fi
