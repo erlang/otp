@@ -653,8 +653,8 @@ filter_exported_types({attribute, _An, spec, {{Name,Arity}, _}}=Spec, #{function
   Acc#{function => Types#{{Name, Arity} => Spec}};
 filter_exported_types({attribute, _An, spec, {{_Mod,Name,_Arity}, Args}}, Acc) ->
   filter_exported_types({attribute, _An, spec, {{Name,_Arity}, Args}}, Acc);
-filter_exported_types({attribute, _An, callback, {{Name,Arity}, _}}=Spec, #{callback := Types}=Acc) ->
-  Acc#{function => Types#{{Name, Arity} => Spec}};
+filter_exported_types({attribute, _An, callback, {{Name,Arity}, _}}=Spec, #{callback := Callbacks}=Acc) ->
+  Acc#{callback => Callbacks#{{Name, Arity} => Spec}};
 filter_exported_types(_, Acc) ->
   Acc.
 
