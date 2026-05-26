@@ -58,9 +58,10 @@
         either does or does not produce a smaller result than
         level 1 compression.
 
-   • [4m{minor_version, Version}[0m(Since R11B-4) The option can be
-     used to control some encoding details. Valid values for [4m[0m
-     [4mVersion[0m are:
+   • [4m{minor_version, Version}[0m(Since R11B-4)
+
+     The option can be used to control some encoding details.
+     Valid values for [4mVersion[0m are:
 
       ￮ [4m0[0m - Floats are encoded using a textual
         representation.
@@ -84,27 +85,29 @@
         Erlang/OTP systems as of R16B can decode this
         representation.
 
-   • [4mdeterministic[0m(Since OTP 24.1) This option can be used to
-     ensure that, within the same major release of Erlang/OTP,
-     the same encoded representation is returned for the same
-     term. There is still no guarantee that the encoded
-     representation remains the same between major releases of
-     Erlang/OTP.
+   • [4mdeterministic[0m(Since OTP 24.1)
+
+     This option can be used to ensure that, within the same
+     major release of Erlang/OTP, the same encoded representation
+     is returned for the same term. There is still no guarantee
+     that the encoded representation remains the same between
+     major releases of Erlang/OTP.
 
      This option cannot be combined with the [4mlocal[0m option.
 
-   • [4mlocal[0m (Since OTP 26.0) This option will cause encoding of [4m[0m
-     [4mTerm[0m to an alternative local version of the external term
-     format which when decoded by the same runtime system
-     instance will produce a term identical to the encoded term
-     even when the node name and/or creation of the current
-     runtime system instance have changed between encoding and
-     decoding. When encoding without the [4mlocal[0m option, local
-     identifiers such as pids, ports and references will not be
-     the same if node name and/or creation of the current runtime
-     system instance changed between encoding and decoding. This
-     since such identifiers refer to a specific node by node name
-     and creation.
+   • [4mlocal[0m (Since OTP 26.0)
+
+     This option will cause encoding of [4mTerm[0m to an alternative
+     local version of the external term format which when decoded
+     by the same runtime system instance will produce a term
+     identical to the encoded term even when the node name and/or
+     creation of the current runtime system instance have changed
+     between encoding and decoding. When encoding without the [4m[0m
+     [4mlocal[0m option, local identifiers such as pids, ports and
+     references will not be the same if node name and/or creation
+     of the current runtime system instance changed between
+     encoding and decoding. This since such identifiers refer to
+     a specific node by node name and creation.
 
      Node name and creation of a runtime system instance change
      when the distribution is started or stopped. The
