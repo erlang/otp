@@ -2,19 +2,19 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  is_map_key(Key, Map)[0m
+[1m  is_map_key(Key, Map)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP 21.0
 
-  Returns [;;4mtrue[0m if map [;;4mMap[0m contains [;;4mKey[0m and returns [;;4mfalse[0m if
-  it does not contain the [;;4mKey[0m.
+  Returns [4mtrue[0m if map [4mMap[0m contains [4mKey[0m and returns [4mfalse[0m if
+  it does not contain the [4mKey[0m.
 
-  The call fails with a [;;4m{badmap,Map}[0m exception if [;;4mMap[0m is not a
+  The call fails with a [4m{badmap,Map}[0m exception if [4mMap[0m is not a
   map.
 
   Example:

@@ -2,15 +2,15 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  close(IoDevice)[0m
+[1m  close(IoDevice)[0m
 
-  Closes the file referenced by [;;4mIoDevice[0m. It mostly returns [;;4mok[0m,
+  Closes the file referenced by [4mIoDevice[0m. It mostly returns [4mok[0m,
   except for some severe errors such as out of memory.
 
-  Notice that if option [;;4mdelayed_write[0m was used when opening the
-  file, [;;4mclose/1[0m can return an old write error and not even try to
-  close the file. See [;;4mopen/2[0m.
+  Notice that if option [4mdelayed_write[0m was used when opening the
+  file, [4mclose/1[0m can return an old write error and not even try to
+  close the file. See [4mopen/2[0m.

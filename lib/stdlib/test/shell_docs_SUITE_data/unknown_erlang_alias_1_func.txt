@@ -2,38 +2,38 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  alias(Opts)[0m
+[1m  alias(Opts)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP 24.0
 
   Create an alias which can be used when sending messages to the
   process that created the alias. When the alias has been
   deactivated, messages sent using the alias will be dropped. An
-  alias can be deactivated using [;;4munalias/1[0m.
+  alias can be deactivated using [4munalias/1[0m.
 
-  Currently available options for [;;4malias/1[0m:
+  Currently available options for [4malias/1[0m:
 
-   • [;;4mexplicit_unalias[0m - The alias can only be deactivated via a
-     call to [;;4munalias/1[0m. This is also the default behaviour if
-     no options are passed or if [;;4malias/0[0m is called.
+   • [4mexplicit_unalias[0m - The alias can only be deactivated via a
+     call to [4munalias/1[0m. This is also the default behaviour if
+     no options are passed or if [4malias/0[0m is called.
 
-   • [;;4mreply[0m - The alias will be automatically deactivated when a
+   • [4mreply[0m - The alias will be automatically deactivated when a
      reply message sent via the alias is received. The alias can
-     also still be deactivated via a call to [;;4munalias/1[0m.
+     also still be deactivated via a call to [4munalias/1[0m.
 
-   • [;;4mpriority[0m - Since OTP @OTP-19198@
+   • [4mpriority[0m - Since OTP @OTP-19198@
 
      The alias can be used for sending priority messages to the
      process that created this alias. An alias created with this
      option is also known as a priority process alias or
      shorter priority alias.
 
-  [;;4mWarning[0m
+  [4mWarning[0m
 
        You very seldom need to resort to using priority
        messages and you may cause issues instead of solving

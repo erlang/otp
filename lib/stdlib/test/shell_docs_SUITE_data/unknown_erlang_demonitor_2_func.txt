@@ -2,23 +2,23 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  demonitor(MonitorRef, OptionList)[0m
+[1m  demonitor(MonitorRef, OptionList)[0m
 
-  The returned value is [;;4mtrue[0m unless [;;4minfo[0m is part of [;;4mOptionList[0m.
+  The returned value is [4mtrue[0m unless [4minfo[0m is part of [4mOptionList[0m.
 
-  [;;4mdemonitor(MonitorRef, [])[0m is equivalent to [;;4mdemonitor(MonitorRef)[0m.
+  [4mdemonitor(MonitorRef, [])[0m is equivalent to [4mdemonitor(MonitorRef)[0m.
 
-  [;;4mOption[0ms:
+  [4mOption[0ms:
 
-   • [;;4mflush[0m - Removes (one) [;;4m{_, MonitorRef, _, _, _}[0m message,
+   • [4mflush[0m - Removes (one) [4m{_, MonitorRef, _, _, _}[0m message,
      if there is one, from the caller message queue after
      monitoring has been stopped.
 
-     Calling [;;4mdemonitor(MonitorRef, [flush])[0m is equivalent to
+     Calling [4mdemonitor(MonitorRef, [flush])[0m is equivalent to
      the following, but more efficient:
 
        demonitor(MonitorRef),
@@ -29,28 +29,28 @@
                true
        end
 
-   • [;;4minfo[0m - The returned value is one of the following:
+   • [4minfo[0m - The returned value is one of the following:
 
-      ￮ [;;4mtrue[0m - The monitor was found and removed. In this
-        case, no [;;4m'DOWN'[0m message corresponding to this
+      ￮ [4mtrue[0m - The monitor was found and removed. In this
+        case, no [4m'DOWN'[0m message corresponding to this
         monitor has been delivered and will not be delivered.
 
-      ￮ [;;4mfalse[0m - The monitor was not found and could not be
+      ￮ [4mfalse[0m - The monitor was not found and could not be
         removed. This probably because someone already has
-        placed a [;;4m'DOWN'[0m message corresponding to this
+        placed a [4m'DOWN'[0m message corresponding to this
         monitor in the caller message queue.
 
-     If option [;;4minfo[0m is combined with option [;;4mflush[0m, [;;4mfalse[0m is
-     returned if a flush was needed, otherwise [;;4mtrue[0m.
+     If option [4minfo[0m is combined with option [4mflush[0m, [4mfalse[0m is
+     returned if a flush was needed, otherwise [4mtrue[0m.
 
-  [;;4mChange[0m
+  [4mChange[0m
 
     More options can be added in a future release.
 
   Failures:
 
-   • [;;4mbadarg[0m - If [;;4mOptionList[0m is not a list.
+   • [4mbadarg[0m - If [4mOptionList[0m is not a list.
 
-   • [;;4mbadarg[0m - If [;;4mOption[0m is an invalid option.
+   • [4mbadarg[0m - If [4mOption[0m is an invalid option.
 
-   • [;;4mbadarg[0m - The same failure as for [;;4mdemonitor/1[0m.
+   • [4mbadarg[0m - The same failure as for [4mdemonitor/1[0m.

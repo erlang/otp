@@ -2,26 +2,26 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  binary_to_term(Binary, Opts)[0m
+[1m  binary_to_term(Binary, Opts)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP R13B04
 
-  Equivalent to [;;4mbinary_to_term(Binary)[0m, but can be configured to
+  Equivalent to [4mbinary_to_term(Binary)[0m, but can be configured to
   fit special purposes.
 
   The allowed options are:
 
-   • [;;4msafe[0m - Use this option when receiving binaries from an
+   • [4msafe[0m - Use this option when receiving binaries from an
      untrusted source.
 
      When enabled, it prevents decoding data that can be used to
      attack the Erlang runtime. In the event of receiving unsafe
-     data, decoding fails with a [;;4mbadarg[0m error.
+     data, decoding fails with a [4mbadarg[0m error.
 
      This prevents creation of new atoms directly, creation of
      new atoms indirectly (as they are embedded in certain
@@ -37,17 +37,17 @@
        > binary_to_term(<<131,100,0,5,"hello">>, [safe]).
        hello
 
-  [;;4mWarning[0m
+  [4mWarning[0m
 
-       The [;;4msafe[0m option ensures the data is safely processed
+       The [4msafe[0m option ensures the data is safely processed
        by the Erlang runtime but it does not guarantee the data
        is safe to your application. You must always validate
        data from untrusted sources. If the binary is stored or
        transits through untrusted sources, you should also
        consider cryptographically signing it.
 
-   • [;;4mused[0m - Changes the return value to [;;4m{Term, Used}[0m where [;;4m[0m
-     [;;4mUsed[0m is the number of bytes actually read from [;;4mBinary[0m.
+   • [4mused[0m - Changes the return value to [4m{Term, Used}[0m where [4m[0m
+     [4mUsed[0m is the number of bytes actually read from [4mBinary[0m.
 
        > Input = <<131,100,0,5,"hello","world">>.
        <<131,100,0,5,104,101,108,108,111,119,111,114,108,100>>
@@ -56,8 +56,8 @@
        > split_binary(Input, Used).
        {<<131,100,0,5,104,101,108,108,111>>, <<"world">>}
 
-  Failure: [;;4mbadarg[0m if [;;4msafe[0m is specified and unsafe data is
+  Failure: [4mbadarg[0m if [4msafe[0m is specified and unsafe data is
   decoded.
 
-  See also [;;4mterm_to_binary/1[0m, [;;4mbinary_to_term/1[0m, and [;;4m[0m
-  [;;4mlist_to_existing_atom/1[0m.
+  See also [4mterm_to_binary/1[0m, [4mbinary_to_term/1[0m, and [4m[0m
+  [4mlist_to_existing_atom/1[0m.

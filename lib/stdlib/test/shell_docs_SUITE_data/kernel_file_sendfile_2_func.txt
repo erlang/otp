@@ -2,14 +2,14 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  sendfile(Filename, Socket)[0m
+[1m  sendfile(Filename, Socket)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP R15B
 
-  Sends the file [;;4mFilename[0m to [;;4mSocket[0m. Returns [;;4m{ok, BytesSent}[0m
-  if successful, otherwise [;;4m{error, Reason}[0m.
+  Sends the file [4mFilename[0m to [4mSocket[0m. Returns [4m{ok, BytesSent}[0m
+  if successful, otherwise [4m{error, Reason}[0m.

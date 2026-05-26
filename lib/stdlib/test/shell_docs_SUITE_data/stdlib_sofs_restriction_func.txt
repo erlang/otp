@@ -2,15 +2,15 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  restriction(BinRel1, Set)[0m
+[1m  restriction(BinRel1, Set)[0m
 
-  Returns the restriction of the binary relation [;;4mBinRel1[0m to [;;4mSet[0m.
+  Returns the restriction of the binary relation [4mBinRel1[0m to [4mSet[0m.
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> R1 = sofs:relation([{1,a},{2,b},{3,c}]).
     2> S = sofs:set([1,2,4]).
@@ -18,12 +18,12 @@
     4> sofs:to_external(R2).
     [{1,a},{2,b}]
 
-[;1m  restriction(SetFun, Set1, Set2)[0m
+[1m  restriction(SetFun, Set1, Set2)[0m
 
-  Returns a subset of [;;4mSet1[0m containing those elements that gives an
-  element in [;;4mSet2[0m as the result of applying [;;4mSetFun[0m.
+  Returns a subset of [4mSet1[0m containing those elements that gives an
+  element in [4mSet2[0m as the result of applying [4mSetFun[0m.
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> S1 = sofs:relation([{1,a},{2,b},{3,c}]).
     2> S2 = sofs:set([b,c,d]).

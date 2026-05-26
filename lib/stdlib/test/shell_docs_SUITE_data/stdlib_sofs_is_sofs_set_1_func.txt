@@ -2,20 +2,20 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  is_sofs_set(Term)[0m
+[1m  is_sofs_set(Term)[0m
 
-  Returns [;;4mtrue[0m if [;;4mTerm[0m appears to be an unordered set, an
-  ordered set, or an atomic set; otherwise, returns [;;4mfalse[0m.
+  Returns [4mtrue[0m if [4mTerm[0m appears to be an unordered set, an
+  ordered set, or an atomic set; otherwise, returns [4mfalse[0m.
 
-  Note that this function will return [;;4mtrue[0m for any term that
-  coincides with the representation of a [;;4msofs[0m set. See also note
+  Note that this function will return [4mtrue[0m for any term that
+  coincides with the representation of a [4msofs[0m set. See also note
   on data types.
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> sofs:is_sofs_set(sofs:set([a,b,c])).
     true

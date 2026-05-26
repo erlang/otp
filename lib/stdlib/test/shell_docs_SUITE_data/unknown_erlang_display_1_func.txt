@@ -2,15 +2,15 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  display(Term)[0m
+[1m  display(Term)[0m
 
-  Prints a text representation of [;;4mTerm[0m on the standard output.
+  Prints a text representation of [4mTerm[0m on the standard output.
 
-  [;;4mWarning[0m
+  [4mWarning[0m
 
     This BIF is intended for debugging only. The printed
     representation may contain internal details that do not match

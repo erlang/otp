@@ -2,15 +2,15 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  union(SetOfSets)[0m
+[1m  union(SetOfSets)[0m
 
-  Returns the union of the set of sets [;;4mSetOfSets[0m.
+  Returns the union of the set of sets [4mSetOfSets[0m.
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> S1 = sofs:set([a,b,c]).
     2> S2 = sofs:set([b,1,2]).
@@ -20,11 +20,11 @@
     6> sofs:to_external(S5).
     [1,2,a,b,c,d,e]
 
-[;1m  union(Set1, Set2)[0m
+[1m  union(Set1, Set2)[0m
 
-  Returns the union of [;;4mSet1[0m and [;;4mSet2[0m.
+  Returns the union of [4mSet1[0m and [4mSet2[0m.
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> S1 = sofs:set([a,b,c]).
     2> S2 = sofs:set([c,d,1,2,3]).

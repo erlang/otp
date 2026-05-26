@@ -2,16 +2,16 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  spawn_opt(Fun, Options)[0m
+[1m  spawn_opt(Fun, Options)[0m
 
   Returns the process identifier (pid) of a new process started by
-  the application of [;;4mFun[0m to the empty list [;;4m[][0m. Otherwise works
-  like [;;4mspawn_opt/4[0m.
+  the application of [4mFun[0m to the empty list [4m[][0m. Otherwise works
+  like [4mspawn_opt/4[0m.
 
-  If option [;;4mmonitor[0m is specified, the newly created process is
+  If option [4mmonitor[0m is specified, the newly created process is
   monitored, and both the pid and reference for the monitor are
   returned.

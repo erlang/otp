@@ -2,17 +2,17 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  extension(BinRel1, Set, AnySet)[0m
+[1m  extension(BinRel1, Set, AnySet)[0m
 
-  Returns the extension of [;;4mBinRel1[0m such that for each element E in [;;4m[0m
-  [;;4mSet[0m that does not belong to the domain of [;;4mBinRel1[0m, [;;4mBinRel2[0m
-  contains the pair (E, [;;4mAnySet[0m).
+  Returns the extension of [4mBinRel1[0m such that for each element E in [4m[0m
+  [4mSet[0m that does not belong to the domain of [4mBinRel1[0m, [4mBinRel2[0m
+  contains the pair (E, [4mAnySet[0m).
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> S = sofs:set([b,c]).
     2> A = sofs:empty_set().

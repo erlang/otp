@@ -2,13 +2,13 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  change_mode(Filename, Mode)[0m
+[1m  change_mode(Filename, Mode)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP R14B
 
-  Changes permissions of a file. See [;;4mwrite_file_info/2[0m.
+  Changes permissions of a file. See [4mwrite_file_info/2[0m.

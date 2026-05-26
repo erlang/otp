@@ -2,45 +2,45 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  spawn_monitor(Fun)[0m
+[1m  spawn_monitor(Fun)[0m
 
   Returns the process identifier of a new process, started by the
-  application of [;;4mFun[0m to the empty list [;;4m[][0m, and a reference for a
-  monitor created to the new process. Otherwise works like [;;4mspawn/3[0m.
+  application of [4mFun[0m to the empty list [4m[][0m, and a reference for a
+  monitor created to the new process. Otherwise works like [4mspawn/3[0m.
 
-[;1m  spawn_monitor(Node, Fun)[0m
+[1m  spawn_monitor(Node, Fun)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP 23.0
 
   Returns the process identifier of a new process, started by the
-  application of [;;4mFun[0m to the empty list [;;4m[][0m on the node [;;4mNode[0m,
+  application of [4mFun[0m to the empty list [4m[][0m on the node [4mNode[0m,
   and a reference for a monitor created to the new process.
-  Otherwise works like [;;4mspawn/3[0m.
+  Otherwise works like [4mspawn/3[0m.
 
-  If the node identified by [;;4mNode[0m does not support distributed [;;4m[0m
-  [;;4mspawn_monitor()[0m, the call will fail with a [;;4mnotsup[0m exception.
+  If the node identified by [4mNode[0m does not support distributed [4m[0m
+  [4mspawn_monitor()[0m, the call will fail with a [4mnotsup[0m exception.
 
-[;1m  spawn_monitor(Module, Function, Args)[0m
+[1m  spawn_monitor(Module, Function, Args)[0m
 
-  A new process is started by the application of [;;4mModule:Function[0m
-  to [;;4mArgs[0m. The process is monitored at the same time. Returns the
+  A new process is started by the application of [4mModule:Function[0m
+  to [4mArgs[0m. The process is monitored at the same time. Returns the
   process identifier and a reference for the monitor. Otherwise
-  works like [;;4mspawn/3[0m.
+  works like [4mspawn/3[0m.
 
-[;1m  spawn_monitor(Node, Module, Function, Args)[0m
+[1m  spawn_monitor(Node, Module, Function, Args)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP 23.0
 
-  A new process is started by the application of [;;4mModule:Function[0m
-  to [;;4mArgs[0m on the node [;;4mNode[0m. The process is monitored at the same
+  A new process is started by the application of [4mModule:Function[0m
+  to [4mArgs[0m on the node [4mNode[0m. The process is monitored at the same
   time. Returns the process identifier and a reference for the
-  monitor. Otherwise works like [;;4mspawn/3[0m.
+  monitor. Otherwise works like [4mspawn/3[0m.
 
-  If the node identified by [;;4mNode[0m does not support distributed [;;4m[0m
-  [;;4mspawn_monitor()[0m, the call will fail with a [;;4mnotsup[0m exception.
+  If the node identified by [4mNode[0m does not support distributed [4m[0m
+  [4mspawn_monitor()[0m, the call will fail with a [4mnotsup[0m exception.

@@ -2,26 +2,26 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  nif_error(Reason)[0m
+[1m  nif_error(Reason)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP R14B
 
-  Works exactly like [;;4merror/1[0m, but Dialyzer thinks that this BIF
+  Works exactly like [4merror/1[0m, but Dialyzer thinks that this BIF
   will return an arbitrary term. When used in a stub function for a
   NIF to generate an exception when the NIF library is not loaded,
   Dialyzer does not generate false warnings.
 
-[;1m  nif_error(Reason, Args)[0m
+[1m  nif_error(Reason, Args)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP R14B
 
-  Works exactly like [;;4merror/2[0m, but Dialyzer thinks that this BIF
+  Works exactly like [4merror/2[0m, but Dialyzer thinks that this BIF
   will return an arbitrary term. When used in a stub function for a
   NIF to generate an exception when the NIF library is not loaded,
   Dialyzer does not generate false warnings.

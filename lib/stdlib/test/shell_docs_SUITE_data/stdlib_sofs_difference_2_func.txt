@@ -2,15 +2,15 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  difference(Set1, Set2)[0m
+[1m  difference(Set1, Set2)[0m
 
-  Returns the difference of the sets [;;4mSet1[0m and [;;4mSet2[0m.
+  Returns the difference of the sets [4mSet1[0m and [4mSet2[0m.
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> S0 = sofs:set([a,b,c,d]).
     2> S1 = sofs:set([c,d,e,f]).

@@ -2,10 +2,10 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  fd()[0m
+[1m  fd()[0m
 
-  A file descriptor representing a file opened in [;;4mraw[0m mode.
+  A file descriptor representing a file opened in [4mraw[0m mode.

@@ -2,18 +2,18 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  family_range(Family1)[0m
+[1m  family_range(Family1)[0m
 
-  If [;;4mFamily1[0m is a family and [;;4mFamily1[0m[i] is a binary relation for
-  every i in the index set of [;;4mFamily1[0m, then [;;4mFamily2[0m is the
-  family with the same index set as [;;4mFamily1[0m such that [;;4mFamily2[0m[i]
-  is the range of [;;4mFamily1[0m[i].
+  If [4mFamily1[0m is a family and [4mFamily1[0m[i] is a binary relation for
+  every i in the index set of [4mFamily1[0m, then [4mFamily2[0m is the
+  family with the same index set as [4mFamily1[0m such that [4mFamily2[0m[i]
+  is the range of [4mFamily1[0m[i].
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> FR = sofs:from_term([{a,[{1,a},{2,b},{3,c}]},{b,[]},{c,[{4,d},{5,e}]}]).
     2> F = sofs:family_range(FR).

@@ -2,36 +2,36 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  path_eval(Path, Filename)[0m
+[1m  path_eval(Path, Filename)[0m
 
-  Searches the path [;;4mPath[0m (a list of directory names) until the
-  file [;;4mFilename[0m is found. If [;;4mFilename[0m is an absolute filename, [;;4m[0m
-  [;;4mPath[0m is ignored. Then reads and evaluates Erlang expressions,
-  separated by [;;4m.[0m (or [;;4m,[0m, a sequence of expressions is also an
+  Searches the path [4mPath[0m (a list of directory names) until the
+  file [4mFilename[0m is found. If [4mFilename[0m is an absolute filename, [4m[0m
+  [4mPath[0m is ignored. Then reads and evaluates Erlang expressions,
+  separated by [4m.[0m (or [4m,[0m, a sequence of expressions is also an
   expression), from the file. The result of evaluation is not
   returned; any expression sequence in the file must be there for
   its side effect.
 
   Returns one of the following:
 
-   • [;;4m{ok, FullName}[0m - The file is read and evaluated. [;;4mFullName[0m
+   • [4m{ok, FullName}[0m - The file is read and evaluated. [4mFullName[0m
      is the full name of the file.
 
-   • [;;4m{error, enoent}[0m - The file cannot be found in any of the
-     directories in [;;4mPath[0m.
+   • [4m{error, enoent}[0m - The file cannot be found in any of the
+     directories in [4mPath[0m.
 
-   • [;;4m{error, atom()}[0m - An error occurred when opening the file
-     or reading it. For a list of typical error codes, see [;;4m[0m
-     [;;4mopen/2[0m.
+   • [4m{error, atom()}[0m - An error occurred when opening the file
+     or reading it. For a list of typical error codes, see [4m[0m
+     [4mopen/2[0m.
 
-   • [;;4m{error, {Line, Mod, Term}}[0m - An error occurred when
-     interpreting the Erlang expressions in the file. Use [;;4m[0m
-     [;;4mformat_error/1[0m to convert the three-element tuple to an
+   • [4m{error, {Line, Mod, Term}}[0m - An error occurred when
+     interpreting the Erlang expressions in the file. Use [4m[0m
+     [4mformat_error/1[0m to convert the three-element tuple to an
      English description of the error.
 
-  The encoding of [;;4mFilename[0m can be set by a comment as described in [;;4m[0m
-  [;;4mepp[0m.
+  The encoding of [4mFilename[0m can be set by a comment as described in [4m[0m
+  [4mepp[0m.

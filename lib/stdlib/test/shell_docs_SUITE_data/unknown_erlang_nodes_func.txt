@@ -2,66 +2,66 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  nodes()[0m
+[1m  nodes()[0m
 
   Returns a list of all nodes connected to this node through normal
   connections (that is, hidden nodes are not listed). Same as
   nodes(visible).
 
-[;1m  nodes(Arg)[0m
+[1m  nodes(Arg)[0m
 
   Returns a list of nodes according to the argument specified. The
   returned result, when the argument is a list, is the list of nodes
   satisfying the disjunction(s) of the list elements.
 
-  [;;4mNodeType[0ms:
+  [4mNodeType[0ms:
 
-   • [;;4mvisible[0m - Nodes connected to this node through normal
+   • [4mvisible[0m - Nodes connected to this node through normal
      connections.
 
-   • [;;4mhidden[0m - Nodes connected to this node through hidden
+   • [4mhidden[0m - Nodes connected to this node through hidden
      connections.
 
-   • [;;4mconnected[0m - All nodes connected to this node.
+   • [4mconnected[0m - All nodes connected to this node.
 
-   • [;;4mthis[0m - This node.
+   • [4mthis[0m - This node.
 
-   • [;;4mknown[0m - Nodes that are known to this node. That is,
+   • [4mknown[0m - Nodes that are known to this node. That is,
      connected nodes and nodes referred to by process
      identifiers, port identifiers, and references located on
      this node. The set of known nodes is garbage collected.
      Notice that this garbage collection can be delayed. For more
-     information, see [;;4merlang:system_info(delayed_node_table_gc)[0m.
+     information, see [4merlang:system_info(delayed_node_table_gc)[0m.
 
-  Some equalities: [;;4m[node()] = nodes(this)[0m, [;;4mnodes(connected) =[0m
-  [;;4mnodes([visible, hidden])[0m, and [;;4mnodes() = nodes(visible)[0m.
+  Some equalities: [4m[node()] = nodes(this)[0m, [4mnodes(connected) =[0m
+  [4mnodes([visible, hidden])[0m, and [4mnodes() = nodes(visible)[0m.
 
-[;1m  nodes(Arg, InfoOpts)[0m
+[1m  nodes(Arg, InfoOpts)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP 25.1
 
-  Returns a list of [;;4mNodeInfo[0m tuples.
+  Returns a list of [4mNodeInfo[0m tuples.
 
   The first element is the node name. Nodes to be included in the
-  list are determined by the first argument [;;4mArg[0m in the same way as
-  for [;;4mnodes(Arg)[0m. The second element of [;;4mNodeInfo[0m tuples is a map
+  list are determined by the first argument [4mArg[0m in the same way as
+  for [4mnodes(Arg)[0m. The second element of [4mNodeInfo[0m tuples is a map
   containing further information about the node identified by the
   first element. The information present in this map is determined
-  by the [;;4mInfoOpts[0m map passed as the second argument. Currently the
-  following associations are allowed in the [;;4mInfoOpts[0m map:
+  by the [4mInfoOpts[0m map passed as the second argument. Currently the
+  following associations are allowed in the [4mInfoOpts[0m map:
 
-   • [;;4mconnection_id => boolean()[0m - If the value of the
-     association equals [;;4mtrue[0m, the [;;4mInfo[0m map in the returned
-     result will contain the key [;;4mconnection_id[0m associated with
-     the value [;;4mConnectionId[0m. If [;;4mConnectionId[0m equals [;;4m[0m
-     [;;4mundefined[0m, the node is not connected to the node which the
+   • [4mconnection_id => boolean()[0m - If the value of the
+     association equals [4mtrue[0m, the [4mInfo[0m map in the returned
+     result will contain the key [4mconnection_id[0m associated with
+     the value [4mConnectionId[0m. If [4mConnectionId[0m equals [4m[0m
+     [4mundefined[0m, the node is not connected to the node which the
      caller is executing on, or is the node which the caller is
-     executing on. If [;;4mConnectionId[0m is an integer, the node is
+     executing on. If [4mConnectionId[0m is an integer, the node is
      currently connected to the node which the caller is
      executing on.
 
@@ -77,24 +77,24 @@
      quite unlikely. It is undefined how the value change between
      two consecutive connection instances.
 
-   • [;;4mnode_type => boolean()[0m - If the value of the association
-     equals [;;4mtrue[0m, the [;;4mInfo[0m map in the returned result will
-     contain the key [;;4mnode_type[0m associated with the value [;;4m[0m
-     [;;4mNodeTypeInfo[0m. Currently the following node types exist:
+   • [4mnode_type => boolean()[0m - If the value of the association
+     equals [4mtrue[0m, the [4mInfo[0m map in the returned result will
+     contain the key [4mnode_type[0m associated with the value [4m[0m
+     [4mNodeTypeInfo[0m. Currently the following node types exist:
 
-      ￮ [;;4mvisible[0m - The node is connected to the node of the
+      ￮ [4mvisible[0m - The node is connected to the node of the
         calling process through an ordinary visible
         connection. That is, the node name would appear in the
-        result returned by [;;4mnodes/0[0m.
+        result returned by [4mnodes/0[0m.
 
-      ￮ [;;4mhidden[0m - The node is connected to the node of the
+      ￮ [4mhidden[0m - The node is connected to the node of the
         calling process through a hidden connection. That is,
         the node name would not appear in the result
-        returned by [;;4mnodes/0[0m.
+        returned by [4mnodes/0[0m.
 
-      ￮ [;;4mthis[0m - This is the node of the calling process.
+      ￮ [4mthis[0m - This is the node of the calling process.
 
-      ￮ [;;4mknown[0m - The node is not connected but known to the
+      ￮ [4mknown[0m - The node is not connected but known to the
         node of the calling process.
 
   Example:

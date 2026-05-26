@@ -2,24 +2,24 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  path_open(Path, Filename, Modes)[0m
+[1m  path_open(Path, Filename, Modes)[0m
 
-  Searches the path [;;4mPath[0m (a list of directory names) until the
-  file [;;4mFilename[0m is found. If [;;4mFilename[0m is an absolute filename, [;;4m[0m
-  [;;4mPath[0m is ignored. Then opens the file in the mode determined by [;;4m[0m
-  [;;4mModes[0m.
+  Searches the path [4mPath[0m (a list of directory names) until the
+  file [4mFilename[0m is found. If [4mFilename[0m is an absolute filename, [4m[0m
+  [4mPath[0m is ignored. Then opens the file in the mode determined by [4m[0m
+  [4mModes[0m.
 
   Returns one of the following:
 
-   • [;;4m{ok, IoDevice, FullName}[0m - The file is opened in the
-     requested mode. [;;4mIoDevice[0m is a reference to the file and [;;4m[0m
-     [;;4mFullName[0m is the full name of the file.
+   • [4m{ok, IoDevice, FullName}[0m - The file is opened in the
+     requested mode. [4mIoDevice[0m is a reference to the file and [4m[0m
+     [4mFullName[0m is the full name of the file.
 
-   • [;;4m{error, enoent}[0m - The file cannot be found in any of the
-     directories in [;;4mPath[0m.
+   • [4m{error, enoent}[0m - The file cannot be found in any of the
+     directories in [4mPath[0m.
 
-   • [;;4m{error, atom()}[0m - The file cannot be opened.
+   • [4m{error, atom()}[0m - The file cannot be opened.

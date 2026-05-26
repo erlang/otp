@@ -2,16 +2,16 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  name_all()[0m
+[1m  name_all()[0m
 
-  A file name used as input into [;;4mfile[0m API functions.
+  A file name used as input into [4mfile[0m API functions.
 
   If VM is in Unicode filename mode, characters are allowed to be >
-  255. [;;4mRawFilename[0m is a filename not subject to Unicode
+  255. [4mRawFilename[0m is a filename not subject to Unicode
   translation, meaning that it can contain characters not conforming
   to the Unicode encoding expected from the file system (that is,
   non-UTF-8 characters although the VM is started in Unicode

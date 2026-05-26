@@ -2,61 +2,61 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  send(Dest, Msg)[0m
+[1m  send(Dest, Msg)[0m
 
-  Sends a message and returns [;;4mMsg[0m. This is the same as using the
-  send operator: [;;4mDest ! Msg[0m.
+  Sends a message and returns [4mMsg[0m. This is the same as using the
+  send operator: [4mDest ! Msg[0m.
 
-  [;;4mDest[0m can be a remote or local process identifier, an alias, a
-  (local) port, a locally registered name, or a tuple [;;4m{RegName,[0m
-  [;;4mNode}[0m for a registered name at another node.
+  [4mDest[0m can be a remote or local process identifier, an alias, a
+  (local) port, a locally registered name, or a tuple [4m{RegName,[0m
+  [4mNode}[0m for a registered name at another node.
 
-  The function fails with a [;;4mbadarg[0m run-time error if [;;4mDest[0m is an
+  The function fails with a [4mbadarg[0m run-time error if [4mDest[0m is an
   atom name, but this name is not registered. This is the only case
-  when [;;4msend[0m fails for an unreachable destination [;;4mDest[0m (of
+  when [4msend[0m fails for an unreachable destination [4mDest[0m (of
   correct type).
 
-  [;;4mNote[0m
+  [4mNote[0m
 
     For some important information about distributed signals, see
     the Blocking Signaling Over Distribution section in the 
     Processes chapter of the Erlang Reference Manual.
 
-[;1m  send(Dest, Msg, Options)[0m
+[1m  send(Dest, Msg, Options)[0m
 
-  Either sends a message and returns [;;4mok[0m, or does not send the
+  Either sends a message and returns [4mok[0m, or does not send the
   message but returns something else (see below). Otherwise the same
-  as [;;4merlang:send/2[0m.
+  as [4merlang:send/2[0m.
 
-  For more detailed explanation and warnings, see [;;4m[0m
-  [;;4merlang:send_nosuspend/2,3[0m.
+  For more detailed explanation and warnings, see [4m[0m
+  [4merlang:send_nosuspend/2,3[0m.
 
   Options:
 
-   • [;;4mnosuspend[0m - If the sender would have to be suspended to do
-     the send, [;;4mnosuspend[0m is returned instead.
+   • [4mnosuspend[0m - If the sender would have to be suspended to do
+     the send, [4mnosuspend[0m is returned instead.
 
-   • [;;4mnoconnect[0m - If the destination node would have to be
-     auto-connected to do the send, [;;4mnoconnect[0m is returned
+   • [4mnoconnect[0m - If the destination node would have to be
+     auto-connected to do the send, [4mnoconnect[0m is returned
      instead.
 
-   • [;;4mpriority[0m - Since OTP @OTP-19198@
+   • [4mpriority[0m - Since OTP @OTP-19198@
 
      Send this message as a priority message. In order for the
      message to be handled as a priority message by the receiver,
-     this option must be passed, and [;;4mDest[0m must be an active 
+     this option must be passed, and [4mDest[0m must be an active 
      priority alias.
 
-     If [;;4mDest[0m is an active priority alias, but this option is
+     If [4mDest[0m is an active priority alias, but this option is
      not passed, the message will be handled as on ordinary
-     message. The same is true, if this option is passed, but [;;4m[0m
-     [;;4mDest[0m is not an active priority alias.
+     message. The same is true, if this option is passed, but [4m[0m
+     [4mDest[0m is not an active priority alias.
 
-  [;;4mWarning[0m
+  [4mWarning[0m
 
        You very seldom need to resort to using priority
        messages and you may cause issues instead of solving
@@ -66,12 +66,12 @@
      Message Queue and the Enabling Priority Message Reception
      sections of the Erlang Reference Manual.
 
-  [;;4mNote[0m
+  [4mNote[0m
 
     For some important information about distributed signals, see
     the Blocking Signaling Over Distribution section in the 
     Processes chapter of the Erlang Reference Manual.
 
-  [;;4mWarning[0m
+  [4mWarning[0m
 
-    As with [;;4merlang:send_nosuspend/2,3[0m: use with extreme care.
+    As with [4merlang:send_nosuspend/2,3[0m: use with extreme care.

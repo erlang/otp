@@ -2,128 +2,128 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  port_info(Port)[0m
+[1m  port_info(Port)[0m
 
-  Returns a list containing tuples with information about [;;4mPort[0m, or [;;4m[0m
-  [;;4mundefined[0m if the port is not open.
+  Returns a list containing tuples with information about [4mPort[0m, or [4m[0m
+  [4mundefined[0m if the port is not open.
 
   The order of the tuples is undefined, and all the tuples are not
   mandatory. If the port is closed and the calling process was
   previously linked to the port, the exit signal from the port is
-  guaranteed to be delivered before [;;4mport_info/1[0m returns [;;4mundefined[0m.
+  guaranteed to be delivered before [4mport_info/1[0m returns [4mundefined[0m.
 
-  The result contains information about the following [;;4mItem[0ms:
+  The result contains information about the following [4mItem[0ms:
 
-   • [;;4mregistered_name[0m (if the port has a registered name)
+   • [4mregistered_name[0m (if the port has a registered name)
 
-   • [;;4mid[0m
+   • [4mid[0m
 
-   • [;;4mconnected[0m
+   • [4mconnected[0m
 
-   • [;;4mlinks[0m
+   • [4mlinks[0m
 
-   • [;;4mname[0m
+   • [4mname[0m
 
-   • [;;4minput[0m
+   • [4minput[0m
 
-   • [;;4moutput[0m
+   • [4moutput[0m
 
-  For more information about the different [;;4mItem[0ms, see [;;4mport_info/2[0m.
+  For more information about the different [4mItem[0ms, see [4mport_info/2[0m.
 
-  Failure: [;;4mbadarg[0m if [;;4mPort[0m is not a local port identifier, or an
+  Failure: [4mbadarg[0m if [4mPort[0m is not a local port identifier, or an
   atom.
 
-[;1m  port_info(Port, Item)[0m
+[1m  port_info(Port, Item)[0m
 
-  Returns information about [;;4mPort[0m.
+  Returns information about [4mPort[0m.
 
-  If the port identified by [;;4mPort[0m is not open, [;;4mundefined[0m is
+  If the port identified by [4mPort[0m is not open, [4mundefined[0m is
   returned. If the port is closed and the calling process was
   previously linked to the port, the exit signal from the port is
-  guaranteed to be delivered before [;;4mport_info/2[0m returns [;;4mundefined[0m.
+  guaranteed to be delivered before [4mport_info/2[0m returns [4mundefined[0m.
 
-  [;;4mItem[0m is one of the following and can be used to get various
-  information about the [;;4mPort[0m.
+  [4mItem[0m is one of the following and can be used to get various
+  information about the [4mPort[0m.
 
-   • [;;4mconnected[0m - returns [;;4m{connected, Pid}[0m where [;;4mPid[0m is the
+   • [4mconnected[0m - returns [4m{connected, Pid}[0m where [4mPid[0m is the
      process identifier of the process connected to the port.
 
-   • [;;4mid[0m - returns [;;4m{id, Index}[0m where [;;4mIndex[0m is the internal
+   • [4mid[0m - returns [4m{id, Index}[0m where [4mIndex[0m is the internal
      index of the port. This index can be used to separate ports.
 
-   • [;;4minput[0m - returns [;;4m{input, Bytes}[0m where [;;4mBytes[0m is the total
+   • [4minput[0m - returns [4m{input, Bytes}[0m where [4mBytes[0m is the total
      number of bytes read from the port.
 
-   • [;;4mlinks[0m - returns [;;4m{links, Pids}[0m where [;;4mPids[0m is a list of
+   • [4mlinks[0m - returns [4m{links, Pids}[0m where [4mPids[0m is a list of
      the process identifiers of the processes that the port is
      linked to.
 
-   • [;;4mlocking[0m - returns [;;4m{locking, Locking}[0m where [;;4mLocking[0m is
+   • [4mlocking[0m - returns [4m{locking, Locking}[0m where [4mLocking[0m is
      one of the following:
 
-      ￮ [;;4mport_level[0m (port-specific locking)
+      ￮ [4mport_level[0m (port-specific locking)
 
-      ￮ [;;4mdriver_level[0m (driver-specific locking) Notice that
+      ￮ [4mdriver_level[0m (driver-specific locking) Notice that
         these results are highly implementation-specific and
         can change in a future release.
 
      Since: OTP R16B
 
-   • [;;4mmemory[0m - returns [;;4m{memory, Bytes}[0m where [;;4mBytes[0m is the
+   • [4mmemory[0m - returns [4m{memory, Bytes}[0m where [4mBytes[0m is the
      total number of bytes allocated for this port by the runtime
      system. The port itself can have allocated memory that is
-     not included in [;;4mBytes[0m.
+     not included in [4mBytes[0m.
 
      Since: OTP R16B
 
-   • [;;4mmonitors[0m - returns [;;4m{monitors, Monitors}[0m where [;;4mMonitors[0m
+   • [4mmonitors[0m - returns [4m{monitors, Monitors}[0m where [4mMonitors[0m
      represent processes monitored by this port.
 
      Since: OTP R16B
 
-   • [;;4mmonitored_by[0m - returns [;;4m{monitored_by, MonitoredBy}[0m where [;;4m[0m
-     [;;4mMonitoredBy[0m is a list of pids that are monitoring given
+   • [4mmonitored_by[0m - returns [4m{monitored_by, MonitoredBy}[0m where [4m[0m
+     [4mMonitoredBy[0m is a list of pids that are monitoring given
      port at the moment.
 
      Since: OTP 19.0
 
-   • [;;4mname[0m - returns [;;4m{name, Name}[0m where [;;4mName[0m is the command
-     name set by [;;4mopen_port/2[0m.
+   • [4mname[0m - returns [4m{name, Name}[0m where [4mName[0m is the command
+     name set by [4mopen_port/2[0m.
 
-   • [;;4mos_pid[0m - returns [;;4m{os_pid, OsPid}[0m where [;;4mOsPid[0m is the
+   • [4mos_pid[0m - returns [4m{os_pid, OsPid}[0m where [4mOsPid[0m is the
      process identifier (or equivalent) of an OS process created
-     with [;;4mopen_port({spawn | spawn_executable, Command},[0m
-     [;;4mOptions)[0m. If the port is not the result of spawning an OS
-     process, the value is [;;4mundefined[0m.
+     with [4mopen_port({spawn | spawn_executable, Command},[0m
+     [4mOptions)[0m. If the port is not the result of spawning an OS
+     process, the value is [4mundefined[0m.
 
      Since: OTP R16B
 
-   • [;;4moutput[0m - returns [;;4m{output, Bytes}[0m where [;;4mBytes[0m is the
+   • [4moutput[0m - returns [4m{output, Bytes}[0m where [4mBytes[0m is the
      total number of bytes written to the port from Erlang
-     processes using [;;4mport_command/2[0m, [;;4mport_command/3[0m, or [;;4mPort ![0m
-     [;;4m{Owner, {command, Data}[0m.
+     processes using [4mport_command/2[0m, [4mport_command/3[0m, or [4mPort ![0m
+     [4m{Owner, {command, Data}[0m.
 
-   • [;;4mparallelism[0m - returns [;;4m{parallelism, Boolean}[0m where [;;4m[0m
-     [;;4mBoolean[0m corresponds to the port parallelism hint used by
-     this port. For more information, see option [;;4mparallelism[0m of [;;4m[0m
-     [;;4mopen_port/2[0m.
+   • [4mparallelism[0m - returns [4m{parallelism, Boolean}[0m where [4m[0m
+     [4mBoolean[0m corresponds to the port parallelism hint used by
+     this port. For more information, see option [4mparallelism[0m of [4m[0m
+     [4mopen_port/2[0m.
 
      Since: OTP R16B
 
-   • [;;4mqueue_size[0m - returns [;;4m{queue_size, Bytes}[0m where [;;4mBytes[0m is
+   • [4mqueue_size[0m - returns [4m{queue_size, Bytes}[0m where [4mBytes[0m is
      the total number of bytes queued by the port using the ERTS
      driver queue implementation.
 
      Since: OTP R16B
 
-   • [;;4mregistered_name[0m - returns [;;4m{registered_name,[0m
-     [;;4mRegisteredName}[0m where [;;4mRegisteredName[0m is the registered
-     name of the port. If the port has no registered name, [;;4m[][0m
+   • [4mregistered_name[0m - returns [4m{registered_name,[0m
+     [4mRegisteredName}[0m where [4mRegisteredName[0m is the registered
+     name of the port. If the port has no registered name, [4m[][0m
      is returned.
 
-  Failure: [;;4mbadarg[0m if [;;4mPort[0m is not a local port identifier, or an
+  Failure: [4mbadarg[0m if [4mPort[0m is not a local port identifier, or an
   atom.

@@ -2,11 +2,11 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  md5_init()[0m
+[1m  md5_init()[0m
 
-  Creates an MD5 context, to be used in the following calls to [;;4m[0m
-  [;;4mmd5_update/2[0m.
+  Creates an MD5 context, to be used in the following calls to [4m[0m
+  [4mmd5_update/2[0m.

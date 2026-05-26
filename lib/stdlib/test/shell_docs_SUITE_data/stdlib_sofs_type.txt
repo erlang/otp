@@ -2,35 +2,35 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
-[;1m	sofs[0m
+[1m	sofs[0m
 
 These types are documented in this module:
 
-[;1m  tuple_of(T)[0m
+[1m  tuple_of(T)[0m
 
-[;1m  type()[0m
+[1m  type()[0m
 
-[;1m  spec_fun()[0m
+[1m  spec_fun()[0m
 
-[;1m  set_fun()[0m
+[1m  set_fun()[0m
 
-[;1m  set_of_sets()[0m
+[1m  set_of_sets()[0m
 
-[;1m  a_set()[0m
+[1m  a_set()[0m
 
-[;1m  relation()[0m
+[1m  relation()[0m
 
-[;1m  ordset()[0m
+[1m  ordset()[0m
 
-[;1m  family()[0m
+[1m  family()[0m
 
-[;1m  a_function()[0m
+[1m  a_function()[0m
 
-[;1m  external_set()[0m
+[1m  external_set()[0m
 
-[;1m  binary_relation()[0m
+[1m  binary_relation()[0m
 
-[;1m  anyset()[0m
+[1m  anyset()[0m

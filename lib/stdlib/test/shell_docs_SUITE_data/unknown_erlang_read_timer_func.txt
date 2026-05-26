@@ -2,47 +2,47 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  read_timer(TimerRef)[0m
+[1m  read_timer(TimerRef)[0m
 
   There is no documentation for erlang:read_timer(TimerRef, [])
 
-[;1m  read_timer(TimerRef, Options)[0m
+[1m  read_timer(TimerRef, Options)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP 18.0
 
-  Reads the state of a timer that has been created by either [;;4m[0m
-  [;;4merlang:start_timer[0m or [;;4merlang:send_after[0m. [;;4mTimerRef[0m identifies
+  Reads the state of a timer that has been created by either [4m[0m
+  [4merlang:start_timer[0m or [4merlang:send_after[0m. [4mTimerRef[0m identifies
   the timer, and was returned by the BIF that created the timer.
 
-  [;;4mOptions[0m:
+  [4mOptions[0m:
 
-   • [;;4m{async, Async}[0m - Asynchronous request for state
-     information. [;;4mAsync[0m defaults to [;;4mfalse[0m, which causes the
-     operation to be performed synchronously. In this case, the [;;4m[0m
-     [;;4mResult[0m is returned by [;;4merlang:read_timer[0m. When [;;4mAsync[0m is [;;4m[0m
-     [;;4mtrue[0m, [;;4merlang:read_timer[0m sends an asynchronous request for
+   • [4m{async, Async}[0m - Asynchronous request for state
+     information. [4mAsync[0m defaults to [4mfalse[0m, which causes the
+     operation to be performed synchronously. In this case, the [4m[0m
+     [4mResult[0m is returned by [4merlang:read_timer[0m. When [4mAsync[0m is [4m[0m
+     [4mtrue[0m, [4merlang:read_timer[0m sends an asynchronous request for
      the state information to the timer service that manages the
-     timer, and then returns [;;4mok[0m. A message on the format [;;4m[0m
-     [;;4m{read_timer, TimerRef, Result}[0m is sent to the caller of [;;4m[0m
-     [;;4merlang:read_timer[0m when the operation has been processed.
+     timer, and then returns [4mok[0m. A message on the format [4m[0m
+     [4m{read_timer, TimerRef, Result}[0m is sent to the caller of [4m[0m
+     [4merlang:read_timer[0m when the operation has been processed.
 
-  More [;;4mOption[0ms can be added in the future.
+  More [4mOption[0ms can be added in the future.
 
-  If [;;4mResult[0m is an integer, it represents the time in milliseconds
+  If [4mResult[0m is an integer, it represents the time in milliseconds
   left until the timer expires.
 
-  If [;;4mResult[0m is [;;4mfalse[0m, a timer corresponding to [;;4mTimerRef[0m could
+  If [4mResult[0m is [4mfalse[0m, a timer corresponding to [4mTimerRef[0m could
   not be found. This because the timer had expired, or been
-  canceled, or because [;;4mTimerRef[0m never has corresponded to a timer.
+  canceled, or because [4mTimerRef[0m never has corresponded to a timer.
   Even if the timer has expired, it does not tell you whether or not
   the time-out message has arrived at its destination yet.
 
-  [;;4mNote[0m
+  [4mNote[0m
 
     The timer service that manages the timer can be co-located
     with another scheduler than the scheduler that the calling
@@ -50,9 +50,9 @@
     service takes much longer time than if it is located locally.
     If the calling process is in a critical path, and can do other
     things while waiting for the result of this operation, you
-    want to use option [;;4m{async, true}[0m. If using option [;;4m{async,[0m
-    [;;4mfalse}[0m, the calling process is blocked until the operation
+    want to use option [4m{async, true}[0m. If using option [4m{async,[0m
+    [4mfalse}[0m, the calling process is blocked until the operation
     has been performed.
 
-  See also [;;4merlang:send_after/4[0m, [;;4merlang:start_timer/4[0m, and [;;4m[0m
-  [;;4merlang:cancel_timer/2[0m.
+  See also [4merlang:send_after/4[0m, [4merlang:start_timer/4[0m, and [4m[0m
+  [4merlang:cancel_timer/2[0m.
