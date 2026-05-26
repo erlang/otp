@@ -39,6 +39,7 @@
 -export([any_none/1,
 	 any_none_or_unit/1,
 	 lookup_record/3,
+         lookup_native_record_mod/3,
 	 max/2,
 	 min/2,
 	 number_max/1,
@@ -177,7 +178,7 @@
 	 t_record/0,
 	 t_record/1,
 	 t_record/2,
-	 t_record_replace/2,
+         t_record_replace/3,
 	 t_record_get/2,
 	 t_reference/0,
 	 t_string/0,
@@ -364,7 +365,8 @@
 -define(integer_neg,               ?int_range(neg_inf, -1)).
 
 -type file_line()    :: {file:name(), erl_anno:line()}.
--type record_key()   :: {'record', atom()} | {'native_record', any()}.
+-type record_key()   :: {'record', atom()} | {'native_record', any()} |
+                        {'import_record', atom()}.
 -type type_key()     :: {'type' | 'opaque' | 'nominal', atom(), arity()}.
 -type field()        :: {atom(), erl_parse:abstract_expr(), erl_type()}.
 -type record_value() :: {file_line(),
@@ -820,17 +822,27 @@ t_record_get(K, ?record(_, Fields)) ->
     #{} -> ?any
   end.
 
--spec t_record_replace(any(), erl_type()) -> erl_type().
-t_record_replace([KV|KVs], Record) ->
-  t_record_replace(KVs, t_record_replace(KV, Record));
-t_record_replace([], Record) ->
+-spec t_record_replace(any(), any(), erl_type()) -> erl_type().
+t_record_replace([KV|KVs], Id, Record) ->
+  t_record_replace(KVs, Id, t_record_replace(KV, Id, Record));
+t_record_replace([], _, Record) ->
   Record;
-t_record_replace({K, V}, ?record(Name, Fields)) ->
+t_record_replace({K, V}, Id, ?record_set(Records)) ->
+  ?record_set([t_record_replace({K, V}, Id, R) || R <- Records]);
+t_record_replace({K, V}, [], ?record(Name, Fields)) ->
   NewFields = case Fields of
                 #{K := _OldV} -> Fields#{K => {present, V}};
                 #{} -> Fields#{K => {present, V}}
               end,
-  ?record(Name, NewFields).
+  ?record(Name, NewFields);
+t_record_replace({K, V}, Name, ?record(Name, Fields)) ->
+  NewFields = case Fields of
+                #{K := _OldV} -> Fields#{K => {present, V}};
+                #{} -> Fields#{K => {present, V}}
+              end,
+  ?record(Name, NewFields);
+t_record_replace(_, _, R) ->
+  R.
 
 %%-----------------------------------------------------------------------------
 %% Identifiers. Includes ports, pids and refs.
@@ -1266,10 +1278,10 @@ t_widen_to_number(?tuple(Types, Arity, Tag)) ->
   ?tuple(list_widen_to_number(Types), Arity, Tag);
 t_widen_to_number(?tuple_set(_) = Tuples) ->
   t_sup([t_widen_to_number(T) || T <- t_tuple_subtypes(Tuples)]);
-t_widen_to_number(?record(_,_)) ->
-  error({error, "Internal error. Please report this issue to Erlang/OTP."});
-t_widen_to_number(?record_set(_)) ->
-  error({error, "Internal error. Please report this issue to Erlang/OTP."});
+t_widen_to_number(?record(N,T)) ->
+  ?record(N, #{K => {present, t_widen_to_number(V)} || K := {present,V} <- T});
+t_widen_to_number(?record_set(T)) ->
+  ?record_set(t_widen_to_number(T));
 t_widen_to_number(?union(List)) ->
   ?union(list_widen_to_number(List));
 t_widen_to_number(?var(_Id)= T) -> T.
@@ -2633,8 +2645,8 @@ t_elements(?tuple_set(_) = TS) ->
     Elems -> Elems
   end;
 t_elements(?record(_,_) = T) -> [T];
-t_elements(?record_set(_)) ->
-  error({error, "Internal error. Please report this issue to Erlang/OTP."});
+t_elements(?record_set(_) = T) ->
+  [T];
 t_elements(?union(_) = T) ->
   do_elements(T);
 t_elements(?var(_)) -> [?any].  %% yes, vars exist -- what else to do here?
@@ -3004,7 +3016,7 @@ inf_record_sets([A | RsA], [B | RsB], Acc) ->
 inf_record_sets(_RsA, _RsB, Acc) ->
   %% At least one of the sets is empty.
   case Acc of
-    [_,_|_] -> lists:reverse(Acc);
+    [_,_|_] -> ?record_set(lists:reverse(Acc));
     [Record] -> Record;
     [] -> none
   end.
@@ -3342,10 +3354,12 @@ t_unify_table_only(?map(_, ADefK, ADefV) = A, ?map(_, BDefK, BDefV) = B, VarMap0
 	  {Pairs0, VarMap4}
       end, {[], VarMap2}, A, B),
   VarMap;
-t_unify_table_only(?record(_,_), ?record(_,_), _) ->
-  error({error, "Internal error. Please report this issue to Erlang/OTP."});
-t_unify_table_only(?record_set(_), ?record_set(_), _) ->
-  error({error, "Internal error. Please report this issue to Erlang/OTP."});
+t_unify_table_only(?record(_,T1), ?record(_,T2), VarMap) ->
+  Vs1 = [V || _K := {present, V} <- T1],
+  Vs2 = [V || _K := {present, V} <- T2],
+  unify_lists_table_only(Vs1, Vs2, VarMap);
+t_unify_table_only(?record_set(T1), ?record_set(T2), VarMap) ->
+  unify_lists_table_only(T1, T2, VarMap);
 t_unify_table_only(T, T, VarMap) ->
   VarMap;
 t_unify_table_only(T1, T2, _) ->
@@ -4763,38 +4777,39 @@ record_from_form({tuple, _, [{atom, _, M}, {atom, _, N}]}, ModFields, S, D0, L0,
   RecordType = {native_record, {M, N}},
   case can_unfold_more(RecordType, TypeNames) of
     true ->
-      {R, C1} = case lookup_module_types(M, MR, C) of
-                  error -> throw({error, io_lib:format("Unknown record #~tw:~tw{}\n", [M, N])});
-                  Res -> Res
-                end,
-      case lookup_record(RecName, R) of
-        {ok, DeclFields} ->
-          NewTypeNames = [RecordType|TypeNames],
-          Site1 = {native_record, RecName, site_file(Site)},
-          S1 = S#from_form{site = Site1, tnames = NewTypeNames},
-          Fun = fun(D, L) ->
-                    {GetModRec, L1, C2} =
-                      get_mod_record(ModFields, DeclFields, S1, D, L, C1),
-                    case GetModRec of
-                      {error, FieldName} ->
-                        throw({error,
-                                io_lib:format("Illegal declaration of #~tw:~tw{~tw}\n",
-                                              [M, N, FieldName])});
-                      {ok, NewFields} ->
-                        S2 = S1#from_form{vtab = var_table__new()},
-                        {NewFields1, L2, C3} =
-                          fields_from_form(NewFields, S2, D, L1, C2),
-                        Rec = t_record(RecName,
-                                [{FieldName, Type} || {FieldName, Type} <- NewFields1]),
-                        {Rec, L2, C3}
-                    end
-                end,
-          recur_limit(Fun, D0, L0, RecordType, TypeNames);
+      case lookup_module_types(M, MR, C) of
         error ->
-          throw({error, io_lib:format("Unknown record #~tw:~tw{}\n", [M, N])})
+          {t_record(RecName), L0, C};
+        {R, C1} ->
+          case lookup_record(RecName, R) of
+            {ok, DeclFields} ->
+              NewTypeNames = [RecordType|TypeNames],
+              Site1 = {native_record, RecName, site_file(Site)},
+              S1 = S#from_form{site = Site1, tnames = NewTypeNames},
+              Fun = fun(D, L) ->
+                        {GetModRec, L1, C2} =
+                          get_mod_record(ModFields, DeclFields, S1, D, L, C1),
+                        case GetModRec of
+                          {error, FieldName} ->
+                            throw({error,
+                                    io_lib:format("Illegal declaration of #~tw:~tw{~tw}\n",
+                                                  [M, N, FieldName])});
+                          {ok, NewFields} ->
+                            S2 = S1#from_form{vtab = var_table__new()},
+                            {NewFields1, L2, C3} =
+                              fields_from_form(NewFields, S2, D, L1, C2),
+                            Rec = t_record(RecName,
+                                    [{FieldName, Type} || {FieldName, Type} <- NewFields1]),
+                            {Rec, L2, C3}
+                        end
+                    end,
+              recur_limit(Fun, D0, L0, RecordType, TypeNames);
+            error ->
+              throw({error, io_lib:format("Unknown record #~tw:~tw{}\n", [M, N])})
+          end
       end;
     false ->
-      {t_any(), L0, C}
+      {t_record(RecName), L0, C}
   end;
 record_from_form({atom, _, Name}, ModFields, S, D0, L0, C) ->
   #from_form{site = Site, mrecs = MR, tnames = TypeNames} = S,
@@ -4831,8 +4846,11 @@ record_from_form({atom, _, Name}, ModFields, S, D0, L0, C) ->
           recur_limit(Fun, D0, L0, RecordType, TypeNames);
         error ->
           RecName = case Name of
-                      {M1, N1} -> {tuple, 0, [{atom, 0, M1}, {atom, 0, N1}]};
-                      _ -> {tuple, 0, [{atom, 0, M}, {atom, 0, Name}]}
+                      {M1, N1} ->
+                        {tuple, 0, [{atom, 0, M1}, {atom, 0, N1}]};
+                      _ ->
+                        M1 = lookup_native_record_mod(Name, R, M),
+                        {tuple, 0, [{atom, 0, M1}, {atom, 0, Name}]}
                     end,
           record_from_form(RecName, ModFields, S, D0, L0, C)
       end;
@@ -5052,8 +5070,17 @@ check_record({atom, _, Name}, ModFields, S, C) ->
                             {ok, Fields} ->
                               {Name, Fields};
                             error ->
-                              {ok, Fields} = lookup_record({M, Name}, R),
-                              {{M, Name}, Fields}
+                              M1 = lookup_native_record_mod(Name, R, M),
+                              {R1, _} = case lookup_module_types(M1, MR, C) of
+                                          error ->
+                                            throw({error,
+                                                   io_lib:format("Unknown record #~tw:~tw{}\n",
+                                                                 [M1, Name])});
+                                          Res ->
+                                            Res
+                                        end,
+                              {ok, Fields} = lookup_record({M1, Name}, R1),
+                              {{M1, Name}, Fields}
                           end,
   case check_fields(RecName, ModFields, DeclFields, S, C1) of
     {error, FieldName} ->
@@ -5321,6 +5348,8 @@ lookup_module_types(Module, CodeTable, Cache) ->
   case MRecs of
     #{Module := R} ->
       {R, Cache};
+    #{} when CodeTable =:= undefined ->
+      error;
     #{} ->
       case ets:lookup_element(CodeTable, Module, 2, error) of
         error ->
@@ -5388,6 +5417,15 @@ lookup_type(Name, Arity, Table) ->
       {nominal, Found};
     #{} ->
       error
+  end.
+
+-spec lookup_native_record_mod(atom(), type_table(), atom()) -> atom().
+lookup_native_record_mod(Name, Table, CurrentM) ->
+  case Table of
+    #{{import_record, Name} := M} ->
+      M;
+    #{} ->
+      CurrentM
   end.
 
 -spec type_is_defined('type' | 'opaque' | 'nominal', atom(), arity(), type_table()) ->
@@ -5606,6 +5644,9 @@ module_type_deps_of_entry({{'nominal', _TypeName, _A}, {{_FromM, _FileLine, Abst
 
 module_type_deps_of_entry({{'opaque', _TypeName, _A}, {{_FromM, _FileLine, AbstractType, _ArgNames}, _}}) ->
   type_form_to_remote_modules(AbstractType);
+
+module_type_deps_of_entry({{'import_record', _Name}, _}) ->
+  [];
 
 module_type_deps_of_entry({{'native_record', _Name}, {_FileLine, SizesAndFields}}) ->
   AllFields = lists:append([Fields || {_Size, Fields} <- SizesAndFields]),
