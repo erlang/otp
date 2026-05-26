@@ -1046,13 +1046,13 @@ init([Opts]) ->
 	ok ->
 	    {ok, #state{}};
 	{error, Reason} ->
-	    error_msg("init error: ~p", [Reason]),
+            config_err("init error: ~p", [Reason]),
 	    {stop, Reason};
 	{'EXIT', Reason} ->
-	    error_msg("init exit: ~p", [Reason]),
+            config_err("init exit: ~p", [Reason]),
 	    {stop, Reason};
 	Error ->
-	    error_msg("init failed: ~p", [Error]),
+            config_err("init failed: ~p", [Error]),
 	    {stop, Error}
     end.
 
@@ -1166,6 +1166,12 @@ do_init(Opts) ->
 	    ets:insert(snmpm_config_table, {audit_trail_log_repair, LogRep}),
 	    ets:insert(snmpm_config_table, {audit_trail_log_seqno,  LogSeqNo})
     end,
+
+    %% -- Error report module callback (optional) --
+    ?vdebug("error report mod", []),
+    ErrorReportMod = get_error_report_mod(Opts),
+    ?vtrace("using ~p as error_report_mod", [ErrorReportMod]),
+    ets:insert(snmpm_config_table, {error_report_mod, ErrorReportMod}),
 
     %% -- System default agent config --
     ?vdebug("system default agent config", []),
@@ -2007,11 +2013,11 @@ init_user_config(User) ->
 		ok ->
 		    ok;
 		{error, Reason} ->
-		    error_msg("failed register user: "
+                    config_err("failed register user: "
 			      "~n~w~n~w", [User, Reason])
 	    end;
 	{error, Reason} ->
-	    error_msg("user config check failed: "
+            config_err("user config check failed: "
 		      "~n~w~n~w", [User, Reason])
     end.
 
@@ -2458,7 +2464,7 @@ read_file(Dir, FileName, Order, Check) ->
     catch
 	throw:{error, Reason} = E:S
 	  when element(1, Reason) =:= failed_open ->
-	    error_msg("failed reading config from ~s: "
+            config_err("failed reading config from ~s: "
                       "~n   ~p", [FileName, Reason]),
 	    erlang:raise(throw, E, S)
     end.
@@ -2940,7 +2946,7 @@ do_handle_register_agent(TargetName, [{Item, Val}|Rest]) ->
 	    {error, Reason}
     end;
 do_handle_register_agent(TargetName, BadConfig) ->
-    error_msg("error during agent registration - bad config: ~n~p", 
+    config_err("error during agent registration - bad config: ~n~p",
 	      [BadConfig]),
     ets:match_delete(snmpm_agent_table, {TargetName, '_'}),
     {error, {bad_agent_config, TargetName, BadConfig}}.
@@ -3518,6 +3524,9 @@ get_atl_repair(Opts) ->
 get_atl_seqno(Opts) ->
     get_opt(seqno, Opts, false).
 
+get_error_report_mod(Opts) ->
+    get_opt(error_report_mod, Opts, snmpm_error_logger).
+
 
 %%----------------------------------------------------------------------
 
@@ -3583,8 +3592,10 @@ info_msg(F, A) ->
 warning_msg(F, A) ->
     ?snmpm_warning("Config server: " ++ F, A).
 
-error_msg(F, A) ->
-    ?snmpm_error("Config server: " ++ F, A).
+user_err(F, A) ->
+    snmpm_error:user_err("Config server: " ++ F, A).
+config_err(F, A) ->
+    snmpm_error:config_err("Config server: " ++ F, A).
 
 %% p(F) ->
 %%     p(F, []).
