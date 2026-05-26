@@ -47,7 +47,8 @@
          match_name/3,
 	 extensions_list/1,
          cert_auth_key_id/1,
-         time_str_2_gregorian_sec/1
+         time_str_2_gregorian_sec/1,
+         parse_and_check_validity_dates/1
         ]).
 
 %% Generate test data
