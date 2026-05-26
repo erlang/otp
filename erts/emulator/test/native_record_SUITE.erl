@@ -160,6 +160,7 @@ term_order(_Config) ->
     term_order_num_fields(),
     term_order_keys(),
     term_order_values(),
+    term_order_fields(),
 
     ok.
 
@@ -243,6 +244,29 @@ term_order_values() ->
                  fake_record(r, false, [{a,[10]}, {b,[5]}])),
     true = is_lt(fake_record(r, false, [{b,{0}}, {a,{10}}]),
                  fake_record(r, false, [{b,{10}}, {a,{5}}])),
+    ok.
+
+%% Records that only differ in a non-first field.
+term_order_fields() ->
+    %% 2-field record, difference in second field.
+    true = is_lt(id(#bb{a=1, b=2}), id(#bb{a=1, b=3})),
+
+    %% 3-field record, difference in middle field.
+    true = is_lt(id(#b{x=1, y=1, z=1}), id(#b{x=1, y=2, z=1})),
+
+    %% 3-field record, difference in last field.
+    true = is_lt(id(#b{x=1, y=1, z=1}), id(#b{x=1, y=1, z=2})),
+
+    %% Multiple differing fields where the first sorted field is equal
+    %% (exercises the push-multiple path in the value comparator).
+    true = is_lt(id(#b{x=1, y=1, z=1}), id(#b{x=1, y=2, z=2})),
+
+    %% lists:sort/1 uses term order under the hood.
+    L0 = [id(#b{x=1, y=3, z=1}),
+          id(#b{x=1, y=1, z=1}),
+          id(#b{x=1, y=2, z=1})],
+    [#b{y=1}, #b{y=2}, #b{y=3}] = lists:sort(L0),
+
     ok.
 
 is_gt(A, B) ->
