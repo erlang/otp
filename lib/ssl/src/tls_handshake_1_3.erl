@@ -2104,7 +2104,7 @@ select_client_cert_key_pair(Session0, [#{private_key := Key, certs := [Cert| _] 
                                                 CertDbHandle, CertDbRef, CertAuths, Plausible0)
             end;
         {error, _} ->
-            select_client_cert_key_pair(Session0, Rest, ServerSignAlgsCert, ServerSignAlgsCert, ClientSignAlgs,
+            select_client_cert_key_pair(Session0, Rest, ServerSignAlgs, ServerSignAlgsCert, ClientSignAlgs,
                                         CertDbHandle, CertDbRef, CertAuths, Plausible0)
     end.
 
