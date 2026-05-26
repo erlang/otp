@@ -42,7 +42,7 @@ APP_EBIN_DIR = $(APP_DIR)/ebin
 # FLAGS
 # ----------------------------------------------------
 ifeq ($(EPUB), false)
-EX_DOC_FORMATS=-f html -f markdown
+EX_DOC_FORMATS=$(shell $(ERL_TOP)/make/get_ex_doc_formats_no_epub.sh)
 else
 EX_DOC_FORMATS=
 endif
