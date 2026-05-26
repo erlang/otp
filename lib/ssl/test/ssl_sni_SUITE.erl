@@ -190,7 +190,7 @@ sni_no_match(Config) ->
     ClientOptions =  ssl_test_lib:ssl_options([{server_name_indication, HostName} |
                                                proplists:get_value(client_opts, Config)], Config),
     ServerOptions =  ssl_test_lib:ssl_options(DefaultConf, Config),
-    basic_sni_alert_test(ServerNode, ServerOptions, ClientNode, ClientOptions, HostName, handshake_failure).
+    basic_sni_alert_test(ServerNode, ServerOptions, ClientNode, ClientOptions, HostName, bad_certificate).
 
 sni_no_match_fun(Config) ->
     {ClientNode, ServerNode, HostName} = ssl_test_lib:run_where(Config),
@@ -242,11 +242,11 @@ dns_name(Config) ->
     Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
     ServerConf = ssl_test_lib:sig_algs(rsa, Version) ++  ServerOpts0,
     ClientConf = ssl_test_lib:sig_algs(rsa, Version) ++ ClientOpts0,
-    unsuccessful_connect(ServerConf, [{verify, verify_peer} | ClientConf], undefined, Config, handshake_failure),
+    unsuccessful_connect(ServerConf, [{verify, verify_peer} | ClientConf], undefined, Config, bad_certificate),
     successful_connect(ServerConf, [{verify, verify_peer},
                                      {server_name_indication, Hostname} | ClientConf], undefined, Config),
     unsuccessful_connect(ServerConf, [{verify, verify_peer}, {server_name_indication, "foo"} | ClientConf],
-                          undefined, Config, handshake_failure),
+                          undefined, Config, bad_certificate),
     successful_connect(ServerConf, [{verify, verify_peer}, {server_name_indication, disable} | ClientConf],
                         undefined, Config).
 
@@ -302,8 +302,8 @@ no_ip_fallback(Config) ->
     ServerConf = ssl_test_lib:sig_algs(rsa, Version) ++  ServerOpts0,
     ClientConf = ssl_test_lib:sig_algs(rsa, Version) ++ ClientOpts0,
     successful_connect(ServerConf, [{verify, verify_peer} | ClientConf], Hostname, Config),
-    unsuccessful_connect(ServerConf, [{verify, verify_peer} | ClientConf], IP, Config, handshake_failure),
-    unsuccessful_connect(ServerConf, [{verify, verify_peer} | ClientConf], IPStr, Config, handshake_failure).
+    unsuccessful_connect(ServerConf, [{verify, verify_peer} | ClientConf], IP, Config, bad_certificate),
+    unsuccessful_connect(ServerConf, [{verify, verify_peer} | ClientConf], IPStr, Config, bad_certificate).
 
 dns_name_reuse(Config) ->
     SNIHostname = "OTP.test.server",
@@ -329,7 +329,8 @@ dns_name_reuse(Config) ->
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
-    unsuccessful_connect(ServerConf, [{verify, verify_peer} | ClientConf], undefined, Config, handshake_failure),
+    unsuccessful_connect(ServerConf, [{verify, verify_peer} | ClientConf], undefined, Config,
+                         bad_certificate),
 
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -359,7 +360,7 @@ dns_name_reuse(Config) ->
                                          {mfa, {ssl_test_lib, session_info_result, []}},
                                          {from, self()},  {options, [{verify, verify_peer} | ClientConf]}]),
 
-    ssl_test_lib:check_client_alert(Client1, handshake_failure),
+    ssl_test_lib:check_client_alert(Client1, bad_certificate),
     ssl_test_lib:close(Client0).
 
 
@@ -412,7 +413,7 @@ customize_hostname_check(Config) when is_list(Config) ->
                                                {options, [{verify, verify_peer},
                                                           {server_name_indication, "other.example.org"} | ClientOpts]}
                                               ]),    
-    ssl_test_lib:check_client_alert(Server, Client1, handshake_failure).
+    ssl_test_lib:check_client_alert(Server, Client1, bad_certificate).
 
 sni_no_trailing_dot() ->
       [{doc,"Test that sni may not include a triling dot"}].
