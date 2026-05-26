@@ -107,7 +107,8 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 all() ->
-    [ocsp_test, designated_responder].
+    [ocsp_test, designated_responder,
+     ocsp_responder_cert_expired, ocsp_responder_cert_not_yet_valid].
 
 groups() ->
     [].
@@ -263,6 +264,44 @@ designated_responder(Config) when is_list(Config) ->
     ok.
 
 %%--------------------------------------------------------------------
+ocsp_responder_cert_expired() ->
+    [{doc, "Verify that an expired responder certificate is rejected. "
+      "RFC 5280 Section 4.1.2.5 requires validity period checking."}].
+ocsp_responder_cert_expired(Config) when is_list(Config) ->
+    {ok, OcspResponse} =
+        pubkey_ocsp:decode_response(?OCSP_RESPONSE_DER),
+    ExpiredCert = set_cert_validity(?ISSUER_CERT,
+                                    {generalTime, "20180101000000Z"},
+                                    {generalTime, "20200101000000Z"}),
+    IsTrustedFun = fun(_) -> true end,
+    {error, ocsp_responder_cert_not_found} =
+        pubkey_ocsp:verify_response(OcspResponse,
+                                    [#cert{otp = ExpiredCert}],
+                                    ?NONCE,
+                                    ?ISSUER_CERT,
+                                    IsTrustedFun),
+    ok.
+
+%%--------------------------------------------------------------------
+ocsp_responder_cert_not_yet_valid() ->
+    [{doc, "Verify that a not-yet-valid responder certificate is rejected. "
+      "RFC 5280 Section 4.1.2.5 requires validity period checking."}].
+ocsp_responder_cert_not_yet_valid(Config) when is_list(Config) ->
+    {ok, OcspResponse} =
+        pubkey_ocsp:decode_response(?OCSP_RESPONSE_DER),
+    FutureCert = set_cert_validity(?ISSUER_CERT,
+                                   {generalTime, "21000101000000Z"},
+                                   {generalTime, "21100101000000Z"}),
+    IsTrustedFun = fun(_) -> true end,
+    {error, ocsp_responder_cert_not_found} =
+        pubkey_ocsp:verify_response(OcspResponse,
+                                    [#cert{otp = FutureCert}],
+                                    ?NONCE,
+                                    ?ISSUER_CERT,
+                                    IsTrustedFun),
+    ok.
+
+%%--------------------------------------------------------------------
 %% Helpers -----------------------------------------------------------
 %%--------------------------------------------------------------------
 
@@ -357,3 +396,9 @@ build_ocsp_response(IssuerName, IssuerKey, NonceExt, SignKey) ->
                 parameters = asn1_NOVALUE},
         signature = Signature,
         certs = asn1_NOVALUE}.
+
+set_cert_validity(OtpCert, NotBefore, NotAfter) ->
+    TBS = OtpCert#'OTPCertificate'.tbsCertificate,
+    NewValidity = #'Validity'{notBefore = NotBefore, notAfter = NotAfter},
+    NewTBS = TBS#'OTPTBSCertificate'{validity = NewValidity},
+    OtpCert#'OTPCertificate'{tbsCertificate = NewTBS}.
