@@ -25,9 +25,10 @@
 
 %% Application internal API
 -export([load_mime_types/1, store/1, store/2,
-	 remove/1, remove_all/1, get_config/3, get_config/4,
-	 lookup_socket_type/1, 
-	 lookup/2, lookup/3, lookup/4, 
+         remove/1, remove_all/1, get_config/3, get_config/4,
+         validate_config/1,
+         lookup_socket_type/1,
+         lookup/2, lookup/3, lookup/4,
 	 validate_properties/1, white_space_clean/1]).
 
 -define(VMODULE,"CONF").
@@ -343,7 +344,14 @@ is_bind_address(Value, IpFamily) ->
 	_ ->
 	    false
     end.
- 
+
+validate_config(ConfigList) ->
+    try validate_config_params(ConfigList) of
+        ok -> ok
+    catch
+        throw:Error -> {error, {invalid_option, Error}}
+    end.
+
 store(ConfigList0) -> 
     try validate_config_params(ConfigList0) of
 	ok ->
@@ -476,7 +484,9 @@ remove_all(ConfigDB) ->
     remove_traverse(ConfigDB, lists:append(Modules,[?MODULE])).
 
 remove(ConfigDB) ->
-    ets:delete(ConfigDB),
+    try ets:delete(ConfigDB)
+    catch _:_ -> ok
+    end,
     ok.
 
 -spec get_config(Address, Port, Profile) -> [tuple()] when

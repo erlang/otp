@@ -127,7 +127,8 @@ groups() ->
 		   non_disturbing_1_0,
            disturbing_1_1,
            disturbing_1_0,
-		   reload_config_file
+                   reload_config_file,
+                   reload_invalid_config_survives
 		  ]},
      {post, [], [chunked_post, chunked_chunked_encoded_post, post_204, multiple_content_length_header]},
      {basic_auth, [], [basic_auth_1_1, basic_auth_1_0, verify_href_1_1]},
@@ -1870,6 +1871,36 @@ reload_config_file(Config) when is_list(Config) ->
     ok = file:write_file(HttpdConf, NewConfig),
     ok = httpd:reload_config(HttpdConf, non_disturbing),
     "httpd_test_new" = proplists:get_value(server_name, httpd:info(Server)).
+%%-------------------------------------------------------------------------
+%% Verify that a reload with invalid config (non-existing server_root)
+%% returns an error and leaves the server running with old config intact.
+%% Regression test for ERIERL-1314.
+reload_invalid_config_survives(Config) when is_list(Config) ->
+    ServerRoot = proplists:get_value(server_root, Config),
+    DocRoot = proplists:get_value(doc_root, Config),
+    HttpdConfig = [{port, 0},
+                   {server_name, "httpd_survive_test"},
+                   {server_root, ServerRoot},
+                   {document_root, DocRoot},
+                   {bind_address, "localhost"}],
+    {ok, Server} = inets:start(httpd, HttpdConfig),
+    Info = httpd:info(Server),
+    Port = proplists:get_value(port, Info),
+
+    %% Attempt reload with non-existing server_root and different server_name
+    BadConfig = [{port, Port},
+                 {server_name, "httpd_should_not_appear"},
+                 {server_root, "/tmp/non_existing_erierl1314"},
+                 {document_root, DocRoot},
+                 {bind_address, "localhost"}],
+    {error, {invalid_option, {non_existing, {server_root, _}}}} =
+        httpd:reload_config(BadConfig, disturbing),
+
+    %% Server must still be alive with the OLD config
+    ?assert(is_process_alive(Server)),
+    "httpd_survive_test" = proplists:get_value(server_name, httpd:info(Server)),
+
+    inets:stop(httpd, Server).
 %%-------------------------------------------------------------------------
 mime_types_format(Config) when is_list(Config) -> 
     DataDir = proplists:get_value(data_dir, Config),

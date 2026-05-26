@@ -1565,13 +1565,14 @@ do_reload_config(ConfigList, Mode) ->
 	    Address = proplists:get_value(bind_address, Config, any), 
 	    Port    = proplists:get_value(port, Config, 80),
 	    Profile = proplists:get_value(profile, Config, default),
-	    case block(Address, Port, Profile, Mode) of
-		ok ->
-		    reload(Config, Address, Port, Profile),
-		    unblock(Address, Port, Profile);
-		Error ->
-		    Error
-	    end;
+            case block(Address, Port, Profile, Mode) of
+                ok ->
+                    Result = reload(Config, Address, Port, Profile),
+                    unblock(Address, Port, Profile),
+                    Result;
+                Error ->
+                    Error
+            end;
 	Error ->
 	    Error
     end.
