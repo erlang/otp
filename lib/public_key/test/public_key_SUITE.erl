@@ -127,6 +127,8 @@
          pkix_path_validation/1,
          pkix_path_validation_root_expired/0,
          pkix_path_validation_root_expired/1,
+         pkix_path_validation_forged_chain/0,
+         pkix_path_validation_forged_chain/1,
          pkix_ext_key_usage/0,
          pkix_ext_key_usage/1,
          pkix_ext_key_usage_any/0,
@@ -217,6 +219,7 @@ all() ->
      pkix_encode,
      pkix_path_validation,
      pkix_path_validation_root_expired,
+     pkix_path_validation_forged_chain,
      pkix_ext_key_usage,
      pkix_ext_key_usage_any,
      pkix_path_validation_bad_date,
@@ -603,10 +606,10 @@ eddsa_pub(Config) when is_list(Config) ->
     EDDSAPubKey = public_key:pem_entry_decode(PemEntry),
     true = check_entry_type(EDDSAPubKey, 'ECPoint'),
     {_, {namedCurve, ?'id-Ed25519'}} = EDDSAPubKey,
-    PemEntry0 = public_key:pem_entry_encode('SubjectPublicKeyInfo', EDDSAPubKey),
+    EncPemEntry = public_key:pem_entry_encode('SubjectPublicKeyInfo', EDDSAPubKey),
     ECPemNoEndNewLines = strip_superfluous_newlines(EDDSAPubPem),
-    ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PemEntry0])).
-
+    ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([EncPemEntry])).
+    
 mldsa_priv_pkcs8() ->
     [{doc, "ML-DSA PKCS8 private key decode/encode"}].
 mldsa_priv_pkcs8(Config) when is_list(Config) ->
@@ -1336,6 +1339,71 @@ pkix_path_validation_root_expired(Config) when is_list(Config) ->
     true = public_key:pkix_is_self_signed(Root),
     Peer = proplists:get_value(cert, Conf),
     {error, {bad_cert, cert_expired}} = public_key:pkix_path_validation(Root, [ICA, Peer], []).
+
+
+pkix_path_validation_forged_chain() ->
+    [{doc, "Test that end-entity can not be used as intermediate CA"}].
+pkix_path_validation_forged_chain(Config) when is_list(Config) ->
+    #{cert := Root} = SRootSpec = public_key:pkix_test_root_cert("OTP test server ROOT", []),
+     Exts = [#'Extension'{extnID = ?'id-ce-keyUsage',
+                          extnValue = [keyCertSign, digitalSignature]}],
+    #{server_config := ServerOpts0} =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root => SRootSpec,
+                                          intermediates => [[]],
+                                          peer => [{extensions, Exts}]},
+                                    client_chain =>
+                                        #{root => [],
+                                          intermediates => [],
+                                          peer => []}}
+                                 ),
+    {ASN1, Key} = proplists:get_value(key, ServerOpts0),
+    ServerKey = public_key:der_decode(ASN1, Key),
+    ServerCert = public_key:pkix_decode_cert(proplists:get_value(cert, ServerOpts0), otp),
+    [ICA] = [I || I <- proplists:get_value(cacerts, ServerOpts0),
+                   not public_key:pkix_is_self_signed(I)],
+    {_, Subject} = public_key:pkix_subject_id(ServerCert),
+    #'ECPrivateKey'{parameters = Params,
+                    publicKey = PubKey} = public_key:generate_key({namedCurve, ?'secp256r1'}),
+    Algo = #'PublicKeyAlgorithm'{algorithm= ?'id-ecPublicKey', parameters = Params},
+    SPKI = #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
+			       subjectPublicKey = #'ECPoint'{point = PubKey}},
+    #'OTPCertificate'{tbsCertificate = ServerTBC} = ServerCert,
+    NewTBC = ServerTBC#'OTPTBSCertificate'{issuer = Subject,
+                                           subject = {rdnSequence,
+                                                      [[{'AttributeTypeAndValue',
+                                                         {2,5,4,3},
+                                                         {printableString,"forged server Peer cert"}}],
+                                                       [{'AttributeTypeAndValue',
+                                                         {2,5,4,7},
+                                                         {printableString,"Stockholm"}}],
+                                                       [{'AttributeTypeAndValue',{2,5,4,6},"SE"}],
+                                                       [{'AttributeTypeAndValue',
+                                                         {2,5,4,10},
+                                                         {printableString,"erlang"}}],
+                                                       [{'AttributeTypeAndValue',
+                                                         {2,5,4,11},
+                                                         {printableString,"automated testing"}}]]},
+                                           subjectPublicKeyInfo = SPKI,
+                                           extensions = []},
+    ForgedCert = public_key:pkix_sign(NewTBC, ServerKey),
+    Fun = fun(_, _, {bad_cert, _} = R, _) ->
+                  {fail, R};
+             (_, _, {extension, _}, UserState) ->
+                  {unknown, UserState};
+             (_, _, valid, UserState) ->
+                  {valid, UserState};
+             (OTPCert, _, valid_peer, UserState) ->
+                  case public_key:pkix_verify_hostname(OTPCert,
+                                                       [{dns_id, net_adm:localhost()}], []) of
+                      true ->
+                          {valid, UserState};
+                      false ->
+                          {fail, {bad_cert, hostname_check_failed}}
+                  end
+          end,
+    {error, Err} = public_key:pkix_path_validation(Root, [ICA, ServerCert, ForgedCert],
+                                                   [{verify_fun, {Fun, []}}]).
 
 pkix_ext_key_usage() ->
     [{doc, "If extended key usage is a critical extension in a CA (usually not included) make sure it is compatible with keyUsage extension"}].
