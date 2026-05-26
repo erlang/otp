@@ -577,9 +577,14 @@ Starts a Wx demo if examples directory exists and is compiled
 -spec demo() -> 'ok' | {'error', atom()}.
 demo() ->
     Priv = code:priv_dir(wx),
-    Demo = filename:join([filename:dirname(Priv),examples,demo]),
-    Mod  = list_to_atom("demo"), %% Fool xref tests
-    case file:set_cwd(Demo) of
+    DemoSrc = filename:join([filename:dirname(Priv),examples,demo]),
+    DemoDoc = filename:join([filename:dirname(Priv),doc,examples,demo]),
+    Mod  = list_to_existing_atom("demo"), %% Fool xref tests
+    DemoDir = case filelib:is_dir(DemoSrc) of
+                  true  -> DemoSrc;
+                  false -> DemoDoc
+              end,
+    case file:set_cwd(DemoDir) of
 	ok ->
 	    apply(Mod, start, []),
 	    ok;

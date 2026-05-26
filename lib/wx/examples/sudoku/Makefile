@@ -46,7 +46,7 @@ docs:
 run: opt
 	erl -smp -detached -pa $(TOPDIR)/ebin -s sudoku
 
-EXRELSYSDIR = "$(RELSYSDIR)/examples/sudoku"
+EXRELSYSDIR = "$(RELSYSDIR)/doc/examples/sudoku"
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 docs:
