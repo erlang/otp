@@ -38,9 +38,21 @@
 %% Properties --------------------------------------------------------
 %%--------------------------------------------------------------------
 
+prop_hello_ext_unwrap() ->
+ ?FORALL({_, WrappedValue}, ?LET(Version, tls_version(), hello_extension(Version)),
+         try
+             _Result = ssl_handshake:extension_value(WrappedValue),
+             true
+         catch
+             error:Err ->
+                 ct:log("WrappedValue ~p ~p", [WrappedValue, Err]),
+                 false
+         end
+        ).
+
 prop_tls_hs_encode_decode() ->
     ?FORALL({Handshake, TLSVersion}, ?LET(Version, tls_version(), {tls_msg(Version), Version}),
-            try 
+            try
                 [Type, _Length, Data] = tls_handshake:encode_handshake(Handshake, TLSVersion),
                 DecHandshake = tls_handshake:decode_handshake(TLSVersion, Type, Data),
                 RawHandshke = raw_handshake(DecHandshake),
@@ -133,7 +145,7 @@ client_hello(Version) ->
 		  client_version = Version,
                   cipher_suites = cipher_suites(Version),
 		  random = client_random(Version),
-		  extensions = client_hello_extensions(Version)    
+		  extensions = client_hello_extensions(Version)
                  }.
 
 server_hello(?TLS_1_3 = Version) ->
@@ -141,14 +153,14 @@ server_hello(?TLS_1_3 = Version) ->
 		  session_id = session_id(),
                   random = server_random(Version),
                   cipher_suite = cipher_suite(Version),
-		  extensions = server_hello_extensions(Version)    
+		  extensions = server_hello_extensions(Version)
                  };
 server_hello(Version) ->
     #server_hello{server_version = Version,
 		  session_id = session_id(),
                   random = server_random(Version),
                   cipher_suite = cipher_suite(Version),
-		  extensions = server_hello_extensions(Version)    
+		  extensions = server_hello_extensions(Version)
                  }.
 
 certificate() ->
@@ -215,6 +227,14 @@ client_random(_) ->
 server_random(_) ->
     crypto:strong_rand_bytes(32).
 
+hello_extension(Version) ->
+    ?LET(Exts, oneof([non_empty_extensions(Version, client_hello),
+                      non_empty_extensions(Version, server_hello)]),
+         oneof(maps:to_list(Exts))).
+
+non_empty_extensions(Version, Type) ->
+    ?LET(Extensions, ?SUCHTHAT(Exts, extensions(Version, Type), Exts =/= #{}),
+         Extensions).
 
 client_hello_extensions(Version) ->
     ?LET(Exts, extensions(Version, client_hello),
@@ -222,21 +242,9 @@ client_hello_extensions(Version) ->
                     Exts)).
 
 server_hello_extensions(Version) ->
-    ?LET(Exts, extensions(Version, server_hello),
+    ?LET(Exts, extensions(Version, server_hello_raw),
          maps:merge(ssl_handshake:empty_extensions(Version, server_hello),
                     Exts)).
-
-key_share_client_hello() ->
-     oneof([undefined]).
-    %%oneof([#key_share_client_hello{}, undefined]).
-
-key_share_server_hello() ->
-     oneof([undefined]).
-    %%oneof([#key_share_server_hello{}, undefined]).
-
-pre_shared_keyextension() ->
-     oneof([undefined]).
-     %%oneof([#pre_shared_keyextension{},undefined]).
 
 %% +--------------------------------------------------+-------------+
 %% | Extension                                        |     TLS 1.3 |
@@ -312,7 +320,7 @@ extensions(?TLS_1_3 = Version, MsgType = client_hello) ->
           {
            oneof([server_name(), undefined]),
            oneof([max_fragment_length(), undefined]),
-           oneof([status_request(), undefined]),
+           oneof([status_request(MsgType), undefined]),
            oneof([supported_groups(Version), undefined]),
            oneof([signature_algs(Version)]),
            oneof([use_srtp(), undefined]),
@@ -367,33 +375,34 @@ extensions(Version, client_hello) ->
           ECCurves,
           ALPN,
           NextP,
-          SRP
-          %% RenegotiationInfo
+          SRP,
+          RenegotiationInfo
          },
          {
           oneof([sni(), undefined]),
           oneof([ec_point_formats(), undefined]),
-          oneof([elliptic_curves(Version), undefined]), 
-          oneof([alpn(),  undefined]), 
+          oneof([elliptic_curves(Version), undefined]),
+          oneof([alpn(),  undefined]),
           oneof([next_protocol_negotiation(), undefined]),
-          oneof([srp(), undefined])
-          %% oneof([renegotiation_info(), undefined])
+          oneof([srp(), undefined]),
+          oneof([renegotiation_info(), undefined])
          },
-         maps:filter(fun(_, undefined) -> 
+         maps:filter(fun(_, undefined) ->
                              false;
-                        (_,_) -> 
-                             true 
-                     end, 
+                        (_,_) ->
+                             true
+                     end,
                      #{
                        sni => SNI,
                        ec_point_formats => ECPoitF,
                        elliptic_curves => ECCurves,
                        alpn => ALPN,
                        next_protocol_negotiation => NextP,
-                       srp => SRP
-                       %% renegotiation_info => RenegotiationInfo
+                       srp => SRP,
+                       renegotiation_info => RenegotiationInfo
                       }));
-extensions(?TLS_1_3 = Version, MsgType = server_hello) ->
+extensions(?TLS_1_3 = Version, MsgType) when MsgType == server_hello;
+                                             MsgType == server_hello_raw ->
     ?LET({
           KeyShare,
           PreSharedKey,
@@ -414,18 +423,19 @@ extensions(?TLS_1_3 = Version, MsgType = server_hello) ->
                        pre_shared_key => PreSharedKey,
                        server_hello_selected_version => SupportedVersions
                       }));
-extensions(Version, server_hello) ->
+extensions(Version, MsgType) when MsgType == server_hello;
+                                  MsgType == server_hello_raw ->
     ?LET({
           ECPoitF,
           ALPN,
-          NextP
-          %% RenegotiationInfo,
+          NextP,
+          RenegotiationInfo
          },
          {
           oneof([ec_point_formats(), undefined]),
           oneof([alpn(),  undefined]),
-          oneof([next_protocol_negotiation(), undefined])
-          %% oneof([renegotiation_info(), undefined]),
+          oneof([next_protocol_negotiation(), undefined]),
+          oneof([renegotiation_info(), undefined])
          },
          maps:filter(fun(_, undefined) ->
                              false;
@@ -435,8 +445,8 @@ extensions(Version, server_hello) ->
                      #{
                        ec_point_formats => ECPoitF,
                        alpn => ALPN,
-                       next_protocol_negotiation => NextP
-                       %% renegotiation_info => RenegotiationInfo
+                       next_protocol_negotiation => NextP,
+                       renegotiation_info => RenegotiationInfo
                       }));
 extensions(?TLS_1_3 = Version, encrypted_extensions) ->
      ?LET({
@@ -481,28 +491,28 @@ extensions(?TLS_1_3 = Version, encrypted_extensions) ->
 server_name() ->
   ?LET(ServerName, sni(),
        ServerName).
-    %% sni().
 
 max_fragment_length() ->
     ?LET(Enum, elements([1,2,3,4]), #max_frag_enum{enum = Enum}).
 
-status_request() ->
-    %% TODO real impl
-    undefined.
+status_request(client_hello) ->
+    undefined; %% Should extend this as part of OCSP enhancement
+status_request(server_hello) ->
+    "".
 
 early_data_indication() ->
     elements([#early_data_indication{}, #early_data_indication_nst{indication = 500}]).
 
 cookie() ->
-    %% TODO real impl
-    undefined.
+    %% Can be bigger, but value is not important here.
+    #cookie{cookie = rand:bytes(20)}.
 
 signature_algs_cert() ->
     ?LET(List,  sig_scheme_list(),
          #signature_algorithms_cert{signature_scheme_list = List}).
 
 signature_algorithms() ->
-    ?LET(List,  sig_scheme_list(), 
+    ?LET(List,  sig_scheme_list(),
          #signature_algorithms{signature_scheme_list = List}).
 
 sig_scheme_list() ->
@@ -594,12 +604,12 @@ request_update() ->
 
 certificate_chain()->
     Conf = cert_conf(),
-    ?LET(Chain, 
+    ?LET(Chain,
          choose_certificate_chain(Conf),
          Chain).
 
 choose_certificate_chain(#{server_config := ServerConf,
-                           client_config := ClientConf}) -> 
+                           client_config := ClientConf}) ->
     oneof([certificate_chain(ServerConf), certificate_chain(ClientConf)]).
 
 certificate_request_context() ->
@@ -619,26 +629,28 @@ certificate_entry(Cert) ->
 certificate_entry_extensions() ->
     #{}.
 
-certificate_chain(Conf) ->  
+certificate_chain(Conf) ->
     CAs = proplists:get_value(cacerts, Conf),
     Cert = proplists:get_value(cert, Conf),
     %% Middle argument are of correct type but will not be used
-    {ok, _, Chain} = ssl_certificate:certificate_chain(Cert, ets:new(foo, []), make_ref(), CAs, encoded), 
+    {ok, _, Chain} =
+        ssl_certificate:certificate_chain(Cert, ets:new(foo, []), make_ref(), CAs, encoded),
     Chain.
 
 cert_conf()->
     Hostname = net_adm:localhost(),
     {ok, #hostent{h_addr_list = [_IP |_]}} = inet:gethostbyname(net_adm:localhost()),
-    public_key:pkix_test_data(#{server_chain => 
+    public_key:pkix_test_data(#{server_chain =>
                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                      peer => [{extensions, [#'Extension'{extnID = 
-                                                                              ?'id-ce-subjectAltName',
-                                                                          extnValue = [{dNSName, Hostname}],
-                                                                          critical = false}]},
+                                      peer => [{extensions,
+                                                [#'Extension'{extnID =
+                                                                  ?'id-ce-subjectAltName',
+                                                              extnValue = [{dNSName, Hostname}],
+                                                              critical = false}]},
                                                {key, ssl_test_lib:hardcode_rsa_key(3)}
                                               ]},
-                                client_chain => 
+                                client_chain =>
                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}],
                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
                                       peer => [{key, ssl_test_lib:hardcode_rsa_key(6)}]}}).
@@ -673,7 +685,7 @@ signature_algs(Version) when ?TLS_LT(Version, ?TLS_1_2) ->
 
 hashsign_algorithms(Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
     #hash_sign_algos{hash_sign_algos = hash_alg_list(Version)};
-hashsign_algorithms(_) -> 
+hashsign_algorithms(_) ->
     undefined.
 
 hash_alg_list(Version) ->
@@ -681,7 +693,7 @@ hash_alg_list(Version) ->
 	 ?LET(List, [hash_alg(Version) || _ <- lists:seq(1,NumOf)],
 	      lists:usort(List)
              )).
-    
+
 hash_alg(Version) ->
    ?LET(Alg, sign_algorithm(Version),
          {hash_algorithm(Version, Alg), Alg}
@@ -713,7 +725,7 @@ certificate_authorities(?TLS_1_3) ->
 
     #certificate_authorities{authorities = Auths};
 certificate_authorities(_) ->
-    #{server_config := ServerConf} = cert_conf(), 
+    #{server_config := ServerConf} = cert_conf(),
     Certs = proplists:get_value(cacerts, ServerConf),
     Auths = fun(#'OTPCertificate'{tbsCertificate = TBSCert}) ->
                     public_key:pkix_normalize_name(TBSCert#'OTPTBSCertificate'.subject)
@@ -723,10 +735,6 @@ certificate_authorities(_) ->
 digest_size()->
    oneof([160,224,256,384,512]).
 
-key_share_entry() ->
-    undefined.
-    %%#key_share_entry{}.
-
 server_hello_selected_version(Version) ->
     #server_hello_selected_version{selected_version = Version}.
 
@@ -735,7 +743,7 @@ sni() ->
 
 ec_point_formats() ->
     #ec_point_formats{ec_point_format_list = ec_point_format_list()}.
- 
+
 ec_point_format_list() ->
     [?ECPOINT_UNCOMPRESSED].
 
@@ -745,7 +753,7 @@ elliptic_curves(Version) when ?TLS_LT(Version, ?TLS_1_3) ->
 
 %% RFC 8446 (TLS 1.3) renamed the "elliptic_curve" extension.
 supported_groups(Version) when ?TLS_GTE(Version, ?TLS_1_3) ->
-    SupportedGroups = tls_v1:groups(),   
+    SupportedGroups = tls_v1:groups(),
     #supported_groups{supported_groups = SupportedGroups}.
 
 
@@ -754,7 +762,7 @@ alpn() ->
 
 alpn_protocols() ->
     oneof([<<"spdy/2">>, <<"spdy/3">>, <<"http/2">>, <<"http/1.0">>, <<"http/1.1">>]).
-    
+
 next_protocol_negotiation() ->
    %% Predecessor to APLN
     ?LET(ExtD,  alpn_protocols(), #next_protocol_negotiation{extension_data = ExtD}).
@@ -763,12 +771,12 @@ srp() ->
    ?LET(Name, gen_name(),  #srp{username = list_to_binary(Name)}).
 
 renegotiation_info() ->
-    #renegotiation_info{renegotiated_connection = 0}.
+    #renegotiation_info{renegotiated_connection = ?byte(0)}.
 
-gen_name() -> 
+gen_name() ->
     ?LET(Size, choose(1,10), gen_string(Size)).
 
-gen_char() -> 
+gen_char() ->
     choose($a,$z).
 
 gen_string(N) ->
@@ -785,8 +793,17 @@ key_share(client_hello) ->
           client_shares = ClientShares});
 key_share(server_hello) ->
     ?LET([ServerShare], key_share_entry_list(1),
-        #key_share_server_hello{
-          server_share = ServerShare}).
+         server_hello_key_share(ServerShare));
+key_share(server_hello_raw) ->
+    ?LET([ServerShare], key_share_entry_list(1),
+         #key_share_server_hello{
+            server_share = ServerShare}).
+
+server_hello_key_share(Share) ->
+    ?LET(ServerShare, oneof([#key_share_server_hello{server_share = Share},
+                             #key_share_hello_retry_request{selected_group =
+                                                                Share#key_share_entry.group}]),
+         ServerShare).
 
 key_share_entry_list() ->
     Max = length(ssl:groups()),
@@ -867,7 +884,6 @@ group_list(N, Pool, Acc) ->
     G = lists:nth(R, Pool),
     group_list(N - 1, Pool -- [G], [G|Acc]).
 
-
 ke_modes() ->
     oneof([[psk_ke],[psk_dhe_ke],[psk_ke,psk_dhe_ke]]).
 
@@ -880,7 +896,8 @@ pre_shared_key(client_hello) ->
     ?LET(OfferedPsks, offered_psks(),
          #pre_shared_key_client_hello{
             offered_psks = OfferedPsks});
-pre_shared_key(server_hello) ->
+pre_shared_key(Type) when Type == server_hello;
+                          Type == server_hello_raw ->
     ?LET(SelectedIdentity, selected_identity(),
          #pre_shared_key_server_hello{
            selected_identity = SelectedIdentity}).

@@ -556,11 +556,20 @@ These curves have been deprecated by RFC 8422.
 -doc """
 TLS-1.3 key exchange configuration.
 """.
--type group()                  :: x25519
+-type group()                  :: x25519mlkem768
+                                | secp384r1mlkem1024
+                                | secp256r1mlkem768
+                                | mlkem1024
+                                | mlkem768
+                                | mlkem512
+                                | x25519
                                 | x448
                                 | secp256r1
                                 | secp384r1
                                 | secp521r1
+                                | brainpoolP512r1tls13
+                                | brainpoolP384r1tls13
+                                | brainpoolP256r1tls13
                                 | ffdhe2048
                                 | ffdhe3072
                                 | ffdhe4096

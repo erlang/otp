@@ -35,6 +35,7 @@
 
 %% Test cases
 -export([tls_handshake_encoding/1,
+         tls_handshake_extensions/1,
          tls_cipher_suite_names/1,
          tls_cipher_openssl_suite_names/1,
          tls_anon_cipher_suite_names/1,
@@ -52,9 +53,10 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
-all() -> 
+all() ->
     [
      tls_handshake_encoding,
+     tls_handshake_extensions,
      tls_cipher_suite_names,
      tls_cipher_openssl_suite_names,
      tls_anon_cipher_suite_names,
@@ -71,7 +73,7 @@ all() ->
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     ct:timetrap({seconds, 20}),
-    catch application:stop(crypto),
+    _ = application:stop(crypto),
     try application:start(crypto) of
 	ok ->
             ssl_test_lib:clean_start(),
@@ -94,67 +96,73 @@ end_per_testcase(_TestCase, Config) ->
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 
+%% Note: In manual test eqc can be replaced by proper to
+%% use the proper tool instead.
+
 tls_handshake_encoding(Config) when is_list(Config) ->
-    %% manual test:  proper:quickcheck(ssl_eqc_handshake:prop_tls_hs_encode_decode()).
+    %% manual test:  eqc:quickcheck(ssl_eqc_handshake:prop_tls_hs_encode_decode()).
     true =  ct_property_test:quickcheck(ssl_eqc_handshake:prop_tls_hs_encode_decode(),
                                         Config).
-
+tls_handshake_extensions(Config) when is_list(Config) ->
+    %% manual test:  eqc:quickcheck(ssl_eqc_handshake:prop_hello_ext_unwrap()).
+    true =  ct_property_test:quickcheck(ssl_eqc_handshake:prop_hello_ext_unwrap(),
+                                        Config).
 tls_cipher_suite_names(Config) when is_list(Config) ->
-    %% manual test:  proper:quickcheck(ssl_eqc_cipher_format:prop_tls_cipher_suite_rfc_name()).
+    %% manual test:  eqc:quickcheck(ssl_eqc_cipher_format:prop_tls_cipher_suite_rfc_name()).
     true =  ct_property_test:quickcheck(ssl_eqc_cipher_format:prop_tls_cipher_suite_rfc_name(),
                                         Config).
 
 tls_cipher_openssl_suite_names(Config) when is_list(Config) ->
-    %% manual test:  proper:quickcheck(ssl_eqc_handshake:prop_tls_cipher_suite_openssl_name()).
+    %% manual test:  eqc:quickcheck(ssl_eqc_handshake:prop_tls_cipher_suite_openssl_name()).
     true =  ct_property_test:quickcheck(ssl_eqc_cipher_format:prop_tls_cipher_suite_openssl_name(),
                                         Config).
 tls_anon_cipher_suite_names(Config) when is_list(Config) ->
-    %% manual test:  proper:quickcheck(ssl_eqc_cipher_format:prop_tls_cipher_suite_rfc_name()).
+    %% manual test:  eqc:quickcheck(ssl_eqc_cipher_format:prop_tls_cipher_suite_rfc_name()).
     true =  ct_property_test:quickcheck(ssl_eqc_cipher_format:prop_tls_anon_cipher_suite_rfc_name(),
                                         Config).
 
 tls_anon_cipher_openssl_suite_names(Config) when is_list(Config) ->
-    %% manual test:  proper:quickcheck(ssl_eqc_handshake:prop_tls_cipher_suite_openssl_name()).
+    %% manual test:  eqc:quickcheck(ssl_eqc_handshake:prop_tls_cipher_suite_openssl_name()).
     true =  ct_property_test:quickcheck(ssl_eqc_cipher_format:prop_tls_anon_cipher_suite_openssl_name(),
                                         Config).
 
 tls_signature_algs(Config) when is_list(Config) ->
-    %% manual test:  proper:quickcheck(ssl_eqc_handshake:prop_tls_signature_algs()).
+    %% manual test:  eqc:quickcheck(ssl_eqc_handshake:prop_tls_signature_algs()).
     true =  ct_property_test:quickcheck(ssl_eqc_cipher_format:prop_tls_signature_algs(),
                                         Config).
 
 tls_unorded_chains(Config) when is_list(Config) ->
-    %% manual test:  proper:quickcheck(ssl_eqc_chain:prop_tls_ordered_path("/tmp")
+    %% manual test:  eqc:quickcheck(ssl_eqc_chain:prop_tls_ordered_path("/tmp")).
     ssl:start(),
     PrivDir = proplists:get_value(priv_dir, Config),
     true =  ct_property_test:quickcheck(ssl_eqc_chain:prop_tls_unordered_path(PrivDir),
                                         Config).
 
 tls_extraneous_chain(Config) when is_list(Config) ->
-    %% manual test:  proper:quickcheck(ssl_eqc_chain:prop_tls_ordered_path("/tmp")
+    %% manual test:  eqc:quickcheck(ssl_eqc_chain:prop_tls_ordered_path("/tmp")).
     ssl:start(),
     PrivDir = proplists:get_value(priv_dir, Config),
     true = ct_property_test:quickcheck(ssl_eqc_chain:prop_tls_extraneous_path(PrivDir),
                                         Config).
 
 tls_extraneous_chains(Config) when is_list(Config) ->
-    %% manual test:  proper:quickcheck(ssl_eqc_chain:prop_tls_ordered_path()
+    %% manual test:  eqc:quickcheck(ssl_eqc_chain:prop_tls_ordered_path()).
     ssl:start(),
     true = ct_property_test:quickcheck(ssl_eqc_chain:prop_tls_extraneous_paths(),
                                        Config).
 tls_extraneous_and_unorder_chains(Config) when is_list(Config) ->
-    %% manual test:  proper:quickcheck(ssl_eqc_chain:prop_tls_ordered_path()
+    %% manual test:  eqc:quickcheck(ssl_eqc_chain:prop_tls_ordered_path()).
     ssl:start(),
     true = ct_property_test:quickcheck(ssl_eqc_chain:prop_tls_extraneous_and_unordered_path(),
                                        Config).
 
 tls_client_cert_auth(Config) when is_list(Config) ->
-    %% manual test:  proper:quickcheck(ssl_eqc_chain:prop_client_cert_auth()
+    %% manual test:  eqc:quickcheck(ssl_eqc_chain:prop_client_cert_auth()).
     ssl:start(),
     true = ct_property_test:quickcheck(ssl_eqc_chain:prop_client_cert_auth(),
                                        Config).
 tls_eccs(Config) when is_list(Config) ->
-    %% manual test:  proper:quickcheck(ssl_eqc_ecc:prop_tls_ecc)
+    %% manual test:  eqc:quickcheck(ssl_eqc_ecc:prop_tls_ecc()).
     ssl:start(),
     true = ct_property_test:quickcheck(ssl_eqc_ecc:prop_tls_ecc(),
                                        Config).

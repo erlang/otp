@@ -2014,6 +2014,12 @@ extension_value(#key_share_client_hello{client_shares = ClientShares}) ->
     ClientShares;
 extension_value(#key_share_server_hello{server_share = ServerShare}) ->
     ServerShare;
+extension_value(#key_share_hello_retry_request{selected_group = Group}) ->
+    Group;
+extension_value(#early_data_indication{})->
+    "";
+extension_value(#early_data_indication_nst{indication = MaxSize})->
+    MaxSize;
 extension_value(#client_hello_versions{versions = Versions}) ->
     Versions;
 extension_value(#server_hello_selected_version{selected_version = SelectedVersion}) ->
@@ -2024,6 +2030,8 @@ extension_value(#pre_shared_key_server_hello{selected_identity = SelectedIdentit
     SelectedIdentity;
 extension_value(#psk_key_exchange_modes{ke_modes = Modes}) ->
     Modes;
+extension_value(#certificate_authorities{authorities = Auths}) ->
+    Auths;
 extension_value(#cookie{cookie = Cookie}) ->
     Cookie.
 
