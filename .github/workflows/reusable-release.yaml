@@ -155,11 +155,9 @@ jobs:
           echo "Current release tag:    ${TAG}"
 
           if [ "$OTP_TAG" = "${TAG}" ]; then
-            gh release edit "${TAG}" --latest=true
-            echo "latest=true"
+            echo "latest=true" >> "$GITHUB_OUTPUT"
           else
-            gh release edit "${TAG}" --latest=false
-            echo "latest=false"
+            echo "latest=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Create a release
@@ -168,6 +166,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG:      ${{ inputs.tag }}
           VSN:      ${{ inputs.vsn }}
+          LATEST:   ${{ steps.latest-release.outputs.latest }}
         run: |
           if gh release view "${TAG}" &>/dev/null; then
             echo "Release exists, editing..."
@@ -193,7 +192,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG:      ${{ inputs.tag }}
           VSN:      ${{ inputs.vsn }}
-          LATEST:   ${{ steps.latest-release.outputs.latest }}
         run: |
           if gh release view "${TAG}" &>/dev/null; then
             echo "Release exists, editing..."
