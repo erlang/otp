@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,6 +45,8 @@
          %% Generic 'has support' test function(s)
          has_support_ipv4/0,
          has_support_ipv6/0,
+	 has_support_socket_option_ip/1,
+	 has_support_socket_option/2,
 
 	 mk_unique_path/0,
          which_local_host_info/1,
@@ -210,6 +212,17 @@ has_support_ipv6() ->
             skip("Not supported: socket")
     end.
 
+
+has_support_socket_option_ip(Opt) ->
+    has_support_socket_option(ip, Opt).
+
+has_support_socket_option(Level, Option) ->
+    case socket:is_supported(options, Level, Option) of
+        true ->
+            ok;
+        false ->
+            skip(f("Not Supported: ~w option ~w", [Level, Option]))
+    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

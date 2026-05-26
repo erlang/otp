@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -83,11 +83,16 @@
          otp_18323_opts_processing/1,
          otp_18323_open/1,
          otp_19332/1,
-         otp_19357_open_with_ipv6_option/1
+         otp_19357_open_with_ipv6_option/1,
+         otp_20131/1
 	]).
 
 -include_lib("kernel/src/inet_int.hrl").
 -include("kernel_test_lib.hrl").
+
+
+%% Used for 'has_support' functions
+-define(SLIB, socket_test_lib).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -201,7 +206,8 @@ tickets_cases() ->
     [
      {group, otp18323},
      {group, otp19332},
-     otp_19357_open_with_ipv6_option
+     otp_19357_open_with_ipv6_option,
+     otp_20131
     ].
 
 otp18323_cases() ->
@@ -3611,7 +3617,7 @@ otp_19357_open_with_ipv6_option(Config) when is_list(Config) ->
                    case ?LIB:is_socket_supported() of
                        true ->
                            ?P("cond check: do we support ipv6"),
-                           ?LIB:has_support_ipv6();
+                           has_support_ipv6();
                        false ->
                            ?SKIPT("SOCKET not supported")
                    end
@@ -3663,6 +3669,108 @@ do_otp_19357_open_with_ipv6_option(#{local_addr := Addr}) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Tests that gen_udp using the tos socket option with inet_backend = socket
+%% is compatible with "standard" gen_udp (inet_backend = inet).
+
+otp_20131(Config) when is_list(Config) ->
+    ct:timetrap(?MINS(1)),
+    Cond = fun() ->
+                   ?P("cond check: do we support socket"),
+                   case ?LIB:is_socket_supported() of
+                       true ->
+			   ?P("cond check: not windows"),
+			   is_not_windows(),
+                           ?P("cond check: do we support ipv4 & recvtos & tos"),
+                           has_support_ipv4(),
+			   has_support_ip_recvtos(),
+			   has_support_ip_tos();
+                       false ->
+                           ?SKIPT("SOCKET not supported")
+                   end
+           end,
+    Pre  = fun() ->
+                   {ok, Addr} = ?LIB:which_local_addr(inet),
+                   #{local_addr => Addr}
+           end,
+    Case = fun(State) -> do_otp_20131(State) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, Case, Post).
+
+do_otp_20131(#{local_addr := Addr}) ->
+    ?P("~s -> entry with"
+       "~n   Addr: ~p", [?FUNCTION_NAME, Addr]),
+
+    %% First without specifying the (bind) address:
+
+    TOSValues = [8, 9, 136, 137],
+
+    %% First run this with inet_backend = inet to get the actual returned
+    %% TOS values (which we are trying to match with inet_backend = socket)
+
+    InetTOSValues = do_otp_20131(Addr, TOSValues, inet),
+    case do_otp_20131(Addr, TOSValues, socket) of
+	InetTOSValues ->
+	    ok;
+	SocketTOSValues ->
+	    exit({unxepected, InetTOSValues, SocketTOSValues})
+    end,
+    
+    ?P("done"),
+    ok.
+
+do_otp_20131(Addr, TOSValues, InetBackend) ->
+    ?P("~s -> entry with"
+       "~n   Addr:        ~p"
+       "~n   TOSValues:   ~p"
+       "~n   InetBackend: ~p", [?FUNCTION_NAME, Addr, TOSValues, InetBackend]),
+
+    Len  = 100,
+    TO   = 2000,
+    Data = <<"ABC">>,
+
+    %% Any failures in the setup path should really just result in a skip
+    %% but for now we want everything to explode so that we do not miss stuff.
+    RSock = try gen_udp:open(0, [{inet_backend, InetBackend},
+				  inet, binary, {active, false}, {ip, Addr},
+				  {recvtos, true}]) of
+		{ok, RS} ->
+		    RS;
+		{error, ROReason} ->
+		    exit({failed_open, ROReason})
+	    catch
+		C1:E1:S1 ->
+		    exit({catched_open, {C1, E1, S1}})
+	    end,
+    RPort = case inet:port(RSock) of
+		{ok, RP} ->
+		    RP;
+		{error, RPReason} ->
+		    exit({failed_open, RPReason})
+	    end,
+    SSock = try gen_udp:open(0, [{inet_backend, InetBackend},
+				  inet, binary, {active, false}, {ip, Addr}]) of
+		{ok, SS} ->
+		    SS;
+		{error, SOReason} ->
+		    exit({failed_open, SOReason})
+	    catch
+		C2:E2:S2 ->
+		    exit({catched_open, {C2, E2, S2}})
+	    end,
+    
+    Fun = fun(TOS) ->
+		  ok = inet:setopts(SSock, [{tos, TOS}]),
+		  ok = gen_udp:send(SSock, Addr, RPort, Data),
+		  {ok, {_, _, Anc, _}} = gen_udp:recv(RSock, Len, TO),
+		  ?P("received Anc: ~p", [Anc]),
+		  Anc
+	  end,
+    [Fun(V) || V <- TOSValues].
+
+			  
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 ok({ok,V}) -> V;
 ok(NotOk) ->
     try throw(not_ok)
@@ -3701,6 +3809,27 @@ get_localaddr([Localhost|Ls]) ->
        _ ->
            get_localaddr(Ls)
     end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+has_support_ipv4() ->
+    ?LIB:has_support_ipv4().
+
+has_support_ipv6() ->
+    ?LIB:has_support_ipv6().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% These functions are used only if we already know we support 'socket'.
+
+has_support_ip_recvtos() ->
+    ?SLIB:has_support_socket_option_ip(recvtos).
+
+has_support_ip_tos() ->
+    ?SLIB:has_support_socket_option_ip(tos).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
