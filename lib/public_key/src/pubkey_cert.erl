@@ -231,17 +231,23 @@ validate_names(OtpCert, Permit, Exclude, Last, UserState, VerifyFun) ->
 			       AltSubject#'Extension'.extnValue
 		       end,
 
-	    case (is_permitted(Name, Permit) andalso
-		  is_permitted(AltNames, Permit) andalso
-		  (not is_excluded(Name, Exclude)) andalso
-		  (not is_excluded(AltNames, Exclude))) of
-		true ->
-		    UserState;
-		false ->
-		    verify_fun(OtpCert, {bad_cert, name_not_permitted},
-			      UserState, VerifyFun)
+	    case is_permitted_name(Name, Permit, Exclude) of
+                false ->
+                    verify_fun(OtpCert, {bad_cert, distinguished_name_not_permitted},
+                               UserState, VerifyFun);
+                true ->
+                    case is_permitted_name(AltNames, Permit, Exclude) of
+                        false ->
+                            verify_fun(OtpCert, {bad_cert, name_not_permitted},
+                                       UserState, VerifyFun);
+                        true ->
+                            UserState
+                    end
 	    end
     end.
+
+is_permitted_name(Name, Permit, Exclude) ->
+    (is_permitted(Name, Permit) andalso (not is_excluded(Name, Exclude))).
 
 %%--------------------------------------------------------------------
 -spec validate_signature(#'OTPCertificate'{}, DER::binary(),

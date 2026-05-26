@@ -628,8 +628,11 @@ fun(OtpCert :: #'OTPCertificate'{},
 	<tag>invalid_signature</tag>
 	<item><p>Certificate was not signed by its issuer certificate in the chain.</p></item>
 
+	<tag>distinguished_name_not_permitted</tag>
+	<item><p>Subject Name does not adhere to name constraints which is mandatory in RFC 5280</p></item>
+
 	<tag>name_not_permitted</tag>
-	<item><p>Invalid Subject Alternative Name extension.</p></item>
+	<item><p>Subject Alternative Name extension does not adhere to name constraints which is optional in RFC 5280</p></item>
 
 	<tag>missing_basic_constraint</tag>
 	<item><p>Certificate, required to have the basic constraints extension, does not have
