@@ -262,7 +262,7 @@ of situations that force a restart:
   [compile server](erlc_cmd.md#compile_server) by the given name, allowing a
   single user to run multiple unrelated builds in parallel without them
   affecting each other, which can be useful for shared build machines and the
-  like. The name must be alpha­numeric, and it defaults to being empty.
+  like. The name must be alpha-numeric, and it defaults to being empty.
 
 ## See Also
 
