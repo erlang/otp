@@ -1091,7 +1091,7 @@ handshake_continue_change_verify(Config) when is_list(Config) ->
                              {verify, verify_none}
                             | ClientOpts], Config)},
                 {continue_options, [{verify, verify_peer} | ClientOpts]}]),
-    ssl_test_lib:check_client_alert(Client,  handshake_failure).
+    ssl_test_lib:check_client_alert(Client,  bad_certificate).
 
 %%------------------------------------------------------------------
 handshake_hello_postpone_opts_verify() ->

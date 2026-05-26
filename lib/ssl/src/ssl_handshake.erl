@@ -2236,8 +2236,10 @@ path_validation_alert({bad_cert, invalid_signature}, _, _) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, invalid_signature);
 path_validation_alert({bad_cert, unsupported_signature}, _, _) ->
     ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE, unsupported_signature);
+path_validation_alert({bad_cert, distinguished_name_not_permitted}, _, _) ->
+    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, distinguised_name_not_permitted);
 path_validation_alert({bad_cert, name_not_permitted}, _, _) ->
-    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, name_not_permitted);
+    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, subject_alt_name_not_permitted);
 path_validation_alert({bad_cert, unknown_critical_extension}, _, _) ->
     ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE, unknown_critical_extension);
 path_validation_alert({bad_cert, {revoked, _}}, _, _) ->
@@ -2250,14 +2252,20 @@ path_validation_alert({bad_cert, unknown_ca}, _, _) ->
     ?ALERT_REC(?FATAL, ?UNKNOWN_CA);
 path_validation_alert({bad_cert, hostname_check_failed}, ServerName, #cert{otp = PeerCert}) ->
     SubjAltNames = subject_altnames(PeerCert),
-    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,{bad_cert, {hostname_check_failed,
-                                                      {requested, ServerName},
-                                                      {received, SubjAltNames}}});
+    case SubjAltNames of
+        [] ->
+            ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE,
+                       {bad_cert, {hostname_check_failed, missing_subject_altnames}});
+        [_ |_ ] ->
+            ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE,
+                       {bad_cert, {hostname_check_failed, {requested, ServerName},
+                                   {received, SubjAltNames}}})
+    end;
 path_validation_alert({bad_cert, invalid_ext_keyusage}, _, _) -> %% Detected by public key
-    ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE, {invalid_ext_keyusage,
-                                                  "CA cert purpose anyExtendedKeyUsage"
-                                                  "and extended-key-usage extension"
-                                                  " marked critical is not allowed"});
+    ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE,
+               {invalid_ext_keyusage,
+                "CA cert purpose anyExtendedKeyUsage"
+                "and extended-key-usage extension marked critical is not allowed"});
 path_validation_alert({bad_cert, {invalid_ext_keyusage, ExtKeyUses}}, _, _) ->
      Uses = extkey_oids_to_names(ExtKeyUses, []),
     ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE, {invalid_ext_keyusage, Uses});
@@ -4148,19 +4156,17 @@ supported_cert_signs([default|Signs]) ->
 supported_cert_signs(Signs) ->
     Signs.
 
-subject_altnames(#'OTPCertificate'{tbsCertificate = TBSCert} = OTPCert) ->
+subject_altnames(#'OTPCertificate'{tbsCertificate = TBSCert}) ->
     Extensions = extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
-    %% Fallback to CN-ids
-    {_, Names} = public_key:pkix_subject_id(OTPCert),
-    subject_altnames(Extensions, Names).
+    subject_altnames_value(Extensions).
 
-subject_altnames([], Names) ->
-    Names;
-subject_altnames([#'Extension'{extnID = ?'id-ce-subjectAltName',
-                              extnValue = Value} | _], _) ->
+subject_altnames_value([]) ->
+    [];
+subject_altnames_value([#'Extension'{extnID = ?'id-ce-subjectAltName',
+                              extnValue = Value} | _]) ->
     Value;
-subject_altnames([#'Extension'{} | Extensions], Names) ->
-    subject_altnames(Extensions, Names).
+subject_altnames_value([#'Extension'{} | Extensions]) ->
+    subject_altnames_value(Extensions).
 
 extensions_list(asn1_NOVALUE) ->
     [];
