@@ -49,9 +49,9 @@
       ￮ Only the Erlang process that opened the file can use
         it.
 
-      ￮ remote Erlang file server cannot be used. The computer
-        on which the Erlang node is running must have access
-        to the file system (directly or through NFS).
+      ￮ A remote Erlang file server cannot be used. The
+        computer on which the Erlang node is running must have
+        access to the file system (directly or through NFS).
 
    • [4mbinary[0m - Read operations on the file return binaries rather
      than lists.

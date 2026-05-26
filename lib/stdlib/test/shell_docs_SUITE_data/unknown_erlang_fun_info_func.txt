@@ -20,7 +20,7 @@
 
   Two types of funs have slightly different semantics:
 
-   • fun created by [4mfun M:F/A[0m is called an external fun.
+   • A fun created by [4mfun M:F/A[0m is called an external fun.
      Calling it will always call the function [4mF[0m with arity [4mA[0m
      in the latest code for module [4mM[0m. Notice that module [4mM[0m
      does not even need to be loaded when the fun [4mfun M:F/A[0m is

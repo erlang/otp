@@ -88,7 +88,7 @@
          singleton_numbered_list_with_format/1, singleton_numbered_list_followed_inner_paragraph/1,
          singleton_numbered_list_followed_inner_paragraph2/1, multiline_numbered_indented_list/1,
          multiline_numbered_indented_list2/1, multiline_numbered_list/1, even_nested_numbered_list/1,
-         odd_nested_numbered_list/1]).
+         odd_nested_numbered_list/1, not_singleton_numbered_list/1]).
 
 -export([table_with_rows/1, table_with_escaped_bars/1, fake_table_test/1]).
 
@@ -273,6 +273,7 @@ numbered_list_tests() ->
       singleton_numbered_list_with_format,
       singleton_numbered_list_followed_inner_paragraph,
       singleton_numbered_list_followed_inner_paragraph2,
+      not_singleton_numbered_list,
       multiline_numbered_indented_list,
       multiline_numbered_indented_list2,
       multiline_numbered_list,
@@ -1005,6 +1006,12 @@ bullet_list_with_anchor(_Config) ->
 singleton_numbered_list(_Config) ->
     Input = ~"1. One liner",
     Result = [ol([li(p(~"One liner"))])],
+    compile_and_compare(Input, Result).
+
+%% This used to be parsed as a numbered list.
+not_singleton_numbered_list(_Config) ->
+    Input = ~"a. One liner",
+    Result = p(~"a. One liner"),
     compile_and_compare(Input, Result).
 
 singleton_numbered_list_followed_new_paragraph(_Config) ->

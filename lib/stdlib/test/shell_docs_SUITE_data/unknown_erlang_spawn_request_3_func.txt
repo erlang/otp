@@ -18,10 +18,10 @@
 
   That is either:
 
-   • spawn request using the fun [4mFun[0m of arity zero as entry
+   • a spawn request using the fun [4mFun[0m of arity zero as entry
      point
 
-   • spawn request on the local node with no options.
+   • a spawn request on the local node with no options.
 
   This function will fail with a [4mbadarg[0m exception if:
 

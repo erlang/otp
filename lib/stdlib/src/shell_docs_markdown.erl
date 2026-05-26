@@ -34,7 +34,7 @@
 
 %% Allowed lists and their ways to capture them
 -define(IS_BULLET(X), (X =:= $* orelse X =:= $- orelse X =:= $+)).
--define(IS_NUMBERED(X), (is_integer(X) andalso min(0, X) =:= 0)).
+-define(IS_NUMBERED(X), ((X) >= $0 andalso (X) =< $9)).
 
 %% Parsing format symbols and symbols separators between formats
 -define(VALID_BREAK(Symb), (Symb =:= $\s orelse Symb =:= $\n orelse Symb =:= <<>>)).

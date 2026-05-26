@@ -18,6 +18,6 @@
 
   That is either:
 
-   • spawn request with no options.
+   • a spawn request with no options.
 
-   • spawn request on the local node.
+   • a spawn request on the local node.

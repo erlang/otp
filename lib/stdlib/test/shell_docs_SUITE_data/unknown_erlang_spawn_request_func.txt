@@ -24,9 +24,9 @@
 
   That is either:
 
-   • spawn request on the local node.
+   • a spawn request on the local node.
 
-   • spawn request with no options.
+   • a spawn request with no options.
 
 [1m  spawn_request(NodeOrModule, FunOrFunction, OptionsOrArgs)[0m
 
@@ -40,10 +40,10 @@
 
   That is either:
 
-   • spawn request using the fun [4mFun[0m of arity zero as entry
+   • a spawn request using the fun [4mFun[0m of arity zero as entry
      point
 
-   • spawn request on the local node with no options.
+   • a spawn request on the local node with no options.
 
   This function will fail with a [4mbadarg[0m exception if:
 
@@ -65,9 +65,9 @@
 
   That is either:
 
-   • spawn request with no options.
+   • a spawn request with no options.
 
-   • spawn request on the local node.
+   • a spawn request on the local node.
 
 [1m  spawn_request(Node, Module, Function, Args, Options)[0m
 

@@ -16,6 +16,6 @@
 
   That is either:
 
-   • spawn request on the local node.
+   • a spawn request on the local node.
 
-   • spawn request with no options.
+   • a spawn request with no options.

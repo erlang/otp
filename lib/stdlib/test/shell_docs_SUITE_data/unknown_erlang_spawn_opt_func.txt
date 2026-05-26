@@ -81,7 +81,7 @@
       ￮ If binaries that are no longer used are to be thrown
         away as soon as possible. (Set [4mNumber[0m to zero.)
 
-      ￮ process that mostly have short-lived data is
+      ￮ A process that mostly have short-lived data is
         fullsweeped seldom or never, that is, the old heap
         contains mostly garbage. To ensure a fullsweep
         occasionally, set [4mNumber[0m to a suitable value, such

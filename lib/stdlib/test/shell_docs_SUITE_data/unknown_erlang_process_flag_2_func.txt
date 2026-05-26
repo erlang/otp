@@ -280,7 +280,7 @@
      module of the function is explicitly mentioned. Only a fixed
      amount of information is saved, as follows:
 
-      ￮ tuple [4m{Module, Function, Arity}[0m for function calls
+      ￮ A tuple [4m{Module, Function, Arity}[0m for function calls
 
       ￮ The atoms [4msend[0m, [4m'receive'[0m, and [4mtimeout[0m for sends
         and receives ([4m'receive'[0m when a message is received
