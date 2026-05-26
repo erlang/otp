@@ -33,7 +33,24 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 9.1.0.6</title>
+  <section><title>Inets 9.1.0.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> A call to httpd:reload_config/2 now validates the new
+	    configuration before removing the old one, leaving the
+	    server running in case of faulty config, instead of
+	    putting it in an unrecoverable state.</p>
+          <p>
+	    Own Id: OTP-20128 Aux Id: PR-11079, ERIERL-1314 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 9.1.0.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

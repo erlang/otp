@@ -27,6 +27,28 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 11.1.4.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> 'public_key', Adhere to RFC 9525, and remove support
+	    for legacy fallback to check hostname against subject
+	    common name. Also improve error handling creating two
+	    separate errors for name constraint check for subject
+	    names and subject alternative names.</p> <p>'ssl'. Error
+	    handling is slightly changed to better reflect public_key
+	    behaviour.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-20130 Aux Id: CVE-2026-42790, PR-11124 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 11.1.4.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

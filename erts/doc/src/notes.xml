@@ -31,6 +31,24 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 14.2.5.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed bug in <c>enif_make_map_from_arrays</c> for
+	    arrays with at least 33 keys. If duplicate keys existed,
+	    instead of failing, it would skip the duplicates. If less
+	    than 33 unique keys existed, an internally inconsistent
+	    and broken map was returned.</p>
+          <p>
+	    Own Id: OTP-20098 Aux Id: PR-10976 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 14.2.5.14</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
