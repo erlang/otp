@@ -81,6 +81,7 @@ void erts_md5_init(erts_md5_state* state)
     state->d = D0;
     state->len = 0;
     state->tot_len = 0;
+    sys_memzero(state->buf, sizeof(state->buf));
 }
 
 void erts_md5_update(erts_md5_state* state, const uint8_t* msg, size_t msg_len)
