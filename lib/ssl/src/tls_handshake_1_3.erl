@@ -528,10 +528,13 @@ validate_finished(#state{connection_states = ConnectionStates,
     compare_verify_data(ControlData, VerifyData).
 
 
-compare_verify_data(Data, Data) ->
-    ok;
-compare_verify_data(_, _) ->
-    {error, ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error)}.
+compare_verify_data(Data1, Data2) ->
+    case crypto:hash_equals(Data1, Data2) of
+        true ->
+            ok;
+        false ->
+            {error, ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error)}
+    end.
 
 %%====================================================================
 %% Encode handshake
