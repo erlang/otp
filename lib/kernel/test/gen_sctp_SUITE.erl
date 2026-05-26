@@ -48,7 +48,8 @@
          open_multihoming_ipv6_socket/1,
          open_multihoming_ipv4_and_ipv6_socket/1,
          basic_stream/1, xfer_stream_min/1, active_n/1,
-         peeloff_active_once/1, peeloff_active_true/1, peeloff_active_n/1,
+         peeloff_active_once_ipv4/1, peeloff_active_once_ipv6/1,
+         peeloff_active_true/1, peeloff_active_n/1,
          buffers/1, send_block/1,
          names_unihoming_ipv4/1, names_unihoming_ipv6/1,
          names_multihoming_ipv4/1, names_multihoming_ipv6/1,
@@ -86,6 +87,8 @@ groups() ->
      {smoke,       [], smoke_cases()},
      {old_solaris, [], old_solaris_cases()},
      {extensive,   [], extensive_cases()},
+     {peeloff,     [], peeloff_cases()},
+     {names,       [], names_cases()},
 
      {sockaddr,    [], sockaddr_cases()},
 
@@ -111,11 +114,27 @@ extensive_cases() ->
      open_unihoming_ipv6_socket,
      open_multihoming_ipv6_socket,
      open_multihoming_ipv4_and_ipv6_socket, active_n,
-     xfer_stream_min, peeloff_active_once,
-     peeloff_active_true, peeloff_active_n, buffers, send_block,
-     names_unihoming_ipv4, names_unihoming_ipv6,
-     names_multihoming_ipv4, names_multihoming_ipv6,
+     xfer_stream_min,
+     {group, peeloff},
+     buffers, send_block,
+     {group, names},
      recv_close
+    ].
+
+peeloff_cases() ->
+    [
+     peeloff_active_once_ipv4,
+     peeloff_active_once_ipv6,
+     peeloff_active_true,
+     peeloff_active_n
+    ].
+
+names_cases() ->
+    [
+     names_unihoming_ipv4,
+     names_unihoming_ipv6,
+     names_multihoming_ipv4,
+     names_multihoming_ipv6
     ].
 
 sockaddr_cases() ->
@@ -1760,21 +1779,140 @@ do_from_other_process(Fun) ->
 
 %% Peel off an SCTP stream socket ({active,once}).
 
-peeloff_active_once(Config) ->
-    peeloff(Config, [{active,once}]).
+peeloff_active_once_ipv4(Config) ->
+    Cond =
+	fun() ->
+		?P("~s:cond -> verify IPv4 (inet) support", [?FUNCTION_NAME]),
+		?HAS_SUPPORT_IPV4()
+	end,
+    Pre =
+	fun() ->
+		?P("~s:pre -> try get \"proper\" local address",
+		   [?FUNCTION_NAME]),
+		case ?WHICH_LOCAL_ADDR(inet) of
+		    {ok, Addr} ->
+			?P("~s:pre -> \"proper\" local address: ~p",
+			   [?FUNCTION_NAME, Addr]),
+			Addr;
+		    {error, _Reason} ->
+			?P("~s:pre -> no \"proper\" local address",
+			   [?FUNCTION_NAME]),
+			undefined
+		end
+	end,
+    TC =
+	fun(Addr) ->
+		?P("~s:tc -> run with loopback address", [?FUNCTION_NAME]),
+		peeloff(Config, [{active,once}], {127,0,0,1}),
+		?P("~s:tc -> maybe run with \"poper\" address",
+		   [?FUNCTION_NAME]),
+		peeloff(Config, [{active,once}], Addr)
+	end,
+    Post =
+	fun(_) ->
+		?P("~s:post -> nothing", [?FUNCTION_NAME]),
+		ok
+	end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+peeloff_active_once_ipv6(Config) ->
+    Cond =
+	fun() ->
+		?P("~s:cond -> verify IPv6 (inet6) support", [?FUNCTION_NAME]),
+		?HAS_SUPPORT_IPV6()
+	end,
+    Pre =
+	fun() ->
+		?P("~s:pre -> try get \"proper\" local address",
+		   [?FUNCTION_NAME]),
+		case ?WHICH_LOCAL_ADDR(inet6) of
+		    {ok, Addr} ->
+			?P("~s:pre -> \"proper\" local address: ~p",
+			   [?FUNCTION_NAME, Addr]),
+			Addr;
+		    {error, _Reason} ->
+			?P("~s:pre -> no \"proper\" local address",
+			   [?FUNCTION_NAME]),
+			undefined
+		end
+	end,
+    TC =
+	fun(Addr) ->
+		?P("~s:tc -> run with loopback address", [?FUNCTION_NAME]),
+		peeloff(Config, [{active,once}], {0,0,0,0,0,0,0,1}),
+		?P("~s:tc -> maybe run with local address", [?FUNCTION_NAME]),
+		peeloff(Config, [{active,once}], Addr)
+	end,
+    Post =
+	fun(_) ->
+		?P("~s:post -> nothing", [?FUNCTION_NAME]),
+		ok
+	end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
 
 %% Peel off an SCTP stream socket ({active,true}).
 
 peeloff_active_true(Config) ->
-    peeloff(Config, [{active,true}]).
+    Cond =
+	fun() ->
+		?P("~s:cond ->  verify IPv4 (inet) support", [?FUNCTION_NAME]),
+		?HAS_SUPPORT_IPV4()
+	end,
+    Pre =
+	fun() ->
+		?P("~s:pre -> nothing", [?FUNCTION_NAME]),
+		undefined
+	end,
+    TC =
+	fun(_) ->
+		?P("~s:tc -> run", [?FUNCTION_NAME]),
+		peeloff(Config, [{active,true}])
+	end,
+    Post =
+	fun(_) ->
+		?P("~s:post -> nothing", [?FUNCTION_NAME]),
+		ok
+	end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+		    
 
 %% Peel off an SCTP stream socket ({active,N}).
 
 peeloff_active_n(Config) ->
-    peeloff(Config, [{active,1}]).
+    Cond =
+	fun() ->
+		?P("~s:cond -> verify (inet) support", [?FUNCTION_NAME]),
+		?HAS_SUPPORT_IPV4()
+	end,
+    Pre =
+	fun() ->
+		?P("~s:pre -> nothing", [?FUNCTION_NAME]),
+		undefined
+	end,
+    TC =
+	fun(_) ->
+		?P("~s:tc -> run", [?FUNCTION_NAME]),
+		peeloff(Config, [{active,1}])
+	end,
+    Post =
+	fun(_) ->
+		?P("~s:post -> nothing", [?FUNCTION_NAME]),
+		ok
+	end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
 
 peeloff(Config, SockOpts) when is_list(Config) ->
-    Addr = {127,0,0,1},
+    peeloff(Config, SockOpts, {127,0,0,1}).
+
+peeloff(_Config, _SockOpts, undefined) ->
+    ok;
+peeloff(Config, SockOpts, Addr) when is_list(Config) ->
+    ?P("~s -> entry with"
+       "~n   Config:   ~p"
+       "~n   SockOpts: ~p"
+       "~n   Addr:     ~p", [?FUNCTION_NAME, Config, SockOpts, Addr]),
     Stream = 0,
     Timeout = 333,
     InheritOpts = [{priority, 3}, {sctp_nodelay, true}, {linger, {true, 7}}],
@@ -1833,22 +1971,47 @@ peeloff(Config, SockOpts) when is_list(Config) ->
     end,
     %%
     inet:i(sctp),
+    ?P("~s -> try (verbose) close of S1 (~p)", [?FUNCTION_NAME, S1]),
     socket_close_verbose(S1, StartTime),
+    ?P("~s -> await (normal) exit signal from ~p", [?FUNCTION_NAME, S1]),
+    receive {'EXIT', S1, normal} -> ok end,
+    ?P("~s -> try (verbose) close of S2 (~p)", [?FUNCTION_NAME, S2]),
     socket_close_verbose(S2, StartTime),
+    ?P("~s -> await (normal) exit signal from ~p", [?FUNCTION_NAME, S2]),
+    receive {'EXIT', S2, normal} -> ok end,
+    ?P("~s -> await shutdown event from S3 (~p)", [?FUNCTION_NAME, S3]),
     receive
 	{S3,{Addr,P2,#sctp_shutdown_event{assoc_id=S3Ai_X}}} ->
+	    ?P("~s -> received expected shutdown event", [?FUNCTION_NAME]),
 	    match_unless_solaris(S3Ai, S3Ai_X)
     after Timeout ->
+	    ?P("~s -> (shutdown event) timeout", [?FUNCTION_NAME]),
 	    socket_bailout([S3], StartTime)
     end,
+    ?P("~s -> await assoc-change event from S3 (~p)", [?FUNCTION_NAME, S3]),
     receive
 	{S3,{Addr,P2,#sctp_assoc_change{state=shutdown_comp,
-					assoc_id=S3Ai}}} -> ok
+					assoc_id=S3Ai}}} ->
+	    ?P("~s -> received expected assoc-change event", [?FUNCTION_NAME]),
+	    ok
     after Timeout ->
+	    ?P("~s -> (assoc-change event) timeout", [?FUNCTION_NAME]),
 	    socket_bailout([S3], StartTime)
     end,
+    ?P("~s -> try (verbose) close of S3 (~p)", [?FUNCTION_NAME, S3]),
     socket_close_verbose(S3, StartTime),
-    [] = flush(),
+    ?P("~s -> await (normal) exit signal from ~p", [?FUNCTION_NAME, S3]),
+    receive {'EXIT', S3, normal} -> ok end,
+    ?P("~s -> try flush events - expect none", [?FUNCTION_NAME]),
+    case flush() of
+	[] ->
+	    ok;
+	UnexpectedEvents ->
+	    ?P("~s -> unexpected events when flushing:"
+	       "~n   ~p", [?FUNCTION_NAME, UnexpectedEvents]),
+	    exit({unexpected_evs, UnexpectedEvents})
+    end,
+    ?P("~s -> done", [?FUNCTION_NAME]),
     ok.
 
 %% Check sndbuf and recbuf behaviour.
