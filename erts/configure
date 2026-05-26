@@ -16726,7 +16726,7 @@ fi
 if test "$ac_cv_func_strerrorname_np" != "yes"
 then :
 
-         if test $builtin_errno_id = no
+         if test "$builtin_errno_id" = "no"
 then :
   as_fn_error $? "No alternative to builtin erl_errno_id() found" "$LINENO" 5
 fi
@@ -26209,6 +26209,8 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
           old_CXXFLAGS=$CXXFLAGS
           CXXFLAGS="$CXXFLAGS -std=c++17"
+          { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for C++17 support" >&5
+printf %s "checking for C++17 support... " >&6; }
           cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -26218,24 +26220,68 @@ main (void)
 #if __cplusplus < 201703L
                 #error "Needs C++17 compiler"
                 #endif
+
   ;
   return 0;
 }
+
 _ACEOF
 if ac_fn_cxx_try_compile "$LINENO"
 then :
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for C++17 support" >&5
-printf %s "checking for C++17 support... " >&6; }
+
                { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
                HAVE_CXX17=true
+
+               if test "$builtin_ryu" = "no"
+then :
+
+                   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for C++ std::to_chars" >&5
+printf %s "checking for C++ std::to_chars... " >&6; }
+                   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+                          #include <charconv>
+
+int
+main (void)
+{
+
+                          char fbuf[20];
+                          std::to_chars(fbuf, fbuf + sizeof(fbuf), 3.14);
+
+  ;
+  return 0;
+}
+
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"
+then :
+
+                       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
 else case e in #(
-  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for C++17 support" >&5
-printf %s "checking for C++17 support... " >&6; }
+  e)
+                       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+                       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: C++17 support found but no std::to_chars for floating point" >&5
+printf "%s\n" "$as_me: WARNING: C++17 support found but no std::to_chars for floating point" >&2;}
+                       as_fn_error $? "Alternative to builtin ryu needs C++17 with std::to_chars" "$LINENO" 5
+                      ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+
+fi
+
+else case e in #(
+  e)
                { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
                CXXFLAGS=$old_CXXFLAGS
-               HAVE_CXX17=false ;;
+               HAVE_CXX17=false
+               ;;
 esac
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext

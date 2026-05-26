@@ -1296,7 +1296,7 @@ AC_CHECK_FUNCS([strerrorname_np])
 
 AS_IF([test "$ac_cv_func_strerrorname_np" != "yes"],
       [
-         AS_IF([test $builtin_errno_id = no],
+         AS_IF([test "$builtin_errno_id" = "no"],
                [AC_MSG_ERROR([No alternative to builtin erl_errno_id() found])])
       ])
 
@@ -3103,18 +3103,42 @@ AS_IF([test ${enable_jit} != no -o "$builtin_ryu" = "no"],
           AC_LANG_PUSH(C++)
           old_CXXFLAGS=$CXXFLAGS
           CXXFLAGS="$CXXFLAGS -std=c++17"
+          AC_MSG_CHECKING([for C++17 support])
           AC_COMPILE_IFELSE(
               [AC_LANG_PROGRAM([[]],
                [[#if __cplusplus < 201703L
                 #error "Needs C++17 compiler"
-                #endif]])],
-              [AC_MSG_CHECKING([for C++17 support])
+                #endif
+                ]])
+              ],[
                AC_MSG_RESULT([yes])
-               HAVE_CXX17=true],
-              [AC_MSG_CHECKING([for C++17 support])
+               HAVE_CXX17=true
+
+               AS_IF([test "$builtin_ryu" = "no"],
+                 [
+                   AC_MSG_CHECKING([for C++ std::to_chars])
+                   AC_COMPILE_IFELSE(
+                     [AC_LANG_PROGRAM(
+                        [[
+                          #include <charconv>
+                        ]],
+                        [[
+                          char fbuf[20];
+                          std::to_chars(fbuf, fbuf + sizeof(fbuf), 3.14);
+                        ]])
+                     ],[
+                       AC_MSG_RESULT([yes])
+                     ],[
+                       AC_MSG_RESULT([no])
+                       AC_MSG_WARN([C++17 support found but no std::to_chars for floating point])
+                       AC_MSG_ERROR([Alternative to builtin ryu needs C++17 with std::to_chars])
+                     ])
+                 ])
+              ],[
                AC_MSG_RESULT([no])
                CXXFLAGS=$old_CXXFLAGS
-               HAVE_CXX17=false])
+               HAVE_CXX17=false
+              ])
           AC_LANG_POP()
          ])
        if test "$CXX" = false -o "$HAVE_CXX17" = false; then
