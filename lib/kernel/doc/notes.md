@@ -23,6 +23,22 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 10.6.3.1
+
+### Fixed Bugs and Malfunctions
+
+- Incorrect TOS format when using gen_udp with socket backend
+
+  Own Id: OTP-20131 Aux Id: OTP-20102, [GH-10968]
+
+- SCTP peeloff of an IPv6 socket, the peeled-off socket does not inherit
+  the parent options as expected.
+
+  Own Id: OTP-20134 Aux Id: [PR-11007]
+
+[GH-10968]: https://github.com/erlang/otp/issues/10968
+[PR-11007]: https://github.com/erlang/otp/pull/11007
+
 ## Kernel 10.6.3
 
 ### Fixed Bugs and Malfunctions

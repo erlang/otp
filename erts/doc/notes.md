@@ -23,6 +23,20 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 16.4.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed `erlang:md5_init` to always return the same deterministic context binary. Only an issue in OTP 28.5 when OTP was built with `--disable-builtin-openssl` or `--enable-use-embedded-3pp-alternatives`.
+
+  Own Id: OTP-20123
+
+- Added explicit configure test for C++ function `std::to_chars` if options `--disable-builtin-ryu` or `--enable-use-embedded-3pp-alternatives` is used.
+
+  Own Id: OTP-20126 Aux Id: [PR-11067]
+
+[PR-11067]: https://github.com/erlang/otp/pull/11067
+
 ## Erts 16.4
 
 ### Fixed Bugs and Malfunctions
