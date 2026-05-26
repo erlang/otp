@@ -304,6 +304,8 @@ handle_info(Info, State) ->
     report_error(State, String),
     {noreply, State}.
 
+terminate(_, #state{config_db = undefined}) ->
+    ok;
 terminate(_, #state{config_db = Db}) -> 
     httpd_conf:remove_all(Db),
     ok.
@@ -376,18 +378,21 @@ handle_reload(Config, State) ->
 
 do_reload(Config, #state{config_db = Db} = State) ->
     case (catch check_constant_values(Db, Config)) of
-	ok ->
-	    %% If something goes wrong between the remove 
-	    %% and the store where fu-ed
-	    httpd_conf:remove_all(Db),
-	    case httpd_conf:store(Config) of
-		{ok, NewConfigDB} ->
-		    {continue, ok, State#state{config_db = NewConfigDB}};
-		Error ->
-		    {stop, Error, State}
-	    end;
-	Error ->
-	    {continue, Error, State}
+        ok ->
+            case httpd_conf:validate_config(Config) of
+                ok ->
+                    httpd_conf:remove_all(Db),
+                    case httpd_conf:store(Config) of
+                        {ok, NewConfigDB} ->
+                            {continue, ok, State#state{config_db = NewConfigDB}};
+                        Error ->
+                            {stop, Error, State#state{config_db = undefined}}
+                    end;
+                Error ->
+                    {continue, Error, State}
+            end;
+        Error ->
+            {continue, Error, State}
     end.
 
 check_constant_values(Db, Config) ->
