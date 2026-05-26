@@ -194,6 +194,7 @@ Eterm erts_msacc_gather_stats(ErtsMsAcc *msacc, ErtsHeapFactory *factory) {
 
     state_map = erts_map_from_ks_and_vs(factory, erts_msacc_state_atoms, cvs,
                                         ERTS_MSACC_STATE_COUNT);
+    ASSERT(is_map(state_map));
 
     hp = erts_produce_heap(factory, MAP_HEADER_FLATMAP_SZ + 3, 0);
     map = (flatmap_t*)hp;

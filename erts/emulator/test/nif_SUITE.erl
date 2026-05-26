@@ -2009,6 +2009,11 @@ maps(Config) when is_list(Config) ->
 
     has_duplicate_keys = maps_from_list_nif([{1,1},{1,1}]),
 
+    %% Duplicate keys with > MAP_SMALL_MAP_LIMIT (32) entries must also
+    %% be rejected (GH-#10975)
+    DupPairs = [{I rem 2, I} || I <- lists:seq(0, 33)],
+    has_duplicate_keys = maps_from_list_nif(DupPairs),
+
     verify_tmpmem(TmpMem),
     ok.
  

@@ -674,9 +674,9 @@ Eterm erts_hashmap_from_array(ErtsHeapFactory* factory, Eterm *leafs, Uint n,
     return res;
 }
 
-static ERTS_INLINE Eterm
-from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs,
-               Uint n, flatmap_t **fmpp)
+/* Returns THE_NON_VALUE if duplicate keys found. */
+Eterm
+erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs, Uint n)
 {
     if (n <= MAP_SMALL_MAP_LIMIT) {
         Eterm *hp;
@@ -706,34 +706,23 @@ from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs,
 
         sys_memcpy((void *) hp, (void *) vs, n * sizeof(Eterm));
 
-        *fmpp = fmp;
-        return THE_NON_VALUE;
-    } else {
-        *fmpp = NULL;
-        return erts_hashmap_from_ks_and_vs(factory, ks, vs, n);
-    }
-}
-
-Eterm erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs, Uint n)
-{
-    Eterm res;
-    flatmap_t *fmp;
-
-    res = from_ks_and_vs(factory, ks, vs, n, &fmp);
-    if (fmp) {
         if (erts_validate_and_sort_flatmap(fmp)) {
-            res = make_flatmap(fmp);
+            return make_flatmap(fmp);
         }
         else {
-            res = THE_NON_VALUE;
+            return THE_NON_VALUE;
         }
+    } else {
+        return erts_hashmap_from_ks_and_vs_extra(factory, ks, vs, n,
+                                                 THE_NON_VALUE, THE_NON_VALUE,
+                                                 1);
     }
-    return res;
 }
 
 Eterm erts_hashmap_from_ks_and_vs_extra(ErtsHeapFactory *factory,
                                         Eterm *ks, Eterm *vs, Uint n,
-					Eterm key, Eterm value) {
+					Eterm key, Eterm value,
+                                        int reject_dupkeys) {
     Uint32 sw, hx;
     Uint i,sz;
     hxnode_t *hxns;
@@ -764,7 +753,8 @@ Eterm erts_hashmap_from_ks_and_vs_extra(ErtsHeapFactory *factory,
 	hxns[i].i    = i;
     }
 
-    res = hashmap_from_unsorted_array(factory, hxns, sz, 0, ERTS_ALC_T_TMP);
+    res = hashmap_from_unsorted_array(factory, hxns, sz, reject_dupkeys,
+                                      ERTS_ALC_T_TMP);
 
     erts_free(ERTS_ALC_T_TMP, (void *) hxns);
 
@@ -2176,7 +2166,7 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	    vs = flatmap_get_values(mp);
 
             erts_factory_proc_init(&factory, p);
-	    res = erts_hashmap_from_ks_and_vs_extra(&factory,ks,vs,n,key,value);
+            res = erts_hashmap_from_ks_and_vs_extra(&factory,ks,vs,n,key,value,0);
             erts_factory_close(&factory);
 
 	    return res;

@@ -260,6 +260,7 @@ BIF_RETTYPE atomics_info_1(BIF_ALIST_1)
     values[3] = erts_bld_uword(&hp, NULL, memory);
 
     res = erts_map_from_ks_and_vs(&factory, keys, values, 4);
+    ASSERT(is_map(res));
     erts_factory_close(&factory);
     return res;
 }
