@@ -21,6 +21,26 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.2.12.8
+
+### Fixed Bugs and Malfunctions
+
+- 'public_key', Adhere to RFC 9525, and remove support for legacy fallback to check hostname against subject common name. Also improve error handling creating two separate errors for name constraint check for subject names and subject alternative names.
+  
+  'ssl'. Error handling is slightly changed to better reflect public_key behaviour.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-20130 Aux Id: [CVE-2026-42790], [PR-11124]
+
+- Could cause server to terminate a connection without an alert towards a bad client.
+
+  Own Id: OTP-20141 Aux Id: [PR-11125]
+
+[CVE-2026-42790]: https://nvd.nist.gov/vuln/detail/2026-42790
+[PR-11124]: https://github.com/erlang/otp/pull/11124
+[PR-11125]: https://github.com/erlang/otp/pull/11125
+
 ## SSL 11.2.12.7
 
 ### Fixed Bugs and Malfunctions

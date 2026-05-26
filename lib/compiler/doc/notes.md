@@ -21,6 +21,17 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 8.6.1.5
+
+### Fixed Bugs and Malfunctions
+
+- In rare circumstances, optimization of boolean expressions could invert the boolean value.
+
+  Own Id: OTP-20140 Aux Id: [GH-11088], [PR-11089]
+
+[GH-11088]: https://github.com/erlang/otp/issues/11088
+[PR-11089]: https://github.com/erlang/otp/pull/11089
+
 ## Compiler 8.6.1.4
 
 ### Fixed Bugs and Malfunctions

@@ -19,6 +19,16 @@ limitations under the License.
 -->
 # Inets Release Notes
 
+## Inets 9.3.2.5
+
+### Fixed Bugs and Malfunctions
+
+- A call to httpd:reload_config/2 now validates the new configuration before removing the old one, leaving the server running in case of faulty config, instead of putting it in an unrecoverable state.
+
+  Own Id: OTP-20128 Aux Id: [PR-11079], ERIERL-1314
+
+[PR-11079]: https://github.com/erlang/otp/pull/11079
+
 ## Inets 9.3.2.4
 
 ### Fixed Bugs and Malfunctions
