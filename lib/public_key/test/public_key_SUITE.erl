@@ -1500,24 +1500,42 @@ pkix_path_validation_bad_date(Config) when is_list(Config) ->
     CertificateList = public_key:pem_decode(Bin),
     [Root | CertificateChain] = lists:map(fun({'Certificate', Der, _}) -> Der end, CertificateList),
 
-    % First test error `invalid_validity_dates` being returned correctly without `verify_fun` override
-    {error, {bad_cert, invalid_validity_dates}} = public_key:pkix_path_validation(Root, CertificateChain, []),
+    % Test that `invalid_validity_dates` is returned for the leaf cert.
+    % Use a verify_fun that accepts `cert_expired` (the root CA in this
+    % real Android attestation chain expired 2026-05-24) but rejects
+    % `invalid_validity_dates` so we can assert it is properly raised.
+    {error, {bad_cert, invalid_validity_dates}} =
+        public_key:pkix_path_validation(Root, CertificateChain, [
+            {verify_fun,
+                {fun
+                    (_, {bad_cert, cert_expired}, UserState) ->
+                        {valid, UserState};
+                    (_, {bad_cert, invalid_validity_dates} = Reason, _UserState) ->
+                        {fail, Reason};
+                    (_, {extension, _}, UserState) ->
+                        {unknown, UserState};
+                    (_, valid_peer, UserState) ->
+                        {valid, UserState};
+                    (_, valid, UserState) ->
+                        {valid, UserState}
+                end, []}}
+        ]),
 
-    % Then test no exception thrown if verify_fun function traps the date error
+    % Test that no exception is thrown if verify_fun accepts both errors
     {ok, _} = public_key:pkix_path_validation(Root, CertificateChain, [
-       {verify_fun, % This is the same as ?DEFAULT_VERIFYFUN, but it handles `invalid_validity_dates` gracefully.
+        {verify_fun,
             {fun
-                % Test if we can successfully override `invalid_validity_dates`
+                (_, {bad_cert, cert_expired}, UserState) ->
+                    {valid, UserState};
                 (_, {bad_cert, invalid_validity_dates}, UserState) ->
                     {valid, UserState};
-                (_,{extension, _}, UserState) ->
-		            {unknown, UserState};
+                (_, {extension, _}, UserState) ->
+                    {unknown, UserState};
                 (_, valid_peer, UserState) ->
-				    {valid, UserState};
+                    {valid, UserState};
                 (_, valid, UserState) ->
                     {valid, UserState}
-            end, []}
-        }
+            end, []}}
     ]).
 
 pkix_cmp(Config) when is_list(Config) ->
