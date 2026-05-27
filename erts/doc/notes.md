@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 17.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Comparison of two native records could return an incorrect result or crash the runtime system.
+
+  Own Id: OTP-20139 Aux Id: [PR-11107]
+
+[PR-11107]: https://github.com/erlang/otp/pull/11107
+
 ## Erts 17.0
 
 ### Fixed Bugs and Malfunctions

@@ -23,6 +23,17 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 11.0.1
+
+### Fixed Bugs and Malfunctions
+
+- SCTP peeloff of an IPv6 socket, the peeled-off socket does not inherit
+  the parent options as expected.
+
+  Own Id: OTP-20134 Aux Id: [PR-11007]
+
+[PR-11007]: https://github.com/erlang/otp/pull/11007
+
 ## Kernel 11.0
 
 ### Fixed Bugs and Malfunctions
