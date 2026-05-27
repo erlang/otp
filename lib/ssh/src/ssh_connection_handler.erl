@@ -1210,7 +1210,7 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
                     DecryptedSize = byte_size(DecryptedBytes),
                     case ?GET_OPT(max_auth_request_size, (D2#data.ssh_params)#ssh.opts) of
                         MaxAuthRequestSize when DecryptedSize > MaxAuthRequestSize ->
-                            DetailedMsg = io_lib:format("Auth length exceeded, packet has ~B bytes"
+                            DetailedMsg = io_lib:format("Auth length exceeded, message has ~B bytes"
                                                         " and the maximum is ~B bytes.",
                                                        [DecryptedSize, MaxAuthRequestSize]),
                             {Shutdown, D} =

@@ -1281,8 +1281,9 @@ in the User's Guide chapter.
 
 - **`max_auth_request_size`{:
   #hardening_daemon_options-max_auth_request_size }** - The maximum size allowed
-  in bytes for SSH_MSG_USERAUTH_REQUEST packets. The default is maximum allowed
-  packet size which is 262144 bytes, which is the same as no check being made,
+  in bytes for the SSH_MSG_USERAUTH_REQUEST messages. The default value
+  is the maximum allowed packet size, 262144 bytes,
+  which is the same as no check being made,
   since maximum allowed packet size check is performed earlier.
 """.
 -doc(#{group => <<"Daemon Options">>}).
