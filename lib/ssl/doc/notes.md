@@ -969,6 +969,18 @@ This document describes the changes made to the SSL application.
 [PR-8250]: https://github.com/erlang/otp/pull/8250
 [PR-8255]: https://github.com/erlang/otp/pull/8255
 
+## SSL 11.1.4.13
+
+### Fixed Bugs and Malfunctions
+
+* 'public_key', Adhere to RFC 9525, and remove support for legacy fallback to check hostname against subject common name. Also improve error handling creating two separate errors for name constraint check for subject names and subject alternative names.
+
+  'ssl'. Error handling is slightly changed to better reflect public_key behaviour.
+
+  \*** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-20130 Aux Id: CVE-2026-42790, PR-11124
+
 ## SSL 11.1.4.12
 
 ### Fixed Bugs and Malfunctions
