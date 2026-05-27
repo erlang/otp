@@ -86,6 +86,32 @@ limitations under the License.
 [PR-10839]: https://github.com/erlang/otp/pull/10839
 [PR-10993]: https://github.com/erlang/otp/pull/10993
 
+## Public_Key 1.20.3.1
+
+### Fixed Bugs and Malfunctions
+
+- OCSP responder certificates are now checked for expiration before being accepted as authorized responders. Previously, expired or not-yet-valid responder certificates were incorrectly accepted when verifying OCSP responses.
+
+  Own Id: OTP-20112 Aux Id: [PR-11136]
+
+- Corrected basic constraint path validation check in accordance to RFC 5280.
+
+  Own Id: OTP-20129 Aux Id: [CVE-2026-42789], [PR-11123]
+
+- 'public_key', Adhere to RFC 9525, and remove support for legacy fallback to check hostname against subject common name. Also improve error handling creating two separate errors for name constraint check for subject names and subject alternative names.
+  
+  'ssl'. Error handling is slightly changed to better reflect public_key behaviour.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-20130 Aux Id: [CVE-2026-42790], [PR-11124]
+
+[PR-11136]: https://github.com/erlang/otp/pull/11136
+[CVE-2026-42789]: https://nvd.nist.gov/vuln/detail/2026-42789
+[PR-11123]: https://github.com/erlang/otp/pull/11123
+[CVE-2026-42790]: https://nvd.nist.gov/vuln/detail/2026-42790
+[PR-11124]: https://github.com/erlang/otp/pull/11124
+
 ## Public_Key 1.20.3
 
 ### Fixed Bugs and Malfunctions

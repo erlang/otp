@@ -108,6 +108,33 @@ This document describes the changes made to the SSL application.
 [PR-10979]: https://github.com/erlang/otp/pull/10979
 [PR-11019]: https://github.com/erlang/otp/pull/11019
 
+## SSL 11.6.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Add missing clauses to ssl_handshake:extension_value/1.
+  If an hello extension, missing a handling clause was present in a paused handshake, the handshake would fail.
+
+  Own Id: OTP-20116 Aux Id: [GH-11030], [PR-11062]
+
+- 'public_key', Adhere to RFC 9525, and remove support for legacy fallback to check hostname against subject common name. Also improve error handling creating two separate errors for name constraint check for subject names and subject alternative names.
+  
+  'ssl'. Error handling is slightly changed to better reflect public_key behaviour.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-20130 Aux Id: [CVE-2026-42790], [PR-11124]
+
+- Could cause server to terminate a connection without an alert towards a bad client.
+
+  Own Id: OTP-20141 Aux Id: [PR-11125]
+
+[GH-11030]: https://github.com/erlang/otp/issues/11030
+[PR-11062]: https://github.com/erlang/otp/pull/11062
+[CVE-2026-42790]: https://nvd.nist.gov/vuln/detail/2026-42790
+[PR-11124]: https://github.com/erlang/otp/pull/11124
+[PR-11125]: https://github.com/erlang/otp/pull/11125
+
 ## SSL 11.6
 
 ### Fixed Bugs and Malfunctions
