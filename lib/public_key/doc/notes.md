@@ -489,6 +489,21 @@ limitations under the License.
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 [PR-8233]: https://github.com/erlang/otp/pull/8233
 
+## Public_Key 1.15.1.7
+
+### Fixed Bugs and Malfunctions
+
+* Corrected basic constraint path validation check in accordance to RFC 5280.
+
+  Own Id: OTP-20129 Aux Id: CVE-2026-42789, PR-11123
+* 'public_key', Adhere to RFC 9525, and remove support for legacy fallback to check hostname against subject common name. Also improve error handling creating two separate errors for name constraint check for subject names and subject alternative names.
+
+  'ssl'. Error handling is slightly changed to better reflect public_key behaviour.
+
+  \*** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-20130 Aux Id: CVE-2026-42790, PR-11124
+
 ## Public_Key 1.15.1.6
 
 ### Fixed Bugs and Malfunctions
