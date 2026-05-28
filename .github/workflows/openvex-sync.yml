@@ -67,6 +67,12 @@ jobs:
         run: |
           echo "${STEPS_APP_TOKEN_OUTPUTS_TOKEN}" | gh auth login --with-token
 
+      # register `gh` as git credential helper => git push in otp-compliance
+      # uses the token from `gh`. otherwise, `persist-credentials` should not be `false`.
+      # changing `persist-credentials` is not a good option
+      - name: Configure git to use gh as credential helper
+        run: gh auth setup-git
+
       - name: Get GitHub App User ID
         id: get-user-id
         env:

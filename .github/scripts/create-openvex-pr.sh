@@ -20,6 +20,7 @@
 ##
 ## %CopyrightEnd%
 
+set -e   # exit immediately if any command fails
 
 REPO=$1
 BRANCH_NAME=$2
@@ -45,7 +46,6 @@ if [ "$PR_STATUS" = "CLOSED" ] || [ "$PR_STATUS" = "MERGED" ] || [ "$FOUND_PR" -
   gh pr create --repo "$REPO" -B master \
                --title "Automatic update of OpenVEX Statements for erlang/otp" \
                --body "Automatic Action. There is a vulnerability from GH Advisories without a matching OpenVEX statement"
-  exit 0
 else
   echo "❌ Pull request #$BRANCH_NAME is OPEN. Create a PR once the PR is closed or merged."
   exit 0
