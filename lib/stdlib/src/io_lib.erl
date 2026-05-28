@@ -722,7 +722,7 @@ write_bin1(Map, D, Enc, O, Sz, Acc) when is_map(Map), is_integer(D) ->
             {Start,Sz1} = write_map_assoc_bin(K, V, D0, Enc, O, Sz+2, <<Acc/binary, $#, ${>>),
             write_map_body_bin(NextI, D0, D0, Enc, O, Sz1, Start);
         none ->
-            {~"#{}", 3}
+            {<<Acc/binary, "#{}">>, Sz+3}
     end;
 write_bin1(T, D, Enc, O, Sz, Acc) when is_record(T) ->
     write_record_bin(T, D, Enc, O, Sz, Acc).

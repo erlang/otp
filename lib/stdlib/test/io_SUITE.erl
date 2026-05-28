@@ -37,7 +37,8 @@
          otp_15159/1, otp_15639/1, otp_15705/1, otp_15847/1, otp_15875/1,
          github_4801/1, chars_limit/1, error_info/1, otp_17525/1,
          unscan_format_without_maps_order/1, build_text_without_maps_order/1,
-         native_records/1, cover_fread/1]).
+         native_records/1, cover_fread/1,
+         format_w_empty_map/1]).
 
 -export([pretty/2, trf/3, rfd/2]).
 
@@ -75,6 +76,7 @@ all() ->
      error_info, otp_17525, unscan_format_without_maps_order,
      build_text_without_maps_order,
      native_records,
+     format_w_empty_map,
      cover_fread].
 
 %% Error cases for output.
@@ -3408,6 +3410,13 @@ native_records(_Config) ->
 """ = p(#order{true = #order{true = "break aligned to the correct column"},
                aaaaaaaaaaaaaaaaaaaaa = "A very long string can be here and how is that handled",
                wwww = #order{}}, 10, 80, -1),
+    ok.
+
+%% There used to be a bug where an empty map would be printed as #{...} when using io_lib:bwrite.
+format_w_empty_map(_Config) ->
+    "[1,#{},2]" = fmt("~w", [[1, #{}, 2]]),
+    "{a,#{},b}" = fmt("~w", [{a, #{}, b}]),
+    "#{a => #{},b => #{}}" = fmt("~kw", [#{a => #{}, b => #{}}]),
     ok.
 
 cover_fread(_Config) ->
