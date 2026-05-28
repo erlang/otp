@@ -782,7 +782,7 @@ write_map_assoc_bin(K, V, D, Enc, O, Sz, Acc) ->
 
 write_binary_bin0(B, D, Sz, Acc) ->
     {S, _} = write_binary_bin(B, D, -1, Acc),
-    {S, byte_size(S)+Sz}.
+    {S, byte_size(S) - byte_size(Acc) + Sz}.
 
 -doc false.
 -spec write_binary_bin(Bin, Depth, T, Acc) -> {unicode:unicode_binary(), binary()} when

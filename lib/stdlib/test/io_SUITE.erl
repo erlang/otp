@@ -38,7 +38,7 @@
          github_4801/1, chars_limit/1, error_info/1, otp_17525/1,
          unscan_format_without_maps_order/1, build_text_without_maps_order/1,
          native_records/1, cover_fread/1,
-         format_w_empty_map/1]).
+         format_w_empty_map/1, format_w_limited/1]).
 
 -export([pretty/2, trf/3, rfd/2]).
 
@@ -76,8 +76,7 @@ all() ->
      error_info, otp_17525, unscan_format_without_maps_order,
      build_text_without_maps_order,
      native_records,
-     format_w_empty_map,
-     cover_fread].
+     format_w_empty_map, format_w_limited, cover_fread].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -765,6 +764,17 @@ otp_7421(Config) when is_list(Config) ->
          "    eee,\n"
          "    fff}">>,
        rp({aa,bb,c,dd,eee,fff}, 1, 80, -1, 4, none)),
+    ok.
+
+format_w_limited(_Config) ->
+
+    "[97]" = fmt("~4w", ["a"]),
+    "****" = fmt("~4w", ["aa"]),
+    "<<97>>" = fmt("~6w", [<<"a">>]),
+    "******" = fmt("~6w", [<<"aa">>]),
+    "[1,2,3,<<97>>]" = fmt("~14w", [[1,2,3,<<"a">>]]),
+    "**************" = fmt("~14w", [[1,2,3,<<"aa">>]]),
+
     ok.
 
 bt(Bin, R) ->
