@@ -39,7 +39,7 @@
          unscan_format_without_maps_order/1, build_text_without_maps_order/1,
          native_records/1, cover_fread/1,
          format_w_empty_map/1, format_w_limited/1,
-         write_record_maps_order/1]).
+         write_record_maps_order/1, write_record_latin1_encoding/1]).
 
 -export([pretty/2, trf/3, rfd/2]).
 
@@ -78,7 +78,7 @@ all() ->
      build_text_without_maps_order,
      native_records,
      format_w_empty_map, format_w_limited,
-     write_record_maps_order,
+     write_record_maps_order, write_record_latin1_encoding,
      cover_fread].
 
 %% Error cases for output.
@@ -3430,6 +3430,12 @@ format_w_empty_map(_Config) ->
     "[1,#{},2]" = fmt("~w", [[1, #{}, 2]]),
     "{a,#{},b}" = fmt("~w", [{a, #{}, b}]),
     "#{a => #{},b => #{}}" = fmt("~kw", [#{a => #{}, b => #{}}]).
+
+%% There used to be a bug where the map order operator within a record would be broken causing the format to crash.
+write_record_maps_order(_Config) ->
+    R = #vector{x = #{a => 1, b => 2}, y = 1},
+    "#io_SUITE:vector{x = #{a => 1,b => 2},y = 1}" = fmt("~kw",[R]),
+    ok.
 
 %% There used to be a bug where the latin1 encoding would be ignored for record modules and names.
 write_record_latin1_encoding(_Config) ->

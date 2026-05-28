@@ -866,10 +866,10 @@ write_record_1([], _T, _D, _E, _O) ->
 write_record_1(_Fs, _T, 1, _E, _O) ->
     "...";
 write_record_1([F], T, D, E, O) ->
-    [write1(F, D, E, O), " = ", write1(records:get(F, T), D-1, E, 0)];
+    [write1(F, D, E, O), " = ", write1(records:get(F, T), D-1, E, O)];
 write_record_1([F|Fs], T, D, E, O) ->
-    [write1(F, D, E, O), " = ", write1(records:get(F, T), D-1, E, 0), ","
-    | write_record_1(Fs, T, D-1, E, 0)].
+    [write1(F, D, E, O), " = ", write1(records:get(F, T), D-1, E, O), ","
+    | write_record_1(Fs, T, D-1, E, O)].
 
 write_tuple(T, I, _D, _E, _O) when I > tuple_size(T) -> "";
 write_tuple(_, _I, 1, _E, _O) -> [$, | "..."];
