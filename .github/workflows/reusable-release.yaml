@@ -96,13 +96,11 @@ jobs:
           sha256sum $FILES > SHA256.txt
 
       - name: Download SBoM
-        if: ${{ inputs.otp_branch != 'maint-26' && inputs.otp_branch != 'maint-27' }}
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # ratchet:actions/download-artifact@v6.0.0
         with:
           name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}
 
       - name: Download ORT Scan Results
-        if: ${{ inputs.otp_branch != 'maint-26' && inputs.otp_branch != 'maint-27' }}
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # ratchet:actions/download-artifact@v6.0.0
         with:
           name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}-scan-result.json.zip
@@ -112,7 +110,6 @@ jobs:
       # influence the provenance attestation.
       - name: Attest SBoM
         id: attest-sbom
-        if: ${{ inputs.otp_branch != 'maint-26' && inputs.otp_branch != 'maint-27' }}
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # ratchet:actions/attest@v4.1.0
         with:
           subject-path: |
@@ -133,7 +130,6 @@ jobs:
       # These contain the same attestation that is stored in GitHub's
       # attestation store; they are a convenience copy only.
       - name: Export SBoM attestation bundles for backwards compatibility
-        if: ${{ inputs.otp_branch != 'maint-26' && inputs.otp_branch != 'maint-27' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO:     ${{ github.repository }}
@@ -192,14 +188,9 @@ jobs:
         env:
           VERSION: ${{ inputs.otp_branch }}
         run: |
-          if [ "${VERSION}" = "maint-26" ] || [ "${VERSION}" = "maint-27" ]; then
-            echo "hashes=$(sha256sum artifacts/*.tar.gz artifacts/*.txt | base64 -w0)" >> "$GITHUB_OUTPUT"
-          else
-            echo "hashes=$(sha256sum artifacts/*.tar.gz artifacts/*.txt bom.* | base64 -w0)" >> "$GITHUB_OUTPUT"
-          fi
+          echo "hashes=$(sha256sum artifacts/*.tar.gz artifacts/*.txt bom.* | base64 -w0)" >> "$GITHUB_OUTPUT"
 
       - name: Stage release files for artifact upload
-        if: ${{ inputs.otp_branch != 'maint-26' && inputs.otp_branch != 'maint-27' }}
         shell: bash
         run: |
           mkdir -p release-files
@@ -210,7 +201,6 @@ jobs:
           cp sigstore-bundles/*.sigstore release-files/
 
       - name: Upload release files artifact
-        if: ${{ inputs.otp_branch != 'maint-26' && inputs.otp_branch != 'maint-27' }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # ratchet:actions/upload-artifact@v6
         with:
           name: release-files
@@ -218,7 +208,6 @@ jobs:
 
       # Release for OTP 28+ (has SBoM, has .sigstore files, has bom.*)
       - name: Create a release
-        if: ${{ inputs.otp_branch != 'maint-26' && inputs.otp_branch != 'maint-27' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG:      ${{ inputs.tag }}
@@ -240,27 +229,6 @@ jobs:
               artifacts/*.txt \
               bom.* \
               sigstore-bundles/*.sigstore
-          fi
-
-      # Release for maint-26 and maint-27 (no SBoM, no attestations, no .sigstore files)
-      - name: Create Release for 26 and 27
-        if: ${{ inputs.otp_branch == 'maint-26' || inputs.otp_branch == 'maint-27' }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG:      ${{ inputs.tag }}
-          VSN:      ${{ inputs.vsn }}
-        run: |
-          if gh release view "${TAG}" &>/dev/null; then
-            echo "Release exists, editing..."
-            gh release edit "${TAG}" --latest=false
-            gh release upload "${TAG}" --clobber \
-              artifacts/*.tar.gz \
-              artifacts/*.txt
-          else
-            echo "Release does not exist, creating..."
-            gh release create "${TAG}" --title "OTP ${VSN}" --latest=false \
-              artifacts/*.tar.gz \
-              artifacts/*.txt
           fi
 
       - name: Deploy on erlang.org
@@ -290,9 +258,6 @@ jobs:
   # ---------------------------------------------------------------------------
   provenance:
     needs: [release]
-    if: |
-      needs.release.outputs.otp_branch != 'maint-26' &&
-      needs.release.outputs.otp_branch != 'maint-27'
     permissions:
       actions:  read    # read workflow run metadata for provenance
       id-token: write   # OIDC token — only this isolated job gets it
@@ -308,11 +273,7 @@ jobs:
   verify-provenance:
     name: Verify SLSA Provenance
     needs: [release, provenance]
-    if: |
-      needs.release.result == 'success' &&
-      needs.provenance.result == 'success' &&
-      needs.release.outputs.otp_branch != 'maint-26' &&
-      needs.release.outputs.otp_branch != 'maint-27'
+    if:  needs.release.result == 'success' && needs.provenance.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -391,9 +352,7 @@ jobs:
     if: |
       always() &&
       needs.release.result == 'success' &&
-      needs.verify-provenance.result == 'success' &&
-      needs.release.outputs.otp_branch != 'maint-26' &&
-      needs.release.outputs.otp_branch != 'maint-27'
+      needs.verify-provenance.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -419,7 +378,7 @@ jobs:
             cat <<HEADER
           # Provenance and Integrity Verification for OTP ${VSN}
 
-          This release includes [SLSA Level 3](https://slsa.dev/spec/v1.0/levels#build-l3)
+          This release includes [SLSA](https://slsa.dev/spec/v1.0/levels)
           provenance generated via the
           [slsa-framework/slsa-github-generator](https://github.com/slsa-framework/slsa-github-generator).
 
