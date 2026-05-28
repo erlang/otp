@@ -168,8 +168,7 @@ connection(internal, #key_update{} = KeyUpdate, #state{static_env = #static_env{
             tls_gen_connection:next_event(?STATE(connection), no_record,
                                           maybe_forget_hs_secrets(Role, N, Keep, State));
         {error, State, Alert} ->
-            ssl_gen_statem:handle_own_alert(Alert, ?STATE(connection), State),
-            tls_gen_connection:next_event(?STATE(connection), no_record, State)
+            ssl_gen_statem:handle_own_alert(Alert, ?STATE(connection), State)
     end;
 connection({call, From}, negotiated_protocol,
 	   #state{handshake_env = #handshake_env{alpn = undefined}} = State) ->
