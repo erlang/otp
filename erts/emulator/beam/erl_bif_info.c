@@ -3940,10 +3940,6 @@ fun_info_2(BIF_ALIST_2)
         val = is_local_fun(funp) ? am_local : am_external;
         hp = HAlloc(p, 3);
         break;
-    case am_pid:
-        val = is_local_fun(funp) ? erts_init_process_id : am_undefined;
-        hp = HAlloc(p, 3);
-        break;
     case am_module:
         /* Unloaded funs must report their module even though we can't find
          * their full MFA. */
