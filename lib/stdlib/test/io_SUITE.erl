@@ -38,7 +38,8 @@
          github_4801/1, chars_limit/1, error_info/1, otp_17525/1,
          unscan_format_without_maps_order/1, build_text_without_maps_order/1,
          native_records/1, cover_fread/1,
-         format_w_empty_map/1, format_w_limited/1]).
+         format_w_empty_map/1, format_w_limited/1,
+         write_record_maps_order/1]).
 
 -export([pretty/2, trf/3, rfd/2]).
 
@@ -76,7 +77,9 @@ all() ->
      error_info, otp_17525, unscan_format_without_maps_order,
      build_text_without_maps_order,
      native_records,
-     format_w_empty_map, format_w_limited, cover_fread].
+     format_w_empty_map, format_w_limited,
+     write_record_maps_order,
+     cover_fread].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -3426,7 +3429,14 @@ native_records(_Config) ->
 format_w_empty_map(_Config) ->
     "[1,#{},2]" = fmt("~w", [[1, #{}, 2]]),
     "{a,#{},b}" = fmt("~w", [{a, #{}, b}]),
-    "#{a => #{},b => #{}}" = fmt("~kw", [#{a => #{}, b => #{}}]),
+    "#{a => #{},b => #{}}" = fmt("~kw", [#{a => #{}, b => #{}}]).
+
+%% There used to be a bug where the latin1 encoding would be ignored for record modules and names.
+write_record_latin1_encoding(_Config) ->
+    ModName = list_to_atom([16#4e2d]),
+    RecName = list_to_atom([16#6587]),
+    R = records:create(ModName, RecName, [], #{is_exported => false}),
+    "#'\\x{4E2D}':'\\x{6587}'{}" = fmt("~w", [R]),
     ok.
 
 cover_fread(_Config) ->

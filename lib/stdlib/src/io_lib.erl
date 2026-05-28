@@ -854,9 +854,12 @@ write_tail(Other, D, E, O) ->
     [$|,write1(Other, D-1, E, O)].
 
 write_record(T, D, E, O) ->
-    [$#, write_atom(records:get_module(T)),
-     $:, write_atom(records:get_name(T)),
+    [$#, write_atom_for(records:get_module(T), E),
+     $:, write_atom_for(records:get_name(T), E),
      ${, write_record_1(records:get_field_names(T), T, D, E, O), $}].
+
+write_atom_for(Atom, latin1) -> write_atom_as_latin1(Atom);
+write_atom_for(Atom, _) -> write_atom(Atom).
 
 write_record_1([], _T, _D, _E, _O) ->
     [];
