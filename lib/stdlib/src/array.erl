@@ -831,8 +831,7 @@ Extract a slice of the array.
 This drops elements before `I` as with `shift/2`, and takes the following
 `Length` elements starting from `I`.
 
-If `N` is less than or equal to zero, the resulting array is empty. To extract
-a slice from `Start` to `End` inclusive, use `slice(Start, End-Start+1,
+To extract a slice from `Start` to `End` inclusive, use `slice(Start, End-Start+1,
 Array)`.
 
 Note: For efficiency, this does not prune the representation, which means
@@ -851,7 +850,10 @@ values outside the range get pruned.
 -doc #{ since => ~"OTP 29.0" }.
 -spec slice(I :: array_indx(), Length :: non_neg_integer(), Array :: array(Type)) -> array(Type).
 slice(I, Length, #array{size = N}=A)
-  when is_integer(I), I >= 0, is_integer(N), N >= 0, I + Length =< N ->
+  when is_integer(I), I >= 0,
+       is_integer(N), N >= 0,
+       is_integer(Length), Length >= 0,
+       I + Length =< N ->
     %% eqwalizer:ignore ambiguous_union
     A1 = shift(I, A),
     A1#array{size = Length};
