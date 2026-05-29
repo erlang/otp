@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2014-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,9 +30,9 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/0, 
+-export([start_link/0,
          start_link_dist/0]).
--export([start_child/1, 
+-export([start_child/1,
          start_child_dist/1]).
 
 %% Supervisor callback
@@ -57,21 +57,21 @@ start_child_dist(Args) ->
 sup_name(normal) ->
     ?MODULE;
 sup_name(dist) ->
-    list_to_atom(atom_to_list(?MODULE) ++ "_dist").
-  
+    tls_server_session_ticket_sup_dist.
+
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
 init(_) ->
-    SupFlags = #{strategy  => simple_one_for_one, 
+    SupFlags = #{strategy  => simple_one_for_one,
                  intensity =>   0,
                  period    => 3600
                 },
     ChildSpecs = [#{id       => undefined,
                     start    => {tls_server_session_ticket, start_link, []},
-                    restart  => transient, 
+                    restart  => transient,
                     shutdown => 4000,
                     modules  => [tls_server_session_ticket],
                     type     => worker
-                   }], 
+                   }],
     {ok, {SupFlags, ChildSpecs}}.
