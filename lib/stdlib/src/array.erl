@@ -2009,7 +2009,7 @@ mapfoldl_2_1(Low, High, Ix, S, [E|Es], D, F, A, HRem, Es1) when Low < High ->
     mapfoldl_2_1(Low+1, High, Ix + ?SIZE(S), S, Es, D, F, A1, HRem, [E1|Es1]);
 mapfoldl_2_1(_Low, _High, Ix, S, [E|Es], D, F, A, HRem, Es1) ->
     {E1, A1} = mapfoldl_1(0, HRem, Ix, ?reduce(S), E, D, F, A),
-    {lists:reverse(lists:reverse(Es, [E1|Es1])), A1}.
+    {lists:reverse([E1|Es1], Es), A1}.
 
 mapfoldl_3(Low, High, Ix, [E|Es], F, A, Es1, I) when I < Low ->
     mapfoldl_3(Low, High, Ix, Es, F, A, [E|Es1], I + 1);
@@ -2020,7 +2020,7 @@ mapfoldl_3_1(Low, High, Ix, [E|Es], F, A, Es1) when Low =< High ->
     {E1, A1} = F(Ix, E, A),
     mapfoldl_3_1(Low+1, High, Ix+1, Es, F, A1, [E1|Es1]);
 mapfoldl_3_1(_Low, _High, _Ix, Es, _F, A, Es1) ->
-    {list_to_tuple(lists:reverse(lists:reverse(Es, Es1))), A}.
+    {list_to_tuple(lists:reverse(Es1, Es)), A}.
 
 unfold(S, _D) when S > 0 ->
     ?NEW_NODE(S);
@@ -2102,7 +2102,7 @@ sparse_mapfoldl_2_1(Low, High, Ix, S, [E|Es], D, F, A, HRem, Es1) when Low < Hig
     sparse_mapfoldl_2_1(Low+1, High, Ix + ?SIZE(S), S, Es, D, F, A1, HRem, [E1|Es1]);
 sparse_mapfoldl_2_1(_Low, _High, Ix, S, [E|Es], D, F, A, HRem, Es1) ->
     {E1, A1} = sparse_mapfoldl_1(0, HRem, Ix, ?reduce(S), E, D, F, A),
-    {lists:reverse(lists:reverse(Es, [E1|Es1])), A1}.
+    {lists:reverse([E1|Es1], Es), A1}.
 
 sparse_mapfoldl_3(Low, High, Ix, [E|Es], D, F, A, Es1, I) when I < Low ->
     sparse_mapfoldl_3(Low, High, Ix, Es, D, F, A, [E|Es1], I + 1);
@@ -2117,7 +2117,7 @@ sparse_mapfoldl_3_1(Low, High, Ix, [E|Es], D, F, A, Es1) when Low =< High ->
             sparse_mapfoldl_3_1(Low+1, High, Ix+1, Es, D, F, A1, [E1|Es1])
     end;
 sparse_mapfoldl_3_1(_Low, _High, _Ix, Es, _D, _F, A, Es1) ->
-    {list_to_tuple(lists:reverse(lists:reverse(Es, Es1))), A}.
+    {list_to_tuple(lists:reverse(Es1, Es)), A}.
 
 
 -doc """
