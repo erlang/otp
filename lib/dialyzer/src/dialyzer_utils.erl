@@ -635,7 +635,8 @@ massage_type({type, Loc, 'fun',
   Ret = massage_type(Ret0, Defs),
   {type, Loc, 'fun', [Args, Ret]};
 massage_type({type, Loc, Name, Args0}, Defs) when is_list(Args0) ->
-  case sets:is_element({Name, length(Args0)}, Defs) of
+  case sets:is_element({Name, length(Args0)}, Defs) andalso
+       erl_internal:is_type(Name, length(Args0)) of
     true ->
       %% This name for a built-in type has been overriden locally
       %% with a new definition.
