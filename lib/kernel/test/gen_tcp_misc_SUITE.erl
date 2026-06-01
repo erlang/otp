@@ -6857,10 +6857,41 @@ do_send_timeout_active(Config, Addr, AutoClose, RNode) ->
 			Unexpected
 		end
 	end,
-    {{error, timeout}, _} = timeout_sink_loop(F, 1),
+    {Result, _} = timeout_sink_loop(F, 1),
+    ?P("~s -> results:"
+       "~n   Mad Sender info: "
+       "~n      ~p"
+       "~n   (mad sender) Socket Info:"
+       "~n      ~p"
+       "~n   (sink loop) info: "
+       "~n      ~p"
+       "~n   (sink loop) Socket Info:"
+       "~n      ~p",
+       [?FUNCTION_NAME,
+        try erlang:process_info(Mad)
+        catch
+            _:_ ->
+                undefined
+        end,
+        try inet:info(C)
+        catch
+            _:_ ->
+                undefined
+        end,
+        try erlang:process_info(self())
+        catch
+            _:_ ->
+                undefined
+        end,
+        try inet:info(A)
+        catch
+            _:_ ->
+                undefined
+        end]),
     unlink(Mad),
     exit(Mad, kill),
     flush(),
+    {error, timeout} = Result,
     ok.
 
 mad_sender(S) ->
