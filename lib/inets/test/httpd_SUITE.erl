@@ -186,6 +186,7 @@ load() ->
     ].
 
 init_per_suite(Config) ->
+
     PrivDir = proplists:get_value(priv_dir, Config),
     DataDir = proplists:get_value(data_dir, Config),
     inets_test_lib:stop_apps([inets]),
@@ -929,7 +930,7 @@ max_clients_1_1() ->
     [{doc, "Test max clients limit"}].
 
 max_clients_1_1(Config) when is_list(Config) -> 
-    do_max_clients([{http_version, "HTTP/1.1"} | Config]).
+    do_max_clients([{http_version, "HTTP/1.1"} | Config], 1).
 
 %%-------------------------------------------------------------------------
 put_not_sup() ->
@@ -2161,16 +2162,27 @@ verify_timeout(Info, Expected) ->
             ct:fail("Bad Timeout - Expected: ~p Got: ~p", [Expected, Timeout])
     end.
 
-do_max_clients(Config) ->
+do_max_clients(Config, MaxClients) ->
     Version = proplists:get_value(http_version, Config),
     Host    = proplists:get_value(host, Config),
     Port    = proplists:get_value(port, Config), 
     Type    = proplists:get_value(type, Config),
     
     Request = http_request("GET /index.html ", Version, Host),
-    BlockRequest = http_request("GET /cgi_bin/erl/httpd_example:delay ", Version, Host),
-    {ok, Socket} = inets_test_lib:connect_bin(Type, Host, Port, transport_opts(Type, Config)),
-    inets_test_lib:send(Type, Socket, BlockRequest),
+    BlockRequest = "GET /index.html " ++ Version ++ "\r\n",
+
+    Connections =
+        [begin
+            {ok, Socket} = inets_test_lib:connect_bin(Type, Host, Port, transport_opts(Type, Config)),
+            inets_test_lib:send(Type, Socket, BlockRequest),
+            Socket
+        end || _ <- lists:seq(1, MaxClients)],
+
+    wait_for_N(fun connection_children/0, MaxClients, 5000),
+
+    [ct:log("~p: ~p", [Name, supervisor:count_children(whereis(Name))]) || Name <- registered(),
+           lists:prefix("httpd_connection_sup", atom_to_list(Name))],
+
     ok = httpd_test_lib:verify_request(Type, Host, 
 				       Port,
 				       transport_opts(Type, Config),
@@ -2178,12 +2190,11 @@ do_max_clients(Config) ->
 				       Request,
 				       [{statuscode, 503},
 					{version, Version}]),
-    receive 
-	{_, Socket, _Msg} ->
-	    ok
-    end,
-    inets_test_lib:close(Type, Socket),
-    ct:sleep(5000), %% Avoid possible timing issues
+
+    [ inets_test_lib:close(Type, Socket) || Socket <- Connections ],
+
+    wait_for_N(fun connection_children/0, 0, 5000),
+    
     ok = httpd_test_lib:verify_request(Type, Host, 
 				       Port,
 				       transport_opts(Type, Config),
@@ -2191,6 +2202,24 @@ do_max_clients(Config) ->
 				       Request,
 				       [{statuscode, 200},
 					{version, Version}]).
+
+connection_children() ->
+    lists:sum([proplists:get_value(workers, supervisor:count_children(whereis(Name))) || Name <- registered(),
+           lists:prefix("httpd_connection_sup", atom_to_list(Name))]).
+
+wait_for_N(Fun, N, Timeout) ->
+    case Fun() of
+        N ->
+            ok;
+        _ ->
+            case Timeout > 0 of
+                true ->
+                    ct:sleep(100),
+                    wait_for_N(Fun, N, Timeout - 100);
+                false ->
+                    ct:fail(timeout)
+            end
+    end.
 
 setup_server_dirs(ServerRoot, DocRoot, DataDir) ->
     CgiDir =  filename:join(ServerRoot, "cgi-bin"),
@@ -2331,20 +2360,16 @@ server_config(http_post, Config) ->
 server_config(https_reload, Config) ->
     [{keep_alive_timeout, 2}]  ++ server_config(https, Config);
 server_config(http_limit, Config) ->
-    Conf = [{max_clients, 1},
-            {disable_chunked_transfer_encoding_send, true},
-	    %% Make sure option checking code is run
-	    {max_content_length, 100000002}]  ++ server_config(http, Config),
-    ct:log("Received message ~p~n", [Conf]),
-    Conf;
+    [{max_clients, 1},
+     {disable_chunked_transfer_encoding_send, true},
+     %% Make sure option checking code is run
+     {max_content_length, 100000002}]  ++ server_config(http, Config);
 server_config(http_custom, Config) ->
     [{customize, ?MODULE}]  ++ server_config(http, Config);
 server_config(https_custom, Config) ->
     [{customize, ?MODULE}]  ++ server_config(https, Config);
 server_config(https_limit, Config) ->
-    [{max_clients, 1},
-     {disable_chunked_transfer_encoding_send, true}
-    ]  ++ server_config(https, Config);
+    [{max_clients, 1},{disable_chunked_transfer_encoding_send, true}]  ++ server_config(https, Config);
 server_config(http_basic_auth, Config) ->
     ServerRoot = proplists:get_value(server_root, Config),
     auth_conf(ServerRoot)  ++  server_config(http, Config);
@@ -2433,6 +2458,7 @@ config_template(Config, ServerRoot, ScriptPath, Modules) ->
      {ipfamily, proplists:get_value(ipfamily, Config)},
      {max_header_size, 256},
      {max_header_action, close},
+     {max_clients, proplists:get_value(max_clients, Config, 1000)},
      {directory_index, ["index.html", "welcome.html"]},
      {mime_types, [{"html","text/html"},{"htm","text/html"}, {"shtml","text/html"},
 		   {"gif", "image/gif"}]},
@@ -2742,7 +2768,7 @@ transport_opts(ssl, Config) ->
     ClientConf = proplists:get_value(client_config, SSLConf),
     [proplists:get_value(ipfamily, Config) | ClientConf];
 transport_opts(_, Config) ->
-    [proplists:get_value(ipfamily, Config)].
+    [proplists:get_value(ipfamily, Config, inet)].
 
 
 %%% mod_range
