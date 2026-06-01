@@ -292,20 +292,24 @@ handle_info(timeout, #state{mod = ModData} = State) ->
     httpd_response:send_status(ModData, 408, "Request timeout", "The client did not send the whole request before the "
                                "server side timeout"),
     {stop, normal, State#state{response_sent = true}};
-handle_info(check_data_first, #state{data = Data, byte_limit = Byte_Limit} = State) ->
+handle_info(check_data_first, #state{mod = ModData, data = Data, byte_limit = Byte_Limit} = State) ->
     case Data >= (Byte_Limit*3) of 
 	true ->
 	    erlang:send_after(1000, self(), check_data),
 	    {noreply, State#state{data = 0}};
 	_ ->
+            httpd_response:send_status(ModData, 408, "Request timeout", "The client did not send the whole request before the "
+                               "server side timeout"),
 	    {stop, normal, State#state{response_sent = true}}
     end;
-handle_info(check_data, #state{data = Data, byte_limit = Byte_Limit} = State) ->
+handle_info(check_data, #state{mod = ModData, data = Data, byte_limit = Byte_Limit} = State) ->
     case Data >= Byte_Limit of 
 	true ->
 	    erlang:send_after(1000, self(), check_data),
 	    {noreply, State#state{data = 0}};
 	_ ->
+            httpd_response:send_status(ModData, 408, "Request timeout", "The client did not send the whole request before the "
+                               "server side timeout"),
 	    {stop, normal, State#state{response_sent = true}}
     end;
 
