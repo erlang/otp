@@ -32,6 +32,7 @@
 -define(HTTP_MAX_VERSION_STRING, 8).
 -define(HTTP_MAX_METHOD_STRING, 20).
 -define(HTTP_MAX_CONTENT_LENGTH, 100000000).
+-define(HTTP_MAX_CLIENTS, 150).
 
 %%% Response headers
 -record(http_response_h,{
