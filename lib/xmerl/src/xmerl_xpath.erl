@@ -126,6 +126,17 @@ Extracts the nodes from the parsed XML tree according the XPath `String`.
 
 `Scalar` is an `#xmlObj{}` record record with the fields `type` and `value`,
 where `#xmlObj.type` is `boolean | number | string`.
+
+## Examples
+
+```erlang
+1> Xml = "<root><item id=\"a\">one</item><item id=\"b\">two</item></root>".
+"<root><item id=\"a\">one</item><item id=\"b\">two</item></root>"
+2> {Doc, []} = xmerl_scan:string(Xml).
+...
+3> xmerl_xs:value_of(xmerl_xpath:string("/root/item[2]", Doc)).
+["two"]
+```
 """.
 -spec string(String, Node, Parents, Doc, Options) ->
           [nodeEntity()] | Scalar when
