@@ -229,22 +229,22 @@ or
 
 ### Request Size Limits
 
-Several size limits default to `nolimit`, which allows arbitrarily large
+Before OTP 30 several size limits default to `nolimit`, which allows arbitrarily large
 requests that can exhaust memory. Set explicit limits:
 
 ```erlang
-[{max_uri_size, 8192},              %% 8 KB URI limit
+[{max_uri_size, 8192},              %% 8 KB URI limit (default since OTP 30)
  {max_header_size, 10240},          %% 10 KB (already the default)
  {max_body_size, 10_485_760},       %% 10 MB body limit
  {max_content_length, 10_485_760}]  %% 10 MB Content-Length check
 ```
 
-- **[`max_uri_size`](`m:httpd#prop_max_uri`)** - Maximum URI length in bytes. Default: `nolimit`.
+- **[`max_uri_size`](`m:httpd#prop_max_uri`)** - Maximum URI length in bytes. Default: `8192` (8 KB).
 
 - **[`max_header_size`](`m:httpd#prop_max_header_size`)** - Maximum total header size. Default: `10240` (10 KB).
 
 - **[`max_body_size`](`m:httpd#prop_max_body_size`)** - Maximum received body size during parsing. Default:
-  `nolimit`.
+  `100_000_000` (100 MB).
 
 - **[`max_content_length`](`m:httpd#prop_max_content_length`)** - Rejects requests whose `Content-Length` header
   exceeds this value with a 413 response, before reading the body. Default:
@@ -253,7 +253,7 @@ requests that can exhaust memory. Set explicit limits:
 - **[`max_client_body_chunk`](`m:httpd#max_client_body_chunk`)** - When handling large PUT or POST bodies via
   `mod_esi`, setting this option enforces chunked delivery to the ESI
   callback. This prevents the server from buffering the entire request body
-  in memory, which could be exploited to cause memory exhaustion.
+  in memory, which could be exploited to cause memory exhaustion. Default: `nolimit`.
 
 > #### Note {: .info }
 >
