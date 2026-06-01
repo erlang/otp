@@ -437,7 +437,7 @@ common reasons.
 -nominal debug_value() :: {debug_name(), debug_source()}.
 -nominal debug_atom_or_var() :: atom() | debug_var().
 -nominal debug_call() :: MFA :: {debug_atom_or_var(), debug_atom_or_var(), arity()}
-                       | FA :: {debug_atom_or_var(), arity()}
+                       | FA :: {atom(), arity()}
                        | debug_var().
 -nominal debug_info() :: [{debug_line(), #{frame_size => debug_frame(),
                                            vars => [debug_value()],
