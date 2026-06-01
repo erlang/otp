@@ -128,7 +128,11 @@ groups() ->
                    reload_config_file,
                    reload_invalid_config_survives
 		  ]},
-     {post, [], [chunked_post, chunked_chunked_encoded_post, post_204, multiple_content_length_header]},
+     {post, [], [chunked_post,
+                 chunked_chunked_encoded_post,
+                 post_204,
+                 chunked_invalid_chunk_size,
+                 multiple_content_length_header]},
      {basic_auth, [], [basic_auth_1_1, basic_auth_1_0, verify_href_1_1]},
      {auth_api, [], [auth_api_1_1, auth_api_1_0]},
      {auth_api_dets, [], [auth_api_1_1, auth_api_1_0]},
@@ -899,6 +903,50 @@ post_204(Config) ->
 		      {stacktrace, Stk},
 		      {args,       [SockType, Host, Port, TranspOpts]}]})
     end.
+
+%% This test used to make httpd hang
+chunked_invalid_chunk_size(Config) ->
+    Host = proplists:get_value(host, Config),
+    Port =  proplists:get_value(port, Config),
+    SockType = proplists:get_value(type, Config),
+    TranspOpts = transport_opts(SockType, Config),
+    try inets_test_lib:connect_bin(SockType, Host, Port, TranspOpts) of
+        {ok, Socket} ->
+            RequestStr = "POST /cgi-bin/erl/httpd_example:post_chunked HTTP/1.1\r\n" ++
+                         "Host: " ++ Host ++ "\r\n" ++
+                         "Transfer-Encoding: chunked\r\n" ++
+                         "\r\n",
+            io:format("Sending request with invalid chunked encoding: '~p'~n", [RequestStr]),
+            ok = inets_test_lib:send(SockType, Socket, RequestStr),
+            receive
+                {tcp, Socket, Data} ->
+                    io:format("Received response: '~p'~n", [Data]),
+                    ct:fail("Expected server to not send a response yet.")
+                after 1000 ->
+                    ok
+            end,
+            io:format("Sending request with too large header: '~p'~n", ["zz\r\n"]),
+            ok = inets_test_lib:send(SockType, Socket, "zz\r\n"),
+            receive
+                {tcp, Socket, Data2} ->
+                    io:format("Received response: '~p'~n", [Data2]),
+                    case binary:match(Data2, <<"400">>,[]) of
+                        nomatch ->
+                            ct:fail("Expected 400 Bad Request response.");
+                        {_, _} ->
+                            ok
+                    end
+            after 2000 ->
+                    ct:fail(connection_timed_out)
+            end
+    catch
+        T:E:Stk ->
+            ct:fail({connect_failure,
+                    [{type,       T},
+                     {error,      E},
+                     {stacktrace, Stk},
+                     {args,       [SockType, Host, Port, TranspOpts]}]})
+   end.
 
 %%-------------------------------------------------------------------------
 host() ->
