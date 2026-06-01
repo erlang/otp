@@ -102,6 +102,13 @@ jobs:
           ref: "${{ github.head_ref }}"
           fetch-depth: 0
           persist-credentials: false
+
+      # register `gh` as git credential helper => git push in otp-compliance
+      # uses the token from `gh`. otherwise, `persist-credentials` should not be `false`.
+      # changing `persist-credentials` is not a good option
+      - name: Configure git to use gh as credential helper
+        run: gh auth setup-git
+
       - name: Find modified OpenVEX files
         id: changed
         run: |
