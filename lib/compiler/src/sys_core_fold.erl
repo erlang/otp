@@ -2296,6 +2296,97 @@ opt_lc_fun_body(Core, Name, Iterate) ->
                               Other
                    end, Core).
 
+%% opt_lc_append(VarName, Arg, Body) -> {ok, Core} | error.
+%%  Detect: let V = letrec{LC} in erlang:'++'(V, Tail)
+%%  Transform: fuse Tail into the LC's base case, eliminating ++.
+opt_lc_append(V, Arg, Body) ->
+    maybe
+        #c_call{module=#c_literal{val=Mod},
+                name=#c_literal{val=Name},
+                args=[#c_var{name=V}, Tail]} ?= Body,
+        true ?= is_append_call(Mod, Name),
+        #c_letrec{anno=Anno,defs=[{FNameVar, Fun}],
+                  body=LetrecBody} ?= Arg,
+        true ?= lists:member(list_comprehension, Anno),
+        false ?= core_lib:is_var_used(V, Tail),
+        fuse_lc_tail(Arg, FNameVar, Fun, LetrecBody, Tail)
+    else
+        _ -> error
+    end.
+
+is_append_call(erlang, '++') -> true;
+is_append_call(lists, append) -> true;
+is_append_call(_, _) -> false.
+
+%% fuse_lc_tail(Letrec, FNameVar, Fun, LetrecBody, Tail) ->
+%%     {ok, NewLetrec} | error.
+%%  Rewrite a list comprehension letrec to use Tail as the base case
+%%  instead of [], eliminating the need for a ++ call.
+fuse_lc_tail(Letrec, FNameVar, Fun, LetrecBody, Tail) ->
+    try
+        maybe
+            #c_var{name={FName, Arity}=Name} ?= FNameVar,
+            #c_fun{vars=FunVars, body=FunBody} ?= Fun,
+            TailVar = make_var(cerl:get_ann(FNameVar)),
+            NewName = {FName, Arity + 1},
+            NewFNameVar = FNameVar#c_var{name=NewName},
+            {ok, NewFunBody} ?= rewrite_lc_body(FunBody, Name, NewName, TailVar),
+            NewFun = Fun#c_fun{vars=FunVars ++ [TailVar], body=NewFunBody},
+            NewLetrecBody = rewrite_lc_apply(LetrecBody, Name, NewName, Tail),
+            {ok, Letrec#c_letrec{defs=[{NewFNameVar, NewFun}],
+                                  body=NewLetrecBody}}
+        else
+            _ -> error
+        end
+    catch
+        throw:not_possible -> error
+    end.
+
+rewrite_lc_body(#c_case{clauses=Clauses0}=Case, OldName, NewName, TailVar) ->
+    maybe
+        {ok, Clauses} ?= rewrite_lc_clauses(Clauses0, OldName, NewName, TailVar),
+        {ok, Case#c_case{clauses=Clauses}}
+    end;
+rewrite_lc_body(_, _, _, _) ->
+    error.
+
+rewrite_lc_clauses(Clauses, OldName, NewName, TailVar) ->
+    rewrite_lc_clauses(Clauses, OldName, NewName, TailVar, [], false).
+
+rewrite_lc_clauses([#c_clause{pats=[#c_literal{val=[]}],
+                               body=#c_literal{val=[]}}=C|Rest],
+                   OldName, NewName, TailVar, Acc, _FoundBase) ->
+    NewC = C#c_clause{body=TailVar},
+    rewrite_lc_clauses(Rest, OldName, NewName, TailVar, [NewC|Acc], true);
+rewrite_lc_clauses([C0|Rest], OldName, NewName, TailVar, Acc, FoundBase) ->
+    Body0 = C0#c_clause.body,
+    Body = rewrite_lc_applies(Body0, OldName, NewName, TailVar),
+    C = C0#c_clause{body=Body},
+    rewrite_lc_clauses(Rest, OldName, NewName, TailVar, [C|Acc], FoundBase);
+rewrite_lc_clauses([], _OldName, _NewName, _TailVar, Acc, true) ->
+    {ok, lists:reverse(Acc)};
+rewrite_lc_clauses([], _OldName, _NewName, _TailVar, _Acc, false) ->
+    error.
+
+rewrite_lc_applies(Core, OldName, NewName, TailVar) ->
+    cerl_trees:map(fun(#c_apply{op=#c_var{name=OldName0}=Op, args=Args}=Apply)
+                         when OldName0 =:= OldName ->
+                           Apply#c_apply{op=Op#c_var{name=NewName},
+                                         args=Args ++ [TailVar]};
+                      (Other) ->
+                           Other
+                   end, Core).
+
+rewrite_lc_apply(#c_apply{op=#c_var{name=OldName}=Op, args=Args}=Apply,
+                 OldName, NewName, Tail) ->
+    Apply#c_apply{op=Op#c_var{name=NewName}, args=Args ++ [Tail]};
+rewrite_lc_apply(#c_let{body=Body0}=Let, OldName, NewName, Tail) ->
+    Let#c_let{body=rewrite_lc_apply(Body0, OldName, NewName, Tail)};
+rewrite_lc_apply(#c_seq{body=Body0}=Seq, OldName, NewName, Tail) ->
+    Seq#c_seq{body=rewrite_lc_apply(Body0, OldName, NewName, Tail)};
+rewrite_lc_apply(_, _, _, _) ->
+    throw(not_possible).
+
 %% is_simple_case_arg(Expr) -> true|false
 %%  Determine whether the Expr is simple enough to be worth
 %%  substituting into a case argument. (Common substitutions
@@ -2674,8 +2765,13 @@ opt_let_2(Let0, Vs0, Arg0, Body, PrevBody, Sub) ->
                     Arg = maybe_suppress_warnings(Arg1, Var, PrevBody),
                     #c_seq{arg=Arg,body=Body};
                 true ->
-                    Let1 = Let0#c_let{vars=Vars0,arg=Arg1,body=Body},
-                    post_opt_let(Let1, Sub)
+                    case opt_lc_append(V, Arg1, Body) of
+                        {ok, Fused} ->
+                            Fused;
+                        error ->
+                            Let1 = Let0#c_let{vars=Vars0,arg=Arg1,body=Body},
+                            post_opt_let(Let1, Sub)
+                    end
 	    end;
         {_,_,_} ->
             %% The argument for a sequence must be a single value (not

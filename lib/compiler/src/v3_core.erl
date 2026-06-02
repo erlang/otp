@@ -980,17 +980,6 @@ expr({record_field=Op,Loc,Src0,Id,F0}, St0) ->
                       args=[Src,#c_literal{val=Id},F]},
     Aps = Aps0 ++ Aps1,
     {PrimOp,Aps,St2};
-expr({op,_,'++',{lc,Llc,E,Qs0},More}, St0) ->
-    %% Optimise '++' here because of the list comprehension algorithm.
-    %%
-    %% To avoid achieving quadratic complexity if there is a chain of
-    %% list comprehensions without generators combined with '++', force
-    %% evaluation of More now. Evaluating More here could also reduce the
-    %% number variables in the environment for letrec.
-    {Mc,Mps,St1} = safe(More, St0),
-    {Qs,St2} = preprocess_quals(Llc, Qs0, St1),
-    {Y,Yps,_OptInfo,St} = lc_tq(Llc, {lc, wrap_list(E)}, Qs, Mc, St2),
-    {Y,Mps++Yps,St};
 expr({op,_,'andalso',_,_}=E0, St0) ->
     {op,L,'andalso',E1,E2} = right_assoc(E0, 'andalso'),
     Anno = lineno_anno(L, St0),
