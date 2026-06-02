@@ -1168,7 +1168,7 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 ## Examples
 
-@see hash_init()
+See `hash_init/1` for examples on how to use this function.
 """.
 -doc(#{group => <<"Hash API">>,
        since => <<"OTP R15B02">>}).
@@ -1192,7 +1192,7 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 ## Examples
 
-@see hash_init()
+See `hash_init/1` for examples on how to use this function.
 """.
 -doc(#{group => <<"Hash API">>,
        since => <<"OTP R15B02">>}).
@@ -1442,7 +1442,7 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 ## Examples
 
-@see mac_init()
+See `mac_init/2` for examples on how to use this function.
 """.
 -doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
@@ -1495,7 +1495,7 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 ## Examples
 
-@see mac_init()
+See `mac_init/2` for examples on how to use this function.
 """.
 -doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
@@ -1756,7 +1756,7 @@ See
 
 ## Examples
 
-@see crypto_init()
+See `crypto_init/4` for examples on how to use this function.
 """.
 -doc(#{group => <<"Cipher API">>,
        since => <<"OTP 22.0">>}).
@@ -2063,7 +2063,7 @@ Strips the tag from the end of 'InText' and verifies it when doing decryption.
 
 ## Examples
 
-@see crypto_one_time_aead_init()
+See `crypto_one_time_aead_init/4` for examples on how to use this function.
 """).
 -doc(#{group => <<"Cipher API">>,
        since => <<"OTP 28.0">>}).
@@ -2235,6 +2235,13 @@ pseudo-random number generator. `To` must be larger than `From`.
 > Instead, use `strong_rand_range(To - From) + From`
 >
 > Be aware of the possible `error:low_entropy` exception.
+
+
+## Examples
+
+```erlang
+1> crypto:rand_uniform(0, 10).
+```
 """.
 -spec rand_uniform(crypto_integer(), crypto_integer()) ->
 			  crypto_integer().
@@ -2300,6 +2307,14 @@ in a `binary/0`, the return value is a non-negative integer in a `binary/0`.
 
 May raise exception `error:low_entropy` in case the random generator failed due
 to lack of secure "randomness".
+
+
+## Examples
+
+```erlang
+1> crypto:strong_rand_range(10).
+2> crypto:strong_rand_range(<<10>>).
+```
 """.
 -spec strong_rand_range(Range :: pos_integer()) -> N :: non_neg_integer();
                        (Range :: binary()) ->      N :: binary().
@@ -3334,7 +3349,7 @@ See also `public_key:verify/4`.
 
 ## Examples
 
-@see sign()
+See `sign/5` for examples on how to use this function.
 """.
 -doc(#{group => <<"Sign/Verify API">>,
        since => <<"OTP 20.1">>}).
@@ -3474,7 +3489,7 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 ## Examples
 
-@see public_encrypt()
+See `public_encrypt/4` for examples on how to use this function.
 """.
 
 -doc(#{group => <<"Legacy RSA Encryption API">>,
@@ -3553,7 +3568,7 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 ## Examples
 
-@see private_encrypt()
+See `private_encrypt/4` for examples on how to use this function.
 """.
 -doc(#{group => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R16B01">>}).
@@ -4622,7 +4637,17 @@ ecdh_compute_key_nif(_Others, _Curve, _My) -> ?nif_stub.
 
 -doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 17.0">>}).
--doc "Return all supported named elliptic curves.".
+-doc """
+Return all supported named elliptic curves.
+
+
+## Examples
+
+```erlang
+1> lists:member(secp256r1, crypto:ec_curves()).
+true
+```
+""".
 -spec ec_curves() -> [EllipticCurve] when EllipticCurve :: ec_named_curve()
                                                          | edwards_curve_dh()
                                                          | edwards_curve_ed() .
