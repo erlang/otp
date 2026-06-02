@@ -255,6 +255,7 @@ handle_info({Proto, Socket, Data},
 		       end,
             handle_msg(Result, NewState);
 
+        %% error returns from httpd_request
 	{error, {size_error, MaxSize, ErrCode, ErrStr}, Version} ->
 	    NewModData =  ModData#mod{http_version = Version},
 	    httpd_response:send_status(NewModData, ErrCode, ErrStr, {max_size, MaxSize}),
@@ -280,9 +281,7 @@ handle_info({Proto, Socket, Data},
 		    {noreply, State#state{mfa = NewMFA, data = NewDataSize}}
 	    end
         catch throw:{error, Error} when Module =:= http_chunk ->
-                httpd_response:send_status(ModData, 400, 
-                                           "Bad input", {chunk_decoding, bad_input, Error}),
-                {stop, normal, State#state{response_sent = true}}
+            handle_chunk_size_error(Error, State)
     end;
 
 %% Error cases
@@ -517,12 +516,13 @@ handle_body(#state{headers = Headers, body = Body,
 		    NewHeaders = http_chunk:handle_headers(Headers, ChunkedHeaders),	
                     handle_response(State#state{headers = NewHeaders,
                                                 body = NewBody,
-                                                chunk = chunk_finish(ChunkState, CbState, MaxChunk)})
+                                                chunk = chunk_finish(ChunkState, CbState, MaxChunk)});
+                {error, {size_error, MaxSize, ErrCode, ErrStr}} ->
+                    httpd_response:send_status(ModData, ErrCode, ErrStr, {max_size, MaxSize}),
+                    {stop, normal, State#state{response_sent = true}}
 	    catch 
-		throw:Error ->
-		    httpd_response:send_status(ModData, 400, 
-					       "Bad input", {chunk_decoding, bad_input, Error}),
-		    {stop, normal, State#state{response_sent = true}}  
+                throw:{error, Error} ->
+                    handle_chunk_size_error(Error, State)
 	    end;
 	Encoding when is_list(Encoding) ->
 	    httpd_response:send_status(ModData, 501, 
@@ -562,6 +562,19 @@ handle_body(#state{headers = Headers, body = Body,
 		    {stop, normal,  State#state{response_sent = true}}
 	    end
     end.
+
+handle_chunk_size_error({chunk_size, _} = Error, State = #state{mod = ModData}) ->
+            httpd_response:send_status(ModData, 400,
+                                       "Bad input", {chunk_decoding, bad_input, Error}),
+            {stop, normal, State#state{response_sent = true}};
+handle_chunk_size_error({header_too_long, _} = Error, State = #state{mod = ModData}) ->
+            httpd_response:send_status(ModData, 413,
+                                       "Header too long", {chunk_decoding, bad_input, Error}),
+            {stop, normal, State#state{response_sent = true}};
+handle_chunk_size_error({body_too_long, _} = Error, State = #state{mod = ModData}) ->
+            httpd_response:send_status(ModData, 413,
+                                       "Body too long", {chunk_decoding, bad_input, Error}),
+            {stop, normal, State#state{response_sent = true}}.
 
 handle_expect(#state{headers = Headers, mod = 
 		     #mod{config_db = ConfigDB} = ModData} = State, 
