@@ -3,8 +3,8 @@
   "@id": "https://openvex.dev/docs/public/otp/vex-otp-29",
   "author": "vexctl",
   "timestamp": "2025-09-19T10:20:20.759995+02:00",
-  "last_updated": "2026-02-25T10:57:16.696090955+01:00",
-  "version": 22,
+  "last_updated": "2026-06-03T08:28:07.635537309Z",
+  "version": 28,
   "statements": [
     {
       "vulnerability": {
@@ -278,6 +278,102 @@
       ],
       "status": "not_affected",
       "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42790"
+      },
+      "timestamp": "2026-06-03T08:28:07.552993783Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.21"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to any of the following versions: pkg:otp/public_key@1.21.1",
+      "action_statement_timestamp": "2026-06-03T08:28:07.552993783Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42790"
+      },
+      "timestamp": "2026-06-03T08:28:07.569393736Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.1"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.21.1"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42789"
+      },
+      "timestamp": "2026-06-03T08:28:07.58557663Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.21"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to any of the following versions: pkg:otp/public_key@1.21.1",
+      "action_statement_timestamp": "2026-06-03T08:28:07.58557663Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42789"
+      },
+      "timestamp": "2026-06-03T08:28:07.601585122Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.1"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.21.1"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42791"
+      },
+      "timestamp": "2026-06-03T08:28:07.618535663Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.21"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to any of the following versions: pkg:otp/public_key@1.21.1",
+      "action_statement_timestamp": "2026-06-03T08:28:07.618535663Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42791"
+      },
+      "timestamp": "2026-06-03T08:28:07.63553797Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.1"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.21.1"
+        }
+      ],
+      "status": "fixed"
     }
   ]
 }
