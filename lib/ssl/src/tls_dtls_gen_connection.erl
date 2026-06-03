@@ -267,11 +267,11 @@ user_hello({call, From}, cancel, _State) ->
     throw(?ALERT_REC(?FATAL, ?USER_CANCELED, user_canceled));
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{static_env = #static_env{role = Role},
-                  handshake_env = HSEnv,
                   ssl_options = Options0} = State0) ->
     try ssl_config:update_options(NewOptions, Role, Options0) of
         Options ->
-            State = ssl_gen_statem:ssl_config(Options, Role, State0),
+            State = #state{handshake_env = HSEnv} =
+                ssl_gen_statem:ssl_config(Options, Role, State0),
             {next_state, hello,
              State#state{recv = State#state.recv#recv{from = From},
                          handshake_env =

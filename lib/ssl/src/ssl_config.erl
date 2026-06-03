@@ -271,8 +271,8 @@ prio_params_1(#'RSASSA-PSS-params'{hashAlgorithm = #'HashAlgorithm'{algorithm = 
     public_key:pkix_hash_type(Oid1) > public_key:pkix_hash_type(Oid2).
 
 prio_rsa(RSA) ->
-    Order = fun(#{key := #'RSAPrivateKey'{modulus = N}},
-                #{key := #'RSAPrivateKey'{modulus = M}}) when M > N ->
+    Order = fun(#{private_key := #'RSAPrivateKey'{modulus = N}},
+                #{private_key := #'RSAPrivateKey'{modulus = M}}) when M > N ->
                     true;
                (#{private_key := #{engine := _}}, _) ->
                     true;
@@ -294,8 +294,8 @@ prio_slhdsa(SLHDSA) ->
         ++ lists:keysort(#'SLH-DSAPrivateKey'.algorithm, SLHDSA -- SignFunPairs).
 
 prio_dsa(DSA) ->
-    Order = fun(#{key := #'DSAPrivateKey'{q = N}},
-                #{key := #'DSAPrivateKey'{q = M}}) when M > N ->
+    Order = fun(#{private_key := #'DSAPrivateKey'{q = N}},
+                #{private_key := #'DSAPrivateKey'{q = M}}) when M > N ->
                     true;
                (#{private_key := #{engine := _}}, _) ->
                     true;

@@ -1214,7 +1214,7 @@ rsa_suites_encipher(Ciphers) ->
 %% Cert should be have DSS key (DSA)
 dss_keyed_suites(Ciphers) ->
     filter_kex(Ciphers, fun (dhe_dss) -> true;
-                            (spr_dss) -> true;
+                            (srp_dss) -> true;
                             (_) ->  false
                         end).
 
