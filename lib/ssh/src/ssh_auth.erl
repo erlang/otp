@@ -519,6 +519,8 @@ check_password(User, Password, #ssh{opts=Opts} = Ssh) ->
                 Checker when is_function(Checker, 1) ->
                     {Checker(Password), Ssh};
                 _ ->
+                    %% Run fake PBKDF2 to prevent timing oracle (GHSA-3w6p-vwhf-wvp4)
+                    _ = (?GET_INTERNAL_OPT(fake_passwd_checker, Opts))(Password),
                     {false, Ssh}
             end;
 
@@ -550,7 +552,7 @@ get_password_option(Opts, User) ->
 	{value, {User, Pw}} -> Pw;
 	false -> ?GET_OPT(password, Opts)
     end.
-	    
+
 pre_verify_sig(User, KeyBlob,  #ssh{opts=Opts}) ->
     try
 	Key = ssh_message:ssh2_pubkey_decode(KeyBlob), % or exception

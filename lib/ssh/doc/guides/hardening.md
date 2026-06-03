@@ -378,7 +378,7 @@ handling plugin `m:ssh_file`. The alternatives are:
 
   ```erlang
   fun(User, Password, _PeerAddress, State) ->
-          case lists:member({User,Password}, my_user_pwds()) of
+          case check_credentials(User, Password) of
               true ->
                   {true, undefined}; % Reset delay time
               false when State == undefined ->
@@ -390,6 +390,14 @@ handling plugin `m:ssh_file`. The alternatives are:
           end
   end.
   ```
+
+  > #### Warning {: .warning }
+  >
+  > A `pwdfun` implementation should take care to execute in approximately
+  > the same time regardless of whether the username is valid or invalid.
+  > A timing difference allows attackers to enumerate valid usernames.
+  > Use constant-time comparison for password checking and avoid early
+  > returns based on username validity.
 
   If a public key is used for logging in, there is normally no checking of the
   user name. It could be enabled by setting the option

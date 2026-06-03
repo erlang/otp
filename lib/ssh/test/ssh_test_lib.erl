@@ -142,7 +142,9 @@ remove_comment/1
 -export([log/2,
          get_log_level/0, set_log_level/1,
          add_log_handler/2, rm_log_handler/1,
-         get_log_events/1]).
+         get_log_events/1,
+         median/1,
+         assert_timing_symmetry/3]).
 
 -include_lib("common_test/include/ct.hrl").
 -include("ssh_transport.hrl").
@@ -1593,3 +1595,36 @@ get_public_key_algorithms_with_valid_host_key(Config, Options) ->
     Opts = #{key_cb => KeyCb, key_cb_options => [{system_dir, system_dir(Config)}]},
     PubKeyAlgs = ssh_transport:supported_algorithms(public_key),
     lists:filter(fun(Alg) -> ?HAS_HOST_KEY(Alg, Opts) end, PubKeyAlgs).
+
+median(List) ->
+    Sorted = lists:sort(List),
+    Len = length(Sorted),
+    case Len rem 2 of
+        1 -> lists:nth((Len + 1) div 2, Sorted);
+        0 -> (lists:nth(Len div 2, Sorted) +
+                  lists:nth(Len div 2 + 1, Sorted)) / 2
+    end.
+
+assert_timing_symmetry(MeasureFun, ValidInput, InvalidInput) ->
+    N = 8,
+    Warmup = 3,
+    CollectSamples =
+        fun(Input) ->
+                lists:sublist(
+                  [begin
+                       ?CT_LOG("Collecting sample #~p of total ~p", [I, N]),
+                       MeasureFun(Input)
+                   end || I <- lists:seq(1, N)],
+                  Warmup + 1, N - Warmup)
+        end,
+    MV = median(CollectSamples(ValidInput)),
+    MI = median(CollectSamples(InvalidInput)),
+    Ratio = max(MV / MI, MI / MV),
+    ?CT_LOG("Valid(~p) median=~p ms, Invalid(~p) median=~p ms, Ratio=~.2f",
+            [ValidInput, MV, InvalidInput, MI, Ratio]),
+    case Ratio > 3.0 of
+        true ->
+            ct:fail("Timing ratio ~.2f exceeds 3.0 — possible timing oracle", [Ratio]);
+        false ->
+            ok
+    end.
