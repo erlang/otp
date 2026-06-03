@@ -111,15 +111,17 @@ DOC_TARGETS?=$(DEFAULT_DOC_TARGETS)
 
 EX_DOC_WARNINGS_AS_ERRORS?=default
 
-check_ex_doc:
-	$(ERL_TOP)/make/check_ex_doc
-
 # If html is in $(DOC_TARGETS) wait for user's answer whether to download ex_doc
 # before processing other targets in parallel (if parallel make is enabled).
 # That could cause the question to be lost in earlier shell output because of printouts
 # from other $(DOC_TARGETS).
 docs: $(if $(filter html,$(DOC_TARGETS)),check_ex_doc)
+ifneq ($(DOC_TARGETS),)
 	$(MAKE) $(DOC_TARGETS)
+endif
+
+check_ex_doc:
+	$(ERL_TOP)/make/check_ex_doc
 
 chunks:
 
@@ -215,7 +217,9 @@ endif
 
 # See explanation in docs target
 release_docs_spec: $(if $(filter html,$(DOC_TARGETS)),check_ex_doc)
+ifneq ($(DOC_TARGETS),)
 	$(MAKE) $(DOC_TARGETS:%=release_%_spec)
+endif
 ifneq ($(STANDARDS),)
 	$(INSTALL_DIR) "$(RELEASE_PATH)/doc/standard"
 	$(INSTALL_DATA) $(STANDARDS) "$(RELEASE_PATH)/doc/standard"
