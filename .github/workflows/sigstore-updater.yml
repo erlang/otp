@@ -103,12 +103,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # register `gh` as git credential helper => git push in otp-compliance
-      # uses the token from `gh`. otherwise, `persist-credentials` should not be `false`.
-      # changing `persist-credentials` is not a good option
-      - name: Configure git to use gh as credential helper
-        run: gh auth setup-git
-
       - name: Find modified OpenVEX files
         id: changed
         run: |
@@ -159,6 +153,13 @@ jobs:
           STEPS_APP_TOKEN_OUTPUTS_TOKEN: "${{ steps.app-token.outputs.token }}"
         run: |
           echo "${STEPS_APP_TOKEN_OUTPUTS_TOKEN}" | gh auth login --with-token
+
+      # register `gh` as git credential helper => git push in otp-compliance
+      # uses the token from `gh`. otherwise, `persist-credentials` should not be `false`.
+      # changing `persist-credentials` is not a good option
+      - name: Configure git to use gh as credential helper
+        run: gh auth setup-git
+
       - name: Get GitHub App User ID
         if: steps.changed.outputs.found == 'true'
         id: get-user-id
