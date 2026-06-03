@@ -444,11 +444,8 @@ make_random(_Version) ->
     Random_28_bytes = ssl_cipher:random_bytes(28),
     <<?UINT32(Secs_since_1970), Random_28_bytes/binary>>.
 
--compile({inline, [is_correct_mac/2]}).
-is_correct_mac(Mac, Mac) ->
-    true;
-is_correct_mac(_M,_H) ->
-    false.
+is_correct_mac(Mac1, Mac2) ->
+    crypto:hash_equals(Mac1, Mac2).
 
 -compile({inline, [record_protocol_role/1]}).
 record_protocol_role(client) ->

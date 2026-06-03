@@ -528,10 +528,13 @@ validate_finished(#state{connection_states = ConnectionStates,
     compare_verify_data(ControlData, VerifyData).
 
 
-compare_verify_data(Data, Data) ->
-    ok;
-compare_verify_data(_, _) ->
-    {error, ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error)}.
+compare_verify_data(Data1, Data2) ->
+    case crypto:hash_equals(Data1, Data2) of
+        true ->
+            ok;
+        false ->
+            {error, ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error)}
+    end.
 
 %%====================================================================
 %% Encode handshake
@@ -2101,7 +2104,7 @@ select_client_cert_key_pair(Session0, [#{private_key := Key, certs := [Cert| _] 
                                                 CertDbHandle, CertDbRef, CertAuths, Plausible0)
             end;
         {error, _} ->
-            select_client_cert_key_pair(Session0, Rest, ServerSignAlgsCert, ServerSignAlgsCert, ClientSignAlgs,
+            select_client_cert_key_pair(Session0, Rest, ServerSignAlgs, ServerSignAlgsCert, ClientSignAlgs,
                                         CertDbHandle, CertDbRef, CertAuths, Plausible0)
     end.
 

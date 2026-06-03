@@ -163,13 +163,12 @@ connection(internal, #key_update{} = KeyUpdate, #state{static_env = #static_env{
     case handle_key_update(KeyUpdate, State0) of
         {ok, #state{connection_states = ConnectionStates, protocol_specific = PS} = State} ->
             Keep = maps:get(keep_secrets, SslOpts, false),
-            N = maps:get(num_key_updates, PS, 0),
+            N = maps:get(num_key_updates, PS),
             maybe_traffic_keylog_1_3(Keep, Role, ConnectionStates, N),
             tls_gen_connection:next_event(?STATE(connection), no_record,
                                           maybe_forget_hs_secrets(Role, N, Keep, State));
         {error, State, Alert} ->
-            ssl_gen_statem:handle_own_alert(Alert, ?STATE(connection), State),
-            tls_gen_connection:next_event(?STATE(connection), no_record, State)
+            ssl_gen_statem:handle_own_alert(Alert, ?STATE(connection), State)
     end;
 connection({call, From}, negotiated_protocol,
 	   #state{handshake_env = #handshake_env{alpn = undefined}} = State) ->
@@ -318,12 +317,13 @@ send_key_update(Sender, Type) ->
     KeyUpdate = tls_handshake_1_3:key_update(Type),
     tls_sender:send_post_handshake(Sender, KeyUpdate).
 
-update_cipher_key(ConnStateName, #state{connection_states = CS0,
+do_update_cipher_key(ConnStateName, #state{connection_states = CS0,
                                         protocol_specific = PS} = State0) ->
     CS = update_cipher_key(ConnStateName, CS0),
     N = maps:get(num_key_updates, PS, 0),
     State0#state{connection_states = CS,
-                 protocol_specific = PS#{num_key_updates => N + 1}};
+                 protocol_specific = PS#{num_key_updates => N + 1}}.
+
 update_cipher_key(ConnStateName, CS0) ->
     #{security_parameters := SecParams0,
       cipher_state := CipherState0} = ConnState0 = maps:get(ConnStateName, CS0),
@@ -410,11 +410,11 @@ send_ticket_data(User, NewSessionTicket, CipherSuite, SNI, PSK) ->
 
 handle_key_update(#key_update{request_update = update_not_requested}, State0) ->
     %% Update read key in connection
-    {ok, update_cipher_key(current_read, State0)};
+    {ok, do_update_cipher_key(current_read, State0)};
 handle_key_update(#key_update{request_update = update_requested},
                   #state{protocol_specific = #{sender := Sender}} = State0) ->
     %% Update read key in connection
-    State1 = update_cipher_key(current_read, State0),
+    State1 = do_update_cipher_key(current_read, State0),
     %% Send key_update and update sender's write key
     case send_key_update(Sender, update_not_requested) of
         ok ->
@@ -489,7 +489,7 @@ exporter(ExporterSecret, Context0, WantedLength, PRFAlgorithm) ->
 %% is debugging functionality we choose not to make complicated
 %% timeout handling to save a little memory for the client.
 %% This is not a problem on the server side.
-maybe_forget_hs_secrets(client, 0, KeepSecrets, State) ->
+maybe_forget_hs_secrets(client, 1, KeepSecrets, State) ->
     maybe_forget_hs_secrets(KeepSecrets, State);
 maybe_forget_hs_secrets(_,_,_, State) ->
     State.
