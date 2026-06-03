@@ -28,7 +28,7 @@ YEAR=$(date +%Y)
 
 while IFS= read -r FILE; do
     [ -z "$FILE" ] && continue
-    LICENSE_FILE="${FILE}.license"
+    LICENSE_FILE="${FILE}.sigstore.license"
     if [ ! -f "$LICENSE_FILE" ]; then
         printf '%%CopyrightBegin%%\n\nSPDX-License-Identifier: Apache-2.0\n\nCopyright Ericsson AB %s. All Rights Reserved.\n\n%%CopyrightEnd%%\n' "$YEAR" > "$LICENSE_FILE"
         echo "Created $LICENSE_FILE"
