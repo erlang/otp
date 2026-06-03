@@ -188,6 +188,6 @@ jobs:
           done < /tmp/changed-vex.txt
           git config user.name "${STEPS_APP_TOKEN_OUTPUTS_APP_SLUG}[bot]"
           git config user.email "${STEPS_GET_USER_ID_OUTPUTS_USER_ID}+${STEPS_APP_TOKEN_OUTPUTS_APP_SLUG}[bot]@users.noreply.github.com"
-          git add vex/*.sigstore
+          git add vex/*.sigstore vex/*.sigstore.license
           git commit -m "Update sigstore attestations for OpenVEX files" || true
           git push
