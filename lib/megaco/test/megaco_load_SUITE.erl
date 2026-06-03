@@ -518,14 +518,41 @@ do_single_user_load(SCO,
     Res = ?MG_MLOAD(Mg, NumLoaders, ?SINGLE_USER_LOAD_NUM_REQUESTS),
     case Res of
 	{Time, {ok, Ok, Err}} ->
-	    Sec = Time / 1000000,
-	    io:format("~nmultiple loaders result: ~n"
-		      "   Number of successfull: ~w~n"
-		      "   Number of failure:     ~w~n"
-		      "   Time:                  ~w seconds~n"
-		      "   Calls / seconds        ~w~n~n", 
-		      [Ok, Err, Sec, (NumLoaders * ?SINGLE_USER_LOAD_NUM_REQUESTS)/Sec]);
-	{Time, Error} ->
+            %% Time is in micro seconds (usec)
+            %% We need to be able to handle that the run time
+            %% could be less than 1 sec...
+            {Unit, UnitStr} =
+                if
+                    (Time >= 1000000) -> % secs
+                        {Time / 1000000, "secs "};
+                    (Time >= 1000) ->    % msecs
+                        {Time / 1000, "msecs"};
+                    (Time >= 1) ->       % usecs
+                        {Time, "usecs"};
+                    true -> % Ouch!
+                        {Time, "error"}
+                end,
+            if
+                (Unit > 0) ->
+                    Calls = (NumLoaders * ?SINGLE_USER_LOAD_NUM_REQUESTS)/Unit,
+                    io:format("~nmultiple loaders result: ~n"
+                              "   Number of successfull: ~w~n"
+                              "   Number of failure:     ~w~n"
+                              "   Time:                  ~.1f ~s~n"
+                              "   Calls / ~s          ~.1f~n~n", 
+                              [Ok,
+                               Err,
+                               Unit, UnitStr,
+                               UnitStr, Calls]);
+                true ->
+                    io:format("~nmultiple loaders calls calc failure: ~n"
+                              "   Number of successfull: ~w~n"
+                              "   Number of failure:     ~w~n"
+                              "   Time:                  ~w~n~n", 
+                              [Ok, Err, Time])
+            end;
+
+        {Time, Error} ->
 	    io:format("SUL: multiple loaders failed: ~p after ~w~n", 
 		      [Error, Time])
     end,
