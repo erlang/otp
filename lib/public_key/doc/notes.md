@@ -27,7 +27,7 @@ limitations under the License.
 
 - OCSP responder certificates are now checked for expiration before being accepted as authorized responders. Previously, expired or not-yet-valid responder certificates were incorrectly accepted when verifying OCSP responses.
 
-  Own Id: OTP-20112 Aux Id: [PR-11136]
+  Own Id: OTP-20112 Aux Id: [CVE-2026-42791], [PR-11136]
 
 - Corrected basic constraint path validation check in accordance to RFC 5280.
 
@@ -41,6 +41,7 @@ limitations under the License.
 
   Own Id: OTP-20130 Aux Id: [CVE-2026-42790], [PR-11124]
 
+[CVE-2026-42791]: https://nvd.nist.gov/vuln/detail/2026-42791
 [PR-11136]: https://github.com/erlang/otp/pull/11136
 [CVE-2026-42789]: https://nvd.nist.gov/vuln/detail/2026-42789
 [PR-11123]: https://github.com/erlang/otp/pull/11123
@@ -92,7 +93,7 @@ limitations under the License.
 
 - OCSP responder certificates are now checked for expiration before being accepted as authorized responders. Previously, expired or not-yet-valid responder certificates were incorrectly accepted when verifying OCSP responses.
 
-  Own Id: OTP-20112 Aux Id: [PR-11136]
+  Own Id: OTP-20112 Aux Id: [CVE-2026-42791], [PR-11136]
 
 - Corrected basic constraint path validation check in accordance to RFC 5280.
 
@@ -106,6 +107,7 @@ limitations under the License.
 
   Own Id: OTP-20130 Aux Id: [CVE-2026-42790], [PR-11124]
 
+[CVE-2026-42791]: https://nvd.nist.gov/vuln/detail/2026-42791
 [PR-11136]: https://github.com/erlang/otp/pull/11136
 [CVE-2026-42789]: https://nvd.nist.gov/vuln/detail/2026-42789
 [PR-11123]: https://github.com/erlang/otp/pull/11123
@@ -293,7 +295,7 @@ limitations under the License.
 
 - OCSP responder certificates are now checked for expiration before being accepted as authorized responders. Previously, expired or not-yet-valid responder certificates were incorrectly accepted when verifying OCSP responses.
 
-  Own Id: OTP-20112 Aux Id: [PR-11136]
+  Own Id: OTP-20112 Aux Id: [CVE-2026-42791], [PR-11136]
 
 - Corrected basic constraint path validation check in accordance to RFC 5280.
 
@@ -307,6 +309,7 @@ limitations under the License.
 
   Own Id: OTP-20130 Aux Id: [CVE-2026-42790], [PR-11124]
 
+[CVE-2026-42791]: https://nvd.nist.gov/vuln/detail/2026-42791
 [PR-11136]: https://github.com/erlang/otp/pull/11136
 [CVE-2026-42789]: https://nvd.nist.gov/vuln/detail/2026-42789
 [PR-11123]: https://github.com/erlang/otp/pull/11123
