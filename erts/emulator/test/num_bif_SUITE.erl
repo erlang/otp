@@ -594,6 +594,12 @@ t_integer_to_string(Config) when is_list(Config) ->
              108977460683796539709587792812439445667270661579197935,
              16),
 
+    Pow9 = fun Pow(0, Acc) -> Acc; Pow(N, Acc) when N > 10 -> Pow(N-10, 9#10000000000*Acc); Pow(N, Acc) -> Pow(N-1, 9*Acc) end,
+    %% This used to cause an buffer overflow in the C code of integer_to_binary/2.
+    Str = integer_to_binary(Pow9(634_680, 1), 9),
+
+    634681 = byte_size(Str),
+
     lists:foreach(fun(Value) ->
 			  {'EXIT', {badarg, _}} =
 			      (catch erlang:integer_to_binary(Value, 8)),
