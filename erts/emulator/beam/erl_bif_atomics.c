@@ -71,10 +71,19 @@ BIF_RETTYPE erts_internal_atomics_new_2(BIF_ALIST_2)
         BIF_ERROR(BIF_P, opts);
     }
 
-    if (cnt > (ERTS_UWORD_MAX / sizeof(p->v[0])))
+    /* Check that cnt*sizeof(UWord) fits into a word */
+    if (cnt > (ERTS_UWORD_MAX / sizeof(p->v[0]))) {
         BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+    }
 
-    bytes = offsetof(AtomicsRef, v) + cnt*sizeof(p->v[0]);
+    bytes = cnt*sizeof(p->v[0]);
+
+    /* Check if adding bytes makes it wrap around */
+    if (bytes + offsetof(AtomicsRef, v) < bytes) {
+        BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+    }
+
+    bytes += offsetof(AtomicsRef, v);
     mbin = erts_create_magic_binary_x(bytes,
                                       atomics_destructor,
                                       ERTS_ALC_T_ATOMICS,
