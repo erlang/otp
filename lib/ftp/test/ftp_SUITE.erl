@@ -65,7 +65,8 @@ all() ->
      appup,
      error_ehost,
      error_datafail,
-     clean_shutdown
+     clean_shutdown,
+     pasv_ip_not_validated
     ].
 
 groups() ->
@@ -319,6 +320,8 @@ init_per_testcase(Case, Config0) ->
         clean_shutdown ->
             Config = start_ftpd(Config0),
             init_per_testcase2(Case, Config);
+        pasv_ip_not_validated ->
+            Config0;
         _ ->
             init_per_testcase2(Case, Config0)
     end.
@@ -378,6 +381,7 @@ end_per_testcase(user, _Config) -> ok;
 end_per_testcase(bad_user, _Config) -> ok;
 end_per_testcase(error_elogin, _Config) -> ok;
 end_per_testcase(error_ehost, _Config) -> ok;
+end_per_testcase(pasv_ip_not_validated, _Config) -> ok;
 end_per_testcase(T, Config) when T =:= error_datafail; T =:= clean_shutdown ->
     T == error_datafail andalso ftp__close(Config),
     stop_ftpd(Config),
@@ -1101,6 +1105,69 @@ error_datafail(Config) ->
     Result = Recv(Recv),
     Result.
 
+pasv_ip_not_validated() ->
+    [{doc, "PASV response IP must be validated against the control connection "
+      "peer address (CVE-2026-48858 / GHSA-24cv-hwgr-37fq). A malicious server "
+      "must not be able to redirect the data connection to an arbitrary host."}].
+
+pasv_ip_not_validated(_Config) ->
+    %% The victim service listens on 127.0.0.2 (a different loopback address).
+    %% The malicious FTP server listens on 127.0.0.1.
+    %% The PASV response will advertise 127.0.0.2:VictimPort.
+    %% Without the fix the client connects to 127.0.0.2 (victim).
+    %% With the fix the client ignores the IP in PASV and uses the control
+    %% peer address (127.0.0.1) instead, so the victim never gets a connection.
+    VictimIP = {127,0,0,2},
+    {ok, VictimLSock} = gen_tcp:listen(0,
+        [binary, {reuseaddr, true}, {active, false}, inet, {ip, VictimIP}]),
+    {ok, VictimPort} = inet:port(VictimLSock),
+
+    Self = self(),
+    spawn(fun() ->
+        case gen_tcp:accept(VictimLSock, 3000) of
+            {ok, Sock} ->
+                {ok, Peer} = inet:peername(Sock),
+                gen_tcp:close(Sock),
+                Self ! {victim_connected, Peer};
+            {error, _} ->
+                Self ! victim_not_connected
+        end
+    end),
+
+    %% Malicious FTP server on 127.0.0.1.
+    {ok, FtpLSock} = gen_tcp:listen(0,
+        [binary, {reuseaddr, true}, {active, false}, inet, {ip, {127,0,0,1}}]),
+    {ok, FtpPort} = inet:port(FtpLSock),
+
+    spawn_link(fun() -> malicious_ftp_server(FtpLSock, {VictimIP, VictimPort}) end),
+
+    application:ensure_started(ftp),
+    {ok, Pid} = ftp:open("127.0.0.1", [{port, FtpPort}]),
+    ok = ftp:user(Pid, "user", "pass"),
+    %% The ls call will trigger PASV.  With the vulnerability present the
+    %% client connects to VictimPort; with the fix it should refuse to do so
+    %% and return an error instead.
+    _Ignored = ftp:ls(Pid),
+    catch ftp:close(Pid),
+
+    Result = receive
+        {victim_connected, Peer} ->
+            {fail, Peer};
+        victim_not_connected ->
+            ok
+    end,
+
+    gen_tcp:close(FtpLSock),
+    gen_tcp:close(VictimLSock),
+
+    case Result of
+        {fail, FailPeer} ->
+            ct:fail("ftp client connected data channel to redirected victim "
+                    "address ~p instead of the FTP server (CVE-2026-48858)",
+                    [FailPeer]);
+        ok ->
+            ok
+    end.
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------
 %%--------------------------------------------------------------------
@@ -1412,3 +1479,53 @@ unwanted_error_report(LogFile) ->
             ct:fail({no_logfile, LogFile})
     end.
 
+%% Minimal FTP server that injects a malicious PASV redirect.
+malicious_ftp_server(LSock, VictimAddr) ->
+    {ok, Ctrl} = gen_tcp:accept(LSock),
+    gen_tcp:send(Ctrl, "220 PoC FTP Server\r\n"),
+    malicious_ftp_loop(Ctrl, VictimAddr).
+
+malicious_ftp_loop(Ctrl, VictimAddr) ->
+    case malicious_ftp_recv_line(Ctrl) of
+        {ok, Line} ->
+            [Cmd | _] = string:tokens(string:trim(Line), " "),
+            malicious_ftp_handle(string:uppercase(Cmd), Ctrl, VictimAddr),
+            malicious_ftp_loop(Ctrl, VictimAddr);
+        {error, _} ->
+            gen_tcp:close(Ctrl)
+    end.
+
+malicious_ftp_handle("USER", Ctrl, _) ->
+    gen_tcp:send(Ctrl, "331 Password required\r\n");
+malicious_ftp_handle("PASS", Ctrl, _) ->
+    gen_tcp:send(Ctrl, "230 Logged in\r\n");
+malicious_ftp_handle("SYST", Ctrl, _) ->
+    gen_tcp:send(Ctrl, "215 UNIX Type: L8\r\n");
+malicious_ftp_handle("TYPE", Ctrl, _) ->
+    gen_tcp:send(Ctrl, "200 Type set\r\n");
+malicious_ftp_handle("PASV", Ctrl, {{A1,A2,A3,A4}, VictimPort}) ->
+    %% Advertise the victim IP:port — a different host than the FTP server.
+    P1 = VictimPort bsr 8,
+    P2 = VictimPort band 16#FF,
+    Resp = io_lib:format(
+        "227 Entering Passive Mode (~b,~b,~b,~b,~b,~b)\r\n",
+        [A1, A2, A3, A4, P1, P2]),
+    gen_tcp:send(Ctrl, Resp);
+malicious_ftp_handle(Cmd, Ctrl, _) when Cmd =:= "LIST"; Cmd =:= "NLST" ->
+    gen_tcp:send(Ctrl, "150 Opening data connection\r\n"),
+    timer:sleep(200),
+    gen_tcp:send(Ctrl, "226 Transfer complete\r\n");
+malicious_ftp_handle("QUIT", Ctrl, _) ->
+    gen_tcp:send(Ctrl, "221 Goodbye\r\n"),
+    gen_tcp:close(Ctrl);
+malicious_ftp_handle(_, Ctrl, _) ->
+    gen_tcp:send(Ctrl, "500 Unknown command\r\n").
+
+malicious_ftp_recv_line(Sock) ->
+    malicious_ftp_recv_line(Sock, <<>>).
+malicious_ftp_recv_line(Sock, Acc) ->
+    case gen_tcp:recv(Sock, 1, 5000) of
+        {ok, <<"\n">>} -> {ok, binary_to_list(<<Acc/binary, "\n">>)};
+        {ok, Byte}     -> malicious_ftp_recv_line(Sock, <<Acc/binary, Byte/binary>>);
+        {error, _} = E -> E
+    end.
