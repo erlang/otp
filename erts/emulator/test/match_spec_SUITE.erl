@@ -1143,6 +1143,10 @@ maps(Config) when is_list(Config) ->
              fun(N) ->
                      {ok,#{2=>N},[],[]} == erlang:match_spec_test(#{a=>1},[{#{a=>'$1'},[],[#{{'+',3,-1}=>1,2=>2,{const,2}=>3,{'+',1,'$1'}=>4,{'+',2,0}=>5}]}], table)
              end,[1,2,3,4,5]),
+
+    %% This used to return #{1=>a,1=>c} (i.e. a flat map with duplicate keys)
+    {ok,#{1:=c,2:=b},[],[]} = erlang:match_spec_test({1,2,1}, [{{'$1','$2','$3'}, [], [#{'$1'=>a, '$2'=>b, '$3'=>c}]}], table),
+    
     %% Test what happens when a map is collapsed from hash to flatmap
     {ok,#{0:=1},[],[]} = erlang:match_spec_test(#{0=>1},[{'$1',[],[maps:from_list([{{'-',I,I},1} || I <- lists:seq(1,100)])]}], table),
 
