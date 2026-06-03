@@ -114,6 +114,11 @@ jobs:
           else
             echo "found=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Add license files for new OpenVEX files
+        if: steps.changed.outputs.found == 'true'
+        run: bash .github/scripts/add-vex-license.sh /tmp/changed-vex.txt
+
       - name: Check PR author permission
         env:
           GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
