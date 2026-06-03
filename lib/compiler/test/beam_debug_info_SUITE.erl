@@ -101,7 +101,7 @@ smoke(ExtraOpts) ->
          """,
     io:put_chars(S),
 
-    HasDbgSupport = has_debugger_support(),
+    HasDbgSupport = erl_debugger:supported(),
 
     test_lib:p_run(fun(Beam) ->
                            do_smoke(Beam, Node, HasDbgSupport, ExtraOpts)
@@ -921,7 +921,7 @@ missing_vars(Config) ->
     ok.
 
 calls_reported_correctly(Config) ->
-    case has_debugger_support() of
+    case can_enable_debugger() of
         false ->
             {skip,"no debugger support"};
         true ->
@@ -931,10 +931,10 @@ calls_reported_correctly(Config) ->
 do_calls_reported_correctly(Config) ->
     M = ?FUNCTION_NAME,
     S = ~"""
-        -module(calls_reported_correctly).                         %L01
+        -module(do_calls_reported_correctly).                      %L01
         -export([fixtures/1]).                                     %L02
         -record(my_rec, {fld1 :: atom(), fld2 :: integer()}).      %L03
-        local() -> ok.                                             %L04                                                          %L04
+        local() -> ok.                                             %L04
         fixtures(F) ->                                             %L05
             Y = 42, 'not':toplevel(a, b),                          %L06
             foo:bar(13, Y), Z = 43,                                %L07
@@ -976,11 +976,11 @@ do_calls_reported_correctly(Config) ->
                 L <- foo:bar(),                                    %L43
                 E <- hey:ho(L)                                     %L44
             ],                                                     %L45
-            H = fun(X) -> foo:bar(X) + 1 end,                      %L46,
+            H = fun(X) -> foo:bar(X) + 1 end,                      %L46
             H(42),                                                 %L47
             K = fun(X) ->                                          %L48
                 foo:bar(X) + 1                                     %L49
-            end,                                                   %L50,
+            end,                                                   %L50
             K(42).                                                 %L51
     """,
     Expected =  [
@@ -1043,25 +1043,25 @@ do_calls_reported_correctly(Config) ->
 
 
 calls_cornercase_reg_in_call(Config) ->
-    case has_debugger_support() of
+    case can_enable_debugger() of
         false ->
             {skip,"no debugger support"};
         true ->
-            do_calls_reported_correctly(Config)
+            do_calls_cornercase_reg_in_call(Config)
     end.
 
 do_calls_cornercase_reg_in_call(Config) ->
     M = ?FUNCTION_NAME,
     S = ~"""
-    -module(calls_cornercase_reg_in_call).  %L01
-    -export([go/1]).                        %L02
-    go(X) ->                                %L03
-        try                                 %L04
-            Y = foo:bar(),                  %L05
-            Z = Y:go(),                     %L06
-            hey:ho(Y, X, Z)                 %L07
-        catch _ -> ok                       %L08
-        end.                                %L09
+    -module(do_calls_cornercase_reg_in_call).  %L01
+    -export([go/1]).                           %L02
+    go(X) ->                                   %L03
+        try                                    %L04
+            Y = foo:bar(),                     %L05
+            Z = Y:go(),                        %L06
+            hey:ho(Y, X, Z)                    %L07
+        catch _ -> ok                          %L08
+        end.                                   %L09
     """,
     Expected = [
         {04, #{calls => []}},
@@ -1121,6 +1121,5 @@ check_expected_calls(Config, Mod, ModSrc, Expected) ->
     peer:stop(Peer),
     ok.
 
-has_debugger_support() ->
-    erl_debugger:supported() andalso erlang:system_info(emu_flavor) =:= jit.
-
+can_enable_debugger() ->
+    erlang:system_info(emu_flavor) =:= jit.
