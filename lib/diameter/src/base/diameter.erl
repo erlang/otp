@@ -1483,8 +1483,8 @@ tagged list to be returned.
   Note that there may be multiple entries with the same `ref`, in contrast to
   `transport` info.
 
-- **`statistics`** - Return a `{{Counter, Ref}, non_neg_integer()}` list of
-  counter values. `Ref` can be either a
+- **`statistics`** - Return a `{Ref, [{Counter, non_neg_integer()}]}` list of
+  references and corresponding counter values. `Ref` can be either a
   [`transport_ref()`](`m:diameter#transport_ref`) or a
   [`diameter_app:peer_ref()`](`t:diameter_app:peer_ref/0`). Entries for the latter
   are folded into corresponding entries for the former as peer connections go
