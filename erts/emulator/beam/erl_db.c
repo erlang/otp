@@ -1508,6 +1508,7 @@ do_update_counter(Process *p, DbTable* tb,
     Eterm* htop;          /* actual heap usage */
     Eterm* hstart;
     Eterm* hend;
+    Uint largest_big_arity = 0;
     ERTS_UNDEF(ret, THE_NON_VALUE);
 
     UseTmpHeap(5, p);
@@ -1573,10 +1574,10 @@ do_update_counter(Process *p, DbTable* tb,
 		goto finalize;
 	    }
 	    incr = tpl[2];
-	    if (is_big(incr)) {
-		halloc_size += BIG_NEED_SIZE(big_arity(incr));
+            if (is_big(incr) && largest_big_arity < big_arity(incr)) {
+                largest_big_arity = big_arity(incr);
 	    }
-	    else if (is_not_small(incr)) {
+            else if (is_not_integer(incr)) {
 		goto finalize;
 	    }
 	    position = signed_val(tpl[1]);
@@ -1591,12 +1592,16 @@ do_update_counter(Process *p, DbTable* tb,
 		goto finalize;
 	    }
 	    oldcnt = db_do_read_element(&handle, position);
-	    if (is_big(oldcnt)) {
-		halloc_size += BIG_NEED_SIZE(big_arity(oldcnt));
+            if (is_big(oldcnt) && largest_big_arity < big_arity(oldcnt)) {
+                largest_big_arity = big_arity(oldcnt);
 	    }
-	    else if (is_not_small(oldcnt)) {
+            else if (is_not_integer(oldcnt)) {
 		goto finalize;
 	    }
+            if (largest_big_arity > 0) {
+                halloc_size += BIG_NEED_SIZE(largest_big_arity);
+            }
+            
 	    break;
 	default:
 	    goto finalize;

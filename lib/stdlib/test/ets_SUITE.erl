@@ -2794,6 +2794,7 @@ update_counter_for(T) ->
     SmallMax64 = (1 bsl (27+32)) - 1,
     Big1Max32 = (1 bsl 32) - 1,
     Big1Max64 = (1 bsl 64) - 1,
+    VeryBig = 1 bsl 200000,
 
     Steps = 100,
     Obj0 = {a,0,0,0,0},
@@ -2866,6 +2867,7 @@ update_counter_for(T) ->
 	   {5,-SmallMax64*4 div 3},
 	   {3,-SmallMax32*4 div 11},
 	   {5,0},
+           {4, VeryBig},
 	   {4,1},
 	   {5,-SmallMax64*4 div 7,-SmallMax64*2,SmallMax64*2},
 	   {2,Big1Max64*4 div 13,Big1Max64*2,-Big1Max64*2}]),
