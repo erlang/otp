@@ -55,11 +55,11 @@ fi
 
 case "${BASE_TAG}" in
     *i386-debian-base)
-        BASE="i386/debian:bookworm"
+        BASE="i386/debian:trixie"
         BASE_TYPE=debian-base
         ;;
     *debian-base)
-        BASE="debian:bookworm"
+        BASE="debian:trixie"
         BASE_TYPE=debian-base
         ;;
     *ubuntu-base)
