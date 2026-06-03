@@ -321,6 +321,42 @@
   ],
   "otp-27": [
     {
+      "pkg:otp/ssh@5.2": "CVE-2026-32147",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssh@5.2.11.7",
+        "fixed": [
+          "pkg:otp/ssh@5.2.11.7"
+        ]
+      }
+    },
+    {
+      "pkg:otp/public_key@1.16": "CVE-2026-42791",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/public_key@1.17.1.3",
+        "fixed": [
+          "pkg:otp/public_key@1.17.1.3"
+        ]
+      }
+    },
+    {
+      "pkg:otp/public_key@1.16": "CVE-2026-42789",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/public_key@1.17.1.3",
+        "fixed": [
+          "pkg:otp/public_key@1.17.1.3"
+        ]
+      }
+    },
+    {
+      "pkg:otp/public_key@1.16": "CVE-2026-42790",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/public_key@1.17.1.3",
+        "fixed": [
+          "pkg:otp/public_key@1.17.1.3"
+        ]
+      }
+    },
+    {
       "pkg:otp/kernel@10.0": "CVE-2026-28810",
       "status": {
         "affected": "Update to any of the following versions: pkg:otp/kernel@10.2.7.4",
@@ -649,6 +685,42 @@
     }
   ],
   "otp-28": [
+    {
+      "pkg:otp/ssh@5.3": "CVE-2026-32147",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssh@5.5.2",
+        "fixed": [
+          "pkg:otp/ssh@5.5.2"
+        ]
+      }
+    },
+    {
+      "pkg:otp/public_key@1.18": "CVE-2026-42791",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/public_key@1.20.3.1",
+        "fixed": [
+          "pkg:otp/public_key@1.20.3.1"
+        ]
+      }
+    },
+    {
+      "pkg:otp/public_key@1.18": "CVE-2026-42789",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/public_key@1.20.3.1",
+        "fixed": [
+          "pkg:otp/public_key@1.20.3.1"
+        ]
+      }
+    },
+    {
+      "pkg:otp/public_key@1.18": "CVE-2026-42790",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/public_key@1.20.3.1",
+        "fixed": [
+          "pkg:otp/public_key@1.20.3.1"
+        ]
+      }
+    },
     {
       "pkg:otp/kernel@10.3": "CVE-2026-28810",
       "status": {
@@ -1001,6 +1073,33 @@
     }
   ],
   "otp-29": [
+    {
+      "pkg:otp/public_key@1.21": "CVE-2026-42791",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/public_key@1.21.1",
+        "fixed": [
+          "pkg:otp/public_key@1.21.1"
+        ]
+      }
+    },
+    {
+      "pkg:otp/public_key@1.21": "CVE-2026-42789",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/public_key@1.21.1",
+        "fixed": [
+          "pkg:otp/public_key@1.21.1"
+        ]
+      }
+    },
+    {
+      "pkg:otp/public_key@1.21": "CVE-2026-42790",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/public_key@1.21.1",
+        "fixed": [
+          "pkg:otp/public_key@1.21.1"
+        ]
+      }
+    },
     {
       "pkg:github//KhronosGroup/OpenGL-Refpages@dc585039bbd426829e3433002023a93f9bedd0c2": "CVE-2024-58249",
       "status": { "not_affected": "vulnerable_code_not_present" }
