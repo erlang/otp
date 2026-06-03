@@ -158,6 +158,7 @@ jobs:
       # uses the token from `gh`. otherwise, `persist-credentials` should not be `false`.
       # changing `persist-credentials` is not a good option
       - name: Configure git to use gh as credential helper
+        if: steps.changed.outputs.found == 'true'
         run: gh auth setup-git
 
       - name: Get GitHub App User ID
