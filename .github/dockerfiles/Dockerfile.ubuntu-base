@@ -24,7 +24,7 @@
 ARG BASE=gitpod/workspace-full
 FROM $BASE
 
-ENV INSTALL_LIBS="zlib1g-dev libncurses5-dev libssl-dev unixodbc-dev libsctp-dev lksctp-tools libgmp3-dev libwxbase3.0-dev libwxgtk3.0-gtk3-dev libwxgtk-webview3.0-gtk3-dev"
+ENV INSTALL_LIBS="zlib1g-dev libncurses5-dev libssl-dev unixodbc-dev libsctp-dev lksctp-tools libgmp3-dev libwxgtk3.2-dev libwxgtk-webview3.2-dev"
 
 USER root
 
@@ -36,9 +36,8 @@ RUN apt-get update && apt-get -y upgrade && \
     apt-get install -y build-essential m4 autoconf clang-format \
     flex pkg-config locales tzdata sudo ${INSTALL_LIBS} && \
     sed -i 's@# en_US.UTF-8@en_US.UTF-8@g' /etc/locale.gen && locale-gen && \
-    update-alternatives --set wx-config /usr/lib/x86_64-linux-gnu/wx/config/gtk3-unicode-3.0 && \
     apt-get install -y openjdk-8-jdk-headless && apt-get install -y openjdk-11-jdk-headless && \
-    (update-java-alternatives -s java-1.8.0-openjdk-amd64 || true) && \
+    update-java-alternatives -s java-1.8.0-openjdk-$(dpkg --print-architecture) && \
     java -version 2>&1 | grep 'version "1[.]8' > /dev/null || exit 1
 
 ARG MAKEFLAGS=-j4
