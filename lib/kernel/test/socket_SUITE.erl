@@ -151,6 +151,7 @@
          recvmmsg_large_batch_udp4/1,
          sendmmsg_large_batch_udp4/1,
          recvmmsg_partial_receive_udp4/1,
+         recvmmsg_trunc_bufsz_clamp_udp4/1,
          recvmmsg_select_nowait_udp4/1,
          sendmmsg_select_nowait_udp4/1,
          sendmmsg_with_addresses_udp4/1,
@@ -386,6 +387,7 @@ batch_cases() ->
      recvmmsg_large_batch_udp4,
      sendmmsg_large_batch_udp4,
      recvmmsg_partial_receive_udp4,
+     recvmmsg_trunc_bufsz_clamp_udp4,
      recvmmsg_select_nowait_udp4,
      sendmmsg_select_nowait_udp4,
      sendmmsg_with_addresses_udp4,
@@ -15469,6 +15471,51 @@ recvmmsg_partial_receive_udp4(_Config) when is_list(_Config) ->
             %% Verify the data
             [<<"m1">>, <<"m2">>, <<"m3">>] =
                 [Data || Msg <- Received, [Data] <- [maps:get(iov, Msg)]],
+            ok = socket:close(S1),
+            ok = socket:close(S2),
+            ok
+        end
+    ).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Regression test: a per-message buffer smaller than the datagram, combined
+%% with the 'trunc' flag.
+%%
+%% With MSG_TRUNC the kernel reports the *untruncated* datagram length for the
+%% message, while only buffer-size bytes are actually placed in the buffer. The
+%% receive path must size/copy the delivered data by the buffer size, not by the
+%% reported length -- otherwise it reads/writes past the per-message buffer.
+%% This case asserts the delivered data stays within the buffer; run under the
+%% asan emulator an unbounded copy aborts in the sanitizer instead.
+%%
+recvmmsg_trunc_bufsz_clamp_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        recvmmsg_trunc_bufsz_clamp_udp4,
+        fun() ->
+            has_support_ipv4(),
+            has_recvmmsg_support()
+        end,
+        fun() ->
+            BufSz = 16,
+            {ok, S1} = socket:open(inet, dgram, udp),
+            {ok, S2} = socket:open(inet, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet),
+            ok = socket:bind(S1, #{family => inet, addr => Addr, port => 0}),
+            {ok, #{port := LocalPort}} = socket:sockname(S1),
+            ok = socket:connect(S2, #{family => inet, addr => Addr, port => LocalPort}),
+            %% One datagram far larger than the per-message buffer.
+            Big = binary:copy(<<$A>>, 2048),
+            ok = socket:sendmsg(S2, #{iov => [Big]}),
+            %% VLen=1, small BufSz, CtrlSz=0, [trunc]: the message length is
+            %% reported as 2048 but only BufSz bytes belong in the buffer.
+            {ok, [Msg]} = socket:recvmmsg(S1, 1, BufSz, 0, [trunc], infinity),
+
+            %% We should only receive BufSz bytes, not the full datagram length - verifies no overflow/copy-past-end
+            Data = binary:copy(<<$A>>, BufSz),
+            [Data] = maps:get(iov, Msg),
+
             ok = socket:close(S1),
             ok = socket:close(S2),
             ok

@@ -4216,6 +4216,12 @@ ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
             size_t       ctrlLen;
             unsigned int msgLen = recvMmsghdrs[i].msg_len;
 
+            /* With MSG_TRUNC, msg_len is the untruncated datagram length, which
+             * may exceed the receive buffer; only bufSz bytes were actually
+             * stored. Clamp so we never read past recvBufs or write past the
+             * result binary. */
+            if (msgLen > bufSz)
+                msgLen = bufSz;
 
             ESOCK_ASSERT( ALLOC_BIN(bufSz, &bufs[i]) );
             sys_memcpy(bufs[i].data, recvBufs + (i * bufSz), msgLen);
