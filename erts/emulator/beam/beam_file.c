@@ -288,7 +288,7 @@ static int parse_atom_chunk(BeamFile *beam,
         }
 
         LoadAssert(beamreader_read_bytes(&reader, length, &string));
-        atom = erts_atom_put(string, length, ERTS_ATOM_ENC_UTF8, 1);
+        atom = erts_atom_put(string, length, ERTS_ATOM_ENC_UTF8, 0);
         LoadAssert(atom != THE_NON_VALUE);
 
         atoms->entries[i] = atom;
