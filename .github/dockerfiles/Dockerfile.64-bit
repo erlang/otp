@@ -44,7 +44,7 @@ ENV CXXFLAGS="-Wno-maybe-uninitialized"
 ENV SKIPPED_OSSF_CFLAGS="-Wconversion -mbranch-protection=standard \
     -Wextra  -Werror=implicit -Werror=incompatible-pointer-types -Werror=int-conversion \
     -Wsign-conversion"
-ENV LDFLAGS=""
+ENV LDFLAGS="-fsanitize=signed-integer-overflow"
 ## OpenSSF recommended LDFLAGS, skipped are:
 ## -Wl,-z,nodlopen - as opening drivers/nifs needs this
 ## -fPIE - not needed with gcc 11
