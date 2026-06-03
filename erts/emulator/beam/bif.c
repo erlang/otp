@@ -4735,7 +4735,8 @@ BIF_RETTYPE list_to_ref_1(BIF_ALIST_1)
         n++;
         if (ints[i] > ~((Uint32) 0)) goto bad;
         if (*cp == '>') break;
-        if (*cp++ != '.') goto bad;
+        /* We don't find a ., or we are on the last position and do find a dot */
+        if (*cp++ != '.' || i == sizeof(ints)/sizeof(Uint) - 1) goto bad;
     }
 
     if (*cp++ != '>') goto bad;
