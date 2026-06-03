@@ -1366,16 +1366,16 @@ BIF_RETTYPE hibernate_3(BIF_ALIST_3)
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    while (is_list(args) && arity <= MAX_ARG) {
-        args = CDR(list_val(args));
-        arity++;
+    while (is_list(args)) {
+        if (arity < MAX_ARG) {
+            args = CDR(list_val(args));
+            arity++;
+        } else {
+            BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+        }
     }
 
     if (is_not_nil(args)) {
-        if (arity > MAX_ARG) {
-            BIF_ERROR(BIF_P, SYSTEM_LIMIT);
-        }
-
         BIF_ERROR(BIF_P, BADARG);
     }
 
