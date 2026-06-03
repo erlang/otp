@@ -106,7 +106,7 @@ jobs:
       - name: Find modified OpenVEX files
         id: changed
         run: |
-          git diff --name-only --diff-filter=AM origin/master -- 'vex/*.openvex.json' > /tmp/changed-vex.txt
+          git diff --name-only --diff-filter=AM HEAD~1 HEAD -- 'vex/*.openvex.json' > /tmp/changed-vex.txt
           echo "Modified OpenVEX files:"
           cat /tmp/changed-vex.txt
           if [ -s /tmp/changed-vex.txt ]; then
