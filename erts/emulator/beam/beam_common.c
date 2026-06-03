@@ -1503,7 +1503,7 @@ apply(Process* p, Eterm* reg, ErtsCodePtr I, Uint stack_offset)
     tmp = args;
     arity = 0;
     while (is_list(tmp)) {
-	if (arity < (MAX_REG - 1)) {
+        if (arity < MAX_ARG) {
 	    reg[arity++] = CAR(list_val(tmp));
 	    tmp = CDR(list_val(tmp));
 	} else {
