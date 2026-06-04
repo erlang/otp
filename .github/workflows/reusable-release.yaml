@@ -58,10 +58,11 @@ jobs:
       vsn:        ${{ inputs.vsn }}
       otp_branch: ${{ inputs.otp_branch }}
     permissions:
-      contents:     write   # gh release create/upload, gh api
-      attestations: write   # actions/attest (SBoM attestation)
-      id-token:     write   # OIDC token for Sigstore signing (actions/attest)
-      actions:      write   # actions/download-artifact, actions/upload-artifact
+      contents:     write   # actions/checkout + gh release create + gh api (read otp_versions.table)
+      attestations: write   # actions/attest-sbom (generate signed attestation bundles)
+      id-token:     write   # actions/attest-sbom (OIDC token for Sigstore signing)
+      actions:      write   # actions/download-artifact (otp_prebuilt, otp_doc_html, otp_doc_man, ort-results-*)
+                            # actions/upload-artifact (Attestations)
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
         with:
@@ -81,6 +82,8 @@ jobs:
         with:
           name: otp_doc_man
 
+      ## We add the correct version name into the file names
+      ## and create the hash files for all assets
       - name: Create pre-build and doc archives
         env:
           STEPS_TAG_OUTPUTS_TAG: ${{ inputs.tag }}
