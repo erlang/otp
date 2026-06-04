@@ -3,8 +3,8 @@
   "@id": "https://erlang.org/download/vex/otp-27.openvex.json",
   "author": "vexctl",
   "timestamp": "2025-12-01T14:56:28Z",
-  "last_updated": "2026-04-08T01:38:51.745196177Z",
-  "version": 71,
+  "last_updated": "2026-06-03T14:23:12.507336823Z",
+  "version": 79,
   "statements": [
     {
       "vulnerability": {
@@ -4551,6 +4551,569 @@
         },
         {
           "@id": "pkg:otp/kernel@10.2.7.4"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42790"
+      },
+      "timestamp": "2026-06-03T14:23:12.366069003Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.0"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.0.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.1.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.1.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.1.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.2.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.2.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.2.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.2.4"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.4"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.5"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.6"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.7"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.8"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.9"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.10"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.11"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.16"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.16.1"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.16.2"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.16.3"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.16.4"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.17"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.17.1"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.17.1.1"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.17.1.2"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to any of the following versions: pkg:otp/public_key@1.17.1.3",
+      "action_statement_timestamp": "2026-06-03T14:23:12.366069003Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42790"
+      },
+      "timestamp": "2026-06-03T14:23:12.386343277Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.12"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.17.1.3"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42789"
+      },
+      "timestamp": "2026-06-03T14:23:12.407211689Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.0"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.0.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.1.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.1.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.1.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.2.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.2.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.2.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.2.4"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.4"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.5"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.6"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.7"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.8"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.9"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.10"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.11"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.16"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.16.1"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.16.2"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.16.3"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.16.4"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.17"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.17.1"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.17.1.1"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.17.1.2"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to any of the following versions: pkg:otp/public_key@1.17.1.3",
+      "action_statement_timestamp": "2026-06-03T14:23:12.407211689Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42789"
+      },
+      "timestamp": "2026-06-03T14:23:12.426824555Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.12"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.17.1.3"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42791"
+      },
+      "timestamp": "2026-06-03T14:23:12.446959854Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.0"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.0.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.1.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.1.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.1.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.2.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.2.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.2.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.2.4"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.4"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.5"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.6"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.7"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.8"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.9"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.10"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.11"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.16"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.16.1"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.16.2"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.16.3"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.16.4"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.17"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.17.1"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.17.1.1"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.17.1.2"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to any of the following versions: pkg:otp/public_key@1.17.1.3",
+      "action_statement_timestamp": "2026-06-03T14:23:12.446959854Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42791"
+      },
+      "timestamp": "2026-06-03T14:23:12.466918004Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.12"
+        },
+        {
+          "@id": "pkg:otp/public_key@1.17.1.3"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-32147"
+      },
+      "timestamp": "2026-06-03T14:23:12.487277139Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.0"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.0.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.1.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.1.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.1.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.2.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.2.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.2.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.2.4"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.4"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.5"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.6"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.7"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.8"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.9"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.10"
+        },
+        {
+          "@id": "pkg:otp/ssh@5.2"
+        },
+        {
+          "@id": "pkg:otp/ssh@5.2.1"
+        },
+        {
+          "@id": "pkg:otp/ssh@5.2.2"
+        },
+        {
+          "@id": "pkg:otp/ssh@5.2.3"
+        },
+        {
+          "@id": "pkg:otp/ssh@5.2.4"
+        },
+        {
+          "@id": "pkg:otp/ssh@5.2.5"
+        },
+        {
+          "@id": "pkg:otp/ssh@5.2.6"
+        },
+        {
+          "@id": "pkg:otp/ssh@5.2.7"
+        },
+        {
+          "@id": "pkg:otp/ssh@5.2.8"
+        },
+        {
+          "@id": "pkg:otp/ssh@5.2.9"
+        },
+        {
+          "@id": "pkg:otp/ssh@5.2.10"
+        },
+        {
+          "@id": "pkg:otp/ssh@5.2.11"
+        },
+        {
+          "@id": "pkg:otp/ssh@5.2.11.1"
+        },
+        {
+          "@id": "pkg:otp/ssh@5.2.11.2"
+        },
+        {
+          "@id": "pkg:otp/ssh@5.2.11.3"
+        },
+        {
+          "@id": "pkg:otp/ssh@5.2.11.4"
+        },
+        {
+          "@id": "pkg:otp/ssh@5.2.11.5"
+        },
+        {
+          "@id": "pkg:otp/ssh@5.2.11.6"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to any of the following versions: pkg:otp/ssh@5.2.11.7",
+      "action_statement_timestamp": "2026-06-03T14:23:12.487277139Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-32147"
+      },
+      "timestamp": "2026-06-03T14:23:12.507337834Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.12"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-27.3.4.11"
+        },
+        {
+          "@id": "pkg:otp/ssh@5.2.11.7"
         }
       ],
       "status": "fixed"
