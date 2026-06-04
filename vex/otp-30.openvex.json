@@ -1,0 +1,23 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://erlang.org/download/vex/otp-30.openvex.json",
+  "author": "vexctl",
+  "timestamp": "2026-06-03T09:58:52.293776+02:00",
+  "last_updated": "2026-06-03T09:59:01.35646983+02:00",
+  "version": 2,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "OSV-2026-343"
+      },
+      "timestamp": "2026-06-03T09:59:01.356470264+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/PCRE2Project/pcre2@f454e231fe5006dd7ff8f4693fd2b8eb94333429"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    }
+  ]
+}
