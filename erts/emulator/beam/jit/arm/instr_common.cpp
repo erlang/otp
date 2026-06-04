@@ -2209,7 +2209,7 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
         Label next = a.new_label();
         comment("simplified test because it always succeeds when LHS is a "
                 "bignum");
-        emit_is_not_boxed(next, rhs.reg);
+        emit_is_not_boxed(next, lhs.reg);
         a.cmp(lhs.reg, rhs.reg);
         a.b_ge(resolve_beam_label(Fail, disp1MB));
         a.bind(next);

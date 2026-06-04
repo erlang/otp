@@ -24,7 +24,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,
+-export([all/0, suite/0, groups/0,
          bsl_bsr/1,logical/1,t_not/1,relop_simple/1,relop/1,
          complex_relop/1,unsafe_fusing/1,
          range_tests/1,combined_relops/1,typed_relop/1,
@@ -37,9 +37,13 @@ suite() ->
      {timetrap, {minutes, 5}}].
 
 all() ->
-    [bsl_bsr, logical, t_not, relop_simple, relop,
-     complex_relop, unsafe_fusing, range_tests,
-     combined_relops, typed_relop, term_equivalence].
+    [{group, ops}].
+
+groups() ->
+    [{ops, [parallel], [bsl_bsr, logical, t_not, relop_simple, relop,
+                        complex_relop, unsafe_fusing, range_tests,
+                        combined_relops, typed_relop, term_equivalence]
+     }].
 
 %% Test the bsl and bsr operators.
 bsl_bsr(Config) when is_list(Config) ->
@@ -991,6 +995,13 @@ typed_relop(Config) when is_list(Config) ->
     other = classify_value(id(1 bsl 64)),
     other = classify_value(id(a)),
 
+    %% Check bug in ARM JIT for lt operand
+    less = lt_upper_bounded(id(-1 bsl 128), 5),
+    less = lt_upper_bounded(id(-1 bsl 64), 0),
+    less = lt_upper_bounded(id(3), 5),
+    not_less = lt_upper_bounded(id(50), 5),
+    not_less = lt_upper_bounded(id(200), 5),
+
     ok.
 
 compare_integer_pid(N) when is_integer(N) ->
@@ -1016,6 +1027,15 @@ classify_value(N) when is_integer(N), N < 0 ->
     negative;
 classify_value(_N) ->
     other.
+
+%% The guard narrows X to an integer with only an upper bound (no lower bound,
+%% so not always a small) and Y to a small, which selects the bounded-LHS
+%% is_lt code path in the JIT.
+lt_upper_bounded(X, Y) when is_integer(X), is_integer(Y),
+                            X =< 100, Y >= 0, Y =< 255, X < Y ->
+    less;
+lt_upper_bounded(_, _) ->
+    not_less.
 
 term_equivalence(_Config) ->
     %% Term equivalence has been tested before in this suite, but we need to
