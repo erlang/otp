@@ -1006,9 +1006,19 @@ seed_s(Alg_or_State) ->
     end.
 
 default_seed() ->
-    {erlang:phash2([{node(),self()}]),
-     erlang:system_time(),
-     erlang:unique_integer()}.
+    %% The purpose of this seed is that it shall be different
+    %% for different calls in a cluster even if they coincide in time.
+    %% High entropy is hard to find and not a primary goal.
+    %%
+    %% Luckily self() in external term format contains the node name
+    %% so the seed will differ between nodes as well as between processes.
+    %% unique_integer makes the seed differ between calls.  system_time
+    %% gives some more entropy.  MD5 is used to spread out the entropy
+    %% over all 3 seed integers.
+    %%
+    SeedTerm = {self(), erlang:unique_integer(), erlang:system_time()},
+    <<A:43, B:43, C:42>> = erlang:md5(term_to_binary(SeedTerm)),
+    {A, B, C}.
 
 %% seed/2: seeds RNG with the algorithm and given values
 %% and returns the NEW state.
