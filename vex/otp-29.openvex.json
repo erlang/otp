@@ -3,8 +3,8 @@
   "@id": "https://openvex.dev/docs/public/otp/vex-otp-29",
   "author": "vexctl",
   "timestamp": "2025-09-19T10:20:20.759995+02:00",
-  "last_updated": "2026-06-03T14:23:07.638251938Z",
-  "version": 28,
+  "last_updated": "2026-06-04T09:58:42.287861368+02:00",
+  "version": 30,
   "statements": [
     {
       "vulnerability": {
@@ -374,6 +374,41 @@
         }
       ],
       "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "OSV-2026-343"
+      },
+      "timestamp": "2026-06-04T09:58:42.270515355+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0"
+        },
+        {
+          "@id": "pkg:otp/erts@17.0"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.1"
+        },
+        {
+          "@id": "pkg:otp/erts@17.0.1"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "OSV-2026-343"
+      },
+      "timestamp": "2026-06-04T09:58:42.287861838+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/PCRE2Project/pcre2@f454e231fe5006dd7ff8f4693fd2b8eb94333429"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
     }
   ]
 }
