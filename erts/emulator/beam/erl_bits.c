@@ -423,6 +423,7 @@ erts_bs_get_binary_2(Process *p, Uint num_bits, ErlSubBits *sb)
     return result;
 }
 
+#if !((SIZEOF__FLOAT16 == 2) && defined(FLOAT16_IS_CONVERTIBLE))
 static ERTS_INLINE Uint16 f32_to_f16(float fp)
 {
     union {
@@ -531,6 +532,7 @@ static ERTS_INLINE float f16_to_f32(Uint16 fp)
     u.u32 = res;
     return u.f32;
 }
+#endif
 
 Eterm
 erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlSubBits *sb)
