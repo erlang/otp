@@ -3397,48 +3397,57 @@ static int sctp_parse_error_chunk
     /* The "chunk" itself contains its length, which must not be greater than
        the "chlen" derived from the over-all msg size:
     */
-    char *causes, *cause;
-    int coff,  /* Cause offset */
-	ccode, /* Cause code */
-	clen,  /* cause length */
-	s;
-    int len = sock_ntohs (*((uint16_t*)(chunk+2)));
-    ASSERT(len >= 4 && len <= chlen);
+    char *cause; /* Current cause pointer */
+    int   len;   /* Remaining chunk length, chlen - (cause - chunk) */
+    int   s;     /* List length */
 
-    causes = chunk + 4;
-    coff   = 0;
-    len -= 4;  /* Total length of the "causes" fields */
-    cause  = causes;
-    s      = 0;
+    s = 0;
+    len = sock_ntohs (*((uint16_t*)(chunk+2)));
+    len = MIN(len, chlen);
+    cause = chunk;
 
-    while (coff < len)
-    {
+    /* There should be at least chunk header + one error code */
+    if (len < 4+4) goto truncate;
+    /* Step over chunk header */
+    len   -= 4;
+    cause += 4;
+
+    /* When len == 0 we have a clean end of Error causes */
+    while (len > 0) {
+        int ccode, clen;  /* Cause code, cause length */
+
+        if (len < 4) goto truncate;
 	ccode = sock_ntohs (*((uint16_t*)(cause)));
 	clen  = sock_ntohs (*((uint16_t*)(cause + 2)));
+        if (clen < 4) goto truncate;
         /* Install the corresp atom for this "ccode": */
-	i = LOAD_INT (spec, i, ccode);
-	s ++;
-        if (clen <= 0 || /* Overflow - truncate here */
-            i + 2*LOAD_INT_CNT+LOAD_NIL_CNT+LOAD_LIST_CNT > spec_size)
+	i = LOAD_INT (spec, i, ccode); s++;
+        if (i + 2*LOAD_INT_CNT+LOAD_NIL_CNT+LOAD_LIST_CNT > spec_size) {
             /* We do not have room for two INT:s which is
              * the worst case for the next iteration, so truncate now.
              *
              * We should have room for the truncation marker since
              * we have added at most one INT after the previous check.
-             */ {
-            i = LOAD_INT (spec, i, 0);
-            /* Truncation marker - there is no error 0 */
-            s ++;
-            break;
+             */
+            goto truncate;
         }
-	cause += clen;
-	coff  += clen;
+        if (len < clen) goto truncate;
+        /* Step over Error cause */
+        len   -= clen;
+        cause += clen;
     }
+    goto done;
+
+ truncate:
+    /* Truncation marker - there is no error 0 */
+    i = LOAD_INT (spec, i, 0); s++;
+ done:
     /* Finalize the list */
-    i = LOAD_NIL (spec, i);
-    i = LOAD_LIST(spec, i, s+1);
+    i = LOAD_NIL (spec, i); s++;
+    i = LOAD_LIST(spec, i, s);
     return i;
 }
+
 
 /*
 ** Parsing of SCTP notification events. NB: they are NOT ancillary data: they
