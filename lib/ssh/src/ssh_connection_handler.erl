@@ -2105,6 +2105,8 @@ get_repl({channel_data,undefined,_Data}, Acc) ->
 get_repl({channel_data,Pid,Data}, Acc) ->
     Pid ! {ssh_cm, self(), Data},
     Acc;
+get_repl({channel_request_reply,undefined,_Data}, Acc) ->
+    Acc;
 get_repl({channel_request_reply,From,Data}, {CallRepls,S}) ->
     {[{reply,From,Data}|CallRepls], S};
 get_repl({flow_control,Cache,Channel,From,Msg}, {CallRepls,S}) ->
@@ -2226,7 +2228,7 @@ triggered_alive(StateName, D0 = #data{},
             {stop, Shutdown, D};
         _ ->
             D = send_msg({ssh_msg_global_request,"keepalive@erlang.org", true, <<>>},
-                             D0),
+                             add_request(fun(_,Conn) -> Conn end, make_ref(), undefined, D0)),
             Ssh = D#data.ssh_params,
             Now = erlang:monotonic_time(milli_seconds),
             Ssh1 = Ssh#ssh{alive_probes_sent = SentProbes + 1,
