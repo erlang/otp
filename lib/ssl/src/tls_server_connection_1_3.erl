@@ -439,7 +439,7 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts, ?TLS_1_3),
         #session{own_certificates = [Cert|_]} = Session =
             Maybe(select_server_cert_key_pair(Session0, CertKeyPairs, ClientSignAlgs,
-                                              ClientSignAlgsCert, CertAuths, State0,
+                                              ClientSignAlgsCert, CertAuths, State1,
                                               undefined)),
         {PublicKeyAlgo, _, _, RSAKeySize, Curve} = tls_handshake_1_3:get_certificate_params(Cert),
 
