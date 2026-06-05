@@ -1584,9 +1584,9 @@ pkix_hash_type(?'id-sha384') ->
     sha384;
 pkix_hash_type(?'id-sha256') ->
     sha256;
-pkix_hash_type('id-sha224') ->
+pkix_hash_type(?'id-sha224') ->
     sha224;
-pkix_hash_type('id-md5') ->
+pkix_hash_type(?'id-md5') ->
     md5.
 
 %%--------------------------------------------------------------------
