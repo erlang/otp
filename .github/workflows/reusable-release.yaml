@@ -122,8 +122,19 @@ jobs:
           predicate-type: https://spdx.dev/Document
           predicate-path: bom.spdx.json
 
-      # Attest build provenance for doc archives.
-      # This is equivalent to what actions/attest-build-provenance used to do.
+      - name: Attest SBoM document provenance
+        id: attest-sbom-doc
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
+        with:
+          subject-path: bom.spdx.json
+
+      # Attest build provenance for doc archives. This is equivalent to what
+      # actions/attest-build-provenance used to do. Attesting multiple files
+      # here will create a single attestation bundle covering both files as
+      # subjects. So when running `gh attestation download` for either file, we
+      # get back the same bundle. thus, the two .sigstore files for the
+      # documentation in html and man are identical copies of the same bundle,
+      # i.e., they will have the same hash.
       - name: Attest doc archives
         id: attest-docs
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # ratchet:actions/attest@v4.1.0
@@ -173,6 +184,14 @@ jobs:
             mv "${tmpdir}/${bundle_file}" "sigstore-bundles/${name}.sigstore"
             rm -rf "${tmpdir}"
           done
+
+          # Build provenance bundle for bom.spdx.json
+          abs=$(realpath bom.spdx.json)
+          tmpdir=$(mktemp -d)
+          (cd "${tmpdir}" && gh attestation download "${abs}" --repo "${REPO}")
+          bundle_file=$(ls "${tmpdir}/")
+          mv "${tmpdir}/${bundle_file}" "sigstore-bundles/bom.spdx.json.sigstore"
+          rm -rf "${tmpdir}"
 
       - name: Mark as latest
         id: latest-release
