@@ -1540,14 +1540,14 @@ message_printing(Config) ->
     ] = messages(BadEncErrors),
 
     UTF8File = filename:join(DataDir, "col_utf8.erl"),
-    {ok,_,UTF8Errors} = compile:file(UTF8File, [return]),
+    {ok,_,UTF8Errors} = compile:file(UTF8File, [return,nowarn_latin1_binary]),
     [":5:23: a term is constructed, but never used\n"
      "%    5|     B = <<\"xyzåäö\">>,\t<<\"12345\">>,\n"
      "%     |                      \t^\n\n"
     ] = messages(UTF8Errors),
 
     Latin1File = filename:join(DataDir, "col_lat1.erl"),
-    {ok,_,Latin1Errors} = compile:file(Latin1File, [return]),
+    {ok,_,Latin1Errors} = compile:file(Latin1File, [return,nowarn_latin1_binary]),
     [":6:23: a term is constructed, but never used\n"
      "%    6|     B = <<\"xyzåäö\">>,\t<<\"12345\">>,\n"
      "%     |                      \t^\n\n"

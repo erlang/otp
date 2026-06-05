@@ -2371,9 +2371,8 @@ qcon1(ConstOps) ->
 qcode(E, QCs, Source, Anno, State) ->
     CL = [begin
               Bin = term_to_binary(C, [compressed]),
-              {bin, Anno, [{bin_element, Anno,
-                         {string, Anno, binary_to_list(Bin)},
-                         default, default}]}
+              {bin, Anno, [{bin_element, Anno, {integer, Anno, B}, default, default}
+                           || B <- binary_to_list(Bin)]}
           end || {_,C} <- lists:keysort(1, [{qlc:template_state(),E} |
                                             qcode(QCs, Source, State)])],
     {'fun', Anno, {clauses, [{clause, Anno, [], [], [{tuple, Anno, CL}]}]}}.

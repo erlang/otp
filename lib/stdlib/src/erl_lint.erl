@@ -605,6 +605,38 @@ format_error_1({bad_bitsize,Type}) ->
     {~"bad ~s bit size", [Type]};
 format_error_1(unsized_binary_in_bin_gen_pattern) ->
     ~"binary fields without size are not allowed in patterns of bit string generators";
+format_error_1(latin1_binary) ->
+    ~"""
+     binary string will be Latin-1 encoded.
+     A binary text segment with no /utf8, /utf16, or /utf32 specifier is
+     encoded using 1 byte per character (Latin-1), for historical reasons.
+     You probably only want to do this with characters in the ASCII range (0-127).
+     Characters in the range 128-255 will not be compatible with UTF-8, and codes
+     above 255 cannot be represented at all.
+     Use compile directive 'nowarn_latin1_binary' to suppress this warning
+     if Latin-1 is really what you want; otherwise specify an encoding.
+     Note that `<<"..."/utf8>>` can simply be written `~"..."` since OTP 27.
+     """;
+format_error_1(truncated_character) ->
+    ~"""
+     character code larger than 255 will be truncated.
+     A binary text segment with no /utf8, /utf16, or /utf32 specifier is
+     encoded using 1 byte per character (Latin-1), for historical reasons.
+     Characters with code points above 255 will be truncated to a single byte
+     representing a different character than the one in the source code.
+     You should either specify another encoding or change the characters that
+     are out of range, or you may suppress this warning with compile directive
+     'nowarn_truncated_character'.
+     Note that `<<"..."/utf8>>` can simply be written `~"..."` since OTP 27.
+     """;
+format_error_1({truncated_integer,Int,Bits,Sign}) ->
+    {~"""
+      integer value outside range of binary segment will be truncated.
+      The value ~w cannot be encoded as ~w bits ~tw.
+      Compile directive 'nowarn_truncated_integer' can be used to suppress this
+      warning.
+      """,
+     [Int,Bits,Sign]};
 %% --- behaviours ---
 format_error_1({conflicting_behaviours,{Name,Arity},B,FirstL,FirstB}) ->
     {~"conflicting behaviours -- callback ~tw/~w required by both '~p' and '~p' ~s",
@@ -980,6 +1012,9 @@ bool_options() ->
      {undefined_field,true},
      {unsafe_function,true},
      {possibly_unsafe_function,false},
+     {latin1_binary,true},
+     {truncated_character,true},
+     {truncated_integer,true},
      {native_record_header,true}].
 
 %% is_warn_enabled(Category, St) -> boolean().
@@ -2618,8 +2653,9 @@ bin_element({bin_element,Anno,E,Sz0,Ts}, Vt, {Esvt,St0}, Check) ->
     {Vt1,St1} = Check(E, Vt, St0),
     {Sz1,Vt2,St2} = bit_size(Sz0, Vt, St1, Check),
     {Sz2,Bt,St3} = bit_type(Anno, Sz1, Ts, St2),
-    {_Sz3,St4} = bit_size_check(Anno, Sz2, Bt, St3),
-    {vtmerge([Vt2,Vt1,Esvt]),St4}.
+    {Sz3,St4} = bit_size_check(Anno, Sz2, Bt, St3),
+    St5 = bin_element_check(erl_eval:partial_eval(E), Sz3, Bt, St4),
+    {vtmerge([Vt2,Vt1,Esvt]),St5}.
 
 bit_size(default, _Vt, St, _Check) -> {default,[],St};
 bit_size({atom,_Anno,all}, _Vt, St, _Check) -> {all,[],St};
@@ -2678,6 +2714,29 @@ elemtype_check(Anno, float, _Size, St) ->
     add_warning(Anno, {bad_bitsize,"float"}, St);
 elemtype_check(_Anno, _Type, _Size, St) ->  St.
 
+bin_element_check({string,_,_}, _Bits, #bittype{type=Type}, St0)
+ when Type =:= utf8 ; Type =:= utf16 ; Type =:= utf32 ->
+    St0;
+bin_element_check({string,Anno,List}, _Bits, #bittype{}, St0) ->
+    case lists:any(fun(Char) -> Char > 255 end, List) of
+        true -> maybe_add_warning(Anno, truncated_character, St0);
+        false ->
+            case lists:any(fun(Char) -> Char > 127 end, List) of
+                false -> St0;
+                true -> maybe_add_warning(Anno, latin1_binary, St0)
+            end
+    end;
+bin_element_check({integer,Anno,Int}, Bits, #bittype{type=integer,sign=Sign}, St0) ->
+   case Sign of
+      unsigned when Int < 0; Int >= 1 bsl Bits ->
+          maybe_add_warning(Anno, {truncated_integer,Int,Bits,Sign}, St0);
+      signed when Int >= 1 bsl (Bits-1); -Int > 1 bsl (Bits-1) ->
+          maybe_add_warning(Anno, {truncated_integer,Int,Bits,Sign}, St0);
+      _ ->
+          St0
+    end;
+bin_element_check(_, _, _, St0) ->
+    St0.
 
 %% guard([GuardTest], VarTable, State) ->
 %%      {UsedVarTable,State}

@@ -1,8 +1,15 @@
 #!/usr/bin/env escript
-%% -*- erlang -*-
 %%! +pc unicode
+%% -*- erlang; coding: utf-8 -*-
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 -export([main/1]).
-%% -*- encoding:utf-8 -*-
+-compile(nowarn_latin1_binary).
 
 main(_) ->
     ok = io:setopts([{encoding,unicode}]),

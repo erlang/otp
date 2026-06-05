@@ -38,7 +38,7 @@ seq_roundtrip(I, D0) ->
     end.
 
 types() ->
-    [{"CHOICE { a INTEGER, b BIT STRING }", {b,<<42:3>>}},
+    [{"CHOICE { a INTEGER, b BIT STRING }", {b,<<2:3>>}},
      {"INTEGER",42},
      {"SEQUENCE {a OCTET STRING}",{'_',<<"abc">>}},
      {"SEQUENCE {b BOOLEAN, ...}",{'_',true}},
