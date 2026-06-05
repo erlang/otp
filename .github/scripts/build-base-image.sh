@@ -92,7 +92,6 @@ else
        ${BASE_CACHE} \
        --file ".github/dockerfiles/Dockerfile.${BASE_TYPE}" \
        --build-arg MAKEFLAGS=-j6 \
-       --build-arg USER=otptest --build-arg GROUP=uucp \
        --build-arg uid="$(id -u)" \
        --build-arg LATEST_ERLANG_VERSION="${LATEST_ERLANG_VERSION}" \
        --build-arg BASE="${BASE}" \
