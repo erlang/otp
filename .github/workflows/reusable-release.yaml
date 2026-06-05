@@ -402,10 +402,7 @@ jobs:
 
           | Artifact | SHA-256 |
           |----------|---------|
-
           HEADER
-
-            # tar.gz artifacts
             for f in release-files/*.tar.gz; do
               [ -f "$f" ] || continue
               name=$(basename "$f")
@@ -413,15 +410,12 @@ jobs:
               printf "| \`%s\` | \`%s\` |\n" "$name" "$hash"
             done
 
-            # bom files
-            for f in release-files/bom.*; do
-              [ -f "$f" ] || continue
-              name=$(basename "$f")
-              hash=$(sha256sum "$f" | awk '{print $1}')
-              printf "| \`%s\` | \`%s\` |\n" "$name" "$hash"
-            done
+            # print boom.spdx.json file
+            name=$(basename bom.spdx.json)
+            hash=$(sha256sum release-files/bom.spdx.json | awk '{print $1}')
+            printf "| \`%s\` | \`%s\` |\n" "$name" "$hash"
 
-            # sigstore bundles
+            # Emit ALL .sigstore bundles exactly once
             for f in release-files/*.sigstore; do
               [ -f "$f" ] || continue
               name=$(basename "$f")
