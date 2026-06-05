@@ -111,24 +111,33 @@ jobs:
       # Attest the SBoM only. Build provenance comes exclusively from the
       # slsa-github-generator job (SLSA L3) so that the release job cannot
       # influence the provenance attestation.
+      #
+      # Attest SBoM — only for the source archive.
+      # The SBoM describes source composition, so only otp_src is a valid subject.
       - name: Attest SBoM
         id: attest-sbom
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # ratchet:actions/attest@v4.1.0
         with:
-          subject-path: |
-            artifacts/*.tar.gz
-            bom.*.json
+          subject-path: artifacts/otp_src_*.tar.gz
           predicate-type: https://spdx.dev/Document
           predicate-path: bom.spdx.json
 
-      # Export the SBoM attestation as individual .sigstore bundle files so
-      # that downstream users who depend on the old pattern can still download
-      # and verify them from the release assets.
+      # Attest build provenance for doc archives.
+      # This is equivalent to what actions/attest-build-provenance used to do.
+      - name: Attest doc archives
+        id: attest-docs
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # ratchet:actions/attest@v4.1.0
+        with:
+          subject-path: |
+            artifacts/otp_doc_html_*.tar.gz
+            artifacts/otp_doc_man_*.tar.gz
+
+      # Export attestation bundles as individual .sigstore files so that
+      # downstream users who depend on the old per-artifact pattern can still
+      # download and verify them from the release assets.
       #
-      # One .sigstore file is produced per artifact, e.g.:
-      #   otp_src_29.0.tar.gz.sigstore
-      #   bom.spdx.json.sigstore
-      #   ...
+      # - otp_src_*.tar.gz  → SBoM attestation  (spdx.dev/Document)
+      # - otp_doc_*.tar.gz  → build provenance  (slsa.dev/provenance/v1)
       #
       # These contain the same attestation that is stored in GitHub's
       # attestation store; they are a convenience copy only.
@@ -141,23 +150,28 @@ jobs:
           set -euo pipefail
           mkdir -p sigstore-bundles
 
-          for f in artifacts/*.tar.gz bom.*.json; do
+          # SBoM bundle — source archive only
+          for f in artifacts/otp_src_*.tar.gz; do
             [ -f "$f" ] || continue
             name=$(basename "$f")
             abs=$(realpath "$f")
-            echo "Exporting attestation bundle for ${name}"
-
             tmpdir=$(mktemp -d)
-            (
-              cd "${tmpdir}"
-              gh attestation download "${abs}" --repo "${REPO}"
-            )
-
+            (cd "${tmpdir}" && gh attestation download "${abs}" --repo "${REPO}")
             bundle_file=$(ls "${tmpdir}/")
             mv "${tmpdir}/${bundle_file}" "sigstore-bundles/${name}.sigstore"
             rm -rf "${tmpdir}"
+          done
 
-            echo "  -> sigstore-bundles/${name}.sigstore"
+          # Build provenance bundles — doc archives
+          for f in artifacts/otp_doc_html_*.tar.gz artifacts/otp_doc_man_*.tar.gz; do
+            [ -f "$f" ] || continue
+            name=$(basename "$f")
+            abs=$(realpath "$f")
+            tmpdir=$(mktemp -d)
+            (cd "${tmpdir}" && gh attestation download "${abs}" --repo "${REPO}")
+            bundle_file=$(ls "${tmpdir}/")
+            mv "${tmpdir}/${bundle_file}" "sigstore-bundles/${name}.sigstore"
+            rm -rf "${tmpdir}"
           done
 
       - name: Mark as latest
