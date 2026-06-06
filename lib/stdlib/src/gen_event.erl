@@ -130,8 +130,6 @@ or if bad arguments are specified.
 %%%       above monitor_return() in gen.erl!
 %%%
 
--compile(nowarn_deprecated_catch).
-
 -export([start/0, start/1, start/2,
          start_link/0, start_link/1, start_link/2,
          start_monitor/0, start_monitor/1, start_monitor/2,
@@ -1596,12 +1594,16 @@ call1(M, Handler, Query, Timeout) ->
 	    exit({Reason, {?MODULE, call, [M, Handler, Query, Timeout]}})
     end.
 
-send({global, Name}, Cmd) ->
-    catch global:send(Name, Cmd),
-    ok;
 send({via, Mod, Name}, Cmd) ->
-    catch Mod:send(Name, Cmd),
-    ok;
+    try
+        Mod:send(Name, Cmd),
+        ok
+    catch
+        _:_ ->
+            ok
+    end;
+send({global, Name}, Cmd) ->
+    send({via, global, Name}, Cmd);
 send(M, Cmd) ->
     M ! Cmd,
     ok.
@@ -1679,7 +1681,7 @@ handle_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, Debug) ->
 	    reply(Tag, Reply),
 	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, Hib);
 	{_From, Tag, stop} ->
-	    catch terminate_server(normal, Parent, MSL, ServerName),
+            try terminate_server(normal, Parent, MSL, ServerName) catch _:_ -> ok end,
 	    reply(Tag, ok);
 	{_From, Tag, which_handlers} ->
 	    reply(Tag, the_handlers(MSL)),
@@ -1818,7 +1820,12 @@ server_add_handler(Mod, Args, MSL) ->
     server_add_handler(Mod, Handler, Args, MSL).
 
 server_add_handler(Mod, Handler, Args, MSL) ->
-    case catch Mod:init(Args) of
+    Res = try
+              Mod:init(Args)
+          catch
+              C:R:ST -> catch_result(C, R, ST)
+          end,
+    case Res of
         {ok, State} ->
 	    {false, ok, [Handler#handler{state = State}|MSL]};
         {ok, State, hibernate} ->
@@ -1922,7 +1929,12 @@ server_notify(_, _, [], _) ->
 server_update(Handler1, Func, Event, SName) ->
     Mod1 = Handler1#handler.module,
     State = Handler1#handler.state,
-    case catch Mod1:Func(Event, State) of
+    Res = try
+              Mod1:Func(Event, State)
+          catch
+              C:R:ST -> catch_result(C, R, ST)
+          end,
+    case Res of
 	{ok, State1} ->
 	    {ok, Handler1#handler{state = State1}};
 	{ok, State1, hibernate} ->
@@ -1955,7 +1967,12 @@ do_swap(Mod1, Handler1, Args1, State1, Handler2, Args2, SName) ->
 			  swapped, SName,
 			  {swapped, Handler2, Handler1#handler.supervised}),
     {Mod2, Handler} = new_handler(Handler2, Handler1),
-    case catch Mod2:init({Args2, State2}) of
+    Res = try
+              Mod2:init({Args2, State2})
+          catch
+              C:R:ST -> catch_result(C, R, ST)
+          end,
+    case Res of
 	{ok, State2a} ->
 	    {ok, Handler#handler{state = State2a}};
 	Other ->
@@ -2045,7 +2062,12 @@ replace(_, [], NewHa) ->
 server_call_update(Handler1, Query, SName) ->
     Mod1 = Handler1#handler.module,
     State = Handler1#handler.state,
-    case catch Mod1:handle_call(Query, State) of
+    Res = try
+              Mod1:handle_call(Query, State)
+          catch
+              C:R:ST -> catch_result(C, R, ST)
+          end,
+    case Res of
 	{ok, Reply, State1} ->
 	    {{ok, Handler1#handler{state = State1}}, Reply};
 	{ok, Reply, State1, hibernate} ->
@@ -2066,7 +2088,11 @@ server_call_update(Handler1, Query, SName) ->
 do_terminate(Mod, Handler, Args, State, LastIn, SName, Reason) ->
     case erlang:function_exported(Mod, terminate, 2) of
 	true ->
-	    Res = (catch Mod:terminate(Args, State)),
+            Res = try
+                      Mod:terminate(Args, State)
+                  catch
+                      C:R:ST -> catch_result(C, R, ST)
+                  end,
 	    report_terminate(Handler, Reason, Args, State, LastIn, SName, Res),
 	    Res;
 	false ->
@@ -2363,3 +2389,7 @@ format_status(Opt, StatusData) ->
              {"Logged Events", Logs},
 	     {"Parent", Parent}]},
      {items, {"Installed handlers", FmtMSL}}].
+
+catch_result(throw, Throw, _StackTrace) -> Throw;
+catch_result(exit, Reason, _StackTrace) -> {'EXIT', Reason};
+catch_result(error, Reason, StackTrace) -> {'EXIT', {Reason, StackTrace}}.
