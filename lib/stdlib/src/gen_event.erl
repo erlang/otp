@@ -127,7 +127,7 @@ or if bad arguments are specified.
 
 %%%
 %%% NOTE: If init_ack() return values are modified, see comment
-%%%       above monitor_return() in gen.erl!
+%%%       above monitor_return() in gen_gen.erl!
 %%%
 
 -compile(nowarn_deprecated_catch).
@@ -146,8 +146,8 @@ or if bad arguments are specified.
          reqids_add/3, reqids_to_list/1,
          wake_hib/5]).
 
--export([init_it/6,
-	 system_continue/3,
+%% sys callbacks
+-export([system_continue/3,
 	 system_terminate/4,
 	 system_code_change/4,
 	 system_get_state/1,
@@ -155,6 +155,11 @@ or if bad arguments are specified.
 	 format_status/2]).
 
 -behaviour(sys).
+
+%% gen_gen callbacks
+-export([init_it/6]).
+
+%-behaviour(gen_gen).
 
 %% logger callback
 -export([format_log/1, format_log/2]).
@@ -577,7 +582,7 @@ The reference can be any of the following:
 -type start_mon_ret() :: {'ok', {pid(),reference()}} | {'error', term()}.
 
 -doc "An opaque request identifier. See `send_request/3` for details.".
--opaque request_id() :: gen:request_id().
+-opaque request_id() :: gen_gen:request_id().
 
 -doc """
 An opaque collection of request identifiers (`t:request_id/0`).
@@ -585,7 +590,7 @@ An opaque collection of request identifiers (`t:request_id/0`).
 Each request identifier can be associated with a label
 chosen by the user.  For more information see `reqids_new/0`.
 """.
--opaque request_id_collection() :: gen:request_id_collection().
+-opaque request_id_collection() :: gen_gen:request_id_collection().
 
 -doc """
 Response time-out for an asynchronous call.
@@ -639,7 +644,7 @@ Currently valid values:
 -doc(#{equiv => start([])}).
 -spec start() -> start_ret().
 start() ->
-    gen:start(?MODULE, nolink, ?NO_CALLBACK, [], []).
+    gen_gen:start(?MODULE, nolink, ?NO_CALLBACK, [], []).
 
 -doc """
 Create a stand-alone event manager process, possibly nameless.
@@ -655,9 +660,9 @@ For a description of the arguments and return values, see `start_link/2`.
 -spec start(EventMgrName :: emgr_name()) -> start_ret();
            (Options :: options()) -> start_ret().
 start(Name) when is_tuple(Name) ->
-    gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], []);
+    gen_gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], []);
 start(Options) when is_list(Options) ->
-    gen:start(?MODULE, nolink, ?NO_CALLBACK, [], Options);
+    gen_gen:start(?MODULE, nolink, ?NO_CALLBACK, [], Options);
 start(Arg) ->
     error(badarg, [Arg]).
 
@@ -672,14 +677,14 @@ For a description of the arguments and return values, see `start_link/2`.
 -doc(#{since => <<"OTP 20.0">>}).
 -spec start(EventMgrName :: emgr_name(), Options :: options()) -> start_ret().
 start(Name, Options) when is_tuple(Name), is_list(Options) ->
-    gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], Options);
+    gen_gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], Options);
 start(Name, Options) ->
     error(badarg, [Name, Options]).
 
 -doc(#{equiv => start_link([])}).
 -spec start_link() -> start_ret().
 start_link() ->
-    gen:start(?MODULE, link, ?NO_CALLBACK, [], []).
+    gen_gen:start(?MODULE, link, ?NO_CALLBACK, [], []).
 
 -doc """
 Create an event manager process as part of a supervision tree,
@@ -696,9 +701,9 @@ For a description of the arguments and return values, see `start_link/2`.
 -spec start_link(EventMgrName :: emgr_name()) -> start_ret();
                 (Options :: options()) -> start_ret().
 start_link(Name) when is_tuple(Name) ->
-    gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], []);
+    gen_gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], []);
 start_link(Options) when is_list(Options) ->
-    gen:start(?MODULE, link, ?NO_CALLBACK, [], Options);
+    gen_gen:start(?MODULE, link, ?NO_CALLBACK, [], Options);
 start_link(Arg) ->
     error(badarg, [Arg]).
 
@@ -755,7 +760,7 @@ has been consumed.
 -doc(#{since => <<"OTP 20.0">>}).
 -spec start_link(EventMgrName :: emgr_name(), Options :: options()) -> start_ret().
 start_link(Name, Options) when is_tuple(Name), is_list(Options) ->
-    gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], Options);
+    gen_gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], Options);
 start_link(Name, Options) ->
     error(badarg, [Name, Options]).
 
@@ -763,7 +768,7 @@ start_link(Name, Options) ->
 -doc(#{since => <<"OTP 23.0">>}).
 -spec start_monitor() -> start_mon_ret().
 start_monitor() ->
-    gen:start(?MODULE, monitor, ?NO_CALLBACK, [], []).
+    gen_gen:start(?MODULE, monitor, ?NO_CALLBACK, [], []).
 
 -doc """
 Creates a stand-alone event manager process,
@@ -781,9 +786,9 @@ see `start_monitor/2` and `start_link/1`.
 -doc(#{since => <<"OTP 23.0">>}).
 -spec start_monitor(EventMgrNameOrOptions :: emgr_name() | options()) -> start_mon_ret().
 start_monitor(Name) when is_tuple(Name) ->
-    gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], []);
+    gen_gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], []);
 start_monitor(Options) when is_list(Options) ->
-    gen:start(?MODULE, monitor, ?NO_CALLBACK, [], Options);
+    gen_gen:start(?MODULE, monitor, ?NO_CALLBACK, [], Options);
 start_monitor(Arg) ->
     error(badarg, [Arg]).
 
@@ -807,7 +812,7 @@ from the message queue.
 -doc(#{since => <<"OTP 23.0">>}).
 -spec start_monitor(EventMgtName :: emgr_name(), Options :: options()) -> start_mon_ret().
 start_monitor(Name, Options) when is_tuple(Name), is_list(Options) ->
-    gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], Options);
+    gen_gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], Options);
 start_monitor(Name, Options) ->
     error(badarg, [Name, Options]).
 
@@ -817,9 +822,9 @@ init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
 init_it(Starter, Parent, Name0, _, _, Options) ->
     process_flag(trap_exit, true),
-    Name = gen:name(Name0),
-    Debug = gen:debug_options(Name, Options),
-	HibernateAfterTimeout = gen:hibernate_after(Options),
+    Name = gen_gen:name(Name0),
+    Debug = gen_gen:debug_options(Name, Options),
+    HibernateAfterTimeout = gen_gen:hibernate_after(Options),
     proc_lib:init_ack(Starter, {ok, self()}),
     loop(Parent, Name, [], HibernateAfterTimeout, Debug, false).
 
@@ -986,7 +991,7 @@ to handle the request.
           ReqId::request_id().
 send_request(M, Handler, Request) ->
     try
-        gen:send_request(M, self(), {call, Handler, Request})
+        gen_gen:send_request(M, self(), {call, Handler, Request})
     catch
         error:badarg ->
             error(badarg, [M, Handler, Request])
@@ -1020,7 +1025,7 @@ but slightly more efficient.
           NewReqIdCollection::request_id_collection().
 send_request(M, Handler, Request, Label, ReqIdCol) ->
     try
-        gen:send_request(M, self(), {call, Handler, Request}, Label, ReqIdCol)
+        gen_gen:send_request(M, self(), {call, Handler, Request}, Label, ReqIdCol)
     catch
         error:badarg ->
             error(badarg, [M, Handler, Request, Label, ReqIdCol])
@@ -1062,7 +1067,7 @@ while [`wait_response/2`](`wait_response/2`) does not.
       Result :: Response | 'timeout'.
 
 wait_response(ReqId, WaitTime) ->
-    try gen:wait_response(ReqId, WaitTime) of
+    try gen_gen:wait_response(ReqId, WaitTime) of
         {reply, {error, _} = Err} -> Err;
         Return -> Return
     catch
@@ -1137,7 +1142,7 @@ and then return `timeout`.
                 'timeout'.
 
 wait_response(ReqIdCol, WaitTime, Delete) ->
-    try gen:wait_response(ReqIdCol, WaitTime, Delete) of
+    try gen_gen:wait_response(ReqIdCol, WaitTime, Delete) of
         {{reply, {error, _} = Err}, Label, NewReqIdCol} ->
             {Err, Label, NewReqIdCol};
         Return ->
@@ -1186,7 +1191,7 @@ while [`wait_response/2`](`wait_response/2`) does not.
       Result :: Response | 'timeout'.
 
 receive_response(ReqId, Timeout) ->
-    try gen:receive_response(ReqId, Timeout) of
+    try gen_gen:receive_response(ReqId, Timeout) of
         {reply, {error, _} = Err} -> Err;
         Return -> Return
     catch
@@ -1263,7 +1268,7 @@ and then return `timeout`.
                 'timeout'.
 
 receive_response(ReqIdCol, Timeout, Delete) ->
-    try gen:receive_response(ReqIdCol, Timeout, Delete) of
+    try gen_gen:receive_response(ReqIdCol, Timeout, Delete) of
         {{reply, {error, _} = Err}, Label, NewReqIdCol} ->
             {Err, Label, NewReqIdCol};
         Return ->
@@ -1302,7 +1307,7 @@ that is; `Msg` reports the server's death, this function returns
       Result :: Response | 'no_reply'.
 
 check_response(Msg, ReqId) ->
-    try gen:check_response(Msg, ReqId) of
+    try gen_gen:check_response(Msg, ReqId) of
         {reply, {error, _} = Err} -> Err;
         Return -> Return
     catch
@@ -1369,7 +1374,7 @@ it will always return `no_reply`.
                 'no_reply'.
 
 check_response(Msg, ReqIdCol, Delete) ->
-    try gen:check_response(Msg, ReqIdCol, Delete) of
+    try gen_gen:check_response(Msg, ReqIdCol, Delete) of
         {{reply, {error, _} = Err}, Label, NewReqIdCol} ->
             {Err, Label, NewReqIdCol};
         Return ->
@@ -1401,7 +1406,7 @@ request identifiers in a collection.
           NewReqIdCollection::request_id_collection().
 
 reqids_new() ->
-    gen:reqids_new().
+    gen_gen:reqids_new().
 
 -doc "Returns the number of request identifiers in `ReqIdCollection`.".
 -doc(#{since => <<"OTP 25.0">>}).
@@ -1410,7 +1415,7 @@ reqids_new() ->
 
 reqids_size(ReqIdCollection) ->
     try
-        gen:reqids_size(ReqIdCollection)
+        gen_gen:reqids_size(ReqIdCollection)
     catch
         error:badarg -> error(badarg, [ReqIdCollection])
     end.
@@ -1429,7 +1434,7 @@ the resulting request identifier collection.
 
 reqids_add(ReqId, Label, ReqIdCollection) ->
     try
-        gen:reqids_add(ReqId, Label, ReqIdCollection)
+        gen_gen:reqids_add(ReqId, Label, ReqIdCollection)
     catch
         error:badarg -> error(badarg, [ReqId, Label, ReqIdCollection])
     end.
@@ -1447,7 +1452,7 @@ in [`ReqIdCollection`](`t:request_id_collection/0`).
 
 reqids_to_list(ReqIdCollection) ->
     try
-        gen:reqids_to_list(ReqIdCollection)
+        gen_gen:reqids_to_list(ReqIdCollection)
     catch
         error:badarg -> error(badarg, [ReqIdCollection])
     end.
@@ -1541,7 +1546,7 @@ which_handlers(M) -> rpc(M, which_handlers).
 -doc(#{equiv => stop(EventMgrRef, normal, infinity)}).
 -spec stop(EventMgrRef :: emgr_ref()) -> 'ok'.
 stop(M) ->
-    gen:stop(M).
+    gen_gen:stop(M).
 
 -doc """
 Stop an event manager.
@@ -1570,15 +1575,15 @@ to the remote `Node` where the server runs.
 -doc(#{since => <<"OTP 18.0">>}).
 -spec stop(EventMgrRef :: emgr_ref(), Reason :: term(), Timeout :: timeout()) -> 'ok'.
 stop(M, Reason, Timeout) ->
-    gen:stop(M, Reason, Timeout).
+    gen_gen:stop(M, Reason, Timeout).
 
 rpc(M, Cmd) ->
-    {ok, Reply} = gen:call(M, self(), Cmd, infinity),
+    {ok, Reply} = gen_gen:call(M, self(), Cmd, infinity),
     Reply.
 
 call1(M, Handler, Query) ->
     Cmd = {call, Handler, Query},
-    try gen:call(M, self(), Cmd) of
+    try gen_gen:call(M, self(), Cmd) of
 	{ok, Res} ->
 	    Res
     catch
@@ -1588,7 +1593,7 @@ call1(M, Handler, Query) ->
 
 call1(M, Handler, Query, Timeout) ->
     Cmd = {call, Handler, Query},
-    try gen:call(M, self(), Cmd, Timeout) of
+    try gen_gen:call(M, self(), Cmd, Timeout) of
 	{ok, Res} ->
 	    Res
     catch
@@ -1698,7 +1703,7 @@ terminate_server(Reason, Parent, MSL, ServerName) ->
     exit(Reason).
 
 reply(From, Reply) ->
-    gen:reply(From, Reply).
+    gen_gen:reply(From, Reply).
 
 %% unlink the supervisor process of all supervised handlers.
 %% We do not want a handler supervisor to EXIT due to the
@@ -2109,7 +2114,7 @@ report_error(Handler, Exit, State, LastIn, SName) ->
             R ->
                 {R, fun(Reason) -> Reason end}
         end,
-    Status = gen:format_status(
+    Status = gen_gen:format_status(
                Handler#handler.module,
                terminate,
                #{ state => State,
@@ -2348,11 +2353,11 @@ get_modules(MSL) ->
 -doc false.
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [ServerName, MSL, _HibernateAfterTimeout, _Hib]] = StatusData,
-    Header = gen:format_status_header("Status for event handler", ServerName),
+    Header = gen_gen:format_status_header("Status for event handler", ServerName),
     {FmtMSL, Logs} =
         lists:mapfoldl(
           fun(#handler{module = Mod, state = State} = MS, Logs) ->
-                  Status = gen:format_status(
+                  Status = gen_gen:format_status(
                              Mod, Opt, #{ log => Logs, state => State },
                              [PDict, State]),
                   {MS#handler{state=maps:get('$status',Status,maps:get(state,Status))},

@@ -91,7 +91,7 @@ MODULES= \
 	filename \
 	gb_trees \
 	gb_sets \
-	gen \
+	gen_gen \
 	gen_event \
 	gen_fsm \
 	gen_server \
