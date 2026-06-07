@@ -51,6 +51,7 @@ struct cipher_type_t {
 #define AES_CTR_COMPAT 32
 #define CCM_MODE 64
 #define GCM_MODE 128
+#define GCM_SIV_MODE 256
 
 #ifdef FIPS_SUPPORT
 # define CIPHER_FORBIDDEN_IN_FIPS(P) (((P)->flags & NO_FIPS_CIPHER) && FIPS_MODE())
