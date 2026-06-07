@@ -214,13 +214,13 @@ decision_tab_version() -> "1.0".
 dcl_version() -> "1.0".
 dcd_version() -> "1.0".
 
-append(Log, Bin) when binary(Bin) ->
+append(Log, Bin) when is_binary(Bin) ->
     disk_log:balog(Log, Bin);
 append(Log, Term) ->
     disk_log:alog(Log, Term).
 
 %% Synced append
-sappend(Log, Bin) when binary(Bin) ->
+sappend(Log, Bin) when is_binary(Bin) ->
     ok = disk_log:blog(Log, Bin);
 sappend(Log, Term) ->
     ok = disk_log:log(Log, Term).
@@ -234,7 +234,7 @@ log(C) ->
     case mnesia_monitor:use_dir() of
         true ->
 	    if
-		record(C, commit) ->
+                is_record(C, commit) ->
 		    C2 =  C#commit{ram_copies = [], snmp = []},
 		    append(latest_log, C2);
 		true ->
@@ -257,7 +257,7 @@ slog(C) ->
     case mnesia_monitor:use_dir() of
         true ->
 	    if
-		record(C, commit) ->
+                is_record(C, commit) ->
 		    C2 =  C#commit{ram_copies = [], snmp = []},
 		    sappend(latest_log, C2);
 		true ->
@@ -606,9 +606,9 @@ view_file(C, Log) ->
 backup(Opaque) ->
     backup(Opaque, []).
 
-backup(Opaque, Mod) when atom(Mod) ->
+backup(Opaque, Mod) when is_atom(Mod) ->
     backup(Opaque, [{module, Mod}]);
-backup(Opaque, Args) when list(Args) ->
+backup(Opaque, Args) when is_list(Args) ->
     %% Backup all tables with max redundancy
     CpArgs = [{ram_overrides_dump, false}, {max, val({schema, tables})}],
     case mnesia_checkpoint:activate(CpArgs) of
@@ -623,9 +623,9 @@ backup(Opaque, Args) when list(Args) ->
 backup_checkpoint(Name, Opaque) ->
     backup_checkpoint(Name, Opaque, []).
 
-backup_checkpoint(Name, Opaque, Mod) when atom(Mod) ->
+backup_checkpoint(Name, Opaque, Mod) when is_atom(Mod) ->
     backup_checkpoint(Name, Opaque, [{module, Mod}]);
-backup_checkpoint(Name, Opaque, Args) when list(Args) ->
+backup_checkpoint(Name, Opaque, Args) when is_list(Args) ->
     DefaultMod = mnesia_monitor:get_env(backup_module),
     B = #backup_args{name = Name,
 		     module = DefaultMod,
@@ -669,7 +669,7 @@ check_backup_arg_type(Arg, B) ->
 	    B#backup_args{module = Mod2};
 	{incremental, Name} ->
 	    B#backup_args{prev_name = Name};
-	{tables, Tabs} when list(Tabs) ->
+        {tables, Tabs} when is_list(Tabs) ->
 	    B#backup_args{tables = Tabs}
     end.
 
@@ -705,7 +705,7 @@ select_tables(AllTabs, B) ->
     Tabs =
 	case B#backup_args.tables of
 	    all -> AllTabs;
-	    SomeTabs when list(SomeTabs) -> SomeTabs
+            SomeTabs when is_list(SomeTabs) -> SomeTabs
 	end,
     case B#backup_args.scope of
 	global ->
@@ -772,7 +772,7 @@ backup_tab(Tab, B) ->
 	    abort_write(B, {?MODULE, backup_tab}, [Tab, B], {error, Reason})
     end.
 
-tab_copier(Pid, B, Tab) when record(B, backup_args) ->
+tab_copier(Pid, B, Tab) when is_record(B, backup_args) ->
     %% Intentional crash at exit
     Name = B#backup_args.name,
     PrevName = B#backup_args.prev_name,
@@ -894,7 +894,7 @@ tab_receiver(Pid, B, Tab, RecName, Slot) ->
 
 rec_filter(B, schema, _RecName, Recs) ->
     case catch mnesia_bup:refresh_cookie(Recs, B#backup_args.cookie) of
-	Recs2 when list(Recs2) ->
+        Recs2 when is_list(Recs2) ->
 	    Recs2;
 	{error, _Reason} ->
 	    %% No schema table cookie
@@ -960,7 +960,7 @@ dcd2ets(Tab, Rep) ->
     end.
 
 insert_dcdchunk({Cont, [LogH | Rest]}, Log, Tab)
-  when record(LogH, log_header),
+  when is_record(LogH, log_header),
        LogH#log_header.log_kind == dcd_log,
        LogH#log_header.log_version >= "1.0" ->
     insert_dcdchunk({Cont, Rest}, Log, Tab);
@@ -1008,7 +1008,7 @@ add_recs([{{Tab, _Key}, Val, delete_object} | Rest], N) ->
 add_recs([{{Tab, Key}, Val, update_counter} | Rest], N) ->
     {RecName, Incr} = Val,
     case catch ets:update_counter(Tab, Key, Incr) of
-	CounterVal when integer(CounterVal) ->
+        CounterVal when is_integer(CounterVal) ->
 	    ok;
 	_ ->
 	    Zero = {RecName, Key, 0},
@@ -1016,7 +1016,7 @@ add_recs([{{Tab, Key}, Val, update_counter} | Rest], N) ->
     end,
     add_recs(Rest, N+1);
 add_recs([LogH|Rest], N)
-  when record(LogH, log_header),
+  when is_record(LogH, log_header),
        LogH#log_header.log_kind == dcl_log,
        LogH#log_header.log_version >= "1.0" ->
     add_recs(Rest, N);

@@ -1,4 +1,11 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,13 +17,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%%
-%%     $Id: core_pp.erl,v 1.1 2008/12/17 09:53:42 mikpe Exp $
-%%
-%% Purpose : Core Erlang (naive) prettyprinter
+%% %CopyrightEnd%
 
 -module(core_pp).
 
@@ -74,14 +75,14 @@ maybe_anno(Node, Fun, Ctxt, As) ->
 	    ]
     end.
 
-strip_line([A | As]) when integer(A) ->
+strip_line([A | As]) when is_integer(A) ->
     strip_line(As);
 strip_line([A | As]) ->
     [A | strip_line(As)];
 strip_line([]) ->
     [].
 
-get_line([L | _As]) when integer(L) ->
+get_line([L | _As]) when is_integer(L) ->
     L;
 get_line([_ | As]) ->
     get_line(As);
@@ -104,7 +105,7 @@ format_1(#c_var{name=V}, _) ->
     %%     - nonnegative integers.
     %% It is important that when printing variables, no two names
     %% should ever map to the same string.
-    if atom(V) ->
+    if is_atom(V) ->
 	    S = atom_to_list(V),
 	    case S of
 		[C | _] when C >= $A, C =< $Z ->
@@ -123,7 +124,7 @@ format_1(#c_var{name=V}, _) ->
 		    %% E.g. foo => "_foo".
 		    [$_ | S]
 	    end;
-       integer(V) ->
+       is_integer(V) ->
 	    %% Integers are also simply prefixed with "_".
 	    [$_ | integer_to_list(V)]
     end;
@@ -395,7 +396,7 @@ unindent([$\t|T], N, Ctxt, C) ->
        true ->
 	    unindent([string:chars($\s, Tab - N)|T], 0, Ctxt, C)
     end;
-unindent([L|T], N, Ctxt, C) when list(L) ->
+unindent([L|T], N, Ctxt, C) when is_list(L) ->
     unindent(L, N, Ctxt, [T|C]);
 unindent([H|T], _, _, C) ->
     [H|[T|C]];
@@ -414,7 +415,7 @@ width([$\t|T], A, Ctxt, C) ->
     width(T, A + Ctxt#ctxt.tab_width, Ctxt, C);
 width([$\n|T], _, Ctxt, C) ->
     width(unindent([T|C], Ctxt), Ctxt);
-width([H|T], A, Ctxt, C) when list(H) ->
+width([H|T], A, Ctxt, C) when is_list(H) ->
     width(H, A, Ctxt, [T|C]);
 width([_|T], A, Ctxt, C) ->
     width(T, A + 1, Ctxt, C);

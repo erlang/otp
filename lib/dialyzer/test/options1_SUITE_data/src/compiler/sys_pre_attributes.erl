@@ -1,4 +1,11 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,13 +17,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%%
-%%     $Id: sys_pre_attributes.erl,v 1.1 2008/12/17 09:53:42 mikpe Exp $
-%%
-%% Purpose : Transform Erlang compiler attributes
+%% %CopyrightEnd%
 
 -module(sys_pre_attributes).
 
@@ -72,7 +73,7 @@ parse_transform(Forms, Options) ->
 %% used in the real transformation.
 init_transform(S) ->
     case S#state.options of
-	Options when list(Options) ->
+        Options when is_list(Options) ->
 	    init_transform(Options, S);
 	Option ->
 	    init_transform([Option], S)

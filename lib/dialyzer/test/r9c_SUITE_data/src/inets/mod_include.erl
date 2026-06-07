@@ -354,7 +354,7 @@ cmd(Info, Context, ErrorLog, R, Command) ->
     Dir  = filename:dirname(Command),
     Port = (catch open_port({spawn,Command},[stream,{cd,Dir},{env,Env}])),
     case Port of
-	P when port(P) ->
+        P when is_port(P) ->
 	    {NewErrorLog, Result} = proxy(Port, ErrorLog),
 	    {ok, Context, NewErrorLog, Result, R};
 	{'EXIT', Reason} ->
@@ -418,7 +418,7 @@ exec_script(Info,Script,AfterScript,ErrorLog,Context,R) ->
     Dir  = filename:dirname(Path),
     Port = (catch open_port({spawn,Script},[stream,{env, Env},{cd, Dir}])),
     case Port of
-	P when port(P) ->
+        P when is_port(P) ->
 	    %% Send entity body to port.
 	    Res = case Info#mod.entity_body of
 		      [] ->
@@ -473,15 +473,15 @@ proxy(Port, ErrorLog, Result) ->
     receive
 	{Port, {data, Response}} ->
 	    proxy(Port, ErrorLog, lists:append(Result,Response));
-	{'EXIT', Port, normal} when port(Port) ->
+        {'EXIT', Port, normal} when is_port(Port) ->
 	    process_flag(trap_exit, false),
 	    {ErrorLog, Result};
-	{'EXIT', Port, Reason} when port(Port) ->
+        {'EXIT', Port, Reason} when is_port(Port) ->
 	    process_flag(trap_exit, false),
 	    {[{internal_info,
 	       ?NICE("Scrambled output from CGI-script")}|ErrorLog],
 	     Result};
-	{'EXIT', Pid, Reason} when pid(Pid) ->
+        {'EXIT', Pid, Reason} when is_pid(Pid) ->
 	    process_flag(trap_exit, false),
 	    {'EXIT', Pid, Reason};
 	%% This should not happen!
@@ -681,8 +681,8 @@ parse5([C|R],Comment,Depth) ->
   parse5(R,[C|Comment],Depth).
 
 
-sz(B) when binary(B) -> {binary,size(B)};
-sz(L) when list(L)   -> {list,length(L)};
+sz(B) when is_binary(B) -> {binary,size(B)};
+sz(L) when is_list(L)   -> {list,length(L)};
 sz(_)                -> undefined.
 
 
@@ -720,3 +720,26 @@ read_error(StatusCode,none,Path,Reason) ->
     {StatusCode,none,?NICE("Can't read "++Path++Reason)};
 read_error(StatusCode,Info,Path,Reason) ->
     {StatusCode,Info#mod.request_uri,?NICE("Can't read "++Path++Reason)}.
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

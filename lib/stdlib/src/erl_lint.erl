@@ -430,16 +430,6 @@ format_error_1({removed_type, MNA, Info}) ->
 format_error_1({removed_callback, MNA, Info}) ->
     {~"the callback ~s is removed; ~s",
      [format_mna(MNA), format_obsolete(Info)]};
-format_error_1({obsolete_guard, {F, A}}) ->
-    {~"""
-      ~p/~p as a type test is obsolete and will be
-      removed in OTP 30; use is_~p/~p instead.
-      """, [F, A, F, A]};
-format_error_1({obsolete_guard_overridden,Test}) ->
-    {~"""
-      obsolete ~s/1 (meaning is_~s/1) is illegal when there is a
-      local/imported function named is_~p/1
-      """, [Test,Test,Test]};
 format_error_1({too_many_arguments,Arity}) ->
     {~"too many arguments (~w) -- maximum allowed is ~w", [Arity,?MAX_ARGUMENTS]};
 format_error_1(update_literal) ->
@@ -462,6 +452,10 @@ format_error_1(illegal_expr) -> ~"illegal expression";
 format_error_1({illegal_guard_local_call, {F,A}}) ->
     {~"call to local/imported function ~tw/~w is illegal in guard",
      [F,A]};
+format_error_1({illegal_type_test, {F,A}}) ->
+    %% last remnant of old style type tests
+    {~"call to ~tw/~w is not a type test, use is_~tw/~w instead",
+     [F,A,F,A]};
 format_error_1(illegal_guard_expr) -> ~"illegal guard expression";
 format_error_1(match_float_zero) ->
     ~"""
@@ -987,7 +981,6 @@ bool_options() ->
      {deprecated_type,true},
      {deprecated_callback,true},
      {deprecated_catch,true},
-     {obsolete_guard,true},
      {obsolete_bool_op,false},
      {untyped_record,false},
      {missing_spec,false},
@@ -2759,18 +2752,9 @@ guard_tests([], _Vt, St) -> {[],St}.
 
 %% guard_test(Test, VarTable, State) ->
 %%      {UsedVarTable,State'}
-%%  Check one guard test, returns NewVariables.  We now allow more
-%%  expressions in guards including the new is_XXX type tests, but
-%%  only allow the old type tests at the top level.
+%%  Check one guard test, returns NewVariables.
 
-guard_test(G, Vt, St0) ->
-    St1 = obsolete_guard(G, St0),
-    guard_test2(G, Vt, St1).
-
-%% Specially handle record type test here.
-guard_test2({call,Anno,{atom,Ar,record},[E,A]}, Vt, St0) ->
-    gexpr({call,Anno,{atom,Ar,is_record},[E,A]}, Vt, St0);
-guard_test2({call,Anno,{atom,_Aa,F},As}=G, Vt, St0) ->
+guard_test({call,Anno,{atom,_Aa,F},As}=G, Vt, St0) ->
     {Asvt,St1} = gexpr_list(As, Vt, St0),       %Always check this.
     A = length(As),
     case erl_internal:type_test(F, A) of
@@ -2779,12 +2763,18 @@ guard_test2({call,Anno,{atom,_Aa,F},As}=G, Vt, St0) ->
 		false ->
 		    {Asvt,add_error(Anno, {illegal_guard_local_call,{F,A}}, St1)};
 		true ->
-		    {Asvt,St1}
-	    end;
-	_ ->
-	    gexpr(G, Vt, St0)
+                    {Asvt,St1}
+            end;
+        _ ->
+            %% check for removed old style type tests whose names coincide with
+            %% other guard bifs so they do not become silently failing tests
+            if F =:= float, A =:= 1 ->
+                    {Asvt,add_error(Anno, {illegal_type_test,{F,A}}, St1)};
+               true ->
+                    gexpr(G, Vt, St0)
+            end
     end;
-guard_test2(G, Vt, St) ->
+guard_test(G, Vt, St) ->
     %% Everything else is a guard expression.
     gexpr(G, Vt, St).
 
@@ -5494,27 +5484,6 @@ deprecated_type(Anno, M, N, As, St) ->
             add_warning(Anno, {removed_type, {M,N,NAs}, String}, St);
         no ->
             St
-    end.
-
-obsolete_guard({call,Anno,{atom,Ar,F},As}, St0) ->
-    Arity = length(As),
-    case erl_internal:old_type_test(F, Arity) of
-	false ->
-	    deprecated_function(Anno, erlang, F, As, St0);
-	true ->
-	    St = maybe_add_warning(Ar, {obsolete_guard, {F, Arity}}, St0),
-	    test_overriden_by_local(Ar, F, Arity, St)
-    end;
-obsolete_guard(_G, St) ->
-    St.
-
-test_overriden_by_local(Anno, OldTest, Arity, St) ->
-    ModernTest = list_to_atom("is_"++atom_to_list(OldTest)),
-    case is_local_function(St#lint.locals, {ModernTest, Arity}) of
-	true ->
-	    add_error(Anno, {obsolete_guard_overridden,OldTest}, St);
-	false ->
-	    St
     end.
 
 feature_keywords() ->

@@ -48,14 +48,14 @@ pgen(OutFile,Erules,Module,TypeOrVal) ->
 %%****************************************x
 
 
-gen_encode(Erules,Type) when record(Type,typedef) ->
+gen_encode(Erules,Type) when is_record(Type,typedef) ->
     gen_encode_user(Erules,Type).
 
 gen_encode(Erules,Typename,#'ComponentType'{name=Cname,typespec=Type}) ->
     NewTypename = [Cname|Typename],
     gen_encode(Erules,NewTypename,Type);
 
-gen_encode(Erules,Typename,Type) when record(Type,type) ->
+gen_encode(Erules,Typename,Type) when is_record(Type,type) ->
     InnerType = asn1ct_gen:get_inner(Type#type.def),
     ObjFun =
 	case lists:keysearch(objfun,1,Type#type.tablecinf) of
@@ -86,7 +86,7 @@ gen_encode(Erules,Typename,Type) when record(Type,type) ->
     end.
 
 
-gen_encode_user(Erules,D) when record(D,typedef) ->
+gen_encode_user(Erules,D) when is_record(D,typedef) ->
     CurrMod = get(currmod),
     Typename = [D#typedef.name],
     Def = D#typedef.typespec,
@@ -132,7 +132,7 @@ gen_encode_prim(Erules,D,DoTag) ->
 
 
 
-gen_encode_prim(_Erules,D,_DoTag,Value) when record(D,type) ->
+gen_encode_prim(_Erules,D,_DoTag,Value) when is_record(D,type) ->
     Constraint = D#type.constraint,
     case D#type.def of
 	'INTEGER' ->
@@ -233,7 +233,7 @@ gen_encode_prim(_Erules,D,_DoTag,Value) when record(D,type) ->
 emit_enc_known_multiplier_string(StringType,C,Value) ->
     SizeC =
 	case get_constraint(C,'SizeConstraint') of
-	    L when list(L) -> {lists:min(L),lists:max(L)};
+            L when is_list(L) -> {lists:min(L),lists:max(L)};
 	    L -> L
 	end,
     PAlphabC = get_constraint(C,'PermittedAlphabet'),
@@ -382,7 +382,7 @@ charbits(NumOfChars) when NumOfChars =< 8192 -> 13;
 charbits(NumOfChars) when NumOfChars =< 16384 -> 14;
 charbits(NumOfChars) when NumOfChars =< 32768 -> 15;
 charbits(NumOfChars) when NumOfChars =< 65536 -> 16;
-charbits(NumOfChars) when integer(NumOfChars) ->
+charbits(NumOfChars) when is_integer(NumOfChars) ->
     16 + charbits1(NumOfChars bsr 16).
 
 charbits1(0) ->
@@ -414,7 +414,7 @@ emit_enc_octet_string(Constraint,Value) ->
 		  {next,tmpval},"]]",nl}),
 	    emit("  end"),
 	    asn1ct_name:new(tmpval);
-	Sv when integer(Sv),Sv =< 256  ->
+        Sv when is_integer(Sv),Sv =< 256  ->
 	    asn1ct_name:new(tmpval),
 	    emit({"  begin",nl}),
 %	    emit({"    case length(",Value,") == ",Sv," of",nl}),
@@ -423,7 +423,7 @@ emit_enc_octet_string(Constraint,Value) ->
 	    emit({"      _ -> exit({error,{value_out_of_bounds,",Value,"}})",
 		  nl,"    end",nl}),
 	    emit("  end");
-	Sv when integer(Sv),Sv =< 65535  ->
+        Sv when is_integer(Sv),Sv =< 65535  ->
 	    asn1ct_name:new(tmpval),
 	    emit({"  begin",nl}),
 %	    emit({"    case length(",Value,") == ",Sv," of",nl}),
@@ -454,7 +454,7 @@ emit_enc_integer_case(Value) ->
 	    emit({"  begin",nl}),
 	    case Prop of
 		Opt when Opt=='OPTIONAL';
-			 tuple(Opt),element(1,Opt)=='DEFAULT' ->
+                         is_tuple(Opt),element(1,Opt)=='DEFAULT' ->
 		    emit({"  case ",Value," of",nl}),
 		    ok;
 		_ ->
@@ -483,7 +483,7 @@ enc_integer_NNL_cases(Value,NNL) ->
     TmpVal = asn1ct_gen:mk_var(asn1ct_name:curr(tmpval)),
     Cases=enc_integer_NNL_cases1(NNL),
     lists:flatten(io_lib:format("(case ~s of "++Cases++
-		  "~s when atom(~s)->exit({error,{asn1,{namednumber,~s}}});_->~s end)",[Value,TmpVal,TmpVal,TmpVal,Value])).
+                  "~s when is_atom(~s)->exit({error,{asn1,{namednumber,~s}}});_->~s end)",[Value,TmpVal,TmpVal,TmpVal,Value])).
 
 enc_integer_NNL_cases1([{NNo,No}|Rest]) ->
     io_lib:format("~w->~w;",[NNo,No])++enc_integer_NNL_cases1(Rest);
@@ -575,7 +575,7 @@ emit_enc_enumerated_case(_C, {asn1_enum,High}, _) ->
     %% ENUMERATED with extensionmark
     %% value higher than the extension base and not
     %% present in the extension range.
-    emit(["{asn1_enum,EnumV} when integer(EnumV), EnumV > ",High," -> ",
+    emit(["{asn1_enum,EnumV} when is_integer(EnumV), EnumV > ",High," -> ",
 	  "[1,?RT_PER:encode_small_number(EnumV)]"]);
 emit_enc_enumerated_case(_C, 'EXT_MARK', _Count) ->
     %% ENUMERATED with extensionmark
@@ -664,7 +664,7 @@ effective_constr('SingleValue',List) ->
     case lists:usort(SVList) of
 	[N] ->
 	    [{'SingleValue',N}];
-	L when list(L) ->
+        L when is_list(L) ->
 	    [{'ValueRange',{hd(L),lists:last(L)}}]
     end;
 effective_constr('ValueRange',List) ->
@@ -677,15 +677,15 @@ greatest_common_range([],VR) ->
     VR;
 greatest_common_range(SV,[]) ->
     SV;
-greatest_common_range([{_,Int}],[{_,{'MIN',Ub}}]) when integer(Int),
+greatest_common_range([{_,Int}],[{_,{'MIN',Ub}}]) when is_integer(Int),
 						       Int > Ub ->
     [{'ValueRange',{'MIN',Int}}];
-greatest_common_range([{_,Int}],[{_,{Lb,Ub}}]) when integer(Int),
+greatest_common_range([{_,Int}],[{_,{Lb,Ub}}]) when is_integer(Int),
 						    Int < Lb ->
     [{'ValueRange',{Int,Ub}}];
-greatest_common_range([{_,Int}],VR=[{_,{_Lb,_Ub}}]) when integer(Int) ->
+greatest_common_range([{_,Int}],VR=[{_,{_Lb,_Ub}}]) when is_integer(Int) ->
     VR;
-greatest_common_range([{_,L}],[{_,{Lb,Ub}}]) when list(L) ->
+greatest_common_range([{_,L}],[{_,{Lb,Ub}}]) when is_list(L) ->
     Min = least_Lb([Lb|L]),
     Max = greatest_Ub([Ub|L]),
     [{'ValueRange',{Min,Max}}].
@@ -764,7 +764,7 @@ pre_encode(integer,[]) ->
     [];
 pre_encode(integer,C=[{'SingleValue',_}]) ->
     C;
-pre_encode(integer,C=[{'ValueRange',VR={Lb,Ub}}]) when integer(Lb),integer(Ub)->
+pre_encode(integer,C=[{'ValueRange',VR={Lb,Ub}}]) when is_integer(Lb),is_integer(Ub)->
     Range = Ub-Lb+1,
     if
 	Range =< 255 ->
@@ -792,7 +792,7 @@ no_bits(N) when N=<255 -> 8.
 %% Object code generating for encoding and decoding
 %% ------------------------------------------------
 
-gen_obj_code(Erules,_Module,Obj) when record(Obj,typedef) ->
+gen_obj_code(Erules,_Module,Obj) when is_record(Obj,typedef) ->
     ObjName = Obj#typedef.name,
     Def = Obj#typedef.typespec,
     #'Externaltypereference'{module=Mod,type=ClassName} =
@@ -816,7 +816,7 @@ gen_obj_code(Erules,_Module,Obj) when record(Obj,typedef) ->
     emit(nl),
     gen_decode_constr_type(Erules,DecConstructed),
     emit(nl);
-gen_obj_code(_Erules,_Module,Obj) when record(Obj,pobjectdef) ->
+gen_obj_code(_Erules,_Module,Obj) when is_record(Obj,pobjectdef) ->
     ok.
 
 gen_encode_objectfields(ClassName,[{typefield,Name,OptOrMand}|Rest],
@@ -953,7 +953,7 @@ gen_encode_objectfields(_,[],_,_,Acc) ->
 % gen_encode_objectfields(_,_,[],Acc) ->
 %     Acc.
 
-gen_encode_constr_type(Erules,[TypeDef|Rest]) when record(TypeDef,typedef) ->
+gen_encode_constr_type(Erules,[TypeDef|Rest]) when is_record(TypeDef,typedef) ->
     case is_already_generated(enc,TypeDef#typedef.name) of
 	true -> ok;
 	_ ->
@@ -1191,7 +1191,7 @@ gen_decode_constr_type(Erules,[{Name,Def}|Rest]) ->
     InnerType = asn1ct_gen:get_inner(Def#type.def),
     asn1ct_gen:gen_decode_constructed(Erules,Name,InnerType,Def),
     gen_decode_constr_type(Erules,Rest);
-gen_decode_constr_type(Erules,[TypeDef|Rest]) when record(TypeDef,typedef) ->
+gen_decode_constr_type(Erules,[TypeDef|Rest]) when is_record(TypeDef,typedef) ->
     case is_already_generated(dec,TypeDef#typedef.name) of
 	true -> ok;
 	_ ->
@@ -1284,7 +1284,7 @@ gen_objset_enc(ObjSetName,_UniqueName,['EXTENSIONMARK'],_ClName,
     emit({"'getenc_",ObjSetName,"'(_, _) ->",nl}),
     emit({indent(3),"fun(_, Val, _) ->",nl}),
     emit({indent(6),"Size = if",nl}),
-    emit({indent(9),"list(Val) -> length(Val);",nl}),
+    emit({indent(9),"is_list(Val) -> length(Val);",nl}),
     emit({indent(9),"true -> size(Val)",nl}),
     emit({indent(6),"end,",nl}),
     emit({indent(6),"if",nl}),
@@ -1304,12 +1304,12 @@ gen_objset_enc(_,_,[],_,_,_,Acc) ->
 gen_inlined_enc_funs(Fields,[{typefield,Name,_}|Rest],ObjSetName,NthObj) ->
     InternalDefFunName=asn1ct_gen:list2name([NthObj,Name,ObjSetName]),
     case lists:keysearch(Name,1,Fields) of
-	{value,{_,Type}} when record(Type,type) ->
+        {value,{_,Type}} when is_record(Type,type) ->
 	    emit({indent(3),"fun(Type, Val, _) ->",nl,
 		  indent(6),"case Type of",nl}),
 	    {Ret,N}=emit_inner_of_fun(Type,InternalDefFunName),
 	    gen_inlined_enc_funs1(Fields,Rest,ObjSetName,NthObj+N,Ret);
-	{value,{_,Type}} when record(Type,typedef) ->
+        {value,{_,Type}} when is_record(Type,typedef) ->
 	    emit({indent(3),"fun(Type, Val, _) ->",nl,
 		  indent(6),"case Type of",nl}),
 	    emit({indent(9),{asis,Name}," ->",nl}),
@@ -1328,11 +1328,11 @@ gen_inlined_enc_funs1(Fields,[{typefield,Name,_}|Rest],ObjSetName,
     InternalDefFunName = asn1ct_gen:list2name([NthObj,Name,ObjSetName]),
     {Acc2,NAdd}=
 	case lists:keysearch(Name,1,Fields) of
-	    {value,{_,Type}} when record(Type,type) ->
+            {value,{_,Type}} when is_record(Type,type) ->
 		emit({";",nl}),
 		{Ret,N}=emit_inner_of_fun(Type,InternalDefFunName),
 		{Ret++Acc,N};
-	    {value,{_,Type}} when record(Type,typedef) ->
+            {value,{_,Type}} when is_record(Type,typedef) ->
 		emit({";",nl,indent(9),{asis,Name}," ->",nl}),
 		{Ret,N}=emit_inner_of_fun(Type,InternalDefFunName),
 		{Ret++Acc,N};
@@ -1365,13 +1365,13 @@ emit_inner_of_fun(TDef=#typedef{name={ExtMod,Name},typespec=Type},
 emit_inner_of_fun(#typedef{name=Name},_) ->
     emit({indent(12),"'enc_",Name,"'(Val)"}),
     {[],0};
-emit_inner_of_fun(Type,_) when record(Type,type) ->
+emit_inner_of_fun(Type,_) when is_record(Type,type) ->
     CurrMod = get(currmod),
     case Type#type.def of
-	Def when atom(Def) ->
+        Def when is_atom(Def) ->
 	    emit({indent(9),Def," ->",nl,indent(12)}),
 	    gen_encode_prim(erules,Type,dotag,"Val");
-	TRef when record(TRef,typereference) ->
+        TRef when is_record(TRef,typereference) ->
 	    T = TRef#typereference.val,
 	    emit({indent(9),T," ->",nl,indent(12),"'enc_",T,"'(Val)"});
 	#'Externaltypereference'{module=CurrMod,type=T} ->
@@ -1433,12 +1433,12 @@ gen_inlined_dec_funs(Fields,[{typefield,Name,_}|Rest],
 		     ObjSetName,NthObj) ->
     InternalDefFunName = [NthObj,Name,ObjSetName],
     case lists:keysearch(Name,1,Fields) of
-	{value,{_,Type}} when record(Type,type) ->
+        {value,{_,Type}} when is_record(Type,type) ->
 	    emit({indent(3),"fun(Type, Val, _, _) ->",nl,
 		  indent(6),"case Type of",nl}),
 	    N=emit_inner_of_decfun(Type,InternalDefFunName),
 	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj+N);
-	{value,{_,Type}} when record(Type,typedef) ->
+        {value,{_,Type}} when is_record(Type,typedef) ->
 	    emit({indent(3),"fun(Type, Val, _, _) ->",nl,
 		  indent(6),"case Type of",nl}),
 	    emit({indent(9),{asis,Name}," ->",nl}),
@@ -1457,10 +1457,10 @@ gen_inlined_dec_funs1(Fields,[{typefield,Name,_}|Rest],
     InternalDefFunName = [NthObj,Name,ObjSetName],
     N=
     case lists:keysearch(Name,1,Fields) of
-	{value,{_,Type}} when record(Type,type) ->
+        {value,{_,Type}} when is_record(Type,type) ->
 	    emit({";",nl}),
 	    emit_inner_of_decfun(Type,InternalDefFunName);
-	{value,{_,Type}} when record(Type,typedef) ->
+        {value,{_,Type}} when is_record(Type,typedef) ->
 	    emit({";",nl,indent(9),{asis,Name}," ->",nl}),
 	    emit_inner_of_decfun(Type,InternalDefFunName);
 	false ->
@@ -1493,13 +1493,13 @@ emit_inner_of_decfun(#typedef{name={ExtName,Name},typespec=Type},
 emit_inner_of_decfun(#typedef{name=Name},_) ->
     emit({indent(12),"'dec_",Name,"'(Val, telltype)"}),
     0;
-emit_inner_of_decfun(Type,_) when record(Type,type) ->
+emit_inner_of_decfun(Type,_) when is_record(Type,type) ->
     CurrMod = get(currmod),
     case Type#type.def of
-	Def when atom(Def) ->
+        Def when is_atom(Def) ->
 	    emit({indent(9),Def," ->",nl,indent(12)}),
 	    gen_dec_prim(erules,Type,"Val");
-	TRef when record(TRef,typereference) ->
+        TRef when is_record(TRef,typereference) ->
 	    T = TRef#typereference.val,
 	    emit({indent(9),T," ->",nl,indent(12),"'dec_",T,"'(Val)"});
 	#'Externaltypereference'{module=CurrMod,type=T} ->
@@ -1525,7 +1525,7 @@ gen_internal_funcs(Erules,[TypeDef|Rest]) ->
 %%***************************************
 
 
-gen_decode(Erules,Type) when record(Type,typedef) ->
+gen_decode(Erules,Type) when is_record(Type,typedef) ->
     D = Type,
     emit({nl,nl}),
     emit({"'dec_",Type#typedef.name,"'(Bytes,_) ->",nl}),
@@ -1536,7 +1536,7 @@ gen_decode(Erules,Tname,#'ComponentType'{name=Cname,typespec=Type}) ->
     NewTname = [Cname|Tname],
     gen_decode(Erules,NewTname,Type);
 
-gen_decode(Erules,Typename,Type) when record(Type,type) ->
+gen_decode(Erules,Typename,Type) when is_record(Type,type) ->
     InnerType = asn1ct_gen:get_inner(Type#type.def),
     case asn1ct_gen:type(InnerType) of
 	{constructed,bif} ->
@@ -1555,12 +1555,12 @@ gen_decode(Erules,Typename,Type) when record(Type,type) ->
 	    true
     end.
 
-dbdec(Type) when list(Type)->
+dbdec(Type) when is_list(Type)->
     demit({"io:format(\"decoding: ",asn1ct_gen:list2name(Type),"~w~n\",[Bytes]),",nl});
 dbdec(Type) ->
     demit({"io:format(\"decoding: ",{asis,Type},"~w~n\",[Bytes]),",nl}).
 
-gen_decode_user(Erules,D) when record(D,typedef) ->
+gen_decode_user(Erules,D) when is_record(D,typedef) ->
     CurrMod = get(currmod),
     Typename = [D#typedef.name],
     Def = D#typedef.typespec,
@@ -1732,7 +1732,7 @@ emit_dec_integer(C,BytesVar,NNL) ->
     emit({" end",nl}), % end of case
     emit(" end"). % end of begin
 
-emit_dec_integer([{'SingleValue',Int}],BytesVar) when integer(Int) ->
+emit_dec_integer([{'SingleValue',Int}],BytesVar) when is_integer(Int) ->
     emit(["{",Int,",",BytesVar,"}"]);
 emit_dec_integer([{_,{Lb,_Ub},_Range,{BitsOrOctets,N}}],BytesVar) ->
     GetBorO =
@@ -1754,7 +1754,7 @@ emit_dec_integer([{'ValueRange',VR={Lb,Ub}}],BytesVar) ->
     Range = Ub-Lb+1,
      emit({"?RT_PER:decode_constrained_number(",BytesVar,",",
 	   {asis,VR},",",Range,")"});
-emit_dec_integer(C=[{Rc,_}],BytesVar) when tuple(Rc) ->
+emit_dec_integer(C=[{Rc,_}],BytesVar) when is_tuple(Rc) ->
     emit({"?RT_PER:decode_integer(",BytesVar,",",{asis,C},")"});
 emit_dec_integer(_,BytesVar) ->
     emit({"?RT_PER:decode_unconstrained_number(",BytesVar,")"}).
@@ -1809,3 +1809,26 @@ dec_enumerated_cases([],_,_) ->
 % 	{false,objectfield} -> true;
 % 	{false,_} -> more_genfields(Fields,T)
 %     end.
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

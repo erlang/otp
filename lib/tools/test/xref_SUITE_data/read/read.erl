@@ -135,7 +135,7 @@ bi() when length([]) > 17 ->
     A = true andalso tjo ,
     t:foo(A),
     case true of
-	true when integer(1) ->
+        true when is_integer(1) ->
 	    X = foo;
 	false ->
 	    X = flopp

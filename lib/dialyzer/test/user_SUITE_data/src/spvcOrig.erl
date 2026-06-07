@@ -1,3 +1,11 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 %%%=======================================================================
 %%%
 %%% Test from Mats Cronqvist <mats.cronqvist@ericsson.com>. The
@@ -1634,7 +1642,7 @@ release_incumbent4(TpKey,Release) ->
 
 switch_over(HcId,{If,Vpi,Vci}) ->
     Key = case {If,Vpi,Vci} of
-              {If_Value,Vpi_Value,Vci_Value} when integer(Vci_Value) ->
+              {If_Value,Vpi_Value,Vci_Value} when is_integer(Vci_Value) ->
                   {If_Value,Vpi_Value,Vci_Value,1};
               {If_Value,Vpi_Value,_} ->
                   {If_Value,Vpi_Value,1};
@@ -1645,7 +1653,7 @@ switch_over(HcId,{If,Vpi,Vci}) ->
     do_switch_over(HcId,Spvc);
 switch_over(HcId,{If,Vpi}) ->
     Key = case {If,Vpi,no_vc} of
-              {If_Value,Vpi_Value,Vci_Value} when integer(Vci_Value) ->
+              {If_Value,Vpi_Value,Vci_Value} when is_integer(Vci_Value) ->
                   {If_Value,Vpi_Value,Vci_Value,1};
               {If_Value,Vpi_Value,_} ->
                   {If_Value,Vpi_Value,1};
@@ -1778,41 +1786,41 @@ gen_set(Type,Row,Cols,FrKey) ->
             debug_disabled,
             mnesia:dirty_update_counter(spvcHcEtStat,spvcLib:get_board(hd(Row)),1),
             case get_link_state(case Row of
-                                    Row when record(Row,spvcObj) ->
+                                    Row when is_record(Row,spvcObj) ->
                                         case Row#spvcObj.spvcEntry of
                                             {If_Value,_,_,_} ->
                                                 If_Value;
                                             {If_Value,_,_} ->
                                                 If_Value
                                         end;
-                                    Row when record(Row,spvcVcc) ->
+                                    Row when is_record(Row,spvcVcc) ->
                                         {If_Value,_,_,_} = Row#spvcVcc.spvcVccEntry,
                                         If_Value;
-                                    Row when record(Row,spvcVpc) ->
+                                    Row when is_record(Row,spvcVpc) ->
                                         {If_Value,_,_} = Row#spvcVpc.spvcVpcEntry,
                                         If_Value;
-                                    Row when record(Row,spvcVpcPerm) ->
+                                    Row when is_record(Row,spvcVpcPerm) ->
                                         {If_Value,_,_} = Row#spvcVpcPerm.spvcVpcEntry,
                                         If_Value;
-                                    Row when record(Row,spvcVccPerm) ->
+                                    Row when is_record(Row,spvcVccPerm) ->
                                         {If_Value,_,_,_} = Row#spvcVccPerm.spvcVccEntry,
                                         If_Value;
-                                    Row when record(Row,spvcTargetVc) ->
+                                    Row when is_record(Row,spvcTargetVc) ->
                                         {If_Value,_,_} = Row#spvcTargetVc.entry,
                                         If_Value;
-                                    Row when record(Row,spvcTargetVp) ->
+                                    Row when is_record(Row,spvcTargetVp) ->
                                         {If_Value,_} = Row#spvcTargetVp.entry,
                                         If_Value;
-                                    Row when record(Row,pchVc) ->
+                                    Row when is_record(Row,pchVc) ->
                                         {If_Value,_,_} = Row#pchVc.vclEntry,
                                         If_Value;
-                                    Row when record(Row,pchVp) ->
+                                    Row when is_record(Row,pchVp) ->
                                         {If_Value,_} = Row#pchVp.vplEntry,
                                         If_Value;
-                                    Row when record(Row,spvcFr) ->
+                                    Row when is_record(Row,spvcFr) ->
                                         {If_Value,_} = Row#spvcFr.spvcFrEntry,
                                         If_Value;
-                                    Row when record(Row,spvcFrPerm) ->
+                                    Row when is_record(Row,spvcFrPerm) ->
                                         {If_Value,_} = Row#spvcFrPerm.spvcFrEntry,
                                         If_Value;
                                     {If_Value,_,_,_} ->
@@ -1842,41 +1850,41 @@ gen_set(Type,Row,Cols,FrKey) ->
                     ok;
                 Spvc ->
                     case get_link_state(case Row of
-                                            Row when record(Row,spvcObj) ->
+                                            Row when is_record(Row,spvcObj) ->
                                                 case Row#spvcObj.spvcEntry of
                                                     {If_Value,_,_,_} ->
                                                         If_Value;
                                                     {If_Value,_,_} ->
                                                         If_Value
                                                 end;
-                                            Row when record(Row,spvcVcc) ->
+                                            Row when is_record(Row,spvcVcc) ->
                                                 {If_Value,_,_,_} = Row#spvcVcc.spvcVccEntry,
                                                 If_Value;
-                                            Row when record(Row,spvcVpc) ->
+                                            Row when is_record(Row,spvcVpc) ->
                                                 {If_Value,_,_} = Row#spvcVpc.spvcVpcEntry,
                                                 If_Value;
-                                            Row when record(Row,spvcVpcPerm) ->
+                                            Row when is_record(Row,spvcVpcPerm) ->
                                                 {If_Value,_,_} = Row#spvcVpcPerm.spvcVpcEntry,
                                                 If_Value;
-                                            Row when record(Row,spvcVccPerm) ->
+                                            Row when is_record(Row,spvcVccPerm) ->
                                                 {If_Value,_,_,_} = Row#spvcVccPerm.spvcVccEntry,
                                                 If_Value;
-                                            Row when record(Row,spvcTargetVc) ->
+                                            Row when is_record(Row,spvcTargetVc) ->
                                                 {If_Value,_,_} = Row#spvcTargetVc.entry,
                                                 If_Value;
-                                            Row when record(Row,spvcTargetVp) ->
+                                            Row when is_record(Row,spvcTargetVp) ->
                                                 {If_Value,_} = Row#spvcTargetVp.entry,
                                                 If_Value;
-                                            Row when record(Row,pchVc) ->
+                                            Row when is_record(Row,pchVc) ->
                                                 {If_Value,_,_} = Row#pchVc.vclEntry,
                                                 If_Value;
-                                            Row when record(Row,pchVp) ->
+                                            Row when is_record(Row,pchVp) ->
                                                 {If_Value,_} = Row#pchVp.vplEntry,
                                                 If_Value;
-                                            Row when record(Row,spvcFr) ->
+                                            Row when is_record(Row,spvcFr) ->
                                                 {If_Value,_} = Row#spvcFr.spvcFrEntry,
                                                 If_Value;
-                                            Row when record(Row,spvcFrPerm) ->
+                                            Row when is_record(Row,spvcFrPerm) ->
                                                 {If_Value,_} = Row#spvcFrPerm.spvcFrEntry,
                                                 If_Value;
                                             {If_Value,_,_,_} ->
@@ -2097,41 +2105,41 @@ orig_state_machine(outgoing_callproceeding,restart,Spvc,Attrs) ->
     outgoing_callproceeding(restart,Spvc,Attrs);
 orig_state_machine(outgoing_callproceeding,release_nu,Spvc,Attrs) ->
     case get_link_state_intf(case Spvc of
-                                 Spvc when record(Spvc,spvcObj) ->
+                                 Spvc when is_record(Spvc,spvcObj) ->
                                      case Spvc#spvcObj.spvcEntry of
                                          {If_Value,_,_,_} ->
                                              If_Value;
                                          {If_Value,_,_} ->
                                              If_Value
                                      end;
-                                 Spvc when record(Spvc,spvcVcc) ->
+                                 Spvc when is_record(Spvc,spvcVcc) ->
                                      {If_Value,_,_,_} = Spvc#spvcVcc.spvcVccEntry,
                                      If_Value;
-                                 Spvc when record(Spvc,spvcVpc) ->
+                                 Spvc when is_record(Spvc,spvcVpc) ->
                                      {If_Value,_,_} = Spvc#spvcVpc.spvcVpcEntry,
                                      If_Value;
-                                 Spvc when record(Spvc,spvcVpcPerm) ->
+                                 Spvc when is_record(Spvc,spvcVpcPerm) ->
                                      {If_Value,_,_} = Spvc#spvcVpcPerm.spvcVpcEntry,
                                      If_Value;
-                                 Spvc when record(Spvc,spvcVccPerm) ->
+                                 Spvc when is_record(Spvc,spvcVccPerm) ->
                                      {If_Value,_,_,_} = Spvc#spvcVccPerm.spvcVccEntry,
                                      If_Value;
-                                 Spvc when record(Spvc,spvcTargetVc) ->
+                                 Spvc when is_record(Spvc,spvcTargetVc) ->
                                      {If_Value,_,_} = Spvc#spvcTargetVc.entry,
                                      If_Value;
-                                 Spvc when record(Spvc,spvcTargetVp) ->
+                                 Spvc when is_record(Spvc,spvcTargetVp) ->
                                      {If_Value,_} = Spvc#spvcTargetVp.entry,
                                      If_Value;
-                                 Spvc when record(Spvc,pchVc) ->
+                                 Spvc when is_record(Spvc,pchVc) ->
                                      {If_Value,_,_} = Spvc#pchVc.vclEntry,
                                      If_Value;
-                                 Spvc when record(Spvc,pchVp) ->
+                                 Spvc when is_record(Spvc,pchVp) ->
                                      {If_Value,_} = Spvc#pchVp.vplEntry,
                                      If_Value;
-                                 Spvc when record(Spvc,spvcFr) ->
+                                 Spvc when is_record(Spvc,spvcFr) ->
                                      {If_Value,_} = Spvc#spvcFr.spvcFrEntry,
                                      If_Value;
-                                 Spvc when record(Spvc,spvcFrPerm) ->
+                                 Spvc when is_record(Spvc,spvcFrPerm) ->
                                      {If_Value,_} = Spvc#spvcFrPerm.spvcFrEntry,
                                      If_Value;
                                  {If_Value,_,_,_} ->
@@ -2169,41 +2177,41 @@ orig_state_machine(active,restart,Spvc,Attrs) ->
     active(restart,Spvc,Attrs);
 orig_state_machine(active,release_nu,Spvc,Attrs) ->
     case cnhChi:get_link_opstate(case Spvc of
-                                     Spvc when record(Spvc,spvcObj) ->
+                                     Spvc when is_record(Spvc,spvcObj) ->
                                          case Spvc#spvcObj.spvcEntry of
                                              {If_Value,_,_,_} ->
                                                  If_Value;
                                              {If_Value,_,_} ->
                                                  If_Value
                                          end;
-                                     Spvc when record(Spvc,spvcVcc) ->
+                                     Spvc when is_record(Spvc,spvcVcc) ->
                                          {If_Value,_,_,_} = Spvc#spvcVcc.spvcVccEntry,
                                          If_Value;
-                                     Spvc when record(Spvc,spvcVpc) ->
+                                     Spvc when is_record(Spvc,spvcVpc) ->
                                          {If_Value,_,_} = Spvc#spvcVpc.spvcVpcEntry,
                                          If_Value;
-                                     Spvc when record(Spvc,spvcVpcPerm) ->
+                                     Spvc when is_record(Spvc,spvcVpcPerm) ->
                                          {If_Value,_,_} = Spvc#spvcVpcPerm.spvcVpcEntry,
                                          If_Value;
-                                     Spvc when record(Spvc,spvcVccPerm) ->
+                                     Spvc when is_record(Spvc,spvcVccPerm) ->
                                          {If_Value,_,_,_} = Spvc#spvcVccPerm.spvcVccEntry,
                                          If_Value;
-                                     Spvc when record(Spvc,spvcTargetVc) ->
+                                     Spvc when is_record(Spvc,spvcTargetVc) ->
                                          {If_Value,_,_} = Spvc#spvcTargetVc.entry,
                                          If_Value;
-                                     Spvc when record(Spvc,spvcTargetVp) ->
+                                     Spvc when is_record(Spvc,spvcTargetVp) ->
                                          {If_Value,_} = Spvc#spvcTargetVp.entry,
                                          If_Value;
-                                     Spvc when record(Spvc,pchVc) ->
+                                     Spvc when is_record(Spvc,pchVc) ->
                                          {If_Value,_,_} = Spvc#pchVc.vclEntry,
                                          If_Value;
-                                     Spvc when record(Spvc,pchVp) ->
+                                     Spvc when is_record(Spvc,pchVp) ->
                                          {If_Value,_} = Spvc#pchVp.vplEntry,
                                          If_Value;
-                                     Spvc when record(Spvc,spvcFr) ->
+                                     Spvc when is_record(Spvc,spvcFr) ->
                                          {If_Value,_} = Spvc#spvcFr.spvcFrEntry,
                                          If_Value;
-                                     Spvc when record(Spvc,spvcFrPerm) ->
+                                     Spvc when is_record(Spvc,spvcFrPerm) ->
                                          {If_Value,_} = Spvc#spvcFrPerm.spvcFrEntry,
                                          If_Value;
                                      {If_Value,_,_,_} ->
@@ -2605,41 +2613,41 @@ active(release_nu_enabled,Spvc,[HcId,Release]) ->
 active(release_nu_disabled,Spvc,[HcId,Release]) ->
     debug_disabled,
     case get_link_state_intf(case Spvc of
-                                 Spvc when record(Spvc,spvcObj) ->
+                                 Spvc when is_record(Spvc,spvcObj) ->
                                      case Spvc#spvcObj.spvcEntry of
                                          {If_Value,_,_,_} ->
                                              If_Value;
                                          {If_Value,_,_} ->
                                              If_Value
                                      end;
-                                 Spvc when record(Spvc,spvcVcc) ->
+                                 Spvc when is_record(Spvc,spvcVcc) ->
                                      {If_Value,_,_,_} = Spvc#spvcVcc.spvcVccEntry,
                                      If_Value;
-                                 Spvc when record(Spvc,spvcVpc) ->
+                                 Spvc when is_record(Spvc,spvcVpc) ->
                                      {If_Value,_,_} = Spvc#spvcVpc.spvcVpcEntry,
                                      If_Value;
-                                 Spvc when record(Spvc,spvcVpcPerm) ->
+                                 Spvc when is_record(Spvc,spvcVpcPerm) ->
                                      {If_Value,_,_} = Spvc#spvcVpcPerm.spvcVpcEntry,
                                      If_Value;
-                                 Spvc when record(Spvc,spvcVccPerm) ->
+                                 Spvc when is_record(Spvc,spvcVccPerm) ->
                                      {If_Value,_,_,_} = Spvc#spvcVccPerm.spvcVccEntry,
                                      If_Value;
-                                 Spvc when record(Spvc,spvcTargetVc) ->
+                                 Spvc when is_record(Spvc,spvcTargetVc) ->
                                      {If_Value,_,_} = Spvc#spvcTargetVc.entry,
                                      If_Value;
-                                 Spvc when record(Spvc,spvcTargetVp) ->
+                                 Spvc when is_record(Spvc,spvcTargetVp) ->
                                      {If_Value,_} = Spvc#spvcTargetVp.entry,
                                      If_Value;
-                                 Spvc when record(Spvc,pchVc) ->
+                                 Spvc when is_record(Spvc,pchVc) ->
                                      {If_Value,_,_} = Spvc#pchVc.vclEntry,
                                      If_Value;
-                                 Spvc when record(Spvc,pchVp) ->
+                                 Spvc when is_record(Spvc,pchVp) ->
                                      {If_Value,_} = Spvc#pchVp.vplEntry,
                                      If_Value;
-                                 Spvc when record(Spvc,spvcFr) ->
+                                 Spvc when is_record(Spvc,spvcFr) ->
                                      {If_Value,_} = Spvc#spvcFr.spvcFrEntry,
                                      If_Value;
-                                 Spvc when record(Spvc,spvcFrPerm) ->
+                                 Spvc when is_record(Spvc,spvcFrPerm) ->
                                      {If_Value,_} = Spvc#spvcFrPerm.spvcFrEntry,
                                      If_Value;
                                  {If_Value,_,_,_} ->
@@ -2950,41 +2958,41 @@ new_state_outgoing_call_proceeding(Spvc) ->
     BwdPchAtd = spvcDataBase:db_read({pchAtd,BwdAtdIndex}),
     Row = tuple_to_list(Key),
     HcId = spvcLib:create_hcid(Row,case Row of
-                                   Row when record(Row,spvcObj) ->
+                                   Row when is_record(Row,spvcObj) ->
                                        case Row#spvcObj.spvcEntry of
                                            {If_Value,_,_,_} ->
                                                If_Value;
                                            {If_Value,_,_} ->
                                                If_Value
                                        end;
-                                   Row when record(Row,spvcVcc) ->
+                                   Row when is_record(Row,spvcVcc) ->
                                        {If_Value,_,_,_} = Row#spvcVcc.spvcVccEntry,
                                        If_Value;
-                                   Row when record(Row,spvcVpc) ->
+                                   Row when is_record(Row,spvcVpc) ->
                                        {If_Value,_,_} = Row#spvcVpc.spvcVpcEntry,
                                        If_Value;
-                                   Row when record(Row,spvcVpcPerm) ->
+                                   Row when is_record(Row,spvcVpcPerm) ->
                                        {If_Value,_,_} = Row#spvcVpcPerm.spvcVpcEntry,
                                        If_Value;
-                                   Row when record(Row,spvcVccPerm) ->
+                                   Row when is_record(Row,spvcVccPerm) ->
                                        {If_Value,_,_,_} = Row#spvcVccPerm.spvcVccEntry,
                                        If_Value;
-                                   Row when record(Row,spvcTargetVc) ->
+                                   Row when is_record(Row,spvcTargetVc) ->
                                        {If_Value,_,_} = Row#spvcTargetVc.entry,
                                        If_Value;
-                                   Row when record(Row,spvcTargetVp) ->
+                                   Row when is_record(Row,spvcTargetVp) ->
                                        {If_Value,_} = Row#spvcTargetVp.entry,
                                        If_Value;
-                                   Row when record(Row,pchVc) ->
+                                   Row when is_record(Row,pchVc) ->
                                        {If_Value,_,_} = Row#pchVc.vclEntry,
                                        If_Value;
-                                   Row when record(Row,pchVp) ->
+                                   Row when is_record(Row,pchVp) ->
                                        {If_Value,_} = Row#pchVp.vplEntry,
                                        If_Value;
-                                   Row when record(Row,spvcFr) ->
+                                   Row when is_record(Row,spvcFr) ->
                                        {If_Value,_} = Row#spvcFr.spvcFrEntry,
                                        If_Value;
-                                   Row when record(Row,spvcFrPerm) ->
+                                   Row when is_record(Row,spvcFrPerm) ->
                                        {If_Value,_} = Row#spvcFrPerm.spvcFrEntry,
                                        If_Value;
                                    {If_Value,_,_,_} ->
@@ -3393,14 +3401,14 @@ clear(Spvc) ->
             spvcDataBase:db_delete({spvcRerVc,Entry})
     end.
 
-get_link_state(If) when integer(If) ->
+get_link_state(If) when is_integer(If) ->
     debug_disabled,
     cnhChi:get_link_opstate(If);
 get_link_state(Other) ->
     debug_disabled,
     disabled.
 
-get_link_state_intf(If,Msg) when integer(If) ->
+get_link_state_intf(If,Msg) when is_integer(If) ->
     debug_disabled,
     case cnhChi:get_link_opstate(If) of
         enabled ->

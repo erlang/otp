@@ -1,27 +1,27 @@
-%% -*- erlang-indent-level: 4 -*-
-%%=======================================================================
-%% File        : beam_disasm.erl
-%% Author      : Kostis Sagonas
-%% Description : Disassembles an R5-R10 .beam file into symbolic BEAM code
-%%=======================================================================
-%% $Id: beam_disasm.erl,v 1.1 2008/12/17 09:53:41 mikpe Exp $
-%%=======================================================================
-%% Notes:
-%%   1. It does NOT work for .beam files of previous BEAM versions.
-%%   2. If handling of new BEAM instructions is needed, this should be
-%%      inserted at the end of function resolve_inst().
-%%=======================================================================
-
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
 -module(beam_disasm).
-
 -export([file/1, format_error/1]).
-
--author("Kostis Sagonas").
-
 -include("beam_opcodes.hrl").
-
 %%-----------------------------------------------------------------------
-
 -define(NO_DEBUG(Str,Xs),ok).
 -define(DEBUG(Str,Xs),io:format(Str,Xs)).
 -define(exit(Reason),exit({?MODULE,?LINE,Reason})).
@@ -44,7 +44,7 @@ format_error({internal, Error}) ->
 
 file(File) ->
     case beam_lib:info(File) of
-	Info when list(Info) ->
+        Info when is_list(Info) ->
 	    {value,{chunks,Chunks}} = lists:keysearch(chunks,1,Info),
 	    case catch process_chunks(File, Chunks) of
 		{'EXIT', Error} ->

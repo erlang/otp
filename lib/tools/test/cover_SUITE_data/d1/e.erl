@@ -1,3 +1,25 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
 -module(e).
 -behaviour(gen_server).
 
@@ -71,29 +93,29 @@ handle_call(Request, From, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%----------------------------------------------------------------------
-handle_cast(Msg, State) when atom(Msg) ->
+handle_cast(Msg, State) when is_atom(Msg) ->
     {noreply, State};
-handle_cast(Msg, State) when binary(Msg) ->
+handle_cast(Msg, State) when is_binary(Msg) ->
     {noreply, State};
 handle_cast(Msg, State) when not is_tuple(Msg), not is_list(Msg) ->
     {noreply, State};
-handle_cast(Msg, State) when float(Msg) ->
+handle_cast(Msg, State) when is_float(Msg) ->
     {noreply, State};
-handle_cast(Msg, State) when function(Msg) ->
+handle_cast(Msg, State) when is_function(Msg) ->
     {noreply, State};
-handle_cast(Msg, State) when integer(Msg) ->
+handle_cast(Msg, State) when is_integer(Msg) ->
     {noreply, State};
-handle_cast(Msg, State) when list(Msg) ->
+handle_cast(Msg, State) when is_list(Msg) ->
     {noreply, State};
-handle_cast(Msg, State) when number(Msg) ->
+handle_cast(Msg, State) when is_number(Msg) ->
     {noreply, State};
-handle_cast(Msg, State) when pid(Msg) ->
+handle_cast(Msg, State) when is_pid(Msg) ->
     {noreply, State};
-handle_cast(Msg, State) when port(Msg) ->
+handle_cast(Msg, State) when is_port(Msg) ->
     {noreply, State};
-handle_cast(Msg, State) when reference(Msg) ->
+handle_cast(Msg, State) when is_reference(Msg) ->
     {noreply, State};
-handle_cast(Msg, State) when tuple(Msg) ->
+handle_cast(Msg, State) when is_tuple(Msg) ->
     {noreply, State}.
 
 %%----------------------------------------------------------------------

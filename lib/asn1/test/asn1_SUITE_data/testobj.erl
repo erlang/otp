@@ -1308,7 +1308,7 @@ cause_radio() ->
     {radioNetwork, 'release-due-to-utran-generated-reason'}.
 
 
-cn_domain_ind(IEs) when atom(IEs)->
+cn_domain_ind(IEs) when is_atom(IEs)->
     setelement(1,cn_domain_ind(),IEs).
 
 cn_domain_ind() ->

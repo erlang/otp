@@ -96,9 +96,9 @@ start_link2(ConfigList, Verbosity) ->
 
 
 
-stop(Pid) when pid(Pid) ->
+stop(Pid) when is_pid(Pid) ->
     do_stop(Pid);
-stop(ConfigFile) when list(ConfigFile) ->
+stop(ConfigFile) when is_list(ConfigFile) ->
     case get_addr_and_port(ConfigFile) of
 	{ok, _, Addr, Port} ->
 	    stop(Addr, Port);
@@ -110,17 +110,17 @@ stop(StartArgs) ->
     ok.
 
 
-stop(Addr, Port) when integer(Port) ->
+stop(Addr, Port) when is_integer(Port) ->
     Name = make_name(Addr, Port),
     case whereis(Name) of
-	Pid when pid(Pid) ->
+        Pid when is_pid(Pid) ->
 	    do_stop(Pid),
 	    ok;
 	_ ->
 	    not_started
     end.
 
-stop2(ConfigList) when list(ConfigList) ->
+stop2(ConfigList) when is_list(ConfigList) ->
     {ok, Addr, Port} = get_addr_and_port2(ConfigList),
     stop(Addr, Port).
 
@@ -200,3 +200,26 @@ key1search(L, K) ->
 
 key1search(L, K, D) ->
     httpd_util:key1search(L, K, D).
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

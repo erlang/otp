@@ -1,4 +1,11 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,12 +17,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%%
-%%     $Id: sys_expand_pmod.erl,v 1.1 2008/12/17 09:53:42 mikpe Exp $
-%%
+%% %CopyrightEnd%
 -module(sys_expand_pmod).
 
 %% Expand function definition forms of parameterized module. We assume
@@ -160,9 +162,9 @@ pattern_grp([],_St) ->
 
 bit_types([]) ->
     [];
-bit_types([Atom | Rest]) when atom(Atom) ->
+bit_types([Atom | Rest]) when is_atom(Atom) ->
     [Atom | bit_types(Rest)];
-bit_types([{Atom, Integer} | Rest]) when atom(Atom), integer(Integer) ->
+bit_types([{Atom, Integer} | Rest]) when is_atom(Atom), is_integer(Integer) ->
     [{Atom, Integer} | bit_types(Rest)].
 
 pattern_list([P0|Ps],St) ->
@@ -170,7 +172,7 @@ pattern_list([P0|Ps],St) ->
     [P1|pattern_list(Ps,St)];
 pattern_list([],_St) -> [].
 
-guard([G0|Gs],St) when list(G0) ->
+guard([G0|Gs],St) when is_list(G0) ->
     [guard0(G0,St) | guard(Gs,St)];
 guard(L,St) ->
     guard0(L,St).

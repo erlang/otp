@@ -54,7 +54,7 @@
 %%===============================================================================
 %%===============================================================================
 
-gen_encode_sequence(Erules,Typename,D) when record(D,type) ->
+gen_encode_sequence(Erules,Typename,D) when is_record(D,type) ->
     asn1ct_name:start(),
     asn1ct_name:new(term),
     asn1ct_name:new(bytes),
@@ -169,7 +169,7 @@ gen_encode_sequence(Erules,Typename,D) when record(D,type) ->
 		  {asis,MyTag},", BytesSoFar, LenSoFar).",nl]).
 
 
-gen_decode_sequence(Erules,Typename,D) when record(D,type) ->
+gen_decode_sequence(Erules,Typename,D) when is_record(D,type) ->
     asn1ct_name:start(),
 %    asn1ct_name:new(term),
     asn1ct_name:new(tag),
@@ -335,10 +335,10 @@ emit_opt_or_mand_check(Value,TmpTerm) ->
 %%
 %%============================================================================
 
-gen_encode_set(Erules,Typename,D) when record(D,type) ->
+gen_encode_set(Erules,Typename,D) when is_record(D,type) ->
     gen_encode_sequence(Erules,Typename,D).
 
-gen_decode_set(Erules,Typename,D) when record(D,type) ->
+gen_decode_set(Erules,Typename,D) when is_record(D,type) ->
     asn1ct_name:start(),
     asn1ct_name:new(term),
     asn1ct_name:new(tag),
@@ -425,7 +425,7 @@ gen_decode_set(Erules,Typename,D) when record(D,type) ->
 %%===============================================================================
 %%===============================================================================
 
-gen_encode_sof(Erules,Typename,_InnerTypename,D) when record(D,type) ->
+gen_encode_sof(Erules,Typename,_InnerTypename,D) when is_record(D,type) ->
     asn1ct_name:start(),
     {SeqOrSetOf, Cont} = D#type.def,
 
@@ -454,7 +454,7 @@ gen_encode_sof(Erules,Typename,_InnerTypename,D) when record(D,type) ->
 % 		 mandatory,"{EncBytes,EncLen} = "),
 
 
-gen_decode_sof(Erules,Typename,_InnerTypename,D) when record(D,type) ->
+gen_decode_sof(Erules,Typename,_InnerTypename,D) when is_record(D,type) ->
     asn1ct_name:start(),
     {SeqOrSetOf, TypeTag, Cont} =
 	case D#type.def of
@@ -481,7 +481,7 @@ gen_decode_sof(Erules,Typename,_InnerTypename,D) when record(D,type) ->
     emit(["   ?RT_BER:decode_components(",{curr,rb}]),
     InnerType = asn1ct_gen:get_inner(Cont#type.def),
     ContName = case asn1ct_gen:type(InnerType) of
-		   Atom when atom(Atom) -> Atom;
+                   Atom when is_atom(Atom) -> Atom;
 		   _ -> TypeNameSuffix
 	       end,
     emit([", Len, ",{next,bytes},", "]),
@@ -503,7 +503,7 @@ gen_decode_sof(Erules,Typename,_InnerTypename,D) when record(D,type) ->
 
 
 gen_encode_sof_components(Erules,Typename,SeqOrSetOf,Cont)
-  when record(Cont,type)->
+  when is_record(Cont,type)->
 
     {Objfun,ObjFun_novar,EncObj} =
 	case Cont#type.tablecinf of
@@ -537,7 +537,7 @@ gen_encode_sof_components(Erules,Typename,SeqOrSetOf,Cont)
 %%
 %%============================================================================
 
-gen_encode_choice(Erules,Typename,D) when record(D,type) ->
+gen_encode_choice(Erules,Typename,D) when is_record(D,type) ->
     ChoiceTag = D#type.tag,
     {'CHOICE',CompList} = D#type.def,
     Ext = extensible(CompList),
@@ -548,7 +548,7 @@ gen_encode_choice(Erules,Typename,D) when record(D,type) ->
     gen_enc_choice(Erules,Typename,ChoiceTag,CompList1,Ext),
     emit({nl,nl}).
 
-gen_decode_choice(Erules,Typename,D) when record(D,type) ->
+gen_decode_choice(Erules,Typename,D) when is_record(D,type) ->
     asn1ct_name:start(),
     asn1ct_name:new(bytes),
     ChoiceTag = D#type.tag,
@@ -815,7 +815,7 @@ gen_enc_choice1(Erules,TopType,Tag,CompList,_Ext) ->
 
 
 
-gen_enc_choice2(Erules,TopType,[H1|T]) when record(H1,'ComponentType') ->
+gen_enc_choice2(Erules,TopType,[H1|T]) when is_record(H1,'ComponentType') ->
     Cname = H1#'ComponentType'.name,
     Type = H1#'ComponentType'.typespec,
     emit({"      ",{asis,Cname}," ->",nl}),
@@ -937,7 +937,7 @@ gen_dec_choice_cases_type(Erules,TopType,H) ->
 	  ", Dec}, IndefEndBytes(Len,Rest), RbExp + ",
 	  {curr,rbCho}," + IndefEndRb(Len,Rest)};",nl,nl]).
 
-encode_tag_val(Erules,{Class,TagNo}) when integer(TagNo) ->
+encode_tag_val(Erules,{Class,TagNo}) when is_integer(TagNo) ->
     Rtmod = rtmod(Erules),
     Rtmod:encode_tag_val({asn1ct_gen_ber:decode_class(Class),
 				  0,TagNo});
@@ -952,7 +952,7 @@ match_tag(ber_bin,Arg) ->
 match_tag(Erules,Arg) ->
     io_lib:format("~p",[encode_tag_val(Erules,Arg)]).
 
-match_tag_with_bitsyntax({Class,TagNo}) when integer(TagNo) ->
+match_tag_with_bitsyntax({Class,TagNo}) when is_integer(TagNo) ->
     match_tag_with_bitsyntax1({asn1ct_gen_ber:decode_class(Class),
 				  0,TagNo});
 match_tag_with_bitsyntax({Class,TypeName}) ->
@@ -1009,17 +1009,17 @@ gen_enc_line(Erules,TopType,Cname,
 	     Type=#type{constraint=[{componentrelation,_,_}],
 			def=#'ObjectClassFieldType'{type={typefield,_}}},
 	     Element,Indent,OptOrMand=mandatory,EncObj)
-  when list(Element) ->
+  when is_list(Element) ->
     asn1ct_name:new(tmpBytes),
     gen_enc_line(Erules,TopType,Cname,Type,Element,Indent,OptOrMand,
 		 ["{",{curr,tmpBytes},",_} = "],EncObj);
 gen_enc_line(Erules,TopType,Cname,Type,Element,Indent,OptOrMand,EncObj)
-  when list(Element) ->
+  when is_list(Element) ->
     gen_enc_line(Erules,TopType,Cname,Type,Element,Indent,OptOrMand,
 		 ["{",{curr,encBytes},",",{curr,encLen},"} = "],EncObj).
 
 gen_enc_line(Erules,TopType,Cname,Type,Element,Indent,OptOrMand,Assign,EncObj)
-  when list(Element) ->
+  when is_list(Element) ->
     IndDeep = indent(Indent),
 
     Tag = [X#tag{class=asn1ct_gen_ber:decode_class(X#tag.class)}
@@ -1041,7 +1041,7 @@ gen_enc_line(Erules,TopType,Cname,Type,Element,Indent,OptOrMand,Assign,EncObj)
 	    case RefedFieldName of
 		{notype,T} ->
 		    throw({error,{notype,type_from_object,T}});
-		{Name,RestFieldNames} when atom(Name) ->
+                {Name,RestFieldNames} when is_atom(Name) ->
 		    case OptOrMand of
 			mandatory -> ok;
 			_ ->
@@ -1374,7 +1374,7 @@ mkvlist(L) ->
 mkvplus(L) ->
     mkvlist(L," + ").
 
-extensible(CompList) when list(CompList) ->
+extensible(CompList) when is_list(CompList) ->
     noext;
 extensible({RootList,ExtList}) ->
     {ext,length(RootList)+1,length(ExtList)}.
@@ -1456,7 +1456,7 @@ notice_value_match() ->
     Module = get(currmod),
     put(value_match,{true,Module}).
 
-value_match(Index,Value) when atom(Value) ->
+value_match(Index,Value) when is_atom(Value) ->
     value_match(Index,atom_to_list(Value));
 value_match([],Value) ->
     Value;
@@ -1466,3 +1466,26 @@ value_match1(Value,[],Acc,Depth) ->
     Acc ++ Value ++ lists:concat(lists:duplicate(Depth,")"));
 value_match1(Value,[{VI,_Cname}|VIs],Acc,Depth) ->
     value_match1(Value,VIs,Acc++lists:concat(["element(",VI,","]),Depth+1).
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

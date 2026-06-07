@@ -3411,14 +3411,6 @@ lookup2(Config) when is_list(Config) ->
                  [r] = qlc:e(Q),
                  [r] = lookup_keys(Q)
          end, [{keypos,1}], [#r{}])">>,
-       {cres,
-        <<"etsc(fun(E) ->
-                Q = qlc:q([element(1, X) || X <- ets:table(E), 
-                                            record(X, r)]),
-                 [r] = qlc:e(Q),
-                 [r] = lookup_keys(Q)
-         end, [{keypos,1}], [#r{}])">>,
-        {warnings,[{{4,45},erl_lint,{obsolete_guard,{record,2}}}]}},
        <<"etsc(fun(E) ->
                 Q = qlc:q([element(1, X) || X <- ets:table(E), 
                                             erlang:is_record(X, r)]),

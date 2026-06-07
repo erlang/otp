@@ -77,7 +77,7 @@ get_user(DirData, User) ->
 list_users(DirData) ->
     PWDB = httpd_util:key1search(DirData, auth_user_file),
     case ets:match(PWDB, '$1') of
-	Records when list(Records) ->
+        Records when is_list(Records) ->
 	    {ok, lists:foldr(fun({User,PassWd,Data}, A) -> [User|A] end,
 			     [], lists:flatten(Records))};
 	O ->
@@ -152,7 +152,7 @@ list_groups(DirData) ->
 	[] ->
 	    ?DEBUG("list_groups -> []",[]),
 	    {ok, []};
-	Groups0 when list(Groups0) ->
+        Groups0 when is_list(Groups0) ->
 	    ?DEBUG("list_groups -> Groups0: ~p",[Groups0]),
 	    {ok, httpd_util:uniq(lists:foldr(fun({G, U}, A) -> [G|A] end,
 					     [], lists:flatten(Groups0)))};
@@ -167,7 +167,7 @@ delete_group_member(DirData, Group, User) ->
     GDB = httpd_util:key1search(DirData, auth_group_file),
     UDB = httpd_util:key1search(DirData, auth_user_file),
     case ets:lookup(GDB, Group) of
-	[{Group, Users}] when list(Users) ->
+        [{Group, Users}] when is_list(Users) ->
 	    case lists:member(User, Users) of
 		true ->
 		    ?DEBUG("list_group_members -> deleted from group",[]),
@@ -336,3 +336,26 @@ remove(DirData) ->
     GDB = httpd_util:key1search(DirData, auth_group_file),
     ets:delete(PWDB),
     ets:delete(GDB).
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

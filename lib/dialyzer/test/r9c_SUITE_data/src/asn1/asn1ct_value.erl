@@ -35,14 +35,14 @@ get_type(M,Typename,Tellname) ->
     case asn1_db:dbget(M,Typename) of
 	undefined ->
 	    {asn1_error,{not_found,{M,Typename}}};
-	Tdef when record(Tdef,typedef) ->
+        Tdef when is_record(Tdef,typedef) ->
 	    Type = Tdef#typedef.typespec,
 	    get_type(M,[Typename],Type,Tellname);
 	Err ->
 	    {asn1_error,{other,Err}}
     end.
 
-get_type(M,Typename,Type,Tellname) when record(Type,type) ->
+get_type(M,Typename,Type,Tellname) when is_record(Type,type) ->
     InnerType = get_inner(Type#type.def),
     case asn1ct_gen:type(InnerType) of
 	#'Externaltypereference'{module=Emod,type=Etype} ->
@@ -71,10 +71,10 @@ get_type(M,Typename,#'ComponentType'{name = Name,typespec = Type},_)  ->
 get_type(_,_,_,_) -> % 'EXTENSIONMARK'
     undefined.
 
-get_inner(A) when atom(A) -> A;
-get_inner(Ext) when record(Ext,'Externaltypereference') -> Ext;
+get_inner(A) when is_atom(A) -> A;
+get_inner(Ext) when is_record(Ext,'Externaltypereference') -> Ext;
 get_inner({typereference,_Pos,Name}) -> Name;
-get_inner(T) when tuple(T) ->
+get_inner(T) when is_tuple(T) ->
     case asn1ct_gen:get_inner(T) of
 	{fixedtypevaluefield,_,Type} ->
 	    Type#type.def;
@@ -87,7 +87,7 @@ get_inner(T) when tuple(T) ->
 
 
 
-get_type_constructed(M,Typename,InnerType,D) when record(D,type) ->
+get_type_constructed(M,Typename,InnerType,D) when is_record(D,type) ->
     case InnerType of
 	'SET' ->
 	    get_sequence(M,Typename,D);
@@ -140,7 +140,7 @@ get_choice(M,Typename,Type) ->
 	    CList = CompList ++ ExtList,
 	    C = lists:nth(random(length(CList)),CList),
 	    {C#'ComponentType'.name,get_type(M,Typename,C,no)};
-	CompList when list(CompList) ->
+        CompList when is_list(CompList) ->
 	    C = lists:nth(random(length(CompList)),CompList),
 	    {C#'ComponentType'.name,get_type(M,Typename,C,no)}
     end.
@@ -171,7 +171,7 @@ get_type_prim(D) ->
 		_ ->
 		    lists:nth(random(length(NN)),NN)
 	    end;
-	Enum when tuple(Enum),element(1,Enum)=='ENUMERATED' ->
+        Enum when is_tuple(Enum),element(1,Enum)=='ENUMERATED' ->
 	    NamedNumberList =
 		case Enum of
 		    {_,_,NNL} -> NNL;
@@ -248,9 +248,9 @@ c_string(undefined,Default) ->
     Default;
 c_string(C,Default) ->
     case get_constraint(C,'PermittedAlphabet') of
-	{'SingleValue',Sv} when list(Sv) ->
+        {'SingleValue',Sv} when is_list(Sv) ->
 	    Sv;
-	{'SingleValue',V} when integer(V) ->
+        {'SingleValue',V} when is_integer(V) ->
 	    [V];
 	no ->
 	    Default
@@ -286,7 +286,7 @@ c_random(VRange,Single) ->
 	    random(16#fffffff) - (16#fffffff bsr 1);
 	{R,no} ->
 	    case R of
-		{Lb,Ub} when integer(Lb),integer(Ub) ->
+                {Lb,Ub} when is_integer(Lb),is_integer(Ub) ->
 		    Range = Ub - Lb +1,
 		    Lb + (random(Range)-1);
 		{Lb,'MAX'} ->
@@ -297,9 +297,9 @@ c_random(VRange,Single) ->
 		    Range = B - A +1,
 		    A + (random(Range)-1)
 	    end;
-	{_,S} when integer(S) ->
+        {_,S} when is_integer(S) ->
 	    S;
-	{_,S} when list(S) ->
+        {_,S} when is_list(S) ->
 	    lists:nth(random(length(S)),S)
 %%	{S1,S2} ->
 %%	    io:format("asn1ct_value: hejsan hoppsan~n");

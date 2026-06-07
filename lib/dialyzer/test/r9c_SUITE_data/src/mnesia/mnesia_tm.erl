@@ -138,7 +138,7 @@ req(R) ->
 rec() ->
     rec(whereis(?MODULE)).
 
-rec(Pid) when pid(Pid) ->
+rec(Pid) when is_pid(Pid) ->
     receive
 	{?MODULE, _, Reply} ->
 	    Reply;
@@ -157,11 +157,11 @@ rec(Pid, Ref) ->
 	    {error, {node_not_running, node()}}
     end.
 
-tmlink({From, Ref}) when reference(Ref) ->
+tmlink({From, Ref}) when is_reference(Ref) ->
     link(From);
 tmlink(From) ->
     link(From).
-tmpid({Pid, _Ref}) when pid(Pid) ->
+tmpid({Pid, _Ref}) when is_pid(Pid) ->
     Pid;
 tmpid(Pid) ->
     Pid.
@@ -286,7 +286,7 @@ doit_loop(#state{coordinators = Coordinators, participants = Participants, super
 			    transaction_terminated(Tid),
 			    ?eval_debug_fun({?MODULE, do_commit, post}, [{tid, Tid}, {pid, nopid}]),
 			    doit_loop(State#state{participants = Participants2});
-			Pid when pid(Pid) ->
+                        Pid when is_pid(Pid) ->
 			    Pid ! {Tid, committed},
 			    ?eval_debug_fun({?MODULE, do_commit, post}, [{tid, Tid}, {pid, Pid}]),
 			    doit_loop(State)
@@ -322,7 +322,7 @@ doit_loop(#state{coordinators = Coordinators, participants = Participants, super
 			    transaction_terminated(Tid),
 			    ?eval_debug_fun({?MODULE, do_abort, post}, [{tid, Tid}, {pid, nopid}]),
 			    doit_loop(State#state{participants = Participants2});
-			Pid when pid(Pid) ->
+                        Pid when is_pid(Pid) ->
 			    Pid ! {Tid, {do_abort, Reason}},
 			    ?eval_debug_fun({?MODULE, do_abort, post},
 					    [{tid, Tid}, {pid, Pid}]),
@@ -529,7 +529,7 @@ handle_exit(Pid, Reason, State) ->
 			    [?MODULE, {Pid, Reason}]),
 		    doit_loop(State);
 
-		{P, RestP} when record(P, participant) ->
+                {P, RestP} when is_record(P, participant) ->
 		    fatal("Participant ~p in transaction ~p died ~p~n",
 			  [P#participant.pid, P#participant.tid, Reason]),
 		    doit_loop(State#state{participants = RestP})
@@ -780,7 +780,7 @@ apply_fun(Fun, Args, Type) ->
 
 check_exit(Fun, Args, Factor, Retries, Reason, Type) ->
     case Reason of
-	{aborted, C} when record(C, cyclic) ->
+        {aborted, C} when is_record(C, cyclic) ->
 	    maybe_restart(Fun, Args, Factor, Retries, Type, C);
 	{aborted, {node_not_running, N}} ->
 	    maybe_restart(Fun, Args, Factor, Retries, Type, {node_not_running, N});
@@ -802,7 +802,7 @@ maybe_restart(Fun, Args, Factor, Retries, Type, Why) ->
     end.
 
 try_again(infinity) -> yes;
-try_again(X) when number(X) , X > 1 -> yes;
+try_again(X) when is_number(X) , X > 1 -> yes;
 try_again(_) -> no.
 
 %% We can only restart toplevel transactions.
@@ -859,7 +859,7 @@ restart(Mod, Tid, Ts, Fun, Args, Factor0, Retries0, Type, Why) ->
     end.
 
 decr(infinity) -> infinity;
-decr(X) when integer(X), X > 1 -> X - 1;
+decr(X) when is_integer(X), X > 1 -> X - 1;
 decr(_X) -> 0.
 
 return_abort(Fun, Args, Reason)  ->
@@ -908,7 +908,7 @@ flush_downs() ->
 
 put_activity_id(undefined) ->
     erase_activity_id();
-put_activity_id({Mod, Tid, Ts}) when record(Tid, tid), record(Ts, tidstore) ->
+put_activity_id({Mod, Tid, Ts}) when is_record(Tid, tid), is_record(Ts, tidstore) ->
     flush_downs(),
     Store = Ts#tidstore.store,
     ?ets_insert(Store, {friends, self()}),
@@ -1068,7 +1068,7 @@ arrange(Tid, Store, Type) ->
 
 reverse([]) ->
     [];
-reverse([H|R]) when record(H, commit) ->
+reverse([H|R]) when is_record(H, commit) ->
     [
      H#commit{
        ram_copies       =  lists:reverse(H#commit.ram_copies),
@@ -1396,7 +1396,7 @@ multi_commit(asym_trans, Tid, CR, Store) ->
     case Votes of
 	do_commit ->
 	    case SchemaPrep of
-		{_Modified, C, DumperMode} when record(C, commit) ->
+                {_Modified, C, DumperMode} when is_record(C, commit) ->
 		    mnesia_log:log(C), % C is not a binary
 		    ?eval_debug_fun({?MODULE, multi_commit_asym_log_commit_rec},
 				    [{tid, Tid}]),
@@ -1519,16 +1519,16 @@ tell_participants([], _Msg) ->
 %% No need for trapping exits. We are only linked
 %% to mnesia_tm and if it dies we should also die.
 %% The same goes for disk_log and dets.
-commit_participant(Coord, Tid, Bin, DiscNs, RamNs) when binary(Bin) ->
+commit_participant(Coord, Tid, Bin, DiscNs, RamNs) when is_binary(Bin) ->
     Commit = binary_to_term(Bin),
     commit_participant(Coord, Tid, Bin, Commit, DiscNs, RamNs);
-commit_participant(Coord, Tid, C, DiscNs, RamNs) when record(C, commit) ->
+commit_participant(Coord, Tid, C, DiscNs, RamNs) when is_record(C, commit) ->
     commit_participant(Coord, Tid, C, C, DiscNs, RamNs).
 
 commit_participant(Coord, Tid, Bin, C0, DiscNs, _RamNs) ->
     ?eval_debug_fun({?MODULE, commit_participant, pre}, [{tid, Tid}]),
     case catch mnesia_schema:prepare_commit(Tid, C0, {part, Coord}) of
-	{Modified, C, DumperMode} when record(C, commit) ->
+        {Modified, C, DumperMode} when is_record(C, commit) ->
 	    %% If we cannot find any local unclear decision
 	    %% we should presume abort at startup recovery
 	    case lists:member(node(), DiscNs) of
@@ -1613,7 +1613,7 @@ commit_participant(Coord, Tid, Bin, C0, DiscNs, _RamNs) ->
     unlink(whereis(?MODULE)),
     exit(normal).
 
-do_abort(Tid, Bin) when binary(Bin) ->
+do_abort(Tid, Bin) when is_binary(Bin) ->
     %% Possible optimization:
     %% If we want we could pass around a flag
     %% that tells us whether the binary contains
@@ -1631,11 +1631,11 @@ do_dirty(Tid, Commit) when Commit#commit.schema_ops == [] ->
     do_commit(Tid, Commit).
 
 %% do_commit(Tid, CommitRecord)
-do_commit(Tid, Bin) when binary(Bin) ->
+do_commit(Tid, Bin) when is_binary(Bin) ->
     do_commit(Tid, binary_to_term(Bin));
 do_commit(Tid, C) ->
     do_commit(Tid, C, optional).
-do_commit(Tid, Bin, DumperMode) when binary(Bin) ->
+do_commit(Tid, Bin, DumperMode) when is_binary(Bin) ->
     do_commit(Tid, binary_to_term(Bin), DumperMode);
 do_commit(Tid, C, DumperMode) ->
     mnesia_dumper:update(Tid, C#commit.schema_ops, DumperMode),
@@ -1678,7 +1678,7 @@ do_update_op(Tid, Storage, {{Tab, K}, Val, delete}) ->
 do_update_op(Tid, Storage, {{Tab, K}, {RecName, Incr}, update_counter}) ->
     {NewObj, OldObjs} =
         case catch mnesia_lib:db_update_counter(Storage, Tab, K, Incr) of
-            NewVal when integer(NewVal), NewVal >= 0 ->
+            NewVal when is_integer(NewVal), NewVal >= 0 ->
                 {{RecName, K, NewVal}, [{RecName, K, NewVal - Incr}]};
             _ ->
                 Zero = {RecName, K, 0},
@@ -1986,7 +1986,7 @@ pr_participant(Stream, P) ->
     Commit0 = P#participant.commit,
     Commit =
 	if
-	    binary(Commit0) -> binary_to_term(Commit0);
+            is_binary(Commit0) -> binary_to_term(Commit0);
 	    true -> Commit0
 	end,
     pr_tid(Stream, P#participant.tid),
@@ -2028,7 +2028,7 @@ search_pr_participant(S, [ P | Tail]) ->
 	    io:format( "Tid wants to write objects \n",[]),
 	    Commit =
 		if
-		    binary(Commit0) -> binary_to_term(Commit0);
+                    is_binary(Commit0) -> binary_to_term(Commit0);
 		    true -> Commit0
 		end,
 
@@ -2045,7 +2045,7 @@ display_pid_info(Pid) ->
 	Info ->
 	    Call = fetch(initial_call, Info),
 	    Curr = case fetch(current_function, Info) of
-		       {Mod,F,Args} when list(Args) ->
+                       {Mod,F,Args} when is_list(Args) ->
 			   {Mod,F,length(Args)};
 		       Other ->
 			   Other
@@ -2171,3 +2171,27 @@ system_terminate(_Reason, _Parent, _Debug, State) ->
 
 system_code_change(State, _Module, _OldVsn, _Extra) ->
     {ok, State}.
+
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

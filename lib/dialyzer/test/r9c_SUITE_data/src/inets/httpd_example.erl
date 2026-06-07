@@ -110,14 +110,14 @@ newformat(SessionID,Env,Input)->
 
 %% ------------------------------------------------------
 
-delay(Time) when integer(Time) ->
+delay(Time) when is_integer(Time) ->
     i("httpd_example:delay(~p) -> do the delay",[Time]),
     sleep(Time),
     i("httpd_example:delay(~p) -> done, now reply",[Time]),
     delay_reply("delay ok");
-delay(Time) when list(Time) ->
+delay(Time) when is_list(Time) ->
     delay(httpd_conf:make_integer(Time));
-delay({ok,Time}) when integer(Time) ->
+delay({ok,Time}) when is_integer(Time) ->
     delay(Time);
 delay({error,_Reason}) ->
     i("delay -> called with invalid time"),
@@ -133,3 +133,26 @@ i(F)   -> i(F,[]).
 i(F,A) -> io:format(F ++ "~n",A).
 
 sleep(T) -> receive after T -> ok end.
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
