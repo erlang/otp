@@ -1286,7 +1286,7 @@ Port *erts_open_driver(erts_driver_t*, Eterm, char*, SysDriverOpts*, int *, int 
 void erts_init_io(int, int, int);
 void erts_raw_port_command(Port*, byte*, Uint);
 void driver_report_exit(ErlDrvPort, int);
-LineBuf* allocate_linebuf(int);
+LineBuf* allocate_linebuf(Sint);
 int async_ready(Port *, void*);
 ErtsPortNames *erts_get_port_names(Eterm, ErlDrvPort);
 void erts_free_port_names(ErtsPortNames *);

@@ -887,6 +887,10 @@ line(Config) when is_list(Config) ->
                           {eol, Packet1}]}], 0, "-d", [{line,Siz}]),
     %% Test that we get badarg if trying both packet and line
     bad_argument(Config, [{packet, 5}, {line, 5}]),
+
+    %% Test that we get badarg if use a too large line size
+    bad_argument(Config, [{line, 1 bsl 64}]),
+
     ok.
 
 %% Test that redirection of standard error to standard output works.
