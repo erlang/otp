@@ -38,7 +38,7 @@
 -export([basic_test/0,cmp_test/1,range_test/0,spread_test/1,
 	 phash2_test/0, otp_5292_test/0,
          otp_7127_test/0,
-         test_native_record/1,
+         test_native_record/1, md5_large/1,
          run_phash2_benchmarks/0,
          test_phash2_binary_aligned_and_unaligned_equal/1,
          test_phash2_4GB_plus_bin/1,
@@ -114,6 +114,7 @@ all() ->
      test_phash2_4GB_plus_bin,
      test_phash2_10MB_plus_bin,
      test_native_record,
+     md5_large,
      {group, phash2_benchmark_tests},
      {group, phash2_benchmark}].
 
@@ -901,6 +902,21 @@ create_record(Rec) ->
 
 make_internal_hash(Term) ->
     erts_debug:get_internal_state({internal_hash, Term}).
+
+md5_large(_Config) when is_list(_Config) ->
+    %% A type conversion error in the md5 implementation on binaries
+    %% larger than 512 MB would cause the MD5 be incorrect on
+    %% 32-bit systems.
+
+    Chunk = <<0:(32*1024*1024)/unit:8>>,
+    L1 = [<<0>> | lists:duplicate(16, Chunk)],
+    <<16#EA3B62C6B93CB3625A1FD76777985F5A:128>> = erlang:md5(L1),
+
+    %% 4GB + 1 will not fit in a size_t on 32-bit systems.
+    L2 = [<<0>> | lists:duplicate(8*16, Chunk)],
+    <<16#F18C798FF5D450DFE4D3ACDC12B621FF:128>> = erlang:md5(L2),
+
+    ok.
 
 %%
 %% Reference implementation of integer hashing
