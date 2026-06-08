@@ -445,7 +445,7 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts, ?TLS_1_3),
         #session{sign_alg = ProtocolSignAlg} = Session =
             Maybe(select_server_cert_key_pair(Session0, CertKeyPairs, ClientSignAlgs,
-                                              ClientSignAlgsCert, CertAuths, State0,
+                                              ClientSignAlgsCert, CertAuths, State1,
                                               undefined)),
 
         %% Select client public key. If no public key found in ClientShares or
