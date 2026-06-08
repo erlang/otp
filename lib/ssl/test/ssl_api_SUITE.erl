@@ -77,6 +77,8 @@
          versions_option_based_on_sni/1,
          ciphers_option_based_on_sni/0,
          ciphers_option_based_on_sni/1,
+         cert_option_based_on_sni/0,
+         cert_option_based_on_sni/1,
          active_n/0,
          active_n/1,
          dh_params/0,
@@ -226,6 +228,7 @@
          get_connection_information/3,
          protocol_version_check/2,
          suite_check/2,
+         ecdsa_cert_check/1,
          check_peercert/2,
          %%TODO Keep?
          run_error_server/1,
@@ -277,6 +280,7 @@ since_1_2() ->
      no_common_signature_algs,
      versions_option_based_on_sni,
      ciphers_option_based_on_sni,
+     cert_option_based_on_sni,
      select_best_cert,
      root_any_sign
     ].
@@ -1234,10 +1238,12 @@ versions_option_based_on_sni(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server, ok),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+
 %%--------------------------------------------------------------------
 
 ciphers_option_based_on_sni() ->
-    [{doc,"Test that SNI versions option is selected over default ciphers option"}].
+    [{doc,"Test that SNI ciphers option is selected over default ciphers option"}].
 
 ciphers_option_based_on_sni(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
@@ -1268,6 +1274,51 @@ ciphers_option_based_on_sni(Config) when is_list(Config) ->
 					{options, [{server_name_indication, SNI} | ClientOpts]}]),
 
     ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+
+cert_option_based_on_sni() ->
+    [{doc,"Test that SNI cert_keys option is selected over default cert_keys option"}].
+
+cert_option_based_on_sni(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    TestVersion = ssl_test_lib:protocol_version(Config),
+
+    #{client_config := ClientSNIOpts, server_config := ServerSNIOpts} = ecdsa_cert_chains(),
+    SNI = net_adm:localhost(),
+    Fun = fun(ServerName) ->
+              case ServerName of
+                  SNI ->
+                      [{signature_algs,  ssl:signature_algs(all, TestVersion)} | ServerSNIOpts];
+                  _ ->
+                      ServerOpts
+              end
+          end,
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, no_result, []}},
+                                        {options, [{sni_fun, Fun}, {versions, [TestVersion]}|
+                                                   [{signature_algs,
+                                                     [rsa_pss_pss_sha512,
+                                                      rsa_pss_pss_sha384,
+                                                      rsa_pss_pss_sha256,
+                                                      rsa_pss_rsae_sha512,
+                                                      rsa_pss_rsae_sha384,
+                                                      rsa_pss_rsae_sha256]} | ServerOpts]]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                        {host, Hostname},
+                                        {from, self()},
+                                        {mfa, {?MODULE, ecdsa_cert_check, []}},
+                                        {options, [{server_name_indication, SNI},
+                                                   {versions, [TestVersion]} |
+                                                   ClientSNIOpts]}]),
+
+    ssl_test_lib:check_result(Client, ok),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -4761,4 +4812,16 @@ suite_check(Socket, Version) ->
             ok;
         Other ->
             ct:fail({expected, Suite, got, Other})
+    end.
+
+ecdsa_cert_check(Socket) ->
+    {ok, Cert} = ssl:peercert(Socket),
+    #'OTPCertificate'{signatureAlgorithm =
+                          #'SignatureAlgorithm'{algorithm = Oid}}
+        = public_key:pkix_decode_cert(Cert, otp),
+    case public_key:pkix_sign_types(Oid) of
+        {_, ecdsa} ->
+            ok;
+        {_, Other} ->
+            ct:fail({expected, ecdsa, got, Other})
     end.
