@@ -1,6 +1,6 @@
 -module(record_match).
 
--export([select/0, n_select/0]).
+-export([select/0, n_select/0, n_match/1]).
 
 -record(b_literal, {val}).
 -record(b_remote, {mod,name,arity}).
@@ -29,6 +29,12 @@ select() ->
 
 n_select() ->
     #n_set{args=[#n_remote{},#n_literal{}]}.
+
+n_match(Fs0) ->
+    Fs1 = lists:map(fun ({#n_local{}}=Def) ->
+                  Def
+              end, Fs0),
+    Fs1.
 
 %% %CopyrightBegin%
 %% 
