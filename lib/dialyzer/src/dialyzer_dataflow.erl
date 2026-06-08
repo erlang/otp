@@ -60,8 +60,8 @@
 	 t_limit/2, t_list/0, t_list_elements/1,
 	 t_maybe_improper_list/0, t_module/0,
 	 t_none/0, t_non_neg_integer/0, t_number/0, t_number_vals/1,
-	 t_pid/0, t_port/0, t_product/1, t_record/1, t_record/2,
-	 t_record_get/2, t_record_replace/2, t_reference/0,
+         t_pid/0, t_port/0, t_product/1, t_record/0, t_record/1, t_record/2,
+         t_record_get/2, t_record_replace/3, t_reference/0,
          t_to_string/2, t_to_tlist/1,
 	 t_tuple/0, t_tuple/1, t_tuple_args/1,
          t_tuple_subtypes/1,
@@ -1123,11 +1123,13 @@ handle_tuple(Tree, Map, State) ->
 
 %%----------------------------------------
 
-handle_native_record(Tree, Map, State=#state{module=Module}) ->
+handle_native_record(Tree, Map, State=#state{module=Module, records=RecTable}) ->
   Id = case cerl:concrete(cerl:record_id(Tree)) of
          [] -> [];
          {M, N} -> {M, N};
-         N -> {Module, N}
+         N ->
+          Mod = erl_types:lookup_native_record_mod(N, RecTable, Module),
+          {Mod, N}
        end,
   Arg = cerl:record_arg(Tree),
   Es = cerl:record_es(Tree),
@@ -1148,7 +1150,7 @@ handle_native_record(Tree, Map, State=#state{module=Module}) ->
                                       Tree, Msg),
           {State3, Map2, ArgType1};
         false ->
-          RecordType1 = t_record_replace(EsType, ArgType1),
+          RecordType1 = t_record_replace(EsType, Id, ArgType1),
           handle_native_record_inf(Tree, Map2, Id, RecordType1, State2)
       end
   end.
@@ -1644,7 +1646,7 @@ bind_tuple(Pat, Type, Map, State, Rev) ->
       {Map1, TupleType, State2}
   end.
 
-bind_record(Pat, Type, Map, State=#state{module=Module}, Rev) ->
+bind_record(Pat, Type, Map, State=#state{module=Module, records=RecTable}, Rev) ->
   case cerl:concrete(cerl:record_id(Pat)) of
     [] ->
       {Map, t_record([]), State};
@@ -1654,7 +1656,9 @@ bind_record(Pat, Type, Map, State=#state{module=Module}, Rev) ->
         case cerl:concrete(cerl:record_id(Pat)) of
           [] -> {[], Pat};
           {M, N} -> {{M, N}, Pat};
-          N -> {{Module, N}, cerl:c_record(cerl:abstract({Module, N}), Es)}
+          N ->
+            Mod = erl_types:lookup_native_record_mod(N, RecTable, Module),
+            {{Mod, N}, cerl:c_record(cerl:abstract({Mod, N}), Es)}
         end,
       Prototype = case state__lookup_record(Id, 0, State) of
                     error ->
@@ -1677,7 +1681,7 @@ bind_record_pairs([Pair|Pairs], Record, Map, State, Rev) ->
   Val = cerl:record_pair_val(Pair),
   Bind = t_record_get(Key, Record),
   {Map1, [ValType], State1} = do_bind_pat_vars([Val], [Bind], Map, State, Rev, []),
-  Record1 = t_record_replace({Key, ValType}, Record),
+  Record1 = t_record_replace([], {Key, ValType}, Record),
   bind_record_pairs(Pairs, Record1, Map1, State1, Rev).
 
 bind_bin_segs(BinSegs, BinType, Map, State) ->
@@ -1909,8 +1913,40 @@ bind_guard(Guard, Map, Env, Eval, State0) ->
     call ->
       handle_guard_call(Guard, Map, Env, Eval, State0);
     primop ->
-      {Map, t_any(), State0}
+      case cerl:atom_val(cerl:primop_name(Guard)) of
+        record_field ->
+          handle_guard_rec_field(Guard, Map, Env, Eval, State0);
+        _ ->
+          {Map, t_any(), State0}
+      end
+
   end.
+
+handle_guard_rec_field(Guard, Map, Env, Eval,
+                       State0=#state{module=Module, records=RecTable}) ->
+  [Src0, Id, Field] = cerl:primop_args(Guard),
+  {Map1, SrcType, State1} = bind_guard(Src0, Map, Env, dont_know, State0),
+  FieldName = cerl:concrete(Field),
+  RecType = case cerl:concrete(Id) of
+              [] -> t_record();
+              {M, N} -> t_record({M, N});
+              N ->
+                Mod = erl_types:lookup_native_record_mod(N, RecTable, Module),
+                t_record({Mod, N})
+            end,
+  Src1 = t_inf(SrcType, RecType),
+  case t_is_none(Src1) of
+    true -> throw({fail, none});
+    false ->
+      Map2 = enter_type(Src0, Src1, Map1),
+      FieldType = t_record_get(FieldName, Src1),
+      Ret = guard_eval_inf(Eval, FieldType),
+      case t_is_none(Ret) of
+        true -> throw({fail, none});
+        false -> {Map2, Ret, State1}
+      end
+  end.
+
 
 handle_guard_call(Guard, Map, Env, Eval, State) ->
   MFA = {erlang = cerl:atom_val(cerl:call_module(Guard)), %Assertion.
@@ -2398,19 +2434,19 @@ bind_eqeq_guard_lit_other(Guard, Arg1, Arg2, Map, Env, State0) ->
       {Map1, Type, State1} = bind_guard(Arg2, Map, Env, pos, State0),
       State2 = handle_opaque_guard_warnings(MFA, Guard, [Arg1,Arg2], [Arg1,Type], State1),
       case t_is_any_atom(true, Type) of
-	true -> {Map1, Type, State2};
-	false ->
-	  {_, Type0, State3} = bind_guard(Arg2, Map, Env, Eval, State2),
-	  signal_guard_fail(Eval, Guard, [Type0, t_atom(true)], State3)
+        true -> {Map1, Type, State2};
+        false ->
+          {_, Type0, State3} = bind_guard(Arg2, Map, Env, Eval, State2),
+          signal_guard_fail(Eval, Guard, [Type0, t_atom(true)], State3)
       end;
     false ->
       {Map1, Type, State1} = bind_guard(Arg2, Map, Env, neg, State0),
       State2 = handle_opaque_guard_warnings(MFA, Guard, [Arg1,Arg2], [Arg1,Type], State1),
       case t_is_any_atom(false, Type) of
-	true -> {Map1, t_atom(true), State2};
-	false ->
-	  {_, Type0, State3} = bind_guard(Arg2, Map, Env, Eval, State2),
-	  signal_guard_fail(Eval, Guard, [Type0, t_atom(false)], State3)
+        true -> {Map1, t_atom(true), State2};
+        false ->
+          {_, Type0, State3} = bind_guard(Arg2, Map, Env, Eval, State2),
+          signal_guard_fail(Eval, Guard, [Type0, t_atom(false)], State3)
       end;
     Term ->
       LitType = t_from_term(Term),
@@ -3216,7 +3252,7 @@ state__lookup_name(Fun, #state{callgraph = Callgraph}) ->
     error -> Fun
   end.
 
-state__lookup_record(Tag, Arity, #state{records = Records}) ->
+state__lookup_record(Tag, Arity, #state{records = Records, codeserver=Codeserver}) ->
   case erl_types:lookup_record(Tag, Arity, Records) of
     {ok, Fields} ->
       RecType =
@@ -3234,7 +3270,20 @@ state__lookup_record(Tag, Arity, #state{records = Records}) ->
       FieldNames = [FieldName || {FieldName, _Abstr, _FieldType} <- Fields],
       {ok, RecType, FieldNames};
     error ->
-      error
+      case Arity =:= 0 andalso is_tuple(Tag) of
+        true ->
+          {Mod, _} = Tag,
+          ModRecords = dialyzer_codeserver:lookup_mod_records(Mod, Codeserver),
+          case erl_types:lookup_record(Tag, Arity, ModRecords) of
+            {ok, Fields} ->
+              RecType = t_record(Tag, [{FieldName, FieldType} ||
+                                       {FieldName, _, FieldType} <- Fields]),
+              FieldNames = [FieldName || {FieldName, _Abstr, _FieldType} <- Fields],
+              {ok, RecType, FieldNames};
+            error -> error
+          end;
+        false -> error
+      end
   end.
 
 state__get_args_and_status(Tree, #state{fun_tab = FunTab}) ->
