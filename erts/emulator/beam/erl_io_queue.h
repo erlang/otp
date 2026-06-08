@@ -68,7 +68,7 @@ typedef union {
  */
 typedef struct erts_io_queue {
     ErtsAlcType_t alct;
-    int driver;
+    bool driver;
     Uint size;       /* total size in bytes */
 
     SysIOVec* v_start;
@@ -93,7 +93,7 @@ typedef struct erts_io_queue {
 #include "erl_binary.h"
 #include "erl_bits.h"
 
-void erts_ioq_init(ErtsIOQueue *q, ErtsAlcType_t alct, int driver);
+void erts_ioq_init(ErtsIOQueue *q, ErtsAlcType_t alct, bool driver);
 void erts_ioq_clear(ErtsIOQueue *q);
 Uint erts_ioq_size(const ErtsIOQueue *q);
 int erts_ioq_enqv(ErtsIOQueue *q, ErtsIOVec *vec, Uint skip);
