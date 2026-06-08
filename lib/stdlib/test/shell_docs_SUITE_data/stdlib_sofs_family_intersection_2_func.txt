@@ -2,18 +2,18 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  family_intersection(Family1, Family2)[0m
+[1m  family_intersection(Family1, Family2)[0m
 
-  If [;;4mFamily1[0m and [;;4mFamily2[0m are families, then [;;4mFamily3[0m is the
-  family such that the index set is the intersection of [;;4mFamily1[0m:s
-  and [;;4mFamily2[0m:s index sets, and [;;4mFamily3[0m[i] is the intersection
-  of [;;4mFamily1[0m[i] and [;;4mFamily2[0m[i].
+  If [4mFamily1[0m and [4mFamily2[0m are families, then [4mFamily3[0m is the
+  family such that the index set is the intersection of [4mFamily1[0m:s
+  and [4mFamily2[0m:s index sets, and [4mFamily3[0m[i] is the intersection
+  of [4mFamily1[0m[i] and [4mFamily2[0m[i].
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> F1 = sofs:family([{a,[1,2]},{b,[3,4]},{c,[5,6]}]).
     2> F2 = sofs:family([{b,[4,5]},{c,[7,8]},{d,[9,10]}]).

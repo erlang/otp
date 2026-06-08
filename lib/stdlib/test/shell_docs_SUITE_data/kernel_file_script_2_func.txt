@@ -2,11 +2,11 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  script(Filename, Bindings)[0m
+[1m  script(Filename, Bindings)[0m
 
-  The same as [;;4mscript/1[0m but the variable bindings [;;4mBindings[0m are
-  used in the evaluation. See [;;4merl_eval[0m about variable bindings.
+  The same as [4mscript/1[0m but the variable bindings [4mBindings[0m are
+  used in the evaluation. See [4merl_eval[0m about variable bindings.

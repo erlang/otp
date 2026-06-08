@@ -2,21 +2,21 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  is_record(Term, RecordTag, Size)[0m
+[1m  is_record(Term, RecordTag, Size)[0m
 
-  [;;4mRecordTag[0m must be an atom.
+  [4mRecordTag[0m must be an atom.
 
-  Returns [;;4mtrue[0m if [;;4mTerm[0m is a tuple, its first element is [;;4m[0m
-  [;;4mRecordTag[0m, and its size is [;;4mSize[0m. Otherwise returns [;;4mfalse[0m.
+  Returns [4mtrue[0m if [4mTerm[0m is a tuple, its first element is [4m[0m
+  [4mRecordTag[0m, and its size is [4mSize[0m. Otherwise returns [4mfalse[0m.
 
-  Allowed in guard tests if [;;4mRecordTag[0m is a literal atom and [;;4mSize[0m
+  Allowed in guard tests if [4mRecordTag[0m is a literal atom and [4mSize[0m
   is a literal integer.
 
-  [;;4mNote[0m
+  [4mNote[0m
 
-    This BIF is documented for completeness. Usually [;;4mis_record/2[0m
+    This BIF is documented for completeness. Usually [4mis_record/2[0m
     is to be used.

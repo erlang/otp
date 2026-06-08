@@ -2,77 +2,77 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  memory()[0m
+[1m  memory()[0m
 
   Returns a list with information about memory dynamically allocated
   by the Erlang emulator.
 
-  Each list element is a tuple [;;4m{Type, Size}[0m. The first element [;;4m[0m
-  [;;4mType[0m is an atom describing memory type. The second element [;;4mSize[0m
+  Each list element is a tuple [4m{Type, Size}[0m. The first element [4m[0m
+  [4mType[0m is an atom describing memory type. The second element [4mSize[0m
   is the memory size in bytes.
 
   Memory types:
 
-   • [;;4mtotal[0m - The total amount of memory currently allocated.
-     This is the same as the sum of the memory size for [;;4m[0m
-     [;;4mprocesses[0m and [;;4msystem[0m.
+   • [4mtotal[0m - The total amount of memory currently allocated.
+     This is the same as the sum of the memory size for [4m[0m
+     [4mprocesses[0m and [4msystem[0m.
 
-   • [;;4mprocesses[0m - The total amount of memory currently allocated
+   • [4mprocesses[0m - The total amount of memory currently allocated
      for the Erlang processes.
 
-   • [;;4mprocesses_used[0m - The total amount of memory currently used
+   • [4mprocesses_used[0m - The total amount of memory currently used
      by the Erlang processes. This is part of the memory
-     presented as [;;4mprocesses[0m memory.
+     presented as [4mprocesses[0m memory.
 
-   • [;;4msystem[0m - The total amount of memory currently allocated for
+   • [4msystem[0m - The total amount of memory currently allocated for
      the emulator that is not directly related to any Erlang
-     process. Memory presented as [;;4mprocesses[0m is not included in
-     this memory. [;;4minstrument[0m can be used to get a more detailed
+     process. Memory presented as [4mprocesses[0m is not included in
+     this memory. [4minstrument[0m can be used to get a more detailed
      breakdown of what memory is part of this type.
 
-   • [;;4matom[0m - The total amount of memory currently allocated for
-     atoms. This memory is part of the memory presented as [;;4m[0m
-     [;;4msystem[0m memory.
+   • [4matom[0m - The total amount of memory currently allocated for
+     atoms. This memory is part of the memory presented as [4m[0m
+     [4msystem[0m memory.
 
-   • [;;4matom_used[0m - The total amount of memory currently used for
-     atoms. This memory is part of the memory presented as [;;4matom[0m
+   • [4matom_used[0m - The total amount of memory currently used for
+     atoms. This memory is part of the memory presented as [4matom[0m
      memory.
 
-   • [;;4mbinary[0m - The total amount of memory currently allocated for
-     binaries. This memory is part of the memory presented as [;;4m[0m
-     [;;4msystem[0m memory.
+   • [4mbinary[0m - The total amount of memory currently allocated for
+     binaries. This memory is part of the memory presented as [4m[0m
+     [4msystem[0m memory.
 
-   • [;;4mcode[0m - The total amount of memory currently allocated for
-     Erlang code. This memory is part of the memory presented as [;;4m[0m
-     [;;4msystem[0m memory.
+   • [4mcode[0m - The total amount of memory currently allocated for
+     Erlang code. This memory is part of the memory presented as [4m[0m
+     [4msystem[0m memory.
 
-   • [;;4mets[0m - The total amount of memory currently allocated for
-     ETS tables. This memory is part of the memory presented as [;;4m[0m
-     [;;4msystem[0m memory.
+   • [4mets[0m - The total amount of memory currently allocated for
+     ETS tables. This memory is part of the memory presented as [4m[0m
+     [4msystem[0m memory.
 
-   • [;;4mmaximum[0m - The maximum total amount of memory allocated
+   • [4mmaximum[0m - The maximum total amount of memory allocated
      since the emulator was started. This tuple is only present
      when the emulator is run with instrumentation.
 
      For information on how to run the emulator with
-     instrumentation, see [;;4minstrument[0m and/or [;;4merl(1)[0m.
+     instrumentation, see [4minstrument[0m and/or [4merl(1)[0m.
 
-  [;;4mNote[0m
+  [4mNote[0m
 
-    The [;;4msystem[0m value is not complete. Some allocated memory that
+    The [4msystem[0m value is not complete. Some allocated memory that
     is to be part of this value is not. When the emulator is run
-    with instrumentation, the [;;4msystem[0m value is more accurate, but
-    memory directly allocated for [;;4mmalloc[0m (and friends) is still
-    not part of the [;;4msystem[0m value. Direct calls to [;;4mmalloc[0m are
+    with instrumentation, the [4msystem[0m value is more accurate, but
+    memory directly allocated for [4mmalloc[0m (and friends) is still
+    not part of the [4msystem[0m value. Direct calls to [4mmalloc[0m are
     only done from OS-specific runtime libraries and perhaps from
     user-implemented Erlang drivers that do not use the memory
-    allocation functions in the driver interface. As the [;;4mtotal[0m
-    value is the sum of [;;4mprocesses[0m and [;;4msystem[0m, the error in [;;4m[0m
-    [;;4msystem[0m propagates to the [;;4mtotal[0m value. The different amounts
+    allocation functions in the driver interface. As the [4mtotal[0m
+    value is the sum of [4mprocesses[0m and [4msystem[0m, the error in [4m[0m
+    [4msystem[0m propagates to the [4mtotal[0m value. The different amounts
     of memory that are summed are not gathered atomically, which
     introduces an error in the result.
 
@@ -89,12 +89,12 @@
 
   More tuples in the returned list can be added in a future release.
 
-  [;;4mNote[0m
+  [4mNote[0m
 
-    The [;;4mtotal[0m value is supposed to be the total amount of memory
+    The [4mtotal[0m value is supposed to be the total amount of memory
     dynamically allocated by the emulator. Shared libraries, the
     code of the emulator itself, and the emulator stacks are not
-    supposed to be included. That is, the [;;4mtotal[0m value is not
+    supposed to be included. That is, the [4mtotal[0m value is not
     supposed to be equal to the total size of all pages mapped to
     the emulator. Also, because of fragmentation and
     prereservation of memory areas, the size of the memory
@@ -102,10 +102,10 @@
     can be much larger than the total size of the dynamically
     allocated memory blocks.
 
-  [;;4mChange[0m
+  [4mChange[0m
 
-    As from ERTS 5.6.4, [;;4merlang:memory/0[0m requires that all [;;4m[0m
-    [;;4merts_alloc(3)[0m allocators are enabled (default behavior).
+    As from ERTS 5.6.4, [4merlang:memory/0[0m requires that all [4m[0m
+    [4merts_alloc(3)[0m allocators are enabled (default behavior).
 
-  Failure: [;;4mnotsup[0m if an [;;4merts_alloc(3)[0m allocator has been
+  Failure: [4mnotsup[0m if an [4merts_alloc(3)[0m allocator has been
   disabled.

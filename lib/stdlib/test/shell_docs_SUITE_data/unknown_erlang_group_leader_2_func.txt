@@ -2,15 +2,15 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  group_leader(GroupLeader, Pid)[0m
+[1m  group_leader(GroupLeader, Pid)[0m
 
-  Sets the group leader of [;;4mPid[0m to [;;4mGroupLeader[0m. Typically, this
+  Sets the group leader of [4mPid[0m to [4mGroupLeader[0m. Typically, this
   is used when a process started from a certain shell is to have
-  another group leader than [;;4minit[0m.
+  another group leader than [4minit[0m.
 
   The group leader should be rarely changed in applications with a
   supervision tree, because OTP assumes the group leader of their
@@ -19,10 +19,10 @@
   Setting the group leader follows the signal ordering guarantees
   described in the Processes Chapter in the Erlang Reference Manual.
 
-  See also [;;4mgroup_leader/0[0m and OTP design principles related to
+  See also [4mgroup_leader/0[0m and OTP design principles related to
   starting and stopping applications.
 
-  [;;4mNote[0m
+  [4mNote[0m
 
     For some important information about distributed signals, see
     the Blocking Signaling Over Distribution section in the 

@@ -2,18 +2,18 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  converse(BinRel1)[0m
+[1m  converse(BinRel1)[0m
 
-  Returns the converse of the binary relation [;;4mBinRel1[0m.
+  Returns the converse of the binary relation [4mBinRel1[0m.
 
-  See [;;4minverse/1[0m for a similar function that applies only to
+  See [4minverse/1[0m for a similar function that applies only to
   invertible functions.
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> R1 = sofs:relation([{1,a},{2,b},{3,a}]).
     2> R2 = sofs:converse(R1).

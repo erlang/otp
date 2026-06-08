@@ -2,20 +2,20 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  map_get(Key, Map)[0m
+[1m  map_get(Key, Map)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP 21.0
 
-  Returns value [;;4mValue[0m associated with [;;4mKey[0m if [;;4mMap[0m contains [;;4mKey[0m.
+  Returns value [4mValue[0m associated with [4mKey[0m if [4mMap[0m contains [4mKey[0m.
 
-  The call fails with a [;;4m{badmap,Map}[0m exception if [;;4mMap[0m is not a
-  map, or with a [;;4m{badkey,Key}[0m exception if no value is associated
-  with [;;4mKey[0m.
+  The call fails with a [4m{badmap,Map}[0m exception if [4mMap[0m is not a
+  map, or with a [4m{badkey,Key}[0m exception if no value is associated
+  with [4mKey[0m.
 
   Example:
 

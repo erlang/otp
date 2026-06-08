@@ -2,15 +2,15 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  send_destination()[0m
+[1m  send_destination()[0m
 
   The destination for a send operation.
 
   This can be a remote or local process identifier, a (local) port,
   a reference denoting a process alias, a locally registered name,
-  or a tuple [;;4m{RegName, Node}[0m for a registered name at another
+  or a tuple [4m{RegName, Node}[0m for a registered name at another
   node.

@@ -2,13 +2,13 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  spawn_monitor(Module, Function, Args)[0m
+[1m  spawn_monitor(Module, Function, Args)[0m
 
-  A new process is started by the application of [;;4mModule:Function[0m
-  to [;;4mArgs[0m. The process is monitored at the same time. Returns the
+  A new process is started by the application of [4mModule:Function[0m
+  to [4mArgs[0m. The process is monitored at the same time. Returns the
   process identifier and a reference for the monitor. Otherwise
-  works like [;;4mspawn/3[0m.
+  works like [4mspawn/3[0m.

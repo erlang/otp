@@ -2,13 +2,13 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  get_keys()[0m
+[1m  get_keys()[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP 18.0
 
   Returns a list of all keys present in the process dictionary. The
@@ -22,9 +22,9 @@
     get_keys().
     [dog,cow,lamb]
 
-[;1m  get_keys(Val)[0m
+[1m  get_keys(Val)[0m
 
-  Returns a list of keys that are associated with the value [;;4mVal[0m in
+  Returns a list of keys that are associated with the value [4mVal[0m in
   the process dictionary. The items in the returned list can be in
   any order.
 

@@ -2,16 +2,16 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  send_after(Time, Dest, Msg, Options)[0m
+[1m  send_after(Time, Dest, Msg, Options)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP 18.0
 
-  Starts a timer. When the timer expires, the message [;;4mMsg[0m is sent
-  to the process identified by [;;4mDest[0m. Apart from the format of the
-  time-out message, this function works exactly as [;;4m[0m
-  [;;4merlang:start_timer/4[0m.
+  Starts a timer. When the timer expires, the message [4mMsg[0m is sent
+  to the process identified by [4mDest[0m. Apart from the format of the
+  time-out message, this function works exactly as [4m[0m
+  [4merlang:start_timer/4[0m.

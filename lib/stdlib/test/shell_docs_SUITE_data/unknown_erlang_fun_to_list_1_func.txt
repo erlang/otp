@@ -2,43 +2,43 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  fun_to_list(Fun)[0m
+[1m  fun_to_list(Fun)[0m
 
-  Returns [;;4mString[0m that represents the code that created [;;4mFun[0m.
+  Returns [4mString[0m that represents the code that created [4mFun[0m.
 
-  [;;4mString[0m has the following form, if [;;4mFun[0m was created by a fun
-  expression of the form [;;4mfun ModuleName:FuncName/Arity[0m:
+  [4mString[0m has the following form, if [4mFun[0m was created by a fun
+  expression of the form [4mfun ModuleName:FuncName/Arity[0m:
 
-  [;;4m"fun ModuleName:FuncName/Arity"[0m
+  [4m"fun ModuleName:FuncName/Arity"[0m
 
-  The form of [;;4mString[0m when [;;4mFun[0m is created from other types of fun
+  The form of [4mString[0m when [4mFun[0m is created from other types of fun
   expressions differs depending on if the fun expression was
   executed while executing compiled code or if the fun expression
   was executed while executing uncompiled code (uncompiled escripts,
   the Erlang shell, and other code executed by the erl_eval module):
 
-   • compiled code - [;;4m"#Fun<M.I.U>"[0m, where M, I and U
-     correspond to the values named [;;4mmodule[0m, [;;4mindex[0m and [;;4muniq[0m
-     in the result of [;;4merlang:fun_info(Fun)[0m.
+   • compiled code - [4m"#Fun<M.I.U>"[0m, where M, I and U
+     correspond to the values named [4mmodule[0m, [4mindex[0m and [4muniq[0m
+     in the result of [4merlang:fun_info(Fun)[0m.
 
    • uncompiled code - All funs created from fun expressions in
      uncompiled code with the same arity are mapped to the same
-     list by [;;4mfun_to_list/1[0m.
+     list by [4mfun_to_list/1[0m.
 
-  [;;4mNote[0m
+  [4mNote[0m
 
-    Generally, one can not use [;;4mfun_to_list/1[0m to check if two
-    funs are equal as [;;4mfun_to_list/1[0m does not take the fun's
-    environment into account. See [;;4merlang:fun_info/1[0m for how to
+    Generally, one can not use [4mfun_to_list/1[0m to check if two
+    funs are equal as [4mfun_to_list/1[0m does not take the fun's
+    environment into account. See [4merlang:fun_info/1[0m for how to
     get the environment of a fun.
 
-  [;;4mChange[0m
+  [4mChange[0m
 
-    The output of [;;4mfun_to_list/1[0m can differ between Erlang
+    The output of [4mfun_to_list/1[0m can differ between Erlang
     implementations and may change in future versions.
 
   Examples:
@@ -52,13 +52,13 @@
     > {fun test:add/1, test:add2()}.
     {fun test:add/1,#Fun<test.1.107738983>}
 
-  Explanation: [;;4mfun test:add/1[0m is upgradable but [;;4mtest:add2()[0m is
+  Explanation: [4mfun test:add/1[0m is upgradable but [4mtest:add2()[0m is
   not upgradable.
 
     > {test:add(1), test:add(42)}.
     {#Fun<test.0.107738983>,#Fun<test.0.107738983>}
 
-  Explanation: [;;4mtest:add(1)[0m and [;;4mtest:add(42)[0m has the same string
+  Explanation: [4mtest:add(1)[0m and [4mtest:add(42)[0m has the same string
   representation as the environment is not taken into account.
 
     >test:fun_tuple().
@@ -71,5 +71,5 @@
     {#Fun<erl_eval.45.97283095>,#Fun<erl_eval.45.97283095>}
 
   Explanation: All funs created from fun expressions of this form in
-  uncompiled code with the same arity are mapped to the same list by [;;4m[0m
-  [;;4mfun_to_list/1[0m.
+  uncompiled code with the same arity are mapped to the same list by [4m[0m
+  [4mfun_to_list/1[0m.

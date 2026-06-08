@@ -2,17 +2,17 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  system_monitor(Arg)[0m
+[1m  system_monitor(Arg)[0m
 
-  When called with argument [;;4mundefined[0m, all system performance
+  When called with argument [4mundefined[0m, all system performance
   monitoring settings are cleared.
 
-  Calling the function with [;;4m{MonitorPid, Options}[0m as argument is
-  the same as calling [;;4merlang:system_monitor(MonitorPid, Options)[0m.
+  Calling the function with [4m{MonitorPid, Options}[0m as argument is
+  the same as calling [4merlang:system_monitor(MonitorPid, Options)[0m.
 
-  Returns the previous system monitor settings just like [;;4m[0m
-  [;;4merlang:system_monitor/0[0m.
+  Returns the previous system monitor settings just like [4m[0m
+  [4merlang:system_monitor/0[0m.

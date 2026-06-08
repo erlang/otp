@@ -2,17 +2,17 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  pwrite(IoDevice, LocBytes)[0m
+[1m  pwrite(IoDevice, LocBytes)[0m
 
-  Performs a sequence of [;;4mpwrite/3[0m in one operation, which is more
-  efficient than calling them one at a time. Returns [;;4mok[0m or [;;4m[0m
-  [;;4m{error, {N, Reason}}[0m, where [;;4mN[0m is the number of successful
+  Performs a sequence of [4mpwrite/3[0m in one operation, which is more
+  efficient than calling them one at a time. Returns [4mok[0m or [4m[0m
+  [4m{error, {N, Reason}}[0m, where [4mN[0m is the number of successful
   writes done before the failure.
 
-  When positioning in a file with other [;;4mencoding[0m than [;;4mlatin1[0m,
+  When positioning in a file with other [4mencoding[0m than [4mlatin1[0m,
   caution must be taken to set the position on a correct character
-  boundary. For details, see [;;4mposition/2[0m.
+  boundary. For details, see [4mposition/2[0m.

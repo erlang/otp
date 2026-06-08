@@ -56,7 +56,9 @@
 
 %% br
 -export([start_with_br_test/1, multiple_br_followed_by_paragraph_test/1,
-         multiple_lines_of_a_paragraph_test/1, ending_br_test/1]).
+         multiple_lines_of_a_paragraph_test/1, ending_br_test/1, ending_slash_br_test/1,
+         ending_double_space_br_test/1, slash_br_followed_by_multiline_test/1,
+         double_space_br_followed_by_multiline_test/1, slash_br_in_list_item_test/1]).
 
 %% Comments
 -export([begin_comment_test/1, after_paragraph_comment/1, forget_closing_comment/1 ]).
@@ -86,7 +88,7 @@
          singleton_numbered_list_with_format/1, singleton_numbered_list_followed_inner_paragraph/1,
          singleton_numbered_list_followed_inner_paragraph2/1, multiline_numbered_indented_list/1,
          multiline_numbered_indented_list2/1, multiline_numbered_list/1, even_nested_numbered_list/1,
-         odd_nested_numbered_list/1]).
+         odd_nested_numbered_list/1, not_singleton_numbered_list/1]).
 
 -export([table_with_rows/1, table_with_escaped_bars/1, fake_table_test/1]).
 
@@ -202,7 +204,12 @@ br_tests() ->
     [ start_with_br_test,
       multiple_br_followed_by_paragraph_test,
       multiple_lines_of_a_paragraph_test,
-      ending_br_test
+      ending_br_test,
+      ending_slash_br_test,
+      ending_double_space_br_test,
+      slash_br_followed_by_multiline_test,
+      double_space_br_followed_by_multiline_test,
+      slash_br_in_list_item_test
     ].
 
 comment_tests() ->
@@ -266,6 +273,7 @@ numbered_list_tests() ->
       singleton_numbered_list_with_format,
       singleton_numbered_list_followed_inner_paragraph,
       singleton_numbered_list_followed_inner_paragraph2,
+      not_singleton_numbered_list,
       multiline_numbered_indented_list,
       multiline_numbered_indented_list2,
       multiline_numbered_list,
@@ -587,6 +595,34 @@ by the elements of `List2`.
 ending_br_test(_Conf) ->
     Input = ~"Test\n",
     Result = [ p(~"Test")],
+    compile_and_compare(Input, Result).
+
+ending_slash_br_test(_Conf) ->
+    Input = ~"Test\\\ntest",
+    Result = [ p(~"Test"), br(), p(~"test")],
+    compile_and_compare(Input, Result).
+
+ending_double_space_br_test(_Conf) ->
+    Input = ~"Test  \ntest",
+    Result = [ p(~"Test"), br(), p(~"test")],
+    compile_and_compare(Input, Result).
+
+slash_br_followed_by_multiline_test(_Conf) ->
+    Input = ~"Test\\\nsome more\ncontent here",
+    Result = [ p(~"Test"), br(), p(~"some more content here")],
+    compile_and_compare(Input, Result).
+
+double_space_br_followed_by_multiline_test(_Conf) ->
+    Input = ~"Test  \nsome more\ncontent here",
+    Result = [ p(~"Test"), br(), p(~"some more content here")],
+    compile_and_compare(Input, Result).
+
+slash_br_in_list_item_test(_Conf) ->
+    Input = ~"- **Foo** - _since OTP 26.0_\\\n  Initialization failed. The process exits\n  with reason `Reason`.",
+    Result = [ ul([li([p([em(~"Foo"), ~" - ", it(~"since OTP 26.0")]),
+                       br(),
+                       p([~"Initialization failed. The process exits with reason ",
+                          inline_code(~"Reason"), ~"."])])])],
     compile_and_compare(Input, Result).
 
 begin_comment_test(_Conf) ->
@@ -972,6 +1008,12 @@ singleton_numbered_list(_Config) ->
     Result = [ol([li(p(~"One liner"))])],
     compile_and_compare(Input, Result).
 
+%% This used to be parsed as a numbered list.
+not_singleton_numbered_list(_Config) ->
+    Input = ~"a. One liner",
+    Result = p(~"a. One liner"),
+    compile_and_compare(Input, Result).
+
 singleton_numbered_list_followed_new_paragraph(_Config) ->
     Input = ~"1. One liner\n\nThis is a new paragraph",
     Result = [ol([li(p(~"One liner"))]), p(~"This is a new paragraph")],
@@ -1111,6 +1153,9 @@ li(Item) when is_tuple(Item); is_binary(Item) ->
     li([Item]);
 li(Items) when is_list(Items) ->
     {li, [], Items}.
+
+br() ->
+    {br, [], []}.
 
 -spec create_eep48(Language, Mime, ModuleDoc, Metadata, Docs) -> #docs_v1{} when
       Language  :: atom(),

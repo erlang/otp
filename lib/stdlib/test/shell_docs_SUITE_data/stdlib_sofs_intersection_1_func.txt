@@ -2,18 +2,18 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  intersection(SetOfSets)[0m
+[1m  intersection(SetOfSets)[0m
 
-  Returns the intersection of the set of sets [;;4mSetOfSets[0m.
+  Returns the intersection of the set of sets [4mSetOfSets[0m.
 
-  Intersecting an empty set of sets exits the process with a [;;4mbadarg[0m
+  Intersecting an empty set of sets exits the process with a [4mbadarg[0m
   message.
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> S1 = sofs:set([a,b,c]).
     2> S2 = sofs:set([b,c,d,e]).

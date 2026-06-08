@@ -2,28 +2,28 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  make_symlink(Existing, New)[0m
+[1m  make_symlink(Existing, New)[0m
 
-  Creates a symbolic link [;;4mNew[0m to the file or directory [;;4mExisting[0m
+  Creates a symbolic link [4mNew[0m to the file or directory [4mExisting[0m
   on platforms supporting symbolic links (most Unix systems and
-  Windows, beginning with Vista). [;;4mExisting[0m does not need to exist.
-  Returns [;;4mok[0m if the link is successfully created, otherwise [;;4m[0m
-  [;;4m{error, Reason}[0m. On platforms not supporting symbolic links, [;;4m[0m
-  [;;4m{error, enotsup}[0m is returned.
+  Windows, beginning with Vista). [4mExisting[0m does not need to exist.
+  Returns [4mok[0m if the link is successfully created, otherwise [4m[0m
+  [4m{error, Reason}[0m. On platforms not supporting symbolic links, [4m[0m
+  [4m{error, enotsup}[0m is returned.
 
   Typical error reasons:
 
-   • [;;4meacces[0m - Missing read or write permissions for the parent
-     directories of [;;4mExisting[0m or [;;4mNew[0m.
+   • [4meacces[0m - Missing read or write permissions for the parent
+     directories of [4mExisting[0m or [4mNew[0m.
 
-   • [;;4meexist[0m - [;;4mNew[0m already exists.
+   • [4meexist[0m - [4mNew[0m already exists.
 
-   • [;;4menotsup[0m - Symbolic links are not supported on this
+   • [4menotsup[0m - Symbolic links are not supported on this
      platform.
 
-   • [;;4meperm[0m - User does not have privileges to create symbolic
-     links ([;;4mSeCreateSymbolicLinkPrivilege[0m on Windows).
+   • [4meperm[0m - User does not have privileges to create symbolic
+     links ([4mSeCreateSymbolicLinkPrivilege[0m on Windows).

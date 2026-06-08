@@ -2,12 +2,12 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  write_file(Filename, Bytes, Modes)[0m
+[1m  write_file(Filename, Bytes, Modes)[0m
 
-  Same as [;;4mwrite_file/2[0m, but takes a third argument [;;4mModes[0m, a list
-  of possible modes, see [;;4mopen/2[0m. The mode flags [;;4mbinary[0m and [;;4m[0m
-  [;;4mwrite[0m are implicit, so they are not to be used.
+  Same as [4mwrite_file/2[0m, but takes a third argument [4mModes[0m, a list
+  of possible modes, see [4mopen/2[0m. The mode flags [4mbinary[0m and [4m[0m
+  [4mwrite[0m are implicit, so they are not to be used.

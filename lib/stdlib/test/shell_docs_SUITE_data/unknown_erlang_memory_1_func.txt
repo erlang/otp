@@ -2,30 +2,30 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  memory/1[0m
+[1m  memory/1[0m
 
-  Returns the memory size in bytes allocated for memory of type [;;4m[0m
-  [;;4mType[0m. The argument can also be specified as a list of [;;4m[0m
-  [;;4mmemory_type/0[0m atoms, in which case a corresponding list of [;;4m[0m
-  [;;4m{memory_type(), Size :: integer >= 0}[0m tuples is returned.
+  Returns the memory size in bytes allocated for memory of type [4m[0m
+  [4mType[0m. The argument can also be specified as a list of [4m[0m
+  [4mmemory_type/0[0m atoms, in which case a corresponding list of [4m[0m
+  [4m{memory_type(), Size :: integer >= 0}[0m tuples is returned.
 
-  [;;4mChange[0m
+  [4mChange[0m
 
-    As from ERTS 5.6.4, [;;4merlang:memory/1[0m requires that all [;;4m[0m
-    [;;4merts_alloc(3)[0m allocators are enabled (default behavior).
+    As from ERTS 5.6.4, [4merlang:memory/1[0m requires that all [4m[0m
+    [4merts_alloc(3)[0m allocators are enabled (default behavior).
 
   Failures:
 
-   • [;;4mbadarg[0m - If [;;4mType[0m is not one of the memory types listed in
-     the description of [;;4merlang:memory/0[0m.
+   • [4mbadarg[0m - If [4mType[0m is not one of the memory types listed in
+     the description of [4merlang:memory/0[0m.
 
-   • [;;4mbadarg[0m - If [;;4mmaximum[0m is passed as [;;4mType[0m and the emulator
+   • [4mbadarg[0m - If [4mmaximum[0m is passed as [4mType[0m and the emulator
      is not run in instrumented mode.
 
-   • [;;4mnotsup[0m - If an [;;4merts_alloc(3)[0m allocator has been disabled.
+   • [4mnotsup[0m - If an [4merts_alloc(3)[0m allocator has been disabled.
 
-  See also [;;4merlang:memory/0[0m.
+  See also [4merlang:memory/0[0m.

@@ -2,47 +2,47 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
-[;1m	file[0m
+[1m	file[0m
 
 These types are documented in this module:
 
-[;1m  file_info_option()[0m
+[1m  file_info_option()[0m
 
-[;1m  sendfile_option()[0m
+[1m  sendfile_option()[0m
 
-[;1m  read_file_option()[0m
+[1m  read_file_option()[0m
 
-[;1m  delete_option()[0m
+[1m  delete_option()[0m
 
-[;1m  posix_file_advise()[0m
+[1m  posix_file_advise()[0m
 
-[;1m  date_time()[0m
+[1m  date_time()[0m
 
-[;1m  posix()[0m
+[1m  posix()[0m
 
-[;1m  name_all()[0m
+[1m  name_all()[0m
 
-[;1m  name()[0m
+[1m  name()[0m
 
-[;1m  deep_list()[0m
+[1m  deep_list()[0m
 
-[;1m  mode()[0m
+[1m  mode()[0m
 
-[;1m  location()[0m
+[1m  location()[0m
 
-[;1m  io_device()[0m
+[1m  io_device()[0m
 
-[;1m  io_server()[0m
+[1m  io_server()[0m
 
-[;1m  fd()[0m
+[1m  fd()[0m
 
-[;1m  file_descriptor()[0m
+[1m  file_descriptor()[0m
 
-[;1m  file_info()[0m
+[1m  file_info()[0m
 
-[;1m  filename_all()[0m
+[1m  filename_all()[0m
 
-[;1m  filename()[0m
+[1m  filename()[0m

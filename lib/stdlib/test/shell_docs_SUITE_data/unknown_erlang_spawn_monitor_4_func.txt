@@ -2,19 +2,19 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  spawn_monitor(Node, Module, Function, Args)[0m
+[1m  spawn_monitor(Node, Module, Function, Args)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP 23.0
 
-  A new process is started by the application of [;;4mModule:Function[0m
-  to [;;4mArgs[0m on the node [;;4mNode[0m. The process is monitored at the same
+  A new process is started by the application of [4mModule:Function[0m
+  to [4mArgs[0m on the node [4mNode[0m. The process is monitored at the same
   time. Returns the process identifier and a reference for the
-  monitor. Otherwise works like [;;4mspawn/3[0m.
+  monitor. Otherwise works like [4mspawn/3[0m.
 
-  If the node identified by [;;4mNode[0m does not support distributed [;;4m[0m
-  [;;4mspawn_monitor()[0m, the call will fail with a [;;4mnotsup[0m exception.
+  If the node identified by [4mNode[0m does not support distributed [4m[0m
+  [4mspawn_monitor()[0m, the call will fail with a [4mnotsup[0m exception.

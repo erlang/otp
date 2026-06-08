@@ -2,96 +2,96 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  port_command(Port, Data)[0m
+[1m  port_command(Port, Data)[0m
 
-  Sends data to a port. Same as [;;4mPort ! {PortOwner, {command, Data}}[0m
+  Sends data to a port. Same as [4mPort ! {PortOwner, {command, Data}}[0m
   except for the error behavior and being synchronous (see below).
 
-  Any process can send data to a port with [;;4mport_command/2[0m, not
+  Any process can send data to a port with [4mport_command/2[0m, not
   only the port owner (the connected process).
 
-  For comparison: [;;4mPort ! {PortOwner, {command, Data}}[0m only fails
-  with [;;4mbadarg[0m if [;;4mPort[0m does not refer to a port or a process. If [;;4m[0m
-  [;;4mPort[0m is a closed port, the data message disappears without a
-  sound. If [;;4mPort[0m is open and the calling process is not the port
-  owner, the port owner fails with [;;4mbadsig[0m. The port owner fails
-  with [;;4mbadsig[0m also if [;;4mData[0m is an invalid I/O list.
+  For comparison: [4mPort ! {PortOwner, {command, Data}}[0m only fails
+  with [4mbadarg[0m if [4mPort[0m does not refer to a port or a process. If [4m[0m
+  [4mPort[0m is a closed port, the data message disappears without a
+  sound. If [4mPort[0m is open and the calling process is not the port
+  owner, the port owner fails with [4mbadsig[0m. The port owner fails
+  with [4mbadsig[0m also if [4mData[0m is an invalid I/O list.
 
-  Notice that any process can send to a port using [;;4mPort ![0m
-  [;;4m{PortOwner, {command, Data}}[0m as if it itself was the port owner.
+  Notice that any process can send to a port using [4mPort ![0m
+  [4m{PortOwner, {command, Data}}[0m as if it itself was the port owner.
 
   If the port is busy, the calling process is suspended until the
   port is not busy any more.
 
-  As from Erlang/OTP R16, [;;4mPort ! {PortOwner, {command, Data}}[0m is
+  As from Erlang/OTP R16, [4mPort ! {PortOwner, {command, Data}}[0m is
   truly asynchronous. Notice that this operation has always been
   documented as an asynchronous operation, while the underlying
-  implementation has been synchronous. [;;4mport_command/2[0m is however
+  implementation has been synchronous. [4mport_command/2[0m is however
   still fully synchronous because of its error behavior.
 
   Failures:
 
-   • [;;4mbadarg[0m - If [;;4mPort[0m is not an identifier of an open port, or
+   • [4mbadarg[0m - If [4mPort[0m is not an identifier of an open port, or
      the registered name of an open port. If the calling process
-     was previously linked to the closed port, identified by [;;4m[0m
-     [;;4mPort[0m, the exit signal from the port is guaranteed to be
-     delivered before this [;;4mbadarg[0m exception occurs.
+     was previously linked to the closed port, identified by [4m[0m
+     [4mPort[0m, the exit signal from the port is guaranteed to be
+     delivered before this [4mbadarg[0m exception occurs.
 
-   • [;;4mbadarg[0m - If [;;4mData[0m is an invalid I/O list.
+   • [4mbadarg[0m - If [4mData[0m is an invalid I/O list.
 
-  [;;4mWarning[0m
+  [4mWarning[0m
 
     Do not send data to an unknown port. Any undefined behavior is
     possible (including node crash) depending on how the port
     driver interprets the data.
 
-[;1m  port_command(Port, Data, OptionList)[0m
+[1m  port_command(Port, Data, OptionList)[0m
 
-  Sends data to a port. [;;4mport_command(Port, Data, [])[0m equals [;;4m[0m
-  [;;4mport_command(Port, Data)[0m.
+  Sends data to a port. [4mport_command(Port, Data, [])[0m equals [4m[0m
+  [4mport_command(Port, Data)[0m.
 
-  If the port command is aborted, [;;4mfalse[0m is returned, otherwise [;;4m[0m
-  [;;4mtrue[0m.
+  If the port command is aborted, [4mfalse[0m is returned, otherwise [4m[0m
+  [4mtrue[0m.
 
   If the port is busy, the calling process is suspended until the
   port is not busy anymore.
 
-  [;;4mOption[0ms:
+  [4mOption[0ms:
 
-   • [;;4mforce[0m - The calling process is not suspended if the port is
+   • [4mforce[0m - The calling process is not suspended if the port is
      busy, instead the port command is forced through. The call
-     fails with a [;;4mnotsup[0m exception if the driver of the port
-     does not support this. For more information, see driver flag [;;4m[0m
-     [;;4mERL_DRV_FLAG_SOFT_BUSY[0m.
+     fails with a [4mnotsup[0m exception if the driver of the port
+     does not support this. For more information, see driver flag [4m[0m
+     [4mERL_DRV_FLAG_SOFT_BUSY[0m.
 
-   • [;;4mnosuspend[0m - The calling process is not suspended if the
-     port is busy, instead the port command is aborted and [;;4mfalse[0m
+   • [4mnosuspend[0m - The calling process is not suspended if the
+     port is busy, instead the port command is aborted and [4mfalse[0m
      is returned.
 
-  [;;4mChange[0m
+  [4mChange[0m
 
     More options can be added in a future release.
 
   Failures:
 
-   • [;;4mbadarg[0m - If [;;4mPort[0m is not an identifier of an open port, or
+   • [4mbadarg[0m - If [4mPort[0m is not an identifier of an open port, or
      the registered name of an open port. If the calling process
-     was previously linked to the closed port, identified by [;;4m[0m
-     [;;4mPort[0m, the exit signal from the port is guaranteed to be
-     delivered before this [;;4mbadarg[0m exception occurs.
+     was previously linked to the closed port, identified by [4m[0m
+     [4mPort[0m, the exit signal from the port is guaranteed to be
+     delivered before this [4mbadarg[0m exception occurs.
 
-   • [;;4mbadarg[0m - If [;;4mData[0m is an invalid I/O list.
+   • [4mbadarg[0m - If [4mData[0m is an invalid I/O list.
 
-   • [;;4mbadarg[0m - If [;;4mOptionList[0m is an invalid option list.
+   • [4mbadarg[0m - If [4mOptionList[0m is an invalid option list.
 
-   • [;;4mnotsup[0m - If option [;;4mforce[0m has been passed, but the driver
+   • [4mnotsup[0m - If option [4mforce[0m has been passed, but the driver
      of the port does not allow forcing through a busy port.
 
-  [;;4mWarning[0m
+  [4mWarning[0m
 
     Do not send data to an unknown port. Any undefined behavior is
     possible (including node crash) depending on how the port

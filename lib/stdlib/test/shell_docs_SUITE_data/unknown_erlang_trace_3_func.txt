@@ -2,35 +2,35 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  trace(PidPortSpec, How, FlagList)[0m
+[1m  trace(PidPortSpec, How, FlagList)[0m
 
   Turn on or off trace flags on processes or ports for the static
   legacy trace session.
 
-  [;;4mChange[0m
+  [4mChange[0m
 
-    This function is superseded by [;;4mtrace:process/4[0m and [;;4m[0m
-    [;;4mtrace:port/4[0m that
+    This function is superseded by [4mtrace:process/4[0m and [4m[0m
+    [4mtrace:port/4[0m that
 
     operate on dynamic trace sessions.
 
-  Argument [;;4mFlagList[0m can contain two additional options:
+  Argument [4mFlagList[0m can contain two additional options:
 
-   • [;;4m{tracer, Tracer}[0m - Specifies where to send the trace
-     messages. [;;4mTracer[0m must be the process identifier of a local
+   • [4m{tracer, Tracer}[0m - Specifies where to send the trace
+     messages. [4mTracer[0m must be the process identifier of a local
      process or the port identifier of a local port.
 
-   • [;;4m{tracer, TracerModule, TracerState}[0m - Specifies that a
+   • [4m{tracer, TracerModule, TracerState}[0m - Specifies that a
      tracer module is to be called instead of sending a trace
      message. The tracer module can then ignore or change the
      trace message. For more details on how to write a tracer
-     module, see [;;4merl_tracer[0m.
+     module, see [4merl_tracer[0m.
 
-  If no [;;4mtracer[0m is specified, the calling process receives all the
+  If no [4mtracer[0m is specified, the calling process receives all the
   trace messages. The legacy trace session has no specified tracer.
 
-  For further documentation see [;;4mtrace:process/4[0m and [;;4mtrace:port/4[0m.
+  For further documentation see [4mtrace:process/4[0m and [4mtrace:port/4[0m.

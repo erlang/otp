@@ -2,63 +2,63 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  spawn_opt(Fun, Options)[0m
+[1m  spawn_opt(Fun, Options)[0m
 
   Returns the process identifier (pid) of a new process started by
-  the application of [;;4mFun[0m to the empty list [;;4m[][0m. Otherwise works
-  like [;;4mspawn_opt/4[0m.
+  the application of [4mFun[0m to the empty list [4m[][0m. Otherwise works
+  like [4mspawn_opt/4[0m.
 
-  If option [;;4mmonitor[0m is specified, the newly created process is
+  If option [4mmonitor[0m is specified, the newly created process is
   monitored, and both the pid and reference for the monitor are
   returned.
 
-[;1m  spawn_opt(Node, Fun, Options)[0m
+[1m  spawn_opt(Node, Fun, Options)[0m
 
   Returns the process identifier (pid) of a new process started by
-  the application of [;;4mFun[0m to the empty list [;;4m[][0m on [;;4mNode[0m. If [;;4m[0m
-  [;;4mNode[0m does not exist, a useless pid is returned. Otherwise works
-  like [;;4mspawn_opt/4[0m.
+  the application of [4mFun[0m to the empty list [4m[][0m on [4mNode[0m. If [4m[0m
+  [4mNode[0m does not exist, a useless pid is returned. Otherwise works
+  like [4mspawn_opt/4[0m.
 
   Valid options depends on what options are supported by the node
-  identified by [;;4mNode[0m. A description of valid [;;4mOption[0ms for the
+  identified by [4mNode[0m. A description of valid [4mOption[0ms for the
   local node of current OTP version can be found in the
-  documentation of [;;4mspawn_opt/4[0m.
+  documentation of [4mspawn_opt/4[0m.
 
-[;1m  spawn_opt(Module, Function, Args, Options)[0m
+[1m  spawn_opt(Module, Function, Args, Options)[0m
 
-  Works as [;;4mspawn/3[0m, except that an extra option list is specified
+  Works as [4mspawn/3[0m, except that an extra option list is specified
   when creating the process.
 
-  If option [;;4mmonitor[0m is specified, the newly created process is
+  If option [4mmonitor[0m is specified, the newly created process is
   monitored, and both the pid and reference for the monitor are
   returned.
 
   Options:
 
-   • [;;4mlink[0m - Sets a link to the parent process (like [;;4m[0m
-     [;;4mspawn_link/3[0m does).
+   • [4mlink[0m - Sets a link to the parent process (like [4m[0m
+     [4mspawn_link/3[0m does).
 
-   • [;;4mmonitor[0m - Monitors the new process (like [;;4mmonitor(process,[0m
-     [;;4mPid)[0m does). A [;;4m{Pid, MonitorRef}[0m tuple will be returned
-     instead of just a [;;4mPid[0m.
+   • [4mmonitor[0m - Monitors the new process (like [4mmonitor(process,[0m
+     [4mPid)[0m does). A [4m{Pid, MonitorRef}[0m tuple will be returned
+     instead of just a [4mPid[0m.
 
-   • [;;4m{monitor, MonitorOpts}[0m - Monitors the new process with
-     options (like [;;4mmonitor(process, Pid, MonitorOpts)[0m does). A [;;4m[0m
-     [;;4m{Pid, MonitorRef}[0m tuple will be returned instead of just a [;;4m[0m
-     [;;4mPid[0m.
+   • [4m{monitor, MonitorOpts}[0m - Monitors the new process with
+     options (like [4mmonitor(process, Pid, MonitorOpts)[0m does). A [4m[0m
+     [4m{Pid, MonitorRef}[0m tuple will be returned instead of just a [4m[0m
+     [4mPid[0m.
 
-   • [;;4m{priority, Level}[0m - Sets the priority of the new process.
-     Equivalent to executing [;;4mprocess_flag(priority, Level)[0m in
+   • [4m{priority, Level}[0m - Sets the priority of the new process.
+     Equivalent to executing [4mprocess_flag(priority, Level)[0m in
      the start function of the new process, except that the
      priority is set before the process is selected for execution
-     for the first time. For more information on priorities, see [;;4m[0m
-     [;;4mprocess_flag(priority, Level)[0m.
+     for the first time. For more information on priorities, see [4m[0m
+     [4mprocess_flag(priority, Level)[0m.
 
-   • [;;4m{fullsweep_after, Number}[0m - Useful only for performance
+   • [4m{fullsweep_after, Number}[0m - Useful only for performance
      tuning. Do not use this option unless you know that there is
      problem with execution times or memory consumption, and
      ensure that the option improves matters.
@@ -69,30 +69,30 @@
      more room on the old heap, a fullsweep garbage collection is
      done.
 
-     Option [;;4mfullsweep_after[0m makes it possible to specify the
+     Option [4mfullsweep_after[0m makes it possible to specify the
      maximum number of generational collections before forcing a
      fullsweep, even if there is room on the old heap. Setting
      the number to zero disables the general collection
      algorithm, that is, all live data is copied at every garbage
      collection.
 
-     A few cases when it can be useful to change [;;4mfullsweep_after[0m:
+     A few cases when it can be useful to change [4mfullsweep_after[0m:
 
       ￮ If binaries that are no longer used are to be thrown
-        away as soon as possible. (Set [;;4mNumber[0m to zero.)
+        away as soon as possible. (Set [4mNumber[0m to zero.)
 
-      ￮ process that mostly have short-lived data is
+      ￮ A process that mostly have short-lived data is
         fullsweeped seldom or never, that is, the old heap
         contains mostly garbage. To ensure a fullsweep
-        occasionally, set [;;4mNumber[0m to a suitable value, such
+        occasionally, set [4mNumber[0m to a suitable value, such
         as 10 or 20.
 
       ￮ In embedded systems with a limited amount of RAM and
         no virtual memory, you might want to preserve memory
-        by setting [;;4mNumber[0m to zero. (The value can be set
-        globally, see [;;4merlang:system_flag/2[0m.)
+        by setting [4mNumber[0m to zero. (The value can be set
+        globally, see [4merlang:system_flag/2[0m.)
 
-   • [;;4m{min_heap_size, Size}[0m - Useful only for performance tuning.
+   • [4m{min_heap_size, Size}[0m - Useful only for performance tuning.
      Do not use this option unless you know that there is problem
      with execution times or memory consumption, and ensure that
      the option improves matters.
@@ -103,9 +103,9 @@
      too high value can waste memory and slow down the system
      because of worse data locality. Therefore, use this option
      only for fine-tuning an application and to measure the
-     execution time with various [;;4mSize[0m values.
+     execution time with various [4mSize[0m values.
 
-   • [;;4m{min_bin_vheap_size, VSize}[0m - Useful only for performance
+   • [4m{min_bin_vheap_size, VSize}[0m - Useful only for performance
      tuning. Do not use this option unless you know that there is
      problem with execution times or memory consumption, and
      ensure that the option improves matters.
@@ -115,36 +115,36 @@
      processes because less garbage collection is done. However,
      setting a too high value can waste memory. Therefore, use
      this option only for fine-tuning an application and to
-     measure the execution time with various [;;4mVSize[0m values.
+     measure the execution time with various [4mVSize[0m values.
 
-   • [;;4m{max_heap_size, Size}[0m - Sets the [;;4mmax_heap_size[0m process
-     flag. The default [;;4mmax_heap_size[0m is determined by
-     command-line argument [;;4m+hmax[0m in erl. For more information,
-     see the documentation of [;;4mprocess_flag(max_heap_size, Size)[0m.
+   • [4m{max_heap_size, Size}[0m - Sets the [4mmax_heap_size[0m process
+     flag. The default [4mmax_heap_size[0m is determined by
+     command-line argument [4m+hmax[0m in erl. For more information,
+     see the documentation of [4mprocess_flag(max_heap_size, Size)[0m.
 
-   • [;;4m{message_queue_data, MQD}[0m - Sets the value of the [;;4m[0m
-     [;;4mmessage_queue_data[0m process flag. [;;4mMQD[0m can be either [;;4m[0m
-     [;;4moff_heap[0m or [;;4mon_heap[0m. The default value of the [;;4m[0m
-     [;;4mmessage_queue_data[0m process flag is determined by the
-     command-line argument [;;4m+hmqd[0m in erl. For more information,
-     see the documentation of [;;4mprocess_flag(message_queue_data,[0m
-     [;;4mMQD)[0m.
+   • [4m{message_queue_data, MQD}[0m - Sets the value of the [4m[0m
+     [4mmessage_queue_data[0m process flag. [4mMQD[0m can be either [4m[0m
+     [4moff_heap[0m or [4mon_heap[0m. The default value of the [4m[0m
+     [4mmessage_queue_data[0m process flag is determined by the
+     command-line argument [4m+hmqd[0m in erl. For more information,
+     see the documentation of [4mprocess_flag(message_queue_data,[0m
+     [4mMQD)[0m.
 
-   • [;;4m{async_dist, Enabled}[0m - Sets the [;;4masync_dist[0m process flag
+   • [4m{async_dist, Enabled}[0m - Sets the [4masync_dist[0m process flag
      of the spawned process. This option will override the
-     default value set by the command line argument [;;4m+pad[0m
-     [;;4m<boolean>[0m.
+     default value set by the command line argument [4m+pad[0m
+     [4m<boolean>[0m.
 
      Since: OTP 25.3
 
-[;1m  spawn_opt(Node, Module, Function, Args, Options)[0m
+[1m  spawn_opt(Node, Module, Function, Args, Options)[0m
 
   Returns the process identifier (pid) of a new process started by
-  the application of [;;4mModule:Function[0m to [;;4mArgs[0m on [;;4mNode[0m. If [;;4mNode[0m
-  does not exist, a useless pid is returned. Otherwise works like [;;4m[0m
-  [;;4mspawn_opt/4[0m.
+  the application of [4mModule:Function[0m to [4mArgs[0m on [4mNode[0m. If [4mNode[0m
+  does not exist, a useless pid is returned. Otherwise works like [4m[0m
+  [4mspawn_opt/4[0m.
 
   Valid options depends on what options are supported by the node
-  identified by [;;4mNode[0m. A description of valid [;;4mOption[0ms for the
+  identified by [4mNode[0m. A description of valid [4mOption[0ms for the
   local node of current OTP version can be found in the
-  documentation of [;;4mspawn_opt/4[0m.
+  documentation of [4mspawn_opt/4[0m.
