@@ -124,7 +124,8 @@ setup_known_host/3,
 get_addr_str/0,
 file_base_name/2,
 kex_strict_negotiated/2,
-event_logged/3
+event_logged/3,
+remove_comment/1
         ]).
 %% logger callbacks and related helpers
 -export([log/2,
@@ -1218,10 +1219,12 @@ setup_all_user_keys(DataDir, UserDir) ->
 setup_user_key(SshAlg, DataDir, UserDir) ->
     file:make_dir(UserDir),
     %% Copy private user key to user's dir
-    {ok,_} = file:copy(filename:join(DataDir, file_base_name(user_src,SshAlg)),
-                       filename:join(UserDir, file_base_name(user,SshAlg))),
+    {ok, Priv0} = file:read_file(filename:join(DataDir, file_base_name(user_src,SshAlg))),
+    Priv = remove_comment(Priv0),
+    ok = file:write_file(filename:join(UserDir, file_base_name(user,SshAlg)), Priv),
     %% Setup authorized_keys in user's dir
-    {ok,Pub} = file:read_file(filename:join(DataDir, file_base_name(user_src,SshAlg)++".pub")),
+    {ok,Pub0} = file:read_file(filename:join(DataDir, file_base_name(user_src,SshAlg)++".pub")),
+    Pub = remove_comment(Pub0),
     ok = file:write_file(filename:join(UserDir, "authorized_keys"),
                          io_lib:format("~n~s~n",[Pub]),
                          [append]),
@@ -1239,19 +1242,25 @@ setup_host_key_create_dir(SshAlg, DataDir, BaseDir) ->
 setup_host_key(SshAlg, DataDir, SysDir) ->
     mk_dir_path(SysDir),
     %% Copy private host key to system's dir
-    {ok,_} = file:copy(filename:join(DataDir, file_base_name(system_src,SshAlg)),
-                       filename:join(SysDir,  file_base_name(system,SshAlg))),
+    {ok,Priv0} = file:read_file(filename:join(DataDir, file_base_name(system_src,SshAlg))),
+    Priv = remove_comment(Priv0),
+    ok = file:write_file(filename:join(SysDir,  file_base_name(system,SshAlg)), Priv),
     ?ct_log_show_file( filename:join(SysDir,  file_base_name(system,SshAlg)) ),
     ok.
 
 setup_known_host(SshAlg, DataDir, UserDir) ->
-    {ok,Pub} = file:read_file(filename:join(DataDir, file_base_name(system_src,SshAlg)++".pub")),
+    {ok,Pub0} = file:read_file(filename:join(DataDir, file_base_name(system_src,SshAlg)++".pub")),
+    Pub = remove_comment(Pub0),
     S = lists:join(" ", lists:reverse(tl(lists:reverse(string:tokens(binary_to_list(Pub), " "))))),
     ok = file:write_file(filename:join(UserDir, "known_hosts"),
                          io_lib:format("~p~n",[S])),
     ?ct_log_show_file( filename:join(UserDir, "known_hosts") ),
     ok.
 
+remove_comment(Bin) ->
+    Lines = string:split(Bin, "\n", all),
+    FilteredLines = [L || L <- Lines, string:prefix(L, "#") == nomatch],
+    list_to_binary(lists:join("\n", FilteredLines)).
 
 get_addr_str() ->
     {ok, Hostname} = inet:gethostname(),
