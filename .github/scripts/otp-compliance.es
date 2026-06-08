@@ -2831,26 +2831,30 @@ run_openvex1(VexStmts, VexTableFile, Branch, VexPath) ->
 verify_openvex(#{create_pr := PR}) ->
     Branches = get_supported_branches(),
     io:format("Sync ~p~n", [Branches]),
-    _ = lists:foreach(
-          fun (Branch) ->
+    ExistsAdvisory =
+        lists:foldl(
+          fun (Branch, NewAdvisory) ->
                   case verify_openvex_advisories(Branch) of
                       [] ->
-                          io:format("No new advisories nor OpenVEX statements created for '~s'.", [Branch]);
+                          io:format("No new advisories nor OpenVEX statements created for '~s'.", [Branch]),
+                          NewAdvisory;
                       MissingAdvisories ->
                           io:format("Missing Advisories:~n~p~n~n", [MissingAdvisories]),
                           case PR of
                               false ->
                                   io:format("To automatically update openvex.table and create a PR run:~n" ++
-                                                ".github/scripts/otp-compliance.es vex verify -b ~s -p~n~n", [Branch]);
+                                                ".github/scripts/otp-compliance.es vex verify -b ~s -p~n~n", [Branch]),
+                                  NewAdvisory;
                               true ->
                                   Advs = create_advisory(MissingAdvisories),
                                   _ = update_openvex_otp_table(Branch, Advs),
                                   BranchStr = erlang:binary_to_list(Branch),
-                                  _ = cmd(".github/scripts/otp-compliance.es vex run -b "++ BranchStr ++ " | bash")
+                                  _ = cmd(".github/scripts/otp-compliance.es vex run -b "++ BranchStr ++ " | bash"),
+                                  true
                           end
                   end
-          end, Branches),
-    case PR of
+          end, false, Branches),
+    case ExistsAdvisory andalso PR of
         true ->
             Result = cmd(".github/scripts/create-openvex-pr.sh " ++ ?GH_ACCOUNT ++ " vex"),
             io:format("~s~n", [unicode:characters_to_binary(Result)]);
