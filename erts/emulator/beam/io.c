@@ -498,7 +498,7 @@ erts_port_free(Port *prt)
 static void initq(Port* prt)
 {
     ERTS_LC_ASSERT(!prt->port_data_lock);
-    erts_ioq_init(&prt->ioq, ERTS_ALC_T_IOQ, 1);
+    erts_ioq_init(&prt->ioq, ERTS_ALC_T_IOQ, true);
 }
 
 static void stopq(Port* prt)

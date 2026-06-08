@@ -32,10 +32,10 @@
 #include "erl_bits.h"
 #include "erl_io_queue.h"
 
-static void free_binary(ErtsIOQBinary *b, int driver);
-static ErtsIOQBinary *alloc_binary(Uint size, char *source, void **iov_base, int driver);
+static void free_binary(ErtsIOQBinary *b, bool driver);
+static ErtsIOQBinary *alloc_binary(Uint size, char *source, void **iov_base, bool driver);
 
-void erts_ioq_init(ErtsIOQueue *q, ErtsAlcType_t alct, int driver)
+void erts_ioq_init(ErtsIOQueue *q, ErtsAlcType_t alct, bool driver)
 {
 
     ERTS_CT_ASSERT(offsetof(ErlNifIOVec,flags) == sizeof(ErtsIOVecCommon));
@@ -72,7 +72,7 @@ void erts_ioq_clear(ErtsIOQueue *q)
     q->size = 0;
 }
 
-static void free_binary(ErtsIOQBinary *b, int driver)
+static void free_binary(ErtsIOQBinary *b, bool driver)
 {
     if (driver)
         driver_free_binary(&b->driver);
@@ -80,7 +80,7 @@ static void free_binary(ErtsIOQBinary *b, int driver)
         erts_bin_free(&b->nif);
 }
 
-static ErtsIOQBinary *alloc_binary(Uint size, char *source, void **iov_base, int driver)
+static ErtsIOQBinary *alloc_binary(Uint size, char *source, void **iov_base, bool driver)
 {
     if (driver) {
         ErlDrvBinary *bin = driver_alloc_binary(size);
@@ -296,6 +296,7 @@ int erts_ioq_pushqv(ErtsIOQueue *q, ErtsIOVec* vec, Uint skipbytes)
 	return -1;
 
     ASSERT(vec->common.size >= skipbytes);
+
     if (vec->common.size <= skipbytes)
 	return 0;
 
@@ -314,16 +315,13 @@ int erts_ioq_pushqv(ErtsIOQueue *q, ErtsIOVec* vec, Uint skipbytes)
     while(n--) {
 	if ((len = iov->iov_len) > 0) {
 	    if ((b = *binv) == NULL) { /* special case create binary ! */
-                if (q->driver) {
-                    ErlDrvBinary *bin = driver_alloc_binary(len);
-                    if (!bin) return -1;
-                    sys_memcpy(bin->orig_bytes, iov->iov_base, len);
-                    b = (ErtsIOQBinary *)bin;
-                    q->v_head->iov_base = bin->orig_bytes;
-                }
-		*--q->b_head = b;
-		q->v_head--;
+                q->v_head--;
 		q->v_head->iov_len = len;
+
+                b = alloc_binary(len, iov->iov_base, (void**)&q->v_head->iov_base, q->driver);
+                if (!b) return -1;
+
+                *--q->b_head = b;
 	    }
 	    else {
                 if (q->driver)
