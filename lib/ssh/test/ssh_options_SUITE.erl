@@ -57,6 +57,9 @@
          max_sessions_drops_tcp_connects/0,
 	 server_password_option/1, 
 	 server_userpassword_option/1, 
+	 server_userpassword_timing/0,
+	 server_userpassword_timing/1,
+	 server_pubkey_timing/1,
 	 server_pwdfun_option/1,
 	 server_pwdfun_4_option/1,
 	 server_keyboard_interactive/1,
@@ -124,6 +127,8 @@ all() ->
      connectfun_disconnectfun_client,
      server_password_option,
      server_userpassword_option,
+     server_userpassword_timing,
+     server_pubkey_timing,
      server_pwdfun_option,
      server_pwdfun_4_option,
      server_keyboard_interactive,
@@ -2294,3 +2299,64 @@ test_not_connect(Config, Host, Port, Opts) ->
         error:{badmatch, {error,_}} -> ok
     end.
 
+
+%%--------------------------------------------------------------------
+%% Verify that password auth timing does not reveal username validity.
+%% Regression test for GHSA-3w6p-vwhf-wvp4.
+server_userpassword_timing() ->
+    [{timetrap, {seconds,60}}].
+
+server_userpassword_timing(Config) when is_list(Config) ->
+    UserDir = proplists:get_value(user_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+                                             {user_dir, UserDir},
+                                             {auth_methods, "password"},
+                                             {user_passwords, [{"alice", "s3cret"}]}]),
+    Opts = [{silently_accept_hosts, true},
+            {user_interaction, false},
+            {save_accepted_host, false},
+            {auth_methods, "password"},
+            {user_dir, UserDir},
+            {password, "wrong"}],
+    F = fun(User) -> time_auth(Host, Port, User, Opts) end,
+    ssh_test_lib:assert_timing_symmetry(F, "alice", "invalid"),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+%% Verify that pubkey auth with pk_check_user timing does not reveal
+%% username validity. Regression test for GHSA-3w6p-vwhf-wvp4.
+server_pubkey_timing(Config) when is_list(Config) ->
+    UserDir = proplists:get_value(priv_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+    %% Server user_dir has no authorized_keys, so pubkey auth fails
+    %% for both users. This isolates the pk_check_user timing from
+    %% auth success/failure differences.
+    ServerUserDir = filename:join(UserDir, "srv_no_authkeys"),
+    ok = file:make_dir(ServerUserDir),
+    ssh_test_lib:setup_all_user_host_keys(Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+                                             {user_dir, ServerUserDir},
+                                             {auth_methods, "publickey"},
+                                             {user_passwords, [{"alice", "s3cret"}]},
+                                             {pk_check_user, true}]),
+    Opts = [{silently_accept_hosts, true},
+            {user_interaction, false},
+            {save_accepted_host, false},
+            {auth_methods, "publickey"},
+            {user_dir, UserDir}],
+    F = fun(User) -> time_auth(Host, Port, User, Opts) end,
+    ssh_test_lib:assert_timing_symmetry(F, "alice", "invalid"),
+    ssh:stop_daemon(Pid).
+
+time_auth(Host, Port, User, Opts) ->
+    T0 = erlang:monotonic_time(millisecond),
+    Result = ssh:connect(Host, Port, [{user, User} | Opts]),
+    T1 = erlang:monotonic_time(millisecond),
+    case Result of
+        {ok, C} -> ssh:close(C);
+        _ -> ok
+    end,
+    Delta = T1 - T0,
+    ?CT_LOG("Connection result = ~p in ~p ms", [Result, Delta]),
+    Delta.
