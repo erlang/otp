@@ -1305,7 +1305,7 @@ s_write(Val) when is_tuple(Val), tuple_size(Val) > 2 ->
 Write `Record` to table `Tab`.
 
 The function returns `ok`, or terminates if an error occurs. For example, the
-transaction terminates if no `person` table exists.
+transaction terminates if no `Tab` table exists.
 
 The semantics of this function is context-sensitive. For details, see
 `mnesia:activity/4`. In transaction-context, it acquires a lock of type
