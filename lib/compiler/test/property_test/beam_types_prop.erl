@@ -313,9 +313,10 @@ gen_native_record(Depth) ->
 
 gen_native_record_1(Depth) ->
     ?LET(Size, ?CT_RANGE(1, 3),
-        ?LET({Name, Es}, {oneof([nil, {readable_atom(),readable_atom()}]),
+        ?LET({Name, E, Es}, {oneof([nil, {readable_atom(),readable_atom()}]),
+                          oneof([unknown, yes, no]),
                           gen_native_record_elements(Size, Depth)},
-             #t_record{name=Name,type=Es})).
+             #t_record{name=Name,exported=E,type=Es})).
 
 gen_native_record_elements(Size, Depth) ->
     ?SHRINK(?LET(Types, duplicate(Size, {readable_atom(),
