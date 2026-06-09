@@ -23,6 +23,19 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 17.0.2
+
+### Fixed Bugs and Malfunctions
+
+- A buffer overflow error when parsing SCTP ERROR or ABORT chunks has been fixed.  
+  
+  This could lead to stack corruption and VM crash, but ultimately with hard work by an attacker be refined into maybe even remote code execution.
+
+  Own Id: OTP-20165 Aux Id: [PR-1234], GHSA-6f4f-chj5-5g97, [CVE-2026-49759]
+
+[PR-1234]: https://github.com/erlang/otp/pull/1234
+[CVE-2026-49759]: https://nvd.nist.gov/vuln/detail/2026-49759
+
 ## Erts 17.0.1
 
 ### Fixed Bugs and Malfunctions

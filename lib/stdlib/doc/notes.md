@@ -23,6 +23,21 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 8.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix a bug where a tuple record operation within a native record anonymous update can crash.
+
+  Own Id: OTP-20151 Aux Id: [PR-11141]
+
+- Fixed some bugs in `io_lib:bformat/2` and native record printing.
+
+  Own Id: OTP-20170 Aux Id: [PR-11154]
+
+[PR-11141]: https://github.com/erlang/otp/pull/11141
+[PR-11154]: https://github.com/erlang/otp/pull/11154
+
 ## STDLIB 8.0
 
 ### Fixed Bugs and Malfunctions
