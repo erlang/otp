@@ -19,6 +19,17 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 5.2.11.8
+
+### Fixed Bugs and Malfunctions
+
+- Fixed SSH_FXP_READLINK handler in ssh_sftpd to strip the backend root prefix from symlink targets before returning them to the client, preventing disclosure of the server's absolute filesystem path when the root option is configured.
+
+  Own Id: OTP-20162 Aux Id: [CVE-2026-48855], GHSA-pv7g-pjrq-x2fh, [PR-11192]
+
+[CVE-2026-48855]: https://nvd.nist.gov/vuln/detail/2026-48855
+[PR-11192]: https://github.com/erlang/otp/pull/11192
+
 ## Ssh 5.2.11.7
 
 ### Fixed Bugs and Malfunctions
