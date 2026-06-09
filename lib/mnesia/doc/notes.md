@@ -27,6 +27,17 @@ as all enhancements and bugfixes for every release of Mnesia. Each release of
 Mnesia thus constitutes one section in this document. The title of each section
 is the version number of Mnesia.
 
+## Mnesia 4.25.3.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed docs of `mnesia:write/3` to clarify when a transaction can terminate.
+
+  Own Id: OTP-20149 Aux Id: [GH-11104], [PR-11145]
+
+[GH-11104]: https://github.com/erlang/otp/issues/11104
+[PR-11145]: https://github.com/erlang/otp/pull/11145
+
 ## Mnesia 4.25.3
 
 ### Fixed Bugs and Malfunctions

@@ -23,6 +23,17 @@ limitations under the License.
 
 This document describes the changes made to the Dialyzer application.
 
+## Dialyzer 5.4.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix Dialyzer crash with overriding built-in types
+
+  Own Id: OTP-19631 Aux Id: [GH-11093], [PR-11096]
+
+[GH-11093]: https://github.com/erlang/otp/issues/11093
+[PR-11096]: https://github.com/erlang/otp/pull/11096
+
 ## Dialyzer 5.4
 
 ### Fixed Bugs and Malfunctions
