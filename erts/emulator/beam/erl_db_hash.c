@@ -1524,8 +1524,8 @@ static int db_member_hash(DbTable *tbl, Eterm key, Eterm *ret)
     erts_rwmtx_t* lck;
 
     hval = MAKE_HASH(key);
-    ix = hash_to_ix(tb, hval);
     lck = RLOCK_HASH(tb, hval);
+    ix = hash_to_ix(tb, hval);
     b1 = BUCKET(tb, ix);
 
     while(b1 != 0) {
