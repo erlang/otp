@@ -457,8 +457,8 @@ expr({record,_A,Arg0,{_,_}=Id,Updates}, St0) ->
 expr({record,_A,Arg0,[]=Id,Updates}, St0) ->
     Anno = erl_parse:first_anno(Arg0),
     {Arg1,St1} = expr(Arg0, St0),
-    {Es1, St1} = expr_list(Updates, St0),
-    {{record,Anno,Arg1,Id,Es1},St1};
+    {Es1, St2} = expr_list(Updates, St1),
+    {{record,Anno,Arg1,Id,Es1},St2};
 expr({record,Anno0,Arg0,Name,Updates}, St0) when is_atom(Name) ->
     case St0#exprec.rec_mod of
         #{Name := {local, _}} ->
