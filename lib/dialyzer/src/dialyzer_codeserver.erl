@@ -458,6 +458,12 @@ compress_file_anno({file, F}, Fs) when is_list(F) ->
 compress_file_anno(T, Fs) when is_tuple(T) ->
   {NFs, NL} = compress_file_anno(tuple_to_list(T), Fs),
   {NFs, list_to_tuple(NL)};
+compress_file_anno(T, Fs) when is_record(T) ->
+  {M, N} = {records:get_module(T), records:get_name(T)},
+  FNs = records:get_field_names(T),
+  Vs = [{FN, records:get(FN, T)} || FN <- FNs],
+  {NFs, NL} = compress_file_anno(Vs, Fs),
+  {NFs, records:update(T, M, N, maps:from_list(NL))};
 compress_file_anno([E|L], Fs) ->
   {Fs1, NE} = compress_file_anno(E, Fs),
   {NFs, NL} = compress_file_anno(L, Fs1),

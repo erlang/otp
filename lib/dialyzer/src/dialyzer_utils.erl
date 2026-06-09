@@ -174,6 +174,12 @@ get_record_and_type_info([{native_record, Location, [{Name, Fields0}]}|Left],
   FN = {File, Location},
   NewRecDict = maps:put({native_record, {Module,Name}}, {FN, Fields}, RecDict),
   get_record_and_type_info(Left, Module, NewRecDict, File);
+get_record_and_type_info([{import_record, _Location, [{Mod, Names}]}|Left],
+                         Module, RecDict, File) ->
+  NewRecDict = lists:foldl(fun(Name, Acc) ->
+                             maps:put({import_record, Name}, Mod, Acc)
+                           end, RecDict, Names),
+  get_record_and_type_info(Left, Module, NewRecDict, File);
 get_record_and_type_info([{record, Location, [{Name, Fields0}]}|Left],
 			 Module, RecDict, File) ->
   {ok, Fields} = get_record_fields(Fields0, RecDict),
@@ -342,6 +348,8 @@ process_record_remote_types_module(Module, CServer) ->
             {FieldsList, C3} =
               lists:mapfoldl(FieldFun, C2, orddict:to_list(Fields)),
             {{Key, {FileLocation, orddict:from_list(FieldsList)}}, C3};
+          {import_record, _Name} ->
+            {{Key, Value}, C2};
           {_TypeOrOpaque, Name, NArgs} ->
             %% Make sure warnings about unknown types are output
             %% also for types unused by specs.
@@ -411,6 +419,8 @@ process_opaque_types(AllModules, CServer, TempExpTypes) ->
                 {record, _RecName} ->
                   {{Key, Value}, C2};
                 {native_record, _RecName} ->
+                  {{Key, Value}, C2};
+                {import_record, _RecName} ->
                   {{Key, Value}, C2}
               end
           end,
@@ -459,6 +469,8 @@ check_record_fields(AllModules, CServer, TempExpTypes) ->
                     end,
                   Fun = fun() -> lists:foldl(FieldFun, C2, Fields) end,
                   msg_with_position(Fun, FileLocation);
+                {import_record, _Name} ->
+                  C2;
                 {_OpaqueOrType, Name, NArgs} ->
                   {{_Module, FileLocation, Form, _ArgNames}, _Type} = Value,
                   {File, _Location} = FileLocation,

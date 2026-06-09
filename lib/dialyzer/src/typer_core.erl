@@ -911,7 +911,7 @@ analyze_core_tree(Core, Records, SpecInfo, CbInfo, ExpTypes, Analysis, File) ->
   OldExpTypes = dialyzer_codeserver:get_temp_exported_types(CS5),
   MergedExpTypes = sets:union(ExpTypes, OldExpTypes),
   CS6 = dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes, CS5),
-  ExFuncs = [{0,F,A} || {_,_,{F,A}} <- cerl:module_exports(Tree)],
+  ExFuncs = [{0,cerl:fname_id(Es),cerl:fname_arity(Es)} || Es <- cerl:module_exports(Tree)],
   CG = Analysis#analysis.callgraph,
   {V, E} = dialyzer_callgraph:scan_core_tree(Tree, CG),
   dialyzer_callgraph:add_edges(E, V, CG),
