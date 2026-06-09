@@ -326,14 +326,19 @@ eserver_oclient_renegotiate_helper1(Config) ->
     {Data, OpenSsh, Pid}.
 
 eserver_oclient_renegotiate_helper2({Data, OpenSsh, Pid}) ->
+    PQCAvailable = lists:member(mlkem768, crypto:supports(kems)),
     Expect = fun({data,R}) ->
                      Warning =
                          <<"WARNING: connection is not using a post-quantum key exchange algorithm">>,
                      case binary:match(R, Warning) of
                          nomatch -> ok;
-                         _ ->
+                         _ when PQCAvailable ->
                              ?CT_PAL("~p", [R]),
-                             ct:fail(pqc_warning_detected)
+                             ct:fail(pqc_warning_detected);
+                         _ ->
+                             ?CT_LOG("PQC warning ignored: mlkem768 not available in crypto backend"),
+                             ct:comment("PQC kex unavailable (LibreSSL lacks ML-KEM support)"),
+                             ok
                      end,
 		     try
 			 NonAlphaChars = [C || C<-lists:seq(1,255),
@@ -720,14 +725,27 @@ no_forwarding(Config) ->
 check_kex_strict(Sock) ->
     %% Send some version, in order to receive KEXINIT from server
     ok = gen_tcp:send(Sock, "SSH-2.0-OpenSSH_9.5\r\n"),
-    ct:sleep(100),
-    {ok, Packet} = gen_tcp:recv(Sock, 0),
-    case string:find(Packet, ?kex_strict_s) of
+    Data = recv_kexinit_data(Sock, <<>>),
+    case string:find(Data, ?kex_strict_s) of
         nomatch ->
             ct:log("KEX strict NOT supported by local OpenSSH"),
             false;
         _ ->
             ct:log("KEX strict supported by local OpenSSH"),
             true
+    end.
+
+recv_kexinit_data(_Sock, Acc) when byte_size(Acc) > 4096 ->
+    Acc;
+recv_kexinit_data(Sock, Acc) ->
+    case gen_tcp:recv(Sock, 0, 2000) of
+        {ok, Packet} ->
+            Combined = iolist_to_binary([Acc, Packet]),
+            case string:find(Combined, "kex-strict") of
+                nomatch -> recv_kexinit_data(Sock, Combined);
+                _ -> Combined
+            end;
+        {error, _} ->
+            Acc
     end.
 
