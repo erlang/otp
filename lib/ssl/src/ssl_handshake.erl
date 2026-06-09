@@ -2237,7 +2237,7 @@ path_validation_alert({bad_cert, invalid_signature}, _, _) ->
 path_validation_alert({bad_cert, unsupported_signature}, _, _) ->
     ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE, unsupported_signature);
 path_validation_alert({bad_cert, distinguished_name_not_permitted}, _, _) ->
-    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, distinguised_name_not_permitted);
+    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, distinguished_name_not_permitted);
 path_validation_alert({bad_cert, name_not_permitted}, _, _) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, subject_alt_name_not_permitted);
 path_validation_alert({bad_cert, unknown_critical_extension}, _, _) ->
