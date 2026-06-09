@@ -287,7 +287,7 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(Tc, Config) when Tc == no_common_alg_server_disconnects;
                                    Tc == custom_kexinit ->
-    start_std_daemon(Config, [{preferred_algorithms,[{public_key,['ssh-rsa']},
+    start_std_daemon(Config, [{preferred_algorithms,[{public_key,['ssh-ed25519']},
                                                      {cipher,?DEFAULT_CIPHERS}
                                                     ]}]);
 init_per_testcase(kex_strict_negotiated, Config) ->
@@ -486,14 +486,14 @@ no_common_alg_server_disconnects(Config) ->
 	    [{silently_accept_hosts, true},
 	     {user_dir, ssh_test_lib:user_dir(Config)},
 	     {user_interaction, false},
-	     {preferred_algorithms,[{public_key,['ssh-dss']},
+             {preferred_algorithms,[{public_key,['ecdsa-sha2-nistp256']},
                                     {cipher,?DEFAULT_CIPHERS}
                                    ]}
 	    ]},
 	   receive_hello,
 	   {send, hello},
 	   {match, #ssh_msg_kexinit{_='_'}, receive_msg},
-	   {send, ssh_msg_kexinit},  % with server unsupported 'ssh-dss' !
+           {send, ssh_msg_kexinit},  % with server unsupported 'ecdsa-sha2-nistp256' !
 	   {match, disconnect(), receive_msg}
 	  ]
 	 ).
@@ -627,7 +627,7 @@ no_common_alg_client_disconnects(Config) ->
 
     %% and finally connect to it with a regular Erlang SSH client
     %% which of course does not support SOME-UNSUPPORTED as pub key algo:
-    Result = std_connect(HostPort, Config, [{preferred_algorithms,[{public_key,['ssh-dss']},
+    Result = std_connect(HostPort, Config, [{preferred_algorithms,[{public_key,['ecdsa-sha2-nistp256']},
                                                                    {cipher,?DEFAULT_CIPHERS}
                                                                   ]}]),
     ct:log("Result of connect is ~p",[Result]),
