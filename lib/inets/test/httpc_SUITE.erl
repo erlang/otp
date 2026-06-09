@@ -198,6 +198,7 @@ only_simulated() ->
      redirect_temporary_redirect,
      redirect_permanent_redirect,
      redirect_relative_uri,
+     redirect_strips_sensitive_headers,
      port_in_host_header,
      redirect_port_in_host_header,
      te_header_undefined_no_connection,
@@ -954,6 +955,40 @@ redirect_relative_different_port(Config) when is_list(Config) ->
     {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL301, Headers, "text/plain", "foobar"},
 			[], RequestOpts, Profile).
+%%-------------------------------------------------------------------------
+redirect_strips_sensitive_headers() ->
+    [{doc, "RFC 9110 §15.4: Authorization, Proxy-Authorization, Cookie, "
+      "Referer, and Origin headers MUST NOT be forwarded on cross-origin "
+      "(different host/port) redirects (CVE / GHSA-m75x-4vwg-ggjh)."}].
+redirect_strips_sensitive_headers(Config) when is_list(Config) ->
+    %% Origin server issues a 301 to a second sim_http server (different port
+    %% = cross-origin).  The target echoes which sensitive headers it received
+    %% back as x-received-* response headers so the test can inspect them.
+    OriginUrl = url(group_name(Config), "/301_custom_url.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    Profile = ?profile(Config),
+
+    TargetPort = server_start(sim_http, []),
+    {ok, Host} = inet:gethostname(),
+    TargetUrl = ?URL_START ++ Host ++ ":" ++ integer_to_list(TargetPort) ++
+                    "/capture_sensitive_redirect_target.html",
+
+    RedirectHeaders = [{"x-test-301-url",       TargetUrl},
+                       {"authorization",         "Basic dXNlcjpzM2NyM3Q="},
+                       {"proxy-authorization",   "Basic dXNlcjpzM2NyM3Q="},
+                       {"cookie",                "session=secret"},
+                       {"referer",               "http://example.com/secret"},
+                       {"origin",                "http://example.com"}],
+
+    {ok, {{_, 200, _}, RespHeaders, _}} =
+        httpc:request(get, {OriginUrl, RedirectHeaders}, [?SSL_NO_VERIFY], RequestOpts, Profile),
+
+    ?assertEqual("false", proplists:get_value("x-received-authorization",       RespHeaders)),
+    ?assertEqual("false", proplists:get_value("x-received-proxy-authorization", RespHeaders)),
+    ?assertEqual("false", proplists:get_value("x-received-cookie",              RespHeaders)),
+    ?assertEqual("false", proplists:get_value("x-received-referer",             RespHeaders)),
+    ?assertEqual("false", proplists:get_value("x-received-origin",              RespHeaders)).
+
 %%-------------------------------------------------------------------------
 cookie() ->
     [{doc, "Test cookies on the default profile."}].
@@ -3409,6 +3444,23 @@ handle_uri(_,"/check_has_content_length_zero.html", _,Headers,_, DefaultResponse
         _ ->
             Error
     end;
+%% Capture endpoint for redirect_strips_sensitive_headers.
+%% Echoes presence of each sensitive header as an x-received-* response header.
+handle_uri(_,"/capture_sensitive_redirect_target.html",_,Headers,_,_) ->
+    Present = fun(Name) ->
+        case proplists:is_defined(Name, Headers) of
+            true  -> "true";
+            false -> "false"
+        end
+    end,
+    "HTTP/1.1 200 OK\r\n" ++
+        "Content-Length:0\r\n" ++
+        "X-Received-Authorization:"       ++ Present("authorization")       ++ "\r\n" ++
+        "X-Received-Proxy-Authorization:" ++ Present("proxy-authorization") ++ "\r\n" ++
+        "X-Received-Cookie:"              ++ Present("cookie")              ++ "\r\n" ++
+        "X-Received-Referer:"             ++ Present("referer")             ++ "\r\n" ++
+        "X-Received-Origin:"              ++ Present("origin")              ++ "\r\n" ++
+        "\r\n";
 handle_uri(_,_,_,_,_,DefaultResponse) ->
     DefaultResponse.
 

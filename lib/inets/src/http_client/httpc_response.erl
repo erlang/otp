@@ -444,8 +444,28 @@ redirect(Response = {_, Headers, _}, Request) ->
                     NewURI = uri_string:normalize(
                                uri_string:recompose(URIMap)),
                     HostPort = http_request:normalize_host(TScheme, THost, TPort),
-                    NewHeaders =
+                    NewHeaders0 =
                         (Request#request.headers)#http_request_h{host = HostPort},
+                    %% RFC 9110 §15.4: strip Authorization, Proxy-Authorization,
+                    %% Cookie, Origin, and Referer on cross-origin redirects
+                    %% (different host or port).
+                    NewHeaders =
+                        case Request#request.address of
+                            {THost, TPort} ->
+                                NewHeaders0;
+                            _ ->
+                                CrossOriginOther = ["cookie", "origin"],
+                                OtherStripped = lists:filter(
+                                    fun({K, _}) ->
+                                        not lists:member(string:lowercase(K), CrossOriginOther)
+                                    end,
+                                    NewHeaders0#http_request_h.other),
+                                NewHeaders0#http_request_h{
+                                    authorization = undefined,
+                                    'proxy-authorization' = undefined,
+                                    referer = undefined,
+                                    other = OtherStripped}
+                        end,
                     NewRequest =
                         Request#request{redircount =
                                             Request#request.redircount+1,
