@@ -1977,8 +1977,8 @@ pkix_hash_type(Config) when is_list(Config) ->
     sha512 = public_key:pkix_hash_type(?'id-sha512'),
     sha384 = public_key:pkix_hash_type(?'id-sha384'),
     sha256 = public_key:pkix_hash_type(?'id-sha256'),
-    sha224 = public_key:pkix_hash_type('id-sha224'),
-    md5 = public_key:pkix_hash_type('id-md5').
+    sha224 = public_key:pkix_hash_type(?'id-sha224'),
+    md5 = public_key:pkix_hash_type(?'id-md5').
 
 
 %%--------------------------------------------------------------------
