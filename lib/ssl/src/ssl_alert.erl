@@ -24,8 +24,8 @@
 %%----------------------------------------------------------------------
 %% Purpose: Handles an ssl connection, e.i. both the setup
 %% e.i. SSL-Handshake, SSL-Alert and SSL-Cipher protocols and delivering
-%% data to the application. All data on the connectinon is received and 
-%% sent according to the SSL-record protocol.  
+%% data to the application. All data on the connectinon is received and
+%% sent according to the SSL-record protocol.
 %% %%----------------------------------------------------------------------
 
 -module(ssl_alert).
@@ -35,8 +35,8 @@
 -include("ssl_record.hrl").
 -include("ssl_internal.hrl").
 
--export([decode/1, 
-         own_alert_format/4, 
+-export([decode/1,
+         own_alert_format/4,
          alert_format/4,
          reason_code/4]).
 
@@ -99,18 +99,18 @@ alert_format(ProtocolName, Role, StateName, Alert) ->
 alert_prefix_format(ProtocolName, Role, StateName) ->
     {"~s ~p: In state ~p", [ProtocolName, Role, StateName]}.
 
-own_alert_format(#alert{reason = Reason} = Alert) ->   
+own_alert_format(#alert{reason = Reason} = Alert) ->
     Txt = own_alert_txt(Alert),
     case Reason of
-        undefined ->            
+        undefined ->
             {" ~s\n", [Txt]};
         Reason ->
             {" ~s\n - ~p", [Txt, Reason]}
     end.
-own_alert_format_depth(#alert{reason = Reason} = Alert) ->   
+own_alert_format_depth(#alert{reason = Reason} = Alert) ->
     Txt = own_alert_txt(Alert),
     case Reason of
-        undefined ->            
+        undefined ->
             {" ~s\n", [Txt]};
         Reason ->
             {" ~s\n ~P", [Txt, Reason, ?DEPTH]}
@@ -208,7 +208,7 @@ description_txt(?USER_CANCELED) ->
 description_txt(?NO_RENEGOTIATION) ->
     "No Renegotiation";
 description_txt(?MISSING_EXTENSION) ->
-    "Missing extension";
+    "Missing Extension";
 description_txt(?UNSUPPORTED_EXTENSION) ->
     "Unsupported Extension";
 description_txt(?CERTIFICATE_UNOBTAINABLE) ->
@@ -222,9 +222,9 @@ description_txt(?BAD_CERTIFICATE_HASH_VALUE) ->
 description_txt(?UNKNOWN_PSK_IDENTITY) ->
     "Unknown Psk Identity";
 description_txt(?CERTIFICATE_REQUIRED) ->
-    "Certificate required";
+    "Certificate Required";
 description_txt(?NO_APPLICATION_PROTOCOL) ->
-    "No application protocol";
+    "No Application Protocol";
 description_txt(Enum) ->
     lists:flatten(io_lib:format("unsupported/unknown alert: ~p", [Enum])).
 

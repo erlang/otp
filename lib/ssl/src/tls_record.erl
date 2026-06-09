@@ -545,8 +545,8 @@ validate_tls_record_version(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Versi
         false ->
             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, {unsupported_version, Version})
     end;
-validate_tls_record_version(?TLS_1_3=Versions, Q, MaxFragLen, Downgrade, Acc, Type, ?TLS_1_2=Version, Length) ->
-    validate_tls_record_length(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length);
+validate_tls_record_version(?TLS_1_3 = Version, Q, MaxFragLen, Downgrade, Acc, Type, ?TLS_1_2 = OuterVersion, Length) ->
+    validate_tls_record_length(Version, Q, MaxFragLen, Downgrade, Acc, Type, OuterVersion, Length);
 validate_tls_record_version(Version, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length) ->
     %% Exact version match
     validate_tls_record_length(Version, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length);
@@ -713,6 +713,8 @@ split_iovec([], _SplitSize, Acc) ->
 
 
 max_len([?TLS_1_3|_])->
+    ?TLS13_MAX_CIPHER_TEXT_LENGTH;
+max_len(?TLS_1_3)->
     ?TLS13_MAX_CIPHER_TEXT_LENGTH;
 max_len(_) ->
     ?MAX_CIPHER_TEXT_LENGTH.
