@@ -23,6 +23,32 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.7.2
+
+### Fixed Bugs and Malfunctions
+
+- Fix miscellanies issues that could cause unnecessary memory consumption and in some less common scenarios or configurations cause connection failures.
+
+  Own Id: OTP-20154 Aux Id: [PR-11148]
+
+- Erlang distribution over TLS run with the kernel 'check_ip' flag now properly enforce connecting nodes to be on the same LAN.
+
+  Own Id: OTP-20156 Aux Id: [CVE-2026-48860], GHSA-gp7x-mfv6-52cv, [PR-11181]
+
+- Enhance error message, by fixing typo of atom in new error message related to \`public_key\` CVE-2026-42790 solution.
+
+  Own Id: OTP-20161 Aux Id: [PR-11148]
+
+- Corrected SNI handling for TLS-1.3 only server, could cause connection failures if supported signature algorithms  where changed by SNI option update.
+
+  Own Id: OTP-20174 Aux Id: [PR-27384]
+
+[PR-11148]: https://github.com/erlang/otp/pull/11148
+[CVE-2026-48860]: https://nvd.nist.gov/vuln/detail/2026-48860
+[PR-11181]: https://github.com/erlang/otp/pull/11181
+[PR-11148]: https://github.com/erlang/otp/pull/11148
+[PR-27384]: https://github.com/erlang/otp/pull/27384
+
 ## SSL 11.7.1
 
 ### Fixed Bugs and Malfunctions

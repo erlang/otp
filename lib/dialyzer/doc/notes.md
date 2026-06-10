@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the Dialyzer application.
 
+## Dialyzer 6.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix native record bugs in Dialyzer
+
+  Own Id: OTP-20178 Aux Id: [PR-11199]
+
+[PR-11199]: https://github.com/erlang/otp/pull/11199
+
 ## Dialyzer 6.0
 
 ### Improvements and New Features
