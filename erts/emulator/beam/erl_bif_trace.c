@@ -316,28 +316,18 @@ erts_internal_trace_pattern_4(BIF_ALIST_4)
 {
     ErtsTraceSession* session;
 
-    if (!term_to_session(BIF_ARG_1, &session, false)) {
-        goto session_error;
-    }
-
     if (!erts_try_seize_code_mod_permission(BIF_P)) {
-        erts_deref_trace_session(session);
         ERTS_BIF_YIELD4(BIF_TRAP_EXPORT(BIF_erts_internal_trace_pattern_4),
                         BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
     }
 
-    /* Double check liveness with seized code mod permission */
-    if (!erts_is_trace_session_alive(session)) {
+    if (!term_to_session(BIF_ARG_1, &session, false)) {
         erts_release_code_mod_permission();
-        erts_deref_trace_session(session);
-        goto session_error;
+        BIF_P->fvalue = am_session;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
     }
 
     return trace_pattern(BIF_P, session, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
-
-session_error:
-    BIF_P->fvalue = am_session;
-    BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
 }
 
 static Eterm
@@ -911,30 +901,21 @@ Eterm erts_internal_trace_4(BIF_ALIST_4)
     ErtsTraceSession* session;
     Eterm ret;
 
-    if (!term_to_session(BIF_ARG_1, &session, false)) {
-        goto session_error;
-    }
     if (!erts_try_seize_code_mod_permission(BIF_P)) {
-        erts_deref_trace_session(session);
         ERTS_BIF_YIELD4(BIF_TRAP_EXPORT(BIF_erts_internal_trace_4),
                         BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
     }
 
-    /* Double check liveness with seized code mod permission */
-    if (!erts_is_trace_session_alive(session)) {
+    if (!term_to_session(BIF_ARG_1, &session, false)) {
         erts_release_code_mod_permission();
-        erts_deref_trace_session(session);
-        goto session_error;
+        BIF_P->fvalue = am_session;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
     }
 
     ret = trace(BIF_P, session, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
 
     erts_deref_trace_session(session);
     return ret;
-
-session_error:
-    BIF_P->fvalue = am_session;
-    BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
 }
 
 static
@@ -1298,19 +1279,24 @@ Eterm
 erts_internal_trace_session_destroy_1(BIF_ALIST_1)
 {
     ErtsTraceSession* session;
+
+    if (!erts_try_seize_code_mod_permission(BIF_P)) {
+        ERTS_BIF_YIELD1(BIF_TRAP_EXPORT(BIF_erts_internal_trace_session_destroy_1),
+                        BIF_P, BIF_ARG_1);
+    }
+
     if (!term_to_session(BIF_ARG_1, &session, true)) {
+        erts_release_code_mod_permission();
         BIF_P->fvalue = am_badopt;
         BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
     }
     if (!erts_is_trace_session_alive(session)) {
+        erts_release_code_mod_permission();
         erts_deref_trace_session(session);
         BIF_RET(am_false);
     }
-    if (!erts_try_seize_code_mod_permission(BIF_P)) {
-        erts_deref_trace_session(session);
-        ERTS_BIF_YIELD1(BIF_TRAP_EXPORT(BIF_erts_internal_trace_session_destroy_1),
-                        BIF_P, BIF_ARG_1);
-    }
+
+
     if (erts_atomic_cmpxchg_nob(&session->state,
                                 ERTS_TRACE_SESSION_CLEARING,
                                 ERTS_TRACE_SESSION_ALIVE)
@@ -1423,27 +1409,19 @@ Eterm erts_internal_trace_info_3(BIF_ALIST_3)
     bool to_be_continued = false;
     Eterm ret;
 
-    if (BIF_ARG_1 == am_any) {
-        /* trace:session_info */
-        session = NULL;
-    }
-    else if (!term_to_session(BIF_ARG_1, &session, true)) {
-        goto session_error;
-    }
-
     if (!erts_try_seize_code_mod_permission(BIF_P)) {
-        if (session) {
-            erts_deref_trace_session(session);
-        }
         ERTS_BIF_YIELD3(BIF_TRAP_EXPORT(BIF_erts_internal_trace_info_3),
                         BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
 
-    /* Double check session liveness with seized code mod permission */
-    if (session && !erts_is_trace_session_alive(session)) {
+    if (BIF_ARG_1 == am_any) {
+        /* trace:session_info */
+        session = NULL;
+    }
+    else if (!term_to_session(BIF_ARG_1, &session, false)) {
         erts_release_code_mod_permission();
-        erts_deref_trace_session(session);
-        goto session_error;
+        BIF_P->fvalue = am_session;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
     }
 
     ret = trace_info(BIF_P, session, BIF_ARG_2, BIF_ARG_3, &to_be_continued);
@@ -1454,10 +1432,6 @@ Eterm erts_internal_trace_info_3(BIF_ALIST_3)
         }
     }
     return ret;
-
-session_error:
-    BIF_P->fvalue = am_session;
-    BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
 }
 
 static

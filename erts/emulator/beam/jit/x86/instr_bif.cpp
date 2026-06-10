@@ -401,6 +401,9 @@ static Eterm debug_call_light_bif(Process *c_p,
     PROCESS_MAIN_CHK_LOCKS(c_p);
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
     ERTS_ASSERT_TRACER_REFS(&c_p->common);
+    ERTS_ASSERT(!(erts_atomic32_read_nob(&c_p->xstate) &
+                  (ERTS_PXSFLG_HANDOVER_CODE_MOD_PERM |
+                   ERTS_PXSFLG_HANDOVER_CODE_STAGE_PERM)));
 
     return result;
 }

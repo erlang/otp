@@ -4579,6 +4579,10 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
         else if (ERTS_IS_ATOM_STR("debugger_support", BIF_ARG_1)) {
             return erts_debugger_flags & ERTS_DEBUGGER_ENABLED ? am_true : am_false;
         }
+        else if (ERTS_IS_ATOM_STR("dirty_gc_limit", BIF_ARG_1)) {
+            ERTS_CT_ASSERT(ERTS_POTENTIALLY_LONG_GC_HSIZE < MAX_SMALL);
+            return make_small(ERTS_POTENTIALLY_LONG_GC_HSIZE);
+        }
     }
     else if (is_tuple(BIF_ARG_1)) {
 	Eterm* tp = tuple_val(BIF_ARG_1);
