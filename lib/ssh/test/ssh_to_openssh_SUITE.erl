@@ -135,6 +135,17 @@ end_per_group(_, Config) ->
     Config.
 
 
+init_per_testcase(TC, Config) when TC == eclient_oserver_kex_strict;
+                                   TC == eserver_oclient_kex_strict ->
+    case os:type() of
+        {unix,_} ->
+            ssh:start(),
+            Level = ssh_test_lib:get_log_level(),
+            ssh_test_lib:set_log_level(debug),
+            [{saved_log_level, Level} | ssh_test_lib:verify_sanity_check(Config)];
+        Type ->
+            {skip, io_lib:format("Unsupported test on ~p",[Type])}
+    end;
 init_per_testcase(erlang_server_openssh_client_renegotiate, Config) ->
     case os:type() of
 	{unix,_} ->
@@ -146,6 +157,11 @@ init_per_testcase(_TestCase, Config) ->
     ssh:start(),
     ssh_test_lib:verify_sanity_check(Config).
 
+end_per_testcase(TC, Config) when TC == eclient_oserver_kex_strict;
+                                  TC == eserver_oclient_kex_strict ->
+    ssh_test_lib:set_log_level(proplists:get_value(saved_log_level, Config)),
+    ssh:stop(),
+    ok;
 end_per_testcase(_TestCase, _Config) ->
     ssh:stop(),
     ok.
@@ -160,12 +176,9 @@ eclient_oserver_kex_strict(Config0) when is_list(Config0)->
     case proplists:get_value(kex_strict, Config0) of
         true ->
             Config = ssh_test_lib:add_log_handler(?FUNCTION_NAME, Config0),
-            Level = ssh_test_lib:get_log_level(),
-            ssh_test_lib:set_log_level(debug),
             HelperParams = eclient_oserver_helper1(),
             {ok, Events} = ssh_test_lib:get_log_events(Config),
             true = ssh_test_lib:kex_strict_negotiated(client, Events),
-            ssh_test_lib:set_log_level(Level),
             ssh_test_lib:rm_log_handler(?FUNCTION_NAME),
             eclient_oserver_helper2(HelperParams, Config);
         _ ->
@@ -278,14 +291,10 @@ eserver_oclient_kex_strict(Config0) ->
     case proplists:get_value(kex_strict, Config0) of
         true ->
             Config = ssh_test_lib:add_log_handler(?FUNCTION_NAME, Config0),
-            Level = ssh_test_lib:get_log_level(),
-            ssh_test_lib:set_log_level(debug),
-
             HelperParams = eserver_oclient_renegotiate_helper1(Config),
             {ok, Events} = ssh_test_lib:get_log_events(Config),
             ct:log("Events = ~n~p", [Events]),
             true = ssh_test_lib:kex_strict_negotiated(server, Events),
-            ssh_test_lib:set_log_level(Level),
             ssh_test_lib:rm_log_handler(?FUNCTION_NAME),
             eserver_oclient_renegotiate_helper2(HelperParams);
         _ ->
