@@ -1439,7 +1439,9 @@ int enif_realloc_binary(ErlNifBinary* bin, size_t size)
     else {
 	unsigned char* old_data = bin->data;
 	size_t cpy_sz = (size < bin->size ? size : bin->size);  
-	enif_alloc_binary(size, bin);
+        if (!enif_alloc_binary(size, bin)) {
+            return 0;
+        }
 	sys_memcpy(bin->data, old_data, cpy_sz); 
     }
     return 1;
