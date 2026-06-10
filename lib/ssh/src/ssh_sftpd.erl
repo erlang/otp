@@ -441,8 +441,10 @@ handle_op(?SSH_FXP_READLINK, ReqId, <<?UINT32(PLen), RelPath:PLen/binary>>,
     {Res, FS1} = FileMod:read_link(AbsPath, FS0),
     case Res of
 	{ok, NewPath} ->
-	    ssh_xfer:xf_send_name(State#state.xf, ReqId, NewPath,
-				  #ssh_xfer_attr{type=regular});
+        AbsTarget = filename:absname(NewPath, filename:dirname(AbsPath)),
+        ChrootedPath = chroot_filename(canonicalize_filename(AbsTarget), State),
+        ssh_xfer:xf_send_name(State#state.xf, ReqId, ChrootedPath,
+                              #ssh_xfer_attr{type=regular});
 	{error, Error} ->
 	    ssh_xfer:xf_send_status(State#state.xf, ReqId,
 				    ssh_xfer:encode_erlang_status(Error))

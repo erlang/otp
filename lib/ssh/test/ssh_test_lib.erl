@@ -1281,7 +1281,6 @@ remove_comment(Bin) ->
     FilteredLines = [L || L <- Lines, string:prefix(L, "#") == nomatch],
     list_to_binary(lists:join("\n", FilteredLines)).
 
-
 get_addr_str() ->
     {ok, Hostname} = inet:gethostname(),
     {ok, {A, B, C, D}} = inet:getaddr(Hostname, inet),

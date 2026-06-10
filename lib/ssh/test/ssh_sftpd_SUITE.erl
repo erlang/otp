@@ -39,6 +39,7 @@
          access_outside_root/1,
          relative_root/1,
          links/1,
+         links_root/1,
          mk_rm_dir/1,
          open_close_dir/1,
          open_close_file/1,
@@ -101,6 +102,7 @@ all() ->
      retrieve_attributes, 
      set_attributes, 
      links,
+     links_root,
      ver3_rename,
      ver3_open_flags,
      relpath,
@@ -198,6 +200,14 @@ init_per_testcase(TestCase, Config) ->
 		      open_file_dir_v6 ->
 			  SubSystems = [ssh_sftpd:subsystem_spec([{cwd, PrivDir},
 								  {sftpd_vsn, 6}])],
+			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
+		      links ->
+			  SubSystems = [ssh_sftpd:subsystem_spec([{cwd, PrivDir}])],
+			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
+		      links_root ->
+			  RootDir = filename:join(PrivDir, links_root),
+			  ok = file:make_dir(RootDir),
+			  SubSystems = [ssh_sftpd:subsystem_spec([{root, RootDir}, {cwd, RootDir}])],
 			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
 		      _ ->
 			  SubSystems = [ssh_sftpd:subsystem_spec(
@@ -541,28 +551,108 @@ real_path(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 links(Config) when is_list(Config) ->
     case os:type() of
-	{win32, _} ->
-	    {skip, "Links are not fully supported by windows"};
-	_ ->
-	    ReqId = 0,
-	    {Cm, Channel} = proplists:get_value(sftp, Config),
-	    PrivDir =  proplists:get_value(priv_dir, Config),
-	    FileName = filename:join(PrivDir, "test.txt"),
-	    LinkFileName = filename:join(PrivDir, "link_test.txt"),
+        {win32, _} ->
+            {skip, "Links are not fully supported by windows"};
+        _ ->
+            Sftp = proplists:get_value(sftp, Config),
+            PrivDir = string:trim(proplists:get_value(priv_dir, Config), trailing, "/"),
+            LinkPath = filename:join(".", "link"),
 
-	    {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId),
-		  ?UINT32(?SSH_FX_OK), _/binary>>, _} =
-		create_link(LinkFileName, FileName, Cm, Channel, ReqId),
+            AbsBelowCwd = filename:join(PrivDir, "file"),
+            links_helper(Sftp, PrivDir, 0, LinkPath, AbsBelowCwd, AbsBelowCwd, AbsBelowCwd, AbsBelowCwd),
 
-	    NewReqId = 1,
-	    {ok, <<?SSH_FXP_NAME, ?UINT32(NewReqId), ?UINT32(_), ?UINT32(Len),
-		  Path:Len/binary, _/binary>>, _}
-		= read_link(LinkFileName, Cm, Channel, NewReqId),
+            AbsAtCwd = PrivDir,
+            links_helper(Sftp, PrivDir, 1, LinkPath, AbsAtCwd, AbsAtCwd, AbsAtCwd, AbsAtCwd),
 
+            AbsAboveCwd = filename:join([PrivDir, "..", "file"]),
+            AbsAboveCwdExpected = filename:join(filename:dirname(PrivDir), "file"),
+            links_helper(Sftp, PrivDir, 2, LinkPath, AbsAboveCwd, AbsAboveCwdExpected, AbsAboveCwd, AbsAboveCwdExpected),
 
-	    true = binary_to_list(Path) == FileName,
+            RelBelowCwd = filename:join(".", "file"),
+            RelBelowCwdExpected = AbsBelowCwd,
+            links_helper(Sftp, PrivDir, 3, LinkPath, RelBelowCwd, RelBelowCwdExpected, RelBelowCwd, RelBelowCwdExpected),
 
-	    ct:log("Path: ~p~n", [binary_to_list(Path)])
+            RelAtCwd = ".",
+            RelAtCwdExpected = AbsAtCwd,
+            links_helper(Sftp, PrivDir, 4, LinkPath, RelAtCwd, RelAtCwdExpected, RelAtCwd, RelAtCwdExpected),
+
+            RelAboveCwd = filename:join("..", "file"),
+            RelAboveCwdExpected = AbsAboveCwdExpected,
+            links_helper(Sftp, PrivDir, 5, LinkPath, RelAboveCwd, RelAboveCwdExpected, RelAboveCwd, RelAboveCwdExpected)
+    end.
+
+%%--------------------------------------------------------------------
+links_root(Config) when is_list(Config) ->
+    case os:type() of
+        {win32, _} ->
+            {skip, "Links are not fully supported by windows"};
+        _ ->
+            Sftp = proplists:get_value(sftp, Config),
+            PrivDir = proplists:get_value(priv_dir, Config),
+            Root = filename:join(PrivDir, links_root),
+            LinkPath = filename:join("/", "link"),
+
+            AbsBelowRoot = filename:join(Root, "file"),
+            AbsBelowRootClient = filename:join("/", "file"),
+            links_helper(Sftp, Root, 0, LinkPath, AbsBelowRoot, AbsBelowRoot, AbsBelowRootClient, AbsBelowRootClient),
+
+            AbsAtRoot = Root,
+            AbsAtRootExpected = AbsAtRoot,
+            links_helper(Sftp, Root, 1, LinkPath, AbsAtRoot, AbsAtRootExpected, "/", "/"),
+
+            AbsAboveRoot = filename:join(PrivDir, "file"),
+            AbsAboveRootExpected = AbsAtRootExpected,
+            AbsAboveRootClient = filename:join("/", ".."),
+            links_helper(Sftp, Root, 2, LinkPath, AbsAboveRoot, AbsAboveRootExpected, AbsAboveRootClient, "/"),
+
+            RelBelowRoot = filename:join(".", "file"),
+            RelBelowRootExpected = filename:join(Root, "file"),
+            RelBelowRootClient = RelBelowRoot,
+            RelBelowRootClientExpected = AbsBelowRootClient,
+            links_helper(Sftp, Root, 3, LinkPath, RelBelowRoot, RelBelowRootExpected, RelBelowRootClient, RelBelowRootClientExpected),
+
+            RelAtRoot = ".",
+            RelAtRootExpected = Root,
+            links_helper(Sftp, Root, 4, LinkPath, RelAtRoot, RelAtRootExpected, ".", "/"),
+
+            RelAboveRoot = "../file",
+            RelAboveRootExpected = Root,
+            RelAboveRootClient = filename:join("..", "file"),
+            links_helper(Sftp, Root, 5, LinkPath, RelAboveRoot, RelAboveRootExpected, RelAboveRootClient, "/")
+    end.
+
+links_helper({Cm, Channel}, Root, ReqId0, LinkPath, RawTarget, RawExpected, ClientTarget, ClientExpected) ->
+    ?CT_LOG("RawTarget: ~p, RawExpected: ~p~nClientTarget: ~p, ClientExpected: ~p~n",
+            [RawTarget, RawExpected, ClientTarget, ClientExpected]),
+
+    ReqId1 = ReqId0 * 3,
+    LinkLocation = filename:join(Root, "link"),
+    ok = file:make_symlink(RawTarget, LinkLocation),
+    try
+        {ok, <<?SSH_FXP_NAME, ?UINT32(ReqId1), ?UINT32(_),
+               ?UINT32(Len1), ClientActualB1:Len1/binary, _/binary>>, _} =
+            read_link(LinkPath, Cm, Channel, ReqId1),
+        ClientActual1 = binary_to_list(ClientActualB1),
+        ClientExpected = ClientActual1,
+
+        ok = file:delete(LinkLocation),
+
+        ReqId2 = ReqId1 + 1,
+        {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId2),
+               ?UINT32(?SSH_FX_OK), _/binary>>, _} =
+            create_link(LinkPath, ClientTarget, Cm, Channel, ReqId2),
+
+        {ok, RawActual} = file:read_link(LinkLocation),
+        RawExpected = string:trim(RawActual, trailing, "/"),
+
+        ReqId3 = ReqId2 + 1,
+        {ok, <<?SSH_FXP_NAME, ?UINT32(ReqId3), ?UINT32(_),
+               ?UINT32(Len3), ClientActualB2:Len3/binary, _/binary>>, _} =
+            read_link(LinkPath, Cm, Channel, ReqId3),
+        ClientActual2 = binary_to_list(ClientActualB2),
+        ClientExpected = ClientActual2
+    after
+        file:delete(LinkLocation)
     end.
 
 %%--------------------------------------------------------------------
