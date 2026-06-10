@@ -74,7 +74,8 @@ MODULES= \
 	mnesia_sup \
 	mnesia_sp  \
 	mnesia_text \
-	mnesia_tm
+	mnesia_tm \
+	mnesia_hook
 
 HRL_FILES= mnesia.hrl
 
