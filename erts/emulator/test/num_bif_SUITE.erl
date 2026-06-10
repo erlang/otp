@@ -134,25 +134,22 @@ t_float_to_string(Config) when is_list(Config) ->
     test_fts("1.00000000000000000000e+00",1.0,  []),
     test_fts("-1.00000000000000000000e+00",-1.0, []),
     test_fts("-1.00000000000000000000",-1.0, [{decimals, 20}]),
-    %% FIXME: Cleanup.
-    {'EXIT', {badarg, _}} = (catch float_to_list(1.0,  [{decimals, -1}])),
-    {'EXIT', {badarg, _}} = (catch float_to_list(1.0,  [{decimals, 254}])),
-    {'EXIT', {badarg, _}} = (catch float_to_list(1.0,  [{scientific, 250}])),
-    {'EXIT', {badarg, _}} = (catch float_to_list(1.0e+300, [{decimals, 1}])),
-    {'EXIT', {badarg, _}} = (catch float_to_binary(1.0,  [{decimals, -1}])),
-    {'EXIT', {badarg, _}} = (catch float_to_binary(1.0,  [{decimals, 254}])),
-    {'EXIT', {badarg, _}} = (catch float_to_binary(1.0,  [{scientific, 250}])),
-    {'EXIT', {badarg, _}} = (catch float_to_binary(1.0e+300, [{decimals, 1}])),
+    ?assertError(badarg, float_to_list(1.0,  [{decimals, -1}])),
+    ?assertError(badarg, float_to_list(1.0,  [{decimals, 254}])),
+    ?assertError(badarg, float_to_list(1.0,  [{scientific, 250}])),
+    ?assertError(badarg, float_to_list(1.0e+300, [{decimals, 1}])),
+    ?assertError(badarg, float_to_binary(1.0,  [{decimals, -1}])),
+    ?assertError(badarg, float_to_binary(1.0,  [{decimals, 254}])),
+    ?assertError(badarg, float_to_binary(1.0,  [{scientific, 250}])),
+    ?assertError(badarg, float_to_binary(1.0e+300, [{decimals, 1}])),
     test_fts("1.0e+300",1.0e+300, [{scientific, 1}]),
     test_fts("1.0",1.0,  [{decimals,   249}, compact]),
     test_fts("1",1.0,[{decimals,0}]),
     test_fts("2",1.9,[{decimals,0}]),
     test_fts("123456789012345680.0",123456789012345678.0,
 	     [{decimals, 236}, compact]),
-    {'EXIT', {badarg, _}} = (catch float_to_list(
-				     123456789012345678.0, [{decimals, 237}])),
-    {'EXIT', {badarg, _}} = (catch float_to_binary(
-				     123456789012345678.0, [{decimals, 237}])),
+    ?assertError(badarg, float_to_list(123456789012345678.0, [{decimals, 237}])),
+    ?assertError(badarg, float_to_binary(123456789012345678.0, [{decimals, 237}])),
     test_fts("1." ++ lists:duplicate(249, $0) ++ "e+00",
 	     1.0,  [{scientific, 249}, compact]),
 
@@ -552,14 +549,14 @@ t_string_to_float_safe(Config) when is_list(Config) ->
     test_stf(127.5,"127.5"),
     test_stf(-199.5,"-199.5"),
 
-    {'EXIT',{badarg,_}} = (catch list_to_float(id("0"))),
-    {'EXIT',{badarg,_}} = (catch list_to_float(id("0..0"))),
-    {'EXIT',{badarg,_}} = (catch list_to_float(id("0e12"))),
-    {'EXIT',{badarg,_}} = (catch list_to_float(id("--0.0"))),
-    {'EXIT',{badarg,_}} = (catch binary_to_float(id(<<"0">>))),
-    {'EXIT',{badarg,_}} = (catch binary_to_float(id(<<"0..0">>))),
-    {'EXIT',{badarg,_}} = (catch binary_to_float(id(<<"0e12">>))),
-    {'EXIT',{badarg,_}} = (catch binary_to_float(id(<<"--0.0">>))),
+    ?assertError(badarg, list_to_float(id("0"))),
+    ?assertError(badarg, list_to_float(id("0..0"))),
+    ?assertError(badarg, list_to_float(id("0e12"))),
+    ?assertError(badarg, list_to_float(id("--0.0"))),
+    ?assertError(badarg, binary_to_float(id(<<"0">>))),
+    ?assertError(badarg, binary_to_float(id(<<"0..0">>))),
+    ?assertError(badarg, binary_to_float(id(<<"0e12">>))),
+    ?assertError(badarg, binary_to_float(id(<<"--0.0">>))),
 
     UBin = <<0:3,(id(<<"0.0">>))/binary,0:5>>,
     <<_:3,UnAlignedBin:3/binary,0:5>> = id(UBin),
@@ -577,10 +574,10 @@ t_string_to_float_safe(Config) when is_list(Config) ->
 t_string_to_float_risky(Config) when is_list(Config) ->
     Many_Ones = lists:duplicate(25000, id($1)),
     id(list_to_float("2."++Many_Ones)),
-    {'EXIT', {badarg, _}} = (catch list_to_float("2"++Many_Ones)),
+    ?assertError(badarg, list_to_float("2"++Many_Ones)),
 
     id(binary_to_float(list_to_binary("2."++Many_Ones))),
-    {'EXIT', {badarg, _}} = (catch binary_to_float(
+    ?assertError(badarg, binary_to_float(
 				     list_to_binary("2"++Many_Ones))),
     ok.
 
@@ -750,11 +747,9 @@ t_integer_to_string(Config) when is_list(Config) ->
 
     %% Invalid types
     lists:foreach(fun(Value) ->
-			  {'EXIT', {badarg, _}} =
-			      (catch erlang:integer_to_binary(Value)),
-			  {'EXIT', {badarg, _}} =
-			      (catch erlang:integer_to_list(Value))
-		  end,[atom,1.2,0.0,[$1,[$2]]]),
+                          ?assertError(badarg, erlang:integer_to_binary(Value)),
+                          ?assertError(badarg, erlang:integer_to_list(Value))
+                  end,[atom,1.2,0.0,[$1,[$2]]]),
 
     %% Base-2 integers
     test_its("0", 0, 2),
@@ -772,11 +767,9 @@ t_integer_to_string(Config) when is_list(Config) ->
              16),
 
     lists:foreach(fun(Value) ->
-			  {'EXIT', {badarg, _}} =
-			      (catch erlang:integer_to_binary(Value, 8)),
-			  {'EXIT', {badarg, _}} =
-			      (catch erlang:integer_to_list(Value, 8))
-		  end,[atom,1.2,0.0,[$1,[$2]]]),
+                          ?assertError(badarg, erlang:integer_to_binary(Value, 8)),
+                          ?assertError(badarg, erlang:integer_to_list(Value, 8))
+                  end,[atom,1.2,0.0,[$1,[$2]]]),
 
     ok.
 
@@ -829,26 +822,20 @@ t_string_to_integer(Config) when is_list(Config) ->
 
     %% Invalid types
     lists:foreach(fun(Value) ->
-			  {'EXIT', {badarg, _}} =
-			      (catch bin_to_int(Value)),
-			  {'EXIT', {badarg, _}} =
-			      (catch list_to_integer(Value))
+                      ?assertError(badarg, bin_to_int(Value)),
+                      ?assertError(badarg, list_to_integer(Value))
 		  end,[atom,1.2,0.0,[$1,[$2]]]),
 
     %% Default base error cases
     lists:foreach(fun(Value) ->
-			  {'EXIT', {badarg, _}} =
-			      (catch bin_to_int(list_to_binary(Value))),
-			  {'EXIT', {badarg, _}} =
-			      (catch list_to_integer(Value))
+                      ?assertError(badarg, bin_to_int(list_to_binary(Value))),
+                      ?assertError(badarg, list_to_integer(Value))
 		  end,["1.0"," 1"," -1","","+"]),
 
     %% Custom base error cases
     lists:foreach(fun({Value,Base}) ->
-			  {'EXIT', {badarg, _}} =
-			      (catch binary_to_integer(list_to_binary(Value), Base)),
-			  {'EXIT', {badarg, _}} =
-			      (catch list_to_integer(Value, Base))
+                      ?assertError(badarg, binary_to_integer(list_to_binary(Value), Base)),
+                      ?assertError(badarg, list_to_integer(Value, Base))
 		  end,
                   [{" 1",1},{" 1",37},{"2",2},{"B",11},{"b",11},{":", 16},
                    {"1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111z",16},
@@ -865,9 +852,9 @@ t_string_to_integer(Config) when is_list(Config) ->
 
     %% System limit
     Digits = lists:duplicate(3_000_000, $9),
-    {'EXIT',{system_limit,_}} = catch list_to_integer(Digits),
+    ?assertError(system_limit, list_to_integer(Digits)),
     _ = erlang:garbage_collect(),
-    {'EXIT',{system_limit,_}} = catch list_to_integer(Digits, 16),
+    ?assertError(system_limit, list_to_integer(Digits, 16)),
     _ = erlang:garbage_collect(),
     {error,system_limit} = string:to_integer(Digits),
     _ = erlang:garbage_collect(),
