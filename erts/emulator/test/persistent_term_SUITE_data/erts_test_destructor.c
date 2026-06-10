@@ -71,7 +71,7 @@ static void resource_dtor(ErlNifEnv* env, void* obj)
 
     if (p->msg_env) {
         enif_send(env, &p->to, p->msg_env, p->msg);
-        enif_free(p->msg_env);
+        enif_free_env(p->msg_env);
     }
 }
 

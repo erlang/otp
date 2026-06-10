@@ -146,6 +146,7 @@ MODULES= \
 	erts_test_destructor \
 	crypto_reference \
 	literal_area_collector_test \
+        erts_test_sync_tracer \
         ext_records
 
 NO_OPT= bs_bincomp \

@@ -263,6 +263,9 @@ call_light_bif(Bif, Exp) {
 
     ERTS_CHK_MBUF_SZ(c_p);
     ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
+    ASSERT(!(erts_atomic32_read_nob(&c_p->xstate)
+             & (ERTS_PXSFLG_HANDOVER_CODE_MOD_PERM |
+                ERTS_PXSFLG_HANDOVER_CODE_STAGE_PERM)));
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
     ERTS_HOLE_CHECK(c_p);
     ERTS_REQ_PROC_MAIN_LOCK(c_p);

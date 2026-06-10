@@ -23,11 +23,11 @@
 #ifndef __ERL_GC_H__
 #define __ERL_GC_H__
 
+#define ERTS_POTENTIALLY_LONG_GC_HSIZE (128*1024) /* Words */
+
 #if defined(ERL_WANT_GC_INTERNALS__) || defined(ERTS_DO_INCL_GLB_INLINE_FUNC_DEF)
 
 /* GC declarations used by beam/erl_gc.c */
-
-#define ERTS_POTENTIALLY_LONG_GC_HSIZE (128*1024) /* Words */
 
 #include "erl_map.h"
 #include "erl_fun.h"
