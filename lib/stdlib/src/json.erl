@@ -860,6 +860,7 @@ Supports basic data mapping:
 | Boolean  | `true \| false`        |
 | Null     | `null`                 |
 | String   | `binary()`             |
+| Array    | `list()`               |
 | Object   | `#{binary() => _}`     |
 
 ## Errors
