@@ -720,7 +720,7 @@ check_ip(Socket) ->
                       end,
                 {ok, Ifaddrs} ?= inet:getifaddrs(),
                 {ok, Netmask} ?= find_netmask(IP, Ifaddrs),
-                {ok, {PeerIP, _}} ?= inet:sockname(Socket),
+                {ok, {PeerIP, _}} ?= inet:peername(Socket),
                 ok ?= if is_tuple(PeerIP) -> ok;
                          true -> {error, {no_ip_address, PeerIP}}
                       end,
