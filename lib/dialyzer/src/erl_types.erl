@@ -351,7 +351,8 @@
 -define(map(Pairs,DefKey,DefVal),
 	#c{tag=?map_tag, elements={Pairs,DefKey,DefVal}}).
 -define(product(Types),            #c{tag=?product_tag, elements=Types}).
--define(record(Name, Types),       #c{tag=?record_tag, elements={Name, Types}}).
+-define(record(Name, Exported, Types), #c{tag=?record_tag,
+                                          elements={Name, Exported, Types}}).
 -define(record_set(Types),          #c{tag=?record_set_tag, elements=Types}).
 -define(tuple(Types, Arity, Qual), #c{tag=?tuple_tag, elements=Types,
                                       qualifier={Arity, Qual}}).
@@ -519,9 +520,9 @@ oc_mark(?map(Pairs, DefK, DefV), Direction, Module) ->
   t_map([{K, MNess, oc_mark(V, Direction, Module)} || {K, MNess, V} <- Pairs],
         oc_mark(DefK, Direction, Module),
         oc_mark(DefV, Direction, Module));
-oc_mark(?record(Name,Types0), Direction, Module) ->
+oc_mark(?record(Name, Exported, Types0), Direction, Module) ->
   Types1 = #{K => {present, oc_mark(V, Direction, Module)} || K := {present, V} <- Types0},
-  ?record(Name, Types1);
+  ?record(Name, Exported, Types1);
 oc_mark(?record_set(Types), Direction, Module) ->
   ?record_set([oc_mark(T, Direction, Module) || T <- Types]);
 oc_mark(T, _Direction, _Module) ->
@@ -780,42 +781,42 @@ is_fun(_) -> false.
 -spec t_record() -> erl_type().
 
 t_record() ->
-  ?record(nil, #{}).
+  ?record(nil, unknown,#{}).
 
 -spec t_record(any()) -> erl_type().
 
 t_record([]) ->
-  ?record(nil, #{});
+  ?record(nil, unknown, #{});
 t_record(Name) ->
-  ?record(Name, #{}).
+  ?record(Name, unknown, #{}).
 
 -spec t_record(any(), any()) -> erl_type().
 
 t_record([], Fields) ->
-  ?record(nil, #{K => {present, V} || {K, V} <- Fields});
+  ?record(nil, unknown, #{K => {present, V} || {K, V} <- Fields});
 t_record(Name, Fields) ->
-  ?record(Name, #{K => {present, V} || {K, V} <- Fields}).
+  ?record(Name, unknown, #{K => {present, V} || {K, V} <- Fields}).
 
 -spec t_is_record(erl_type()) -> boolean().
 
-t_is_record(?record(_, _)) -> true;
+t_is_record(?record(_, _, _)) -> true;
 t_is_record(_) -> false.
 
 -spec t_is_record(erl_type(), any()) -> atom().
-t_is_record(?record({_,Name}, _), Name) -> true;
-t_is_record(?record(_, _), Name) when is_atom(Name) -> unknown;
+t_is_record(?record({_,Name}, _, _), Name) -> true;
+t_is_record(?record(_, _, _), Name) when is_atom(Name) -> unknown;
 t_is_record(_, _) -> false.
 
 -spec t_is_record(erl_type(), any(), any()) -> atom().
-t_is_record(?record({Mod, Name}, _), Mod, Name) ->
+t_is_record(?record({Mod, Name}, _, _), Mod, Name) ->
   true;
-t_is_record(?record({_, _}, _), Mod, Name) when is_atom(Mod), is_atom(Name) ->
+t_is_record(?record({_, _}, _, _), Mod, Name) when is_atom(Mod), is_atom(Name) ->
   unknown;
 t_is_record(_, _, _) ->
   false.
 
 -spec t_record_get(atom(), erl_type()) -> erl_type().
-t_record_get(K, ?record(_, Fields)) ->
+t_record_get(K, ?record(_, _, Fields)) ->
   case Fields of
     #{K := {present, V}} -> V;
     #{K := _} -> ?none;
@@ -829,18 +830,18 @@ t_record_replace([], _, Record) ->
   Record;
 t_record_replace({K, V}, Id, ?record_set(Records)) ->
   ?record_set([t_record_replace({K, V}, Id, R) || R <- Records]);
-t_record_replace({K, V}, [], ?record(Name, Fields)) ->
+t_record_replace({K, V}, [], ?record(Name, Exported, Fields)) ->
   NewFields = case Fields of
                 #{K := _OldV} -> Fields#{K => {present, V}};
                 #{} -> Fields#{K => {present, V}}
               end,
-  ?record(Name, NewFields);
-t_record_replace({K, V}, Name, ?record(Name, Fields)) ->
+  ?record(Name, Exported, NewFields);
+t_record_replace({K, V}, Name, ?record(Name, Exported, Fields)) ->
   NewFields = case Fields of
                 #{K := _OldV} -> Fields#{K => {present, V}};
                 #{} -> Fields#{K => {present, V}}
               end,
-  ?record(Name, NewFields);
+  ?record(Name, Exported, NewFields);
 t_record_replace(_, _, R) ->
   R.
 
@@ -1278,8 +1279,8 @@ t_widen_to_number(?tuple(Types, Arity, Tag)) ->
   ?tuple(list_widen_to_number(Types), Arity, Tag);
 t_widen_to_number(?tuple_set(_) = Tuples) ->
   t_sup([t_widen_to_number(T) || T <- t_tuple_subtypes(Tuples)]);
-t_widen_to_number(?record(N,T)) ->
-  ?record(N, #{K => {present, t_widen_to_number(V)} || K := {present,V} <- T});
+t_widen_to_number(?record(N,E,T)) ->
+  ?record(N, E, #{K => {present, t_widen_to_number(V)} || K := {present,V} <- T});
 t_widen_to_number(?record_set(T)) ->
   ?record_set(t_widen_to_number(T));
 t_widen_to_number(?union(List)) ->
@@ -1924,7 +1925,7 @@ t_has_var(?tuple_set(_) = T) ->
 t_has_var(?map(_, DefK, _)= Map) ->
   t_has_var_list(map_all_values(Map)) orelse
     t_has_var(DefK);
-t_has_var(?record(_,Type)) ->
+t_has_var(?record(_,_,Type)) ->
   t_has_var_list(maps:to_list(Type));
 t_has_var(?record_set(List)) ->
   t_has_var_list(List);
@@ -1969,7 +1970,7 @@ t_collect_var_names(?nominal(_, S), Acc) ->
   t_collect_var_names(S, Acc);
 t_collect_var_names(?nominal_set(N, S), Acc) ->
   t_collect_vars_list(N, t_collect_var_names(S, Acc));
-t_collect_var_names(?record(_,Types), Acc) ->
+t_collect_var_names(?record(_, _, Types), Acc) ->
   t_collect_vars_list(maps:to_list(Types), Acc);
 t_collect_var_names(?record_set(Types), Acc) ->
   t_collect_vars_list(Types, Acc);
@@ -2229,24 +2230,24 @@ t_sup_aux(?product(_), _) ->
   ?any;
 t_sup_aux(_, ?product(_)) ->
   ?any;
-t_sup_aux(?record(nil, Es1), ?record(nil, Es2)) ->
-  ?record(nil, sup_record_fields(Es1, Es2));
-t_sup_aux(?record(_, Es1), ?record(nil, Es2)) ->
-  ?record(nil, sup_record_fields(Es1, Es2));
-t_sup_aux(?record(nil, Es1), ?record(_, Es2)) ->
-  ?record(nil, sup_record_fields(Es1, Es2));
-t_sup_aux(?record(N, Es1), ?record(N, Es2)) ->
-  ?record(N, sup_record_fields(Es1, Es2));
-t_sup_aux(?record(N1, _)=A, ?record(N2, _)=B) ->
+t_sup_aux(?record(nil, E1, Es1), ?record(nil, E2, Es2)) ->
+  ?record(nil, sup_record_exported(E1, E2), sup_record_fields(Es1, Es2));
+t_sup_aux(?record(_, E1, Es1), ?record(nil, E2, Es2)) ->
+  ?record(nil, sup_record_exported(E1, E2), sup_record_fields(Es1, Es2));
+t_sup_aux(?record(nil, E1, Es1), ?record(_, E2, Es2)) ->
+  ?record(nil, sup_record_exported(E1, E2), sup_record_fields(Es1, Es2));
+t_sup_aux(?record(N, E1, Es1), ?record(N, E2, Es2)) ->
+  ?record(N, sup_record_exported(E1, E2), sup_record_fields(Es1, Es2));
+t_sup_aux(?record(N1, _, _)=A, ?record(N2, _, _)=B) ->
   case N1 < N2 of
     true ->
       ?record_set([A, B]);
     false ->
       ?record_set([B, A])
   end;
-t_sup_aux(?record(_,_)=Record, ?record_set([_,_|_]=Records)) ->
+t_sup_aux(?record(_,_,_)=Record, ?record_set([_,_|_]=Records)) ->
   record_set_merge(Records, [Record], []);
-t_sup_aux(?record_set([_,_|_]=Records), ?record(_,_)=Record) ->
+t_sup_aux(?record_set([_,_|_]=Records), ?record(_,_,_)=Record) ->
   record_set_merge(Records, [Record], []);
 t_sup_aux(?record_set([_,_|_]=RecordsA), ?record_set([_,_|_]=RecordsB)) ->
   record_set_merge(RecordsA, RecordsB, []);
@@ -2371,6 +2372,14 @@ t_sup_aux(T1, T2) ->
 t_sup_lists(Ts1, Ts2) ->
   [t_sup(T1, T2) || T1 <- Ts1 && T2 <- Ts2].
 
+sup_record_exported(E1, E2) ->
+  case {E1, E2} of
+    {unknown, _} -> unknown;
+    {yes, yes} -> yes;
+    {yes, _} -> unknown;
+    {no, no} -> no;
+    {no, _} -> unknown
+  end.
 
 sup_record_fields(Es1, Es2) ->
   Keys = if
@@ -2403,19 +2412,19 @@ set_record_field(_Index, none, Es) ->
 set_record_field(Index, Type, Es) ->
   Es#{ Index => {present, Type} }.
 
-record_set_merge([?record(N1,_)=A | TsA]=RsA, [?record(N2,_)=B | TsB]=RsB, Acc) ->
+record_set_merge([?record(N1, _, _)=A | TsA]=RsA, [?record(N2, _, _)=B | TsB]=RsB, Acc) ->
   case {N1, N2} of
     {nil, _} ->
       T = t_sup_aux(A, B),
-      ?record(nil,_) = T, %Assertion.
+      ?record(nil, _, _) = T, %Assertion.
       record_set_merge([], TsB, [T]);
     {_, nil} ->
       T = t_sup_aux(B, A),
-      ?record(nil,_) = T, %Assertion.
+      ?record(nil, _, _) = T, %Assertion.
       record_set_merge(TsA, [], [T]);
     {Same, Same} ->
       T = t_sup_aux(A, B),
-      ?record(Same,_) = T, %Assertion.
+      ?record(Same, _, _) = T, %Assertion.
       record_set_merge(TsA, TsB, [T | Acc]);
     _ ->
       case N1 < N2 of
@@ -2425,11 +2434,11 @@ record_set_merge([?record(N1,_)=A | TsA]=RsA, [?record(N2,_)=B | TsB]=RsB, Acc) 
           record_set_merge(RsA, TsB, [B | Acc])
       end
   end;
-record_set_merge([A | RsA], [], [?record(nil,_)=Acc]) ->
+record_set_merge([A | RsA], [], [?record(nil,_,_)=Acc]) ->
   record_set_merge(RsA, [], [t_sup_aux(A, Acc)]);
 record_set_merge([A | RsA], [], Acc) ->
   record_set_merge(RsA, [], [A | Acc]);
-record_set_merge([], [B | RsB], [?record(nil,_)=Acc]) ->
+record_set_merge([], [B | RsB], [?record(nil,_,_)=Acc]) ->
   record_set_merge([], RsB, [t_sup_aux(B, Acc)]);
 record_set_merge([], [B | RsB], Acc) ->
   record_set_merge([], RsB, [B | Acc]);
@@ -2602,7 +2611,7 @@ force_union(T = ?number(_, _)) ->     ?number_union(T);
 force_union(T = ?map(_,_,_)) ->       ?map_union(T);
 force_union(T = ?tuple(_, _, _)) ->   ?tuple_union(T);
 force_union(T = ?tuple_set(_)) ->     ?tuple_union(T);
-force_union(T = ?record(_,_)) ->      ?record_union(T);
+force_union(T = ?record(_, _, _)) ->      ?record_union(T);
 force_union(T = ?record_set(_)) ->    ?record_union(T);
 force_union(T = ?union(_)) ->         T.
 
@@ -2644,7 +2653,7 @@ t_elements(?tuple_set(_) = TS) ->
     unknown -> [];
     Elems -> Elems
   end;
-t_elements(?record(_,_) = T) -> [T];
+t_elements(?record(_, _, _) = T) -> [T];
 t_elements(?record_set(_) = T) ->
   [T];
 t_elements(?union(_) = T) ->
@@ -2892,7 +2901,7 @@ t_inf_aux(?product(_), _) ->
   ?none;
 t_inf_aux(_, ?product(_)) ->
   ?none;
-t_inf_aux(?record(N1, Es1), ?record(N2, Es2)) ->
+t_inf_aux(?record(N1, E1, Es1), ?record(N2, E2, Es2)) ->
   maybe
     {ok, Name} ?=
       case {N1, N2} of
@@ -2901,14 +2910,22 @@ t_inf_aux(?record(N1, Es1), ?record(N2, Es2)) ->
         {N, nil} -> {ok, N};
         {_, _} -> error
       end,
+    {ok, Exported} ?=
+      case {E1, E2} of
+        {unknown, E} -> {ok, E};
+        {yes, no} -> error;
+        {yes, _} -> {ok, yes};
+        {no, yes} -> error;
+        {no, _} -> {ok, no}
+      end,
     #{} ?= Es = inf_record_elements(Es1, Es2),
-    ?record(Name, Es)
+    ?record(Name, Exported, Es)
   else
     _ -> ?none
   end;
-t_inf_aux(?record(_, _)=Record, ?record_set(Records)) ->
+t_inf_aux(?record(_, _, _)=Record, ?record_set(Records)) ->
     inf_record_sets([Record], Records, []);
-t_inf_aux(?record_set(Records), ?record(_, _)=Record) ->
+t_inf_aux(?record_set(Records), ?record(_, _, _)=Record) ->
     inf_record_sets([Record], Records, []);
 t_inf_aux(?record_set(RecordsA), ?record_set(RecordsB)) ->
     inf_record_sets(RecordsA, RecordsB, []);
@@ -2988,8 +3005,8 @@ inf_record_elements([Key | Keys], Es1, Es2, Acc) ->
 inf_record_elements([], _Es1, _Es2, Acc) ->
   Acc.
 
-inf_record_sets([?record(N1, _) | _]=RsA,
-                [?record(N2, _) | _]=RsB, Acc) when N1 =/= N2 andalso N1 =/= nil andalso N2 =/= nil ->
+inf_record_sets([?record(N1, _, _) | _]=RsA,
+                [?record(N2, _, _) | _]=RsB, Acc) when N1 =/= N2 andalso N1 =/= nil andalso N2 =/= nil ->
   %% Drop the name that doesn't occur in the other set.
   case N1 < N2 of
     true ->
@@ -2997,10 +3014,10 @@ inf_record_sets([?record(N1, _) | _]=RsA,
     false ->
       inf_record_sets(RsA, tl(RsB), Acc)
   end;
-inf_record_sets([?record(nil,_)=A], [B|RsB], Acc) ->
+inf_record_sets([?record(nil, _, _)=A], [B|RsB], Acc) ->
   %% None of the elements of RsB can have the name nil.
   case t_inf_aux(A, B) of
-    ?record(_,_)=T ->
+    ?record(_,_,_)=T ->
       inf_record_sets([A], RsB, [T | Acc]);
     _ ->
       inf_record_sets([A], RsB, Acc)
@@ -3008,7 +3025,7 @@ inf_record_sets([?record(nil,_)=A], [B|RsB], Acc) ->
 inf_record_sets([A | RsA], [B | RsB], Acc) ->
   %% None of sets can have an element with the name nil.
   case t_inf_aux(A, B) of
-    ?record(_, _)=T ->
+    ?record(_, _, _)=T ->
       inf_record_sets(RsA, RsB, [T | Acc]); 
     _ ->
       inf_record_sets(RsA, RsB, Acc)
@@ -3228,9 +3245,9 @@ t_subst_aux(?tuple_set(_) = TS, Map) ->
 t_subst_aux(?map(Pairs, DefK, DefV), Map) ->
   t_map([{K, MNess, t_subst_aux(V, Map)} || {K, MNess, V} <- Pairs],
 	t_subst_aux(DefK, Map), t_subst_aux(DefV, Map));
-t_subst_aux(?record(Name, Type), Map) ->
+t_subst_aux(?record(Name, Exported, Type), Map) ->
   Type1 = #{K => {present, t_subst_aux(V, Map)} || K := {present, V} <- Type},
-  ?record(Name, Type1);
+  ?record(Name, Exported, Type1);
 t_subst_aux(?record_set(Rs), Map) ->
   ?record_set([t_subst_aux(R, Map) || R <- Rs]);
 t_subst_aux(?union(List), Map) ->
@@ -3354,7 +3371,7 @@ t_unify_table_only(?map(_, ADefK, ADefV) = A, ?map(_, BDefK, BDefV) = B, VarMap0
 	  {Pairs0, VarMap4}
       end, {[], VarMap2}, A, B),
   VarMap;
-t_unify_table_only(?record(_,T1), ?record(_,T2), VarMap) ->
+t_unify_table_only(?record(_, _, T1), ?record(_, _, T2), VarMap) ->
   Vs1 = [V || _K := {present, V} <- T1],
   Vs2 = [V || _K := {present, V} <- T2],
   unify_lists_table_only(Vs1, Vs2, VarMap);
@@ -3630,9 +3647,9 @@ t_subtract_aux(?product(P1), _) ->
   ?product(P1);
 t_subtract_aux(T, ?product(_)) ->
   T;
-t_subtract_aux(?record(_,_) = T, _) ->
+t_subtract_aux(?record(_,_,_) = T, _) ->
   T;
-t_subtract_aux(?record_set([_|_]=Records0), ?record(_, _)=B) ->
+t_subtract_aux(?record_set([_|_]=Records0), ?record(_, _, _)=B) ->
   %% Filter out all records that are more specific than B.
   case [T || T <:- Records0, t_inf_aux(T, B) =/= T] of
     [_,_|_]=Records -> ?record_set(Records);
@@ -3850,11 +3867,11 @@ is_limited(?map(Pairs, DefK, DefV), K) ->
                     is_limited(Key, K1) andalso is_limited(Value, K1)
             end, Pairs)
     andalso is_limited(DefK, K1) andalso is_limited(DefV, K1);
-is_limited(?record(nil, #{}=M), _K) when map_size(M) =:= 0 ->
+is_limited(?record(nil, _, #{}=M), _K) when map_size(M) =:= 0 ->
   true;
-is_limited(?record(Name, _), 1) when Name =/= nil ->
+is_limited(?record(Name, _, _), 1) when Name =/= nil ->
   false;
-is_limited(?record(_, T), K) ->
+is_limited(?record(_, _, T), K) ->
   Values = [V || _Key := {present, V} <- T],
   are_all_limited(Values, K - 1);
 is_limited(?record_set(_), 1) ->
@@ -3913,18 +3930,18 @@ t_limit_k(?map(Pairs0, DefK0, DefV0), K) ->
         end,
   {Pairs, DefK2, DefV2} = lists:foldr(Fun, {[], DefK0, DefV0}, Pairs0),
   t_map(Pairs, t_limit_k(DefK2, K - 1), t_limit_k(DefV2, K - 1));
-t_limit_k(?record(Name, Type), K) ->
+t_limit_k(?record(Name, Exported, Type), K) ->
   if
-    K =:= 1 -> ?record(nil, #{});
+    K =:= 1 -> ?record(nil, unknown, #{});
     true ->
-      ?record(Name, #{Key => {present, t_limit_k(V, K - 1)} || Key := {present, V} <- Type})
+      ?record(Name, Exported, #{Key => {present, t_limit_k(V, K - 1)} || Key := {present, V} <- Type})
   end;
 t_limit_k(?record_set(_), 1) ->
-  ?record(nil, #{});
+  ?record(nil, unknown, #{});
 t_limit_k(?record_set(Records), K) ->
   Set = [t_limit_k(R, K) || R <- Records],
-  case lists:any(fun(R) -> R =:= ?record(nil, #{}) end, Set) of
-    true -> ?record(nil, #{});
+  case lists:any(fun(R) -> R =:= ?record(nil, unknown, #{}) end, Set) of
+    true -> ?record(nil, unknown, #{});
     false -> ?record_set(Set)
   end;
 t_limit_k(T, _K) ->
@@ -3987,9 +4004,9 @@ t_abstract_records(?tuple(Elements, _Arity, _Tag), RecDict) ->
   t_tuple([t_abstract_records(E, RecDict) || E <- Elements]);
 t_abstract_records(?tuple_set(_) = Tuples, RecDict) ->
   t_sup([t_abstract_records(T, RecDict) || T <- t_tuple_subtypes(Tuples)]);
-t_abstract_records(?record(Name, Type), RecDict) ->
+t_abstract_records(?record(Name, Exported, Type), RecDict) ->
   Type1 = #{K => {present, t_abstract_records(V, RecDict)} || K := {present, V} <- Type},
-  ?record(Name, Type1);
+  ?record(Name, Exported, Type1);
 t_abstract_records(?record_set(Rs), RecDict) ->
   ?record_set([t_abstract_records(R, RecDict) || R <- Rs]);
 t_abstract_records(T, _RecDict) ->
@@ -4159,15 +4176,15 @@ t_to_string(?map(Pairs0,DefK,DefV), RecDict) ->
   "#{" ++ flat_join([K ++ ":=" ++ V||{K,V}<-StrMand]
                     ++ [K ++ "=>" ++ V||{K,V}<-StrOpt]
                     ++ ExtraEl, ", ") ++ "}";
-t_to_string(?record(nil, Pairs), _RecDict) when map_size(Pairs) =:= 0 ->
+t_to_string(?record(nil, _, Pairs), _RecDict) when map_size(Pairs) =:= 0 ->
   "record()";
-t_to_string(?record(nil, Pairs), RecDict) ->
+t_to_string(?record(nil, _, Pairs), RecDict) ->
   "_#{" ++ record_fields_to_ordered(Pairs, RecDict);
-t_to_string(?record({Module, Name}, Pairs), RecDict) ->
+t_to_string(?record({Module, Name}, _, Pairs), RecDict) ->
   ModName = flat_format("~w:~tw", [Module, Name]),
   "#" ++ ModName ++ "{" ++
   record_fields_to_ordered(Pairs, RecDict);
-t_to_string(?record(Name, Pairs), RecDict) ->
+t_to_string(?record(Name, _, Pairs), RecDict) ->
   "#" ++ atom_to_string(Name) ++ "{" ++
   record_fields_to_ordered(Pairs, RecDict);
 t_to_string(?record_set(Ts), RecDict) ->
@@ -4243,7 +4260,7 @@ field_diffs([], [], _, _, Acc) ->
   lists:reverse(Acc).
 
 -spec native_record_field_diffs(erl_type(), erl_type()) -> string().
-native_record_field_diffs(?record(Name1, Fields1), ?record(Name2, Fields2)) ->
+native_record_field_diffs(?record(Name1, _, Fields1), ?record(Name2, _, Fields2)) ->
   case Name1 =:= Name2 of
     true ->
       Keys = lists:sort(maps:keys(Fields2)),
