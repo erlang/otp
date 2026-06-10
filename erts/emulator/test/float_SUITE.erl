@@ -23,6 +23,7 @@
 -module(float_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0, groups/0,
          init_per_testcase/2, end_per_testcase/2,
@@ -61,7 +62,7 @@ otp_7178(Config) when is_list(Config) ->
     true = (X < 0.00000001) and (X > -0.00000001),
     Y = list_to_float("1.0e-325325325"),
     true = (Y < 0.00000001) and (Y > -0.00000001),
-    {'EXIT', {badarg,_}} = (catch list_to_float("1.0e83291083210")),
+    ?assertError(badarg, list_to_float("1.0e83291083210")),
     ok.
 
 negative_zero(Config) when is_list(Config) ->
@@ -97,13 +98,13 @@ do_negative_zero(Op, Ops) ->
 
 fpe(Config) when is_list(Config) ->
     0.0 = math:log(1.0),
-    {'EXIT', {badarith, _}} = (catch math:log(-1.0)),
+    ?assertError(badarith, math:log(-1.0)),
     0.0 = math:log(1.0),
-    {'EXIT', {badarith, _}} = (catch math:log(0.0)),
+    ?assertError(badarith, math:log(0.0)),
     0.0 = math:log(1.0),
-    {'EXIT',{badarith,_}} = (catch 3.23e133 * id(3.57e257)),
+    ?assertError(badarith, 3.23e133 * id(3.57e257)),
     0.0 = math:log(1.0),
-    {'EXIT',{badarith,_}} = (catch 5.0/id(0.0)),
+    ?assertError(badarith, 5.0/id(0.0)),
     0.0 = math:log(1.0),
     ok.
 
@@ -186,7 +187,7 @@ match(Config) when is_list(Config) ->
     one = match_1(1.0),
     two = match_1(2.0),
     a_lot = match_1(1000.0),
-    {'EXIT',_} = (catch match_1(0.5)),
+    ?assertError(_, match_1(0.5)),
     ok.
 
 match_1(1.0) -> one;
@@ -317,14 +318,14 @@ hidden_inf(Config) when is_list(Config) ->
     ok.
 
 hidden_inf_1(A, B, Zero, Huge) ->
-    {'EXIT',{badarith,_}} = (catch (B / (A / Zero))),
-    {'EXIT',{badarith,_}} = (catch (B * (A / Zero))),
-    {'EXIT',{badarith,_}} = (catch (B / (Huge * Huge))),
-    {'EXIT',{badarith,_}} = (catch (B * (Huge * Huge))),
-    {'EXIT',{badarith,_}} = (catch (B / (Huge + Huge))),
-    {'EXIT',{badarith,_}} = (catch (B * (Huge + Huge))),
-    {'EXIT',{badarith,_}} = (catch (B / (-Huge - Huge))),
-    {'EXIT',{badarith,_}} = (catch (B * (-Huge - Huge))).
+    ?assertError(badarith, (B / (A / Zero))),
+    ?assertError(badarith, (B * (A / Zero))),
+    ?assertError(badarith, (B / (Huge * Huge))),
+    ?assertError(badarith, (B * (Huge * Huge))),
+    ?assertError(badarith, (B / (Huge + Huge))),
+    ?assertError(badarith, (B * (Huge + Huge))),
+    ?assertError(badarith, (B / (-Huge - Huge))),
+    ?assertError(badarith, (B * (-Huge - Huge))).
 
 %% Improve code coverage in our different arithmetic functions
 %% and make sure they yield consistent results.
@@ -377,8 +378,8 @@ do_bin_ops(A, B) ->
 
 op_add(A, B) ->
     Info = [A,B],
-    R = unify(catch A + B, Info),
-    R = unify(my_apply(erlang,'+',[A,B]), Info),
+    R = unify(fun() -> A + B end, Info),
+    R = unify(fun() -> my_apply(erlang,'+',[A,B]) end, Info),
     case R of
         _ when A + B == element(1,R) -> ok;
         {{'EXIT',badarith}, Info} -> ok
@@ -386,8 +387,8 @@ op_add(A, B) ->
 
 op_sub(A, B) ->
     Info = [A,B],
-    R = unify(catch A - B, Info),
-    R = unify(my_apply(erlang,'-',[A,B]), Info),
+    R = unify(fun() -> A - B end, Info),
+    R = unify(fun() -> my_apply(erlang,'-',[A,B]) end, Info),
     case R of
         _ when A - B == element(1,R) -> ok;
         {{'EXIT',badarith}, Info} -> ok
@@ -395,8 +396,8 @@ op_sub(A, B) ->
 
 op_mul(A, B) ->
     Info = [A,B],
-    R = unify(catch A * B, Info),
-    R = unify(my_apply(erlang,'*',[A,B]), Info),
+    R = unify(fun() -> A * B end, Info),
+    R = unify(fun() -> my_apply(erlang,'*',[A,B]) end, Info),
     case R of
         _ when A * B == element(1,R) -> ok;
         {{'EXIT',badarith}, Info} -> ok
@@ -404,22 +405,24 @@ op_mul(A, B) ->
 
 op_div(A, B) ->
     Info = [A,B],
-    R = unify(catch A / B, Info),
-    R = unify(my_apply(erlang,'/',[A,B]), Info),
+    R = unify(fun() -> A / B end, Info),
+    R = unify(fun() -> my_apply(erlang,'/',[A,B]) end, Info),
     case R of
         _ when A / B == element(1,R) -> ok;
         {{'EXIT',badarith}, Info} -> ok
     end.
 
 my_apply(M, F, A) ->
-    catch apply(id(M), id(F), A).
+    apply(id(M), id(F), A).
 
-% Unify exceptions be removing stack traces.
+% Unify exceptions by removing stack traces
 % and add argument info to make it easier to debug failed matches.
-unify({'EXIT',{Reason,_Stack}}, Info) ->
-    {{'EXIT', Reason}, Info};
-unify(Other, Info) ->
-    {Other, Info}.
+unify(Fun, Info) ->
+    try Fun() of
+        Value -> {Value, Info}
+    catch
+        error:Reason -> {{'EXIT', Reason}, Info}
+    end.
 
 
 -define(epsilon, 1.0e-20).

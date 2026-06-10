@@ -23,6 +23,7 @@
 -module(op_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0,
          bsl_bsr/1,logical/1,t_not/1,relop_simple/1,relop/1,
@@ -66,37 +67,37 @@ bsl_bsr_const(A) ->
     BSL = id('bsl'),
     BSR = id('bsr'),
 
-    bsl_bsr_compare_results((catch erlang:BSL(1, A)), (catch 1 bsl A)),
-    bsl_bsr_compare_results((catch erlang:BSL(3, A)), (catch 3 bsl A)),
-    bsl_bsr_compare_results((catch erlang:BSL(7, A)), (catch 7 bsl A)),
+    bsl_bsr_compare_results(fun() -> erlang:BSL(1, A) end, fun() -> 1 bsl A end),
+    bsl_bsr_compare_results(fun() -> erlang:BSL(3, A) end, fun() -> 3 bsl A end),
+    bsl_bsr_compare_results(fun() -> erlang:BSL(7, A) end, fun() -> 7 bsl A end),
 
-    bsl_bsr_compare_results((catch erlang:BSL(A, 1)), (catch A bsl 1)),
-    bsl_bsr_compare_results((catch erlang:BSL(A, 3)), (catch A bsl 3)),
-    bsl_bsr_compare_results((catch erlang:BSL(A, 7)), (catch A bsl 7)),
+    bsl_bsr_compare_results(fun() -> erlang:BSL(A, 1) end, fun() -> A bsl 1 end),
+    bsl_bsr_compare_results(fun() -> erlang:BSL(A, 3) end, fun() -> A bsl 3 end),
+    bsl_bsr_compare_results(fun() -> erlang:BSL(A, 7) end, fun() -> A bsl 7 end),
 
-    bsl_bsr_compare_results((catch erlang:BSL(-2, A)), (catch -2 bsl A)),
-    bsl_bsr_compare_results((catch erlang:BSL(-4, A)), (catch -4 bsl A)),
-    bsl_bsr_compare_results((catch erlang:BSL(-8, A)), (catch -8 bsl A)),
+    bsl_bsr_compare_results(fun() -> erlang:BSL(-2, A) end, fun() -> -2 bsl A end),
+    bsl_bsr_compare_results(fun() -> erlang:BSL(-4, A) end, fun() -> -4 bsl A end),
+    bsl_bsr_compare_results(fun() -> erlang:BSL(-8, A) end, fun() -> -8 bsl A end),
 
-    bsl_bsr_compare_results((catch erlang:BSL(A, -2)), (catch A bsl -2)),
-    bsl_bsr_compare_results((catch erlang:BSL(A, -4)), (catch A bsl -4)),
-    bsl_bsr_compare_results((catch erlang:BSL(A, -8)), (catch A bsl -8)),
+    bsl_bsr_compare_results(fun() -> erlang:BSL(A, -2) end, fun() -> A bsl -2 end),
+    bsl_bsr_compare_results(fun() -> erlang:BSL(A, -4) end, fun() -> A bsl -4 end),
+    bsl_bsr_compare_results(fun() -> erlang:BSL(A, -8) end, fun() -> A bsl -8 end),
 
-    bsl_bsr_compare_results((catch erlang:BSR(1, A)), (catch 1 bsr A)),
-    bsl_bsr_compare_results((catch erlang:BSR(3, A)), (catch 3 bsr A)),
-    bsl_bsr_compare_results((catch erlang:BSR(7, A)), (catch 7 bsr A)),
+    bsl_bsr_compare_results(fun() -> erlang:BSR(1, A) end, fun() -> 1 bsr A end),
+    bsl_bsr_compare_results(fun() -> erlang:BSR(3, A) end, fun() -> 3 bsr A end),
+    bsl_bsr_compare_results(fun() -> erlang:BSR(7, A) end, fun() -> 7 bsr A end),
 
-    bsl_bsr_compare_results((catch erlang:BSR(A, 1)), (catch A bsr 1)),
-    bsl_bsr_compare_results((catch erlang:BSR(A, 3)), (catch A bsr 3)),
-    bsl_bsr_compare_results((catch erlang:BSR(A, 7)), (catch A bsr 7)),
+    bsl_bsr_compare_results(fun() -> erlang:BSR(A, 1) end, fun() -> A bsr 1 end),
+    bsl_bsr_compare_results(fun() -> erlang:BSR(A, 3) end, fun() -> A bsr 3 end),
+    bsl_bsr_compare_results(fun() -> erlang:BSR(A, 7) end, fun() -> A bsr 7 end),
 
-    bsl_bsr_compare_results((catch erlang:BSR(-2, A)), (catch -2 bsr A)),
-    bsl_bsr_compare_results((catch erlang:BSR(-4, A)), (catch -4 bsr A)),
-    bsl_bsr_compare_results((catch erlang:BSR(-8, A)), (catch -8 bsr A)),
+    bsl_bsr_compare_results(fun() -> erlang:BSR(-2, A) end, fun() -> -2 bsr A end),
+    bsl_bsr_compare_results(fun() -> erlang:BSR(-4, A) end, fun() -> -4 bsr A end),
+    bsl_bsr_compare_results(fun() -> erlang:BSR(-8, A) end, fun() -> -8 bsr A end),
 
-    bsl_bsr_compare_results((catch erlang:BSR(A, -2)), (catch A bsr -2)),
-    bsl_bsr_compare_results((catch erlang:BSR(A, -4)), (catch A bsr -4)),
-    bsl_bsr_compare_results((catch erlang:BSR(A, -8)), (catch A bsr -8)),
+    bsl_bsr_compare_results(fun() -> erlang:BSR(A, -2) end, fun() -> A bsr -2 end),
+    bsl_bsr_compare_results(fun() -> erlang:BSR(A, -4) end, fun() -> A bsr -4 end),
+    bsl_bsr_compare_results(fun() -> erlang:BSR(A, -8) end, fun() -> A bsr -8 end),
 
 
     %% These numbers can be shifted left one or zero times while remaining a
@@ -106,26 +107,25 @@ bsl_bsr_const(A) ->
     HighEdge32 = (1 bsl (32 - 6)) - 1,
     LowEdge32 = -(1 bsl (32 - 6)),
 
-    bsl_bsr_compare_results((catch erlang:BSL(HighEdge32, A)), (catch HighEdge32 bsl A)),
-    bsl_bsr_compare_results((catch erlang:BSL(LowEdge32, A)), (catch LowEdge32 bsl A)),
-    bsl_bsr_compare_results((catch erlang:BSR(HighEdge32, A)), (catch HighEdge32 bsr A)),
-    bsl_bsr_compare_results((catch erlang:BSR(LowEdge32, A)), (catch LowEdge32 bsr A)),
+    bsl_bsr_compare_results(fun() -> erlang:BSL(HighEdge32, A) end, fun() -> HighEdge32 bsl A end),
+    bsl_bsr_compare_results(fun() -> erlang:BSL(LowEdge32, A) end, fun() -> LowEdge32 bsl A end),
+    bsl_bsr_compare_results(fun() -> erlang:BSR(HighEdge32, A) end, fun() -> HighEdge32 bsr A end),
+    bsl_bsr_compare_results(fun() -> erlang:BSR(LowEdge32, A) end, fun() -> LowEdge32 bsr A end),
 
     HighEdge64 = (1 bsl (64 - 6)) - 1,
     LowEdge64 = -(1 bsl (64 - 6)),
 
-    bsl_bsr_compare_results((catch erlang:BSL(HighEdge64, A)), (catch HighEdge64 bsl A)),
-    bsl_bsr_compare_results((catch erlang:BSL(LowEdge64, A)), (catch LowEdge64 bsl A)),
-    bsl_bsr_compare_results((catch erlang:BSR(HighEdge64, A)), (catch HighEdge64 bsr A)),
-    bsl_bsr_compare_results((catch erlang:BSR(LowEdge64, A)), (catch LowEdge64 bsr A)),
+    bsl_bsr_compare_results(fun() -> erlang:BSL(HighEdge64, A) end, fun() -> HighEdge64 bsl A end),
+    bsl_bsr_compare_results(fun() -> erlang:BSL(LowEdge64, A) end, fun() -> LowEdge64 bsl A end),
+    bsl_bsr_compare_results(fun() -> erlang:BSR(HighEdge64, A) end, fun() -> HighEdge64 bsr A end),
+    bsl_bsr_compare_results(fun() -> erlang:BSR(LowEdge64, A) end, fun() -> LowEdge64 bsr A end),
 
     ok.
 
-bsl_bsr_compare_results(Same, Same) ->
-    ok;
-bsl_bsr_compare_results({'EXIT',{Reason,[_|_]}}, {'EXIT',{Reason,[_|_]}}) ->
-    %% The applied and inlined implementations may differ in whether they include
-    %% the operator as the top element of the stack.
+bsl_bsr_compare_results(Fun1, Fun2) ->
+    R1 = try Fun1() catch Class1:Reason1 -> {Class1, Reason1} end,
+    R2 = try Fun2() catch Class2:Reason2 -> {Class2, Reason2} end,
+    true = R1 =:= R2,
     ok.
 
 %% Test the logical operators and internal BIFs.
@@ -549,12 +549,13 @@ guard_expr({Op,X,Y}) ->
     {E,{Op,value(X),value(Y)},Res}.
 
 run_function(Mod, Name) ->
-    case catch Mod:Name() of
-        {'EXIT',Reason} ->
-            io:format("~p", [get(last)]),
-            ct:fail({'EXIT',Reason});
+    try Mod:Name() of
         _Other ->
             ok
+    catch
+        _:Reason ->
+            io:format("~p", [get(last)]),
+            ct:fail({'EXIT',Reason})
     end.
 
 guard_test({E,Expr,Res}, Tail) ->
@@ -601,9 +602,12 @@ make_function(Name, Body) ->
 
 eval(E0) ->
     E = erl_parse:new_anno(E0),
-    case catch erl_eval:exprs(E, []) of
-        {'EXIT',Reason} -> {'EXIT',Reason};
+    try erl_eval:exprs(E, []) of
         {value,Val,_Bs} -> Val
+    catch
+        throw:Reason -> Reason;
+        exit:Reason -> {'EXIT',Reason};
+        error:Reason:Stk -> {'EXIT',{Reason,Stk}}
     end.
 
 unsafe_fusing(_Config) ->
