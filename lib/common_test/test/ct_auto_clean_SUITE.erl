@@ -44,8 +44,8 @@
 init_per_suite(Config) ->
     DataDir = ?config(data_dir, Config),
     CTHs = filelib:wildcard(filename:join(DataDir,"cth_*.erl")),
-    ct:pal("CTHs: ~p",[CTHs]),
-    [ct:pal("Compiling ~p: ~p",
+    ct:log("CTHs: ~p",[CTHs]),
+    [ct:log("Compiling ~p: ~p",
 	    [FileName,compile:file(FileName,[{outdir,DataDir},debug_info])]) ||
 	FileName <- CTHs],
     ct_test_support:init_per_suite([{path_dirs,[DataDir]} | Config]).

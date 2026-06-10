@@ -46,7 +46,7 @@ init_per_suite(Config) ->
 
     EH = filename:join(DataDir, "eh_A.erl"),
     CResult = compile:file(EH, [verbose,report,{outdir,PrivDir}]),
-    test_server:format("~s compilation result: ~p~n", [EH,CResult]),
+    ct:log("~s compilation result: ~p~n", [EH,CResult]),
 
     Config1 = ct_test_support:init_per_suite(Config, 0),
     Config1.
@@ -101,7 +101,9 @@ start_stop(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
+    ct:capture_start(),
     ok = ct_test_support:run(Opts, Config),
+    ct:capture_stop(),  % hush the tests
     
     Events = ct_test_support:get_events(ERPid, Config),    
 
@@ -148,7 +150,9 @@ results(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
+    ct:capture_start(),
     ok = ct_test_support:run(Opts, Config),
+    ct:capture_stop(),  % hush the tests
     
     Events = ct_test_support:get_events(ERPid, Config),
     
