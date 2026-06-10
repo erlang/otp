@@ -3,7 +3,7 @@ LD = @LD@
 CFLAGS = @CFLAGS@ -I@erl_include@ @DEFS@
 CROSSLDFLAGS = @CROSSLDFLAGS@
 
-PROGS = port_test@exe@ echo_args@exe@ dead_port@exe@
+PROGS = port_test@exe@ echo_args@exe@ dead_port@exe@ file_while_alive@exe@
 DRIVERS = echo_drv@dll@ exit_drv@dll@ failure_drv@dll@ sleep_failure_drv@dll@
 
 all: $(PROGS) $(DRIVERS) port_test.@EMULATOR@
@@ -25,6 +25,12 @@ dead_port@exe@: dead_port@obj@
 
 dead_port@obj@: dead_port.c
 	$(CC) -c -o dead_port@obj@ $(CFLAGS) dead_port.c
+
+file_while_alive@exe@: file_while_alive@obj@
+	$(LD) $(CROSSLDFLAGS) -o file_while_alive file_while_alive@obj@ @LIBS@
+
+file_while_alive@obj@: file_while_alive.c
+	$(CC) -c -o file_while_alive@obj@ $(CFLAGS) file_while_alive.c
 
 port_test.@EMULATOR@:		port_test.erl
 	@erl_name@ -compile port_test
