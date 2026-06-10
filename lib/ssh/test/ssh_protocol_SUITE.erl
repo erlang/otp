@@ -290,8 +290,15 @@ init_per_testcase(Tc, Config) when Tc == no_common_alg_server_disconnects;
     start_std_daemon(Config, [{preferred_algorithms,[{public_key,['ssh-ed25519']},
                                                      {cipher,?DEFAULT_CIPHERS}
                                                     ]}]);
-init_per_testcase(kex_strict_negotiated, Config) ->
-    Config;
+init_per_testcase(TC, Config) when TC == kex_strict_negotiated;
+                                   TC == kex_strict_violation_key_exchange;
+                                   TC == kex_strict_violation_new_keys;
+                                   TC == kex_strict_violation;
+                                   TC == kex_strict_violation_2;
+                                   TC == kex_strict_msg_unknown ->
+    Level = ssh_test_lib:get_log_level(),
+    ssh_test_lib:set_log_level(debug),
+    [{saved_log_level, Level} | Config];
 init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				   TC == gex_client_init_option_groups_moduli_file ;
 				   TC == gex_client_init_option_groups_file ;
@@ -337,7 +344,13 @@ init_per_testcase(_TestCase, Config) ->
 end_per_testcase(Tc, Config) when Tc == no_common_alg_server_disconnects;
                                   Tc == custom_kexinit ->
     stop_std_daemon(Config);
-end_per_testcase(kex_strict_negotiated, Config) ->
+end_per_testcase(TC, Config) when TC == kex_strict_negotiated;
+                                  TC == kex_strict_violation_key_exchange;
+                                  TC == kex_strict_violation_new_keys;
+                                  TC == kex_strict_violation;
+                                  TC == kex_strict_violation_2;
+                                  TC == kex_strict_msg_unknown ->
+    ssh_test_lib:set_log_level(proplists:get_value(saved_log_level, Config)),
     Config;
 end_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				  TC == gex_client_init_option_groups_moduli_file ;
@@ -1309,15 +1322,12 @@ kex_strict_negotiated(Config0) ->
         ssh_test_lib:add_log_handler(?FUNCTION_NAME,
                                      start_std_daemon(Config0, [])),
     {Server, Host, Port} = proplists:get_value(server, Config),
-    Level = ssh_test_lib:get_log_level(),
-    ssh_test_lib:set_log_level(debug),
     {ok, ConnRef} = std_connect({Host, Port}, Config, []),
     {algorithms, _A} = ssh:connection_info(ConnRef, algorithms),
     ssh:stop_daemon(Server),
     {ok, Events} = ssh_test_lib:get_log_events(Config),
     true = ssh_test_lib:kex_strict_negotiated(client, Events),
     true = ssh_test_lib:kex_strict_negotiated(server, Events),
-    ssh_test_lib:set_log_level(Level),
     ssh_test_lib:rm_log_handler(?FUNCTION_NAME),
     ok.
 
@@ -1428,8 +1438,6 @@ kex_strict_violation(Config) ->
 kex_strict_violation_2(Config0) ->
     ExpectedReason = "KEX strict violation",
     Config = ssh_test_lib:add_log_handler(?FUNCTION_NAME, Config0),
-    Level = ssh_test_lib:get_log_level(),
-    ssh_test_lib:set_log_level(debug),
     %% Connect and negotiate keys
     {ok, InitialState} = ssh_trpt_test_lib:exec(
                            [{set_options, [print_ops, print_seqnums, print_messages]}]),
@@ -1474,7 +1482,6 @@ kex_strict_violation_2(Config0) ->
     true = ssh_test_lib:kex_strict_negotiated(client, Events),
     true = ssh_test_lib:kex_strict_negotiated(server, Events),
     true = ssh_test_lib:event_logged(server, Events, ExpectedReason),
-    ssh_test_lib:set_log_level(Level),
     ok.
 
 %% Connect to an erlang server and inject unexpected non-SSH binary
@@ -1494,8 +1501,6 @@ kex_strict_msg_unknown(Config) ->
 
 kex_strict_helper(Config0, TestMessages, ExpectedReason) ->
     Config = ssh_test_lib:add_log_handler(?FUNCTION_NAME, Config0),
-    Level = ssh_test_lib:get_log_level(),
-    ssh_test_lib:set_log_level(debug),
     %% Connect and negotiate keys
     {ok, InitialState} = ssh_trpt_test_lib:exec(
                            [{set_options, [print_ops, print_seqnums, print_messages]}]),
@@ -1521,7 +1526,6 @@ kex_strict_helper(Config0, TestMessages, ExpectedReason) ->
     true = ssh_test_lib:kex_strict_negotiated(client, Events),
     true = ssh_test_lib:kex_strict_negotiated(server, Events),
     true = ssh_test_lib:event_logged(server, Events, ExpectedReason),
-    ssh_test_lib:set_log_level(Level),
     ok.
 
 %%%----------------------------------------------------------------
