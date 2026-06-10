@@ -508,6 +508,8 @@ vi({test,is_any_native_record,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_record{}, Src, Vst);
 vi({test,is_native_record,{f,Lbl},[Src,{atom,Mod},{atom,Name}]}, Vst) ->
     type_test(Lbl, #t_record{name={Mod,Name}}, Src, Vst);
+vi({test,is_record_accessible,{f,Lbl},[Src,_]}, Vst) ->
+    type_test(Lbl, #t_record{exported=yes}, Src, Vst);
 vi({test,is_integer,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_integer{}, Src, Vst);
 vi({test,is_nonempty_list,{f,Lbl},[Src]}, Vst) ->
