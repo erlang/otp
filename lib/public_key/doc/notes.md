@@ -97,6 +97,16 @@ limitations under the License.
 [PR-10839]: https://github.com/erlang/otp/pull/10839
 [PR-10993]: https://github.com/erlang/otp/pull/10993
 
+## Public_Key 1.20.3.2
+
+### Fixed Bugs and Malfunctions
+
+- Add missing macro reference for legacy algorithms md5 and sha224. This mainly improves error handling.
+
+  Own Id: OTP-20172 Aux Id: [PR-11195]
+
+[PR-11195]: https://github.com/erlang/otp/pull/11195
+
 ## Public_Key 1.20.3.1
 
 ### Fixed Bugs and Malfunctions

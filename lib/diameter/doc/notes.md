@@ -62,6 +62,17 @@ Releases are listed in reverse chronological order, most recent first.
 [PR-10730]: https://github.com/erlang/otp/pull/10730
 [PR-10839]: https://github.com/erlang/otp/pull/10839
 
+## diameter 2.6.1.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed return value documentation of `diameter:service_info(SvcName, statistics)`
+
+  Own Id: OTP-20150 Aux Id: [GH-11105], [PR-11146]
+
+[GH-11105]: https://github.com/erlang/otp/issues/11105
+[PR-11146]: https://github.com/erlang/otp/pull/11146
+
 ## diameter 2.6.1
 
 ### Improvements and New Features

@@ -320,6 +320,24 @@ This document describes the changes made to the ERTS application.
 [PR-11004]: https://github.com/erlang/otp/pull/11004
 [PR-10929]: https://github.com/erlang/otp/pull/10929
 
+## Erts 16.4.0.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed bug in `ets:member/2` for `set`, `bag` and `duplicate_bag`. The bug could (maybe) lead to `ets:member` spuriously returning false for a value which is actually a member for a table that faces high insert load.
+
+  Own Id: OTP-20152 Aux Id: [PR-11115]
+
+- A buffer overflow error when parsing SCTP ERROR or ABORT chunks has been fixed.  
+  
+  This could lead to stack corruption and VM crash, but ultimately with hard work by an attacker be refined into maybe even remote code execution.
+
+  Own Id: OTP-20165 Aux Id: [PR-1234], GHSA-6f4f-chj5-5g97, [CVE-2026-49759]
+
+[PR-11115]: https://github.com/erlang/otp/pull/11115
+[PR-1234]: https://github.com/erlang/otp/pull/1234
+[CVE-2026-49759]: https://nvd.nist.gov/vuln/detail/2026-49759
+
 ## Erts 16.4.0.1
 
 ### Fixed Bugs and Malfunctions
