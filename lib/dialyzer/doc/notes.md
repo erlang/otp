@@ -131,6 +131,17 @@ This document describes the changes made to the Dialyzer application.
 [PR-9819]: https://github.com/erlang/otp/pull/9819
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 
+## Dialyzer 5.3.1.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix Dialyzer crash with overriding built-in types
+
+  Own Id: OTP-19631 Aux Id: [GH-11093], [PR-11096]
+
+[GH-11093]: https://github.com/erlang/otp/issues/11093
+[PR-11096]: https://github.com/erlang/otp/pull/11096
+
 ## Dialyzer 5.3.1
 
 ### Fixed Bugs and Malfunctions
