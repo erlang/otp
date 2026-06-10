@@ -46,13 +46,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
-env:
-    ## Equivalent to github.event_name == 'pull_request' ? github.base_ref : github.ref_name
-    BASE_BRANCH: ${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}
-    ## 'true' if all steps should be built and all tests run
-    FULL_BUILD_AND_CHECK: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-build-and-check') || github.event_name == 'schedule' }}
-    OTP_SBOM_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
-
 permissions:
   contents: read
   pull-requests: read
