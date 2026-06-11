@@ -577,6 +577,66 @@ as_tr_cpp="eval sed '$as_sed_cpp'" # deprecated
 as_sed_sh="y%*+%pp%;s%[^_$as_cr_alnum]%_%g"
 as_tr_sh="eval sed '$as_sed_sh'" # deprecated
 
+as_awk_strverscmp='
+  # Use only awk features that work with 7th edition Unix awk (1978).
+  # My, what an old awk you have, Mr. Solaris!
+  END {
+    while (length(v1) && length(v2)) {
+      # Set d1 to be the next thing to compare from v1, and likewise for d2.
+      # Normally this is a single character, but if v1 and v2 contain digits,
+      # compare them as integers and fractions as strverscmp does.
+      if (v1 ~ /^[0-9]/ && v2 ~ /^[0-9]/) {
+	# Split v1 and v2 into their leading digit string components d1 and d2,
+	# and advance v1 and v2 past the leading digit strings.
+	for (len1 = 1; substr(v1, len1 + 1) ~ /^[0-9]/; len1++) continue
+	for (len2 = 1; substr(v2, len2 + 1) ~ /^[0-9]/; len2++) continue
+	d1 = substr(v1, 1, len1); v1 = substr(v1, len1 + 1)
+	d2 = substr(v2, 1, len2); v2 = substr(v2, len2 + 1)
+	if (d1 ~ /^0/) {
+	  if (d2 ~ /^0/) {
+	    # Compare two fractions.
+	    while (d1 ~ /^0/ && d2 ~ /^0/) {
+	      d1 = substr(d1, 2); len1--
+	      d2 = substr(d2, 2); len2--
+	    }
+	    if (len1 != len2 && ! (len1 && len2 && substr(d1, 1, 1) == substr(d2, 1, 1))) {
+	      # The two components differ in length, and the common prefix
+	      # contains only leading zeros.  Consider the longer to be less.
+	      d1 = -len1
+	      d2 = -len2
+	    } else {
+	      # Otherwise, compare as strings.
+	      d1 = "x" d1
+	      d2 = "x" d2
+	    }
+	  } else {
+	    # A fraction is less than an integer.
+	    exit 1
+	  }
+	} else {
+	  if (d2 ~ /^0/) {
+	    # An integer is greater than a fraction.
+	    exit 2
+	  } else {
+	    # Compare two integers.
+	    d1 += 0
+	    d2 += 0
+	  }
+	}
+      } else {
+	# The normal case, without worrying about digits.
+	d1 = substr(v1, 1, 1); v1 = substr(v1, 2)
+	d2 = substr(v2, 1, 1); v2 = substr(v2, 2)
+      }
+      if (d1 < d2) exit 1
+      if (d1 > d2) exit 2
+    }
+    # Beware Solaris /usr/xgp4/bin/awk (at least through Solaris 10),
+    # which mishandles some comparisons of empty strings to integers.
+    if (length(v2)) exit 1
+    if (length(v1)) exit 2
+  }
+'
 
 test -n "$DJDIR" || exec 7<&0 </dev/null
 exec 6>&1
@@ -650,23 +710,16 @@ HAVE_GL_SUPPORT
 RC_FILE_TYPE
 WX_HAVE_STATIC_LIBS
 WX_WEBVIEW_DLL
-FORCED_DEBUG_BUILD
+WX_RESCOMP
 DEBUG_WX_LIBS_STATIC
 DEBUG_WX_LIBS
 DEBUG_WX_CXXFLAGS
 DEBUG_WX_CFLAGS
-WX_VERSION_MICRO
-WX_VERSION_MINOR
-WX_VERSION_MAJOR
-WX_RESCOMP
-WX_VERSION
 WX_LIBS_STATIC
 WX_LIBS
-WX_CXXFLAGS_ONLY
-WX_CFLAGS_ONLY
 WX_CXXFLAGS
 WX_CFLAGS
-WX_CPPFLAGS
+FORCED_DEBUG_BUILD
 WX_CONFIG_PATH
 ERLANG_ROOT_DIR
 ERLC
@@ -750,9 +803,6 @@ enable_option_checking
 with_wx
 enable_security_hardening_flags
 with_wxdir
-with_wx_config
-with_wx_prefix
-with_wx_exec_prefix
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1397,11 +1447,7 @@ Optional Packages:
   --with-wxdir=PATH    specify location of wxWidgets include and lib
   --with-wx             use wxWidgets (default)
   --without-wx          don't use wxWidgets
-  --with-wxdir=PATH       Use uninstalled version of wxWidgets in PATH
-  --with-wx-config=CONFIG wx-config script to use (optional)
-  --with-wx-prefix=PREFIX Prefix where wxWidgets is installed (optional)
-  --with-wx-exec-prefix=PREFIX
-                          Exec prefix where wxWidgets is installed (optional)
+  --with-wxdir=PATH       Use wxWidgets in PATH
 
 Some influential environment variables:
   CC          C compiler command
@@ -6812,140 +6858,37 @@ ERLANG_ROOT_DIR=$ERL_TOP
 
 
 
-if test "$cross_compiling" = "yes"
+if test  X"$MIXED_VC" = X"no"
 then :
-
-    	echo "Cross compilation of the wx driver is not supported yet, wx will NOT be usable" >> ./CONF_INFO
-    WXERL_CAN_BUILD_DRIVER=false
-    if test X"$with_wx" = X"yes" ; then
-        as_fn_error $? "Cross compilation of the wx driver is not supported yet, wx will NOT be usable" "$LINENO" 5
-    else
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: Cross compilation of the wx driver is not supported yet, wx will NOT be usable" >&5
-printf "%s\n" "$as_me: WARNING: Cross compilation of the wx driver is not supported yet, wx will NOT be usable" >&2;}
-    fi
-
-
-elif test  X"$MIXED_VC" = X"no"
-then :
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # Check whether --with-wxdir was given.
 if test ${with_wxdir+y}
 then :
   withval=$with_wxdir;  wx_config_name="$withval/wx-config"
-                  wx_config_args="--inplace"
 fi
 
 
-# Check whether --with-wx-config was given.
-if test ${with_wx_config+y}
+   if test x${WX_CONFIG_NAME} = x ; then
+      WX_CONFIG_NAME=wx-config
+   fi
+
+   if test "x$wx_config_name" != x ; then
+      WX_CONFIG_NAME="$wx_config_name"
+   fi
+
+   if test -x "$WX_CONFIG_NAME"
 then :
-  withval=$with_wx_config; wx_config_name="$withval"
-fi
 
-
-# Check whether --with-wx-prefix was given.
-if test ${with_wx_prefix+y}
-then :
-  withval=$with_wx_prefix; wx_config_prefix="$withval"
-else case e in #(
-  e) wx_config_prefix="" ;;
-esac
-fi
-
-
-# Check whether --with-wx-exec-prefix was given.
-if test ${with_wx_exec_prefix+y}
-then :
-  withval=$with_wx_exec_prefix; wx_config_exec_prefix="$withval"
-else case e in #(
-  e) wx_config_exec_prefix="" ;;
-esac
-fi
-
-
-    reqwx=3.0.2
-
-
-    if test x${WX_CONFIG_NAME+set} != xset ; then
-     WX_CONFIG_NAME=wx-config
-  fi
-
-  if test "x$wx_config_name" != x ; then
-     WX_CONFIG_NAME="$wx_config_name"
-  fi
-
-    if test x$wx_config_exec_prefix != x ; then
-     wx_config_args="$wx_config_args --exec-prefix=$wx_config_exec_prefix"
-     WX_LOOKUP_PATH="$wx_config_exec_prefix/bin"
-  fi
-  if test x$wx_config_prefix != x ; then
-     wx_config_args="$wx_config_args --prefix=$wx_config_prefix"
-     WX_LOOKUP_PATH="$WX_LOOKUP_PATH:$wx_config_prefix/bin"
-  fi
-  if test "$cross_compiling" = "yes"; then
-     wx_config_args="$wx_config_args --host=$host_alias"
-  fi
-
-    if test -x "$WX_CONFIG_NAME" ; then
-     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wx-config" >&5
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wx-config" >&5
 printf %s "checking for wx-config... " >&6; }
-     WX_CONFIG_PATH="$WX_CONFIG_NAME"
-     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $WX_CONFIG_PATH" >&5
+      WX_CONFIG_PATH="$WX_CONFIG_NAME"
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $WX_CONFIG_PATH" >&5
 printf "%s\n" "$WX_CONFIG_PATH" >&6; }
-  else
-     # Extract the first word of "$WX_CONFIG_NAME", so it can be a program name with args.
+
+else case e in #(
+  e)
+      # Extract the first word of "$WX_CONFIG_NAME", so it can be a program name with args.
 set dummy $WX_CONFIG_NAME; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
@@ -6959,8 +6902,7 @@ else case e in #(
   ;;
   *)
   as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-as_dummy=""$WX_LOOKUP_PATH:$PATH""
-for as_dir in $as_dummy
+for as_dir in $PATH
 do
   IFS=$as_save_IFS
   case $as_dir in #(((
@@ -6993,227 +6935,89 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-  fi
+      ;;
+esac
+fi
 
-  if test "$WX_CONFIG_PATH" != "no" ; then
-    WX_VERSION=""
-
-    min_wx_version=$reqwx
-    if test -z "--unicode" ; then
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets version >= $min_wx_version" >&5
-printf %s "checking for wxWidgets version >= $min_wx_version... " >&6; }
-    else
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets version >= $min_wx_version (--unicode)" >&5
-printf %s "checking for wxWidgets version >= $min_wx_version (--unicode)... " >&6; }
-    fi
-
-            WX_CONFIG_WITH_ARGS="$WX_CONFIG_PATH $wx_config_args --unicode"
-
-    WX_VERSION=`$WX_CONFIG_WITH_ARGS --version 2>/dev/null`
-    wx_config_major_version=`echo $WX_VERSION | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\1/'`
-    wx_config_minor_version=`echo $WX_VERSION | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\2/'`
-    wx_config_micro_version=`echo $WX_VERSION | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\3/'`
-
-    wx_requested_major_version=`echo $min_wx_version | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\1/'`
-    wx_requested_minor_version=`echo $min_wx_version | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\2/'`
-    wx_requested_micro_version=`echo $min_wx_version | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\3/'`
-
-
-    wx_ver_ok=""
-    if test "x$WX_VERSION" != x ; then
-      if test $wx_config_major_version -gt $wx_requested_major_version; then
-        wx_ver_ok=yes
-      else
-        if test $wx_config_major_version -eq $wx_requested_major_version; then
-           if test $wx_config_minor_version -gt $wx_requested_minor_version; then
-              wx_ver_ok=yes
-           else
-              if test $wx_config_minor_version -eq $wx_requested_minor_version; then
-                 if test $wx_config_micro_version -ge $wx_requested_micro_version; then
-                    wx_ver_ok=yes
-                 fi
-              fi
-           fi
-        fi
-      fi
-    fi
-
-
-    if test -n "$wx_ver_ok"; then
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes (version $WX_VERSION)" >&5
-printf "%s\n" "yes (version $WX_VERSION)" >&6; }
-      WX_LIBS=`$WX_CONFIG_WITH_ARGS --libs core,base,html,webview`
-
-                              { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets static library" >&5
-printf %s "checking for wxWidgets static library... " >&6; }
-      WX_LIBS_STATIC=`$WX_CONFIG_WITH_ARGS --static --libs core,base,html,webview 2>/dev/null`
-      if test "x$WX_LIBS_STATIC" = "x"; then
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-      else
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-      fi
-
-            wx_has_cppflags=""
-      if test $wx_config_major_version -gt 2; then
-        wx_has_cppflags=yes
-      else
-        if test $wx_config_major_version -eq 2; then
-           if test $wx_config_minor_version -gt 2; then
-              wx_has_cppflags=yes
-           else
-              if test $wx_config_minor_version -eq 2; then
-                 if test $wx_config_micro_version -ge 6; then
-                    wx_has_cppflags=yes
-                 fi
-              fi
-           fi
-        fi
-      fi
-
-            wx_has_rescomp=""
-      if test $wx_config_major_version -gt 2; then
-        wx_has_rescomp=yes
-      else
-        if test $wx_config_major_version -eq 2; then
-           if test $wx_config_minor_version -ge 7; then
-              wx_has_rescomp=yes
-           fi
-        fi
-      fi
-      if test "x$wx_has_rescomp" = x ; then
-                  WX_RESCOMP=
-      else
-         WX_RESCOMP=`$WX_CONFIG_WITH_ARGS --rescomp`
-      fi
-
-      if test "x$wx_has_cppflags" = x ; then
-                  WX_CFLAGS=`$WX_CONFIG_WITH_ARGS --cflags core,base,html,webview`
-         WX_CPPFLAGS=$WX_CFLAGS
-         WX_CXXFLAGS=$WX_CFLAGS
-
-         WX_CFLAGS_ONLY=$WX_CFLAGS
-         WX_CXXFLAGS_ONLY=$WX_CFLAGS
-      else
-                  WX_CPPFLAGS=`$WX_CONFIG_WITH_ARGS --cppflags core,base,html,webview`
-         WX_CXXFLAGS=`$WX_CONFIG_WITH_ARGS --cxxflags core,base,html,webview`
-         WX_CFLAGS=`$WX_CONFIG_WITH_ARGS --cflags core,base,html,webview`
-
-         WX_CFLAGS_ONLY=`echo $WX_CFLAGS | sed "s@^$WX_CPPFLAGS *@@"`
-         WX_CXXFLAGS_ONLY=`echo $WX_CXXFLAGS | sed "s@^$WX_CFLAGS *@@"`
-      fi
-
-      :
-
-    else
-
-       if test "x$WX_VERSION" = x; then
-                    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-       else
-          { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no (version $WX_VERSION is not new enough)" >&5
-printf "%s\n" "no (version $WX_VERSION is not new enough)" >&6; }
-       fi
-
-       WX_CFLAGS=""
-       WX_CPPFLAGS=""
-       WX_CXXFLAGS=""
-       WX_LIBS=""
-       WX_LIBS_STATIC=""
-       WX_RESCOMP=""
-
-       if test ! -z "--unicode"; then
-          wx_error_message="
-    The configuration you asked for $PACKAGE_NAME requires a wxWidgets
-    build with the following settings:
-        --unicode
-    but such build is not available.
-    To see the wxWidgets builds available on this system, please use
-    'wx-config --list' command. To use the default build, returned by
-    'wx-config --selected-config', use the options with their 'auto'
-    default values."
-       fi
-       wx_error_message="
-    The requested wxWidgets build couldn't be found.
-    $wx_error_message
-    If you still get this error, then check that 'wx-config' is
-    in path, the directory where wxWidgets libraries are installed
-    (returned by 'wx-config --libs' command) is in LD_LIBRARY_PATH
-    or equivalent variable and wxWidgets version is $reqwx or above."
-       	echo "$wx_error_message" >> ./CONF_INFO
+   if test "$WX_CONFIG_PATH" = "no"
+then :
+   	echo "wx-config not found, wx will NOT be usable" >> ./CONF_INFO
     WXERL_CAN_BUILD_DRIVER=false
     if test X"$with_wx" = X"yes" ; then
-        as_fn_error $? "$wx_error_message" "$LINENO" 5
+        as_fn_error $? "wx-config not found, wx will NOT be usable" "$LINENO" 5
     else
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: $wx_error_message" >&5
-printf "%s\n" "$as_me: WARNING: $wx_error_message" >&2;}
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: wx-config not found, wx will NOT be usable" >&5
+printf "%s\n" "$as_me: WARNING: wx-config not found, wx will NOT be usable" >&2;}
     fi
 
+else case e in #(
+  e)
 
+      wx_version=`$WX_CONFIG_PATH --version`
+      reqwx=3.0.2
+      as_arg_v1=$wx_version
+as_arg_v2=$reqwx
+awk "$as_awk_strverscmp" v1="$as_arg_v1" v2="$as_arg_v2" /dev/null
+case $? in #(
+  1) :
+    	echo "Requires wxWidgets $reqwx or later, wx will NOT be usable" >> ./CONF_INFO
+    WXERL_CAN_BUILD_DRIVER=false
+    if test X"$with_wx" = X"yes" ; then
+        as_fn_error $? "Requires wxWidgets $reqwx or later, wx will NOT be usable" "$LINENO" 5
+    else
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: Requires wxWidgets $reqwx or later, wx will NOT be usable" >&5
+printf "%s\n" "$as_me: WARNING: Requires wxWidgets $reqwx or later, wx will NOT be usable" >&2;}
     fi
-  else
+ ;; #(
+  0) :
+     ;; #(
+  2) :
+     ;; #(
+  *) :
+     ;;
+esac
 
-    WX_CFLAGS=""
-    WX_CPPFLAGS=""
-    WX_CXXFLAGS=""
-    WX_LIBS=""
-    WX_LIBS_STATIC=""
-    WX_RESCOMP=""
+      wx_needed=stc,xrc,html,adv,xml,core,base,gl,aui
 
-    :
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets libs and flags" >&5
+printf %s "checking for wxWidgets libs and flags... " >&6; }
+      wx_libs=`$WX_CONFIG_PATH --libs $wx_needed --optional-libs webview --unicode=yes`
+      wx_flags=`$WX_CONFIG_PATH --cxxflags --unicode=yes`
+      if test "x$wx_libs" = "x"
+then :
+   wxWin=0
+          { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+else case e in #(
+  e)  wxWin=1
+          { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }  ;;
+esac
+fi
 
-  fi
-
-
-
-
-
-
-
-
-
-
-
-      WX_VERSION_MAJOR="$wx_config_major_version"
-  WX_VERSION_MINOR="$wx_config_minor_version"
-  WX_VERSION_MICRO="$wx_config_micro_version"
-
-
-
-
-
-	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxwidgets webview" >&5
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxwidgets webview" >&5
 printf %s "checking for wxwidgets webview... " >&6; }
-	ac_ext=cpp
+      ac_ext=cpp
 ac_cpp='$CXXCPP $CPPFLAGS'
 ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
-	saved_CXXFLAGS=$CXXFLAGS
-	CXXFLAGS="$CXXFLAGS $WX_CXXFLAGS"
-        saved_LIBS=$LIBS
-        LIBS=$WX_LIBS
+      saved_CXXFLAGS=$CXXFLAGS
+      CXXFLAGS="$CXXFLAGS $wx_flags"
+      saved_LIBS=$LIBS
+      LIBS=$wx_libs
 
-	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	  #include "wx/wx.h"
-          #include "wx/webview.h"
+            #include "wx/wx.h"
+            #include "wx/webview.h"
 
 int
 main (void)
 {
-
-             wxWebView::New();
-
+ wxWebView::New();
   ;
   return 0;
 }
@@ -7228,655 +7032,110 @@ fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
 
-	CXXFLAGS=$saved_CXXFLAGS
-        LIBS=$saved_LIBS
-	ac_ext=c
+      CXXFLAGS=$saved_CXXFLAGS
+      LIBS=$saved_LIBS
+      ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $HAVE_WEBVIEW_SUPPORT" >&5
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $HAVE_WEBVIEW_SUPPORT" >&5
 printf "%s\n" "$HAVE_WEBVIEW_SUPPORT" >&6; }
 
-	if test X"$HAVE_WEBVIEW_SUPPORT" != X"yes" ; then
-	  WXELIBS=stc,xrc,html,adv,xml,core,base,gl,aui
-	  echo "wxWidgets was not compiled with --enable-webview or wxWebView developer package is not installed, wxWebView will NOT be available" >> ./CONF_INFO
-	else
-	  WXELIBS=stc,xrc,html,adv,xml,core,base,gl,aui,webview
-          printf "%s\n" "#define WXE_WEBVIEW 1" >>confdefs.h
-
-	fi
-
-    # Try to find debug libs first
-
-
-    if test x${WX_CONFIG_NAME+set} != xset ; then
-     WX_CONFIG_NAME=wx-config
-  fi
-
-  if test "x$wx_config_name" != x ; then
-     WX_CONFIG_NAME="$wx_config_name"
-  fi
-
-    if test x$wx_config_exec_prefix != x ; then
-     wx_config_args="$wx_config_args --exec-prefix=$wx_config_exec_prefix"
-     WX_LOOKUP_PATH="$wx_config_exec_prefix/bin"
-  fi
-  if test x$wx_config_prefix != x ; then
-     wx_config_args="$wx_config_args --prefix=$wx_config_prefix"
-     WX_LOOKUP_PATH="$WX_LOOKUP_PATH:$wx_config_prefix/bin"
-  fi
-  if test "$cross_compiling" = "yes"; then
-     wx_config_args="$wx_config_args --host=$host_alias"
-  fi
-
-    if test -x "$WX_CONFIG_NAME" ; then
-     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wx-config" >&5
-printf %s "checking for wx-config... " >&6; }
-     WX_CONFIG_PATH="$WX_CONFIG_NAME"
-     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $WX_CONFIG_PATH" >&5
-printf "%s\n" "$WX_CONFIG_PATH" >&6; }
-  else
-     # Extract the first word of "$WX_CONFIG_NAME", so it can be a program name with args.
-set dummy $WX_CONFIG_NAME; ac_word=$2
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_path_WX_CONFIG_PATH+y}
+      if test X"$HAVE_WEBVIEW_SUPPORT" != X"yes"
 then :
-  printf %s "(cached) " >&6
+   echo "wxWidgets was not compiled with --enable-webview or wxWebView developer package is not installed, wxWebView will NOT be available" >> ./CONF_INFO
 else case e in #(
-  e) case $WX_CONFIG_PATH in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_WX_CONFIG_PATH="$WX_CONFIG_PATH" # Let the user override the test with a path.
+  e)  printf "%s\n" "#define WXE_WEBVIEW 1" >>confdefs.h
   ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-as_dummy=""$WX_LOOKUP_PATH:$PATH""
-for as_dir in $as_dummy
-do
-  IFS=$as_save_IFS
-  case $as_dir in #(((
-    '') as_dir=./ ;;
-    */) ;;
-    *) as_dir=$as_dir/ ;;
-  esac
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_path_WX_CONFIG_PATH="$as_dir$ac_word$ac_exec_ext"
-    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  test -z "$ac_cv_path_WX_CONFIG_PATH" && ac_cv_path_WX_CONFIG_PATH="no"
-  ;;
-esac ;;
 esac
 fi
-WX_CONFIG_PATH=$ac_cv_path_WX_CONFIG_PATH
-if test -n "$WX_CONFIG_PATH"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $WX_CONFIG_PATH" >&5
-printf "%s\n" "$WX_CONFIG_PATH" >&6; }
-else
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-fi
 
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for static wxWidgets build" >&5
+printf %s "checking for static wxWidgets build... " >&6; }
+      wx_static_libs=`$WX_CONFIG_PATH --libs $wx_needed --optional-libs webview --unicode=yes --static=yes 2>/dev/null`
 
-  fi
-
-  if test "$WX_CONFIG_PATH" != "no" ; then
-    WX_VERSION=""
-
-    min_wx_version=$reqwx
-    if test -z "--unicode --debug=yes" ; then
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets version >= $min_wx_version" >&5
-printf %s "checking for wxWidgets version >= $min_wx_version... " >&6; }
-    else
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets version >= $min_wx_version (--unicode --debug=yes)" >&5
-printf %s "checking for wxWidgets version >= $min_wx_version (--unicode --debug=yes)... " >&6; }
-    fi
-
-            WX_CONFIG_WITH_ARGS="$WX_CONFIG_PATH $wx_config_args --unicode --debug=yes"
-
-    WX_VERSION=`$WX_CONFIG_WITH_ARGS --version 2>/dev/null`
-    wx_config_major_version=`echo $WX_VERSION | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\1/'`
-    wx_config_minor_version=`echo $WX_VERSION | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\2/'`
-    wx_config_micro_version=`echo $WX_VERSION | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\3/'`
-
-    wx_requested_major_version=`echo $min_wx_version | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\1/'`
-    wx_requested_minor_version=`echo $min_wx_version | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\2/'`
-    wx_requested_micro_version=`echo $min_wx_version | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\3/'`
-
-
-    wx_ver_ok=""
-    if test "x$WX_VERSION" != x ; then
-      if test $wx_config_major_version -gt $wx_requested_major_version; then
-        wx_ver_ok=yes
-      else
-        if test $wx_config_major_version -eq $wx_requested_major_version; then
-           if test $wx_config_minor_version -gt $wx_requested_minor_version; then
-              wx_ver_ok=yes
-           else
-              if test $wx_config_minor_version -eq $wx_requested_minor_version; then
-                 if test $wx_config_micro_version -ge $wx_requested_micro_version; then
-                    wx_ver_ok=yes
-                 fi
-              fi
-           fi
-        fi
-      fi
-    fi
-
-
-    if test -n "$wx_ver_ok"; then
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes (version $WX_VERSION)" >&5
-printf "%s\n" "yes (version $WX_VERSION)" >&6; }
-      WX_LIBS=`$WX_CONFIG_WITH_ARGS --libs $WXELIBS`
-
-                              { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets static library" >&5
-printf %s "checking for wxWidgets static library... " >&6; }
-      WX_LIBS_STATIC=`$WX_CONFIG_WITH_ARGS --static --libs $WXELIBS 2>/dev/null`
-      if test "x$WX_LIBS_STATIC" = "x"; then
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-      else
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-      fi
-
-            wx_has_cppflags=""
-      if test $wx_config_major_version -gt 2; then
-        wx_has_cppflags=yes
-      else
-        if test $wx_config_major_version -eq 2; then
-           if test $wx_config_minor_version -gt 2; then
-              wx_has_cppflags=yes
-           else
-              if test $wx_config_minor_version -eq 2; then
-                 if test $wx_config_micro_version -ge 6; then
-                    wx_has_cppflags=yes
-                 fi
-              fi
-           fi
-        fi
-      fi
-
-            wx_has_rescomp=""
-      if test $wx_config_major_version -gt 2; then
-        wx_has_rescomp=yes
-      else
-        if test $wx_config_major_version -eq 2; then
-           if test $wx_config_minor_version -ge 7; then
-              wx_has_rescomp=yes
-           fi
-        fi
-      fi
-      if test "x$wx_has_rescomp" = x ; then
-                  WX_RESCOMP=
-      else
-         WX_RESCOMP=`$WX_CONFIG_WITH_ARGS --rescomp`
-      fi
-
-      if test "x$wx_has_cppflags" = x ; then
-                  WX_CFLAGS=`$WX_CONFIG_WITH_ARGS --cflags $WXELIBS`
-         WX_CPPFLAGS=$WX_CFLAGS
-         WX_CXXFLAGS=$WX_CFLAGS
-
-         WX_CFLAGS_ONLY=$WX_CFLAGS
-         WX_CXXFLAGS_ONLY=$WX_CFLAGS
-      else
-                  WX_CPPFLAGS=`$WX_CONFIG_WITH_ARGS --cppflags $WXELIBS`
-         WX_CXXFLAGS=`$WX_CONFIG_WITH_ARGS --cxxflags $WXELIBS`
-         WX_CFLAGS=`$WX_CONFIG_WITH_ARGS --cflags $WXELIBS`
-
-         WX_CFLAGS_ONLY=`echo $WX_CFLAGS | sed "s@^$WX_CPPFLAGS *@@"`
-         WX_CXXFLAGS_ONLY=`echo $WX_CXXFLAGS | sed "s@^$WX_CFLAGS *@@"`
-      fi
-
-      wxWinWithGLDBG=1
-
-    else
-
-       if test "x$WX_VERSION" = x; then
-                    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-       else
-          { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no (version $WX_VERSION is not new enough)" >&5
-printf "%s\n" "no (version $WX_VERSION is not new enough)" >&6; }
-       fi
-
-       WX_CFLAGS=""
-       WX_CPPFLAGS=""
-       WX_CXXFLAGS=""
-       WX_LIBS=""
-       WX_LIBS_STATIC=""
-       WX_RESCOMP=""
-
-       if test ! -z "--unicode --debug=yes"; then
-          wx_error_message="
-    The configuration you asked for $PACKAGE_NAME requires a wxWidgets
-    build with the following settings:
-        --unicode --debug=yes
-    but such build is not available.
-    To see the wxWidgets builds available on this system, please use
-    'wx-config --list' command. To use the default build, returned by
-    'wx-config --selected-config', use the options with their 'auto'
-    default values."
-       fi
-       wx_error_message="
-    The requested wxWidgets build couldn't be found.
-    $wx_error_message
-    If you still get this error, then check that 'wx-config' is
-    in path, the directory where wxWidgets libraries are installed
-    (returned by 'wx-config --libs' command) is in LD_LIBRARY_PATH
-    or equivalent variable and wxWidgets version is $reqwx or above."
-       wxWinWithGLDBG=0
-
-    fi
-  else
-
-    WX_CFLAGS=""
-    WX_CPPFLAGS=""
-    WX_CXXFLAGS=""
-    WX_LIBS=""
-    WX_LIBS_STATIC=""
-    WX_RESCOMP=""
-
-    wxWinWithGLDBG=0
-
-  fi
-
-
-
-
-
-
-
-
-
-
-
-      WX_VERSION_MAJOR="$wx_config_major_version"
-  WX_VERSION_MINOR="$wx_config_minor_version"
-  WX_VERSION_MICRO="$wx_config_micro_version"
-
-
-
-
-
-
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for debug build of wxWidgets" >&5
-printf %s "checking for debug build of wxWidgets... " >&6; }
-    if test "$wxWinWithGLDBG" = 1; then
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; };
-    else
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; };
-    fi
-
-    DEBUG_WX_CFLAGS=$WX_CFLAGS
-    DEBUG_WX_CXXFLAGS=$WX_CXXFLAGS
-    DEBUG_WX_LIBS=$WX_LIBS
-    DEBUG_WX_LIBS_STATIC=$WX_LIBS_STATIC
-
-
-
-
-
-
-
-    if test x${WX_CONFIG_NAME+set} != xset ; then
-     WX_CONFIG_NAME=wx-config
-  fi
-
-  if test "x$wx_config_name" != x ; then
-     WX_CONFIG_NAME="$wx_config_name"
-  fi
-
-    if test x$wx_config_exec_prefix != x ; then
-     wx_config_args="$wx_config_args --exec-prefix=$wx_config_exec_prefix"
-     WX_LOOKUP_PATH="$wx_config_exec_prefix/bin"
-  fi
-  if test x$wx_config_prefix != x ; then
-     wx_config_args="$wx_config_args --prefix=$wx_config_prefix"
-     WX_LOOKUP_PATH="$WX_LOOKUP_PATH:$wx_config_prefix/bin"
-  fi
-  if test "$cross_compiling" = "yes"; then
-     wx_config_args="$wx_config_args --host=$host_alias"
-  fi
-
-    if test -x "$WX_CONFIG_NAME" ; then
-     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wx-config" >&5
-printf %s "checking for wx-config... " >&6; }
-     WX_CONFIG_PATH="$WX_CONFIG_NAME"
-     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $WX_CONFIG_PATH" >&5
-printf "%s\n" "$WX_CONFIG_PATH" >&6; }
-  else
-     # Extract the first word of "$WX_CONFIG_NAME", so it can be a program name with args.
-set dummy $WX_CONFIG_NAME; ac_word=$2
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_path_WX_CONFIG_PATH+y}
+      if test "x$wx_static_libs" = "x"
 then :
-  printf %s "(cached) " >&6
+   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+          WX_HAVE_STATIC_LIBS=false
 else case e in #(
-  e) case $WX_CONFIG_PATH in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_WX_CONFIG_PATH="$WX_CONFIG_PATH" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-as_dummy=""$WX_LOOKUP_PATH:$PATH""
-for as_dir in $as_dummy
-do
-  IFS=$as_save_IFS
-  case $as_dir in #(((
-    '') as_dir=./ ;;
-    */) ;;
-    *) as_dir=$as_dir/ ;;
-  esac
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_path_WX_CONFIG_PATH="$as_dir$ac_word$ac_exec_ext"
-    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  test -z "$ac_cv_path_WX_CONFIG_PATH" && ac_cv_path_WX_CONFIG_PATH="no"
-  ;;
-esac ;;
+  e)
+          { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+          WX_HAVE_STATIC_LIBS=true  ;;
 esac
 fi
-WX_CONFIG_PATH=$ac_cv_path_WX_CONFIG_PATH
-if test -n "$WX_CONFIG_PATH"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $WX_CONFIG_PATH" >&5
-printf "%s\n" "$WX_CONFIG_PATH" >&6; }
-else
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-fi
 
+      FORCED_DEBUG_BUILD=false
 
-  fi
+      RC_FILE_TYPE=o
 
-  if test "$WX_CONFIG_PATH" != "no" ; then
-    WX_VERSION=""
+      WX_CFLAGS=
+      WX_CXXFLAGS=$wx_flags
+      WX_LIBS=$wx_libs
+      WX_LIBS_STATIC=$wx_static_libs
+      DEBUG_WX_CFLAGS=$WX_CFLAGS
+      DEBUG_WX_CXXFLAGS=$WX_CXXFLAGS
+      DEBUG_WX_LIBS=$WX_LIBS
+      DEBUG_WX_LIBS_STATIC=$WX_LIBS_STATIC
 
-    min_wx_version=$reqwx
-    if test -z "--unicode --debug=no" ; then
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets version >= $min_wx_version" >&5
-printf %s "checking for wxWidgets version >= $min_wx_version... " >&6; }
-    else
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets version >= $min_wx_version (--unicode --debug=no)" >&5
-printf %s "checking for wxWidgets version >= $min_wx_version (--unicode --debug=no)... " >&6; }
-    fi
+      if test "$wxWin" != 1
+then :
+   	echo "
+           wxWidgets must be installed on your system.
 
-            WX_CONFIG_WITH_ARGS="$WX_CONFIG_PATH $wx_config_args --unicode --debug=no"
-
-    WX_VERSION=`$WX_CONFIG_WITH_ARGS --version 2>/dev/null`
-    wx_config_major_version=`echo $WX_VERSION | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\1/'`
-    wx_config_minor_version=`echo $WX_VERSION | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\2/'`
-    wx_config_micro_version=`echo $WX_VERSION | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\3/'`
-
-    wx_requested_major_version=`echo $min_wx_version | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\1/'`
-    wx_requested_minor_version=`echo $min_wx_version | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\2/'`
-    wx_requested_micro_version=`echo $min_wx_version | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\3/'`
-
-
-    wx_ver_ok=""
-    if test "x$WX_VERSION" != x ; then
-      if test $wx_config_major_version -gt $wx_requested_major_version; then
-        wx_ver_ok=yes
-      else
-        if test $wx_config_major_version -eq $wx_requested_major_version; then
-           if test $wx_config_minor_version -gt $wx_requested_minor_version; then
-              wx_ver_ok=yes
-           else
-              if test $wx_config_minor_version -eq $wx_requested_minor_version; then
-                 if test $wx_config_micro_version -ge $wx_requested_micro_version; then
-                    wx_ver_ok=yes
-                 fi
-              fi
-           fi
-        fi
-      fi
-    fi
-
-
-    if test -n "$wx_ver_ok"; then
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes (version $WX_VERSION)" >&5
-printf "%s\n" "yes (version $WX_VERSION)" >&6; }
-      WX_LIBS=`$WX_CONFIG_WITH_ARGS --libs $WXELIBS`
-
-                              { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets static library" >&5
-printf %s "checking for wxWidgets static library... " >&6; }
-      WX_LIBS_STATIC=`$WX_CONFIG_WITH_ARGS --static --libs $WXELIBS 2>/dev/null`
-      if test "x$WX_LIBS_STATIC" = "x"; then
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-      else
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-      fi
-
-            wx_has_cppflags=""
-      if test $wx_config_major_version -gt 2; then
-        wx_has_cppflags=yes
-      else
-        if test $wx_config_major_version -eq 2; then
-           if test $wx_config_minor_version -gt 2; then
-              wx_has_cppflags=yes
-           else
-              if test $wx_config_minor_version -eq 2; then
-                 if test $wx_config_micro_version -ge 6; then
-                    wx_has_cppflags=yes
-                 fi
-              fi
-           fi
-        fi
-      fi
-
-            wx_has_rescomp=""
-      if test $wx_config_major_version -gt 2; then
-        wx_has_rescomp=yes
-      else
-        if test $wx_config_major_version -eq 2; then
-           if test $wx_config_minor_version -ge 7; then
-              wx_has_rescomp=yes
-           fi
-        fi
-      fi
-      if test "x$wx_has_rescomp" = x ; then
-                  WX_RESCOMP=
-      else
-         WX_RESCOMP=`$WX_CONFIG_WITH_ARGS --rescomp`
-      fi
-
-      if test "x$wx_has_cppflags" = x ; then
-                  WX_CFLAGS=`$WX_CONFIG_WITH_ARGS --cflags $WXELIBS`
-         WX_CPPFLAGS=$WX_CFLAGS
-         WX_CXXFLAGS=$WX_CFLAGS
-
-         WX_CFLAGS_ONLY=$WX_CFLAGS
-         WX_CXXFLAGS_ONLY=$WX_CFLAGS
-      else
-                  WX_CPPFLAGS=`$WX_CONFIG_WITH_ARGS --cppflags $WXELIBS`
-         WX_CXXFLAGS=`$WX_CONFIG_WITH_ARGS --cxxflags $WXELIBS`
-         WX_CFLAGS=`$WX_CONFIG_WITH_ARGS --cflags $WXELIBS`
-
-         WX_CFLAGS_ONLY=`echo $WX_CFLAGS | sed "s@^$WX_CPPFLAGS *@@"`
-         WX_CXXFLAGS_ONLY=`echo $WX_CXXFLAGS | sed "s@^$WX_CFLAGS *@@"`
-      fi
-
-      wxWinWithGL=1
-
-    else
-
-       if test "x$WX_VERSION" = x; then
-                    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-       else
-          { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no (version $WX_VERSION is not new enough)" >&5
-printf "%s\n" "no (version $WX_VERSION is not new enough)" >&6; }
-       fi
-
-       WX_CFLAGS=""
-       WX_CPPFLAGS=""
-       WX_CXXFLAGS=""
-       WX_LIBS=""
-       WX_LIBS_STATIC=""
-       WX_RESCOMP=""
-
-       if test ! -z "--unicode --debug=no"; then
-          wx_error_message="
-    The configuration you asked for $PACKAGE_NAME requires a wxWidgets
-    build with the following settings:
-        --unicode --debug=no
-    but such build is not available.
-    To see the wxWidgets builds available on this system, please use
-    'wx-config --list' command. To use the default build, returned by
-    'wx-config --selected-config', use the options with their 'auto'
-    default values."
-       fi
-       wx_error_message="
-    The requested wxWidgets build couldn't be found.
-    $wx_error_message
-    If you still get this error, then check that 'wx-config' is
-    in path, the directory where wxWidgets libraries are installed
-    (returned by 'wx-config --libs' command) is in LD_LIBRARY_PATH
-    or equivalent variable and wxWidgets version is $reqwx or above."
-       wxWinWithGL=0
-
-    fi
-  else
-
-    WX_CFLAGS=""
-    WX_CPPFLAGS=""
-    WX_CXXFLAGS=""
-    WX_LIBS=""
-    WX_LIBS_STATIC=""
-    WX_RESCOMP=""
-
-    wxWinWithGL=0
-
-  fi
-
-
-
-
-
-
-
-
-
-
-
-      WX_VERSION_MAJOR="$wx_config_major_version"
-  WX_VERSION_MINOR="$wx_config_minor_version"
-  WX_VERSION_MICRO="$wx_config_micro_version"
-
-
-
-
-
-
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for standard build of wxWidgets" >&5
-printf %s "checking for standard build of wxWidgets... " >&6; }
-    if test "$wxWinWithGL" = 1; then
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; };
-    else
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; };
-    fi
-
-    if test "x$WX_LIBS_STATIC" = "x"; then
-       WX_HAVE_STATIC_LIBS=false
-    else
-       WX_HAVE_STATIC_LIBS=true
-    fi
-
-    wxWin=0
-
-    if test "$wxWinWithGLDBG" = 1; then
-        if test "$wxWinWithGL" = 1; then
-    	   wxWin=1
-	   FORCED_DEBUG_BUILD=false
-    	else
-    	   wxWin=1
-	   FORCED_DEBUG_BUILD=debug
-	   WX_CFLAGS=$DEBUG_WX_CFLAGS
-	   WX_CXXFLAGS=$DEBUG_WX_CXXFLAGS
-	   WX_LIBS=$DEBUG_WX_LIBS
-	   WX_LIBS_STATIC=$DEBUG_WX_LIBS_STATIC
-	fi
-    elif test "$wxWinWithGL" = 1; then
-    	wxWin=1
-	FORCED_DEBUG_BUILD=false
-    fi
-
-    RC_FILE_TYPE=o
-
-    if test "$wxWin" != 1; then
-       	echo "
-        wxWidgets must be installed on your system.
-
-        Please check that wx-config is in path, the directory
-        where wxWidgets libraries are installed (returned by
-        'wx-config --libs' or 'wx-config --static --libs' command)
-        is in LD_LIBRARY_PATH or equivalent variable and
-        wxWidgets version is $reqwx or above." >> ./CONF_INFO
+           Please check that wx-config is in path, the directory
+           where wxWidgets libraries are installed, returned by
+           'wx-config --libs' or 'wx-config --static --libs' command,
+           is in LD_LIBRARY_PATH or equivalent variable and
+           wxWidgets version is $reqwx or above." >> ./CONF_INFO
     WXERL_CAN_BUILD_DRIVER=false
     if test X"$with_wx" = X"yes" ; then
         as_fn_error $? "
-        wxWidgets must be installed on your system.
+           wxWidgets must be installed on your system.
 
-        Please check that wx-config is in path, the directory
-        where wxWidgets libraries are installed (returned by
-        'wx-config --libs' or 'wx-config --static --libs' command)
-        is in LD_LIBRARY_PATH or equivalent variable and
-        wxWidgets version is $reqwx or above." "$LINENO" 5
+           Please check that wx-config is in path, the directory
+           where wxWidgets libraries are installed, returned by
+           'wx-config --libs' or 'wx-config --static --libs' command,
+           is in LD_LIBRARY_PATH or equivalent variable and
+           wxWidgets version is $reqwx or above." "$LINENO" 5
     else
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING:
-        wxWidgets must be installed on your system.
+           wxWidgets must be installed on your system.
 
-        Please check that wx-config is in path, the directory
-        where wxWidgets libraries are installed (returned by
-        'wx-config --libs' or 'wx-config --static --libs' command)
-        is in LD_LIBRARY_PATH or equivalent variable and
-        wxWidgets version is $reqwx or above." >&5
+           Please check that wx-config is in path, the directory
+           where wxWidgets libraries are installed, returned by
+           'wx-config --libs' or 'wx-config --static --libs' command,
+           is in LD_LIBRARY_PATH or equivalent variable and
+           wxWidgets version is $reqwx or above." >&5
 printf "%s\n" "$as_me: WARNING:
-        wxWidgets must be installed on your system.
+           wxWidgets must be installed on your system.
 
-        Please check that wx-config is in path, the directory
-        where wxWidgets libraries are installed (returned by
-        'wx-config --libs' or 'wx-config --static --libs' command)
-        is in LD_LIBRARY_PATH or equivalent variable and
-        wxWidgets version is $reqwx or above." >&2;}
+           Please check that wx-config is in path, the directory
+           where wxWidgets libraries are installed, returned by
+           'wx-config --libs' or 'wx-config --static --libs' command,
+           is in LD_LIBRARY_PATH or equivalent variable and
+           wxWidgets version is $reqwx or above." >&2;}
     fi
 
-    fi
 
+fi
+
+
+
+
+
+
+
+
+
+
+    ;;
+esac
+fi
 else case e in #(
   e)  #else
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets in standard locations" >&5
@@ -7907,8 +7166,8 @@ printf "%s\n" "$as_me: OptionCheck: $with_wxdir $with_wx_prefix" >&6;}
 
     CWXWIN_PROG=`win32_path.sh -u "$PROGRAMFILES" 2>/dev/null`
 
-    CWXWIN3="$CWXWIN_PROG/wxWidgets-3.*.*
-    CWXWIN4="$CWXWIN_PROG/wxMSW-3.*.*
+    CWXWIN3="$CWXWIN_PROG/wxWidgets-3.*.*"
+    CWXWIN4="$CWXWIN_PROG/wxMSW-3.*.*"
 
     DOC_OPT1=/opt/local/pgm
     DOC_OPT2=/mnt/c/opt/local/pgm
