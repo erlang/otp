@@ -1154,7 +1154,7 @@ typedef struct external_thing_ {
 #endif
 	} port;
 	Uint32              ui32[2];
-	Uint                ui[1];
+        Uint                ui[sizeof(Uint64) / sizeof(Uint)];
     } data;
 } ExternalThing;
 
