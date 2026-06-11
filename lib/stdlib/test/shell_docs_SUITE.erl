@@ -616,6 +616,7 @@ ansi(_Config) ->
 -doc """
 Doc doc doc doc doc doc doc doc doc doc doc doc doc doc doc.
 """.
+-spec columns(list()) -> ok.
 columns(_Config) ->
     {ok, Docs} = code:get_doc(?MODULE),
 
@@ -627,9 +628,9 @@ columns(_Config) ->
                 lists:max(lists:map(fun string:length/1, Lines))
         end,
 
-    application:set_env(stdlib, shell_docs_columns, 30),
-    ?assert(MaxColumns(#{}) =< 30),
-    ?assert(MaxColumns(#{columns => 20}) =< 20),
+    application:set_env(stdlib, shell_docs_columns, 40),
+    ?assert(MaxColumns(#{}) =< 40),
+    ?assert(MaxColumns(#{columns => 30}) =< 30),
 
     application:set_env(stdlib, shell_docs_columns, not_an_integer),
     ?assert(MaxColumns(#{}) > 30),
@@ -642,7 +643,7 @@ columns(_Config) ->
 
     application:unset_env(stdlib, shell_docs_columns),
     ?assert(MaxColumns(#{}) > 30),
-    ?assert(MaxColumns(#{columns => 20}) =< 20),
+    ?assert(MaxColumns(#{columns => 30}) =< 30),
 
     ok.
 
