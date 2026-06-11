@@ -22,23 +22,29 @@
 %%
 -module(array).
 -moduledoc """
-Functional, extendible arrays.
+Functional, extendable arrays.
 
-Arrays can have fixed size, or can grow automatically as needed. A default value
-is used for entries that have not been explicitly set.
+Arrays can have fixed size, or can grow automatically as needed, so called
+extendable arrays.
+A default value is used for entries that have not been explicitly set.
 
 Arrays uses _zero_-based indexing. This is a deliberate design choice and
 differs from other Erlang data structures, for example, tuples.
 
-Unless specified by the user when the array is created, the default value is the
-atom `undefined`. There is no difference between an unset entry and an entry
-that has been explicitly set to the same value as the default one (compare
-`reset/2`). If you need to differentiate between unset and set entries, ensure
-that the default value cannot be confused with the values of set entries.
+An extendable array grows automatically when you set an entry outside its currently defined part, but it never shrinks automatically afterwards. Once an index I has been used to successfully set an entry, all indices in `[0,I]` stay accessible until the size is explicitly changed with resize/2.
 
-The array never shrinks automatically. If an index `I` has been used to set an
-entry successfully, all indices in the range `[0,I]` stay accessible unless the
-array size is explicitly changed by calling `resize/2`.
+Unless specified by the user when the array is created, the default value is the
+atom `undefined`. An unset entry and an entry
+that has been explicitly set compare equal. If you need to differentiate between
+unset and set entries, ensure
+that the default value cannot be confused with the values of set entries.
+The only subtle difference
+is that for extendable arrays, setting an entry to a default value may make the
+array grow, but unsetting it (with `reset/2`) will not make it shrink.
+
+Functions like `concat/1` that create arrays from other arrays can mix fixed size
+arrays with extendable arrays. Carefully read the documentation in order to understand
+what results to expect when arrays have different defaults or are of different kind.
 
 ## Examples
 
@@ -49,7 +55,7 @@ A0 = array:new(10).
 10 = array:size(A0).
 ```
 
-Create an extendible array and set entry 17 to `true`, causing the array to grow
+Create an extendable array and set entry 17 to `true`, causing the array to grow
 automatically:
 
 ```
@@ -772,6 +778,9 @@ that a subsequent shift or similar operation can bring back the values that
 were shifted out. Use `resize/2` or `resize/1` if you want to ensure that
 values outside the range get pruned.
 
+The call fails with a badarg if array is shifted to the left more
+than its size (even for non fixed arrays).
+
 ## Examples
 
 ```erlang
@@ -865,6 +874,7 @@ slice(_I, _N, _A) ->
 Append a single value to the right side of the array.
 
 The operation is always allowed even if the array is fixed.
+The size of the array increases by one.
 
 ## Examples
 
@@ -914,6 +924,7 @@ append(_V, _A) ->
 Prepend a single value to the left side of the array.
 
 The operation is always allowed even if the array is fixed.
+The size of the array increases by one.
 
 ## Examples
 
@@ -1047,6 +1058,12 @@ Concatenates two arrays.
 
 Adds the elements of `B` onto `A`.
 
+This means that `A` determines the default element and whether or not the result is
+a fixed size array or an extendable array. If `A` is fixed size, its size will increase,
+but still be fixed after the concatenation.
+For arrays where `B`'s default differs from `A`'s default, the `B` entries up to `B`'s
+size are added to `A`.
+
 ## Examples
 
 ```erlang
@@ -1055,6 +1072,14 @@ Adds the elements of `B` onto `A`.
 3> AB = array:concat(A,B).
 4> array:to_list(AB).
 [xa,a,xa,xb,xb,b,xb]
+```
+
+```erlang
+1> A = array:new([{default, 0}]).
+2> B = array:set(2, 0, array:new([{default, 1}])).
+3> AB = array:concat(A,B).
+4> array:to_list(AB).
+[1,1,0]
 ```
 
 See also `concat/1`, `append/2`, `prepend/2`.
@@ -1076,6 +1101,9 @@ concat(_, _) ->
 
 -doc """
 Concatenates a nonempty list of arrays.
+
+The first array in the list determines the default value of the result
+and whether or not the array is fixed size.
 
 ## Examples
 
