@@ -849,7 +849,8 @@ t() ->
     1000*Delay.
 
 f() ->
-    timer:sleep(T=t()),
+    T = t(),
+    timer:sleep(T),
     spawn(?MODULE, f2, []),
     {hej,T,node()}.
 
