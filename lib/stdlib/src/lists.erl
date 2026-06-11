@@ -2667,14 +2667,13 @@ Summing the elements in a list and double them at the same time:
       B :: term().
 
 mapfoldl(F, Accu, List) when is_function(F, 2) ->
-    mapfoldl_1(F, Accu, List).
+    mapfoldl_1(F, List, [], Accu).
 
-mapfoldl_1(F, Accu0, [Hd | Tail]) ->
-    {R, Accu1} = F(Hd, Accu0),
-    {Rs, Accu2} = mapfoldl_1(F, Accu1, Tail),
-    {[R | Rs], Accu2};
-mapfoldl_1(_F, Accu, []) ->
-    {[], Accu}.
+mapfoldl_1(F, [Hd | Tail], MapAcc, FoldAcc0) ->
+    {M, FoldAcc1} = F(Hd, FoldAcc0),
+    mapfoldl_1(F, Tail, [M | MapAcc], FoldAcc1);
+mapfoldl_1(_F, [], MapAcc, FoldAcc) ->
+    {reverse(MapAcc), FoldAcc}.
 
 -doc """
 Combines the operations of `map/2` and `foldr/3` into one pass.
@@ -2706,14 +2705,13 @@ same time:
       B :: term().
 
 mapfoldr(F, Accu, List) when is_function(F, 2) ->
-    mapfoldr_1(F, Accu, List).
+    mapfoldr_1(F, reverse(List), [], Accu).
 
-mapfoldr_1(F, Accu0, [Hd|Tail]) ->
-    {Rs, Accu1} = mapfoldr_1(F, Accu0, Tail),
-    {R, Accu2} = F(Hd, Accu1),
-    {[R | Rs], Accu2};
-mapfoldr_1(_F, Accu, []) ->
-    {[], Accu}.
+mapfoldr_1(F, [Hd | Tail], MapAcc, FoldAcc0) ->
+    {M, FoldAcc1} = F(Hd, FoldAcc0),
+    mapfoldr_1(F, Tail, [M | MapAcc], FoldAcc1);
+mapfoldr_1(_F, [], MapAcc, FoldAcc) ->
+    {MapAcc, FoldAcc}.
 
 -doc """
 Takes elements `Elem` from `List1` while `Pred(Elem)` returns `true`,
