@@ -354,7 +354,6 @@ certify(internal,  #change_cipher_spec{type = <<1>>}, State0) ->
     %% This will reset the retransmission timer by repeating the enter state event
     case dtls_gen_connection:next_event(?STATE(certify), no_record, State1, Actions0) of
         {next_state, ?FUNCTION_NAME, State, Actions} ->
-            dtls_gen_connection:next_event(?STATE(certify), no_record, State1, Actions0),
             {repeat_state, State, Actions};
         {next_state, ?FUNCTION_NAME, State} ->
             {repeat_state, State, Actions0};
