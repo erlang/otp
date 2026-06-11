@@ -36,8 +36,6 @@
          cookie_secret/0,
          cookie_timeout/0]).
 
--define(COOKIE_BASE_TIMEOUT, 30000).
-
 -spec suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
 
 suites(Version) ->
@@ -82,9 +80,9 @@ cookie_secret() ->
     crypto:strong_rand_bytes(32).
 
 cookie_timeout() ->
-    %% Cookie will live for two timeouts periods
-    round(rand:uniform() * ?COOKIE_BASE_TIMEOUT/2).
-
+    %% Minimum 10s, max 30s — ensures client always has time to respond
+    %% even on lossy networks with re-transmissions
+    10000 + rand:uniform(20000).
 
 corresponding_dtls_version(?TLS_1_1) ->
     ?DTLS_1_0;
