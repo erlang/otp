@@ -41,6 +41,9 @@
 -import(lists, [duplicate/2,foldl/3,member/2,
                 keyfind/3,reverse/1,split/2,zip/2]).
 
+-type type() :: beam_types:type().
+-type normal_type() :: beam_types:normal_type().
+
 %% The maximum number of #b_ret{} terminators a function can have before
 %% collapsing success types into a single entry. Consider the following code:
 %%

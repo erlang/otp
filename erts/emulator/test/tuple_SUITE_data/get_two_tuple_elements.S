@@ -48,118 +48,182 @@
 
 {function, get_two_tuple_elements, 0, 2}.
   {label,1}.
-    {line,[{location,"get_two_tuple_elements.erl",4}]}.
+    {line,[{location,"erts/emulator/test/tuple_SUITE_data/get_two_tuple_elements.erl",
+                     26}]}.
     {func_info,{atom,get_two_tuple_elements},{atom,get_two_tuple_elements},0}.
   {label,2}.
     {allocate,2,0}.
     {init_yregs,{list,[{y,0},{y,1}]}}.
     {move,{atom,x},{x,0}}.
-    {line,[{location,"get_two_tuple_elements.erl",5}]}.
-    {call,1,{f,9}}.
-    {'%',{var_info,{x,0},
-                   [{type,{t_union,{t_atom,[x]},
-                                   none,
-                                   {t_integer,{1,2}},
-                                   none,none,none}}]}}.
+    {line,[{location,"erts/emulator/test/tuple_SUITE_data/get_two_tuple_elements.erl",
+                     27}]}.
+    {call,1,{f,9}}. % id/1
+    {'%',
+        {var_info,
+            {x,0},
+            [{type,
+                 #beam_types:t_union{
+                     atom = #beam_types:t_atom{elements = [x]},
+                     list = none,
+                     number = #beam_types:t_integer{elements = {1,2}},
+                     tuple_set = none,native_record_set = none,
+                     other = none}}]}}.
     {move,{x,0},{y,1}}.
     {move,{integer,1},{x,0}}.
-    {line,[{location,"get_two_tuple_elements.erl",5}]}.
-    {call,1,{f,9}}.
-    {'%',{var_info,{x,0},
-                   [{type,{t_union,{t_atom,[x]},
-                                   none,
-                                   {t_integer,{1,2}},
-                                   none,none,none}}]}}.
+    {call,1,{f,9}}. % id/1
+    {'%',
+        {var_info,
+            {x,0},
+            [{type,
+                 #beam_types:t_union{
+                     atom = #beam_types:t_atom{elements = [x]},
+                     list = none,
+                     number = #beam_types:t_integer{elements = {1,2}},
+                     tuple_set = none,native_record_set = none,
+                     other = none}}]}}.
     {move,{x,0},{y,0}}.
     {move,{integer,2},{x,0}}.
-    {line,[{location,"get_two_tuple_elements.erl",5}]}.
-    {call,1,{f,9}}.
-    {'%',{var_info,{x,0},
-                   [{type,{t_union,{t_atom,[x]},
-                                   none,
-                                   {t_integer,{1,2}},
-                                   none,none,none}}]}}.
+    {call,1,{f,9}}. % id/1
+    {'%',
+        {var_info,
+            {x,0},
+            [{type,
+                 #beam_types:t_union{
+                     atom = #beam_types:t_atom{elements = [x]},
+                     list = none,
+                     number = #beam_types:t_integer{elements = {1,2}},
+                     tuple_set = none,native_record_set = none,
+                     other = none}}]}}.
     {test_heap,7,1}.
     {put_tuple2,{x,0},{list,[{atom,x},{atom,y},{x,0}]}}.
     {put_tuple2,{x,1},{list,[{y,0},{x,0}]}}.
     {move,{y,1},{x,0}}.
     {trim,2,0}.
-    {line,[{location,"get_two_tuple_elements.erl",5}]}.
-    {call,2,{f,5}}.
-    {'%',{var_info,{x,0},[{type,{t_number,any}}]}}.
-    {test,is_eq_exact,{f,3},[{x,0},{integer,3}]}.
+    {call,2,{f,5}}. % xx/2
+    {'%',{var_info,{x,0},[{type,#beam_types:t_integer{elements = {2,4}}}]}}.
+    {test,is_eq_exact,
+          {f,3},
+          [{tr,{x,0},#beam_types:t_integer{elements = {2,4}}},{integer,3}]}.
     {move,{atom,ok},{x,0}}.
     {deallocate,0}.
     return.
   {label,3}.
-    {line,[{location,"get_two_tuple_elements.erl",5}]}.
     {badmatch,{x,0}}.
 
 
 {function, xx, 2, 5}.
   {label,4}.
-    {line,[{location,"get_two_tuple_elements.erl",8}]}.
+    {line,[{location,"erts/emulator/test/tuple_SUITE_data/get_two_tuple_elements.erl",
+                     30}]}.
     {func_info,{atom,get_two_tuple_elements},{atom,xx},2}.
   {label,5}.
-    {'%',{var_info,{x,0},
-                   [{type,{t_union,{t_atom,[x]},
-                                   none,
-                                   {t_integer,{1,2}},
-                                   none,none,none}}]}}.
+    {'%',
+        {var_info,
+            {x,0},
+            [{type,
+                 #beam_types:t_union{
+                     atom = #beam_types:t_atom{elements = [x]},
+                     list = none,
+                     number = #beam_types:t_integer{elements = {1,2}},
+                     tuple_set = none,native_record_set = none,
+                     other = none}}]}}.
     {'%',
      {var_info,
       {x,1},
       [{type,
-        {t_tuple,2,true,
-         #{1 => {t_union,{t_atom,[x]},none,{t_integer,{1,2}},none,none,none},
-           2 =>
-            {t_tuple,3,true,
-             #{1 => {t_atom,[x]},
-               2 => {t_atom,[y]},
-               3 =>
-                {t_union,
-                 {t_atom,[x]},
-                 none,
-                 {t_integer,{1,2}},
-                 none,none,none}}}}}}]}}.
+        #beam_types:t_tuple{
+         size = 2,exact = true,
+         elements =
+          #{1 =>
+             #beam_types:t_union{
+              atom = #beam_types:t_atom{elements = [x]},
+              list = none,
+              number = #beam_types:t_integer{elements = {1,2}},
+              tuple_set = none,native_record_set = none,other = none},
+            2 =>
+             #beam_types:t_tuple{
+              size = 3,exact = true,
+              elements =
+               #{1 => #beam_types:t_atom{elements = [x]},
+                 2 => #beam_types:t_atom{elements = [y]},
+                 3 =>
+                  #beam_types:t_union{
+                   atom = #beam_types:t_atom{elements = [x]},
+                   list = none,
+                   number = #beam_types:t_integer{elements = {1,2}},
+                   tuple_set = none,native_record_set = none,
+                   other = none}}}}}}]}}.
     {get_tuple_element,{x,1},0,{x,0}}.
     {get_tuple_element,{x,1},1,{x,1}}.
     {get_tuple_element,{x,1},2,{x,1}}.
     {move,nil,{x,2}}.
-    {call_only,3,{f,7}}.
+    {call_only,3,{f,7}}. % yy/3
 
 
 {function, yy, 3, 7}.
   {label,6}.
-    {line,[{location,"get_two_tuple_elements.erl",17}]}.
+    {line,[{location,"erts/emulator/test/tuple_SUITE_data/get_two_tuple_elements.erl",
+                     39}]}.
     {func_info,{atom,get_two_tuple_elements},{atom,yy},3}.
   {label,7}.
-    {'%',{var_info,{x,0},
-                   [{type,{t_union,{t_atom,[x]},
-                                   none,
-                                   {t_integer,{1,2}},
-                                   none,none,none}}]}}.
-    {'%',{var_info,{x,1},
-                   [{type,{t_union,{t_atom,[x]},
-                                   none,
-                                   {t_integer,{1,2}},
-                                   none,none,none}}]}}.
+    {'%',
+        {var_info,
+            {x,0},
+            [{type,
+                 #beam_types:t_union{
+                     atom = #beam_types:t_atom{elements = [x]},
+                     list = none,
+                     number = #beam_types:t_integer{elements = {1,2}},
+                     tuple_set = none,native_record_set = none,
+                     other = none}}]}}.
+    {'%',
+        {var_info,
+            {x,1},
+            [{type,
+                 #beam_types:t_union{
+                     atom = #beam_types:t_atom{elements = [x]},
+                     list = none,
+                     number = #beam_types:t_integer{elements = {1,2}},
+                     tuple_set = none,native_record_set = none,
+                     other = none}}]}}.
     {'%',{var_info,{x,2},[{type,nil}]}}.
-    {line,[{location,"get_two_tuple_elements.erl",18}]}.
-    {gc_bif,'+',{f,0},2,[{x,0},{x,1}],{x,0}}.
+    {line,[{location,"erts/emulator/test/tuple_SUITE_data/get_two_tuple_elements.erl",
+                     40}]}.
+    {gc_bif,'+',
+        {f,0},
+        2,
+        [{tr,{x,0},
+             #beam_types:t_union{
+                 atom = #beam_types:t_atom{elements = [x]},
+                 list = none,
+                 number = #beam_types:t_integer{elements = {1,2}},
+                 tuple_set = none,native_record_set = none,other = none}},
+         {tr,{x,1},
+             #beam_types:t_union{
+                 atom = #beam_types:t_atom{elements = [x]},
+                 list = none,
+                 number = #beam_types:t_integer{elements = {1,2}},
+                 tuple_set = none,native_record_set = none,other = none}}],
+        {x,0}}.
     return.
 
 
 {function, id, 1, 9}.
   {label,8}.
-    {line,[{location,"get_two_tuple_elements.erl",20}]}.
+    {line,[{location,"erts/emulator/test/tuple_SUITE_data/get_two_tuple_elements.erl",
+                     42}]}.
     {func_info,{atom,get_two_tuple_elements},{atom,id},1}.
   {label,9}.
-    {'%',{var_info,{x,0},
-                   [{type,{t_union,{t_atom,[x]},
-                                   none,
-                                   {t_integer,{1,2}},
-                                   none,none,none}}]}}.
+    {'%',
+        {var_info,
+            {x,0},
+            [{type,
+                 #beam_types:t_union{
+                     atom = #beam_types:t_atom{elements = [x]},
+                     list = none,
+                     number = #beam_types:t_integer{elements = {1,2}},
+                     tuple_set = none,native_record_set = none,
+                     other = none}}]}}.
     return.
 
 
@@ -169,7 +233,6 @@
     {func_info,{atom,get_two_tuple_elements},{atom,module_info},0}.
   {label,11}.
     {move,{atom,get_two_tuple_elements},{x,0}}.
-    {line,[]}.
     {call_ext_only,1,{extfunc,erlang,get_module_info,1}}.
 
 
@@ -180,5 +243,4 @@
   {label,13}.
     {move,{x,0},{x,1}}.
     {move,{atom,get_two_tuple_elements},{x,0}}.
-    {line,[]}.
     {call_ext_only,2,{extfunc,erlang,get_module_info,2}}.

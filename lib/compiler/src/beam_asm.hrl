@@ -43,4 +43,4 @@
 %%
 %% To aid in the above, the validator will explode upon encountering them in an
 %% unfamiliar context.
--record(tr, {r :: beam_reg(), t :: type()}).
+-record(tr, {r :: beam_reg(), t :: beam_types:type()}).

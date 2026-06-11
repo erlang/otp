@@ -308,7 +308,7 @@ format_live_interval(#b_var{}=Dst, #{live_intervals:=Intervals}) ->
     end;
 format_live_interval(_, _) -> [].
 
--spec format_type(type()) -> iolist().
+-spec format_type(beam_types:type()) -> iolist().
 
 format_type(any) ->
     "any()";
