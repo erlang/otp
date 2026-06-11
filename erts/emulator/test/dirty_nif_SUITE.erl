@@ -1052,7 +1052,7 @@ nif_whereis(Config) when is_list(Config) ->
     ok.
 
 %% enif_port_command() from a dirty scheduler must return false, not crash,
-%% when the port is no longer alive (OTP-11221).
+%% when the port is no longer alive (GH-11221).
 dirty_port_command(Config) when is_list(Config) ->
     erl_ddll:try_load(?config(data_dir, Config), echo_drv, []),
 
