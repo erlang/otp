@@ -159,7 +159,7 @@ get_anno(#cg_select{anno=Anno}) -> Anno.
                ds :: sets:set(),       %Defined variables
                funs=[],                         %Fun functions
                free=#{},                        %Free variables
-               rec_defaults :: #{atom() => type()},  %Native records.
+               rec_defaults :: #{atom() => beam_types:type()},  %Native records.
                ws=[]   :: [warning()],          %Warnings.
                beam_debug_info=false :: boolean()
               }.

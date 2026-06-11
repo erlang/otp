@@ -101,7 +101,7 @@ fn(#b_local{name=#b_literal{val=N},arity=A}) ->
 
 -type sharing_state() :: any(). % A graph
 
--type type_db() :: #{ beam_ssa:b_var() := type() }.
+-type type_db() :: #{ beam_ssa:b_var() := beam_types:type() }.
 
 %%%
 %%% Optimization pass which calculates the alias status of values and

@@ -29,6 +29,9 @@
 
 -export([will_succeed/3, types/3, arith_type/2]).
 
+-type type() :: beam_types:type().
+-type normal_type() :: beam_types:normal_type().
+
 %%
 %% Define an upper limit for functions that return sizes of data
 %% structures. The chosen value is about half the maxium size of a

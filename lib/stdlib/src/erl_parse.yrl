@@ -1970,6 +1970,12 @@ normalise({map,_,Pairs}=M) ->
 	    end, Pairs));
 normalise({'fun',_,{function,{atom,_,M},{atom,_,F},{integer,_,A}}}) ->
     fun M:F/A;
+normalise({'record',_,{M,N},Fs0}=R) ->
+    Fs1 = lists:map(fun
+                        ({record_field,_,K,V}) -> {normalise(K),normalise(V)};
+                        (_) -> erlang:error({badarg,R})
+                   end, Fs0),
+    records:create(M, N, Fs1, #{is_exported=>true});
 %% Special case for unary +/-.
 normalise({op,_,'+',{char,_,I}}) -> I;
 normalise({op,_,'+',{integer,_,I}}) -> I;
