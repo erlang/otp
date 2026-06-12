@@ -8075,8 +8075,8 @@ subtrees(T) ->
                      [record_access_field(T)]];
 		record_expr ->
 		    Type = case type(record_expr_type(T)) of
-			       atom -> [record_expr_type(T)];
-			       list -> list_elements(record_expr_type(T))
+                               list -> list_elements(record_expr_type(T));
+                               _ -> [record_expr_type(T)]
 			   end,
 		    case record_expr_argument(T) of
 			none ->
