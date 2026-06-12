@@ -1484,6 +1484,43 @@ orphan_tables([Tab | Tabs], Node, Ns, Local, Remote) ->
 		_ ->
 		    orphan_tables(Tabs, Node, Ns, Local, Remote)
 	    end;
+	false when Active == [], DiscCopyHolders == [],
+               RamCopyHolders =/= [], not (LocalContent == true),
+               (RamCopyHoldersOnDiscNodes =/= [] orelse DiscNodes == []) ->
+	    %% RAM-only table whose copies live on disc nodes, OR a fully
+	    %% disc-less cluster (DiscNodes == []). In both cases a remote
+	    %% holder may have a better copy, so don't blindly load an empty
+	    %% local copy. Handled before the disc-less special case below;
+	    %% the mixed case (ram copies only on ram nodes while a disc node
+	    %% exists) falls through to that clause and keeps loading directly.
+	    case RamCopyHolders -- Ns of
+		[] ->
+		    %% We're last up and the other nodes have not
+		    %% loaded the table. Lets load it if we are
+		    %% the smallest node.
+		    case lists:min(RamCopyHolders) of
+			Min when Min == node() ->
+                %% This is safe for ram copies because if all nodes are 
+                %% waiting that means the table is empty on all nodes.
+                %% here we just need to elect a bootstrap node to break
+                %% the waiting loop.
+			    case mnesia_recover:get_master_nodes(Tab) of
+				[] ->
+				    L = [Tab | Local],
+				    orphan_tables(Tabs, Node, Ns, L, Remote);
+				Masters ->
+				    R = [{Tab, Masters} | Remote],
+				    orphan_tables(Tabs, Node, Ns, Local, R)
+			    end;
+			_ ->
+			    orphan_tables(Tabs, Node, Ns, Local, Remote)
+		    end;
+		_ ->
+		    %% A non-down remote copy holder may have a better
+		    %% copy. Stay 'nowhere' and net_load it once that
+		    %% holder connects.
+		    orphan_tables(Tabs, Node, Ns, Local, Remote)
+	    end;
 	false when Active == [], DiscCopyHolders == [], RamCopyHoldersOnDiscNodes == [] ->
 	    %% Special case when all replicas resides on disc less nodes
 	    orphan_tables(Tabs, Node, Ns, [Tab | Local], Remote);
@@ -1595,21 +1632,11 @@ update_whereabouts(Tab, Node, State) ->
     end.
 
 initial_safe_loads() ->
-    case val({schema, storage_type}) of
-	ram_copies ->
-	    Downs = [],
-	    Tabs = val({schema, local_tables}) -- [schema],
-	    LastC = fun(T) -> last_consistent_replica(T, Downs) end,
-	    lists:zf(LastC, Tabs);
-
-	disc_copies ->
-	    Downs = mnesia_recover:get_mnesia_downs(),
-	    dbg_out("mnesia_downs = ~p~n", [Downs]),
-
-	    Tabs = val({schema, local_tables}) -- [schema],
-	    LastC = fun(T) -> last_consistent_replica(T, Downs) end,
-	    lists:zf(LastC, Tabs)
-    end.
+	Downs = mnesia_recover:get_mnesia_downs(),
+	dbg_out("mnesia_downs = ~p~n", [Downs]),
+	Tabs = val({schema, local_tables}) -- [schema],
+	LastC = fun(T) -> last_consistent_replica(T, Downs) end,
+	lists:zf(LastC, Tabs).
 
 last_consistent_replica(Tab, Downs) ->
     case ?catch_val({Tab, cstruct}) of
@@ -1656,12 +1683,14 @@ last_consistent_replica(Cs, Tab, Downs) ->
 	    %% Wait for remote master copy
 	    false;
 	Storage == ram_copies ->
-	    if
-		Disc == [], DiscOnly == [], Ext == [] ->
-		    %% Nobody has copy on disc
+        if
+		Disc == [], DiscOnly == [], Ext == [], BetterCopies0 == [] ->
+		    %% RAM-only table and no non-down remote copy holder.
+		    %% Safe to load locally.
 		    {true, {Tab, ram_only}};
 		true ->
-		    %% Some other node has copy on disc
+		    %% Either a disc-resident copy exists or a non-down
+		    %% remote copy holder may have a better copy.
 		    false
 	    end;
 	AccessMode == read_only ->
