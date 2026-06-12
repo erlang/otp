@@ -256,7 +256,7 @@ See also [the Timer Module section in the Efficiency Guide](`e:system:commoncave
 send_after(0, PidOrRegName, Message)
   when is_pid(PidOrRegName);
        is_atom(PidOrRegName) ->
-    PidOrRegName ! Message,
+    _ = do_apply({?MODULE, send, [PidOrRegName, Message]}, false),
     {ok, {instant, make_ref()}};
 send_after(0, {RegName, Node} = Dest, Message)
   when is_atom(RegName),
@@ -267,20 +267,36 @@ send_after(Time, Pid, Message)
   when ?valid_time(Time),
        is_pid(Pid),
        node(Pid) =:= node() ->
-    TRef = erlang:send_after(Time, Pid, Message),
-    {ok, {send_local, TRef}};
+    do_send_local(Time, Pid, Message);
 send_after(Time, Pid, Message)
   when is_pid(Pid) ->
     apply_after(Time, ?MODULE, send, [Pid, Message]);
 send_after(Time, RegName, Message)
-  when is_atom(RegName) ->
-    apply_after(Time, ?MODULE, send, [RegName, Message]);
+  when ?valid_time(Time),
+       is_atom(RegName) ->
+    do_send_local(Time, RegName, Message);
+send_after(Time, {RegName, Node}, Message)
+  when ?valid_time(Time),
+       is_atom(RegName),
+       Node =:= node() ->
+    do_send_local(Time, RegName, Message);
 send_after(Time, {RegName, Node} = Dest, Message)
   when is_atom(RegName),
        is_atom(Node) ->
     apply_after(Time, ?MODULE, send, [Dest, Message]);
 send_after(_Time, _PidOrRegName, _Message) ->
     {error, badarg}.
+
+do_send_local(Time, Dest, Message) ->
+    try
+        erlang:send_after(Time, Dest, Message)
+    of
+        TRef ->
+            {ok, {send_local, TRef}}
+    catch
+        error:badarg ->
+            {error, badarg}
+    end.
 
 -doc(#{equiv => send_after(Time, self(), Message)}).
 -spec send_after(Time, Message) -> {'ok', TRef} | {'error', Reason}
