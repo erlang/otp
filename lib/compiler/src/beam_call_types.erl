@@ -165,12 +165,14 @@ will_succeed(erlang, setelement, [Pos, Tuple0, _Value]=Args) ->
         {_, none} ->
             no;
         {#t_integer{elements={Min,Max}}=Pos, Tuple} ->
-            MaxTupleSize = max_tuple_size(Tuple),
+            TupleSizes = tuple_sizes(Tuple),
+            MaxTupleSize = lists:max(TupleSizes),
+            MinTupleSize = lists:min(TupleSizes),
             if
                 MaxTupleSize < Min ->
                     %% Index is always out of range.
                     no;
-                Tuple0 =:= Tuple, Max =< MaxTupleSize ->
+                Tuple0 =:= Tuple, Max =< MinTupleSize ->
                     %% We always have a tuple, and the index is always in
                     %% range.
                     yes;
@@ -209,14 +211,14 @@ will_succeed(Mod, Func, Args) ->
             end
     end.
 
-max_tuple_size(#t_union{tuple_set=[_|_]=Set}=Union) ->
+tuple_sizes(#t_union{tuple_set=[_|_]=Set}=Union) ->
     Union = meet(Union, #t_tuple{}),            %Assertion.
     Arities = [Arity || {{Arity, _Tag}, _Record} <:- Set],
-    lists:max(Arities);
-max_tuple_size(#t_tuple{exact=true,size=Size}) ->
-    Size;
-max_tuple_size(#t_tuple{exact=false}) ->
-    ?MAX_TUPLE_SIZE.
+    Arities;
+tuple_sizes(#t_tuple{exact=true,size=Size}) ->
+    [Size];
+tuple_sizes(#t_tuple{exact=false,size=Size}) ->
+    [Size,?MAX_TUPLE_SIZE].
 
 %% While we can't infer success for functions outside the 'erlang'
 %% module, it's safe to infer failure when we know they return `none` or

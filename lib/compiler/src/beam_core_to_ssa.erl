@@ -2800,7 +2800,7 @@ cg(#cg_goto{label=Label,args=As0}, St) ->
     Break = #cg_break{args=As,phi=Label},
     {[Break],St};
 cg(#cg_opaque{val=Check}, St) ->
-    {ssa_check_when,_,_,_,_} = Check,           %Assertion.
+    {ssa_check_when,_,_,_,_,_} = Check,           %Assertion.
     {[],St#cg{checks=[Check|St#cg.checks]}}.
 
 %% match_cg(Match, Fail, State) -> {[Ainstr],State}.

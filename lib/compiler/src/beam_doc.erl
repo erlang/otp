@@ -759,7 +759,9 @@ extract_documentation(AST, State) ->
    State1 = foldl(fun extract_documentation0/2, State, AST),
    State2 = purge_types_not_used_from_exported_functions(State1),
    State3 = purge_unreachable_types(State2),
-   warnings(AST, State3).
+   Ws = warnings(AST, State3),
+   digraph:delete(State3#docs.type_dependency),
+   Ws.
 
 %%
 %% purges types that are not used in exported functions.
