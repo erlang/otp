@@ -96,29 +96,6 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: "${{ github.head_ref }}"
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Find modified OpenVEX files
-        id: changed
-        run: |
-          git diff --name-only --diff-filter=AM HEAD~1 HEAD -- 'vex/*.openvex.json' > /tmp/changed-vex.txt
-          echo "Modified OpenVEX files:"
-          cat /tmp/changed-vex.txt
-          if [ -s /tmp/changed-vex.txt ]; then
-            echo "found=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "found=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Add license files for new OpenVEX files
-        if: steps.changed.outputs.found == 'true'
-        run: bash .github/scripts/add-vex-license.sh /tmp/changed-vex.txt
-
       - name: Check PR author permission
         env:
           GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
@@ -140,6 +117,31 @@ jobs:
             echo "::error::Only maintainers or erlang-bot-app can trigger VEX attestations"
             exit 1
           fi
+
+      - name: Checkout PR branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: "${{ github.event.pull_request.head.repo.full_name }}"
+          ref: "${{ github.event.pull_request.head.ref }}"
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Find modified OpenVEX files
+        id: changed
+        run: |
+          git diff --name-only --diff-filter=AM HEAD~1 HEAD -- 'vex/*.openvex.json' > /tmp/changed-vex.txt
+          echo "Modified OpenVEX files:"
+          cat /tmp/changed-vex.txt
+          if [ -s /tmp/changed-vex.txt ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Add license files for new OpenVEX files
+        if: steps.changed.outputs.found == 'true'
+        run: bash .github/scripts/add-vex-license.sh /tmp/changed-vex.txt
+
       - name: Attest OpenVEX files
         if: steps.changed.outputs.found == 'true'
         id: attest
@@ -179,7 +181,10 @@ jobs:
         env:
           ATTESTATION: "${{ steps.attest.outputs.bundle-path }}"
           STEPS_APP_TOKEN_OUTPUTS_APP_SLUG: "${{ steps.app-token.outputs.app-slug }}"
+          STEPS_APP_TOKEN_OUTPUTS_TOKEN: "${{ steps.app-token.outputs.token }}"
           STEPS_GET_USER_ID_OUTPUTS_USER_ID: "${{ steps.get-user-id.outputs.user-id }}"
+          PR_HEAD_REPO: "${{ github.event.pull_request.head.repo.full_name }}"
+          PR_HEAD_REF: "${{ github.event.pull_request.head.ref }}"
         run: |
           while IFS= read -r FILE; do
             [ -z "$FILE" ] && continue
@@ -188,6 +193,7 @@ jobs:
           done < /tmp/changed-vex.txt
           git config user.name "${STEPS_APP_TOKEN_OUTPUTS_APP_SLUG}[bot]"
           git config user.email "${STEPS_GET_USER_ID_OUTPUTS_USER_ID}+${STEPS_APP_TOKEN_OUTPUTS_APP_SLUG}[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${STEPS_APP_TOKEN_OUTPUTS_TOKEN}@github.com/${PR_HEAD_REPO}.git"
           git add vex/*.sigstore vex/*.sigstore.license
           git commit -m "Update sigstore attestations for OpenVEX files" || true
-          git push
+          git push origin "HEAD:${PR_HEAD_REF}"
