@@ -37,12 +37,13 @@
 -type label() :: beam_asm:label().
 
 -type index() :: non_neg_integer().
+-type dict_mfa()   :: {index(), index(), arity()}.
 
 -type frame_size() :: 'none' | 'entry' | non_neg_integer().
 -type debug_info() :: #{frame_size := frame_size(), vars := list(), calls := list()}.
 
 -type atom_tab()   :: #{atom() => index()}.
--type import_tab() :: gb_trees:tree(mfa(), index()).
+-type import_tab() :: #{dict_mfa() => index()}.
 -type fname_tab()  :: #{Name :: term() => index()}.
 -type line_tab()   :: #{{Fname :: index(), Line :: term()} => index()}.
 -type literal_tab() :: #{Literal :: term() => index()}.
@@ -52,26 +53,26 @@
 -type lambda_tab() :: {non_neg_integer(),[lambda_info()]}.
 -type wrapper() :: #{label() => index()}.
 
--record(asm,
-        {atoms = #{}                :: atom_tab(),
-         exports = []               :: [{label(), arity(), label()}],
-         locals = []                :: [{label(), arity(), label()}],
-         imports = gb_trees:empty() :: import_tab(),
-         strings = <<>>             :: binary(),    %String pool
-         lambdas = {0,[]}           :: lambda_tab(),
-         types = #{}                :: type_tab(),
-         wrappers = #{}             :: wrapper(),
-         literals = #{}	            :: literal_tab(),
-         fnames = #{}               :: fname_tab(),
-         lines = #{}                :: line_tab(),
-         debug = #{}                :: debug_tab(),
-         num_lines = 0              :: non_neg_integer(), %Number of line instructions
-         exec_line = false          :: boolean(),
-         next_import = 0            :: non_neg_integer(),
-         string_offset = 0          :: non_neg_integer(),
-         next_literal = 0           :: non_neg_integer(),
-         highest_opcode = 0         :: non_neg_integer()
-        }).
+-record #asm{
+   atoms = #{}                :: atom_tab(),
+   exports = []               :: [{label(), arity(), label()}],
+   locals = []                :: [{label(), arity(), label()}],
+   imports = #{}              :: import_tab(),
+   strings = <<>>             :: binary(),    %String pool
+   lambdas = {0,[]}           :: lambda_tab(),
+   types = #{}                :: type_tab(),
+   wrappers = #{}             :: wrapper(),
+   literals = #{}             :: literal_tab(),
+   fnames = #{}               :: fname_tab(),
+   lines = #{}                :: line_tab(),
+   debug = #{}                :: debug_tab(),
+   num_lines = 0              :: non_neg_integer(), %Number of line instructions
+   exec_line = false          :: boolean(),
+   next_import = 0            :: non_neg_integer(),
+   string_offset = 0          :: non_neg_integer(),
+   next_literal = 0           :: non_neg_integer(),
+   highest_opcode = 0         :: non_neg_integer()
+  }.
 
 -type bdict() :: #asm{}.
 
@@ -134,11 +135,11 @@ import(Mod0, Name0, Arity, #asm{imports=Imp0,next_import=NextIndex}=D0)
     {Mod,D1} = atom(Mod0, D0),
     {Name,D2} = atom(Name0, D1),
     MFA = {Mod,Name,Arity},
-    case gb_trees:lookup(MFA, Imp0) of
-	{value,Index} ->
+    case Imp0 of
+        #{MFA := Index} ->
 	    {Index,D2};
-	none ->
-	    Imp = gb_trees:insert(MFA, NextIndex, Imp0),
+        #{} ->
+            Imp = Imp0#{MFA => NextIndex},
 	    {NextIndex,D2#asm{imports=Imp,next_import=NextIndex+1}}
     end.
 
@@ -297,7 +298,7 @@ export_table(#asm{exports = Exports}) ->
 -spec import_table(bdict()) -> {non_neg_integer(), [{label(),label(),arity()}]}.
 
 import_table(#asm{imports=Imp,next_import=NumImports}) ->
-    Sorted = lists:keysort(2, gb_trees:to_list(Imp)),
+    Sorted = lists:keysort(2, maps:to_list(Imp)),
     ImpTab = [MFA || {MFA,_} <:- Sorted],
     {NumImports,ImpTab}.
 

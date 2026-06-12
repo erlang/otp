@@ -89,8 +89,8 @@ opt_blks([{L,#b_blk{is=Is0}=Blk0}|Blks], ParamInfo, StMap, AnyChange, Count0, Ac
             Bs = calc_size_instr(Create, Bs0),
             Call = {call,
                     [{match,
-                      {b_literal,1},
-                      {b_literal,1}},
+                      #b_literal{val=1},
+                      #b_literal{val=1}},
                      map_get(BinDst, Bs)]},
             Expr = make_expr_tree(Call),
             try cg_size_calc(Expr, L, Blk0, Count0, Acc0) of

@@ -223,15 +223,14 @@ add_applicable_instruction(Instr, Info, F, Instructions0) ->
 add_tracked_var(Var, Info, F, Vars) ->
     [{F,Var,Info}|Vars].
 
--record(fiv_st,
-        {
-         funcdb,
-         stmap,
-         defsdb = #{},
-         literals = #{},
-         valuesdb = #{},
-         force_copy = #{}
-        }).
+-record #fiv_st{
+   funcdb,
+   stmap,
+   defsdb = #{},
+   literals = #{},
+   valuesdb = #{},
+   force_copy = #{}
+  }.
 
 find_initial_values(ValuesToTrack, StMap, FuncDb) ->
     fiv(ValuesToTrack, #fiv_st{funcdb=FuncDb,stmap=StMap}).

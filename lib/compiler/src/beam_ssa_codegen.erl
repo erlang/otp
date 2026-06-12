@@ -37,17 +37,17 @@
                 member/2,reverse/1,reverse/2,sort/1,
                 splitwith/2,takewhile/2]).
 
--record(cg, {lcount=1 :: beam_label(),          %Label counter
-             vcount=1 :: pos_integer(),         %Variable counter
-	     functable=#{} :: #{fa() => beam_label()},
-             labels=#{} :: #{ssa_label() => 0|beam_label()},
-             used_labels=gb_sets:empty() :: gb_sets:set(ssa_label()),
-             regs=#{} :: #{beam_ssa:b_var() => ssa_register()},
-             ultimate_fail=1 :: beam_label(),
-             catches=gb_sets:empty() :: gb_sets:set(ssa_label()),
-             fc_label=1 :: beam_label(),
-             debug_info=false :: boolean()
-            }).
+-record #cg{lcount=1 :: beam_label(),          %Label counter
+            vcount=1 :: pos_integer(),         %Variable counter
+            functable=#{} :: #{fa() => beam_label()},
+            labels=#{} :: #{ssa_label() => 0|beam_label()},
+            used_labels :: gb_sets:set(ssa_label()),
+            regs=#{} :: #{beam_ssa:b_var() => ssa_register()},
+            ultimate_fail=1 :: beam_label(),
+            catches :: gb_sets:set(ssa_label()),
+            fc_label=1 :: beam_label(),
+            debug_info=false :: boolean()
+           }.
 
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
           {'ok',beam_asm:module_code()}.
@@ -57,38 +57,38 @@ module(#b_module{anno=Anno,name=Mod,exports=Es,attributes=Attrs,body=Fs}, Opts) 
     {Asm,St} = functions(Fs, {atom,Mod}, DebugInfo),
     {ok,{Mod,Es,Attrs,Anno,Asm,St#cg.lcount}}.
 
--record(need, {h=0 :: non_neg_integer(),   % heap words
-               l=0 :: non_neg_integer(),   % lambdas (funs)
-               f=0 :: non_neg_integer()}). % floats
+-record #need{h=0 :: non_neg_integer(),   % heap words
+              l=0 :: non_neg_integer(),   % lambdas (funs)
+              f=0 :: non_neg_integer()}.  % floats
 
--record(cg_blk, {anno=#{} :: anno(),
-                 is=[] :: [instruction()],
-                 last :: terminator()}).
+-record #cg_blk{anno=#{} :: anno(),
+                is=[] :: [instruction()],
+                last :: terminator()}.
 
--record(cg_set, {anno=#{} :: anno(),
-                 dst :: b_var(),
-                 op :: beam_ssa:op() | 'nop',
-                 args :: [beam_ssa:argument()]}).
+-record #cg_set{anno=#{} :: anno(),
+                dst :: b_var(),
+                op :: beam_ssa:op() | 'nop',
+                args :: [beam_ssa:argument()]}.
 
--record(cg_alloc, {anno=#{} :: anno(),
+-record #cg_alloc {anno=#{}   :: anno(),
                    stack=none :: 'none' | pos_integer(),
-                   words=#need{} :: #need{},
-                   live :: 'undefined' | pos_integer(),
+                   words      :: #need{},
+                   live=unknown :: 'unknown' | pos_integer(),
                    def_yregs=[] :: [b_var()]
-                  }).
+                  }.
 
--record(cg_br, {bool :: beam_ssa:value(),
-                succ :: ssa_label(),
-                fail :: ssa_label()
-               }).
--record(cg_ret, {arg :: cg_value(),
-                 dealloc=none :: 'none' | pos_integer()
-                }).
--record(cg_switch, {anno=#{} :: anno(),
-                    arg :: cg_value(),
-                    fail :: ssa_label(),
-                    list :: [sw_list_item()]
-                   }).
+-record #cg_br{bool :: beam_ssa:value(),
+               succ :: ssa_label(),
+               fail :: ssa_label()
+              }.
+-record #cg_ret{arg :: cg_value(),
+                dealloc=none :: 'none' | pos_integer()
+               }.
+-record #cg_switch{anno=#{} :: anno(),
+                   arg :: cg_value(),
+                   fail :: ssa_label(),
+                   list :: [sw_list_item()]
+                  }.
 
 -type fa() :: {beam_asm:function_name(),arity()}.
 -type ssa_label() :: beam_ssa:label().
@@ -116,8 +116,12 @@ module(#b_module{anno=Anno,name=Mod,exports=Es,attributes=Attrs,body=Fs}, Opts) 
 -type ssa_register() :: xreg() | yreg() | freg() | zreg().
 
 functions(Forms, AtomMod, DebugInfo) ->
+    Empty = gb_sets:empty(),
     mapfoldl(fun (F, St) -> function(F, AtomMod, St) end,
-             #cg{lcount=1,debug_info=DebugInfo}, Forms).
+             #cg{lcount=1,
+                 used_labels=Empty,
+                 catches=Empty,
+                 debug_info=DebugInfo}, Forms).
 
 function(#b_function{anno=Anno,bs=Blocks,args=Args,cnt=Count},
          AtomMod, St0) ->
@@ -260,7 +264,7 @@ need_heap_allocs([{L,#cg_blk{is=Is0,last=Terminator}=Blk0}|Bs], Counts0) ->
             %% an allocation on behalf of this block.
             Is = case need_heap_never(Is0) of
                      true -> Is0;
-                     false -> [#cg_alloc{}|Is0]
+                     false -> [#cg_alloc{words=#need{}}|Is0]
                  end,
             Blk = Blk0#cg_blk{is=Is},
             [{L,Blk}|need_heap_allocs(Bs, Counts)];
@@ -2564,7 +2568,7 @@ translate_block(L, #b_blk{anno=Anno,is=Is0,last=Last0}, Blocks) ->
     Is1 = translate_is(Is0, PhiCopies),
     Is = case Anno of
              #{frame_size:=Size} ->
-                 Alloc = #cg_alloc{stack=Size},
+                 Alloc = #cg_alloc{words=#need{},stack=Size},
                  [Alloc|Is1];
              #{} -> Is1
          end,

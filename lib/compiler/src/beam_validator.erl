@@ -153,8 +153,8 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs],
 %%   affect the type of another.
 -type validator_type() :: #t_abstract{} | fun((values()) -> type()) | type().
 
--record(value_ref, {id :: index()}).
--record(value, {op :: term(), args :: [argument()], type :: validator_type()}).
+-record #value_ref{id :: index()}.
+-record #value{op :: term(), args :: [argument()], type :: validator_type()}.
 
 -type argument() :: #value_ref{} | beam_literal().
 -type values() :: #{ #value_ref{} => #value{} }.
@@ -188,69 +188,85 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs],
 -type y_regs() :: #{ {y, index()} => tag() | #value_ref{} }.
 
 %% Emulation state
--record(st,
-        {%% All known values.
-         vs=#{} :: values(),
-         %% Register states.
-         xs=#{} :: x_regs(),
-         ys=#{} :: y_regs(),
-         f=init_fregs(),
-         %% A set of all registers containing "fragile" terms. That is, terms
-         %% that don't exist on our process heap and would be destroyed by a
-         %% GC.
-         fragile=sets:new() :: sets:set(),
-         %% Number of Y registers.
-         %%
-         %% Note that this may be 0 if there's a frame without saved values,
-         %% such as on a body-recursive call.
-         numy=none :: none | {undecided,index()} | index(),
-         %% Available heap size.
-         h=0,
-         %% Available heap size for funs (aka lambdas).
-         hl=0,
-         %%Available heap size for floats.
-         hf=0,
-         %% List of hot catch/try tags
-         ct=[],
-         %% Current receive state:
-         %%
-         %%   * 'none'            - Not in a receive loop.
-         %%   * 'marked_position' - We've used a marker prior to loop_rec.
-         %%   * 'entered_loop'    - We're in a receive loop.
-         %%   * 'undecided'
-         recv_state=none :: none | undecided | marked_position | entered_loop,
-         %% Holds the current saved position for each `#t_bs_context{}`, in the
-         %% sense that the position is equal to that of their context. They are
-         %% invalidated whenever their context advances.
-         %%
-         %% These are used to update the unit of saved positions after
-         %% operations that test the incoming unit, such as bs_test_unit and
-         %% bs_get_binary2 with {atom,all}.
-         ms_positions=#{} :: #{ Ctx :: #value_ref{} => Pos :: #value_ref{} }
-        }).
+-record #st{
+   %% All known values.
+   vs=#{} :: values(),
+
+   %% Register states.
+   xs=#{} :: x_regs(),
+   ys=#{} :: y_regs(),
+   f :: non_neg_integer(),
+
+   %% A set of all registers containing "fragile" terms. That is, terms
+   %% that don't exist on our process heap and would be destroyed by a
+   %% GC.
+   fragile :: sets:set(),
+
+   %% Number of Y registers.
+   %%
+   %% Note that this may be 0 if there's a frame without saved values,
+   %% such as on a body-recursive call.
+   numy=none :: none | {undecided,index()} | index(),
+
+   %% Available heap size.
+   h=0,
+
+   %% Available heap size for funs (aka lambdas).
+   hl=0,
+
+   %%Available heap size for floats.
+   hf=0,
+
+   %% List of hot catch/try tags
+   ct=[],
+
+   %% Current receive state:
+   %%
+   %%   * 'none'            - Not in a receive loop.
+   %%   * 'marked_position' - We've used a marker prior to loop_rec.
+   %%   * 'entered_loop'    - We're in a receive loop.
+   %%   * 'undecided'
+   recv_state=none :: none | undecided | marked_position | entered_loop,
+
+   %% Holds the current saved position for each `#t_bs_context{}`, in the
+   %% sense that the position is equal to that of their context. They are
+   %% invalidated whenever their context advances.
+   %%
+   %% These are used to update the unit of saved positions after
+   %% operations that test the incoming unit, such as bs_test_unit and
+   %% bs_get_binary2 with {atom,all}.
+   ms_positions=#{} :: #{ Ctx :: #value_ref{} => Pos :: #value_ref{} }
+  }.
 
 -type label()        :: integer().
 -type state()        :: #st{} | 'none'.
 
 %% Validator state
--record(vst,
-        {%% Current state
-         current=none              :: state(),
-         %% Validation level
-         level                     :: strong | weak,
-         %% States at labels
-         branched=#{}              :: #{ label() => state() },
-         %% All defined labels
-         labels=sets:new()    :: sets:set(),
-         %% Information of other functions in the module
-         ft=#{}                    :: #{ label() => map() },
-         %% Counter for #value_ref{} creation
-         ref_ctr=0                 :: index(),
-         %% Module name of module being checked
-         module                    :: module(),
-         %% Types for default native records default values
-         rec_defaults              :: #{ atom() => type() }
-        }).
+-record #vst{
+   %% Current state
+   current=none              :: state(),
+
+   %% Validation level
+   level                     :: strong | weak,
+
+   %% States at labels
+   branched=#{}              :: #{ label() => state() },
+
+   %% All defined labels
+   labels                    :: sets:set(),
+
+   %% Information of other functions in the module
+   ft=#{}                    :: #{ label() => map() },
+
+   %% Counter for #value_ref{} creation
+   ref_ctr=0                 :: index(),
+
+   %% Module name of module being checked
+   module                    :: module(),
+
+   %% Types for default native records default values
+   rec_defaults              :: #{ atom() => type() }
+  }.
 
 build_function_table([{function,Name,Arity,Entry,Code0}|Fs], Acc) ->
     Code = dropwhile(fun({label,L}) when L =:= Entry ->
@@ -312,7 +328,7 @@ extract_header(_Is, MFA, _Entry, _Offset, _Acc) ->
 
 init_vst({Mod, _, Arity}, RecDefaults, Level, Ft) when is_atom(Mod) ->
     Vst = #vst{branched=#{},
-               current=#st{},
+               current=#st{f=init_fregs(),fragile=sets:new()},
                ft=Ft,
                labels=sets:new(),
                level=Level,
@@ -3110,7 +3126,7 @@ merge_states_1(StA, StB, Counter0) ->
     NumY = merge_stk(YsA, YsB, NumYA, NumYB),
     Ct = merge_ct(CtA, CtB),
 
-    St = #st{xs=Xs,ys=Ys,vs=Vs,fragile=Fragile,numy=NumY,
+    St = #st{xs=Xs,ys=Ys,f=init_fregs(),vs=Vs,fragile=Fragile,numy=NumY,
              h=min(HA, HB),ct=Ct,recv_state=RecvSt,
              ms_positions=MsPos},
 

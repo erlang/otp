@@ -317,8 +317,8 @@ _See also: _`set_ann/2`.
 """.
 -spec get_ann(Node :: cerl()) -> [term()].
 
-get_ann(Node) ->
-    element(2, Node).
+get_ann(#_{anno=Anno}) ->
+    Anno.
 
 
 -doc """
@@ -328,8 +328,8 @@ _See also: _`add_ann/2`, `copy_ann/2`, `get_ann/1`.
 """.
 -spec set_ann(Node :: cerl(), Annotations :: [term()]) -> cerl().
 
-set_ann(Node, List) ->
-    setelement(2, Node, List).
+set_ann(Node, List) when is_record(Node) ->
+    Node#_{anno=List}.
 
 
 -doc """
@@ -1406,7 +1406,7 @@ _See also: _`ann_c_map/2`, `is_c_map/1`, `is_c_map_empty/1`, `is_c_map_pattern/1
 -spec c_map_pattern(Pairs :: [c_map_pair()]) -> c_map().
 
 c_map_pattern(Pairs) ->
-    #c_map{es=Pairs, is_pat=true}.
+    #c_map{es=Pairs, arg=#c_literal{val=#{}}, is_pat=true}.
 
 
 -type map_op() :: #c_literal{val::'assoc'} | #c_literal{val::'exact'}.
@@ -1519,7 +1519,7 @@ ann_c_map(As, M, Es) ->
 -spec ann_c_map_pattern(Annotations :: [term()], Pairs :: [c_map_pair()]) -> c_map().
 
 ann_c_map_pattern(As, Pairs) ->
-    #c_map{anno=As, es=Pairs, is_pat=true}.
+    #c_map{anno=As, arg=#c_literal{val=#{}}, es=Pairs, is_pat=true}.
 
 update_map_literal([#c_map_pair{op=#c_literal{val=assoc},key=Ck,val=Cv}|Es], M) ->
     %% M#{K => V}
@@ -1660,7 +1660,7 @@ _See also: _`ann_c_record/3`, `is_c_record/1`, `record_id/1`, `record_es/1`,
                Pairs :: [c_record_pair()]) -> #c_record{}.
 
 c_record(Id, Es) ->
-    #c_record{id=Id, es=Es}.
+    #c_record{id=Id, arg=#c_literal{val=ok}, es=Es}.
 
 -doc "_See also: _`c_record/2`.".
 -doc(#{since => <<"OTP 29.0">>}).

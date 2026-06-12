@@ -97,7 +97,121 @@
 -import(cerl, [ann_c_cons/3,ann_c_tuple/2,c_tuple/1,
                ann_c_map/3,ann_c_record/4,cons_hd/1,cons_tl/1]).
 
--include("core_parse.hrl").
+%%%
+%%% Core Erlang syntax trees as records.
+%%%
+
+%%% The record definitions appear alphabetically.
+
+-export_record([c_alias, c_apply,
+                c_binary, c_bitstr,
+                c_call, c_case, c_catch, c_clause, c_cons,
+                c_fun,
+                c_let, c_letrec, c_literal,
+                c_map, c_map_pair,
+                c_record, c_record_pair,
+                c_module,
+                c_opaque,
+                c_primop,
+                c_receive,
+                c_seq,
+                c_try, c_tuple,
+                c_values, c_var]).
+
+-record #c_alias{anno=[] :: list(), var :: cerl:cerl(),
+                 pat :: cerl:cerl()}.
+
+-record #c_apply{anno=[] :: list(), op :: cerl:cerl(),
+                 args :: [cerl:cerl()]}.
+
+-record #c_binary{anno=[] :: list(), segments :: [cerl:c_bitstr()]}.
+
+-record #c_bitstr{anno=[] :: list(), val :: cerl:cerl(),
+                  size :: cerl:cerl(),
+                  unit :: cerl:cerl(),
+                  type :: cerl:cerl(),
+                  flags :: cerl:cerl()}.
+
+-record #c_call{anno=[] :: list(), module :: cerl:cerl(),
+                name :: cerl:cerl(),
+                args :: [cerl:cerl()]}.
+
+-record #c_case{anno=[] :: list(), arg :: cerl:cerl(),
+                clauses :: [cerl:cerl()]}.
+
+-record #c_catch{anno=[] :: list(), body :: cerl:cerl()}.
+
+-record #c_clause{anno=[] :: list(), pats :: [cerl:cerl()],
+                  guard :: cerl:cerl(),
+                  body :: cerl:cerl() | any()}. % TODO
+
+-record #c_cons{anno=[] :: list(), hd :: cerl:cerl(),
+                tl :: cerl:cerl()}.
+
+-record #c_fun{anno=[] :: list(), vars :: [cerl:cerl()],
+               body :: cerl:cerl()}.
+
+-record #c_let{anno=[] :: list(), vars :: [cerl:cerl()],
+               arg :: cerl:cerl(),
+               body :: cerl:cerl()}.
+
+-record #c_letrec{anno=[] :: list(),
+                  defs :: [{cerl:cerl(), cerl:cerl()}],
+                  body :: cerl:cerl()}.
+
+-record #c_literal{anno=[] :: list(), val :: any()}.
+
+-record #c_map{anno=[] :: list(),
+               arg :: cerl:c_var() | cerl:c_literal(),
+               es :: [cerl:c_map_pair()],
+               is_pat=false :: boolean()}.
+
+-record #c_map_pair{anno=[] :: list(),
+                    op :: #c_literal{},
+                    key :: any(),              % TODO
+                    val :: any()}.            % TODO
+
+-record #c_record{anno=[] :: list(),
+                  arg :: cerl:c_var() | cerl:c_literal(),
+                  id :: cerl:c_literal(),
+                  es :: [cerl:c_record_pair()]}.
+
+-record #c_record_pair{anno=[] :: list(),
+                       key :: cerl:c_literal(),
+                       val :: cerl:cerl()}.
+
+-record #c_module{anno=[] :: list(), name :: cerl:cerl(),
+                  exports :: [cerl:cerl()],
+                  attrs :: [{cerl:cerl(), cerl:cerl()}],
+                  defs :: [{cerl:cerl(), cerl:cerl()}]}.
+
+-record #c_opaque{anno=[] :: list(), val :: any()}.
+
+-record #c_primop{anno=[] :: list(), name :: cerl:cerl(),
+                  args :: [cerl:cerl()]}.
+
+-record #c_receive{anno=[] :: list(), clauses :: [cerl:cerl()],
+                   timeout :: cerl:cerl(),
+                   action :: cerl:cerl()}.
+
+-record #c_seq{anno=[] :: list(), arg :: cerl:cerl() | any(), % TODO
+               body :: cerl:cerl()}.
+
+-record #c_try{anno=[] :: list(), arg :: cerl:cerl(),
+               vars :: [cerl:cerl()],
+               body :: cerl:cerl(),
+               evars :: [cerl:cerl()],
+               handler :: cerl:cerl()}.
+
+-record #c_tuple{anno=[] :: list(), es :: [cerl:cerl()]}.
+
+-record #c_values{anno=[] :: list(), es :: [cerl:cerl()]}.
+
+-record #c_var{anno=[] :: list(), name :: cerl:var_name()}.
+
+%%%
+%%% End of Core Erlang records.
+%%%
 
 %% Matches expansion max segment in v3_kernel.
 -define(COLLAPSE_MAX_SIZE_SEGMENT, 1024).
@@ -105,37 +219,37 @@
 %% Internal core expressions and help functions.
 %% N.B. annotations fields in place as normal Core expressions.
 
--record(a, {us=[],ns=[],anno=[]}).		%Internal annotation
+-record #a{us=[],ns=[],anno=[]}.		%Internal annotation
 
--record(iapply,    {anno=#a{},op,args}).
--record(ibinary,   {anno=#a{},segments}).	%Not used in patterns.
--record(ibitstr,   {anno=#a{},val,size,unit,type,flags}).
--record(icall,     {anno=#a{},module,name,args}).
--record(icase,     {anno=#a{},args,clauses,fc}).
--record(icatch,    {anno=#a{},body}).
--record(iclause,   {anno=#a{},pats,guard,body}).
--record(ifun,      {anno=#a{},id,vars,clauses,fc,name=unnamed}).
--record(iletrec,   {anno=#a{},defs,body}).
--record(imatch,    {anno=#a{},pat,guard=[],arg,fc}).
--record(iexprs,    {anno=#a{},bodies=[]}).
--record(imap,      {anno=#a{},arg=#c_literal{val=#{}},es,is_pat=false}).
--record(imappair,  {anno=#a{},op,key,val}).
--record(iprimop,   {anno=#a{},name,args}).
--record(iprotect,  {anno=#a{},body}).
--record(ireceive1, {anno=#a{},clauses}).
--record(ireceive2, {anno=#a{},clauses,timeout,action}).
--record(iset,      {anno=#a{},var,arg}).
--record(itry,      {anno=#a{},args,vars,body,evars,handler}).
--record(ifilter,   {anno=#a{},arg}).
--record(igen,      {anno=#a{},acc_pat,acc_guard,
-                    nomatch_pat,nomatch_mode,
-                    tail,tail_pat,arg,
-                    refill={nomatch,ignore}}).
--record(izip,      {anno=#a{},acc_pats=[],acc_guard,
-                    nomatch_pats=[],nomatch_total=[],skip_pats=[],
-                    tails=[],tail_pats=[],pres=[],args=[],
-                    refill_pats=[],refill_as=[]}).
--record(isimple,   {anno=#a{},term :: cerl:cerl()}).
+-record #iapply{anno,op,args}.
+-record #ibinary{anno,segments}.	%Not used in patterns.
+-record #ibitstr{anno,val,size,unit,type,flags}.
+-record #icall{anno,module,name,args}.
+-record #icase{anno,args,clauses,fc}.
+-record #icatch{anno,body}.
+-record #iclause{anno,pats,guard,body}.
+-record #ifun{anno,id,vars,clauses,fc,name=unnamed}.
+-record #iletrec{anno,defs,body}.
+-record #imatch{anno,pat,guard=[],arg,fc}.
+-record #iexprs{anno,bodies=[]}.
+-record #imap{anno,arg,es,is_pat=false}.
+-record #imappair{anno,op,key,val}.
+-record #iprimop{anno,name,args}.
+-record #iprotect{anno,body}.
+-record #ireceive1{anno,clauses}.
+-record #ireceive2{anno,clauses,timeout,action}.
+-record #iset{anno,var,arg}.
+-record #itry{anno,args,vars,body,evars,handler}.
+-record #ifilter{anno,arg}.
+-record #igen{anno,acc_pat,acc_guard,
+              nomatch_pat,nomatch_mode,
+              tail,tail_pat,arg,
+              refill={nomatch,ignore}}.
+-record #izip{anno,acc_pats=[],acc_guard,
+              nomatch_pats=[],nomatch_total=[],skip_pats=[],
+              tails=[],tail_pats=[],pres=[],args=[],
+              refill_pats=[],refill_as=[]}.
+-record #isimple{anno,term :: cerl:cerl()}.
 
 -type iapply()    :: #iapply{}.
 -type ibinary()   :: #ibinary{}.
@@ -166,19 +280,20 @@
 
 -type warning() :: {file:filename(), [{integer(), module(), term()}]}.
 
--record(core, {vcount=0 :: non_neg_integer(),	%Variable counter
-	       fcount=0 :: non_neg_integer(),	%Function counter
-               gcount=0 :: non_neg_integer(),   %Goto counter
-               module :: module(),                %Module name.
-	       function={none,0} :: fa(),	%Current function.
-	       in_guard=false :: boolean(),	%In guard or not.
-	       wanted=true :: boolean(),	%Result wanted or not.
-	       opts=[]     :: [compile:option()], %Options.
-               dialyzer=false :: boolean(),     %Help dialyzer or not.
-	       ws=[]    :: [warning()],		%Warnings.
-               file=[{file,""}],                %File.
-               load_nif=false :: boolean()      %true if calls erlang:load_nif/2
-	      }).
+-record #core{
+   vcount=0 :: non_neg_integer(),	%Variable counter
+   fcount=0 :: non_neg_integer(),	%Function counter
+   gcount=0 :: non_neg_integer(),   %Goto counter
+   module :: module(),                %Module name.
+   function={none,0} :: fa(),	%Current function.
+   in_guard=false :: boolean(),	%In guard or not.
+   wanted=true :: boolean(),	%Result wanted or not.
+   opts=[]     :: [compile:option()], %Options.
+   dialyzer=false :: boolean(),     %Help dialyzer or not.
+   ws=[]    :: [warning()],		%Warnings.
+   file=[{file,""}],                %File.
+   load_nif=false :: boolean()      %true if calls erlang:load_nif/2
+  }.
 -type state() :: #core{}.
 
 %% XXX: The following type declarations do not belong in this module
@@ -187,18 +302,19 @@
 -type form()      :: {function, integer(), atom(), arity(), _}
                    | {attribute, integer(), attribute(), _}.
 
--record(imodule, {name = [],
-		  exports = ordsets:new(),
-                  nifs = none ::
-                    'none' | sets:set(), % Is a set if the attribute is
-                                         % present in the module.
-		  attrs = [],
-		  defs = [],
-		  file = [],
-		  opts = [],
-		  ws = [],
-                  load_nif=false :: boolean() %true if calls erlang:load_nif/2
-                 }).
+-record #imodule{
+   name = [],
+   exports = [],
+   nifs = none ::
+     'none' | sets:set(),               % Is a set if the attribute is
+                                                % present in the module.
+   attrs = [],
+   defs = [],
+   file = [],
+   opts = [],
+   ws = [],
+   load_nif=false :: boolean() %true if calls erlang:load_nif/2
+  }.
 
 -spec module([form()], [compile:option()]) ->
         {'ok',cerl:c_module(),[warning()]}.
@@ -581,7 +697,7 @@ force_booleans_1([V|Vs], E0, Eps0, St0) ->
 		  name=#c_literal{val=is_boolean},
 		  args=[V]},
     {New,St} = new_var([], St1),
-    Iset = #iset{var=New,arg=Call},
+    Iset = #iset{anno=#a{},var=New,arg=Call},
     Eps = Eps0 ++ Eps1 ++ [Iset],
     E = #icall{anno=ACompGen,
 	       module=#c_literal{val=erlang},name=#c_literal{val='and'},
@@ -690,7 +806,7 @@ maybe_match_exprs([{maybe_match,L,P0,E0}|Es0], Fail, St0) ->
     {Fpat,St4} = new_var(St3),
     Lanno = lineno_anno(L, St4),
     Fc = #iclause{anno=#a{anno=[dialyzer_ignore,compiler_generated|Lanno]},pats=[Fpat],guard=[],
-                  body=[#iapply{op=Fail,args=[Fpat]}]},
+                  body=[#iapply{anno=#a{},op=Fail,args=[Fpat]}]},
     {Eps ++ [#icase{anno=#a{anno=Lanno},args=[E1],clauses=[C],fc=Fc}],St4};
 maybe_match_exprs([E0|Es0], Fail, St0) ->
     {E1,Eps,St1} = expr(E0, St0),
@@ -819,12 +935,13 @@ expr({'maybe',L,Es0,{'else',_,Cs0}}, St0) ->
     %% in a fun head will be renamed.
     {Cs1,St3} = clauses(Cs0, St2),
     Fc1 = fail_clause([FailVar], Lanno, c_tuple([#c_literal{val=else_clause},FailVar])),
-    FailCase = #icase{args=[V2],clauses=Cs1,fc=Fc1},
-    FailFunCs = [#iclause{pats=[V2],guard=[#c_literal{val=true}],
+    FailCase = #icase{anno=#a{},args=[V2],clauses=Cs1,fc=Fc1},
+    FailFunCs = [#iclause{anno=#a{},
+                          pats=[V2],guard=[#c_literal{val=true}],
                           body=[FailCase]}],
     Anno = #a{anno=[letrec_goto,no_inline|Lanno]},
     Fc2 = fail_clause([FailVar], Lanno, #c_literal{val=never_fails}),
-    FailFun = #ifun{id=[],vars=[V1],
+    FailFun = #ifun{anno=#a{},id=[],vars=[V1],
                     clauses=FailFunCs,
                     fc=Fc2},
 
@@ -945,7 +1062,7 @@ expr({match,L,P0,E0}, St0) ->
                         {E2,[],St3};
                     _ ->
                         {Var0,StInt} = new_var(St3),
-                        {Var0,[#iset{var=Var0,arg=E2}],StInt}
+                        {Var0,[#iset{anno=#a{},var=Var0,arg=E2}],StInt}
                 end,
 
             %% Rewrite to a begin/end block matching one pattern at the time
@@ -1250,7 +1367,8 @@ expr_record_id(A, Rec, Body, #c_literal{val=Name}, St) when is_atom(Name) ->
 expr_record_id_1(A, Rec, Body, Args, St) ->
     Cs = [#iclause{anno=#a{anno=[compiler_generated|A]},
                    pats=[],
-                   guard=[#iprimop{name=#c_literal{anno=A,val=is_native_record},
+                   guard=[#iprimop{anno=#a{},
+                                   name=#c_literal{anno=A,val=is_native_record},
                                    args=Args}],
                    body=[Body]}],
     BadRecord = badrecord_term(Rec, St),
@@ -1406,7 +1524,7 @@ try_build_stacktrace([#iclause{pats=Ps0,body=B0}=C0|Cs], RawStk) ->
             Call = #iprimop{anno=#a{},
                             name=#c_literal{val=build_stacktrace},
                             args=[RawStk]},
-            Iset = #iset{var=Stk,arg=Call},
+            Iset = #iset{anno=#a{},var=Stk,arg=Call},
             B = [Iset|B0],
             C = C0#iclause{pats=Ps,body=B},
             [C|try_build_stacktrace(Cs, RawStk)]
@@ -1940,7 +2058,8 @@ bc_tq(Line, Exp, Qs0, St0) ->
     {E,BcPre,St} = bc_tq1(Line, Exp, Qs, BinVar, St2),
     InitialSize = #c_literal{val=256},
     Pre = PrePre ++
-        [#iset{var=BinVar,
+        [#iset{anno=#a{},
+               var=BinVar,
                arg=#iprimop{anno=#a{anno=lineno_anno(Line, St)},
                             name=#c_literal{val=bs_init_writable},
                             args=[InitialSize]}}] ++ BcPre,
@@ -1975,7 +2094,7 @@ bc_tq1(Line, E, [#igen{anno=#a{anno=GA}=GAnno,
                              NomatchPat, [IgnoreVar], [], [Nc]),
     TailClause = make_clause(LA, TailPat, [IgnoreVar], [], [AccVar]),
     {Bc,Bps,St5} = bc_tq1(Line, E, Qs, AccVar, St4),
-    Body = Bps ++ [#iset{var=AccVar,arg=Bc},Sc],
+    Body = Bps ++ [#iset{anno=#a{},var=AccVar,arg=Bc},Sc],
     AccClause = make_clause(LA, AccPat, [IgnoreVar], AccGuard, Body),
     AccClauseNoGuards = if
                             AccGuard =:= [] ->
@@ -2074,7 +2193,7 @@ bzip_tq1(Line, E, #izip{anno=#a{anno=_GA}=GAnno,
     BinAccVar = last(CallVars),
     Sc = #iapply{anno=GAnno,op=F,args=TailVars++[BinAccVar]},
     {Bc,Bps,St4} = bc_tq1(Line, E, Qs, BinAccVar, St3),
-    Body = Bps++[#iset{var=hd(CallVars), arg=Bc}, Sc],
+    Body = Bps++[#iset{anno=#a{},var=hd(CallVars), arg=Bc}, Sc],
     AccClause = make_clause(LA, AccPats++[Mc], AccGuard, Body),
 
     %% Generate the skip clause unless all generators are strict, in
@@ -2112,7 +2231,7 @@ mc_tq(Line, Pairs, Qs, Mc, St0) ->
     {Lc, Pre0, OptInfo, St1} = lc_tq(Line, {mc, Pairs, []}, Qs, Mc, St0),
     {LcVar, St2} = new_var(St1),
     Anno = #a{anno=lineno_anno(Line, St2)},
-    Pre = Pre0 ++ [#iset{var=LcVar,arg=Lc}],
+    Pre = Pre0 ++ [#iset{anno=#a{},var=LcVar,arg=Lc}],
     case OptInfo of
         {from_keys, ValueExpr} ->
             Call = #icall{anno=Anno,
@@ -2491,7 +2610,7 @@ generator(Line, {Generate,Lg,P,E}, Gs, _StrictPats, St0)
             {Ce,Pre,St1} = safe(E, St0),
             Gen = #igen{anno=#a{anno=GA},acc_pat=nomatch,acc_guard=[],
                         nomatch_pat=nomatch,nomatch_mode=skip,
-                        tail_pat=#c_var{name='_'},
+                        tail=none,tail_pat=#c_var{name='_'},
                         arg={Pre,Ce}},
             {Gen,St1}
     end;
@@ -2568,7 +2687,7 @@ generator(Line, {Generate,Lg,{map_field_exact,_,K0,V0},E}, Gs, StrictPats, St0)
             {_, _, m_generate} ->
                 Pat1 = replace_vars(Pat, StrictPats),
                 case Pat1 of
-                    {c_var,_,'_'} ->
+                    #c_var{name='_'} ->
                         #c_tuple{es=[NomatchK,NomatchV,IterVar]};
                     _ ->
                         #c_tuple{es=[cons_hd(Pat1),cons_tl(Pat1),IterVar]}
@@ -2583,7 +2702,8 @@ generator(Line, {Generate,Lg,{map_field_exact,_,K0,V0},E}, Gs, StrictPats, St0)
                           #c_tuple{es=[NomatchK,NomatchV]}
                   end,
     Refill = {ann_c_cons(GA,NomatchK,NomatchV),
-              #iset{var=IterVar,
+              #iset{anno=#a{},
+                    var=IterVar,
                     arg=#icall{anno=#a{anno=GA},
                                module=#c_literal{val=erts_internal},
                                name=#c_literal{val=mc_refill},
@@ -2600,8 +2720,10 @@ generator(Line, {Generate,Lg,{map_field_exact,_,K0,V0},E}, Gs, StrictPats, St0)
                         pats=[IterVar],
                         guard=[],
                         body=[IterVar]},
-    Before = #iset{var=OuterIterVar,
-                   arg=#icase{args=[InitIter],
+    Before = #iset{anno=#a{},
+                   var=OuterIterVar,
+                   arg=#icase{anno=#a{},
+                              args=[InitIter],
                               clauses=[BadGenerator],
                               fc=BeforeFc}},
 
@@ -2617,7 +2739,8 @@ generator(Line, {Generate,Lg,{map_field_exact,_,K0,V0},E}, Gs, StrictPats, St0)
 
 append_tail_segment(Segs, St0) ->
     {Var,St} = new_var(St0),
-    Tail = #ibitstr{val=Var,size=[#c_literal{val=all}],
+    Tail = #ibitstr{anno=#a{},
+                    val=Var,size=[#c_literal{val=all}],
                     unit=#c_literal{val=1},
                     type=#c_literal{val=binary},
                     flags=#c_literal{val=[unsigned,big]}},
@@ -2717,7 +2840,7 @@ safe_list(Es, St0) ->
             {Vs,Ep,St};
         [_|_]=Eps ->
             %% Two or more bodies. They see the same variables.
-            {Vs,[#iexprs{bodies=Eps}],St}
+            {Vs,[#iexprs{anno=#a{},bodies=Eps}],St}
     end.
 
 %% safe(Expr, State) -> {Safe,[PreExpr],State}.
@@ -2762,7 +2885,7 @@ force_safe(Ce, St0) ->
 	true -> {Ce,[],St0};
 	false ->
 	    {V,St1} = new_var(get_lineno_anno(Ce), St0),
-	    {V,[#iset{var=V,arg=Ce}],St1}
+            {V,[#iset{anno=#a{},var=V,arg=Ce}],St1}
     end.
 
 is_safe(#c_cons{}) -> true;
@@ -2831,10 +2954,15 @@ pattern({tuple,L,Ps}, St) ->
     {annotate_tuple(record_anno(L, St), Ps1, St),St1};
 pattern({map,L,Pairs}, St0) ->
     {Ps,St1} = pattern_map_pairs(Pairs, St0),
-    {#imap{anno=#a{anno=lineno_anno(L, St1)},es=Ps},St1};
+    {#imap{anno=#a{anno=lineno_anno(L, St1)},
+           arg=#c_literal{val={}},
+           es=Ps},St1};
 pattern({record,L,Id,Pairs}, St0) ->
     {Ps,St1} = pattern_record_pairs(Pairs, St0),
-    {#c_record{anno=lineno_anno(L, St1),id=#c_literal{val=Id},es=Ps},St1};
+    {#c_record{anno=lineno_anno(L, St1),
+               id=#c_literal{val=Id},
+               arg=#c_literal{val=ok},
+               es=Ps},St1};
 pattern({bin,L,Ps}, St0) ->
     {Segments,St} = pat_bin(Ps, St0),
     {#ibinary{anno=#a{anno=lineno_anno(L, St)},segments=Segments},St};
@@ -3238,7 +3366,7 @@ annotate_cons(A, H, T, #core{dialyzer=Dialyzer}) ->
 %%% variables when rewriting the body of the fun.
 %%%
 
--record(known, {base=[],ks=[],prev_ks=[]}).
+-record #known{base=[],ks=[],prev_ks=[]}.
 -type known() :: #known{}.
 
 known_init() ->
@@ -3429,9 +3557,10 @@ uguard(Pg, Gs0, Ks, St0) ->
     {Gs3,St5} = foldr(fun (T, {Gs1,St1}) ->
 			      {L,St2} = new_var(St1),
 			      {R,St3} = new_var(St2),
-			      {[#iset{var=L,arg=T}] ++ droplast(Gs1) ++
-			       [#iset{var=R,arg=last(Gs1)},
-				#icall{anno=#a{}, %Must have an #a{}
+                              {[#iset{anno=#a{},
+                                      var=L,arg=T}] ++ droplast(Gs1) ++
+                               [#iset{anno=#a{},var=R,arg=last(Gs1)},
+                                #icall{anno=#a{},
 				       module=#c_literal{val=erlang},
 				       name=#c_literal{val='and'},
 				       args=[L,R]}],
@@ -3472,9 +3601,11 @@ uexprs([#imatch{anno=A,pat=P0,arg=Arg,fc=Fc}|Les], Ks, St0) ->
                     %% ensure that '_' does not end up in the debug
                     %% information.
                     {Var,St1} = new_var(St0),
-                    uexprs([#iset{var=Var,arg=Arg}|Les], Ks, St1);
+                    uexprs([#iset{anno=#a{},var=Var,arg=Arg}|Les],
+                           Ks, St1);
                 _ ->
-                    uexprs([#iset{var=P0,arg=Arg}|Les], Ks, St0)
+                    uexprs([#iset{anno=#a{},var=P0,arg=Arg}|Les],
+                           Ks, St0)
             end;
 	false when Les =:= [] ->
 	    %% Need to explicitly return match "value", make
@@ -3774,7 +3905,9 @@ upat_element(#ibitstr{val=H0,size=Sz0}=Seg, Ks, Bs0, St0) ->
             Us = [],
             {Seg#ibitstr{val=H1,size=Sz1},Hg,Hv,Us,Bs1,St2};
         Expr when is_list(Expr) ->
-            Sz1 = [#iset{var=#c_var{name=Old},arg=#c_var{name=New}} ||
+            Sz1 = [#iset{anno=#a{},
+                         var=#c_var{name=Old},
+                         arg=#c_var{name=New}} ||
                       {Old,New} <:- Bs0] ++ Expr,
             {Sz2,_,St2} = uexprs(Sz1, Ks, St1),
             Us = used_in_expr(Sz2),
@@ -3857,7 +3990,7 @@ ren_pat(#c_var{name=V}=Old, Ks, {Isub0,Osub0}=Subs, St0) ->
                     {New,Subs,St0};
                 no ->
                     {New,St} = new_var(St0),
-                    Osub = [#iset{var=Old,arg=New}|Osub0],
+                    Osub = [#iset{anno=#a{},var=Old,arg=New}|Osub0],
                     {New,{Isub0,Osub},St}
             end;
         false ->
@@ -3893,7 +4026,7 @@ ren_pat_bin([#ibitstr{val=Val0,size=Sz0}=E|Es0], Ks, Isub0, Osub0, St0) ->
                 {#c_var{name=Name}, #c_var{name=Name}} ->
                     Isub0;
                 {#c_var{}, _} ->
-                    [#iset{var=Val0,arg=Val}|Isub0];
+                    [#iset{anno=#a{},var=Val0,arg=Val}|Isub0];
                 _ ->
                     Isub0
             end,
@@ -3984,7 +4117,8 @@ cpattern(#c_cons{hd=Hd,tl=Tl}=Cons) ->
 cpattern(#c_tuple{es=Es}=Tup) ->
     Tup#c_tuple{es=cpattern_list(Es)};
 cpattern(#imap{anno=#a{anno=Anno},es=Es}) ->
-    #c_map{anno=Anno,es=cpat_map_pairs(Es),is_pat=true};
+    #c_map{anno=Anno,arg=#c_literal{val=#{}},
+           es=cpat_map_pairs(Es),is_pat=true};
 cpattern(#c_record{es=Es}=Rec) ->
     Rec#c_record{es=cpat_record_pairs(Es)};
 cpattern(#ibinary{anno=#a{anno=Anno},segments=Segs0}) ->
@@ -3993,7 +4127,7 @@ cpattern(#ibinary{anno=#a{anno=Anno},segments=Segs0}) ->
 cpattern(Other) -> Other.
 
 cpat_map_pairs([#imappair{anno=#a{anno=Anno},op=Op,key=Key0,val=Val0}|T]) ->
-    {Key,_,_} = cexprs(Key0, [], #core{}),
+    {Key,_,_} = cexprs(Key0, [], #core{module=''}),
     Val = cpattern(Val0),
     Pair = #c_map_pair{anno=Anno,op=Op,key=Key,val=Val},
     [Pair|cpat_map_pairs(T)];
@@ -4008,7 +4142,7 @@ cpat_record_pairs([]) -> [].
 
 cpat_bin_seg(#ibitstr{anno=#a{anno=Anno},val=E,size=Sz0,unit=Unit,
                       type=Type,flags=Flags}) ->
-    {Sz,_,_} = cexprs(Sz0, [], #core{}),
+    {Sz,_,_} = cexprs(Sz0, [], #core{module=''}),
     #c_bitstr{anno=Anno,val=E,size=Sz,unit=Unit,type=Type,flags=Flags}.
 
 %% cexprs([Lexpr], [AfterVar], State) -> {Cexpr,[AfterVar],State}.
@@ -4851,11 +4985,12 @@ no_compiler_warning(Anno) ->
 %%
 -spec get_anno(cerl:cerl() | i()) -> term().
 
-get_anno(C) -> element(2, C).
+get_anno(#_{anno=Anno}) -> Anno.
 
 -spec set_anno(cerl:cerl() | i(), term()) -> cerl:cerl().
 
-set_anno(C, A) -> setelement(2, C, A).
+set_anno(C, A) when is_record(C) ->
+    C#_{anno=A}.
 
 -spec is_simple(cerl:cerl() | i()) -> boolean().
 
