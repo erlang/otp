@@ -2545,11 +2545,11 @@ form_urlencode(Cs, [{encoding, latin1}]) when is_list(Cs) ->
 form_urlencode(Cs, [{encoding, latin1}]) when is_binary(Cs) ->
     html5_byte_encode(base10_encode(Cs));
 form_urlencode(Cs, [{encoding, Encoding}])
-  when is_list(Cs), Encoding =:= utf8; Encoding =:= unicode ->
+  when is_list(Cs), (Encoding =:= utf8 orelse Encoding =:= unicode) ->
     B = convert_to_binary(Cs, utf8, Encoding),
     html5_byte_encode(B);
 form_urlencode(Cs, [{encoding, Encoding}])
-  when is_binary(Cs), Encoding =:= utf8; Encoding =:= unicode ->
+  when is_binary(Cs), (Encoding =:= utf8 orelse Encoding =:= unicode) ->
     html5_byte_encode(Cs);
 form_urlencode(Cs, [{encoding, Encoding}]) when is_list(Cs); is_binary(Cs) ->
     throw({error,invalid_encoding, Encoding});
