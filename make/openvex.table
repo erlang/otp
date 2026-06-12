@@ -1070,6 +1070,15 @@
         ],
         "not_affected": "vulnerable_code_not_present"
       }
+    },
+    {
+      "pkg:github/PCRE2Project/pcre2@f454e231fe5006dd7ff8f4693fd2b8eb94333429": "OSV-2026-343",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@16.0"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
     }
   ],
   "otp-29": [
@@ -1183,6 +1192,21 @@
     {
       "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2026-22796",
       "status": { "not_affected": "vulnerable_code_not_present" }
+    },
+    {
+      "pkg:github/PCRE2Project/pcre2@f454e231fe5006dd7ff8f4693fd2b8eb94333429": "OSV-2026-343",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@17.0"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
     }
+  ],
+  "otp-30": [
+     {
+      "pkg:github/PCRE2Project/pcre2@f454e231fe5006dd7ff8f4693fd2b8eb94333429": "OSV-2026-343",
+      "status": { "not_affected": "vulnerable_code_not_present" }
+     }
   ]
 }
