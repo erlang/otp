@@ -2607,7 +2607,7 @@ beam_docs(Code, #compile{dir = Dir, options = Options,
     SourceName = deterministic_filename(St),
     case beam_doc:main(Dir, SourceName, Code, Options) of
         {ok, Docs, Ws} ->
-            Binary = term_to_binary(Docs, [deterministic, compressed]),
+            Binary = term_to_binary(Docs, ensure_deterministic(Options, [compressed])),
             MetaDocs = [{?META_DOC_CHUNK, Binary} | ExtraChunks],
             {ok, Code, St#compile{extra_chunks = MetaDocs,
                                   warnings = St#compile.warnings ++ Ws}};
