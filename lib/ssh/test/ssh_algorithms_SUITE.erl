@@ -42,6 +42,7 @@
 
 -export([
          interpolate/1,
+         mlkem768x25519_hybrid_secret_encoding/1,
          simple_connect/1,
          simple_exec/1,
          simple_exec_groups/0,
@@ -61,9 +62,9 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{seconds,120}}].
 
-all() -> 
+all() ->
     %% [{group,kex},{group,cipher}... etc
-    [{group,C} || C <- tags()].
+    [mlkem768x25519_hybrid_secret_encoding | [{group,C} || C <- tags()]].
 
 
 groups() ->
@@ -290,6 +291,14 @@ init_per_testcase(sshc_simple_exec_os_cmd, _, Config) ->
      start_pubkey_daemon([proplists:get_value(pref_algs,Config)],
                          [{extra_daemon,true}|Config]);
 
+init_per_testcase(mlkem768x25519_hybrid_secret_encoding, _, Config) ->
+    case lists:member(x25519, crypto:supports(curves))
+        andalso lists:member(mlkem768, crypto:supports(kems))
+    of
+        false -> {skip, "X25519 or ML-KEM768 not supported"};
+        true -> Config
+    end;
+
 init_per_testcase(_, _, Config) ->
     Config.
 
@@ -311,6 +320,47 @@ end_per_testcase(_TC, Config) ->
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
+%%--------------------------------------------------------------------
+%% Regression test for the mlkem768x25519-sha256 hybrid key exchange: the
+%% classical (X25519) shared secret must be hashed as a fixed-width 32-byte
+%% octet string. Encoding it as a trimmed mpint dropped a genuine leading 0x00
+%% byte ~1/512 of the time (when the secret's most significant byte is 0x00 and
+%% the next byte is < 0x80), so the two peers derived different exchange hashes
+%% and the handshake failed with "incorrect signature".
+mlkem768x25519_hybrid_secret_encoding(_Config) ->
+    %% Find an X25519 key pair whose ECDH shared secret triggers the bug.
+    {PeerPublic, MyPrivate, Raw} = find_case_c_x25519(1000000),
+    32 = byte_size(Raw),
+    K_pq = crypto:strong_rand_bytes(32),
+    %% A spec-conformant peer (e.g. OpenSSH) hashes K_pq concatenated with the
+    %% X25519 secret as a fixed-width 32-byte string, preserving the leading 0x00.
+    Expected = crypto:hash(sha256, <<K_pq/binary, Raw/binary>>),
+    Got = ssh_transport:hybrid_common(K_pq, x25519, PeerPublic, MyPrivate),
+    case Got of
+        Expected ->
+            ok;
+        _ ->
+            ct:fail({hybrid_secret_encoding_mismatch,
+                     {x25519_secret, Raw},
+                     {expected, Expected},
+                     {got, Got}})
+    end.
+
+%% Search for an X25519 key pair whose ECDH shared secret has most significant
+%% byte 0x00 and next byte < 0x80 -- the value whose minimal mpint encoding is
+%% only 31 bytes, which the old code mis-trimmed. Expected after ~512 tries.
+find_case_c_x25519(0) ->
+    ct:fail("no case-C X25519 shared secret found");
+find_case_c_x25519(N) ->
+    {_MyPublic, MyPrivate} = crypto:generate_key(ecdh, x25519),
+    {PeerPublic, _PeerPrivate} = crypto:generate_key(ecdh, x25519),
+    case crypto:compute_key(ecdh, PeerPublic, MyPrivate, x25519) of
+        <<0, B1, _/binary>> = Raw when B1 < 16#80 ->
+            {PeerPublic, MyPrivate, Raw};
+        _ ->
+            find_case_c_x25519(N - 1)
+    end.
+
 %%--------------------------------------------------------------------
 %% A simple sftp transfer
 simple_sftp(Config) ->
