@@ -1485,11 +1485,14 @@ orphan_tables([Tab | Tabs], Node, Ns, Local, Remote) ->
 		    orphan_tables(Tabs, Node, Ns, Local, Remote)
 	    end;
 	false when Active == [], DiscCopyHolders == [],
-               RamCopyHolders =/= [], not (LocalContent == true) ->
-	    %% RAM-only table. This must be handled before the discless
-	    %% special case below, otherwise a fully disc-less cluster
-	    %% (where RamCopyHoldersOnDiscNodes is always []) would load
-	    %% an empty local copy instead of a better remote copy.
+               RamCopyHolders =/= [], not (LocalContent == true),
+               (RamCopyHoldersOnDiscNodes =/= [] orelse DiscNodes == []) ->
+	    %% RAM-only table whose copies live on disc nodes, OR a fully
+	    %% disc-less cluster (DiscNodes == []). In both cases a remote
+	    %% holder may have a better copy, so don't blindly load an empty
+	    %% local copy. Handled before the disc-less special case below;
+	    %% the mixed case (ram copies only on ram nodes while a disc node
+	    %% exists) falls through to that clause and keeps loading directly.
 	    case RamCopyHolders -- Ns of
 		[] ->
 		    %% We're last up and the other nodes have not
