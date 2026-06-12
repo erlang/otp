@@ -291,6 +291,14 @@ init_per_testcase(sshc_simple_exec_os_cmd, _, Config) ->
      start_pubkey_daemon([proplists:get_value(pref_algs,Config)],
                          [{extra_daemon,true}|Config]);
 
+init_per_testcase(mlkem768x25519_hybrid_secret_encoding, _, Config) ->
+    case lists:member(x25519, crypto:supports(curves))
+        andalso lists:member(mlkem768, crypto:supports(kems))
+    of
+        false -> {skip, "X25519 or ML-KEM768 not supported"};
+        true -> Config
+    end;
+
 init_per_testcase(_, _, Config) ->
     Config.
 
