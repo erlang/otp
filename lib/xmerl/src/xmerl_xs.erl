@@ -69,12 +69,23 @@ Example, original XSLT:
 
 becomes in Erlang:
 
-```text
+```erlang
   template(E = #xmlElement{ parents=[{'doc',_}|_], name='title'}) ->
     ["<h1>",
      xslapply(fun template/1, E),
      "</h1>"];
 
+```
+
+## Examples
+
+```erlang
+1> Xml = "<root><item>one</item><item>two</item></root>".
+"<root><item>one</item><item>two</item></root>"
+2> {Doc, []} = xmerl_scan:string(Xml).
+...
+3> xmerl_xs:xslapply(fun(E) -> xmerl_xs:value_of(E) end, xmerl_xs:select("/root/item", Doc)).
+[["one"],["two"]]
 ```
 """.
 -spec xslapply(Fun, ElementList) -> io_lib:chars() when
@@ -108,6 +119,17 @@ becomes:
        value_of(select(".", E)), "</h1></div>"]
 
 ```
+
+## Examples
+
+```erlang
+1> Xml = "<root><item>one</item><item>two</item></root>".
+"<root><item>one</item><item>two</item></root>"
+2> {Doc, []} = xmerl_scan:string(Xml).
+...
+3> xmerl_xs:value_of(xmerl_xs:select("/root/item[2]", Doc)).
+["two"]
+```
 """.
 -spec value_of(E) -> io_lib:chars() when
       E :: xmerl:element() | [xmerl:element()].
@@ -125,6 +147,17 @@ Extract the nodes from the xml tree according to XPath.
 Equivalent to [`xmerl_xpath:string(Str, E)`](`xmerl_xpath:string/2`).
 
 _See also:_ `value_of/1`.
+
+## Examples
+
+```erlang
+1> Xml = "<root><item>one</item><item>two</item></root>".
+"<root><item>one</item><item>two</item></root>"
+2> {Doc, []} = xmerl_scan:string(Xml).
+...
+3> xmerl_xs:value_of(xmerl_xs:select("/root/item[2]", Doc)).
+["two"]
+```
 """.
 -spec select(String, E) -> Result when
       String  :: term(),
@@ -146,6 +179,19 @@ The default fallback behaviour.
 
 Template funs should end with:
 `template(E) -> built_in_rules(fun template/1, E)`.
+
+## Examples
+
+```erlang
+1> Xml = "<root><item>one</item></root>".
+"<root><item>one</item></root>"
+2> {Doc, []} = xmerl_scan:string(Xml).
+...
+3> [Text] = xmerl_xs:select("/root/item/text()", Doc).
+...
+4> xmerl_xs:built_in_rules(fun(_) -> [] end, Text).
+"one"
+```
 """.
 -spec built_in_rules(Fun, E :: xmerl:element()) -> io_lib:chars() when
       Fun :: fun ((xmerl:element()) -> io_lib:chars()).
