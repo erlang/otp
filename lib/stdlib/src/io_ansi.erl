@@ -2337,7 +2337,7 @@ is_color(AnsiKey) ->
                      Postfixes <- ["","_background","_underline"],
                      Prefixes <- ["", "light_"],
                      C <- Colors],
-    lists:member(AnsiKey, ColorAtoms ++ [color, background_color, underline_color,
+    lists:member(AnsiKey, ColorAtoms ++ [color, background, underline_color,
                                          default_color, default_background, default_underline_color]).
 
 -doc #{ equiv => format(Format, []) }.
