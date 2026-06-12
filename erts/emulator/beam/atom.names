@@ -516,6 +516,7 @@ atom normal_exit
 atom nosuspend
 atom no_fail
 atom no_float
+atom non_executable
 atom no_integer
 atom no_network
 atom no_start_optimize
