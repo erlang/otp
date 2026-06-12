@@ -1,0 +1,1 @@
+# ERL-1411 - Badly binary
