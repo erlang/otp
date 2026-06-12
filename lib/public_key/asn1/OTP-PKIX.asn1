@@ -41,7 +41,7 @@ IMPORTS
        at-x520OrganizationName, at-x520OrganizationalUnitName, at-x520Title,
        at-x520dnQualifier, at-x520SerialNumber, at-x520Pseudonym,
        at-domainComponent, at-emailAddress,
-       id-at-commonName, id-at-countryName, id-emailAddress,
+       id-at-commonName, id-at-countryName, id-domainComponent, id-emailAddress,
        ub-emailaddress-length,
        Validity, Version, SubjectPublicKeyInfo,
        UniqueIdentifier, DirectoryString{},
@@ -141,11 +141,14 @@ OTPSupportedAttributes ATTRIBUTE ::= {
     at-x520LocalityName | at-x520StateOrProvinceName |
     at-x520OrganizationName | at-x520OrganizationalUnitName |
     at-x520Title | at-x520dnQualifier | otp-at-x520countryName |
-    at-x520SerialNumber | at-x520Pseudonym | at-domainComponent |
+    at-x520SerialNumber | at-x520Pseudonym | otp-at-domainComponent |
     otp-at-emailAddress, ... }
 
 otp-at-x520countryName ATTRIBUTE ::= {
     TYPE OTP-X520countryName IDENTIFIED BY id-at-countryName }
+
+otp-at-domainComponent ATTRIBUTE ::= {
+    TYPE OTP-DomainComponent IDENTIFIED BY id-domainComponent }
 
 otp-at-emailAddress ATTRIBUTE ::= {
     TYPE OTP-emailAddress IDENTIFIED BY id-emailAddress }
@@ -160,6 +163,15 @@ otp-at-x520CommonName ATTRIBUTE ::= {
 OTP-X520countryName ::= CHOICE {
     correct           PrintableString (SIZE (2..3)), -- Correct size is 2.
     wrong             UTF8String      (SIZE (2..3))
+}
+
+ -- We accept PrintableString encoding of DomainComponent
+ -- which should be IA5String per RFC 2247, but some devices
+ -- use PrintableString.
+
+OTP-DomainComponent ::= CHOICE {
+    correct IA5String,
+    wrong PrintableString
 }
 
 OTP-emailAddress ::= CHOICE {
