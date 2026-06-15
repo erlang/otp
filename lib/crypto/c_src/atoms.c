@@ -40,6 +40,9 @@ ERL_NIF_TERM atom_undefined;
 ERL_NIF_TERM atom_hmac;
 ERL_NIF_TERM atom_cmac;
 ERL_NIF_TERM atom_poly1305;
+ERL_NIF_TERM atom_siphash;
+ERL_NIF_TERM atom_c_rounds;
+ERL_NIF_TERM atom_d_rounds;
 
 ERL_NIF_TERM atom_ok;
 ERL_NIF_TERM atom_none;
@@ -180,6 +183,9 @@ int init_atoms(ErlNifEnv *env) {
     atom_hmac = enif_make_atom(env,"hmac");
     atom_cmac = enif_make_atom(env,"cmac");
     atom_poly1305 = enif_make_atom(env,"poly1305");
+    atom_siphash = enif_make_atom(env,"siphash");
+    atom_c_rounds = enif_make_atom(env,"c_rounds");
+    atom_d_rounds = enif_make_atom(env,"d_rounds");
 
     atom_ok = enif_make_atom(env,"ok");
     atom_none = enif_make_atom(env,"none");

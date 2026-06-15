@@ -204,6 +204,38 @@ the list returned by [crypto:supports(macs)](`crypto:supports/1`).
 
 The poly1305 mac wants an 32 bytes key and produces a 16 byte MAC by default.
 
+### SIPHASH
+
+SipHash is available with OpenSSL 3.0 or later if not disabled by configuration.
+
+To dynamically check availability, check that the name `siphash` is present in
+the list returned by [crypto:supports(macs)](`crypto:supports/1`).
+
+SipHash wants a 16 bytes key. It is configured through the `SubType` argument of
+[`crypto:mac/4`](`crypto:mac/4`), [`crypto:macN/5`](`crypto:macN/5`) and
+[`crypto:mac_init/3`](`crypto:mac_init/3`), which for `siphash` is a
+[`t:crypto:siphash_options/0`](`t:crypto:siphash_options/0`) map with any of the
+optional keys:
+
+| Key | Meaning | Values | Default |
+|------------|--------------------------------|-----------|---------|
+| `size` | output size in bytes | `8` or `16` | `16` |
+| `c_rounds` | SipHash compression rounds | `1`..`16` | `2` |
+| `d_rounds` | SipHash finalization rounds | `1`..`16` | `4` |
+
+The defaults correspond to SipHash-2-4 with a 16 byte output, matching the
+cryptolib defaults. The round counts are capped at `16` (well above the
+strongest standard variant, SipHash-4-8) so that a single call cannot
+monopolise a scheduler. Omitting the `SubType` (for example
+[`crypto:mac/3`](`crypto:mac/3`)) or passing `undefined` or `#{}` selects those
+defaults; any subset of the keys overrides individual parameters, so for example
+`#{size => 8}` selects the classic 64-bit SipHash-2-4 and `#{c_rounds => 1,
+d_rounds => 3}` selects SipHash-1-3.
+
+Note that the 8 and 16 byte outputs are _not_ truncations of one another; they
+differ in finalization, so the output size must be chosen explicitly through the
+`size` option.
+
 ## Hash
 
 To dynamically check availability, check that the wanted name in the _Names_
