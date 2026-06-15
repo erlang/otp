@@ -20,6 +20,12 @@
 ##
 ## %CopyrightEnd%
 
+# Note: This script is to be called internally as follows:
+# openvex-sync.yaml -->
+#    .github/scripts/otp-compliance.es vex verify -p -->
+#        create-openvex-pr.sh
+#
+
 set -e   # exit immediately if any command fails
 
 REPO=$1
@@ -40,28 +46,33 @@ if [ "$PR_STATUS" = "CLOSED" ] || [ "$PR_STATUS" = "MERGED" ] || [ "$FOUND_PR" -
   echo "Pull request #$BRANCH_NAME is CLOSED or MERGED."
   echo "✅ A new pull request with name #$BRANCH_NAME will be created."
 
-  # Stash the generated openvex files (including untracked ones)
-  git stash push --include-untracked -m "openvex generated files"
-
-  # Fetch and checkout the orphan branch
-  # OTP_REMOTE is `origin` when this script runs as part of otp-compliance.es called by openvex-sync.yaml
-  # OTP_REMOTE is `upstream` when we run this script as part of locally removing a false positive CVE,
-  # when running `otp-compliance vex run`.
+  # Fetch the orphan branch
   git fetch "$OTP_REMOTE" "$ORPHAN_BRANCH"
-  git checkout "$ORPHAN_BRANCH"
 
-  # Create a new work branch from the orphan branch
-  git checkout -b "$BRANCH_NAME"
+  # Create a worktree for the orphan branch in a temp directory
+  # This avoids switching branches in the current working tree
+  WORKTREE=$(mktemp -d /tmp/openvex-worktree.XXXXXX)
+  git worktree add "$WORKTREE" "$ORPHAN_BRANCH"
 
-  # Restore the generated files from the stash
-  git stash pop
+  # Create a new work branch inside the worktree
+  git -C "$WORKTREE" checkout -b "$BRANCH_NAME"
 
-  git add otp-*.openvex.json
-  git add otp-*.openvex.json.license
-  git commit -m "Automatic update of OpenVEX Statements for erlang/otp"
-  git push --force origin "$BRANCH_NAME"
+  # Copy the generated files into the worktree
+  cp otp-*.openvex.json         "$WORKTREE/" 2>/dev/null || true
+  cp otp-*.openvex.json.license "$WORKTREE/" 2>/dev/null || true
+  cp openvex.table              "$WORKTREE/" 2>/dev/null || true
+
+  # Commit inside the worktree
+  git -C "$WORKTREE" add otp-*.openvex.json
+  git -C "$WORKTREE" add otp-*.openvex.json.license
+  git -C "$WORKTREE" add openvex.table
+  git -C "$WORKTREE" commit -m "Automatic update of OpenVEX Statements for erlang/otp"
+
+  # Push from the worktree since the branch was created there
+  git -C "$WORKTREE" push --force origin "$BRANCH_NAME"
 
   gh pr create --repo "$REPO" -B "$ORPHAN_BRANCH" \
+               --head "$BRANCH_NAME" \
                --title "Automatic update of OpenVEX Statements for erlang/otp" \
                --body "Automatic Action. There is a vulnerability from GH Advisories without a matching OpenVEX statement"
 else

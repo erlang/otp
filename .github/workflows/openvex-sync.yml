@@ -43,8 +43,17 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
         with:
-          ref: 'master' # '' = default branch
+          ref: 'openvex' # '' = default branch
           persist-credentials: false
+          fetch-depth: 0
+
+      - name: 'Fetch Erlang/otp script dependencies'
+        run: |
+          git fetch origin master
+          WORKTREE=$(mktemp -d /tmp/master-worktree.XXXXXX)
+          git worktree add "$WORKTREE" master
+          mkdir -p .github/scripts/
+          cp -r "$WORKTREE/.github/scripts/." .github/scripts/
 
       - uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # ratchet:erlef/setup-beam@v1.20.4
         with:
