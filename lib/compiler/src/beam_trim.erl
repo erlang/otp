@@ -28,10 +28,10 @@
 
 -include("beam_asm.hrl").
 
--record(st,
-        {safe :: sets:set(beam_asm:label()),    %Safe labels.
-         fsz :: non_neg_integer()
-        }).
+-record #st{
+   safe :: sets:set(beam_asm:label()),    %Safe labels.
+   fsz :: non_neg_integer()
+  }.
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.

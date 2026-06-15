@@ -208,7 +208,7 @@ are_equivalent(Succ0, #b_blk{is=Is1,last=#b_br{bool=#b_var{},fail=Same}},
             %% and let share_switch/2 do the work of following the
             %% branches.
             Sw = #b_switch{arg=#b_var{name=not_used},fail=Fail0,
-                           list=[{#b_literal{},Succ0}]},
+                           list=[{#b_literal{val=none},Succ0}]},
             #b_switch{fail=Fail,list=[{_,Succ}]} = share_switch(Sw, Blocks),
             Fail =:= Succ
     end;

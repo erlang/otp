@@ -1275,19 +1275,19 @@ format_error_reason(Class, Reason, Stack) ->
     erl_error:format_exception(Class, Reason, Stack, Opts).
 
 %% The compile state record.
--record(compile, {filename=""      :: file:filename(),
-                  dir=""           :: file:filename(),
-                  base=""          :: file:filename(),
-                  ifile=""         :: file:filename(),
-                  ofile=""         :: file:filename(),
-                  module=[]        :: module() | [],
-                  abstract_code=[] :: abstract_code(), %Abstract code for debugger.
-                  options=[]       :: [option()],  %Options for compilation
-                  mod_options=[]   :: [option()], %Options for module_info
-                  encoding=none    :: none | epp:source_encoding(),
-                  errors=[]        :: errors(),
-                  warnings=[]      :: warnings(),
-                  extra_chunks=[]  :: [{binary(), binary()}]}).
+-record #compile{filename=""      :: file:filename(),
+                 dir=""           :: file:filename(),
+                 base=""          :: file:filename(),
+                 ifile=""         :: file:filename(),
+                 ofile=""         :: file:filename(),
+                 module=[]        :: module() | [],
+                 abstract_code=[] :: abstract_code(), %Abstract code for debugger.
+                 options=[]       :: [option()],  %Options for compilation
+                 mod_options=[]   :: [option()], %Options for module_info
+                 encoding=none    :: none | epp:source_encoding(),
+                 errors=[]        :: errors(),
+                 warnings=[]      :: warnings(),
+                 extra_chunks=[]  :: [{binary(), binary()}]}.
 
 internal({forms,Forms}, Opts0) ->
     {_,Ps} = passes(forms, Opts0),
@@ -1932,12 +1932,12 @@ remove_file(Code, St) ->
     _ = file:delete(St#compile.ofile),
     {ok,Code,St}.
 
--record(asm_module, {module,
-		     exports,
-		     labels,
-		     functions=[],
-		     attributes=[],
-                     anno=#{}}).
+-record #asm_module{module='',
+                    exports=none,
+                    labels=none,
+                    functions=[],
+                    attributes=[],
+                    anno=#{}}.
 
 preprocess_asm_forms(Forms) ->
     R0 = #asm_module{},

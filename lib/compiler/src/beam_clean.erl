@@ -116,10 +116,10 @@ make_block([]) -> [].
 
 -type label() :: beam_asm:label().
 
--record(st, {lmap :: [{label(),label()}], %Translation tables for labels.
-	     entry :: beam_asm:label(),   %Number of entry label.
-	     lc :: non_neg_integer()      %Label counter
-	     }).
+-record #st{lmap :: [{label(),label()}], %Translation tables for labels.
+            entry :: beam_asm:label(),   %Number of entry label.
+            lc :: non_neg_integer()      %Label counter
+           }.
 
 clean_labels(Fs0) ->
     St0 = #st{lmap=[],entry=1,lc=1},

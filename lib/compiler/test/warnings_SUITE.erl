@@ -49,6 +49,9 @@
          recv_opt_info/1,opportunistic_warnings/1,
          eep49/1,inline_list_funcs/1]).
 
+%% Import SSA records.
+-import_record(beam_ssa, [b_set, b_literal, b_remote, b_local]).
+
 init_per_testcase(_Case, Config) ->
     Config.
 
@@ -609,18 +612,19 @@ bin_opt_info(Config) when is_list(Config) ->
     %% part of the warnings, which may include annotations that vary from run
     %% to run.
     {warnings,
-     [{5,beam_ssa_bsm,{unsuitable_call,
-                       {{b_local,{b_literal,t1},1},
-                        {used_before_match,
-                         {b_set,_,_,{bif,byte_size},[_]}}}}},
+     [{5,beam_ssa_bsm,
+       {unsuitable_call,
+        {#b_local{name=#b_literal{val=t1},arity=1},
+         {used_before_match,
+          #b_set{op={bif,byte_size},args=[_]}}}}},
       {5,beam_ssa_bsm,{binary_created,_,_}},
       {11,beam_ssa_bsm,{binary_created,_,_}}, %% A =< B -> T
       {13,beam_ssa_bsm,context_reused},       %% A > B -> t2(T);
       {16,beam_ssa_bsm,context_reused}, %% when byte_size(T) < 4 ->
       {19,beam_ssa_bsm,{remote_call,
-                        {b_remote,
-                         {b_literal,erlang},
-                         {b_literal,split_binary},2}}},
+                        #b_remote{mod=#b_literal{val=erlang},
+                                  name=#b_literal{val=split_binary},
+                                  arity=2}}},
       {19,beam_ssa_bsm,{binary_created,_,_}}  %% split_binary(T, 4)
      ]} = Ws,
 
@@ -659,9 +663,9 @@ bin_opt_info(Config) when is_list(Config) ->
 
     {warnings,
      [{none,beam_ssa_bsm,{unsuitable_call,
-                       {{b_local,{b_literal,t1},1},
-                        {used_before_match,
-                         {b_set,_,_,{bif,byte_size},[_]}}}}},
+                          {#b_local{name=#b_literal{val=t1},arity=1},
+                           {used_before_match,
+                            #b_set{op={bif,byte_size},args=[_]}}}}},
       {none,beam_ssa_bsm,{binary_created,_,_}}
      ]} = Wsf,
 

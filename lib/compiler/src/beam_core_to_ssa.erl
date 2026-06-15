@@ -85,63 +85,63 @@
 %% Internal records created by the first pass and eliminated in the
 %% second pass.
 
--record(ivalues, {args}).
--record(iset, {vars,arg}).
--record(ilet, {vars,arg,body}).
--record(iletrec, {defs}).
--record(ialias, {vars,pat}).
+-record #ivalues {args}.
+-record #iset {vars,arg}.
+-record #ilet {vars,arg,body}.
+-record #iletrec {defs}.
+-record #ialias {vars,pat}.
 
--record(ifun, {anno=[],vars,body}).
--record(iclause, {anno=[],sub,pats,guard,body}).
+-record #ifun {anno=[],vars,body}.
+-record #iclause {anno=[],sub,pats,guard,body}.
 
 %% The following records are used to represent complex terms used for
 %% matching. (Construction of those term types is translated directly
 %% to SSA instructions.)
 
--record(cg_tuple, {es,keep=ordsets:new()}).
--record(cg_map, {var=#b_literal{val=#{}},op,es}).
--record(cg_map_pair, {key,val}).
--record(cg_record, {rec}).
--record(cg_record_id, {id :: {_,_} | atom() | [], es}).
+-record #cg_tuple {es,keep=[]}.
+-record #cg_map {var,op,es}.
+-record #cg_map_pair {key,val}.
+-record #cg_record {rec}.
+-record #cg_record_id {id :: {_,_} | atom() | [], es}.
 -type scope() :: #b_literal{val::'local'} |
                  #b_literal{val::'external'} |
                  #b_literal{val::'auto_local'}.
--record(cg_record_pairs, {scope::scope(),es}).
--record(cg_record_pair, {key,val}).
--record(cg_cons, {hd,tl}).
--record(cg_binary, {segs}).
--record(cg_bin_seg, {size,unit,type,flags,seg,next}).
--record(cg_bin_int, {size,unit,flags,val,next}).
--record(cg_bin_end, {}).
+-record #cg_record_pairs {scope::scope(),es}.
+-record #cg_record_pair {key,val}.
+-record #cg_cons {hd,tl}.
+-record #cg_binary {segs}.
+-record #cg_bin_seg {size,unit,type,flags,seg,next}.
+-record #cg_bin_int {size,unit,flags,val,next}.
+-record #cg_bin_end {}.
 
 %% Other internal records.
 
--record(cg_seq, {arg,body}).
--record(cg_call, {anno=[],op,args,ret=[]}).
--record(cg_internal, {anno=[],op,args,ret=[]}).
+-record #cg_seq {arg,body}.
+-record #cg_call {anno=[],op,args,ret=[]}.
+-record #cg_internal {anno=[],op,args,ret=[]}.
 
--record(cg_try, {arg,vars,body,evars,handler,ret=[]}).
--record(cg_catch, {body,ret=[]}).
+-record #cg_try {arg,vars,body,evars,handler,ret=[]}.
+-record #cg_catch {body,ret=[]}.
 
--record(cg_letrec_goto, {label,vars=[],first,then,ret=[]}).
--record(cg_goto, {label,args=[]}).
+-record #cg_letrec_goto {label,vars=[],first,then,ret=[]}.
+-record #cg_goto {label,args=[]}.
 
--record(cg_opaque, {val}).
+-record #cg_opaque {val}.
 
--record(cg_match, {body,ret=[]}).
--record(cg_alt, {anno=[],first,then}).
--record(cg_select, {anno=[],var,types}).
--record(cg_type_clause, {anno=[],type,values}).
--record(cg_val_clause, {anno=[],val,body}).
--record(cg_guard, {anno=[],clauses}).
--record(cg_guard_clause, {guard,body}).
--record(cg_test, {op,args}).
+-record #cg_match {body,ret=[]}.
+-record #cg_alt {anno=[],first,then}.
+-record #cg_select {anno=[],var,types}.
+-record #cg_type_clause {anno=[],type,values}.
+-record #cg_val_clause {anno=[],val,body}.
+-record #cg_guard {anno=[],clauses}.
+-record #cg_guard_clause {guard,body}.
+-record #cg_test {op,args}.
 
--record(cg_break, {args=[] :: [beam_ssa:value()],
-                   phi :: label() | 'undefined'}).
--record(cg_phi, {vars :: [beam_ssa:b_var()]}).
--record(cg_unreachable, {}).
--record(cg_succeeded, {set :: beam_ssa:b_set()}).
+-record #cg_break {args=[] :: [beam_ssa:value()],
+                   phi=none :: label() | 'none'}.
+-record #cg_phi {vars :: [beam_ssa:b_var()]}.
+-record #cg_unreachable {}.
+-record #cg_succeeded {set :: beam_ssa:b_set()}.
 
 get_anno(#iclause{anno=Anno}) -> Anno;
 get_anno(#cg_alt{anno=Anno}) -> Anno;
@@ -151,23 +151,25 @@ get_anno(#cg_select{anno=Anno}) -> Anno.
 -type warning() :: {'failed' | 'nomatch', term()}.
 
 %% State record for the first two passes (formerly `v3_kernel`).
--record(kern, {module :: atom(),       %Current module
+-record #kern {module :: atom(),       %Current module
                func,                   %Current host function
                fargs=[] :: [#b_var{}], %Arguments for current function
                vcount=0,               %Variable counter
                fcount=0,               %Fun counter
-               ds=sets:new() :: sets:set(), %Defined variables
+               ds :: sets:set(),       %Defined variables
                funs=[],                         %Fun functions
                free=#{},                        %Free variables
                rec_defaults :: #{atom() => type()},  %Native records.
                ws=[]   :: [warning()],          %Warnings.
                beam_debug_info=false :: boolean()
-              }).
+              }.
 
 -spec module(cerl:c_module(), [compile:option()]) ->
           {'ok', #b_module{}, [warning()]}.
 
 module(#c_module{name=#c_literal{val=Mod},exports=Es,attrs=As,defs=Fs}, Options) ->
+    _ = beam_ssa:module_info(module),           %Load modules with records.
+
     Records = records(As),
     Anno = #{records => Records},
     RecDefaults = record_defaults(Records),
@@ -175,6 +177,8 @@ module(#c_module{name=#c_literal{val=Mod},exports=Es,attrs=As,defs=Fs}, Options)
     Kes = map(fun (#c_var{name={_,_}=Fname}) -> Fname end, Es),
     DebugInfo = proplists:get_bool(beam_debug_info, Options),
     St0 = #kern{module=Mod,
+                func=none,
+                ds=sets:new(),
                 rec_defaults=RecDefaults,
                 beam_debug_info=DebugInfo},
     {Kfs,St} = mapfoldl(fun function/2, St0, Fs),
@@ -897,7 +901,7 @@ pattern(#c_tuple{es=Ces}, Sub0, St0) ->
     {#cg_tuple{es=Kes},Sub1,St1};
 pattern(#c_map{es=Ces}, Sub0, St0) ->
     {Kes,Sub1,St1} = pattern_map_pairs(Ces, Sub0, St0),
-    {#cg_map{op=exact,es=Kes},Sub1,St1};
+    {#cg_map{var=#b_literal{val=#{}},op=exact,es=Kes},Sub1,St1};
 pattern(#c_record{id=#c_literal{val=Id}, es=Ces}, Sub0, St0) ->
     {Kes,Sub1,St1} = pattern_record_pairs(Ces, Sub0, St0),
     Scope = case Id of
@@ -1990,7 +1994,7 @@ get_match(#cg_map{op=exact,es=Es0}, St0) ->
     {Es,_} = mapfoldl(fun(#cg_map_pair{}=Pair, [V|Vs]) ->
                               {Pair#cg_map_pair{val=V},Vs}
                       end, Mes, Es0),
-    {#cg_map{op=exact,es=Es},Mes,St1};
+    {#cg_map{var=#b_literal{val=#{}},op=exact,es=Es},Mes,St1};
 get_match(#cg_record{}, St0) ->
     {V,St1} = new_var(St0),
     {#cg_record{rec=V},[V],St1};
@@ -2672,14 +2676,14 @@ pat_list_vars(Ps) ->
 -type label() :: beam_ssa:label().
 
 %% Main codegen structure for the SSA pass (formerly `beam_kernel_to_ssa`).
--record(cg, {module :: atom(),                  %Current module
+-record #cg {module :: atom(),                  %Current module
              lcount=1 :: label(),               %Label counter
              bfail=1 :: label(),
              catch_label=none :: 'none' | label(),
              vars=#{} :: map(),                 %Defined variables.
              break=0 :: label(),                %Break label
              checks=[] :: [term()]
-            }).
+            }.
 
 make_ssa_function(Anno0, Name, As, #cg_match{}=Body,
                   #kern{module=Mod,vcount=Count0}) ->

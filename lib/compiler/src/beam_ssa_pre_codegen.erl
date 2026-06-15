@@ -102,16 +102,16 @@ functions([], _Ps) -> [].
 -type ssa_register() :: beam_ssa_codegen:ssa_register().
 
 -define(TC(Body), tc(fun() -> Body end, ?FILE, ?LINE)).
--record(st, {ssa :: beam_ssa:block_map(),
-             args :: [b_var()],
-             cnt :: beam_ssa:label(),
-             frames=[] :: [beam_ssa:label()],
-             intervals=[] :: [{b_var(),[range()]}],
-             res=[] :: [{b_var(),reservation()}] | #{b_var():=reservation()},
-             regs=#{} :: #{b_var():=ssa_register()},
-             extra_annos=[] :: [{atom(),term()}],
-             location :: term()
-            }).
+-record #st{ssa :: beam_ssa:block_map(),
+            args :: [b_var()],
+            cnt :: beam_ssa:label(),
+            frames=[] :: [beam_ssa:label()],
+            intervals=[] :: [{b_var(),[range()]}],
+            res=[] :: [{b_var(),reservation()}] | #{b_var():=reservation()},
+            regs=#{} :: #{b_var():=ssa_register()},
+            extra_annos=[] :: [{atom(),term()}],
+            location :: term()
+           }.
 -define(PASS(N), {N,fun N/1}).
 
 passes(Opts) ->
@@ -883,8 +883,11 @@ sanitize_alias(Alias, Values) ->
     sanitize_alias_1(maps:keys(Alias), Values, Alias).
 
 sanitize_alias_1([Old|Vs], Values, Alias0) ->
+    %% FIXME? Note that the expression that creates a key for map
+    %% match is executed in guard context.
+    OldKey = #b_var{name=Old},
     Alias = case Values of
-                #{#b_var{name=Old} := #b_var{name=New}} ->
+                #{OldKey := #b_var{name=New}} ->
                     Alias0#{New => map_get(Old, Alias0)};
                 #{} ->
                     Alias0
@@ -1929,9 +1932,10 @@ find_rm_act([]) ->
 %%% Find out which variables need to be stored in Y registers.
 %%%
 
--record(dk, {d :: ordsets:ordset(b_var()),
-             k :: sets:set(b_var())
-            }).
+-record #dk{
+   d :: ordsets:ordset(b_var()),
+   k :: sets:set(b_var())
+  }.
 
 %% find_yregs(St0) -> St.
 %%  Find all variables that must be stored in Y registers. Annotate
@@ -3233,24 +3237,24 @@ res_xregs_prune(Xs, _Used, _Res) -> Xs.
 %%% Register allocation using linear scan.
 %%%
 
--record(i,
-        {sort=1 :: instr_number(),
-         reg=none :: i_reg(),
-         pool=x :: pool_id(),
-         var=#b_var{} :: b_var(),
-         rs=[] :: [range()]
-        }).
+-record #i{
+   sort=1   :: instr_number(),
+   reg=none :: i_reg(),
+   pool=x   :: pool_id(),
+   var      :: b_var(),
+   rs=[]    :: [range()]
+  }.
 
--record(l,
-        {cur=#i{} :: interval(),
-         unhandled_res=[] :: [interval()],
-         unhandled_any=[] :: [interval()],
-         active=[] :: [interval()],
-         inactive=[] :: [interval()],
-         free=#{} :: #{var_name()=>pool(),
-                       {'next',pool_id()}:=reg_num()},
-         regs=[] :: [{b_var(),ssa_register()}]
-        }).
+-record #l{
+   cur :: interval(),
+   unhandled_res=[] :: [interval()],
+   unhandled_any=[] :: [interval()],
+   active=[] :: [interval()],
+   inactive=[] :: [interval()],
+   free=#{} :: #{var_name()=>pool(),
+                 {'next',pool_id()}:=reg_num()},
+   regs=[] :: [{b_var(),ssa_register()}]
+  }.
 
 -type interval() :: #i{}.
 -type i_reg() :: ssa_register() | {'prefer',xreg()} | 'none'.
@@ -3270,7 +3274,8 @@ linear_scan(#st{intervals=Intervals0,res=Res}=St0) ->
                          end
                  end,
     {UnhandledRes,Unhandled} = partition(IsReserved, Intervals),
-    L = #l{unhandled_res=UnhandledRes,
+    L = #l{cur=#i{var=#b_var{name=any}},
+           unhandled_res=UnhandledRes,
            unhandled_any=Unhandled,free=Free},
     #l{regs=Regs} = do_linear(L),
     St#st{regs=maps:from_list(Regs)}.

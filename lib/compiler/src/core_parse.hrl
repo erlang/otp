@@ -19,105 +19,20 @@
 %%
 %% %CopyrightEnd%
 %%
-%% Purpose : Core Erlang syntax trees as records.
+%% Purpose: Import Core Erlang native records.
 
-%% It would be nice to incorporate some generic functions as well but
-%% this could make including this file difficult.
-
-%% Note: the annotation list is *always* the first record field.
-%% Thus it is possible to define the macros:
-%% -define(get_ann(X), element(2, X)).
-%% -define(set_ann(X, Y), setelement(2, X, Y)).
-
-%% The record definitions appear alphabetically
-
--record(c_alias, {anno=[] :: list(), var :: cerl:cerl(),
-		  pat :: cerl:cerl()}).
-
--record(c_apply, {anno=[] :: list(), op :: cerl:cerl(),
-		  args :: [cerl:cerl()]}).
-
--record(c_binary, {anno=[] :: list(), segments :: [cerl:c_bitstr()]}).
-
--record(c_bitstr, {anno=[] :: list(), val :: cerl:cerl(),
-		   size :: cerl:cerl(),
-		   unit :: cerl:cerl(),
-		   type :: cerl:cerl(),
-		   flags :: cerl:cerl()}).
-
--record(c_call, {anno=[] :: list(), module :: cerl:cerl(),
-		 name :: cerl:cerl(),
-		 args :: [cerl:cerl()]}).
-
--record(c_case, {anno=[] :: list(), arg :: cerl:cerl(),
-		 clauses :: [cerl:cerl()]}).
-
--record(c_catch, {anno=[] :: list(), body :: cerl:cerl()}).
-
--record(c_clause, {anno=[] :: list(), pats :: [cerl:cerl()],
-		   guard :: cerl:cerl(),
-		   body :: cerl:cerl() | any()}). % TODO
-
--record(c_cons, {anno=[] :: list(), hd :: cerl:cerl(),
-		 tl :: cerl:cerl()}).
-
--record(c_fun, {anno=[] :: list(), vars :: [cerl:cerl()],
-		body :: cerl:cerl()}).
-
--record(c_let, {anno=[] :: list(), vars :: [cerl:cerl()],
-		arg :: cerl:cerl(),
-		body :: cerl:cerl()}).
-
--record(c_letrec, {anno=[] :: list(),
-                   defs :: [{cerl:cerl(), cerl:cerl()}],
-		   body :: cerl:cerl()}).
-
--record(c_literal, {anno=[] :: list(), val :: any()}).
-
--record(c_map, {anno=[] :: list(),
-		arg=#c_literal{val=#{}} :: cerl:c_var() | cerl:c_literal(),
-		es :: [cerl:c_map_pair()],
-		is_pat=false :: boolean()}).
-
--record(c_map_pair, {anno=[] :: list(),
-	             op :: #c_literal{val::'assoc'} | #c_literal{val::'exact'},
-		     key :: any(),              % TODO
-		     val :: any()}).            % TODO
-
--record(c_record, {anno=[] :: list(),
-                   arg=#c_literal{val=ok} :: cerl:c_var() | cerl:c_literal(),
-                   id :: cerl:c_literal(),
-                   es :: [cerl:c_record_pair()]}).
-
--record(c_record_pair, {anno=[] :: list(),
-                        key :: cerl:c_literal(),
-                        val :: cerl:cerl()}).
-
--record(c_module, {anno=[] :: list(), name :: cerl:cerl(),
-		   exports :: [cerl:cerl()],
-		   attrs :: [{cerl:cerl(), cerl:cerl()}],
-		   defs :: [{cerl:cerl(), cerl:cerl()}]}).
-
--record(c_opaque, {anno=[] :: list(), val :: any()}).
-
--record(c_primop, {anno=[] :: list(), name :: cerl:cerl(),
-		   args :: [cerl:cerl()]}).
-
--record(c_receive, {anno=[] :: list(), clauses :: [cerl:cerl()],
-		    timeout :: cerl:cerl(),
-		    action :: cerl:cerl()}).
-
--record(c_seq, {anno=[] :: list(), arg :: cerl:cerl() | any(), % TODO
-		body :: cerl:cerl()}).
-
--record(c_try, {anno=[] :: list(), arg :: cerl:cerl(),
-		vars :: [cerl:cerl()],
-		body :: cerl:cerl(),
-		evars :: [cerl:cerl()],
-		handler :: cerl:cerl()}).
-
--record(c_tuple, {anno=[] :: list(), es :: [cerl:cerl()]}).
-
--record(c_values, {anno=[] :: list(), es :: [cerl:cerl()]}).
-
--record(c_var, {anno=[] :: list(), name :: cerl:var_name()}).
+-import_record(v3_core,
+               [c_alias, c_apply,
+                c_binary, c_bitstr,
+                c_call, c_case, c_catch, c_clause, c_cons,
+                c_fun,
+                c_let, c_letrec, c_literal,
+                c_map, c_map_pair,
+                c_record, c_record_pair,
+                c_module,
+                c_opaque,
+                c_primop,
+                c_receive,
+                c_seq,
+                c_try, c_tuple,
+                c_values, c_var]).

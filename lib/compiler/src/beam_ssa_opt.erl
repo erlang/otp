@@ -48,7 +48,7 @@
 -import(lists, [all/2,append/1,droplast/1,duplicate/2,flatten/1,foldl/3,
                 keyfind/3,last/1,mapfoldl/3,member/2,
                 partition/2,reverse/1,reverse/2,
-                splitwith/2,sort/1,takewhile/2,unzip/1]).
+                splitwith/2,search/2,sort/1,takewhile/2,unzip/1]).
 
 -define(MAX_REPETITIONS, 16).
 
@@ -1384,12 +1384,12 @@ are_map_keys_literals([]) ->
 %%%
 
 -type fr_status() :: 'original' | 'copy'.
--record(fs,
-        {regs=#{} :: #{beam_ssa:b_var() := {beam_ssa:b_var(),fr_status()}},
-         non_guards :: gb_sets:set(beam_ssa:label()),
-         bs :: beam_ssa:block_map(),
-         preds :: #{beam_ssa:label() => [beam_ssa:label()]}
-        }).
+-record #fs{
+   regs=#{} :: #{beam_ssa:b_var() := {beam_ssa:b_var(),fr_status()}},
+   non_guards :: gb_sets:set(beam_ssa:label()),
+   bs :: beam_ssa:block_map(),
+   preds :: #{beam_ssa:label() => [beam_ssa:label()]}
+  }.
 
 ssa_opt_float({#opt_st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
     NonGuards = non_guards(Linear0),
@@ -3789,7 +3789,8 @@ build_bs_ensure_match(L, {_,Size,Unit}, Count0, Blocks0) ->
     Suffix = [BsMatch|Suffix1],
     BsMatchBlk = BsMatchBlk0#b_blk{is=Suffix},
 
-    #b_set{args=[_,Ctx|_]} = keyfind(bs_match, #b_set.op, MatchIs),
+    IsMatch = fun(#b_set{op=Op}) -> Op =:= bs_match end,
+    {value, #b_set{args=[_,Ctx|_]}} = search(IsMatch, MatchIs),
     Is = Prefix ++ [#b_set{op=bs_ensure,
                            dst=NewCtx,
                            args=[Ctx,#b_literal{val=Size},#b_literal{val=Unit}]},

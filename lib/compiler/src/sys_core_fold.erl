@@ -100,11 +100,13 @@
 -define(IS_FUNC_ARITY(A), is_integer(A, 0, ?MAX_FUNC_ARGS)).
 
 %% Variable value info.
--record(sub, {v=[],                                 %Variable substitutions
-              s=sets:new() :: sets:set(), %Variables in scope
-              t=#{} :: map(),                       %Types
-              in_guard=false,                       %In guard or not.
-              top=true}).                           %Not inside a term.
+-record #sub{
+   v=[],                                 %Variable substitutions
+   s :: sets:set(),                      %Variables in scope
+   t=#{} :: map(),                       %Types
+   in_guard=false,                       %In guard or not.
+   top=true                              %Not inside a term.
+  }.
 -type sub() :: #sub{}.
 
 -spec module(cerl:c_module(), [compile:option()]) ->
@@ -850,15 +852,17 @@ simplify_call(#c_call{anno=Anno0}, maps, get, [Key0, Map, Default]) ->
                       args=[#c_tuple{es=[#c_literal{val=badmap},
                                          Fail]}]},
 
+    EmptyMap = #c_literal{val=#{}},
     Cs = [#c_clause{anno=Anno,
-                    pats=[#c_map{es=[#c_map_pair{op=#c_literal{val=exact},
+                    pats=[#c_map{arg=EmptyMap,
+                                 es=[#c_map_pair{op=#c_literal{val=exact},
                                                  key=Key,
                                                  val=Value}],
                                  is_pat=true}],
                     guard=#c_literal{val=true},
                     body=Value},
           #c_clause{anno=Anno,
-                    pats=[#c_map{es=[],is_pat=true}],
+                    pats=[#c_map{arg=EmptyMap,es=[],is_pat=true}],
                     guard=#c_literal{val=true},
                     body=Default},
           #c_clause{anno=Anno,
