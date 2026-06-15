@@ -157,14 +157,17 @@ static void beamasm_init_late_gdb() {
 static void *beamasm_insert_gdb_info(std::string module_name,
                                      ErtsCodePtr base_address,
                                      size_t code_size,
-                                     const std::vector<AsmRange> &ranges) {
+                                     const AsmMetadata &metadata) {
     Sint symfile_size = sizeof(struct debug_info) + module_name.size() + 1;
+    const std::vector<AsmRange> &ranges = metadata.ranges;
 
     for (const auto &range : ranges) {
         symfile_size += sizeof(struct range_info) + range.name.size() + 1;
 
         for (const auto &line : range.lines) {
-            symfile_size += sizeof(struct line_info) + line.file.size() + 1;
+            const std::string &file = metadata.files[line.file];
+
+            symfile_size += sizeof(struct line_info) + file.size() + 1;
         }
     }
 
@@ -204,13 +207,13 @@ static void *beamasm_insert_gdb_info(std::string module_name,
         symfile += sizeof(*range_info) + range_info->name_length;
 
         for (const auto &line : range.lines) {
+            const std::string &file = metadata.files[line.file];
             auto line_info = (struct line_info *)symfile;
+
             line_info->start_offset = (char *)line.start - (char *)base_address;
             line_info->line_number = (uint32_t)line.line;
-            line_info->file_length = (uint16_t)line.file.size() + 1;
-            sys_memcpy(line_info->file,
-                       line.file.c_str(),
-                       line_info->file_length);
+            line_info->file_length = (uint16_t)file.size() + 1;
+            sys_memcpy(line_info->file, file.c_str(), line_info->file_length);
 
             symfile += sizeof(*line_info) + line_info->file_length;
         }
@@ -375,7 +378,9 @@ public:
         return true;
     }
 
-    void update(const std::vector<AsmRange> &ranges) {
+    void update(const AsmMetadata &metadata) {
+        const std::vector<AsmRange> &ranges = metadata.ranges;
+
         struct JitCodeLoadRecord {
             RecordHeader header;
             Uint32 pid;
@@ -416,8 +421,10 @@ public:
                 debug_info.nr_entry = range.lines.size() + 1;
 
                 for (const auto &line : range.lines) {
+                    const std::string &file = metadata.files[line.file];
+
                     debug_info.header.total_size += sizeof(debug_entry);
-                    debug_info.header.total_size += line.file.size() + 1;
+                    debug_info.header.total_size += file.size() + 1;
                 }
 
                 /* Add a dummy line to terminate the function. Otherwise, the
@@ -428,12 +435,14 @@ public:
                 fwrite(&debug_info, sizeof(debug_info), 1, file);
 
                 for (const auto &line : range.lines) {
+                    const std::string &line_file = metadata.files[line.file];
+
                     debug_entry.line_addr = (Uint64)line.start;
                     debug_entry.line = line.line;
                     debug_entry.column = 0;
 
                     fwrite(&debug_entry, sizeof(debug_entry), 1, file);
-                    fwrite(line.file.c_str(), line.file.size() + 1, 1, file);
+                    fwrite(line_file.c_str(), line_file.size() + 1, 1, file);
                 }
 
                 debug_entry.line_addr = (Uint64)range.stop;
@@ -497,8 +506,8 @@ public:
         return true;
     }
 
-    void update(const std::vector<AsmRange> &ranges) {
-        for (const auto &range : ranges) {
+    void update(const AsmMetadata &metadata) {
+        for (const auto &range : metadata.ranges) {
             char *start = (char *)range.start, *stop = (char *)range.stop;
             ptrdiff_t size = stop - start;
             fprintf(file, "%p %tx $%s\n", start, size, range.name.c_str());
@@ -539,16 +548,16 @@ public:
                               ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
     }
 
-    void update(const std::vector<AsmRange> &ranges) {
+    void update(const AsmMetadata &metadata) {
         if (modes) {
             erts_mtx_lock(&mutex);
 #    ifdef HAVE_LINUX_PERF_DUMP_SUPPORT
             if (modes & DUMP) {
-                perf_dump.update(ranges);
+                perf_dump.update(metadata);
             }
 #    endif
             if (modes & MAP) {
-                perf_map.update(ranges);
+                perf_map.update(metadata);
             }
             erts_mtx_unlock(&mutex);
         }
@@ -577,16 +586,16 @@ void beamasm_metadata_late_init() {
 void *beamasm_metadata_insert(std::string module_name,
                               ErtsCodePtr base_address,
                               size_t code_size,
-                              const std::vector<AsmRange> &ranges) {
+                              const AsmMetadata &metadata) {
 #ifdef HAVE_LINUX_PERF_SUPPORT
-    perf.update(ranges);
+    perf.update(metadata);
 #endif
 
 #ifdef HAVE_GDB_SUPPORT
     return beamasm_insert_gdb_info(module_name,
                                    base_address,
                                    code_size,
-                                   ranges);
+                                   metadata);
 #else
     return NULL;
 #endif
