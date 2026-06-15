@@ -104,7 +104,7 @@
 -define(FOUND_VENDOR_VULNERABILITY_TITLE, "Vendor vulnerability found").
 -define(FOUND_VENDOR_VULNERABILITY, lists:append(string:replace(?FOUND_VENDOR_VULNERABILITY_TITLE, " ", "+", all))).
 
--define(OTP_GH_URI, "https://raw.githubusercontent.com/" ++ ?GH_ACCOUNT ++ "/refs/heads/master/").
+-define(OTP_GH_URI, "https://raw.githubusercontent.com/" ++ ?GH_ACCOUNT ++ "/refs/heads/openvex/").
 
 %% GH default options
 -define(GH_ADVISORIES_OPTIONS, "state=published&direction=desc&per_page=100&sort=updated").
@@ -112,15 +112,14 @@
 %% Advisories to download from last X years.
 -define(GH_ADVISORIES_FROM_LAST_X_YEARS, 5).
 
-%% Defines path of script to create PRs for missing openvex/vulnerabilities
--define(CREATE_OPENVEX_PR_SCRIPT_FILE, ".github/scripts/create-openvex-pr.sh").
-
 %% Sets end point account to fetch information from GH
 %% used by `gh` command-line tool.
 %% change to your fork for testing, e.g., `kikofernandez/otp`
 -define(GH_ACCOUNT, "erlang/otp").
 %%
 %%
+
+-define(DEBUG, false).
 
 %% Add more relations if necessary.
 -type spdx_relations() :: #{ 'DOCUMENTATION_OF' => [],
@@ -293,15 +292,35 @@ cli() ->
                              #{ help =>
                                     """
                                     Initialise an openvex file.
+                                    1. Update the `make/openvex.table`
+                                    2. Run the command:
+
+                                       > .github/scripts/otp-compliance.es vex init -b otp-33
+
                                     """,
-                                arguments => [ input_option(~"make/openvex.table"), branch_option(), vex_path_option()],
+                                arguments => [ input_option(~"make/openvex.table"), branch_option()],
                                 handler => fun init_openvex/1},
                          "run" =>
                              #{ help =>
                                     """
-                                    Updates an openvex file.
+                                    Updates OpenVEX files.
+                                    1. Update the `make/openvex.table`
+                                    2. Run the following command, which downloads otp-*.openvex.json files
+                                       and updates those files using the `openvex.table`
+
+                                       > .github/scripts/otp-compliance.es vex run -b otp-33 | bash
+
+                                    3. Run the following script to create a PR.
+                                       The script stashes the generated openvex files.
+                                       Fetches the orphan branch `openvex`, and creates a new branch named `vex` locally.
+                                       Pops the stash and commits the generate OpenVEX files.
+                                       Pushes to `origin` (must be set to your fork).
+                                       Creates a PR towards `erlang/otp` with base `openvex`.
+
+                                       > .github/scripts/create-openvex-pr.sh erlang/otp vex upstream
+
                                     """,
-                                arguments => [ input_option(~"make/openvex.table"), branch_option(), vex_path_option()],
+                                arguments => [ input_option(~"make/openvex.table"), branch_option()],
                                 handler => fun run_openvex/1},
 
                          "verify" =>
@@ -313,6 +332,7 @@ cli() ->
                                     Creates PR for any non-present Github Advisory.
 
                                     Example:
+
                                     > .github/scripts/otp-compliance.es vex verify -p
 
                                     """,
@@ -489,14 +509,6 @@ branch_option() ->
       required => true,
       short => $b,
       long => "-branch"}.
-
-vex_path_option() ->
-    #{name => vex_path,
-      type => binary,
-      required => false,
-      default => ?VexPath,
-      help => "Path to folder containing openvex statements, e.g., `vex/`",
-      long => "-vex-path"}.
 
 create_pr() ->
     #{name => create_pr,
@@ -1633,10 +1645,18 @@ format_vex_statements(OpenVex) ->
               end, [], Stmts).
 
 read_openvex_file(Branch) ->
-    _ = create_dir(?VexPath),
+    _ = download_otp_openvex_file(Branch),
     OpenVexPath = path_to_openvex_filename(Branch),
     OpenVexStr = erlang:binary_to_list(OpenVexPath),
     decode(OpenVexStr).
+
+dbg(Text, Args) ->
+    case ?DEBUG of
+        true ->
+            io:format(Text, Args);
+        false ->
+            ok
+    end.
 
 -spec download_otp_openvex_file(Branch :: binary()) -> Json :: map() | EmptyMap :: #{} | no_return().
 download_otp_openvex_file(Branch) ->
@@ -1645,19 +1665,19 @@ download_otp_openvex_file(Branch) ->
     OpenVexStr = erlang:binary_to_list(OpenVexPath),
     GithubURI = get_gh_download_uri(OpenVexStr),
 
-    io:format("Checking OpenVex statements in '~s' from~n'~s'...~n", [OpenVexPath, GithubURI]),
+    dbg("Checking OpenVex statements in '~s' from~n'~s'...~n", [OpenVexPath, GithubURI]),
 
     ValidURI = "curl -I -Lj --silent " ++ GithubURI ++ " | head -n1 | cut -d' ' -f2",
     case string:trim(os:cmd(ValidURI)) of
         "200" ->
             %% Overrides existing file.
-            io:format("OpenVex file found.~n~n"),
+            dbg("OpenVex file found.~n~n", []),
             Command = "curl -LJ " ++ GithubURI ++ " --output " ++ OpenVexStr,
-            io:format("Proceed to download:~n~s~n~n", [Command]),
+            dbg("Proceed to download:~n~s~n~n", [Command]),
             os:cmd(Command, #{ exception_on_failure => true }),
             decode(OpenVexStr);
         E ->
-            io:format("[~p] No OpenVex statements found for file '~s'.~n~n", [E, OpenVexStr]),
+            dbg("[~p] No OpenVex statements found for file '~s'.~n~n", [E, OpenVexStr]),
             #{}
     end.
 
@@ -1670,7 +1690,7 @@ create_dir(DirName) ->
     case file:make_dir(DirName) of
         Result when Result == ok;
                     Result == {error, eexist} ->
-            io:format("Directory ~s created successfully.~n", [DirName]);
+            dbg("Directory ~s created successfully.~n", [DirName]);
         {error, Reason} ->
             fail("Failed to create directory ~s: ~p~n", [DirName, Reason])
     end.
@@ -2801,14 +2821,12 @@ extracted_license_info() ->
 %% Documentation in HOWTO/SBOM.md
 %%
 
-vex_path(Branch) ->
-    VexPath = ?VexPath,
-    vex_path(VexPath, Branch).
-vex_path(VexPath, Branch) ->
-    <<VexPath/binary, Branch/binary, ".openvex.json">>.
 
-init_openvex(#{input_file := File, branch := Branch, vex_path := VexPath}) ->
-    InitVex = vex_path(VexPath, Branch),
+vex_path(Branch) ->
+    <<Branch/binary, ".openvex.json">>.
+
+init_openvex(#{input_file := File, branch := Branch}) ->
+    InitVex = vex_path(Branch),
     VexStmts = case filelib:is_file(InitVex) of
                    true -> % file exists
                        maps:get(~"statements", decode(InitVex));
@@ -2817,15 +2835,17 @@ init_openvex(#{input_file := File, branch := Branch, vex_path := VexPath}) ->
                        file:write_file(InitVex, json:format(Init)),
                        maps:get(~"statements", Init)
                end,
-    run_openvex1(VexStmts, File, Branch, VexPath).
+    run_openvex1(VexStmts, File, Branch).
 
-run_openvex(#{input_file := File, branch := Branch, vex_path := VexPath}) ->
-    InitVex = vex_path(VexPath, Branch),
+run_openvex(#{input_file := File, branch := Branch}) ->
+    %% Download files from orphan branch into VexPath Folder.
+    _ = download_otp_openvex_file(Branch),
+    InitVex = vex_path(Branch),
     VexStmts = maps:get(~"statements", decode(InitVex)),
-    run_openvex1(VexStmts, File, Branch, VexPath).
+    run_openvex1(VexStmts, File, Branch).
 
-run_openvex1(VexStmts, VexTableFile, Branch, VexPath) ->
-    Statements = calculate_statements(VexStmts, VexTableFile, Branch, VexPath),
+run_openvex1(VexStmts, VexTableFile, Branch) ->
+    Statements = calculate_statements(VexStmts, VexTableFile, Branch),
     lists:foreach(fun (St) -> io:format("~ts", [St]) end, Statements).
 
 verify_openvex(#{create_pr := PR}) ->
@@ -3173,14 +3193,14 @@ openvex_filter_product(Products) ->
 vex_set_inclusion(AdvVEX, OpenVEX) ->
     [VEX || VEX <- AdvVEX, not lists:member(VEX, OpenVEX)].
 
-calculate_statements(VexStmts, VexTableFile, Branch, VexPath) ->
+calculate_statements(VexStmts, VexTableFile, Branch) ->
     VexTable = decode(VexTableFile),
     case maps:get(Branch, VexTable, error) of
         error ->
             fail("Could not find '~ts' in file '~ts'.~nDid you forget to add an entry with name '~ts' into 'openvex.table'?",
                  [Branch, VexTableFile, Branch]);
         CVEs ->
-            calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath)
+            calculate_statements_from_cves(VexStmts, CVEs, Branch)
     end.
 
 exists_cve_in_openvex(VexStmts, CVE, StatusCVE, Purl) ->
@@ -3214,7 +3234,7 @@ fetch_openvex_status(M) when is_map(M) ->
 fetch_openvex_status(_) ->
     {false, false}.
 
-calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath) ->
+calculate_statements_from_cves(VexStmts, CVEs, Branch) ->
     %% make the function idempotent, i.e., can be called consecutive times producing the same input
     lists:foldl(
       fun (#{~"status" := Status}=M, Acc) ->
@@ -3224,7 +3244,7 @@ calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath) ->
                   true -> %% entry exists, ignore to make operation idempotent
                       Acc;
                   false ->
-                      InitVex = vex_path(VexPath, Branch),
+                      InitVex = vex_path(Branch),
                       {FixedStatus, AffectedStatus} = fetch_openvex_status(Status),
                       case Purl of
                           <<?ErlangPURL, _/binary>> ->
@@ -3551,9 +3571,9 @@ test_openvex(_) ->
 
 
 test_openvex_branched_otp_tree() ->
-    {VexPath,  Branch, VexStmts} = setup_openvex_test(),
+    {_VexPath,  Branch, VexStmts} = setup_openvex_test(),
     CVEs = fixup_openvex_branched_otp_tree(),
-    Result = calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath),
+    Result = calculate_statements_from_cves(VexStmts, CVEs, Branch),
     Expected = [~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-23.0,pkg:github/erlang/otp@OTP-23.0.1,pkg:github/erlang/otp@OTP-23.0.2,pkg:github/erlang/otp@OTP-23.0.3,pkg:github/erlang/otp@OTP-23.0.4,pkg:otp/ssl@10.0,pkg:github/erlang/otp@OTP-23.1,pkg:github/erlang/otp@OTP-23.1.1,pkg:github/erlang/otp@OTP-23.1.2,pkg:github/erlang/otp@OTP-23.1.3,pkg:github/erlang/otp@OTP-23.1.4,pkg:github/erlang/otp@OTP-23.1.4.1,pkg:github/erlang/otp@OTP-23.1.5,pkg:otp/ssl@10.1,pkg:github/erlang/otp@OTP-23.2,pkg:github/erlang/otp@OTP-23.2.1,pkg:otp/ssl@10.2,pkg:github/erlang/otp@OTP-23.2.2,pkg:github/erlang/otp@OTP-23.2.3,pkg:otp/ssl@10.2.1,pkg:github/erlang/otp@OTP-23.2.4,pkg:otp/ssl@10.2.2,pkg:github/erlang/otp@OTP-23.2.5,pkg:github/erlang/otp@OTP-23.2.6,pkg:otp/ssl@10.2.3,pkg:github/erlang/otp@OTP-23.2.7,pkg:otp/ssl@10.2.4,pkg:github/erlang/otp@OTP-23.2.7.1,pkg:otp/ssl@10.2.4.1,pkg:github/erlang/otp@OTP-23.2.7.2,pkg:github/erlang/otp@OTP-23.2.7.3,pkg:otp/ssl@10.2.4.2,pkg:github/erlang/otp@OTP-23.2.7.4,pkg:otp/ssl@10.2.4.3,pkg:github/erlang/otp@OTP-23.2.7.5,pkg:otp/ssl@10.2.4.4,pkg:github/erlang/otp@OTP-23.3,pkg:github/erlang/otp@OTP-23.3.1,pkg:otp/ssl@10.3,pkg:github/erlang/otp@OTP-23.3.2,pkg:github/erlang/otp@OTP-23.3.3,pkg:github/erlang/otp@OTP-23.3.4,pkg:github/erlang/otp@OTP-23.3.4.1,pkg:otp/ssl@10.3.1,pkg:github/erlang/otp@OTP-23.3.4.2,pkg:github/erlang/otp@OTP-23.3.4.3,pkg:github/erlang/otp@OTP-23.3.4.4,pkg:otp/ssl@10.3.1.1,pkg:github/erlang/otp@OTP-23.3.4.5,pkg:github/erlang/otp@OTP-23.3.4.6,pkg:github/erlang/otp@OTP-23.3.4.7,pkg:github/erlang/otp@OTP-23.3.4.8,pkg:github/erlang/otp@OTP-23.3.4.9,pkg:github/erlang/otp@OTP-23.3.4.10,pkg:github/erlang/otp@OTP-23.3.4.11,pkg:github/erlang/otp@OTP-23.3.4.12,pkg:github/erlang/otp@OTP-23.3.4.13,pkg:github/erlang/otp@OTP-23.3.4.14,pkg:otp/ssl@10.3.1.2,pkg:github/erlang/otp@OTP-23.3.4.15,pkg:otp/ssl@10.3.1.3,pkg:github/erlang/otp@OTP-23.3.4.16,pkg:otp/ssl@10.3.1.4,pkg:github/erlang/otp@OTP-23.3.4.17,pkg:github/erlang/otp@OTP-23.3.4.18,pkg:github/erlang/otp@OTP-23.3.4.19,pkg:github/erlang/otp@OTP-23.3.4.20,pkg:otp/ssl@10.3.1.5' --vuln='F00' --status='under_investigation'\n",
 
                 ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-26.0,pkg:otp/erts@14.0,pkg:github/erlang/otp@OTP-26.0.1,pkg:otp/erts@14.0.1,pkg:github/erlang/otp@OTP-26.0.2,pkg:otp/erts@14.0.2,pkg:github/erlang/otp@OTP-26.1,pkg:github/erlang/otp@OTP-26.1.1,pkg:otp/erts@14.1,pkg:github/erlang/otp@OTP-26.1.2,pkg:otp/erts@14.1.1,pkg:github/erlang/otp@OTP-26.2,pkg:otp/erts@14.2,pkg:github/erlang/otp@OTP-26.2.1,pkg:otp/erts@14.2.1,pkg:github/erlang/otp@OTP-26.2.2,pkg:otp/erts@14.2.2,pkg:github/erlang/otp@OTP-26.2.3,pkg:otp/erts@14.2.3,pkg:github/erlang/otp@OTP-26.2.4,pkg:otp/erts@14.2.4,pkg:github/erlang/otp@OTP-26.2.5,pkg:otp/erts@14.2.5,pkg:github/erlang/otp@OTP-26.2.5.1,pkg:otp/erts@14.2.5.1,pkg:github/erlang/otp@OTP-26.2.5.2,pkg:otp/erts@14.2.5.2,pkg:github/erlang/otp@OTP-26.2.5.3,pkg:otp/erts@14.2.5.3,pkg:github/erlang/otp@OTP-26.2.5.4,pkg:github/erlang/otp@OTP-26.2.5.5,pkg:otp/erts@14.2.5.4,pkg:github/erlang/otp@OTP-26.2.5.6,pkg:otp/erts@14.2.5.5,pkg:github/erlang/otp@OTP-26.2.5.7,pkg:otp/erts@14.2.5.6,pkg:github/erlang/otp@OTP-26.2.5.8,pkg:otp/erts@14.2.5.7,pkg:github/erlang/otp@OTP-26.2.5.9,pkg:otp/erts@14.2.5.8,pkg:github/erlang/otp@OTP-26.2.5.10,pkg:github/erlang/otp@OTP-26.2.5.11,pkg:otp/erts@14.2.5.9,pkg:github/erlang/otp@OTP-26.2.5.12,pkg:github/erlang/otp@OTP-26.2.5.13,pkg:otp/erts@14.2.5.10,pkg:github/erlang/otp@OTP-26.2.5.14,pkg:github/erlang/otp@OTP-26.2.5.15,pkg:otp/erts@14.2.5.11' --vuln='CVE-2024-4444' --status='not_affected' --justification='vulnerable_code_not_present'\n",
@@ -3579,9 +3599,9 @@ test_openvex_branched_otp_tree() ->
 %% idempotent: script runs once. if run again, no new vex statements are introduced,
 %% because there was no change.
 test_openvex_branched_otp_tree_idempotent() ->
-    {VexPath,  Branch, VexStmts} = setup_openvex_test(fixup_openvex_branched_otp_tree_stmts()),
+    {_VexPath,  Branch, VexStmts} = setup_openvex_test(fixup_openvex_branched_otp_tree_stmts()),
     CVEs = fixup_openvex_branched_otp_tree(),
-    Result = calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath),
+    Result = calculate_statements_from_cves(VexStmts, CVEs, Branch),
     true = Result == [],
     ok.
 
