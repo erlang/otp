@@ -916,10 +916,15 @@ redirect_strips_sensitive_headers(Config) when is_list(Config) ->
     OriginUrl = url(group_name(Config), "/301_custom_url.html", Config),
     RequestOpts = proplists:get_value(request_opts, Config, []),
     Profile = ?profile(Config),
-
-    TargetPort = server_start(sim_http, []),
+    Group  = group_name(Config),
+    TargetPort = server_start(Group, server_config(Group, Config)),
     {ok, Host} = inet:gethostname(),
-    TargetUrl = ?URL_START ++ Host ++ ":" ++ integer_to_list(TargetPort) ++
+    TargetUrlStart =
+        case OriginUrl of
+            "http://" ++ _ -> "http://";
+            "https://" ++ _ -> "https://"
+        end,
+    TargetUrl = TargetUrlStart ++ Host ++ ":" ++ integer_to_list(TargetPort) ++
                     "/capture_sensitive_redirect_target.html",
 
     RedirectHeaders = [{"x-test-301-url",       TargetUrl},
