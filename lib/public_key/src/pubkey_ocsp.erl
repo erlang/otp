@@ -111,9 +111,12 @@ match_single_response(IssuerName, IssuerKey, SerialNum,
     #'SingleResponse'{thisUpdate = ThisUpdate,
                       nextUpdate = NextUpdate} = SingleResponse,
     HashType = public_key:pkix_hash_type(Algo#'AlgorithmIdentifier'.algorithm),
-    case (SerialNum == CertID#'CertID'.serialNumber) andalso
-        (crypto:hash(HashType, IssuerName) == CertID#'CertID'.issuerNameHash) andalso
-        (crypto:hash(HashType, IssuerKey) == CertID#'CertID'.issuerKeyHash) andalso
+    SerialMatch = (SerialNum == CertID#'CertID'.serialNumber),
+    NameHashMatch = hash_equals(crypto:hash(HashType, IssuerName),
+                                     CertID#'CertID'.issuerNameHash),
+    KeyHashMatch = hash_equals(crypto:hash(HashType, IssuerKey),
+                                    CertID#'CertID'.issuerKeyHash),
+    case SerialMatch andalso NameHashMatch andalso KeyHashMatch andalso
         verify_past_timestamp(ThisUpdate) == ok andalso
         verify_next_update(NextUpdate) == ok of
         true ->
@@ -212,7 +215,7 @@ verify_next_update(NextUpdate) ->
 is_responder_cert({byName, Name}, #cert{otp = Cert}) ->
     public_key:der_encode('Name', Name) == get_subject_name(Cert);
 is_responder_cert({byKey, Key}, #cert{otp = Cert}) ->
-    Key == crypto:hash(sha, get_public_key(Cert)).
+    hash_equals(Key, crypto:hash(sha, get_public_key(Cert))).
 
 is_authorized_responder(CombinedResponderCert = #cert{otp = ResponderCert},
                         IssuerCert, IsTrustedResponderFun) ->
@@ -290,6 +293,16 @@ designated_for_ocsp_signing(OtpCert) ->
 	#'Extension'{extnValue = KeyUses} ->
             lists:member(?'id-kp-OCSPSigning', KeyUses)
     end.
+
+%% Constant-time comparison that handles mismatched sizes gracefully.
+%% crypto:hash_equals/2 requires equal-length binaries. If sizes differ,
+%% the CertID cannot match (hash algorithm mismatch). No timing concern:
+%% the expected length is determined by the hashAlgorithm OID in the same
+%% CertID, which the sender chose — not a secret.
+hash_equals(A, B) when byte_size(A) =:= byte_size(B) ->
+    crypto:hash_equals(A, B);
+hash_equals(_, _) ->
+    false.
 
 %%%################################################################
 %%%#
