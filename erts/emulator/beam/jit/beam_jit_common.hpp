@@ -135,7 +135,11 @@ struct BeamModuleAssemblerCommon {
     Eterm mod;
 
     /* Map of label number to asmjit Label */
-    typedef std::unordered_map<BeamLabel, const Label> LabelMap;
+    /* BEAM labels are dense (1..num_labels), so they map to asmjit labels
+     * through a plain vector indexed by label number; slot 0 is unused.
+     * Label resolution happens for nearly every emitted instruction, which
+     * is too hot for a hash map. */
+    typedef std::vector<Label> LabelMap;
     LabelMap rawLabels;
 
     struct patch {
