@@ -32,6 +32,10 @@
 %% Tracing
 -export([handle_trace/3]).
 
+%% 100 KB — aligned with OpenSSL OSSL_HTTP_DEFAULT_MAX_RESP_LEN.
+%% Typical OCSP responses are 1–5 KB.
+-define(MAX_OCSP_RESPONSE_SIZE, 102400).
+
 -spec get_nonce_extn(undefined | binary()) -> undefined | #'Extension'{}.
 get_nonce_extn(undefined) ->
     undefined;
@@ -90,7 +94,8 @@ status({unknown, Reason}, _) ->
 status({revoked, Reason}, _) ->
     {error, {bad_cert, {revoked, Reason}}}.
 
-decode_response(ResponseDer) ->
+decode_response(ResponseDer)
+  when byte_size(ResponseDer) =< ?MAX_OCSP_RESPONSE_SIZE ->
     Resp = public_key:der_decode('OCSPResponse', ResponseDer),
     case Resp#'OCSPResponse'.responseStatus of
         successful ->
@@ -99,7 +104,9 @@ decode_response(ResponseDer) ->
              );
         Error ->
             {error, Error}
-    end.
+    end;
+decode_response(ResponseDer) when is_binary(ResponseDer) ->
+    {error, {ocsp_response_too_large, byte_size(ResponseDer)}}.
 
 %%--------------------------------------------------------------------
 match_single_response(_IssuerName, _IssuerKey, _SerialNum, []) ->
