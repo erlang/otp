@@ -352,6 +352,19 @@
 # endif
 #endif
 
+// SipHash via the EVP_MAC "SIPHASH" interface (OpenSSL 3.0+). The pre-3.0
+// EVP_PKEY_SIPHASH path is intentionally not used: selecting the 64-bit output
+// there requires setting the digest size before key init, with version-specific
+// ordering semantics that are easy to get silently wrong. The EVP_MAC "size"
+// parameter handles both the 64- and 128-bit variants cleanly.
+#if defined(HAS_3_0_API)
+# ifndef HAS_LIBRESSL
+#  if !defined(OPENSSL_NO_SIPHASH)
+#    define HAVE_SIPHASH
+#  endif
+# endif
+#endif
+
 #ifdef HAS_LIBRESSL
 # if LIBRESSL_VERSION_NUMBER >= 0x3070000fL
 #   define HAVE_CHACHA20_POLY1305

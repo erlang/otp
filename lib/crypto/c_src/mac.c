@@ -43,6 +43,7 @@ struct mac_type_t {
     }alg;
     int type;
     size_t key_len;      /* != 0 to also match on key_len */
+    size_t mac_size;     /* != 0 to set the output size (e.g. SipHash 64 vs 128) */
 #if defined(HAS_3_0_API)
     const char* fetch_name;
     EVP_MAC *evp_mac;
@@ -56,15 +57,16 @@ struct mac_type_t {
 #define HMAC_mac 1
 #define CMAC_mac 2
 #define POLY1305_mac 3
+#define SIPHASH_mac 4
 
 static struct mac_type_t mac_types[] =
 {
     {{"poly1305"}, NO_FIPS_MAC,
 #ifdef HAVE_POLY1305
      /* If we have POLY then we have EVP_PKEY */
-     {EVP_PKEY_POLY1305}, POLY1305_mac, 32
+     {EVP_PKEY_POLY1305}, POLY1305_mac, 32, 0
 #else
-     {EVP_PKEY_NONE}, NO_mac, 0
+     {EVP_PKEY_NONE}, NO_mac, 0, 0
 #endif
 #if defined(HAS_3_0_API)
      ,"POLY1305"
@@ -73,10 +75,10 @@ static struct mac_type_t mac_types[] =
 
     {{"hmac"}, 0,
 #if defined(HAS_EVP_PKEY_CTX) && (! DISABLE_EVP_HMAC)
-     {EVP_PKEY_HMAC}, HMAC_mac, 0
+     {EVP_PKEY_HMAC}, HMAC_mac, 0, 0
 #else
      /* HMAC is always supported, but possibly with low-level routines */
-     {EVP_PKEY_NONE}, HMAC_mac, 0
+     {EVP_PKEY_NONE}, HMAC_mac, 0, 0
 #endif
 #if defined(HAS_3_0_API)
      ,"HMAC"
@@ -86,18 +88,42 @@ static struct mac_type_t mac_types[] =
     {{"cmac"}, 0,
 #ifdef HAVE_CMAC
      /* If we have CMAC then we have EVP_PKEY */
-     {EVP_PKEY_CMAC}, CMAC_mac, 0
+     {EVP_PKEY_CMAC}, CMAC_mac, 0, 0
 #else
-     {EVP_PKEY_NONE}, NO_mac, 0
+     {EVP_PKEY_NONE}, NO_mac, 0, 0
 #endif
 #if defined(HAS_3_0_API)
      ,"CMAC"
 #endif
     },
 
+    {{"siphash"}, NO_FIPS_MAC,
+#ifdef HAVE_SIPHASH
+     /* SipHash-2-4, 64-bit output */
+     {EVP_PKEY_SIPHASH}, SIPHASH_mac, 16, 8
+#else
+     {EVP_PKEY_NONE}, NO_mac, 0, 0
+#endif
+#if defined(HAS_3_0_API)
+     ,"SIPHASH"
+#endif
+    },
+
+    {{"siphash128"}, NO_FIPS_MAC,
+#ifdef HAVE_SIPHASH
+     /* SipHash-2-4, 128-bit output (cryptolib default) */
+     {EVP_PKEY_SIPHASH}, SIPHASH_mac, 16, 16
+#else
+     {EVP_PKEY_NONE}, NO_mac, 0, 0
+#endif
+#if defined(HAS_3_0_API)
+     ,"SIPHASH"
+#endif
+    },
+
     /*==== End of list ==== */
     {{NULL}, 0,
-     {0}, NO_mac, 0
+     {0}, NO_mac, 0, 0
     }
 };
 
@@ -220,6 +246,9 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     const char *subalg;
     unsigned char *out = NULL;
     size_t outlen;
+    OSSL_PARAM params[2];
+    const OSSL_PARAM *paramsp = NULL;
+    size_t mac_size;
 #else
     /* Old style */
     const EVP_MD *md = NULL;
@@ -382,6 +411,19 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         break;
 #endif
 
+        /***********
+         * SIPHASH *
+         ***********/
+        /* HAVE_SIPHASH implies the 3.0 EVP_MAC API (see openssl_config.h). The
+           output size (siphash 64 vs siphash128) is applied via macp->mac_size
+           in the common 3.0 computation below. */
+#ifdef HAVE_SIPHASH
+    case SIPHASH_mac:
+        name = "SIPHASH";
+        subalg = NULL;
+        break;
+#endif
+
         /***************
          * Unknown MAC *
          ***************/
@@ -397,8 +439,15 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
       Common computations when we have 3.0 API
     */
 
+    mac_size = macp->mac_size;
+    if (mac_size) {
+        params[0] = OSSL_PARAM_construct_size_t("size", &mac_size);
+        params[1] = OSSL_PARAM_construct_end();
+        paramsp = params;
+    }
+
     if (!(out = EVP_Q_mac(NULL, name, NULL,
-                          subalg, NULL,
+                          subalg, paramsp,
                           key_bin.data, key_bin.size,
                           text.data, text.size,
                           NULL, 0, &outlen)))
@@ -582,6 +631,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     const char *cipher = NULL;
     OSSL_PARAM params[3];
     size_t params_n = 0;
+    size_t mac_size;
 # else
     /* EVP_PKEY_CTX is available */
     const EVP_MD *md = NULL;
@@ -714,6 +764,18 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 # endif
 
 
+        /***********
+         * SIPHASH *
+         ***********/
+        /* HAVE_SIPHASH implies the 3.0 EVP_MAC API. No cipher/digest subtype;
+           the output size (siphash 64 vs siphash128) is applied via
+           macp->mac_size in the common 3.0 computation below. */
+# ifdef HAVE_SIPHASH
+    case SIPHASH_mac:
+        break;
+# endif
+
+
         /***************
          * Unknown MAC *
          ***************/
@@ -738,6 +800,11 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if (digest != NULL)
         params[params_n++] =
             OSSL_PARAM_construct_utf8_string("digest", (char*)digest, 0);
+    if (macp->mac_size) {
+        mac_size = macp->mac_size;
+        params[params_n++] =
+            OSSL_PARAM_construct_size_t("size", &mac_size);
+    }
     params[params_n] = OSSL_PARAM_construct_end();
 
     if ((obj = enif_alloc_resource(mac_context_rtype, sizeof(struct mac_context))) == NULL)
