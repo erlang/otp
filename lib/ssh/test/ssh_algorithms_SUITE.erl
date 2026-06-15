@@ -327,39 +327,27 @@ end_per_testcase(_TC, Config) ->
 %% byte ~1/512 of the time (when the secret's most significant byte is 0x00 and
 %% the next byte is < 0x80), so the two peers derived different exchange hashes
 %% and the handshake failed with "incorrect signature".
+%%
+%% The keys below produce a shared secret starting with <<0x00, 0x42, ...>>
+%% which triggers the edge case (0x42 < 0x80).
 mlkem768x25519_hybrid_secret_encoding(_Config) ->
-    %% Find an X25519 key pair whose ECDH shared secret triggers the bug.
-    {PeerPublic, MyPrivate, Raw} = find_case_c_x25519(1000000),
-    32 = byte_size(Raw),
-    K_pq = crypto:strong_rand_bytes(32),
+    PeerPublic = <<16#94,16#5E,16#6F,16#5A,16#CA,16#B1,16#AD,16#A6,
+                   16#31,16#CF,16#12,16#F5,16#47,16#A4,16#25,16#6B,
+                   16#6A,16#E5,16#3A,16#A2,16#48,16#6A,16#0D,16#08,
+                   16#C6,16#D6,16#73,16#2C,16#B3,16#E2,16#0E,16#5B>>,
+    MyPrivate  = <<16#58,16#EF,16#AB,16#DA,16#4C,16#C5,16#6B,16#8E,
+                   16#B2,16#43,16#8A,16#86,16#92,16#2C,16#5D,16#73,
+                   16#83,16#98,16#B4,16#38,16#0E,16#A3,16#91,16#37,
+                   16#F9,16#38,16#5B,16#E5,16#BA,16#B5,16#94,16#6D>>,
+    %% Verify the shared secret triggers the edge case
+    <<0, B1, _/binary>> = crypto:compute_key(ecdh, PeerPublic, MyPrivate, x25519),
+    true = B1 < 16#80,
     %% A spec-conformant peer (e.g. OpenSSH) hashes K_pq concatenated with the
     %% X25519 secret as a fixed-width 32-byte string, preserving the leading 0x00.
+    K_pq = crypto:strong_rand_bytes(32),
+    Raw = crypto:compute_key(ecdh, PeerPublic, MyPrivate, x25519),
     Expected = crypto:hash(sha256, <<K_pq/binary, Raw/binary>>),
-    Got = ssh_transport:hybrid_common(K_pq, x25519, PeerPublic, MyPrivate),
-    case Got of
-        Expected ->
-            ok;
-        _ ->
-            ct:fail({hybrid_secret_encoding_mismatch,
-                     {x25519_secret, Raw},
-                     {expected, Expected},
-                     {got, Got}})
-    end.
-
-%% Search for an X25519 key pair whose ECDH shared secret has most significant
-%% byte 0x00 and next byte < 0x80 -- the value whose minimal mpint encoding is
-%% only 31 bytes, which the old code mis-trimmed. Expected after ~512 tries.
-find_case_c_x25519(0) ->
-    ct:fail("no case-C X25519 shared secret found");
-find_case_c_x25519(N) ->
-    {_MyPublic, MyPrivate} = crypto:generate_key(ecdh, x25519),
-    {PeerPublic, _PeerPrivate} = crypto:generate_key(ecdh, x25519),
-    case crypto:compute_key(ecdh, PeerPublic, MyPrivate, x25519) of
-        <<0, B1, _/binary>> = Raw when B1 < 16#80 ->
-            {PeerPublic, MyPrivate, Raw};
-        _ ->
-            find_case_c_x25519(N - 1)
-    end.
+    Expected = ssh_transport:hybrid_common(K_pq, x25519, PeerPublic, MyPrivate).
 
 %%--------------------------------------------------------------------
 %% A simple sftp transfer
