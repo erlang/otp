@@ -98,7 +98,7 @@
 %% VEX MACROS
 %%
 -define(VexPath, ~"vex/").
--define(OpenVEXTablePath, "make/openvex.table").
+-define(OpenVEXTablePath, "openvex.table").
 -define(ErlangPURL, "pkg:github/erlang/otp").
 
 -define(FOUND_VENDOR_VULNERABILITY_TITLE, "Vendor vulnerability found").
@@ -291,24 +291,25 @@ cli() ->
                        #{"init" =>
                              #{ help =>
                                     """
-                                    Initialise an openvex file.
-                                    1. Update the `make/openvex.table`
+                                    Initialise an openvex file. Detailed steps in HOWTO/SBOM.md#gh-advisories-sync.
+
+                                    1. Update the `openvex.table`
                                     2. Run the command:
 
                                        > .github/scripts/otp-compliance.es vex init -b otp-33
 
                                     """,
-                                arguments => [ input_option(~"make/openvex.table"), branch_option()],
+                                arguments => [ input_option(~"openvex.table"), branch_option()],
                                 handler => fun init_openvex/1},
                          "run" =>
                              #{ help =>
                                     """
                                     Updates OpenVEX files. Detailed steps in HOWTO/SBOM.md#gh-advisories-sync.
 
-                                      > .github/scripts/create-openvex-pr.sh erlang/otp vex
+                                      > .github/scripts/otp-compliance.es vex run -b otp-33
 
                                     """,
-                                arguments => [ input_option(~"make/openvex.table"), branch_option()],
+                                arguments => [ input_option(~"openvex.table"), branch_option()],
                                 handler => fun run_openvex/1},
 
                          "verify" =>
@@ -318,6 +319,7 @@ cli() ->
                                     Download OpenVEX statement from erlang/otp for the selected branch.
                                     Checks that those Advisories are present in OpenVEX statements.
                                     Creates PR for any non-present Github Advisory.
+                                    Detailed steps in HOWTO/SBOM.md#gh-advisories-sync.
 
                                     Example:
 

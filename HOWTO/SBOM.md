@@ -752,11 +752,11 @@ been at the sha-1 commit hash level.
 #### GH Advisories Sync
 
 The `master` job `.github/workflows/openvex-sync.yml` syncs Erlang/OTP Advisories to be entered as OpenVEX statements.
-This is a cron job that runs every day at 1 am. 
+This is a cron job that runs every day at 1 am.
 
 No action needed.
 
 This job checks if there are advisories in Erlang/OTP that are not yet included in the OpenVEX statements.
-If there are, it will create automatically a PR towards Erlang/OTP (branch `openvex`) with changes in the 
+If there are, it will create automatically a PR towards Erlang/OTP (branch `openvex`) with changes in the
 `openvex.table` and all the affected `otp-XX.openvex.json` files. If those security advisories are already
 present in the OpenVEX statements, no PR will be created.

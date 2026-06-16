@@ -54,7 +54,7 @@ jobs:
           git worktree add "$WORKTREE" master
           mkdir -p .github/scripts/
           cp -r "$WORKTREE/.github/scripts/." .github/scripts/
-          git worktree remove $WORKTREE
+          git worktree remove "$WORKTREE"
 
       - uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # ratchet:erlef/setup-beam@v1.20.4
         with:
