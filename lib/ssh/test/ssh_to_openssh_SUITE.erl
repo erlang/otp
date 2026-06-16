@@ -58,7 +58,7 @@
         ]).
 
 -define(REKEY_DATA_TMO, 65000).
--define(ALIVE, {alive, #{count_max => 3, interval => 100}}).
+-define(ALIVE, {alive, #{count_max => 3, interval => ssh_test_lib:alive_interval()}}).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------

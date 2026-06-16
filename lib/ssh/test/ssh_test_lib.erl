@@ -26,6 +26,7 @@
 
 -export([
 analyze_events/2,
+alive_interval/0,
 connect/2,
 connect/3,
 daemon/1,
@@ -352,7 +353,7 @@ start_shell(Port, IOServer, ExtraOptions) ->
 	      Options = [{user_interaction, false},
 			 {silently_accept_hosts,true},
                          {save_accepted_host,false},
-                         {alive, #{count_max => 3, interval => 100}}
+                         {alive, #{count_max => 3, interval => alive_interval()}}
                          | ExtraOptions],
               try
                   group_leader(IOServer, self()),
@@ -390,6 +391,13 @@ start_shell(Port, IOServer, ExtraOptions) ->
               end
       end).
 
+
+%%%----------------------------------------------------------------
+alive_interval() ->
+    case os:type() of
+        {win32, _} -> 500;
+        _ -> 100
+    end.
 
 %%%----------------------------------------------------------------
 start_io_server() ->
