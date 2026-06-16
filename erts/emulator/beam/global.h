@@ -1033,6 +1033,11 @@ void erts_print_base64(fmtfn_t to, void *to_arg, const byte* src, Uint size);
 int erts_set_signal(Eterm signal, Eterm type);
 
 /* erl_arith.c */
+
+/* The number of bignum words that we assume can be processed in one
+ * reduction. */
+#define ERTS_ARITH_WORDS_PER_REDUCTION 16
+
 double erts_get_positive_zero_float(void);
 
 /* config.c */

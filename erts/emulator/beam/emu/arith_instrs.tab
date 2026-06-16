@@ -28,7 +28,9 @@ OUTLINED_ARITH_1(Fail, Name, BIF, Op1,Dst) {
     Eterm* orig_stop = E;
 #endif
     DEBUG_SWAPOUT;
+    c_p->fcalls = FCALLS;
     result = erts_$Name (c_p, $Op1);
+    FCALLS = c_p->fcalls;
     DEBUG_SWAPIN;
     ASSERT(orig_htop == HTOP && orig_stop == E);
     ERTS_HOLE_CHECK(c_p);
@@ -46,7 +48,9 @@ OUTLINED_ARITH_2(Fail, Name, BIF, Op1, Op2, Dst) {
     Eterm* orig_stop = E;
 #endif
     DEBUG_SWAPOUT;
+    c_p->fcalls = FCALLS;
     result = erts_$Name (c_p, $Op1, $Op2);
+    FCALLS = c_p->fcalls;
     DEBUG_SWAPIN;
     ASSERT(orig_htop == HTOP && orig_stop == E);
     ERTS_HOLE_CHECK(c_p);
@@ -487,6 +491,9 @@ shift.execute(Fail, Dst) {
             }
             ERTS_HOLE_CHECK(c_p);
             $Dst = Op1;
+            c_p->fcalls = FCALLS;
+            BUMP_REDS(c_p, big_need_size / ERTS_ARITH_WORDS_PER_REDUCTION + 1);
+            FCALLS = c_p->fcalls;
             $NEXT0();
         }
     }
@@ -514,7 +521,9 @@ i_int_bnot(Fail, Src, Dst) {
     if (ERTS_LIKELY(is_small(bnot_val))) {
         result = make_small(~signed_val(bnot_val));
     } else {
+        c_p->fcalls = FCALLS;
         result = erts_bnot(c_p, bnot_val);
+        FCALLS = c_p->fcalls;
         ERTS_HOLE_CHECK(c_p);
         if (ERTS_UNLIKELY(is_non_value(result))) {
             $BIF_ERROR_ARITY_1($Fail, BIF_bnot_1, bnot_val);

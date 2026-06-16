@@ -30,7 +30,7 @@
          big_float_1/1, big_float_2/1,
          bxor_2pow/1, band_2pow/1,
          shift_limit_1/1, powmod/1, system_limit/1, toobig/1, otp_6692/1,
-         properties/1]).
+         properties/1, reductions/1]).
 
 %% Internal exports.
 -export([eval/1]).
@@ -53,7 +53,7 @@ all() ->
      {group, big_float}, shift_limit_1,
      bxor_2pow, band_2pow,
      powmod, system_limit, toobig, otp_6692,
-     properties].
+     properties, reductions].
 
 groups() -> 
     [{big_float, [], [big_float_1, big_float_2]}].
@@ -215,7 +215,12 @@ eval_op('band', A, B) -> A band B;
 eval_op('bor', A, B) -> A bor B;
 eval_op('bxor', A, B) -> A bxor B;
 eval_op('bsl', A, B) -> A bsl B;
-eval_op('bsr', A, B) -> A bsr B.
+eval_op('bsr', A, B) -> A bsr B;
+eval_op(madd, A, B) -> A * B + 1.
+
+eval_op_guard('-', A, Res) when Res =:= -A -> ok;
+eval_op_guard('+', A, Res) when Res =:= +A -> ok;
+eval_op_guard('bnot', A, Res) when Res =:= bnot A -> ok.
 
 eval_op_guard('-', A, B, Res) when Res =:= A - B -> ok;
 eval_op_guard('+', A, B, Res) when Res =:= A + B -> ok;
@@ -227,6 +232,7 @@ eval_op_guard('bor', A, B, Res) when Res =:= A bor B -> ok;
 eval_op_guard('bxor', A, B, Res) when Res =:= A bxor B -> ok;
 eval_op_guard('bsl', A, B, Res) when Res =:= A bsl B -> ok;
 eval_op_guard('bsr', A, B, Res) when Res =:= A bsr B -> ok;
+eval_op_guard(madd, A, B, Res) when Res =:= A * B + 1-> ok;
 eval_op_guard(Op, A, B, Res) -> {error,{Op,A,B,Res}}.
 
 test_squaring(I) ->
@@ -614,6 +620,121 @@ rand_int() ->
     Sz = max(floor(rand:normal() * 512 + 256), 7),
     <<Int:Sz/signed-unit:8>> = rand:bytes(Sz),
     Int.
+
+reductions(_Config) ->
+    MaxInt = erlang:system_info(max_integer),
+
+    %% Ensure that each arithmetic operation increments
+    %% the reuduction count with a reasonable amount.
+    %%
+    %% Assumptions:
+    %%   * We have 4000 reductions after a context switch.
+    %%   * One reduction can handle 16 bignum words.
+    %%   * `*`, `div`, and `rem` are conservatively assumed
+    %%     to be quadratic.
+    %%   * All the others are linear.
+    %%
+    %%     {Op, Args, MinReds}
+    Ops = [{'*', [id(1) bsl 64, 7], 1},
+           {'*', [id(1) bsl (64*20), 7], 2},
+           {'*', [id(1) bsl (64*100), id(1) bsl (64*50)], 322},
+           {'*', [MaxInt div 8, 8], 3900},
+
+           {madd, [id(1) bsl 64, 7], 1},
+           {madd, [id(1) bsl (64*20), 7], 2},
+           {madd, [id(1) bsl (64*100), id(1) bsl (64*50)], 322},
+           {madd, [MaxInt div 8, 8], 3900},
+
+           {'div', [id(1) bsl 64, 7], 1},
+           {'div', [id(1) bsl (64*100), 7], 7},
+           {'div', [id(1) bsl (64*100), id(1) bsl (64*50)], 4},
+           {'div', [MaxInt, 7], 3900},
+
+           {'rem', [id(1) bsl 64, 7], 1},
+           {'rem', [id(1) bsl (64*100), 7], 7},
+           {'rem', [id(1) bsl (64*100), id(1) bsl (64*50)], 4},
+           {'rem', [MaxInt, 7], 3900},
+
+           {'+', [id(1) bsl (64*100), id(1) bsl (64*75)], 7},
+           {'+', [id(1) bsl (64*1000), id(1) bsl (64*75)], 63},
+
+           {'-', [id(1) bsl (64*100), id(1) bsl (64*75)], 7},
+           {'-', [id(1) bsl (64*1000), id(1) bsl (64*120)], 63},
+
+           {'-', [id(1) bsl (64*100)], 7},
+           {'-', [id(1) bsl (64*1000)], 63},
+
+           {'band', [id(1) bsl (64*100), id(1) bsl (64*75)], 7},
+           {'band', [id(1) bsl (64*1000), id(1) bsl (64*75)], 63},
+
+           {'bor', [id(1) bsl (64*100), id(1) bsl (64*75)], 7},
+           {'bor', [id(1) bsl (64*1000), id(1) bsl (64*75)], 63},
+
+           {'bxor', [id(1) bsl (64*100), id(1) bsl (64*75)], 7},
+           {'bxor', [id(1) bsl (64*1000), id(1) bsl (64*75)], 63},
+
+           {'bnot', [id(1) bsl (64*100)], 7},
+           {'bnot', [id(1) bsl (64*1000)], 63},
+
+           {'bsl', [id(1) bsl (64*100), 1], 7},
+           {'bsl', [id(1) bsl (64*1000), 1], 63},
+
+           {'bsr', [id(1) bsl (64*100), 1], 7},
+           {'bsr', [id(1) bsl (64*1000), 1], 63}
+          ],
+    lists:foreach(fun red_eval/1, Ops),
+    ok.
+
+red_eval({Op, Args, MinReds})
+  when is_atom(Op), is_list(Args), is_integer(MinReds) ->
+    erlang:yield(),
+    case Args of
+        [Arg1,Arg2] ->
+            {reductions,Reds0} = process_info(self(), reductions),
+            Res = eval_op(Op, Arg1, Arg2),
+            {reductions,Reds1} = process_info(self(), reductions),
+            check_reds(Op, Args, Reds0, Reds1, MinReds),
+
+            {reductions,Reds2} = process_info(self(), reductions),
+            eval_op_guard(Op, Arg1, Arg2, Res),
+            {reductions,Reds3} = process_info(self(), reductions),
+            check_reds(Op, Args, Reds2, Reds3, MinReds),
+
+            case Op of
+                madd -> ok;
+                _ ->
+                    {reductions,Reds4} = process_info(self(), reductions),
+                    _ = erlang:Op(Arg1, Arg2),
+                    {reductions,Reds5} = process_info(self(), reductions),
+                    check_reds(Op, Args, Reds4, Reds5, MinReds)
+            end;
+        [Arg1] ->
+            {reductions,Reds0} = process_info(self(), reductions),
+            Res = eval_op(Op, Arg1),
+            {reductions,Reds1} = process_info(self(), reductions),
+            check_reds(Op, Args, Reds0, Reds1, MinReds),
+
+            {reductions,Reds2} = process_info(self(), reductions),
+            eval_op_guard(Op, Arg1, Res),
+            {reductions,Reds3} = process_info(self(), reductions),
+            check_reds(Op, Args, Reds2, Reds3, MinReds),
+
+            {reductions,Reds4} = process_info(self(), reductions),
+            _ = erlang:Op(Arg1),
+            {reductions,Reds5} = process_info(self(), reductions),
+            check_reds(Op, Args, Reds4, Reds5, MinReds)
+    end.
+
+check_reds(Op, _Args, Reds0, Reds1, MinReds) ->
+    Reds = Reds1 - Reds0 - 1,
+    if
+        Reds >= MinReds ->
+            ok;
+        true ->
+            io:format("~p: expected at least ~p reductions; "
+                      "got only ~p", [Op, MinReds, Reds]),
+            error(failed)
+    end.
 
 %%%
 %%% Common utilities.
