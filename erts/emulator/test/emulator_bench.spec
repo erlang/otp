@@ -4,3 +4,4 @@
 {groups,"../emulator_test",hash_SUITE,[phash2_benchmark]}.
 {groups,"../emulator_test",list_bif_SUITE,[benchmarks]}.
 {groups,"../emulator_test",map_SUITE,[benchmarks]}.
+{groups,"../emulator_test",tuple_SUITE,[benchmarks]}.

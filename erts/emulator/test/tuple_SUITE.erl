@@ -30,7 +30,9 @@
          build_and_match/1, tuple_with_case/1, tuple_in_guard/1,
          get_two_tuple_elements/1,
          record_update/1,
-         bad_tuple_match/1]).
+         bad_tuple_match/1,
+         benchmarks/1]).
+-include_lib("common_test/include/ct_event.hrl").
 -include_lib("common_test/include/ct.hrl").
 
 %% Tests tuples and the BIFs:
@@ -45,20 +47,22 @@
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    [build_and_match, t_size, t_tuple_size, t_list_to_tuple,
-     t_list_to_upper_boundry_tuple,
-     t_tuple_to_list, t_element, t_setelement,
-     t_make_tuple_2, t_make_upper_boundry_tuple_2, t_make_tuple_3,
-     t_append_element, t_append_element_upper_boundry,
-     t_insert_element, t_delete_element,
-     tuple_with_case, tuple_in_guard,
-     get_two_tuple_elements,
-     record_update,
-     bad_tuple_match].
+all() ->
+    [{group, main}, benchmarks].
 
 groups() -> 
-    [].
+    [{main, [],
+      [build_and_match, t_size, t_tuple_size, t_list_to_tuple,
+       t_list_to_upper_boundry_tuple,
+       t_tuple_to_list, t_element, t_setelement,
+       t_make_tuple_2, t_make_upper_boundry_tuple_2, t_make_tuple_3,
+       t_append_element, t_append_element_upper_boundry,
+       t_insert_element, t_delete_element,
+       tuple_with_case, tuple_in_guard,
+       get_two_tuple_elements,
+       record_update,
+       bad_tuple_match]},
+     {benchmarks, [{repeat,10}], [benchmarks]}].
 
 init_per_suite(Config) ->
     id(Config),
@@ -82,6 +86,65 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
     Config.
+
+benchmarks(_Config) ->
+    Iterations = 5_000_000,
+
+    bench_adjacent_tuple_elements(Iterations),
+    bench_nonadjacent_tuple_elements(Iterations),
+    bench_tagged_tuple_elements(Iterations),
+    ok.
+
+bench_adjacent_tuple_elements(Iterations) ->
+    Tuple = {1, 2, 3, 4, 5, 6, 7, 8},
+    F = fun(N) -> adjacent_tuple_elements_loop(N, Tuple, 0) end,
+    time(bench_adjacent_tuple_elements, F, Iterations).
+
+bench_nonadjacent_tuple_elements(Iterations) ->
+    Tuple = {1, 2, 3, 4, 5, 6, 7, 8},
+    F = fun(N) -> nonadjacent_tuple_elements_loop(N, Tuple, 0) end,
+    time(bench_nonadjacent_tuple_elements, F, Iterations).
+
+bench_tagged_tuple_elements(Iterations) ->
+    Tuple = {record, 1, 2, 3, 4, 5, 6, 7},
+    F = fun(N) -> tagged_tuple_elements_loop(N, Tuple, 0) end,
+    time(bench_tagged_tuple_elements, F, Iterations).
+
+adjacent_tuple_elements_loop(0, _Tuple, Acc) ->
+    Acc;
+adjacent_tuple_elements_loop(N, Tuple, Acc) ->
+    {A, B, C} = adjacent_tuple_elements(Tuple),
+    adjacent_tuple_elements_loop(N - 1, Tuple, Acc + A + B + C).
+
+nonadjacent_tuple_elements_loop(0, _Tuple, Acc) ->
+    Acc;
+nonadjacent_tuple_elements_loop(N, Tuple, Acc) ->
+    {A, B, C} = nonadjacent_tuple_elements(Tuple),
+    nonadjacent_tuple_elements_loop(N - 1, Tuple, Acc + A + B + C).
+
+tagged_tuple_elements_loop(0, _Tuple, Acc) ->
+    Acc;
+tagged_tuple_elements_loop(N, Tuple, Acc) ->
+    {A, B, C} = tagged_tuple_elements(Tuple),
+    tagged_tuple_elements_loop(N - 1, Tuple, Acc + A + B + C).
+
+adjacent_tuple_elements(Tuple) when tuple_size(Tuple) =:= 8 ->
+    {element(2, Tuple), element(3, Tuple), element(4, Tuple)}.
+
+nonadjacent_tuple_elements(Tuple) when tuple_size(Tuple) =:= 8 ->
+    {element(2, Tuple), element(4, Tuple), element(6, Tuple)}.
+
+tagged_tuple_elements({record, A, B, C, _D, _E, _F, _G}) ->
+    {A, B, C}.
+
+time(Name, F, Iterations) ->
+    Time = element(1, timer:tc(F, [Iterations])),
+    ct_event:notify(#event{name = benchmark_data,
+                           data = [{value, Time},
+                                   {suite, ?MODULE_STRING},
+                                   {name, atom_to_list(Name)}]}),
+    ct:pal("~s: ~p us", [atom_to_list(Name), Time]),
+    Time.
 
 
 build_and_match(Config) when is_list(Config) ->
