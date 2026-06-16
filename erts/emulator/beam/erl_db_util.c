@@ -3672,22 +3672,12 @@ void db_finalize_resize(DbUpdateHandle* handle, Uint offset)
 	 db_size_dbterm_comp(tbl->common.keypos, make_tuple(handle->dbterm->tpl)) :
 	 ERTS_SIZEOF_DBTERM(handle->new_size));
     byte* newp = erts_db_alloc(ERTS_ALC_T_DB_TERM, tbl, alloc_sz);
-    byte *oldp;
-    if (IS_TREE_TABLE(tbl->common.type) || IS_CATREE_TABLE(tbl->common.type)) {
-        /* Tree/catree: slot may be a left pointer with balance tag bits */
-        oldp = (byte *)TREE_DEREF_NODE((TreeDbTerm **)handle->bp);
-    } else {
-        oldp = *(handle->bp);
-    }
+    byte* oldp = *(handle->bp);
 
     ASSERT(handle->flags & DB_MUST_RESIZE);
 
     sys_memcpy(newp, oldp, offset);  /* copy only hash/tree header */
-    if (IS_TREE_TABLE(tbl->common.type) || IS_CATREE_TABLE(tbl->common.type)) {
-        TREE_ASSIGN_NODE((TreeDbTerm **)handle->bp, (TreeDbTerm *)newp);
-    } else {
-        *(handle->bp) = newp;
-    }
+    *(handle->bp) = newp;
     newDbTerm = (DbTerm*) (newp + offset);
     newDbTerm->size = handle->new_size;
 #ifdef DEBUG_CLONE

@@ -802,9 +802,9 @@ memory(Config) when is_list(Config) ->
 memory_do(Opts) ->
     L = [T1,T2,T3,T4] = fill_sets_int(1000,Opts),
     XR1 = case mem_mode(T1) of
-              {normal,_} ->     {12836, 15346, 15346, 15346+6};
-              {compressed,4} -> {11041, 12551, 12551, 12551+1};
-              {compressed,8} -> {9050, 11560, 11560, 11560}
+	      {normal,_} ->     {13836, 15346, 15346, 15346+6};
+	      {compressed,4} -> {11041, 12551, 12551, 12551+1};
+	      {compressed,8} -> {10050, 11560, 11560, 11560}
 	  end,
     XRes1 = adjust_xmem(L, XR1, 1),
     Res1 = {?S(T1),?S(T2),?S(T3),?S(T4)},
@@ -818,9 +818,9 @@ memory_do(Opts) ->
 		  end,
 		  L),
     XR2 = case mem_mode(T1) of
-              {normal,_} ->     {12827, 15337, 15337-9, 15337-3};
-              {compressed,4} -> {11031, 12542, 12542-9, 12542-8};
-              {compressed,8} -> {9041, 11551, 11551-9, 11551-9}
+	      {normal,_} ->     {13826, 15337, 15337-9, 15337-3};
+	      {compressed,4} -> {11031, 12542, 12542-9, 12542-8};
+	      {compressed,8} -> {10040, 11551, 11551-9, 11551-9}
 	  end,
     XRes2 = adjust_xmem(L, XR2, 1),
     Res2 = {?S(T1),?S(T2),?S(T3),?S(T4)},
@@ -834,9 +834,9 @@ memory_do(Opts) ->
 		  end,
 		  L),
     XR3 = case mem_mode(T1) of
-              {normal,_} ->     {12818, 15328, 15328-18, 15328-12};
-              {compressed,4} -> {11021, 12533, 12533-18, 12533-17};
-              {compressed,8} -> {9032, 11542, 11542-18, 11542-18}
+	      {normal,_} ->     {13816, 15328, 15328-18, 15328-12};
+	      {compressed,4} -> {11021, 12533, 12533-18, 12533-17};
+	      {compressed,8} -> {10030, 11542, 11542-18, 11542-18}
 	  end,
     XRes3 = adjust_xmem(L, XR3, 1),
     Res3 = {?S(T1),?S(T2),?S(T3),?S(T4)},

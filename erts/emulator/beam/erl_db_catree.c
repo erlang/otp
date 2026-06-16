@@ -323,8 +323,7 @@ static ERTS_INLINE Sint cmp_key_route(Eterm key,
 static ERTS_INLINE
 int less_than_two_elements(TreeDbTerm *root)
 {
-    return root == NULL ||
-           (TREE_GET_LEFT(root) == NULL && TREE_GET_RIGHT(root) == NULL);
+    return root == NULL || (root->left == NULL && root->right == NULL);
 }
 
 /*
@@ -351,89 +350,89 @@ TreeDbTerm* insert_TreeDbTerm(DbTableCATree *tb,
 
     dstack[dpos++] = DIR_END;
     for (;;)
-        if (!TREE_DEREF_NODE(this)) { /* Found our place */
-            state = 1;
-            TREE_ASSIGN_NODE(this, value_to_insert);
-            TREE_DEREF_NODE(this)->left = NULL;
-            TREE_SET_RIGHT(TREE_DEREF_NODE(this), NULL);
-            break;
-        } else if ((c = cmp_key(&tb->common, key, TREE_DEREF_NODE(this))) < 0) {
-            /* go lefts */
+	if (!*this) { /* Found our place */
+	    state = 1;
+	    *this = value_to_insert;
+	    (*this)->balance = 0;
+	    (*this)->left = (*this)->right = NULL;
+	    break;
+	} else if ((c = cmp_key(&tb->common, key, *this)) < 0) {
+	    /* go lefts */
 	    dstack[dpos++] = DIR_LEFT;
 	    tstack[tpos++] = this;
-            this = &(TREE_DEREF_NODE(this)->left);
-        } else { /* go right */
-            dstack[dpos++] = DIR_RIGHT;
+	    this = &((*this)->left);
+	} else { /* go right */
+	    dstack[dpos++] = DIR_RIGHT;
 	    tstack[tpos++] = this;
-            this = &(TREE_DEREF_NODE(this)->right);
-        }
+	    this = &((*this)->right);
+	}
 
     while (state && ( dir = dstack[--dpos] ) != DIR_END) {
 	this = tstack[--tpos];
-        p = TREE_DEREF_NODE(this);
-        if (dir == DIR_LEFT) {
-            switch (TREE_GET_BALANCE(p)) {
-            case 1:
-                TREE_SET_BALANCE(p, 0);
-                state = 0;
-		break;
-	    case 0:
-                TREE_SET_BALANCE(p, -1);
-                break;
-	    case -1: /* The icky case */
-                p1 = TREE_GET_LEFT(p);
-                if (TREE_GET_BALANCE(p1) == -1) { /* Single LL rotation */
-                    TREE_SET_LEFT(p, TREE_GET_RIGHT(p1));
-                    TREE_SET_RIGHT(p1, p);
-                    TREE_SET_BALANCE(p, 0);
-                    TREE_ASSIGN_NODE(this, p1);
-                } else { /* Double RR rotation */
-                    ASSERT(TREE_GET_RIGHT(p1));
-                    p2 = TREE_GET_RIGHT(p1);
-                    TREE_SET_RIGHT(p1, TREE_GET_LEFT(p2));
-                    TREE_SET_LEFT(p2, p1);
-                    TREE_SET_LEFT(p, TREE_GET_RIGHT(p2));
-                    TREE_SET_RIGHT(p2, p);
-                    TREE_SET_BALANCE(p, (TREE_GET_BALANCE(p2) == -1) ? +1 : 0);
-                    TREE_SET_BALANCE(p1, (TREE_GET_BALANCE(p2) == 1) ? -1 : 0);
-                    TREE_ASSIGN_NODE(this, p2);
-                }
-                TREE_SET_BALANCE(TREE_DEREF_NODE(this), 0);
-                state = 0;
-		break;
-            }
-        } else { /* dir == DIR_RIGHT */
-            switch (TREE_GET_BALANCE(p)) {
-            case -1:
-                TREE_SET_BALANCE(p, 0);
-                state = 0;
-		break;
-	    case 0:
-                TREE_SET_BALANCE(p, 1);
-                break;
+	p = *this;
+	if (dir == DIR_LEFT) {
+	    switch (p->balance) {
 	    case 1:
-                p1 = TREE_GET_RIGHT(p);
-                if (TREE_GET_BALANCE(p1) == 1) { /* Single RR rotation */
-                    TREE_SET_RIGHT(p, TREE_GET_LEFT(p1));
-                    TREE_SET_LEFT(p1, p);
-                    TREE_SET_BALANCE(p, 0);
-                    TREE_ASSIGN_NODE(this, p1);
-                } else { /* Double RL rotation */
-                    ASSERT(TREE_GET_LEFT(p1));
-                    p2 = TREE_GET_LEFT(p1);
-                    TREE_SET_LEFT(p1, TREE_GET_RIGHT(p2));
-                    TREE_SET_RIGHT(p2, p1);
-                    TREE_SET_RIGHT(p, TREE_GET_LEFT(p2));
-                    TREE_SET_LEFT(p2, p);
-                    TREE_SET_BALANCE(p, (TREE_GET_BALANCE(p2) == 1) ? -1 : 0);
-                    TREE_SET_BALANCE(p1, (TREE_GET_BALANCE(p2) == -1) ? 1 : 0);
-                    TREE_ASSIGN_NODE(this, p2);
-                }
-                TREE_SET_BALANCE(TREE_DEREF_NODE(this), 0);
-                state = 0;
+		p->balance = 0;
+		state = 0;
 		break;
-            }
-        }
+	    case 0:
+		p->balance = -1;
+		break;
+	    case -1: /* The icky case */
+		p1 = p->left;
+		if (p1->balance == -1) { /* Single LL rotation */
+		    p->left = p1->right;
+		    p1->right = p;
+		    p->balance = 0;
+		    (*this) = p1;
+		} else { /* Double RR rotation */
+                    ASSERT(p1->right);
+		    p2 = p1->right;
+		    p1->right = p2->left;
+		    p2->left = p1;
+		    p->left = p2->right;
+		    p2->right = p;
+		    p->balance = (p2->balance == -1) ? +1 : 0;
+		    p1->balance = (p2->balance == 1) ? -1 : 0;
+		    (*this) = p2;
+		}
+		(*this)->balance = 0;
+		state = 0;
+		break;
+	    }
+	} else { /* dir == DIR_RIGHT */
+	    switch (p->balance) {
+	    case -1:
+		p->balance = 0;
+		state = 0;
+		break;
+	    case 0:
+		p->balance = 1;
+		break;
+	    case 1:
+		p1 = p->right;
+		if (p1->balance == 1) { /* Single RR rotation */
+		    p->right = p1->left;
+		    p1->left = p;
+		    p->balance = 0;
+		    (*this) = p1;
+		} else { /* Double RL rotation */
+                    ASSERT(p1->left);
+		    p2 = p1->left;
+		    p1->left = p2->right;
+		    p2->right = p1;
+		    p->right = p2->left;
+		    p2->left = p;
+		    p->balance = (p2->balance == 1) ? -1 : 0;
+		    p1->balance = (p2->balance == -1) ? 1 : 0;
+		    (*this) = p2;
+		}
+		(*this)->balance = 0;
+		state = 0;
+		break;
+	    }
+	}
     }
     return base;
 }
@@ -454,19 +453,19 @@ static void split_tree(DbTableCATree *tb,
     TreeDbTerm * split_node = NULL;
     TreeDbTerm * left_root;
     TreeDbTerm * right_root;
-    if (TREE_GET_LEFT(root) == NULL) { /* To get non empty split */
-        *right_wb = TREE_GET_RIGHT(root);
-        *split_key_node_wb = TREE_GET_RIGHT(root);
-        TREE_SET_RIGHT(root, NULL);
-        TREE_SET_BALANCE(root, 0);
+    if (root->left == NULL) { /* To get non empty split */
+        *right_wb = root->right;
+        *split_key_node_wb = root->right;
+        root->right = NULL;
+        root->balance = 0;
         *left_wb = root;
         return;
     }
     split_node = root;
-    left_root = TREE_GET_LEFT(split_node);
+    left_root = split_node->left;
     split_node->left = NULL;
-    right_root = TREE_GET_RIGHT(split_node);
-    TREE_SET_RIGHT(split_node, NULL);
+    right_root = split_node->right;
+    split_node->right = NULL;
     right_root = insert_TreeDbTerm(tb, right_root, split_node);
     *split_key_node_wb = split_node;
     *left_wb = left_root;
@@ -483,14 +482,13 @@ static ERTS_INLINE int compute_tree_hight(TreeDbTerm * root)
     } else {
         TreeDbTerm * current_node = root;
         int hight_so_far = 1;
-        while (TREE_GET_LEFT(current_node) != NULL ||
-               TREE_GET_RIGHT(current_node) != NULL) {
-            if (TREE_GET_BALANCE(current_node) == -1) {
-                ASSERT(TREE_GET_LEFT(current_node) != NULL);
-                current_node = TREE_GET_LEFT(current_node);
+        while (current_node->left != NULL || current_node->right != NULL) {
+            if (current_node->balance == -1) {
+                ASSERT(current_node->left != NULL);
+                current_node = current_node->left;
             } else {
-                ASSERT(TREE_GET_RIGHT(current_node) != NULL);
-                current_node = TREE_GET_RIGHT(current_node);
+                ASSERT(current_node->right != NULL);
+                current_node = current_node->right;
             }
             hight_so_far = hight_so_far + 1;
         }
@@ -515,23 +513,23 @@ TreeDbTerm* linkout_min_or_max_tree_node(TreeDbTerm **root, bool is_min)
 
     dstack[dpos++] = DIR_END;
     for (;;) {
-        if (!TREE_DEREF_NODE(this)) { /* Failure */
+        if (!*this) { /* Failure */
             return NULL;
-        } else if (is_min && TREE_GET_LEFT(TREE_DEREF_NODE(this)) != NULL) {
+        } else if (is_min && (*this)->left != NULL) {
             dstack[dpos++] = DIR_LEFT;
             tstack[tpos++] = this;
-            this = &(TREE_DEREF_NODE(this)->left);
-        } else if (!is_min && TREE_GET_RIGHT(TREE_DEREF_NODE(this)) != NULL) {
+            this = &((*this)->left);
+        } else if (!is_min && (*this)->right != NULL) {
             dstack[dpos++] = DIR_RIGHT;
             tstack[tpos++] = this;
-            this = &(TREE_DEREF_NODE(this)->right);
+            this = &((*this)->right);
         } else { /* Min value, found the one to splice out */
-            q = TREE_DEREF_NODE(this);
-            if (TREE_GET_RIGHT(q) == NULL) {
-                TREE_ASSIGN_NODE(this, TREE_GET_LEFT(q));
+            q = (*this);
+            if (q->right == NULL) {
+                (*this) = q->left;
                 state = 1;
-            } else if (TREE_GET_LEFT(q) == NULL) {
-                TREE_ASSIGN_NODE(this, TREE_GET_RIGHT(q));
+            } else if (q->left == NULL) {
+                (*this) = q->right;
                 state = 1;
             }
             break;
@@ -592,20 +590,20 @@ static TreeDbTerm* join_trees(TreeDbTerm *left_root_param,
         this = &left_root;
         current_height = left_height;
         while(current_height > new_right_height + 1) {
-            if (TREE_GET_BALANCE(current_node) == -1) {
+            if (current_node->balance == -1) {
                 current_height = current_height - 2;
             } else {
                 current_height = current_height - 1;
             }
             dstack[dpos++] = DIR_RIGHT;
             tstack[tpos++] = this;
-            this = &(TREE_DEREF_NODE(this)->right);
-            current_node = TREE_GET_RIGHT(current_node);
+            this = &((*this)->right);
+            current_node = current_node->right;
         }
-        TREE_SET_LEFT(new_root, current_node);
-        TREE_SET_RIGHT(new_root, right_root);
-        TREE_SET_BALANCE(new_root, new_right_height - current_height);
-        TREE_ASSIGN_NODE(this, new_root);
+        new_root->left = current_node;
+        new_root->right = right_root;
+        new_root->balance = new_right_height - current_height;
+        *this = new_root;
     } else {
         /* This case is symmetric to the previous case */
         TreeDbTerm * new_root =
@@ -615,84 +613,84 @@ static TreeDbTerm* join_trees(TreeDbTerm *left_root_param,
         this = &right_root;
         current_height = right_height;
         while (current_height > new_left_height + 1) {
-            if (TREE_GET_BALANCE(current_node) == 1) {
+            if (current_node->balance == 1) {
                 current_height = current_height - 2;
             } else {
                 current_height = current_height - 1;
             }
             dstack[dpos++] = DIR_LEFT;
             tstack[tpos++] = this;
-            this = &(TREE_DEREF_NODE(this)->left);
-            current_node = TREE_GET_LEFT(current_node);
+            this = &((*this)->left);
+            current_node = current_node->left;
         }
-        TREE_SET_RIGHT(new_root, current_node);
-        TREE_SET_LEFT(new_root, left_root);
-        TREE_SET_BALANCE(new_root, current_height - new_left_height);
-        TREE_ASSIGN_NODE(this, new_root);
+        new_root->right = current_node;
+        new_root->left = left_root;
+        new_root->balance = current_height - new_left_height;
+        *this = new_root;
     }
     /* Now we need to continue as if this was during the insert */
     while (state && ( dir = dstack[--dpos] ) != DIR_END) {
         this = tstack[--tpos];
-        p = TREE_DEREF_NODE(this);
+        p = *this;
         if (dir == DIR_LEFT) {
-            switch (TREE_GET_BALANCE(p)) {
+            switch (p->balance) {
             case 1:
-                TREE_SET_BALANCE(p, 0);
+                p->balance = 0;
                 state = 0;
                 break;
             case 0:
-                TREE_SET_BALANCE(p, -1);
+                p->balance = -1;
                 break;
             case -1: /* The icky case */
-                p1 = TREE_GET_LEFT(p);
-                if (TREE_GET_BALANCE(p1) == -1) { /* Single LL rotation */
-                    TREE_SET_LEFT(p, TREE_GET_RIGHT(p1));
-                    TREE_SET_RIGHT(p1, p);
-                    TREE_SET_BALANCE(p, 0);
-                    TREE_ASSIGN_NODE(this, p1);
+                p1 = p->left;
+                if (p1->balance == -1) { /* Single LL rotation */
+                    p->left = p1->right;
+                    p1->right = p;
+                    p->balance = 0;
+                    (*this) = p1;
                 } else { /* Double RR rotation */
-                    ASSERT(TREE_GET_RIGHT(p1));
-                    p2 = TREE_GET_RIGHT(p1);
-                    TREE_SET_RIGHT(p1, TREE_GET_LEFT(p2));
-                    TREE_SET_LEFT(p2, p1);
-                    TREE_SET_LEFT(p, TREE_GET_RIGHT(p2));
-                    TREE_SET_RIGHT(p2, p);
-                    TREE_SET_BALANCE(p, (TREE_GET_BALANCE(p2) == -1) ? +1 : 0);
-                    TREE_SET_BALANCE(p1, (TREE_GET_BALANCE(p2) == 1) ? -1 : 0);
-                    TREE_ASSIGN_NODE(this, p2);
+                    ASSERT(p1->right);
+                    p2 = p1->right;
+                    p1->right = p2->left;
+                    p2->left = p1;
+                    p->left = p2->right;
+                    p2->right = p;
+                    p->balance = (p2->balance == -1) ? +1 : 0;
+                    p1->balance = (p2->balance == 1) ? -1 : 0;
+                    (*this) = p2;
                 }
-                TREE_SET_BALANCE(TREE_DEREF_NODE(this), 0);
+                (*this)->balance = 0;
                 state = 0;
                 break;
             }
         } else { /* dir == DIR_RIGHT */
-            switch (TREE_GET_BALANCE(p)) {
+            switch (p->balance) {
             case -1:
-                TREE_SET_BALANCE(p, 0);
+                p->balance = 0;
                 state = 0;
                 break;
             case 0:
-                TREE_SET_BALANCE(p, 1);
+                p->balance = 1;
                 break;
             case 1:
-                p1 = TREE_GET_RIGHT(p);
-                if (TREE_GET_BALANCE(p1) == 1) { /* Single RR rotation */
-                    TREE_SET_RIGHT(p, TREE_GET_LEFT(p1));
-                    TREE_SET_LEFT(p1, p);
-                    TREE_SET_BALANCE(p, 0);
-                    TREE_ASSIGN_NODE(this, p1);
+                p1 = p->right;
+                if (p1->balance == 1) { /* Single RR rotation */
+                    p->right = p1->left;
+                    p1->left = p;
+                    p->balance = 0;
+                    (*this) = p1;
                 } else { /* Double RL rotation */
-                    ASSERT(TREE_GET_LEFT(p1));
-                    p2 = TREE_GET_LEFT(p1);
-                    TREE_SET_LEFT(p1, TREE_GET_RIGHT(p2));
-                    TREE_SET_RIGHT(p2, p1);
-                    TREE_SET_RIGHT(p, TREE_GET_LEFT(p2));
-                    TREE_SET_LEFT(p2, p);
-                    TREE_SET_BALANCE(p, (TREE_GET_BALANCE(p2) == 1) ? -1 : 0);
-                    TREE_SET_BALANCE(p1, (TREE_GET_BALANCE(p2) == -1) ? 1 : 0);
-                    TREE_ASSIGN_NODE(this, p2);
+                    ASSERT(p1->left);
+                    p2 = p1->left;
+                    p1->left = p2->right;
+                    p2->right = p1;
+                    p->right = p2->left;
+                    p2->left = p;
+                    p->balance = (p2->balance == 1) ? -1 : 0;
+                    p1->balance = (p2->balance == -1) ? 1 : 0;
+                    (*this) = p2;
                 }
-                TREE_SET_BALANCE(TREE_DEREF_NODE(this), 0);
+                (*this)->balance = 0;
                 state = 0;
                 break;
             }
@@ -1523,13 +1521,15 @@ static SWord do_delete_base_node_cont(DbTableCATree *tb,
 
     p = base_node->u.base.root;
     for (;;) {
-        if (TREE_GET_LEFT(p)) {
+        if (p->left) {
             PUSH_NODE(&stack, p);
-            p = TREE_GET_LEFT(p);
-        } else if (TREE_GET_RIGHT(p)) {
+            p = p->left;
+        }
+        else if (p->right) {
             PUSH_NODE(&stack, p);
-            p = TREE_GET_RIGHT(p);
-        } else {
+            p = p->right;
+        }
+        else {
             TreeDbTerm *parent;
 
             DEC_NITEMS((DbTable*)tb);
@@ -1539,11 +1539,11 @@ static SWord do_delete_base_node_cont(DbTableCATree *tb,
             parent = POP_NODE(&stack);
             if (!parent)
                 break;
-            if (TREE_GET_LEFT(parent) == p)
+            if (parent->left == p)
                 parent->left = NULL;
             else {
-                ASSERT(TREE_GET_RIGHT(parent) == p);
-                TREE_SET_RIGHT(parent, NULL);
+                ASSERT(parent->right == p);
+                parent->right = NULL;
             }
             if (--reds < 0)
                 return reds;	/* Yield */
@@ -2543,13 +2543,13 @@ static inline int my_check_table_tree(TreeDbTerm *t)
     int lh, rh;
     if (t == NULL)
 	return 0;
-    lh = my_check_table_tree(TREE_GET_LEFT(t));
-    rh = my_check_table_tree(TREE_GET_RIGHT(t));
-    if ((rh - lh) != TREE_GET_BALANCE(t)) {
-        erts_fprintf(stderr, "Invalid tree balance for this node:\n");
-        erts_fprintf(stderr, "balance = %d, left = 0x%08X, right = 0x%08X\n",
-                     TREE_GET_BALANCE(t), TREE_GET_LEFT(t), TREE_GET_RIGHT(t));
-        erts_fprintf(stderr,"\nDump:\n---------------------------------\n");
+    lh = my_check_table_tree(t->left);
+    rh = my_check_table_tree(t->right);
+    if ((rh - lh) != t->balance) {
+	erts_fprintf(stderr, "Invalid tree balance for this node:\n");
+	erts_fprintf(stderr,"balance = %d, left = 0x%08X, right = 0x%08X\n",
+		     t->balance, t->left, t->right);
+	erts_fprintf(stderr,"\nDump:\n---------------------------------\n");
 	erts_fprintf(stderr,"\n---------------------------------\n");
         abort();
     }
