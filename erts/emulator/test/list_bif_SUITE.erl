@@ -21,13 +21,15 @@
 %%
 
 -module(list_bif_SUITE).
+-include_lib("common_test/include/ct_event.hrl").
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,
-         init_per_testcase/2, end_per_testcase/2]).
+         groups/0, init_per_testcase/2, end_per_testcase/2]).
 -export([hd_test/1,tl_test/1,t_length/1,t_list_to_pid/1,
          t_list_to_ref/1, t_list_to_ext_pidportref/1,
-         t_list_to_port/1,t_list_to_float/1,t_list_to_integer/1]).
+         t_list_to_port/1,t_list_to_float/1,t_list_to_integer/1,
+         benchmarks/1]).
 
 
 suite() ->
@@ -35,15 +37,79 @@ suite() ->
      {timetrap, {minutes, 1}}].
 
 
-all() -> 
-    [hd_test, tl_test, t_length, t_list_to_pid, t_list_to_port,
-     t_list_to_ref, t_list_to_ext_pidportref,
-     t_list_to_float, t_list_to_integer].
+all() ->
+    [{group,main}, benchmarks].
+
+groups() ->
+    [{main, [],
+      [hd_test, tl_test, t_length, t_list_to_pid, t_list_to_port,
+       t_list_to_ref, t_list_to_ext_pidportref,
+       t_list_to_float, t_list_to_integer]},
+     {benchmarks, [{repeat,10}], [benchmarks]}].
 
 init_per_testcase(_TestCase, Config) ->
     Config.
 end_per_testcase(_TestCase, Config) ->
     erts_test_utils:ept_check_leaked_nodes(Config).
+
+benchmarks(_Config) ->
+    Iterations = 5_000_000,
+
+    bench_nonempty_list_get_list(Iterations),
+    bench_nonempty_list_get_hd(Iterations),
+    bench_nonempty_list_get_tl(Iterations),
+    ok.
+
+bench_nonempty_list_get_list(Iterations) ->
+    List = [1, 2, 3, 4, 5, 6, 7, 8],
+    F = fun(N) -> nonempty_list_get_list_loop(N, List, 0) end,
+    time(bench_nonempty_list_get_list, F, Iterations).
+
+bench_nonempty_list_get_hd(Iterations) ->
+    List = [1, 2, 3, 4, 5, 6, 7, 8],
+    F = fun(N) -> nonempty_list_get_hd_loop(N, List, 0) end,
+    time(bench_nonempty_list_get_hd, F, Iterations).
+
+bench_nonempty_list_get_tl(Iterations) ->
+    List = [1, 2, 3, 4, 5, 6, 7, 8],
+    F = fun(N) -> nonempty_list_get_tl_loop(N, List, 0) end,
+    time(bench_nonempty_list_get_tl, F, Iterations).
+
+nonempty_list_get_list_loop(0, _List, Acc) ->
+    Acc;
+nonempty_list_get_list_loop(N, List, Acc) ->
+    {H, _T} = nonempty_list_get_list(List),
+    nonempty_list_get_list_loop(N - 1, List, Acc + H).
+
+nonempty_list_get_hd_loop(0, _List, Acc) ->
+    Acc;
+nonempty_list_get_hd_loop(N, List, Acc) ->
+    H = nonempty_list_get_hd(List),
+    nonempty_list_get_hd_loop(N - 1, List, Acc + H).
+
+nonempty_list_get_tl_loop(0, _List, Acc) ->
+    Acc;
+nonempty_list_get_tl_loop(N, List, Acc) ->
+    _T = nonempty_list_get_tl(List),
+    nonempty_list_get_tl_loop(N - 1, List, Acc + 1).
+
+nonempty_list_get_list([H|T]) ->
+    {H, T}.
+
+nonempty_list_get_hd([H|_]) ->
+    H.
+
+nonempty_list_get_tl([_|T]) ->
+    T.
+
+time(Name, F, Iterations) ->
+    Time = element(1, timer:tc(F, [Iterations])),
+    ct_event:notify(#event{name = benchmark_data,
+                           data = [{value, Time},
+                                   {suite, ?MODULE_STRING},
+                                   {name, atom_to_list(Name)}]}),
+    ct:pal("~s: ~p us", [atom_to_list(Name), Time]),
+    Time.
 
 %% Tests list_to_integer and string:to_integer
 t_list_to_integer(Config) when is_list(Config) ->

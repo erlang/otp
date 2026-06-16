@@ -296,6 +296,25 @@ void BeamModuleAssembler::emit_get_list(const ArgRegister &Src,
     }
 }
 
+void BeamModuleAssembler::emit_get_list(const a64::Gp boxed_ptr,
+                                        const ArgRegister &Hd,
+                                        const ArgRegister &Tl) {
+    auto hd = init_destination(Hd, TMP2);
+    auto tl = init_destination(Tl, TMP3);
+
+    if (hd.reg == tl.reg) {
+        /* ldp with two identical registers is an illegal
+         * instruction. Produce the same result as the interpreter. */
+        a.ldr(tl.reg, a64::Mem(boxed_ptr, sizeof(Eterm)));
+        flush_var(tl);
+    } else {
+        preserve_cache([&]() {
+            a.ldp(hd.reg, tl.reg, a64::Mem(boxed_ptr));
+        });
+        flush_vars(hd, tl);
+    }
+}
+
 void BeamModuleAssembler::emit_get_hd(const ArgRegister &Src,
                                       const ArgRegister &Hd) {
     auto src = load_source(Src);
@@ -311,6 +330,44 @@ void BeamModuleAssembler::emit_get_tl(const ArgRegister &Src,
     auto src = load_source(Src);
     auto tl = init_destination(Tl, TMP2);
     a64::Gp cons_ptr = emit_ptr_val(TMP1, src.reg);
+
+    a.ldur(tl.reg, getCDRRef(cons_ptr));
+    flush_var(tl);
+}
+
+void BeamModuleAssembler::emit_is_nonempty_list_get_list(
+        const ArgLabel &Fail,
+        const ArgRegister &Src,
+        const ArgRegister &Hd,
+        const ArgRegister &Tl) {
+    auto src = load_source(Src);
+
+    emit_is_cons(resolve_beam_label(Fail, dispUnknown), src.reg);
+    untag_ptr_preserve_cache(TMP1, src.reg);
+    emit_get_list(TMP1, Hd, Tl);
+}
+
+void BeamModuleAssembler::emit_is_nonempty_list_get_hd(const ArgLabel &Fail,
+                                                       const ArgRegister &Src,
+                                                       const ArgRegister &Hd) {
+    auto src = load_source(Src);
+    emit_is_cons(resolve_beam_label(Fail, dispUnknown), src.reg);
+
+    a64::Gp cons_ptr = emit_ptr_val(TMP1, src.reg);
+    auto hd = init_destination(Hd, TMP2);
+
+    a.ldur(hd.reg, getCARRef(cons_ptr));
+    flush_var(hd);
+}
+
+void BeamModuleAssembler::emit_is_nonempty_list_get_tl(const ArgLabel &Fail,
+                                                       const ArgRegister &Src,
+                                                       const ArgRegister &Tl) {
+    auto src = load_source(Src);
+    emit_is_cons(resolve_beam_label(Fail, dispUnknown), src.reg);
+
+    a64::Gp cons_ptr = emit_ptr_val(TMP1, src.reg);
+    auto tl = init_destination(Tl, TMP2);
 
     a.ldur(tl.reg, getCDRRef(cons_ptr));
     flush_var(tl);

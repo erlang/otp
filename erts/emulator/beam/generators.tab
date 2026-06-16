@@ -83,6 +83,10 @@ gen.get_utf16(Fail, Ms, Flags, Dst) {
     return op;
 }
 
+is_nonempty_list_get_list/4
+is_nonempty_list_get_hd/3
+is_nonempty_list_get_tl/3
+
 // Creates an instruction that moves a literal lambda to a register.
 MakeLiteralFun(Op, Index, Arity, Dst) {
     SWord literal;

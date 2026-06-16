@@ -182,9 +182,22 @@ is_nonempty_list Fail nqia => jump Fail
 
 is_nonempty_list f S
 
+is_nonempty_list Fail Src | get_list Src2 Hd Tl | equal(Src, Src2) =>
+    is_nonempty_list_get_list Fail Src Hd Tl
+
+is_nonempty_list Fail Src | get_hd Src2 Hd | equal(Src, Src2) =>
+    is_nonempty_list_get_hd Fail Src Hd
+
+is_nonempty_list Fail Src | get_tl Src2 Tl | equal(Src, Src2) =>
+    is_nonempty_list_get_tl Fail Src Tl
+
 get_list S d d
 get_hd S d
 get_tl S d
+
+is_nonempty_list_get_list f S d d
+is_nonempty_list_get_hd f S d
+is_nonempty_list_get_tl f S d
 
 # Old-style catch.
 catch y H
