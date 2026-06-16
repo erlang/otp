@@ -29,7 +29,7 @@
 -export([hd_test/1,tl_test/1,t_length/1,t_list_to_pid/1,
          t_list_to_ref/1, t_list_to_ext_pidportref/1,
          t_list_to_port/1,t_list_to_float/1,t_list_to_integer/1,
-         benchmarks/1]).
+         list_fusion_overlap/1, benchmarks/1]).
 
 
 suite() ->
@@ -44,7 +44,7 @@ groups() ->
     [{main, [],
       [hd_test, tl_test, t_length, t_list_to_pid, t_list_to_port,
        t_list_to_ref, t_list_to_ext_pidportref,
-       t_list_to_float, t_list_to_integer]},
+       t_list_to_float, t_list_to_integer, list_fusion_overlap]},
      {benchmarks, [{repeat,10}], [benchmarks]}].
 
 init_per_testcase(_TestCase, Config) ->
@@ -110,6 +110,105 @@ time(Name, F, Iterations) ->
                                    {name, atom_to_list(Name)}]}),
     ct:pal("~s: ~p us", [atom_to_list(Name), Time]),
     Time.
+
+list_fusion_overlap(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    AsmFile = filename:absname(filename:join(DataDir, "list_fusion_overlap")),
+
+    %% Verify the fixture behavior first, then verify the native code shape.
+    {ok, Mod, Code} = compile:file(AsmFile, [from_asm,binary,report]),
+    {module, Mod} = code:load_binary(Mod, "list_fusion_overlap", Code),
+    ok = Mod:Mod(),
+    true = code:delete(Mod),
+    _ = code:purge(Mod),
+
+    AsmDump = dump_list_fusion_overlap(AsmFile),
+    case overlapping_ldp_lines(AsmDump) of
+        [] ->
+            ok;
+        Lines ->
+            ct:fail("JIT emitted overlapping ldp base/destination registers:~n~ts",
+                    [join_lines(Lines)])
+    end.
+
+dump_list_fusion_overlap(AsmFile) ->
+    RootDir = required_env("ROOTDIR"),
+    BinDir = required_env("BINDIR"),
+    Erlexec = filename:join(BinDir, "erlexec"),
+    Boot = filename:join([RootDir, "bin", "start_clean"]),
+    CompilerEbin = filename:join([RootDir, "lib", "compiler", "ebin"]),
+    DumpDir = filename:join(
+                filename:absname("."),
+                "list_fusion_overlap_asm_" ++
+                    integer_to_list(erlang:unique_integer([positive]))),
+    ok = file:make_dir(DumpDir),
+    try
+        Eval = io_lib:format(
+                 "{ok,M,Code}=compile:file(~p,[from_asm,binary,report]),"
+                 "{module,M}=code:load_binary(M,\"list_fusion_overlap\",Code),"
+                 "ok=M:M(),halt().",
+                 [AsmFile]),
+        Args = ["+JDdump", "true",
+                "-boot", Boot,
+                "-noshell",
+                "-pa", CompilerEbin,
+                "-eval", lists:flatten(Eval)],
+        Env = [{"ROOTDIR", RootDir},
+               {"BINDIR", BinDir},
+               {"EMU", "beam"},
+               {"PROGNAME", "erl"}],
+        case run_erlexec(Erlexec, Args, Env, DumpDir) of
+            {0, _Output} ->
+                DumpFile = filename:join(DumpDir, "list_fusion_overlap.asm"),
+                {ok, Dump} = file:read_file(DumpFile),
+                Dump;
+            {Status, Output} ->
+                ct:fail("JIT dump failed with status ~p:~n~ts",
+                        [Status, Output])
+        end
+    after
+        _ = file:del_dir_r(DumpDir)
+    end.
+
+required_env(Name) ->
+    case os:getenv(Name) of
+        false ->
+            ct:fail("~s must be set to run the built VM", [Name]);
+        Value ->
+            Value
+    end.
+
+run_erlexec(Erlexec, Args, Env, Cwd) ->
+    Port = open_port({spawn_executable, Erlexec},
+                     [exit_status, stderr_to_stdout, binary,
+                      {args, Args}, {env, Env}, {cd, Cwd}]),
+    collect_port(Port, []).
+
+collect_port(Port, Acc) ->
+    receive
+        {Port, {data, Data}} ->
+            collect_port(Port, [Data | Acc]);
+        {Port, {exit_status, Status}} ->
+            {Status, iolist_to_binary(lists:reverse(Acc))}
+    end.
+
+overlapping_ldp_lines(AsmDump) ->
+    [Line || Line <- binary:split(AsmDump, <<"\n">>, [global]),
+             overlapping_ldp(Line)].
+
+overlapping_ldp(Line) ->
+    case re:run(Line,
+                "^\\s*ldp\\s+(x[0-9]+),\\s*(x[0-9]+),\\s*\\[(x[0-9]+)(?:[,\\]])",
+                [{capture, all_but_first, binary}]) of
+        {match, [Dst1, Dst2, Base]} ->
+            Dst1 =:= Base orelse Dst2 =:= Base;
+        nomatch ->
+            false
+    end.
+
+join_lines(Lines) ->
+    unicode:characters_to_list(
+      iolist_to_binary([[Line, $\n] || Line <- Lines])).
 
 %% Tests list_to_integer and string:to_integer
 t_list_to_integer(Config) when is_list(Config) ->
