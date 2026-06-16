@@ -258,9 +258,11 @@ test_encode_map(_Config) ->
     ?assertEqual(<<"{\"foo\":\"bar\"}">>, encode(#{<<"foo">> => <<"bar">>})),
     ?assertEqual(<<"{\"foo\":\"bar\"}">>, encode(#{foo => bar})),
     ?assertEqual(<<"{\"42\":\"bar\"}">>, encode(#{42 => bar})),
+    ?assertEqual(<<"{\"1.5\":\"bar\"}">>, encode(#{1.5 => bar})),
     ?assertEqual(<<"{\"foo\":\"bar\"}">>, encode_checked(#{<<"foo">> => <<"bar">>})),
     ?assertEqual(<<"{\"foo\":\"bar\"}">>, encode_checked(#{foo => bar})),
     ?assertEqual(<<"{\"42\":\"bar\"}">>, encode_checked(#{42 => bar})),
+    ?assertEqual(<<"{\"1.5\":\"bar\"}">>, encode_checked(#{1.5 => bar})),
 
     MultiKeyMap = #{<<"foo">> => <<"foo1">>, foo => <<"foo2">>},
     ?assertError({duplicate_key, <<"foo">>}, encode_checked(MultiKeyMap)),
