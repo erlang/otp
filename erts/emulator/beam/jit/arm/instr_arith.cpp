@@ -1169,11 +1169,29 @@ void BeamGlobalAssembler::emit_i_band_body_shared() {
             &bif_mfa);
 }
 
+static bool arg_sources_are_same_term(const ArgSource &lhs,
+                                      const ArgSource &rhs) {
+    if (lhs.isXRegister() && rhs.isXRegister()) {
+        return lhs.as<ArgXRegister>().get() == rhs.as<ArgXRegister>().get();
+    } else if (lhs.isYRegister() && rhs.isYRegister()) {
+        return lhs.as<ArgYRegister>().get() == rhs.as<ArgYRegister>().get();
+    }
+
+    return lhs == rhs;
+}
+
 void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
                                       const ArgWord &Live,
                                       const ArgSource &LHS,
                                       const ArgSource &RHS,
                                       const ArgRegister &Dst) {
+    if (arg_sources_are_same_term(LHS, RHS) &&
+        (exact_type<BeamTypeId::Integer>(LHS) ||
+         exact_type<BeamTypeId::Integer>(RHS))) {
+        mov_arg(Dst, LHS);
+        return;
+    }
+
     if (always_small(LHS) && RHS.isSmall()) {
         a64::Utils::LogicalImm ignore;
         Out<a64::Utils::LogicalImm> out(ignore);
@@ -1270,6 +1288,13 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
                                      const ArgSource &LHS,
                                      const ArgSource &RHS,
                                      const ArgRegister &Dst) {
+    if (arg_sources_are_same_term(LHS, RHS) &&
+        (exact_type<BeamTypeId::Integer>(LHS) ||
+         exact_type<BeamTypeId::Integer>(RHS))) {
+        mov_arg(Dst, LHS);
+        return;
+    }
+
     if (always_small(LHS) && RHS.isSmall()) {
         a64::Utils::LogicalImm ignore;
         Out<a64::Utils::LogicalImm> out(ignore);
