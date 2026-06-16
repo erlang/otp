@@ -303,21 +303,9 @@ cli() ->
                          "run" =>
                              #{ help =>
                                     """
-                                    Updates OpenVEX files.
-                                    1. Update the `make/openvex.table`
-                                    2. Run the following command, which downloads otp-*.openvex.json files
-                                       and updates those files using the `openvex.table`
+                                    Updates OpenVEX files. Detailed steps in HOWTO/SBOM.md#gh-advisories-sync.
 
-                                       > .github/scripts/otp-compliance.es vex run -b otp-33 | bash
-
-                                    3. Run the following script to create a PR.
-                                       The script stashes the generated openvex files.
-                                       Fetches the orphan branch `openvex`, and creates a new branch named `vex` locally.
-                                       Pops the stash and commits the generate OpenVEX files.
-                                       Pushes to `origin` (must be set to your fork).
-                                       Creates a PR towards `erlang/otp` with base `openvex`.
-
-                                       > .github/scripts/create-openvex-pr.sh erlang/otp vex upstream
+                                      > .github/scripts/create-openvex-pr.sh erlang/otp vex
 
                                     """,
                                 arguments => [ input_option(~"make/openvex.table"), branch_option()],

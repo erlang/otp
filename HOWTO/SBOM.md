@@ -339,7 +339,7 @@ The OpenVEX files are located in the orphan branch `openvex`, at the root of the
 The `status` corresponds to the possible status from the [OpenVEX specification](https://github.com/openvex/spec/blob/main/OPENVEX-SPEC.md).
 In case of `not_affected`, a reason must be provided (similar to the [specification](https://github.com/openvex/spec/blob/main/OPENVEX-SPEC.md)).
 **The `openvex.table` is considered to be an append-only structure, where one should not do modifications to existing data nor removal**.
-Changes should be done via `.github/scripts/otp-compliance.es` (branch: `master` applied on the `openvex.table`. The main reason is to use
+Changes should be done via `.github/scripts/otp-compliance.es` (branch: `master`) applied on the `openvex.table`. The main reason is to use
 `openvex.table` as a simple source of truth without boilerplate, since VEX statements can be long due to the way in which one
 must express range versions for a vulnerability.
 
