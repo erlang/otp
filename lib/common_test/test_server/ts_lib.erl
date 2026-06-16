@@ -325,6 +325,15 @@ print_data(Port) ->
 	{Port, {data, Bytes}} ->
 	    io:put_chars(Bytes),
 	    print_data(Port);
+        {Port, {exit_status, 0}} -> 
+            receive
+                {'EXIT',  Port,  _} -> 
+                    ok
+            after 1 ->				% force context switch
+                    ok
+            end;
+        {Port, {exit_status, N}} ->
+            erlang:halt(N);
 	{Port, eof} ->
 	    Port ! {self(), close}, 
 	    receive
