@@ -1370,6 +1370,16 @@ void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
                                       const ArgSource &LHS,
                                       const ArgSource &RHS,
                                       const ArgRegister &Dst) {
+    if (arg_sources_are_same_term(LHS, RHS) &&
+        (exact_type<BeamTypeId::Integer>(LHS) ||
+         exact_type<BeamTypeId::Integer>(RHS))) {
+        auto dst = init_destination(Dst, ARG1);
+
+        mov_imm(dst.reg, make_small(0));
+        flush_var(dst);
+        return;
+    }
+
     auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
     auto dst = init_destination(Dst, ARG1);
 
