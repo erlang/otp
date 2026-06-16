@@ -1246,6 +1246,8 @@ protected:
     void emit_i_bif(const ArgLabel &Fail,
                     const ArgWord &Bif,
                     const ArgRegister &Dst);
+    void emit_setup_guard_bif(const std::vector<ArgVal> &args,
+                              const ArgWord &Bif);
 
     void emit_error(int code);
     void emit_error(int reason, const ArgSource &Src);

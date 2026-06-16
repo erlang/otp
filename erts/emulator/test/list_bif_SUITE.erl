@@ -29,7 +29,7 @@
 -export([hd_test/1,tl_test/1,t_length/1,t_list_to_pid/1,
          t_list_to_ref/1, t_list_to_ext_pidportref/1,
          t_list_to_port/1,t_list_to_float/1,t_list_to_integer/1,
-         list_fusion_overlap/1, benchmarks/1]).
+         list_fusion_overlap/1, guard_bif_arg_vector/1, benchmarks/1]).
 
 
 suite() ->
@@ -44,7 +44,8 @@ groups() ->
     [{main, [],
       [hd_test, tl_test, t_length, t_list_to_pid, t_list_to_port,
        t_list_to_ref, t_list_to_ext_pidportref,
-       t_list_to_float, t_list_to_integer, list_fusion_overlap]},
+       t_list_to_float, t_list_to_integer, list_fusion_overlap,
+       guard_bif_arg_vector]},
      {benchmarks, [{repeat,10}], [benchmarks]}].
 
 init_per_testcase(_TestCase, Config) ->
@@ -131,7 +132,30 @@ list_fusion_overlap(Config) when is_list(Config) ->
                     [join_lines(Lines)])
     end.
 
+guard_bif_arg_vector(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    AsmFile = filename:absname(filename:join(DataDir, "guard_bif_arg_vector")),
+
+    {ok, Mod, Code} = compile:file(AsmFile, [from_asm,binary,report]),
+    {module, Mod} = code:load_binary(Mod, "guard_bif_arg_vector", Code),
+    true = Mod:Mod(),
+    1000 = Mod:bench(1000, <<>>),
+    true = code:delete(Mod),
+    _ = code:purge(Mod),
+
+    AsmDump = dump_asm_fixture(AsmFile, "guard_bif_arg_vector"),
+    case redundant_guard_bif_arg_stores(AsmDump) of
+        [] ->
+            ok;
+        Lines ->
+            ct:fail("JIT copied contiguous guard BIF Y arguments into x regs:~n~ts",
+                    [join_lines(Lines)])
+    end.
+
 dump_list_fusion_overlap(AsmFile) ->
+    dump_asm_fixture(AsmFile, "list_fusion_overlap").
+
+dump_asm_fixture(AsmFile, DumpBase) ->
     RootDir = required_env("ROOTDIR"),
     BinDir = required_env("BINDIR"),
     Erlexec = filename:join(BinDir, "erlexec"),
@@ -159,7 +183,7 @@ dump_list_fusion_overlap(AsmFile) ->
                {"PROGNAME", "erl"}],
         case run_erlexec(Erlexec, Args, Env, DumpDir) of
             {0, _Output} ->
-                DumpFile = filename:join(DumpDir, "list_fusion_overlap.asm"),
+                DumpFile = filename:join(DumpDir, DumpBase ++ ".asm"),
                 {ok, Dump} = file:read_file(DumpFile),
                 Dump;
             {Status, Output} ->
@@ -205,6 +229,17 @@ overlapping_ldp(Line) ->
         nomatch ->
             false
     end.
+
+redundant_guard_bif_arg_stores(AsmDump) ->
+    [Line || Line <- binary:split(AsmDump, <<"\n">>, [global]),
+             redundant_guard_bif_arg_store(Line)].
+
+redundant_guard_bif_arg_store(Line) ->
+    %% The fixture puts binary_part/3's first two arguments in adjacent Y slots.
+    %% A redundant setup copies them into the x-register array with an STP.
+    re:run(Line,
+           "^\\s*stp\\s+x[0-9]+,\\s*x[0-9]+,\\s*\\[x19(?:,|\\])",
+           [{capture, none}]) =:= match.
 
 join_lines(Lines) ->
     unicode:characters_to_list(

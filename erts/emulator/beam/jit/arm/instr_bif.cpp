@@ -55,7 +55,6 @@ void BeamGlobalAssembler::emit_i_bif_guard_shared() {
     emit_enter_runtime<Update::eReductions>();
 
     a.mov(ARG1, c_p);
-    lea(ARG2, getXRef(0));
     mov_imm(ARG3, 0);
     dynamic_runtime_call<3>(ARG4); /* ARG3 is never used by guard BIFs. */
 
@@ -107,10 +106,66 @@ void BeamGlobalAssembler::emit_i_bif_body_shared() {
     }
 }
 
+void BeamModuleAssembler::emit_setup_guard_bif(const std::vector<ArgVal> &args,
+                                               const ArgWord &Bif) {
+    bool is_contiguous_mem;
+
+    ASSERT(args.size() > 0 && args.size() <= 3);
+
+    is_contiguous_mem = args[0].isRegister() && !isRegisterBacked(args[0]);
+    for (size_t i = 1; i < args.size() && is_contiguous_mem; i++) {
+        const ArgVal &prev = args[i - 1], &curr = args[i];
+
+        is_contiguous_mem =
+                curr.isRegister() && !isRegisterBacked(curr) &&
+                ArgVal::memory_relation(prev, curr) ==
+                        ArgVal::Relation::consecutive;
+    }
+
+    if (is_contiguous_mem) {
+        lea(ARG2, getArgRef(args[0]));
+    } else {
+        lea(ARG2, getXRef(0));
+
+        switch (args.size()) {
+        case 1: {
+            auto src1 = load_source(args[0]);
+            a.str(src1.reg, getXRef(0));
+            break;
+        }
+        case 2: {
+            auto [src1, src2] = load_sources(args[0], TMP1, args[1], TMP2);
+            a.stp(src1.reg, src2.reg, getXRef(0));
+            break;
+        }
+        case 3: {
+            auto [src1, src2] = load_sources(args[0], TMP1, args[1], TMP2);
+            auto src3 = load_source(args[2], TMP3);
+            a.stp(src1.reg, src2.reg, getXRef(0));
+            a.str(src3.reg, getXRef(2));
+            break;
+        }
+        default:
+            ERTS_ASSERT(!"invalid guard BIF arity");
+        }
+    }
+
+    ubif_comment(Bif);
+    mov_arg(ARG4, Bif);
+}
+
 void BeamModuleAssembler::emit_i_bif1(const ArgSource &Src1,
                                       const ArgLabel &Fail,
                                       const ArgWord &Bif,
                                       const ArgRegister &Dst) {
+    if (Fail.get() != 0) {
+        emit_setup_guard_bif({Src1}, Bif);
+        fragment_call(ga->get_i_bif_guard_shared());
+        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+        mov_arg(Dst, ARG1);
+        return;
+    }
+
     auto src1 = load_source(Src1);
 
     a.str(src1.reg, getXRef(0));
@@ -124,6 +179,14 @@ void BeamModuleAssembler::emit_i_bif2(const ArgSource &Src1,
                                       const ArgLabel &Fail,
                                       const ArgWord &Bif,
                                       const ArgRegister &Dst) {
+    if (Fail.get() != 0) {
+        emit_setup_guard_bif({Src1, Src2}, Bif);
+        fragment_call(ga->get_i_bif_guard_shared());
+        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+        mov_arg(Dst, ARG1);
+        return;
+    }
+
     auto [src1, src2] = load_sources(Src1, TMP1, Src2, TMP2);
 
     a.stp(src1.reg, src2.reg, getXRef(0));
@@ -138,6 +201,14 @@ void BeamModuleAssembler::emit_i_bif3(const ArgSource &Src1,
                                       const ArgLabel &Fail,
                                       const ArgWord &Bif,
                                       const ArgRegister &Dst) {
+    if (Fail.get() != 0) {
+        emit_setup_guard_bif({Src1, Src2, Src3}, Bif);
+        fragment_call(ga->get_i_bif_guard_shared());
+        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+        mov_arg(Dst, ARG1);
+        return;
+    }
+
     auto [src1, src2] = load_sources(Src1, TMP1, Src2, TMP2);
     auto src3 = load_source(Src3, TMP3);
 
@@ -171,12 +242,7 @@ void BeamModuleAssembler::emit_i_bif(const ArgLabel &Fail,
 void BeamModuleAssembler::emit_nofail_bif1(const ArgSource &Src1,
                                            const ArgWord &Bif,
                                            const ArgRegister &Dst) {
-    auto src1 = load_source(Src1);
-
-    a.str(src1.reg, getXRef(0));
-
-    ubif_comment(Bif);
-    mov_arg(ARG4, Bif);
+    emit_setup_guard_bif({Src1}, Bif);
     fragment_call(ga->get_i_bif_guard_shared());
     mov_arg(Dst, ARG1);
 }
@@ -185,12 +251,7 @@ void BeamModuleAssembler::emit_nofail_bif2(const ArgSource &Src1,
                                            const ArgSource &Src2,
                                            const ArgWord &Bif,
                                            const ArgRegister &Dst) {
-    auto [src1, src2] = load_sources(Src1, TMP1, Src2, TMP2);
-
-    a.stp(src1.reg, src2.reg, getXRef(0));
-
-    ubif_comment(Bif);
-    mov_arg(ARG4, Bif);
+    emit_setup_guard_bif({Src1, Src2}, Bif);
     fragment_call(ga->get_i_bif_guard_shared());
     mov_arg(Dst, ARG1);
 }
