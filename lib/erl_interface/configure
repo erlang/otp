@@ -7911,8 +7911,18 @@ fi
 if test "x$with_gmp" = "xyes"
 then :
 
-    for dir in /usr /usr/pkg /usr/local /usr/local/gmp /usr/lib/gmp /usr/gmp; do
-	as_ac_Header=`printf "%s\n" "ac_cv_header_$dir/include/gmp.h" | sed "$as_sed_sh"`
+    ac_fn_c_check_header_compile "$LINENO" "gmp.h" "ac_cv_header_gmp_h" "$ac_includes_default"
+if test "x$ac_cv_header_gmp_h" = xyes
+then :
+  ac_cv_gmp=yes
+else case e in #(
+  e) ac_cv_gmp=no ;;
+esac
+fi
+
+    if test $ac_cv_gmp = no ; then
+        for dir in /usr /usr/pkg /usr/local /usr/local/gmp /usr/lib/gmp /usr/gmp; do
+            as_ac_Header=`printf "%s\n" "ac_cv_header_$dir/include/gmp.h" | sed "$as_sed_sh"`
 ac_fn_c_check_header_compile "$LINENO" "$dir/include/gmp.h" "$as_ac_Header" "$ac_includes_default"
 if eval test \"x\$"$as_ac_Header"\" = x"yes"
 then :
@@ -7922,17 +7932,19 @@ else case e in #(
 esac
 fi
 
-	if test $ac_cv_gmp = yes ; then
-	    CFLAGS="$CFLAGS -I$dir/include -L$dir/lib"
-	    LIB_CFLAGS="$LIB_CFLAGS -I$dir/include -L$dir/lib"
+            if test $ac_cv_gmp = yes ; then
+                CFLAGS="$CFLAGS -I$dir/include -L$dir/lib"
+                LIB_CFLAGS="$LIB_CFLAGS -I$dir/include -L$dir/lib"
+                break
+            fi
+        done
+    fi
+    if test $ac_cv_gmp = no ; then
+	as_fn_error $? "No GNU MP installation found" "$LINENO" 5
+    else
 
 printf "%s\n" "#define HAVE_GMP_H 1" >>confdefs.h
 
-	    break
-	fi
-    done
-    if test $ac_cv_gmp = no ; then
-	as_fn_error $? "No GNU MP installation found" "$LINENO" 5
     fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for __gmpz_export in -lgmp" >&5
 printf %s "checking for __gmpz_export in -lgmp... " >&6; }
