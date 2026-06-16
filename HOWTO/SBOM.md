@@ -310,13 +310,13 @@ export PATH=$PATH:<your-path-to-vexctl>/vexctl/
 
 ### HOW-TO
 
-Erlang/OTP will maintain VEX files for the latests three releases.
-Because of this, Erlang/OTP will always contain the latest information in the `master` branch.
-Any OpenVEX file in other branches is considered outdated.
+Erlang/OTP will maintain VEX files for the latest three releases.
+This information is kept up-to-date in the orphan branch named `openvex`.
+Any possible OpenVEX files in other branches should be considered outdated and should be removed.
 
-The OpenVEX files are located in `vex/otp-26.openvex.json`, `vex/otp-27.openvex.json`, and `vex/otp-28.openvex.json` (e.g.). These files are generated from the `make/openvex.table` and the script `.github/scripts/otp-compliance.es`.
+The OpenVEX files are located in the orphan branch `openvex`, at the root of the project: `otp-27.openvex.json`, `otp-28.openvex.json`, and `otp-29.openvex.json` (e.g.). These files are generated from the `openvex.table`. The script that generates them is placed in the branch `master`, under the name of `.github/scripts/otp-compliance.es`. This is simply to have all scripts and workflows in the default branch.
 
-- `make/openvex.table` contains all known CVEs on a per release basis, with top-level objects for `otp-XX` branches, where each `otp-XX` object has as value a list of dependencies with their CVE and the status.
+- `openvex.table` contains all known CVEs on a per release basis, with top-level objects for `otp-XX` branches, where each `otp-XX` object has as value a list of dependencies with their CVE and the status.
 
   Example:
 
@@ -338,8 +338,8 @@ The OpenVEX files are located in `vex/otp-26.openvex.json`, `vex/otp-27.openvex.
 
 The `status` corresponds to the possible status from the [OpenVEX specification](https://github.com/openvex/spec/blob/main/OPENVEX-SPEC.md).
 In case of `not_affected`, a reason must be provided (similar to the [specification](https://github.com/openvex/spec/blob/main/OPENVEX-SPEC.md)).
-**The `make/openvex.table` is considered to be an append-only structure, where one should not do modifications to existing data nor removal**.
-Changes should be done via `.github/scripts/otp-compliance.es` applied on the `openvex.table`. The main reason is to use
+**The `openvex.table` is considered to be an append-only structure, where one should not do modifications to existing data nor removal**.
+Changes should be done via `.github/scripts/otp-compliance.es` (branch: `master`) applied on the `openvex.table`. The main reason is to use
 `openvex.table` as a simple source of truth without boilerplate, since VEX statements can be long due to the way in which one
 must express range versions for a vulnerability.
 
@@ -387,7 +387,19 @@ Assume the following ficticious case, where we want to report `CVE-2023-48795` o
 ### Use Cases
 
 In all the cases explained below, the running of the tool `.github/scripts/otp-compliance.es vex` does not commit changes.
-One has to execute the output commands to introduce changes.
+One has to execute the output commands to introduce changes. If you need to make changes to `openvex.table`, create a worktree
+for the `openvex` branch and invoke the `otp-compliance.es`. For example, you could:
+
+```bash
+# create a worktree for the upstream/openvex branch
+git fetch upstream
+git worktree add openvex-orphan openvex
+
+# copy necessary scripts into the orphan branch
+mkdir -p openvex-orphan/.github/scripts/
+cp -r ".github/scripts/." openvex-orphan/.github/scripts/
+cd openvex-orphan                                            # now everything is in place and you can follow instructions from below
+```
 
 
 **Code Generation**
@@ -423,9 +435,9 @@ and execute the script
 Generates the following VEX commands
 
 ```bash
-vexctl add --in-place vex/otp-23.openvex.json --product='pkg:otp/erlang@23.1,pkg:otp/erlang@23.1.1,pkg:otp/erlang@23.1.2,pkg:otp/erlang@23.1.3,pkg:otp/erlang@23.1.4,pkg:otp/erlang@23.1.5,pkg:otp/erlang@23.2,pkg:otp/erlang@23.2.1,pkg:otp/erlang@23.2.2,pkg:otp/erlang@23.2.3,pkg:otp/erlang@23.2.4,pkg:otp/erlang@23.2.5,pkg:otp/erlang@23.2.6,pkg:otp/erlang@23.2.7,pkg:otp/erlang@23.3,pkg:otp/erlang@23.3.1,pkg:otp/erlang@23.3.2,pkg:otp/erlang@23.3.3,pkg:otp/erlang@23.3.4,pkg:otp/erlang@23.3.4.1,pkg:otp/erlang@23.3.4.2,pkg:otp/erlang@23.3.4.3,pkg:otp/erlang@23.3.4.4,pkg:otp/erlang@23.3.4.5,pkg:otp/erlang@23.3.4.6,pkg:otp/erlang@23.3.4.7,pkg:otp/erlang@23.3.4.8,pkg:otp/erlang@23.3.4.9,pkg:otp/erlang@23.3.4.10,pkg:otp/erlang@23.3.4.11,pkg:otp/erlang@23.3.4.12,pkg:otp/erlang@23.3.4.13,pkg:otp/erlang@23.3.4.14,pkg:otp/ssh@4.10.1,pkg:otp/ssh@4.10.2,pkg:otp/ssh@4.10.3,pkg:otp/ssh@4.10.4,pkg:otp/ssh@4.10.5,pkg:otp/ssh@4.10.6,pkg:otp/ssh@4.10.7,pkg:otp/ssh@4.10.8,pkg:otp/ssh@4.11,pkg:otp/ssh@4.11.1,pkg:otp/ssh@4.11.1.1,pkg:otp/ssh@4.11.1.2,pkg:otp/ssh@4.11.1.3,pkg:otp/ssh@4.11.1.4,pkg:otp/ssh@4.11.1.5' --vuln='CVE-2023-48795' --status='affected' --action-statement='Mitigation: If strict KEX availability cannot be ensured on both connection sides, affected encryption modes(CHACHA and CBC) can be disabled with standard ssh configuration. This will provide protection against vulnerability, but at a cost of affecting interoperability'
+vexctl add --in-place otp-23.openvex.json --product='pkg:otp/erlang@23.1,pkg:otp/erlang@23.1.1,pkg:otp/erlang@23.1.2,pkg:otp/erlang@23.1.3,pkg:otp/erlang@23.1.4,pkg:otp/erlang@23.1.5,pkg:otp/erlang@23.2,pkg:otp/erlang@23.2.1,pkg:otp/erlang@23.2.2,pkg:otp/erlang@23.2.3,pkg:otp/erlang@23.2.4,pkg:otp/erlang@23.2.5,pkg:otp/erlang@23.2.6,pkg:otp/erlang@23.2.7,pkg:otp/erlang@23.3,pkg:otp/erlang@23.3.1,pkg:otp/erlang@23.3.2,pkg:otp/erlang@23.3.3,pkg:otp/erlang@23.3.4,pkg:otp/erlang@23.3.4.1,pkg:otp/erlang@23.3.4.2,pkg:otp/erlang@23.3.4.3,pkg:otp/erlang@23.3.4.4,pkg:otp/erlang@23.3.4.5,pkg:otp/erlang@23.3.4.6,pkg:otp/erlang@23.3.4.7,pkg:otp/erlang@23.3.4.8,pkg:otp/erlang@23.3.4.9,pkg:otp/erlang@23.3.4.10,pkg:otp/erlang@23.3.4.11,pkg:otp/erlang@23.3.4.12,pkg:otp/erlang@23.3.4.13,pkg:otp/erlang@23.3.4.14,pkg:otp/ssh@4.10.1,pkg:otp/ssh@4.10.2,pkg:otp/ssh@4.10.3,pkg:otp/ssh@4.10.4,pkg:otp/ssh@4.10.5,pkg:otp/ssh@4.10.6,pkg:otp/ssh@4.10.7,pkg:otp/ssh@4.10.8,pkg:otp/ssh@4.11,pkg:otp/ssh@4.11.1,pkg:otp/ssh@4.11.1.1,pkg:otp/ssh@4.11.1.2,pkg:otp/ssh@4.11.1.3,pkg:otp/ssh@4.11.1.4,pkg:otp/ssh@4.11.1.5' --vuln='CVE-2023-48795' --status='affected' --action-statement='Mitigation: If strict KEX availability cannot be ensured on both connection sides, affected encryption modes(CHACHA and CBC) can be disabled with standard ssh configuration. This will provide protection against vulnerability, but at a cost of affecting interoperability'
 
-vexctl add --in-place vex/otp-23.openvex.json --product='pkg:otp/erlang@23.3.4.19,pkg:otp/erlang@23.3.4.18,pkg:otp/erlang@23.3.4.17,pkg:otp/erlang@23.3.4.16,pkg:otp/erlang@23.3.4.15,pkg:otp/ssh@4.11.1.6' --vuln='CVE-2023-48795' --status='fixed'
+vexctl add --in-place otp-23.openvex.json --product='pkg:otp/erlang@23.3.4.19,pkg:otp/erlang@23.3.4.18,pkg:otp/erlang@23.3.4.17,pkg:otp/erlang@23.3.4.16,pkg:otp/erlang@23.3.4.15,pkg:otp/ssh@4.11.1.6' --vuln='CVE-2023-48795' --status='fixed'
 ```
 
 The first command in the script has figured out the exact OTP versions that are vulnerable from the range of affected and fixed exact versions,
@@ -440,7 +452,7 @@ and show examples for Erlang/OTP applications and third party application on whi
 
 This will only be needed once, but if you need to initialize and provide existing known CVEs, you can use `.github/scripts/otp-compliance.es`.
 
-The first time that we generate OpenVEX statements we call `.github/scripts/otp-compliance.es vex init --input-file make/openvex.table -b otp-28`. This init script outputs instructions to execute in the shell, which invokes commands from `vexctl` ([Installation steps here](https://github.com/openvex/vexctl)). You can run and execute the scripts as follows, `.github/scripts/otp-compliance.es vex init --input-file make/openvex.table -b otp-28 | bash` (if you use bash).
+The first time that we generate OpenVEX statements we call `.github/scripts/otp-compliance.es vex init --input-file openvex.table -b otp-28`. This init script outputs instructions to execute in the shell, which invokes commands from `vexctl` ([Installation steps here](https://github.com/openvex/vexctl)). You can run and execute the scripts as follows, `.github/scripts/otp-compliance.es vex init --input-file openvex.table -b otp-28 | bash` (if you use bash).
 
 The script is idempotent, meaning that running consecutive times the script will not change its input.
 Because of this, you run this command only for a new OTP release, and for coming CVEs you use `.github/scripts/otp-compliance.es vex run ...`.
@@ -448,7 +460,7 @@ This last command will not update the time and assumes that the `otp-XX.openvex.
 
 **Example for new Release**
 
-To release VEX files for a new release, OTP-29, add the name branch to `make/openvex.table` (assuming there are known CVEs):
+To release VEX files for a new release, OTP-29, add the name branch to `openvex.table` (assuming there are known CVEs):
 
 ```
 {
@@ -459,7 +471,7 @@ To release VEX files for a new release, OTP-29, add the name branch to `make/ope
 Execute the script to create the VEX statements for OTP-29:
 
 ```bash
-.github/scripts/otp-compliance.es vex init --input-file make/openvex.table -b otp-29
+.github/scripts/otp-compliance.es vex init --input-file openvex.table -b otp-29
 ```
 
 There are no known vulnerabilities, so this VEX statement can be published as is.
@@ -470,23 +482,23 @@ There are no known vulnerabilities, so this VEX statement can be published as is
 For vendor CVEs, it may make sense to communicate with the ecosystem that a CVE for vendor X is under investigation.
 If it is trivial to know whether we are affected, one could skip reporting `under_investigation` and add directly the `fixed`, or `vulnerable` statements.
 
-To update or insert VEX statements for OTP-29, update the `make/openvex.table` and run:
+To update or insert VEX statements for OTP-29, update the `openvex.table` and run:
 
 ```bash
-.github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b otp-29
+.github/scripts/otp-compliance.es vex run --input-file openvex.table -b otp-29
 ```
 
 The script will output commands to run (similar to a dry-run). Once piped to `bash`, they are executed.
 
 ```
-.github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b otp-29 | bash
+.github/scripts/otp-compliance.es vex run --input-file openvex.table -b otp-29 | bash
 ```
 
 Add and commit the changes.
 
 **Example**
 
-`make/openvex.table` contains:
+`openvex.table` contains:
 
 ```
 {
@@ -494,7 +506,7 @@ Add and commit the changes.
 }
 ```
 
-Lets assume there is `FIKA-2026-BROD` detected in `zlib`. We can issue an `under_investigation` statement updating the `make/openvex.table`
+Lets assume there is `FIKA-2026-BROD` detected in `zlib`. We can issue an `under_investigation` statement updating the `openvex.table`
 
 
 ```json
@@ -511,7 +523,7 @@ Lets assume there is `FIKA-2026-BROD` detected in `zlib`. We can issue an `under
 Execute the command below to update the OpenVEX statements.
 
 ```bash
-.github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b otp-29 | bash
+.github/scripts/otp-compliance.es vex run --input-file openvex.table -b otp-29 | bash
 ```
 
 Erlang/OTP should not issue an `under_investigation` unless it is known that it will take some days to understand if Erlang/OTP is vulnerable to a vendor dependency.
@@ -537,7 +549,7 @@ We continue from the example in the previous section, that contained `zlib` with
 }
 ```
 
-One can update the `make/openvex.table` with the reason of "code not present", meaning, the component is included
+One can update the `openvex.table` with the reason of "code not present", meaning, the component is included
 in OTP but the vulnerable code is not present. It is important to note that any statement written in the table
 should not be updated, the table is append only.
 
@@ -559,7 +571,7 @@ should not be updated, the table is append only.
 To update the OpenVEX statements, run:
 
 ```bash
-.github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b otp-29 | bash
+.github/scripts/otp-compliance.es vex run --input-file openvex.table -b otp-29 | bash
 ```
 
 It produces a new entry in the openvex statements for OTP-29 stating that OTP-29 is not vulnerable to the CVE `FIKA-2026-BROD`.
@@ -584,7 +596,7 @@ OTP was investigating the CVE `FIKA-2026-BROD` and found themselves affected.
 }
 ```
 
-One can write then in `make/openvex.table`:
+One can write then in `openvex.table`:
 
 ```json
 {
@@ -606,7 +618,7 @@ where the version affected is written as part of the package url `pkg:github/mad
 Execute the command below to update the OpenVEX statements.
 
 ```bash
-.github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b otp-29 | bash
+.github/scripts/otp-compliance.es vex run --input-file openvex.table -b otp-29 | bash
 ```
 
 It produces a new entry in the openvex statements for OTP-29.
@@ -634,11 +646,11 @@ To specify this, write the `status` value as an object with free text.
 
 #### Add `fixed`
 
-One can specify that the CVE is fixed in a specific version using the `fixed` keyword in the `make/openvex.table` statements.
+One can specify that the CVE is fixed in a specific version using the `fixed` keyword in the `openvex.table` statements.
 
 **Example**
 
-OTP was affected the CVE `FIKA-2026-BROD`, reported in `make/openvex.table`.
+OTP was affected the CVE `FIKA-2026-BROD`, reported in `openvex.table`.
 
 ```json
 {
@@ -681,7 +693,7 @@ OTP creates an emergency patch to fix this vendor dependency, and states that th
 Execute the command below to update the OpenVEX statements.
 
 ```bash
-.github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b otp-29 | bash
+.github/scripts/otp-compliance.es vex run --input-file openvex.table -b otp-29 | bash
 ```
 
 Alternatively, one can write the affected and fixed versions in a single object for OTP applications.
@@ -736,3 +748,15 @@ been at the sha-1 commit hash level.
     ]
 }
 ```
+
+#### GH Advisories Sync
+
+The `master` job `.github/workflows/openvex-sync.yml` syncs Erlang/OTP Advisories to be entered as OpenVEX statements.
+This is a cron job that runs every day at 1 am.
+
+No action needed.
+
+This job checks if there are advisories in Erlang/OTP that are not yet included in the OpenVEX statements.
+If there are, it will create automatically a PR towards Erlang/OTP (branch `openvex`) with changes in the
+`openvex.table` and all the affected `otp-XX.openvex.json` files. If those security advisories are already
+present in the OpenVEX statements, no PR will be created.
