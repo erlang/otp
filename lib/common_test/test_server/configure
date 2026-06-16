@@ -721,6 +721,7 @@ enable_debug_mode
 enable_m64_build
 enable_m32_build
 enable_largefile
+with_gmp
 enable_shlib_thread_safety
 enable_year2038
 '
@@ -1358,6 +1359,12 @@ Optional Features:
   --disable-largefile     omit support for large files
   --enable-shlib-thread-safety  enable thread safety for build shared libraries
   --disable-year2038      don't support timestamps after 2038
+
+Optional Packages:
+  --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
+  --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --with-gmp=PATH         specify location of GNU MP include and lib
+  --with-gmp              use GNU MP (will search for it)
 
 Some influential environment variables:
   CC          C compiler command
@@ -2430,6 +2437,123 @@ ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3864,6 +3988,201 @@ fi
 
 
 #--------------------------------------------------------------------
+# Test for gmp availability
+#--------------------------------------------------------------------
+
+ac_header= ac_cache=
+for ac_item in $ac_header_c_list
+do
+  if test $ac_cache; then
+    ac_fn_c_check_header_compile "$LINENO" $ac_header ac_cv_header_$ac_cache "$ac_includes_default"
+    if eval test \"x\$ac_cv_header_$ac_cache\" = xyes; then
+      printf "%s\n" "#define $ac_item 1" >> confdefs.h
+    fi
+    ac_header= ac_cache=
+  elif test $ac_header; then
+    ac_cache=$ac_item
+  else
+    ac_header=$ac_item
+  fi
+done
+
+
+
+
+
+
+
+
+if test $ac_cv_header_stdlib_h = yes && test $ac_cv_header_string_h = yes
+then :
+
+printf "%s\n" "#define STDC_HEADERS 1" >>confdefs.h
+
+fi
+
+
+
+# Check whether --with-gmp was given.
+if test ${with_gmp+y}
+then :
+  withval=$with_gmp;
+fi
+
+
+# We don't just want any GNU MP version, we want 4.1 or later
+# that contain the import/export functions we need.
+
+
+if test "x$with_gmp" = "xyes"
+then :
+
+    for dir in /usr /usr/pkg /usr/local /usr/local/gmp /usr/lib/gmp /usr/gmp; do
+	as_ac_Header=`printf "%s\n" "ac_cv_header_$dir/include/gmp.h" | sed "$as_sed_sh"`
+ac_fn_c_check_header_compile "$LINENO" "$dir/include/gmp.h" "$as_ac_Header" "$ac_includes_default"
+if eval test \"x\$"$as_ac_Header"\" = x"yes"
+then :
+  ac_cv_gmp=yes
+else case e in #(
+  e) ac_cv_gmp=no ;;
+esac
+fi
+
+	if test $ac_cv_gmp = yes ; then
+	    CFLAGS="$CFLAGS -I$dir/include -L$dir/lib"
+	    LIB_CFLAGS="$LIB_CFLAGS -I$dir/include -L$dir/lib"
+
+printf "%s\n" "#define HAVE_GMP_H 1" >>confdefs.h
+
+	    break
+	fi
+    done
+    if test $ac_cv_gmp = no ; then
+	as_fn_error $? "No GNU MP installation found" "$LINENO" 5
+    fi
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for __gmpz_export in -lgmp" >&5
+printf %s "checking for __gmpz_export in -lgmp... " >&6; }
+if test ${ac_cv_lib_gmp___gmpz_export+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_check_lib_save_LIBS=$LIBS
+LIBS="-lgmp  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.
+   The 'extern "C"' is for builds by C++ compilers;
+   although this is not generally supported in C code supporting it here
+   has little cost and some practical benefit (sr 110532).  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char __gmpz_export (void);
+int
+main (void)
+{
+return __gmpz_export ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_lib_gmp___gmpz_export=yes
+else case e in #(
+  e) ac_cv_lib_gmp___gmpz_export=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_gmp___gmpz_export" >&5
+printf "%s\n" "$ac_cv_lib_gmp___gmpz_export" >&6; }
+if test "x$ac_cv_lib_gmp___gmpz_export" = xyes
+then :
+  printf "%s\n" "#define HAVE_LIBGMP 1" >>confdefs.h
+
+  LIBS="-lgmp $LIBS"
+
+fi
+
+    # FIXME return ERROR if no lib
+elif test "x$with_gmp" != "xno" -a -n "$with_gmp" ;then
+    # Option given with PATH to package
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for GNU MP" >&5
+printf %s "checking for GNU MP... " >&6; }
+    if test ! -d "$with_gmp" ; then
+	as_fn_error $? "Invalid path to option --with-gmp=PATH" "$LINENO" 5
+    fi
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+    CFLAGS="$CFLAGS -I$with_gmp/include -L$with_gmp/lib"
+    LIB_CFLAGS="$LIB_CFLAGS -I$with_gmp/include -L$with_gmp/lib"
+
+printf "%s\n" "#define HAVE_GMP_H 1" >>confdefs.h
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for __gmpz_export in -lgmp" >&5
+printf %s "checking for __gmpz_export in -lgmp... " >&6; }
+if test ${ac_cv_lib_gmp___gmpz_export+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_check_lib_save_LIBS=$LIBS
+LIBS="-lgmp  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.
+   The 'extern "C"' is for builds by C++ compilers;
+   although this is not generally supported in C code supporting it here
+   has little cost and some practical benefit (sr 110532).  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char __gmpz_export (void);
+int
+main (void)
+{
+return __gmpz_export ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_lib_gmp___gmpz_export=yes
+else case e in #(
+  e) ac_cv_lib_gmp___gmpz_export=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_gmp___gmpz_export" >&5
+printf "%s\n" "$ac_cv_lib_gmp___gmpz_export" >&6; }
+if test "x$ac_cv_lib_gmp___gmpz_export" = xyes
+then :
+  printf "%s\n" "#define HAVE_LIBGMP 1" >>confdefs.h
+
+  LIBS="-lgmp $LIBS"
+
+fi
+
+    # FIXME return ERROR if no lib
+
+fi
+
+
+#--------------------------------------------------------------------
 #	Interactive UNIX requires -linet instead of -lsocket, plus it
 #	needs net/errno.h to define the socket-related error codes.
 #--------------------------------------------------------------------
@@ -3907,35 +4226,6 @@ then :
   LIBS="$LIBS -linet"
 fi
 
-ac_header= ac_cache=
-for ac_item in $ac_header_c_list
-do
-  if test $ac_cache; then
-    ac_fn_c_check_header_compile "$LINENO" $ac_header ac_cv_header_$ac_cache "$ac_includes_default"
-    if eval test \"x\$ac_cv_header_$ac_cache\" = xyes; then
-      printf "%s\n" "#define $ac_item 1" >> confdefs.h
-    fi
-    ac_header= ac_cache=
-  elif test $ac_header; then
-    ac_cache=$ac_item
-  else
-    ac_header=$ac_item
-  fi
-done
-
-
-
-
-
-
-
-
-if test $ac_cv_header_stdlib_h = yes && test $ac_cv_header_string_h = yes
-then :
-
-printf "%s\n" "#define STDC_HEADERS 1" >>confdefs.h
-
-fi
 ac_fn_c_check_header_compile "$LINENO" "net/errno.h" "ac_cv_header_net_errno_h" "$ac_includes_default"
 if test "x$ac_cv_header_net_errno_h" = xyes
 then :
@@ -4711,6 +5001,7 @@ then :
    rm -rf conftest*
    ac_cv_prog_javac_ver_1_5=yes
 
+
 else case e in #(
   e)
    echo "configure: failed program was:" 1>&5
@@ -4718,7 +5009,8 @@ else case e in #(
    echo "configure: PATH was $PATH" 1>&5
   rm -rf conftest*
   ac_cv_prog_javac_ver_1_5=no
-  ;;
+
+   ;;
 esac
 fi
 rm -f conftest* ;;

@@ -2928,6 +2928,8 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
+
 no_werror_CFLAGS=$(echo " $CFLAGS " | sed 's/ -Werror / /g')
 if test "X $CFLAGS " != "X$no_werror_CFLAGS"; then
    CFLAGS="$no_werror_CFLAGS"
@@ -7892,10 +7894,7 @@ esac
 fi
 
 
-# ---------------------------------------------------------------------------
-# We don't link against libgmp except for "make check"
-# but linking will also tell us that it is >= 4.1
-# ---------------------------------------------------------------------------
+
 
 
 # Check whether --with-gmp was given.
@@ -7907,6 +7906,7 @@ fi
 
 # We don't just want any GNU MP version, we want 4.1 or later
 # that contain the import/export functions we need.
+
 
 if test "x$with_gmp" = "xyes"
 then :
@@ -7926,7 +7926,7 @@ fi
 	    CFLAGS="$CFLAGS -I$dir/include -L$dir/lib"
 	    LIB_CFLAGS="$LIB_CFLAGS -I$dir/include -L$dir/lib"
 
-printf "%s\n" "#define HAVE_GMP_H /**/" >>confdefs.h
+printf "%s\n" "#define HAVE_GMP_H 1" >>confdefs.h
 
 	    break
 	fi
@@ -7998,7 +7998,7 @@ printf "%s\n" "yes" >&6; }
     CFLAGS="$CFLAGS -I$with_gmp/include -L$with_gmp/lib"
     LIB_CFLAGS="$LIB_CFLAGS -I$with_gmp/include -L$with_gmp/lib"
 
-printf "%s\n" "#define HAVE_GMP_H /**/" >>confdefs.h
+printf "%s\n" "#define HAVE_GMP_H 1" >>confdefs.h
 
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for __gmpz_export in -lgmp" >&5
 printf %s "checking for __gmpz_export in -lgmp... " >&6; }
@@ -8054,6 +8054,7 @@ fi
     # FIXME return ERROR if no lib
 
 fi
+
 
 
 
