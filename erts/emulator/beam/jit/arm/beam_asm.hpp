@@ -1876,6 +1876,20 @@ protected:
         ASSERT(gp1.is_gp64() && gp2.is_gp64());
         ASSERT(gp1 != gp2);
 
+        if (mem.has_base_reg()) {
+            uint32_t base_id = mem.base_id();
+
+            if (gp1.id() == base_id) {
+                safe_ldr(gp2, mem.clone_adjusted(sizeof(Eterm)));
+                safe_ldr(gp1, mem);
+                return;
+            } else if (gp2.id() == base_id) {
+                safe_ldr(gp1, mem);
+                safe_ldr(gp2, mem.clone_adjusted(sizeof(Eterm)));
+                return;
+            }
+        }
+
         if (abs_offset <= sizeof(Eterm) * MAX_LDP_STP_DISPLACEMENT) {
             preserve_cache(
                     [&]() {

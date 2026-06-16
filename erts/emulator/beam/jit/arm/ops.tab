@@ -282,12 +282,12 @@ load_tuple_ptr s
 
 # If positions are in consecutive memory, fetch and store two words at
 # once.
-## FIXME: Fix this bug in maint, too.
 i_get_tuple_element Tuple Pos1 Dst1 |
   current_tuple Tuple2 |
   get_tuple_element Tuple3 Pos2 Dst2 |
   equal(Tuple, Tuple2) | equal(Tuple, Tuple3) |
-  consecutive_words(Pos1, Pos2) | distinct(Dst1, Dst2) =>
+  consecutive_words(Pos1, Pos2) | distinct(Dst1, Dst2) |
+  distinct(Dst1, Tuple) | distinct(Dst2, Tuple) =>
     get_two_tuple_elements Tuple Pos1 Dst1 Dst2 |
     current_tuple Tuple Dst2
 
