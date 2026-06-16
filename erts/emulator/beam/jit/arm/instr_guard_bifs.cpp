@@ -996,10 +996,26 @@ void BeamModuleAssembler::emit_bif_map_size(const ArgLabel &Fail,
  * ================================================================
  */
 
+static bool arg_sources_are_same_term(const ArgSource &lhs,
+                                      const ArgSource &rhs) {
+    if (lhs.isXRegister() && rhs.isXRegister()) {
+        return lhs.as<ArgXRegister>().get() == rhs.as<ArgXRegister>().get();
+    } else if (lhs.isYRegister() && rhs.isYRegister()) {
+        return lhs.as<ArgYRegister>().get() == rhs.as<ArgYRegister>().get();
+    }
+
+    return lhs == rhs;
+}
+
 void BeamModuleAssembler::emit_bif_min_max(arm::CondCode cc,
                                            const ArgSource &LHS,
                                            const ArgSource &RHS,
                                            const ArgRegister &Dst) {
+    if (arg_sources_are_same_term(LHS, RHS)) {
+        mov_arg(Dst, LHS);
+        return;
+    }
+
     auto [lhs, rhs] = load_sources(LHS, ARG1, RHS, ARG2);
     auto dst = init_destination(Dst, ARG1);
     bool both_small = always_small(LHS) && always_small(RHS);
