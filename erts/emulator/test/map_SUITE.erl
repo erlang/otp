@@ -41,6 +41,7 @@
          t_map_compare/1,
          t_map_size/1,
          t_map_get/1,
+         t_map_get_source_shape/1,
          t_is_map/1,
          t_is_map_key/1,
 
@@ -148,7 +149,7 @@ groups() ->
        %% erlang
        t_erlang_hash, t_map_encode_decode,
        t_gc_rare_map_overflow,
-       t_map_size, t_map_get, t_is_map,
+       t_map_size, t_map_get, t_map_get_source_shape, t_is_map,
 
        %% non specific BIF related
        t_bif_build_and_check,
@@ -832,6 +833,20 @@ t_map_get(Config) when is_list(Config) ->
     end,
 
     ok.
+
+t_map_get_source_shape(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    SourceFile = filename:join(PrivDir, "map_get_source_shape.erl"),
+    ok = file:write_file(SourceFile, map_get_source_shape_module()),
+
+    {ok, _Mod, Asm} = compile:file(SourceFile, [to_asm,binary,report]),
+    true = contains_bif_arg(Asm, map_get, 2, {literal, <<"a">>}),
+    ok.
+
+map_get_source_shape_module() ->
+    <<"-module(map_get_source_shape).\n"
+      "-export([boxed_literal/1]).\n"
+      "boxed_literal(M) -> map_get(<<\"a\">>, M).\n">>.
 
 t_is_map_key(Config) when is_list(Config) ->
     %% small map
@@ -4056,6 +4071,17 @@ any_complex(0, _Map, Acc) ->
 any_complex(N, Map, Acc0) ->
     #{ Acc0 := Acc } = Map,
     any_complex(N - 1, Map, Acc).
+
+contains_bif_arg({bif, Name, _Fail, Args, _Dst}, Name, Arity, Arg)
+  when length(Args) =:= Arity ->
+    lists:member(Arg, Args);
+contains_bif_arg(Term, Name, Arity, Arg) when is_tuple(Term) ->
+    contains_bif_arg(tuple_to_list(Term), Name, Arity, Arg);
+contains_bif_arg([Head | Tail], Name, Arity, Arg) ->
+    contains_bif_arg(Head, Name, Arity, Arg) orelse
+        contains_bif_arg(Tail, Name, Arity, Arg);
+contains_bif_arg(_Term, _Name, _Arity, _Arg) ->
+    false.
 
 lookup_literal_multi_small(Iterations) ->
     Map0 = maps:from_keys(lists:seq(1, ?SMALL_MAP_SIZE), id([])),

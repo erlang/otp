@@ -856,6 +856,15 @@ void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
                                            const ArgSource &Src,
                                            const ArgRegister &Dst) {
     Label good_key = a.new_label();
+    auto get_constant_key = [&]() {
+        ASSERT(Key.isConstant());
+
+        if (Key.isImmed()) {
+            return Key.as<ArgImmed>().get();
+        } else {
+            return beamfile_get_literal(beam, Key.as<ArgLiteral>().get());
+        }
+    };
 
     mov_arg(ARG1, Src);
     mov_arg(ARG2, Key);
@@ -900,7 +909,14 @@ void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
         a.bind(good_map);
     }
 
-    if (maybe_one_of<BeamTypeId::MaybeImmediate>(Key)) {
+    if (Fail.get() == 0 && Key.isConstant() && !Key.isImmed()) {
+        mov_imm(ARG3, hashmap_make_hash(get_constant_key()));
+        emit_enter_runtime();
+        runtime_call<Eterm (*)(Eterm, Eterm, erts_ihash_t),
+                     get_map_element_hash>();
+        emit_leave_runtime();
+        emit_branch_if_value(ARG1, good_key);
+    } else if (maybe_one_of<BeamTypeId::MaybeImmediate>(Key)) {
         fragment_call(ga->get_i_get_map_element_shared());
         if (Fail.get() == 0) {
             a.b_eq(good_key);
