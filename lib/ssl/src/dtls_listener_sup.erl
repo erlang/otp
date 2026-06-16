@@ -23,7 +23,7 @@
 %%
 %%----------------------------------------------------------------------
 %% Purpose: Supervisor for a procsses dispatching upd datagrams to
-%% correct DTLS handler 
+%% correct DTLS handler
 %%----------------------------------------------------------------------
 -module(dtls_listener_sup).
 -moduledoc false.
@@ -53,7 +53,7 @@ lookup_listener(IP, Port) ->
         [] ->
             undefined;
         [{{IP, Port}, {Owner, Handler}}] ->
-            case erlang:is_process_alive(Handler) of 
+            case erlang:is_process_alive(Handler) of
                 true ->
                     case (Owner =/= undefined) andalso
                         erlang:is_process_alive(Owner) of
@@ -80,16 +80,16 @@ register_listener(OwnerAndListner, IP, Port) ->
 %%%  Supervisor callback
 %%%=========================================================================
 init(_) ->
-    ets:new(dtls_listener_sup, [named_table, public, set]),    
-    SupFlags = #{strategy  => simple_one_for_one, 
+    ets:new(dtls_listener_sup, [named_table, public, set]),
+    SupFlags = #{strategy  => simple_one_for_one,
                  intensity =>   0,
                  period    => 3600
                 },
     ChildSpecs = [#{id       => undefined,
                     start    => {dtls_packet_demux, start_link, []},
-                    restart  => temporary, 
+                    restart  => temporary,
                     shutdown => 4000,
                     modules  => [dtls_packet_demux],
                     type     => worker
-                   }],     
+                   }],
     {ok, {SupFlags, ChildSpecs}}.
