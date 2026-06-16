@@ -93,33 +93,6 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: "${{ github.head_ref }}"
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Find modified OpenVEX files
-        id: changed
-        run: |
-          git diff --name-only --diff-filter=AM HEAD~1 HEAD -- '*.openvex.json' > /tmp/changed-vex.txt
-          echo "Modified OpenVEX files:"
-          cat /tmp/changed-vex.txt
-          if [ -s /tmp/changed-vex.txt ]; then
-            echo "found=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "found=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Add license files for new OpenVEX files
-        if: steps.changed.outputs.found == 'true'
-        shell: bash
-        run: |
-          curl -sL https://raw.githubusercontent.com/erlang/otp/master/.github/scripts/add-vex-license.sh
-          chmod +x .github/scripts/add-vex-license.sh
-          .github/scripts/add-vex-license.sh /tmp/changed-vex.txt
-
       - name: Check PR author permission
         env:
           GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
@@ -153,7 +126,7 @@ jobs:
       - name: Find modified OpenVEX files
         id: changed
         run: |
-          git diff --name-only --diff-filter=AM HEAD~1 HEAD -- 'vex/*.openvex.json' > /tmp/changed-vex.txt
+          git diff --name-only --diff-filter=AM HEAD~1 HEAD -- '*.openvex.json' > /tmp/changed-vex.txt
           echo "Modified OpenVEX files:"
           cat /tmp/changed-vex.txt
           if [ -s /tmp/changed-vex.txt ]; then
