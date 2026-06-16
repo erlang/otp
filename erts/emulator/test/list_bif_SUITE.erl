@@ -163,15 +163,15 @@ dump_asm_fixture(AsmFile, DumpBase) ->
     CompilerEbin = filename:join([RootDir, "lib", "compiler", "ebin"]),
     DumpDir = filename:join(
                 filename:absname("."),
-                "list_fusion_overlap_asm_" ++
+                DumpBase ++ "_asm_" ++
                     integer_to_list(erlang:unique_integer([positive]))),
     ok = file:make_dir(DumpDir),
     try
         Eval = io_lib:format(
                  "{ok,M,Code}=compile:file(~p,[from_asm,binary,report]),"
-                 "{module,M}=code:load_binary(M,\"list_fusion_overlap\",Code),"
-                 "ok=M:M(),halt().",
-                 [AsmFile]),
+                 "{module,M}=code:load_binary(M,~p,Code),"
+                 "_=M:M(),halt().",
+                 [AsmFile, DumpBase]),
         Args = ["+JDdump", "true",
                 "-boot", Boot,
                 "-noshell",
