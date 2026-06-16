@@ -33,11 +33,9 @@ jobs:
   run-scheduled-pr-sync:
     runs-on: ubuntu-latest
     permissions:
-      security-events: read # use inside the otp-compliance.es as API call
-      actions: write        # use inside the otp-compliance.es
-      contents: write       # use inside the otp-compliance.es
-      pull-requests: write  # use inside the otp-compliance.es
-      issues: write         # needed to open an issue on failure
+      contents: read       # actions/checkout
+      pull-requests: read  # gh pr list
+      issues: write        # gh issue create
     strategy:
       matrix:
         branch: [master, maint]
