@@ -59,7 +59,7 @@ start_child(Type) ->
              %% In case two upgrade servers are started very close to each other
              %% only one will be able to grab the local name and we will use
              %% that process for handling pre TLS-1.3 sessions for
-             %% servers with to us unknown listeners. 
+             %% servers with to us unknown listeners.
              case supervisor:start_child(SupName, [ssl_unknown_listener, ssl_config:pre_1_3_session_opts(server)]) of
                  {error, {already_started, Child}} ->
                      {ok, Child};
@@ -75,20 +75,20 @@ start_child(Type) ->
 %%%  Supervisor callback
 %%%=========================================================================
 init(_) ->
-    SupFlags = #{strategy  => simple_one_for_one, 
+    SupFlags = #{strategy  => simple_one_for_one,
                  intensity =>   3,
                  period    => 3600
                 },
     ChildSpecs = [#{id       => undefined,
                     start    =>  {ssl_server_session_cache, start_link, []},
-                    restart  => transient, 
+                    restart  => transient,
                     shutdown => 4000,
                     modules  => [ssl_server_session_cache],
                     type     => worker
-                   }],     
+                   }],
     {ok, {SupFlags, ChildSpecs}}.
 
 sup_name(normal) ->
     ?MODULE;
 sup_name(dist) ->
-    list_to_atom(atom_to_list(?MODULE) ++ "_dist").
+    ssl_upgrade_server_session_cache_sup_dist.
