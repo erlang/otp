@@ -44,7 +44,7 @@
 			
 start_link() ->
     case init:get_argument(ssl_dist_optfile) of
-        {ok, [File]} ->
+        {ok, [[File]]} ->
             DistOpts = consult(File),
             TabOpts = [set, protected, named_table],
             Tab = ets:new(ssl_dist_opts, TabOpts),
