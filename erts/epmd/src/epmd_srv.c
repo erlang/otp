@@ -1285,6 +1285,14 @@ int epmd_conn_close(EpmdVars *g,Connection *s)
 {
   dbg_tty_printf(g,2,"closing connection on file descriptor %d",s->fd);
 
+  if (g->tls && s->ssl) {
+    /* Try to send close_notify, but don't wait around if it blocks */
+    SSL_shutdown(s->ssl); 
+    SSL_free(s->ssl);
+    s->ssl = NULL;
+    s->tls_accepted = 0;
+  }
+
   FD_CLR(s->fd,&g->orig_read_mask);
   /* we don't bother lowering g->select_fd_top */
   close(s->fd);			/* Sometimes already closed but close anyway */
