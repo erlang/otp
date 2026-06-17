@@ -132,7 +132,7 @@ A supervisor can be configured to automatically shut itself down with exit
 reason `shutdown` when [significant children](`m:supervisor#significant_child`)
 terminate with the `auto_shutdown` key in the above map:
 
-- `never` \- Automic shutdown is disabled. This is the default setting.
+- `never` \- Automatic shutdown is disabled. This is the default setting.
 
   With `auto_shutdown` set to `never`, child specs with the `significant` flag
   set to `true` are considered invalid and will be rejected.
