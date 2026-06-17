@@ -475,7 +475,7 @@ local_trace(Config) when is_list(Config) ->
         4 = ?MODULE:exported(2),
         [] = flush(),
         {ok, _} = dbg:tpl(?MODULE,not_exported,x),
-        catch ?MODULE:exported(x),
+        try ?MODULE:exported(x) catch error:badarith -> ok end,
         [{trace,S,call,{dbg_SUITE,not_exported,[x]}},
          {trace,S,exception_from,
           {dbg_SUITE,not_exported,1},
