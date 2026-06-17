@@ -51,15 +51,15 @@ start_child(Listener) ->
 %%%  Supervisor callback
 %%%=========================================================================
 init(_) ->
-    SupFlags = #{strategy  => simple_one_for_one, 
+    SupFlags = #{strategy  => simple_one_for_one,
                  intensity =>   3,
                  period    => 3600
                 },
     ChildSpecs = [#{id       => undefined,
                     start    => {ssl_server_session_cache, start_link, []},
-                    restart  => transient, 
+                    restart  => transient,
                     shutdown => 4000,
                     modules  => [ssl_server_session_cache],
                     type     => worker
-                   }],   
+                   }],
     {ok, {SupFlags, ChildSpecs}}.
