@@ -137,7 +137,8 @@ system_dir/1,
 user_dir/1,
 get_public_key_algorithms_with_valid_host_key/1,
 get_public_key_algorithms_with_valid_host_key/2,
-remove_comment/1
+remove_comment/1,
+timetrap_scale/0
         ]).
 %% logger callbacks and related helpers
 -export([log/2,
@@ -1634,4 +1635,21 @@ assert_timing_symmetry(MeasureFun, ValidInput, InvalidInput) ->
             ct:fail("Timing ratio ~.2f exceeds 3.0 — possible timing oracle", [Ratio]);
         false ->
             ok
+    end.
+
+%%%----------------------------------------------------------------
+%%% Scale timetrap for slow platforms (32-bit, Solaris, Cover).
+%%% Returns an integer multiplier (1, 2, 4, or higher).
+timetrap_scale() ->
+    S0 = case erlang:system_info(wordsize) of
+             4 -> 2;
+             _ -> 1
+         end,
+    S1 = case os:type() of
+             {unix, sunos} -> S0 * 2;
+             _ -> S0
+         end,
+    case test_server:is_cover() of
+        true -> S1 * 3;
+        false -> S1
     end.
