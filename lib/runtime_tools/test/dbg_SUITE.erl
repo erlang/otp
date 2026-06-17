@@ -501,7 +501,13 @@ port(Config) when is_list(Config) ->
         port_close(Port),
         stop(),
 
-        TraceFileDrv = list_to_atom(lists:flatten(["trace_file_drv n ",TestFile])),
+        TraceFileDrv = list_to_atom(
+                         %% priv_dir may be long on some sytems where tests are
+                         %% being run, and result in a large port command. This
+                         %% will get truncated so it doesn't exceed max atom
+                         %% size (255 chars)
+                         lists:sublist( lists:flatten(["trace_file_drv n ",TestFile]), 255)
+                        ),
         [{trace,Port,open,S,TraceFileDrv},
          {trace,Port,getting_linked,S},
          {trace,Port,closed,normal}] = flush()
