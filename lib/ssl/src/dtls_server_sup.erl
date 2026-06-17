@@ -38,7 +38,6 @@
 %%%=========================================================================
 
 -spec start_link() -> {ok, pid()} | ignore | {error, term()}.
-			
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
@@ -46,7 +45,7 @@ start_link() ->
 %%%  Supervisor callback
 %%%=========================================================================
 
-init([]) ->    
+init([]) ->
     SupFlags = #{strategy  => one_for_all,
                  intensity =>   10,
                  period    => 3600
@@ -54,7 +53,7 @@ init([]) ->
     ChildSpecs = [dtls_listeners_spec(),
                   ssl_server_session_child_spec()
                   %% TODO Add DTLS-1.3 session ticket handling
-                 ], 
+                 ],
     {ok, {SupFlags, ChildSpecs}}.
 
 %%--------------------------------------------------------------------
@@ -63,8 +62,8 @@ init([]) ->
 dtls_listeners_spec() ->
     #{id       => dtls_listener_sup,
       start    => {dtls_listener_sup, start_link, []},
-      restart  => permanent, 
-      shutdown => 4000,
+      restart  => permanent,
+      shutdown => infinity,
       modules  => [dtls_listener_sup],
       type     => supervisor
      }.
@@ -72,8 +71,8 @@ dtls_listeners_spec() ->
 ssl_server_session_child_spec() ->
     #{id       => dtls_server_session_cache_sup,
       start    => {dtls_server_session_cache_sup, start_link, []},
-      restart  => permanent, 
-      shutdown => 4000,
+      restart  => permanent,
+      shutdown => infinity,
       modules  => [dtls_server_session_cache_sup],
       type     => supervisor
      }.

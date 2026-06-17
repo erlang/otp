@@ -38,7 +38,6 @@
 %%%=========================================================================
 
 -spec start_link() -> {ok, pid()} | ignore | {error, term()}.
-			
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
@@ -46,16 +45,16 @@ start_link() ->
 %%%  Supervisor callback
 %%%=========================================================================
 
-init([]) ->  
+init([]) ->
     SupFlags = #{strategy  => one_for_all,
                  intensity =>   10,
                  period    => 3600
                 },
-    ChildSpecs = [listen_options_tracker_child_spec(), 
+    ChildSpecs = [listen_options_tracker_child_spec(),
                   tls_server_session_child_spec(),
                   ssl_server_session_child_spec()],
     {ok, {SupFlags, ChildSpecs}}.
- 
+
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -66,8 +65,8 @@ init([]) ->
 listen_options_tracker_child_spec() ->
     #{id       => dist_ssl_listen_tracker_sup,
       start    => {ssl_listen_tracker_sup, start_link_dist, []},
-      restart  => permanent, 
-      shutdown => 4000,
+      restart  => permanent,
+      shutdown => infinity,
       modules  => [ssl_listen_tracker_sup],
       type     => supervisor
      }.
@@ -75,8 +74,8 @@ listen_options_tracker_child_spec() ->
 tls_server_session_child_spec() ->
     #{id       => dist_tls_server_session_ticket,
       start    => {tls_server_session_ticket_sup, start_link_dist, []},
-      restart  => permanent, 
-      shutdown => 4000,
+      restart  => permanent,
+      shutdown => infinity,
       modules  => [tls_server_session_ticket_sup],
       type     => supervisor
      }.
@@ -84,8 +83,8 @@ tls_server_session_child_spec() ->
 ssl_server_session_child_spec() ->
     #{id       => dist_ssl_upgrade_server_session_cache_sup,
       start    => {ssl_upgrade_server_session_cache_sup, start_link_dist, []},
-      restart  => permanent, 
-      shutdown => 4000,
+      restart  => permanent,
+      shutdown => infinity,
       modules  => [ssl_upgrade_server_session_cache_sup],
       type     => supervisor
      }.
