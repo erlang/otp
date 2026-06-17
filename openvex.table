@@ -321,6 +321,60 @@
   ],
   "otp-27": [
     {
+      "pkg:otp/ftp@1.2.2": "CVE-2026-48858",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ftp@1.2.3.1",
+        "fixed": [
+          "pkg:otp/ftp@1.2.3.1"
+        ]
+      }
+    },
+    {
+      "pkg:otp/erts@15.0": "CVE-2026-49759",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/erts@15.2.7.9",
+        "fixed": [
+          "pkg:otp/erts@15.2.7.9"
+        ]
+      }
+    },
+    {
+      "pkg:otp/ssl@11.2": "CVE-2026-48860",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssl@11.2.12.9",
+        "fixed": [
+          "pkg:otp/ssl@11.2.12.9"
+        ]
+      }
+    },
+    {
+      "pkg:otp/erl_interface@5.5.2": "CVE-2026-49760",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/erl_interface@5.5.2.1",
+        "fixed": [
+          "pkg:otp/erl_interface@5.5.2.1"
+        ]
+      }
+    },
+    {
+      "pkg:otp/inets@9.2": "CVE-2026-48856",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/inets@9.3.2.6",
+        "fixed": [
+          "pkg:otp/inets@9.3.2.6"
+        ]
+      }
+    },
+    {
+      "pkg:otp/ssh@5.2": "CVE-2026-48855",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssh@5.2.11.8",
+        "fixed": [
+          "pkg:otp/ssh@5.2.11.8"
+        ]
+      }
+    },
+    {
       "pkg:otp/ssh@5.2": "CVE-2026-32147",
       "status": {
         "affected": "Update to any of the following versions: pkg:otp/ssh@5.2.11.7",
@@ -685,6 +739,60 @@
     }
   ],
   "otp-28": [
+    {
+      "pkg:otp/ftp@1.2.4": "CVE-2026-48858",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ftp@1.2.4.1",
+        "fixed": [
+          "pkg:otp/ftp@1.2.4.1"
+        ]
+      }
+    },
+    {
+      "pkg:otp/erts@16.0": "CVE-2026-49759",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/erts@16.4.0.2",
+        "fixed": [
+          "pkg:otp/erts@16.4.0.2"
+        ]
+      }
+    },
+    {
+      "pkg:otp/ssl@11.3": "CVE-2026-48860",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssl@11.6.0.2",
+        "fixed": [
+          "pkg:otp/ssl@11.6.0.2"
+        ]
+      }
+    },
+    {
+      "pkg:otp/erl_interface@5.6": "CVE-2026-49760",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/erl_interface@5.7.0.1",
+        "fixed": [
+          "pkg:otp/erl_interface@5.7.0.1"
+        ]
+      }
+    },
+    {
+      "pkg:otp/inets@9.4": "CVE-2026-48856",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/inets@9.6.2.2",
+        "fixed": [
+          "pkg:otp/inets@9.6.2.2"
+        ]
+      }
+    },
+    {
+      "pkg:otp/ssh@5.3": "CVE-2026-48855",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssh@5.5.2.1",
+        "fixed": [
+          "pkg:otp/ssh@5.5.2.1"
+        ]
+      }
+    },
     {
       "pkg:otp/ssh@5.3": "CVE-2026-32147",
       "status": {
@@ -1073,6 +1181,69 @@
     }
   ],
   "otp-29": [
+    {
+      "pkg:otp/ftp@1.2.5": "CVE-2026-48858",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ftp@1.2.6",
+        "fixed": [
+          "pkg:otp/ftp@1.2.6"
+        ]
+      }
+    },
+    {
+      "pkg:otp/ssh@6.0": "CVE-2026-48859",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssh@6.0.1",
+        "fixed": [
+          "pkg:otp/ssh@6.0.1"
+        ]
+      }
+    },
+    {
+      "pkg:otp/erts@17.0": "CVE-2026-49759",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/erts@17.0.2",
+        "fixed": [
+          "pkg:otp/erts@17.0.2"
+        ]
+      }
+    },
+    {
+      "pkg:otp/ssl@11.7": "CVE-2026-48860",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssl@11.7.2",
+        "fixed": [
+          "pkg:otp/ssl@11.7.2"
+        ]
+      }
+    },
+    {
+      "pkg:otp/erl_interface@5.8": "CVE-2026-49760",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/erl_interface@5.8.1",
+        "fixed": [
+          "pkg:otp/erl_interface@5.8.1"
+        ]
+      }
+    },
+    {
+      "pkg:otp/inets@9.7": "CVE-2026-48856",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/inets@9.7.1",
+        "fixed": [
+          "pkg:otp/inets@9.7.1"
+        ]
+      }
+    },
+    {
+      "pkg:otp/ssh@6.0": "CVE-2026-48855",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssh@6.0.1",
+        "fixed": [
+          "pkg:otp/ssh@6.0.1"
+        ]
+      }
+    },
     {
       "pkg:otp/public_key@1.21": "CVE-2026-42791",
       "status": {

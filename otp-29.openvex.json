@@ -3,8 +3,8 @@
   "@id": "https://openvex.dev/docs/public/otp/vex-otp-29",
   "author": "vexctl",
   "timestamp": "2025-09-19T10:20:20.759995+02:00",
-  "last_updated": "2026-06-03T14:23:07.638251938Z",
-  "version": 28,
+  "last_updated": "2026-06-17T06:41:32.56874489Z",
+  "version": 42,
   "statements": [
     {
       "vulnerability": {
@@ -371,6 +371,257 @@
         },
         {
           "@id": "pkg:otp/public_key@1.21.1"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-48855"
+      },
+      "timestamp": "2026-06-17T06:41:32.359866375Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.1"
+        },
+        {
+          "@id": "pkg:otp/ssh@6.0"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to any of the following versions: pkg:otp/ssh@6.0.1",
+      "action_statement_timestamp": "2026-06-17T06:41:32.359866375Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-48855"
+      },
+      "timestamp": "2026-06-17T06:41:32.375792971Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.2"
+        },
+        {
+          "@id": "pkg:otp/ssh@6.0.1"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-48856"
+      },
+      "timestamp": "2026-06-17T06:41:32.392521004Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.1"
+        },
+        {
+          "@id": "pkg:otp/inets@9.7"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to any of the following versions: pkg:otp/inets@9.7.1",
+      "action_statement_timestamp": "2026-06-17T06:41:32.392521004Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-48856"
+      },
+      "timestamp": "2026-06-17T06:41:32.407858438Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.2"
+        },
+        {
+          "@id": "pkg:otp/inets@9.7.1"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-49760"
+      },
+      "timestamp": "2026-06-17T06:41:32.424156517Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.1"
+        },
+        {
+          "@id": "pkg:otp/erl_interface@5.8"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to any of the following versions: pkg:otp/erl_interface@5.8.1",
+      "action_statement_timestamp": "2026-06-17T06:41:32.424156517Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-49760"
+      },
+      "timestamp": "2026-06-17T06:41:32.44008165Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.2"
+        },
+        {
+          "@id": "pkg:otp/erl_interface@5.8.1"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-48860"
+      },
+      "timestamp": "2026-06-17T06:41:32.456613606Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.1"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7.1"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to any of the following versions: pkg:otp/ssl@11.7.2",
+      "action_statement_timestamp": "2026-06-17T06:41:32.456613606Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-48860"
+      },
+      "timestamp": "2026-06-17T06:41:32.472522951Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.2"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7.2"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-49759"
+      },
+      "timestamp": "2026-06-17T06:41:32.4896042Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.1"
+        },
+        {
+          "@id": "pkg:otp/erts@17.0"
+        },
+        {
+          "@id": "pkg:otp/erts@17.0.1"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to any of the following versions: pkg:otp/erts@17.0.2",
+      "action_statement_timestamp": "2026-06-17T06:41:32.4896042Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-49759"
+      },
+      "timestamp": "2026-06-17T06:41:32.505560139Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.2"
+        },
+        {
+          "@id": "pkg:otp/erts@17.0.2"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-48859"
+      },
+      "timestamp": "2026-06-17T06:41:32.521329726Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.1"
+        },
+        {
+          "@id": "pkg:otp/ssh@6.0"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to any of the following versions: pkg:otp/ssh@6.0.1",
+      "action_statement_timestamp": "2026-06-17T06:41:32.521329726Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-48859"
+      },
+      "timestamp": "2026-06-17T06:41:32.537050295Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.2"
+        },
+        {
+          "@id": "pkg:otp/ssh@6.0.1"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-48858"
+      },
+      "timestamp": "2026-06-17T06:41:32.552511593Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.1"
+        },
+        {
+          "@id": "pkg:otp/ftp@1.2.5"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to any of the following versions: pkg:otp/ftp@1.2.6",
+      "action_statement_timestamp": "2026-06-17T06:41:32.552511593Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-48858"
+      },
+      "timestamp": "2026-06-17T06:41:32.568745521Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.2"
+        },
+        {
+          "@id": "pkg:otp/ftp@1.2.6"
         }
       ],
       "status": "fixed"
