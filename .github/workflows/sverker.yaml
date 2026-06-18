@@ -1,0 +1,15 @@
+name: Sverker is testing stuff
+
+on:
+  pull_request:
+
+jobs:
+  sverker:
+    name: My test job
+    runs-on: ubuntu-latest
+    steps:
+      - id: step1
+        env:
+          PR_LABELS:    ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          echo "PR_LABELS = $PR_LABELS"
