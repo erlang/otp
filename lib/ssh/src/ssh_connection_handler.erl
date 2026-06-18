@@ -1813,12 +1813,12 @@ add_request(false, _ChannelId, _From, State) ->
 add_request(true, ChannelId, From, #data{connection_state =
 					     #connection{requests = Requests0} =
 					     Connection} = State) ->
-    Requests = [{ChannelId, From} | Requests0],
+    Requests = Requests0 ++ [{ChannelId, From}],
     State#data{connection_state = Connection#connection{requests = Requests}};
 add_request(Fun, ChannelId, From, #data{connection_state =
                                             #connection{requests = Requests0} =
                                             Connection} = State) when is_function(Fun) ->
-    Requests = [{ChannelId, From, Fun} | Requests0],
+    Requests = Requests0 ++ [{ChannelId, From, Fun}],
     State#data{connection_state = Connection#connection{requests = Requests}}.
 
 new_channel_id(#data{connection_state = #connection{channel_id_seed = Id} =
