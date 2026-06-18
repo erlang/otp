@@ -2688,7 +2688,18 @@ port_info(P) when is_port(P) ->
     case erlang:port_info(P) of
 	PI0 when is_list(PI0) ->
 	    PI1 = port_info(PI0, [connected, links, input, output]) ++
-		[erlang:port_info(P, memory), erlang:port_info(P, monitors)],
+                case erlang:port_info(P, memory) of
+                    undefined ->
+                        [];
+                    {memory, _} = MEM ->
+                        [MEM]
+                end ++ 
+                case erlang:port_info(P, monitors) of
+                    undefined ->
+                        [];
+                    {monitors, _} = MONS ->
+                        [MONS]
+                end,
 	    PI2 = pi_replace([{connected, owner}], PI1),
 	    maps:from_list(PI2);
 	_ ->
