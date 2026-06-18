@@ -1189,8 +1189,8 @@ glb_tuples(#t_tuple{size=Sz1,exact=Ex1,elements=Es1},
             #t_tuple{size=Size,exact=Exact,elements=Es}
     end.
 
-glb_records(#t_record{name=N1, type=Es1},
-            #t_record{name=N2, type=Es2}) ->
+glb_records(#t_record{name=N1, exported = E1, type=Es1},
+            #t_record{name=N2, exported = E2, type=Es2}) ->
     maybe
         {ok, Name} ?=
             case {N1, N2} of
@@ -1199,8 +1199,16 @@ glb_records(#t_record{name=N1, type=Es1},
                 {N, nil} -> {ok, N};
                 {_, _} -> error
             end,
+        {ok, Exported} ?=
+            case {E1, E2} of
+                {unknown, E} -> {ok, E};
+                {yes, no} -> error;
+                {yes, _} -> {ok, yes};
+                {no, yes} -> error;
+                {no, _} -> {ok, no}
+            end,
         #{} ?= Es = glb_record_elements(Es1, Es2),
-        #t_record{name=Name,type=Es}
+        #t_record{name=Name,exported=Exported,type=Es}
     else
         _ -> none
     end.
@@ -1414,13 +1422,20 @@ lub_tuple_elements(MinSize, EsA, EsB) ->
     Es0 = lub_elements(EsA, EsB),
     #{Index => Type || Index := Type <- Es0, Index =< MinSize}.
 
-lub_native_records(#t_record{name=N1, type=Es1},
-                   #t_record{name=N2, type=Es2}) ->
+lub_native_records(#t_record{name=N1, exported=E1, type=Es1},
+                   #t_record{name=N2, exported=E2, type=Es2}) ->
     Name = case {N1, N2} of
               {Same, Same} -> Same;
               {_, _} -> nil
            end,
-    #t_record{name=Name,type=lub_fields(Es1, Es2)}.
+    Exported = case {E1, E2} of
+                   {unknown, _} -> unknown;
+                   {yes, yes} -> yes;
+                   {yes, _} -> unknown;
+                   {no, no} -> no;
+                   {no, _} -> unknown
+            end,
+    #t_record{name=Name,exported=Exported,type=lub_fields(Es1, Es2)}.
 
 lub_fields(Es1, Es2) ->
     Keys = if

@@ -958,6 +958,21 @@ simplify(#b_set{op=bs_create_bin=Op,dst=Dst,args=Args0,anno=Anno}=I0,
             Ds = Ds0#{ Dst => I },
             {I, Ts, Ds}
     end;
+simplify(#b_set{op=is_record_accessible,args=Args0,dst=Dst}=I0,
+         _Uvs, Ts0, Ds0, _Ls, Sub) ->
+    Args = simplify_args(Args0, Ts0, Sub),
+    [Var, _] = Args,
+    VarType = normalized_type(Var, Ts0),
+    case VarType of
+        #t_record{exported=yes} ->
+            Lit = #b_literal{val=true},
+            Sub#{ Dst => Lit};
+        _ ->
+            I = I0#b_set{args=Args},
+            Ts = update_types(I, Ts0, Ds0),
+            Ds = Ds0#{ Dst => I },
+            {I, Ts, Ds}
+    end;
 simplify(#b_set{dst=Dst,args=Args0}=I0, Uvs0, Ts0, Ds0, _Ls, Sub) ->
     Args = simplify_args(Args0, Ts0, Sub),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
@@ -2934,6 +2949,11 @@ infer_type({bif,'and'}, [#b_var{}=LHS,#b_var{}=RHS], Ts, Ds) ->
 
     True = beam_types:make_atom(true),
     {[{LHS, True}, {RHS, True}] ++ LHSPos ++ RHSPos, []};
+infer_type(is_record_accessible, [#b_var{}=R,#b_literal{val=external}],
+           Ts, _Ds) ->
+    T0 = concrete_type(R, Ts),
+    T = {R, T0#t_record{exported=yes}},
+    {[T], []};
 infer_type(_Op, _Args, _Ts, _Ds) ->
     {[], []}.
 

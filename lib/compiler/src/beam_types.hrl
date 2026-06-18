@@ -117,6 +117,7 @@
                 super_value=any :: type()}).
 
 -record(t_record, {name = nil :: nil | {atom(), atom()},
+                   exported = unknown :: unknown | yes | no,
                    type = #{} :: record_elements()}).
 
 -type native_records() :: ordsets:ordset(#t_record{}).
