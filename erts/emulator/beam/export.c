@@ -35,6 +35,8 @@
 #define EXPORT_INITIAL_SIZE   4000
 #define EXPORT_LIMIT          (512*1024)
 
+static int export_limit = EXPORT_LIMIT;
+
 #ifdef DEBUG
 #  define IF_DEBUG(x) x
 #else
@@ -115,7 +117,7 @@ static void export_stage(Export *export,
 #define ERTS_CODE_STAGED_OBJECT_ALLOC_TYPE ERTS_ALC_T_EXPORT
 #define ERTS_CODE_STAGED_TABLE_ALLOC_TYPE ERTS_ALC_T_EXPORT_TABLE
 #define ERTS_CODE_STAGED_TABLE_INITIAL_SIZE EXPORT_INITIAL_SIZE
-#define ERTS_CODE_STAGED_TABLE_LIMIT EXPORT_LIMIT
+#define ERTS_CODE_STAGED_TABLE_LIMIT export_limit
 
 #define ERTS_CODE_STAGED_WANT_GET
 #define ERTS_CODE_STAGED_WANT_PUT
@@ -128,9 +130,17 @@ static void export_stage(Export *export,
 #include "erl_code_staged.h"
 
 void
-init_export_table(void)
+init_export_table(int limit)
 {
+    if (limit > 0) {
+        export_limit = limit;
+    }
     export_staged_init();
+}
+
+int erts_export_table_limit(void)
+{
+    return export_limit;
 }
 
 void
