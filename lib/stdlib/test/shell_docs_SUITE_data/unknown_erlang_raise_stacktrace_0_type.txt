@@ -2,10 +2,10 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  raise_stacktrace()[0m
+[1m  raise_stacktrace()[0m
 
-  A extended [;;4mstacktrace/0[0m that can be passed to [;;4mraise/3[0m.
+  A extended [4mstacktrace/0[0m that can be passed to [4mraise/3[0m.

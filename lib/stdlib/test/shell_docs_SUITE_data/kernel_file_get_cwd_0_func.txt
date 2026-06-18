@@ -2,16 +2,16 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  get_cwd()[0m
+[1m  get_cwd()[0m
 
-  Returns [;;4m{ok, Dir}[0m, where [;;4mDir[0m is the current working directory
+  Returns [4m{ok, Dir}[0m, where [4mDir[0m is the current working directory
   of the file server.
 
-  [;;4mNote[0m
+  [4mNote[0m
 
     In rare circumstances, this function can fail on Unix. It can
     occur if read permission does not exist for the parent
@@ -19,5 +19,5 @@
 
   A typical error reason:
 
-   • [;;4meacces[0m - Missing read permission for one of the parents of
+   • [4meacces[0m - Missing read permission for one of the parents of
      the current directory.

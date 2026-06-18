@@ -2,16 +2,16 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  advise(IoDevice, Offset, Length, Advise)[0m
+[1m  advise(IoDevice, Offset, Length, Advise)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP R14B
 
-  [;;4madvise/4[0m can be used to announce an intention to access file data
+  [4madvise/4[0m can be used to announce an intention to access file data
   in a specific pattern in the future, thus allowing the operating
   system to perform appropriate optimizations.
 

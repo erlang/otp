@@ -2,13 +2,13 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  is_builtin(Module, Function, Arity)[0m
+[1m  is_builtin(Module, Function, Arity)[0m
 
   This BIF is useful for builders of cross-reference tools.
 
-  Returns [;;4mtrue[0m if [;;4mModule:Function/Arity[0m is a BIF implemented in
-  C, otherwise [;;4mfalse[0m.
+  Returns [4mtrue[0m if [4mModule:Function/Arity[0m is a BIF implemented in
+  C, otherwise [4mfalse[0m.

@@ -2,17 +2,17 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  from_sets(AnySet)[0m
+[1m  from_sets(AnySet)[0m
 
-  Returns the unordered set containing the sets of list [;;4mListOfSets[0m,
+  Returns the unordered set containing the sets of list [4mListOfSets[0m,
   or returns the ordered set containing the sets of the non-empty
-  tuple [;;4mTupleOfSets[0m.
+  tuple [4mTupleOfSets[0m.
 
-[;1mExamples[0m
+[1mExamples[0m
 
   Creating an unordered set.
 

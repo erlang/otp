@@ -2,11 +2,11 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  node()[0m
+[1m  node()[0m
 
-  Returns the name of the local node. If the node is not alive, [;;4m[0m
-  [;;4mnonode@nohost[0m is returned instead.
+  Returns the name of the local node. If the node is not alive, [4m[0m
+  [4mnonode@nohost[0m is returned instead.

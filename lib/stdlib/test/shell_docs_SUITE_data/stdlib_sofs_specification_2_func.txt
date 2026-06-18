@@ -2,20 +2,20 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  specification(Fun, Set1)[0m
+[1m  specification(Fun, Set1)[0m
 
-  Returns the set containing every element of [;;4mSet1[0m for which [;;4mFun[0m
-  returns [;;4mtrue[0m.
+  Returns the set containing every element of [4mSet1[0m for which [4mFun[0m
+  returns [4mtrue[0m.
 
-  If [;;4mFun[0m is a tuple [;;4m{external, Fun2}[0m, [;;4mFun2[0m is applied to the
-  external set of each element, otherwise [;;4mFun[0m is applied to each
+  If [4mFun[0m is a tuple [4m{external, Fun2}[0m, [4mFun2[0m is applied to the
+  external set of each element, otherwise [4mFun[0m is applied to each
   element.
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> R1 = sofs:relation([{a,1},{b,2}]).
     2> R2 = sofs:relation([{x,1},{x,2},{y,3}]).

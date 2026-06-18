@@ -2,58 +2,58 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  system_monitor(MonitorPid, Options)[0m
+[1m  system_monitor(MonitorPid, Options)[0m
 
-  Sets the system event monitoring options. [;;4mMonitorPid[0m is a local
+  Sets the system event monitoring options. [4mMonitorPid[0m is a local
   process identifier (pid) receiving system monitor messages.
 
-  [;;4mChange[0m
+  [4mChange[0m
 
-    This function is superseded by [;;4mtrace:system/3[0m that operate
+    This function is superseded by [4mtrace:system/3[0m that operate
     on
 
     dynamic trace sessions.
 
   The second argument is a list of monitoring options to enable:
 
-   • [;;4m{long_gc, Time}[0m
+   • [4m{long_gc, Time}[0m
 
-   • [;;4m{long_message_queue, {Disable, Enable}}[0m
+   • [4m{long_message_queue, {Disable, Enable}}[0m
 
-   • [;;4m{long_schedule, Time}[0m
+   • [4m{long_schedule, Time}[0m
 
-   • [;;4m{large_heap, Size}[0m
+   • [4m{large_heap, Size}[0m
 
-   • [;;4mbusy_port[0m
+   • [4mbusy_port[0m
 
-   • [;;4mbusy_dist_port[0m
+   • [4mbusy_dist_port[0m
 
-  For more detailed descriptions about the monitoring options, see [;;4m[0m
-  [;;4mtrace:system/3[0m.
+  For more detailed descriptions about the monitoring options, see [4m[0m
+  [4mtrace:system/3[0m.
 
-  Unlink [;;4mtrace:system/3[0m, the arguments to [;;4msystem_monitor/2[0m
+  Unlink [4mtrace:system/3[0m, the arguments to [4msystem_monitor/2[0m
   specifies how all system monitoring should be set, not how it
-  should be changed. This means only one process at a time ([;;4m[0m
-  [;;4mMonitorPid[0m) can be the receiver of messages from system
+  should be changed. This means only one process at a time ([4m[0m
+  [4mMonitorPid[0m) can be the receiver of messages from system
   monitoring set with this function. Also, the way to clear a
-  specific monitor option is to not include it in the list [;;4mOptions[0m.
+  specific monitor option is to not include it in the list [4mOptions[0m.
   All system monitoring will, however, be cleared if the process
-  identified by [;;4mMonitorPid[0m terminates.
+  identified by [4mMonitorPid[0m terminates.
 
   There are no special option values (like zero) to clear an option.
   Some of the options have a unspecified minimum value. Lower values
   will be adjusted to the minimum value. For example, it is
-  currently not possible to monitor all garbage collections with [;;4m[0m
-  [;;4m{long_gc, 0}[0m.
+  currently not possible to monitor all garbage collections with [4m[0m
+  [4m{long_gc, 0}[0m.
 
-  Returns the previous system monitor settings just like [;;4m[0m
-  [;;4merlang:system_monitor/0[0m.
+  Returns the previous system monitor settings just like [4m[0m
+  [4merlang:system_monitor/0[0m.
 
-  [;;4mNote[0m
+  [4mNote[0m
 
     If a monitoring process gets so large that it itself starts to
     cause system monitor messages when garbage collecting, the
@@ -63,6 +63,6 @@
 
   Failures:
 
-   • [;;4mbadarg[0m - If [;;4mMonitorPid[0m does not exist.
+   • [4mbadarg[0m - If [4mMonitorPid[0m does not exist.
 
-   • [;;4mbadarg[0m - If [;;4mMonitorPid[0m is not a local process.
+   • [4mbadarg[0m - If [4mMonitorPid[0m is not a local process.

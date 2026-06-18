@@ -2,11 +2,11 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m	sofs[0m
+[1m	sofs[0m
 
   Functions for manipulating sets of sets.
 
@@ -15,26 +15,26 @@
   elements; every element belongs to the set, and the set contains
   every element.
 
-  The data representing [;;4msofs[0m as used by this module is to be
+  The data representing [4msofs[0m as used by this module is to be
   regarded as opaque by other modules. In abstract terms, the
   representation is a composite type of existing Erlang terms. See
   note on data types. Any code assuming knowledge of the format is
   running on thin ice.
 
-[;1mGetting started[0m
+[1mGetting started[0m
 
   A recommended starting point for the first-time user is the
   examples for the following functions:
 
-   • [;;4mrelation_to_family/1[0m
+   • [4mrelation_to_family/1[0m
 
-   • [;;4mrestriction/2[0m and [;;4mdrestriction/2[0m
+   • [4mrestriction/2[0m and [4mdrestriction/2[0m
 
-   • [;;4mimage/2[0m and [;;4minverse_image/2[0m
+   • [4mimage/2[0m and [4minverse_image/2[0m
 
-   • [;;4mconverse/1[0m
+   • [4mconverse/1[0m
 
-[;1mSet theory[0m
+[1mSet theory[0m
 
   Given a set A and a sentence S(x), where x is a free variable, a
   new set B whose elements are exactly those elements of A for which
@@ -131,18 +131,16 @@
 
      If R is a relation in X, and if S is defined so that x S y
      if x R y and not x = y, then S is the strict relation
-     corresponding to
-
-      ￮ Conversely, if S is a relation in X, and if R is
-        defined so that x R y if x S y or x = y, then R is the 
-        weak relation corresponding to S.
+     corresponding to R. Conversely, if S is a relation in X, and
+     if R is defined so that x R y if x S y or x = y, then R is
+     the weak relation corresponding to S.
 
      A relation R in X is reflexive if x R x for every element
      x of X, it is symmetric if x R y implies that y R x, and
      it is transitive if x R y and y R z imply that x R z.
 
-   • function F is a relation, a subset of X × Y, such that the
-     domain of F is equal to X and such that for every x in X
+   • A function F is a relation, a subset of X × Y, such that
+     the domain of F is equal to X and such that for every x in X
      there is a unique element y in Y with (x, y) in F. The
      latter condition can be formulated as follows: if x F y and
      x F z, then y = z. In this module, it is not required that
@@ -187,9 +185,9 @@
      families of subsets of some set X; in the following, the
      word "family" is used for such families of subsets.
 
-   • partition of a set X is a collection S of non-empty subsets
-     of X whose union is X and whose elements are pairwise
-     disjoint.
+   • A partition of a set X is a collection S of non-empty
+     subsets of X whose union is X and whose elements are
+     pairwise disjoint.
 
      A relation in a set is an equivalence relation if it is
      reflexive, symmetric, and transitive.
@@ -244,7 +242,7 @@
      (x[1], ..., x[n]) in R and for some (y[1], ..., y[m]) in S
      such that x[i] = y[j]}.
 
-[;1mSets handled by this module[0m
+[1mSets handled by this module[0m
 
   The sets recognized by this module are represented by elements of
   the relation Sets, which is defined as the smallest set such that:
@@ -269,7 +267,7 @@
   A type is an element of the domain of Sets.
 
   If S is an element (T, X) of Sets, then T is a valid type of X,
-  T is the type of S, and X is the external set of S. [;;4mfrom_term/2[0m
+  T is the type of S, and X is the external set of S. [4mfrom_term/2[0m
   creates a set from a type and an Erlang term turned into an
   external set.
 
@@ -288,7 +286,7 @@
 
   When there is no risk of confusion, elements of Sets are
   identified with the sets they represent. For example, if U is the
-  result of calling [;;4munion/2[0m with S1 and S2 as arguments, then U is
+  result of calling [4munion/2[0m with S1 and S2 as arguments, then U is
   said to be the union of S1 and S2. A more precise formulation is
   that Set(U) is the union of Set(S1) and Set(S2).
 
@@ -296,8 +294,8 @@
   must fulfill. As an example, consider the relative product of two
   sets R and S, and recall that the relative product of R and S is
   defined if R is a binary relation to Y and S is a binary relation
-  from Y. The function that implements the relative product, [;;4m[0m
-  [;;4mrelative_product/2[0m, checks that the arguments represent binary
+  from Y. The function that implements the relative product, [4m[0m
+  [4mrelative_product/2[0m, checks that the arguments represent binary
   relations by matching [{A,B}] against the type of the first
   argument (Arg1 say), and [{C,D}] against the type of the second
   argument (Arg2 say). The fact that [{A,B}] matches the type of
@@ -305,26 +303,24 @@
   from X to Y, where X is defined as all sets Set(x) for some
   element x in Sets the type of which is A, and similarly for Y. In
   the same way Arg2 is interpreted as representing a binary relation
-  from W to
+  from W to Z. Finally it is checked that B matches C, which is
+  sufficient to ensure that W is equal to Y. The untyped empty set
+  is handled separately: its type, ['_'], matches the type of any
+  unordered set.
 
-   • Finally it is checked that B matches C, which is sufficient
-     to ensure that W is equal to Y. The untyped empty set is
-     handled separately: its type, ['_'], matches the type of any
-     unordered set.
-
-  A few functions of this module ([;;4mdrestriction/3[0m, [;;4m[0m
-  [;;4mfamily_projection/2[0m, [;;4mpartition/2[0m, [;;4mpartition_family/2[0m, [;;4m[0m
-  [;;4mprojection/2[0m, [;;4mrestriction/3[0m, [;;4msubstitution/2[0m) accept an Erlang
+  A few functions of this module ([4mdrestriction/3[0m, [4m[0m
+  [4mfamily_projection/2[0m, [4mpartition/2[0m, [4mpartition_family/2[0m, [4m[0m
+  [4mprojection/2[0m, [4mrestriction/3[0m, [4msubstitution/2[0m) accept an Erlang
   function as a means to modify each element of a given unordered
   set. Such a function, called SetFun in the following, can be
-  specified as a functional object (fun), a tuple [;;4m{external, Fun}[0m,
+  specified as a functional object (fun), a tuple [4m{external, Fun}[0m,
   or an integer:
 
    • If SetFun is specified as a fun, the fun is applied to each
      element of the given set and the return value is assumed to
      be a set.
 
-   • If SetFun is specified as a tuple [;;4m{external, Fun}[0m, Fun is
+   • If SetFun is specified as a tuple [4m{external, Fun}[0m, Fun is
      applied to the external set of each element of the given set
      and the return value is assumed to be an external set.
      Selecting the elements of an unordered set as external sets
@@ -339,7 +335,7 @@
      duplicating, or rearranging parts of the elements.
 
    • Specifying a SetFun as an integer I is equivalent to
-     specifying [;;4m{external, fun(X) -> element(I, X) end}[0m, but is
+     specifying [4m{external, fun(X) -> element(I, X) end}[0m, but is
      to be preferred, as it makes it possible to handle this case
      even more efficiently.
 
@@ -369,17 +365,17 @@
   the time it takes to sort lists. When no sorting is needed, the
   execution time is in the worst case proportional to the sum of the
   sizes of the input arguments and the returned value. A few
-  functions execute in constant time: [;;4mfrom_external/2[0m, [;;4m[0m
-  [;;4mis_empty_set/1[0m, [;;4mis_set/1[0m, [;;4mis_sofs_set/1[0m, [;;4mto_external/1[0m [;;4m[0m
-  [;;4mtype/1[0m.
+  functions execute in constant time: [4mfrom_external/2[0m, [4m[0m
+  [4mis_empty_set/1[0m, [4mis_set/1[0m, [4mis_sofs_set/1[0m, [4mto_external/1[0m [4m[0m
+  [4mtype/1[0m.
 
-  The functions of this module exit the process with a [;;4mbadarg[0m, [;;4m[0m
-  [;;4mbad_function[0m, or [;;4mtype_mismatch[0m message when given badly formed
+  The functions of this module exit the process with a [4mbadarg[0m, [4m[0m
+  [4mbad_function[0m, or [4mtype_mismatch[0m message when given badly formed
   arguments or sets the types of which are not compatible.
 
-  When comparing external sets, operator [;;4m==/2[0m is used.
+  When comparing external sets, operator [4m==/2[0m is used.
 
-[;1mSee Also[0m
+[1mSee Also[0m
 
-  [;;4mdigraph[0m, [;;4mgb_sets[0m, [;;4mgb_trees[0m, [;;4mmaps[0m, [;;4morddict[0m, [;;4mordsets[0m, [;;4m[0m
-  [;;4msets[0m
+  [4mdigraph[0m, [4mgb_sets[0m, [4mgb_trees[0m, [4mmaps[0m, [4morddict[0m, [4mordsets[0m, [4m[0m
+  [4msets[0m

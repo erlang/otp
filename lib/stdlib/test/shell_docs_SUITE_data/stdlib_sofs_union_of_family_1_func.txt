@@ -2,15 +2,15 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  union_of_family(Family)[0m
+[1m  union_of_family(Family)[0m
 
-  Returns the union of family [;;4mFamily[0m.
+  Returns the union of family [4mFamily[0m.
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> F = sofs:family([{a,[0,2,4]},{b,[0,1,2]},{c,[2,3]}]).
     2> S = sofs:union_of_family(F).

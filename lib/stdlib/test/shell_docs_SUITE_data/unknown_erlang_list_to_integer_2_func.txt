@@ -2,14 +2,14 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  list_to_integer(String, Base)[0m
+[1m  list_to_integer(String, Base)[0m
 
-  Returns an integer whose text representation in base [;;4mBase[0m is [;;4m[0m
-  [;;4mString[0m.
+  Returns an integer whose text representation in base [4mBase[0m is [4m[0m
+  [4mString[0m.
 
   For example:
 
@@ -28,8 +28,8 @@
     > list_to_integer("-3FF", 16).
     -1023
 
-  For example, when [;;4mBase[0m is 16, [;;4mString[0m must match the regular
-  expression [;;4m"^[+-]?([0-9]|[A-F]|[a-f])+$"[0m.
+  For example, when [4mBase[0m is 16, [4mString[0m must match the regular
+  expression [4m"^[+-]?([0-9]|[A-F]|[a-f])+$"[0m.
 
-  Failure: [;;4mbadarg[0m if [;;4mString[0m contains a bad representation of an
+  Failure: [4mbadarg[0m if [4mString[0m contains a bad representation of an
   integer.

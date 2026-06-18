@@ -2,40 +2,40 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  load_module(Module, Binary)[0m
+[1m  load_module(Module, Binary)[0m
 
-  Loads [;;4mModule[0m described by the object code contained within [;;4m[0m
-  [;;4mBinary[0m.
+  Loads [4mModule[0m described by the object code contained within [4m[0m
+  [4mBinary[0m.
 
-  If the code for module [;;4mModule[0m already exists, all export
+  If the code for module [4mModule[0m already exists, all export
   references are replaced so they point to the newly loaded code.
   The previously loaded code is kept in the system as old code, as
   there can still be processes executing that code.
 
-  Returns either [;;4m{module, Module}[0m, or [;;4m{error, Reason}[0m if loading
-  fails. [;;4mReason[0m is one of the following:
+  Returns either [4m{module, Module}[0m, or [4m{error, Reason}[0m if loading
+  fails. [4mReason[0m is one of the following:
 
-   • [;;4mbadfile[0m - The object code in [;;4mBinary[0m has an incorrect
+   • [4mbadfile[0m - The object code in [4mBinary[0m has an incorrect
      format or the object code contains code for another module
-     than [;;4mModule[0m.
+     than [4mModule[0m.
 
-   • [;;4mnot_purged[0m - [;;4mBinary[0m contains a module that cannot be
+   • [4mnot_purged[0m - [4mBinary[0m contains a module that cannot be
      loaded because old code for this module already exists.
 
-   • [;;4mon_load[0m - The code in [;;4mBinary[0m contains an [;;4mon_load[0m
-     declaration that must be executed before [;;4mBinary[0m can become
-     the current code. Any previous current code for [;;4mModule[0m
-     will remain until the [;;4mon_load[0m call has finished.
+   • [4mon_load[0m - The code in [4mBinary[0m contains an [4mon_load[0m
+     declaration that must be executed before [4mBinary[0m can become
+     the current code. Any previous current code for [4mModule[0m
+     will remain until the [4mon_load[0m call has finished.
 
-   • not_allowed - The code in [;;4mBinary[0m has been compiled with
+   • not_allowed - The code in [4mBinary[0m has been compiled with
      features that are currently not enabled in the runtime
      system.
 
-  [;;4mWarning[0m
+  [4mWarning[0m
 
-    This BIF is intended for the code server (see [;;4mcode[0m) and is
+    This BIF is intended for the code server (see [4mcode[0m) and is
     not to be used elsewhere.

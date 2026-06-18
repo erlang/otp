@@ -29,7 +29,7 @@
 -export([render/1, links/1, normalize/1, render_prop/1,render_non_native/1, ansi/1, columns/1, render_man/1]).
 -export([render_function/1, render_type/1, render_callback/1, doctests/1]).
 
--export([render_all/1, update_render/0, update_render/1]).
+-export([render_all/1, update_render/0, update_render/1, update_render_modules/0]).
 
 -export([execute/3]).
 
@@ -93,7 +93,7 @@ end_per_testcase(_TestCase, Config) ->
 %% in the data_dir in order to compare then with the original
 %% when we fix bugs so that we don't break anything.
 %%
-%% This testcase is always run so that we do now forget to
+%% This testcase is always run so that we do not forget to
 %% check that any bugfix does not break the current behaviour.
 %%
 %% If you do a bugfix that does not break this testcase when
@@ -143,48 +143,25 @@ strip_comment(Data) ->
     end.
 
 update_render() ->
-    update_render(
-      filename:join([os:getenv("ERL_TOP"),
-                     "lib", "stdlib", "test", "shell_docs_SUITE_data"])).
-update_render(DataDir) ->
+    update_render(false).
+
+update_render_modules() ->
+    update_render(true).
+
+update_render(Modules) when is_boolean(Modules) ->
+      update_render(filename:join([os:getenv("ERL_TOP"),
+                     "lib", "stdlib", "test", "shell_docs_SUITE_data"]),
+                  Modules).
+update_render(DataDir, Modules) ->
     os:cmd("git rm " ++ filename:join(DataDir, "*.txt"), #{ exception_on_failure => true }),
-    os:cmd("git rm " ++ filename:join(DataDir, "*.docs_v1"), #{ exception_on_failure => true }),
+    Modules andalso os:cmd("git rm " ++ filename:join(DataDir, "*.docs_v1"), #{ exception_on_failure => true }),
     ok = filelib:ensure_path(DataDir),
     lists:foreach(
       fun(Module) ->
-              case code:get_doc(Module) of
-                  {ok, Docs} ->
-                      NewEntries =
-                          case beam_lib:chunks(find_path(Module),[abstract_code]) of
-                              {ok,{Module,[{abstract_code,{raw_abstract_v1,AST}}]}} ->
-                                  lists:map(fun({{Type, F, A}, Anno, Sig, #{} = Doc, Meta} = E) ->
-
-                                                    case lists:search(
-                                                           fun({attribute, _, spec, {FA, _}}) when Type =:= function ->
-                                                                   FA =:= {F,A};
-                                                              ({attribute, _, What, {Name, _, Args}}) when What =:= Type; What =:= opaque andalso Type =:= type ->
-                                                                   {Name,length(Args)} =:= {F,A};
-                                                              (_) ->
-                                                                   false
-                                                           end, AST) of
-                                                        {value, Signature} ->
-                                                            {{Type, F, A}, Anno, Sig, Doc, Meta#{ specification => [Signature] }};
-                                                        _ -> throw({did_not_find, E})
-                                                    end;
-                                               (E) -> E
-
-                                            end, Docs#docs_v1.docs);
-                              {ok,{shell_docs_SUITE,[{abstract_code,no_abstract_code}]}} ->
-                                  Docs#docs_v1.docs
-                          end,
-
-                      Name = filename:join(DataDir, atom_to_list(Module) ++ ".docs_v1"),
-
-                      ok = file:write_file(Name,
-                             io_lib:format("~ts\n~w.",[header(), Docs#docs_v1{ docs = NewEntries }])),
-                      os:cmd("git add " ++ Name, #{ exception_on_failure => true });
-                  {error, _} ->
-                      ok
+              if Modules ->
+                    add_module_to_render(Module, DataDir);
+                not Modules ->
+                    fetch_module_to_render(Module, DataDir)
               end,
               maps:map(
                 fun(FName, Output) ->
@@ -193,6 +170,47 @@ update_render(DataDir) ->
                         os:cmd("git add " ++ FullName, #{ exception_on_failure => true })
                 end, render_module(Module, DataDir))
       end, ?RENDER_MODULES).
+
+add_module_to_render(Module, DataDir) ->
+    case code:get_doc(Module) of
+        {ok, Docs} ->
+            NewEntries =
+                case beam_lib:chunks(find_path(Module),[abstract_code]) of
+                    {ok,{Module,[{abstract_code,{raw_abstract_v1,AST}}]}} ->
+                        lists:map(fun({{Type, F, A}, Anno, Sig, #{} = Doc, Meta} = E) ->
+
+                                        case lists:search(
+                                                fun({attribute, _, spec, {FA, _}}) when Type =:= function ->
+                                                        FA =:= {F,A};
+                                                    ({attribute, _, What, {Name, _, Args}}) when What =:= Type; What =:= opaque andalso Type =:= type ->
+                                                        {Name,length(Args)} =:= {F,A};
+                                                    (_) ->
+                                                        false
+                                                end, AST) of
+                                            {value, Signature} ->
+                                                {{Type, F, A}, Anno, Sig, Doc, Meta#{ specification => [Signature] }};
+                                            _ -> throw({did_not_find, E})
+                                        end;
+                                    (E) -> E
+
+                                end, Docs#docs_v1.docs);
+                    {ok,{shell_docs_SUITE,[{abstract_code,no_abstract_code}]}} ->
+                        Docs#docs_v1.docs
+                end,
+
+            Name = filename:join(DataDir, atom_to_list(Module) ++ ".docs_v1"),
+
+            ok = file:write_file(Name,
+                    io_lib:format("~ts\n~w.",[header(), Docs#docs_v1{ docs = NewEntries }])),
+            os:cmd("git add " ++ Name, #{ exception_on_failure => true });
+        {error, _} ->
+            ok
+    end.
+
+fetch_module_to_render(Module, DataDir) ->
+    Name = filename:join(DataDir, atom_to_list(Module) ++ ".docs_v1"),
+    {ok, Docs} = file:consult(Name),
+    Docs.
 
 header() ->
     {{YY, _, _}, _} = erlang:localtime(),

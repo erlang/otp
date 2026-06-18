@@ -2,19 +2,19 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  set_cookie(Node, Cookie)[0m
+[1m  set_cookie(Node, Cookie)[0m
 
-  Sets the magic cookie for [;;4mNode[0m to the atom [;;4mCookie[0m. If [;;4mNode[0m
+  Sets the magic cookie for [4mNode[0m to the atom [4mCookie[0m. If [4mNode[0m
   is the local node, the function sets the cookie of all other nodes
-  (that have no explicit cookie set with this function) to [;;4mCookie[0m.
+  (that have no explicit cookie set with this function) to [4mCookie[0m.
 
   See section Distributed Erlang in the Erlang Reference Manual in
   System Documentation for more information.
 
-  You can get this value using [;;4mget_cookie/1[0m.
+  You can get this value using [4mget_cookie/1[0m.
 
-  Failure: [;;4mfunction_clause[0m if the local node is not alive.
+  Failure: [4mfunction_clause[0m if the local node is not alive.

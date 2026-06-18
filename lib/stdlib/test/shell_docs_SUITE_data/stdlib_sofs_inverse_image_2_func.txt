@@ -2,16 +2,16 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  inverse_image(BinRel, Set1)[0m
+[1m  inverse_image(BinRel, Set1)[0m
 
-  Returns the inverse image of [;;4mSet1[0m under the binary relation [;;4m[0m
-  [;;4mBinRel[0m.
+  Returns the inverse image of [4mSet1[0m under the binary relation [4m[0m
+  [4mBinRel[0m.
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> R = sofs:relation([{1,a},{2,b},{2,c},{3,d}]).
     2> S1 = sofs:set([c,d,e]).

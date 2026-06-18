@@ -2,15 +2,15 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  list_to_tuple(List)[0m
+[1m  list_to_tuple(List)[0m
 
-  Returns a tuple corresponding to [;;4mList[0m, for example
+  Returns a tuple corresponding to [4mList[0m, for example
 
     > list_to_tuple([share, ['Ericsson_B', 163]]).
     {share, ['Ericsson_B', 163]}
 
-  [;;4mList[0m can contain any Erlang terms.
+  [4mList[0m can contain any Erlang terms.

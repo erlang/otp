@@ -2,20 +2,20 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  get_cookie()[0m
+[1m  get_cookie()[0m
 
   Returns the magic cookie of the local node if the node is alive,
-  otherwise the atom [;;4mnocookie[0m. This value is set by [;;4mset_cookie/1[0m.
+  otherwise the atom [4mnocookie[0m. This value is set by [4mset_cookie/1[0m.
 
-[;1m  get_cookie(Node)[0m
+[1m  get_cookie(Node)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP 24.1
 
-  Returns the magic cookie for node [;;4mNode[0m if the local node is
-  alive, otherwise the atom [;;4mnocookie[0m. This value is set by [;;4m[0m
-  [;;4mset_cookie/2[0m.
+  Returns the magic cookie for node [4mNode[0m if the local node is
+  alive, otherwise the atom [4mnocookie[0m. This value is set by [4m[0m
+  [4mset_cookie/2[0m.

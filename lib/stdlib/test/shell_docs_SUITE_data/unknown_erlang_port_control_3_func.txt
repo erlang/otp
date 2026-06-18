@@ -2,14 +2,14 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  port_control(Port, Operation, Data)[0m
+[1m  port_control(Port, Operation, Data)[0m
 
-  Performs a synchronous control operation on a port. The meaning of [;;4m[0m
-  [;;4mOperation[0m and [;;4mData[0m depends on the port, that is, on the port
+  Performs a synchronous control operation on a port. The meaning of [4m[0m
+  [4mOperation[0m and [4mData[0m depends on the port, that is, on the port
   driver. Not all port drivers support this control feature.
 
   Returns a list of integers in the range 0..255, or a binary,
@@ -18,20 +18,20 @@
 
   Failures:
 
-   • [;;4mbadarg[0m - If [;;4mPort[0m is not an open port or the registered
+   • [4mbadarg[0m - If [4mPort[0m is not an open port or the registered
      name of an open port.
 
-   • [;;4mbadarg[0m - If [;;4mOperation[0m cannot fit in a 32-bit integer.
+   • [4mbadarg[0m - If [4mOperation[0m cannot fit in a 32-bit integer.
 
-   • [;;4mbadarg[0m - If the port driver does not support synchronous
+   • [4mbadarg[0m - If the port driver does not support synchronous
      control operations.
 
-   • [;;4mbadarg[0m - If the port driver so decides for any reason
-     (probably something wrong with [;;4mOperation[0m or [;;4mData[0m).
+   • [4mbadarg[0m - If the port driver so decides for any reason
+     (probably something wrong with [4mOperation[0m or [4mData[0m).
 
-  [;;4mWarning[0m
+  [4mWarning[0m
 
-       Do not call [;;4mport_control/3[0m with an unknown [;;4mPort[0m
-       identifier and expect [;;4mbadarg[0m exception. Any undefined
+       Do not call [4mport_control/3[0m with an unknown [4mPort[0m
+       identifier and expect [4mbadarg[0m exception. Any undefined
        behavior is possible (including node crash) depending on
        how the port driver interprets the supplied arguments.

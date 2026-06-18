@@ -2,21 +2,21 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  relation(Tuples, Type)[0m
+[1m  relation(Tuples, Type)[0m
 
   Creates a relation.
 
-  [;;4mrelation(R, T)[0m is equivalent to [;;4mfrom_term(R, T)[0m, if T is a type
+  [4mrelation(R, T)[0m is equivalent to [4mfrom_term(R, T)[0m, if T is a type
   and the result is a relation.
 
-  If [;;4mType[0m is an integer N, then [;;4m[{atom, ..., atom}])[0m, where the
+  If [4mType[0m is an integer N, then [4m[{atom, ..., atom}])[0m, where the
   tuple size is N, is used as type of the relation.
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> S1 = sofs:relation([{3,blue},{2,green},{3,blue},{1,red}], [{index,color}]).
     2> sofs:to_external(S1).

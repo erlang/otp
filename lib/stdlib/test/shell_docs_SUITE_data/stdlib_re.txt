@@ -2,11 +2,11 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m	re[0m
+[1m	re[0m
 
   This module contains regular expression matching functions for
   strings and binaries.
@@ -20,23 +20,23 @@
   the PCRE2 documentation that are relevant to this module are
   included here.
 
-  [;;4mNote[0m
+  [4mNote[0m
 
-    The Erlang literal syntax for strings uses the [;;4m` (backslash)[0m
-    [;;4mcharacter as an escape code. You need to escape backslashes in[0m
-    [;;4mliteral strings, both in your code and in the shell, with an[0m
-    [;;4mextra backslash, that is, [0m"\"[;;4m or [0m<<"\">>[;;4m. Since Erlang/OTP[0m
-    [;;4m27 you can use verbatim sigils to write literal strings. The[0m
-    [;;4mexample above would be written as [0m~S""[;;4m or [0m~B"".
+    The Erlang literal syntax for strings uses the [4m` (backslash)[0m
+    [4mcharacter as an escape code. You need to escape backslashes in[0m
+    [4mliteral strings, both in your code and in the shell, with an[0m
+    [4mextra backslash, that is, [0m"\"[4m or [0m<<"\">>[4m. Since Erlang/OTP[0m
+    [4m27 you can use verbatim sigils to write literal strings. The[0m
+    [4mexample above would be written as [0m~S""[4m or [0m~B"".
 
-[;1mPerl-Like Regular Expression Syntax[0m
+[1mPerl-Like Regular Expression Syntax[0m
 
   The following sections contain reference material for the regular
   expressions used by this module. The information is based on the
   PCRE2 documentation, with changes where this module behaves
   differently to the PCRE2 library.
 
-[;1mPCRE2 Regular Expression Details[0m
+[1mPCRE2 Regular Expression Details[0m
 
   The syntax and semantics of the regular expressions that are
   supported by PCRE2 are described in detail below. Perl's regular
@@ -103,9 +103,9 @@
 
    • Backtracking Control
 
-[;1mSpecial Start-of-Pattern Items[0m
+[1mSpecial Start-of-Pattern Items[0m
 
-  A number of options that can be passed to [;;4mcompile/2[0m can also be
+  A number of options that can be passed to [4mcompile/2[0m can also be
   set by special items at the start of a pattern. These are not
   Perl-compatible, but are provided to make these options accessible
   to pattern writers who are not able to change the program that
@@ -116,24 +116,24 @@
   UTF support
 
   Unicode support is basically UTF-8 based. To use Unicode
-  characters, you either call [;;4mcompile/2[0m or [;;4mrun/3[0m with option [;;4m[0m
-  [;;4municode[0m, or the pattern must start with one of these special
-  sequences: [;;4m(*UTF)[0m, which is equivalent to setting [;;4municode[0m.
+  characters, you either call [4mcompile/2[0m or [4mrun/3[0m with option [4m[0m
+  [4municode[0m, or the pattern must start with one of these special
+  sequences: [4m(*UTF)[0m, which is equivalent to setting [4municode[0m.
   Note that with these instructions, the automatic conversion of
-  lists to UTF-8 is not performed by the [;;4mre[0m functions. Therefore,
-  using these sequences is not recommended. Add option [;;4municode[0m
-  when running [;;4mcompile/2[0m instead.
+  lists to UTF-8 is not performed by the [4mre[0m functions. Therefore,
+  using these sequences is not recommended. Add option [4municode[0m
+  when running [4mcompile/2[0m instead.
 
   Some applications that allow their users to supply patterns may
-  wish to restrict them to non-UTF data for security reasons. If the [;;4m[0m
-  [;;4mnever_utf[0m option is passed to [;;4mcompile/2[0m, [;;4m(*UTF)[0m is not
+  wish to restrict them to non-UTF data for security reasons. If the [4m[0m
+  [4mnever_utf[0m option is passed to [4mcompile/2[0m, [4m(*UTF)[0m is not
   allowed, and its appearance in a pattern causes an error.
 
   Unicode Property Support
 
   Another special sequence that may appear at the start of a pattern
-  is [;;4m(*UCP)[0m. This has the same effect as setting the [;;4mucp[0m option:
-  it causes sequences such as [;;4m\d[0m and [;;4m\w[0m to use Unicode
+  is [4m(*UCP)[0m. This has the same effect as setting the [4mucp[0m option:
+  it causes sequences such as [4m\d[0m and [4m\w[0m to use Unicode
   properties to determine character types, instead of recognizing
   only characters with codes less than 256 via a lookup table. It
   also causes upper/lower casing operations to use Unicode
@@ -142,33 +142,33 @@
   pattern; see Internal Option Setting.
 
   Some applications that allow their users to supply patterns may
-  wish to restrict them for security reasons. If the [;;4mnever_ucp[0m
-  option is passed to [;;4mcompile/2[0m, [;;4m(*UCP)[0m is not allowed, and its
+  wish to restrict them for security reasons. If the [4mnever_ucp[0m
+  option is passed to [4mcompile/2[0m, [4m(*UCP)[0m is not allowed, and its
   appearance in a pattern causes an error.
 
   Locking Out Empty String Matching
 
-  Starting a pattern with [;;4m(*NOTEMPTY)[0m or [;;4m(*NOTEMPTY_ATSTART)[0m has
-  the same effect as passing the [;;4mnotempty[0m or [;;4mnotempty_atstart[0m
+  Starting a pattern with [4m(*NOTEMPTY)[0m or [4m(*NOTEMPTY_ATSTART)[0m has
+  the same effect as passing the [4mnotempty[0m or [4mnotempty_atstart[0m
   option to whichever matching function is subsequently called to
   match the pattern. These options lock out the matching of empty
   strings, either entirely, or only at the start of the subject.
 
   Disabling Start-Up Optimizations
 
-  If a pattern starts with [;;4m(*NO_START_OPT)[0m, it has the same effect
-  as setting the [;;4mno_start_optimize[0m option. This disables several
+  If a pattern starts with [4m(*NO_START_OPT)[0m, it has the same effect
+  as setting the [4mno_start_optimize[0m option. This disables several
   optimizations for quickly reaching "no match" results.
 
   Disabling Automatic Anchoring
 
-  If a pattern starts with [;;4m(*NO_DOTSTAR_ANCHOR)[0m. This disables
+  If a pattern starts with [4m(*NO_DOTSTAR_ANCHOR)[0m. This disables
   optimizations that apply to patterns whose top-level branches all
   start with .* (match any number of arbitrary characters).
 
   Setting Match Resource Limits
 
-  The caller of [;;4mrun/3[0m can set a limit on this counter, which
+  The caller of [4mrun/3[0m can set a limit on this counter, which
   therefore limits the amount of computing resource used for a
   match. The maximum depth of nested backtracking can also be
   limited; this indirectly restricts the amount of heap memory that
@@ -178,7 +178,7 @@
   These facilities are provided to catch runaway matches that are
   provoked by patterns with huge matching trees. A common example is
   a pattern with nested unlimited repeats applied to a long string
-  that does not match. When one of these limits is reached, [;;4mrun/3[0m
+  that does not match. When one of these limits is reached, [4mrun/3[0m
   gives an error return. The limits can also be set by items at the
   start of the pattern of the form
 
@@ -193,7 +193,7 @@
   than one setting of one of these limits, the lower value is used.
   The heap limit is specified in kibibytes (units of 1024 bytes).
 
-  The default value for [;;4mLIMIT_MATCH[0m and [;;4mLIMIT_DEPTH[0m is
+  The default value for [4mLIMIT_MATCH[0m and [4mLIMIT_DEPTH[0m is
   10,000,000 in the Erlang VM. Notice that the recursion limit does
   not affect the stack depth of the VM, as PCRE for Erlang is
   compiled in such a way that the match function never does
@@ -237,24 +237,24 @@
 
   The newline convention affects where the circumflex and dollar
   assertions are true. It also affects the interpretation of the dot
-  metacharacter when [;;4mdotall[0m is not set, and the behaviour of [;;4m\N[0m
+  metacharacter when [4mdotall[0m is not set, and the behaviour of [4m\N[0m
   when not followed by an opening brace. However, it does not affect
-  what the [;;4m\R[0m escape sequence matches. By default, this is any
+  what the [4m\R[0m escape sequence matches. By default, this is any
   Unicode newline sequence, for Perl compatibility. However, this
-  can be changed; see the next section and the description of [;;4m\R[0m
-  in Newline Sequences. A change of [;;4m\R[0m setting can be combined
+  can be changed; see the next section and the description of [4m\R[0m
+  in Newline Sequences. A change of [4m\R[0m setting can be combined
   with a change of newline convention.
 
-  Specifying What [;;4m\R[0m Matches
+  Specifying What [4m\R[0m Matches
 
-  It is possible to restrict [;;4m\R[0m to match only CR, LF, or CRLF
+  It is possible to restrict [4m\R[0m to match only CR, LF, or CRLF
   (instead of the complete set of Unicode line endings) by setting
-  the option [;;4mbsr_anycrlf[0m at compile time. This effect can also be
-  achieved by starting a pattern with [;;4m(*BSR_ANYCRLF)[0m. For
-  completeness, [;;4m(*BSR_UNICODE)[0m is also recognized, corresponding
-  to [;;4mbsr_anycrlf[0m.
+  the option [4mbsr_anycrlf[0m at compile time. This effect can also be
+  achieved by starting a pattern with [4m(*BSR_ANYCRLF)[0m. For
+  completeness, [4m(*BSR_UNICODE)[0m is also recognized, corresponding
+  to [4mbsr_anycrlf[0m.
 
-[;1mCharacters and Metacharacters[0m
+[1mCharacters and Metacharacters[0m
 
   A regular expression is a pattern that is matched against a
   subject string from left to right. Most characters stand for
@@ -264,12 +264,12 @@
     The quick brown fox
 
   matches a portion of a subject string that is identical to itself.
-  When caseless matching is specified (the [;;4mcaseless[0m option or (?i)
+  When caseless matching is specified (the [4mcaseless[0m option or (?i)
   within the pattern), letters are matched independently of case.
   Note that there are two ASCII characters, K and S, that, in
   addition to their lower case ASCII equivalents, are
   case-equivalent with Unicode U+212A (Kelvin sign) and U+017F (long
-  S) respectively when either [;;4municode[0m or [;;4mucp[0m is set.
+  S) respectively when either [4municode[0m or [4mucp[0m is set.
 
   The power of regular expressions comes from the ability to include
   wild cards, character classes, alternatives, and repetitions in
@@ -284,32 +284,32 @@
 
    • **`** - general escape character with several uses
 
-   • [;;4m^[0m - assert start of string (or line, in multiline mode)
+   • [4m^[0m - assert start of string (or line, in multiline mode)
 
-   • [;;4m$[0m - assert end of string (or line, in multiline mode)
+   • [4m$[0m - assert end of string (or line, in multiline mode)
 
-   • [;;4m.[0m - match any character except newline (by default)
+   • [4m.[0m - match any character except newline (by default)
 
-   • [;;4m[[0m - start character class definition
+   • [4m[[0m - start character class definition
 
-   • [;;4m|[0m - start of alternative branch
+   • [4m|[0m - start of alternative branch
 
-   • [;;4m([0m - start group or control verb
+   • [4m([0m - start group or control verb
 
-   • [;;4m)[0m - end group or control verb
+   • [4m)[0m - end group or control verb
 
-   • [;;4m*[0m - 0 or more quantifier
+   • [4m*[0m - 0 or more quantifier
 
-   • [;;4m+[0m - 1 or more quantifier; also "possessive quantifier"
+   • [4m+[0m - 1 or more quantifier; also "possessive quantifier"
 
-   • [;;4m?[0m - 0 or 1 quantifier; also quantifier minimizer
+   • [4m?[0m - 0 or 1 quantifier; also quantifier minimizer
 
-   • [;;4m{[0m - potential start of min/max quantifier
+   • [4m{[0m - potential start of min/max quantifier
 
-  Brace characters [;;4m{[0m and [;;4m}[0m are also used to enclose data for
-  constructions such as [;;4m\g{2}[0m or [;;4m\k{name}[0m. In almost all uses of
-  braces, space and/or horizontal tab characters that follow [;;4m{[0m or
-  precede [;;4m}[0m are allowed and are ignored. In the case of
+  Brace characters [4m{[0m and [4m}[0m are also used to enclose data for
+  constructions such as [4m\g{2}[0m or [4m\k{name}[0m. In almost all uses of
+  braces, space and/or horizontal tab characters that follow [4m{[0m or
+  precede [4m}[0m are allowed and are ignored. In the case of
   quantifiers, they may also appear before or after the comma.
 
   Part of a pattern that is in square brackets is called a
@@ -318,22 +318,22 @@
 
    • **`** - general escape character
 
-   • [;;4m^[0m - negate the class, but only if the first character
+   • [4m^[0m - negate the class, but only if the first character
 
-   • [;;4m-[0m - indicates character range
+   • [4m-[0m - indicates character range
 
-   • [;;4m[[0m - POSIX character class (if followed by POSIX syntax)
+   • [4m[[0m - POSIX character class (if followed by POSIX syntax)
 
-   • [;;4m][0m - terminates the character class
+   • [4m][0m - terminates the character class
 
-  If a pattern is compiled with the [;;4mextended[0m option, most white
-  space in the pattern, other than in a character class, within a [;;4m[0m
-  [;;4m\Q...\E[0m sequence, or between a [;;4m#[0m outside a character class and
+  If a pattern is compiled with the [4mextended[0m option, most white
+  space in the pattern, other than in a character class, within a [4m[0m
+  [4m\Q...\E[0m sequence, or between a [4m#[0m outside a character class and
   the next newline, inclusive, is ignored. An escaping backslash can
   be used to include a white space or a # character as part of the
   pattern.
 
-  [;;4mNote[0m
+  [4mNote[0m
 
     Only these two characters are ignored, not the full set of
     pattern white space characters that are ignored outside a
@@ -343,7 +343,7 @@
   The following sections describe the use of each of the
   metacharacters.
 
-[;1mBackslash[0m
+[1mBackslash[0m
 
   The backslash character has several uses. Firstly, if it is
   followed by a character that is not a digit or a letter, it takes
@@ -351,8 +351,8 @@
   backslash as an escape character applies both inside and outside
   character classes.
 
-  For example, if you want to match a [;;4m*[0m character, you must write [;;4m[0m
-  [;;4m\*[0m in the pattern. This escaping action applies whether or not
+  For example, if you want to match a [4m*[0m character, you must write [4m[0m
+  [4m\*[0m in the pattern. This escaping action applies whether or not
   the following character would otherwise be interpreted as a
   metacharacter, so it is always safe to precede a non-alphanumeric
   with backslash to specify that it stands for itself. In
@@ -363,15 +363,15 @@
   points are greater than 127) are treated as literals.
 
   If you want to treat all characters in a sequence as literals, you
-  can do so by putting them between [;;4m\Q[0m and [;;4m\E[0m. Note that this
-  includes white space even when the [;;4mextended[0m option is set so
+  can do so by putting them between [4m\Q[0m and [4m\E[0m. Note that this
+  includes white space even when the [4mextended[0m option is set so
   that most other white space is ignored. The behaviour is different
-  from Perl in that [;;4m$[0m and [;;4m@[0m are handled as literals in [;;4m\Q...\E[0m
-  sequences in PCRE2, whereas in Perl, [;;4m$[0m and [;;4m@[0m cause variable
+  from Perl in that [4m$[0m and [4m@[0m are handled as literals in [4m\Q...\E[0m
+  sequences in PCRE2, whereas in Perl, [4m$[0m and [4m@[0m cause variable
   interpolation. Also, Perl does "double-quotish backslash
-  interpolation" on any backslashes between [;;4m\Q[0m and [;;4m\E[0m which, its
+  interpolation" on any backslashes between [4m\Q[0m and [4m\E[0m which, its
   documentation says, "may lead to confusing results". PCRE2 treats
-  a backslash between [;;4m\Q[0m and [;;4m\E[0m just like any other character.
+  a backslash between [4m\Q[0m and [4m\E[0m just like any other character.
   Note the following examples:
 
    • Pattern - PCRE2 matches Perl matches
@@ -386,21 +386,21 @@
 
    • \Q\E - \ \E
 
-  The [;;4m\Q...\E[0m sequence is recognized both inside and outside
-  character classes. An isolated [;;4m\E[0m that is not preceded by [;;4m\Q[0m
-  is ignored. If [;;4m\Q[0m is not followed by [;;4m\E[0m later in the pattern,
+  The [4m\Q...\E[0m sequence is recognized both inside and outside
+  character classes. An isolated [4m\E[0m that is not preceded by [4m\Q[0m
+  is ignored. If [4m\Q[0m is not followed by [4m\E[0m later in the pattern,
   the literal interpretation continues to the end of the pattern
-  (that is, [;;4m\E[0m is assumed at the end). If the isolated [;;4m\Q[0m is
+  (that is, [4m\E[0m is assumed at the end). If the isolated [4m\Q[0m is
   inside a character class, this causes an error, because the
   character class is then not terminated by a closing square
   bracket.
 
-  Another difference from Perl is that any appearance of [;;4m\Q[0m or [;;4m\E[0m
+  Another difference from Perl is that any appearance of [4m\Q[0m or [4m\E[0m
   inside what might otherwise be a quantifier causes PCRE2 not to
   recognize the sequence as a quantifier. Perl recognizes a
-  quantifier if (redundantly) either of the numbers is inside [;;4m[0m
-  [;;4m\Q...\E[0m, but not if the separating comma is. When not recognized
-  as a quantifier a sequence such as [;;4m{\Q1\E,2}[0m is treated as the
+  quantifier if (redundantly) either of the numbers is inside [4m[0m
+  [4m\Q...\E[0m, but not if the separating comma is. When not recognized
+  as a quantifier a sequence such as [4m{\Q1\E,2}[0m is treated as the
   literal string "{1,2}".
 
   Non-Printing Characters
@@ -413,94 +413,94 @@
   instead of the binary character it represents. In an ASCII or
   Unicode environment, these escapes are as follows:
 
-   • [;;4m\a[0m - alarm, that is, the BEL character (hex 07)
+   • [4m\a[0m - alarm, that is, the BEL character (hex 07)
 
-   • [;;4m\cx[0m - "control-x", where x is a non-control ASCII character
+   • [4m\cx[0m - "control-x", where x is a non-control ASCII character
 
-   • [;;4m\e[0m - escape (hex 1B)
+   • [4m\e[0m - escape (hex 1B)
 
-   • [;;4m\f[0m - form feed (hex 0C)
+   • [4m\f[0m - form feed (hex 0C)
 
-   • [;;4m\n[0m - linefeed (hex 0A)
+   • [4m\n[0m - linefeed (hex 0A)
 
-   • [;;4m\r[0m - carriage return (hex 0D) (but see below)
+   • [4m\r[0m - carriage return (hex 0D) (but see below)
 
-   • [;;4m\t[0m - tab (hex 09)
+   • [4m\t[0m - tab (hex 09)
 
-   • [;;4m\0dd[0m - character with octal code 0dd
+   • [4m\0dd[0m - character with octal code 0dd
 
-   • [;;4m\ddd[0m - character with octal code ddd, or back reference
+   • [4m\ddd[0m - character with octal code ddd, or back reference
 
-   • [;;4m\o{ddd..}[0m - character with octal code ddd..
+   • [4m\o{ddd..}[0m - character with octal code ddd..
 
-   • [;;4m\xhh[0m - character with hex code hh
+   • [4m\xhh[0m - character with hex code hh
 
-   • [;;4m\x{hhh..}[0m - character with hex code hhh..
+   • [4m\x{hhh..}[0m - character with hex code hhh..
 
-   • [;;4m\N{U+hhh..}[0m - character with Unicode hex code point hhh..
+   • [4m\N{U+hhh..}[0m - character with Unicode hex code point hhh..
 
   A description of how back references work is given later,
   following the discussion of parenthesized groups.
 
-  By default, after [;;4m\x[0m that is not followed by [;;4m{[0m, one or two
+  By default, after [4m\x[0m that is not followed by [4m{[0m, one or two
   hexadecimal digits are read (letters can be in upper or lower
-  case). If the character that follows [;;4m\x[0m is neither [;;4m{[0m nor a
+  case). If the character that follows [4m\x[0m is neither [4m{[0m nor a
   hexadecimal digit, an error occurs. This is different from Perl's
   default behaviour, which generates a NUL character, but is in line
   with the behaviour of Perl's 'strict' mode in re.
 
-  Any number of hexadecimal digits may appear between [;;4m\x{[0m and [;;4m}[0m.
-  If a character other than a hexadecimal digit appears between [;;4m\x{[0m
-  and [;;4m}[0m, or if there is no terminating [;;4m}[0m, an error occurs.
+  Any number of hexadecimal digits may appear between [4m\x{[0m and [4m}[0m.
+  If a character other than a hexadecimal digit appears between [4m\x{[0m
+  and [4m}[0m, or if there is no terminating [4m}[0m, an error occurs.
 
   Characters whose code points are less than 256 can be defined by
-  either of the two syntaxes for [;;4m\x[0m or by an octal sequence. There
-  is no difference in the way they are handled. For example, [;;4m\xdc[0m
-  is exactly the same as [;;4m\x{dc}[0m or [;;4m\334[0m. However, using the
+  either of the two syntaxes for [4m\x[0m or by an octal sequence. There
+  is no difference in the way they are handled. For example, [4m\xdc[0m
+  is exactly the same as [4m\x{dc}[0m or [4m\334[0m. However, using the
   braced versions does make such sequences easier to read.
 
-  The [;;4m\N{U+hhh..}[0m escape sequence is recognized only when PCRE2 is
-  operating in UTF mode. Perl also uses [;;4m\N{name}[0m to specify
+  The [4m\N{U+hhh..}[0m escape sequence is recognized only when PCRE2 is
+  operating in UTF mode. Perl also uses [4m\N{name}[0m to specify
   characters by Unicode name; PCRE2 does not support this. Note that
-  when [;;4m\N[0m is not followed by an opening brace (curly bracket) it
+  when [4m\N[0m is not followed by an opening brace (curly bracket) it
   has an entirely different meaning, matching any character that is
   not a newline.
 
-  There are some legacy applications where the escape sequence [;;4m\r[0m
+  There are some legacy applications where the escape sequence [4m\r[0m
   is expected to match a newline.
 
-  An error occurs if [;;4m\c[0m is not followed by a character whose ASCII
-  code point is in the range 32 to 126. The precise effect of [;;4m\cx[0m
+  An error occurs if [4m\c[0m is not followed by a character whose ASCII
+  code point is in the range 32 to 126. The precise effect of [4m\cx[0m
   is as follows: if x is a lower case letter, it is converted to
-  upper case. Then bit 6 of the character (hex 40) is inverted. Thus [;;4m[0m
-  [;;4m\cA[0m to [;;4m\cZ[0m become hex 01 to hex 1A (A is 41, Z is 5A), but [;;4m\c{[0m
-  becomes hex 3B ({ is 7B), and [;;4m\c[0m; becomes hex 7B (; is 3B). If
-  the code unit following [;;4m\c[0m has a code point less than 32 or
+  upper case. Then bit 6 of the character (hex 40) is inverted. Thus [4m[0m
+  [4m\cA[0m to [4m\cZ[0m become hex 01 to hex 1A (A is 41, Z is 5A), but [4m\c{[0m
+  becomes hex 3B ({ is 7B), and [4m\c[0m; becomes hex 7B (; is 3B). If
+  the code unit following [4m\c[0m has a code point less than 32 or
   greater than 126, a compile-time error occurs.
 
   Octal Escapes and Back References
 
-  The escape [;;4m\o[0m must be followed by a sequence of octal digits,
+  The escape [4m\o[0m must be followed by a sequence of octal digits,
   enclosed in braces. An error occurs if this is not the case. This
   escape provides a way of specifying character code points as octal
   numbers greater than 0777, and it also allows octal numbers and
   backreferences to be unambiguously distinguished.
 
-  If braces are not used, after [;;4m\0[0m up to two further octal digits
+  If braces are not used, after [4m\0[0m up to two further octal digits
   are read.
 
   Inside a character class, when a backslash is followed by any
   octal digit, up to three octal digits are read to generate a code
-  point. Any subsequent digits stand for themselves. The sequences [;;4m[0m
-  [;;4m\8[0m and [;;4m\9[0m are treated as the literal characters "8" and "9".
+  point. Any subsequent digits stand for themselves. The sequences [4m[0m
+  [4m\8[0m and [4m\9[0m are treated as the literal characters "8" and "9".
 
   Outside a character class, Perl's handling of a backslash followed
   by a digit other than 0 is complicated by ambiguity, and Perl has
   changed over time, causing PCRE2 also to change.
 
   For greater clarity and unambiguity, it is best to avoid following
-  \e by a digit greater than zero. Instead, use [;;4m\o{...}[0m or [;;4m[0m
-  [;;4m\x{...}[0m to specify numerical character code points, and [;;4m\g{...}[0m
+  \e by a digit greater than zero. Instead, use [4m\o{...}[0m or [4m[0m
+  [4m\x{...}[0m to specify numerical character code points, and [4m\g{...}[0m
   to specify backreferences.
 
   Perl Rules for Non-Class Backslash 1-9
@@ -512,27 +512,27 @@
   Otherwise, up to three octal digits are read to form a character
   code. For example:
 
-   • [;;4m\040[0m - is another way of writing an ASCII space
+   • [4m\040[0m - is another way of writing an ASCII space
 
-   • [;;4m\40[0m - is the same, provided there are fewer than 40
+   • [4m\40[0m - is the same, provided there are fewer than 40
      previous capture groups
 
-   • [;;4m\7[0m - is always a backreference
+   • [4m\7[0m - is always a backreference
 
-   • [;;4m\11[0m - might be a backreference, or another way of writing a
+   • [4m\11[0m - might be a backreference, or another way of writing a
      tab
 
-   • [;;4m\011[0m - is always a tab
+   • [4m\011[0m - is always a tab
 
-   • [;;4m\0113[0m - is a tab followed by the character "3"
+   • [4m\0113[0m - is a tab followed by the character "3"
 
-   • [;;4m\113[0m - might be a backreference, otherwise the character
+   • [4m\113[0m - might be a backreference, otherwise the character
      with octal code 113
 
-   • [;;4m\377[0m - might be a backreference, otherwise the value 255
+   • [4m\377[0m - might be a backreference, otherwise the value 255
      (decimal)
 
-   • [;;4m\81[0m - is always a backreference
+   • [4m\81[0m - is always a backreference
 
   Note that octal values of 100 or greater that are specified using
   this syntax must not be introduced by a leading zero, because no
@@ -542,11 +542,11 @@
 
   If there are at least three octal digits after the backslash,
   exactly three are read as an octal code point number, but the
-  value must be no greater than [;;4m\377[0m, even in modes where higher
+  value must be no greater than [4m\377[0m, even in modes where higher
   code point values are supported. Any subsequent digits stand for
   themselves. If there are fewer than three octal digits, the
-  sequence is taken as a decimal back reference. Thus, for example, [;;4m[0m
-  [;;4m\12[0m is always a back reference, independent of how many captures
+  sequence is taken as a decimal back reference. Thus, for example, [4m[0m
+  [4m\12[0m is always a back reference, independent of how many captures
   there are in the pattern. An error is generated for a reference to
   a non-existent capturing group.
 
@@ -567,37 +567,37 @@
 
   All the sequences that define a single character value can be used
   both inside and outside character classes. In addition, inside a
-  character class, [;;4m\b[0m is interpreted as the backspace character
+  character class, [4m\b[0m is interpreted as the backspace character
   (hex 08).
 
-  When not followed by an opening brace, [;;4m\N[0m is not allowed in a
-  character class. [;;4m\B[0m, [;;4m\R[0m, and [;;4m\X[0m are not special inside a
+  When not followed by an opening brace, [4m\N[0m is not allowed in a
+  character class. [4m\B[0m, [4m\R[0m, and [4m\X[0m are not special inside a
   character class. Like other unrecognized alphabetic escape
   sequences, they cause an error. Outside a character class, these
   sequences have different meanings.
 
   Unsupported Escape Sequences
 
-  In Perl, the sequences [;;4m\F[0m, [;;4m\l[0m, [;;4m\L[0m, [;;4m\u[0m, and [;;4m\U[0m are
+  In Perl, the sequences [4m\F[0m, [4m\l[0m, [4m\L[0m, [4m\u[0m, and [4m\U[0m are
   recognized by its string handler and used to modify the case of
   following characters. By default, PCRE2 does not support these
   escape sequences in patterns.
 
   Absolute and Relative Backreferences
 
-  The sequence [;;4m\g[0m followed by a signed or unsigned number,
+  The sequence [4m\g[0m followed by a signed or unsigned number,
   optionally enclosed in braces, is an absolute or relative
-  backreference. A named backreference can be coded as [;;4m\g{name}[0m.
+  backreference. A named backreference can be coded as [4m\g{name}[0m.
   Backreferences are discussed later, following the discussion of
   parenthesized groups.
 
   Absolute and Relative Subroutine Calls
 
-  For compatibility with Oniguruma, the non-Perl syntax [;;4m\g[0m
+  For compatibility with Oniguruma, the non-Perl syntax [4m\g[0m
   followed by a name or a number enclosed either in angle brackets
   or single quotes, is an alternative syntax for referencing a
   capture group as a subroutine. Details are discussed later. Note
-  that [;;4m\g{...}[0m (Perl syntax) and [;;4m\g<...>[0m (Oniguruma syntax) are 
+  that [4m\g{...}[0m (Perl syntax) and [4m\g<...>[0m (Oniguruma syntax) are 
   not synonymous. The former is a backreference; the latter is a
   subroutine call.
 
@@ -606,35 +606,35 @@
   Another use of backslash is for specifying generic character
   types:
 
-   • [;;4m\d[0m - any decimal digit
+   • [4m\d[0m - any decimal digit
 
-   • [;;4m\D[0m - any character that is not a decimal digit
+   • [4m\D[0m - any character that is not a decimal digit
 
-   • [;;4m\h[0m - any horizontal white space character
+   • [4m\h[0m - any horizontal white space character
 
-   • [;;4m\H[0m - any character that is not a horizontal white space
+   • [4m\H[0m - any character that is not a horizontal white space
      character
 
-   • [;;4m\N[0m - any character that is not a newline
+   • [4m\N[0m - any character that is not a newline
 
-   • [;;4m\s[0m - any white space character
+   • [4m\s[0m - any white space character
 
-   • [;;4m\S[0m - any character that is not a white space character
+   • [4m\S[0m - any character that is not a white space character
 
-   • [;;4m\v[0m - any vertical white space character
+   • [4m\v[0m - any vertical white space character
 
-   • [;;4m\V[0m - any character that is not a vertical white space
+   • [4m\V[0m - any character that is not a vertical white space
      character
 
-   • [;;4m\w[0m - any "word" character
+   • [4m\w[0m - any "word" character
 
-   • [;;4m\W[0m - any "non-word" character
+   • [4m\W[0m - any "non-word" character
 
-  The [;;4m\N[0m escape sequence has the same meaning as the "."
-  metacharacter when [;;4mdotall[0m is not set, but setting [;;4mdotall[0m does
-  not change the meaning of [;;4m\N[0m. Note that when [;;4m\N[0m is followed by
+  The [4m\N[0m escape sequence has the same meaning as the "."
+  metacharacter when [4mdotall[0m is not set, but setting [4mdotall[0m does
+  not change the meaning of [4m\N[0m. Note that when [4m\N[0m is followed by
   an opening brace it has a different meaning. See Non-Printing
-  Characters. Perl also uses [;;4m\N{name}[0m to specify characters by
+  Characters. Perl also uses [4m\N{name}[0m to specify characters by
   Unicode name; PCRE2 does not support this.
 
   Each pair of lower and upper case escape sequences partitions the
@@ -645,11 +645,11 @@
   matching point is at the end of the subject string, all of them
   fail, because there is no character to match.
 
-  The default [;;4m\s[0m characters are HT (9), LF (10), VT (11), FF (12),
+  The default [4m\s[0m characters are HT (9), LF (10), VT (11), FF (12),
   CR (13), and space (32), which are defined as white space in the
   "C" locale. This list may vary if locale-specific matching is
   taking place. For example, in some locales the "non-breaking
-  space" character ([;;4m\xA0[0m) is recognized as white space, and in
+  space" character ([4m\xA0[0m) is recognized as white space, and in
   others the VT character is not.
 
   A "word" character is an underscore or any character that is a
@@ -658,44 +658,44 @@
   if locale-specific matching is taking place. For example, in a
   French locale such as "fr_FR" in Unix-like systems, or "french" in
   Windows, some character codes greater than 127 are used for
-  accented letters, and these are then matched by [;;4m\w[0m. The use of
+  accented letters, and these are then matched by [4m\w[0m. The use of
   locales with Unicode is discouraged.
 
   By default, characters whose code points are greater than 127
-  never match [;;4m\d[0m, [;;4m\s[0m, or [;;4m\w[0m, and always match [;;4m\D[0m, [;;4m\S[0m, and [;;4m[0m
-  [;;4m\W[0m, although this may be different for characters in the range
+  never match [4m\d[0m, [4m\s[0m, or [4m\w[0m, and always match [4m\D[0m, [4m\S[0m, and [4m[0m
+  [4m\W[0m, although this may be different for characters in the range
   128-255 when locale-specific matching is happening. These escape
   sequences retain their original meanings from before Unicode
-  support was available, mainly for efficiency reasons. If the [;;4mucp[0m
+  support was available, mainly for efficiency reasons. If the [4mucp[0m
   option is set, the behaviour is changed so that Unicode properties
   are used to determine character types, as follows:
 
-   • [;;4m\d[0m - Any character that matches [;;4m\p{Nd}[0m (decimal digit)
+   • [4m\d[0m - Any character that matches [4m\p{Nd}[0m (decimal digit)
 
-   • [;;4m\s[0m - Any character that matches [;;4m\p{Z}[0m or [;;4m\h[0m or [;;4m\v[0m
+   • [4m\s[0m - Any character that matches [4m\p{Z}[0m or [4m\h[0m or [4m\v[0m
 
-   • [;;4m\w[0m - Any character that matches [;;4m\p{L}[0m, [;;4m\p{N}[0m, [;;4m\p{Mn}[0m,
-     or [;;4m\p{Pc}[0m
+   • [4m\w[0m - Any character that matches [4m\p{L}[0m, [4m\p{N}[0m, [4m\p{Mn}[0m,
+     or [4m\p{Pc}[0m
 
-  The addition of [;;4m\p{Mn}[0m (non-spacing mark) and the replacement of
-  an explicit test for underscore with a test for [;;4m\p{Pc}[0m
+  The addition of [4m\p{Mn}[0m (non-spacing mark) and the replacement of
+  an explicit test for underscore with a test for [4m\p{Pc}[0m
   (connector punctuation) happened in PCRE2 release 10.43. This
   brings PCRE2 into line with Perl.
 
   The upper case escapes match the inverse sets of characters. Note
-  that [;;4m\d[0m matches only decimal digits, whereas [;;4m\w[0m matches any
+  that [4m\d[0m matches only decimal digits, whereas [4m\w[0m matches any
   Unicode digit, as well as other character categories. Note also
-  that [;;4mucp[0m affects [;;4m\b[0m, and [;;4m\B[0m because they are defined in
-  terms of [;;4m\w[0m and [;;4m\W[0m. Matching these sequences is noticeably
-  slower when [;;4mucp[0m is set.
+  that [4mucp[0m affects [4m\b[0m, and [4m\B[0m because they are defined in
+  terms of [4m\w[0m and [4m\W[0m. Matching these sequences is noticeably
+  slower when [4mucp[0m is set.
 
-  The effect of [;;4mucp[0m on any one of these escape sequences can be
+  The effect of [4mucp[0m on any one of these escape sequences can be
   negated by the options within a pattern by means of an Internal
   Option Setting.
 
-  The sequences [;;4m\h[0m, [;;4m\H[0m, [;;4m\v[0m, and [;;4m\V[0m, in contrast to the other
+  The sequences [4m\h[0m, [4m\H[0m, [4m\v[0m, and [4m\V[0m, in contrast to the other
   sequences, which match only ASCII characters by default, always
-  match a specific list of code points, whether or not [;;4mucp[0m is set.
+  match a specific list of code points, whether or not [4mucp[0m is set.
   The horizontal space characters are:
 
    • U+0009 - Horizontal tab (HT)
@@ -757,8 +757,8 @@
 
   Newline Sequences
 
-  Outside a character class, by default, the escape sequence [;;4m\R[0m
-  matches any Unicode newline sequence. In 8-bit non-UTF-8 mode [;;4m\R[0m
+  Outside a character class, by default, the escape sequence [4m\R[0m
+  matches any Unicode newline sequence. In 8-bit non-UTF-8 mode [4m\R[0m
   is equivalent to the following:
 
     (?>\r\n|\n|\x0b|\f|\r|\x85)
@@ -776,12 +776,12 @@
   (paragraph separator, U+2029). Unicode support is not needed for
   these characters to be recognized.
 
-  It is possible to restrict [;;4m\R[0m to match only CR, LF, or CRLF
+  It is possible to restrict [4m\R[0m to match only CR, LF, or CRLF
   (instead of the complete set of Unicode line endings) by setting
-  the option [;;4mbsr_anycrlf[0m at compile time. (BSR is an abbreviation
+  the option [4mbsr_anycrlf[0m at compile time. (BSR is an abbreviation
   for "backslash R".) This can be made the default when PCRE2 is
   built; if this is the case, the other behaviour can be requested
-  via the [;;4mbsr_anycrlf[0m option. It is also possible to specify these
+  via the [4mbsr_anycrlf[0m option. It is also possible to specify these
   settings by starting a pattern string with one of the following
   sequences:
 
@@ -799,8 +799,8 @@
 
     (*ANY)(*BSR_ANYCRLF)
 
-  They can also be combined with the [;;4m(*UTF)[0m or [;;4m(*UCP)[0m special
-  sequences. Inside a character class, [;;4m\R[0m is treated as an
+  They can also be combined with the [4m(*UTF)[0m or [4m(*UCP)[0m special
+  sequences. Inside a character class, [4m\R[0m is treated as an
   unrecognized escape sequence, and causes an error.
 
   Unicode Character Properties
@@ -813,22 +813,22 @@
 
   Matching characters by Unicode property is not fast, because PCRE2
   has to do a multistage table lookup in order to find a character's
-  property. That is why the traditional escape sequences such as [;;4m\d[0m
-  and [;;4m\w[0m do not use Unicode properties in PCRE2 by default, though
-  you can make them do so by setting the [;;4mucp[0m option or by starting
-  the pattern with [;;4m(*UCP)[0m.
+  property. That is why the traditional escape sequences such as [4m\d[0m
+  and [4m\w[0m do not use Unicode properties in PCRE2 by default, though
+  you can make them do so by setting the [4mucp[0m option or by starting
+  the pattern with [4m(*UCP)[0m.
 
   The extra escape sequences that provide property support are:
 
-   • [;;4m\p{_xx_}[0m - a character with the _xx_ property
+   • [4m\p{_xx_}[0m - a character with the _xx_ property
 
-   • [;;4m\P{_xx_}[0m - a character without the _xx_ property
+   • [4m\P{_xx_}[0m - a character without the _xx_ property
 
-   • [;;4m\X[0m - a Unicode extended grapheme cluster
+   • [4m\X[0m - a Unicode extended grapheme cluster
 
   For compatibility with Perl, negation can be specified by
   including a circumflex between the opening brace and the property.
-  For example, [;;4m\p{^Lu}[0m is the same as [;;4m\P{Lu}[0m.
+  For example, [4m\p{^Lu}[0m is the same as [4m\P{Lu}[0m.
 
   In accordance with Unicode's "loose matching" rules, ASCII white
   space characters, hyphens, and underscores are ignored in the
@@ -840,7 +840,7 @@
   a value, separated by a colon or an equals sign. The names and
   values consist of ASCII letters and digits (with one Perl-specific
   exception, see below). They are not case sensitive. Note, however,
-  that the escapes themselves, [;;4m\p[0m and [;;4m\P[0m, _are_ case sensitive.
+  that the escapes themselves, [4m\p[0m and [4m\P[0m, _are_ case sensitive.
   There are abbreviations for many names. The following examples are
   all equivalent:
 
@@ -855,33 +855,33 @@
   newline), Bidi_Class, a number of binary (yes/no) properties, and
   some special PCRE2 properties (described below). Certain other
   Perl properties such as "InMusicalSymbols" are not supported by
-  PCRE2. Note that [;;4m\P{Any}[0m does not match any characters, so
+  PCRE2. Note that [4m\P{Any}[0m does not match any characters, so
   always causes a match failure.
 
-  Script Properties for [;;4m\p[0m and [;;4m\P[0m
+  Script Properties for [4m\p[0m and [4m\P[0m
 
   There are three different syntax forms for matching a script. Each
   Unicode character has a basic script and, optionally, a list of
   other scripts ("Script Extensions") with which it is commonly
-  used. Using the Adlam script as an example, [;;4m\p{sc:Adlam}[0m matches
-  characters whose basic script is Adlam, whereas [;;4m\p{scx:Adlam}[0m
+  used. Using the Adlam script as an example, [4m\p{sc:Adlam}[0m matches
+  characters whose basic script is Adlam, whereas [4m\p{scx:Adlam}[0m
   matches, in addition, characters that have Adlam in their
   extensions list. The full names "script" and "script extensions"
   for the property types are recognized and, as for all property
   specifications, an equals sign is an alternative to the colon. If
-  a script name is given without a property type, for example, [;;4m[0m
-  [;;4m\p{Adlam}[0m, it is treated as [;;4m\p{scx:Adlam}[0m. Perl changed to this
+  a script name is given without a property type, for example, [4m[0m
+  [4m\p{Adlam}[0m, it is treated as [4m\p{scx:Adlam}[0m. Perl changed to this
   interpretation at release 5.26 and PCRE2 changed at release 10.40.
 
   Unassigned characters are assigned the "Unknown" script. Others
   that are not part of an identified script are lumped together as
   "Common".
 
-  The General Category Property for [;;4m\p[0m and [;;4m\P[0m
+  The General Category Property for [4m\p[0m and [4m\P[0m
 
   Each character has exactly one Unicode general category property,
   specified by a two-letter abbreviation. If only one letter is
-  specified with [;;4m\p[0m or [;;4m\P[0m, it includes all the general category
+  specified with [4m\p[0m or [4m\P[0m, it includes all the general category
   properties that start with that letter. In this case, in the
   absence of negation, the curly brackets in the escape sequence are
   optional; these two examples have the same effect:
@@ -973,7 +973,7 @@
   Ll, or Lt property, in other words, any letter that is not
   classified as a modifier or "other". From release 10.45 of PCRE2
   the properties Lu, Ll, and Lt are all treated as Lc when
-  case-independent matching is set by the [;;4mcaseless[0m option or (?i)
+  case-independent matching is set by the [4mcaseless[0m option or (?i)
   within the pattern. The other properties are not affected by
   caseless matching.
 
@@ -982,29 +982,29 @@
   valid in Unicode strings and so cannot be tested by PCRE2 in UTF
   mode.
 
-  The long synonyms for property names that Perl supports (such as [;;4m[0m
-  [;;4m\p{Letter}[0m) are not supported by PCRE2, nor is it permitted to
+  The long synonyms for property names that Perl supports (such as [4m[0m
+  [4m\p{Letter}[0m) are not supported by PCRE2, nor is it permitted to
   prefix any of these properties with "Is".
 
   No character that is in the Unicode table has the Cn (unassigned)
   property. Instead, this property is assumed for any code point
   that is not in the Unicode table.
 
-  Binary (Yes/No) Properties for [;;4m\p[0m and [;;4m\P[0m
+  Binary (Yes/No) Properties for [4m\p[0m and [4m\P[0m
 
   Unicode defines a number of binary properties, that is, properties
   whose only values are true or false. You can obtain a list of
-  those that are recognized by [;;4m\p[0m and [;;4m\P[0m, along with their
+  those that are recognized by [4m\p[0m and [4m\P[0m, along with their
   abbreviations, by running this command:
 
     pcre2test -LP
 
-  The Bidi_Class Property for [;;4m\p[0m and [;;4m\P[0m
+  The Bidi_Class Property for [4m\p[0m and [4m\P[0m
 
-   • [;;4m\p{Bidi_Class:<class>}[0m - matches a character with the given
+   • [4m\p{Bidi_Class:<class>}[0m - matches a character with the given
      class
 
-   • [;;4m\p{BC:<class>}[0m - matches a character with the given class
+   • [4m\p{BC:<class>}[0m - matches a character with the given class
 
   The recognized classes are:
 
@@ -1061,7 +1061,7 @@
 
   Extended Grapheme Clusters
 
-  The [;;4m\X[0m escape matches any number of Unicode characters that form
+  The [4m\X[0m escape matches any number of Unicode characters that form
   an "extended grapheme cluster", and treats the sequence as an
   atomic group (see below). Unicode supports various kinds of
   composite character by giving each character a grapheme breaking
@@ -1072,7 +1072,7 @@
   used for emojis. Instead it introduced various emoji-specific
   properties. PCRE2 uses only the Extended Pictographic property.
 
-  [;;4m\X[0m always matches at least one character. Then it decides whether
+  [4m\X[0m always matches at least one character. Then it decides whether
   to add additional characters according to the following rules for
   ending a cluster:
 
@@ -1112,9 +1112,9 @@
 
   As well as the standard Unicode properties described above, PCRE2
   supports four more that make it possible to convert traditional
-  escape sequences such as [;;4m\w[0m and [;;4m\s[0m to use Unicode properties.
-  PCRE2 uses these non-standard, non-Perl properties internally when [;;4m[0m
-  [;;4mucp[0m is set. However, they may also be used explicitly. These
+  escape sequences such as [4m\w[0m and [4m\s[0m to use Unicode properties.
+  PCRE2 uses these non-standard, non-Perl properties internally when [4m[0m
+  [4mucp[0m is set. However, they may also be used explicitly. These
   properties are:
 
    • Xan - Any alphanumeric character
@@ -1141,19 +1141,19 @@
   @, ` (grave accent), and all characters with Unicode code points
   greater than or equal to U+00A0, except for the surrogates U+D800
   to U+DFFF. Note that most base (ASCII) characters are excluded.
-  (Universal Character Names are of the form [;;4m\uHHHH[0m or [;;4m\UHHHHHHH[0m
+  (Universal Character Names are of the form [4m\uHHHH[0m or [4m\UHHHHHHH[0m
   H where H is a hexadecimal digit. Note that the Xuc property does
   not match these sequences but the characters that they represent.)
 
   Resetting the Match Start
 
-  In normal use, the escape sequence [;;4m\K[0m causes any previously
+  In normal use, the escape sequence [4m\K[0m causes any previously
   matched characters not to be included in the final matched
   sequence that is returned. For example, the pattern:
 
     foo\Kbar
 
-  matches "foobar", but reports that it has matched "bar". [;;4m\K[0m does
+  matches "foobar", but reports that it has matched "bar". [4m\K[0m does
   not interact with anchoring in any way. The pattern:
 
     ^foo\Kbar
@@ -1161,16 +1161,16 @@
   matches only when the subject begins with "foobar" (in single line
   mode), though it again reports the matched string as "bar". This
   feature is similar to a lookbehind assertion (described below),
-  but the part of the pattern that precedes [;;4m\K[0m is not constrained
+  but the part of the pattern that precedes [4m\K[0m is not constrained
   to match a limited number of characters, as is required for a
-  lookbehind assertion. The use of [;;4m\K[0m does not interfere with the
+  lookbehind assertion. The use of [4m\K[0m does not interfere with the
   setting of captured substrings. For example, when the pattern
 
     (foo)\Kbar
 
   matches "foobar", the first substring is still set to "foo".
 
-  From version 5.32.0 Perl forbids the use of [;;4m\K[0m in lookaround
+  From version 5.32.0 Perl forbids the use of [4m\K[0m in lookaround
   assertions. From release 10.38 PCRE2 also forbids this by default.
 
   Simple Assertions
@@ -1181,68 +1181,68 @@
   subject string. The use of groups for more complicated assertions
   is described below. The backslashed assertions are:
 
-   • [;;4m\b[0m - matches at a word boundary
+   • [4m\b[0m - matches at a word boundary
 
-   • [;;4m\B[0m - matches when not at a word boundary
+   • [4m\B[0m - matches when not at a word boundary
 
-   • [;;4m\A[0m - matches at the start of the subject
+   • [4m\A[0m - matches at the start of the subject
 
-   • [;;4m\Z[0m - matches at the end of the subject also matches before
+   • [4m\Z[0m - matches at the end of the subject also matches before
      a newline at the end of the subject
 
-   • [;;4m\z[0m - matches only at the end of the subject
+   • [4m\z[0m - matches only at the end of the subject
 
-   • [;;4m\G[0m - matches at the first matching position in the subject
+   • [4m\G[0m - matches at the first matching position in the subject
 
-  Inside a character class, [;;4m\b[0m has a different meaning; it matches
+  Inside a character class, [4m\b[0m has a different meaning; it matches
   the backspace character. If any other of these assertions appears
   in a character class, an "invalid escape sequence" error is
   generated.
 
   A word boundary is a position in the subject string where the
-  current character and the previous character do not both match [;;4m\w[0m
-  or [;;4m\W[0m (i.e. one matches [;;4m\w[0m and the other matches [;;4m\W[0m), or the
-  start or end of the string if the first or last character matches [;;4m[0m
-  [;;4m\w[0m, respectively. When PCRE2 is built with Unicode support, the
-  meanings of [;;4m\w[0m and [;;4m\W[0m can be changed by setting the [;;4mucp[0m
-  option. When this is done, it also affects [;;4m\b[0m and [;;4m\B[0m. Neither
+  current character and the previous character do not both match [4m\w[0m
+  or [4m\W[0m (i.e. one matches [4m\w[0m and the other matches [4m\W[0m), or the
+  start or end of the string if the first or last character matches [4m[0m
+  [4m\w[0m, respectively. When PCRE2 is built with Unicode support, the
+  meanings of [4m\w[0m and [4m\W[0m can be changed by setting the [4mucp[0m
+  option. When this is done, it also affects [4m\b[0m and [4m\B[0m. Neither
   PCRE2 nor Perl has a separate "start of word" or "end of word"
-  metasequence. However, whatever follows [;;4m\b[0m normally determines
-  which it is. For example, the fragment [;;4m\ba[0m matches "a" at the
+  metasequence. However, whatever follows [4m\b[0m normally determines
+  which it is. For example, the fragment [4m\ba[0m matches "a" at the
   start of a word.
 
-  The [;;4m\A[0m, [;;4m\Z[0m, and [;;4m\z[0m assertions differ from the traditional
+  The [4m\A[0m, [4m\Z[0m, and [4m\z[0m assertions differ from the traditional
   circumflex and dollar (described in the next section) in that they
   only ever match at the very start and end of the subject string,
   whatever options are set. Thus, they are independent of multiline
-  mode. These three assertions are not affected by the [;;4mnotbol[0m or [;;4m[0m
-  [;;4mnoteol[0m options, which affect only the behaviour of the circumflex
+  mode. These three assertions are not affected by the [4mnotbol[0m or [4m[0m
+  [4mnoteol[0m options, which affect only the behaviour of the circumflex
   and dollar metacharacters. However, if the startoffset argument
-  of [;;4mrun/3[0m is non-zero, indicating that matching is to start at a
-  point other than the beginning of the subject, [;;4m\A[0m can never
-  match. The difference between [;;4m\Z[0m and [;;4m\z[0m is that [;;4m\Z[0m matches
+  of [4mrun/3[0m is non-zero, indicating that matching is to start at a
+  point other than the beginning of the subject, [4m\A[0m can never
+  match. The difference between [4m\Z[0m and [4m\z[0m is that [4m\Z[0m matches
   before a newline at the end of the string as well as at the very
-  end, whereas [;;4m\z[0m matches only at the end.
+  end, whereas [4m\z[0m matches only at the end.
 
-  The [;;4m\G[0m assertion is true only when the current matching position
+  The [4m\G[0m assertion is true only when the current matching position
   is at the start point of the matching process, as specified by the 
-  startoffset argument of [;;4mrun/3[0m. It differs from [;;4m\A[0m when the
-  value of startoffset is non-zero. By calling [;;4mrun/3[0m multiple
+  startoffset argument of [4mrun/3[0m. It differs from [4m\A[0m when the
+  value of startoffset is non-zero. By calling [4mrun/3[0m multiple
   times with appropriate arguments, you can mimic Perl's /g option,
-  and it is in this kind of implementation where [;;4m\G[0m can be useful.
+  and it is in this kind of implementation where [4m\G[0m can be useful.
 
-  Note, however, that PCRE2's implementation of [;;4m\G[0m, being true at
+  Note, however, that PCRE2's implementation of [4m\G[0m, being true at
   the starting character of the matching process, is subtly
   different from Perl's, which defines it as true at the end of the
   previous match. In Perl, these can be different when the
   previously matched string was empty. Because PCRE2 does just one
   match at a time, it cannot reproduce this behaviour.
 
-  If all the alternatives of a pattern begin with [;;4m\G[0m, the
+  If all the alternatives of a pattern begin with [4m\G[0m, the
   expression is anchored to the starting match position, and the
   "anchored" flag is set in the compiled regular expression.
 
-[;1mCircumflex and Dollar[0m
+[1mCircumflex and Dollar[0m
 
   The circumflex and dollar metacharacters are zero-width
   assertions. That is, they test for a particular condition being
@@ -1256,8 +1256,8 @@
   Outside a character class, in the default matching mode, the
   circumflex character is an assertion that is true only if the
   current matching point is at the start of the subject string. If
-  the startoffset argument of [;;4mrun/3[0m is non-zero, or if [;;4mnotbol[0m
-  is set, circumflex can never match if the [;;4mmultiline[0m option is
+  the startoffset argument of [4mrun/3[0m is non-zero, or if [4mnotbol[0m
+  is set, circumflex can never match if the [4mmultiline[0m option is
   unset. Inside a character class, circumflex has an entirely
   different meaning (see below).
 
@@ -1273,18 +1273,18 @@
   The dollar character is an assertion that is true only if the
   current matching point is at the end of the subject string, or
   immediately before a newline at the end of the string (by
-  default), unless [;;4mnoteol[0m is set. Note, however, that it does not
+  default), unless [4mnoteol[0m is set. Note, however, that it does not
   actually match the newline. Dollar need not be the last character
   of the pattern if a number of alternatives are involved, but it
   should be the last item in any branch in which it appears. Dollar
   has no special meaning in a character class.
 
   The meaning of dollar can be changed so that it matches only at
-  the very end of the string, by setting the [;;4mdollar_endonly[0m option
-  at compile time. This does not affect the [;;4m\Z[0m assertion.
+  the very end of the string, by setting the [4mdollar_endonly[0m option
+  at compile time. This does not affect the [4m\Z[0m assertion.
 
   The meanings of the circumflex and dollar metacharacters are
-  changed if the [;;4mmultiline[0m option is set. When this is the case, a
+  changed if the [4mmultiline[0m option is set. When this is the case, a
   dollar character matches before any newlines in the string, as
   well as at the very end, and a circumflex matches immediately
   after internal newlines as well as at the start of the subject
@@ -1292,12 +1292,12 @@
   for compatibility with Perl.
 
   For example, the pattern /^abc$/ matches the subject string
-  "def\nabc" (where [;;4m\n[0m represents a newline) in multiline mode,
+  "def\nabc" (where [4m\n[0m represents a newline) in multiline mode,
   but not otherwise. Consequently, patterns that are anchored in
   single line mode because all branches start with ^ are not
   anchored in multiline mode, and a match for circumflex is possible
-  when the startoffset argument of [;;4mrun/3[0m is non-zero. The [;;4m[0m
-  [;;4mdollar_endonly[0m option is ignored if [;;4mmultiline[0m is set.
+  when the startoffset argument of [4mrun/3[0m is non-zero. The [4m[0m
+  [4mdollar_endonly[0m option is ignored if [4mmultiline[0m is set.
 
   When the Newline Conventions recognizes the two-character sequence
   CRLF as a newline, this is preferred, even if the single
@@ -1307,12 +1307,12 @@
   CR, even though CR on its own is a valid newline. (It also matches
   at the very start of the string, of course.)
 
-  Note that the sequences [;;4m\A[0m, [;;4m\Z[0m, and [;;4m\z[0m can be used to match
+  Note that the sequences [4m\A[0m, [4m\Z[0m, and [4m\z[0m can be used to match
   the start and end of the subject in both modes, and if all
-  branches of a pattern start with [;;4m\A[0m it is always anchored,
-  whether or not [;;4mmultiline[0m is set.
+  branches of a pattern start with [4m\A[0m it is always anchored,
+  whether or not [4mmultiline[0m is set.
 
-[;1mFull Stop (Period, Dot) and \N[0m
+[1mFull Stop (Period, Dot) and \N[0m
 
   Outside a character class, a dot in the pattern matches any one
   character in the subject string except (by default) a character
@@ -1329,7 +1329,7 @@
   characters.
 
   The behaviour of dot with regard to newlines can be changed. If
-  the [;;4mdotall[0m option is set, a dot matches any one character,
+  the [4mdotall[0m option is set, a dot matches any one character,
   without exception. If the two-character sequence CRLF is present
   in the subject string, it takes two dots to match it.
 
@@ -1337,36 +1337,36 @@
   circumflex and dollar, the only relationship being that they both
   involve newlines. Dot has no special meaning in a character class.
 
-  The escape sequence [;;4m\N[0m when not followed by an opening brace
-  behaves like a dot, except that it is not affected by the [;;4mdotall[0m
+  The escape sequence [4m\N[0m when not followed by an opening brace
+  behaves like a dot, except that it is not affected by the [4mdotall[0m
   option. In other words, it matches any character except one that
   signifies the end of a line.
 
-  When [;;4m\N[0m is followed by an opening brace it has a different
-  meaning. See Non-Printing Characters. Perl also uses [;;4m\N{name}[0m to
+  When [4m\N[0m is followed by an opening brace it has a different
+  meaning. See Non-Printing Characters. Perl also uses [4m\N{name}[0m to
   specify characters by Unicode name; PCRE2 does not support this.
 
-[;1mMatching a Single Code Unit[0m
+[1mMatching a Single Code Unit[0m
 
-  Outside a character class, the escape sequence [;;4m\C[0m matches any
+  Outside a character class, the escape sequence [4m\C[0m matches any
   one code unit, whether or not a UTF mode is set. In the 8-bit
-  library, one code unit is one byte. Unlike a dot, [;;4m\C[0m always
+  library, one code unit is one byte. Unlike a dot, [4m\C[0m always
   matches line-ending characters. The feature is provided in Perl in
   order to match individual bytes in UTF-8 mode, but it is unclear
   how it can usefully be used.
 
-  Because [;;4m\C[0m breaks up characters into individual code units,
-  matching one unit with [;;4m\C[0m in UTF-8 mode means that the rest of
+  Because [4m\C[0m breaks up characters into individual code units,
+  matching one unit with [4m\C[0m in UTF-8 mode means that the rest of
   the string may start with a malformed UTF character. This has
   undefined results, because PCRE2 assumes that it is matching
   character by character in a valid UTF string (by default it checks
   the subject string's validity at the start of processing).
 
-  PCRE2 does not allow [;;4m\C[0m to appear in lookbehind assertions
+  PCRE2 does not allow [4m\C[0m to appear in lookbehind assertions
   (described below) in UTF-8 mode, because this would make it
   impossible to calculate the length of the lookbehind.
 
-  In general, the [;;4m\C[0m escape sequence is best avoided. However, one
+  In general, the [4m\C[0m escape sequence is best avoided. However, one
   way of using it that avoids the problem of malformed UTF-8
   characters is to use a lookahead to check the length of the next
   character, as in this pattern, which could be used with a UTF-8
@@ -1377,14 +1377,14 @@
           (?=[\x{800}-\x{ffff}])(\C)(\C)(\C) |
           (?=[\x{10000}-\x{1fffff}])(\C)(\C)(\C)(\C))
 
-  In this example, a group that starts with [;;4m(?|[0m resets the
+  In this example, a group that starts with [4m(?|[0m resets the
   capturing parentheses numbers in each alternative (see Duplicate
   Group Numbers). The assertions at the start of each branch check
   the next UTF-8 character for values whose encoding uses 1, 2, 3,
   or 4 bytes, respectively. The character's individual bytes are
-  then captured by the appropriate number of [;;4m\C[0m groups.
+  then captured by the appropriate number of [4m\C[0m groups.
 
-[;1mSquare Brackets and Character Classes[0m
+[1mSquare Brackets and Character Classes[0m
 
   An opening square bracket introduces a character class, terminated
   by a closing square bracket. A closing square bracket on its own
@@ -1411,35 +1411,35 @@
   it fails to match if the current pointer is at the end of the
   string.
 
-  Characters in a class may be specified by their code points using [;;4m[0m
-  [;;4m\o[0m, [;;4m\x[0m, or [;;4m\N{U+hh..}[0m in the usual way. When caseless
+  Characters in a class may be specified by their code points using [4m[0m
+  [4m\o[0m, [4m\x[0m, or [4m\N{U+hh..}[0m in the usual way. When caseless
   matching is set, any letters in a class represent both their upper
   case and lower case versions, so for example, a caseless [aeiou]
   matches "A" as well as "a", and a caseless [^aeiou] does not match
   "A", whereas a caseful version would. Note that there are two
   ASCII characters, K and S, that, in addition to their lower case
   ASCII equivalents, are case-equivalent with Unicode U+212A (Kelvin
-  sign) and U+017F (long S) respectively when either [;;4municode[0m or [;;4m[0m
-  [;;4mucp[0m is set.
+  sign) and U+017F (long S) respectively when either [4municode[0m or [4m[0m
+  [4mucp[0m is set.
 
   Characters that might indicate line breaks are never treated in
   any special way when matching character classes, whatever
-  line-ending sequence is in use, and whatever setting of the [;;4m[0m
-  [;;4mdotall[0m and [;;4mmultiline[0m options is used. A class such as [^a]
+  line-ending sequence is in use, and whatever setting of the [4m[0m
+  [4mdotall[0m and [4mmultiline[0m options is used. A class such as [^a]
   always matches one of these characters.
 
-  The generic character type escape sequences [;;4m\d[0m, [;;4m\D[0m, [;;4m\h[0m, [;;4m\H[0m, [;;4m[0m
-  [;;4m\p[0m, [;;4m\P[0m, [;;4m\s[0m, [;;4m\S[0m, [;;4m\v[0m, [;;4m\V[0m, [;;4m\w[0m, and [;;4m\W[0m may appear in a
+  The generic character type escape sequences [4m\d[0m, [4m\D[0m, [4m\h[0m, [4m\H[0m, [4m[0m
+  [4m\p[0m, [4m\P[0m, [4m\s[0m, [4m\S[0m, [4m\v[0m, [4m\V[0m, [4m\w[0m, and [4m\W[0m may appear in a
   character class, and add the characters that they match to the
-  class. For example, [[;;4m\dABCDEF][0m matches any hexadecimal digit. In
-  UTF modes, the [;;4mucp[0m option affects the meanings of [;;4m\d[0m, [;;4m\s[0m, [;;4m[0m
-  [;;4m\w[0m and their upper case partners, just as it does when they
+  class. For example, [[4m\dABCDEF][0m matches any hexadecimal digit. In
+  UTF modes, the [4mucp[0m option affects the meanings of [4m\d[0m, [4m\s[0m, [4m[0m
+  [4m\w[0m and their upper case partners, just as it does when they
   appear outside a character class, as described in Generic
-  character types. The escape sequence [;;4m\b[0m has a different meaning
+  character types. The escape sequence [4m\b[0m has a different meaning
   inside a character class; it matches the backspace character. The
-  sequences [;;4m\B[0m, [;;4m\R[0m, and [;;4m\X[0m are not special inside a character
+  sequences [4m\B[0m, [4m\R[0m, and [4m\X[0m are not special inside a character
   class. Like any other unrecognized escape sequences, they cause an
-  error. The same is true for [;;4m\N[0m when not followed by an opening
+  error. The same is true for [4m\N[0m when not followed by an opening
   brace.
 
   The minus (hyphen) character can be used to specify a range of
@@ -1453,32 +1453,32 @@
 
   Perl treats a hyphen as a literal if it appears before or after a
   POSIX class (see below) or before or after a character type escape
-  such as [;;4m\d[0m or [;;4m\H[0m. However, unless the hyphen is the last
+  such as [4m\d[0m or [4m\H[0m. However, unless the hyphen is the last
   character in the class, Perl outputs a warning in its warning
   mode, as this is most likely a user error. As PCRE2 has no
   facility for warning, an error is given in these cases.
 
   It is not possible to have the literal character "]" as the end
-  character of a range. A pattern such as [;;4m[W-]46][0m is interpreted
+  character of a range. A pattern such as [4m[W-]46][0m is interpreted
   as a class of two characters ("W" and "-") followed by a literal
   string "46]", so it would match "W46]" or "-46]". However, if the
   "]" is escaped with a backslash it is interpreted as the end of a
-  range, so [;;4m[W-\]46][0m is interpreted as a class containing a range
+  range, so [4m[W-\]46][0m is interpreted as a class containing a range
   and two other characters. The octal or hexadecimal representation
   of "]" can also be used to end a range.
 
   Ranges normally include all code points between the start and end
   characters, inclusive. They can also be used for code points
-  specified numerically, for example [;;4m[\000-\037][0m. Ranges can
+  specified numerically, for example [4m[\000-\037][0m. Ranges can
   include any characters that are valid for the current mode. In any
   UTF mode, the so-called "surrogate" characters (those whose code
   points lie between 0xd800 and 0xdfff inclusive) may not be
-  specified explicitly by default. However, ranges such as [;;4m[0m
-  [;;4m[\x{d7ff}-\x{e000}][0m, which include the surrogates, are always
+  specified explicitly by default. However, ranges such as [4m[0m
+  [4m[\x{d7ff}-\x{e000}][0m, which include the surrogates, are always
   permitted.
 
   If a range that includes letters is used when caseless matching is
-  set, it matches the letters in either case. For example, [;;4m[W-c][0m
+  set, it matches the letters in either case. For example, [4m[W-c][0m
   is equivalent to
 
     tables for a French locale are in use, `[\xc8-\xcb]` matches accented E
@@ -1560,7 +1560,7 @@
 
    • cntrl - control characters
 
-   • digit - decimal digits (same as [;;4m\d[0m)
+   • digit - decimal digits (same as [4m\d[0m)
 
    • graph - printing characters, excluding space
 
@@ -1571,28 +1571,28 @@
    • punct - printing characters, excluding letters and digits
      and space
 
-   • space - white space (the same as [;;4m\s[0m from PCRE2 8.34)
+   • space - white space (the same as [4m\s[0m from PCRE2 8.34)
 
    • upper - upper case letters
 
-   • word - "word" characters (same as [;;4m\w[0m)
+   • word - "word" characters (same as [4m\w[0m)
 
    • xdigit - hexadecimal digits
 
   The default "space" characters are HT (9), LF (10), VT (11), FF
   (12), CR (13), and space (32). If locale-specific matching is
   taking place, the list of space characters may be different; there
-  may be fewer or more of them. "Space" and [;;4m\s[0m match the same set
-  of characters, as do "word" and [;;4m\w[0m.
+  may be fewer or more of them. "Space" and [4m\s[0m match the same set
+  of characters, as do "word" and [4m\w[0m.
 
   The name "word" is a Perl extension, and "blank" is a GNU
   extension from Perl 5.8. Another Perl extension is negation, which
-  is indicated by a [;;4m^[0m character after the colon. For example,
+  is indicated by a [4m^[0m character after the colon. For example,
 
     [12[:^digit:]]
 
   matches "1", "2", or any non-digit. PCRE2 (and Perl) also
-  recognize the POSIX syntax [;;4m[.ch.][0m and [;;4m[=ch=][0m where "ch" is a
+  recognize the POSIX syntax [4m[.ch.][0m and [4m[=ch=][0m where "ch" is a
   "collating element", but these are not supported, and an error is
   given if they are encountered.
 
@@ -1604,28 +1604,28 @@
   character properties are used. This is achieved by replacing POSIX
   classes with other sequences, as follows:
 
-   • [;;4m[:alnum:][0m - Becomes [;;4m\p{Xan}[0m
+   • [4m[:alnum:][0m - Becomes [4m\p{Xan}[0m
 
-   • [;;4m[:alpha:][0m - Becomes [;;4m\p{L}[0m
+   • [4m[:alpha:][0m - Becomes [4m\p{L}[0m
 
-   • [;;4m[:blank:][0m - Becomes [;;4m\h[0m
+   • [4m[:blank:][0m - Becomes [4m\h[0m
 
-   • [;;4m[:cntrl:][0m - Becomes \p{Cc}
+   • [4m[:cntrl:][0m - Becomes \p{Cc}
 
-   • [;;4m[:digit:][0m - Becomes [;;4m\p{Nd}[0m
+   • [4m[:digit:][0m - Becomes [4m\p{Nd}[0m
 
-   • [;;4m[:lower:][0m - Becomes [;;4m\p{Ll}[0m
+   • [4m[:lower:][0m - Becomes [4m\p{Ll}[0m
 
-   • [;;4m[:space:][0m - Becomes [;;4m\p{Xps}[0m
+   • [4m[:space:][0m - Becomes [4m\p{Xps}[0m
 
-   • [;;4m[:upper:][0m - Becomes [;;4m\p{Lu}[0m
+   • [4m[:upper:][0m - Becomes [4m\p{Lu}[0m
 
-   • [;;4m[:word:][0m - Becomes [;;4m\p{Xwd}[0m
+   • [4m[:word:][0m - Becomes [4m\p{Xwd}[0m
 
-  Negated versions, such as [;;4m[:^alpha:][0m, use [;;4m\P[0m instead of [;;4m\p[0m.
+  Negated versions, such as [4m[:^alpha:][0m, use [4m\P[0m instead of [4m\p[0m.
   Four other POSIX classes are handled specially in UCP mode:
 
-   • [;;4m[:graph:][0m - This matches characters that have glyphs that
+   • [4m[:graph:][0m - This matches characters that have glyphs that
      mark the page when printed. In Unicode property terms, it
      matches all characters with the L, M, N, P, S, or Cf
      properties, except for:
@@ -1636,37 +1636,37 @@
 
       ￮ U+2066 - U+2069 - Various "isolate"s
 
-   • [;;4m[:print:][0m - This matches the same characters as [;;4m[:graph:][0m
+   • [4m[:print:][0m - This matches the same characters as [4m[:graph:][0m
      plus space characters that are not controls, that is,
      characters with the Zs property.
 
-   • [;;4m[:punct:][0m - This matches all characters that have the
+   • [4m[:punct:][0m - This matches all characters that have the
      Unicode P (punctuation) property, plus those characters with
      code points less than 256 that have the S (Symbol) property.
 
-   • [;;4m[:xdigit:][0m - In addition to the ASCII hexadecimal digits,
+   • [4m[:xdigit:][0m - In addition to the ASCII hexadecimal digits,
      this also matches the "fullwidth"
 
   versions of those characters, whose Unicode code points start at
   U+FF10. This is a change that was made in PCRE2 release 10.43 for
   Perl compatibility.
 
-  The other POSIX classes are unchanged by [;;4mucp[0m, and match only
+  The other POSIX classes are unchanged by [4mucp[0m, and match only
   characters with code points less than 256.
 
   There are two options that can be used to restrict the POSIX
-  classes to ASCII characters when [;;4mucp[0m is set. The option
-  PCRE2_EXTRA_ASCII_DIGIT affects just [;;4m[:digit:][0m and [;;4m[:xdigit:][0m.
-  Within a pattern, this can be set and unset by [;;4m(?aT)[0m and [;;4m(?-aT)[0m.
+  classes to ASCII characters when [4mucp[0m is set. The option
+  PCRE2_EXTRA_ASCII_DIGIT affects just [4m[:digit:][0m and [4m[:xdigit:][0m.
+  Within a pattern, this can be set and unset by [4m(?aT)[0m and [4m(?-aT)[0m.
   The PCRE2_EXTRA_ASCII_POSIX option disables UCP processing for all
-  POSIX classes, including [;;4m[:digit:][0m and [;;4m[:xdigit:][0m. Within a
-  pattern, [;;4m(?aP)[0m and [;;4m(?-aP)[0m set and unset both these options for
+  POSIX classes, including [4m[:digit:][0m and [4m[:xdigit:][0m. Within a
+  pattern, [4m(?aP)[0m and [4m(?-aP)[0m set and unset both these options for
   consistency.
 
   Compatibility Feature for Word Boundaries
 
   In the POSIX.2 compliant library that was included in 4.4BSD Unix,
-  the ugly syntax [;;4m[[:<:]][0m and [;;4m[[:>:]][0m is used for matching
+  the ugly syntax [4m[[:<:]][0m and [4m[[:>:]][0m is used for matching
   "start of word" and "end of word". PCRE2 treats these items as
   follows:
 
@@ -1677,15 +1677,15 @@
   such as [a[:<:]b] provokes error for an unrecognized POSIX class
   name. This support is not compatible with Perl. It is provided to
   help migrations from other environments, and is best not used in
-  any new patterns. Note that [;;4m\b[0m matches at the start and the end
+  any new patterns. Note that [4m\b[0m matches at the start and the end
   of a word (see "Simple assertions" above), and in a Perl-style
   pattern the preceding or following character normally shows which
   is wanted, without the need for the assertions that are used above
-  in order to give exactly the POSIX behaviour. Note also that the [;;4m[0m
-  [;;4mucp[0m option changes the meaning of [;;4m\w[0m (and therefore [;;4m\b)[0m by
+  in order to give exactly the POSIX behaviour. Note also that the [4m[0m
+  [4mucp[0m option changes the meaning of [4m\w[0m (and therefore [4m\b)[0m by
   default, so it also affects these POSIX sequences.
 
-[;1mVertical Bar[0m
+[1mVertical Bar[0m
 
   Vertical bar characters are used to separate alternative patterns.
   For example, the pattern
@@ -1700,7 +1700,7 @@
   means matching the rest of the main pattern as well as the
   alternative in the group.
 
-[;1mInternal Option Setting[0m
+[1mInternal Option Setting[0m
 
   The settings of several options can be changed within a pattern by
   a sequence of letters enclosed between "(?" and ")". The option
@@ -1719,14 +1719,14 @@
   not independent; unsetting either one cancels the effects of both
   of them.
 
-  A combined setting and unsetting such as (?im-sx), which sets [;;4m[0m
-  [;;4mcaseless[0m and [;;4mmultiline[0m while unsetting [;;4mdotall[0m and [;;4mextended[0m,
+  A combined setting and unsetting such as (?im-sx), which sets [4m[0m
+  [4mcaseless[0m and [4mmultiline[0m while unsetting [4mdotall[0m and [4mextended[0m,
   is also permitted. Only one hyphen may appear in the options
   string. If a letter appears both before and after the hyphen, the
   option is unset. An empty options setting "(?)" is allowed.
   Needless to say, it has no effect.
 
-  If the first character following [;;4m(?[0m is a circumflex, it causes
+  If the first character following [4m(?[0m is a circumflex, it causes
   all of the above options to be unset. Letters may follow the
   circumflex to cause some options to be re-instated, but a hyphen
   may not appear.
@@ -1743,14 +1743,14 @@
     J  for `dupnames`
     U  for `ungreedy`
 
-  However, except for 'r', these are not unset by [;;4m(?^)[0m, which is
-  equivalent to [;;4m(?-imnrsx)[0m. If 'a' is not followed by any of the
+  However, except for 'r', these are not unset by [4m(?^)[0m, which is
+  equivalent to [4m(?-imnrsx)[0m. If 'a' is not followed by any of the
   upper case letters shown above, it sets (or unsets) all the ASCII
   options.
 
   PCRE2_EXTRA_ASCII_DIGIT has no additional effect when
-  PCRE2_EXTRA_ASCII_POSIX is set, but including it in [;;4m(?aP)[0m means
-  that [;;4m(?-aP)[0m suppresses all ASCII restrictions for POSIX classes.
+  PCRE2_EXTRA_ASCII_POSIX is set, but including it in [4m(?aP)[0m means
+  that [4m(?-aP)[0m suppresses all ASCII restrictions for POSIX classes.
 
   When one of these option changes occurs at top level (that is, not
   inside group parentheses), the change applies until a subsequent
@@ -1761,7 +1761,7 @@
 
     (a(?i)b)c
 
-  matches abc and aBc and no other strings (assuming [;;4mcaseless[0m is
+  matches abc and aBc and no other strings (assuming [4mcaseless[0m is
   not set externally). Any changes made in one alternative do carry
   on into subsequent branches within the same group. For example,
 
@@ -1782,22 +1782,22 @@
 
   match exactly the same set of strings.
 
-  [;;4mNote[0m
+  [4mNote[0m
 
     There are other PCRE2-specific options, applying to the whole
     pattern, which can be set by the application when the
     compiling function is called. In addition, the pattern can
-    contain special leading sequences such as [;;4m(*CRLF)[0m to
+    contain special leading sequences such as [4m(*CRLF)[0m to
     override what the application has set or what has been
     defaulted. Details are given in Newline Sequences. There are
-    also the [;;4m(*UTF)[0m and [;;4m(*UCP)[0m leading sequences that can be
+    also the [4m(*UTF)[0m and [4m(*UCP)[0m leading sequences that can be
     used to set UTF and Unicode property modes; they are
-    equivalent to setting the [;;4municode[0m and [;;4mucp[0m options,
-    respectively. However, the application can set the [;;4mnever_utf[0m
-    or [;;4mnever_ucp[0m options, which lock out the use of the [;;4m(*UTF)[0m
-    and [;;4m(*UCP)[0m sequences.
+    equivalent to setting the [4municode[0m and [4mucp[0m options,
+    respectively. However, the application can set the [4mnever_utf[0m
+    or [4mnever_ucp[0m options, which lock out the use of the [4m(*UTF)[0m
+    and [4m(*UCP)[0m sequences.
 
-[;1mGroups[0m
+[1mGroups[0m
 
   Groups are delimited by parentheses (round brackets), which can be
   nested. Turning part of a pattern into a group does two things:
@@ -1830,7 +1830,7 @@
   mark and a colon, the group does not do any capturing, and is not
   counted when computing the number of any subsequent capture
   groups. For example, if the string "the white queen" is matched
-  against the pattern the [;;4m((?:red|white) (king|queen))[0m the
+  against the pattern the [4m((?:red|white) (king|queen))[0m the
   captured substrings are "white queen" and "queen", and are
   numbered 1 and
 
@@ -1849,21 +1849,21 @@
   branch does affect subsequent branches, so the above patterns
   match "SUNDAY" as well as "Saturday".
 
-[;1mDuplicate Group Numbers[0m
+[1mDuplicate Group Numbers[0m
 
   Perl 5.10 introduced a feature whereby each alternative in a group
   uses the same numbers for its capturing parentheses. Such a group
-  starts with [;;4m(?|[0m and is itself a non-capturing group. For
+  starts with [4m(?|[0m and is itself a non-capturing group. For
   example, consider this pattern:
 
     (?|(Sat)ur|(Sun))day
 
-  Because the two alternatives are inside a [;;4m(?|[0m group, both sets
+  Because the two alternatives are inside a [4m(?|[0m group, both sets
   of capturing parentheses are numbered one. Thus, when the pattern
   matches, you can look at captured substring number one, whichever
   alternative matched. This construct is useful when you want to
   capture part, but not all, of one of a number of alternatives.
-  Inside a [;;4m(?|[0m group, parentheses are numbered as usual, but the
+  Inside a [4m(?|[0m group, parentheses are numbered as usual, but the
   number is reset at the start of each branch. The numbers of any
   capturing parentheses that follow the whole group start after the
   highest number used in any branch. The following example is taken
@@ -1886,7 +1886,7 @@
 
     /(?|(abc)|(def))(?1)/
 
-  A relative reference such as [;;4m(?-1)[0m is no different: it is just a
+  A relative reference such as [4m(?-1)[0m is no different: it is just a
   convenient way of computing an absolute group number.
 
   If a condition test for a group's having matched refers to a
@@ -1896,7 +1896,7 @@
   An alternative approach to using this "branch reset" feature is to
   use duplicate named groups, as described in the next section.
 
-[;1mNamed Capture Groups[0m
+[1mNamed Capture Groups[0m
 
   Identifying capture groups by number is simple, but it can be very
   hard to keep track of the numbers in complicated patterns.
@@ -1907,18 +1907,18 @@
   4.0, using the Python syntax. PCRE2 supports both the Perl and the
   Python syntax.
 
-  In PCRE2, a capture group can be named in one of three ways: [;;4m[0m
-  [;;4m(?<name>...)[0m or [;;4m(?'name'...)[0m as in Perl, or [;;4m(?P<name>...)[0m as
-  in Python. Names may be up to 128 code units long. When [;;4municode[0m
+  In PCRE2, a capture group can be named in one of three ways: [4m[0m
+  [4m(?<name>...)[0m or [4m(?'name'...)[0m as in Perl, or [4m(?P<name>...)[0m as
+  in Python. Names may be up to 128 code units long. When [4municode[0m
   is not set, they may contain only ASCII alphanumeric characters
-  and underscores, but must start with a non-digit. When [;;4municode[0m
+  and underscores, but must start with a non-digit. When [4municode[0m
   is set, the syntax of group names is extended to allow any Unicode
   letter or Unicode decimal digit. In other words, group names must
   match one of these patterns:
 
-   • [;;4m^_A-Za-z*\z[0m - when unicode is not set
+   • [4m^_A-Za-z*\z[0m - when unicode is not set
 
-   • [;;4m^_\p{L}*\z[0m - when unicode is set
+   • [4m^_\p{L}*\z[0m - when unicode is set
 
   References to capture groups from other parts of the pattern, such
   as backreferences, recursion, and conditions, can all be made by
@@ -1932,7 +1932,7 @@
   from a compiled pattern, as well as convenience functions for
   extracting captured substrings by name.
 
-  [;;4mWarning[0m
+  [4mWarning[0m
 
     When more than one capture group has the same number, as
     described in the previous section, a name given to one of them
@@ -1963,8 +1963,8 @@
 
     (?|(?<AA>aa)|(?<AA>bb))
 
-  The duplicate name constraint can be disabled by setting the [;;4m[0m
-  [;;4mdupnames[0m option at compile time, or by the use of [;;4m(?J)[0m within
+  The duplicate name constraint can be disabled by setting the [4m[0m
+  [4mdupnames[0m option at compile time, or by the use of [4m(?J)[0m within
   the pattern, see Internal Option Setting.
 
   Duplicate names can be useful for patterns where only one instance
@@ -2009,7 +2009,7 @@
   overall condition is true. This is the same behaviour as testing
   by number.
 
-[;1mRepetition[0m
+[1mRepetition[0m
 
   Repetition is specified by quantifiers, which may follow any one
   of these items:
@@ -2060,36 +2060,36 @@
 
   If the characters that follow an opening brace do not match the
   syntax of a quantifier, the brace is taken as a literal character.
-  In particular, this means that [;;4m{,}[0m is a literal string of three
+  In particular, this means that [4m{,}[0m is a literal string of three
   characters.
 
   Note that not every opening brace is potentially the start of a
-  quantifier because braces are used in other items such as [;;4m[0m
-  [;;4m\N{U+345}[0m or [;;4m\k{name}[0m.
+  quantifier because braces are used in other items such as [4m[0m
+  [4m\N{U+345}[0m or [4m\k{name}[0m.
 
   In UTF modes, quantifiers apply to characters rather than to
-  individual code units. Thus, for example, [;;4m\x{100}{2}[0m matches two
+  individual code units. Thus, for example, [4m\x{100}{2}[0m matches two
   characters, each of which is represented by a two-byte sequence in
-  a UTF-8 string. Similarly, [;;4m\X{3}[0m matches three Unicode extended
+  a UTF-8 string. Similarly, [4m\X{3}[0m matches three Unicode extended
   grapheme clusters, each of which may be several code units long
   (and they may be of different lengths).
 
-  The quantifier [;;4m{0}[0m is permitted, causing the expression to
+  The quantifier [4m{0}[0m is permitted, causing the expression to
   behave as if the previous item and the quantifier were not
   present. This may be useful for capture groups that are referenced
   as subroutines from elsewhere in the pattern (see Defining capture
   groups for use by reference only). Except for parenthesized
-  groups, items that have a [;;4m{0}[0m quantifier are omitted from the
+  groups, items that have a [4m{0}[0m quantifier are omitted from the
   compiled pattern.
 
   For convenience, the three most common quantifiers have
   single-character abbreviations:
 
-   • [;;4m*[0m - is equivalent to {0,}
+   • [4m*[0m - is equivalent to {0,}
 
-   • [;;4m+[0m - is equivalent to {1,}
+   • [4m+[0m - is equivalent to {1,}
 
-   • [;;4m?[0m - is equivalent to {0,1}
+   • [4m?[0m - is equivalent to {0,1}
 
   It is possible to construct infinite loops by following a group
   that can match no characters with a quantifier that has no upper
@@ -2110,8 +2110,8 @@
   as possible (up to the maximum number of permitted repetitions),
   without causing the rest of the pattern to fail. The classic
   example of where this gives problems is in trying to match
-  comments in C programs. These appear between [;;4m/*[0m and [;;4m*/[0m and
-  within the comment, individual [;;4m*[0m and [;;4m/[0m characters may appear.
+  comments in C programs. These appear between [4m/*[0m and [4m*/[0m and
+  within the comment, individual [4m*[0m and [4m/[0m characters may appear.
   An attempt to match C comments by applying the pattern
 
     /\*.*\*/
@@ -2121,7 +2121,7 @@
     /* first comment */  not comment  /* second comment */
 
   fails, because it matches the entire string owing to the
-  greediness of the [;;4m.*[0m item. However, if a quantifier is followed
+  greediness of the [4m.*[0m item. However, if a quantifier is followed
   by a question mark, it ceases to be greedy, and instead matches
   the minimum number of times possible, so the pattern
 
@@ -2138,7 +2138,7 @@
   which matches one digit by preference, but can match two if that
   is the only way the rest of the pattern matches.
 
-  If the [;;4mungreedy[0m option is set (an option that is not available
+  If the [4mungreedy[0m option is set (an option that is not available
   in Perl), the quantifiers are not greedy by default, but
   individual ones can be made greedy by following them with a
   question mark. In other words, it inverts the default behaviour.
@@ -2148,17 +2148,17 @@
   memory is required for the compiled pattern, in proportion to the
   size of the minimum or maximum.
 
-  If a pattern starts with [;;4m.*[0m or [;;4m.{0,}[0m and the [;;4mdotall[0m option
+  If a pattern starts with [4m.*[0m or [4m.{0,}[0m and the [4mdotall[0m option
   (equivalent to Perl's /s) is set, thus allowing the dot to match
   newlines, the pattern is implicitly anchored, because whatever
   follows will be tried against every character position in the
   subject string, so there is no point in retrying the overall match
   at any position after the first. PCRE2 normally treats such a
-  pattern as though it were preceded by [;;4m\A[0m.
+  pattern as though it were preceded by [4m\A[0m.
 
   In cases where it is known that the subject string contains no
-  newlines, it is worth setting [;;4mdotall[0m in order to obtain this
-  optimization, or alternatively, using [;;4m^[0m to indicate anchoring
+  newlines, it is worth setting [4mdotall[0m in order to obtain this
+  optimization, or alternatively, using [4m^[0m to indicate anchoring
   explicitly.
 
   However, there are some cases where the optimization cannot be
@@ -2179,7 +2179,7 @@
     (?>.*?a)b
 
   It matches "ab" in the subject "aab". The use of the backtracking
-  control verbs [;;4m(*PRUNE)[0m and [;;4m(*SKIP)[0m also disable this
+  control verbs [4m(*PRUNE)[0m and [4m(*SKIP)[0m also disable this
   optimization.
 
   When a capture group is repeated, the value captured is the
@@ -2196,7 +2196,7 @@
 
   matches "aba" the value of the second captured substring is "b".
 
-[;1mAtomic Grouping and Possessive Quantifiers[0m
+[1mAtomic Grouping and Possessive Quantifiers[0m
 
   With both maximizing ("greedy") and minimizing ("ungreedy" or
   "lazy") repetition, failure of what follows normally causes the
@@ -2206,27 +2206,27 @@
   or to cause it fail earlier than it otherwise might, when the
   author of the pattern knows there is no point in carrying on.
 
-  Consider, for example, the pattern [;;4m\d+foo[0m when applied to the
+  Consider, for example, the pattern [4m\d+foo[0m when applied to the
   subject line
 
     123456bar
 
   After matching all 6 digits and then failing to match "foo", the
   normal action of the matcher is to try again with only 5 digits
-  matching the [;;4m\d+[0m item, and then with 4, and so on, before
+  matching the [4m\d+[0m item, and then with 4, and so on, before
   ultimately failing. "Atomic grouping" (a term taken from Jeffrey
   Friedl's book) provides the means for specifying that once a group
   has matched, it is not to be re-evaluated in this way.
 
   If we use atomic grouping for the previous example, the matcher
   gives up immediately on failing to match "foo" the first time. The
-  notation is a kind of special parenthesis, starting with [;;4m(?>[0m as
+  notation is a kind of special parenthesis, starting with [4m(?>[0m as
   in this example:
 
     (?>\d+)foo
 
-  Perl 5.28 introduced an experimental alphabetic form starting with [;;4m[0m
-  [;;4m(*[0m which may be easier to remember:
+  Perl 5.28 introduced an experimental alphabetic form starting with [4m[0m
+  [4m(*[0m which may be easier to remember:
 
     (*atomic:\d+)foo
 
@@ -2242,16 +2242,16 @@
 
   Atomic groups are not capture groups. Simple cases such as the
   above example can be thought of as a maximizing repeat that must
-  swallow everything it can. So, while both [;;4m\d+[0m and [;;4m\d+?[0m are
+  swallow everything it can. So, while both [4m\d+[0m and [4m\d+?[0m are
   prepared to adjust the number of digits they match in order to
-  make the rest of the pattern match, [;;4m(?>\d+)[0m can only match an
+  make the rest of the pattern match, [4m(?>\d+)[0m can only match an
   entire sequence of digits.
 
   Atomic groups in general can of course contain arbitrarily
   complicated expressions, and can be nested. However, when the
   contents of an atomic group is just a single repeated item, as in
   the example above, a simpler notation, called a "possessive
-  quantifier" can be used. This consists of an additional [;;4m+[0m
+  quantifier" can be used. This consists of an additional [4m+[0m
   character following a quantifier. Using this notation, the
   previous example can be rewritten as
 
@@ -2262,8 +2262,8 @@
 
     (abc|xyz){2,3}+
 
-  Possessive quantifiers are always greedy; the setting of the [;;4m[0m
-  [;;4mungreedy[0m option is ignored. They are a convenient notation for
+  Possessive quantifiers are always greedy; the setting of the [4m[0m
+  [4mungreedy[0m option is ignored. They are a convenient notation for
   the simpler forms of atomic group. However, there is no difference
   in the meaning of a possessive quantifier and the equivalent
   atomic group, though there may be a performance difference;
@@ -2279,8 +2279,8 @@
   certain simple pattern constructs. For example, the sequence A+B
   is treated as A++B because there is no point in backtracking into
   a sequence of A's when B must follow. This feature can be disabled
-  by the PCRE2_NO_AUTO_POSSESS option, by starting the pattern with [;;4m[0m
-  [;;4m(*NO_AUTO_POSSESS)[0m.
+  by the PCRE2_NO_AUTO_POSSESS option, by starting the pattern with [4m[0m
+  [4m(*NO_AUTO_POSSESS)[0m.
 
   When a pattern contains an unlimited repeat inside a group that
   can itself be repeated an unlimited number of times, the use of an
@@ -2290,15 +2290,15 @@
     (\D+|<\d+>)*[!?]
 
   matches an unlimited number of substrings that either consist of
-  non-digits, or digits enclosed in [;;4m<>[0m, followed by either [;;4m![0m or [;;4m?[0m.
+  non-digits, or digits enclosed in [4m<>[0m, followed by either [4m![0m or [4m?[0m.
   When it matches, it runs quickly. However, if it is applied to
 
     aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
   it takes a long time before reporting failure. This is because the
-  string can be divided between the internal [;;4m\D+[0m repeat and the
-  external [;;4m*[0m repeat in a large number of ways, and all have to be
-  tried. (The example uses [;;4m[!?][0m rather than a single character at
+  string can be divided between the internal [4m\D+[0m repeat and the
+  external [4m*[0m repeat in a large number of ways, and all have to be
+  tried. (The example uses [4m[!?][0m rather than a single character at
   the end, because both PCRE2 and Perl have an optimization that
   allows for fast failure when a single character is used. They
   remember the last single character that is required for a match,
@@ -2310,7 +2310,7 @@
   sequences of non-digits cannot be broken, and failure happens
   quickly.
 
-[;1mBackreferences[0m
+[1mBackreferences[0m
 
   Outside a character class, a backslash followed by a digit greater
   than 0 (and possibly further digits) is a backreference to a
@@ -2328,7 +2328,7 @@
 
   It is not possible to have a numerical "forward backreference" to
   a group whose number is 8 or more using this syntax because a
-  sequence such as [;;4m\50[0m is interpreted as a character defined in
+  sequence such as [4m\50[0m is interpreted as a character defined in
   octal. See Non-Printing Characters for further details of the
   handling of digits following a backslash. Other forms of
   backreferencing do not suffer from this restriction. In
@@ -2336,7 +2336,7 @@
   used.
 
   Another way of avoiding the ambiguity inherent in the use of
-  digits following a backslash is to use the [;;4m\g[0m escape sequence.
+  digits following a backslash is to use the [4m\g[0m escape sequence.
   This escape must be followed by a signed or unsigned number,
   optionally enclosed in braces. These examples are all identical:
 
@@ -2351,13 +2351,13 @@
 
     (abc(def)ghi)\g{-1}
 
-  The sequence [;;4m\g{-1}[0m is a reference to the capture group whose
+  The sequence [4m\g{-1}[0m is a reference to the capture group whose
   number is one less than the number of the next group to be
   started, so in this example (where the next group would be
-  numbered 3) is it equivalent to [;;4m\2[0m, and [;;4m\g{-2}[0m would be
-  equivalent to [;;4m\1[0m. Note that if this construct is inside a
+  numbered 3) is it equivalent to [4m\2[0m, and [4m\g{-2}[0m would be
+  equivalent to [4m\1[0m. Note that if this construct is inside a
   capture group, that group is included in the count, so in this
-  example [;;4m\g{-2}[0m also refers to group 1:
+  example [4m\g{-2}[0m also refers to group 1:
 
     (A)(\g{-2}B)
 
@@ -2365,10 +2365,10 @@
   and also in patterns that are created by joining together
   fragments that contain references within themselves.
 
-  The sequence [;;4m\g{+1}[0m is a reference to the next capture group
-  that is started after this item, and [;;4m\g{+2}[0m refers to the one
+  The sequence [4m\g{+1}[0m is a reference to the next capture group
+  that is started after this item, and [4m\g{+2}[0m refers to the one
   after that, and so on. This kind of forward reference can be
-  useful in patterns that repeat. Perl does not support the use of [;;4m+[0m
+  useful in patterns that repeat. Perl does not support the use of [4m+[0m
   in this way.
 
   A backreference matches whatever actually most recently matched
@@ -2389,10 +2389,10 @@
   the original capture group is matched caselessly.
 
   There are several different ways of writing backreferences to
-  named capture groups. The .NET syntax is [;;4m\k{name}[0m, the Python
-  syntax is [;;4m(?=name)[0m, and the original Perl syntax is [;;4m\k<name>[0m
-  or [;;4m\k'name'[0m. All of these are now supported by both Perl and
-  PCRE2. Perl 5.10's unified backreference syntax, in which [;;4m\g[0m can
+  named capture groups. The .NET syntax is [4m\k{name}[0m, the Python
+  syntax is [4m(?=name)[0m, and the original Perl syntax is [4m\k<name>[0m
+  or [4m\k'name'[0m. All of these are now supported by both Perl and
+  PCRE2. Perl 5.10's unified backreference syntax, in which [4m\g[0m can
   be used for both numeric and named references, is also supported
   by PCRE2. We could rewrite the above example in any of the
   following ways:
@@ -2418,14 +2418,14 @@
   following a backslash are taken as part of a potential
   backreference number. If the pattern continues with a digit
   character, some delimiter must be used to terminate the
-  backreference. If the [;;4mextended[0m or PCRE2_EXTENDED_MORE option is
-  set, this can be white space. Otherwise, the [;;4m\g{}[0m syntax or an
+  backreference. If the [4mextended[0m or PCRE2_EXTENDED_MORE option is
+  set, this can be white space. Otherwise, the [4m\g{}[0m syntax or an
   empty comment (see Comments below) can be used.
 
   Recursive Backreferences
 
   A backreference that occurs inside the group to which it refers
-  fails when the group is first used, so, for example, [;;4m(a\1)[0m never
+  fails when the group is first used, so, for example, [4m(a\1)[0m never
   matches. However, such references can be useful inside repeated
   groups. For example, the pattern
 
@@ -2444,11 +2444,11 @@
   atomic group. This restriction no longer applies, and backtracking
   into such groups can occur as normal.
 
-[;1mAssertions[0m
+[1mAssertions[0m
 
   An assertion is a test that does not consume any characters. The
   test must succeed for the match to continue. The simple assertions
-  coded as [;;4m\b[0m, [;;4m\B[0m, [;;4m\A[0m, [;;4m\G[0m, [;;4m\Z[0m, [;;4m\z[0m, [;;4m^[0m and [;;4m$[0m are
+  coded as [4m\b[0m, [4m\B[0m, [4m\A[0m, [4m\G[0m, [4m\Z[0m, [4m\z[0m, [4m^[0m and [4m$[0m are
   described above.
 
   More complicated assertions are coded as parenthesized groups. If
@@ -2482,8 +2482,8 @@
   capture groups within it, these are counted for the purposes of
   numbering the capture groups in the whole pattern. Within each
   branch of an assertion, locally captured substrings may be
-  referenced in the usual way. For example, a sequence such as [;;4m[0m
-  [;;4m(.)\g{-1}[0m can be used to check that two adjacent characters are
+  referenced in the usual way. For example, a sequence such as [4m[0m
+  [4m(.)\g{-1}[0m can be used to check that two adjacent characters are
   the same.
 
   When a branch within an assertion fails to match, any substrings
@@ -2511,14 +2511,14 @@
   be quantified. PCRE2 used to restrict the repetition of
   assertions, but from release 10.35 the only restriction is that an
   unlimited maximum repetition is changed to be one more than the
-  minimum. For example, [;;4m{3,}[0m is treated as [;;4m{3,4}[0m.
+  minimum. For example, [4m{3,}[0m is treated as [4m{3,4}[0m.
 
   Alphabetic Assertion Names
 
-  Traditionally, symbolic sequences such as [;;4m(?=[0m and [;;4m(?<=[0m have
+  Traditionally, symbolic sequences such as [4m(?=[0m and [4m(?<=[0m have
   been used to specify lookaround assertions. Perl 5.28 introduced
   some experimental alphabetic alternatives which might be easier to
-  remember. They all start with [;;4m(*[0m instead of [;;4m(?[0m and must be
+  remember. They all start with [4m(*[0m instead of [4m(?[0m and must be
   written using lower case letters. PCRE2 supports the following
   synonyms:
 
@@ -2527,14 +2527,14 @@
     (*positive_lookbehind: or (*plb: is the same as (?<=
     (*negative_lookbehind: or (*nlb: is the same as (?<!
 
-  For example, [;;4m(*pla:foo)[0m is the same assertion as [;;4m(?=foo)[0m. In
+  For example, [4m(*pla:foo)[0m is the same assertion as [4m(?=foo)[0m. In
   the following sections, the various assertions are described using
   the original symbolic forms.
 
   Lookahead Assertions
 
-  Lookahead assertions start with [;;4m(?=[0m for positive assertions and [;;4m[0m
-  [;;4m(?![0m for negative assertions. For example,
+  Lookahead assertions start with [4m(?=[0m for positive assertions and [4m[0m
+  [4m(?![0m for negative assertions. For example,
 
     \w+(?=;)
 
@@ -2550,20 +2550,20 @@
 
   does not find an occurrence of "bar" that is preceded by something
   other than "foo"; it finds any occurrence of "bar" whatsoever,
-  because the assertion [;;4m(?!foo)[0m is always true when the next three
+  because the assertion [4m(?!foo)[0m is always true when the next three
   characters are "bar". A lookbehind assertion is needed to achieve
   the other effect.
 
   If you want to force a matching failure at some point in a
-  pattern, the most convenient way to do it is with [;;4m(?!)[0m because
+  pattern, the most convenient way to do it is with [4m(?!)[0m because
   an empty string always matches, so an assertion that requires
   there not to be an empty string must always fail. The backtracking
-  control verb [;;4m(*FAIL)[0m or [;;4m(*F)[0m is a synonym for [;;4m(?!)[0m.
+  control verb [4m(*FAIL)[0m or [4m(*F)[0m is a synonym for [4m(?!)[0m.
 
   Lookbehind Assertions
 
-  Lookbehind assertions start with [;;4m(?<=[0m for positive assertions
-  and [;;4m(?<![0m for negative assertions. For example,
+  Lookbehind assertions start with [4m(?<=[0m for positive assertions
+  and [4m(?<![0m for negative assertions. For example,
 
     (?<!foo)bar
 
@@ -2581,7 +2581,7 @@
   only kind of lookbehind supported by PCRE2 versions earlier than
   10.43.
 
-  In PCRE2 10.43 and later, [;;4mrun/3[0m supports lookbehind assertions
+  In PCRE2 10.43 and later, [4mrun/3[0m supports lookbehind assertions
   in which one or more top-level alternatives can match more than
   one string length, for example
 
@@ -2589,26 +2589,26 @@
 
   The maximum matching length for any branch of the lookbehind is
   limited to a value set by the calling program (default 255
-  characters). Unlimited repetition (for example [;;4m\d*[0m) is not
-  supported. In some cases, the escape sequence [;;4m\K[0m (see above) can
+  characters). Unlimited repetition (for example [4m\d*[0m) is not
+  supported. In some cases, the escape sequence [4m\K[0m (see above) can
   be used instead of a lookbehind assertion at the start of a
   pattern to get round the length limit restriction.
 
-  In UTF-8, PCRE2 does not allow the [;;4m\C[0m escape (which matches a
+  In UTF-8, PCRE2 does not allow the [4m\C[0m escape (which matches a
   single code unit even in a UTF mode) to appear in lookbehind
   assertions, because it makes it impossible to calculate the length
-  of the lookbehind. The [;;4m\X[0m and [;;4m\R[0m escapes, which can match
+  of the lookbehind. The [4m\X[0m and [4m\R[0m escapes, which can match
   different numbers of code units, are never permitted in
   lookbehinds.
 
-  "Subroutine" calls (see below) such as [;;4m(?2)[0m or [;;4m(?&X)[0m are
+  "Subroutine" calls (see below) such as [4m(?2)[0m or [4m(?&X)[0m are
   permitted in lookbehinds, as long as the called capture group
   matches a limited-length string. However, recursion, that is, a
   "subroutine" call into a group that is already active, is not
   supported.
 
   PCRE2 supports backreferences in lookbehinds, but only if certain
-  conditions are met. There must be no use of [;;4m(?|[0m in the pattern
+  conditions are met. There must be no use of [4m(?|[0m in the pattern
   (it creates duplicate group numbers), and if the backreference is
   by name, the name must be unique. Of course, the referenced group
   must itself match a limited length substring. The following
@@ -2681,7 +2681,7 @@
   is another pattern that matches "foo" preceded by three digits and
   any three characters that are not "999".
 
-[;1mNon-Atomic Assertions[0m
+[1mNon-Atomic Assertions[0m
 
   Traditional lookaround assertions are atomic. That is, if an
   assertion is true, but there is a subsequent matching failure,
@@ -2700,10 +2700,10 @@
     ^(?x)(*napla: .* \b(\w++)) (?> .*? \b\1\b ){2}
 
   For a subject such as "word1 word2 word3 word2 word3 word4" the
-  result is "word3". How does it work? At the start, [;;4m^(?x)[0m anchors
+  result is "word3". How does it work? At the start, [4m^(?x)[0m anchors
   the pattern and sets the "x" option, which causes white space
   (introduced for readability) to be ignored. Inside the assertion,
-  the greedy [;;4m.*[0m at first consumes the entire string, but then has
+  the greedy [4m.*[0m at first consumes the entire string, but then has
   to backtrack until the rest of the assertion can match a word,
   which is captured by group 1. In other words, when the assertion
   first succeeds, it captures the right-most word in the string.
@@ -2713,7 +2713,7 @@
   occurrences of the captured word, using an ungreedy .*? to scan
   from the left. If this succeeds, we are done, but if the last word
   in the string does not occur twice, this part of the pattern
-  fails. If a traditional atomic lookahead [;;4m(?=[0m or [;;4m(*pla:[0m had
+  fails. If a traditional atomic lookahead [4m(?=[0m or [4m(*pla:[0m had
   been used, the assertion could not be re-entered, and the whole
   match would fail. The pattern would succeed only if the very last
   word in the subject was found twice.
@@ -2732,21 +2732,21 @@
   assertion just wastes resources.
 
   There is one exception to backtracking into a non-atomic
-  assertion. If an [;;4m(*ACCEPT)[0m control verb is triggered, the
+  assertion. If an [4m(*ACCEPT)[0m control verb is triggered, the
   assertion succeeds atomically. That is, a subsequent match failure
   cannot backtrack into the assertion.
 
   Note that assertions that appear as conditions for conditional
   groups must be atomic.
 
-[;1mScan Substring Assertions[0m
+[1mScan Substring Assertions[0m
 
   A special kind of assertion, not compatible with Perl, makes it
   possible to check the contents of a captured substring by matching
   it with a subpattern. Because this involves capturing.
 
-  A scan substring assertion starts with the sequence [;;4m[0m
-  [;;4m(*scan_substring:[0m or [;;4m(*scs:[0m which is followed by a list of
+  A scan substring assertion starts with the sequence [4m[0m
+  [4m(*scan_substring:[0m or [4m(*scs:[0m which is followed by a list of
   substring numbers (absolute or relative) and/or substring names
   enclosed in single quotes or angle brackets, all within
   parentheses. The rest of the item is the subpattern that is
@@ -2759,7 +2759,7 @@
 
   The list of groups is checked in the order they are given, and it
   is the contents of the first one that is found to be set that are
-  scanned. When [;;4mdupnames[0m is set and there are ambiguous group
+  scanned. When [4mdupnames[0m is set and there are ambiguous group
   names, all groups with the same name are checked in numerical
   order. A scan substring assertion fails if none of the groups it
   references have been set.
@@ -2767,9 +2767,9 @@
   The pattern match on the substring is always anchored, that is, it
   must match from the start of the substring. There is no
   "bumpalong" if it does not match at the start. The end of the
-  subject is temporarily reset to be the end of the substring, so [;;4m[0m
-  [;;4m\Z[0m, [;;4m\z[0m, and [;;4m$[0m will match there. However, the start of the
-  subject is not reset. This means that [;;4m^[0m matches only if the
+  subject is temporarily reset to be the end of the substring, so [4m[0m
+  [4m\Z[0m, [4m\z[0m, and [4m$[0m will match there. However, the start of the
+  subject is not reset. This means that [4m^[0m matches only if the
   substring is actually at the start of the main subject, but it
   also means that lookbehind assertions into what precedes the
   substring are possible.
@@ -2799,17 +2799,17 @@
   work as normal. Capturing groups may appear, and will retain their
   values during ongoing matching if the assertion succeeds.
 
-[;1mScript Runs[0m
+[1mScript Runs[0m
 
   In concept, a script run is a sequence of characters that are all
   from the same Unicode script such as Latin or Greek. However,
   because some scripts are commonly used together, and because some
   diacritical and other marks are used with multiple scripts, it is
   not that simple. There is a full description of the rules that
-  PCRE2 uses in the section entitled "Script Runs" in the [;;4m[0m
-  [;;4mpcre2unicode[0m documentation.
+  PCRE2 uses in the section entitled "Script Runs" in the [4m[0m
+  [4mpcre2unicode[0m documentation.
 
-  If part of a pattern is enclosed between [;;4m(*script_run:[0m or [;;4m(*sr:[0m
+  If part of a pattern is enclosed between [4m(*script_run:[0m or [4m(*sr:[0m
   and a closing parenthesis, it fails if the sequence of characters
   that it matches are not a script run. After a failure, normal
   backtracking occurs. Script runs can be used to detect spoofing
@@ -2837,7 +2837,7 @@
   In many cases, backtracking into a script run pattern fragment is
   not desirable. The script run can employ an atomic group to
   prevent this. Because this is a common requirement, a shorthand
-  notation is provided by [;;4m(*atomic_script_run:[0m or [;;4m(*asr:[0m
+  notation is provided by [4m(*atomic_script_run:[0m or [4m(*asr:[0m
 
     (*asr:...) is the same as (*sr:(?>...))
 
@@ -2849,13 +2849,13 @@
   without Unicode support. A compile-time error is given if any of
   the above constructs is encountered.
 
-  [;;4mWarning[0m
+  [4mWarning[0m
 
-    The [;;4m(*ACCEPT)[0m control verb (see below) should not be used
+    The [4m(*ACCEPT)[0m control verb (see below) should not be used
     within a script run group, because it causes an immediate exit
     from the group, bypassing the script run checking.
 
-[;1mConditional Groups[0m
+[1mConditional Groups[0m
 
   It is possible to cause the matching process to obey a pattern
   fragment conditionally or to choose between two alternative
@@ -2893,14 +2893,14 @@
   the digits with a plus or minus sign. In this case, the group
   number is relative rather than absolute. The most recently opened
   capture group (which could be enclosing this condition) can be
-  referenced by [;;4m(?(-1)[0m, the next most recent by [;;4m(?(-2)[0m, and so
+  referenced by [4m(?(-1)[0m, the next most recent by [4m(?(-2)[0m, and so
   on. Inside loops it can also make sense to refer to subsequent
-  groups. The next capture group to be opened can be referenced as [;;4m[0m
-  [;;4m(?(+1)[0m, and so on. The value zero in any of these forms is not
+  groups. The next capture group to be opened can be referenced as [4m[0m
+  [4m(?(+1)[0m, and so on. The value zero in any of these forms is not
   used; it provokes a compile-time error.
 
   Consider the following pattern, which contains non-significant
-  white space to make it more readable (assume the [;;4mextended[0m
+  white space to make it more readable (assume the [4mextended[0m
   option) and to divide it into three parts for ease of discussion:
 
    • ( ( )? - [^()]+ (?(1) ) )
@@ -2927,7 +2927,7 @@
 
   Checking for a Used Capture Group by Name
 
-  Perl uses the syntax [;;4m(?(<name>)...)[0m or [;;4m(?('name')...)[0m to test
+  Perl uses the syntax [4m(?(<name>)...)[0m or [4m(?('name')...)[0m to test
   for a used capture group by name. For compatibility with earlier
   versions of PCRE1, which had this facility before Perl, the syntax
   (?(name)...) is also recognized. Note, however, that undelimited
@@ -2962,7 +2962,7 @@
   However, in both cases, if there is a capture group with a
   matching name, the condition tests for its being set, as described
   in the section above, instead of testing for recursion. For
-  example, creating a group with the name R1 by adding [;;4m(?<R1>)[0m to
+  example, creating a group with the name R1 by adding [4m(?<R1>)[0m to
   the above pattern completely changes its meaning.
 
   If a name preceded by ampersand follows the letter R, for example:
@@ -2981,7 +2981,7 @@
 
   Defining Capture Groups for Use by Reference Only
 
-  If the condition is the string [;;4m(DEFINE)[0m, the condition is always
+  If the condition is the string [4m(DEFINE)[0m, the condition is always
   false, even if there is a group with the name DEFINE. In this
   case, there may be only one alternative in the rest of the
   conditional group. It is always skipped if control reaches this
@@ -3006,7 +3006,7 @@
   Checking the PCRE2 Version
 
   Programs that link with a PCRE2 library can check the version by
-  calling [;;4mpcre2\_config()[0m with appropriate arguments. Users of
+  calling [4mpcre2\_config()[0m with appropriate arguments. Users of
   applications that do not have access to the underlying code cannot
   do this. A special "condition" called VERSION exists to allow such
   users to discover which version of PCRE2 they are dealing with by
@@ -3049,19 +3049,19 @@
   (Compare non-conditional assertions, for which captures are
   retained only for positive assertions that succeed.)
 
-[;1mComments[0m
+[1mComments[0m
 
   There are two ways of including comments in patterns that are
   processed by PCRE2. In both cases, the start of the comment must
   not be in a character class, nor in the middle of any other
-  sequence of related characters such as [;;4m(?:[0m or a group name or
+  sequence of related characters such as [4m(?:[0m or a group name or
   number or a Unicode property name. The characters that make up a
   comment play no part in the pattern matching.
 
-  The sequence [;;4m(?#[0m marks the start of a comment that continues up
+  The sequence [4m(?#[0m marks the start of a comment that continues up
   to the next closing parenthesis. Nested parentheses are not
-  permitted. If the [;;4mextended[0m or PCRE2_EXTENDED_MORE option is set,
-  an unescaped [;;4m#[0m character also introduces a comment, which in
+  permitted. If the [4mextended[0m or PCRE2_EXTENDED_MORE option is set,
+  an unescaped [4m#[0m character also introduces a comment, which in
   this case continues to immediately after the next newline
   character or character sequence in the pattern. Which characters
   are interpreted as newlines is controlled by an option passed to
@@ -3069,19 +3069,19 @@
   the pattern, as described in Newline Conventions. Note that the
   end of this type of comment is a literal newline sequence in the
   pattern; escape sequences that happen to represent a newline do
-  not count. For example, consider this pattern when [;;4mextended[0m is
+  not count. For example, consider this pattern when [4mextended[0m is
   set, and the default newline convention (a single linefeed
   character) is in force:
 
     abc #comment \n still comment
 
-  On encountering the [;;4m#[0m character, [;;4mcompile/2[0m skips along,
-  looking for a newline in the pattern. The sequence [;;4m\n[0m is still
+  On encountering the [4m#[0m character, [4mcompile/2[0m skips along,
+  looking for a newline in the pattern. The sequence [4m\n[0m is still
   literal at this stage, so it does not terminate the comment. Only
   an actual character with the code value 0x0a (the default newline)
   does so.
 
-[;1mRecursive Patterns[0m
+[1mRecursive Patterns[0m
 
   Consider the problem of matching a string in parentheses, allowing
   for unlimited nested parentheses. Without the use of recursion,
@@ -3098,7 +3098,7 @@
 
     $re =  qr{\( (?: (?>[^()]+) |  (?p{$re}) )* \)}x;
 
-  The [;;4m(?p{...})[0m item interpolates Perl code at run time, and in
+  The [4m(?p{...})[0m item interpolates Perl code at run time, and in
   this case refers recursively to the pattern in which it appears.
 
   Obviously, PCRE2 cannot support the interpolation of Perl code.
@@ -3107,15 +3107,15 @@
   its introduction in PCRE1 and Python, this kind of recursion was
   subsequently introduced into Perl at release 5.10.
 
-  A special item that consists of [;;4m(?[0m followed by a number greater
+  A special item that consists of [4m(?[0m followed by a number greater
   than zero and a closing parenthesis is a recursive subroutine call
   of the capture group of the given number, provided that it occurs
   inside that group. (If not, it is a non-recursive subroutine call,
-  which is described in the next section.) The special item [;;4m(?R)[0m
-  or [;;4m(?0)[0m is a recursive call of the entire regular expression.
+  which is described in the next section.) The special item [4m(?R)[0m
+  or [4m(?0)[0m is a recursive call of the entire regular expression.
 
   This PCRE2 pattern solves the nested parentheses problem (assume
-  the [;;4mextended[0m option is set so that white space is ignored):
+  the [4mextended[0m option is set so that white space is ignored):
 
     \( ( [^()]++ | (?R) )* \)
 
@@ -3136,7 +3136,7 @@
 
   In a larger pattern, keeping track of parenthesis numbers can be
   tricky. This is made easier by the use of relative references.
-  Instead of [;;4m(?1)[0m in the pattern above you can write [;;4m(?-2)[0m to
+  Instead of [4m(?1)[0m in the pattern above you can write [4m(?-2)[0m to
   refer to the second most recently opened parentheses preceding the
   recursion. In other words, a negative number counts capturing
   parentheses leftwards from the point at which it is encountered.
@@ -3148,21 +3148,21 @@
     (?|(a)|(b)) (c) (?-2)
 
   The first two capture groups (a) and (b) are both numbered 1, and
-  group (c) is number 2. When the reference [;;4m(?-2)[0m is encountered,
+  group (c) is number 2. When the reference [4m(?-2)[0m is encountered,
   the second most recently opened parentheses has the number 1, but
   it is the first such group (the (a) group) to which the recursion
-  refers. This would be the same if an absolute reference [;;4m(?1)[0m was
+  refers. This would be the same if an absolute reference [4m(?1)[0m was
   used. In other words, relative references are just a shorthand for
   computing a group number.
 
   It is also possible to refer to subsequent capture groups, by
-  writing references such as [;;4m(?+2)[0m. However, these cannot be
+  writing references such as [4m(?+2)[0m. However, these cannot be
   recursive because the reference is not inside the parentheses that
   are referenced. They are always non-recursive subroutine calls, as
   described in the next section.
 
   An alternative approach is to use named parentheses. The Perl
-  syntax for this is [;;4m(?&name)[0m; PCRE1's earlier syntax [;;4m(?P>name)[0m
+  syntax for this is [4m(?&name)[0m; PCRE1's earlier syntax [4m(?P>name)[0m
   is also supported. We could rewrite the above example as follows:
 
     (?<pn> \( ( [^()]++ | (?&pn) )* \) )
@@ -3180,14 +3180,14 @@
 
   it yields "no match" quickly. However, if a possessive quantifier
   is not used, the match runs for a very long time indeed because
-  there are so many different ways the [;;4m+[0m and [;;4m*[0m repeats can carve
+  there are so many different ways the [4m+[0m and [4m*[0m repeats can carve
   up the subject, and all have to be tested before failure can be
   reported.
 
   At the end of a match, the values of capturing parentheses are
   those from the outermost level. If you want to obtain intermediate
-  values, a callout function can be used (see below and the [;;4m[0m
-  [;;4mpcre2callout[0m documentation). If the pattern above is matched
+  values, a callout function can be used (see below and the [4m[0m
+  [4mpcre2callout[0m documentation). If the pattern above is matched
   against
 
     (ab(cd)ef)
@@ -3198,7 +3198,7 @@
   value is unset, even if it was (temporarily) set at a deeper level
   during the matching process.
 
-  Do not confuse the [;;4m(?R)[0m item with the condition [;;4m(R)[0m, which
+  Do not confuse the [4m(?R)[0m item with the condition [4m(R)[0m, which
   tests for recursion. Consider this pattern, which matches text in
   angle brackets, allowing for arbitrary nesting. Only digits are
   allowed in nested brackets (that is, when recursing), whereas any
@@ -3206,9 +3206,9 @@
 
     < (?: (?(R) \d++  |  [^<>]*+) |  (?R)) *  >
 
-  In this pattern, [;;4m(?(R)[0m is the start of a conditional group, with
+  In this pattern, [4m(?(R)[0m is the start of a conditional group, with
   two different alternatives for the recursive and non-recursive
-  cases. The [;;4m(?R)[0m item is the actual recursive call.
+  cases. The [4m(?R)[0m item is the actual recursive call.
 
   Differences in Recursion Processing Between PCRE2 and Perl
 
@@ -3244,7 +3244,7 @@
 
     ^\W*+((.)\W*+(?1)\W*+\2|\W*+.?)\W*+$
 
-  If run with the [;;4mcaseless[0m option, this pattern matches phrases
+  If run with the [4mcaseless[0m option, this pattern matches phrases
   such as "A man, a plan, a canal: Panama!". Note the use of the
   possessive quantifier *+ to avoid backtracking into sequences of
   non-word characters. Without this, PCRE2 takes a great deal longer
@@ -3261,13 +3261,13 @@
     ^(.)(\1|a(?2))
 
   This pattern matches "bab". The first capturing parentheses match
-  "b", then in the second group, when the backreference [;;4m\1[0m fails
+  "b", then in the second group, when the backreference [4m\1[0m fails
   to match "b", the second alternative matches "a" and then
-  recurses. In the recursion, [;;4m\1[0m does now match "b" and so the
+  recurses. In the recursion, [4m\1[0m does now match "b" and so the
   whole match succeeds. This match used to fail in Perl, but in
   later versions (I tried 5.024) it now works.
 
-[;1mGroups as Subroutines[0m
+[1mGroups as Subroutines[0m
 
   If the syntax for a recursive group call (either by number or by
   name) is used outside the parentheses to which it refers, it
@@ -3314,9 +3314,9 @@
   The behaviour of backtracking control verbs in groups when called
   as subroutines is described in Backtracking verbs in subroutines.
 
-[;1mOniguruma Subroutine Syntax[0m
+[1mOniguruma Subroutine Syntax[0m
 
-  For compatibility with Oniguruma, the non-Perl syntax [;;4m\g[0m
+  For compatibility with Oniguruma, the non-Perl syntax [4m\g[0m
   followed by a name or a number enclosed either in angle brackets
   or single quotes, is an alternative syntax for calling a group as
   a subroutine, possibly recursively. Here are two of the examples
@@ -3331,16 +3331,16 @@
 
     (abc)(?i:\g<-1>)
 
-  Note that [;;4m\g{...}[0m (Perl syntax) and \g<...> (Oniguruma syntax)
+  Note that [4m\g{...}[0m (Perl syntax) and \g<...> (Oniguruma syntax)
   are not synonymous. The former is a backreference; the latter is
   a subroutine call.
 
-[;1mBacktracking Control[0m
+[1mBacktracking Control[0m
 
   There are a number of special "Backtracking Control Verbs" (to use
   Perl's terminology) that modify the behaviour of backtracking
-  during matching. They are generally of the form [;;4m(*VERB)[0m or [;;4m[0m
-  [;;4m(*VERB:NAME)[0m. Some verbs take either form, and may behave
+  during matching. They are generally of the form [4m(*VERB)[0m or [4m[0m
+  [4m(*VERB:NAME)[0m. Some verbs take either form, and may behave
   differently depending on whether or not a name argument is
   present. The names are not required to be unique within the
   pattern.
@@ -3350,23 +3350,23 @@
   is not processed in any way, and it is not possible to include a
   closing parenthesis in the name.
 
-  A closing parenthesis can be included in a name either as [;;4m\)[0m or
-  between [;;4m\Q[0m and [;;4m\E[0m. In addition to backslash processing, if the [;;4m[0m
-  [;;4mextended[0m or PCRE2_EXTENDED_MORE option is also set, unescaped
+  A closing parenthesis can be included in a name either as [4m\)[0m or
+  between [4m\Q[0m and [4m\E[0m. In addition to backslash processing, if the [4m[0m
+  [4mextended[0m or PCRE2_EXTENDED_MORE option is also set, unescaped
   whitespace in verb names is skipped, and #-comments are
-  recognized, exactly as in the rest of the pattern. [;;4mextended[0m and
+  recognized, exactly as in the rest of the pattern. [4mextended[0m and
   PCRE2_EXTENDED_MORE do not affect verb names.
 
   The maximum length of a name is 255 in the 8-bit library. If the
   name is empty, that is, if the closing parenthesis immediately
   follows the colon, the effect is as if the colon were not there.
-  Any number of these verbs may occur in a pattern. Except for [;;4m[0m
-  [;;4m(*ACCEPT)[0m, they may not be quantified.
+  Any number of these verbs may occur in a pattern. Except for [4m[0m
+  [4m(*ACCEPT)[0m, they may not be quantified.
 
   Since these verbs are specifically related to backtracking, most
   of them can be used only when the pattern is to be matched using
   the traditional matching function, because it uses backtracking
-  algorithms. With the exception of [;;4m(*FAIL)[0m, which behaves like a
+  algorithms. With the exception of [4m(*FAIL)[0m, which behaves like a
   failing negative assertion.
 
   The behaviour of these verbs in repeated groups, assertions, and
@@ -3381,9 +3381,9 @@
   subject, or that a particular character must be present. When one
   of these optimizations bypasses the running of a match, any
   included backtracking verbs will not, of course, be processed. You
-  can suppress the start-of-match optimizations by setting the [;;4m[0m
-  [;;4mno_start_optimize[0m option when calling [;;4mcompile/2[0m or by starting
-  the pattern with [;;4m(*NO_START_OPT)[0m.
+  can suppress the start-of-match optimizations by setting the [4m[0m
+  [4mno_start_optimize[0m option when calling [4mcompile/2[0m or by starting
+  the pattern with [4m(*NO_START_OPT)[0m.
 
   Experiments with Perl suggest that it too has similar
   optimizations, and like PCRE2, turning them off can change the
@@ -3398,11 +3398,11 @@
   This verb causes the match to end successfully, skipping the
   remainder of the pattern. However, when it is inside a capture
   group that is called as a subroutine, only that group is ended
-  successfully. Matching then continues at the outer level. If [;;4m[0m
-  [;;4m(*ACCEPT)[0m in triggered in a positive assertion, the assertion
+  successfully. Matching then continues at the outer level. If [4m[0m
+  [4m(*ACCEPT)[0m in triggered in a positive assertion, the assertion
   succeeds; in a negative assertion, the assertion fails.
 
-  If [;;4m(*ACCEPT)[0m is inside capturing parentheses, the data so far is
+  If [4m(*ACCEPT)[0m is inside capturing parentheses, the data so far is
   captured. For example:
 
     A((?:A|B(*ACCEPT)|C)D)
@@ -3410,31 +3410,31 @@
   This matches "AB", "AAD", or "ACD"; when it matches "AB", "B" is
   captured by the outer parentheses.
 
-  [;;4m(*ACCEPT)[0m is the only backtracking verb that is allowed to be
+  [4m(*ACCEPT)[0m is the only backtracking verb that is allowed to be
   quantified because an ungreedy quantification with a minimum of
   zero acts only when a backtrack happens. Consider, for example,
 
     (A(*ACCEPT)??B)C
 
   where A, B, and C may be complex expressions. After matching "A",
-  the matcher processes "BC"; if that fails, causing a backtrack, [;;4m[0m
-  [;;4m(*ACCEPT)[0m is triggered and the match succeeds. In both cases, all
-  but C is captured. Whereas [;;4m(*COMMIT)[0m (see below) means "fail on
-  backtrack", a repeated [;;4m(*ACCEPT)[0m of this type means "succeed on
+  the matcher processes "BC"; if that fails, causing a backtrack, [4m[0m
+  [4m(*ACCEPT)[0m is triggered and the match succeeds. In both cases, all
+  but C is captured. Whereas [4m(*COMMIT)[0m (see below) means "fail on
+  backtrack", a repeated [4m(*ACCEPT)[0m of this type means "succeed on
   backtrack".
 
-  [;;4mWarning[0m
+  [4mWarning[0m
 
-    [;;4m(*ACCEPT)[0m should not be used within a script run group,
+    [4m(*ACCEPT)[0m should not be used within a script run group,
     because it causes an immediate exit from the group, bypassing
     the script run checking.
 
     (*FAIL) or (*FAIL:NAME)
 
   This verb causes a matching failure, forcing backtracking to
-  occur. It may be abbreviated to [;;4m(*F)[0m. It is equivalent to [;;4m(?!)[0m
+  occur. It may be abbreviated to [4m(*F)[0m. It is equivalent to [4m(?!)[0m
   but easier to read. The Perl documentation notes that it is
-  probably useful only when combined with [;;4m(?{})[0m or [;;4m(??{})[0m. Those
+  probably useful only when combined with [4m(?{})[0m or [4m(??{})[0m. Those
   are, of course, Perl features that are not present in PCRE2. The
   nearest equivalent is the callout feature, as for example in this
   pattern:
@@ -3444,15 +3444,15 @@
   A match with the string "aaaa" always fails, but the callout is
   taken before each backtrack happens (in this example, 10 times).
 
-  [;;4m(*ACCEPT:NAME)[0m and [;;4m(*FAIL:NAME)[0m behave the same as [;;4m[0m
-  [;;4m(*MARK:NAME)(*ACCEPT)[0m and [;;4m(*MARK:NAME)(*FAIL)[0m, respectively,
-  that is, a [;;4m(*MARK)[0m is recorded just before the verb acts.
+  [4m(*ACCEPT:NAME)[0m and [4m(*FAIL:NAME)[0m behave the same as [4m[0m
+  [4m(*MARK:NAME)(*ACCEPT)[0m and [4m(*MARK:NAME)(*FAIL)[0m, respectively,
+  that is, a [4m(*MARK)[0m is recorded just before the verb acts.
 
   Recording which path was taken
 
   There is one verb whose main purpose is to track how a match was
   arrived at, though it also has a secondary use in conjunction with
-  advancing the match starting point (see [;;4m(*SKIP)[0m below).
+  advancing the match starting point (see [4m(*SKIP)[0m below).
 
     (*MARK:NAME) or (*:NAME)
 
@@ -3461,16 +3461,16 @@
 
   When a match succeeds, the name of the last-encountered mark name
   on the matching path is passed back to the caller as described in
-  the section entitled "Other information about the match" in the [;;4m[0m
-  [;;4mpcre2api[0m documentation. This applies to all instances of [;;4m(*MARK)[0m
+  the section entitled "Other information about the match" in the [4m[0m
+  [4mpcre2api[0m documentation. This applies to all instances of [4m(*MARK)[0m
   and other verbs, including those inside assertions and atomic
-  groups. However, there are differences in those cases when [;;4m[0m
-  [;;4m(*MARK)[0m is used in conjunction with [;;4m(*SKIP)[0m as described below.
+  groups. However, there are differences in those cases when [4m[0m
+  [4m(*MARK)[0m is used in conjunction with [4m(*SKIP)[0m as described below.
 
   The mark name that was last encountered on the matching path is
   passed back. A verb without a NAME argument is ignored for this
-  purpose. Here is an example of [;;4mpcre2test[0m output, where the
-  "mark" modifier requests the retrieval and outputting of [;;4m(*MARK)[0m
+  purpose. Here is an example of [4mpcre2test[0m output, where the
+  "mark" modifier requests the retrieval and outputting of [4m(*MARK)[0m
   data:
 
         re> /X(*MARK:A)Y|X(*MARK:B)Z/mark
@@ -3481,7 +3481,7 @@
        0: XZ
     MK: B
 
-  The [;;4m(*MARK)[0m name is tagged with "MK:" in this output, and in
+  The [4m(*MARK)[0m name is tagged with "MK:" in this output, and in
   this example it indicates which of the two alternatives matched.
   This is a more efficient way of obtaining this information than
   putting each alternative in its own capturing parentheses.
@@ -3501,11 +3501,11 @@
   Note that in this unanchored example the mark is retained from the
   match attempt that started at the letter "X" in the subject.
   Subsequent match attempts starting at "P" and then with an empty
-  string do not get as far as the [;;4m(*MARK)[0m item, but nevertheless
+  string do not get as far as the [4m(*MARK)[0m item, but nevertheless
   do not reset it.
 
-  If you are interested in [;;4m(*MARK)[0m values after failed matches,
-  you should probably either set the [;;4mno_start_optimize[0m option to
+  If you are interested in [4m(*MARK)[0m values after failed matches,
+  you should probably either set the [4mno_start_optimize[0m option to
   ensure that the match is always attempted.
 
   Verbs that act after backtracking
@@ -3531,9 +3531,9 @@
   This verb causes the whole match to fail outright if there is a
   later matching failure that causes backtracking to reach it. Even
   if the pattern is unanchored, no further attempts to find a match
-  by advancing the starting point take place. If [;;4m(*COMMIT)[0m is the
+  by advancing the starting point take place. If [4m(*COMMIT)[0m is the
   only backtracking verb that is encountered, once it has been
-  passed [;;4mrun/3[0m is committed to finding a match at the current
+  passed [4mrun/3[0m is committed to finding a match at the current
   starting point, or not at all. For example:
 
     a+(*COMMIT)b
@@ -3541,20 +3541,20 @@
   This matches "xxaab" but not "aacaab". It can be thought of as a
   kind of dynamic anchor, or "I've started, so I must finish."
 
-  The behaviour of [;;4m(*COMMIT:NAME)[0m is not the same as [;;4m[0m
-  [;;4m(*MARK:NAME)(*COMMIT)[0m. It is like [;;4m(*MARK:NAME)[0m in that the name
-  is remembered for passing back to the caller. However, [;;4m[0m
-  [;;4m(*SKIP:NAME)[0m searches only for names that are set with [;;4m(*MARK)[0m,
+  The behaviour of [4m(*COMMIT:NAME)[0m is not the same as [4m[0m
+  [4m(*MARK:NAME)(*COMMIT)[0m. It is like [4m(*MARK:NAME)[0m in that the name
+  is remembered for passing back to the caller. However, [4m[0m
+  [4m(*SKIP:NAME)[0m searches only for names that are set with [4m(*MARK)[0m,
   ignoring those set by any of the other backtracking verbs.
 
   If there is more than one backtracking verb in a pattern, a
-  different one that follows [;;4m(*COMMIT)[0m may be triggered first, so
-  merely passing [;;4m(*COMMIT)[0m during a match does not always
+  different one that follows [4m(*COMMIT)[0m may be triggered first, so
+  merely passing [4m(*COMMIT)[0m during a match does not always
   guarantee that a match must be at this starting point.
 
-  Note that [;;4m(*COMMIT)[0m at the start of a pattern is not the same as
+  Note that [4m(*COMMIT)[0m at the start of a pattern is not the same as
   an anchor, unless PCRE2's start-of-match optimizations are turned
-  off, as shown in this output from [;;4mpcre2test[0m:
+  off, as shown in this output from [4mpcre2test[0m:
 
         re> /(*COMMIT)abc/
     data> xyzabc
@@ -3569,7 +3569,7 @@
   applying the pattern to the first set of data. The match attempt
   then succeeds. The second pattern disables the optimization that
   skips along to the first character. The pattern is now applied
-  starting at "x", and so the [;;4m(*COMMIT)[0m causes the match to fail
+  starting at "x", and so the [4m(*COMMIT)[0m causes the match to fail
   without trying any other starting points.
 
     (*PRUNE) or (*PRUNE:NAME)
@@ -3578,27 +3578,27 @@
   position in the subject if there is a later matching failure that
   causes backtracking to reach it. If the pattern is unanchored, the
   normal "bumpalong" advance to the next starting character then
-  happens. Backtracking can occur as usual to the left of [;;4m(*PRUNE)[0m,
-  before it is reached, or when matching to the right of [;;4m(*PRUNE)[0m,
-  but if there is no match to the right, backtracking cannot cross [;;4m[0m
-  [;;4m(*PRUNE)[0m. In simple cases, the use of [;;4m(*PRUNE)[0m is just an
+  happens. Backtracking can occur as usual to the left of [4m(*PRUNE)[0m,
+  before it is reached, or when matching to the right of [4m(*PRUNE)[0m,
+  but if there is no match to the right, backtracking cannot cross [4m[0m
+  [4m(*PRUNE)[0m. In simple cases, the use of [4m(*PRUNE)[0m is just an
   alternative to an atomic group or possessive quantifier, but there
-  are some uses of [;;4m(*PRUNE)[0m that cannot be expressed in any other
-  way. In an anchored pattern [;;4m(*PRUNE)[0m has the same effect as [;;4m[0m
-  [;;4m(*COMMIT)[0m.
+  are some uses of [4m(*PRUNE)[0m that cannot be expressed in any other
+  way. In an anchored pattern [4m(*PRUNE)[0m has the same effect as [4m[0m
+  [4m(*COMMIT)[0m.
 
-  The behaviour of [;;4m(*PRUNE:NAME)[0m is not the same as [;;4m[0m
-  [;;4m(*MARK:NAME)(*PRUNE)[0m. It is like [;;4m(*MARK:NAME)[0m in that the name
-  is remembered for passing back to the caller. However, [;;4m[0m
-  [;;4m(*SKIP:NAME)[0m searches only for names set with [;;4m(*MARK)[0m, ignoring
+  The behaviour of [4m(*PRUNE:NAME)[0m is not the same as [4m[0m
+  [4m(*MARK:NAME)(*PRUNE)[0m. It is like [4m(*MARK:NAME)[0m in that the name
+  is remembered for passing back to the caller. However, [4m[0m
+  [4m(*SKIP:NAME)[0m searches only for names set with [4m(*MARK)[0m, ignoring
   those set by other backtracking verbs.
 
     (*SKIP)
 
-  This verb, when given without a name, is like [;;4m(*PRUNE)[0m, except
+  This verb, when given without a name, is like [4m(*PRUNE)[0m, except
   that if the pattern is unanchored, the "bumpalong" advance is not
-  to the next character, but to the position in the subject where [;;4m[0m
-  [;;4m(*SKIP)[0m was encountered. [;;4m(*SKIP)[0m signifies that whatever text
+  to the next character, but to the position in the subject where [4m[0m
+  [4m(*SKIP)[0m was encountered. [4m(*SKIP)[0m signifies that whatever text
   was matched leading up to it cannot be part of a successful match
   if there is a later mismatch. Consider:
 
@@ -3612,25 +3612,25 @@
   match attempt, the second attempt would start at the second
   character instead of skipping on to "c".
 
-  If [;;4m(*SKIP)[0m is used to specify a new starting position that is
+  If [4m(*SKIP)[0m is used to specify a new starting position that is
   the same as the starting position of the current match, or (by
-  being inside a lookbehind) earlier, the position specified by [;;4m[0m
-  [;;4m(*SKIP)[0m is ignored, and instead the normal "bumpalong" occurs.
+  being inside a lookbehind) earlier, the position specified by [4m[0m
+  [4m(*SKIP)[0m is ignored, and instead the normal "bumpalong" occurs.
 
     (*SKIP:NAME)
 
-  When [;;4m(*SKIP)[0m has an associated name, its behaviour is modified.
-  When such a [;;4m(*SKIP)[0m is triggered, the previous path through the
-  pattern is searched for the most recent [;;4m(*MARK)[0m that has the
+  When [4m(*SKIP)[0m has an associated name, its behaviour is modified.
+  When such a [4m(*SKIP)[0m is triggered, the previous path through the
+  pattern is searched for the most recent [4m(*MARK)[0m that has the
   same name. If one is found, the "bumpalong" advance is to the
-  subject position that corresponds to that [;;4m(*MARK)[0m instead of to
-  where [;;4m(*SKIP)[0m was encountered. If no [;;4m(*MARK)[0m with a matching
-  name is found, the [;;4m(*SKIP)[0m is ignored.
+  subject position that corresponds to that [4m(*MARK)[0m instead of to
+  where [4m(*SKIP)[0m was encountered. If no [4m(*MARK)[0m with a matching
+  name is found, the [4m(*SKIP)[0m is ignored.
 
-  The search for a [;;4m(*MARK)[0m name uses the normal backtracking
-  mechanism, which means that it does not see [;;4m(*MARK)[0m settings
+  The search for a [4m(*MARK)[0m name uses the normal backtracking
+  mechanism, which means that it does not see [4m(*MARK)[0m settings
   that are inside atomic groups or assertions, because they are
-  never re-entered by backtracking. Compare the following [;;4mpcre2test[0m
+  never re-entered by backtracking. Compare the following [4mpcre2test[0m
   examples:
 
         re> /a(?>(*MARK:X))(*SKIP:X)(*F)|(.)/
@@ -3643,18 +3643,18 @@
        0: b
        1: b
 
-  In the first example, the [;;4m(*MARK)[0m setting is in an atomic group,
-  so it is not seen when [;;4m(*SKIP:X)[0m triggers, causing the [;;4m(*SKIP)[0m
+  In the first example, the [4m(*MARK)[0m setting is in an atomic group,
+  so it is not seen when [4m(*SKIP:X)[0m triggers, causing the [4m(*SKIP)[0m
   to be ignored. This allows the second branch of the pattern to be
-  tried at the first character position. In the second example, the [;;4m[0m
-  [;;4m(*MARK)[0m setting is not in an atomic group. This allows [;;4m(*SKIP:X)[0m
-  to find the [;;4m(*MARK)[0m when it backtracks, and this causes a new
-  matching attempt to start at the second character. This time, the [;;4m[0m
-  [;;4m(*MARK)[0m is never seen because "a" does not match "b", so the
+  tried at the first character position. In the second example, the [4m[0m
+  [4m(*MARK)[0m setting is not in an atomic group. This allows [4m(*SKIP:X)[0m
+  to find the [4m(*MARK)[0m when it backtracks, and this causes a new
+  matching attempt to start at the second character. This time, the [4m[0m
+  [4m(*MARK)[0m is never seen because "a" does not match "b", so the
   matcher immediately jumps to the second branch of the pattern.
 
-  Note that [;;4m(*SKIP:NAME)[0m searches only for names set by [;;4m[0m
-  [;;4m(*MARK:NAME)[0m. It ignores names that are set by other backtracking
+  Note that [4m(*SKIP:NAME)[0m searches only for names set by [4m[0m
+  [4m(*MARK:NAME)[0m. It ignores names that are set by other backtracking
   verbs.
 
     (*THEN) or (*THEN:NAME)
@@ -3673,58 +3673,58 @@
   backtracking into COND1. If that succeeds and BAR fails, COND3 is
   tried. If subsequently BAZ fails, there are no more alternatives,
   so there is a backtrack to whatever came before the entire group.
-  If [;;4m(*THEN)[0m is not inside an alternation, it acts like [;;4m(*PRUNE)[0m.
+  If [4m(*THEN)[0m is not inside an alternation, it acts like [4m(*PRUNE)[0m.
 
-  The behaviour of [;;4m(*THEN:NAME)[0m is not the same as [;;4m[0m
-  [;;4m(*MARK:NAME)(*THEN)[0m. It is like [;;4m(*MARK:NAME)[0m in that the name
-  is remembered for passing back to the caller. However, [;;4m[0m
-  [;;4m(*SKIP:NAME)[0m searches only for names set with [;;4m(*MARK)[0m, ignoring
+  The behaviour of [4m(*THEN:NAME)[0m is not the same as [4m[0m
+  [4m(*MARK:NAME)(*THEN)[0m. It is like [4m(*MARK:NAME)[0m in that the name
+  is remembered for passing back to the caller. However, [4m[0m
+  [4m(*SKIP:NAME)[0m searches only for names set with [4m(*MARK)[0m, ignoring
   those set by other backtracking verbs.
 
-  A group that does not contain a [;;4m|[0m character is just a part of
+  A group that does not contain a [4m|[0m character is just a part of
   the enclosing alternative; it is not a nested alternation with
-  only one alternative. The effect of [;;4m(*THEN)[0m extends beyond such
+  only one alternative. The effect of [4m(*THEN)[0m extends beyond such
   a group to the enclosing alternative. Consider this pattern, where
-  A, B, etc. are complex pattern fragments that do not contain any [;;4m|[0m
+  A, B, etc. are complex pattern fragments that do not contain any [4m|[0m
   characters at this level:
 
     A (B(*THEN)C) |  D
 
   If A and B are matched, but there is a failure in C, matching does
   not backtrack into A; instead it moves to the next alternative,
-  that is, D. However, if the group containing [;;4m(*THEN)[0m is given an
+  that is, D. However, if the group containing [4m(*THEN)[0m is given an
   alternative, it behaves differently:
 
     A (B(*THEN)C |  (*FAIL)) |  D
 
-  The effect of [;;4m(*THEN)[0m is now confined to the inner group. After
-  a failure in C, matching moves to [;;4m(*FAIL)[0m, which causes the
+  The effect of [4m(*THEN)[0m is now confined to the inner group. After
+  a failure in C, matching moves to [4m(*FAIL)[0m, which causes the
   whole group to fail because there are no more alternatives to try.
   In this case, matching does backtrack into A.
 
   Note that a conditional group is not considered as having two
-  alternatives, because only one is ever used. In other words, the [;;4m|[0m
+  alternatives, because only one is ever used. In other words, the [4m|[0m
   character in a conditional group has a different meaning. Ignoring
   white space, consider:
 
     ^.*? (?(?=a) a |  b(*THEN)c )
 
-  If the subject is "ba", this pattern does not match. Because [;;4m.*?[0m
+  If the subject is "ba", this pattern does not match. Because [4m.*?[0m
   is ungreedy, it initially matches zero characters. The condition
   (?=a) then fails, the character "b" is matched, but "c" is not. At
   this point, matching does not backtrack to .*? as might perhaps be
   expected from the presence of the | character. The conditional
   group is part of the single alternative that comprises the whole
-  pattern, and so the match fails. (If there was a backtrack into [;;4m[0m
-  [;;4m.*?[0m, allowing it to match "b", the match would succeed.)
+  pattern, and so the match fails. (If there was a backtrack into [4m[0m
+  [4m.*?[0m, allowing it to match "b", the match would succeed.)
 
   The verbs just described provide four different "strengths" of
-  control when subsequent matching fails. [;;4m(*THEN)[0m is the weakest,
-  carrying on the match at the next alternative. [;;4m(*PRUNE)[0m comes
+  control when subsequent matching fails. [4m(*THEN)[0m is the weakest,
+  carrying on the match at the next alternative. [4m(*PRUNE)[0m comes
   next, failing the match at the current starting position, but
   allowing an advance to the next character (for an unanchored
-  pattern). [;;4m(*SKIP)[0m is similar, except that the advance may be
-  more than one character. [;;4m(*COMMIT)[0m is the strongest, causing the
+  pattern). [4m(*SKIP)[0m is similar, except that the advance may be
+  more than one character. [4m(*COMMIT)[0m is the strongest, causing the
   entire match to fail.
 
   More than one backtracking verb
@@ -3735,9 +3735,9 @@
 
     (A(*COMMIT)B(*THEN)C|ABD)
 
-  If A matches but B fails, the backtrack to [;;4m(*COMMIT)[0m causes the
+  If A matches but B fails, the backtrack to [4m(*COMMIT)[0m causes the
   entire match to fail. However, if A and B match, but C fails, the
-  backtrack to [;;4m(*THEN)[0m causes the next alternative (ABD) to be
+  backtrack to [4m(*THEN)[0m causes the next alternative (ABD) to be
   tried. This behaviour is consistent, but is not always the same as
   Perl's. It means that if two or more backtracking verbs appear in
   succession, all but the last of them has no effect. Consider this
@@ -3745,9 +3745,9 @@
 
     ...(*COMMIT)(*PRUNE)...
 
-  If there is a matching failure to the right, backtracking onto [;;4m[0m
-  [;;4m(*PRUNE)[0m causes it to be triggered, and its action is taken.
-  There can never be a backtrack onto [;;4m(*COMMIT)[0m.
+  If there is a matching failure to the right, backtracking onto [4m[0m
+  [4m(*PRUNE)[0m causes it to be triggered, and its action is taken.
+  There can never be a backtrack onto [4m(*COMMIT)[0m.
 
   Backtracking verbs in repeated groups
 
@@ -3757,24 +3757,24 @@
     /(a(*COMMIT)b)+ac/
 
   If the subject is "abac", Perl matches unless its optimizations
-  are disabled, but PCRE2 always fails because the [;;4m(*COMMIT)[0m in
+  are disabled, but PCRE2 always fails because the [4m(*COMMIT)[0m in
   the second repeat of the group acts.
 
   Backtracking verbs in assertions
 
-  [;;4m(*FAIL)[0m in any assertion has its normal effect: it forces an
+  [4m(*FAIL)[0m in any assertion has its normal effect: it forces an
   immediate backtrack. The behaviour of the other backtracking verbs
   depends on whether or not the assertion is standalone or acting as
   the condition in a conditional group.
 
-  [;;4m(*ACCEPT)[0m in a standalone positive assertion causes the assertion
+  [4m(*ACCEPT)[0m in a standalone positive assertion causes the assertion
   to succeed without any further processing; captured strings and a
   mark name (if set) are retained. In a standalone negative
-  assertion, [;;4m(*ACCEPT)[0m causes the assertion to fail without any
+  assertion, [4m(*ACCEPT)[0m causes the assertion to fail without any
   further processing; captured substrings and any mark name are
   discarded.
 
-  If the assertion is a condition, [;;4m(*ACCEPT)[0m causes the condition
+  If the assertion is a condition, [4m(*ACCEPT)[0m causes the condition
   to be true for a positive assertion and false for a negative one;
   captured substrings are retained in both cases.
 
@@ -3783,8 +3783,8 @@
   assertions, their effect is confined to the assertion, because
   Perl lookaround assertions are atomic. A backtrack that occurs
   after such an assertion is complete does not jump back into the
-  assertion. Note in particular that a [;;4m(*MARK)[0m name that is set in
-  an assertion is not "seen" by an instance of [;;4m(*SKIP:NAME)[0m later
+  assertion. Note in particular that a [4m(*MARK)[0m name that is set in
+  an assertion is not "seen" by an instance of [4m(*SKIP:NAME)[0m later
   in the pattern.
 
   PCRE2 now supports non-atomic positive assertions and also "scan
@@ -3792,22 +3792,22 @@
   "Non-atomic assertions" and "Scan substring assertions" above.
   These assertions must be standalone (not used as conditions). They
   are not Perl-compatible. For these assertions, a later backtrack
-  does jump back into the assertion, and therefore verbs such as [;;4m[0m
-  [;;4m(*COMMIT)[0m can be triggered by backtracks from later in the
+  does jump back into the assertion, and therefore verbs such as [4m[0m
+  [4m(*COMMIT)[0m can be triggered by backtracks from later in the
   pattern.
 
-  The effect of [;;4m(*THEN)[0m is not allowed to escape beyond an
-  assertion. If there are no more branches to try, [;;4m(*THEN)[0m causes
+  The effect of [4m(*THEN)[0m is not allowed to escape beyond an
+  assertion. If there are no more branches to try, [4m(*THEN)[0m causes
   a positive assertion to be false, and a negative assertion to be
   true. This behaviour differs from Perl when the assertion has only
   one branch.
 
   The other backtracking verbs are not treated specially if they
   appear in a standalone positive assertion. In a conditional
-  positive assertion, backtracking (from within the assertion) into [;;4m[0m
-  [;;4m(*COMMIT)[0m, [;;4m(*SKIP)[0m, or [;;4m(*PRUNE)[0m causes the condition to be
+  positive assertion, backtracking (from within the assertion) into [4m[0m
+  [4m(*COMMIT)[0m, [4m(*SKIP)[0m, or [4m(*PRUNE)[0m causes the condition to be
   false. However, for both standalone and conditional negative
-  assertions, backtracking into [;;4m(*COMMIT)[0m, [;;4m(*SKIP)[0m, or [;;4m(*PRUNE)[0m
+  assertions, backtracking into [4m(*COMMIT)[0m, [4m(*SKIP)[0m, or [4m(*PRUNE)[0m
   causes the assertion to be true, without considering any further
   alternative branches.
 
@@ -3816,20 +3816,20 @@
   These behaviours occur whether or not the group is called
   recursively.
 
-  [;;4m(*ACCEPT)[0m in a group called as a subroutine causes the subroutine
+  [4m(*ACCEPT)[0m in a group called as a subroutine causes the subroutine
   match to succeed without any further processing. Matching then
   continues after the subroutine call. Perl documents this
   behaviour. Perl's treatment of the other verbs in subroutines is
   different in some cases.
 
-  [;;4m(*FAIL)[0m in a group called as a subroutine has its normal effect:
+  [4m(*FAIL)[0m in a group called as a subroutine has its normal effect:
   it forces an immediate backtrack.
 
-  [;;4m(*COMMIT)[0m, [;;4m(*SKIP)[0m, and [;;4m(*PRUNE)[0m cause the subroutine match
+  [4m(*COMMIT)[0m, [4m(*SKIP)[0m, and [4m(*PRUNE)[0m cause the subroutine match
   to fail when triggered by being backtracked to in a group called
   as a subroutine. There is then a backtrack at the outer level.
 
-  [;;4m(*THEN)[0m, when triggered, skips to the next alternative in the
+  [4m(*THEN)[0m, when triggered, skips to the next alternative in the
   innermost enclosing group that has alternatives (its normal
   behaviour). However, if there is no such group within the
   subroutine's group, the subroutine match fails and there is a

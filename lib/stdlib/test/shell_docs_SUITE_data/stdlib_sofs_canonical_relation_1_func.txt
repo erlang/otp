@@ -2,21 +2,21 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  canonical_relation(SetOfSets)[0m
+[1m  canonical_relation(SetOfSets)[0m
 
   Returns the binary relation containing the elements (E, Set) such
-  that Set belongs to [;;4mSetOfSets[0m and E belongs to Set.
+  that Set belongs to [4mSetOfSets[0m and E belongs to Set.
 
-  If [;;4mSetOfSets[0m is a partition of a set X and R is the equivalence
-  relation in X induced by [;;4mSetOfSets[0m, then the returned relation
+  If [4mSetOfSets[0m is a partition of a set X and R is the equivalence
+  relation in X induced by [4mSetOfSets[0m, then the returned relation
   is the canonical map from X onto the equivalence classes with
   respect to R.
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> Ss = sofs:from_term([[a,b],[b,c]]).
     2> CR = sofs:canonical_relation(Ss).

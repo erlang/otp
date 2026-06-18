@@ -2,11 +2,11 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  trace_pattern(MFA, MatchSpec)[0m
+[1m  trace_pattern(MFA, MatchSpec)[0m
 
-  Equivalent to [;;4merlang:trace_pattern(Event, MatchSpec, [])[0m,
+  Equivalent to [4merlang:trace_pattern(Event, MatchSpec, [])[0m,
   retained for backward compatibility.

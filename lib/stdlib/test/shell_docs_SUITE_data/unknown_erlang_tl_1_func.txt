@@ -2,13 +2,13 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  tl(List)[0m
+[1m  tl(List)[0m
 
-  Returns the tail of [;;4mList[0m, that is, the list minus the first
+  Returns the tail of [4mList[0m, that is, the list minus the first
   element
 
   It works with improper lists.
@@ -27,4 +27,4 @@
     > tl([geesties | improper_end]).
     improper_end
 
-  Failure: [;;4mbadarg[0m if [;;4mList[0m is an empty list [;;4m[][0m.
+  Failure: [4mbadarg[0m if [4mList[0m is an empty list [4m[][0m.

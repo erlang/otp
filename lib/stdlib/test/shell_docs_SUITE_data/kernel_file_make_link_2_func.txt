@@ -2,22 +2,22 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  make_link(Existing, New)[0m
+[1m  make_link(Existing, New)[0m
 
-  Makes a hard link from [;;4mExisting[0m to [;;4mNew[0m on platforms supporting
-  links (Unix and Windows). This function returns [;;4mok[0m if the link
-  was successfully created, otherwise [;;4m{error, Reason}[0m. On
-  platforms not supporting links, [;;4m{error,enotsup}[0m is returned.
+  Makes a hard link from [4mExisting[0m to [4mNew[0m on platforms supporting
+  links (Unix and Windows). This function returns [4mok[0m if the link
+  was successfully created, otherwise [4m{error, Reason}[0m. On
+  platforms not supporting links, [4m{error,enotsup}[0m is returned.
 
   Typical error reasons:
 
-   • [;;4meacces[0m - Missing read or write permissions for the parent
-     directories of [;;4mExisting[0m or [;;4mNew[0m.
+   • [4meacces[0m - Missing read or write permissions for the parent
+     directories of [4mExisting[0m or [4mNew[0m.
 
-   • [;;4meexist[0m - [;;4mNew[0m already exists.
+   • [4meexist[0m - [4mNew[0m already exists.
 
-   • [;;4menotsup[0m - Hard links are not supported on this platform.
+   • [4menotsup[0m - Hard links are not supported on this platform.

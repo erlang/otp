@@ -2,103 +2,103 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  decode_packet(Type, Bin, Options)[0m
+[1m  decode_packet(Type, Bin, Options)[0m
 
-  Decodes the binary [;;4mBin[0m according to the packet protocol
-  specified by [;;4mType[0m. Similar to the packet handling done by
-  sockets with option [;;4m{packet,Type}.[0m
+  Decodes the binary [4mBin[0m according to the packet protocol
+  specified by [4mType[0m. Similar to the packet handling done by
+  sockets with option [4m{packet,Type}.[0m
 
-  If an entire packet is contained in [;;4mBin[0m, it is returned together
-  with the remainder of the binary as [;;4m{ok,Packet,Rest}[0m.
+  If an entire packet is contained in [4mBin[0m, it is returned together
+  with the remainder of the binary as [4m{ok,Packet,Rest}[0m.
 
-  If [;;4mBin[0m does not contain the entire packet, [;;4m{more,Length}[0m is
-  returned. [;;4mLength[0m is either the expected total size of the
-  packet, or [;;4mundefined[0m if the expected packet size is unknown. [;;4m[0m
-  [;;4mdecode_packet[0m can then be called again with more data added.
+  If [4mBin[0m does not contain the entire packet, [4m{more,Length}[0m is
+  returned. [4mLength[0m is either the expected total size of the
+  packet, or [4mundefined[0m if the expected packet size is unknown. [4m[0m
+  [4mdecode_packet[0m can then be called again with more data added.
 
-  If the packet does not conform to the protocol format, [;;4m[0m
-  [;;4m{error,Reason}[0m is returned.
+  If the packet does not conform to the protocol format, [4m[0m
+  [4m{error,Reason}[0m is returned.
 
-  [;;4mType[0ms:
+  [4mType[0ms:
 
-   • [;;4mraw | 0[0m - No packet handling is done. The entire binary is
+   • [4mraw | 0[0m - No packet handling is done. The entire binary is
      returned unless it is empty.
 
-   • [;;4m1 | 2 | 4[0m - Packets consist of a header specifying the
+   • [4m1 | 2 | 4[0m - Packets consist of a header specifying the
      number of bytes in the packet, followed by that number of
      bytes. The length of the header can be one, two, or four
      bytes; the order of the bytes is big-endian. The header is
      stripped off when the packet is returned.
 
-   • [;;4mline[0m - A packet is a line-terminated by a delimiter byte,
+   • [4mline[0m - A packet is a line-terminated by a delimiter byte,
      default is the latin-1 newline character. The delimiter byte
      is included in the returned packet unless the line was
-     truncated according to option [;;4mline_length[0m.
+     truncated according to option [4mline_length[0m.
 
-   • [;;4masn1 | cdr | sunrm | fcgi | tpkt[0m - The header is not
+   • [4masn1 | cdr | sunrm | fcgi | tpkt[0m - The header is not
      stripped off.
 
      The meanings of the packet types are as follows:
 
-      ￮ [;;4masn1[0m - ASN.1 BER
+      ￮ [4masn1[0m - ASN.1 BER
 
-      ￮ [;;4msunrm[0m - Sun's RPC encoding
+      ￮ [4msunrm[0m - Sun's RPC encoding
 
-      ￮ [;;4mcdr[0m - CORBA (GIOP 1.1)
+      ￮ [4mcdr[0m - CORBA (GIOP 1.1)
 
-      ￮ [;;4mfcgi[0m - Fast CGI
+      ￮ [4mfcgi[0m - Fast CGI
 
-      ￮ [;;4mtpkt[0m - TPKT format [RFC1006]
+      ￮ [4mtpkt[0m - TPKT format [RFC1006]
 
-   • [;;4mhttp | httph | http_bin | httph_bin[0m - The Hypertext
+   • [4mhttp | httph | http_bin | httph_bin[0m - The Hypertext
      Transfer Protocol. The packets are returned with the format
-     according to [;;4mHttpPacket[0m described earlier. A packet is
+     according to [4mHttpPacket[0m described earlier. A packet is
      either a request, a response, a header, or an end of header
-     mark. Invalid lines are returned as [;;4mHttpError[0m.
+     mark. Invalid lines are returned as [4mHttpError[0m.
 
      Recognized request methods and header fields are returned as
      atoms. Others are returned as strings. Strings of
      unrecognized header fields are formatted with only capital
-     letters first and after hyphen characters, for example, [;;4m[0m
-     [;;4m"Sec-Websocket-Key"[0m. Header field names are also returned
-     in [;;4mUnmodifiedField[0m as strings, without any conversion or
+     letters first and after hyphen characters, for example, [4m[0m
+     [4m"Sec-Websocket-Key"[0m. Header field names are also returned
+     in [4mUnmodifiedField[0m as strings, without any conversion or
      formatting.
 
-     The protocol type [;;4mhttp[0m is only to be used for the first
-     line when an [;;4mHttpRequest[0m or an [;;4mHttpResponse[0m is expected.
-     The following calls are to use [;;4mhttph[0m to get [;;4mHttpHeader[0ms
-     until [;;4mhttp_eoh[0m is returned, which marks the end of the
+     The protocol type [4mhttp[0m is only to be used for the first
+     line when an [4mHttpRequest[0m or an [4mHttpResponse[0m is expected.
+     The following calls are to use [4mhttph[0m to get [4mHttpHeader[0ms
+     until [4mhttp_eoh[0m is returned, which marks the end of the
      headers and the beginning of any following message body.
 
-     The variants [;;4mhttp_bin[0m and [;;4mhttph_bin[0m return strings ([;;4m[0m
-     [;;4mHttpString[0m) as binaries instead of lists.
+     The variants [4mhttp_bin[0m and [4mhttph_bin[0m return strings ([4m[0m
+     [4mHttpString[0m) as binaries instead of lists.
 
-     Since OTP 26.0, [;;4mHost[0m may be an IPv6 address enclosed in [;;4m[0m
-     [;;4m[][0m, as defined in RFC2732 .
+     Since OTP 26.0, [4mHost[0m may be an IPv6 address enclosed in [4m[0m
+     [4m[][0m, as defined in RFC2732 .
 
   Options:
 
-   • [;;4m{packet_size, integer() >= 0}[0m - Sets the maximum allowed
+   • [4m{packet_size, integer() >= 0}[0m - Sets the maximum allowed
      size of the packet body. If the packet header indicates that
      the length of the packet is longer than the maximum allowed
      length, the packet is considered invalid. Defaults to 0,
      which means no size limit.
 
-   • [;;4m{line_length, integer() >= 0}[0m - For packet type [;;4mline[0m,
+   • [4m{line_length, integer() >= 0}[0m - For packet type [4mline[0m,
      lines longer than the indicated length are truncated.
 
-     Option [;;4mline_length[0m also applies to [;;4mhttp*[0m packet types as
-     an alias for option [;;4mpacket_size[0m if [;;4mpacket_size[0m itself is
+     Option [4mline_length[0m also applies to [4mhttp*[0m packet types as
+     an alias for option [4mpacket_size[0m if [4mpacket_size[0m itself is
      not set. This use is only intended for backward
      compatibility.
 
-   • [;;4m{line_delimiter, 0 =< byte() =< 255}[0m - For packet type [;;4m[0m
-     [;;4mline[0m, sets the delimiting byte. Default is the latin-1
-     character [;;4m$\n[0m.
+   • [4m{line_delimiter, 0 =< byte() =< 255}[0m - For packet type [4m[0m
+     [4mline[0m, sets the delimiting byte. Default is the latin-1
+     character [4m$\n[0m.
 
   Examples:
 

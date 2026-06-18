@@ -2,19 +2,19 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  localtime_to_universaltime(Localtime)[0m
+[1m  localtime_to_universaltime(Localtime)[0m
 
   Converts local date and time to Universal Time Coordinated (UTC),
   if supported by the underlying OS. Otherwise no conversion is done
-  and [;;4mLocaltime[0m is returned.
+  and [4mLocaltime[0m is returned.
 
   For example:
 
     > erlang:localtime_to_universaltime({{1996,11,6},{14,45,17}}).
     {{1996,11,6},{13,45,17}}
 
-  Failure: [;;4mbadarg[0m if [;;4mLocaltime[0m denotes an invalid date and time.
+  Failure: [4mbadarg[0m if [4mLocaltime[0m denotes an invalid date and time.

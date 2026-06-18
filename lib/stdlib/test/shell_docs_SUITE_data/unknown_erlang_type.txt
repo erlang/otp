@@ -2,197 +2,197 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
-[;1m	erlang[0m
+[1m	erlang[0m
 
 These types are documented in this module:
 
-[;1m  memory_type()[0m
+[1m  memory_type()[0m
 
-[;1m  send_destination()[0m
+[1m  send_destination()[0m
 
-[;1m  spawn_opt_option()[0m
+[1m  spawn_opt_option()[0m
 
-[;1m  max_heap_size()[0m
+[1m  max_heap_size()[0m
 
-[;1m  garbage_collection_defaults()[0m
+[1m  garbage_collection_defaults()[0m
 
-[;1m  info_list()[0m
+[1m  info_list()[0m
 
-[;1m  sub_level()[0m
+[1m  sub_level()[0m
 
-[;1m  level_tag()[0m
+[1m  level_tag()[0m
 
-[;1m  level_entry()[0m
+[1m  level_entry()[0m
 
-[;1m  cpu_topology()[0m
+[1m  cpu_topology()[0m
 
-[;1m  trace_pattern_flag()[0m
+[1m  trace_pattern_flag()[0m
 
-[;1m  trace_match_spec()[0m
+[1m  trace_match_spec()[0m
 
-[;1m  trace_pattern_mfa()[0m
+[1m  trace_pattern_mfa()[0m
 
-[;1m  match_variable()[0m
+[1m  match_variable()[0m
 
-[;1m  scheduler_bind_type()[0m
+[1m  scheduler_bind_type()[0m
 
-[;1m  stack_item()[0m
+[1m  stack_item()[0m
 
-[;1m  process_info_result_item()[0m
+[1m  process_info_result_item()[0m
 
-[;1m  process_info_item()[0m
+[1m  process_info_item()[0m
 
-[;1m  message_queue_data()[0m
+[1m  message_queue_data()[0m
 
-[;1m  priority_level()[0m
+[1m  priority_level()[0m
 
-[;1m  processes_iter_ref()[0m
+[1m  processes_iter_ref()[0m
 
-[;1m  link_option()[0m
+[1m  link_option()[0m
 
-[;1m  monitor_option()[0m
+[1m  monitor_option()[0m
 
-[;1m  monitor_port_identifier()[0m
+[1m  monitor_port_identifier()[0m
 
-[;1m  monitor_process_identifier()[0m
+[1m  monitor_process_identifier()[0m
 
-[;1m  registered_process_identifier()[0m
+[1m  registered_process_identifier()[0m
 
-[;1m  registered_name()[0m
+[1m  registered_name()[0m
 
-[;1m  halt_options()[0m
+[1m  halt_options()[0m
 
-[;1m  trace_info_return()[0m
+[1m  trace_info_return()[0m
 
-[;1m  trace_info_flag()[0m
+[1m  trace_info_flag()[0m
 
-[;1m  trace_info_item_result()[0m
+[1m  trace_info_item_result()[0m
 
-[;1m  trace_flag()[0m
+[1m  trace_flag()[0m
 
-[;1m  bitstring_list()[0m
+[1m  bitstring_list()[0m
 
-[;1m  raise_stacktrace()[0m
+[1m  raise_stacktrace()[0m
 
-[;1m  system_monitor_option()[0m
+[1m  system_monitor_option()[0m
 
-[;1m  system_profile_option()[0m
+[1m  system_profile_option()[0m
 
-[;1m  fun_info_item()[0m
+[1m  fun_info_item()[0m
 
-[;1m  iovec()[0m
+[1m  iovec()[0m
 
-[;1m  dist_handle()[0m
+[1m  dist_handle()[0m
 
-[;1m  nif_resource()[0m
+[1m  nif_resource()[0m
 
-[;1m  prepared_code()[0m
+[1m  prepared_code()[0m
 
-[;1m  deprecated_time_unit()[0m
+[1m  deprecated_time_unit()[0m
 
-[;1m  time_unit()[0m
+[1m  time_unit()[0m
 
-[;1m  timestamp()[0m
+[1m  timestamp()[0m
 
-[;1m  ext_iovec()[0m
+[1m  ext_iovec()[0m
 
-[;1m  ext_binary()[0m
+[1m  ext_binary()[0m
 
-[;1m  stacktrace()[0m
+[1m  stacktrace()[0m
 
-[;1m  stacktrace_extrainfo()[0m
+[1m  stacktrace_extrainfo()[0m
 
-[;1m  tuple()[0m
+[1m  tuple()[0m
 
-[;1m  timeout()[0m
+[1m  timeout()[0m
 
-[;1m  term()[0m
+[1m  term()[0m
 
-[;1m  string()[0m
+[1m  string()[0m
 
-[;1m  reference()[0m
+[1m  reference()[0m
 
-[;1m  pos_integer()[0m
+[1m  pos_integer()[0m
 
-[;1m  port()[0m
+[1m  port()[0m
 
-[;1m  pid()[0m
+[1m  pid()[0m
 
-[;1m  number()[0m
+[1m  number()[0m
 
-[;1m  nonempty_string()[0m
+[1m  nonempty_string()[0m
 
-[;1m  nonempty_maybe_improper_list(ContentType, TerminationType)[0m
+[1m  nonempty_maybe_improper_list(ContentType, TerminationType)[0m
 
-[;1m  nonempty_maybe_improper_list()[0m
+[1m  nonempty_maybe_improper_list()[0m
 
-[;1m  nonempty_list(ContentType)[0m
+[1m  nonempty_list(ContentType)[0m
 
-[;1m  nonempty_list()[0m
+[1m  nonempty_list()[0m
 
-[;1m  nonempty_improper_list(ContentType, TerminationType)[0m
+[1m  nonempty_improper_list(ContentType, TerminationType)[0m
 
-[;1m  nonempty_bitstring()[0m
+[1m  nonempty_bitstring()[0m
 
-[;1m  nonempty_binary()[0m
+[1m  nonempty_binary()[0m
 
-[;1m  none()[0m
+[1m  none()[0m
 
-[;1m  non_neg_integer()[0m
+[1m  non_neg_integer()[0m
 
-[;1m  node()[0m
+[1m  node()[0m
 
-[;1m  no_return()[0m
+[1m  no_return()[0m
 
-[;1m  nil()[0m
+[1m  nil()[0m
 
-[;1m  neg_integer()[0m
+[1m  neg_integer()[0m
 
-[;1m  module()[0m
+[1m  module()[0m
 
-[;1m  mfa()[0m
+[1m  mfa()[0m
 
-[;1m  maybe_improper_list(ContentType, TerminationType)[0m
+[1m  maybe_improper_list(ContentType, TerminationType)[0m
 
-[;1m  maybe_improper_list()[0m
+[1m  maybe_improper_list()[0m
 
-[;1m  map()[0m
+[1m  map()[0m
 
-[;1m  list(ContentType)[0m
+[1m  list(ContentType)[0m
 
-[;1m  list()[0m
+[1m  list()[0m
 
-[;1m  iolist()[0m
+[1m  iolist()[0m
 
-[;1m  iodata()[0m
+[1m  iodata()[0m
 
-[;1m  integer()[0m
+[1m  integer()[0m
 
-[;1m  identifier()[0m
+[1m  identifier()[0m
 
-[;1m  function()[0m
+[1m  function()[0m
 
-[;1m  float()[0m
+[1m  float()[0m
 
-[;1m  dynamic()[0m
+[1m  dynamic()[0m
 
-[;1m  char()[0m
+[1m  char()[0m
 
-[;1m  byte()[0m
+[1m  byte()[0m
 
-[;1m  boolean()[0m
+[1m  boolean()[0m
 
-[;1m  bool()[0m
+[1m  bool()[0m
 
-[;1m  bitstring()[0m
+[1m  bitstring()[0m
 
-[;1m  binary()[0m
+[1m  binary()[0m
 
-[;1m  atom()[0m
+[1m  atom()[0m
 
-[;1m  arity()[0m
+[1m  arity()[0m
 
-[;1m  any()[0m
+[1m  any()[0m

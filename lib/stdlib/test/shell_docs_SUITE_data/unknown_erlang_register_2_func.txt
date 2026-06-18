@@ -2,16 +2,16 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  register(RegName, PidOrPort)[0m
+[1m  register(RegName, PidOrPort)[0m
 
-  Registers the name [;;4mRegName[0m with a process identifier (pid) or a
-  port identifier in the [;;4mname registry[0m. [;;4mRegName[0m, which must be
+  Registers the name [4mRegName[0m with a process identifier (pid) or a
+  port identifier in the [4mname registry[0m. [4mRegName[0m, which must be
   an atom, can be used instead of the pid or port identifier in send
-  operator ([;;4mRegName ! Message[0m) and most other BIFs that take a pid
+  operator ([4mRegName ! Message[0m) and most other BIFs that take a pid
   or port identifies as an argument.
 
   For example:
@@ -25,12 +25,12 @@
 
   Failures:
 
-   • [;;4mbadarg[0m - If [;;4mPidOrPort[0m is not an existing local process or
+   • [4mbadarg[0m - If [4mPidOrPort[0m is not an existing local process or
      port.
 
-   • [;;4mbadarg[0m - If [;;4mRegName[0m is already in use.
+   • [4mbadarg[0m - If [4mRegName[0m is already in use.
 
-   • [;;4mbadarg[0m - If the process or port is already registered
+   • [4mbadarg[0m - If the process or port is already registered
      (already has a name).
 
-   • [;;4mbadarg[0m - If [;;4mRegName[0m is the atom [;;4mundefined[0m.
+   • [4mbadarg[0m - If [4mRegName[0m is the atom [4mundefined[0m.

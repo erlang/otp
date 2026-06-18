@@ -2,11 +2,11 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  size(Item)[0m
+[1m  size(Item)[0m
 
   Returns the number of elements in a tuple or the number of bytes
   in a binary or bitstring.
@@ -22,4 +22,4 @@
   the number of bits in the bitstring is not divisible by 8, the
   resulting number of bytes is rounded down.
 
-  See also [;;4mtuple_size/1[0m, [;;4mbyte_size/1[0m, and [;;4mbit_size/1[0m.
+  See also [4mtuple_size/1[0m, [4mbyte_size/1[0m, and [4mbit_size/1[0m.

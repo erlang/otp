@@ -2,16 +2,16 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  process_display(Pid, Type)[0m
+[1m  process_display(Pid, Type)[0m
 
-  Writes information about the local process [;;4mPid[0m on standard
+  Writes information about the local process [4mPid[0m on standard
   error.
 
-  The only allowed value for the atom [;;4mType[0m is [;;4mbacktrace[0m, which
+  The only allowed value for the atom [4mType[0m is [4mbacktrace[0m, which
   shows the contents of the call stack, including information about
   the call chain, with the current function printed first. The
   format of the output is not further defined.

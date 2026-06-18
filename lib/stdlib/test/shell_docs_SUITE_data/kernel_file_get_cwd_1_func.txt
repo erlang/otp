@@ -2,24 +2,24 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  get_cwd(Drive)[0m
+[1m  get_cwd(Drive)[0m
 
-  Returns [;;4m{ok, Dir}[0m or [;;4m{error, Reason}[0m, where [;;4mDir[0m is the
+  Returns [4m{ok, Dir}[0m or [4m{error, Reason}[0m, where [4mDir[0m is the
   current working directory of the specified drive.
 
-  [;;4mDrive[0m is to be of the form [;;4mLetter:[0m, for example, .
+  [4mDrive[0m is to be of the form [4mLetter:[0m, for example, .
 
-  Returns [;;4m{error, enotsup}[0m on platforms that have no concept of
+  Returns [4m{error, enotsup}[0m on platforms that have no concept of
   current drive (Unix, for example).
 
   Typical error reasons:
 
-   • [;;4menotsup[0m - The operating system has no concept of drives.
+   • [4menotsup[0m - The operating system has no concept of drives.
 
-   • [;;4meacces[0m - The drive does not exist.
+   • [4meacces[0m - The drive does not exist.
 
-   • [;;4meinval[0m - The format of [;;4mDrive[0m is invalid.
+   • [4meinval[0m - The format of [4mDrive[0m is invalid.

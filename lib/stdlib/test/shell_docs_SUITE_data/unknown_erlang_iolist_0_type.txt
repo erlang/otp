@@ -2,16 +2,16 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  iolist()[0m
+[1m  iolist()[0m
 
   A list containing bytes and/or iodata.
 
   This datatype is used to represent data that is meant to be output
-  using any I/O module. For example: [;;4mfile:write/2[0m or [;;4m[0m
-  [;;4mgen_tcp:send/2[0m.
+  using any I/O module. For example: [4mfile:write/2[0m or [4m[0m
+  [4mgen_tcp:send/2[0m.
 
-  In most use cases you want to use [;;4miodata/0[0m instead of this type.
+  In most use cases you want to use [4miodata/0[0m instead of this type.

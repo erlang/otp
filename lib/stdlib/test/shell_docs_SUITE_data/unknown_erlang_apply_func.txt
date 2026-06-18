@@ -2,28 +2,28 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  apply(Fun, Args)[0m
+[1m  apply(Fun, Args)[0m
 
-  Calls a fun, passing the elements in [;;4mArgs[0m as arguments.
+  Calls a fun, passing the elements in [4mArgs[0m as arguments.
 
   If the number of elements in the arguments are known at compile
-  time, the call is better written as [;;4mFun(Arg1, Arg2, ... ArgN)[0m.
+  time, the call is better written as [4mFun(Arg1, Arg2, ... ArgN)[0m.
 
-  [;;4mWarning[0m
+  [4mWarning[0m
 
-    Earlier, [;;4mFun[0m could also be specified as [;;4m{Module, Function}[0m,
-    equivalent to [;;4mapply(Module, Function, Args)[0m. This use is
+    Earlier, [4mFun[0m could also be specified as [4m{Module, Function}[0m,
+    equivalent to [4mapply(Module, Function, Args)[0m. This use is
     deprecated and will stop working in a future release.
 
-[;1m  apply(Module, Function, Args)[0m
+[1m  apply(Module, Function, Args)[0m
 
-  Returns the result of applying [;;4mFunction[0m in [;;4mModule[0m to [;;4mArgs[0m.
-  The applied function must be exported from [;;4mModule[0m. The arity of
-  the function is the length of [;;4mArgs[0m.
+  Returns the result of applying [4mFunction[0m in [4mModule[0m to [4mArgs[0m.
+  The applied function must be exported from [4mModule[0m. The arity of
+  the function is the length of [4mArgs[0m.
 
   For example:
 
@@ -33,11 +33,11 @@
     "Erlang"
 
   If the number of arguments are known at compile time, the call is
-  better written as [;;4mModule:Function(Arg1, Arg2, ..., ArgN)[0m.
+  better written as [4mModule:Function(Arg1, Arg2, ..., ArgN)[0m.
 
-  Failure: [;;4merror_handler:undefined_function/3[0m is called if the
+  Failure: [4merror_handler:undefined_function/3[0m is called if the
   applied function is not exported. The error handler can be
-  redefined (see [;;4mprocess_flag/2[0m). If [;;4merror_handler[0m is undefined,
-  or if the user has redefined the default [;;4merror_handler[0m so the
-  replacement module is undefined, an error with reason [;;4mundef[0m is
+  redefined (see [4mprocess_flag/2[0m). If [4merror_handler[0m is undefined,
+  or if the user has redefined the default [4merror_handler[0m so the
+  replacement module is undefined, an error with reason [4mundef[0m is
   generated.

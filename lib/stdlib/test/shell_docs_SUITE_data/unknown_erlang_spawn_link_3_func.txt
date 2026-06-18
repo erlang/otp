@@ -2,13 +2,13 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  spawn_link(Module, Function, Args)[0m
+[1m  spawn_link(Module, Function, Args)[0m
 
   Returns the process identifier of a new process started by the
-  application of [;;4mModule:Function[0m to [;;4mArgs[0m. A link is created
+  application of [4mModule:Function[0m to [4mArgs[0m. A link is created
   between the calling process and the new process, atomically.
-  Otherwise works like [;;4mspawn/3[0m.
+  Otherwise works like [4mspawn/3[0m.

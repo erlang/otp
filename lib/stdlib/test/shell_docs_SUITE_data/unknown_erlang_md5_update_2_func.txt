@@ -2,10 +2,10 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  md5_update(Context, Data)[0m
+[1m  md5_update(Context, Data)[0m
 
-  Update an MD5 [;;4mContext[0m with [;;4mData[0m and returns a [;;4mNewContext[0m.
+  Update an MD5 [4mContext[0m with [4mData[0m and returns a [4mNewContext[0m.

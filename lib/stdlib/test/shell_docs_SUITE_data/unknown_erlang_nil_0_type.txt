@@ -2,10 +2,10 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  nil()[0m
+[1m  nil()[0m
 
-  The empty [;;4mlist/0[0m.
+  The empty [4mlist/0[0m.

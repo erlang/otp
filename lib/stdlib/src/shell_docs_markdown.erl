@@ -34,7 +34,7 @@
 
 %% Allowed lists and their ways to capture them
 -define(IS_BULLET(X), (X =:= $* orelse X =:= $- orelse X =:= $+)).
--define(IS_NUMBERED(X), (is_integer(X) andalso min(0, X) =:= 0)).
+-define(IS_NUMBERED(X), ((X) >= $0 andalso (X) =< $9)).
 
 %% Parsing format symbols and symbols separators between formats
 -define(VALID_BREAK(Symb), (Symb =:= $\s orelse Symb =:= $\n orelse Symb =:= <<>>)).
@@ -81,6 +81,8 @@ format_line(Ls) ->
       OmissionSet :: sets:set(atom()).
 format_line([], _BlockSet0) ->
     [];
+format_line([{br, _, _}=Br | Rest], BlockSet0) ->
+    [Br | format_line(Rest, BlockSet0)];
 format_line([{Tag, Attrs, List} | Rest], BlockSet0) ->
     case format_line(List, sets:add_element(Tag, BlockSet0)) of
         [] ->
@@ -435,12 +437,38 @@ is_html(Line) ->
             false
     end.
 
+process_paragraph([P | Rest], [Bin | RestBlock]=Block, Opts) when is_binary(Bin), is_binary(P) ->
+    case hard_line_break(Bin) of
+        {true, StrippedBin} ->
+            [StrippedBin | RestBlock] ++ [{br, [], []}] ++
+                parse_md_lines([P | Rest], [], Opts);
+        false ->
+            do_process_paragraph([P | Rest], Block, Opts)
+    end;
 process_paragraph([P | Rest], Block, Opts) ->
+    do_process_paragraph([P | Rest], Block, Opts).
+
+do_process_paragraph([P | Rest], Block, Opts) ->
     case process_p([P | Rest], Block) of
         {[_ | _]=Rest1, Block1} ->
             process_setext_header({Rest1, Block1}, Opts);
         {Rest2, Block2} ->
             parse_md_lines(Rest2, Block2, Opts)
+    end.
+
+hard_line_break(<<>>) ->
+    false;
+hard_line_break(Bin) ->
+    case binary:last(Bin) of
+        $\\ ->
+            {true, binary:part(Bin, 0, byte_size(Bin) - 1)};
+        $\s when byte_size(Bin) >= 2 ->
+            case binary:at(Bin, byte_size(Bin) - 2) of
+                $\s -> {true, trim_trailing_spaces(Bin)};
+                _ -> false
+            end;
+        _ ->
+            false
     end.
 
 process_setext_header({[Line | Remaining]=Rest1, [H]=Block1}, Opts) ->
@@ -488,6 +516,13 @@ process_p([P | Rest], [Bin | RestBlock]) when is_binary(Bin), is_binary(P) ->
             {Rest, [<<Bin/binary, P/binary>> | RestBlock]};
         _ ->
             {Rest, [<<Bin/binary, $\s, P/binary>> | RestBlock]}
+    end.
+
+trim_trailing_spaces(<<>>) -> <<>>;
+trim_trailing_spaces(Bin) ->
+    case binary:last(Bin) of
+        $\s -> trim_trailing_spaces(binary:part(Bin, 0, byte_size(Bin) - 1));
+        _ -> Bin
     end.
 
 strip_spaces(<<" ", Rest/binary>>, Acc, Max) when Max =:= infinity; Acc < Max ->

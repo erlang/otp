@@ -296,8 +296,7 @@ by the new process to initialize the server.
 
 The return value `Result` is interpreted as follows:
 
-- **`{ok,State}`\
-  `{ok,State,_}`** - Initialization was succesful
+- **`{ok,State}` | `{ok,State,_}`** - Initialization was succesful
    and `State` is the internal state of the `gen_server` process.
 
 - **`{ok,_,Action}`**  - `Action` is described by the `t:action/0` type.
@@ -305,8 +304,11 @@ The return value `Result` is interpreted as follows:
 - **`{stop,Reason}`** - Initialization failed.  The `gen_server`
   process exits with reason `Reason`.
 
-- **`{error,Reason}` _since OTP 26.0_\
-  `ignore`** - Initialization failed. The `gen_server` process exits
+- **`{error,Reason}`** - _since OTP 26.0_\
+  Initialization failed. The `gen_server` process exits
+  with reason `Reason`.
+
+- **`ignore`** - Initialization failed. The `gen_server` process exits
   with reason `normal`.
 
 See function [`start_link/3,4`](`start_link/3`)'s return value

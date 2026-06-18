@@ -2,19 +2,19 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  weak_relation(BinRel1)[0m
+[1m  weak_relation(BinRel1)[0m
 
   Returns a subset S of the weak relation W corresponding to the
-  binary relation [;;4mBinRel1[0m.
+  binary relation [4mBinRel1[0m.
 
-  Let F be the field of [;;4mBinRel1[0m. The subset S is defined so that x
+  Let F be the field of [4mBinRel1[0m. The subset S is defined so that x
   S y if x W y for some x in F and for some y in F.
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> R1 = sofs:relation([{1,1},{1,2},{3,1}]).
     2> R2 = sofs:weak_relation(R1).

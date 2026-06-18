@@ -2,11 +2,11 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  dmonitor_node/3[0m
+[1m  dmonitor_node/3[0m
 
   The documentation for dmonitor_node/3 is hidden. This probably
   means that it is internal and not to be used by other

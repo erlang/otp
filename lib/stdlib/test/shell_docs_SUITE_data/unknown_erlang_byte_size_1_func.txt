@@ -2,14 +2,14 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  byte_size(Bitstring)[0m
+[1m  byte_size(Bitstring)[0m
 
-  Returns an integer that is the number of bytes needed to contain [;;4m[0m
-  [;;4mBitstring[0m. That is, if the number of bits in [;;4mBitstring[0m is not
+  Returns an integer that is the number of bytes needed to contain [4m[0m
+  [4mBitstring[0m. That is, if the number of bits in [4mBitstring[0m is not
   divisible by 8, the resulting number of bytes is rounded up.
 
   For example:

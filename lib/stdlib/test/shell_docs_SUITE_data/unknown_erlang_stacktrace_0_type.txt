@@ -2,11 +2,11 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  stacktrace()[0m
+[1m  stacktrace()[0m
 
   An Erlang stacktrace as described by Errors and Error Handling
   section in the Erlang Reference Manual.

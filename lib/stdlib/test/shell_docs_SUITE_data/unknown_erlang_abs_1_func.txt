@@ -2,14 +2,14 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  abs(Number)[0m
+[1m  abs(Number)[0m
 
   Returns an integer or float that is the arithmetical absolute
-  value of [;;4mFloat[0m or [;;4mInt[0m.
+  value of [4mFloat[0m or [4mInt[0m.
 
   For example:
 

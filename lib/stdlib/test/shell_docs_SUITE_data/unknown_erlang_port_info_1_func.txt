@@ -2,37 +2,37 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  port_info(Port)[0m
+[1m  port_info(Port)[0m
 
-  Returns a list containing tuples with information about [;;4mPort[0m, or [;;4m[0m
-  [;;4mundefined[0m if the port is not open.
+  Returns a list containing tuples with information about [4mPort[0m, or [4m[0m
+  [4mundefined[0m if the port is not open.
 
   The order of the tuples is undefined, and all the tuples are not
   mandatory. If the port is closed and the calling process was
   previously linked to the port, the exit signal from the port is
-  guaranteed to be delivered before [;;4mport_info/1[0m returns [;;4mundefined[0m.
+  guaranteed to be delivered before [4mport_info/1[0m returns [4mundefined[0m.
 
-  The result contains information about the following [;;4mItem[0ms:
+  The result contains information about the following [4mItem[0ms:
 
-   • [;;4mregistered_name[0m (if the port has a registered name)
+   • [4mregistered_name[0m (if the port has a registered name)
 
-   • [;;4mid[0m
+   • [4mid[0m
 
-   • [;;4mconnected[0m
+   • [4mconnected[0m
 
-   • [;;4mlinks[0m
+   • [4mlinks[0m
 
-   • [;;4mname[0m
+   • [4mname[0m
 
-   • [;;4minput[0m
+   • [4minput[0m
 
-   • [;;4moutput[0m
+   • [4moutput[0m
 
-  For more information about the different [;;4mItem[0ms, see [;;4mport_info/2[0m.
+  For more information about the different [4mItem[0ms, see [4mport_info/2[0m.
 
-  Failure: [;;4mbadarg[0m if [;;4mPort[0m is not a local port identifier, or an
+  Failure: [4mbadarg[0m if [4mPort[0m is not a local port identifier, or an
   atom.
