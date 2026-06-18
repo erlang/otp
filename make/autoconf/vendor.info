@@ -17,6 +17,7 @@
       "versionInfo": "2.72",
       "path": ["./make/autoconf/config.guess", "./make/autoconf/config.sub", "./make/autoconf/install-sh"],
       "supplier": "Organization: Free Software Foundation",
-      "purl": "pkg:generic/autoconf"
+      "purl": "pkg:generic/autoconf",
+      "annotation": "Vendor package modified in Erlang/OTP"
     }
 ]
