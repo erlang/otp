@@ -2,6 +2,7 @@ name: Sverker is testing stuff
 
 on:
   pull_request:
+    types: [opened,synchronize,reopened,labeled,unlabeled]
 
 jobs:
   sverker:
