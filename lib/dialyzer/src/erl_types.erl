@@ -1281,7 +1281,7 @@ t_widen_to_number(?tuple_set(_) = Tuples) ->
 t_widen_to_number(?record(N,T)) ->
   ?record(N, #{K => {present, t_widen_to_number(V)} || K := {present,V} <- T});
 t_widen_to_number(?record_set(T)) ->
-  ?record_set(t_widen_to_number(T));
+  ?record_set(list_widen_to_number(T));
 t_widen_to_number(?union(List)) ->
   ?union(list_widen_to_number(List));
 t_widen_to_number(?var(_Id)= T) -> T.
