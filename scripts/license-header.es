@@ -268,12 +268,12 @@ check_file(File, LargestLicense, Templates, VendorPaths, Opts) ->
         Data = read(File, LargestLicense*3),
         case re:run(Data, "(.* )?%CopyrightBegin%(?:\r\n|\n)",[]) of
             {match, [StartPos | PrefixPos]} ->
-                check_file_header(File, File, Data, StartPos, PrefixPos, Templates, Opts);
+                check_file_header(File, File, Data, StartPos, PrefixPos, Templates, VendorPaths, Opts);
             nomatch ->
                 maybe
                     {ok, LicData} ?= file:read_file(File++".license"),
                     {match, [StartPos | PrefixPos]} ?= re:run(LicData, "(.* )?%CopyrightBegin%(?:\r\n|\n)",[]),
-                    check_file_header(File, File++".license", LicData, StartPos, PrefixPos, Templates, Opts)
+                    check_file_header(File, File++".license", LicData, StartPos, PrefixPos, Templates, VendorPaths, Opts)
                 else
                     _ ->
                         ReportMissing = not is_ignored(File) andalso
@@ -297,11 +297,11 @@ check_file(File, LargestLicense, Templates, VendorPaths, Opts) ->
             erlang:raise(E,R,ST)
     end.
 
-check_file_header(File, LicenseFile, Data, StartPos, [], Templates, Opts) ->
-    check_file_header(File, LicenseFile, Data, StartPos, <<>>, Templates, Opts);
-check_file_header(File, LicenseFile, Data, StartPos, [PrefixPos], Templates, Opts) ->
-    check_file_header(File, LicenseFile, Data, StartPos, binary:part(Data, PrefixPos), Templates, Opts);
-check_file_header(File, LicenseFile, Data, {Start, StartEnd}, Prefix, Templates, Opts) ->
+check_file_header(File, LicenseFile, Data, StartPos, [], Templates, VendorPaths, Opts) ->
+    check_file_header(File, LicenseFile, Data, StartPos, <<>>, Templates, VendorPaths, Opts);
+check_file_header(File, LicenseFile, Data, StartPos, [PrefixPos], Templates, VendorPaths, Opts) ->
+    check_file_header(File, LicenseFile, Data, StartPos, binary:part(Data, PrefixPos), Templates, VendorPaths, Opts);
+check_file_header(File, LicenseFile, Data, {Start, StartEnd}, Prefix, Templates, VendorPaths, Opts) ->
     case re:run(Data, ["\\Q", Prefix, "\\E%CopyrightEnd%(\r\n|\n)"],[]) of
         {match, [{End, EndPos},{_,NlSize}]} ->
             DataAfterHeader = binary:part(Data, End+EndPos, byte_size(Data) - (End+EndPos)),
@@ -312,8 +312,8 @@ check_file_header(File, LicenseFile, Data, {Start, StartEnd}, Prefix, Templates,
             check_license(License, Spdx, Templates,
                           length(string:split(DataAfterHeader,"\n",all)),
                           File, not string:equal(File, LicenseFile), Opts),
-            case maps:get(update, Opts, false) of
-                true -> update_copyright(LicenseFile, Start + StartEnd, End, Prefix, LineEnding, Spdx, Copyrights, License);
+            case maps:get(update, Opts, false) andalso not is_vendored(File, VendorPaths) of
+                true -> update_copyright(File, LicenseFile, Start + StartEnd, End, Prefix, LineEnding, Spdx, Copyrights, License);
                 false -> ok
             end;
         nomatch when map_get(verbose, Opts) ->
@@ -322,15 +322,15 @@ check_file_header(File, LicenseFile, Data, {Start, StartEnd}, Prefix, Templates,
             throw({warn, "Could not find '~ts %CopyrightEnd%'", [Prefix]})
     end.
 
-update_copyright(File, Begin, End, Prefix, LineEnding, Spdx, Copyrights, License) ->
+update_copyright(File, LicenseFile, Begin, End, Prefix, LineEnding, Spdx, Copyrights, License) ->
     case update_copyright(File, Copyrights) of
         Copyrights -> ok;
         NewCopyrights ->
-            {ok, Data} = file:read_file(File),
+            {ok, Data} = file:read_file(LicenseFile),
             Before = binary:part(Data, 0, Begin),
             After = binary:part(Data, End, byte_size(Data) - End),
             ok = file:write_file(
-                   File,
+                   LicenseFile,
                    [Before,
                     string:trim(Prefix, trailing), LineEnding,
                     Prefix, "SPDX-License-Identifier: ", Spdx, LineEnding,
@@ -351,7 +351,10 @@ update_copyright(File, [C | T]) ->
                     [C | T];
                 false ->
                     LastUpdatedYear = last_updated_year(File,
-                    fun() -> throw({warn,"Could not get copyright year using git log. You need to update it manually.", []}) end),
+                    fun() -> 
+                        [throw(skip) || is_ignored(File)],
+                        throw({warn,"Could not get copyright year using git log. You need to update it manually.", []})
+                    end),
                     case string:equal(LastUpdatedYear, EndYear) of
                         true ->
                             [C | T];
@@ -387,17 +390,58 @@ first_updated_year(File, Missing) ->
     commit_year(File, Missing, first).
 
 commit_year(File, Missing, When) when When =:= first; When =:= last, is_function(Missing)->
-    RFC3339Date =
-        cmd(["git log --format=format:%aI",
+
+    Files = follow_renames(File),
+
+    %% We use a as in author when looking for the first copyright
+    %% and we use c as in committer when looking for the last.
+    %% This is because with an --amend workflow the author date
+    %% can be a long time in the past, but the committer is when
+    %% the last change was done.
+    Modifier = if When =:= first -> "a"; When =:= last -> "c" end,
+
+    Cmd = ["git log --format=format:%",Modifier,"I",
              [" --reverse" || When =:= first],
              " --author='@erlang.org' --author='@ericsson.com'",
-             " --no-merges HEAD -- ", File, " | head -1"]),
+             " --no-merges HEAD -- ", [[" '",F,"'"] || F <- Files], " | head -1"],
+
+    RFC3339Date = cmd(Cmd),
+
     try calendar:rfc3339_to_system_time(RFC3339Date) of
         SystemTime ->
             {{YY, _, _}, _} = calendar:system_time_to_local_time(SystemTime,second),
             integer_to_list(YY)
     catch _:_ ->
         Missing()
+    end.
+
+
+%% Because of problems with git log --follow we implement out own. An example
+%% where --follow has issues is for erts/emulator/test/erl_debugger_SUITE_data/gc_test.erl
+%% The reason why --follow fails is because gc_test.erl is identified as a copy of
+%% another file  which is not true.
+%% 
+%% This is all heuristic based so it might make mistakes...
+follow_renames(File) ->
+    follow_renames(File, "HEAD").
+follow_renames(File, Sha) ->
+
+    maybe
+
+        LastCommit = cmd(["git log '--format=format:%H' --no-merges ", Sha, " -- '", File, "' | tail -1"]),
+
+        true ?= LastCommit =/= "",
+
+        RenameCmd = ["git diff-tree -r -M --name-status \"",LastCommit,"\" | grep '^R[0-9]\\+.*",File,"$' | awk '{ print $2 }'"],
+
+        Rename = cmd(RenameCmd),
+
+        true ?= Rename =/= "",
+
+        [File | follow_renames(Rename, LastCommit)]
+    else
+        _ ->
+            [File]
     end.
 
 check_prefix(Prefix, Bin) when is_binary(Bin) ->
@@ -574,6 +618,7 @@ is_ignored(Filename) ->
                "^.mailmap$",
                "^OTP_VERSION$",
                "^make/otp_patch_solve_forward_merge_version$",
+               "^make/otp_version_tickets_in_merge$",
                "^make/otp_version_tickets$",
                "/configure$",
                "/config\\.h\\.in",
