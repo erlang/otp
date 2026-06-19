@@ -88,6 +88,7 @@
 	 hostkey_fingerprint_check_list/1,
          save_accepted_host_option/1,
          raw_option/1,
+         config_file/0,
          config_file/1,
          config_file_modify_algorithms_order/1,
          daemon_replace_options_simple/1,
@@ -1739,6 +1740,7 @@ raw_option(_Config) ->
     #{socket_options := Opts} = ssh_options:handle_options(server, Opts).
 
 %%--------------------------------------------------------------------
+config_file() -> [{timetrap,{seconds,15 * ssh_test_lib:timetrap_scale()}}].
 config_file(Config) ->
     %% First find common algs:
     ServerAlgs = ssh_test_lib:default_algorithms(sshd),

@@ -126,11 +126,11 @@ end_per_testcase(_TestCase, _Config) ->
 
 %%----------------------------------------------------------------------------
 %%% Idle timeout test
-rekey0() -> [{timetrap,{seconds,120}}].
-rekey1() -> [{timetrap,{seconds,120}}].
-rekey2() -> [{timetrap,{seconds,120}}].
-rekey3() -> [{timetrap,{seconds,120}}].
-rekey4() -> [{timetrap,{seconds,120}}].
+rekey0() -> [{timetrap,{seconds,120 * ssh_test_lib:timetrap_scale()}}].
+rekey1() -> [{timetrap,{seconds,120 * ssh_test_lib:timetrap_scale()}}].
+rekey2() -> [{timetrap,{seconds,120 * ssh_test_lib:timetrap_scale()}}].
+rekey3() -> [{timetrap,{seconds,120 * ssh_test_lib:timetrap_scale()}}].
+rekey4() -> [{timetrap,{seconds,120 * ssh_test_lib:timetrap_scale()}}].
     
 rekey0(Config) -> ssh_dbg:start(), ssh_dbg:on(renegotiation),
                   R = rekey_chk(Config, 0,                   0),
