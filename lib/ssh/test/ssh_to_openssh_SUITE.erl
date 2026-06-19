@@ -58,7 +58,7 @@
         ]).
 
 -define(REKEY_DATA_TMO, 65000).
--define(ALIVE, {alive, #{count_max => 3, interval => 100}}).
+-define(ALIVE, {alive, #{count_max => 3, interval => ssh_test_lib:alive_interval()}}).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -615,7 +615,7 @@ send_rcv(Txt, From, To) ->
 receive_data(Data, Conn) ->
     receive
 	Info when is_binary(Info) ->
-	    Lines = string:tokens(binary_to_list(Info), "\r\n "),
+	    Lines = string:tokens(strip_escape_sequences(Info), "\r\n "),
 	    case lists:member(Data, Lines) of
 		true ->
 		    ct:log("~p:~p  Expected result ~p found in lines: ~p~n", [?MODULE,?LINE,Data,Lines]),
@@ -635,7 +635,16 @@ receive_data(Data, Conn) ->
                           end,
             ct:log("timeout ~p:~p~nExpect ~p~nState = ~p",[?MODULE,?LINE,Data,State]),
             ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end.	
+    end.
+
+strip_escape_sequences(Bin) when is_binary(Bin) ->
+    strip_escape_sequences(binary_to_list(Bin));
+strip_escape_sequences(Str) ->
+    %% Remove OSC sequences (\e]...\e\\ or \e]...<BEL>) and
+    %% CSI sequences (\e[...X).
+    %% Handles shell integration (OSC 3008) on Ubuntu 26.04+
+    re:replace(Str, "\e(?:\\][^\e]*(?:\e\\\\|\007)|\\[[0-9;?]*[a-zA-Z])",
+               "", [global, {return, list}]).
 
 receive_logout() ->
     receive

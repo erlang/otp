@@ -292,7 +292,7 @@ inet_option(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 %%% Test configuring IPv6
-inet6_option() -> [{timetrap,{seconds,30}}].
+inet6_option() -> [{timetrap,{seconds,30 * ssh_test_lib:timetrap_scale()}}].
 inet6_option(Config) when is_list(Config) ->   
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
