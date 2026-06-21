@@ -98,6 +98,7 @@
          no_ext_info_s2/1,
          packet_length_too_large/1,
          packet_length_too_short/1,
+         packet_misaligned_block_size/1,
          preferred_algorithms/1,
          service_name_length_too_large/1,
          service_name_length_too_short/1,
@@ -129,6 +130,9 @@
                                    [{client2server,Ciphs}, {server2client,Ciphs}]
                           end)()
         ).
+-define(GCM_CIPHERS, ['AEAD_AES_256_GCM', 'AEAD_AES_128_GCM']).
+-define(CHACHA_CIPHERS, ['chacha20-poly1305@openssh.com']).
+-define(ETM_MACS, ['hmac-sha2-512-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha1-etm@openssh.com']).
 -define(HARDCODED_KEXDH_REPLY,
         #ssh_msg_kexdh_reply{
            public_host_key = {{{'ECPoint',<<73,72,235,162,96,101,154,59,217,114,123,192,96,105,250,29,214,76,60,63,167,21,221,118,246,168,152,2,7,172,137,125>>},
@@ -182,7 +186,11 @@ all() ->
      {group,alive},
      {group,dh},
      {group,ecdh},
-     {group,hybrid}
+     {group,hybrid},
+     {group,common},
+     {group,enc_then_mac},
+     {group,gcm},
+     {group,chacha}
     ].
 
 groups() ->
@@ -247,7 +255,11 @@ groups() ->
                   client_guesses_incorrectly]},
      {dh, [], [{group, guess}]},
      {ecdh, [], [{group, guess}]},
-     {hybrid, [], [{group, guess}]}
+     {hybrid, [], [{group, guess}]},
+     {common, [], [packet_misaligned_block_size]},
+     {enc_then_mac, [], [packet_misaligned_block_size]},
+     {gcm, [], [packet_misaligned_block_size]},
+     {chacha, [], [packet_misaligned_block_size]}
     ].
 
 
@@ -279,6 +291,14 @@ init_per_group(guess, Config) ->
         _ ->
             {skip, "Not enough public key algorithms supported"}
     end;
+init_per_group(common, Config) ->
+    get_supported_alg_groups_or_skip([{cipher, ?CIPHERS}], Config);
+init_per_group(enc_then_mac, Config) ->
+    get_supported_alg_groups_or_skip([{mac, ?ETM_MACS}], Config);
+init_per_group(gcm, Config) ->
+    get_supported_alg_groups_or_skip([{cipher, ?GCM_CIPHERS}], Config);
+init_per_group(chacha, Config) ->
+    get_supported_alg_groups_or_skip([{cipher, ?CHACHA_CIPHERS}], Config);
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -338,6 +358,9 @@ init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 		      | Opts]);
 init_per_testcase(decompression_bomb_client, Config) ->
     start_std_daemon(Config, [{preferred_algorithms, [{compression, ['zlib']}]}]);
+init_per_testcase(packet_misaligned_block_size, Config) ->
+    Algs = proplists:get_value(preferred_algorithms, Config),
+    start_std_daemon(Config, [{preferred_algorithms, [{kex, [?DEFAULT_KEX]} | Algs]}]);
 init_per_testcase(_TestCase, Config) ->
     check_std_daemon_works(Config, ?LINE).
 
@@ -360,6 +383,8 @@ end_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				  TC == gex_client_old_request_noexact ->
     stop_std_daemon(Config);
 end_per_testcase(decompression_bomb_client, Config) ->
+    stop_std_daemon(Config);
+end_per_testcase(packet_misaligned_block_size, Config) ->
     stop_std_daemon(Config);
 end_per_testcase(_TestCase, Config) ->
     check_std_daemon_works(Config, ?LINE).
@@ -784,7 +809,7 @@ bad_packet_length(Config, LengthExcess) ->
     PacketFun = 
 	fun(Msg, Ssh) ->
 		BinMsg = ssh_message:encode(Msg),
-		ssh_transport:pack(BinMsg, Ssh, LengthExcess)
+            ssh_transport:pack(BinMsg, Ssh, LengthExcess, 0)
 	end,
     {ok,InitialState} = connect_and_kex(Config),
     {ok,_} =
@@ -797,6 +822,27 @@ bad_packet_length(Config, LengthExcess) ->
 	   {send, #ssh_msg_service_request{name="ssh-userauth"}},
 	   {match, disconnect(), receive_msg}
 	  ], InitialState).
+
+%%%--------------------------------------------------------------------
+packet_misaligned_block_size(Config) ->
+    PacketFun =
+        fun(Msg, Ssh) ->
+                BinMsg = ssh_message:encode(Msg),
+                ssh_transport:pack(BinMsg, Ssh, 0, 1)
+        end,
+    {ok, InitialState} = ssh_trpt_test_lib:exec(
+                           [{set_options, [print_ops, {print_messages,detail}]}]
+                          ),
+    Algs = proplists:get_value(preferred_algorithms, Config),
+    {ok, AfterKexState} = connect_and_kex(Config, InitialState, [{kex, [?DEFAULT_KEX]} | Algs], dh),
+    {ok, _} =
+        ssh_trpt_test_lib:exec(
+          [{set_options, [print_ops, print_seqnums, print_messages]},
+           {send, {special,
+                   #ssh_msg_service_request{name="ssh-userauth"},
+                   PacketFun}},
+           {match, disconnect(), receive_msg}
+          ], AfterKexState).
 
 %%%--------------------------------------------------------------------
 decompression_bomb_client(Config) ->
@@ -2021,12 +2067,12 @@ chk_pref_algs(Config,
 
 filter_supported(K, Algs) -> Algs -- (Algs--supported(K)).
 
-supported(cipher) ->
+supported(Key) when Key =:= cipher; Key =:= mac; Key =:= compression ->
     proplists:get_value(
       server2client,
-      ssh_transport:supported_algorithms(cipher));
-supported(K) ->
-    ssh_transport:supported_algorithms(K).
+      ssh_transport:supported_algorithms(Key));
+supported(Key) ->
+    ssh_transport:supported_algorithms(Key).
 
 to_lists(L) -> lists:map(fun erlang:atom_to_list/1, L).
     
@@ -2400,3 +2446,30 @@ get_specific_ops(ecdh) ->
     {ssh_msg_kex_ecdh_init_guess, ssh_msg_kex_ecdh_init, #ssh_msg_kex_ecdh_reply{_='_'}};
 get_specific_ops(hybrid) ->
     {ssh_msg_kex_hybrid_init_guess, ssh_msg_kex_hybrid_init, #ssh_msg_kex_hybrid_reply{_='_'}}.
+
+%%%----------------------------------------------------------------
+get_supported_alg_groups_or_skip(Groups, Config) ->
+    try
+        SupportedGroups =
+            lists:filtermap(fun({Key, Group}) ->
+                                    case get_supported_alg_group_or_skip(Key, Group) of
+                                        [] ->
+                                            false;
+                                        {Key, SupportedGroup} ->
+                                            {true, {Key, SupportedGroup}}
+                                    end
+                            end, Groups),
+        [{preferred_algorithms, SupportedGroups} | Config]
+    catch
+        throw : Other ->
+            Other
+    end.
+get_supported_alg_group_or_skip(_, []) ->
+    [];
+get_supported_alg_group_or_skip(Key, Algorithms) ->
+    case filter_supported(Key, Algorithms) of
+        [] ->
+            throw({skip, "Required algorithms not supported."});
+        Supported ->
+            {Key, Supported}
+    end.
