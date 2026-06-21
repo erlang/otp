@@ -234,10 +234,12 @@ cache_lookup(URL, {{Cache, _}, _}) ->
 
 handle_http(URI, Rest, {_,  [{http, Timeout}]} = CRLDbInfo) ->
     CRLs = http_lookup(URI, Rest, CRLDbInfo, Timeout),
-    %% Uncomment to improve performance, but need to 
-    %% implement cache limit and or cleaning to prevent 
-    %% DoS attack possibilities
-    %%insert(URI, {der, CRLs}),
+    case CRLs of
+        not_available ->
+            ok;
+        _ ->
+            insert(URI, {der, CRLs})
+    end,
     CRLs;
 handle_http(_, Rest, CRLDbInfo) ->
     get_crls(Rest, CRLDbInfo).
