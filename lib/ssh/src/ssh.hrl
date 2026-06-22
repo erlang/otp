@@ -29,6 +29,9 @@
 
 -define(SSH_DEFAULT_PORT, 22).
 -define(SSH_MAX_PACKET_SIZE, (256*1024)).
+%% Same limit as in openssh
+%% See: https://github.com/openssh/openssh-portable/blob/f433c09931665b1139dc9ef0951d3540242e4a38/sftp-server.c#L55
+-define(SFTP_MAX_READ_SIZE, (?SSH_MAX_PACKET_SIZE - 1024)).
 -define(REKEY_DATA_TIMOUT, 60000).
 -define(DEFAULT_PROFILE, default).
 
