@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-# Copyright Ericsson AB 2010-2025. All Rights Reserved.
+# Copyright Ericsson AB 2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,4 +17,10 @@
 # limitations under the License.
 #
 # %CopyrightEnd%
-Sftp test file.
+-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACBJSOuiYGWaO9lye8Bgafod1kw8P6cV3Xb2qJgCB6yJfQAAAJi+h4O7voeD
+uwAAAAtzc2gtZWQyNTUxOQAAACBJSOuiYGWaO9lye8Bgafod1kw8P6cV3Xb2qJgCB6yJfQ
+AAAEBaOcJfGPNemKc1wPHTCmM4Kwvh6dZ0CqY14UT361UnN0lI66JgZZo72XJ7wGBp+h3W
+TDw/pxXddvaomAIHrIl9AAAAE3VhYmhuaWxAZWx4YWRsajNxMzIBAg==
+-----END OPENSSH PRIVATE KEY-----
