@@ -27,9 +27,11 @@
 
 %% Tests the BIFs:
 %% 	abs/1
+%%      binary_to_float/2
 %%	float/1
 %%	float_to_list/1
-%%  float_to_list/2
+%%      float_to_list/2
+%%      float_to_binary/2
 %%	integer_to_list/1
 %%	list_to_float/1
 %%	list_to_integer/1
@@ -46,15 +48,16 @@
 	 t_float_to_string/1, t_integer_to_string/1,
 	 t_string_to_integer/1, t_list_to_integer_edge_cases/1,
 	 t_string_to_float_safe/1, t_string_to_float_risky/1,
-	 t_round/1, t_trunc_and_friends/1
+         t_round/1, t_trunc_and_friends/1,
+         t_based_float/1, t_binary_to_float_2/1
      ]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [t_abs, t_float, t_float_to_string, t_integer_to_string,
-     {group, t_string_to_float}, t_string_to_integer, t_round,
-     t_trunc_and_friends, t_list_to_integer_edge_cases].
+    [t_abs, t_float, t_float_to_string, t_based_float, t_binary_to_float_2,
+     t_integer_to_string, {group, t_string_to_float}, t_string_to_integer,
+     t_round, t_trunc_and_friends, t_list_to_integer_edge_cases].
 
 groups() ->
     [{t_string_to_float, [],
@@ -131,24 +134,22 @@ t_float_to_string(Config) when is_list(Config) ->
     test_fts("1.00000000000000000000e+00",1.0,  []),
     test_fts("-1.00000000000000000000e+00",-1.0, []),
     test_fts("-1.00000000000000000000",-1.0, [{decimals, 20}]),
-    {'EXIT', {badarg, _}} = (catch float_to_list(1.0,  [{decimals, -1}])),
-    {'EXIT', {badarg, _}} = (catch float_to_list(1.0,  [{decimals, 254}])),
-    {'EXIT', {badarg, _}} = (catch float_to_list(1.0,  [{scientific, 250}])),
-    {'EXIT', {badarg, _}} = (catch float_to_list(1.0e+300, [{decimals, 1}])),
-    {'EXIT', {badarg, _}} = (catch float_to_binary(1.0,  [{decimals, -1}])),
-    {'EXIT', {badarg, _}} = (catch float_to_binary(1.0,  [{decimals, 254}])),
-    {'EXIT', {badarg, _}} = (catch float_to_binary(1.0,  [{scientific, 250}])),
-    {'EXIT', {badarg, _}} = (catch float_to_binary(1.0e+300, [{decimals, 1}])),
+    ?assertError(badarg, float_to_list(1.0,  [{decimals, -1}])),
+    ?assertError(badarg, float_to_list(1.0,  [{decimals, 254}])),
+    ?assertError(badarg, float_to_list(1.0,  [{scientific, 250}])),
+    ?assertError(badarg, float_to_list(1.0e+300, [{decimals, 1}])),
+    ?assertError(badarg, float_to_binary(1.0,  [{decimals, -1}])),
+    ?assertError(badarg, float_to_binary(1.0,  [{decimals, 254}])),
+    ?assertError(badarg, float_to_binary(1.0,  [{scientific, 250}])),
+    ?assertError(badarg, float_to_binary(1.0e+300, [{decimals, 1}])),
     test_fts("1.0e+300",1.0e+300, [{scientific, 1}]),
     test_fts("1.0",1.0,  [{decimals,   249}, compact]),
     test_fts("1",1.0,[{decimals,0}]),
     test_fts("2",1.9,[{decimals,0}]),
     test_fts("123456789012345680.0",123456789012345678.0,
 	     [{decimals, 236}, compact]),
-    {'EXIT', {badarg, _}} = (catch float_to_list(
-				     123456789012345678.0, [{decimals, 237}])),
-    {'EXIT', {badarg, _}} = (catch float_to_binary(
-				     123456789012345678.0, [{decimals, 237}])),
+    ?assertError(badarg, float_to_list(123456789012345678.0, [{decimals, 237}])),
+    ?assertError(badarg, float_to_binary(123456789012345678.0, [{decimals, 237}])),
     test_fts("1." ++ lists:duplicate(249, $0) ++ "e+00",
 	     1.0,  [{scientific, 249}, compact]),
 
@@ -364,6 +365,179 @@ max_diff_decimals(F, D) ->
 
     (math:pow(10, -min(D,MaxDec)) / 2) + Resolution.
 
+%% Tests float_to_list/2, float_to_binary/2 with {base, B} option.
+
+t_based_float(Config) when is_list(Config) ->
+    rand_seed(),
+
+    %% Default format (scientific 20 decimals)
+    test_bfs("1.10101100000000000000#e3", 13.375, [{base, 2}]),
+    test_bfs("d.60000000000000000000#e0", 13.375, [{base, 16}]),
+
+    %% Base 2 with decimals
+    test_bfs("1101.011", 13.375, [{base, 2}, {decimals, 3}]),
+
+    %% Base 16 with decimals
+    test_bfs("d.6", 13.375, [{base, 16}, {decimals, 1}]),
+
+    %% Base 8
+    test_bfs("15.3", 13.375, [{base, 8}, {decimals, 1}]),
+
+    %% Negative values
+    test_bfs("-1.10101100000000000000#e3", -13.375, [{base, 2}]),
+    test_bfs("-d.60000000000000000000#e0", -13.375, [{base, 16}]),
+
+    %% With {decimals, N}, compact
+    test_bfs("1101.011", 13.375, [{base, 2}, {decimals, 10}, compact]),
+    test_bfs("d.6", 13.375, [{base, 16}, {decimals, 10}, compact]),
+
+    %% With {scientific, N}
+    test_bfs("1.10101100000#e3", 13.375, [{base, 2}, {scientific, 11}]),
+    test_bfs("d.60000#e0", 13.375, [{base, 16}, {scientific, 5}]),
+
+    %% With {scientific, N}, compact
+    test_bfs("1.101011#e3", 13.375, [{base, 2}, {scientific, 11}, compact]),
+    test_bfs("d.6#e0", 13.375, [{base, 16}, {scientific, 5}, compact]),
+
+    %% Base 36
+    test_bfs("d.di000000", 13.375, [{base, 36}, {decimals, 8}]),
+
+    %% Base 10 should match normal behavior
+    test_bfs("1.000", 1.0, [{base, 10}, {decimals, 3}]),
+
+    %% Zero
+    test_bfs("0.0", 0.0, [{base, 2}, {decimals, 1}]),
+    test_bfs("0.0", 0.0, [{base, 16}, {decimals, 1}]),
+
+    %% Negative zero
+    <<NegZero/float>> = <<16#8000000000000000:64>>,
+    test_bfs("-0.0", NegZero, [{base, 2}, {decimals, 1}]),
+    test_bfs("-0.0", NegZero, [{base, 2}, {decimals, 1}, compact]),
+    test_bfs("-0.0#e0", NegZero, [{base, 2}, {scientific, 1}]),
+    test_bfs("-0.0#e0", NegZero, [{base, 2}, {scientific, 1}, compact]),
+    test_bfs("-0.0", NegZero, [{base, 16}, {decimals, 1}]),
+    test_bfs("-0.0", NegZero, [{base, 16}, {decimals, 1}, compact]),
+    test_bfs("-0.0#e0", NegZero, [{base, 16}, {scientific, 1}]),
+    test_bfs("-0.0#e0", NegZero, [{base, 16}, {scientific, 1}, compact]),
+    test_bfs("-0.00000000000000000000#e0", NegZero, [{base, 2}]),
+    test_bfs("-0.00000000000000000000#e0", NegZero, [{base, 16}]),
+
+    %% Short option - basic
+    test_bfs("1101.011", 13.375, [{base, 2}, short]),
+    test_bfs("d.6", 13.375, [{base, 16}, short]),
+    test_bfs("-d.6", -13.375, [{base, 16}, short]),
+
+    %% Short option - integer values
+    test_bfs("10.0", 2.0, [{base, 2}, short]),
+    test_bfs("a.0", 10.0, [{base, 16}, short]),
+    test_bfs("100.0", 4.0, [{base, 2}, short]),
+
+    %% Short option - small fractions
+    test_bfs("0.1", 0.5, [{base, 2}, short]),
+    test_bfs("0.01", 0.25, [{base, 2}, short]),
+    test_bfs("0.8", 0.5, [{base, 16}, short]),
+
+    %% Short option - zero
+    test_bfs("0.0", 0.0, [{base, 2}, short]),
+    test_bfs("0.0", 0.0, [{base, 16}, short]),
+
+    %% Short option - negative zero
+    <<NegZero/float>> = <<16#8000000000000000:64>>,
+    test_bfs("-0.0", NegZero, [{base, 2}, short]),
+    test_bfs("-0.0", NegZero, [{base, 16}, short]),
+
+    %% Short option - values near 1
+    test_bfs("1.0", 1.0, [{base, 2}, short]),
+    test_bfs("1.0", 1.0, [{base, 16}, short]),
+    test_bfs("1.0", 1.0, [{base, 8}, short]),
+
+    %% Short option - scientific notation for large values (>= 2^53)
+    test_bfs("1.0#e53", float(1 bsl 53), [{base, 2}, short]),
+    test_bfs("2.0#e13", float(1 bsl 53), [{base, 16}, short]),
+
+    %% Short option - scientific notation for very small values
+    test_bfs("1.0#e-10", math:pow(2, -10), [{base, 2}, short]),
+
+    %% Test many trailing zeroes
+    OneDotZero = "1.0" ++ lists:duplicate(10_000, $0),
+    _ = [?assertEqual(1.0, list_to_float(OneDotZero, Base)) ||
+            Base <- lists:seq(2, 36)],
+
+    %% Test random floats
+    _ = [test_rand_bfs(Base) ||
+            _ <- lists:seq(1, 50),
+            Base <- lists:seq(2, 36)],
+
+    %% Error cases
+    ?assertError(badarg, float_to_list(1.0, [{base, 1}])),
+    ?assertError(badarg, float_to_list(1.0, [{base, 37}])),
+    ?assertError(badarg, float_to_list(1.0, [{base, 0}])),
+    ?assertError(badarg, float_to_list(1.0, [{base, -1}])),
+    ?assertError(badarg, float_to_list(foo, [{base, 2}])),
+    ?assertError(badarg, float_to_binary(1.0, [{base, 1}])),
+    ?assertError(badarg, float_to_binary(1.0, [{base, 37}])),
+    ?assertError(badarg, float_to_binary(1.0, [{base, 0}])),
+    ?assertError(badarg, float_to_binary(1.0, [{base, -1}])),
+    ?assertError(badarg, float_to_binary(foo, [{base, 2}])),
+
+    ?assertError(badarg, binary_to_float(~"abc", 10)),
+    ?assertError(badarg, float_to_binary(1.0, [{base, bar}])),
+
+    HugeInt = lists:duplicate(10_000, $1) ++ ".0",
+    _ = [?assertError(badarg, list_to_float(HugeInt, Base)) ||
+            Base <- lists:seq(2, 36)],
+
+    ok.
+
+test_bfs(Expect, Float, Args) ->
+    BinExpect = list_to_binary(Expect),
+    {base, Base} = lists:keyfind(base, 1, Args),
+
+    ?assertEqual(Expect, float_to_list(Float, Args)),
+    ?assertEqual(Float, list_to_float(Expect, Base)),
+
+    ?assertEqual(BinExpect, float_to_binary(Float, Args)),
+    ?assertEqual(Float, binary_to_float(BinExpect, Base)).
+
+test_rand_bfs(Base) ->
+    F = rand_float(),
+    Expect = float_to_list(F, [{base, Base}, short]),
+    % io:format("~p: ~p ~ts\n", [Base, F, Expect]),
+    case Base band (Base - 1) of
+        0 ->
+            %% Power of two. Exact roundtrip is possible.
+            test_bfs(Expect, F, [{base, Base}, short]);
+        _ ->
+            %% Exact roundtrip might not be possible.
+            BinExpect = list_to_binary(Expect),
+            ok = fcmp(F, list_to_float(Expect, Base)),
+            ok = fcmp(F, binary_to_float(BinExpect, Base))
+    end.
+
+fcmp(F1, F2) when F1 == 0.0, F2 == 0.0 -> ok;
+fcmp(F1, F2) when (F1 - F2) / F2 < 0.0000001 -> ok.
+
+t_binary_to_float_2(Config) when is_list(Config) ->
+    %% Invalid base
+    ?assertError(badarg, binary_to_float(<<"1.0">>, 1)),
+    ?assertError(badarg, binary_to_float(<<"1.0">>, 37)),
+    ?assertError(badarg, binary_to_float(<<"1.0">>, 0)),
+
+    %% Integer (no dot)
+    ?assertError(badarg, binary_to_float(<<"10">>, 2)),
+    ?assertError(badarg, binary_to_float(<<"FF">>, 16)),
+
+    %% Not float
+    ?assertError(badarg, binary_to_float(<<"1.2">>, 2)),
+    ?assertError(badarg, binary_to_float(<<"G.0">>, 16)),
+    ?assertError(badarg, binary_to_float(<<"xyz">>, 16)),
+    ?assertError(badarg, binary_to_float(atom, 16)),
+    ?assertError(badarg, binary_to_float(<<"1.0">>, foo)),
+    ?assertError(badarg, binary_to_float(<<"">>, 16)),
+
+    ok.
+
+
 %% Tests list_to_float/1.
 
 t_string_to_float_safe(Config) when is_list(Config) ->
@@ -375,14 +549,14 @@ t_string_to_float_safe(Config) when is_list(Config) ->
     test_stf(127.5,"127.5"),
     test_stf(-199.5,"-199.5"),
 
-    {'EXIT',{badarg,_}} = (catch list_to_float(id("0"))),
-    {'EXIT',{badarg,_}} = (catch list_to_float(id("0..0"))),
-    {'EXIT',{badarg,_}} = (catch list_to_float(id("0e12"))),
-    {'EXIT',{badarg,_}} = (catch list_to_float(id("--0.0"))),
-    {'EXIT',{badarg,_}} = (catch binary_to_float(id(<<"0">>))),
-    {'EXIT',{badarg,_}} = (catch binary_to_float(id(<<"0..0">>))),
-    {'EXIT',{badarg,_}} = (catch binary_to_float(id(<<"0e12">>))),
-    {'EXIT',{badarg,_}} = (catch binary_to_float(id(<<"--0.0">>))),
+    ?assertError(badarg, list_to_float(id("0"))),
+    ?assertError(badarg, list_to_float(id("0..0"))),
+    ?assertError(badarg, list_to_float(id("0e12"))),
+    ?assertError(badarg, list_to_float(id("--0.0"))),
+    ?assertError(badarg, binary_to_float(id(<<"0">>))),
+    ?assertError(badarg, binary_to_float(id(<<"0..0">>))),
+    ?assertError(badarg, binary_to_float(id(<<"0e12">>))),
+    ?assertError(badarg, binary_to_float(id(<<"--0.0">>))),
 
     UBin = <<0:3,(id(<<"0.0">>))/binary,0:5>>,
     <<_:3,UnAlignedBin:3/binary,0:5>> = id(UBin),
@@ -400,10 +574,10 @@ t_string_to_float_safe(Config) when is_list(Config) ->
 t_string_to_float_risky(Config) when is_list(Config) ->
     Many_Ones = lists:duplicate(25000, id($1)),
     id(list_to_float("2."++Many_Ones)),
-    {'EXIT', {badarg, _}} = (catch list_to_float("2"++Many_Ones)),
+    ?assertError(badarg, list_to_float("2"++Many_Ones)),
 
     id(binary_to_float(list_to_binary("2."++Many_Ones))),
-    {'EXIT', {badarg, _}} = (catch binary_to_float(
+    ?assertError(badarg, binary_to_float(
 				     list_to_binary("2"++Many_Ones))),
     ok.
 
@@ -508,7 +682,7 @@ rand_seed() ->
     ok.
 
 rand_float() ->
-    F0 = rand:uniform() * math:pow(10, 50*rand:normal()),
+    F0 = rand:uniform() * math:pow(10, rand:normal(0.0, 2500.0)),
     case rand:uniform() of
         U when U < 0.5 -> -F0;
         _ -> F0
@@ -573,11 +747,9 @@ t_integer_to_string(Config) when is_list(Config) ->
 
     %% Invalid types
     lists:foreach(fun(Value) ->
-			  {'EXIT', {badarg, _}} =
-			      (catch erlang:integer_to_binary(Value)),
-			  {'EXIT', {badarg, _}} =
-			      (catch erlang:integer_to_list(Value))
-		  end,[atom,1.2,0.0,[$1,[$2]]]),
+                          ?assertError(badarg, erlang:integer_to_binary(Value)),
+                          ?assertError(badarg, erlang:integer_to_list(Value))
+                  end,[atom,1.2,0.0,[$1,[$2]]]),
 
     %% Base-2 integers
     test_its("0", 0, 2),
@@ -595,11 +767,9 @@ t_integer_to_string(Config) when is_list(Config) ->
              16),
 
     lists:foreach(fun(Value) ->
-			  {'EXIT', {badarg, _}} =
-			      (catch erlang:integer_to_binary(Value, 8)),
-			  {'EXIT', {badarg, _}} =
-			      (catch erlang:integer_to_list(Value, 8))
-		  end,[atom,1.2,0.0,[$1,[$2]]]),
+                          ?assertError(badarg, erlang:integer_to_binary(Value, 8)),
+                          ?assertError(badarg, erlang:integer_to_list(Value, 8))
+                  end,[atom,1.2,0.0,[$1,[$2]]]),
 
     ok.
 
@@ -652,26 +822,20 @@ t_string_to_integer(Config) when is_list(Config) ->
 
     %% Invalid types
     lists:foreach(fun(Value) ->
-			  {'EXIT', {badarg, _}} =
-			      (catch bin_to_int(Value)),
-			  {'EXIT', {badarg, _}} =
-			      (catch list_to_integer(Value))
+                      ?assertError(badarg, bin_to_int(Value)),
+                      ?assertError(badarg, list_to_integer(Value))
 		  end,[atom,1.2,0.0,[$1,[$2]]]),
 
     %% Default base error cases
     lists:foreach(fun(Value) ->
-			  {'EXIT', {badarg, _}} =
-			      (catch bin_to_int(list_to_binary(Value))),
-			  {'EXIT', {badarg, _}} =
-			      (catch list_to_integer(Value))
+                      ?assertError(badarg, bin_to_int(list_to_binary(Value))),
+                      ?assertError(badarg, list_to_integer(Value))
 		  end,["1.0"," 1"," -1","","+"]),
 
     %% Custom base error cases
     lists:foreach(fun({Value,Base}) ->
-			  {'EXIT', {badarg, _}} =
-			      (catch binary_to_integer(list_to_binary(Value), Base)),
-			  {'EXIT', {badarg, _}} =
-			      (catch list_to_integer(Value, Base))
+                      ?assertError(badarg, binary_to_integer(list_to_binary(Value), Base)),
+                      ?assertError(badarg, list_to_integer(Value, Base))
 		  end,
                   [{" 1",1},{" 1",37},{"2",2},{"B",11},{"b",11},{":", 16},
                    {"1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111z",16},
@@ -688,9 +852,9 @@ t_string_to_integer(Config) when is_list(Config) ->
 
     %% System limit
     Digits = lists:duplicate(3_000_000, $9),
-    {'EXIT',{system_limit,_}} = catch list_to_integer(Digits),
+    ?assertError(system_limit, list_to_integer(Digits)),
     _ = erlang:garbage_collect(),
-    {'EXIT',{system_limit,_}} = catch list_to_integer(Digits, 16),
+    ?assertError(system_limit, list_to_integer(Digits, 16)),
     _ = erlang:garbage_collect(),
     {error,system_limit} = string:to_integer(Digits),
     _ = erlang:garbage_collect(),

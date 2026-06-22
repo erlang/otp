@@ -1184,6 +1184,7 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_guard_bifs.o 	$(OBJDIR)/erl_dirty_bif_wrap.o \
 	$(OBJDIR)/erl_trace.o		$(OBJDIR)/copy.o \
 	$(OBJDIR)/utils.o		$(OBJDIR)/bif.o \
+	$(OBJDIR)/erl_based_float.o \
 	$(OBJDIR)/io.o 			$(OBJDIR)/erl_printf_term.o\
 	$(OBJDIR)/erl_debug.o           $(OBJDIR)/erl_debugger.o \
 	$(OBJDIR)/erl_message.o		$(OBJDIR)/erl_proc_sig_queue.o \
