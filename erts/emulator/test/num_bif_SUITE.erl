@@ -44,6 +44,7 @@
 -export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
 	 init_per_group/2, end_per_group/2, t_abs/1, t_float/1,
 	 t_float_to_string/1, t_integer_to_string/1,
+         t_integer_to_string_large/1,
 	 t_string_to_integer/1, t_list_to_integer_edge_cases/1,
 	 t_string_to_float_safe/1, t_string_to_float_risky/1,
 	 t_round/1, t_trunc_and_friends/1
@@ -53,6 +54,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [t_abs, t_float, t_float_to_string, t_integer_to_string,
+     t_integer_to_string_large,
      {group, t_string_to_float}, t_string_to_integer, t_round,
      t_trunc_and_friends, t_list_to_integer_edge_cases].
 
@@ -612,6 +614,76 @@ test_its(List,Int,Base) ->
     List = integer_to_list(Int, Base),
     Binary = list_to_binary(List),
     Binary = integer_to_binary(Int, Base).
+
+%% Exercises the bignum integer-to-string render path across the
+%% schoolbook / divide-and-conquer / Burnikel-Ziegler / Barrett
+%% reciprocal threshold boundaries in big.c. Each size is round-tripped
+%% through both integer_to_list/integer_to_binary and back via
+%% list_to_integer/binary_to_integer. Includes negatives and the
+%% high-half-zero split case (a power of the rendering base).
+t_integer_to_string_large(Config) when is_list(Config) ->
+    rand_seed(),
+    Sizes = [240, 250, 260,                 % WRITE_BIG_DC_THRESHOLD = 250
+             499, 500, 501,                 % 2 * threshold (use_dc gate)
+             999, 1000, 1001,               % first D&C split level
+             1999, 2000, 2001,
+             7999, 8000, 8001,              % spans BARRETT_LEVEL_THRESHOLD = 100 ErtsDigit
+             16383, 16384, 16385,
+             65535, 65536, 65537],          % deep recursion through the cache
+    ImportantBases = [2, 8, 10, 16, 36],
+    Bases = lists:seq(2, 36),
+    _ = [check_int_to_str_size(Size, Base) ||
+            Size <- Sizes,
+            Base <- Bases,
+            Size < 10_000 orelse lists:member(Base, ImportantBases)],
+    %% Power of base => high-half-zero branch in write_big_dc_padded.
+    PowBase10 = pow_int(10, 1024),
+    PowList = integer_to_list(PowBase10),
+    PowBase10 = list_to_integer(PowList),
+    NegPow = -PowBase10,
+    NegList = integer_to_list(NegPow),
+    NegPow = list_to_integer(NegList),
+
+    %% Try an integer near the system limit.
+    9943072 = bit_size(integer_to_binary(1 bsl (63 bsl 16))),
+
+    ok.
+
+check_int_to_str_size(NumDigits, Base) ->
+    N = random_int_with_digits(NumDigits, Base),
+    Pos = N,
+    Neg = -N,
+    PosList = integer_to_list(Pos, Base),
+    PosBin = integer_to_binary(Pos, Base),
+    PosBin = list_to_binary(PosList),
+    Pos = list_to_integer(PosList, Base),
+    Pos = binary_to_integer(PosBin, Base),
+    NegList = integer_to_list(Neg, Base),
+    NegBin = integer_to_binary(Neg, Base),
+    NegBin = list_to_binary(NegList),
+    Neg = list_to_integer(NegList, Base),
+    Neg = binary_to_integer(NegBin, Base),
+    %% For base 10, also verify the no-base BIFs.
+    case Base of
+        10 ->
+            PosList = integer_to_list(Pos),
+            PosBin = integer_to_binary(Pos),
+            Pos = list_to_integer(PosList),
+            Pos = binary_to_integer(PosBin);
+        _ ->
+            ok
+    end.
+
+random_int_with_digits(NumDigits, Base) ->
+    N = pow_int(Base, NumDigits-1),
+    N + rand:uniform(N).
+
+pow_int(_, 0) -> 1;
+pow_int(B, N) when N rem 2 =:= 0 ->
+    H = pow_int(B, N div 2),
+    H * H;
+pow_int(B, N) ->
+    B * pow_int(B, N - 1).
 
 %% Tests list_to_integer/{1,2} and binary_to_integer/{1,2}.
 
