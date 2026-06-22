@@ -247,6 +247,9 @@ start(internal, #server_hello{}, State0) ->
     %%so it is a previous version hello.
     ssl_gen_statem:handle_own_alert(
       ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?STATE(start), State0);
+start(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(start), State);
 start(info, Msg, State) ->
     tls_gen_connection:gen_info(Msg, ?STATE(start), State);
 start(Type, Msg, State) ->
@@ -299,6 +302,9 @@ wait_sh(internal, #server_hello{} = Hello,
             tls_gen_connection:next_event(hello_middlebox_assert,
                                           no_record, State1)
     end;
+wait_sh(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_sh), State);
 wait_sh(info, Msg, State) ->
     tls_gen_connection:gen_info(Msg, ?STATE(wait_sh), State);
 wait_sh(Type, Msg, State) ->

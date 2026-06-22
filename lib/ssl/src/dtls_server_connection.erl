@@ -119,6 +119,7 @@
 
 -include("dtls_connection.hrl").
 -include("dtls_handshake.hrl").
+-include("dtls_record.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_cipher.hrl").
 -include("ssl_internal.hrl").
@@ -203,6 +204,10 @@ initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
     catch throw:Error ->
             {stop_and_reply, {shutdown, normal}, {reply, From, {error, Error}}, State0}
     end;
+initial_hello(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+              #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(initial_hello), State);
 initial_hello(Type, Event, State) ->
     tls_dtls_server_connection:initial_hello(Type, Event, State).
 
@@ -299,7 +304,10 @@ hello(internal,  #change_cipher_spec{type = <<1>>}, State0) ->
         {stop, _, _} = Stop ->
             Stop
     end;
-
+hello(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+              #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(hello), State);
 hello(info, Event, State) ->
     dtls_gen_connection:gen_info(Event, ?STATE(hello), State);
 hello(state_timeout, Event, State) ->
@@ -335,6 +343,10 @@ abbreviated(internal = Type, #change_cipher_spec{} = Event,
     ConnectionStates = dtls_record:next_epoch(ConnectionStates1, read),
     gen_state(?STATE(abbreviated), Type, Event,
               State#state{connection_states = ConnectionStates});
+abbreviated(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+              #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(abbreviated), State);
 abbreviated(Type, Event, State) ->
     gen_state(?STATE(abbreviated), Type, Event, State).
 
@@ -360,6 +372,10 @@ certify(internal,  #change_cipher_spec{type = <<1>>}, State0) ->
     end;
 certify(state_timeout, Event, State) ->
     dtls_gen_connection:handle_state_timeout(Event, ?STATE(certify), State);
+certify(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+              #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(certify), State);
 certify(info, Event, State) ->
     dtls_gen_connection:gen_info(Event, ?STATE(certify), State);
 certify(Type, Event, State) ->
@@ -376,6 +392,10 @@ wait_cert_verify(state_timeout, Event, State) ->
     dtls_gen_connection:handle_state_timeout(Event, ?STATE(wait_cert_verify), State);
 wait_cert_verify(info, Event, State) ->
     dtls_gen_connection:gen_info(Event, ?STATE(wait_cert_verify), State);
+wait_cert_verify(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+              #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_cert_verify), State);
 wait_cert_verify(Type, Event, State) ->
     gen_state(?STATE(wait_cert_verify), Type, Event, State).
 
@@ -402,6 +422,10 @@ cipher(internal = Type, #finished{} = Event, #state{connection_states = Connecti
                 State#state{connection_states = ConnectionStates,
                             protocol_specific =
                                 PS#{flight_state => connection}}));
+cipher(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+       #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(cipher), State);
 cipher(Type, Event, State) ->
     gen_state(?STATE(cipher), Type, Event, State).
 

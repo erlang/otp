@@ -235,6 +235,9 @@ start(internal, #client_hello{} = Hello,
 start(internal, #client_hello{}, State0) -> %% Missing mandantory TLS-1.3 extensions,
     %% so it is a previous version hello.
     ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?STATE(start), State0);
+start(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA, early_data = false}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, none_early_application_data_before_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(start), State);
 start(info, Msg, State) ->
     tls_gen_connection:gen_info(Msg, ?STATE(start), State);
 start(Type, Msg, State) ->
@@ -258,6 +261,10 @@ negotiated(internal, {start_handshake, _} = Message, State0) ->
         {State, NextState} ->
             {next_state, NextState, State, []}
     end;
+negotiated(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA, early_data = false}},
+           State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, none_early_application_data_before_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(negotiated), State);
 negotiated(info, Msg, State) ->
     tls_gen_connection:gen_info(Msg, ?STATE(negotiated), State);
 negotiated(Type, Msg, State) ->
@@ -268,6 +275,10 @@ negotiated(Type, Msg, State) ->
                 {start, timeout()} | term(), #state{}) ->
           gen_statem:state_function_result().
 %%--------------------------------------------------------------------
+wait_cert(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE,
+                       application_data_before_handshake_or_intervened_in_post_handshake_auth),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_cert), State);
 wait_cert(Type, Msg, State) ->
     tls_gen_connection_1_3:wait_cert(Type, Msg, State).
 
@@ -289,6 +300,10 @@ wait_cv(internal,
         {Ref, {#alert{} = Alert, AState}} ->
             ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_cv), AState)
     end;
+wait_cv(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE,
+                       application_data_before_handshake_or_intervened_in_post_handshake_auth),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_cv), State);
 wait_cv(Type, Msg, State) ->
     tls_gen_connection_1_3:wait_cv(Type, Msg, State).
 
@@ -326,6 +341,10 @@ wait_finished(internal,
         {Ref, #alert{} = Alert} ->
             ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_finished), State0)
     end;
+wait_finished(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE,
+                       application_data_before_handshake_or_intervened_in_post_handshake_auth),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_finished), State);
 wait_finished(info, Msg, State) ->
     tls_gen_connection:gen_info(Msg, ?STATE(wait_finished), State);
 wait_finished(Type, Msg, State) ->
@@ -352,6 +371,9 @@ wait_eoed(internal, #end_of_early_data{}, #state{handshake_env = HsEnv0} = State
             ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason),
                                             wait_eoed, State0)
     end;
+wait_eoed(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA, early_data = false}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, none_early_application_data_before_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_eoed), State);
 wait_eoed(info, Msg, State) ->
     tls_gen_connection:gen_info(Msg, ?STATE(wait_eoed), State);
 wait_eoed(Type, Msg, State) ->
