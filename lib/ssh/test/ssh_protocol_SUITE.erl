@@ -1517,7 +1517,8 @@ kex_strict_helper(Config0, TestMessages, ExpectedReason) ->
              {user_interaction, false}
             | proplists:get_value(extra_options,Config,[])
             ]}] ++
-              TestMessages,
+              TestMessages ++
+              [close_socket],
           InitialState),
     ct:sleep(100),
     {ok, Events} = ssh_test_lib:get_log_events(Config),
