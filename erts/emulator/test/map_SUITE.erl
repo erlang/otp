@@ -780,6 +780,8 @@ t_map_get(Config) when is_list(Config) ->
 
     {'EXIT',{{badkey,{1,1}},[{erlang,map_get,_,_}|_]}} =
 	(catch map_get({1,1}, id(#{{1,1.0}=>"tuple"}))),
+    {'EXIT',{{badkey,<<"missing">>},[{erlang,map_get,_,_}|_]}} =
+        (catch map_get(<<"missing">>, M1)),
     {'EXIT',{{badkey,a},[{erlang,map_get,_,_}|_]}} = (catch map_get(a, id(#{}))),
     {'EXIT',{{badkey,a},[{erlang,map_get,_,_}|_]}} =
 	(catch map_get(a, id(#{b=>1, c=>2}))),
@@ -790,6 +792,15 @@ t_map_get(Config) when is_list(Config) ->
     false = if map_get(x, M2) =:= 1 -> true; true -> false end,
     do_badmap(fun
         (T) when map_get(x, T) =:= 1 -> ok;
+        (T) -> false = is_map(T)
+    end),
+
+    true = if map_get(<<"k2">>, M1) =:= "v3" -> true; true -> false end,
+    false = if map_get(<<"missing">>, M1) =:= "v3" -> true;
+               true -> false
+            end,
+    do_badmap(fun
+        (T) when map_get(<<"k2">>, T) =:= "v3" -> ok;
         (T) -> false = is_map(T)
     end),
 
