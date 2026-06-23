@@ -330,6 +330,13 @@ init_per_testcase(rsa_pss_sign_verify, Config) ->
             {skip, not_supported_by_crypto}
     end;
 
+init_per_testcase(dsa_sign_verify, Config) ->
+    case lists:member(dss, crypto:supports(public_keys)) of
+        true ->
+            Config;
+        false ->
+            {skip, dss_not_supported_by_crypto}
+    end;
 init_per_testcase(TestCase, Config) when TestCase == eddsa_sign_verify_24_compat;
                                          TestCase == pkix_crl_verify_eddsa ->
     case lists:member(eddsa, crypto:supports(public_keys)) of
@@ -1280,8 +1287,12 @@ pkix_decode_cert_empty_rdns(Config) when is_list(Config) ->
 pkix_path_validation() ->
     [{doc, "Test PKIX path validation"}].
 pkix_path_validation(Config) when is_list(Config) ->
+    KeyType = case lists:member(dss, crypto:supports(public_keys)) of
+                  true -> dsa;
+                  false -> rsa
+              end,
     CaK = {Trusted,_} =
-	erl_make_certs:make_cert([{key, dsa},
+        erl_make_certs:make_cert([{key, KeyType},
 			     {subject, [
 					{name, "Public Key"},
 					{?'id-at-name', {printableString, "public_key"}},
