@@ -3117,6 +3117,10 @@ BIF_RETTYPE insert_element_3(BIF_ALIST_3)
 	BIF_ERROR(BIF_P, BADARG);
     }
 
+    if (arity + 1 > ERTS_MAX_TUPLE_SIZE) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
     hp  = HAlloc(BIF_P, arity + 1 + 1);
     res = make_tuple(hp);
     *hp = make_arityval(arity + 1);
@@ -4263,9 +4267,12 @@ BIF_RETTYPE display_string_2(BIF_ALIST_2)
         written = 0;
         do {
             res = write(fd, str+written, len-written);
-            if (res < 0 && errno != ERRNO_BLOCK && errno != EINTR)
-                goto error;
-            written += res;
+            if (res < 0) {
+                if (errno != ERRNO_BLOCK && errno != EINTR)
+                    goto error;
+            } else {
+                written += res;
+            }
         } while (written < len);
 #endif
     }
@@ -6001,13 +6008,10 @@ BIF_RETTYPE dt_append_vm_tag_data_1(BIF_ALIST_1)
     if (p) {
         byte *q;
         Uint i;
-        p = erts_get_aligned_binary_bytes(DT_UTAG(BIF_P),
-                                          &size,
-                                          &temp_alloc);
         b = erts_new_binary(BIF_P, size + 1, &q);
         for(i = 0; i < size; i++) {
             q[i] = p[i];
-        } 
+        }
         erts_free_aligned_binary_bytes(temp_alloc);
         q[size] = '\0';
     } else {
