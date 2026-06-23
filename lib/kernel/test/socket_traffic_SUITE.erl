@@ -163,6 +163,10 @@
 -define(DATA,       <<"HOPPSAN">>). % Temporary
 -define(FAIL(R),    exit(R)).
 
+%% We should never have to wait any significant time.
+%% The point is to *not* have the test case time out.
+-define(TPP_SEND_TIMEOUT, 5000).
+
 -define(TPP_SMALL,  lists:seq(1, 8)).
 -define(TPP_MEDIUM, lists:flatten(lists:duplicate(100, ?TPP_SMALL))).
 -define(TPP_LARGE,  lists:flatten(lists:duplicate(100, ?TPP_MEDIUM))).
@@ -502,7 +506,10 @@ traffic_send_and_recv_counters_tcp4(_Config) when is_list(_Config) ->
                    InitState = #{domain => inet,
                                  proto  => tcp,
                                  recv   => fun(S)    -> socket:recv(S)    end,
-                                 send   => fun(S, D) -> socket:send(S, D) end},
+                                 send   => fun(S, D) ->
+                                                   socket:send(S, D,
+                                                               ?TPP_SEND_TIMEOUT)
+                                           end},
                    ok = traffic_send_and_recv_stream(InitState)
            end).
 
@@ -521,7 +528,10 @@ traffic_send_and_recv_counters_tcp6(_Config) when is_list(_Config) ->
                    InitState = #{domain => inet6,
                                  proto  => tcp,
                                  recv   => fun(S)    -> socket:recv(S)    end,
-                                 send   => fun(S, D) -> socket:send(S, D) end},
+                                 send   => fun(S, D) ->
+                                                   socket:send(S, D,
+                                                               ?TPP_SEND_TIMEOUT)
+                                           end},
                    ok = traffic_send_and_recv_stream(InitState)
            end).
 
@@ -540,7 +550,9 @@ traffic_send_and_recv_counters_tcpL(_Config) when is_list(_Config) ->
                    InitState = #{domain => local,
                                  proto  => default,
                                  recv   => fun(S)    -> socket:recv(S)    end,
-                                 send   => fun(S, D) -> socket:send(S, D) end},
+                                 send   => fun(S, D) ->
+                                                   socket:send(S, D, ?TPP_SEND_TIMEOUT)
+                                           end},
                    ok = traffic_send_and_recv_stream(InitState)
            end).
 
@@ -563,7 +575,10 @@ traffic_send_and_recv_counters_sctp4(_Config) when is_list(_Config) ->
                    InitState = #{domain => inet,
                                  proto  => sctp,
                                  recv   => fun(S)    -> socket:recv(S)    end,
-                                 send   => fun(S, D) -> socket:send(S, D) end},
+                                 send   => fun(S, D) ->
+                                                   socket:send(S, D,
+                                                               ?TPP_SEND_TIMEOUT)
+                                           end},
                    ok = traffic_send_and_recv_stream(InitState)
            end).
 
@@ -586,7 +601,9 @@ traffic_send_and_recv_counters_sctp6(_Config) when is_list(_Config) ->
                    InitState = #{domain => inet6,
                                  proto  => sctp,
                                  recv   => fun(S)    -> socket:recv(S)    end,
-                                 send   => fun(S, D) -> socket:send(S, D) end},
+                                 send   => fun(S, D) ->
+                                                   socket:send(S, D, ?TPP_SEND_TIMEOUT)
+                                           end},
                    ok = traffic_send_and_recv_stream(InitState)
            end).
 
@@ -617,7 +634,8 @@ traffic_sendmsg_and_recvmsg_counters_tcp4(_Config) when is_list(_Config) ->
                                            end,
                                  send   => fun(S, Data) ->
                                                    Msg = #{iov => [Data]},
-                                                   socket:sendmsg(S, Msg)
+                                                   socket:sendmsg(S, Msg,
+                                                                  ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_stream(InitState)
            end).
@@ -649,7 +667,8 @@ traffic_sendmsg_and_recvmsg_counters_tcp6(_Config) when is_list(_Config) ->
                                            end,
                                  send   => fun(S, Data) ->
                                                    Msg = #{iov => [Data]},
-                                                   socket:sendmsg(S, Msg)
+                                                   socket:sendmsg(S, Msg,
+                                                                 ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_stream(InitState)
            end).
@@ -678,7 +697,8 @@ traffic_sendmsg_and_recvmsg_counters_tcpL(_Config) when is_list(_Config) ->
                                            end,
                                  send   => fun(S, Data) ->
                                                    Msg = #{iov => [Data]},
-                                                   socket:sendmsg(S, Msg)
+                                                   socket:sendmsg(S, Msg,
+                                                                 ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_stream(InitState)
            end).
@@ -712,7 +732,8 @@ traffic_sendmsg_and_recvmsg_counters_sctp4(_Config) when is_list(_Config) ->
                                            end,
                                  send   => fun(S, Data) ->
                                                    Msg = #{iov => [Data]},
-                                                   socket:sendmsg(S, Msg)
+                                                   socket:sendmsg(S, Msg,
+                                                                 ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_stream(InitState)
            end).
@@ -746,7 +767,8 @@ traffic_sendmsg_and_recvmsg_counters_sctp6(_Config) when is_list(_Config) ->
                                            end,
                                  send   => fun(S, Data) ->
                                                    Msg = #{iov => [Data]},
-                                                   socket:sendmsg(S, Msg)
+                                                   socket:sendmsg(S, Msg,
+                                                                  ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_stream(InitState)
            end).
@@ -1810,7 +1832,9 @@ traffic_sendto_and_recvfrom_counters_udp4(_Config) when is_list(_Config) ->
                                                    socket:recvfrom(S)
                                            end,
                                  send   => fun(S, Data, Dest) ->
-                                                   socket:sendto(S, Data, Dest)
+                                                   socket:sendto(S, Data, Dest,
+                                                                 [],
+                                                                 ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_udp(InitState)
            end).
@@ -1833,7 +1857,9 @@ traffic_sendto_and_recvfrom_counters_udp6(_Config) when is_list(_Config) ->
                                                    socket:recvfrom(S)
                                            end,
                                  send   => fun(S, Data, Dest) ->
-                                                   socket:sendto(S, Data, Dest)
+                                                   socket:sendto(S, Data, Dest,
+                                                                 [],
+                                                                 ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_udp(InitState)
            end).
@@ -1859,7 +1885,9 @@ traffic_sendto_and_recvfrom_counters_udpL(_Config) when is_list(_Config) ->
                                                    socket:recvfrom(S)
                                            end,
                                  send   => fun(S, Data, Dest) ->
-                                                   socket:sendto(S, Data, Dest)
+                                                   socket:sendto(S, Data, Dest,
+                                                                 [],
+                                                                 ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_udp(InitState)
            end).
@@ -1890,7 +1918,8 @@ traffic_sendmsg_and_recvmsg_counters_udp4(_Config) when is_list(_Config) ->
                                  send   => fun(S, Data, Dest) ->
                                                    Msg = #{addr => Dest,
                                                               iov  => [Data]},
-                                                   socket:sendmsg(S, Msg)
+                                                   socket:sendmsg(S, Msg,
+                                                                  ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_udp(InitState)
            end).
@@ -1921,7 +1950,8 @@ traffic_sendmsg_and_recvmsg_counters_udp6(_Config) when is_list(_Config) ->
                                  send   => fun(S, Data, Dest) ->
                                                    Msg = #{addr => Dest,
                                                               iov  => [Data]},
-                                                   socket:sendmsg(S, Msg)
+                                                   socket:sendmsg(S, Msg,
+                                                                  ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_udp(InitState)
            end).
@@ -1955,7 +1985,8 @@ traffic_sendmsg_and_recvmsg_counters_udpL(_Config) when is_list(_Config) ->
                                  send   => fun(S, Data, Dest) ->
                                                    Msg = #{addr => Dest,
                                                               iov  => [Data]},
-                                                   socket:sendmsg(S, Msg)
+                                                   socket:sendmsg(S, Msg,
+                                                                  ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_udp(InitState)
            end).
@@ -5140,7 +5171,7 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL(Config) when is_list(Config) -
 %% Ping-Pong for TCP
 
 traffic_ping_pong_send_and_recv_stream(InitState) ->
-    Send = fun(Sock, Data) -> socket:send(Sock, Data) end,
+    Send = fun(Sock, Data) -> socket:send(Sock, Data, ?TPP_SEND_TIMEOUT) end,
     Recv = fun(Sock, Sz)   -> socket:recv(Sock, Sz) end,
     InitState2 = InitState#{send => Send, % Send function
                             recv => Recv  % Receive function
@@ -5186,10 +5217,10 @@ traffic_ping_pong_sendmsg_and_recvmsg_stream(InitState) ->
 traffic_ping_pong_sendmsg_and_recvmsg_stream2(InitState) ->
     Send = fun(Sock, Data) when is_binary(Data) ->
                    Msg = #{iov => [Data]},
-                   socket:sendmsg(Sock, Msg);
+                   socket:sendmsg(Sock, Msg, ?TPP_SEND_TIMEOUT);
               (Sock, Data) when is_list(Data) -> %% We assume iovec...
                    Msg = #{iov => Data},
-                   socket:sendmsg(Sock, Msg)
+                   socket:sendmsg(Sock, Msg, 5000)
            end,
     InitState2 = InitState#{send => Send}, % Send function
     traffic_ping_pong_send_and_receive_stream(InitState2).
