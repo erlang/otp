@@ -91,7 +91,8 @@ MODULES= \
 	ssh_tcpip_forward_acceptor_sup \
 	ssh_tcpip_forward_acceptor \
 	ssh_transport \
-	ssh_xfer
+	ssh_xfer \
+	ssh_event
 
 HRL_FILES =
 

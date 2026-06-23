@@ -26,6 +26,7 @@
 	     ssh_channel,
 	     ssh_connection,
 	     ssh_connection_handler,
+	     ssh_event,
              ssh_fsm_kexinit,
              ssh_fsm_userauth_client,
              ssh_fsm_userauth_server,

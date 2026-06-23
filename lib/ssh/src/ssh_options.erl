@@ -72,6 +72,14 @@
                             }.
 
 %%%================================================================
+%%% Macros
+
+%% TODO: Add message_sent event when send_msg is wired to ssh_event
+-define(EVENT_FUNS_DEFAULT, #{connected => fun(_,_) -> void end,
+                              disconnected => fun(_,_) -> void end,
+                              message_received => fun(_,_) -> void end}).
+
+%%%================================================================
 %%%
 %%% Get an option
 %%%
@@ -830,6 +838,21 @@ default(common) ->
        disconnectfun =>
            #{default => fun(_) -> void end,
              chk => fun(V) -> check_function1(V) end,
+             class => user_option
+            },
+
+       event_funs =>
+           #{default => ?EVENT_FUNS_DEFAULT,
+             chk => fun(V0) when is_map(V0) ->
+                            V = maps:merge(?EVENT_FUNS_DEFAULT, V0),
+                            lists:all(fun({K, F}) ->
+                                              lists:member(K, [connected,
+                                                               disconnected,
+                                                               message_received]) andalso
+                                                  check_function2(F)
+                                      end, maps:to_list(V));
+                       (_) -> false
+                    end,
              class => user_option
             },
 

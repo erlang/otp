@@ -192,7 +192,7 @@ connect(Host, Port, Options0) ->
 
 do_connect(Host, Port, Options) ->
     R = ssh:connect(Host, Port, Options),
-    ct:log("~p:~p ssh:connect(~p, ~p, ~p)~n -> ~p",[?MODULE,?LINE,Host, Port, Options, R]),
+    ?CT_LOG("ssh:connect(~p, ~p, ~p)~n -> ~p",[Host, Port, Options, R]),
     {ok, ConnectionRef} = R,
     ConnectionRef.
 
@@ -217,17 +217,17 @@ daemon(Host, Options) ->
 
 
 daemon(Host, Port, Options) ->
-    ct:log("~p:~p Calling ssh:daemon(~p, ~p, ~p)",[?MODULE,?LINE,Host,Port,Options]),
+    ?CT_LOG("Calling ssh:daemon(~p, ~p, ~p)",[Host,Port,Options]),
     case ssh:daemon(Host, Port, Options) of
 	{ok, Pid} ->
             R = ssh:daemon_info(Pid),
-            ct:log("~p:~p ssh:daemon_info(~p) ->~n ~p",[?MODULE,?LINE,Pid,R]),
+            ?CT_LOG("ssh:daemon_info(~p) ->~n ~p",[Pid,R]),
             {ok,L} = R,
             ListenPort = proplists:get_value(port, L),
             ListenIP = proplists:get_value(ip, L),
 	    {Pid, ListenIP, ListenPort};
 	Error ->
-	    ct:log("ssh:daemon error ~p",[Error]),
+            ?CT_LOG("ssh:daemon error ~p",[Error]),
 	    Error
     end.
 
@@ -245,10 +245,10 @@ gen_tcp_connect(Port, Options) ->
 
 gen_tcp_connect(Host0, Port, Options) ->
     Host = ssh_test_lib:ntoa(ssh_test_lib:mangle_connect_address(Host0)),
-    ct:log("~p:~p gen_tcp:connect(~p, ~p, ~p)~nHost0 = ~p",
-           [?MODULE,?LINE, Host, Port, Options, Host0]),
+    ?CT_LOG("gen_tcp:connect(~p, ~p, ~p)~nHost0 = ~p",
+           [Host, Port, Options, Host0]),
     Result = gen_tcp:connect(Host, Port, Options),
-    ct:log("~p:~p Result = ~p", [?MODULE,?LINE, Result]),
+    ?CT_LOG("Result = ~p", [Result]),
     Result.
 
 %%%----------------------------------------------------------------
@@ -258,7 +258,7 @@ open_sshc(Host0, Port, OptStr) ->
 open_sshc(Host0, Port, OptStr, ExecStr) ->
     Cmd = open_sshc_cmd(Host0, Port, OptStr, ExecStr),
     Result = os:cmd(Cmd),
-    ct:log("~p:~p Result = ~p", [?MODULE,?LINE, Result]),
+    ?CT_LOG("Result = ~p", [Result]),
     Result.
 
 
@@ -271,7 +271,7 @@ open_sshc_cmd(Host0, Port, OptStr, ExecStr) ->
                          " ", OptStr,
                          " ", Host,
                          " ", ExecStr]),
-    ct:log("~p:~p OpenSSH Cmd = ~p", [?MODULE,?LINE, Cmd]),
+    ?CT_LOG("OpenSSH Cmd = ~p", [Cmd]),
     Cmd.
 
 %%%----------------------------------------------------------------
@@ -320,13 +320,13 @@ std_simple_exec(Host, Port, Config) ->
     std_simple_exec(Host, Port, Config, []).
 
 std_simple_exec(Host, Port, Config, Opts) ->
-    ct:log("~p:~p std_simple_exec",[?MODULE,?LINE]),
+    ?CT_LOG("std_simple_exec",[]),
     ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, Opts),
-    ct:log("~p:~p connected! ~p",[?MODULE,?LINE,ConnectionRef]),
+    ?CT_LOG("connected! ~p",[ConnectionRef]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
-    ct:log("~p:~p session_channel ok ~p",[?MODULE,?LINE,ChannelId]),
+    ?CT_LOG("session_channel ok ~p",[ChannelId]),
     ExecResult = ssh_connection:exec(ConnectionRef, ChannelId, "23+21-2.", infinity),
-    ct:log("~p:~p exec ~p",[?MODULE,?LINE,ExecResult]),
+    ?CT_LOG("exec ~p",[ExecResult]),
     case ExecResult of
 	success ->
 	    Expected = {ssh_cm, ConnectionRef, {data,ChannelId,0,<<"42">>}},
@@ -349,8 +349,8 @@ start_shell(Port, IOServer) ->
 start_shell(Port, IOServer, ExtraOptions) ->
     spawn_link(
       fun() ->
-              ct:log("~p:~p:~p ssh_test_lib:start_shell(~p, ~p, ~p)",
-                     [?MODULE,?LINE,self(), Port, IOServer, ExtraOptions]),
+              ?CT_LOG("ssh_test_lib:start_shell(~p, ~p, ~p)",
+                     [Port, IOServer, ExtraOptions]),
 	      Options = [{user_interaction, false},
 			 {silently_accept_hosts,true},
                          {save_accepted_host,false},
@@ -361,33 +361,33 @@ start_shell(Port, IOServer, ExtraOptions) ->
                   case Port of
                       22 ->
                           Host = hostname(),
-                          ct:log("Port==22 Call ssh:shell(~p, ~p)",
+                          ?CT_LOG("Port==22 Call ssh:shell(~p, ~p)",
                                  [Host, Options]),
                           ssh:shell(Host, Options);
                       _ when is_integer(Port) ->
                           Host = hostname(),
-                          ct:log("is_integer(Port) Call ssh:shell(~p, ~p, ~p)",
+                          ?CT_LOG("is_integer(Port) Call ssh:shell(~p, ~p, ~p)",
                                  [Host, Port, Options]),
                           ssh:shell(Host, Port, Options);
                       ConnRef when is_pid(ConnRef) ->
-                          ct:log("is_pid(ConnRef) Call ssh:shell(~p)",
+                          ?CT_LOG("is_pid(ConnRef) Call ssh:shell(~p)",
                                  [ConnRef]),
                           ssh:shell(ConnRef); % Options were given in ssh:connect
                       Socket ->
                           receive
                               start -> ok
                           end,
-                          ct:log("Socket Call ssh:shell(~p, ~p)",
+                          ?CT_LOG("Socket Call ssh:shell(~p, ~p)",
                                  [Socket, Options]),
                           ssh:shell(Socket, Options)
                   end
               of
                   R ->
-                      ct:log("~p:~p ssh_test_lib:start_shell(~p, ~p, ~p) -> ~p",
-                             [?MODULE,?LINE,Port, IOServer, ExtraOptions, R])
+                      ?CT_LOG("ssh_test_lib:start_shell(~p, ~p, ~p) -> ~p",
+                             [Port, IOServer, ExtraOptions, R])
               catch
                   C:E:S ->
-                      ct:log("Exception ~p:~p~n~p", [C,E,S]),
+                      ?CT_LOG("Exception ~p:~p~n~p", [C,E,S]),
                       ct:fail("Exception",[])
               end
       end).
@@ -421,7 +421,7 @@ loop_io_server(TestCase, Buff0) ->
 	     io_reply(From, ReplyAs, Reply),
 	     loop_io_server(TestCase, Buff);
 	 {'EXIT',_, _} = _Exit ->
-	     ct:log("ssh_test_lib:loop_io_server/2 got ~p",[_Exit]),
+             ?CT_LOG("ssh_test_lib:loop_io_server/2 got ~p",[_Exit]),
 	     ok
     after 
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
@@ -476,7 +476,9 @@ rcv_expected(Expect, SshPort, Timeout) ->
 	    case Expect(Recvd) of
 		true ->
                     ?CT_LOG("Got expected ~p from ~p",[Recvd,SshPort]),
-		    catch port_close(SshPort),
+                    try port_close(SshPort)
+                    catch C:E:S -> ?CT_LOG("port_close exception ~p:~p~n~p",[C,E,S])
+                    end,
 		    rcv_lingering(50);
 		false ->
                     ?CT_LOG("Got UNEXPECTED ~p~n",[Recvd]),
@@ -484,25 +486,29 @@ rcv_expected(Expect, SshPort, Timeout) ->
 	    end;
 	{SshPort, Expect} ->
             ?CT_LOG("Got expected ~p from ~p",[Expect,SshPort]),
-	    catch port_close(SshPort),
+            try port_close(SshPort)
+            catch C:E:S -> ?CT_LOG("port_close exception ~p:~p~n~p",[C,E,S])
+            end,
 	    rcv_lingering(50);
 	Other ->
             ?CT_LOG("Got UNEXPECTED ~p~nExpect ~p",[Other, {SshPort,Expect}]),
 	    rcv_expected(Expect, SshPort, Timeout)
 
     after Timeout ->
-	    catch port_close(SshPort),
+            try port_close(SshPort)
+            catch C:E:S -> ?CT_LOG("port_close exception ~p:~p~n~p",[C,E,S])
+            end,
 	    ct:fail("Did not receive answer")
     end.
 
 rcv_lingering(Timeout) ->
     receive
 	Msg ->
-	    ct:log("Got LINGERING ~p",[Msg]),
+            ?CT_LOG("Got LINGERING ~p",[Msg]),
 	    rcv_lingering(Timeout)
 
     after Timeout ->
-	    ct:log("No more lingering messages",[]),
+            ?CT_LOG("No more lingering messages",[]),
 	    ok
     end.
 
@@ -510,22 +516,22 @@ rcv_lingering(Timeout) ->
 receive_exec_result([]) ->
     expected;
 receive_exec_result(Msgs) when is_list(Msgs) ->
-    ct:log("~p:~p Expect data! ~p", [?MODULE,?FUNCTION_NAME,Msgs]),
+    ?CT_LOG("Expect data! ~p", [Msgs]),
     receive
         Msg ->
             case lists:member(Msg, Msgs)
                 orelse lists:member({optional,Msg}, Msgs)
             of
                 true ->
-                    ct:log("~p:~p Collected data ~p", [?MODULE,?FUNCTION_NAME,Msg]),
+                    ?CT_LOG("Collected data ~p", [Msg]),
                     receive_exec_result(Msgs--[Msg,{optional,Msg}]);
                 false ->
                     case Msg of
                         {ssh_cm,_,{data,_,1, Data}} ->
-                            ct:log("~p:~p unexpected StdErr: ~p~n~p~n", [?MODULE,?FUNCTION_NAME,Data,Msg]),
+                            ?CT_LOG("unexpected StdErr: ~p~n~p~n", [Data,Msg]),
                             receive_exec_result(Msgs);
                         Other ->
-                            ct:log("~p:~p unexpected Other ~p", [?MODULE,?FUNCTION_NAME,Other]),
+                            ?CT_LOG("unexpected Other ~p", [Other]),
                             receive_exec_result(Msgs)
                     end
             end
@@ -538,7 +544,7 @@ receive_exec_result(Msgs) when is_list(Msgs) ->
                 false ->
                     ct:fail("timeout ~p:~p",[?MODULE,?FUNCTION_NAME]);
                 true ->
-                    ct:log("~p:~p Only optional messages expected!~n ~p", [?MODULE,?FUNCTION_NAME,Msgs]),
+                    ?CT_LOG("Only optional messages expected!~n ~p", [Msgs]),
                     expected
             end
     end;
@@ -618,8 +624,8 @@ openssh_sanity_check(Config) ->
 	    [{sanity_check_result, ok} | Config];
 	Err ->
 	    Str = lists:append(io_lib:format("~p", [Err])),
-            ct:log("Error = ~p", [Err]),
-            ct:log(?SANITY_CHECK_NOTE),
+            ?CT_LOG("Error = ~p", [Err]),
+            ?CT_LOG(?SANITY_CHECK_NOTE),
 	    ssh:stop(),
 	    [{sanity_check_result, Str} | Config]
     end.
@@ -630,8 +636,8 @@ verify_sanity_check(Config) ->
         ok ->
             Config;
         Err ->
-            ct:log("Error = ~p", [Err]),
-            ct:log(?SANITY_CHECK_NOTE),
+            ?CT_LOG("Error = ~p", [Err]),
+            ?CT_LOG(?SANITY_CHECK_NOTE),
             {fail, passwordless_connection_failed}
     end.
 
@@ -652,7 +658,7 @@ default_algorithms(sshd, Host, Port) ->
 				  {user_interaction, false}]}]))
     catch
 	_C:_E ->
-	    ct:log("***~p:~p: ~p:~p",[?MODULE,?LINE,_C,_E]),
+            ?CT_LOG("*** ~p:~p",[_C,_E]),
 	    []
     end.
 
@@ -672,7 +678,7 @@ default_algorithms(sshc, DaemonOptions) ->
 						    InitialState))
 		       catch
 			   _C:_E ->
-			       ct:log("***~p:~p: ~p:~p",[?MODULE,?LINE,_C,_E]),
+                               ?CT_LOG("*** ~p:~p",[_C,_E]),
 			       []
 		       end}
 	  end),
@@ -792,11 +798,11 @@ ssh_type() ->
 	    demonitor(MonitorRef),
 	    Result;
 	{'DOWN', MonitorRef, process, Pid, _Info} ->
-	    ct:log("~p:~p Process DOWN",[?MODULE,?LINE]),
+            ?CT_LOG("Process DOWN",[]),
 	    not_found
     after
 	10000 ->
-	    ct:log("~p:~p Timeout",[?MODULE,?LINE]),
+            ?CT_LOG("Timeout",[]),
 	    demonitor(MonitorRef),
 	    not_found
     end.
@@ -804,25 +810,25 @@ ssh_type() ->
 
 ssh_type1() ->
     try 
-        ct:log("~p:~p os:find_executable(\"ssh\")",[?MODULE,?LINE]),
+        ?CT_LOG("os:find_executable(\"ssh\")",[]),
 	case os:find_executable("ssh") of
 	    false -> 
-		ct:log("~p:~p Executable \"ssh\" not found",[?MODULE,?LINE]),
+                ?CT_LOG("Executable \"ssh\" not found",[]),
 		not_found;
 	    Path ->
-		ct:log("~p:~p Found \"ssh\" at ~p",[?MODULE,?LINE,Path]),
+                ?CT_LOG("Found \"ssh\" at ~p",[Path]),
                 case installed_ssh_version(timeout) of
 		    Version = "OpenSSH" ++ _ ->
-                        ct:log("~p:~p Found OpenSSH  ~p",[?MODULE,?LINE,Version]),
+                        ?CT_LOG("Found OpenSSH  ~p",[Version]),
 			openSSH;
                     Other ->
-			ct:log("ssh client ~p is unknown",[Other]),
+                        ?CT_LOG("ssh client ~p is unknown",[Other]),
 			unknown
 		end
 	end
     catch
 	Class:Exception -> 
-	    ct:log("~p:~p Exception ~p:~p",[?MODULE,?LINE,Class,Exception]),
+            ?CT_LOG("Exception ~p:~p",[Class,Exception]),
 	    not_found
     end.
 
@@ -965,12 +971,12 @@ get_kex_init(Conn, Ref, TRef) ->
 	false ->
 	    receive
 		{reneg_timeout,Ref} -> 
-                    ct:log("~p:~p Not in 'connected' state: ~p but reneg_timeout received. Fail.",
-                           [?MODULE,?LINE,State]),
-		    ct:log("S = ~p", [S]),
+                    ?CT_LOG("Not in 'connected' state: ~p but reneg_timeout received. Fail.",
+                           [State]),
+                    ?CT_LOG("S = ~p", [S]),
 		    ct:fail(reneg_timeout)
 	    after 0 ->
-                    ct:log("~p:~p Not in 'connected' state: ~p, Will try again after 100ms",[?MODULE,?LINE,State]),
+                    ?CT_LOG("Not in 'connected' state: ~p, Will try again after 100ms",[State]),
 		    timer:sleep(100), % If renegotiation is complete we do not
 				      % want to exit on the reneg_timeout
 		    get_kex_init(Conn, Ref, TRef)
@@ -1002,7 +1008,7 @@ create_random_dir(Config) ->
 %%%----------------------------------------------------------------
 match_ip(A, B) -> 
     R = match_ip0(A,B) orelse match_ip0(B,A),      
-    ct:log("match_ip(~p, ~p) -> ~p",[A, B, R]),
+    ?CT_LOG("match_ip(~p, ~p) -> ~p",[A, B, R]),
     R.
 
 match_ip0(A, A) ->
@@ -1050,7 +1056,11 @@ mangle_connect_address1({0,0,0,0},         _) -> loopback(false);
 mangle_connect_address1({0,0,0,0,0,0,0,0}, _) -> loopback(true);
 mangle_connect_address1(       IP,     _) when is_tuple(IP) -> IP;
 mangle_connect_address1(A, _) ->
-    case catch inet:parse_address(A) of
+    case (try inet:parse_address(A)
+          catch C:E:S ->
+                  ?CT_LOG("inet:parse_address exception ~p:~p~n~p",[C,E,S]),
+                  error
+          end) of
         {ok,         {0,0,0,0}} -> loopback(false);
         {ok, {0,0,0,0,0,0,0,0}} -> loopback(true);
         _ -> A
@@ -1102,11 +1112,11 @@ is_cryptolib_fips_capable() ->
 
 report(Comment, Line) ->
     ct:comment(Comment),
-    ct:log("~p:~p  try_enable_fips_mode~n"
+    ?CT_LOG("try_enable_fips_mode (caller line ~p)~n"
            "crypto:info_lib() = ~p~n"
            "crypto:info_fips() = ~p~n"
-           "crypto:supports() =~n~p~n", 
-           [?MODULE, Line,
+           "crypto:supports() =~n~p~n",
+           [Line,
             crypto:info_lib(),
             crypto:info_fips(),
             crypto:supports()]).
@@ -1117,7 +1127,7 @@ lc_name_in(Names) ->
         {ok,Name} ->
             lists:member(string:to_lower(Name), Names);
         Other ->
-            ct:log("~p:~p  inet:gethostname() returned ~p", [?MODULE,?LINE,Other]),
+            ?CT_LOG("inet:gethostname() returned ~p", [Other]),
             false
     end.
 
@@ -1198,8 +1208,8 @@ setup_all_user_host_keys(DataDir, UserDir, SysDir) ->
                             error:{badmatch, {error,enoent}} ->
                                 OkAlgs;
                             C:E:S ->
-                                ct:log("Exception in ~p:~p for alg ~p:  ~p:~p~n~p",
-                                       [?MODULE,?FUNCTION_NAME,Alg,C,E,S]),
+                                ?CT_LOG("Exception for alg ~p:  ~p:~p~n~p",
+                                       [Alg,C,E,S]),
                                 OkAlgs
                         end
                 end, [], ssh_transport:supported_algorithms(public_key)).
@@ -1220,8 +1230,8 @@ setup_all_host_keys(DataDir, SysDir) ->
                             error:{badmatch, {error,enoent}} ->
                                 OkAlgs;
                             C:E:S ->
-                                ct:log("Exception in ~p:~p for alg ~p:  ~p:~p~n~p",
-                                       [?MODULE,?FUNCTION_NAME,Alg,C,E,S]),
+                                ?CT_LOG("Exception for alg ~p:  ~p:~p~n~p",
+                                       [Alg,C,E,S]),
                                 OkAlgs
                         end
                 end, [], ssh_transport:supported_algorithms(public_key)).
@@ -1237,8 +1247,8 @@ setup_all_user_keys(DataDir, UserDir) ->
                             error:{badmatch, {error,enoent}} ->
                                 OkAlgs;
                             C:E:S ->
-                                ct:log("Exception in ~p:~p for alg ~p:  ~p:~p~n~p",
-                                       [?MODULE,?FUNCTION_NAME,Alg,C,E,S]),
+                                ?CT_LOG("Exception for alg ~p:  ~p:~p~n~p",
+                                       [Alg,C,E,S]),
                                 OkAlgs
                         end
                 end, [], ssh_transport:supported_algorithms(public_key)).
@@ -1262,7 +1272,7 @@ setup_user_key(SshAlg, DataDir, UserDir) ->
 
 setup_host_key_create_dir(SshAlg, DataDir, BaseDir) ->
     SysDir = filename:join(BaseDir,"system"),
-    ct:log("~p:~p  SshAlg=~p~nDataDir = ~p~nBaseDir = ~p~nSysDir = ~p",[?MODULE,?LINE,SshAlg, DataDir, BaseDir,SysDir]),
+    ?CT_LOG("SshAlg=~p~nDataDir = ~p~nBaseDir = ~p~nSysDir = ~p",[SshAlg, DataDir, BaseDir,SysDir]),
     file:make_dir(SysDir),
     setup_host_key(SshAlg, DataDir, SysDir),
     SysDir.
@@ -1418,7 +1428,7 @@ analyze_events(Events, EventNumber) when EventNumber >= 0 ->
                        [length(Events)])
     end,
     AllEventsSummary = lists:flatten([process_event(E) || E <- Events]),
-    ct:log("~nTotal logger events: ~p~nAll events:~n~s", [EventNumber, AllEventsSummary]),
+    ?CT_LOG("~nTotal logger events: ~p~nAll events:~n~s", [EventNumber, AllEventsSummary]),
     {ok, Cnt}.
 
 process_event(#{msg := {report,
@@ -1526,7 +1536,7 @@ get_mfa_value(Properties) ->
 get_value(Key, List) ->
     case lists:keyfind(Key, 1, List) of
         R = false ->
-            ct:log("Key ~p not found in~n~p", [Key, List]),
+            ?CT_LOG("Key ~p not found in~n~p", [Key, List]),
             R;
         R -> R
     end.
@@ -1535,7 +1545,7 @@ print_interesting_events([], Cnt) ->
     {ok, Cnt};
 print_interesting_events([#{level := Level} = Event | Tail], Cnt)
   when Level /= info, Level /= notice, Level /= debug ->
-    ct:log("------------~nInteresting event found:~n~p~n==========~n", [Event]),
+    ?CT_LOG("------------~nInteresting event found:~n~p~n==========~n", [Event]),
     print_interesting_events(Tail, Cnt + 1);
 print_interesting_events([_|Tail], Cnt) ->
     print_interesting_events(Tail, Cnt).
