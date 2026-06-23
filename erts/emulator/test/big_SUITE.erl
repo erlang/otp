@@ -40,6 +40,7 @@
 
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -387,6 +388,23 @@ system_limit(Config) when is_list(Config) ->
     {'EXIT',{system_limit,_}} = (catch apply(erlang, id('bsl'), [Maxbig,2])),
     {'EXIT',{system_limit,_}} = (catch id(1) bsl (1 bsl 45)),
     {'EXIT',{system_limit,_}} = (catch id(1) bsl (1 bsl 69)),
+
+    ?assertError(system_limit, Maxbig bxor -1),
+    ?assertError(system_limit, apply(erlang, id('bxor'), [Maxbig,-1])),
+    if
+        Maxbig bxor -1 -> error(should_fail);
+        true -> ok
+    end,
+
+    %% bnot -Maxbig should not raise an exception.
+    MaxMinusOne = Maxbig - 1,
+    MinusMaxbig = -Maxbig,
+    MaxMinusOne = bnot MinusMaxbig,
+    MaxMinusOne = apply(erlang, id('bnot'), [MinusMaxbig]),
+
+    %% -Maxbig bxor -1 should not raise an exception.
+    MaxMinusOne = MinusMaxbig bxor -1,
+    MaxMinusOne = apply(erlang, id('bxor'), [MinusMaxbig,-1]),
 
     %% There should be no system_limit exception when shifting a zero.
     0 = id(0) bsl (1 bsl 128),
