@@ -70,6 +70,16 @@ column of the comment. `Line` and `Column` are always positive integers, and
 Evaluation exits with reason `{read, Reason}` if a read error occurred, where
 `Reason` is an atom corresponding to a Posix error code; see the module
 [`//kernel/file`](`m:file`) for details.
+
+## Examples
+
+```erlang
+1> File = "./erl_comment_scan_doctest.erl".
+2> file:write_file(File, "%% module note\nf() -> ok. % trailing\n").
+3> Comments = erl_comment_scan:file(File).
+[{1,1,0,["% module note"]},{2,12,1,[" trailing"]}]
+4> file:delete(File).
+```
 """.
 -spec file(file:filename()) -> [comment()].
 
@@ -121,6 +131,13 @@ Except for reading directly from a string, the behavior is the same
 as for `file/1`.
 
 _See also: _`file/1`.
+
+## Examples
+
+```erlang
+1> erl_comment_scan:string("%% module note\nf() -> ok. % trailing\n").
+[{1,1,0,["% module note"]},{2,12,1,[" trailing"]}]
+```
 """.
 -spec string(string()) -> [comment()].
 
@@ -138,6 +155,13 @@ all characters following (but not including) the first
 comment-introducing `%` character on the line, up to (but not
 including) the line-terminating newline. For details on `Line`,
 `Column` and `Indent`, see `file/1`.
+
+## Examples
+
+```erlang
+1> erl_comment_scan:scan_lines("A = \"not % a comment\". % real\n% next\n").
+[{2,1,0," next"},{1,24,1," real"}]
+```
 """.
 -spec scan_lines(string()) -> [commentLine()].
 
@@ -248,6 +272,13 @@ where for each entry, `Text` is a list of consecutive comment lines in
 order of _increasing_ line-numbers (that is, top-down).
 
 _See also: _`scan_lines/1`.
+
+## Examples
+
+```erlang
+1> erl_comment_scan:join_lines([{2,1,0," second"},{1,1,0," first"}]).
+[{1,1,0,[" first"," second"]}]
+```
 """.
 -spec join_lines([commentLine()]) -> [comment()].
 

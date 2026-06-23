@@ -45,7 +45,7 @@
          gh11155/1,
          t_comment_scan/1,t_prettypr/1,test_named_fun_bind_ann/1,
          test_maybe_expr_ann/1,test_mc_ann/1,test_zip_ann/1,
-         is_literal/1]).
+         is_literal/1,doctests/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -57,7 +57,7 @@ all() ->
      t_epp_dodger,t_epp_dodger_clever,gh11155,
      t_comment_scan,t_prettypr,test_named_fun_bind_ann,
      test_maybe_expr_ann,test_mc_ann,test_zip_ann,
-     is_literal].
+     is_literal,doctests].
 
 groups() ->
     [].
@@ -79,6 +79,10 @@ app_test(Config) when is_list(Config) ->
 
 appup_test(Config) when is_list(Config) ->
     ok = test_server:appup_test(syntax_tools).
+
+doctests(Config) when is_list(Config) ->
+    ct_doctest:module(erl_comment_scan, [{missing_tests, []}]),
+    ct_doctest:module(erl_syntax, [{missing_tests, [{copy_attrs,2},{set_attrs,2},{type,1}]}]).
 
 %% Read and parse all source in the OTP release.
 smoke_test(Config) when is_list(Config) ->
