@@ -452,6 +452,15 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 %%--------------------------------------------------------------------
+init_per_testcase(valid_dsa_signature, Config) ->
+    case lists:member(dss, crypto:supports(public_keys)) of
+        true ->
+            Datadir = proplists:get_value(data_dir, Config),
+            put(datadir, Datadir),
+            Config;
+        false ->
+            {skip, dss_not_supported_by_crypto}
+    end;
 init_per_testcase(_Func, Config) ->
     Datadir = proplists:get_value(data_dir, Config),
     put(datadir, Datadir),
