@@ -46,8 +46,6 @@
 %% Tracing
 -export([handle_trace/3]).
 
--define(SERVER, ?MODULE).
-
 -record(state, {
                 stateless,
                 stateful,
