@@ -1278,13 +1278,21 @@ in the User's Guide chapter.
   #hardening_daemon_options-minimal_remote_max_packet_size }** - The least
   maximum packet size that the daemon will accept in channel open requests from
   the client. The default value is 0.
+
+- **`max_auth_request_size`{:
+  #hardening_daemon_options-max_auth_request_size }** - The maximum size allowed
+  in bytes for the SSH_MSG_USERAUTH_REQUEST messages. The default value
+  is the maximum allowed packet size, 262144 bytes,
+  which is the same as no check being made,
+  since maximum allowed packet size check is performed earlier.
 """.
 -doc(#{group => <<"Daemon Options">>}).
 -type hardening_daemon_options() ::
         {max_sessions, pos_integer()}
       | {max_channels, pos_integer()}
       | {parallel_login, boolean()}
-      | {minimal_remote_max_packet_size, pos_integer()}.
+      | {minimal_remote_max_packet_size, pos_integer()}
+      | {max_auth_request_size, pos_integer()}.
 
 -doc """
 - **`connectfun`** - Provides a fun to implement your own logging when a user
