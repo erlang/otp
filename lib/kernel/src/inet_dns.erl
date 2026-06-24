@@ -256,8 +256,8 @@ do_decode(Buffer, DnsHdr, QdList, AnBuf, AnCount, NsCount, ArCount, Opts) ->
         decode_rr_section(ArBuf, ArCount, Buffer, Opts),
     Rest =:= <<>>
         orelse throw(?DECODE_ERROR),
-    ((AnTC orelse NsTC orelse ArTC) =:= DnsHdr#dns_header.tc)
-        orelse throw(?DECODE_ERROR),
+    ((AnTC orelse NsTC orelse ArTC) andalso not DnsHdr#dns_header.tc)
+        andalso throw(?DECODE_ERROR),
     #dns_rec{
        header = DnsHdr,
        qdlist = QdList,
