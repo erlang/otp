@@ -5056,6 +5056,8 @@ static void fix_table_locked(Process* p, DbTable* tb)
     DbFixation *fix;
     int use_locks = !DB_LOCK_FREE(tb);
 
+    ERTS_LC_ASSERT(DB_LOCK_FREE(tb) || erts_lc_rwmtx_is_rlocked(&tb->common.rwlock));
+
     if (use_locks)
         erts_mtx_lock(&tb->common.fixlock);
 
@@ -5100,6 +5102,8 @@ static void unfix_table_locked(Process* p,  DbTable* tb,
 {
     DbFixation* fix;
     int use_locks = !DB_LOCK_FREE(tb);
+
+    ERTS_LC_ASSERT(DB_LOCK_FREE(tb) || erts_lc_rwmtx_is_rlocked(&tb->common.rwlock));
 
     if (use_locks)
         erts_mtx_lock(&tb->common.fixlock);
