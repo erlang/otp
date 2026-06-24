@@ -2553,15 +2553,7 @@ gethostbyname(Name) ->
 	    gethostbyname_tm(Name, inet, false)
     end.
 
--doc """
-Resolve a hostname to a [`#hostent{}`](`t:hostent/0`) record,
-in a specific address family.
-
-Returns a [`#hostent{}`](`t:hostent/0`) record for the host
-with the specified `Hostname`, restricted to the specified address `Family`.
-
-See also `gethostbyname/1`.
-""".
+-doc(#{equiv => gethostbyname(Hostname, Family, infinity)}).
 -spec gethostbyname(Hostname, Family) ->
                            {ok, Hostent} | {error, posix()} when
       Hostname :: hostname(),
@@ -2571,7 +2563,17 @@ See also `gethostbyname/1`.
 gethostbyname(Name, Family) ->
     gethostbyname_tm(Name, Family, false).
 
--doc false.
+-doc """
+Resolve a hostname to a [`#hostent{}`](`t:hostent/0`) record,
+in a specific address family.
+
+Returns a [`#hostent{}`](`t:hostent/0`) record for the host
+with the specified `Name`, restricted to the specified address `Family`.
+
+`Timeout` specifies a time-out in milliseconds, or the atom `infinity`.
+
+See also `gethostbyname/1`.
+""".
 -spec gethostbyname(Name :: hostname(),
 	            Family :: address_family(),
 	            Timeout :: non_neg_integer() | 'infinity') ->
@@ -2601,12 +2603,7 @@ gethostbyname_tm(Name, Family, Timer) ->
     gethostbyname_tm(Name, Family, Timer, Opts).
 
 
--doc """
-Resolve (reverse) an address to a [`#hostent{}`](`t:hostent/0`) record.
-
-Returns a [`#hostent{}`](`t:hostent/0`) record for the host
-with the specified address.
-""".
+-doc(#{equiv => gethostbyaddr(Address, infinity)}).
 -spec gethostbyaddr(Address) -> {ok, Hostent} | {error, posix()} when
       Address :: string() | ip_address(),
       Hostent :: hostent().
@@ -2614,7 +2611,14 @@ with the specified address.
 gethostbyaddr(Address) ->
     gethostbyaddr_tm(Address, false).
 
--doc false.
+-doc """
+Resolve (reverse) an address to a [`#hostent{}`](`t:hostent/0`) record.
+
+Returns a [`#hostent{}`](`t:hostent/0`) record for the host
+with the specified address.
+
+`Timeout` specifies a time-out in milliseconds, or the atom `infinity`.
+""".
 -spec gethostbyaddr(Address :: string() | ip_address(),
 	            Timeout :: non_neg_integer() | 'infinity') ->
 	{'ok', #hostent{}} | {'error', posix()}.
@@ -2835,13 +2839,7 @@ getaddr_tm(Address, Family, Timer) ->
 	    Error
     end.
 
--doc """
-Resolve a host to a list of addresses, in a specific address family.
-
-Returns a list of all IP addresses for `Host`.
-`Host` can be an [IP address](`t:ip_address/0`),
-a single `t:hostname/0`, or a fully qualified `t:hostname/0`.
-""".
+-doc(#{equiv => getaddrs(Host, Family, infinity)}).
 -spec getaddrs(Host, Family) ->
 	{ok, Addresses} | {error, posix()} when
       Host :: ip_address() | hostname(),
@@ -2851,8 +2849,16 @@ a single `t:hostname/0`, or a fully qualified `t:hostname/0`.
 getaddrs(Address, Family) ->
     getaddrs(Address, Family, infinity).
 
--doc false.
--spec getaddrs(Host :: ip_address() | string() | atom(),
+-doc """
+Resolve a host to a list of addresses, in a specific address family.
+
+Returns a list of all IP addresses for `Host`.
+`Host` can be an [IP address](`t:ip_address/0`),
+a single `t:hostname/0`, or a fully qualified `t:hostname/0`.
+
+`Timeout` specifies a time-out in milliseconds, or the atom `infinity`.
+""".
+-spec getaddrs(Host :: ip_address() | hostname(),
 	       Family :: address_family(),
 	       Timeout :: non_neg_integer() | 'infinity') ->
 	{'ok', [ip_address()]} | {'error', posix()}.
