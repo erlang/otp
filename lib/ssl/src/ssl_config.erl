@@ -128,7 +128,8 @@ get_ticket_store_size() ->
     application_int(server_session_ticket_store_size, 1000).
 
 get_max_early_data_size() ->
-    application_int(server_session_ticket_max_early_data, ?DEFAULT_MAX_EARLY_DATA_SIZE).
+    application_int(server_session_ticket_max_early_data,
+                    ?DEFAULT_MAX_EARLY_DATA_SIZE).
 
 get_internal_active_n() ->
     get_internal_active_n(false).
