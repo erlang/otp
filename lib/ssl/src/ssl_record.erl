@@ -412,7 +412,7 @@ nonce_seed(_,_, CipherState) ->
 %%--------------------------------------------------------------------
 
 empty_connection_state(ConnectionEnd) ->
-    MaxEarlyDataSize = ssl_config:get_max_early_data_size(),
+    MaxEarlyDataSize = 0, %% TLS-1.3 only, this is not called by TLS-1.3
     empty_connection_state(ConnectionEnd, _Version = undefined, MaxEarlyDataSize).
 %%
 empty_connection_state(ConnectionEnd, Version, MaxEarlyDataSize) ->

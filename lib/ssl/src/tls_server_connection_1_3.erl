@@ -665,16 +665,20 @@ maybe_send_session_ticket(State, 0) ->
     State;
 maybe_send_session_ticket(#state{connection_states = ConnectionStates,
                                  static_env = #static_env{trackers = Trackers,
-                                                          protocol_cb = Connection}
-                                } = State0, N) ->
+                                                          protocol_cb = Connection}}
+                          = State0, N) ->
     Tracker = proplists:get_value(session_tickets_tracker, Trackers),
     #{security_parameters := SecParamsR} =
         ssl_record:current_connection_state(ConnectionStates, read),
     #security_parameters{prf_algorithm = HKDF,
                          resumption_master_secret = RMS} = SecParamsR,
-    Ticket = new_session_ticket(Tracker, HKDF, RMS, State0),
-    {State, _} = Connection:send_handshake(Ticket, State0),
-    maybe_send_session_ticket(State, N - 1).
+    case new_session_ticket(Tracker, HKDF, RMS, State0) of
+        no_ticket -> %% Continuous restarts of ticket handler (unlikely scenario)
+            State0;
+        Ticket ->
+            {State, _} = Connection:send_handshake(Ticket, State0),
+            maybe_send_session_ticket(State, N - 1)
+    end.
 
 new_session_ticket(Tracker, HKDF, RMS,
                    #state{ssl_options = #{session_tickets := stateful_with_cert},
