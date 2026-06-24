@@ -292,7 +292,7 @@ message is sent to the controlling process:
 `Reason` is mostly a [POSIX Error Code](`m:inet#posix-error-codes`).
 
 If the socket is in _passive mode_ (not in an _active mode_), received data
-can be retrieved with the`recv/2,3`](`recv/2`) calls. Note that incoming
+can be retrieved with the [`recv/2,3`](`recv/3`) calls. Note that incoming
 UDP packets that are longer than the receive buffer option specifies
 can be truncated without warning.
 

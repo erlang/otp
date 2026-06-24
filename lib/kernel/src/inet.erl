@@ -37,15 +37,15 @@ The following four Kernel configuration parameters affect the behavior of all
 
 - `inet_default_connect_options` can contain a list of
   default options used for all sockets created by
-  a `gen_tcp:connect/2,3,4`](`gen_tcp:connect/2`) call.
+  a [`gen_tcp:connect/2,3,4`](`gen_tcp:connect/4`) call.
 - `inet_default_listen_options` can contain a list of default options
-  used for sockets created by a `gen_tcp:listen/2` call.
+  used for sockets created by a [`gen_tcp:listen/2`](`gen_tcp:listen/2`) call.
 - `inet_default_udp_options` can contain a list of
   default options used for all sockets created by
-  a `gen_udp:open/1,2`](`gen_udp:open/2`) call.
+  a [`gen_udp:open/1,2`](`gen_udp:open/2`) call.
 - `inet_default_sctp_options` can contain a list of
   default options used for all sockets created by
-  a `gen_sctp:open/0,1`](`gen_sctp:open/1`) call.
+  a [`gen_sctp:open/0,1`](`gen_sctp:open/1`) call.
 
 For the [`gen_tcp:accept/1,2`](`gen_tcp:accept/1`) call,
 the values of the listening socket options are inherited.
