@@ -392,7 +392,7 @@ system_limit(Config) when is_list(Config) ->
     ?assertError(system_limit, Maxbig bxor -1),
     ?assertError(system_limit, apply(erlang, id('bxor'), [Maxbig,-1])),
     if
-        Maxbig bxor -1 -> error(should_fail);
+        is_integer(Maxbig bxor -1) -> error(should_fail);
         true -> ok
     end,
 
