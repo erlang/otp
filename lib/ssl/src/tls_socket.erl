@@ -43,31 +43,30 @@
 -export([split_options/1, 
          get_socket_opts/3]).
 
--export([emulated_options/0, 
-         emulated_options/1, 
-         internal_inet_values/0, 
+-export([emulated_options/0,
+         emulated_options/1,
+         internal_inet_values/0,
          default_inet_values/0,
-	 init/1, 
-         start_link/3, 
-         terminate/2, 
-         inherit_tracker/3, 
          session_id_tracker/2,
-	 emulated_socket_options/2, 
-         get_emulated_opts/1, 
-	 set_emulated_opts/2, 
-         get_all_opts/1, 
-         handle_call/3, 
+	 init/1,
+         start_link/4,
+         terminate/2,
+	 emulated_socket_options/2,
+         get_emulated_opts/1,
+	 set_emulated_opts/2,
+         handle_call/3,
          handle_cast/2,
 	 handle_info/2, 
          code_change/3]).
 
 -export([update_active_n/2]).
 
--record(state, {
-	  emulated_opts,
-          listen_monitor,      
-	  ssl_opts
-	 }).
+-record(state, {emulated_opts,
+                listen_monitor,
+                listener,
+                ssl_opts,
+                trackers
+               }).
 
 %%--------------------------------------------------------------------
 %%% Internal API
@@ -80,18 +79,20 @@ listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _},
 				ssl = SslOpts, emulated = EmOpts} = Config) ->
     case Transport:listen(Port, Options ++ internal_inet_values()) of
 	{ok, ListenSocket} ->
-	    {ok, Tracker} = inherit_tracker(ListenSocket, EmOpts, SslOpts),
             LifeTime = ssl_config:get_ticket_lifetime(),
             TicketStoreSize = ssl_config:get_ticket_store_size(),
-            MaxEarlyDataSize = ssl_config:get_max_early_data_size(),
+            MaxEarlyDataSize = server_max_early_data(SslOpts),
             %% TLS-1.3 session handling
             {ok, SessionHandler} =
                 session_tickets_tracker(ListenSocket, LifeTime, TicketStoreSize, MaxEarlyDataSize, SslOpts),
             %% PRE TLS-1.3 session handling
             {ok, SessionIdHandle} = session_id_tracker(ListenSocket, SslOpts),
-            Trackers =  [{option_tracker, Tracker}, {session_tickets_tracker, SessionHandler},
-                         {session_id_tracker, SessionIdHandle}],
-            Socket = #sslsocket{pid = {ListenSocket, Config#config{trackers = Trackers}}},
+            Trackers = [{session_tickets_tracker, SessionHandler},
+                        {session_id_tracker, SessionIdHandle}],
+            {ok, Tracker} = inherit_tracker(ListenSocket, EmOpts, SslOpts, Trackers),
+            Socket = #sslsocket{pid = {ListenSocket,
+                                       Config#config{trackers =
+                                                         [{option_tracker, Tracker} | Trackers]}}},
             check_active_n(EmOpts, Socket),
 	    {ok, Socket};
 	Err = {error, _} ->
@@ -99,13 +100,12 @@ listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _},
     end.
 
 accept(ListenSocket, #config{transport_info = {Transport,_,_,_,_} = CbInfo,
-			     connection_cb = ConnectionCb,
-			     ssl = SslOpts,
-			     trackers = Trackers}, Timeout) -> 
+                             ssl = SslOpts,
+			     trackers = Trackers0, connection_cb = ConnectionCb}, Timeout) ->
     case Transport:accept(ListenSocket, Timeout) of
 	{ok, Socket} ->
-            Tracker = proplists:get_value(option_tracker, Trackers),
-            {ok, EmOpts} = get_emulated_opts(Tracker),
+            Tracker = proplists:get_value(option_tracker, Trackers0),
+            {ok, EmOpts, Trackers} = accept_options(Tracker),
 	    {ok, Port} = tls_socket:port(Transport, Socket),
             start_tls_server_connection(SslOpts, ConnectionCb, Transport, Port, Socket, EmOpts, Trackers, CbInfo);
 	{error, Reason} ->
@@ -252,10 +252,10 @@ internal_inet_values() ->
 default_inet_values() ->
     [{packet_size, 0}, {packet,0}, {header, 0}, {active, true}, {mode, list}].
 
-inherit_tracker(ListenSocket, EmOpts, #{erl_dist := true} = SslOpts) ->
-    ssl_listen_tracker_sup:start_child_dist([ListenSocket, EmOpts, SslOpts]);
-inherit_tracker(ListenSocket, EmOpts, SslOpts) ->
-    ssl_listen_tracker_sup:start_child([ListenSocket, EmOpts, SslOpts]).
+inherit_tracker(ListenSocket, EmOpts, #{erl_dist := true} = SslOpts, Trackers) ->
+    ssl_listen_tracker_sup:start_child_dist([ListenSocket, EmOpts, SslOpts, Trackers]);
+inherit_tracker(ListenSocket, EmOpts, SslOpts, Trackers) ->
+    ssl_listen_tracker_sup:start_child([ListenSocket, EmOpts, SslOpts, Trackers]).
 
 session_tickets_tracker(ListenSocket, Lifetime, TicketStoreSize, MaxEarlyDataSize,
                         #{erl_dist := true,
@@ -283,7 +283,6 @@ session_tickets_tracker(ListenSocket, Lifetime, TicketStoreSize, MaxEarlyDataSiz
     tls_server_session_ticket_sup:start_child([ListenSocket, Mode, Lifetime,
                                                TicketStoreSize, MaxEarlyDataSize,
                                                AntiReplay, Seed]).
-
 session_id_tracker(_, #{versions := [?TLS_1_3]}) ->
     {ok, not_relevant};
 %% Regardless of the option reuse_sessions we need the session_id_tracker
@@ -300,15 +299,15 @@ get_emulated_opts(TrackerPid) ->
     call(TrackerPid, get_emulated_opts).
 set_emulated_opts(TrackerPid, InetValues) -> 
     call(TrackerPid, {set_emulated_opts, InetValues}).
-get_all_opts(TrackerPid) -> 
-    call(TrackerPid, get_all_opts).
+accept_options(TrackerPid) ->
+    call(TrackerPid, accept_options).
 
 %%====================================================================
 %% ssl_listen_tracker_sup API
 %%====================================================================
 
-start_link(Port, SockOpts, SslOpts) ->
-    gen_server:start_link(?MODULE, [Port, SockOpts, SslOpts], []).
+start_link(Port, SockOpts, SslOpts, Trackers) ->
+    gen_server:start_link(?MODULE, [Port, SockOpts, SslOpts, Trackers], []).
 
 %%--------------------------------------------------------------------
 -spec init(list()) -> {ok, #state{}}.
@@ -317,13 +316,15 @@ start_link(Port, SockOpts, SslOpts) ->
 %%
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
-init([Listen, Opts, SslOpts]) ->
+init([Listen, Opts, TLSOpts, Trackers]) ->
     process_flag(trap_exit, true),
     proc_lib:set_label({tls_listen_tracker, Listen}),
     Monitor = inet:monitor(Listen),
     {ok, #state{emulated_opts = do_set_emulated_opts(Opts, []), 
                 listen_monitor = Monitor,
-                ssl_opts = SslOpts}}.
+                ssl_opts = TLSOpts,
+                listener = Listen,
+                trackers = Trackers}}.
 
 %%--------------------------------------------------------------------
 -spec handle_call(term(), gen_server:from(), #state{}) -> {reply, Reply::term(), #state{}}.
@@ -343,10 +344,16 @@ handle_call({set_emulated_opts, Opts0}, _From,
 handle_call(get_emulated_opts, _From,
 	    #state{emulated_opts = Opts} = State) ->
     {reply, {ok, Opts}, State};
-handle_call(get_all_opts, _From,
+handle_call(accept_options, _From,
 	    #state{emulated_opts = EmOpts,
-		   ssl_opts = SslOpts} = State) ->
-    {reply, {ok, EmOpts, SslOpts}, State}.
+                   ssl_opts = Opts,
+                   listener = LSocket,
+		   trackers = Trackers0} = State) ->
+    Trackers1 = maybe_start_new_session_tracker(session_tickets_tracker, Trackers0,
+                                               LSocket, Opts),
+    Trackers = maybe_start_new_session_tracker(session_id_tracker, Trackers1,
+                                               LSocket, Opts),
+    {reply, {ok, EmOpts, [{option_tracker, self()} | Trackers]}, State#state{trackers = Trackers}}.
 
 %%--------------------------------------------------------------------
 -spec  handle_cast(term(), #state{}) -> {noreply, #state{}}.
@@ -520,3 +527,52 @@ validate_inet_option(_, _) ->
 connect_error(Transport, Host, Port, UserOpts, Timeout) ->
     lists:flatten(io_lib:format("~p:connect(~p, ~p, ~p, ~p)",
                                 [Transport, Host, Port, UserOpts, Timeout])).
+
+start_new_session_tracker(session_id_tracker, LSocket, Opts) ->
+    session_id_tracker(LSocket, Opts);
+start_new_session_tracker(session_tickets_tracker, LSocket, Opts) ->
+    start_new_ticket_server(LSocket, Opts).
+
+start_new_ticket_server(Listener, Opts) ->
+    LifeTime = ssl_config:get_ticket_lifetime(),
+    TicketStoreSize = ssl_config:get_ticket_store_size(),
+    MaxEarlyDataSize = server_max_early_data(Opts),
+    #{session_tickets := Mode,
+      anti_replay := AntiReplay,
+      stateless_tickets_seed := Seed} = Opts,
+    case maps:get(erl_dist, Opts, false) of
+        false ->
+            tls_server_session_ticket_sup:start_child([Listener, Mode, LifeTime,
+                                                       TicketStoreSize, MaxEarlyDataSize,
+                                                       AntiReplay, Seed]);
+        true ->
+            tls_server_session_ticket_sup:start_child_dist([Listener, Mode, LifeTime,
+                                                            TicketStoreSize, MaxEarlyDataSize,
+                                                            AntiReplay, Seed])
+    end.
+
+maybe_start_new_session_tracker(Type, Trackers0, LSocket, Opts) ->
+    Tracker = proplists:get_value(Type, Trackers0),
+    case Tracker of
+        not_relevant ->
+            Trackers0;
+        disabled ->
+            Trackers0;
+        Pid ->
+            case is_process_alive(Pid) of
+                true ->
+                    Trackers0;
+                false ->
+                    {ok, NewPid} = start_new_session_tracker(Type, LSocket, Opts),
+                    [{Type, NewPid} |
+                     proplists:delete(Type, Trackers0)]
+            end
+    end.
+
+server_max_early_data(Opts) ->
+    case maps:get(early_data, Opts, disabled) of
+        disabled ->
+            0;
+        enabled ->
+            ssl_config:get_max_early_data_size()
+    end.

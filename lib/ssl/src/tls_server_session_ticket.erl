@@ -73,17 +73,27 @@ start_link(Listener, Mode1, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiRep
                                     MaxEarlyDataSize, AntiReplay, Seed], []).
 
 new(Pid, Prf, MasterSecret, PeerCert) ->
-    gen_server:call(Pid, {new_session_ticket, Prf, MasterSecret, PeerCert}, infinity).
+    Request = {new_session_ticket, Prf, MasterSecret, PeerCert},
+    case call(Pid, Request) of
+        {error, closed} ->
+            no_ticket;
+        Result ->
+            Result
+    end.
 
 use(Pid, Identifiers, Prf, HandshakeHist) ->
-    gen_server:call(Pid, {use_ticket, Identifiers, Prf, HandshakeHist}, 
-                    infinity).
-
+    case call(Pid, {use_ticket, Identifiers, Prf, HandshakeHist}) of
+        {error, closed} ->
+            %% Server died, old tickets can not be used (state is lost)
+            %% new accept call will start new ticket handler
+            {ok, undefined};
+        Result ->
+            Result
+    end.
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
-
--spec init(Args :: term()) -> {ok, State :: term()}.                             
+-spec init(Args :: term()) -> {ok, State :: term()}.
 init([Listener | Args]) ->
     process_flag(trap_exit, true),
     proc_lib:set_label({tls_13_server_session_tickets, Listener}),
@@ -163,6 +173,13 @@ format_status(_Opt, Status) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+call(Pid, Msg) ->
+    try gen_server:call(Pid, Msg, infinity)
+    catch
+        exit:{noproc, _} ->
+            {error, closed}
+    end.
+
 initial_state([stateless, Lifetime, _, MaxEarlyDataSize, undefined, Seed]) ->
     #state{nonce = 0,
            stateless = #{seed => stateless_seed(Seed),
