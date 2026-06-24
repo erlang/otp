@@ -42,7 +42,7 @@ available.
 -doc """
 A source to input CRLs
 """.
--type crl_src() :: {file, file:filename()} | {der,  public_key:der_encoded()}.
+-type crl_src() :: {file, file:filename()} | {der, [public_key:der_encoded()]}.
 
 -export([lookup/3, select/2, fresh_crl/2]).
 -export([insert/1, insert/2, delete/1]).
