@@ -1535,10 +1535,21 @@ print_interesting_events([], Cnt) ->
     {ok, Cnt};
 print_interesting_events([#{level := Level} = Event | Tail], Cnt)
   when Level /= info, Level /= notice, Level /= debug ->
-    ct:log("------------~nInteresting event found:~n~p~n==========~n", [Event]),
-    print_interesting_events(Tail, Cnt + 1);
+    case is_benign_event(Event) of
+        true ->
+            print_interesting_events(Tail, Cnt);
+        false ->
+            ct:log("------------~nInteresting event found:~n~p~n==========~n", [Event]),
+            print_interesting_events(Tail, Cnt + 1)
+    end;
 print_interesting_events([_|Tail], Cnt) ->
     print_interesting_events(Tail, Cnt).
+
+%% Known-benign event: driver_select race during fd handoff between ports
+is_benign_event(#{msg := {_Fmt, [Msg]}}) when is_list(Msg) ->
+    string:find(Msg, "ignored repeated call") =/= nomatch;
+is_benign_event(_) ->
+    false.
 
 %% logger callbacks
 log(LogEvent = #{level:=_Level,msg:=_Msg,meta:=_Meta},
