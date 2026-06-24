@@ -230,7 +230,27 @@ The time unit used by the rfc3339 conversion functions.
 %% January 1st.
 %%
 %% df/2 catches the case Year<0
--doc(#{equiv => date_to_gregorian_days({Year, Month, Day})}).
+-doc """
+Computes the number of gregorian days starting with year 0 and ending at the
+specified date.
+
+This function accepts either three separate arguments (Year, Month, Day) or
+a single date tuple. The return value is the number of days since January 1,
+year 0.
+
+## Examples
+
+```erlang
+1> calendar:date_to_gregorian_days(2024, 1, 1).
+738887
+2> calendar:date_to_gregorian_days({2024, 1, 1}).
+738887
+3> calendar:date_to_gregorian_days(0, 1, 1).
+0
+4> calendar:date_to_gregorian_days(2023, 2, 29).
+** exception error: no function clause matching calendar:date_to_gregorian_days(2023,2,29)
+```
+""".
 -spec date_to_gregorian_days(Year, Month, Day) -> Days when
       Year :: year(),
       Month :: month(),
@@ -247,10 +267,7 @@ date_to_gregorian_days(Year, Month, Day) when is_integer(Day), Day > 0 ->
     DayOfEra = ?DAYS_PER_YEAR * YearOfEra + YearOfEra div 4 - YearOfEra div 100 + DayOfYear,
     Era * ?DAYS_PER_ERA + DayOfEra + ?MARCH_1_YEAR_0.
 
--doc """
-Computes the number of gregorian days starting with year 0 and ending at the
-specified date.
-""".
+-doc(#{equiv => date_to_gregorian_days(Year, Month, Day)}).
 -spec date_to_gregorian_days(Date) -> Days when
       Date :: date(),
       Days :: integer().
@@ -280,7 +297,32 @@ datetime_to_gregorian_seconds({Date, Time}) ->
 %%
 %% Returns: 1 | .. | 7. Monday = 1, Tuesday = 2, ..., Sunday = 7.
 %%
--doc(#{equiv => day_of_the_week({Year, Month, Day})}).
+-doc """
+Computes the day of the week from the specified `Year`, `Month`, and `Day`.
+
+This function accepts either three separate arguments (Year, Month, Day) or
+a single date tuple. Returns the day of the week as:
+- `1`: Monday
+- `2`: Tuesday
+- `3`: Wednesday
+- `4`: Thursday
+- `5`: Friday
+- `6`: Saturday
+- `7`: Sunday
+
+## Examples
+
+```erlang
+1> calendar:day_of_the_week(2024, 1, 1).
+1
+2> calendar:day_of_the_week({2024, 1, 1}).
+1
+3> calendar:day_of_the_week(2024, 12, 25).
+3
+4> calendar:day_of_the_week(2023, 2, 29).
+** exception error: no function clause matching calendar:day_of_the_week(2023,2,29)
+```
+""".
 -spec day_of_the_week(Year, Month, Day) -> daynum() when
       Year :: year(),
       Month :: month(),
@@ -288,10 +330,7 @@ datetime_to_gregorian_seconds({Date, Time}) ->
 day_of_the_week(Year, Month, Day) ->
     mod(date_to_gregorian_days(Year, Month, Day) + 5, 7) + 1.
 
--doc """
-Computes the day of the week from the specified `Year`, `Month`, and `Day`.
-Returns the day of the week as `1`: Monday, `2`: Tuesday, and so on.
-""".
+-doc(#{equiv => day_of_the_week(Year, Month, Day)}).
 -spec day_of_the_week(Date) -> daynum() when
       Date:: date().
 day_of_the_week({Year, Month, Day}) ->
@@ -918,7 +957,25 @@ universal_time_to_local_time(DateTime) ->
 %% valid_date(Year, Month, Day) = true | false
 %% valid_date({Year, Month, Day}) = true | false
 %%
--doc(#{equiv => valid_date({Year, Month, Day})}).
+-doc """
+Checks if a date is valid.
+
+This function validates that the given year, month, and day form a valid
+date according to the Gregorian calendar. It accepts either three separate
+arguments (Year, Month, Day) or a single date tuple. Returns `true` if the
+date is valid, `false` otherwise.
+
+## Examples
+
+```erlang
+1> calendar:valid_date(2024, 2, 29).
+true
+2> calendar:valid_date({2024, 2, 29}).
+true
+3> calendar:valid_date(2023, 2, 29).
+false
+```
+""".
 -spec valid_date(Year, Month, Day) -> boolean() when
       Year :: integer(),
       Month :: integer(),
@@ -932,7 +989,7 @@ valid_date1(Y, M, D) when is_integer(Y), M > 0, M < 13, D > 0 ->
 valid_date1(_, _, _) ->
     false.
 
--doc "This function checks if a date is a valid.".
+-doc(#{equiv => valid_date(Year, Month, Day)}).
 -spec valid_date(Date) -> boolean() when
       Date :: date().
 valid_date({Y, M, D}) ->
