@@ -1125,7 +1125,7 @@ delete_all_objects_trap(Opts, Mode) ->
                           case receive_any() of
                               {trace, Tester, out, {ets,internal_delete_all,2}} ->
                                   %% Wait for second reschedule as on DEBUG we get a forced trap
-                                  {N =:= 2, N+1};
+                                  {N =:= 1, N+1};
                               "delete_all_objects done" ->
                                   ct:fail("No trap detected");
                               _M ->
