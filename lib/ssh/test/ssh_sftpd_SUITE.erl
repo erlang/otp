@@ -47,6 +47,7 @@
          open_file_dir_v6/1,
          read_dir/1,
          read_file/1,
+         read_file_chunk_limit/1,
          max_path/1,
          real_path/1,
          relative_path/1,
@@ -92,6 +93,7 @@ all() ->
     [open_close_file, 
      open_close_dir, 
      read_file, 
+     read_file_chunk_limit,
      max_path,
      read_dir,
      write_file, 
@@ -391,6 +393,29 @@ read_file(Config) when is_list(Config) ->
                   ?SSH_FXF_OPEN_EXISTING),
     ct:log("Message: ~s", [Msg]),
     ok.
+
+%%--------------------------------------------------------------------
+read_file_chunk_limit(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    FileName = filename:join(PrivDir, "test2"),
+    Length = ?SFTP_MAX_READ_SIZE + 1024,
+    ok = file:write_file(FileName, binary:copy(<<0>>, Length)),
+
+    ReqId = 0,
+    {Cm, Channel} = proplists:get_value(sftp, Config),
+
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId), Handle/binary>>, _} =
+        open_file(FileName, Cm, Channel, ReqId,
+                  ?ACE4_READ_DATA bor ?ACE4_READ_ATTRIBUTES,
+                  ?SSH_FXF_OPEN_EXISTING),
+
+    NewReqId = 1,
+
+    {ok, <<?SSH_FXP_DATA, ?UINT32(NewReqId), ?UINT32(?SFTP_MAX_READ_SIZE),
+           Data/binary>>, _} =
+        read_file(Handle, Length, 0, Cm, Channel, NewReqId),
+
+    Data = binary:copy(<<0>>, ?SFTP_MAX_READ_SIZE).
 
 %%--------------------------------------------------------------------
 max_path(Config) when is_list(Config) ->
