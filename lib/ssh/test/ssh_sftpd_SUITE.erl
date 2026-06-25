@@ -55,7 +55,8 @@
          ver3_open_flags/1,
          ver3_rename/1,
          ver6_basic/1,
-         write_file/1
+         write_file/1,
+         extended_data_no_infinite_loop/1
         ]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -104,7 +105,8 @@ all() ->
      root_with_cwd,
      relative_path,
      open_file_dir_v5,
-     open_file_dir_v6].
+     open_file_dir_v6,
+     extended_data_no_infinite_loop].
 
 groups() -> 
     [].
@@ -793,6 +795,17 @@ open_file_dir_v6(Config) when is_list(Config) ->
                   ?SSH_FXF_OPEN_EXISTING).
 
 %%--------------------------------------------------------------------
+extended_data_no_infinite_loop(Config) when is_list(Config) ->
+    %% Regression test for CVE-2026-54886, sending extended data to ssh_sftpd.erl
+    %% caused an infinite loop
+    {Cm, Channel} = proplists:get_value(sftp, Config),
+    ok = ssh_connection:send(Cm, Channel, 1, <<"trigger">>),
+
+    Data = <<?UINT32(5), ?SSH_FXP_INIT, ?UINT32(6)>>,
+    ok = ssh_connection:send(Cm, Channel, Data),
+    {ok, <<?SSH_FXP_VERSION, ?UINT32(_Version), _/binary>>, _} = reply(Cm, Channel).
+
+%%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 prep(Config) ->
@@ -806,7 +819,9 @@ prep(Config) ->
     %% Initial config
     DataDir = proplists:get_value(data_dir, Config),
     FileName = filename:join(DataDir, "test.txt"),
-    file:copy(FileName, TestFile),
+    {ok, Data0} = file:read_file(FileName),
+    Data = ssh_test_lib:remove_comment(Data0),
+    ok = file:write_file(TestFile, string:chomp(Data)),
     Mode = 8#00400 bor 8#00200 bor 8#00040, % read & write owner, read group
     {ok, FileInfo} = file:read_file_info(TestFile),
     ok = file:write_file_info(TestFile,
