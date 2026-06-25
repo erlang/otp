@@ -8974,19 +8974,31 @@ sc_rc_tcp_client_create(Domain, Proto) ->
     end.
 
 sc_rc_tcp_client_bind(Sock, Domain) ->
-    i("sc_rc_tcp_client_bind -> entry"),
+    i("~s -> entry with"
+      "~n   Domain: ~p", [?FUNCTION_NAME, Domain]),
     LSA = which_local_socket_addr(Domain),
+    i("~s -> try bind with"
+      "~n   LSA: ~p", [?FUNCTION_NAME, LSA]),
     case socket:bind(Sock, LSA) of
         ok ->
+            i("~s -> bound - try sockname", [?FUNCTION_NAME]),
             case socket:sockname(Sock) of
                 {ok, #{family := local, path := Path}} ->
+                    i("~s -> got (local) sockname: "
+                      "~n   Path: ~p", [?FUNCTION_NAME, Path]),
                     Path;
-                {ok, _} ->
+                {ok, SN} ->
+                    i("~s -> sockname: "
+                      "~n   ~p", [?FUNCTION_NAME, SN]),
                     undefined;
                 {error, Reason1} ->
+                    ?SEV_EPRINT("bound but failed sockname: "
+                                "~n   Reason: ~p", [Reason1]),
                     exit({sockname, Reason1})
             end;
         {error, Reason} ->
+            ?SEV_EPRINT("bind failed: "
+                        "~n   Reason: ~p", [Reason]),
             exit({bind, Reason})
     end.
 
