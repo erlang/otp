@@ -251,7 +251,7 @@ static void table_dec_refc(DbTable *tb, erts_aint_t min_val)
 static ERTS_INLINE DbTable* btid2tab(Binary* btid)
 {
     erts_atomic_t *tbref = erts_binary_to_magic_indirection(btid);
-    return (DbTable *) erts_atomic_read_nob(tbref);
+    return (DbTable *) erts_atomic_read_acqb(tbref);
 }
 
 static int
@@ -334,7 +334,7 @@ tid_clear(Process *c_p, DbTable *tb)
     DbTable *rtb;
     Binary *btid = tb->common.btid;
     erts_atomic_t *tbref = erts_binary_to_magic_indirection(btid);
-    rtb = (DbTable *) erts_atomic_xchg_nob(tbref, (erts_aint_t) NULL);
+    rtb = (DbTable *) erts_atomic_xchg_relb(tbref, (erts_aint_t) NULL);
     ASSERT(!rtb || tb == rtb);
     if (rtb) {
         table_dec_refc(tb, 1);
@@ -5150,6 +5150,8 @@ static void fix_table_locked(Process* p, DbTable* tb)
     DbFixation *fix;
     int use_locks = !DB_LOCK_FREE(tb);
 
+    ERTS_LC_ASSERT(DB_LOCK_FREE(tb) || erts_lc_rwmtx_is_rlocked(&tb->common.rwlock));
+
     if (use_locks)
         erts_mtx_lock(&tb->common.fixlock);
 
@@ -5194,6 +5196,8 @@ static void unfix_table_locked(Process* p,  DbTable* tb,
 {
     DbFixation* fix;
     int use_locks = !DB_LOCK_FREE(tb);
+
+    ERTS_LC_ASSERT(DB_LOCK_FREE(tb) || erts_lc_rwmtx_is_rlocked(&tb->common.rwlock));
 
     if (use_locks)
         erts_mtx_lock(&tb->common.fixlock);
