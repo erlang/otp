@@ -378,7 +378,7 @@ dec_value([5,0 | T]) ->
 
 %% INTEGER
 dec_value([2 | Bytes]) ->
-    {Value, Rest} = dec_integer_notag(Bytes),
+    {Value, Rest} = dec_integer_notag(Bytes, 4), %% SMI INTEGER is 32-bit
     {{'INTEGER', Value}, Rest};
 
 %% OCTET STRING
@@ -395,7 +395,7 @@ dec_value([64 | Bytes]) ->
 dec_value([65 | Bytes]) ->
     %% Counter32 is an unsigned 32 but is actually encoded as 
     %% a signed integer 32 (INTEGER).
-    {Value, Rest} = dec_integer_notag(Bytes),
+    {Value, Rest} = dec_integer_notag(Bytes, 5),
     Value2 = 
     	if
     	    (Value >= 0) andalso (Value =< 16#ffffffff) ->
@@ -411,7 +411,7 @@ dec_value([65 | Bytes]) ->
 
 %% Unsigned32
 dec_value([66 | Bytes]) ->
-    {Value, Rest} = dec_integer_notag(Bytes),
+    {Value, Rest} = dec_integer_notag(Bytes, 5),
     Value2 = 
 	if 
 	    (Value >= 0) andalso (Value =< 16#ffffffff) ->
@@ -425,7 +425,7 @@ dec_value([66 | Bytes]) ->
 
 %% TimeTicks
 dec_value([67 | Bytes]) ->
-    {Value, Rest} = dec_integer_notag(Bytes),
+    {Value, Rest} = dec_integer_notag(Bytes, 5),
     Value2 = 
 	if
 	    (Value >= 0) andalso (Value =< 16#ffffffff) ->
@@ -446,7 +446,7 @@ dec_value([68 | Bytes]) ->
 dec_value([70 | Bytes]) ->
     %% Counter64 is an unsigned 64 but is actually encoded as 
     %% a signed integer 64.
-    {Value, Rest} = dec_integer_notag(Bytes),
+    {Value, Rest} = dec_integer_notag(Bytes, 9),
     Value2 = 
     	if
     	    (Value >= 0) andalso (Value < 16#8000000000000000) ->
