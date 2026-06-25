@@ -3798,6 +3798,33 @@ Eterm db_copy_element_from_ets(DbTableCommon *tb, Process *p, DbTerm *obj,
     }
 }
 
+Eterm db_copy_elements_from_ets(DbTableCommon *tb,
+                                Process *p,
+                                DbTerm *obj,
+                                Eterm *positions,
+                                Uint num_positions,
+                                Eterm **hpp,
+                                Uint extra)
+{
+    Uint i;
+    Eterm *tp;
+
+    ASSERT(num_positions > 0);
+    tp = *hpp = HAlloc(p, num_positions + 1 + extra);
+    tp[0] = make_arityval(num_positions);
+    *hpp += num_positions + 1;
+    for (i = 0; i < num_positions; i++) {
+        Eterm *hp;
+        tp[i+1] = db_copy_element_from_ets(tb,
+                                           p,
+                                           obj,
+                                           unsigned_val(positions[i]),
+                                           &hp,
+                                           0);
+    }
+    return make_tuple(tp);
+}
+
 /*
  * Return the size of an element of an uncompressed ETS record.
  * Relies on each element of the ETS record being laid out contiguously,
