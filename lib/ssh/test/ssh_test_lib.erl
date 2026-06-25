@@ -138,8 +138,10 @@ user_dir/1,
 get_public_key_algorithms_with_valid_host_key/1,
 get_public_key_algorithms_with_valid_host_key/2,
 remove_comment/1,
-timetrap_scale/0
+timetrap_scale/0,
+connect_with_retry/2
         ]).
+
 %% logger callbacks and related helpers
 -export([log/2,
          get_log_level/0, set_log_level/1,
@@ -195,6 +197,36 @@ do_connect(Host, Port, Options) ->
     ct:log("~p:~p ssh:connect(~p, ~p, ~p)~n -> ~p",[?MODULE,?LINE,Host, Port, Options, R]),
     {ok, ConnectionRef} = R,
     ConnectionRef.
+
+%% Connect to the system sshd with retry.
+%% Handles transient failures from OpenSSH MaxStartups drops under load.
+connect_with_retry(Port, Options) ->
+    connect_with_retry(hostname(), Port, Options).
+
+connect_with_retry(Host, Port, Options0) ->
+    Options =
+        set_opts_if_not_set([{silently_accept_hosts, true},
+                             {save_accepted_host, false},
+                             {user_interaction, false}
+                            ], Options0),
+    connect_with_retry_loop(Host, Port, Options, 3, 1000).
+
+connect_with_retry_loop(Host, Port, Options, 0, _Delay) ->
+    R = ssh:connect(Host, Port, Options),
+    ?CT_LOG("ssh:connect(~p, ~p, ...) -> ~p", [Host, Port, R]),
+    {ok, ConnectionRef} = R,
+    ConnectionRef;
+connect_with_retry_loop(Host, Port, Options, Retries, Delay) ->
+    case ssh:connect(Host, Port, Options, 10000) of
+        {ok, Ref} ->
+            ?CT_LOG("ssh:connect(~p, ~p, ...) -> {ok,~p}", [Host, Port, Ref]),
+            Ref;
+        {error, Reason} ->
+            ?CT_LOG("ssh:connect(~p, ~p, ...) failed: ~p, ~p retries left",
+                    [Host, Port, Reason, Retries - 1]),
+            timer:sleep(Delay),
+            connect_with_retry_loop(Host, Port, Options, Retries - 1, Delay * 2)
+    end.
 
 set_opts_if_not_set(OptsToSet, Options0) ->
     lists:foldl(fun({K,V}, Opts) ->
