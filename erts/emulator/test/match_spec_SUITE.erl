@@ -33,7 +33,7 @@
 	 destructive_in_test_bif/1, guard_exceptions/1,
 	 empty_list/1,
 	 unary_plus/1, unary_minus/1, moving_labels/1,
-         guard_bifs/1]).
+         guard_bifs/1,bignums/1]).
 -export([fpe/1]).
 -export([otp_9422/1]).
 -export([faulty_seq_trace/1, do_faulty_seq_trace/0]).
@@ -75,7 +75,7 @@ testcases_match_spec_test() ->
     [boxed_and_small, destructive_in_test_bif,
      guard_exceptions, unary_plus, unary_minus,
      moving_labels, faulty_seq_trace, empty_list,
-     maps, guard_bifs].
+     maps, guard_bifs, bignums].
 
 init_per_suite(Config) ->
     trace_sessions:init_per_suite(Config, ?MODULE).
@@ -964,8 +964,55 @@ unary_plus(Config) when is_list(Config) ->
 			       table),
     ok.
 
+bignums(Config) when is_list(Config) ->
+    %% Test bignum operations that would bump reductions when running
+    %% in a real process. When running in the fake process created by
+    %% `erlang:match_spec_test/3`, reductions must not be bumped
+    %% because in a debug build the lock checker would complain that
+    %% the main lock for the process is not held.
 
-    
+    Ops = [{'+', [1 bsl 64]},
+           {'+', [1 bsl 64, 42]},
+           {'-', [1 bsl 64]},
+           {'-', [1 bsl 64, 999]},
+           {'*', [1 bsl 64, 1 bsl 60]},
+           {'div', [1 bsl 256, 1 bsl 60]},
+           {'rem', [1 bsl 128, (1 bsl 60) - 7]},
+           {'band', [(1 bsl 64) - 1, (1 bsl 64) - 7]},
+           {'bor', [(1 bsl 64) - 1, (1 bsl 64) - 7]},
+           {'bxor', [(1 bsl 64) - 1, (1 bsl 64) - 7]},
+           {'bsl', [1, 64]},
+           {'bsr', [1 bsl 128, 64]},
+           {'bnot', [1 bsl 64]}
+          ],
+
+    lists:foreach(
+      fun({Op, [_,_]=ArgsList}) ->
+              Result = apply(erlang, Op, ArgsList),
+              ArgsTuple = list_to_tuple(ArgsList),
+              Guard = [{'=:=', {Op,'$1','$2'}, {const,Result}}],
+
+              TableMs = [{{'$1','$2'},Guard,['$_']}],
+              {ok, ArgsTuple, [], []} =
+                  erlang:match_spec_test(ArgsTuple, TableMs, table),
+
+              TraceMs = [{['$1','$2'],Guard,[true]}],
+              {ok, true, [], []} =
+                  erlang:match_spec_test(ArgsList, TraceMs, trace);
+         ({Op, [_]=ArgsList}) ->
+              Result = apply(erlang, Op, ArgsList),
+              ArgsTuple = list_to_tuple(ArgsList),
+              Guard = [{'=:=', {Op,'$1'}, {const,Result}}],
+
+              TableMs = [{{'$1'},Guard,['$_']}],
+              {ok, ArgsTuple, [], []} =
+                  erlang:match_spec_test(ArgsTuple, TableMs, table),
+
+              TraceMs = [{['$1'],Guard,[true]}],
+              {ok, true, [], []} =
+                  erlang:match_spec_test(ArgsList, TraceMs, trace)
+      end, Ops),
+    ok.
 
 %% Checks that exceptions in guards are handled correctly
 guard_exceptions(Config) when is_list(Config) ->

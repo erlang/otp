@@ -53,6 +53,38 @@ static ERTS_INLINE void maybe_shrink(Process* p, Eterm* hp, Eterm res, Uint allo
     }
 }
 
+static void bump_reds_linear(Process *p, Uint sz)
+{
+    /* Bump reductions if this is a real process, as opposed to a
+     * pseudo-process created by `erlang:match_spec_test/3`. Reductions
+     * must not be bumped for a pseudo-process because in a debug
+     * build the lock checker would complain that the main lock is
+     * not being held. */
+    if (p->htop) {
+        Uint max_sz = CONTEXT_REDS * ERTS_ARITH_WORDS_PER_REDUCTION;
+
+        if (sz >= max_sz) {
+            BUMP_ALL_REDS(p);
+        } else {
+            BUMP_REDS(p, sz / ERTS_ARITH_WORDS_PER_REDUCTION + 1);
+        }
+    }
+}
+
+static void bump_reds_quadratic(Process *p, Uint sz1, Uint sz2)
+{
+    /* See the comment for bump_reds_linear(). */
+    if (p->htop) {
+        Uint max_sz = CONTEXT_REDS * ERTS_ARITH_WORDS_PER_REDUCTION;
+
+        if (sz1 >= max_sz || sz2 >= max_sz) {
+            BUMP_ALL_REDS(p);
+        } else {
+            BUMP_REDS(p, sz1 * sz2 / ERTS_ARITH_WORDS_PER_REDUCTION + 1);
+        }
+    }
+}
+
 /*
  * BIF interfaces. They will only be from match specs and
  * when a BIF is applied.
@@ -225,9 +257,10 @@ erts_shift(Process* p, Eterm arg1, Eterm arg2, int right)
 		bigp = HeapFragOnlyAlloc(p, need);
 		arg1 = big_lshift(arg1, i, bigp);
 		maybe_shrink(p, bigp, arg1, need);
+                bump_reds_linear(p, need);
 		if (is_nil(arg1)) {
 		    /*
-		     * This result must have been only slight larger
+                     * This result must have been only slightly larger
 		     * than allowed since it wasn't caught by the
 		     * previous test.
 		     */
@@ -295,6 +328,7 @@ BIF_RETTYPE bnot_1(BIF_ALIST_1)
 
 	ret = big_bnot(BIF_ARG_1, bigp);
 	maybe_shrink(BIF_P, bigp, ret, need);
+        bump_reds_linear(BIF_P, need);
 	if (is_nil(ret)) {
 	    BIF_ERROR(BIF_P, SYSTEM_LIMIT);
 	}
@@ -395,6 +429,7 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 		    hp = HeapFragOnlyAlloc(p, need_heap);
 		    res = big_plus(arg1, arg2, hp);
 		    maybe_shrink(p, hp, res, need_heap);
+                    bump_reds_linear(p, need_heap);
 		    if (is_nil(res)) {
 			p->freason = SYSTEM_LIMIT;
 			return THE_NON_VALUE;
@@ -502,6 +537,7 @@ erts_unary_minus(Process* p, Eterm arg)
             res = big_minus(zero, arg, hp);
             maybe_shrink(p, hp, res, need_heap);
             ASSERT(is_not_nil(res));
+            bump_reds_linear(p, need_heap);
             return res;
         }
         case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
@@ -595,6 +631,7 @@ erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
 		    hp = HeapFragOnlyAlloc(p, need_heap);
 		    res = big_minus(arg1, arg2, hp);
                     maybe_shrink(p, hp, res, need_heap);
+                    bump_reds_linear(p, sz);
 		    if (is_nil(res)) {
 			p->freason = SYSTEM_LIMIT;
 			return THE_NON_VALUE;
@@ -803,11 +840,15 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 		     */
 
                     maybe_shrink(p, hp, res, need_heap);
+
+                    /* Conservative estimate of effort, assuming
+                     * schoolbook multiplication. */
+                    bump_reds_quadratic(p, big_size(arg1), big_size(arg2));
 		    if (is_nil(res)) {
-			p->freason = SYSTEM_LIMIT;
-			return THE_NON_VALUE;
-		    }		    
-		    return res;
+                        p->freason = SYSTEM_LIMIT;
+                        return THE_NON_VALUE;
+                    }
+                    return res;
 		case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 		    if (big_to_double(arg1, &f1.fd) < 0) {
 			goto badarith;
@@ -934,6 +975,10 @@ erts_mul_add(Process* p, Eterm arg1, Eterm arg2, Eterm arg3, Eterm* pp)
                             res = big_mul_add(big_arg1, big_arg2, big_arg3, hp);
                             ASSERT(hp[need_heap-1] == ERTS_HOLE_MARKER);
                             maybe_shrink(p, hp, res, need_heap);
+
+                            /* Conservative estimate of effort,
+                             * assuming schoolbook multiplication. */
+                            bump_reds_quadratic(p, sz1, sz2);
                             if (is_nil(res)) {
                                 p->freason = SYSTEM_LIMIT;
                                 return THE_NON_VALUE;
@@ -1160,7 +1205,7 @@ int erts_int_div_rem(Process* p, Eterm arg1, Eterm arg2, Eterm *q, Eterm *r)
                     SMALL_ONE : SMALL_MINUS_ONE;
         remainder = SMALL_ZERO;
     } else {
-        int lhs_size, rhs_size;
+        unsigned lhs_size, rhs_size;
         Uint q_need, r_need;
         Eterm *q_hp, *r_hp;
 
@@ -1173,6 +1218,11 @@ int erts_int_div_rem(Process* p, Eterm arg1, Eterm arg2, Eterm *q, Eterm *r)
         q_hp = HeapFragOnlyAlloc(p, q_need + r_need);
         r_hp = q_hp + q_need;
 
+        /* Conservative estimate of effort, assuming shoolbook long
+         * division. */
+        ASSERT(lhs_size >= rhs_size);
+        bump_reds_quadratic(p, lhs_size - rhs_size + 1, rhs_size);
+
         if (!big_div_rem(lhs, rhs, q_hp, &quotient, r_hp, &remainder)) {
             ASSERT(is_non_value(erts_int_div(p, arg1, arg2)));
             ASSERT(is_non_value(erts_int_rem(p, arg1, arg2)));
@@ -1183,7 +1233,6 @@ int erts_int_div_rem(Process* p, Eterm arg1, Eterm arg2, Eterm *q, Eterm *r)
         }
 
         ASSERT(q_need + r_need >= size_object(quotient) + size_object(remainder));
-
         div_rem_shrink(p, q_hp, quotient, r_hp, remainder);
     }
 
@@ -1227,14 +1276,20 @@ erts_int_div(Process* p, Eterm arg1, Eterm arg2)
 		SMALL_ONE : SMALL_MINUS_ONE;
 	} else {
 	    Eterm* hp;
-	    int i = big_size(arg1);
+            unsigned lhs_size = big_size(arg1);
+            unsigned rhs_size = big_size(arg2);
 	    Uint need;
 
-	    ires = big_size(arg2);
-	    need = BIG_NEED_SIZE(i-ires+1) + BIG_NEED_SIZE(i);
+            need = BIG_NEED_SIZE(lhs_size-rhs_size+1) +
+                BIG_NEED_SIZE(lhs_size);
 	    hp = HeapFragOnlyAlloc(p, need);
 	    arg1 = big_div(arg1, arg2, hp);
 	    maybe_shrink(p, hp, arg1, need);
+            /* Conservative estimate of effort, assuming shoolbook
+             * long division. */
+            ASSERT(lhs_size >= rhs_size);
+            bump_reds_quadratic(p, lhs_size - rhs_size + 1, rhs_size);
+
 	    if (is_nil(arg1)) {
 		p->freason = SYSTEM_LIMIT;
 		return THE_NON_VALUE;
@@ -1282,11 +1337,20 @@ erts_int_rem(Process* p, Eterm arg1, Eterm arg2)
 	if (ires == 0) {
 	    arg1 = SMALL_ZERO;
 	} else if (ires > 0) {
-	    Uint need = BIG_NEED_SIZE(big_size(arg1));
+            unsigned lhs_size = big_size(arg1);
+            unsigned rhs_size;
+            Uint need = BIG_NEED_SIZE(lhs_size);
 	    Eterm* hp = HeapFragOnlyAlloc(p, need);
 
 	    arg1 = big_rem(arg1, arg2, hp);
 	    maybe_shrink(p, hp, arg1, need);
+
+            /* Conservative estimate of effort, assuming shoolbook
+             * long division. */
+            rhs_size = big_size(arg2);
+            ASSERT(lhs_size >= rhs_size);
+            bump_reds_quadratic(p, lhs_size - rhs_size + 1, rhs_size);
+
 	    if (is_nil(arg1)) {
 		p->freason = SYSTEM_LIMIT;
 		return THE_NON_VALUE;
@@ -1323,6 +1387,7 @@ Eterm erts_band(Process* p, Eterm arg1, Eterm arg2)
     arg1 = big_band(arg1, arg2, hp);
     ASSERT(is_not_nil(arg1));
     maybe_shrink(p, hp, arg1, need);
+    bump_reds_linear(p, need);
     return arg1;
 }
 
@@ -1350,6 +1415,7 @@ Eterm erts_bor(Process* p, Eterm arg1, Eterm arg2)
     arg1 = big_bor(arg1, arg2, hp);
     ASSERT(is_not_nil(arg1));
     maybe_shrink(p, hp, arg1, need);
+    bump_reds_linear(p, need);
     return arg1;
 }
 
@@ -1376,6 +1442,7 @@ Eterm erts_bxor(Process* p, Eterm arg1, Eterm arg2)
     hp = HeapFragOnlyAlloc(p, need);
     arg1 = big_bxor(arg1, arg2, hp);
     maybe_shrink(p, hp, arg1, need);
+    bump_reds_linear(p, need);
     if (is_nil(arg1)) {
         p->freason = SYSTEM_LIMIT;
         return THE_NON_VALUE;
@@ -1393,6 +1460,7 @@ Eterm erts_bnot(Process* p, Eterm arg)
 
 	ret = big_bnot(arg, bigp);
 	maybe_shrink(p, bigp, ret, need);
+        bump_reds_linear(p, need);
 	if (is_nil(ret)) {
 	    p->freason = SYSTEM_LIMIT;
 	    return THE_NON_VALUE;
