@@ -127,7 +127,7 @@ void BeamGlobalAssembler::emit_plus_body_shared() {
     Label error = a.new_label();
 
     emit_enter_frame();
-    emit_enter_runtime();
+    emit_enter_runtime<Update::eReductions>();
 
     /* Save original arguments for the error path. */
     a.mov(TMP_MEM1q, ARG2);
@@ -136,7 +136,7 @@ void BeamGlobalAssembler::emit_plus_body_shared() {
     a.mov(ARG1, c_p);
     runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_plus>();
 
-    emit_leave_runtime();
+    emit_leave_runtime<Update::eReductions>();
     emit_leave_frame();
 
     emit_test_the_non_value(RET);
@@ -158,13 +158,13 @@ void BeamGlobalAssembler::emit_plus_body_shared() {
 
 void BeamGlobalAssembler::emit_plus_guard_shared() {
     emit_enter_frame();
-    emit_enter_runtime();
+    emit_enter_runtime<Update::eReductions>();
 
     a.mov(ARG1, c_p);
     /* ARG2 and ARG3 were set by the caller */
     runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_plus>();
 
-    emit_leave_runtime();
+    emit_leave_runtime<Update::eReductions>();
     emit_leave_frame();
 
     /* Set ZF if the addition failed. */
@@ -264,7 +264,7 @@ void BeamGlobalAssembler::emit_minus_body_shared() {
     Label error = a.new_label();
 
     emit_enter_frame();
-    emit_enter_runtime();
+    emit_enter_runtime<Update::eReductions>();
 
     /* Save original arguments for the error path. */
     a.mov(TMP_MEM1q, ARG2);
@@ -273,7 +273,7 @@ void BeamGlobalAssembler::emit_minus_body_shared() {
     a.mov(ARG1, c_p);
     runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_minus>();
 
-    emit_leave_runtime();
+    emit_leave_runtime<Update::eReductions>();
     emit_leave_frame();
 
     emit_test_the_non_value(RET);
@@ -295,13 +295,13 @@ void BeamGlobalAssembler::emit_minus_body_shared() {
 
 void BeamGlobalAssembler::emit_minus_guard_shared() {
     emit_enter_frame();
-    emit_enter_runtime();
+    emit_enter_runtime<Update::eReductions>();
 
     a.mov(ARG1, c_p);
     /* ARG2 and ARG3 were set by the caller */
     runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_minus>();
 
-    emit_leave_runtime();
+    emit_leave_runtime<Update::eReductions>();
     emit_leave_frame();
 
     /* Set ZF if the addition failed. */
@@ -397,7 +397,7 @@ void BeamGlobalAssembler::emit_unary_minus_body_shared() {
     Label error = a.new_label();
 
     emit_enter_frame();
-    emit_enter_runtime();
+    emit_enter_runtime<Update::eReductions>();
 
     /* Save original arguments for the error path. */
     a.mov(TMP_MEM1q, ARG2);
@@ -405,7 +405,7 @@ void BeamGlobalAssembler::emit_unary_minus_body_shared() {
     a.mov(ARG1, c_p);
     runtime_call<Eterm (*)(Process *, Eterm), erts_unary_minus>();
 
-    emit_leave_runtime();
+    emit_leave_runtime<Update::eReductions>();
     emit_leave_frame();
 
     emit_test_the_non_value(RET);
@@ -425,13 +425,13 @@ void BeamGlobalAssembler::emit_unary_minus_body_shared() {
 
 void BeamGlobalAssembler::emit_unary_minus_guard_shared() {
     emit_enter_frame();
-    emit_enter_runtime();
+    emit_enter_runtime<Update::eReductions>();
 
     a.mov(ARG1, c_p);
     /* ARG2 was set by the caller */
     runtime_call<Eterm (*)(Process *, Eterm), erts_unary_minus>();
 
-    emit_leave_runtime();
+    emit_leave_runtime<Update::eReductions>();
     emit_leave_frame();
 
     /* Set ZF if the negation failed. */
@@ -538,7 +538,7 @@ void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
 
     a.bind(generic);
     {
-        emit_enter_runtime();
+        emit_enter_runtime<Update::eReductions>();
 
         a.mov(ARG2, ARG1);
         a.mov(ARG3, ARG4);
@@ -548,7 +548,7 @@ void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
         runtime_call<int (*)(Process *, Eterm, Eterm, Eterm *, Eterm *),
                      erts_int_div_rem>();
 
-        emit_leave_runtime();
+        emit_leave_runtime<Update::eReductions>();
 
         /* erts_int_div returns 0 on failure and 1 on success. */
         a.test(RETd, RETd);
@@ -620,7 +620,7 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
 
     a.bind(generic_div);
     {
-        emit_enter_runtime();
+        emit_enter_runtime<Update::eReductions>();
 
         /* Save MFA and original arguments for the error path. */
         a.mov(TMP_MEM1q, ARG1);
@@ -635,7 +635,7 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
         runtime_call<int (*)(Process *, Eterm, Eterm, Eterm *, Eterm *),
                      erts_int_div_rem>();
 
-        emit_leave_runtime();
+        emit_leave_runtime<Update::eReductions>();
         emit_leave_frame();
 
         /* erts_int_div returns 0 on failure and 1 on success. */
@@ -916,7 +916,7 @@ void BeamGlobalAssembler::emit_mul_add_guard_shared() {
     Label done = a.new_label();
 
     emit_enter_frame();
-    emit_enter_runtime();
+    emit_enter_runtime<Update::eReductions>();
 
     a.mov(TMP_MEM1q, ARG4);
 
@@ -933,7 +933,7 @@ void BeamGlobalAssembler::emit_mul_add_guard_shared() {
     runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_plus>();
 
     a.bind(done);
-    emit_leave_runtime();
+    emit_leave_runtime<Update::eReductions>();
     emit_leave_frame();
 
     emit_test_the_non_value(RET); /* Sets ZF for use in caller */
@@ -951,7 +951,7 @@ void BeamGlobalAssembler::emit_mul_add_body_shared() {
           mul_error = a.new_label(), do_error = a.new_label();
 
     emit_enter_frame();
-    emit_enter_runtime();
+    emit_enter_runtime<Update::eReductions>();
 
     /* Save original arguments for the error path. */
     a.mov(TMP_MEM1q, ARG2);
@@ -965,7 +965,7 @@ void BeamGlobalAssembler::emit_mul_add_body_shared() {
     runtime_call<Eterm (*)(Process *, Eterm, Eterm, Eterm, Eterm *),
                  erts_mul_add>();
 
-    emit_leave_runtime();
+    emit_leave_runtime<Update::eReductions>();
     emit_leave_frame();
 
     emit_test_the_non_value(RET);
@@ -977,7 +977,7 @@ void BeamGlobalAssembler::emit_mul_add_body_shared() {
     {
         runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_times>();
 
-        emit_leave_runtime();
+        emit_leave_runtime<Update::eReductions>();
         emit_leave_frame();
 
         emit_test_the_non_value(RET);
@@ -1217,14 +1217,14 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
 template<typename T, T Func>
 void BeamGlobalAssembler::emit_bitwise_fallback_guard() {
     emit_enter_frame();
-    emit_enter_runtime();
+    emit_enter_runtime<Update::eReductions>();
 
     a.mov(ARG1, c_p);
     /* ARG2 is already set to LHS */
     a.mov(ARG3, RET);
     runtime_call<T, Func>();
 
-    emit_leave_runtime();
+    emit_leave_runtime<Update::eReductions>();
     emit_leave_frame();
 
     emit_test_the_non_value(RET);
@@ -1239,7 +1239,7 @@ void BeamGlobalAssembler::emit_bitwise_fallback_body(const ErtsCodeMFA *mfa) {
     Label error = a.new_label();
 
     emit_enter_frame();
-    emit_enter_runtime();
+    emit_enter_runtime<Update::eReductions>();
 
     /* Save original arguments for the error path. */
     a.mov(TMP_MEM1q, ARG2);
@@ -1250,7 +1250,7 @@ void BeamGlobalAssembler::emit_bitwise_fallback_body(const ErtsCodeMFA *mfa) {
     a.mov(ARG3, RET);
     runtime_call<T, Func>();
 
-    emit_leave_runtime();
+    emit_leave_runtime<Update::eReductions>();
     emit_leave_frame();
 
     emit_test_the_non_value(RET);
@@ -1479,13 +1479,13 @@ void BeamGlobalAssembler::emit_i_bnot_guard_shared() {
     /* Undo the speculative inversion in module code */
     a.xor_(RET, imm(~_TAG_IMMED1_MASK));
 
-    emit_enter_runtime();
+    emit_enter_runtime<Update::eReductions>();
 
     a.mov(ARG1, c_p);
     a.mov(ARG2, RET);
     runtime_call<Eterm (*)(Process *, Eterm), erts_bnot>();
 
-    emit_leave_runtime();
+    emit_leave_runtime<Update::eReductions>();
     emit_leave_frame();
 
     emit_test_the_non_value(RET);
@@ -1505,7 +1505,7 @@ void BeamGlobalAssembler::emit_i_bnot_body_shared() {
     /* Undo the speculative inversion in module code */
     a.xor_(RET, imm(~_TAG_IMMED1_MASK));
 
-    emit_enter_runtime();
+    emit_enter_runtime<Update::eReductions>();
 
     /* Save original arguments for the error path. */
     a.mov(TMP_MEM1q, RET);
@@ -1514,7 +1514,7 @@ void BeamGlobalAssembler::emit_i_bnot_body_shared() {
     a.mov(ARG2, RET);
     runtime_call<Eterm (*)(Process *, Eterm), erts_bnot>();
 
-    emit_leave_runtime();
+    emit_leave_runtime<Update::eReductions>();
     emit_leave_frame();
 
     emit_test_the_non_value(RET);
