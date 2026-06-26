@@ -173,6 +173,7 @@ decode_reply(Buffer, #dns_rec{} = Q, Mdns)
             {error, Reason}
     end.
 
+-define(MSG_HDR_SIZE, 12). % Must align with the following pattern
 do_decode(
   <<Id:16,
     QR:1,Opcode:4,AA:1,TC:1,RD:1,
@@ -785,32 +786,55 @@ decode_domain(Bin, Buffer) ->
 %% Domain name -> {RestBin,Name}
 %%
 decode_name(Bin, Buffer) ->
-    decode_name(Bin, Buffer, [], Bin, 0).
+    decode_name(Bin, Buffer, [], Bin, 0, 0).
 
-%% Tail advances with Rest until the first indirection is followed
-%% then it stays put at that Rest.
-decode_name(_, Buffer, _Labels, _Tail, Cnt) when Cnt > byte_size(Buffer) ->
-    throw(?DECODE_ERROR); %% Insanity bailout - this must be a decode loop
-decode_name(<<0,Rest/binary>>, _Buffer, Labels, Tail, Cnt) ->
-    %% Root domain, we have all labels for the domain name
-    {if Cnt =/= 0 -> Tail; true -> Rest end,
+decode_name(_Bin, _Buffer, _Labels, _Cont, NameLen, _PtrCnt)
+  when NameLen >= 255 ->
+    %% There must also be room for the root label in 255 octets
+    %%
+    %% One might also cap PtrCnt heuristicly at 20..50 but there is no
+    %% support for that in RFC 1035, although almost certainly not a problem,
+    %% and not an uncommon defensive practice.
+    %%
+    %% Now it is possible to craft a message that will have long
+    %% backwards pointer chains causing high, but not catastrophically high,
+    %% decode work.
+    throw(?DECODE_ERROR);
+decode_name(<<0,Rest/binary>>, _Buffer, Labels, Cont, _NameLen, PtrCnt) ->
+    %% Root domain; we have all labels for the domain name
+    {decode_name_rest(Rest, Cont, PtrCnt),
      decode_name_labels(Labels)};
-decode_name(<<0:2,Len:6,Label:Len/binary,Rest/binary>>,
-	     Buffer, Labels, Tail, Cnt) ->
+decode_name(
+  <<0:2,Len:6,Label:Len/binary,Rest/binary>>,
+  Buffer, Labels, Cont, NameLen, PtrCnt) ->
     %% One plain label here
-    decode_name(Rest, Buffer, [Label|Labels],
-		if Cnt =/= 0 -> Tail; true -> Rest end,
-		Cnt);
-decode_name(<<3:2,Ptr:14,Rest/binary>>, Buffer, Labels, Tail, Cnt) ->
-    %% Indirection - reposition in buffer and recurse
+    decode_name(
+      Rest, Buffer, [Label|Labels], decode_name_rest(Rest, Cont, PtrCnt),
+      NameLen + 1 + Len, PtrCnt);
+decode_name(
+  <<3:2,Ptr:14,Rest/binary>>, Buffer, Labels, Cont, NameLen, PtrCnt)
+  when
+      %% Indirection *should* point to lower offset
+      %% (stricter than RFC1035, but commonly used common sense),
+      %% and *must* not point into the header.
+      %%
+      %% This forces a pointer loop to either end when clashing
+      %% into the header, or get content and end on max NameLen.
+      Ptr < byte_size(Buffer) - (byte_size(Rest) + 2),
+      Ptr >= ?MSG_HDR_SIZE ->
+    %% Indirection - reposition in buffer
     ?MATCH_ELSE_DECODE_ERROR(
        Buffer,
        <<_:Ptr/binary,Bin/binary>>,
        decode_name(
-         Bin, Buffer, Labels,
-         if Cnt =/= 0 -> Tail; true -> Rest end,
-         Cnt+2)); % size of indirection pointer
-decode_name(_, _, _, _, _) -> throw(?DECODE_ERROR).
+         Bin, Buffer, Labels, decode_name_rest(Rest, Cont, PtrCnt),
+         NameLen, PtrCnt + 1));
+decode_name(_Bin, _Buffer, _Labels, _Cont, _NameLen, _PtrCnt) ->
+    throw(?DECODE_ERROR).
+
+decode_name_rest(Rest, _Cont, 0)        -> Rest;
+decode_name_rest(_Rest, Cont, _PtrCnt)  -> Cont.
+
 
 %% Reverse list of labels (binaries) -> domain name (string)
 decode_name_labels([]) -> ".";

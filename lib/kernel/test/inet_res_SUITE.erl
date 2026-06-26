@@ -39,7 +39,7 @@
          servfail_retry_timeout_default/1, servfail_retry_timeout_1000/1,
          label_compression_limit/1, update/1,
          tsig_client/1, tsig_server/1, tsig_baderror/1,
-         mdns_encode_decode/1
+         mdns_encode_decode/1, bad_decode/1
         ]).
 -export([
 	 gethostbyaddr/0, gethostbyaddr/1,
@@ -83,7 +83,7 @@ all() ->
      servfail_retry_timeout_default, servfail_retry_timeout_1000,
      label_compression_limit, update,
      tsig_client, tsig_server, tsig_baderror,
-     mdns_encode_decode,
+     mdns_encode_decode, bad_decode,
      gethostbyaddr, gethostbyaddr_v6, gethostbyname,
      gethostbyname_v6, getaddr, getaddr_v6, ipv4_to_ipv6,
      host_and_addr].
@@ -1870,6 +1870,109 @@ mdns_encode_decode(Config) when is_list(Config) ->
     %%
     %% Decoding for mDNS should set the high class field flags
     {{ok, Msg}, Msg} = {inet_dns:decode(Buffer4, true), Msg},
+    ok.
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Malicious packet decode
+
+bad_decode(Config) when is_list(Config) ->
+    ID=4711,
+    QR=1, OPCODE=0,
+    AA=1, TC=0, RD=0, RA=0, PR=0, RCODE=0,
+    QDCOUNT=1, ANCOUNT=1, NSCOUNT=0, ARCOUNT=1,
+    Hdr =
+        <<ID:16,
+          QR:1, OPCODE:4, AA:1, TC:1, RD:1,
+          RA:1, PR:1, 0:2, RCODE:4,
+          QDCOUNT:16, ANCOUNT:16, NSCOUNT:16, ARCOUNT:16>>,
+    EncHdr =
+        inet_dns:make_header(
+          [{id,ID},
+           {qr,true}, {opcode,'query'},
+           {aa,true}, {tc,false}, {rd,false}, {ra,false}, {pr,false},
+           {rcode,RCODE}]),
+
+    QNAME_pos = byte_size(Hdr),
+    QNAME = << 3, "com", 0 >>,  QTYPE=1, QCLASS=1,
+    Question = << QNAME/binary, QTYPE:16, QCLASS:16 >>,
+    EncQuery = inet_dns:make_dns_query([{class,in}, {type,a}, {domain,"com"}]),
+    %%
+    TTL = 1234,
+    RR1 =
+        << 3:2, QNAME_pos:14, QTYPE:16, QCLASS:16,
+           TTL:32, 4:16, 127,0,0,1 >>,
+    EncRR1 =
+        inet_dns:make_rr(
+          [{domain,"com"}, {class,in}, {type,a},
+           {ttl,TTL}, {data,{127,0,0,1}}]),
+
+    %% A 255 octets long name should be possible to decode
+    %%
+    LongNameStart = <<"abcdefghijklmnopqrstuvwxy">>, % 25 chars
+    LongLabelStart = << (byte_size(LongNameStart)), LongNameStart/binary >>,
+    LongNamePart = << "abcdefghijklmnopqrstuvwxyz01234" >>, % 31 chars
+    LongLabel = << (byte_size(LongNamePart)), LongNamePart/binary >>,
+    RR2 =
+        << LongLabelStart/binary,               % 26 octets
+           LongLabel/binary,                    % 32 octets
+           LongLabel/binary, LongLabel/binary,  % 64 octets
+           LongLabel/binary, LongLabel/binary,  % 64 octets
+           LongLabel/binary, LongLabel/binary,  % 64 octets
+           3:2, QNAME_pos:14,       % Points to:   5 octets
+           QTYPE:16, QCLASS:16,     % Sum:       255 octets
+           TTL:32, 4:16, 127,0,0,2 >>,
+    LongName =
+        binary_to_list(
+          iolist_to_binary(
+            lists:join(
+              $.,
+              [LongNameStart | lists:duplicate(7, LongNamePart)] ++ ["com"]))),
+    EncRR2 =
+        inet_dns:make_rr(
+          [{domain,LongName}, {class,in}, {type,a},
+           {ttl,TTL}, {data,{127,0,0,2}}]),
+    Msg2 =
+        << Hdr/binary, Question/binary, RR1/binary, RR2/binary >>,
+    EncMsg2 =
+        inet_dns:make_msg(
+          [{header,EncHdr},
+           {qdlist,[EncQuery]}, {anlist,[EncRR1]}, {arlist,[EncRR2]}]),
+    {{ok, EncMsg2}, _} = {inet_dns:decode(Msg2), EncMsg2},
+    RR_loop_pos = QNAME_pos + byte_size(Question) + byte_size(RR1),
+
+    %% Loop to self label, fails on name len overflow
+    RR_loop_label =
+        << 4, "test", 3:2, RR_loop_pos:14, QTYPE:16, QCLASS:16,
+           TTL:32, 4:16, 127,0,0,3 >>,
+    MsgLoop_label =
+        << Hdr/binary, Question/binary, RR1/binary, RR_loop_label/binary >>,
+    {error, formerr} = inet_dns:decode(MsgLoop_label),
+
+    %% Loop to self pointer, fails on ptr bounds check
+    RR_loop_ptr = %
+        << 3:2, RR_loop_pos:14, QTYPE:16, QCLASS:16,
+           TTL:32, 4:16, 127,0,0,3 >>,
+    MsgLoop_ptr =
+        << Hdr/binary, Question/binary, RR1/binary, RR_loop_ptr/binary >>,
+    {error, formerr} = inet_dns:decode(MsgLoop_ptr),
+
+    %% Point into header, fails on ptr bounds check
+    Hdr_tail_pos = QNAME_pos - 1,
+    RR_ptr_hdr =
+        << 7, "example", 3:2, Hdr_tail_pos:14, QTYPE:16, QCLASS:16,
+           TTL:32, 4:16, 127,0,0,4 >>,
+    MsgPtr_hdr =
+        << Hdr/binary, Question/binary, RR1/binary, RR_ptr_hdr/binary >>,
+    {error, formerr} = inet_dns:decode(MsgPtr_hdr),
+
+    %% With .info at the end, RR2's name becomes 256 bytes long
+    %% which is one to many
+    QNAME_2 = << 4, "info", 0 >>,  QTYPE=1, QCLASS=1,
+    Question_2 = << QNAME_2/binary, QTYPE:16, QCLASS:16 >>,
+    Msg2_plus =
+        << Hdr/binary, Question_2/binary, RR1/binary, RR2/binary >>,
+    {error, formerr} = inet_dns:decode(Msg2_plus),
+
     ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
