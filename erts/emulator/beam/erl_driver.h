@@ -174,19 +174,22 @@ typedef enum {
 /*
  * Exception code from open_port/2 will be {'EXIT',{einval,Where}}.
  */
-#define ERL_DRV_ERROR_GENERAL ((ErlDrvData) -1)
+#define ERL_DRV_ERROR_GENERAL_INT_ -1
+#define ERL_DRV_ERROR_GENERAL ((ErlDrvData) ERL_DRV_ERROR_GENERAL_INT_)
 
 /*
  * Exception code from open_port/2 will be {'EXIT',{Errno,Where}},
  * where Errno is a textual representation of the errno variable
  * (e.g. eacces if errno is EACCES).
  */
-#define ERL_DRV_ERROR_ERRNO ((ErlDrvData) -2)
+#define ERL_DRV_ERROR_ERRNO_INT_ -2
+#define ERL_DRV_ERROR_ERRNO ((ErlDrvData) ERL_DRV_ERROR_ERRNO_INT_)
 
 /*
  * Exception code from open_port/2 will be {'EXIT',{badarg,Where}}.
  */
-#define ERL_DRV_ERROR_BADARG ((ErlDrvData) -3)
+#define ERL_DRV_ERROR_BADARG_INT_ -3
+#define ERL_DRV_ERROR_BADARG ((ErlDrvData) ERL_DRV_ERROR_BADARG_INT_)
 
 typedef struct erl_io_vec {
     int vsize;			/* length of vectors */
