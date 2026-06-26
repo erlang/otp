@@ -727,7 +727,8 @@ void BeamModuleAssembler::emit_put_list_deallocate(const ArgSource &Hd,
 
     ASSERT(dealloc <= 1023);
 
-    if (Hd.isYRegister() && !Tl.isYRegister() && dealloc > 0) {
+    if (Hd.isYRegister() && !Tl.isYRegister() && dealloc > 0 &&
+        Support::isInt9(dealloc)) {
         auto hd_index = Hd.as<ArgYRegister>().get();
 
         if (hd_index == 0) {
@@ -738,7 +739,8 @@ void BeamModuleAssembler::emit_put_list_deallocate(const ArgSource &Hd,
             tl_reg = load_source(Tl, TMP2).reg;
             dealloc = 0;
         }
-    } else if (!Hd.isYRegister() && Tl.isYRegister() && dealloc > 0) {
+    } else if (!Hd.isYRegister() && Tl.isYRegister() && dealloc > 0 &&
+               Support::isInt9(dealloc)) {
         auto tl_index = Tl.as<ArgYRegister>().get();
 
         if (tl_index == 0) {
