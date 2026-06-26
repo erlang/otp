@@ -63,7 +63,8 @@ jobs:
         env:
           MATRIX_TYPE: ${{ matrix.type }}
         run: |
-          set -x
+          set -xe
+          
           mkdir $PWD/make_test_dir
           APP="${MATRIX_TYPE}"
           ## Need to specialize for epmd, emulator and debug
@@ -73,11 +74,9 @@ jobs:
             debug) DIR=lib/os_mon; APP=os_mon; TYPE=debug ;;
             *) DIR=lib/${MATRIX_TYPE} ;;
           esac
-          ## Remove systemd-coredump
-          ! sudo apt remove systemd-coredump
-          ## Removing systemd-coredump, caused apport to be installed instead, so we disable it
-          ! sudo service apport stop
-          sudo sysctl -w dev.tty.legacy_tiocsti=1
+
+          .github/scripts/setup_test_runner.sh
+          
           sudo bash -c "echo 'core.%p' > /proc/sys/kernel/core_pattern"
           docker run --ulimit core=-1 --ulimit nofile=5000:5000 --pids-limit 1024 \
             -e CTRUN_TIMEOUT=90 -e SPEC_POSTFIX=gh \
