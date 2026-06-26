@@ -1934,6 +1934,9 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, bool needs_th
 {
     int pollres_len;
     int poll_ret, i;
+#ifdef ERTS_POLL_USE_SCHEDULER_POLLING
+    bool is_scheduler_poll = psi->ps == get_scheduler_pollset();
+#endif
     ERTS_MSACC_PUSH_AND_SET_STATE(ERTS_MSACC_STATE_CHECK_IO);
 
  restart:
@@ -1982,9 +1985,6 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, bool needs_th
 			  erl_errno_id(poll_ret), poll_ret);
 	    erts_send_error_to_logger_nogl(dsbufp);
 	}
-        // if (is_normal_sched) {
-        //     erts_fprintf(stderr, "%d: woke up\r\n", esdp->no);
-        // }
         ERTS_MSACC_POP_STATE();
 	return;
     }
@@ -2045,7 +2045,7 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, bool needs_th
             revents &= state->active_events | ERTS_POLL_EV_NVAL;
 
 #if ERTS_POLL_USE_SCHEDULER_POLLING
-            if (psi->ps == get_scheduler_pollset()) {
+            if (is_scheduler_poll) {
                 if (!(state->events & ERTS_POLL_EV_IN) && state->flags & ERTS_EV_FLAG_SCHEDULER) {
                     /* If we triggered in a scheduler pollset and EV_IN is not set,
                        then we should just remove it from the scheduler pollset.
@@ -2176,7 +2176,7 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, bool needs_th
 
         case ERTS_EV_TYPE_STOP_NIF: {
 #if ERTS_POLL_USE_SCHEDULER_POLLING
-            if (psi->ps == get_scheduler_pollset())
+            if (is_scheduler_poll)
                 break;
 #endif
 #if ERTS_POLL_USE_FALLBACK
@@ -2189,7 +2189,7 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, bool needs_th
 
         case ERTS_EV_TYPE_STOP_USE: {
 #if ERTS_POLL_USE_SCHEDULER_POLLING
-            if (psi->ps == get_scheduler_pollset())
+            if (is_scheduler_poll)
                 break;
 #endif
 #if ERTS_POLL_USE_FALLBACK
