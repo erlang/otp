@@ -1290,7 +1290,6 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
                 return;
             /* hmm, child setup seems to have closed the pipe too early...
                we close the port as there is not much else we can do */
-            driver_select(port_num, ready_fd, ERL_DRV_READ, 0);
             if (res == 0)
                 errno = EPIPE;
             port_inp_failure(dd, -1);
