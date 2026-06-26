@@ -197,14 +197,19 @@ do_decode(
            pr     = decode_boolean(PR),
            rcode  = Rcode},
     do_decode(
-      Buffer, DnsHdr, QdList, AnBuf, AnCount, NsCount, ArCount, {Opcode,Mdns}).
+      Buffer, DnsHdr, QdList, AnBuf, AnCount, NsCount, ArCount, {Opcode,Mdns});
+do_decode(<<_/binary>>, _Mdns) ->
+    throw(?DECODE_ERROR).
+
 
 do_decode_reply(
   <<Id:16, _/binary>> = Buffer,
   #dns_rec{ header = Q_H, qdlist = [Q_RR] },
   Mdns) ->
     Id =:= Q_H#dns_header.id orelse throw(badid),
-    do_decode_reply(Buffer, Q_H, Q_RR, Id, Mdns).
+    do_decode_reply(Buffer, Q_H, Q_RR, Id, Mdns);
+do_decode_reply(<<_/binary>>, _Q, _Mdns) ->
+    throw(?DECODE_ERROR).
 
 do_decode_reply(
   <<_:16,
@@ -223,27 +228,33 @@ do_decode_reply(
     %%
     QdCount == 1
         orelse throw(noquery),
-    {AnBuf, [RR], QdTC} = decode_query_section(QdBuf, QdCount, Buffer, Mdns),
-    RR#dns_query.class    =:= Q_RR#dns_query.class andalso
-        RR#dns_query.type =:= Q_RR#dns_query.type  andalso
-        inet_db:eq_domains(RR#dns_query.domain, Q_RR#dns_query.domain)
-        orelse throw(noquery),
-    H_TC = decode_boolean(TC),
-    QdTC andalso not H_TC
-        andalso throw(?DECODE_ERROR),
-    DnsHdr =
-        #dns_header{
-           id     = Id,
-           qr     = H_QR,
-           opcode = H_Opcode,
-           aa     = decode_boolean(AA),
-           tc     = H_TC,
-           rd     = H_RD,
-           ra     = decode_boolean(RA),
-           pr     = decode_boolean(PR),
-           rcode  = Rcode},
-    do_decode(
-      Buffer, DnsHdr, [RR], AnBuf, AnCount, NsCount, ArCount, {Opcode,Mdns});
+    {AnBuf, RRs, QdTC} = decode_query_section(QdBuf, QdCount, Buffer, Mdns),
+    case RRs of
+        [RR] ->
+            RR#dns_query.class    =:= Q_RR#dns_query.class andalso
+                RR#dns_query.type =:= Q_RR#dns_query.type  andalso
+                inet_db:eq_domains(RR#dns_query.domain, Q_RR#dns_query.domain)
+                orelse throw(noquery),
+            H_TC = decode_boolean(TC),
+            QdTC andalso not H_TC
+                andalso throw(?DECODE_ERROR),
+            DnsHdr =
+                #dns_header{
+                   id     = Id,
+                   qr     = H_QR,
+                   opcode = H_Opcode,
+                   aa     = decode_boolean(AA),
+                   tc     = H_TC,
+                   rd     = H_RD,
+                   ra     = decode_boolean(RA),
+                   pr     = decode_boolean(PR),
+                   rcode  = Rcode},
+            do_decode(
+              Buffer, DnsHdr, [RR], AnBuf, AnCount, NsCount, ArCount,
+              {Opcode,Mdns});
+        _ ->
+            throw(?DECODE_ERROR)
+    end;
 do_decode_reply(<<_/binary>>, _Q_H, _Q_RR, _Id, _Mdns) ->
     throw(unknown).
 

@@ -39,7 +39,7 @@
          servfail_retry_timeout_default/1, servfail_retry_timeout_1000/1,
          label_compression_limit/1, update/1,
          tsig_client/1, tsig_server/1, tsig_baderror/1,
-         mdns_encode_decode/1, bad_decode/1
+         mdns_encode_decode/1, bad_decode/1, bad_decode_2/1
         ]).
 -export([
 	 gethostbyaddr/0, gethostbyaddr/1,
@@ -83,7 +83,7 @@ all() ->
      servfail_retry_timeout_default, servfail_retry_timeout_1000,
      label_compression_limit, update,
      tsig_client, tsig_server, tsig_baderror,
-     mdns_encode_decode, bad_decode,
+     mdns_encode_decode, bad_decode, bad_decode_2,
      gethostbyaddr, gethostbyaddr_v6, gethostbyname,
      gethostbyname_v6, getaddr, getaddr_v6, ipv4_to_ipv6,
      host_and_addr].
@@ -1973,6 +1973,37 @@ bad_decode(Config) when is_list(Config) ->
         << Hdr/binary, Question_2/binary, RR1/binary, RR2/binary >>,
     {error, formerr} = inet_dns:decode(Msg2_plus),
 
+    ok.
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Malicious packet decode
+
+bad_decode_2(Config) when is_list(Config) ->
+    %% Too short buffer
+    {error, formerr} = inet_dns:decode(<<>>),
+    {error, formerr} =
+        inet_dns:decode_reply(
+          <<>>, #dns_rec{ qdlist = [#dns_rr{}] }, true),
+
+    %% QDCOUNT says 1 but is empty
+    ID      = 4711,
+    QR      = 1,
+    OPCODE  = 0, % 'query'
+    RD      = 0, % Not set in reply
+    RCODE   = 0,
+    QDCOUNT = 1,
+    Buffer  =
+        << ID:16,
+           QR:1, OPCODE:4, 0:1, 0:1, RD:1,
+           0:1, 0:3, RCODE:4,
+           QDCOUNT:16, 0:16, 0:16, 0:16 >>,
+    Q =
+        #dns_rec{
+           header =
+               #dns_header{
+                  id = ID, qr = QR, opcode = 'query', rd = 1 },
+           qdlist = [#dns_query{ domain = "", type = 'a', class = 'in'}] },
+    {error, formerr} = inet_dns:decode_reply(Buffer, Q, false),
     ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
