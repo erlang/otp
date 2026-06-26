@@ -743,9 +743,6 @@ static ErlDrvSSizeT spawn_control(ErlDrvData e, unsigned int cmd, char *buf,
     dd->status = proto->u.sigchld.error_number;
     dd->alive = -1;
 
-    if (dd->ifd)
-        driver_select(dd->port_num, abs(dd->ifd->fd), ERL_DRV_READ | ERL_DRV_USE, 1);
-
     if (dd->ofd)
         driver_select(dd->port_num, abs(dd->ofd->fd), ERL_DRV_WRITE | ERL_DRV_USE, 1);
 

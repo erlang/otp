@@ -95,7 +95,7 @@ typedef enum {
     ERTS_EV_FLAG_IN_SCHEDULER  = ERTS_EV_FLAG_CLEAR,
     ERTS_EV_FLAG_NIF_SELECT    = ERTS_EV_FLAG_CLEAR,
 #endif
-#ifdef ERTS_POLL_USE_FALLBACK
+#ifdef ERTS_POLL_USE_FALLBACK /* This has to be an ifdef */
     ERTS_EV_FLAG_FALLBACK      = 0x10,  /* Set when kernel poll rejected fd
                                            and it was put in the nkp version */
 #else
@@ -1934,7 +1934,7 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, bool needs_th
 {
     int pollres_len;
     int poll_ret, i;
-#ifdef ERTS_POLL_USE_SCHEDULER_POLLING
+#if ERTS_POLL_USE_SCHEDULER_POLLING
     bool is_scheduler_poll = psi->ps == get_scheduler_pollset();
 #endif
     ERTS_MSACC_PUSH_AND_SET_STATE(ERTS_MSACC_STATE_CHECK_IO);
@@ -2028,13 +2028,18 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, bool needs_th
 
 #if ERTS_POLL_USE_SCHEDULER_POLLING
             if (state->flags & ERTS_EV_FLAG_SCHEDULER) {
-                /* In the poll thread, this fd would have been disabled due to ONESHOT,
-                   but in the scheduler pollset it needs to be disabled manually. */
-                int wake_poller = 0;
-                erts_poll_control(get_scheduler_pollset(), fd, ERTS_POLL_OP_DEL, 0, &wake_poller);
-                state->flags &= ~(ERTS_EV_FLAG_SCHEDULER|ERTS_EV_FLAG_IN_SCHEDULER);
-                state->count = 0;
-                state->last_select_pid = NIL;
+                if (is_scheduler_poll) {
+                    /* If we triggered in a scheduler pollset,
+                       then we should just remove it from the
+                       scheduler pollset. */
+                    int wake_poller = 0;
+                    erts_poll_control(psi->ps, fd, ERTS_POLL_OP_DEL, 0, &wake_poller);
+                    state->flags &= ~(ERTS_EV_FLAG_SCHEDULER|ERTS_EV_FLAG_IN_SCHEDULER);
+                    state->count = 0;
+                    state->last_select_pid = NIL;
+                } else {
+                    state->active_events = revents & ERTS_POLL_EV_IN;
+                }
             }
 #endif
         } else {
