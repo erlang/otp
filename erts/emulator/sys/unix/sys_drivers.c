@@ -749,6 +749,12 @@ static ErlDrvSSizeT spawn_control(ErlDrvData e, unsigned int cmd, char *buf,
     if (dd->ofd)
         driver_select(dd->port_num, abs(dd->ofd->fd), ERL_DRV_WRITE | ERL_DRV_USE, 1);
 
+    /* We call ready_input directly as not all OSs trigger an input event on an
+       fd that already triggered EOF. For example ONESHOT poll on Linux and FreeBSD will not. */
+    if (dd->ifd) {
+        ready_input(e, abs(dd->ifd->fd));
+    }
+
     return 0;
 }
 
@@ -1230,9 +1236,9 @@ static int port_inp_failure(ErtsSysDriverData *dd, int res)
         if (dd->alive == 1) {
             /*
              * We have eof and want to report exit status, but the process
-             * hasn't exited yet. When it does ready_input will
-             * driver_select() this fd which will make sure that we get
-             * back here with dd->alive == -1 and dd->status set.
+             * hasn't exited yet. When it does spawn_control will call ready_input
+             * which will make sure that we get back here with dd->alive == -1 and
+             * dd->status set.
              */
             return 0;
         }
