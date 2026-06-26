@@ -20,7 +20,7 @@
 %% %CopyrightEnd%
 
 %----------------------------------------------------------------------
-%% Purpose: Simple default CRL cache 
+%% Purpose: Simple default CRL cache
 %%----------------------------------------------------------------------
 
 -module(ssl_crl_cache).
@@ -34,7 +34,7 @@ available.
 -moduledoc(#{since => "OTP 18.0"}).
 
 -include("ssl_internal.hrl").
--include_lib("public_key/include/public_key.hrl"). 
+-include_lib("public_key/include/public_key.hrl").
 
 -behaviour(ssl_crl_cache_api).
 
@@ -84,7 +84,7 @@ fresh_crl(#'DistributionPoint'{distributionPoint = {fullName, Names}}, CRL) ->
     end.
 
 %%====================================================================
-%% API 
+%% API
 %%====================================================================
 
 %%--------------------------------------------------------------------
@@ -112,13 +112,13 @@ insert(DistPointURI, {file, File}) when is_list(DistPointURI) ->
     case file:read_file(File) of
 	{ok, PemBin} ->
 	    PemEntries = public_key:pem_decode(PemBin),
-	    CRLs = [ CRL || {'CertificateList', CRL, not_encrypted} 
-				<- PemEntries],
+            CRLs = [ CRL || {'CertificateList', CRL, not_encrypted}
+                                <- PemEntries],
 	    do_insert(DistPointURI, CRLs);
 	Error ->
 	    Error
     end;
-insert(DistPointURI, {der, CRLs}) ->	
+insert(DistPointURI, {der, CRLs}) ->
     do_insert(DistPointURI, CRLs).
 
 %%--------------------------------------------------------------------
@@ -134,13 +134,13 @@ delete({file, File}) ->
     case file:read_file(File) of
 	{ok, PemBin} ->
 	    PemEntries = public_key:pem_decode(PemBin),
-	    CRLs = [ CRL || {'CertificateList', CRL, not_encrypted} 
-				<- PemEntries],
+            CRLs = [ CRL || {'CertificateList', CRL, not_encrypted}
+                                <- PemEntries],
 	    ssl_manager:delete_crls({?NO_DIST_POINT, CRLs});
 	Error ->
 	    Error
     end;
-delete({der, CRLs}) ->	
+delete({der, CRLs}) ->
     ssl_manager:delete_crls({?NO_DIST_POINT, CRLs});
 
 delete(URI) ->
@@ -160,7 +160,7 @@ delete(URI) ->
 %%--------------------------------------------------------------------
 do_insert(URI, CRLs) ->
     case uri_string:normalize(URI, [return_map]) of
-	#{scheme := "http", 
+        #{scheme := "http",
           host := Host,
           path := Path} = Map ->
             Port = maps:get(port, Map, 80),
@@ -172,7 +172,7 @@ do_insert(URI, CRLs) ->
 
 get_crls([], _) ->
     not_available;
-get_crls([{uniformResourceIdentifier, "http"++_ = URL} | Rest], 
+get_crls([{uniformResourceIdentifier, "http"++_ = URL} | Rest],
 	 CRLDbInfo) ->
     case cache_lookup(URL, CRLDbInfo) of
 	[] ->
@@ -187,32 +187,36 @@ get_crls([ _| Rest], CRLDbInfo) ->
 http_lookup(URL, Rest, CRLDbInfo, Timeout) ->
     case application:ensure_started(inets) of
 	ok ->
-	    http_get(URL, Rest, CRLDbInfo, Timeout);  
+            http_get(URL, Rest, CRLDbInfo, Timeout);
 	_ ->
-	    get_crls(Rest, CRLDbInfo)
+            get_crls(Rest, CRLDbInfo)
     end.
 
 http_get(URL, Rest, CRLDbInfo, Timeout) ->
-    case httpc:request(get, {URL, [{"connection", "close"}]}, 
+    case httpc:request(get, {URL, [{"connection", "close"}]},
 		       [{timeout, Timeout}], [{body_format, binary}]) of
         {ok, {_Status, _Headers, Body}} ->
             case Body of
                 <<"-----BEGIN", _/binary>> ->
-                    Pem = public_key:pem_decode(Body),
-		    lists:filtermap(fun({'CertificateList', 
-					 CRL, not_encrypted}) ->
-					    {true, CRL};
-				       (_) ->
-					    false
-				    end, Pem);
-		_ ->
+                    try
+                        Pem = public_key:pem_decode(Body),
+                        lists:filtermap(fun({'CertificateList',
+                                             CRL, not_encrypted}) ->
+                                                {true, CRL};
+                                           (_) ->
+                                                false
+                                        end, Pem)
+                    catch _:_  ->
+                            get_crls(Rest, CRLDbInfo)
+                    end;
+                _ ->
 		    try public_key:der_decode('CertificateList', Body) of
 			_ ->
 			    [Body]
 		    catch
 			_:_ ->
 			    get_crls(Rest, CRLDbInfo)
-		    end   
+                    end
 	    end;
         {error, _Reason} ->
             get_crls(Rest, CRLDbInfo)
@@ -234,8 +238,8 @@ cache_lookup(URL, {{Cache, _}, _}) ->
 
 handle_http(URI, Rest, {_,  [{http, Timeout}]} = CRLDbInfo) ->
     CRLs = http_lookup(URI, Rest, CRLDbInfo, Timeout),
-    %% Uncomment to improve performance, but need to 
-    %% implement cache limit and or cleaning to prevent 
+    %% Uncomment to improve performance, but need to
+    %% implement cache limit and or cleaning to prevent
     %% DoS attack possibilities
     %%insert(URI, {der, CRLs}),
     CRLs;
@@ -243,5 +247,5 @@ handle_http(_, Rest, CRLDbInfo) ->
     get_crls(Rest, CRLDbInfo).
 
 
-make_key(Host, Port, Path) -> 
+make_key(Host, Port, Path) ->
     Host ++ ":" ++ integer_to_list(Port) ++ Path.
