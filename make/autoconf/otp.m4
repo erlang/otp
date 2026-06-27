@@ -2964,6 +2964,7 @@ AC_DEFUN([LM_HARDWARE_ARCH], [
     powerpc64)	ARCH=ppc64;;
     powerpc64le) ARCH=ppc64le;;
     "Power Macintosh")	ARCH=ppc;;
+    arm)	ARCH=arm;;
     arm64)	ARCH=arm64;;
     armv5b)	ARCH=arm;;
     armv5teb)	ARCH=arm;;
