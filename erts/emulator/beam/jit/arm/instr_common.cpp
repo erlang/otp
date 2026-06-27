@@ -730,7 +730,8 @@ void BeamModuleAssembler::emit_put_list_deallocate(const ArgSource &Hd,
 
     ASSERT(dealloc < MAX_REG * sizeof(Eterm));
 
-    if (Hd.isYRegister() && !Tl.isYRegister() && dealloc > 0) {
+    if (Hd.isYRegister() && !Tl.isYRegister() && dealloc > 0 &&
+        Support::is_int_n<9>(dealloc)) {
         auto hd_index = Hd.as<ArgYRegister>().get();
 
         if (hd_index == 0) {
@@ -741,7 +742,8 @@ void BeamModuleAssembler::emit_put_list_deallocate(const ArgSource &Hd,
             tl_reg = load_source(Tl, TMP2).reg;
             dealloc = 0;
         }
-    } else if (!Hd.isYRegister() && Tl.isYRegister() && dealloc > 0) {
+    } else if (!Hd.isYRegister() && Tl.isYRegister() && dealloc > 0 &&
+               Support::is_int_n<9>(dealloc)) {
         auto tl_index = Tl.as<ArgYRegister>().get();
 
         if (tl_index == 0) {
@@ -2209,7 +2211,7 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
         Label next = a.new_label();
         comment("simplified test because it always succeeds when LHS is a "
                 "bignum");
-        emit_is_not_boxed(next, rhs.reg);
+        emit_is_not_boxed(next, lhs.reg);
         a.cmp(lhs.reg, rhs.reg);
         a.b_ge(resolve_beam_label(Fail, disp1MB));
         a.bind(next);

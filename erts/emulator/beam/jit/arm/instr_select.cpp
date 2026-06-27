@@ -456,6 +456,11 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
 
     ASSERT(Size.get() == args.size());
 
+    if (Fail.isNil()) {
+        /* NIL means fallthrough to the next instruction. */
+        fail = a.new_label();
+    }
+
     if (always_small(Src)) {
         comment("(skipped type test)");
     } else {
@@ -465,10 +470,6 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
         if (Fail.isLabel()) {
             a.b_ne(resolve_beam_label(Fail, disp1MB));
         } else {
-            /* NIL means fallthrough to the next instruction. */
-            ASSERT(Fail.isNil());
-
-            fail = a.new_label();
             a.b_ne(fail);
         }
     }
@@ -511,7 +512,7 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
         }
     }
 
-    if (Fail.getType() == ArgVal::Type::Immediate) {
+    if (Fail.isNil()) {
         a.bind(fail);
     }
 }
