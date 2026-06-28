@@ -3331,7 +3331,7 @@ expr({remote,_Anno,M,_F}, _Vt, St) ->
     {[],add_error(erl_parse:first_anno(M), illegal_expr, St)};
 expr({executable_line,_,_}, _Vt, St) ->
     {[], St};
-expr({ssa_check_when,_Anno,_WantedResult,_Args,_Tag,_Exprs}, _Vt, St) ->
+expr({ssa_check_when,_Anno,_WantedResult,_Args,_AnnoCheck,_Tag,_Exprs}, _Vt, St) ->
     {[], St}.
 
 %% Check a call to function without a module name. This can be a call

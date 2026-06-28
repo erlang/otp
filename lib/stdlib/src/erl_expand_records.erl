@@ -633,7 +633,7 @@ expr({executable_line,_,_}=E, St) ->
     {E, St};
 expr({debug_line,_,_}=E, St) ->
     {E, St};
-expr({ssa_check_when,_,_,_,_,_}=E, St) ->
+expr({ssa_check_when,_,_,_,_,_,_}=E, St) ->
     {E, St}.
 
 expr_list([E0 | Es0], St0) ->

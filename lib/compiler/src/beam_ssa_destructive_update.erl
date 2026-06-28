@@ -918,6 +918,8 @@ aggregate_ret_patches([{self,heap_tuple},TE={tuple_element,_,_,_}|Rest]) ->
     %% heap, the {self,heap_tuple} can be dropped. Due to the sort in
     %% patch_ret/3, self will always occur before tuple_element.
     aggregate_ret_patches([TE|Rest]);
+aggregate_ret_patches([{hd,E0,D0},{hd,E1,D1}|Rest]) ->
+    aggregate_ret_patches([{hd, merge_patches(E0, E1), max(D0,D1)}|Rest]);
 aggregate_ret_patches([R={hd,_,_}]) ->
     R.
 
@@ -967,9 +969,11 @@ merge_patches({tuple_element,I,E0,D0}, {tuple_element,I,E1,D1}) ->
 merge_patches({tuple_element,IA,EA,_}, {tuple_element,IB,EB,_}) ->
     {tuple_elements, [{IA,EA}, {IB,EB}]};
 merge_patches({tuple_element,IA,EA,_}, {tuple_elements,Es}) ->
-    {tuple_elements,[{IA,EA}|Es]};
+    {tuple_elements,merge_te(IA, EA, Es)};
 merge_patches({tuple_elements,Es}, {tuple_element,IA,EA,_}) ->
-    {tuple_elements,[{IA,EA}|Es]};
+    {tuple_elements,merge_te(IA, EA, Es)};
+merge_patches({hd,E0,D0},{hd,E1,D1}) ->
+    {hd, merge_patches(E0,E1), max(D0,D1)};
 merge_patches(Patch, {self,heap_tuple}) ->
     %% If we find anything more specific than a heap_tuple, the more
     %% specific patch subsumes the heap_tuple
@@ -978,6 +982,10 @@ merge_patches({self,heap_tuple}, Other) ->
     %% We're already patching this element in Other and as it will
     %% force the term onto the heap, we can ignore the new patch.
     Other.
+
+merge_te(I, E, [{I,E0}|Es]) -> [{I, merge_patches(E0, E)}|Es];                                  
+merge_te(I, E, [Other|Es]) -> [Other|merge_te(I, E, Es)];                                       
+merge_te(I, E, []) -> [{I, E}].
 
 patch_phi(I0=#b_set{op=phi,args=Args0}, Patches, Cnt0) ->
     ?DP("Patching Phi:~n args: ~p~n  patches: ~p~n", [Args0, Patches]),
