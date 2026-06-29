@@ -179,17 +179,19 @@ do_verify(Pkt,
            original_id = OriginalId,
            error = ?NOERROR
           } = TSigRR ->
-            {Alg,AlgSize} =
+            {Alg,AlgSize} = % AlgSize in bytes
                 case inet_dns:decode_algname(AlgName) of
-                    {A,S} when is_atom(A), is_integer(S), S > 0 ->
+                    {A,S} when is_atom(A), is_integer(S), S >= 96 ->
+                        %% {sha,96} is the smallest we know of, 96 bits
                         lists:member(A, ?ALGS_SUPPORTED)
                             orelse throw({notauth,badkey}),
-                        {A,S};
+                        {A,S bsr 3}; % Bits -> Bytes
                     A when is_atom(A) ->
                         lists:member(A, ?ALGS_SUPPORTED)
                             orelse throw({notauth,badkey}),
                         try crypto:hash_info(A) of
-                            #{ size := S } when is_integer(S), S > 0 ->
+                            #{ size := S } when is_integer(S), S >= 12 ->
+                                %% sha(96) => 12 bytes
                                 {A,S};
                             #{} ->
                                 throw({notauth,badkey})
