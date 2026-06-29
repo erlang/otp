@@ -169,7 +169,7 @@ do_verify(Pkt,
                          header = #dns_header{ qr = QR },
                          arlist = ARList },
           TS0 = #tsig_state{ id = undefined }) ->
-    QR = false, % ASSERT that the caller has not passed a response
+    QR =:= false orelse throw(formerr),
     case ARList =/= [] andalso lists:last(ARList) of
         false ->
             {error,{notauth,badsig}};
@@ -227,8 +227,10 @@ do_verify(Pkt,
           Response = #dns_rec{
                         header = #dns_header{ qr = QR },
                         arlist = ARList },
-          TS = #tsig_state{ qr = TSQR })
-  when QR =:= (TSQR > 0) -> % Query/response status the same in header and state
+          TS = #tsig_state{ qr = TSQR }) ->
+    %% Query/response status the same in header and state
+    QR =:= (TSQR > 0) orelse throw(formerr),
+    %%
     case ARList =/= [] andalso lists:last(ARList) of
         %% RFC8945, section 5.3.1: TSIG on TCP Connections
         false when TSQR == 3 -> % not 2 as we must start with a TSIG RR
