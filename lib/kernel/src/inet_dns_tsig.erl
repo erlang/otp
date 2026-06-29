@@ -287,12 +287,16 @@ do_verify(Pkt, _Response, TS = #tsig_state{ alg = {_Alg,AlgSize} }, TSigRR) ->
         true ->
             mac(TS, Error, NowSigned, OtherData)
     end,
+    MACEq =
+        MACSize == byte_size(MACCalc)
+        andalso
+        crypto:hash_equals(MAC, MACCalc),
     if
         %% RFC8945, section 5.2 - MUST check time after MAC
-        MAC == MACCalc, NowSigned - Fudge < Now, NowSigned + Fudge > Now ->
+        MACEq, NowSigned - Fudge < Now, NowSigned + Fudge > Now ->
             QR = if TS#tsig_state.qr == 0 -> 1; true -> 2 end,
             {ok,TS#tsig_state{ qr = QR, mac = {?MODULE,MAC} }};
-        MAC == MACCalc ->
+        MACEq ->
             {error,{notauth,badtime}};
         true ->
             {error,{notauth,badsig}}
