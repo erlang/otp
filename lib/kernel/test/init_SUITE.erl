@@ -673,6 +673,8 @@ boot_module_load(Config) ->
     erlang:system_info(emu_flavor) =:= jit
         orelse throw({skip, "Test only valid for JIT emulator"}),
 
+    Extension = [".exe" || element(1, os:type()) =:= win32],
+
     TestCodeDir = filename:dirname(code:which(?MODULE)),
 
     CommonArguments = "ERL_ZFLAGS=\"\" " ++ ct:get_progname() ++ " +JPcover function -pa " ++ TestCodeDir ++ " -boot no_dot_erlang -noshell",
@@ -731,8 +733,64 @@ boot_module_load(Config) ->
     %% Check that minimal and default modules are sorted
     ?assertEqual(MinimalModules, lists:sort(MinimalModules)),
     ?assertEqual(DefaultModules, lists:sort(DefaultModules)),
-    
+
+    %% Test that escript also loads modules that it should
+    PreloadFile = filename:join(proplists:get_value(priv_dir, Config), "preload.erl"),
+
+    write_escript(PreloadFile, TestCodeDir,
+                       ~"""
+                        -mode(interpret).
+                        main(_) ->
+                          init_SUITE:loaded_modules(),
+                          halt().
+                        """),
+
+    [AfterEscriptInterpStart] = parse("escript" ++ Extension ++ " " ++ PreloadFile),
+    EscriptModulesInterpSet = sets:from_list(AfterEscriptInterpStart),
+
+    io:format("EscriptInterpModules: ~p~n", [AfterEscriptInterpStart]),
+    io:format("OnlyEscriptInterpModules: ~p~n", [sets:to_list(sets:subtract(EscriptModulesInterpSet, MinimalAfterKernelStartSet))]),
+
+    EarlyEscriptModulesSet = sets:from_list([escript, file_io_server, raw_file_io, erl_eval]),
+    EscriptInterpPreLoadSet = sets:union(sets:from_list(escript:preload_parse_modules()), EarlyEscriptModulesSet),
+
+    io:format("EscriptInterpPreLoadSet: ~p~n", [sets:to_list(EscriptInterpPreLoadSet)]),
+
+    %% Check that escript in interpreted mode loads the modules needed
+    ?assertEqualSets(EscriptInterpPreLoadSet, sets:subtract(EscriptModulesInterpSet, DefaultAfterKernelStartSet)),
+
+    write_escript(PreloadFile, TestCodeDir,
+                       ~"""
+                        -module(preload_test).
+                        main(_) ->
+                          init_SUITE:loaded_modules(),
+                          halt().
+                        """),
+
+    [AfterEscriptCompStart] = parse("escript" ++ Extension ++ " " ++ PreloadFile),
+    AfterEscriptCompStartSet = sets:subtract(sets:from_list(AfterEscriptCompStart), DefaultAfterKernelStartSet),
+
+    io:format("EscriptCompModules: ~p~n", [AfterEscriptCompStart]),
+    io:format("OnlyEscriptCompModules: ~p~n", [sets:to_list(sets:subtract(AfterEscriptCompStartSet, MinimalAfterKernelStartSet))]),
+
+    EarlyEscriptCompModulesSet = sets:union(sets:from_list([compile, preload_test]), EarlyEscriptModulesSet),
+    EscriptCompPreLoadSet = sets:union(sets:from_list(escript:preload_parse_modules() ++ compile:pre_load()), EarlyEscriptCompModulesSet),
+
+    io:format("EscriptCompPreLoadSet: ~p~n", [sets:to_list(EscriptCompPreLoadSet)]),
+
+    %% Check that escript in interpreted mode loads the modules needed
+    %% When compiling an escript we allow that the compiler loads some extra modules
+    %% as the same loaded modules are used for compile:file, but escript only uses compile:forms.
+    ?assertEqual([], sets:to_list(sets:subtract(AfterEscriptCompStartSet, EscriptCompPreLoadSet))),
+
     ok.
+
+write_escript(File, TestCodeDir, Body) ->
+    file:write_file(File,
+                    iolist_to_binary(
+                      ["#! /usr/bin/env escript\n",
+                       "%%! +JPcover function -pa " ++ TestCodeDir ++ "\n",
+                       Body])).
 
 parse(Cmd) ->
     try

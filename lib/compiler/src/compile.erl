@@ -218,6 +218,9 @@ source code.
 %% Utility functions for compiler passes.
 -export([run_sub_passes/2]).
 
+%% Used by escript to preload the compiler modules
+-export([pre_load/0]).
+
 -export_type([option/0]).
 -export_type([forms/0]).
 -export_type([comp_ret/0]).
@@ -3120,7 +3123,7 @@ rel2fam(S0) ->
 -spec compile(file:filename(), _, #options{}) -> 'ok' | 'error'.
 
 compile(File0, _OutFile, Options) ->
-    pre_load(),
+    _ = code:ensure_modules_loaded(pre_load()),
     File = shorten_filename(File0),
     case file(File, make_erl_options(Options)) of
 	{ok,_Mod} -> ok;
@@ -3188,52 +3191,54 @@ make_erl_options(Opts) ->
     Options ++ [report_errors, {cwd, Cwd}, {outdir, Outdir} |
                 [{i, Dir} || Dir <- Includes]] ++ Specific.
 
+-doc false.
+-spec pre_load() -> [module()].
 pre_load() ->
-    L = [beam_a,
-	 beam_asm,
-	 beam_block,
-	 beam_call_types,
-	 beam_clean,
-         beam_core_to_ssa,
-	 beam_dict,
-         beam_doc,
-	 beam_flatten,
-	 beam_jump,
-	 beam_opcodes,
-	 beam_ssa,
-	 beam_ssa_alias,
-	 beam_ssa_bc_size,
-	 beam_ssa_bool,
-	 beam_ssa_bsm,
-	 beam_ssa_codegen,
-	 beam_ssa_dead,
-         beam_ssa_destructive_update,
-	 beam_ssa_opt,
-	 beam_ssa_pre_codegen,
-	 beam_ssa_recv,
-	 beam_ssa_share,
-	 beam_ssa_ss,
-	 beam_ssa_throw,
-	 beam_ssa_type,
-	 beam_trim,
-	 beam_types,
-	 beam_utils,
-	 beam_validator,
-	 beam_z,
-	 cerl,
-	 cerl_clauses,
-	 cerl_trees,
-	 core_lib,
-	 epp,
-	 erl_bifs,
-	 erl_expand_records,
-         erl_features,
-	 erl_lint,
-	 erl_parse,
-	 erl_scan,
-	 sys_core_alias,
-	 sys_core_bsm,
-	 sys_core_fold,
-	 v3_core],
-    _ = code:ensure_modules_loaded(L),
-    ok.
+    [beam_a,
+     beam_asm,
+     beam_block,
+     beam_call_types,
+     beam_clean,
+     beam_core_to_ssa,
+     beam_dict,
+     beam_doc,
+     beam_flatten,
+     beam_jump,
+     beam_opcodes,
+     beam_ssa,
+     beam_ssa_alias,
+     beam_ssa_bc_size,
+     beam_ssa_bool,
+     beam_ssa_bsm,
+     beam_ssa_codegen,
+     beam_ssa_dead,
+     beam_ssa_destructive_update,
+     beam_ssa_opt,
+     beam_ssa_pre_codegen,
+     beam_ssa_recv,
+     beam_ssa_share,
+     beam_ssa_ss,
+     beam_ssa_throw,
+     beam_ssa_type,
+     beam_trim,
+     beam_types,
+     beam_utils,
+     beam_validator,
+     beam_z,
+     cerl,
+     cerl_clauses,
+     cerl_trees,
+     core_lib,
+     epp,
+     erl_bifs,
+     erl_expand_records,
+     erl_features,
+     erl_lint,
+     erl_parse,
+     erl_scan,
+     gb_trees,
+     graph,
+     sys_core_alias,
+     sys_core_bsm,
+     sys_core_fold,
+     v3_core].
