@@ -181,12 +181,24 @@ do_verify(Pkt,
           } = TSigRR ->
             {Alg,AlgSize} =
                 case inet_dns:decode_algname(AlgName) of
-                    {A,S} ->
+                    {A,S} when is_atom(A), is_integer(S), S > 0 ->
+                        lists:member(A, ?ALGS_SUPPORTED)
+                            orelse throw({notauth,badkey}),
                         {A,S};
-                    A ->
-                        {A,maps:get(size, crypto:hash_info(A))}
+                    A when is_atom(A) ->
+                        lists:member(A, ?ALGS_SUPPORTED)
+                            orelse throw({notauth,badkey}),
+                        try crypto:hash_info(A) of
+                            #{ size := S } when is_integer(S), S > 0 ->
+                                {A,S};
+                            #{} ->
+                                throw({notauth,badkey})
+                        catch error : badarg ->
+                                throw({notauth,badkey})
+                        end;
+                    _ ->
+                        throw({notauth,badkey})
                 end,
-            lists:member(Alg, ?ALGS_SUPPORTED) orelse throw({notauth,badkey}),
             Key = lists:keyfind(Name, 1, TS0#tsig_state.key),
             Key == false andalso throw({notauth,badkey}),
             TS = TS0#tsig_state{
