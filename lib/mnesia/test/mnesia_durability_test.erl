@@ -221,10 +221,10 @@ load_local_contents_directly(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 load_directly_when_all_are_ram_copiesA(doc) ->
-    ["Tables that are RAM copies only shall also be loaded directly. ",
+    ["Tables that are RAM copies only shall NOT be loaded directly. ",
      "1. N1 and N2 has RAM copies of a table, stop N1 before N2. ",
-     "2. When N1 starts he shall have access to the table ",
-     "   without having to start N2" ];
+     "2. When N1 starts he shall NOT have access to the table ",
+     "   without loading the better copy from N2" ];
 load_directly_when_all_are_ram_copiesA(suite) -> [];
 load_directly_when_all_are_ram_copiesA(Config) when is_list(Config) ->
     [N1, N2] = Nodes = ?acquire_nodes(2, Config),
@@ -251,20 +251,21 @@ load_directly_when_all_are_ram_copiesA(Config) when is_list(Config) ->
            rpc:call(N2,mnesia,transaction,[Read_one]) ),
     %%Stop Mnesia on N2
     ?match([], mnesia_test_lib:kill_mnesia([N2])),
-    %%Restart Mnesia on N1 verify that we can access test_rec from
-    %%N1 without starting Mnesia on N2.
+    %%Restart Mnesia on N1 verify that we CANNOT access test_rec from
+    %%N1 without starting Mnesia on N2 because N2 is not in down_nodes of N1 node.
     ?match(ok, rpc:call(N1, mnesia, start, [])),
-    ?match(ok, rpc:call(N1, mnesia, wait_for_tables, [[test_rec], 30000])),
-    ?match({atomic,[]}, rpc:call(N1,mnesia,transaction,[Read_one])),
-    ?match({atomic,ok}, rpc:call(N1,mnesia,transaction,[Write_one,[33]])),
-    ?match({atomic,[#test_rec{key=2,val=33}]},
+    ?match({timeout, [test_rec]}, rpc:call(N1, mnesia, wait_for_tables, [[test_rec], 30000])),
+    ?match({aborted, {no_exists, test_rec}}, rpc:call(N1,mnesia,transaction,[Read_one])),
+    ?match({aborted, {no_exists, test_rec}}, rpc:call(N1,mnesia,transaction,[Write_one,[33]])),
+    ?match({aborted,{no_exists,test_rec}},
            rpc:call(N1,mnesia,transaction,[Read_one])),
     %%Restart Mnesia on N2 and verify the contents there.
     ?match([], mnesia_test_lib:start_mnesia([N2], [test_rec])),
-    ?match( {atomic,[#test_rec{key=2,val=33}]},
+    ?match({atomic, ok}, rpc:call(N1,mnesia,transaction,[Write_one,[44]])),
+    ?match( {atomic,[#test_rec{key=2,val=44}]},
            rpc:call(N2, mnesia, transaction, [Read_one] ) ),
     %%Check that the start of Mnesai on N2 did not affect the contents on N1
-    ?match( {atomic,[#test_rec{key=2,val=33}]},
+    ?match( {atomic,[#test_rec{key=2,val=44}]},
            rpc:call(N1, mnesia, transaction, [Read_one] ) ),
     ?verify_mnesia(Nodes, []).
 
@@ -1350,15 +1351,27 @@ dump_ram_copies(Config) when is_list(Config)  ->
     %% test_lib:mnesia_start doesn't work, because it waits
     %% for the schema on all nodes ... ???
     ?match(ok,rpc:call(Node3,mnesia,start,[]) ),
-    ?match(ok,rpc:call(Node3,mnesia,wait_for_tables,
-		       [[Tab],timer:seconds(30)]   ) ),
     
-    %% node3  shall have the contents of the dump
-    cross_check_tables([C],Tab,{[{Tab,1,4711}],[{Tab,2,42}],[{Tab,3,256}]}),
-    
-    %% start Mnesia on the other 2 nodes, too
+    %% node3 is the first-killed node, thus it should wait for better copy
+    %% from late-killed node to ensure consistency in the cluster
+    %% to get the better copy, node3 needs to contact the node which has better copy.
+    ?match({timeout, [Tab]}, 
+           rpc:call(Node3, mnesia,wait_for_tables,
+                    [[Tab],timer:seconds(3)])),
+
+    %% node3 shall NOT serve for this table before it get connected to the better copy.
+    ?match({badrpc,{'EXIT',{aborted,{no_exists,[Tab,1]}}}}, 
+           rpc:call(Node3, mnesia, dirty_read, [Tab,1])),
+
+    %% start Mnesia on the other 2 nodes now
     mnesia_test_lib:start_mnesia([Node1,Node2],[Tab]),
+
+
+    %% node3 should load the better copy and ready to serve.
+    ?match(ok, rpc:call(Node3, mnesia,wait_for_tables, 
+                        [[Tab],timer:seconds(30)])),
     
+    %% Since all nodes are up
     cross_check_tables([A,B,C],Tab,
 		       {[{Tab,1,4711}],[{Tab,2,42}],[{Tab,3,256}]}),
     ?verify_mnesia(Nodes, []).

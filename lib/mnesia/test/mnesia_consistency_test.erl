@@ -35,6 +35,8 @@
          consistency_after_restart_2_ram/1,
          consistency_after_restart_2_disc/1,
          consistency_after_restart_2_disc_only/1,
+         consistency_after_isolated_restart_2_nodes/1,
+         consistency_after_isolated_restart_3_nodes/1,
          consistency_after_dump_tables_1_ram/1,
          consistency_after_dump_tables_2_ram/1,
          consistency_after_add_replica_2_ram/1,
@@ -106,6 +108,7 @@ end_per_testcase(Func, Conf) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 all() -> 
     [{group, consistency_after_restart},
+     {group, consistency_after_isolated_restart},
      {group, consistency_after_dump_tables},
      {group, consistency_after_add_replica},
      {group, consistency_after_del_replica},
@@ -124,6 +127,9 @@ groups() ->
        consistency_after_restart_2_ram,
        consistency_after_restart_2_disc,
        consistency_after_restart_2_disc_only]},
+     {consistency_after_isolated_restart, [],
+      [consistency_after_isolated_restart_2_nodes,
+       consistency_after_isolated_restart_3_nodes]},
      {consistency_after_dump_tables, [],
       [consistency_after_dump_tables_1_ram,
        consistency_after_dump_tables_2_ram]},
@@ -389,6 +395,171 @@ consistency_after_restart(ReplicaType, NodeConfig, Config) ->
     mnesia_tpcb:stop(),
     ?match(ok, mnesia_tpcb:verify_tabs()),
     ?verify_mnesia(Nodes, []).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+consistency_after_isolated_restart_2_nodes(suite) -> [];
+consistency_after_isolated_restart_2_nodes(Config) when is_list(Config) ->
+    [Node1, Node2] = Nodes = ?acquire_nodes(2, Config),
+
+    N = 10,
+
+    ?match({atomic, ok}, mnesia:create_table(ram, [{ram_copies, Nodes}])),
+    ?match(ok, mnesia:sync_dirty(fun() ->
+        [mnesia:write({ram, K, K}) || K <- lists:seq(1, N)], ok end)),
+
+    case mnesia_test_lib:diskless(Config) of
+        true ->
+            ok;
+        false ->
+            ?match({atomic, ok}, mnesia:create_table(disc, [{disc_copies, Nodes}])),
+            ?match(ok, mnesia:sync_dirty(fun() ->
+                [mnesia:write({disc, K, K}) || K <- lists:seq(1, N)], ok end)),
+            ?match({atomic, ok}, mnesia:create_table(disc_only, [{disc_only_copies, Nodes}])),
+            ?match(ok, mnesia:sync_dirty(fun() ->
+                [mnesia:write({disc_only, K, K}) || K <- lists:seq(1, N)], ok end))
+    end,
+
+    ?match([], mnesia_test_lib:kill_mnesia([Node1])),
+
+    OldCookie = erlang:get_cookie(),
+    P2 = mnesia_test_lib:get_peer_ref(Node2),
+    ?match(true, peer:call(P2, erlang, set_cookie, [invalid_cookie])),
+    try
+        ?match(true, peer:call(P2, net_kernel, disconnect, [Node1])),
+
+        case mnesia_test_lib:diskless(Config) of
+            true ->
+                ?match(ok, mnesia:start([{extra_db_nodes, [Node2]}])),
+                ?match({timeout, [ram]}, mnesia:wait_for_tables([ram], 5000));
+            false ->
+                ?match(ok, mnesia:start()),
+                ?match({timeout, [ram, disc, disc_only]}, mnesia:wait_for_tables([ram, disc, disc_only], 5000))
+        end,
+
+        ?match(true, peer:call(P2, erlang, set_cookie, [OldCookie])),
+        ?match(pong, peer:call(P2, net_adm, ping, [Node1])),
+
+        ?match({ok, _}, mnesia_controller:connect_nodes(Nodes)),
+        case mnesia_test_lib:diskless(Config) of
+            true ->
+                ?match({[ok, ok], []}, rpc:multicall(Nodes, mnesia, wait_for_tables, [[ram], 5000]));
+            false ->
+                ?match({[ok, ok], []}, rpc:multicall(Nodes, mnesia, wait_for_tables, [[ram, disc, disc_only], 5000]))
+        end,
+
+        RamPat = [{{ram, '_', '_'}, [], ['$_']}],
+        ExpectedRam = sets:from_list([{ram, K, K} || K <- lists:seq(1, N)]),
+        {[ActualRamN1, ActualRamN2], []} = rpc:multicall(Nodes, mnesia, dirty_select, [ram, RamPat]),
+        ?match(ExpectedRam, sets:from_list(ActualRamN1)),
+        ?match(ExpectedRam, sets:from_list(ActualRamN2)),
+
+        case mnesia_test_lib:diskless(Config) of
+            true ->
+                ok;
+            false ->
+                DiscPat = [{{disc, '_', '_'}, [], ['$_']}],
+                ExpectedDisc = sets:from_list([{disc, K, K} || K <- lists:seq(1, N)]),
+                {[ActualDiscN1, ActualDiscN2], []} = rpc:multicall(Nodes, mnesia, dirty_select, [disc, DiscPat]),
+                ?match(ExpectedDisc, sets:from_list(ActualDiscN1)),
+                ?match(ExpectedDisc, sets:from_list(ActualDiscN2)),
+
+                DiscOnlyPat = [{{disc_only, '_', '_'}, [], ['$_']}],
+                ExpectedDiscOnly = sets:from_list([{disc_only, K, K} || K <- lists:seq(1, N)]),
+                {[ActualDiscOnlyN1, ActualDiscOnlyN2], []} = rpc:multicall(Nodes, mnesia, dirty_select, [disc_only, DiscOnlyPat]),
+                ?match(ExpectedDiscOnly, sets:from_list(ActualDiscOnlyN1)),
+                ?match(ExpectedDiscOnly, sets:from_list(ActualDiscOnlyN2))
+        end
+    after
+        ?match(true, peer:call(P2, erlang, set_cookie, [OldCookie]))
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+consistency_after_isolated_restart_3_nodes(suite) -> [];
+consistency_after_isolated_restart_3_nodes(Config) when is_list(Config) ->
+    [Node1, Node2, Node3] = Nodes = ?acquire_nodes(3, Config),
+
+    TableNodes = [Node2, Node3],
+    N = 10,
+
+    ?match({atomic, ok}, mnesia:create_table(ram, [{ram_copies, TableNodes}])),
+    ?match(ok, mnesia:sync_dirty(fun() ->
+        [mnesia:write({ram, K, K}) || K <- lists:seq(1, N)], ok end)),
+
+    case mnesia_test_lib:diskless(Config) of
+        true ->
+            ok;
+        false ->
+            ?match({atomic, ok}, mnesia:create_table(disc, [{disc_copies, TableNodes}])),
+            ?match(ok, mnesia:sync_dirty(fun() ->
+                [mnesia:write({disc, K, K}) || K <- lists:seq(1, N)], ok end)),
+            ?match({atomic, ok}, mnesia:create_table(disc_only, [{disc_only_copies, TableNodes}])),
+            ?match(ok, mnesia:sync_dirty(fun() ->
+                [mnesia:write({disc_only, K, K}) || K <- lists:seq(1, N)], ok end))
+    end,
+
+    ?match([], mnesia_test_lib:kill_mnesia([Node2])),
+
+    OldCookie = erlang:get_cookie(),
+    P2 = mnesia_test_lib:get_peer_ref(Node2),
+    P3 = mnesia_test_lib:get_peer_ref(Node3),
+    ?match(true, peer:call(P2, erlang, set_cookie, [invalid_cookie1])),
+    ?match(true, peer:call(P3, erlang, set_cookie, [invalid_cookie2])),
+    try
+        ?match(true, peer:call(P3, net_kernel, disconnect, [Node2])),
+        %% Global could already have disconnected, ignore return value
+        peer:call(P3, net_kernel, disconnect, [Node1]),
+
+        ?match(true, peer:call(P2, erlang, set_cookie, [OldCookie])),
+        ?match(pong, net_adm:ping(Node2)),
+        case mnesia_test_lib:diskless(Config) of
+            true ->
+                ?match(ok, rpc:call(Node2, mnesia, start, [[{extra_db_nodes, [Node1, Node3]}]])),
+                ?match({timeout, [ram]}, rpc:call(Node2, mnesia, wait_for_tables, [[ram], 5000]));
+            false ->
+                ?match(ok, rpc:call(Node2, mnesia, start, [])),
+                ?match({timeout, [ram, disc, disc_only]}, rpc:call(Node2, mnesia, wait_for_tables, [[ram, disc, disc_only], 5000]))
+        end,
+
+        ?match(true, peer:call(P3, erlang, set_cookie, [OldCookie])),
+        ?match(pong, peer:call(P3, net_adm, ping, [Node1])),
+        ?match(pong, peer:call(P3, net_adm, ping, [Node2])),
+
+        ?match({ok, _}, mnesia_controller:connect_nodes(Nodes)),
+        case mnesia_test_lib:diskless(Config) of
+            true ->
+                ?match({[ok, ok], []}, rpc:multicall(TableNodes, mnesia, wait_for_tables, [[ram], 5000]));
+            false ->
+                ?match({[ok, ok], []}, rpc:multicall(TableNodes, mnesia, wait_for_tables, [[ram, disc, disc_only], 5000]))
+        end,
+
+        RamPat = [{{ram, '_', '_'}, [], ['$_']}],
+        ExpectedRam = sets:from_list([{ram, K, K} || K <- lists:seq(1, N)]),
+        {[ActualRamN2, ActualRamN3], []} = rpc:multicall(TableNodes, mnesia, dirty_select, [ram, RamPat]),
+        ?match(ExpectedRam, sets:from_list(ActualRamN2)),
+        ?match(ExpectedRam, sets:from_list(ActualRamN3)),
+
+        case mnesia_test_lib:diskless(Config) of
+            true ->
+                ok;
+            false ->
+                DiscPat = [{{disc, '_', '_'}, [], ['$_']}],
+                ExpectedDisc = sets:from_list([{disc, K, K} || K <- lists:seq(1, N)]),
+                {[ActualDiscN2, ActualDiscN3], []} = rpc:multicall(TableNodes, mnesia, dirty_select, [disc, DiscPat]),
+                ?match(ExpectedDisc, sets:from_list(ActualDiscN2)),
+                ?match(ExpectedDisc, sets:from_list(ActualDiscN3)),
+
+                DiscOnlyPat = [{{disc_only, '_', '_'}, [], ['$_']}],
+                ExpectedDiscOnly = sets:from_list([{disc_only, K, K} || K <- lists:seq(1, N)]),
+                {[ActualDiscOnlyN2, ActualDiscOnlyN3], []} = rpc:multicall(TableNodes, mnesia, dirty_select, [disc_only, DiscOnlyPat]),
+                ?match(ExpectedDiscOnly, sets:from_list(ActualDiscOnlyN2)),
+                ?match(ExpectedDiscOnly, sets:from_list(ActualDiscOnlyN3))
+        end
+    after
+        ?match(true, peer:call(P2, erlang, set_cookie, [OldCookie])),
+        ?match(true, peer:call(P3, erlang, set_cookie, [OldCookie]))
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

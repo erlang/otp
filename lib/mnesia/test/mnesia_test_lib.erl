@@ -135,7 +135,8 @@
 	 init_per_testcase/2,
 	 end_per_testcase/2,
 	 kill_tc/2,
-	 get_ext_test_server_name/0
+	 get_ext_test_server_name/0,
+	 get_peer_ref/1
 	]).
 
 -include("mnesia_test_lib.hrl").
@@ -306,7 +307,8 @@ node_start_link(Host, Name, Retries) ->
     end.
 
 starter(Host, Name, Args) ->
-    {ok, _, Node} = peer:start(#{host => Host, name => Name, args => Args}),
+    {ok, Peer, Node} = peer:start(#{host => Host, name => Name, args => Args, connection => 0}),
+    ok = persistent_term:put_new({peer, Node}, Peer),
     {ok, Node}.
 
 node_sup() ->
@@ -1135,3 +1137,6 @@ sort(W) ->
 
 get_ext_test_server_name() ->
     list_to_atom("ext_test_server_" ++ atom_to_list(node())).
+
+get_peer_ref(Node) ->
+    persistent_term:get({peer, Node}).

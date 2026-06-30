@@ -26,16 +26,19 @@
 #    
 # Usage: mt <args to erlang startup script>
 
-#top=".."
 top="$ERL_TOP/lib/mnesia"
 h=`hostname`
 p="-pa $top/examples -pa $top/ebin -pa $top/test -mnesia_test_verbose true"
 log=test_log$$
 latest=test_log_latest
 args=${1+"$@"}
-erlcmd="erl -sname a@localhost $p $args -mnesia_test_timeout"
-erlcmd1="erl -sname a1@localhost $p $args"
-erlcmd2="erl -sname a2@localhost $p $args"
+tmp=$(mktemp -d)
+if [ "$?" != "0" ]; then
+    echo "Failed to create temp directory" >&2
+    exit 1
+fi
+trap "rm -rf $tmp" EXIT
+erlcmd="erl -sname a@localhost $p $args -mnesia_test_timeout -s mt start_peers a1 a2 $tmp"
 
 if test z"$MT_TERM" = z ; then
     MT_TERM=xterm
@@ -77,8 +80,9 @@ echo ""
 
 $MT_TERM $geom0 $title a $exec script -c "$erlcmd" -f $log &
 
-$MT_TERM $geom1 $title a1 $exec $erlcmd1 &
-$MT_TERM $geom2 $title a2 $exec $erlcmd2 &
+sleep 1
+$MT_TERM $geom1 $title a1 $exec to_erl $tmp/a1/ &
+$MT_TERM $geom2 $title a2 $exec to_erl $tmp/a2/ &
 
 echo "Give the following command in order to see the outcome from node a@$h"":"
 echo ""
