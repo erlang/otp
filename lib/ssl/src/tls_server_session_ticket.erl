@@ -404,8 +404,6 @@ stateless_usable_ticket(#stateless_ticket{hash = Prf,
             false
     end.
 
-stateless_living_ticket(0, _, _, _, _) ->
-    true;
 %% If `anti_replay` is not enabled, then a ticket is considered to be living
 %% if it has not exceeded its lifetime.
 %%
