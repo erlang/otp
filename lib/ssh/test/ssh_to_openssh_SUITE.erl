@@ -573,9 +573,9 @@ tunneling_listner() ->
     {LSock, LHost, LPort}.
 
 test_tunneling(ListenSocket, Host, Port) ->
-    {ok,Client1} = gen_tcp:connect(Host, Port, [{active,false}]),
+    {ok,Client1} = connect_with_retry(Host, Port, [{active,false}], 10),
     {ok,Server1} = gen_tcp:accept(ListenSocket),
-    {ok,Client2} = gen_tcp:connect(Host, Port, [{active,false}]),
+    {ok,Client2} = connect_with_retry(Host, Port, [{active,false}], 10),
     {ok,Server2} = gen_tcp:accept(ListenSocket),
     send_rcv("Hi!", Client1, Server1),
     send_rcv("Happy to see you!", Server1, Client1),
@@ -585,8 +585,20 @@ test_tunneling(ListenSocket, Host, Port) ->
     send_rcv("Still there?", Client2, Server2),
     send_rcv("Yes!", Server2, Client2),
     close_and_check(Server2, Client2).
-    
-    
+
+
+connect_with_retry(Host, Port, Opts, Retries) ->
+    case gen_tcp:connect(Host, Port, Opts) of
+        {ok, Sock} ->
+            {ok, Sock};
+        {error, econnrefused} when Retries > 0 ->
+            timer:sleep(100),
+            connect_with_retry(Host, Port, Opts, Retries - 1);
+        Other ->
+            Other
+    end.
+
+
 close_and_check(OneSide, OtherSide) ->
     ok = gen_tcp:close(OneSide),
     ok = chk_closed(OtherSide).
