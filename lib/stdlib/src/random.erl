@@ -82,7 +82,16 @@ zeros.
 
 %%-----------------------------------------------------------------------
 
--doc "Returns the default state.".
+-doc """
+Returns the default state.
+
+## Examples
+
+```erlang
+1> random:seed0().
+{3172,9814,20125}
+```
+""".
 -spec seed0() -> ran().
 
 seed0() ->
@@ -91,10 +100,7 @@ seed0() ->
 %% seed()
 %%  Seed random number generation with default values
 
--doc """
-Seeds random number generation with default (fixed) values in the process
-dictionary and returns the old state.
-""".
+-doc(#{equiv => seed(3172, 9814, 20125)}).
 -spec seed() -> ran().
 
 seed() ->
@@ -107,10 +113,7 @@ seed() ->
 %% seed({A1, A2, A3}) 
 %%  Seed random number generation 
 
--doc """
-[`seed({A1, A2, A3})`](`seed/1`) is equivalent to
-[`seed(A1, A2, A3)`](`seed/3`).
-""".
+-doc(#{equiv => seed(A1, A2, A3)}).
 -spec seed(SValue) -> 'undefined' | ran() when
       SValue :: {A1, A2, A3} | integer(),
       A1 :: integer(),
@@ -142,6 +145,17 @@ random:seed(erlang:phash2([node()]),
 
 For details, see `erlang:phash2/1`, `erlang:node/0`, `erlang:monotonic_time/0`,
 and `erlang:unique_integer/0`.
+
+## Examples
+
+```erlang
+1> random:seed(1, 2, 3).
+{3172,9814,20125}
+2> random:seed({100, 200, 300}).
+{1,2,3}
+3> random:seed(12345).
+{1,2,3}
+```
 """.
 -spec seed(A1, A2, A3) -> 'undefined' | ran() when
       A1 :: integer(),
@@ -162,10 +176,7 @@ seed_put(Seed) ->
 %% uniform()
 %%  Returns a random float between 0 and 1.
 
--doc """
-Returns a random float uniformly distributed between `0.0` and `1.0`, updating
-the state in the process dictionary.
-""".
+-doc(#{equiv => uniform(1)}).
 -spec uniform() -> float().
 
 uniform() ->
@@ -187,6 +198,17 @@ uniform() ->
 -doc """
 Returns, for a specified integer `N >= 1`, a random integer uniformly
 distributed between `1` and `N`, updating the state in the process dictionary.
+
+## Examples
+
+```erlang
+1> random:seed(1, 2, 3).
+{3172,9814,20125}
+2> random:uniform().
+0.6465551933481189
+3> random:uniform(10).
+8
+```
 """.
 -spec uniform(N) -> pos_integer() when
       N :: pos_integer().
@@ -200,10 +222,7 @@ uniform(N) when is_integer(N), N >= 1 ->
 %% uniform_s(State) -> {F, NewState}
 %%  Returns a random float between 0 and 1.
 
--doc """
-Returns, for a specified state, a random float uniformly distributed between
-`0.0` and `1.0`, and a new state.
-""".
+-doc(#{equiv => uniform_s(1, State0)}).
 -spec uniform_s(State0) -> {float(), State1} when
       State0 :: ran(),
       State1 :: ran().
@@ -222,6 +241,17 @@ uniform_s({A1, A2, A3}) ->
 -doc """
 Returns, for a specified integer `N >= 1` and a state, a random integer
 uniformly distributed between `1` and `N`, and a new state.
+
+## Examples
+
+```erlang
+1> State = random:seed0().
+{3172,9814,20125}
+2> random:uniform_s(State).
+{0.6465551933481189,{16851,18318,24636}}
+3> random:uniform_s(10, State).
+{8,{16851,18318,24636}}
+```
 """.
 -spec uniform_s(N, State0) -> {integer(), State1} when
       N :: pos_integer(),

@@ -219,6 +219,21 @@ apply_after(_Time, _F, _A) ->
 -doc """
 Evaluates [`spawn(Module, Function, Arguments)`](`spawn/3`) after `Time`
 milliseconds.
+
+## Examples
+
+```erlang
+1> timer:apply_after(1000, fun() -> 2 + 2 end).
+{ok, TRef}
+2> timer:apply_after(1000, fun(X) -> X * 2 end, [21]).
+{ok, TRef}
+3> timer:apply_after(5000, io, format, ["Hello~n", []]).
+{ok, TRef}
+4> timer:apply_after(0, erlang, node, []).
+{ok, {instant, Ref}}
+5> timer:apply_after(-100, io, format, ["Bad~n", []]).
+{error, badarg}
+```
 """.
 -spec apply_after(Time, Module, Function, Arguments) ->
           {'ok', TRef} | {'error', Reason}
@@ -246,6 +261,19 @@ Evaluates `Destination ! Message` after `Time` milliseconds.
 registered name or a tuple `{RegName, Node}` for a registered name at another node.
 
 See also [the Timer Module section in the Efficiency Guide](`e:system:commoncaveats.md#timer-module`).
+
+## Examples
+
+```erlang
+1> timer:send_after(500, hello).
+{ok, TRef}
+2> timer:send_after(1000, self(), world).
+{ok, TRef}
+3> timer:send_after(0, self(), immediate).
+{ok, {instant, Ref}}
+4> timer:send_after(-1, self(), msg).
+{error, badarg}
+```
 """.
 -spec send_after(Time, Destination, Message) -> {'ok', TRef} | {'error', Reason}
               when Time :: time(),
@@ -294,6 +322,19 @@ send_after(Time, Message) ->
 -doc """
 Sends an exit signal with reason `Reason1` to `Target`, which can be a local
 process identifier or an atom of a registered name.
+
+## Examples
+
+```erlang
+1> timer:exit_after(1000, timeout).
+{ok, TRef}
+2> timer:exit_after(10000, self(), normal).
+{ok, TRef}
+3> timer:exit_after(0, self(), immediate).
+{ok, {instant, Ref}}
+4> timer:exit_after(-100, self(), bad).
+{error, badarg}
+```
 """.
 -spec exit_after(Time, Target, Reason1) -> {'ok', TRef} | {'error', Reason2}
               when Time :: time(),
@@ -313,7 +354,20 @@ exit_after(Time, Pid, Reason) ->
 exit_after(Time, Reason) ->
     exit_after(Time, self(), Reason).
 
--doc #{ equiv => exit_after(Time, Target, kill) }.
+-doc """
+Equivalent to [`exit_after(Time, Target, kill)`](`exit_after/3`).
+
+## Examples
+
+```erlang
+1> timer:kill_after(5000).
+{ok, TRef}
+2> timer:kill_after(60000, Pid).
+{ok, TRef}
+3> timer:kill_after(-100, self()).
+{error, badarg}
+```
+""".
 -spec kill_after(Time, Target) -> {'ok', TRef} | {'error', Reason2}
               when Time :: time(),
                    Target :: pid() | (RegName :: atom()),
@@ -385,6 +439,19 @@ finished or not.
 > at the same time, far more than a node started with default settings allows
 > (see the
 > [System Limits section in the Efficiency Guide](`e:system:system_limits.md`)).
+
+## Examples
+
+```erlang
+1> timer:apply_interval(5000, fun() -> logger:info("heartbeat") end).
+{ok, TRef}
+2> timer:apply_interval(100, fun(N) -> N + 1 end, [0]).
+{ok, TRef}
+3> timer:apply_interval(1000, io, format, ["tick~n", []]).
+{ok, TRef}
+4> timer:apply_interval(0, io, format, ["bad~n", []]).
+{error, badarg}
+```
 """.
 -spec apply_interval(Time, Module, Function, Arguments) ->
           {'ok', TRef} | {'error', Reason}
@@ -451,6 +518,19 @@ large amount of time will be the same even if some individual execution times
 are larger than `Time`. The system will try to catch up as soon as possible. For
 example, if one apply takes `2.5*Time`, the following two applies will be made
 immediately one after the other in sequence.
+
+## Examples
+
+```erlang
+1> timer:apply_repeatedly(1000, fun() -> process_queue() end).
+{ok, TRef}
+2> timer:apply_repeatedly(500, fun(X) -> sync(X) end, [db]).
+{ok, TRef}
+3> timer:apply_repeatedly(2000, erlang, statistics, [runtime]).
+{ok, TRef}
+4> timer:apply_repeatedly(-1000, io, format, ["bad~n", []]).
+{error, badarg}
+```
 """.
 -doc(#{since => <<"OTP 26.0">>}).
 -spec apply_repeatedly(Time, Module, Function, Arguments) ->
@@ -473,6 +553,17 @@ Evaluates `Destination ! Message` repeatedly after `Time` milliseconds.
 
 `Destination` can be a remote or local process identifier, an atom of a registered
 name or a tuple `{RegName, Node}` for a registered name at another node.
+
+## Examples
+
+```erlang
+1> timer:send_interval(1000, pulse).
+{ok, TRef}
+2> timer:send_interval(10000, self(), tick).
+{ok, TRef}
+3> timer:send_interval(0, self(), msg).
+{error, badarg}
+```
 """.
 -spec send_interval(Time, Destination, Message) -> {'ok', TRef} | {'error', Reason}
               when Time :: time(),
@@ -511,6 +602,16 @@ returned by the related timer function.
 
 Returns `{ok, cancel}`, or `{error, Reason}` when `TRef` is not a timer
 reference.
+
+## Examples
+
+```erlang
+1> {ok, TRef} = timer:send_after(10000, self(), msg),
+1> timer:cancel(TRef).
+{ok, cancel}
+2> timer:cancel(make_ref()).
+{error, badarg}
+```
 """.
 -spec cancel(TRef) -> {'ok', 'cancel'} | {'error', Reason}
               when TRef :: tref(),
@@ -541,6 +642,13 @@ Naturally, this function does _not_ return immediately.
 > Before OTP 25, `timer:sleep/1` did not accept integer timeout values greater
 > than `16#ffffffff`, that is, `2^32-1`. Since OTP 25, arbitrarily high integer
 > values are accepted.
+
+## Examples
+
+```erlang
+1> timer:sleep(100).
+ok
+```
 """.
 -spec sleep(Time) -> 'ok'
               when Time :: time() | 'infinity'.
@@ -644,6 +752,19 @@ real time as reported by `erlang:monotonic_time/0`.
 
 Returns `{Time, Value}`, where `Time` is the elapsed real time in the
 specified `TimeUnit`, and `Value` is what is returned from the apply.
+
+## Examples
+
+```erlang
+1> timer:tc(fun(X) -> X * X end, [5]).
+{0, 25}
+2> timer:tc(erlang, length, [[1,2,3,4,5]]).
+{2, 5}
+3> timer:tc(lists, seq, [1, 1000], millisecond).
+{0, [1,2,3,...]}
+4> timer:tc(erlang, length, [[]], bad_unit).
+{error, badarg}
+```
 """.
 -doc(#{since => <<"OTP 26.0">>}).
 -spec tc(Module, Function, Arguments, TimeUnit) -> {Time, Value}
@@ -668,6 +789,18 @@ tc(M, F, A, TimeUnit) ->
 Calculates the time difference `Tdiff = T2 - T1` in _microseconds_, where `T1`
 and `T2` are time-stamp tuples on the same format as returned from
 `erlang:timestamp/0` or `os:timestamp/0`.
+
+## Examples
+
+```erlang
+1> T1 = erlang:timestamp(),
+1> timer:sleep(100),
+1> T2 = erlang:timestamp(),
+1> timer:now_diff(T2, T1) > 100000.
+true
+2> timer:now_diff({1000, 0, 0}, {999, 999999, 999999}).
+1
+```
 """.
 -spec now_diff(T2, T1) -> Tdiff
               when T1 :: erlang:timestamp(),
@@ -679,28 +812,64 @@ now_diff({A2, B2, C2}, {A1, B1, C1}) ->
 %%
 %% Convert seconds, minutes etc. to milliseconds.
 %%
--doc "Returns the number of milliseconds in `Seconds`.".
+-doc """
+Returns the number of milliseconds in `Seconds`.
+
+## Examples
+
+```erlang
+1> timer:seconds(5).
+5000
+```
+""".
 -spec seconds(Seconds) -> MilliSeconds
               when Seconds :: non_neg_integer(),
                    MilliSeconds :: time().
 seconds(Seconds) ->
     1000*Seconds.
 
--doc "Returns the number of milliseconds in `Minutes`.".
+-doc """
+Returns the number of milliseconds in `Minutes`.
+
+## Examples
+
+```erlang
+1> timer:minutes(2).
+120000
+```
+""".
 -spec minutes(Minutes) -> MilliSeconds
               when Minutes :: non_neg_integer(),
                    MilliSeconds :: time().
 minutes(Minutes) ->
     1000*60*Minutes.
 
--doc "Returns the number of milliseconds in `Hours`.".
+-doc """
+Returns the number of milliseconds in `Hours`.
+
+## Examples
+
+```erlang
+1> timer:hours(1).
+3600000
+```
+""".
 -spec hours(Hours) -> MilliSeconds
               when Hours :: non_neg_integer(),
                    MilliSeconds :: time().
 hours(Hours) ->
     1000*60*60*Hours.
 
--doc "Returns the number of milliseconds in `Hours + Minutes + Seconds`.".
+-doc """
+Returns the number of milliseconds in `Hours + Minutes + Seconds`.
+
+## Examples
+
+```erlang
+1> timer:hms(1, 30, 45).
+5445000
+```
+""".
 -spec hms(Hours, Minutes, Seconds) -> MilliSeconds
               when Hours :: non_neg_integer(),
                    Minutes :: non_neg_integer(),
@@ -720,6 +889,13 @@ Normally, the server does not need to be started explicitly. It is started dynam
 if it is needed. This is useful during development, but in a target system the server
 is to be started explicitly. Use configuration parameters for [Kernel](`e:kernel:index.html`)
 for this.
+
+## Examples
+
+```erlang
+1> timer:start().
+ok
+```
 """.
 -spec start() -> 'ok'.
 start() ->
