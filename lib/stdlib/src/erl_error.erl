@@ -175,17 +175,6 @@ end
 
 See `erlang:error/3` for details on how to raise an exception with `error_info`
 included.
-
-## Examples
-
-```erlang
-1> try error(badarg) catch C:R:Stk -> io:put_chars(erl_error:format_exception(C, R, Stk)) end.
-** exception error: bad argument
-ok
-2> try error(badarg) catch C:R:Stk -> io:put_chars(erl_error:format_exception(C, R, Stk, #{column => 5})) end.
-** exception error: bad argument
-ok
-```
 """.
 -doc(#{since => <<"OTP 24.0">>}).
 -spec format_exception(Class, Reason, StackTrace, Options) -> unicode:chardata() when

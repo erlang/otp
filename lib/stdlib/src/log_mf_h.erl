@@ -110,15 +110,6 @@ Initiates the event handler. Returns `Args`, which is to be used in a call to
 the size of each individual file. `MaxFiles` specifies how many files are used.
 `Pred` is a predicate function used to filter the events. If no predicate
 function is specified, all events are logged.
-
-## Examples
-
-```erlang
-1> Args = log_mf_h:init("/tmp/mylogs", 100000, 5).
-{"/tmp/mylogs",100000,5,#Fun<log_mf_h.0.0>}
-2> Args2 = log_mf_h:init("/tmp/mylogs", 100000, 5, fun(E) -> E =/= ignore end).
-{"/tmp/mylogs",100000,5,#Fun<erl_eval.42.3316493>}
-```
 """.
 -spec init(Dir, MaxBytes, MaxFiles, Pred) -> Args when
       Dir :: file:filename(),
