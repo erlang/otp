@@ -340,17 +340,6 @@ Closes a table. Only processes that have opened a table are allowed to close it.
 All open tables must be closed before the system is stopped. If an attempt is
 made to open a table that is not properly closed, Dets automatically tries to
 repair it.
-
-## Examples
-
-```erlang
-1> dets:open_file(my_table, [{file, "/tmp/my_table.dets"}]).
-{ok,my_table}
-2> dets:close(my_table).
-ok
-3> dets:close(my_table).
-{error,not_owner}
-```
 """.
 -spec close(Name) -> 'ok' | {'error', Reason} when
       Name :: tab_name(),
@@ -706,19 +695,6 @@ init_table(Tab, InitFun, Options) ->
 Inserts one or more objects into the table `Name`. If there already exists an
 object with a key matching the key of some of the given objects and the table
 type is `set`, the old object will be replaced.
-
-## Examples
-
-```erlang
-1> dets:open_file(my_table, [{file, "/tmp/my_table.dets"}]).
-{ok,my_table}
-2> dets:insert(my_table, {key1, value1}).
-ok
-3> dets:insert(my_table, {key1, new_value}).
-ok
-4> dets:insert(no_table, {key, value}).
-{error,{no_such_table,no_table}}
-```
 """.
 -spec insert(Name, Objects) -> 'ok' | {'error', Reason} when
       Name :: tab_name(),
@@ -786,7 +762,19 @@ is_dets_file(FileName) ->
     end.
 
 -doc """
-Returns a list of all objects with key `Key` stored in table `Name`.
+Returns a list of all objects with key `Key` stored in table `Name`, for
+example:
+
+```erlang
+2> dets:open_file(abc, [{type, bag}]).
+{ok,abc}
+3> dets:insert(abc, {1,2,3}).
+ok
+4> dets:insert(abc, {1,3,4}).
+ok
+5> dets:lookup(abc, 1).
+[{1,2,3},{1,3,4}]
+```
 
 If the table type is `set`, the function returns either the empty list or a list
 with one object, as there cannot be more than one object with a given key. If
@@ -795,21 +783,6 @@ arbitrary length.
 
 Notice that the order of objects returned is unspecified. In particular, the
 order in which objects were inserted is not reflected.
-
-## Examples
-
-```erlang
-1> dets:open_file(my_table, [{type, bag}, {file, "/tmp/my_table.dets"}]).
-{ok,my_table}
-2> dets:insert(my_table, {1, a}).
-ok
-3> dets:insert(my_table, {1, b}).
-ok
-4> dets:lookup(my_table, 1).
-[{1,a},{1,b}]
-5> dets:lookup(no_table, 1).
-{error,{no_such_table,no_table}}
-```
 """.
 -spec lookup(Name, Key) -> Objects | {'error', Reason} when
       Name :: tab_name(),
@@ -1124,17 +1097,6 @@ allowed:
   Option `repair` is ignored if the table is already open.
 
 - `{type,` `t:type/0` `}` \- The table type. Defaults to `set`.
-
-## Examples
-
-```erlang
-1> dets:open_file(my_bag, [{type, bag}, {file, "/tmp/my_bag.dets"}]).
-{ok,my_bag}
-2> dets:open_file(my_table, [{keypos, 2}]).
-{ok,my_table}
-3> dets:open_file(bad, [{file, "/etc/hosts"}]).
-{error,{not_a_dets_file,"/etc/hosts"}}
-```
 """.
 -spec open_file(Name, Args) -> {'ok', Name} | {'error', Reason} when
       Name :: tab_name(),
