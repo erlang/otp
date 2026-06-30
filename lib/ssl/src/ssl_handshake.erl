@@ -1597,6 +1597,8 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite,
                                Exts, Version,
                                SslOpts,
 			       ConnectionStates0, Renegotiation, IsNew) ->
+    AvailableCipherSuites = available_suites(maps:get(ciphers, SslOpts), Version),
+    validate_cipher_suite(CipherSuite, AvailableCipherSuites),
     ConnectionStates = handle_renegotiation_extension(client, RecordCB, Version,
                                                       maps:get(renegotiation_info, Exts, undefined),
                                                       Random,
@@ -3659,6 +3661,11 @@ filter_unavailable_ecc_suites(no_curve, Suites) ->
 filter_unavailable_ecc_suites(_, Suites) ->
     Suites.
 %%-------------Extension handling --------------------------------
+validate_cipher_suite(CipherSuite, ClientCipherSuites) ->
+    case lists:member(CipherSuite, ClientCipherSuites) of
+        true -> ok;
+        false -> throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
+    end.
 
 handle_renegotiation_extension(Role, RecordCB, Version, Info, Random, NegotiatedCipherSuite,
 			       ClientCipherSuites,
