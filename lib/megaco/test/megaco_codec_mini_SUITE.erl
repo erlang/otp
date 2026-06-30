@@ -64,7 +64,12 @@
          otp16631_msg33/1,
          otp16631_msg34/1,
          otp16631_msg35/1,
-         otp16631_msg36/1
+         otp16631_msg36/1,
+
+         otp20234_scan_oversized_binary/1,
+         otp20234_scan_oversized_list/1,
+         otp20234_oversized_integer/1,
+         otp20234_boundary_integer/1
 
 	]).  
 
@@ -89,13 +94,15 @@ groups() ->
     [
      {tickets,  [], tickets_cases()},
      {otp7672,  [], otp7672_cases()},
-     {otp16631, [], otp16631_cases()}
+     {otp16631, [], otp16631_cases()},
+     {otp20234, [], otp20234_cases()}
     ].
 
 tickets_cases() ->
     [
      {group, otp7672},
-     {group, otp16631}
+     {group, otp16631},
+     {group, otp20234}
     ].
 
 otp7672_cases() ->
@@ -130,6 +137,14 @@ otp16631_cases() ->
      otp16631_msg34,
      otp16631_msg35,
      otp16631_msg36
+    ].
+
+otp20234_cases() ->
+    [
+     otp20234_scan_oversized_binary,
+     otp20234_scan_oversized_list,
+     otp20234_oversized_integer,
+     otp20234_boundary_integer
     ].
 
 
@@ -594,6 +609,89 @@ otp16631_msg(X) when is_list(X) ->
     "!/1 [2409:8050:5005:1243:1011::" ++ X ++ 
         "] T=2523{C=-{SC=ROOT{SV{MT=RS,RE=901,PF=ETSI_BGF/2,V=3}}}}".
 
+
+%% --------------------------------------------------------------
+%% OTP-20234: Limit text codec integer parsing to prevent CPU
+%% exhaustion via oversized digit strings.
+%% --------------------------------------------------------------
+
+%% Verify that the scanner rejects binary input exceeding MAX_SCAN_SIZE (100KB).
+otp20234_scan_oversized_binary(suite) ->
+    [];
+otp20234_scan_oversized_binary(Config) when is_list(Config) ->
+    d("otp20234_scan_oversized_binary -> entry", []),
+    %% 100_001 bytes — just over the 100KB gate
+    Bin = <<"!/1 ", (binary:copy(<<"0">>, 100001))/binary>>,
+    case megaco_text_scanner:scan(Bin) of
+        {error, {message_too_large, Size}, 0} when Size > 100000 ->
+            d("otp20234_scan_oversized_binary -> rejected with size ~p", [Size]),
+            ok;
+        Other ->
+            e("otp20234_scan_oversized_binary -> unexpected result: ~p", [Other]),
+            ct:fail({unexpected_result, Other})
+    end.
+
+%% Verify that the scanner rejects list input exceeding MAX_SCAN_SIZE (100KB).
+otp20234_scan_oversized_list(suite) ->
+    [];
+otp20234_scan_oversized_list(Config) when is_list(Config) ->
+    d("otp20234_scan_oversized_list -> entry", []),
+    %% 100_001 chars — just over the 100KB gate
+    Chars = "!/1 " ++ lists:duplicate(100001, $0),
+    case megaco_text_scanner:scan(Chars) of
+        {error, {message_too_large, Size}, 0} when Size > 100000 ->
+            d("otp20234_scan_oversized_list -> rejected with size ~p", [Size]),
+            ok;
+        Other ->
+            e("otp20234_scan_oversized_list -> unexpected result: ~p", [Other]),
+            ct:fail({unexpected_result, Other})
+    end.
+
+%% Verify that a 21-digit integer token is rejected by the parser
+%% (exceeds MAX_DIGITS = 20) without triggering expensive bignum conversion.
+%% Uses full decode_message (not mini) since the mini decoder doesn't
+%% validate integers in the transaction body.
+otp20234_oversized_integer(suite) ->
+    [];
+otp20234_oversized_integer(Config) when is_list(Config) ->
+    d("otp20234_oversized_integer -> entry", []),
+    %% 21-digit transactionID — exceeds ?MAX_DIGITS (20)
+    TID = lists:duplicate(21, $9),
+    Msg = list_to_binary(
+            "!/1 [10.10.10.10]:2944\nT=" ++ TID ++
+            "{C=-{SC=ROOT{SV{MT=RS,RE=\"901\"}}}}"),
+    case megaco_compact_text_encoder:decode_message([], dynamic, Msg) of
+        {error, [{reason, {_Line, _Mod, {too_large_integer, _Text, _Max}}} | _]} ->
+            d("otp20234_oversized_integer -> "
+              "correctly rejected by digit guard", []),
+            ok;
+        Other ->
+            e("otp20234_oversized_integer -> "
+              "unexpected result: ~p", [Other]),
+            ct:fail({unexpected_result, Other})
+    end.
+
+%% Verify that a valid 10-digit uint32 (max value 4294967295) still
+%% parses the integer successfully — boundary test ensuring the
+%% MAX_DIGITS guard doesn't over-reject. The message may fail later
+%% validation (e.g. missing parameters), but the integer parsing step
+%% must succeed (no too_large_integer error).
+otp20234_boundary_integer(suite) ->
+    [];
+otp20234_boundary_integer(Config) when is_list(Config) ->
+    d("otp20234_boundary_integer -> entry", []),
+    %% 10-digit transactionID at uint32 max — within ?MAX_DIGITS (20)
+    Msg = <<"!/1 [10.10.10.10]:2944\nT=4294967295"
+            "{C=-{SC=ROOT{SV{MT=RS,RE=\"901\"}}}}">>,
+    case megaco_compact_text_encoder:decode_message([], dynamic, Msg) of
+        {ok, _} ->
+            d("otp20234_boundary_integer -> correctly accepted", []),
+            ok;
+        Other ->
+            e("otp20234_boundary_integer -> "
+              "unexpected result: ~p", [Other]),
+            ct:fail({unexpected_result, Other})
+    end.
 
 
 
