@@ -1797,7 +1797,16 @@ handle_pre_shared_key(#state{ssl_options = #{session_tickets := Tickets},
                                                        OfferedPreSharedKeys}, Cipher) when Tickets =/= disabled ->
     Tracker = proplists:get_value(session_tickets_tracker, Trackers),
     #{prf := CipherHash} = ssl_cipher_format:suite_bin_to_map(Cipher),
-    tls_server_session_ticket:use(Tracker, OfferedPreSharedKeys, CipherHash, HHistory).
+    #offered_psks{
+       identities = Identities,
+       binders = Binders
+      } = OfferedPreSharedKeys,
+    case length(Identities) == length(Binders) of
+        true ->
+            tls_server_session_ticket:use(Tracker, OfferedPreSharedKeys, CipherHash, HHistory);
+        false ->
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, illegal_pre_shared_key)}
+    end.
 
 %% If the handshake includes a HelloRetryRequest, the initial
 %% ClientHello and HelloRetryRequest are included in the transcript

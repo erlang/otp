@@ -28,6 +28,7 @@
 -include("ssl_test_lib.hrl").
 -include_lib("ssl/src/tls_handshake.hrl").
 -include_lib("ssl/src/ssl_record.hrl").
+-include_lib("ssl/src/ssl_api.hrl").
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
@@ -63,8 +64,11 @@
          server_max_session_table/0,
          server_max_session_table/1,
          session_table_stable_size_on_tcp_close/0,
-         session_table_stable_size_on_tcp_close/1
+         session_table_stable_size_on_tcp_close/1,
+         session_server_restart/0,
+         session_server_restart/1
         ]).
+-export([accept_socket/2]).
 
 -define(SLEEP, 500).
 -define(EXPIRE, 2).
@@ -100,7 +104,8 @@ session_tests() ->
      no_reuses_session_server_restart_new_cert,
      no_reuses_session_server_restart_new_cert_file,
      client_max_session_table,
-     server_max_session_table
+     server_max_session_table,
+     session_server_restart
     ].
 
 tls_session_tests() ->
@@ -666,8 +671,85 @@ session_table_stable_size_on_tcp_close(Config) when is_list(Config)->
 
     faulty_client(Hostname, Port),
     check_table_did_not_grow(SessionCachePid, N).
+%%--------------------------------------------------------------------
+session_server_restart() ->
+    [{doc,"Test that if server session handler restarts"
+     " session resumption comes becomes available again"}].
+session_server_restart(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Test = self(),
+    Server =
+        ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                   {from, self()},
+                                   {mfa, {?MODULE, accept_socket, [Test]}},
+                                   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    {Client0, Client0Sock} =
+        ssl_test_lib:start_client([{node, ClientNode},
+                                   {port, Port}, {host, Hostname},
+                                   {mfa, {ssl_test_lib, no_result, []}},
+                                   {from, self()}, {options, [{reuse_sessions, save} | ClientOpts]},
+                                   return_socket
+                                  ]),
 
+    {ok, [{session_id, ID}, {session_data, SessData}]} =
+        ssl:connection_information(Client0Sock, [session_id, session_data]),
+    SSocket = receive
+                  {server, SSocket0} ->
+                      SSocket0
+              end,
+    ssl_test_lib:close(Client0),
 
+    Tracker = tracker(SSocket),
+    exit(Tracker, kill), %% Fake server session handler crash
+
+    Server ! listen,
+
+    {Client1, Client1Sock} =
+        ssl_test_lib:start_client([{node, ClientNode},
+                                   {port, Port}, {host, Hostname},
+                                   {mfa, {ssl_test_lib, no_result, []}},
+                                   {from, self()},
+                                   {options, [{reuse_session, {ID, SessData}} | ClientOpts]},
+                                   return_socket]),
+
+    {ok, [{session_id, ID2}]} = ssl:connection_information(Client1Sock, [session_id]),
+    true = ID =/= ID2,
+
+    ssl_test_lib:close(Client1),
+    Server ! listen,
+
+    {Client2, Client2Sock} =
+        ssl_test_lib:start_client([{node, ClientNode},
+                                   {port, Port}, {host, Hostname},
+                                   {mfa, {ssl_test_lib, no_result, []}},
+                                   {from, self()}, {options, [{reuse_sessions, save} | ClientOpts]},
+                                   return_socket
+                                  ]),
+
+    {ok, [{session_id, ID3}, {session_data, SessData3}]} =
+        ssl:connection_information(Client2Sock, [session_id, session_data]),
+
+    ssl_test_lib:close(Client2),
+
+    Server ! listen,
+
+    {Client3, Client3Sock} =
+        ssl_test_lib:start_client([{node, ClientNode},
+                                   {port, Port}, {host, Hostname},
+                                   {mfa, {ssl_test_lib, no_result, []}},
+                                   {from, self()},
+                                   {options, [{reuse_session, {ID3, SessData3}} | ClientOpts]},
+                                   return_socket]),
+    
+    {ok, [{session_id, ID3}]} =
+        ssl:connection_information(Client3Sock, [session_id]),
+    ssl_test_lib:close(Client3).
+
+accept_socket(Socket, Pid) ->
+    Pid ! {server, Socket}.
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
@@ -885,3 +967,10 @@ sup_name(Opts) ->
            dtls_server_session_cache_sup
    end.
 
+tracker(#sslsocket{transport_cb = gen_tcp} = Socket) ->
+    Trackers = Socket#sslsocket.listener_config,
+    proplists:get_value(session_id_tracker, Trackers);
+tracker(#sslsocket{transport_cb = gen_udp}) ->
+    Sup = whereis(dtls_server_session_cache_sup),
+    [{_,Child, worker,[ssl_server_session_cache]}] = supervisor:which_children(Sup),
+    Child.
