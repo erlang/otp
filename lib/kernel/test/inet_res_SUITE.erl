@@ -2004,6 +2004,34 @@ bad_decode_2(Config) when is_list(Config) ->
                   id = ID, qr = QR, opcode = 'query', rd = 1 },
            qdlist = [#dns_query{ domain = "", type = 'a', class = 'in'}] },
     {error, formerr} = inet_dns:decode_reply(Buffer, Q, false),
+
+    %% NAPTR with broken UTF-8
+
+    %% Encode should fail
+    Replacement = "Replacement",
+    ReplBin = list_to_binary(Replacement),
+    RR1_NAPTR =
+        #dns_rr{
+           type = 'naptr',
+           data = {100,10,"Flags","Services",<<"Regex",255>>,Replacement}},
+    try inet_dns:encode(Q#dns_rec{ anlist = [RR1_NAPTR] }) of
+        Result -> error({should_not_encode, Result})
+    catch error : _ -> ok
+    end,
+
+    %% Decode should return proper error
+    RR_NAPTR =
+        #dns_rr{
+           type = 'naptr',
+           data = {100,10,"Flags","Services","Regexp",Replacement}},
+    Buffer_NAPTR = inet_dns:encode(Q#dns_rec{ anlist = [RR_NAPTR] }),
+    Tail_NAPTR = << (byte_size(ReplBin)), ReplBin/binary, 0 >>,
+    << Start_NAPTR:(byte_size(Buffer_NAPTR)-byte_size(Tail_NAPTR)-1)/binary,
+       _,
+       Tail_NAPTR/binary >> = Buffer_NAPTR,
+    {error,formerr} =
+        inet_dns:decode(<< Start_NAPTR/binary, 255, Tail_NAPTR/binary >>),
+
     ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

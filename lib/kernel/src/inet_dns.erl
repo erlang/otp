@@ -787,7 +787,11 @@ decode_characters(Data, Encoding) ->
     ?MATCH_ELSE_DECODE_ERROR(
        Data,
        <<Len,Bin:Len/binary,Rest/binary>>,
-       {Rest,unicode:characters_to_list(Bin, Encoding)}).
+       ?MATCH_ELSE_DECODE_ERROR(
+          unicode:characters_to_list(Bin, Encoding),
+          String,
+          is_list(String),
+          {Rest,String})).
 
 %% One domain name only, there must be nothing after
 %%
@@ -974,11 +978,15 @@ encode_data(Comp, Pos, ?S_NAPTR, Data) ->
     B0 = <<Order:16,Preference:16>>,
     B1 = encode_string(B0, iolist_to_binary(Flags)),
     B2 = encode_string(B1, iolist_to_binary(Services)),
-    B3 = encode_string(B2, unicode:characters_to_binary(Regexp,
-							unicode, utf8)),
-    %% Bypass name compression (RFC 2915: section 2)
-    {B,_} = encode_name(B3, gb_trees:empty(), Pos+byte_size(B3), Replacement),
-    {B,Comp};
+    case unicode:characters_to_binary(Regexp, unicode, utf8) of
+        EncRegexp when is_binary(EncRegexp) ->
+            B3 = encode_string(B2, EncRegexp),
+            %% Bypass name compression (RFC 2915: section 2)
+            {B,_} =
+                encode_name(
+                  B3, gb_trees:empty(), Pos+byte_size(B3), Replacement),
+            {B,Comp}
+    end;
 encode_data(Comp, _, ?S_TXT, Data) -> {encode_txt(Data),Comp};
 encode_data(Comp, _, ?S_SPF, Data) -> {encode_txt(Data),Comp};
 encode_data(Comp, _, ?S_URI, Data) ->
