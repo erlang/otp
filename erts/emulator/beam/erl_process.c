@@ -3267,7 +3267,7 @@ aux_thread(void *vix)
                     if (flgs & ERTS_SSI_FLG_SLEEPING) {
                         ASSERT(flgs & ERTS_SSI_FLG_POLL_SLEEPING);
                         ASSERT(flgs & ERTS_SSI_FLG_WAITING);
-                        erts_check_io(ssi->psi, ERTS_POLL_INF_TIMEOUT, 0);
+                        erts_check_io(ssi->psi, ERTS_POLL_INF_TIMEOUT, false);
                     }
                 }
             }
@@ -3369,7 +3369,7 @@ poll_thread(void *vbpt)
 
     while (1) {
         erts_check_io_interrupt(psi, 0);
-        erts_check_io(psi, ERTS_POLL_INF_TIMEOUT, !0);
+        erts_check_io(psi, ERTS_POLL_INF_TIMEOUT, true);
     }
     return NULL;
 }
@@ -3564,7 +3564,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
                     if (flgs & ERTS_SSI_FLG_SLEEPING) {
                         ASSERT(flgs & ERTS_SSI_FLG_POLL_SLEEPING);
                         ASSERT(flgs & ERTS_SSI_FLG_WAITING);
-                        erts_check_io(ssi->psi, timeout_time, 0);
+                        erts_check_io(ssi->psi, timeout_time, false);
                         current_time = erts_get_monotonic_time(esdp);
                     }
                 }
@@ -9957,7 +9957,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
             ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_CHECK_IO);
 
-	    erts_check_io(esdp->ssi->psi, ERTS_POLL_NO_TIMEOUT, 0);
+            erts_check_io(esdp->ssi->psi, ERTS_POLL_NO_TIMEOUT, false);
 	    ERTS_MSACC_POP_STATE_M();
 
 	    current_time = erts_get_monotonic_time(esdp);
