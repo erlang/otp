@@ -480,9 +480,9 @@ sshd_simple_exec(Config) ->
             {public_key,Alg} -> [{pref_public_key_algs,Alg}];
             _ -> []
         end,
-    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT,
-                                         [proplists:get_value(pref_algs,Config)
-                                          | ClientPubKeyOpts]),
+    ConnectionRef = ssh_test_lib:connect_with_retry(?SSH_DEFAULT_PORT,
+                                                    [proplists:get_value(pref_algs,Config)
+                                                     | ClientPubKeyOpts]),
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId0,
 				  "echo testing", infinity),
