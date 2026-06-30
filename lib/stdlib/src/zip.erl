@@ -1784,7 +1784,7 @@ do_openzip_get(F, #openzip{files = Files, in = In0, input = Input,
 	    In1 = Input({seek, bof, Offset}, In0),
 	    case get_z_file(In1, Z, Input, Output, [], fun silent/1,
 			    CWD, ZFile, fun all/1, false, ExtraOpts) of
-		{file, R, _In2} -> {ok, R};
+                {file, R, _In2} -> {ok, Output(flush, R)};
 		_ -> throw(file_not_found)
 	    end;
 	_ -> throw(file_not_found)

@@ -38,7 +38,7 @@
          zip64_central_headers/1, unzip64_central_headers/1,
          zip64_central_directory/1,
          basic_timestamp/1, extended_timestamp/1, capped_timestamp/1,
-         uid_gid/1]).
+         uid_gid/1, zip_get_2_to_cwd/1]).
 
 -export([zip/5, unzip/3]).
 
@@ -57,7 +57,8 @@ all() ->
      zip_options, list_dir_options, aliases,
      zip_api, open_leak, unzip_jar, compress_control, foldl,
      unzip_traversal_exploit, fd_leak, unicode, test_zip_dir,
-     explicit_file_info, {group, zip_group}, {group, zip64_group}].
+     explicit_file_info, zip_get_2_to_cwd,
+     {group, zip_group}, {group, zip64_group}].
 
 groups() -> 
     zip_groups().
@@ -1274,6 +1275,25 @@ explicit_file_info(_Config) ->
     Files = [{"datetime", <<>>, FileInfo},
              {"seconds", <<>>, FileInfo#file_info{mtime=315532800}}],
     {ok, _} = zip:zip("", Files, [memory]),
+    ok.
+
+zip_get_2_to_cwd(Config) ->
+    Files = [{"file.txt", binary:copy(<<"txt">>, 100)},
+             {"file.zip", binary:copy(<<"zip">>, 100)}],
+    CreateOpts = [memory, {uncompress, [".zip"]}],
+    {ok, {_, ZipBin}} = zip:zip("", Files, CreateOpts),
+
+    PrivDir = get_value(priv_dir, Config),
+    {ok, ZipSrv} = zip:zip_open(ZipBin, [{cwd, PrivDir}]),
+
+    {ok, TxtFile} = zip:zip_get("file.txt", ZipSrv),
+    {ok, <<"txt", _/binary>>} = file:read_file(TxtFile),
+
+    {ok, ZipFile} = zip:zip_get("file.zip", ZipSrv),
+    {ok, <<"zip", _/binary>>} = file:read_file(ZipFile),
+
+    ok = zip:zip_close(ZipSrv),
+
     ok.
 
 mode(Config) ->
