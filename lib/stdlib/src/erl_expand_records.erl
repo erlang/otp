@@ -78,26 +78,6 @@ Section [The Abstract Format](`e:erts:absform.md`) in ERTS User's Guide.
 Expands all records in a module to use explicit tuple operations and adds
 explicit module names to calls to BIFs and imported functions. The returned
 module has no references to records, attributes, or code.
-
-## Examples
-
-```erlang
-1> {ok, T1, _} = erl_scan:string("-record(r, {a, b = 2})."), {ok, RecForm} = erl_parse:parse_form(T1), ok.
-ok
-2> {ok, T2, _} = erl_scan:string("f(X) -> X#r.a."), {ok, FunForm} = erl_parse:parse_form(T2), ok.
-ok
-3> [_, Expanded] = erl_expand_records:module([RecForm, FunForm], []), ok.
-ok
-4> io:put_chars(erl_pp:form(Expanded)).
-f(X) ->
-    case X of
-        {r, rec0, _} ->
-            rec0;
-        rec0 ->
-            error({badrecord, rec0})
-    end.
-ok
-```
 """.
 -spec(module(AbsForms, CompileOptions) -> AbsForms2 when
       AbsForms :: [erl_parse:abstract_form()],
