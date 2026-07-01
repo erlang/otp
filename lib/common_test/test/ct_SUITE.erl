@@ -41,7 +41,7 @@ end_per_testcase(_TestCase, _Config) ->
     ok.
 
 all() ->
-    [app_file, appup_file].
+    [app_file, appup_file, capture_sends_no_messages].
 
 %%%-----------------------------------------------------------------
 %%% Test cases
@@ -53,3 +53,16 @@ app_file(_Config) ->
 appup_file(_Config) ->
     ok = test_server:appup_test(common_test).
 
+% See GitHub issue #6016, we shouldn't abuse the process mailbox to store the
+% captured messages in such that receive won't return unexpected messages or
+% worse, even throw them away.
+capture_sends_no_messages(_Config) ->
+    ct:capture_start(),
+    io:fwrite("Hello from ~s", [?FUNCTION_NAME]),
+    ct:capture_stop(),
+    receive
+        Anything -> ct:fail("Received unwanted data: ~w", [Anything])
+    after
+        0 -> ok
+    end,
+    [_Message] = ct:capture_get().
