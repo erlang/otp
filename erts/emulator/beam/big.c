@@ -1325,6 +1325,19 @@ static dsize_t I_div(ErtsDigit* x, dsize_t xl, ErtsDigit* y, dsize_t yl,
 #define BZ_DIV_THRESHOLD 8
 #endif
 
+/*
+** Minimum quotient size (in ErtsDigits) for taking the Burnikel-Ziegler
+** path when the operands are otherwise unbalanced (yl <= xl < 2*yl).
+** I_div_bz handles any such shape (it pads the dividend and chunks it),
+** but for tiny quotients its fixed O(M(yl)) cost loses to schoolbook's
+** O((xl - yl) * yl). The measured crossover is ~40..90 quotient digits
+** for divisors of 500..31000 digits; 64 is within ~1.5x of optimal
+** across that whole range.
+*/
+#ifndef BZ_UNBALANCED_QMIN
+#define BZ_UNBALANCED_QMIN 64
+#endif
+
 /* If non-zero: I_div_dispatch verifies BZ result against I_div on the
  * original input. Use only for debugging. */
 #ifndef BZ_SELFCHECK
@@ -1757,7 +1770,8 @@ static dsize_t I_div_dispatch(ErtsDigit *x, dsize_t xl,
                               ErtsDigit *y, dsize_t yl,
                               ErtsDigit *q, ErtsDigit *r, dsize_t *rlp)
 {
-    if (yl >= BZ_DIV_THRESHOLD && xl >= 2 * yl) {
+    if (yl >= BZ_DIV_THRESHOLD
+        && (xl >= 2 * yl || xl - yl >= BZ_UNBALANCED_QMIN)) {
 #if BZ_SELFCHECK
         /* Save x (BZ destroys it) and the expected schoolbook result. */
         ErtsDigit *x_copy = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP,
