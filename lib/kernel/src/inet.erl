@@ -318,6 +318,7 @@ Function `parse_address/1` can be useful:
 
 -export_type([socket_protocol/0, hostent/0, hostname/0,
               address_family/0, ip4_address/0, ip6_address/0, ip_address/0,
+              address_text/0,
               port_number/0,
 	      family_address/0, local_address/0, socket_address/0,
               returned_non_ip_address/0,
@@ -373,6 +374,15 @@ Add the following directive to the module:
 			0..65535,0..65535,0..65535,0..65535}.
 
 -type ip_address() :: ip4_address() | ip6_address().
+
+-doc """
+Textual IPv4 or IPv6 address input for `parse_*` functions.
+
+A `string()` character list is the traditional form. Since OTP 29.0,
+a UTF-8 `binary()` containing the same character sequence is also accepted
+(for example `~"192.168.0.1"` for `"192.168.0.1"`).
+""".
+-type address_text() :: string() | binary().
 
 -type port_number() :: 0..65535.
 
@@ -2935,7 +2945,7 @@ such as `"127.1"` or `"0x7f000001"`.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_ipv4_address(Address) ->
 	{ok, IPv4Address} | {error, einval} when
-      Address :: string(),
+      Address :: address_text(),
       IPv4Address :: ip4_address().
 parse_ipv4_address(Addr) ->
     inet_parse:ipv4_address(Addr).
@@ -2949,7 +2959,7 @@ and returns an IPv4-mapped IPv6 address.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_ipv6_address(Address) ->
 	{ok, IPv6Address} | {error, einval} when
-      Address :: string(),
+      Address :: address_text(),
       IPv6Address :: ip6_address().
 parse_ipv6_address(Addr) ->
     inet_parse:ipv6_address(Addr).
@@ -2963,7 +2973,7 @@ that is; _not_ a short form address string.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_ipv4strict_address(Address) ->
 	{ok, IPv4Address} | {error, einval} when
-      Address :: string(),
+      Address :: address_text(),
       IPv4Address :: ip4_address().
 parse_ipv4strict_address(Addr) ->
     inet_parse:ipv4strict_address(Addr).
@@ -2978,7 +2988,7 @@ allows an IPv4 tail like this: `"::127.0.0.1"`
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_ipv6strict_address(Address) ->
 	{ok, IPv6Address} | {error, einval} when
-      Address :: string(),
+      Address :: address_text(),
       IPv6Address :: ip6_address().
 parse_ipv6strict_address(Addr) ->
     inet_parse:ipv6strict_address(Addr).
@@ -2994,7 +3004,7 @@ Accepts a short form IPv4 address string like `parse_ipv4_address/1`.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_address(Address) ->
 	{ok, IPAddress} | {error, einval} when
-      Address :: string(),
+      Address :: address_text(),
       IPAddress :: ip_address().
 parse_address(Addr) ->
     inet_parse:address(Addr).
@@ -3002,11 +3012,11 @@ parse_address(Addr) ->
 -doc false.
 -spec parse_address(Address, inet) ->
           {ok, IPAddress} | {error, einval} when
-      Address :: string(),
+      Address :: address_text(),
       IPAddress :: ip_address();
                    (Address, inet6) ->
           {ok, IPv6Address} | {error, einval} when
-      Address :: string(),
+      Address :: address_text(),
       IPv6Address :: ip6_address().
 parse_address(Addr, inet) ->
     inet_parse:ipv4_address(Addr);
@@ -3021,7 +3031,7 @@ Like `parse_address/1` but _doesn't_ accept a short form IPv4 address string.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_strict_address(Address) ->
 	{ok, IPAddress} | {error, einval} when
-      Address :: string(),
+      Address :: address_text(),
       IPAddress :: ip_address().
 parse_strict_address(Addr) ->
     inet_parse:strict_address(Addr).
@@ -3029,11 +3039,11 @@ parse_strict_address(Addr) ->
 -doc false.
 -spec parse_strict_address(Address, inet) ->
           {ok, IPAddress} | {error, einval} when
-      Address :: string(),
+      Address :: address_text(),
       IPAddress :: ip_address();
                    (Address, inet6) ->
           {ok, IPv6Address} | {error, einval} when
-      Address :: string(),
+      Address :: address_text(),
       IPv6Address :: ip6_address().
 parse_strict_address(Addr, inet) ->
     inet_parse:ipv4strict_address(Addr);
