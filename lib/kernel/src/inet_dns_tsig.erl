@@ -273,22 +273,22 @@ do_verify(Pkt, _Response, TS = #tsig_state{ alg = {_Alg,AlgSize} }, TSigRR) ->
                 andalso
                MACSize =< AlgSize,
     MACValid orelse throw(formerr),
-    PktS = iolist_to_binary([
-        <<(TS#tsig_state.id):16>>,
-        binary:part(Pkt, {2,8}),
-        begin
-            <<ARC:16>> = binary:part(Pkt, {10,2}),
-            <<(ARC - 1):16>>
+    MACCalc =
+        if
+            element(1, TS#tsig_state.mac) == ?MODULE ->
+                PktS =
+                    iolist_to_binary(
+                      [binary_part(Pkt, 0, 10),
+                       begin
+                           <<ARC:16>> = binary_part(Pkt, 10, 2),
+                           <<(ARC - 1):16>>
+                       end,
+                       binary_part(Pkt, 12, Offset-12)]),
+                mac(PktS, TS, Error, NowSigned, OtherData);
+            %% RFC8945, section 5.3.1: TSIG on TCP Connections
+            true ->
+                mac(TS, Error, NowSigned, OtherData)
         end,
-        binary:part(Pkt, {12,Offset - 12})
-    ]),
-    MACCalc = if
-        element(1, TS#tsig_state.mac) == ?MODULE ->
-            mac(PktS, TS, Error, NowSigned, OtherData);
-        %% RFC8945, section 5.3.1: TSIG on TCP Connections
-        true ->
-            mac(TS, Error, NowSigned, OtherData)
-    end,
     MACEq =
         MACSize == byte_size(MACCalc)
         andalso
@@ -333,7 +333,7 @@ macN({?MODULE,MAC}, #tsig_state{ mac = {crypto,MACState} }) ->
 macN(Pkt, TS = #tsig_state{ mac = {crypto,MACState} }) ->
     {crypto,crypto:mac_update(MACState, [
        <<(TS#tsig_state.id):16>>,
-       binary:part(Pkt, {2,byte_size(Pkt) - 2})
+       binary_part(Pkt, 2, byte_size(Pkt)-2)
     ])}.
 
 %% RFC8945, section 5.3.2: Generation of TSIG on Error Returns
