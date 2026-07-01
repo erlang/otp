@@ -3128,6 +3128,23 @@ static Uint write_big_dc_top(ErtsDigit *v, dsize_t vl, int base,
 ** existing write_string and write_list callbacks continue to work
 ** unchanged.
 */
+/*
+ * If base is a power of two (2,4,8,16,32), return log2(base); else 0. For such
+ * bases int->string is a fixed-width bit field extraction per digit, needing no
+ * division -- the inverse of the bit-packing string->integer fast path.
+ */
+static ERTS_INLINE int write_big_bits_per_digit_pow2(int base)
+{
+    switch (base) {
+    case 2:  return 1;
+    case 4:  return 2;
+    case 8:  return 3;
+    case 16: return 4;
+    case 32: return 5;
+    default: return 0;
+    }
+}
+
 static Uint write_big(Eterm x, int base, void (*write_func)(void *, char),
                       void *arg)
 {
@@ -3138,6 +3155,7 @@ static Uint write_big(Eterm x, int base, void (*write_func)(void *, char),
     Uint n = 0;
     Uint width_estimate;
     int use_dc;
+    int bpd;
 
     /* Quick path for one-ErtsDigit values. */
     {
@@ -3157,6 +3175,53 @@ static Uint write_big(Eterm x, int base, void (*write_func)(void *, char),
             if (sign) { (*write_func)(arg, '-'); n++; }
             return n;
         }
+    }
+
+    /*
+     * Power-of-two fast path: each output digit is a fixed bpd-bit field of the
+     * value, so emit them least-significant first (the order write_func uses)
+     * via a bit accumulator over the digit words -- no division/multiplication,
+     * linear in the output size. A digit may straddle a word boundary, in which
+     * case its high bits come from the freshly loaded next word.
+     */
+    bpd = write_big_bits_per_digit_pow2(base);
+    if (bpd) {
+        ErtsDigit acc = dx[0];        /* unconsumed low bits live in acc[0..accbits) */
+        Uint accbits = D_EXP;
+        dsize_t wi = 1;               /* next word to load */
+        ErtsDigit mask = ((ErtsDigit) 1 << bpd) - 1;
+        Uint total_bits, emitted = 0;
+
+        {
+            Uint topbits = 0;
+            ErtsDigit t = dx[xl - 1];
+            while (t) { topbits++; t >>= 1; }
+            total_bits = (Uint) (xl - 1) * D_EXP + topbits;
+        }
+
+        while (emitted < total_bits) {
+            int d;
+            if (accbits >= (Uint) bpd) {
+                d = (int) (acc & mask);
+                acc >>= bpd;
+                accbits -= (Uint) bpd;
+            } else {
+                /* Digit straddles: low accbits bits from acc, rest from next word. */
+                ErtsDigit low = acc;                 /* accbits valid bits */
+                ErtsDigit hw = (wi < xl) ? dx[wi++] : 0;
+                Uint need = (Uint) bpd - accbits;    /* high bits taken from hw */
+                d = (int) ((low | (hw << accbits)) & mask);
+                acc = hw >> need;
+                accbits = D_EXP - need;
+            }
+            (*write_func)(arg, (d < 10) ? (char) ('0' + d)
+                                        : (char) ('A' + d - 10));
+            n++;
+            emitted += (Uint) bpd;
+        }
+
+        if (sign) { (*write_func)(arg, '-'); n++; }
+        return n;
     }
 
     width_estimate = (Uint) (((double) xl * D_EXP) / lookup_log2(base)) + 2;
