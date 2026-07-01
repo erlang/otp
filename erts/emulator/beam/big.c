@@ -3175,6 +3175,82 @@ static ERTS_INLINE int write_big_bits_per_digit_pow2(int base)
     }
 }
 
+/*
+ * Portable 64-bit byte swap for the SWAR helpers in this file (which are
+ * 64-bit only). __builtin_bswap64 is not available on MSVC; mirror
+ * erl_map.c's dispatch.
+ */
+#if (ERTS_AT_LEAST_GCC_VSN__(5, 1, 0) || __has_builtin(__builtin_bswap64))
+#  define big_bswap64(N) __builtin_bswap64((Uint64)(N))
+#elif defined(_MSC_VER) && _MSC_VER >= 1900
+#  include <stdlib.h>
+#  define big_bswap64(N) _byteswap_uint64((Uint64)(N))
+#else
+static ERTS_INLINE Uint64 big_bswap64(Uint64 v) {
+    return ((v & 0x00000000000000ffULL) << 56)
+         | ((v & 0x000000000000ff00ULL) << 40)
+         | ((v & 0x0000000000ff0000ULL) << 24)
+         | ((v & 0x00000000ff000000ULL) << 8)
+         | ((v & 0x000000ff00000000ULL) >> 8)
+         | ((v & 0x0000ff0000000000ULL) >> 24)
+         | ((v & 0x00ff000000000000ULL) >> 40)
+         | ((v & 0xff00000000000000ULL) >> 56);
+}
+#endif
+
+/*
+ * The SWAR renderers below write 8-byte groups with lane 0 landing at the
+ * lowest address (little-endian) and render one whole 64-bit digit at a
+ * time, so they require little-endian byte order and 64-bit ErtsDigits.
+ * The build-time constant folds the branch away elsewhere.
+ */
+#ifdef WORDS_BIGENDIAN
+#  define write_big_swar_ok 0
+#else
+#  define write_big_swar_ok (D_EXP == 64)
+#endif
+
+/* Defined below; the SWAR bulk path in write_big() is only taken for this
+ * writer (contiguous descending buffer). */
+static void write_string(void *arg, char c);
+
+/* Render one 64-bit word as 16 hex chars, most-significant digit first. */
+static ERTS_INLINE void write_big_swar_hex16(ErtsDigit w, char *out)
+{
+    int half;
+    for (half = 0; half < 2; half++) {
+        /* half 0 renders the high 8 nibbles into out[0..7]. */
+        Uint64 t = (half == 0) ? ((Uint64) w >> 32)
+                               : ((Uint64) w & 0xFFFFFFFFULL);
+        Uint64 add;
+
+        /* Spread the 8 nibbles into 8 byte lanes (LS nibble -> lane 0). */
+        t = (t | (t << 16)) & 0x0000FFFF0000FFFFULL;
+        t = (t | (t << 8))  & 0x00FF00FF00FF00FFULL;
+        t = (t | (t << 4))  & 0x0F0F0F0F0F0F0F0FULL;
+        t = big_bswap64(t);            /* MS nibble -> lane 0 */
+        /* Per lane: '0' + n, plus 7 more when n > 9 ('A'..'F'). */
+        add = ((t + 0x0606060606060606ULL) & 0x1010101010101010ULL) >> 4;
+        t += 0x3030303030303030ULL + add * 7;
+        sys_memcpy(out + 8 * half, &t, 8);
+    }
+}
+
+/* Render one 64-bit word as 64 binary chars, most-significant bit first. */
+static ERTS_INLINE void write_big_swar_bin64(ErtsDigit w, char *out)
+{
+    int j;
+    for (j = 0; j < 8; j++) {
+        Uint64 b = ((Uint64) w >> (56 - 8 * j)) & 0xFF;  /* MS byte first */
+        /* Replicate b to all lanes, isolate bit (7 - lane) per lane
+         * (MS bit -> lane 0), collapse non-zero lanes to 1, add '0'. */
+        Uint64 t = (((b * 0x0101010101010101ULL) & 0x0102040810204080ULL)
+                    + 0x7F7F7F7F7F7F7F7FULL) >> 7;
+        t = (t & 0x0101010101010101ULL) | 0x3030303030303030ULL;
+        sys_memcpy(out + 8 * j, &t, 8);
+    }
+}
+
 static Uint write_big(Eterm x, int base, void (*write_func)(void *, char),
                       void *arg)
 {
@@ -3227,6 +3303,38 @@ static Uint write_big(Eterm x, int base, void (*write_func)(void *, char),
             ErtsDigit t = dx[xl - 1];
             while (t) { topbits++; t >>= 1; }
             total_bits = (Uint) (xl - 1) * D_EXP + topbits;
+        }
+
+        /*
+         * SWAR bulk path for string output in the word-aligned bases
+         * (base 16: 16 chars/word, base 2: 64 chars/word): render every
+         * full (non-top) word straight into the caller's buffer, whole
+         * words at a time, and leave only the ragged top word to the
+         * generic accumulator loop below. Because chars_per_word * bpd
+         * == D_EXP exactly, the two halves meet on a word boundary. The
+         * list writer keeps the per-char loop (it conses cells), as do
+         * bases 8 and 32 (digits straddle word boundaries) and base 4
+         * (rarely used).
+         */
+        if (write_big_swar_ok && (bpd == 4 || bpd == 1)
+            && write_func == write_string && xl > 1) {
+            char **pp = (char **) arg;
+            Uint cpw = (Uint) (D_EXP / (Uint) bpd);   /* 16 or 64 */
+
+            for (wi = 0; wi + 1 < xl; wi++) {
+                *pp -= cpw;
+                if (bpd == 4) {
+                    write_big_swar_hex16(dx[wi], *pp);
+                } else {
+                    write_big_swar_bin64(dx[wi], *pp);
+                }
+                n += cpw;
+            }
+            /* Hand the top word to the generic loop. */
+            acc = dx[xl - 1];
+            accbits = D_EXP;
+            wi = xl;
+            emitted = (Uint) (xl - 1) * D_EXP;
         }
 
         while (emitted < total_bits) {
@@ -4249,27 +4357,6 @@ static ERTS_INLINE Uint64 c2int_swar_invalid8(const byte *b, int has_alpha,
 #  define c2int_swar_pack_ok (D_EXP == 64)
 #endif
 
-/*
- * Portable 64-bit byte swap for the SWAR pack helpers (which are 64-bit only).
- * __builtin_bswap64 is not available on MSVC; mirror erl_map.c's dispatch.
- */
-#if (ERTS_AT_LEAST_GCC_VSN__(5, 1, 0) || __has_builtin(__builtin_bswap64))
-#  define c2int_bswap64(N) __builtin_bswap64((Uint64)(N))
-#elif defined(_MSC_VER) && _MSC_VER >= 1900
-#  include <stdlib.h>
-#  define c2int_bswap64(N) _byteswap_uint64((Uint64)(N))
-#else
-static ERTS_INLINE Uint64 c2int_bswap64(Uint64 v) {
-    return ((v & 0x00000000000000ffULL) << 56)
-         | ((v & 0x000000000000ff00ULL) << 40)
-         | ((v & 0x0000000000ff0000ULL) << 24)
-         | ((v & 0x00000000ff000000ULL) << 8)
-         | ((v & 0x000000ff00000000ULL) >> 8)
-         | ((v & 0x0000ff0000000000ULL) >> 24)
-         | ((v & 0x00ff000000000000ULL) >> 40)
-         | ((v & 0xff00000000000000ULL) >> 56);
-}
-#endif
 
 /*
  * Decode 8 validated hex ASCII bytes into their 4-bit nibble values, one nibble
@@ -4301,8 +4388,8 @@ static ERTS_INLINE ErtsDigit c2int_swar_pack16_hex(const byte *b) {
     sys_memcpy(&v1, b, 8);        /* high 8 chars */
     sys_memcpy(&v0, b + 8, 8);    /* low 8 chars */
     /* bswap so lane 0 holds the least-significant char of each group. */
-    n0 = c2int_bswap64(c2int_swar_hex_nibbles(v0));
-    n1 = c2int_bswap64(c2int_swar_hex_nibbles(v1));
+    n0 = big_bswap64(c2int_swar_hex_nibbles(v0));
+    n1 = big_bswap64(c2int_swar_hex_nibbles(v1));
     return (ErtsDigit) (c2int_swar_gather_nibbles(n0)
                         | (c2int_swar_gather_nibbles(n1) << 32));
 }
@@ -4318,7 +4405,7 @@ static ERTS_INLINE ErtsDigit c2int_swar_pack64_bin(const byte *b) {
         Uint64 v, g;
         sys_memcpy(&v, b + 56 - 8 * chunk, 8);   /* chunk 0 = least-significant group */
         v &= (Uint64) 0x0101010101010101ULL;     /* low bit of each ASCII digit */
-        v = c2int_bswap64(v);                    /* lane 0 = least-significant bit */
+        v = big_bswap64(v);                    /* lane 0 = least-significant bit */
         g = (v * (Uint64) 0x0102040810204080ULL) >> 56;   /* gather 8 low bits */
         w |= g << (8 * chunk);
     }
