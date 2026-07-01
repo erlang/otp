@@ -104,6 +104,10 @@
          no_hmac/1,
          no_poly1305/0,
          no_poly1305/1,
+         no_siphash/0,
+         no_siphash/1,
+         no_siphash128/0,
+         no_siphash128/1,
          no_sign_verify/0,
          no_sign_verify/1,
          no_support/0,
@@ -111,6 +115,10 @@
          node_supports_cache/1,
          poly1305/0,
          poly1305/1,
+         siphash/0,
+         siphash/1,
+         siphash128/0,
+         siphash128/1,
          private_encrypt/0,
          private_encrypt/1,
          public_encrypt/0,
@@ -246,6 +254,8 @@ groups() ->
                      {group, blake2b},
                      {group, blake2s},
                      {group, poly1305},
+                     {group, siphash},
+                     {group, siphash128},
                      {group, dss},
                      {group, ecdsa},
                      {group, ed25519},
@@ -328,6 +338,8 @@ groups() ->
                  {group, no_blake2b},
                  {group, no_blake2s},
                  {group, no_poly1305},
+                 {group, no_siphash},
+                 {group, no_siphash128},
                  {group, dss},
                  {group, ecdsa},
                  {group, no_ed25519},
@@ -468,6 +480,10 @@ groups() ->
      {chacha20,             [], [api_ng, api_ng_one_shot]},
      {poly1305,             [], [poly1305]},
      {no_poly1305,          [], [no_poly1305]},
+     {siphash,              [], [siphash]},
+     {siphash128,           [], [siphash128]},
+     {no_siphash,           [], [no_siphash]},
+     {no_siphash128,        [], [no_siphash128]},
      {no_aes_cfb128,        [], [no_support]},
      {no_md4,               [], [no_support, no_hash]},
      {no_md5,               [], [no_support, no_hash, no_hmac]},
@@ -883,6 +899,55 @@ no_poly1305(_Config) ->
             3,128,138,251,13,178,253,74,191,246,175,65,73,245,27>>,
     Txt = <<"Cryptographic Forum Research Group">>,
     notsup(fun crypto:mac/3, [poly1305,Key,Txt]).
+
+%%--------------------------------------------------------------------
+siphash() ->
+    [{doc, "Test siphash (SipHash-2-4, 64-bit) function"}].
+siphash(Config) ->
+    siphash_check(siphash, proplists:get_value(siphash, Config)).
+
+%%--------------------------------------------------------------------
+siphash128() ->
+    [{doc, "Test siphash128 (SipHash-2-4, 128-bit) function"}].
+siphash128(Config) ->
+    siphash_check(siphash128, proplists:get_value(siphash128, Config)).
+
+siphash_check(Type, Vectors) ->
+    lists:foreach(
+      fun({Key, Txt, Expect}) ->
+              %% one-shot
+              case crypto:mac(Type, Key, Txt) of
+                  Expect ->
+                      ok;
+                  Other ->
+                      ct:fail({{crypto, mac, [Type, Key, Txt]}, {expected, Expect}, {got, Other}})
+              end,
+              %% streaming must produce the same result as the one-shot call
+              S = crypto:mac_final(
+                    crypto:mac_update(crypto:mac_init(Type, Key), Txt)),
+              case S of
+                  Expect ->
+                      ok;
+                  Other2 ->
+                      ct:fail({{crypto, mac_final, [Type, Key, Txt]}, {expected, Expect}, {got, Other2}})
+              end
+      end, Vectors).
+
+%%--------------------------------------------------------------------
+no_siphash() ->
+    [{doc, "Test disabled siphash function"}].
+no_siphash(_Config) ->
+    Key = <<0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15>>,
+    Txt = <<"Cryptographic Forum Research Group">>,
+    notsup(fun crypto:mac/3, [siphash,Key,Txt]).
+
+%%--------------------------------------------------------------------
+no_siphash128() ->
+    [{doc, "Test disabled siphash128 function"}].
+no_siphash128(_Config) ->
+    Key = <<0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15>>,
+    Txt = <<"Cryptographic Forum Research Group">>,
+    notsup(fun crypto:mac/3, [siphash128,Key,Txt]).
 
 %%--------------------------------------------------------------------
 api_ng() ->
@@ -2516,6 +2581,52 @@ group_config(poly1305, Config) ->
          }
         ],
     [{poly1305,V} | Config];
+
+group_config(siphash, Config) ->
+    %% SipHash-2-4 64-bit reference vectors. Key = 00 01 .. 0f, message =
+    %% 00 01 .. (len-1). Matches the vectors in the SipHash reference
+    %% implementation (Aumasson & Bernstein).
+    V = [%% {Key, Txt, Expect}
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin(""), hexstr2bin("310e0edd47db6f72")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("00"), hexstr2bin("fd67dc93c539f874")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("0001"), hexstr2bin("5a4fa9d909806c0d")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("000102"), hexstr2bin("2d7efbd796666785")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("00010203"), hexstr2bin("b7877127e09427cf")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("0001020304"), hexstr2bin("8da699cd64557618")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("000102030405"), hexstr2bin("cee3fe586e46c9cb")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("00010203040506"), hexstr2bin("37d1018bf50002ab")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("0001020304050607"), hexstr2bin("6224939a79f5f593")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("000102030405060708"), hexstr2bin("b0e4a90bdf82009e")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("00010203040506070809"), hexstr2bin("f3b9dd94c5bb5d7a")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("000102030405060708090a"), hexstr2bin("a7ad6b22462fb3f4")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("000102030405060708090a0b"), hexstr2bin("fbe50e86bc8f1e75")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("000102030405060708090a0b0c"), hexstr2bin("903d84c02756ea14")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("000102030405060708090a0b0c0d"), hexstr2bin("eef27a8e90ca23f7")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("000102030405060708090a0b0c0d0e"), hexstr2bin("e545be4961ca29a1")}
+        ],
+    [{siphash,V} | Config];
+
+group_config(siphash128, Config) ->
+    %% SipHash-2-4 128-bit reference vectors, same key/message scheme as siphash.
+    V = [%% {Key, Txt, Expect}
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin(""), hexstr2bin("a3817f04ba25a8e66df67214c7550293")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("00"), hexstr2bin("da87c1d86b99af44347659119b22fc45")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("0001"), hexstr2bin("8177228da4a45dc7fca38bdef60affe4")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("000102"), hexstr2bin("9c70b60c5267a94e5f33b6b02985ed51")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("00010203"), hexstr2bin("f88164c12d9c8faf7d0f6e7c7bcd5579")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("0001020304"), hexstr2bin("1368875980776f8854527a07690e9627")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("000102030405"), hexstr2bin("14eeca338b208613485ea0308fd7a15e")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("00010203040506"), hexstr2bin("a1f1ebbed8dbc153c0b84aa61ff08239")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("0001020304050607"), hexstr2bin("3b62a9ba6258f5610f83e264f31497b4")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("000102030405060708"), hexstr2bin("264499060ad9baabc47f8b02bb6d71ed")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("00010203040506070809"), hexstr2bin("00110dc378146956c95447d3f3d0fbba")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("000102030405060708090a"), hexstr2bin("0151c568386b6677a2b4dc6f81e5dc18")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("000102030405060708090a0b"), hexstr2bin("d626b266905ef35882634df68532c125")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("000102030405060708090a0b0c"), hexstr2bin("9869e247e9c08b10d029934fc4b952f7")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("000102030405060708090a0b0c0d"), hexstr2bin("31fcefac66d7de9c7ec7485fe4494902")},
+         {hexstr2bin("000102030405060708090a0b0c0d0e0f"), hexstr2bin("000102030405060708090a0b0c0d0e"), hexstr2bin("5493e99933b0a8117e08ec0f97cfc3d9")}
+        ],
+    [{siphash128,V} | Config];
 
 group_config(F, Config) ->
     TestVectors = fun() -> ?MODULE:F(Config) end,

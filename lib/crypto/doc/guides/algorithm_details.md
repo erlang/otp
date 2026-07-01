@@ -204,6 +204,19 @@ the list returned by [crypto:supports(macs)](`crypto:supports/1`).
 
 The poly1305 mac wants an 32 bytes key and produces a 16 byte MAC by default.
 
+### SIPHASH
+
+SipHash is available with OpenSSL 3.0 or later if not disabled by configuration.
+
+To dynamically check availability, check that the name `siphash` (or
+`siphash128`) is present in the list returned by
+[crypto:supports(macs)](`crypto:supports/1`).
+
+Both variants use the SipHash-2-4 parameters and want a 16 bytes key. `siphash`
+produces an 8 byte MAC and `siphash128` produces a 16 byte MAC. Note that
+`siphash128` is _not_ a truncation of `siphash` (or vice versa); they differ in
+finalization and are distinct algorithms, so the variant must be chosen by name.
+
 ## Hash
 
 To dynamically check availability, check that the wanted name in the _Names_
