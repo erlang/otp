@@ -291,18 +291,10 @@ hello(internal, {handshake, {#client_hello{cookie = <<>>} = Handshake, _}}, Stat
     {next_state, ?STATE(hello), State, [{next_event, internal, Handshake}]};
 hello(internal,  #change_cipher_spec{type = <<1>>}, State0) ->
     Epoch = dtls_gen_connection:retransmit_epoch(?STATE(hello), State0),
-    {State1, Actions0} =
+    {State, _} =
         dtls_gen_connection:send_handshake_flight(State0, Epoch),
-    %% This will reset the retransmission timer by repeating the enter state event
-    case dtls_gen_connection:next_event(?STATE(hello), no_record, State1, Actions0) of
-        {next_state, ?FUNCTION_NAME, State, Actions} ->
-            {repeat_state, State, Actions};
-        {next_state, ?FUNCTION_NAME, State} ->
-            {repeat_state, State};
-        {stop, _, _} = Stop ->
-            Stop
-    end;
-
+     %% Just retransmit and reset timer, don't process buffered records
+    {repeat_state, State};
 hello(info, Event, State) ->
     dtls_gen_connection:gen_info(Event, ?STATE(hello), State);
 hello(state_timeout, Event, State) ->
@@ -350,16 +342,9 @@ certify(enter, _, State0) ->
     {keep_state, State, Actions};
 certify(internal,  #change_cipher_spec{type = <<1>>}, State0) ->
     Epoch = dtls_gen_connection:retransmit_epoch(?STATE(certify), State0),
-    {State1, Actions0} = dtls_gen_connection:send_handshake_flight(State0, Epoch),
-    %% This will reset the retransmission timer by repeating the enter state event
-    case dtls_gen_connection:next_event(?STATE(certify), no_record, State1, Actions0) of
-        {next_state, ?FUNCTION_NAME, State, Actions} ->
-            {repeat_state, State, Actions};
-        {next_state, ?FUNCTION_NAME, State} ->
-            {repeat_state, State, Actions0};
-        {stop, _, _} = Stop ->
-            Stop
-    end;
+    {State, _} = dtls_gen_connection:send_handshake_flight(State0, Epoch),
+    %% Just retransmit and reset timer, don't process buffered records
+    {repeat_state, State};
 certify(state_timeout, Event, State) ->
     dtls_gen_connection:handle_state_timeout(Event, ?STATE(certify), State);
 certify(info, Event, State) ->
