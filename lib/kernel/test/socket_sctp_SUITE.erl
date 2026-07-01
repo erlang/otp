@@ -450,7 +450,8 @@ b_simple_open_and_close(InitState) ->
            cmd  => fun(#{domain   := Domain,
                          type     := Type,
                          protocol := Protocol} = State) -> 
-                           case socket:open(Domain, Type, Protocol) of
+                           case socket:open(Domain, Type, Protocol,
+                                            #{debug => true}) of
                                {ok, Sock} ->
                                    {ok, State#{sock => Sock}};
                                {error, eprotonosupport = Reason} ->
