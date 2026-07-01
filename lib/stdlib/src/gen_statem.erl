@@ -393,7 +393,7 @@ off
 ok
 8> pushbutton:push().
 ** exception exit: {noproc,{gen_statem,call,[pushbutton_statem,push,infinity]}}
-     in function  gen:do_for_proc/2 (gen.erl, line 261)
+     in function gen_gen:do_for_proc/2 (gen.erl, line 261)
      in call from gen_statem:call/3 (gen_statem.erl, line 386)
 ```
 
@@ -486,9 +486,10 @@ handle_event(_, _, State, Data) ->
     enter_loop/4,enter_loop/5,enter_loop/6,
     reply/1,reply/2]).
 
-%% gen callbacks
--export(
-   [init_it/6]).
+%% gen_gen callbacks
+-export([init_it/6]).
+
+%-behaviour(gen_gen).
 
 %% sys callbacks
 -export(
@@ -560,7 +561,7 @@ using [`call/2,3`](`call/3`).
 
 %%----------------------
 -doc "A handle that associates a reply to the corresponding request.".
--opaque reply_tag() :: gen:reply_tag().
+-opaque reply_tag() :: gen_gen:reply_tag().
 
 %%----------------------
 -doc """
@@ -1429,7 +1430,7 @@ in all future versions of `gen_statem`.
 
 %%----------------------
 -doc "An opaque request identifier. See `send_request/2` for details.".
--opaque request_id() :: gen:request_id().
+-opaque request_id() :: gen_gen:request_id().
 
 %%----------------------
 -doc """
@@ -1438,7 +1439,7 @@ An opaque collection of request identifiers (`t:request_id/0`).
 Each request identifier can be associated with
 a label chosen by the user.  For more information see `reqids_new/0`.
 """.
--opaque request_id_collection() :: gen:request_id_collection().
+-opaque request_id_collection() :: gen_gen:request_id_collection().
 
 %%----------------------
 -doc """
@@ -2126,7 +2127,7 @@ Server name specification: `local`, `global`, or `via` registered.
 Name specification to use when starting a `gen_statem` server.
 See `start_link/3` and `t:server_ref/0` below.
 """.
--type server_name() :: % Duplicate of gen:emgr_name()
+-type server_name() :: % Duplicate of gen_gen:emgr_name()
         {'local', atom()}
       | {'global', GlobalName :: term()}
       | {'via', RegMod :: module(), Name :: term()}.
@@ -2154,7 +2155,7 @@ It can be:
   the corresponding functions in `m:global`.
   Thus, `{via, global, GlobalName}` is the same as `{global, GlobalName}`.
 """.
--type server_ref() :: % What gen:call/3,4 and gen:stop/1,3 accepts
+-type server_ref() :: % What gen_gen:call/3,4 and gen_gen:stop/1,3 accepts
         pid()
       | (LocalName :: atom())
       | {Name :: atom(), Node :: atom()}
@@ -2169,7 +2170,7 @@ and [`start_monitor/3,4`](`start_monitor/3`) functions.
 
 See [`start_link/4`](#start-options).
 """.
--type start_opt() :: % Duplicate of gen:option()
+-type start_opt() :: % Duplicate of gen_gen:option()
         {'timeout', Time :: timeout()}
       | {'spawn_opt', [proc_lib:start_spawn_option()]}
       | enter_loop_opt().
@@ -2183,7 +2184,7 @@ and [`start_monitor/3,4`](`start_monitor/3`), functions.
 
 See [`start_link/4`](#start-options).
 """.
--type enter_loop_opt() :: % Some gen:option()s works for enter_loop/*
+-type enter_loop_opt() :: % Some gen_gen:option()s works for enter_loop/*
 	{'hibernate_after', HibernateAfterTimeout :: timeout()}
       | {'debug', Dbgs :: [sys:debug_option()]}.
 
@@ -2194,7 +2195,7 @@ and [`start_link/3,4`](`start_link/3`) functions.
 
 See [`start_link/4`](#start-return-values).
 """.
--type start_ret() :: % gen:start_ret() without monitor return
+-type start_ret() :: % gen_gen:start_ret() without monitor return
         {'ok', pid()}
       | 'ignore'
       | {'error', term()}.
@@ -2208,7 +2209,7 @@ wraps the process ID and the [monitor reference](`erlang:monitor/2`) in a
 `{ok, {`[`pid()`](`t:pid/0`)`, `[`reference()`](`t:reference/0`)`}}`
 tuple.
 """.
--type start_mon_ret() :: % gen:start_ret() with only monitor return
+-type start_mon_ret() :: % gen_gen:start_ret() with only monitor return
         {'ok', {pid(),reference()}}
       | 'ignore'
       | {'error', term()}.
@@ -2230,7 +2231,7 @@ is not registered with any [name service](`t:server_name/0`).
 		   start_ret().
 start(Module, Args, Opts)
   when is_atom(Module), is_list(Opts) ->
-    gen:start(?MODULE, nolink, Module, Args, Opts);
+    gen_gen:start(?MODULE, nolink, Module, Args, Opts);
 start(Module, Args, Opts) ->
     error(badarg, [Module, Args, Opts]).
 %%
@@ -2253,7 +2254,7 @@ see [`start_link/4`](`start_link/4`).
 		   start_ret().
 start(ServerName, Module, Args, Opts)
   when is_tuple(ServerName), is_atom(Module), is_list(Opts) ->
-    gen:start(?MODULE, nolink, ServerName, Module, Args, Opts);
+    gen_gen:start(?MODULE, nolink, ServerName, Module, Args, Opts);
 start(ServerName, Module, Args, Opts) ->
     error(badarg, [ServerName, Module, Args, Opts]).
 
@@ -2271,7 +2272,7 @@ is not registered with any [name service](`t:server_name/0`).
 		   start_ret().
 start_link(Module, Args, Opts)
   when is_atom(Module), is_list(Opts) ->
-    gen:start(?MODULE, link, Module, Args, Opts);
+    gen_gen:start(?MODULE, link, Module, Args, Opts);
 start_link(Module, Args, Opts) ->
     error(badarg, [Module, Args, Opts]).
 %%
@@ -2394,7 +2395,7 @@ that message has been consumed.
 		   start_ret().
 start_link(ServerName, Module, Args, Opts)
   when is_tuple(ServerName), is_atom(Module), is_list(Opts) ->
-    gen:start(?MODULE, link, ServerName, Module, Args, Opts);
+    gen_gen:start(?MODULE, link, ServerName, Module, Args, Opts);
 start_link(ServerName, Module, Args, Opts) ->
     error(badarg, [ServerName, Module, Args, Opts]).
 
@@ -2412,7 +2413,7 @@ process is not registered with any [name service](`t:server_name/0`).
 		   start_mon_ret().
 start_monitor(Module, Args, Opts)
   when is_atom(Module), is_list(Opts) ->
-    gen:start(?MODULE, monitor, Module, Args, Opts);
+    gen_gen:start(?MODULE, monitor, Module, Args, Opts);
 start_monitor(Module, Args, Opts) ->
     error(badarg, [Module, Args, Opts]).
 %%
@@ -2443,7 +2444,7 @@ and removed from the caller's message queue.
 		   start_mon_ret().
 start_monitor(ServerName, Module, Args, Opts)
   when is_tuple(ServerName), is_atom(Module), is_list(Opts) ->
-    gen:start(?MODULE, monitor, ServerName, Module, Args, Opts);
+    gen_gen:start(?MODULE, monitor, ServerName, Module, Args, Opts);
 start_monitor(ServerName, Module, Args, Opts) ->
     error(badarg, [ServerName, Module, Args, Opts]).
 
@@ -2453,7 +2454,7 @@ start_monitor(ServerName, Module, Args, Opts) ->
 -doc #{ since => <<"OTP 19.0">> }.
 -spec stop(ServerRef :: server_ref()) -> ok.
 stop(ServerRef) ->
-    gen:stop(ServerRef).
+    gen_gen:stop(ServerRef).
 %%
 %%----------------------
 -doc """
@@ -2485,7 +2486,7 @@ if the connection fails to the remote `Node` where the server runs.
 	Reason :: term(),
 	Timeout :: timeout()) -> ok.
 stop(ServerRef, Reason, Timeout) ->
-    gen:stop(ServerRef, Reason, Timeout).
+    gen_gen:stop(ServerRef, Reason, Timeout).
 
 %% Send an event to a state machine that arrives with type 'event'
 %%----------------------
@@ -2628,7 +2629,7 @@ or `check_response/2` functions.
         ReqId::request_id().
 send_request(ServerRef, Request) ->
     try
-        gen:send_request(ServerRef, '$gen_call', Request)
+        gen_gen:send_request(ServerRef, '$gen_call', Request)
     catch
         error:badarg ->
             error(badarg, [ServerRef, Request])
@@ -2661,7 +2662,7 @@ but slightly more efficient.
 
 send_request(ServerRef, Request, Label, ReqIdCol) ->
     try
-        gen:send_request(ServerRef, '$gen_call', Request, Label, ReqIdCol)
+        gen_gen:send_request(ServerRef, '$gen_call', Request, Label, ReqIdCol)
     catch
         error:badarg ->
             error(badarg, [ServerRef, Request, Label, ReqIdCol])
@@ -2716,7 +2717,7 @@ while `wait_response/2` does not.
 
 wait_response(ReqId, WaitTime) ->
     try
-        gen:wait_response(ReqId, WaitTime)
+        gen_gen:wait_response(ReqId, WaitTime)
     catch
         error:badarg ->
             error(badarg, [ReqId, WaitTime])
@@ -2791,7 +2792,7 @@ and then return `timeout`.
 
 wait_response(ReqIdCol, WaitTime, Delete) ->
     try
-        gen:wait_response(ReqIdCol, WaitTime, Delete)
+        gen_gen:wait_response(ReqIdCol, WaitTime, Delete)
     catch
         error:badarg ->
             error(badarg, [ReqIdCol, WaitTime, Delete])
@@ -2848,7 +2849,7 @@ while `wait_response/2` does not.
 
 receive_response(ReqId, Timeout) ->
     try
-        gen:receive_response(ReqId, Timeout)
+        gen_gen:receive_response(ReqId, Timeout)
     catch
         error:badarg ->
             error(badarg, [ReqId, Timeout])
@@ -2925,7 +2926,7 @@ and then return `timeout`.
 
 receive_response(ReqIdCol, Timeout, Delete) ->
     try
-        gen:receive_response(ReqIdCol, Timeout, Delete)
+        gen_gen:receive_response(ReqIdCol, Timeout, Delete)
     catch
         error:badarg ->
             error(badarg, [ReqIdCol, Timeout, Delete])
@@ -2961,7 +2962,7 @@ this function returns an `error` return with the exit `Reason`.
 
 check_response(Msg, ReqId) ->
     try
-        gen:check_response(Msg, ReqId)
+        gen_gen:check_response(Msg, ReqId)
     catch
         error:badarg ->
             error(badarg, [Msg, ReqId])
@@ -3027,7 +3028,7 @@ this function, it will always return `no_reply`.
 
 check_response(Msg, ReqIdCol, Delete) ->
     try
-        gen:check_response(Msg, ReqIdCol, Delete)
+        gen_gen:check_response(Msg, ReqIdCol, Delete)
     catch
         error:badarg ->
             error(badarg, [Msg, ReqIdCol, Delete])
@@ -3056,7 +3057,7 @@ request identifiers in a collection.
           NewReqIdCollection::request_id_collection().
 
 reqids_new() ->
-    gen:reqids_new().
+    gen_gen:reqids_new().
 
 %%----------------------
 -doc "Return the number of request identifiers in `ReqIdCollection`.".
@@ -3066,7 +3067,7 @@ reqids_new() ->
 
 reqids_size(ReqIdCollection) ->
     try
-        gen:reqids_size(ReqIdCollection)
+        gen_gen:reqids_size(ReqIdCollection)
     catch
         error:badarg -> error(badarg, [ReqIdCollection])
     end.
@@ -3086,7 +3087,7 @@ the resulting request identifier collection.
 
 reqids_add(ReqId, Label, ReqIdCollection) ->
     try
-        gen:reqids_add(ReqId, Label, ReqIdCollection)
+        gen_gen:reqids_add(ReqId, Label, ReqIdCollection)
     catch
         error:badarg -> error(badarg, [ReqId, Label, ReqIdCollection])
     end.
@@ -3105,7 +3106,7 @@ in [`ReqIdCollection`](`t:request_id_collection/0`).
 
 reqids_to_list(ReqIdCollection) ->
     try
-        gen:reqids_to_list(ReqIdCollection)
+        gen_gen:reqids_to_list(ReqIdCollection)
     catch
         error:badarg -> error(badarg, [ReqIdCollection])
     end.
@@ -3148,7 +3149,7 @@ from a [_state callback_](#state-callback).
 -doc #{ since => <<"OTP 19.0">> }.
 -spec reply(From :: from(), Reply :: term()) -> ok.
 reply(From, Reply) ->
-    gen:reply(From, Reply).
+    gen_gen:reply(From, Reply).
 
 %% Instead of starting the state machine through start/3,4
 %% or start_link/3,4 turn the current process presumably
@@ -3234,10 +3235,10 @@ according to `t:server_name/0`.
 			no_return().
 enter_loop(Module, Opts, State, Data, Server, Actions) ->
     is_atom(Module) orelse error({atom,Module}),
-    Parent = gen:get_parent(),
-    Name = gen:get_proc_name(Server),
-    Debug = gen:debug_options(Name, Opts),
-    HibernateAfterTimeout = gen:hibernate_after(Opts),
+    Parent = gen_gen:get_parent(),
+    Name = gen_gen:get_proc_name(Server),
+    Debug = gen_gen:debug_options(Name, Opts),
+    HibernateAfterTimeout = gen_gen:hibernate_after(Opts),
     enter(
       Parent, Debug, Module, Name, HibernateAfterTimeout,
       State, Data, Actions).
@@ -3251,7 +3252,7 @@ wrap_cast(Event) ->
 
 -compile({inline, [call/4]}).
 call(ServerRef, Request, Timeout, T) ->
-    try gen:call(ServerRef, '$gen_call', Request, T) of
+    try gen_gen:call(ServerRef, '$gen_call', Request, T) of
         {ok,Reply} ->
             Reply
     catch
@@ -3310,9 +3311,9 @@ enter(
 init_it(Starter, self, ServerRef, Module, Args, Opts) ->
     init_it(Starter, self(), ServerRef, Module, Args, Opts);
 init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
-    Name = gen:get_proc_name(ServerRef),
-    Debug = gen:debug_options(Name, Opts),
-    HibernateAfterTimeout = gen:hibernate_after(Opts),
+    Name = gen_gen:get_proc_name(ServerRef),
+    Debug = gen_gen:debug_options(Name, Opts),
+    HibernateAfterTimeout = gen_gen:hibernate_after(Opts),
     try Module:init(Args) of
 	Result ->
 	    init_result(
@@ -3324,7 +3325,7 @@ init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
               Starter, Parent, ServerRef, Module, Result,
               Name, Debug, HibernateAfterTimeout);
 	Class:Reason:Stacktrace ->
-	    gen:unregister_name(ServerRef),
+            gen_gen:unregister_name(ServerRef),
 	    error_info(
 	      Class, Reason, Stacktrace, Debug,
               #params{parent = Parent, name = Name, modules = [Module]},
@@ -3338,7 +3339,7 @@ init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
 
 %%%
 %%% NOTE: If init_ack() return values are modified, see comment
-%%%       above monitor_return() in gen.erl!
+%%%       above monitor_return() in gen_gen.erl!
 %%%
 
 init_result(
@@ -3356,19 +3357,19 @@ init_result(
               Parent, Debug, Module, Name, HibernateAfterTimeout,
               State, Data, Actions);
 	{stop,Reason} ->
-	    gen:unregister_name(ServerRef),
+            gen_gen:unregister_name(ServerRef),
             exit(Reason);
 	{error, _Reason} = ERROR ->
             %% The point of this clause is that we shall have a *silent*
             %% termination. The error reason will be returned to the
             %% 'Starter' ({error, Reason}), but *no* crash report.
-	    gen:unregister_name(ServerRef),
+            gen_gen:unregister_name(ServerRef),
 	    proc_lib:init_fail(Starter, ERROR, {exit,normal});
 	ignore ->
-	    gen:unregister_name(ServerRef),
+            gen_gen:unregister_name(ServerRef),
             proc_lib:init_fail(Starter, ignore, {exit,normal});
 	_ ->
-	    gen:unregister_name(ServerRef),
+            gen_gen:unregister_name(ServerRef),
 	    Reason = {bad_return_from_init,Result},
 	    error_info(
 	      error, Reason, ?STACKTRACE(), Debug,
@@ -3438,7 +3439,7 @@ format_status(
    {#params{name = Name, modules = [Mod | _] = Modules},
     #state{postponed = Postponed, timers = Timers,
            state_data = {State,Data}}}]) ->
-    Header = gen:format_status_header("Status for state machine", Name),
+    Header = gen_gen:format_status_header("Status for state machine", Name),
 
     Timeouts = list_timeouts(Timers),
     StatusMap = #{ state => State, data => Data,
@@ -3447,7 +3448,7 @@ format_status(
                  },
 
     NewStatusMap =
-        case gen:format_status(Mod, Opt, StatusMap, [PDict,State,Data]) of
+        case gen_gen:format_status(Mod, Opt, StatusMap, [PDict,State,Data]) of
             #{ 'EXIT' := R } ->
                 Crashed = [{data,[{"State",{State,R}}]}],
                 StatusMap#{ '$status' => Crashed };
@@ -4965,7 +4966,7 @@ error_info(
     Timeouts = list_timeouts(Timers),
 
     Status =
-        gen:format_status(Mod, terminate,
+        gen_gen:format_status(Mod, terminate,
                           #{ reason => Reason,
                              state => State,
                              data => Data,
