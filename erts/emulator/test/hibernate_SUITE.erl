@@ -53,6 +53,37 @@ basic(Config) when is_list(Config) ->
     Child = spawn_link(fun() -> basic_hibernator(Info) end),
     hibernate_wake_up(100, MaxHeapSz, Child),
     Child ! please_quit_now,
+
+    %% Test that we get a system limit at 256
+    {_, LimitRef} = spawn_monitor(fun() -> erlang:hibernate(erlang, display, lists:seq(1,256)) end),
+
+    receive
+        {'DOWN', LimitRef, _, _, {system_limit, _}} -> ok;
+        Other ->
+            io:format("~p\n", [Other]),
+            ct:fail(unexpected_message)
+        after 1000 ->
+            ct:fail(no_system_limit)
+    end,
+
+    %% Test that we get an undef at 255
+    {UndefPid, UndefRef} = spawn_monitor(fun() -> erlang:hibernate(erlang, display, lists:seq(1,255)) end),
+
+    receive
+        {'DOWN', UndefRef, _, _, {system_limit, _}} -> ct:fail(system_limit);
+        UndefOther ->
+            io:format("~p\n", [UndefOther]),
+            ct:fail(unexpected_message)
+        after 1000 ->
+            UndefPid ! {go_ahead, undef_ref},
+            receive
+                {'DOWN', UndefRef, _, _, {undef, _}} -> ok;
+                UndefOther2 ->
+                    io:format("~p\n", [UndefOther2]),
+                    ct:fail(unexpected_message)
+            end
+    end,
+
     ok.
 
 maximum_hibernate_heap_size(Term) ->

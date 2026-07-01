@@ -1447,6 +1447,8 @@ void erts_check_for_holes(Process* p);
 #define SEQ_TRACE_TOKEN_SENDER(p)   (*(tuple_val(SEQ_TRACE_TOKEN(p)) + 4))
 #define SEQ_TRACE_TOKEN_LASTCNT(p)  (*(tuple_val(SEQ_TRACE_TOKEN(p)) + 5))
 
+#define SEQ_TRACE_TOKEN_VALID(p) SEQ_TRACE_T_VALID(SEQ_TRACE_TOKEN(p))
+
 /* used when we have unit32 token */
 #define SEQ_TRACE_T_ARITY(token)    (arityval(*(tuple_val(token))))
 #define SEQ_TRACE_T_FLAGS(token)    (*(tuple_val(token) + 1))
@@ -1454,6 +1456,25 @@ void erts_check_for_holes(Process* p);
 #define SEQ_TRACE_T_SERIAL(token)   (*(tuple_val(token) + 3))
 #define SEQ_TRACE_T_SENDER(token)   (*(tuple_val(token) + 4))
 #define SEQ_TRACE_T_LASTCNT(token)  (*(tuple_val(token) + 5))
+
+#ifdef USE_VM_PROBES
+#define SEQ_TRACE_T_VALID_TAG(token) (token == NIL || token == am_undefined || token == am_dt_append_vm_tag_data)
+#else
+#define SEQ_TRACE_T_VALID_TAG(token) (token == NIL || token == am_undefined)
+#endif
+
+/* Check if the token is valid. We allow tuples >= 5 elements in
+   order to accommodate future extensions. */
+#define SEQ_TRACE_T_VALID(token)              \
+    (SEQ_TRACE_T_VALID_TAG(token) ||          \
+     (is_tuple(token) &&                      \
+      SEQ_TRACE_T_ARITY(token) >= 5 &&        \
+      is_small(SEQ_TRACE_T_LABEL(token)) &&   \
+      is_small(SEQ_TRACE_T_SERIAL(token)) &&  \
+      is_small(SEQ_TRACE_T_LASTCNT(token)) && \
+      is_small(SEQ_TRACE_T_FLAGS(token)) &&   \
+      (is_pid(SEQ_TRACE_T_SENDER(token)) ||   \
+       is_atom(SEQ_TRACE_T_SENDER(token)))))
 
 #ifdef USE_VM_PROBES
 /* The dtrace probe for seq_trace only supports 'int' labels, so we represent

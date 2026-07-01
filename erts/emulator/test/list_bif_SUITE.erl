@@ -150,13 +150,18 @@ t_list_to_ref(Config) when is_list(Config) ->
     Ref = make_ref(),
     RefStr = ref_to_list(Ref),
     Ref = list_to_ref(RefStr),
-    case catch list_to_ref(id("Incorrect list")) of
-        {'EXIT', {badarg, _}} ->
-            ok;
+    try list_to_ref(id("Incorrect list")) of
         Res ->
             ct:fail("list_to_ref/1 with incorrect arg succeeded.~n"
                     "Result: ~p", [Res])
+    catch error:badarg -> ok
     end,
+
+    try erlang:list_to_ref(id("#Ref<0.0.0.0.0.0.>")) of
+        Res2 -> ct:fail("list_to_ref/1 with incorrect arg succeeded.~nResult: ~p", [Res2])
+    catch error:badarg -> ok
+    end,
+
     ok.
 
 %% Test list_to_pid/port/ref for external pids/ports/refs.

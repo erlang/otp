@@ -12790,17 +12790,14 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
         if (parent) {
             seq_trace_update_serial(parent);
             token = SEQ_TRACE_TOKEN(parent);
-            ASSERT(SEQ_TRACE_T_ARITY(token) == 5);
+            ASSERT(SEQ_TRACE_TOKEN_VALID(parent));
             sys_memcpy(&node_token_heap[0],
                        (void *) tuple_val(token),
                        sizeof(Eterm)*6);
             token = make_tuple(&node_token_heap[0]);
         }
 
-        ASSERT(SEQ_TRACE_T_ARITY(token) == 5);
-        ASSERT(is_immed(SEQ_TRACE_T_FLAGS(token)));
-        ASSERT(is_immed(SEQ_TRACE_T_SERIAL(token)));
-        ASSERT(is_immed(SEQ_TRACE_T_LASTCNT(token)));
+        ASSERT(SEQ_TRACE_T_VALID(token));
 
         token_sz = size_object(token);
 

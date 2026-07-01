@@ -46,6 +46,7 @@
          verify_middle_queue_save/1,
          test_length/1,
          fixed_apply_badarg/1,
+         apply_system_limit/1,
          external_fun_apply3/1,
          node_1/1,doctests/1,is_integer_3_test/1]).
 
@@ -65,7 +66,7 @@ all() ->
      is_process_alive, is_process_alive_signal_from,
      process_info_blast, os_env_case_sensitivity,
      verify_middle_queue_save, test_length,fixed_apply_badarg,
-     external_fun_apply3, node_1, doctests, is_integer_3_test].
+     apply_system_limit, external_fun_apply3, node_1, doctests, is_integer_3_test].
 
 init_per_testcase(guard_bifs_in_erl_bif_types, Config) when is_list(Config) ->
     skip_missing_erl_bif_types(Config);
@@ -1303,7 +1304,6 @@ do_error_2(call_const) ->
 do_error_2(call) ->
     erlang:error(id(oops), id([call])).
 
-
 do_error_1(apply_const_only) ->
     apply(erlang, error, [oops]);
 do_error_1(apply_only) ->
@@ -1705,6 +1705,18 @@ fixed_apply_badarg(Config) when is_list(Config) ->
         (catch apply(Bad,baz,[e,f])),
     {'EXIT',{badarg, [{erlang,apply,[baz,{},[g,h]],[{error_info,_}]} | _]}} =
         (catch apply(baz,Bad,[g,h])),
+
+    ok.
+
+apply_system_limit(_Config) ->
+
+    %% Test that apply/3 triggers a system_limit error when too many arguments are provided.
+    try apply(erlang, error, lists:duplicate(256, x))
+    catch error:system_limit -> ok end,
+
+    %% Test that apply/3 triggers a undef for just below the theashold
+    try apply(erlang, error, lists:duplicate(255, x))
+    catch error:undef -> ok end,
 
     ok.
 
