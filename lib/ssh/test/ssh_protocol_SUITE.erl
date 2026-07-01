@@ -1394,8 +1394,14 @@ kex_strict_violation(Config) ->
            {send, ssh_msg_kexinit},
            {match, #ssh_msg_kexinit{_='_'}, receive_msg},
            {send, ssh_msg_kexdh_init_dup},
-           {match,# ssh_msg_kexdh_reply{_='_'}, receive_msg},
-           {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}]},
+           {match, #ssh_msg_kexdh_reply{_='_'}, receive_msg},
+           %% Server processes first kexdh_init (sends newkeys), then
+           %% detects the duplicate and disconnects. Depending on timing
+           %% we may see newkeys, disconnect, or tcp_closed here.
+           %% The actual violation assertion is verified via event_logged.
+           {match, {'or', [#ssh_msg_newkeys{_='_'},
+                           {ssh_msg_disconnect, ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, '_', '_'},
+                           tcp_closed]}, receive_msg}]},
          {new_keys, "Message ssh_msg_newkeys in wrong state",
           [receive_hello,
            {send, hello},
