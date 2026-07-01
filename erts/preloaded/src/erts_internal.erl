@@ -1108,7 +1108,8 @@ no_aux_work_threads() ->
 
 %% Helper BIF for binary_to_integer/{1,2}.
 
--spec binary_to_integer(Bin, Base) -> integer() | big | 'badarg' when
+-spec binary_to_integer(Bin, Base) ->
+          integer() | 'badarg' | 'system_limit' when
       Bin :: binary(),
       Base :: 2..36.
 binary_to_integer(_Bin, _Base) ->
@@ -1117,7 +1118,8 @@ binary_to_integer(_Bin, _Base) ->
 %% Helper BIF for list_to_integer/{1,2}.
 
 -spec list_to_integer(List, Base) ->
-          {integer(),list()} | 'big' | 'badarg' | 'no_integer' | 'not_a_list' when
+          {integer(),list()} | 'badarg' | 'no_integer' | 'not_a_list'
+          | 'system_limit' when
       List :: [any()],
       Base :: 2..36.
 list_to_integer(_List, _Base) ->

@@ -712,6 +712,13 @@ endif
 MAPS_YCF_OUTPUT=$(TTF_DIR)/erl_map.ycf.h
 UTILS_YCF_OUTPUT=$(TTF_DIR)/utils.ycf.h
 DB_INSERT_LIST_OUTPUT=$(TTF_DIR)/erl_db_insert_list.ycf.h
+BIG_YCF_OUTPUT=$(TTF_DIR)/big.ycf.h
+
+BIG_YCF_FLAGS=-yield \
+		$(YCF_DEBUG_FLAG) \
+		-static_aux_funs \
+		-only_yielding_funs \
+		-fnoauto c2int_parse
 
 DB_INSERT_LIST_YCF_FLAGS=-yield \
 		$(YCF_DEBUG_FLAG) \
@@ -777,8 +784,12 @@ $(UTILS_YCF_OUTPUT): beam/utils.c $(ERTS_LIB)
 	$(gen_verbose)$(YCF_EXECUTABLE_PATH) \
 		$(UTILS_YCF_FLAGS) \
 		-output_file_name $@ $<
+$(BIG_YCF_OUTPUT): beam/big.c $(ERTS_LIB)
+	$(gen_verbose)$(YCF_EXECUTABLE_PATH) \
+		$(BIG_YCF_FLAGS) \
+		-output_file_name $@ $<
 
-GENERATE += $(DB_INSERT_LIST_OUTPUT) $(MAPS_YCF_OUTPUT) $(UTILS_YCF_OUTPUT)
+GENERATE += $(DB_INSERT_LIST_OUTPUT) $(MAPS_YCF_OUTPUT) $(UTILS_YCF_OUTPUT) $(BIG_YCF_OUTPUT)
 
 ## ASMJIT source files and headers. Note that ARM and x86 are both included,
 ## unconditionally, since `core` sometimes references them.
