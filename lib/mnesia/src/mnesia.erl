@@ -840,10 +840,16 @@ exceptions with reason `{aborted, term()}`.
 ## Examples
 
 ```erlang
-1> mnesia:transaction(fun erlang:length/1, [[red, green, blue]], 1).
-{atomic,3}
-2> mnesia:transaction(fun lists:reverse/1, [[red, green, blue]], infinity).
-{atomic,[blue,green,red]}
+1> mnesia:create_table(doctest_people, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:transaction(
+       fun(Table, Key) ->
+           mnesia:write(Table, {Table, Key, 30}, write),
+           mnesia:read(Table, Key, read)
+       end,
+       [doctest_people, alice],
+       infinity).
+{atomic,[{doctest_people,alice,30}]}
 ```
 """.
 -spec transaction(Fun, Args, Retries) -> t_result(Res) when
@@ -885,10 +891,18 @@ another node.
 ## Examples
 
 ```erlang
-1> mnesia:sync_transaction(fun erlang:length/1, [[red, green, blue]], 1).
-{atomic,3}
-2> mnesia:sync_transaction(fun lists:sort/1, [[pear, apple, fig]], infinity).
-{atomic,[apple,fig,pear]}
+1> mnesia:create_table(doctest_people, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> [mnesia:dirty_write(doctest_people, Person) ||
+       Person <- [{doctest_people, alice, 30},
+                  {doctest_people, bob, 25},
+                  {doctest_people, carol, 35}]].
+[ok,ok,ok]
+3> mnesia:sync_transaction(
+       fun(Table, Key) -> mnesia:read(Table, Key, read) end,
+       [doctest_people, alice],
+       infinity).
+{atomic,[{doctest_people,alice,30}]}
 ```
 """.
 -spec sync_transaction(Fun, [Arg::_], Retries) -> t_result(Res) when
@@ -1409,9 +1423,10 @@ Calls the function `mnesia:write(Tab, Record, write)`, where `Tab` is
 {atomic,ok}
 2> mnesia:transaction(fun() ->
        mnesia:write({doctest_people, alice, 30}),
-       mnesia:read(doctest_people, alice, read)
+       mnesia:write({doctest_people, bob, 25}),
+       mnesia:read(doctest_people, alice, read) ++ mnesia:read(doctest_people, bob, read)
    end).
-{atomic,[{doctest_people,alice,30}]}
+{atomic,[{doctest_people,alice,30},{doctest_people,bob,25}]}
 ```
 """.
 -spec write(Record::tuple()) -> 'ok'.

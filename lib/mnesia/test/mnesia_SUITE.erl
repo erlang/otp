@@ -78,8 +78,7 @@ doctests(_Config) ->
          {function, snmp_open_table, 2},
          {function, change_table_copy_type, 3},
          {function, create_table, 2},
-         {function, select, 3},
-         {function, transaction, 3}]}]).
+         {function, select, 3}]}]).
 
 groups() -> 
     %% The 'light' test suite runs a selected set of test suites and is
