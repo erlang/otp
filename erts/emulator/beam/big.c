@@ -1852,79 +1852,6 @@ static ErtsDigit D_rem(ErtsDigit* x, dsize_t xl, ErtsDigit d)
 }
 
 /*
-** Remainder of x and y
-**
-** Assumptions: xl >= yl, yl > 1
-**			   r must contain at least xl number of digits
-*/
-static dsize_t I_rem(ErtsDigit* x, dsize_t xl, ErtsDigit* y, dsize_t yl, ErtsDigit* r)
-{
-    ErtsDigit* rp;
-    ErtsDigit b1 = y[yl-1];
-    ErtsDigit b2 = y[yl-2];
-    ErtsDigit a1;
-    ErtsDigit a2;
-    int r_signed = 0;
-    dsize_t rl;
-	
-    if (x != r)
-	MOVE_DIGITS(r, x, xl);
-    rp = r + (xl-yl);
-    rl = xl;
-
-    do {
-	ErtsDigit q0;
-	dsize_t nsz = yl;
-	dsize_t nnsz;
-		
-	a1 = rp[yl-1];
-	a2 = rp[yl-2];
-
-	if (b1 < a1)
-	    DDIV2(a1,a2,b1,b2,q0);
-	else if (b1 > a1) {
-	    DDIV(a1,a2,b1,q0);
-	    nsz++;
-	    rp--;
-	}
-	else {			/* (b1 == a1) */
-	    if (b2 <= a2)
-		q0 = 1;
-	    else {
-		q0 = D_MASK;
-		nsz++;
-		rp--;
-	    }
-	}
-
-	if ((nnsz = D_mulsub(rp, nsz, q0, y, yl, rp)) == 0) {
-	    nnsz = Z_sub(r, rl, r);
-	    if (nsz > (rl-nnsz))
-		nnsz = nsz - (rl-nnsz);
-	    else
-		nnsz = 1;
-	    r_signed = !r_signed;
-	}
-
-	if (nnsz == 1 && *rp == 0)
-	    nnsz = 0;
-
-	rp = rp - (yl-nnsz);
-	rl -= (nsz-nnsz);
-    } while (I_comp(r, rl, y, yl) >= 0);
-
-    if (rl == 0)
-	rl = 1;
-
-    while(rl > 1 && r[rl-1] == 0) /* Remove "trailing zeroes" */
-      --rl;
-
-    if (r_signed && (rl > 1 || *r != 0))
-	rl = I_sub(y, yl, r, rl, r);
-    return rl;
-}
-
-/*
 ** Remove trailing digits from bitwise operations
 */
 static dsize_t I_btrail(ErtsDigit* r0, ErtsDigit* r, short sign)
@@ -3983,8 +3910,23 @@ Eterm big_rem(Eterm x, Eterm y, Eterm *r)
 	}
     }
     else {
-	dsize_t rsz = I_rem(BIG_V(xp), xsz, BIG_V(yp), ysz, BIG_V(r));
-	return big_norm(r, rsz, sign);
+        /*
+         * Route through I_div_dispatch (like big_div / big_div_rem) so that a
+         * large divisor uses the sub-quadratic Burnikel-Ziegler divider instead
+         * of schoolbook long division; the dispatcher falls back to schoolbook
+         * for small divisors. The quotient is discarded, so it goes into a
+         * throwaway scratch buffer; the remainder is written into the caller's
+         * heap buffer r. xsz >= ysz is guaranteed by the caller (big_rem is only
+         * reached when |x| > |y|), so qsz >= 1.
+         */
+        dsize_t qsz = xsz - ysz + 1;
+        dsize_t rsz;
+        ErtsDigit *qtmp = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP,
+                                                   sizeof(ErtsDigit) * qsz);
+        (void) I_div_dispatch(BIG_V(xp), xsz, BIG_V(yp), ysz,
+                              qtmp, BIG_V(r), &rsz);
+        erts_free(ERTS_ALC_T_TMP, qtmp);
+        return big_norm(r, rsz, sign);
     }
 }
 
