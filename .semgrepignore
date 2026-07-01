@@ -1,0 +1,30 @@
+%
+% %CopyrightBegin%
+%
+% SPDX-License-Identifier: Apache-2.0
+%
+% Copyright Ericsson AB 2026. All Rights Reserved.
+%
+% Licensed under the Apache License, Version 2.0 (the "License");
+% you may not use this file except in compliance with the License.
+% You may obtain a copy of the License at
+%
+%     http://www.apache.org/licenses/LICENSE-2.0
+%
+% Unless required by applicable law or agreed to in writing, software
+% distributed under the License is distributed on an "AS IS" BASIS,
+% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+% See the License for the specific language governing permissions and
+% limitations under the License.
+%
+% %CopyrightEnd%
+%
+.semgrep/
+lib/stdlib/uc_spec/
+lib/stdlib/test/io_proto_SUITE_data/external_utf8_bom.dat
+lib/stdlib/test/io_proto_SUITE_data/testdata_utf8_bom.dat
+lib/kernel/test/interactive_shell_SUITE.erl
+lib/stdlib/test/json_SUITE_data/i_structure_UTF-8_BOM_empty_object.json
+lib/stdlib/test/json_SUITE_data/n_structure_UTF8_BOM_no_data.json
+lib/stdlib/test/re_SUITE_data/testoutput4
+semgrep.sarif
