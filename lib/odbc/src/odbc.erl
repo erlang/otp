@@ -248,6 +248,16 @@ This information may be useful if you suspect there might be a bug in the erlang
 ODBC application, and it might be relevant for you to send this file to our
 support. Otherwise you will probably not have much use of this.
 
+The `max_long_column_size` option sets the maximum ODBC bind buffer size (in
+bytes) for `SQL_LONGVARCHAR`, `SQL_LONGVARBINARY`, and `SQL_WLONGVARCHAR`
+columns when the driver reports display size 0 or a very large size (as with
+SQL Server `varchar(max)`). The default matches the historical fixed limit
+(8001 bytes). Larger values allow more data per cell but increase memory use
+per column. Values above 256 MiB are capped. Use `0` for the default. Environment
+variable `ERL_ODBC_MAX_LONG_COLUMN_SIZE` is read when the port receives the
+legacy open layout (six option bytes followed directly by the connection
+string), for example with older `odbc` BEAM clients and a newer port program.
+
 > #### Note {: .info }
 >
 > For more information about the `ConnectStr` see description of the function
@@ -284,7 +294,8 @@ dealing with a known underlying database.
                   {tuple_row, on | off} |
                   {scrollable_cursors, on | off} |
                   {trace_driver, on | off} |
-                  {extended_errors, on | off}],
+                  {extended_errors, on | off} |
+                  {max_long_column_size, 0..4294967295}],
       ConnectionReferense :: connection_reference(),
       Reason :: port_program_executable_not_found | common_reason().
 
@@ -1191,29 +1202,36 @@ code_change(_Vsn, State, _Extra) ->
 %%%========================================================================
 
 connect(ConnectionReferense, ConnectionStr, Options) ->
-    {C_AutoCommitMode, ERL_AutoCommitMode} = 
-	connection_config(auto_commit, Options),
+    {C_AutoCommitMode, ERL_AutoCommitMode} =
+        connection_config(auto_commit, Options),
     TimeOut = connection_config(timeout, Options),
     {C_TraceDriver, _} = connection_config(trace_driver, Options),
-    {C_SrollableCursors, ERL_SrollableCursors} = 
-	connection_config(scrollable_cursors, Options),
-    {C_TupleRow, _} = 
-	connection_config(tuple_row, Options),
+    {C_SrollableCursors, ERL_SrollableCursors} =
+        connection_config(scrollable_cursors, Options),
+    {C_TupleRow, _} =
+        connection_config(tuple_row, Options),
     {BinaryStrings, _} = connection_config(binary_strings, Options),
     {ExtendedErrors, _} = connection_config(extended_errors, Options),
+    MaxLongCol = connection_config(max_long_column_size, Options),
 
-    ODBCCmd = 
-	[?OPEN_CONNECTION, C_AutoCommitMode, C_TraceDriver, 
-	 C_SrollableCursors, C_TupleRow, BinaryStrings, ExtendedErrors, ConnectionStr],
-    
+    ODBCCmd =
+        [?OPEN_CONNECTION, C_AutoCommitMode, C_TraceDriver,
+         C_SrollableCursors, C_TupleRow, BinaryStrings, ExtendedErrors,
+         16#FF, 1,
+         (MaxLongCol bsr 24) band 16#ff,
+         (MaxLongCol bsr 16) band 16#ff,
+         (MaxLongCol bsr 8) band 16#ff,
+         MaxLongCol band 16#ff,
+         ConnectionStr],
+
     %% Send request, to open a database connection, to the control process.
-    case call(ConnectionReferense, 
-	      {connect, ODBCCmd, ERL_AutoCommitMode, ERL_SrollableCursors},
-	      TimeOut) of
-	ok ->
-	    {ok, ConnectionReferense};
-	Error ->
-	    Error
+    case call(ConnectionReferense,
+              {connect, ODBCCmd, ERL_AutoCommitMode, ERL_SrollableCursors},
+              TimeOut) of
+        ok ->
+            {ok, ConnectionReferense};
+        Error ->
+            Error
     end.
 
 %%-------------------------------------------------------------------------
@@ -1223,6 +1241,16 @@ odbc_send(Socket, Msg) -> %% Note currently all allowed messages are lists
     ok = inet:setopts(Socket, [{active, once}]).
 
 %%--------------------------------------------------------------------------
+connection_config(max_long_column_size, Options) ->
+    case lists:keysearch(max_long_column_size, 1, Options) of
+        {value,{max_long_column_size, V}}
+          when is_integer(V), V >= 0, V =< 16#FFFFFFFF ->
+            V;
+        {value,{max_long_column_size, V}} ->
+            erlang:error({bad_option, {max_long_column_size, V}});
+        false ->
+            connection_default(max_long_column_size)
+    end;
 connection_config(Key, Options) ->
     case lists:keysearch(Key, 1, Options) of
 	{value,{Key, on}} ->
@@ -1253,7 +1281,9 @@ connection_default(scrollable_cursors) ->
 connection_default(binary_strings) ->
     {?OFF, off};
 connection_default(extended_errors) ->
-    {?OFF, off}.
+    {?OFF, off};
+connection_default(max_long_column_size) ->
+    0.
 
 %%-------------------------------------------------------------------------
 call(ConnectionReference, Msg, Timeout) ->
