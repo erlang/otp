@@ -301,6 +301,7 @@ but the map is preferred.
 	 which_children/1, which_child/2,
 	 count_children/1, check_childspecs/1,
 	 check_childspecs/2, get_childspec/2,
+	 get_tree/1,
 	 stop/1, stop/3]).
 
 %% Internal exports
@@ -333,7 +334,7 @@ but the map is preferred.
 -export_type([sup_flags/0, child_spec/0, strategy/0,
               startchild_ret/0, startchild_err/0,
               startlink_ret/0, startlink_err/0,
-              sup_name/0, sup_ref/0]).
+              sup_name/0, sup_ref/0, supervision_tree/0]).
 
 %%--------------------------------------------------------------------------
 
@@ -437,6 +438,21 @@ see more details [above](`m:supervisor#sup_flags`).
                       Intensity :: non_neg_integer(),
                       Period :: pos_integer()}.
 -type children() :: {Ids :: [child_id()], Db :: #{child_id() => child_rec()}}.
+-doc """
+A hierarchical representation of the supervision tree rooted at a supervisor.
+The tuple contains the supervisor's PID and a list of its child nodes, each
+containing the child ID, child PID (or 'restarting'/'undefined'), child type,
+modules, and the subtree of child supervisors (if any). Workers have empty
+subtrees.
+""".
+-type supervision_tree() :: {Pid :: pid(),
+                             [supervision_tree_node()]} |
+                            {error, no_supervision_info}.
+-type supervision_tree_node() :: {Id :: child_id(),
+                                   Child :: pid() | restarting | undefined,
+                                   Type :: worker | supervisor,
+                                   Modules :: modules(),
+                                   Subtree :: supervision_tree() | []}.
 
 %%--------------------------------------------------------------------------
 %% Defaults
@@ -828,6 +844,49 @@ processes:
              | {workers, ChildWorkerCount :: non_neg_integer()}.
 count_children(Supervisor) ->
     call(Supervisor, count_children).
+
+-doc """
+Returns a nested structure representing the entire supervision tree rooted at
+the given supervisor. This includes all child processes (direct and indirect)
+organized hierarchically.
+
+Each node in the tree contains:
+- `Id` - The child ID as specified in the child specification
+- `Child` - The child process PID, or `restarting` if being restarted, or
+  `undefined` if not running
+- `Type` - Either `worker` or `supervisor`
+- `Modules` - The modules implementing the child process
+- `Subtree` - For supervisor children, the supervision tree below that supervisor,
+  or an empty list for worker children
+
+If the supervisor process does not exist or is not a valid supervisor,
+returns `{error, no_supervision_info}`.
+
+This function is useful for debugging and visualization of the supervision
+structure of an application at runtime.
+
+#### Example
+
+```erlang
+% Get the supervision tree for the root supervisor
+{RootSupPid, Children} = supervisor:get_tree(my_app_sup),
+
+% Each child has the form:
+% {child_id, ChildPid, supervisor, [Modules], ChildrenList}
+```
+""".
+-doc(#{since => <<"OTP 28.0">>}).
+-spec get_tree(SupRef) -> supervision_tree() when
+      SupRef :: sup_ref().
+get_tree(Supervisor) ->
+    try
+        SupPid = resolve_supervisor_reference(Supervisor),
+        Children = which_children(SupPid),
+        {SupPid, [build_tree_node(Id, Child, Type, Modules) ||
+                  {Id, Child, Type, Modules} <- Children]}
+    catch
+        _:_ -> {error, no_supervision_info}
+    end.
 
 -doc(#{equiv => stop(SupRef, normal, infinity)}).
 -doc(#{since => <<"OTP 29.0">>}).
@@ -2537,3 +2596,43 @@ dyn_init(Child,State) when ?is_temporary(Child) ->
     State#state{dynamics={mapsets,maps:new()}};
 dyn_init(_Child,State) ->
     State#state{dynamics={maps,maps:new()}}.
+
+%% Resolve a supervisor reference (pid | atom | {global,Name} | {via,Mod,Name})
+%% to a concrete PID. Called once before any gen_server operations to avoid
+%% races where a registered name could be re-bound between two separate lookups.
+-spec resolve_supervisor_reference(sup_ref()) -> pid().
+resolve_supervisor_reference(Pid) when is_pid(Pid) ->
+    Pid;
+resolve_supervisor_reference(Name) when is_atom(Name) ->
+    case whereis(Name) of
+        Pid when is_pid(Pid) -> Pid;
+        undefined -> error({nonexistent_process, Name})
+    end;
+resolve_supervisor_reference({global, Name}) ->
+    case global:whereis_name(Name) of
+        Pid when is_pid(Pid) -> Pid;
+        undefined -> error({nonexistent_process, {global, Name}})
+    end;
+resolve_supervisor_reference({via, Module, Name}) ->
+    case Module:whereis_name(Name) of
+        Pid when is_pid(Pid) -> Pid;
+        undefined -> error({nonexistent_process, {via, Module, Name}})
+    end.
+
+%% Helper function to build a tree node for a single child
+build_tree_node(Id, Child, Type, Modules) ->
+    Subtree = case Type of
+        supervisor when is_pid(Child) ->
+            try which_children(Child) of
+                Children ->
+                    [build_tree_node(CId, CPid, CType, CMods) ||
+                     {CId, CPid, CType, CMods} <- Children]
+            catch
+                _:_ -> []
+            end;
+        supervisor ->
+            [];
+        worker ->
+            []
+    end,
+    {Id, Child, Type, Modules, Subtree}.
