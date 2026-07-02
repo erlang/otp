@@ -1449,6 +1449,11 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
         a.str(TMP, TMP_MEM5q);
 
         for (auto seg : segments) {
+// This emitter may introduce more code then expected.
+// This may overshoot the 4KB displacement limit of few constants.
+// To avoid it we check the pending stubs between every segment.
+            check_pending_stubs();
+
             if (seg.effectiveSize >= 0) {
                 continue;
             }
@@ -1698,6 +1703,9 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
     a.str(ARG1, TMP_MEM1q);
 
     for (auto seg : segments) {
+        // Safety check, see above
+        check_pending_stubs();
+
         switch (seg.type) {
         case am_append:
         case am_private_append:
