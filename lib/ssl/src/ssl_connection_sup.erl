@@ -36,7 +36,6 @@
 %%%=========================================================================
 
 -spec start_link() -> {ok, pid()} | ignore | {error, term()}.
-			
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
@@ -44,7 +43,7 @@ start_link() ->
 %%%  Supervisor callback
 %%%=========================================================================
 
-init([]) ->    
+init([]) ->
     ChildSpecs = [tls_sup_child_spec(), dtls_sup_child_spec()],
     SupFlags = #{strategy  => one_for_one,
                  intensity =>   10,
@@ -52,8 +51,6 @@ init([]) ->
                 },
     {ok, {SupFlags, ChildSpecs}}.
 
-  
-    
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -62,7 +59,7 @@ tls_sup_child_spec() ->
     #{id => tls_sup,
       start => {tls_sup, start_link, []},
       restart => permanent,
-      shutdown => 4000,
+      shutdown => infinity,
       modules => [tls_sup],
       type => supervisor
      }.
@@ -71,7 +68,7 @@ dtls_sup_child_spec() ->
     #{id => dtls_sup,
       start => {dtls_sup, start_link, []},
       restart => permanent,
-      shutdown => 4000,
+      shutdown => infinity,
       modules => [dtls_sup],
       type => supervisor
      }.

@@ -36,7 +36,7 @@
 %%%=========================================================================
 
 -spec start_link() -> {ok, pid()} | ignore | {error, term()}.
-			
+
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
@@ -45,13 +45,13 @@ start_link() ->
 %%%=========================================================================
 
 init([]) ->
-    SupFlags = #{strategy  => rest_for_one, 
+    SupFlags = #{strategy  => rest_for_one,
                  intensity =>   10,
                  period    => 3600
                 },
-    ChildSpecs = [pem_cache_child_spec(), 
+    ChildSpecs = [pem_cache_child_spec(),
                   session_and_cert_manager_child_spec(),
-                  ticket_store_spec()],    
+                  ticket_store_spec()],
     {ok, {SupFlags, ChildSpecs}}.
 
 manager_opts() ->
@@ -68,7 +68,7 @@ manager_opts() ->
 	_  ->
 	    CbOpts
     end.
-    
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -76,7 +76,7 @@ manager_opts() ->
 pem_cache_child_spec() ->
     #{id       => ssl_pem_cache,
       start    => {ssl_pem_cache, start_link, [[]]},
-      restart  => permanent, 
+      restart  => permanent,
       shutdown => 4000,
       modules  => [ssl_pem_cache],
       type     => worker
@@ -85,7 +85,7 @@ session_and_cert_manager_child_spec() ->
     Opts = manager_opts(),
     #{id       => ssl_manager,
       start    => {ssl_manager, start_link, [Opts]},
-      restart  => permanent, 
+      restart  => permanent,
       shutdown => 4000,
       modules  => [ssl_manager],
       type     => worker

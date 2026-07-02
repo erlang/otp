@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2014-2024. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -48,25 +48,25 @@ start_child(Args) ->
 
 start_child_dist(Args) ->
     supervisor:start_child(tracker_name(dist), Args).
-  
+
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
 init(_) ->
-    SupFlags = #{strategy  => simple_one_for_one, 
+    SupFlags = #{strategy  => simple_one_for_one,
                  intensity =>   0,
                  period    => 3600
                 },
     ChildSpecs = [#{id       => undefined,
                     start    => {tls_socket, start_link, []},
-                    restart  => temporary, 
+                    restart  => temporary,
                     shutdown => 4000,
                     modules  => [tls_socket],
                     type     => worker
-                   }],    
+                   }],
     {ok, {SupFlags, ChildSpecs}}.
 
 tracker_name(normal) ->
     ?MODULE;
 tracker_name(dist) ->
-    list_to_atom(atom_to_list(?MODULE) ++ "_dist").
+    ssl_listen_tracker_sup_dist.

@@ -39,10 +39,9 @@
 %%%=========================================================================
 
 -spec start_link() -> {ok, pid()} | ignore | {error, term()}.
-			
 start_link() ->
     case init:get_argument(ssl_dist_optfile) of
-        {ok, [File]} ->
+        {ok, [[File]]} ->
             DistOpts = consult(File),
             TabOpts = [set, protected, named_table],
             Tab = ets:new(ssl_dist_opts, TabOpts),
@@ -58,13 +57,13 @@ start_link() ->
 %%%  Supervisor callback
 %%%=========================================================================
 
-init([]) ->    
-    SupFlags = #{strategy  => one_for_all, 
+init([]) ->
+    SupFlags = #{strategy  => one_for_all,
                  intensity =>   10,
                  period    => 3600
                 },
     ChildSpecs = [ssl_admin_child_spec(),
-                  ssl_connection_sup()], 
+                  ssl_connection_sup()],
     {ok, {SupFlags, ChildSpecs}}.
 
 %%--------------------------------------------------------------------
@@ -73,17 +72,17 @@ init([]) ->
 ssl_admin_child_spec() ->
     #{id       => ssl_dist_admin_sup,
       start    =>  {ssl_dist_admin_sup, start_link , []},
-      restart  => permanent, 
-      shutdown => 4000,
+      restart  => permanent,
+      shutdown => infinity,
       modules  => [ssl_dist_admin_sup],
       type     => supervisor
      }.
-    
+
 ssl_connection_sup() ->
     #{id       => tls_dist_sup,
       start    => {tls_dist_sup, start_link, []},
-      restart  => permanent, 
-      shutdown => 4000,
+      restart  => permanent,
+      shutdown => infinity,
       modules  => [tls_dist_sup],
       type     => supervisor
      }.
