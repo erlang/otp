@@ -6,4 +6,4 @@
 ##
 ## %CopyrightEnd%
 
-DIALYZER_VSN = 6.0.1
+DIALYZER_VSN = 6.0.2
