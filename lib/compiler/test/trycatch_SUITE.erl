@@ -1585,9 +1585,10 @@ coverage_1() ->
 %% Cover some code in beam_ssa_throw.
 coverage_ssa_throw() ->
     cst_trivial(),
-    cst_raw(),
-    cst_stacktrace(),
     cst_types(),
+    cst_stacktrace(),
+    cst_raw(),
+    cst_hang(),
 
     ok.
 
@@ -1654,6 +1655,20 @@ cst_raw() ->
     end.
 
 cst_raw_1() -> throw(id(gurka)).
+
+cst_hang() ->
+    try cst_hang_1()
+    catch throw:gurka ->
+            ok;
+        _C:_R:Stack ->
+            %% Receive creates a label loop which used to cause
+            %% an infinite loop in the throw optimization.
+            Y = receive a -> 1; b -> 2 end,
+            id(Stack),
+            Y
+    end.
+
+cst_hang_1() -> throw(id(gurka)).
 
 %% Cover some code in beam_ssa_pre_codegen.
 coverage_pre_codegen() ->

@@ -36,7 +36,7 @@
          cover_maps_functions/1,min_max_mixed_types/1,
          not_equal/1,infer_relops/1,binary_unit/1,premature_concretization/1,
          funs/1,will_succeed/1,float_confusion/1,
-         cover_convert_ext/1]).
+         cover_convert_ext/1, catch_setelement/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -84,7 +84,8 @@ groups() ->
        funs,
        will_succeed,
        float_confusion,
-       cover_convert_ext
+       cover_convert_ext,
+       catch_setelement
       ]}].
 
 init_per_suite(Config) ->
@@ -1660,6 +1661,15 @@ cover_convert_ext(_Config) ->
 
     ok.
 
+
+%% This used to cause an exception instead of returning an error.
+catch_setelement(_Config) ->
+    {'EXIT', _} = catch_setelement_2(id(true), id(foo)),
+    ok.
+
+catch_setelement_2(B, V) ->
+    T = if B -> {1}; true -> {1,2} end,
+    catch setelement(2, T, V).
 
 %%%
 %%% Common utilities.

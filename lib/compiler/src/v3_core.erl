@@ -1024,8 +1024,8 @@ expr({Op,Loc,Index}, St0) when Op =:= executable_line;
     {#iprimop{anno=#a{anno=lineno_anno(Loc, St0)},
               name=#c_literal{val=Op},
               args=[#c_literal{val=Index}]},[],St0};
-expr({ssa_check_when,L,WantedResult,Args,Tag,Clauses}, St) ->
-    {#c_opaque{anno=full_anno(L, St),val={ssa_check_when,WantedResult,Tag,Args,Clauses}}, [], St}.
+expr({ssa_check_when,L,WantedResult,Args,AnnoCheck,Tag,Clauses}, St) ->
+    {#c_opaque{anno=full_anno(L, St),val={ssa_check_when,WantedResult,Tag,Args,AnnoCheck,Clauses}}, [], St}.
 
 blockify(L0, {sequential_match,_L1,First,Then}, E) ->
     [{single_match,L0,First,E}|blockify(L0, Then, E)];
