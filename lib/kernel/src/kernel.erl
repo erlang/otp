@@ -36,7 +36,17 @@ start(_, []) ->
     %% Setup the logger and configure the kernel logger environment
     ok = logger:internal_init_logger(),
     ok = os:internal_init_cmd_shell(),
-    case supervisor:start_link({local, kernel_sup}, kernel, []) of
+
+    Mode = case init:get_argument(mode) of
+               {ok, [["minimal"]|_]} ->
+                   minimal;
+               {ok, [["test"]|_]} ->
+                   test;
+               _ ->
+                   default
+           end,
+
+    case supervisor:start_link({local, kernel_sup}, kernel, [Mode]) of
 	{ok, Pid} ->
             ok = erl_signal_handler:start(),
             ok = logger:add_handlers(kernel),
@@ -88,7 +98,88 @@ config_change(Changed, New, Removed) ->
 %%% Callback functions for the kernel_sup supervisor.
 %%%-----------------------------------------------------------------
 
-init([]) ->
+%% The modules below are loaded depending on the mode of the kernel application.
+%% The minimal mode is used for the compiler and other tools that need a
+%% small set of modules. The default mode is used for normal operation of the Erlang
+%% runtime system.
+%%
+%% Keep the modules sorted in the list below, and add notes on what functionality uses
+%% the modules so that we can keep the list minimal.
+
+%% These modules are used by the code server and are always loaded.
+%% Some of these are not (always) run during startup but are used by
+%% code server so they need to be loaded by init before the code server is started.
+-define(CODE_MODULES,
+        [beam_lib, %% used by code_server
+         binary, %% used by code_server
+         code, %% used by kernel_sup
+         code_server,  %% used by code
+         ets, %% used by code_server
+         io, %% used by code
+         io_lib, %% used by code
+         io_lib_format, %% used by code
+         unicode %% used by code
+        ]).
+
+-define(MINIMAL_MODULES,
+        [edlin, %% used by group
+         edlin_key, %% used by edlin
+         erl_features, %% used by code:do_start
+         erl_signal_handler, %% used by kernel_sup
+         file_server, %% used by kernel_sup
+         filename, %% used by code + code_server
+         gen_event, %% used by erl_signal_handler
+         gen_statem, %% used by user_drv
+         group, %% used by user_drv
+         kernel_config, %% used by kernel_sup
+         kernel_refc, %% used by kernel_sup
+         logger_formatter, %% used by logger_sup
+         logger_h_common, %% used by logger_sup
+         logger_handler_watcher, %% used by logger_sup
+         logger_std_h, %% used by logger_sup
+         logger_sup, %% used by kernel_sup
+         maps, %% used by lots of modules
+         peer, %% used by kernel_sup
+         prim_tty, %% used by user_drv
+         prim_tty_sighandler, %% used by prim_tty
+         standard_error, %% used by kernel_sup
+         supervisor_bridge, %% used by user_sup
+         user_drv, %% used by user_sup
+         user_sup %% used by kernel_sup
+        ]).
+-define(DEFAULT_MODULES,
+        [ %% All of these are used to start dist + inet_db
+         erl_distribution,
+         erpc,
+         global,
+         global_group,
+         inet,
+         inet_config,
+         inet_db,
+         inet_parse,
+         inet_udp,
+         net_kernel,
+         rand,
+         rpc] ++ [win32reg || element(1, os:type()) == win32]).
+
+preload(minimal) ->
+    ok = init:ensure_modules_loaded(?MINIMAL_MODULES ++ ?CODE_MODULES),
+    minimal;
+preload(default) ->
+    ok = init:ensure_modules_loaded(?MINIMAL_MODULES ++ ?DEFAULT_MODULES ++ ?CODE_MODULES),
+    default;
+preload(test) ->
+    %% Doing apply/3 keeps the list_to_atom away from generating compiler warnings
+    TestModule = apply(erlang, list_to_atom, [os:getenv("KERNEL_BOOT_TEST_MODULE")]),
+    {module, TestModule} = init:ensure_loaded(TestModule),
+    TestModule:preload(#{code => ?CODE_MODULES,
+                         minimal => ?MINIMAL_MODULES,
+                         default => ?DEFAULT_MODULES}),
+    preload(default).
+
+init([PreloadMode]) ->
+    StartMode = preload(PreloadMode),
+
     SupFlags = #{strategy => one_for_all,
                  intensity => 0,
                  period => 1},
@@ -194,14 +285,14 @@ init([]) ->
             LateFile = []
     end,
 
-    case init:get_argument(mode) of
-        {ok, [["minimal"]|_]} ->
+    case StartMode of
+        minimal ->
             {ok, {SupFlags,
                   [Code, StdError | EarlyFile] ++
                       [OnLoad | LateFile] ++
                       [SigSrv | Peer] ++
                       [User, LoggerSup, Config, RefC, SafeSup]}};
-        _ ->
+        default ->
             DistChildren =
 		case application:get_env(kernel, start_distribution) of
 		    {ok, false} -> [];

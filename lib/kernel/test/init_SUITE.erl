@@ -34,11 +34,13 @@
          dot_erlang/1, unknown_module/1, dash_S/1, dash_extra/1,
          dash_run/1, dash_s/1,
 	 find_system_processes/0,
+         boot_module_load/1,
          stop_flush/1
          ]).
 -export([boot1/1, boot2/1]).
 -export([test_dash_S/1, test_dash_s/1, test_dash_extra/0,
          test_dash_run/0, test_dash_run/1]).
+-export([preload/1, loaded_modules/0]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -57,7 +59,7 @@ all() ->
      get_plain_arguments, init_group_history_deadlock,
      restart, stop_status, stop_flush, get_status, script_id,
      dot_erlang, unknown_module, {group, boot},
-     dash_S, dash_extra, dash_run, dash_s].
+     dash_S, dash_extra, dash_run, dash_s, boot_module_load].
 
 groups() -> 
     [{boot, [], [boot1, boot2]}].
@@ -647,6 +649,137 @@ stop(Config) when is_list(Config) ->
 	    ct:fail(system_rebooted)
     end,
     ok.
+
+%% A small helper that prints the difference between two sets, A and B.
+-define(assertEqualSets(A,B),
+        begin
+            ((fun () ->
+                      case sets:is_equal(A,B) of
+                          true -> ok;
+                          false ->
+                              OnlyA = sets:to_list(sets:subtract(A, B)),
+                              OnlyB = sets:to_list(sets:subtract(B, A)),
+                              erlang:error({assertEqualSets,
+                                            [{module, ?MODULE},
+                                             {only_in_A, OnlyA}, {only_in_B, OnlyB},
+                                             {intersection, sets:to_list(sets:intersection(A, B))},
+                                             {'A', (??A)}, {'B', (??B)}]})
+                      end end)())
+        end).
+
+%% This testcase checks that the correct modules are loaded during init and kernel boot.
+boot_module_load(Config) ->
+
+    erlang:system_info(emu_flavor) =:= jit
+        orelse throw({skip, "Test only valid for JIT emulator"}),
+
+    TestCodeDir = filename:dirname(code:which(?MODULE)),
+
+    CommonArguments = "ERL_ZFLAGS=\"\" " ++ ct:get_progname() ++ " +JPcover function -pa " ++ TestCodeDir ++ " -boot no_dot_erlang -noshell",
+
+    PreLoaded = sets:from_list(erlang:pre_loaded() ++ [?MODULE]),
+    MandatoryModules = sets:from_list(systools_make:mandatory_modules()),
+    PreLoadedMandatory = sets:union(PreLoaded, MandatoryModules),
+
+    %% inet_gethost_native is executed during boot only on some platforms
+    %% (e.g. Linux with a short hostname, where inet_config resolves the
+    %% host's FQDN using native name resolution). It is not part of any
+    %% preload manifest, so exclude it from the comparison.
+    PlatformOptionalBootModules = sets:from_list([inet_gethost_native]),
+
+    [BeforeKernelStart, MinimalModules, CodeModules, DefaultModules] =
+        parse(CommonArguments ++ " -env KERNEL_BOOT_TEST_MODULE init_SUITE -mode test -s init stop"),
+
+    io:format("BeforeKernelStart: ~p~n", [BeforeKernelStart]),
+    io:format("MinimalModules: ~p~n", [MinimalModules]),
+    io:format("CodeModules: ~p~n", [CodeModules]),
+    io:format("DefaultModules: ~p~n", [DefaultModules]),
+
+    BeforeKernelStartSet = sets:union(sets:from_list(BeforeKernelStart), PreLoaded),
+    OptionalBootModules = sets:union(sets:from_list(CodeModules), PlatformOptionalBootModules),
+    MinimalModulesSet = sets:union([sets:from_list(MinimalModules),
+                                    OptionalBootModules,
+                                    PreLoadedMandatory]),
+    DefaultModulesSet = sets:union(sets:from_list(DefaultModules), MinimalModulesSet),
+
+    [MinimalAfterKernelStart] =
+        parse(CommonArguments ++ " -mode minimal -s init_SUITE loaded_modules"),
+
+    [DefaultAfterKernelStart] =
+        parse(CommonArguments ++ " -mode default -s init_SUITE loaded_modules"),
+
+    io:format("MinimalAfterKernelStart: ~p~n", [MinimalAfterKernelStart]),
+    io:format("DefaultAfterKernelStart: ~p~n", [DefaultAfterKernelStart]),
+
+    MinimalAfterKernelStartSet = sets:union([sets:from_list(MinimalAfterKernelStart),
+                                             PreLoaded, OptionalBootModules]),
+    DefaultAfterKernelStartSet = sets:union([sets:from_list(DefaultAfterKernelStart),
+                                             PreLoaded, OptionalBootModules]),
+
+    %% Check that all only the mandatory modules are preloaded when starting
+    ?assertEqualSets(MandatoryModules, sets:subtract(BeforeKernelStartSet, PreLoaded)),
+
+    %% Check that all the minimal modules are loaded when starting with mode minimal
+    ?assertEqualSets(MinimalModulesSet, MinimalAfterKernelStartSet),
+
+    %% Check that all the default modules are loaded when starting with mode default
+    ?assertEqualSets(DefaultModulesSet, DefaultAfterKernelStartSet),
+
+    %% Check that no minimal modules are part of the default modules
+    ?assertEqual([], sets:to_list(sets:intersection(sets:from_list(MinimalModules), sets:from_list(DefaultModules)))),
+
+    %% Check that minimal and default modules are sorted
+    ?assertEqual(MinimalModules, lists:sort(MinimalModules)),
+    ?assertEqual(DefaultModules, lists:sort(DefaultModules)),
+    
+    ok.
+
+parse(Cmd) ->
+    try
+        Res = os:cmd(Cmd, #{exception_on_failure => true}),
+        try
+            parse_terms(Res)
+        catch _:_ ->
+                io:format("Cmd: ~ts~nFailed to parse output: ~ts~n", [Cmd, Res])
+        end
+    catch _:Reason ->
+            io:format("Cmd: ~ts~nFailed to run command: ~p~n", [Cmd, Reason])
+    end.
+
+preload(Modules) ->
+    erlang:display(run_modules()),
+    erlang:display_string(".\n"),
+    erlang:display(maps:get(minimal, Modules)),
+    erlang:display_string(".\n"),
+    erlang:display(maps:get(code, Modules)),
+    erlang:display_string(".\n"),
+    erlang:display(maps:get(default, Modules)),
+    erlang:display_string(".\n").
+
+loaded_modules() ->
+    erlang:display(run_modules()),
+    erlang:display_string(".\n"),
+    init:stop().
+
+%% Returns which modules have been run so far.
+run_modules() ->
+    {module, code} = init:ensure_loaded(code),
+    lists:usort([M || M <- erlang:loaded(), {_, true} <- code:get_coverage(function, M)]).
+
+parse_terms(Str) ->
+    {ok, Tokens, _} = erl_scan:string(Str),
+    parse_terms(Tokens, []).
+parse_terms([], []) ->
+    [];
+parse_terms([{dot, _} = Dot|Rest], Acc) ->
+    case erl_parse:parse_term(lists:reverse([Dot|Acc])) of
+        {ok, Term} ->
+            [Term | parse_terms(Rest, [])];
+        {error, ErrorInfo} ->
+            exit({parse_error, ErrorInfo, lists:reverse([Dot|Acc])})
+    end;
+parse_terms([Token|Rest], Acc) ->
+    parse_terms(Rest, [Token|Acc]).
 
 %% ------------------------------------------------
 %% Verify that init:stop() does not sleep for a fixed
