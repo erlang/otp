@@ -169,7 +169,7 @@ do_verify(Pkt,
                          header = #dns_header{ qr = QR },
                          arlist = ARList },
           TS0 = #tsig_state{ id = undefined }) ->
-    QR = false, % ASSERT that the caller has not passed a response
+    QR =:= false orelse throw(formerr),
     case ARList =/= [] andalso lists:last(ARList) of
         false ->
             {error,{notauth,badsig}};
@@ -179,14 +179,28 @@ do_verify(Pkt,
            original_id = OriginalId,
            error = ?NOERROR
           } = TSigRR ->
-            {Alg,AlgSize} =
+            {Alg,AlgSize} = % AlgSize in bytes
                 case inet_dns:decode_algname(AlgName) of
-                    {A,S} ->
-                        {A,S};
-                    A ->
-                        {A,maps:get(size, crypto:hash_info(A))}
+                    {A,S} when is_atom(A), is_integer(S), S >= 96 ->
+                        %% {sha,96} is the smallest we know of, 96 bits
+                        lists:member(A, ?ALGS_SUPPORTED)
+                            orelse throw({notauth,badkey}),
+                        {A,S bsr 3}; % Bits -> Bytes
+                    A when is_atom(A) ->
+                        lists:member(A, ?ALGS_SUPPORTED)
+                            orelse throw({notauth,badkey}),
+                        try crypto:hash_info(A) of
+                            #{ size := S } when is_integer(S), S >= 12 ->
+                                %% sha(96) => 12 bytes
+                                {A,S};
+                            #{} ->
+                                throw({notauth,badkey})
+                        catch error : badarg ->
+                                throw({notauth,badkey})
+                        end;
+                    _ ->
+                        throw({notauth,badkey})
                 end,
-            lists:member(Alg, ?ALGS_SUPPORTED) orelse throw({notauth,badkey}),
             Key = lists:keyfind(Name, 1, TS0#tsig_state.key),
             Key == false andalso throw({notauth,badkey}),
             TS = TS0#tsig_state{
@@ -213,8 +227,10 @@ do_verify(Pkt,
           Response = #dns_rec{
                         header = #dns_header{ qr = QR },
                         arlist = ARList },
-          TS = #tsig_state{ qr = TSQR })
-  when QR =:= (TSQR > 0) -> % Query/response status the same in header and state
+          TS = #tsig_state{ qr = TSQR }) ->
+    %% Query/response status the same in header and state
+    QR =:= (TSQR > 0) orelse throw(formerr),
+    %%
     case ARList =/= [] andalso lists:last(ARList) of
         %% RFC8945, section 5.3.1: TSIG on TCP Connections
         false when TSQR == 3 -> % not 2 as we must start with a TSIG RR
@@ -257,28 +273,32 @@ do_verify(Pkt, _Response, TS = #tsig_state{ alg = {_Alg,AlgSize} }, TSigRR) ->
                 andalso
                MACSize =< AlgSize,
     MACValid orelse throw(formerr),
-    PktS = iolist_to_binary([
-        <<(TS#tsig_state.id):16>>,
-        binary:part(Pkt, {2,8}),
-        begin
-            <<ARC:16>> = binary:part(Pkt, {10,2}),
-            <<(ARC - 1):16>>
+    MACCalc =
+        if
+            element(1, TS#tsig_state.mac) == ?MODULE ->
+                PktS =
+                    iolist_to_binary(
+                      [binary_part(Pkt, 0, 10),
+                       begin
+                           <<ARC:16>> = binary_part(Pkt, 10, 2),
+                           <<(ARC - 1):16>>
+                       end,
+                       binary_part(Pkt, 12, Offset-12)]),
+                mac(PktS, TS, Error, NowSigned, OtherData);
+            %% RFC8945, section 5.3.1: TSIG on TCP Connections
+            true ->
+                mac(TS, Error, NowSigned, OtherData)
         end,
-        binary:part(Pkt, {12,Offset - 12})
-    ]),
-    MACCalc = if
-        element(1, TS#tsig_state.mac) == ?MODULE ->
-            mac(PktS, TS, Error, NowSigned, OtherData);
-        %% RFC8945, section 5.3.1: TSIG on TCP Connections
-        true ->
-            mac(TS, Error, NowSigned, OtherData)
-    end,
+    MACEq =
+        MACSize == byte_size(MACCalc)
+        andalso
+        crypto:hash_equals(MAC, MACCalc),
     if
         %% RFC8945, section 5.2 - MUST check time after MAC
-        MAC == MACCalc, NowSigned - Fudge < Now, NowSigned + Fudge > Now ->
+        MACEq, NowSigned - Fudge < Now, NowSigned + Fudge > Now ->
             QR = if TS#tsig_state.qr == 0 -> 1; true -> 2 end,
             {ok,TS#tsig_state{ qr = QR, mac = {?MODULE,MAC} }};
-        MAC == MACCalc ->
+        MACEq ->
             {error,{notauth,badtime}};
         true ->
             {error,{notauth,badsig}}
@@ -313,7 +333,7 @@ macN({?MODULE,MAC}, #tsig_state{ mac = {crypto,MACState} }) ->
 macN(Pkt, TS = #tsig_state{ mac = {crypto,MACState} }) ->
     {crypto,crypto:mac_update(MACState, [
        <<(TS#tsig_state.id):16>>,
-       binary:part(Pkt, {2,byte_size(Pkt) - 2})
+       binary_part(Pkt, 2, byte_size(Pkt)-2)
     ])}.
 
 %% RFC8945, section 5.3.2: Generation of TSIG on Error Returns
