@@ -121,11 +121,6 @@
 	q = _t / DDIGIT((b1),(b0));					\
     } while(0)
 
-#define DREM(a1,a0,b,r) do { \
-	ErtsDoubleDigit _t = DDIGIT((a1),(a0));		\
-	r = _t % (b);					\
-    } while(0)
-
 /* add a and b with carry in + out */
 #define DSUMc(a,b,c,s) do {                                     \
         ErtsDoubleDigit _t = (ErtsDoubleDigit)(a) + (b) + (c);  \
@@ -304,15 +299,6 @@
 	ErtsDigit __b = (b);			\
 	q1 = __a1 / __b;			\
 	DDIVREM(__a1 % __b, (a0), __b, q0, r);	\
-    } while(0)
-
-
-/* Calculate q = (a1B + a0) % b */
-#define DREM(a1,a0,b,r) do {				\
-	ErtsDigit __a1 = (a1);				\
-	ErtsDigit __b = (b);				\
-	ERTS_DECLARE_DUMMY(ErtsDigit __q0);		\
-	DDIVREM((__a1 % __b), (a0), __b, __q0, r);	\
     } while(0)
 
 #define DDIV(a1,a0,b,q)	do {			\
@@ -1837,98 +1823,6 @@ static dsize_t I_div_dispatch(ErtsDigit *x, dsize_t xl,
 #endif
     }
     return I_div(x, xl, y, yl, q, r, rlp);
-}
-
-/*
-** Remainder of digits in x and a digit d
-*/
-static ErtsDigit D_rem(ErtsDigit* x, dsize_t xl, ErtsDigit d)
-{
-    ErtsDigit rem = 0;
-
-    x += (xl-1);
-    do {
-	if (rem != 0)
-	    DREM(rem, *x, d, rem);
-	else
-	    DREM(0, *x, d, rem);
-	x--;
-	xl--;
-    } while(xl > 0);
-    return rem;
-}
-
-/*
-** Remainder of x and y
-**
-** Assumptions: xl >= yl, yl > 1
-**			   r must contain at least xl number of digits
-*/
-static dsize_t I_rem(ErtsDigit* x, dsize_t xl, ErtsDigit* y, dsize_t yl, ErtsDigit* r)
-{
-    ErtsDigit* rp;
-    ErtsDigit b1 = y[yl-1];
-    ErtsDigit b2 = y[yl-2];
-    ErtsDigit a1;
-    ErtsDigit a2;
-    int r_signed = 0;
-    dsize_t rl;
-	
-    if (x != r)
-	MOVE_DIGITS(r, x, xl);
-    rp = r + (xl-yl);
-    rl = xl;
-
-    do {
-	ErtsDigit q0;
-	dsize_t nsz = yl;
-	dsize_t nnsz;
-		
-	a1 = rp[yl-1];
-	a2 = rp[yl-2];
-
-	if (b1 < a1)
-	    DDIV2(a1,a2,b1,b2,q0);
-	else if (b1 > a1) {
-	    DDIV(a1,a2,b1,q0);
-	    nsz++;
-	    rp--;
-	}
-	else {			/* (b1 == a1) */
-	    if (b2 <= a2)
-		q0 = 1;
-	    else {
-		q0 = D_MASK;
-		nsz++;
-		rp--;
-	    }
-	}
-
-	if ((nnsz = D_mulsub(rp, nsz, q0, y, yl, rp)) == 0) {
-	    nnsz = Z_sub(r, rl, r);
-	    if (nsz > (rl-nnsz))
-		nnsz = nsz - (rl-nnsz);
-	    else
-		nnsz = 1;
-	    r_signed = !r_signed;
-	}
-
-	if (nnsz == 1 && *rp == 0)
-	    nnsz = 0;
-
-	rp = rp - (yl-nnsz);
-	rl -= (nsz-nnsz);
-    } while (I_comp(r, rl, y, yl) >= 0);
-
-    if (rl == 0)
-	rl = 1;
-
-    while(rl > 1 && r[rl-1] == 0) /* Remove "trailing zeroes" */
-      --rl;
-
-    if (r_signed && (rl > 1 || *r != 0))
-	rl = I_sub(y, yl, r, rl, r);
-    return rl;
 }
 
 /*
@@ -3929,70 +3823,6 @@ int big_div_rem(Eterm lhs, Eterm rhs,
     *r = remainder;
 
     return 1;
-}
-
-/*
-** Divide bignums
-*/
-Eterm big_div(Eterm x, Eterm y, Eterm *q)
-{
-    Eterm* xp = big_val(x);
-    Eterm* yp = big_val(y);
-
-    short sign = BIG_SIGN(xp) != BIG_SIGN(yp);
-    dsize_t xsz = BIG_SIZE(xp);
-    dsize_t ysz = BIG_SIZE(yp);
-    dsize_t qsz;
-
-    if (ysz == 1) {
-	ErtsDigit rem;
-	qsz = D_div(BIG_V(xp), xsz, BIG_DIGIT(yp,0), BIG_V(q), &rem);
-    }
-    else {
-	Eterm* remp;
-	dsize_t rem_sz;
-
-	qsz = xsz - ysz + 1;
-	remp = q + BIG_NEED_SIZE(qsz);
-        qsz = I_div_dispatch(BIG_V(xp), xsz, BIG_V(yp), ysz, BIG_V(q), BIG_V(remp),
-                             &rem_sz);
-    }
-    return big_norm(q, qsz, sign);
-}
-
-/*
-** Remainder
-*/
-Eterm big_rem(Eterm x, Eterm y, Eterm *r)
-{
-    Eterm* xp = big_val(x);
-    Eterm* yp = big_val(y);
-    short sign = BIG_SIGN(xp);
-    dsize_t xsz = BIG_SIZE(xp);
-    dsize_t ysz = BIG_SIZE(yp);
-
-    if (ysz == 1) {
-	ErtsDigit rem;
-	rem = D_rem(BIG_V(xp), xsz, BIG_DIGIT(yp,0));
-	if (IS_USMALL(sign, rem)) {
-	    if (sign)
-		return make_small(-(Sint)rem);
-	    else
-		return make_small(rem);
-	}
-	else {
-	    if (sign)
-		*r = make_neg_bignum_header(1);
-	    else
-		*r = make_pos_bignum_header(1);
-	    BIG_DIGIT(r, 0) = rem;
-	    return make_big(r);
-	}
-    }
-    else {
-	dsize_t rsz = I_rem(BIG_V(xp), xsz, BIG_V(yp), ysz, BIG_V(r));
-	return big_norm(r, rsz, sign);
-    }
 }
 
 Eterm big_band(Eterm x, Eterm y, Eterm *r)

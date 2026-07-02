@@ -142,8 +142,6 @@ Eterm big_mul_add(Eterm x, Eterm y, Eterm z, Eterm *r);
 int big_div_rem(Eterm lhs, Eterm rhs,
                 Eterm *q_hp, Eterm *q,
                 Eterm *r_hp, Eterm *r);
-Eterm big_div(Eterm, Eterm, Eterm*);
-Eterm big_rem(Eterm, Eterm, Eterm*);
 
 Eterm big_plus_small(Eterm, Uint, Eterm*);
 
