@@ -2724,7 +2724,7 @@ external_size(_Term, _Options) ->
       PreparedCodeList :: [PreparedCode],
       PreparedCode :: prepared_code(),
       ModuleList :: [module()],
-      Error :: {not_purged,ModuleList} | {on_load,ModuleList}.
+      Error :: {not_purged | on_load | duplicated, ModuleList}.
 finish_loading(_List) ->
     erlang:nif_error(undefined).
 
