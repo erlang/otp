@@ -3645,14 +3645,22 @@ m_peeloff_ipv6(_Config) when is_list(_Config) ->
 -define(MPO_MSG(Pid, MSG),
         {?MODULE, Pid, {msg, MSG}}).
 
-mpo_call({Pid, _}, Req) when is_pid(Pid) ->
-    mpo_call(Pid, Req);
-mpo_call(Pid, Req) when is_pid(Pid) ->
+mpo_call(Target, Req) ->
+    mpo_call(Target, Req, infinity).
+
+mpo_call({Pid, _}, Req, Timeout) ->
+    mpo_call(Pid, Req, Timeout);
+mpo_call(Pid, Req, Timeout)
+  when is_pid(Pid) andalso
+       ((is_integer(Timeout) andalso (Timeout > 0)) orelse
+        (Timeout =:= infinity)) ->
     Ref = erlang:make_ref(),
     Pid ! ?MPO_REQUEST(self(), Ref, Req),
     receive
         ?MPO_REPLY(Pid, Ref, Reply) ->
             Reply
+    after Timeout ->
+            {error, timeout}
     end.
 
 mpo_cast(Pid, Info) ->
@@ -3944,7 +3952,7 @@ m_peeloff(#{domain := Domain,
 
 
     ?P("~s -> verify \"inherit\" opts from handler", [?FUNCTION_NAME]),
-    case [case mpo_call(Handler, {getopt, SockOpt}) of
+    case [case mpo_call(Handler, {getopt, SockOpt}, Timeout) of
               {ok, Value} ->
                   ?P("~s -> got sockopt from handler:"
                      "~n   SockOpt: ~p"
