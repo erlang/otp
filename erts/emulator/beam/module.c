@@ -43,6 +43,8 @@
 #define MODULE_SIZE   50
 #define MODULE_LIMIT  (64*1024)
 
+static int module_limit = MODULE_LIMIT;
+
 static IndexTable module_tables[ERTS_NUM_CODE_IX];
 
 erts_rwmtx_t the_old_code_rwlocks[ERTS_NUM_CODE_IX];
@@ -103,10 +105,14 @@ static void module_free(Module* mod)
     erts_atomic_add_nob(&tot_module_bytes, -sizeof(Module));
 }
 
-void init_module_table(void)
+void init_module_table(int limit)
 {
     HashFunctions f;
     int i;
+
+    if (limit > 0) {
+        module_limit = limit;
+    }
 
     f.hash = (H_FUN) module_hash;
     f.cmp  = (HCMP_FUN) module_cmp;
@@ -117,8 +123,8 @@ void init_module_table(void)
     f.meta_print = (HMPRINT_FUN) erts_print;
 
     for (i = 0; i < ERTS_NUM_CODE_IX; i++) {
-	erts_index_init(ERTS_ALC_T_MODULE_TABLE, &module_tables[i], "module_code",
-			MODULE_SIZE, MODULE_LIMIT, f);
+        erts_index_init(ERTS_ALC_T_MODULE_TABLE, &module_tables[i], "module_code",
+            MODULE_SIZE, module_limit, f);
     }
 
     for (i=0; i<ERTS_NUM_CODE_IX; i++) {
@@ -254,6 +260,11 @@ Module *module_code(int i, ErtsCodeIndex code_ix)
 int module_code_size(ErtsCodeIndex code_ix)
 {
     return module_tables[code_ix].entries;
+}
+
+int erts_module_table_limit(void)
+{
+    return module_limit;
 }
 
 int module_table_sz(void)
