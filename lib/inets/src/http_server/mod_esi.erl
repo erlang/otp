@@ -69,7 +69,7 @@ ignore.
 
 - **`{server_port, integer()}`** - Servers port number.
 
-- **`{request_method, "GET" | "PUT" | "DELETE" | "POST" | "PATCH"}`** - HTTP
+- **`{request_method, "HEAD" | "GET" | "PUT" | "DELETE" | "POST" | "PATCH" | "OPTIONS"}`** - HTTP
 request method.
 
 - **`{remote_adress, inet:ip_address()}`** - The clients ip address.
