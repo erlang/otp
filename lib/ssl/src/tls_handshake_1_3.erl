@@ -367,6 +367,9 @@ certificate_verify(PrivateKey, SignatureScheme,
 %% Upon receiving a message with type server_hello, implementations MUST
 %% first examine the Random value and, if it matches this value, process
 %% it as described in Section 4.1.4).
+maybe_hello_retry_request(#server_hello{random = ?HELLO_RETRY_REQUEST_RANDOM},
+                          #state{protocol_specific = #{hello_retry := true}}) ->
+    {error, ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE)};
 maybe_hello_retry_request(#server_hello{random = ?HELLO_RETRY_REQUEST_RANDOM} = ServerHello, 
                           #state{protocol_specific = PS} = State0) ->
     {error, {State0#state{protocol_specific = PS#{hello_retry => true}}, start, ServerHello}};
