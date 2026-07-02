@@ -23,16 +23,16 @@
 -moduledoc """
 Timer functions.
 
-This module provides useful functions related to time. Unless otherwise stated,
+This module provides functions related to time. Unless otherwise stated,
 time is always measured in _milliseconds_. All timer functions return
-immediately, regardless of work done by another process.
+immediately; the requested operations are performed asynchronously.
 
-Successful evaluations of the timer functions give return values containing a
-timer reference, denoted `TRef`. By using `cancel/1`, the returned reference can
-be used to cancel any requested action. A `TRef` is an Erlang term, which
-contents must not be changed.
+On success, the timer functions return `{ok, TRef}`, where `TRef` is a timer
+reference. A timer reference is an opaque term whose contents must not be
+changed, and which can be passed to `cancel/1` to cancel the requested
+action.
 
-The time-outs are not exact, but are _at least_ as long as requested.
+The timeouts are not exact, but are _at least_ as long as requested.
 
 Creating timers using `erlang:send_after/3` and `erlang:start_timer/3` is more
 efficient than using the timers provided by this module. However, the timer
@@ -49,7 +49,7 @@ ERTS User's guide.
 
 _Example 1_
 
-The following example shows how to print "Hello World\!" in 5 seconds:
+The following example shows how to print "Hello World!" after 5 seconds:
 
 ```erlang
 1> timer:apply_after(5000, io, format, ["~nHello World!~n", []]).
@@ -59,16 +59,16 @@ Hello World!
 
 _Example 2_
 
-The following example shows a process performing a certain action, and if this
-action is not completed within a certain limit, the process is killed:
+The following example shows a process that is killed if it does not finish
+its task within a certain time limit:
 
 ```erlang
-Pid = spawn(mod, fun, [foo, bar]),
-%% If pid is not finished in 10 seconds, kill him
-{ok, R} = timer:kill_after(timer:seconds(10), Pid),
+Pid = spawn(Mod, Fun, Args),
+%% If the process is not done in 10 seconds, kill it
+{ok, TRef} = timer:kill_after(timer:seconds(10), Pid),
 ...
-%% We change our mind...
-timer:cancel(R),
+%% We changed our mind...
+timer:cancel(TRef),
 ...
 ```
 
@@ -76,36 +76,36 @@ timer:cancel(R),
 
 A timer can always be removed by calling `cancel/1`.
 
-An interval timer, that is, a timer created by evaluating any of the functions
+An interval timer created by evaluating any of the functions
 `apply_interval/2`, `apply_interval/3`, `apply_interval/4`,
-`apply_repeatedly/2`, `apply_repeatedly/3`, `apply_repeatedly/4`,
-`send_interval/2`, and `send_interval/3` is linked to the process to which the
-timer performs its task.
+`apply_repeatedly/2`, `apply_repeatedly/3`, and `apply_repeatedly/4` is
+automatically cancelled when the process that created it terminates.
+
+An interval timer created by evaluating `send_interval/2` or `send_interval/3`
+is automatically cancelled when the destination process terminates.
 
 A one-shot timer, that is, a timer created by evaluating any of the functions
 `apply_after/2`, `apply_after/3`, `apply_after/4`, `send_after/2`,
 `send_after/3`, `exit_after/2`, `exit_after/3`, `kill_after/1`, and
-`kill_after/2` is not linked to any process. Hence, such a timer is removed only
-when it reaches its time-out, or if it is explicitly removed by a call to
-`cancel/1`.
+`kill_after/2` is removed only when it reaches its timeout, or if it is
+explicitly removed by a call to `cancel/1`.
 
 The functions given to `apply_after/2`, `apply_after/3`, `apply_interval/2`,
 `apply_interval/3`, `apply_repeatedly/2`, and `apply_repeatedly/3`, or denoted
 by `Module`, `Function` and `Arguments` given to `apply_after/4`,
-`apply_interval/4`, and `apply_repeatedly/4` are executed in a freshly-spawned
-process, and therefore calls to `self/0` in those functions will return the Pid
-of this process, which is different from the process that called
-`timer:apply_*`.
+`apply_interval/4`, and `apply_repeatedly/4` are executed in a freshly spawned
+process, and therefore calls to `self/0` in those functions will return the
+process identifier of this process, which is different from the process that
+called `timer:apply_*`.
 
 _Example_
 
-In the following example, the intention is to set a timer to execute a function
-after 1 second, which performs a fictional task, and then wants to inform the
-process which set the timer about its completion, by sending it a `done`
-message.
+In the following example, a timer is set to execute a function after 1 second.
+The function performs a fictional task and then informs the process that set
+the timer about its completion, by sending it a `done` message.
 
-Using `self/0` _inside_ the timed function, the code below does not work as
-intended. The task gets done, but the `done` message gets sent to the wrong
+The code below, which uses `self/0` _inside_ the timed function, does not work
+as intended. The task gets done, but the `done` message gets sent to the wrong
 process and is lost.
 
 ```erlang
@@ -116,12 +116,12 @@ process and is lost.
 timeout
 ```
 
-The code below calls `self/0` in the process which sets the timer and assigns it
-to a variable, which is then used in the function to send the `done` message to,
-and so works as intended.
+The code below works as intended. It calls `self/0` in the process that sets
+the timer, assigns the result to a variable, and uses that variable in the
+function as the destination of the `done` message.
 
 ```erlang
-1> Target = self()
+1> Target = self().
 <0.82.0>
 2> timer:apply_after(1000, fun() -> do_something(), Target ! done end).
 {ok,TRef}
@@ -242,8 +242,8 @@ apply_after(_Time, _M, _F, _A) ->
 -doc """
 Evaluates `Destination ! Message` after `Time` milliseconds.
 
-`Destination` can be a remote or local process identifier, an atom of a
-registered name or a tuple `{RegName, Node}` for a registered name at another node.
+`Destination` can be a local or remote process identifier, a registered name,
+or a tuple `{RegName, Node}` for a registered name on the node `Node`.
 
 See also [the Timer Module section in the Efficiency Guide](`e:system:commoncaveats.md#timer-module`).
 """.
@@ -256,7 +256,7 @@ See also [the Timer Module section in the Efficiency Guide](`e:system:commoncave
 send_after(0, PidOrRegName, Message)
   when is_pid(PidOrRegName);
        is_atom(PidOrRegName) ->
-    PidOrRegName ! Message,
+    _ = do_apply({?MODULE, send, [PidOrRegName, Message]}, false),
     {ok, {instant, make_ref()}};
 send_after(0, {RegName, Node} = Dest, Message)
   when is_atom(RegName),
@@ -267,20 +267,36 @@ send_after(Time, Pid, Message)
   when ?valid_time(Time),
        is_pid(Pid),
        node(Pid) =:= node() ->
-    TRef = erlang:send_after(Time, Pid, Message),
-    {ok, {send_local, TRef}};
+    do_send_local(Time, Pid, Message);
 send_after(Time, Pid, Message)
   when is_pid(Pid) ->
     apply_after(Time, ?MODULE, send, [Pid, Message]);
 send_after(Time, RegName, Message)
-  when is_atom(RegName) ->
-    apply_after(Time, ?MODULE, send, [RegName, Message]);
+  when ?valid_time(Time),
+       is_atom(RegName) ->
+    do_send_local(Time, RegName, Message);
+send_after(Time, {RegName, Node}, Message)
+  when ?valid_time(Time),
+       is_atom(RegName),
+       Node =:= node() ->
+    do_send_local(Time, RegName, Message);
 send_after(Time, {RegName, Node} = Dest, Message)
   when is_atom(RegName),
        is_atom(Node) ->
     apply_after(Time, ?MODULE, send, [Dest, Message]);
 send_after(_Time, _PidOrRegName, _Message) ->
     {error, badarg}.
+
+do_send_local(Time, Dest, Message) ->
+    try
+        erlang:send_after(Time, Dest, Message)
+    of
+        TRef ->
+            {ok, {send_local, TRef}}
+    catch
+        error:badarg ->
+            {error, badarg}
+    end.
 
 -doc(#{equiv => send_after(Time, self(), Message)}).
 -spec send_after(Time, Message) -> {'ok', TRef} | {'error', Reason}
@@ -293,7 +309,7 @@ send_after(Time, Message) ->
 
 -doc """
 Sends an exit signal with reason `Reason1` to `Target`, which can be a local
-process identifier or an atom of a registered name.
+process identifier or a registered name.
 """.
 -spec exit_after(Time, Target, Reason1) -> {'ok', TRef} | {'error', Reason2}
               when Time :: time(),
@@ -471,8 +487,8 @@ apply_repeatedly(_Time, _M, _F, _A) ->
 -doc """
 Evaluates `Destination ! Message` repeatedly after `Time` milliseconds.
 
-`Destination` can be a remote or local process identifier, an atom of a registered
-name or a tuple `{RegName, Node}` for a registered name at another node.
+`Destination` can be a local or remote process identifier, a registered name,
+or a tuple `{RegName, Node}` for a registered name on the node `Node`.
 """.
 -spec send_interval(Time, Destination, Message) -> {'ok', TRef} | {'error', Reason}
               when Time :: time(),
@@ -506,8 +522,8 @@ send_interval(Time, Message) ->
     send_interval(Time, self(), Message).
 
 -doc """
-Cancels a previously requested time-out. `TRef` is a unique timer reference
-returned by the related timer function.
+Cancels a previously requested timer. `TRef` is a unique timer reference
+returned by the timer function that requested the timer.
 
 Returns `{ok, cancel}`, or `{error, Reason}` when `TRef` is not a timer
 reference.
@@ -666,7 +682,7 @@ tc(M, F, A, TimeUnit) ->
 %%
 -doc """
 Calculates the time difference `Tdiff = T2 - T1` in _microseconds_, where `T1`
-and `T2` are time-stamp tuples on the same format as returned from
+and `T2` are timestamp tuples in the same format as returned by
 `erlang:timestamp/0` or `os:timestamp/0`.
 """.
 -spec now_diff(T2, T1) -> Tdiff
@@ -716,10 +732,11 @@ hms(H, M, S) ->
 -doc """
 Starts the timer server.
 
-Normally, the server does not need to be started explicitly. It is started dynamically
-if it is needed. This is useful during development, but in a target system the server
-is to be started explicitly. Use configuration parameters for [Kernel](`e:kernel:index.html`)
-for this.
+Normally, the server does not need to be started explicitly. It is started
+dynamically when it is needed. This is useful during development, but in a
+target system the server should be started explicitly. To this end, set the
+[Kernel configuration parameter `start_timer`](`e:kernel:kernel_app.md#start_timer`)
+to `true`.
 """.
 -spec start() -> 'ok'.
 start() ->
