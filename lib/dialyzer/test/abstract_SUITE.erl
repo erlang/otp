@@ -8,12 +8,12 @@
 -include("dialyzer_test_constants.hrl").
 
 -export([suite/0, all/0, init_per_suite/0, init_per_suite/1, end_per_suite/1]).
--export([generated_case/1]).
+-export([generated_case/1, unmatched_return_tag/1]).
 
 suite() ->
     [{timetrap, {minutes, 1}}].
 all() ->
-    [generated_case].
+    [generated_case, unmatched_return_tag].
 
 init_per_suite() ->
   [{timetrap, ?plt_timeout}].
@@ -85,6 +85,19 @@ generated_case(Config) when is_list(Config) ->
     %% Location is a line (no column):
     "fileName.erl:3: Function bar/0 has no local return\n" =
         dialyzer:format_warning(W),
+    ok.
+
+unmatched_return_tag(Config) when is_list(Config) ->
+    [{warn_unmatched_return, _Loc, {unmatched_return, [_]}}] =
+        test([{attribute, 1, module, foo},
+              {attribute, 2, export, [{bar, 0}]},
+              {function, 3, bar, 0,
+               [{clause, 3, [], [],
+                 [{call, 4,
+                   {remote, 4, {atom, 4, erlang}, {atom, 4, process_info}},
+                   [{call, 4, {atom, 4, self}, []}, {atom, 4, links}]},
+                  {atom, 5, ok}]}]}],
+             Config, [], []),
     ok.
 
 test(Prog0, Config, COpts, DOpts) ->
