@@ -291,7 +291,10 @@ get_tickets(#state{db = Db} = State, Pid, [Key|T], Acc) ->
                            nonce = Nonce,
                            cipher_suite = CipherSuite,
                            max_size = MaxEarlyData},
-            get_tickets(State, Pid, T, [TicketData|Acc])
+            get_tickets(State, Pid, T, [TicketData|Acc]);
+        _ ->
+            %% Ticket locked by another connection, skip
+            get_tickets(State, Pid, T, Acc)
     catch
         _:_ ->
             get_tickets(State, Pid, T, Acc)
