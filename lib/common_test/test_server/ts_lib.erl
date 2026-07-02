@@ -359,33 +359,25 @@ make_non_erlang(DataDir, Variables) ->
     make_non_erlang_do(DataDir, Variables).
 
 make_non_erlang_do(DataDir, Variables) ->
-    try
-	MakeCommand = proplists:get_value(make_command,Variables),
+    MakeCommand = proplists:get_value(make_command,Variables),
 
-	FirstMakefile = filename:join(DataDir,"Makefile.first"),
-	case filelib:is_regular(FirstMakefile) of
-	    true ->
-		io:format("Making ~p",[FirstMakefile]),
-		ok = ts_make:make(
-		       MakeCommand, DataDir, filename:basename(FirstMakefile));
-	    false ->
-		ok
-	end,
+    FirstMakefile = filename:join(DataDir,"Makefile.first"),
+    filelib:is_regular(FirstMakefile) andalso
+        begin
+            io:format("Making ~p",[FirstMakefile]),
+            ok = ts_make:make(
+                MakeCommand, DataDir, filename:basename(FirstMakefile))
+        end,
 
-	MakefileSrc = filename:join(DataDir,"Makefile.src"),
-	MakefileDest = filename:join(DataDir,"Makefile"),
-	case filelib:is_regular(MakefileSrc) of
-	    true ->
-		ok = ts_lib:subst_file(MakefileSrc,MakefileDest,Variables),
-		io:format("Making ~p",[MakefileDest]),
-		ok = ts_make:make([{makefile,"Makefile"},{data_dir,DataDir}
-				   | Variables]);
-	    false ->
-		ok
-	end
-    after
-	timer:sleep(100)  %% maybe unnecessary now when we don't do set_cwd anymore
-    end.
+    MakefileSrc = filename:join(DataDir,"Makefile.src"),
+    MakefileDest = filename:join(DataDir,"Makefile"),
+    filelib:is_regular(MakefileSrc) andalso
+        begin
+            ok = ts_lib:subst_file(MakefileSrc,MakefileDest,Variables),
+            io:format("Making ~p",[MakefileDest]),
+            ok = ts_make:make([{makefile,"Makefile"},{data_dir,DataDir}
+                               | Variables])
+        end.
 
 b2s(Bin) ->
     unicode:characters_to_list(Bin,default_encoding()).
