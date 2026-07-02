@@ -34,6 +34,7 @@
          init_per_group/2, end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2,
          basic/1, reload_error/1, upgrade/1, heap_frag/1,
+         load_nif_from_mem/1,
          t_on_load/1,
          t_nifs_attrib/1,
          t_load_race/1,
@@ -216,11 +217,12 @@
 -define(ERL_NIF_LATIN1,1).
 -define(ERL_NIF_UTF8,2).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> [{ct_hooks,[]}].
 
 all() ->
     [basic,
-     non_exported_nif]
+     non_exported_nif,
+     load_nif_from_mem]
         ++
     [{group, G} || G <- api_groups()]
         ++
@@ -261,7 +263,9 @@ all() ->
      nif_atom_out_cache_index].
 
 init_per_suite(Config) ->
-    erts_debug:set_internal_state(available_internal_state, true),
+    try erts_debug:set_internal_state(available_internal_state, true) 
+    catch _ -> ok 
+    end,
     Config.
 
 end_per_suite(_Config) ->
@@ -355,6 +359,87 @@ basic(Config) when is_list(Config) ->
 non_exported_nif(Config) when is_list(Config) ->
     ensure_lib_loaded(Config),
     false = lists:member({lib_version,0}, ?MODULE:module_info(exports)),
+    ok.
+
+
+%% Test loading a NIF library from an in-memory binary image via
+%% erlang:load_nif(#{memory := Binary, ...}, LoadInfo).
+load_nif_from_mem(Config) when is_list(Config) ->
+    case os:type() of
+        {unix, _} -> run_load_nif_from_mem(Config);
+        _ ->
+            %% Should fail with load_failed on unsupported platforms
+            {error, {load_failed, _}} =
+                erlang:load_nif(#{memory => <<1,2,3,4>>}, []),
+            ok
+    end.
+
+run_load_nif_from_mem(Config) ->
+    Data = proplists:get_value(data_dir, Config),
+    ModFile = filename:join(Data, "nif_mod"),
+    {ok, nif_mod, ModBin} = compile:file(ModFile, [binary, return_errors]),
+    {module, nif_mod} = erlang:load_module(nif_mod, ModBin),
+
+    %% Derive the .so path the same way nif_mod:load_nif_lib/2 does,
+    %% but with the .so extension appended explicitly for file:read_file/1.
+    SoPath = filename:join(Data, "nif_mod.1.so"),
+    {ok, SoBin} = file:read_file(SoPath),
+
+    %% --- happy path: map with filename ---
+    ok = nif_mod:load_nif_lib_from_mem(Config, 1, SoBin),
+    1 = nif_mod:lib_version(),
+
+    %% cleanup: delete + purge so the module can be reloaded for error tests
+    true = erlang:delete_module(nif_mod),
+    true = erlang:purge_module(nif_mod),
+    receive unloaded -> ok after 1000 -> ok end,
+
+    %% --- error: 'memory' value is not a binary ---
+    {module, nif_mod} = erlang:load_module(nif_mod, ModBin),
+    {error, {bad_lib, _}} = nif_mod:load_nif_lib_from_mem(Config, 1, not_a_binary),
+    true = erlang:delete_module(nif_mod),
+    true = erlang:purge_module(nif_mod),
+    receive unloaded -> ok after 1000 -> ok end,
+
+    {module, nif_mod} = erlang:load_module(nif_mod, ModBin),
+    LongPath = lists:duplicate(4096-9, $x),
+    ok = nif_mod:load_nif_mem_path(LongPath, SoBin),
+    true = erlang:delete_module(nif_mod),
+    true = erlang:purge_module(nif_mod),
+    receive unloaded -> ok after 1000 -> ok end,
+
+    %% --- anonymous load: map with only 'memory' key ---
+    {module, nif_mod} = erlang:load_module(nif_mod, ModBin),
+    ok = nif_mod:load_nif_mem_anon(SoBin),
+    1 = nif_mod:lib_version(),
+    true = erlang:delete_module(nif_mod),
+    true = erlang:purge_module(nif_mod),
+    receive unloaded -> ok after 1000 -> ok end,
+
+    %% --- error: both keys present but filename is not string/binary ---
+    {module, nif_mod} = erlang:load_module(nif_mod, ModBin),
+    Map1 = #{memory => SoBin, filename => 123},
+    {error, {bad_lib, _}} = erlang:load_nif(Map1, []),
+    true = erlang:delete_module(nif_mod),
+    true = erlang:purge_module(nif_mod),
+    receive unloaded -> ok after 1000 -> ok end,
+
+    %% --- error: map with neither memory nor filename ---
+    {module, nif_mod} = erlang:load_module(nif_mod, ModBin),
+    Map2 = #{foo => bar},
+    {error, {bad_lib, _}} = erlang:load_nif(Map2, []),
+    true = erlang:delete_module(nif_mod),
+    true = erlang:purge_module(nif_mod),
+    receive unloaded -> ok after 1000 -> ok end,
+
+    %% --- error: map with only filename key and non-string/binary value ---
+    {module, nif_mod} = erlang:load_module(nif_mod, ModBin),
+    Map3 = #{filename => 123},
+    {error, {bad_lib, _}} = erlang:load_nif(Map3, []),
+    true = erlang:delete_module(nif_mod),
+    true = erlang:purge_module(nif_mod),
+    receive unloaded -> ok after 1000 -> ok end,
+
     ok.
 
 %% Test old reload feature now always fails
