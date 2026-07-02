@@ -28,7 +28,7 @@
 	 heap_sizes/1, big_lists/1, fconv/1,
          select_val/1, select_tuple_arity/1,
          swap_temp_apply/1, beam_init_yregs/1,
-         beam_register_cache/1]).
+         beam_register_cache/1, put_list_dealloc/1]).
 
 -export([applied/2,swap_temp_applied/1]).
 
@@ -42,7 +42,7 @@ all() ->
      heap_sizes, big_lists, fconv,
      select_val, select_tuple_arity,
      swap_temp_apply, beam_init_yregs,
-     beam_register_cache].
+     beam_register_cache, put_list_dealloc].
 
 groups() -> 
     [].
@@ -528,6 +528,32 @@ beam_register_cache(Config) ->
     end,
 
     ok.
+
+put_list_dealloc(_Config) ->
+    Seq = lists:seq(1, 32),
+    RevSeq = lists:reverse(Seq),
+    RevSeq = do_put_list_dealloc(head, Seq),
+
+    HdRevSeq = hd(RevSeq),
+    TlRevSeq = tl(RevSeq),
+    [TlRevSeq|HdRevSeq] = do_put_list_dealloc(tail, Seq),
+
+    ok.
+
+do_put_list_dealloc(Where, List0) ->
+    [A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,
+     Å,Ä,Ö,AA,AE,OE] = List0,
+    put(force_vars_to_stack, true),
+    List = [AE,AA,Ö,Ä,Å,Z,Y,X,W,V,U,T,S,R,Q,P,O,N,M,L,K,J,
+            I,H,G,F,E,D,C,B,A],
+    %% put_list and dealloc would be combined into put_list_dealloc
+    %% with deallocation being done as post-increment in the ldr
+    %% instruction loading y0. With 32 or more Y registers, the
+    %% post-increment offset would exceed its upper limit.
+    case Where of
+        head -> [OE|List];
+        tail -> [List|OE]
+    end.
 
 %%% Common utilities.
 spawn_exec(F) ->
