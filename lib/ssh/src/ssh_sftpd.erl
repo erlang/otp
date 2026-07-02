@@ -414,10 +414,11 @@ handle_op(?SSH_FXP_FSTAT, ReqId, Data, State) ->
 handle_op(?SSH_FXP_OPEN, ReqId, Data, State) ->
     open((State#state.xf)#ssh_xfer.vsn, ReqId, Data, State);
 handle_op(?SSH_FXP_READ, ReqId, <<?UINT32(HLen), BinHandle:HLen/binary,
-				 ?UINT64(Offset), ?UINT32(Len)>>,
+				 ?UINT64(Offset), ?UINT32(Len0)>>,
 	  State) ->
     case get_handle(State#state.handles, BinHandle) of
 	{_Handle, file, {_AbsPath, IoDevice}} ->
+        Len = min(?SFTP_MAX_READ_SIZE, Len0),
 	    read_file(ReqId, IoDevice, Offset, Len, State);
 	_ ->
 	    ssh_xfer:xf_send_status(State#state.xf, ReqId, 
