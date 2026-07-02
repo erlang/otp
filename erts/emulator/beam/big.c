@@ -1309,6 +1309,10 @@ static dsize_t I_div(ErtsDigit* x, dsize_t xl, ErtsDigit* y, dsize_t yl,
 #define BZ_DIV_THRESHOLD 8
 #endif
 
+#ifndef BZ_DIV_QUOTIENT_THRESHOLD
+#define BZ_DIV_QUOTIENT_THRESHOLD 64
+#endif
+
 /* If non-zero: I_div_dispatch verifies BZ result against I_div on the
  * original input. Use only for debugging. */
 #ifndef BZ_SELFCHECK
@@ -1736,12 +1740,15 @@ static dsize_t I_div_bz(ErtsDigit *x, dsize_t xl,
     return qsz;
 }
 
-/* Dispatcher: pick BZ for large divisors, schoolbook otherwise. */
+/* Dispatcher: BZ is faster for large divisors with a large difference
+ * in magnitude between the dividend and divisor. Schoolbook if faster
+ * for smaller numbers or numbers with similar magnitudes. */
 static dsize_t I_div_dispatch(ErtsDigit *x, dsize_t xl,
                               ErtsDigit *y, dsize_t yl,
                               ErtsDigit *q, ErtsDigit *r, dsize_t *rlp)
 {
-    if (yl >= BZ_DIV_THRESHOLD && xl >= 2 * yl) {
+    if (yl >= BZ_DIV_THRESHOLD &&
+        (xl >= 2 * yl || xl - yl > BZ_DIV_QUOTIENT_THRESHOLD)) {
 #if BZ_SELFCHECK
         /* Save x (BZ destroys it) and the expected schoolbook result. */
         ErtsDigit *x_copy = (ErtsDigit *) erts_alloc(ERTS_ALC_T_TMP,
