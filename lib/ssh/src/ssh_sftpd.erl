@@ -262,7 +262,7 @@ handle_data(0, ChannelId, <<?UINT32(Len), Msg:Len/binary, Rest/binary>>,
     end;
 handle_data(0, _ChannelId, Data, State = #state{pending = <<>>}) ->
     {ok, State#state{pending = Data}};
-handle_data(Type, ChannelId, Data0, State = #state{pending = Pending}) ->
+handle_data(0, ChannelId, Data0, State = #state{pending = Pending}) ->
     Data = <<Pending/binary, Data0/binary>>,
     Size = byte_size(Data),
     case Size > ?SSH_MAX_PACKET_SIZE of
@@ -283,8 +283,11 @@ handle_data(Type, ChannelId, Data0, State = #state{pending = Pending}) ->
             ?LOG_ERROR(ReportFun, [Size]),
             {stop, ChannelId, State};
         _ ->
-            handle_data(Type, ChannelId, Data, State#state{pending = <<>>})
-    end.
+            handle_data(0, ChannelId, Data, State#state{pending = <<>>})
+    end;
+handle_data(_Type, _ChannelId, _Data, State) ->
+    %% Same as openssh sftpd, we ignore extended data
+    {ok, State}.
 
 %% From draft-ietf-secsh-filexfer-02 "The file handle strings MUST NOT be longer than 256 bytes."
 handle_op(Request, ReqId, <<?UINT32(HLen), _/binary>>, State = #state{xf = XF})
