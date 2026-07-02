@@ -1456,8 +1456,10 @@ query_ns(S0, {Msg, Buffer}, IP, Port, Timer, Retry, I,
                               query_tcp(
                                 TcpTimeout, Msg, Buffer, IP, Port, Verbose)};
 			{error, econnrefused} = Err ->
-                            ok = udp_close(S),
-	                    {#sock{}, Err};
+                             ok = udp_close(S),
+                             {if  S =:= undefined -> S;
+                                  true            -> #sock{}
+                              end, Err};
 			Reply -> {S, Reply}
 		     end;
 		Error ->
