@@ -35,7 +35,7 @@
 -export([read_application/4]).
 
 -export([make_hybrid_boot/4]).
--export([preloaded/0]). % Exported just for testing
+-export([preloaded/0, mandatory_modules/0]). % Exported just for testing
 
 -import(lists, [filter/2, keysort/2, keysearch/3, map/2, reverse/1,
 		append/1, foldl/3,  member/2, foreach/2]).
@@ -1542,37 +1542,31 @@ mandatory_modules() ->
     [error_handler,				%Truly mandatory.
 
      %% Modules that are almost always needed. Listing them here
-     %% helps the init module to load them faster. Modules not
-     %% listed here will be loaded by the error_handler module.
+     %% helps the init module to load them faster. The kernel supervisor
+     %% also loads some modules based on which mode the system is running in.
+     %% 
+     %% Think hard before adding modules here as it will increase the boot time of the system.
      %%
      %% Keep this list sorted.
      application,
      application_controller,
      application_master,
-     code,
-     code_server,
-     erl_eval,
-     erl_lint,
-     erl_parse,
-     error_logger,
-     ets,
      file,
-     filename,
-     file_server,
-     file_io_server,
      gen,
-     gen_event,
-     gen_server,
-     heart,
+     gen_server, %% used by supervisor
+     heart, %% Part of all start scripts
      kernel,
-     logger,
-     logger_filters,
-     logger_server,
-     logger_backend,
-     logger_config,
-     logger_simple_h,
      lists,
+     logger, %% Started very early in kernel
+     logger_config,
+     logger_olp,
+     logger_proxy,
+     logger_server,
+     logger_simple_h,
+     os, %% used by heart and logger
      proc_lib,
+     proplists, %% used by logger
+     queue, %% used by logger
      supervisor
     ].
 

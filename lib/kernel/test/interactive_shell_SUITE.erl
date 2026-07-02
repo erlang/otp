@@ -225,11 +225,16 @@ init_per_group(Group, Config) when Group =:= tty_unicode;
                                    Group =:= tty_latin1;
                                    Group =:= ssh_unicode;
                                    Group =:= ssh_latin1 ->
-    [Lang,_] =
-        string:split(
-          os:getenv("LC_ALL",
-                    os:getenv("LC_CTYPE",
-                              os:getenv("LANG","en_US.UTF-8"))),"."),
+    LANG = os:getenv("LC_ALL",
+                     os:getenv("LC_CTYPE",
+                               os:getenv("LANG","en_US.UTF-8"))),
+    Lang =
+        case string:split(LANG, ".") of
+            [Prefix,_] ->
+                Prefix;
+            _ ->
+                "en_US"
+        end,
     %% Version 3.3 introduced new widths for unicode characters which seem to be different from running in non tmux shell
     %% An option is added in 3.6 where a unicode character width can be overridden, skip unicode for 3.3-3.5a
     TmuxVersion = string:chomp(os:cmd("tmux -V")),
@@ -1252,13 +1257,13 @@ shell_expand_location_below(Config) ->
         shell_test_lib:send_tty(Term, "escript:"),
         shell_test_lib:send_tty(Term, "\t"),
         %% Cursor at correct place
-        shell_test_lib:check_location(Term, {-2, width("escript:")}),
+        shell_test_lib:check_location(Term, {-3, width("escript:")}),
         %% Nothing after the start( completion
         shell_test_lib:check_content(Term, "start\\($"),
 
         %% Check that completion is cleared when we type
         shell_test_lib:send_tty(Term, "s"),
-        shell_test_lib:check_location(Term, {-2, width("escript:s")}),
+        shell_test_lib:check_location(Term, {-3, width("escript:s")}),
         shell_test_lib:check_content(Term, "escript:s$"),
 
         %% Check that completion works when in the middle of a term
@@ -1268,7 +1273,7 @@ shell_expand_location_below(Config) ->
         shell_test_lib:send_tty(Term, ", test_after]"),
         [shell_test_lib:send_tty(Term, "Left") || _ <- ", test_after]"],
         shell_test_lib:send_tty(Term, "\t"),
-        shell_test_lib:check_location(Term, {-2, width("[escript:s")}),
+        shell_test_lib:check_location(Term, {-3, width("[escript:s")}),
         shell_test_lib:check_content(Term, "script_name\\([ ]+start\\($"),
         shell_test_lib:send_tty(Term, "C-K"),
 

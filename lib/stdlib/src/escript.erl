@@ -35,6 +35,9 @@ for more details on how to use escripts.
 %% Internal API.
 -export([start/0, start/1, parse_file/1]).
 
+%% Exported for testing purposes.
+-export([preload_parse_modules/0]).
+
 %%-----------------------------------------------------------------------
 
 -define(SHEBANG,  "/usr/bin/env escript").
@@ -461,6 +464,7 @@ parse_and_run(File, Args, Options) ->
                 interpret ->
                     interpret(FormsOrBin, HasRecs, File, Args);
                 compile ->
+                    _ = code:ensure_modules_loaded(compile:pre_load()),
                     case compile:forms(FormsOrBin, [report]) of
                         {ok, Module, BeamBin} ->
                             {module, Module} = code:load_binary(Module, File, BeamBin),
@@ -753,6 +757,10 @@ parse_beam(S, File, HeaderSz, CheckOnly) ->
 parse_source(S, File, Fd, StartLine, HeaderSz, CheckOnly) ->
     {PreDefMacros, Module} = pre_def_macros(File),
     IncludePath = [],
+
+    %% Preload the parse modules
+    _ = code:ensure_modules_loaded(preload_parse_modules()),
+
     %% Read the encoding on the second line, if there is any:
     {ok, _} = file:position(Fd, 0),
     _ = io:get_line(Fd, ''),
@@ -785,6 +793,25 @@ parse_source(S, File, Fd, StartLine, HeaderSz, CheckOnly) ->
 	    io:format(standard_error, "escript: ~tp\n", [Reason]),
 	    fatal("Preprocessor error")
     end.
+
+%% Load a couple of modules we know we will need in parallel
+-doc false.
+-spec preload_parse_modules() -> [module()].
+preload_parse_modules() ->
+    [digraph,
+     digraph_utils,
+     epp,
+     erl_anno,
+     erl_internal,
+     erl_lint,
+     erl_parse,
+     erl_scan,
+     gb_sets,
+     orddict,
+     ordsets,
+     otp_internal,
+     sets,
+     sofs].
 
 check_source(S, CheckOnly) ->
     case S of
