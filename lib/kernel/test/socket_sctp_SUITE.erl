@@ -289,8 +289,9 @@ init_per_suite(Config0) ->
        "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
 
     try socket:info() of
-        #{load_nif_result := ok} ->
-	    ?P("~s -> socket nif loaded", [?FUNCTION_NAME]),
+        #{load_nif_result := ok} = SocketInfo ->
+	    ?P("~s -> socket nif loaded: "
+               "~n   ~p", [?FUNCTION_NAME, SocketInfo]),
             has_support_sctp(),
             case ?KLIB:init_per_suite(Config0) of
                 {skip, _} = SKIP ->
