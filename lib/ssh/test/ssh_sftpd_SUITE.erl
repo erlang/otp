@@ -63,7 +63,8 @@
          ver3_rename/1,
          ver6_basic/1,
          write_file/1,
-         access_attributes_outside_root/1
+         access_attributes_outside_root/1,
+         extended_data_no_infinite_loop/1
         ]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -127,7 +128,8 @@ all() ->
      relative_path,
      open_file_dir_v5,
      open_file_dir_v6,
-     access_attributes_outside_root].
+     access_attributes_outside_root,
+     extended_data_no_infinite_loop].
 
 groups() -> 
     [].
@@ -1024,6 +1026,17 @@ access_attributes_outside_root(Config) when is_list(Config) ->
     after
         file:delete(OutsideRootFile)
     end.
+
+%%--------------------------------------------------------------------
+extended_data_no_infinite_loop(Config) when is_list(Config) ->
+    %% Regression test for CVE-2026-54886, sending extended data to ssh_sftpd.erl
+    %% caused an infinite loop
+    {Cm, Channel} = proplists:get_value(sftp, Config),
+    ok = ssh_connection:send(Cm, Channel, 1, <<"trigger">>),
+
+    Data = <<?UINT32(5), ?SSH_FXP_INIT, ?UINT32(6)>>,
+    ok = ssh_connection:send(Cm, Channel, Data),
+    {ok, <<?SSH_FXP_VERSION, ?UINT32(_Version), _/binary>>, _} = reply(Cm, Channel).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
