@@ -104,9 +104,7 @@ reuse_session(Pid, SessionId) ->
 %% Description: Makes a session available for reuse
 %%--------------------------------------------------------------------
 register_session(Pid, Session) ->
-    gen_server:cast(Pid, {register_session, Session}).
-
-
+        gen_server:cast(Pid, {register_session, Session}).
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================

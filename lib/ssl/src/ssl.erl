@@ -2513,9 +2513,11 @@ handshake(#sslsocket{connection_cb = tls_gen_connection,
   when is_list(SslOpts), is_list(Trackers), ?IS_TIMEOUT(Timeout) ->
     try
         Tracker = proplists:get_value(option_tracker, Trackers),
-	{ok, EmOpts, _} = tls_socket:get_all_opts(Tracker),
-	ssl_gen_statem:handshake(Socket, {SslOpts,
-					  tls_socket:emulated_socket_options(EmOpts, #socket_options{})}, Timeout)
+        {ok, EmOpts} = tls_socket:get_emulated_opts(Tracker),
+	ssl_gen_statem:handshake(Socket,
+                                 {SslOpts,
+                                  tls_socket:emulated_socket_options(EmOpts,
+                                                                     #socket_options{})}, Timeout)
     catch
 	Error = {error, _Reason} -> Error
     end;
