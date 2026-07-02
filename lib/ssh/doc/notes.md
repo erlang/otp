@@ -21,6 +21,43 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 6.0.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a path-existence oracle in the SFTP server where `SSH_FXP_REALPATH` requests with `..` components could bypass the configured root directory isolation, allowing an authenticated client to determine whether arbitrary paths exist on the host filesystem.
+
+  Own Id: OTP-20183 Aux Id: [CVE-2026-53422], GHSA-h9pw-h5w4-h976, [PR-11294]
+
+- Fixed an infinite loop in the SFTP server triggered when receiving `SSH_MSG_CHANNEL_EXTENDED_DATA` on an SFTP channel, which caused the channel process to spin indefinitely on CPU without consuming its message queue.
+
+  Own Id: OTP-20186 Aux Id: [CVE-2026-54886], GHSA-7wp4-pc27-2vj9, [PR-11295]
+
+- Fixed mlkem768x25519 hybrid key exchange failing intermittently with "incorrect signature" when the X25519 shared secret had a leading zero byte. The shared secret is now encoded as a fixed-width 32-byte string per the specification.
+
+  Own Id: OTP-20196 Aux Id: [PR-11209]
+
+- Fixed a race condition where SSH keepalive responses could be matched to unrelated pending requests due to incorrect request queue ordering. Requests are now matched in the order they were sent.
+
+  Own Id: OTP-20198 Aux Id: [PR-11244]
+
+- The SFTP server now caps the read length in `SSH_FXP_READ` requests to 255 KiB (matching OpenSSH's `SFTP_MAX_READ_LENGTH`), preventing excessive memory allocation when clients request large reads.
+
+  Own Id: OTP-20200 Aux Id: [PR-11259]
+
+- Removed a server-side workaround (OTP-14827, introduced in OTP 20) that accepted SHA-1 user-auth signatures from clients identifying as OpenSSH 7.x when rsa-sha2-* was negotiated. The workaround addressed a distro-specific build issue in 2017 that no longer exists. Clients affected by this removal (extremely unlikely — requires a 10-year-old unpatched OpenSSH build) will see authentication failures and must upgrade.
+
+  Own Id: OTP-20206 Aux Id: [PR-11268]
+
+[CVE-2026-53422]: https://nvd.nist.gov/vuln/detail/2026-53422
+[PR-11294]: https://github.com/erlang/otp/pull/11294
+[CVE-2026-54886]: https://nvd.nist.gov/vuln/detail/2026-54886
+[PR-11295]: https://github.com/erlang/otp/pull/11295
+[PR-11209]: https://github.com/erlang/otp/pull/11209
+[PR-11244]: https://github.com/erlang/otp/pull/11244
+[PR-11259]: https://github.com/erlang/otp/pull/11259
+[PR-11268]: https://github.com/erlang/otp/pull/11268
+
 ## Ssh 6.0.1
 
 ### Fixed Bugs and Malfunctions

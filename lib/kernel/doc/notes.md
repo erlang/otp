@@ -23,6 +23,22 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 11.0.3
+
+### Fixed Bugs and Malfunctions
+
+- inet:info/1 could crash when calling for a closing (port) socket.
+
+  Own Id: OTP-20173
+
+- Handling of the truncation bit in `inet_res` has been fixed so it properly falls back to querying over TCP after a truncated UDP reply.
+  
+  This fixes a bug introduced in OTP-28.4.2 - kernel-10.6.2 making a truncated UDP answer fail to parse and never execute the fallback, instead the name resolve operation fails.
+
+  Own Id: OTP-20199 Aux Id: [PR-11247]
+
+[PR-11247]: https://github.com/erlang/otp/pull/11247
+
 ## Kernel 11.0.2
 
 ### Fixed Bugs and Malfunctions
