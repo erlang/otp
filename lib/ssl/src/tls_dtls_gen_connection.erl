@@ -141,9 +141,10 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
     %% Use highest supported version for client/server random nonce generation
     #{versions := [Version|_]} = SSLOptions,
     BeastMitigation = maps:get(beast_mitigation, SSLOptions, disabled),
-    ConnectionStates = tls_record:init_connection_states(Role,
-                                                         Version,
-                                                         BeastMitigation),
+    MaxEarlyData =
+        tls_gen_connection_1_3:init_max_early_data_size(Role),
+    ConnectionStates = tls_record:init_connection_states(Role, Version,
+                                                         BeastMitigation, MaxEarlyData),
     #{session_cb := SessionCacheCb} = ssl_config:pre_1_3_session_opts(Role),
     UserMonitor = erlang:monitor(process, User),
     InitStatEnv = #static_env{
