@@ -84,17 +84,18 @@ some of the types are common to both components.
                        {target_cache,     target_cache()}     |
                        {config,           agent_config()}
       manager_options() = [manager_option()]
-      manager_option() = {restart_type,             restart_type()}    |
-                         {net_if,                   manager_net_if()}  |
-                         {server,                   server()}          |
-                         {note_store,               note_store()}      |
-                         {config,                   manager_config()}  |
-                         {inform_request_behaviour, manager_irb()}     |
-                         {mibs,                     manager_mibs()}    |
-                         {priority,                 priority()}        |
-                         {audit_trail_log,          audit_trail_log()} |
-                         {versions,                 versions()}        |
-                         {def_user_mod,             def_user_module()  |
+      manager_option() = {restart_type,             restart_type()}     |
+                         {net_if,                   manager_net_if()}   |
+                         {server,                   server()}           |
+                         {note_store,               note_store()}       |
+                         {config,                   manager_config()}   |
+                         {inform_request_behaviour, manager_irb()}      |
+                         {mibs,                     manager_mibs()}     |
+                         {priority,                 priority()}         |
+                         {audit_trail_log,          audit_trail_log()}  |
+                         {versions,                 versions()}         |
+                         {error_report_mod,         error_report_mod()} |
+                         {def_user_mod,             def_user_module()   |
                          {def_user_data,            def_user_data()}
 ```
 
@@ -594,6 +595,13 @@ Manager specific config options and types:
   `m:snmpm_network_interface_filter` behaviour.
 
   Default is `snmpm_net_if_filter`.
+
+- **`error_report_mod() = atom() <optional>`{: #agent_error_report_mod }** -
+  Defines an error report module, implementing the `m:snmpm_error_report`
+  behaviour. Two modules are provided with the toolkit: `snmpm_error_logger` and
+  `snmpm_error_io`.
+
+  Default is `snmpm_error_logger`.
 
 - **`def_user_module() = atom() <optional>`{: #manager_def_user_module }** - The
   module implementing the default user. See the `m:snmpm_user` behaviour.
