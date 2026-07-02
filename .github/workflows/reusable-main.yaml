@@ -1,0 +1,403 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2024-2026. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
+##
+## This workflow handles testing of pull requests and pushes.
+## It also publishes some packages to any new Erlang/OTP release
+##
+## To speed this up it would be nice if one could share docker
+## images inbetween different jobs, but at the moment this is
+## not possible so we need to rebuild all of Erlang/OTP multiple
+## times.
+##
+## Now that we have migrated to ghcr.io we use the
+## built-in caching mechanisms of docker/build-push-action@v2.
+## However as things are now we use docker directly to make things
+## work due to historical reasons.
+##
+
+# NOTE: this is the default entry point for all maint-XX branches.
+# in case of main divergence or usage between CI in maint-XX versions,
+# only then, one is expected to create a main-XX.yaml file with a
+# file similar to this one where one picks and choose what to add.
+#
+# EXAMPLE:
+# `maint-28` branch has a `maint.yaml file as follows, which is a simple
+# wrapper that delegates to the normal workflow. on the other hand,
+# `maint-27` has a `main.yaml` that looks different and is more similar to this `main.yaml` file
+# because the documentation, dialyzer, and build works in a quite different way.
+# the ways of working are documented under `HOWTO/CI.md`.
+#
+# ```
+# name: Build and check Erlang/OTP (maint-27)
+#
+# on:
+#   push:
+#   pull_request:
+#   workflow_dispatch: # allows to be triggered nightly from the default branch
+#                      # gh workflow run main.yaml --repo erlang/otp --ref maint-27
+#
+# permissions:
+#   contents: read
+#   pull-requests: read
+#
+# jobs:
+#   ci:
+#     permissions:
+#       contents:        write   # release creation, sbom, etc
+#       packages:        write   # sbom upload
+#       attestations:    write   # attest-sbom action
+#       id-token:        write   # attest-sbom action
+#       security-events: write   # static job, zizmor
+#       actions:         write   # pr vendor vulnerability analysis
+#       issues:          write   # pr vendor vulnerability analysis
+#       pull-requests:   read
+#     uses: kikofernandez/otp/.github/workflows/maint-27.yaml@master  # ratchet:exclude
+# ```
+
+name: Build and check Erlang/OTP (reusable)
+
+on:
+  workflow_call:
+    secrets:
+      TRIGGER_ERLANG_ORG_BUILD:
+        description: 'Token to trigger erlang.org rebuild'
+        required: false
+
+## concurrency and env cannot be set in a reusable workflow called via workflow_call;
+## they must be set in the caller workflow.
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check-files:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable-check-files.yaml
+    with:
+      pr_base_sha:  ${{ github.event.pull_request.base.sha }}
+      pr_head_sha:  ${{ github.event.pull_request.head.sha }}
+      pr_author:    ${{ github.event.pull_request.user.login }}
+      repository:   ${{ github.repository }}
+    secrets:
+      token: ${{ secrets.GITHUB_TOKEN }}
+
+  setup:
+    uses: ./.github/workflows/reusable-setup.yaml
+    ## no 'with:' needed - reusable-setup derives everything from github context
+
+  pack:
+    name: Build Erlang/OTP (64-bit)
+    needs: setup
+    permissions:
+      contents: read
+      actions: write
+    uses: ./.github/workflows/reusable-pack.yaml
+    with:
+      base_branch:          ${{ needs.setup.outputs.base_branch }}
+      full_build_and_check: ${{ needs.setup.outputs.full_build_and_check }}
+      bypass_erlang_repo:   false
+
+  build-macos:
+    name: Build Erlang/OTP (macOS)
+    needs: pack
+    permissions:
+      contents: read
+      actions:  write
+    if: needs.pack.outputs.build-c-code == 'true'
+    uses: ./.github/workflows/reusable-build-macos.yaml
+    with:
+      base_branch: ${{ needs.pack.outputs.base_branch }}
+
+  build-ios:
+    name: Build Erlang/OTP (iOS)
+    needs: pack
+    if: needs.pack.outputs.build-c-code == 'true'
+    permissions:
+      contents: read
+      actions: write
+    uses: ./.github/workflows/reusable-build-ios.yaml
+    with:
+      base_branch: ${{ needs.pack.outputs.base_branch }}
+
+  build-windows:
+    name: Build Erlang/OTP (Windows)
+    needs: pack
+    if: needs.pack.outputs.build-c-code == 'true' || (github.event_name == 'push' && github.repository == 'erlang/otp')
+    permissions:
+      contents: read
+      actions:  write
+    uses: ./.github/workflows/reusable-build-windows.yaml
+    with:
+      base_branch: ${{ needs.pack.outputs.base_branch }}
+
+  build-flavors:
+    name: Build Erlang/OTP (Types and Flavors)
+    needs: pack
+    if: needs.pack.outputs.build-c-code == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable-build-flavours.yaml
+    with:
+      base_branch: ${{ needs.pack.outputs.base_branch }}
+      types: "opt debug lcnt asan gcov valgrind"
+
+  # this is a call to a workflow_call
+  pr-vendor-vulnerability-analysis:
+    needs: pack
+    if: ${{ github.event_name == 'pull_request' && github.repository == 'erlang/otp'}}
+    permissions:
+      contents: read
+      actions: write
+      issues: write
+    name: Vendor Vulnerability Scanning
+    # This is an internal and trusted workflow.
+    uses: ./.github/workflows/reusable-vendor-vulnerability-scanner.yml # zizmor: ignore[secrets-inherit]
+    with:
+      fail_if_cve: false
+      checkout:    true
+      version:     ${{ needs.pack.outputs.base_branch }}
+      # `fail_if_cve` must always be `false`. the reason is that the reusable workflow tries to open
+      # a GH Issue if it finds a vulnerability. however, this can only work on internal PRs or PRs coming
+      # from a repo branch. this is a security limitation as otherwise, forked repos could create pull
+      # requests against Erlang/OTP which start creating automatic issues.
+    secrets: inherit
+
+  build:
+    name: Build Erlang/OTP
+    needs: pack
+    if: needs.pack.outputs.build-c-code == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable-build-otp.yaml
+    with:
+      base_branch: ${{ needs.pack.outputs.base_branch }}
+
+  freebsd:
+    name: Build Erlang/OTP (FreeBSD)
+    needs: pack
+    permissions:
+      contents: read
+      actions: read
+    if: needs.pack.outputs.build-c-code == 'true'
+    uses: ./.github/workflows/reusable-freebsd.yaml
+    with:
+      base_branch: ${{ needs.pack.outputs.base_branch }}
+
+  openbsd:
+    name: Build Erlang/OTP (OpenBSD)
+    needs: pack
+    if: needs.pack.outputs.build-c-code == 'true'
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/reusable-openbsd.yaml
+    with:
+      base_branch: ${{ needs.pack.outputs.base_branch }}
+
+  solaris:
+    name: Build Erlang/OTP (Solaris)
+    needs: pack
+    if: needs.pack.outputs.build-c-code == 'true' && false # Temporarily disable Solaris build as the VM image is currently broken
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/reusable-solaris.yaml
+    with:
+      base_branch: ${{ needs.pack.outputs.base_branch }}
+
+  documentation:
+    name: Build and Check Documentation
+    needs:
+      - setup
+      - pack
+    permissions:
+      contents: read
+      actions:  write
+    uses: ./.github/workflows/reusable-documentation.yaml
+    secrets:
+      TRIGGER_ERLANG_ORG_BUILD: ${{ secrets.TRIGGER_ERLANG_ORG_BUILD }}
+    with:
+      base_branch:              ${{ needs.setup.outputs.base_branch }}
+      base_url:                 ${{ needs.setup.outputs.docs_base_url  }}
+      trigger_erlang_org_build: ${{ github.ref_name == 'master' && github.repository == 'erlang/otp' }}
+
+  static:
+    name: Run static analysis
+    needs:
+      - setup
+      - pack
+    permissions:
+      contents: read
+      security-events: write   # needed for SARIF upload
+    uses: ./.github/workflows/reusable-static-analysis.yaml
+    with:
+      base_branch:              ${{ needs.setup.outputs.base_branch }}
+
+  test:
+    name: Test Erlang/OTP
+    needs: pack
+    if: needs.pack.outputs.changes != '[]'
+    permissions:
+      contents: read
+      actions:  write
+    uses: ./.github/workflows/reusable-test.yaml
+    with:
+      changes:     ${{ needs.pack.outputs.changes }}
+      base_branch: ${{ needs.pack.outputs.base_branch }}
+
+  system-test:
+    name: Test Erlang/OTP (system)
+    if: ${{ !cancelled() && needs.pack.result == 'success' }} # Run even if the need has failed
+    permissions:
+      contents: read
+      actions:  write
+    needs:
+      - pack
+      - test
+    uses: ./.github/workflows/reusable-system-test.yaml
+    with:
+      base_branch: ${{ needs.pack.outputs.base_branch }}
+
+  ## If you want to speedup this step for testing the easiest way is to create
+  ## these two commits:
+  ##
+  ##   git rm -rf lib erts system && git revert HEAD
+  ##
+  ## and then create a step that that does this:
+  ##
+  ##   - name: SBOM Sha
+  ##     run: echo "sha=$(git rev-parse HEAD~1)" >> $GITHUB_OUTPUT
+  ##
+  ## and then make sure to use that sha instead of env.OTP_SBOM_VERSION
+  sbom:
+    name: Create SBOM
+    needs:
+      - setup
+      - pack
+    uses: ./.github/workflows/reusable-sbom.yaml
+    permissions:
+      contents: write
+      actions:  write
+      packages: read
+      id-token: write
+    with:
+      base_branch:                   ${{ needs.setup.outputs.base_branch }}
+      full_build_and_check:          ${{ needs.setup.outputs.full_build_and_check }}
+      otp_sbom_version:              ${{ needs.setup.outputs.otp_sbom_version }}
+      verify_sbom:                   true
+
+  ## If this is an "OTP-*" tag that has been pushed we do some release work
+  release:
+    name: Release Erlang/OTP
+    needs:
+      - setup
+      - sbom
+      - documentation
+    permissions:
+      contents:     write
+      attestations: write
+      id-token:     write
+      actions:      write
+    if: startsWith(github.ref, 'refs/tags/OTP-') && github.repository == 'erlang/otp'
+    uses: ./.github/workflows/reusable-release.yaml
+    with:
+      otp_branch:       ${{ needs.setup.outputs.otp_version }}
+      otp_sbom_version: ${{ needs.setup.outputs.otp_sbom_version }}
+      tag:              ${{ needs.setup.outputs.tag }}
+      vsn:              ${{ needs.setup.outputs.vsn }}
+    secrets:
+      TRIGGER_ERLANG_ORG_BUILD: ${{ secrets.TRIGGER_ERLANG_ORG_BUILD }}
+      # GITHUB_TOKEN is already available in called workflow.
+
+  event_file:
+    name: "Event File"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # ratchet:actions/upload-artifact@v6.0.0
+        with:
+          name: Event File
+          path: ${{ github.event_path }}
+
+  # Zizmor is a GitHub Actions security linter.
+  # See: https://docs.zizmor.sh/
+  zizmor:
+    name: Zizmor
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+        with:
+          persist-credentials: false
+      - name: Run zizmor
+        uses: zizmorcore/zizmor-action@71321a20a9ded102f6e9ce5718a2fcec2c4f70d8 # ratchet:zizmorcore/zizmor-action@v0.5.2
+
+  # This job checks that the most important jobs are successful.
+  # the use of conditionals, e.g., `if:` at the job level makes
+  # the jobs included in the GH Settngs Ruleset to fail.
+  # Instead of removing those jobs from being tested or letting
+  # them fail, the script below marks as OK a skipped job.
+  # a failed job is a failure, and an success job is success.
+  ruleset-checker:
+    name: Ruleset Checker
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - pack
+      - build-macos
+      - build-ios
+      - build-windows
+      - build-flavors
+      - build
+      - freebsd
+      - openbsd
+      - solaris
+      - documentation
+      - static
+      - test
+      - system-test
+      - sbom
+      - zizmor
+    steps:
+      - name: Check Ruleset Results
+        shell: bash
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          failed=false
+          while IFS= read -r entry; do
+            name=$(echo "$entry"   | jq -r '.[0]')
+            result=$(echo "$entry" | jq -r '.[1]')
+            if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
+              echo "❌ Job '$name' was: $result"
+              failed=true
+            else
+              echo "✅ Job '$name' was: $result"
+            fi
+          done < <(echo "$RESULTS" | jq -c 'to_entries[] | [.key, .value.result]')
+          if [[ "$failed" == "true" ]]; then
+            exit 1
+          fi
