@@ -473,9 +473,6 @@ verify_signature(?TLS_1_3, Msg, {_, eddsa}, Signature, {?'id-Ed448', PubKey, Pub
 verify_signature(_, Msg, {HashAlgo, _SignAlg}, Signature,
 		 {?'id-ecPublicKey', PublicKey, PublicKeyParams}) ->
     public_key:verify(Msg, HashAlgo, Signature, {PublicKey, PublicKeyParams});
-verify_signature(Version, _Msg, {_HashAlgo, anon}, _Signature, _)
-  when ?TLS_1_X(Version), ?TLS_LTE(Version, ?TLS_1_2) ->
-    true;
 verify_signature(Version, Msg, {HashAlgo, dsa}, Signature, {?'id-dsa', PublicKey, PublicKeyParams})
   when ?TLS_1_X(Version), ?TLS_LTE(Version, ?TLS_1_2) ->
     public_key:verify(Msg, HashAlgo, Signature, {PublicKey, PublicKeyParams}).
@@ -2936,9 +2933,7 @@ dec_server_key_signature(Params, <<?BYTE(HashAlgo), ?BYTE(SignAlgo),
   when ?TLS_GTE(Version, ?TLS_1_2) ->
     HashSign = {ssl_cipher:hash_algorithm(HashAlgo), ssl_cipher:sign_algorithm(SignAlgo)},
     {Params, HashSign, Signature};
-dec_server_key_signature(Params, <<>>, _) ->
-    {Params, {null, anon}, <<>>};
-dec_server_key_signature(Params, <<?UINT16(0)>>, _) ->
+dec_server_key_signature(Params, <<>>, Version) when ?TLS_LTE(Version, ?TLS_1_2) ->
     {Params, {null, anon}, <<>>};
 dec_server_key_signature(Params, <<?UINT16(Len), Signature:Len/binary>>, _) ->
     {Params, undefined, Signature};
