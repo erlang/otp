@@ -42,6 +42,7 @@
 
 -export([
          interpolate/1,
+         mlkem768x25519_hybrid_secret_encoding/1,
          simple_connect/1,
          simple_exec/1,
          simple_exec_groups/0,
@@ -61,9 +62,9 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{seconds,120}}].
 
-all() -> 
+all() ->
     %% [{group,kex},{group,cipher}... etc
-    [{group,C} || C <- tags()].
+    [mlkem768x25519_hybrid_secret_encoding | [{group,C} || C <- tags()]].
 
 
 groups() ->
@@ -290,6 +291,14 @@ init_per_testcase(sshc_simple_exec_os_cmd, _, Config) ->
      start_pubkey_daemon([proplists:get_value(pref_algs,Config)],
                          [{extra_daemon,true}|Config]);
 
+init_per_testcase(mlkem768x25519_hybrid_secret_encoding, _, Config) ->
+    case lists:member(x25519, crypto:supports(curves))
+        andalso lists:member(mlkem768, crypto:supports(kems))
+    of
+        false -> {skip, "X25519 or ML-KEM768 not supported"};
+        true -> Config
+    end;
+
 init_per_testcase(_, _, Config) ->
     Config.
 
@@ -311,6 +320,35 @@ end_per_testcase(_TC, Config) ->
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
+%%--------------------------------------------------------------------
+%% Regression test for the mlkem768x25519-sha256 hybrid key exchange: the
+%% classical (X25519) shared secret must be hashed as a fixed-width 32-byte
+%% octet string. Encoding it as a trimmed mpint dropped a genuine leading 0x00
+%% byte ~1/512 of the time (when the secret's most significant byte is 0x00 and
+%% the next byte is < 0x80), so the two peers derived different exchange hashes
+%% and the handshake failed with "incorrect signature".
+%%
+%% The keys below produce a shared secret starting with <<0x00, 0x42, ...>>
+%% which triggers the edge case (0x42 < 0x80).
+mlkem768x25519_hybrid_secret_encoding(_Config) ->
+    PeerPublic = <<16#94,16#5E,16#6F,16#5A,16#CA,16#B1,16#AD,16#A6,
+                   16#31,16#CF,16#12,16#F5,16#47,16#A4,16#25,16#6B,
+                   16#6A,16#E5,16#3A,16#A2,16#48,16#6A,16#0D,16#08,
+                   16#C6,16#D6,16#73,16#2C,16#B3,16#E2,16#0E,16#5B>>,
+    MyPrivate  = <<16#58,16#EF,16#AB,16#DA,16#4C,16#C5,16#6B,16#8E,
+                   16#B2,16#43,16#8A,16#86,16#92,16#2C,16#5D,16#73,
+                   16#83,16#98,16#B4,16#38,16#0E,16#A3,16#91,16#37,
+                   16#F9,16#38,16#5B,16#E5,16#BA,16#B5,16#94,16#6D>>,
+    %% Verify the shared secret triggers the edge case
+    <<0, B1, _/binary>> = crypto:compute_key(ecdh, PeerPublic, MyPrivate, x25519),
+    true = B1 < 16#80,
+    %% A spec-conformant peer (e.g. OpenSSH) hashes K_pq concatenated with the
+    %% X25519 secret as a fixed-width 32-byte string, preserving the leading 0x00.
+    K_pq = crypto:strong_rand_bytes(32),
+    Raw = crypto:compute_key(ecdh, PeerPublic, MyPrivate, x25519),
+    Expected = crypto:hash(sha256, <<K_pq/binary, Raw/binary>>),
+    Expected = ssh_transport:hybrid_common(K_pq, x25519, PeerPublic, MyPrivate).
+
 %%--------------------------------------------------------------------
 %% A simple sftp transfer
 simple_sftp(Config) ->
