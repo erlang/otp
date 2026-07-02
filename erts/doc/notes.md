@@ -21,6 +21,41 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 15.2.7.10
+
+### Fixed Bugs and Malfunctions
+
+- Fixed an undefined behavior in the internal `erts_qsort()` function, which could have been the cause of a beam crash seen when updating large maps.
+
+  Own Id: OTP-20185 Aux Id: [PR-11215]
+
+- Calculating `bxor` of the largest supported positive integer (`erlang:system_info(max_integer)`) and `-1` would return `[]` instead of a raising a `system_limit` exception.
+
+  Own Id: OTP-20208 Aux Id: [PR-11269]
+
+- Fix possible race between `ets:delete/1` and terminating process with a fixation on the same table.
+
+  Own Id: OTP-20217 Aux Id: [PR-11283]
+
+- A few code generation issues for the JIT on AArch64 (ARM64) have been fixed.
+  
+  For all platforms, the loader will reject some invalid BEAM files earlier.
+
+  Own Id: OTP-20226 Aux Id: [PR-11299]
+
+[PR-11215]: https://github.com/erlang/otp/pull/11215
+[PR-11269]: https://github.com/erlang/otp/pull/11269
+[PR-11283]: https://github.com/erlang/otp/pull/11283
+[PR-11299]: https://github.com/erlang/otp/pull/11299
+
+### Improvements and New Features
+
+- Arithmetic operations on large integers will now increase the reduction count for the process, causing context switches to occur more frequently when doing arithmetic on large integers.
+
+  Own Id: OTP-20211 Aux Id: [PR-11274]
+
+[PR-11274]: https://github.com/erlang/otp/pull/11274
+
 ## Erts 15.2.7.9
 
 ### Fixed Bugs and Malfunctions

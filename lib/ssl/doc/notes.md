@@ -21,6 +21,60 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.2.12.10
+
+### Fixed Bugs and Malfunctions
+
+- Correct small behavior bugs that
+  occasionally could cause DTLS connection errors, unwanted behavior for legacy  DHE_DSS, hiding of a distribution config error, and possible unorderly process tree shutdown.
+
+  Own Id: OTP-20190 Aux Id: [PR-11250]
+
+- Initialize DTLS cookie to random value to avoid DoS attack with forged cookie during startup window.
+
+  Own Id: OTP-20194 Aux Id: [PR-11271], [CVE-2026-54887]
+
+- Guard TLS client  for  MITM injection of application data during "plain-text-window" during handshake.
+
+  Own Id: OTP-20207 Aux Id: [PR-11270], [CVE-2026-54891]
+
+- Improve error handling of TLS PSK sending ILLIGAL_PARMETER alert if binders and PSK-identities are not matched. Also mend recovery mechanism  of ticket and session stores to be as resilient as possible to intermediate bugs.
+
+  Own Id: OTP-20216 Aux Id: [PR-11282], [CVE-2026-55952]
+
+- Fix race condition that could be used to DoS attack DTLS servers.
+
+  Own Id: OTP-20220 Aux Id: [PR-11306], [CVE-2026-55950]
+
+- A TLS-1.3 stateless session ticket with obfuscated_ticket_age set to
+  zero was incorrectly accepted without checking the server-side ticket
+  lifetime or the RFC 8446 Section 8.3 freshness window. The server now
+  always validates ticket age using its own timestamp regardless of the
+  client-reported age value.
+
+  Own Id: OTP-20230 Aux Id: [PR-11307]
+
+- TLS-1.3 client rejects a second HelloRetryRequest as requiered  in RFC 8446 Section 4.1.4
+
+  Own Id: OTP-20231 Aux Id: [PR-11309]
+
+- A busy client node could self-trigger a ticket store crash if unlucky with scheduling if auto mode is used.
+
+  Own Id: OTP-20232 Aux Id: [PR-11311]
+
+[PR-11250]: https://github.com/erlang/otp/pull/11250
+[PR-11271]: https://github.com/erlang/otp/pull/11271
+[CVE-2026-54887]: https://nvd.nist.gov/vuln/detail/2026-54887
+[PR-11270]: https://github.com/erlang/otp/pull/11270
+[CVE-2026-54891]: https://nvd.nist.gov/vuln/detail/2026-54891
+[PR-11282]: https://github.com/erlang/otp/pull/11282
+[CVE-2026-55952]: https://nvd.nist.gov/vuln/detail/2026-55952
+[PR-11306]: https://github.com/erlang/otp/pull/11306
+[CVE-2026-55950]: https://nvd.nist.gov/vuln/detail/2026-55950
+[PR-11307]: https://github.com/erlang/otp/pull/11307
+[PR-11309]: https://github.com/erlang/otp/pull/11309
+[PR-11311]: https://github.com/erlang/otp/pull/11311
+
 ## SSL 11.2.12.9
 
 ### Fixed Bugs and Malfunctions
