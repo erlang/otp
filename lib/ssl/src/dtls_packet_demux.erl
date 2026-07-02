@@ -162,7 +162,7 @@ handle_call({new_connection, Old, _Pid}, _,
             case kv_lookup(Old, MsgQs0) of
                 {value, OldQueue} ->
                     MsgQs1 = kv_delete(Old, MsgQs0),
-                    MsgQs = kv_insert({old,Old}, OldQueue, MsgQs1),
+                    MsgQs = kv_enter({old,Old}, OldQueue, MsgQs1),
                     {reply, true, State#state{dtls_msq_queues = MsgQs}};
                 none ->
                     %% Already set as old
@@ -374,6 +374,8 @@ kv_lookup(Key, Store) ->
     gb_trees:lookup(Key, Store).
 kv_insert(Key, Value, Store) ->
     gb_trees:insert(Key, Value, Store).
+kv_enter(Key, Value, Store) ->
+    gb_trees:enter(Key, Value, Store).
 kv_get(Key, Store) ->
     gb_trees:get(Key, Store).
 kv_delete(Key, Store) ->
