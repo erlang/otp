@@ -183,7 +183,7 @@ initial_hello(enter, _, State) ->
 initial_hello({call, From}, {start, Timeout},
               #state{protocol_specific = PS0, recv = Recv} = State) ->
     PS = PS0#{current_cookie_secret => dtls_v1:cookie_secret(),
-              previous_cookie_secret => <<>>},
+              previous_cookie_secret => dtls_v1:cookie_secret()},
     erlang:send_after(dtls_v1:cookie_timeout(), self(), new_cookie_secret),
     dtls_gen_connection:next_event(hello, no_record,
                                    State#state{recv = Recv#recv{from = From},
