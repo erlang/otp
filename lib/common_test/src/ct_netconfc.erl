@@ -2591,9 +2591,9 @@ ssh_channel(#connection{reference=CM}=Connection0,
                 failure ->
                     ssh_connection:close(CM,Ch),
                     {error,{ssh,could_not_execute_netconf_subsystem}};
-                {error,timeout} ->
+                {error,Reason} ->
                     ssh_connection:close(CM,Ch),
-                    {error,{ssh,could_not_execute_netconf_subsystem,timeout}}
+                    {error,{ssh,could_not_execute_netconf_subsystem,Reason}}
             end;
         {error, Reason} ->
             {error,{ssh,could_not_open_channel,Reason}}
