@@ -192,7 +192,18 @@ ensure_loaded(Module) ->
 		atom_to_list(Module) ++ "'",
 	    halt(Error);
 	Pid when is_pid(Pid) ->
-	    code:ensure_loaded(Module);
+            try
+                code:ensure_loaded(Module)
+            catch
+                %% The code server was running when we looked it up above, but
+                %% terminated before or while we talked to it, e.g. during system
+                %% shutdown or a start-up crash. Fall back to loading via init,
+                %% which does not depend on the code server.
+                error:badarg ->
+                    init:ensure_loaded(Module);
+                exit:{'DOWN',code_server,_} ->
+                    init:ensure_loaded(Module)
+            end;
 	_ ->
 	    init:ensure_loaded(Module)
     end.

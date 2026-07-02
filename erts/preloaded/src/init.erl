@@ -1154,7 +1154,16 @@ kernel_pid(Pid,[_|T]) ->
 kernel_pid(_,_) ->
     false.
 
-sleep(T) -> receive after T -> ok end.
+sleep(T) ->
+    T0 = erlang:monotonic_time(millisecond),
+    receive
+        {From, {ensure_loaded, Module}} ->
+            {Res, _Loaded} = ensure_loaded(Module, []),
+            From ! {init, Res},
+            sleep(max(0, T - (erlang:monotonic_time(millisecond) - T0)))
+    after T ->
+            ok
+    end.
 
 %%% -------------------------------------------------
 %%% Start the loader. 
