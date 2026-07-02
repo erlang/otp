@@ -23,6 +23,14 @@ limitations under the License.
 
 This document describes the changes made to the Dialyzer application.
 
+## Dialyzer 6.0.2
+
+### Fixed Bugs and Malfunctions
+
+- Fix a bug with native record sets in `erl_types.erl`
+
+  Own Id: OTP-20201
+
 ## Dialyzer 6.0.1
 
 ### Fixed Bugs and Malfunctions

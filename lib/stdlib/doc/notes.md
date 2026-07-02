@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 8.0.2
+
+### Fixed Bugs and Malfunctions
+
+- Several compiler bugs that could crash the compiler or generate incorrect code in rare circumstances have been fixed.
+
+  Own Id: OTP-20222 Aux Id: [PR-11219]
+
+[PR-11219]: https://github.com/erlang/otp/pull/11219
+
 ## STDLIB 8.0.1
 
 ### Fixed Bugs and Malfunctions
