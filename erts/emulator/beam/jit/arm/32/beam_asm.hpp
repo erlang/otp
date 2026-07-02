@@ -444,7 +444,7 @@ protected:
     }
 
     void emit_branch_if_eq(a32::Gp reg, Uint value, Label lbl) {
-        if (value <= 255) {
+        if (is_aarch32_imm(value)) {
             a.cmp(reg, imm(value));
         } else {
             mov_imm(TMP, value);
@@ -454,7 +454,7 @@ protected:
     }
 
     void emit_branch_if_ne(a32::Gp reg, Uint value, Label lbl) {
-        if (value <= 255) {
+        if (is_aarch32_imm(value)) {
             a.cmp(reg, imm(value));
         } else {
             mov_imm(TMP, value);
@@ -505,6 +505,11 @@ protected:
             uint16_t upper16 = (value32 >> 16);
             a.movt(to, imm(upper16));
         }
+    }    
+    
+    bool is_aarch32_imm(uint32_t value) {
+        uint32_t encoded;
+        return arm::Utils::encodeAArch32Imm(value, &encoded);
     }
 
     void mov_imm(a32::Gp to, std::nullptr_t value) {
@@ -512,12 +517,12 @@ protected:
         mov_imm(to, 0);
     }
 
-    void sub(a32::Gp to, a32::Gp src, int64_t val) {
+    void sub(a32::Gp to, a32::Gp src, int32_t val) {
         if (val < 0) {
             add(to, src, -val);
         } else if (val == 0 && to != src) {
             a.mov(to, src);
-        } else if (val <= 255) {
+        } else if (is_aarch32_imm(val)) {
             a.sub(to, src, imm(val));
         } else {
             ASSERT(src != TMP);
@@ -531,7 +536,7 @@ protected:
             sub(to, src, -val);
         } else if (val == 0 && to != src) {
             a.mov(to, src);
-        } else if (val <= 255) {
+        } else if (is_aarch32_imm(val)) {
             a.add(to, src, imm(val));
         } else {
             ASSERT(src != TMP);
@@ -540,10 +545,10 @@ protected:
         }
     }
 
-    void subs(a32::Gp to, a32::Gp src, int64_t val) {
-        if (val >= 0 && val <= 255) {
+    void subs(a32::Gp to, a32::Gp src, int32_t val) {
+        if (val >= 0 && is_aarch32_imm(val)) {
             a.subs(to, src, imm(val));
-        } else if (val < 0 && -val <= 255) {
+        } else if (val < 0 && is_aarch32_imm(-val)) {
             a.adds(to, src, imm(-val));
         } else {
             ASSERT(src != TMP);

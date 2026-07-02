@@ -424,7 +424,7 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
     a.asr(TMP, TMP, imm(_TAG_IMMED1_SIZE));
 
     if (Base.get() != 0) {
-        if (Support::isUInt12((Sint)Base.get())) {
+        if (is_aarch32_imm(Base.get())) {
             a.sub(TMP, TMP, imm(Base.get()));
         } else {
             mov_imm(VAR, Base.get());
