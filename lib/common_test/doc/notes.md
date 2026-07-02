@@ -95,6 +95,16 @@ limitations under the License.
 [PR-9315]: https://github.com/erlang/otp/pull/9315
 [PR-10839]: https://github.com/erlang/otp/pull/10839
 
+## Common_Test 1.30.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a crash in ct_netconfc that occurred when the remote server closed the SSH connection during NETCONF subsystem negotiation.
+
+  Own Id: OTP-20191 Aux Id: ERIERL-1333, [PR-11230]
+
+[PR-11230]: https://github.com/erlang/otp/pull/11230
+
 ## Common_Test 1.30
 
 ### Fixed Bugs and Malfunctions
