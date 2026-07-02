@@ -1867,13 +1867,15 @@ alive_reneg_eserver_tclient(Config) ->
     [CHandlerPid] = CHandler(ssh_info:get_subs_tree(sshd_sup), []),
     ?CT_LOG("Server side connection handler PID: ~p", [CHandlerPid]),
     ssh_connection_handler:renegotiate(CHandlerPid),
-    %% The disconnect is received under 2 seconds since the tclient already
-    %% failed to reply to one of the probles from eserver.
+    %% The disconnect is received after the renegotiation_alive timeout since
+    %% the tclient already failed to reply to one of the probes from eserver.
+    %% Daemon uses interval=1000, count_max=3. Add margin for Windows scheduling.
+    DisconnectTimeout = 2000 + 2 * ssh_test_lib:alive_interval(),
     {ok, _} =
         ssh_trpt_test_lib:exec(
           [{match, #ssh_msg_kexinit{_='_'}, receive_msg},
            {match, disconnect(), receive_msg}],
-          ssh_trpt_test_lib:set_timeout(TrptState3, 2000)),
+          ssh_trpt_test_lib:set_timeout(TrptState3, DisconnectTimeout)),
     ?CT_LOG("[OK] triggering incomplete, server triggered locally key renegotiation"),
     ssh:stop_daemon(DaemonPid),
     ?CT_LOG("[OK] test case finished"),
