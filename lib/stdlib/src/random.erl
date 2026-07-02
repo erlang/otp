@@ -137,7 +137,7 @@ returns the old state.
 
 The following is an easy way of obtaining a unique value to seed with:
 
-```erlang
+```text
 random:seed(erlang:phash2([node()]),
             erlang:monotonic_time(),
             erlang:unique_integer())
@@ -149,12 +149,11 @@ and `erlang:unique_integer/0`.
 ## Examples
 
 ```erlang
-1> random:seed(1, 2, 3).
-{3172,9814,20125}
+1> _OldSeed1 = random:seed(1, 2, 3).
 2> random:seed({100, 200, 300}).
-{1,2,3}
+{2,3,4}
 3> random:seed(12345).
-{1,2,3}
+{101,201,301}
 ```
 """.
 -spec seed(A1, A2, A3) -> 'undefined' | ran() when
@@ -203,11 +202,11 @@ distributed between `1` and `N`, updating the state in the process dictionary.
 
 ```erlang
 1> random:seed(1, 2, 3).
-{3172,9814,20125}
-2> random:uniform().
-0.6465551933481189
-3> random:uniform(10).
-8
+undefined
+2> F = random:uniform(), is_float(F), F > 0.0, F < 1.0.
+true
+3> I = random:uniform(10), I >= 1, I =< 10.
+true
 ```
 """.
 -spec uniform(N) -> pos_integer() when
@@ -247,10 +246,10 @@ uniformly distributed between `1` and `N`, and a new state.
 ```erlang
 1> State = random:seed0().
 {3172,9814,20125}
-2> random:uniform_s(State).
-{0.6465551933481189,{16851,18318,24636}}
-3> random:uniform_s(10, State).
-{8,{16851,18318,24636}}
+2> {Float, _NewState} = random:uniform_s(State), is_float(Float), Float > 0.0, Float < 1.0.
+true
+3> {Int, _NewState2} = random:uniform_s(10, State), Int >= 1, Int =< 10.
+true
 ```
 """.
 -spec uniform_s(N, State0) -> {integer(), State1} when
