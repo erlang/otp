@@ -148,8 +148,10 @@ void BeamModuleAssembler::emit_i_plus(const ArgLabel &Fail,
                                       const ArgSource &LHS,
                                       const ArgSource &RHS,
                                       const ArgRegister &Dst) {
-    bool rhs_is_arm_literal =
-            RHS.isSmall() && Support::isUInt12(RHS.as<ArgSmall>().get());
+    bool rhs_is_arm_literal = RHS.isSmall() &&
+                              is_aarch32_imm(
+                                      RHS.as<ArgSmall>().get() &
+                                      ~_TAG_IMMED1_MASK);
     bool is_small_result = is_sum_small_if_args_are_small(LHS, RHS);
 
     if (always_small(LHS) && always_small(RHS) && is_small_result) {
@@ -341,8 +343,10 @@ void BeamModuleAssembler::emit_i_minus(const ArgLabel &Fail,
                                        const ArgSource &LHS,
                                        const ArgSource &RHS,
                                        const ArgRegister &Dst) {
-    bool rhs_is_arm_literal =
-            RHS.isSmall() && Support::isUInt12(RHS.as<ArgSmall>().get());
+    bool rhs_is_arm_literal = RHS.isSmall() &&
+                              is_aarch32_imm(
+                                      RHS.as<ArgSmall>().get() &
+                                      ~_TAG_IMMED1_MASK);
     bool is_small_result = is_diff_small_if_args_are_small(LHS, RHS);
 
     if (always_small(LHS) && always_small(RHS) && is_small_result) {
