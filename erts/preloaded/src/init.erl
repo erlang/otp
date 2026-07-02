@@ -265,7 +265,7 @@ error
 -export([run_on_load_handlers/0]).
 
 %% internal exports
--export([fetch_loaded/0,ensure_loaded/1,make_permanent/2,
+-export([fetch_loaded/0,ensure_loaded/1,ensure_modules_loaded/1,make_permanent/2,
 	 notify_when_started/1,wait_until_started/0, 
 	 objfile_extension/0, archive_extension/0,code_path_choice/0,
          get_configfd/1, set_configfd/2]).
@@ -459,9 +459,14 @@ fetch_loaded() ->
 %% Handle dynamic code loading until the
 %% real code_server has been started.
 -doc false.
--spec ensure_loaded(atom()) -> 'not_allowed' | {'module', atom()}.
+-spec ensure_loaded(module()) -> 'error' | {'module', module()}.
 ensure_loaded(Module) ->
     request({ensure_loaded, Module}).
+
+-doc false.
+-spec ensure_modules_loaded([module()]) -> 'ok'.
+ensure_modules_loaded(Modules) ->
+    request({ensure_modules_loaded, Modules}).
 
 -doc false.
 -spec make_permanent(file:filename(), 'false' | file:filename()) ->
@@ -723,6 +728,10 @@ boot_loop(BootPid, State) ->
 	    {Res, Loaded} = ensure_loaded(Module, State#state.loaded),
 	    From ! {init,Res},
 	    boot_loop(BootPid,State#state{loaded = Loaded});
+        {From,{ensure_modules_loaded,Modules}} ->
+            Loaded = ensure_modules_loaded(Modules, State#state.loaded),
+            From ! {init, ok},
+            boot_loop(BootPid,State#state{loaded = Loaded});
 	Msg ->
 	    boot_loop(BootPid,handle_msg(Msg,State))
     end.
@@ -1348,7 +1357,10 @@ eval_script([{primLoad,Mods}|T], #es{init=Init,prim_load=PrimLoad,debug=Deb}=Es)
   when is_list(Mods) ->
     case PrimLoad of
 	true ->
-	    debug(Deb, {primLoad,Mods}, fun() -> load_modules(Mods, Init) end);
+            debug(Deb, {primLoad,Mods},
+                  fun() ->
+                          Init ! {self(), loaded, ensure_modules_loaded(Mods, [])}
+                  end);
 	false ->
 	    %% Do not load now, code_server does that dynamically!
 	    ok
@@ -1366,55 +1378,23 @@ eval_script([], #es{}) ->
 eval_script(What, #es{}) ->
     exit({'unexpected command in bootfile',What}).
 
-load_modules(Mods0, Init) ->
-    Mods = [M || M <- Mods0, not erlang:module_loaded(M)],
-    F = prepare_loading_fun(),
+ensure_modules_loaded(Mods, Loaded) ->
+    ModsToLoad = [M || M <- Mods, not erlang:module_loaded(M)],
     case has_small_memory() of
         true ->
-            %% Load one module at the time to reduce the peak memory
-            %% usage.
-            _ = [do_load_modules([M], F, Init) || M <- Mods],
-            ok;
+            %% Load one module at the time to reduce the peak memory usage.
+            [Info || M <- ModsToLoad, Info <- do_load_modules([M])] ++ Loaded;
         false ->
             %% Load the modules in parallel.
-            do_load_modules(Mods, F, Init)
+            do_load_modules(ModsToLoad) ++ Loaded
     end.
 
-do_load_modules(Mods, F, Init) ->
-    case erl_prim_loader:get_modules(Mods, F) of
-	{ok,{Prep0,[]}} ->
-	    Prep = [Code || {_,{prepared,Code,_}} <- Prep0],
-	    ok = erlang:finish_loading(Prep),
-	    Loaded = [{Mod,Full} || {Mod,{_,_,Full}} <- Prep0],
-	    Init ! {self(),loaded,Loaded},
-	    Beams = [{M,Beam,Full} || {M,{on_load,Beam,Full}} <- Prep0],
-	    load_rest(Beams, Init);
-	{ok,{_,[_|_]=Errors}} ->
-	    Ms = [M || {M,_} <- Errors],
-	    exit({load_failed,Ms})
-    end.
-
-load_rest([{Mod,Beam,Full}|T], Init) ->
-    do_load_module(Mod, Beam),
-    Init ! {self(),loaded,[{Mod,Full}]},
-    load_rest(T, Init);
-load_rest([], _) ->
-    ok.
-
-prepare_loading_fun() ->
-    fun(Mod, FullName, Beam) ->
-	    case erlang:prepare_loading(Mod, Beam) of
-		{error,_}=Error ->
-		    Error;
-		Prepared ->
-		    case erlang:has_prepared_code_on_load(Prepared) of
-			true ->
-			    {ok,{on_load,Beam,FullName}};
-			false ->
-			    {ok,{prepared,Prepared,FullName}}
-		    end
-	    end
-    end.
+do_load_modules(Mods) ->
+    {ok,{Prep0,[]}} = erl_prim_loader:get_modules(Mods, prepare_loading_fun()),
+    Prep = [Code || {_,{prepared,Code,_}} <- Prep0],
+    ok = erlang:finish_loading(Prep),
+    _ = [do_load_module(Mod, Beam) || {Mod,{on_load, Beam, _Full}} <- Prep0],
+    [{Mod,Full} || {Mod,{_,_,Full}} <- Prep0].
 
 has_small_memory() ->
     %% Heuristic for small memory. If true, we'll try to preserve
@@ -1422,6 +1402,21 @@ has_small_memory() ->
     (erlang:system_info(wordsize) =:= 4 andalso
      erlang:system_info(schedulers_online) =:= 1) orelse
         erlang:system_info(debug_compiled).
+
+prepare_loading_fun() ->
+    fun(Mod, FullName, Beam) ->
+            case erlang:prepare_loading(Mod, Beam) of
+                {error,_}=Error ->
+                    Error;
+                Prepared ->
+                    case erlang:has_prepared_code_on_load(Prepared) of
+                        true ->
+                            {ok,{on_load,Beam,FullName}};
+                        false ->
+                            {ok,{prepared,Prepared,FullName}}
+                    end
+            end
+    end.
 
 make_path(Pa, Pz, Path, Vars) ->
     append([Pa,append([fix_path(Path,Vars),Pz])]).
