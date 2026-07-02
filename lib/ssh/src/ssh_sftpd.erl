@@ -328,19 +328,24 @@ handle_op(?SSH_FXP_INIT, Version, B, State) when is_binary(B) ->
     ssh_xfer:xf_send_reply(XF1, ?SSH_FXP_VERSION, <<?UINT32(Vsn)>>),
     State#state{xf = XF1};
 handle_op(?SSH_FXP_REALPATH, ReqId,
-	  <<?UINT32(RLen), RPath:RLen/binary>>,
-	  State0) ->
+          <<?UINT32(RLen), RPath:RLen/binary>>,
+          State0) ->
     RelPath = relate_file_name(RPath, State0, _Canonicalize=false),
-    {Res, State} = resolve_symlinks(RelPath, State0),
+    {Res, #state{root = Root} = State} = resolve_symlinks(RelPath, State0),
     case Res of
-	{ok, AbsPath} ->
-	    NewAbsPath = chroot_filename(AbsPath, State),
-	    XF = State#state.xf,
-	    Attr = #ssh_xfer_attr{type=directory},
-	    ssh_xfer:xf_send_name(XF, ReqId, NewAbsPath, Attr),
-	    State;
-	{error, _} = Error ->
-	    send_status(Error, ReqId, State)
+        {ok, AbsPath} ->
+            case Root =:= "" orelse is_within_root(Root, AbsPath) of
+                true ->
+                    NewAbsPath = chroot_filename(AbsPath, State),
+                    XF = State#state.xf,
+                    Attr = #ssh_xfer_attr{type=directory},
+                    ssh_xfer:xf_send_name(XF, ReqId, NewAbsPath, Attr),
+                    State;
+                false ->
+                    send_status({error, enoent}, ReqId, State)
+            end;
+        {error, _} = Error ->
+            send_status(Error, ReqId, State)
     end;
 handle_op(?SSH_FXP_OPENDIR, ReqId,
 	 <<?UINT32(RLen), RPath:RLen/binary>>,
