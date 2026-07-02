@@ -2822,7 +2822,7 @@ static int build_dc_powers(struct dc_pow_cache *c, int base, Uint target_width)
 
             c->vals[i] = cur;
             c->widths[i] = c->widths[i-1] * 2;
-            sq_sz = I_sqr(prev, prev_sz, cur);
+            sq_sz = I_mul_karatsuba(prev, prev_sz, prev, prev_sz, cur);
             /* I_sqr writes up to 2*prev_sz+1 cells; trim trailing zeros. */
             while (sq_sz > 1 && cur[sq_sz - 1] == 0) {
                 sq_sz--;
