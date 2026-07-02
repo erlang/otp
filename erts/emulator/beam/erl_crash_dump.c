@@ -238,7 +238,7 @@ erl_crash_dump_init_envelope(EVP_PKEY *public_key,
     free(key);
 }
 
-void erl_crash_dump_init() {
+void erl_crash_dump_init(void) {
     unsigned char iv[AES_256_CBC_IV_SIZE];
     unsigned char *secret;
     size_t secret_size;
@@ -339,7 +339,7 @@ crash_dump_encrypted_close(void *to_arg) {
 }
 
 #else /* !defined(ENCRYPTED_CRASH_DUMPS) */
-void erl_crash_dump_init() {
+void erl_crash_dump_init(void) {
     /* Nothing to do. */
 }
 #endif

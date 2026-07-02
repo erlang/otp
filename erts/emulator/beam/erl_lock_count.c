@@ -463,7 +463,7 @@ void lcnt_register_static_lock__(erts_lcnt_ref_t *reference, const char *name, E
 
 /* - Initialization - */
 
-void erts_lcnt_pre_thr_init() {
+void erts_lcnt_pre_thr_init(void) {
     /* Ensure that the dependency hack mentioned in the header doesn't
      * explode at runtime. */
     ERTS_CT_ASSERT(sizeof(LcntThrPrgrLaterOp) >= sizeof(ErtsThrPrgrLaterOp));
@@ -476,7 +476,7 @@ void erts_lcnt_pre_thr_init() {
     lcnt_init_static_lock_registry();
 }
 
-void erts_lcnt_post_thr_init() {
+void erts_lcnt_post_thr_init(void) {
     /* ASSUMPTION: this is safe since it runs prior to the creation of other
      * threads (Directly after ethread init). */
 
@@ -485,7 +485,7 @@ void erts_lcnt_post_thr_init() {
     erts_lcnt_thread_setup();
 }
 
-void erts_lcnt_late_init() {
+void erts_lcnt_late_init(void) {
     /* Set start timer and zero all statistics */
     erts_lcnt_clear_counters();
     erts_thr_install_exit_handler(erts_lcnt_thread_exit_handler);
@@ -502,7 +502,7 @@ void erts_lcnt_post_startup(void) {
     erts_lcnt_set_category_mask(ERTS_LOCK_FLAGS_MASK_CATEGORY);
 }
 
-void erts_lcnt_thread_setup() {
+void erts_lcnt_thread_setup(void) {
     lcnt_thread_data_t__ *eltd = lcnt_thread_data_alloc();
 
     ASSERT(eltd);
@@ -510,7 +510,7 @@ void erts_lcnt_thread_setup() {
     ethr_tsd_set(lcnt_thr_data_key__, eltd);
 }
 
-void erts_lcnt_thread_exit_handler() {
+void erts_lcnt_thread_exit_handler(void) {
     lcnt_thread_data_t__ *eltd = lcnt_get_thread_data__();
 
     if (eltd) {
