@@ -83,6 +83,8 @@
 #include <ctype.h>
 #include <signal.h>
 #include <errno.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 
 #ifdef HAVE_SYSLOG_H
 #  include <syslog.h>
@@ -309,6 +311,9 @@ typedef struct {
   unsigned want;		/* Number of bytes we want */
   char *buf;			/* The remaining buffer */
 
+  SSL *ssl;           /* The SSL connection object */
+  int tls_accepted;   /* Flag: 0 if handshake pending, 1 if complete */
+
   time_t mod_time;		/* Last activity on this socket */
 } Connection;
 
@@ -344,6 +349,7 @@ typedef struct {
   int debug;
   int silent; 
   int is_daemon;
+  int tls;
   int brutal_kill;
   unsigned packet_timeout;
   unsigned delay_accept;
@@ -356,6 +362,9 @@ typedef struct {
   Nodes nodes;
   fd_set orig_read_mask;
   int listenfd[MAX_LISTEN_SOCKETS];
+  char *cert_path;
+  char *key_path;
+  SSL_CTX *ctx;       /* Global SSL Context */
   char *addresses;
   char **argv;
 #ifdef HAVE_SYSTEMD_DAEMON
