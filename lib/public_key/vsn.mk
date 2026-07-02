@@ -1,4 +1,4 @@
-PUBLIC_KEY_VSN = 1.20.3.2
+PUBLIC_KEY_VSN = 1.20.3.3
 
 # %CopyrightBegin%
 #
