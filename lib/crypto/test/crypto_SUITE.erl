@@ -74,6 +74,7 @@
          concurrent_access/1,
          crypto_load/1,
          crypto_load_and_call/1,
+         doctests/1,
          encapsulate/1,
          exor/0,
          exor/1,
@@ -219,6 +220,7 @@ all() ->
      {group, fips},
      {group, non_fips},
      cipher_padding,
+     doctests,
      ec_key_padding,
      node_supports_cache,
      mod_pow,
@@ -523,6 +525,55 @@ groups() ->
      {aes_192_ofb,  [], [api_ng, api_ng_one_shot]},
      {aes_256_ofb,  [], [api_ng, api_ng_one_shot]}
     ].
+
+doctests(_Config) ->
+    ct_doctest:module(crypto, [
+        {missing_tests, [
+            {crypto_final,1},
+            {crypto_one_time_aead,4},
+            {crypto_update,2},
+            {decapsulate_key,3},
+            {enable_fips_mode,1},
+            {encapsulate_key,2},
+            {engine_add,1},
+            {engine_by_id,1},
+            {engine_ctrl_cmd_string,3},
+            {engine_ctrl_cmd_string,4},
+            {engine_get_id,1},
+            {engine_get_name,1},
+            {engine_list,0},
+            {engine_load,3},
+            {engine_register,2},
+            {engine_remove,1},
+            {engine_unload,1},
+            {engine_unregister,2},
+            {ensure_engine_loaded,2},
+            {hash_final,1},
+            {hash_update,2},
+            {info_fips,0},
+            {info_lib,0},
+            {info,0},
+            {mac_final,1}, 
+            {mac_finalN,2}, 
+            {mac_init,2},
+            {mac_update,2},
+            {mac,3},
+            {macN,4},
+            {private_decrypt,4},
+            {privkey_to_pubkey,2},
+            {public_decrypt,4},
+            {rand_seed_alg_s,1},
+            {rand_seed_alg,1},
+            {rand_seed_alg,2},
+            {rand_seed_s,0},
+            {rand_seed,0},
+            {rand_seed,1},
+            {start,0},
+            {stop,0},
+            {strong_rand_bytes,1},
+            {supports,1},
+            {verify,6}
+        ]}]).
 
 %%-------------------------------------------------------------------
 init_per_suite(Config) ->
