@@ -1614,6 +1614,8 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite,
         %% ServerHello contains exactly one protocol: the one selected.
         %% We also ignore the ALPN extension during renegotiation (see encode_alpn/2).
         [Protocol] when not Renegotiation ->
+            validate_application_protocol(Protocol,
+                                          maps:get(alpn_advertised_protocols, SslOpts)),
             {ConnectionStates, alpn, Protocol, StaplingState};
         [_] when Renegotiation ->
             {ConnectionStates, alpn, undefined, StaplingState};
@@ -3665,6 +3667,15 @@ validate_cipher_suite(CipherSuite, ClientCipherSuites) ->
     case lists:member(CipherSuite, ClientCipherSuites) of
         true -> ok;
         false -> throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
+    end.
+
+validate_application_protocol(_, undefined) ->
+    %% Server sent ALPN protocol not requested by client
+    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, unexpected_alpn));
+validate_application_protocol(Alpn, ClientAlpn) ->
+    case lists:member(Alpn, ClientAlpn) of
+        true -> ok;
+        false -> throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, not_advertised_alpn))
     end.
 
 handle_renegotiation_extension(Role, RecordCB, Version, Info, Random, NegotiatedCipherSuite,
