@@ -1565,7 +1565,8 @@ query_tcp(Timeout, Msg, Buffer, IP, Port, Verbose) ->
 decode_reply(Bin, Q_Msg, Verbose) ->
     case inet_dns:decode_reply(Bin, Q_Msg, false) of
 	{ok, #dns_rec{header = H, arlist = ARList} = Msg} ->
-	    ?verbose(Verbose, "Got reply: ~p~n", [dns_msg(Msg)]),
+	    ?verbose(Verbose, "Got reply size ~w: ~p~n",
+                     [byte_size(Bin), dns_msg(Msg)]),
 	    T = case lists:keyfind(dns_rr_tsig, 1, ARList) of
 		    false -> false;
 		    #dns_rr_tsig{error=?NOERROR} -> false;
