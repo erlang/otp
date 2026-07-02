@@ -68,7 +68,7 @@
 -define(MIN_DH_KEY_SIZE, 400).
 
 %%% For test suites
--export([pack/3, adjust_algs_for_peer_version/2]).
+-export([pack/3, adjust_algs_for_peer_version/2, hybrid_common/4]).
 
 %%%----------------------------------------------------------------------------
 %%%
@@ -2384,10 +2384,8 @@ compute_key(Algorithm, PeerPublic, MyPrivate, Args) ->
 
 hybrid_common(K_pq_secret, Curve, PeerPublic, MyPrivate) ->
     K_cl_secret = compute_key(ecdh, PeerPublic, MyPrivate, Curve),
-    K_cl_secret_mpint = <<?Empint(K_cl_secret)>>,
-    K_cl_secret_mpint_trim =
-        binary:part(K_cl_secret_mpint, byte_size(K_cl_secret_mpint), -?X25519_PUBLICKEY_SIZE),
-    crypto:hash(sha(Curve), <<K_pq_secret/binary, K_cl_secret_mpint_trim/binary>>).
+    K_cl_secret_fixed = <<K_cl_secret:(?X25519_PUBLICKEY_SIZE*8)/big-unsigned-integer>>,
+    crypto:hash(sha(Curve), <<K_pq_secret/binary, K_cl_secret_fixed/binary>>).
 
 dh_bits(#alg{encrypt = Encrypt,
              send_mac = SendMac}) ->
