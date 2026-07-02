@@ -105,7 +105,7 @@ ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     return ret;
 
 #else
-    return atom_notsup;
+    return EXCP_NOTSUP(env, "EDDH not supported");
 #endif
 }
 
@@ -178,7 +178,7 @@ ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     return ret;
 
 #else
-    return atom_notsup;
+    return EXCP_NOTSUP(env, "EDDH not supported");
 #endif
 }
 
