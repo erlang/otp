@@ -400,7 +400,7 @@ void *BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
         }
 
         n = erts_snprintf(name_buffer,
-                          1024,
+                          sizeof(name_buffer),
                           "%T:%T/%d",
                           ci->mfa.module,
                           ci->mfa.function,
