@@ -135,7 +135,7 @@
 -type var_name()   :: atom() | non_neg_integer().
 
 -type literal_value() :: atom() | integer() | float() | list() |
-                         nil() | tuple() | map() | binary() | fun().
+                         nil() | tuple() | map() | binary() | fun() | record().
 
 -type op()   :: {'bif',atom()} |
                 {'float',float_op()} |
