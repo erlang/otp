@@ -232,8 +232,8 @@
          suite_check/2,
          ecdsa_cert_check/1,
          check_peercert/2,
-         send_timeout_sink/1,
-         send_timeout_fill/1,
+         send_timeout_sink/2,
+         send_timeout_fill/2,
          %%TODO Keep?
          run_error_server/1,
          run_client_error/1
@@ -692,9 +692,11 @@ send_timeout_buffering(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    %% Spawn a coordinator that relays signals between client and server.
+    Coord = spawn_link(fun send_timeout_coord/0),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                         {from, self()},
-                                        {mfa, {?MODULE, send_timeout_sink, []}},
+                                        {mfa, {?MODULE, send_timeout_sink, [Coord]}},
                                         {options, [{inet_backend, socket},
                                                    {active, false}
                                                    | ServerOpts]}]),
@@ -702,11 +704,11 @@ send_timeout_buffering(Config) when is_list(Config) ->
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
                                         {host, Hostname},
                                         {from, self()},
-                                        {mfa, {?MODULE, send_timeout_fill, []}},
+                                        {mfa, {?MODULE, send_timeout_fill, [Coord]}},
                                         {options, [{inet_backend, socket},
                                                    {active, false},
                                                    {sndbuf, 4096},
-                                                   {send_timeout, 1}
+                                                   {send_timeout, 50}
                                                    | ClientOpts]}]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
@@ -714,12 +716,28 @@ send_timeout_buffering(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
-send_timeout_sink(Socket) ->
-    %% Server side: register, wait for signal, drain, signal back
-    register(send_timeout_sink_server, self()),
-    receive start_recv -> ok end,
+%% Coordinator process: relays start_recv from client to server,
+%% and drained from server back to client.
+send_timeout_coord() ->
+    ServerPid = receive {server_ready, Pid} -> Pid
+                after 5000 -> exit(coord_no_server)
+                end,
+    ClientPid = receive {start_recv, Pid2} -> Pid2
+                after 5000 -> exit(coord_no_start_recv)
+                end,
+    ServerPid ! start_recv,
+    receive drained -> ClientPid ! drained
+    after 5000 -> exit(coord_no_drained)
+    end.
+
+send_timeout_sink(Socket, Coord) ->
+    %% Server side: announce to coordinator, wait for signal, drain, signal back.
+    Coord ! {server_ready, self()},
+    receive start_recv -> ok
+    after 5000 -> ct:fail(server_timeout_waiting_for_start_recv)
+    end,
     send_timeout_recv_loop(Socket),
-    send_timeout_sink_client ! drained,
+    Coord ! drained,
     ok.
 
 send_timeout_recv_loop(Socket) ->
@@ -729,21 +747,22 @@ send_timeout_recv_loop(Socket) ->
         {error, closed} -> ok
     end.
 
-send_timeout_fill(Socket) ->
-    %% Client side: fill buffer, signal server, wait for drain, send again
-    register(send_timeout_sink_client, self()),
+send_timeout_fill(Socket, Coord) ->
+    %% Client side: fill buffer, signal server via coordinator, wait for drain.
     Data = <<0:(1024*8)>>,
-    send_timeout_fill_loop(Socket, Data, 0).
+    send_timeout_fill_loop(Socket, Data, 0, Coord).
 
-send_timeout_fill_loop(Socket, Data, N) ->
+send_timeout_fill_loop(Socket, Data, N, Coord) ->
     case ssl:send(Socket, Data) of
         ok ->
-            send_timeout_fill_loop(Socket, Data, N + 1);
+            send_timeout_fill_loop(Socket, Data, N + 1, Coord);
         {error, timeout} when N > 0 ->
             %% Buffer filled. Signal server to start draining.
-            send_timeout_sink_server ! start_recv,
+            Coord ! {start_recv, self()},
             %% Wait for server to finish draining.
-            receive drained -> ok end,
+            receive drained -> ok
+            after 5000 -> ct:fail(client_timeout_waiting_for_drained)
+            end,
             %% Verify connection is still usable.
             ok = ssl:send(Socket, <<"still alive">>),
             ok;
