@@ -1126,6 +1126,30 @@ fp16(_Config) ->
     %% others
     ?FP16(16#4000, 2),
     ?FP16(16#4000, 2.0),
+
+    %% Subnormals used to be corrupted by the software conversion
+    %% fallback. All of these are exactly representable in binary16,
+    %% so no rounding is involved.
+    ?FP16(16#0033, 3.039836883544921875e-6),               %% 51 * 2^-24
+    ?FP16(16#0005, 2.98023223876953125e-7),                %% 5 * 2^-24
+    ?FP16(16#0200, 3.0517578125e-5),                       %% 2^-15
+    ?FP16(16#0163, 2.1159648895263671875e-5),              %% 355 * 2^-24
+    %% Sticky bits below bit 10 used to be ignored when rounding
+    %% normal values; this is strictly above the rounding midpoint
+    %% and must round up.
+    ?FP16(16#3c01, 1.00048840045928955078125),             %% 1 + 4097 * 2^-23
+    %% An exact tie must round to even.
+    ?FP16(16#3c00, 1.00048828125),                         %% 1 + 2^-11
+    %% double -> binary16 must round once; rounding through float
+    %% first lands on the float tie point and rounds to even
+    %% instead of up.
+    ?FP16(16#3c01, 1.000488282181322574615478515625),      %% 1 + 2^-11 + 2^-30
+    %% Constructing a matched binary16 must reproduce it exactly.
+    _ = [begin
+             <<F:16/float>> = <<H:16>>,
+             <<H:16>> = <<F:16/float>>
+         end || H <- lists:seq(0, 16#ffff),
+                (H bsr 10) band 16#1f =/= 16#1f],
     ok.
 
 zero_init(_Config) ->
