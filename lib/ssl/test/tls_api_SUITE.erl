@@ -114,7 +114,11 @@
          reuseaddr/0,
          reuseaddr/1,
          signature_algs/0,
-         signature_algs/1
+         signature_algs/1,
+         tls_reject_unoffered_cipher_suite/0,
+         tls_reject_unoffered_cipher_suite/1,
+         tls_reject_unoffered_alpn/0,
+         tls_reject_unoffered_alpn/1
         ]).
 
 %% Apply export
@@ -130,6 +134,13 @@
 
 -define(SLEEP, 500).
 -define(CORRECT_PASSWORD, "hello test").
+
+%% Rogue-server tests: an anonymous suite a default client never offers, and an
+%% ordinary suite pinned so the ALPN test can echo an *offered* suite.
+-define(ROGUE_ANON_SUITE, ?TLS_DH_anon_WITH_AES_128_CBC_SHA).
+-define(ALPN_TEST_SUITE_BIN, <<16#C0, 16#2F>>). %% TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+-define(ALPN_TEST_SUITE_MAP, #{key_exchange => ecdhe_rsa, cipher => aes_128_gcm,
+                               mac => aead, prf => sha256}).
 -define(INCORRECT_PASSWORD, "hello").
 -define(BADARG_PASSWORD, hello).
 
@@ -142,7 +153,8 @@ all() ->
      {group, 'tlsv1.3'},
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
-     {group, 'tlsv1'}
+     {group, 'tlsv1'},
+     {group, rogue_server_tests}
     ].
 
 groups() ->
@@ -151,7 +163,8 @@ groups() ->
                                         tls_13_middlebox_reject_change_cipher_spec_as_first_msg]) -- [sockname]},
      {'tlsv1.2', [],  api_tests()},
      {'tlsv1.1', [],  api_tests()},
-     {'tlsv1', [],  api_tests()}
+     {'tlsv1', [],  api_tests()},
+     {rogue_server_tests, [parallel], rogue_server_tests()}
     ].
 
 api_tests() ->
@@ -190,6 +203,10 @@ api_tests() ->
      accept_pool,
      reuseaddr
     ].
+
+rogue_server_tests() ->
+    [tls_reject_unoffered_cipher_suite,
+     tls_reject_unoffered_alpn].
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -767,6 +784,153 @@ tls_dont_crash_on_handshake_garbage(Config) ->
             ssl_test_lib:check_server_alert(Server, protocol_version);
         _ ->
             ssl_test_lib:check_server_alert(Server, handshake_failure)
+    end.
+
+%%--------------------------------------------------------------------
+tls_reject_unoffered_cipher_suite() ->
+    [{doc, "An on-path attacker forges a TLS-1.2 ServerHello selecting an "
+      "anonymous cipher suite the client never offered. A correct client must "
+      "reject it with a fatal illegal_parameter alert instead of entering the "
+      "anonymous (certificate-less) key exchange, which would bypass "
+      "verify_peer. Regression test for the pre TLS-1.3 client cipher suite "
+      "check."}].
+tls_reject_unoffered_cipher_suite(Config) when is_list(Config) ->
+    %% verify_peer with proper cacerts, so the only thing standing between the
+    %% client and a server-authentication bypass is the cipher suite check.
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    rogue_server_illegal_parameter(cipher_suite, ClientOpts).
+
+%%--------------------------------------------------------------------
+tls_reject_unoffered_alpn() ->
+    [{doc, "An on-path attacker forges a TLS-1.2 ServerHello whose ALPN "
+      "extension selects a protocol the client never advertised. A correct "
+      "client must reject it with a fatal illegal_parameter alert. Regression "
+      "test for the pre TLS-1.3 client ALPN check."}].
+tls_reject_unoffered_alpn(Config) when is_list(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    %% Advertise a single protocol; the attacker will answer with a different
+    %% one. Pin the offered cipher suite so the forged ServerHello can echo an
+    %% *offered* suite and thereby isolate the ALPN check as the sole reason for
+    %% rejection.
+    ClientOpts = [{alpn_advertised_protocols, [<<"offered/1">>]},
+                  {ciphers, [?ALPN_TEST_SUITE_MAP]} | ClientOpts0],
+    rogue_server_illegal_parameter(alpn, ClientOpts).
+
+%% Drive a real ssl client against a raw-TCP attacker that hand-forges a
+%% TLS-1.2 server flight, and assert the client aborts with illegal_parameter.
+rogue_server_illegal_parameter(Kind, ClientOpts) ->
+    {ok, LSock} = gen_tcp:listen(0, [binary, {active, false},
+                                     {reuseaddr, true}, {packet, 0}]),
+    {ok, Port} = inet:port(LSock),
+    Parent = self(),
+    Attacker = spawn_link(fun() -> Parent ! {attacker, run_rogue_server(LSock, Kind)} end),
+    Opts = [{versions, ['tlsv1.2']}, {active, false},
+            {server_name_indication, disable} | ClientOpts],
+    Result = ssl:connect("localhost", Port, Opts, 5000),
+    gen_tcp:close(LSock),
+    Observed = receive {attacker, O} -> O after 5000 -> unlink(Attacker), timeout end,
+    ct:log("ssl:connect returned: ~p~nattacker observed: ~p", [Result, Observed]),
+    %% Primary assertion: the client aborts the handshake with the mandated alert.
+    case Result of
+        {error, {tls_alert, {illegal_parameter, _}}} ->
+            ok;
+        Other ->
+            ct:fail("Expected illegal_parameter alert, client returned ~p "
+                    "(attacker observed ~p)", [Other, Observed])
+    end,
+    %% Secondary assertion: the client must not have proceeded past ServerHello
+    %% into the handshake (e.g. ClientKeyExchange, msg type 16).
+    case Observed of
+        {client_handshake, MsgType} ->
+            ct:fail("Client accepted the forged ServerHello and continued the "
+                    "handshake (msg type ~p) instead of alerting", [MsgType]);
+        _ ->
+            ok
+    end.
+
+%% ---- Raw-TCP attacker: forges the TLS-1.2 server flight --------------------
+run_rogue_server(LSock, Kind) ->
+    {ok, Sock} = gen_tcp:accept(LSock, 5000),
+    case rogue_read_record(Sock) of
+        {?HANDSHAKE, _ClientHello} ->
+            ok = gen_tcp:send(Sock, rogue_server_flight(Kind)),
+            Obs = rogue_observe(Sock),
+            gen_tcp:close(Sock),
+            Obs;
+        Other ->
+            gen_tcp:close(Sock),
+            {error, {unexpected_first_record, Other}}
+    end.
+
+rogue_server_flight(cipher_suite) ->
+    %% ServerHello selecting the never-offered anonymous suite, no Certificate,
+    %% an unsigned anon-DH ServerKeyExchange and ServerHelloDone. On code that
+    %% lacks the cipher suite check the client would reply with ClientKeyExchange.
+    SH = rogue_server_hello(?ROGUE_ANON_SUITE, <<>>),
+    SKE = rogue_anon_server_key_exchange(),
+    SHD = rogue_handshake(?SERVER_HELLO_DONE, <<>>),
+    rogue_record(?HANDSHAKE, <<SH/binary, SKE/binary, SHD/binary>>);
+rogue_server_flight(alpn) ->
+    %% ServerHello echoing an *offered* cipher suite but whose ALPN extension
+    %% selects a protocol the client never advertised.
+    AlpnExt = rogue_alpn_extension(<<"unoffered/1">>),
+    SH = rogue_server_hello(?ALPN_TEST_SUITE_BIN, AlpnExt),
+    rogue_record(?HANDSHAKE, SH).
+
+rogue_observe(Sock) ->
+    case rogue_read_record(Sock) of
+        {?HANDSHAKE, <<MsgType, _/binary>>} ->
+            {client_handshake, MsgType};
+        {?ALERT, <<Level, Desc>>} ->
+            {client_alert, Level, Desc};
+        {error, closed} ->
+            client_closed;
+        Other ->
+            {other, Other}
+    end.
+
+rogue_server_hello(CipherSuite, Extensions) ->
+    Random = crypto:strong_rand_bytes(32),
+    SessionId = <<>>,
+    ExtLen = byte_size(Extensions),
+    Body = <<3, 3,                        %% legacy_version = TLS 1.2
+             Random/binary,
+             (byte_size(SessionId)), SessionId/binary,
+             CipherSuite/binary,
+             0,                           %% compression = null
+             ExtLen:16, Extensions/binary>>,
+    rogue_handshake(?SERVER_HELLO, Body).
+
+rogue_alpn_extension(Protocol) ->
+    ProtoList = <<(byte_size(Protocol)), Protocol/binary>>,
+    ExtData = <<(byte_size(ProtoList)):16, ProtoList/binary>>,
+    <<?ALPN_EXT:16, (byte_size(ExtData)):16, ExtData/binary>>.
+
+rogue_anon_server_key_exchange() ->
+    %% RFC 3526 MODP group 14 (2048-bit), generator 2, unsigned (anon).
+    P = <<16#FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF:2048>>,
+    G = <<2>>,
+    XPriv = crypto:strong_rand_bytes(32),
+    Ys = crypto:mod_pow(2, binary:decode_unsigned(XPriv), binary:decode_unsigned(P)),
+    Body = <<(byte_size(P)):16, P/binary,
+             (byte_size(G)):16, G/binary,
+             (byte_size(Ys)):16, Ys/binary>>,
+    rogue_handshake(?SERVER_KEY_EXCHANGE, Body).
+
+rogue_handshake(Type, Body) ->
+    <<Type, (byte_size(Body)):24, Body/binary>>.
+
+rogue_record(ContentType, Payload) ->
+    <<ContentType, 3, 3, (byte_size(Payload)):16, Payload/binary>>.
+
+rogue_read_record(Sock) ->
+    case gen_tcp:recv(Sock, 5, 5000) of
+        {ok, <<CT, _Maj, _Min, Len:16>>} ->
+            case gen_tcp:recv(Sock, Len, 5000) of
+                {ok, Payload} -> {CT, Payload};
+                Err -> Err
+            end;
+        {error, _} = E -> E
     end.
 
 %%--------------------------------------------------------------------
