@@ -181,6 +181,7 @@
          des_ede3_cbc/1,
          des_ede3_cfb/1,
          mac_check/1,
+         mac_check_overlength/1,
          rc2_cbc/1,
          rc4/1,
          sm4_ecb/1,
@@ -822,7 +823,8 @@ hmac() ->
      [{doc, "Test hmac function"}].
 hmac(Config) when is_list(Config) ->
     Tuples = lazy_eval(proplists:get_value(hmac, Config)),
-    do_cipher_tests(fun mac_check/1, Tuples++mac_listify(Tuples)).
+    do_cipher_tests(fun mac_check/1, Tuples++mac_listify(Tuples)),
+    do_cipher_tests(fun mac_check_overlength/1, Tuples++mac_listify(Tuples)).
 %%--------------------------------------------------------------------
 no_hmac() ->
      [{doc, "Test all disabled hmac functions"}].
@@ -842,7 +844,8 @@ cmac() ->
      [{doc, "Test all different cmac functions"}].
 cmac(Config) when is_list(Config) ->
     Pairs = lazy_eval(proplists:get_value(cmac, Config)),
-    do_cipher_tests(fun mac_check/1, Pairs ++ mac_listify(Pairs)).
+    do_cipher_tests(fun mac_check/1, Pairs ++ mac_listify(Pairs)),
+    do_cipher_tests(fun mac_check_overlength/1, Pairs ++ mac_listify(Pairs)).
 %%--------------------------------------------------------------------
 cmac_update() ->
      [{doc, "Test all incremental cmac functions"}].
@@ -1619,6 +1622,15 @@ mac_check({MacType, SubType, Key, Text, Size, Mac}=T) ->
     cipher_test(T,
                 fun() -> crypto:macN(MacType, SubType, Key, Text, Size) end,
                 ExpMac).
+
+mac_check_overlength({_MacType, _SubType, _Key, _Text, _Mac}) ->
+    ok;
+mac_check_overlength({MacType, SubType, Key, Text, _Size, _Mac}=T) ->
+    FullMac = crypto:mac(MacType, SubType, Key, Text),
+    cipher_test(T,
+                fun() -> crypto:macN(MacType, SubType, Key, Text, byte_size(FullMac) + 1) end,
+                FullMac).
+
 
 mac_increment(Type, SubType, Key, Increments) ->
     Expected = crypto:mac(Type, SubType, Key, Increments),
