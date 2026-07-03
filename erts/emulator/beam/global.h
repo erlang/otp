@@ -1541,8 +1541,6 @@ Eterm erts_mul_add(Process* p, Eterm arg1, Eterm arg2, Eterm arg3, Eterm* pp);
 Eterm erts_mixed_div(Process* p, Eterm arg1, Eterm arg2);
 
 int erts_int_div_rem(Process* p, Eterm arg1, Eterm arg2, Eterm *q, Eterm *r);
-Eterm erts_int_div(Process* p, Eterm arg1, Eterm arg2);
-Eterm erts_int_rem(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_bxor(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_bsr(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_bsl(Process* p, Eterm arg1, Eterm arg2);

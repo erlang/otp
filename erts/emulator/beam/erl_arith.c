@@ -126,6 +126,8 @@ BIF_RETTYPE div_2(BIF_ALIST_2)
 
 BIF_RETTYPE intdiv_2(BIF_ALIST_2)
 {
+    Eterm q, r;
+
     if (BIF_ARG_2 == SMALL_ZERO) {
 	BIF_ERROR(BIF_P, BADARITH);
     }
@@ -134,11 +136,16 @@ BIF_RETTYPE intdiv_2(BIF_ALIST_2)
 	if (IS_SSMALL(ires))
 	    BIF_RET(make_small(ires));
     } 
-    BIF_RET(erts_int_div(BIF_P, BIF_ARG_1, BIF_ARG_2));
+    if (!erts_int_div_rem(BIF_P, BIF_ARG_1, BIF_ARG_2, &q, &r)) {
+        BIF_RET(THE_NON_VALUE);
+    }
+    BIF_RET(q);
 } 
 
 BIF_RETTYPE rem_2(BIF_ALIST_2)
 {
+    Eterm q, r;
+
     if (BIF_ARG_2 == SMALL_ZERO) {
 	BIF_ERROR(BIF_P, BADARITH);
     }
@@ -147,8 +154,11 @@ BIF_RETTYPE rem_2(BIF_ALIST_2)
 	   remainder and modulo that is not defined in C? Well, I don't
 	   remember, this is the way it's done in beam_emu anyway... */
 	BIF_RET(make_small(signed_val(BIF_ARG_1) % signed_val(BIF_ARG_2)));
-    } 
-    BIF_RET(erts_int_rem(BIF_P, BIF_ARG_1, BIF_ARG_2));
+    }
+    if (!erts_int_div_rem(BIF_P, BIF_ARG_1, BIF_ARG_2, &q, &r)) {
+        BIF_RET(THE_NON_VALUE);
+    }
+    BIF_RET(r);
 } 
 
 BIF_RETTYPE band_2(BIF_ALIST_2)
@@ -1224,9 +1234,6 @@ int erts_int_div_rem(Process* p, Eterm arg1, Eterm arg2, Eterm *q, Eterm *r)
         bump_reds_quadratic(p, lhs_size - rhs_size + 1, rhs_size);
 
         if (!big_div_rem(lhs, rhs, q_hp, &quotient, r_hp, &remainder)) {
-            ASSERT(is_non_value(erts_int_div(p, arg1, arg2)));
-            ASSERT(is_non_value(erts_int_rem(p, arg1, arg2)));
-
             erts_heap_frag_shrink(p, q_hp);
             p->freason = SYSTEM_LIMIT;
             return 0;
@@ -1236,131 +1243,10 @@ int erts_int_div_rem(Process* p, Eterm arg1, Eterm arg2, Eterm *q, Eterm *r)
         div_rem_shrink(p, q_hp, quotient, r_hp, remainder);
     }
 
-    ASSERT(eq(erts_int_div(p, arg1, arg2), quotient));
-    ASSERT(eq(erts_int_rem(p, arg1, arg2), remainder));
-
     *q = quotient;
     *r = remainder;
 
     return 1;
-}
-
-Eterm
-erts_int_div(Process* p, Eterm arg1, Eterm arg2)
-{
-    Eterm tmp_big1[2], tmp_big2[2];
-    int ires;
-
-    switch (NUMBER_CODE(arg1, arg2)) {
-    case SMALL_SMALL:
-	/* This case occurs if the most negative fixnum is divided by -1. */
-	ASSERT(arg2 == make_small(-1));
-	arg1 = small_to_big(signed_val(arg1), tmp_big1);
-	/*FALLTHROUGH*/
-    case BIG_SMALL:
-	arg2 = small_to_big(signed_val(arg2), tmp_big2);
-	goto L_big_div;
-    case SMALL_BIG:
-	if (arg1 != make_small(MIN_SMALL)) {
-	    return SMALL_ZERO;
-	}
-	arg1 = small_to_big(signed_val(arg1), tmp_big1);
-	/*FALLTHROUGH*/
-    case BIG_BIG:
-    L_big_div:
-	ires = big_ucomp(arg1, arg2);
-	if (ires < 0) {
-	    arg1 = SMALL_ZERO;
-	} else if (ires == 0) {
-	    arg1 = (big_sign(arg1) == big_sign(arg2)) ?
-		SMALL_ONE : SMALL_MINUS_ONE;
-	} else {
-	    Eterm* hp;
-            unsigned lhs_size = big_size(arg1);
-            unsigned rhs_size = big_size(arg2);
-	    Uint need;
-
-            need = BIG_NEED_SIZE(lhs_size-rhs_size+1) +
-                BIG_NEED_SIZE(lhs_size);
-	    hp = HeapFragOnlyAlloc(p, need);
-	    arg1 = big_div(arg1, arg2, hp);
-	    maybe_shrink(p, hp, arg1, need);
-            /* Conservative estimate of effort, assuming shoolbook
-             * long division. */
-            ASSERT(lhs_size >= rhs_size);
-            bump_reds_quadratic(p, lhs_size - rhs_size + 1, rhs_size);
-
-	    if (is_nil(arg1)) {
-		p->freason = SYSTEM_LIMIT;
-		return THE_NON_VALUE;
-	    }
-	}
-	return arg1;
-    default:
-	p->freason = BADARITH;
-	return THE_NON_VALUE;
-    }
-}
-
-Eterm
-erts_int_rem(Process* p, Eterm arg1, Eterm arg2)
-{
-    Eterm tmp_big1[2], tmp_big2[2];
-    int ires;
-
-    switch (NUMBER_CODE(arg1, arg2)) {
-    case SMALL_SMALL:
-	/* This case occurs if the most negative fixnum is divided by -1. */
-	ASSERT(arg2 == make_small(-1));
-	arg1 = small_to_big(signed_val(arg1), tmp_big1);
-	/*FALLTHROUGH*/
-    case BIG_SMALL:
-	arg2 = small_to_big(signed_val(arg2), tmp_big2);
-	goto L_big_rem;
-    case SMALL_BIG:
-	if (arg1 != make_small(MIN_SMALL)) {
-	    return arg1;
-	} else {
-	    Eterm tmp;
-	    tmp = small_to_big(signed_val(arg1), tmp_big1);
-	    if ((ires = big_ucomp(tmp, arg2)) == 0) {
-		return SMALL_ZERO;
-	    } else {
-		ASSERT(ires < 0);
-		return arg1;
-	    }
-	}
-	/* All paths returned */
-    case BIG_BIG:
-    L_big_rem:
-	ires = big_ucomp(arg1, arg2);
-	if (ires == 0) {
-	    arg1 = SMALL_ZERO;
-	} else if (ires > 0) {
-            unsigned lhs_size = big_size(arg1);
-            unsigned rhs_size;
-            Uint need = BIG_NEED_SIZE(lhs_size);
-	    Eterm* hp = HeapFragOnlyAlloc(p, need);
-
-	    arg1 = big_rem(arg1, arg2, hp);
-	    maybe_shrink(p, hp, arg1, need);
-
-            /* Conservative estimate of effort, assuming shoolbook
-             * long division. */
-            rhs_size = big_size(arg2);
-            ASSERT(lhs_size >= rhs_size);
-            bump_reds_quadratic(p, lhs_size - rhs_size + 1, rhs_size);
-
-	    if (is_nil(arg1)) {
-		p->freason = SYSTEM_LIMIT;
-		return THE_NON_VALUE;
-	    }
-	}
-	return arg1;
-    default:
-	p->freason = BADARITH;
-	return THE_NON_VALUE;
-    }
 }
 
 Eterm erts_band(Process* p, Eterm arg1, Eterm arg2)

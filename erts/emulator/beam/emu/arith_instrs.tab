@@ -61,6 +61,27 @@ OUTLINED_ARITH_2(Fail, Name, BIF, Op1, Op2, Dst) {
     $BIF_ERROR_ARITY_2($Fail, $BIF, $Op1, $Op2);
 }
 
+OUTLINED_DIV_REM_2(Fail, BIF, Op1, Op2, Result, Dst) {
+    int succeeded;
+    Eterm q, r;
+#ifdef DEBUG
+    Eterm* orig_htop = HTOP;
+    Eterm* orig_stop = E;
+#endif
+    DEBUG_SWAPOUT;
+    c_p->fcalls = FCALLS;
+    succeeded = erts_int_div_rem(c_p, $Op1, $Op2, &q, &r);
+    FCALLS = c_p->fcalls;
+    DEBUG_SWAPIN;
+    ASSERT(orig_htop == HTOP && orig_stop == E);
+    ERTS_HOLE_CHECK(c_p);
+    if (ERTS_LIKELY(succeeded)) {
+        $Dst = $Result;
+        $NEXT0();
+    }
+    $BIF_ERROR_ARITY_2($Fail, $BIF, $Op1, $Op2);
+}
+
 
 i_plus := plus.fetch.execute;
 
@@ -257,6 +278,7 @@ i_m_div(Fail, Op1, Op2, Dst) {
 i_int_div(Fail, Op1, Op2, Dst) {
     Eterm op1 = $Op1;
     Eterm op2 = $Op2;
+
     if (ERTS_UNLIKELY(op2 == SMALL_ZERO)) {
         c_p->freason = BADARITH;
         $BIF_ERROR_ARITY_2($Fail, BIF_intdiv_2, op1, op2);
@@ -272,7 +294,10 @@ i_int_div(Fail, Op1, Op2, Dst) {
             $NEXT0();
         }
     }
-    $OUTLINED_ARITH_2($Fail, int_div, BIF_intdiv_2, op1, op2, $Dst);
+
+    {
+        $OUTLINED_DIV_REM_2($Fail, BIF_intdiv_2, op1, op2, q, $Dst);
+    }
 }
 
 i_rem := rem.fetch.execute;
@@ -301,7 +326,7 @@ rem.execute(Fail, Dst) {
         $Dst = untagged_result | _TAG_IMMED1_SMALL;
         $NEXT0();
     } else {
-        $OUTLINED_ARITH_2($Fail, int_rem, BIF_rem_2, RemOp1, RemOp2, $Dst);
+        $OUTLINED_DIV_REM_2($Fail, BIF_rem_2, RemOp1, RemOp2, r, $Dst);
     }
 }
 
