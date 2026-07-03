@@ -2,9 +2,9 @@
 %% %CopyrightBegin%
 %%
 %% SPDX-License-Identifier: Apache-2.0
-%% 
-%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -16,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% This is an -*- erlang -*- file.
@@ -24,7 +24,7 @@
 {application, kernel,
  [
   {description, "ERTS  CXC 138 10"},
-  {vsn, "10.6.1"},
+  {vsn, "11.0.3"},
   {modules, [application,
 	     application_controller,
 	     application_master,
@@ -32,6 +32,7 @@
 	     auth,
 	     code,
 	     code_server,
+             data_publisher,
 	     dist_util,
 	     erl_boot_server,
 	     erl_compile_server,
@@ -168,7 +169,7 @@
          {shell_history_drop,[]}
         ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-@OTP-19834@", "stdlib-@OTP-20028@",
-                          "sasl-3.0", "crypto-5.0"]}
+  {runtime_dependencies, ["erts-17.0", "stdlib-8.0",
+                          "sasl-3.0", "crypto-5.8"]}
   ]
 }.
