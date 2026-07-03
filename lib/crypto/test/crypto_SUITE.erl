@@ -41,6 +41,7 @@
          aead_ng/1,
          all_ciphers/1,
          api_errors_ecdh/1,
+         api_errors_aead/1,
          api_ng/0,
          api_ng/1,
          api_ng_one_shot/0,
@@ -202,6 +203,17 @@
          rsa_oaep_label/0
         ]).
 
+-define(AEAD_CIPHERS, [aes_128_ccm,
+                       aes_192_ccm,
+                       aes_256_ccm,
+                       aes_ccm,
+                       aes_128_gcm,
+                       aes_192_gcm,
+                       aes_256_gcm,
+                       aes_gcm,
+                       sm4_gcm,
+                       sm4_ccm,
+                       chacha20_poly1305]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -498,7 +510,8 @@ groups() ->
                                  bad_hmac_name,
                                  bad_cmac_name,
                                  bad_sign_name,
-                                 bad_verify_name
+                                 bad_verify_name,
+                                 api_errors_aead
                                 ]},
 
      %% New cipher nameing schema
@@ -639,6 +652,14 @@ init_per_testcase(generate, Config) ->
     end;
 init_per_testcase(hmac, Config) ->
     configure_mac(hmac, proplists:get_value(type,Config), Config);
+init_per_testcase(api_errors_aead, Config) ->
+    Supported = crypto:supports(ciphers),
+    case [C || C <- ?AEAD_CIPHERS, lists:member(C, Supported)] of
+        [_ | _] ->
+            Config;
+        _ ->
+            {skip, "Aead ciphers not supported."}
+    end;
 init_per_testcase(_Name,Config) ->
     Skip =
         lists:member(_Name, [%%i_ng_tls
@@ -5058,6 +5079,16 @@ api_errors_ecdh(Config) when is_list(Config) ->
     Curves = [gaffel, 0, sect571r1],
     [_= (catch Test(O, C)) || O <- Others, C <- Curves],
     ok.
+
+api_errors_aead(Config) when is_list(Config) ->
+    %% Check that we don't segfault when failing argument validation
+    try crypto:crypto_one_time_aead_init(aes_256_gcm, <<1:256>>, 16, junk) of
+        Res ->
+            ct:fail("Call should fail, but succeeded with return: ~p~n", [Res])
+    catch
+        error : {badarg, _, _} ->
+            ok
+    end.
 
 
 %%%----- Tests for bad algorithm name as argument
