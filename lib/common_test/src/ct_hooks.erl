@@ -1166,17 +1166,22 @@ catch_apply(M,F,A) ->
     catch Class:Reason:Trace ->
             ct_logs:log("Suite Hook","Call to CTH failed: ~w:~tp",
                             [Class,{Reason,Trace}]),
+            FormattedErr = format_cth_error(Class, Reason, Trace),
             throw({error_in_cth_call,
                    lists:flatten(
-                     io_lib:format("~w:~tw/~w CTH call failed: ~w:~tp~ts",
-                                   [M,F,length(A),Class,Reason,
-                                    format_cth_stackframe(Trace)]))})
+                     io_lib:format("~w:~tw/~w CTH call failed:\n~ts",
+                                   [M,F,length(A),FormattedErr]))})
     end.
 
-format_cth_stackframe([Top | _]) ->
-    io_lib:format("\n  in ~tp", [Top]);
-format_cth_stackframe([]) ->
-    "".
+format_cth_error(Class, Reason, Trace) ->
+    StackFun = fun(_, _, _) -> false end,
+    PF = fun(Term, I) ->
+                 io_lib:format("~." ++ integer_to_list(I) ++ "tp", [Term])
+         end,
+    try erl_error:format_exception(1, Class, Reason, Trace, StackFun, PF, utf8)
+    catch _:_ ->
+            io_lib:format("~w:~tp", [Class, Reason])
+    end.
 
 process_hooks_order(init, Return) when is_list(Return) ->
     maybe_save_hooks_order(Return);

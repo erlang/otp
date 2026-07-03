@@ -703,7 +703,7 @@ test_events(minimal_and_maximal_cth) ->
 test_events(faulty_cth_undef) ->
     FailReasonStr = fun(S) ->
         true = lists:prefix(
-            "undef_cth:pre_init_per_suite/3 CTH call failed: error:undef", S),
+            "undef_cth:pre_init_per_suite/3 CTH call failed:\n", S),
         match
     end,
     FailReason = {ct_cth_empty_SUITE,init_per_suite,
