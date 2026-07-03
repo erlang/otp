@@ -245,7 +245,8 @@ session_id(_, 0) ->  %% give up
     false;
 
 %% Session-Id = Command Code 263, V-bit = 0.
-session_id(<<263:32, 0:1, _:7, Len:24, _/binary>> = Bin, _) ->
+%% RFC 6733 4.2 (and RFC 3588 4.2) says that minimum avp length is 8.
+session_id(<<263:32, 0:1, _:7, Len:24, _/binary>> = Bin, _) when Len >= 8 ->
     case Bin of
         <<Avp:Len/binary, _/binary>> ->
             <<_:8/binary, Sid/binary>> = Avp,
