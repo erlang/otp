@@ -308,7 +308,7 @@ node_start_link(Host, Name, Retries) ->
 
 starter(Host, Name, Args) ->
     {ok, Peer, Node} = peer:start(#{host => Host, name => Name, args => Args, connection => 0}),
-    ok = persistent_term:put_new({peer, Node}, Peer),
+    ok = persistent_term:put({peer, Node}, Peer),
     {ok, Node}.
 
 node_sup() ->
