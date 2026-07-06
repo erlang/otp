@@ -1105,12 +1105,19 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 May raise exception `error:notsup` in case the chosen `Type` is not supported by
 the underlying libcrypto implementation.
 
-
 ## Examples
 
+The supported XOF algorithms can vary with the linked libcrypto version. The example uses
+[`supports(hashs)`](`supports/1`) to check for `shake128` or `shake256` before
+demonstrating this function. The function will print the XOF hash (1 character,
+because of the 8 in the arguments) and output `ok`.
+
 ```erlang
-1> crypto:hash_xof(shake128, <<"abc">>, 8).
-<<"X">>
+1> S = <<"abc">>.
+2> Xofs = [io:format("XOF hash of '~s' with ~s: ~s\n", [S, Alg, crypto:hash_xof(Alg, S, 8)])
+   || Alg <- [shake128, shake256], lists:member(Alg, crypto:supports(hashs))],
+   ok.
+ok
 ```
 """.
 -doc(#{group => <<"Hash API">>,
@@ -3973,11 +3980,14 @@ Guide.
 
 ## Examples
 
+Example will print all supported methods, but if OpenSSL engines feature is disabled, 
+it will print a different message.
+
 ```erlang
-1> crypto:engine_get_all_methods().
-[engine_method_rsa,engine_method_dsa,engine_method_dh,engine_method_rand,
- engine_method_ciphers,engine_method_digests,engine_method_pkey_meths,
- engine_method_pkey_asn1_meths,engine_method_ec]
+1> try crypto:engine_get_all_methods() of 
+       L -> io:format("Supported engine methods: ~p~n", [L]) 
+   catch error:notsup -> io:format("Engine feature is disabled~n", []) end.
+ok
 ```
 """.
 -doc(#{group => <<"Engine API">>,since => <<"OTP 20.2">>}).
