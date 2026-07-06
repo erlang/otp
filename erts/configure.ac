@@ -1920,6 +1920,13 @@ dnl Check if we have timerfds to be used for high accuracy
 dnl epoll_wait timeouts
 AC_CHECK_HEADERS([sys/timerfd.h])
 
+dnl Check if we have sys/auxv.h and getauxval
+AC_CHECK_DECL([getauxval],
+              [AC_DEFINE(HAVE_GETAUXVAL, 1,
+                         [Define to 1 if you have getauxval])],
+              [],
+              [#include <sys/auxv.h>])
+
 dnl Check if we have the header file 'netpacket/packat.h' in which
 dnl type 'struct sockaddr_ll' is defined.
 AC_CHECK_HEADERS([netpacket/packet.h],
