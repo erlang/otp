@@ -6056,6 +6056,12 @@ native_records(Conf) ->
            """,
            [{i,DataDir}, {keep_all_warnings,true}],
            {warnings, [{{1,2},erl_lint,{native_record_header,a}}]}
+          },
+          {bad_import_record,
+           <<"-import_record([rec]).">>,
+           [],
+           {errors,[{{1,36},erl_parse,"bad "++["import_record"] ++" declaration"}],
+            []}
           }
          ],
     [] = run(Conf, Ts),
