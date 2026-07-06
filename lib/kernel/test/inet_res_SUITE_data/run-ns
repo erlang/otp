@@ -161,7 +161,7 @@ NS_PID=$!
 echo "Pid: $NS_PID"
 trap "kill $NS_PID >/dev/null 2>&1; wait $NS_PID >/dev/null 2>&1" \
     0 1 2 3 15
-NS_STARTED=" info: server started .* PID $NS_PID\$"
+NS_STARTED=" info: server started "
 
 # Wait for nameserver to start, start timer kill sub process
 { sleep 5 &&
