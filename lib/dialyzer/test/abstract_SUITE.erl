@@ -1,3 +1,25 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2016-2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
+
 %% This suite contains cases that cannot be written
 %% in Erlang itself and must be done via the abstract
 %% format.
@@ -90,13 +112,15 @@ generated_case(Config) when is_list(Config) ->
 unmatched_return_tag(Config) when is_list(Config) ->
     [{warn_unmatched_return, _Loc, {unmatched_return, [_]}}] =
         test([{attribute, 1, module, foo},
-              {attribute, 2, export, [{bar, 0}]},
-              {function, 3, bar, 0,
-               [{clause, 3, [], [],
-                 [{call, 4,
-                   {remote, 4, {atom, 4, erlang}, {atom, 4, process_info}},
-                   [{call, 4, {atom, 4, self}, []}, {atom, 4, links}]},
-                  {atom, 5, ok}]}]}],
+              {attribute, 2, export, [{a, 0}]},
+              {attribute, 3, dialyzer, [unmatched_returns]},
+              {function, 4, a, 0,
+               [{clause, 4, [], [],
+                 [{call, 5, {atom, 5, b}, []},
+                  {integer, 6, 1}]}]},
+              {function, 8, b, 0,
+               [{clause, 8, [], [],
+                 [{tuple, 9, [{atom, 9, a}, {atom, 9, b}]}]}]}],
              Config, [], []),
     ok.
 
