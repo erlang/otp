@@ -21,10 +21,6 @@ limitations under the License.
 -->
 # Inets Release Notes
 
-## Unreleased
-
-- \[httpd] - Method "OPTIONS" now allowed.
-
 ## Inets 9.7.1
 
 ### Fixed Bugs and Malfunctions

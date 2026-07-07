@@ -455,48 +455,80 @@ validate_request_line() ->
      " and protocol version."}].
 validate_request_line(Config) when is_list(Config) ->
 
-    %% HTTP/0.9 not supported
-    {error, {bad_version, "HTTP/0.9"}} = 
-	httpd_request:validate("GET", "http://www.erlang/org", "HTTP/0.9"),
-    {error, {bad_version, "HTTP/0.9"}} =
-	httpd_request:validate("HEAD", "http://www.erlang/org", "HTTP/0.9"),
-    {error, {bad_version, "HTTP/0.9"}} =
-	httpd_request:validate("TRACE", "http://www.erlang/org", "HTTP/0.9"),
-    {error, {bad_version, "HTTP/0.9"}} =
-	httpd_request:validate("POST", "http://www.erlang/org", "HTTP/0.9"),
+    Uri = "http://www.erlang/org",
 
-    %% HTTP/1.* 
-    {ok, "http://www.erlang/org"} = httpd_request:validate("HEAD", "http://www.erlang/org", 
-			       "HTTP/1.1"),
-    {ok, "http://www.erlang/org"} = httpd_request:validate("GET", "http://www.erlang/org", 
-			       "HTTP/1.1"),  
-    {ok, "http://www.erlang/org"} = httpd_request:validate("POST","http://www.erlang/org", 
-			       "HTTP/1.1"),
-    {ok, "http://www.erlang/org"} = httpd_request:validate("TRACE","http://www.erlang/org",
-                                                           "HTTP/1.1"),
-    {error, {not_supported, 
-	     {"FOOBAR", "http://www.erlang/org", "HTTP/1.1"}}} =
-	httpd_request:validate("FOOBAR", "http://www.erlang/org", 
-			       "HTTP/1.1"),
+    %% HTTP/0.9 not supported for any method
+    {error, {bad_version, "HTTP/0.9"}} =
+        httpd_request:validate("GET", Uri, "HTTP/0.9"),
+    {error, {bad_version, "HTTP/0.9"}} =
+        httpd_request:validate("HEAD", Uri, "HTTP/0.9"),
+    {error, {bad_version, "HTTP/0.9"}} =
+        httpd_request:validate("POST", Uri, "HTTP/0.9"),
+    {error, {bad_version, "HTTP/0.9"}} =
+        httpd_request:validate("PUT", Uri, "HTTP/0.9"),
+    {error, {bad_version, "HTTP/0.9"}} =
+        httpd_request:validate("DELETE", Uri, "HTTP/0.9"),
+    {error, {bad_version, "HTTP/0.9"}} =
+        httpd_request:validate("PATCH", Uri, "HTTP/0.9"),
+    {error, {bad_version, "HTTP/0.9"}} =
+        httpd_request:validate("OPTIONS", Uri, "HTTP/0.9"),
+    {error, {bad_version, "HTTP/0.9"}} =
+        httpd_request:validate("TRACE", Uri, "HTTP/0.9"),
+
+    %% All standard methods accepted on HTTP/1.1
+    {ok, Uri} = httpd_request:validate("HEAD", Uri, "HTTP/1.1"),
+    {ok, Uri} = httpd_request:validate("GET", Uri, "HTTP/1.1"),
+    {ok, Uri} = httpd_request:validate("POST", Uri, "HTTP/1.1"),
+    {ok, Uri} = httpd_request:validate("PUT", Uri, "HTTP/1.1"),
+    {ok, Uri} = httpd_request:validate("DELETE", Uri, "HTTP/1.1"),
+    {ok, Uri} = httpd_request:validate("PATCH", Uri, "HTTP/1.1"),
+    {ok, Uri} = httpd_request:validate("OPTIONS", Uri, "HTTP/1.1"),
+    {ok, Uri} = httpd_request:validate("TRACE", Uri, "HTTP/1.1"),
+
+    %% All standard methods (except TRACE) accepted on HTTP/1.0
+    {ok, Uri} = httpd_request:validate("HEAD", Uri, "HTTP/1.0"),
+    {ok, Uri} = httpd_request:validate("GET", Uri, "HTTP/1.0"),
+    {ok, Uri} = httpd_request:validate("POST", Uri, "HTTP/1.0"),
+    {ok, Uri} = httpd_request:validate("PUT", Uri, "HTTP/1.0"),
+    {ok, Uri} = httpd_request:validate("DELETE", Uri, "HTTP/1.0"),
+    {ok, Uri} = httpd_request:validate("PATCH", Uri, "HTTP/1.0"),
+    {ok, Uri} = httpd_request:validate("OPTIONS", Uri, "HTTP/1.0"),
+    %% TRACE requires HTTP/1.1+
+    {error, {not_supported, {"TRACE", Uri, "HTTP/1.0"}}} =
+        httpd_request:validate("TRACE", Uri, "HTTP/1.0"),
+
+    %% OPTIONS with asterisk-form URI (RFC 9110 Section 7.1)
+    {ok, "*"} = httpd_request:validate("OPTIONS", "*", "HTTP/1.1"),
+
+    %% Unknown method rejected
+    {error, {not_supported,
+             {"FOOBAR", Uri, "HTTP/1.1"}}} =
+        httpd_request:validate("FOOBAR", Uri, "HTTP/1.1"),
+
     %%% Will work after normalization
-    Uri = "http://127.0.0.1:8888/../../../../../etc/passwd",
-    {ok, "http://127.0.0.1:8888/etc/passwd"} = httpd_request:validate("GET", Uri, "HTTP/1.1"),
+    TraversalUri = "http://127.0.0.1:8888/../../../../../etc/passwd",
+    {ok, "http://127.0.0.1:8888/etc/passwd"} =
+        httpd_request:validate("GET", TraversalUri, "HTTP/1.1"),
 
-    Uri2 = 
-	"http://127.0.0.1:8888/././././././../../../../../etc/passwd",
-    {ok, "http://127.0.0.1:8888/etc/passwd"} = httpd_request:validate("GET", Uri2, "HTTP/1.1"),
+    TraversalUri2 =
+        "http://127.0.0.1:8888/././././././../../../../../etc/passwd",
+    {ok, "http://127.0.0.1:8888/etc/passwd"} =
+        httpd_request:validate("GET", TraversalUri2, "HTTP/1.1"),
 
-    HexUri = "http://127.0.0.1:8888/%2e%2e/%2e%2e/%2e%2e/" 
-	"home/foobar/test.html",
-    {ok, "http://127.0.0.1:8888/home/foobar/test.html"}  = httpd_request:validate("GET", HexUri, "HTTP/1.1"),
+    HexUri = "http://127.0.0.1:8888/%2e%2e/%2e%2e/%2e%2e/"
+        "home/foobar/test.html",
+    {ok, "http://127.0.0.1:8888/home/foobar/test.html"} =
+        httpd_request:validate("GET", HexUri, "HTTP/1.1"),
 
-    NewUri = 
-	"http://127.0.0.1:8888/foobar/../../../home/foobar/test.html",
-    {ok,"http://127.0.0.1:8888/home/foobar/test.html"} = httpd_request:validate("GET", NewUri, "HTTP/1.1"),
-    
-    Uri1 = 
-	"http://127.0.0.1:8888/../home/foobar/test.html",
-    {ok,"http://127.0.0.1:8888/home/foobar/test.html"}  = httpd_request:validate("GET", Uri1, "HTTP/1.1").
+    NewUri =
+        "http://127.0.0.1:8888/foobar/../../../home/foobar/test.html",
+    {ok, "http://127.0.0.1:8888/home/foobar/test.html"} =
+        httpd_request:validate("GET", NewUri, "HTTP/1.1"),
+
+    Uri1 =
+        "http://127.0.0.1:8888/../home/foobar/test.html",
+    {ok, "http://127.0.0.1:8888/home/foobar/test.html"} =
+        httpd_request:validate("GET", Uri1, "HTTP/1.1").
 
 %%-------------------------------------------------------------------------
 check_content_length_encoding() ->

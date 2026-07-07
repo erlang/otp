@@ -336,7 +336,8 @@ alias_match_str(Alias, erl_script_alias) ->
 %%------------------------ Erl mechanism --------------------------------
 
 erl(#mod{method = Method} = ModData, ESIBody, Modules) 
-  when (Method =:= "GET") orelse (Method =:= "HEAD") orelse (Method =:= "DELETE") ->
+  when (Method =:= "GET") orelse (Method =:= "HEAD") orelse
+       (Method =:= "DELETE") orelse (Method =:= "OPTIONS") ->
     case httpd_util:split(ESIBody,":|%3A|/",2) of
 	{ok, [ModuleName, FuncAndInput]} ->
 	    case httpd_util:split(FuncAndInput,"[\?/]",2) of
