@@ -470,18 +470,24 @@ configuration in TLS-1.3.
 -type kex_algo()                :: ecdhe_ecdsa
                                  | ecdh_ecdsa
                                  | ecdh_rsa
-                                 | rsa
+                                 | any %% TLS 1.3 (any of TLS-1.3 keyexchanges) , exported
+                                 | legacy_kex().
+
+-doc(#{group => <<"Algorithms Legacy">>}).
+-doc """
+Backwards compatibility and legacy interoperability not recommended.
+""".
+-type legacy_kex()              :: rsa
+                                 | rsa_psk
                                  | dhe_rsa
                                  | dhe_dss
                                  | srp_rsa
                                  | srp_dss
                                  | dhe_psk
-                                 | rsa_psk
                                  | psk
                                  | ecdh_anon
                                  | dh_anon
-                                 | srp_anon
-                                 |  any. %% TLS 1.3 (any of TLS-1.3 keyexchanges) , exported
+                                 | srp_anon.
 
 
 -doc(#{group => <<"Algorithms">>}).
