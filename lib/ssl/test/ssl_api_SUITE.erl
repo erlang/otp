@@ -834,13 +834,14 @@ keylog_connection_info(Config, KeepSecrets) ->
 
 %%--------------------------------------------------------------------
 dh_params() ->
-    [{doc,"Test to specify DH-params file in server."}].
+    [{doc,"Test to specify DH-params in server (2048-bit)."}].
 
 dh_params(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    DataDir = proplists:get_value(data_dir, Config),
-    DHParamFile = filename:join(DataDir, "dHParam.pem"),
+    %% Use built-in 2048-bit group (meets minimum prime size requirement)
+    DHParams = #'DHParameter'{prime = ssl_dh_groups:modp2048_prime(),
+                              base = ssl_dh_groups:modp2048_generator()},
     Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, 'tlsv1.2'),
                                        [{key_exchange, fun(srp_rsa)  -> false;
                                                           (srp_anon) -> false;
@@ -850,9 +851,11 @@ dh_params(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-					{from, self()},
+                                        {from, self()},
                                         {mfa, {ssl_test_lib, send_recv_result_active, []}},
-			   {options, [{dhfile, DHParamFile}, {ciphers, Ciphers} | ServerOpts]}]),
+                                        {options,
+                                         [{dh, public_key:der_encode('DHParameter', DHParams)},
+                                                   {ciphers, Ciphers} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
@@ -866,7 +869,6 @@ dh_params(Config) when is_list(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
-
 
 %%--------------------------------------------------------------------
 conf_signature_algs() ->
@@ -1056,13 +1058,10 @@ handshake_continue_timeout(Config) when is_list(Config) ->
     Port = ssl_test_lib:inet_port(Server),
 
 
-    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+    ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
                                      {host, Hostname},
                                      {from, self()},
                                      {options, [{verify, verify_peer} | ClientOpts]}]),
-    receive {Client, {error,_}} -> ok
-    after 500 -> ct:log("Didn't get any client msg", [])
-    end,
 
     ssl_test_lib:check_result(Server, {error,timeout}),
     ssl_test_lib:close(Server).
@@ -1171,16 +1170,13 @@ hello_server_cancel(Config) when is_list(Config) ->
 
     Port = ssl_test_lib:inet_port(Server),
 
-    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+    ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
                                      {host, Hostname},
                                      {from, self()}, 
                                      {options, ssl_test_lib:ssl_options([{handshake, hello},
                                                                          {verify, verify_peer} | ClientOpts
                                                                         ], Config)},
                                      {continue_options, proplists:delete(reuseaddr, ClientOpts)}]),
-    receive {Client, {error,_}} -> ok
-    after 500 -> ct:log("Didn't get any client msg", [])
-    end,
 
     ssl_test_lib:check_result(Server, ok).
 
