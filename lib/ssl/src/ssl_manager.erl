@@ -508,20 +508,27 @@ client_register_session(Host, Port, Session, #state{session_cache_client = Cache
 
 do_register_session(Key, #session{time_stamp = TimeStamp} = Session0,
                     Max, Cache, CacheCb, Options, Order0) ->
-    try 
+    try
+        %% Remove stale Order entry if this key already exists in cache
+        Order1 = case CacheCb:lookup(Cache, Key) of
+                     #session{internal_id = OldInternalId} when OldInternalId =/= undefined ->
+                         gb_trees:delete_any(OldInternalId, Order0);
+                     _ ->
+                         Order0
+                 end,
         case CacheCb:size(Cache) of
             Max ->
                 InternalId = {TimeStamp, erlang:unique_integer([monotonic])},
                 Session = Session0#session{internal_id = InternalId},
-                {_, OldKey, Order1} = gb_trees:take_smallest(Order0),
-                Order = gb_trees:insert(InternalId, Key, Order1),
+                {_, OldKey, Order2} = gb_trees:take_smallest(Order1),
+                Order = gb_trees:insert(InternalId, Key, Order2),
                 CacheCb:delete(Cache, OldKey),
                 CacheCb:update(Cache, Key, Session),
                 {Cache, Order};
             _ ->
                 InternalId = {TimeStamp, erlang:unique_integer([monotonic])},
                 Session = Session0#session{internal_id = InternalId},
-                Order = gb_trees:insert(InternalId, Key, Order0),
+                Order = gb_trees:insert(InternalId, Key, Order1),
                 CacheCb:update(Cache, Key, Session),
                 {Cache, Order}
         end
