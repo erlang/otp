@@ -128,7 +128,8 @@
          add_selected_version/1,
          decode_alpn/1,
          supported_hashsigns/1,
-         max_frag_enum/1
+         max_frag_enum/1,
+         psk_secret/3
 	]).
 
 %% Certificate handling
@@ -1238,12 +1239,6 @@ premaster_secret(#server_srp_params{srp_n = Prime, srp_g = Generator, srp_s = Sa
 	not_accepted ->
 	    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
     end;
-premaster_secret(#client_rsa_psk_identity{
-		    identity = PSKIdentity,
-		    exchange_keys = #encrypted_premaster_secret{premaster_secret = EncPMS}
-		   }, #'RSAPrivateKey'{} = Key, PSKLookup) ->
-    PremasterSecret = premaster_secret(EncPMS, Key),
-    psk_secret(PSKIdentity, PSKLookup, PremasterSecret);
 premaster_secret(#server_dhe_psk_params{
 		    hint = IdentityHint,
 		    dh_params =  #server_dh_params{dh_y = PublicDhKey} = Params},
