@@ -402,10 +402,12 @@ pending_early_data_size(PendingMaxEarlyDataSize, PlainFragment) ->
 
 approximate_pending_early_data_size(PendingMaxEarlyDataSize,
                                     BulkCipherAlgo, CipherFragment) ->
-    %% We can not know how much is padding!
+    %% We cannot know the exact plaintext size (padding is unknown),
+    %% but every record must cost at least 1 byte of budget to
+    %% guarantee the budget eventually depletes.
     InnerContTypeLen = 1,
-    PendingMaxEarlyDataSize - (byte_size(CipherFragment) -
-                                   InnerContTypeLen - bca_tag_len(BulkCipherAlgo)).
+    PendingMaxEarlyDataSize - max(1, byte_size(CipherFragment) -
+                                      InnerContTypeLen - bca_tag_len(BulkCipherAlgo)).
 
 bca_tag_len(?AES_CCM_8) ->
     8;
