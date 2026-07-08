@@ -993,6 +993,11 @@ suite_bin_to_map(?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256) ->
       cipher => chacha20_poly1305, 
       mac => aead, 
       prf => sha256};
+suite_bin_to_map(?TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256) ->
+    #{key_exchange => ecdhe_psk,
+      cipher => chacha20_poly1305,
+      mac => aead,
+      prf => sha256};
 %% TLS 1.3 Cipher Suites RFC8446
 suite_bin_to_map(?TLS_AES_128_GCM_SHA256) ->
     #{key_exchange => any,
@@ -1660,6 +1665,11 @@ suite_map_to_bin(#{key_exchange := dhe_rsa,
         mac := aead, 
         prf := sha256}) ->
     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256;
+suite_map_to_bin(#{key_exchange := ecdhe_psk,
+        cipher := chacha20_poly1305,
+        mac := aead,
+        prf := sha256}) ->
+    ?TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256;
 
 %% RFC 6655 - TLS-1.2 cipher suites
 suite_map_to_bin(#{key_exchange := psk,
@@ -2045,6 +2055,5 @@ openssl_cipher_str_to_algs(Kex, Part1, Part2) ->
         false ->
             {Cipher, Hash, default_prf(Kex, Hash)}
     end.
-
 
 

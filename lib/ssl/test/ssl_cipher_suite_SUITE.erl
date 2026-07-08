@@ -101,6 +101,7 @@
          ecdhe_psk_aes_128_ccm_8/1,
          ecdhe_psk_aes_256_cbc/1,
          ecdhe_psk_aes_256_gcm/1,
+         ecdhe_psk_chacha_dtls_cipher/1,
          srp_anon_3des_ede_cbc/1,
          srp_anon_aes_128_cbc/1,
          srp_anon_aes_256_cbc/1,
@@ -146,7 +147,8 @@ all() ->
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
      {group, 'dtlsv1.2'},
-     {group, 'dtlsv1'}
+     {group, 'dtlsv1'},
+     ecdhe_psk_chacha_dtls_cipher
     ].
 
 groups() ->
@@ -940,6 +942,68 @@ ecdhe_psk_aes_128_ccm(Config) when is_list(Config) ->
 
 ecdhe_psk_aes_128_ccm_8(Config) when is_list(Config) ->
     run_ciphers_test(ecdhe_psk, 'aes_128_ccm_8', Config).
+
+ecdhe_psk_chacha_dtls_cipher(_Config) ->
+    Cipher = "TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256",
+    Timeout = 20000,
+    ExpectedSuite = #{
+        key_exchange => ecdhe_psk,
+        cipher => chacha20_poly1305,
+        mac => aead,
+        prf => sha256
+    },
+    true = lists:member(Cipher, ssl:cipher_suites(anonymous, 'dtlsv1.2', rfc)),
+    Secret = <<1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15>>,
+    UserLookup = {fun(psk, _Identity, _UserState) -> {ok, Secret} end, undefined},
+    CommonOpts = [
+        {protocol, dtls},
+        {versions, ['dtlsv1.2']},
+        {ciphers, [Cipher]},
+        {user_lookup_fun, UserLookup},
+        {verify, verify_none},
+        {active, false},
+        binary
+    ],
+    {ok, ListenSocket} = ssl:listen(0, CommonOpts),
+    {ok, {_Addr, Port}} = ssl:sockname(ListenSocket),
+    Parent = self(),
+    ServerPid = spawn_link(fun() ->
+        Result =
+            try
+                {ok, Server0} = ssl:transport_accept(ListenSocket, Timeout),
+                {ok, Server} = ssl:handshake(Server0, Timeout),
+                {ok, <<"ping">>} = ssl:recv(Server, 0, Timeout),
+                ok = ssl:send(Server, <<"pong">>),
+                {ok, [{selected_cipher_suite, ExpectedSuite}]} =
+                    ssl:connection_information(Server, [selected_cipher_suite]),
+                ssl:close(Server),
+                ok
+            catch
+                Class:Reason:Stacktrace ->
+                    {Class, Reason, Stacktrace}
+            end,
+        Parent ! {self(), Result}
+    end),
+    {ok, Client} = ssl:connect(
+        {127,0,0,1},
+        Port,
+        [{psk_identity, "Test-User"} | CommonOpts],
+        Timeout
+    ),
+    ok = ssl:send(Client, <<"ping">>),
+    {ok, <<"pong">>} = ssl:recv(Client, 0, Timeout),
+    {ok, [{selected_cipher_suite, ExpectedSuite}]} =
+        ssl:connection_information(Client, [selected_cipher_suite]),
+    ssl:close(Client),
+    receive
+        {ServerPid, ok} ->
+            ok;
+        {ServerPid, Error} ->
+            ct:fail(Error)
+    after Timeout ->
+        ct:fail(server_timeout)
+    end,
+    ssl:close(ListenSocket).
 
 psk_rc4_128(Config) when is_list(Config) ->
     run_ciphers_test(psk, 'rc4_128', Config).
