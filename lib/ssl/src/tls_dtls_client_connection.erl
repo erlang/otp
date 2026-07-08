@@ -589,6 +589,7 @@ handle_resumed_session(SessId, #state{static_env = #static_env{host = Host,
 calculate_secret(#server_dh_params{dh_p = Prime, dh_g = Base,
 				   dh_y = ServerPublicDhKey} = Params,
 		 #state{handshake_env = HsEnv} = State, Connection) ->
+    validate_dh_prime_size(Prime),
     Keys = {_, PrivateDhKey} = crypto:generate_key(dh, [Prime, Base]),
     PremasterSecret =
 	ssl_handshake:premaster_secret(ServerPublicDhKey, PrivateDhKey, Params),
@@ -617,6 +618,7 @@ calculate_secret(#server_dhe_psk_params{
 		    #state{handshake_env = HsEnv,
                            ssl_options = #{user_lookup_fun := PSKLookup}} =
 		     State, Connection) ->
+    validate_dh_prime_size(Prime),
     Keys = {_, PrivateDhKey} =
 	crypto:generate_key(dh, [Prime, Base]),
     PremasterSecret = ssl_handshake:premaster_secret(ServerKey, PrivateDhKey, PSKLookup),
@@ -641,6 +643,7 @@ calculate_secret(#server_srp_params{srp_n = Prime, srp_g = Generator} = ServerKe
 		 #state{handshake_env = HsEnv,
                         ssl_options = #{srp_identity := SRPId}} = State,
 		 Connection) ->
+    validate_dh_prime_size(Prime),
     Keys = generate_srp_client_keys(Generator, Prime, 0),
     PremasterSecret = ssl_handshake:premaster_secret(ServerKey, Keys, SRPId),
     tls_dtls_gen_connection:calculate_master_secret(PremasterSecret,
@@ -885,3 +888,11 @@ ext_info(#{status := StaplingStatus} = StaplingState, #cert{otp = PeerCert})
   when StaplingStatus == not_negotiated; StaplingStatus == not_received ->
     #{cert_ext => #{public_key:pkix_subject_id(PeerCert) => []},
       stapling_state => StaplingState}.
+
+%% Minimum DH prime size: 2048 bits (256 bytes).
+%% NIST SP 800-57, RFC 7919. Prevents Logjam-style attacks with
+%% weak primes that can be factored by a resourceful attacker.
+validate_dh_prime_size(Prime) when byte_size(Prime) < ?MIN_DH_PRIM_BYTE_SIZE ->
+    throw(?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, dh_prime_too_short));
+validate_dh_prime_size(_) ->
+    ok.
