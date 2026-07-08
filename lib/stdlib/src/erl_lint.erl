@@ -1417,34 +1417,38 @@ disallowed_compile_flags(Forms, St0) ->
 %% data about calls etc. have been collected.
 
 post_traversal_check(Forms, St0) ->
-    St1 = check_behaviour(St0),
-    St2 = check_deprecated(Forms, St1),
-    St3 = check_imports(Forms, St2),
-    St4 = check_inlines(Forms, St3),
-    St5 = check_undefined_functions(St4),
-    St6 = check_unused_functions(Forms, St5),
-    St7 = check_bif_clashes(Forms, St6),
-    St8 = check_specs_without_function(St7),
-    St9 = check_functions_without_spec(Forms, St8),
-    StA = check_undefined_types(St9),
-    StB = check_unused_types(Forms, StA),
-    StC = check_untyped_records(Forms, StB),
-    StD = check_on_load(StC),
-    StE = check_export_record(Forms, StD),
-    StF = check_unused_records(Forms, StE),
-    StG = check_native_records_header(Forms, StF),
-    StH = check_local_opaque_types(StG),
-    StI = check_dialyzer_attribute(Forms, StH),
-    StJ = check_callback_information(StI),
-    StK = check_nifs(Forms, StJ),
-    StL = check_unexported_functions(StK),
-    StM = check_removed(Forms, StL),
-    check_unsafe(Forms, StM).
+    foldl(fun(F, Acc) -> F(Forms, Acc) end,
+          St0,
+          [fun check_behaviour/2,
+           fun check_deprecated/2,
+           fun check_deprecated_type_callback/2,
+           fun check_imports/2,
+           fun check_inlines/2,
+           fun check_undefined_functions/2,
+           fun check_unused_functions/2,
+           fun check_bif_clashes/2,
+           fun check_specs_without_function/2,
+           fun check_functions_without_spec/2,
+           fun check_undefined_types/2,
+           fun check_unused_types/2,
+           fun check_untyped_records/2,
+           fun check_on_load/2,
+           fun check_export_record/2,
+           fun check_unused_records/2,
+           fun check_native_records_header/2,
+           fun check_local_opaque_types/2,
+           fun check_dialyzer_attribute/2,
+           fun check_callback_information/2,
+           fun check_nifs/2,
+           fun check_unexported_functions/2,
+           fun check_removed/2,
+           fun check_unsafe/2
+          ]).
 
 %% check_behaviour(State0) -> State
 %% Check that the behaviour attribute is valid.
 
-check_behaviour(St) ->
+check_behaviour(_Forms, St) ->
     case is_warn_enabled(behaviours, St) of
         true ->
             behaviour_check(St#lint.behaviour, St);
@@ -1636,6 +1640,28 @@ deprecated_desc([Char | Str]) when is_integer(Char) -> deprecated_desc(Str);
 deprecated_desc([]) -> true;
 deprecated_desc(_) -> false.
 
+%% check_deprecated_type_callback(Forms, State0) -> State
+
+check_deprecated_type_callback(Forms, St0) ->
+    Bad = [{E,Anno} || {attribute, Anno, Attr, Depr} <- Forms,
+                       (Attr =:= deprecated_type orelse
+                        Attr =:= deprecated_callback),
+                       D <- lists:flatten([Depr]),
+                       E <- depr_cat_flag(D)],
+    foldl(fun ({E,Anno}, St1) ->
+                  add_error(Anno, E, St1)
+          end, St0, Bad).
+
+depr_cat_flag({_F, _A, Flg}=D) ->
+    case deprecated_flag(Flg) of
+        false -> [{invalid_deprecated,D}];
+        true -> []
+    end;
+depr_cat_flag({_F, _A}) ->
+    [];
+depr_cat_flag(D) ->
+    [{invalid_deprecated,D}].
+
 %% check_removed(Forms, State0) -> State
 
 check_removed(Forms, St0) ->
@@ -1822,7 +1848,7 @@ reached_functions([], [], _Ref, Reached) -> gb_sets:to_list(Reached).
 
 %% check_undefined_functions(State0) -> State
 
-check_undefined_functions(#lint{called=Called0,defined=Def0}=St0) ->
+check_undefined_functions(_Forms, #lint{called=Called0,defined=Def0}=St0) ->
     Called = sofs:relation(Called0, [{func,location}]),
     Def = sofs:from_external(gb_sets:to_list(Def0), [func]),
     Undef = sofs:to_external(sofs:drestriction(Called, Def)),
@@ -1847,9 +1873,9 @@ most_possible_string(Name, PossibleNames) ->
             end
     end.
 
-%% check_undefined_types(State0) -> State
+%% check_undefined_types(_Forms, State0) -> State
 
-check_undefined_types(#lint{usage=Usage,types=Def}=St0) ->
+check_undefined_types(_Forms, #lint{usage=Usage,types=Def}=St0) ->
     Used = Usage#usage.used_types,
     UTAs = maps:keys(Used),
     Undef = [{TA,map_get(TA, Used)} ||
@@ -1894,9 +1920,9 @@ check_nifs(Forms, St0) ->
     DefFunctions1 = gb_sets:to_list(DefFunctions),
     func_location_error(undefined_nif, Bad, St1, DefFunctions1).
 
-check_unexported_functions(#lint{callbacks=Cs,
-                                 optional_callbacks=OCs,
-                                 exports=Es0}=St) ->
+check_unexported_functions(_Forms, #lint{callbacks=Cs,
+                                         optional_callbacks=OCs,
+                                         exports=Es0}=St) ->
     Es = case Cs =/= #{} orelse OCs =/= #{} of
             true -> gb_sets:add({behaviour_info, 1}, Es0);
             false -> Es0
@@ -2013,8 +2039,8 @@ check_native_records_header(Forms, #lint{records = Records}=St0) ->
             St0
     end.
 
-check_callback_information(#lint{callbacks = Callbacks,
-                                 optional_callbacks = OptionalCbs,
+check_callback_information(_Forms, #lint{callbacks = Callbacks,
+                                         optional_callbacks = OptionalCbs,
 				 defined = Defined} = St0) ->
     OptFun = fun(MFA, Anno, St) ->
                      case is_map_key(MFA, Callbacks) of
@@ -2248,8 +2274,8 @@ on_load(Anno, Val, St) ->
     %% Bad syntax.
     add_error(Anno, {bad_on_load,Val}, St).
 
--spec check_on_load(lint_state()) -> lint_state().
-check_on_load(#lint{defined=Defined,on_load=[{_,0}=Fa],
+-spec check_on_load(any(), lint_state()) -> lint_state().
+check_on_load(_Forms, #lint{defined=Defined,on_load=[{_,0}=Fa],
 		    on_load_anno=Anno}=St) ->
     case gb_sets:is_member(Fa, Defined) of
         true -> St;
@@ -2262,7 +2288,7 @@ check_on_load(#lint{defined=Defined,on_load=[{_,0}=Fa],
                 GuessF -> add_error(Anno, {undefined_on_load,Fa,GuessF}, St)
             end
     end;
-check_on_load(St) -> St.
+check_on_load(_Forms, St) -> St.
 
 -spec call_function(anno(), atom(), arity(), lint_state()) -> lint_state().
 %%  Add to both called and calls.
@@ -4417,7 +4443,7 @@ nowarn() ->
     A1 = erl_anno:set_generated(true, A0),
     erl_anno:set_file("", A1).
 
-check_specs_without_function(#lint{module=Mod,defined=Funcs,specs=Specs}=St) ->
+check_specs_without_function(_Forms, #lint{module=Mod,defined=Funcs,specs=Specs}=St) ->
     Fun = fun({M, F, A}, Anno, AccSt) when M =:= Mod ->
                   FA = {F, A},
 		  case gb_sets:is_element(FA, Funcs) of
@@ -4517,7 +4543,7 @@ reached_types(#lint{usage = Usage}) ->
 initially_reached_types(Es) ->
     [FromTypeId || {{T, _}=FromTypeId, _} <- Es, T =/= type].
 
-check_local_opaque_types(St) ->
+check_local_opaque_types(_Forms, St) ->
     #lint{types=Ts, exp_types=ExpTs} = St,
     FoldFun =
         fun(_Type, #typeinfo{attr = type}, AccSt) ->

@@ -95,7 +95,8 @@
          illegal_zip_generator/1,
          record_info_0/1,
          coverage/1,
-         native_records/1]).
+         native_records/1,
+         cs_deprecated_attr/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -137,7 +138,8 @@ all() ->
      illegal_zip_generator,
      record_info_0,
      coverage,
-     native_records].
+     native_records,
+     cs_deprecated_attr].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -2228,6 +2230,26 @@ otp_5917(Config) when is_list(Config) ->
             ">>,
            {[]},
            []}],
+    [] = run(Config, Ts),
+    ok.
+
+%% Check the 'deprecated_type' and 'deprecated_callback' attributes.
+cs_deprecated_attr(Config) when is_list(Config) ->
+    Ts = [{deprecated_type_1,
+          <<"-export_type([foo/0]).
+             -deprecated_type([{foo, 0, 1}]).
+             -type foo() :: integer().
+            ">>,
+           {[]},
+           {errors,[{{2,15},erl_lint,{invalid_deprecated,{foo,0,1}}}],
+            []}},
+          {deprecated_callback_1,
+          <<"-callback bar(integer()) -> ok.
+             -deprecated_callback([{bar, 1, 42}]).
+            ">>,
+           {[]},
+           {errors,[{{2,15},erl_lint,{invalid_deprecated,{bar,1,42}}}],
+            []}}],
     [] = run(Config, Ts),
     ok.
 
