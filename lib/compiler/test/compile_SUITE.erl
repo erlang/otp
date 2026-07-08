@@ -2119,6 +2119,9 @@ types_pp(Config) when is_list(Config) ->
                      "'foo' | nonempty_list(1..3) | number(3, 7) |"
                      " {'tag0', 1, 2} | {'tag1', 3, 4} | bitstring(8)"},
                     {make_bitstring, "bitstring(8)"},
+                    {make_native_record_set,
+                     "#types_pp:rec_a{present:x=1} |"
+                     " #types_pp:rec_b{present:y=2.0}"},
                     {make_none, "none()"}],
     lists:foreach(fun({FunName, Expected}) ->
                           Actual = map_get(atom_to_list(FunName), ResultTypes),

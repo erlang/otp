@@ -393,7 +393,8 @@ format_type(identifier) ->
     "identifier()";
 format_type(none) ->
     "none()";
-format_type(#t_union{atom=A,list=L,number=N,tuple_set=Ts,other=O}) ->
+format_type(#t_union{atom=A,list=L,number=N,tuple_set=Ts,
+                     native_record_set=Rs,other=O}) ->
     Es = case A of
              none -> [];
              _ -> [format_type(A)]
@@ -409,6 +410,10 @@ format_type(#t_union{atom=A,list=L,number=N,tuple_set=Ts,other=O}) ->
         ++ case Ts of
                none -> [];
                _ -> [format_tuple_set(Ts)]
+           end
+        ++ case Rs of
+               none -> [];
+               _ -> [format_native_record_set(Rs)]
            end
         ++ case O of
                none -> [];
@@ -443,3 +448,9 @@ format_tuple_set(RecordSet) ->
 format_tuple_set_1({{Arity,Key},#t_tuple{size=Arity,elements=Elems}=Tuple}) ->
     false = none =:= beam_types:meet(Key, map_get(1, Elems)), % Assertion
     format_type(Tuple).
+
+format_native_record_set(#t_record{}=R) ->
+    format_type(R);
+format_native_record_set(RecordSet) ->
+    string:join([format_type(R) || R <- ordsets:to_list(RecordSet)],
+                " | ").
