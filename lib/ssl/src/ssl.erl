@@ -585,9 +585,7 @@ SRP cipher suite configuration prior to TLS-1.3.
                                | srp_6144
                                | srp_4096
                                | srp_3072
-                               | srp_2048
-                               | srp_1536
-                               | srp_1024. % exported
+                               | srp_2048.
 
 -doc(#{title => <<"Socket">>}).
 -doc """
