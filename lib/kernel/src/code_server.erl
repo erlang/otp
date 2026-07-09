@@ -510,7 +510,7 @@ try_ebin_dirs([]) ->
 %%
 %% Add the erl_prim_loader path.
 %%
-add_loader_path(IPath0,Mode) ->
+add_loader_path(IPath,Mode) ->
     {ok,PrimP0} = erl_prim_loader:get_path(),
 
     %% All boot paths except for "." are cached by default but this can be disabled.
@@ -525,10 +525,13 @@ add_loader_path(IPath0,Mode) ->
             Pa = patch_path(Pa0),
             Pz = patch_path(Pz0),
             PrimP = patch_path(PrimP0),
-            IPath = patch_path(IPath0),
 
             Path0 = exclude_pa_pz(PrimP,Pa,Pz),
             Path1 = strip_path(Path0, Mode),
+            %% The IPath entries were already checked by make_path/2
+            %% when they were built (the trailing "." needs no check;
+            %% patch_path/1 would keep it either way), so they are not
+            %% validated again here.
             Path2 = merge_path(Path1, IPath, []),
             Path3 = cache_path(Path2),
             add_pa_pz(Path3,Pa,Pz)
