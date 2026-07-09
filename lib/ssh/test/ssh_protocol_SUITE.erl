@@ -1400,7 +1400,7 @@ kex_strict_violation(Config) ->
            %% we may see newkeys, disconnect, or tcp_closed here.
            %% The actual violation assertion is verified via event_logged.
            {match, {'or', [#ssh_msg_newkeys{_='_'},
-                           {ssh_msg_disconnect, ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, '_', '_'},
+                           #ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED},
                            tcp_closed]}, receive_msg}]},
          {new_keys, "Message ssh_msg_newkeys in wrong state",
           [receive_hello,
