@@ -1655,7 +1655,8 @@ build_attribute({atom,Aa,import_record}, Val) ->
     case Val of
 	[{atom,_Am,Mod},StrList] ->
 	    {attribute,Aa,import_record,{Mod,native_record_name_list(StrList)}};
-        [_,Other|_] -> error_bad_decl(Other, import_record)
+        [_,Other|_] -> error_bad_decl(Other, import_record);
+        [Other|_] -> error_bad_decl(Other, import_record)
     end;
 build_attribute({atom,Aa,record}, Val) ->
     case Val of
