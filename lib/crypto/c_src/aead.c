@@ -78,6 +78,7 @@ ERL_NIF_TERM aead_cipher_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     if ((ctx_res = enif_alloc_resource(aead_cipher_ctx_rtype, sizeof(struct aead_cipher_ctx))) == NULL)
         return EXCP_ERROR(env, "Can't allocate resource");
 
+    ctx_res->ctx = NULL;
     ctx_res->env = enif_alloc_env();
     encflg_arg = argv[3];
 
