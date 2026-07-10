@@ -49,7 +49,9 @@ This module provides a set of cryptographic functions.
 
   - **POLY1305** - [ChaCha20 and Poly1305 for IETF Protocols (RFC 7539)](http://www.ietf.org/rfc/rfc7539.txt)
 
-- **Symmetric Ciphers** - 
+  - **SipHash** - [SipHash: a fast short-input PRF](https://ia.cr/2012/351)
+
+- **Symmetric Ciphers** -
 
   - **DES, 3DES and AES** - [Block Cipher Techniques (NIST)](https://csrc.nist.gov/projects/block-cipher-techniques)
 
@@ -322,7 +324,8 @@ end
 
 -export_type([
               hmac_hash_algorithm/0,
-              cmac_cipher_algorithm/0
+              cmac_cipher_algorithm/0,
+              siphash_options/0
              ]).
 
 -export_type([engine_ref/0,
@@ -837,7 +840,7 @@ stop() ->
                              Ciphers :: [cipher()],
                              KEMs :: [kem()],
                              PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m | mldsa() | slh_dsa()],
-                             Macs :: [hmac | cmac | poly1305],
+                             Macs :: [hmac | cmac | poly1305 | siphash],
                              Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
                              RSAopts :: [rsa_sign_verify_opt() | rsa_opt()] .
 supports() ->
@@ -879,7 +882,7 @@ algorithms.
                              Ciphers :: [cipher()],
                              KEMs :: [kem()],
                              PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m],
-                             Macs :: [hmac | cmac | poly1305],
+                             Macs :: [hmac | cmac | poly1305 | siphash],
                              Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
                              RSAopts :: [rsa_sign_verify_opt() | rsa_opt()] .
 
@@ -1231,24 +1234,50 @@ hash_final_xof(State, Length) ->
                                | rc2_cbc
                                  .
 
+-doc """
+Options controlling the `siphash` MAC, used as the `SubType` argument.
+
+- `size` - output size in bytes, either `8` or `16`. Defaults to `16`.
+- `c_rounds` - number of SipHash compression rounds, in the range `1..16`.
+  Defaults to `2`.
+- `d_rounds` - number of SipHash finalization rounds, in the range `1..16`.
+  Defaults to `4`.
+
+The defaults correspond to SipHash-2-4 with a 16 byte output. An empty map
+`#{}` (or `undefined`) selects all defaults; any subset of the keys may be
+given to override individual parameters. The round counts are capped (well
+above the strongest standard variant, SipHash-4-8) so that a single call
+cannot monopolise a scheduler.
+""".
+-doc(#{group => <<"MAC API">>}).
+-type siphash_options() :: #{size => 8 | 16,
+                             c_rounds => 1..16,
+                             d_rounds => 1..16}.
+
 %%%----------------------------------------------------------------
 %%% Calculate MAC for the whole text at once
 
 -doc """
-Compute a `poly1305` MAC (Message Authentication Code).
+Compute a `poly1305` or `siphash` MAC (Message Authentication Code).
 
-Same as [`mac(Type, undefined, Key, Data)`](`mac/4`).
+For `poly1305` this is the same as [`mac(poly1305, undefined, Key, Data)`](`mac/4`).
+For `siphash` this is the same as [`mac(siphash, #{}, Key, Data)`](`mac/4`), i.e.
+SipHash-2-4 with a 16 byte output; use [`mac/4`](`mac/4`) with a
+[`t:siphash_options/0`](`t:siphash_options/0`) map to configure the rounds or
+output size.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
 -doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
--spec mac(Type :: poly1305, Key, Data) -> Mac
-                     when Key :: iodata(),
+-spec mac(Type, Key, Data) -> Mac
+                     when Type :: poly1305 | siphash,
+                          Key :: iodata(),
                           Data :: iodata(),
                           Mac :: binary().
 
-mac(poly1305, Key, Data) -> mac(poly1305, undefined, Key, Data).
+mac(poly1305, Key, Data) -> mac(poly1305, undefined, Key, Data);
+mac(siphash, Key, Data) -> mac(siphash, #{}, Key, Data).
 
 
 -doc """
@@ -1265,10 +1294,15 @@ Argument `Type` is the type of MAC and `Data` is the full message.
 - For `poly1305` it should be set to `undefined` or the [mac/2](`mac_init/2`)
   function could be used instead, see
   [Algorithm Details](algorithm_details.md#poly1305) in the User's Guide.
+- For `siphash` it is a [`t:siphash_options/0`](`t:siphash_options/0`) map (or
+  `undefined` / `#{}` for the defaults), selecting the output size and the
+  number of rounds, see [Algorithm Details](algorithm_details.md#siphash) in the
+  User's Guide.
 
 `Key` is the authentication key with a length according to the `Type` and
 `SubType`. The key length could be found with the `hash_info/1` (`hmac`) for and
 `cipher_info/1` (`cmac`) functions. For `poly1305` the key length is 32 bytes.
+For `siphash` the key length is 16 bytes.
 Note that the cryptographic quality of the key is not checked.
 
 The `Mac` result will have a default length depending on the `Type` and
@@ -1291,8 +1325,8 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 -doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
 -spec mac(Type, SubType, Key, Data) -> Mac
-                     when Type :: hmac | cmac | poly1305,
-                          SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
+                     when Type :: hmac | cmac | poly1305 | siphash,
+                          SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | siphash_options() | undefined,
                           Key :: iodata(),
                           Data :: iodata(),
                           Mac :: binary().
@@ -1303,16 +1337,21 @@ mac(Type, SubType, Key0, Data) ->
 
 
 -doc """
-Compute a `poly1305` MAC (Message Authentication Code) with a limited length.
+Compute a `poly1305` or `siphash` MAC (Message Authentication Code) with a
+limited length.
 
-Same as [`macN(Type, undefined, Key, Data, MacLength)`](`macN/5`).
+This is the same as [`macN(Type, undefined, Key, Data, MacLength)`](`macN/5`),
+i.e. the default `SubType` (for `siphash`, SipHash-2-4 with a 16 byte output
+before truncation). Use [`macN/5`](`macN/5`) with a
+[`t:siphash_options/0`](`t:siphash_options/0`) map to configure `siphash`.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
 -doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
--spec macN(Type :: poly1305, Key, Data, MacLength) -> Mac
-                     when Key :: iodata(),
+-spec macN(Type, Key, Data, MacLength) -> Mac
+                     when Type :: poly1305 | siphash,
+                          Key :: iodata(),
                           Data :: iodata(),
                           Mac :: binary(),
                           MacLength :: pos_integer().
@@ -1344,8 +1383,8 @@ the User's Guide.
 -doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
 -spec macN(Type, SubType, Key, Data, MacLength) -> Mac
-                     when Type :: hmac | cmac | poly1305,
-                          SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
+                     when Type :: hmac | cmac | poly1305 | siphash,
+                          SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | siphash_options() | undefined,
                           Key :: iodata(),
                           Data :: iodata(),
                           Mac :: binary(),
@@ -1366,19 +1405,25 @@ between function calls.
 -opaque mac_state() :: reference() .
 
 -doc """
-Initialize a state for streaming `poly1305` MAC calculation.
+Initialize a state for streaming `poly1305` or `siphash` MAC calculation.
 
-Same as [`mac_init(Type, undefined, Key)`](`mac_init/3`).
+For `poly1305` this is the same as [`mac_init(poly1305, undefined, Key)`](`mac_init/3`).
+For `siphash` this is the same as [`mac_init(siphash, #{}, Key)`](`mac_init/3`),
+i.e. SipHash-2-4 with a 16 byte output; use [`mac_init/3`](`mac_init/3`) with a
+[`t:siphash_options/0`](`t:siphash_options/0`) map to configure it.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
 -doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
--spec mac_init(Type :: poly1305, Key) -> State
-                          when Key :: iodata(),
+-spec mac_init(Type, Key) -> State
+                          when Type :: poly1305 | siphash,
+                               Key :: iodata(),
                                State :: mac_state() .
 mac_init(poly1305, Key) ->
-    ?nif_call(mac_init_nif(poly1305, undefined, Key)).
+    ?nif_call(mac_init_nif(poly1305, undefined, Key));
+mac_init(siphash, Key) ->
+    ?nif_call(mac_init_nif(siphash, #{}, Key)).
 
 
 -doc """
@@ -1395,10 +1440,15 @@ Initialize the state for streaming MAC calculation.
 - For `poly1305` it should be set to `undefined` or the [mac/2](`mac_init/2`)
   function could be used instead, see
   [Algorithm Details](algorithm_details.md#poly1305) in the User's Guide.
+- For `siphash` it is a [`t:siphash_options/0`](`t:siphash_options/0`) map (or
+  `undefined` / `#{}` for the defaults), selecting the output size and the
+  number of rounds, see [Algorithm Details](algorithm_details.md#siphash) in the
+  User's Guide.
 
 `Key` is the authentication key with a length according to the `Type` and
 `SubType`. The key length could be found with the `hash_info/1` (`hmac`) for and
 `cipher_info/1` (`cmac`) functions. For `poly1305` the key length is 32 bytes.
+For `siphash` the key length is 16 bytes.
 Note that the cryptographic quality of the key is not checked.
 
 The returned `State` should be used in one or more subsequent calls to
@@ -1423,8 +1473,8 @@ See
 -doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
 -spec mac_init(Type, SubType, Key) -> State
-                          when Type :: hmac | cmac | poly1305,
-                               SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
+                          when Type :: hmac | cmac | poly1305 | siphash,
+                               SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | siphash_options() | undefined,
                                Key :: iodata(),
                                State :: mac_state() .
 mac_init(Type, SubType, Key0) ->

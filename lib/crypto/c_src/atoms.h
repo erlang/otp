@@ -44,6 +44,9 @@ extern ERL_NIF_TERM atom_undefined;
 extern ERL_NIF_TERM atom_hmac;
 extern ERL_NIF_TERM atom_cmac;
 extern ERL_NIF_TERM atom_poly1305;
+extern ERL_NIF_TERM atom_siphash;
+extern ERL_NIF_TERM atom_c_rounds;
+extern ERL_NIF_TERM atom_d_rounds;
 
 extern ERL_NIF_TERM atom_ok;
 extern ERL_NIF_TERM atom_none;
