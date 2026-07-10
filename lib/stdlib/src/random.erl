@@ -203,9 +203,9 @@ distributed between `1` and `N`, updating the state in the process dictionary.
 ```erlang
 1> random:seed(1, 2, 3).
 undefined
-2> F = random:uniform(), is_float(F), F > 0.0, F < 1.0.
+2> F = random:uniform() , is_float(F) and ((F>= 0.0) and (F =< 1.0)).
 true
-3> I = random:uniform(10), I >= 1, I =< 10.
+3> I = random:uniform(10), ((I >= 1) and (I =< 10)).
 true
 ```
 """.
@@ -246,9 +246,9 @@ uniformly distributed between `1` and `N`, and a new state.
 ```erlang
 1> State = random:seed0().
 {3172,9814,20125}
-2> {Float, _NewState} = random:uniform_s(State), is_float(Float), Float > 0.0, Float < 1.0.
+2> {Float, _NewState} = random:uniform_s(State), is_float(Float) and ((Float >= 0.0) and (Float < 1.0)).
 true
-3> {Int, _NewState2} = random:uniform_s(10, State), Int >= 1, Int =< 10.
+3> {Int, _NewState2} = random:uniform_s(10, State), ((Int >= 1) and (Int =< 10)).
 true
 ```
 """.

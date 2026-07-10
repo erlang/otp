@@ -51,9 +51,10 @@ _Example 1_
 
 The following example shows how to print "Hello World\!" in 5 seconds:
 
-```erlang
-1> ok = element(1, timer:apply_after(5000, io, format, ["~nHello World!~n", []])).
-ok
+```text
+1> timer:apply_after(5000, io, format, ["Hello World!", []]).
+{ok, Tref}
+Hello World!
 ```
 
 After 5 seconds, "Hello World!" will be printed to the console.
@@ -109,9 +110,9 @@ Using `self/0` _inside_ the timed function, the code below does not work as
 intended. The task gets done, but the `done` message gets sent to the wrong
 process and is lost.
 
-```erlang
-1> ok = element(1, timer:apply_after(1000, fun() -> timer:sleep(100), self() ! done end)).
-ok
+```text
+1> timer:apply_after(1000, fun() -> timer:sleep(100), self() ! done end).
+{ok,TRef}
 2> receive done -> done after 5000 -> timeout end.
 timeout
 ```
@@ -120,20 +121,23 @@ The code below calls `self/0` in the process which sets the timer and assigns it
 to a variable, which is then used in the function to send the `done` message to,
 and so works as intended.
 
-```erlang
-1> Target = self().
-2> ok = element(1, timer:apply_after(1000, fun() -> timer:sleep(100), Target ! done end)).
-ok
+```text
+1> Target = self()
+<0.82.0>
+2> timer:apply_after(1000, fun() -> do_something(), Target ! done end).
+{ok,TRef}
 3> receive done -> done after 5000 -> timeout end.
+%% ... 1s passes...
 done
 ```
 
 Another option is to pass the message target as a parameter to the function.
 
-```erlang
-1> ok = element(1, timer:apply_after(1000, fun(Target) -> timer:sleep(100), Target ! done end, [self()])).
-ok
+```text
+1> timer:apply_after(1000, fun(Target) -> do_something(), Target ! done end, [self()]).
+{ok,TRef}
 2> receive done -> done after 5000 -> timeout end.
+%% ... 1s passes...
 done
 ```
 """.
@@ -184,9 +188,9 @@ milliseconds.
 
 ## Examples
 
-```erlang
-1> ok = element(1, timer:apply_after(1000, fun() -> ok end)).
-ok
+```text
+1>timer:apply_after(1000, fun() -> ok end).
+{ok, TRef}
 ```
 """.
 -doc(#{equiv => apply_after(Time, Function, []) }).
