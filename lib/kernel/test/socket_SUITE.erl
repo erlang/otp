@@ -15105,8 +15105,8 @@ recvmmsg_sendmmsg_loopback_udp4(_Config) when is_list(_Config) ->
             ok = socket:connect(S2, #{family => inet, addr => Addr, port => LocalPort}),
             %% Send 10 messages at once
             Msgs = [
-                #{iov => [list_to_binary(["msg", integer_to_list(N)])]}
-             || N <- lists:seq(1, 10)
+                    #{iov => [list_to_binary(["msg", integer_to_list(N)])]}
+                    || N <- lists:seq(1, 10)
             ],
             ok = socket:sendmmsg(S2, Msgs, [], infinity),
             %% Receive all 10 messages at once
@@ -15155,7 +15155,15 @@ recvmmsg_sendmmsg_loopback_udp6(_Config) when is_list(_Config) ->
 	       ok = socket:sendmmsg(S2, Msgs, [], infinity),
 	       %% Receive all 5 messages at once
 	       {ok, Received} = socket:recvmmsg(S1, 10, 0, 0, [], infinity),
-	       true = length(Received) =:= 5,
+	       if 
+                   length(Received) =:= 5 ->
+                       ok;
+                   true ->
+                       ?P("Invalid number of messages received:"
+                          "~n   Expected: 5"
+                          "~n   Actual:   ~p", [length(Received)]),
+                       ct:fail(unexpected_return)
+               end,
 	       ok = socket:close(S1),
 	       ok = socket:close(S2),
 	       ok
