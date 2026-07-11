@@ -1232,13 +1232,12 @@ pkix_long_commonname() ->
 pkix_long_commonname(Config) when is_list(Config) ->
     Cert = long_commonname_pkix_cert(),
     OTPCert = public_key:pkix_decode_cert(Cert, otp),
-    TBSCert = OTPCert#'OTPCertificate'.tbsCertificate,
-    Issuer = TBSCert#'OTPTBSCertificate'.issuer,
-    Subj   = TBSCert#'OTPTBSCertificate'.subject,
+    RelaxedOTPCert = public_key:pkix_decode_cert(Cert, relaxed),
     ExpectedCN = "This-is-a-very-long-common-name-that-exceeds-"
                  "the-64-character-limit-for-testing.example.com",
-    check_commonname(Issuer, ExpectedCN),
-    check_commonname(Subj, ExpectedCN).
+    check_cert_commonname(OTPCert, ExpectedCN),
+    check_cert_commonname(RelaxedOTPCert, ExpectedCN),
+    true = public_key:pkix_verify(Cert, cert_public_key(OTPCert)).
 
 %%--------------------------------------------------------------------
 pkix_decode_cert() ->
@@ -2452,6 +2451,16 @@ do_check_emailaddress([_| Rest]) ->
 
 check_commonname({rdnSequence, DirName}, ExpectedCN) ->
     do_check_commonname(DirName, ExpectedCN).
+check_cert_commonname(#'OTPCertificate'{tbsCertificate = TBSCert}, ExpectedCN) ->
+    Issuer = TBSCert#'OTPTBSCertificate'.issuer,
+    Subj   = TBSCert#'OTPTBSCertificate'.subject,
+    check_commonname(Issuer, ExpectedCN),
+    check_commonname(Subj, ExpectedCN).
+
+cert_public_key(#'OTPCertificate'{tbsCertificate = TBSCert}) ->
+    PublicKeyInfo = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
+    PublicKeyInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey.
+
 do_check_commonname([], _ExpectedCN) ->
     ok;
 do_check_commonname([#'AttributeTypeAndValue'{type = ?'id-at-commonName',

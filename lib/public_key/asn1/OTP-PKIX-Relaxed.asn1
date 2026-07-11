@@ -41,7 +41,7 @@ IMPORTS
        id-at-commonName, id-at-localityName, id-at-stateOrProvinceName, id-at-organizationName,
        id-at-organizationalUnitName, id-at-title, id-at-countryName, id-at-serialNumber,
        id-at-pseudonym, id-emailAddress,
-       ub-name, ub-common-name, ub-locality-name, ub-state-name, ub-organization-name,
+       ub-name, ub-locality-name, ub-state-name, ub-organization-name,
        ub-organizational-unit-name, ub-title, ub-serial-number, ub-pseudonym, ub-emailaddress-length
        FROM PKIX1Explicit-2009
        {iso(1) identified-organization(3) dod(6) internet(1)
@@ -133,7 +133,10 @@ OTP-X520stateOrProvinceName ::= OTPDirectoryString { ub-state-name }
 
 otp-at-x520CommonName ATTRIBUTE ::= {
     TYPE OTP-X520commonName IDENTIFIED BY id-at-commonName }
-OTP-X520commonName ::= OTPDirectoryString { ub-common-name }
+-- We accept CommonName values longer than the ub-common-name (64)
+-- SIZE constraint. Real-world certificates can use CNs exceeding
+-- 64 chars, and OTP-PKIX accepts those as well.
+OTP-X520commonName ::= OTPDirectoryString { 255 }
 
 otp-at-x520OrganizationName ATTRIBUTE ::= {
     TYPE OTP-X520organizationName IDENTIFIED BY id-at-organizationName }
