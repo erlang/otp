@@ -3480,7 +3480,13 @@ decode_psk_binders(<<?BYTE(Len), Binder:Len/binary, Rest/binary>>, Acc) ->
 decode_cert_auths(<<>>, Acc) ->
     lists:reverse(Acc);
 decode_cert_auths(<<?UINT16(Len), Auth:Len/binary, Rest/binary>>, Acc) ->
-    decode_cert_auths(Rest, [public_key:pkix_normalize_name(Auth) | Acc]).
+    try public_key:pkix_normalize_name(Auth) of
+        CertAuth ->
+            decode_cert_auths(Rest, [CertAuth | Acc])
+    catch
+        _:_ ->
+            decode_cert_auths(Rest, Acc)
+    end.
 
 %% encode/decode stream of certificate data to/from list of certificate data
 certs_to_list(ASN1Certs) ->
