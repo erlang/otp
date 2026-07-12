@@ -79,7 +79,6 @@ To implement your own epmd module please see
 %%%----------------------------------------------------------------------
 -doc false.
 start() ->
-	% erlang:display({in_start}),
     gen_server:start({local, erl_epmd}, ?MODULE, [], []).
 
 -doc """
@@ -89,13 +88,11 @@ This function is invoked as this module is added as a child of the
 -doc(#{since => <<"OTP 21.0">>}).
 -spec start_link() -> {ok, pid()} | ignore | {error,term()}.
 start_link() ->
-	% erlang:display({in_start_link}),
     gen_server:start_link({local, erl_epmd}, ?MODULE, [], []).
 
 
 -doc false.
 stop() ->
-	% erlang:display({in_stop}),
     gen_server:call(?MODULE, stop, infinity).
 
 
@@ -128,7 +125,6 @@ Erlang/OTP R6.
 	  Version :: non_neg_integer().
 
 port_please(Node, HostName, Timeout) ->
-	% erlang:display({in_port_please_1}),
     case listen_port_please(Node, HostName) of
         {ok, 0} ->
             case getepmdbyname(HostName, Timeout) of
@@ -147,7 +143,6 @@ port_please(Node, HostName, Timeout) ->
 getepmdbyname(HostName, Timeout) when is_atom(HostName) ->
     getepmdbyname(atom_to_list(HostName), Timeout);
 getepmdbyname(HostName, Timeout) when is_list(HostName) ->
-	% erlang:display({in_getepmdbyname_1}),
     Family = case inet_db:res_option(inet6) of
                  true ->
                      inet6;
@@ -173,7 +168,6 @@ to when accepting new distribution requests.
       Host :: atom() | string() | inet:ip_address(),
       Port :: non_neg_integer().
 listen_port_please(_Name, _Host) ->
-	% erlang:display({in_listen_port_please}),
     case erl_epmd_node_listen_port() of
         {ok, Port} -> {ok, Port};
         undefined -> {ok, 0}
@@ -210,7 +204,6 @@ _Example:_
       Reason :: address | file:posix().
 
 names(HostName) ->
-	% erlang:display({in_names}),
     case getepmdbyname(HostName, infinity) of
         {ok,EpmdAddr} ->
             get_names(EpmdAddr);
@@ -251,7 +244,6 @@ register_node(Name, PortNo, inet_tcp) ->
 register_node(Name, PortNo, inet6_tcp) ->
     register_node(Name, PortNo, inet6);
 register_node(Name, PortNo, Family) ->
-	% erlang:display({in_register_node}),
     gen_server:call(erl_epmd, {register, Name, PortNo, Family}, infinity).
 
 -doc """
@@ -297,7 +289,6 @@ init(_) ->
         {'reply', term(), state()} | {'stop', 'shutdown', 'ok', state()}.
 
 handle_call({register, Name, PortNo, Family}, _From, State) ->
-    % erlang:display({in_handle_call_1}),
     case State#state.socket of
         P when P < 0 ->
             case do_register_node(Name, PortNo, Family) of
@@ -314,8 +305,6 @@ handle_call({register, Name, PortNo, Family}, _From, State) ->
                             				name = Name,
                             				family = Family}};
                 Error ->
-					% erlang:display(in_handle_call_error),
-					% erlang:display(Error),
                     case erl_epmd_node_listen_port() of
                         {ok, _} ->
                     {reply, {ok, -1}, State#state{ socket = -1,
@@ -330,7 +319,6 @@ handle_call({register, Name, PortNo, Family}, _From, State) ->
     end;
 
 handle_call(client_info_req, _From, State) ->
-	% erlang:display({in_handle_call_2}),
     Reply = {ok,{r4,State#state.name,State#state.port_no}},
     {reply, Reply, State};
   
@@ -351,11 +339,9 @@ handle_cast(_, State) ->
 -spec handle_info(term(), state()) -> {'noreply', state()}.
 
 handle_info({tcp_closed, Socket}, State) when State#state.socket =:= Socket ->
-	% erlang:display({in_handle_info_1}),
     erlang:send_after(?RECONNECT_TIME, self(), reconnect),
     {noreply, State#state{socket = -1}};
 handle_info(reconnect, State) when State#state.socket =:= -1 ->
-	% erlang:display({in_handle_info_2}),
     case do_register_node(State#state.name, State#state.port_no, State#state.family) of
 	{alive, Socket, _Creation} ->
             %% ignore the received creation
@@ -391,7 +377,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%%----------------------------------------------------------------------
 
 get_epmd_port() ->
-	% erlang:display({in_get_epmd_port}),
     case init:get_argument(epmd_port) of
 	{ok, [[PortStr|_]|_]} when is_list(PortStr) ->
 	    list_to_integer(PortStr);
@@ -400,7 +385,6 @@ get_epmd_port() ->
     end.
 
 erl_epmd_node_listen_port() ->
-	% erlang:display({in_erl_epmd_node_listen_port}),
     PortParameterResult =
         case application:get_env(kernel, erl_epmd_node_listen_port) of
             {ok, Port} when is_integer(Port), Port >= 0 ->
@@ -433,7 +417,6 @@ open() -> open({127,0,0,1}).  % The localhost IP address.
 
 -doc false.
 open(EpmdAddr) ->
-	% erlang:display({in_open_1}),
 	case application:get_env(kernel, epmd_ssl_options) of
         {ok, Opts} -> 
             open_tls(EpmdAddr, Opts);
@@ -443,7 +426,6 @@ open(EpmdAddr) ->
 
 -doc false.
 open(EpmdAddr, Timeout) ->
-	% erlang:display({in_open_2}),
 	case application:get_env(kernel, epmd_ssl_options) of
         {ok, Opts} -> 
             open_tls(EpmdAddr, Opts, Timeout);
@@ -465,31 +447,23 @@ open_tcp({A,B,C,D,E,F,G,H}=EpmdAddr, Timeout) when ?ip6(A,B,C,D,E,F,G,H) ->
 
 -doc false.
 open_tls(EpmdAddr, Opts) ->
-	% erlang:display({in_open_tls_1}),
-	% erlang:display({Opts}),
     case whereis(ssl_manager) of
         undefined -> {error, ssl_not_started};
         _ ->
-        % erlang:display({error_in_open_tls_1}),
 		maybe
     	    {ok, Socket} ?= ssl:connect(EpmdAddr, get_epmd_port(), Opts),
-        	% erlang:display_string("open_tls: after ssl:connect\n\r"),
         	{ok, ssl, Socket}
     	end
 	end.
 
 -doc false.
 open_tls(EpmdAddr, Opts, Timeout)->
-    % erlang:display({in_open_tls_2}),
-	% erlang:display({Opts}),
 	ssl:start(),
     case whereis(ssl_manager) of
         undefined -> {error, ssl_not_started};
         _ ->
-        % erlang:display({error_in_open_tls_2}),
 		maybe
     	    {ok, Socket} ?= ssl:connect(EpmdAddr, get_epmd_port(), Opts, Timeout),
-        	% erlang:display_string("open_tls with timeout: after ssl:connect\n\r"),
         	{ok, ssl, Socket}
     	end
 	end.
@@ -505,7 +479,6 @@ close(Socket) ->
 
 
 do_register_node(NodeName, TcpPort, Family) ->
-	% erlang:display({in_do_register_node_1}),
     Localhost = case Family of
         inet -> open({127,0,0,1});
         inet6 -> open({0,0,0,0,0,0,0,1})
@@ -532,7 +505,6 @@ do_register_node(NodeName, TcpPort, Family) ->
 			gen_tcp ->
 				gen_tcp:send(Socket, Packet)
 			end,
-        % erlang:display_string("\n\rsent reg request using " ++ atom_to_list(SocketType) ++ "\n\r"),
 	    case Result of
                 ok ->
                     wait_for_reg_reply(Socket, []);
@@ -575,7 +547,6 @@ epmd_dist_low() ->
 %%% (When we reply 'duplicate_name', it's because it's the most likely
 %%% reason; there is no interpretation of the error result code.)
 wait_for_reg_reply(Socket, SoFar) ->
-	% erlang:display({in_wait_for_reg_reply}),
     receive
 	{tcp, Socket, Data0} ->
 	    case SoFar ++ Data0 of
@@ -599,12 +570,10 @@ wait_for_reg_reply(Socket, SoFar) ->
 		    {error, {garbage_from_epmd, Garbage}}
 	    end;
 	{ssl, Socket, Data0} ->
-		% erlang:display({Data0, Socket, in_wait_for_reg_reply_2}),
 	    case SoFar ++ Data0 of
 		[$v, Result, A, B, C, D] ->
 		    case Result of
 			0 ->
-				% erlang:display_string(lists:flatten(io_lib:format("got data from socket: ~p => ~p", [Socket, ?u32(A,B,C,D)])) ++ "\n\r"),
 			    {alive, Socket, ?u32(A, B, C, D)};
 			_ ->
 			    {error, duplicate_name}
@@ -612,7 +581,6 @@ wait_for_reg_reply(Socket, SoFar) ->
 		[$y, Result, A, B] ->
 		    case Result of
 			0 ->
-				% erlang:display_string(lists:flatten(io_lib:format("got data from socket: ~p => ~p", [Socket, ?u16(A,B)])) ++ "\n\r"),
 			    {alive, Socket, ?u16(A, B)};
 			_ ->
 			    {error, duplicate_name}
@@ -636,7 +604,6 @@ wait_for_reg_reply(Socket, SoFar) ->
 %%
 
 get_port(Node, EpmdAddress, Timeout) ->
-	% erlang:display({in_get_port}),
     case open(EpmdAddress, Timeout) of
 	{ok, SocketType, Socket} ->
 	    Name = to_string(Node),
@@ -648,7 +615,6 @@ get_port(Node, EpmdAddress, Timeout) ->
     end.
 
 epmd_send(gen_tcp, Socket, Msg) ->
-	% erlang:display({in_epmd_send_tcp}),
     case gen_tcp:send(Socket, Msg) of
         ok ->
             wait_for_port_reply(Socket, []);
@@ -658,7 +624,6 @@ epmd_send(gen_tcp, Socket, Msg) ->
     end;
 
 epmd_send(ssl, Socket, Msg) ->
-	% erlang:display({in_epmd_send_ssl}),
     case ssl:send(Socket, Msg) of
         ok ->
             wait_for_port_reply(Socket, []);
@@ -669,7 +634,6 @@ epmd_send(ssl, Socket, Msg) ->
 
 
 wait_for_port_reply(Socket, SoFar) ->
-	% erlang:display({in_wait_for_port_reply}),
     receive
 	{SocketType, Socket, Data0} when 
 							SocketType =:= tcp; 
@@ -804,7 +768,6 @@ get_names(EpmdAddress) ->
     end.
 
 do_get_names(Socket) ->
-	% erlang:display({in_do_get_names}),
 	Result = case application:get_env(kernel, epmd_ssl_options) of
 			{ok, _Opts} ->
 				ssl:send(Socket, [?int16(1),?EPMD_NAMES]), 
