@@ -118,7 +118,8 @@ end_per_suite(Config0) ->
     Config1 = ?LIB:end_per_suite(Config0),
 
     ?P("end_per_suite -> "
-       "~n      Nodes: ~p", [erlang:nodes()]),
+       "~n      Nodes:   ~p"
+       "~n      Options: ~p", [erlang:nodes(), inet_db:get_rc()]),
 
     Config1. %% We don't actually need to update or return config
 
