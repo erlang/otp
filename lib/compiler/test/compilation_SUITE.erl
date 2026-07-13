@@ -61,6 +61,7 @@
 	 vsn_2/1,
          vsn_3/1,
          infinite_loop/0,infinite_loop/1,
+         native_record/1,
          use_nifs/1]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -90,7 +91,7 @@ groups() ->
        otp_5553,otp_5632,otp_5714,otp_5872,otp_6121,
        otp_7202,on_load,on_load_inline,
        string_table,otp_8949_a,split_cases,
-       infinite_loop,
+       infinite_loop, native_record,
        use_nifs]}].
 
 init_per_suite(Config) ->
@@ -142,6 +143,7 @@ end_per_group(_GroupName, Config) ->
 ?comp(otp_7202).
 ?comp(on_load).
 ?comp(on_load_inline).
+?comp(native_record).
 
 ?comp(use_nifs).
 
