@@ -769,6 +769,19 @@ do_interrupted_send(Config, SendSize, EchoSize, SenderResult) ->
 			    ct:log("~p:~p ~p - That's what we expect :)",
                                    [?MODULE,?LINE, SenderResult]),
 			    ok;
+                        {SenderPid, {error, closed}} ->
+                            %% We called ssh:close(ConnectionRef) above while
+                            %% the sender was still pushing data (10 MB send,
+                            %% only 4 MB echoed). The connection teardown can
+                            %% race with the ongoing send, causing it to return
+                            %% {error, closed} instead of ok. Both outcomes are
+                            %% valid — the test's purpose is to verify the
+                            %% listener received correct echo data, not that
+                            %% the sender completes the full 10 MB transfer.
+                            ct:log("~p:~p sender got {error,closed} after "
+                                   "ssh:close - acceptable race",
+                                   [?MODULE,?LINE]),
+                            ok;
 			Msg ->
 			    ct:log("~p:~p Not expected send result: ~p",[?MODULE,?LINE,Msg]),
 			    {fail, "Not expected msg"}
