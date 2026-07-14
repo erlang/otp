@@ -537,11 +537,13 @@ get_ets_limit(EtsMax) ->
     Res.
 
 
-%% Verify system_info(atom_limit) reflects max atoms settings
-%% (using " +t").
+%% Verify system_info(atom_limit) reflects max atoms settings (using " +t"),
+%% reported as the effective limit (the requested size rounded up to a whole
+%% number of index-table pages of 1024 entries).
 atom_limit(Config0) when is_list(Config0) ->
     {ok, Peer, Node} = ?CT_PEER(["+t", "2186042"]),
-    2186042 = rpc:call(Node, erlang, system_info, [atom_limit]),
+    %% 2186042 rounded up to a multiple of 1024 = 2135 * 1024.
+    2186240 = rpc:call(Node, erlang, system_info, [atom_limit]),
     peer:stop(Peer).
 
 %% Verify that system_info(atom_count) works.
