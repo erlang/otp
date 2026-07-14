@@ -142,6 +142,26 @@
          pbkdf2_hmac/1,
          pbkdf2_hmac_invalid_input/0,
          pbkdf2_hmac_invalid_input/1,
+         kdf_hkdf/0,
+         kdf_hkdf/1,
+         kdf_sskdf/0,
+         kdf_sskdf/1,
+         kdf_pbkdf2/0,
+         kdf_pbkdf2/1,
+         kdf_scrypt/0,
+         kdf_scrypt/1,
+         kdf_argon2/0,
+         kdf_argon2/1,
+         kdf_invalid_input/0,
+         kdf_invalid_input/1,
+         kdf_pbkdf2_invalid_input/0,
+         kdf_pbkdf2_invalid_input/1,
+         kdf_argon2_invalid_input/0,
+         kdf_argon2_invalid_input/1,
+         kdf_scrypt_invalid_input/0,
+         kdf_scrypt_invalid_input/1,
+         kdf_sskdf_invalid_input/0,
+         kdf_sskdf_invalid_input/1,
          privkey_to_pubkey/1,
 
          %% Others:
@@ -254,7 +274,17 @@ all() ->
      hash_equals,
      concurrent_access,
      pbkdf2_hmac,
-     pbkdf2_hmac_invalid_input
+     pbkdf2_hmac_invalid_input,
+     kdf_hkdf,
+     kdf_sskdf,
+     kdf_pbkdf2,
+     kdf_scrypt,
+     kdf_argon2,
+     kdf_invalid_input,
+     kdf_pbkdf2_invalid_input,
+     kdf_argon2_invalid_input,
+     kdf_scrypt_invalid_input,
+     kdf_sskdf_invalid_input
     ].
 
 -define(NEW_CIPHER_TYPE_SCHEMA,
@@ -408,7 +438,12 @@ groups() ->
                  {group, aes_256_cfb8},
                  {group, aes_128_ofb},
                  {group, aes_192_ofb},
-                 {group, aes_256_ofb}
+                 {group, aes_256_ofb},
+
+                 {group, no_argon2d},
+                 {group, no_argon2i},
+                 {group, no_argon2id},
+                 {group, no_scrypt}
                 ]},
 
      {md4,                  [], [hash]},
@@ -512,6 +547,10 @@ groups() ->
      {no_chacha20,          [], [no_support]},
      {no_rc2_cbc,           [], [no_support]},
      {no_rc4,               [], [no_support]},
+     {no_argon2d,           [], [no_support]},
+     {no_argon2i,           [], [no_support]},
+     {no_argon2id,          [], [no_support]},
+     {no_scrypt,            [], [no_support]},
      {api_errors,           [], [api_errors_ecdh,
                                  bad_key_length,
                                  bad_cipher_name,
@@ -549,7 +588,12 @@ groups() ->
     ].
 
 doctests(_Config) ->
+    SkipTests = case lists:member(scrypt, crypto:supports(kdfs)) of
+                    false -> [{function, kdf, 4}];
+                    true -> []
+                end,
     ct_doctest:module(crypto, [
+        {skip_tests, SkipTests},
         {missing_tests, [
             {crypto_final,1},
             {crypto_one_time_aead,4},
@@ -5533,6 +5577,415 @@ pbkdf2_hmac_invalid_input(Config) when is_list(Config) ->
     error:{notsup, _, "Unsupported CRYPTO_PKCS5_PBKDF2_HMAC"++_} ->
             {skip, "No CRYPTO_PKCS5_PBKDF2_HMAC"}
   end.
+
+kdf_hkdf() ->
+  [{doc, "Test kdf/4 with hkdf, RFC 5869 test vectors"}].
+kdf_hkdf(Config) when is_list(Config) ->
+    case lists:member(hkdf, crypto:supports(kdfs)) of
+        false ->
+            {skip, "hkdf not supported"};
+        true ->
+            IKM = binary:copy(<<16#0b>>, 22),
+            Salt = <<16#000102030405060708090a0b0c:(13*8)>>,
+            Info = <<16#f0f1f2f3f4f5f6f7f8f9:(10*8)>>,
+            %% A.1: extract-and-expand (default mode)
+            OKM1 = binary:decode_hex(
+                     <<"3cb25f25faacd57a90434f64d0362f2a"
+                       "2d2d0a90cf1a5a4c5db02d56ecc4c5bf"
+                       "34007208d5b887185865">>),
+            OKM1 = crypto:kdf(hkdf, IKM, 42, #{digest => sha256,
+                                               salt => Salt,
+                                               info => Info}),
+            %% Same, mode given explicitly
+            OKM1 = crypto:kdf(hkdf, IKM, 42, #{digest => sha256,
+                                               salt => Salt,
+                                               info => Info,
+                                               mode => extract_and_expand}),
+            %% A.1 PRK: extract-only; KeyLen must equal digest size
+            PRK1 = binary:decode_hex(
+                     <<"077709362c2e32df0ddc3f0dc47bba63"
+                       "90b6c73bb50f9c3122ec844ad7c2b3e5">>),
+            PRK1 = crypto:kdf(hkdf, IKM, 32, #{digest => sha256,
+                                               salt => Salt,
+                                               mode => extract_only}),
+            %% A.1 again as expand-only from the PRK
+            OKM1 = crypto:kdf(hkdf, PRK1, 42, #{digest => sha256,
+                                                info => Info,
+                                                mode => expand_only}),
+            %% A.3: zero-length salt and info
+            OKM3 = binary:decode_hex(
+                     <<"8da4e775a563c18f715f802a063c5a31"
+                       "b8a11f5c5ee1879ec3454e5f3c738d2d"
+                       "9d201395faa4b61a96c8">>),
+            OKM3 = crypto:kdf(hkdf, IKM, 42, #{digest => sha256,
+                                               salt => <<>>,
+                                               info => <<>>}),
+            ok
+    end.
+
+kdf_sskdf() ->
+  [{doc, "Test kdf/4 with sskdf, hash mode (RFC 7518 Appendix C) and "
+         "HMAC mode (NIST CAVP vector)"}].
+kdf_sskdf(Config) when is_list(Config) ->
+    case lists:member(sskdf, crypto:supports(kdfs)) of
+        false ->
+            {skip, "sskdf not supported"};
+        true ->
+            F = fun(Secret, Opts) ->
+                    binary:encode_hex(
+                      crypto:kdf(sskdf, Secret, 16, Opts),
+                      lowercase)
+                end,
+            Secret = binary:decode_hex(
+                       <<"9e56d91d817135d372834283bf84269c"
+                         "fb316ea3da806a48f6daa7798cfe90c4">>),
+            Info = <<0,0,0,7,"A128GCM",
+                     0,0,0,5,"Alice",
+                     0,0,0,3,"Bob",
+                     0,0,0,128>>,
+            <<"56aa8deaf8236d205c2228cd71a7101a">> =
+                F(Secret, #{digest => sha256, info => Info}),
+            <<"13479e9a91dd20fdd757d68ffe8869fb">> =
+                F(binary:decode_hex(<<"6ee6c00d70a6cd14bd5a4e8fcfec8386">>),
+                  #{digest => sha256, mac => hmac,
+                    salt => binary:decode_hex(
+                              <<"532f5131e0a2fecc722f87e5aa2062cb">>),
+                    info => binary:decode_hex(
+                              <<"861aa2886798231259bd0314">>)}),
+            ok
+    end.
+
+kdf_pbkdf2() ->
+  [{doc, "Test kdf/4 with pbkdf2, RFC 6070, RFC 3962 and RFC 7914 "
+         "test vectors"}].
+kdf_pbkdf2(Config) when is_list(Config) ->
+    case lists:member(pbkdf2, crypto:supports(kdfs)) of
+        false ->
+            {skip, "pbkdf2 not supported"};
+        true ->
+            F = fun(Pass, Salt, Iter, KeyLen) ->
+                    binary:encode_hex(
+                      crypto:kdf(pbkdf2, Pass, KeyLen,
+                                 #{digest => sha,
+                                   salt => Salt,
+                                   iterations => Iter}))
+                end,
+            F256 = fun(Pass, Salt, Iter, KeyLen) ->
+                    binary:encode_hex(
+                      crypto:kdf(pbkdf2, Pass, KeyLen,
+                                 #{digest => sha256,
+                                   salt => Salt,
+                                   iterations => Iter}))
+                end,
+            %% RFC 6070
+            <<"0C60C80F961F0E71F3A9B524AF6012062FE037A6">> =
+                F(<<"password">>, <<"salt">>, 1, 20),
+            <<"EA6C014DC72D6F8CCD1ED92ACE1D41F0D8DE8957">> =
+                F(<<"password">>, <<"salt">>, 2, 20),
+            <<"4B007901B765489ABEAD49D926F721D065A429C1">> =
+                F(<<"password">>, <<"salt">>, 4096, 20),
+            <<"EEFE3D61CD4DA4E4E9945B3D6BA2158C2634E984">> =
+                F(<<"password">>, <<"salt">>, 16777216, 20),
+            <<"3D2EEC4FE41C849B80C8D83662C0E44A8B291A964CF2F07038">> =
+                F(<<"passwordPASSWORDpassword">>,
+                  <<"saltSALTsaltSALTsaltSALTsaltSALTsalt">>, 4096, 25),
+            <<"56FA6AA75548099DCC37D7F03425E0C3">> =
+                F(<<"pass\0word">>, <<"sa\0lt">>, 4096, 16),
+            %% RFC 3962
+            <<"CDEDB5281BB2F801565A1122B2563515">> =
+                F(<<"password">>, <<"ATHENA.MIT.EDUraeburn">>, 1, 16),
+            <<"CDEDB5281BB2F801565A1122B25635150AD1F7A04BB9F3A333ECC0E2E1F70837">> =
+                F(<<"password">>, <<"ATHENA.MIT.EDUraeburn">>, 1, 32),
+            <<"01DBEE7F4A9E243E988B62C73CDA935D">> =
+                F(<<"password">>, <<"ATHENA.MIT.EDUraeburn">>, 2, 16),
+            <<"01DBEE7F4A9E243E988B62C73CDA935DA05378B93244EC8F48A99E61AD799D86">> =
+                F(<<"password">>, <<"ATHENA.MIT.EDUraeburn">>, 2, 32),
+            <<"5C08EB61FDF71E4E4EC3CF6BA1F5512B">> =
+                F(<<"password">>, <<"ATHENA.MIT.EDUraeburn">>, 1200, 16),
+            <<"5C08EB61FDF71E4E4EC3CF6BA1F5512BA7E52DDBC5E5142F708A31E2E62B1E13">> =
+                F(<<"password">>, <<"ATHENA.MIT.EDUraeburn">>, 1200, 32),
+            <<"D1DAA78615F287E6A1C8B120D7062A49">> =
+                F(<<"password">>, binary:encode_unsigned(16#1234567878563412), 5, 16),
+            <<"D1DAA78615F287E6A1C8B120D7062A493F98D203E6BE49A6ADF4FA574B6E64EE">> =
+                F(<<"password">>, binary:encode_unsigned(16#1234567878563412), 5, 32),
+            <<"139C30C0966BC32BA55FDBF212530AC9">> =
+                F(<<"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX">>,
+                  <<"pass phrase equals block size">>, 1200, 16),
+            <<"139C30C0966BC32BA55FDBF212530AC9C5EC59F1A452F5CC9AD940FEA0598ED1">> =
+                F(<<"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX">>,
+                  <<"pass phrase equals block size">>, 1200, 32),
+            <<"9CCAD6D468770CD51B10E6A68721BE61">> =
+                F(<<"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX">>,
+                  <<"pass phrase exceeds block size">>, 1200, 16),
+            <<"9CCAD6D468770CD51B10E6A68721BE611A8B4D282601DB3B36BE9246915EC82A">> =
+                F(<<"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX">>,
+                  <<"pass phrase exceeds block size">>, 1200, 32),
+            <<"6B9CF26D45455A43A5B8BB276A403B39">> =
+                F(binary:encode_unsigned(16#f09d849e), <<"EXAMPLE.COMpianist">>, 50, 16),
+            <<"6B9CF26D45455A43A5B8BB276A403B39E7FE37A0C41E02C281FF3069E1E94F52">> =
+                F(binary:encode_unsigned(16#f09d849e), <<"EXAMPLE.COMpianist">>, 50, 32),
+            %% SHA256 variant, RFC 7914 (section 11)
+            <<"55AC046E56E3089FEC1691C22544B605"
+              "F94185216DDE0465E68B9D57C20DACBC"
+              "49CA9CCCF179B645991664B39D77EF31"
+              "7C71B845B1E30BD509112041D3A19783">> =
+                F256(<<"passwd">>, <<"salt">>, 1, 64),
+            <<"4DDCD8F60B98BE21830CEE5EF22701F9"
+              "641A4418D04C0414AEFF08876B34AB56"
+              "A1D425A1225833549ADB841B51C9B317"
+              "6A272BDEBBA1D078478F62B397F33C8D">> =
+                F256(<<"Password">>, <<"NaCl">>, 80000, 64),
+            %% Cross-check against the existing pbkdf2_hmac/5
+            Expected = crypto:pbkdf2_hmac(sha256, <<"pass">>, <<"salt">>,
+                                          1000, 32),
+            Expected = crypto:kdf(pbkdf2, <<"pass">>, 32,
+                                  #{digest => sha256,
+                                    salt => <<"salt">>,
+                                    iterations => 1000}),
+            ok
+    end.
+
+kdf_scrypt() ->
+  [{doc, "Test kdf/4 with scrypt, RFC 7914 test vectors"}].
+kdf_scrypt(Config) when is_list(Config) ->
+    case lists:member(scrypt, crypto:supports(kdfs)) of
+        false ->
+            {skip, "scrypt not supported"};
+        true ->
+            F = fun(Pass, Salt, N, R, P) ->
+                    binary:encode_hex(
+                      crypto:kdf(scrypt, Pass, 64,
+                                 #{salt => Salt,
+                                   n => N, r => R, p => P}),
+                      lowercase)
+                end,
+            <<"77d6576238657b203b19ca42c18a0497"
+              "f16b4844e3074ae8dfdffa3fede21442"
+              "fcd0069ded0948f8326a753a0fc81f17"
+              "e8d3e0fb2e0d3628cf35e20c38d18906">> =
+                F(<<>>, <<>>, 16, 1, 1),
+            <<"fdbabe1c9d3472007856e7190d01e9fe"
+              "7c6ad7cbc8237830e77376634b373162"
+              "2eaf30d92e22a3886ff109279d9830da"
+              "c727afb94a83ee6d8360cbdfa2cc0640">> =
+                F(<<"password">>, <<"NaCl">>, 1024, 8, 16),
+            <<"7023bdcb3afd7348461c06cd81fd38eb"
+              "fda8fbba904f8e3ea9b543f6545da1f2"
+              "d5432955613f0fcf62d49705242a9af9"
+              "e61e85dc0d651e40dfcf017b45575887">> =
+                F(<<"pleaseletmein">>, <<"SodiumChloride">>, 16384, 8, 1),
+            %% maxmem is accepted as an option
+            _ = crypto:kdf(scrypt, <<"p">>, 16,
+                           #{salt => <<"s">>,
+                             n => 16, r => 1, p => 1,
+                             maxmem => 1024*1024*64}),
+            ok
+    end.
+
+kdf_argon2() ->
+  [{doc, "Test kdf/4 with argon2d/i/id, RFC 9106 test vectors"}].
+kdf_argon2(Config) when is_list(Config) ->
+    case [K || K <- [argon2d, argon2i, argon2id],
+               lists:member(K, crypto:supports(kdfs))] of
+        [argon2d, argon2i, argon2id] ->
+            Password = binary:copy(<<1>>, 32),
+            Opts = #{salt => binary:copy(<<2>>, 16),
+                     secret => binary:copy(<<3>>, 8),
+                     ad => binary:copy(<<4>>, 12),
+                     memory => 32,
+                     iterations => 3,
+                     parallelism => 4},
+            %% RFC 9106 section 5.1
+            <<"512b391b6f1162975371d30919734294"
+              "f868e3be3984f3c1a13a4db9fabe4acb">> =
+                binary:encode_hex(crypto:kdf(argon2d, Password, 32, Opts),
+                                  lowercase),
+            %% RFC 9106 section 5.2
+            <<"c814d9d1dc7f37aa13f0d77f2494bda1"
+              "c8de6b016dd388d29952a4c4672b6ce8">> =
+                binary:encode_hex(crypto:kdf(argon2i, Password, 32, Opts),
+                                  lowercase),
+            %% RFC 9106 section 5.3
+            <<"0d640df58d78766c08c037a34a8b53c9"
+              "d01ef0452d75b65eb52520e96b01e659">> =
+                binary:encode_hex(crypto:kdf(argon2id, Password, 32, Opts),
+                                  lowercase),
+            %% Without the optional secret/ad keys it must still derive
+            32 = byte_size(crypto:kdf(argon2id, Password, 32,
+                                      maps:without([secret, ad], Opts))),
+            ok;
+        _ ->
+            {skip, "argon2 not supported (requires OpenSSL 3.2+, no FIPS)"}
+    end.
+
+%% Assert that crypto:kdf/4 rejects the given input with a badarg carrying
+%% ErrorStr. Shared by the kdf_*_invalid_input testcases.
+kdf_expect_badarg(Type, KeyMaterial, KeyLen, Opts, ErrorStr) ->
+    try crypto:kdf(Type, KeyMaterial, KeyLen, Opts) of
+        Res -> ct:fail("Unexpected result ~p", [Res])
+    catch
+        error:{badarg, {_, _}, ErrorStr} -> ok;
+        Tag:Err ->
+            ct:fail("Unexpected exception ~p:~p", [Tag, Err])
+    end.
+
+kdf_invalid_input() ->
+  [{doc, "Test kdf/4 with invalid generic and hkdf input"}].
+kdf_invalid_input(Config) when is_list(Config) ->
+    case lists:member(hkdf, crypto:supports(kdfs)) of
+        false ->
+            {skip, "hkdf not supported"};
+        true ->
+            %% Unknown KDF type
+            kdf_expect_badarg(no_such_kdf, <<"key">>, 32, #{}, "Unknown KDF"),
+            GoodHkdf = #{digest => sha256},
+            %% Bad key material
+            kdf_expect_badarg(hkdf, "not a binary", 32, GoodHkdf,
+                              "Key material must be a binary"),
+            kdf_expect_badarg(hkdf, an_atom, 32, GoodHkdf,
+                              "Key material must be a binary"),
+            %% Bad key length
+            kdf_expect_badarg(hkdf, <<"key">>, 0, GoodHkdf, "Bad key length"),
+            kdf_expect_badarg(hkdf, <<"key">>, -1, GoodHkdf, "Bad key length"),
+            kdf_expect_badarg(hkdf, <<"key">>, bad, GoodHkdf, "Bad key length"),
+            %% Options not a map
+            kdf_expect_badarg(hkdf, <<"key">>, 32, [], "Not a map"),
+            %% Unknown option key
+            kdf_expect_badarg(hkdf, <<"key">>, 32, GoodHkdf#{iterations => 1},
+                              "Unknown option: iterations"),
+            %% Missing required option
+            kdf_expect_badarg(hkdf, <<"key">>, 32, #{}, "Missing option: digest"),
+            %% Wrong value types
+            kdf_expect_badarg(hkdf, <<"key">>, 32, GoodHkdf#{salt => "not a binary"},
+                              "Option salt must be a binary"),
+            kdf_expect_badarg(hkdf, <<"key">>, 32, GoodHkdf#{digest := sha42},
+                              "Bad digest type"),
+            %% XOF digests can't key an HMAC; reject with a clear badarg rather
+            %% than letting OpenSSL fail the derive with an opaque error.
+            kdf_expect_badarg(hkdf, <<"key">>, 32, GoodHkdf#{digest := shake256},
+                              "XOF digest not supported"),
+            kdf_expect_badarg(hkdf, <<"key">>, 32, GoodHkdf#{mode => bad_mode},
+                              "Bad hkdf mode"),
+            kdf_expect_badarg(hkdf, <<"key">>, 42, GoodHkdf#{mode => extract_only},
+                              "extract_only KeyLen must equal the digest size"),
+            %% HKDF-Expand caps output at 255 * HashLen (sha256 => 255*32 = 8160)
+            8160 = byte_size(crypto:kdf(hkdf, <<"key">>, 8160, GoodHkdf)),
+            kdf_expect_badarg(hkdf, <<"key">>, 8161, GoodHkdf,
+                              "KeyLen must be at most 255 times the digest size"),
+            %% salt is ignored in expand_only mode
+            kdf_expect_badarg(hkdf, <<"key">>, 32,
+                              GoodHkdf#{salt => <<"s">>, mode => expand_only},
+                              "Option salt not used with mode => expand_only"),
+            %% info is ignored in extract_only mode
+            kdf_expect_badarg(hkdf, <<"key">>, 32,
+                              GoodHkdf#{info => <<"info">>, mode => extract_only},
+                              "Option info not used with mode => extract_only"),
+            ok
+    end.
+
+kdf_pbkdf2_invalid_input() ->
+  [{doc, "Test kdf/4 with invalid pbkdf2 input"}].
+kdf_pbkdf2_invalid_input(Config) when is_list(Config) ->
+    case lists:member(pbkdf2, crypto:supports(kdfs)) of
+        false ->
+            {skip, "pbkdf2 not supported"};
+        true ->
+            kdf_expect_badarg(pbkdf2, <<"p">>, 32,
+                              #{digest => sha256,
+                                salt => <<"s">>,
+                                iterations => not_an_int},
+                              "Option iterations must be a positive integer"),
+            kdf_expect_badarg(pbkdf2, <<"p">>, 32,
+                              #{digest => sha256,
+                                salt => <<"s">>,
+                                iterations => 0},
+                              "Option iterations must be a positive integer"),
+            %% digests without PBKDF2_ELIGIBLE_DIGEST are rejected. sha3_256 is
+            %% FIPS-approved (so it isn't rejected earlier as a FIPS-forbidden
+            %% digest) but is not PBKDF2-eligible, so this holds under FIPS too.
+            kdf_expect_badarg(pbkdf2, <<"p">>, 32,
+                              #{digest => sha3_256,
+                                salt => <<"s">>,
+                                iterations => 1000},
+                              "Not eligible digest type"),
+            ok
+    end.
+
+kdf_argon2_invalid_input() ->
+  [{doc, "Test kdf/4 with invalid argon2 input"}].
+kdf_argon2_invalid_input(Config) when is_list(Config) ->
+    case lists:member(argon2id, crypto:supports(kdfs)) of
+        false ->
+            {skip, "argon2 not supported"};
+        true ->
+            kdf_expect_badarg(argon2id, <<"p">>, 32,
+                              #{salt => <<"0123456789abcdef">>,
+                                memory => 1 bsl 32,
+                                iterations => 3,
+                                parallelism => 4},
+                              "Option memory is too large"),
+            %% keylen < 4 (RFC 9106 minimum tag length)
+            kdf_expect_badarg(argon2id, <<"p">>, 3,
+                              #{salt => <<"0123456789abcdef">>,
+                                memory => 65536,
+                                iterations => 3,
+                                parallelism => 4},
+                              "Argon2 KeyLen must be at least 4"),
+            %% parallelism > 2^24-1
+            kdf_expect_badarg(argon2id, <<"p">>, 32,
+                              #{salt => <<"0123456789abcdef">>,
+                                memory => 65536,
+                                iterations => 3,
+                                parallelism => 1 bsl 24},
+                              "Option parallelism is too large"),
+            %% memory < 8 * parallelism
+            kdf_expect_badarg(argon2id, <<"p">>, 32,
+                              #{salt => <<"0123456789abcdef">>,
+                                memory => 8,
+                                iterations => 3,
+                                parallelism => 4},
+                              "Option memory must be at least 8 times parallelism"),
+            %% salt < 8 bytes (RFC 9106 minimum)
+            kdf_expect_badarg(argon2id, <<"p">>, 32,
+                              #{salt => <<"short">>,
+                                memory => 65536,
+                                iterations => 3,
+                                parallelism => 4},
+                              "Option salt must be at least 8 bytes"),
+            ok
+    end.
+
+kdf_scrypt_invalid_input() ->
+  [{doc, "Test kdf/4 with invalid scrypt input"}].
+kdf_scrypt_invalid_input(Config) when is_list(Config) ->
+    case lists:member(scrypt, crypto:supports(kdfs)) of
+        false ->
+            {skip, "scrypt not supported"};
+        true ->
+            kdf_expect_badarg(scrypt, <<"p">>, 16,
+                              #{salt => <<"s">>, n => 3, r => 1, p => 1},
+                              "Option n must be a power of two greater than 1"),
+            ok
+    end.
+
+kdf_sskdf_invalid_input() ->
+  [{doc, "Test kdf/4 with invalid sskdf input"}].
+kdf_sskdf_invalid_input(Config) when is_list(Config) ->
+    case lists:member(sskdf, crypto:supports(kdfs)) of
+        false ->
+            {skip, "sskdf not supported"};
+        true ->
+            %% salt is only used as the HMAC key
+            kdf_expect_badarg(sskdf, <<"s">>, 16,
+                              #{digest => sha256, salt => <<"x">>},
+                              "Option salt requires mac => hmac"),
+            %% XOF digests are rejected with a clear badarg
+            kdf_expect_badarg(sskdf, <<"s">>, 16,
+                              #{digest => shake256},
+                              "XOF digest not supported"),
+            ok
+    end.
+
 get_priv_pub_from_sign_verify(L) ->
     lists:foldl(fun get_priv_pub/2, [], L).
 

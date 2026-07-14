@@ -161,6 +161,27 @@ extern ERL_NIF_TERM atom_mlkem768;
 extern ERL_NIF_TERM atom_mlkem1024;
 #endif
 
+#ifdef HAVE_KDF
+extern ERL_NIF_TERM atom_salt;
+extern ERL_NIF_TERM atom_info;
+extern ERL_NIF_TERM atom_iterations;
+extern ERL_NIF_TERM atom_n;
+extern ERL_NIF_TERM atom_r;
+extern ERL_NIF_TERM atom_p;
+extern ERL_NIF_TERM atom_maxmem;
+extern ERL_NIF_TERM atom_mac;
+extern ERL_NIF_TERM atom_extract_and_expand;
+extern ERL_NIF_TERM atom_extract_only;
+extern ERL_NIF_TERM atom_expand_only;
+#endif
+
+#ifdef HAVE_ARGON2
+extern ERL_NIF_TERM atom_memory;
+extern ERL_NIF_TERM atom_parallelism;
+extern ERL_NIF_TERM atom_secret;
+extern ERL_NIF_TERM atom_ad;
+#endif
+
 int init_atoms(ErlNifEnv *env);
 
 #endif /* E_ATOMS_H__ */
