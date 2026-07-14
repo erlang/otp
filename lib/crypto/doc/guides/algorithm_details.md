@@ -252,6 +252,25 @@ column is present in the list returned by
 | MD5      | md5                                                        |                                     |
 | RIPEMD   | ripemd160                                                  |                                     |
 
+## Key Derivation Functions
+
+To be used in [kdf/4](`crypto:kdf/4`), which documents the full set of options
+accepted by each function.
+
+To dynamically check availability, check that the wanted name in the _KDF_
+column is present in the list returned by
+[crypto:supports(kdfs)](`crypto:supports/1`).
+
+| **KDF**                          | **Standard**    | **Required options**                          | **Limited to** **OpenSSL versions** |
+| -------------------------------- | --------------- | --------------------------------------------- | ----------------------------------- |
+| `argon2id`, `argon2i`, `argon2d` | RFC 9106        | `salt`, `memory`, `iterations`, `parallelism` | ≥3.2                                |
+| `hkdf`                           | RFC 5869        | `digest`                                      | ≥3.0                                |
+| `pbkdf2`                         | RFC 8018        | `digest`, `salt`, `iterations`                | ≥3.0                                |
+| `scrypt`                         | RFC 7914        | `salt`, `n`, `r`, `p`                         | ≥3.0                                |
+| `sskdf`                          | NIST SP 800-56C | `digest`                                      | ≥3.0                                |
+
+_Table: Key derivation functions_
+
 ## Public Key Cryptography
 
 ### RSA

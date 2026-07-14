@@ -47,6 +47,7 @@
 #include "hash_equals.h"
 #include "hmac.h"
 #include "info.h"
+#include "kdf.h"
 #include "math.h"
 #include "pbkdf2_hmac.h"
 #include "pkey.h"
@@ -101,6 +102,8 @@ static ErlNifFunc nif_funcs[] = {
     {"hash_equals_nif", 2, hash_equals_nif, 0},
     
     {"pbkdf2_hmac_nif", 5, pbkdf2_hmac_nif, 0},
+    {"kdf_nif", 4, kdf_nif, 0},
+    {"kdf_algorithms", 0, kdf_algorithms, 0},
     {"pkey_sign_nif", 5, pkey_sign_nif, 0},
     {"pkey_sign_heavy_nif", 5, pkey_sign_heavy_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"pkey_verify_nif", 6, pkey_verify_nif, 0},
@@ -341,6 +344,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     init_mac_types(env);
     init_cipher_types(env);
     init_algorithms_types(env);
+    init_kdf_types(env);
 
     library_initialized = 1;
     ret = 0;
