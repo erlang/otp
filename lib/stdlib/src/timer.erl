@@ -189,8 +189,7 @@ milliseconds.
 ## Examples
 
 ```text
-1>timer:apply_after(1000, fun() -> ok end).
-{ok, TRef}
+1>{ok,_} = timer:apply_after(1000, fun() -> ok end).
 ```
 """.
 -doc(#{equiv => apply_after(Time, Function, []) }).
@@ -214,8 +213,7 @@ Evaluates [`spawn(erlang, apply, [Function, Arguments])`](`spawn/3`) after
 ## Examples
 
 ```erlang
-1> ok = element(1, timer:apply_after(1000, fun(X) -> X * 2 end, [5])).
-ok
+1> {ok, TRef} = timer:apply_after(1000, fun(X) -> X * 2 end, [5]).
 ```
 """.
 -doc(#{since => <<"OTP 27.0">>}).
@@ -239,14 +237,10 @@ milliseconds.
 ## Examples
 
 ```erlang
-1> ok = element(1, timer:apply_after(1000, fun() -> 2 + 2 end)).
-ok
-2> {ok, {once, Ref1}} = timer:apply_after(1000, fun(X) -> X * 2 end, [21]), is_reference(Ref1).
-true
-3> ok = element(1, timer:apply_after(5000, io, format, ["Hello~n", []])).
-ok
-4> {ok, {instant, Ref2}} = timer:apply_after(0, erlang, node, []), is_reference(Ref2).
-true
+1> {ok, TRef} = timer:apply_after(1000, fun() -> 2 + 2 end).
+2> {ok, TRef1} = timer:apply_after(1000, fun(X) -> X * 2 end, [21]).
+3> {ok, TRef2} = timer:apply_after(5000, io, format, ["Hello~n", []]).
+4> {ok, TRef3} = timer:apply_after(0, erlang, node, []).
 5> timer:apply_after(-100, io, format, ["Bad~n", []]).
 {error, badarg}
 ```
@@ -281,12 +275,9 @@ See also [the Timer Module section in the Efficiency Guide](`e:system:commoncave
 ## Examples
 
 ```erlang
-1> ok = element(1, timer:send_after(500, hello)).
-ok
-2> {ok, {send_local, Ref1}} = timer:send_after(1000, self(), world), is_reference(Ref1).
-true
-3> {ok, {instant, Ref2}} = timer:send_after(0, self(), immediate), is_reference(Ref2).
-true
+1> {ok, TRef} = timer:send_after(500, hello).
+2> {ok, TRef1} = timer:send_after(1000, self(), world).
+3> {ok, TRef2} = timer:send_after(0, self(), immediate).
 4> timer:send_after(-1, self(), msg).
 {error, badarg}
 ```
@@ -343,10 +334,8 @@ process identifier or an atom of a registered name.
 
 ```erlang
 1> Pid = spawn(fun() -> receive _ -> ok end end).
-2> ok = element(1, timer:exit_after(1000, Pid, timeout)).
-ok
-3> {ok, {once, Ref}} = timer:exit_after(1000, Pid, normal), is_reference(Ref).
-true
+2> {ok, TRef} = timer:exit_after(1000, Pid, timeout).
+3> {ok, TRef1} = timer:exit_after(1000, Pid, normal).
 4> timer:exit_after(-100, Pid, bad).
 {error, badarg}
 ```
@@ -376,10 +365,8 @@ Equivalent to [`exit_after(Time, Target, kill)`](`exit_after/3`).
 
 ```erlang
 1> Pid = spawn(fun() -> receive _ -> ok end end).
-2> ok = element(1, timer:kill_after(5000, Pid)).
-ok
-3> {ok, {once, Ref}} = timer:kill_after(1000, Pid), is_reference(Ref).
-true
+2> {ok, TRef} = timer:kill_after(5000, Pid).
+3> {ok, TRef1} = timer:kill_after(1000, Pid).
 4> timer:kill_after(-100, Pid).
 {error, badarg}
 ```
@@ -408,8 +395,7 @@ finished or not.
 ## Examples
 
 ```erlang
-1> ok = element(1, timer:apply_interval(1000, fun() -> ok end)).
-ok
+1> {ok, TRef} = timer:apply_interval(1000, fun() -> ok end).
 ```
 """.
 -doc(#{since => <<"OTP 27.0">>}).
@@ -434,8 +420,7 @@ finished or not.
 ## Examples
 
 ```erlang
-1> ok = element(1, timer:apply_interval(1000, fun(X) -> X + 1 end, [5])).
-ok
+1> {ok, TRef} = timer:apply_interval(1000, fun(X) -> X + 1 end, [5]).
 ```
 """.
 -doc(#{since => <<"OTP 27.0">>}).
@@ -474,12 +459,9 @@ finished or not.
 ## Examples
 
 ```erlang
-1> ok = element(1, timer:apply_interval(5000, fun() -> logger:info("heartbeat") end)).
-ok
-2> {ok, {interval, Ref}} = timer:apply_interval(100, fun(N) -> N + 1 end, [0]), is_reference(Ref).
-true
-3> ok = element(1, timer:apply_interval(1000, io, format, ["tick~n", []])).
-ok
+1> {ok, TRef} = timer:apply_interval(5000, fun() -> logger:info("heartbeat") end).
+2> {ok, TRef1} = timer:apply_interval(100, fun(N) -> N + 1 end, [0]).
+3> {ok, TRef2} = timer:apply_interval(1000, io, format, ["tick~n", []]).
 4> timer:apply_interval(-1, io, format, ["bad~n", []]).
 {error, badarg}
 ```
@@ -526,8 +508,7 @@ starting the next.
 ## Examples
 
 ```erlang
-1> ok = element(1, timer:apply_repeatedly(1000, fun(X) -> X + 1 end, [5])).
-ok
+1> {ok, TRef} = timer:apply_repeatedly(1000, fun(X) -> X + 1 end, [5]).
 ```
 """.
 -doc(#{since => <<"OTP 27.0">>}).
@@ -561,12 +542,9 @@ immediately one after the other in sequence.
 ## Examples
 
 ```erlang
-1> ok = element(1, timer:apply_repeatedly(1000, fun() -> process_queue() end)).
-ok
-2> {ok, {interval, Ref}} = timer:apply_repeatedly(500, fun(X) -> sync(X) end, [db]), is_reference(Ref).
-true
-3> ok = element(1, timer:apply_repeatedly(2000, erlang, statistics, [runtime])).
-ok
+1> {ok, TRef} = timer:apply_repeatedly(1000, fun() -> process_queue() end).
+2> {ok, TRef1} = timer:apply_repeatedly(500, fun(X) -> sync(X) end, [db]).
+3> {ok, TRef2} = timer:apply_repeatedly(2000, erlang, statistics, [runtime]).
 4> timer:apply_repeatedly(-1000, io, format, ["bad~n", []]).
 {error, badarg}
 ```
@@ -596,10 +574,8 @@ name or a tuple `{RegName, Node}` for a registered name at another node.
 ## Examples
 
 ```erlang
-1> ok = element(1, timer:send_interval(1000, pulse)).
-ok
-2> {ok, {interval, Ref}} = timer:send_interval(10000, self(), tick), is_reference(Ref).
-true
+1> {ok, TRef} = timer:send_interval(1000, pulse).
+2> {ok, TRef1} = timer:send_interval(10000, self(), tick).
 3> timer:send_interval(-1, self(), msg).
 {error, badarg}
 ```
@@ -797,11 +773,14 @@ specified `TimeUnit`, and `Value` is what is returned from the apply.
 ## Examples
 
 ```erlang
-1> {Time1, 25} = timer:tc(fun(X) -> X * X end, [5]), is_integer(Time1).
+1> {Time1, 25} = timer:tc(fun(X) -> X * X end, [5]).
+2> is_integer(Time1).
 true
-2> {Time2, 5} = timer:tc(erlang, length, [[1,2,3,4,5]]), is_integer(Time2).
+3> {Time2, 5} = timer:tc(erlang, length, [[1,2,3,4,5]]).
+4> is_integer(Time2).
 true
-3> {Time3, [1,2,3|_]} = timer:tc(lists, seq, [1, 1000], millisecond), is_integer(Time3).
+5> {Time3, [1,2,3|_]} = timer:tc(lists, seq, [1, 1000], millisecond).
+6> is_integer(Time3).
 true
 ```
 """.

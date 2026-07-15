@@ -522,8 +522,7 @@ Returns the local time reported by the underlying operating system.
 ## Examples
 
 ```erlang
-1> is_tuple(calendar:local_time()).
-true
+1> {{Year,Month,Day},{Hour,Min,Sec}} = calendar:local_time().
 ```
 """.
 -spec local_time() -> datetime().
@@ -549,12 +548,10 @@ see [`calendar:local_time_to_universal_time_dst/1`](`local_time_to_universal_tim
 ## Examples
 
 ```erlang
-1> is_integer(calendar:local_time_to_system_time({{1970, 1, 1}, {0, 0, 0}})).
-true
-2> is_integer(calendar:local_time_to_system_time({{1970, 1, 1}, {0, 0, 0}}, [])).
-true
-3> is_integer(calendar:local_time_to_system_time({{2024, 1, 1}, {0, 0, 0}}, [{unit, millisecond}])).
-true
+1> calendar:local_time_to_system_time({{1970, 1, 1}, {0, 0, 0}}).
+-3600
+2> calendar:local_time_to_system_time({{2024, 1, 1}, {0, 0, 0}}, [{unit, millisecond}]).
+1704063600000
 ```
 """.
 -spec local_time_to_system_time(datetime1970(), Options) -> pos_integer() when
@@ -587,7 +584,7 @@ refer to a local date after Jan 1, 1970.
 ## Examples
 
 ```erlang
-1> {{_, _, _}, {_, _, _}} = calendar:local_time_to_universal_time({{2024,3,15},{12,0,0}}).
+1> calendar:local_time_to_universal_time({{2024,3,15},{12,0,0}}).
 {{2024,3,15},{11,0,0}}
 ```
 """.
@@ -703,8 +700,8 @@ Returns local date and time converted from the return value from
 ## Examples
 
 ```erlang
-1> is_tuple(calendar:now_to_local_time({1517,498278,88000})).
-true
+1> calendar:now_to_local_time({1517,498278,88000}).
+{{2018,2,1},{16,17,58}}
 ```
 """.
 -spec now_to_local_time(Now) -> datetime1970() when
@@ -878,10 +875,10 @@ Converts a specified system time into local date and time.
 ## Examples
 
 ```erlang
-1> is_tuple(calendar:system_time_to_local_time(0, second)).
-true
-2> is_tuple(calendar:system_time_to_local_time(1704067200, second)).
-true
+1> calendar:system_time_to_local_time(0, second).
+{{1970,1,1},{1,0,0}}
+2> calendar:system_time_to_local_time(1704067200, second).
+{{2024,1,1},{1,0,0}}
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
@@ -953,12 +950,15 @@ Valid options:
 ## Examples
 
 ```erlang
-1> is_list(calendar:system_time_to_rfc3339(0)).
-true
+1> calendar:system_time_to_rfc3339(0).
+"1970-01-01T01:00:00+01:00"
 2> calendar:system_time_to_rfc3339(1517498278, [{offset, "Z"}]).
 "2018-02-01T15:17:58Z"
 3> calendar:system_time_to_rfc3339(1517498282088, [{unit, millisecond}, {offset, "Z"}]).
 "2018-02-01T15:18:02.088Z"
+4>  calendar:system_time_to_rfc3339(1517498282088,
+   [{unit, millisecond}, {time_designator, $\s}, {offset, "Z"}]).
+"2018-02-01 15:18:02.088Z"
 ```
 
 [RFC 3339]: https://www.ietf.org/rfc/rfc3339.txt
@@ -1082,8 +1082,7 @@ operating system. Returns local time if universal time is unavailable.
 ## Examples
 
 ```erlang
-1> is_tuple(calendar:universal_time()).
-true
+1> {{Year,Month,Day},{Hour,Minutes,Second}} = calendar:universal_time().
 ```
 """.
 -spec universal_time() -> datetime().
@@ -1132,8 +1131,8 @@ refer to a date after Jan 1, 1970.
 ## Examples
 
 ```erlang
-1> is_tuple(calendar:universal_time_to_local_time({{2024,6,15},{14,30,45}})).
-true
+1> calendar:universal_time_to_local_time({{2024,6,15},{14,30,45}}).
+{{2024,6,15},{16,30,45}}
 ```
 """.
 -spec universal_time_to_local_time(DateTime) -> datetime() when

@@ -175,7 +175,19 @@ seed_put(Seed) ->
 %% uniform()
 %%  Returns a random float between 0 and 1.
 
--doc(#{equiv => uniform(1)}).
+-doc """
+Returns, a random float uniformly distributed between `0.0` and `1.0`, 
+updating the state in the process dictionary.
+
+## Examples
+
+```erlang
+1> F = random:uniform().
+2> is_float(F) andalso F>= 0.0 andalso F =< 1.0.
+true
+```
+""".
+
 -spec uniform() -> float().
 
 uniform() ->
@@ -203,9 +215,8 @@ distributed between `1` and `N`, updating the state in the process dictionary.
 ```erlang
 1> random:seed(1, 2, 3).
 undefined
-2> F = random:uniform() , is_float(F) and ((F>= 0.0) and (F =< 1.0)).
-true
-3> I = random:uniform(10), ((I >= 1) and (I =< 10)).
+2> I = random:uniform(10).
+3> is_integer(I, 1, 10).
 true
 ```
 """.
@@ -221,7 +232,21 @@ uniform(N) when is_integer(N), N >= 1 ->
 %% uniform_s(State) -> {F, NewState}
 %%  Returns a random float between 0 and 1.
 
--doc(#{equiv => uniform_s(1, State0)}).
+-doc """
+Returns, for a state, a random float uniformly distributed between `0.0` and `1.0`, 
+and a new state.
+
+## Examples
+
+```erlang
+1> State = random:seed0().
+{3172,9814,20125}
+2> {F, _NewState} = random:uniform_s(State).
+3> is_float(F) andalso F>= 0.0 andalso F =< 1.0.
+true
+```
+""".
+
 -spec uniform_s(State0) -> {float(), State1} when
       State0 :: ran(),
       State1 :: ran().
@@ -246,9 +271,8 @@ uniformly distributed between `1` and `N`, and a new state.
 ```erlang
 1> State = random:seed0().
 {3172,9814,20125}
-2> {Float, _NewState} = random:uniform_s(State), is_float(Float) and ((Float >= 0.0) and (Float < 1.0)).
-true
-3> {Int, _NewState2} = random:uniform_s(10, State), ((Int >= 1) and (Int =< 10)).
+2> {I, _NewState2} = random:uniform_s(10, State).
+3> is_integer(I, 1, 10).
 true
 ```
 """.
