@@ -313,6 +313,7 @@ The reason that a certifcate gets rejected by the certificate path validation.
                                 {key_usage_mismatch, term()} |
                                 {'policy_requirement_not_met', term()} | {'invalid_policy_mapping', term()} |
                                 {revoked, crl_reason()} | invalid_validity_dates |
+                                policy_tree_exceeded |
                                 {revocation_status_undetermined, term()} | atom().
 
 -doc(#{title => <<"Certificates">>}).
@@ -1665,6 +1666,11 @@ Explanations of reasons for a bad certificate:
 
 - **invalid_validity_dates** - The validity section of the X.509 certificate(s)
   contains invalid date formats not matching the RFC.
+
+- **policy_tree_exceeded** - The certificate chain's policy tree exceeded the
+  maximum allowed node count. This indicates a malformed or malicious chain with
+  exponentially expanding policy mappings. This error cannot be overridden by the
+  `verify_fun`.
 
 - **atom()** - Application-specific error reason that is to be checked by the
   `verify_fun`.

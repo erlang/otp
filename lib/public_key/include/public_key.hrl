@@ -44,6 +44,8 @@
 -record(path_validation_state,
         {
          valid_policy_tree,
+         %% Monotonic count of nodes ever added to policy tree (never decremented by pruning).
+         policy_tree_node_count = 1 :: non_neg_integer(),
          user_initial_policy_set,
          explicit_policy,
          inhibit_any_policy,
