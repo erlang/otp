@@ -1391,7 +1391,8 @@ the User's Guide.
                           MacLength :: pos_integer().
 
 macN(Type, SubType, Key, Data, MacLength) ->
-    erlang:binary_part(mac(Type,SubType,Key,Data), 0, MacLength).
+    Mac = mac(Type, SubType, Key, Data),
+    erlang:binary_part(Mac, 0, min(MacLength, byte_size(Mac))).
 
 
 %%%----------------------------------------------------------------
