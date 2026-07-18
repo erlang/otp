@@ -859,3 +859,10 @@ bif records:is_exported/1
 bif records:create/4
 bif records:update/4
 bif records:get_definition/2
+
+#
+# Bit manipulation BIFs
+#
+
+bif erlang:ctz/1
+bif erlang:popcount/1

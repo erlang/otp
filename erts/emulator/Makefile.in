@@ -346,7 +346,7 @@ UNROLL_FLG = -funroll-loops
 else
 ifeq ($(TARGET), win32)
 GEN_OPT_FLGS = $(OPT_LEVEL)
-UNROLL_FLG = 
+UNROLL_FLG =
 RC=rc.sh
 ifeq ($(USING_MINGW), yes)
 RES_EXT = @OBJEXT@
@@ -355,8 +355,8 @@ else
 RES_EXT=res
 endif
 else
-GEN_OPT_FLGS = 
-UNROLL_FLG = 
+GEN_OPT_FLGS =
+UNROLL_FLG =
 RC=false
 endif
 endif
@@ -412,7 +412,7 @@ else
 ZSTD_DIR = $(ERL_TOP)/erts/emulator/zstd/obj/$(TARGET)/$(TYPE)
 ZSTD_LIB = $(ZSTD_DIR)/$(LIB_PREFIX)zstd$(LIB_SUFFIX)
 DEPLIBS += $(ZSTD_LIB)
- 
+
 ifeq ($(TARGET),win32)
 LIBS    += -L$(ZSTD_DIR) -lzstd
 else
@@ -644,7 +644,7 @@ ifdef DTRACE_ENABLED
 DTRACE_HEADERS = $(TARGET)/erlang_dtrace.h
 GENERATE += $(DTRACE_HEADERS)
 else
-DTRACE_HEADERS = 
+DTRACE_HEADERS =
 endif
 
 $(TTF_DIR)/beam_cold.h \
@@ -797,7 +797,7 @@ GENERATE+=$(ASMJIT_TTF_H) $(TTF_DIR)/asmjit/asmjit.hpp
 endif
 
 # Preloaded code.
-# 
+#
 # This list must be consistent with PRE_LOADED_MODULES in
 # erts/preloaded/src/Makefile.
 
@@ -865,7 +865,7 @@ $(TARGET)/erlang_dtrace.h: beam/erlang_dtrace.d
 #
 COMMON_INCLUDES = -Ibeam -Isys/$(ERLANG_OSTYPE) -Isys/common -I$(TARGET)
 ifndef Z_LIB
-COMMON_INCLUDES += -Izlib 
+COMMON_INCLUDES += -Izlib
 endif
 ifndef LIBZSTD
 COMMON_INCLUDES += -Izstd
@@ -1180,6 +1180,7 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_bif_os.o		$(OBJDIR)/erl_bif_lists.o \
 	$(OBJDIR)/erl_bif_persistent.o \
 	$(OBJDIR)/erl_bif_atomics.o    	$(OBJDIR)/erl_bif_counters.o \
+	$(OBJDIR)/erl_bif_bitops.o \
 	$(OBJDIR)/erl_bif_trace.o	$(OBJDIR)/erl_bif_unique.o \
 	$(OBJDIR)/erl_guard_bifs.o 	$(OBJDIR)/erl_dirty_bif_wrap.o \
 	$(OBJDIR)/erl_trace.o		$(OBJDIR)/copy.o \
@@ -1444,7 +1445,7 @@ ALL_SYS_SRC=$(wildcard sys/$(ERLANG_OSTYPE)/*.c) $(wildcard sys/common/*.c)
 # loadtime of the makefile and at that time these files are not generated yet.
 TARGET_SRC=$(shell find $(TARGET) $(TTF_DIR) -maxdepth 1 -name "*.c")
 
-# I do not want the -MG flag on windows, it does not work properly for a 
+# I do not want the -MG flag on windows, it does not work properly for a
 # windows build.
 
 ifeq ($(TARGET),win32)
@@ -1455,7 +1456,7 @@ DEP_CXX=$(CXX)
 DEP_INCLUDES=$(INCLUDES) -I../etc/win32 \
 	-Idrivers/common -Idrivers/$(ERLANG_OSTYPE) \
 	-Inifs/common -Inifs/$(ERLANG_OSTYPE)
-DEP_FLAGS=-MM  $(subst $(space)-O2$(space), $(GEN_OPT_FLGS) ,$(CFLAGS)) $(INCLUDES)	
+DEP_FLAGS=-MM  $(subst $(space)-O2$(space), $(GEN_OPT_FLGS) ,$(CFLAGS)) $(INCLUDES)
 DEP_CXXFLAGS=-MM $(subst $(space)-O2$(space), $(GEN_OPT_FLGS) ,$(CXXFLAGS)) $(DEP_INCLUDES) $(ASMJIT_FLAGS)
 
 # ifeq ($(USING_VC),yes)
@@ -1550,7 +1551,7 @@ IGNORE_CORE_FILES=$(foreach IGNORE_DIR,                                       \
 # Regenerate if Makefile has changed
 ignore_cores: $(IGNORE_CORE_FILES) $(TARGET)/Makefile
 
-$(IGNORE_CORE_FILES): $(dir $@) 
+$(IGNORE_CORE_FILES): $(dir $@)
 	$(V_at)echo "" > $@
 
 .PHONY: depend

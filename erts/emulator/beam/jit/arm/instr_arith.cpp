@@ -1769,3 +1769,173 @@ void BeamModuleAssembler::emit_i_bsl(const ArgLabel &Fail,
 
     a.bind(next);
 }
+
+/*
+ * ARG1 = Src
+ *
+ * The module code must have executed emit_enter_runtime()
+ * before calling this function.
+ *
+ * The result is returned in ARG1.
+ */
+void BeamGlobalAssembler::emit_i_ctz_guard_shared() {
+    emit_enter_runtime_frame();
+
+    a.mov(ARG2, ARG1);
+    a.mov(ARG1, c_p);
+    runtime_call<Eterm (*)(Process *, Eterm), erts_ctz>();
+
+    emit_leave_runtime_frame();
+
+    a.ret(a64::x30);
+}
+
+/*
+ * ARG1 = Src
+ *
+ * The module code must have executed emit_enter_runtime()
+ * before calling this function.
+ *
+ * The result is returned in ARG1.
+ */
+void BeamGlobalAssembler::emit_i_ctz_body_shared() {
+    Label error = a.new_label();
+
+    emit_enter_runtime_frame();
+
+    /* Save original arguments for the error path. */
+    a.str(ARG1, TMP_MEM1q);
+
+    a.mov(ARG2, ARG1);
+    a.mov(ARG1, c_p);
+    runtime_call<Eterm (*)(Process *, Eterm), erts_ctz>();
+
+    emit_leave_runtime_frame();
+
+    emit_branch_if_not_value(ARG1, error);
+    a.ret(a64::x30);
+
+    a.bind(error);
+    {
+        static const ErtsCodeMFA bif_mfa = {am_erlang, am_ctz, 1};
+
+        /* emit_enter_runtime() was done in the module code. */
+        emit_leave_runtime(0);
+
+        /* Place the original arguments in X registers. */
+        a.ldr(XREG0, TMP_MEM1q);
+
+        a.mov(ARG4, imm(&bif_mfa));
+        a.b(labels[raise_exception]);
+    }
+}
+
+void BeamModuleAssembler::emit_i_ctz(const ArgLabel &Fail,
+                                     const ArgWord &Live,
+                                     const ArgSource &Src,
+                                     const ArgRegister &Dst) {
+    Label next = a.new_label();
+    auto src = load_source(Src, TMP2);
+    auto dst = init_destination(Dst, ARG1);
+
+    a.mov(ARG1, src.reg);
+
+    /* All cases go through the runtime function which has optimizations */
+    if (Fail.get() != 0) {
+        emit_enter_runtime<Update::eReductions>(Live.get());
+        fragment_call(ga->get_i_ctz_guard_shared());
+        emit_leave_runtime<Update::eReductions>(Live.get());
+        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+    } else {
+        emit_enter_runtime<Update::eReductions>(Live.get());
+        fragment_call(ga->get_i_ctz_body_shared());
+        emit_leave_runtime<Update::eReductions>(Live.get());
+    }
+
+    mov_var(dst, ARG1);
+    flush_var(dst);
+}
+
+/* RET (!) = Src
+ *
+ * The module code must have executed emit_enter_runtime()
+ * before calling this function.
+ *
+ * The result is returned in ARG1.
+ */
+void BeamGlobalAssembler::emit_i_popcount_guard_shared() {
+    emit_enter_runtime_frame();
+
+    a.mov(ARG2, ARG1);
+    a.mov(ARG1, c_p);
+    runtime_call<Eterm (*)(Process *, Eterm), erts_popcount>();
+
+    emit_leave_runtime_frame();
+
+    a.ret(a64::x30);
+}
+
+/* RET (!) = Src
+ *
+ * The module code must have executed emit_enter_runtime()
+ * before calling this function.
+ *
+ * The result is returned in ARG1.
+ */
+void BeamGlobalAssembler::emit_i_popcount_body_shared() {
+    Label error = a.new_label();
+
+    emit_enter_runtime_frame();
+
+    /* Save original arguments for the error path. */
+    a.str(ARG1, TMP_MEM1q);
+
+    a.mov(ARG2, ARG1);
+    a.mov(ARG1, c_p);
+    runtime_call<Eterm (*)(Process *, Eterm), erts_popcount>();
+
+    emit_leave_runtime_frame();
+
+    emit_branch_if_not_value(ARG1, error);
+    a.ret(a64::x30);
+
+    a.bind(error);
+    {
+        static const ErtsCodeMFA bif_mfa = {am_erlang, am_popcount, 1};
+
+        /* emit_enter_runtime() was done in the module code. */
+        emit_leave_runtime(0);
+
+        /* Place the original arguments in X registers. */
+        a.ldr(XREG0, TMP_MEM1q);
+
+        a.mov(ARG4, imm(&bif_mfa));
+        a.b(labels[raise_exception]);
+    }
+}
+
+void BeamModuleAssembler::emit_i_popcount(const ArgLabel &Fail,
+                                          const ArgWord &Live,
+                                          const ArgSource &Src,
+                                          const ArgRegister &Dst) {
+    Label next = a.new_label();
+    auto src = load_source(Src, TMP2);
+    auto dst = init_destination(Dst, ARG1);
+
+    a.mov(ARG1, src.reg);
+
+    /* All cases go through the runtime function which has optimizations */
+    if (Fail.get() != 0) {
+        emit_enter_runtime<Update::eReductions>(Live.get());
+        fragment_call(ga->get_i_popcount_guard_shared());
+        emit_leave_runtime<Update::eReductions>(Live.get());
+        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+    } else {
+        emit_enter_runtime<Update::eReductions>(Live.get());
+        fragment_call(ga->get_i_popcount_body_shared());
+        emit_leave_runtime<Update::eReductions>(Live.get());
+    }
+
+    mov_var(dst, ARG1);
+    flush_var(dst);
+}

@@ -150,7 +150,7 @@ ErtsMessage* erts_create_message_from_nif_env(ErlNifEnv* msg_env, Uint extra);
 /* Driver handle (wrapper for old plain handle) */
 #define ERL_DE_OK      0
 #define ERL_DE_UNLOAD  1
-#define ERL_DE_FORCE_UNLOAD 2 
+#define ERL_DE_FORCE_UNLOAD 2
 #define ERL_DE_RELOAD  3
 #define ERL_DE_FORCE_RELOAD  4
 #define ERL_DE_PERMANENT 5
@@ -183,7 +183,7 @@ ErtsMessage* erts_create_message_from_nif_env(ErlNifEnv* msg_env, Uint extra);
 typedef struct de_proc_entry {
     Process *proc;                   /* The process... */
     Uint    awaiting_status;         /* PROC_LOADED == Have loaded the driver
-			                PROC_AWAIT_UNLOAD == Wants to be notified 
+			                PROC_AWAIT_UNLOAD == Wants to be notified
 			                when we have unloaded the driver (was locked)
 			                PROC_AWAIT_LOAD == Wants to be notified when we
 			                reloaded the driver (old was locked) */
@@ -238,10 +238,10 @@ struct erts_driver_t_ {
 			 char *buf, ErlDrvSizeT len,
 			 char **rbuf, ErlDrvSizeT rlen, /* Might be NULL */
 			 unsigned int *flags);
-    void (*ready_input)(ErlDrvData drv_data, ErlDrvEvent event); 
-    void (*ready_output)(ErlDrvData drv_data, ErlDrvEvent event);  
+    void (*ready_input)(ErlDrvData drv_data, ErlDrvEvent event);
+    void (*ready_output)(ErlDrvData drv_data, ErlDrvEvent event);
     void (*timeout)(ErlDrvData drv_data);
-    void (*ready_async)(ErlDrvData drv_data, ErlDrvThreadData thread_data); /* Might be NULL */ 
+    void (*ready_async)(ErlDrvData drv_data, ErlDrvThreadData thread_data); /* Might be NULL */
     void (*process_exit)(ErlDrvData drv_data, ErlDrvMonitor *monitor);
     void (*stop_select)(ErlDrvEvent event, void*); /* Might be NULL */
     void (*emergency_close)(ErlDrvData drv_data);  /* Might be NULL */
@@ -906,7 +906,7 @@ erts_bld_port_info(Eterm **hpp,
 		   ErlOffHeap *ohp,
 		   Uint *szp,
 		   Port *prt,
-		   Eterm item); 
+		   Eterm item);
 Eterm erts_bld_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh, Eterm tail);
 
 
@@ -1384,7 +1384,7 @@ void erts_qsort(void *base,
    $ERL_TOP/erts/emulator/internal_doc/AutomaticYieldingOfCCode.md for
    information about using YCF generated functions.
 
-   
+
    !!!!
    Note that the erts_qsort_swap that is used by erts_qsort does
    not have yielding enabled. If the array items are large erts_qsort
@@ -1487,9 +1487,9 @@ int erts_analyze_utf8(const byte *source, Uint size,
 int erts_analyze_utf8_x(const byte *source, Uint size,
 			const byte **err_pos, Uint *num_chars, int *left,
 			Sint *num_latin1_chars, Uint max_chars);
-char *erts_convert_filename_to_native(Eterm name, char *statbuf, 
-				      size_t statbuf_size, 
-				      ErtsAlcType_t alloc_type, 
+char *erts_convert_filename_to_native(Eterm name, char *statbuf,
+				      size_t statbuf_size,
+				      ErtsAlcType_t alloc_type,
 				      int allow_empty, int allow_atom,
 				      Sint *used /* out */);
 char *erts_convert_filename_to_encoding(Eterm name, char *statbuf,
@@ -1545,6 +1545,8 @@ Eterm erts_bxor(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_bsr(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_bsl(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_bnot(Process* p, Eterm arg);
+Eterm erts_ctz(Process* p, Eterm arg);
+Eterm erts_popcount(Process* p, Eterm arg);
 Eterm erts_bor(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_band(Process* p, Eterm arg1, Eterm arg2);
 
