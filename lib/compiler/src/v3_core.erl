@@ -2908,6 +2908,7 @@ add_bound_vars({mc, Pairs, BoundVars}, AccPat) ->
 %% add_pre_bound_vars(Ctx, Pre) -> Ctx.
 %%  Add variables bound in pre-expressions (from filters) to mc context.
 add_pre_bound_vars({lc, E}, _Pre) -> {lc, E};
+add_pre_bound_vars({mc, Pairs, nomatch}, _Pre) -> {mc, Pairs, nomatch};
 add_pre_bound_vars({mc, Pairs, BoundVars}, Pre) ->
     NewVars = ordsets:union([pre_expr_vars(E) || E <- Pre]),
     {mc, Pairs, ordsets:union(NewVars, BoundVars)}.
