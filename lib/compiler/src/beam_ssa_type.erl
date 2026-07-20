@@ -1875,7 +1875,7 @@ eval_bif_1(#b_set{args=Args}=I, Op, Ts, Ds) ->
                 false ->
                     I
             end;
-        [T,#t_integer{elements={1,1}}] when Op =:= '*'; Op =:= 'div' ->
+        [T,#t_integer{elements={1,1}}] when Op =:= '*' ->
             case beam_types:is_numerical_type(T) of
                 true ->
                     #b_set{args=[Result,_]} = I,

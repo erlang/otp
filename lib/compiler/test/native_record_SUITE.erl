@@ -26,7 +26,8 @@
 	 init_per_group/2,end_per_group/2,
          local_basic/1,local_updates/1,non_atomic_names/1,
          external_records/1,any_record/1,
-         matching/1,is_record_bif/1,type_opts/1]).
+         matching/1,is_record_bif/1,type_opts/1,
+         cerl_update_tree/1]).
 
 %% Unexported records.
 -record #empty{}.
@@ -68,7 +69,8 @@ groups() ->
        external_records,
        matching,
        is_record_bif,
-       type_opts
+       type_opts,
+       cerl_update_tree
       ]}].
 
 init_per_suite(Config) ->
@@ -797,6 +799,15 @@ type_opt_ccc(A, B) ->
         #b_set{} ->
             ok
     end.
+
+%% cerl:update_tree/2 did not handle record and record_pair nodes.
+
+cerl_update_tree(_Config) ->
+    Pair = cerl:c_record_pair(cerl:c_atom(f), cerl:c_int(1)),
+    Pair = cerl:update_tree(Pair, cerl:subtrees(Pair)),
+    R = cerl:c_record(cerl:c_atom(rec), [Pair]),
+    R = cerl:update_tree(R, cerl:subtrees(R)),
+    ok.
 
 %%% Common utilities.
 

@@ -1215,10 +1215,13 @@ aa_bif(Dst, tl, [Pair], _Types, SS, _AAS) ->
     aa_pair_extraction(Dst, Pair, tl, SS);
 aa_bif(Dst, map_get, [_Key,Map], _Types, SS, AAS) ->
     aa_map_extraction(Dst, Map, SS, AAS);
-aa_bif(Dst, binary_part, Args, _Types, SS0, _AAS) ->
-    %% bif:binary_part/{2,3} is the only guard bif which could lead to
-    %% aliasing, it extracts a sub-binary with a reference to its
-    %% argument.
+aa_bif(Dst, Bif, Args, _Types, SS0, _AAS) when Bif =:= binary_part;
+                                               Bif =:= min;
+                                               Bif =:= max ->
+    %% bif:binary_part/{2,3}, min/2, max/2 are guard bifs that could lead to
+    %% aliasing. binary_part extracts a sub-binary with a reference to its
+    %% argument. min and max return one of their arguments unchanged, so the
+    %% result aliases one of them.
     SS = beam_ssa_ss:add_var(Dst, unique, SS0),
     aa_set_aliased([Dst|Args], SS);
 aa_bif(Dst, Bif, Args, Types, SS, _AAS) ->

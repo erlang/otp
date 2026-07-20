@@ -3894,11 +3894,11 @@ subtrees(T) ->
 		tuple ->
 		    [tuple_es(T)];
                 record ->
-                    [record_es(T)];
+                    [[record_arg(T)], [record_id(T)], record_es(T)];
                 record_pair ->
                     [[record_pair_key(T)], [record_pair_val(T)]];
 		map ->
-		    [map_es(T)];
+                    [[map_arg(T)], map_es(T)];
 		map_pair ->
 		    [[map_pair_op(T)],[map_pair_key(T)],[map_pair_val(T)]];
 		'let' ->
@@ -4030,6 +4030,10 @@ ann_make_tree(As, alias, [[V], [P]]) -> ann_c_alias(As, V, P);
 ann_make_tree(As, 'fun', [Vs, [B]]) -> ann_c_fun(As, Vs, B);
 ann_make_tree(As, 'receive', [Cs, [T], [A]]) ->
     ann_c_receive(As, Cs, T, A);
+ann_make_tree(As, record, [[A], [Id], Es]) ->
+    ann_c_record(As, A, Id, Es);
+ann_make_tree(As, record_pair, [[K],[V]]) ->
+    ann_c_record_pair(As, K, V);
 ann_make_tree(As, 'try', [[E], Vs, [B], Evs, [H]]) ->
     ann_c_try(As, E, Vs, B, Evs, H);
 ann_make_tree(As, 'catch', [[B]]) -> ann_c_catch(As, B);
