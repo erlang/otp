@@ -299,6 +299,7 @@ load_nif() ->
 %%%
 
 conv_error_reason(enoent) -> enoent;
+conv_error_reason(no_cacerts_found) -> no_cacerts_found;
 conv_error_reason({enotsup, _OS}) -> enotsup;
 conv_error_reason({eopnotsupp, _Reason}) -> eopnotsupp;
 conv_error_reason({eopnotsupp, _Status, _Acc}) -> eopnotsupp.
@@ -316,6 +317,8 @@ format_error(Reason, [{_M, _F, _As, Info} | _]) ->
     Message = case Cause of
         enoent ->
             "operating system CA bundle could not be located";
+        no_cacerts_found ->
+            "no CA certificates were found on the system";
         {enotsup, OS} ->
             io_lib:format("operating system ~p is not supported", [OS]);
         {eopnotsupp, SubReason} ->
