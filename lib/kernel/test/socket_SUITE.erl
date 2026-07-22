@@ -158,6 +158,7 @@
          sendmmsg_invalid_msg_format/1,
          recvmmsg_dirty_scheduler_udp4/1,
          sendmmsg_dirty_scheduler_udp4/1,
+         recvmmsg_pool_reuse_udp4/1,
 
          %% Socket IOCTL simple
          ioctl_simple1/1,
@@ -393,7 +394,8 @@ batch_cases() ->
      sendmmsg_with_addresses_udp4,
      sendmmsg_invalid_msg_format,
      recvmmsg_dirty_scheduler_udp4,
-     sendmmsg_dirty_scheduler_udp4
+     sendmmsg_dirty_scheduler_udp4,
+     recvmmsg_pool_reuse_udp4
     ].
 
 ioctl_cases() ->
@@ -15809,6 +15811,52 @@ sendmmsg_dirty_scheduler_udp4(_Config) when is_list(_Config) ->
             ok
         end
     ).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Many recvmmsg calls on one socket, varying VLen/BufSz, to exercise the
+%% recvmmsg scratch-pool reuse and grow paths.
+%%
+recvmmsg_pool_reuse_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(60)),
+    tc_try(
+        recvmmsg_pool_reuse_udp4,
+        fun() ->
+            has_support_ipv4(),
+            has_recvmmsg_support()
+        end,
+        fun() ->
+            {ok, S1} = socket:open(inet, dgram, udp),
+            {ok, S2} = socket:open(inet, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet),
+            ok = socket:bind(S1, #{family => inet, addr => Addr, port => 0}),
+            {ok, #{port := LocalPort}} = socket:sockname(S1),
+            ok = socket:connect(S2,
+                                #{family => inet, addr => Addr,
+                                  port => LocalPort}),
+            %% Varying VLen/BufSz (repeated) -> grow and pure-reuse paths.
+            Rounds = [{5, 64}, {50, 2048}, {3, 512}, {120, 256},
+                      {10, 4096}, {1, 8}, {80, 1024}],
+            lists:foreach(
+                fun({VLen, BufSz}) ->
+                    recvmmsg_pool_reuse_round(S1, S2, VLen, BufSz)
+                end,
+                Rounds ++ Rounds),
+            ok = socket:close(S1),
+            ok = socket:close(S2),
+            ok
+        end
+    ).
+
+recvmmsg_pool_reuse_round(S1, S2, VLen, BufSz) ->
+    Expected = [list_to_binary(io_lib:format("r~p_m~p", [VLen, N]))
+                || N <- lists:seq(1, VLen)],
+    lists:foreach(fun(D) -> ok = socket:send(S2, D) end, Expected),
+    {ok, Received} = socket:recvmmsg(S1, VLen, BufSz, 0, [], infinity),
+    VLen = length(Received),
+    ReceivedData = [Data || Msg <- Received, [Data] <- [maps:get(iov, Msg)]],
+    true = lists:sort(ReceivedData) =:= lists:sort(Expected),
+    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

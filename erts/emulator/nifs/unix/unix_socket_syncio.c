@@ -335,6 +335,37 @@ typedef struct {
 } ESSIOControl;
 
 
+#ifdef HAVE_RECVMMSG
+/* Grow-to-fit scratch block for essio_recvmmsg, kept per scheduler thread. */
+typedef struct {
+    char*  base;
+    size_t capacity;
+} ESSIOMMsgPool;
+
+static ErlNifTSDKey esock_mmsg_pool_key;
+
+/* Return this thread's scratch block, grown (grow-only) to hold 'need' bytes. */
+static ESSIOMMsgPool* essio_recvmmsg_pool(const size_t need)
+{
+    ESSIOMMsgPool* pool = enif_tsd_get(esock_mmsg_pool_key);
+    if (pool == NULL) {
+        ESOCK_ASSERT( (pool = MALLOC(sizeof(ESSIOMMsgPool))) != NULL );
+        pool->base     = NULL;
+        pool->capacity = 0;
+        enif_tsd_set(esock_mmsg_pool_key, pool);
+    }
+    if (pool->capacity < need) {
+        char* nbase = (pool->base == NULL) ?
+            (char*) MALLOC(need) : (char*) REALLOC(pool->base, need);
+        ESOCK_ASSERT( nbase != NULL );
+        pool->base     = nbase;
+        pool->capacity = need;
+    }
+    return pool;
+}
+#endif /* HAVE_RECVMMSG */
+
+
 /* ======================================================================== *
  *                          Function Forwards                               *
  * ======================================================================== *
@@ -1111,6 +1142,11 @@ int essio_init(unsigned int     numThreads,
     ctrl.sockDbg    = dataP->sockDbg;
 
     essio_sctp_init();
+
+#ifdef HAVE_RECVMMSG
+    ESOCK_ASSERT( enif_tsd_key_create("esock_mmsg_pool",
+                                      &esock_mmsg_pool_key) == 0 );
+#endif
 
     return ESOCK_IO_OK;
 }
@@ -4125,7 +4161,8 @@ ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
     struct iovec*   recvIovecs = NULL;
     ErlNifBinary*   bufs = NULL;
     ErlNifBinary*   ctrls = NULL;
-    char*           heapPool = NULL;
+    ERL_NIF_TERM*   elems = NULL;
+    ESSIOMMsgPool*  pool;
     SOCKLEN_T       addrLen = sizeof(ESockAddress);
     size_t          bufSz  = (bufLen  != 0 ? bufLen  : descP->rBufSz);
     size_t          ctrlSz = (ctrlLen != 0 ? ctrlLen : descP->rCtrlSz);
@@ -4158,21 +4195,29 @@ ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
         size_t addrs_sz    = vlen * sizeof(ESockAddress);
         size_t mmsghdrs_sz = vlen * sizeof(struct mmsghdr);
         size_t iovecs_sz   = vlen * sizeof(struct iovec);
+        size_t elems_sz    = vlen * sizeof(ERL_NIF_TERM);
+        size_t meta_sz     = bufs_sz + ctrls_sz + addrs_sz + mmsghdrs_sz + iovecs_sz + elems_sz;
         size_t bufdata_sz  = vlen * bufSz;
         size_t ctrldata_sz = vlen * ctrlSz;
-        size_t total_sz = bufs_sz + ctrls_sz + addrs_sz + mmsghdrs_sz + iovecs_sz + bufdata_sz + ctrldata_sz;
-        ESOCK_ASSERT((heapPool = (char*) MALLOC(total_sz)) != NULL );
-        sys_memzero(heapPool, bufs_sz + ctrls_sz + addrs_sz);
-        bufs         = (ErlNifBinary*)   (heapPool);
-        ctrls        = (ErlNifBinary*)   (heapPool + bufs_sz);
-        addrs        = (ESockAddress*)   (heapPool + bufs_sz + ctrls_sz);
-        recvMmsghdrs = (struct mmsghdr*) (heapPool + bufs_sz + ctrls_sz + addrs_sz);
-        recvIovecs   = (struct iovec*)   (heapPool + bufs_sz + ctrls_sz + addrs_sz + mmsghdrs_sz);
-        recvBufs     = (unsigned char*)  (heapPool + bufs_sz + ctrls_sz + addrs_sz + mmsghdrs_sz + iovecs_sz);
-        recvCtrl     = (unsigned char*)  (heapPool + bufs_sz + ctrls_sz + addrs_sz + mmsghdrs_sz + iovecs_sz + bufdata_sz);
+        size_t total_sz    = meta_sz + bufdata_sz + ctrldata_sz;
+        char*  p;
+
+        pool = essio_recvmmsg_pool(total_sz);
+        p = pool->base;
+
+        /* bufs/ctrls/addrs must start zeroed for the cleanup path. */
+        sys_memzero(p, bufs_sz + ctrls_sz + addrs_sz);
+        bufs         = (ErlNifBinary*)   (p);
+        ctrls        = (ErlNifBinary*)   (p + bufs_sz);
+        addrs        = (ESockAddress*)   (p + bufs_sz + ctrls_sz);
+        recvMmsghdrs = (struct mmsghdr*) (p + bufs_sz + ctrls_sz + addrs_sz);
+        recvIovecs   = (struct iovec*)   (p + bufs_sz + ctrls_sz + addrs_sz + mmsghdrs_sz);
+        elems        = (ERL_NIF_TERM*)   (p + bufs_sz + ctrls_sz + addrs_sz + mmsghdrs_sz + iovecs_sz);
+        recvBufs     = (unsigned char*)  (p + meta_sz);
+        recvCtrl     = (unsigned char*)  (p + meta_sz + bufdata_sz);
     }
 
-    /* Set up mmsghdr structures to point into raw memory blocks */
+    /* Set up mmsghdr/iovec slots to point into the block. */
     for (i = 0; i < vlen; i++) {
         recvIovecs[i].iov_base = recvBufs + (i * bufSz);
         recvIovecs[i].iov_len  = bufSz;
@@ -4208,8 +4253,6 @@ ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
      */
     {
         size_t totalBytes = 0;
-        ERL_NIF_TERM* elems;
-        ESOCK_ASSERT( (elems = MALLOC(readResult * sizeof(ERL_NIF_TERM))) != NULL );
 
         for (i = 0; i < (unsigned int) readResult; i++) {
             ErlNifBinary bin;
@@ -4248,7 +4291,6 @@ ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
         }
 
         resultList = enif_make_list_from_array(env, elems, readResult);
-        enif_free(elems);
 
         /* Update packet and byte counters */
         ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_pkg, &descP->readPkgCnt, readResult);
@@ -4268,13 +4310,9 @@ ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
     }
 
 cleanup:
-    /* Free ErlNifBinary structures only for received messages.
-     * Note: recv_create_bin may have transferred ownership (set data = NULL),
-     * in which case FREE_BIN is a no-op. We only free binaries we still own.
-     * When exiting early from the allocation loop, i is at the index where
-     * allocation failed, so we free indices 0 to i-1. On successful completion,
-     * i equals readResult, so we free indices 0 to readResult-1.
-     */
+    /* Free the binaries we still own; recv_create_bin may have handed some off
+     * (data == NULL -> FREE_BIN is a no-op). The bufs/ctrls arrays were zeroed
+     * above so slots the allocation loop never reached are skipped. */
     {
         unsigned int countToFree = (i < (unsigned int) readResult) ? i : (unsigned int) readResult;
         if (countToFree > 0) {
@@ -4288,8 +4326,6 @@ cleanup:
             }
         }
     }
-
-    if (heapPool) enif_free(heapPool);
 
     return ret;
 }
