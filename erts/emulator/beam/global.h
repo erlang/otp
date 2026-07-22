@@ -112,7 +112,7 @@ extern Eterm erts_bld_resource_ref(Eterm** hp, ErlOffHeap*, ErtsResource*);
 
 extern ErtsCodePtr erts_call_nif_early(Process* c_p, const ErtsCodeInfo* ci);
 extern void erts_pre_nif(struct enif_environment_t*, Process*,
-			 struct erl_module_nif*, Process* tracee);
+                         struct erl_module_nif*, Process* tracee);
 extern void erts_post_nif(struct enif_environment_t* env);
 #ifdef DEBUG
 int erts_dbg_is_resource_dying(ErtsResource*);
@@ -183,10 +183,10 @@ ErtsMessage* erts_create_message_from_nif_env(ErlNifEnv* msg_env, Uint extra);
 typedef struct de_proc_entry {
     Process *proc;                   /* The process... */
     Uint    awaiting_status;         /* PROC_LOADED == Have loaded the driver
-			                PROC_AWAIT_UNLOAD == Wants to be notified
-			                when we have unloaded the driver (was locked)
-			                PROC_AWAIT_LOAD == Wants to be notified when we
-			                reloaded the driver (old was locked) */
+                                        PROC_AWAIT_UNLOAD == Wants to be notified
+                                        when we have unloaded the driver (was locked)
+                                        PROC_AWAIT_LOAD == Wants to be notified when we
+                                        reloaded the driver (old was locked) */
     Uint    flags;                   /* ERL_FL_DE_DEREFERENCED when reload in progress */
     Eterm   heap[ERTS_REF_THING_SIZE];    /* "ref heap" */
     struct  de_proc_entry *next;
@@ -195,15 +195,15 @@ typedef struct de_proc_entry {
 typedef struct {
     void         *handle;             /* Handle for DLL or SO (for dyn. drivers). */
     DE_ProcEntry *procs;              /* List of pids that have loaded this driver,
-				         or that wait for it to change state */
+                                         or that wait for it to change state */
     erts_refc_t  refc;                /* Number of ports/processes having
-					 references to the driver */
+                                         references to the driver */
     erts_atomic32_t port_count;   /* Number of ports using the driver */
     Uint         flags;               /* ERL_DE_FL_KILL_PORTS */
     int          status;              /* ERL_DE_xxx */
     char         *full_path;          /* Full path of the driver */
     char         *reload_full_path;   /* If status == ERL_DE_RELOAD, this contains
-				         full name of driver (path) */
+                                         full name of driver (path) */
     char         *reload_driver_name; /* ... and this contains the driver name */
     Uint         reload_flags;        /* flags for reloaded driver */
 } DE_Handle;
@@ -218,8 +218,8 @@ struct erts_driver_t_ {
     Eterm name_atom;
     char *name;
     struct {
-	int major;
-	int minor;
+        int major;
+        int minor;
     } version;
     int flags;
     DE_Handle *handle;
@@ -232,12 +232,12 @@ struct erts_driver_t_ {
     void (*output)(ErlDrvData drv_data, char *buf, ErlDrvSizeT len);
     void (*outputv)(ErlDrvData drv_data, ErlIOVec *ev); /* Might be NULL */
     ErlDrvSSizeT (*control)(ErlDrvData drv_data, unsigned int command,
-			    char *buf, ErlDrvSizeT len,
-			    char **rbuf, ErlDrvSizeT rlen); /* Might be NULL */
+                            char *buf, ErlDrvSizeT len,
+                            char **rbuf, ErlDrvSizeT rlen); /* Might be NULL */
     ErlDrvSSizeT (*call)(ErlDrvData drv_data, unsigned int command,
-			 char *buf, ErlDrvSizeT len,
-			 char **rbuf, ErlDrvSizeT rlen, /* Might be NULL */
-			 unsigned int *flags);
+                         char *buf, ErlDrvSizeT len,
+                         char **rbuf, ErlDrvSizeT rlen, /* Might be NULL */
+                         unsigned int *flags);
     void (*ready_input)(ErlDrvData drv_data, ErlDrvEvent event);
     void (*ready_output)(ErlDrvData drv_data, ErlDrvEvent event);
     void (*timeout)(ErlDrvData drv_data);
@@ -266,11 +266,11 @@ extern char *erts_ddll_error(int code);
 extern void erts_ddll_proc_dead(Process *p, ErtsProcLocks plocks);
 extern int erts_ddll_driver_ok(DE_Handle *dh);
 extern void erts_ddll_remove_monitor(Process *p,
-				     Eterm ref,
-				     ErtsProcLocks plocks);
+                                     Eterm ref,
+                                     ErtsProcLocks plocks);
 extern Eterm erts_ddll_monitor_driver(Process *p,
-				      Eterm description,
-				      ErtsProcLocks plocks);
+                                      Eterm description,
+                                      ErtsProcLocks plocks);
 
 union erl_off_heap_ptr {
     struct erl_off_heap_header* hdr;
@@ -297,7 +297,7 @@ extern int stackdump_on_exit;
  *
  * Use it like this:
  *
- * DECLARE_ESTACK(Stack)	(At the start of a block)
+ * DECLARE_ESTACK(Stack)    (At the start of a block)
  * ...
  * ESTACK_PUSH(Stack, Term)
  * ...
@@ -334,54 +334,55 @@ void erl_grow_estack(ErtsEStack*, Uint need);
         alloc_type /* alloc_type */                                     \
     }
 
-#define DECLARE_ESTACK(s)				\
-    Eterm ESTK_DEF_STACK(s)[DEF_ESTACK_SIZE];		\
-    ErtsEStack s = {					\
-        ESTK_DEF_STACK(s),  /* start */ 		\
-        ESTK_DEF_STACK(s),  /* sp */			\
-        ESTK_DEF_STACK(s) + DEF_ESTACK_SIZE, /* end */	\
-        ESTK_DEF_STACK(s),  /* default */		\
-        ERTS_ALC_T_ESTACK /* alloc_type */		\
+#define DECLARE_ESTACK(s)                                \
+    Eterm ESTK_DEF_STACK(s)[DEF_ESTACK_SIZE];            \
+    ErtsEStack s = {                                     \
+                                                         \
+        ESTK_DEF_STACK(s),  /* start */                  \
+        ESTK_DEF_STACK(s),  /* sp */                     \
+        ESTK_DEF_STACK(s) + DEF_ESTACK_SIZE, /* end */   \
+        ESTK_DEF_STACK(s),  /* default */                \
+        ERTS_ALC_T_ESTACK /* alloc_type */               \
     }
 
-#define ESTACK_CHANGE_ALLOCATOR(s,t)					\
-do {									\
-    if ((s).start != ESTK_DEF_STACK(s)) {				\
-	erts_exit(ERTS_ERROR_EXIT, "Internal error - trying to change allocator "	\
-		 "type of active estack\n");				\
-    }									\
-    (s).alloc_type = (t);						\
+#define ESTACK_CHANGE_ALLOCATOR(s,t)            \
+do {                                            \
+    if ((s).start != ESTK_DEF_STACK(s)) {       \
+        erts_exit(ERTS_ERROR_EXIT, "Internal error - trying to change allocator " \
+                                   "type of active estack\n");                    \
+    }                                           \
+    (s).alloc_type = (t);                       \
  } while (0)
 
-#define DESTROY_ESTACK(s)				\
-do {							\
-    if ((s).start != ESTK_DEF_STACK(s)) {		\
-	erts_free((s).alloc_type, (s).start); 		\
-    }							\
+#define DESTROY_ESTACK(s)                       \
+do {                                            \
+    if ((s).start != ESTK_DEF_STACK(s)) {       \
+        erts_free((s).alloc_type, (s).start);   \
+    }                                           \
 } while(0)
 
 #define DESTROY_ESTACK_EXPLICIT_DEFAULT_ARRAY(s, the_estack_default_array) \
-    do {							\
-        if ((s).start != the_estack_default_array) {            \
-            erts_free((s).alloc_type, (s).start); 		\
-        }							\
+    do {                                                                   \
+        if ((s).start != the_estack_default_array) {                       \
+            erts_free((s).alloc_type, (s).start);                          \
+        }                                                                  \
     } while(0)
 
 /* Allocate an array on the heap and move the stack there if the
    default array (that is allocated on the heap is used) */
-#define ENSURE_ESTACK_HEAP_STACK_ARRAY(s, the_estack_default_array)\
-do {\
-    if ((s).start == the_estack_default_array) {\
-	UWord _wsz = ESTACK_COUNT(s);\
-        Eterm *_prev_stack_array = s.start;\
-	(s).start = erts_alloc((s).alloc_type,                          \
-			       DEF_ESTACK_SIZE * sizeof(Eterm));\
-	sys_memcpy((s).start, _prev_stack_array, _wsz*sizeof(Eterm));\
-	(s).sp = (s).start + _wsz;\
-	(s).end = (s).start + DEF_ESTACK_SIZE;\
-	(s).alloc_type = (s).alloc_type;\
-    }\
-    (s).edefault = NULL;\
+#define ENSURE_ESTACK_HEAP_STACK_ARRAY(s, the_estack_default_array)     \
+do {                                                                    \
+    if ((s).start == the_estack_default_array) {                        \
+        UWord _wsz = ESTACK_COUNT(s);                                   \
+        Eterm *_prev_stack_array = s.start;                             \
+        (s).start = erts_alloc((s).alloc_type,                          \
+                               DEF_ESTACK_SIZE * sizeof(Eterm));        \
+        sys_memcpy((s).start, _prev_stack_array, _wsz*sizeof(Eterm));   \
+        (s).sp = (s).start + _wsz;                                      \
+        (s).end = (s).start + DEF_ESTACK_SIZE;                          \
+        (s).alloc_type = (s).alloc_type;                                \
+    }                                                                   \
+    (s).edefault = NULL;                                                \
  } while (0)
 
 
@@ -389,27 +390,27 @@ do {\
  * Do not free the stack after this, it may have pointers into what
  * was saved in 'dst'.
  */
-#define ESTACK_SAVE(s,dst)\
-do {\
-    if ((s).start == ESTK_DEF_STACK(s)) {\
-	UWord _wsz = ESTACK_COUNT(s);\
-	(dst)->start = erts_alloc((s).alloc_type,\
-				  DEF_ESTACK_SIZE * sizeof(Eterm));\
-	sys_memcpy((dst)->start, (s).start,_wsz*sizeof(Eterm));\
-	(dst)->sp = (dst)->start + _wsz;\
-	(dst)->end = (dst)->start + DEF_ESTACK_SIZE;\
-        (dst)->edefault = NULL;\
-	(dst)->alloc_type = (s).alloc_type;\
-    } else\
-        *(dst) = (s);\
+#define ESTACK_SAVE(s,dst)                                          \
+do {                                                                \
+    if ((s).start == ESTK_DEF_STACK(s)) {                           \
+        UWord _wsz = ESTACK_COUNT(s);                               \
+        (dst)->start = erts_alloc((s).alloc_type,                   \
+                                DEF_ESTACK_SIZE * sizeof(Eterm));   \
+        sys_memcpy((dst)->start, (s).start,_wsz*sizeof(Eterm));     \
+        (dst)->sp = (dst)->start + _wsz;                            \
+        (dst)->end = (dst)->start + DEF_ESTACK_SIZE;                \
+            (dst)->edefault = NULL;                                 \
+        (dst)->alloc_type = (s).alloc_type;                         \
+    } else                                                          \
+        *(dst) = (s);                                               \
  } while (0)
 
-#define DESTROY_SAVED_ESTACK(estack)\
-do {\
-    if ((estack)->start) {\
-	erts_free((estack)->alloc_type, (estack)->start);\
-	(estack)->start = NULL;\
-    }\
+#define DESTROY_SAVED_ESTACK(estack)                        \
+do {                                                        \
+    if ((estack)->start) {                                  \
+        erts_free((estack)->alloc_type, (estack)->start);   \
+        (estack)->start = NULL;                             \
+    }                                                       \
 } while(0)
 
 #define CLEAR_SAVED_ESTACK(estack) ((void) ((estack)->start = NULL))
@@ -418,59 +419,59 @@ do {\
  * Use on empty stack, only the allocator can be changed before this.
  * The src stack is reset to NULL.
  */
-#define ESTACK_RESTORE(s, src)			\
-do {						\
-    ASSERT((s).start == ESTK_DEF_STACK(s));	\
-    (s) = *(src);  /* struct copy */		\
-    (src)->start = NULL;			\
-    ASSERT((s).sp >= (s).start);		\
-    ASSERT((s).sp <= (s).end);			\
+#define ESTACK_RESTORE(s, src)              \
+do {                                        \
+    ASSERT((s).start == ESTK_DEF_STACK(s)); \
+    (s) = *(src);  /* struct copy */        \
+    (src)->start = NULL;                    \
+    ASSERT((s).sp >= (s).start);            \
+    ASSERT((s).sp <= (s).end);              \
 } while (0)
 
 #define ESTACK_IS_STATIC(s) ((s).start == ESTK_DEF_STACK(s))
 
 #define ESTACK_RESERVE(s, push_cnt)             \
-do {					        \
-    if ((s).end - (s).sp < (Sint)(push_cnt)) {	\
-	erl_grow_estack(&(s), (push_cnt));	\
-    }					        \
+do {                                            \
+    if ((s).end - (s).sp < (Sint)(push_cnt)) {  \
+        erl_grow_estack(&(s), (push_cnt));      \
+    }                                           \
 } while(0)
 
-#define ESTACK_PUSH(s, x)			\
-do {						\
-    ESTACK_RESERVE(s, 1);                       \
-    *(s).sp++ = (x);				\
+#define ESTACK_PUSH(s, x)           \
+do {                                \
+    ESTACK_RESERVE(s, 1);           \
+    *(s).sp++ = (x);                \
 } while(0)
 
-#define ESTACK_PUSH2(s, x, y)			\
-do {						\
-    ESTACK_RESERVE(s, 2);                       \
-    *(s).sp++ = (x);				\
-    *(s).sp++ = (y);				\
+#define ESTACK_PUSH2(s, x, y)       \
+do {                                \
+    ESTACK_RESERVE(s, 2);           \
+    *(s).sp++ = (x);                \
+    *(s).sp++ = (y);                \
 } while(0)
 
-#define ESTACK_PUSH3(s, x, y, z)		\
-do {						\
-    ESTACK_RESERVE(s, 3);                       \
-    *(s).sp++ = (x);				\
-    *(s).sp++ = (y);				\
-    *(s).sp++ = (z);				\
+#define ESTACK_PUSH3(s, x, y, z)    \
+do {                                \
+    ESTACK_RESERVE(s, 3);           \
+    *(s).sp++ = (x);                \
+    *(s).sp++ = (y);                \
+    *(s).sp++ = (z);                \
 } while(0)
 
-#define ESTACK_PUSH4(s, E1, E2, E3, E4)		\
-do {						\
-    ESTACK_RESERVE(s, 4);                       \
-    *(s).sp++ = (E1);				\
-    *(s).sp++ = (E2);				\
-    *(s).sp++ = (E3);				\
-    *(s).sp++ = (E4);				\
+#define ESTACK_PUSH4(s, E1, E2, E3, E4) \
+do {                                    \
+    ESTACK_RESERVE(s, 4);               \
+    *(s).sp++ = (E1);                   \
+    *(s).sp++ = (E2);                   \
+    *(s).sp++ = (E3);                   \
+    *(s).sp++ = (E4);                   \
 } while(0)
 
 /* Must be preceded by ESTACK_RESERVE */
-#define ESTACK_FAST_PUSH(s, x)				\
-do {							\
-    ASSERT((s).sp < (s).end);                           \
-    *s.sp++ = (x);					\
+#define ESTACK_FAST_PUSH(s, x)  \
+do {                            \
+    ASSERT((s).sp < (s).end);   \
+    *s.sp++ = (x);              \
 } while(0)
 
 #define ESTACK_COUNT(s) ((s).sp - (s).start)
@@ -505,14 +506,14 @@ void erl_grow_wstack(ErtsWStack*, Uint need);
         alloc_type /* alloc_type */                                     \
     }
 
-#define WSTACK_DECLARE(s)				\
-    UWord WSTK_DEF_STACK(s)[DEF_WSTACK_SIZE];		\
-    ErtsWStack s = {					\
-        WSTK_DEF_STACK(s),  /* wstart */ 		\
-        WSTK_DEF_STACK(s),  /* wsp */			\
-        WSTK_DEF_STACK(s) + DEF_WSTACK_SIZE, /* wend */	\
-        WSTK_DEF_STACK(s),  /* wdflt */ 		\
-        ERTS_ALC_T_ESTACK /* alloc_type */		\
+#define WSTACK_DECLARE(s)                               \
+    UWord WSTK_DEF_STACK(s)[DEF_WSTACK_SIZE];           \
+    ErtsWStack s = {                                    \
+        WSTK_DEF_STACK(s),  /* wstart */                \
+        WSTK_DEF_STACK(s),  /* wsp */                   \
+        WSTK_DEF_STACK(s) + DEF_WSTACK_SIZE, /* wend */ \
+        WSTK_DEF_STACK(s),  /* wdflt */                 \
+        ERTS_ALC_T_ESTACK /* alloc_type */              \
     }
 #define DECLARE_WSTACK WSTACK_DECLARE
 
@@ -522,7 +523,7 @@ typedef struct ErtsDynamicWStack_ {
 }ErtsDynamicWStack;
 
 #define WSTACK_INIT(dwsp, ALC_TYPE)                               \
-do {	 	                                                  \
+do {                                                              \
     (dwsp)->ws.wstart   = (dwsp)->default_stack;                  \
     (dwsp)->ws.wsp      = (dwsp)->default_stack;                  \
     (dwsp)->ws.wend     = (dwsp)->default_stack + DEF_WSTACK_SIZE;\
@@ -530,20 +531,20 @@ do {	 	                                                  \
     (dwsp)->ws.alloc_type = ALC_TYPE;                             \
 } while (0)
 
-#define WSTACK_CHANGE_ALLOCATOR(s,t)					\
-do {									\
-    if (s.wstart != WSTK_DEF_STACK(s)) {				\
-	erts_exit(ERTS_ERROR_EXIT, "Internal error - trying to change allocator "	\
-		 "type of active wstack\n");				\
-    }									\
-    s.alloc_type = (t);							\
+#define WSTACK_CHANGE_ALLOCATOR(s,t)                                          \
+do {                                                                          \
+    if (s.wstart != WSTK_DEF_STACK(s)) {                                      \
+        erts_exit(ERTS_ERROR_EXIT, "Internal error - trying to change allocator " \
+                                   "type of active wstack\n");                \
+    }                                                                         \
+    s.alloc_type = (t);                                                       \
  } while (0)
 
-#define WSTACK_DESTROY(s)				\
-do {							\
-    if (s.wstart != s.wdefault) {		        \
-	erts_free(s.alloc_type, s.wstart); 		\
-    }							\
+#define WSTACK_DESTROY(s)                   \
+do {                                        \
+    if (s.wstart != s.wdefault) {           \
+        erts_free(s.alloc_type, s.wstart);  \
+    }                                       \
 } while(0)
 #define DESTROY_WSTACK WSTACK_DESTROY
 
@@ -557,23 +558,23 @@ do {							\
 #define ENSURE_WSTACK_HEAP_STACK_ARRAY(s, the_wstack_default_array)\
 do {\
     if ((s).wstart == the_wstack_default_array) {\
-	UWord _wsz = WSTACK_COUNT(s);\
-        UWord *_prev_stack_array = s.wstart;\
-	(s).wstart = erts_alloc((s).alloc_type,                          \
-                                DEF_WSTACK_SIZE * sizeof(UWord));       \
-	sys_memcpy((s).wstart, _prev_stack_array, _wsz*sizeof(UWord));\
-	(s).wsp = (s).wstart + _wsz;\
-	(s).wend = (s).wstart + DEF_WSTACK_SIZE;\
-	(s).alloc_type = (s).alloc_type;\
-    }\
-    (s).wdefault = NULL;\
+        UWord _wsz = WSTACK_COUNT(s);                                   \
+            UWord *_prev_stack_array = s.wstart;                        \
+        (s).wstart = erts_alloc((s).alloc_type,                         \
+                                    DEF_WSTACK_SIZE * sizeof(UWord));   \
+        sys_memcpy((s).wstart, _prev_stack_array, _wsz*sizeof(UWord));  \
+        (s).wsp = (s).wstart + _wsz;                                    \
+        (s).wend = (s).wstart + DEF_WSTACK_SIZE;                        \
+        (s).alloc_type = (s).alloc_type;                                \
+    }                                                                   \
+    (s).wdefault = NULL;                                                \
  } while (0)
 
-#define WSTACK_DEBUG(s) \
-    do { \
-	fprintf(stderr, "wstack size   = %ld\r\n", s.wsp - s.wstart); \
-	fprintf(stderr, "wstack wstart = %p\r\n", s.wstart); \
-	fprintf(stderr, "wstack wsp    = %p\r\n", s.wsp); \
+#define WSTACK_DEBUG(s)                                                 \
+    do {                                                                \
+        fprintf(stderr, "wstack size   = %ld\r\n", s.wsp - s.wstart);   \
+        fprintf(stderr, "wstack wstart = %p\r\n", s.wstart);            \
+        fprintf(stderr, "wstack wsp    = %p\r\n", s.wsp);               \
     } while(0)
 
 /*
@@ -582,25 +583,25 @@ do {\
  */
 #define WSTACK_SAVE(s,dst)\
 do {\
-    if (s.wstart == WSTK_DEF_STACK(s)) {\
-	UWord _wsz = WSTACK_COUNT(s);\
-	(dst)->wstart = erts_alloc(s.alloc_type,\
-				  DEF_WSTACK_SIZE * sizeof(UWord));\
-	sys_memcpy((dst)->wstart, s.wstart,_wsz*sizeof(UWord));\
-	(dst)->wsp = (dst)->wstart + _wsz;\
-	(dst)->wend = (dst)->wstart + DEF_WSTACK_SIZE;\
-        (dst)->wdefault = NULL;\
-	(dst)->alloc_type = s.alloc_type;\
-    } else\
-        *(dst) = s;\
+    if (s.wstart == WSTK_DEF_STACK(s)) {                        \
+        UWord _wsz = WSTACK_COUNT(s);                           \
+        (dst)->wstart = erts_alloc(s.alloc_type,                \
+                    DEF_WSTACK_SIZE * sizeof(UWord));           \
+        sys_memcpy((dst)->wstart, s.wstart,_wsz*sizeof(UWord)); \
+        (dst)->wsp = (dst)->wstart + _wsz;                      \
+        (dst)->wend = (dst)->wstart + DEF_WSTACK_SIZE;          \
+            (dst)->wdefault = NULL;                             \
+        (dst)->alloc_type = s.alloc_type;                       \
+    } else                                                      \
+        *(dst) = s;                                             \
  } while (0)
 
-#define DESTROY_SAVED_WSTACK(wstack)\
-do {\
-    if ((wstack)->wstart) {\
-	erts_free((wstack)->alloc_type, (wstack)->wstart);\
-	(wstack)->wstart = NULL;\
-    }\
+#define DESTROY_SAVED_WSTACK(wstack)                        \
+do {                                                        \
+    if ((wstack)->wstart) {                                 \
+        erts_free((wstack)->alloc_type, (wstack)->wstart);  \
+        (wstack)->wstart = NULL;                            \
+    }                                                       \
 } while(0)
 
 #define CLEAR_SAVED_WSTACK(wstack) ((void) ((wstack)->wstart = NULL))
@@ -609,78 +610,78 @@ do {\
  * Use on empty stack, only the allocator can be changed before this.
  * The src stack is reset to NULL.
  */
-#define WSTACK_RESTORE(s, src)			\
-do {						\
-    ASSERT(s.wstart == WSTK_DEF_STACK(s));	\
-    s = *(src);  /* struct copy */		\
-    (src)->wstart = NULL;			\
-    ASSERT(s.wsp >= s.wstart);			\
-    ASSERT(s.wsp <= s.wend);			\
+#define WSTACK_RESTORE(s, src)              \
+do {                                        \
+    ASSERT(s.wstart == WSTK_DEF_STACK(s));  \
+    s = *(src);  /* struct copy */          \
+    (src)->wstart = NULL;                   \
+    ASSERT(s.wsp >= s.wstart);              \
+    ASSERT(s.wsp <= s.wend);                \
 } while (0)
 
 #define WSTACK_IS_STATIC(s) (s.wstart == WSTK_DEF_STACK(s))
 
 #define WSTACK_RESERVE(s, push_cnt)             \
-do {						\
+do {                                            \
     if (s.wend - s.wsp < (Sint)(push_cnt)) {    \
-	erl_grow_wstack(&s, (push_cnt));        \
+        erl_grow_wstack(&s, (push_cnt));        \
     }                                           \
 } while(0)
 
 #define WSTACK_PUSH(s, x)                       \
 do {                                            \
     WSTACK_RESERVE(s, 1);                       \
-    *s.wsp++ = (x);				\
+    *s.wsp++ = (x);                \
 } while(0)
 
-#define WSTACK_PUSH2(s, x, y)			\
-do {						\
-    WSTACK_RESERVE(s, 2);                       \
-    *s.wsp++ = (x);				\
-    *s.wsp++ = (y);				\
+#define WSTACK_PUSH2(s, x, y)   \
+do {                            \
+    WSTACK_RESERVE(s, 2);       \
+    *s.wsp++ = (x);             \
+    *s.wsp++ = (y);             \
 } while(0)
 
-#define WSTACK_PUSH3(s, x, y, z)		\
-do {						\
-    WSTACK_RESERVE(s, 3);                       \
-    *s.wsp++ = (x);				\
-    *s.wsp++ = (y);				\
-    *s.wsp++ = (z);				\
+#define WSTACK_PUSH3(s, x, y, z) \
+do {                             \
+    WSTACK_RESERVE(s, 3);        \
+    *s.wsp++ = (x);              \
+    *s.wsp++ = (y);              \
+    *s.wsp++ = (z);              \
 } while(0)
 
-#define WSTACK_PUSH4(s, A1, A2, A3, A4)		\
-do {						\
-    WSTACK_RESERVE(s, 4);                       \
-    *s.wsp++ = (A1);				\
-    *s.wsp++ = (A2);				\
-    *s.wsp++ = (A3);				\
-    *s.wsp++ = (A4);				\
+#define WSTACK_PUSH4(s, A1, A2, A3, A4) \
+do {                                    \
+    WSTACK_RESERVE(s, 4);               \
+    *s.wsp++ = (A1);                    \
+    *s.wsp++ = (A2);                    \
+    *s.wsp++ = (A3);                    \
+    *s.wsp++ = (A4);                    \
 } while(0)
 
-#define WSTACK_PUSH5(s, A1, A2, A3, A4, A5)     \
-do {						\
-    WSTACK_RESERVE(s, 5);                       \
-    *s.wsp++ = (A1);				\
-    *s.wsp++ = (A2);				\
-    *s.wsp++ = (A3);				\
-    *s.wsp++ = (A4);				\
-    *s.wsp++ = (A5);				\
+#define WSTACK_PUSH5(s, A1, A2, A3, A4, A5) \
+do {                                        \
+    WSTACK_RESERVE(s, 5);                   \
+    *s.wsp++ = (A1);                        \
+    *s.wsp++ = (A2);                        \
+    *s.wsp++ = (A3);                        \
+    *s.wsp++ = (A4);                        \
+    *s.wsp++ = (A5);                        \
 } while(0)
 
 #define WSTACK_PUSH6(s, A1, A2, A3, A4, A5, A6) \
-do {						\
+do {                                            \
     WSTACK_RESERVE(s, 6);                       \
-    *s.wsp++ = (A1);				\
-    *s.wsp++ = (A2);				\
-    *s.wsp++ = (A3);				\
-    *s.wsp++ = (A4);				\
-    *s.wsp++ = (A5);				\
-    *s.wsp++ = (A6);				\
+    *s.wsp++ = (A1);                            \
+    *s.wsp++ = (A2);                            \
+    *s.wsp++ = (A3);                            \
+    *s.wsp++ = (A4);                            \
+    *s.wsp++ = (A5);                            \
+    *s.wsp++ = (A6);                            \
 } while(0)
 
 /* Must be preceded by WSTACK_RESERVE */
 #define WSTACK_FAST_PUSH(s, x)                  \
-do {						\
+do {                                            \
     ASSERT(s.wsp < s.wend);                     \
     *s.wsp++ = (x);                             \
 } while(0)
@@ -732,20 +733,20 @@ ErtsPStack s = { (byte*)PSTK_DEF_STACK(s), /* pstart */                    \
                  ERTS_ALC_T_ESTACK   /* alloc_type */                      \
 }
 
-#define PSTACK_CHANGE_ALLOCATOR(s,t)					\
-do {									\
-    if (s.pstart != (byte*)PSTK_DEF_STACK(s)) {				\
-	erts_exit(ERTS_ERROR_EXIT, "Internal error - trying to change allocator "	\
-		 "type of active pstack\n");				\
-    }									\
-    s.alloc_type = (t);							\
+#define PSTACK_CHANGE_ALLOCATOR(s,t)            \
+do {                                            \
+    if (s.pstart != (byte*)PSTK_DEF_STACK(s)) { \
+    erts_exit(ERTS_ERROR_EXIT, "Internal error - trying to change allocator "    \
+         "type of active pstack\n");            \
+    }                                           \
+    s.alloc_type = (t);                         \
  } while (0)
 
-#define PSTACK_DESTROY(s)				\
-do {							\
-    if (s.pstart != (byte*)PSTK_DEF_STACK(s)) {		\
-	erts_free(s.alloc_type, s.pstart); 		\
-    }							\
+#define PSTACK_DESTROY(s)                       \
+do {                                            \
+    if (s.pstart != (byte*)PSTK_DEF_STACK(s)) { \
+        erts_free(s.alloc_type, s.pstart);      \
+    }                                           \
 } while(0)
 
 #define PSTACK_IS_EMPTY(s) (s.offs < 0)
@@ -755,7 +756,7 @@ do {							\
 #define PSTACK_TOP(s) (ASSERT(!PSTACK_IS_EMPTY(s)), \
                        (PSTACK_TYPE*)(s.pstart + s.offs))
 
-#define PSTACK_PUSH(s) 		                                            \
+#define PSTACK_PUSH(s)                                                      \
     (s.offs += sizeof(PSTACK_TYPE),                                         \
      ((s.offs == s.size) ? erl_grow_pstack(&s, PSTK_DEF_STACK(s),           \
                                           sizeof(PSTACK_TYPE)) : (void)0),  \
@@ -768,39 +769,39 @@ do {							\
  * Do not free the stack after this, it may have pointers into what
  * was saved in 'dst'.
  */
-#define PSTACK_SAVE(s,dst)\
-do {\
-    if (s.pstart == (byte*)PSTK_DEF_STACK(s)) {\
-	UWord _pbytes = PSTACK_COUNT(s) * sizeof(PSTACK_TYPE);\
-	(dst)->pstart = erts_alloc(s.alloc_type,\
-				   sizeof(PSTK_DEF_STACK(s)));\
-	sys_memcpy((dst)->pstart, s.pstart, _pbytes);\
-	(dst)->offs = s.offs;\
-	(dst)->size = s.size;\
-	(dst)->alloc_type = s.alloc_type;\
-    } else\
-        *(dst) = s;\
+#define PSTACK_SAVE(s,dst)                                      \
+do {                                                            \
+    if (s.pstart == (byte*)PSTK_DEF_STACK(s)) {                 \
+        UWord _pbytes = PSTACK_COUNT(s) * sizeof(PSTACK_TYPE);  \
+        (dst)->pstart = erts_alloc(s.alloc_type,                \
+                                   sizeof(PSTK_DEF_STACK(s)));  \
+        sys_memcpy((dst)->pstart, s.pstart, _pbytes);           \
+        (dst)->offs = s.offs;                                   \
+        (dst)->size = s.size;                                   \
+        (dst)->alloc_type = s.alloc_type;                       \
+    } else                                                      \
+        *(dst) = s;                                             \
  } while (0)
 
 /*
  * Use on empty stack, only the allocator can be changed before this.
  * The src stack is reset to NULL.
  */
-#define PSTACK_RESTORE(s, src)			        \
-do {						        \
-    ASSERT(s.pstart == (byte*)PSTK_DEF_STACK(s));	\
-    s = *(src);  /* struct copy */		        \
-    (src)->pstart = NULL;			        \
-    ASSERT(s.offs >= -(int)sizeof(PSTACK_TYPE));        \
-    ASSERT(s.offs < s.size);			        \
+#define PSTACK_RESTORE(s, src)                      \
+do {                                                \
+    ASSERT(s.pstart == (byte*)PSTK_DEF_STACK(s));   \
+    s = *(src);  /* struct copy */                  \
+    (src)->pstart = NULL;                           \
+    ASSERT(s.offs >= -(int)sizeof(PSTACK_TYPE));    \
+    ASSERT(s.offs < s.size);                        \
 } while (0)
 
-#define PSTACK_DESTROY_SAVED(pstack)\
-do {\
-    if ((pstack)->pstart) {\
-	erts_free((pstack)->alloc_type, (pstack)->pstart);\
-	(pstack)->pstart = NULL;\
-    }\
+#define PSTACK_DESTROY_SAVED(pstack)                        \
+do {                                                        \
+    if ((pstack)->pstart) {                                 \
+        erts_free((pstack)->alloc_type, (pstack)->pstart);  \
+        (pstack)->pstart = NULL;                            \
+    }                                                       \
 } while(0)
 
 
@@ -811,7 +812,7 @@ do {\
  *
  *  Use it like this:
  *
- *  DECLARE_EQUEUE(Queue)	(At the start of a block)
+ *  DECLARE_EQUEUE(Queue)   (At the start of a block)
  *  ...
  *  EQUEUE_PUT(Queue, Term)
  *  ...
@@ -841,40 +842,40 @@ void erl_grow_equeue(ErtsEQueue*, Eterm* def_queue);
 #define EQUE_CONCAT(a,b) a##b
 #define EQUE_DEF_QUEUE(q) EQUE_CONCAT(q,_default_equeue)
 
-#define DECLARE_EQUEUE(q)				\
-    UWord EQUE_DEF_QUEUE(q)[DEF_EQUEUE_SIZE];     	\
-    ErtsEQueue q = {					\
-        EQUE_DEF_QUEUE(q), /* start */			\
-        EQUE_DEF_QUEUE(q), /* front */			\
-        EQUE_DEF_QUEUE(q), /* back */			\
-        1,                 /* possibly_empty */		\
-        EQUE_DEF_QUEUE(q) + DEF_EQUEUE_SIZE, /* end */	\
-        EQUE_DEF_QUEUE(q), /* default_equeue */		\
-        ERTS_ALC_T_ESTACK  /* alloc_type */		\
+#define DECLARE_EQUEUE(q)                               \
+    UWord EQUE_DEF_QUEUE(q)[DEF_EQUEUE_SIZE];           \
+    ErtsEQueue q = {                                    \
+        EQUE_DEF_QUEUE(q), /* start */                  \
+        EQUE_DEF_QUEUE(q), /* front */                  \
+        EQUE_DEF_QUEUE(q), /* back */                   \
+        1,                 /* possibly_empty */         \
+        EQUE_DEF_QUEUE(q) + DEF_EQUEUE_SIZE, /* end */  \
+        EQUE_DEF_QUEUE(q), /* default_equeue */         \
+        ERTS_ALC_T_ESTACK  /* alloc_type */             \
     }
 
-#define DESTROY_EQUEUE(q)				\
-do {							\
-    if (q.start != q.default_equeue) {			\
-      erts_free(q.alloc_type, q.start);			\
-    }							\
+#define DESTROY_EQUEUE(q)                   \
+do {                                        \
+    if (q.start != q.default_equeue) {      \
+        erts_free(q.alloc_type, q.start);   \
+    }                                       \
 } while(0)
 
-#define EQUEUE_PUT_UNCHECKED(q, x)			\
-do {							\
-    q.possibly_empty = 0;				\
-    *(q.back) = (x);                    		\
-    if (++(q.back) == q.end) {				\
-	q.back = q.start;				\
-    }							\
+#define EQUEUE_PUT_UNCHECKED(q, x)          \
+do {                                        \
+    q.possibly_empty = 0;                   \
+    *(q.back) = (x);                        \
+    if (++(q.back) == q.end) {              \
+        q.back = q.start;                   \
+    }                                       \
 } while(0)
 
-#define EQUEUE_PUT(q, x)				\
-do {							\
-    if (q.back == q.front && !q.possibly_empty) {	\
-        erl_grow_equeue(&q, q.default_equeue);		\
-    }							\
-    EQUEUE_PUT_UNCHECKED(q, x);				\
+#define EQUEUE_PUT(q, x)                            \
+do {                                                \
+    if (q.back == q.front && !q.possibly_empty) {   \
+        erl_grow_equeue(&q, q.default_equeue);      \
+    }                                               \
+    EQUEUE_PUT_UNCHECKED(q, x);                     \
 } while(0)
 
 #define EQUEUE_ISEMPTY(q) (q.back == q.front && q.possibly_empty)
@@ -903,10 +904,10 @@ Eterm erts_shrink_binary_term(Eterm bin, size_t size);
 
 Eterm
 erts_bld_port_info(Eterm **hpp,
-		   ErlOffHeap *ohp,
-		   Uint *szp,
-		   Port *prt,
-		   Eterm item);
+                   ErlOffHeap *ohp,
+                   Uint *szp,
+                   Port *prt,
+                   Eterm item);
 Eterm erts_bld_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh, Eterm tail);
 
 
@@ -914,7 +915,7 @@ void erts_bif_info_init(void);
 
 /* bif.c */
 void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
-			   Eterm (*bif)(Process*, Eterm*, ErtsCodePtr));
+                           Eterm (*bif)(Process*, Eterm*, ErtsCodePtr));
 void erts_init_bif(void);
 Eterm erl_send(Process *p, Eterm to, Eterm msg);
 int erts_set_group_leader(Process *proc, Eterm new_gl);
@@ -957,7 +958,7 @@ void erts_queue_release_literals(Process *c_p, ErtsLiteralArea* literals);
     (ERTS_LITERAL_AREA_ALLOC_SIZE((AP)->end - (AP)->start))
 
 extern erts_atomic_t erts_copy_literal_area__;
-#define ERTS_COPY_LITERAL_AREA()					\
+#define ERTS_COPY_LITERAL_AREA() \
     ((ErtsLiteralArea *) erts_atomic_read_nob(&erts_copy_literal_area__))
 extern Process *erts_literal_area_collector;
 
@@ -996,7 +997,7 @@ ErtsCodePtr erts_find_next_code_for_line(const BeamCodeHeader* code_hdr,
                                          unsigned int line,
                                          unsigned int *start_from);
 Eterm* erts_build_mfa_item(FunctionInfo* fi, Eterm* hp,
-			   Eterm args, Eterm* mfa_p, Eterm loc_tail);
+                           Eterm args, Eterm* mfa_p, Eterm loc_tail);
 void erts_set_current_function(FunctionInfo* fi, const ErtsCodeMFA* mfa);
 Eterm erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info);
 
@@ -1076,22 +1077,22 @@ typedef struct {
     int copy_literals;
 } erts_shcopy_t;
 
-#define INITIALIZE_SHCOPY(info)						\
-    do {								\
-	ErtsLiteralArea *larea__ = ERTS_COPY_LITERAL_AREA();		\
-	info.queue_start = info.queue_default;				\
-	info.bitstore_start = info.bitstore_default;			\
-	info.shtable_start = info.shtable_default;			\
-	info.literal_size = 0;						\
-	info.copy_literals = 0;						\
-	if (larea__) {							\
-	    info.lit_purge_ptr = &larea__->start[0];			\
-	    info.lit_purge_sz = larea__->end - info.lit_purge_ptr;	\
-	}								\
-	else {								\
-	    info.lit_purge_ptr = NULL;					\
-	    info.lit_purge_sz = 0;					\
-	}								\
+#define INITIALIZE_SHCOPY(info)                                     \
+    do {                                                            \
+        ErtsLiteralArea *larea__ = ERTS_COPY_LITERAL_AREA();        \
+        info.queue_start = info.queue_default;                      \
+        info.bitstore_start = info.bitstore_default;                \
+        info.shtable_start = info.shtable_default;                  \
+        info.literal_size = 0;                                      \
+        info.copy_literals = 0;                                     \
+        if (larea__) {                                              \
+            info.lit_purge_ptr = &larea__->start[0];                \
+            info.lit_purge_sz = larea__->end - info.lit_purge_ptr;  \
+        }                                                           \
+        else {                                                      \
+            info.lit_purge_ptr = NULL;                              \
+            info.lit_purge_sz = 0;                                  \
+        }                                                           \
     } while(0)
 
 #define DESTROY_SHCOPY(info)                                            \
@@ -1113,17 +1114,17 @@ typedef struct {
     Uint lit_purge_sz;
 } erts_literal_area_t;
 
-#define INITIALIZE_LITERAL_PURGE_AREA(Area)				\
-    do {								\
-	ErtsLiteralArea *larea__ = ERTS_COPY_LITERAL_AREA();		\
-	if (larea__) {							\
-	    (Area).lit_purge_ptr = &larea__->start[0];			\
-	    (Area).lit_purge_sz = larea__->end - (Area).lit_purge_ptr;	\
-	}								\
-	else {								\
-	    (Area).lit_purge_ptr = NULL;				\
-	    (Area).lit_purge_sz = 0;					\
-	}								\
+#define INITIALIZE_LITERAL_PURGE_AREA(Area)                             \
+    do {                                                                \
+        ErtsLiteralArea *larea__ = ERTS_COPY_LITERAL_AREA();            \
+        if (larea__) {                                                  \
+            (Area).lit_purge_ptr = &larea__->start[0];                  \
+            (Area).lit_purge_sz = larea__->end - (Area).lit_purge_ptr;  \
+        }                                                               \
+        else {                                                          \
+            (Area).lit_purge_ptr = NULL;                                \
+            (Area).lit_purge_sz = 0;                                    \
+        }                                                               \
     } while(0)
 
 Eterm copy_object_x(Eterm, Process*, Uint);
@@ -1185,7 +1186,7 @@ Eterm copy_shallow_obj_x(Eterm, Uint, Eterm**, ErlOffHeap*);
 #endif
 
 void erts_move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,
-			   Eterm* refs, unsigned nrefs, int literals);
+                           Eterm* refs, unsigned nrefs, int literals);
 
 /* Utilities */
 void erts_monitor_nodes_delete(ErtsMonitor *);
@@ -1485,27 +1486,27 @@ void erts_copy_utf8_to_utf16_little(byte *target,
 int erts_analyze_utf8(const byte *source, Uint size,
                       const byte **err_pos, Uint *num_chars, int *left);
 int erts_analyze_utf8_x(const byte *source, Uint size,
-			const byte **err_pos, Uint *num_chars, int *left,
-			Sint *num_latin1_chars, Uint max_chars);
+                        const byte **err_pos, Uint *num_chars, int *left,
+                        Sint *num_latin1_chars, Uint max_chars);
 char *erts_convert_filename_to_native(Eterm name, char *statbuf,
-				      size_t statbuf_size,
-				      ErtsAlcType_t alloc_type,
-				      int allow_empty, int allow_atom,
-				      Sint *used /* out */);
+                                      size_t statbuf_size,
+                                      ErtsAlcType_t alloc_type,
+                                      int allow_empty, int allow_atom,
+                                      Sint *used /* out */);
 char *erts_convert_filename_to_encoding(Eterm name, char *statbuf,
-					size_t statbuf_size,
-					ErtsAlcType_t alloc_type,
-					int allow_empty, int allow_atom,
-					int encoding,
-					Sint *used /* out */,
-					Uint extra);
+                                        size_t statbuf_size,
+                                        ErtsAlcType_t alloc_type,
+                                        int allow_empty, int allow_atom,
+                                        int encoding,
+                                        Sint *used /* out */,
+                                        Uint extra);
 char *erts_convert_filename_to_wchar(const byte* bytes, Uint size,
                                      char *statbuf, size_t statbuf_size,
                                      ErtsAlcType_t alloc_type, Sint* used,
                                      Uint extra_wchars);
 Eterm erts_convert_native_to_filename(Process *p, size_t size, byte *bytes);
 Eterm erts_utf8_to_list(Process *p, Uint num, const byte *bytes, Uint sz, Uint left,
-			Uint *num_built, Uint *num_eaten, Eterm tail);
+                        Uint *num_built, Uint *num_eaten, Eterm tail);
 Eterm
 erts_make_list_from_utf8_buf(Eterm **hpp, Uint num,
                              const byte *bytes, Uint sz,
@@ -1597,18 +1598,18 @@ Eterm erts_msacc_request(Process *c_p, int action, Eterm *threads);
 ** Call_trace uses this API for the parameter matching functions
 */
 
-#define MatchSetRef(MPSP) 			\
-do {						\
-    if ((MPSP) != NULL) {			\
-	erts_refc_inc(&(MPSP)->intern.refc, 1);	\
-    }						\
+#define MatchSetRef(MPSP)                       \
+do {                                            \
+    if ((MPSP) != NULL) {                       \
+        erts_refc_inc(&(MPSP)->intern.refc, 1); \
+    }                                           \
 } while (0)
 
-#define MatchSetUnref(MPSP)					\
-do {								\
-    if (((MPSP) != NULL)) {                                     \
-	erts_bin_release(MPSP);					\
-    }								\
+#define MatchSetUnref(MPSP)     \
+do {                            \
+    if (((MPSP) != NULL)) {     \
+        erts_bin_release(MPSP); \
+    }                           \
 } while(0)
 
 #define MatchSetGetSource(MPSP) erts_match_set_get_source(MPSP)
@@ -1642,13 +1643,13 @@ extern Eterm erts_match_set_run_trace(Process *p,
                                       Uint32 *return_flags);
 extern Eterm erts_match_set_get_source(Binary *mpsp);
 extern void erts_match_prog_foreach_offheap(Binary *b,
-					    void (*)(ErlOffHeap *, void *),
-					    void *);
+                                            void (*)(ErlOffHeap *, void *),
+                                            void *);
 
 #define MATCH_SET_RETURN_TRACE    (0x1) /* return trace requested */
 #define MATCH_SET_RETURN_TO_TRACE (0x2) /* Misleading name, it is not actually
-					   set by the match program, but by the
-					   breakpoint functions */
+                                           set by the match program, but by the
+                                           breakpoint functions */
 #define MATCH_SET_EXCEPTION_TRACE (0x4) /* exception trace requested */
 #define MATCH_SET_RX_TRACE (MATCH_SET_RETURN_TRACE|MATCH_SET_EXCEPTION_TRACE)
 
@@ -1660,7 +1661,7 @@ int erts_beam_jump_table(void);
 
 #define DeclareTmpHeap(VariableName,Size,Process) \
      Eterm VariableName[Size]
-#define DeclareTypedTmpHeap(Type,VariableName,Process)	\
+#define DeclareTypedTmpHeap(Type,VariableName,Process)  \
      Type VariableName[1]
 #define DeclareTmpHeapNoproc(VariableName,Size) \
      Eterm VariableName[Size]

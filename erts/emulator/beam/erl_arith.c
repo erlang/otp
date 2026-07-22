@@ -154,13 +154,13 @@ BIF_RETTYPE rem_2(BIF_ALIST_2)
     Eterm q, r;
 
     if (BIF_ARG_2 == SMALL_ZERO) {
-	BIF_ERROR(BIF_P, BADARITH);
+        BIF_ERROR(BIF_P, BADARITH);
     }
     if (is_both_small(BIF_ARG_1,BIF_ARG_2)){
-	/* Is this really correct? Isn't there a difference between
-	   remainder and modulo that is not defined in C? Well, I don't
-	   remember, this is the way it's done in beam_emu anyway... */
-	BIF_RET(make_small(signed_val(BIF_ARG_1) % signed_val(BIF_ARG_2)));
+        /* Is this really correct? Isn't there a difference between
+           remainder and modulo that is not defined in C? Well, I don't
+           remember, this is the way it's done in beam_emu anyway... */
+        BIF_RET(make_small(signed_val(BIF_ARG_1) % signed_val(BIF_ARG_2)));
     }
     if (!erts_int_div_rem(BIF_P, BIF_ARG_1, BIF_ARG_2, &q, &r)) {
         BIF_RET(THE_NON_VALUE);
@@ -261,12 +261,12 @@ erts_shift(Process* p, Eterm arg1, Eterm arg2, int right)
 			ires -= (-i / D_EXP);
 		}
 
-		/*
-		 * Slightly conservative check the size to avoid
-		 * allocating huge amounts of memory for bignums that
-		 * clearly would overflow the arity in the header
-		 * word.
-		 */
+    /*
+     * Slightly conservative check the size to avoid
+     * allocating huge amounts of memory for bignums that
+     * clearly would overflow the arity in the header
+     * word.
+     */
 		if (ires-8 > BIG_ARITY_MAX) {
 		    BIF_ERROR(p, SYSTEM_LIMIT);
 		}
@@ -1517,7 +1517,7 @@ erts_popcount(Process* p, Eterm arg)
         return make_small((Sint)res);
 #else /* ARCH_32 */
         unsigned res = __builtin_popcount((unsigned)(v64 & 0xFFFFFFFFU)) +
-              				 __builtin_popcount((unsigned)(v64 >> 32));
+                       __builtin_popcount((unsigned)(v64 >> 32));
         return make_small((Sint)res);
 #endif
 #else
