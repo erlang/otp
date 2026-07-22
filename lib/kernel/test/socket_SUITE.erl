@@ -159,6 +159,7 @@
          recvmmsg_dirty_scheduler_udp4/1,
          sendmmsg_dirty_scheduler_udp4/1,
          recvmmsg_pool_reuse_udp4/1,
+         recvmmsg_ctrl_udp4/1,
 
          %% Socket IOCTL simple
          ioctl_simple1/1,
@@ -395,7 +396,8 @@ batch_cases() ->
      sendmmsg_invalid_msg_format,
      recvmmsg_dirty_scheduler_udp4,
      sendmmsg_dirty_scheduler_udp4,
-     recvmmsg_pool_reuse_udp4
+     recvmmsg_pool_reuse_udp4,
+     recvmmsg_ctrl_udp4
     ].
 
 ioctl_cases() ->
@@ -15868,6 +15870,56 @@ recvmmsg_pool_reuse_count(S1, S2, VLen, BufSz, Count) ->
     ReceivedData = [Data || Msg <- Received, [Data] <- [maps:get(iov, Msg)]],
     true = lists:sort(ReceivedData) =:= lists:sort(Expected),
     ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% recvmmsg with ancillary data: enable ip pktinfo on the receiver so each
+%% datagram carries a control message, and verify recvmmsg decodes a
+%% non-empty ctrl per message (exercises the ctrl output path with actual
+%% cmsg bytes, not just the data-only empty-ctrl case).
+%%
+recvmmsg_ctrl_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        recvmmsg_ctrl_udp4,
+        fun() ->
+            has_support_ipv4(),
+            has_recvmmsg_support()
+        end,
+        fun() ->
+            {ok, S1} = socket:open(inet, dgram, udp),
+            {ok, S2} = socket:open(inet, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet),
+            ok = socket:bind(S1, #{family => inet, addr => Addr, port => 0}),
+            {ok, #{port := LocalPort}} = socket:sockname(S1),
+            ok = socket:connect(S2,
+                                #{family => inet, addr => Addr,
+                                  port => LocalPort}),
+            case socket:setopt(S1, ip, pktinfo, true) of
+                {error, _} ->
+                    _ = socket:close(S1),
+                    _ = socket:close(S2),
+                    skip("ip pktinfo not supported");
+                ok ->
+                    N = 5,
+                    lists:foreach(
+                        fun(I) -> ok = socket:send(S2, integer_to_binary(I)) end,
+                        lists:seq(1, N)),
+                    {ok, Received} = socket:recvmmsg(S1, 10, 0, 0, [], infinity),
+                    N = length(Received),
+                    lists:foreach(
+                        fun(#{ctrl := Ctrl}) ->
+                            true = lists:any(
+                                     fun(#{level := ip, type := pktinfo}) -> true;
+                                        (_) -> false
+                                     end, Ctrl)
+                        end, Received),
+                    ok = socket:close(S1),
+                    ok = socket:close(S2),
+                    ok
+            end
+        end
+    ).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

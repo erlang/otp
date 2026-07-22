@@ -4297,16 +4297,14 @@ ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
             if (msgLen > bufSz)
                 msgLen = bufSz;
 
-            ESOCK_ASSERT( ALLOC_BIN(bufSz, &bufs[i]) );
+            ESOCK_ASSERT( ALLOC_BIN(msgLen, &bufs[i]) );
             sys_memcpy(bufs[i].data, recvBufs + (i * bufSz), msgLen);
-            bufs[i].size = bufSz;
 
-            ESOCK_ASSERT( ALLOC_BIN(ctrlSz, &ctrls[i]) );
             ctrlLen = (recvMmsghdrs[i].msg_hdr.msg_controllen < ctrlSz)
                 ? recvMmsghdrs[i].msg_hdr.msg_controllen
                 : ctrlSz;
+            ESOCK_ASSERT( ALLOC_BIN(ctrlLen, &ctrls[i]) );
             sys_memcpy(ctrls[i].data, recvCtrl + (i * ctrlSz), ctrlLen);
-            ctrls[i].size = ctrlSz;
 
             recvMmsghdrs[i].msg_hdr.msg_control = ctrls[i].data;
 
