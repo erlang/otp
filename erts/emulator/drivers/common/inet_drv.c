@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 1997-2025. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -3436,50 +3436,69 @@ static int sctp_parse_ancillary_data
 ** concerns the protocol implementation), so we omit it:
 */
 static int sctp_parse_error_chunk
-       (ErlDrvTermData * spec, int i, char * chunk, int chlen)
+      (ErlDrvTermData * spec, int i, int spec_size, char * chunk, int chlen)
 {
     /* The "chunk" itself contains its length, which must not be greater than
        the "chlen" derived from the over-all msg size:
     */
-    char *causes, *cause;
-    int coff,  /* Cause offset */
-	ccode, /* Cause code */
-	clen,  /* cause length */
-	s;
-    int len = sock_ntohs (*((uint16_t*)(chunk+2)));
-    ASSERT(len >= 4 && len <= chlen);
+    char *cause; /* Current cause pointer */
+    int   len;   /* Remaining chunk length, chlen - (cause - chunk) */
+    int   s;     /* List length */
 
-    causes = chunk + 4;
-    coff   = 0;
-    len -= 4;  /* Total length of the "causes" fields */
-    cause  = causes;
-    s      = 0;
+    s = 0;
+    len = sock_ntohs (*((uint16_t*)(chunk+2)));
+    len = MIN(len, chlen);
+    cause = chunk;
 
-    while (coff < len)
-    {
+    /* There should be at least chunk header + one error code */
+    if (len < 4+4) goto truncate;
+    /* Step over chunk header */
+    len   -= 4;
+    cause += 4;
+
+    /* When len == 0 we have a clean end of Error causes */
+    while (len > 0) {
+        int ccode, clen;  /* Cause code, cause length */
+
+        if (len < 4) goto truncate;
 	ccode = sock_ntohs (*((uint16_t*)(cause)));
 	clen  = sock_ntohs (*((uint16_t*)(cause + 2)));
-	if (clen <= 0)
-	    /* Strange, but must guard against that!  */
-	    break;
-
-	/* Install the corresp atom for this "ccode": */
-	i = LOAD_INT (spec, i, ccode);
-	cause += clen;
-	coff  += clen;
-	s ++;
+        if (clen < 4) goto truncate;
+        /* Install the corresp atom for this "ccode": */
+	i = LOAD_INT (spec, i, ccode); s++;
+        if (i + 2*LOAD_INT_CNT+LOAD_NIL_CNT+LOAD_LIST_CNT > spec_size) {
+            /* We do not have room for two INT:s which is
+             * the worst case for the next iteration, so truncate now.
+             *
+             * We should have room for the truncation marker since
+             * we have added at most one INT after the previous check.
+             */
+            goto truncate;
+        }
+        if (len < clen) goto truncate;
+        /* Step over Error cause */
+        len   -= clen;
+        cause += clen;
     }
-    i = LOAD_NIL (spec, i);
-    i = LOAD_LIST(spec, i, s+1);
+    goto done;
+
+ truncate:
+    /* Truncation marker - there is no error 0 */
+    i = LOAD_INT (spec, i, 0); s++;
+ done:
+    /* Finalize the list */
+    i = LOAD_NIL (spec, i); s++;
+    i = LOAD_LIST(spec, i, s);
     return i;
 }
+
 
 /*
 ** Parsing of SCTP notification events. NB: they are NOT ancillary data: they
 ** are sent IN PLACE OF, not in conjunction with, the normal data:
 */
 static int sctp_parse_async_event
-      (ErlDrvTermData * spec, int i,    int ok_pos,
+      (ErlDrvTermData * spec, int i,    int spec_size,         int ok_pos,
        ErlDrvTermData   error_atom,     inet_descriptor* desc,
        ErlDrvBinary   * bin,  int offs, int sz)
 {
@@ -3613,7 +3632,7 @@ static int sctp_parse_async_event
 		+ sizeof(sptr->sre_assoc_id);
 #	    endif
 	    chlen = sptr->sre_length  - (chunk - (char *)sptr);
-	    i = sctp_parse_error_chunk(spec, i, chunk, chlen);
+	    i = sctp_parse_error_chunk(spec, i, spec_size, chunk, chlen);
 
 	    i = LOAD_TUPLE (spec, i, 4);
 	    /* The {error, {...}} will be closed by the caller */
@@ -3853,6 +3872,7 @@ inet_async_binary_data
 	 ErlDrvBinary   * bin,  int offs, int len, void *mp)
 {
     unsigned int hsz = desc->hsz + phsz;
+    const int spec_size = PACKET_ERL_DRV_TERM_DATA_LEN;
     ErlDrvTermData spec [PACKET_ERL_DRV_TERM_DATA_LEN];
     ErlDrvTermData caller;
     int aid;
@@ -3903,7 +3923,8 @@ inet_async_binary_data
 	       condition; in the latter case,   the 'ok' above is overridden by
 	       an 'error', and the Event we receive contains the error term: */
 	    i = sctp_parse_async_event
-		(spec, i, ok_pos, am_error, desc, bin, offs+hsz, sz);
+		(spec, i, spec_size - 3*LOAD_TUPLE_CNT,
+                 ok_pos, am_error, desc, bin, offs+hsz, sz);
         else
     	    /* This is SCTP data, not a notification event.   The data can be
 	       returned as a List or as a Binary, similar to the generic case:
@@ -4087,6 +4108,7 @@ static int packet_binary_message(inet_descriptor* desc,
                                  void *mp)
 {
     unsigned int hsz = desc->hsz;
+    const int spec_size = PACKET_ERL_DRV_TERM_DATA_LEN;
     ErlDrvTermData spec [PACKET_ERL_DRV_TERM_DATA_LEN];
     int i = 0;
     int alen;
@@ -4149,14 +4171,16 @@ static int packet_binary_message(inet_descriptor* desc,
 	i = sctp_parse_ancillary_data (spec, i, mptr);
 
 	/* Then: Data or Event (Notification)? */
-	if (mptr->msg_flags & MSG_NOTIFICATION)
+	if (mptr->msg_flags & MSG_NOTIFICATION) {
 	    /* This is an Event, parse it. It may indicate a normal or an error
 	       condition; in the latter case,  the initial 'sctp' atom is over-
 	       ridden by 'sctp_error',   and the Event we receive contains the
 	       error term: */
 	    i = sctp_parse_async_event
-		(spec, i, 0, am_sctp_error, desc, bin, offs, len);
-        else
+		(spec, i, spec_size - 2*LOAD_TUPLE_CNT,
+                 0, am_sctp_error, desc, bin, offs, len);
+        }
+        else {
     	    /* This is SCTP data, not a notification event.   The data can be
 	       returned as a List or as a Binary, similar to the generic case:
 	    */
@@ -4168,6 +4192,7 @@ static int packet_binary_message(inet_descriptor* desc,
 	    else
 	    	/* INET_MODE_BINARY => Binary */
 		i = LOAD_BINARY(spec, i, bin, offs, len);
+        }
 
 	/* Close up the {[AncilData], Event_OR_Data} tuple: */
 	i = LOAD_TUPLE (spec, i, 2);
@@ -9783,8 +9808,8 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
     int i      = 0;
     int length = 0; /* Number of result list entries */
     
-    int spec_allocated = PACKET_ERL_DRV_TERM_DATA_LEN;
-    spec = ALLOC(sizeof(* spec) * spec_allocated);
+    int spec_size = PACKET_ERL_DRV_TERM_DATA_LEN;
+    spec = ALLOC(sizeof(* spec) * spec_size);
     
 #   define RETURN_ERROR(Spec, Errno) \
     do {                    \
@@ -9796,7 +9821,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 #   define PLACE_FOR(Spec, Index, N)                            \
     do {                                                        \
 	int need;                                               \
-	if ((Index) > spec_allocated) {                         \
+	if ((Index) > spec_size) {                              \
 	    erts_exit(ERTS_ERROR_EXIT,"Internal error in inet_drv, "           \
 		     "miscalculated buffer size");              \
 	}                                                       \
@@ -9804,10 +9829,10 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	if (need > INET_MAX_OPT_BUFFER/sizeof(ErlDrvTermData)) {\
 	    RETURN_ERROR((Spec), -ENOMEM);                      \
 	}                                                       \
-	if (need > spec_allocated) {                            \
+	if (need > spec_size) {                                 \
 	    (Spec) = REALLOC((Spec),                            \
 			     sizeof(* (Spec))                   \
-			     * (spec_allocated = need + 20));   \
+			     * (spec_size = need + 20));        \
 	}                                                       \
     } while (0)
     

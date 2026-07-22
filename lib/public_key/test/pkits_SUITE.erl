@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -452,6 +452,15 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 %%--------------------------------------------------------------------
+init_per_testcase(valid_dsa_signature, Config) ->
+    case lists:member(dss, crypto:supports(public_keys)) of
+        true ->
+            Datadir = proplists:get_value(data_dir, Config),
+            put(datadir, Datadir),
+            Config;
+        false ->
+            {skip, dss_not_supported_by_crypto}
+    end;
 init_per_testcase(_Func, Config) ->
     Datadir = proplists:get_value(data_dir, Config),
     put(datadir, Datadir),
@@ -1251,19 +1260,30 @@ valid_DN_name_constraints(Config) when is_list(Config) ->
 invalid_DN_name_constraints() ->
     [{doc,"Name constraints tests"}].
 invalid_DN_name_constraints(Config) when is_list(Config) ->
-    run([{ "4.13.2", "Invalid DN nameConstraints Test2 EE", {bad_cert, name_not_permitted}},
-	 { "4.13.3",  "Invalid DN nameConstraints Test3 EE", {bad_cert, name_not_permitted}},
-	 { "4.13.7",  "Invalid DN nameConstraints Test7 EE", {bad_cert, name_not_permitted}},
-	 { "4.13.8",  "Invalid DN nameConstraints Test8 EE", {bad_cert, name_not_permitted}},
-	 { "4.13.9",  "Invalid DN nameConstraints Test9 EE", {bad_cert, name_not_permitted}},
-	 { "4.13.10", "Invalid DN nameConstraints Test10 EE",{bad_cert, name_not_permitted}},
-	 { "4.13.12", "Invalid DN nameConstraints Test12 EE",{bad_cert, name_not_permitted}},
-	 { "4.13.13", "Invalid DN nameConstraints Test13 EE",{bad_cert, name_not_permitted}},
-	 { "4.13.15", "Invalid DN nameConstraints Test15 EE",{bad_cert, name_not_permitted}},
-	 { "4.13.16", "Invalid DN nameConstraints Test16 EE",{bad_cert, name_not_permitted}},
-	 { "4.13.17", "Invalid DN nameConstraints Test17 EE",{bad_cert, name_not_permitted}},
+    run([{ "4.13.2", "Invalid DN nameConstraints Test2 EE",
+           {bad_cert,  distinguished_name_not_permitted}},
+	 { "4.13.3",  "Invalid DN nameConstraints Test3 EE",
+           {bad_cert, name_not_permitted}},
+	 { "4.13.7",  "Invalid DN nameConstraints Test7 EE",
+           {bad_cert, distinguished_name_not_permitted}},
+	 { "4.13.8",  "Invalid DN nameConstraints Test8 EE",
+           {bad_cert, distinguished_name_not_permitted}},
+	 { "4.13.9",  "Invalid DN nameConstraints Test9 EE",
+           {bad_cert, distinguished_name_not_permitted}},
+	 { "4.13.10", "Invalid DN nameConstraints Test10 EE",
+           {bad_cert, distinguished_name_not_permitted}},
+	 { "4.13.12", "Invalid DN nameConstraints Test12 EE",
+           {bad_cert, distinguished_name_not_permitted}},
+	 { "4.13.13", "Invalid DN nameConstraints Test13 EE",
+           {bad_cert, distinguished_name_not_permitted}},
+	 { "4.13.15", "Invalid DN nameConstraints Test15 EE",
+           {bad_cert, distinguished_name_not_permitted}},
+	 { "4.13.16", "Invalid DN nameConstraints Test16 EE",
+           {bad_cert, distinguished_name_not_permitted}},
+	 { "4.13.17", "Invalid DN nameConstraints Test17 EE",
+           {bad_cert, distinguished_name_not_permitted}},
 	 { "4.13.20", "Invalid DN nameConstraints Test20 EE",
-	   {bad_cert, name_not_permitted}}]).
+	   {bad_cert, distinguished_name_not_permitted}}]).
 
 valid_rfc822_name_constraints() ->
     [{doc,"Name constraints tests"}].
@@ -1293,7 +1313,7 @@ invalid_DN_and_rfc822_name_constraints(Config) when is_list(Config) ->
     run([{ "4.13.28", "Invalid DN and RFC822 nameConstraints Test28 EE",
 	   {bad_cert, name_not_permitted}},
 	 { "4.13.29", "Invalid DN and RFC822 nameConstraints Test29 EE",
-	   {bad_cert, name_not_permitted}}]).
+	   {bad_cert, distinguished_name_not_permitted}}]).
 
 valid_dns_name_constraints() ->
     [{doc,"Name constraints tests"}].

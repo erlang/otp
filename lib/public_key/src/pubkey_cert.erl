@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,7 +47,8 @@
          match_name/3,
 	 extensions_list/1,
          cert_auth_key_id/1,
-         time_str_2_gregorian_sec/1
+         time_str_2_gregorian_sec/1,
+         parse_and_check_validity_dates/1
         ]).
 
 %% Generate test data
@@ -237,17 +238,23 @@ validate_names(Cert, Permit, Exclude, Last, UserState, VerifyFun) ->
 			       AltSubject#'Extension'.extnValue
 		       end,
 
-	    case (is_permitted(Name, Permit) andalso
-		  is_permitted(AltNames, Permit) andalso
-		  (not is_excluded(Name, Exclude)) andalso
-		  (not is_excluded(AltNames, Exclude))) of
-		true ->
-		    UserState;
-		false ->
-		    verify_fun(Cert, {bad_cert, name_not_permitted},
-			      UserState, VerifyFun)
+	    case is_permitted_name(Name, Permit, Exclude) of
+                false ->
+                    verify_fun(Cert, {bad_cert, distinguished_name_not_permitted},
+                               UserState, VerifyFun);
+                true ->
+                    case is_permitted_name(AltNames, Permit, Exclude) of
+                        false ->
+                            verify_fun(Cert, {bad_cert, name_not_permitted},
+                                       UserState, VerifyFun);
+                        true ->
+                            UserState
+                    end
 	    end
     end.
+
+is_permitted_name(Name, Permit, Exclude) ->
+    (is_permitted(Name, Permit) andalso (not is_excluded(Name, Exclude))).
 
 %%--------------------------------------------------------------------
 -spec validate_signature(#cert{}, DER::binary(),
@@ -714,21 +721,30 @@ validate_extensions(Cert, [], ValidationState =
 	true when SelfSigned ->
 	    {ValidationState, UserState0};
 	true  ->
-            UserState = validate_ext_key_usage(Cert, UserState0, VerifyFun, endentity),
-	    {ValidationState#path_validation_state{max_path_length = Len - 1},
-	     UserState};
-	false ->
-	    %% basic_constraint must appear in certs used for digital sign
-	    %% see 4.2.1.10 in rfc 3280
+            %% If the cA boolean is not asserted (basic_constraint)
+            %% then the keyCertSign bit in the key usage extension MUST NOT be
+            %% asserted. See 4.2.1.9 in RFC 5280
 	    case is_digitally_sign_cert(Cert) of
 		true ->
-		    missing_basic_constraints(Cert, SelfSigned,
+                     missing_basic_constraints(Cert, SelfSigned,
 					      ValidationState, VerifyFun,
 					      UserState0, Len);
-		false -> %% Example CRL signer only
-		    {ValidationState, UserState0}
-	    end
+                false ->
+                    UserState = validate_ext_key_usage(Cert, UserState0, VerifyFun, endentity),
+                    {ValidationState#path_validation_state{max_path_length = Len - 1},
+                     UserState}
+            end;
+        false ->
+            %% If the basic constraints extension is not present in a
+            %% version 3 certificate, or the extension is present but the cA boolean
+            %% is not asserted, then the certified public key MUST NOT be used to
+            %% verify certificate signature.
+            missing_basic_constraints(Cert, SelfSigned,
+                                      ValidationState, VerifyFun,
+                                      UserState0, Len)
     end;
+%% The pathLenConstraint field is meaningful only if cA is set to
+%% TRUE.
 validate_extensions(Cert,
 		    [#'Extension'{extnID = ?'id-ce-basicConstraints',
 				  extnValue =
@@ -746,8 +762,9 @@ validate_extensions(Cert,
 								  Length},
 			basic_constraint, SelfSigned,
 			UserState, VerifyFun);
-%% The pathLenConstraint field is meaningful only if cA is set to
-%% TRUE.
+
+%% cA:false — per RFC 5280 Section 6.1.4(k), treated identically to
+%% absent basicConstraints. The base case clause rejects if intermediate.
 validate_extensions(Cert, [#'Extension'{extnID = ?'id-ce-basicConstraints',
 					   extnValue =
 					       #'BasicConstraints'{cA = false}} |

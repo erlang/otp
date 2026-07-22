@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2013-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -145,7 +145,10 @@ initial_state(Role, Sender, Tab, Host, Port, Socket, {SSLOptions, SocketOptions,
     %% Use highest supported version for client/server random nonce generation
     #{versions := [Version|_]} = SSLOptions,
     BeastMitigation = maps:get(beast_mitigation, SSLOptions, disabled),
-    ConnectionStates = tls_record:init_connection_states(Role, Version, BeastMitigation),
+    MaxEarlyData =
+        tls_gen_connection_1_3:init_max_early_data_size(Role),
+    ConnectionStates = tls_record:init_connection_states(Role, Version,
+                                                         BeastMitigation, MaxEarlyData),
     #{session_cb := SessionCacheCb} = ssl_config:pre_1_3_session_opts(Role),
     UserMonitor = erlang:monitor(process, User),
 
@@ -267,11 +270,11 @@ user_hello({call, From}, cancel, _State) ->
     throw(?ALERT_REC(?FATAL, ?USER_CANCELED, user_canceled));
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{static_env = #static_env{role = Role},
-                  handshake_env = HSEnv,
                   ssl_options = Options0} = State0) ->
     try ssl_config:update_options(NewOptions, Role, Options0) of
         Options ->
-            State = ssl_gen_statem:ssl_config(Options, Role, State0),
+            State = #state{handshake_env = HSEnv} =
+                ssl_gen_statem:ssl_config(Options, Role, State0),
             {next_state, hello,
              State#state{recv = State#state.recv#recv{from = From},
                          handshake_env =

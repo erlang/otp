@@ -43,8 +43,7 @@
          no_sensitive/2,
          initial_default_algorithms/2,
          check_preferred_algorithms/1,
-         merge_options/3
-        ]).
+         merge_options/3]).
 
 -export_type([private_options/0
              ]).
@@ -231,11 +230,10 @@ handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
                ]
               },
               OptionDefinitions),
-
-
         %% Enter the user's values into the map; unknown keys are
         %% treated as socket options
-        check_and_save(OptsList2, OptionDefinitions, InitialMap)
+        maybe_add_fake_passwd_checker(Role,
+                                      check_and_save(OptsList2, OptionDefinitions, InitialMap))
     catch
         error:{EO, KV, Reason} when EO == eoptions ; EO == eerl_env ->
             if
@@ -253,7 +251,16 @@ check_and_save(OptsList, OptionDefinitions, InitialMap) ->
       lists:foldl(fun(KV, Vals) ->
                           save(KV, OptionDefinitions, Vals)
                   end, InitialMap, OptsList)).
-    
+
+maybe_add_fake_passwd_checker(server, Options) ->
+    case ?GET_OPT(pwdfun, Options) of
+        undefined ->
+            ?PUT_INTERNAL_OPT({fake_passwd_checker, make_passwd_fun("fake")}, Options);
+        _ ->
+            Options
+    end;
+maybe_add_fake_passwd_checker(_Client, Options) ->
+    Options.
 
 cnf_key(server) -> server_options;
 cnf_key(client) -> client_options.

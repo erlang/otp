@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@
 %%%=========================================================================
 
 -spec start_link() -> {ok, pid()} | ignore | {error, term()}.
-			
+
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
@@ -46,13 +46,13 @@ start_link() ->
 %%%  Supervisor callback
 %%%=========================================================================
 
-init([]) ->  
+init([]) ->
     SupFlags = #{strategy  => rest_for_one,
                  intensity =>   10,
                  period    => 3600
                 },
     ChildSpecs = [ssl_admin_child_spec(),
-                  ssl_connection_sup()],    
+                  ssl_connection_sup()],
     {ok, {SupFlags, ChildSpecs}}.
 
 %%--------------------------------------------------------------------
@@ -61,17 +61,17 @@ init([]) ->
 ssl_admin_child_spec() ->
     #{id       => ssl_admin_sup,
       start    =>  {ssl_admin_sup, start_link, []},
-      restart  => permanent, 
-      shutdown => 4000,
+      restart  => permanent,
+      shutdown => infinity,
       modules  => [ssl_admin_sup],
       type     => supervisor
       }.
-  
+
 ssl_connection_sup() ->
     #{id        => ssl_connection_sup,
       start     =>  {ssl_connection_sup, start_link, []},
-      restart   => permanent, 
-      shutdown  => 4000,
+      restart   => permanent,
+      shutdown  => infinity,
       modules   => [ssl_connection_sup],
       type      => supervisor
      }.

@@ -576,6 +576,10 @@ type_opts(_Config) ->
     type_opt_update(),
     type_opt_match(),
     type_opt_nested(),
+    type_opt_redundant_tests(),
+    type_opt_meta(),
+    type_opt_will_succeed(),
+    type_opt_ccc(),
     ok.
 
 type_opt_create() ->
@@ -691,6 +695,108 @@ r_length(#r_cons{tl=Tl}, Len) ->
     r_length(Tl, Len + 1);
 r_length(#r_nil{}, Len) ->
     Len.
+
+%% beam_validator would not properly update the type for a native
+%% record stored in two registers. Bug found while dogfooding.
+-import_record(ext_records, [b_blk]).
+type_opt_redundant_tests() ->
+    Blk = id(#b_blk{is=[],last=br}),
+    Blk = type_opt_redundant_tests(Blk),
+    ok.
+
+type_opt_redundant_tests(Blk0) ->
+    Blk1 = force_yreg(Blk0),
+    #b_blk{is=_Is} = Blk1,
+    _ = update_successors(Blk1),
+    Blk1.
+
+force_yreg(Blk) -> Blk.
+
+update_successors(Blk) -> Blk.
+
+%% beam_validator would not consider a record set to be a legal
+%% record. Bug found while dogfooding.
+-import_record(ext_records,
+               [c_alias, c_apply, c_binary, c_bitstr,
+                c_call, c_case, c_catch, c_clause, c_cons,
+                c_fun, c_let, c_letrec, c_literal,
+                c_map, c_map_pair,
+                c_record, c_record_pair,
+                c_module, c_opaque, c_primop,
+                c_receive,c_seq, c_try, c_tuple,
+                c_values, c_var]).
+
+type_opt_meta() ->
+    #c_var{anno=new_anno} = type_opt_meta(id(#c_var{name=42})),
+    ?assertError({case_clause,_}, type_opt_meta(id(#empty{}))),
+    ?assertError({case_clause,_}, type_opt_meta(id(other))),
+    ok.
+
+type_opt_meta(Node) ->
+    case
+        case Node of
+            #c_alias{} -> alias;
+            #c_apply{} -> apply;
+            #c_binary{} -> binary;
+            #c_bitstr{} -> bitstr;
+            #c_call{} -> call;
+            #c_case{} -> 'case';
+            #c_catch{} -> 'catch';
+            #c_clause{} -> clause;
+            #c_cons{} -> cons;
+            #c_fun{} -> 'fun';
+            #c_let{} -> 'let';
+            #c_letrec{} -> letrec;
+            #c_literal{} -> literal;
+            #c_map{} -> map;
+            #c_map_pair{} -> map_pair;
+            #c_module{} -> module;
+            #c_primop{} -> primop;
+            #c_receive{} -> 'receive';
+            #c_seq{} -> seq;
+            #c_record{} -> record;
+            #c_record_pair{} -> record_pair;
+            #c_try{} -> 'try';
+            #c_tuple{} -> tuple;
+            #c_values{} -> values;
+            #c_var{} -> var;
+            #c_opaque{} -> opaque
+        end of
+        var ->
+            %% The type of `Node` is now a set of records, which would
+            %% not be recognized as a record by beam_validator.
+            Node#_{anno=new_anno}
+    end.
+
+%% The live optimization pass would remove the conditional branch
+%% following an `is_record_accessible` instruction, but not the
+%% instructions itself. That would cause the `beam_ssa_codegen` pass
+%% to crash because `is_record_accessible` must always be followed by
+%% a conditional branch. Bug found while dogfooding.
+
+-import_record(ext_records, [b_set]).
+type_opt_will_succeed() ->
+    'maybe' = type_opt_will_succeed_1(#b_set{op=wait_timeout}),
+    'maybe' = type_opt_will_succeed_1(#b_set{op={bif,self}}),
+    ok.
+
+type_opt_will_succeed_1(#b_set{op=wait_timeout}) ->
+    'maybe';
+type_opt_will_succeed_1(#b_set{}) ->
+    'maybe'.
+
+%% cerl_clauses:match/2 did not handle native records, causing the
+%% sys_core_fold pass to crash. Bug found while dogfooding.
+
+type_opt_ccc() ->
+    ?assertError({case_clause,_}, type_opt_ccc(a, b)).
+
+type_opt_ccc(A, B) ->
+    E = {id(A), id(B)},
+    case E of
+        #b_set{} ->
+            ok
+    end.
 
 %%% Common utilities.
 

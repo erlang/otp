@@ -396,7 +396,10 @@ static int parse_lambda_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     BeamFile_AtomTable *atoms;
     BeamReader reader;
     Sint32 count;
+    Uint label_count;
     int i;
+
+    label_count = beam->code.label_count;
 
     lambdas = &beam->lambdas;
     ASSERT(lambdas->entries == NULL);
@@ -423,7 +426,7 @@ static int parse_lambda_chunk(BeamFile *beam, IFF_Chunk *chunk) {
         LoadAssert(beamreader_read_i32(&reader, &old_uniq));
 
         LoadAssert(atom_index >= 0 && atom_index < atoms->count);
-        LoadAssert(label >= 0);
+        LoadAssert(label > 0 && label < label_count);
 
         lambdas->entries[i].function = atoms->entries[atom_index];
         lambdas->entries[i].num_free = num_free;

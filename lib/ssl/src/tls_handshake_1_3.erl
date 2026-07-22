@@ -367,6 +367,9 @@ certificate_verify(PrivateKey, SignatureScheme,
 %% Upon receiving a message with type server_hello, implementations MUST
 %% first examine the Random value and, if it matches this value, process
 %% it as described in Section 4.1.4).
+maybe_hello_retry_request(#server_hello{random = ?HELLO_RETRY_REQUEST_RANDOM},
+                          #state{protocol_specific = #{hello_retry := true}}) ->
+    {error, ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE)};
 maybe_hello_retry_request(#server_hello{random = ?HELLO_RETRY_REQUEST_RANDOM} = ServerHello, 
                           #state{protocol_specific = PS} = State0) ->
     {error, {State0#state{protocol_specific = PS#{hello_retry => true}}, start, ServerHello}};
@@ -528,10 +531,13 @@ validate_finished(#state{connection_states = ConnectionStates,
     compare_verify_data(ControlData, VerifyData).
 
 
-compare_verify_data(Data, Data) ->
-    ok;
-compare_verify_data(_, _) ->
-    {error, ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error)}.
+compare_verify_data(Data1, Data2) ->
+    case crypto:hash_equals(Data1, Data2) of
+        true ->
+            ok;
+        false ->
+            {error, ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error)}
+    end.
 
 %%====================================================================
 %% Encode handshake
@@ -1791,7 +1797,16 @@ handle_pre_shared_key(#state{ssl_options = #{session_tickets := Tickets},
                                                        OfferedPreSharedKeys}, Cipher) when Tickets =/= disabled ->
     Tracker = proplists:get_value(session_tickets_tracker, Trackers),
     #{prf := CipherHash} = ssl_cipher_format:suite_bin_to_map(Cipher),
-    tls_server_session_ticket:use(Tracker, OfferedPreSharedKeys, CipherHash, HHistory).
+    #offered_psks{
+       identities = Identities,
+       binders = Binders
+      } = OfferedPreSharedKeys,
+    case length(Identities) == length(Binders) of
+        true ->
+            tls_server_session_ticket:use(Tracker, OfferedPreSharedKeys, CipherHash, HHistory);
+        false ->
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, illegal_pre_shared_key)}
+    end.
 
 %% If the handshake includes a HelloRetryRequest, the initial
 %% ClientHello and HelloRetryRequest are included in the transcript
@@ -2101,7 +2116,7 @@ select_client_cert_key_pair(Session0, [#{private_key := Key, certs := [Cert| _] 
                                                 CertDbHandle, CertDbRef, CertAuths, Plausible0)
             end;
         {error, _} ->
-            select_client_cert_key_pair(Session0, Rest, ServerSignAlgsCert, ServerSignAlgsCert, ClientSignAlgs,
+            select_client_cert_key_pair(Session0, Rest, ServerSignAlgs, ServerSignAlgsCert, ClientSignAlgs,
                                         CertDbHandle, CertDbRef, CertAuths, Plausible0)
     end.
 

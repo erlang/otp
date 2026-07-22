@@ -128,7 +128,8 @@
          add_selected_version/1,
          decode_alpn/1,
          supported_hashsigns/1,
-         max_frag_enum/1
+         max_frag_enum/1,
+         psk_secret/3
 	]).
 
 %% Certificate handling
@@ -473,9 +474,6 @@ verify_signature(?TLS_1_3, Msg, {_, eddsa}, Signature, {?'id-Ed448', PubKey, Pub
 verify_signature(_, Msg, {HashAlgo, _SignAlg}, Signature,
 		 {?'id-ecPublicKey', PublicKey, PublicKeyParams}) ->
     public_key:verify(Msg, HashAlgo, Signature, {PublicKey, PublicKeyParams});
-verify_signature(Version, _Msg, {_HashAlgo, anon}, _Signature, _)
-  when ?TLS_1_X(Version), ?TLS_LTE(Version, ?TLS_1_2) ->
-    true;
 verify_signature(Version, Msg, {HashAlgo, dsa}, Signature, {?'id-dsa', PublicKey, PublicKeyParams})
   when ?TLS_1_X(Version), ?TLS_LTE(Version, ?TLS_1_2) ->
     public_key:verify(Msg, HashAlgo, Signature, {PublicKey, PublicKeyParams}).
@@ -1241,12 +1239,6 @@ premaster_secret(#server_srp_params{srp_n = Prime, srp_g = Generator, srp_s = Sa
 	not_accepted ->
 	    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
     end;
-premaster_secret(#client_rsa_psk_identity{
-		    identity = PSKIdentity,
-		    exchange_keys = #encrypted_premaster_secret{premaster_secret = EncPMS}
-		   }, #'RSAPrivateKey'{} = Key, PSKLookup) ->
-    PremasterSecret = premaster_secret(EncPMS, Key),
-    psk_secret(PSKIdentity, PSKLookup, PremasterSecret);
 premaster_secret(#server_dhe_psk_params{
 		    hint = IdentityHint,
 		    dh_params =  #server_dh_params{dh_y = PublicDhKey} = Params},
@@ -2236,8 +2228,10 @@ path_validation_alert({bad_cert, invalid_signature}, _, _) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, invalid_signature);
 path_validation_alert({bad_cert, unsupported_signature}, _, _) ->
     ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE, unsupported_signature);
+path_validation_alert({bad_cert, distinguished_name_not_permitted}, _, _) ->
+    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, distinguished_name_not_permitted);
 path_validation_alert({bad_cert, name_not_permitted}, _, _) ->
-    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, name_not_permitted);
+    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, subject_alt_name_not_permitted);
 path_validation_alert({bad_cert, unknown_critical_extension}, _, _) ->
     ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE, unknown_critical_extension);
 path_validation_alert({bad_cert, {revoked, _}}, _, _) ->
@@ -2250,14 +2244,20 @@ path_validation_alert({bad_cert, unknown_ca}, _, _) ->
     ?ALERT_REC(?FATAL, ?UNKNOWN_CA);
 path_validation_alert({bad_cert, hostname_check_failed}, ServerName, #cert{otp = PeerCert}) ->
     SubjAltNames = subject_altnames(PeerCert),
-    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,{bad_cert, {hostname_check_failed,
-                                                      {requested, ServerName},
-                                                      {received, SubjAltNames}}});
+    case SubjAltNames of
+        [] ->
+            ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE,
+                       {bad_cert, {hostname_check_failed, missing_subject_altnames}});
+        [_ |_ ] ->
+            ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE,
+                       {bad_cert, {hostname_check_failed, {requested, ServerName},
+                                   {received, SubjAltNames}}})
+    end;
 path_validation_alert({bad_cert, invalid_ext_keyusage}, _, _) -> %% Detected by public key
-    ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE, {invalid_ext_keyusage,
-                                                  "CA cert purpose anyExtendedKeyUsage"
-                                                  "and extended-key-usage extension"
-                                                  " marked critical is not allowed"});
+    ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE,
+               {invalid_ext_keyusage,
+                "CA cert purpose anyExtendedKeyUsage"
+                "and extended-key-usage extension marked critical is not allowed"});
 path_validation_alert({bad_cert, {invalid_ext_keyusage, ExtKeyUses}}, _, _) ->
      Uses = extkey_oids_to_names(ExtKeyUses, []),
     ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE, {invalid_ext_keyusage, Uses});
@@ -2928,9 +2928,7 @@ dec_server_key_signature(Params, <<?BYTE(HashAlgo), ?BYTE(SignAlgo),
   when ?TLS_GTE(Version, ?TLS_1_2) ->
     HashSign = {ssl_cipher:hash_algorithm(HashAlgo), ssl_cipher:sign_algorithm(SignAlgo)},
     {Params, HashSign, Signature};
-dec_server_key_signature(Params, <<>>, _) ->
-    {Params, {null, anon}, <<>>};
-dec_server_key_signature(Params, <<?UINT16(0)>>, _) ->
+dec_server_key_signature(Params, <<>>, Version) when ?TLS_LTE(Version, ?TLS_1_2) ->
     {Params, {null, anon}, <<>>};
 dec_server_key_signature(Params, <<?UINT16(Len), Signature:Len/binary>>, _) ->
     {Params, undefined, Signature};
@@ -4148,19 +4146,17 @@ supported_cert_signs([default|Signs]) ->
 supported_cert_signs(Signs) ->
     Signs.
 
-subject_altnames(#'OTPCertificate'{tbsCertificate = TBSCert} = OTPCert) ->
+subject_altnames(#'OTPCertificate'{tbsCertificate = TBSCert}) ->
     Extensions = extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
-    %% Fallback to CN-ids
-    {_, Names} = public_key:pkix_subject_id(OTPCert),
-    subject_altnames(Extensions, Names).
+    subject_altnames_value(Extensions).
 
-subject_altnames([], Names) ->
-    Names;
-subject_altnames([#'Extension'{extnID = ?'id-ce-subjectAltName',
-                              extnValue = Value} | _], _) ->
+subject_altnames_value([]) ->
+    [];
+subject_altnames_value([#'Extension'{extnID = ?'id-ce-subjectAltName',
+                              extnValue = Value} | _]) ->
     Value;
-subject_altnames([#'Extension'{} | Extensions], Names) ->
-    subject_altnames(Extensions, Names).
+subject_altnames_value([#'Extension'{} | Extensions]) ->
+    subject_altnames_value(Extensions).
 
 extensions_list(asn1_NOVALUE) ->
     [];

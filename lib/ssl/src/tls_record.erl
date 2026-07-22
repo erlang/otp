@@ -37,7 +37,6 @@
 
 %% Handling of incoming data
 -export([get_tls_records/5,
-         init_connection_states/3,
          init_connection_states/4]).
 
 %% Encoding TLS records
@@ -69,20 +68,10 @@
 %% Handling of incoming data
 %%====================================================================
 %%--------------------------------------------------------------------
--spec init_connection_states(Role, Version, BeastMitigation) ->
-          ssl_record:connection_states() when
-      Role :: client | server,
-      Version :: tls_version(),
-      BeastMitigation :: one_n_minus_one | zero_n | disabled.
-
 %%
 %% Description: Creates a connection_states record with appropriate
 %% values for the initial SSL connection setup.
 %%--------------------------------------------------------------------
-init_connection_states(Role, Version, BeastMitigation) ->
-    MaxEarlyDataSize = ssl_config:get_max_early_data_size(),
-    init_connection_states(Role, Version, BeastMitigation, MaxEarlyDataSize).
-%%
 -spec init_connection_states(Role, Version, BeastMitigation,
                              MaxEarlyDataSize) ->
           ssl_record:connection_states() when
@@ -545,8 +534,8 @@ validate_tls_record_version(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Versi
         false ->
             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, {unsupported_version, Version})
     end;
-validate_tls_record_version(?TLS_1_3=Versions, Q, MaxFragLen, Downgrade, Acc, Type, ?TLS_1_2=Version, Length) ->
-    validate_tls_record_length(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length);
+validate_tls_record_version(?TLS_1_3 = Version, Q, MaxFragLen, Downgrade, Acc, Type, ?TLS_1_2 = OuterVersion, Length) ->
+    validate_tls_record_length(Version, Q, MaxFragLen, Downgrade, Acc, Type, OuterVersion, Length);
 validate_tls_record_version(Version, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length) ->
     %% Exact version match
     validate_tls_record_length(Version, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length);
@@ -713,6 +702,8 @@ split_iovec([], _SplitSize, Acc) ->
 
 
 max_len([?TLS_1_3|_])->
+    ?TLS13_MAX_CIPHER_TEXT_LENGTH;
+max_len(?TLS_1_3)->
     ?TLS13_MAX_CIPHER_TEXT_LENGTH;
 max_len(_) ->
     ?MAX_CIPHER_TEXT_LENGTH.

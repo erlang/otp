@@ -39,6 +39,7 @@
          access_outside_root/1,
          relative_root/1,
          links/1,
+         links_root/1,
          mk_rm_dir/1,
          open_close_dir/1,
          open_close_file/1,
@@ -46,8 +47,11 @@
          open_file_dir_v6/1,
          read_dir/1,
          read_file/1,
+         read_file_chunk_limit/1,
          max_path/1,
          real_path/1,
+         real_path_root/1,
+         real_path_links_root/1,
          relative_path/1,
          relpath/1,
          remove_file/1,
@@ -59,7 +63,8 @@
          ver3_rename/1,
          ver6_basic/1,
          write_file/1,
-         access_attributes_outside_root/1
+         access_attributes_outside_root/1,
+         extended_data_no_infinite_loop/1
         ]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -69,6 +74,14 @@
 -include("ssh.hrl").
 -include("ssh_test_lib.hrl").
 
+-record(link_test, {name,
+                    link1,
+                    link2,
+                    expected
+                   }).
+
+-record(link, {location, target}).
+
 -define(USER, "Alladin").
 -define(PASSWD, "Sesame").
 %% -define(XFER_PACKET_SIZE, 32768).
@@ -77,7 +90,7 @@
 -define(REG_ATTERS, <<0,0,0,0,1>>).
 -define(UNIX_EPOCH,  62167219200).
 -define(MAX_HANDLES, 10).
--define(MAX_PATH, 200).
+-define(MAX_PATH, 220).
 -define(is_set(F, Bits), ((F) band (Bits)) == (F)).
 
 %%--------------------------------------------------------------------
@@ -91,6 +104,7 @@ all() ->
     [open_close_file, 
      open_close_dir, 
      read_file, 
+     read_file_chunk_limit,
      max_path,
      read_dir,
      write_file, 
@@ -98,9 +112,12 @@ all() ->
      mk_rm_dir, 
      remove_file,
      real_path, 
+     real_path_root,
+     real_path_links_root,
      retrieve_attributes, 
      set_attributes, 
      links,
+     links_root,
      ver3_rename,
      ver3_open_flags,
      relpath,
@@ -111,7 +128,8 @@ all() ->
      relative_path,
      open_file_dir_v5,
      open_file_dir_v6,
-     access_attributes_outside_root].
+     access_attributes_outside_root,
+     extended_data_no_infinite_loop].
 
 groups() -> 
     [].
@@ -150,96 +168,41 @@ init_per_testcase(relative_root, Config) ->
     ssh:start(),
     prep(Config),
     Config;
-init_per_testcase(TestCase, Config) ->
-    {OsFamily, _} = os:type(),
+init_per_testcase(TestCase, Config0) ->
     ssh:start(),
-    prep(Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
+    prep(Config0),
+    PrivDir = proplists:get_value(priv_dir, Config0),
     ClientUserDir = filename:join(PrivDir, nopubkey),
-    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config0), system),
 
     Options = [{system_dir, SystemDir},
-	       {user_dir, PrivDir},
-	       {user_passwords,[{?USER, ?PASSWD}]},
-	       {pwdfun, fun(_,_) -> true end}],
-    Result = case TestCase of
-		      ver6_basic ->
-			  SubSystems = [ssh_sftpd:subsystem_spec([{sftpd_vsn, 6}])],
-			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
-                      access_outside_root ->
-                          %% Build RootDir/access_outside_root/a/b and set Root and CWD
-                          BaseDir = filename:join(PrivDir, access_outside_root),
-                          RootDir = filename:join(BaseDir, a),
-                          CWD     = filename:join(RootDir, b),
-                          %% Make the directory chain:
-                          ok = filelib:ensure_path(CWD),
-                          SubSystems = [ssh_sftpd:subsystem_spec([{root, RootDir},
-                                                                  {cwd, CWD}])],
-                          ssh:daemon(0, [{subsystems, SubSystems}|Options]);
-                      access_attributes_outside_root when OsFamily =:= win32 ->
-                          {skip, "Not implemented on windows"};
-                      access_attributes_outside_root ->
-                          Rand = integer_to_list(rand:uniform(1000000)),
-                          RootDir = filename:join("/tmp", Rand),
-                          ok = file:make_dir(RootDir),
-                          SubSystems = [ssh_sftpd:subsystem_spec([{root, RootDir}])],
-                          ssh:daemon(0, [{subsystems, SubSystems}|Options]);
-		      root_with_cwd ->
-			  RootDir = filename:join(PrivDir, root_with_cwd),
-			  CWD     = filename:join(RootDir, home),
-			  SubSystems = [ssh_sftpd:subsystem_spec([{root, RootDir}, {cwd, CWD}])],
-			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
-		      relative_path ->
-			  SubSystems = [ssh_sftpd:subsystem_spec([{cwd, PrivDir}])],
-			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
-		      open_file_dir_v5 ->
-			  SubSystems = [ssh_sftpd:subsystem_spec([{cwd, PrivDir}])],
-			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
-		      open_file_dir_v6 ->
-			  SubSystems = [ssh_sftpd:subsystem_spec([{cwd, PrivDir},
-								  {sftpd_vsn, 6}])],
-			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
-		      _ ->
-			  SubSystems = [ssh_sftpd:subsystem_spec(
-                                          [{max_handles, ?MAX_HANDLES},
-                                           {max_path, ?MAX_PATH}])],
-			  ssh:daemon(0, [{subsystems, SubSystems}|Options])
-		  end,
-    
-    case Result of
-        {ok, Sftpd} ->
+               {user_dir, PrivDir},
+               {user_passwords,[{?USER, ?PASSWD}]},
+               {pwdfun, fun(_,_) -> true end}],
+    case prep_sftpd(TestCase, Config0) of
+        {{"sftp", _} = Spec, Config} ->
+            {ok, Sftpd} = ssh:daemon(0, [{subsystems, [Spec]} | Options]),
             Port = ssh_test_lib:daemon_port(Sftpd),
-
             Cm = ssh_test_lib:connect(Port,
                                       [{user_dir, ClientUserDir},
                                        {user, ?USER}, {password, ?PASSWD},
                                        {user_interaction, false},
                                        {silently_accept_hosts, true}]),
             {ok, Channel} =
-                ssh_connection:session_channel(Cm, ?XFER_WINDOW_SIZE,
-                                               ?XFER_PACKET_SIZE, ?SSH_TIMEOUT),
-
+                ssh_connection:session_channel(Cm, ?XFER_WINDOW_SIZE, ?XFER_PACKET_SIZE, ?SSH_TIMEOUT),
             success = ssh_connection:subsystem(Cm, Channel, "sftp", ?SSH_TIMEOUT),
-
             ProtocolVer = case atom_to_list(TestCase) of
                               "ver3_" ++ _ ->
                                   3;
                               _ ->
                                   ?SSH_SFTP_PROTOCOL_VERSION
                           end,
-
-            Data = <<?UINT32(ProtocolVer)>> ,
-
+            Data = <<?UINT32(ProtocolVer)>>,
             Size = 1 + size(Data),
-
-            ssh_connection:send(Cm, Channel, << ?UINT32(Size),
-                                                ?SSH_FXP_INIT, Data/binary >>),
-
+            ssh_connection:send(Cm, Channel, <<?UINT32(Size), ?SSH_FXP_INIT, Data/binary >>),
             {ok, <<?SSH_FXP_VERSION, ?UINT32(Version), _Ext/binary>>, _}
                 = reply(Cm, Channel),
-
-            ct:log("Client: ~p Server ~p~n", [ProtocolVer, Version]),
-
+            ?CT_LOG("Client: ~p Server ~p~n", [ProtocolVer, Version]),
             [{sftp, {Cm, Channel}}, {sftpd, Sftpd }| Config];
         Other ->
             Other
@@ -256,6 +219,11 @@ end_per_testcase(access_attributes_outside_root, Config) ->
     {_, {_, SftpdOpts}} = lists:keyfind("sftp", 1, Subsystems),
     RootDir = proplists:get_value(root, SftpdOpts),
     file:del_dir_r(RootDir);
+end_per_testcase(real_path_links_root, Config) ->
+    %% Workaround for buggy filelib:fold_files/5-6, we have to remove symlinks after test
+    LinkTests = proplists:get_value(link_tests, Config),
+    [delete_link_test(LinkTest, Config) || LinkTest <- LinkTests],
+    ssh_cleanup(Config);
 end_per_testcase(_TestCase, Config) ->
     ssh_cleanup(Config).
 
@@ -381,6 +349,29 @@ read_file(Config) when is_list(Config) ->
                   ?SSH_FXF_OPEN_EXISTING),
     ct:log("Message: ~s", [Msg]),
     ok.
+
+%%--------------------------------------------------------------------
+read_file_chunk_limit(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    FileName = filename:join(PrivDir, "test2"),
+    Length = ?SFTP_MAX_READ_SIZE + 1024,
+    ok = file:write_file(FileName, binary:copy(<<0>>, Length)),
+
+    ReqId = 0,
+    {Cm, Channel} = proplists:get_value(sftp, Config),
+
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId), Handle/binary>>, _} =
+        open_file(FileName, Cm, Channel, ReqId,
+                  ?ACE4_READ_DATA bor ?ACE4_READ_ATTRIBUTES,
+                  ?SSH_FXF_OPEN_EXISTING),
+
+    NewReqId = 1,
+
+    {ok, <<?SSH_FXP_DATA, ?UINT32(NewReqId), ?UINT32(?SFTP_MAX_READ_SIZE),
+           Data/binary>>, _} =
+        read_file(Handle, Length, 0, Cm, Channel, NewReqId),
+
+    Data = binary:copy(<<0>>, ?SFTP_MAX_READ_SIZE).
 
 %%--------------------------------------------------------------------
 max_path(Config) when is_list(Config) ->
@@ -539,30 +530,133 @@ real_path(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
+real_path_root(Config) when is_list(Config) ->
+    {Cm, Channel} = proplists:get_value(sftp, Config),
+    Tests =
+        [{filename:join("/", below_root),        "/below_root"},
+         {filename:join("/", "."),               "/"},
+         {filename:join(["/", "..", above_root]),no_such_file},
+         {"below_root",                         "/below_root"},
+         {".",                                   "/"},
+         {filename:join("..", above_root),       no_such_file}],
+    [verify_realpath(Cm, Channel, ReqId, Path, Expected) ||
+        {ReqId, {Path, Expected}} <- lists:enumerate(0, Tests)],
+    ok.
+
+%%--------------------------------------------------------------------
+real_path_links_root(Config) ->
+    {Cm, Channel} = proplists:get_value(sftp, Config),
+    LinkTests = proplists:get_value(link_tests, Config),
+    [prep_link_test(LinkTest, Config) || LinkTest <- LinkTests],
+    [verify_realpath(Cm, Channel, ReqId, filename:join("/", Name), Expected) ||
+        {ReqId, #link_test{name = Name, expected = Expected}} <-
+            lists:enumerate(0, LinkTests)].
+
+%%--------------------------------------------------------------------
 links(Config) when is_list(Config) ->
     case os:type() of
-	{win32, _} ->
-	    {skip, "Links are not fully supported by windows"};
-	_ ->
-	    ReqId = 0,
-	    {Cm, Channel} = proplists:get_value(sftp, Config),
-	    PrivDir =  proplists:get_value(priv_dir, Config),
-	    FileName = filename:join(PrivDir, "test.txt"),
-	    LinkFileName = filename:join(PrivDir, "link_test.txt"),
+        {win32, _} ->
+            {skip, "Links are not fully supported by windows"};
+        _ ->
+            Sftp = proplists:get_value(sftp, Config),
+            PrivDir = string:trim(proplists:get_value(priv_dir, Config), trailing, "/"),
+            LinkPath = filename:join(".", "link"),
 
-	    {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId),
-		  ?UINT32(?SSH_FX_OK), _/binary>>, _} =
-		create_link(LinkFileName, FileName, Cm, Channel, ReqId),
+            AbsBelowCwd = filename:join(PrivDir, "file"),
+            links_helper(Sftp, PrivDir, 0, LinkPath, AbsBelowCwd, AbsBelowCwd, AbsBelowCwd, AbsBelowCwd),
 
-	    NewReqId = 1,
-	    {ok, <<?SSH_FXP_NAME, ?UINT32(NewReqId), ?UINT32(_), ?UINT32(Len),
-		  Path:Len/binary, _/binary>>, _}
-		= read_link(LinkFileName, Cm, Channel, NewReqId),
+            AbsAtCwd = PrivDir,
+            links_helper(Sftp, PrivDir, 1, LinkPath, AbsAtCwd, AbsAtCwd, AbsAtCwd, AbsAtCwd),
 
+            AbsAboveCwd = filename:join([PrivDir, "..", "file"]),
+            AbsAboveCwdExpected = filename:join(filename:dirname(PrivDir), "file"),
+            links_helper(Sftp, PrivDir, 2, LinkPath, AbsAboveCwd, AbsAboveCwdExpected, AbsAboveCwd, AbsAboveCwdExpected),
 
-	    true = binary_to_list(Path) == FileName,
+            RelBelowCwd = filename:join(".", "file"),
+            RelBelowCwdExpected = AbsBelowCwd,
+            links_helper(Sftp, PrivDir, 3, LinkPath, RelBelowCwd, RelBelowCwdExpected, RelBelowCwd, RelBelowCwdExpected),
 
-	    ct:log("Path: ~p~n", [binary_to_list(Path)])
+            RelAtCwd = ".",
+            RelAtCwdExpected = AbsAtCwd,
+            links_helper(Sftp, PrivDir, 4, LinkPath, RelAtCwd, RelAtCwdExpected, RelAtCwd, RelAtCwdExpected),
+
+            RelAboveCwd = filename:join("..", "file"),
+            RelAboveCwdExpected = AbsAboveCwdExpected,
+            links_helper(Sftp, PrivDir, 5, LinkPath, RelAboveCwd, RelAboveCwdExpected, RelAboveCwd, RelAboveCwdExpected)
+    end.
+
+%%--------------------------------------------------------------------
+links_root(Config) when is_list(Config) ->
+    case os:type() of
+        {win32, _} ->
+            {skip, "Links are not fully supported by windows"};
+        _ ->
+            Sftp = proplists:get_value(sftp, Config),
+            PrivDir = proplists:get_value(priv_dir, Config),
+            Root = filename:join(PrivDir, links_root),
+            LinkPath = filename:join("/", "link"),
+
+            AbsBelowRoot = filename:join(Root, "file"),
+            AbsBelowRootClient = filename:join("/", "file"),
+            links_helper(Sftp, Root, 0, LinkPath, AbsBelowRoot, AbsBelowRoot, AbsBelowRootClient, AbsBelowRootClient),
+
+            AbsAtRoot = Root,
+            AbsAtRootExpected = AbsAtRoot,
+            links_helper(Sftp, Root, 1, LinkPath, AbsAtRoot, AbsAtRootExpected, "/", "/"),
+
+            AbsAboveRoot = filename:join(PrivDir, "file"),
+            AbsAboveRootExpected = AbsAtRootExpected,
+            AbsAboveRootClient = filename:join("/", ".."),
+            links_helper(Sftp, Root, 2, LinkPath, AbsAboveRoot, AbsAboveRootExpected, AbsAboveRootClient, "/"),
+
+            RelBelowRoot = filename:join(".", "file"),
+            RelBelowRootExpected = filename:join(Root, "file"),
+            RelBelowRootClient = RelBelowRoot,
+            RelBelowRootClientExpected = AbsBelowRootClient,
+            links_helper(Sftp, Root, 3, LinkPath, RelBelowRoot, RelBelowRootExpected, RelBelowRootClient, RelBelowRootClientExpected),
+
+            RelAtRoot = ".",
+            RelAtRootExpected = Root,
+            links_helper(Sftp, Root, 4, LinkPath, RelAtRoot, RelAtRootExpected, ".", "/"),
+
+            RelAboveRoot = "../file",
+            RelAboveRootExpected = Root,
+            RelAboveRootClient = filename:join("..", "file"),
+            links_helper(Sftp, Root, 5, LinkPath, RelAboveRoot, RelAboveRootExpected, RelAboveRootClient, "/")
+    end.
+
+links_helper({Cm, Channel}, Root, ReqId0, LinkPath, RawTarget, RawExpected, ClientTarget, ClientExpected) ->
+    ?CT_LOG("RawTarget: ~p, RawExpected: ~p~nClientTarget: ~p, ClientExpected: ~p~n",
+            [RawTarget, RawExpected, ClientTarget, ClientExpected]),
+
+    ReqId1 = ReqId0 * 3,
+    LinkLocation = filename:join(Root, "link"),
+    ok = file:make_symlink(RawTarget, LinkLocation),
+    try
+        {ok, <<?SSH_FXP_NAME, ?UINT32(ReqId1), ?UINT32(_),
+               ?UINT32(Len1), ClientActualB1:Len1/binary, _/binary>>, _} =
+            read_link(LinkPath, Cm, Channel, ReqId1),
+        ClientActual1 = binary_to_list(ClientActualB1),
+        ClientExpected = ClientActual1,
+
+        ok = file:delete(LinkLocation),
+
+        ReqId2 = ReqId1 + 1,
+        {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId2),
+               ?UINT32(?SSH_FX_OK), _/binary>>, _} =
+            create_link(LinkPath, ClientTarget, Cm, Channel, ReqId2),
+
+        {ok, RawActual} = file:read_link(LinkLocation),
+        RawExpected = string:trim(RawActual, trailing, "/"),
+
+        ReqId3 = ReqId2 + 1,
+        {ok, <<?SSH_FXP_NAME, ?UINT32(ReqId3), ?UINT32(_),
+               ?UINT32(Len3), ClientActualB2:Len3/binary, _/binary>>, _} =
+            read_link(LinkPath, Cm, Channel, ReqId3),
+        ClientActual2 = binary_to_list(ClientActualB2),
+        ClientExpected = ClientActual2
+    after
+        file:delete(LinkLocation)
     end.
 
 %%--------------------------------------------------------------------
@@ -934,6 +1028,17 @@ access_attributes_outside_root(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
+extended_data_no_infinite_loop(Config) when is_list(Config) ->
+    %% Regression test for CVE-2026-54886, sending extended data to ssh_sftpd.erl
+    %% caused an infinite loop
+    {Cm, Channel} = proplists:get_value(sftp, Config),
+    ok = ssh_connection:send(Cm, Channel, 1, <<"trigger">>),
+
+    Data = <<?UINT32(5), ?SSH_FXP_INIT, ?UINT32(6)>>,
+    ok = ssh_connection:send(Cm, Channel, Data),
+    {ok, <<?SSH_FXP_VERSION, ?UINT32(_Version), _/binary>>, _} = reply(Cm, Channel).
+
+%%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 prep(Config) ->
@@ -954,6 +1059,151 @@ prep(Config) ->
     {ok, FileInfo} = file:read_file_info(TestFile),
     ok = file:write_file_info(TestFile,
 			      FileInfo#file_info{mode = Mode}).
+
+prep_sftpd(ver6_basic, Config) ->
+    {ssh_sftpd:subsystem_spec([{sftpd_vsn, 6}]), Config};
+prep_sftpd(access_outside_root, Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    %% Build RootDir/access_outside_root/a/b and set Root and CWD
+    BaseDir = filename:join(PrivDir, access_outside_root),
+    RootDir = filename:join(BaseDir, a),
+    CWD     = filename:join(RootDir, b),
+    %% Make the directory chain:
+    ok = filelib:ensure_dir(filename:join(CWD, tmp)),
+    {ssh_sftpd:subsystem_spec([{root, RootDir}, {cwd, CWD}]), Config};
+prep_sftpd(access_attributes_outside_root, Config) ->
+    case os:type() of
+        {win32, _} ->
+            {skip, "Not implemented on windows"};
+        _ ->
+            Rand = integer_to_list(rand:uniform(1000000)),
+            RootDir = filename:join("/tmp", Rand),
+            ok = file:make_dir(RootDir),
+            {ssh_sftpd:subsystem_spec([{root, RootDir}]), Config}
+    end;
+prep_sftpd(root_with_cwd, Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    RootDir = filename:join(PrivDir, root_with_cwd),
+    CWD     = filename:join(RootDir, home),
+    {ssh_sftpd:subsystem_spec([{root, RootDir}, {cwd, CWD}]), Config};
+prep_sftpd(TestCase, Config) when TestCase =:= relative_path;
+                                  TestCase =:= open_file_dir_v5;
+                                  TestCase =:= links ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    {ssh_sftpd:subsystem_spec([{cwd, PrivDir}]), Config};
+prep_sftpd(open_file_dir_v6, Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    {ssh_sftpd:subsystem_spec([{cwd, PrivDir}, {sftpd_vsn, 6}]), Config};
+prep_sftpd(links_root, Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    RootDir = filename:join(PrivDir, links_root),
+    ok = file:make_dir(RootDir),
+    {ssh_sftpd:subsystem_spec([{root, RootDir}, {cwd, RootDir}]), Config};
+prep_sftpd(real_path_root, Config0) ->
+    case os:type() of
+        {win32, _} ->
+            {skip, "Not a relevant test on windows"};
+        _ ->
+            PrivDir = proplists:get_value(priv_dir, Config0),
+            RootDir = filename:join(PrivDir, real_path_root),
+            ok = file:make_dir(RootDir),
+            BelowRootFile = filename:join(RootDir, below_root),
+            ok = file:write_file(BelowRootFile, <<>>),
+            AboveRootFile = filename:join(PrivDir, above_root),
+            ok = file:write_file(AboveRootFile, <<>>),
+            Config = [{root, RootDir}, {below_root, BelowRootFile}, {above_root, AboveRootFile} | Config0],
+            {ssh_sftpd:subsystem_spec([{root, RootDir}, {cwd, PrivDir}]), Config}
+    end;
+prep_sftpd(real_path_links_root = TestCase, Config0) ->
+    case os:type() of
+        {win32, _} ->
+            {skip, "Not a relevant test on windows"};
+        _ ->
+            PrivDir = proplists:get_value(priv_dir, Config0),
+            RootDir = filename:join(PrivDir, TestCase),
+
+            ok = file:make_dir(RootDir),
+            TargetAboveRoot = filename:join(PrivDir, target),
+            ok = file:write_file(TargetAboveRoot, <<>>),
+            TargetBelowRoot = filename:join(RootDir, target),
+            ok = file:write_file(TargetBelowRoot, <<>>),
+
+            LinkTests =
+                [#link_test{name = abs_to_parent_of_root,
+                            link1 = #link{target = [RootDir, ".."]},
+                            expected = no_such_file},
+                 #link_test{name = rel_to_parent_of_root,
+                            link1 = #link{target = [".."]},
+                            expected = no_such_file},
+                 #link_test{name = abs_return_to_below_root,
+                            link1 = #link{target = [TargetBelowRoot],
+                                          location = [PrivDir, abs_return_to_below_root]},
+                            link2 = #link{target = [PrivDir, abs_return_to_below_root]},
+                            expected = <<"/target">>},
+                 #link_test{name = rel_return_to_below_root,
+                            link1 = #link{target = [".", TestCase, target],
+                                          location = [PrivDir, rel_return_to_below_root]},
+                            link2 = #link{target = ["..", rel_return_to_below_root]},
+                            expected = <<"/target">>},
+                 #link_test{name = abs_return_to_above_root,
+                            link1 = #link{target = [TargetAboveRoot],
+                                          location = [PrivDir, abs_return_to_above_root]},
+                            link2 = #link{target = [PrivDir, abs_return_to_above_root]},
+                            expected = no_such_file},
+                 #link_test{name = rel_return_to_above_root,
+                            link1 = #link{target = [".", target],
+                                          location = [PrivDir, rel_return_to_above_root]},
+                            link2 = #link{target = ["..", rel_return_to_above_root]},
+                            expected = no_such_file},
+                 #link_test{name = abs_escape_above_root,
+                            link1 = #link{target = [RootDir, "..", target],
+                                          location = [PrivDir, abs_escape_above_root]},
+                            link2 = #link{target = [PrivDir, abs_escape_above_root]},
+                            expected = no_such_file},
+                 #link_test{name = rel_escape_above_root,
+                            link1 = #link{target = [".", TestCase, "..", target],
+                                          location = [PrivDir, rel_escape_above_root]},
+                            link2 = #link{target = ["..", rel_escape_above_root]},
+                            expected = no_such_file},
+                 #link_test{name = abs_escape_above_root_and_back,
+                            link1 = #link{target = [RootDir, "..", TestCase, target],
+                                          location = [PrivDir, abs_escape_above_root_and_back]},
+                            link2 = #link{target = [PrivDir, abs_escape_above_root_and_back]},
+                            expected = <<"/target">>},
+                 #link_test{name = rel_escape_above_root_and_back,
+                            link1 = #link{target = [".", TestCase, "..", TestCase, target],
+                                          location = [PrivDir, rel_escape_above_root_and_back]},
+                            link2 = #link{target = ["..", rel_escape_above_root_and_back]},
+                            expected = <<"/target">>}],
+            Config = [{root, RootDir}, {link_tests, LinkTests} | Config0],
+            {ssh_sftpd:subsystem_spec([{root, RootDir}, {cwd, PrivDir}]), Config}
+    end;
+prep_sftpd(_TestCase, Config) ->
+    {ssh_sftpd:subsystem_spec([{max_handles, ?MAX_HANDLES}, {max_path, ?MAX_PATH}]), Config}.
+
+prep_link_test(#link_test{name = Name, link1 = Link1, link2 = Link2}, Config) ->
+    ok = prep_link(Link1, Name, Config),
+    ok = prep_link(Link2, Name, Config).
+
+prep_link(undefined, _Name, _Config) ->
+    ok;
+prep_link(#link{location = undefined, target = Target}, Name, Config) ->
+    RootDir = proplists:get_value(root, Config),
+    ok = file:make_symlink(filename:join(Target), filename:join(RootDir, Name));
+prep_link(#link{location = Location, target = Target}, _Name, _Config) ->
+    ok = file:make_symlink(filename:join(Target), filename:join(Location)).
+
+delete_link_test(#link_test{name = Name, link1 = Link1, link2 = Link2}, Config) ->
+    delete_link(Link1, Name, Config),
+    delete_link(Link2, Name, Config).
+
+delete_link(undefined, _Name, _Config) ->
+    ok;
+delete_link(#link{location = undefined}, Name, Config) ->
+    RootDir = proplists:get_value(root, Config),
+    file:delete(filename:join(RootDir, Name));
+delete_link(#link{location = Location}, _Name, _Config) ->
+    file:delete(filename:join(Location)).
 
 reply(Cm, Channel) ->
     reply(Cm, Channel,<<>>).
@@ -1230,3 +1480,29 @@ req_id() ->
         end,
     put(req_id, ReqId + 1),
     ReqId.
+
+verify_realpath(Cm, Channel, ReqId, Path, no_such_file) ->
+    case real_path(Path, Cm, Channel, ReqId) of
+        {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId), ?UINT32(?SSH_FX_NO_SUCH_FILE), _/binary>>, _} ->
+            ok;
+        {ok, <<?SSH_FXP_NAME, ?UINT32(ReqId), ?UINT32(_), ?UINT32(Len),
+               ActualPath:Len/binary, _/binary>>, _} ->
+            ?CT_FAIL("Escape from root detected!~nPath: ~p~nExpected: SSH_FX_NO_SUCH_FILE~nActual: ~p~n",
+                     [Path, ActualPath]);
+        Other ->
+            ?CT_FAIL("Unexpected response for path: ~p~nExpected: SSH_FX_NO_SUCH_FILE~nActual: ~p~n",
+                     [Path, Other])
+    end;
+verify_realpath(Cm, Channel, ReqId, Path, Expected) ->
+    ExpBin = iolist_to_binary(Expected),
+    case real_path(Path, Cm, Channel, ReqId) of
+        {ok, <<?SSH_FXP_NAME, ?UINT32(ReqId), ?UINT32(_), ?UINT32(Len),
+               ExpBin:Len/binary, _/binary>>, _} ->
+            ok;
+        {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId), ?UINT32(Status), _/binary>>, _} ->
+            ?CT_FAIL("Unexpected status for path: ~p~nExpected: ~p~nActual: ~p~n",
+                     [Path, Expected, Status]);
+        Other ->
+            ?CT_FAIL("Unexpected response for path: ~p~nExpected: ~p~nActual: ~p~n",
+                     [Path, Expected, Other])
+    end.

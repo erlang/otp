@@ -23,6 +23,41 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 11.0.3
+
+### Fixed Bugs and Malfunctions
+
+- inet:info/1 could crash when calling for a closing (port) socket.
+
+  Own Id: OTP-20173
+
+- Handling of the truncation bit in `inet_res` has been fixed so it properly falls back to querying over TCP after a truncated UDP reply.
+  
+  This fixes a bug introduced in OTP-28.4.2 - kernel-10.6.2 making a truncated UDP answer fail to parse and never execute the fallback, instead the name resolve operation fails.
+
+  Own Id: OTP-20199 Aux Id: [PR-11247]
+
+[PR-11247]: https://github.com/erlang/otp/pull/11247
+
+## Kernel 11.0.2
+
+### Fixed Bugs and Malfunctions
+
+- gen_tcp_socket accept should explicitly inherit the same options as plain gen_tcp.
+
+  Own Id: OTP-20057
+
+## Kernel 11.0.1
+
+### Fixed Bugs and Malfunctions
+
+- SCTP peeloff of an IPv6 socket, the peeled-off socket does not inherit
+  the parent options as expected.
+
+  Own Id: OTP-20134 Aux Id: [PR-11007]
+
+[PR-11007]: https://github.com/erlang/otp/pull/11007
+
 ## Kernel 11.0
 
 ### Fixed Bugs and Malfunctions
@@ -171,6 +206,46 @@ This document describes the changes made to the Kernel application.
 [PR-10478]: https://github.com/erlang/otp/pull/10478
 [PR-10929]: https://github.com/erlang/otp/pull/10929
 [PR-11031]: https://github.com/erlang/otp/pull/11031
+
+## Kernel 10.6.3.3
+
+### Fixed Bugs and Malfunctions
+
+- inet:info/1 could crash when calling for a closing (port) socket.
+
+  Own Id: OTP-20173
+
+- Handling of the truncation bit in `inet_res` has been fixed so it properly falls back to querying over TCP after a truncated UDP reply.
+  
+  This fixes a bug introduced in OTP-28.4.2 - kernel-10.6.2 making a truncated UDP answer fail to parse and never execute the fallback, instead the name resolve operation fails.
+
+  Own Id: OTP-20199 Aux Id: [PR-11247]
+
+[PR-11247]: https://github.com/erlang/otp/pull/11247
+
+## Kernel 10.6.3.2
+
+### Fixed Bugs and Malfunctions
+
+- gen_tcp_socket accept should explicitly inherit the same options as plain gen_tcp.
+
+  Own Id: OTP-20057
+
+## Kernel 10.6.3.1
+
+### Fixed Bugs and Malfunctions
+
+- Incorrect TOS format when using gen_udp with socket backend
+
+  Own Id: OTP-20131 Aux Id: OTP-20102, [GH-10968]
+
+- SCTP peeloff of an IPv6 socket, the peeled-off socket does not inherit
+  the parent options as expected.
+
+  Own Id: OTP-20134 Aux Id: [PR-11007]
+
+[GH-10968]: https://github.com/erlang/otp/issues/10968
+[PR-11007]: https://github.com/erlang/otp/pull/11007
 
 ## Kernel 10.6.3
 

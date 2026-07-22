@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -401,37 +401,7 @@ next_event(StateName,  #ssl_tls{} = Record, State, Actions) ->
 next_event(StateName,  #alert{} = Alert, State, Actions) ->
     {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}.
 
-%%% TLS record protocol level application data messages 
-handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA}, StateName,
-                       #state{static_env = #static_env{role = server},
-                              handshake_env = #handshake_env{renegotiation = {false, first}}
-                             } = State) when StateName == initial_hello;
-                                             StateName == hello;
-                                             StateName == certify;
-                                             StateName == wait_cert_verify;
-                                             StateName == wait_stapling;
-                                             StateName == abbreviated;
-                                             StateName == cipher
-                                             ->
-    %% Application data can not be sent before initial handshake pre TLS-1.3.
-    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
-    ssl_gen_statem:handle_own_alert(Alert, StateName, State);
-handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, early_data = false}, StateName,
-                       #state{static_env = #static_env{role = server}
-                             } = State) when StateName == start;
-                                             StateName == recvd_ch;
-                                             StateName == negotiated;
-                                             StateName == wait_eoed ->
-    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, none_early_application_data_before_handshake),
-    ssl_gen_statem:handle_own_alert(Alert, StateName, State);
-handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA}, StateName,
-                       #state{static_env = #static_env{role = server}
-                             } = State) when StateName == wait_cert;
-                                             StateName == wait_cv;
-                                             StateName == wait_finished->
-    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE,
-                       application_data_before_handshake_or_intervened_in_post_handshake_auth),
-    ssl_gen_statem:handle_own_alert(Alert, StateName, State);
+%%% TLS record protocol level application data messages
 handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName,
                        #state{recv = #recv{from = From},
                               socket_options = #socket_options{active = false}} = State0)
@@ -891,27 +861,27 @@ handle_unnegotiated_version(undefined, #{versions := [Version|_]} = Options, Dat
 handle_unnegotiated_version(Version, Options, Data, Buff, _, _) ->
     tls_handshake:get_tls_handshakes(Version, Data, Buff, Options).
 
-assert_buffer_sanity(<<?BYTE(_Type), ?UINT24(Length), Rest/binary>>, 
+assert_buffer_sanity(<<?BYTE(_Type), ?UINT24(Length), Rest/binary>>,
                      #{max_handshake_size := Max}) when
-      Length =< Max ->  
+      Length =< Max ->
     case byte_size(Rest) of
         N when N < Length ->
             true;
-        N when N > Length ->       
-            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, 
+        N when N > Length ->
+            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
                              too_big_handshake_data));
         _ ->
-            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, 
-                             malformed_handshake_data))  
-    end;  
+            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
+                             malformed_handshake_data))
+    end;
 assert_buffer_sanity(Bin, _) ->
     case byte_size(Bin) of
-        N when N < 3 ->
+        N when N < 4 ->
             true;
-        _ ->       
-            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, 
+        _ ->
+            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
                              malformed_handshake_data))
-    end.  
+    end.
 
 decode_alerts(Bin) ->
     ssl_alert:decode(Bin).

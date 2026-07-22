@@ -111,7 +111,7 @@ jobs:
   build-windows:
     name: Build Erlang/OTP (Windows)
     needs: pack
-    if: needs.pack.outputs.build-c-code == 'true'
+    if: needs.pack.outputs.build-c-code == 'true' || (github.event_name == 'push' && github.repository == 'erlang/otp')
     permissions:
       contents: read
       actions:  write

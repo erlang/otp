@@ -641,7 +641,7 @@ hopeless_darwin() ->
             %% icky file names worked between 10 and 17, but started returning
             %% EILSEQ in 18. The check against 18..21 is exact in case newer
             %% versions of Darwin support them again.
-            Major < 9 orelse (Major >= 18 andalso Major =< 21);
+            Major < 9 orelse (Major >= 18 andalso Major =< 25);
         _ ->
             false
     end.

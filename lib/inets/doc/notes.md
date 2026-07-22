@@ -21,6 +21,20 @@ limitations under the License.
 -->
 # Inets Release Notes
 
+## Inets 9.7.1
+
+### Fixed Bugs and Malfunctions
+
+- The HTTP client (httpc) now removes Authorization, Proxy-Authorization, Cookie, Referer, and Origin headers when following a redirect to a different host or port. Previously these headers were forwarded verbatim, potentially leaking credentials to
+  unintended targets.
+  
+  This follows the requirements of RFC 9110 §15.4.
+
+  Own Id: OTP-20155 Aux Id: [CVE-2026-48856], GHSA-m75x-4vwg-ggjh, [PR-11212]
+
+[CVE-2026-48856]: https://nvd.nist.gov/vuln/detail/2026-48856
+[PR-11212]: https://github.com/erlang/otp/pull/11212
+
 ## Inets 9.7
 
 ### Fixed Bugs and Malfunctions
@@ -80,6 +94,30 @@ limitations under the License.
 [PR-10839]: https://github.com/erlang/otp/pull/10839
 [PR-10950]: https://github.com/erlang/otp/pull/10950
 [PR-11073]: https://github.com/erlang/otp/pull/11073
+
+## Inets 9.6.2.2
+
+### Fixed Bugs and Malfunctions
+
+- The HTTP client (httpc) now removes Authorization, Proxy-Authorization, Cookie, Referer, and Origin headers when following a redirect to a different host or port. Previously these headers were forwarded verbatim, potentially leaking credentials to
+  unintended targets.
+  
+  This follows the requirements of RFC 9110 §15.4.
+
+  Own Id: OTP-20155 Aux Id: [CVE-2026-48856], GHSA-m75x-4vwg-ggjh, [PR-11212]
+
+[CVE-2026-48856]: https://nvd.nist.gov/vuln/detail/2026-48856
+[PR-11212]: https://github.com/erlang/otp/pull/11212
+
+## Inets 9.6.2.1
+
+### Fixed Bugs and Malfunctions
+
+- A call to httpd:reload_config/2 now validates the new configuration before removing the old one, leaving the server running in case of faulty config, instead of putting it in an unrecoverable state.
+
+  Own Id: OTP-20128 Aux Id: [PR-11079], ERIERL-1314
+
+[PR-11079]: https://github.com/erlang/otp/pull/11079
 
 ## Inets 9.6.2
 
@@ -252,6 +290,30 @@ limitations under the License.
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 [PR-9101]: https://github.com/erlang/otp/pull/9101
 
+## Inets 9.3.2.6
+
+### Fixed Bugs and Malfunctions
+
+- The HTTP client (httpc) now removes Authorization, Proxy-Authorization, Cookie, Referer, and Origin headers when following a redirect to a different host or port. Previously these headers were forwarded verbatim, potentially leaking credentials to
+  unintended targets.
+  
+  This follows the requirements of RFC 9110 §15.4.
+
+  Own Id: OTP-20155 Aux Id: [CVE-2026-48856], GHSA-m75x-4vwg-ggjh, [PR-11212]
+
+[CVE-2026-48856]: https://nvd.nist.gov/vuln/detail/2026-48856
+[PR-11212]: https://github.com/erlang/otp/pull/11212
+
+## Inets 9.3.2.5
+
+### Fixed Bugs and Malfunctions
+
+- A call to httpd:reload_config/2 now validates the new configuration before removing the old one, leaving the server running in case of faulty config, instead of putting it in an unrecoverable state.
+
+  Own Id: OTP-20128 Aux Id: [PR-11079], ERIERL-1314
+
+[PR-11079]: https://github.com/erlang/otp/pull/11079
+
 ## Inets 9.3.2.4
 
 ### Fixed Bugs and Malfunctions
@@ -411,6 +473,14 @@ limitations under the License.
 [PR-7678]: https://github.com/erlang/otp/pull/7678
 [PR-8029]: https://github.com/erlang/otp/pull/8029
 [PR-8026]: https://github.com/erlang/otp/pull/8026
+
+## Inets 9.1.0.7
+
+### Fixed Bugs and Malfunctions
+
+* A call to httpd:reload_config/2 now validates the new configuration before removing the old one, leaving the server running in case of faulty config, instead of putting it in an unrecoverable state.
+
+  Own Id: OTP-20128 Aux Id: PR-11079, ERIERL-1314
 
 ## Inets 9.1.0.6
 

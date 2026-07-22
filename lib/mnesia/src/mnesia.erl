@@ -608,6 +608,13 @@ Change a configuration setting.
   [Section Configuration Parameters](`m:mnesia#configuration_parameters`).
   `ReturnValue` is the new value. Notice that this configuration parameter is
   not persistent. It is lost when Mnesia has stopped.
+
+## Examples
+
+```erlang
+1> mnesia:change_config(dc_dump_limit, 8).
+{ok,8}
+```
 """.
 -spec change_config(Config, Value) -> ReturnValue when
       Config :: config_key(),
@@ -634,6 +641,15 @@ change_config(BadKey, _BadVal) ->
 Change the internal debug level of Mnesia.
 
 For details, see Section Configuration Parameters](`m:mnesia#configuration_parameters`).
+
+## Examples
+
+```erlang
+1> mnesia:set_debug_level(verbose).
+none
+2> mnesia:set_debug_level(none).
+verbose
+```
 """.
 -spec set_debug_level(Level  :: debug_level()) ->
           OldLevel :: debug_level().
@@ -697,6 +713,13 @@ Makes the transaction silently return the tuple `{aborted, Reason}`. Termination
 of a Mnesia transaction means that an exception is thrown to an enclosing
 `catch`. Thus, the expression `catch mnesia:abort(x)` does not terminate the
 transaction.
+
+## Examples
+
+```erlang
+1> mnesia:transaction(fun() -> mnesia:abort(cancel_reason) end).
+{aborted,cancel_reason}
+```
 """.
 -spec abort(Reason::term()) -> no_return().
 abort(Reason = {aborted, _}) ->
@@ -709,6 +732,15 @@ Return true if inside a transaction context.
 
 When this function is executed inside a transaction-context, it returns `true`,
 otherwise `false`.
+
+## Examples
+
+```erlang
+1> mnesia:is_transaction().
+false
+2> mnesia:transaction(fun mnesia:is_transaction/0).
+{atomic,true}
+```
 """.
 -spec is_transaction() -> boolean().
 is_transaction() ->
@@ -804,6 +836,21 @@ specified in `Retries`. `Retries` must be an integer greater than 0 or the atom
 `infinity`, default is `infinity`. Mnesia uses `exit` exceptions to signal that
 a transaction needs to be restarted, thus a `Fun` must not catch `exit`
 exceptions with reason `{aborted, term()}`.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_transaction, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:transaction(
+       fun(Table, Key) ->
+           mnesia:write(Table, {Table, Key, 30}, write),
+           mnesia:read(Table, Key, read)
+       end,
+       [doctest_transaction, alice],
+       infinity).
+{atomic,[{doctest_transaction,alice,30}]}
+```
 """.
 -spec transaction(Fun, Args, Retries) -> t_result(Res) when
       Fun :: fun((...) -> Res),
@@ -840,6 +887,23 @@ every involved node before it returns, otherwise it behaves as
 
 This functionality can be used to avoid that one process overloads a database on
 another node.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_sync_transaction, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> [mnesia:dirty_write(doctest_sync_transaction, Person) ||
+       Person <- [{doctest_sync_transaction, alice, 30},
+                  {doctest_sync_transaction, bob, 25},
+                  {doctest_sync_transaction, carol, 35}]].
+[ok,ok,ok]
+3> mnesia:sync_transaction(
+       fun(Table, Key) -> mnesia:read(Table, Key, read) end,
+       [doctest_sync_transaction, alice],
+       infinity).
+{atomic,[{doctest_sync_transaction,alice,30}]}
+```
 """.
 -spec sync_transaction(Fun, [Arg::_], Retries) -> t_result(Res) when
       Fun :: fun((...) -> Res),
@@ -901,6 +965,22 @@ are only to be used for performance reasons when it is absolutely necessary.
 
 Notice that calling (nesting) `mnesia:[a]sync_dirty` inside a
 transaction-context inherits the transaction semantics.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_async_dirty, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:async_dirty(
+       fun(Table, Key) ->
+           [mnesia:write(Table, Person, write) ||
+               Person <- [{Table, Key, 30}, {Table, bob, 25}]],
+           mnesia:read(Table, Key, read) ++
+               mnesia:match_object(Table, {Table, '_', 25}, read)
+       end,
+       [doctest_async_dirty, alice]).
+[{doctest_async_dirty,alice,30},{doctest_async_dirty,bob,25}]
+```
 """.
 -spec async_dirty(Fun, [Arg::_]) -> Res | no_return() when
       Fun :: fun((...) -> Res).
@@ -922,6 +1002,24 @@ functions. It is performed in almost the same context as
 synchronously. The caller waits for the updates to be performed on all active
 replicas before the `Fun` returns. For details, see `mnesia:activity/4` and the
 User's Guide.
+
+## Examples
+
+Returns two objects, one matching by a provided key, and another matching by the value.
+
+```erlang
+1> mnesia:create_table(doctest_sync_dirty, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:sync_dirty(
+       fun(Table, Key) ->
+           [mnesia:write(Table, Person, write) ||
+               Person <- [{Table, Key, 30}, {Table, bob, 25}, {Table, carol, 35}]],
+           mnesia:read(Table, Key, read) ++
+               mnesia:match_object(Table, {Table, '_', 35}, read)
+       end,
+       [doctest_sync_dirty, alice]).
+[{doctest_sync_dirty,alice,30},{doctest_sync_dirty,carol,35}]
+```
 """.
 -spec sync_dirty(Fun, [Arg::_]) -> Res | no_return() when
       Fun :: fun((...) -> Res).
@@ -946,6 +1044,24 @@ only. For details, see `mnesia:activity/4` and the User's Guide.
 
 Notice that calling (nesting) a `mnesia:ets` inside a transaction-context
 inherits the transaction semantics.
+
+## Examples
+
+Inserts a few records and looks up a record by key and by value inside a RAM only table.
+
+```erlang
+1> mnesia:create_table(doctest_ets, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:ets(
+       fun(Table, Key) ->
+           [mnesia:write(Table, Person, write) ||
+               Person <- [{Table, Key, 30}, {Table, greg, 25}, {Table, peter, 35}]],
+           mnesia:read(Table, Key, read) ++
+               mnesia:match_object(Table, {Table, '_', 25}, read)
+       end,
+       [doctest_ets, victoria]).
+[{doctest_ets,victoria,30},{doctest_ets,greg,25}]
+```
 """.
 -spec ets(Fun, [Arg::_]) -> Res | no_return() when
       Fun :: fun((...) -> Res).
@@ -958,6 +1074,23 @@ Execute `Fun` in `AccessContext`.
 Calls [`mnesia:activity(AccessContext, Fun, Args, AccessMod)`](`activity/4`), where `AccessMod`
 is the default access callback module obtained by
 `mnesia:system_info(access_module)`. `Args` defaults to `[]` (empty list).
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_activity1, [{attributes, [word, score]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:activity(async_dirty, fun() ->
+       mnesia:write(doctest_activity1, {doctest_activity1, lantern, 20}, write),
+       mnesia:read(doctest_activity1, lantern, read)
+   end).
+[{doctest_activity1,lantern,20}]
+3> mnesia:activity(sync_dirty, fun() ->
+       mnesia:write(doctest_activity1, {doctest_activity1, compass, 30}, write),
+       mnesia:match_object(doctest_activity1, {doctest_activity1, '_', 30}, read)
+   end).
+[{doctest_activity1,compass,30}]
+```
 """.
 -spec activity(AccessContext, Fun) -> t_result(Res) | Res when
       AccessContext :: activity(),
@@ -1069,6 +1202,40 @@ interpreted as the activity type: `ets`, `async_dirty`, `sync_dirty`, or `tid`.
 `tid` means that the activity is a transaction. The structure of the rest of the
 identity record is internal to Mnesia.
 
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_activity2, [{attributes, [word, score]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:activity(
+       ets,
+       fun(Table, Key) ->
+           mnesia:write(Table, {Table, Key, 10}, write),
+           mnesia:read(Table, Key, read)
+       end,
+       [doctest_activity2, pebble],
+       mnesia).
+[{doctest_activity2,pebble,10}]
+3> mnesia:activity(
+       async_dirty,
+       fun(Table, Key) ->
+           mnesia:write(Table, {Table, Key, 20}, write),
+           mnesia:read(Table, Key, read)
+       end,
+       [doctest_activity2, lantern],
+       mnesia).
+[{doctest_activity2,lantern,20}]
+4> mnesia:activity(
+       sync_dirty,
+       fun(Table, Score) ->
+           mnesia:write(Table, {Table, compass, Score}, write),
+           mnesia:match_object(Table, {Table, '_', Score}, read)
+       end,
+       [doctest_activity2, 30],
+       mnesia).
+[{doctest_activity2,compass,30}]
+```
+
 `Opaque` is an opaque data structure that is internal to Mnesia.
 """.
 -spec activity(AccessContext, Fun, Args, AccessMod) -> t_result(Res) | Res when
@@ -1167,6 +1334,15 @@ Locks are released when the outermost transaction ends.
 The semantics of this function is context-sensitive. For details, see
 `mnesia:activity/4`. In transaction-context, it acquires locks, otherwise it
 ignores the request.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_lock, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:transaction(fun() -> mnesia:lock({table, doctest_lock}, read) end).
+{atomic,ok}
+```
 """.
 -spec lock(LockItem, LockKind) -> list() | tuple() | no_return() when
       LockItem :: {'record', table(), Key::term()} |
@@ -1287,6 +1463,19 @@ Write a record into the database.
 
 Calls the function `mnesia:write(Tab, Record, write)`, where `Tab` is
 [`element(1, Record)`](`element/2`).
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_write1, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:transaction(fun() ->
+       mnesia:write({doctest_write1, alice, 30}),
+       mnesia:write({doctest_write1, bob, 25}),
+       mnesia:read(doctest_write1, alice, read) ++ mnesia:read(doctest_write1, bob, read)
+   end).
+{atomic,[{doctest_write1,alice,30},{doctest_write1,bob,25}]}
+```
 """.
 -spec write(Record::tuple()) -> 'ok'.
 write(Val) when is_tuple(Val), tuple_size(Val) > 2 ->
@@ -1305,11 +1494,23 @@ s_write(Val) when is_tuple(Val), tuple_size(Val) > 2 ->
 Write `Record` to table `Tab`.
 
 The function returns `ok`, or terminates if an error occurs. For example, the
-transaction terminates if no `person` table exists.
+transaction terminates if no `Tab` table exists.
 
 The semantics of this function is context-sensitive. For details, see
 `mnesia:activity/4`. In transaction-context, it acquires a lock of type
 `LockKind`. The lock types `write` and `sticky_write` are supported.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_write2, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:transaction(fun() ->
+       mnesia:write(doctest_write2, {doctest_write2, alice, 30}, write),
+       mnesia:read(doctest_write2, alice, read)
+   end).
+{atomic,[{doctest_write2,alice,30}]}
+```
 """.
 -spec write(Tab::table(), Record::tuple(), LockKind::write_locks()) -> 'ok'.
 write(Tab, Val, LockKind) ->
@@ -1368,6 +1569,18 @@ delete(Oid) ->
 
 -doc """
 Call the function `mnesia:delete(Tab, Key, sticky_write)`
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_s_delete, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_s_delete, {doctest_s_delete, alice, 30}).
+3> mnesia:transaction(fun() -> mnesia:s_delete({doctest_s_delete, alice}) end).
+{atomic,ok}
+4> mnesia:dirty_read(doctest_s_delete, alice).
+[]
+```
 """.
 -spec s_delete(TabKey::{Tab::table(), Key::_}) -> 'ok'.
 s_delete({Tab, Key}) ->
@@ -1382,6 +1595,18 @@ The semantics of this function is context-sensitive. For details, see
 `mnesia:activity/4`. In transaction-context, it acquires a lock of type
 `LockKind` in the record. Currently, the lock types `write` and `sticky_write`
 are supported.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_delete, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_delete, {doctest_delete, alice, 30}).
+3> mnesia:transaction(fun() -> mnesia:delete(doctest_delete, alice, write) end).
+{atomic,ok}
+4> mnesia:dirty_read(doctest_delete, alice).
+[]
+```
 """.
 -spec delete(Tab::table(), Key::_, LockKind::write_locks()) -> 'ok'.
 delete(Tab, Key, LockKind) ->
@@ -1449,6 +1674,21 @@ The semantics of this function is context-sensitive. For details, see
 `mnesia:activity/4`. In transaction-context, it acquires a lock of type
 `LockKind` on the record. Currently, the lock types `write` and `sticky_write`
 are supported.
+
+## Examples
+
+`delete_object` succeeds regardless of whether object existed or not prior to the deletion
+attempt, so we have to ensure that `dirty_write` before it also succeeded.
+
+```erlang
+1> mnesia:create_table(doctest_delete_object, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_delete_object, {doctest_delete_object, grace, 35}).
+3> mnesia:transaction(fun() -> mnesia:delete_object(doctest_delete_object, {doctest_delete_object, grace, 35}, write) end).
+{atomic,ok}
+4> mnesia:dirty_read(doctest_delete_object, grace).
+[]
+```
 """.
 -spec delete_object(Tab::table(), Rec::tuple(), LockKind::write_locks()) -> 'ok'.
 delete_object(Tab, Val, LockKind) ->
@@ -1552,6 +1792,16 @@ If the user wants to update the record, it is more efficient to use
 `write/sticky_write` as the `LockKind`. If majority checking is active on the
 table, it is checked as soon as a write lock is attempted. This can be used to
 end quickly if the majority condition is not met.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_read, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_read, {doctest_read, alice, 30}).
+3> mnesia:transaction(fun() -> mnesia:read(doctest_read, alice, read) end).
+{atomic,[{doctest_read,alice,30}]}
+```
 """.
 -spec read(Tab::table(), Key::_, LockKind::lock_kind()) -> [tuple()].
 read(Tab, Key, LockKind) ->
@@ -1603,6 +1853,17 @@ by this function with the function `mnesia:next/2`.
 If there are no records in the table, this function returns the atom
 `'$end_of_table'`. It is therefore highly undesirable, but not disallowed, to
 use this atom as the key for any user records.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_first, [{type, ordered_set}, {attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_first, {doctest_first, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_first, {doctest_first, grace, 35}).
+4> mnesia:activity(sync_dirty, fun mnesia:first/1, [doctest_first]).
+alice
+```
 """.
 -spec first(Tab::table()) -> Key::term().
 first(Tab) ->
@@ -1639,6 +1900,17 @@ Return the key for the last record in a table.
 Works exactly like `mnesia:first/1`, but returns the last object in Erlang term
 order for the `ordered_set` table type. For all other table types,
 `mnesia:first/1` and `mnesia:last/1` are synonyms.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_last, [{type, ordered_set}, {attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_last, {doctest_last, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_last, {doctest_last, grace, 35}).
+4> mnesia:activity(sync_dirty, fun mnesia:last/1, [doctest_last]).
+grace
+```
 """.
 -spec last(Tab::table()) -> Key::term().
 last(Tab) ->
@@ -1675,6 +1947,17 @@ Return the next key in a table.
 Traverses a table and performs operations on all records in the table. When the
 end of the table is reached, the special key `'$end_of_table'` is returned.
 Otherwise the function returns a key that can be used to read the actual record.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_next, [{type, ordered_set}, {attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_next, {doctest_next, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_next, {doctest_next, grace, 35}).
+4> mnesia:activity(sync_dirty, fun mnesia:next/2, [doctest_next, alice]).
+grace
+```
 """.
 -spec next(Tab::table(), Key::term()) -> NextKey::term().
 next(Tab,Key) ->
@@ -1710,6 +1993,17 @@ Return the previous key in a table.
 Works exactly like `mnesia:next/2`, but returns the previous object in Erlang
 term order for the `ordered_set` table type. For all other table types,
 `mnesia:next/2` and `mnesia:prev/2` are synonyms.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_prev, [{type, ordered_set}, {attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_prev, {doctest_prev, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_prev, {doctest_prev, grace, 35}).
+4> mnesia:activity(sync_dirty, fun mnesia:prev/2, [doctest_prev, grace]).
+alice
+```
 """.
 -spec prev(Tab::table(), Key::term()) -> PrevKey::term().
 prev(Tab,Key) ->
@@ -1861,6 +2155,19 @@ Iterates over the table `Table` and calls `Fun(Record, Acc)` for each
 argument in the next call to `Fun`.
 
 `foldl` returns the same term as the last call to `Fun` returned.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_foldl, [{type, ordered_set}, {attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_foldl, {doctest_foldl, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_foldl, {doctest_foldl, grace, 35}).
+4> mnesia:activity(sync_dirty, fun() ->
+       mnesia:foldl(fun({_, Name, Age}, Acc) -> [{Name, Age} | Acc] end, [], doctest_foldl, read)
+   end).
+[{grace,35},{alice,30}]
+```
 """.
 -spec foldl(Fun, Acc0, Table::table(), LockKind :: lock_kind()) -> Acc when
       Fun::fun((Record::tuple(), Acc0) -> Acc).
@@ -1913,6 +2220,19 @@ Call `Fun` for each record in `Table`.
 Works exactly like [`foldl/3`](`foldl/3`) but iterates the table in the opposite
 order for the `ordered_set` table type. For all other table types,
 [`foldr/3`](`foldr/3`) and [`foldl/3`](`foldl/3`) are synonyms.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_foldr, [{type, ordered_set}, {attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_foldr, {doctest_foldr, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_foldr, {doctest_foldr, grace, 35}).
+4> mnesia:activity(sync_dirty, fun() ->
+       mnesia:foldr(fun({_, Name, Age}, Acc) -> [{Name, Age} | Acc] end, [], doctest_foldr, read)
+   end).
+[{alice,30},{grace,35}]
+```
 """.
 -spec foldr(Fun, Acc0, Table::table(), LockKind::lock_kind()) -> Acc when
       Fun::fun((Record::tuple(), Acc0) -> Acc).
@@ -2070,6 +2390,17 @@ The semantics of this function is context-sensitive. For details, see
 `mnesia:activity/4`. In transaction-context, it acquires a lock of type
 `LockKind` on the entire table or a single record. Currently, the lock type
 `read` is supported.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_match_object, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_match_object, {doctest_match_object, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_match_object, {doctest_match_object, grace, 35}).
+4> mnesia:activity(sync_dirty, fun() -> mnesia:match_object(doctest_match_object, {doctest_match_object, grace, 35}, read) end).
+[{doctest_match_object,grace,35}]
+```
 """.
 -spec match_object(Tab,Pattern,LockKind) -> [Record] when
       Tab::table(),Pattern::tuple(),LockKind::lock_kind(),Record::tuple().
@@ -2688,6 +3019,17 @@ Return all keys in a table.
 Returns a list of all keys in the table named `Tab`. The semantics of this
 function is context-sensitive. For more information, see `mnesia:activity/4`. In
 transaction-context, it acquires a read lock on the entire table.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_all_keys, [{type, ordered_set}, {attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_all_keys, {doctest_all_keys, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_all_keys, {doctest_all_keys, grace, 35}).
+4> mnesia:activity(sync_dirty, fun mnesia:all_keys/1, [doctest_all_keys]).
+[alice,grace]
+```
 """.
 -spec all_keys(Tab::table()) -> [Key::term()].
 all_keys(Tab) ->
@@ -2720,6 +3062,19 @@ Match records and uses index information.
 
 Starts `mnesia:index_match_object(Tab, Pattern, Attr, read)`, where `Tab` is
 [`element(1, Pattern)`](`element/2`).
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_index_match_object1, [{attributes, [name, age]}, {index, [age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_index_match_object1, {doctest_index_match_object1, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_index_match_object1, {doctest_index_match_object1, grace, 35}).
+4> mnesia:activity(sync_dirty, fun() ->
+       mnesia:index_match_object({doctest_index_match_object1, grace, 35}, age)
+   end).
+[{doctest_index_match_object1,grace,35}]
+```
 """.
 -spec index_match_object(Pattern, Attr) -> [Record] when
       Pattern::tuple(), Attr::index_attr(), Record::tuple().
@@ -2749,6 +3104,19 @@ The semantics of this function is context-sensitive. For details, see
 `mnesia:activity/4`. In transaction-context, it acquires a lock of type
 `LockKind` on the entire table or on a single record. Currently, the lock type
 `read` is supported.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_index_match_object2, [{attributes, [name, age]}, {index, [age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_index_match_object2, {doctest_index_match_object2, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_index_match_object2, {doctest_index_match_object2, grace, 35}).
+4> mnesia:activity(sync_dirty, fun() ->
+       mnesia:index_match_object(doctest_index_match_object2, {doctest_index_match_object2, grace, 35}, age, read)
+   end).
+[{doctest_index_match_object2,grace,35}]
+```
 """.
 -spec index_match_object(Tab, Pattern, Attr, LockKind) -> [Record] when
       Tab::table(),
@@ -2817,6 +3185,17 @@ in runtime, for each call.
 The semantics of this function is context-sensitive. For details, see
 `mnesia:activity/4`. In transaction-context, it acquires a read lock on the
 entire table.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_index_read, [{attributes, [name, age]}, {index, [age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_index_read, {doctest_index_read, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_index_read, {doctest_index_read, grace, 35}).
+4> mnesia:activity(sync_dirty, fun() -> mnesia:index_read(doctest_index_read, 35, age) end).
+[{doctest_index_read,grace,35}]
+```
 """.
 -spec index_read(Tab, Key, Attr) -> [Record] when
       Tab::table(),
@@ -2871,7 +3250,19 @@ dirty_write(Val) when is_tuple(Val), tuple_size(Val) > 2  ->
 dirty_write(Val) ->
     abort({bad_type, Val}).
 
--doc "Dirty equivalent to `mnesia:write/3`.".
+-doc """
+Dirty equivalent to `mnesia:write/3`.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_dirty_write, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_dirty_write, {doctest_dirty_write, alice, 30}).
+3> mnesia:dirty_read(doctest_dirty_write, alice).
+[{doctest_dirty_write,alice,30}]
+```
+""".
 -spec dirty_write(Tab::table(), Record::tuple()) -> 'ok'.
 dirty_write(Tab, Val) ->
     do_dirty_write(async_dirty, Tab, Val).
@@ -2891,7 +3282,20 @@ dirty_delete({Tab, Key}) ->
 dirty_delete(Oid) ->
     abort({bad_type, Oid}).
 
--doc "Dirty equivalent to `mnesia:delete/3`.".
+-doc """
+Dirty equivalent to `mnesia:delete/3`.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_dirty_delete, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_dirty_delete, {doctest_dirty_delete, alice, 30}).
+3> ok = mnesia:dirty_delete(doctest_dirty_delete, alice).
+4> mnesia:dirty_read(doctest_dirty_delete, alice).
+[]
+```
+""".
 -spec dirty_delete(Tab::table(), Key::_) -> 'ok'.
 dirty_delete(Tab, Key) ->
     do_dirty_delete(async_dirty, Tab, Key).
@@ -2910,7 +3314,20 @@ dirty_delete_object(Val) when is_tuple(Val), tuple_size(Val) > 2 ->
 dirty_delete_object(Val) ->
     abort({bad_type, Val}).
 
--doc "Dirty equivalent to `mnesia:delete_object/3`.".
+-doc """
+Dirty equivalent to `mnesia:delete_object/3`.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_dirty_delete_object, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_dirty_delete_object, {doctest_dirty_delete_object, alice, 30}).
+3> ok = mnesia:dirty_delete_object(doctest_dirty_delete_object, {doctest_dirty_delete_object, alice, 30}).
+4> mnesia:dirty_read(doctest_dirty_delete_object, alice).
+[]
+```
+""".
 -spec dirty_delete_object(Tab::table(), Record::tuple()) -> 'ok'.
 dirty_delete_object(Tab, Val) ->
     do_dirty_delete_object(async_dirty, Tab, Val).
@@ -2957,6 +3374,19 @@ updates take effect without the risk of losing one of the updates. The new value
 
 If `Key` does not exist, a new record is created with value `Incr` if it is
 larger than 0, otherwise it is set to 0.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_counter, [{attributes, [name, value]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:dirty_update_counter(doctest_counter, visitors, 3).
+3
+3> mnesia:dirty_update_counter(doctest_counter, visitors, 4).
+7
+4> mnesia:dirty_update_counter(doctest_counter, visitors, -10).
+0
+```
 """.
 -spec dirty_update_counter(Tab::table(), Key::_, Incr::integer()) ->
                                   NewVal::integer().
@@ -2985,7 +3415,21 @@ dirty_read({Tab, Key}) ->
 dirty_read(Oid) ->
     abort({bad_type, Oid}).
 
--doc "Dirty equivalent to `mnesia:read/3`.".
+-doc """
+Dirty equivalent to `mnesia:read/3`.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_dirty_read, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_dirty_read, {doctest_dirty_read, alice, 30}).
+3> mnesia:dirty_read(doctest_dirty_read, alice).
+[{doctest_dirty_read,alice,30}]
+4> mnesia:dirty_read(doctest_dirty_read, grace).
+[]
+```
+""".
 -spec dirty_read(Tab::table(), Key::_) -> [tuple()].
 dirty_read(Tab, Key)
   when is_atom(Tab), Tab /= schema ->
@@ -3002,7 +3446,20 @@ dirty_match_object(Pat) when is_tuple(Pat), tuple_size(Pat) > 2 ->
 dirty_match_object(Pat) ->
     abort({bad_type, Pat}).
 
--doc "Dirty equivalent to `mnesia:match_object/3`.".
+-doc """
+Dirty equivalent to `mnesia:match_object/3`.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_dirty_match_object, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_dirty_match_object, {doctest_dirty_match_object, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_dirty_match_object, {doctest_dirty_match_object, grace, 35}).
+4> mnesia:dirty_match_object(doctest_dirty_match_object, {doctest_dirty_match_object, '_', 35}).
+[{doctest_dirty_match_object,grace,35}]
+```
+""".
 -spec dirty_match_object(Tab,Pattern) -> [Record] when
       Tab::table(), Pattern::tuple(), Record::tuple().
 dirty_match_object(Tab, Pat)
@@ -3037,6 +3494,17 @@ remote_dirty_match_object(Tab, Pat, _PosList) ->
 
 -doc """
 Dirty equivalent to `mnesia:select/2`.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_dirty_select, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_dirty_select, {doctest_dirty_select, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_dirty_select, {doctest_dirty_select, grace, 35}).
+4> mnesia:dirty_select(doctest_dirty_select, [{{doctest_dirty_select, '$1', '$2'}, [{'>', '$2', 32}], ['$1']}]).
+[grace]
+```
 """.
 -spec dirty_select(Tab, MatchSpec) -> [Match] when
       Tab::table(), MatchSpec::ets:match_spec(), Match::term().
@@ -3145,6 +3613,17 @@ dirty_sel_cont(#mnesia_select{node=Node,tab=Tab,storage=Type,cont=Cont,orig=Ms})
 
 -doc """
 Dirty equivalent to `mnesia:all_keys/1`.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_dirty_all_keys, [{type, ordered_set}, {attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_dirty_all_keys, {doctest_dirty_all_keys, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_dirty_all_keys, {doctest_dirty_all_keys, grace, 35}).
+4> mnesia:dirty_all_keys(doctest_dirty_all_keys).
+[alice,grace]
+```
 """.
 -spec dirty_all_keys(Tab::table()) -> [Key::term()].
 dirty_all_keys(Tab) when is_atom(Tab), Tab /= schema ->
@@ -3171,7 +3650,20 @@ dirty_index_match_object(Pat, Attr) when is_tuple(Pat), tuple_size(Pat) > 2 ->
 dirty_index_match_object(Pat, _Attr) ->
     abort({bad_type, Pat}).
 
--doc "Dirty equivalent to `mnesia:index_match_object/4`.".
+-doc """
+Dirty equivalent to `mnesia:index_match_object/4`.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_dirty_index_match_object, [{attributes, [name, age]}, {index, [age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_dirty_index_match_object, {doctest_dirty_index_match_object, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_dirty_index_match_object, {doctest_dirty_index_match_object, grace, 35}).
+4> mnesia:dirty_index_match_object(doctest_dirty_index_match_object, {doctest_dirty_index_match_object, grace, 35}, age).
+[{doctest_dirty_index_match_object,grace,35}]
+```
+""".
 -spec dirty_index_match_object(Tab, Pattern, Attr) -> [Record] when
       Tab::table(),
       Pattern::tuple(),
@@ -3204,6 +3696,17 @@ dirty_index_match_object(Tab, Pat, _Attr) ->
 
 -doc """
 Dirty equivalent to `mnesia:index_read/3`.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_dirty_index_read, [{attributes, [name, age]}, {index, [age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_dirty_index_read, {doctest_dirty_index_read, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_dirty_index_read, {doctest_dirty_index_read, grace, 35}).
+4> mnesia:dirty_index_read(doctest_dirty_index_read, 35, age).
+[{doctest_dirty_index_read,grace,35}]
+```
 """.
 -spec dirty_index_read(Tab, Key, Attr) -> [Record] when
       Tab::table(),
@@ -3238,6 +3741,17 @@ by this function with the function `mnesia:dirty_next/2`.
 If there are no records in the table, this function returns the atom
 `'$end_of_table'`. It is therefore highly undesirable, but not disallowed, to
 use this atom as the key for any user records.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_dirty_first, [{type, ordered_set}, {attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_dirty_first, {doctest_dirty_first, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_dirty_first, {doctest_dirty_first, grace, 35}).
+4> mnesia:dirty_first(doctest_dirty_first).
+alice
+```
 """.
 -spec dirty_first(Tab::table()) -> Key::term().
 dirty_first(Tab) when is_atom(Tab), Tab /= schema ->
@@ -3251,6 +3765,17 @@ Return the key for the last record in a table.
 Works exactly like `mnesia:dirty_first/1` but returns the last object in Erlang
 term order for the `ordered_set` table type. For all other table types,
 `mnesia:dirty_first/1` and `mnesia:dirty_last/1` are synonyms.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_dirty_last, [{type, ordered_set}, {attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_dirty_last, {doctest_dirty_last, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_dirty_last, {doctest_dirty_last, grace, 35}).
+4> mnesia:dirty_last(doctest_dirty_last).
+grace
+```
 """.
 -spec dirty_last(Tab::table()) -> Key::term().
 dirty_last(Tab) when is_atom(Tab), Tab /= schema ->
@@ -3267,6 +3792,17 @@ Otherwise, the function returns a key that can be used to read the actual
 record. The behavior is undefined if another Erlang process performs write
 operations on the table while it is being traversed with the function
 `mnesia:dirty_next/2`.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_dirty_next, [{type, ordered_set}, {attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_dirty_next, {doctest_dirty_next, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_dirty_next, {doctest_dirty_next, grace, 35}).
+4> mnesia:dirty_next(doctest_dirty_next, alice).
+grace
+```
 """.
 -spec dirty_next(Tab::table(), Key::_) -> NextKey::term().
 dirty_next(Tab, Key) when is_atom(Tab), Tab /= schema ->
@@ -3280,6 +3816,17 @@ Return the previous key in a table.
 Works exactly like `mnesia:dirty_next/2` but returns the previous object in
 Erlang term order for the `ordered_set` table type. For all other table types,
 `mnesia:dirty_next/2` and `mnesia:dirty_prev/2` are synonyms.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_dirty_prev, [{type, ordered_set}, {attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_dirty_prev, {doctest_dirty_prev, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_dirty_prev, {doctest_dirty_prev, grace, 35}).
+4> mnesia:dirty_prev(doctest_dirty_prev, grace).
+alice
+```
 """.
 -spec dirty_prev(Tab::table(), Key::_) -> PrevKey::term().
 dirty_prev(Tab, Key) when is_atom(Tab), Tab /= schema ->
@@ -3408,6 +3955,17 @@ the name of a Mnesia table. The second is one of the following keys:
 - `wild_pattern`. Returns a structure that can be given to the various match
   functions for a certain table. A record tuple is where all record fields have
   value `'_'`.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_table_info, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:table_info(doctest_table_info, attributes).
+[name,age]
+3> mnesia:table_info(doctest_table_info, type).
+set
+```
 """.
 -spec table_info(Tab::table(), InfoItem::term()) -> ItemVal::term().
 table_info(Tab, Item) ->
@@ -3555,6 +4113,17 @@ method to retrieve more detailed error information:
 - The function [mnesia:error_description(Reason)](`error_description/1`) returns
   the term `{"Bad type on some provided arguments",bar,3.14000}`, which is an
   error description suitable for display.
+
+## Examples
+
+```erlang
+1> mnesia:error_description(badarg).
+"Bad or invalid argument, possibly bad type"
+2> mnesia:error_description({aborted, {bad_type, person, 3.14}}).
+{"Bad type on some provided arguments",person,3.14}
+3> mnesia:error_description({error, no_transaction}).
+"Operation not allowed outside transactions"
+```
 """.
 -spec error_description(Error) -> string() when
     Error :: {error, Reason} | {aborted, Reason} | Reason,
@@ -3846,6 +4415,17 @@ The valid keys are as follows:
 - `use_dir`. Returns a boolean that indicates if the Mnesia directory is used or
   not. Can be started even if Mnesia is not yet running.
 - `version`. Returns the current version number of Mnesia.
+
+## Examples
+
+```erlang
+1> mnesia:system_info(is_running).
+yes
+2> mnesia:system_info(use_dir).
+false
+3> mnesia:system_info(schema_location).
+ram
+```
 """.
 -spec system_info(Item::term()) -> ItemVal::term().
 system_info(Item) ->
@@ -4548,6 +5128,15 @@ create_table(Name, Arg) ->
 
 -doc """
 Permanently delete all replicas of table `Tab`.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_delete_table, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:delete_table(doctest_delete_table).
+{atomic,ok}
+```
 """.
 -spec delete_table(Tab::table()) -> t_result('ok').
 delete_table(Tab) ->
@@ -4617,6 +5206,17 @@ mnesia:add_table_index(person, age)
 
 Indexes do not come for free. They occupy space that is proportional to the
 table size, and they cause insertions into the table to execute slightly slower.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_add_table_index, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:add_table_index(doctest_add_table_index, age).
+{atomic,ok}
+3> mnesia:table_info(doctest_add_table_index, index).
+[3]
+```
 """.
 -spec add_table_index(Tab, I) -> t_result('ok') when
       Tab :: table(), I :: index_attr().
@@ -4626,6 +5226,19 @@ add_table_index(Tab, Ix) ->
 Delete table index.
 
 Deletes the index on attribute with name `AttrName` in a table.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_del_table_index, [{attributes, [name, age]}, {index, [age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:table_info(doctest_del_table_index, index).
+[3]
+3> mnesia:del_table_index(doctest_del_table_index, age).
+{atomic,ok}
+4> mnesia:table_info(doctest_del_table_index, index).
+[]
+```
 """.
 -spec del_table_index(Tab, I) -> t_result('ok') when
       Tab::table(), I::index_attr().
@@ -4656,6 +5269,22 @@ included as a possibility for the user do to an own transformation.
 type of the converted table. Table name always remains unchanged. If
 `record_name` is changed, only the Mnesia functions that use table identifiers
 work, for example, `mnesia:write/3` works, but not `mnesia:write/1`.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_transform_table, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_transform_table, {doctest_transform_table, alice, 30}).
+3> mnesia:transform_table(
+       doctest_transform_table,
+       fun({doctest_transform_table, Name, Age}) -> {doctest_transform_table, Name, Age, unknown} end,
+       [name, age, city],
+       doctest_transform_table).
+{atomic,ok}
+4> mnesia:dirty_read(doctest_transform_table, alice).
+[{doctest_transform_table,alice,30,unknown}]
+```
 """.
 -spec transform_table(Tab::table(), Fun, NewAttributeList, NewRecordName) -> t_result('ok') when
       NewRecordName :: atom(),
@@ -4687,6 +5316,18 @@ change_table_copy_type(T, N, S) ->
 
 -doc """
 Delete all entries in the table `Tab`.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_clear_table, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_clear_table, {doctest_clear_table, alice, 30}).
+3> mnesia:clear_table(doctest_clear_table).
+{atomic,ok}
+4> mnesia:dirty_read(doctest_clear_table, alice).
+[]
+```
 """.
 -spec clear_table(Tab::table()) -> t_result('ok').
 clear_table(Tab) ->
@@ -4728,6 +5369,17 @@ are set when creating a table with the `user_properties` option in
 `mnesia:write_table_property/2`.
 
 Returns the property tuple if it exists, otherwise raises an exception.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_read_table_property, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:write_table_property(doctest_read_table_property, {owner, docs}).
+{atomic,ok}
+3> mnesia:read_table_property(doctest_read_table_property, owner).
+{owner,docs}
+```
 """.
 -doc #{since => ~"OTP 28.5"}.
 -spec read_table_property(Tab::table(), PropKey::term()) -> Res::tuple().
@@ -4741,6 +5393,17 @@ Writes or updates a user-defined property for a table. The property is a tuple
 where the first element is the property key. User-defined properties can be read
 with `mnesia:read_table_property/2` and deleted with
 `mnesia:delete_table_property/2`.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_write_table_property, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:write_table_property(doctest_write_table_property, {owner, docs}).
+{atomic,ok}
+3> mnesia:read_table_property(doctest_write_table_property, owner).
+{owner,docs}
+```
 """.
 -doc #{since => ~"OTP 28.5"}.
 -spec write_table_property(Tab::table(), Prop::tuple()) -> t_result('ok').
@@ -4753,6 +5416,19 @@ Delete a user-defined table property.
 Deletes a user-defined property from a table if such property exists.
 The property is identified by its key. User-defined properties can be read
 with `mnesia:read_table_property/2` and written with `mnesia:write_table_property/2`.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_delete_table_property, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:write_table_property(doctest_delete_table_property, {owner, docs}).
+{atomic,ok}
+3> mnesia:delete_table_property(doctest_delete_table_property, owner).
+{atomic,ok}
+4> mnesia:table_info(doctest_delete_table_property, user_properties).
+[]
+```
 """.
 -doc #{since => ~"OTP 28.5"}.
 -spec delete_table_property(Tab::table(), PropKey::term()) -> t_result('ok').
@@ -4830,6 +5506,15 @@ Wait for tables to be accessible.
 Some applications need to wait for certain tables to be accessible to do useful
 work. `mnesia:wait_for_tables/2` either hangs until all tables in `TabList` are
 accessible, or until `timeout` is reached.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_wait_for_tables, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:wait_for_tables([doctest_wait_for_tables], 5000).
+ok
+```
 """.
 -spec wait_for_tables([Tab::table()], TMO::timeout()) ->
       result() | {'timeout', [table()]}.
@@ -4863,6 +5548,19 @@ Change table access mode.
 atom `read_only`. If `AccessMode` is set to `read_only`, updates to the table
 cannot be performed. At startup, Mnesia always loads `read_only` tables locally
 regardless of when and if Mnesia is terminated on other nodes.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_change_table_access_mode, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:change_table_access_mode(doctest_change_table_access_mode, read_only).
+{atomic,ok}
+3> mnesia:table_info(doctest_change_table_access_mode, access_mode).
+read_only
+4> mnesia:change_table_access_mode(doctest_change_table_access_mode, read_write).
+{atomic,ok}
+```
 """.
 -spec change_table_access_mode(Tab::table(), AccessMode) -> t_result('ok') when
       AccessMode :: 'read_only'|'read_write'.
@@ -4874,6 +5572,17 @@ Change table load order.
 
 The `LoadOrder` priority is by default `0` (zero) but can be set to any integer.
 The tables with the highest `LoadOrder` priority are loaded first at startup.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_change_table_load_order, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:change_table_load_order(doctest_change_table_load_order, 7).
+{atomic,ok}
+3> mnesia:table_info(doctest_change_table_load_order, load_order).
+7
+```
 """.
 -spec change_table_load_order(Tab::table(), Order) -> t_result('ok') when
       Order :: non_neg_integer().
@@ -4887,6 +5596,17 @@ Change table majority.
 table replicas must be available for an update to succeed. When used on
 fragmented tables, `Tab` must be the base table name. Directly changing the
 majority setting on individual fragments is not allowed.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_change_table_majority, [{attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> mnesia:change_table_majority(doctest_change_table_majority, true).
+{atomic,ok}
+3> mnesia:table_info(doctest_change_table_majority, majority).
+true
+```
 """.
 -doc(#{since => <<"OTP R14B03">>}).
 -spec change_table_majority(Tab::table(), Majority::boolean()) -> t_result('ok').
@@ -5358,6 +6078,17 @@ There are two alternatives for `select`:
   `mnesia:select/3` and `mnesia:select/1`. The difference is that the match
   specification is explicitly given. This is how to state match specifications
   that cannot easily be expressed within the syntax provided by QLC.
+
+## Examples
+
+```erlang
+1> mnesia:create_table(doctest_table, [{type, ordered_set}, {attributes, [name, age]}, {ram_copies, [node()]}]).
+{atomic,ok}
+2> ok = mnesia:dirty_write(doctest_table, {doctest_table, alice, 30}).
+3> ok = mnesia:dirty_write(doctest_table, {doctest_table, grace, 35}).
+4> mnesia:transaction(fun() -> qlc:e(mnesia:table(doctest_table, [{traverse, select}])) end).
+{atomic,[{doctest_table,alice,30},{doctest_table,grace,35}]}
+```
 """.
 -spec table(Tab::table(), Options) -> qlc:query_handle() when
       Options   :: Option | [Option],

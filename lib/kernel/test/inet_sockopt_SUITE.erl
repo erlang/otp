@@ -1402,39 +1402,42 @@ mandatory_exclusiveaddruse(_OsType, _OsVersion) ->
 
 create_socketpair_init(Config, ListenOptions, ConnectOptions) ->
     LS = case ?LISTEN(Config, 0, ListenOptions) of
-             {ok, LSock} ->
-                 LSock;
-             {error, enotsup = LReason} ->
-                 ?P("~s -> failed create listen socket with: "
-                    "~n   Options: ~p"
-                    "~n   Reason:  ~p",
-		    [?FUNCTION_NAME, ListenOptions, LReason]),
-                 throw({skip, {LReason, listen}});
-             {error, LReason} = LError ->
-                 ?P("~s -> failed create listen socket with: "
-                    "~n   Options: ~p"
-                    "~n   Reason:  ~p",
-		    [?FUNCTION_NAME, ListenOptions, LReason]),
-                 exit(LError)
-         end,
+	     {ok, S1} ->
+		 S1;
+	     {error, enotsup = R1} ->
+		 ?P("~s -> failed create listen socket:"
+		    "~n   Opts:   ~p"
+		    "~n   Reason: ~p",
+		    [?FUNCTION_NAME, ListenOptions, R1]),
+		 exit({skip, {listen, R1}});
+	     {error, Reason1} ->
+		 ?P("~s -> failed create listen socket:"
+		    "~n   Opts:   ~p"
+		    "~n   Reason: ~p",
+		    [?FUNCTION_NAME, ListenOptions, Reason1]),
+		 exit({listen, Reason1})
+	 end,
     {ok,Port} = inet:port(LS),
-    case ?CONNECT(Config, localhost, Port, ConnectOptions) of
-        {ok, CS} ->
-            {ok, AS} = gen_tcp:accept(LS),
-            {LS,AS,CS};
-        {error, enotsup = CReason} ->
-            ?P("~s -> failed create connect socket with: "
-               "~n   Options: ~p"
-               "~n   Reason:  ~p",
-	       [?FUNCTION_NAME, ConnectOptions, CReason]),
-            throw({skip, {CReason, listen}});
-        {error, CReason} = CError ->
-            ?P("~s -> failed create connect socket with: "
-               "~n   Options: ~p"
-               "~n   Reason:  ~p",
-	       [?FUNCTION_NAME, ConnectOptions, CReason]),
-            exit(CError)
-    end.
+    CS = case ?CONNECT(Config, localhost, Port, ConnectOptions) of
+	     {ok, S2} ->
+		 S2;
+	     {error, enotsup = R2} ->
+		 ?P("~s -> failed connecting:"
+		    "~n   Port:   ~p"
+		    "~n   Opts:   ~p"
+		    "~n   Reason: ~p",
+		    [?FUNCTION_NAME, Port, ConnectOptions, R2]),
+		 exit({skip, {connect, R2}});
+	     {error, Reason2} ->
+		 ?P("~s -> failed connecting:"
+		    "~n   Port:   ~p"
+		    "~n   Opts:   ~p"
+		    "~n   Reason: ~p",
+		    [?FUNCTION_NAME, Port, ConnectOptions, Reason2]),
+		 exit({connect, Reason2})
+	 end,
+    {ok,AS}   = gen_tcp:accept(LS),
+    {LS,AS,CS}.
 
 create_socketpair(Config, ListenOptions, ConnectOptions) ->
     {LS,AS,CS} = create_socketpair_init(Config, ListenOptions, ConnectOptions),

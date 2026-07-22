@@ -113,7 +113,7 @@ process_incoming_msg(Packet, Data, SecParams, SecLevel) ->
                 ?vlog("Unknown USM user: "
                       "~n      Auth Engine ID: ~p"
                       "~n      User Name:      ~p", [MsgAuthEngineID, MsgUserName]),
-		SecData2 = [MsgUserName],
+                SecData2 = [{msgUserName, MsgUserName}],
 		error(usmStatsUnknownUserNames, 
 		      ?usmStatsUnknownUserNames_instance, %% OTP-3542
 		      undefined, [{sec_data, SecData2}])
@@ -366,7 +366,8 @@ generate_outgoing_msg(Message, SecEngineID, SecName, SecData, SecLevel) ->
                               "~n      Sec Name:      ~p", [SecEngineID, SecName]),
 			error(unknownSecurityName)
 		end;
-	    [MsgUserName] ->
+            [_| _] = Data ->
+                MsgUserName = proplists:get_value(msgUserName, Data, undefined),
 		%% This means the user at the engine is unknown
 		{MsgUserName, usmNoAuthProtocol, "", usmNoPrivProtocol, ""};
 	    _ -> % 3.1.1a

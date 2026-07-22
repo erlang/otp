@@ -544,17 +544,18 @@ shift_test(_Config) ->
     ].
 
 slice_test(_Config) ->
+    TestArray = fix(from_list(lists:seq(1,?LEAFSIZE))),
     [
-     ?assertEqual(lists:seq(1,?LEAFSIZE), to_list(slice(0, ?LEAFSIZE, fix(from_list(lists:seq(1,?LEAFSIZE)))))),
-     ?assertEqual(lists:seq(2,?LEAFSIZE), to_list(slice(1, ?LEAFSIZE-1, fix(from_list(lists:seq(1,?LEAFSIZE)))))),
-     ?assertEqual(lists:seq(3,?LEAFSIZE), to_list(slice(2, ?LEAFSIZE-2, fix(from_list(lists:seq(1,?LEAFSIZE)))))),
-     ?assertEqual(lists:seq(1,?LEAFSIZE-1), to_list(slice(0, ?LEAFSIZE-1, fix(from_list(lists:seq(1,?LEAFSIZE)))))),
-     ?assertEqual(lists:seq(1,?LEAFSIZE-2), to_list(slice(0, ?LEAFSIZE-2, fix(from_list(lists:seq(1,?LEAFSIZE)))))),
-     ?assertEqual(lists:seq(4,?LEAFSIZE-3), to_list(slice(3, ?LEAFSIZE-6, fix(from_list(lists:seq(1,?LEAFSIZE)))))),
-     ?assertEqual([4], to_list(slice(3, 1, fix(from_list(lists:seq(1,?LEAFSIZE)))))),
-     ?assertEqual([], to_list(slice(3, 0, fix(from_list(lists:seq(1,?LEAFSIZE)))))),
-     ?assertEqual([], to_list(slice(0, -1, fix(from_list(lists:seq(1,?LEAFSIZE)))))),
-     ?assertError(badarg, to_list(slice(-1, 3, fix(from_list(lists:seq(1,?LEAFSIZE))))))
+     ?assertEqual(lists:seq(1,?LEAFSIZE), to_list(slice(0, ?LEAFSIZE, TestArray))),
+     ?assertEqual(lists:seq(2,?LEAFSIZE), to_list(slice(1, ?LEAFSIZE-1, TestArray))),
+     ?assertEqual(lists:seq(3,?LEAFSIZE), to_list(slice(2, ?LEAFSIZE-2, TestArray))),
+     ?assertEqual(lists:seq(1,?LEAFSIZE-1), to_list(slice(0, ?LEAFSIZE-1, TestArray))),
+     ?assertEqual(lists:seq(1,?LEAFSIZE-2), to_list(slice(0, ?LEAFSIZE-2, TestArray))),
+     ?assertEqual(lists:seq(4,?LEAFSIZE-3), to_list(slice(3, ?LEAFSIZE-6, TestArray))),
+     ?assertEqual([4], to_list(slice(3, 1, TestArray))),
+     ?assertEqual([], to_list(slice(3, 0, TestArray))),
+     ?assertError(badarg, slice(0, -1, TestArray)),
+     ?assertError(badarg, slice(-1, 3, TestArray))
     ].
 
 prepend_test(_Config) ->

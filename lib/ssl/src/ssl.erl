@@ -472,18 +472,24 @@ configuration in TLS-1.3.
 -type kex_algo()                :: ecdhe_ecdsa
                                  | ecdh_ecdsa
                                  | ecdh_rsa
-                                 | rsa
+                                 | any %% TLS 1.3 (any of TLS-1.3 keyexchanges) , exported
+                                 | legacy_kex().
+
+-doc(#{group => <<"Algorithms Legacy">>}).
+-doc """
+Backwards compatibility and legacy interoperability not recommended.
+""".
+-type legacy_kex()              :: rsa
+                                 | rsa_psk
                                  | dhe_rsa
                                  | dhe_dss
                                  | srp_rsa
                                  | srp_dss
                                  | dhe_psk
-                                 | rsa_psk
                                  | psk
                                  | ecdh_anon
                                  | dh_anon
-                                 | srp_anon
-                                 |  any. %% TLS 1.3 (any of TLS-1.3 keyexchanges) , exported
+                                 | srp_anon.
 
 
 -doc(#{group => <<"Algorithms">>}).
@@ -586,9 +592,7 @@ SRP cipher suite configuration prior to TLS-1.3.
                                | srp_6144
                                | srp_4096
                                | srp_3072
-                               | srp_2048
-                               | srp_1536
-                               | srp_1024. % exported
+                               | srp_2048.
 
 -doc(#{group => <<"Socket">>}).
 -doc """
@@ -2519,9 +2523,11 @@ handshake(#sslsocket{connection_cb = tls_gen_connection,
   when is_list(SslOpts), is_list(Trackers), ?IS_TIMEOUT(Timeout) ->
     try
         Tracker = proplists:get_value(option_tracker, Trackers),
-	{ok, EmOpts, _} = tls_socket:get_all_opts(Tracker),
-	ssl_gen_statem:handshake(Socket, {SslOpts,
-					  tls_socket:emulated_socket_options(EmOpts, #socket_options{})}, Timeout)
+        {ok, EmOpts} = tls_socket:get_emulated_opts(Tracker),
+        ssl_gen_statem:handshake(Socket,
+                                 {SslOpts,
+                                  tls_socket:emulated_socket_options(EmOpts,
+                                                                     #socket_options{})}, Timeout)
     catch
 	Error = {error, _Reason} -> Error
     end;

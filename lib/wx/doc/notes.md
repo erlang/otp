@@ -51,6 +51,16 @@ This document describes the changes made to the Wx application.
 [PR-10187]: https://github.com/erlang/otp/pull/10187
 [PR-10839]: https://github.com/erlang/otp/pull/10839
 
+## Wx 2.5.4.1
+
+### Fixed Bugs and Malfunctions
+
+- The examples for `wx` are now only installed in one place (in `doc/examples`).
+
+  Own Id: OTP-20119 Aux Id: ERIERL-1315, [PR-11032]
+
+[PR-11032]: https://github.com/erlang/otp/pull/11032
+
 ## Wx 2.5.4
 
 ### Improvements and New Features

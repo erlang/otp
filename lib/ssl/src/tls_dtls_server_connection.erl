@@ -682,25 +682,7 @@ certify_client_key_exchange(#encrypted_premaster_secret{premaster_secret= EncPMS
                                                       client_certificate_status = CCStatus
                                                      }
                                   } = State, Connection) ->
-    {Major, Minor} = Version,
-    FakeSecret = tls_dtls_gen_connection:make_premaster_secret(Version, rsa),
-    %% Countermeasure for Bleichenbacher attack always provide some kind of premaster secret
-    %% and fail handshake later.RFC 5246 section 7.4.7.1.
-    PremasterSecret =
-        try ssl_handshake:premaster_secret(EncPMS, PrivateKey) of
-            Secret when erlang:byte_size(Secret) == ?NUM_OF_PREMASTERSECRET_BYTES ->
-                case Secret of
-                    <<?BYTE(Major), ?BYTE(Minor), Rest/binary>> -> %% Correct
-                        <<?BYTE(Major), ?BYTE(Minor), Rest/binary>>;
-                    <<?BYTE(_), ?BYTE(_), Rest/binary>> -> %% Version mismatch
-                        <<?BYTE(Major), ?BYTE(Minor), Rest/binary>>
-                end;
-            _ -> %% erlang:byte_size(Secret) =/= ?NUM_OF_PREMASTERSECRET_BYTES
-                FakeSecret
-        catch
-            #alert{description = ?DECRYPT_ERROR} ->
-                FakeSecret
-        end,
+    PremasterSecret = rsa_premaster_secret(Version, EncPMS, PrivateKey),
     tls_dtls_gen_connection:calculate_master_secret(PremasterSecret, State, Connection,
                                                     certify, client_kex_next_state(CCStatus));
 certify_client_key_exchange(#client_diffie_hellman_public{dh_public = ClientPublicDhKey},
@@ -766,15 +748,20 @@ certify_client_key_exchange(#client_ecdhe_psk_identity{} = ClientKey,
     tls_dtls_gen_connection:calculate_master_secret(PremasterSecret, State,
                                                     Connection, certify,
                                                     client_kex_next_state(CCStatus));
-certify_client_key_exchange(#client_rsa_psk_identity{} = ClientKey,
+certify_client_key_exchange(#client_rsa_psk_identity{
+                               identity = PSKIdentity,
+                               exchange_keys =
+                                   #encrypted_premaster_secret{premaster_secret = EncPMS}},
 			    #state{session = #session{private_key = PrivateKey},
 				   ssl_options =
 				       #{user_lookup_fun := PSKLookup},
                                    handshake_env =
-                                       #handshake_env{client_certificate_status = CCStatus}
+                                       #handshake_env{client_certificate_status = CCStatus,
+                                                      client_hello_version = Version}
                                   } = State0,
 			    Connection) ->
-    PremasterSecret = ssl_handshake:premaster_secret(ClientKey, PrivateKey, PSKLookup),
+    PremasterSecret0 = rsa_premaster_secret(Version, EncPMS, PrivateKey),
+    PremasterSecret = ssl_handshake:psk_secret(PSKIdentity, PSKLookup, PremasterSecret0),
     tls_dtls_gen_connection:calculate_master_secret(PremasterSecret, State0,
                                                     Connection, certify,
                                                     client_kex_next_state(CCStatus));
@@ -841,4 +828,24 @@ assert_curve(ECCCurve) ->
             throw(?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_elliptic_curve));
         _ ->
             ok
+    end.
+
+rsa_premaster_secret(Version, EncPMS, PrivateKey) ->
+    {Major, Minor} = Version,
+    FakeSecret = tls_dtls_gen_connection:make_premaster_secret(Version, rsa),
+    %% Countermeasure for Bleichenbacher attack always provide some kind of premaster secret
+    %% and fail handshake later.RFC 5246 section 7.4.7.1.
+    try ssl_handshake:premaster_secret(EncPMS, PrivateKey) of
+        Secret when erlang:byte_size(Secret) == ?NUM_OF_PREMASTERSECRET_BYTES ->
+            case Secret of
+                <<?BYTE(Major), ?BYTE(Minor), Rest/binary>> -> %% Correct
+                    <<?BYTE(Major), ?BYTE(Minor), Rest/binary>>;
+                <<?BYTE(_), ?BYTE(_), Rest/binary>> -> %% Version mismatch
+                    <<?BYTE(Major), ?BYTE(Minor), Rest/binary>>
+            end;
+        _ -> %% erlang:byte_size(Secret) =/= ?NUM_OF_PREMASTERSECRET_BYTES
+            FakeSecret
+    catch
+        #alert{description = ?DECRYPT_ERROR} ->
+            FakeSecret
     end.

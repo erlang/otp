@@ -247,7 +247,8 @@ session_id(_, 0) ->  %% give up
     false;
 
 %% Session-Id = Command Code 263, V-bit = 0.
-session_id(<<263:32, 0:1, _:7, Len:24, _/binary>> = Bin, _) ->
+%% RFC 6733 4.2 (and RFC 3588 4.2) says that minimum avp length is 8.
+session_id(<<263:32, 0:1, _:7, Len:24, _/binary>> = Bin, _) when Len >= 8 ->
     case Bin of
         <<Avp:Len/binary, _/binary>> ->
             <<_:8/binary, Sid/binary>> = Avp,
@@ -260,8 +261,8 @@ session_id(<<263:32, 0:1, _:7, Len:24, _/binary>> = Bin, _) ->
 %% many AVPs and no Session-Id, which an attacker is prone to send.
 %% 8.8 or RFC 6733 says that Session-Id SHOULD (but not MUST) appear
 %% immediately following the Diameter Header, so there is no
-%% guarantee.
-session_id(<<_:40, Len:24, _/binary>> = Bin, N) ->
+%% guarantee. RFC 6733 4.2 (and RFC 3588 4.2) says that minimum avp length is 8.
+session_id(<<_:40, Len:24, _/binary>> = Bin, N) when Len >= 8 ->
     Pad = (4 - (Len rem 4)) rem 4,
     case Bin of
         <<_:Len/binary, _:Pad/binary, Rest/binary>> ->

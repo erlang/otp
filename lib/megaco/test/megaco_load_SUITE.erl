@@ -577,6 +577,11 @@ do_single_user_load(SCO,
                 %% will be zero)
                 NumCalls = Ok * ?SINGLE_USER_LOAD_NUM_REQUESTS,
                 if
+                    %% If the run time is less than 1 msec,
+                    %% either the machine is a beast or
+                    %% something has gone wrong.
+                    %% => Assume the latter!
+                    (MSec > 0) andalso
                     (NumCalls > MSec) ->
                         %% Each successful loader has performed
                         %% ?SINGLE_USER_LOAD_NUM_REQUESTS calls
@@ -601,19 +606,32 @@ do_single_user_load(SCO,
                     %% Either way, do not report this, will only skew the
                     %% results.
 
+                    (Time > 0) andalso
                     (Ok > 0) ->
-                        Sec  = Time div 10000000,
-                        Perf = NumCalls div Sec,
+                        Sec  = Time / 10000000,
+                        Perf = NumCalls / Sec,
                         io:format("~nMultiple loaders result: ~n"
                                   "   Number of successful: ~w~n"
                                   "   Number of failure:    ~w~n"
-                                  "   Time:                 ~w sec~n"
-                                  "   (successful) Calls / sec: ~w~n~n", 
+                                  "   Time:                 ~.1f sec~n"
+                                  "   (successful) Calls / sec: ~.1f~n~n", 
                                   [Ok, Err, Sec, Perf]),
                         {
                          {comment, ?F("~w calls / sec", [Perf])},
                          undefined
+                        };
+
+                    true ->
+                        io:format("~nMultiple loaders result: ~n"
+                                  "   Number of successful: ~w~n"
+                                  "   Number of failure:    ~w~n"
+                                  "   Time:                 ~w usec~n~n", 
+                                  [Ok, Err, Time]),
+                        {
+                         {comment, ?F("~w errors", [Err])},
+                         undefined
                         }
+                        
                 end;
             {Time, Error} ->
                 io:format("SUL: multiple loaders failed: ~p after ~w~n", 

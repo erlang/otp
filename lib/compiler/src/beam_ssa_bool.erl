@@ -130,6 +130,7 @@
              count :: beam_ssa:label(),
              dom,
              uses,
+             preds=#{} :: #{beam_ssa:label() => [beam_ssa:label()]},
              in_or=false :: boolean()}).
 
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
@@ -663,7 +664,8 @@ bool_opt_rewrite(Bool, From, Br, Blocks0, St0) ->
 
     %% Optimize the digraph.
     LDefs = digraph_bool_def(G0),
-    St = St1#st{ldefs=LDefs},
+    Preds = beam_ssa:predecessors(Blocks1),
+    St = St1#st{ldefs=LDefs,preds=Preds},
     G1 = opt_digraph_top(Bool, G0, St),
     G = shortcut_branches(Root, G1, St),
 
@@ -1008,10 +1010,10 @@ ensure_single_use(Bool, G, #st{uses=U}=St) ->
             G;
         Uses ->
             Vtx = get_vertex(Bool, St),
-            ensure_single_use_1(Bool, Vtx, Uses, G)
+            ensure_single_use_1(Bool, Vtx, Uses, G, St)
     end.
 
-ensure_single_use_1(Bool, Vtx, Uses, G) ->
+ensure_single_use_1(Bool, Vtx, Uses, G, #st{preds=Preds}) ->
     Fail = case get_targets(Vtx, G) of
                {br,_,Fail0} -> Fail0;
                _ -> not_possible()
@@ -1021,13 +1023,15 @@ ensure_single_use_1(Bool, Vtx, Uses, G) ->
                    end, Uses) of
         {[_],[_]} ->
             case {graph:vertex(G, Fail),
-                  graph:in_edges(G, Fail)} of
-                {{external,Bs0}, [_]} ->
+                  graph:in_edges(G, Fail),
+                  Preds} of
+                {{external,Bs0}, [_], #{Fail := [_]}} ->
                     %% The only other use of the variable Bool
                     %% is in the failure block and it can only
-                    %% be reached through this test, so we can
-                    %% replace it with the literal `false`
-                    %% in that block.
+                    %% be reached through this test (Fail has
+                    %% a single predecessor in the digraph and
+                    %% in the function CFG), so we can replace
+                    %% it with the literal `false` in that block.
                     Bs = Bs0#{Bool => #b_literal{val=false}},
                     graph:add_vertex(G, Fail, {external,Bs});
                 _ ->

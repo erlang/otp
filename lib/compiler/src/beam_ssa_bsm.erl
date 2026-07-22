@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -127,19 +127,19 @@ analyze_module(#b_module{body=Fs}) ->
           end, #{}, Fs).
 
 has_bsm_ops(#b_function{bs=Blocks}) ->
-    hbo_blocks(maps:to_list(Blocks)).
+    hbo_blocks(maps:to_list(Blocks), false).
 
-hbo_blocks([{_,#b_blk{is=Is}} | Blocks]) ->
+hbo_blocks([{_,#b_blk{is=Is}} | Blocks], Acc) ->
     case hbo_is(Is) of
-        no -> hbo_blocks(Blocks);
-        yes -> true;
+        no -> hbo_blocks(Blocks, Acc);
+        yes -> hbo_blocks(Blocks, true);
         nif_start ->
             %% Disable optimizations for declared -nifs()
             %% to avoid leaking match contexts as NIF arguments.
             false
     end;
-hbo_blocks([]) ->
-    false.
+hbo_blocks([], Acc) ->
+    Acc.
 
 hbo_is([#b_set{op=bs_start_match} | _]) -> yes;
 hbo_is([#b_set{op=nif_start} | _]) -> nif_start;

@@ -23,6 +23,61 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 17.0.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed an undefined behavior in the internal `erts_qsort()` function, which could have been the cause of a beam crash seen when updating large maps.
+
+  Own Id: OTP-20185 Aux Id: [PR-11215]
+
+- Calculating `bxor` of the largest supported positive integer (`erlang:system_info(max_integer)`) and `-1` would return `[]` instead of a raising a `system_limit` exception.
+
+  Own Id: OTP-20208 Aux Id: [PR-11269]
+
+- Fix possible race between `ets:delete/1` and terminating process with a fixation on the same table.
+
+  Own Id: OTP-20217 Aux Id: [PR-11283]
+
+- A few code generation issues for the JIT on AArch64 (ARM64) have been fixed.
+  
+  For all platforms, the loader will reject some invalid BEAM files earlier.
+
+  Own Id: OTP-20226 Aux Id: [PR-11299]
+
+- On 32-bit computers, the `md5` BIFs would return an incorrect MD5 checksum for data of size 4GiB or more.
+
+  Own Id: OTP-20227 Aux Id: [PR-11289]
+
+[PR-11215]: https://github.com/erlang/otp/pull/11215
+[PR-11269]: https://github.com/erlang/otp/pull/11269
+[PR-11283]: https://github.com/erlang/otp/pull/11283
+[PR-11299]: https://github.com/erlang/otp/pull/11299
+[PR-11289]: https://github.com/erlang/otp/pull/11289
+
+## Erts 17.0.2
+
+### Fixed Bugs and Malfunctions
+
+- A buffer overflow error when parsing SCTP ERROR or ABORT chunks has been fixed.  
+  
+  This could lead to stack corruption and VM crash, but ultimately with hard work by an attacker be refined into maybe even remote code execution.
+
+  Own Id: OTP-20165 Aux Id: [PR-1234], GHSA-6f4f-chj5-5g97, [CVE-2026-49759]
+
+[PR-1234]: https://github.com/erlang/otp/pull/1234
+[CVE-2026-49759]: https://nvd.nist.gov/vuln/detail/2026-49759
+
+## Erts 17.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Comparison of two native records could return an incorrect result or crash the runtime system.
+
+  Own Id: OTP-20139 Aux Id: [PR-11107]
+
+[PR-11107]: https://github.com/erlang/otp/pull/11107
+
 ## Erts 17.0
 
 ### Fixed Bugs and Malfunctions
@@ -296,6 +351,73 @@ This document describes the changes made to the ERTS application.
 [PR-10619]: https://github.com/erlang/otp/pull/10619
 [PR-11004]: https://github.com/erlang/otp/pull/11004
 [PR-10929]: https://github.com/erlang/otp/pull/10929
+
+## Erts 16.4.0.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed an undefined behavior in the internal `erts_qsort()` function, which could have been the cause of a beam crash seen when updating large maps.
+
+  Own Id: OTP-20185 Aux Id: [PR-11215]
+
+- Calculating `bxor` of the largest supported positive integer (`erlang:system_info(max_integer)`) and `-1` would return `[]` instead of a raising a `system_limit` exception.
+
+  Own Id: OTP-20208 Aux Id: [PR-11269]
+
+- Fix possible race between `ets:delete/1` and terminating process with a fixation on the same table.
+
+  Own Id: OTP-20217 Aux Id: [PR-11283]
+
+- A few code generation issues for the JIT on AArch64 (ARM64) have been fixed.
+  
+  For all platforms, the loader will reject some invalid BEAM files earlier.
+
+  Own Id: OTP-20226 Aux Id: [PR-11299]
+
+[PR-11215]: https://github.com/erlang/otp/pull/11215
+[PR-11269]: https://github.com/erlang/otp/pull/11269
+[PR-11283]: https://github.com/erlang/otp/pull/11283
+[PR-11299]: https://github.com/erlang/otp/pull/11299
+
+### Improvements and New Features
+
+- Arithmetic operations on large integers will now increase the reduction count for the process, causing context switches to occur more frequently when doing arithmetic on large integers.
+
+  Own Id: OTP-20211 Aux Id: [PR-11274]
+
+[PR-11274]: https://github.com/erlang/otp/pull/11274
+
+## Erts 16.4.0.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed bug in `ets:member/2` for `set`, `bag` and `duplicate_bag`. The bug could (maybe) lead to `ets:member` spuriously returning false for a value which is actually a member for a table that faces high insert load.
+
+  Own Id: OTP-20152 Aux Id: [PR-11115]
+
+- A buffer overflow error when parsing SCTP ERROR or ABORT chunks has been fixed.  
+  
+  This could lead to stack corruption and VM crash, but ultimately with hard work by an attacker be refined into maybe even remote code execution.
+
+  Own Id: OTP-20165 Aux Id: [PR-1234], GHSA-6f4f-chj5-5g97, [CVE-2026-49759]
+
+[PR-11115]: https://github.com/erlang/otp/pull/11115
+[PR-1234]: https://github.com/erlang/otp/pull/1234
+[CVE-2026-49759]: https://nvd.nist.gov/vuln/detail/2026-49759
+
+## Erts 16.4.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed `erlang:md5_init` to always return the same deterministic context binary. Only an issue in OTP 28.5 when OTP was built with `--disable-builtin-openssl` or `--enable-use-embedded-3pp-alternatives`.
+
+  Own Id: OTP-20123
+
+- Added explicit configure test for C++ function `std::to_chars` if options `--disable-builtin-ryu` or `--enable-use-embedded-3pp-alternatives` is used.
+
+  Own Id: OTP-20126 Aux Id: [PR-11067]
+
+[PR-11067]: https://github.com/erlang/otp/pull/11067
 
 ## Erts 16.4
 
@@ -1033,6 +1155,59 @@ This document describes the changes made to the ERTS application.
 [PR-9775]: https://github.com/erlang/otp/pull/9775
 [PR-9759]: https://github.com/erlang/otp/pull/9759
 [PR-9809]: https://github.com/erlang/otp/pull/9809
+
+## Erts 15.2.7.10
+
+### Fixed Bugs and Malfunctions
+
+- Fixed an undefined behavior in the internal `erts_qsort()` function, which could have been the cause of a beam crash seen when updating large maps.
+
+  Own Id: OTP-20185 Aux Id: [PR-11215]
+
+- Calculating `bxor` of the largest supported positive integer (`erlang:system_info(max_integer)`) and `-1` would return `[]` instead of a raising a `system_limit` exception.
+
+  Own Id: OTP-20208 Aux Id: [PR-11269]
+
+- Fix possible race between `ets:delete/1` and terminating process with a fixation on the same table.
+
+  Own Id: OTP-20217 Aux Id: [PR-11283]
+
+- A few code generation issues for the JIT on AArch64 (ARM64) have been fixed.
+  
+  For all platforms, the loader will reject some invalid BEAM files earlier.
+
+  Own Id: OTP-20226 Aux Id: [PR-11299]
+
+[PR-11215]: https://github.com/erlang/otp/pull/11215
+[PR-11269]: https://github.com/erlang/otp/pull/11269
+[PR-11283]: https://github.com/erlang/otp/pull/11283
+[PR-11299]: https://github.com/erlang/otp/pull/11299
+
+### Improvements and New Features
+
+- Arithmetic operations on large integers will now increase the reduction count for the process, causing context switches to occur more frequently when doing arithmetic on large integers.
+
+  Own Id: OTP-20211 Aux Id: [PR-11274]
+
+[PR-11274]: https://github.com/erlang/otp/pull/11274
+
+## Erts 15.2.7.9
+
+### Fixed Bugs and Malfunctions
+
+- Fixed bug in `ets:member/2` for `set`, `bag` and `duplicate_bag`. The bug could (maybe) lead to `ets:member` spuriously returning false for a value which is actually a member for a table that faces high insert load.
+
+  Own Id: OTP-20152 Aux Id: [PR-11115]
+
+- A buffer overflow error when parsing SCTP ERROR or ABORT chunks has been fixed.  
+  
+  This could lead to stack corruption and VM crash, but ultimately with hard work by an attacker be refined into maybe even remote code execution.
+
+  Own Id: OTP-20165 Aux Id: [PR-1234], GHSA-6f4f-chj5-5g97, [CVE-2026-49759]
+
+[PR-11115]: https://github.com/erlang/otp/pull/11115
+[PR-1234]: https://github.com/erlang/otp/pull/1234
+[CVE-2026-49759]: https://nvd.nist.gov/vuln/detail/2026-49759
 
 ## Erts 15.2.7.8
 
@@ -1857,6 +2032,14 @@ This document describes the changes made to the ERTS application.
 [PR-7125]: https://github.com/erlang/otp/pull/7125
 [PR-7809]: https://github.com/erlang/otp/pull/7809
 [PR-7977]: https://github.com/erlang/otp/pull/7977
+
+## Erts 14.2.5.15
+
+### Fixed Bugs and Malfunctions
+
+* Fixed bug in `enif_make_map_from_arrays` for arrays with at least 33 keys. If duplicate keys existed, instead of failing, it would skip the duplicates. If less than 33 unique keys existed, an internally inconsistent and broken map was returned.
+
+  Own Id: OTP-20098 Aux Id: PR-10976
 
 ## Erts 14.2.5.14
 

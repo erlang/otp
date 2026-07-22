@@ -76,6 +76,7 @@
          kex_strict_violation/1,
          kex_strict_violation_2/1,
          kex_strict_msg_unknown/1,
+         dh_kexdh_init_e_out_of_bounds/1,
          gex_client_init_option_groups/1,
          gex_client_init_option_groups_file/1,
          gex_client_init_option_groups_moduli_file/1,
@@ -221,7 +222,8 @@ groups() ->
                 kex_strict_violation_new_keys,
                 kex_strict_violation,
                 kex_strict_violation_2,
-                kex_strict_msg_unknown]},
+                kex_strict_msg_unknown,
+                dh_kexdh_init_e_out_of_bounds]},
      {service_requests, [], [bad_service_name,
 			     bad_long_service_name,
 			     bad_very_long_service_name,
@@ -307,11 +309,18 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(Tc, Config) when Tc == no_common_alg_server_disconnects;
                                    Tc == custom_kexinit ->
-    start_std_daemon(Config, [{preferred_algorithms,[{public_key,['ssh-rsa']},
+    start_std_daemon(Config, [{preferred_algorithms,[{public_key,['ssh-ed25519']},
                                                      {cipher,?DEFAULT_CIPHERS}
                                                     ]}]);
-init_per_testcase(kex_strict_negotiated, Config) ->
-    Config;
+init_per_testcase(TC, Config) when TC == kex_strict_negotiated;
+                                   TC == kex_strict_violation_key_exchange;
+                                   TC == kex_strict_violation_new_keys;
+                                   TC == kex_strict_violation;
+                                   TC == kex_strict_violation_2;
+                                   TC == kex_strict_msg_unknown ->
+    Level = ssh_test_lib:get_log_level(),
+    ssh_test_lib:set_log_level(debug),
+    [{saved_log_level, Level} | Config];
 init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				   TC == gex_client_init_option_groups_moduli_file ;
 				   TC == gex_client_init_option_groups_file ;
@@ -360,7 +369,13 @@ init_per_testcase(_TestCase, Config) ->
 end_per_testcase(Tc, Config) when Tc == no_common_alg_server_disconnects;
                                   Tc == custom_kexinit ->
     stop_std_daemon(Config);
-end_per_testcase(kex_strict_negotiated, Config) ->
+end_per_testcase(TC, Config) when TC == kex_strict_negotiated;
+                                  TC == kex_strict_violation_key_exchange;
+                                  TC == kex_strict_violation_new_keys;
+                                  TC == kex_strict_violation;
+                                  TC == kex_strict_violation_2;
+                                  TC == kex_strict_msg_unknown ->
+    ssh_test_lib:set_log_level(proplists:get_value(saved_log_level, Config)),
     Config;
 end_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				  TC == gex_client_init_option_groups_moduli_file ;
@@ -511,14 +526,14 @@ no_common_alg_server_disconnects(Config) ->
 	    [{silently_accept_hosts, true},
 	     {user_dir, ssh_test_lib:user_dir(Config)},
 	     {user_interaction, false},
-	     {preferred_algorithms,[{public_key,['ssh-dss']},
+             {preferred_algorithms,[{public_key,['ecdsa-sha2-nistp256']},
                                     {cipher,?DEFAULT_CIPHERS}
                                    ]}
 	    ]},
 	   receive_hello,
 	   {send, hello},
 	   {match, #ssh_msg_kexinit{_='_'}, receive_msg},
-	   {send, ssh_msg_kexinit},  % with server unsupported 'ssh-dss' !
+           {send, ssh_msg_kexinit},  % with server unsupported 'ecdsa-sha2-nistp256' !
 	   {match, disconnect(), receive_msg}
 	  ]
 	 ).
@@ -652,7 +667,7 @@ no_common_alg_client_disconnects(Config) ->
 
     %% and finally connect to it with a regular Erlang SSH client
     %% which of course does not support SOME-UNSUPPORTED as pub key algo:
-    Result = std_connect(HostPort, Config, [{preferred_algorithms,[{public_key,['ssh-dss']},
+    Result = std_connect(HostPort, Config, [{preferred_algorithms,[{public_key,['ecdsa-sha2-nistp256']},
                                                                    {cipher,?DEFAULT_CIPHERS}
                                                                   ]}]),
     ct:log("Result of connect is ~p",[Result]),
@@ -1355,15 +1370,12 @@ kex_strict_negotiated(Config0) ->
         ssh_test_lib:add_log_handler(?FUNCTION_NAME,
                                      start_std_daemon(Config0, [])),
     {Server, Host, Port} = proplists:get_value(server, Config),
-    Level = ssh_test_lib:get_log_level(),
-    ssh_test_lib:set_log_level(debug),
     {ok, ConnRef} = std_connect({Host, Port}, Config, []),
     {algorithms, _A} = ssh:connection_info(ConnRef, algorithms),
     ssh:stop_daemon(Server),
     {ok, Events} = ssh_test_lib:get_log_events(Config),
     true = ssh_test_lib:kex_strict_negotiated(client, Events),
     true = ssh_test_lib:kex_strict_negotiated(server, Events),
-    ssh_test_lib:set_log_level(Level),
     ssh_test_lib:rm_log_handler(?FUNCTION_NAME),
     ok.
 
@@ -1430,8 +1442,14 @@ kex_strict_violation(Config) ->
            {send, ssh_msg_kexinit},
            {match, #ssh_msg_kexinit{_='_'}, receive_msg},
            {send, ssh_msg_kexdh_init_dup},
-           {match,# ssh_msg_kexdh_reply{_='_'}, receive_msg},
-           {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}]},
+           {match, #ssh_msg_kexdh_reply{_='_'}, receive_msg},
+           %% Server processes first kexdh_init (sends newkeys), then
+           %% detects the duplicate and disconnects. Depending on timing
+           %% we may see newkeys, disconnect, or tcp_closed here.
+           %% The actual violation assertion is verified via event_logged.
+           {match, {'or', [#ssh_msg_newkeys{_='_'},
+                           #ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED},
+                           tcp_closed]}, receive_msg}]},
          {new_keys, "Message ssh_msg_newkeys in wrong state",
           [receive_hello,
            {send, hello},
@@ -1474,8 +1492,6 @@ kex_strict_violation(Config) ->
 kex_strict_violation_2(Config0) ->
     ExpectedReason = "KEX strict violation",
     Config = ssh_test_lib:add_log_handler(?FUNCTION_NAME, Config0),
-    Level = ssh_test_lib:get_log_level(),
-    ssh_test_lib:set_log_level(debug),
     %% Connect and negotiate keys
     {ok, InitialState} = ssh_trpt_test_lib:exec(
                            [{set_options, [print_ops, print_seqnums, print_messages]}]),
@@ -1520,7 +1536,6 @@ kex_strict_violation_2(Config0) ->
     true = ssh_test_lib:kex_strict_negotiated(client, Events),
     true = ssh_test_lib:kex_strict_negotiated(server, Events),
     true = ssh_test_lib:event_logged(server, Events, ExpectedReason),
-    ssh_test_lib:set_log_level(Level),
     ok.
 
 %% Connect to an erlang server and inject unexpected non-SSH binary
@@ -1538,10 +1553,42 @@ kex_strict_msg_unknown(Config) ->
          {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}],
     kex_strict_helper(Config, TestMessages, ExpectedReason).
 
+%% RFC 4253 §8 / RFC 4419 §3: a peer's DH value must satisfy 1 < e < p-1.
+%% A peer driving e (or, on the client side, f) to one of {0, 1, p-1, p}
+%% must be rejected with SSH_DISCONNECT_KEY_EXCHANGE_FAILED. Verify this
+%% for the server, which receives e from the client.
+dh_kexdh_init_e_out_of_bounds(Config) ->
+    {_G, P} = ?dh_group14,
+    [verify_kexdh_init_rejected(Config, E) || E <- [0, 1, P-1, P]],
+    ok.
+
+verify_kexdh_init_rejected(Config, E) ->
+    ct:log("Trying kexdh_init with e=~p", [E]),
+    {ok, InitialState} = ssh_trpt_test_lib:exec(
+                          [{set_options, [print_ops, print_seqnums, print_messages]}]),
+    {ok, _} =
+        ssh_trpt_test_lib:exec(
+          [{connect,
+            ssh_test_lib:server_host(Config), ssh_test_lib:server_port(Config),
+            [{preferred_algorithms,
+              [{kex, ['diffie-hellman-group14-sha256']},
+               {cipher, ?DEFAULT_CIPHERS}]},
+             {silently_accept_hosts, true},
+             {recv_ext_info, false},
+             {user_dir, ssh_test_lib:user_dir(Config)},
+             {user_interaction, false}
+             | proplists:get_value(extra_options, Config, [])
+            ]},
+           receive_hello,
+           {send, hello},
+           {send, ssh_msg_kexinit},
+           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           {send, #ssh_msg_kexdh_init{e = E}},
+           {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}],
+          InitialState).
+
 kex_strict_helper(Config0, TestMessages, ExpectedReason) ->
     Config = ssh_test_lib:add_log_handler(?FUNCTION_NAME, Config0),
-    Level = ssh_test_lib:get_log_level(),
-    ssh_test_lib:set_log_level(debug),
     %% Connect and negotiate keys
     {ok, InitialState} = ssh_trpt_test_lib:exec(
                            [{set_options, [print_ops, print_seqnums, print_messages]}]),
@@ -1558,7 +1605,8 @@ kex_strict_helper(Config0, TestMessages, ExpectedReason) ->
              {user_interaction, false}
             | proplists:get_value(extra_options,Config,[])
             ]}] ++
-              TestMessages,
+              TestMessages ++
+              [close_socket],
           InitialState),
     ct:sleep(100),
     {ok, Events} = ssh_test_lib:get_log_events(Config),
@@ -1567,7 +1615,6 @@ kex_strict_helper(Config0, TestMessages, ExpectedReason) ->
     true = ssh_test_lib:kex_strict_negotiated(client, Events),
     true = ssh_test_lib:kex_strict_negotiated(server, Events),
     true = ssh_test_lib:event_logged(server, Events, ExpectedReason),
-    ssh_test_lib:set_log_level(Level),
     ok.
 
 %%%----------------------------------------------------------------
@@ -1909,13 +1956,15 @@ alive_reneg_eserver_tclient(Config) ->
     [CHandlerPid] = CHandler(ssh_info:get_subs_tree(sshd_sup), []),
     ?CT_LOG("Server side connection handler PID: ~p", [CHandlerPid]),
     ssh_connection_handler:renegotiate(CHandlerPid),
-    %% The disconnect is received under 2 seconds since the tclient already
-    %% failed to reply to one of the probles from eserver.
+    %% The disconnect is received after the renegotiation_alive timeout since
+    %% the tclient already failed to reply to one of the probes from eserver.
+    %% Daemon uses interval=1000, count_max=3. Add margin for Windows scheduling.
+    DisconnectTimeout = 2000 + 2 * ssh_test_lib:alive_interval(),
     {ok, _} =
         ssh_trpt_test_lib:exec(
           [{match, #ssh_msg_kexinit{_='_'}, receive_msg},
            {match, disconnect(), receive_msg}],
-          ssh_trpt_test_lib:set_timeout(TrptState3, 2000)),
+          ssh_trpt_test_lib:set_timeout(TrptState3, DisconnectTimeout)),
     ?CT_LOG("[OK] triggering incomplete, server triggered locally key renegotiation"),
     ssh:stop_daemon(DaemonPid),
     ?CT_LOG("[OK] test case finished"),

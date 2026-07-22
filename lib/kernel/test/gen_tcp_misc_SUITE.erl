@@ -1118,16 +1118,13 @@ otp_3924(Config) when is_list(Config) ->
        "~n      Config: ~p"
        "~n      Nodes:  ~p", [?FUNCTION_NAME, Config, nodes()]),
     Cond = fun() ->
-                   case lists:keysearch(kernel_factor, 1, Config) of
+                   case check_factor(Config, {lte, ?OTP_3924_MIN_FACTOR}) of
                        %% Only run this on machines that are "fast enough"...
-                       {value, {kernel_factor, Factor}}
-                         when (Factor =< ?OTP_3924_MIN_FACTOR) ->
-                           ?P("~w:condition -> "
-                              "*fast* enough (~w)", [?FUNCTION_NAME, Factor]),
-                           ok;
-                       _ ->
-                           ?P("~w:condition -> "
-                              "*not* fast enough", [?FUNCTION_NAME]),
+                       true -> 
+                            ?P("~w:factor-condition -> *fast* enough",
+                               [?FUNCTION_NAME]),
+                          ok;
+                       false ->
                            {skip, "Too slow for this test"}
                    end
            end,
@@ -3746,7 +3743,12 @@ fill_sendq(Config) when is_list(Config) ->
     Cond = fun() ->
 		   is_windows() andalso ?IS_SOCKET_BACKEND(Config) andalso
 		       skip("Unstable for 'socket on Windows'"),
-		   ok
+                   case check_factor(Config, {gt, 6}) of
+                       true ->
+                           {skip, "Too slow"};
+                       false ->
+                           ok
+                   end
 	   end,
     Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
                         {ok, Addr} ->
@@ -6418,11 +6420,10 @@ send_timeout_basic(Config, Addr, BinData, SndBuf, TslTimeout, SndTimeout,
 %% Test the send_timeout socket option.
 send_timeout_check_length(Config) when is_list(Config) ->
     Cond = fun() ->
-                   Key = kernel_factor,
-                   case lists:keysearch(Key, 1, Config) of
-                       {value, {Key, Factor}} when (Factor > 6) ->
-                           {skip, ?F("Too slow (factor = ~w)", [Factor])};
-                       _ ->
+                   case check_factor(Config, {gt, 6}) of
+                       true ->
+                           {skip, "Too slow"};
+                       false ->
                            ok
                    end
            end,
@@ -6489,11 +6490,10 @@ do_send_timeout_check_length(Config, Addr, RNode) ->
 %% Test the send_timeout socket option.
 send_timeout_para_wo_autoclose(Config) when is_list(Config) ->
     Cond = fun() ->
-                   Key = kernel_factor,
-                   case lists:keysearch(Key, 1, Config) of
-                       {value, {Key, Factor}} when (Factor > 6) ->
-                           {skip, ?F("Too slow (factor = ~w)", [Factor])};
-                       _ ->
+                   case check_factor(Config, {gt, 6}) of
+                       true ->
+                           {skip, "Too slow"};
+                       false ->
                            ok
                    end
            end,
@@ -6535,12 +6535,10 @@ send_timeout_para_w_autoclose(Config) when is_list(Config) ->
                        true ->
                            {skip, "Unstable with 'socket' backend"};
                        false ->
-                           Key = kernel_factor,
-                           case lists:keysearch(Key, 1, Config) of
-                               {value, {Key, Factor}} when (Factor > 6) ->
-                                   {skip,
-                                    ?F("Too slow (factor = ~w)", [Factor])};
-                               _ ->
+                           case check_factor(Config, {gt, 6}) of
+                               true ->
+                                   {skip, "Too slow"};
+                               false ->
                                    ok
                            end
                    end
@@ -6859,16 +6857,52 @@ do_send_timeout_active(Config, Addr, AutoClose, RNode) ->
                         ?P("[sink action] send payload"),
 			Res = gen_tcp:send(A, ListData),
 			Res;
+                    {'EXIT', Pid, {timetrap_timeout, _Timeout, _StackTrace}} ->
+                        ?P("[sink action] timetrap timeout when"
+                           "~n   Socket Info: ~p", [inet:info(A)]),
+                        gen_tcp:close(A),
+                        ct:fail(timetrap_timeout);
 		    Unexpected ->
 			?P("[sink action] unexpected message: "
                            "~n      ~p", [Unexpected]),
 			Unexpected
 		end
 	end,
-    {{error, timeout}, _} = timeout_sink_loop(F, 1),
+    {Result, _} = timeout_sink_loop(F, 1),
+    ?P("~s -> results:"
+       "~n   Mad Sender info: "
+       "~n      ~p"
+       "~n   (mad sender) Socket Info:"
+       "~n      ~p"
+       "~n   (sink loop) info: "
+       "~n      ~p"
+       "~n   (sink loop) Socket Info:"
+       "~n      ~p",
+       [?FUNCTION_NAME,
+        try erlang:process_info(Mad)
+        catch
+            _:_ ->
+                undefined
+        end,
+        try inet:info(C)
+        catch
+            _:_ ->
+                undefined
+        end,
+        try erlang:process_info(self())
+        catch
+            _:_ ->
+                undefined
+        end,
+        try inet:info(A)
+        catch
+            _:_ ->
+                undefined
+        end]),
     unlink(Mad),
     exit(Mad, kill),
     flush(),
+    {error, timeout} = Result,
     ok.
 
 mad_sender(S) ->
@@ -7191,12 +7225,10 @@ send_timeout_resume(Config) when is_list(Config) ->
                        true ->
                            {skip, "Unstable with 'socket' backend"};
                        false ->
-                           Key = kernel_factor,
-                           case lists:keysearch(Key, 1, Config) of
-                               {value, {Key, Factor}} when (Factor > 6) ->
-                                   {skip,
-                                    ?F("Too slow (factor = ~w)", [Factor])};
-                               _ ->
+                           case check_factor(Config, {gt, 6}) of
+                               true ->
+                                   {skip, "Too slow"};
+                               false ->
                                    ok
                            end
                    end
@@ -10249,6 +10281,30 @@ has_support_socket_option(Level, Option) ->
         false ->
             skip(?F("Not Supported: ~w option ~w", [Level, Option]))
     end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+which_factor(Config) ->
+    Key = kernel_factor,
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, Factor}} ->
+            Factor;
+        _ ->
+            false
+    end.
+
+check_factor(Config, Limit) ->
+    check_factor2(which_factor(Config), Limit).
+
+check_factor2(Factor, {lte, Limit})
+  when is_integer(Factor) andalso (Factor =< Limit) ->
+    true;
+check_factor2(Factor, {gt, Limit})
+  when is_integer(Factor) andalso (Factor > Limit) ->
+    true;
+check_factor2(_, _) ->
+    false.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

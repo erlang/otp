@@ -26,6 +26,7 @@
 
 -export([
 analyze_events/2,
+alive_interval/0,
 connect/2,
 connect/3,
 daemon/1,
@@ -136,13 +137,18 @@ system_dir/1,
 user_dir/1,
 get_public_key_algorithms_with_valid_host_key/1,
 get_public_key_algorithms_with_valid_host_key/2,
-remove_comment/1
+remove_comment/1,
+timetrap_scale/0,
+connect_with_retry/2
         ]).
+
 %% logger callbacks and related helpers
 -export([log/2,
          get_log_level/0, set_log_level/1,
          add_log_handler/2, rm_log_handler/1,
-         get_log_events/1]).
+         get_log_events/1,
+         median/1,
+         assert_timing_symmetry/3]).
 
 -include_lib("common_test/include/ct.hrl").
 -include("ssh_transport.hrl").
@@ -191,6 +197,36 @@ do_connect(Host, Port, Options) ->
     ct:log("~p:~p ssh:connect(~p, ~p, ~p)~n -> ~p",[?MODULE,?LINE,Host, Port, Options, R]),
     {ok, ConnectionRef} = R,
     ConnectionRef.
+
+%% Connect to the system sshd with retry.
+%% Handles transient failures from OpenSSH MaxStartups drops under load.
+connect_with_retry(Port, Options) ->
+    connect_with_retry(hostname(), Port, Options).
+
+connect_with_retry(Host, Port, Options0) ->
+    Options =
+        set_opts_if_not_set([{silently_accept_hosts, true},
+                             {save_accepted_host, false},
+                             {user_interaction, false}
+                            ], Options0),
+    connect_with_retry_loop(Host, Port, Options, 3, 1000).
+
+connect_with_retry_loop(Host, Port, Options, 0, _Delay) ->
+    R = ssh:connect(Host, Port, Options),
+    ?CT_LOG("ssh:connect(~p, ~p, ...) -> ~p", [Host, Port, R]),
+    {ok, ConnectionRef} = R,
+    ConnectionRef;
+connect_with_retry_loop(Host, Port, Options, Retries, Delay) ->
+    case ssh:connect(Host, Port, Options, 10000) of
+        {ok, Ref} ->
+            ?CT_LOG("ssh:connect(~p, ~p, ...) -> {ok,~p}", [Host, Port, Ref]),
+            Ref;
+        {error, Reason} ->
+            ?CT_LOG("ssh:connect(~p, ~p, ...) failed: ~p, ~p retries left",
+                    [Host, Port, Reason, Retries - 1]),
+            timer:sleep(Delay),
+            connect_with_retry_loop(Host, Port, Options, Retries - 1, Delay * 2)
+    end.
 
 set_opts_if_not_set(OptsToSet, Options0) ->
     lists:foldl(fun({K,V}, Opts) ->
@@ -350,7 +386,7 @@ start_shell(Port, IOServer, ExtraOptions) ->
 	      Options = [{user_interaction, false},
 			 {silently_accept_hosts,true},
                          {save_accepted_host,false},
-                         {alive, #{count_max => 3, interval => 100}}
+                         {alive, #{count_max => 3, interval => alive_interval()}}
                          | ExtraOptions],
               try
                   group_leader(IOServer, self()),
@@ -388,6 +424,13 @@ start_shell(Port, IOServer, ExtraOptions) ->
               end
       end).
 
+
+%%%----------------------------------------------------------------
+alive_interval() ->
+    case os:type() of
+        {win32, _} -> 500;
+        _ -> 100
+    end.
 
 %%%----------------------------------------------------------------
 start_io_server() ->
@@ -1279,7 +1322,6 @@ remove_comment(Bin) ->
     FilteredLines = [L || L <- Lines, string:prefix(L, "#") == nomatch],
     list_to_binary(lists:join("\n", FilteredLines)).
 
-
 get_addr_str() ->
     {ok, Hostname} = inet:gethostname(),
     {ok, {A, B, C, D}} = inet:getaddr(Hostname, inet),
@@ -1525,10 +1567,21 @@ print_interesting_events([], Cnt) ->
     {ok, Cnt};
 print_interesting_events([#{level := Level} = Event | Tail], Cnt)
   when Level /= info, Level /= notice, Level /= debug ->
-    ct:log("------------~nInteresting event found:~n~p~n==========~n", [Event]),
-    print_interesting_events(Tail, Cnt + 1);
+    case is_benign_event(Event) of
+        true ->
+            print_interesting_events(Tail, Cnt);
+        false ->
+            ct:log("------------~nInteresting event found:~n~p~n==========~n", [Event]),
+            print_interesting_events(Tail, Cnt + 1)
+    end;
 print_interesting_events([_|Tail], Cnt) ->
     print_interesting_events(Tail, Cnt).
+
+%% Known-benign event: driver_select race during fd handoff between ports
+is_benign_event(#{msg := {_Fmt, [Msg]}}) when is_list(Msg) ->
+    string:find(Msg, "ignored repeated call") =/= nomatch;
+is_benign_event(_) ->
+    false.
 
 %% logger callbacks
 log(LogEvent = #{level:=_Level,msg:=_Msg,meta:=_Meta},
@@ -1593,3 +1646,53 @@ get_public_key_algorithms_with_valid_host_key(Config, Options) ->
     Opts = #{key_cb => KeyCb, key_cb_options => [{system_dir, system_dir(Config)}]},
     PubKeyAlgs = ssh_transport:supported_algorithms(public_key),
     lists:filter(fun(Alg) -> ?HAS_HOST_KEY(Alg, Opts) end, PubKeyAlgs).
+
+median(List) ->
+    Sorted = lists:sort(List),
+    Len = length(Sorted),
+    case Len rem 2 of
+        1 -> lists:nth((Len + 1) div 2, Sorted);
+        0 -> (lists:nth(Len div 2, Sorted) +
+                  lists:nth(Len div 2 + 1, Sorted)) / 2
+    end.
+
+assert_timing_symmetry(MeasureFun, ValidInput, InvalidInput) ->
+    N = 8,
+    Warmup = 3,
+    CollectSamples =
+        fun(Input) ->
+                lists:sublist(
+                  [begin
+                       ?CT_LOG("Collecting sample #~p of total ~p", [I, N]),
+                       MeasureFun(Input)
+                   end || I <- lists:seq(1, N)],
+                  Warmup + 1, N - Warmup)
+        end,
+    MV = median(CollectSamples(ValidInput)),
+    MI = median(CollectSamples(InvalidInput)),
+    Ratio = max(MV / MI, MI / MV),
+    ?CT_LOG("Valid(~p) median=~p ms, Invalid(~p) median=~p ms, Ratio=~.2f",
+            [ValidInput, MV, InvalidInput, MI, Ratio]),
+    case Ratio > 3.0 of
+        true ->
+            ct:fail("Timing ratio ~.2f exceeds 3.0 — possible timing oracle", [Ratio]);
+        false ->
+            ok
+    end.
+
+%%%----------------------------------------------------------------
+%%% Scale timetrap for slow platforms (32-bit, Solaris, Cover).
+%%% Returns an integer multiplier (1, 2, 4, or higher).
+timetrap_scale() ->
+    S0 = case erlang:system_info(wordsize) of
+             4 -> 2;
+             _ -> 1
+         end,
+    S1 = case os:type() of
+             {unix, sunos} -> S0 * 2;
+             _ -> S0
+         end,
+    case test_server:is_cover() of
+        true -> S1 * 3;
+        false -> S1
+    end.

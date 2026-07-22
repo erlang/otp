@@ -810,7 +810,7 @@ abst(File, Builtins, _Mode = functions) ->
         {ok, {M,[{abstract_code,no_abstract_code},
                  _X,
                  Attrs,
-                 {documentation,missing_chunk}]}} ->
+                 {documentation,_Doc}]}} ->
             {ok, M, Attrs, no_abstract_code};
 	{ok, {M, [{abstract_code, {raw_abstract_v1, Code}},
                   {exports,X0}, {attributes,A},

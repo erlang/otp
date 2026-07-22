@@ -53,6 +53,7 @@
          resolve_base_uri/1, resolve_return_map/1,
          transcode_basic/1, transcode_options/1, transcode_mixed/1, transcode_negative/1,
          compose_query/1, compose_query_latin1/1, compose_query_negative/1,
+         compose_query_negative_unicode_guard/1,
          dissect_query/1, dissect_query_negative/1,
          interop_query_latin1/1, interop_query_utf8/1,
          regression_parse/1, regression_recompose/1, regression_normalize/1,
@@ -146,6 +147,7 @@ all() ->
      compose_query,
      compose_query_latin1,
      compose_query_negative,
+     compose_query_negative_unicode_guard,
      dissect_query,
      dissect_query_negative,
      interop_query_latin1,
@@ -393,7 +395,7 @@ parse_binary_pct_encoded_userinfo(_Config) ->
     #{scheme := <<"foo">>, userinfo := <<"%E5%90%88:%E6%B0%97">>, host := <<"%E9%81%93">>} =
         uri_string:parse(<<"foo://%E5%90%88:%E6%B0%97@%E9%81%93">>),
     {error,invalid_uri,"@"} = uri_string:parse(<<"//%E5%90%88@%E6%B0%97%E9%81%93@">>),
-    {error,invalid_uri,":"} = uri_string:parse(<<"foo://%E5%90%88@%E6%B0%97%E9%81%93@">>).
+    {error,invalid_uri,"@"} = uri_string:parse(<<"foo://%E5%90%88@%E6%B0%97%E9%81%93@">>).
 
 parse_binary_host(_Config) ->
     #{host := <<"hostname">>} = uri_string:parse(<<"//hostname">>),
@@ -566,7 +568,7 @@ parse_pct_encoded_userinfo(_Config) ->
     #{scheme := "foo", userinfo := "%E5%90%88:%E6%B0%97", host := "%E9%81%93"} =
         uri_string:parse("foo://%E5%90%88:%E6%B0%97@%E9%81%93"),
     {error,invalid_uri,"@"} = uri_string:parse("//%E5%90%88@%E6%B0%97%E9%81%93@"),
-    {error,invalid_uri,":"} = uri_string:parse("foo://%E5%90%88@%E6%B0%97%E9%81%93@").
+    {error,invalid_uri,"@"} = uri_string:parse("foo://%E5%90%88@%E6%B0%97%E9%81%93@").
 
 parse_host(_Config) ->
     #{host := "hostname"} = uri_string:parse("//hostname"),
@@ -757,11 +759,15 @@ parse_special2(_Config) ->
 parse_negative(_Config) ->
     {error,invalid_uri,"å"} = uri_string:parse("å"),
     {error,invalid_uri,"å"} = uri_string:parse("aå:/foo"),
-    {error,invalid_uri,":"} = uri_string:parse("foo://usär@host"),
+    {error,invalid_uri,"ä"} = uri_string:parse("foo://usär@host"),
     {error,invalid_uri,"ö"} = uri_string:parse("//host/path?foö=bar"),
     {error,invalid_uri,"ö"} = uri_string:parse("//host/path#foö"),
     {error,invalid_uri,":::127.0.0.1"} = uri_string:parse("//[:::127.0.0.1]"),
-    {error,invalid_uri,"A"} = uri_string:parse("//localhost:A8").
+    {error,invalid_uri,"A"} = uri_string:parse("//localhost:A8"),
+    %% GH-7862: error should pinpoint the offending byte, not a cascade-
+    %% failure character from a fallback re-parse attempt.
+    {error,invalid_uri,"|"} = uri_string:parse("http://localhost/A|B"),
+    {error,invalid_uri,"<"} = uri_string:parse("http://localhost/A<B").
 
 
 %%-------------------------------------------------------------------------
@@ -976,6 +982,15 @@ compose_query_negative(_Config) ->
     {error,invalid_encoding,utf16} =
         uri_string:compose_query([{"foo bar","1"}, {<<"ö">>, "2"}],[{encoding,utf16}]).
 
+compose_query_negative_unicode_guard(_Config) ->
+    [{error,invalid_input,an_atom} =
+         uri_string:compose_query([{an_atom,"v"}], [{encoding,Enc}])
+     || Enc <- [unicode, utf8]],
+    {error,invalid_input,an_atom} =
+        uri_string:compose_query([{"k",an_atom}], [{encoding,unicode}]),
+    {error,invalid_input,42} =
+        uri_string:compose_query([{42,"v"}], [{encoding,unicode}]).
+
 dissect_query(_Config) ->
     [] = uri_string:dissect_query(""),
     [{"foo","1"}, {"amp;bar", "2"}] = uri_string:dissect_query("foo=1&amp;bar=2"),
@@ -1103,13 +1118,13 @@ normalize_return_map(_Config) ->
               host => <<"localhost">>}, [return_map])).
 
 normalize_negative(_Config) ->
-    {error,invalid_uri,":"} =
+    {error,invalid_uri,">"} =
         uri_string:normalize("http://local>host"),
-    {error,invalid_uri,":"} =
+    {error,invalid_uri,">"} =
         uri_string:normalize(<<"http://local>host">>),
-    {error,invalid_uri,":"} =
+    {error,invalid_uri,"192.168.0.1"} =
         uri_string:normalize("http://[192.168.0.1]", [return_map]),
-    {error,invalid_uri,":"} =
+    {error,invalid_uri,"192.168.0.1"} =
         uri_string:normalize(<<"http://[192.168.0.1]">>, [return_map]),
     {error,invalid_utf8,<<47,47,0,0,0,246>>} =
         uri_string:percent_decode(uri_string:normalize("//%00%00%00%F6")).
@@ -1154,7 +1169,7 @@ normalize_binary_pct_encoded_userinfo(_Config) ->
     {error,invalid_uri,"@"} =
           uri_string:normalize(
             <<"//%E5%90%88@%E6%B0%97%E9%81%93@">>, [return_map]),
-    {error,invalid_uri,":"} =
+    {error,invalid_uri,"@"} =
           uri_string:normalize(
             <<"foo://%E5%90%88@%E6%B0%97%E9%81%93@">>, [return_map]).
 
@@ -1210,7 +1225,7 @@ normalize_pct_encoded_userinfo(_Config) ->
           uri_string:normalize("foo://%E5%90%88:%E6%B0%97@%E9%81%93", [return_map])),
     {error,invalid_uri,"@"} =
         uri_string:normalize("//%E5%90%88@%E6%B0%97%E9%81%93@", [return_map]),
-    {error,invalid_uri,":"} =
+    {error,invalid_uri,"@"} =
         uri_string:normalize("foo://%E5%90%88@%E6%B0%97%E9%81%93@", [return_map]).
 
 normalize_pct_encoded_query(_Config) ->

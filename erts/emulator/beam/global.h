@@ -1033,6 +1033,11 @@ void erts_print_base64(fmtfn_t to, void *to_arg, const byte* src, Uint size);
 int erts_set_signal(Eterm signal, Eterm type);
 
 /* erl_arith.c */
+
+/* The number of bignum words that we assume can be processed in one
+ * reduction. */
+#define ERTS_ARITH_WORDS_PER_REDUCTION 16
+
 double erts_get_positive_zero_float(void);
 
 /* config.c */
@@ -1536,8 +1541,6 @@ Eterm erts_mul_add(Process* p, Eterm arg1, Eterm arg2, Eterm arg3, Eterm* pp);
 Eterm erts_mixed_div(Process* p, Eterm arg1, Eterm arg2);
 
 int erts_int_div_rem(Process* p, Eterm arg1, Eterm arg2, Eterm *q, Eterm *r);
-Eterm erts_int_div(Process* p, Eterm arg1, Eterm arg2);
-Eterm erts_int_rem(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_bxor(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_bsr(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_bsl(Process* p, Eterm arg1, Eterm arg2);

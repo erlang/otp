@@ -301,7 +301,7 @@ loop(#{sock   := Sock,
                                      (Reason =:= eshutdown) orelse
                                      (Reason =:= epipe) ->
                     ?INFO("Socket ~w - terminating", [Reason]),
-                    exit(normal);
+                    loop(State);
                 {error, Reason} ->
                     ?ERROR("Failure processing message: "
                            "~n   ~p", [Reason]),
@@ -330,15 +330,15 @@ loop(#{parent      := Parent,
         {'DOWN', MRef, process, Parent, Info} ->
             ?ERROR("Received unexpected DOWN from parent:"
                    "~n   ~p", [Info]),
-            (catch socket:cancel(Sock, SelectInfo)),
-            (catch socket:close(Sock)),
+            ?CATCH_AND_IGNORE( socket:cancel(Sock, SelectInfo) ),
+            ?CATCH_AND_IGNORE( socket:close(Sock) ),
             exit({parent, Info});
 
         ?MSG(Parent, stop) ->
             ?INFO("Received stop request"),
-            (catch socket:cancel(Sock, SelectInfo)),
+            ?CATCH_AND_IGNORE( socket:cancel(Sock, SelectInfo) ),
             ?INFO("close socket"),
-            (catch socket:close(Sock)),
+            ?CATCH_AND_IGNORE( socket:close(Sock) ),
             ?INFO("stop done"),
             exit(normal)
     end.
@@ -348,13 +348,23 @@ handle_msg(State,
            #{notification := Notif}) ->
     {ok, handle_notification(State, Notif)};
 
-handle_msg(#{threaded := false} = State,
+handle_msg(#{threaded    := false,
+	     connections := Connections} = State,
            #{iov  := [Data],
              ctrl := [#{level := sctp,
                         type  := sndrcv,
                         value := #{assoc_id := AssocID,
                                    stream   := Stream}}]}) ->
-    handle_data(State, Data, AssocID, Stream);
+    case Connections of
+	#{AssocID := #{state := CState}}
+	  when (CState =:= shutdown_complete) ->
+	    %% Message after assoc shutdown. Race? Ignore!
+	    ?WARNING("Received data message on assoc ~w "
+		     "after shutdown complete - ignore", [AssocID]),
+	    {ok, State};
+	_ ->
+	    handle_data(State, Data, AssocID, Stream)
+    end;
 handle_msg(_State, Msg) ->
     ?ERROR("Received unexpected message:"
            "~n   ~p", [Msg]),
@@ -471,7 +481,7 @@ handle_notification(#{threaded    := false,
 handle_notification(#{sock := Sock} = _State, Notif) ->
     ?ERROR("Received unexpected notification:"
            "~n   ~p", [Notif]),
-    (catch socket:close(Sock)),
+    ?CATCH_AND_IGNORE( socket:close(Sock) ),
     exit(unexpected_notification).
 
 
@@ -590,8 +600,8 @@ handler_loop(
         {'DOWN', MRef, process, Parent, Reason} ->
             ?ERROR("Received unexpected down from server:"
                    "~n   ~p", [Reason]),
-            (catch socket:cancel(Sock, SelectInfo)),
-            (catch socket:close(Sock)),
+            ?CATCH_AND_IGNORE( socket:cancel(Sock, SelectInfo) ),
+            ?CATCH_AND_IGNORE( socket:close(Sock) ),
             exit({server, Reason})
 
     end.
@@ -631,7 +641,7 @@ handler_handle_notification(#{sock := Sock} = _State,
                               assoc_id := AssocID}) ->
     ?INFO("Received assoc-change(comm-lost) for assoc ~w", [AssocID]),
     %% We should really wait for the socket close...
-    (catch socket:close(Sock)),
+    ?CATCH_AND_IGNORE( socket:close(Sock) ),
     exit(normal);
 handler_handle_notification(#{sock := Sock} = _State,
                             #{type     := assoc_change,
@@ -639,7 +649,7 @@ handler_handle_notification(#{sock := Sock} = _State,
                               assoc_id := AssocID}) ->
     ?INFO("Received assoc-change(shutdown-comp) for assoc ~w", [AssocID]),
     %% We should really wait for the socket close...
-    (catch socket:close(Sock)),
+    ?CATCH_AND_IGNORE( socket:close(Sock) ),
     exit(normal);
 handler_handle_notification(State,
                             #{type     := shutdown_event,
@@ -656,7 +666,10 @@ handler_handle_notification(State,
 
 %% ========================================================================
 
-handle_data(#{sock := Sock} = State,
+%% State of the connection should be taken into account.
+%% For instance, if we know the socket to be closed (or closing),
+%% there is not point in trying to send a reply...
+handle_data(#{sock := Sock} = HandlerState,
             <<(?PROTO_TAG):32,
               (?REQUEST_TAG):32,
               Seq:32,
@@ -685,7 +698,7 @@ handle_data(#{sock := Sock} = State,
             %% but we make it easy on ourselves and just send...
             case socket:sendmsg(Sock, Msg) of
                 ok ->
-                    {ok, State};
+                    {ok, HandlerState};
                 {error, _} = ERROR ->
                     ERROR
             end;

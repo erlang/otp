@@ -21,6 +21,53 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.21.3
+
+### Fixed Bugs and Malfunctions
+
+- Hardened OCSP response verification by using constant-time hash comparisons and rejecting responses exceeding 100 KB before ASN.1 decoding.
+
+  Own Id: OTP-20197 Aux Id: [PR-11239]
+
+[PR-11239]: https://github.com/erlang/otp/pull/11239
+
+## Public_Key 1.21.2
+
+### Fixed Bugs and Malfunctions
+
+- Add missing macro reference for legacy algorithms md5 and sha224. This mainly improves error handling.
+
+  Own Id: OTP-20172 Aux Id: [PR-11195]
+
+[PR-11195]: https://github.com/erlang/otp/pull/11195
+
+## Public_Key 1.21.1
+
+### Fixed Bugs and Malfunctions
+
+- OCSP responder certificates are now checked for expiration before being accepted as authorized responders. Previously, expired or not-yet-valid responder certificates were incorrectly accepted when verifying OCSP responses.
+
+  Own Id: OTP-20112 Aux Id: [CVE-2026-42791], [PR-11136]
+
+- Corrected basic constraint path validation check in accordance to RFC 5280.
+
+  Own Id: OTP-20129 Aux Id: [CVE-2026-42789], [PR-11123]
+
+- 'public_key', Adhere to RFC 9525, and remove support for legacy fallback to check hostname against subject common name. Also improve error handling creating two separate errors for name constraint check for subject names and subject alternative names.
+  
+  'ssl'. Error handling is slightly changed to better reflect public_key behaviour.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-20130 Aux Id: [CVE-2026-42790], [PR-11124]
+
+[CVE-2026-42791]: https://nvd.nist.gov/vuln/detail/2026-42791
+[PR-11136]: https://github.com/erlang/otp/pull/11136
+[CVE-2026-42789]: https://nvd.nist.gov/vuln/detail/2026-42789
+[PR-11123]: https://github.com/erlang/otp/pull/11123
+[CVE-2026-42790]: https://nvd.nist.gov/vuln/detail/2026-42790
+[PR-11124]: https://github.com/erlang/otp/pull/11124
+
 ## Public_Key 1.21
 
 ### Improvements and New Features
@@ -59,6 +106,53 @@ limitations under the License.
 [PR-10033]: https://github.com/erlang/otp/pull/10033
 [PR-10839]: https://github.com/erlang/otp/pull/10839
 [PR-10993]: https://github.com/erlang/otp/pull/10993
+
+## Public_Key 1.20.3.3
+
+### Fixed Bugs and Malfunctions
+
+- Hardened OCSP response verification by using constant-time hash comparisons and rejecting responses exceeding 100 KB before ASN.1 decoding.
+
+  Own Id: OTP-20197 Aux Id: [PR-11239]
+
+[PR-11239]: https://github.com/erlang/otp/pull/11239
+
+## Public_Key 1.20.3.2
+
+### Fixed Bugs and Malfunctions
+
+- Add missing macro reference for legacy algorithms md5 and sha224. This mainly improves error handling.
+
+  Own Id: OTP-20172 Aux Id: [PR-11195]
+
+[PR-11195]: https://github.com/erlang/otp/pull/11195
+
+## Public_Key 1.20.3.1
+
+### Fixed Bugs and Malfunctions
+
+- OCSP responder certificates are now checked for expiration before being accepted as authorized responders. Previously, expired or not-yet-valid responder certificates were incorrectly accepted when verifying OCSP responses.
+
+  Own Id: OTP-20112 Aux Id: [CVE-2026-42791], [PR-11136]
+
+- Corrected basic constraint path validation check in accordance to RFC 5280.
+
+  Own Id: OTP-20129 Aux Id: [CVE-2026-42789], [PR-11123]
+
+- 'public_key', Adhere to RFC 9525, and remove support for legacy fallback to check hostname against subject common name. Also improve error handling creating two separate errors for name constraint check for subject names and subject alternative names.
+  
+  'ssl'. Error handling is slightly changed to better reflect public_key behaviour.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-20130 Aux Id: [CVE-2026-42790], [PR-11124]
+
+[CVE-2026-42791]: https://nvd.nist.gov/vuln/detail/2026-42791
+[PR-11136]: https://github.com/erlang/otp/pull/11136
+[CVE-2026-42789]: https://nvd.nist.gov/vuln/detail/2026-42789
+[PR-11123]: https://github.com/erlang/otp/pull/11123
+[CVE-2026-42790]: https://nvd.nist.gov/vuln/detail/2026-42790
+[PR-11124]: https://github.com/erlang/otp/pull/11124
 
 ## Public_Key 1.20.3
 
@@ -235,6 +329,43 @@ limitations under the License.
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 [PR-9774]: https://github.com/erlang/otp/pull/9774
 
+## Public_Key 1.17.1.4
+
+### Fixed Bugs and Malfunctions
+
+- Hardened OCSP response verification by using constant-time hash comparisons and rejecting responses exceeding 100 KB before ASN.1 decoding.
+
+  Own Id: OTP-20197 Aux Id: [PR-11239]
+
+[PR-11239]: https://github.com/erlang/otp/pull/11239
+
+## Public_Key 1.17.1.3
+
+### Fixed Bugs and Malfunctions
+
+- OCSP responder certificates are now checked for expiration before being accepted as authorized responders. Previously, expired or not-yet-valid responder certificates were incorrectly accepted when verifying OCSP responses.
+
+  Own Id: OTP-20112 Aux Id: [CVE-2026-42791], [PR-11136]
+
+- Corrected basic constraint path validation check in accordance to RFC 5280.
+
+  Own Id: OTP-20129 Aux Id: [CVE-2026-42789], [PR-11123]
+
+- 'public_key', Adhere to RFC 9525, and remove support for legacy fallback to check hostname against subject common name. Also improve error handling creating two separate errors for name constraint check for subject names and subject alternative names.
+  
+  'ssl'. Error handling is slightly changed to better reflect public_key behaviour.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-20130 Aux Id: [CVE-2026-42790], [PR-11124]
+
+[CVE-2026-42791]: https://nvd.nist.gov/vuln/detail/2026-42791
+[PR-11136]: https://github.com/erlang/otp/pull/11136
+[CVE-2026-42789]: https://nvd.nist.gov/vuln/detail/2026-42789
+[PR-11123]: https://github.com/erlang/otp/pull/11123
+[CVE-2026-42790]: https://nvd.nist.gov/vuln/detail/2026-42790
+[PR-11124]: https://github.com/erlang/otp/pull/11124
+
 ## Public_Key 1.17.1.2
 
 ### Fixed Bugs and Malfunctions
@@ -410,6 +541,21 @@ limitations under the License.
 [PR-7475]: https://github.com/erlang/otp/pull/7475
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 [PR-8233]: https://github.com/erlang/otp/pull/8233
+
+## Public_Key 1.15.1.7
+
+### Fixed Bugs and Malfunctions
+
+* Corrected basic constraint path validation check in accordance to RFC 5280.
+
+  Own Id: OTP-20129 Aux Id: CVE-2026-42789, PR-11123
+* 'public_key', Adhere to RFC 9525, and remove support for legacy fallback to check hostname against subject common name. Also improve error handling creating two separate errors for name constraint check for subject names and subject alternative names.
+
+  'ssl'. Error handling is slightly changed to better reflect public_key behaviour.
+
+  \*** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-20130 Aux Id: CVE-2026-42790, PR-11124
 
 ## Public_Key 1.15.1.6
 

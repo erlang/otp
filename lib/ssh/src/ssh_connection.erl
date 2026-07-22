@@ -1291,36 +1291,49 @@ handle_msg(#ssh_msg_global_request{name = _Type,
     end;
 
 handle_msg(#ssh_msg_request_failure{},
-	   #connection{requests = [{_, From} | Rest]} = Connection, _, _SSH) ->
-    {[{channel_request_reply, From, {failure, <<>>}}],
-     Connection#connection{requests = Rest}};
-
-handle_msg(#ssh_msg_request_failure{},
-	   #connection{requests = [{_, From,_} | Rest]} = Connection, _, _SSH) ->
-    {[{channel_request_reply, From, {failure, <<>>}}],
-     Connection#connection{requests = Rest}};
+           #connection{requests = Requests} = Connection, _, _SSH) ->
+    handle_global_response({failure, <<>>}, Requests, Connection);
 
 handle_msg(#ssh_msg_request_success{data = Data},
-	   #connection{requests = [{_, From} | Rest]} = Connection, _, _SSH) ->
-    {[{channel_request_reply, From, {success, Data}}],
-     Connection#connection{requests = Rest}};
-
-handle_msg(#ssh_msg_request_success{data = Data},
-	   #connection{requests = [{_, From, Fun} | Rest]} = Connection0, _, _SSH) ->
-    Connection = Fun({success,Data}, Connection0),
-    {[{channel_request_reply, From, {success, Data}}],
-     Connection#connection{requests = Rest}};
-
-%% alive responses
-handle_msg(#ssh_msg_request_success{},
-	   #connection{requests = []} = Connection, _, _SSH) ->
-    {[], Connection};
-
-handle_msg(#ssh_msg_request_failure{},
-	   #connection{requests = []} = Connection, _, _SSH) ->
-    {[], Connection}.
+           #connection{requests = Requests} = Connection, _, _SSH) ->
+    handle_global_response({success, Data}, Requests, Connection).
 
 
+
+%%%----------------------------------------------------------------
+%%% Handle a global request response (success or failure).
+%%% Finds the first global request entry and delivers the reply.
+%%%
+handle_global_response(Reply, Requests, Connection0) ->
+    case take_global_request(Requests) of
+        {{_, From}, Rest} ->
+            {[{channel_request_reply, From, Reply}],
+             Connection0#connection{requests = Rest}};
+        {{_, From, Fun}, Rest} ->
+            Connection = Fun(Reply, Connection0),
+            {[{channel_request_reply, From, Reply}],
+             Connection#connection{requests = Rest}};
+        false ->
+            {[], Connection0}
+    end.
+
+
+%%%----------------------------------------------------------------
+%%% Find and remove the first global request entry (keyed by reference)
+%%% from the requests list, skipping channel entries (keyed by integer).
+%%% Returns {Entry, RemainingList} or false.
+%%%
+take_global_request([]) ->
+    false;
+take_global_request([{Ref, _} = E | Rest]) when is_reference(Ref) ->
+    {E, Rest};
+take_global_request([{Ref, _, _} = E | Rest]) when is_reference(Ref) ->
+    {E, Rest};
+take_global_request([H | T]) ->
+    case take_global_request(T) of
+        {E, Rest} -> {E, [H | Rest]};
+        false -> false
+    end.
 
 %%%----------------------------------------------------------------
 %%% Returns pending responses to be delivered to the peer when a

@@ -21,6 +21,16 @@ limitations under the License.
 -->
 # Common Test Release Notes
 
+## Common_Test 1.31.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a crash in ct_netconfc that occurred when the remote server closed the SSH connection during NETCONF subsystem negotiation.
+
+  Own Id: OTP-20191 Aux Id: ERIERL-1333, [PR-11230]
+
+[PR-11230]: https://github.com/erlang/otp/pull/11230
+
 ## Common_Test 1.31
 
 ### Fixed Bugs and Malfunctions
@@ -84,6 +94,16 @@ limitations under the License.
 [PR-10824]: https://github.com/erlang/otp/pull/10824
 [PR-9315]: https://github.com/erlang/otp/pull/9315
 [PR-10839]: https://github.com/erlang/otp/pull/10839
+
+## Common_Test 1.30.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a crash in ct_netconfc that occurred when the remote server closed the SSH connection during NETCONF subsystem negotiation.
+
+  Own Id: OTP-20191 Aux Id: ERIERL-1333, [PR-11230]
+
+[PR-11230]: https://github.com/erlang/otp/pull/11230
 
 ## Common_Test 1.30
 
@@ -184,6 +204,16 @@ limitations under the License.
 [PR-9819]: https://github.com/erlang/otp/pull/9819
 [PR-8734]: https://github.com/erlang/otp/pull/8734
 [PR-9670]: https://github.com/erlang/otp/pull/9670
+
+## Common_Test 1.27.7.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a crash in ct_netconfc that occurred when the remote server closed the SSH connection during NETCONF subsystem negotiation.
+
+  Own Id: OTP-20191 Aux Id: ERIERL-1333, [PR-11230]
+
+[PR-11230]: https://github.com/erlang/otp/pull/11230
 
 ## Common_Test 1.27.7
 

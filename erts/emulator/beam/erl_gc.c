@@ -715,6 +715,37 @@ check_for_possibly_long_gc(Process *p, Uint ygen_usage)
     }
 }
 
+static void set_proc_state_gc(Process* p, bool is_garbing)
+{
+    /*
+     * Q: Why two GC flags? One in 'state' and one in 'xstate'?
+     *
+     * A: Just code convenience. We needed a GC flag in 'xstate' to be accessed
+     *    atomically together with the HANDOVER_CODE_*_PERM flags. The old one
+     *    in 'state' could be replaced by the new one in 'xstate' but that
+     *    would require refactoring all the places where it's currently read.
+     */
+    if (is_garbing) {
+        const erts_aint32_t old_xstate =
+            erts_atomic32_read_bor_nob(&p->xstate, ERTS_PXSFLG_GC);
+        erts_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
+
+        if (old_xstate & (ERTS_PXSFLG_HANDOVER_CODE_MOD_PERM |
+                          ERTS_PXSFLG_HANDOVER_CODE_STAGE_PERM)) {
+            /*
+             * We don't want to hold code permissions during a potentially
+             * long GC. Process will retry to seize permission(s) after GC is
+             * done. This can only happen with a race between other processes
+             * giving us code permission and sending us GC signal.
+             */
+            erts_reject_code_permissions(p);
+        }
+    }
+    else {
+        erts_atomic32_read_band_nob(&p->xstate, ~ERTS_PXSFLG_GC);
+        erts_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
+    }
+}
 
 /*
  * Garbage collect a process.
@@ -768,7 +799,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
 
     ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_GC);
 
-    erts_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
+    set_proc_state_gc(p, true);
     if (erts_system_monitor_long_gc)
 	start_time = erts_get_monotonic_time(esdp);
 
@@ -849,7 +880,7 @@ do_major_collection:
     delay_gc_after_start:
         /* erts_send_exit_signal looks for ERTS_PSFLG_GC, so
            we have to remove it after the signal is sent */
-        erts_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
+        set_proc_state_gc(p, false);
 
         /* We have to make sure that we have space for need on the heap */
         res = delay_garbage_collection(p, need, fcalls);
@@ -864,7 +895,7 @@ do_major_collection:
     ERTS_CHK_OFFHEAP(p);
     ErtsGcQuickSanityCheck(p);
 
-    erts_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
+    set_proc_state_gc(p, false);
 
     if (ERTS_IS_P_TRACED_FL(p, F_TRACE_GC)) {
         trace_gc(p, gc_trace_end_tag, reclaimed_now, THE_NON_VALUE);
@@ -1006,7 +1037,7 @@ garbage_collect_hibernate(Process* p, int check_long_gc)
         p->flags = flags;
     }
 
-    erts_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
+    set_proc_state_gc(p, true);
     ErtsGcQuickSanityCheck(p);
 
     heap_size = p->heap_sz + (p->old_htop - p->old_heap) + p->mbuf_sz;
@@ -1089,7 +1120,7 @@ garbage_collect_hibernate(Process* p, int check_long_gc)
 
     ErtsGcQuickSanityCheck(p);
 
-    erts_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
+    set_proc_state_gc(p, false);
 
     return gc_cost(final_size, final_size);
 }
@@ -1182,7 +1213,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     /*
      * Set GC state.
      */
-    erts_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
+    set_proc_state_gc(p, true);
 
     /*
      * Just did a major collection (which has discarded the old heap),
@@ -1349,7 +1380,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     /*
      * Restore status.
      */
-    erts_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
+    set_proc_state_gc(p, false);
 
     reds += (Sint64) gc_cost((p->htop - p->heap) + byte_lit_size/sizeof(Uint), 0);
 

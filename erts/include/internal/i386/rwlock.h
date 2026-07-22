@@ -32,7 +32,10 @@
 #define ETHR_HAVE_NATIVE_RWSPINLOCKS 1
 #define ETHR_NATIVE_RWSPINLOCK_IMPL "ethread"
 
-/* XXX: describe the algorithm */
+/* Unlocked if zero, read-locked if positive, write-locked if negative.
+ * - Taking a read lock atomically increments it by 1.
+ * - Taking a write lock atomically decrements it by 1<<24.
+ */
 typedef struct {
     volatile int lock;
 } ethr_native_rwlock_t;

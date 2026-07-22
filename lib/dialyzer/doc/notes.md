@@ -23,6 +23,24 @@ limitations under the License.
 
 This document describes the changes made to the Dialyzer application.
 
+## Dialyzer 6.0.2
+
+### Fixed Bugs and Malfunctions
+
+- Fix a bug with native record sets in `erl_types.erl`
+
+  Own Id: OTP-20201
+
+## Dialyzer 6.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix native record bugs in Dialyzer
+
+  Own Id: OTP-20178 Aux Id: [PR-11199]
+
+[PR-11199]: https://github.com/erlang/otp/pull/11199
+
 ## Dialyzer 6.0
 
 ### Improvements and New Features
@@ -60,6 +78,17 @@ This document describes the changes made to the Dialyzer application.
 [PR-10617]: https://github.com/erlang/otp/pull/10617
 [PR-10276]: https://github.com/erlang/otp/pull/10276
 [PR-10839]: https://github.com/erlang/otp/pull/10839
+
+## Dialyzer 5.4.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix Dialyzer crash with overriding built-in types
+
+  Own Id: OTP-19631 Aux Id: [GH-11093], [PR-11096]
+
+[GH-11093]: https://github.com/erlang/otp/issues/11093
+[PR-11096]: https://github.com/erlang/otp/pull/11096
 
 ## Dialyzer 5.4
 
@@ -109,6 +138,17 @@ This document describes the changes made to the Dialyzer application.
 [PR-9402]: https://github.com/erlang/otp/pull/9402
 [PR-9819]: https://github.com/erlang/otp/pull/9819
 [PR-9670]: https://github.com/erlang/otp/pull/9670
+
+## Dialyzer 5.3.1.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix Dialyzer crash with overriding built-in types
+
+  Own Id: OTP-19631 Aux Id: [GH-11093], [PR-11096]
+
+[GH-11093]: https://github.com/erlang/otp/issues/11093
+[PR-11096]: https://github.com/erlang/otp/pull/11096
 
 ## Dialyzer 5.3.1
 

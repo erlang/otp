@@ -155,31 +155,52 @@ jobs:
           fi
 
       - name: Create a release
-        if: inputs.otp_sbom_version != '' # needed to not account for OTP-26 and 27
+        if: inputs.otp_sbom_version != '' # needed for OTP-28 onwards
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG:      ${{ inputs.tag }}
           VSN:      ${{ inputs.vsn }}
           LATEST:   ${{ steps.latest-release.outputs.latest }}
         run: |
-          gh release create "${TAG}" --title "OTP ${VSN}" --latest=${LATEST} \
+          if gh release view "${TAG}" &>/dev/null; then
+            echo "Release exists, editing..."
+            gh release edit "${TAG}" --latest=${LATEST}
+            gh release upload "${TAG}" --clobber \
             artifacts/*.tar.gz \
             artifacts/*.txt \
             attestations/*.sigstore \
             bom.*
+          else
+            echo "Release does not exist, creating..."
+            gh release create "${TAG}" --title "OTP ${VSN}" --latest=${LATEST} \
+            artifacts/*.tar.gz \
+            artifacts/*.txt \
+            attestations/*.sigstore \
+            bom.*
+          fi
 
       # Create a release for 26 and 27
       - name: Create Release for 26 and 27
-        if: inputs.otp_sbom_version == '' # needed to for OTP-26 and 27
+        if: inputs.otp_sbom_version == '' # needed to for OTP-26 and -27
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG:      ${{ inputs.tag }}
           VSN:      ${{ inputs.vsn }}
           LATEST:   ${{ steps.latest-release.outputs.latest }}
         run: |
-          gh release create "${TAG}" --title "OTP ${VSN}" --latest=${LATEST} \
-            artifacts/*.tar.gz \
-            artifacts/*.txt
+          if gh release view "${TAG}" &>/dev/null; then
+            echo "Release exists, editing..."
+            gh release edit "${TAG}" --latest=false
+            gh release upload "${TAG}" --clobber \
+                artifacts/*.tar.gz \
+                artifacts/*.txt
+          else
+            echo "Release does not exist, creating..."
+            gh release create "${TAG}" --title "OTP ${VSN}" --latest=false \
+            gh release upload "${TAG}" --clobber \
+               artifacts/*.tar.gz \
+               artifacts/*.txt
+          fi
 
       - name: Deploy on erlang.org
         if: github.repository == 'erlang/otp'

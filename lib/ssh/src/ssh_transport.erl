@@ -68,7 +68,7 @@
 -define(MIN_DH_KEY_SIZE, 400).
 
 %%% For test suites
--export([pack/4, adjust_algs_for_peer_version/2]).
+-export([pack/4, adjust_algs_for_peer_version/2, hybrid_common/4]).
 
 %%%----------------------------------------------------------------------------
 %%%
@@ -625,28 +625,34 @@ handle_kexdh_init(#ssh_msg_kexdh_init{e = E},
     %% server
     {G, P} = dh_group(Kex),
     if
-	1=<E, E=<(P-1) ->
+        1<E, E<(P-1) ->
             Sz = dh_bits(Algs),
 	    {Public, Private} = generate_key(dh, [P,G,2*Sz]),
 	    K = compute_key(dh, E, Private, [P,G]),
-	    MyPrivHostKey = get_host_key(SignAlg, Opts),
-	    MyPubHostKey = ssh_file:extract_public_key(MyPrivHostKey),
-            H = kex_hash(Ssh0, MyPubHostKey, sha(Kex), {E,Public,K}),
-            case sign(H, SignAlg, MyPrivHostKey, Ssh0) of
-                {ok,H_SIG} ->
-                    {SshPacket, Ssh1} =
-                        ssh_packet(#ssh_msg_kexdh_reply{public_host_key = {MyPubHostKey,SignAlg},
-                                                        f = Public,
-                                                        h_sig = H_SIG
-                                                       }, Ssh0),
-                    {ok, SshPacket, Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}},
-                                             shared_secret = ssh_bits:mpint(K),
-                                             exchanged_hash = H,
-                                             session_id = sid(Ssh1, H)}};
-                {error,unsupported_sign_alg} ->
+            if
+                1<K, K<(P-1) ->
+                    MyPrivHostKey = get_host_key(SignAlg, Opts),
+                    MyPubHostKey = ssh_file:extract_public_key(MyPrivHostKey),
+                    H = kex_hash(Ssh0, MyPubHostKey, sha(Kex), {E,Public,K}),
+                    case sign(H, SignAlg, MyPrivHostKey, Ssh0) of
+                        {ok,H_SIG} ->
+                            {SshPacket, Ssh1} =
+                                ssh_packet(#ssh_msg_kexdh_reply{public_host_key = {MyPubHostKey,SignAlg},
+                                                                f = Public,
+                                                                h_sig = H_SIG
+                                                               }, Ssh0),
+                            {ok, SshPacket, Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}},
+                                                     shared_secret = ssh_bits:mpint(K),
+                                                     exchanged_hash = H,
+                                                     session_id = sid(Ssh1, H)}};
+                        {error,unsupported_sign_alg} ->
+                            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                                        io_lib:format("Unsupported algorithm ~p", [SignAlg],
+                                                      [{chars_limit, ssh_lib:max_log_len(Opts)}]))
+                    end;
+                true ->
                     ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                                io_lib:format("Unsupported algorithm ~p", [SignAlg],
-                                              [{chars_limit, ssh_lib:max_log_len(Opts)}]))
+                                "Key exchange failed, 'K' out of bounds")
             end;
 	true ->
             MsgFun =
@@ -666,22 +672,28 @@ handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = PeerPubHostKey,
 		   #ssh{keyex_key = {{Private, Public}, {G, P}},
                         algorithms = #alg{kex=Kex}} = Ssh0) ->
     %% client
-    if 
-	1=<F, F=<(P-1)->
+    if
+        1<F, F<(P-1) ->
 	    K = compute_key(dh, F, Private, [P,G]),
-            H = kex_hash(Ssh0, PeerPubHostKey, sha(Kex), {Public,F,K}),
-	    case verify_host_key(Ssh0, PeerPubHostKey, H, H_SIG) of
-		ok ->
-		    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
-		    {ok, SshPacket, install_alg(snd, Ssh#ssh{shared_secret  = ssh_bits:mpint(K),
-                                                             exchanged_hash = H,
-                                                             session_id = sid(Ssh, H)})};
-		Error ->
+            if
+                1<K, K<(P-1) ->
+                    H = kex_hash(Ssh0, PeerPubHostKey, sha(Kex), {Public,F,K}),
+                    case verify_host_key(Ssh0, PeerPubHostKey, H, H_SIG) of
+                        ok ->
+                            {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
+                            {ok, SshPacket, install_alg(snd, Ssh#ssh{shared_secret  = ssh_bits:mpint(K),
+                                                                     exchanged_hash = H,
+                                                                     session_id = sid(Ssh, H)})};
+                        Error ->
+                            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                                        io_lib:format("Kexdh init failed. Verify host key: ~p",[Error],
+                                                      [{chars_limit, ssh_lib:max_log_len(Ssh0)}])
+                                       )
+                    end;
+                true ->
                     ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                                io_lib:format("Kexdh init failed. Verify host key: ~p",[Error],
-                                              [{chars_limit, ssh_lib:max_log_len(Ssh0)}])
-                               )
-	    end;
+                                "Key exchange failed, 'K' out of bounds")
+            end;
 
 	true ->
             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
@@ -783,7 +795,7 @@ handle_kex_dh_gex_init(#ssh_msg_kex_dh_gex_init{e = E},
                             opts = Opts} = Ssh0) ->
     %% server
     if
-	1=<E, E=<(P-1) ->
+        1<E, E<(P-1) ->
 	    K = compute_key(dh, E, Private, [P,G]),
 	    if
 		1<K, K<(P-1) ->
@@ -828,8 +840,8 @@ handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostK
                              algorithms = #alg{kex=Kex}} = 
 			    Ssh0) ->
     %% client
-    if 
-	1=<F, F=<(P-1)->
+    if
+        1<F, F<(P-1) ->
 	    K = compute_key(dh, F, Private, [P,G]),
 	    if
 		1<K, K<(P-1) ->
@@ -1795,14 +1807,6 @@ do_verify(PlainText, HashAlg, Sig, {#'ECPoint'{},_} = Key, _) when HashAlg =/= u
         _ ->
             false
     end;
-
-do_verify(PlainText, HashAlg, Sig, #'RSAPublicKey'{}=Key, #ssh{role = server,
-                                                               c_version = "SSH-2.0-OpenSSH_7."++_})
-  when HashAlg == sha256; HashAlg == sha512 ->
-    %% Public key signing bug in OpenSSH >= 7.2
-    public_key:verify(PlainText, HashAlg, Sig, Key)
-        orelse public_key:verify(PlainText, sha, Sig, Key);
-
 do_verify(PlainText, HashAlg, Sig, Key, _) ->
     public_key:verify(PlainText, HashAlg, Sig, Key).
 
@@ -2476,10 +2480,8 @@ compute_key(Algorithm, PeerPublic, MyPrivate, Args) ->
 
 hybrid_common(K_pq_secret, Curve, PeerPublic, MyPrivate) ->
     K_cl_secret = compute_key(ecdh, PeerPublic, MyPrivate, Curve),
-    K_cl_secret_mpint = <<?Empint(K_cl_secret)>>,
-    K_cl_secret_mpint_trim =
-        binary:part(K_cl_secret_mpint, byte_size(K_cl_secret_mpint), -?X25519_PUBLICKEY_SIZE),
-    crypto:hash(sha(Curve), <<K_pq_secret/binary, K_cl_secret_mpint_trim/binary>>).
+    K_cl_secret_fixed = <<K_cl_secret:(?X25519_PUBLICKEY_SIZE*8)/big-unsigned-integer>>,
+    crypto:hash(sha(Curve), <<K_pq_secret/binary, K_cl_secret_fixed/binary>>).
 
 dh_bits(#alg{encrypt = Encrypt,
              send_mac = SendMac}) ->

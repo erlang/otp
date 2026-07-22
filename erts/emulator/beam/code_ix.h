@@ -174,10 +174,10 @@ ErtsCodeIndex erts_staging_code_ix(void);
  * Main process lock (only) must be held.
  * System thread progress must not be blocked.
  * Caller must not already have the code modification or staging permissions.
- * Caller is suspended and *must* yield if 0 is returned. */
-int erts_try_seize_code_load_permission(struct process* c_p);
+ * Caller is suspended and *must* yield if false is returned. */
+bool erts_try_seize_code_load_permission(struct process* c_p);
 
-/** @brief Release code loading permission. Resumes any suspended waiters. */
+/** @brief Release code loading permission. Resumes first suspended waiters. */
 void erts_release_code_load_permission(void);
 
 /** @brief Try to seize exclusive code staging permission. Needed for code
@@ -188,15 +188,20 @@ void erts_release_code_load_permission(void);
  *
  * * Main process lock (only) must be held.
  * * System thread progress must not be blocked.
- * * Caller is suspended and *must* yield if 0 is returned.
  * * Caller must not already have the code modification or staging permissions.
  *   
  *   That is, it is _NOT_ possible to add code modification permission when you
  *   already have staging permission. The other way around is fine however.
+ *
+ * If true is returned, calling BIF must either release before returning or
+ * schedule aux job that will eventually release.
+ *
+ * If false is returned, caller is suspended and *must* schedule itself to
+ * UNCONDITIONALLY call this function again.
  */
-int erts_try_seize_code_stage_permission(struct process* c_p);
+bool erts_try_seize_code_stage_permission(struct process* c_p);
 
-/** @brief Release code stage permission. Resumes any suspended waiters. */
+/** @brief Release code stage permission. Resumes first suspended waiter. */
 void erts_release_code_stage_permission(void);
 
 /** @brief Try to seize exclusive code modification permission. Needed for
@@ -207,11 +212,17 @@ void erts_release_code_stage_permission(void);
  *
  * * Main process lock (only) must be held.
  * * System thread progress must not be blocked.
- * * Caller is suspended and *must* yield if 0 is returned.
  * * Caller must not already have the code modification permission, but may
  *   have staging permission.
+ *
+ * If true is returned, calling BIF must either release before returning
+ * or schedule aux job that will eventually release.
+ *
+ * If false is returned, caller is suspended and *must* schedule itself to
+ * UNCONDITIONALLY call this function again.
+ *
  */
-int erts_try_seize_code_mod_permission(struct process* c_p);
+bool erts_try_seize_code_mod_permission(struct process* c_p);
 
 /** @brief As \c erts_try_seize_code_mod_permission but for aux work.
  *
@@ -220,7 +231,7 @@ int erts_try_seize_code_mod_permission(struct process* c_p);
  * On failure return false and aux work func(arg) will be scheduled when
  * permission is released.
  */
-int erts_try_seize_code_mod_permission_aux(void (*func)(void *),
+bool erts_try_seize_code_mod_permission_aux(void (*func)(void *),
                                            void *arg);
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -229,9 +240,20 @@ void erts_lc_soften_code_mod_permission_check(void);
 # define erts_lc_soften_code_mod_permission_check() ((void)0)
 #endif
 
-/** @brief Release code modification permission. Resumes any suspended
- * waiters. */
+/** @brief Release code modification permission. Resumes first suspended
+ * waiter.
+ */
 void erts_release_code_mod_permission(void);
+
+/** @brief Reject all code permissions. Resumes first suspended waiters.
+ *         Is called by exiting or garbing process that got permission(s)
+ *         but don't want it. A garbing process should be scheduled to try again
+ *         to seize permission after GC is done.
+ *
+ *  @param c_p[in]      Current process.
+ */
+void erts_reject_code_permissions(struct process* c_p);
+
 
 /* Prepare the "staging area" to be a complete copy of the active code.
  *

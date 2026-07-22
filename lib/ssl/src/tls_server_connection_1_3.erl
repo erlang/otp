@@ -240,6 +240,9 @@ start(internal, #client_hello{} = Hello,
 start(internal, #client_hello{}, State0) -> %% Missing mandantory TLS-1.3 extensions,
     %% so it is a previous version hello.
     ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?STATE(start), State0);
+start(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA, early_data = false}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, none_early_application_data_before_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(start), State);
 start(info, Msg, State) ->
     tls_gen_connection:gen_info(Msg, ?STATE(start), State);
 start(Type, Msg, State) ->
@@ -265,6 +268,10 @@ negotiated(internal, {start_handshake, _} = Message, State0) ->
             State = ssl_record:step_encryption_state_write(State2),
             {next_state, NextState, State, []}
     end;
+negotiated(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA, early_data = false}},
+           State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, none_early_application_data_before_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(negotiated), State);
 negotiated(info, Msg, State) ->
     tls_gen_connection:gen_info(Msg, ?STATE(negotiated), State);
 negotiated(Type, Msg, State) ->
@@ -275,6 +282,10 @@ negotiated(Type, Msg, State) ->
                 {start, timeout()} | term(), #state{}) ->
           gen_statem:state_function_result().
 %%--------------------------------------------------------------------
+wait_cert(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE,
+                       application_data_before_handshake_or_intervened_in_post_handshake_auth),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_cert), State);
 wait_cert(Type, Msg, State) ->
     tls_gen_connection_1_3:wait_cert(Type, Msg, State).
 
@@ -296,6 +307,10 @@ wait_cv(internal,
         {Ref, {#alert{} = Alert, AState}} ->
             ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_cv), AState)
     end;
+wait_cv(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE,
+                       application_data_before_handshake_or_intervened_in_post_handshake_auth),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_cv), State);
 wait_cv(Type, Msg, State) ->
     tls_gen_connection_1_3:wait_cv(Type, Msg, State).
 
@@ -331,6 +346,10 @@ wait_finished(internal,
         {Ref, #alert{} = Alert} ->
             ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_finished), State0)
     end;
+wait_finished(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE,
+                       application_data_before_handshake_or_intervened_in_post_handshake_auth),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_finished), State);
 wait_finished(info, Msg, State) ->
     tls_gen_connection:gen_info(Msg, ?STATE(wait_finished), State);
 wait_finished(Type, Msg, State) ->
@@ -357,6 +376,9 @@ wait_eoed(internal, #end_of_early_data{}, #state{handshake_env = HsEnv0} = State
             ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason),
                                             wait_eoed, State0)
     end;
+wait_eoed(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA, early_data = false}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, none_early_application_data_before_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_eoed), State);
 wait_eoed(info, Msg, State) ->
     tls_gen_connection:gen_info(Msg, ?STATE(wait_eoed), State);
 wait_eoed(Type, Msg, State) ->
@@ -445,7 +467,7 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts, ?TLS_1_3),
         #session{sign_alg = ProtocolSignAlg} = Session =
             Maybe(select_server_cert_key_pair(Session0, CertKeyPairs, ClientSignAlgs,
-                                              ClientSignAlgsCert, CertAuths, State0,
+                                              ClientSignAlgsCert, CertAuths, State1,
                                               undefined)),
 
         %% Select client public key. If no public key found in ClientShares or
@@ -586,7 +608,12 @@ send_hello_flight({start_handshake, PSK0},
 
 validate_cookie(_Cookie, #state{ssl_options = #{cookie := false}}) ->
     ok;
+validate_cookie(undefined, #state{ssl_options = #{cookie := true},
+                                  protocol_specific = #{hello_retry := true}}) ->
+    %% Post-HRR: client MUST include cookie (RFC 8446 Section 4.2.2)
+    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, missing_cookie)};
 validate_cookie(undefined, #state{ssl_options = #{cookie := true}}) ->
+    %% First ClientHello: no cookie expected yet
     ok;
 validate_cookie(#cookie{cookie = Cookie0}, #state{ssl_options = #{cookie := true},
                                                   handshake_env =
@@ -665,16 +692,20 @@ maybe_send_session_ticket(State, 0) ->
     State;
 maybe_send_session_ticket(#state{connection_states = ConnectionStates,
                                  static_env = #static_env{trackers = Trackers,
-                                                          protocol_cb = Connection}
-                                } = State0, N) ->
+                                                          protocol_cb = Connection}}
+                          = State0, N) ->
     Tracker = proplists:get_value(session_tickets_tracker, Trackers),
     #{security_parameters := SecParamsR} =
         ssl_record:current_connection_state(ConnectionStates, read),
     #security_parameters{prf_algorithm = HKDF,
                          resumption_master_secret = RMS} = SecParamsR,
-    Ticket = new_session_ticket(Tracker, HKDF, RMS, State0),
-    {State, _} = Connection:send_handshake(Ticket, State0),
-    maybe_send_session_ticket(State, N - 1).
+    case new_session_ticket(Tracker, HKDF, RMS, State0) of
+        no_ticket -> %% Continuous restarts of ticket handler (unlikely scenario)
+            State0;
+        Ticket ->
+            {State, _} = Connection:send_handshake(Ticket, State0),
+            maybe_send_session_ticket(State, N - 1)
+    end.
 
 new_session_ticket(Tracker, HKDF, RMS,
                    #state{ssl_options = #{session_tickets := stateful_with_cert},
@@ -867,7 +898,12 @@ send_hello_retry_request(#state{connection_states = ConnectionStates0,
     %% Update handshake history
     State5 = tls_handshake_1_3:replace_ch1_with_message_hash(State4),
 
-    {ok, {State5, start}};
+    %% Mark that HRR was sent so validate_cookie/2 can enforce
+    %% mandatory cookie in the second ClientHello (RFC 8446 Section 4.2.2)
+    PS = State5#state.protocol_specific,
+    State6 = State5#state{protocol_specific = PS#{hello_retry => true}},
+
+    {ok, {State6, start}};
 send_hello_retry_request(State0, _, _, _) ->
     %% Suitable key found.
     {ok, {State0, negotiated}}.

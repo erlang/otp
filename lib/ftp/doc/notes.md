@@ -21,6 +21,17 @@ limitations under the License.
 -->
 # FTP Release Notes
 
+## Ftp 1.2.6
+
+### Fixed Bugs and Malfunctions
+
+- FTP client default connections that use the so called passive mode of FTP fails to properly validating the response IP of the server, hence a malicious or compromised FTP server could redirect the data connection to an arbitrary host, enabling s server-side request forgery (SSRF) and FTP bounce attacks.
+
+  Own Id: OTP-20166 Aux Id: [PR-11186], GHSA-24cv-hwgr-37fq, [CVE-2026-48858]
+
+[PR-11186]: https://github.com/erlang/otp/pull/11186
+[CVE-2026-48858]: https://nvd.nist.gov/vuln/detail/2026-48858
+
 ## Ftp 1.2.5
 
 ### Fixed Bugs and Malfunctions
@@ -33,6 +44,17 @@ limitations under the License.
 
 [PR-10804]: https://github.com/erlang/otp/pull/10804
 
+## Ftp 1.2.4.1
+
+### Fixed Bugs and Malfunctions
+
+- FTP client default connections that use the so called passive mode of FTP fails to properly validating the response IP of the server, hence a malicious or compromised FTP server could redirect the data connection to an arbitrary host, enabling s server-side request forgery (SSRF) and FTP bounce attacks.
+
+  Own Id: OTP-20166 Aux Id: [PR-11186], GHSA-24cv-hwgr-37fq, [CVE-2026-48858]
+
+[PR-11186]: https://github.com/erlang/otp/pull/11186
+[CVE-2026-48858]: https://nvd.nist.gov/vuln/detail/2026-48858
+
 ## Ftp 1.2.4
 
 ### Improvements and New Features
@@ -42,6 +64,17 @@ limitations under the License.
   Own Id: OTP-19575 Aux Id: [PR-9670]
 
 [PR-9670]: https://github.com/erlang/otp/pull/9670
+
+## Ftp 1.2.3.1
+
+### Fixed Bugs and Malfunctions
+
+- FTP client default connections that use the so called passive mode of FTP fails to properly validating the response IP of the server, hence a malicious or compromised FTP server could redirect the data connection to an arbitrary host, enabling s server-side request forgery (SSRF) and FTP bounce attacks.
+
+  Own Id: OTP-20166 Aux Id: [PR-11186], GHSA-24cv-hwgr-37fq, [CVE-2026-48858]
+
+[PR-11186]: https://github.com/erlang/otp/pull/11186
+[CVE-2026-48858]: https://nvd.nist.gov/vuln/detail/2026-48858
 
 ## Ftp 1.2.3
 

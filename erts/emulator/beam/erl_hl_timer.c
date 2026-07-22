@@ -1834,16 +1834,19 @@ setup_bif_timer(Process *c_p, int twheel, ErtsMonotonicTime timeout_pos,
 	Process *proc = erts_pid2proc_opt(c_p, ERTS_PROC_LOCK_MAIN,
 					  rcvr, ERTS_PROC_LOCK_BTM,
 					  ERTS_P2P_FLG_INC_REFC);
-        if (proc) {
+
+        if (proc && !proc->paused_bif_timers) {
             tmr->type.head.receiver.proc = proc;
-            if (proc->paused_bif_timers) {
-                create_paused_bif_timer(tmr, proc, esdp);
-            } else {
-                proc_btm_rbt_insert(&proc->bif_timers, tmr);
-            }
+            proc_btm_rbt_insert(&proc->bif_timers, tmr);
             erts_proc_unlock(proc, ERTS_PROC_LOCK_BTM);
         }
-        if (!proc || proc->paused_bif_timers) {
+        else {
+            if (proc) {
+                tmr->type.head.receiver.proc = proc;
+                create_paused_bif_timer(tmr, proc, esdp);
+                erts_proc_unlock(proc, ERTS_PROC_LOCK_BTM);
+                erts_proc_dec_refc(proc);
+            }
             if (tmr->btm.tree.parent != ERTS_HLT_PFIELD_NOT_IN_TABLE) {
                 btm_rbt_delete(&esdp->timer_service->btm_tree, tmr);
                 tmr->btm.tree.parent = ERTS_HLT_PFIELD_NOT_IN_TABLE;
@@ -1855,9 +1858,6 @@ setup_bif_timer(Process *c_p, int twheel, ErtsMonotonicTime timeout_pos,
             else
                 hlt_delete_timer(esdp, &tmr->type.hlt);
             timer_destroy((ErtsTimer *) tmr, twheel, 1);
-            if (proc) {
-                erts_proc_dec_refc(proc);
-            }
 	}
     }
 

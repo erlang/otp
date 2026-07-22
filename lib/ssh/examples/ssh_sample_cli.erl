@@ -293,7 +293,7 @@ lcm(_R, 0) -> 0;
 lcm(R, Q) ->
     (Q div gcd(R, Q)) * R.
 
-%%% Prime factors of a number (naïve implementation)
+%%% Prime factors of a number (naive implementation)
 factors(N) ->
     Nsqrt = trunc(math:sqrt(N)),
     factors([], N, 2, Nsqrt, []).

@@ -1234,6 +1234,8 @@ do_i_utf32_big_chk(<<U/utf32,R/binary>>) when U =< 255 ->
     case do_i_utf32_big_chk(R) of
 	{error,Trans,Rest} ->
 	    {error, [U|Trans], Rest};
+        {incomplete,Trans,Rest,N} ->
+            {incomplete, [U|Trans], Rest, N};
 	L when is_list(L) ->
 	    [U|L]
     end;
@@ -1252,6 +1254,8 @@ do_i_utf32_little_chk(<<U/utf32-little,R/binary>>) when U =< 255 ->
     case do_i_utf32_little_chk(R) of
 	{error,Trans,Rest} ->
 	    {error, [U|Trans], Rest};
+        {incomplete,Trans,Rest,N} ->
+            {incomplete, [U|Trans], Rest, N};
 	L when is_list(L) ->
 	    [U|L]
     end;

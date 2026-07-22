@@ -1024,8 +1024,8 @@ expr({Op,Loc,Index}, St0) when Op =:= executable_line;
     {#iprimop{anno=#a{anno=lineno_anno(Loc, St0)},
               name=#c_literal{val=Op},
               args=[#c_literal{val=Index}]},[],St0};
-expr({ssa_check_when,L,WantedResult,Args,Tag,Clauses}, St) ->
-    {#c_opaque{anno=full_anno(L, St),val={ssa_check_when,WantedResult,Tag,Args,Clauses}}, [], St}.
+expr({ssa_check_when,L,WantedResult,Args,AnnoCheck,Tag,Clauses}, St) ->
+    {#c_opaque{anno=full_anno(L, St),val={ssa_check_when,WantedResult,Tag,Args,AnnoCheck,Clauses}}, [], St}.
 
 blockify(L0, {sequential_match,_L1,First,Then}, E) ->
     [{single_match,L0,First,E}|blockify(L0, Then, E)];
@@ -2788,6 +2788,7 @@ add_bound_vars({mc, Pairs, BoundVars}, AccPat) ->
 %% add_pre_bound_vars(Ctx, Pre) -> Ctx.
 %%  Add variables bound in pre-expressions (from filters) to mc context.
 add_pre_bound_vars({lc, E}, _Pre) -> {lc, E};
+add_pre_bound_vars({mc, Pairs, nomatch}, _Pre) -> {mc, Pairs, nomatch};
 add_pre_bound_vars({mc, Pairs, BoundVars}, Pre) ->
     NewVars = ordsets:union([pre_expr_vars(E) || E <- Pre]),
     {mc, Pairs, ordsets:union(NewVars, BoundVars)}.

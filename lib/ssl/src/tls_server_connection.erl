@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2023-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -198,6 +198,10 @@ initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
     catch throw:Error ->
 	   {stop_and_reply, {shutdown, normal}, {reply, From, {error, Error}}, State0}
     end;
+initial_hello(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+              #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(initial_hello), State);
 initial_hello(Type, Event, State) ->
     tls_dtls_server_connection:initial_hello(Type, Event, State).
 
@@ -241,6 +245,10 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
                 State0#state{connection_env = NewCenv},
             ssl_gen_statem:handle_own_alert(Alert, ?STATE(hello), AlertState)
     end;
+hello(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+              #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(hello), State);
 hello(info, Event, State) ->
     tls_gen_connection:gen_info(Event, ?STATE(hello), State);
 hello(Type, Event, State) ->
@@ -259,6 +267,10 @@ user_hello(Type, Event, State) ->
 %%--------------------------------------------------------------------
 abbreviated(info, Event, State) ->
     tls_gen_connection:gen_info(Event, ?STATE(abbreviated), State);
+abbreviated(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+              #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(abbreviated), State);
 abbreviated(Type, Event, State) ->
     gen_state(?STATE(abbreviated), Type, Event, State).
 
@@ -268,6 +280,10 @@ abbreviated(Type, Event, State) ->
 %%--------------------------------------------------------------------
 certify(info, Event, State) ->
     tls_gen_connection:gen_info(Event, ?STATE(certify), State);
+certify(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+              #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(certify), State);
 certify(Type, Event, State) ->
     gen_state(?STATE(certify), Type, Event, State).
 
@@ -302,6 +318,10 @@ wait_cert_verify(internal, #certificate_verify{signature = Signature,
 	#alert{} = Alert ->
             ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_cert_verify), State)
     end;
+wait_cert_verify(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+              #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_cert_verify), State);
 wait_cert_verify(Type, Event, State) ->
     ssl_gen_statem:handle_common_event(Type, Event, ?STATE(wait_cert_verify), State).
 
@@ -311,6 +331,10 @@ wait_cert_verify(Type, Event, State) ->
 %%--------------------------------------------------------------------
 cipher(info, Event, State) ->
     tls_gen_connection:gen_info(Event, ?STATE(cipher), State);
+cipher(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+       #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(cipher), State);
 cipher(Type, Event, State) ->
     gen_state(?STATE(cipher), Type, Event, State).
 

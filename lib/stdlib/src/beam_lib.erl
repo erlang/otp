@@ -147,8 +147,7 @@ providing one key for module `t` and another key for all other modules:
 """.
 -behaviour(gen_server).
 
--compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
-          {nowarn_possibly_unsafe_function, {erlang, binary_to_atom, 2}},
+-compile([{nowarn_possibly_unsafe_function, {erlang, binary_to_atom, 2}},
           {nowarn_possibly_unsafe_function, {erlang, binary_to_term, 1}},
           nowarn_deprecated_catch]).
 
@@ -276,19 +275,19 @@ order as in the file. The lists of functions are also sorted.
                    | {'literals', literals()}.
 
 %% Error reasons
--type info_rsn()  :: {'chunk_too_big', file:filename(),
+-type info_rsn()  :: {'chunk_too_big', beam(),
 		      chunkid(), ChunkSize :: non_neg_integer(),
                       FileSize :: non_neg_integer()}
-                   | {'invalid_beam_file', file:filename(),
+                   | {'invalid_beam_file', beam(),
                       Position :: non_neg_integer()}
-                   | {'invalid_chunk', file:filename(), chunkid()}
-                   | {'missing_chunk', file:filename(), chunkid()}
-                   | {'not_a_beam_file', file:filename()}
-                   | {'file_error', file:filename(), file:posix()}.
--type chnk_rsn()  :: {'unknown_chunk', file:filename(), atom()}
-                   | {'key_missing_or_invalid', file:filename(),
+                   | {'invalid_chunk', beam(), chunkid()}
+                   | {'missing_chunk', beam(), chunkid()}
+                   | {'not_a_beam_file', beam()}
+                   | {'file_error', beam(), file:posix()}.
+-type chnk_rsn()  :: {'unknown_chunk', beam(), atom()}
+                   | {'key_missing_or_invalid', beam(),
 		      'abstract_code' | 'debug_info'}
-                   | {'missing_backend', file:filename(), module()}
+                   | {'missing_backend', beam(), module()}
                    | info_rsn().
 -type cmp_rsn()   :: {'modules_different', module(), module()}
                    | {'chunks_different', chunkid()}
@@ -315,7 +314,7 @@ Returns a list containing some information about a BEAM file as tuples
 """.
 -spec info(Beam) -> [InfoPair] | {'error', 'beam_lib', info_rsn()} when
       Beam :: beam(),
-      InfoPair :: {'file', Filename :: file:filename()}
+      InfoPair :: {'file', Filename :: beam()}
                 | {'binary', Binary :: binary()}
                 | {'module', Module :: module()}
                 | {'chunks', [{ChunkId :: chunkid(),
@@ -1327,10 +1326,8 @@ pread(FD, AtPos, Size) ->
             {FD, eof}
     end.
 
-filename(BB) when is_binary(BB#bb.source) ->
-    BB#bb.source;
-filename(BB) -> 
-    list_to_atom(BB#bb.source).    
+filename(#bb{source=Source}) ->
+    beam_filename(Source).
 
 beam_filename(Bin) when is_binary(Bin) ->
     Bin;

@@ -58,7 +58,7 @@
         ]).
 
 -define(REKEY_DATA_TMO, 65000).
--define(ALIVE, {alive, #{count_max => 3, interval => 100}}).
+-define(ALIVE, {alive, #{count_max => 3, interval => ssh_test_lib:alive_interval()}}).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -135,6 +135,17 @@ end_per_group(_, Config) ->
     Config.
 
 
+init_per_testcase(TC, Config) when TC == eclient_oserver_kex_strict;
+                                   TC == eserver_oclient_kex_strict ->
+    case os:type() of
+        {unix,_} ->
+            ssh:start(),
+            Level = ssh_test_lib:get_log_level(),
+            ssh_test_lib:set_log_level(debug),
+            [{saved_log_level, Level} | ssh_test_lib:verify_sanity_check(Config)];
+        Type ->
+            {skip, io_lib:format("Unsupported test on ~p",[Type])}
+    end;
 init_per_testcase(erlang_server_openssh_client_renegotiate, Config) ->
     case os:type() of
 	{unix,_} ->
@@ -146,6 +157,11 @@ init_per_testcase(_TestCase, Config) ->
     ssh:start(),
     ssh_test_lib:verify_sanity_check(Config).
 
+end_per_testcase(TC, Config) when TC == eclient_oserver_kex_strict;
+                                  TC == eserver_oclient_kex_strict ->
+    ssh_test_lib:set_log_level(proplists:get_value(saved_log_level, Config)),
+    ssh:stop(),
+    ok;
 end_per_testcase(_TestCase, _Config) ->
     ssh:stop(),
     ok.
@@ -160,12 +176,9 @@ eclient_oserver_kex_strict(Config0) when is_list(Config0)->
     case proplists:get_value(kex_strict, Config0) of
         true ->
             Config = ssh_test_lib:add_log_handler(?FUNCTION_NAME, Config0),
-            Level = ssh_test_lib:get_log_level(),
-            ssh_test_lib:set_log_level(debug),
             HelperParams = eclient_oserver_helper1(),
             {ok, Events} = ssh_test_lib:get_log_events(Config),
             true = ssh_test_lib:kex_strict_negotiated(client, Events),
-            ssh_test_lib:set_log_level(Level),
             ssh_test_lib:rm_log_handler(?FUNCTION_NAME),
             eclient_oserver_helper2(HelperParams, Config);
         _ ->
@@ -278,14 +291,10 @@ eserver_oclient_kex_strict(Config0) ->
     case proplists:get_value(kex_strict, Config0) of
         true ->
             Config = ssh_test_lib:add_log_handler(?FUNCTION_NAME, Config0),
-            Level = ssh_test_lib:get_log_level(),
-            ssh_test_lib:set_log_level(debug),
-
             HelperParams = eserver_oclient_renegotiate_helper1(Config),
             {ok, Events} = ssh_test_lib:get_log_events(Config),
             ct:log("Events = ~n~p", [Events]),
             true = ssh_test_lib:kex_strict_negotiated(server, Events),
-            ssh_test_lib:set_log_level(Level),
             ssh_test_lib:rm_log_handler(?FUNCTION_NAME),
             eserver_oclient_renegotiate_helper2(HelperParams);
         _ ->
@@ -326,14 +335,19 @@ eserver_oclient_renegotiate_helper1(Config) ->
     {Data, OpenSsh, Pid}.
 
 eserver_oclient_renegotiate_helper2({Data, OpenSsh, Pid}) ->
+    PQCAvailable = lists:member(mlkem768, crypto:supports(kems)),
     Expect = fun({data,R}) ->
                      Warning =
                          <<"WARNING: connection is not using a post-quantum key exchange algorithm">>,
                      case binary:match(R, Warning) of
                          nomatch -> ok;
-                         _ ->
+                         _ when PQCAvailable ->
                              ?CT_PAL("~p", [R]),
-                             ct:fail(pqc_warning_detected)
+                             ct:fail(pqc_warning_detected);
+                         _ ->
+                             ?CT_LOG("PQC warning ignored: mlkem768 not available in crypto backend"),
+                             ct:comment("PQC kex unavailable (LibreSSL lacks ML-KEM support)"),
+                             ok
                      end,
 		     try
 			 NonAlphaChars = [C || C<-lists:seq(1,255),
@@ -559,9 +573,9 @@ tunneling_listner() ->
     {LSock, LHost, LPort}.
 
 test_tunneling(ListenSocket, Host, Port) ->
-    {ok,Client1} = gen_tcp:connect(Host, Port, [{active,false}]),
+    {ok,Client1} = connect_with_retry(Host, Port, [{active,false}], 10),
     {ok,Server1} = gen_tcp:accept(ListenSocket),
-    {ok,Client2} = gen_tcp:connect(Host, Port, [{active,false}]),
+    {ok,Client2} = connect_with_retry(Host, Port, [{active,false}], 10),
     {ok,Server2} = gen_tcp:accept(ListenSocket),
     send_rcv("Hi!", Client1, Server1),
     send_rcv("Happy to see you!", Server1, Client1),
@@ -571,8 +585,20 @@ test_tunneling(ListenSocket, Host, Port) ->
     send_rcv("Still there?", Client2, Server2),
     send_rcv("Yes!", Server2, Client2),
     close_and_check(Server2, Client2).
-    
-    
+
+
+connect_with_retry(Host, Port, Opts, Retries) ->
+    case gen_tcp:connect(Host, Port, Opts) of
+        {ok, Sock} ->
+            {ok, Sock};
+        {error, econnrefused} when Retries > 0 ->
+            timer:sleep(100),
+            connect_with_retry(Host, Port, Opts, Retries - 1);
+        Other ->
+            Other
+    end.
+
+
 close_and_check(OneSide, OtherSide) ->
     ok = gen_tcp:close(OneSide),
     ok = chk_closed(OtherSide).
@@ -601,7 +627,7 @@ send_rcv(Txt, From, To) ->
 receive_data(Data, Conn) ->
     receive
 	Info when is_binary(Info) ->
-	    Lines = string:tokens(binary_to_list(Info), "\r\n "),
+	    Lines = string:tokens(strip_escape_sequences(Info), "\r\n "),
 	    case lists:member(Data, Lines) of
 		true ->
 		    ct:log("~p:~p  Expected result ~p found in lines: ~p~n", [?MODULE,?LINE,Data,Lines]),
@@ -621,7 +647,16 @@ receive_data(Data, Conn) ->
                           end,
             ct:log("timeout ~p:~p~nExpect ~p~nState = ~p",[?MODULE,?LINE,Data,State]),
             ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end.	
+    end.
+
+strip_escape_sequences(Bin) when is_binary(Bin) ->
+    strip_escape_sequences(binary_to_list(Bin));
+strip_escape_sequences(Str) ->
+    %% Remove OSC sequences (\e]...\e\\ or \e]...<BEL>) and
+    %% CSI sequences (\e[...X).
+    %% Handles shell integration (OSC 3008) on Ubuntu 26.04+
+    re:replace(Str, "\e(?:\\][^\e]*(?:\e\\\\|\007)|\\[[0-9;?]*[a-zA-Z])",
+               "", [global, {return, list}]).
 
 receive_logout() ->
     receive
@@ -720,14 +755,27 @@ no_forwarding(Config) ->
 check_kex_strict(Sock) ->
     %% Send some version, in order to receive KEXINIT from server
     ok = gen_tcp:send(Sock, "SSH-2.0-OpenSSH_9.5\r\n"),
-    ct:sleep(100),
-    {ok, Packet} = gen_tcp:recv(Sock, 0),
-    case string:find(Packet, ?kex_strict_s) of
+    Data = recv_kexinit_data(Sock, <<>>),
+    case string:find(Data, ?kex_strict_s) of
         nomatch ->
             ct:log("KEX strict NOT supported by local OpenSSH"),
             false;
         _ ->
             ct:log("KEX strict supported by local OpenSSH"),
             true
+    end.
+
+recv_kexinit_data(_Sock, Acc) when byte_size(Acc) > 4096 ->
+    Acc;
+recv_kexinit_data(Sock, Acc) ->
+    case gen_tcp:recv(Sock, 0, 2000) of
+        {ok, Packet} ->
+            Combined = iolist_to_binary([Acc, Packet]),
+            case string:find(Combined, "kex-strict") of
+                nomatch -> recv_kexinit_data(Sock, Combined);
+                _ -> Combined
+            end;
+        {error, _} ->
+            Acc
     end.
 

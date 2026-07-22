@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2016-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -117,7 +117,7 @@ getstat(PacketSocket, Opts) ->
 init([Owner, Port0, TransportInfo, EmOpts, DTLSOptions, Socket]) ->
     InternalActiveN = get_internal_active_n(),
     erlang:monitor(process, Owner),
-    {ok, SessionIdHandle} = session_id_tracker(Socket, DTLSOptions),
+    {ok, SessionIdHandle} = session_id_tracker(Socket),
     proc_lib:set_label({dtls_server_packet_demultiplexer, Port0}),
     {ok, #state{active_n = InternalActiveN,
                 port = Port0,
@@ -139,11 +139,11 @@ handle_call({accept, Accepter}, From, #state{active_n = N,
 					     listener = Socket} = State0) ->
     next_datagram(Socket, N),
     State = State0#state{first = false,
-			 accepters = queue:in({Accepter, From}, Accepters)}, 		 
+                         accepters = queue:in({Accepter, From}, Accepters)},
     {noreply, State};
 
 handle_call({accept, Accepter}, From, #state{accepters = Accepters} = State0) ->
-    State = State0#state{accepters = queue:in({Accepter, From}, Accepters)}, 		 
+    State = State0#state{accepters = queue:in({Accepter, From}, Accepters)},
     {noreply, State};
 handle_call(sockname, _, #state{listener = Socket} = State) ->
     Reply = inet:sockname(Socket),
@@ -164,7 +164,7 @@ handle_call({new_connection, Old, _Pid}, _,
             case kv_lookup(Old, MsgQs0) of
                 {value, OldQueue} ->
                     MsgQs1 = kv_delete(Old, MsgQs0),
-                    MsgQs = kv_insert({old,Old}, OldQueue, MsgQs1),
+                    MsgQs = kv_enter({old,Old}, OldQueue, MsgQs1),
                     {reply, true, State#state{dtls_msq_queues = MsgQs}};
                 none ->
                     %% Already set as old
@@ -348,8 +348,16 @@ setup_new_connection(User, From, Client, Msg, #state{dtls_processes = Processes,
 						     dtls_options = DTLSOpts,
 						     port = Port,
 						     listener = Socket,
-                                                     session_id_tracker = Tracker,
+                                                     session_id_tracker = Tracker0,
 						     emulated_options = EmOpts} = State) ->
+    Tracker = case erlang:is_process_alive(Tracker0) of
+                  true ->
+                      Tracker0;
+                  false ->
+                      {ok, Tracker1} = session_id_tracker(Socket),
+                      Tracker1
+              end,
+
     ConnArgs = [server, "localhost", Port, {self(), {Client, Socket}},
 		{DTLSOpts,
                  emulated_opts_list(EmOpts, [mode, active], []),
@@ -360,11 +368,12 @@ setup_new_connection(User, From, Client, Msg, #state{dtls_processes = Processes,
 	    erlang:monitor(process, Pid),
 	    gen_server:reply(From, {ok, Pid}),
 	    Pid ! Msg,
-	    State#state{dtls_msq_queues = kv_insert(Client, {Pid, queue:new()}, MsgQueues),
+            State#state{session_id_tracker = Tracker,
+                        dtls_msq_queues = kv_insert(Client, {Pid, queue:new()}, MsgQueues),
 			dtls_processes = kv_insert(Pid, Client, Processes)};
 	{error, Reason} ->
 	    gen_server:reply(From, {error, Reason}),
-	    State
+            State#state{session_id_tracker = Tracker}
     end.
 
 kv_update(Key, Value, Store) ->
@@ -373,6 +382,8 @@ kv_lookup(Key, Store) ->
     gb_trees:lookup(Key, Store).
 kv_insert(Key, Value, Store) ->
     gb_trees:insert(Key, Value, Store).
+kv_enter(Key, Value, Store) ->
+    gb_trees:enter(Key, Value, Store).
 kv_get(Key, Store) ->
     gb_trees:get(Key, Store).
 kv_delete(Key, Store) ->
@@ -411,7 +422,7 @@ get_socket_opts(Socket, SocketOpts, Cb) ->
 do_set_emulated_opts([], Opts) ->
     Opts;
 do_set_emulated_opts([{mode, Value} | Rest], Opts) ->
-    do_set_emulated_opts(Rest,  Opts#socket_options{mode = Value}); 
+    do_set_emulated_opts(Rest,  Opts#socket_options{mode = Value});
 do_set_emulated_opts([{active, N0} | Rest], Opts=#socket_options{active = Active}) when is_integer(N0) ->
     N = tls_socket:update_active_n(N0, Active),
     do_set_emulated_opts(Rest,  Opts#socket_options{active = N});
@@ -421,14 +432,14 @@ do_set_emulated_opts([{active, Value} | Rest], Opts) ->
 emulated_opts_list(_,[], Acc) ->
     Acc;
 emulated_opts_list( Opts, [mode | Rest], Acc) ->
-    emulated_opts_list(Opts, Rest, [{mode, Opts#socket_options.mode} | Acc]); 
+    emulated_opts_list(Opts, Rest, [{mode, Opts#socket_options.mode} | Acc]);
 emulated_opts_list(Opts, [active | Rest], Acc) ->
     emulated_opts_list(Opts, Rest, [{active, Opts#socket_options.active} | Acc]).
 
 %% Regardless of the option reuse_sessions we need the session_id_tracker
 %% to generate session ids, but no sessions will be stored unless
 %% reuse_sessions = true.
-session_id_tracker(Listener,_) ->
+session_id_tracker(Listener) ->
     dtls_server_session_cache_sup:start_child(Listener).
 
 get_internal_active_n() ->

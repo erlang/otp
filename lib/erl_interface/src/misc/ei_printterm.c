@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 2001-2025. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,12 +60,15 @@ static void xputc(char c, FILE* fp, ei_x_buff* x)
 	ei_x_append_buf(x, &c, 1);
 }
 
-static void xputs(const char* s, FILE* fp, ei_x_buff* x)
+static int xputs(const char* s, FILE* fp, ei_x_buff* x)
 {
+    const int slen = strlen(s);
+
     if (fp != NULL)
 	fputs(s, fp);
     else
-	ei_x_append_buf(x, s, strlen(s));
+        ei_x_append_buf(x, s, slen);
+    return slen;
 }
 
 static int xprintf(FILE* fp, ei_x_buff* x, const char* fmt, ...)
@@ -76,9 +79,9 @@ static int xprintf(FILE* fp, ei_x_buff* x, const char* fmt, ...)
     if (fp != NULL) {
 	r = vfprintf(fp, fmt, ap);
     } else {
-	/* FIXME always enough in buffer??? */
+        /* We assume output is reasonable bounded */
 	char tmpbuf[2000];
-	r = vsprintf(tmpbuf, fmt, ap);
+        r = vsnprintf(tmpbuf, sizeof(tmpbuf), fmt, ap);
 	ei_x_append_buf(x, tmpbuf, strlen(tmpbuf));
     }
     va_end(ap);
@@ -355,7 +358,7 @@ static int print_term(FILE* fp, ei_x_buff* x,
                 goto err;
             }
             
-            ch_written += xprintf(fp, x, ds);
+            ch_written += xputs(ds, fp, x);
             free(ds);
             ei_free_big(b);
             

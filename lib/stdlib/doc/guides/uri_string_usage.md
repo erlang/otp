@@ -109,14 +109,11 @@ verify this by parsing the URI:
 
 ```erlang
 1> uri_string:parse("http://cities/örebro?foo bar").
-{error,invalid_uri,":"}
+{error,invalid_uri,"ö"}
 ```
 
-The URI parser tries all possible combinations to interpret the input and fails
-at the last attempt when it encounters the colon character `":"`. Note, that the
-inital fault occurs when the parser attempts to interpret the character `"ö"`
-and after a failure back-tracks to the point where it has another possible
-parsing alternative.
+The URI parser reports the first character that violates the URI
+grammar; in this case the non-ASCII `"ö"` in the path component.
 
 The proper way to solve this problem is to use `uri_string:recompose/1` with a
 [`uri_map()`](`t:uri_string:uri_map/0`) as input:
@@ -260,7 +257,7 @@ It is important to emphasize that it is not safe to apply
 1> uri_string:percent_decode("http://%6C%6Fcal%23host/%C3%B6re%26bro%20").
 "http://local#host/öre&bro "
 2> uri_string:parse("http://local#host/öre&bro ").
-{error,invalid_uri,":"}
+{error,invalid_uri,"ö"}
 ```
 
 > #### Note {: .info }

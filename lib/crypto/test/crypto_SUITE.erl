@@ -41,6 +41,7 @@
          aead_ng/1,
          all_ciphers/1,
          api_errors_ecdh/1,
+         api_errors_aead/1,
          api_ng/0,
          api_ng/1,
          api_ng_one_shot/0,
@@ -74,6 +75,7 @@
          concurrent_access/1,
          crypto_load/1,
          crypto_load_and_call/1,
+         doctests/1,
          encapsulate/1,
          exor/0,
          exor/1,
@@ -186,6 +188,7 @@
          des_ede3_cbc/1,
          des_ede3_cfb/1,
          mac_check/1,
+         mac_check_overlength/1,
          rc2_cbc/1,
          rc4/1,
          sm4_ecb/1,
@@ -202,6 +205,17 @@
          rsa_oaep_label/0
         ]).
 
+-define(AEAD_CIPHERS, [aes_128_ccm,
+                       aes_192_ccm,
+                       aes_256_ccm,
+                       aes_ccm,
+                       aes_128_gcm,
+                       aes_192_gcm,
+                       aes_256_gcm,
+                       aes_gcm,
+                       sm4_gcm,
+                       sm4_ccm,
+                       chacha20_poly1305]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -219,6 +233,7 @@ all() ->
      {group, fips},
      {group, non_fips},
      cipher_padding,
+     doctests,
      ec_key_padding,
      node_supports_cache,
      mod_pow,
@@ -498,7 +513,8 @@ groups() ->
                                  bad_hmac_name,
                                  bad_cmac_name,
                                  bad_sign_name,
-                                 bad_verify_name
+                                 bad_verify_name,
+                                 api_errors_aead
                                 ]},
 
      %% New cipher nameing schema
@@ -523,6 +539,55 @@ groups() ->
      {aes_192_ofb,  [], [api_ng, api_ng_one_shot]},
      {aes_256_ofb,  [], [api_ng, api_ng_one_shot]}
     ].
+
+doctests(_Config) ->
+    ct_doctest:module(crypto, [
+        {missing_tests, [
+            {crypto_final,1},
+            {crypto_one_time_aead,4},
+            {crypto_update,2},
+            {decapsulate_key,3},
+            {enable_fips_mode,1},
+            {encapsulate_key,2},
+            {engine_add,1},
+            {engine_by_id,1},
+            {engine_ctrl_cmd_string,3},
+            {engine_ctrl_cmd_string,4},
+            {engine_get_id,1},
+            {engine_get_name,1},
+            {engine_list,0},
+            {engine_load,3},
+            {engine_register,2},
+            {engine_remove,1},
+            {engine_unload,1},
+            {engine_unregister,2},
+            {ensure_engine_loaded,2},
+            {hash_final,1},
+            {hash_update,2},
+            {info_fips,0},
+            {info_lib,0},
+            {info,0},
+            {mac_final,1}, 
+            {mac_finalN,2}, 
+            {mac_init,2},
+            {mac_update,2},
+            {mac,3},
+            {macN,4},
+            {private_decrypt,4},
+            {privkey_to_pubkey,2},
+            {public_decrypt,4},
+            {rand_seed_alg_s,1},
+            {rand_seed_alg,1},
+            {rand_seed_alg,2},
+            {rand_seed_s,0},
+            {rand_seed,0},
+            {rand_seed,1},
+            {start,0},
+            {stop,0},
+            {strong_rand_bytes,1},
+            {supports,1},
+            {verify,6}
+        ]}]).
 
 %%-------------------------------------------------------------------
 init_per_suite(Config) ->
@@ -639,6 +704,14 @@ init_per_testcase(generate, Config) ->
     end;
 init_per_testcase(hmac, Config) ->
     configure_mac(hmac, proplists:get_value(type,Config), Config);
+init_per_testcase(api_errors_aead, Config) ->
+    Supported = crypto:supports(ciphers),
+    case [C || C <- ?AEAD_CIPHERS, lists:member(C, Supported)] of
+        [_ | _] ->
+            Config;
+        _ ->
+            {skip, "Aead ciphers not supported."}
+    end;
 init_per_testcase(_Name,Config) ->
     Skip =
         lists:member(_Name, [%%i_ng_tls
@@ -832,7 +905,8 @@ hmac() ->
      [{doc, "Test hmac function"}].
 hmac(Config) when is_list(Config) ->
     Tuples = lazy_eval(proplists:get_value(hmac, Config)),
-    do_cipher_tests(fun mac_check/1, Tuples++mac_listify(Tuples)).
+    do_cipher_tests(fun mac_check/1, Tuples++mac_listify(Tuples)),
+    do_cipher_tests(fun mac_check_overlength/1, Tuples++mac_listify(Tuples)).
 %%--------------------------------------------------------------------
 no_hmac() ->
      [{doc, "Test all disabled hmac functions"}].
@@ -852,7 +926,8 @@ cmac() ->
      [{doc, "Test all different cmac functions"}].
 cmac(Config) when is_list(Config) ->
     Pairs = lazy_eval(proplists:get_value(cmac, Config)),
-    do_cipher_tests(fun mac_check/1, Pairs ++ mac_listify(Pairs)).
+    do_cipher_tests(fun mac_check/1, Pairs ++ mac_listify(Pairs)),
+    do_cipher_tests(fun mac_check_overlength/1, Pairs ++ mac_listify(Pairs)).
 %%--------------------------------------------------------------------
 cmac_update() ->
      [{doc, "Test all incremental cmac functions"}].
@@ -1760,6 +1835,15 @@ mac_check({MacType, SubType, Key, Text, Size, Mac}=T) ->
     cipher_test(T,
                 fun() -> crypto:macN(MacType, SubType, Key, Text, Size) end,
                 ExpMac).
+
+mac_check_overlength({_MacType, _SubType, _Key, _Text, _Mac}) ->
+    ok;
+mac_check_overlength({MacType, SubType, Key, Text, _Size, _Mac}=T) ->
+    FullMac = crypto:mac(MacType, SubType, Key, Text),
+    cipher_test(T,
+                fun() -> crypto:macN(MacType, SubType, Key, Text, byte_size(FullMac) + 1) end,
+                FullMac).
+
 
 mac_increment(Type, SubType, Key, Increments) ->
     Expected = crypto:mac(Type, SubType, Key, Increments),
@@ -5072,6 +5156,16 @@ api_errors_ecdh(Config) when is_list(Config) ->
     Curves = [gaffel, 0, sect571r1],
     [_= (catch Test(O, C)) || O <- Others, C <- Curves],
     ok.
+
+api_errors_aead(Config) when is_list(Config) ->
+    %% Check that we don't segfault when failing argument validation
+    try crypto:crypto_one_time_aead_init(aes_256_gcm, <<1:256>>, 16, junk) of
+        Res ->
+            ct:fail("Call should fail, but succeeded with return: ~p~n", [Res])
+    catch
+        error : {badarg, _, _} ->
+            ok
+    end.
 
 
 %%%----- Tests for bad algorithm name as argument

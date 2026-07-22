@@ -37,7 +37,9 @@
          otp_15159/1, otp_15639/1, otp_15705/1, otp_15847/1, otp_15875/1,
          github_4801/1, chars_limit/1, error_info/1, otp_17525/1,
          unscan_format_without_maps_order/1, build_text_without_maps_order/1,
-         native_records/1, cover_fread/1]).
+         native_records/1, cover_fread/1,
+         format_w_empty_map/1, format_w_limited/1,
+         write_record_maps_order/1, write_record_latin1_encoding/1]).
 
 -export([pretty/2, trf/3, rfd/2]).
 
@@ -75,6 +77,8 @@ all() ->
      error_info, otp_17525, unscan_format_without_maps_order,
      build_text_without_maps_order,
      native_records,
+     format_w_empty_map, format_w_limited,
+     write_record_maps_order, write_record_latin1_encoding,
      cover_fread].
 
 %% Error cases for output.
@@ -763,6 +767,17 @@ otp_7421(Config) when is_list(Config) ->
          "    eee,\n"
          "    fff}">>,
        rp({aa,bb,c,dd,eee,fff}, 1, 80, -1, 4, none)),
+    ok.
+
+format_w_limited(_Config) ->
+
+    "[97]" = fmt("~4w", ["a"]),
+    "****" = fmt("~4w", ["aa"]),
+    "<<97>>" = fmt("~6w", [<<"a">>]),
+    "******" = fmt("~6w", [<<"aa">>]),
+    "[1,2,3,<<97>>]" = fmt("~14w", [[1,2,3,<<"a">>]]),
+    "**************" = fmt("~14w", [[1,2,3,<<"aa">>]]),
+
     ok.
 
 bt(Bin, R) ->
@@ -3408,6 +3423,26 @@ native_records(_Config) ->
 """ = p(#order{true = #order{true = "break aligned to the correct column"},
                aaaaaaaaaaaaaaaaaaaaa = "A very long string can be here and how is that handled",
                wwww = #order{}}, 10, 80, -1),
+    ok.
+
+%% There used to be a bug where an empty map would be printed as #{...} when using io_lib:bwrite.
+format_w_empty_map(_Config) ->
+    "[1,#{},2]" = fmt("~w", [[1, #{}, 2]]),
+    "{a,#{},b}" = fmt("~w", [{a, #{}, b}]),
+    "#{a => #{},b => #{}}" = fmt("~kw", [#{a => #{}, b => #{}}]).
+
+%% There used to be a bug where the map order operator within a record would be broken causing the format to crash.
+write_record_maps_order(_Config) ->
+    R = #vector{x = #{a => 1, b => 2}, y = 1},
+    "#io_SUITE:vector{x = #{a => 1,b => 2},y = 1}" = fmt("~kw",[R]),
+    ok.
+
+%% There used to be a bug where the latin1 encoding would be ignored for record modules and names.
+write_record_latin1_encoding(_Config) ->
+    ModName = list_to_atom([16#4e2d]),
+    RecName = list_to_atom([16#6587]),
+    R = records:create(ModName, RecName, [], #{is_exported => false}),
+    "#'\\x{4E2D}':'\\x{6587}'{}" = fmt("~w", [R]),
     ok.
 
 cover_fread(_Config) ->

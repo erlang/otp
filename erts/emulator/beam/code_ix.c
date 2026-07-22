@@ -52,24 +52,46 @@ struct code_permission {
     erts_mtx_t lock;
 
     Process *owner;
+    void (*aux_func)(void*);
     void *aux_arg;
 
-    int seized;
-    struct code_permission_queue_item {
-        Process *p;
-        void (*aux_func)(void *);
-        void *aux_arg;
+    bool seized;
+    struct code_permission_queue_item *first;
+    struct code_permission_queue_item **tail_p;
 
-        struct code_permission_queue_item *next;
-    } *queue;
+    const erts_aint32_t xstate_handover_flg;
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     int lc_soft_check;
 #endif
 };
 
-static struct code_permission code_mod_permission;
-static struct code_permission code_stage_permission;
+struct code_permission_queue_item {
+    Process *p;
+    void (*aux_func)(void *);
+    void *aux_arg;
+
+    struct code_permission_queue_item *next;
+};
+
+static struct code_permission code_mod_permission = {
+    .xstate_handover_flg = ERTS_PXSFLG_HANDOVER_CODE_MOD_PERM
+};
+static struct code_permission code_stage_permission = {
+    .xstate_handover_flg = ERTS_PXSFLG_HANDOVER_CODE_STAGE_PERM
+};
+
+static void code_permission_init(struct code_permission* perm,
+                                 const char* name)
+{
+    erts_mtx_init(&(perm->lock), name, NIL,
+                  (ERTS_LOCK_FLAGS_PROPERTY_STATIC |
+                   ERTS_LOCK_FLAGS_CATEGORY_GENERIC));
+    perm->seized = false;
+    perm->first = NULL;
+    perm->tail_p = &(perm->first);
+}
+
 
 #ifdef DEBUG
 static erts_tsd_key_t needs_code_barrier;
@@ -85,12 +107,8 @@ void erts_code_ix_init(void)
     erts_atomic32_init_nob(&the_active_code_index, 0);
     erts_atomic32_init_nob(&the_staging_code_index, 0);
 
-    erts_mtx_init(&code_mod_permission.lock,
-        "code_mod_permission", NIL,
-        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
-    erts_mtx_init(&code_stage_permission.lock,
-        "code_stage_permission", NIL,
-        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
+    code_permission_init(&code_mod_permission, "code_mod_permission");
+    code_permission_init(&code_stage_permission, "code_stage_permission");
 
 #ifdef DEBUG
     erts_tsd_key_create(&needs_code_barrier,
@@ -164,31 +182,82 @@ void erts_abort_staging_code_ix(void)
 }
 
 #if defined(DEBUG) || defined(ADDRESS_SANITIZER)
-#    define CWP_DBG_FORCE_TRAP
+/*
+ * To make sure we can handle failed attempts correctly at all call sites,
+ * always force a fail at the first attempt.
+ */
+static bool CWP_DBG_FORCE_TRAP(Process *c_p)
+{
+    if (erts_atomic32_read_nob(&c_p->xstate)
+        & (ERTS_PXSFLG_HANDOVER_CODE_MOD_PERM |
+           ERTS_PXSFLG_HANDOVER_CODE_STAGE_PERM)) {
+        // Don't fail when we already got the permission
+        return false;
+    }
+
+    if (!(c_p->flags & F_DBG_FORCED_TRAP)) {
+        c_p->flags |= F_DBG_FORCED_TRAP;
+        return true;
+    } else {
+        // back from forced trap
+        c_p->flags &= ~F_DBG_FORCED_TRAP;
+        return false;
+    }
+}
+#else
+# define CWP_DBG_FORCE_TRAP(P) false
 #endif
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-static int has_code_permission(struct code_permission *lock);
+static int has_code_permission(struct code_permission *lock, Process *owner);
 #endif
 
-static int try_seize_code_permission(struct code_permission *perm,
-                                     Process* c_p,
-                                     void (*aux_func)(void *),
-                                     void *aux_arg)
+static bool try_seize_code_permission(struct code_permission *perm,
+                                      Process* c_p,
+                                      void (*aux_func)(void *),
+                                      void *aux_arg)
 {
-    int success;
+    bool success;
 
     ASSERT(!!c_p != !!aux_func);
-    ASSERT(!erts_thr_progress_is_blocking()); /* To avoid deadlock */
+    ASSERT(!!aux_arg == !!aux_func);
+    ERTS_LC_ASSERT(!erts_thr_progress_is_blocking()); /* To avoid deadlock */
+
+    if (c_p) {
+        if (erts_atomic32_read_nob(&c_p->xstate) & perm->xstate_handover_flg) {
+            /*
+             * This process already got the permission.
+             * Must have been given to us as waiter.
+             */
+            ASSERT(perm->seized);
+            ASSERT(perm->owner == c_p);
+            ASSERT(!perm->aux_arg && !perm->aux_func);
+            (void) erts_atomic32_read_band_nob(&c_p->xstate,
+                                               ~(perm->xstate_handover_flg));
+            return true;
+        }
+    }
+
 
     erts_mtx_lock(&perm->lock);
-    success = !perm->seized;
 
-    if (success) {
+    if (!perm->seized) {
         perm->owner = c_p;
+        perm->aux_func = aux_func;
         perm->aux_arg = aux_arg;
-        perm->seized = 1;
-    } else { /* Already locked */
+        perm->seized = true;
+        success = true;
+    }
+    else if (aux_func && aux_func == perm->aux_func
+             && aux_arg == perm->aux_arg) {
+        /*
+         * This aux job already got the permission.
+         * Must have been given to us as waiter.
+         */
+        ASSERT(!perm->owner);
+        success = true;
+    }
+    else { /* Locked by someone else */
         struct code_permission_queue_item* qitem;
 
         qitem = erts_alloc(ERTS_ALC_T_CODE_IX_LOCK_Q, sizeof(*qitem));
@@ -206,8 +275,13 @@ static int try_seize_code_permission(struct code_permission *perm,
             qitem->aux_arg = aux_arg;
         }
 
-        qitem->next = perm->queue;
-        perm->queue = qitem;
+        // Link last in wait queue
+        qitem->next = NULL;
+        ASSERT(*(perm->tail_p) == NULL);
+        *(perm->tail_p) = qitem;
+        perm->tail_p = &(qitem->next);
+
+        success = false;
     }
 
     erts_mtx_unlock(&perm->lock);
@@ -215,19 +289,55 @@ static int try_seize_code_permission(struct code_permission *perm,
     return success;
 }
 
-static void release_code_permission(struct code_permission *perm) {
-    ERTS_LC_ASSERT(has_code_permission(perm));
+static void release_code_permission(struct code_permission *perm,
+                                    Process* owner)
+{
+    ERTS_LC_ASSERT(has_code_permission(perm, owner));
 
     erts_mtx_lock(&perm->lock);
 
-    /* Unleash the entire herd */
-    while (perm->queue != NULL) {
-        struct code_permission_queue_item* qitem = perm->queue;
+    perm->seized = false;
+    perm->owner = NULL;
+    perm->aux_func = NULL;
+    perm->aux_arg = NULL;
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    perm->lc_soft_check = 0;
+#endif
+
+    /* Find first eligible waiter */
+    while (perm->first != NULL && !perm->seized) {
+        struct code_permission_queue_item* qitem = perm->first;
+
+        perm->first = qitem->next;
+        if (perm->first == NULL) {
+            perm->tail_p = &(perm->first);
+        }
 
         if (qitem->p) {
             erts_proc_lock(qitem->p, ERTS_PROC_LOCK_STATUS);
 
             if (!ERTS_PROC_IS_EXITING(qitem->p)) {
+                erts_aint32_t xstate;
+
+                /*
+                 * Avoid processes doing potentially long GC.
+                 * Resume them and let them retry after GC is done.
+                 * This can only happen if someone has sent the waiting
+                 * suspended process a GC signal.
+                 */
+                xstate = erts_atomic32_read_nob(&(qitem->p->xstate));
+                while (!(xstate & ERTS_PXSFLG_GC)) {
+                    erts_aint32_t act =
+                        erts_atomic32_cmpxchg_nob(&(qitem->p->xstate),
+                                                  xstate | perm->xstate_handover_flg,
+                                                  xstate);
+                    if (act == xstate) {
+                        perm->seized = true;
+                        perm->owner = qitem->p;
+                        break;
+                    }
+                    xstate = act;
+                }
                 erts_resume(qitem->p, ERTS_PROC_LOCK_STATUS);
             }
 
@@ -236,25 +346,21 @@ static void release_code_permission(struct code_permission *perm) {
         } else { /* aux work */
             ErtsSchedulerData *esdp = erts_get_scheduler_data();
             ASSERT(esdp && esdp->type == ERTS_SCHED_NORMAL);
+            perm->seized = true;
+            perm->aux_func = qitem->aux_func;
+            perm->aux_arg = qitem->aux_arg;
             erts_schedule_misc_aux_work((int) esdp->no,
                                         qitem->aux_func,
                                         qitem->aux_arg);
         }
 
-        perm->queue = qitem->next;
         erts_free(ERTS_ALC_T_CODE_IX_LOCK_Q, qitem);
     }
 
-    perm->owner = NULL;
-    perm->aux_arg = NULL;
-    perm->seized = 0;
-#ifdef ERTS_ENABLE_LOCK_CHECK
-    perm->lc_soft_check = 0;
-#endif
     erts_mtx_unlock(&perm->lock);
 }
 
-int erts_try_seize_code_mod_permission_aux(void (*aux_func)(void *),
+bool erts_try_seize_code_mod_permission_aux(void (*aux_func)(void *),
                                            void *aux_arg)
 {
     ASSERT(aux_func != NULL);
@@ -269,71 +375,51 @@ void erts_lc_soften_code_mod_permission_check(void)
 }
 #endif
 
-int erts_try_seize_code_mod_permission(Process* c_p)
+bool erts_try_seize_code_mod_permission(Process* c_p)
 {
     ASSERT(c_p != NULL);
 
-#ifdef CWP_DBG_FORCE_TRAP
-    if (!(c_p->flags & F_DBG_FORCED_TRAP)) {
-        c_p->flags |= F_DBG_FORCED_TRAP;
-        return 0;
-    } else {
-        /* back from forced trap */
-        c_p->flags &= ~F_DBG_FORCED_TRAP;
-    }
-#endif
+    if (CWP_DBG_FORCE_TRAP(c_p))
+        return false;
 
     return try_seize_code_permission(&code_mod_permission, c_p, NULL, NULL);
 }
 
 void erts_release_code_mod_permission(void)
 {
-    release_code_permission(&code_mod_permission);
+    release_code_permission(&code_mod_permission, NULL);
 }
 
-int erts_try_seize_code_stage_permission(Process* c_p)
+bool erts_try_seize_code_stage_permission(Process* c_p)
 {
     ASSERT(c_p != NULL);
 
-#ifdef CWP_DBG_FORCE_TRAP
-    if (!(c_p->flags & F_DBG_FORCED_TRAP)) {
-        c_p->flags |= F_DBG_FORCED_TRAP;
-        return 0;
-    } else {
-        /* back from forced trap */
-        c_p->flags &= ~F_DBG_FORCED_TRAP;
-    }
-#endif
+    if (CWP_DBG_FORCE_TRAP(c_p))
+        return false;
 
     return try_seize_code_permission(&code_stage_permission, c_p, NULL, NULL);
 }
 
 void erts_release_code_stage_permission(void) {
-    release_code_permission(&code_stage_permission);
+    release_code_permission(&code_stage_permission, NULL);
 }
 
-int erts_try_seize_code_load_permission(Process* c_p) {
+bool erts_try_seize_code_load_permission(Process* c_p) {
     ASSERT(c_p != NULL);
 
-#ifdef CWP_DBG_FORCE_TRAP
-    if (!(c_p->flags & F_DBG_FORCED_TRAP)) {
-        c_p->flags |= F_DBG_FORCED_TRAP;
-        return 0;
-    } else {
-        /* back from forced trap */
-        c_p->flags &= ~F_DBG_FORCED_TRAP;
+    if (CWP_DBG_FORCE_TRAP(c_p)) {
+        return false;
     }
-#endif
 
     if (try_seize_code_permission(&code_stage_permission, c_p, NULL, NULL)) {
         if (try_seize_code_permission(&code_mod_permission, c_p, NULL, NULL)) {
-            return 1;
+            return true;
         }
 
         erts_release_code_stage_permission();
     }
 
-    return 0;
+    return false;
 }
 
 void erts_release_code_load_permission(void) {
@@ -341,10 +427,36 @@ void erts_release_code_load_permission(void) {
     erts_release_code_stage_permission();
 }
 
+void erts_reject_code_permissions(Process *p) {
+    const erts_aint32_t xstate = erts_atomic32_read_nob(&p->xstate);
+
+    ASSERT(erts_atomic32_read_acqb(&p->state)
+           & (ERTS_PSFLG_EXITING | ERTS_PSFLG_GC));
+
+    if (xstate & ERTS_PXSFLG_HANDOVER_CODE_MOD_PERM) {
+        release_code_permission(&code_mod_permission, p);
+        erts_atomic32_read_band_nob(&p->xstate,
+                                    ~ERTS_PXSFLG_HANDOVER_CODE_MOD_PERM);
+    }
+    if (xstate & ERTS_PXSFLG_HANDOVER_CODE_STAGE_PERM) {
+        release_code_permission(&code_stage_permission, p);
+        erts_atomic32_read_band_nob(&p->xstate,
+                                    ~ERTS_PXSFLG_HANDOVER_CODE_STAGE_PERM);
+    }
+}
+
+
 #ifdef ERTS_ENABLE_LOCK_CHECK
-static int has_code_permission(struct code_permission *perm)
+static int has_code_permission(struct code_permission *perm,
+                               Process *owner)
 {
-    const ErtsSchedulerData *esdp = erts_get_scheduler_data();
+    const ErtsSchedulerData *esdp;
+
+    if (owner) {
+        return perm->seized && perm->owner == owner;
+    }
+
+    esdp = erts_get_scheduler_data();
 
     if (esdp && esdp->type == ERTS_SCHED_NORMAL) {
         int res;
@@ -394,11 +506,11 @@ int erts_has_code_load_permission(void) {
 }
 
 int erts_has_code_stage_permission(void) {
-    return has_code_permission(&code_stage_permission);
+    return has_code_permission(&code_stage_permission, NULL);
 }
 
 int erts_has_code_mod_permission(void) {
-    return has_code_permission(&code_mod_permission);
+    return has_code_permission(&code_mod_permission, NULL);
 }
 #endif
 

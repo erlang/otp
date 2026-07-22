@@ -616,7 +616,10 @@ traverse(Tree, DefinedVars, State) ->
 	end,
       {state__store_conj(MapVar, sub, MapType, State4), MapVar};
     record ->
-      {State, t_any()};
+      Es = cerl:record_es(Tree),
+      Vals = [cerl:record_pair_val(P) || P <- Es],
+      {State1, _ValVars} = traverse_list(Vals, DefinedVars, State),
+      {State1, mk_var(Tree)};
     values ->
       %% We can get into trouble when unifying products that have the
       %% same element appearing several times. Handle these cases by

@@ -43,7 +43,8 @@
          error_info/1,
          is_whitespace/1,
          category/1,
-         is_id/1
+         is_id/1,
+         incomplete_utf32_to_latin1/1
         ]).
 
 suite() ->
@@ -60,7 +61,8 @@ all() ->
      huge_illegal_code_points,
      bin_is_7bit,
      {group, classify},
-     error_info].
+     error_info,
+     incomplete_utf32_to_latin1].
 
 groups() -> 
     [{binaries_errors,[parallel],
@@ -190,6 +192,17 @@ utf32_inner_loop([_|List], BrokenPart, BrokenSz, PartlyBroken, PBSz, Endian) ->
     BrokenPart = iolist_to_binary(DeepBrokenPart),
     utf32_inner_loop(List, BrokenPart, BrokenSz, PartlyBroken, PBSz, Endian);
 utf32_inner_loop([], _, _, _, _, _) ->
+    ok.
+
+incomplete_utf32_to_latin1(Config) when is_list(Config) ->
+    Cases = [{big,    <<0,0,0,$A, 0,0,0>>, <<0,0,0>>},
+             {big,    <<0,0,0,$A, 0,0>>,   <<0,0>>},
+             {little, <<$A,0,0,0, 1>>,     <<1>>},
+             {little, <<$A,0,0,0, 2,3>>,   <<2,3>>},
+             {little, <<$A,0,0,0, 4,5,6>>, <<4,5,6>>}],
+    [{incomplete, <<"A">>, Tail} =
+         unicode:characters_to_binary(In, {utf32,Endian}, latin1)
+     || {Endian, In, Tail} <- Cases],
     ok.
 
 exceptions(Config) when is_list(Config) ->

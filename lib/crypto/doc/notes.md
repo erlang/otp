@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the Crypto application.
 
+## Crypto 5.9.1
+
+### Fixed Bugs and Malfunctions
+
+- `crypto:compute_key/4` for `eddh` and [`crypto:generate_key/2,3`](`crypto:generate_key/3`) for `eddh`/`eddsa` now raise an `error:{notsup, Info, Description}` exception instead of returning the atom `notsup` when the underlying cryptolib lacks support.
+
+  Own Id: OTP-20215 Aux Id: [PR-11302]
+
+[PR-11302]: https://github.com/erlang/otp/pull/11302
+
 ## Crypto 5.9
 
 ### Fixed Bugs and Malfunctions
@@ -66,6 +76,16 @@ This document describes the changes made to the Crypto application.
 [PR-10836]: https://github.com/erlang/otp/pull/10836
 [PR-10839]: https://github.com/erlang/otp/pull/10839
 [PR-10993]: https://github.com/erlang/otp/pull/10993
+
+## Crypto 5.8.3.1
+
+### Fixed Bugs and Malfunctions
+
+- `crypto:compute_key/4` for `eddh` and [`crypto:generate_key/2,3`](`crypto:generate_key/3`) for `eddh`/`eddsa` now raise an `error:{notsup, Info, Description}` exception instead of returning the atom `notsup` when the underlying cryptolib lacks support.
+
+  Own Id: OTP-20215 Aux Id: [PR-11302]
+
+[PR-11302]: https://github.com/erlang/otp/pull/11302
 
 ## Crypto 5.8.3
 
@@ -233,6 +253,16 @@ This document describes the changes made to the Crypto application.
 [PR-9448]: https://github.com/erlang/otp/pull/9448
 [PR-9441]: https://github.com/erlang/otp/pull/9441
 [PR-9670]: https://github.com/erlang/otp/pull/9670
+
+## Crypto 5.5.3.3
+
+### Fixed Bugs and Malfunctions
+
+- `crypto:compute_key/4` for `eddh` and [`crypto:generate_key/2,3`](`crypto:generate_key/3`) for `eddh`/`eddsa` now raise an `error:{notsup, Info, Description}` exception instead of returning the atom `notsup` when the underlying cryptolib lacks support.
+
+  Own Id: OTP-20215 Aux Id: [PR-11302]
+
+[PR-11302]: https://github.com/erlang/otp/pull/11302
 
 ## Crypto 5.5.3.2
 

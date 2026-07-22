@@ -23,6 +23,17 @@ limitations under the License.
 
 This document describes the changes made to the Tools application.
 
+## Tools 4.2.1
+
+### Fixed Bugs and Malfunctions
+
+- Xref could crash instead of returning an appropriate error tuple when asked to open a BEAM file without debug information but with a `moduledoc(false)` attribute.
+
+  Own Id: OTP-20163 Aux Id: [GH-11152], [PR-11168]
+
+[GH-11152]: https://github.com/erlang/otp/issues/11152
+[PR-11168]: https://github.com/erlang/otp/pull/11168
+
 ## Tools 4.2
 
 ### Fixed Bugs and Malfunctions

@@ -27,14 +27,22 @@
          init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
          suite/0, all/0, groups/0]).
--export([app/1, appup/1, clean_up_suite/1, silly/0]).
+-export([app/1, appup/1, doctests/1, clean_up_suite/1, silly/0]).
 
 -include_lib("common_test/include/ct.hrl").
 -include("mnesia_test_lib.hrl").
 
+%% Boilerplate setup and cleanup code for doctests
+init_per_testcase(doctests, Config) ->
+    application:set_env(mnesia, schema_location, ram),
+    mnesia:start(),
+    Config;
 init_per_testcase(Func, Conf) ->
     mnesia_test_lib:init_per_testcase(Func, Conf).
 
+end_per_testcase(doctests, Config) ->
+    mnesia:stop(),
+    Config;
 end_per_testcase(Func, Conf) ->
     mnesia_test_lib:end_per_testcase(Func, Conf).
 
@@ -58,9 +66,19 @@ suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 %% NB! Invoke the function directly with mnesia_SUITE:silly()
 %% and do not involve the normal test machinery.
 
-all() -> 
-    [app, appup, {group, light}, {group, medium}, {group, heavy},
+all() ->
+    [app, appup, doctests, {group, light}, {group, medium}, {group, heavy},
      clean_up_suite, {group, external}].
+
+doctests(_Config) ->
+    ct_doctest:module(
+      mnesia,
+      [{skip_tests,
+        [moduledoc,
+         {function, snmp_open_table, 2},
+         {function, change_table_copy_type, 3},
+         {function, create_table, 2},
+         {function, select, 3}]}]).
 
 groups() -> 
     %% The 'light' test suite runs a selected set of test suites and is

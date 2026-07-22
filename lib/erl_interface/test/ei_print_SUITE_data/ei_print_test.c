@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 2001-2025. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,11 +33,12 @@
 static void
 send_printed_buf(ei_x_buff* x)
 {
-    char* b = NULL;
     char fn[256];
     char *tmp = getenv("temp");
-    FILE* f;
-    int n, index = 0, ver;
+    FILE* f = NULL;
+    int n, n_s, index = 0, index_s, ver;
+    char* f_buf = NULL;
+    char* s_buf = NULL;
 
     if (tmp == NULL) {
         tmp = "/tmp";
@@ -46,22 +47,40 @@ send_printed_buf(ei_x_buff* x)
     strcat(fn, "/ei_print_test.txt");
     f = fopen(fn, "w+");
     ei_decode_version(x->buff, &index, &ver);
+    index_s = index;
     n = ei_print_term(f, x->buff, &index);
-    if (n < 0) {
-        fclose(f);
-        x->index = 0;
-        ei_x_format(x, "~s", "ERROR: term decoding failed");
-        send_bin_term(x);
-    } else {
+    n_s = ei_s_print_term(&s_buf, x->buff, &index_s);
+    x->index = 0;
+    if (n != n_s) {
+        ei_x_format(x, "{~s,~i,~i}",
+                    "ERROR: ei_print_term return values differ",
+                    n, n_s);
+    }
+    else if (n < 0) {
+        ei_x_format(x, "{~s,~i}", "ERROR: term decoding failed", n);
+    }
+    else {
         fseek(f, 0, SEEK_SET);
-        b = malloc(n+1);
-        fread(b, 1, n, f);
-        b[n] = '\0';
+        f_buf = malloc(n+1);
+        fread(f_buf, 1, n, f);
+        f_buf[n] = '\0';
+        if (strcmp(f_buf, s_buf) != 0) {
+            ei_x_format(x, "{~s,~s,~s}", "ERROR: ei_print_term results differ", f_buf, s_buf);
+        }
+        else {
+            ei_x_format(x, "~s", f_buf);
+        }
+    }
+    send_bin_term(x);
+
+    if (f) {
         fclose(f);
-        x->index = 0;
-        ei_x_format(x, "~s", b);
-        send_bin_term(x);
-        free(b);
+    }
+    if (f_buf) {
+        free(f_buf);
+    }
+    if (s_buf) {
+        free(s_buf);
     }
 }
 

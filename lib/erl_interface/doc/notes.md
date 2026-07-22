@@ -23,6 +23,17 @@ limitations under the License.
 
 This document describes the changes made to the Erl_interface application.
 
+## Erl_Interface 5.8.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed stack overflow in `ei_s_print_term` for very big integer terms (> 2000 hexadecimal digits long).
+
+  Own Id: OTP-20160 Aux Id: [PR-11193], GHSA-xcxj-5pg2-v72j,[CVE-2026-49760]
+
+[PR-11193]: https://github.com/erlang/otp/pull/11193
+[CVE-2026-49760]: https://nvd.nist.gov/vuln/detail/2026-49760
+
 ## Erl_Interface 5.8
 
 ### Improvements and New Features
@@ -44,6 +55,17 @@ This document describes the changes made to the Erl_interface application.
 - The `ei` API for decoding/encoding terms is not fully 64-bit compatible since terms that have a representation on the external term format larger than 2 GB cannot be handled.
 
   Own Id: OTP-16607 Aux Id: OTP-16608
+
+## Erl_Interface 5.7.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed stack overflow in `ei_s_print_term` for very big integer terms (> 2000 hexadecimal digits long).
+
+  Own Id: OTP-20160 Aux Id: [PR-11193], GHSA-xcxj-5pg2-v72j,[CVE-2026-49760]
+
+[PR-11193]: https://github.com/erlang/otp/pull/11193
+[CVE-2026-49760]: https://nvd.nist.gov/vuln/detail/2026-49760
 
 ## Erl_Interface 5.7
 
@@ -170,6 +192,17 @@ This document describes the changes made to the Erl_interface application.
 - The `ei` API for decoding/encoding terms is not fully 64-bit compatible since terms that have a representation on the external term format larger than 2 GB cannot be handled.
 
   Own Id: OTP-16607 Aux Id: OTP-16608
+
+## Erl_Interface 5.5.2.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed stack overflow in `ei_s_print_term` for very big integer terms (> 2000 hexadecimal digits long).
+
+  Own Id: OTP-20160 Aux Id: [PR-11193], GHSA-xcxj-5pg2-v72j,[CVE-2026-49760]
+
+[PR-11193]: https://github.com/erlang/otp/pull/11193
+[CVE-2026-49760]: https://nvd.nist.gov/vuln/detail/2026-49760
 
 ## Erl_Interface 5.5.2
 

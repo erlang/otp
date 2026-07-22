@@ -23,6 +23,32 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 10.0.2
+
+### Fixed Bugs and Malfunctions
+
+- Several compiler bugs that could crash the compiler or generate incorrect code in rare circumstances have been fixed.
+
+  Own Id: OTP-20222 Aux Id: [PR-11219]
+
+[PR-11219]: https://github.com/erlang/otp/pull/11219
+
+## Compiler 10.0.1
+
+### Fixed Bugs and Malfunctions
+
+- In rare circumstances, optimization of boolean expressions could invert the boolean value.
+
+  Own Id: OTP-20140 Aux Id: [GH-11088], [PR-11089]
+
+- The compiler could crash when compiling code using native records in certain ways.
+
+  Own Id: OTP-20146 Aux Id: [PR-11135]
+
+[GH-11088]: https://github.com/erlang/otp/issues/11088
+[PR-11089]: https://github.com/erlang/otp/pull/11089
+[PR-11135]: https://github.com/erlang/otp/pull/11135
+
 ## Compiler 10.0
 
 ### Fixed Bugs and Malfunctions
@@ -256,6 +282,17 @@ This document describes the changes made to the Compiler application.
 [PR-10819]: https://github.com/erlang/otp/pull/10819
 [PR-9814]: https://github.com/erlang/otp/pull/9814
 [PR-10839]: https://github.com/erlang/otp/pull/10839
+
+## Compiler 9.0.6.1
+
+### Fixed Bugs and Malfunctions
+
+- In rare circumstances, optimization of boolean expressions could invert the boolean value.
+
+  Own Id: OTP-20140 Aux Id: [GH-11088], [PR-11089]
+
+[GH-11088]: https://github.com/erlang/otp/issues/11088
+[PR-11089]: https://github.com/erlang/otp/pull/11089
 
 ## Compiler 9.0.6
 
@@ -696,6 +733,17 @@ This document describes the changes made to the Compiler application.
 [PR-8670]: https://github.com/erlang/otp/pull/8670
 [PR-9334]: https://github.com/erlang/otp/pull/9334
 [PR-9604]: https://github.com/erlang/otp/pull/9604
+
+## Compiler 8.6.1.5
+
+### Fixed Bugs and Malfunctions
+
+- In rare circumstances, optimization of boolean expressions could invert the boolean value.
+
+  Own Id: OTP-20140 Aux Id: [GH-11088], [PR-11089]
+
+[GH-11088]: https://github.com/erlang/otp/issues/11088
+[PR-11089]: https://github.com/erlang/otp/pull/11089
 
 ## Compiler 8.6.1.4
 

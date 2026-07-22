@@ -3,8 +3,8 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
+%% Copyright Ericsson AB 2010-2026. All Rights Reserved.
 %% Copyright 1999-2002 Richard Carlsson
-%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -340,12 +340,35 @@ match(P, E, Bs) ->
 			    end;
 			cons ->
 			    none;
+                        record ->
+                            none;
 			tuple ->
 			    none;
 			_ ->
 			    {false, Bs}
 		    end
 	    end;
+        record ->
+            %% For now only say "definitely no match" if a native
+            %% record pattern is matched against non-record data.
+            case E of
+                any ->
+                    {false, Bs};
+                _ ->
+                    case type(E) of
+                        literal ->
+                            %% There are no native record literals.
+                            none;
+                        cons ->
+                            none;
+                        map ->
+                            none;
+                        tuple ->
+                            none;
+                        _ ->
+                            {false, Bs}
+                    end
+            end;
 	_ ->
 	    match_1(P, E, Bs)
     end.

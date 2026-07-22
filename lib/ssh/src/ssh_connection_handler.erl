@@ -1858,12 +1858,12 @@ add_request(false, _ChannelId, _From, State) ->
 add_request(true, ChannelId, From, #data{connection_state =
 					     #connection{requests = Requests0} =
 					     Connection} = State) ->
-    Requests = [{ChannelId, From} | Requests0],
+    Requests = Requests0 ++ [{ChannelId, From}],
     State#data{connection_state = Connection#connection{requests = Requests}};
 add_request(Fun, ChannelId, From, #data{connection_state =
                                             #connection{requests = Requests0} =
                                             Connection} = State) when is_function(Fun) ->
-    Requests = [{ChannelId, From, Fun} | Requests0],
+    Requests = Requests0 ++ [{ChannelId, From, Fun}],
     State#data{connection_state = Connection#connection{requests = Requests}}.
 
 new_channel_id(#data{connection_state = #connection{channel_id_seed = Id} =
@@ -2150,6 +2150,8 @@ get_repl({channel_data,undefined,_Data}, Acc) ->
 get_repl({channel_data,Pid,Data}, Acc) ->
     Pid ! {ssh_cm, self(), Data},
     Acc;
+get_repl({channel_request_reply,undefined,_Data}, Acc) ->
+    Acc;
 get_repl({channel_request_reply,From,Data}, {CallRepls,S}) ->
     {[{reply,From,Data}|CallRepls], S};
 get_repl({flow_control,Cache,Channel,From,Msg}, {CallRepls,S}) ->
@@ -2271,7 +2273,7 @@ triggered_alive(StateName, D0 = #data{},
             {stop, Shutdown, D};
         _ ->
             D = send_msg({ssh_msg_global_request,"keepalive@erlang.org", true, <<>>},
-                             D0),
+                             add_request(fun(_,Conn) -> Conn end, make_ref(), undefined, D0)),
             Ssh = D#data.ssh_params,
             Now = erlang:monotonic_time(milli_seconds),
             Ssh1 = Ssh#ssh{alive_probes_sent = SentProbes + 1,

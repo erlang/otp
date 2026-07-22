@@ -23,6 +23,17 @@ limitations under the License.
 
 Releases are listed in reverse chronological order, most recent first.
 
+## diameter 2.7.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed return value documentation of `diameter:service_info(SvcName, statistics)`
+
+  Own Id: OTP-20150 Aux Id: [GH-11105], [PR-11146]
+
+[GH-11105]: https://github.com/erlang/otp/issues/11105
+[PR-11146]: https://github.com/erlang/otp/pull/11146
+
 ## diameter 2.7
 
 ### Improvements and New Features
@@ -50,6 +61,17 @@ Releases are listed in reverse chronological order, most recent first.
 [PR-10580]: https://github.com/erlang/otp/pull/10580
 [PR-10730]: https://github.com/erlang/otp/pull/10730
 [PR-10839]: https://github.com/erlang/otp/pull/10839
+
+## diameter 2.6.1.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed return value documentation of `diameter:service_info(SvcName, statistics)`
+
+  Own Id: OTP-20150 Aux Id: [GH-11105], [PR-11146]
+
+[GH-11105]: https://github.com/erlang/otp/issues/11105
+[PR-11146]: https://github.com/erlang/otp/pull/11146
 
 ## diameter 2.6.1
 
@@ -154,6 +176,17 @@ Releases are listed in reverse chronological order, most recent first.
 [PR-9079]: https://github.com/erlang/otp/pull/9079
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 [PR-9786]: https://github.com/erlang/otp/pull/9786
+
+## diameter 2.4.1.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed return value documentation of `diameter:service_info(SvcName, statistics)`
+
+  Own Id: OTP-20150 Aux Id: [GH-11105], [PR-11146]
+
+[GH-11105]: https://github.com/erlang/otp/issues/11105
+[PR-11146]: https://github.com/erlang/otp/pull/11146
 
 ## diameter 2.4.1.1
 

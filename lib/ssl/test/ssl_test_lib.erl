@@ -4187,7 +4187,7 @@ user_lookup(psk, _Identity, UserState) ->
 user_lookup(srp, Username, _UserState) ->
     Salt = ssl_cipher:random_bytes(16),
     UserPassHash = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, <<"secret">>])]),
-    {ok, {srp_1024, Salt, UserPassHash}}.
+    {ok, {srp_2048, Salt, UserPassHash}}.
 
 test_cipher(TestCase, Config) ->
     [{name, Group} |_] = proplists:get_value(tc_group_properties, Config),
