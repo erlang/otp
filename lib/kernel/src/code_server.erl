@@ -558,10 +558,8 @@ patch_path(Path) ->
 
 %% As the erl_prim_loader path includes the -pa and -pz
 %% directories they have to be removed first !!
-exclude_pa_pz(P0,Pa,[]) ->
-    P0 -- Pa;
-exclude_pa_pz(P0,Pa,Pz) ->
-    lists:reverse(lists:reverse(P0 -- Pa) -- Pz).
+exclude_pa_pz(P0, Pa, Pz) ->
+    P0 -- Pa -- Pz.
 
 %%
 %% Keep only 'valid' paths in code server.
