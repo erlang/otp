@@ -235,6 +235,25 @@ init_per_testcase(mlkem768x25519_hybrid_secret_encoding, Config) ->
         false -> {skip, "X25519 or ML-KEM768 not supported"};
         true -> Config
     end;
+init_per_testcase(sshd_simple_exec, Config) ->
+    case proplists:get_value(tag_alg, Config) of
+        {public_key, Algs} ->
+            KeyInfo = user_key_files_for(Algs),
+            case has_user_key_for(Algs) of
+                true ->
+                    ?CT_LOG("sshd_simple_exec: identity key check passed~n"
+                            "  Algs: ~p~n"
+                            "  Key files found: ~p", [Algs, KeyInfo]),
+                    Config;
+                false ->
+                    ?CT_LOG("sshd_simple_exec: no identity key~n"
+                            "  Algs: ~p~n"
+                            "  Key files checked: ~p", [Algs, KeyInfo]),
+                    {skip, {no_user_identity_key, Algs}}
+            end;
+        _ ->
+            Config
+    end;
 init_per_testcase(_TC, Config) ->
     Config.
 
@@ -503,6 +522,47 @@ supports(Tag, Alg, Algos) ->
 	      end,
 	      split(Tag, Alg)).
 
+
+%%%----------------------------------------------------------------
+%%% Check that the user has a local identity key matching the algorithm.
+%%% Used by init_per_testcase(sshd_simple_exec, ...) to skip early
+%%% instead of waiting 37s+ for auth failure against the OS sshd.
+
+has_user_key_for(Algs) when is_list(Algs) ->
+    lists:all(fun has_user_key_for_single/1, Algs);
+has_user_key_for(Alg) ->
+    has_user_key_for_single(Alg).
+
+user_key_files_for(Algs) when is_list(Algs) ->
+    lists:flatmap(fun user_key_files_for/1, Algs);
+user_key_files_for(Alg) ->
+    Home = os:getenv("HOME"),
+    KeyFiles = key_filenames(Alg),
+    [{Alg, F, filelib:is_regular(filename:join([Home, ".ssh", F]))}
+     || F <- KeyFiles].
+
+has_user_key_for_single(Alg) ->
+    Home = os:getenv("HOME"),
+    KeyFiles = key_filenames(Alg),
+    lists:any(fun(F) ->
+        filelib:is_regular(filename:join([Home, ".ssh", F]))
+    end, KeyFiles).
+
+key_filenames(Alg) ->
+    case Alg of
+        'ssh-rsa'             -> ["id_rsa"];
+        'rsa-sha2-256'        -> ["id_rsa"];
+        'rsa-sha2-512'        -> ["id_rsa"];
+        'ssh-dss'             -> ["id_dsa"];
+        'ssh-ed25519'         -> ["id_ed25519"];
+        'ssh-ed448'           -> ["id_ed448"];
+        'ecdsa-sha2-nistp256' -> ["id_ecdsa", "id_ecdsa_sk"];
+        'ecdsa-sha2-nistp384' -> ["id_ecdsa"];
+        'ecdsa-sha2-nistp521' -> ["id_ecdsa"];
+        _                     -> []
+    end.
+
+%%%----------------------------------------------------------------
 
 extract_algos(Spec) ->
     [{Tag,get_atoms(List)} || {Tag,List} <- Spec].
