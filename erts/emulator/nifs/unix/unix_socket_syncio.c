@@ -338,8 +338,12 @@ typedef struct {
 #ifdef HAVE_RECVMMSG
 /* Grow-to-fit scratch block for essio_recvmmsg, kept per scheduler thread. */
 typedef struct {
-    char*  base;
-    size_t capacity;
+    char*        base;
+    size_t       capacity;
+    unsigned int laid_vlen;    /* dimensions the block is currently set up for */
+    size_t       laid_bufSz;
+    size_t       laid_ctrlSz;
+    unsigned int used;         /* leading slots the previous call mutated */
 } ESSIOMMsgPool;
 
 static ErlNifTSDKey esock_mmsg_pool_key;
@@ -350,8 +354,12 @@ static ESSIOMMsgPool* essio_recvmmsg_pool(const size_t need)
     ESSIOMMsgPool* pool = enif_tsd_get(esock_mmsg_pool_key);
     if (pool == NULL) {
         ESOCK_ASSERT( (pool = MALLOC(sizeof(ESSIOMMsgPool))) != NULL );
-        pool->base     = NULL;
-        pool->capacity = 0;
+        pool->base       = NULL;
+        pool->capacity   = 0;
+        pool->laid_vlen  = 0;
+        pool->laid_bufSz = 0;
+        pool->laid_ctrlSz = 0;
+        pool->used       = 0;
         enif_tsd_set(esock_mmsg_pool_key, pool);
     }
     if (pool->capacity < need) {
@@ -4205,8 +4213,6 @@ ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
         pool = essio_recvmmsg_pool(total_sz);
         p = pool->base;
 
-        /* bufs/ctrls/addrs must start zeroed for the cleanup path. */
-        sys_memzero(p, bufs_sz + ctrls_sz + addrs_sz);
         bufs         = (ErlNifBinary*)   (p);
         ctrls        = (ErlNifBinary*)   (p + bufs_sz);
         addrs        = (ESockAddress*)   (p + bufs_sz + ctrls_sz);
@@ -4215,20 +4221,43 @@ ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
         elems        = (ERL_NIF_TERM*)   (p + bufs_sz + ctrls_sz + addrs_sz + mmsghdrs_sz + iovecs_sz);
         recvBufs     = (unsigned char*)  (p + meta_sz);
         recvCtrl     = (unsigned char*)  (p + meta_sz + bufdata_sz);
-    }
 
-    /* Set up mmsghdr/iovec slots to point into the block. */
-    for (i = 0; i < vlen; i++) {
-        recvIovecs[i].iov_base = recvBufs + (i * bufSz);
-        recvIovecs[i].iov_len  = bufSz;
-        recvMmsghdrs[i].msg_hdr.msg_name       = &addrs[i];
-        recvMmsghdrs[i].msg_hdr.msg_namelen    = addrLen;
-        recvMmsghdrs[i].msg_hdr.msg_iov        = &recvIovecs[i];
-        recvMmsghdrs[i].msg_hdr.msg_iovlen     = 1;
-        recvMmsghdrs[i].msg_hdr.msg_control    = recvCtrl + (i * ctrlSz);
-        recvMmsghdrs[i].msg_hdr.msg_controllen = ctrlSz;
-        recvMmsghdrs[i].msg_hdr.msg_flags      = 0;
-        recvMmsghdrs[i].msg_len                = 0;
+        /* Full setup on (re)layout; otherwise only restore the fields the
+         * kernel and post-processing mutate, for the previously-used slots.
+         * A grow only happens when total_sz (hence the dimensions) changed,
+         * so the layout check below already covers it. 's' keeps 'i' at 0
+         * until the allocation loop below. */
+        if (vlen   != pool->laid_vlen  ||
+            bufSz  != pool->laid_bufSz ||
+            ctrlSz != pool->laid_ctrlSz) {
+            unsigned int s;
+            for (s = 0; s < vlen; s++) {
+                recvIovecs[s].iov_base = recvBufs + (s * bufSz);
+                recvIovecs[s].iov_len  = bufSz;
+                recvMmsghdrs[s].msg_hdr.msg_name       = &addrs[s];
+                recvMmsghdrs[s].msg_hdr.msg_namelen    = addrLen;
+                recvMmsghdrs[s].msg_hdr.msg_iov        = &recvIovecs[s];
+                recvMmsghdrs[s].msg_hdr.msg_iovlen     = 1;
+                recvMmsghdrs[s].msg_hdr.msg_control    = recvCtrl + (s * ctrlSz);
+                recvMmsghdrs[s].msg_hdr.msg_controllen = ctrlSz;
+                recvMmsghdrs[s].msg_hdr.msg_flags      = 0;
+                recvMmsghdrs[s].msg_len                = 0;
+            }
+            pool->laid_vlen   = vlen;
+            pool->laid_bufSz  = bufSz;
+            pool->laid_ctrlSz = ctrlSz;
+            pool->used        = 0;
+        } else {
+            unsigned int s;
+            const unsigned int used = pool->used;
+            for (s = 0; s < used; s++) {
+                recvMmsghdrs[s].msg_hdr.msg_namelen    = addrLen;
+                recvMmsghdrs[s].msg_hdr.msg_control    = recvCtrl + (s * ctrlSz);
+                recvMmsghdrs[s].msg_hdr.msg_controllen = ctrlSz;
+                recvMmsghdrs[s].msg_hdr.msg_flags      = 0;
+                recvMmsghdrs[s].msg_len                = 0;
+            }
+        }
     }
 
     ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_tries, &descP->readTries, 1);
@@ -4238,6 +4267,8 @@ ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
      */
     readResult = sock_recvmmsg(descP->sock, recvMmsghdrs, vlen, flags, NULL);
     saveErrno = ESOCK_IS_ERROR(readResult) ? sock_errno() : 0;
+
+    pool->used = (readResult > 0) ? (unsigned int) readResult : 0;
 
     if (readResult == 0) {
         ret = esock_make_ok2(env, MKEL(env));
@@ -4311,8 +4342,8 @@ ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
 
 cleanup:
     /* Free the binaries we still own; recv_create_bin may have handed some off
-     * (data == NULL -> FREE_BIN is a no-op). The bufs/ctrls arrays were zeroed
-     * above so slots the allocation loop never reached are skipped. */
+     * (data == NULL -> FREE_BIN is a no-op). 'i' bounds countToFree to slots
+     * the allocation loop populated (0 on the empty/error paths). */
     {
         unsigned int countToFree = (i < (unsigned int) readResult) ? i : (unsigned int) readResult;
         if (countToFree > 0) {

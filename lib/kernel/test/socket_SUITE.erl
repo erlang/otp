@@ -15814,8 +15814,8 @@ sendmmsg_dirty_scheduler_udp4(_Config) when is_list(_Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Many recvmmsg calls on one socket, varying VLen/BufSz, to exercise the
-%% recvmmsg scratch-pool reuse and grow paths.
+%% Many recvmmsg calls on one socket, varying VLen/BufSz and received
+%% count, to exercise the recvmmsg scratch-pool reuse/grow/reset paths.
 %%
 recvmmsg_pool_reuse_udp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(60)),
@@ -15842,6 +15842,13 @@ recvmmsg_pool_reuse_udp4(_Config) when is_list(_Config) ->
                     recvmmsg_pool_reuse_round(S1, S2, VLen, BufSz)
                 end,
                 Rounds ++ Rounds),
+            %% Fixed layout, varying received count -> incremental reset,
+            %% incl. large-VLen/few-received.
+            lists:foreach(
+                fun(Count) ->
+                    recvmmsg_pool_reuse_count(S1, S2, 64, 512, Count)
+                end,
+                [64, 1, 30, 64, 5, 1, 40, 64]),
             ok = socket:close(S1),
             ok = socket:close(S2),
             ok
@@ -15849,11 +15856,15 @@ recvmmsg_pool_reuse_udp4(_Config) when is_list(_Config) ->
     ).
 
 recvmmsg_pool_reuse_round(S1, S2, VLen, BufSz) ->
-    Expected = [list_to_binary(io_lib:format("r~p_m~p", [VLen, N]))
-                || N <- lists:seq(1, VLen)],
+    recvmmsg_pool_reuse_count(S1, S2, VLen, BufSz, VLen).
+
+%% Send Count datagrams, receive with a recvmmsg of capacity VLen (Count =< VLen).
+recvmmsg_pool_reuse_count(S1, S2, VLen, BufSz, Count) ->
+    Expected = [list_to_binary(io_lib:format("r~p_~p_m~p", [VLen, Count, N]))
+                || N <- lists:seq(1, Count)],
     lists:foreach(fun(D) -> ok = socket:send(S2, D) end, Expected),
     {ok, Received} = socket:recvmmsg(S1, VLen, BufSz, 0, [], infinity),
-    VLen = length(Received),
+    Count = length(Received),
     ReceivedData = [Data || Msg <- Received, [Data] <- [maps:get(iov, Msg)]],
     true = lists:sort(ReceivedData) =:= lists:sort(Expected),
     ok.
