@@ -57,6 +57,7 @@ MODULES= \
 	ssh_key_cb \
 	ssh_key_cb_options \
 	ssh_key_cb_engine_keys \
+	ssh_algorithms_key_cb \
 	ssh_trpt_test_lib \
 	ssh_chan_behaviours_client \
 	ssh_chan_behaviours_server \
