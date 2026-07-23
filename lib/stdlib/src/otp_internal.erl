@@ -72,6 +72,10 @@ obsolete(erlang, now, 0) ->
     {deprecated, "see the \"Time and Time Correction in Erlang\" chapter of the ERTS User's Guide for more information"};
 obsolete(erlang, phash, 2) ->
     {deprecated, "use erlang:phash2/2 instead"};
+obsolete(erlang, exit, 2) ->
+    {deprecated, "use erlang:exit_signal/2 instead"};
+obsolete(erlang, exit, 3) ->
+    {deprecated, "use erlang:exit_signal/3 instead"};
 obsolete(http_uri, decode, 1) ->
     {deprecated, "use uri_string:unquote function instead"};
 obsolete(http_uri, encode, 1) ->

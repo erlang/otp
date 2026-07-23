@@ -145,6 +145,8 @@ network problem.
 
 -export([info/0]).
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -include_lib("stdlib/include/ms_transform.hrl").
 
 %% Set this variable to 'allow' to allow several names of a process.
