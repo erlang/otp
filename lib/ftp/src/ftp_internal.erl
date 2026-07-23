@@ -166,7 +166,8 @@ open(Host) ->
                     | {tls, TLSOptions :: [ssl:tls_option()]} | {tls_sec_method, TLSSecMethod :: ftps | ftpes}
                     | {tls_ctrl_session_reuse, TLSSessionReuse :: boolean() } | {timeout, Timeout :: timeout()}
                     | {dtimeout, DTimeout :: timeout()} | {progress, Progress} | {sock_ctrl, SocketCtrls}
-                    | {sock_data_act, [SocketControl]} | {sock_data_pass, [SocketControl]},
+                    | {sock_data_act, [SocketControl]} | {sock_data_pass, [SocketControl]}
+                    | {ftp_extension, boolean()},
       SocketCtrls :: [SocketControl],
       IpFamily :: inet | inet6 | inet6fb4,
       Mode :: active | passive,
