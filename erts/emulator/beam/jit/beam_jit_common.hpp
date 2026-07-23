@@ -62,11 +62,16 @@ struct AsmRange {
 
     struct LineData {
         ErtsCodePtr start;
-        const std::string file;
+        Uint32 file;
         unsigned line;
     };
 
     const std::vector<LineData> lines;
+};
+
+struct AsmMetadata {
+    std::vector<std::string> files;
+    std::vector<AsmRange> ranges;
 };
 
 /* This is a partial class for `BeamAssembler`, containing various fields and
