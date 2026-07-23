@@ -798,6 +798,7 @@ collect_one_suspend_monitor(ErtsMonitor *mon, void *vsmicp, Sint reds)
 #define ERTS_PI_IX_DICTIONARY_LOOKUP                    38
 #define ERTS_PI_IX_LABEL                                39
 #define ERTS_PI_IX_PRIORITY_MESSAGES                    40
+#define ERTS_PI_IX_BINARY_FULL                          41
 
 #define ERTS_PI_UNRESERVE(RS, SZ) \
     (ASSERT((RS) >= (SZ)), (RS) -= (SZ))
@@ -851,7 +852,8 @@ static ErtsProcessInfoArgs pi_args[] = {
     {am_async_dist, 0, 0, ERTS_PROC_LOCK_MAIN},
     {am_dictionary, 3, ERTS_PI_FLAG_FORCE_SIG_SEND|ERTS_PI_FLAG_KEY_TUPLE2, ERTS_PROC_LOCK_MAIN},
     {am_label, 0, ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
-    {am_priority_messages, 0, 0, ERTS_PROC_LOCK_MAIN}
+    {am_priority_messages, 0, 0, ERTS_PROC_LOCK_MAIN},
+    {am_binary_full, 0, ERTS_PI_FLAG_NEED_MSGQ|ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN}
 };
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(pi_args[0])))
@@ -950,6 +952,8 @@ pi_arg2ix(Eterm arg, Eterm *extrap)
         return ERTS_PI_IX_TRACE;
     case am_binary:
         return ERTS_PI_IX_BINARY;
+    case am_binary_full:
+        return ERTS_PI_IX_BINARY_FULL;
     case am_sequential_trace_token:
         return ERTS_PI_IX_SEQUENTIAL_TRACE_TOKEN;
     case am_catchlevel:
@@ -2157,6 +2161,10 @@ process_info_aux(Process *c_p,
 
         break;
     }
+
+    case ERTS_PI_IX_BINARY_FULL:
+        res = erts_gather_binaries(hfact, rp);
+        break;
 
     case ERTS_PI_IX_SEQUENTIAL_TRACE_TOKEN: {
         Uint sz = size_object(rp->seq_trace_token);
