@@ -47,6 +47,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/asn1-$(VSN)
 EBIN = ../ebin
 
 EVAL_CT_MODULES = asn1ct_eval_ext
+EVAL_CT_ERL_TEMPLATES = $(EVAL_CT_MODULES:%=%.erl)
 
 CT_MODULES= \
 	asn1ct \
@@ -79,8 +80,6 @@ MODULES= $(CT_MODULES) $(RT_MODULES)
 ERL_FILES = $(MODULES:%=%.erl)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
-
-GENERATED_PARSER = $(PARSER_MODULE:%=%.erl)
 
 # internal hrl file
 HRL_FILES = asn1_records.hrl
@@ -121,7 +120,7 @@ $(TYPES): $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 
 
 clean:
-	rm -f $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(GENERATED_PARSER)
+	rm -f $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) asn1ct_rtt.erl prepare_templates.$(EMULATOR) $(EVAL_CT_ERL_TEMPLATES) $(RT_TEMPLATES_TARGET)
 	rm -f core *~
 
 docs:
@@ -197,7 +196,7 @@ prepare_templates.$(EMULATOR): prepare_templates.erl
 asn1rtt_%.$(EMULATOR): asn1rtt_%.erl
 	$(V_ERLC) +debug_info $(DETERMINISM_FLAG) $<
 
-$(EVAL_CT_MODULES:%=%.erl): prepare_templates.$(EMULATOR) \
+$(EVAL_CT_ERL_TEMPLATES): prepare_templates.$(EMULATOR) \
 			    $(EBIN)/asn1ct_rtt.$(EMULATOR) \
 			    $(EBIN)/asn1ct_func.$(EMULATOR) \
 
