@@ -78,6 +78,7 @@ ERL_NIF_TERM aead_cipher_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     if ((ctx_res = enif_alloc_resource(aead_cipher_ctx_rtype, sizeof(struct aead_cipher_ctx))) == NULL)
         return EXCP_ERROR(env, "Can't allocate resource");
 
+    ctx_res->ctx = NULL;
     ctx_res->env = enif_alloc_env();
     encflg_arg = argv[3];
 
@@ -133,6 +134,8 @@ ERL_NIF_TERM aead_cipher_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         {ret = EXCP_ERROR(env, "Can't allocate ctx"); goto done;}
     if (EVP_CipherInit_ex(ctx_res->ctx, ctx_res->cipherp->cipher.p, NULL, NULL, NULL, ctx_res->encflg) != 1)
         {ret = EXCP_ERROR(env, "CipherInit failed"); goto done;}
+    if (!EVP_CIPHER_CTX_set_key_length(ctx_res->ctx, (int)key.size))
+        {ret = EXCP_BADARG_N(env, 1, "Bad Key length"); goto done;}
 
     ret = enif_make_resource(env, ctx_res);
 
@@ -232,6 +235,8 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
             {ret = EXCP_ERROR(env, "Can't allocate ctx"); goto done;}
         if (EVP_CipherInit_ex(ctx, cipher, NULL, NULL, NULL, encflg) != 1)
             {ret = EXCP_ERROR(env, "CipherInit failed"); goto done;}
+        if (!EVP_CIPHER_CTX_set_key_length(ctx, (int)key.size))
+            {ret = EXCP_BADARG_N(env, 1, "Bad Key length"); goto done;}
 
     } else {
         /* argc = 4  {state, IV, InData, AAD }  */

@@ -37,8 +37,9 @@
          end_per_testcase/2,
          
          %% Test cases:
-         aead_bad_tag/1,
          aead_ng/1,
+         aead_bad_tag/1,
+         aead_bad_key_length/1,
          all_ciphers/1,
          api_errors_ecdh/1,
          api_ng/0,
@@ -462,9 +463,9 @@ groups() ->
      {sm4_ofb,              [], [api_ng, api_ng_one_shot]},
      {sm4_cfb,              [], [api_ng, api_ng_one_shot]},
      {sm4_ctr,              [], [api_ng, api_ng_one_shot]},
-     {sm4_gcm,              [], [aead_ng, aead_bad_tag]},
-     {sm4_ccm,              [], [aead_ng, aead_bad_tag]},
-     {chacha20_poly1305,    [], [aead_ng, aead_bad_tag]},
+     {sm4_gcm,              [], [aead_ng, aead_bad_tag, aead_bad_key_length]},
+     {sm4_ccm,              [], [aead_ng, aead_bad_tag, aead_bad_key_length]},
+     {chacha20_poly1305,    [], [aead_ng, aead_bad_tag, aead_bad_key_length]},
      {chacha20,             [], [api_ng, api_ng_one_shot]},
      {poly1305,             [], [poly1305]},
      {no_poly1305,          [], [no_poly1305]},
@@ -510,15 +511,15 @@ groups() ->
      {aes_128_ctr,  [], [api_ng, api_ng_one_shot]},
      {aes_192_ctr,  [], [api_ng, api_ng_one_shot]},
      {aes_256_ctr,  [], [api_ng, api_ng_one_shot]},
-     {aes_128_ccm,  [], [aead_ng, aead_bad_tag]},
-     {aes_192_ccm,  [], [aead_ng, aead_bad_tag]},
-     {aes_256_ccm,  [], [aead_ng, aead_bad_tag]},
+     {aes_128_ccm,  [], [aead_ng, aead_bad_tag, aead_bad_key_length]},
+     {aes_192_ccm,  [], [aead_ng, aead_bad_tag, aead_bad_key_length]},
+     {aes_256_ccm,  [], [aead_ng, aead_bad_tag, aead_bad_key_length]},
      {aes_128_ecb,  [], [api_ng, api_ng_one_shot]},
      {aes_192_ecb,  [], [api_ng, api_ng_one_shot]},
      {aes_256_ecb,  [], [api_ng, api_ng_one_shot]},
-     {aes_128_gcm,  [], [aead_ng, aead_bad_tag]},
-     {aes_192_gcm,  [], [aead_ng, aead_bad_tag]},
-     {aes_256_gcm,  [], [aead_ng, aead_bad_tag]},
+     {aes_128_gcm,  [], [aead_ng, aead_bad_tag, aead_bad_key_length]},
+     {aes_192_gcm,  [], [aead_ng, aead_bad_tag, aead_bad_key_length]},
+     {aes_256_gcm,  [], [aead_ng, aead_bad_tag, aead_bad_key_length]},
      {aes_128_ofb,  [], [api_ng, api_ng_one_shot]},
      {aes_192_ofb,  [], [api_ng, api_ng_one_shot]},
      {aes_256_ofb,  [], [api_ng, api_ng_one_shot]}
@@ -1135,6 +1136,23 @@ aead_bad_tag(Config) ->
 		  end, AEADs)
 	end,
     do_cipher_tests(fun aead_cipher_bad_tag/1, FilteredAEADs).
+
+%%--------------------------------------------------------------------
+aead_bad_key_length(Config) ->
+    [_|_] = AEADs = lazy_eval(proplists:get_value(cipher, Config)),
+    FilteredAEADs =
+        case proplists:get_bool(fips, Config) of
+            false ->
+                AEADs;
+            true ->
+                %% In FIPS mode, the IV length must be at least 12 bytes.
+                lists:filter(
+                  fun(Tuple) ->
+                          IVLen = byte_size(element(4, Tuple)),
+                          IVLen >= 12
+                  end, AEADs)
+        end,
+    do_cipher_tests(fun aead_cipher_bad_key_length/1, FilteredAEADs).
 
 %%-------------------------------------------------------------------- 
 sign_verify() ->
@@ -1810,6 +1828,39 @@ aead_cipher_bad_tag({Type, Key, _PlainText, IV, AAD, CipherText, CipherTag, TagL
     cipher_test(T,
                 fun() -> crypto:crypto_one_time_aead(Type, Key, IV, CipherText, AAD, BadTruncatedTag, false) end,
                 error).
+
+aead_cipher_bad_key_length({Type, Key, PlainText, IV, AAD, _CipherText, _CipherTag, _Info}) ->
+    F = fun(K) ->
+        try crypto:crypto_one_time_aead(Type, K, IV, PlainText, AAD, true) of
+            Res1 -> ct:fail("Call should fail, but succeeded with return: ~p~n", [Res1])
+        catch error : {badarg, _, _} -> ok
+        end,
+        try crypto:crypto_one_time_aead_init(Type, K, 1, true) of
+            Res2 -> ct:fail("Call should fail, but succeeded with return: ~p~n", [Res2])
+        catch error : {badarg, _, _} -> ok
+        end
+    end,
+    KeyExtended = <<Key/binary, 1>>,
+    F(KeyExtended),
+    KeyTruncatedSize = byte_size(Key) - 1,
+    <<KeyTruncated:KeyTruncatedSize/binary, _/binary>> = Key,
+    F(KeyTruncated);
+aead_cipher_bad_key_length({Type, Key, PlainText, IV, AAD, _CipherText, _CipherTag, TagLen, _Info}) ->
+    F = fun(K) ->
+        try crypto:crypto_one_time_aead(Type, K, IV, PlainText, AAD, TagLen, true) of
+            Res1 -> ct:fail("Call should fail, but succeeded with return: ~p~n", [Res1])
+        catch error : {badarg, _, _} -> ok
+        end,
+        try crypto:crypto_one_time_aead_init(Type, K, TagLen, true) of
+            Res2 -> ct:fail("Call should fail, but succeeded with return: ~p~n", [Res2])
+        catch error : {badarg, _, _} -> ok
+        end
+    end,
+    KeyExtended = <<Key/binary, 1>>,
+    F(KeyExtended),
+    KeyTruncatedSize = byte_size(Key) - 1,
+    <<KeyTruncated:KeyTruncatedSize/binary, _/binary>> = Key,
+    F(KeyTruncated).
 
 
 cipher_test(T, Fe, Ee, Fd, Ed) ->
