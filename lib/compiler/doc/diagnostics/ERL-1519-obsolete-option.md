@@ -1,0 +1,1 @@
+# ERL-1519 - Obsolete option
