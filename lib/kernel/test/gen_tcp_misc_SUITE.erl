@@ -116,7 +116,8 @@
          otp_19560_inet/1, otp_19560_inet6/1,
          otp_20104_ipv4/1, otp_20104_ipv6/1,
          send_block_unblock/1,
-         prim_inet_recv_marker/1
+         prim_inet_recv_marker/1,
+         otp_20257/1
 	]).
 
 %% Internal exports.
@@ -248,7 +249,8 @@ all_std_cases() ->
      otp_17492,
      otp_18707,
      send_block_unblock,
-     t_kernel_options
+     t_kernel_options,
+     otp_20257
     ].
 
 ticket_cases() ->
@@ -10190,6 +10192,145 @@ do_kernel_options_remote(Config, Addr) ->
     {ok, ABuffs} = inet:getopts(AS, [buffer, recbuf]),
     {LBuffs, CBuffs, ABuffs}.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+otp_20257(Config) when is_list(Config) ->
+    Cond = fun() ->
+                   %% This is only because we use family = inet
+                   %% in the test case.
+                   ?HAS_SUPPORT_IPV4()
+           end,
+    Pre  = fun() ->
+                   Addr = case ?WHICH_LOCAL_ADDR(inet) of
+                              {ok, A} ->
+                                  A;
+                              {error, Reason} ->
+                                  throw({skip, Reason})
+                          end,
+                   #{addr   => Addr,
+                     config => Config}
+           end,
+    TC   = fun(State) ->
+                   do_otp_20257(State)
+           end,
+    Post = fun(_) ->
+                   ok
+           end,
+    ?TC_TRY(?FUNCTION_NAME,
+            Cond, Pre, TC, Post).
+
+
+do_otp_20257(#{config := Config, addr := Addr} = State) ->
+    ?P("[main] start server"),
+    {ServerPid, ServerMRef, ServerPort} = stc_server_start(State),
+    ?P("[main] connect to server"),
+    {ok, _Socket} = ?CONNECT(Config,
+                             Addr, ServerPort, [{active, false}]),
+    ?P("[main] connected - not reading anything - await server termination"),
+    receive
+        {'DOWN', ServerMRef, process, ServerPid, normal} ->
+            ?P("[main] expected server termination"),
+            ok;
+
+        {'DOWN', ServerMRef, process, ServerPid, Reason} ->
+            ?P("[main] server terminated: "
+               "~n   Reason: ~p", [Reason]),
+            exit(Reason)
+    end.
+
+stc_server_start(#{config := Config, addr := Addr}) ->
+    Self = self(),
+    {ServerPid, ServerMRef} =
+        spawn_monitor(fun() -> stc_server(Self, Config, Addr) end),
+    receive
+        {?MODULE, ServerPid, ServerPort} ->
+            {ServerPid, ServerMRef, ServerPort}
+    end.
+
+stc_server(ParentPid, Config, Addr) ->
+    ?P("[stc-server] starting"),
+    ParentMRef = erlang:monitor(process, ParentPid),
+    Opts       = [{ip,                 Addr},
+                  {send_timeout,       2000},
+                  {send_timeout_close, true},
+                  {active,             false},
+                  {reuseaddr,          true}],
+    ?P("[stc-server] try listen"),
+    {ok, ListenSocket} = ?LISTEN(Config, 0, Opts),
+    {ok, Port}         = inet:port(ListenSocket),
+    ?P("[stc-server] started - listening on port ~w:"
+       "~n   Listen Socket: ~p", [Port, ListenSocket]),
+    ParentPid ! {?MODULE, self(), Port},
+    ?P("[stc-server] try accept connection"),
+    {ok, AcceptSock} = gen_tcp:accept(ListenSocket),
+    ?P("[stc-server] connection accepted - monitor socket: "
+       "~n   Accepted Socket: ~p", [AcceptSock]),
+    ?P("[stc-server] activate socket (and enable debug)"),
+    ok = inet:setopts(AcceptSock, [{active, true}, {debug, true}]),
+    ?P("[stc-server] spawn sender"),
+    {SenderPid, SenderMRef} =
+        erlang:spawn_monitor(fun() -> stc_server_sender(AcceptSock) end),
+    stc_server_handle_connection(#{parent      => ParentPid,
+                                   parent_mref => ParentMRef,
+                                   sender      => SenderPid,
+                                   sender_mref => SenderMRef,
+                                   sock        => AcceptSock}).
+
+stc_server_handle_connection(#{sender := undefined,
+                               sock   := undefined}) ->
+    ?P("[stc-server-connection-handler] done"),
+    exit(normal);
+stc_server_handle_connection(#{sender := SenderPid,
+                               sock   := Sock} = State) ->
+    ?P("[stc-server-connection-handler] await event when"
+       "~n   Sender: ~p"
+       "~n   Sock:   ~p", [SenderPid, Sock]),
+    receive
+        {tcp_closed, Sock} ->
+            ?P("[stc-server-connection-handler] "
+               "received expected (tcp) 'closed' message"),
+            stc_server_handle_connection(State#{sock => undefined});
+
+        {'DOWN', _SenderMRef, process, SenderPid, {send, timeout}} ->
+            ?P("[stc-server-connection-handler] expected sender termination"),
+            stc_server_handle_connection(State#{sender      => undefined,
+                                                sender_mref => undefined});
+
+        {'DOWN', _SenderMRef, process, SenderPid, Reason} ->
+            ?P("[stc-server-connection-handler] unexpected sender termination:"
+               "~n   Reason: ~p", [Reason]),
+            exit({sender, Reason});
+
+
+        %% The message below is a failure case.
+        %% That also includes the timeout.
+
+        {tcp_error, Sock, Reason} ->
+            ?P("[stc-server-connection-handler] error: "
+               "~n   Reason: ~p", [Reason]),
+            exit({error, Reason})
+
+    after 16000 ->
+            ?P("[stc-server-connection-handler] timeout"),
+            exit(SenderPid, kill),
+            exit(timeout)
+    end.
+        
+stc_server_sender(Sock) ->
+    stc_server_sender(Sock, 0).
+
+stc_server_sender(Sock, Sent) ->
+    Chunk = crypto:strong_rand_bytes(65536),
+    case gen_tcp:send(Sock, Chunk) of
+        ok ->
+            stc_server_sender(Sock, Sent + byte_size(Chunk));
+        {error, Reason} ->
+            ?P("[stc-server-sender] send failed after ~p bytes:"
+               "~n   Reason: ~p", [Sent, Reason]),
+            exit({send, Reason})
+    end.    
+   
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
