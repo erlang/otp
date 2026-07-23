@@ -756,7 +756,7 @@ second_monitor(Scope, Group, Control, SecondMonitor) ->
 second_monitor(Msgs) ->
     receive
         {'$gen_call', Reply, flush} ->
-            gen:reply(Reply, lists:reverse(Msgs));
+            gen_gen:reply(Reply, lists:reverse(Msgs));
         Msg ->
             second_monitor([Msg | Msgs])
     end.
