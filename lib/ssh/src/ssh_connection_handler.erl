@@ -1157,20 +1157,17 @@ handle_event(info, {Proto, Sock, Info}, {hello,_}, #data{socket = Sock,
 	    {keep_state_and_data, [{next_event, internal, {info_line,Info}}]}
     end;
 
-handle_event(info, {Proto, Sock, NewData}, StateName,
-             D0 = #data{transport_protocol = Proto,
-                        socket = Sock,
-                        discard_bytes_left = DiscardBytesLeft,
+handle_event(info, {_Proto, Sock, NewData}, StateName,
+             D0 = #data{discard_bytes_left = DiscardBytesLeft,
                         discard_mac_already = DiscardMacAlready,
-                        discard_reason = Reason,
-                        ssh_params = Ssh}) when DiscardBytesLeft > 0 ->
+                        discard_reason = DiscardReason}) when DiscardBytesLeft > 0 ->
     D1 = reset_alive(D0), %% TODO: Should this be here?
     NewDataSize = byte_size(NewData),
     case NewDataSize >= DiscardBytesLeft of
         true ->
             %% Enough bytes discarded
-            ssh_transport:finish_packet_discard(DiscardMacAlready, Ssh),
-            handle_packet_part_result(Reason, StateName, D1);
+            ssh_transport:finish_packet_discard(DiscardMacAlready, D1#data.ssh_params),
+            handle_packet_part_result(DiscardReason, StateName, D1);
         false ->
             %% We don't have enough bytes to finish packet discard,
             %% we must get more from the socket

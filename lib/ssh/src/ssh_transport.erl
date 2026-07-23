@@ -68,7 +68,7 @@
 -define(MIN_DH_KEY_SIZE, 400).
 
 %%% For test suites
--export([pack/4, adjust_algs_for_peer_version/2, hybrid_common/4]).
+-export([pack/3, adjust_algs_for_peer_version/2, hybrid_common/4]).
 
 %%%----------------------------------------------------------------------------
 %%%
@@ -1491,40 +1491,40 @@ ssh_packet(Msg, Ssh) ->
     pack(BinMsg, Ssh).
 
 pack(Data, Ssh=#ssh{}) ->
-    pack(Data, Ssh, 0, 0).
+    pack(Data, Ssh, 0).
 
-%%% Note: pack/4 is only to be called from tests that wants
-%%% to deliberately send packets with wrong PacketLength or PaddingLength!
+%%% Note: pack/3 is only to be called from tests that wants
+%%% to deliberately send packets with wrong PacketLength!
 %%% Use pack/2 for all other purposes!
 pack(PlainText,
      #ssh{send_sequence = SeqNum,
           send_mac = MacAlg,
-          encrypt = CryptoAlg} = Ssh0, PacketLenDeviationForTests, PaddingLenDeviationForTests)
+          encrypt = CryptoAlg} = Ssh0, PacketLenDeviationForTests)
   when is_binary(PlainText) ->
     {Ssh1, CompressedPlainText} = compress(Ssh0, PlainText),
     {FinalPacket, Ssh2} = pack(pkt_type(CryptoAlg), mac_type(MacAlg),
                                CompressedPlainText, PacketLenDeviationForTests,
-                               PaddingLenDeviationForTests, Ssh1),
+                               Ssh1),
     Ssh = Ssh2#ssh{send_sequence = (SeqNum+1) band 16#ffffffff},
     {FinalPacket, Ssh}.
 
 
-pack(common, rfc4253, PlainText, DeltaLenTst, PadDeltaLenTst,
+pack(common, rfc4253, PlainText, DeltaLenTst,
      #ssh{send_sequence = SeqNum,
           send_mac = MacAlg,
           send_mac_key = MacKey} = Ssh0) ->
-    PadLen = padding_length(4+1+byte_size(PlainText), Ssh0) + PadDeltaLenTst,
+    PadLen = padding_length(4+1+byte_size(PlainText), Ssh0),
     Pad =  ssh_bits:random(PadLen),
     TextLen = 1 + byte_size(PlainText) + PadLen + DeltaLenTst,
     PlainPkt = <<?UINT32(TextLen),?BYTE(PadLen), PlainText/binary, Pad/binary>>,
     {Ssh1, CipherPkt} = encrypt(Ssh0, PlainPkt),
     MAC0 = mac(MacAlg, MacKey, SeqNum, PlainPkt),
     {<<CipherPkt/binary,MAC0/binary>>, Ssh1};
-pack(common, enc_then_mac, PlainText, DeltaLenTst, PadDeltaLenTst,
+pack(common, enc_then_mac, PlainText, DeltaLenTst,
      #ssh{send_sequence = SeqNum,
           send_mac = MacAlg,
           send_mac_key = MacKey} = Ssh0) ->
-    PadLen = padding_length(1+byte_size(PlainText), Ssh0) + PadDeltaLenTst,
+    PadLen = padding_length(1+byte_size(PlainText), Ssh0),
     Pad =  ssh_bits:random(PadLen),
     PlainLen = 1 + byte_size(PlainText) + PadLen + DeltaLenTst,
     PlainPkt = <<?BYTE(PadLen), PlainText/binary, Pad/binary>>,
@@ -1532,8 +1532,8 @@ pack(common, enc_then_mac, PlainText, DeltaLenTst, PadDeltaLenTst,
     EncPacketPkt = <<?UINT32(PlainLen), CipherPkt/binary>>,
     MAC0 = mac(MacAlg, MacKey, SeqNum, EncPacketPkt),
     {<<?UINT32(PlainLen), CipherPkt/binary, MAC0/binary>>, Ssh1};
-pack(aead, _, PlainText, DeltaLenTst, PadDeltaLenTst, Ssh0) ->
-    PadLen = padding_length(1+byte_size(PlainText), Ssh0) + PadDeltaLenTst,
+pack(aead, _, PlainText, DeltaLenTst, Ssh0) ->
+    PadLen = padding_length(1+byte_size(PlainText), Ssh0),
     Pad =  ssh_bits:random(PadLen),
     PlainLen = 1 + byte_size(PlainText) + PadLen + DeltaLenTst,
     PlainPkt = <<?BYTE(PadLen), PlainText/binary, Pad/binary>>,
@@ -1687,6 +1687,7 @@ finish_packet_discard(MacAlready, #ssh{recv_mac = Algorithm,
                                        recv_mac_key = Key,
                                        recv_sequence = SeqNum}) when MacSize > 0 ->
     Data = binary:copy(<<"a">>, ?SSH_MAX_PACKET_SIZE - MacAlready),
+    %% Compute mac over dummy data to not disconnect before we process ?SSH_MAX_PACKET_SIZE bytes.
     %% TODO: Should we also do crypto:hash_equals/2 call as in is_valid_mac/3?
     %% Openssh doesn't seem to do that
     _ = mac(Algorithm, Key, SeqNum, Data),

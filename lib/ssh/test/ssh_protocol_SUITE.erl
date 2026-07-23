@@ -46,7 +46,7 @@
 
 -export([
          bad_long_service_name/1,
-         bad_packet_length/2,
+         bad_packet_length/5,
          bad_service_name/1,
          bad_service_name/2,
          bad_service_name_length/2,
@@ -99,7 +99,8 @@
          no_ext_info_s2/1,
          packet_length_too_large/1,
          packet_length_too_short/1,
-         packet_misaligned_block_size/1,
+         packet_length_longer_than_max/1,
+         bad_mac/1,
          preferred_algorithms/1,
          service_name_length_too_large/1,
          service_name_length_too_short/1,
@@ -131,9 +132,27 @@
                                    [{client2server,Ciphs}, {server2client,Ciphs}]
                           end)()
         ).
--define(GCM_CIPHERS, ['AEAD_AES_256_GCM', 'AEAD_AES_128_GCM']).
--define(CHACHA_CIPHERS, ['chacha20-poly1305@openssh.com']).
--define(ETM_MACS, ['hmac-sha2-512-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha1-etm@openssh.com']).
+
+-define(COMMON_CIPHERS, ['aes256-ctr',
+                         'aes192-ctr',
+                         'aes128-ctr']).
+-define(COMMON_CBC_CIPHERS, ['aes256-cbc',
+                             'aes192-cbc',
+                             'aes128-cbc',
+                             '3des-cbc']).
+-define(ALL_COMMON_CIPHERS, ?COMMON_CBC_CIPHERS ++ ?COMMON_CIPHERS).
+-define(AEAD_CIPHERS, ['AEAD_AES_256_GCM',
+                       'AEAD_AES_128_GCM',
+                       'chacha20-poly1305@openssh.com']).
+-define(MACS, ['hmac-sha2-512',
+               'hmac-sha2-256',
+               'hmac-sha1',
+               'hmac-sha1-96'
+              ]).
+-define(ETM_MACS, ['hmac-sha2-512-etm@openssh.com',
+                   'hmac-sha2-256-etm@openssh.com',
+                   'hmac-sha1-etm@openssh.com']).
+
 -define(HARDCODED_KEXDH_REPLY,
         #ssh_msg_kexdh_reply{
            public_host_key = {{{'ECPoint',<<73,72,235,162,96,101,154,59,217,114,123,192,96,105,250,29,214,76,60,63,167,21,221,118,246,168,152,2,7,172,137,125>>},
@@ -178,7 +197,7 @@ all() ->
      {group,kex},
      {group,service_requests},
      {group,authentication},
-     {group,packet_size_error},
+     {group,packet_error},
      {group,field_size_error},
      {group,ext_info},
      {group,preferred_algorithms},
@@ -187,11 +206,7 @@ all() ->
      {group,alive},
      {group,dh},
      {group,ecdh},
-     {group,hybrid},
-     {group,common},
-     {group,enc_then_mac},
-     {group,gcm},
-     {group,chacha}
+     {group,hybrid}
     ].
 
 groups() ->
@@ -200,12 +215,14 @@ groups() ->
 		       lib_match,
 		       lib_no_match
 		      ]},
-     {packet_size_error, [], [packet_length_too_large,
-			      packet_length_too_short,
-			      decompression_bomb_client,
-			      decompression_bomb_client_after_auth,
-			      decompression_bomb_server,
-			      decompression_bomb_server_after_auth]},
+     {packet_error, [], [decompression_bomb_client,
+                         decompression_bomb_client_after_auth,
+                         decompression_bomb_server,
+                         decompression_bomb_server_after_auth,
+                         {group, common},
+                         {group, common_cbc},
+                         {group, enc_then_mac},
+                         {group, aead}]},
      {field_size_error, [], [service_name_length_too_large,
 			     service_name_length_too_short]},
      {kex, [], [custom_kexinit,
@@ -258,10 +275,22 @@ groups() ->
      {dh, [], [{group, guess}]},
      {ecdh, [], [{group, guess}]},
      {hybrid, [], [{group, guess}]},
-     {common, [], [packet_misaligned_block_size]},
-     {enc_then_mac, [], [packet_misaligned_block_size]},
-     {gcm, [], [packet_misaligned_block_size]},
-     {chacha, [], [packet_misaligned_block_size]}
+     {common, [], [packet_length_too_short,
+                   packet_length_too_large,
+                   packet_length_longer_than_max,
+                   bad_mac]},
+     {common_cbc, [], [packet_length_too_short,
+                       packet_length_too_large,
+                       packet_length_longer_than_max,
+                       bad_mac]},
+     {enc_then_mac, [], [packet_length_too_short,
+                         packet_length_too_large,
+                         packet_length_longer_than_max,
+                         bad_mac]},
+     {aead, [], [packet_length_too_short,
+                packet_length_too_large,
+                packet_length_longer_than_max,
+                bad_mac]}
     ].
 
 
@@ -293,14 +322,18 @@ init_per_group(guess, Config) ->
         _ ->
             {skip, "Not enough public key algorithms supported"}
     end;
-init_per_group(common, Config) ->
-    get_supported_alg_groups_or_skip([{cipher, ?CIPHERS}], Config);
-init_per_group(enc_then_mac, Config) ->
-    get_supported_alg_groups_or_skip([{mac, ?ETM_MACS}], Config);
-init_per_group(gcm, Config) ->
-    get_supported_alg_groups_or_skip([{cipher, ?GCM_CIPHERS}], Config);
-init_per_group(chacha, Config) ->
-    get_supported_alg_groups_or_skip([{cipher, ?CHACHA_CIPHERS}], Config);
+init_per_group(common, Config0) ->
+    Config = [{discard, false} | Config0],
+    get_supported_alg_groups_or_skip([{cipher, ?COMMON_CIPHERS}, {mac, ?MACS}], Config);
+init_per_group(common_cbc, Config0) ->
+    Config = [{discard, true} | Config0],
+    get_supported_alg_groups_or_skip([{cipher, ?COMMON_CBC_CIPHERS}, {mac, ?MACS}], Config);
+init_per_group(enc_then_mac, Config0) ->
+    Config = [{discard, false} | Config0],
+    get_supported_alg_groups_or_skip([{cipher, ?ALL_COMMON_CIPHERS}, {mac, ?ETM_MACS}], Config);
+init_per_group(aead, Config0) ->
+    Config = [{discard, false} | Config0],
+    get_supported_alg_groups_or_skip([{cipher, ?AEAD_CIPHERS}], Config);
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -360,14 +393,28 @@ init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 		      | Opts]);
 init_per_testcase(decompression_bomb_client, Config) ->
     start_std_daemon(Config, [{preferred_algorithms, [{compression, ['zlib']}]}]);
-init_per_testcase(packet_misaligned_block_size, Config) ->
+init_per_testcase(TC, Config) when TC == packet_length_too_short;
+                                   TC == packet_length_too_large;
+                                   TC == packet_length_longer_than_max;
+                                   TC == bad_mac ->
     Algs = proplists:get_value(preferred_algorithms, Config),
     start_std_daemon(Config, [{preferred_algorithms, [{kex, [?DEFAULT_KEX]} | Algs]}]);
 init_per_testcase(_TestCase, Config) ->
     check_std_daemon_works(Config, ?LINE).
 
-end_per_testcase(Tc, Config) when Tc == no_common_alg_server_disconnects;
-                                  Tc == custom_kexinit ->
+end_per_testcase(TC, Config) when TC == no_common_alg_server_disconnects;
+                                  TC == custom_kexinit;
+                                  TC == gex_client_init_option_groups;
+                                  TC == gex_client_init_option_groups_moduli_file;
+                                  TC == gex_client_init_option_groups_file;
+                                  TC == gex_server_gex_limit;
+                                  TC == gex_client_old_request_exact;
+                                  TC == gex_client_old_request_noexact;
+                                  TC == decompression_bomb_client;
+                                  TC == packet_length_too_short;
+                                  TC == packet_length_too_large;
+                                  TC == packet_length_longer_than_max;
+                                  TC == bad_mac ->
     stop_std_daemon(Config);
 end_per_testcase(TC, Config) when TC == kex_strict_negotiated;
                                   TC == kex_strict_violation_key_exchange;
@@ -377,17 +424,6 @@ end_per_testcase(TC, Config) when TC == kex_strict_negotiated;
                                   TC == kex_strict_msg_unknown ->
     ssh_test_lib:set_log_level(proplists:get_value(saved_log_level, Config)),
     Config;
-end_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
-				  TC == gex_client_init_option_groups_moduli_file ;
-				  TC == gex_client_init_option_groups_file ;
-				  TC == gex_server_gex_limit ;
-				  TC == gex_client_old_request_exact ;
-				  TC == gex_client_old_request_noexact ->
-    stop_std_daemon(Config);
-end_per_testcase(decompression_bomb_client, Config) ->
-    stop_std_daemon(Config);
-end_per_testcase(packet_misaligned_block_size, Config) ->
-    stop_std_daemon(Config);
 end_per_testcase(_TestCase, Config) ->
     check_std_daemon_works(Config, ?LINE).
 
@@ -803,55 +839,88 @@ bad_service_name(Config, Name) ->
 	  ], InitialState).
 
 %%%--------------------------------------------------------------------
-packet_length_too_large(Config) -> bad_packet_length(Config, +4).
+packet_length_too_large(Config) -> bad_packet_length(Config, 50, +4, false, 0).
 
-packet_length_too_short(Config) -> bad_packet_length(Config, -4).
-    
-bad_packet_length(Config, LengthExcess) ->
-    PacketFun = 
-	fun(Msg, Ssh) ->
-		BinMsg = ssh_message:encode(Msg),
-            ssh_transport:pack(BinMsg, Ssh, LengthExcess, 0)
-	end,
-    {ok,InitialState} = connect_and_kex(Config),
-    {ok,_} =
-	ssh_trpt_test_lib:exec(
-	  [{set_options, [print_ops, print_seqnums, print_messages]},
-	   {send, {special,
-		   #ssh_msg_service_request{name="ssh-userauth"},
-		   PacketFun}},
-	   %% Prohibit remote decoder starvation:	   
-	   {send, #ssh_msg_service_request{name="ssh-userauth"}},
-	   {match, disconnect(), receive_msg}
-	  ], InitialState).
+packet_length_too_short(Config) -> bad_packet_length(Config, 50, -4, false, 1).
 
-%%%--------------------------------------------------------------------
-packet_misaligned_block_size(Config) ->
+packet_length_longer_than_max(Config) -> bad_packet_length(Config, ?SSH_MAX_PACKET_SIZE, 0, true, 0).
+
+bad_packet_length(Config, DataLength, LengthExcess, ImmediateDisconnect, OvershootAmount) ->
+    Parent = self(),
     PacketFun =
         fun(Msg, Ssh) ->
                 BinMsg = ssh_message:encode(Msg),
-                ssh_transport:pack(BinMsg, Ssh, 0, 1)
+                {Packet, _} = Result = ssh_transport:pack(BinMsg, Ssh, LengthExcess),
+                Parent ! {size, byte_size(Packet)},
+                Result
         end,
+    test_packet_discard(Config, PacketFun, DataLength, ImmediateDisconnect, OvershootAmount).
+
+%%%--------------------------------------------------------------------
+bad_mac(Config) ->
+    Parent = self(),
+    PacketFun =
+        fun(Msg, #ssh{send_mac_size = MacSize} = Ssh0) ->
+                BinMsg = ssh_message:encode(Msg),
+                %% Replace mac in packet with invalid mac
+                {Packet0, Ssh} = ssh_transport:pack(BinMsg, Ssh0),
+                PacketSize = byte_size(Packet0),
+                PacketData = binary:part(Packet0, PacketSize, -MacSize),
+                FakeMac = binary:copy(<<"a">>, MacSize),
+                Packet = <<PacketData/binary, FakeMac/binary>>,
+                Parent ! {size, PacketSize},
+                {Packet, Ssh}
+        end,
+    test_packet_discard(Config, PacketFun, 50, false, 0).
+
+%%%--------------------------------------------------------------------
+test_packet_discard(Config, PacketFun, DataLength, ImmediateDisconnect, OvershootAmount) ->
     {ok, InitialState} = ssh_trpt_test_lib:exec(
-                           [{set_options, [print_ops, {print_messages,detail}]}]
-                          ),
-    Algs = proplists:get_value(preferred_algorithms, Config),
-    {ok, AfterKexState} = connect_and_kex(Config, InitialState, [{kex, [?DEFAULT_KEX]} | Algs], dh),
-    {ok, _} =
+                           [{set_options, [print_ops, {print_messages,detail}]}]),
+    Algs = proplists:get_value(preferred_algorithms, Config, []),
+    {ok, AfterKexState} = connect_and_kex(Config, InitialState, [{kex, [?DEFAULT_KEX]} | Algs]),
+    {ok, AfterSendState0} =
         ssh_trpt_test_lib:exec(
           [{set_options, [print_ops, print_seqnums, print_messages]},
            {send, {special,
-                   #ssh_msg_service_request{name="ssh-userauth"},
-                   PacketFun}},
-           {match, disconnect(), receive_msg}
-          ], AfterKexState).
+                   #ssh_msg_ignore{data = binary:copy(<<"a">>, DataLength)},
+                   PacketFun}}
+          ], AfterKexState),
+
+    Size = receive {size, S} -> S end,
+    Missing = ?SSH_MAX_PACKET_SIZE - Size,
+    case proplists:get_value(discard, Config) of
+        _ when ImmediateDisconnect ->
+            %% We already sent as much (or more) than ?SSH_MAX_PACKET_SIZE,
+            %% we get disconnect
+            {ok, _} =
+                ssh_trpt_test_lib:exec([{match, disconnect(), receive_msg}], AfterSendState0);
+        false ->
+            {ok, _} =
+                ssh_trpt_test_lib:exec([%% Prohibit remote decoder starvation:
+                                        {send, #ssh_msg_service_request{name="ssh-userauth"}},
+                                        {match, disconnect(), receive_msg}], AfterSendState0);
+        true ->
+            %% Packet is too short to cause disconnect immediately
+            {error, {_, receive_timeout, AfterSendState1}} =
+                ssh_trpt_test_lib:exec([{match, disconnect(), receive_msg}], AfterSendState0),
+            %% We send some data, but not enough to reach ?SSH_MAX_PACKET_SIZE, still no disconnect
+            {error, {_, receive_timeout, AfterSendState}} =
+                ssh_trpt_test_lib:exec([{send, binary:copy(<<"a">>, Missing - 1)},
+                                        {match, disconnect(), receive_msg}], AfterSendState1),
+            %% We send exactly (or more) the amount to reach (or go past) ?SSH_MAX_PACKET_SIZE,
+            %% we get disconnect
+            {ok, _} =
+                ssh_trpt_test_lib:exec([{send, binary:copy(<<"a">>, 1 + OvershootAmount)},
+                                        {match, disconnect(), receive_msg}], AfterSendState)
+    end.
 
 %%%--------------------------------------------------------------------
 decompression_bomb_client(Config) ->
     {ok, InitialState} = connect_and_kex(Config, ssh_trpt_test_lib:exec([]),
                                          [{kex, [?DEFAULT_KEX]},
                                           {cipher, ?DEFAULT_CIPHERS},
-                                          {compression, ['zlib']}], dh),
+                                          {compression, ['zlib']}]),
     %% ?SSH_MAX_PACKET_SIZE - 9 is enough to trigger disconnect because Payload of ssh packet becomes:
     %% 1 byte message identifier
     %% 4 bytes length of data field
@@ -870,7 +939,7 @@ decompression_bomb_client_after_auth(Config) ->
     {ok, InitialState} = connect_and_kex(Config, ssh_trpt_test_lib:exec([]),
                                          [{kex, [?DEFAULT_KEX]},
                                           {cipher, ?DEFAULT_CIPHERS},
-                                          {compression, ['zlib@openssh.com']}], dh),
+                                          {compression, ['zlib@openssh.com']}]),
     {User, Pwd} = server_user_password(Config),
     {ok, AfterAuthState} =
         ssh_trpt_test_lib:exec(
@@ -2210,6 +2279,9 @@ connect_and_kex(Config) ->
 
 connect_and_kex(Config, InitialState) ->
     ClientAlgs = [{kex,[?DEFAULT_KEX]}, {cipher,?DEFAULT_CIPHERS}],
+    connect_and_kex(Config, InitialState, ClientAlgs).
+
+connect_and_kex(Config, InitialState, ClientAlgs) ->
     connect_and_kex(Config, InitialState, ClientAlgs, dh).
 
 connect_and_kex(Config, InitialState, ClientAlgs, Variant) ->
@@ -2507,6 +2579,8 @@ get_supported_alg_groups_or_skip(Groups, Config) ->
         throw : Other ->
             Other
     end.
+
+%%%----------------------------------------------------------------
 get_supported_alg_group_or_skip(_, []) ->
     [];
 get_supported_alg_group_or_skip(Key, Algorithms) ->
