@@ -558,7 +558,7 @@ default(server) ->
            },
 
       dh_gex_limits =>
-          #{default => {0, infinity},
+          #{default => {2047, infinity},
             chk => fun({I1,I2}) ->
                            check_pos_integer(I1) andalso
                                check_pos_integer(I2) andalso
@@ -699,7 +699,7 @@ default(client) ->
            },
 
       dh_gex_limits =>
-          #{default => {1024, 6144, 8192},      % FIXME: Is this true nowadays?
+          #{default => {2047, 6144, 8192},
             chk => fun({Min,I,Max}) ->
                            lists:all(fun check_pos_integer/1,
                                      [Min,I,Max]);

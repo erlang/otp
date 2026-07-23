@@ -777,14 +777,22 @@ adjust_gex_min_max(Min0, Max0, Opts) ->
     end.
 		    
 
-handle_kex_dh_gex_group(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0) ->
-    %% client
-    Sz = dh_bits(Ssh0#ssh.algorithms),
-    {Public, Private} = generate_key(dh, [P,G,2*Sz]),
-    {SshPacket, Ssh1} = 
-	ssh_packet(#ssh_msg_kex_dh_gex_init{e = Public}, Ssh0),	% Pub = G^Priv mod P (def)
-    {ok, SshPacket, 
-     Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}}}}.
+handle_kex_dh_gex_group(#ssh_msg_kex_dh_gex_group{p = P, g = G},
+                        #ssh{keyex_info = {Min, _Max, _NBits}} = Ssh0) ->
+    %% client — validate group parameters from server (RFC 4419 §3)
+    PBits = nbits(P),
+    MinBits = max(Min, ?DH_GEX_MIN_BITS),
+    case validate_dh_gex_group(P, G, PBits, MinBits) of
+        ok ->
+            Sz = dh_bits(Ssh0#ssh.algorithms),
+            {Public, Private} = generate_key(dh, [P, G, 2*Sz]),
+            {SshPacket, Ssh1} =
+                ssh_packet(#ssh_msg_kex_dh_gex_init{e = Public}, Ssh0),
+            {ok, SshPacket,
+             Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}}}};
+        {error, Reason} ->
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, Reason)
+    end.
 
 handle_kex_dh_gex_init(#ssh_msg_kex_dh_gex_init{e = E}, 
 		       #ssh{keyex_key = {{Private, Public}, {G, P}},
@@ -2410,6 +2418,24 @@ dh_bits(#alg{encrypt = Encrypt,
                    C#cipher.iv_bytes,
                    mac_key_bytes(SendMac)
                   ]).
+
+%% Validate DH GEX group parameters received from the server.
+%% Checks generator bounds and prime size against requested limits.
+validate_dh_gex_group(P, G, _PBits, _MinBits)
+  when G =< 1;
+       G >= P - 1 ->
+    {error, "DH GEX invalid generator"};
+validate_dh_gex_group(_P, _G, PBits, MinBits) when PBits < MinBits ->
+    {error, io_lib:format("DH GEX group too small: ~p bits (minimum ~p)",
+                          [PBits, MinBits])};
+validate_dh_gex_group(_P, _G, _PBits, _MinBits) ->
+    ok.
+
+%% Number of significant bits in a positive integer.
+nbits(N) when is_integer(N), N > 0 ->
+    bit_size(binary:encode_unsigned(N));
+nbits(_) ->
+    0.
 
 ecdh_curve('ecdh-sha2-nistp256') -> secp256r1;
 ecdh_curve('ecdh-sha2-nistp384') -> secp384r1;
