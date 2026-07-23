@@ -27005,6 +27005,9 @@ sock_close(Sock) ->
     try socket:close(Sock) of
         ok ->
             ok;
+        {error, closed} ->
+            i("sock_close -> already closed"),
+            ok;
         {error, Reason} ->
             i("sock_close -> error: ~p", [Reason]),
             ?FAIL({close, Reason})
@@ -27458,8 +27461,8 @@ api_opt_sock_timestampns_udp(InitState) ->
                    end},
          #{desc => "close sockets",
            cmd  => fun(#{sock_src := Src, sock_dst := Dst}) ->
-                           (catch socket:close(Src)),
-                           (catch socket:close(Dst)),
+                           ?CATCH_AND_IGNORE( socket:close(Src) ),
+                           ?CATCH_AND_IGNORE( socket:close(Dst) ),
                            ok
                    end},
          ?SEV_FINISH_NORMAL
