@@ -758,7 +758,7 @@ void do_random_join(DbTableCATree* tb, Uint rand)
         return; /* No adaptation */
     }
     if (parent != NULL && !try_wlock_base_node(&node->u.base)) {
-        if (!node->u.base.is_valid) {
+        if (!node->is_valid) {
             wunlock_base_node(node);
             return;
         }
@@ -942,11 +942,10 @@ void unlock_iter_base_node(CATreeRootIterator* iter)
     ASSERT(iter->locked_bnode);
     if (iter->read_only)
         runlock_base_node(iter->locked_bnode, iter->tb);
-    else if (iter->locked_bnode->u.base.is_valid) {
+    else if (iter->locked_bnode->is_valid) {
         wunlock_adapt_base_node(iter->tb, iter->locked_bnode,
                                 iter->bnode_parent, iter->bnode_level);
-    }
-    else
+    } else
         wunlock_base_node(iter->locked_bnode);
     iter->locked_bnode = NULL;
 }
@@ -999,7 +998,7 @@ DbTableCATreeNode* find_rlock_valid_base_node(DbTableCATree* tb, Eterm key)
     while (1) {
         base_node = find_base_node(tb, key, NULL);
         rlock_base_node(base_node);
-        if (base_node->u.base.is_valid)
+        if (base_node->is_valid)
             break;
         runlock_base_node_no_rand(base_node);
     }
@@ -1015,7 +1014,7 @@ DbTableCATreeNode* find_wlock_valid_base_node(DbTableCATree* tb, Eterm key,
     while (1) {
         base_node = find_base_node(tb, key, fbn);
         wlock_base_node(base_node);
-        if (base_node->u.base.is_valid)
+        if (base_node->is_valid)
             break;
         wunlock_base_node(base_node);
     }
@@ -1053,7 +1052,7 @@ static DbTableCATreeNode *create_base_node(DbTableCATree *tb,
     ERTS_DB_ALC_MEM_UPDATE_((DbTable *) tb, 0, erts_rwmtx_size(&p->u.base.lock));
     BASE_NODE_STAT_SET(p, ((tb->common.status & DB_CATREE_FORCE_SPLIT)
                            ? INT_MAX : 0));
-    p->u.base.is_valid = true;
+    p->is_valid = true;
     return p;
 }
 
@@ -1078,7 +1077,7 @@ create_route_node(DbTableCATree *tb,
 
     copy_route_key(&p->u.route.key, key, key_size);
     p->is_base_node = false;
-    p->u.route.is_valid = true;
+    p->is_valid = true;
     erts_atomic_init_nob(&p->u.route.left, (erts_aint_t)left);
     erts_atomic_init_nob(&p->u.route.right, (erts_aint_t)right);
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -1234,16 +1233,16 @@ static void join_catree(DbTableCATree *tb,
             BASE_NODE_STAT_SET(thiz, 0);
             wunlock_base_node(thiz);
             return;
-        } else if (!neighbor->u.base.is_valid) {
+        } else if (!neighbor->is_valid) {
             BASE_NODE_STAT_SET(thiz, 0);
             wunlock_base_node(thiz);
             wunlock_base_node(neighbor);
             return;
         } else {
             lock_route_node(parent);
-            parent->u.route.is_valid = false;
-            neighbor->u.base.is_valid = false;
-            thiz->u.base.is_valid = false;
+            parent->is_valid = false;
+            neighbor->is_valid = false;
+            thiz->is_valid = false;
             gparent = NULL;
             do {
                 if (gparent != NULL) {
@@ -1252,7 +1251,7 @@ static void join_catree(DbTableCATree *tb,
                 gparent = parent_of(tb, parent);
                 if (gparent != NULL)
                     lock_route_node(gparent);
-            } while (gparent != NULL && !gparent->u.route.is_valid);
+            } while (gparent != NULL && !gparent->is_valid);
 
             if (gparent == NULL) {
                 SET_ROOT_RELB(tb, GET_RIGHT(parent));
@@ -1284,16 +1283,16 @@ static void join_catree(DbTableCATree *tb,
             BASE_NODE_STAT_SET(thiz, 0);
             wunlock_base_node(thiz);
             return;
-        } else if (!neighbor->u.base.is_valid) {
+        } else if (!neighbor->is_valid) {
             BASE_NODE_STAT_SET(thiz, 0);
             wunlock_base_node(thiz);
             wunlock_base_node(neighbor);
             return;
         } else {
             lock_route_node(parent);
-            parent->u.route.is_valid = false;
-            neighbor->u.base.is_valid = false;
-            thiz->u.base.is_valid = false;
+            parent->is_valid = false;
+            neighbor->is_valid = false;
+            thiz->is_valid = false;
             gparent = NULL;
             do {
                 if (gparent != NULL) {
@@ -1305,7 +1304,7 @@ static void join_catree(DbTableCATree *tb,
                 } else {
                     gparent = NULL;
                 }
-            } while (gparent != NULL && !gparent->u.route.is_valid);
+            } while (gparent != NULL && !gparent->is_valid);
             if (gparent == NULL) {
                 SET_ROOT_RELB(tb, GET_LEFT(parent));
             } else if (GET_RIGHT(gparent) == parent) {
@@ -1395,7 +1394,7 @@ static void split_catree(DbTableCATree *tb,
         } else {
             SET_RIGHT_RELB(parent, new_route);
         }
-        base->u.base.is_valid = false;
+        base->is_valid = false;
         wunlock_base_node(base);
         erts_schedule_db_free(&tb->common,
                               do_free_base_node,
@@ -1762,7 +1761,7 @@ TreeDbTerm** catree_find_root(Eterm key, CATreeRootIterator* iter)
     while (1) {
         base_node = find_base_node(iter->tb, key, &fbn);
         lock_iter_base_node(iter, base_node, fbn.parent, fbn.current_level);
-        if (base_node->u.base.is_valid)
+        if (base_node->is_valid)
             break;
         unlock_iter_base_node(iter);
     }
@@ -1841,7 +1840,7 @@ TreeDbTerm** catree_find_nextprev_root(CATreeRootIterator *iter,
         }
         ASSERT(node != rejected_invalid);
         lock_iter_base_node(iter, node, parent, current_level);
-        if (node->u.base.is_valid) {
+        if (node->is_valid) {
             ASSERT(node != rejected_empty);
             if (node->u.base.root) {
                 iter->next_route_key = (next_route_node ?
@@ -1856,8 +1855,7 @@ TreeDbTerm** catree_find_nextprev_root(CATreeRootIterator *iter,
             }
             route_key = next_route_node->u.route.key.term;
             IF_DEBUG(rejected_empty = node);
-        }
-        else
+        } else
             IF_DEBUG(rejected_invalid = node);
 
         /* Retry */
@@ -1914,7 +1912,7 @@ TreeDbTerm** catree_find_next_from_pb_key_root(Eterm pb_key,
         }
         ASSERT(node != rejected_base);
         lock_iter_base_node(iter, node, parent, current_level);
-        if (node->u.base.is_valid) {
+        if (node->is_valid) {
             iter->next_route_key = (next_route_node ?
                                     next_route_node->u.route.key.term :
                                     THE_NON_VALUE);
@@ -1967,7 +1965,7 @@ TreeDbTerm** catree_find_prev_from_pb_key_root(Eterm key,
         }
         ASSERT(node != rejected_base);
         lock_iter_base_node(iter, node, parent, current_level);
-        if (node->u.base.is_valid) {
+        if (node->is_valid) {
             iter->next_route_key = (next_route_node ?
                                     next_route_node->u.route.key.term :
                                     THE_NON_VALUE);
@@ -2002,7 +2000,7 @@ static TreeDbTerm** catree_find_firstlast_root(CATreeRootIterator* iter,
         }
         ASSERT(node != rejected_base);
         lock_iter_base_node(iter, node, next_route_node, current_level);
-        if (node->u.base.is_valid) {
+        if (node->is_valid) {
             iter->next_route_key = (next_route_node ?
                                     next_route_node->u.route.key.term :
                                     THE_NON_VALUE);
