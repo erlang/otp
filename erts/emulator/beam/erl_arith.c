@@ -40,6 +40,13 @@
 #include "big.h"
 #include "atom.h"
 
+/* SIMD headers for popcount optimization */
+#if (SIZEOF_VOID_P == 8) && defined(__AVX512VPOPCNTDQ__)
+#include <immintrin.h>
+#elif defined(__ARM_NEON)
+#include <arm_neon.h>
+#endif
+
 static ERTS_INLINE void maybe_shrink(Process* p, Eterm* hp, Eterm res, Uint alloc)
 {
     Uint actual;
@@ -97,32 +104,32 @@ BIF_RETTYPE splus_1(BIF_ALIST_1)
     } else {
 	BIF_ERROR(BIF_P, BADARITH);
     }
-} 
+}
 
 BIF_RETTYPE splus_2(BIF_ALIST_2)
 {
     BIF_RET(erts_mixed_plus(BIF_P, BIF_ARG_1, BIF_ARG_2));
-} 
+}
 
 BIF_RETTYPE sminus_1(BIF_ALIST_1)
 {
     BIF_RET(erts_unary_minus(BIF_P, BIF_ARG_1));
-} 
+}
 
 BIF_RETTYPE sminus_2(BIF_ALIST_2)
 {
     BIF_RET(erts_mixed_minus(BIF_P, BIF_ARG_1, BIF_ARG_2));
-} 
+}
 
 BIF_RETTYPE stimes_2(BIF_ALIST_2)
 {
     BIF_RET(erts_mixed_times(BIF_P, BIF_ARG_1, BIF_ARG_2));
-} 
+}
 
 BIF_RETTYPE div_2(BIF_ALIST_2)
 {
     BIF_RET(erts_mixed_div(BIF_P, BIF_ARG_1, BIF_ARG_2));
-} 
+}
 
 BIF_RETTYPE intdiv_2(BIF_ALIST_2)
 {
@@ -135,55 +142,55 @@ BIF_RETTYPE intdiv_2(BIF_ALIST_2)
 	Sint ires = signed_val(BIF_ARG_1) / signed_val(BIF_ARG_2);
 	if (IS_SSMALL(ires))
 	    BIF_RET(make_small(ires));
-    } 
+    }
     if (!erts_int_div_rem(BIF_P, BIF_ARG_1, BIF_ARG_2, &q, &r)) {
         BIF_RET(THE_NON_VALUE);
     }
     BIF_RET(q);
-} 
+}
 
 BIF_RETTYPE rem_2(BIF_ALIST_2)
 {
     Eterm q, r;
 
     if (BIF_ARG_2 == SMALL_ZERO) {
-	BIF_ERROR(BIF_P, BADARITH);
+        BIF_ERROR(BIF_P, BADARITH);
     }
     if (is_both_small(BIF_ARG_1,BIF_ARG_2)){
-	/* Is this really correct? Isn't there a difference between 
-	   remainder and modulo that is not defined in C? Well, I don't
-	   remember, this is the way it's done in beam_emu anyway... */
-	BIF_RET(make_small(signed_val(BIF_ARG_1) % signed_val(BIF_ARG_2)));
+        /* Is this really correct? Isn't there a difference between
+           remainder and modulo that is not defined in C? Well, I don't
+           remember, this is the way it's done in beam_emu anyway... */
+        BIF_RET(make_small(signed_val(BIF_ARG_1) % signed_val(BIF_ARG_2)));
     }
     if (!erts_int_div_rem(BIF_P, BIF_ARG_1, BIF_ARG_2, &q, &r)) {
         BIF_RET(THE_NON_VALUE);
     }
     BIF_RET(r);
-} 
+}
 
 BIF_RETTYPE band_2(BIF_ALIST_2)
 {
     if (is_both_small(BIF_ARG_1,BIF_ARG_2)){
 	BIF_RET(BIF_ARG_1 & BIF_ARG_2);
-    } 
+    }
     BIF_RET(erts_band(BIF_P, BIF_ARG_1, BIF_ARG_2));
-} 
+}
 
 BIF_RETTYPE bor_2(BIF_ALIST_2)
 {
     if (is_both_small(BIF_ARG_1,BIF_ARG_2)){
 	BIF_RET(BIF_ARG_1 | BIF_ARG_2);
-    } 
+    }
     BIF_RET(erts_bor(BIF_P, BIF_ARG_1, BIF_ARG_2));
-} 
+}
 
 BIF_RETTYPE bxor_2(BIF_ALIST_2)
 {
     if (is_both_small(BIF_ARG_1,BIF_ARG_2)){
 	BIF_RET(make_small(signed_val(BIF_ARG_1) ^ signed_val(BIF_ARG_2)));
-    } 
+    }
     BIF_RET(erts_bxor(BIF_P, BIF_ARG_1, BIF_ARG_2));
-} 
+}
 
 
 static Eterm
@@ -223,7 +230,7 @@ erts_shift(Process* p, Eterm arg1, Eterm arg2, int right)
 	    if (is_small(arg1)) {
 	    small_shift:
 		ires = signed_val(arg1);
-	     
+
 		if (i == 0 || ires == 0) {
 		    BIF_RET(arg1);
 		} else if (i < 0)  { /* Right shift */
@@ -254,12 +261,12 @@ erts_shift(Process* p, Eterm arg1, Eterm arg2, int right)
 			ires -= (-i / D_EXP);
 		}
 
-		/*
-		 * Slightly conservative check the size to avoid
-		 * allocating huge amounts of memory for bignums that 
-		 * clearly would overflow the arity in the header
-		 * word.
-		 */
+    /*
+     * Slightly conservative check the size to avoid
+     * allocating huge amounts of memory for bignums that
+     * clearly would overflow the arity in the header
+     * word.
+     */
 		if (ires-8 > BIG_ARITY_MAX) {
 		    BIF_ERROR(p, SYSTEM_LIMIT);
 		}
@@ -346,7 +353,7 @@ BIF_RETTYPE bnot_1(BIF_ALIST_1)
 	BIF_ERROR(BIF_P, BADARITH);
     }
     BIF_RET(ret);
-} 
+}
 
 /*
  * Implementation and interfaces for the rest of the runtime system.
@@ -757,7 +764,7 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 			     * to not leave any holes.
 			     */
 			    Uint arity;
-			    
+
 			    ASSERT(is_big(res));
 			    hdr = big_res[0];
 			    arity = bignum_header_arity(hdr);
@@ -1356,7 +1363,196 @@ Eterm erts_bnot(Process* p, Eterm arg)
 	return THE_NON_VALUE;
     }
     return ret;
-} 
+}
+
+/* Helper: count trailing zeros in a big digit (limb) */
+static inline unsigned count_trailing_zeros_digit(ErtsDigit d)
+{
+#if ERTS_AT_LEAST_GCC_VSN__(3, 4, 0) || __has_builtin(__builtin_ctzll)
+#if (SIZEOF_VOID_P == 8)
+    return __builtin_ctzll((unsigned long long)d);
+#else
+    return __builtin_ctz((unsigned int)d);
+#endif
+#else
+    unsigned res = 0;
+    while ((d & 1) == 0) { res++; d >>= 1; }
+    return res;
+#endif
+}
+
+/* ctz/1: count trailing zeros in integer (small integers and bignums) */
+Eterm
+erts_ctz(Process* p, Eterm arg)
+{
+    Uint64 v64;
+    unsigned res;
+
+    /* Fast path: try 64-bit decode first (common case for small integers) */
+    if (term_to_Uint64(arg, &v64)) {
+        if (v64 == 0) {
+            return make_small(-1);
+        }
+#if ERTS_AT_LEAST_GCC_VSN__(3, 4, 0) || __has_builtin(__builtin_ctzll)
+#ifdef ARCH_64
+        res = __builtin_ctzll(v64);
+        return make_small((Sint)res);
+#else /* ARCH_32 */
+        {
+            Uint32 low = (Uint32)(v64 & 0xFFFFFFFFU);
+            Uint32 high = (Uint32)(v64 >> 32);
+            res = low ? __builtin_ctz(low) : 32 + __builtin_ctz(high);
+            return make_small((Sint)res);
+        }
+#endif
+#else
+        res = 0;
+        while ((v64 & 1ULL) == 0ULL) { res++; v64 >>= 1; }
+        return make_small((Sint)res);
+#endif
+    }
+
+    /* Slow path: handle bignum */
+    if (is_big(arg)) {
+        Eterm* big_ptr = big_val(arg);
+        dsize_t size = big_size(arg);
+        ErtsDigit* digits = BIG_V(big_ptr);
+        dsize_t i;
+        Sint res = 0;
+
+        /* Scan through digits from least significant to most significant */
+        for (i = 0; i < size; i++) {
+            if (digits[i] != 0) {
+                /* Found first non-zero digit, count its trailing zeros */
+                res = i * D_EXP + count_trailing_zeros_digit(digits[i]);
+                return make_small(res);
+            }
+        }
+        /* All digits are zero - return -1 */
+        return make_small(-1);
+    }
+
+    p->freason = BADARITH;
+    return THE_NON_VALUE;
+}
+
+/* Helper: count set bits (popcount) in a big digit (limb) */
+static inline unsigned popcount_digit_local(ErtsDigit d)
+{
+#if ERTS_AT_LEAST_GCC_VSN__(3, 4, 0) || __has_builtin(__builtin_popcountll)
+#if (SIZEOF_VOID_P == 8)
+    return __builtin_popcountll((unsigned long long)d);
+#else
+    return __builtin_popcount((unsigned int)d);
+#endif
+#else
+    unsigned cnt = 0;
+    while (d) { cnt += (d & 1); d >>= 1; }
+    return cnt;
+#endif
+}
+
+#if (SIZEOF_VOID_P == 8) && defined(__AVX512VPOPCNTDQ__)
+/* AVX-512 VPOPCNTDQ optimized popcount for 64-bit bignums */
+static Sint erts_bignum_popcount_simd(ErtsDigit* digits, dsize_t size)
+{
+    Sint total = 0;
+    dsize_t i = 0;
+
+    /* Process 8 uint64_t at a time with VPOPCNTDQ (512-bit = 8 x 64-bit) */
+    while (i + 8 <= size) {
+        __m512i v = _mm512_loadu_si512((__m512i*)&digits[i]);
+        __m512i popcounts = _mm512_popcnt_epi64(v);
+        /* Horizontal sum of 8 uint64_t */
+        Sint partial = (Sint)_mm512_reduce_add_epi64(popcounts);
+        total += partial;
+        i += 8;
+    }
+
+    /* Scalar fallback for remaining digits */
+    for (; i < size; i++) {
+        total += popcount_digit_local(digits[i]);
+    }
+
+    return total;
+}
+#elif defined(__ARM_NEON)
+/* ARM NEON optimized popcount for 32-bit bignums (on 32-bit ARM) */
+static Sint erts_bignum_popcount_simd(ErtsDigit* digits, dsize_t size)
+{
+    Sint total = 0;
+    dsize_t i = 0;
+
+    /* Process 4 uint32_t at a time with VCNT (NEON vcnt.i32) */
+    while (i + 4 <= size) {
+        uint32x4_t v = vld1q_u32((uint32_t*)&digits[i]);
+        /* VCNT counts set bits in each byte, so we need to sum across the vector */
+        uint8x16_t counts = vcntq_u8(vreinterpretq_u8_u32(v));
+        /* Sum all bytes in the vector */
+        uint32_t sum = vaddvq_u32(vreinterpretq_u32_u8(counts));
+        total += (Sint)sum;
+        i += 4;
+    }
+
+    /* Scalar fallback for remaining digits */
+    for (; i < size; i++) {
+        total += popcount_digit_local(digits[i]);
+    }
+
+    return total;
+}
+#endif
+
+/* popcount/1: count set bits in integer (small integers and bignums) */
+Eterm
+erts_popcount(Process* p, Eterm arg)
+{
+    Uint64 v64;
+
+    /* Fast path: try 64-bit decode first (common case for small integers) */
+    if (term_to_Uint64(arg, &v64)) {
+#if ERTS_AT_LEAST_GCC_VSN__(3, 4, 0) || __has_builtin(__builtin_popcountll)
+#ifdef ARCH_64
+        unsigned res = __builtin_popcountll(v64);
+        return make_small((Sint)res);
+#else /* ARCH_32 */
+        unsigned res = __builtin_popcount((unsigned)(v64 & 0xFFFFFFFFU)) +
+                       __builtin_popcount((unsigned)(v64 >> 32));
+        return make_small((Sint)res);
+#endif
+#else
+        unsigned cnt = 0;
+        while (v64) { cnt += (unsigned)(v64 & 1ULL); v64 >>= 1; }
+        return make_small((Sint)cnt);
+#endif
+    }
+
+    /* Slow path: handle bignum */
+    if (is_big(arg)) {
+        Eterm* big_ptr = big_val(arg);
+        dsize_t size = big_size(arg);
+        ErtsDigit* digits = BIG_V(big_ptr);
+        Sint total = 0;
+
+#if (SIZEOF_VOID_P == 8) && defined(__AVX512VPOPCNTDQ__)
+        /* AVX-512 VPOPCNTDQ fast path for large bignums */
+        total = erts_bignum_popcount_simd(digits, size);
+#elif defined(__ARM_NEON)
+        /* ARM NEON fast path */
+        total = erts_bignum_popcount_simd(digits, size);
+#else
+        /* Scalar fallback */
+        dsize_t i;
+        for (i = 0; i < size; i++)
+            total += popcount_digit_local(digits[i]);
+#endif
+
+        return make_small(total);
+    }
+
+    p->freason = BADARITH;
+    return THE_NON_VALUE;
+}
 
 /* Needed to remove compiler optimization */
 double erts_get_positive_zero_float(void) {
