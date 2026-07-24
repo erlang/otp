@@ -158,6 +158,8 @@
          sendmmsg_invalid_msg_format/1,
          recvmmsg_dirty_scheduler_udp4/1,
          sendmmsg_dirty_scheduler_udp4/1,
+         recvmmsg_pool_reuse_udp4/1,
+         recvmmsg_ctrl_udp4/1,
 
          %% Socket IOCTL simple
          ioctl_simple1/1,
@@ -393,7 +395,9 @@ batch_cases() ->
      sendmmsg_with_addresses_udp4,
      sendmmsg_invalid_msg_format,
      recvmmsg_dirty_scheduler_udp4,
-     sendmmsg_dirty_scheduler_udp4
+     sendmmsg_dirty_scheduler_udp4,
+     recvmmsg_pool_reuse_udp4,
+     recvmmsg_ctrl_udp4
     ].
 
 ioctl_cases() ->
@@ -15807,6 +15811,113 @@ sendmmsg_dirty_scheduler_udp4(_Config) when is_list(_Config) ->
             ok = socket:close(S1),
             ok = socket:close(S2),
             ok
+        end
+    ).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Many recvmmsg calls on one socket, varying VLen/BufSz and received
+%% count, to exercise the recvmmsg scratch-pool reuse/grow/reset paths.
+%%
+recvmmsg_pool_reuse_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(60)),
+    tc_try(
+        recvmmsg_pool_reuse_udp4,
+        fun() ->
+            has_support_ipv4(),
+            has_recvmmsg_support()
+        end,
+        fun() ->
+            {ok, S1} = socket:open(inet, dgram, udp),
+            {ok, S2} = socket:open(inet, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet),
+            ok = socket:bind(S1, #{family => inet, addr => Addr, port => 0}),
+            {ok, #{port := LocalPort}} = socket:sockname(S1),
+            ok = socket:connect(S2,
+                                #{family => inet, addr => Addr,
+                                  port => LocalPort}),
+            %% Varying VLen/BufSz (repeated) -> grow and pure-reuse paths.
+            Rounds = [{5, 64}, {50, 2048}, {3, 512}, {120, 256},
+                      {10, 4096}, {1, 8}, {80, 1024}],
+            lists:foreach(
+                fun({VLen, BufSz}) ->
+                    recvmmsg_pool_reuse_round(S1, S2, VLen, BufSz)
+                end,
+                Rounds ++ Rounds),
+            %% Fixed layout, varying received count -> incremental reset,
+            %% incl. large-VLen/few-received.
+            lists:foreach(
+                fun(Count) ->
+                    recvmmsg_pool_reuse_count(S1, S2, 64, 512, Count)
+                end,
+                [64, 1, 30, 64, 5, 1, 40, 64]),
+            ok = socket:close(S1),
+            ok = socket:close(S2),
+            ok
+        end
+    ).
+
+recvmmsg_pool_reuse_round(S1, S2, VLen, BufSz) ->
+    recvmmsg_pool_reuse_count(S1, S2, VLen, BufSz, VLen).
+
+%% Send Count datagrams, receive with a recvmmsg of capacity VLen (Count =< VLen).
+recvmmsg_pool_reuse_count(S1, S2, VLen, BufSz, Count) ->
+    Expected = [list_to_binary(io_lib:format("r~p_~p_m~p", [VLen, Count, N]))
+                || N <- lists:seq(1, Count)],
+    lists:foreach(fun(D) -> ok = socket:send(S2, D) end, Expected),
+    {ok, Received} = socket:recvmmsg(S1, VLen, BufSz, 0, [], infinity),
+    Count = length(Received),
+    ReceivedData = [Data || Msg <- Received, [Data] <- [maps:get(iov, Msg)]],
+    true = lists:sort(ReceivedData) =:= lists:sort(Expected),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% recvmmsg with ancillary data: enable ip pktinfo on the receiver so each
+%% datagram carries a control message, and verify recvmmsg decodes a
+%% non-empty ctrl per message (exercises the ctrl output path with actual
+%% cmsg bytes, not just the data-only empty-ctrl case).
+%%
+recvmmsg_ctrl_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        recvmmsg_ctrl_udp4,
+        fun() ->
+            has_support_ipv4(),
+            has_recvmmsg_support()
+        end,
+        fun() ->
+            {ok, S1} = socket:open(inet, dgram, udp),
+            {ok, S2} = socket:open(inet, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet),
+            ok = socket:bind(S1, #{family => inet, addr => Addr, port => 0}),
+            {ok, #{port := LocalPort}} = socket:sockname(S1),
+            ok = socket:connect(S2,
+                                #{family => inet, addr => Addr,
+                                  port => LocalPort}),
+            case socket:setopt(S1, ip, pktinfo, true) of
+                {error, _} ->
+                    _ = socket:close(S1),
+                    _ = socket:close(S2),
+                    skip("ip pktinfo not supported");
+                ok ->
+                    N = 5,
+                    lists:foreach(
+                        fun(I) -> ok = socket:send(S2, integer_to_binary(I)) end,
+                        lists:seq(1, N)),
+                    {ok, Received} = socket:recvmmsg(S1, 10, 0, 0, [], infinity),
+                    N = length(Received),
+                    lists:foreach(
+                        fun(#{ctrl := Ctrl}) ->
+                            true = lists:any(
+                                     fun(#{level := ip, type := pktinfo}) -> true;
+                                        (_) -> false
+                                     end, Ctrl)
+                        end, Received),
+                    ok = socket:close(S1),
+                    ok = socket:close(S2),
+                    ok
+            end
         end
     ).
 
