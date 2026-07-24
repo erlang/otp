@@ -76,15 +76,16 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#if defined(__linux__)
-#  include <sys/auxv.h>
-#endif
 
 #include "sys.h"
 #include "erl_alloc.h"
 #include "erl_vm.h"
 
 #if (defined(BEAMASM) && defined(NATIVE_ERLANG_STACK))
+
+#if defined(HAVE_GETAUXVAL)
+#  include <sys/auxv.h>
+#endif
 
 #if defined(NSIG)
 #  define HIGHEST_SIGNAL NSIG
@@ -98,7 +99,7 @@
 void sys_thread_init_signal_stack(void) {
     stack_t ss;
 
-#if defined(__linux__) && defined(AT_MINSIGSTKSZ)
+#if defined(HAVE_GETAUXVAL) && defined(AT_MINSIGSTKSZ)
     ss.ss_size = (size_t) getauxval(AT_MINSIGSTKSZ);
     ss.ss_size = MAX(ss.ss_size, SIGSTKSZ);
 #else
