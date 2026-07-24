@@ -26,6 +26,7 @@
 -import(lists, [reverse/1, flatten/1]).
 
 -include("beam_ssa.hrl").
+-include("beam_types.hrl").
 
 %%-define(DEBUG, true).
 
@@ -264,8 +265,12 @@ env_post({list,_,Elems}, #b_literal{val=Ls}, Env) ->
     post_list(Elems, Ls, Env);
 env_post({list,_,Elems}, Ls, Env) when is_list(Ls) ->
     post_list(Elems, Ls, Env);
+env_post({tuple,_,Es}, #b_literal{val=Ls}, Env) when is_record(Ls) ->
+    post_tuple(Es, record_to_list(Ls), Env);
 env_post({tuple,_,Es}, #b_literal{val=Ls}, Env) ->
     post_tuple(Es, tuple_to_list(Ls), Env);
+env_post({tuple,_,Es}, Tuple, Env) when is_record(Tuple) ->
+    post_tuple(Es, record_to_list(Tuple), Env);
 env_post({tuple,_,Es}, Tuple, Env) when is_tuple(Tuple) ->
     post_tuple(Es, tuple_to_list(Tuple), Env);
 env_post({map,_,Elems}, #b_literal{val=Map}, Env) when is_map(Map) ->
@@ -323,11 +328,15 @@ post_tuple([Elem|Elements], [A|Actual], Env0) ->
 post_tuple([], [], Env) ->
     Env.
 
-post_map([{Key,Val}|Items], Map, Env) ->
-    K = build_map_key(Key, Env),
-    V = build_map_key(Val, Env),
-    #{K := V} = Map,
+record_to_list(R) ->
+    Name = records:get_name(R),
+    Fs = records:get_field_names(R),
+    [Name | [records:get(F, R) || F <- Fs]].
 
+post_map([{Key,Val}|Items], Map, Env0) ->
+    K = build_map_key(Key, Env0),
+    #{K := V} = Map,
+    Env = env_post(Val, V, Env0),
     post_map(Items, maps:remove(K, Map), Env);
 post_map([], Map, Env) ->
     0 = maps:size(Map),
