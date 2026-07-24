@@ -823,7 +823,7 @@ static void mfs_alloc_failed(MfsErlDrvData* dataP, char* msg, int sz)
 
     int msg_len = strlen(msg);
     if ((10 + 10 + msg_len) < sizeof(dataP->error_msg)) {
-      if (0 >= sprintf(dataP->error_msg, "%s of %d bytes", msg, sz)) {
+      if (0 >= snprintf(dataP->error_msg, sizeof(dataP->error_msg), "%s of %d bytes", msg, sz)) {
 	mfs_fatal_error(dataP, msg);
       }
     } else {
@@ -1158,8 +1158,8 @@ static void mfs_load_property_groups(MfsErlDrvData* dataP)
              *          }).
              */ 
     
-            if (0 >= sprintf(dataP->error_msg, "%s %s %s", 
-                             PG_ERR_PRE, PG_ERR1, name)) {
+            if (0 >= snprintf(dataP->error_msg, sizeof(dataP->error_msg),
+                              "%s %s %s", PG_ERR_PRE, PG_ERR1, name)) {
               mfs_fatal_error(dataP, PG_ERR1);
             }
             dataP->error = TRUE;
@@ -1239,8 +1239,8 @@ static void mfs_load_property_groups(MfsErlDrvData* dataP)
               "property parm name not found when "
               "nameStart = %d\n", nameStart) );
 
-        if (0 >= sprintf(dataP->error_msg, "%s %s (name start at %d)", 
-                         PG_ERR_PRE, PG_ERR2, nameStart)) {
+        if (0 >= snprintf(dataP->error_msg, sizeof(dataP->error_msg),
+                          "%s %s (name start at %d)", PG_ERR_PRE, PG_ERR2, nameStart)) {
           mfs_fatal_error(dataP, PG_ERR2);
         }
 
