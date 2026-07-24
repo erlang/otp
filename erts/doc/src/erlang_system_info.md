@@ -368,9 +368,10 @@ Returns information about the current system (emulator) limits as specified by `
   
   Since: OTP 21.1
 
-- `ets_limit`{: #system_info_ets_limit } - Returns the limit for number of
-  ETS tables. This limit is [partially obsolete](`m:ets#max_ets_tables`) and
-  number of tables are only limited by available memory.
+- `ets_limit`{: #system_info_ets_limit } - Returns the effective sizing hint for
+  the internal index used to look up named ETS tables. Despite its historical
+  name, this value does not limit the number of ETS tables; they are limited only
+  by available memory. See [ETS table sizing](`m:ets#max_ets_tables`).
   
   Since: OTP R16B03
 
