@@ -364,7 +364,7 @@ get_extended_mem_sysinfo(memory_ext *me) {
 #endif
 
 
-#if defined(_SC_AVPHYS_PAGES)
+#if defined(_SC_AVPHYS_PAGES) && !defined(__linux__)
 static int
 get_extended_mem_sysconf(memory_ext *me) {
     me->total      = sysconf(_SC_PHYS_PAGES);
@@ -472,14 +472,12 @@ get_extended_mem(memory_ext *me) {
 /* sgi */
 #elif defined(sgi) || defined(__sgi) || defined(__sgi__)
     if (get_extended_mem_sgi(me))     return;
-#endif
-
-/* Does this exist on others than Solaris2? */
-#if defined(_SC_AVPHYS_PAGES)
-    if (get_extended_mem_sysconf(me)) return;
 
 #elif defined(__APPLE__)
     get_extended_mem_apple(me);
+
+#elif defined(_SC_AVPHYS_PAGES)
+    if (get_extended_mem_sysconf(me)) return;
 
 /* We fake the rest */
 /* SunOS4 (for example) */
@@ -494,15 +492,7 @@ get_extended_mem(memory_ext *me) {
 
 static void 
 get_basic_mem(unsigned long *tot, unsigned long *used, unsigned long *pagesize){
-#if defined(_SC_AVPHYS_PAGES)	/* Does this exist on others than Solaris2? */
-    unsigned long avPhys, phys;
-    
-    phys = sysconf(_SC_PHYS_PAGES);
-    avPhys = sysconf(_SC_AVPHYS_PAGES);
-    *used = (phys - avPhys);
-    *tot = phys;
-    *pagesize = sysconf(_SC_PAGESIZE);
-#elif defined(__linux__) && !defined(_SC_AVPHYS_PAGES)
+#if defined(__linux__)
     memory_ext me;
     if (get_mem_procfs(&me) < 0) {
         print_error("ProcFS read error");
@@ -547,6 +537,14 @@ fail:
         *tot = total_memory_size;
         *pagesize = 1;
     }
+#elif defined(_SC_AVPHYS_PAGES)
+    unsigned long avPhys, phys;
+    
+    phys = sysconf(_SC_PHYS_PAGES);
+    avPhys = sysconf(_SC_AVPHYS_PAGES);
+    *used = (phys - avPhys);
+    *tot = phys;
+    *pagesize = sysconf(_SC_PAGESIZE);
 #else  /* SunOS4 */
     *used = (1<<27);	       	/* Fake! 128 MB used */
     *tot = (1<<28);		/* Fake! 256 MB total */
