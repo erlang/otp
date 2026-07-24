@@ -48,7 +48,7 @@
 %% Test configuration
 
 suite() ->
-    [{timetrap, {seconds, 30}}].
+    [{ct_hooks,[cth_fips]}, {timetrap, {seconds, 30}}].
 
 all() ->
     [request_identities, sign_request, connect_with_ssh_agent].

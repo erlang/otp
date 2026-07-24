@@ -49,6 +49,8 @@
 -include_lib("common_test/include/ct.hrl").
 -include("ssh_test_lib.hrl").
 
+suite() ->
+    [{ct_hooks,[cth_fips]}].
 
 all() -> [{group, messages},
 	  client_sends_info_timing,

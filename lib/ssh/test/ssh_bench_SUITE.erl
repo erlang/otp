@@ -49,7 +49,7 @@
 %%% Suite declarations
 %%% 
 
-suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]},
+suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}, cth_fips]},
 	    {timetrap,{minutes,1}}
 	   ].
 all() -> [connect,
