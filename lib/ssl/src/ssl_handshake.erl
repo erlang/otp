@@ -2234,6 +2234,8 @@ path_validation_alert({bad_cert, {ca_invalid_ext_keyusage, ExtKeyUses}}, _, _) -
     ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE, {ca_invalid_ext_keyusage, Uses});
 path_validation_alert({bad_cert, {key_usage_mismatch, _} = Reason}, _, _) ->
     ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE, Reason);
+path_validation_alert({bad_cert, policy_tree_exceeded}, _, _) ->
+    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, policy_tree_exceeded);
 path_validation_alert(Reason, _,_) ->
     ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason).
 
