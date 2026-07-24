@@ -68,6 +68,7 @@
          unsorted_map_in_map/1,
 	 bad_term_to_binary/1,
 	 bad_binary_to_term_2/1,safe_binary_to_term2/1,
+     non_executable_binary_to_term2/1,
 	 bad_binary_to_term/1, bad_terms/1, more_bad_terms/1,
          big_binary_to_term/1,
 	 otp_5484/1,otp_5933/1,
@@ -99,6 +100,7 @@ all() ->
      b2t_used_big, t2b_deterministic,
      t2b_minor_version,
      bad_binary_to_term_2, safe_binary_to_term2,
+     non_executable_binary_to_term2,
      bad_binary_to_term, bad_terms, t_hash, bad_size,
      big_binary_to_term,
      sub_bin_copy, bad_term_to_binary, t2b_system_limit,
@@ -1208,6 +1210,30 @@ safe_binary_to_term2(Config) when is_list(Config) ->
     fullsweep_after = binary_to_term_stress(<<131,100,0,15,"fullsweep_after">>, [safe]), % should be a good atom
     BadExtFun = <<131,113,100,0,4,98,108,117,101,100,0,4,109,111,111,110,97,3>>,
     bad_bin_to_term(BadExtFun, [safe]),
+    ok.
+
+%% Test the non_executable option for binary_to_term/2
+non_executable_binary_to_term2(Config) when is_list(Config) ->
+    hello = binary_to_term_stress(term_to_binary(hello), [non_executable]),
+    {1,[2,3]} = binary_to_term_stress(term_to_binary({1,[2,3]}), [non_executable]),
+
+    %% External fun references
+    ExtFun = term_to_binary(fun erlang:length/1),
+    bad_bin_to_term(ExtFun, [non_executable]),
+
+    %% Anonymous funs
+    Fun0 = term_to_binary(fun() -> ok end),
+    bad_bin_to_term(Fun0, [non_executable]),
+    Fun1 = term_to_binary(fun(X) -> X end),
+    bad_bin_to_term(Fun1, [non_executable]),
+
+    %% A fun nested inside another term
+    Nested = term_to_binary({wrapper, [fun() -> ok end]}),
+    bad_bin_to_term(Nested, [non_executable]),
+
+    %% Composing with safe
+    bad_bin_to_term(ExtFun, [safe, non_executable]),
+    hello = binary_to_term_stress(term_to_binary(hello), [safe, non_executable]),
     ok.
 
 %% OTP-18306 Decode binary/bitstring with size >= 2Gbyte
