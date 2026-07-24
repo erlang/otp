@@ -21,6 +21,7 @@
  * %CopyrightEnd%
  */
 
+#include <unistd.h>
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
@@ -39,6 +40,7 @@ static void run_daemon(EpmdVars*);
 static char* get_addresses(void);
 static int get_port_no(void);
 static int check_relaxed(void);
+static void init_ssl(EpmdVars *g);
 #ifdef __WIN32__
 static int has_console(void);
 #endif
@@ -127,6 +129,9 @@ int main(int argc, char** argv)
 
     g->silent         = 0; 
     g->is_daemon      = 0;
+    g->tls            = 0;
+    g->cert_path      = NULL;
+    g->key_path       = NULL;
     g->brutal_kill    = check_relaxed();
     g->packet_timeout = CLOSE_TIMEOUT; /* Default timeout */
     g->delay_accept   = 0;
@@ -168,6 +173,15 @@ int main(int argc, char** argv)
 	} else if (strcmp(argv[0], "-daemon") == 0) {
 	    g->is_daemon = 1;
 	    argv++; argc--;
+    } else if (strcmp(argv[0], "-tls") == 0) {
+        if((argc < 3) || 
+        (access(argv[1], R_OK) != 0) || 
+        (access(argv[2], R_OK) != 0))
+        usage(g);
+	    g->tls = 1;
+        g->cert_path = argv[1];
+        g->key_path = argv[2];
+	    argv += 3; argc -= 3;
 	} else if (strcmp(argv[0], "-relaxed_command_check") == 0) {
 	    g->brutal_kill = 1;
 	    argv++; argc--;
@@ -235,6 +249,8 @@ int main(int argc, char** argv)
     if (g->max_conn > FD_SETSIZE) {
       g->max_conn = FD_SETSIZE;
     }
+
+    init_ssl(g);
 
     if (g->is_daemon)  {
 	run_daemon(g);
@@ -367,6 +383,7 @@ static void usage(EpmdVars *g)
 {
     fprintf(stderr, "usage: epmd [-d|-debug] [DbgExtra...] [-address List]\n");
     fprintf(stderr, "            [-port No] [-daemon] [-relaxed_command_check]\n");
+    fprintf(stderr, "            [-tls certPath keyPath]\n");
     fprintf(stderr, "       epmd [-d|-debug] [-port No] [-names|-kill|-stop name]\n\n");
     fprintf(stderr, "See the Erlang epmd manual page for info about the usage.\n\n");
     fprintf(stderr, "Regular options\n");
@@ -390,6 +407,12 @@ static void usage(EpmdVars *g)
     fprintf(stderr, "        epmd -kill even if there "
 	    "are registered nodes.\n");
     fprintf(stderr, "        Also allows forced unregister (epmd -stop).\n");
+    fprintf(stderr, "    -tls certPath keyPath\n");
+    fprintf(stderr, "        Enable communication using TLS. This requires\n");
+    fprintf(stderr, "        certificate file and private key both with .pem\n");
+    fprintf(stderr, "        extensions. Provide paths to them as certPath and\n");
+    fprintf(stderr, "        and keyPath. Only nodes using erlang distribution\n");
+    fprintf(stderr, "        over TLS will be able to register and list names.\n");
 #ifdef HAVE_SYSTEMD_DAEMON
     fprintf(stderr, "    -systemd\n");
     fprintf(stderr, "        Wait for socket from systemd. The option makes sense\n");
@@ -570,3 +593,26 @@ static int check_relaxed(void)
     return (port_str != NULL) ? 1 : 0;
 }
 
+static void init_ssl(EpmdVars *g) {
+    if (!g->tls) return;
+
+    SSL_library_init();
+    SSL_load_error_strings();
+    OpenSSL_add_all_algorithms();
+
+    g->ctx = SSL_CTX_new(TLS_server_method());
+    if (!g->ctx) {
+        dbg_perror(g, "Unable to create SSL context");
+        epmd_cleanup_exit(g, 1);
+    }
+
+    if (SSL_CTX_use_certificate_file(g->ctx, g->cert_path, SSL_FILETYPE_PEM) <= 0) {
+        dbg_perror(g, "Failed to load certificate");
+        epmd_cleanup_exit(g, 1);
+    }
+
+    if (SSL_CTX_use_PrivateKey_file(g->ctx, g->key_path, SSL_FILETYPE_PEM) <= 0) {
+        dbg_perror(g, "Failed to load private key");
+        epmd_cleanup_exit(g, 1);
+    }
+}

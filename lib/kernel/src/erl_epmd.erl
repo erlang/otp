@@ -282,7 +282,7 @@ init(_) ->
 
 %%----------------------------------------------------------------------
 
--type calls() :: 'client_info_req' | 'stop' | {'register', term(), term()}.
+-type calls() :: 'client_info_req' | 'stop' | {'register', term(), term(), term()}.
 
 -doc false.
 -spec handle_call(calls(), term(), state()) ->
@@ -294,15 +294,21 @@ handle_call({register, Name, PortNo, Family}, _From, State) ->
             case do_register_node(Name, PortNo, Family) of
                 {alive, Socket, Creation} ->
                     S = State#state{socket = Socket,
-		                    port_no = PortNo,
-		                    name = Name,
-		                    family = Family},
+                            port_no = PortNo,
+                            name = Name,
+                            family = Family},
                     {reply, {ok, Creation}, S};
+				{error, ssl_not_started} ->
+					erlang:send_after(?RECONNECT_TIME, self(), reconnect),
+					{reply, {ok, -1}, State#state{socket = -1,
+											port_no = PortNo,
+                            				name = Name,
+                            				family = Family}};
                 Error ->
                     case erl_epmd_node_listen_port() of
                         {ok, _} ->
-                            {reply, {ok, -1}, State#state{ socket = -1,
-                                                           port_no = PortNo,
+                    {reply, {ok, -1}, State#state{ socket = -1,
+                                                   port_no = PortNo,
                                                            name = Name} };
                         undefined ->
                             {reply, Error, State}
@@ -410,19 +416,67 @@ erl_epmd_node_listen_port() ->
 open() -> open({127,0,0,1}).  % The localhost IP address.
 
 -doc false.
-open({A,B,C,D}=EpmdAddr) when ?ip(A,B,C,D) ->
+open(EpmdAddr) ->
+	case application:get_env(kernel, epmd_ssl_options) of
+        {ok, Opts} -> 
+            open_tls(EpmdAddr, Opts);
+        undefined -> 
+            open_tcp(EpmdAddr)
+    end.
+
+-doc false.
+open(EpmdAddr, Timeout) ->
+	case application:get_env(kernel, epmd_ssl_options) of
+        {ok, Opts} -> 
+            open_tls(EpmdAddr, Opts, Timeout);
+        undefined -> 
+            open_tcp(EpmdAddr, Timeout)
+    end.
+
+-doc false.
+open_tcp({A,B,C,D}=EpmdAddr) when ?ip(A,B,C,D) ->
     gen_tcp:connect(EpmdAddr, get_epmd_port(), [inet]);
-open({A,B,C,D,E,F,G,H}=EpmdAddr) when ?ip6(A,B,C,D,E,F,G,H) ->
+open_tcp({A,B,C,D,E,F,G,H}=EpmdAddr) when ?ip6(A,B,C,D,E,F,G,H) ->
     gen_tcp:connect(EpmdAddr, get_epmd_port(), [inet6]).
 
 -doc false.
-open({A,B,C,D}=EpmdAddr, Timeout) when ?ip(A,B,C,D) ->
+open_tcp({A,B,C,D}=EpmdAddr, Timeout) when ?ip(A,B,C,D) ->
     gen_tcp:connect(EpmdAddr, get_epmd_port(), [inet], Timeout);
-open({A,B,C,D,E,F,G,H}=EpmdAddr, Timeout) when ?ip6(A,B,C,D,E,F,G,H) ->
+open_tcp({A,B,C,D,E,F,G,H}=EpmdAddr, Timeout) when ?ip6(A,B,C,D,E,F,G,H) ->
     gen_tcp:connect(EpmdAddr, get_epmd_port(), [inet6], Timeout).
 
+-doc false.
+open_tls(EpmdAddr, Opts) ->
+    case whereis(ssl_manager) of
+        undefined -> {error, ssl_not_started};
+        _ ->
+		maybe
+    	    {ok, Socket} ?= ssl:connect(EpmdAddr, get_epmd_port(), Opts),
+        	{ok, ssl, Socket}
+    	end
+	end.
+
+-doc false.
+open_tls(EpmdAddr, Opts, Timeout)->
+	ssl:start(),
+    case whereis(ssl_manager) of
+        undefined -> {error, ssl_not_started};
+        _ ->
+		maybe
+    	    {ok, Socket} ?= ssl:connect(EpmdAddr, get_epmd_port(), Opts, Timeout),
+        	{ok, ssl, Socket}
+    	end
+	end.
+
 close(Socket) ->
-    gen_tcp:close(Socket).
+	case application:get_env(kernel, epmd_ssl_options) of
+        {ok, _Opts} -> 
+            ssl:close(Socket);
+        undefined -> 
+            gen_tcp:close(Socket)
+    end.
+
+
 
 do_register_node(NodeName, TcpPort, Family) ->
     Localhost = case Family of
@@ -430,7 +484,7 @@ do_register_node(NodeName, TcpPort, Family) ->
         inet6 -> open({0,0,0,0,0,0,0,1})
     end,
     case Localhost of
-	{ok, Socket} ->
+	{ok, SocketType, Socket} ->
 	    Name = to_string(NodeName),
 	    Extra = "",
 	    Elen = length(Extra),
@@ -445,7 +499,13 @@ do_register_node(NodeName, TcpPort, Family) ->
                       Name,
                       ?int16(Elen),
                       Extra],
-	    case gen_tcp:send(Socket, Packet) of
+		Result = case SocketType of
+			ssl ->
+				ssl:send(Socket, Packet);
+			gen_tcp ->
+				gen_tcp:send(Socket, Packet)
+			end,
+	    case Result of
                 ok ->
                     wait_for_reg_reply(Socket, []);
                 Error ->
@@ -509,39 +569,75 @@ wait_for_reg_reply(Socket, SoFar) ->
 		Garbage ->
 		    {error, {garbage_from_epmd, Garbage}}
 	    end;
+	{ssl, Socket, Data0} ->
+	    case SoFar ++ Data0 of
+		[$v, Result, A, B, C, D] ->
+		    case Result of
+			0 ->
+			    {alive, Socket, ?u32(A, B, C, D)};
+			_ ->
+			    {error, duplicate_name}
+		    end;
+		[$y, Result, A, B] ->
+		    case Result of
+			0 ->
+			    {alive, Socket, ?u16(A, B)};
+			_ ->
+			    {error, duplicate_name}
+		    end;
+		Data when length(Data) < 4 ->
+		    wait_for_reg_reply(Socket, Data);
+		Garbage ->
+		    {error, {garbage_from_epmd, Garbage}}
+	    end;
 	{tcp_closed, Socket} ->
+	    {error, epmd_close};
+	{ssl_closed, Socket} ->
 	    {error, epmd_close}
     after 10000 ->
-	    gen_tcp:close(Socket),
+	    close(Socket),
 	    {error, no_reg_reply_from_epmd}
     end.
-    
+
 %%
 %% Lookup a node "Name" at Host
 %%
 
 get_port(Node, EpmdAddress, Timeout) ->
     case open(EpmdAddress, Timeout) of
-	{ok, Socket} ->
+	{ok, SocketType, Socket} ->
 	    Name = to_string(Node),
 	    Len = 1+length(Name),
 	    Msg = [?int16(Len),?EPMD_PORT2_REQ,Name],
-	    case gen_tcp:send(Socket, Msg) of
-		ok ->
-		    wait_for_port_reply(Socket, []);
-		_Error ->
-		    ?port_please_failure2(_Error),
-		    noport
-	    end;
+	    epmd_send(SocketType, Socket, Msg);
 	_Error ->
+        noport
+    end.
+
+epmd_send(gen_tcp, Socket, Msg) ->
+    case gen_tcp:send(Socket, Msg) of
+        ok ->
+            wait_for_port_reply(Socket, []);
+        _Error ->
+            ?port_please_failure2(_Error),
+            noport
+    end;
+
+epmd_send(ssl, Socket, Msg) ->
+    case ssl:send(Socket, Msg) of
+        ok ->
+            wait_for_port_reply(Socket, []);
+        _Error ->
+            ?port_please_failure2(_Error),
             noport
     end.
 
 
 wait_for_port_reply(Socket, SoFar) ->
     receive
-	{tcp, Socket, Data0} ->
-%	    io:format("got ~p~n", [Data0]),
+	{SocketType, Socket, Data0} when 
+							SocketType =:= tcp; 
+							SocketType =:= ssl ->
 	    case SoFar ++ Data0 of
 		[$w, Result | Rest] ->
 		    case Result of
@@ -559,7 +655,10 @@ wait_for_port_reply(Socket, SoFar) ->
 	    end;
 	{tcp_closed, Socket} ->
 	    ?port_please_failure(),
-	    closed
+	    closed;
+    {ssl_closed, Socket} ->
+        ?port_please_failure(),
+        closed
     after 10000 ->
 	    ?port_please_failure(),
 	    gen_tcp:close(Socket),
@@ -570,7 +669,9 @@ wait_for_port_reply_cont(Socket, SoFar) when length(SoFar) >= 10 ->
     wait_for_port_reply_cont2(Socket, SoFar);
 wait_for_port_reply_cont(Socket, SoFar) ->
     receive
-	{tcp, Socket, Data0} ->
+	{SocketType, Socket, Data0} when 
+							SocketType =:= tcp; 
+							SocketType =:= ssl ->
 	    case SoFar ++ Data0 of
 		Data when length(Data) >= 10 ->
 		    wait_for_port_reply_cont2(Socket, Data);
@@ -582,7 +683,10 @@ wait_for_port_reply_cont(Socket, SoFar) ->
 	    end;
 	{tcp_closed, Socket} ->
 	    ?port_please_failure(),
-	    noport
+	    noport;
+    {ssl_closed, Socket} ->
+        ?port_please_failure(),
+         noport
     after 10000 ->
 	    ?port_please_failure(),
 	    gen_tcp:close(Socket),
@@ -606,11 +710,15 @@ wait_for_port_reply_cont2(Socket, Data) ->
 %%% currently.
 wait_for_port_reply_name(Socket, Len, Sofar) ->
     receive
-	{tcp, Socket, _Data} ->
+	{SocketType, Socket, _Data} when 
+							SocketType =:= tcp; 
+							SocketType =:= ssl ->
 %	    io:format("data = ~p~n", _Data),
 	    wait_for_port_reply_name(Socket, Len, Sofar);
 	{tcp_closed, Socket} ->
-	    ok
+	    ok;
+    {ssl_closed, Socket} ->
+		ok
     end.
 		    
 
@@ -631,7 +739,9 @@ select_best_version(_L1, H1, _L2, H2) ->
 wait_for_close(Socket, Reply) ->
     receive
 	{tcp_closed, Socket} -> 
-	    Reply
+	    Reply;
+    {ssl_closed, Socket} ->
+        Reply
     after 10000 ->
 	    gen_tcp:close(Socket),
 	    Reply
@@ -651,14 +761,21 @@ to_string(S) when is_list(S) -> S.
 %%
 get_names(EpmdAddress) ->
     case open(EpmdAddress) of
-	{ok, Socket} ->
+	{ok, ssl, Socket} ->
 	    do_get_names(Socket);
 	_Error ->
 	    {error, address}
     end.
 
 do_get_names(Socket) ->
-    case gen_tcp:send(Socket, [?int16(1),?EPMD_NAMES]) of
+	Result = case application:get_env(kernel, epmd_ssl_options) of
+			{ok, _Opts} ->
+				ssl:send(Socket, [?int16(1),?EPMD_NAMES]), 
+				ssl:setopts(Socket, [{active, true}]);
+			undefined ->
+				gen_tcp:send(Socket, [?int16(1),?EPMD_NAMES])
+			end,
+    case Result of
 	ok ->
 	    receive
 		{tcp, Socket, [P0,P1,P2,P3|T]} ->
@@ -670,8 +787,19 @@ do_get_names(Socket) ->
 			    close(Socket),
 			    {error, address}
 		    end;
+		{ssl, Socket, [P0,P1,P2,P3|T]} ->
+		    EpmdPort = ?u32(P0,P1,P2,P3),
+		    case get_epmd_port() of
+			EpmdPort ->
+			    names_loop(Socket, T, []);
+			_ ->
+			    close(Socket),
+			    {error, address}
+		    end;
 		{tcp_closed, Socket} ->
-		    {ok, []}
+		    {ok, []};
+		{ssl_closed, Socket} ->
+			{ok, []}
 	    end;
 	_ ->
 	    close(Socket),
@@ -683,7 +811,13 @@ names_loop(Socket, Acc, Ps) ->
 	{tcp, Socket, Bytes} ->
 	    {NAcc, NPs} = scan_names(Acc ++ Bytes, Ps),
 	    names_loop(Socket, NAcc, NPs);
+	{ssl, Socket, Bytes} ->
+	    {NAcc, NPs} = scan_names(Acc ++ Bytes, Ps),
+	    names_loop(Socket, NAcc, NPs);
 	{tcp_closed, Socket} ->
+	    {_, NPs} = scan_names(Acc, Ps),
+	    {ok, NPs};
+	{ssl_closed, Socket} ->
 	    {_, NPs} = scan_names(Acc, Ps),
 	    {ok, NPs}
     end.

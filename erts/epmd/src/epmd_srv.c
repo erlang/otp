@@ -21,6 +21,8 @@
  * %CopyrightEnd%
  */
 
+#include <openssl/ssl.h>
+#include <unistd.h>
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
@@ -75,6 +77,7 @@
 static void do_request(EpmdVars*,int,Connection*,char*,int);
 static int do_accept(EpmdVars*,int);
 static void do_read(EpmdVars*,Connection*);
+static int read_tls_wrapper(EpmdVars*, Connection*, char*, int);
 static time_t current_time(EpmdVars*);
 
 static Connection *conn_init(EpmdVars*);
@@ -87,7 +90,8 @@ static Node *node_reg2(EpmdVars*, int, char*, int, int, unsigned char, unsigned 
 static int node_unreg(EpmdVars*,char*);
 static int node_unreg_sock(EpmdVars*,int);
 
-static int reply(EpmdVars*,int,char *,int);
+static int reply(EpmdVars*,Connection*,int,char *,int);
+static int write_tls_wrapper(EpmdVars*,Connection*, int, char*, int);
 static void dbg_print_buf(EpmdVars*,char *,int);
 static void print_names(EpmdVars*);
 
@@ -610,7 +614,11 @@ static void do_read(EpmdVars *g,Connection *s)
 
   if (s->keep == EPMD_TRUE)
     {
-      val = read(s->fd, s->buf, INBUF_SIZE);
+      val = read_tls_wrapper(g, s, s->buf, INBUF_SIZE);
+
+      if(val == -2) {
+        return;
+      }
 
       if (val == 0)
 	{
@@ -644,7 +652,7 @@ static void do_read(EpmdVars *g,Connection *s)
      this epmd. */
 
   pack_size = s->want ? s->want : INBUF_SIZE - 1;
-  val = read(s->fd, s->buf + s->got, pack_size - s->got);
+  val = read_tls_wrapper(g, s, s->buf + s->got, pack_size - s->got);
 
   if (val == 0)
     {
@@ -702,6 +710,35 @@ static void do_read(EpmdVars *g,Connection *s)
       if (!s->keep)
 	epmd_conn_close(g,s);		/* Normal close */
     }
+}
+
+static int read_tls_wrapper(EpmdVars *g, Connection *s, char *buf, int len) {
+  int ret;
+  if(!g->tls) {
+    return read(s->fd, buf, len);
+  }
+
+  if(s->tls_accepted) {
+    ret= SSL_accept(s->ssl);
+    if (ret <= 0) {
+      int err = SSL_get_error(s->ssl, ret);
+        if(err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
+          return -2;
+        }
+      return -1;
+    }
+    s->tls_accepted = 1;
+  }
+
+  ret = SSL_read(s->ssl, buf, len);
+  if (ret <= 0) {
+    int err = SSL_get_error(s->ssl, ret);
+      if(err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
+        return -2;
+      }
+    return 0;
+  }
+  return ret;
 }
 
 static int do_accept(EpmdVars *g,int listensock)
@@ -829,7 +866,7 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
             replylen = 4;
         }
   
-	if (!reply(g, fd, wbuf, replylen))
+	if (!reply(g, s, fd, wbuf, replylen))
 	  {
             node_unreg(g, name);
 	    dbg_tty_printf(g,1,"** failed to send EPMD_ALIVE2_RESP for \"%s\"",
@@ -889,7 +926,7 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
 		offset += 2;
 		memcpy(wbuf + offset,node->extra,node->extralen);
 		offset += node->extralen;
-		if (!reply(g, fd, wbuf, offset))
+		if (!reply(g, s, fd, wbuf, offset))
 		  {
 		    dbg_tty_printf(g,1,"** failed to send EPMD_PORT2_RESP (ok) for \"%s\"",name);
 		    return;
@@ -899,7 +936,7 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
 	    }
 	}
 	wbuf[1] = 1; /* error */
-	if (!reply(g, fd, wbuf, 2))
+	if (!reply(g, s, fd, wbuf, 2))
 	  {
 	    dbg_tty_printf(g,1,"** failed to send EPMD_PORT2_RESP (error) for \"%s\"",name);
 	    return;
@@ -917,7 +954,7 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
 	i = htonl(g->port);
 	memcpy(wbuf,&i,4);
 
-	if (!reply(g, fd,wbuf,4))
+	if (!reply(g, s, fd,wbuf,4))
 	  {
 	    dbg_tty_printf(g,1,"failed to send NAMES_RESP");
 	    return;
@@ -938,7 +975,7 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
 	    if (r < 0)
 		goto failed_names_resp;
 	    len += r;
-	    if (!reply(g, fd, wbuf, len))
+	    if (!reply(g, s, fd, wbuf, len))
 	      {
 	      failed_names_resp:
 		dbg_tty_printf(g,1,"failed to send NAMES_RESP");
@@ -960,7 +997,7 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
 
 	i = htonl(g->port);
 	memcpy(wbuf,&i,4);
-	if (!reply(g, fd,wbuf,4))
+	if (!reply(g, s, fd,wbuf,4))
 	  {
 	    dbg_tty_printf(g,1,"failed to send DUMP_RESP");
 	    return;
@@ -981,7 +1018,7 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
 	      if (r < 0)
 		  goto failed_dump_resp;
 	      len += r + 1;
-	      if (!reply(g, fd,wbuf,len))
+	      if (!reply(g, s, fd,wbuf,len))
 	      {
 	      failed_dump_resp:
 		dbg_tty_printf(g,1,"failed to send DUMP_RESP");
@@ -1004,7 +1041,7 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
 	      if (r < 0)
 		  goto failed_dump_resp2;
 	      len += r + 1;
-	      if (!reply(g, fd,wbuf,len))
+	      if (!reply(g, s, fd,wbuf,len))
 	      {
 	      failed_dump_resp2:
 		dbg_tty_printf(g,1,"failed to send DUMP_RESP");
@@ -1024,12 +1061,12 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
 
       if (!g->brutal_kill && (g->nodes.reg != NULL)) {
 	  dbg_printf(g,0,"Disallowed EPMD_KILL_REQ, live nodes");
-	  if (!reply(g, fd,"NO",2))
+	  if (!reply(g, s, fd,"NO",2))
 	      dbg_printf(g,0,"failed to send reply to EPMD_KILL_REQ");
 	  return;
       }
 
-      if (!reply(g, fd,"OK",2))
+      if (!reply(g, s, fd,"OK",2))
 	dbg_printf(g,0,"failed to send reply to EPMD_KILL_REQ");
       dbg_tty_printf(g,1,"epmd killed");
       conn_close_fd(g,fd);	/* We never return to caller so close here */
@@ -1059,7 +1096,7 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
 
 	if ((node_fd = node_unreg(g,name)) < 0)
 	  {
-	    if (!reply(g, fd,"NOEXIST",7))
+	    if (!reply(g, s, fd,"NOEXIST",7))
 	      {
 		dbg_tty_printf(g,1,"failed to send STOP_RESP NOEXIST");
 		return;
@@ -1072,7 +1109,7 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
             dbg_tty_printf(g,1,"epmd connection stopped");
           }
 
-	if (!reply(g, fd,"STOPPED",7))
+	if (!reply(g, s, fd,"STOPPED",7))
 	  {
 	    dbg_tty_printf(g,1,"failed to send STOP_RESP STOPPED");
 	    return;
@@ -1134,8 +1171,16 @@ static int conn_open(EpmdVars *g,int fd)
       select_fd_set(g, fd);
 
       s->fd   = fd;
+      s->ssl  = NULL;
+      s->tls_accepted = 0;
       s->open = EPMD_TRUE;
       s->keep = EPMD_FALSE;
+
+      if (g->tls) {
+        s->ssl = SSL_new(g->ctx);
+        SSL_set_fd(s->ssl, fd);
+        SSL_set_accept_state(s->ssl);
+      }
 
       s->local_peer = conn_local_peer_check(g, s->fd);
       dbg_tty_printf(g,2,(s->local_peer) ? "Local peer connected" :
@@ -1239,6 +1284,14 @@ static int conn_close_fd(EpmdVars *g,int fd)
 int epmd_conn_close(EpmdVars *g,Connection *s)
 {
   dbg_tty_printf(g,2,"closing connection on file descriptor %d",s->fd);
+
+  if (g->tls && s->ssl) {
+    /* Try to send close_notify, but don't wait around if it blocks */
+    SSL_shutdown(s->ssl); 
+    SSL_free(s->ssl);
+    s->ssl = NULL;
+    s->tls_accepted = 0;
+  }
 
   FD_CLR(s->fd,&g->orig_read_mask);
   /* we don't bother lowering g->select_fd_top */
@@ -1515,7 +1568,7 @@ static time_t current_time(EpmdVars *g)
 }
 
 
-static int reply(EpmdVars *g,int fd,char *buf,int len)
+static int reply(EpmdVars *g, Connection *s,int fd,char *buf,int len)
 {
   char* p = buf;
   int nbytes = len;
@@ -1531,7 +1584,7 @@ static int reply(EpmdVars *g,int fd,char *buf,int len)
     sleep(g->delay_write);
 
   for (;;) {
-      val = write(fd, p, nbytes);
+      val = write_tls_wrapper(g, s, fd, p, nbytes);
       if (val == nbytes) {
           ret = 1;
           break;
@@ -1552,7 +1605,13 @@ static int reply(EpmdVars *g,int fd,char *buf,int len)
 
   return ret;
 }
-      
+
+static int write_tls_wrapper(EpmdVars *g, Connection *s, int fd, char *buf, int len) {
+  if (g->tls && s->ssl) {
+      return SSL_write(s->ssl, buf, len);
+  }
+  return write(fd, buf, len);
+}    
 
 #define LINEBYTECOUNT 16
 
