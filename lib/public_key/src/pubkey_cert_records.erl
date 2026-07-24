@@ -111,6 +111,8 @@ enc_transform(#'AttributeTypeAndValue'{type=Id, value=Value0}) ->
     case Id of
         ?'id-at-countryName' ->
             #'SingleAttribute'{type=Id, value={correct, Value0}};
+        ?'id-domainComponent' ->
+            #'SingleAttribute'{type=Id, value={correct, Value0}};
         ?'id-emailAddress' ->
             #'SingleAttribute'{type=Id, value={correct, Value0}};
         _ ->
@@ -160,6 +162,8 @@ dec_transform({absent,'NULL'}) ->
 dec_transform(#'SingleAttribute'{type=Id,value=Value0}) ->
     case {Id, Value0} of
         {?'id-at-countryName', {_,String}} ->
+            #'AttributeTypeAndValue'{type=Id, value=String};
+        {?'id-domainComponent', {_,String}} ->
             #'AttributeTypeAndValue'{type=Id, value=String};
         {?'id-emailAddress', {_,String}} ->
             #'AttributeTypeAndValue'{type=Id, value=String};
