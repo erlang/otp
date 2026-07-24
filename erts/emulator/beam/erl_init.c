@@ -95,7 +95,9 @@ static void erl_init(int ncpu,
 		     int time_correction,
 		     ErtsTimeWarpMode time_warp_mode,
 		     int node_tab_delete_delay,
-		     ErtsDbSpinCount db_spin_count);
+                     ErtsDbSpinCount db_spin_count,
+                     int module_tab_sz,
+                     int export_tab_sz);
 
 static erts_atomic_t exiting;
 
@@ -255,7 +257,9 @@ erl_init(int ncpu,
 	 int time_correction,
 	 ErtsTimeWarpMode time_warp_mode,
 	 int node_tab_delete_delay,
-	 ErtsDbSpinCount db_spin_count)
+         ErtsDbSpinCount db_spin_count,
+         int module_tab_sz,
+         int export_tab_sz)
 {
     init_global_literals();
     erts_monitor_link_init();
@@ -283,9 +287,9 @@ erl_init(int ncpu,
     erts_code_ix_init();
     erts_init_fun_table();
     init_atom_table();
-    init_export_table();
+    init_export_table(export_tab_sz);
     erts_record_init_table();
-    init_module_table();
+    init_module_table(module_tab_sz);
     init_register_table();
     init_message();
 #ifdef BEAMASM
@@ -1310,6 +1314,8 @@ erl_start(int argc, char **argv)
     ErtsTimeWarpMode time_warp_mode;
     int node_tab_delete_delay = ERTS_NODE_TAB_DELAY_GC_DEFAULT;
     ErtsDbSpinCount db_spin_count = ERTS_DB_SPNCNT_NORMAL;
+    int module_tab_sz = 0;
+    int export_tab_sz = 0;
 
     /* Must be set up as early as possible for crash dump encryption to work
      * properly. */
@@ -2446,6 +2452,28 @@ erl_start(int argc, char **argv)
                     erts_halt_flush_timeout = (ErtsMonotonicTime) val;
                 }
             }
+            else if (has_prefix("mml", sub_param)) {
+                long val;
+                arg = get_arg(sub_param+3, argv[i+1], &i);
+                errno = 0;
+                val = strtol(arg, NULL, 10);
+                if (errno != 0 || val < 1 || MAX_SMALL < val || INT_MAX < val) {
+                    erts_fprintf(stderr, "Invalid module table limit %s\n", arg);
+                    erts_usage();
+                }
+                module_tab_sz = (int) val;
+            }
+            else if (has_prefix("mel", sub_param)) {
+                long val;
+                arg = get_arg(sub_param+3, argv[i+1], &i);
+                errno = 0;
+                val = strtol(arg, NULL, 10);
+                if (errno != 0 || val < 1 || MAX_SMALL < val || INT_MAX < val) {
+                    erts_fprintf(stderr, "Invalid export table limit %s\n", arg);
+                    erts_usage();
+                }
+                export_tab_sz = (int) val;
+            }
 	    else {
 		erts_fprintf(stderr, "bad -z option %s\n", argv[i]);
 		erts_usage();
@@ -2529,7 +2557,9 @@ erl_start(int argc, char **argv)
 	     time_correction,
 	     time_warp_mode,
 	     node_tab_delete_delay,
-	     db_spin_count);
+             db_spin_count,
+             module_tab_sz,
+             export_tab_sz);
 
     load_preloaded();
     erts_end_staging_code_ix();

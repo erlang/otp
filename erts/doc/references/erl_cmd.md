@@ -1455,6 +1455,24 @@ behavior of earlier flags.
 
     Since: OTP 27.0
 
+  - **`+zmml limit`{: #+zmml }** - Sets the maximum number of entries in the
+    `module_code` loader index table, that is, the maximum number of modules
+    that can be loaded into the runtime system. Valid range of this limit is
+    `[1, 2147483647]` (on 32-bit systems the maximum is `134217727`). Defaults
+    to 65536.
+
+    The current value can be read by Erlang code by calling
+    [`erlang:system_info(module_limit)`](`m:erlang#system_info_module_limit`).
+
+  - **`+zmel limit`{: #+zmel }** - Sets the maximum number of entries in the
+    `export_list` loader index table, that is, the maximum number of exported
+    functions that can be loaded into the runtime system. Valid range of this
+    limit is `[1, 2147483647]` (on 32-bit systems the maximum is `134217727`).
+    Defaults to 524288.
+
+    The current value can be read by Erlang code by calling
+    [`erlang:system_info(export_limit)`](`m:erlang#system_info_export_limit`).
+
 ## Environment Variables
 
 - **`ERL_CRASH_DUMP`** - If the emulator needs to write a crash dump, the value
