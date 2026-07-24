@@ -124,7 +124,7 @@ static struct cipher_type_t cipher_types[] =
 
     /*==== AEAD ciphers ====*/
 #if defined(HAVE_CHACHA20_POLY1305)
-    {{"chacha20_poly1305"}, "chacha20-poly1305", {&EVP_chacha20_poly1305}, 0, NO_FIPS_CIPHER | AEAD_CIPHER, AEAD_CTRL},
+    {{"chacha20_poly1305"}, "chacha20-poly1305", {&EVP_chacha20_poly1305}, 32, NO_FIPS_CIPHER | AEAD_CIPHER, AEAD_CTRL},
 #else
     {{"chacha20_poly1305"}, "chacha20-poly1305", {NULL}, 0, NO_FIPS_CIPHER | AEAD_CIPHER, {{0,0,0}}},
 #endif
