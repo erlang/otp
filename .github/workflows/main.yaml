@@ -74,6 +74,34 @@ jobs:
   setup:
     uses: ./.github/workflows/reusable-setup.yaml
 
+  semgrep:
+    name: Semgrep Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    container:
+      image: semgrep/semgrep@sha256:a3d49dc967b8534a6a76628e50c51cbfe33eb7195dc2feab1fdc0f100852c8ef
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Run Semgrep
+        env:
+          SEMGREP_SEND_METRICS: off
+        run: |
+          semgrep \
+            --config ".semgrep/" \
+            --error \
+            --sarif \
+            --output semgrep.sarif
+
+      - name: Upload SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@2d6b98c7cf7260afd6954ee7de478b21127b40f4 # ratchet:github/codeql-action/upload-sarif@v3.29.7
+        with:
+          sarif_file: semgrep.sarif
+        if: always()
+
   pack:
     name: Build Erlang/OTP (64-bit)
     needs: setup
