@@ -889,18 +889,13 @@ test_packet_discard(Config, PacketFun, DataLength, ImmediateDisconnect, Overshoo
 
     Size = receive {size, S} -> S end,
     Missing = ?SSH_MAX_PACKET_SIZE - Size,
-    case proplists:get_value(discard, Config) of
-        _ when ImmediateDisconnect ->
+    case proplists:get_value(discard, Config) == false orelse ImmediateDisconnect of
+        true ->
             %% We already sent as much (or more) than ?SSH_MAX_PACKET_SIZE,
             %% we get disconnect
             {ok, _} =
                 ssh_trpt_test_lib:exec([{match, disconnect(), receive_msg}], AfterSendState0);
         false ->
-            {ok, _} =
-                ssh_trpt_test_lib:exec([%% Prohibit remote decoder starvation:
-                                        {send, #ssh_msg_service_request{name="ssh-userauth"}},
-                                        {match, disconnect(), receive_msg}], AfterSendState0);
-        true ->
             %% Packet is too short to cause disconnect immediately
             {error, {_, receive_timeout, AfterSendState1}} =
                 ssh_trpt_test_lib:exec([{match, disconnect(), receive_msg}], AfterSendState0),
