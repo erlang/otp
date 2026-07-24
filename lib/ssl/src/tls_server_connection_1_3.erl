@@ -608,7 +608,12 @@ send_hello_flight({start_handshake, PSK0},
 
 validate_cookie(_Cookie, #state{ssl_options = #{cookie := false}}) ->
     ok;
+validate_cookie(undefined, #state{ssl_options = #{cookie := true},
+                                  protocol_specific = #{hello_retry := true}}) ->
+    %% Post-HRR: client MUST include cookie (RFC 8446 Section 4.2.2)
+    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, missing_cookie)};
 validate_cookie(undefined, #state{ssl_options = #{cookie := true}}) ->
+    %% First ClientHello: no cookie expected yet
     ok;
 validate_cookie(#cookie{cookie = Cookie0}, #state{ssl_options = #{cookie := true},
                                                   handshake_env =
@@ -821,7 +826,12 @@ send_hello_retry_request(#state{connection_states = ConnectionStates0,
     %% Update handshake history
     State5 = tls_handshake_1_3:replace_ch1_with_message_hash(State4),
 
-    {ok, {State5, start}};
+    %% Mark that HRR was sent so validate_cookie/2 can enforce
+    %% mandatory cookie in the second ClientHello (RFC 8446 Section 4.2.2)
+    PS = State5#state.protocol_specific,
+    State6 = State5#state{protocol_specific = PS#{hello_retry => true}},
+
+    {ok, {State6, start}};
 send_hello_retry_request(State0, _, _, _) ->
     %% Suitable key found.
     {ok, {State0, negotiated}}.

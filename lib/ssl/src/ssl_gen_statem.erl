@@ -1027,8 +1027,12 @@ send_alert(Alert, _, #state{static_env = #static_env{protocol_cb = Connection}} 
 
 handle_own_alert(Alert0, StateName,
 		 #state{static_env = #static_env{role = Role,
+                                                 host = Host,
+                                                 port = Port,
                                                  protocol_cb = Connection},
-                        ssl_options = #{log_level := LogLevel}} = State) ->
+                        ssl_options = #{log_level := LogLevel},
+                        session = Session} = State) ->
+    invalidate_session(Role, Host, Port, Session),
     Alert = Alert0#alert{role = Role},
     try %% Try to tell the other side
         send_alert(Alert, StateName, State)
