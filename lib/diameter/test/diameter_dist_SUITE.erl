@@ -39,7 +39,8 @@
          end_per_suite/1,
 
          %% The test cases
-         traffic/1
+         traffic/1,
+         zero_length_avp_infinite_loop/1
         ]).
 
 %% diameter callbacks
@@ -116,7 +117,7 @@ suite() ->
     [{timetrap, {seconds, 90}}].
 
 all() ->
-    [traffic].
+    [traffic, zero_length_avp_infinite_loop].
 
 init_per_suite(Config) ->
     ?DUTIL:init_per_suite(Config).
@@ -133,6 +134,20 @@ traffic(Config) ->
         "~n   Res: ~p", [Res]),
     Res.
 
+zero_length_avp_infinite_loop(_Config) ->
+    MalformedMsg = <<1, 0, 0, 28,  %% Version=1, Length=28
+                     128, 0, 0, 1, %% Flags=Request, Command=1
+                     0, 0, 0, 0,   %% Application-Id=0
+                     0, 0, 0, 1,   %% Hop-by-Hop=1
+                     0, 0, 0, 1,   %% End-to-End=1
+                     0, 0, 0, 1,   %% AVP Code=1
+                     0,            %% Flags=0
+                     0, 0, 0>>,    %% AVP Length=0
+    RecvData = {recvdata, undefined, name, undefined, undefined, undefined, undefined},
+    Pkt = #diameter_packet{bin = MalformedMsg},
+    Request = {Pkt, undefined, undefined, undefined, undefined, RecvData},
+
+    discard = diameter_dist:route_session(Request, #{default => discard}).
 
 %% ===========================================================================
 
