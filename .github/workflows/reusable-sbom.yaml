@@ -45,6 +45,7 @@ env:
   ORT_VERSION: 77.0.0
   OTP_SBOM_VERSION: ${{ inputs.otp_sbom_version }}
   SCAN_RESULT_CACHE_PATH: .ort/scan-result.json
+  RELEASE: ${{ startsWith(github.ref, 'refs/tags/OTP-') && github.repository == 'erlang/otp' }}
 
 permissions:
   contents: read
@@ -110,7 +111,7 @@ jobs:
       - name: Restore ORT Scanner cache
         uses: actions/cache/restore@b7e8d49f17405cc70c1c120101943203c98d3a4b # ratchet:actions/cache/restore@v4
         id: ort-cache
-        if: ${{ inputs.full_build_and_check == 'false' }}
+        if: ${{ inputs.full_build_and_check == 'false' && env.RELEASE == 'false' }}
         with:
           path: ${{ env.SCAN_RESULT_CACHE_PATH }}
           key: ort-scan-result-${{ env.ORT_VERSION }}-${{ github.ref_name }}-${{ github.sha }}
@@ -130,8 +131,8 @@ jobs:
               pip install -U ntia-conformance-checker
           EOF
 
-      - name: Restore from cache
-        if: hashFiles(env.SCAN_RESULT_CACHE_PATH) != ''
+      - name: Restore from cache (unless it is a RELEASE)
+        if: hashFiles(env.SCAN_RESULT_CACHE_PATH) != '' && env.RELEASE == 'false'
         run: |
             docker run -v $PWD/:/github -v $HOME:$HOME otp \
                "/github/.github/scripts/ort-scanner.es init -i $HOME/.ort/ort-results/analyzer-result.json \
@@ -145,7 +146,7 @@ jobs:
                -o $HOME/.ort/ort-results/scan-result.json /github"
 
       - name: Run OSS Review Toolkit (scanner)
-        if: hashFiles(env.SCAN_RESULT_CACHE_PATH) == ''
+        if: hashFiles(env.SCAN_RESULT_CACHE_PATH) == '' || env.RELEASE == 'true'
         uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
         with:
             image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
