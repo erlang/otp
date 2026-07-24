@@ -31,6 +31,7 @@
 -include("ssh_connect.hrl").
 -include("ssh_auth.hrl").
 -include("ssh_test_lib.hrl").
+-include_lib("public_key/include/public_key.hrl"). % #'ECPoint'{}, ?'id-Ed25519'
 
 %% RFC 3526 Group 14 — 2048-bit MODP prime (generator = 2).
 -define(RFC3526_GROUP14_PRIME,
@@ -112,7 +113,18 @@
          channel_close_timeout/1,
          extra_ssh_msg_service_request/1,
          client_guesses_correctly/1,
-         client_guesses_incorrectly/1
+         client_guesses_incorrectly/1,
+         max_auth_tries_exceeded/1,
+         max_auth_tries_exceeded_none/1,
+         max_auth_tries_almost_exceeded/1,
+         max_auth_tries_exceeded_kb/1,
+         max_auth_tries_exceeded_pubkey/1,
+         max_auth_tries_exceeded_unsupported/1,
+         max_auth_tries_pubkey_probe_free/1,
+         max_auth_tries_none_after_pubkey_probe/1,
+         max_auth_tries_signed_pubkey_failure/1,
+         max_auth_tries_password_change/1,
+         max_auth_tries_infinity/1
         ]).
 
 -define(DEFAULT_KEX, 'diffie-hellman-group14-sha256').
@@ -159,6 +171,10 @@ suite() ->
                 ok;
            (extra_ssh_msg_service_request, 1) ->
                 ok;
+           (max_auth_tries_almost_exceeded, 1) ->
+                ok;
+           (max_auth_tries_infinity, 10) ->
+                ok;
            (_, EventNumber) ->
                 {fail, lists:flatten(
                          io_lib:format("unexpected event cnt: ~s",
@@ -189,7 +205,8 @@ all() ->
      {group,alive},
      {group,dh},
      {group,ecdh},
-     {group,hybrid}
+     {group,hybrid},
+     {group,max_auth_tries}
     ].
 
 groups() ->
@@ -257,7 +274,18 @@ groups() ->
                   client_guesses_incorrectly]},
      {dh, [], [{group, guess}]},
      {ecdh, [], [{group, guess}]},
-     {hybrid, [], [{group, guess}]}
+     {hybrid, [], [{group, guess}]},
+     {max_auth_tries, [], [max_auth_tries_exceeded,
+                           max_auth_tries_exceeded_none,
+                           max_auth_tries_almost_exceeded,
+                           max_auth_tries_exceeded_kb,
+                           max_auth_tries_exceeded_pubkey,
+                           max_auth_tries_exceeded_unsupported,
+                           max_auth_tries_pubkey_probe_free,
+                           max_auth_tries_none_after_pubkey_probe,
+                           max_auth_tries_signed_pubkey_failure,
+                           max_auth_tries_password_change,
+                           max_auth_tries_infinity]}
     ].
 
 
@@ -265,6 +293,7 @@ init_per_suite(Config) ->
     ?CHECK_CRYPTO(start_std_daemon( setup_dirs( start_apps(Config)))).
 
 end_per_suite(Config) ->
+    ssh_test_lib:clean_all_user_host_keys(Config),
     stop_apps(Config).
 
 init_per_group(guess, Config) ->
@@ -2093,9 +2122,628 @@ client_guesses_incorrectly(Config) ->
      || Helper <- Helpers, K <- ServerKexAlgs, P <- ServerPubKeyAlgs,
         K /= KexAlgs orelse P /= PubKeyAlgs].
 
+
+%%--------------------------------------------------------------------
+%% Macros for max_auth_tries tests
+-define(MATCH_FAILURE, {match, #ssh_msg_userauth_failure{_='_'}, receive_msg}).
+-define(MATCH_DISCONNECT,
+        {match, #ssh_msg_disconnect{code = 2,
+                                    description = "Protocol error",
+                                    _='_'}, receive_msg}).
+
+%%--------------------------------------------------------------------
+max_auth_tries_exceeded(Config) ->
+    %% Test that the server disconnects once max_auth_tries is exceeded.
+    %% We set max_auth_tries to 3. The client's first "none" request is a
+    %% free method-discovery probe (RFC 4252, like OpenSSH), a second "none"
+    %% and every real method count against the limit. So: none#1 (free),
+    %% none#2 (try 1), password#1 (try 2), password#2 -> disconnect.
+    UserDir = ssh_test_lib:user_dir(Config),
+    User = "foo",
+    Pwd = "bar",
+    MaxTries = 3,
+    Parent = self(),
+    Ref = make_ref(),
+    DisconnectRef = make_ref(),
+
+    {Pid, Host, Port} =
+        ssh_test_lib:daemon([{system_dir, ssh_test_lib:system_dir(Config)},
+                             {user_dir, UserDir},
+                             {password, Pwd},
+                             {max_auth_tries, MaxTries},
+                             {failfun, test_failfun(Parent, Ref)},
+                             {disconnectfun,
+                              test_disconnectfun(Parent, DisconnectRef)}]),
+
+    %% Connect and perform key exchange using the transport test lib
+    {ok, InitState} =
+        ssh_trpt_test_lib:exec(
+          [{set_options, [print_ops, print_messages]},
+           {connect,Host,Port,
+            [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                    {cipher,?DEFAULT_CIPHERS}
+                                   ]},
+             {silently_accept_hosts, true},
+             {recv_ext_info, false},
+             {user_dir, UserDir},
+             {user_interaction, false}
+            ]},
+           receive_hello,
+           {send, hello},
+           {send, ssh_msg_kexinit},
+           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           {send, ssh_msg_kexdh_init},
+           {match,# ssh_msg_kexdh_reply{_='_'}, receive_msg},
+           {send, #ssh_msg_newkeys{}},
+           {match, #ssh_msg_newkeys{_='_'}, receive_msg}
+          ]),
+
+    %% Send service request for ssh-userauth
+    {ok, State1} =
+        ssh_trpt_test_lib:exec(
+          [{send, #ssh_msg_service_request{name = "ssh-userauth"}},
+           {match, #ssh_msg_service_accept{name = "ssh-userauth"}, receive_msg}
+          ], InitState),
+
+    %% The first "none" is a free method-discovery probe; the second counts
+    %% as a failed attempt (MaxTries=3 -> 2 tries left).
+    {ok, State2} = user_auth_method_failed("none", User, State1, ?MATCH_FAILURE),
+    {ok, State3} = user_auth_method_failed("none", User, State2, ?MATCH_FAILURE),
+
+    %% One more failure is answered with a failure message, the next one
+    %% disconnects.
+    BadPwd = "wrong_password",
+    {ok, State4} = user_auth_password_failed(BadPwd, User, State3, ?MATCH_FAILURE),
+    {ok, _State5} = user_auth_password_failed(BadPwd, User, State4, ?MATCH_DISCONNECT),
+    assert_callbacks(Ref, User,
+                     ["Bad user or password", "Bad user or password"]),
+    assert_disconnect_callback(
+      DisconnectRef,
+      "Disconnects with code = 2 [RFC4253 11.1]: Protocol error"),
+
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+max_auth_tries_exceeded_none(Config) ->
+    %% Repeated "none" requests eventually exhaust max_auth_tries, just like
+    %% OpenSSH. Only the very first "none" is free, so with max_auth_tries
+    %% set to 3: none#1 (free), none#2 (try 1), none#3 (try 2), none#4 ->
+    %% disconnect.
+    UserDir = ssh_test_lib:user_dir(Config),
+    User = "foo",
+    Pwd = "bar",
+    MaxTries = 3,
+
+    {Pid, Host, Port} =
+        ssh_test_lib:daemon([{system_dir, ssh_test_lib:system_dir(Config)},
+                             {user_dir, UserDir},
+                             {password, Pwd},
+                             {max_auth_tries, MaxTries}]),
+
+    {ok, State1} = connect_and_request_userauth(Host, Port, UserDir),
+
+    {ok, State2} = user_auth_method_failed("none", User, State1, ?MATCH_FAILURE),
+    {ok, State3} = user_auth_method_failed("none", User, State2, ?MATCH_FAILURE),
+    {ok, State4} = user_auth_method_failed("none", User, State3, ?MATCH_FAILURE),
+    {ok, _State5} = user_auth_method_failed("none", User, State4, ?MATCH_DISCONNECT),
+
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+max_auth_tries_almost_exceeded(Config) ->
+    %% Test that the server rejects password authentication
+    %% allows the authentication to succeed even at the last
+    %% attempt
+    UserDir = ssh_test_lib:user_dir(Config),
+    User = "foo",
+    Pwd = "bar",
+    MaxTries = 2,
+
+    {Pid, Host, Port} =
+        ssh_test_lib:daemon([{system_dir, ssh_test_lib:system_dir(Config)},
+                             {user_dir, UserDir},
+                             {password, Pwd},
+                             {max_auth_tries, MaxTries},
+                             {failfun, fun ssh_test_lib:failfun/2}]),
+
+    %% Connect and perform key exchange using the transport test lib
+    {ok, InitState} =
+        ssh_trpt_test_lib:exec(
+          [{set_options, [print_ops, print_messages]},
+           {connect,Host,Port,
+            [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                    {cipher,?DEFAULT_CIPHERS}
+                                   ]},
+             {silently_accept_hosts, true},
+             {recv_ext_info, false},
+             {user_dir, UserDir},
+             {user_interaction, false}
+            ]},
+           receive_hello,
+           {send, hello},
+           {send, ssh_msg_kexinit},
+           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           {send, ssh_msg_kexdh_init},
+           {match,# ssh_msg_kexdh_reply{_='_'}, receive_msg},
+           {send, #ssh_msg_newkeys{}},
+           {match, #ssh_msg_newkeys{_='_'}, receive_msg}
+          ]),
+
+    %% Send service request for ssh-userauth
+    {ok, State1} =
+        ssh_trpt_test_lib:exec(
+          [{send, #ssh_msg_service_request{name = "ssh-userauth"}},
+           {match, #ssh_msg_service_accept{name = "ssh-userauth"}, receive_msg}
+          ], InitState),
+
+    %% 3 failed attempts will be accepted
+    BadPwd = "wrong_password",
+    {ok, State2} = user_auth_password_failed(BadPwd, User, State1, ?MATCH_FAILURE),
+    {ok, _State3} =
+        ssh_trpt_test_lib:exec(
+          [{send, #ssh_msg_userauth_request{user = User,
+                                            service = "ssh-connection",
+                                            method = "password",
+                                            data = <<?BOOLEAN(?FALSE),
+                                                     ?STRING(unicode:characters_to_binary(Pwd))>>}},
+           {match, #ssh_msg_userauth_success{_='_'}, receive_msg}
+          ], State2),
+
+    ssh:stop_daemon(Pid).
+
+max_auth_tries_exceeded_kb(Config) ->
+    %% Same as max_auth_tries_exceeded but with keyboard-interactive as the
+    %% real method and max_auth_tries set to 6. none#1 is free, none#2 uses
+    %% try 1, then four kb failures use tries 2-5 and the fifth disconnects.
+    UserDir = ssh_test_lib:user_dir(Config),
+    User = "foo",
+    Pwd = "bar",
+    MaxTries = 6,
+    Parent = self(),
+    Ref = make_ref(),
+
+    {Pid, Host, Port} =
+        ssh_test_lib:daemon([{system_dir, ssh_test_lib:system_dir(Config)},
+                             {user_dir, UserDir},
+                             {password, Pwd},
+                             {max_auth_tries, MaxTries},
+                             {failfun, test_failfun(Parent, Ref)}]),
+
+    %% Connect and perform key exchange using the transport test lib
+    {ok, InitState} =
+        ssh_trpt_test_lib:exec(
+          [{set_options, [print_ops, print_messages]},
+           {connect,Host,Port,
+            [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                    {cipher,?DEFAULT_CIPHERS}
+                                   ]},
+             {silently_accept_hosts, true},
+             {recv_ext_info, false},
+             {user_dir, UserDir},
+             {user_interaction, false}
+            ]},
+           receive_hello,
+           {send, hello},
+           {send, ssh_msg_kexinit},
+           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           {send, ssh_msg_kexdh_init},
+           {match,# ssh_msg_kexdh_reply{_='_'}, receive_msg},
+           {send, #ssh_msg_newkeys{}},
+           {match, #ssh_msg_newkeys{_='_'}, receive_msg}
+          ]),
+
+    %% Send service request for ssh-userauth
+    {ok, State1} =
+        ssh_trpt_test_lib:exec(
+          [{send, #ssh_msg_service_request{name = "ssh-userauth"}},
+           {match, #ssh_msg_service_accept{name = "ssh-userauth"}, receive_msg}
+          ], InitState),
+
+    %% The first "none" is free; the second counts (MaxTries=6 -> 5 left).
+    {ok, State2} = user_auth_method_failed("none", User, State1, ?MATCH_FAILURE),
+    {ok, State3} = user_auth_method_failed("none", User, State2, ?MATCH_FAILURE),
+
+    %% Four more failures are answered with a failure message, the fifth
+    %% disconnects.
+    BadPwd = "wrong_password",
+    {ok, State4} = user_auth_kb_int_failed(BadPwd, User, State3, ?MATCH_FAILURE),
+    {ok, State5} = user_auth_kb_int_failed(BadPwd, User, State4, ?MATCH_FAILURE),
+    {ok, State6} = user_auth_kb_int_failed(BadPwd, User, State5, ?MATCH_FAILURE),
+    {ok, State7} = user_auth_kb_int_failed(BadPwd, User, State6, ?MATCH_FAILURE),
+    {ok, _State8} = user_auth_kb_int_failed(BadPwd, User, State7, ?MATCH_DISCONNECT),
+    assert_callbacks(Ref, User, lists:duplicate(5, "Bad user or password")),
+
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+max_auth_tries_exceeded_pubkey(Config) ->
+    %% Test that publickey "query" requests (the RFC 4252 section 7 message
+    %% with the has-signature boolean set to FALSE) count against
+    %% max_auth_tries when the offered key would not be accepted by the
+    %% server. We set max_auth_tries to 3 and send 3 probes with a valid but
+    %% unauthorized key. The third probe leads to the connection being
+    %% disconnected with a protocol error.
+    UserDir = ssh_test_lib:user_dir(Config),
+    User = "foo",
+    Pwd = "bar",
+    MaxTries = 3,
+
+    {Pid, Host, Port} =
+        ssh_test_lib:daemon([{system_dir, ssh_test_lib:system_dir(Config)},
+                             {user_dir, UserDir},
+                             {password, Pwd},
+                             {max_auth_tries, MaxTries}]),
+
+    {ok, State1} = connect_and_request_userauth(Host, Port, UserDir),
+
+    %% A valid but (for user "foo") unauthorized key: every probe is rejected
+    {KeyBlob, KeyAlg} = unauthorized_pubkey(),
+    {ok, State2} = user_auth_pubkey_probe_failed(KeyBlob, KeyAlg, User, State1, ?MATCH_FAILURE),
+    {ok, State3} = user_auth_pubkey_probe_failed(KeyBlob, KeyAlg, User, State2, ?MATCH_FAILURE),
+    {ok, _State4} = user_auth_pubkey_probe_failed(KeyBlob, KeyAlg, User, State3, ?MATCH_DISCONNECT),
+
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+max_auth_tries_exceeded_unsupported(Config) ->
+    %% A userauth request with a method the server does not support (i.e. not
+    %% in userauth_methods and not "none") counts against max_auth_tries, like
+    %% OpenSSH. We set max_auth_tries to 3 and send 3 requests with an
+    %% unsupported method; each is answered with a failure listing the
+    %% supported methods, and the third leads to a disconnect.
+    UserDir = ssh_test_lib:user_dir(Config),
+    User = "foo",
+    Pwd = "bar",
+    MaxTries = 3,
+
+    {Pid, Host, Port} =
+        ssh_test_lib:daemon([{system_dir, ssh_test_lib:system_dir(Config)},
+                             {user_dir, UserDir},
+                             {password, Pwd},
+                             {max_auth_tries, MaxTries}]),
+
+    {ok, State1} = connect_and_request_userauth(Host, Port, UserDir),
+
+    Method = "hostbased",
+    {ok, State2} = user_auth_method_failed(Method, User, State1, ?MATCH_FAILURE),
+    {ok, State3} = user_auth_method_failed(Method, User, State2, ?MATCH_FAILURE),
+    {ok, _State4} = user_auth_method_failed(Method, User, State3, ?MATCH_DISCONNECT),
+
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+max_auth_tries_pubkey_probe_free(Config) ->
+    %% An accepted unsigned public-key probe does not consume the failure
+    %% budget. With a limit of two, two subsequent bad passwords are therefore
+    %% needed to disconnect the client.
+    with_max_auth_daemon(
+      Config, 2, [],
+      fun(Host, Port, UserDir, _Pwd) ->
+              User = "foo",
+              {KeyBlob, KeyAlg} = authorized_pubkey(UserDir),
+              {ok, State1} = connect_and_request_userauth(Host, Port, UserDir),
+              {ok, State2} =
+                  user_auth_pubkey_probe_accepted(KeyBlob, KeyAlg, User, State1),
+              {ok, State3} =
+                  user_auth_password_failed("wrong_password", User, State2,
+                                            ?MATCH_FAILURE),
+              {ok, _State4} =
+                  user_auth_password_failed("wrong_password", User, State3,
+                                            ?MATCH_DISCONNECT)
+      end).
+
+%%--------------------------------------------------------------------
+max_auth_tries_none_after_pubkey_probe(Config) ->
+    %% Only an initial "none" request is free. Once an accepted public-key
+    %% probe has been sent, "none" consumes one try and the following bad
+    %% password reaches a limit of two.
+    with_max_auth_daemon(
+      Config, 2, [],
+      fun(Host, Port, UserDir, _Pwd) ->
+              User = "foo",
+              {KeyBlob, KeyAlg} = authorized_pubkey(UserDir),
+              {ok, State1} = connect_and_request_userauth(Host, Port, UserDir),
+              {ok, State2} =
+                  user_auth_pubkey_probe_accepted(KeyBlob, KeyAlg, User, State1),
+              {ok, State3} =
+                  user_auth_method_failed("none", User, State2, ?MATCH_FAILURE),
+              {ok, _State4} =
+                  user_auth_password_failed("wrong_password", User, State3,
+                                            ?MATCH_DISCONNECT)
+      end).
+
+%%--------------------------------------------------------------------
+max_auth_tries_signed_pubkey_failure(Config) ->
+    %% A signed public-key request with an invalid signature consumes a try.
+    %% A subsequent bad password therefore reaches a limit of two.
+    with_max_auth_daemon(
+      Config, 2, [],
+      fun(Host, Port, UserDir, _Pwd) ->
+              User = "foo",
+              {KeyBlob, KeyAlg} = authorized_pubkey(UserDir),
+              {ok, State1} = connect_and_request_userauth(Host, Port, UserDir),
+              {ok, State2} =
+                  user_auth_signed_pubkey_failed(KeyBlob, KeyAlg, User, State1,
+                                                ?MATCH_FAILURE),
+              {ok, _State3} =
+                  user_auth_password_failed("wrong_password", User, State2,
+                                            ?MATCH_DISCONNECT)
+      end).
+
+%%--------------------------------------------------------------------
+max_auth_tries_password_change(Config) ->
+    %% Rejecting a valid unsolicited password-change request consumes one try
+    %% and is reported through failfun. The following bad password therefore
+    %% reaches a limit of two.
+    Parent = self(),
+    Ref = make_ref(),
+    with_max_auth_daemon(
+      Config, 2, [{failfun, test_failfun(Parent, Ref)}],
+      fun(Host, Port, UserDir, Pwd) ->
+              User = "foo",
+              {ok, State1} = connect_and_request_userauth(Host, Port, UserDir),
+              {ok, State2} =
+                  user_auth_password_change_failed(Pwd, "new_password", User,
+                                                   State1, ?MATCH_FAILURE),
+              {ok, _State3} =
+                  user_auth_password_failed("wrong_password", User, State2,
+                                            ?MATCH_DISCONNECT),
+              assert_callbacks(Ref, User,
+                               ["Password change not supported",
+                                "Bad user or password"])
+      end).
+
+%%--------------------------------------------------------------------
+max_auth_tries_infinity(Config) ->
+    %% With max_auth_tries set to infinity the server never disconnects due
+    %% to failed attempts. We send 10 failed password attempts (well above
+    %% the default of 6), each answered with a failure, and then a correct
+    %% password which is accepted.
+    UserDir = ssh_test_lib:user_dir(Config),
+    User = "foo",
+    Pwd = "bar",
+
+    {Pid, Host, Port} =
+        ssh_test_lib:daemon([{system_dir, ssh_test_lib:system_dir(Config)},
+                             {user_dir, UserDir},
+                             {password, Pwd},
+                             {max_auth_tries, infinity},
+                             {failfun, fun ssh_test_lib:failfun/2}]),
+
+    {ok, State1} = connect_and_request_userauth(Host, Port, UserDir),
+
+    BadPwd = "wrong_password",
+    {ok, StateN} =
+        lists:foldl(
+          fun(_, {ok, StateAcc}) ->
+                  user_auth_password_failed(BadPwd, User, StateAcc, ?MATCH_FAILURE)
+          end, {ok, State1}, lists:seq(1, 10)),
+
+    {ok, _StateOk} =
+        ssh_trpt_test_lib:exec(
+          [{send, #ssh_msg_userauth_request{user = User,
+                                            service = "ssh-connection",
+                                            method = "password",
+                                            data = <<?BOOLEAN(?FALSE),
+                                                     ?STRING(unicode:characters_to_binary(Pwd))>>}},
+           {match, #ssh_msg_userauth_success{_='_'}, receive_msg}
+          ], StateN),
+
+    ssh:stop_daemon(Pid).
+
 %%%================================================================
 %%%==== Internal functions ========================================
 %%%================================================================
+
+%% Connect, run key exchange and request the ssh-userauth service.
+connect_and_request_userauth(Host, Port, UserDir) ->
+    {ok, InitState} =
+        ssh_trpt_test_lib:exec(
+          [{set_options, [print_ops, print_messages]},
+           {connect,Host,Port,
+            [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                    {cipher,?DEFAULT_CIPHERS}
+                                   ]},
+             {silently_accept_hosts, true},
+             {recv_ext_info, false},
+             {user_dir, UserDir},
+             {user_interaction, false}
+            ]},
+           receive_hello,
+           {send, hello},
+           {send, ssh_msg_kexinit},
+           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           {send, ssh_msg_kexdh_init},
+           {match,# ssh_msg_kexdh_reply{_='_'}, receive_msg},
+           {send, #ssh_msg_newkeys{}},
+           {match, #ssh_msg_newkeys{_='_'}, receive_msg}
+          ]),
+    ssh_trpt_test_lib:exec(
+      [{send, #ssh_msg_service_request{name = "ssh-userauth"}},
+       {match, #ssh_msg_service_accept{name = "ssh-userauth"}, receive_msg}
+      ], InitState).
+
+%% Run a test with a daemon configured for a specific authentication limit and
+%% guarantee that the daemon is stopped when an assertion fails.
+with_max_auth_daemon(Config, MaxTries, ExtraOptions, TestFun) ->
+    UserDir = ssh_test_lib:user_dir(Config),
+    Pwd = "bar",
+    {Pid, Host, Port} =
+        ssh_test_lib:daemon([{system_dir, ssh_test_lib:system_dir(Config)},
+                             {user_dir, UserDir},
+                             {password, Pwd},
+                             {max_auth_tries, MaxTries}
+                             | ExtraOptions]),
+    try
+        TestFun(Host, Port, UserDir, Pwd)
+    after
+        try ssh:stop_daemon(Pid)
+        catch
+            _:_ -> ok
+        end
+    end.
+
+%% Read one of the suite's generated authorized keys. Deriving the algorithm
+%% from the key keeps the tests portable across crypto/FIPS configurations.
+authorized_pubkey(UserDir) ->
+    {ok, AuthorizedKeys} =
+        file:read_file(filename:join(UserDir, "authorized_keys")),
+    DefaultAlgs = ssh_transport:default_algorithms(public_key),
+    [{Key, KeyAlg} | _] =
+        [{CandidateKey, CandidateAlg}
+         || {CandidateKey, _Attributes} <- ssh_file:decode(AuthorizedKeys,
+                                                           auth_keys),
+            {ok, CandidateAlg} <-
+                [authorized_key_algorithm(CandidateKey, DefaultAlgs)]],
+    KeyBlob = ssh_message:ssh2_pubkey_encode(Key),
+    {KeyBlob, atom_to_binary(KeyAlg, latin1)}.
+
+authorized_key_algorithm(Key, DefaultAlgs) ->
+    Candidates =
+        case ssh_transport:public_algo(Key) of
+            'ssh-rsa' -> ['rsa-sha2-512', 'rsa-sha2-256', 'ssh-rsa'];
+            PublicAlg -> [PublicAlg]
+        end,
+    case [Alg || Alg <- Candidates, lists:member(Alg, DefaultAlgs)] of
+        [SelectedAlg | _] -> {ok, SelectedAlg};
+        [] -> error
+    end.
+
+%% Build a valid but (for the test user) unauthorized public key blob.
+unauthorized_pubkey() ->
+    {PubBin, _PrivBin} = crypto:generate_key(eddsa, ed25519),
+    PubKey = {#'ECPoint'{point = PubBin}, {namedCurve, ?'id-Ed25519'}},
+    {ssh_message:ssh2_pubkey_encode(PubKey), <<"ssh-ed25519">>}.
+
+user_auth_pubkey_probe_accepted(KeyBlob, Alg, User, State) ->
+    ssh_trpt_test_lib:exec(
+      [{send, #ssh_msg_userauth_request{user = User,
+                                        service = "ssh-connection",
+                                        method = "publickey",
+                                        data = <<?BYTE(?FALSE),
+                                                 ?STRING(Alg),
+                                                 ?STRING(KeyBlob)>>}},
+       %% SSH_MSG_USERAUTH_PK_OK and SSH_MSG_USERAUTH_PASSWD_CHANGEREQ share
+       %% message number 60. The transport test decoder represents that number
+       %% with the latter record, whose prompt field contains the algorithm.
+       {match, #ssh_msg_userauth_passwd_changereq{prompt = Alg,
+                                                  language = KeyBlob},
+        receive_msg}
+      ], State).
+
+user_auth_pubkey_probe_failed(KeyBlob, Alg, User, State, Match) ->
+    ssh_trpt_test_lib:exec(
+      [{send, #ssh_msg_userauth_request{user = User,
+                                        service = "ssh-connection",
+                                        method = "publickey",
+                                        data = <<?BYTE(?FALSE),
+                                                 ?STRING(Alg),
+                                                 ?STRING(KeyBlob)>>}},
+       Match
+      ], State).
+
+user_auth_signed_pubkey_failed(KeyBlob, Alg, User, State, Match) ->
+    %% An empty SSH signature blob is well-formed at the request level but can
+    %% never verify, which reliably exercises the signed-public-key path.
+    ssh_trpt_test_lib:exec(
+      [{send, #ssh_msg_userauth_request{user = User,
+                                        service = "ssh-connection",
+                                        method = "publickey",
+                                        data = <<?BYTE(?TRUE),
+                                                 ?STRING(Alg),
+                                                 ?STRING(KeyBlob),
+                                                 ?STRING(<<>>)>>}},
+       Match
+      ], State).
+
+user_auth_method_failed(Method, User, State, Match) ->
+    ssh_trpt_test_lib:exec(
+      [{send, #ssh_msg_userauth_request{user = User,
+                                        service = "ssh-connection",
+                                        method = Method}},
+       Match
+      ], State).
+
+user_auth_kb_int_failed(Pwd0, User, State, Match) ->
+    Pwd = unicode:characters_to_binary(Pwd0),
+    ssh_trpt_test_lib:exec(
+      [{send, #ssh_msg_userauth_request{user = User,
+                                        service = "ssh-connection",
+                                        method = "keyboard-interactive",
+                                        data = <<0,0,0,0,0,0,0,0>>}},
+       {match, #ssh_msg_userauth_info_request{_='_'}, receive_msg},
+       {send, #ssh_msg_userauth_info_response{num_responses = 1,
+                                              data = [Pwd]}},
+       Match
+      ], State).
+
+user_auth_password_change_failed(OldPwd0, NewPwd0, User, State, Match) ->
+    OldPwd = unicode:characters_to_binary(OldPwd0),
+    NewPwd = unicode:characters_to_binary(NewPwd0),
+    ssh_trpt_test_lib:exec(
+      [{send, #ssh_msg_userauth_request{user = User,
+                                        service = "ssh-connection",
+                                        method = "password",
+                                        data = <<?BOOLEAN(?TRUE),
+                                                 ?STRING(OldPwd),
+                                                 ?STRING(NewPwd)>>}},
+       Match
+      ], State).
+
+user_auth_password_failed(Pwd0, User, State, Match) ->
+    Pwd = unicode:characters_to_binary(Pwd0),
+    ssh_trpt_test_lib:exec(
+      [{send, #ssh_msg_userauth_request{user = User,
+                                        service = "ssh-connection",
+                                        method = "password",
+                                        data = <<?BOOLEAN(?FALSE),
+                                                 ?STRING(Pwd)>>}},
+       Match
+      ], State).
+
+test_failfun(Parent, Ref) ->
+    fun(User, _Peer, Reason) ->
+            Parent ! {Ref, failfun, User, Reason}
+    end.
+
+test_disconnectfun(Parent, Ref) ->
+    fun(Reason) ->
+            Parent ! {Ref, disconnectfun, lists:flatten(Reason)}
+    end.
+
+assert_disconnect_callback(Ref, ExpectedReason) ->
+    receive
+        {Ref, disconnectfun, ExpectedReason} ->
+            ok;
+        {Ref, disconnectfun, ActualReason} ->
+            ct:fail("Unexpected disconnect callback: expected ~p, got ~p",
+                    [ExpectedReason, ActualReason])
+    after 2000 ->
+            ct:fail("Missing disconnect callback: ~p", [ExpectedReason])
+    end.
+
+assert_callbacks(Ref, User, ExpectedReasons) ->
+    assert_callbacks(Ref, User, ExpectedReasons, ExpectedReasons).
+
+assert_callbacks(Ref, User, [ExpectedReason | Rest], AllExpected) ->
+    receive
+        {Ref, failfun, User, ExpectedReason} ->
+            assert_callbacks(Ref, User, Rest, AllExpected);
+        {Ref, Tag, ActualUser, Reason} ->
+            ct:fail("Unexpected authentication callback: expected ~p, got ~p",
+                    [{failfun, User, ExpectedReason},
+                     {Tag, ActualUser, Reason}])
+    after 2000 ->
+            ct:fail("Missing authentication callbacks: ~p", [AllExpected])
+    end;
+assert_callbacks(Ref, _User, [], _AllExpected) ->
+    receive
+        {Ref, Tag, User, Reason} ->
+            ct:fail("Unexpected extra authentication callback: ~p",
+                    [{Tag, User, Reason}])
+    after 0 ->
+            ok
+    end.
 
 chk_pref_algs(Config,
               ExpectedKex,

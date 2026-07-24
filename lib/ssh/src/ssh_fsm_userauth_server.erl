@@ -64,8 +64,10 @@ handle_event(internal,
                                              user = User},
 	     StateName = {userauth,server},
 	     D0) ->
-    D1 = maybe_send_banner(D0, User),
-    #data{ssh_params=Ssh0} = D1,
+    %% Count every userauth request (OpenSSH's "attempt"); used to grant the
+    %% first "none" request a free pass (ssh_auth:handle_userauth_request/3).
+    D1 = increment_auth_attempts(maybe_send_banner(D0, User)),
+    #data{ssh_params = Ssh0} = D1,
     case {ServiceName, Ssh0#ssh.service, Method} of
 	{"ssh-connection", "ssh-connection", "none"} ->
 	    %% Probably the very first userauth_request but we deny unauthorized login
@@ -79,7 +81,13 @@ handle_event(internal,
                     {next_state, {connected,server}, D,
                      [set_alive_timeout(D), set_max_initial_idle_timeout(D),
                       {change_callback_module,ssh_connection_handler}
-                     ]}
+                     ]};
+                {auth_tries_exceeded, _, Ssh = #ssh{}} ->
+                    {Shutdown, D} = ?send_disconnect(
+                        ?SSH_DISCONNECT_PROTOCOL_ERROR,
+                        "Too many authentication failures", StateName,
+                        D0#data{ssh_params = Ssh}),
+                    {stop, Shutdown, D}
             end;
 	
 	{"ssh-connection", "ssh-connection", Method} ->
@@ -94,6 +102,13 @@ handle_event(internal,
                              [set_alive_timeout(D), set_max_initial_idle_timeout(D),
                               {change_callback_module,ssh_connection_handler}
                              ]};
+                        {auth_tries_exceeded, #{user := User, error := Error}, Ssh = #ssh{}} ->
+                            retry_fun(User, Error, D0),
+                            {Shutdown, D} = ?send_disconnect(
+                                ?SSH_DISCONNECT_PROTOCOL_ERROR,
+                                "Too many authentication failures", StateName,
+                                D0#data{ssh_params = Ssh}),
+                            {stop, Shutdown, D};
 			{not_authorized, {User, Reason}, {Reply, Ssh}} when Method == "keyboard-interactive" ->
 			    retry_fun(User, Reason, D1),
                             D = ssh_connection_handler:send_msg(Reply, D1#data{ssh_params = Ssh}),
@@ -104,9 +119,10 @@ handle_event(internal,
 			    {keep_state, D}
 		    end;
 		false ->
-		    %% No we do not support this method (=/= none)
-		    %% At least one non-erlang client does like this. Retry as the next event
-		    {keep_state_and_data,
+                    %% No we do not support this method (=/= none)
+                    %% At least one non-erlang client does like this. Retry as the next event.
+                    %% Keep the bumped auth_attempts so the retried "none" is not free.
+                    {keep_state, D1,
 		     [{next_event, internal, Msg#ssh_msg_userauth_request{method="none"}}]
 		    }
 	    end;
@@ -122,7 +138,8 @@ handle_event(internal,
             {stop, Shutdown, D}
     end;
 
-handle_event(internal, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_interactive, server}, D0) ->
+handle_event(internal, #ssh_msg_userauth_info_response{} = Msg,
+             {userauth_keyboard_interactive, server} = StateName, D0) ->
     case ssh_auth:handle_userauth_info_response(Msg, D0#data.ssh_params) of
 	{authorized, User, {Reply, Ssh1}} ->
             D = connected_state(Reply, Ssh1, User, "keyboard-interactive", D0),
@@ -134,7 +151,13 @@ handle_event(internal, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboa
 	    retry_fun(User, Reason, D0),
             D = ssh_connection_handler:send_msg(Reply, D0#data{ssh_params = Ssh}),
 	    {next_state, {userauth,server}, D};
-
+        {auth_tries_exceeded, #{user := User, error := Error}, Ssh = #ssh{}} ->
+            retry_fun(User, Error, D0),
+            {Shutdown, D} = ?send_disconnect(
+                               ?SSH_DISCONNECT_PROTOCOL_ERROR,
+                               "Too many authentication failures", StateName,
+                               D0#data{ssh_params = Ssh}),
+            {stop, Shutdown, D};
 	{authorized_but_one_more, _User,  {Reply, Ssh}} ->
             D = ssh_connection_handler:send_msg(Reply, D0#data{ssh_params = Ssh}),
 	    {next_state, {userauth_keyboard_interactive_extra,server}, D}
@@ -230,3 +253,6 @@ maybe_send_banner(D0 = #data{ssh_params = #ssh{userauth_banner_sent = false} = S
     end;
 maybe_send_banner(D, _) ->
     D.
+
+increment_auth_attempts(D = #data{ssh_params = Ssh}) ->
+    D#data{ssh_params = Ssh#ssh{auth_attempts = Ssh#ssh.auth_attempts + 1}}.

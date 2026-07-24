@@ -71,6 +71,11 @@ increase the resilence. The options to use are:
   true, the number of simultaneous login attempts are limited by the value of
   the [max_sessions](`m:ssh#hardening_daemon_options-max_sessions`) option.
 
+- **[max_auth_tries](`m:ssh#hardening_daemon_options-max_auth_tries`)** - The
+  maximum number of authentication attempts permitted per connection. When a
+  client exceeds this number of failed attempts, the daemon disconnects it. The
+  default is 6.
+
 ### Timeouts
 
 - **[hello_timeout](`t:ssh:hello_timeout_daemon_option/0`)** - If the client
