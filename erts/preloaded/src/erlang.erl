@@ -7531,15 +7531,82 @@ load_module(Mod, Code) ->
     end.
 
 -doc """
+
 Loads and links a dynamic library containing native implemented functions (NIFs)
 for a module.
 
-`Path` is a file path to the shareable object/dynamic library file
-minus the OS-dependent file extension (`.so` for Unix and `.dll` for Windows).
-Notice that on most OSs the library has to have a different name on disc when an
-upgrade of the nif is done. If the name is the same, but the contents differ,
-the old library may be loaded instead. For information on how to implement a NIF
-library, see [`erl_nif(3)`](erl_nif.md).
+`Path` specifies the NIF library to load. It can take one of the following
+forms:
+
+- **`string() | binary()`** - A file path to the shareable object/dynamic
+  library file minus the OS-dependent file extension (`.so` for Unix and `.dll`
+  for Windows). Notice that on most OSs the library has to have a different name
+  on disc when an upgrade of the NIF is done. If the name is the same, but the
+  contents differ, the old library may be loaded instead.
+
+- **`#{filename := string()|binary()}`** - Same as above.
+
+- **`#{memory := NifSO}`** - Load the NIF library directly from the in-memory
+  binary `NifSO` (raw bytes of the shared-object file) without a label. An
+  anonymous name is auto-generated for the shared-memory region. Only supported
+  on Unix platforms that provide `memfd_create(2)` or POSIX shared memory.
+
+- **`#{memory := NifSO, filename := Filename}`** - Same as above, but `Filename`
+  (a `string()` or `binary()`) is used as the label for the shared-memory
+  region and in error messages. `Filename` must be shorter than `PATH_MAX - 9`
+  characters (to allow for the `/dev/shm/` prefix used internally).
+
+> #### Platform Support {: .info }
+>
+> In-memory NIF loading (`#{memory := ...}`) is only supported on Unix systems
+> with either `memfd_create(2)` or POSIX shared memory (`shm_open`,
+> `shm_mkstemp`). Not all Unix platforms support this feature. On unsupported
+> platforms, attempting to load a NIF from memory will return
+> `{error, {load_failed, Reason}}` where `Reason` describes the lack of support.
+
+> #### Resource Cleanup {: .info }
+>
+> The runtime will automatically clean up any temporary files or shared memory
+> objects created for in-memory NIF loading. On platforms using POSIX shared
+> memory, the shared memory object is unlinked immediately after loading.
+
+For information on how to implement a NIF library, see
+[`erl_nif(3)`](erl_nif.md).
+
+`LoadInfo` can be any term. It is passed on to the library as part of the
+initialization. A good practice is to include a module version number to support
+future code upgrade scenarios.
+
+The call to [`load_nif/2`](`load_nif/2`) must be made _directly_ from the Erlang
+code of the module that the NIF library belongs to. It returns either `ok`, or
+`{error,{Reason,Text}}` if loading fails. `Reason` is one of the following atoms
+while `Text` is a human readable string that can give more information about the
+failure:
+
+- **`load_failed`** - The OS failed to load the NIF library (including lack of
+  platform support for in-memory loading).
+
+- **`bad_lib`** - The library did not fulfill the requirements as a NIF library
+  of the calling module.
+
+- **`load | upgrade`** - The corresponding library callback was unsuccessful.
+
+- **`reload`** - A NIF library is already loaded for this module instance. The
+  previously deprecated `reload` feature was removed in OTP 20.
+
+- **`old_code`** - The call to [`load_nif/2`](`load_nif/2`) was made from the
+  old code of a module that has been upgraded; this is not allowed.
+
+If the [`-nifs()`](`e:system:modules.md#nifs_attribute`) attribute is used
+(which is recommended), all NIFs in the dynamic library must be declared as such
+for [`load_nif/2`](`load_nif/2`) to succeed. On the other hand, all functions
+declared with the `-nifs()` attribute do not have to be implemented by the
+dynamic library. This allows a target independent Erlang file to contain
+fallback implementations for functions that may lack NIF support depending on
+target OS/hardware platform.
+
+For information on how to implement a NIF library, see
+[`erl_nif(3)`](erl_nif.md).
 
 `LoadInfo` can be any term. It is passed on to the library as part of the
 initialization. A good practice is to include a module version number to support
@@ -7573,8 +7640,13 @@ fallback implementations for functions that may lack NIF support depending on
 target OS/hardware platform.
 """.
 -doc #{ category => code }.
--spec load_nif(Path, LoadInfo) ->  ok | Error when
-      Path :: string(),
+-spec load_nif(Path, LoadInfo) -> ok | Error when
+      Path :: string() |
+              binary() |
+              #{filename := Filename :: string() | binary()} |
+              #{memory := NifSO :: binary()} |
+              #{memory := NifSO :: binary(),
+                filename := Filename :: string() | binary()},
       LoadInfo :: term(),
       Error :: {error, {Reason, Text :: string()}},
       Reason :: load_failed | bad_lib | load | reload | upgrade | old_code.
