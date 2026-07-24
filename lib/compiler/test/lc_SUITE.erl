@@ -333,6 +333,7 @@ assignment_generator(_Config) ->
     ?assertEqual(singleton_generator_6(Seq),
                  assignment_generator_6(Seq)),
 
+    [ok] = [ok || X = V = true, V, X],
     ok.
 
 assignment_generator_1(L) ->
