@@ -150,14 +150,16 @@ macros_defined(Config) ->
     InclDir = filename:join(DataDir, "include"),
     {Src,Dst} = convert_module("m1",[InclDir],Config),
     {true,L} = check_line_numbers(Src,Dst),
-    ok = check_link_targets(Src,Dst,L,[{baz,0}],[]),
+    Node = proplists:get_value(node, Config),
+    ok = check_link_targets(Src,Dst,L,[{baz,0}],[], Node),
     ok.
 
 macros_undefined(Config) ->
     %% let erl2html2 use epp_dodger as parser
     {Src,Dst} = convert_module("m1",[],Config),
     {true,L} = check_line_numbers(Src,Dst),
-    ok = check_link_targets(Src,Dst,L,[{baz,0}],[{quux,0}]),
+    Node = proplists:get_value(node, Config),
+    ok = check_link_targets(Src,Dst,L,[{baz,0}],[{quux,0}], Node),
     ok.
 
 convert_module(Mod,InclDirs,Config) ->
@@ -165,9 +167,10 @@ convert_module(Mod,InclDirs,Config) ->
     PrivDir = ?config(priv_dir,Config),
     Src = filename:join(DataDir,Mod++".erl"),
     Dst = filename:join(PrivDir,Mod++".erl.html"),
-    io:format("<a href=\"~ts\">~s</a>\n",[Src,filename:basename(Src)]),
+    ct:log("I am ~w", [node()]),
+    ct:log("Converting ~s (~ts)", [filename:basename(Src), Src]),
     ok = erl2html2:convert(Src, Dst, InclDirs, "<html><body>"),
-    io:format("<a href=\"~ts\">~s</a>\n",[Dst,filename:basename(Dst)]),
+    ct:log("Result for ~s at ~ts", [filename:basename(Dst), Dst]),
     {Src,Dst}.
 
 %% Check that there are the same number of lines in each file, and
@@ -234,9 +237,10 @@ check_line_number(Last,Line,OrigLine) ->
 %% function.
 %% The test module has -compile(export_all), so all functions are
 %% found by listing the exported ones.
-check_link_targets(Src,Dst,L,RmFncs,ShouldRemain) ->
+check_link_targets(Src,Dst,L,RmFncs,ShouldRemain,Node) ->
     Mod = list_to_atom(filename:basename(filename:rootname(Src))),
-    Exports = Mod:module_info(exports)--[{module_info,0},{module_info,1}|RmFncs],
+    AllExports = erpc:call(Node, Mod, module_info, [exports]),
+    Exports = AllExports --[{module_info,0},{module_info,1}|RmFncs],
     LastExprFuncs = [Func || {Func,_A} <- Exports],
     {ok,{FAs,Fs,L},_} =
 	xmerl_sax_parser:file(Dst,

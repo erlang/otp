@@ -76,19 +76,19 @@ end_per_suite(Config) ->
     ct_test_support:end_per_suite(Config).
 
 init_per_testcase(TestCase, Config) when TestCase /= unix_telnet ->
-    ct:pal("Testcase ~p starting!", [TestCase]),
+    ct:log("Testcase ~p starting!", [TestCase]),
     TS = telnet_server:start([{port,?erl_telnet_server_port},
 			      {users,[{?erl_telnet_server_user,
 				       ?erl_telnet_server_pwd}]}]),
     ct_test_support:init_per_testcase(TestCase, [{telnet_server,TS}|Config]);
 init_per_testcase(TestCase, Config) ->
-    ct:pal("Testcase ~p starting. Checking connection to telnet server...",
+    ct:log("Testcase ~p starting. Checking connection to telnet server...",
 	   [TestCase]),
     ct:require(testconn, {unix,[telnet]}),
     case {os:type(),ct_telnet:open(testconn)} of
 	{_,{ok,Handle}} ->
 	    ok = ct_telnet:close(Handle),
-	    ct:pal("Connection ok, starting tests!", []),
+	    ct:log("Connection ok, starting tests!", []),
 	    ct_test_support:init_per_testcase(TestCase, Config);
 	{{unix,_},{error,Reason}} ->
 	    ct:fail("No connection to telnet server! Reason: ~tp", [Reason]);
@@ -97,7 +97,7 @@ init_per_testcase(TestCase, Config) ->
     end.		
 
 end_per_testcase(TestCase, Config) when TestCase /= unix_telnet ->
-    ct:pal("Stopping the telnet_server now!", []),
+    ct:log("Stopping the telnet_server now!", []),
     telnet_server:stop(?config(telnet_server,Config)),
     ct_test_support:end_per_testcase(TestCase, Config);
 end_per_testcase(TestCase, Config) ->
