@@ -21,6 +21,21 @@ limitations under the License.
 
 Releases are listed in reverse chronological order, most recent first.
 
+## diameter 2.4.1.3
+
+### Fixed Bugs and Malfunctions
+
+- Fix infinite loop in `diameter_dist:route_session/2` when avp other than `Session-Id` has zero length.
+
+  Own Id: OTP-20242 Aux Id: [PR-11331]
+
+- Fix crash in `diameter_dist:route_session/2` when `Session-Id` (code: 263) avp has zero length.
+
+  Own Id: OTP-20243 Aux Id: [PR-11333]
+
+[PR-11331]: https://github.com/erlang/otp/pull/11331
+[PR-11333]: https://github.com/erlang/otp/pull/11333
+
 ## diameter 2.4.1.2
 
 ### Fixed Bugs and Malfunctions

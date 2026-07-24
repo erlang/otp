@@ -19,6 +19,16 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.17.1.5
+
+### Fixed Bugs and Malfunctions
+
+- A certificate chain with crafted policyMappings extensions could cause exponential memory consumption during path validation, exploitable via TLS handshake. Chains exceeding a node-count cap are now rejected with {bad_cert, policy_tree_exceeded}.
+
+  Own Id: OTP-20251 Aux Id: [PR-11372], GHSA-622p-qfh6-c352
+
+[PR-11372]: https://github.com/erlang/otp/pull/11372
+
 ## Public_Key 1.17.1.4
 
 ### Fixed Bugs and Malfunctions

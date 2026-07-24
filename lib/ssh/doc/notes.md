@@ -19,6 +19,21 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 5.2.11.10
+
+### Fixed Bugs and Malfunctions
+
+- DH key exchange now enforces strict bounds (1 < e/f < p-1, 1 < K < p-1) on all paths, matching OpenSSH and Go. No interop impact.
+
+  Own Id: OTP-20229 Aux Id: [PR-11303]
+
+- Validate DH group parameters (P, G) received from the server during DH-GEX key exchange. The client now rejects groups where P is smaller than 2048 bits or G is not in the range (1, P-1). The default minimum in dh_gex_limits has been raised to 2048 on both client and server.
+
+  Own Id: OTP-20258 Aux Id: ERIERL-1341, [PR-11369]
+
+[PR-11303]: https://github.com/erlang/otp/pull/11303
+[PR-11369]: https://github.com/erlang/otp/pull/11369
+
 ## Ssh 5.2.11.9
 
 ### Fixed Bugs and Malfunctions
