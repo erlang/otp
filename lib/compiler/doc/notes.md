@@ -23,6 +23,17 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 10.0.3
+
+### Fixed Bugs and Malfunctions
+
+- compiler: Fix an internal consistency check failure with `setelement`
+
+  Own Id: OTP-20261 Aux Id: [GH-11368], [PR-11374]
+
+[GH-11368]: https://github.com/erlang/otp/issues/11368
+[PR-11374]: https://github.com/erlang/otp/pull/11374
+
 ## Compiler 10.0.2
 
 ### Fixed Bugs and Malfunctions

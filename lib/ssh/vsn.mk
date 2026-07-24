@@ -1,6 +1,6 @@
 #-*-makefile-*-   ; force emacs to enter makefile-mode
 
-SSH_VSN = 6.0.2
+SSH_VSN = 6.0.3
 APP_VSN    = "ssh-$(SSH_VSN)"
 
 # %CopyrightBegin%
