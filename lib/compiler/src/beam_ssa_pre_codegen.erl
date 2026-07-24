@@ -1186,7 +1186,9 @@ expand_update_tuple_is([#b_set{op=update_tuple, args=[Src | Args]}=I0 | Is],
     {SetElement, Sets, Count} = expand_update_tuple_list(Args, I0, Src, Count0),
     case {Sets, Is} of
         {[_ | _], [#b_set{op=succeeded}=I]} ->
-            {reverse(Acc, [SetElement, I]), reverse(Sets), Count};
+            #b_set{dst=Dst} = SetElement,
+            SuccI = I#b_set{args=[Dst]},
+            {reverse(Acc, [SetElement, SuccI]), reverse(Sets), Count};
         {_, _} ->
             expand_update_tuple_is(Is, Count, Sets ++ [SetElement | Acc])
     end;
