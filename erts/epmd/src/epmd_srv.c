@@ -1404,11 +1404,36 @@ static Node *node_reg2(EpmdVars *g,
   }
 #endif
 
-  /* Fail if it is already registered */
+  /* Fail if it is already registered.
+
+     The kept ALIVE socket uses TCP close as the only "unregister" signal,
+     so a node that restarts faster than the main loop observes the prior
+     connection's FIN would otherwise see a spurious collision here. Before
+     rejecting, probe the existing fd with a non-blocking select(): any
+     readability (FIN, error, or unexpected data) on a kept ALIVE socket
+     means the prior registration is going away, so reclaim it now. */
 
   for (node = g->nodes.reg; node; node = node->next)
     if (is_same_str(node->symname, name))
       {
+        fd_set rfds;
+        struct timeval tv;
+        int sret;
+        do {
+            FD_ZERO(&rfds);
+            FD_SET(node->fd, &rfds);
+            tv.tv_sec = 0;
+            tv.tv_usec = 0;
+            sret = select(node->fd + 1, &rfds, NULL, NULL, &tv);
+        } while (sret < 0 && errno == EINTR);
+        if (sret > 0 && FD_ISSET(node->fd, &rfds)) {
+            dbg_tty_printf(g,1,
+                "stale registration for '%s' on fd %d (pending close), reclaiming",
+                name, node->fd);
+            node_unreg_sock(g, node->fd);
+            conn_close_fd(g, node->fd);
+            break; /* fall through to the unreg-list scan below */
+        }
 	dbg_printf(g,0,"node name already occupied %s", name);
 	return NULL;
       }
