@@ -1157,6 +1157,24 @@ handle_event(info, {Proto, Sock, Info}, {hello,_}, #data{socket = Sock,
 	    {keep_state_and_data, [{next_event, internal, {info_line,Info}}]}
     end;
 
+handle_event(info, {_Proto, Sock, NewData}, StateName,
+             D0 = #data{discard_bytes_left = DiscardBytesLeft,
+                        discard_mac_already = DiscardMacAlready,
+                        discard_reason = DiscardReason}) when DiscardBytesLeft > 0 ->
+    D1 = reset_alive(D0), %% TODO: Should this be here?
+    NewDataSize = byte_size(NewData),
+    case NewDataSize >= DiscardBytesLeft of
+        true ->
+            %% Enough bytes discarded
+            ssh_transport:finish_packet_discard(DiscardMacAlready, D1#data.ssh_params),
+            handle_packet_part_result(DiscardReason, StateName, D1);
+        false ->
+            %% We don't have enough bytes to finish packet discard,
+            %% we must get more from the socket
+            inet:setopts(Sock, [{active, once}]),
+            D = D1#data{discard_bytes_left = DiscardBytesLeft - NewDataSize},
+            {keep_state, D}
+    end;
 
 handle_event(info, {Proto, Sock, NewData}, StateName,
              D0 = #data{socket = Sock,
@@ -1164,105 +1182,16 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
                         ssh_params = SshParams}) ->
     D1 = reset_alive(D0),
     try ssh_transport:handle_packet_part(
-	  D1#data.decrypted_data_buffer,
-	  <<(D1#data.encrypted_data_buffer)/binary, NewData/binary>>,
+          D1#data.decrypted_data_buffer,
+          <<(D1#data.encrypted_data_buffer)/binary, NewData/binary>>,
           D1#data.aead_data,
           D1#data.undecrypted_packet_length,
-	  D1#data.ssh_params)
+          D1#data.ssh_params)
     of
-	{packet_decrypted, DecryptedBytes, EncryptedDataRest, Ssh1} ->
-	    D2 = D1#data{ssh_params =
-                             Ssh1#ssh{recv_sequence =
-                                          ssh_transport:next_seqnum(StateName,
-                                                                    Ssh1#ssh.recv_sequence,
-                                                                    SshParams)},
-                         decrypted_data_buffer = <<>>,
-                         undecrypted_packet_length = undefined,
-                         aead_data = <<>>,
-                         encrypted_data_buffer = EncryptedDataRest},
-	    try
-		ssh_message:decode(set_kex_overload_prefix(DecryptedBytes,D2))
-	    of
-		#ssh_msg_kexinit{} = Msg ->
-		    {keep_state, D2, [{next_event, internal, prepare_next_packet},
-				     {next_event, internal, {Msg,DecryptedBytes}}
-				    ]};
-
-                #ssh_msg_global_request{}            = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_request_success{}           = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_request_failure{}           = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_open{}              = Msg -> {keep_state, D2,
-                                                               [{{timeout, max_initial_idle_time}, cancel} |
-                                                                ?CONNECTION_MSG(Msg)
-                                                               ]};
-                #ssh_msg_channel_open_confirmation{} = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_open_failure{}      = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_window_adjust{}     = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_data{}              = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_extended_data{}     = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_eof{}               = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_close{}             = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_request{}           = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_failure{}           = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_success{}           = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
-
-		Msg ->
-		    {keep_state, D2, [{next_event, internal, prepare_next_packet},
-                                      {next_event, internal, Msg}
-				    ]}
-	    catch
-		Class:Reason0:Stacktrace  ->
-                    Reason = ssh_lib:trim_reason(Reason0),
-                    MsgFun =
-                        fun(debug) ->
-                                io_lib:format("Bad packet: Decrypted, but can't decode~n~p:~p~n~p",
-                                              [Class,Reason,Stacktrace],
-                                              [{chars_limit, ssh_lib:max_log_len(SshParams)}]);
-                           (_) ->
-                                io_lib:format("Bad packet: Decrypted, but can't decode ~p:~p",
-                                              [Class, Reason],
-                                              [{chars_limit, ssh_lib:max_log_len(SshParams)}])
-                        end,
-                    {Shutdown, D} =
-                        ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                         ?SELECT_MSG(MsgFun),
-                                         StateName, D2),
-                    {stop, Shutdown, D}
-	    end;
-
-	{get_more, DecryptedBytes, EncryptedDataRest, AeadData, RemainingSshPacketLen, Ssh1} ->
-	    %% Here we know that there are not enough bytes in
-	    %% EncryptedDataRest to use. We must wait for more.
-	    inet:setopts(Sock, [{active, once}]),
-	    {keep_state, D1#data{encrypted_data_buffer = EncryptedDataRest,
-				 decrypted_data_buffer = DecryptedBytes,
-                                 undecrypted_packet_length = RemainingSshPacketLen,
-                                 aead_data = AeadData,
-				 ssh_params = Ssh1}};
-
-	{bad_mac, Ssh1} ->
-            {Shutdown, D} =
-                ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                 "Bad packet: bad mac",
-                                 StateName, D1#data{ssh_params=Ssh1}),
-            {stop, Shutdown, D};
-
-	{error, {exceeds_max_size,PacketLen}} ->
-            {Shutdown, D} =
-                ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                 io_lib:format("Bad packet: Size (~p bytes) exceeds max size",
-                                               [PacketLen]),
-                                 StateName, D1),
-            {stop, Shutdown, D};
-
-    {error, exceeds_max_decompressed_size} ->
-            {Shutdown, D} =
-                ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                 "Bad packet: Size after decompression exceeds max size",
-                                 StateName, D1),
-            {stop, Shutdown, D}
+        Result ->
+            handle_packet_part_result(Result, StateName, D1)
     catch
-	Class:Reason0:Stacktrace ->
+        Class:Reason0:Stacktrace ->
             MsgFun =
                 fun(debug) ->
                         io_lib:format("Bad packet: Couldn't decrypt~n~p:~p~n~p",
@@ -1478,6 +1407,119 @@ handle_event(Type, Ev, StateName, D0) ->
         ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR, Details, StateName, D0),
     {stop, Shutdown, D}.
 
+%% Handle reason returned from handle_packet_part, or discard_reason
+handle_packet_part_result({packet_decrypted, DecryptedBytes, EncryptedDataRest, Ssh},
+                          StateName,
+                          D0 = #data{ssh_params = Ssh0}) ->
+    D1 = D0#data{ssh_params =
+                     Ssh#ssh{recv_sequence =
+                                 ssh_transport:next_seqnum(StateName,
+                                                           Ssh#ssh.recv_sequence,
+                                                           Ssh0)},
+                 decrypted_data_buffer = <<>>,
+                 undecrypted_packet_length = undefined,
+                 aead_data = <<>>,
+                 encrypted_data_buffer = EncryptedDataRest},
+    try
+        ssh_message:decode(set_kex_overload_prefix(DecryptedBytes,D1))
+    of
+        #ssh_msg_kexinit{} = Msg ->
+            {keep_state, D1, [{next_event, internal, prepare_next_packet},
+                              {next_event, internal, {Msg,DecryptedBytes}}
+                             ]};
+
+        #ssh_msg_global_request{}            = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
+        #ssh_msg_request_success{}           = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
+        #ssh_msg_request_failure{}           = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
+        #ssh_msg_channel_open{}              = Msg -> {keep_state, D1,
+                                                       [{{timeout, max_initial_idle_time}, cancel} |
+                                                        ?CONNECTION_MSG(Msg)
+                                                       ]};
+        #ssh_msg_channel_open_confirmation{} = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
+        #ssh_msg_channel_open_failure{}      = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
+        #ssh_msg_channel_window_adjust{}     = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
+        #ssh_msg_channel_data{}              = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
+        #ssh_msg_channel_extended_data{}     = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
+        #ssh_msg_channel_eof{}               = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
+        #ssh_msg_channel_close{}             = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
+        #ssh_msg_channel_request{}           = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
+        #ssh_msg_channel_failure{}           = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
+        #ssh_msg_channel_success{}           = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
+
+        Msg ->
+            {keep_state, D1, [{next_event, internal, prepare_next_packet},
+                              {next_event, internal, Msg}
+                             ]}
+    catch
+        Class:Reason0:Stacktrace  ->
+            Reason = ssh_lib:trim_reason(Reason0),
+            MsgFun =
+                fun(debug) ->
+                        io_lib:format("Bad packet: Decrypted, but can't decode~n~p:~p~n~p",
+                                      [Class,Reason,Stacktrace],
+                                      [{chars_limit, ssh_lib:max_log_len(Ssh0)}]);
+                   (_) ->
+                        io_lib:format("Bad packet: Decrypted, but can't decode ~p:~p",
+                                      [Class, Reason],
+                                      [{chars_limit, ssh_lib:max_log_len(Ssh0)}])
+                end,
+            {Shutdown, D} =
+                ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
+                                 ?SELECT_MSG(MsgFun),
+                                 StateName, D1),
+            {stop, Shutdown, D}
+    end;
+handle_packet_part_result({get_more, DecryptedBytes, EncryptedDataRest, AeadData, RemainingSshPacketLen, Ssh},
+                          _StateName, D0 = #data{socket = Sock}) ->
+    %% Here we know that there are not enough bytes in
+    %% EncryptedDataRest to use. We must wait for more.
+    inet:setopts(Sock, [{active, once}]),
+    {keep_state, D0#data{encrypted_data_buffer = EncryptedDataRest,
+                         decrypted_data_buffer = DecryptedBytes,
+                         undecrypted_packet_length = RemainingSshPacketLen,
+                         aead_data = AeadData,
+                         ssh_params = Ssh}};
+handle_packet_part_result({bad_mac, Ssh}, StateName, D0) ->
+    {Shutdown, D} =
+        ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
+                         "Bad packet: bad mac",
+                         StateName, D0#data{ssh_params=Ssh}),
+    {stop, Shutdown, D};
+handle_packet_part_result({error, {exceeds_max_size, PacketLen}}, StateName, D0) ->
+    {Shutdown, D} =
+        ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
+                         io_lib:format("Bad packet: Size (~p bytes) exceeds max size",
+                                       [PacketLen]),
+                         StateName, D0),
+    {stop, Shutdown, D};
+handle_packet_part_result({error, exceeds_max_decompressed_size}, StateName, D0) ->
+    {Shutdown, D} =
+        ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
+                         "Bad packet: Size after decompression exceeds max size",
+                         StateName, D0),
+    {stop, Shutdown, D};
+handle_packet_part_result({error, {packet_not_aligned, PacketLen, BlockSize}}, StateName, D0) ->
+    {Shutdown, D} =
+        ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
+                         io_lib:format("Bad packet: Size (~p bytes) not aligned to block size (~p)",
+                                       [PacketLen, BlockSize]),
+                         StateName, D0),
+    {stop, Shutdown, D};
+handle_packet_part_result({start_packet_discard, DiscardBytesLeft, DiscardMacAlready, DiscardReason, Ssh},
+                          StateName, D) when DiscardBytesLeft =< 0 ->
+    %% Immediately upon start of packet discard we have enough bytes from the socket,
+    %% we can finish packet discard
+    ssh_transport:finish_packet_discard(DiscardMacAlready, Ssh),
+    handle_packet_part_result(DiscardReason, StateName, D#data{ssh_params = Ssh});
+handle_packet_part_result({start_packet_discard, DiscardBytesLeft, DiscardMacAlready, DiscardReason, Ssh},
+                          _StateName, D0 = #data{socket = Sock}) ->
+    %% We don't have enough bytes to finish packet discard, we must get more from the socket
+    inet:setopts(Sock, [{active, once}]),
+    D = D0#data{discard_bytes_left = DiscardBytesLeft,
+                discard_mac_already = DiscardMacAlready,
+                discard_reason = DiscardReason,
+                ssh_params = Ssh},
+    {keep_state, D}.
 
 %%--------------------------------------------------------------------
 -spec terminate(any(),

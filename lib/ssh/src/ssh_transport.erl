@@ -59,7 +59,8 @@
 	 sha/1,
          get_host_key/2,
          call_KeyCb/3,
-         public_algo/1]).
+         public_algo/1,
+         finish_packet_discard/2]).
 
 -behaviour(ssh_dbg).
 -export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
@@ -1501,14 +1502,15 @@ pack(Data, Ssh=#ssh{}) ->
     pack(Data, Ssh, 0).
 
 %%% Note: pack/3 is only to be called from tests that wants
-%%% to deliberetly send packets with wrong PacketLength!
+%%% to deliberately send packets with wrong PacketLength!
 %%% Use pack/2 for all other purposes!
 pack(PlainText,
      #ssh{send_sequence = SeqNum,
-	  send_mac = MacAlg,
-	  encrypt = CryptoAlg} = Ssh0,  PacketLenDeviationForTests) when is_binary(PlainText) ->
+          send_mac = MacAlg,
+          encrypt = CryptoAlg} = Ssh0, PacketLenDeviationForTests)
+  when is_binary(PlainText) ->
     {Ssh1, CompressedPlainText} = compress(Ssh0, PlainText),
-    {FinalPacket, Ssh2} = pack(pkt_type(CryptoAlg), mac_type(MacAlg), 
+    {FinalPacket, Ssh2} = pack(pkt_type(CryptoAlg), mac_type(MacAlg),
                                CompressedPlainText, PacketLenDeviationForTests,
                                Ssh1),
     Ssh = Ssh2#ssh{send_sequence = (SeqNum+1) band 16#ffffffff},
@@ -1548,23 +1550,55 @@ pack(aead, _, PlainText, DeltaLenTst, Ssh0) ->
 
 %%%================================================================
 handle_packet_part(<<>>, Encrypted0, AEAD0, undefined, #ssh{decrypt = CryptoAlg,
-                                                            recv_mac = MacAlg} = Ssh0) ->
+                                                            recv_mac = MacAlg,
+                                                            recv_mac_size = MacSize,
+                                                            decrypt_block_size = BlockSize0} = Ssh0) ->
     %% New ssh packet
-    case get_length(pkt_type(CryptoAlg), mac_type(MacAlg), Encrypted0, Ssh0) of
-	get_more ->
-	    %% too short to get the length
-	    {get_more, <<>>, Encrypted0, AEAD0, undefined, Ssh0};
+    BlockSize = max(8, BlockSize0),
+    PktType = pkt_type(CryptoAlg),
+    MacType = mac_type(MacAlg),
+    case get_length(PktType, MacType, Encrypted0, Ssh0) of
+        get_more ->
+            %% Too short to get the length
+            {get_more, <<>>, Encrypted0, AEAD0, undefined, Ssh0};
 
-	{ok, PacketLen, _, _, _, _} when PacketLen > ?SSH_MAX_PACKET_SIZE ->
-	    %% far too long message than expected
-	    {error, {exceeds_max_size,PacketLen}};
-	
-	{ok, PacketLen, Decrypted, Encrypted1, AEAD,
-	 #ssh{recv_mac_size = MacSize} = Ssh1} ->
-	    %% enough bytes so we got the length and can calculate how many
-	    %% more bytes to expect for a full packet
-	    TotalNeeded = (4 + PacketLen + MacSize),
-	    handle_packet_part(Decrypted, Encrypted1, AEAD, TotalNeeded, Ssh1)
+        {ok, PacketLen, _, _, _, _} = Result when PacketLen > ?SSH_MAX_PACKET_SIZE ->
+            %% Far too long message
+            start_packet_discard(Result, {error, {exceeds_max_size, PacketLen}});
+
+        {ok, PacketLen, _, _, _, _} = Result when (4 + PacketLen) rem BlockSize /= 0,
+                                                  PktType /= aead,
+                                                  MacType /= enc_then_mac ->
+            %% RFC 4253 section 6, packet_length (including size of packet_length field itself)
+            %% must be divisible by max(8, decrypt_block_size)
+            start_packet_discard(Result, {error, {packet_not_aligned, PacketLen, BlockSize}});
+
+        {ok, PacketLen, _, _, _, _} when PacketLen rem BlockSize /= 0,
+                                         PktType =:= aead ->
+            %% If CryptoAlg is 'AEAD_AES_*_GCM':
+            %% RFC 5647 section 8.2 for AES-GCM packet_length is not encrypted, so it does not count
+            %% towards data that must be divisible by max(8, decrypt_block_size)
+            %% If CryptAlg is 'chacha20-poly1305@openssh.com':
+            %% draft-josefsson-ssh-chacha20-poly1305-openssh-01 section 3 packet length is encrypted
+            %% separately with key K_1 and rest of packet is encrypted with key K_2, so packet_length
+            %% does not count towards data that must be divisible by max(8, decrypt_block_size)
+            %% Packet discard is not needed for aead ciphers.
+            {error, {packet_not_aligned, PacketLen, BlockSize}};
+
+        {ok, PacketLen, _, _, _, _} when PacketLen rem BlockSize /= 0,
+                                         MacType =:= enc_then_mac ->
+            %% For enc_then_mac modes, packet_length is not encrypted, so it does not count
+            %% towards data that must be divisible by max(8, decrypt_block_size)
+            %% See section 1.5 of
+            %% https://github.com/openssh/openssh-portable/blob/8ec21f6274108e93601173ec4e6f7528b90b0003/PROTOCOL
+            %% Packet discard is not needed for enc_then_mac.
+            {error, {packet_not_aligned, PacketLen, BlockSize}};
+
+        {ok, PacketLen, Decrypted, Encrypted1, AEAD, Ssh1} ->
+            %% Enough bytes so we got the length and can calculate how many
+            %% more bytes to expect for a full packet
+            TotalNeeded = (4 + PacketLen + MacSize),
+            handle_packet_part(Decrypted, Encrypted1, AEAD, TotalNeeded, Ssh1)
     end;
 
 handle_packet_part(DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, Ssh0) 
@@ -1599,7 +1633,11 @@ unpack(common, rfc4253, DecryptedPfx, EncryptedBuffer, _AEAD, TotalNeeded,
         true ->
             {ok, payload(PlainPkt), NextPacketBytes, Ssh1};
         false ->
-            {bad_mac, Ssh1}
+            %% See explanation in start_packet_discard/2
+            DiscardBytesLeft = ?SSH_MAX_PACKET_SIZE - byte_size(DecryptedPfx) - byte_size(EncryptedBuffer),
+            %% How many bytes were already checked against mac during processing of current packet
+            DiscardMacAlready = byte_size(PlainPkt),
+            start_packet_discard(DiscardBytesLeft, DiscardMacAlready, {bad_mac, Ssh1}, Ssh1)
     end;
 
 unpack(common, enc_then_mac, <<?UINT32(PlainLen)>>, EncryptedBuffer, _AEAD, _TotalNeeded,
@@ -1612,6 +1650,7 @@ unpack(common, enc_then_mac, <<?UINT32(PlainLen)>>, EncryptedBuffer, _AEAD, _Tot
             <<CompressedPlainText:CompressedPlainTextLen/binary, _Padding/binary>> = PlainRest,
             {ok, CompressedPlainText, NextPacketBytes, Ssh1};
         false ->
+            %% Packet discard not neeeded for enc_then_mac
             {bad_mac, Ssh0}
     end;
                     
@@ -1622,11 +1661,47 @@ unpack(aead, _, DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded,
     <<EncryptedSfx:MoreNeeded/binary, Mac:MacSize/binary, NextPacketBytes/binary>> = EncryptedBuffer,
     case decrypt(Ssh0, {AEAD,EncryptedSfx,Mac}) of
         {Ssh1, error} ->
+            %% Packet discard not needed for aead
             {bad_mac, Ssh1};
         {Ssh1, DecryptedSfx} ->
             DecryptedPacket = <<DecryptedPfx/binary, DecryptedSfx/binary>>,
             {ok, payload(DecryptedPacket), NextPacketBytes, Ssh1}
     end.
+
+%%%----------------------------------------------------------------
+start_packet_discard({ok, _PacketLen, Decrypted, Encrypted, _AEAD, Ssh}, DiscardReason) ->
+    %% How many bytes missing until we read ?SSH_MAX_PACKET_SIZE from the socket,
+    %% during processing of current packet
+    DiscardBytesLeft = ?SSH_MAX_PACKET_SIZE - byte_size(Decrypted) - byte_size(Encrypted),
+    start_packet_discard(DiscardBytesLeft, 0, DiscardReason, Ssh).
+
+%%%----------------------------------------------------------------
+start_packet_discard(DiscardBytesLeft, DiscardMacAlready, DiscardReason,
+                     Ssh = #ssh{decrypt = CryptoAlg,
+                                recv_mac = MacAlg}) ->
+    CipherIsCbc = cipher_is_cbc(CryptoAlg),
+    MacType = mac_type(MacAlg),
+    case CipherIsCbc =:= true andalso MacType /= enc_then_mac of
+        true ->
+            %% Not safe to return error immediately because of CVE-2008-5161
+            {start_packet_discard, DiscardBytesLeft, DiscardMacAlready, DiscardReason, Ssh};
+        false ->
+            DiscardReason
+    end.
+
+%%%----------------------------------------------------------------
+finish_packet_discard(MacAlready, #ssh{recv_mac = Algorithm,
+                                       recv_mac_size = MacSize,
+                                       recv_mac_key = Key,
+                                       recv_sequence = SeqNum}) when MacSize > 0 ->
+    Data = binary:copy(<<"a">>, ?SSH_MAX_PACKET_SIZE - MacAlready),
+    %% Compute mac over dummy data to not disconnect before we process ?SSH_MAX_PACKET_SIZE bytes.
+    %% TODO: Should we also do crypto:hash_equals/2 call as in is_valid_mac/3?
+    %% Openssh doesn't seem to do that
+    _ = mac(Algorithm, Key, SeqNum, Data),
+    ok;
+finish_packet_discard(_MacAlready, _Ssh) ->
+    ok.
 
 %%%----------------------------------------------------------------
 get_length(common, rfc4253, EncryptedBuffer, #ssh{decrypt_block_size = BlockSize} = Ssh0) ->
@@ -1758,7 +1833,8 @@ do_verify(PlainText, HashAlg, Sig, Key, _) ->
                  key_bytes,
                  iv_bytes,
                  block_bytes,
-                 pkt_type = common
+                 pkt_type = common,
+                 is_cbc = false
                 }).
 
 %%% Start of a more parameterized crypto handling.
@@ -1780,25 +1856,29 @@ cipher('3des-cbc') ->
     #cipher{impl = des_ede3_cbc,
             key_bytes = 24,
             iv_bytes = 8,
-            block_bytes = 8};
+            block_bytes = 8,
+            is_cbc = true};
     
 cipher('aes128-cbc') ->
     #cipher{impl = aes_128_cbc,
             key_bytes = 16,
             iv_bytes = 16,
-            block_bytes = 16};
+            block_bytes = 16,
+            is_cbc = true};
 
 cipher('aes192-cbc') ->
     #cipher{impl = aes_192_cbc,
             key_bytes = 24,
             iv_bytes = 16,
-            block_bytes = 16};
+            block_bytes = 16,
+            is_cbc = true};
 
 cipher('aes256-cbc') ->
     #cipher{impl = aes_256_cbc,
             key_bytes = 32,
             iv_bytes = 16,
-            block_bytes = 16};
+            block_bytes = 16,
+            is_cbc = true};
 
 cipher('aes128-ctr') ->
     #cipher{impl = aes_128_ctr,
@@ -1830,6 +1910,8 @@ cipher(_) ->
 
 
 pkt_type(SshCipher) -> (cipher(SshCipher))#cipher.pkt_type.
+
+cipher_is_cbc(SshCipher) -> (cipher(SshCipher))#cipher.is_cbc.
 
 mac_type('hmac-sha2-256-etm@openssh.com') -> enc_then_mac;
 mac_type('hmac-sha2-512-etm@openssh.com') -> enc_then_mac;
