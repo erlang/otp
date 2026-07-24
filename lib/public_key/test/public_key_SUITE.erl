@@ -145,6 +145,8 @@
          pkix_extensionreq/1,
          pkix_path_validation_bad_date/0,
          pkix_path_validation_bad_date/1,
+         pkix_ip_subject_alt_name_critical/0,
+         pkix_ip_subject_alt_name_critical/1,
          pkix_verify_hostname_cn/1,
          pkix_verify_hostname_subjAltName/1,
          pkix_verify_hostname_options/1,
@@ -234,6 +236,7 @@ all() ->
      pkix_ext_key_usage,
      pkix_ext_key_usage_any,
      pkix_path_validation_bad_date,
+     pkix_ip_subject_alt_name_critical,
      pkix_iso_rsa_oid,
      pkix_iso_dsa_oid,
      pkix_rsa_md2_oid,
@@ -1681,6 +1684,30 @@ pkix_cmp(Config) when is_list(Config) ->
     #'PKIMessage'{} = public_key:der_decode('PKIMessage', Der),
 
     ok.
+
+%%--------------------------------------------------------------------
+pkix_ip_subject_alt_name_critical() ->
+    [{doc, "A critical subjectAltName holding an iPAddress is validated "
+      "without crashing"}].
+pkix_ip_subject_alt_name_critical(Config) when is_list(Config) ->
+    %% Well-formed IPv4/IPv6 accepted; a bad length rejected, not crash.
+    {ok, _} = ip_critical_san_validate(<<10,1,2,3>>),
+    {ok, _} = ip_critical_san_validate(<<16#2001:16,16#db8:16,0:88,1>>),
+    {error, {bad_cert, unknown_critical_extension}} =
+        ip_critical_san_validate(<<10,1,2>>),
+    ok.
+
+ip_critical_san_validate(Address) ->
+    Key = [{key, hardcode_rsa_key(1)}],
+    SubjAltName = #'Extension'{extnID = ?'id-ce-subjectAltName', critical = true,
+                               extnValue = [{iPAddress, Address}]},
+    Data = public_key:pkix_test_data(
+             #{root => Key,
+               intermediates => [],
+               peer => [{extensions, [SubjAltName]} | Key]}),
+    Peer = proplists:get_value(cert, Data),
+    [Root | _] = proplists:get_value(cacerts, Data),
+    public_key:pkix_path_validation(Root, [Peer], []).
 
 %%--------------------------------------------------------------------
 %% To generate the PEM file contents:
