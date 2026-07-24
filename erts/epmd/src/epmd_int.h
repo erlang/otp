@@ -183,6 +183,7 @@ static const struct in6_addr in6addr_loopback =
 #endif /* HAVE_IN6 */
 
 #define IS_ADDR_LOOPBACK(addr) ((addr).s_addr == htonl(INADDR_LOOPBACK))
+#define IS_ADDR_ANY(addr) ((addr).s_addr == htonl(INADDR_ANY))
 
 #if defined(EPMD6)
 
