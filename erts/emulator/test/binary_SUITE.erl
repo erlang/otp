@@ -1162,6 +1162,10 @@ bad_binary_to_term(Config) when is_list(Config) ->
 
     %% Truncated UTF8 character (ERL-474)
     bad_bin_to_term(<<131,119,1,194,163>>),
+
+    %% Overlong 0-bit bitstring (should be encoded as 0-byte binary)
+    bad_bin_to_term(<<131,77,0,0,0,0,0>>),
+
     ok.
 
 bad_bin_to_term(BadBin) ->
