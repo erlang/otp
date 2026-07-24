@@ -22,7 +22,7 @@
 -module(timer_SUITE).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
--export([do_big_test/1]).
+-export([do_big_test/1, doctests/1]).
 -export([big_test/1, collect/3, i_t/3, a_t/2]).
 -export([do_nrev/1, internal_watchdog/2]).
 
@@ -47,8 +47,8 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,20}}].
 
-all() -> 
-    [do_big_test].
+all() ->
+    [do_big_test, doctests].
 
 groups() -> 
     [].
@@ -379,5 +379,10 @@ append([H|T],Z) ->
     [H|append(T,Z)];
 append([],X) ->
     X.
+
+%% ------------------------------------------------------- %%
+
+doctests(_Config) ->
+    ct_doctest:module(timer, [{skipped_blocks, 0}, {missing_tests, []}]).
 
 %% ------------------------------------------------------- %%
