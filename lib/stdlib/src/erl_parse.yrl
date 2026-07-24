@@ -36,7 +36,7 @@ list_comprehension lc_expr lc_exprs
 zc_exprs
 map_comprehension
 binary_comprehension
-tuple
+tuple index_expr
 record_expr record_tuple record_field record_fields
 map_expr map_tuple map_field map_field_assoc map_field_exact map_fields map_key
 if_expr if_clause if_clauses case_expr cr_clause cr_clauses receive_expr
@@ -297,6 +297,7 @@ expr -> expr list_op expr : ?mkop2('$1', '$2', '$3').
 expr -> expr add_op expr : ?mkop2('$1', '$2', '$3').
 expr -> expr mult_op expr : ?mkop2('$1', '$2', '$3').
 expr -> prefix_op expr : ?mkop1('$1', '$2').
+expr -> index_expr : '$1'.
 expr -> map_expr : '$1'.
 expr -> function_call : '$1'.
 expr -> record_expr : '$1'.
@@ -422,6 +423,19 @@ lc_expr -> binary '<:=' expr : {b_generate_strict,?anno('$2'),'$1','$3'}.
 
 tuple -> '{' '}' : {tuple,?anno('$1'),[]}.
 tuple -> '{' exprs '}' : {tuple,?anno('$1'),'$2'}.
+
+index_expr -> expr_max '[' expr ']' :
+	{call, ?anno('$2'),
+         {remote,?anno('$2'),
+          {atom,?anno('$2'),erlang},
+          {atom,?anno('$2'),map_get}},
+         ['$3','$1']}.
+index_expr -> index_expr '[' expr ']' :
+	{call, ?anno('$2'),
+         {remote,?anno('$2'),
+          {atom,?anno('$2'),erlang},
+          {atom,?anno('$2'),map_get}},
+         ['$3','$1']}.
 
 map_expr -> '#' map_tuple :
 	{map, ?anno('$1'),'$2'}.
