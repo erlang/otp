@@ -518,7 +518,12 @@ update_global_view_and_notify(Node, [{Group, Add, Remove} | Tail], Subscriptions
 update_global_view_and_notify(Node, [{Group, Add, Remove} | Tail], Subscriptions, {Scope, Monitors}) ->
     case ets:lookup(Scope, Group) of
         [{_Group, All, Local}] ->
-            ets:insert(Scope, {Group, Add ++ (All -- Remove), Local});
+            case Add ++ (All -- Remove) of
+                [] ->
+                    ets:delete(Scope, Group);
+                NewAll ->
+                    ets:insert(Scope, {Group, NewAll, Local})
+            end;
         _ ->
             ets:insert(Scope, {Group, Add, []})
     end,
