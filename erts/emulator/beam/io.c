@@ -498,7 +498,7 @@ erts_port_free(Port *prt)
 static void initq(Port* prt)
 {
     ERTS_LC_ASSERT(!prt->port_data_lock);
-    erts_ioq_init(&prt->ioq, ERTS_ALC_T_IOQ, 1);
+    erts_ioq_init(&prt->ioq, ERTS_ALC_T_IOQ, true);
 }
 
 static void stopq(Port* prt)
@@ -3142,9 +3142,9 @@ void erts_lcnt_update_port_locks(int enable) {
  * Parameters:
  * bufsiz - The (maximum) size of the line buffer.
  */
-LineBuf *allocate_linebuf(int bufsiz)
+LineBuf *allocate_linebuf(Sint bufsiz)
 {
-    int ovsiz = (bufsiz < LINEBUF_INITIAL) ? bufsiz : LINEBUF_INITIAL;
+    Sint ovsiz = (bufsiz < LINEBUF_INITIAL) ? bufsiz : LINEBUF_INITIAL;
     LineBuf *lb = (LineBuf *) erts_alloc(ERTS_ALC_T_LINEBUF,
 					 sizeof(LineBuf)+ovsiz);
     lb->ovsiz = ovsiz;

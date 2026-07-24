@@ -2847,7 +2847,7 @@ print_events(erts_dsprintf_buf_t *dsbufp, ErtsPollEvents ev)
 static ERTS_INLINE void
 print_flags(erts_dsprintf_buf_t *dsbufp, EventStateFlags f)
 {
-    const char buff[64];
+    const char buff[64] = {0};
     if (f & ERTS_EV_FLAG_WANT_ERROR) {
         erts_dsprintf(dsbufp, "WANTERR|");
         f &= ~ERTS_EV_FLAG_WANT_ERROR;
