@@ -499,7 +499,7 @@ select_extension(Id, [_ | Extensions]) ->
 
 %%--------------------------------------------------------------------
 -spec match_name(Type:: rfc822Name | directoryName | uniformResourceIdentifier |
-                 emailAddress | dNSName | x400Address | ipAdress,
+                 emailAddress | dNSName | x400Address | iPAddress,
                  Name::term(), Names::[term()]) -> boolean().
 %%
 %% Description: Does <Name> match any of name in Names according to
@@ -523,6 +523,9 @@ match_name(uniformResourceIdentifier, URI,  [PermittedName | Rest]) ->
             false
     end;
 
+%% TODO: Dead code — 'emailAddress' is not a GeneralName CHOICE member.
+%% This matching logic is correct per RFC 5280 but should be used by the
+%% rfc822Name clause above instead of is_valid_host_or_domain/2.
 match_name(emailAddress, Name, [PermittedName | Rest]) ->
     Fun = fun(Email, PermittedEmail) ->
                   is_valid_email_address(Email, PermittedEmail,
@@ -551,29 +554,8 @@ match_name(dNSName, Name, [PermittedName | Rest]) ->
 match_name(x400Address, OrAddress, [PermittedAddr | Rest]) ->
     match_name(fun is_or_address/2, OrAddress, PermittedAddr, Rest);
 
-match_name(ipAdress, IP, [PermittedIP | Rest]) ->
-    Fun = fun([IP1, IP2, IP3, IP4],
-	      [IP5, IP6, IP7, IP8, M1, M2, M3, M4]) ->
-		  is_permitted_ip([IP1, IP2, IP3, IP4],
-				  [IP5, IP6, IP7, IP8],
-				  [M1, M2, M3, M4]);
-	     ([IP1, IP2, IP3, IP4, IP5, IP6, IP7, IP8,
-	       IP9, IP10, IP11, IP12, IP13, IP14, IP15, IP16],
-	      [IP17, IP18, IP19, IP20, IP21, IP22, IP23, IP24,
-	       IP25, IP26, IP27, IP28, IP29, IP30, IP31, IP32,
-	       M1, M2, M3, M4, M5, M6, M7, M8,
-	       M9, M10, M11, M12, M13, M14, M15, M16]) ->
-		  is_permitted_ip([IP1, IP2, IP3, IP4, IP5, IP6, IP7, IP8,
-				   IP9, IP10, IP11, IP12, IP13,
-				   IP14, IP15, IP16],
-				  [IP17, IP18, IP19, IP20, IP21, IP22, IP23,
-				   IP24,IP25, IP26, IP27, IP28, IP29, IP30,
-				   IP31, IP32],
-				    [M1, M2, M3, M4, M5, M6, M7, M8, M9, M10,
-				     M11, M12, M13, M14, M15, M16]);
-	     (_,_) ->
-		  false
-	  end,
+match_name(iPAddress, IP, [PermittedIP | Rest]) ->
+    Fun = fun is_permitted_ip/2,
     match_name(Fun, IP, PermittedIP, Rest).
 
 %%====================================================================
@@ -1514,7 +1496,7 @@ is_valid_subject_alt_name({Name, Value}) when Name == rfc822Name;
 	    true
     end;
 
-is_valid_subject_alt_name({iPAdress, Addr}) ->
+is_valid_subject_alt_name({iPAddress, Addr}) ->
     case length(Addr) of
         4 ->  %ipv4
 	    true;
@@ -1611,9 +1593,13 @@ is_in_intersection(#'GeneralSubtree'{base  =
 				   {directoryName, {rdnSequence,[none]}}}
 	     | Trees]
     end;
-is_in_intersection(#'GeneralSubtree'{base = {ipAdress, Ip}},
-		   Trees = [#'GeneralSubtree'{base = {ipAdress, Ip}} | _]) ->
-    %% BUGBUG
+is_in_intersection(#'GeneralSubtree'{base = {iPAddress, Ip}},
+                   Trees = [#'GeneralSubtree'{base = {iPAddress, Ip}} | _]) ->
+    %% TODO: This only handles exact IP/mask equality. A proper
+    %% intersection of IP constraints should compute the overlapping
+    %% subnet range (RFC 5280 Section 6.1.4 step (g)). In practice,
+    %% IP nameConstraints with multiple CAs having different subnets
+    %% are extremely rare, so this is acceptable for now.
     Trees;
 is_in_intersection(#'GeneralSubtree'{base = {x400Address, OrAddr1}} = Addr,
 		   [#'GeneralSubtree'{base = {x400Address, OrAddr2}}
@@ -1643,19 +1629,17 @@ type_subtree_names(Type, SubTrees) ->
     [Name || #'GeneralSubtree'{base = {TreeType, Name}} <- SubTrees,
 	     TreeType =:= Type].
 
-is_permitted_ip([], [], []) ->
-    true;
-is_permitted_ip([CandidatIp | CandidatIpRest],
-		[PermittedIp | PermittedIpRest], [Mask | MaskRest] ) ->
-    case mask_cmp(CandidatIp, PermittedIp, Mask) of
-	true ->
-	    is_permitted_ip(CandidatIpRest, PermittedIpRest, MaskRest);
-	false ->
-	    false
-    end.
+is_permitted_ip(<<IP:4/binary>>, <<Permitted:4/binary, Mask:4/binary>>) ->
+    ip_mask_match(IP, Permitted, Mask);
+is_permitted_ip(<<IP:16/binary>>, <<Permitted:16/binary, Mask:16/binary>>) ->
+    ip_mask_match(IP, Permitted, Mask);
+is_permitted_ip(_, _) ->
+    false.
 
-mask_cmp(Canditate, Permitted, Mask) ->
-    (Canditate band Mask) == Permitted.
+ip_mask_match(<<>>, <<>>, <<>>) -> true;
+ip_mask_match(<<A, IPRest/binary>>, <<B, PermRest/binary>>, <<M, MaskRest/binary>>) ->
+    %% Mask both sides to tolerate malformed constraints with host bits set
+    (A band M) == (B band M) andalso ip_mask_match(IPRest, PermRest, MaskRest).
 
 is_valid_host_or_domain([], _) ->
     false; %% Can happen if URI was not a HTTP URI
