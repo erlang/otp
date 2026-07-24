@@ -23,8 +23,8 @@
 -include("../include/public_key.hrl").
 
 %% API
--export([add_leaves/2,
-         add_leaf_siblings/2,
+-export([add_leaves/3,
+         add_leaf_siblings/3,
          any_leaves/1,
          all_leaves/1,
          collect_qualifiers/2,
@@ -58,40 +58,49 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
--spec add_leaves(policy_tree(), LeafFun) -> policy_tree() when
+-spec add_leaves(policy_tree(), non_neg_integer(), LeafFun) ->
+          {policy_tree(), non_neg_integer()} when
       LeafFun :: fun((policy_tree_node()) -> [policy_node()]).
 
 %%
 %% Add leaves specified by calling LeafFun with the current leaves
 %% as input
 %%--------------------------------------------------------------------
-add_leaves({Parent, []}, LeafFun) ->
-    {Parent, LeafFun(Parent)};
-add_leaves(Tree, LeafFun0) ->
+add_leaves({Parent, []}, NodeCount0, LeafFun) ->
+    Leaves = LeafFun(Parent),
+    NodeCount = NodeCount0 + length(Leaves),
+    {{Parent, Leaves}, NodeCount};
+add_leaves(Tree0, NodeCount, LeafFun0) ->
     LeafFun = fun(Leaf) ->
                       NewLeaves = LeafFun0(Leaf),
                       {Leaf, NewLeaves}
               end,
-    map_leaves(Tree, LeafFun).
+    {Tree, NodesAdded} = map_leaves_count(Tree0, LeafFun),
+    {Tree, NodeCount + NodesAdded}.
 
 %%--------------------------------------------------------------------
--spec add_leaf_siblings(policy_tree(), SiblingFun) -> policy_tree() when
+-spec add_leaf_siblings(policy_tree(), non_neg_integer(), SiblingFun) ->
+          {policy_tree(), non_neg_integer()} when
       SiblingFun ::fun((policy_tree_node()) -> no_sibling | [policy_node()]).
 
 %%
 %% Add sibling leaves if SiblingFun returns a list of policy nodes
 %% for the leaf parent.
 %%--------------------------------------------------------------------
-add_leaf_siblings({Parent,[{_, _}|_] = ChildNodes}, SiblingFun) ->
-    {Parent, lists:map(fun(ChildNode)->
-                               add_leaf_siblings(ChildNode, SiblingFun)
-                       end, ChildNodes)};
-add_leaf_siblings({Parent, Leaves} = Node, SiblingFun) ->
+add_leaf_siblings({Parent,[{_, _}|_] = ChildNodes}, NodeCount, SiblingFun) ->
+    {Leaves, NodesAdded} =
+        lists:mapfoldl(fun(ChildNode, Acc)->
+                               {Leaves, NodesAdded} =
+                                   add_leaf_siblings(ChildNode, 0, SiblingFun),
+                               {Leaves, Acc + NodesAdded}
+                       end, 0, ChildNodes),
+    {{Parent, Leaves}, NodeCount + NodesAdded};
+add_leaf_siblings({Parent, Leaves} = Node, NodeCount, SiblingFun) ->
     case SiblingFun(Parent) of
         no_sibling ->
-            Node;
+            {Node, NodeCount};
         Siblings ->
-            {Parent, Leaves ++ Siblings}
+            {{Parent, Leaves ++ Siblings}, NodeCount + length(Siblings)}
     end.
 
 %%--------------------------------------------------------------------
@@ -318,6 +327,21 @@ valid_policy_node_set(_) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+map_leaves_count({Parent, [{_, _}|_] = ChildNodes}, LeafFun) ->
+    {Leaves, NodesAdded} =
+        lists:mapfoldl(fun(ChildNode, Acc)->
+                               {Node, Added} = map_leaves_count(ChildNode, LeafFun),
+                               {Node, Acc + Added}
+                       end, 0, ChildNodes),
+    {{Parent, Leaves}, NodesAdded};
+map_leaves_count({Parent, Leaves0}, LeafFun) ->
+    {Leaves, NodesAdded} =
+        lists:mapfoldl(fun(L, Acc) ->
+                               Node = {_, ChildNodes} = LeafFun(L),
+                               {Node, Acc + length(ChildNodes)}
+                       end, 0, Leaves0),
+    {{Parent, Leaves}, NodesAdded}.
+
 any_policy_node() ->
     policy_node(?anyPolicy, [], [?anyPolicy]).
 

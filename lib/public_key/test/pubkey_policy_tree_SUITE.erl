@@ -1,3 +1,25 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2024-2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
+
 -module(pubkey_policy_tree_SUITE).
 -compile([export_all, nowarn_export_all]).
 
@@ -173,9 +195,9 @@ add_leaves(_Config) ->
            (_) ->
                 []
         end,
-    Instructions = [{add_leaves, [AddLeavesFun1]},
-                    {add_leaves, [AddLeavesFun1]},
-                    {add_leaves, [AddLeavesFun2]}],
+    Instructions = [{add_leaves, 2, [AddLeavesFun1]},
+                    {add_leaves, 4, [AddLeavesFun1]},
+                    {add_leaves, 4, [AddLeavesFun2]}],
     {ok, Tree} = explain(RootTree, Instructions),
     ?assertEqual({?ROOT_PN,
                   [{?PN("GOLD"),
@@ -198,16 +220,18 @@ add_leaf_siblings(_Config) ->
            (_) ->
                 []
         end,
-    Instructions = [{add_leaf_siblings, [AddLeavesFun1]},
-                    {add_leaf_siblings, [AddLeavesFun1]},
-                    {add_leaf_siblings, [AddLeavesFun2]}
+    Instructions = [{add_leaf_siblings, 4, [AddLeavesFun1]},
+                    {add_leaf_siblings, 4, [AddLeavesFun1]},
+                    {add_leaf_siblings, 2, [AddLeavesFun2]}
                    ],
     {ok, Tree} = explain(tree_with_any_policy_node1(), Instructions),
     ?assertEqual({?ROOT_PN,
                   [{?PN(?anyPolicy),
-                    [?PN("GOLD"), ?PN("GOLD"), ?PN("SILVER"), ?PN("GOLD"), ?PN("SILVER"), ?PN("PINK")]},
+                    [?PN("GOLD"), ?PN("GOLD"), ?PN("SILVER"), ?PN("GOLD"),
+                     ?PN("SILVER"), ?PN("PINK")]},
                    {?PN("SILVER", ["A"]),
-                    [?PN("SILVER", ["B"]), ?PN("GOLD"), ?PN("SILVER"), ?PN("GOLD"), ?PN("SILVER"), ?PN("PURPLE")]}]},
+                    [?PN("SILVER", ["B"]), ?PN("GOLD"), ?PN("SILVER"),
+                     ?PN("GOLD"), ?PN("SILVER"), ?PN("PURPLE")]}]},
                  Tree),
     ok.
 
@@ -222,6 +246,13 @@ explain(InitTree, Instructions) ->
 
 explain(Tree, [], _) ->
     {ok, Tree};
+explain(Tree0, [{FunctionName, ExpectedTreeGrowth, Args} | Rest], N) ->
+    Title = io_lib:format("~p) pubkey_policy_tree:~p()", [N, FunctionName]),
+    ct:log("=============================================~nSTEP: ~s", [Title]),
+    {Tree, TreeGrowth} = apply(pubkey_policy_tree, FunctionName, [Tree0, 0 | Args]),
+    ?assertEqual(ExpectedTreeGrowth, TreeGrowth),
+    ?PAL_MMD(to_mmd(Title, Tree)),
+    explain(Tree, Rest, N+1);
 explain(Tree0, [{FunctionName, Args} | Rest], N) ->
     Title = io_lib:format("~p) pubkey_policy_tree:~p()", [N, FunctionName]),
     ct:log("=============================================~nSTEP: ~s", [Title]),
