@@ -63,6 +63,8 @@
          select_sha1_cert/1,
          inet_backend_option_order/0,
          inet_backend_option_order/1,
+         send_timeout_buffering/0,
+         send_timeout_buffering/1,
          root_any_sign/0,
          root_any_sign/1,
          connection_information/0,
@@ -230,6 +232,8 @@
          suite_check/2,
          ecdsa_cert_check/1,
          check_peercert/2,
+         send_timeout_sink/2,
+         send_timeout_fill/2,
          %%TODO Keep?
          run_error_server/1,
          run_client_error/1
@@ -267,9 +271,11 @@ groups() ->
      {'tlsv1.1', [parallel],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2()},
      {'tlsv1', [parallel],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2() ++
           beast_mitigation_test()},
-     {'dtlsv1.2', [parallel], gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
+     {'dtlsv1.2', [parallel], gen_api_tests() -- [new_options_in_handshake, hibernate_server,
+                                                   send_timeout_buffering] ++
           handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3()},
-     {'dtlsv1', [parallel],  gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
+     {'dtlsv1', [parallel],  gen_api_tests() -- [new_options_in_handshake, hibernate_server,
+                                                   send_timeout_buffering] ++
           handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3() ++ pre_1_2()},
      {transport_socket,  [parallel], gen_api_tests() -- [ssl_not_started, dh_params]}
     ].
@@ -309,6 +315,7 @@ gen_api_tests() ->
      peercert_with_client_cert,
      select_sha1_cert,
      inet_backend_option_order,
+     send_timeout_buffering,
      connection_information,
      secret_connection_info,
      keylog_connection_info,
@@ -676,6 +683,92 @@ inet_backend_option_order(Config) when is_list(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+send_timeout_buffering() ->
+    [{doc,"Test that ssl buffers unsent encrypted data on send timeout "
+      "when using {inet_backend, socket} and retries on next send"}].
+send_timeout_buffering(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    %% Spawn a coordinator that relays signals between client and server.
+    Coord = spawn_link(fun send_timeout_coord/0),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {?MODULE, send_timeout_sink, [Coord]}},
+                                        {options, [{inet_backend, socket},
+                                                   {active, false}
+                                                   | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                        {host, Hostname},
+                                        {from, self()},
+                                        {mfa, {?MODULE, send_timeout_fill, [Coord]}},
+                                        {options, [{inet_backend, socket},
+                                                   {active, false},
+                                                   {sndbuf, 4096},
+                                                   {send_timeout, 50}
+                                                   | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%% Coordinator process: relays start_recv from client to server,
+%% and drained from server back to client.
+send_timeout_coord() ->
+    ServerPid = receive {server_ready, Pid} -> Pid
+                after 5000 -> exit(coord_no_server)
+                end,
+    ClientPid = receive {start_recv, Pid2} -> Pid2
+                after 5000 -> exit(coord_no_start_recv)
+                end,
+    ServerPid ! start_recv,
+    receive drained -> ClientPid ! drained
+    after 5000 -> exit(coord_no_drained)
+    end.
+
+send_timeout_sink(Socket, Coord) ->
+    %% Server side: announce to coordinator, wait for signal, drain, signal back.
+    Coord ! {server_ready, self()},
+    receive start_recv -> ok
+    after 5000 -> ct:fail(server_timeout_waiting_for_start_recv)
+    end,
+    send_timeout_recv_loop(Socket),
+    Coord ! drained,
+    ok.
+
+send_timeout_recv_loop(Socket) ->
+    case ssl:recv(Socket, 0, 1000) of
+        {ok, _} -> send_timeout_recv_loop(Socket);
+        {error, timeout} -> ok;
+        {error, closed} -> ok
+    end.
+
+send_timeout_fill(Socket, Coord) ->
+    %% Client side: fill buffer, signal server via coordinator, wait for drain.
+    Data = <<0:(1024*8)>>,
+    send_timeout_fill_loop(Socket, Data, 0, Coord).
+
+send_timeout_fill_loop(Socket, Data, N, Coord) ->
+    case ssl:send(Socket, Data) of
+        ok ->
+            send_timeout_fill_loop(Socket, Data, N + 1, Coord);
+        {error, timeout} when N > 0 ->
+            %% Buffer filled. Signal server to start draining.
+            Coord ! {start_recv, self()},
+            %% Wait for server to finish draining.
+            receive drained -> ok
+            after 5000 -> ct:fail(client_timeout_waiting_for_drained)
+            end,
+            %% Verify connection is still usable.
+            ok = ssl:send(Socket, <<"still alive">>),
+            ok;
+        {error, _} = Error ->
+            Error
+    end.
 
 %%--------------------------------------------------------------------
 connection_information() ->
