@@ -3001,6 +3001,57 @@ BIF_RETTYPE ets_lookup_element_4(BIF_ALIST_4)
 }
 
 /*
+** Get multiple elements from a term
+** get_elements_3(Tab, Key, Indexes)
+** return tuple of elements or a list of tuples of elements if bag
+*/
+BIF_RETTYPE ets_lookup_elements_3(BIF_ALIST_3)
+{
+    DbTable* tb;
+    Eterm* indexes;
+    int cret;
+    Eterm ret;
+    Eterm* tp;
+    int index_cnt;
+
+    CHECK_TABLES();
+
+    DB_BIF_GET_TABLE(tb, DB_READ, LCK_READ, BIF_ets_lookup_elements_3);
+
+    if (!is_tuple(BIF_ARG_3) || (tp = tuple_val(BIF_ARG_3),
+                                 index_cnt = arityval(tp[0]),
+                                 index_cnt < 0)) {
+        db_unlock(tb, LCK_READ);
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if(index_cnt==0) { return TUPLE0; }
+
+    for(int i=0; i<index_cnt; i++) {
+        if (is_not_small(tp[i+1]) || (signed_val(tp[i+1]) < 1)) {
+            db_unlock(tb, LCK_READ);
+            BIF_ERROR(BIF_P, BADARG);
+        }
+    }
+    indexes = tp+1;
+
+    cret = tb->common.meth->db_get_elements(BIF_P, tb, BIF_ARG_2,
+                                            indexes, index_cnt, &ret);
+    db_unlock(tb, LCK_READ);
+    switch (cret) {
+    case DB_ERROR_NONE:
+        BIF_RET(ret);
+    case DB_ERROR_SYSRES:
+        BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+    case DB_ERROR_BADKEY:
+        BIF_P->fvalue = EXI_BAD_KEY;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+    default:
+        BIF_ERROR(BIF_P, BADARG);
+    }
+}
+
+/*
  * BIF to erase a whole table and release all memory it holds
  */
 BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
