@@ -150,6 +150,8 @@
 -define(KEY_EXCHANGE_RSA_PSK, 4).
 -define(KEY_EXCHANGE_SRP, 5).
 
+-define(MIN_DH_PRIM_BYTE_SIZE, 256).
+
 -record(server_rsa_params, {
 	  rsa_modulus,  %%  opaque RSA_modulus<1..2^16-1>
 	  rsa_exponent  %%  opaque RSA_exponent<1..2^16-1>
