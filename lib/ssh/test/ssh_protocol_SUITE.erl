@@ -2723,9 +2723,9 @@ authorized_key_algorithm(Key, DefaultAlgs) ->
 
 %% Build a valid but (for the test user) unauthorized public key blob.
 unauthorized_pubkey() ->
-    {PubBin, _PrivBin} = crypto:generate_key(eddsa, ed25519),
-    PubKey = {#'ECPoint'{point = PubBin}, {namedCurve, ?'id-Ed25519'}},
-    {ssh_message:ssh2_pubkey_encode(PubKey), <<"ssh-ed25519">>}.
+    {PubBin, _PrivBin} = crypto:generate_key(ecdh, secp256r1),
+    PubKey = {#'ECPoint'{point = PubBin}, {namedCurve, ?'secp256r1'}},
+    {ssh_message:ssh2_pubkey_encode(PubKey), <<"ecdsa-sha2-nistp256">>}.
 
 user_auth_pubkey_probe_accepted(KeyBlob, Alg, User, State) ->
     ssh_trpt_test_lib:exec(
