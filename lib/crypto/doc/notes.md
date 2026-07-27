@@ -97,6 +97,26 @@ This document describes the changes made to the Crypto application.
 [PR-10839]: https://github.com/erlang/otp/pull/10839
 [PR-10993]: https://github.com/erlang/otp/pull/10993
 
+## Crypto 5.8.3.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed crash in `crypto:macN/5` when supplied `MacLength` was greater than length of what the underlying hash returned.
+
+  Own Id: OTP-20239 Aux Id: [PR-11239]
+
+- Fixed segfault in `crypto:aead_cipher_init_nif` when argument validation fails.
+
+  Own Id: OTP-20241 Aux Id: [PR-11330]
+
+- Fix cipher key buffer overread for `chacha20_poly1305`.
+
+  Own Id: OTP-20244 Aux Id: [PR-11337]
+
+[PR-11239]: https://github.com/erlang/otp/pull/11239
+[PR-11330]: https://github.com/erlang/otp/pull/11330
+[PR-11337]: https://github.com/erlang/otp/pull/11337
+
 ## Crypto 5.8.3.1
 
 ### Fixed Bugs and Malfunctions
