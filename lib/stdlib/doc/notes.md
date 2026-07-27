@@ -1172,6 +1172,19 @@ This document describes the changes made to the STDLIB application.
 [PR-9705]: https://github.com/erlang/otp/pull/9705
 [PR-9680]: https://github.com/erlang/otp/pull/9680
 
+## STDLIB 6.2.2.4
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug where zip:unzip/1,2 and zip:extract/1,2 were vulnerable to a relative path traversal attack. A crafted zip archive containing entry names such as ../x/y could have caused files to be written outside the intended extraction directory.
+  
+  Thanks to Jonatan Männchen and Zhang Delong for finding and responsibly disclosing this vulnerability to the Erlang/OTP project.
+
+  Own Id: OTP-20143 Aux Id: [CVE-2026-47078], [PR-11386]
+
+[CVE-2026-47078]: https://nvd.nist.gov/vuln/detail/2026-47078
+[PR-11386]: https://github.com/erlang/otp/pull/11386
+
 ## STDLIB 6.2.2.3
 
 ### Fixed Bugs and Malfunctions
