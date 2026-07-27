@@ -211,7 +211,7 @@ parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers, _, _,
 					   Headers),
 	    {ok, list_to_tuple(lists:reverse([Body, {http_request:headers(FinalHeaders, #http_request_h{}), FinalHeaders} | Result]))};
 	NewHeader ->
-	    case check_header(NewHeader, Options) of 
+	    case check_header(NewHeader, Headers, Options) of
 		ok ->
 		    FinalHeaders = lists:filtermap(fun(H) ->
 							   httpd_custom:customize_headers(Customize, request_header, H)
@@ -261,7 +261,7 @@ parse_headers(<<?CR,?LF, Octet, Rest/binary>>, Header, Headers, Current, Max,
 	    parse_headers(Rest, [Octet], Headers, 
 			  Current, Max, Options, Result);
 	NewHeader ->
-	    case check_header(NewHeader, Options) of 
+	    case check_header(NewHeader, Headers, Options) of
 		ok ->
 		    parse_headers(Rest, [Octet], [NewHeader | Headers], 
 				  Current, Max, Options, Result);
@@ -430,8 +430,37 @@ get_persistens(HTTPVersion,ParsedHeader,ConfigDB)->
 default_version()->
     "HTTP/1.1".
 
-check_header({"content-length", Value}, Maxsizes) ->
-    Max = proplists:get_value(max_content_length, Maxsizes),
+check_header({"content-length", Value}, Headers, MaxSizes) ->
+    case lists:keymember("transfer-encoding", 1, Headers) of
+        true ->
+            {error, {bad_request, 400, ?CL_TE_ERROR}};
+        false ->
+            case check_parsed_content_length_values(Value, Headers) of
+                true ->
+                    check_content_length_value(Value, MaxSizes);
+                false ->
+                    {error, {bad_request, 400,
+                             "Multiple Content-Length headers with different values"}}
+            end
+    end;
+
+check_header({"transfer-encoding", _Value}, Headers, _MaxSizes) ->
+    case lists:keymember("content-length", 1, Headers) of
+        true ->
+            {error, {bad_request, 400, ?CL_TE_ERROR}};
+        false ->
+            ok
+    end;
+
+check_header(_, _, _) ->
+    ok.
+
+check_parsed_content_length_values(CurrentValue, Headers) ->
+    ContentLengths = [V || {"content-length", _} = V <- Headers],
+    length([V || {"content-length", Value} = V <- ContentLengths, Value =:= CurrentValue]) =:= length(ContentLengths).
+
+check_content_length_value(Value, MaxSizes) ->
+    Max = proplists:get_value(max_content_length, MaxSizes),
     MaxLen = length(integer_to_list(Max)),
     case length(Value) =< MaxLen of
 	true ->
@@ -447,6 +476,4 @@ check_header({"content-length", Value}, Maxsizes) ->
 	    end;
 	false ->
 	    {error, {size_error, Max, 413, "content-length unreasonably long"}}
-    end;
-check_header(_, _) ->
-    ok.
+    end.

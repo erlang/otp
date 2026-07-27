@@ -40,5 +40,6 @@
 	 {timefmt,"%A, %d-%b-%y %T %Z"},
 	 {sizefmt,"abbrev"}]).
 
+-define(CL_TE_ERROR, "Transfer-Encoding and Content-Length headers in the same request are forbidden").
 
 -endif. % -ifdef(httpd_internal_hrl).
