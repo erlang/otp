@@ -294,6 +294,21 @@ This document describes the changes made to the Crypto application.
 [PR-9441]: https://github.com/erlang/otp/pull/9441
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 
+## Crypto 5.5.3.4
+
+### Fixed Bugs and Malfunctions
+
+- Fixed crash in `crypto:macN/5` when supplied `MacLength` was greater than length of what the underlying hash returned.
+
+  Own Id: OTP-20239 Aux Id: [PR-11239]
+
+- Fix cipher key buffer overread for `chacha20_poly1305`.
+
+  Own Id: OTP-20244 Aux Id: [PR-11337]
+
+[PR-11239]: https://github.com/erlang/otp/pull/11239
+[PR-11337]: https://github.com/erlang/otp/pull/11337
+
 ## Crypto 5.5.3.3
 
 ### Fixed Bugs and Malfunctions
