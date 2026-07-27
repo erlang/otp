@@ -2296,7 +2296,7 @@ pwdfun_lockout_ets(Config) ->
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
-max_auth_tries_option(Config) ->
+max_auth_tries_option(_Config) ->
     %% Valid values accepted
     #{max_auth_tries := 3} = ssh_options:handle_options(server, [{max_auth_tries, 3}]),
     #{max_auth_tries := 1} = ssh_options:handle_options(server, [{max_auth_tries, 1}]),

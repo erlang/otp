@@ -2388,9 +2388,10 @@ max_auth_tries_almost_exceeded(Config) ->
            {match, #ssh_msg_service_accept{name = "ssh-userauth"}, receive_msg}
           ], InitState),
 
-    %% 3 failed attempts will be accepted
+    %% One failure
     BadPwd = "wrong_password",
     {ok, State2} = user_auth_password_failed(BadPwd, User, State1, ?MATCH_FAILURE),
+    %% Success at the last attemp
     {ok, _State3} =
         ssh_trpt_test_lib:exec(
           [{send, #ssh_msg_userauth_request{user = User,
@@ -2406,7 +2407,7 @@ max_auth_tries_almost_exceeded(Config) ->
 max_auth_tries_exceeded_kb(Config) ->
     %% Same as max_auth_tries_exceeded but with keyboard-interactive as the
     %% real method and max_auth_tries set to 6. none#1 is free, none#2 uses
-    %% try 1, then four kb failures use tries 2-5 and the fifth disconnects.
+    %% try 1, then four kb failures use tries 2-5 and the sixth disconnects.
     UserDir = ssh_test_lib:user_dir(Config),
     User = "foo",
     Pwd = "bar",
