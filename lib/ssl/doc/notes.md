@@ -226,6 +226,39 @@ This document describes the changes made to the SSL application.
 [PR-10979]: https://github.com/erlang/otp/pull/10979
 [PR-11019]: https://github.com/erlang/otp/pull/11019
 
+## SSL 11.6.0.4
+
+### Fixed Bugs and Malfunctions
+
+- Add pre TLS-1.3 client side validation of servers algorithm selection being part of clients offered algorithms, preventing in worst case MITM circumventing validation of server certificate tricking the client to trust the malicious MITM as it was a valid server. Note this check is already performed for TLS-1.3 clients.
+
+  Own Id: OTP-20240 Aux Id: [PR-11336], [CVE-2026-55953]
+
+- Prevent invalid cert chains to create cycles in chain building code used to handle 
+  chains that could be unordered or contain  extraneous certs. This avoids a DoS attack possibility.
+
+  Own Id: OTP-20245 Aux Id: [PR-11343], [CVE-2026-58227]
+
+- Clarify that rsa_psk and anonymous key exchange algorithms are considered legacy. Also harden rsa_psk in same way as normal rsa key exchange.
+
+  Own Id: OTP-20248 Aux Id: [PR-11341]
+
+- Harden SSL application to conform with best practice and RFC's. This will mostly improve error messages and conserve memory usage.
+
+  Own Id: OTP-20250 Aux Id: [PR-27944]
+
+- A certificate chain with crafted policyMappings extensions could cause exponential memory consumption during path validation, exploitable via TLS handshake. Chains exceeding a node-count cap are now rejected with {bad_cert, policy_tree_exceeded}.
+
+  Own Id: OTP-20251 Aux Id: [PR-11372], GHSA-622p-qfh6-c352
+
+[PR-11336]: https://github.com/erlang/otp/pull/11336
+[CVE-2026-55953]: https://nvd.nist.gov/vuln/detail/2026-55953
+[PR-11343]: https://github.com/erlang/otp/pull/11343
+[CVE-2026-58227]: https://nvd.nist.gov/vuln/detail/2026-58227
+[PR-11341]: https://github.com/erlang/otp/pull/11341
+[PR-27944]: https://github.com/erlang/otp/pull/27944
+[PR-11372]: https://github.com/erlang/otp/pull/11372
+
 ## SSL 11.6.0.3
 
 ### Fixed Bugs and Malfunctions

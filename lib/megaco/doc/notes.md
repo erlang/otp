@@ -59,6 +59,16 @@ is the version number of Megaco.
 
 [PR-10839]: https://github.com/erlang/otp/pull/10839
 
+## Megaco 4.8.3.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a buffer overflow in the megaco flex scanner C driver. A property parm name exceeding 452 bytes in a text-encoded H.248 message could overflow a fixed-size error buffer, crashing the VM. The sprintf calls have been replaced with bounded snprintf.
+
+  Own Id: OTP-20237 Aux Id: [PR-11323], GHSA-7xgh-gmgf-q2g7
+
+[PR-11323]: https://github.com/erlang/otp/pull/11323
+
 ## Megaco 4.8.3
 
 ### Improvements and New Features
