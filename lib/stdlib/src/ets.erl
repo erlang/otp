@@ -295,7 +295,8 @@ Semi-opaque continuation used by [`select/1,3`](`select/1`),
 -export([all/0, delete/1, delete/2, delete_all_objects/1,
          delete_object/2, first/1, first_lookup/1, give_away/3, info/1, info/2,
          insert/2, insert_new/2, is_compiled_ms/1, last/1, last_lookup/1, lookup/2,
-         lookup_element/3, lookup_element/4, match/1, match/2, match/3, match_object/1,
+         lookup_element/3, lookup_element/4, lookup_elements/3,
+         match/1, match/2, match/3, match_object/1,
          match_object/2, match_object/3, match_spec_compile/1,
          match_spec_run_r/3, member/2, new/2, next/2, next_lookup/2, prev/2, prev_lookup/2,
          rename/2, safe_fixtable/2, select/1, select/2, select/3,
@@ -970,6 +971,26 @@ none
 
 lookup_element(_, _, _, _) ->
   erlang:nif_error(undef).
+
+-doc """
+## Examples
+
+```erlang
+1> T = ets:new(t, []).
+2> ets:insert(T, {k, 10, 20, example}).
+true
+3> ets:lookup_elements(T, k, {1, 4, 2}).
+{k, example, 10}
+```
+""".
+-spec lookup_elements(Table, Key, PosSpec) -> Elem when
+      Table :: table(),
+      Key :: term(),
+      PosSpec :: tuple(),
+      Elem :: term() | [term()].
+
+lookup_elements(_, _, _) ->
+    erlang:nif_error(undef).
 
 -doc """
 Matches the objects in table `Table` against pattern `Pattern`.

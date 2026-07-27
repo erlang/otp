@@ -44,6 +44,7 @@
 	 tabfile_ext2/1, tabfile_ext3/1, tabfile_ext4/1, badfile/1]).
 -export([heavy_lookup/1, heavy_lookup_element/1, heavy_concurrent/1]).
 -export([lookup_element_mult/1, lookup_element_default/1]).
+-export([lookup_elements/1]).
 -export([foldl_ordered/1, foldr_ordered/1, foldl/1, foldr/1, fold_empty/1,
          fold_badarg/1]).
 -export([t_delete_object/1, t_init_table/1, t_whitebox/1,
@@ -205,7 +206,8 @@ all() ->
      doctests,
      error_info,
      bound_maps,
-     racy_rename
+     racy_rename,
+     lookup_elements
     ].
 
 
@@ -4445,6 +4447,21 @@ lookup_element_mult_do(Opts) ->
     ok = lem_crash_3(T),
     ets:insert(T, {0, "heap_key"}),
     ets:lookup_element(T, "heap_key", 2),
+    true = ets:delete(T),
+    verify_etsmem(EtsMem).
+
+lookup_elements(Config) when is_list(Config) ->
+    repeat_for_opts_all_table_types(fun lookup_elements_do/1).
+
+lookup_elements_do(Opts) ->
+    EtsMem = etsmem(),
+    T = ets_new(service, [{keypos, 2} | Opts]),
+    D = lists:reverse(lem_data()),
+    lists:foreach(fun(X) -> ets:insert(T, X) end, D),
+    ok = lem_crash_3(T),
+    ets:insert(T, {0, "heap_key", immed, {tup, x, y}}),
+    ?assertEqual({}, ets:lookup_elements(T, "heap_key", {})),
+    _ = ets:lookup_elements(T, "heap_key", {2,3,1,4}),
     true = ets:delete(T),
     verify_etsmem(EtsMem).
 
@@ -9591,6 +9608,13 @@ error_info(_Config) ->
 
          {lookup_element, ['$Tab', no_key, 1, default_value], [no_fail]},
          {lookup_element, [OneKeyTab, one, 4, default_value]},
+
+         {lookup_elements, ['$Tab', no_key, {0}]},
+         {lookup_elements, ['$Tab', no_key, {1}], [{error_term,badkey}]},
+         {lookup_elements, ['$Tab', no_key, {bad_pos}]},
+
+         {lookup_elements, [OneKeyTab, one, {4}]},
+         {lookup_elements, [OneKeyTab, one, {1,4}]},
 
          {match, [bad_continuation], [no_table]},
 
