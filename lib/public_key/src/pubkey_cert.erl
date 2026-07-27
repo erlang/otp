@@ -57,6 +57,7 @@
          root_cert/2]).
 
 -include("public_key_internal.hrl").
+-define(MAX_POLICY_TREE_NODES, 1000).
 
 %%====================================================================
 %% Internal application APIs
@@ -823,13 +824,14 @@ validate_extensions(Cert, [#'Extension'{extnID = ?'id-ce-certificatePolicies',
 			      | Rest],
                     ValidationState,
 		    ExistBasicCon, SelfSigned, UserState, VerifyFun) ->
-    Tree = process_policy_tree(Info, SelfSigned, ValidationState),
+    {Tree, NodeCount} = process_policy_tree(Info, SelfSigned, ValidationState),
     validate_extensions(Cert, Rest,
 			ValidationState#path_validation_state{
                           policy_ext_present = true,
                           current_any_policy_qualifiers =
                               current_any_policy_qualifiers(Info),
-			  valid_policy_tree = Tree},
+			  valid_policy_tree = Tree,
+                          policy_tree_node_count = NodeCount},
 			ExistBasicCon, SelfSigned, UserState, VerifyFun);
 validate_extensions(Cert, [#'Extension'{extnID = ?'id-ce-policyConstraints'} = Ext
 			      | Rest], ValidationState, ExistBasicCon,
@@ -876,8 +878,9 @@ validate_extensions(Cert, [#'Extension'{} = Extension | Rest],
 			UserState, VerifyFun).
 
 handle_last_cert(Cert, #path_validation_state{last_cert = true,
-                                                 user_initial_policy_set = PolicySet,
-                                                 valid_policy_tree = Tree} = ValidationState0) ->
+                                              user_initial_policy_set = PolicySet,
+                                              valid_policy_tree = Tree,
+                                              policy_tree_node_count = NodeCount0} = ValidationState0) ->
     OtpCert = otp_cert(Cert),
     TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
     Extensions =
@@ -892,9 +895,13 @@ handle_last_cert(Cert, #path_validation_state{last_cert = true,
             _  ->
                 ValidationState0
     end,
-    ValidTree = policy_tree_intersection(PolicySet, Tree),
+    %% No assert needed — growth here is bounded by UserPolicySet size
+    %% (relying-party config, not attacker-controlled). Terminal operation
+    %% with no subsequent amplification possible.
+    {ValidTree, NodeCount} = policy_tree_intersection(PolicySet, Tree, NodeCount0),
     validate_policy_tree(Cert,
-                         ValidationState#path_validation_state{valid_policy_tree = ValidTree});
+                         ValidationState#path_validation_state{valid_policy_tree = ValidTree,
+                                                               policy_tree_node_count = NodeCount});
 handle_last_cert(_, ValidationState) ->
     ValidationState.
 
@@ -960,24 +967,28 @@ assert_valid_policy_tree(false, _Tree) -> % 6.1.3 e
 %% certificate and the valid_policy_tree is not NULL, process the
 %% policy information by performing the following steps in order:
 process_policy_tree(PolicyInformation, SelfSigned,
-                    #path_validation_state{valid_policy_tree = Tree0} =
-                        ValidationState) ->  
+                    #path_validation_state{valid_policy_tree = Tree0,
+                                           policy_tree_node_count = NodeCount0} =
+                        ValidationState) ->
     case pubkey_policy_tree:is_empty(Tree0) of
         true ->
-            Tree0;
+            {Tree0, NodeCount0};
         false ->
             %% Step 1 & 2
-            Tree = add_policy_children(PolicyInformation,
+            {Tree, NodeCount} = add_policy_children(PolicyInformation,
                                        SelfSigned, ValidationState),
+            assert_policy_tree_node_count(NodeCount),
             %% Step 3: If there is a node in the valid_policy_tree of depth i-1 or
             %% less without any child nodes, delete that node.  Repeat this step
             %% until there are no nodes of depth i-1 or less without children.
-            pubkey_policy_tree:prune_tree(Tree) 
+            PrunedTree = pubkey_policy_tree:prune_tree(Tree),
+            {PrunedTree, NodeCount}
     end.
 
 %% 6.1.3 d
 add_policy_children(PolicyInfoList0, SelfSigned,
                     #path_validation_state{valid_policy_tree = Tree0,
+                                           policy_tree_node_count = NodeCount0,
                                            inhibit_any_policy = AnyPolicyConstraint,
                                            cert_num = CertNum,
                                            max_path_length = PathLen
@@ -996,17 +1007,16 @@ add_policy_children(PolicyInfoList0, SelfSigned,
         fun(#{expected_policy_set := ExpPolicySet}) ->
                 policy_children(ExpPolicySet, PolicyInfoList)
         end,
-    Tree1 = pubkey_policy_tree:add_leaves(Tree0, LeafFun),
-    
+    {Tree1, NodeCount1} = pubkey_policy_tree:add_leaves(Tree0, NodeCount0, LeafFun),
     %% posibly ii
     AllLeaves = pubkey_policy_tree:all_leaves(Tree1),
     Siblings = fun(#{valid_policy := ?anyPolicy}) ->
                        any_policy_children(AllLeaves, PolicyInfoList);
                   (_) -> []
                end,
-    Tree = pubkey_policy_tree:add_leaf_siblings(Tree1, Siblings),
+    {Tree, NodeCount} = pubkey_policy_tree:add_leaf_siblings(Tree1, NodeCount1, Siblings),
     %% Step 2
-    handle_any_ext(Tree, AnyExt, AnyPolicyConstraint, SelfSigned, CertNum, PathLen).
+    handle_any_ext({Tree, NodeCount}, AnyExt, AnyPolicyConstraint, SelfSigned, CertNum, PathLen).
 
 %% 6.1.3 - d 1 i
 %% Step 1: For each policy P not equal to anyPolicy in the certificate
@@ -1058,9 +1068,9 @@ any_policy_children(_, _) ->
 %%   expected_policy_set in the parent node, set the qualifier_set to
 %%   AP-Q, and set the expected_policy_set to the value in the
 %%   valid_policy from this node.
-handle_any_ext(Tree, undefined, _, _, _,_) ->
-    Tree;
-handle_any_ext(Tree, #'PolicyInformation'{
+handle_any_ext({Tree, NodeCount}, undefined, _, _, _,_) ->
+    {Tree, NodeCount};
+handle_any_ext({Tree, NodeCount0}, #'PolicyInformation'{
                            policyIdentifier = ?anyPolicy,
                            policyQualifiers = Qualifiers}, AnyPolicyConstraint,
                SelfSigned, CertNum, PathLen) ->
@@ -1071,9 +1081,9 @@ handle_any_ext(Tree, #'PolicyInformation'{
             Siblings = fun(Node) ->
                                any_ext_policy_children(Node, Qualifiers, AllLeaves)
                        end,
-            pubkey_policy_tree:add_leaf_siblings(Tree, Siblings);
+            pubkey_policy_tree:add_leaf_siblings(Tree, NodeCount0, Siblings);
         false ->
-            Tree
+            {Tree, NodeCount0}
     end.
 
 any_ext_policy_children(#{expected_policy_set := ExpPolicySet}, Qualifiers, AllLeaves) ->
@@ -1088,23 +1098,26 @@ any_ext_policy_children(#{expected_policy_set := ExpPolicySet}, Qualifiers, AllL
 %% 6.1.4. b start:
 handle_policy_mappings(Cert,
                        #path_validation_state{valid_policy_tree = Tree0,
+                                              policy_tree_node_count = NodeCount0,
                                               policy_mapping_ext =
                                                   #'Extension'{extnID = ?'id-ce-policyMappings',
                                                                extnValue = PolicyMappings}}
                        = ValidationState) ->
-    case handle_policy_mappings(PolicyMappings, Cert, Tree0, ValidationState) of
-        {tree, Tree} ->
-            ValidationState#path_validation_state{valid_policy_tree = Tree};
+    case handle_policy_mappings(PolicyMappings, Cert, Tree0, NodeCount0, ValidationState) of
+        {tree, Tree, NodeCount} ->
+            ValidationState#path_validation_state{valid_policy_tree = Tree,
+                                                  policy_tree_node_count = NodeCount};
         {user_state, UState} ->
             ValidationState#path_validation_state{user_state = UState}
     end.
 
-handle_policy_mappings([], _, Tree, _) ->
-    {tree, Tree};
-handle_policy_mappings([Mappings | Rest], Cert, Tree0, ValidationState) ->
-    case handle_policy_mapping(Mappings, Cert, Tree0, ValidationState) of
-        {tree, Tree} ->
-            handle_policy_mappings(Rest, Cert, Tree, ValidationState);
+handle_policy_mappings([], _, Tree, NodeCount, _) ->
+    {tree, Tree, NodeCount};
+handle_policy_mappings([Mappings | Rest], Cert, Tree0, NodeCount0, ValidationState) ->
+    case handle_policy_mapping(Mappings, Cert, Tree0, NodeCount0, ValidationState) of
+        {tree, Tree, NodeCount} ->
+            assert_policy_tree_node_count(NodeCount),
+            handle_policy_mappings(Rest, Cert, Tree, NodeCount, ValidationState);
         Other ->
             Other
     end.
@@ -1113,24 +1126,20 @@ handle_policy_mappings([Mappings | Rest], Cert, Tree0, ValidationState) ->
 %% special value anyPolicy does not appear as an issuerDomainPolicy or
 %% a subjectDomainPolicy.
 handle_policy_mapping(#'PolicyMappings_SEQOF'{
-                         issuerDomainPolicy =
-                             IssuerPolicy,
-                         subjectDomainPolicy =
-                             SubjectPolicy} = Ext,
-                      Cert, Tree0,
-                      #path_validation_state{inhibit_policy_mapping =
-                                                 PolicyMappingConstraint,
-                                             current_any_policy_qualifiers =
-                                                 AnyQualifiers,
+                         issuerDomainPolicy = IssuerPolicy,
+                         subjectDomainPolicy = SubjectPolicy} = Ext,
+                      Cert, Tree0, NodeCount0,
+                      #path_validation_state{inhibit_policy_mapping = PolicyMappingConstraint,
+                                             current_any_policy_qualifiers = AnyQualifiers,
                                              verify_fun = VerifyFun,
-                                             user_state = UserState}
-                     ) ->
+                                             user_state = UserState}) ->
     case not (?anyPolicy == IssuerPolicy) andalso
         not (?anyPolicy == SubjectPolicy) of
         true ->
-            Tree = handle_policy_mapping_ext(Ext, Tree0,
-                                             PolicyMappingConstraint, AnyQualifiers),
-            {tree, Tree};
+            {Tree, NodeCount} =
+                handle_policy_mapping_ext(Ext, Tree0, NodeCount0,
+                                          PolicyMappingConstraint, AnyQualifiers),
+            {tree, Tree, NodeCount};
         false ->
             UserState = verify_fun(Cert, {bad_cert, {invalid_policy_mapping, Ext}},
                                    UserState, VerifyFun),
@@ -1139,9 +1148,8 @@ handle_policy_mapping(#'PolicyMappings_SEQOF'{
 
 %% 6.1.4. b continue:
 handle_policy_mapping_ext(#'PolicyMappings_SEQOF'{
-                         issuerDomainPolicy =
-                             IssuerPolicy},
-                         Tree0, 0, _) -> %% 6.1.4. b 2:
+                             issuerDomainPolicy = IssuerPolicy},
+                         Tree0, NodeCount, 0, _) -> %% 6.1.4. b 2:
     %% (2) If the policy_mapping variable is equal to 0:
 
     %% (i) delete each node of depth i in the valid_policy_tree where
@@ -1153,11 +1161,11 @@ handle_policy_mapping_ext(#'PolicyMappings_SEQOF'{
     %% children.
 
     Tree = pubkey_policy_tree:prune_leaves(Tree0, IssuerPolicy),
-    pubkey_policy_tree:prune_tree(Tree);
+    {pubkey_policy_tree:prune_tree(Tree), NodeCount};
 handle_policy_mapping_ext(#'PolicyMappings_SEQOF'{
                              issuerDomainPolicy = IssuerPolicy,
                              subjectDomainPolicy = SubjectPolicy},
-                          Tree, N, AnyQualifiers) when N > 0 -> %% 6.1.4. b 1:
+                          Tree, NodeCount0, N, AnyQualifiers) when N > 0 -> %% 6.1.4. b 1:
    
     %% (1) If the policy_mapping variable is greater than 0, for each
     %% node in the valid_policy_tree of depth i where ID-P is the
@@ -1208,9 +1216,9 @@ handle_policy_mapping_ext(#'PolicyMappings_SEQOF'{
 
     case pubkey_policy_tree:map_leaves(Tree, MapPolicy) of
         Tree -> %% If no policy was mapped!
-            pubkey_policy_tree:add_leaf_siblings(Tree, AnySiblings);
+            pubkey_policy_tree:add_leaf_siblings(Tree, NodeCount0, AnySiblings);
         NewTree ->
-            NewTree
+            {NewTree, NodeCount0}
     end.
 
 %% 6.1.4 i
@@ -1274,12 +1282,12 @@ maybe_decrement(N, true) ->
 
 %% Step G from RFC
 
-policy_tree_intersection([?anyPolicy], Tree) -> % (ii) from RFC
-    Tree;
-policy_tree_intersection(UserPolicySet, Tree0) ->
+policy_tree_intersection([?anyPolicy], Tree, NodeCount) -> % (ii) from RFC
+    {Tree, NodeCount};
+policy_tree_intersection(UserPolicySet, Tree0, NodeCount0) ->
     case pubkey_policy_tree:is_empty(Tree0) of
         true ->  % (i) from RFC
-            Tree0;
+            {Tree0, NodeCount0};
         false -> % (iii) from RFC
             %% Step 1 from RFC
             ValidPolicyNodeSet = pubkey_policy_tree:valid_policy_node_set(Tree0),
@@ -1289,10 +1297,11 @@ policy_tree_intersection(UserPolicySet, Tree0) ->
             Tree1 = pubkey_policy_tree:prune_invalid_nodes(Tree0, InvalidNodes),
 
             %% Step 3 from RFC
-            Tree = handle_any_policy_leaves(Tree1, ValidPolicyNodeSet, UserPolicySet),
+            {Tree, NodeCount} =
+                handle_any_policy_leaves(Tree1, NodeCount0, ValidPolicyNodeSet, UserPolicySet),
 
             %% Step 4 from RFC
-            pubkey_policy_tree:prune_tree(Tree)
+            {pubkey_policy_tree:prune_tree(Tree), NodeCount}
     end.
 
 apply_user_constraints(_, [?anyPolicy]) ->
@@ -1314,21 +1323,22 @@ apply_user_constraints([#{valid_policy := Policy} = Node | Rest],
             apply_user_constraints(Rest, UserPolicySet, [Node | Acc])
     end.
 
-handle_any_policy_leaves(Tree, _, [?anyPolicy]) ->
-    Tree;
-handle_any_policy_leaves(Tree0, ValidPolicyNodeSet, UserPolicySet) ->
+handle_any_policy_leaves(Tree, NodeCount, _, [?anyPolicy]) ->
+    {Tree, NodeCount};
+handle_any_policy_leaves(Tree0, NodeCount0, ValidPolicyNodeSet, UserPolicySet) ->
     case pubkey_policy_tree:any_leaves(Tree0) of
         [] ->
-            Tree0;
+            {Tree0, NodeCount0};
         AnyLeaves ->
-            Tree = add_policy_nodes(AnyLeaves, Tree0, ValidPolicyNodeSet, UserPolicySet),
-            pubkey_policy_tree:prune_leaves(Tree, ?anyPolicy)
+            {Tree, NodeCount} =
+                add_policy_nodes(AnyLeaves, Tree0, NodeCount0, ValidPolicyNodeSet, UserPolicySet),
+            {pubkey_policy_tree:prune_leaves(Tree, ?anyPolicy), NodeCount}
     end.
 
-add_policy_nodes([], Tree, _, _) ->
-    Tree;
-add_policy_nodes([#{qualifier_set := Qualifiers} | Rest], Tree0,
-                 ValidPolicyNodeSet, UserPolicySet) ->
+add_policy_nodes([], Tree, NodeCount, _, _) ->
+    {Tree, NodeCount};
+add_policy_nodes([#{qualifier_set := Qualifiers} | Rest],
+                 Tree0, NodeCount0, ValidPolicyNodeSet, UserPolicySet) ->
     PolicySet = [UPolicy ||  UPolicy <- UserPolicySet,
                              not pubkey_policy_tree:in_set(UPolicy, ValidPolicyNodeSet)],
     Children =
@@ -1337,8 +1347,14 @@ add_policy_nodes([#{qualifier_set := Qualifiers} | Rest], Tree0,
                        Children;
                   (_) -> []
                end,
-    add_policy_nodes(Rest, pubkey_policy_tree:add_leaf_siblings(Tree0, Siblings),
-                     ValidPolicyNodeSet, UserPolicySet).
+    {Tree, NodeCount} = pubkey_policy_tree:add_leaf_siblings(Tree0, NodeCount0, Siblings),
+    add_policy_nodes(Rest, Tree, NodeCount, ValidPolicyNodeSet, UserPolicySet).
+
+%% Monotonic counter — never decremented by pruning.
+assert_policy_tree_node_count(Count) when Count > ?MAX_POLICY_TREE_NODES ->
+    throw({bad_cert, policy_tree_exceeded});
+assert_policy_tree_node_count(_) ->
+    ok.
 
 %% End Wrap Up Policy Handling -------------------------------------------------
 
