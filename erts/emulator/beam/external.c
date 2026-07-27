@@ -36,6 +36,7 @@
 #include "sys.h"
 #include "erl_vm.h"
 #include "global.h"
+#include "erl_term.h"
 #include "erl_process.h"
 #include "error.h"
 #include "external.h"
@@ -4539,6 +4540,7 @@ dec_term_atom_common:
                 break;
             }
 	tuple_loop:
+            ASSERT(n > 0 && n <= ERTS_MAX_TUPLE_SIZE);
 	    *objp = make_tuple(hp);
 	    *hp++ = make_arityval(n);
 	    hp += n;
@@ -6256,6 +6258,9 @@ init_done:
 	case LARGE_TUPLE_EXT:
 	    CHKSIZE(4);
 	    n = get_uint32(ep);
+            if (n > ERTS_MAX_TUPLE_SIZE) {
+                goto error;
+            }
 	    ep += 4;
             CHKSIZE(n); /* Fail faster if the binary is too short. */
 	    ADDTERMS(n);
