@@ -184,8 +184,6 @@ using exit signals.
 %%%
 %%% ---------------------------------------------------
 
--compile(nowarn_deprecated_catch).
-
 %% API
 -export([start/3, start/4,
 	 start_link/3, start_link/4,
@@ -1216,10 +1214,13 @@ stop(ServerRef, Reason, Timeout) ->
                   Reply :: term().
 %%
 call(ServerRef, Request) ->
-    case catch gen:call(ServerRef, '$gen_call', Request) of
+    try
+        gen:call(ServerRef, '$gen_call', Request)
+    of
 	{ok,Res} ->
-	    Res;
-	{'EXIT',Reason} ->
+            Res
+    catch
+        exit:Reason ->
 	    exit({Reason, {?MODULE, call, [ServerRef, Request]}})
     end.
 
@@ -1296,10 +1297,13 @@ and `Reason` can be (at least) one of:
                   Reply :: term().
 %%
 call(ServerRef, Request, Timeout) ->
-    case catch gen:call(ServerRef, '$gen_call', Request, Timeout) of
+    try
+        gen:call(ServerRef, '$gen_call', Request, Timeout)
+    of
 	{ok,Res} ->
-	    Res;
-	{'EXIT',Reason} ->
+            Res
+    catch
+        exit:Reason ->
 	    exit({Reason, {?MODULE, call, [ServerRef, Request, Timeout]}})
     end.
 
@@ -1808,12 +1812,16 @@ to handle the request.
         Request   :: term()) ->
           ok.
 %%
-cast({global,Name}, Request) ->
-    catch global:send(Name, cast_msg(Request)),
-    ok;
 cast({via, Mod, Name}, Request) ->
-    catch Mod:send(Name, cast_msg(Request)),
-    ok;
+    try
+        Mod:send(Name, cast_msg(Request)),
+        ok
+    catch
+        _:_ ->
+            ok
+    end;
+cast({global, Name}, Request) ->
+    cast({via, global, Name}, Request);
 cast({Name,Node}=Dest, Request) when is_atom(Name), is_atom(Node) ->
     do_cast(Dest, Request);
 cast(Dest, Request) when is_atom(Dest) ->
@@ -2667,9 +2675,20 @@ system_terminate(Reason, _Parent, Debug, [ServerData, State, _Timer, _Hib]) ->
 
 -doc false.
 system_code_change([#server_data{module = Mod} = ServerData, State, Timer, Hib], _Module, OldVsn, Extra) ->
-    case catch Mod:code_change(OldVsn, State, Extra) of
-        {ok, NewState} -> {ok, [ServerData, NewState, Timer, Hib]};
-        Else -> Else
+    try
+        Mod:code_change(OldVsn, State, Extra)
+    of
+        {ok, NewState} ->
+            {ok, [ServerData, NewState, Timer, Hib]};
+        Else ->
+            Else
+    catch
+        throw:{ok, NewState} ->
+            {ok, [ServerData, NewState, Timer, Hib]};
+        throw:Else ->
+            Else;
+        Class:Reason:StackTrace ->
+            {'EXIT', catch_result(Class, Reason, StackTrace)}
     end.
 
 -doc false.
