@@ -85,6 +85,7 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 SPEC_FILES = \
 	ssh.spec \
 	ssh_bench.spec \
+	ssh_dev.spec \
 	ssh_gh.spec \
 	ssh_sup.spec
 
