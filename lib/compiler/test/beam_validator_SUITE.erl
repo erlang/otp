@@ -51,6 +51,8 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
+-import_record(beam_types, [t_atom, t_cons]).
+
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Config.
 
@@ -245,7 +247,7 @@ bad_catch_try(Config) when is_list(Config) ->
       {{catch_end,{x,9}},
        8,{invalid_tag_register,{x,9}}}},
      {{bad_catch_try,bad_3,1},
-      {{catch_end,{y,1}},9,{invalid_tag,{y,1},{t_atom,[kalle]}}}},
+      {{catch_end,{y,1}},9,{invalid_tag,{y,1},#t_atom{elements=[kalle]}}}},
      {{bad_catch_try,bad_4,1},
       {{'try',{x,0},{f,15}},6,{invalid_tag_register,{x,0}}}},
      {{bad_catch_try,bad_5,1},
@@ -260,7 +262,8 @@ cons_guard(Config) when is_list(Config) ->
     [{{cons,foo,1},
       {{get_list,{x,0},{x,1},{x,2}},
        5,
-       {bad_type,{needed,{t_cons,any,any}},{actual,any}}}}] = Errors,
+       {bad_type,{needed,#t_cons{type=any,terminator=any}},
+        {actual,any}}}}] = Errors,
     ok.
 
 freg_range(Config) when is_list(Config) ->

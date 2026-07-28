@@ -44,6 +44,8 @@
 
 -import(lists, [dropwhile/2,foldl/3,member/2,reverse/2,zip/2]).
 
+-type type() :: beam_types:type().
+
 %% To be called by the compiler.
 
 -spec validate(Code, Level) -> Result when
