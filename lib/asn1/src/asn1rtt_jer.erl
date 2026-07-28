@@ -416,9 +416,16 @@ oid2json([],Acc) ->
     list_to_binary(lists:reverse(Acc)).
 
 json2oid(OidStr) when is_binary(OidStr) ->
-    OidList = binary:split(OidStr,[<<".">>],[global]),
-    OidNumList = [binary_to_integer(Num)||Num <- OidList],
-    list_to_tuple(OidNumList).
+    SubIds = binary:split(OidStr,[<<".">>],[global]),
+    list_to_tuple(json2oid_1(SubIds)).
+
+%% Reject overlong OID components to mitigate a DoS vector. This should be
+%% enough bits for all legitimate uses until someone can prove otherwise. For
+%% comparison, golang limits to 30 bits per component.
+json2oid_1([SubId | SubIds]) when byte_size(SubId) < 32 ->
+    [binary_to_integer(SubId) | json2oid_1(SubIds)];
+json2oid_1([]) ->
+    [].
 
 jer_bit_str2bitstr(Compact = {_Unused,_Binary}, _NamedBitList) ->
     jer_compact2bitstr(Compact);

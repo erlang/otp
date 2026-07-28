@@ -548,21 +548,20 @@ decode_tag_and_length(<<Class:2, Form:1, 31:5, 1:1, TagPart1:7, 0:1, TagPartLast
     << V:Length/binary, RestBuffer2/binary>> = RestBuffer,
     {Form, (Class bsl 16) bor TagNo, V, RestBuffer2};
 decode_tag_and_length(<<Class:2, Form:1, 31:5, Buffer/binary>>) ->
-    {TagNo, Buffer1} = decode_tag(Buffer, 0),
+    {TagNo, Buffer1} = decode_tag(Buffer),
     {Length, RestBuffer} = decode_length(Buffer1),
-    << V:Length/binary, RestBuffer2/binary>> = RestBuffer,
+    <<V:Length/binary, RestBuffer2/binary>> = RestBuffer,
     {Form, (Class bsl 16) bor TagNo, V, RestBuffer2}.
 
+decode_tag(Buffer) ->
+    decode_tag(Buffer, 0, 0).
 
-
-%% last partial tag
-decode_tag(<<0:1,PartialTag:7, Buffer/binary>>, TagAck) ->
+decode_tag(<<0:1, PartialTag:7, Buffer/binary>>, N, TagAck) when N < 32 ->
     TagNo = (TagAck bsl 7) bor PartialTag,
     {TagNo, Buffer};
-%% more tags
-decode_tag(<<_:1,PartialTag:7, Buffer/binary>>, TagAck) ->
+decode_tag(<<_:1, PartialTag:7, Buffer/binary>>, N, TagAck) when N < 32 ->
     TagAck1 = (TagAck bsl 7) bor PartialTag,
-    decode_tag(Buffer, TagAck1).
+    decode_tag(Buffer, N + 1, TagAck1).
 
 %%=======================================================================
 %%
@@ -1184,7 +1183,7 @@ mk_object_val(Val, Ack, Len) ->
 
 decode_object_identifier(Tlv, Tags) ->
     Val = match_tags(Tlv, Tags),
-    [AddedObjVal|ObjVals] = dec_subidentifiers(Val,0,[]),
+    [AddedObjVal|ObjVals] = dec_subidentifiers(Val),
     {Val1, Val2} = if
 		       AddedObjVal < 40 ->
 			   {0, AddedObjVal};
@@ -1195,12 +1194,20 @@ decode_object_identifier(Tlv, Tags) ->
 		   end,
     list_to_tuple([Val1, Val2 | ObjVals]).
 
-dec_subidentifiers(<<>>,_Av,Al) ->
-    lists:reverse(Al);
-dec_subidentifiers(<<1:1,H:7,T/binary>>,Av,Al) ->
-    dec_subidentifiers(T,(Av bsl 7) + H,Al);
-dec_subidentifiers(<<H,T/binary>>,Av,Al) ->
-    dec_subidentifiers(T,0,[((Av bsl 7) + H)|Al]).
+dec_subidentifiers(<<Octets/binary>>) ->
+    dec_subidentifiers_1(Octets, 0, 0).
+
+%% Reject overlong OID components to mitigate a DoS vector. This should be
+%% enough bits for all legitimate uses until someone can prove otherwise. For
+%% comparison, golang limits to 30 bits per component.
+dec_subidentifiers_1(<<1:1, H:7, T/binary>>, N, Av0) when N < 16 ->
+    Av = (Av0 bsl 7) bor H,
+    dec_subidentifiers_1(T, N + 1, Av);
+dec_subidentifiers_1(<<H, T/binary>>, N, Av0) when N < 16 ->
+    Av = (Av0 bsl 7) bor H,
+    [Av | dec_subidentifiers_1(T, 0, 0)];
+dec_subidentifiers_1(<<>>, _N, _Av) ->
+    [].
 
 %%============================================================================
 %% RELATIVE-OID, ITU_T X.690 Chapter 8.20
@@ -1227,7 +1234,7 @@ enc_relative_oid(Val) ->
 %%============================================================================
 decode_relative_oid(Tlv, Tags) ->
     Val = match_tags(Tlv, Tags),
-    ObjVals = dec_subidentifiers(Val,0,[]),
+    ObjVals = dec_subidentifiers(Val),
     list_to_tuple(ObjVals).
 
 %%============================================================================
@@ -1423,19 +1430,21 @@ dynamicsort_SETOF(ListOfEncVal) ->
 
 %% multiple octet tag
 dynsort_decode_tag(<<Class:2,_Form:1,31:5,Buffer/binary>>) ->
-    TagNum = dynsort_decode_tag(Buffer, 0),
+    TagNum = dynsort_decode_tag_1(Buffer, 0, 0),
     {Class,TagNum};
 
 %% single tag (< 31 tags)
 dynsort_decode_tag(<<Class:2,_Form:1,TagNum:5,_/binary>>) ->
     {Class,TagNum}.
 
-dynsort_decode_tag(<<0:1,PartialTag:7,_/binary>>, TagAcc) ->
+%% Reject overlong tags to mitigate a DoS vector. This should be enough bits
+%% for all legitimate uses until someone can prove otherwise.
+dynsort_decode_tag_1(<<0:1,PartialTag:7,_/binary>>, N, TagAcc) when N < 16 ->
     (TagAcc bsl 7) bor PartialTag;
-dynsort_decode_tag(<<_:1,PartialTag:7,Buffer/binary>>, TagAcc0) ->
+dynsort_decode_tag_1(<<_:1,PartialTag:7,Buffer/binary>>, N, TagAcc0)
+  when N < 16 ->
     TagAcc = (TagAcc0 bsl 7) bor PartialTag,
-    dynsort_decode_tag(Buffer, TagAcc).
-
+    dynsort_decode_tag_1(Buffer, N + 1, TagAcc).
 
 %%-------------------------------------------------------------------------
 %% INTERNAL HELPER FUNCTIONS (not exported)
