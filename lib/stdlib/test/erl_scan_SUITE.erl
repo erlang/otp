@@ -26,7 +26,7 @@
 
 -export([error_1/1, error_2/1, iso88591/1, otp_7810/1, otp_10302/1,
 	 otp_10990/1, otp_10992/1, otp_11807/1, otp_16480/1, otp_17024/1,
-         text_fun/1, triple_quoted_string/1]).
+         text_fun/1, triple_quoted_string/1, latin1_namechar_trap/1]).
 
 -import(lists, [nth/2,flatten/1]).
 -import(io_lib, [print/1]).
@@ -61,7 +61,8 @@ suite() ->
 
 all() ->
     [{group, error}, iso88591, otp_7810, otp_10302, otp_10990, otp_10992,
-     otp_11807, otp_16480, otp_17024, text_fun, triple_quoted_string].
+     otp_11807, otp_16480, otp_17024, text_fun, triple_quoted_string,
+     latin1_namechar_trap].
 
 groups() ->
     [{error, [], [error_1, error_2]}].
@@ -1655,6 +1656,21 @@ foo() ->
     \\bar
     \"\"\".
 ```",
+    ok.
+
+latin1_namechar_trap(Config) when is_list(Config) ->
+    Cases =
+        [{"42a",     integer},
+         {"42é",     integer},
+         {"42À",     integer},
+         {"1.0é",    float},
+         {"42.Ä",    float},
+         {"1.0e1é",  float},
+         {"16#FFFé", integer},
+         {"16#F.é",  float},
+         {"16#F.Aé", float}],
+    [{error,{1,erl_scan,{illegal,Kind}},1} = erl_scan:string(S)
+     || {S, Kind} <- Cases],
     ok.
 
 test_string(String, ExpectedWithCol) ->
