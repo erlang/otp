@@ -545,6 +545,20 @@ whereis_send(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return whereis_result_term(env, rc);
 }
 
+/* dirty_port_command(Port, Message) -> ok | false | badarg */
+static ERL_NIF_TERM
+dirty_port_command(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifPort port;
+
+    assert(argc == 2);
+
+    if (!enif_get_local_port(env, argv[0], &port))
+        return enif_make_badarg(env);
+
+    return enif_port_command(env, &port, NULL, argv[1]) ? atom_ok : atom_false;
+}
+
 static ERL_NIF_TERM dirty_terminating_literal_access(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ErlNifPid to, self;
@@ -750,6 +764,7 @@ static ErlNifFunc nif_funcs[] =
     {"dirty_call_while_terminated_nif", 1, dirty_call_while_terminated_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"dirty_heap_access_nif", 1, dirty_heap_access_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"whereis_send", 3, whereis_send, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"dirty_port_command", 2, dirty_port_command, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"whereis_term", 2, whereis_term, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"dirty_terminating_literal_access", 2, dirty_terminating_literal_access, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"delay_halt_normal", 3, delay_halt, 0},
