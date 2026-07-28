@@ -1324,7 +1324,6 @@ Experimental options that should not to be used in products.
 -type mod_args() :: {Module::atom(), Args::list()} .
 -type mod_fun_args() :: {Module::atom(), Function::atom(), Args::list()} .
 
-
 %% Records
 -record(address, {address,
                   port,
@@ -1480,6 +1479,6 @@ Experimental options that should not to be used in products.
         (fun() ->
                 #{level := __Level} = logger:get_primary_config(),
                 __Fun(__Level)
-        end)()).
+         end)()).
 
 -endif. % SSH_HRL defined
