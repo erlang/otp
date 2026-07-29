@@ -133,16 +133,17 @@ unix_autoconf(XConf) ->
     MXX_Build = [[$\s | Y] || Y <- string:lexemes(ConfigFlags, " \t\n"),
 		      Y == "--enable-m64-build"
 			  orelse Y == "--enable-m32-build"
-                          orelse Y == "--disable-year2038"],
+                          orelse Y == "--disable-year2038"
+                          orelse string:prefix(Y, "--with-gmp") =/= nomatch],
     Args = Host ++ Build ++ Threads ++ Debug ++ MXX_Build,
     case filelib:is_file(Configure) of
 	true ->
-	    OSXEnv = macosx_cflags(),
+            OSXEnv = c_ld_flags(),
 	    UnQuotedEnv = assign_vars(unquote(Env++OSXEnv)),
 	    io:format("Running ~ts~nEnv: ~p~n",
 		      [lists:flatten(Configure ++ Args),UnQuotedEnv]),
 	    Port = open_port({spawn, lists:flatten(["\"",Configure,"\"",Args])},
-			     [stream, eof, {env,UnQuotedEnv}]),
+                             [stream, {env,UnQuotedEnv}, exit_status]),
 	    ts_lib:print_data(Port);
 	false ->
 	    {error, no_configure_script}
@@ -196,18 +197,18 @@ get_xcomp_flag(Flag, Tag, Flags) ->
 	HostVal -> [" --",Tag,"=",HostVal]
     end.
 
-
-macosx_cflags() ->
-    case os:type() of
-	{unix, darwin} ->
-	    %% To ensure that the drivers we build can be loaded
-	    %% by the emulator, add either -m32 or -m64 to CFLAGS.
-	    WordSize = erlang:system_info(wordsize),
-	    Mflag = "-m" ++ integer_to_list(8*WordSize),
-	    [{"CFLAGS", Mflag},{"LDFLAGS", Mflag}];
-	_ ->
-	    []
-    end.
+c_ld_flags() ->
+    MFlag = case os:type() of
+                {unix, darwin} ->
+                    %% To ensure that the drivers we build can be loaded
+                    %% by the emulator, add either -m32 or -m64 to CFLAGS.
+                    WordSize = erlang:system_info(wordsize),
+                    "-m" ++ integer_to_list(8*WordSize);
+                _ ->
+                    ""
+            end,
+    [{"CFLAGS", MFlag ++ " " ++ unquote(os:getenv("CFLAGS", ""))},
+     {"LDFLAGS", MFlag ++ " " ++ unquote(os:getenv("LDFLAGS", ""))}].
 
 parse_xcomp_file(undefined) ->
     [{cross,"no"}];
