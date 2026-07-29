@@ -4819,8 +4819,10 @@ ibitstr_vars(Segs) ->
 
 ibitstr_vars(Segs, Vs) ->
     foldl(fun (#ibitstr{val=V,size=S}, Vs0) ->
-          lit_vars(V, lit_vars(S, Vs0))
-      end, Vs, Segs).
+                  lit_vars(V, lit_vars(S, Vs0));
+              (#c_bitstr{val=V,size=S}, Vs0) ->
+                  lit_vars(V, lit_vars(S, Vs0))
+          end, Vs, Segs).
 
 record_anno(L, #core{dialyzer=Dialyzer}=St) ->
     case erl_anno:record(L) andalso Dialyzer of
