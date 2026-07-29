@@ -1865,6 +1865,7 @@ do_commit(Tid, C, DumperMode) ->
     R4 = do_update(Tid, disc_only_copies, C#commit.disc_only_copies, R3),
     R5 = do_update_ext(Tid, C#commit.ext, R4),
     mnesia_subscr:report_activity(Tid),
+    mnesia_hook:do_post_commit(Tid, C),
     R5.
 
 %% This could/should be optimized
