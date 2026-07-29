@@ -156,8 +156,9 @@ functions of both packages have been retained.
 -compile({inline, [btoken/2, rev/1, append/2, stack/2, search_compile/1]}).
 -include("swar_ascii.hrl").
 -define(ASCII_LIST(CP1,CP2),
-        is_integer(CP1), 0 =< CP1, CP1 < 256,
-        is_integer(CP2), 0 =< CP2, CP2 < 256, CP1 =/= $\r).
+        is_integer(CP1, 0, 255),
+        is_integer(CP2, 0, 255),
+        CP1 =/= $\r).
 
 -export_type([grapheme_cluster/0]).
 
@@ -211,7 +212,7 @@ split_string([C|Cs]) when C =:= $+; C =:= $- ->
 split_string(Cs) ->
     split_string(Cs, []).
 
-split_string([C|Cs], Acc) when is_integer(C), $0 =< C, C =< $9 ->
+split_string([C|Cs], Acc) when is_integer(C, $0, $9) ->
     split_string(Cs, [C|Acc]);
 split_string(Cs, Acc) ->
     {list_to_binary(lists:reverse(Acc)),Cs}.
@@ -282,7 +283,7 @@ to_graphemes(CD0) ->
 
 %% Compare two strings return boolean, assumes that the input are
 %% normalized to same form, see unicode:characters_to_nfX_xxx(..)
--doc(#{equiv => equal(A, B, true)}).
+-doc(#{equiv => equal(A, B, false)}).
 -doc(#{group => <<"Functions">>}).
 -spec equal(A, B) -> boolean() when
       A::unicode:chardata(),
@@ -521,12 +522,12 @@ _Example:_
       Characters :: [grapheme_cluster()].
 trim(Str, _, []) -> Str;
 trim(Str, leading, [Sep])
-  when is_list(Str), is_integer(Sep), 0 =< Sep, Sep < 256 ->
+  when is_list(Str), is_integer(Sep, 0, 255) ->
     trim_ls(Str, Sep);
 trim(Str, leading, Sep) when is_list(Sep) ->
     trim_l(Str, Sep);
 trim(Str, trailing, [Sep])
-  when is_list(Str), is_integer(Sep), 0 =< Sep, Sep < 256 ->
+  when is_list(Str), is_integer(Sep, 0, 255) ->
     trim_ts(Str, Sep);
 trim(Str, trailing, Seps0) when is_list(Seps0) ->
     Seps = search_pattern(Seps0),
@@ -1302,12 +1303,12 @@ slice_bin(CD, CP1, 0) ->
     byte_size(CD)+byte_size(<<CP1/utf8>>).
 
 uppercase_list([CP1|[CP2|_]=Cont], _Changed)
-  when is_integer(CP1), $a =< CP1, CP1 =< $z,
-       is_integer(CP2), 0 =< CP2, CP2 < 256 ->
+  when is_integer(CP1, $a, $z),
+       is_integer(CP2, 0, 255) ->
     [CP1-32|uppercase_list(Cont, true)];
 uppercase_list([CP1|[CP2|_]=Cont], Changed)
-  when is_integer(CP1), 0 =< CP1, CP1 < 128,
-       is_integer(CP2), 0 =< CP2, CP2 < 256 ->
+  when is_integer(CP1, 0, 127),
+       is_integer(CP2, 0, 255) ->
     [CP1|uppercase_list(Cont, Changed)];
 uppercase_list([], true) ->
     [];
@@ -1321,10 +1322,10 @@ uppercase_list(CPs0, Changed) ->
     end.
 
 uppercase_bin(CP1, <<CP2/utf8, Bin/binary>>, _Changed)
-  when is_integer(CP1), $a =< CP1, CP1 =< $z, CP2 < 256 ->
+  when is_integer(CP1, $a, $z), CP2 < 256 ->
     [CP1-32|uppercase_bin(CP2, Bin, true)];
 uppercase_bin(CP1, <<CP2/utf8, Bin/binary>>, Changed)
-  when is_integer(CP1), 0 =< CP1, CP1 < 128, CP2 < 256 ->
+  when is_integer(CP1, 0, 127), CP2 < 256 ->
     [CP1|uppercase_bin(CP2, Bin, Changed)];
 uppercase_bin(CP1, Bin, Changed) ->
     case unicode_util:uppercase([CP1|Bin]) of
@@ -1351,12 +1352,12 @@ uppercase_bin(CP1, Bin, Changed) ->
     end.
 
 lowercase_list([CP1|[CP2|_]=Cont], _Changed)
-  when is_integer(CP1), $A =< CP1, CP1 =< $Z,
-       is_integer(CP2), 0 =< CP2, CP2 < 256 ->
+  when is_integer(CP1, $A, $Z),
+       is_integer(CP2, 0, 255) ->
     [CP1+32|lowercase_list(Cont, true)];
 lowercase_list([CP1|[CP2|_]=Cont], Changed)
-  when is_integer(CP1), 0 =< CP1, CP1 < 128,
-       is_integer(CP2), 0 =< CP2, CP2 < 256 ->
+  when is_integer(CP1, 0, 127),
+       is_integer(CP2, 0, 255) ->
     [CP1|lowercase_list(Cont, Changed)];
 lowercase_list([], true) ->
     [];
@@ -1370,10 +1371,10 @@ lowercase_list(CPs0, Changed) ->
     end.
 
 lowercase_bin(CP1, <<CP2/utf8, Bin/binary>>, _Changed)
-  when is_integer(CP1), $A =< CP1, CP1 =< $Z, CP2 < 256 ->
+  when is_integer(CP1, $A, $Z), CP2 < 256 ->
     [CP1+32|lowercase_bin(CP2, Bin, true)];
 lowercase_bin(CP1, <<CP2/utf8, Bin/binary>>, Changed)
-  when is_integer(CP1), 0 =< CP1, CP1 < 128, CP2 < 256 ->
+  when is_integer(CP1, 0, 127), CP2 < 256 ->
     [CP1|lowercase_bin(CP2, Bin, Changed)];
 lowercase_bin(CP1, Bin, Changed) ->
     case unicode_util:lowercase([CP1|Bin]) of
@@ -1400,12 +1401,12 @@ lowercase_bin(CP1, Bin, Changed) ->
     end.
 
 casefold_list([CP1|[CP2|_]=Cont], _Changed)
-  when is_integer(CP1), $A =< CP1, CP1 =< $Z,
-       is_integer(CP2), 0 =< CP2, CP2 < 256 ->
+  when is_integer(CP1, $A, $Z),
+       is_integer(CP2, 0, 255) ->
     [CP1+32|casefold_list(Cont, true)];
 casefold_list([CP1|[CP2|_]=Cont], Changed)
-  when is_integer(CP1), 0 =< CP1, CP1 < 128,
-       is_integer(CP2), 0 =< CP2, CP2 < 256 ->
+  when is_integer(CP1, 0, 127),
+       is_integer(CP2, 0, 255) ->
     [CP1|casefold_list(Cont, Changed)];
 casefold_list([], true) ->
     [];
@@ -1419,10 +1420,10 @@ casefold_list(CPs0, Changed) ->
     end.
 
 casefold_bin(CP1, <<CP2/utf8, Bin/binary>>, _Changed)
-  when is_integer(CP1), $A =< CP1, CP1 =< $Z, CP2 < 256 ->
+  when is_integer(CP1, $A, $Z), CP2 < 256 ->
     [CP1+32|casefold_bin(CP2, Bin, true)];
 casefold_bin(CP1, <<CP2/utf8, Bin/binary>>, Changed)
-  when is_integer(CP1), 0 =< CP1, CP1 < 128, CP2 < 256 ->
+  when is_integer(CP1, 0, 127), CP2 < 256 ->
     [CP1|casefold_bin(CP2, Bin, Changed)];
 casefold_bin(CP1, Bin, Changed) ->
     case unicode_util:casefold([CP1|Bin]) of
@@ -3093,20 +3094,20 @@ sub_string(String, Start, Stop) when is_integer(Start), is_integer(Stop) ->
 %% ISO/IEC 8859-1 (latin1) letters are converted, others are ignored
 %%
 
-to_lower_char(C) when is_integer(C), $A =< C, C =< $Z ->
+to_lower_char(C) when is_integer(C, $A, $Z) ->
     C + 32;
-to_lower_char(C) when is_integer(C), 16#C0 =< C, C =< 16#D6 ->
+to_lower_char(C) when is_integer(C, 16#C0, 16#D6) ->
     C + 32;
-to_lower_char(C) when is_integer(C), 16#D8 =< C, C =< 16#DE ->
+to_lower_char(C) when is_integer(C, 16#D8, 16#DE) ->
     C + 32;
 to_lower_char(C) ->
     C.
 
-to_upper_char(C) when is_integer(C), $a =< C, C =< $z ->
+to_upper_char(C) when is_integer(C, $a, $z) ->
     C - 32;
-to_upper_char(C) when is_integer(C), 16#E0 =< C, C =< 16#F6 ->
+to_upper_char(C) when is_integer(C, 16#E0, 16#F6) ->
     C - 32;
-to_upper_char(C) when is_integer(C), 16#F8 =< C, C =< 16#FE ->
+to_upper_char(C) when is_integer(C, 16#F8, 16#FE) ->
     C - 32;
 to_upper_char(C) ->
     C.
