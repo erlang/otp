@@ -91,6 +91,13 @@
          low   = undefined
         }).
 
+%% Buffer for unsent encrypted data returned by gen_tcp:send
+%% as {error, {timeout, RestData}} when using {inet_backend, socket}
+-record(rest,
+        {
+         q_rev = []    %% Remaining encrypted data (iodata)
+        }).
+
 -define(IS_ASYNC(Tag), Tag =:= select; Tag =:= completion).
 
 %%%===================================================================
@@ -285,24 +292,52 @@ connection({call, From}, {post_handshake_data, HSData}, #data{buff = Buff} = Sta
     case Buff of
         undefined ->
             send_post_handshake_data(HSData, From, connection, StateData, [{reply, From, ok}]);
-        Async ->
-            {next_state, async_wait, StateData#data{buff = Async#async{low = 0}}, [postpone]}
+        #async{} = Async ->
+            {next_state, async_wait, StateData#data{buff = Async#async{low = 0}}, [postpone]};
+        #rest{} ->
+            case flush_rest_buffer(StateData) of
+                {ok, #data{buff = undefined} = StateData1} ->
+                    send_post_handshake_data(HSData, From, connection, StateData1, [{reply, From, ok}]);
+                {ok, StateData1} ->
+                    {keep_state, StateData1, [postpone]};
+                {error, Reason, StateData1} ->
+                    death_row_shutdown({error, Reason}, StateData1)
+            end
     end;
 connection({call, From}, {ack_alert, #alert{} = Alert}, #data{buff = Buff} = StateData0) ->
     case Buff of
         undefined ->
             StateData = send_tls_alert(Alert, StateData0),
             {next_state, connection, StateData, [{reply,From,ok}]};
-        Async ->
-            {next_state, async_wait, StateData0#data{buff = Async#async{low = 0}}, [postpone]}
+        #async{} = Async ->
+            {next_state, async_wait, StateData0#data{buff = Async#async{low = 0}}, [postpone]};
+        #rest{} ->
+            case flush_rest_buffer(StateData0) of
+                {ok, #data{buff = undefined} = StateData1} ->
+                    StateData = send_tls_alert(Alert, StateData1),
+                    {next_state, connection, StateData, [{reply,From,ok}]};
+                {ok, StateData1} ->
+                    {keep_state, StateData1, [postpone]};
+                {error, Reason, StateData1} ->
+                    death_row_shutdown({error, Reason}, StateData1)
+            end
     end;
 connection({call, From}, renegotiate,
            #data{connection_states = #{current_write := Write}, buff = Buff} = StateData) ->
     case Buff of
         undefined ->
             {next_state, handshake, StateData, [{reply, From, {ok, Write}}]};
-        Async ->
-            {next_state, async_wait, StateData#data{buff = Async#async{low = 0}}, [postpone]}
+        #async{} = Async ->
+            {next_state, async_wait, StateData#data{buff = Async#async{low = 0}}, [postpone]};
+        #rest{} ->
+            case flush_rest_buffer(StateData) of
+                {ok, #data{buff = undefined} = StateData1} ->
+                    {next_state, handshake, StateData1, [{reply, From, {ok, Write}}]};
+                {ok, StateData1} ->
+                    {keep_state, StateData1, [postpone]};
+                {error, Reason, StateData1} ->
+                    death_row_shutdown({error, Reason}, StateData1)
+            end
     end;
 connection({call, From}, downgrade, #data{connection_states =
                                               #{current_write := Write}} = StateData) ->
@@ -329,8 +364,17 @@ connection(internal, {post_handshake_data, From, HSData}, #data{buff = Buff} = S
      case Buff of
          undefined ->
              send_post_handshake_data(HSData, From, connection, StateData, []);
-         Async ->
-             {next_state, async_wait, StateData#data{buff = Async#async{low = 0}}, [postpone]}
+         #async{} = Async ->
+             {next_state, async_wait, StateData#data{buff = Async#async{low = 0}}, [postpone]};
+         #rest{} ->
+             case flush_rest_buffer(StateData) of
+                 {ok, #data{buff = undefined} = StateData1} ->
+                     send_post_handshake_data(HSData, From, connection, StateData1, []);
+                 {ok, StateData1} ->
+                     {keep_state, StateData1, [postpone]};
+                 {error, Reason, StateData1} ->
+                     death_row_shutdown({error, Reason}, StateData1)
+             end
      end;
 
 connection(cast, #alert{} = Alert,  #data{buff = Buff} = StateData0) ->
@@ -338,8 +382,18 @@ connection(cast, #alert{} = Alert,  #data{buff = Buff} = StateData0) ->
          undefined ->
              StateData = send_tls_alert(Alert, StateData0),
              {next_state, connection, StateData};
-         Async ->
-             {next_state, async_wait, StateData0#data{buff = Async#async{low = 0}}, [postpone]}
+         #async{} = Async ->
+             {next_state, async_wait, StateData0#data{buff = Async#async{low = 0}}, [postpone]};
+         #rest{} ->
+             case flush_rest_buffer(StateData0) of
+                 {ok, #data{buff = undefined} = StateData1} ->
+                     StateData = send_tls_alert(Alert, StateData1),
+                     {next_state, connection, StateData};
+                 {ok, StateData1} ->
+                     {keep_state, StateData1, [postpone]};
+                 {error, Reason, StateData1} ->
+                     death_row_shutdown({error, Reason}, StateData1)
+             end
      end;
 connection(cast, {new_write, WritesState, Version, MaxFragLen},
            #data{connection_states = ConnectionStates0, env = Env} = StateData) ->
@@ -589,6 +643,12 @@ send_or_buffer(Transport, Socket, Msgs, From, #data{buff = undefined} = StateDat
         ok ->
             send_reply(From, ok),
             {ok, StateData0};
+        {error, {timeout, RestData}} ->
+            %% gen_tcp:send with {inet_backend, socket} returns unsent
+            %% encrypted data on timeout. Buffer it for retry on next send.
+            %% Reply {error, timeout} to simulate {inet_backend, inet} behavior.
+            send_reply(From, {error, timeout}),
+            {ok, StateData0#data{buff = #rest{q_rev = RestData}}};
         {error, timeout} = Error ->
             %% This clause is to retain some backwards compatibility with
             %% inet-driver behavior for gen_tcp:send timeout. That
@@ -626,7 +686,25 @@ send_or_buffer(Transport, Socket, Msgs, From, #data{buff = undefined} = StateDat
                     {block, StateData0#data{buff = Async#async{reply_to = From}}}
             end
     end;
-%% Buffer exists, push more data to buffer
+%% Rest buffer exists, flush buffered data together with new data.
+%% Transport is gen_tcp, no async select/completion results.
+send_or_buffer(Transport, Socket, Msgs, From,
+               #data{buff = #rest{q_rev = BuffData}} = StateData0) ->
+    case tls_socket:send(Transport, Socket, [BuffData | Msgs]) of
+        ok ->
+            send_reply(From, ok),
+            {ok, StateData0#data{buff = undefined}};
+        {error, {timeout, RestData}} ->
+            send_reply(From, {error, timeout}),
+            {ok, StateData0#data{buff = #rest{q_rev = RestData}}};
+        {error, timeout} = Error ->
+            send_reply(From, Error),
+            {ok, StateData0#data{buff = undefined}};
+        {error, _Err} = Error ->
+            send_reply(From, Error),
+            Error
+    end;
+%% Async buffer exists, push more data to buffer
 send_or_buffer(_Transport, _Socket, Msgs, From, #data{buff = Async0} = StateData) ->
     #async{high = High, size = Sz0, q_rev = Q} = Async0,
     Sz = Sz0 + iolist_size(Msgs),
@@ -637,6 +715,22 @@ send_or_buffer(_Transport, _Socket, Msgs, From, #data{buff = Async0} = StateData
             {ok, StateData#data{buff = Async}};
         false ->
             {block, StateData#data{buff = Async#async{reply_to = From}}}
+    end.
+
+%% Try to flush the #rest{} buffer. Returns {ok, #data{}} on success
+%% or timeout, {error, Reason, #data{}} on hard send failure.
+flush_rest_buffer(#data{env = #env{socket = Socket,
+                                   transport_cb = Transport},
+                        buff = #rest{q_rev = BuffData}} = StateData) ->
+    case tls_socket:send(Transport, Socket, BuffData) of
+        ok ->
+            {ok, StateData#data{buff = undefined}};
+        {error, {timeout, RestData}} ->
+            {ok, StateData#data{buff = #rest{q_rev = RestData}}};
+        {error, timeout} ->
+            {ok, StateData#data{buff = undefined}};
+        {error, Reason} ->
+            {error, Reason, StateData#data{buff = undefined}}
     end.
 
 do_async_send(_Transport, _Socket, _Handle, _Nextstate, {error, Err} = Error,
