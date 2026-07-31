@@ -154,6 +154,21 @@ A callback module can inherit definitions from other callback modules, through
 the required function `'#xml-interitance#'() -> [ModuleName::atom()]`.
 
 _See also:_ `export/2`, `export_simple/3`.
+
+## Examples
+
+```erlang
+1> {Element, []} = xmerl_scan:string("<greeting>hello</greeting>").
+2> lists:flatten(xmerl:export([Element], xmerl_xml, [])).
+"<?xml version=\"1.0\"?><greeting>hello</greeting>"
+```
+
+```erlang
+1> {Element, []} = xmerl_scan:string("<note><to>Tove</to><from>Jani</from></note>").
+2> Prolog = ["<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"].
+3> lists:flatten(xmerl:export([Element], xmerl_xml, [{prolog, Prolog}])).
+"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<note><to>Tove</to><from>Jani</from></note>"
+```
 """.
 -spec export(Content, Callback, RootAttributes) ->
           ExportedFormat :: term() when
@@ -214,6 +229,13 @@ attributes. The XML-data is always converted to normal form before being passed
 to the callback module.
 
 _See also:_ `export/3`, `export_simple/2`.
+
+## Examples
+
+```erlang
+1> lists:flatten(xmerl:export_simple([{greeting, [], ["hello"]}], xmerl_xml, [])).
+"<?xml version=\"1.0\"?><greeting>hello</greeting>"
+```
 """.
 -spec export_simple(Content, Callback, RootAttributes) ->
           ExportedFormat :: term() when
@@ -242,7 +264,16 @@ export1(Content, Callbacks, RootAttrs) when is_list(Content) ->
     tagdef('#root#',1,[],Args,Callbacks).
 
 
--doc "Exports simple XML content directly, without further context.".
+-doc """
+Exports simple XML content directly, without further context.
+
+## Examples
+
+```erlang
+1> lists:flatten(xmerl:export_simple_content([{greeting, [], ["hello"]}], xmerl_xml)).
+"<greeting>hello</greeting>"
+```
+""".
 -spec export_simple_content(Content, Callback) -> _ when
       Content  :: [simple_element()],
       Callback :: callback().
@@ -255,6 +286,14 @@ export_simple_content(Content, Callbacks) when is_list(Callbacks) ->
 
 -doc """
 Export normal XML content directly, without further context.
+
+## Examples
+
+```erlang
+1> {Element, []} = xmerl_scan:string("<greeting>hello</greeting>").
+2> lists:flatten(xmerl:export_content([Element], [xmerl_xml])).
+"<greeting>hello</greeting>"
+```
 """.
 -spec export_content(Content, Callbacks) -> _ when
 	Content   :: [element()],
@@ -274,7 +313,16 @@ export_content([E | Es], Callbacks) ->
 export_content([], _Callbacks) ->
     [].
 
--doc "Export a simple XML element directly, without further context.".
+-doc """
+Export a simple XML element directly, without further context.
+
+## Examples
+
+```erlang
+1> lists:flatten(xmerl:export_simple_element({greeting, [], ["hello"]}, xmerl_xml)).
+"<greeting>hello</greeting>"
+```
+""".
 -spec export_simple_element(Element, Callback) -> _ when
 	Element  :: simple_element(),
 	Callback :: callback().
@@ -284,7 +332,17 @@ export_simple_element(Element, Callback) when is_atom(Callback) ->
 export_simple_element(Element, Callbacks) when is_list(Callbacks) ->
     export_element(xmerl_lib:expand_element(Element), Callbacks).
 
--doc "Exports a normal XML element directly, without further context.".
+-doc """
+Exports a normal XML element directly, without further context.
+
+## Examples
+
+```erlang
+1> {Element, []} = xmerl_scan:string("<greeting>hello</greeting>").
+2> lists:flatten(xmerl:export_element(Element, xmerl_xml)).
+"<greeting>hello</greeting>"
+```
+""".
 -spec export_element(Element, Callback) -> _ when
       Element  :: element(),
       Callback :: callback().
@@ -312,6 +370,14 @@ export_element(#xmlDecl{}, _CBs) ->
 
 -doc """
 For on-the-fly exporting during parsing (SAX style) of the XML document.
+
+## Examples
+
+```erlang
+1> {Element, []} = xmerl_scan:string("<empty/>").
+2> lists:flatten(xmerl:export_element(Element, xmerl_xml, state0)).
+"<empty/>"
+```
 """.
 -spec export_element(Element, Callback, CallbackState) ->
           ExportedFormat when
@@ -355,7 +421,16 @@ tagdef(Tag,Pos,Parents,Args,CBs) ->
     end.
 
 
--doc "Find the list of inherited callback modules for a given module.".
+-doc """
+Find the list of inherited callback modules for a given module.
+
+## Examples
+
+```erlang
+1> xmerl:callbacks(xmerl_xml).
+[xmerl_xml]
+```
+""".
 -spec callbacks(Module :: module()) -> [module()].
 callbacks(Module) ->
     Result = check_inheritance(Module, []),
