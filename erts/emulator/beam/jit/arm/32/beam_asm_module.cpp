@@ -150,8 +150,16 @@ void BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
 }
 
 void BeamModuleAssembler::emit_i_nif_padding() {
-    // TODO
-    emit_nyi("emit_i_nif_padding");
+    const size_t minimum_size = sizeof(UWord[BEAM_NATIVE_MIN_FUNC_SZ]);
+    size_t prev_func_start, diff;
+
+    prev_func_start =
+            code.labelOffsetFromBase(rawLabels[functions.back() + 1]);
+    diff = a.offset() - prev_func_start;
+
+    if (diff < minimum_size) {
+        embed_zeros(minimum_size - diff);
+    }
 }
 
 void BeamGlobalAssembler::emit_i_breakpoint_trampoline_shared() {
