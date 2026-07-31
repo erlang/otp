@@ -6187,8 +6187,10 @@ handle_altact_msg(Process *c_p, ErtsSigRecvTracing *tracing,
                 /* drop faulty encoded external message... */
                 return cnt;
             }
-            cnt += insert_prepared_prio_msg(c_p, tracing, mp, ERL_MESSAGE_TERM(mp),
-                                            token, next_nm_sig);
+            cnt += insert_prepared_prio_msg_attached(c_p, tracing, mp,
+                                                     mp->data.attached,
+                                                     ERL_MESSAGE_TERM(mp), token,
+                                                     next_nm_sig);
         }
         break;
     }
