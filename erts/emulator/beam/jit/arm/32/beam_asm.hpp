@@ -730,10 +730,10 @@ class BeamModuleAssembler : public BeamAssembler,
                                 std::deque<std::reference_wrapper<const T>>,
                                 std::greater<const T &>>;
 
-    /* Index of Label -> EmbeddedLabel
+    /* Index of Label -> EmbeddedLabel(s)
      *
      * `_pending_labels` points directly into this container. */
-    std::unordered_map<uint32_t, EmbeddedLabel> _embedded_labels;
+    std::unordered_multimap<uint32_t, const EmbeddedLabel> _embedded_labels;
 
     /* All pending stubs, segregated by type and sorted by `latestOffset` in
      * ascending order.

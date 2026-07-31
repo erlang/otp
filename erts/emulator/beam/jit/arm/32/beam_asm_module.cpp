@@ -576,6 +576,43 @@ arm::Mem BeamModuleAssembler::embed_constant(const ArgVal &value,
     return arm::Mem(constant.anchor);
 }
 
+arm::Mem BeamModuleAssembler::embed_label(const Label &label,
+                                          enum Displacement disp) {
+    ssize_t currOffset = a.offset();
+    ssize_t minOffset = currOffset - disp;
+    ssize_t maxOffset = currOffset + disp;
+
+    ASSERT(disp >= dispMin && disp <= dispMax);
+
+    /* Reuse a literal when it is already in range, or when its pending
+     * flush deadline guarantees that it will be emitted in range. */
+    auto range = _embedded_labels.equal_range(label.id());
+    for (auto it = range.first; it != range.second; it++) {
+        const EmbeddedLabel &embedded_label = it->second;
+
+        if (code.isLabelBound(embedded_label.anchor)) {
+            ssize_t labelOffset =
+                    code.labelOffsetFromBase(embedded_label.anchor);
+
+            if (labelOffset >= minOffset && labelOffset <= maxOffset) {
+                return arm::Mem(embedded_label.anchor);
+            }
+        } else if (embedded_label.latestOffset <= maxOffset) {
+            return arm::Mem(embedded_label.anchor);
+        }
+    }
+
+    auto it = _embedded_labels.emplace(
+            label.id(),
+            EmbeddedLabel{.latestOffset = maxOffset,
+                          .anchor = a.newLabel(),
+                          .label = label});
+    const EmbeddedLabel &embedded_label = it->second;
+    _pending_labels.emplace(embedded_label);
+
+    return arm::Mem(embedded_label.anchor);
+}
+
 void BeamModuleAssembler::emit_i_flush_stubs() {
     /* Flush all stubs that are due within the next two check intervals
      * to prevent them from being emitted inside function prologues or
@@ -683,7 +720,7 @@ void BeamModuleAssembler::flush_pending_labels() {
         const EmbeddedLabel &embedded_label = _pending_labels.top();
 
         a.bind(embedded_label.anchor);
-        a.embedLabel(embedded_label.label, 8);
+        a.embedLabel(embedded_label.label, sizeof(UWord));
 
         _pending_labels.pop();
     }

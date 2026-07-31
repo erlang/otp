@@ -938,13 +938,14 @@ void BeamModuleAssembler::emit_i_load_nif() {
     static ErtsCodeMFA mfa = {am_erlang, am_load_nif, 2};
 
     Label entry = a.newLabel(), next = a.newLabel(), schedule = a.newLabel();
+    arm::Mem current_label_address = embed_label(current_label, disp4KB);
 
     a.bind(entry);
 
     emit_enter_runtime<Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
-    a.adr(ARG2, current_label);
+    a.ldr(ARG2, current_label_address);
     load_x_reg_array(ARG3);
     runtime_call<3>(beam_jit_load_nif);
 
@@ -958,7 +959,9 @@ void BeamModuleAssembler::emit_i_load_nif() {
     a.cmp(ARG1, TMP);
     a.b_eq(next);
 
-    emit_raise_exception(current_label, &mfa);
+    a.ldr(ARG2, current_label_address);
+    a.ldr(ARG4, embed_constant(&mfa, disp4KB));
+    a.b(resolve_fragment(ga->get_raise_exception_shared(), disp32MB));
 
     a.bind(schedule);
     {
