@@ -68,7 +68,7 @@ all() ->
 
 groups() ->
     [
-     {ftp_passive, [], ftp_tests()},
+     {ftp_passive, [], [ftp_extension | ftp_tests()]},
      {ftp_active, [], ftp_tests()},
      {ftpes_passive, [], ftp_tests_smoke()},
      {ftpes_active, [], ftp_tests_smoke()},
@@ -332,6 +332,7 @@ init_per_testcase2(Case, Config0) ->
     ACTIVE = [{mode,active}],
     PASSIVE = [{mode,passive}],
     CaseOpts = case Case of
+                   ftp_extension -> [{ftp_extension, true}];
                    progress_report_send -> [{progress, {?MODULE,progress,#progress{}}}];
                    progress_report_recv -> [{progress, {?MODULE,progress,#progress{}}}];
                    _ -> []
@@ -490,6 +491,36 @@ lcd(Config0) ->
     ExpectedPWD = id2ftp_result(Dir, Config),
     PWD = ExpectedPWD,
     {error, epath} = ftp:lcd(Pid, ?BAD_DIR).
+
+%%-------------------------------------------------------------------------
+ftp_extension() ->
+    [{doc, "Test that ftp_extension uses EPSV for an IPv4 passive "
+      "data connection."}].
+ftp_extension(Config) ->
+    Parent = self(),
+    Pid = proplists:get_value(ftp, Config),
+    dbg:start(),
+    dbg:tracer(process, {fun
+        ({trace, TracePid, call,
+          {ftp_internal, verbose, ["EPSV\r\n", _, send]}}, ok)
+          when TracePid =:= Pid ->
+            Parent ! epsv,
+            ok;
+        (_, ok) ->
+            ok
+    end, ok}),
+    dbg:tpl(ftp_internal, verbose, []),
+    dbg:p(Pid, [call]),
+    try
+        {ok, _} = ftp:ls(Pid),
+        receive
+            epsv -> ok
+        after 1000 ->
+            ct:fail("ftp_extension did not use EPSV")
+        end
+    after
+        dbg:stop()
+    end.
 
 %%-------------------------------------------------------------------------
 ls() ->
@@ -1409,4 +1440,3 @@ unwanted_error_report(LogFile) ->
         _ ->
             ct:fail({no_logfile, LogFile})
     end.
-
