@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +24,8 @@
 -module(inet_tls_dist).
 -moduledoc false.
 
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([childspecs/0]).
 -export([select/1, address/0, is_node_name/1,
          listen/2, accept/1, accept_connection/5,
@@ -31,7 +35,8 @@
 -export([fam_select/2, fam_address/1, fam_listen/3, fam_accept/2,
          fam_accept_connection/6, fam_setup/6]).
 
--export([verify_client/3, cert_nodes/1]).
+-export([verify_client/3, cert_nodes/1,
+         get_ssl_client_options/0, get_ssl_server_options/1]).
 
 %% kTLS helpers
 -export([inet_ktls_setopt/3, inet_ktls_getopt/3,
@@ -100,7 +105,19 @@ hs_data_inet_tcp(Driver, Socket) ->
                     }
           end}.
 
-hs_data_ssl(Family, #sslsocket{pid = [_, DistCtrl|_]} = SslSocket) ->
+hs_data_ssl(Family, #sslsocket{payload_sender = DistCtrl} = SslSocket) ->
+    %% The distribution controller (output controller) needs to be linked
+    %% to the caller, which becomes the distribution ticker
+    %% after distribution handshake.
+    %%
+    %% net_kernel takes down either the distribution controller
+    %% or the ticker, but all processes involved in the channel
+    %% must be taken down when the channel goes down.
+    %%
+    %% The SSL socket receiver and payload sender will go down
+    %% together thanks to their supervisor.
+    %%
+    link(DistCtrl),
     {ok, Address} =
         maybe
             {error, einval} ?= ssl:peername(SslSocket),
@@ -338,7 +355,13 @@ spawn_accept({Family, ListenSocket, NetKernel, Continue}) ->
         end).
 
 accept_one(Family, Socket, NetKernel) ->
-    Opts = setup_verify_client(Socket, get_ssl_options(server)),
+    Opts =
+        case inet:peername(Socket) of
+            {ok,{PeerIP,_Port}} ->
+                get_ssl_server_options(PeerIP);
+            {error,Reason} ->
+                exit(trace({no_peername,Reason}))
+        end,
     KTLS = proplists:get_value(ktls, Opts, false),
     case
         ssl:handshake(
@@ -347,7 +370,7 @@ accept_one(Family, Socket, NetKernel) ->
           net_kernel:connecttime())
     of
         {ok, SslSocket} ->
-            Receiver = hd(SslSocket#sslsocket.pid),
+            Receiver = SslSocket#sslsocket.connection_handler,
             case KTLS of
                 true ->
                     {ok, KtlsInfo} = ssl_gen_statem:ktls_handover(Receiver),
@@ -401,7 +424,12 @@ accept_one(
             trace(unsupported_protocol)
     end.
 
+get_ssl_client_options() ->
+    get_ssl_options(client).
 
+get_ssl_server_options(PeerIP) when PeerIP =/= undefined ->
+    setup_verify_client(get_ssl_options(server), PeerIP).
+%%
 %% {verify_fun,{fun ?MODULE:verify_client/3,_}} is used
 %% as a configuration marker that verify_client/3 shall be used.
 %%
@@ -411,41 +439,28 @@ accept_one(
 %% The inserted state is not accessible from a configuration file
 %% since it is dynamic and connection dependent.
 %%
-setup_verify_client(Socket, Opts) ->
-    setup_verify_client(Socket, Opts, true, []).
-%%
-setup_verify_client(_Socket, [], _, OptsR) ->
-    lists:reverse(OptsR);
-setup_verify_client(Socket, [Opt|Opts], First, OptsR) ->
+setup_verify_client([Opt | Opts], PeerIP) ->
     case Opt of
-        {verify_fun,{Fun,_}} ->
-            case Fun =:= fun ?MODULE:verify_client/3 of
-                true ->
+        {verify_fun,{VerifyFun, _}} ->
+            case fun inet_tls_dist:verify_client/3 of
+                VerifyFun ->
                     if
-                        First ->
-                            case inet:peername(Socket) of
-                                {ok,{PeerIP,_Port}} ->
-                                    {ok,Allowed} = net_kernel:allowed(),
-                                    AllowedHosts = allowed_hosts(Allowed),
-                                    setup_verify_client(
-                                      Socket, Opts, false,
-                                      [{verify_fun,
-                                        {Fun, {AllowedHosts,PeerIP}}}
-                                       |OptsR]);
-                                {error,Reason} ->
-                                    exit(trace({no_peername,Reason}))
-                            end;
+                        PeerIP =:= undefined ->
+                            setup_verify_client(Opts, PeerIP);
                         true ->
-                            setup_verify_client(
-                              Socket, Opts, First, OptsR)
+                            {ok, Allowed} = net_kernel:allowed(),
+                            [{verify_fun,
+                              {VerifyFun, {allowed_hosts(Allowed), PeerIP}}}
+                            | setup_verify_client(Opts, undefined)]
                     end;
-                false ->
-                    setup_verify_client(
-                      Socket, Opts, First, [Opt|OptsR])
-            end;
+                _ ->
+                    [Opt | setup_verify_client(Opts, PeerIP)]
+              end;
         _ ->
-            setup_verify_client(Socket, Opts, First, [Opt|OptsR])
-    end.
+            [Opt | setup_verify_client(Opts, PeerIP)]
+      end;
+setup_verify_client([], _PeerIP) ->
+    [].
 
 allowed_hosts(Allowed) ->
     lists:usort(allowed_node_hosts(Allowed)).
@@ -512,15 +527,13 @@ do_accept(
             Timer = dist_util:start_timer(SetupTime),
             {HSData0, NewAllowed} =
                 case DistSocket of
-                    SslSocket = #sslsocket{pid = [_Receiver, Sender| _]} ->
-                        link(Sender),
-                        {hs_data_ssl(Family, SslSocket),
-                         allowed_nodes(SslSocket, Allowed)};
+                    SslSocket = #sslsocket{} ->
+                        HSDataSsl = hs_data_ssl(Family, SslSocket),
+                        {HSDataSsl, allowed_nodes(SslSocket, Allowed)};
                     PortSocket when is_port(DistSocket) ->
                         %%% XXX Breaking abstraction barrier
                         Driver = erlang:port_get_data(PortSocket),
-                        {hs_data_inet_tcp(Driver, PortSocket),
-                         Allowed}
+                        {hs_data_inet_tcp(Driver, PortSocket), Allowed}
                 end,
             HSData =
                 HSData0#hs_data{
@@ -631,7 +644,7 @@ do_setup(
     ParseAddress = fun (A) -> inet:parse_strict_address(A, Family) end,
     {#net_address{
         host = Host,
-        address = {Ip, PortNum}},
+        address = {IP, PortNum}},
      ConnectOptions,
      Version} =
         trace(inet_tcp_dist:fam_setup(
@@ -647,13 +660,14 @@ do_setup(
     KTLS = proplists:get_value(ktls, Opts, false),
     dist_util:reset_timer(Timer),
     maybe
-        {ok, #sslsocket{pid = [Receiver, Sender| _]} = SslSocket} ?=
-            ssl:connect(Ip, PortNum, Opts, net_kernel:connecttime()),
+        {ok, SslSocket} ?=
+            ssl:connect(IP, PortNum, Opts, net_kernel:connecttime()),
         HSData =
             case KTLS of
                 true ->
                     {ok, KtlsInfo} =
-                        ssl_gen_statem:ktls_handover(Receiver),
+                        ssl_gen_statem:ktls_handover(
+                          SslSocket#sslsocket.connection_handler),
                     Socket = maps:get(socket, KtlsInfo),
                     case inet_set_ktls(KtlsInfo) of
                         ok when is_port(Socket) ->
@@ -666,9 +680,7 @@ do_setup(
                                trace({set_ktls_failed, KtlsReason}))
                     end;
                 false ->
-                    _ = monitor_pid(Sender),
                     ok = ssl:controlling_process(SslSocket, self()),
-                    link(Sender),
                     hs_data_ssl(Family, SslSocket)
             end
             #hs_data{
@@ -686,7 +698,7 @@ do_setup(
             %% port_please !
             ?shutdown2(
                Node,
-               trace({ssl_connect_failed, Ip, PortNum, Other}))
+               trace({ssl_connect_failed, IP, PortNum, Other}))
     end.
 
 
@@ -708,7 +720,7 @@ check_ip(Socket) ->
                       end,
                 {ok, Ifaddrs} ?= inet:getifaddrs(),
                 {ok, Netmask} ?= find_netmask(IP, Ifaddrs),
-                {ok, {PeerIP, _}} ?= inet:sockname(Socket),
+                {ok, {PeerIP, _}} ?= inet:peername(Socket),
                 ok ?= if is_tuple(PeerIP) -> ok;
                          true -> {error, {no_ip_address, PeerIP}}
                       end,

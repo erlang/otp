@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,6 +26,171 @@ version. The intention of this document is to list all incompatibilities as well
 as all enhancements and bugfixes for every release of Megaco. Each release of
 Megaco thus constitutes one section in this document. The title of each section
 is the version number of Megaco.
+
+## Megaco 4.9.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a buffer overflow in the megaco flex scanner C driver. A property parm name exceeding 452 bytes in a text-encoded H.248 message could overflow a fixed-size error buffer, crashing the VM. The sprintf calls have been replaced with bounded snprintf.
+
+  Own Id: OTP-20237 Aux Id: [PR-11323], GHSA-7xgh-gmgf-q2g7
+
+[PR-11323]: https://github.com/erlang/otp/pull/11323
+
+## Megaco 4.9
+
+### Fixed Bugs and Malfunctions
+
+- Running Dialyzer on Windows in an Erlang repo, causes Dialyzer warnings for the megaco_flex_scanner module. This is because the flex scanner is not built on Windows. These warnings are now suppressed.
+
+  Own Id: OTP-20114 Aux Id: [PR-11025]
+
+[PR-11025]: https://github.com/erlang/otp/pull/11025
+
+### Improvements and New Features
+
+- Added support for `-unsafe` attributes, which is used to mark functions as unsafe to use. 
+  
+  This is similar to but separate from deprecation, and the compiler will by default now generate warnings for calls to functions in Erlang/OTP that are known to be always unsafe.
+  
+  Furthermore, `m:xref` can now be used to find calls to functions in another application that lack a `-doc` attribute (`undocumented_function_calls`), calls to functions in another application marked `-doc false.` (`private_function_calls`), as well as calls to unsafe functions (`unsafe_function_calls`).
+
+  Own Id: OTP-20066 Aux Id: [PR-10839]
+
+[PR-10839]: https://github.com/erlang/otp/pull/10839
+
+## Megaco 4.8.3.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a buffer overflow in the megaco flex scanner C driver. A property parm name exceeding 452 bytes in a text-encoded H.248 message could overflow a fixed-size error buffer, crashing the VM. The sprintf calls have been replaced with bounded snprintf.
+
+  Own Id: OTP-20237 Aux Id: [PR-11323], GHSA-7xgh-gmgf-q2g7
+
+[PR-11323]: https://github.com/erlang/otp/pull/11323
+
+## Megaco 4.8.3
+
+### Improvements and New Features
+
+- Release applications, tests, and documentation are now placed in their respective directories. Source SBOM with more packages.
+  
+  A `make release` application places only the necessary code in the release folder. The main change is that the documentation and examples are not part of the release folder anymore.
+  
+  `make release_docs` places the documentation in the released code under the `doc` folder.
+  
+  `make release_tests` places the tests in their own directory. It used to be the case that some source code was mixed with the tests, and this should not happen anymore.
+  
+  The Software Bill of Materials places the examples folders as if they are part of the `SPDX-otp-<app>-doc` packge, instead of placing examples as if they were running source code.
+  
+  Overall, this change cleans up many things that were not quite correct by definition, and everything should still continue to work as expected. To test a release, one can still run `./Install -minimal \`pwd\`` and add the release to the `PATH`. After that, one can run tests as usual, going into the released tests directory, entering `test_server` and running the emulator.
+  
+  Improves the source Software-Bill-of-Materials
+  
+  - The improvements adds new SPDX relations for `asmjit` and `zlib` to be `optional_components_of` the Erlang/OTP project.
+  - The `autoconf` scripts in `make` and `erts` have now been categorised as `build_tool_of` the Erlang/OTP project.
+  - All remaining `configure`, `configure.ac`, `config.h.in`, `Makefile.in`, `Makefile.src`, `EMakefile`, and `GNUMakefile` are now part of a specific SPDX package with relation `build_tool_of` the Erlang/OTP project.
+
+  Own Id: OTP-19886 Aux Id: [PR-10434]
+
+[PR-10434]: https://github.com/erlang/otp/pull/10434
+
+## Megaco 4.8.2
+
+### Fixed Bugs and Malfunctions
+
+- The megaco_tcp module had debug unintentionally enabled.
+
+  Own Id: OTP-19896
+
+## Megaco 4.8.1
+
+### Fixed Bugs and Malfunctions
+
+- Documentation improvements.
+
+  Own Id: OTP-19669 Aux Id: [PR-9927]
+
+- Rendering of some tables in the documentation has been improved.
+
+  Own Id: OTP-19752 Aux Id: [PR-10142]
+
+[PR-9927]: https://github.com/erlang/otp/pull/9927
+[PR-10142]: https://github.com/erlang/otp/pull/10142
+
+## Megaco 4.8
+
+### Fixed Bugs and Malfunctions
+
+- Add missing spec and doc for exported functions.
+
+  Own Id: OTP-19523
+
+### Improvements and New Features
+
+- Nano seconds are now used for (example) meas result presentation.
+  
+  Nanoseconds are now used, for example, in `meas` result presentations.
+
+  Own Id: OTP-19403
+
+- Added support for compiling Erlang/OTP for Windows on ARM64.
+
+  Own Id: OTP-19480 Aux Id: [PR-8734]
+
+- When compiling C/C++ code on Unix systems, the compiler hardening flags suggested by the [Open Source Security Foundation](https://github.com/ossf/wg-best-practices-os-developers/blob/main/docs/Compiler-Hardening-Guides/Compiler-Options-Hardening-Guide-for-C-and-C%2B%2B.md) are now enabled by default. To disable them, pass `--disable-security-hardening-flags` to `configure`.
+
+  Own Id: OTP-19519 Aux Id: [PR-9441]
+
+- Add copyright notice to files that still had none.
+
+  Own Id: OTP-19570
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+- Tweaked some of the meas examples in order to make them benchmark compatible.
+
+  Own Id: OTP-19598
+
+[PR-8734]: https://github.com/erlang/otp/pull/8734
+[PR-9441]: https://github.com/erlang/otp/pull/9441
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+
+## Megaco 4.7.2.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a buffer overflow in the megaco flex scanner C driver. A property parm name exceeding 452 bytes in a text-encoded H.248 message could overflow a fixed-size error buffer, crashing the VM. The sprintf calls have been replaced with bounded snprintf.
+
+  Own Id: OTP-20237 Aux Id: [PR-11323], GHSA-7xgh-gmgf-q2g7
+
+[PR-11323]: https://github.com/erlang/otp/pull/11323
+
+## Megaco 4.7.2.1
+
+### Fixed Bugs and Malfunctions
+
+- The megaco_tcp module had debug unintentionally enabled.
+
+  Own Id: OTP-19896
+
+## Megaco 4.7.2
+
+### Fixed Bugs and Malfunctions
+
+- Corrected type spec for type mid().
+
+  Own Id: OTP-19585 Aux Id: ERIERL-1222
+
+## Megaco 4.7.1
+
+### Fixed Bugs and Malfunctions
+
+- Correct type spec for ActionReply
+
+  Own Id: OTP-19563 Aux Id: ERIERL-1216
 
 ## Megaco 4.7
 
@@ -55,6 +222,14 @@ is the version number of Megaco.
 
 [PR-7740]: https://github.com/erlang/otp/pull/7740
 [PR-8026]: https://github.com/erlang/otp/pull/8026
+
+## Megaco 4.5.0.1
+
+### Fixed Bugs and Malfunctions
+
+* The megaco_tcp module had debug unintentionally enabled.
+
+  Own Id: OTP-19896
 
 ## Megaco 4.5
 

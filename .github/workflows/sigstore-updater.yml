@@ -1,0 +1,196 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2024-2026. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
+##
+## This workflow has two jobs:
+## 1. update-release-sigstore: Regenerates Sigstore attestation files
+##    when an existing GitHub release is edited.
+## 2. attest-vex: Creates Sigstore attestations for modified OpenVEX
+##    files in PRs targeting the master branch.
+##
+
+name: Update Sigstore Files
+
+on:
+  release:
+    types: [edited]
+  pull_request:
+    branches: [openvex]
+    paths:
+      - '*.openvex.json'
+
+permissions:
+  contents: read
+
+jobs:
+  update-release-sigstore:
+    if: github.event_name == 'release'
+    permissions:
+      contents: write
+      attestations: write
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+            persist-credentials: false
+      - name: Download release artifacts
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          TAG: "${{ github.event.release.tag_name }}"
+        run: gh release download "${TAG}"
+      - name: Copy artifacts
+        run: mkdir artifacts; cp *.tar.gz artifacts/
+      - name: Attest Distribution Assets with SBoM
+        id: attest-sbom
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # ratchet:actions/attest@v4.10
+        with:
+          subject-path: |
+            artifacts/*.tar.gz
+          sbom-path: bom.spdx.json
+      - name: Copy SBoM provenance
+        id: sbom-provenance
+        shell: bash
+        env:
+          ATTESTATION: "${{ steps.attest-sbom.outputs.bundle-path }}"
+        run: |
+          shopt -s nullglob
+          mkdir attestations
+          for FILE in artifacts/*.tar.gz bom.*.json; do
+            cp "$ATTESTATION" "attestations/$(basename "$FILE").sigstore"
+          done
+      - name: Update release
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          TAG: "${{ github.event.release.tag_name }}"
+        run: gh release upload "${TAG}" attestations/*.sigstore --clobber
+
+  attest-vex:
+    if: >
+      github.event_name == 'pull_request' &&
+      github.repository == 'erlang/otp'
+    permissions:
+      contents: write
+      attestations: write
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR author permission
+        env:
+          GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          PR_AUTHOR: "${{ github.event.pull_request.user.login }}"
+          PR_AUTHOR_ID: "${{ github.event.pull_request.user.id }}"
+          REPOSITORY: "${{ github.repository }}"
+        run: |
+          # Check permissions for modifying vex files
+          # erlang-bot-app[bot] user ID: 232538940
+          if [[ "$PR_AUTHOR_ID" == "232538940" ]]; then
+            echo "PR opened by erlang-bot-app[bot] (id=$PR_AUTHOR_ID), allowed"
+            exit 0
+          fi
+          PERMISSION=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            /repos/$REPOSITORY/collaborators/$PR_AUTHOR/permission --jq '.role_name')
+          if [[ "$PERMISSION" != "admin" && "$PERMISSION" != "maintain" && "$PERMISSION" != "Security Master" ]]; then
+            echo "::error::Only maintainers or erlang-bot-app can trigger VEX attestations"
+            exit 1
+          fi
+
+      - name: Checkout PR branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: "${{ github.event.pull_request.head.repo.full_name }}"
+          ref: "${{ github.event.pull_request.head.ref }}"
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Find modified OpenVEX files
+        id: changed
+        run: |
+          git diff --name-only --diff-filter=AM HEAD~1 HEAD -- '*.openvex.json' > /tmp/changed-vex.txt
+          echo "Modified OpenVEX files:"
+          cat /tmp/changed-vex.txt
+          if [ -s /tmp/changed-vex.txt ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Add license files for new OpenVEX files
+        if: steps.changed.outputs.found == 'true'
+        run: bash .github/scripts/add-vex-license.sh /tmp/changed-vex.txt
+
+      - name: Attest OpenVEX files
+        if: steps.changed.outputs.found == 'true'
+        id: attest
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # ratchet:actions/attest@v4.10
+        with:
+          subject-path: '*.openvex.json'
+      - uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        if: steps.changed.outputs.found == 'true'
+        id: app-token
+        with:
+          app-id: ${{ vars.ERLANG_BOT_APP_ID }}
+          private-key: ${{ secrets.ERLANG_BOT_PRIVATE_KEY }}
+      - name: Authenticate gh
+        if: steps.changed.outputs.found == 'true'
+        env:
+          STEPS_APP_TOKEN_OUTPUTS_TOKEN: "${{ steps.app-token.outputs.token }}"
+        run: |
+          echo "${STEPS_APP_TOKEN_OUTPUTS_TOKEN}" | gh auth login --with-token
+
+      # register `gh` as git credential helper => git push in otp-compliance
+      # uses the token from `gh`. otherwise, `persist-credentials` should not be `false`.
+      # changing `persist-credentials` is not a good option
+      - name: Configure git to use gh as credential helper
+        if: steps.changed.outputs.found == 'true'
+        run: gh auth setup-git
+
+      - name: Get GitHub App User ID
+        if: steps.changed.outputs.found == 'true'
+        id: get-user-id
+        env:
+          GH_TOKEN: "${{ steps.app-token.outputs.token }}"
+          STEPS_APP_TOKEN_OUTPUTS_APP_SLUG: "${{ steps.app-token.outputs.app-slug }}"
+        run: echo "user-id=$(gh api "/users/${STEPS_APP_TOKEN_OUTPUTS_APP_SLUG}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
+      - name: Commit attestations to PR
+        if: steps.changed.outputs.found == 'true'
+        shell: bash
+        env:
+          ATTESTATION: "${{ steps.attest.outputs.bundle-path }}"
+          STEPS_APP_TOKEN_OUTPUTS_APP_SLUG: "${{ steps.app-token.outputs.app-slug }}"
+          STEPS_APP_TOKEN_OUTPUTS_TOKEN: "${{ steps.app-token.outputs.token }}"
+          STEPS_GET_USER_ID_OUTPUTS_USER_ID: "${{ steps.get-user-id.outputs.user-id }}"
+          PR_HEAD_REPO: "${{ github.event.pull_request.head.repo.full_name }}"
+          PR_HEAD_REF: "${{ github.event.pull_request.head.ref }}"
+        run: |
+          while IFS= read -r FILE; do
+            [ -z "$FILE" ] && continue
+            BASENAME=$(basename "$FILE")
+            cp "$ATTESTATION" "${BASENAME}.sigstore"
+          done < /tmp/changed-vex.txt
+          git config user.name "${STEPS_APP_TOKEN_OUTPUTS_APP_SLUG}[bot]"
+          git config user.email "${STEPS_GET_USER_ID_OUTPUTS_USER_ID}+${STEPS_APP_TOKEN_OUTPUTS_APP_SLUG}[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${STEPS_APP_TOKEN_OUTPUTS_TOKEN}@github.com/${PR_HEAD_REPO}.git"
+          git add *.sigstore *.sigstore.license
+          git commit -m "Update sigstore attestations for OpenVEX files" || true
+          git push origin "HEAD:${PR_HEAD_REF}"

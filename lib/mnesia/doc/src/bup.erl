@@ -25,8 +25,8 @@
         ]).
 
 -export([
-	 count/1,
-	 display/1
+         count/1,
+         display/1
         ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -40,9 +40,7 @@ change_node_name(Mod, From, To, Source, Target) ->
            (Node) -> Node
         end,
     Convert =
-        fun({schema, db_nodes, Nodes}, Acc) ->
-                {[{schema, db_nodes, lists:map(Switch,Nodes)}], Acc};
-           ({schema, version, Version}, Acc) ->
+        fun({schema, version, Version}, Acc) ->
                 {[{schema, version, Version}], Acc};
            ({schema, cookie, Cookie}, Acc) ->
                 {[{schema, cookie, Cookie}], Acc};
@@ -84,21 +82,21 @@ test() ->
 
 test(Nodes)->
     AllNodes = (Nodes -- [node()]) ++ [node()],
-    case length(AllNodes)  of
+    case length(AllNodes) of
         Length when Length > 1 ->
-	    OldBup = "old.BUP",
-	    NewBup = "new.BUP",
+            OldBup = "old.BUP",
+            NewBup = "new.BUP",
             Res = (catch test2(AllNodes, OldBup, NewBup)),
-	    case Res of
+            case Res of
                 {'EXIT', Reason} ->
-		    file:delete(OldBup),
-		    file:delete(NewBup),
-		    {error, Reason};
+                    file:delete(OldBup),
+                    file:delete(NewBup),
+                    {error, Reason};
                 ok ->
-		    ok = count(NewBup),
-		    file:delete(OldBup),
-		    file:delete(NewBup),
-		    ok
+                    ok = count(NewBup),
+                    file:delete(OldBup),
+                    file:delete(NewBup),
+                    ok
             end;
         _ ->
             {error,{"Must run on at least one other node",AllNodes}}
@@ -159,15 +157,15 @@ count(BupFile) ->
     Mod = mnesia:system_info(backup_module),
     State = #state{counter_tab = CounterTab, size_tab = SizeTab},
     case mnesia:traverse_backup(BupFile, Mod, dummy, read_only, fun incr/2, State) of
-	{ok, State2} ->
-	    Res = display(State2),
-	    ets:delete(CounterTab),
-	    ets:delete(SizeTab),
-	    Res;
-	{error, Reason} ->	
-	    ets:delete(CounterTab),
-	    ets:delete(SizeTab),
-	    {error, Reason}
+        {ok, State2} ->
+            Res = display(State2),
+            ets:delete(CounterTab),
+            ets:delete(SizeTab),
+            Res;
+        {error, Reason} ->	
+            ets:delete(CounterTab),
+            ets:delete(SizeTab),
+            {error, Reason}
     end.
 
 incr(Rec, State) ->
@@ -184,20 +182,20 @@ incr(Rec, State) ->
 
 incr_counter(T, Counter) ->
     case catch ets:update_counter(T, Counter, 1) of
-	{'EXIT', _} ->
-	    ets:insert(T, {Counter, 1});
-	_ ->
-	    ignore
+        {'EXIT', _} ->
+            ets:insert(T, {Counter, 1});
+        _ ->
+            ignore
     end.
 
 max_size(T, Tab, Key, Size) ->
     case catch ets:lookup_element(T, Tab, 2) of
-	{'EXIT', _} ->
-	    ets:insert(T, {Tab, Size, Key});
-	OldSize when OldSize < Size ->
-	    ets:insert(T, {Tab, Size, Key});
-	_ ->
-	    ignore
+        {'EXIT', _} ->
+            ets:insert(T, {Tab, Size, Key});
+        OldSize when OldSize < Size ->
+            ets:insert(T, {Tab, Size, Key});
+        _ ->
+            ignore
     end.
 
 %% Displays the statistics found in the ets table
@@ -205,20 +203,20 @@ display(State) ->
     CounterTab = State#state.counter_tab,
     Tabs = [T || {{_, T}, _} <- match_tab(CounterTab, schema)],
     io:format("~w tables with totally: ~w records, ~w keys, ~w bytes~n",
-	      [length(Tabs),
-	       State#state.n_records,
-	       ets:info(CounterTab, size),
-	       State#state.acc_size]),	       
+              [length(Tabs),
+               State#state.n_records,
+               ets:info(CounterTab, size),
+               State#state.acc_size]),
     display(State, lists:sort(Tabs)).
 
 display(State, [Tab | Tabs]) ->
     Counters = match_tab(State#state.counter_tab, Tab),
     io:format("~-10w     records in table ~w~n", [length(Counters), Tab]),
     Fun = fun({_Oid, Val}) when Val < 5 ->
-		  ignore;
-	     ({Oid, Val}) ->
-		  io:format("~-10w *** records with key ~w~n", [Val, Oid])
-	  end,
+                  ignore;
+             ({Oid, Val}) ->
+                  io:format("~-10w *** records with key ~w~n", [Val, Oid])
+          end,
     lists:foreach(Fun, Counters),
     display_size(State#state.size_tab, Tab),
     display(State, Tabs);
@@ -230,11 +228,11 @@ match_tab(T, Tab) ->
 
 display_size(T, Tab) ->
     case catch ets:lookup(T, Tab) of
-	[] ->
-	    ignore;
-	[{_, Size, Key}] when Size > 1000 ->
-	    io:format("~-10w --- bytes occupied by largest record ~w~n",
-		      [Size, {Tab, Key}]);
-	[{_, _, _}] ->
-	    ignore
+        [] ->
+            ignore;
+        [{_, Size, Key}] when Size > 1000 ->
+            io:format("~-10w --- bytes occupied by largest record ~w~n",
+                      [Size, {Tab, Key}]);
+        [{_, _, _}] ->
+            ignore
     end.

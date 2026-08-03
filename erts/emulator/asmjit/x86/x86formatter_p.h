@@ -1,17 +1,17 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_X86_X86FORMATTER_P_H_INCLUDED
 #define ASMJIT_X86_X86FORMATTER_P_H_INCLUDED
 
-#include "../core/api-config.h"
+#include <asmjit/core/api-config.h>
 #ifndef ASMJIT_NO_LOGGING
 
-#include "../core/formatter.h"
-#include "../core/string.h"
-#include "../x86/x86globals.h"
+#include <asmjit/core/formatter.h>
+#include <asmjit/core/string.h>
+#include <asmjit/x86/x86globals.h>
 
 ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
@@ -21,31 +21,31 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
 namespace FormatterInternal {
 
-Error ASMJIT_CDECL formatFeature(
+Error ASMJIT_CDECL format_feature(
   String& sb,
-  uint32_t featureId) noexcept;
+  uint32_t feature_id) noexcept;
 
-Error ASMJIT_CDECL formatRegister(
+Error ASMJIT_CDECL format_register(
   String& sb,
   FormatFlags flags,
   const BaseEmitter* emitter,
   Arch arch,
-  RegType regType,
-  uint32_t regId) noexcept;
+  RegType reg_type,
+  uint32_t reg_id) noexcept;
 
-Error ASMJIT_CDECL formatOperand(
+Error ASMJIT_CDECL format_operand(
   String& sb,
   FormatFlags flags,
   const BaseEmitter* emitter,
   Arch arch,
   const Operand_& op) noexcept;
 
-Error ASMJIT_CDECL formatInstruction(
+Error ASMJIT_CDECL format_instruction(
   String& sb,
   FormatFlags flags,
   const BaseEmitter* emitter,
   Arch arch,
-  const BaseInst& inst, const Operand_* operands, size_t opCount) noexcept;
+  const BaseInst& inst, Span<const Operand_> operands) noexcept;
 
 } // {FormatterInternal}
 

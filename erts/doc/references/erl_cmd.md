@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -42,13 +44,12 @@ Starts an Erlang runtime system.
 The arguments can be divided into _emulator flags_, _flags_, and _plain
 arguments_:
 
-- Any argument starting with character `+` is interpreted as an
-  [emulator flag](erl_cmd.md#emu_flags).
+- Any argument starting with character `+` is interpreted as an [emulator flag](#emulator-flags).
 
   As indicated by the name, emulator flags control the behavior of the emulator.
 
 - Any argument starting with character `-` (hyphen) is interpreted as a
-  [flag](erl_cmd.md#init_flags), which is to be passed to the Erlang part of the
+  [flag](#flags), which is to be passed to the Erlang part of the
   runtime system, more specifically to the `init` system process, see `m:init`.
 
   The `init` process itself interprets some of these flags, the _init flags_. It
@@ -66,14 +67,14 @@ arguments_:
 _Examples:_
 
 ```erlang
-% erl +W w -sname arnie +R 9 -s my_init -extra +bertie
+% erl +W w -sname arnie +S 2 -s my_init -extra +bertie
 (arnie@host)1> init:get_argument(sname).
 {ok,[["arnie"]]}
 (arnie@host)2> init:get_plain_arguments().
 ["+bertie"]
 ```
 
-Here `+W w` and `+R 9` are emulator flags. `-s my_init` is an init flag,
+Here `+W w` and `+S 2` are emulator flags. `-s my_init` is an init flag,
 interpreted by `init`. `-sname arnie` is a user flag, stored by `init`. It is
 read by Kernel and causes the Erlang runtime system to become distributed.
 Finally, everything after `-extra` (that is, `+bertie`) is considered as plain
@@ -89,8 +90,6 @@ arguments.
 
 Here the user flag `-myflag 1` is passed to and stored by the `init` process. It
 is a user-defined flag, presumably used by some user-defined application.
-
-[](){: #init_flags }
 
 ## Flags
 
@@ -222,7 +221,7 @@ described in the corresponding application documentation.
 - **`-dist_listen true|false`{: #dist_listen }** - Specifies whether this node
   should be listening for incoming distribution connections or not. By default a
   node will listen for incoming connections. Setting this option to `false`
-  implies [`-hidden`](erl_cmd.md#hidden).
+  implies [`-hidden`](#hidden).
 
 - **`-emu_args`** - Useful for debugging. Prints the arguments sent to the
   emulator.
@@ -331,8 +330,8 @@ described in the corresponding application documentation.
   distributed node. This flag invokes all network servers necessary for a node
   to become distributed; see `m:net_kernel`. It also ensures that `epmd` runs on
   the current host before Erlang is started (see [`epmd(1)`](epmd_cmd.md) and
-  the [`-start_epmd`](erl_cmd.md#start_epmd) option) and that a magic cookie has
-  been set (see [\-setcookie](erl_cmd.md#setcookie)).
+  the [`-start_epmd`](#start_epmd) option) and that a magic cookie has
+  been set (see [\-setcookie](#setcookie)).
 
   The node name will be `Name@Host`, where `Host` is the fully qualified host
   name of the current host. For short names, use flag `-sname` instead.
@@ -345,10 +344,22 @@ described in the corresponding application documentation.
   > #### Warning {: .warning }
   >
   > Starting a distributed node without also specifying
-  > [`-proto_dist inet_tls`](erl_cmd.md#proto_dist) will expose the node to
+  > [`-proto_dist inet_tls`](#proto_dist) will expose the node to
   > attacks that may give the attacker complete access to the node and in
   > extension the cluster. When using un-secure distributed nodes, make sure
   > that the network is configured to keep potential attackers out.
+
+- **`-nocookie`** - Prevents the node from creating or using the magic
+  cookie.
+
+  When this flag is used, the node will not read the `~/.erlang.cookie` file on startup.
+
+  The node's own cookie will remain "undefined" unless explicitly set later via
+  `erlang:set_cookie/1` or `erlang:set_cookie/2`.
+
+  This effectively prevents the node from participating in a distributed Erlang
+  cluster with nodes that require cookie authentication. It is primarily used
+  for nodes that are intended to be isolated.
 
 - **`-no_epmd`** - Specifies that the distributed node does not need
   [epmd](epmd_cmd.md) at all.
@@ -358,7 +369,7 @@ described in the corresponding application documentation.
   distribution either.
 
   This option only works if Erlang is started as a distributed node with the
-  [\-proto_dist](erl_cmd.md#proto_dist) option using an alternative protocol for
+  [\-proto_dist](#proto_dist) option using an alternative protocol for
   Erlang distribution which does not rely on epmd for node registration and
   discovery. For more information, see
   [How to implement an Alternative Carrier for the Erlang Distribution](alt_dist.md).
@@ -390,7 +401,7 @@ described in the corresponding application documentation.
 - **`-path Dir1 Dir2 ...`** - Replaces the path specified in the boot script;
   see [`script(4)`](`e:sasl:script.md`).
 
-- **`-proto_dist Proto`** - [](){: #proto_dist } Specifies a protocol for Erlang
+- **`-proto_dist Proto`**{: #proto_dist } -  Specifies a protocol for Erlang
   distribution:
 
   - **`inet_tcp`** - TCP over IPv4 (the default)
@@ -462,7 +473,7 @@ described in the corresponding application documentation.
   are killed. Defaults to `infinity`.
 
 - **`-sname Name`{: #sname }** - Makes the Erlang runtime system into a
-  distributed node, similar to [`-name`](erl_cmd.md#name), but the host name
+  distributed node, similar to [`-name`](#name), but the host name
   portion of the node name `Name@Host` will be the short name, not fully
   qualified.
 
@@ -479,7 +490,7 @@ described in the corresponding application documentation.
   > #### Warning {: .warning }
   >
   > Starting a distributed node without also specifying
-  > [`-proto_dist inet_tls`](erl_cmd.md#proto_dist) will expose the node to
+  > [`-proto_dist inet_tls`](#proto_dist) will expose the node to
   > attacks that may give the attacker complete access to the node and in
   > extension the cluster. When using un-secure distributed nodes, make sure
   > that the network is configured to keep potential attackers out.
@@ -497,12 +508,11 @@ described in the corresponding application documentation.
 - **`-version` (emulator flag)** - Makes the emulator print its version number.
   The same as `erl +V`.
 
-[](){: #emu_flags }
-
 ## Emulator Flags
 
 `erl` invokes the code for the Erlang emulator (virtual machine), which supports
-the following flags:
+the following flags. The flags are read from left to right and later flags override the
+behavior of earlier flags.
 
 - **`+a size`{: #async_thread_stack_size }** - Suggested stack size, in
   kilowords, for threads in the async thread pool. Valid range is 16-8192
@@ -545,13 +555,13 @@ the following flags:
   [time warp mode](time_correction.md#time-warp-modes):
 
   - **`no_time_warp`** -
-    [No time warp mode](time_correction.md#no-time-warp-mode) (the default)
+    [No time warp mode](time_correction.md#no-time-warp-mode)
 
   - **`single_time_warp`** -
     [Single time warp mode](time_correction.md#single-time-warp-mode)
 
   - **`multi_time_warp`** -
-    [Multi-time warp mode](time_correction.md#multi-time-warp-mode)
+    [Multi-time warp mode](time_correction.md#multi-time-warp-mode) (the default since Erlang/OTP 26.0)
 
 - **`+d`** - If the emulator detects an internal error (or runs out of memory),
   it, by default, generates both a crash dump and a core dump. The core dump is,
@@ -578,7 +588,7 @@ the following flags:
   in each counter.
 
   Note that a runtime system using decentralized counter groups benefits from
-  [binding schedulers to logical processors](erl_cmd.md#%2Bsbt), as the groups
+  [binding schedulers to logical processors](#%2Bsbt), as the groups
   are distributed better between schedulers with this option.
 
   This option only affects decentralized counters used for the counters that are
@@ -691,12 +701,12 @@ the following flags:
   is. If it is high it could be a good idea to add more threads.
 
 - **`+IOPp PollSetsPercentage`{: #+IOPp }** - Similar to
-  [`+IOp`](erl_cmd.md#%2BIOp) but uses percentages to set the number of IO
+  [`+IOp`](#%2BIOp) but uses percentages to set the number of IO
   pollsets to create, based on the number of poll threads configured. If both
   `+IOPp` and `+IOp` are used, `+IOPp` is ignored.
 
 - **`+IOPt PollThreadsPercentage`{: #+IOPt }** - Similar to
-  [`+IOt`](erl_cmd.md#%2BIOt) but uses percentages to set the number of IO poll
+  [`+IOt`](#%2BIOt) but uses percentages to set the number of IO poll
   threads to create, based on the number of schedulers configured. If both
   `+IOPt` and `+IOt` are used, `+IOPt` is ignored.
 
@@ -709,7 +719,7 @@ the following flags:
   scheduling latency for individual file descriptor input events.
 
 - **`+JPcover true|false|function|function_counters|line|line_counters`{:
-  #+JPcover }** - Since: OTP 27.0
+  #+JPcover }**
 
   Enables or disables support for coverage when running with the JIT. Defaults
   to false.
@@ -746,6 +756,8 @@ the following flags:
 
   - **`false`** - Disables coverage.
 
+  Since: OTP 27.0
+
 - **`+JPperf true|false|dump|map|fp|no_fp`{: #+JPperf }** - Enables or disables
   support for the `perf` profiler when running with the JIT on Linux. Defaults
   to false.
@@ -772,14 +784,20 @@ the following flags:
   [perf support](BeamAsm.md#linux-perf-support) section in the BeamAsm internal
   documentation.
 
-- **`+JMsingle true|false`{: #+JMsingle }** - Since: OTP-26.0
+- **`+JPperfdirectory <directory>`{: #+JPperfdirectory }** - Set the directory
+  used to store `perf` dump and map files when running with the JIT on Linux.
+  Defaults to `/tmp`.
 
-  Enables or disables the use of single-mapped RWX memory for JIT code. The
-  default is to map JIT:ed machine code into two regions sharing the same
+- **`+JMsingle true|false`{: #+JMsingle }** - Enables or disables the use of
+  single-mapped RWX memory for JIT code.
+
+  The default is to map JIT:ed machine code into two regions sharing the same
   physical pages, where one region is executable but not writable, and the other
   writable but not executable. As some tools, such as QEMU user mode emulation,
   cannot deal with the dual mapping, this flags allows it to be disabled. This
-  flag is automatically enabled by the [`+JPperf`](erl_cmd.md#%2BJPperf) flag.
+  flag is automatically enabled by the [`+JPperf`](#%2BJPperf) flag.
+
+  Since: OTP 26.0
 
 - **`+L`** - Prevents loading information about source filenames and line
   numbers. This saves some memory, but exceptions do not contain information
@@ -788,15 +806,16 @@ the following flags:
 - **`+MFlag Value`{: #erts_alloc }** - Memory allocator-specific flags. For more
   information, see [`erts_alloc(3)`](erts_alloc.md).
 
-- **`+pad true|false`{: #+pad }** - Since: OTP 25.3
+- **`+pad true|false`{: #+pad }** - The boolean value used with the `+pad`
+  parameter determines the default value of the [`async_dist`](`m:erlang#process_flag_async_dist`) process flag of newly spawned processes.
 
-  The boolean value used with the `+pad` parameter determines the default value
-  of the [`async_dist`](`m:erlang#process_flag_async_dist`) process flag of
-  newly spawned processes. By default, if no `+pad` command line option is
+  By default, if no `+pad` command line option is
   passed, the `async_dist` flag will be set to `false`.
 
   The value used in runtime can be inspected by calling
   [`erlang:system_info(async_dist)`](`m:erlang#system_info_async_dist`).
+
+  Since: OTP 25.3
 
 - **[](){: #%2Bpc } `+pc Range`{: #printable_character_range }** -
   Sets the range of characters that the system considers printable in heuristic
@@ -855,21 +874,6 @@ the following flags:
   On Windows the default value is set to `8196` because the normal OS
   limitations are set higher than most machines can handle.
 
-- **`+R ReleaseNumber`{: #compat_rel }** - Sets the compatibility mode.
-
-  The distribution mechanism is not backward compatible by default. This flag
-  sets the emulator in compatibility mode with an earlier Erlang/OTP release
-  `ReleaseNumber`. The release number must be in the range
-  `<current release>-2` through `<current release>`. This limits the emulator,
-  making it possible for it to communicate with Erlang nodes (as well as C
-  and Java nodes) running that earlier release.
-
-  > #### Note {: .info }
-  >
-  > Ensure that all nodes (Erlang-, C-, and Java nodes) of a distributed Erlang
-  > system is of the same Erlang/OTP release, or from two different Erlang/OTP
-  > releases X and Y, where _all_ Y nodes have compatibility mode X.
-
 - **`+r`** - Forces ETS memory blocks to be moved on reallocation.
 
 - **`+rg ReaderGroupsLimit`{: #+rg }** - Limits the number of reader groups used
@@ -885,7 +889,7 @@ the following flags:
   reader group consumes 64 byte in each read/write lock.
 
   Notice that a runtime system using shared reader groups benefits from
-  [binding schedulers to logical processors](erl_cmd.md#%2Bsbt), as the reader
+  [binding schedulers to logical processors](#%2Bsbt), as the reader
   groups are distributed better between schedulers.
 
 - **`+S Schedulers:SchedulerOnline`{: #+S }** - Sets the number of scheduler
@@ -911,7 +915,7 @@ the following flags:
   value.
 
 - **`+SP SchedulersPercentage:SchedulersOnlinePercentage`{: #+SP }** - Similar
-  to [`+S`](erl_cmd.md#%2BS) but uses percentages to set the number of scheduler
+  to [`+S`](#%2BS) but uses percentages to set the number of scheduler
   threads to create, based on logical processors configured, and scheduler
   threads to set online, based on logical processors available. Specified values
   must be > 0. For example, `+SP 50:25` sets the number of scheduler threads to
@@ -921,7 +925,7 @@ the following flags:
   of schedulers online can be changed at runtime through
   [`erlang:system_flag(schedulers_online, SchedulersOnline)`](`m:erlang#system_flag_schedulers_online`).
 
-  This option interacts with [`+S`](erl_cmd.md#%2BS) settings. For example, on a
+  This option interacts with [`+S`](#%2BS) settings. For example, on a
   system with 8 logical cores configured and 8 logical cores available, the
   combination of the options `+S 4:4 +SP 50:25` (in either order) results in 2
   scheduler threads (50% of 4) and 1 scheduler thread online (25% of 4).
@@ -936,7 +940,7 @@ the following flags:
   - The number of dirty CPU scheduler threads online cannot exceed the number of
     normal scheduler threads online.
 
-  For details, see [`+S`](erl_cmd.md#%2BS) and [`+SP`](erl_cmd.md#%2BSP). By
+  For details, see [`+S`](#%2BS) and [`+SP`](#%2BSP). By
   default, the number of dirty CPU scheduler threads created equals the number
   of normal scheduler threads created, and the number of dirty CPU scheduler
   threads online equals the number of normal scheduler threads online.
@@ -957,7 +961,7 @@ the following flags:
   schedulers threads and adjust the number used accordingly.
 
 - **`+SDPcpu DirtyCPUSchedulersPercentage:DirtyCPUSchedulersOnlinePercentage`{:
-  #+SDPcpu }** - Similar to [`+SDcpu`](erl_cmd.md#%2BSDcpu) but uses percentages
+  #+SDPcpu }** - Similar to [`+SDcpu`](#%2BSDcpu) but uses percentages
   to set the number of dirty CPU scheduler threads to create and the number of
   dirty CPU scheduler threads to set online. Specified values must be > 0. For
   example, `+SDPcpu 50:25` sets the number of dirty CPU scheduler threads to 50%
@@ -968,7 +972,7 @@ the following flags:
   dirty CPU schedulers online can be changed at runtime through
   [`erlang:system_flag(dirty_cpu_schedulers_online, DirtyCPUSchedulersOnline)`](`m:erlang#system_flag_dirty_cpu_schedulers_online`).
 
-  This option interacts with [`+SDcpu`](erl_cmd.md#%2BSDcpu) settings. For
+  This option interacts with [`+SDcpu`](#%2BSDcpu) settings. For
   example, on a system with 8 logical cores configured and 8 logical cores
   available, the combination of the options `+SDcpu 4:4 +SDPcpu 50:25` (in
   either order) results in 2 dirty CPU scheduler threads (50% of 4) and 1 dirty
@@ -979,7 +983,7 @@ the following flags:
   dirty I/O scheduler threads created is 10.
 
   The amount of dirty IO schedulers is not limited by the amount of normal
-  schedulers [like the amount of dirty CPU schedulers](erl_cmd.md#%2BSDcpu).
+  schedulers [like the amount of dirty CPU schedulers](#%2BSDcpu).
   This since only I/O bound work is expected to execute on dirty I/O schedulers.
   If the user should schedule CPU bound jobs on dirty I/O schedulers, these jobs
   might starve ordinary jobs executing on ordinary schedulers.
@@ -993,14 +997,14 @@ the following flags:
 
   - **`+sbt BindType`{: #+sbt }** - Sets scheduler bind type.
 
-    Schedulers can also be bound using flag [`+stbt`](erl_cmd.md#%2Bstbt). The
+    Schedulers can also be bound using flag [`+stbt`](#%2Bstbt). The
     only difference between these two flags is how the following errors are
     handled:
 
     - Binding of schedulers is not supported on the specific platform.
     - No available CPU topology. That is, the runtime system was not able to
       detect the CPU topology automatically, and no
-      [user-defined CPU topology](erl_cmd.md#%2Bsct) was set.
+      [user-defined CPU topology](#%2Bsct) was set.
 
     If any of these errors occur when `+sbt` has been passed, the runtime system
     prints an error message, and refuses to start. If any of these errors occur
@@ -1050,7 +1054,7 @@ the following flags:
 
     If no CPU topology is available when flag `+sbt` is processed and `BindType`
     is any other type than `u`, the runtime system fails to start. CPU topology
-    can be defined using flag [`+sct`](erl_cmd.md#%2Bsct). Notice that flag
+    can be defined using flag [`+sct`](#%2Bsct). Notice that flag
     `+sct` can have to be passed before flag `+sbt` on the command line (if no
     CPU topology has been automatically detected).
 
@@ -1090,7 +1094,7 @@ the following flags:
     > This flag can be removed or changed at any time without prior notice.
 
   - **`+sbwtdcpu none|very_short|short|medium|long|very_long`{: #+sbwtdcpu }** -
-    As [`+sbwt`](erl_cmd.md#%2Bsbwt) but affects dirty CPU schedulers. Defaults
+    As [`+sbwt`](#%2Bsbwt) but affects dirty CPU schedulers. Defaults
     to `short`.
 
     > #### Note {: .info }
@@ -1098,7 +1102,7 @@ the following flags:
     > This flag can be removed or changed at any time without prior notice.
 
   - **`+sbwtdio none|very_short|short|medium|long|very_long`{: #+sbwtdio }** -
-    As [`+sbwt`](erl_cmd.md#%2Bsbwt) but affects dirty IO schedulers. Defaults
+    As [`+sbwt`](#%2Bsbwt) but affects dirty IO schedulers. Defaults
     to `short`.
 
     > #### Note {: .info }
@@ -1114,13 +1118,14 @@ the following flags:
     out of work. When disabled, the frequency with which schedulers run out of
     work is not taken into account by the load balancing logic.
 
-    `+scl false` is similar to [`+sub true`](erl_cmd.md#%2Bsub), but `+sub true`
+    `+scl false` is similar to [`+sub true`](#%2Bsub), but `+sub true`
     also balances scheduler utilization between schedulers.
 
   - **`+sct CpuTopology`{: #+sct }** - Sets a user-defined CPU topology.
     The user-defined CPU topology overrides
     any automatically detected CPU topology. The CPU topology is used when
-    [binding schedulers to logical processors](erl_cmd.md#%2Bsbt).
+    [binding schedulers to logical processors](#%2Bsbt). This option must be before
+    [`+sbt`](#%2Bsbt) on the command-line.
 
     ```
     <Id> = integer(); when 0 =< <Id> =< 65535
@@ -1274,8 +1279,8 @@ the following flags:
     kilowords. The default suggested stack size is 40 kilowords.
 
   - **`+stbt BindType`{: #+stbt }** - Tries to set the scheduler bind type. The
-    same as flag [`+sbt`](erl_cmd.md#%2Bsbt) except how some errors are handled.
-    For more information, see [`+sbt`](erl_cmd.md#%2Bsbt).
+    same as flag [`+sbt`](#%2Bsbt) except how some errors are handled.
+    For more information, see [`+sbt`](#%2Bsbt).
 
   - **`+sub true|false`{: #+sub }** - Enables or disables
     [scheduler utilization](`m:erlang#statistics_scheduler_wall_time`) balancing
@@ -1291,7 +1296,7 @@ the following flags:
     and uses a monotonically increasing high-resolution clock. On other systems,
     the runtime system fails to start.
 
-    `+sub true` implies [`+scl false`](erl_cmd.md#%2Bscl). The difference
+    `+sub true` implies [`+scl false`](#%2Bscl). The difference
     between `+sub true` and `+scl false` is that `+scl false` does not try to
     balance the scheduler utilization.
 
@@ -1328,7 +1333,7 @@ the following flags:
     > This flag can be removed or changed at any time without prior notice.
 
   - **`+swtdcpu very_low|low|medium|high|very_high`{: #+swtdcpu }** - As
-    [`+swt`](erl_cmd.md#%2Bswt) but affects dirty CPU schedulers. Defaults to
+    [`+swt`](#%2Bswt) but affects dirty CPU schedulers. Defaults to
     `medium`.
 
     > #### Note {: .info }
@@ -1336,7 +1341,7 @@ the following flags:
     > This flag can be removed or changed at any time without prior notice.
 
   - **`+swtdio very_low|low|medium|high|very_high`{: #+swtdio }** - As
-    [`+swt`](erl_cmd.md#%2Bswt) but affects dirty IO schedulers. Defaults to
+    [`+swt`](#%2Bswt) but affects dirty IO schedulers. Defaults to
     `medium`.
 
     > #### Note {: .info }
@@ -1374,7 +1379,20 @@ the following flags:
   >
   > This flag can be removed or changed at any time without prior notice.
 
-- **`+v`** - Verbose.
+- **`+v`** - Verbose logging. Only works if Erlang is compiled with debug enabled.
+  Can optionally take an additional character to specify the types of debugging
+  messages logged:
+
+  - **`+vs`** - `DEBUG_SYSTEM`, same as `+v`
+  - **`+vg`** - `DEBUG_PRIVATE_GC`
+  - **`+vM`** - `DEBUG_MEMORY`
+  - **`+va`** - `DEBUG_ALLOCATION`
+  - **`+vt`** - `DEBUG_THREADS`
+  - **`+vp`** - `DEBUG_PROCESSES`
+  - **`+vm`** - `DEBUG_MESSAGES`
+  - **`+vc`** - `DEBUG_SHCOPY`
+  
+  This is erts debugging functionality and can change at any time without prior notice.
 
 - **`+V`** - Makes the emulator print its version number.
 
@@ -1437,8 +1455,6 @@ the following flags:
 
     Since: OTP 27.0
 
-[](){: #environment_variables }
-
 ## Environment Variables
 
 - **`ERL_CRASH_DUMP`** - If the emulator needs to write a crash dump, the value
@@ -1479,6 +1495,25 @@ the following flags:
   a crash dump file.
 
   Introduced in ERTS 8.1.2 (Erlang/OTP 19.2).
+
+- **`ERL_CRASH_DUMP_PUBLIC_KEY`{: #ERL_CRASH_DUMP_PUBLIC_KEY }** - If the
+  emulator has been built to emit encrypted crash dumps, this variable **must**
+  be set to a file containing the public key to be used for encryption
+  (in x509 format, usually known as ".pem" files).
+
+  When built to emit encrypted crash dumps, the emulator will refuse to start
+  if this is not properly configured, as it would be too late to handle any
+  potential issues when the emulator is crashing.
+
+  Under this encryption scheme, the emulator only knows how to _encrypt_ the
+  crash dump. To decrypt a crash dump, the `m:crashdump` module should be used
+  with the _private key_, and care should be taken not to store the
+  _private key_ on the target system.
+
+  Supported key types are RSA of 2048 bits or higher, as well as ML-KEM if
+  your OpenSSL installation supports it.
+
+  Introduced in ERTS 16.3 (Erlang/OTP 29).
 
 - **`ERL_AFLAGS`{: #ERL_AFLAGS }** - The content of this variable is added to
   the beginning of the command line for `erl`.

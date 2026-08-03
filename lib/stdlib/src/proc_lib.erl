@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,10 +57,12 @@ The crash report contains the previously stored information, such as ancestors
 and initial function, the termination reason, and information about other
 processes that terminate as a result of this process terminating.
 
-## See Also
+### See Also
 
 `m:logger`
 """.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 %% This module is used to set some initial information
 %% in each created process. 
@@ -140,7 +144,7 @@ of `Class`, `Reason` and `Stacktrace`.
 
 %%-----------------------------------------------------------------------------
 
--doc(#{equiv => spawn(erlang, apply, [Fun])}).
+-doc(#{equiv => spawn(erlang, apply, [Fun, []])}).
 -spec spawn(Fun) -> pid() when
       Fun :: function().
 
@@ -160,7 +164,7 @@ spawn(M,F,A) when is_atom(M), is_atom(F), is_list(A) ->
     Ancestors = get_ancestors(),
     erlang:spawn(?MODULE, init_p, [Parent,Ancestors,M,F,A]).
 
--doc(#{equiv => spawn_link(erlang, apply, [Fun])}).
+-doc(#{equiv => spawn_link(erlang, apply, [Fun, []])}).
 -spec spawn_link(Fun) -> pid() when
       Fun :: function().
 
@@ -180,7 +184,7 @@ spawn_link(M,F,A) when is_atom(M), is_atom(F), is_list(A) ->
     Ancestors = get_ancestors(),
     erlang:spawn_link(?MODULE, init_p, [Parent,Ancestors,M,F,A]).
 
--doc(#{equiv => spawn(Node, apply, erlang, [Fun])}).
+-doc(#{equiv => spawn(Node, erlang, apply, [Fun, []])}).
 -spec spawn(Node, Fun) -> pid() when
       Node :: node(),
       Fun :: function().
@@ -205,7 +209,7 @@ spawn(Node, M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     Ancestors = get_ancestors(),
     erlang:spawn(Node, ?MODULE, init_p, [Parent,Ancestors,M,F,A]).
 
--doc(#{equiv => spawn_link(Node, erlang, apply, [Fun])}).
+-doc(#{equiv => spawn_link(Node, erlang, apply, [Fun, []])}).
 -spec spawn_link(Node, Fun) -> pid() when
       Node :: node(),
       Fun :: function().
@@ -231,7 +235,7 @@ spawn_link(Node, M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     Ancestors = get_ancestors(),
     erlang:spawn_link(Node, ?MODULE, init_p, [Parent,Ancestors,M,F,A]).
 
--doc(#{equiv => spawn_opt(erlang, apply, [Fun], SpawnOpts)}).
+-doc(#{equiv => spawn_opt(erlang, apply, [Fun, []], SpawnOpts)}).
 -spec spawn_opt(Fun, SpawnOpts) -> pid() | {pid(), reference()} when
       Fun :: function(),
       SpawnOpts :: [erlang:spawn_opt_option()].
@@ -241,7 +245,7 @@ spawn_opt(F, Opts) when is_function(F) ->
     Ancestors = get_ancestors(),
     erlang:spawn_opt(?MODULE, init_p, [Parent,Ancestors,F],Opts).
 
--doc(#{equiv => spawn_opt(Node, erlang, apply, [Fun], SpawnOpts)}).
+-doc(#{equiv => spawn_opt(Node, erlang, apply, [Fun, []], SpawnOpts)}).
 -spec spawn_opt(Node, Fun, SpawnOpts) -> pid() | {pid(), reference()} when
       Node :: node(),
       Fun :: function(),
@@ -902,6 +906,8 @@ raw_initial_call(ProcInfo) when is_list(ProcInfo) ->
     case lists:keyfind({dictionary, '$initial_call'}, 1, ProcInfo) of
         {{dictionary,_}, {_,_,_}=MFA} ->
             MFA;
+        {{dictionary,_}, _} ->
+            false;
         false ->
             case lists:keyfind(dictionary, 1, ProcInfo) of
                 {dictionary,Dict} ->
@@ -1162,28 +1168,35 @@ visit(_, {_N, _Vs} = NVs) ->
 -spec adjacents(pid()) -> [pid()].
 
 adjacents(Pid) ->
-  case catch proc_info(Pid, links) of
-    {links, Links} -> no_trap(Links);
-    _              -> []
-  end.
+    try proc_info(Pid, links)
+    of
+        {links, Links} -> no_trap(Links);
+        _              -> []
+    catch
+        _:_            -> []
+    end.
   
 no_trap([P|Ps]) ->
-  case catch proc_info(P, trap_exit) of
-    {trap_exit, false} -> [P|no_trap(Ps)];
-    _                  -> no_trap(Ps)
-  end;
+    try proc_info(P, trap_exit)
+    of
+        {trap_exit, false} -> [P|no_trap(Ps)];
+        _                  -> no_trap(Ps)
+    catch
+        _:_                -> no_trap(Ps)
+    end;
 no_trap([]) ->
-  [].
+    [].
  
 get_process_info(Pid, Tag) ->
-    translate_process_info(Tag, catch proc_info(Pid, Tag)).
-
-translate_process_info({dictionary, '$process_label'} = Tag, {Tag, Value}) ->
-    {process_label, Value};
-translate_process_info(_ , {'EXIT', _}) ->
-    undefined;
-translate_process_info(_, Result) ->
-    Result.
+    try proc_info(Pid, Tag)
+    of
+        {{dictionary, '$process_label'} = Tag, Value} ->
+            {process_label, Value};
+        Result ->
+            Result
+    catch
+        _:_ -> undefined
+    end.
 
 %%% -----------------------------------------------------------
 %%% Misc. functions
@@ -1437,7 +1450,7 @@ format_rep(_, _, _Extra, _Limit) ->
 
 format_exception(Class, Reason, StackTrace, Extra, Limit) ->
     #{encoding:=Enc,depth:=Depth, single_line:=Single} = Extra,
-    StackFun = fun(M, _F, _A) -> (M =:= erl_eval) or (M =:= ?MODULE) end,
+    StackFun = fun(M, _F, _A) -> M =:= erl_eval orelse M =:= ?MODULE end,
     if Single ->
             {P,Tl} = p(Enc,Depth),
             Opts = chars_limit_opt(Limit),
@@ -1573,13 +1586,15 @@ about system messages, see `m:sys` and section
 stop(Process, Reason, Timeout) ->
     Mref = erlang:monitor(process, Process),
     T0 = erlang:monotonic_time(millisecond),
+
+    StopTimeout = fun(infinity) -> infinity;
+                     (T1) -> T1 - (((erlang:monotonic_time(microsecond) + 999) div 1000) - T0)
+                end,
+
     RemainingTimeout = try
 	sys:terminate(Process, Reason, Timeout)
     of
-	ok when Timeout =:= infinity ->
-	    infinity;
-	ok ->
-	    Timeout - (((erlang:monotonic_time(microsecond) + 999) div 1000) - T0)
+	ok -> StopTimeout(Timeout)
     catch
 	exit:{noproc, {sys, terminate, _}} ->
 	    demonitor(Mref, [flush]),
@@ -1587,6 +1602,8 @@ stop(Process, Reason, Timeout) ->
 	exit:{timeout, {sys, terminate, _}} ->
 	    demonitor(Mref, [flush]),
 	    exit(timeout);
+        exit:{Reason, {sys, terminate, _}} ->
+            StopTimeout(Timeout);
 	exit:Reason1 ->
 	    demonitor(Mref, [flush]),
 	    exit(Reason1)

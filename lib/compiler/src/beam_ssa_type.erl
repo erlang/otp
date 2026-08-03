@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +30,10 @@
 
 -module(beam_ssa_type).
 -moduledoc false.
--export([opt_start/2, opt_continue/4, opt_finish/3, opt_ranges/1]).
+-export([opt_start/2, opt_continue/4, opt_finish/3]).
+
+%% FIXME: Workaround for bug.
+-compile([no_ssa_opt]).
 
 -include("beam_ssa_opt.hrl").
 -include("beam_types.hrl").
@@ -57,11 +62,12 @@
 -define(RETURN_LIMIT, 30).
 
 %% Constants common to all subpasses.
--record(metadata,
-        { func_id :: func_id(),
-          limit_return :: boolean(),
-          params :: [beam_ssa:b_var()],
-          used_once :: #{ beam_ssa:b_var() => _ } }).
+-record #metadata{
+   func_id :: func_id(),
+   limit_return :: boolean(),
+   params :: [beam_ssa:b_var()],
+   used_once :: #{ beam_ssa:b_var() => _ }
+  }.
 
 -type metadata() :: #metadata{}.
 -type meta_cache() :: #{ func_id() => metadata() }.
@@ -92,7 +98,7 @@ opt_start_1([Id | Ids], ArgDb, StMap0, FuncDb0, MetaCache) ->
         #{ Id := ArgTypes } ->
             #opt_st{ssa=Linear0,args=Args} = St0 = map_get(Id, StMap0),
 
-            Ts = maps:from_list(zip(Args, ArgTypes)),
+            Ts = #{Arg => Type || Arg <- Args && Type <- ArgTypes},
             {Linear, FuncDb} = opt_function(Linear0, Args, Id, Ts, FuncDb0, MetaCache),
 
             St = St0#opt_st{ssa=Linear},
@@ -131,11 +137,16 @@ opt_start_1([], _CommittedArgs, StMap, FuncDb, _MetaCache) ->
 %% [1] http://www.it.uu.se/research/group/hipe/papers/succ_types.pdf
 %%
 
--record(sig_st,
-        { wl = wl_new() :: worklist(),
-          committed = #{} :: #{ func_id() => [type()] },
-          updates = #{} :: #{ func_id() => [type()] },
-          meta_cache = #{} :: meta_cache()}).
+-type uvs() :: #{beam_ssa:b_var() => {_,non_neg_integer()}}.
+
+-record #sig_st{
+   wl              :: worklist(),
+   committed = #{} :: #{ func_id() => [type()] },
+   updates = #{} :: #{ func_id() => [type()] },
+   meta_cache = #{} :: meta_cache(),
+   unstable = #{} :: #{beam_ssa:label() => uvs()},
+   uvs = #{} :: uvs()
+  }.
 
 signatures(StMap, FuncDb0) ->
     State0 = init_sig_st(StMap, FuncDb0),
@@ -202,7 +213,7 @@ sig_function_1(Id, StMap, State0, FuncDb) ->
     #opt_st{ssa=Linear,args=Args} = map_get(Id, StMap),
 
     {ArgTypes, State1} = sig_commit_args(Id, State0),
-    Ts = maps:from_list(zip(Args, ArgTypes)),
+    Ts = #{Arg => Type || Arg <- Args && Type <- ArgTypes},
 
     FakeCall = #b_set{op=call,args=[#b_remote{mod=#b_literal{val=unknown},
                                               name=#b_literal{val=unknown},
@@ -218,7 +229,15 @@ sig_function_1(Id, StMap, State0, FuncDb) ->
 
     Wl0 = State1#sig_st.wl,
 
-    {State, SuccTypes} = sig_bs(Linear, Ds, Ls, FuncDb, #{}, [], Meta, State2),
+    Unstable0 = State1#sig_st.unstable,
+    Uvs0 = maps:get(Id, Unstable0, #{}),
+    State3 = State2#sig_st{uvs=Uvs0},
+
+    {State4, SuccTypes} = sig_bs(Linear, Ds, Ls, FuncDb, #{}, [], Meta, State3),
+
+    Uvs = State4#sig_st.uvs,
+    Unstable = Unstable0#{Id => Uvs},
+    State = State4#sig_st{unstable=Unstable,uvs=#{}},
 
     WlChanged = wl_changed(Wl0, State#sig_st.wl),
     #{ Id := #func_info{succ_types=SuccTypes0}=Entry0 } = FuncDb,
@@ -305,12 +324,16 @@ sig_is([#b_set{op=make_fun,args=Args0,dst=Dst}=I0|Is],
     Ts = update_types(I, Ts0, Ds0),
     Ds = Ds0#{ Dst => I },
     sig_is(Is, Ts, Ds, Ls, Fdb, Sub0, State);
-sig_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, State) ->
-    case simplify(I0, Ts0, Ds0, Ls, Sub0) of
+sig_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, State0) ->
+    Uvs0 = State0#sig_st.uvs,
+    case simplify(I0, Uvs0, Ts0, Ds0, Ls, Sub0) of
         {#b_set{}, Ts, Ds} ->
+            sig_is(Is, Ts, Ds, Ls, Fdb, Sub0, State0);
+        {#b_set{}, Ts, Ds, Uvs} ->
+            State = State0#sig_st{uvs=Uvs},
             sig_is(Is, Ts, Ds, Ls, Fdb, Sub0, State);
         Sub when is_map(Sub) ->
-            sig_is(Is, Ts0, Ds0, Ls, Fdb, Sub, State)
+            sig_is(Is, Ts0, Ds0, Ls, Fdb, Sub, State0)
     end;
 sig_is([], Ts, Ds, _Ls, _Fdb, Sub, State) ->
     {Ts, Ds, Sub, State}.
@@ -427,7 +450,7 @@ opt_continue(Linear0, Args, Anno, FuncDb) when FuncDb =/= #{} ->
             %% This is a local function and we're guaranteed to have visited
             %% every call site at least once, so we know that the parameter
             %% types are at least as narrow as the join of all argument types.
-            Ts = join_arg_types(Args, ArgTypes, #{}),
+            Ts = join_arg_types(Args, ArgTypes),
             opt_function(Linear0, Args, Id, Ts, FuncDb);
         #{ Id := #func_info{exported=true} } ->
             %% We can't infer the parameter types of exported functions, but
@@ -443,11 +466,9 @@ opt_continue(Linear0, Args, Anno, _FuncDb) ->
     {Linear, _} = opt_function(Linear0, Args, Id, Ts, #{}),
     {Linear, #{}}.
 
-join_arg_types([Arg | Args], [TypeMap | TMs], Ts) ->
-    Type = beam_types:join(maps:values(TypeMap)),
-    join_arg_types(Args, TMs, Ts#{ Arg => Type });
-join_arg_types([], [], Ts) ->
-    Ts.
+join_arg_types(Args, TypeMaps) ->
+    #{Arg => beam_types:join(maps:values(TypeMap)) ||
+        Arg <- Args && TypeMap <- TypeMaps}.
 
 %%
 %% Optimizes a function based on the type information inferred by signatures/2
@@ -579,8 +600,11 @@ opt_is([#b_set{op=make_fun,args=Args0,dst=Dst}=I0|Is],
     Ds = Ds0#{ Dst => I },
     opt_is(Is, Ts, Ds, Ls, Fdb, Sub0, Meta, [I|Acc]);
 opt_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, Meta, Acc) ->
-    case simplify(I0, Ts0, Ds0, Ls, Sub0) of
+    case simplify(I0, none, Ts0, Ds0, Ls, Sub0) of
         {#b_set{}=I1, Ts, Ds} ->
+            I = opt_anno_types(I1, Ts),
+            opt_is(Is, Ts, Ds, Ls, Fdb, Sub0, Meta, [I | Acc]);
+        {#b_set{}=I1, Ts, Ds, _} ->
             I = opt_anno_types(I1, Ts),
             opt_is(Is, Ts, Ds, Ls, Fdb, Sub0, Meta, [I | Acc]);
         Sub when is_map(Sub) ->
@@ -589,10 +613,30 @@ opt_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, Meta, Acc) ->
 opt_is([], Ts, Ds, _Ls, Fdb, Sub, _Meta, Acc) ->
     {reverse(Acc), Ts, Ds, Fdb, Sub}.
 
-opt_anno_types(#b_set{op=Op,args=Args}=I, Ts) ->
+%% opt_anno_types(Instruction0, Types) -> Instruction.
+%%  Maintain the invariant that the `arg_types` annotation only
+%%  contains type annotations for variable arguments whose types are
+%%  more specific than `any`. Literal arguments must not have any type
+%%  annotation.
+%%
+%%  Also, ensure that the `arg_types` annotation is only present
+%%  in instructions that can benefit from it.
+opt_anno_types(#b_set{anno=Anno0,op=Op,args=Args}=I, Ts) ->
     case benefits_from_type_anno(Op, Args) of
-        true -> opt_anno_types_1(I, Args, Ts, 0, #{});
-        false -> I
+        true ->
+            opt_anno_types_1(I, Args, Ts, 0, #{});
+        false ->
+            case Anno0 of
+                #{arg_types := _} ->
+                    %% Remove `arg_types` from operations that don't
+                    %% need them. This can happen, for example, when
+                    %% the operation has been changed from
+                    %% `{bif,is_list}` to `is_nonempty_list`.
+                    Anno = maps:remove(arg_types, Anno0),
+                    I#b_set{anno=Anno};
+                _  ->
+                    I
+            end
     end;
 opt_anno_types(#b_switch{anno=Anno0,arg=Arg}=I, Ts) ->
     case concrete_type(Arg, Ts) of
@@ -621,10 +665,6 @@ opt_anno_types_1(#b_set{anno=Anno0}=I, [], _Ts, _Index, Acc) ->
     case Anno0 of
         #{ arg_types := Acc } ->
             I;
-        #{ arg_types := _ } when Acc =:= #{} ->
-            %% One or more arguments have been simplified to literal values.
-            Anno = maps:remove(arg_types, Anno0),
-            I#b_set{anno=Anno};
         #{} ->
             Anno = Anno0#{ arg_types => Acc },
             I#b_set{anno=Anno}
@@ -642,12 +682,6 @@ benefits_from_type_anno(bs_start_match, _Args) ->
 benefits_from_type_anno(is_tagged_tuple, _Args) ->
     true;
 benefits_from_type_anno(call, [#b_var{} | _]) ->
-    true;
-benefits_from_type_anno({float,convert}, _Args) ->
-    %% Note: The {float,convert} instruction does not exist when
-    %% the main type optimizer pass is run. It is created and
-    %% annotated by ssa_opt_float1 in beam_ssa_opt, and can also
-    %% be annotated by opt_ranges/1.
     true;
 benefits_from_type_anno(get_map_element, _Args) ->
     true;
@@ -787,165 +821,6 @@ opt_finish_1([], [], Acc) ->
     Acc.
 
 %%%
-%%% This sub pass is run once after the main type sub pass
-%%% to annotate more instructions with integer ranges.
-%%%
-%%% The main type sub pass annotates certain instructions with
-%%% their types to help the JIT generate better code.
-%%%
-%%% Example:
-%%%
-%%%   foo(N0) ->
-%%%       N1 = N0 band 3,
-%%%       N = N1 + 1,        % N1 is in 0..3
-%%%       element(N,
-%%%            {zero,one,two,three}).
-%%%
-%%% The main type pass is able to figure out the range for `N1` but
-%%% not for `N`. The reason is that the type pass iterates until it
-%%% reaches a fixpoint. To guarantee that it will converge, ranges for
-%%% results must only be calculated for operations that retain or
-%%% shrink the ranges of their arguments.
-%%%
-%%% Therefore, to ensure convergence, the main type pass can only
-%%% safely calculate ranges for results of operations such as `and`,
-%%% `bsr`, and `rem`, but not for operations such as `+`, '-', '*',
-%%% and `bsl`.
-%%%
-%%% This sub pass will start from the types found in the annotations
-%%% and propagate them forward through arithmetic instructions within
-%%% the same function.
-%%%
-%%% For the example, this sub pass adds a new annotation for `N`:
-%%%
-%%%   foo(N0) ->
-%%%       N1 = N0 band 3,
-%%%       N = N1 + 1,        % N1 is in 0..3
-%%%       element(N,         % N is in 1..4
-%%%           {zero,one,two,three}).
-%%%
-%%% With a known range and known tuple size, the JIT is able to remove
-%%% all range checks for the `element/2` instruction.
-%%%
-
--spec opt_ranges(Blocks0) -> Blocks when
-      Blocks0 :: beam_ssa:block_map(),
-      Blocks :: beam_ssa:block_map().
-
-opt_ranges(Blocks) ->
-    RPO = beam_ssa:rpo(Blocks),
-    Tss = #{0 => #{}, ?EXCEPTION_BLOCK => #{}},
-    ranges(RPO, Tss, Blocks).
-
-ranges([L|Ls], Tss0, Blocks0) ->
-    #b_blk{is=Is0} = Blk0 = map_get(L, Blocks0),
-    Ts0 = map_get(L, Tss0),
-    {Is,Ts} = ranges_is(Is0, Ts0, []),
-    Blk = Blk0#b_blk{is=Is},
-    Blocks = Blocks0#{L := Blk},
-    Tss = ranges_successors(beam_ssa:successors(Blk), Ts, Tss0),
-    ranges(Ls, Tss, Blocks);
-ranges([], _Tss, Blocks) -> Blocks.
-
-ranges_is([#b_set{op=Op,args=Args}=I0|Is], Ts0, Acc) ->
-    case benefits_from_type_anno(Op, Args) of
-        false ->
-            ranges_is(Is, Ts0, [I0|Acc]);
-        true ->
-            I = update_anno_types(I0, Ts0),
-            Ts = ranges_propagate_types(I, Ts0),
-            ranges_is(Is, Ts, [I|Acc])
-    end;
-ranges_is([], Ts, Acc) ->
-    {reverse(Acc),Ts}.
-
-ranges_successors([?EXCEPTION_BLOCK|Ls], Ts, Tss) ->
-    ranges_successors(Ls, Ts, Tss);
-ranges_successors([L|Ls], Ts0, Tss0) ->
-    case Tss0 of
-        #{L := Ts1} ->
-            Ts = join_types(Ts0, Ts1),
-            Tss = Tss0#{L := Ts},
-            ranges_successors(Ls, Ts0, Tss);
-        #{} ->
-            Tss = Tss0#{L => Ts0},
-            ranges_successors(Ls, Ts0, Tss)
-    end;
-ranges_successors([], _, Tss) -> Tss.
-
-ranges_propagate_types(#b_set{anno=Anno,op={bif,_}=Op,args=Args,dst=Dst}, Ts) ->
-    case Anno of
-        #{arg_types := ArgTypes0} ->
-            ArgTypes = ranges_get_arg_types(Args, 0, ArgTypes0),
-            case beam_call_types:arith_type(Op, ArgTypes) of
-                any -> Ts;
-                T -> Ts#{Dst => T}
-            end;
-        #{} ->
-            Ts
-    end;
-ranges_propagate_types(_, Ts) -> Ts.
-
-ranges_get_arg_types([#b_var{}|As], Index, ArgTypes) ->
-    case ArgTypes of
-        #{Index := Type} ->
-            [Type|ranges_get_arg_types(As, Index + 1, ArgTypes)];
-        #{} ->
-            [any|ranges_get_arg_types(As, Index + 1, ArgTypes)]
-    end;
-ranges_get_arg_types([#b_literal{val=Value}|As], Index, ArgTypes) ->
-    Type = beam_types:make_type_from_value(Value),
-    [Type|ranges_get_arg_types(As, Index + 1, ArgTypes)];
-ranges_get_arg_types([], _, _) -> [].
-
-update_anno_types(#b_set{anno=Anno,args=Args}=I, Ts) ->
-    ArgTypes1 = case Anno of
-                    #{arg_types := ArgTypes0} -> ArgTypes0;
-                    #{} -> #{}
-                end,
-    ArgTypes = update_anno_types_1(Args, Ts, 0, ArgTypes1),
-    case Anno of
-        #{arg_types := ArgTypes} ->
-            I;
-        #{} when map_size(ArgTypes) =/= 0 ->
-            I#b_set{anno=Anno#{arg_types => ArgTypes}};
-        #{} ->
-            I
-    end.
-
-update_anno_types_1([#b_var{}=V|As], Ts, Index, ArgTypes) ->
-    T0 = case ArgTypes of
-             #{Index := T00} -> T00;
-             #{} -> any
-         end,
-    T1 = case Ts of
-             #{V := T11} -> T11;
-             #{} -> any
-         end,
-    case beam_types:meet(T0, T1) of
-        any ->
-            update_anno_types_1(As, Ts, Index + 1, ArgTypes);
-        none ->
-            %% This instruction will never be reached. This happens when
-            %% compiling code such as the following:
-            %%
-            %%   f(X) when is_integer(X), 0 =< X, X < 64 ->
-            %%        (X = bnot X) + 1.
-            %%
-            %% The main type optimization sub pass will not find out
-            %% that `(X = bnot X)` will never succeed and that the `+`
-            %% operator is never executed, but this sub pass will.
-            %% This happens very rarely; therefore, don't bother removing
-            %% the unreachable instruction.
-            update_anno_types_1(As, Ts, Index + 1, ArgTypes);
-        T ->
-            update_anno_types_1(As, Ts, Index + 1, ArgTypes#{Index => T})
-    end;
-update_anno_types_1([_|As], Ts, Index, ArgTypes) ->
-    update_anno_types_1(As, Ts, Index + 1, ArgTypes);
-update_anno_types_1([], _, _, ArgTypes) -> ArgTypes.
-
-%%%
 %%% Optimization helpers
 %%%
 
@@ -957,7 +832,7 @@ simplify_terminator(#b_switch{arg=Arg0,fail=Fail,list=List0}=Sw0,
     Arg = simplify_arg(Arg0, Ts, Sub),
     %% Ensure that no label in the switch list is the same as the
     %% failure label.
-    List = [{Val,Lbl} || {Val,Lbl} <- List0, Lbl =/= Fail],
+    List = [{Val,Lbl} || {Val,Lbl} <:- List0, Lbl =/= Fail],
     case beam_ssa:normalize(Sw0#b_switch{arg=Arg,list=List}) of
         #b_switch{}=Sw ->
             case beam_types:is_boolean_type(concrete_type(Arg, Ts)) of
@@ -996,7 +871,7 @@ simplify_terminator(#b_ret{arg=Arg,anno=Anno0}=Ret0, Ts, Ds, Sub) ->
 %% was redundant.
 %%
 
-simplify(#b_set{op=phi,dst=Dst,args=Args0}=I0, Ts0, Ds0, Ls, Sub) ->
+simplify(#b_set{op=phi,dst=Dst,args=Args0}=I0, _Uvs, Ts0, Ds0, Ls, Sub) ->
     %% Simplify the phi node by removing all predecessor blocks that no
     %% longer exists or no longer branches to this block.
     {Type, Args} = simplify_phi_args(Args0, Ls, Sub, none, []),
@@ -1014,7 +889,7 @@ simplify(#b_set{op=phi,dst=Dst,args=Args0}=I0, Ts0, Ds0, Ls, Sub) ->
             {I, Ts, Ds}
     end;
 simplify(#b_set{op={succeeded,Kind},args=[Arg],dst=Dst}=I,
-         Ts0, Ds0, _Ls, Sub) ->
+         _Uvs, Ts0, Ds0, _Ls, Sub) ->
     Type = case will_succeed(I, Ts0, Ds0, Sub) of
                yes -> beam_types:make_atom(true);
                no -> beam_types:make_atom(false);
@@ -1040,7 +915,7 @@ simplify(#b_set{op={succeeded,Kind},args=[Arg],dst=Dst}=I,
             Ds = Ds0#{ Dst => I },
             {I, Ts, Ds}
     end;
-simplify(#b_set{op=bs_match,dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
+simplify(#b_set{op=bs_match,dst=Dst,args=Args0}=I0, _Uvs, Ts0, Ds0, _Ls, Sub) ->
     Args = simplify_args(Args0, Ts0, Sub),
     I1 = I0#b_set{args=Args},
     I2 = case {Args0,Args} of
@@ -1059,7 +934,7 @@ simplify(#b_set{op=bs_match,dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
     Ds = Ds0#{ Dst => I },
     {I, Ts, Ds};
 simplify(#b_set{op=bs_create_bin=Op,dst=Dst,args=Args0,anno=Anno}=I0,
-         Ts0, Ds0, _Ls, Sub) ->
+         _Uvs, Ts0, Ds0, _Ls, Sub) ->
     Args = simplify_args(Args0, Ts0, Sub),
 
     case Args of
@@ -1083,10 +958,30 @@ simplify(#b_set{op=bs_create_bin=Op,dst=Dst,args=Args0,anno=Anno}=I0,
             Ds = Ds0#{ Dst => I },
             {I, Ts, Ds}
     end;
-simplify(#b_set{dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
+simplify(#b_set{op=is_record_accessible,args=Args0,dst=Dst}=I0,
+         _Uvs, Ts0, Ds0, _Ls, Sub) ->
+    Args = simplify_args(Args0, Ts0, Sub),
+    [Var, _] = Args,
+    VarType = normalized_type(Var, Ts0),
+    case VarType of
+        #t_record{exported=yes} ->
+            Lit = #b_literal{val=true},
+            Sub#{ Dst => Lit};
+        _ ->
+            I = I0#b_set{args=Args},
+            Ts = update_types(I, Ts0, Ds0),
+            Ds = Ds0#{ Dst => I },
+            {I, Ts, Ds}
+    end;
+simplify(#b_set{dst=Dst,args=Args0}=I0, Uvs0, Ts0, Ds0, _Ls, Sub) ->
     Args = simplify_args(Args0, Ts0, Sub),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
     case simplify(I1, Ts0, Ds0) of
+        #b_set{op={bif,Op}}=I when Op =:= '+'; Op =:= '-';
+                                   Op =:= '*'; Op =:= 'bnot' ->
+            {Ts,Uvs} = update_arith_types(I, Ts0, Ds0, Uvs0),
+            Ds = Ds0#{ Dst => I },
+            {I, Ts, Ds, Uvs};
         #b_set{}=I ->
             Ts = update_types(I, Ts0, Ds0),
             Ds = Ds0#{ Dst => I },
@@ -1095,6 +990,140 @@ simplify(#b_set{dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
             Sub#{ Dst => Lit };
         #b_var{}=Var ->
             Sub#{ Dst => Var }
+    end.
+
+update_arith_types(#b_set{dst=Dst}=I, Ts0, Ds, UnstableVars0) ->
+    %% "Arith types" can be more exact, but can diverge if used for
+    %% computing the range for one of `+`, `-`, '*`, or `bnot` in a
+    %% recursive function. For example:
+    %%
+    %%    len(L) -> len(L, 0).
+    %%
+    %%    len([], N) -> N;
+    %%    len([_|T], N) -> len(N + 1).
+    %%
+    %% The initial range for `N` will be {0,0}. The range after
+    %% evaluating `N + 1` when using arith types will be {1,1}, then
+    %% {2,2}, and so on forever.
+    %%
+    %% The conservative range calculation done by update_types/3 will
+    %% set the range to {1,'+inf'}.
+    %%
+    %% Arith types will work when the new range is not fed back to
+    %% the operation, or if there is some constraint that prevents
+    %% the range from growing forever. For example:
+    %%
+    %%     intsum(N) when is_integer(N, 0, 1 bsl 59) ->
+    %%         {sum,intsum(0, N, 0)}.
+    %%
+    %%     intsum(I, N, Sum) when I < N ->
+    %%         intsum(I + 1, N, Sum + I);
+    %%     intsum(_, _, Sum) ->
+    %%         Sum.
+    %%
+    case update_arith_types_1(I, Ts0, UnstableVars0) of
+        {any,UnstableVars} ->
+            %% The arithmetic type is either `any` or diverging.
+            Ts = update_types(I, Ts0, Ds),
+            {Ts,UnstableVars};
+        {Type,UnstableVars} ->
+            %% The arithmetic type is stable.
+            Ts = Ts0#{Dst => Type},
+            {Ts,UnstableVars}
+    end.
+
+update_arith_types_1(#b_set{op={bif,_}=Op,args=BifArgs}=I,
+                     Ts0, UnstableVars0) ->
+    ArgTypes = concrete_types(BifArgs, Ts0),
+    case beam_call_types:arith_type(Op, ArgTypes) of
+        any ->
+            {any,UnstableVars0};
+        #t_float{elements=any} ->
+            {any,UnstableVars0};
+        #t_integer{elements=any} ->
+            {any,UnstableVars0};
+        #t_number{elements=any} ->
+            {any,UnstableVars0};
+        Type ->
+            case update_arith_types_safe(I, ArgTypes, Type, UnstableVars0) of
+                {safe,UnstableVars} ->
+                    %% Safe (permanently or temporarily).
+                    {Type,UnstableVars};
+                {unsafe,UnstableVars} ->
+                    %% This variable doesn't seem to converge to a
+                    %% stable range.
+                    {update_arith_types_2(I, ArgTypes),UnstableVars}
+            end
+    end.
+
+update_arith_types_2(#b_set{op={bif,'-'}=Op,args=[_,#b_literal{val=1}]},
+                     [#t_integer{elements={Min,_Max}}=ArgType|_])
+  when is_integer(Min), Min > 0 ->
+    %% We have almost given up on this operation. As a final attempt,
+    %% subtract a number that will set the minimum value to 0.
+    Args = [ArgType,#t_integer{elements={Min,Min}}],
+    beam_call_types:arith_type(Op, Args);
+update_arith_types_2(#b_set{}, _) ->
+    %% Fall back to using more conservative update_types/3 approach
+    %% (setting one end of the range to infinity).
+    any.
+
+update_arith_types_safe(#b_set{}, _ArgTypes, _Type, none) ->
+    %% Not running the signatures sub pass; it is always safe to
+    %% propagate types, because they will only be propagated within
+    %% the current function.
+    {safe,none};
+update_arith_types_safe(#b_set{dst=Dst}=I, ArgTypes, Type, UnstableVars0) ->
+    case UnstableVars0 of
+        #{Dst := {Type,_}} ->
+            %% No change since last time.
+            {safe,UnstableVars0};
+        #{Dst := {_,0}} ->
+            %% The counter has run down. Give up on using the more
+            %% exact arith types.
+            {unsafe,UnstableVars0};
+        #{Dst := {_,Count}} when is_integer(Count) ->
+            %% Try using this type.
+            UnstableVars = UnstableVars0#{Dst := {Type,Count-1}},
+            {safe,UnstableVars};
+        #{} ->
+            %% We have not seen this variable before. Initialize
+            %% a counter for the number of times to try.
+            Counter = init_counter(I, ArgTypes),
+            UnstableVars = UnstableVars0#{Dst => {Type,Counter}},
+            {safe,UnstableVars}
+    end.
+
+init_counter(#b_set{op=Op}, ArgTypes) ->
+    case Op of
+        {bif,'+'} -> 64;
+        {bif,'-'} ->
+            Def = 64,
+            case ArgTypes of
+                [#t_integer{elements={_Min,Max}},
+                 #t_integer{elements={1,1}}] ->
+                    %% Avoid passing zero because it is unlikely to
+                    %% improve the range.
+                    max(1, min(Def, Max));
+                _ ->
+                    Def
+            end;
+        {bif,'bnot'} -> 60;
+        {bif,'*'} ->
+            case ArgTypes of
+                [_,#t_integer{elements={_,Max}}] when Max > 0 ->
+                    %% Use a conservative number of attempts to
+                    %% avoid overflowing a small.
+                    try floor(32.0 / math:log2(abs(Max))) of
+                        Log ->
+                            max(1, min(32, Log))
+                    catch
+                        _:_ ->
+                            1
+                    end;
+                _ ->
+                    1
+            end
     end.
 
 simplify(#b_set{op={bif,'band'},args=Args}=I, Ts, Ds) ->
@@ -1134,14 +1163,27 @@ simplify(#b_set{op={bif,'or'},args=Args}=I, Ts, Ds) ->
     end;
 simplify(#b_set{op={bif,element},args=[#b_literal{val=Index},Tuple]}=I0, Ts, Ds) ->
     case normalized_type(Tuple, Ts) of
-        #t_tuple{size=Size} when is_integer(Index),
-                                 1 =< Index,
-                                 Index =< Size ->
+        #t_tuple{size=Size} when is_integer(Index, 1, Size) ->
             I = I0#b_set{op=get_tuple_element,
                          args=[Tuple,#b_literal{val=Index-1}]},
             simplify(I, Ts, Ds);
         _ ->
             eval_bif(I0, Ts, Ds)
+    end;
+simplify(#b_set{op={bif,get_record_field},
+                args=[Term,#b_literal{val=Name},#b_literal{val=F}=F0],
+                anno=Anno}=I0, Ts, Ds) when is_atom(Name) ->
+    case {map_get(record_module, Anno), normalized_type(Term, Ts)} of
+        {Mod, #t_record{name={Mod,Name},type=Es}} ->
+            case Es of
+                #{F := {present,_Type}} ->
+                    I = I0#b_set{anno=Anno,op=get_record_element,args=[Term,F0]},
+                    simplify(I, Ts, Ds);
+                #{} ->
+                    I0
+            end;
+        _ ->
+            I0
     end;
 simplify(#b_set{op={bif,hd},args=[List]}=I, Ts, Ds) ->
     case normalized_type(List, Ts) of
@@ -1497,6 +1539,8 @@ will_succeed_1(#b_set{op=has_map_field}, _Src, _Ts) ->
     yes;
 will_succeed_1(#b_set{op=get_tuple_element}, _Src, _Ts) ->
     yes;
+will_succeed_1(#b_set{op=put_map,args=[#b_literal{val=assoc}|_]}, _Src, _Ts) ->
+    yes;
 will_succeed_1(#b_set{op=put_tuple}, _Src, _Ts) ->
     yes;
 will_succeed_1(#b_set{op=update_tuple,args=[Tuple | Updates]}, _Src, Ts) ->
@@ -1543,12 +1587,26 @@ will_succeed_1(#b_set{op=wait_timeout}, _Src, _Ts) ->
 will_succeed_1(#b_set{}, _Src, _Ts) ->
     'maybe'.
 
+%% Take care to not produce a reuse hint when more than one update
+%% exists. There is no point in attempting the reuse optimization when
+%% more than one element is updated, as checking more than one element
+%% at runtime is known to be slower than just copying the tuple in
+%% most cases. Additionally, using a copy hint occasionally allows the
+%% alias analysis pass to do a better job.
 simplify_update_record(Src, Hint0, Updates, Ts) ->
     case sur_1(Updates, concrete_type(Src, Ts), Ts, Hint0, []) of
+        {#b_literal{val=reuse}, []} when length(Updates) > 2 ->
+            {changed, #b_literal{val=copy}, Updates};
         {Hint0, []} ->
             unchanged;
-        {Hint, Skipped} ->
-            {changed, Hint, sur_skip(Updates, Skipped)}
+        {Hint1, Skipped} ->
+            Updates1 = sur_skip(Updates, Skipped),
+            Hint = if length(Updates1) > 2 ->
+                           #b_literal{val=copy};
+                      true ->
+                           Hint1
+                   end,
+            {changed, Hint, Updates1}
     end.
 
 sur_1([Index, Arg | Updates], RecordType, Ts, Hint, Skipped) ->
@@ -1671,6 +1729,16 @@ simplify_remote_call(erlang, throw, [Term], Ts, I) ->
     beam_ssa:add_anno(thrown_type, Type, I);
 simplify_remote_call(erlang, '++', [#b_literal{val=[]},Tl], _Ts, _I) ->
     Tl;
+simplify_remote_call(maps=Mod, put=Name, [Key,Val,Map], Ts, I) ->
+    case concrete_type(Map, Ts) of
+        #t_map{} ->
+            %% This call to maps:put/3 cannot fail. Replace with the
+            %% slightly more efficient `put_map` instruction.
+            Args = [#b_literal{val=assoc},Map,Key,Val],
+            I#b_set{op=put_map,args=Args};
+        _ ->
+            simplify_pure_call(Mod, Name, [Key,Val,Map], I)
+    end;
 simplify_remote_call(Mod, Name, Args, _Ts, I) ->
     case erl_bifs:is_pure(Mod, Name, length(Args)) of
         true ->
@@ -1807,7 +1875,7 @@ eval_bif_1(#b_set{args=Args}=I, Op, Ts, Ds) ->
                 false ->
                     I
             end;
-        [T,#t_integer{elements={1,1}}] when Op =:= '*'; Op =:= 'div' ->
+        [T,#t_integer{elements={1,1}}] when Op =:= '*' ->
             case beam_types:is_numerical_type(T) of
                 true ->
                     #b_set{args=[Result,_]} = I,
@@ -1917,7 +1985,7 @@ st_filter_reachable([], CallArgs, Deferred, Acc) ->
             %% We have no reachable self calls, so we know our argument types
             %% can't expand any further. Filter out our reachable sites and
             %% return.
-            [ST || {SuccArgs, _}=ST <- Acc, st_is_reachable(SuccArgs, CallArgs)]
+            [ST || {SuccArgs, _}=ST <:- Acc, st_is_reachable(SuccArgs, CallArgs)]
     end.
 
 st_join_return_types([{_SuccArgs, SuccRet} | Rest], Acc0) ->
@@ -2045,7 +2113,11 @@ update_successors(#b_ret{}=Last, _Ts, _Ds, Ls, _UsedOnce) ->
 
 update_switch([{Val, Lbl}=Sw | List],
               V, FailType0, Ts, Ds, Ls0, IsTempVar, Acc) ->
-    FailType = beam_types:subtract(FailType0, concrete_type(Val, Ts)),
+    ValType = concrete_type(Val, Ts),
+    FailType = case beam_types:is_singleton_type(ValType) of
+                   true -> beam_types:subtract(FailType0, ValType);
+                   false -> FailType0
+               end,
     case infer_types_switch(V, Val, Ts, IsTempVar, Ds) of
         none ->
             update_switch(List, V, FailType, Ts, Ds, Ls0, IsTempVar, Acc);
@@ -2272,6 +2344,8 @@ type(put_list, [Head, Tail], _Anno, Ts, _Ds) ->
     HeadType = concrete_type(Head, Ts),
     TailType = concrete_type(Tail, Ts),
     beam_types:make_cons(HeadType, TailType);
+type(put_record, Args, Anno, Ts, _Ds) ->
+    put_record_type(Args, Anno, Ts);
 type(put_tuple, Args, _Anno, Ts, _Ds) ->
     {Es, _} = foldl(fun(Arg, {Es0, Index}) ->
                             Type = concrete_type(Arg, Ts),
@@ -2329,6 +2403,37 @@ join_tuple_elements(I, Tuple, Type0) ->
     Type = beam_types:join(Type0, Type1),
     join_tuple_elements(I - 1, Tuple, Type).
 
+put_record_type(Args, Anno, Ts) ->
+    [Src, Name | Fs0] = Args,
+
+    Defs = case Src of
+               #b_literal{val=empty} ->
+                   map_get(record_defaults, Anno);
+               #b_var{}=Var ->
+                   case Ts of
+                       #{Var := #t_record{type=Defs0}} -> Defs0;
+                       #{} -> #{}
+                   end
+           end,
+
+    Fs = record_field_types(Fs0, Ts, Defs),
+
+    case Name of
+        #b_literal{val={Mod,Tag}} when is_atom(Mod), is_atom(Tag) ->
+            #t_record{name={Mod,Tag}, type=Fs};
+        #b_literal{val='_'} ->
+            #t_record{name=nil, type=Fs};
+        #b_literal{val=Tag} when is_atom(Tag) ->
+            Mod = map_get(record_module, Anno),
+            #t_record{name={Mod,Tag}, type=Fs}
+    end.
+
+record_field_types([#b_literal{val=Key}, Value0 | Fs], Ts, Acc) ->
+    Value = concrete_type(Value0, Ts),
+    record_field_types(Fs, Ts, Acc#{Key => {present, Value}});
+record_field_types([], _Ts, Acc) ->
+    Acc.
+
 put_map_type(Map, Ss, Ts) ->
     pmt_1(Ss, Ts, concrete_type(Map, Ts)).
 
@@ -2373,7 +2478,7 @@ bs_size_unit([#b_literal{val=Type},#b_literal{val=[U1|_]},Value,SizeTerm|Args],
         {_,_,_} ->
             case concrete_type(SizeTerm, Ts) of
                 #t_integer{elements={Size1, Size1}}
-                  when is_integer(Size1), is_integer(U1), Size1 >= 0 ->
+                  when is_integer(Size1), Size1 >= 0, is_integer(U1) ->
                     EffectiveSize = Size1 * U1,
                     %% Adding a fixed size element
                     bs_size_unit(Args, Ts, EffectiveSize + FixedSize, Unit);
@@ -2420,9 +2525,7 @@ bs_match_type(integer, Args, Ts) ->
     case beam_types:meet(concrete_type(Size, Ts), #t_integer{}) of
         #t_integer{elements=Bounds} ->
             case beam_bounds:bounds('*', Bounds, {Unit, Unit}) of
-                {_, MaxBits} when is_integer(MaxBits),
-                                  MaxBits >= 1,
-                                  MaxBits =< 64 ->
+                {_, MaxBits} when is_integer(MaxBits, 1, 64) ->
                     case member(unsigned, Flags) of
                         true ->
                             Max = (1 bsl MaxBits) - 1,
@@ -2602,7 +2705,7 @@ infer_relop('=/=', [LHS,RHS], [LType,RType], Ds) ->
     %% as it may be too specific. See beam_type_SUITE:type_subtraction/1
     %% for details.
     {[{V,beam_types:subtract(ThisType, OtherType)} ||
-         {V, ThisType, OtherType} <- [{RHS, RType, LType}, {LHS, LType, RType}],
+         {V, ThisType, OtherType} <:- [{RHS, RType, LType}, {LHS, LType, RType}],
          beam_types:is_singleton_type(OtherType)], NeTypes};
 infer_relop(Op, Args, Types, _Ds) ->
     {infer_relop(Op, Args, Types), []}.
@@ -2679,6 +2782,15 @@ make_number({'-inf','+inf'}) ->
 make_number({_,_}=R) ->
     #t_number{elements=R}.
 
+make_integer({'-inf','+inf'}) ->
+    #t_integer{};
+make_integer({'-inf',_}=R) ->
+    #t_integer{elements=R};
+make_integer({Min,Max}=R) when is_integer(Min), Min =< Max ->
+    #t_integer{elements=R};
+make_integer(_) ->
+    #t_integer{}.
+
 inv_relop({bif,Op}) -> inv_relop_1(Op);
 inv_relop(_) -> none.
 
@@ -2693,6 +2805,14 @@ inv_relop_1(_) -> none.
 infer_get_range(#t_integer{elements=R}) -> R;
 infer_get_range(#t_number{elements=R}) -> R;
 infer_get_range(_) -> unknown.
+
+infer_integer_get_range(Arg, Ts) ->
+    case concrete_type(Arg, Ts) of
+        #t_integer{elements={_,_}=R} ->
+            R;
+        _ ->
+            {'-inf','+inf'}
+    end.
 
 infer_br_value(_V, _Bool, none) ->
     none;
@@ -2759,7 +2879,7 @@ infer_type({bif,is_function}, [#b_var{}=Arg], _Ts, _Ds) ->
     {[T], [T]};
 infer_type({bif,is_function}, [#b_var{}=Arg, Arity], _Ts, _Ds) ->
     case Arity of
-        #b_literal{val=V} when is_integer(V), V >= 0, V =< ?MAX_FUNC_ARGS ->
+        #b_literal{val=V} when is_integer(V, 0, ?MAX_FUNC_ARGS) ->
             T = {Arg, #t_fun{arity=V}},
             {[T], [T]};
         _ ->
@@ -2772,6 +2892,18 @@ infer_type({bif,is_function}, [#b_var{}=Arg, Arity], _Ts, _Ds) ->
 infer_type({bif,is_integer}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_integer{}},
     {[T], [T]};
+infer_type({bif,is_integer}, [#b_var{}=Arg,
+                              #b_literal{val=Min},
+                              #b_literal{val=Max}], _Ts, _Ds) when Min =< Max ->
+    T = {Arg, beam_types:make_integer(Min, Max)},
+    {[T], [T]};
+infer_type({bif,is_integer}, [#b_var{}=Arg,Min0,Max0], Ts, _Ds) ->
+    {Min,_} = infer_integer_get_range(Min0, Ts),
+    {_,Max} = infer_integer_get_range(Max0, Ts),
+    T = {Arg, make_integer({Min,Max})},
+    %% Conservatively never attempt to subtract the type; subtraction
+    %% will most likely be incorrect or useless.
+    {[T], []};
 infer_type({bif,is_list}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_list{}},
     {[T], [T]};
@@ -2793,6 +2925,15 @@ infer_type({bif,is_reference}, [#b_var{}=Arg], _Ts, _Ds) ->
 infer_type({bif,is_tuple}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_tuple{}},
     {[T], [T]};
+infer_type({bif,is_record}, [#b_var{}=Arg], _Ts, _Ds) ->
+    T = {Arg, #t_record{}},
+    {[T], [T]};
+infer_type({bif,is_record}, [#b_var{}=Arg,
+                             #b_literal{val=Mod},
+                             #b_literal{val=Name}],
+           _Ts, _Ds) ->
+    T = {Arg, #t_record{name={Mod,Name}}},
+    {[T], [T]};
 infer_type({bif,'and'}, [#b_var{}=LHS,#b_var{}=RHS], Ts, Ds) ->
     %% When this BIF yields true, we know that both `LHS` and `RHS` are 'true'
     %% and should infer accordingly, lest we break later optimizations that
@@ -2808,6 +2949,11 @@ infer_type({bif,'and'}, [#b_var{}=LHS,#b_var{}=RHS], Ts, Ds) ->
 
     True = beam_types:make_atom(true),
     {[{LHS, True}, {RHS, True}] ++ LHSPos ++ RHSPos, []};
+infer_type(is_record_accessible, [#b_var{}=R,#b_literal{val=external}],
+           Ts, _Ds) ->
+    T0 = concrete_type(R, Ts),
+    T = {R, T0#t_record{exported=yes}},
+    {[T], []};
 infer_type(_Op, _Args, _Ts, _Ds) ->
     {[], []}.
 
@@ -2836,6 +2982,17 @@ infer_success_type(bs_match, [#b_literal{val=binary},
     %% position, so we know that Ctx has the same unit.
     T = {Ctx, #t_bs_context{tail_unit=OpUnit}},
     {[T], [T]};
+infer_success_type(get_record_element, [#b_var{}=Arg,
+                                        #b_literal{val=F}],
+                   Ts, _Ds) ->
+    case concrete_type(Arg, Ts) of
+        #t_record{type=#{F := {present,_}}} ->
+            {[], []};
+        _ ->
+            Es = #{F => {present,any}},
+            T = {Arg, #t_record{type=Es}},
+            {[T], []}
+    end;
 infer_success_type(_Op, _Args, _Ts, _Ds) ->
     {[], []}.
 
@@ -2890,17 +3047,18 @@ join_types(Ts, Ts) ->
 join_types(LHS, RHS) ->
     if
         map_size(LHS) < map_size(RHS) ->
-            join_types_1(maps:keys(LHS), RHS, LHS);
+            join_types_1(maps:next(maps:iterator(LHS)), RHS, LHS);
         true ->
-            join_types_1(maps:keys(RHS), LHS, RHS)
+            join_types_1(maps:next(maps:iterator(RHS)), LHS, RHS)
     end.
 
 %% Joins two type maps, keeping the variables that are common to both maps.
-join_types_1([V | Vs], Bigger, Smaller) ->
-    case {Bigger, Smaller} of
-        {#{ V := Same }, #{ V := Same }} ->
-            join_types_1(Vs, Bigger, Smaller);
-        {#{ V := LHS0 }, #{ V := RHS0 }} ->
+join_types_1({V, RHS0, Iter0}, Bigger, Smaller) ->
+    Iter = maps:next(Iter0),
+    case Bigger of
+        #{V := RHS0} ->
+            join_types_1(Iter, Bigger, Smaller);
+        #{V := LHS0} ->
             %% Inlined concrete_type/2 for performance.
             LHS = case is_function(LHS0) of
                       true -> LHS0(Bigger);
@@ -2911,11 +3069,11 @@ join_types_1([V | Vs], Bigger, Smaller) ->
                       false -> RHS0
                   end,
             T = beam_types:join(LHS, RHS),
-            join_types_1(Vs, Bigger, Smaller#{ V := T });
-        {#{}, #{ V := _ }} ->
-            join_types_1(Vs, Bigger, maps:remove(V, Smaller))
+            join_types_1(Iter, Bigger, Smaller#{V := T});
+        #{} ->
+            join_types_1(Iter, Bigger, maps:remove(V, Smaller))
     end;
-join_types_1([], _Bigger, Smaller) ->
+join_types_1(none, _Bigger, Smaller) ->
     Smaller.
 
 meet_types([{#b_literal{}=Lit, T0} | Vs], Ts) ->
@@ -2950,10 +3108,8 @@ subtract_types([{#b_var{}=V, T0}|Vs], Ts) ->
 subtract_types([], Ts) ->
     Ts.
 
-parallel_join([A | As], [B | Bs]) ->
-    [beam_types:join(A, B) | parallel_join(As, Bs)];
-parallel_join([], []) ->
-    [].
+parallel_join(As, Bs) ->
+    [beam_types:join(A, B) || A <- As && B <- Bs].
 
 gcd(A, B) ->
     case A rem B of
@@ -3042,14 +3198,16 @@ used_once_last_uses([], _, Uses) -> Uses.
 %% all earlier instances of the same element are redundant.
 %%
 
--record(worklist,
-        { counter = 0 :: integer(),
-          elements = gb_trees:empty() :: gb_trees:tree(integer(), term()),
-          indexes = #{} :: #{ term() => integer() } }).
+-record #worklist{
+   counter = 0   :: integer(),
+   elements      :: gb_trees:tree(integer(), term()),
+   indexes = #{} :: #{term() => integer()}
+  }.
 
 -type worklist() :: #worklist{}.
 
-wl_new() -> #worklist{}.
+wl_new() ->
+    #worklist{elements=gb_trees:empty()}.
 
 %% Adds an element to the worklist, or moves it to the front if it's already
 %% present.

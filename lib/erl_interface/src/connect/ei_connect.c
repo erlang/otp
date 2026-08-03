@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2000-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,7 +67,7 @@
 #include "ei_locking.h"
 #include "eisend.h"
 #include "eirecv.h"
-#include "erl_md5.h"
+#include "erl_md5.h"  /* from erts */
 #include "putget.h"
 #include "ei_resolve.h"
 #include "ei_epmd.h"
@@ -1978,15 +1980,15 @@ ebadmsg:
 /* FROM RTP RFC 1889  (except that we use all bits, bug in RFC?) */
 static unsigned int md_32(char* string, int length)
 {
-    MD5_CTX ctx;
+    erts_md5_state ctx;
     union {
 	char c[16];
 	unsigned x[4];
     } digest;
-    ei_MD5Init(&ctx);
-    ei_MD5Update(&ctx, (unsigned char *) string, 
+    erts_md5_init(&ctx);
+    erts_md5_update(&ctx, (unsigned char *) string,
 	       (unsigned) length);
-    ei_MD5Final((unsigned char *) digest.c, &ctx);
+    erts_md5_finish((unsigned char *) digest.c, &ctx);
     return (digest.x[0] ^ digest.x[1] ^ digest.x[2] ^ digest.x[3]);
 }
 
@@ -2038,17 +2040,17 @@ static unsigned int gen_challenge(void)
 static void gen_digest(unsigned challenge, char cookie[], 
 		       unsigned char digest[16])
 {
-    MD5_CTX c;
+    erts_md5_state c;
     
     char chbuf[21];
     
     sprintf(chbuf,"%u", challenge);
-    ei_MD5Init(&c);
-    ei_MD5Update(&c, (unsigned char *) cookie, 
+    erts_md5_init(&c);
+    erts_md5_update(&c, (unsigned char *) cookie,
 	       (unsigned) strlen(cookie));
-    ei_MD5Update(&c, (unsigned char *) chbuf, 
+    erts_md5_update(&c, (unsigned char *) chbuf,
 	       (unsigned) strlen(chbuf));
-    ei_MD5Final(digest, &c);
+    erts_md5_finish(digest, &c);
 }
 
 

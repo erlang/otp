@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -39,7 +41,7 @@ all() -> [encrypt_decrypt_one_time,
 %%% First prepare Config and compile the property tests for the found tool:
 init_per_suite(Config) ->
     case
-        try crypto:start() of
+        try application:start(crypto) of
             ok -> true;
             {error, already_started} -> true;
             {error,{already_started,crypto}} -> true;
@@ -74,8 +76,13 @@ init_update(Config) ->
      ).
 
 init_update_multi(Config) ->
-    ct_property_test:quickcheck(
-      crypto_ng_api_stateful:prop__crypto_init_multi(Config),
-      Config
-     ).
+    case proplists:get_value(property_test_tool, Config, undefined) of
+        proper ->
+            ct_property_test:quickcheck(
+              crypto_ng_api_stateful:prop__crypto_init_multi(Config),
+              Config
+             );
+        _ ->
+            {skip, "proper required, not found"}
+    end.
 

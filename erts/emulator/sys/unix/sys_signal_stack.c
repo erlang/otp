@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2001-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,6 +76,9 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#if defined(__linux__)
+#  include <sys/auxv.h>
+#endif
 
 #include "sys.h"
 #include "erl_alloc.h"
@@ -88,27 +93,23 @@
 #endif
 
 /*
- * Set alternate signal stack for the invoking thread.
+ * Set up alternate signal stack for an Erlang process scheduler thread.
  */
-static void sys_sigaltstack(void *ss_sp) {
+void sys_thread_init_signal_stack(void) {
     stack_t ss;
 
-    ss.ss_sp = ss_sp;
-    ss.ss_flags = 0;
+#if defined(__linux__) && defined(AT_MINSIGSTKSZ)
+    ss.ss_size = (size_t) getauxval(AT_MINSIGSTKSZ);
+    ss.ss_size = MAX(ss.ss_size, SIGSTKSZ);
+#else
     ss.ss_size = SIGSTKSZ;
+#endif
+    ss.ss_sp = malloc(ss.ss_size);  // Never freed
+    ss.ss_flags = 0;
 
     if (sigaltstack(&ss, NULL) < 0) {
         ERTS_INTERNAL_ERROR("Failed to set alternate signal stack");
     }
-}
-
-/*
- * Set up alternate signal stack for an Erlang process scheduler thread.
- */
-void sys_thread_init_signal_stack(void) {
-    /* This will never be freed. */
-    char *stack = malloc(SIGSTKSZ);
-    sys_sigaltstack(stack);
 }
 
 /*

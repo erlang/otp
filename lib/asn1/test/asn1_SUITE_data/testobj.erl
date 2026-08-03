@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1306,7 +1308,7 @@ cause_radio() ->
     {radioNetwork, 'release-due-to-utran-generated-reason'}.
 
 
-cn_domain_ind(IEs) when atom(IEs)->
+cn_domain_ind(IEs) when is_atom(IEs)->
     setelement(1,cn_domain_ind(),IEs).
 
 cn_domain_ind() ->

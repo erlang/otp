@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -197,6 +199,7 @@ traffic() ->
     ok.
 
 start_services() ->
+    lists:foreach(fun(S) -> ?DEL_REG(S) end, ?SERVICES),
     [S1,S2,S3,S4] = [server(N, ?DICT_COMMON) || N <- [?SERVER1,
                                                       ?SERVER2,
                                                       ?SERVER3,
@@ -217,6 +220,7 @@ disconnect(Conns) ->
               T /= ok].
 
 stop_services() ->
+    lists:foreach(fun(S) -> ?DEL_UNREG(S) end, lists:reverse(?SERVICES)),
     [{H,T} || H <- ?SERVICES,
               T <- [diameter:stop_service(H)],
               T /= ok].

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2022-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2022-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,7 +33,7 @@
 
 
 % gen_statem state help functions
--export([initial_state/8,
+-export([initial_state/9,
          user_hello/3,
          wait_cert/3,
          wait_cv/3,
@@ -47,12 +49,15 @@
          handle_resumption/2,
          send_key_update/2,
          update_cipher_key/2,
+         maybe_traffic_keylog_1_3/4,
+         maybe_forget_hs_secrets/2,
+         init_max_early_data_size/1,
          do_maybe/0]).
 
 %%--------------------------------------------------------------------
-%%  Internal API 
+%%  Internal API
 %%--------------------------------------------------------------------
-initial_state(Role, Sender, Host, Port, Socket,
+initial_state(Role, Sender, Tab, Host, Port, Socket,
               {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     put(log_level, maps:get(log_level, SSLOptions)),
@@ -64,8 +69,13 @@ initial_state(Role, Sender, Host, Port, Socket,
                                                          disabled,
                                                          MaxEarlyDataSize),
     UserMonitor = erlang:monitor(process, User),
+    SslSocket = tls_socket:socket([self(),Sender], CbModule, Socket, tls_gen_connection, Tab, Trackers),
+
+    true = ets:insert(Tab, {{socket_options, packet}, SocketOptions#socket_options.packet}),
+
     InitStatEnv = #static_env{
                      role = Role,
+                     user_socket = SslSocket,
                      transport_cb = CbModule,
                      protocol_cb = tls_gen_connection,
                      data_tag = DataTag,
@@ -78,6 +88,7 @@ initial_state(Role, Sender, Host, Port, Socket,
                      trackers = Trackers
                     },
     #state{
+       tab = Tab,
        static_env = InitStatEnv,
        handshake_env = #handshake_env{
                           tls_handshake_history =
@@ -148,13 +159,17 @@ connection(internal, #new_session_ticket{} = NewSessionTicket, State) ->
     handle_new_session_ticket(NewSessionTicket, State),
     tls_gen_connection:next_event(?STATE(connection), no_record, State);
 
-connection(internal, #key_update{} = KeyUpdate, State0) ->
+connection(internal, #key_update{} = KeyUpdate, #state{static_env = #static_env{role = Role},
+                                                       ssl_options = SslOpts} = State0) ->
     case handle_key_update(KeyUpdate, State0) of
-        {ok, State} ->
-            tls_gen_connection:next_event(?STATE(connection), no_record, State);
+        {ok, #state{connection_states = ConnectionStates, protocol_specific = PS} = State} ->
+            Keep = maps:get(keep_secrets, SslOpts, false),
+            N = maps:get(num_key_updates, PS),
+            maybe_traffic_keylog_1_3(Keep, Role, ConnectionStates, N),
+            tls_gen_connection:next_event(?STATE(connection), no_record,
+                                          maybe_forget_hs_secrets(Role, N, Keep, State));
         {error, State, Alert} ->
-            ssl_gen_statem:handle_own_alert(Alert, ?STATE(connection), State),
-            tls_gen_connection:next_event(?STATE(connection), no_record, State)
+            ssl_gen_statem:handle_own_alert(Alert, ?STATE(connection), State)
     end;
 connection({call, From}, negotiated_protocol,
 	   #state{handshake_env = #handshake_env{alpn = undefined}} = State) ->
@@ -240,6 +255,20 @@ handle_resumption(#state{handshake_env = HSEnv0} = State, _) ->
     HSEnv = HSEnv0#handshake_env{resumption = true},
     State#state{handshake_env = HSEnv}.
 
+maybe_forget_hs_secrets({keylog_hs, _}, #state{connection_states =
+                                                   #{current_read := Read0,
+                                                     current_write := Write0} = CS} = State) ->
+    %% Server finishes the handshake last and  is able to immediately forget
+    %% hs secrets used for handshake alert logging.
+    #{security_parameters := SecParams} = Read0,
+    Read1 = Read0#{security_parameters =>
+                       SecParams#security_parameters{client_early_data_secret = undefined}},
+    Read = maps:without([client_handshake_traffic_secret], Read1),
+    Write = maps:without([server_handshake_traffic_secret], Write0),
+    State#state{connection_states = CS#{current_read => Read, current_write => Write}};
+maybe_forget_hs_secrets(_, State) ->
+    State.
+
 do_maybe() ->
     Ref = erlang:make_ref(),
     Ok = fun(ok) -> ok;
@@ -289,31 +318,43 @@ send_key_update(Sender, Type) ->
     KeyUpdate = tls_handshake_1_3:key_update(Type),
     tls_sender:send_post_handshake(Sender, KeyUpdate).
 
-update_cipher_key(ConnStateName, #state{connection_states = CS0} = State0) ->
+do_update_cipher_key(ConnStateName, #state{connection_states = CS0,
+                                        protocol_specific = PS} = State0) ->
     CS = update_cipher_key(ConnStateName, CS0),
-    State0#state{connection_states = CS};
+    N = maps:get(num_key_updates, PS, 0),
+    State0#state{connection_states = CS,
+                 protocol_specific = PS#{num_key_updates => N + 1}}.
+
 update_cipher_key(ConnStateName, CS0) ->
     #{security_parameters := SecParams0,
       cipher_state := CipherState0} = ConnState0 = maps:get(ConnStateName, CS0),
     HKDF = SecParams0#security_parameters.prf_algorithm,
     CipherSuite = SecParams0#security_parameters.cipher_suite,
-    ApplicationTrafficSecret0 =
-        SecParams0#security_parameters.application_traffic_secret,
-    ApplicationTrafficSecret =
-        tls_v1:update_traffic_secret(HKDF,
-                                     ApplicationTrafficSecret0),
+    ApplicationTrafficSecret0 = SecParams0#security_parameters.application_traffic_secret,
+    ApplicationTrafficSecret = tls_v1:update_traffic_secret(HKDF,ApplicationTrafficSecret0),
 
     %% Calculate traffic keys
     KeyLength = tls_v1:key_length(CipherSuite),
-    {Key, IV} = tls_v1:calculate_traffic_keys(HKDF, KeyLength,
-                                              ApplicationTrafficSecret),
+    {Key, IV} = tls_v1:calculate_traffic_keys(HKDF, KeyLength, ApplicationTrafficSecret),
 
     SecParams = SecParams0#security_parameters{application_traffic_secret = ApplicationTrafficSecret},
     CipherState = CipherState0#cipher_state{key = Key, iv = IV},
-    ConnState = ConnState0#{security_parameters => SecParams,
+    ConnState1 = maps:remove(aead_handle, ConnState0),
+    ConnState = ConnState1#{security_parameters => SecParams,
                             cipher_state => CipherState,
                             sequence_number => 0},
     CS0#{ConnStateName => ConnState}.
+
+maybe_traffic_keylog_1_3({keylog, Fun}, Role, ConnectionStates, N) ->
+    #{security_parameters := #security_parameters{client_random = ClientRandom,
+                                                  prf_algorithm = Prf,
+                                                  application_traffic_secret = TrafficSecret}}
+        = ssl_record:current_connection_state(ConnectionStates, read),
+    KeyLog = ssl_logger:keylog_traffic_1_3(ssl_gen_statem:opposite_role(Role), ClientRandom,
+                                           Prf, TrafficSecret, N),
+    ssl_logger:keylog(KeyLog, ClientRandom, Fun);
+maybe_traffic_keylog_1_3(_,_,_,_) ->
+    ok.
 
 %%--------------------------------------------------------------------
 do_wait_cert(#certificate_1_3{} = Certificate, State0) ->
@@ -370,11 +411,11 @@ send_ticket_data(User, NewSessionTicket, CipherSuite, SNI, PSK) ->
 
 handle_key_update(#key_update{request_update = update_not_requested}, State0) ->
     %% Update read key in connection
-    {ok, update_cipher_key(current_read, State0)};
+    {ok, do_update_cipher_key(current_read, State0)};
 handle_key_update(#key_update{request_update = update_requested},
                   #state{protocol_specific = #{sender := Sender}} = State0) ->
     %% Update read key in connection
-    State1 = update_cipher_key(current_read, State0),
+    State1 = do_update_cipher_key(current_read, State0),
     %% Send key_update and update sender's write key
     case send_key_update(Sender, update_not_requested) of
         ok ->
@@ -443,3 +484,13 @@ exporter(ExporterSecret, Context0, WantedLength, PRFAlgorithm) ->
     HashContext = tls_v1:transcript_hash(Context, PRFAlgorithm),
     tls_v1:hkdf_expand_label(ExporterSecret, <<"exporter">>, HashContext,
                              WantedLength, PRFAlgorithm).
+
+%% If a client has key_logging for failing handshakes we now know that
+%% it is now safe to clear them. Could be cleared earlier but as this
+%% is debugging functionality we choose not to make complicated
+%% timeout handling to save a little memory for the client.
+%% This is not a problem on the server side.
+maybe_forget_hs_secrets(client, 1, KeepSecrets, State) ->
+    maybe_forget_hs_secrets(KeepSecrets, State);
+maybe_forget_hs_secrets(_,_,_, State) ->
+    State.

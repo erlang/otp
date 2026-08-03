@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -233,6 +235,32 @@ module and the NIF library in `asn1/priv_dir` are needed at runtime.
 By calling function `info/0` in a generated module, you get information about
 which compiler options were used.
 
+### Special Decode Functionality for JSON Encoding Rules (JER)
+
+When using the JSON encoding rules, it is possible to call the
+`decode/2` function in the following way with data that has already
+been decoded by `json:decode/1`:
+
+```erlang
+SomeModule:decode(Type, {json_decoded, Decoded}).
+```
+
+Example:
+
+```erlang
+1> asn1ct:compile("People", [jer]).
+ok
+2> Rockstar = {'Person',"Vince Eclipse",roving,50}.
+{'Person',"Vince Eclipse",roving,50}
+3> {ok,Bin} = 'People':encode('Person', Rockstar).
+{ok,<<"{\"name\":\"Vince Eclipse\",\"location\":2,\"age\":50}">>}
+4> 'People':decode('Person', Bin).
+{ok,{'Person',"Vince Eclipse",roving,50}}
+5> 'People':decode('Person', {json_decoded,json:decode(Bin)}).
+{ok,{'Person',"Vince Eclipse",roving,50}}
+
+```
+
 ### Errors
 
 Errors detected at compile-time are displayed on the screen together with line
@@ -312,7 +340,7 @@ and how values are assigned in Erlang.
 
 ASN.1 has both primitive and constructed types:
 
-| _Primitive Types_                                              | _Constructed Types_                                          |
+| Primitive Types                                                | Constructed Types                                            |
 | -------------------------------------------------------------- | ------------------------------------------------------------ |
 | [BOOLEAN](asn1_getting_started.md#boolean)                     | [SEQUENCE](asn1_getting_started.md#sequence)                 |
 | [INTEGER](asn1_getting_started.md#integer)                     | [SET](asn1_getting_started.md#set)                           |
@@ -417,13 +445,21 @@ It is assigned a value in Erlang as follows:
 
 ```text
 R1value1 = "2.14",
-R1value2 = {256,10,-2},
+R1value2 = {256,10,-2}
 ```
 
 In the last line, notice that the tuple \{256,10,-2\} is the real number 2.56 in
 a special notation, which encodes faster than simply stating the number as
 `"2.56"`. The arity three tuple is `{Mantissa,Base,Exponent}`, that is,
-Mantissa \* Base^Exponent.
+`Mantissa * Base^Exponent`.
+
+The following special values are also recognized:
+
+```text
+R1value3 = 0,
+R1value4 = 'PLUS-INFINITY',
+R1value5 = 'MINUS-INFINITY'
+```
 
 ### NULL
 

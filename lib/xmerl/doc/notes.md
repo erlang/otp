@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +22,163 @@ limitations under the License.
 # Xmerl Release Notes
 
 This document describes the changes made to the Xmerl application.
+
+## Xmerl 2.2
+
+### Improvements and New Features
+
+- Added support for `-unsafe` attributes, which is used to mark functions as unsafe to use. 
+  
+  This is similar to but separate from deprecation, and the compiler will by default now generate warnings for calls to functions in Erlang/OTP that are known to be always unsafe.
+  
+  Furthermore, `m:xref` can now be used to find calls to functions in another application that lack a `-doc` attribute (`undocumented_function_calls`), calls to functions in another application marked `-doc false.` (`private_function_calls`), as well as calls to unsafe functions (`unsafe_function_calls`).
+
+  Own Id: OTP-20066 Aux Id: [PR-10839]
+
+[PR-10839]: https://github.com/erlang/otp/pull/10839
+
+## Xmerl 2.1.9
+
+### Fixed Bugs and Malfunctions
+
+- Fixed license headers and links in documentation.
+
+  Own Id: OTP-20006 Aux Id: [PR-10438]
+
+[PR-10438]: https://github.com/erlang/otp/pull/10438
+
+## Xmerl 2.1.8
+
+### Fixed Bugs and Malfunctions
+
+- XML regular expressions in XSD validation now handle `\s` and `\S` correctly.
+
+  Own Id: OTP-19762 Aux Id: ERIERL-1260, [PR-10437]
+
+[PR-10437]: https://github.com/erlang/otp/pull/10437
+
+## Xmerl 2.1.7
+
+### Fixed Bugs and Malfunctions
+
+- The XSD validation failed due to not handling the optional text blocks correctly in an XSD complex type with attribute `mixed=true`.
+
+  Own Id: OTP-19792 Aux Id: ERERL-1261,[PR-10249]
+
+[PR-10249]: https://github.com/erlang/otp/pull/10249
+
+## Xmerl 2.1.6
+
+### Fixed Bugs and Malfunctions
+
+- Corrected the bug that comments couldn't be exported.
+  
+  `#xmlComment` elements is now exported when calling `export/3` or `export_simple/3` and similar functions. Top level comments will only be exported if one creates and export elements as a document.
+
+  Own Id: OTP-19757 Aux Id: [PR-9796], [GH-5697]
+
+[PR-9796]: https://github.com/erlang/otp/pull/9796
+[GH-5697]: https://github.com/erlang/otp/issues/5697
+
+## Xmerl 2.1.5
+
+### Fixed Bugs and Malfunctions
+
+- The type specs of `xmerl_scan:file/2` and `xmerl_scan:string/2`
+  has been updated to return `t:dynamic/0`. Due to hook functions
+  they can return any user defined term.
+
+  Own Id: OTP-19662 Aux Id: [PR-9905], ERIERL-1225
+
+[PR-9905]: https://github.com/erlang/otp/pull/9905
+
+## Xmerl 2.1.4
+
+### Fixed Bugs and Malfunctions
+
+- With this change all public functions in xmerl have specs.
+
+  Own Id: OTP-19534 Aux Id: [PR-9327]
+
+[PR-9327]: https://github.com/erlang/otp/pull/9327
+
+### Improvements and New Features
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+
+## Xmerl 2.1.3.3
+
+### Fixed Bugs and Malfunctions
+
+- XML regular expressions in XSD validation now handle `\s` and `\S` correctly.
+
+  Own Id: OTP-19762 Aux Id: ERIERL-1260, [PR-10437]
+
+[PR-10437]: https://github.com/erlang/otp/pull/10437
+
+## Xmerl 2.1.3.2
+
+### Fixed Bugs and Malfunctions
+
+- The XSD validation failed due to not handling the optional text blocks correctly in an XSD complex type with attribute `mixed=true`.
+
+  Own Id: OTP-19792 Aux Id: ERERL-1261,[PR-10249]
+
+[PR-10249]: https://github.com/erlang/otp/pull/10249
+
+## Xmerl 2.1.3.1
+
+### Fixed Bugs and Malfunctions
+
+- The type specs of `xmerl_scan:file/2` and `xmerl_scan:string/2`
+  has been updated to return `t:dynamic/0`. Due to hook functions
+  they can return any user defined term.
+
+  Own Id: OTP-19662 Aux Id: [PR-9905], ERIERL-1225
+
+[PR-9905]: https://github.com/erlang/otp/pull/9905
+
+## Xmerl 2.1.3
+
+### Improvements and New Features
+
+- A new option to discard whitespace before the `xml` tag when reading from a stream has been added to the Xmerl SAX parser.
+  
+  * __`{discard_ws_before_xml_document, Boolean}`__ - Discard whitespace before `xml` tag instead of returning a fatal error if set to `true` (`false` is default)
+
+  Own Id: OTP-19602 Aux Id: [PR-9753]
+
+[PR-9753]: https://github.com/erlang/otp/pull/9753
+
+## Xmerl 2.1.2
+
+### Fixed Bugs and Malfunctions
+
+- Corrected faulty type specification
+  
+  Corrected type specification for the input parameter of `xmerl_xs:value_of/1`.
+  
+  Also replaced underscore in the return type specifications of `xmerl_xs:select/2`,
+  `xmerl_xpath:string/2` and `xmerl_xpath:string/3` with specified return values to improve documentation.
+
+  Own Id: OTP-19571 Aux Id: ERIERL-1212, [PR-9676]
+
+[PR-9676]: https://github.com/erlang/otp/pull/9676
+
+## Xmerl 2.1.1
+
+### Fixed Bugs and Malfunctions
+
+- Some old-style `catch` expressions in the xmerl_sax_parser when the continuation fun was called caused the stack to grow until all free memory was exhausted. These parts have been rewritten so that the parser now runs correctly without growing the stack. At the same time all old-style `catch` expressions in xmerl were replaced with `try`/`catch`.
+
+  Own Id: OTP-19496 Aux Id: [GH-9190], [PR-9463]
+
+[GH-9190]: https://github.com/erlang/otp/issues/9190
+[PR-9463]: https://github.com/erlang/otp/pull/9463
 
 ## Xmerl 2.1
 
@@ -75,6 +234,24 @@ This document describes the changes made to the Xmerl application.
 
 [PR-7942]: https://github.com/erlang/otp/pull/7942
 [PR-8026]: https://github.com/erlang/otp/pull/8026
+
+## Xmerl 1.3.34.3
+
+### Improvements and New Features
+
+* A new option to discard whitespace before the `xml` tag when reading from a stream has been added to the Xmerl SAX parser.
+
+  * __`{discard_ws_before_xml_document, Boolean}`__ - Discard whitespace before `xml` tag instead of returning a fatal error if set to `true` (`false` is default)
+
+  Own Id: OTP-19602 Aux Id: PR-9753
+
+## Xmerl 1.3.34.2
+
+### Fixed Bugs and Malfunctions
+
+* Some old-style `catch` expressions in the xmerl_sax_parser when the continuation fun was called caused the stack to grow until all free memory was exhausted. These parts have been rewritten so that the parser now runs correctly without growing the stack. At the same time all old-style `catch` expressions in xmerl were replaced with `try`/`catch`.
+
+  Own Id: OTP-19496 Aux Id: GH-9190, PR-9463
 
 ## Xmerl 1.3.34.1
 

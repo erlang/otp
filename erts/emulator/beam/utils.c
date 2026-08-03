@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,6 +64,7 @@
 #include "erl_unicode.h"
 #include "beam_common.h"
 #include "erl_global_literals.h"
+#include "erl_record.h"
 
 /* *******************************
  * ** Yielding C Fun (YCF) Note **
@@ -403,7 +406,7 @@ int erts_fit_in_bits_uint(Uint value)
 }
 
 int
-erts_print(fmtfn_t to, void *arg, char *format, ...)
+erts_print(fmtfn_t to, void *arg, const char *format, ...)
 {
     int res;
     va_list arg_list;
@@ -1175,6 +1178,19 @@ tailrecur_ne:
 		    ++bb;
 		    goto term_array;
 		}
+            case RECORD_SUBTAG:
+                {
+                    aa = record_val(a);
+                    if (!is_boxed(b) || *boxed_val(b) != *aa) {
+                        goto not_equal;
+                    }
+                    bb = record_val(b);
+                    sz = header_arity(*aa);
+                    ASSERT(sz >= 1);
+                    ++aa;
+                    ++bb;
+                    goto term_array;
+                }
             case HEAP_BITS_SUBTAG:
             case SUB_BITS_SUBTAG:
                 {
@@ -1207,26 +1223,16 @@ tailrecur_ne:
              * a module literal area), we'll add a conservative implementation
              * to cover direct equality checks of non-term heap objects.
              *
-             * Note that we only need this to handle `eq(FunRef, FunRef)` and
-             * the like: we do not visit the FunRef or BinRef of any term we
-             * see while testing equality, so we should never land here under
-             * under normal circumstances. */
+             * Note that we only need this to handle `eq(BinRef, BinRef)` and
+             * the like: we do not visit the BinRef of any term we see while
+             * testing equality, so we should never land here under normal
+             * normal circumstances. */
             case BIN_REF_SUBTAG:
                 if (is_bin_ref(b)) {
                     BinRef *r1 = (BinRef*)boxed_val(a);
                     BinRef *r2 = (BinRef*)boxed_val(b);
 
                     if (r1->val == r2->val) {
-                        goto pop_next;
-                    }
-                }
-                break; /* not equal */
-            case FUN_REF_SUBTAG:
-                if (is_fun_ref(b)) {
-                    FunRef *r1 = (FunRef*)boxed_val(a);
-                    FunRef *r2 = (FunRef*)boxed_val(b);
-
-                    if (r1->entry == r2->entry) {
                         goto pop_next;
                     }
                 }
@@ -1460,6 +1466,7 @@ tailrecur_ne:
                         if (aa[0] != bb[0])
                             goto not_equal;
 			aa++; bb++;
+                        ERTS_FALLTHROUGH();
 		    case HAMT_SUBTAG_NODE_BITMAP:
 			sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
 			ASSERT(sz > 0 && sz < 17);
@@ -1534,6 +1541,7 @@ Sint compare_flatmap_atom_keys(const Eterm* a_keys,
     Eterm a, b;
     int ai, bi;
     Sint res;
+    ERTS_UNDEF(res, 0);
 
     ASSERT(n_atoms > 0);
     ASSERT(is_atom(a_keys[0]) && is_atom(b_keys[0]));
@@ -1691,6 +1699,7 @@ Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only)
 #define FLATMAP_ATOM_KEYS             8
 #define FLATMAP_ATOM_VALUES           9
 #define FLATMAP_ATOM_CMP_VALUES      10
+#define RECORD_VALUE_PAIR            11
 
 #define OP_WORD(OP)         (((OP)  << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
 #define OP_ARG_WORD(OP, SZ) OP_WORD(((SZ) << OP_BITS) | OP)
@@ -1813,7 +1822,8 @@ tailrecur_ne:
 		goto mixed_types;
 	    }
 	}
-	}
+    }
+    ERTS_ASSERT(0 && "unreachable");
     case TAG_PRIMARY_LIST:
 	if (is_not_list(b)) {
 	    a_tag = LIST_DEF;
@@ -1865,6 +1875,83 @@ tailrecur_ne:
 		++aa;
 		++bb;
 		goto term_array;
+            case (_TAG_HEADER_RECORD >> _TAG_PRIMARY_SIZE):
+                if (!is_record(b)) {
+                    a_tag = RECORD_DEF;
+                    goto mixed_types;
+                }
+
+                {
+                    ErtsRecordInstance *inst_a, *inst_b;
+                    ErtsRecordDefinition *def_a, *def_b;
+                    Eterm *keys_a, *keys_b;
+                    Eterm *values_a, *values_b;
+                    Eterm *order_a, *order_b;
+                    Sint diff;
+                    int field_count;
+#ifdef DEBUG
+                    aa = bb = NULL; /* Don't use these variables */
+#endif
+                    inst_a = RECORD_INST_P(a);
+                    inst_b = RECORD_INST_P(b);
+
+                    def_a = RECORD_DEF_P(inst_a);
+                    def_b = RECORD_DEF_P(inst_b);
+
+                    order_a = tuple_val(def_a->field_order) + 1;
+                    order_b = tuple_val(def_b->field_order) + 1;
+
+                    field_count = RECORD_INST_FIELD_COUNT(inst_a);
+
+                    if (def_a != def_b) {
+                        diff = erts_cmp_atoms(def_a->module, def_b->module);
+                        if (diff != 0) {
+                            RETURN_NEQ(diff);
+                        }
+
+                        diff = erts_cmp_atoms(def_a->name, def_b->name);
+                        if (diff != 0) {
+                            RETURN_NEQ(diff);
+                        }
+
+                        ASSERT(false < true);
+                        diff = def_a->is_exported - def_b->is_exported;
+                        if (diff != 0) {
+                            RETURN_NEQ(diff);
+                        }
+
+                        i = record_header_arity(inst_a->thing_word);
+                        if (i != record_header_arity(inst_b->thing_word)) {
+                            RETURN_NEQ(((Sint)i) - (Sint)record_header_arity(inst_b->thing_word));
+                        }
+
+                        keys_a = def_a->keys;
+                        keys_b = def_b->keys;
+
+                        for (int i = 0; i < field_count; i++) {
+                            Eterm key_a = keys_a[unsigned_val(order_a[i])];
+                            Eterm key_b = keys_b[unsigned_val(order_b[i])];
+
+                            if (key_a != key_b) {
+                                RETURN_NEQ(erts_cmp_atoms(key_a, key_b));
+                            }
+                        }
+                    }
+
+                    /* Compare the values, if any. */
+                    values_a = inst_a->values;
+                    values_b = inst_b->values;
+
+                    for (int i = field_count-1; i >= 0; i--) {
+                        a = values_a[unsigned_val(order_a[i])];
+                        b = values_b[unsigned_val(order_b[i])];
+                        if (!is_same(a, b)) {
+                            WSTACK_PUSH3(stack, (UWord)b, (UWord)a,
+                                         OP_ARG_WORD(RECORD_VALUE_PAIR, 0));
+                        }
+                    }
+                    goto pop_next;
+                }
             case (_TAG_HEADER_MAP >> _TAG_PRIMARY_SIZE) :
 		{
                     struct cmp_map_state* sp;
@@ -2068,8 +2155,8 @@ tailrecur_ne:
                     ErlFunThing* f2 = (ErlFunThing *) fun_val(b);
 
                     if (is_local_fun(f1) && is_local_fun(f2)) {
-                        ErlFunEntry* fe1 = f1->entry.fun;
-                        ErlFunEntry* fe2 = f2->entry.fun;
+                        const ErlFunEntry *fe1 = f1->entry.fun;
+                        const ErlFunEntry *fe2 = f2->entry.fun;
 
                         Sint diff;
 
@@ -2103,8 +2190,8 @@ tailrecur_ne:
                         bb = f2->env;
                         goto term_array;
                     } else if (is_external_fun(f1) && is_external_fun(f2)) {
-                        Export* a_exp = f1->entry.exp;
-                        Export* b_exp = f2->entry.exp;
+                        const Export *a_exp = f1->entry.exp;
+                        const Export *b_exp = f2->entry.exp;
 
                         if ((j = erts_cmp_atoms(a_exp->info.mfa.module,
                                                 b_exp->info.mfa.module)) != 0) {
@@ -2303,12 +2390,14 @@ tailrecur_ne:
 #endif /* ERTS_SIZEOF_ETERM == 8 */
 	    break;
         case FLOAT_BIG:
-	    if (exact) goto exact_fall_through;
-	{
-	    Eterm tmp = aw;
-	    aw = bw;
-	    bw = tmp;
-	}/* fall through */
+	    if (exact) {
+                goto exact_fall_through;
+            } else {
+                Eterm tmp = aw;
+                aw = bw;
+                bw = tmp;
+            }
+            ERTS_FALLTHROUGH();
 	case BIG_FLOAT:
 	    if (exact) goto exact_fall_through;
 	    GET_DOUBLE(bw, f2);
@@ -2625,6 +2714,11 @@ pop_next:
                 sp->atom_keys++;
                 goto case_FLATMAP_ATOM_VALUES_LOOP;
             }
+
+	    case RECORD_VALUE_PAIR:
+		a = (Eterm)WSTACK_POP(stack);
+                b = (Eterm)WSTACK_POP(stack);
+		goto tailrecur_ne;
 
             default:
                 ASSERT(!"Invalid cmp op");
@@ -3498,8 +3592,15 @@ static void erts_qsort_insertion_sort(byte *base,
                                       size_t item_size,
                                       erts_void_ptr_cmp_t compare)
 {
-    byte *end = base + ((nr_of_items-1) * item_size);
     byte *unsorted_start = base;
+    byte *end;
+
+    if (nr_of_items < 2) {
+        return;
+    }
+
+    end = base + ((nr_of_items-1) * item_size);
+
     while (unsorted_start < end) {
         byte *smallest_so_far = unsorted_start;
         byte *curr = smallest_so_far + item_size;

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -69,20 +71,37 @@ opt_function(Id, StMap) ->
             erlang:raise(Class, Error, Stack)
     end.
 
-opt_blks([{L,#b_blk{is=Is}=Blk}|Blks], ParamInfo, StMap, AnyChange, Count0, Acc0) ->
-    case Is of
+opt_blks([{L,#b_blk{is=Is0}=Blk0}|Blks], ParamInfo, StMap, AnyChange, Count0, Acc0) ->
+    case Is0 of
         [#b_set{op=bs_init_writable,dst=Dst}] ->
             Bs = #{st_map => StMap, Dst => {writable,#b_literal{val=0}},
                    seen => sets:new([{version,2}])},
-            try opt_writable(Bs, L, Blk, Blks, ParamInfo, Count0, Acc0) of
+            try opt_writable(Bs, L, Blk0, Blks, ParamInfo, Count0, Acc0) of
                 {Acc,Count} ->
                     opt_blks(Blks, ParamInfo, StMap, changed, Count, Acc)
             catch
                 throw:not_possible ->
-                    opt_blks(Blks, ParamInfo, StMap, AnyChange, Count0, [{L,Blk}|Acc0])
+                    opt_blks(Blks, ParamInfo, StMap, AnyChange, Count0, [{L,Blk0}|Acc0])
+            end;
+        [#b_set{op=bs_init_writable,dst=InitDst}=_Init,
+         #b_set{op=bs_create_bin,dst=BinDst,args=[_,_,InitDst|_]}=Create|_] ->
+            Bs0 = #{InitDst => {writable,#b_literal{val=0}}},
+            Bs = calc_size_instr(Create, Bs0),
+            Call = {call,
+                    [{match,
+                      #b_literal{val=1},
+                      #b_literal{val=1}},
+                     map_get(BinDst, Bs)]},
+            Expr = make_expr_tree(Call),
+            try cg_size_calc(Expr, L, Blk0, Count0, Acc0) of
+                {Acc,Count} ->
+                    opt_blks(Blks, ParamInfo, StMap, changed, Count, Acc)
+            catch
+                throw:not_possible ->
+                    opt_blks(Blks, ParamInfo, StMap, AnyChange, Count0, [{L,Blk0}|Acc0])
             end;
         _ ->
-            opt_blks(Blks, ParamInfo, StMap, AnyChange, Count0, [{L,Blk}|Acc0])
+            opt_blks(Blks, ParamInfo, StMap, AnyChange, Count0, [{L,Blk0}|Acc0])
     end;
 opt_blks([], _ParamInfo, _StMap, changed, Count, Acc) ->
     {reverse(Acc),Count};
@@ -140,7 +159,7 @@ call_size_func(#b_set{op=call,args=[Name|Args],dst=Dst}, Bs) ->
     StMap = map_get(st_map, Bs),
     case StMap of
         #{Name := #opt_st{ssa=Linear,args=Params}} ->
-            NewBs0 = setup_call_bs(Params, Args, Bs, #{}),
+            NewBs0 = setup_call_bs(Params, Args, Bs),
             case any(fun({writable,_}) -> true;
                         (_) -> false
                      end, maps:values(NewBs0)) of
@@ -206,15 +225,16 @@ capture_generator_1(Dst, [_|T], Bs) ->
 capture_generator_1(_, [], Bs) ->
     Bs.
 
-setup_call_bs([V|Vs], [A0|As], OldBs, NewBs) ->
-    A = case get_value(A0, OldBs) of
-            #b_literal{}=Lit -> {arg,Lit};
-            {writable,#b_literal{val=0}}=Wr -> Wr;
-            {arg,_}=Arg -> Arg;
-            _ -> any
-        end,
-    setup_call_bs(Vs, As, OldBs, NewBs#{V => A});
-setup_call_bs([], [], #{}, NewBs) -> NewBs.
+setup_call_bs(Vs, As, Bs) ->
+    #{V => setup_call_binding(A, Bs) || V <- Vs && A <- As}.
+
+setup_call_binding(A, Bs) ->
+    case get_value(A, Bs) of
+        #b_literal{}=Lit -> {arg,Lit};
+        {writable,#b_literal{val=0}}=Wr -> Wr;
+        {arg,_}=Arg -> Arg;
+        _ -> any
+    end.
 
 calc_size([{L,#b_blk{is=Is,last=Last}}|Blks], Map0) ->
     case maps:take(L, Map0) of
@@ -557,8 +577,8 @@ cg_size_calc(Expr, L, #b_blk{}=Blk0, Count0, Acc0) ->
     PhiIs = [#b_set{op=phi,dst=PhiDst,args=PhiArgs}],
     PhiBlk = #b_blk{is=PhiIs,last=cg_br(InitWrL)},
 
-    #b_blk{is=[InitWr]} = Blk0,
-    Is = [InitWr#b_set{args=[PhiDst]}],
+    #b_blk{is=[InitWr|Is0]} = Blk0,
+    Is = [InitWr#b_set{args=[PhiDst]}|Is0],
     Blk = Blk0#b_blk{is=Is},
 
     Acc = [{InitWrL,Blk},

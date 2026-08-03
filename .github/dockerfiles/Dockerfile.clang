@@ -1,6 +1,8 @@
 ## %CopyrightBegin%
 ##
-## Copyright Ericsson AB 2024. All Rights Reserved.
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2024-2025. All Rights Reserved.
 ##
 ## Licensed under the Apache License, Version 2.0 (the "License");
 ## you may not use this file except in compliance with the License.
@@ -43,6 +45,7 @@ ENV CC=clang CXX=clang++ \
 # give us this information such as gcc does...
 RUN  ./configure --with-ssl --with-ssl-lib-subdir=lib/x86_64-linux-gnu --prefix=/otp && \
         if cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi && \
+    ./otp_build download_gdb_tools && \
     make && sudo make install && \
     make FLAVOR=emu && sudo make install FLAVOR=emu
 

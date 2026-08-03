@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -193,7 +195,7 @@ The following macros are predefined:
   >
   > The `?FEATURE_ENABLED()` macro was introduced in Erlang/OTP 25.
 
-## Macros Overloading
+## Macro Overloading
 
 It is possible to overload macros, except for predefined macros. An overloaded
 macro has more than one definition, each with a different number of arguments.
@@ -240,7 +242,7 @@ f() ->
 
 ## Removing a macro definition
 
-A definition of macro can be removed as follows:
+A definition of a macro can be removed as follows:
 
 ```erlang
 -undef(Macro).
@@ -279,7 +281,7 @@ Syntactically, the `Condition` in `if` and `elif` must be a
 a `case` expression) result in a compilation error.
 
 As opposed to the standard guard expressions, an expression in an `if` and
-`elif` also supports calling the psuedo-function `defined(Name)`, which tests
+`elif` also supports calling the pseudo-function `defined(Name)`, which tests
 whether the `Name` argument is the name of a previously defined macro.
 `defined(Name)` evaluates to `true` if the macro is defined and `false`
 otherwise. An attempt to call other functions results in a compilation error.
@@ -311,7 +313,7 @@ or
 {ok,m}
 ```
 
-`?LOG(Arg)` is then expanded to a call to `io:format/2` and provide the user
+`?LOG(Arg)` is then expanded to a call to `io:format/2` and provides the user
 with some simple trace output.
 
 _Example:_
@@ -319,10 +321,10 @@ _Example:_
 ```erlang
 -module(m)
 ...
--if(?OTP_RELEASE >= 25).
-%% Code that will work in OTP 25 or higher
--elif(?OTP_RELEASE >= 26).
+-if(?OTP_RELEASE >= 26).
 %% Code that will work in OTP 26 or higher
+-elif(?OTP_RELEASE >= 25).
+%% Code that will work in OTP 25 or higher
 -else.
 %% Code that will work in OTP 24 or lower.
 -endif.

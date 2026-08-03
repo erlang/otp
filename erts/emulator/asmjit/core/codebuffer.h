@@ -1,13 +1,13 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_CODEBUFFER_H_INCLUDED
 #define ASMJIT_CORE_CODEBUFFER_H_INCLUDED
 
-#include "../core/globals.h"
-#include "../core/support.h"
+#include <asmjit/core/globals.h>
+#include <asmjit/support/support.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -45,11 +45,14 @@ struct CodeBuffer {
   //! \{
 
   //! Returns a reference to the byte at the given `index`.
+  [[nodiscard]]
   inline uint8_t& operator[](size_t index) noexcept {
     ASMJIT_ASSERT(index < _size);
     return _data[index];
   }
+
   //! \overload
+  [[nodiscard]]
   inline const uint8_t& operator[](size_t index) const noexcept {
     ASMJIT_ASSERT(index < _size);
     return _data[index];
@@ -61,34 +64,47 @@ struct CodeBuffer {
   //! \{
 
   //! Returns code buffer flags.
+  [[nodiscard]]
   ASMJIT_INLINE_NODEBUG CodeBufferFlags flags() const noexcept { return _flags; }
+
   //! Tests whether the code buffer has the given `flag` set.
-  ASMJIT_INLINE_NODEBUG bool hasFlag(CodeBufferFlags flag) const noexcept { return Support::test(_flags, flag); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool has_flag(CodeBufferFlags flag) const noexcept { return Support::test(_flags, flag); }
 
   //! Tests whether this code buffer has a fixed size.
   //!
   //! Fixed size means that the code buffer is fixed and cannot grow.
-  ASMJIT_INLINE_NODEBUG bool isFixed() const noexcept { return hasFlag(CodeBufferFlags::kIsFixed); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_fixed() const noexcept { return has_flag(CodeBufferFlags::kIsFixed); }
 
   //! Tests whether the data in this code buffer is external.
   //!
   //! External data can only be provided by users, it's never used by AsmJit.
-  ASMJIT_INLINE_NODEBUG bool isExternal() const noexcept { return hasFlag(CodeBufferFlags::kIsExternal); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_external() const noexcept { return has_flag(CodeBufferFlags::kIsExternal); }
 
   //! Tests whether the data in this code buffer is allocated (non-null).
-  ASMJIT_INLINE_NODEBUG bool isAllocated() const noexcept { return _data != nullptr; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_allocated() const noexcept { return _data != nullptr; }
 
   //! Tests whether the code buffer is empty.
-  ASMJIT_INLINE_NODEBUG bool empty() const noexcept { return !_size; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_empty() const noexcept { return !_size; }
 
   //! Returns the size of the data.
+  [[nodiscard]]
   ASMJIT_INLINE_NODEBUG size_t size() const noexcept { return _size; }
+
   //! Returns the capacity of the data.
+  [[nodiscard]]
   ASMJIT_INLINE_NODEBUG size_t capacity() const noexcept { return _capacity; }
 
   //! Returns the pointer to the data the buffer references.
+  [[nodiscard]]
   ASMJIT_INLINE_NODEBUG uint8_t* data() noexcept { return _data; }
+
   //! \overload
+  [[nodiscard]]
   ASMJIT_INLINE_NODEBUG const uint8_t* data() const noexcept { return _data; }
 
   //! \}
@@ -96,10 +112,16 @@ struct CodeBuffer {
   //! \name Iterators
   //! \{
 
+  [[nodiscard]]
   ASMJIT_INLINE_NODEBUG uint8_t* begin() noexcept { return _data; }
+
+  [[nodiscard]]
   ASMJIT_INLINE_NODEBUG const uint8_t* begin() const noexcept { return _data; }
 
+  [[nodiscard]]
   ASMJIT_INLINE_NODEBUG uint8_t* end() noexcept { return _data + _size; }
+
+  [[nodiscard]]
   ASMJIT_INLINE_NODEBUG const uint8_t* end() const noexcept { return _data + _size; }
 
   //! \}

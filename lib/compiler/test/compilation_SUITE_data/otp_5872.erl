@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(otp_5872).
@@ -26,21 +28,21 @@
 chunk_request_body(Body,_ChunkSize,Acc) when Body == <<>>; Body == [] ->
     LastChunk = "0\r\n",
     lists:reverse(["\r\n",LastChunk|Acc]);
-chunk_request_body(Body,ChunkSize,Acc) when binary(Body), size(Body) >= ChunkSize ->
+chunk_request_body(Body,ChunkSize,Acc) when is_binary(Body), size(Body) >= ChunkSize ->
     <<ChunkBody:ChunkSize/binary,
       Rest/binary>> = Body,
     Chunk = [ibrowse_lib:dec2hex(4,ChunkSize),"\r\n",ChunkBody,"\r\n"],
     chunk_request_body(Rest,ChunkSize,[Chunk|Acc]);
-chunk_request_body(Body,_ChunkSize,Acc) when binary(Body) ->
+chunk_request_body(Body,_ChunkSize,Acc) when is_binary(Body) ->
     BodySize = size(Body),
     Chunk = [ibrowse_lib:dec2hex(4,BodySize),"\r\n",Body,"\r\n"],
     LastChunk = "0\r\n",
     lists:reverse(["\r\n",LastChunk,Chunk|Acc]);
-chunk_request_body(Body,ChunkSize,Acc) when list(Body), length(Body) >= ChunkSize ->
+chunk_request_body(Body,ChunkSize,Acc) when is_list(Body), length(Body) >= ChunkSize ->
     {ChunkBody,Rest} = ?MODULE:split_list_at(Body,ChunkSize),
     Chunk = [ibrowse_lib:dec2hex(4,ChunkSize),"\r\n",ChunkBody,"\r\n"],
     chunk_request_body(Rest,ChunkSize,[Chunk|Acc]);
-chunk_request_body(Body,_ChunkSize,Acc) when list(Body) ->
+chunk_request_body(Body,_ChunkSize,Acc) when is_list(Body) ->
     BodySize = length(Body),
     Chunk = [ibrowse_lib:dec2hex(4,BodySize),"\r\n",Body,"\r\n"],
     LastChunk = "0\r\n",

@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2008-2026. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +37,8 @@ MODULES= \
 	pkits_SUITE \
 	pubkey_cert_SUITE \
 	pubkey_policy_tree_SUITE \
-	pubkey_ocsp_SUITE
+	pubkey_ocsp_SUITE \
+	pubkey_eqc_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -87,7 +90,7 @@ release_tests_spec: opt
 	$(INSTALL_DATA) $(SPEC_FILES) $(ERL_FILES) $(COVER_FILE) $(HRL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(TARGET_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
-	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	@tar cf - *_SUITE_data  property_test | (cd "$(RELSYSDIR)"; tar xf -)
 release_docs_spec:
 
 

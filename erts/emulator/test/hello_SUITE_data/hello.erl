@@ -1,6 +1,8 @@
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -770,6 +772,34 @@ test_apply_errors() ->
     catch
         error:undef:Stk2 ->
             [{M,whatever,[42],_}|_] = Stk2
+    end,
+
+    %% ERIERL-1220: Set a bad error handler on purpose, this used to crash the
+    %% emulator.
+    erlang:process_flag(error_handler, this_module_does_not_exist),
+
+    try known_bad_module:whatever(42) of
+        _ ->
+            error(expected_failure)
+    catch
+        error:undef:Stk3 ->
+            [{known_bad_module,whatever,[42],_}|_] = Stk3
+    end,
+
+    try M:whatever(42) of
+        _ ->
+            error(expected_failure)
+    catch
+        error:undef:Stk4 ->
+            [{bad_module,whatever,[42],_}|_] = Stk4
+    end,
+
+    try apply(M, whatever, id([42])) of
+        _ ->
+            error(expected_failure)
+    catch
+        error:undef:Stk5 ->
+            [{bad_module,whatever,[42],_}|_] = Stk5
     end,
 
     erlang:process_flag(error_handler, OldErrorHandler),
@@ -1662,7 +1692,7 @@ test_hibernate() ->
 maximum_hibernate_heap_size(Term) ->
     %% When hibernating, a few extra words will be allocated to hold the
     %% continuation pointer as well as scratch space for the interpreter/jit.
-    erts_debug:flat_size(Term) + 8.
+    erts_debug:flat_size(Term) + 12.
 
 hibernate_wake_up(0, _, _) -> ok;
 hibernate_wake_up(N, MaxHeapSz, Child) ->

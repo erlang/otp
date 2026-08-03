@@ -71,3 +71,6 @@
 {skip_cases,"../mnesia_test",mnesia_consistency_test,
             [consistency_after_rename_of_node],
             "Not yet implemented"}.
+{skip_cases,"../mnesia_test",mnesia_external_backend_test,
+            [backup_and_restore_should_work_with_external_backend],
+            "Not yet implemented"}.

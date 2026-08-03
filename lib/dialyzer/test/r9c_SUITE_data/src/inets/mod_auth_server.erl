@@ -123,7 +123,7 @@ add_password(Addr, Port, Dir, Password)->
 
 %% update_password/6
 
-update_password(Addr, Port, Dir, Old, New) when list(New) ->
+update_password(Addr, Port, Dir, Old, New) when is_list(New) ->
     Name = make_name(Addr, Port),
     Req  = {update_password, Dir, Old, New},
     call(Name, Req).
@@ -284,7 +284,7 @@ handle_call({add_password, Dir, Password}, _From, State)->
 handle_call({update_password, Dir, Old, New},_From,State)->
     Reply =
 	case getPassword(State, Dir) of
-	    OldPwd when binary(OldPwd)->
+            OldPwd when is_binary(OldPwd)->
 		case erlang:md5(Old) of
 		    OldPwd ->
 			%% The old password is right =>
@@ -366,7 +366,7 @@ controlPassword(Password,State,Dir)when Password=:="DummyPassword"->
 
 controlPassword(Password,State,Dir)->
     case getPassword(State,Dir) of
-	Pwd when binary(Pwd)->
+        Pwd when is_binary(Pwd)->
 	    case erlang:md5(Password) of
 		Pwd ->
 		    ok;
@@ -391,7 +391,7 @@ do_update_password(Dir, New, State) ->
 
 do_add_password(Dir, Password, State) ->
     case getPassword(State,Dir) of
-	PwdExists when binary(PwdExists) ->
+        PwdExists when is_binary(PwdExists) ->
 	    {error, dir_protected};
 	{error, _} ->
 	    do_update_password(Dir, Password, State)
@@ -421,3 +421,26 @@ call(Name, Req) ->
 	Reply ->
 	    Reply
     end.
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

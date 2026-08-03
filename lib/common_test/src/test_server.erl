@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,9 @@
 %% %CopyrightEnd%
 -module(test_server).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_possibly_unsafe_function, {erlang, binary_to_term, 1}}]).
 
 -define(DEFAULT_TIMETRAP_SECS, 60).
 
@@ -1913,11 +1918,9 @@ permit_io(GroupLeader, FromPid) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% sleep(Time) -> ok
-%% Time = integer() | float() | infinity
-%%
 %% Sleeps the specified number of milliseconds. This sleep also accepts
 %% floating point numbers (which are truncated) and the atom 'infinity'.
+-spec sleep(timeout() | float()) -> ok.
 sleep(infinity) ->
     receive
     after infinity ->
@@ -1931,14 +1934,12 @@ sleep(MSecs) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% adjusted_sleep(Time) -> ok
-%% Time = integer() | float() | infinity
-%%
 %% Sleeps the specified number of milliseconds, multiplied by the
 %% 'multiply_timetraps' value (if set) and possibly also automatically scaled
 %% up if 'scale_timetraps' is set to true (which is default).
 %% This function also accepts floating point numbers (which are truncated) and
 %% the atom 'infinity'.
+-spec adjusted_sleep(timeout() | float()) -> ok.
 adjusted_sleep(infinity) ->
     receive
     after infinity ->

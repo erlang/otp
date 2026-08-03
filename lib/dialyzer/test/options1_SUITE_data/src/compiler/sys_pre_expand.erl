@@ -1,4 +1,11 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,14 +17,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%%
-%%     $Id: sys_pre_expand.erl,v 1.1 2008/12/17 09:53:42 mikpe Exp $
-%%
-%% Purpose : Expand some source Erlang constructions. This is part of the
-%%           pre-processing phase.
+%% %CopyrightEnd%
 
 %% N.B. Although structs (tagged tuples) are not yet allowed in the
 %% language there is code included in pattern/2 and expr/3 (commented out)
@@ -160,7 +160,7 @@ attribute(export, Es, St) ->
     St#expand{exports=union(from_list(Es), St#expand.exports)};
 attribute(import, Is, St) ->
     import(Is, St);
-attribute(compile, C, St) when list(C) ->
+attribute(compile, C, St) when is_list(C) ->
     St#expand{compile=St#expand.compile ++ C};
 attribute(compile, C, St) ->
     St#expand{compile=St#expand.compile ++ [C]};
@@ -168,7 +168,7 @@ attribute(record, {Name,Defs}, St) ->
     St#expand{records=dict:store(Name, normalise_fields(Defs),
 				 St#expand.records)};
 attribute(file, _File, St) -> St;		%This is ignored
-attribute(Name, Val, St) when list(Val) ->
+attribute(Name, Val, St) when is_list(Val) ->
     St#expand{attributes=St#expand.attributes ++ [{Name,Val}]};
 attribute(Name, Val, St) ->
     St#expand{attributes=St#expand.attributes ++ [{Name,[Val]}]}.

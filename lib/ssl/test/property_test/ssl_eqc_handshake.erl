@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,35 +25,7 @@
 
 -compile(export_all).
 
--proptest(eqc).
--proptest([triq,proper]).
-
--ifndef(EQC).
--ifndef(PROPER).
--ifndef(TRIQ).
--define(EQC,true).
--endif.
--endif.
--endif.
-
--ifdef(EQC).
--include_lib("eqc/include/eqc.hrl").
--define(MOD_eqc,eqc).
-
--else.
--ifdef(PROPER).
--include_lib("proper/include/proper.hrl").
--define(MOD_eqc,proper).
-
--else.
--ifdef(TRIQ).
--define(MOD_eqc,triq).
--include_lib("triq/include/triq.hrl").
-
--endif.
--endif.
--endif.
-
+-include_lib("common_test/include/ct_property_test.hrl").
 -include_lib("kernel/include/inet.hrl").
 -include_lib("ssl/src/tls_handshake_1_3.hrl").
 -include_lib("ssl/src/tls_handshake.hrl").
@@ -60,57 +34,120 @@
 -include_lib("ssl/src/ssl_internal.hrl").
 -include_lib("ssl/src/ssl_record.hrl").
 
-
+-define(HELLO_RETRY_REQUEST_RANDOM, <<207,33,173,116,229,154,97,17,
+                                      190,29,140,2,30,101,184,145,
+                                      194,162,17,22,122,187,140,94,
+                                      7,158,9,226,200,168,51,156>>).
 %%--------------------------------------------------------------------
 %% Properties --------------------------------------------------------
 %%--------------------------------------------------------------------
 
+prop_hello_ext_unwrap() ->
+ ?FORALL({_, WrappedValue}, ?LET(Version, tls_version(), hello_extension(Version)),
+         try
+             _Result = ssl_handshake:extension_value(WrappedValue),
+             true
+         catch
+             error:Err ->
+                 ct:log("WrappedValue ~p ~p", [WrappedValue, Err]),
+                 false
+         end
+        ).
+
 prop_tls_hs_encode_decode() ->
     ?FORALL({Handshake, TLSVersion}, ?LET(Version, tls_version(), {tls_msg(Version), Version}),
-            try 
+            begin
                 [Type, _Length, Data] = tls_handshake:encode_handshake(Handshake, TLSVersion),
-                case tls_handshake:decode_handshake(TLSVersion, Type, Data) of
-                    Handshake ->
-                        true;
-                    _ ->
-                        false
-                end
-            catch
-                throw:#alert{} ->
-                    true
+                DecHandshake = tls_handshake:decode_handshake(TLSVersion, Type, Data),
+                RawHandshake = raw_handshake(DecHandshake),
+                collect(hs_enum_to_atom(Type, Handshake),
+                equals(RawHandshake,Handshake))
             end
 	   ).
+
+raw_handshake(#client_hello{extensions = Exts} = Hello)->
+    NewExts = raw_ext_client(Exts),
+    Hello#client_hello{extensions = NewExts};
+raw_handshake(#server_hello{extensions = Exts} = Hello) ->
+    NewExts = raw_ext_server(Exts),
+    Hello#server_hello{extensions = NewExts};
+raw_handshake(Handshake) ->
+    Handshake.
+
+%% binder_length is saved in decode because we need it later to
+%% truncates client hello in handshake history, but it is not defined
+%% as part of the handshake record but calculated at TLS record
+%% layer. So we want to "unset" it for being able to have a simple
+%% property for encoding/decoding testing. Same goes for hybrid
+%% key_exchange where the decode functions splits the key-share into
+%% the two individual key-share values to use.
+raw_ext_client(Exts0) ->
+    Exts =  case maps:get(pre_shared_key, Exts0, undefined) of
+                #pre_shared_key_client_hello{} = PSKCH ->
+                    NewPSKCH = PSKCH#pre_shared_key_client_hello{binder_length = undefined},
+                    Exts0#{pre_shared_key => NewPSKCH};
+                _  ->
+                    Exts0
+            end,
+    case maps:get(key_share, Exts, undefined) of
+        #key_share_client_hello{client_shares = CShares} ->
+            NewCShares = [#key_share_entry{group = G, key_exchange = raw_kex(G, Kex)}
+                          || #key_share_entry{group = G, key_exchange = Kex} <- CShares],
+            Exts#{key_share => #key_share_client_hello{client_shares = NewCShares}};
+        _ ->
+            Exts
+    end.
+
+raw_ext_server(Exts) ->
+    case maps:get(key_share, Exts, undefined) of
+        #key_share_server_hello{server_share =
+                                    #key_share_entry{group = G,
+                                                     key_exchange = Kex}} = SHKS->
+            NewKeyShare = #key_share_entry{group = G, key_exchange = raw_kex(G, Kex)},
+            Exts#{key_share => SHKS#key_share_server_hello{server_share = NewKeyShare}};
+        _ ->
+            Exts
+    end.
+
+raw_kex(Group, {Bin1, Bin2}) when Group == x25519mlkem768;
+                                  Group == secp256r1mlkem768;
+                                  Group == secp384r1mlkem1024 ->
+    <<Bin1/binary, Bin2/binary>>;
+raw_kex(Group, Bin) when Group == x25519mlkem768;
+                       Group == secp256r1mlkem768;
+                       Group == secp384r1mlkem1024 ->
+    {not_split, byte_size(Bin)};
+raw_kex(_, Kex) ->
+    Kex.
 
 %%--------------------------------------------------------------------
 %% Message Generators  -----------------------------------------------
 %%--------------------------------------------------------------------
 
 tls_msg(?TLS_1_3= Version) ->
-    oneof([client_hello(Version),
-           server_hello(Version),
-           %%new_session_ticket()
-          #end_of_early_data{},
-           encrypted_extensions(),
-           certificate(),
-           certificate_request_1_3(),
-           certificate_verify_1_3(),
-           finished(),
-           key_update()
-          ]);
+    frequency([{10, client_hello(Version)},
+               {10, server_hello(Version)},
+               %%new_session_ticket()
+               {1, #end_of_early_data{}},
+               {10, encrypted_extensions()},
+               {3, certificate()},
+               {3, certificate_request_1_3()},
+               {2, certificate_verify_1_3()},
+               {2, finished()},
+               {3, key_update()}
+              ]);
 tls_msg(Version) ->
-    oneof([
-           #hello_request{},
-           client_hello(Version),
-           server_hello(Version),
-           certificate(),
-           %%server_key_exchange()
-           certificate_request(Version),
-           #server_hello_done{},
-           %%certificate_verify()
-           %%client_key_exchange()
-           finished()
-          ]).
-
+    frequency([{1, #hello_request{}},
+               {10, client_hello(Version)},
+               {10, server_hello(Version)},
+               {3, certificate()},
+               %{1, server_key_exchange()},
+               {3, certificate_request(Version)},
+               {1, #server_hello_done{}},
+               {1, certificate_verify()},
+               %{1, client_key_exchange()},
+               {2, finished()}
+              ]).
 %%
 %% Shared messages
 %%
@@ -126,23 +163,32 @@ client_hello(Version) ->
 		  client_version = Version,
                   cipher_suites = cipher_suites(Version),
 		  random = client_random(Version),
-		  extensions = client_hello_extensions(Version)    
+		  extensions = client_hello_extensions(Version)
                  }.
 
 server_hello(?TLS_1_3 = Version) ->
-    #server_hello{server_version = ?TLS_1_2,
-		  session_id = session_id(),
-                  random = server_random(Version),
-                  cipher_suite = cipher_suite(Version),
-		  extensions = server_hello_extensions(Version)    
-                 };
+    ?LET(ServerRand, server_random(Version), server_hello_1_3(Version, ServerRand));
 server_hello(Version) ->
     #server_hello{server_version = Version,
 		  session_id = session_id(),
                   random = server_random(Version),
                   cipher_suite = cipher_suite(Version),
-		  extensions = server_hello_extensions(Version)    
+                  extensions = server_hello_extensions(Version, server_hello)
                  }.
+
+server_hello_1_3(Version, ServerRand) ->
+    HSType = hs_type(ServerRand),
+    #server_hello{server_version = ?TLS_1_2,
+                  session_id = session_id(),
+                  random = ServerRand,
+                  cipher_suite = cipher_suite(Version),
+                  extensions = server_hello_extensions(Version, HSType)
+                 }.
+
+hs_type(?HELLO_RETRY_REQUEST_RANDOM) ->
+    hello_retry_request;
+hs_type(_) ->
+    server_hello.
 
 certificate() ->
     #certificate{
@@ -171,7 +217,10 @@ finished() ->
 %% TLS 1.0-1.2 messages
 %%
 
-
+certificate_verify() ->
+    #certificate_verify{
+       signature = signature()
+      }.
 
 %%
 %% TLS 1.3 messages
@@ -191,7 +240,7 @@ key_update() ->
 %%--------------------------------------------------------------------
 
 tls_version() ->
-    oneof([?TLS_1_3, ?TLS_1_2, ?TLS_1_1, ?TLS_1_0]).
+    frequency([{3,?TLS_1_3}, {3, ?TLS_1_2}, {1,?TLS_1_1}, {1, ?TLS_1_0}]).
 
 cipher_suite(Version) ->
     oneof(cipher_suites(Version)).
@@ -205,31 +254,34 @@ session_id() ->
 client_random(_) ->
     crypto:strong_rand_bytes(32).
 
+server_random(?TLS_1_3) ->
+    oneof([?HELLO_RETRY_REQUEST_RANDOM,
+           server_random(?TLS_1_2)]);
 server_random(_) ->
     crypto:strong_rand_bytes(32).
 
+hello_extension(Version) ->
+    ?LET(Exts, oneof([non_empty_extensions(Version, client_hello),
+                      non_empty_extensions(Version, server_hello)]),
+         oneof(maps:to_list(Exts))).
+
+non_empty_extensions(Version, Type) ->
+    ?LET(Extensions, ?SUCHTHAT(Exts, extensions(Version, Type), Exts =/= #{}),
+         Extensions).
 
 client_hello_extensions(Version) ->
     ?LET(Exts, extensions(Version, client_hello),
          maps:merge(ssl_handshake:empty_extensions(Version, client_hello),
                     Exts)).
 
-server_hello_extensions(Version) ->
-    ?LET(Exts, extensions(Version, server_hello),
-         maps:merge(ssl_handshake:empty_extensions(Version, server_hello),
-                    Exts)).
-
-key_share_client_hello() ->
-     oneof([undefined]).
-    %%oneof([#key_share_client_hello{}, undefined]).
-
-key_share_server_hello() ->
-     oneof([undefined]).
-    %%oneof([#key_share_server_hello{}, undefined]).
-
-pre_shared_keyextension() ->
-     oneof([undefined]).
-     %%oneof([#pre_shared_keyextension{},undefined]).
+server_hello_extensions(Version, server_hello = Type) ->
+    ?LET(Exts, extensions(Version, Type),
+         maps:merge(ssl_handshake:empty_extensions(Version, Type),
+                    Exts));
+server_hello_extensions(Version, hello_retry_request = Type) ->
+    ?LET(RetryKeyShare, retry_key_share(),
+         ?LET(Exts, extensions(Version, Type),
+           Exts#{key_share => RetryKeyShare})).
 
 %% +--------------------------------------------------+-------------+
 %% | Extension                                        |     TLS 1.3 |
@@ -281,12 +333,11 @@ pre_shared_keyextension() ->
 extensions(?TLS_1_3 = Version, MsgType = client_hello) ->
      ?LET({
            ServerName,
-           %% MaxFragmentLength,
-           %% StatusRequest,
+           MaxFragmentLength,
+           StatusRequest,
            SupportedGroups,
            SignatureAlgorithms,
            UseSrtp,
-           %% Heartbeat,
            ALPN,
            %% SignedCertTimestamp,
            %% ClientCertiticateType,
@@ -295,8 +346,8 @@ extensions(?TLS_1_3 = Version, MsgType = client_hello) ->
            KeyShare,
            PreSharedKey,
            PSKKeyExchangeModes,
-           %% EarlyData,
-           %% Cookie,
+           EarlyData,
+           Cookie,
            SupportedVersions,
            CertAuthorities,
            %% PostHandshakeAuth,
@@ -304,12 +355,11 @@ extensions(?TLS_1_3 = Version, MsgType = client_hello) ->
           },
           {
            oneof([server_name(), undefined]),
-           %% oneof([max_fragment_length(), undefined]),
-           %% oneof([status_request(), undefined]),
+           oneof([max_fragment_length(), undefined]),
+           oneof([status_request(MsgType), undefined]),
            oneof([supported_groups(Version), undefined]),
-           oneof([signature_algs(Version), undefined]),
+           oneof([signature_algs(Version)]),
            oneof([use_srtp(), undefined]),
-           %% oneof([heartbeat(), undefined]),
            oneof([alpn(), undefined]),
            %% oneof([signed_cert_timestamp(), undefined]),
            %% oneof([client_cert_type(), undefined]),
@@ -318,8 +368,8 @@ extensions(?TLS_1_3 = Version, MsgType = client_hello) ->
            oneof([key_share(MsgType), undefined]),
            oneof([pre_shared_key(MsgType), undefined]),
            oneof([psk_key_exchange_modes(), undefined]),
-           %% oneof([early_data(), undefined]),
-           %% oneof([cookie(), undefined]),
+           oneof([early_data_indication(), undefined]),
+           oneof([cookie(), undefined]),
            oneof([client_hello_versions(Version)]),
            oneof([cert_auths(), undefined]),
            %% oneof([post_handshake_auth(), undefined]),
@@ -332,12 +382,11 @@ extensions(?TLS_1_3 = Version, MsgType = client_hello) ->
                       end,
                       #{
                         sni => ServerName,
-                        %% max_fragment_length => MaxFragmentLength,
-                        %% status_request => StatusRequest,
+                        max_frag_enum => MaxFragmentLength,
+                        status_request => StatusRequest,
                         elliptic_curves => SupportedGroups,
                         signature_algs => SignatureAlgorithms,
                         use_srtp => UseSrtp,
-                        %% heartbeat => Heartbeat,
                         alpn => ALPN,
                         %% signed_cert_timestamp => SignedCertTimestamp,
                         %% client_cert_type => ClientCertificateType,
@@ -346,8 +395,8 @@ extensions(?TLS_1_3 = Version, MsgType = client_hello) ->
                         key_share => KeyShare,
                         pre_shared_key => PreSharedKey,
                         psk_key_exchange_modes => PSKKeyExchangeModes,
-                        %% early_data => EarlyData,
-                        %% cookie => Cookie,
+                        early_data => EarlyData,
+                        cookie => Cookie,
                         client_hello_versions => SupportedVersions,
                         certificate_authorities => CertAuthorities,
                         %% post_handshake_auth => PostHandshakeAuth,
@@ -360,33 +409,33 @@ extensions(Version, client_hello) ->
           ECCurves,
           ALPN,
           NextP,
-          SRP
-          %% RenegotiationInfo
+          SRP,
+          RenegotiationInfo
          },
          {
           oneof([sni(), undefined]),
           oneof([ec_point_formats(), undefined]),
-          oneof([elliptic_curves(Version), undefined]), 
-          oneof([alpn(),  undefined]), 
+          oneof([elliptic_curves(Version), undefined]),
+          oneof([alpn(),  undefined]),
           oneof([next_protocol_negotiation(), undefined]),
-          oneof([srp(), undefined])
-          %% oneof([renegotiation_info(), undefined])
+          oneof([srp(), undefined]),
+          oneof([renegotiation_info(), undefined])
          },
-         maps:filter(fun(_, undefined) -> 
+         maps:filter(fun(_, undefined) ->
                              false;
-                        (_,_) -> 
-                             true 
-                     end, 
+                        (_,_) ->
+                             true
+                     end,
                      #{
                        sni => SNI,
                        ec_point_formats => ECPoitF,
                        elliptic_curves => ECCurves,
                        alpn => ALPN,
                        next_protocol_negotiation => NextP,
-                       srp => SRP
-                       %% renegotiation_info => RenegotiationInfo
+                       srp => SRP,
+                       renegotiation_info => RenegotiationInfo
                       }));
-extensions(?TLS_1_3 = Version, MsgType = server_hello) ->
+extensions(?TLS_1_3 = Version, server_hello = MsgType) ->
     ?LET({
           KeyShare,
           PreSharedKey,
@@ -407,18 +456,40 @@ extensions(?TLS_1_3 = Version, MsgType = server_hello) ->
                        pre_shared_key => PreSharedKey,
                        server_hello_selected_version => SupportedVersions
                       }));
-extensions(Version, server_hello) ->
+
+extensions(?TLS_1_3 = Version, hello_retry_request = MsgType) ->
+    ?LET({
+          KeyShare,
+          Cookie,
+          SupportedVersions
+         },
+         {
+          oneof([retry_key_share()]),
+          oneof([cookie()]),
+          oneof([server_hello_selected_version()])
+         },
+         maps:filter(fun(_, undefined) ->
+                             false;
+                        (_,_) ->
+                             true
+                     end,
+                     #{
+                       key_share => KeyShare,
+                       cookie => Cookie,
+                       server_hello_selected_version => SupportedVersions
+                      }));
+extensions(Version, MsgType) when MsgType == server_hello ->
     ?LET({
           ECPoitF,
           ALPN,
-          NextP
-          %% RenegotiationInfo,
+          NextP,
+          RenegotiationInfo
          },
          {
           oneof([ec_point_formats(), undefined]),
           oneof([alpn(),  undefined]),
-          oneof([next_protocol_negotiation(), undefined])
-          %% oneof([renegotiation_info(), undefined]),
+          oneof([next_protocol_negotiation(), undefined]),
+          oneof([renegotiation_info(), undefined])
          },
          maps:filter(fun(_, undefined) ->
                              false;
@@ -428,31 +499,31 @@ extensions(Version, server_hello) ->
                      #{
                        ec_point_formats => ECPoitF,
                        alpn => ALPN,
-                       next_protocol_negotiation => NextP
-                       %% renegotiation_info => RenegotiationInfo
+                       next_protocol_negotiation => NextP,
+                       renegotiation_info => RenegotiationInfo
                       }));
 extensions(?TLS_1_3 = Version, encrypted_extensions) ->
      ?LET({
            ServerName,
-           %% MaxFragmentLength,
+           MaxFragmentLength,
            SupportedGroups,
-           %% UseSrtp,
+           UseSrtp,
            %% Heartbeat,
-           ALPN
+           ALPN,
            %% ClientCertiticateType,
            %% ServerCertificateType,
-           %% EarlyData
+           EarlyData
           },
           {
            oneof([server_name(), undefined]),
-           %% oneof([max_fragment_length(), undefined]),
+           oneof([max_fragment_length(), undefined]),
            oneof([supported_groups(Version), undefined]),
-           %% oneof([use_srtp(), undefined]),
+           oneof([use_srtp(), undefined]),
            %% oneof([heartbeat(), undefined]),
-           oneof([alpn(), undefined])
+           oneof([alpn(), undefined]),
            %% oneof([client_cert_type(), undefined]),
            %% oneof([server_cert_type(), undefined]),
-           %% oneof([early_data(), undefined])
+           oneof([early_data_indication(), undefined])
           },
           maps:filter(fun(_, undefined) ->
                               false;
@@ -461,69 +532,86 @@ extensions(?TLS_1_3 = Version, encrypted_extensions) ->
                       end,
                       #{
                         sni => ServerName,
-                        %% max_fragment_length => MaxFragmentLength,
+                        max_frag_enum => MaxFragmentLength,
                         elliptic_curves => SupportedGroups,
-                        %% use_srtp => UseSrtp,
-                        %% heartbeat => Heartbeat,
-                        alpn => ALPN
+                        use_srtp => UseSrtp,
+                        alpn => ALPN,
                         %% client_cert_type => ClientCertificateType,
                         %% server_cert_type => ServerCertificateType,
-                        %% early_data => EarlyData
+                        early_data => EarlyData
                        })).
 
 server_name() ->
   ?LET(ServerName, sni(),
        ServerName).
-    %% sni().
+
+max_fragment_length() ->
+    ?LET(Enum, elements([1,2,3,4]), #max_frag_enum{enum = Enum}).
+
+status_request(client_hello) ->
+    undefined; %% Should extend this as part of OCSP enhancement
+status_request(server_hello) ->
+    "".
+
+early_data_indication() ->
+    elements([#early_data_indication{},
+              #early_data_indication_nst{indication = 500}]).
+
+cookie() ->
+    %% Can be bigger, but value is not important here.
+    #cookie{cookie = rand:bytes(20)}.
 
 signature_algs_cert() ->
     ?LET(List,  sig_scheme_list(),
          #signature_algorithms_cert{signature_scheme_list = List}).
 
 signature_algorithms() ->
-    ?LET(List,  sig_scheme_list(), 
+    ?LET(List,  sig_scheme_list(),
          #signature_algorithms{signature_scheme_list = List}).
 
 sig_scheme_list() ->
-    oneof([[rsa_pkcs1_sha256],
-           [rsa_pkcs1_sha256, ecdsa_sha1],
-           [rsa_pkcs1_sha256,
-            rsa_pkcs1_sha384,
-            rsa_pkcs1_sha512,
-            ecdsa_secp256r1_sha256,
-            ecdsa_secp384r1_sha384,
-            ecdsa_secp521r1_sha512,
-            ecdsa_brainpoolP256r1tls13_sha256,
-            ecdsa_brainpoolP384r1tls13_sha384,
-            ecdsa_brainpoolP512r1tls13_sha512,
-            rsa_pss_rsae_sha256,
-            rsa_pss_rsae_sha384,
-            rsa_pss_rsae_sha512,
-            rsa_pss_pss_sha256,
-            rsa_pss_pss_sha384,
-            rsa_pss_pss_sha512,
-            rsa_pkcs1_sha1,
-            ecdsa_sha1]
-          ]).
+    elements([
+              [rsa_pkcs1_sha256],
+              [rsa_pkcs1_sha256, ecdsa_sha1],
+              [rsa_pkcs1_sha256,
+               rsa_pkcs1_sha384,
+               rsa_pkcs1_sha512,
+               ecdsa_secp256r1_sha256,
+               ecdsa_secp384r1_sha384,
+               ecdsa_secp521r1_sha512,
+               ecdsa_brainpoolP256r1tls13_sha256,
+               ecdsa_brainpoolP384r1tls13_sha384,
+               ecdsa_brainpoolP512r1tls13_sha512,
+               rsa_pss_rsae_sha256,
+               rsa_pss_rsae_sha384,
+               rsa_pss_rsae_sha512,
+               rsa_pss_pss_sha256,
+               rsa_pss_pss_sha384,
+               rsa_pss_pss_sha512,
+               rsa_pkcs1_sha1,
+               ecdsa_sha1]
+             ]).
 
 sig_scheme() ->
-    oneof([rsa_pkcs1_sha256,
-           rsa_pkcs1_sha384,
-           rsa_pkcs1_sha512,
-           ecdsa_secp256r1_sha256,
-           ecdsa_secp384r1_sha384,
-           ecdsa_secp521r1_sha512,
-           ecdsa_brainpoolP256r1tls13_sha256,
-           ecdsa_brainpoolP384r1tls13_sha384,
-           ecdsa_brainpoolP512r1tls13_sha512,
-           rsa_pss_rsae_sha256,
-           rsa_pss_rsae_sha384,
-           rsa_pss_rsae_sha512,
-           rsa_pss_pss_sha256,
-           rsa_pss_pss_sha384,
-           rsa_pss_pss_sha512,
-           rsa_pkcs1_sha1,
-           ecdsa_sha1]).
+    elements([
+              rsa_pkcs1_sha256,
+              rsa_pkcs1_sha384,
+              rsa_pkcs1_sha512,
+              ecdsa_secp256r1_sha256,
+              ecdsa_secp384r1_sha384,
+              ecdsa_secp521r1_sha512,
+              ecdsa_brainpoolP256r1tls13_sha256,
+              ecdsa_brainpoolP384r1tls13_sha384,
+              ecdsa_brainpoolP512r1tls13_sha512,
+              rsa_pss_rsae_sha256,
+              rsa_pss_rsae_sha384,
+              rsa_pss_rsae_sha512,
+              rsa_pss_pss_sha256,
+              rsa_pss_pss_sha384,
+              rsa_pss_pss_sha512,
+              rsa_pkcs1_sha1,
+              ecdsa_sha1
+             ]).
 
 signature() ->
     <<44,119,215,137,54,84,156,26,121,212,64,173,189,226,
@@ -570,13 +658,14 @@ request_update() ->
 
 certificate_chain()->
     Conf = cert_conf(),
-    ?LET(Chain, 
+    ?LET(Chain,
          choose_certificate_chain(Conf),
          Chain).
 
 choose_certificate_chain(#{server_config := ServerConf,
-                           client_config := ClientConf}) -> 
-    oneof([certificate_chain(ServerConf), certificate_chain(ClientConf)]).
+                           client_config := ClientConf}) ->
+    oneof([certificate_chain(ServerConf),
+           certificate_chain(ClientConf)]).
 
 certificate_request_context() ->
     oneof([<<>>,
@@ -595,26 +684,28 @@ certificate_entry(Cert) ->
 certificate_entry_extensions() ->
     #{}.
 
-certificate_chain(Conf) ->  
+certificate_chain(Conf) ->
     CAs = proplists:get_value(cacerts, Conf),
     Cert = proplists:get_value(cert, Conf),
     %% Middle argument are of correct type but will not be used
-    {ok, _, Chain} = ssl_certificate:certificate_chain(Cert, ets:new(foo, []), make_ref(), CAs, encoded), 
+    {ok, _, Chain} =
+        ssl_certificate:certificate_chain(Cert, ets:new(foo, []), make_ref(), CAs, encoded),
     Chain.
 
 cert_conf()->
     Hostname = net_adm:localhost(),
     {ok, #hostent{h_addr_list = [_IP |_]}} = inet:gethostbyname(net_adm:localhost()),
-    public_key:pkix_test_data(#{server_chain => 
+    public_key:pkix_test_data(#{server_chain =>
                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                      peer => [{extensions, [#'Extension'{extnID = 
-                                                                              ?'id-ce-subjectAltName',
-                                                                          extnValue = [{dNSName, Hostname}],
-                                                                          critical = false}]},
+                                      peer => [{extensions,
+                                                [#'Extension'{extnID =
+                                                                  ?'id-ce-subjectAltName',
+                                                              extnValue = [{dNSName, Hostname}],
+                                                              critical = false}]},
                                                {key, ssl_test_lib:hardcode_rsa_key(3)}
                                               ]},
-                                client_chain => 
+                                client_chain =>
                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}],
                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
                                       peer => [{key, ssl_test_lib:hardcode_rsa_key(6)}]}}).
@@ -623,9 +714,12 @@ cert_auths() ->
     certificate_authorities(?TLS_1_3).
 
 certificate_request_1_3() ->
-    #certificate_request_1_3{certificate_request_context = <<>>,
-                             extensions = #{certificate_authorities => certificate_authorities(?TLS_1_3)}
-                            }.
+    ?LET(Algs, signature_algs_cert(),
+         #certificate_request_1_3{certificate_request_context = <<>>,
+                                  extensions = #{certificate_authorities =>
+                                                     certificate_authorities(?TLS_1_3),
+                                                 signature_algs_cert =>
+                                                     Algs}}).
 certificate_request(Version) ->
     #certificate_request{certificate_types = certificate_types(Version),
 			 hashsign_algorithms = hashsign_algorithms(Version),
@@ -643,10 +737,9 @@ signature_algs(Version) when ?TLS_LT(Version, ?TLS_1_2) ->
     undefined.
 
 
-
 hashsign_algorithms(Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
     #hash_sign_algos{hash_sign_algos = hash_alg_list(Version)};
-hashsign_algorithms(_) -> 
+hashsign_algorithms(_) ->
     undefined.
 
 hash_alg_list(Version) ->
@@ -654,7 +747,7 @@ hash_alg_list(Version) ->
 	 ?LET(List, [hash_alg(Version) || _ <- lists:seq(1,NumOf)],
 	      lists:usort(List)
              )).
-    
+
 hash_alg(Version) ->
    ?LET(Alg, sign_algorithm(Version),
          {hash_algorithm(Version, Alg), Alg}
@@ -686,7 +779,7 @@ certificate_authorities(?TLS_1_3) ->
 
     #certificate_authorities{authorities = Auths};
 certificate_authorities(_) ->
-    #{server_config := ServerConf} = cert_conf(), 
+    #{server_config := ServerConf} = cert_conf(),
     Certs = proplists:get_value(cacerts, ServerConf),
     Auths = fun(#'OTPCertificate'{tbsCertificate = TBSCert}) ->
                     public_key:pkix_normalize_name(TBSCert#'OTPTBSCertificate'.subject)
@@ -696,10 +789,6 @@ certificate_authorities(_) ->
 digest_size()->
    oneof([160,224,256,384,512]).
 
-key_share_entry() ->
-    undefined.
-    %%#key_share_entry{}.
-
 server_hello_selected_version(Version) ->
     #server_hello_selected_version{selected_version = Version}.
 
@@ -708,7 +797,7 @@ sni() ->
 
 ec_point_formats() ->
     #ec_point_formats{ec_point_format_list = ec_point_format_list()}.
- 
+
 ec_point_format_list() ->
     [?ECPOINT_UNCOMPRESSED].
 
@@ -727,7 +816,7 @@ alpn() ->
 
 alpn_protocols() ->
     oneof([<<"spdy/2">>, <<"spdy/3">>, <<"http/2">>, <<"http/1.0">>, <<"http/1.1">>]).
-    
+
 next_protocol_negotiation() ->
    %% Predecessor to APLN
     ?LET(ExtD,  alpn_protocols(), #next_protocol_negotiation{extension_data = ExtD}).
@@ -736,12 +825,12 @@ srp() ->
    ?LET(Name, gen_name(),  #srp{username = list_to_binary(Name)}).
 
 renegotiation_info() ->
-    #renegotiation_info{renegotiated_connection = 0}.
+    #renegotiation_info{renegotiated_connection = ?byte(0)}.
 
-gen_name() -> 
+gen_name() ->
     ?LET(Size, choose(1,10), gen_string(Size)).
 
-gen_char() -> 
+gen_char() ->
     choose($a,$z).
 
 gen_string(N) ->
@@ -757,9 +846,38 @@ key_share(client_hello) ->
         #key_share_client_hello{
           client_shares = ClientShares});
 key_share(server_hello) ->
-    ?LET([ServerShare], key_share_entry_list(1),
-        #key_share_server_hello{
-          server_share = ServerShare}).
+    ?LET(Group, elements(ssl:groups()),
+         #key_share_server_hello{
+            server_share = generate_server_share(Group)}).
+
+retry_key_share() ->
+    ?LET(Group, elements(ssl:groups()),
+         #key_share_hello_retry_request{
+            selected_group = Group}).
+
+generate_server_share(x25519mlkem768 = Group) ->
+    {Curve, MLKem} = hybrid_algs(Group),
+    P1 = generate_public_key(Curve),
+    {P2, _} = crypto:generate_key(MLKem, []),
+    {_, CipherText} = crypto:encapsulate_key(MLKem, P2),
+    #key_share_entry{
+                group = Group,
+                key_exchange = <<CipherText/binary, P1/binary>>};
+generate_server_share(Group) when
+       Group =:= secp256r1mlkem768 orelse
+       Group =:= secp384r1mlkem1024 ->
+    {Curve, MLKem} = hybrid_algs(Group),
+    P1 = generate_public_key(Curve),
+    {P2, _} = crypto:generate_key(MLKem, []),
+    {_, CipherText} = crypto:encapsulate_key(MLKem, P2),
+     #key_share_entry{
+                group = Group,
+                key_exchange = <<P1/binary, CipherText/binary>>};
+generate_server_share(Group) ->
+    #key_share_entry{
+       group = Group,
+       key_exchange = generate_public_key(Group)
+      }.
 
 key_share_entry_list() ->
     Max = length(ssl:groups()),
@@ -796,11 +914,35 @@ generate_public_key(Group)
     #'ECPrivateKey'{publicKey = PublicKey} =
         public_key:generate_key({namedCurve, group_to_curve(Group)}),
     PublicKey;
-
+generate_public_key(Group) when
+       Group =:= mlkem512 orelse
+       Group =:= mlkem768 orelse
+       Group =:= mlkem1024 ->
+    {PublicKey, _} = crypto:generate_key(Group, []),
+    PublicKey;
+generate_public_key(x25519mlkem768 = Group) ->
+    {Curve, MLKem} = hybrid_algs(Group),
+    P2 = generate_public_key(Curve),
+    {P1,_} = crypto:generate_key(MLKem, []),
+    <<P1/binary, P2/binary>>;
+generate_public_key(Group) when
+       Group =:= secp256r1mlkem768 orelse
+       Group =:= secp384r1mlkem1024 ->
+    {Curve, MLKem} = hybrid_algs(Group),
+    P1 = generate_public_key(Curve),
+    {P2, _} = crypto:generate_key(MLKem, []),
+    <<P1/binary, P2/binary>>;
 generate_public_key(Group) ->
     {PublicKey, _} =
         public_key:generate_key(ssl_dh_groups:dh_params(Group)),
     PublicKey.
+
+hybrid_algs(x25519mlkem768)->
+    {x25519, mlkem768};
+hybrid_algs(secp256r1mlkem768) ->
+    {secp256r1, mlkem768};
+hybrid_algs(secp384r1mlkem1024) ->
+    {secp384r1, mlkem1024}.
 
 groups() ->
     Max = length(ssl:groups()),
@@ -816,7 +958,6 @@ group_list(N, Pool, Acc) ->
     G = lists:nth(R, Pool),
     group_list(N - 1, Pool -- [G], [G|Acc]).
 
-
 ke_modes() ->
     oneof([[psk_ke],[psk_dhe_ke],[psk_ke,psk_dhe_ke]]).
 
@@ -829,7 +970,8 @@ pre_shared_key(client_hello) ->
     ?LET(OfferedPsks, offered_psks(),
          #pre_shared_key_client_hello{
             offered_psks = OfferedPsks});
-pre_shared_key(server_hello) ->
+pre_shared_key(Type) when Type == server_hello;
+                          Type == hello_retry_request->
     ?LET(SelectedIdentity, selected_identity(),
          #pre_shared_key_server_hello{
            selected_identity = SelectedIdentity}).
@@ -879,3 +1021,34 @@ group_to_curve(brainpoolP256r1tls13) ->
     brainpoolP256r1;
 group_to_curve(Curve) ->
     Curve.
+
+hs_enum_to_atom(?HELLO_REQUEST, _) ->
+    hello_request;
+hs_enum_to_atom(?CLIENT_HELLO,_) ->
+    client_hello;
+hs_enum_to_atom(?SERVER_HELLO, #server_hello{random = ?HELLO_RETRY_REQUEST_RANDOM}) ->
+    hello_retry_request;
+hs_enum_to_atom(?SERVER_HELLO, _) ->
+    server_hello;
+hs_enum_to_atom(?CERTIFICATE,_) ->
+    certificate;
+hs_enum_to_atom(?SERVER_KEY_EXCHANGE,_) ->
+    server_key_exchange;
+hs_enum_to_atom(?CERTIFICATE_REQUEST,_) ->
+    certificate_request;
+hs_enum_to_atom(?SERVER_HELLO_DONE,_) ->
+    server_hello_done;
+hs_enum_to_atom(?CERTIFICATE_VERIFY,_) ->
+    certificate_verify;
+hs_enum_to_atom(?CLIENT_KEY_EXCHANGE,_) ->
+    client_key_exchange;
+hs_enum_to_atom(?FINISHED,_) ->
+    finished;
+hs_enum_to_atom(?NEW_SESSION_TICKET,_) ->
+    new_session_ticket;
+hs_enum_to_atom(?END_OF_EARLY_DATA,_) ->
+    end_of_early_data;
+hs_enum_to_atom(?ENCRYPTED_EXTENSIONS,_) ->
+    encrypted_extensions;
+hs_enum_to_atom(?KEY_UPDATE,_) ->
+    key_update.

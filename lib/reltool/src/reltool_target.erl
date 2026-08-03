@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -868,55 +870,20 @@ strip_sys_files(Relocatable, SysFiles, Apps, ExclRegexps) ->
 			reltool_utils:throw_error("This system is not installed. "
 						  "The directory ~ts is missing.",
 				    [Erts#app.label]);
-		    _ when File =:= Erts#app.label ->
-			replace_dyn_erl(Relocatable, Spec);
+                    _ when File =:= Erts#app.label ->
+                        true;
                     "erts-" ++ _ ->
 			false;
                     _ ->
                         true
                 end
         end,
-    SysFiles2 = lists:zf(FilterErts, SysFiles),
+    SysFiles2 = lists:filtermap(FilterErts, SysFiles),
     SysFiles3 = lists:foldl(fun(F, Acc) -> lists:keydelete(F, 2, Acc) end,
 			    SysFiles2,
 			    ["releases", "lib", "bin"]),
     {ExclRegexps2, SysFiles3}.
 
-replace_dyn_erl(false, _ErtsSpec) ->
-    true;
-replace_dyn_erl(true, {create_dir, ErtsDir, ErtsFiles}) ->
-    [{create_dir, _, BinFiles}] =
-	safe_lookup_spec("bin", ErtsFiles),
-    case lookup_spec("dyn_erl", BinFiles) of
-        [] ->
-            case lookup_spec("erl.ini", BinFiles) of
-                [] ->
-                    true;
-                [{copy_file, ErlIni}] ->
-                    %% Remove Windows .ini file
-                    BinFiles2 = lists:keydelete(ErlIni, 2, BinFiles),
-                    ErtsFiles2 =
-			lists:keyreplace("bin",
-					 2,
-					 ErtsFiles,
-					 {create_dir, "bin", BinFiles2}),
-                    {true, {create_dir, ErtsDir, ErtsFiles2}}
-            end;
-        [{copy_file, DynErlExe}] ->
-            %% Replace erl with dyn_erl
-            ErlExe = "erl" ++ filename:extension(DynErlExe),
-            BinFiles2 = lists:keydelete(DynErlExe, 2, BinFiles),
-            DynErlExe2 = filename:join([ErtsDir, "bin", DynErlExe]),
-            BinFiles3 = lists:keyreplace(ErlExe,
-					 2,
-					 BinFiles2,
-					 {copy_file, ErlExe, DynErlExe2}),
-            ErtsFiles2 = lists:keyreplace("bin",
-					  2,
-					  ErtsFiles,
-					  {create_dir, "bin", BinFiles3}),
-            {true, {create_dir, ErtsDir, ErtsFiles2}}
-    end.
 
 spec_bin_files(Sys, AllSysFiles, StrippedSysFiles, RelFiles, InclRegexps) ->
     [{create_dir, ErtsLabel, ErtsFiles}] =
@@ -972,15 +939,14 @@ spec_escripts(#sys{apps = Apps}, ErtsBin, BinFiles) ->
                              false
                      end
              end,
-    lists:flatten(lists:zf(Filter, Apps)).
+    lists:flatten(lists:filtermap(Filter, Apps)).
 
 do_spec_escript(File, ErtsBin, BinFiles) ->
-    [{copy_file, EscriptExe}] = safe_lookup_spec("escript", BinFiles),
     EscriptExt = ".escript",
     Base = filename:basename(File, EscriptExt),
-    ExeExt = filename:extension(EscriptExe),
-    [{copy_file, Base ++ EscriptExt, File},
-     {copy_file, Base ++ ExeExt, filename:join([ErtsBin, EscriptExe])}].
+    ExeS = [{copy_file, Base ++ filename:extension(BinF), filename:join([ErtsBin, BinF])}
+            || {copy_file, BinF} <- safe_lookup_spec("escript", BinFiles)],
+    [{copy_file, Base ++ EscriptExt, File} | ExeS].
 
 check_sys(Mandatory, SysFiles) ->
     lists:foreach(fun(M) -> do_check_sys(M, SysFiles) end, Mandatory).
@@ -1286,7 +1252,7 @@ filter_spec(List, InclRegexps, ExclRegexps) ->
     do_filter_spec("", List, InclRegexps, ExclRegexps).
 
 do_filter_spec(Path, List, InclRegexps, ExclRegexps) when is_list(List) ->
-    lists:zf(fun(File) ->
+    lists:filtermap(fun(File) ->
 		     do_filter_spec(Path, File, InclRegexps, ExclRegexps)
 	     end,
 	     List);

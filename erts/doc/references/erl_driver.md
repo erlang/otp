@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -2780,12 +2782,19 @@ This function is thread-safe.
 ## erl_errno_id()
 
 ```c
-char * erl_errno_id(int error);
+char * erl_errno_id(int eno);
 ```
 
-Returns the atom name of the Erlang error, given the error number in `error`.
-The error atoms are `einval`, `enoent`, and so on. It can be used to make error
-terms from the driver.
+Returns a string corresponding to the lowercase `errno` name for the integer
+value of `eno`. For example, `erl_errno_id(ENOTSUP)` will return the string
+`"enotsup"`. Note that multiple `errno` names can share the same integer
+value, so for example `erl_errno_id(EOPNOTSUPP)` might not return
+`"eopnotsupp"`, but might instead return `"enotsup"`. The resulting string can
+be used to make error terms to propagate from the driver.
+
+If no corresponding `errno` name can be determined, the string
+`"errno_<ERRNO-INTEGER>"` will, as of the OTP 29 release, be returned. In
+releases prior to to OTP 29, the string `"unknown"` was returned.
 
 ## remove_driver_entry()
 

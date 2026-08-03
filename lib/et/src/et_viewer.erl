@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,7 +38,7 @@
 	 stop/1, 
          get_collector_pid/1]).
 
--include("../include/et.hrl").
+-include_lib("et/include/et.hrl").
 -include("et_internal.hrl").
 
 -define(unknown, "UNKNOWN").

@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -139,7 +141,7 @@ t_not(Config) when is_list(Config) ->
     run_test_module(Cases, false),
     {comment,integer_to_list(length(Cases)) ++ " cases"}.
 
-%% Test that simlpe relations between relation operators hold.
+%% Test that simple relations between relation operators hold.
 relop_simple(Config) when is_list(Config) ->
     Big1 = 19738924729729787487784874,
     Big2 = 38374938373887374983978484,
@@ -168,19 +170,33 @@ relop_simple_do(V1,V2) ->
     %%io:format("compare ~p\n   and  ~p\n",[V1,V2]),
 
     L = V1 < V2,
-    L = not (V1 >= V2),
+    L = not id(V1 >= V2),
     L = V2 > V1,
-    L = not (V2 =< V1),
+    L = not id(V2 =< V1),
 
-    G = V1 > V2,
-    G = not (V1 =< V2),
-    G = V2 < V1,
-    G = not (V2 >= V1),
+    LE = V1 =< V2,
+    LE = not id(V1 > V2),
+    LE = V2 >= V1,
+    LE = not id(V2 < V1),
+
+    G = id(if
+               V1 > V2 -> id(true);
+               true -> false
+           end),
+    G = id(V1 > V2),
+    G = not id(V1 =< V2),
+    G = id(V2 < V1),
+    G = not id(V2 >= V1),
+
+    GE = id(V1 >= V2),
+    GE = not id(V1 < V2),
+    GE = id(V2 =< V1),
+    GE = not id(V2 > V1),
 
     ID = V1 =:= V2,
     ID = V2 =:= V1,
-    ID = not (V1 =/= V2),
-    ID = not (V2 =/= V1),
+    ID = not id(V1 =/= V2),
+    ID = not id(V2 =/= V1),
 
     implies(ID, V1 == V2),
 
@@ -194,7 +210,146 @@ relop_simple_do(V1,V2) ->
         {false, true,  false, false,  0} -> ok;
         {false, true,   true, false,  0} -> ok;
         {false, false, false, true,  +1} -> ok
-    end.
+    end,
+
+    LE = L orelse EQ,
+    GE = G orelse EQ,
+
+    relop_simple_do1(id(V1), id(V2)).
+
+relop_simple_do1(V1, V2) ->
+    if
+        is_integer(V1), -1 bsl 56 =< V1, V1 =< 1 bsl 56,
+        is_integer(V2), V2 < 1 bsl 56 ->
+            L = id(if
+                       V1 < V2 -> id(true);
+                       true -> false
+                   end),
+            L = id(V1 < V2),
+            L = not id(V1 >= V2),
+            L = id(V2 > V1),
+            L = not id(V2 =< V1),
+
+            LE = id(if
+                        V1 =< V2 -> id(true);
+                        true -> false
+                   end),
+            LE = id(V1 =< V2),
+            LE = not id(V1 > V2),
+            LE = id(V2 >= V1),
+            LE = not id(V2 < V1),
+
+            G = id(if
+                       V1 > V2 -> id(true);
+                       true -> false
+                   end),
+            G = id(V1 > V2),
+            G = not id(V1 =< V2),
+            G = id(V2 < V1),
+            G = not id(V2 >= V1),
+
+            GE = id(if
+                        V1 >= V2 -> id(true);
+                        true -> false
+                   end),
+            GE = id(V1 >= V2),
+            GE = not id(V1 < V2),
+            GE = id(V2 =< V1),
+            GE = not id(V2 > V1),
+
+            ok;
+        true ->
+            ok
+    end,
+    relop_simple_do2(id(V1), id(V2)).
+
+relop_simple_do2(V1, V2) ->
+    if
+        is_integer(V1), -1 bsl 56 =< V1, V1 =< 1 bsl 56,
+        is_integer(V2), V2 > 1 bsl 50 ->
+            L = id(if
+                       V1 < V2 -> id(true);
+                       true -> false
+                   end),
+            L = id(V1 < V2),
+            L = not id(V1 >= V2),
+            L = id(V2 > V1),
+            L = not id(V2 =< V1),
+
+            LE = id(if
+                        V1 =< V2 -> id(true);
+                        true -> false
+                   end),
+            LE = id(V1 =< V2),
+            LE = not id(V1 > V2),
+            LE = id(V2 >= V1),
+            LE = not id(V2 < V1),
+
+            G = id(V1 > V2),
+            G = not id(V1 =< V2),
+            G = id(V2 < V1),
+            G = not id(V2 >= V1),
+
+            GE = id(if
+                        V1 >= V2 -> id(true);
+                        true -> false
+                   end),
+            GE = id(V1 >= V2),
+            GE = not id(V1 < V2),
+            GE = id(V2 =< V1),
+            GE = not id(V2 > V1),
+
+            ok;
+        true ->
+            ok
+    end,
+    relop_simple_do3(id(V1), id(V2)).
+
+relop_simple_do3(V1, V2) ->
+    if
+        is_integer(V1),
+        is_integer(V2), -1 bsl 56 =< V2, V2 =< 1 bsl 56 ->
+            L = id(if
+                       V1 < V2 -> id(true);
+                       true -> false
+                   end),
+            L = id(V1 < V2),
+            L = not id(V1 >= V2),
+            L = id(V2 > V1),
+            L = not id(V2 =< V1),
+
+            LE = id(if
+                        V1 =< V2 -> id(true);
+                        true -> false
+                   end),
+            LE = id(V1 =< V2),
+            LE = not id(V1 > V2),
+            LE = id(V2 >= V1),
+            LE = not id(V2 < V1),
+
+            G = id(if
+                       V1 > V2 -> id(true);
+                       true -> false
+                   end),
+            G = V1 > V2,
+            G = not id(V1 =< V2),
+            G = V2 < V1,
+            G = not id(V2 >= V1),
+
+            GE = id(if
+                        V1 >= V2 -> id(true);
+                        true -> false
+                    end),
+            GE = id(V1 >= V2),
+            GE = not id(V1 < V2),
+            GE = id(V2 =< V1),
+            GE = not id(V2 > V1),
+
+            ok;
+        true ->
+            ok
+    end,
+    ok.
 
 implies(false, _) -> ok;
 implies(true, true) -> ok.
@@ -843,7 +998,7 @@ combined_relops(_Config) ->
     %% Test a sequence that can't occur in optimized code:
     %%   is_ge Fail Src 10
     %%   is_ge Fail Src 5
-    Module = {?FUNCTION_NAME,[{test,1}],[],
+    Module = {?FUNCTION_NAME,[{test,1}],[],#{},
               [{function, test, 1, 2,
                 [{label,1},
                  {line,[{location,"t.erl",4}]},

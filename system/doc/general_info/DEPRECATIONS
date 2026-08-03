@@ -1,3 +1,22 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2020-2026. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
 #
 # This file contains additional information about each
 # deprecated function, namely in what release it was
@@ -18,11 +37,51 @@
 #
 
 #
+# Added in OTP 29.
+#
+crypto:private_decrypt/4 unsafe=29
+crypto:private_encrypt/4 unsafe=29
+crypto:public_decrypt/4 unsafe=29
+crypto:public_encrypt/4 unsafe=29
+ct_ftp:_/_ since=29 remove=30
+erlang:binary_to_atom/_ unsafe=29
+erlang:binary_to_term/_ unsafe=29
+erlang:list_to_atom/1 unsafe=29
+file:consult/_ unsafe=29
+file:path_consult/_ unsafe=29
+ftp:_/_  since=29 remove=30
+http_uri:_/_ unsafe=29
+lists:zf/2 since=29
+odbc:_/_  since=29 remove=30
+os:cmd/_ unsafe=29
+public_key:decrypt_private/2 unsafe=29
+public_key:decrypt_public/2 unsafe=29
+public_key:encrypt_private/2 unsafe=29
+public_key:encrypt_public/2 unsafe=29
+socket:open/_ unsafe=29
+xmerl_sax_parser:file/2 unsafe=29
+xmerl_sax_parser:stream/2 unsafe=29
+xmerl_scan:_/_ unsafe=29
+public_key:decrypt_private/3 unsafe=29
+public_key:decrypt_public/3 unsafe=29
+public_key:encrypt_private/3 unsafe=29
+public_key:encrypt_public/3 unsafe=29
+mod_cgi:_/_ since=29 remove=30
+mod_actions:_/_ since=29 remove=30
+
+#
+# Added in OTP 28.
+#
+crypto:start/0 since=28
+crypto:stop/0 since=28
+crypto:enable_fips_mode/1 since=28
+
+#
 # Added in OTP 27.
 #
-mnesia_registry:create_table/_ since=27 remove=28
+mnesia_registry:create_table/_ since=27 remove=29
 code:lib_dir/2 since=27
-ssl:prf/5 since=27
+ssl:prf/5 since=27 unsafe=29
 ssl:prf_random/0 since=27 remove=28
 
 #
@@ -35,8 +94,8 @@ dbg:stop_clear/0 since=26 remove=27
 #
 # Added in OTP 25.
 #
-slave:_/_ since=25 remove=29
-ct_slave:_/_ since=25 remove=29
+slave:_/_ since=25 remove=31
+ct_slave:_/_ since=25 remove=31
 httpd_util:encode_hex/1 since=25 remove=26
 httpd_util:decode_hex/1 since=25 remove=26
 

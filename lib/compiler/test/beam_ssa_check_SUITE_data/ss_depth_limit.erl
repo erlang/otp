@@ -16,18 +16,21 @@ do(N) ->
 	    "-export([f/0]).\n\n",
 	    "f() ->\n",
 	    "%ssa% fail () when post_ssa_opt ->\n"
-	    "%ssa% ret(X) { unique => [X] }.\n"
+	    "%ssa% ret(Y) { aliased => [Y] }.\n"
+            "  Y = e:f(),\n",
 	    "  X0 = e:f(),\n",
 	    [io_lib:format("  X~p = {X~p,e:f()},~n", [X, X-1])
 	     || X<- lists:seq(1, N)],
-	    io_lib:format("  X~p.~n", [N])
+	    io_lib:format("  e:f(X~p),~n", [N]),
+            "  Y.\n"
 	   ],
     file:write_file("ss_depth_limit.erl", Data).
 -endif.
 
 f() ->
 %ssa% fail () when post_ssa_opt ->
-%ssa% ret(X) { unique => [X] }.
+%ssa% ret(Y) { aliased => [Y] }.
+  Y = e:f(),
   X0 = e:f(),
   X1 = {X0,e:f()},
   X2 = {X1,e:f()},
@@ -60,4 +63,5 @@ f() ->
   X29 = {X28,e:f()},
   X30 = {X29,e:f()},
   X31 = {X30,e:f()},
-  X31.
+  e:f(X31),
+  Y.

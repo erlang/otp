@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -83,9 +85,9 @@ test_size(Config) when is_list(Config) ->
     %% Fun environment size = 0 (the smallest fun possible)
     SimplestFun = fun() -> ok end,
 
-    %% 2 words for the fun, 1 word to point at the off-heap reference, and
-    %% 3 words for the off-heap reference itself. The actual on-heap size is 3.
-    FunSz0 = 6,
+    %% Funs without environment occupy 2 words, and are stored off-heap as long
+    %% as their defining module is loaded.
+    FunSz0 = 2,
     FunSz0 = do_test_size(SimplestFun),
 
     %% Fun environment size = 1
@@ -98,8 +100,8 @@ test_size(Config) when is_list(Config) ->
 
     FunSz1 = do_test_size(fun() -> ConsCell1 end) - do_test_size(ConsCell1),
 
-    %% External funs are always 2 words (they're also always stored off-heap,
-    %% so the effective size is zero).
+    %% External funs, which always lack environment, occupy 2 words and are
+    %% always stored off-heap.
     2 = do_test_size(fun lists:sort/1),
 
     Arch = 8 * erlang:system_info({wordsize, external}),

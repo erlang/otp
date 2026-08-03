@@ -1,4 +1,11 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-type any() :: any().[0m
+[1m  any()[0m
 
-  All possible Erlang terms. Synonym for [;;4mterm/0[0m.
+  All possible Erlang terms. Synonym for [4mterm/0[0m.

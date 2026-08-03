@@ -1,3 +1,25 @@
+<!--
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2017-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
+
 # Erlang Garbage Collector
 
 Erlang manages dynamic memory with a [tracing garbage collector](https://en.wikipedia.org/wiki/Tracing_garbage_collection). More precisely a per process generational semi-space copying collector using Cheney's copy collection algorithm together with a global large object space. (See C. J. Cheney in [References](#references).)
@@ -55,11 +77,11 @@ Only one copy of T exists on the heap and during the garbage collection only the
 
 ![Garbage collection: root set scan](assets/gc-rootset-scan.png)
 
-After [all terms](https://github.com/erlang/otp/blob/OTP-18.0/erts/emulator/beam/erl_gc.c#L1089) referenced by the root-set have been copied, the collector scans the *to space* and copies all terms that these terms reference. When scanning, the collector steps through each term on the *to space* and any term still referencing the *from space* is copied over to the *to space*. Some terms contain non-term data (the payload of a on heap binary for instance). When encountered by the collector, these values are simply skipped.
+After [all terms](https://github.com/erlang/otp/blob/OTP-18.0/erts/emulator/beam/erl_gc.c#L1089) referenced by the root-set have been copied, the collector scans the *to space* and copies all terms that these terms reference. When scanning, the collector steps through each term on the *to space* and any term still referencing the *from space* is copied over to the *to space*. Some terms contain non-term data (the payload of an on-heap binary for instance). When encountered by the collector, these values are simply skipped.
 
 ![Garbage collection: heap scan](assets/gc-heap-scan1.png)
 
-Every term object we can reach is copied to the *to space* and stored on top off the *scan stop* line, and then the scan stop is moved to the end of the last object.
+Every term object we can reach is copied to the *to space* and stored on top of the *scan stop* line, and then the scan stop is moved to the end of the last object.
 
 ![Garbage collection: heap scan](assets/gc-heap-stop.png)
 
@@ -85,7 +107,7 @@ The generational hypothesis predicts that most terms tend to die young (see D. U
 
 One critical issue to note here is that any term on the young heap can reference terms on the old heap but *no* term on the old heap may refer to a term on the young heap. This is due to the nature of the copy algorithm. Anything referenced by an old heap term is not included in the reference tree, root-set and its followers, and hence is not copied. If it was, the data would be lost, fire and brimstone would rise to cover the earth. Fortunately, this comes naturally for Erlang because the terms are immutable and thus there can be no pointers modified on the old heap to point to the young heap.
 
-To reclaim data from the old heap, both young and old heaps are included during the collection and copied to a common *to space*. Both the *from space* of the young and old heap are then deallocated and the procedure will start over from the beginning. This type of garbage collection is called a full sweep and is triggered when the size of the area under the high-watermark is larger than the size of the free area of the old heap. It can also be triggered by doing a manual call to [erlang:garbage_collect()](http://erlang.org/doc/man/erlang.html#garbage_collect-0), or by running into the young garbage collection limit set by [spawn\_opt(fun(),[{fullsweep\_after, N}\])](http://erlang.org/doc/man/erlang.html#spawn_opt-4) where N is the number of young garbage collections to do before forcing a garbage collection of both young and old heap.
+To reclaim data from the old heap, both young and old heaps are included during the collection and copied to a common *to space*. Both the *from space* of the young and old heap are then deallocated and the procedure will start over from the beginning. This type of garbage collection is called a full sweep and is triggered when the size of the area under the high-watermark is larger than the size of the free area of the old heap. It can also be triggered by doing a manual call to [erlang:garbage_collect()](http://erlang.org/doc/man/erlang.html#garbage_collect-0), or by running into the young garbage collection limit set by [erlang:spawn_opt()](http://erlang.org/doc/man/erlang.html#spawn_opt/4)'s `{fullsweep_after, N}` where N is the number of young garbage collections to do before forcing a garbage collection of both young and old heap.
 
 ## The young heap
 
@@ -113,11 +135,13 @@ The old heap is always one step ahead in the heap growth stages than the young h
 
 When garbage collecting a heap (young or old) all literals are left in place and not copied. To figure out if a term should be copied or not when doing a garbage collection the following pseudo code is used:
 
-    if (erts_is_literal(ptr) || (on_old_heap(ptr) && !fullsweep)) {
-      /* literal or non fullsweep - do not copy */
-    } else {
-      copy(ptr);
-    }
+```c
+if (erts_is_literal(ptr) || (on_old_heap(ptr) && !fullsweep)) {
+  /* literal or non fullsweep - do not copy */
+} else {
+  copy(ptr);
+}
+```
 
 The [`erts_is_literal`](https://github.com/erlang/otp/blob/OTP-19.0/erts/emulator/beam/global.h#L1452-L1465) check works differently on different architectures and operating systems.
 

@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2024-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -79,8 +81,8 @@ title: Ballpoint Pen State Diagram
 stateDiagram-v2
     [*]       --> Retracted
     Retracted --> Retracted : push-side
-    Retracted --> Exposed   : push-end\n* Expose tip
-    Exposed   --> Retracted : push-side\n* Retract tip
+    Retracted --> Exposed   : push-end<br />* Expose tip
+    Exposed   --> Retracted : push-side<br />* Retract tip
     Exposed   --> Exposed   : push-end
 ```
 
@@ -241,7 +243,7 @@ to the [`handle_event()`](`c:gen_statem:handle_event/4`) callback.  The
 other arguments are the `EventType` and the event dependent `EventContent`,
 both described in section
 [_Event Types and Event Content_](#event-types-and-event-content),
-and the the last argument is the current server `Data`.
+and the last argument is the current server `Data`.
 
 [_State Enter Calls_](#state-enter-calls) (see that section)
 are also handled by the event handler and have slightly different arguments.
@@ -321,7 +323,7 @@ _transition actions_:
   If `true` postpone the current event, see section
   [_Postponing Events_](#postponing-events).
 
-- **[`{hibernate, Boolean`](`t:gen_statem:hibernate/0`)** -
+- **[`{hibernate, Boolean}`](`t:gen_statem:hibernate/0`)** -
   If `true` hibernate the `gen_statem`, treated in section
   [_Hibernation_](#hibernation).
 
@@ -510,7 +512,7 @@ the time-out is restarted with the new time and event content.
 
 All time-outs have an `EventContent` that is part of the
 [_transition action_](#transition-actions) that starts the time-out.
-Different `EventContent`s does not create different time-outs. The
+Different `EventContent`s do not create different time-outs. The
 `EventContent` is delivered to the [_state callback_](#state-callback)
 when the time-out expires.
 
@@ -565,14 +567,14 @@ title: Code Lock State Diagram
 stateDiagram-v2
     state check_code <<choice>>
 
-    [*]         --> locked : * do_lock()\n* Clear Buttons
+    [*]         --> locked : * do_lock()<br />* Clear Buttons
 
-    locked      --> check_code : {button, Button}\n* Collect Buttons
+    locked      --> check_code : {button, Button}<br />* Collect Buttons
     check_code  --> locked     : Incorrect code
-    check_code  --> open       : Correct code\n* do_unlock()\n* Clear Buttons\n* Set state_timeout 10 s
+    check_code  --> open       : Correct code<br />* do_unlock()<br />* Clear Buttons<br />* Set state_timeout 10 s
 
     open        --> open   : {button, Digit}
-    open        --> locked : state_timeout\n* do_lock()
+    open        --> locked : state_timeout<br />* do_lock()
 ```
 
 This code lock state machine can be implemented using `m:gen_statem` with
@@ -687,7 +689,7 @@ function `code_lock:init(Code)`. This function is expected to return
 in this case `locked`; assuming that the door is locked to begin with.
 `Data` is the internal server data of the `gen_statem`. Here the server data
 is a [`map()`](`m:maps`) with key `code` that stores the correct
-button sequence, key `length` store its length, and key `buttons`
+button sequence, key `length` stores its length, and key `buttons`
 that stores the collected buttons up to the same length.
 
 ```erlang
@@ -703,7 +705,7 @@ and is ready to receive events.
 
 Function [`gen_statem:start_link/3,4`](`gen_statem:start_link/3`)
 must be used if the `gen_statem` is part of a supervision tree, that is,
-started by a supervisor.  Function,
+started by a supervisor.  Function
 [`gen_statem:start/3,4`](`gen_statem:start/3`) can be used to start
 a standalone `gen_statem`, meaning it is not part of a supervision tree.
 
@@ -783,7 +785,7 @@ State Time-Outs
 ---------------
 
 When a correct code has been given, the door is unlocked and the following
-tuple is returned from `locked/2`:
+tuple is returned from `locked/3`:
 
 ```erlang
 {next_state, open, Data#{buttons := []},
@@ -1033,7 +1035,7 @@ the _event time-out_.
 Generic Time-Outs
 -----------------
 
-The previous example of _state time-outs_ only work if the state machine stays
+The previous example of _state time-outs_ only works if the state machine stays
 in the same state during the time-out time. And _event time-outs_ only work
 if no disturbing unrelated events occur.
 
@@ -1148,7 +1150,7 @@ Postponing is ordered by the
 [_transition action_](#transition-actions) `postpone`.
 
 In this example, instead of ignoring button events while in the `open` state,
-we can postpone them handle them later in the `locked` state:
+we can postpone them and handle them later in the `locked` state:
 
 ```erlang
 ...
@@ -1282,7 +1284,7 @@ just need to handle these event-like calls in all states.
 ...
 init(Code) ->
     process_flag(trap_exit, true),
-    Data = #{code => Code, length = length(Code)},
+    Data = #{code => Code, length => length(Code)},
     {ok, locked, Data}.
 
 callback_mode() ->
@@ -1325,7 +1327,7 @@ state machine.  This can be done with the
 [`{next_event, EventType, EventContent}`](`t:gen_statem:action/0`).
 
 You can generate events of any existing [type](`t:gen_statem:action/0`),
-but the`internal` type can only be generated through action `next_event`.
+but the `internal` type can only be generated through action `next_event`.
 Hence, it cannot come from an external source, so you can be certain
 that an `internal` event is an event from your state machine to itself.
 
@@ -1411,13 +1413,13 @@ stateDiagram-v2
 
     [*] --> enter_locked
 
-    enter_locked --> locked     : * do_lock()\n* Clear Buttons
-    locked       --> check_code : {button, Button}\n* Collect Buttons
-    locked       --> locked     : state_timeout\n* Clear Buttons
-    check_code   --> locked     : Incorrect code\n* Set state_timeout 30 s
+    enter_locked --> locked     : * do_lock()<br />* Clear Buttons
+    locked       --> check_code : {button, Button}<br />* Collect Buttons
+    locked       --> locked     : state_timeout<br />* Clear Buttons
+    check_code   --> locked     : Incorrect code<br />* Set state_timeout 30 s
     check_code   --> enter_open : Correct code
 
-    enter_open --> open         : * do_unlock()\n* Set state_timeout 10 s
+    enter_open --> open         : * do_unlock()<br />* Set state_timeout 10 s
     open       --> enter_locked : state_timeout
 ```
 

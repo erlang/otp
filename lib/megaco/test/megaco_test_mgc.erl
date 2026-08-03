@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -471,16 +473,20 @@ loop(S) ->
 
 
 	%% 
-        {request_action, {Action, To}, Parent} when S#mgc.parent == Parent ->
+        {request_action, {Action, To}, Parent} when S#mgc.parent =:= Parent ->
 	    i("loop -> got new request_action: ~p:~w", [Action,To]),
 	    {Reply, S1} = 
-		case lists:member(Action, ?valid_actions) of
-		    true when To >= 0; To == infinity ->
+		case is_valid_action(Action) of
+		    true when (is_integer(To) andalso (To >= 0)) orelse
+                              (To =:= infinity) ->
+                        %% Valid and on time!
 			{{ok, S#mgc.req_action}, 
 			 S#mgc{req_action = Action, req_timeout = To}};
 		    true ->
+                        %% Valid but too late
 			{{error, {invalid_action_timeout, To}}, S};
 		    false ->
+                        %% Invalid
 			{{error, {invalid_action, Action}}, S}
 		end,
 	    server_reply(Parent, request_action_ack, Reply),
@@ -488,7 +494,7 @@ loop(S) ->
 
 
 	%% Reset stats
-	{reset_stats, Parent} when S#mgc.parent == Parent ->
+	{reset_stats, Parent} when S#mgc.parent =:= Parent ->
 	    i("loop -> got request to reset stats counters"),
 	    do_reset_stats(S#mgc.mid),
 	    server_reply(Parent, reset_stats_ack, ok),
@@ -496,7 +502,7 @@ loop(S) ->
 
 
 	%% Give me statistics
-	{{statistics, 1}, Parent} when S#mgc.parent == Parent ->
+	{{statistics, 1}, Parent} when S#mgc.parent =:= Parent ->
 	    i("loop(stats1) -> got request for statistics 1"),
 	    {ok, Gen} = megaco:get_stats(),
 	    i("loop(stats1) -> gen stats: "
@@ -533,7 +539,7 @@ loop(S) ->
 	    loop(evs(S, {stats, 1}));
 
 
-	{{statistics, 2}, Parent} when S#mgc.parent == Parent ->
+	{{statistics, 2}, Parent} when S#mgc.parent =:= Parent ->
 	    i("loop(stats2) -> got request for statistics 2"),
 	    {ok, Gen} = megaco:get_stats(),
 	    #mgc{tcp_sup = TcpSup, udp_sup = UdpSup} = S,
@@ -557,22 +563,22 @@ loop(S) ->
 	    loop(evs(S1, {req, Request}));
 
 
-	{ack_info, To, Parent} when S#mgc.parent == Parent ->
+	{ack_info, To, Parent} when S#mgc.parent =:= Parent ->
 	    i("loop -> received request to inform about received ack's "),
 	    loop(evs(S#mgc{ack_info = To}, {acki, To}));
 
 
-	{abort_info, To, Parent} when S#mgc.parent == Parent ->
+	{abort_info, To, Parent} when S#mgc.parent =:= Parent ->
 	    i("loop -> received request to inform about received aborts "),
 	    loop(evs(S#mgc{abort_info = To}, {abi, To}));
 
 
-	{req_info, To, Parent} when S#mgc.parent == Parent ->
+	{req_info, To, Parent} when S#mgc.parent =:= Parent ->
 	    i("loop -> received request to inform about received req's "),
 	    loop(evs(S#mgc{req_info = To}, {reqi, To}));
 
 
-	{verbosity, V, Parent} when S#mgc.parent == Parent ->
+	{verbosity, V, Parent} when S#mgc.parent =:= Parent ->
 	    i("loop -> received new verbosity: ~p", [V]),
 	    put(verbosity,V),
 	    loop(evs(S, {verb, V}));
@@ -1271,6 +1277,12 @@ cancel_timer(undefined) ->
     ok;
 cancel_timer(Ref) ->
     erlang:cancel_timer(Ref).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+is_valid_action(Action) ->
+    lists:member(Action, ?valid_actions).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

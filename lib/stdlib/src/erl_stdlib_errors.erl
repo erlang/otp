@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +29,7 @@
       StackTrace :: erlang:stacktrace(),
       ErrorMap :: #{pos_integer() => unicode:chardata()}.
 
-format_error(_Reason, [{M,F,As,Info}|_]) ->
+format_error(Reason, [{M,F,As,Info}|_]) ->
     ErrorInfoMap = proplists:get_value(error_info, Info, #{}),
     Cause = maps:get(cause, ErrorInfoMap, none),
     Res = case M of
@@ -47,6 +49,8 @@ format_error(_Reason, [{M,F,As,Info}|_]) ->
                   format_unicode_error(F, As);
               io ->
                   format_io_error(F, As, Cause);
+              json ->
+                  format_json_error(F, As, Reason, Cause);
               _ ->
                   []
           end,
@@ -100,6 +104,20 @@ format_binary_error(last, [Subject], _) ->
          <<>> -> empty_binary;
         _ -> must_be_binary(Subject)
      end];
+format_binary_error(join, [Binaries,Separator], _) ->
+    case must_be_binary(Separator) of
+        [] when is_list(Binaries) ->
+            case must_be_list(Binaries) of
+                [] ->
+                    [~"not a list of binaries", []];
+                Error ->
+                    [Error, []]
+            end;
+        [] ->
+            [must_be_list(Binaries), []];
+        Error ->
+            [[], Error]
+    end;
 format_binary_error(list_to_bin, [_], _) ->
     [not_iodata];
 format_binary_error(longest_common_prefix, [_], _) ->
@@ -350,6 +368,8 @@ format_re_error(inspect, [CompiledRE, Item], _) ->
         true ->
             [ReError]
     end;
+format_re_error(import, [_], _) ->
+    [~"not an exported regular expression"];
 format_re_error(replace, [Subject, RE, Replacement], _) ->
     [must_be_iodata(Subject),
      must_be_regexp(RE),
@@ -408,7 +428,15 @@ format_unicode_error(characters_to_nfkc_list, [_]) ->
 format_unicode_error(characters_to_nfkd_binary, [_]) ->
     [bad_char_data];
 format_unicode_error(characters_to_nfkd_list, [_]) ->
-    [bad_char_data].
+    [bad_char_data];
+format_unicode_error(category, [_]) ->
+    [bad_char];
+format_unicode_error(is_whitespace, [_]) ->
+    [bad_char];
+format_unicode_error(is_id_start, [_]) ->
+    [bad_char];
+format_unicode_error(is_id_continue, [_]) ->
+    [bad_char].
 
 unicode_char_data(Chars) ->
     try unicode:characters_to_binary(Chars) of
@@ -533,7 +561,7 @@ check_io_format([Fmt, Args], Cause) ->
     case is_io_format(Fmt) of
         false ->
             [invalid_format, must_be_list(Args)] ++
-                case (is_pid(Fmt) or is_atom(Fmt)) and is_io_format(Args) of
+                case (is_pid(Fmt) orelse is_atom(Fmt)) andalso is_io_format(Args) of
                     true ->
                         %% The user seems to have called io:format(Dev,"string").
                         [{general,missing_argument_list}];
@@ -618,6 +646,18 @@ check_io_arguments([Type|TypeT], [Arg|ArgT], No) ->
             [io_lib:format("element ~B must be of type ~p", [No, Type]) |
              check_io_arguments(TypeT, ArgT, No+1)]
     end.
+
+format_json_error(_F, _As, {invalid_byte, Int}, #{position := Position}) ->
+    Str = if 32 =< Int, Int < 127 ->
+                  io_lib:format("invalid byte 16#~2.16.0B '~c' at byte position ~w",
+                                [Int, Int, Position]);
+             true ->
+                  io_lib:format("invalid byte 16#~2.16.0B at byte position ~w",
+                                [Int, Position])
+          end,
+    [{general, Str}];
+format_json_error(_, _, _, _) ->
+    [""].
 
 format_ets_error(delete_object, Args, Cause) ->
     format_object(Args, Cause);
@@ -758,7 +798,7 @@ format_ets_error(update_counter, [_,_,UpdateOp,Default]=Args, Cause) ->
         "" ->
             %% The table is OK. The error is in one or more of the
             %% other arguments.
-            TupleCause = format_tuple(Default),
+            TupleCause = format_default_tuple(Default, Cause),
             case Cause of
                 badkey ->
                     ["", bad_key, format_update_op(UpdateOp) | TupleCause];
@@ -808,7 +848,8 @@ format_ets_error(update_element, [_, _, ElementSpec, Default]=Args, Cause) ->
 		    position ->
 			[update_op_range];
 		    _ ->
-			case {is_element_spec_top(ElementSpec), format_tuple(Default)} of
+			case {is_element_spec_top(ElementSpec),
+                              format_default_tuple(Default, Cause)} of
 			    {true, [""]} ->
 				[range];
 			    {true, TupleCause} ->
@@ -863,6 +904,11 @@ format_non_negative_integer(N) ->
 format_object([_,Object|_]=Args, Cause) ->
     [format_cause(Args, Cause) | format_tuple(Object)].
 
+format_default_tuple(Tuple, default) when is_tuple(Tuple) ->
+    [<<"default tuple too small">>];
+format_default_tuple(Term, _Cause) ->
+    format_tuple(Term).
+
 format_tuple(Term) ->
     if tuple_size(Term) > 0 -> [""];
        is_tuple(Term) -> [empty_tuple];
@@ -912,6 +958,8 @@ format_cause(Args, Cause) ->
         owner ->
             "";
         not_owner ->
+            "";
+        default ->
             ""
     end.
 
@@ -1089,6 +1137,8 @@ expand_error(bad_boolean) ->
     <<"not a boolean value">>;
 expand_error(bad_binary_list) ->
     <<"not a flat list of binaries">>;
+expand_error(bad_char) ->
+    <<"not a valid character">>;
 expand_error(bad_char_data) ->
     <<"not valid character data (an iodata term)">>;
 expand_error(bad_binary_pattern) ->

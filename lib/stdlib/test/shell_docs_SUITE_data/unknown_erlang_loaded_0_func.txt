@@ -1,7 +1,14 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec loaded() -> [Module] when Module :: module().[0m
+[1m  loaded()[0m
 
   Returns a list of all loaded Erlang modules (current and old
   code), including preloaded modules.
 
-  See also [;;4mcode[0m.
+  See also [4mcode[0m.

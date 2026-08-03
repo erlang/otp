@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,7 +33,7 @@
 	 progex_lc/1, progex_funs/1,
 	 otp_5990/1, otp_6166/1, otp_6554/1,
 	 otp_7184/1, otp_7232/1, otp_8393/1, otp_10302/1, otp_13719/1,
-         otp_14285/1, otp_14296/1, typed_records/1, types/1]).
+         otp_14285/1, otp_14296/1, typed_records/1, types/1, funs/1]).
 
 -export([ start_restricted_from_shell/1,
 	  start_restricted_on_command_line/1,restricted_local/1]).
@@ -163,8 +165,6 @@ comm_err(<<"begin a+b end.">>),
 "exception exit: restricted shell does not allow - b" =
 comm_err(<<"begin -b end.">>),
 "exception exit: restricted shell does not allow 1 + 2" =
-comm_err(<<"begin if atom(1 + 2> 0) -> 1; true -> 2 end end.">>),
-"exception exit: restricted shell does not allow 1 + 2" =
 comm_err(<<"begin if is_atom(1 + 2> 0) -> 1; true -> 2 end end.">>),
 "exception exit: restricted shell does not allow - 2" =
 comm_err(<<"begin if - 2 -> 1; true -> 2 end end.">>),
@@ -178,8 +178,6 @@ comm_err(<<"begin if 1 + 2 > 0 -> 1; true -> 2 end end.">>),
 comm_err(<<"begin if erlang:is_atom(1 + 2> 0) -> 1; true -> 2 end end.">>),
 "exception exit: restricted shell does not allow is_integer(1)" =
 comm_err(<<"begin if is_integer(1) -> 1; true -> 2 end end.">>),
-"exception exit: restricted shell does not allow is_integer(1)" =
-comm_err(<<"begin if integer(1) -> 1; true -> 2 end end.">>),
 "exception exit: "
 "restricted shell module returned bad value non_conforming_reply" =
 comm_err(<<"ugly().">>),
@@ -189,11 +187,11 @@ comm_err(<<"ugly().">>),
 comm_err(<<"1 - 2.">>),
 %% Make sure we test all local shell functions in a restricted shell.
 LocalFuncs = shell:local_func(),
-[] = lists:subtract(LocalFuncs, [v,h,b,f,fl,ff,lf,lr,lt,rd,rf,rl,rp,rr,tf,save_module,history,results,catch_exception]),
+[] = lists:subtract(LocalFuncs, [v,h,b,f,fd,fl,ff,lf,lr,lt,rd,rf,rl,rp,rr,tf,save_module,history,results,catch_exception]),
 
 LocalFuncs2 = [
     <<"A = 1.\nv(1).">>, <<"h().">>, <<"b().">>, <<"f().">>, <<"f(A).">>,
-    <<"fl()">>, <<"ff()">>, <<"ff(my_func,1)">>, <<"lf()">>, <<"lr()">>, <<"lt()">>,
+    <<"fl()">>, <<"fd(a, fun(X)->X end,\"a(X)->X.\")">>, <<"ff()">>, <<"ff(my_func,1)">>, <<"lf()">>, <<"lr()">>, <<"lt()">>,
     <<"rd(foo,{bar}).">>, <<"rf().">>, <<"rf(foo).">>, <<"rl().">>, <<"rl(foo).">>, <<"rp([hej]).">>,
     <<"rr(shell).">>, <<"rr(shell, shell_state).">>, <<"rr(shell,shell_state,[]).">>, <<"tf()">>, <<"tf(hej)">>, 
     <<"save_module(\"src/my_module.erl\")">>, <<"history(20).">>, <<"results(20).">>, <<"catch_exception(0).">>],
@@ -351,6 +349,16 @@ forget(Config) when is_list(Config) ->
     "exception error: no function clause matching call to f/1" =
         comm_err(<<"f(a).">>),
     ok.
+funs(Config) when is_list(Config) ->
+    [[2,3,4]] = scan(<<"lists:map(fun ceil/1, [1.1, 2.1, 3.1]).">>),
+    rtnode:run(
+        [{putline, "add_one(X)-> X + 1."},
+        {expect, "ok"},
+        {putline, "lists:map(fun add_one/1, [1, 2, 3])."},
+        {expect, "[2,3,4]"}
+        ],[],"", ["[\"init:stop().\"]"]),
+    receive after 1000 -> ok end,
+    ok.
 
 %% type definition support
 types(Config) when is_list(Config) ->
@@ -389,12 +397,32 @@ shell_attribute_test(Config) ->
       "-kernel","shell_history_drop","[\"init:stop().\"]"]),
     receive after 1000 -> ok end,
     rtnode:run(
-        [{putline, "-record(hej, {a = 0 :: integer()})."},
+        [{putline, "-record(hej, {a = \"\", b = 0 :: integer()})."},
          {expect, "ok"},
          {putline, "rl()."},
-         {expect, "\\Q-record(hej,{a = 0 :: integer()}).\\E"},
-         {putline, "#hej{a=1}."},
-         {expect, "\\Q#hej{a = 1}\\E"}
+         {expect, "\\Q-record(hej,{a = \"\", b = 0 :: integer()}).\\E"},
+         {putline, "#hej{a = \"hej\", b=1}."},
+         {expect, "\\Q#hej{a = \"hej\", b=1}\\E"},
+         {putline, "-record #native{i = 42, j}."},
+         {expect, "ok"},
+         {putline, "rl()."},
+         {expect, "\\Q-record #native{i = 42, j}.\\E"},
+         {putline, ~S"#native{}."},
+         {expect, ~S"\Q* 1:1: field j is not initialized in native record native\E"},
+         {putline, ~S"Rec = #native{j=99}."},
+         {expect, ~S"\Q#shell_default:native{i = 42,j = 99}\E"},
+         {putline, ~S"#native{i=42, j=99} = Rec."},
+         {expect, ~S"\Q#shell_default:native{i = 42,j = 99}\E"},
+         {putline, ~S"Rec#native.i."},
+         {expect, ~S"\Q42\E"},
+         {putline, ~S"Rec#_.i."},
+         {expect, ~S"\Q42\E"},
+         {putline, ~S"Rec#native{j=100}."},
+         {expect, ~S"\Q#shell_default:native{i = 42,j = 100}\E"},
+         {putline, ~S"Rec#_{j=100}."},
+         {expect, ~S"\Q#shell_default:native{i = 42,j = 100}\E"},
+         {putline, ~S"#native{z=99}."},
+         {expect, ~S"\Q* 1:9: field z undefined in record native\E"}
         ],[],"", ["-kernel","shell_history","enabled",
         "-kernel","shell_history_path","\"" ++ Path ++ "\"",
         "-kernel","shell_history_drop","[\"init:stop().\"]"]),
@@ -580,7 +608,7 @@ records(Config) when is_list(Config) ->
     [true] = scan(<<"rd(foo,{bar}), is_record(#foo{}, foo).">>),
     [true] = scan(<<"rd(foo,{bar}), erlang:is_record(#foo{}, foo).">>),
     [true] = scan(<<"rd(foo,{bar}),
-                     fun() when record(#foo{},foo) -> true end().">>),
+                     fun() when is_record(#foo{},foo) -> true end().">>),
     [2] = scan(<<"rd(foo,{bar}), #foo.bar.">>),
     "#foo{bar = 17}.\n" =
         t(<<"rd(foo,{bar}), A = #foo{}, A#foo{bar = 17}.">>),
@@ -689,12 +717,14 @@ local_definitions_save_to_module_and_forget(Config) when is_list(Config) ->
       <<"-spec my_func(X) -> X.\n"
         "my_func(X) -> X.\n"
         "lf().">>),
+    file:write_file("MY_MODULE_RECORD.hrl", "-record(grej,{b})."),
     %% Save local definitions to a module
     U = unicode:characters_to_binary("😊"),
-    "ok.\nok.\nok.\nok.\nok.\nok.\n{ok,'MY_MODULE'}.\n" = t({
+    "ok.\nok.\n[grej].\nok.\nok.\nok.\nok.\n{ok,'MY_MODULE'}.\n" = t({
       <<"-type hej() :: integer().\n"
         "-record(svej, {a :: hej()}).\n"
-        "my_func(#svej{a=A}) -> A.\n"
+        "rr(\"MY_MODULE_RECORD.hrl\").\n"
+        "my_func(#svej{a=A}) -> #grej{b=A}.\n"
         "-spec not_implemented(X) -> X.\n"
         "-spec 'my_func",U/binary,"'(X) -> X.\n"
         "'my_func",U/binary,"'(#svej{a=A}) -> A.\n"
@@ -702,14 +732,16 @@ local_definitions_save_to_module_and_forget(Config) when is_list(Config) ->
     %% Read back the newly created module
     {ok,<<"-module('MY_MODULE').\n\n"
           "-export([my_func/1,'my_func",240,159,152,138,"'/1]).\n\n"
-          "-type hej() :: integer().\n"
-          "-record(svej,{a :: hej()}).\n"
+          "-type hej() :: integer().\n\n"
+          "-record(grej,{b}).\n\n"
+          "-record(svej,{a :: hej()}).\n\n"
           "my_func(#svej{a = A}) ->\n"
-          "    A.\n\n"
+          "    #grej{b = A}.\n\n"
           "-spec 'my_func",240,159,152,138,"'(X) -> X.\n"
           "'my_func",240,159,152,138,"'(#svej{a = A}) ->\n"
           "    A.\n">>} = file:read_file("MY_MODULE.erl"),
     file:delete("MY_MODULE.erl"),
+    file:delete("MY_MODULE_RECORD.erl"),
 
     %% Forget one locally defined type
     "ok.\nok.\nok.\n-type svej() :: integer().\n.\nok.\n" = t(
@@ -935,17 +967,17 @@ otp_5915(Config) when is_list(Config) ->
 		      2 end(2),
 	  3 = fun(A) when (A#r2.a)#r1.a =:= 3 -> 3 end(#r2{a = #r1{a = 3}}),
 	  ok = fun() ->
-		       F = fun(A) when record(A#r.a, r1) -> 4;
-			      (A) when record(A#r1.a, r1) -> 5
+                       F = fun(A) when is_record(A#r.a, r1) -> 4;
+                              (A) when is_record(A#r1.a, r1) -> 5
 			   end,
 		       5 = F(#r1{a = #r1{}}),
 		       4 = F(#r{a = #r1{}}),
 		       ok
 	       end(),
-	  3 = fun(A) when record(A#r1.a, r),
+          3 = fun(A) when is_record(A#r1.a, r),
 			  (A#r1.a)#r.a > 3 -> 3
 	      end(#r1{a = #r{a = 4}}),
-	  7 = fun(A) when record(A#r3.a, r1) -> 7 end(#r3{}),
+          7 = fun(A) when is_record(A#r3.a, r1) -> 7 end(#r3{}),
 	  [#r1{a = 2,b = 1}] =
 	  fun() ->
 		  [A || A <- [#r1{a = 1, b = 3},
@@ -973,7 +1005,7 @@ otp_5915(Config) when is_list(Config) ->
 	      end(#r1{a = 2}),
 
 	  3 = fun(A) when A#r1.a > 3,
-			  record(A, r1) -> 3
+                          is_record(A, r1) -> 3
 	      end(#r1{a = 5}),
 
 	  ok = fun() ->
@@ -1004,10 +1036,6 @@ otp_5915(Config) when is_list(Config) ->
 		       ok
 	       end(),
 
-	  a = fun(A) when record(A, r),
-			  A#r.a =:= 1,
-			  A#r.b =:= 2 ->a
-	      end(#r{a = 1, b = 2}),
 	  a = fun(A) when erlang:is_record(A, r),
 			  A#r.a =:= 1,
 			  A#r.b =:= 2 -> a
@@ -1464,7 +1492,7 @@ bs_match_tail_SUITE(Config) when is_list(Config) ->
 				     A
                              end,
 
-          Mkbin = fun(L) when list(L) -> list_to_binary(L) end,
+          Mkbin = fun(L) when is_list(L) -> list_to_binary(L) end,
 
           TestZeroTail = fun(<<A:8>>) -> A end,
 
@@ -1532,7 +1560,7 @@ bs_match_bin_SUITE(Config) when is_list(Config) ->
 		     Fun(L, B, Pos-1, Fun);
 		(L, B, _, _Fun) -> ok
              end,
-	  Mkbin = fun(L) when list(L) -> list_to_binary(L) end,
+          Mkbin = fun(L) when is_list(L) -> list_to_binary(L) end,
 	  L = lists:seq(0, 57),
 	  B = Mkbin(L),
 	  ByteSplit(L, B, size(B), ByteSplit),
@@ -1551,7 +1579,7 @@ bs_match_bin_SUITE(Config) when is_list(Config) ->
     [ok] = scan(ByteSplitBinary),
 ok = evaluate(ByteSplitBinary, []),
 BitSplitBinary =
-<<"Mkbin = fun(L) when list(L) -> list_to_binary(L) end,
+<<"Mkbin = fun(L) when is_list(L) -> list_to_binary(L) end,
 
            MakeInt =
   fun(List, 0, Acc, _F) -> Acc;
@@ -2094,7 +2122,7 @@ print(#person{name = Name, age = Age,
     io:format(\"Name: ~s, Age: ~w, Phone: ~w ~n\"
                         \"Dictionary: ~w.~n\", [Name, Age, Phone, Dict]).
 
-          birthday(P) when record(P, person) ->
+          birthday(P) when is_record(P, person) ->
 		     P#person{age = P#person.age + 1}.
 
 register_two_hackers() ->
@@ -2118,7 +2146,7 @@ progex_lc(Config) when is_list(Config) ->
 
 t() ->
     [a,4,b,5,6] = [X || X <- [1,2,a,3,4,b,5,6], X > 3],
-    [4,5,6] = [X || X <- [1,2,a,3,4,b,5,6], integer(X), X > 3],
+    [4,5,6] = [X || X <- [1,2,a,3,4,b,5,6], is_integer(X), X > 3],
     [{1,a},{1,b},{2,a},{2,b},{3,a},{3,b}] =
 	[{X, Y} || X <- [1,2,3], Y <- [a,b]],
 
@@ -2179,7 +2207,7 @@ select2(X, L) ->  [Y || {X1, Y} <- L, X == X1].
 
 Test1_shell =
 <<"[a,4,b,5,6] = [X || X <- [1,2,a,3,4,b,5,6], X > 3],
-          [4,5,6] = [X || X <- [1,2,a,3,4,b,5,6], integer(X), X > 3],
+          [4,5,6] = [X || X <- [1,2,a,3,4,b,5,6], is_integer(X), X > 3],
   [{1,a},{1,b},{2,a},{2,b},{3,a},{3,b}] =
   [{X, Y} || X <- [1,2,3], Y <- [a,b]],
 
@@ -2293,9 +2321,9 @@ t3() -> map({?MODULE, double3}, [1,2,3,4,5]).
 
 double3(X) -> X * 2.
 
-f(F, Args) when function(F) ->
+f(F, Args) when is_function(F) ->
     apply(F, Args);
-f(N, _) when integer(N) ->
+f(N, _) when is_integer(N) ->
     N.
 
 print_list3(File, List) ->
@@ -2508,7 +2536,7 @@ otp_5990(Config) when is_list(Config) ->
     [true] =
         scan(<<"rd('OrdSet', {orddata = {},ordtype = type}), "
                "S = #'OrdSet'{ordtype = {}}, "
-               "if tuple(S#'OrdSet'.ordtype) -> true; true -> false end.">>),
+               "if is_tuple(S#'OrdSet'.ordtype) -> true; true -> false end.">>),
     ok.
 
 %% OTP-6166. Order of record definitions.
@@ -2617,7 +2645,7 @@ otp_6554(Config) when is_list(Config) ->
         "lists:reverse(" ++ _ =
         comm_err(<<"F=fun() -> hello end, lists:reverse(F).">>),
     "exception error: no function clause matching "
-        "lists:reverse(34) (lists.erl, line " ++ _ =
+        "lists:reverse(34) (lists.erl:" ++ _ =
         comm_err(<<"lists:reverse(34).">>),
     "exception error: function_clause" =
         comm_err(<<"erlang:error(function_clause, 4).">>),
@@ -3143,7 +3171,7 @@ otp_14296(Config) when is_list(Config) ->
             F = fun() -> a end,
             LocalFun = term_to_string(F),
             S = LocalFun ++ ".",
-            "1:2: syntax error before: Fun" = comm_err(S)
+            "1:5: syntax error before: '<'" = comm_err(S)
     end(),
 
     fun() ->
@@ -3178,13 +3206,13 @@ otp_14296(Config) when is_list(Config) ->
     fun() ->
             UnknownPort = "#Port<100000.0>",
             S = UnknownPort ++ ".",
-            "1:2: syntax error before: Port" = comm_err(S)
+            "1:6: syntax error before: '<'" = comm_err(S)
     end(),
 
     fun() ->
             UnknownRef = "#Ref<100000.0.0.0>",
             S = UnknownRef ++ ".",
-            "1:2: syntax error before: Ref" = comm_err(S)
+            "1:5: syntax error before: '<'" = comm_err(S)
     end(),
 
     fun() ->

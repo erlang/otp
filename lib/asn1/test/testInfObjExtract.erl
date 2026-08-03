@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2014-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,15 +52,15 @@ main(_Rule) ->
 roundtrip_data_object_13(SeqType) ->
     roundtrip(SeqType, {SeqType,1,true}),
     roundtrip(SeqType, {SeqType,2,<<"abc">>}),
-    roundtrip(SeqType, {SeqType,3,<<42:5>>}),
+    roundtrip(SeqType, {SeqType,3,<<10:5>>}),
     roundtrip_error(SeqType, {SeqType,4,42}).
 
 roundtrip_data_object_1(SeqType) ->
     roundtrip(SeqType, {SeqType,1,false}),
     roundtrip(SeqType, {SeqType,1,true}),
-    roundtrip_error(SeqType, {SeqType,1,42}),
+    roundtrip_error(SeqType, {SeqType,1,10}),
     roundtrip_error(SeqType, {SeqType,2,<<"abc">>}),
-    roundtrip_error(SeqType, {SeqType,3,<<42:5>>}),
+    roundtrip_error(SeqType, {SeqType,3,<<10:5>>}),
     roundtrip_error(SeqType, {SeqType,999,42}).
 
 roundtrip(T, V) ->

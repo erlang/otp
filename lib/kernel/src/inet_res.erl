@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +23,6 @@
 %%
 -module(inet_res).
 
--moduledoc(#{titles => [{function,<<"Legacy Functions">>}]}).
 -moduledoc """
 A rudimentary DNS client.
 
@@ -36,8 +37,30 @@ the resolving functions in `m:inet`.
 This DNS client can resolve DNS records even if it is not used
 for normal name resolving in the node.
 
-This is not a full-fledged resolver, only a DNS client that relies on asking
-trusted recursive name servers.
+> #### Warning {: .warning }
+>
+> This is not a full-fledged resolver, only a DNS client
+> that relies on being in trusted network shielded from
+> DNS reply spoofing by firewalls, and on asking only trusted
+> recursive name servers.
+>
+> If the Crypto application is loaded, this implementation
+> does its best to not be fooled by spoofed DNS replies.
+> This is nevertheless a meager remedy compared to using
+> encrypted and signed DNS methods like TSIG or DNSSEC,
+> as full fledged resolvers do.
+
+> #### Note {: .info }
+>
+> If the Crypto application is loaded, this resolver client uses
+> cryptographically random transaction IDs and port numbers,
+> which should render the probability for a sucessfully brute force
+> spoofed reply to be too low to be a usable exploit.
+> An Erlang node that is installed in an exposed network environment
+> should already have the Crypto application loaded for example
+> to run the SSL application.  If this is not the case,
+> the Crypto application can be explicitly loaded with
+> `application:load(crypto)`.
 
 ## Name Resolving
 
@@ -73,6 +96,12 @@ For queries not using the `search` list, if the query to all `nameservers`
 results in `{error,nxdomain}` or an empty answer, the same query is tried for
 `alt_nameservers`.
 
+If randomization of transaction ID:s and port numbers is too costly
+for an Erlang node in a trusted network shielded from DNS reply spoofing,
+the legacy behaviour to reuse the UDP socket on retries and use sequential
+transaction ID:s can be configured by setting the resolver option
+`random` to `false`.
+
 ## Resolver Types
 
 The following data types concern the resolver:
@@ -100,14 +129,15 @@ example_lookup(Name, Class, Type) ->
 ```
 """.
 
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 %-compile(export_all).
 
--export([gethostbyname/1, gethostbyname/2, gethostbyname/3,
-	 gethostbyname_tm/3]).
--export([gethostbyaddr/1, gethostbyaddr/2,
-	 gethostbyaddr_tm/2]).
--export([getbyname/2, getbyname/3,
-	 getbyname_tm/3]).
+-export([gethostbyname/1, gethostbyname/2, gethostbyname/3, gethostbyname/4,
+	 gethostbyname_tm/3, gethostbyname_tm/4]).
+-export([gethostbyaddr/1, gethostbyaddr/2, gethostbyaddr/3,
+	 gethostbyaddr_tm/2, gethostbyaddr_tm/3]).
+-export([getbyname/2, getbyname/3, getbyname/4,
+	 getbyname_tm/3, getbyname_tm/4]).
 
 -export([resolve/3, resolve/4, resolve/5]).
 -export([lookup/3, lookup/4, lookup/5]).
@@ -143,6 +173,7 @@ example_lookup(Name, Class, Type) ->
       | {udp_payload_size, integer()}
       | {dnssec_ok, boolean()}
       | {usevc, boolean()}
+      | {random, boolean()}
       | {nxdomain_reply, boolean()}.
 
 -type nameserver() :: {inet:ip_address(), Port :: 1..65535}.
@@ -343,7 +374,8 @@ resolve(Name, Class, Type, Opts, Timeout) ->
     case nsdname(Name) of
 	{ok, Nm} ->
 	    Timer = inet:start_timer(Timeout),
-	    Res = res_query(Nm, Class, Type, Opts, Timer),
+	    Options = make_options(Opts),
+	    Res = res_query(Nm, Class, Type, Options, Timer),
 	    _ = inet:stop_timer(Timer),
 	    Res;
 	{error, _} = Error ->
@@ -415,7 +447,7 @@ lookup_filter({error,_}, _, _) -> [].
 %% To be deprecated
 
 -doc(#{equiv => nslookup(Name, Class, Type, infinity)}).
--doc(#{title => <<"Legacy Functions">>}).
+-doc(#{group => <<"Legacy Functions">>}).
 -spec nslookup(Name, Class, Type) -> {ok, dns_msg()} | {error, Reason} when
       Name :: dns_name() | inet:ip_address(),
       Class :: dns_class(),
@@ -437,7 +469,7 @@ With argument `Timeout` calls `resolve/5` with `Opts = []`.
 With argument `Nameservers` calls `resolve/5` with
 `Opts = [{nameservers, Nameservers}]` and `Timeout = infinity`.
 """.
--doc(#{title => <<"Legacy Functions">>}).
+-doc(#{group => <<"Legacy Functions">>}).
 -spec nslookup(Name, Class, Type, Timeout) ->
                       {ok, dns_msg()} | {error, Reason} when
                   Name :: dns_name() | inet:ip_address(),
@@ -461,7 +493,7 @@ nslookup(Name, Class, Type, NSs) ->             % For backwards compatibility
     nnslookup(Name, Class, Type, NSs).          % with OTP R6B only
 
 -doc(#{equiv => nnslookup(Name, Class, Type, NSs, infinity)}).
--doc(#{title => <<"Legacy Functions">>}).
+-doc(#{group => <<"Legacy Functions">>}).
 -spec nnslookup(Name, Class, Type, Nameservers) ->
                       {ok, dns_msg()} | {error, Reason} when
       Name :: dns_name() | inet:ip_address(),
@@ -479,7 +511,7 @@ Resolve a DNS query.
 Like `nslookup/4` but calls `resolve/5` with both the arguments
 `Opts = [{nameservers, Nameservers}]` and `Timeout`.
 """.
--doc(#{title => <<"Legacy Functions">>}).
+-doc(#{group => <<"Legacy Functions">>}).
 -spec nnslookup(Name, Class, Type, Nameservers, Timeout) ->
                       {ok, dns_msg()} | {error, Reason} when
       Name :: dns_name() | inet:ip_address(),
@@ -505,7 +537,7 @@ do_nslookup(Name, Class, Type, Opts, Timeout) ->
 -record(options, { % These must be sorted!
 	  alt_nameservers,dnssec_ok,edns,inet6,nameservers,
           nxdomain_reply, % this is a local option, not in inet_db
-          recurse,retry,servfail_retry_timeout,timeout,
+          random,recurse,retry,servfail_retry_timeout,timeout,
           udp_payload_size,usevc,
 	  verbose}). % this is a local option, not in inet_db
 %%
@@ -582,7 +614,7 @@ make_options(Opts, [Name|Names]) ->
       Hostent :: inet:hostent(),
       Reason :: inet:posix() | res_error().
 
-gethostbyaddr(IP) -> gethostbyaddr_tm(IP,false).
+gethostbyaddr(Address) -> gethostbyaddr_tm(Address, [], false).
 
 -doc "Backend function used by `inet:gethostbyaddr/1`.".
 -spec gethostbyaddr(Address, Timeout) -> {ok, Hostent} | {error, Reason} when
@@ -591,22 +623,40 @@ gethostbyaddr(IP) -> gethostbyaddr_tm(IP,false).
       Hostent :: inet:hostent(),
       Reason :: inet:posix() | res_error().
 
-gethostbyaddr(IP,Timeout) ->
+gethostbyaddr(Address, Timeout) ->
+    gethostbyaddr(Address, [], Timeout).
+
+-doc "Backend function used by `inet:gethostbyaddr/1`.".
+-doc(#{since => "OTP 28.1"}).
+-spec gethostbyaddr(Address, Opts, Timeout) ->
+          {ok, Hostent} | {error, Reason} when
+      Address :: inet:ip_address(),
+      Opts :: [Opt],
+      Opt :: res_option() | verbose | atom(),
+      Timeout :: timeout(),
+      Hostent :: inet:hostent(),
+      Reason :: inet:posix() | res_error().
+
+gethostbyaddr(Address, Opts, Timeout) ->
     Timer = inet:start_timer(Timeout),
-    Res = gethostbyaddr_tm(IP,Timer),
+    Res = gethostbyaddr_tm(Address, Opts, Timer),
     _ = inet:stop_timer(Timer),
     Res.
 
 
 -doc false.
-gethostbyaddr_tm(Addr, Timer) when is_atom(Addr) ->
-    gethostbyaddr_tm(atom_to_list(Addr), Timer);
-gethostbyaddr_tm(Addr, Timer) when is_list(Addr) ->
+gethostbyaddr_tm(Addr, Timer) ->
+    gethostbyaddr_tm(Addr, [], Timer).
+
+-doc false.
+gethostbyaddr_tm(Addr, Opts, Timer) when is_atom(Addr) ->
+    gethostbyaddr_tm(atom_to_list(Addr), Opts, Timer);
+gethostbyaddr_tm(Addr, Opts, Timer) when is_list(Addr) ->
     case inet_parse:address(Addr) of
-	{ok, IP} -> gethostbyaddr_tm(IP, Timer);
+	{ok, IP} -> gethostbyaddr_tm(IP, Opts, Timer);
 	_Error -> {error, formerr}
     end;
-gethostbyaddr_tm(IP, Timer) ->
+gethostbyaddr_tm(IP, Opts, Timer) ->
     %% The call to norm_ip/1 here translates a lookup of
     %% ::ffff:A.B.C.D (AAAA in ...ip6.arpa) into a plain
     %% A.B.C.D (A in ...in-addr.arpa) lookup, and pretends
@@ -623,7 +673,8 @@ gethostbyaddr_tm(IP, Timer) ->
                     Result;
                 {error, nxdomain} ->
                     %% Do a resolver lookup
-                    case res_query(Name, in, ?S_PTR, [], Timer) of
+                    Options = make_options(Opts),
+                    case res_query(Name, in, ?S_PTR, Options, Timer) of
                         {ok, Rec} ->
                             %% Process and cache DNS Record
                             inet_db:res_gethostbyaddr(Name, IP, Rec);
@@ -662,20 +713,30 @@ otherwise [`gethostbyname(Name, inet, infinity)`](`gethostbyname/3`).
 gethostbyname(Name) ->
     case inet_db:res_option(inet6) of
 	true ->
-	    gethostbyname_tm(Name, inet6, false);
+	    gethostbyname_tm(Name, inet6, [], false);
 	false ->
-	    gethostbyname_tm(Name, inet, false)
+	    gethostbyname_tm(Name, inet, [], false)
     end.
 
 -doc(#{equiv => gethostbyname(Name, Family, infinity)}).
 -spec gethostbyname(Name, Family) -> {ok, Hostent} | {error, Reason} when
       Name :: dns_name(),
-      Hostent :: inet:hostent(),
       Family :: inet:address_family(),
+      Hostent :: inet:hostent(),
       Reason :: inet:posix() | res_error().
+gethostbyname(Name, Family) ->
+    gethostbyname_tm(Name, Family, [], false).
 
-gethostbyname(Name,Family) ->
-    gethostbyname_tm(Name,Family,false).
+-doc(#{equiv => gethostbyname(Name, Family, [], Timeout)}).
+-spec gethostbyname(Name, Family, Timeout) ->
+          {ok, Hostent} | {error, Reason} when
+      Name :: dns_name(),
+      Family :: inet:address_family(),
+      Timeout :: timeout(),
+      Hostent :: inet:hostent(),
+      Reason :: inet:posix() | res_error().
+gethostbyname(Name, Family, Timeout) ->
+    gethostbyname(Name, Family, [], Timeout).
 
 -doc """
 Backend functions used by [`inet:gethostbyname/1,2`](`inet:gethostbyname/1`).
@@ -683,26 +744,32 @@ Backend functions used by [`inet:gethostbyname/1,2`](`inet:gethostbyname/1`).
 This function uses resolver option `search` just like
 [`getbyname/2,3`](`getbyname/2`).
 """.
--spec gethostbyname(Name, Family, Timeout) ->
+-spec gethostbyname(Name, Family, Opts, Timeout) ->
                            {ok, Hostent} | {error, Reason} when
       Name :: dns_name(),
-      Hostent :: inet:hostent(),
-      Timeout :: timeout(),
       Family :: inet:address_family(),
+      Opts :: [Opt],
+      Opt :: res_option() | verbose | atom(),
+      Timeout :: timeout(),
+      Hostent :: inet:hostent(),
       Reason :: inet:posix() | res_error().
-
-gethostbyname(Name,Family,Timeout) ->
+-doc(#{since => "OTP 28.1"}).
+gethostbyname(Name, Family, Opts, Timeout) ->
     Timer = inet:start_timer(Timeout),
-    Res = gethostbyname_tm(Name,Family,Timer),
+    Res = gethostbyname_tm(Name, Family, Opts, Timer),
     _ = inet:stop_timer(Timer),
     Res.
 
 -doc false.
-gethostbyname_tm(Name,inet,Timer) ->
-    getbyname_tm(Name,?S_A,Timer);
-gethostbyname_tm(Name,inet6,Timer) ->
-    getbyname_tm(Name,?S_AAAA,Timer);
-gethostbyname_tm(_Name, _Family, _Timer) ->
+gethostbyname_tm(Name, Type, Timer) ->
+    gethostbyname_tm(Name, Type, [], Timer).
+
+-doc false.
+gethostbyname_tm(Name, inet, Opts, Timer) ->
+    getbyname_tm(Name, ?S_A, Opts, Timer);
+gethostbyname_tm(Name, inet6, Opts, Timer) ->
+    getbyname_tm(Name, ?S_AAAA, Opts, Timer);
+gethostbyname_tm(_Name, _Family, _Opts, _Timer) ->
     {error, einval}.
 
 %% --------------------------------------------------------------------------
@@ -733,15 +800,24 @@ Allows `t:dns_rr_type/0` for the
          H_length    :: non_neg_integer(),
          H_addr_list :: [dns_data()]}.
 
--doc(#{equiv => getbyname(Name, Type, infinity)}).
+-doc(#{equiv => getbyname(Name, Type, [], infinity)}).
 -spec getbyname(Name, Type) -> {ok, Hostent} | {error, Reason} when
       Name :: dns_name(),
       Type :: dns_rr_type(),
       Hostent :: inet:hostent() | hostent(),
       Reason :: inet:posix() | res_error().
-
 getbyname(Name, Type) ->
-    getbyname_tm(Name,Type,false).
+    getbyname_tm(Name, Type, [], false).
+
+-doc(#{equiv => getbyname(Name, Type, [], Timeout)}).
+-spec getbyname(Name, Type, Timeout) -> {ok, Hostent} | {error, Reason} when
+      Name :: dns_name(),
+      Type :: dns_rr_type(),
+      Timeout :: timeout(),
+      Hostent :: inet:hostent() | hostent(),
+      Reason :: inet:posix() | res_error().
+getbyname(Name, Type, Timeout) ->
+    getbyname(Name, Type, [], Timeout).
 
 -doc """
 Resolve a DNS query.
@@ -761,22 +837,31 @@ name in the search list, and they are tried in order.  If the name
 contains dots, it is first tried as an absolute name and if that fails,
 the search list is used. If the name has a trailing dot, it is supposed
 to be an absolute name and the search list is not used.
+
+See `resolve/5` about `Opts`.
 """.
--spec getbyname(Name, Type, Timeout) -> {ok, Hostent} | {error, Reason} when
+-spec getbyname(Name, Type, Opts, Timeout) ->
+          {ok, Hostent} | {error, Reason} when
       Name :: dns_name(),
       Type :: dns_rr_type(),
+      Opts :: [Opt],
+      Opt :: res_option() | verbose | atom(),
       Timeout :: timeout(),
       Hostent :: inet:hostent() | hostent(),
       Reason :: inet:posix() | res_error().
-
-getbyname(Name, Type, Timeout) ->
+-doc(#{since => "OTP 28.1"}).
+getbyname(Name, Type, Opts, Timeout) ->
     Timer = inet:start_timer(Timeout),
-    Res = getbyname_tm(Name, Type, Timer),
+    Res = getbyname_tm(Name, Type, Opts, Timer),
     _ = inet:stop_timer(Timer),
     Res.
 
 -doc false.
-getbyname_tm(Name, Type, Timer) when is_list(Name) ->
+getbyname_tm(Name, Type, Timer) ->
+    getbyname_tm(Name, Type, [], Timer).
+
+-doc false.
+getbyname_tm(Name, Type, Opts, Timer) when is_list(Name) ->
     case type_p(Type) of
 	true ->
 	    case inet_parse:visible_string(Name) of
@@ -790,15 +875,16 @@ getbyname_tm(Name, Type, Timer) when is_list(Name) ->
                             {ok, HEnt};
 			_ ->
                             %% Do a resolver lookup
-                            res_getbyname(Name, Type, Timer)
+                            Options = make_options(Opts),
+                            res_getbyname(Name, Type, Options, Timer)
 		    end
 	    end;
 	false ->
 	    {error, formerr}
     end;
-getbyname_tm(Name,Type,Timer) when is_atom(Name) ->
-    getbyname_tm(atom_to_list(Name), Type,Timer);
-getbyname_tm(_, _, _) -> {error, formerr}.
+getbyname_tm(Name, Type, Opts, Timer) when is_atom(Name) ->
+    getbyname_tm(atom_to_list(Name), Type, Opts, Timer);
+getbyname_tm(_, _, _, _) -> {error, formerr}.
 
 type_p(Type) ->
     lists:member(Type, [?S_A, ?S_AAAA, ?S_MX, ?S_NS,
@@ -825,40 +911,41 @@ type_p(Type) ->
 %%
 %% New behaviour (this code), honoring the old behaviour but
 %% doing better for absolute names:
-%% * For Name = "foo"       try "foo.dom1", "foo.dom2" at normal nameservers
+%% * For Name = "foo"       try "foo.dom1", "foo.dom2" at normal nameservers,
+%%                              then "foo" at normal then alt. nameservers
 %% * For Name = "foo.bar"   try "foo.bar" at normal then alt. nameservers
 %%                          then try "foo.bar.dom1", "foo.bar.dom2"
 %%                                   at normal nameservers
 %% * For Name = "foo."      try "foo" at normal then alt. nameservers
 %% * For Name = "foo.bar."  try "foo.bar" at normal then alt. nameservers
 %%
-%%
-%% FIXME This is probably how it should be done:
-%% Common behaviour (Solaris resolver) is:
-%% * For Name = "foo."      try "foo"
-%% * For Name = "foo.bar."  try "foo.bar"
-%% * For Name = "foo"       try "foo.dom1", "foo.dom2", "foo"
-%% * For Name = "foo.bar"   try "foo.bar.dom1", "foo.bar.dom2", "foo.bar"
-%% That is to try Name as it is as a last resort if it is not absolute.
-%%
-res_getbyname(Name, Type, Timer) ->
+res_getbyname(Name, Type, Options, Timer) ->
     {EmbeddedDots, TrailingDot} = inet_parse:dots(Name),
     if
         TrailingDot ->
-	    res_getby_query(lists:droplast(Name), Type, Timer);
+	    res_getby_query(lists:droplast(Name), Type, Options, Timer);
 	EmbeddedDots =:= 0 ->
-	    res_getby_search(Name, inet_db:get_searchlist(),
-			     nxdomain, Type, Timer);
+            case
+                res_getby_search(
+                  Name, inet_db:get_searchlist(),
+                  nxdomain, Type, Options, Timer)
+            of
+                {error, _Reason} ->
+                    res_getby_query(Name, Type, Options, Timer);
+                Other ->
+                    Other
+            end;
 	true ->
-	    case res_getby_query(Name, Type, Timer) of
-		{error,_Reason}=Error ->
-		    res_getby_search(Name, inet_db:get_searchlist(),
-				     Error, Type, Timer);
+	    case res_getby_query(Name, Type, Options, Timer) of
+		{error, Reason} ->
+		    res_getby_search(
+                      Name, inet_db:get_searchlist(),
+                      Reason, Type, Options, Timer);
 		Other -> Other
 	    end
     end.
 
-res_getby_search(Name, [Dom | Ds], _Reason, Type, Timer) ->
+res_getby_search(Name, [Dom | Ds], _Reason, Type, Options, Timer) ->
     QueryName =
         %% Join Name and Dom with a single dot.
         %% Allow Dom to be "." or "", but not to lead with ".".
@@ -872,17 +959,17 @@ res_getby_search(Name, [Dom | Ds], _Reason, Type, Timer) ->
             true ->
                 erlang:error({if_clause, Name, Dom})
         end,
-    case res_getby_query(QueryName, Type, Timer,
-			 inet_db:res_option(nameservers)) of
+    NSs = Options#options.nameservers,
+    case res_getby_query(QueryName, Type, Options, Timer, NSs) of
 	{ok, HEnt}         -> {ok, HEnt};
 	{error, NewReason} ->
-	    res_getby_search(Name, Ds, NewReason, Type, Timer)
+	    res_getby_search(Name, Ds, NewReason, Type, Options, Timer)
     end;
-res_getby_search(_Name, [], Reason,_,_) ->
+res_getby_search(_Name, [], Reason, _, _, _) ->
     {error, Reason}.
 
-res_getby_query(Name, Type, Timer) ->
-    case res_query(Name, in, Type, [], Timer) of
+res_getby_query(Name, Type, Options, Timer) ->
+    case res_query(Name, in, Type, Options, Timer) of
 	{ok, Rec} ->
             %% Process and cache DNS Record
 	    inet_db:res_hostent_by_domain(Name, Type, Rec);
@@ -891,8 +978,8 @@ res_getby_query(Name, Type, Timer) ->
 	Error -> Error
     end.
 
-res_getby_query(Name, Type, Timer, NSs) ->
-    case res_query(Name, in, Type, [], Timer, NSs) of
+res_getby_query(Name, Type, Options, Timer, NSs) ->
+    case res_query(Name, in, Type, Options, Timer, NSs) of
 	{ok, Rec} ->
             %% Process and cache DNS Record
 	    inet_db:res_hostent_by_domain(Name, Type, Rec);
@@ -910,34 +997,41 @@ res_getby_query(Name, Type, Timer, NSs) ->
 
 
 
-%% Query first nameservers list then alt_nameservers list
-res_query(Name, Class, Type, Opts, Timer) ->
-    #q{options=#options{nameservers=NSs}}=Q =
-	make_query(Name, Class, Type, Opts),
-    case do_query(Q, NSs, Timer) of
-	{error,nxdomain}=Error ->
-	    res_query_alt(Q, Error, Timer);
-	{error,{nxdomain,_}}=Error ->
-	    res_query_alt(Q, Error, Timer);
-	{ok,#dns_rec{anlist=[]}}=Reply ->
-	    res_query_alt(Q, Reply, Timer);
-	Reply -> Reply
-    end.
-
 %% Query just the argument nameservers list
-res_query(Name, Class, Type, Opts, Timer, NSs) ->
-    Q = make_query(Name, Class, Type, Opts),
-    do_query(Q, NSs, Timer).
-
-res_query_alt(#q{options=#options{alt_nameservers=NSs}}=Q, Reply, Timer) ->
+res_query(Name, Class, Type, Options, Timer, NSs) ->
     case NSs of
-	[] -> Reply;
-	_ ->
-	    do_query(Q, NSs, Timer)
+        [] ->
+            {error,nxdomain};
+        [_|_] ->
+            Q = make_query(Name, Class, Type, Options),
+            do_query(Q, NSs, Timer)
     end.
 
-make_query(Dname, Class, Type, Opts) ->
-    Options = make_options(Opts),
+%% Query first nameservers list then alt_nameservers list;
+res_query(Name, Class, Type, Options, Timer) ->
+    case Options of
+        #options{nameservers = [], alt_nameservers = []} ->
+            {error,nxdomain};
+        #options{
+           nameservers = Nameservers,
+           alt_nameservers = AltNameservers} ->
+            Q = make_query(Name, Class, Type, Options),
+            case res_query(Q, Nameservers, {error,nxdomain}, Timer) of
+                {error,nxdomain} = Error ->
+                    res_query(Q, AltNameservers, Error, Timer);
+                {error,{nxdomain,_}} = Error ->
+                    res_query(Q, AltNameservers, Error, Timer);
+                {ok,#dns_rec{anlist=[]}} = Reply ->
+                    res_query(Q, AltNameservers, Reply, Timer);
+                Reply -> Reply
+            end
+    end.
+
+res_query(_Q, [], Result, _Timer) -> Result;
+res_query(Q, NSs, _Result, Timer) -> do_query(Q, NSs, Timer).
+
+
+make_query(Dname, Class, Type, Options) ->
     case Options#options.edns of
 	false ->
 	    #q{options=Options,
@@ -982,65 +1076,120 @@ make_query(Dname, Class, Type, Options, Edns) ->
     Buffer = inet_dns:encode(Msg, false),
     {Msg, Buffer}.
 
+update_query_id(#q{ edns = EdnsQ, dns = DnsQ } = Q) ->
+    Q#q{ edns = update_query_id_part(EdnsQ),
+         dns  = update_query_id_part(DnsQ) }.
+
+update_query_id_part({#dns_rec{ header = Header } = Msg, Buffer}) ->
+    Id = inet_db:res_option(next_id),
+    {Msg#dns_rec{ header = Header#dns_header{ id = Id }},
+     inet_dns:update_id(Buffer, Id)};
+update_query_id_part(undefined)                                -> undefined;
+update_query_id_part(DnsRecFun) when is_function(DnsRecFun, 0) -> DnsRecFun.
+
 %% --------------------------------------------------------------------------
 %% socket helpers
 %%
 -record(sock, {inet=undefined, inet6=undefined}).
 
-udp_open(#sock{inet6=I}=S, {A,B,C,D,E,F,G,H}) when ?ip6(A,B,C,D,E,F,G,H) ->
+udp_open(undefined, _IP, Verbose) when is_boolean(Verbose) ->
+    {ok, undefined};
+udp_open(#sock{inet6=I}=S, {A,B,C,D,E,F,G,H} = IP, Verbose)
+  when ?ip6(A,B,C,D,E,F,G,H), is_boolean(Verbose) ->
     case I of
 	undefined ->
 	    case gen_udp:open(0, [{active,false},binary,inet6]) of
 		{ok,J} ->
 		    {ok,S#sock{inet6=J}};
 		Error ->
+                    ?verbose(Verbose, "UDP open failed ~p ~p~n", [IP, Error]),
 		    Error
 	    end;
 	_ ->
 	    {ok,S}
     end;
-udp_open(#sock{inet=I}=S, {A,B,C,D}) when ?ip(A,B,C,D) ->
+udp_open(#sock{inet=I}=S, {A,B,C,D} = IP, Verbose)
+  when ?ip(A,B,C,D), is_boolean(Verbose) ->
     case I of
 	undefined ->
 	    case gen_udp:open(0, [{active,false},binary,inet]) of
 		{ok,J} ->
 		    {ok,S#sock{inet=J}};
 		Error ->
+                    ?verbose(Verbose, "UDP open failed ~p ~p~n", [IP, Error]),
 		    Error
 	    end;
 	_ ->
 	    {ok,S}
     end.
 
-udp_connect(#sock{inet6=I}, {A,B,C,D,E,F,G,H}=IP, Port)
-  when ?ip6(A,B,C,D,E,F,G,H), ?port(Port) ->
-    gen_udp:connect(I, IP, Port);
-udp_connect(#sock{inet=I}, {A,B,C,D}=IP, Port)
-  when ?ip(A,B,C,D) ->
-    gen_udp:connect(I, IP, Port).
 
-udp_send(#sock{inet6=I}, {A,B,C,D,E,F,G,H}=IP, Port, Buffer)
-  when ?ip6(A,B,C,D,E,F,G,H), ?port(Port) ->
-    gen_udp:send(I, IP, Port, Buffer);
-udp_send(#sock{inet=I}, {A,B,C,D}=IP, Port, Buffer)
-  when ?ip(A,B,C,D), ?port(Port) ->
-    gen_udp:send(I, IP, Port, Buffer).
+udp_connect(undefined, {A,B,C,D,E,F,G,H}=IP, Port, Verbose)
+  when ?ip6(A,B,C,D,E,F,G,H), ?port(Port), is_boolean(Verbose) ->
+    udp_connect_fam(inet6, IP, Port, Verbose);
+udp_connect(undefined, {A,B,C,D}=IP, Port, Verbose)
+  when ?ip(A,B,C,D), ?port(Port), is_boolean(Verbose) ->
+    udp_connect_fam(inet, IP, Port, Verbose);
+%%
+udp_connect(#sock{inet6=I}, {A,B,C,D,E,F,G,H}=IP, Port, Verbose)
+  when ?ip6(A,B,C,D,E,F,G,H), ?port(Port), is_boolean(Verbose) ->
+    udp_connect_socket(I, IP, Port, Verbose);
+udp_connect(#sock{inet=I}, {A,B,C,D}=IP, Port, Verbose)
+  when ?ip(A,B,C,D), ?port(Port), is_boolean(Verbose) ->
+    udp_connect_socket(I, IP, Port, Verbose).
 
-udp_recv(#sock{inet6=I}, {A,B,C,D,E,F,G,H}=IP, Port, Timeout, Decode)
-  when ?ip6(A,B,C,D,E,F,G,H), ?port(Port), 0 =< Timeout ->
-    do_udp_recv(I, IP, Port, Timeout, Decode, time(Timeout), Timeout);
-udp_recv(#sock{inet=I}, {A,B,C,D}=IP, Port, Timeout, Decode)
-  when ?ip(A,B,C,D), ?port(Port), 0 =< Timeout ->
-    do_udp_recv(I, IP, Port, Timeout, Decode, time(Timeout), Timeout).
+%% Port number -1 is an internal feature that randomizes
+%% the bind port more than an ephemeral port, but it is not allowed
+%% by the type spec for gen_udp:open/2, so we have to suppress
+%% the Dialyzer warnings that that causes here...
+-dialyzer({[no_return, no_fail_call], udp_connect_fam/4}).
+udp_connect_fam(Fam, IP, Port, Verbose) ->
+    case gen_udp:open(-1, [{active,false},binary,Fam]) of
+        {ok, Socket} = OK ->
+            case gen_udp:connect(Socket, IP, Port) of
+                ok ->
+                    ?verbose(Verbose, "UDP connected ~p:~p~n",
+                             [IP, Port]),
+                    OK;
+                {error, _} = E1 ->
+                    ?verbose(Verbose,
+                             "UDP connect error ~p:~p ~p~n", [IP, Port, E1]),
+                    _ = gen_udp:close(Socket),
+                    E1
+            end;
+        {error, _} = E2 ->
+            ?verbose(Verbose,
+                     "UDP open failed ~p:~p ~p~n", [IP, Port, E2]),
+            E2
+    end.
 
-do_udp_recv(_I, _IP, _Port, 0, _Decode, _Time, PollCnt)
-  when PollCnt =< 0 ->
-    timeout;
-do_udp_recv(I, IP, Port, Timeout, Decode, Time, PollCnt) ->
-    case gen_udp:recv(I, 0, Timeout) of
-	{ok,Reply} ->
-	    case Decode(Reply) of
-		false when Timeout =:= 0 ->
+udp_connect_socket(Socket, IP, Port, Verbose) ->
+    case gen_udp:connect(Socket, IP, Port) of
+        ok ->
+            ?verbose(Verbose, "UDP connected ~p:~p~n", [IP, Port]),
+            {ok, Socket};
+        {error, _} = Error ->
+            ?verbose(Verbose,
+                     "UDP connect error ~p:~p ~p~n", [IP, Port, Error]),
+            Error
+    end.
+
+
+udp_recv(Socket, Timeout, Decode) ->
+    PollCnt = Timeout div 50,
+    do_udp_recv(Socket, Timeout, Decode, deadline(Timeout), PollCnt).
+
+do_udp_recv(Socket, Timeout, Decode, Deadline, PollCnt)
+  when is_integer(Timeout), 0 =< Timeout,
+       is_integer(Deadline),
+       is_integer(PollCnt), 0 < PollCnt ->
+    case gen_udp:recv(Socket, 0, Timeout) of
+	{ok,UdpMsg} ->
+	    case Decode(UdpMsg) of
+		retry when 0 < Timeout ->
+		    do_udp_recv(
+                      Socket, timeout(Deadline), Decode, Deadline, PollCnt);
+		retry ->
 		    %% This is a compromise between the hard way i.e
 		    %% in the clause below if Timeout becomes 0 bailout
 		    %% immediately and risk that the right reply lies
@@ -1051,17 +1200,20 @@ do_udp_recv(I, IP, Port, Timeout, Decode, Time, PollCnt) ->
 		    %% DNS server flooding with bad id replies causing
 		    %% an infinite loop here.
                     %%
+                    %% Finalize with PollCnt number of recv timeout 0
+                    %%
 		    do_udp_recv(
-                      I, IP, Port, Timeout, Decode, Time, PollCnt-50);
-		false ->
-		    do_udp_recv(
-                      I, IP, Port, timeout(Time), Decode, Time, PollCnt);
+                      Socket, Timeout, Decode, Deadline, PollCnt - 1);
 		Result ->
 		    Result
 	    end;
 	Error -> Error
-    end.
+    end;
+do_udp_recv(_Socket, Timeout, _Decode, Deadline, 0)
+  when is_integer(Timeout), 0 =< Timeout, is_integer(Deadline) ->
+    timeout.
 
+udp_close(undefined) -> ok;
 udp_close(#sock{inet=I,inet6=I6}) ->
     if I =/= undefined -> gen_udp:close(I); true -> ok end,
     if I6 =/= undefined -> gen_udp:close(I6); true -> ok end,
@@ -1094,7 +1246,7 @@ udp_close(#sock{inet=I,inet6=I6}) ->
 do_query(_Q, [], _Timer) ->
     %% We have no name server to ask, so say nxdomain
     {error,nxdomain};
-do_query(#q{options=#options{retry=Retry}}=Q, NSs, Timer) ->
+do_query(#q{options=#options{retry=Retry,random=Random}}=Q, NSs, Timer) ->
     %% We have at least one name server,
     %% so a failure will be a time-out,
     %% unless a name server says otherwise
@@ -1106,7 +1258,11 @@ do_query(#q{options=#options{retry=Retry}}=Q, NSs, Timer) ->
           (_) -> false
       end, NSs) orelse
         erlang:error(badarg, [Q,NSs,Timer]),
-    query_retries(Q, NSs, Timer, Retry, 0, #sock{}, Reason).
+    S = case Random of
+            true    -> undefined;
+            false   -> #sock{}
+        end,
+    query_retries(Q, NSs, Timer, Retry, 0, S, Reason).
 
 %% Loop until out of retries or name servers
 %%
@@ -1193,7 +1349,7 @@ query_nss_dns(
 
 %% Wrap with retry time
 servfail_retry_time(RetryTimeout, NS) ->
-    {servfail_retry, time(RetryTimeout), NS}.
+    {servfail_retry, deadline(RetryTimeout), NS}.
 
 %% Unwrap and wait
 servfail_retry_wait(NsSpec) ->
@@ -1224,29 +1380,29 @@ query_nss_result(Q, NSs, Timer, Retry, I, S, Reason, RetryNSs, NS, Result) ->
             %% The server did not like that.
             %% Do not retry this server since
             %% it will not answer differently on the next retry.
-	    query_nss(Q, NSs, Timer, Retry, I, S, NewReason, RetryNSs);
+	    query_nss_retry(Q, NSs, Timer, Retry, I, S, NewReason, RetryNSs);
 	{error,E=NewReason}
           when E =:= formerr;
                E =:= enetunreach;
                E =:= econnrefused ->
             %% Could not decode answer, or network problem.
             %% Do not retry this server.
-	    query_nss(Q, NSs, Timer, Retry, I, S, NewReason, RetryNSs);
+	    query_nss_retry(Q, NSs, Timer, Retry, I, S, NewReason, RetryNSs);
 	{error,timeout} -> % Query time-out
             %% Try next server, may retry this server
-	    query_nss(Q, NSs, Timer, Retry, I, S, Reason, [NS|RetryNSs]);
+	    query_nss_retry(Q, NSs, Timer, Retry, I, S, Reason, [NS|RetryNSs]);
         {error,{servfail,_}=NewReason} ->
             RetryTimeout = Q#q.options#options.servfail_retry_timeout,
             case inet:timeout(RetryTimeout, Timer) of
                 RetryTimeout ->
                     NsSpec = servfail_retry_time(RetryTimeout, NS),
-                    query_nss(
+                    query_nss_retry(
                       Q, NSs, Timer, Retry, I, S, NewReason,
                       [NsSpec|RetryNSs]);
                 _ ->
                     %% No time for a new retry with this server
                     %% - do not retry this server
-                    query_nss(
+                    query_nss_retry(
                       Q, NSs, Timer, Retry, I, S, NewReason, RetryNSs)
             end;
 	{error,NewReason} ->
@@ -1255,8 +1411,17 @@ query_nss_result(Q, NSs, Timer, Retry, I, S, Reason, RetryNSs, NS, Result) ->
             %%     {error,{noquery,Msg}} |
             %%     {error,OtherSocketError}
             %% Try next server, may retry this server
-	    query_nss(Q, NSs, Timer, Retry, I, S, NewReason, [NS|RetryNSs])
+	    query_nss_retry(
+              Q, NSs, Timer, Retry, I, S, NewReason, [NS|RetryNSs])
     end.
+
+query_nss_retry(Q0, NSs, Timer, Retry, I, S, Reason, RetryNSs) ->
+    Q = case S of
+            undefined -> update_query_id(Q0);
+            #sock{}   -> Q0
+        end,
+    query_nss(Q, NSs, Timer, Retry, I, S, Reason, RetryNSs).
+
 
 query_retries_error(#q{options=#options{nxdomain_reply=NxReply}}, S, Reason) ->
     _ = udp_close(S),
@@ -1277,7 +1442,7 @@ query_ns(S0, {Msg, Buffer}, IP, Port, Timer, Retry, I,
 	    {S0,
              query_tcp(TcpTimeout, Msg, Buffer, IP, Port, Verbose)};
 	false ->
-	    case udp_open(S0, IP) of
+	    case udp_open(S0, IP, Verbose) of
 		{ok,S} ->
 		    UdpTimeout =
 			inet:timeout( (Tm * (1 bsl I)) div Retry, Timer),
@@ -1291,8 +1456,10 @@ query_ns(S0, {Msg, Buffer}, IP, Port, Timer, Retry, I,
                               query_tcp(
                                 TcpTimeout, Msg, Buffer, IP, Port, Verbose)};
 			{error, econnrefused} = Err ->
-                            ok = udp_close(S),
-	                    {#sock{}, Err};
+                             ok = udp_close(S),
+                             {if  S =:= undefined -> S;
+                                  true            -> #sock{}
+                              end, Err};
 			Reply -> {S, Reply}
 		     end;
 		Error ->
@@ -1300,43 +1467,62 @@ query_ns(S0, {Msg, Buffer}, IP, Port, Timer, Retry, I,
 	    end
     end.
 
-query_udp(_S, _Msg, _Buffer, _IP, _Port, 0, _Verbose) ->
+
+%% See udp_connect_fam/4 above.  The use of port number -1 causes
+%% a secondary Dialyzer warning here since Dialyzer concludes
+%% that S cannot be 'undefined' because that would cause udp_connect/4
+%% to crash here, so `S =:= undefined` can never be `true`.
+%% This is a suppression for that.
+-dialyzer({no_match, query_udp/7}).
+query_udp(_S, _Msg, _Buffer, IP, Port, 0, Verbose) ->
+    ?verbose(Verbose, "No try UDP server : ~p:~p (overdue)\n",
+	     [IP,Port]),
     timeout;
 query_udp(S, Msg, Buffer, IP, Port, Timeout, Verbose) ->
     ?verbose(Verbose, "Try UDP server : ~p:~p (timeout=~w)\n",
 	     [IP,Port,Timeout]),
-    case
-	case udp_connect(S, IP, Port) of
-	    ok ->
-		udp_send(S, IP, Port, Buffer);
-	    E1 ->
-		E1 end of
-	ok ->
-	    Decode =
-		fun ({RecIP,RecPort,Answer})
-		      when RecIP =:= IP, RecPort =:= Port ->
-			case decode_answer(Answer, Msg, Verbose) of
-			    {error,badid} ->
-				false;
-			    Reply ->
-				Reply
-			end;
-		    ({_,_,_}) ->
-			false
-		end,
-	    case udp_recv(S, IP, Port, Timeout, Decode) of
-		{ok,_}=Result ->
-		    Result;
-		E2 ->
-		    ?verbose(Verbose, "UDP server error: ~p\n", [E2]),
-		    E2
-	    end;
-	E3 ->
-	    ?verbose(Verbose, "UDP send failed: ~p\n", [E3]),
-	    {error,econnrefused}
+    case udp_connect(S, IP, Port, Verbose) of
+        {error, _} = E1 ->
+	    ?verbose(Verbose, "UDP connect failed: ~p\n", [E1]),
+            E1;
+        {ok, Socket} ->
+            DecodeFun =
+                fun ({RecIP, RecPort, Bin})
+                    when RecIP =:= IP, RecPort =:= Port ->
+                        case decode_reply(Bin, Msg, Verbose) of
+                            {error,Reason}
+                              when Reason =:= badid;
+                                   Reason =:= unknown;
+                                   Reason =:= noquery -> retry;
+                            Reply                     -> Reply
+                        end;
+                    ({_, _, _})                       -> retry
+                end,
+            try
+                case gen_udp:send(Socket, Buffer) of
+                    {error, _} = E2 ->
+                        ?verbose(Verbose, "UDP send failed: ~p ~p ~p\n",
+                                 [Socket, Buffer, E2]),
+                        E2;
+                    ok ->
+                        case udp_recv(Socket, Timeout, DecodeFun) of
+                            {ok, _} = Result -> Result;
+                            E3 ->
+                                ?verbose(Verbose,
+                                         "UDP server error: ~p\n", [E3]),
+                                E3
+                        end
+                end
+            after
+                S =:= undefined andalso
+                    gen_udp:close(Socket)
+            end
     end.
 
-query_tcp(0, _Msg, _Buffer, _IP, _Port, _Verbose) ->
+
+query_tcp(0, _Msg, _Buffer, IP, Port, Verbose) ->
+    ?verbose(Verbose, "No try TCP server : ~p:~p (overdue)\n",
+             [IP, Port]),
     timeout;
 query_tcp(Timeout, Msg, Buffer, IP, Port, Verbose) ->
     ?verbose(Verbose, "Try TCP server : ~p:~p (timeout=~w)\n",
@@ -1352,9 +1538,9 @@ query_tcp(Timeout, Msg, Buffer, IP, Port, Verbose) ->
 	    case gen_tcp:send(S, Buffer) of
 		ok ->
 		    case gen_tcp:recv(S, 0, Timeout) of
-			{ok, Answer} ->
+			{ok, Bin} ->
 			    gen_tcp:close(S),
-			    case decode_answer(Answer, Msg, Verbose) of
+			    case decode_reply(Bin, Msg, Verbose) of
 				{ok, _} = OK -> OK;
 				{error, badid} -> {error, servfail};
 				Error -> Error
@@ -1378,10 +1564,11 @@ query_tcp(Timeout, Msg, Buffer, IP, Port, Verbose) ->
 	_:_ -> {error, einval}
     end.
 
-decode_answer(Answer, Q_Msg, Verbose) ->
-    case inet_dns:decode(Answer, false) of
+decode_reply(Bin, Q_Msg, Verbose) ->
+    case inet_dns:decode_reply(Bin, Q_Msg, false) of
 	{ok, #dns_rec{header = H, arlist = ARList} = Msg} ->
-	    ?verbose(Verbose, "Got reply: ~p~n", [dns_msg(Msg)]),
+	    ?verbose(Verbose, "Got reply size ~w: ~p~n",
+                     [byte_size(Bin), dns_msg(Msg)]),
 	    T = case lists:keyfind(dns_rr_tsig, 1, ARList) of
 		    false -> false;
 		    #dns_rr_tsig{error=?NOERROR} -> false;
@@ -1393,7 +1580,8 @@ decode_answer(Answer, Q_Msg, Verbose) ->
 		end,
 	    RCode = T orelse (E bsl 4) bor H#dns_header.rcode,
 	    case RCode of
-		?NOERROR  -> decode_answer_noerror(Q_Msg, Msg, H);
+		?NOERROR  -> {ok,Msg};
+                    %% decode_answer_noerror(Q_Msg, Msg, H);
 		?FORMERR  -> {error,{qfmterror,Msg}};
 		?SERVFAIL -> {error,{servfail,Msg}};
 		?NXDOMAIN -> {error,{nxdomain,Msg}};
@@ -1402,8 +1590,8 @@ decode_answer(Answer, Q_Msg, Verbose) ->
 		?YXDOMAIN -> {error,{yxdomain,Msg}};
 		?YXRRSET  -> {error,{yxrrset,Msg}};
 		?NXRRSET  -> {error,{nxrrset,Msg}};
-		?NOTAUTH  -> {error,{noauth,Msg}};
-		?NOTZONE  -> {error,{nozone,Msg}};
+		?NOTAUTH  -> {error,{notauth,Msg}};
+		?NOTZONE  -> {error,{notzone,Msg}};
 		?BADVERS when not T -> {error,{badvers,Msg}};
 		?BADSIG   -> {error,{badsig,Msg}};
 		?BADKEY   -> {error,{badkey,Msg}};
@@ -1411,42 +1599,9 @@ decode_answer(Answer, Q_Msg, Verbose) ->
 		?BADTRUNC -> {error,{badtrunc,Msg}};
 		_         -> {error,{unknown,Msg}}
 	    end;
-	{error, formerr} = Error ->
-	    ?verbose(Verbose, "Got reply: decode format error~n", []),
+	{error, Reason} = Error ->
+	    ?verbose(Verbose, "Got reply: decode error ~p~n", [Reason]),
 	    Error
-    end.
-
-decode_answer_noerror(
-  #dns_rec{header = Q_H, qdlist = [Q_RR]},
-  #dns_rec{qdlist = QDList} = Msg,
-  H) ->
-    %% Validate the reply
-    if
-        H#dns_header.id     =/= Q_H#dns_header.id ->
-            {error,badid};
-        H#dns_header.qr     =/= true;
-        H#dns_header.opcode =/= Q_H#dns_header.opcode;
-        H#dns_header.rd andalso not Q_H#dns_header.rd ->
-            {error,{unknown,Msg}};
-        true ->
-            case QDList of
-                [RR] ->
-                    case
-                        (RR#dns_query.class =:= Q_RR#dns_query.class)
-                        andalso
-                        (RR#dns_query.type =:= Q_RR#dns_query.type)
-                        andalso
-                        inet_db:eq_domains(
-                          RR#dns_query.domain, Q_RR#dns_query.domain)
-                    of
-                        true ->
-                            {ok, Msg};
-                        false ->
-                            {error,{noquery,Msg}}
-                    end;
-                _ when is_list(QDList) ->
-                    {error,{noquery,Msg}}
-            end
     end.
 
 %%
@@ -1552,20 +1707,20 @@ dns_msg(Msg) ->
 
 
 
--compile({inline, [time/1, timeout/1, wait/1]}).
+-compile({inline, [deadline/1, timeout/1, wait/1]}).
 
-%% What Time is the Timeout? [ms]
+%% When is the Timeout? [ms]
 %%
-time(Timeout) ->
+deadline(Timeout) when is_integer(Timeout), 0 =< Timeout ->
     erlang:monotonic_time(1000) + Timeout.
 
-%% How long Timeout to Time? [ms] >= 0
+%% How long Timeout to Deadline? [ms] >= 0
 %%
-timeout(Time) ->
-    TimeNow = erlang:monotonic_time(1000),
+timeout(Deadline) when is_integer(Deadline) ->
+    Time = erlang:monotonic_time(1000),
     if
-        TimeNow < Time ->
-            Time - TimeNow;
+        Time < Deadline ->
+            Deadline - Time;
         true ->
             0
     end.
@@ -1574,7 +1729,7 @@ timeout(Time) ->
 %%
 wait(0) ->
     ok;
-wait(Timeout) ->
+wait(Timeout) when is_integer(Timeout), 0 < Timeout ->
     receive
     after Timeout ->
             ok

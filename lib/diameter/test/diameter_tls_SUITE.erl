@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,7 +50,7 @@
          end_per_testcase/2,
         
          %% The test cases
-         parallel/1
+         test/1
         ]).
 
 %% diameter callbacks
@@ -132,20 +134,19 @@ suite() ->
     [{timetrap, {seconds, 90}}].
 
 all() ->
-    [parallel].
+    [test].
 
 %% Shouldn't really have to know about crypto here but 'ok' from
 %% ssl:start() isn't enough to guarantee that TLS is available.
 init_per_suite(Config) ->
     ?TL("init_per_suite -> entry with"
         "~n   Config: ~p", [Config]),
-    Config2 = ?DUTIL:init_per_suite(Config),
     try
-        [] == (catch make_certs(dir(Config2)))
+        ok == (catch make_certs(dir(Config)))
             orelse throw({?MODULE, no_certs}),
-        ok == crypto:start() orelse throw({?MODULE, no_crypto}),
+        ok == application:start(crypto) orelse throw({?MODULE, no_crypto}),
         ok == ssl:start() orelse throw({?MODULE, no_ssl}),
-        Config2
+        ?DUTIL:init_per_suite(Config)
     catch
         {?MODULE, E} ->
             {skip, E}
@@ -155,7 +156,7 @@ end_per_suite(Config) ->
     ?TL("end_per_suite -> entry with"
         "~n   Config: ~p", [Config]),
     ssl:stop(),
-    crypto:stop(),
+    application:stop(crypto),
     ?DUTIL:end_per_suite(Config).
 
 %% This test case can take a *long* time, so if the machine is too slow, skip
@@ -185,10 +186,10 @@ end_per_testcase(Case, Config) when is_list(Config) ->
 
 %% ===========================================================================
 
-parallel(Config) ->
-    ?TL("parallel -> entry"),
+test(Config) ->
+    ?TL("test -> entry"),
     Res = run(dir(Config), false),
-    ?TL("parallel -> done when"
+    ?TL("test -> done when"
         "~n   Res: ~p", [Res]),
     Res.
 
@@ -208,19 +209,19 @@ run() ->
 
 run(Dir, B) ->
     ?TL("run -> start crypto"),
-    crypto:start(),
+    application:start(crypto),
     ?TL("run -> start ssl"),
     ssl:start(),
     try
         ?TL("run -> try run traffic"),
-        ?RUN([{[fun traffic/2, Dir, B], 60000}])
+        traffic(Dir, B)
     after
         ?TL("run(after) -> stop diameter"),
         diameter:stop(),
         ?TL("run(after) -> stop ssl"),
         ssl:stop(),
         ?TL("run(after) -> stop crypto"),
-        crypto:stop(),
+        application:stop(crypto),
         ?TL("run(after) -> done"),
         ok
     end.
@@ -238,7 +239,7 @@ traffic(Dir, false) ->
     ?TL("traffic(false) -> add transports"),
     Connections = add_transports(Dir, Servers),
     ?TL("traffic(false) -> calls"),
-    [] = ?RUN([[fun call/1, S] || S <- ?SCRAMBLE(?SERVERS)]),
+    [ok = call(S) || S <- ?SCRAMBLE(?SERVERS)],
     ?TL("traffic(false) -> remove transports"),
     [] = remove_transports(Connections),
     ?TL("traffic(false) -> stop (diameter) services"),
@@ -247,13 +248,15 @@ traffic(Dir, false) ->
     ok.
 
 make_certs(Dir) ->
-    ?RUN([[fun make_cert/2, Dir, B] || B <- ["server1",
-                                             "server2",
-                                             "server4",
-                                             "server5",
-                                             "client"]]).
+    [make_cert(Dir, B) || B <- ["server1",
+                                "server2",
+                                "server4",
+                                "server5",
+                                "client"]],
+    ok.
 
 start_services(Dir) ->
+    lists:foreach(fun(S) -> ?DEL_REG(S) end, ?SERVERS ++ [?CLIENT]),
     Servers = [{S, {_,_} = server(S, sopts(S, Dir))} || S <- ?SERVERS],
     ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT, ?DICT_COMMON)),
     Servers.
@@ -267,7 +270,7 @@ add_transports(Dir, Servers) ->
 %% transport to go down.
 remove_transports(Connections) ->
     [] = [T || S <- ?SERVERS, T <- [diameter:subscribe(S)], T /= true],
-    [] = ?RUN([[fun disconnect/1, T] || T <- Connections]),
+    [disconnect(T) || T <- Connections],
     [S || S <- ?SERVERS,
           I <- [receive #diameter_event{service = S, info = I} -> I end],
           down /= catch element(1, I)].
@@ -276,9 +279,12 @@ disconnect({_, {_LRef, _PortNr}, CRef}) ->
     ok = diameter:remove_transport(?CLIENT, CRef).
 
 stop_services() ->
+    lists:foreach(fun(S) -> ?DEL_UNREG(S) end,
+                  lists:reverse(?SERVERS ++ [?CLIENT])),
     [{H,T} || H <- [?CLIENT | ?SERVERS],
               T <- [diameter:stop_service(H)],
               T /= ok].
+
 
 %% ===========================================================================
 %% diameter callbacks

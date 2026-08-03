@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2022-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2022-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +25,13 @@
  *
  * essio = ESock Synchronous I/O
  *
+ *
+ *
+ *
  */
 
 #ifdef HAVE_CONFIG_H
-#    include "config.h"
+#include "config.h"
 #endif
 
 #ifdef ESOCK_ENABLE
@@ -67,6 +72,116 @@
 
 #include <net/if.h>
 
+
+/* SCTP support -- currently for UNIX platforms only: */
+#undef HAVE_SCTP
+
+#define ASSOC_ID_LEN 4
+
+#if defined(HAVE_SCTP_H)
+
+#include <netinet/sctp.h>
+
+/* SCTP Socket API Draft from version 11 on specifies that netinet/sctp.h must
+ * explicitly define HAVE_SCTP in case when SCTP is supported,  but Solaris 10
+ * still apparently uses Draft 10, and does not define that symbol, so we have
+ * to define it explicitly:
+ */
+#ifndef     HAVE_SCTP
+#    define HAVE_SCTP
+#endif
+
+/* These changed in draft 11, so SOLARIS10 uses the old MSG_* */
+#if ! HAVE_DECL_SCTP_UNORDERED
+#     define    SCTP_UNORDERED  MSG_UNORDERED
+#endif
+#if ! HAVE_DECL_SCTP_ADDR_OVER
+#     define    SCTP_ADDR_OVER  MSG_ADDR_OVER
+#endif
+#if ! HAVE_DECL_SCTP_ABORT
+#     define    SCTP_ABORT      MSG_ABORT
+#endif
+#if ! HAVE_DECL_SCTP_EOF
+#     define    SCTP_EOF        MSG_EOF
+#endif
+
+/* More Solaris 10 fixes: */
+#if ! HAVE_DECL_SCTP_CLOSED && HAVE_DECL_SCTPS_IDLE
+#    define SCTP_CLOSED SCTPS_IDLE
+#    undef HAVE_DECL_SCTP_CLOSED
+#    define HAVE_DECL_SCTP_CLOSED 1
+#endif
+#if ! HAVE_DECL_SCTP_BOUND && HAVE_DECL_SCTPS_BOUND
+#    define SCTP_BOUND SCTPS_BOUND
+#    undef HAVE_DECL_SCTP_BOUND
+#    define HAVE_DECL_SCTP_BOUND 1
+#endif
+#if ! HAVE_DECL_SCTP_LISTEN && HAVE_DECL_SCTPS_LISTEN
+#    define SCTP_LISTEN SCTPS_LISTEN
+#    undef HAVE_DECL_SCTP_LISTEN
+#    define HAVE_DECL_SCTP_LISTEN 1
+#endif
+#if ! HAVE_DECL_SCTP_COOKIE_WAIT && HAVE_DECL_SCTPS_COOKIE_WAIT
+#    define SCTP_COOKIE_WAIT SCTPS_COOKIE_WAIT
+#    undef HAVE_DECL_SCTP_COOKIE_WAIT
+#    define HAVE_DECL_SCTP_COOKIE_WAIT 1
+#endif
+#if ! HAVE_DECL_SCTP_COOKIE_ECHOED && HAVE_DECL_SCTPS_COOKIE_ECHOED
+#    define SCTP_COOKIE_ECHOED SCTPS_COOKIE_ECHOED
+#    undef HAVE_DECL_SCTP_COOKIE_ECHOED
+#    define HAVE_DECL_SCTP_COOKIE_ECHOED 1
+#endif
+#if ! HAVE_DECL_SCTP_ESTABLISHED && HAVE_DECL_SCTPS_ESTABLISHED
+#    define SCTP_ESTABLISHED SCTPS_ESTABLISHED
+#    undef HAVE_DECL_SCTP_ESTABLISHED
+#    define HAVE_DECL_SCTP_ESTABLISHED 1
+#endif
+#if ! HAVE_DECL_SCTP_SHUTDOWN_PENDING && HAVE_DECL_SCTPS_SHUTDOWN_PENDING
+#    define SCTP_SHUTDOWN_PENDING SCTPS_SHUTDOWN_PENDING
+#    undef HAVE_DECL_SCTP_SHUTDOWN_PENDING
+#    define HAVE_DECL_SCTP_SHUTDOWN_PENDING 1
+#endif
+#if ! HAVE_DECL_SCTP_SHUTDOWN_SENT && HAVE_DECL_SCTPS_SHUTDOWN_SENT
+#    define SCTP_SHUTDOWN_SENT SCTPS_SHUTDOWN_SENT
+#    undef HAVE_DECL_SCTP_SHUTDOWN_SENT
+#    define HAVE_DECL_SCTP_SHUTDOWN_SENT 1
+#endif
+#if ! HAVE_DECL_SCTP_SHUTDOWN_RECEIVED && HAVE_DECL_SCTPS_SHUTDOWN_RECEIVED
+#    define SCTP_SHUTDOWN_RECEIVED SCTPS_SHUTDOWN_RECEIVED
+#    undef HAVE_DECL_SCTP_SHUTDOWN_RECEIVED
+#    define HAVE_DECL_SCTP_SHUTDOWN_RECEIVED 1
+#endif
+#if ! HAVE_DECL_SCTP_SHUTDOWN_ACK_SENT && HAVE_DECL_SCTPS_SHUTDOWN_ACK_SENT
+#    define SCTP_SHUTDOWN_ACK_SENT SCTPS_SHUTDOWN_ACK_SENT
+#    undef HAVE_DECL_SCTP_SHUTDOWN_ACK_SENT
+#    define HAVE_DECL_SCTP_SHUTDOWN_ACK_SENT 1
+#endif
+/* New spelling in lksctp 2.6.22 or maybe even earlier:
+ *  adaption -> adaptation
+ */
+#if !defined(SCTP_ADAPTATION_LAYER) && defined (SCTP_ADAPTION_LAYER)
+#     define SCTP_ADAPTATION_LAYER       SCTP_ADAPTION_LAYER
+#     define SCTP_ADAPTATION_INDICATION  SCTP_ADAPTION_INDICATION
+#     define sctp_adaptation_event       sctp_adaption_event
+#     define sctp_setadaptation          sctp_setadaption
+#     define sn_adaptation_event         sn_adaption_event
+#     define sai_adaptation_ind          sai_adaption_ind
+#     define ssb_adaptation_ind          ssb_adaption_ind
+#     define sctp_adaptation_layer_event sctp_adaption_layer_event
+#endif
+
+/* Have Static SCTP */
+
+#if defined(HAVE_SCTP_BINDX) ||                                         \
+    defined(HAVE_SCTP_PEELOFF) ||                                       \
+    defined(HAVE_SCTP_GETLADDRS) || defined(HAVE_SCTP_FREELADDRS) ||    \
+    defined(HAVE_SCTP_GETPADDRS) || defined(HAVE_SCTP_FREEPADDRS) ||    \
+    defined(HAVE_SCTP_CONNECTX)
+#define HAVE_STATIC_SCTP TRUE
+#endif
+
+#endif /* #if defined(HAVE_SCTP_H) */
+
 #include "prim_socket_int.h"
 #include "socket_util.h"
 #include "socket_io.h"
@@ -88,24 +203,64 @@
 #define sock_accept(s, addr, len)       accept((s), (addr), (len))
 #endif
 #define sock_bind(s, addr, len)         bind((s), (addr), (len))
+#define sock_bindx(s, addr, acnt, a)    \
+    ctrl.sctp.bindx((s), (addr), (acnt), (a))
+#define sock_ensure_bindx(e)                                 \
+    if (ctrl.sctp.bindx == NULL)                             \
+        return enif_raise_exception((e), MKA((e), "notsup"));
 #define sock_close(s)                   close((s))
 // #define sock_close_event(e)             /* do nothing */
 #define sock_connect(s, addr, len)      connect((s), (addr), (len))
+#define sock_connectx(s, addrs, acnt, aidp) \
+    ctrl.sctp.connectx((s), (addrs), (acnt), (aidp))
+#define sock_ensure_connectx(e)                                 \
+    if (ctrl.sctp.connectx == NULL)                             \
+        return enif_raise_exception((e), MKA((e), "notsup"));
 #define sock_errno()                    errno
 // #define sock_listen(s, b)               listen((s), (b))
 // #define sock_name(s, addr, len)         getsockname((s), (addr), (len))
+#define sock_names(s, aid, ap)          ctrl.sctp.getladdrs((s), (aid), (ap))
+#define sock_ensure_names(e)                                    \
+    if (ctrl.sctp.getladdrs == NULL)                            \
+        return enif_raise_exception((e), MKA((e), "notsup"));
+#define sock_ntohs(x)                   ntohs((x))
+#define sock_htonl(x)                   htonl((x))
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
+#define sock_peeloff(s, aid)            ctrl.sctp.peeloff((s), (aid))
+#define sock_ensure_peeloff(E)                                         \
+    if (ctrl.sctp.peeloff == NULL)                                      \
+        return enif_raise_exception((E), MKA((E), "notsup"))
 #define sock_peer(s, addr, len)         getpeername((s), (addr), (len))
+#define sock_peers(s, aid, ap)          ctrl.sctp.getpaddrs((s), (aid), (ap))
+#define sock_ensure_peers(e)                                    \
+    if (ctrl.sctp.getpaddrs == NULL)                            \
+        return enif_raise_exception((e), MKA((e), "notsup"));
 #define sock_recv(s,buf,len,flag)       recv((s),(buf),(len),(flag))
 #define sock_recvfrom(s,buf,blen,flag,addr,alen) \
     recvfrom((s),(buf),(blen),(flag),(addr),(alen))
 #define sock_recvmsg(s,msghdr,flag)     recvmsg((s),(msghdr),(flag))
+#ifdef HAVE_RECVMMSG
+#define sock_recvmmsg(s,mmsghdr,vlen,flag,timeout) \
+    recvmmsg((s),(mmsghdr),(vlen),(flag),(timeout))
+#endif
 #define sock_send(s,buf,len,flag)       send((s), (buf), (len), (flag))
 #define sock_sendmsg(s,msghdr,flag)     sendmsg((s),(msghdr),(flag))
+#ifdef HAVE_SENDMMSG
+#define sock_sendmmsg(s,mmsghdr,vlen,flag) \
+    sendmmsg((s),(mmsghdr),(vlen),(flag))
+#endif
 #define sock_sendto(s,buf,blen,flag,addr,alen) \
     sendto((s),(buf),(blen),(flag),(addr),(alen))
 #define sock_sendv(s,iov,iovcnt)        writev((s), (iov), (iovcnt))
 #define sock_shutdown(s, how)           shutdown((s), (how))
+
+/* Maximum number of messages for sendmmsg/recvmmsg operations.
+ * This limit prevents excessive resource usage and ensures scheduler
+ * responsiveness. The Linux kernel's UIO_MAXIOV is typically 1024.
+ * For batches larger than this, callers should use multiple calls
+ * from the Erlang layer.
+ */
+#define ESOCK_MMSG_MAX 1024
 
 
 /* =================================================================== *
@@ -125,11 +280,59 @@
  * =================================================================== */
 
 typedef struct {
+    /* If we "have" sctp, this is TRUE otherwise FALSE */
+    BOOLEAN_T have;
+
+    /* If we do *not* "have" sctp, all these function pointers are set to NULL */
+#if defined(HAVE_SCTP)
+    int  (*bindx) (int              sd,
+                   struct sockaddr *addrs,
+                   int              addrcnt,
+                   int              flags);
+    int  (*connectx) (int              sd,
+                      const struct sockaddr *addrs,
+                      int              addrcnt,
+                      sctp_assoc_t    *id);
+    int  (*peeloff) (int          sd,
+                     sctp_assoc_t assoc_id);
+    int  (*getpaddrs) (int               sd,
+                       sctp_assoc_t      id,
+                       struct sockaddr **addrs);
+    void (*freepaddrs) (struct sockaddr *addrs);
+    int  (*getladdrs) (int               sd,
+                       sctp_assoc_t      id,
+                       struct sockaddr **addrs);
+    void (*freeladdrs) (struct sockaddr *addrs);
+#else
+    /* In this case we also do not have the SCTP types so we need "dummy" defs */
+    int  (*bindx) (int   sd,
+                   void *addrs,
+                   int   addrcnt,
+                   int   flags);
+    int  (*connectx) (int   sd,
+                      const void *addrs,
+                      int   addrcnt,
+                      int  *id);
+    int  (*peeloff) (int sd,
+                     int assoc_id);
+    int  (*getpaddrs) (int    sd,
+                       int    id,
+                       void **addrs);
+    void (*freepaddrs) (int *addrs);
+    int  (*getladdrs) (int    sd,
+                       int    id,
+                       void **addrs);
+    void (*freeladdrs) (void *addrs);
+#endif
+} ESSIOSctp;
+
+
+typedef struct {
     /* Misc stuff */
     BOOLEAN_T      dbg;
     BOOLEAN_T      sockDbg;
+    ESSIOSctp      sctp;
 } ESSIOControl;
-
 
 
 /* ======================================================================== *
@@ -226,6 +429,8 @@ static BOOLEAN_T essio_accept_accepted(ErlNifEnv*       env,
                                        ErlNifPid        pid,
                                        ERL_NIF_TERM*    result);
 
+static ERL_NIF_TERM essio_info_sctp(ErlNifEnv* env);
+
 static BOOLEAN_T send_check_writer(ErlNifEnv*       env,
                                    ESockDescriptor* descP,
                                    ERL_NIF_TERM     ref,
@@ -297,6 +502,11 @@ static void encode_cmsgs(ErlNifEnv*       env,
                          struct msghdr*   msgHdrP,
                          ERL_NIF_TERM*    eCMsg);
 
+static ERL_NIF_TERM esock_encode_msg_flags_convert2sctp(ErlNifEnv*       env,
+                                                        ESockDescriptor* descP,
+                                                        ERL_NIF_TERM     flags);
+
+
 #if defined(HAVE_SENDFILE)
 static int essio_sendfile(ErlNifEnv*       env,
                           ESockDescriptor* descP,
@@ -323,68 +533,62 @@ static ERL_NIF_TERM essio_sendfile_ok(ErlNifEnv*       env,
                                       size_t           count);
 #endif
 
-static ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
-                                      ESockDescriptor* descP,
-                                      ssize_t          toRead,
-                                      int              saveErrno,
-                                      ssize_t          readResult,
-                                      ERL_NIF_TERM     sockRef,
-                                      ERL_NIF_TERM     recvRef);
-static ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
-                                          ESockDescriptor* descP,
-                                          ssize_t          read,
-                                          int              saveErrno,
-                                          ErlNifBinary*    bufP,
-                                          ESockAddress*    fromAddrP,
-                                          SOCKLEN_T        fromAddrLen,
-                                          ERL_NIF_TERM     sockRef,
-                                          ERL_NIF_TERM     recvRef);
-static BOOLEAN_T recv_check_reader(ErlNifEnv*       env,
-                                   ESockDescriptor* descP,
-                                   ERL_NIF_TERM     ref,
-                                   ERL_NIF_TERM*    checkResult);
+static BOOLEAN_T recv_alloc_buf(size_t          size,
+                                ErlNifBinary   *bufP);
+static BOOLEAN_T recv_create_bin(ErlNifBinary *bufP,
+                                 size_t        size,
+                                 ErlNifBinary *binP);
+
+static BOOLEAN_T recv_check_entry(ErlNifEnv       *env,
+                                  ESockDescriptor *descP,
+                                  ERL_NIF_TERM     recvRef,
+                                  ERL_NIF_TERM    *retP);
+static BOOLEAN_T recv_check_result(ErlNifEnv       *env,
+                                   ESockDescriptor *descP,
+                                   ERL_NIF_TERM     sockRef,
+                                   ERL_NIF_TERM     recvRef,
+                                   ssize_t          readResult,
+                                   int              saveErrno,
+                                   ERL_NIF_TERM    *retP);
 static ERL_NIF_TERM recv_check_full(ErlNifEnv*       env,
                                     ESockDescriptor* descP,
-                                    ssize_t          toRead,
                                     ERL_NIF_TERM     sockRef,
-                                    ERL_NIF_TERM     recvRef);
+                                    ERL_NIF_TERM     recvRef,
+                                    ssize_t          len,
+                                    ErlNifBinary    *bufP);
 static ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
                                                ESockDescriptor* descP,
                                                ERL_NIF_TERM     sockRef,
-                                               ERL_NIF_TERM     recvRef);
+                                               ERL_NIF_TERM     recvRef,
+                                               ErlNifBinary    *bufP);
 static ERL_NIF_TERM recv_check_full_done(ErlNifEnv*       env,
                                          ESockDescriptor* descP,
-                                         ERL_NIF_TERM     sockRef);
+                                         ERL_NIF_TERM     sockRef,
+                                         ERL_NIF_TERM     recvRef,
+                                         ErlNifBinary    *bufP);
 static ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
                                     ESockDescriptor* descP,
-                                    int              saveErrno,
                                     ERL_NIF_TERM     sockRef,
-                                    ERL_NIF_TERM     recvRef);
+                                    ERL_NIF_TERM     recvRef,
+                                    int              saveErrno);
 static ERL_NIF_TERM recv_check_fail_gen(ErlNifEnv*       env,
                                         ESockDescriptor* descP,
-                                        int              saveErrno,
-                                        ERL_NIF_TERM     sockRef);
+                                        ERL_NIF_TERM     sockRef,
+                                        int              saveErrno);
 static ERL_NIF_TERM recv_check_fail_econnreset(ErlNifEnv*       env,
                                                ESockDescriptor* descP,
-                                               ERL_NIF_TERM     sockRef,
-                                               ERL_NIF_TERM     recvRef);
-static ERL_NIF_TERM recv_check_retry(ErlNifEnv*       env,
-                                     ESockDescriptor* descP,
-                                     ERL_NIF_TERM     sockRef,
-                                     ERL_NIF_TERM     recvRef);
+                                               ERL_NIF_TERM     sockRef);
+static ERL_NIF_TERM recv_check_select(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     sockRef,
+                                      ERL_NIF_TERM     recvRef,
+                                      ERL_NIF_TERM     msg);
 static ERL_NIF_TERM recv_check_partial(ErlNifEnv*       env,
                                        ESockDescriptor* descP,
-                                       ssize_t          toRead,
                                        ERL_NIF_TERM     sockRef,
-                                       ERL_NIF_TERM     recvRef);
-static ERL_NIF_TERM recv_check_partial_done(ErlNifEnv*       env,
-                                            ESockDescriptor* descP,
-                                            ERL_NIF_TERM     sockRef,
-                                            ERL_NIF_TERM     returnTag);
-static ERL_NIF_TERM recv_check_partial_part(ErlNifEnv*       env,
-                                            ESockDescriptor* descP,
-                                            ERL_NIF_TERM     sockRef,
-                                            ERL_NIF_TERM     recvRef);
+                                       ERL_NIF_TERM     recvRef,
+                                       ssize_t          len,
+                                       ErlNifBinary    *bufP);
 static void recv_init_current_reader(ErlNifEnv*       env,
                                      ESockDescriptor* descP,
                                      ERL_NIF_TERM     recvRef);
@@ -396,23 +600,12 @@ static void recv_error_current_reader(ErlNifEnv*       env,
                                       ERL_NIF_TERM     sockRef,
                                       ERL_NIF_TERM     reason);
 
-static ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*       env,
-                                         ESockDescriptor* descP,
-                                         ssize_t          read,
-                                         int              saveErrno,
-                                         struct msghdr*   msgHdrP,
-                                         ErlNifBinary*    dataBufP,
-                                         ErlNifBinary*    ctrlBufP,
-                                         ERL_NIF_TERM     sockRef,
-                                         ERL_NIF_TERM     recvRef);
-static ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
-                                      ESockDescriptor* descP,
-                                      ssize_t          read,
-                                      struct msghdr*   msgHdrP,
-                                      ErlNifBinary*    dataBufP,
-                                      ErlNifBinary*    ctrlBufP,
-                                      ERL_NIF_TERM     sockRef);
-
+#if defined(HAVE_SCTP)
+static ERL_NIF_TERM essio_addrs_encode(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       int              n,
+                                       struct sockaddr* sa);
+#endif
 
 static ERL_NIF_TERM essio_ioctl_gifconf(ErlNifEnv*       env,
 					ESockDescriptor* descP);
@@ -734,6 +927,161 @@ static BOOLEAN_T do_stop(ErlNifEnv*       env,
                          ESockDescriptor* descP);
 
 
+static void essio_sctp_init(void);
+
+#if !defined(HAVE_SCTP)
+static void essio_sctp_init_false(void);
+#endif
+
+static void essio_encode_sctp_notification(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ErlNifBinary*    binP,
+                                           ERL_NIF_TERM*    eEvent);
+
+#if defined(HAVE_SCTP)
+
+#if defined(HAVE_STATIC_SCTP)
+static void essio_sctp_init_static(void);
+#else
+static void essio_sctp_init_dynamic(void);
+#endif
+
+#if defined(SCTP_ASSOC_CHANGE)
+static void essio_encode_sctp_notif_assoc_change(ErlNifEnv*                env,
+                                                 ESockDescriptor*          descP,
+                                                 struct sctp_assoc_change* acp,
+                                                 ERL_NIF_TERM*             eEvent);
+#endif
+#if defined(SCTP_ASSOC_CHANGE) || defined(SCTP_REMOTE_ERROR) || defined(SCTP_SEND_FAILED) || defined(SCTP_SEND_FAILED_EVENT)
+static ERL_NIF_TERM essio_encode_sctp_operation_error(ErlNifEnv*       env,
+                                                      ESockDescriptor* descP,
+                                                      uint16_t         error);
+#endif
+#if defined(SCTP_PEER_ADDR_CHANGE)
+static void essio_encode_sctp_notif_paddr_change(ErlNifEnv*                env,
+                                                 ESockDescriptor*          descP,
+                                                 struct sctp_paddr_change* p,
+                                                 ERL_NIF_TERM*             eEvent);
+static void essio_encode_sockaddr_storage(ErlNifEnv*               env,
+                                          ESockDescriptor*         descP,
+                                          struct sockaddr_storage* addr,
+                                          ERL_NIF_TERM*            eaddr);
+#endif
+#if defined(SCTP_SEND_FAILED)
+static void essio_encode_sctp_notif_send_failed(ErlNifEnv*               env,
+                                                ESockDescriptor*         descP,
+                                                struct sctp_send_failed* p,
+                                                ERL_NIF_TERM*            eEvent);
+static ERL_NIF_TERM essio_encode_sctp_notif_send_failed_flags(ErlNifEnv*       env,
+                                                              ESockDescriptor* descP,
+                                                              unsigned int     flags);
+#endif
+#if defined(SCTP_SEND_FAILED) || defined(SCTP_SEND_FAILED_EVENT)
+static ERL_NIF_TERM essio_encode_sctp_send_failed_flags(ErlNifEnv*       env,
+                                                        ESockDescriptor* descP,
+                                                        unsigned int     flags);
+#endif
+#if defined(SCTP_REMOTE_ERROR)
+static void essio_encode_sctp_notif_remote_error(ErlNifEnv*                env,
+                                                 ESockDescriptor*          descP,
+                                                 struct sctp_remote_error* p,
+                                                 ERL_NIF_TERM*             eEvent);
+static void essio_encode_sctp_notif_remote_causes(ErlNifEnv*    env,
+                                                  char*         chunkP,
+                                                  int           chunkTLen,
+                                                  ERL_NIF_TERM* eRCauses);
+#endif
+#if defined(SCTP_SHUTDOWN_EVENT)
+static void essio_encode_sctp_notif_shutdown_event(ErlNifEnv*                  env,
+                                                   ESockDescriptor*            descP,
+                                                   struct sctp_shutdown_event* p,
+                                                   ERL_NIF_TERM*               eEvent);
+#endif
+#if defined(SCTP_ADAPTATION_INDICATION)
+static void essio_encode_sctp_notif_adapt_event(ErlNifEnv*                    env,
+                                                ESockDescriptor*              descP,
+                                                struct sctp_adaptation_event* p,
+                                                ERL_NIF_TERM*                 eEvent);
+#endif
+#if defined(SCTP_PARTIAL_DELIVERY_EVENT)
+static void essio_encode_sctp_notif_pdapi_event(ErlNifEnv*               env,
+                                                ESockDescriptor*         descP,
+                                                struct sctp_pdapi_event* p,
+                                                ERL_NIF_TERM*            eEvent);
+#endif
+#if defined(SCTP_AUTHENTICATION_INDICATION)
+static void essio_encode_sctp_notif_authkey(ErlNifEnv*                 env,
+                                            ESockDescriptor*           descP,
+                                            struct sctp_authkey_event* p,
+                                            ERL_NIF_TERM*              eEvent);
+#endif
+#if defined(SCTP_SENDER_DRY_EVENT)
+static
+void essio_encode_sctp_notif_sender_dry(ErlNifEnv*                    env,
+                                        ESockDescriptor*              descP,
+                                        struct sctp_sender_dry_event* p,
+                                        ERL_NIF_TERM*                 eEvent);
+#endif
+#if defined(SCTP_SENDER_DRY_EVENT) || defined(SCTP_SEND_FAILED)
+static
+void essio_encode_sctp_sndrcvinfo(ErlNifEnv*              env,
+                                  ESockDescriptor*        descP,
+                                  struct sctp_sndrcvinfo* p,
+                                  ERL_NIF_TERM*           einfo);
+
+#endif
+
+#if defined(SCTP_STREAM_RESET_EVENT)
+static
+void essio_encode_sctp_notif_stream_reset_event(ErlNifEnv*                      env,
+                                                ESockDescriptor*                descP,
+                                                struct sctp_stream_reset_event* p,
+                                                ERL_NIF_TERM*                   eEvent);
+#endif
+
+#if defined(SCTP_ASSOC_RESET_EVENT)
+static
+void essio_encode_sctp_notif_assoc_reset_event(ErlNifEnv*                    env,
+                                               ESockDescriptor*              descP,
+                                               struct sctp_assoc_reset_event* p,
+                                               ERL_NIF_TERM*                 eEvent);
+#endif
+
+#if defined(SCTP_STREAM_CHANGE_EVENT)
+static
+void essio_encode_sctp_notif_stream_change_event(ErlNifEnv*                    env,
+                                                 ESockDescriptor*              descP,
+                                                 struct sctp_stream_change_event* p,
+                                                 ERL_NIF_TERM*                 eEvent);
+#endif
+
+#if defined(SCTP_SEND_FAILED_EVENT)
+static
+void essio_encode_sctp_notif_send_failed_event(ErlNifEnv*                     env,
+                                               ESockDescriptor*               descP,
+                                               struct sctp_send_failed_event* p,
+                                               ERL_NIF_TERM*                  eEvent);
+static
+ERL_NIF_TERM essio_encode_sctp_notif_send_failed_event_flags(ErlNifEnv*       env,
+                                                             ESockDescriptor* descP,
+                                                             unsigned int     flags);
+
+static
+void essio_encode_sctp_sndinfo(ErlNifEnv*           env,
+                               ESockDescriptor*     descP,
+                               struct sctp_sndinfo* p,
+                               ERL_NIF_TERM*        einfo);
+
+#endif
+static void essio_encode_sctp_notif_generic(ErlNifEnv*               env,
+                                            ESockDescriptor*         descP,
+                                            ERL_NIF_TERM             etype,
+                                            union sctp_notification* p,
+                                            ERL_NIF_TERM*            eEvent);
+
+#endif // if defined(HAVE_SCTP)
+
+
 /* =================================================================== *
  *                                                                     *
  *                      Local (global) variables                       *
@@ -762,9 +1110,216 @@ int essio_init(unsigned int     numThreads,
     ctrl.dbg        = dataP->dbg;
     ctrl.sockDbg    = dataP->sockDbg;
 
+    essio_sctp_init();
+
     return ESOCK_IO_OK;
 }
 
+
+
+static
+void essio_sctp_init(void)
+{
+#if defined(HAVE_SCTP)
+
+    ctrl.sctp.have = TRUE;
+
+    /* Check the size of SCTP AssocID -- currently both this nif and the
+     * Erlang part require 32 bit:
+     * ???
+     * ???
+     */
+    ERTS_CT_ASSERT(sizeof(sctp_assoc_t)==ASSOC_ID_LEN);
+
+#if defined(HAVE_STATIC_SCTP)
+
+    essio_sctp_init_static();
+
+#else // if defined(HAVE_STATIC_SCTP)
+
+    essio_sctp_init_dynamic();
+
+#endif // if defined(HAVE_STATIC_SCTP)
+
+#else
+
+    ctrl.sctp.have = FALSE;
+
+    essio_sctp_init_false();
+
+#endif
+}
+
+
+
+#if defined(HAVE_SCTP)
+
+#if defined(HAVE_STATIC_SCTP)
+static
+void essio_sctp_init_static(void)
+{
+#if defined(HAVE_SCTP_BINDX)
+    ctrl.sctp.bindx = sctp_bindx;
+#else
+    ctrl.sctp.bindx = NULL;
+#endif
+
+#if defined(HAVE_SCTP_PEELOFF)
+    ctrl.sctp.peeloff = sctp_peeloff;
+#else
+    ctrl.sctp.peeloff = NULL;
+#endif
+
+#if defined(HAVE_SCTP_GETLADDRS) && defined(HAVE_SCTP_FREELADDRS)
+    ctrl.sctp.getladdrs  = sctp_getladdrs;
+    ctrl.sctp.freeladdrs = sctp_freeladdrs;
+#else
+    ctrl.sctp.getladdrs  = NULL;
+    ctrl.sctp.freeladdrs = NULL;
+#endif
+
+#if defined(HAVE_SCTP_GETPADDRS) && defined(HAVE_SCTP_FREEPADDRS)
+    ctrl.sctp.getpaddrs  = sctp_getpaddrs;
+    ctrl.sctp.freepaddrs = sctp_freepaddrs;
+#else
+    ctrl.sctp.getpaddrs  = NULL;
+    ctrl.sctp.freepaddrs = NULL;
+#endif
+
+#if defined(HAVE_SCTP_CONNECTX)
+    /* On some platforms the base type of assoc-id is a signed int
+     * but on others its a unsigned int...
+     * Linux seems to use signed int, so that is what we use.
+     */
+    ctrl.sctp.connectx = (int  (*) (int,
+                                    const struct sockaddr*,
+                                    int,
+                                    sctp_assoc_t*)) sctp_connectx;
+#else
+    ctrl.sctp.connectx = NULL;
+#endif
+}
+   
+#else // if defined(HAVE_STATIC_SCTP)
+
+static
+void essio_sctp_init_dynamic(void)
+{
+
+#ifndef LIBSCTP
+#error LIBSCTP not defined
+#else
+#define LIBSCTP_STR ESOCK_STRINGIFY(LIBSCTP)
+#endif
+
+    {
+        static void* handle;
+
+        if ((handle = ESOCK_DLOPEN(LIBSCTP_STR)) != NULL) {
+            void* ptr;
+
+            /* If bindx does not exist, we give up */
+
+            if ((ptr = ESOCK_DLSYM(handle, "sctp_bindx")) != NULL) {
+
+                ctrl.sctp.bindx = ptr;
+
+		if ((ptr = ESOCK_DLSYM(handle, "sctp_peeloff")) != NULL) {
+		    ctrl.sctp.peeloff = ptr;
+		} else {
+                    ctrl.sctp.peeloff = NULL;
+                }
+
+                if ((ptr = ESOCK_DLSYM(handle, "sctp_getladdrs")) != NULL) {
+		    ctrl.sctp.getladdrs = ptr;
+		} else {
+                    ctrl.sctp.getladdrs = NULL;
+                }
+
+		if ((ptr = ESOCK_DLSYM(handle, "sctp_freeladdrs")) != NULL) {
+		    ctrl.sctp.freeladdrs = ptr;
+		} else {
+                    ctrl.sctp.freeladdrs = NULL;
+                }
+
+		if ((ptr = ESOCK_DLSYM(handle, "sctp_getpaddrs")) != NULL) {
+		    ctrl.sctp.getpaddrs = ptr;
+		} else {
+                    ctrl.sctp.getpaddrs = NULL;
+                }
+
+		if ((ptr = ESOCK_DLSYM(handle, "sctp_freepaddrs")) != NULL) {
+		    ctrl.sctp.freepaddrs = ptr;
+		} else {
+                    ctrl.sctp.freepaddrs = NULL;
+                }
+
+		if ((ptr = ESOCK_DLSYM(handle, "sctp_connectx")) != NULL) {
+		    ctrl.sctp.connectx = ptr;
+		} else {
+                    ctrl.sctp.connectx = NULL;
+                }
+
+            } else {
+
+                /* Failed to find the one mandatory symbol (function) ...
+                 * write a warning / error message. */
+
+                esock_warning_msg("[UNIX-ESSIO] "
+                                  "Failed locating (mandatory) bindx "
+                                  "symbol in sctp dynamic library"
+                                  "\r\n");
+
+                ctrl.sctp.bindx      = NULL;
+                ctrl.sctp.peeloff    = NULL;
+                ctrl.sctp.getladdrs  = NULL;
+                ctrl.sctp.freeladdrs = NULL;
+                ctrl.sctp.getpaddrs  = NULL;
+                ctrl.sctp.freepaddrs = NULL;
+                ctrl.sctp.connectx   = NULL;
+
+            }
+
+        } else {
+
+            /* The lib supposedly exist but we failed to open ... 
+             * write a warning / error message. */
+
+            esock_warning_msg("[UNIX-ESSIO] "
+                              "Failed open sctp dynamic library: %s"
+                              "\r\n", LIBSCTP_STR);
+
+            ctrl.sctp.bindx      = NULL;
+            ctrl.sctp.peeloff    = NULL;
+            ctrl.sctp.getladdrs  = NULL;
+            ctrl.sctp.freeladdrs = NULL;
+            ctrl.sctp.getpaddrs  = NULL;
+            ctrl.sctp.freepaddrs = NULL;
+            ctrl.sctp.connectx   = NULL;
+
+        }
+
+    }
+    
+}
+
+#endif // if defined(HAVE_STATIC_SCTP)
+
+#endif // if defined(HAVE_SCTP)
+
+#if !defined(HAVE_SCTP)
+static
+void essio_sctp_init_false(void)
+{
+    ctrl.sctp.bindx = NULL;
+    ctrl.sctp.peeloff = NULL;
+    ctrl.sctp.getladdrs  = NULL;
+    ctrl.sctp.freeladdrs = NULL;
+    ctrl.sctp.getpaddrs  = NULL;
+    ctrl.sctp.freepaddrs = NULL;
+    ctrl.sctp.connectx = NULL;
+}
+#endif
 
 /*
  * For "standard" (unix) synchronous I/O, this is just a dummy function.
@@ -786,8 +1341,9 @@ extern
 ERL_NIF_TERM essio_info(ErlNifEnv* env)
 {
     ERL_NIF_TERM info;
-    ERL_NIF_TERM keys[]  = {esock_atom_name};
-    ERL_NIF_TERM vals[]  = {MKA(env, "unix_essio")};
+    ERL_NIF_TERM sctp    = essio_info_sctp(env);
+    ERL_NIF_TERM keys[]  = {esock_atom_name, MKA(env, "sctp")};
+    ERL_NIF_TERM vals[]  = {MKA(env, "unix_essio"), sctp};
     unsigned int numKeys = NUM(keys);
     unsigned int numVals = NUM(vals);
 
@@ -798,7 +1354,90 @@ ERL_NIF_TERM essio_info(ErlNifEnv* env)
 }
 
 
+static
+ERL_NIF_TERM essio_info_sctp(ErlNifEnv* env)
+{
+#if defined(HAVE_SCTP)
+    ERL_NIF_TERM sctp;
+    ERL_NIF_TERM sctpKeys[]  =
+        {MKA(env, "bindx"),
+         MKA(env, "peeloff"),
+         MKA(env, "getladdrs"),
+         MKA(env, "freeladdrs"),
+         MKA(env, "getpaddrs"),
+         MKA(env, "freepaddrs"),
+         MKA(env, "connectx")};
+    ERL_NIF_TERM sctpVals[]  =
+        {BOOL2ATOM((ctrl.sctp.bindx      != NULL)),
+         BOOL2ATOM((ctrl.sctp.peeloff    != NULL)),
+         BOOL2ATOM((ctrl.sctp.getladdrs  != NULL)),
+         BOOL2ATOM((ctrl.sctp.freeladdrs != NULL)),
+         BOOL2ATOM((ctrl.sctp.getpaddrs  != NULL)),
+         BOOL2ATOM((ctrl.sctp.freepaddrs != NULL)),
+         BOOL2ATOM((ctrl.sctp.connectx   != NULL)),
+        };
+    unsigned int numSctpKeys = NUM(sctpKeys);
+    unsigned int numSctpVals = NUM(sctpVals);
 
+    ESOCK_ASSERT( numSctpKeys == numSctpVals );
+    ESOCK_ASSERT( MKMA(env, sctpKeys, sctpVals, numSctpKeys, &sctp) );
+
+    return sctp;
+#else
+    VOID(env);
+    
+    return esock_atom_undefined;
+#endif
+}
+
+
+/* *******************************************************************
+ * essio_command - Handle command
+ *
+ * Special command for the backend or always pass the command(s)
+ * through and let the backend decide for itself?
+ *
+ * If we get this far we know that the command is ok as far as the 
+ * esock_command function knows. But there may be commands unknown
+ * to esock_command, passed unchecked here.
+ */
+
+extern
+ERL_NIF_TERM essio_command(ErlNifEnv*   env,
+                           ERL_NIF_TERM command,
+                           ERL_NIF_TERM cdata)
+{
+    ERL_NIF_TERM res;
+
+    SGDBG( ("UNIX-ESSIO", "essio_command -> entry with %T\r\n", command) );
+
+    if (COMPARE(command, esock_atom_socket_debug) == 0) {
+        BOOLEAN_T dbg;
+        if (! esock_decode_bool(cdata, &dbg)) {
+            res = esock_atom_invalid;
+        } else {
+            ctrl.sockDbg = dbg; // We should really have a mutex for this...
+            res = esock_atom_ok;
+        }
+    } else if (COMPARE(command, esock_atom_debug) == 0) {
+        BOOLEAN_T dbg;
+        if (! esock_decode_bool(cdata, &dbg)) {
+            res = esock_atom_invalid;
+        } else {
+            ctrl.dbg = dbg; // We should really have a mutex for this...
+            res = esock_atom_ok;
+        }
+    } else {
+        res = esock_atom_invalid;
+    }
+
+    SGDBG( ("UNIX-ESSIO", "essio_command -> done when res: %T\r\n", res) );
+
+    return esock_atom_ok;
+}
+
+
+    
 /* ========================================================================
  * essio_open - create an endpoint (from an existing fd) for communication
  *
@@ -832,7 +1471,7 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
     ESOCK_ASSERT( enif_self(env, &self) != NULL );
 
     SSDBG2( dbg,
-            ("UNIX-ESSIO", "essio_open2 -> entry with"
+            ("UNIX-ESSIO", "essio_open_with_fd -> entry with"
              "\r\n   fd:    %d"
              "\r\n   eopts: %T"
              "\r\n", fd, eopts) );
@@ -851,7 +1490,7 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
     if (! open_which_domain(fd, &domain)) {
         SSDBG2( dbg,
                 ("UNIX-ESSIO",
-                 "essio_open2 -> failed get domain from system\r\n") );
+                 "essio_open_with_fd -> failed get domain from system\r\n") );
 
         if (! open_get_domain(env, eopts, &domain)) {
             return esock_make_invalid(env, esock_atom_domain);
@@ -861,7 +1500,7 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
     if (! open_which_type(fd, &type)) {
         SSDBG2( dbg,
                 ("UNIX-ESSIO",
-                 "essio_open2 -> failed get type from system\r\n") );
+                 "essio_open_with_fd -> failed get type from system\r\n") );
 
         if (! open_get_type(env, eopts, &type))
             return esock_make_invalid(env, esock_atom_type);
@@ -870,12 +1509,12 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
     if (! esock_open_which_protocol(fd, &protocol)) {
         SSDBG2( dbg,
                 ("UNIX-ESSIO",
-                 "essio_open2 -> failed get protocol from system\r\n") );
+                 "essio_open_with_fd -> failed get protocol from system\r\n") );
 
         if (! open_get_protocol(env, eopts, &protocol)) {
             SSDBG2( dbg,
                     ("UNIX-ESSIO",
-                     "essio_open2 -> "
+                     "essio_open_with_fd -> "
                      "failed get protocol => try protocol 0\r\n") );
             protocol = 0;
         }
@@ -884,11 +1523,14 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
 
     SSDBG2( dbg,
             ("UNIX-ESSIO",
-             "essio_open2 -> "
-             "\r\n   domain:   %d"
-             "\r\n   type:     %d"
-             "\r\n   protocol: %d"
-             "\r\n", domain, type, protocol) );
+             "essio_open_with_fd -> "
+             "\r\n   domain:   %d (%s)"
+             "\r\n   type:     %d (%s)"
+             "\r\n   protocol: %d (%s)"
+             "\r\n",
+             domain,   DOM2STR(domain),
+             type,     TYPE2STR(type),
+             protocol, PROTO2STR(protocol)) );
 
 
     if (open_todup(env, eopts)) {
@@ -898,7 +1540,7 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
 
             SSDBG2( dbg,
                     ("UNIX-ESSIO",
-                     "essio_open2 -> dup failed: %d\r\n",
+                     "essio_open_with_fd -> dup failed: %d\r\n",
                      save_errno) );
 
             return esock_make_error_errno(env, save_errno);
@@ -929,10 +1571,12 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
         if (sock_peer(descP->sock,
                       (struct sockaddr*) &remote,
                       &addrLen) == 0) {
-            SSDBG2( dbg, ("UNIX-ESSIO", "essio_open2 -> connected\r\n") );
+            SSDBG2( dbg, ("UNIX-ESSIO",
+                          "essio_open_with_fd -> connected\r\n") );
             descP->writeState |= ESOCK_STATE_CONNECTED;
         } else {
-            SSDBG2( dbg, ("UNIX-ESSIO", "essio_open2 -> not connected\r\n") );
+            SSDBG2( dbg, ("UNIX-ESSIO",
+                          "essio_open_with_fd -> not connected\r\n") );
         }
     }
 
@@ -940,7 +1584,7 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
     sockRef = enif_make_resource(env, descP);
     enif_release_resource(descP);
 
-    ESOCK_ASSERT( MONP("essio_open2 -> ctrl",
+    ESOCK_ASSERT( MONP("essio_open_with_fd -> ctrl",
                        env, descP,
                        &descP->ctrlPid,
                        &descP->ctrlMon) == 0 );
@@ -955,7 +1599,7 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
     if (descP->useReg) esock_send_reg_add_msg(env, descP, sockRef);
 
     SSDBG2( dbg,
-            ("UNIX-ESSIO", "essio_open2 -> done: %T\r\n", sockRef) );
+            ("UNIX-ESSIO", "essio_open_with_fd -> done: %T\r\n", sockRef) );
 
     return esock_make_ok2(env, sockRef);
 }
@@ -1071,11 +1715,15 @@ ERL_NIF_TERM essio_open_plain(ErlNifEnv*       env,
 
     SSDBG2( dbg,
             ("UNIX-ESSIO", "essio_open4 -> entry with"
-             "\r\n   domain:   %d"
-             "\r\n   type:     %d"
-             "\r\n   protocol: %d"
+             "\r\n   domain:   %d (%s)"
+             "\r\n   type:     %d (%s)"
+             "\r\n   protocol: %d (%s)"
              "\r\n   eopts:    %T"
-             "\r\n", domain, type, protocol, eopts) );
+             "\r\n",
+             domain,   DOM2STR(domain),
+             type,     TYPE2STR(type),
+             protocol, PROTO2STR(protocol),
+             eopts) );
 
 
 #ifdef HAVE_SETNS
@@ -1268,16 +1916,89 @@ ERL_NIF_TERM essio_bind(ErlNifEnv*       env,
                         ESockAddress*    sockAddrP,
                         SOCKLEN_T        addrLen)
 {
+    SSDBG( descP, ("UNIX-ESSIO", "essio_bind {%d} -> entry\r\n",
+                   descP->sock) );
+
     if (! IS_OPEN(descP->readState))
         return esock_make_error_closed(env);
+
+    SSDBG( descP, ("UNIX-ESSIO", "essio_bind {%d} -> try bind\r\n",
+                   descP->sock) );
 
     if (sock_bind(descP->sock, &sockAddrP->sa, addrLen) < 0) {
         return esock_make_error_errno(env, sock_errno());
     }
 
+    SSDBG( descP, ("UNIX-ESSIO", "essio_bind {%d} -> bound\r\n",
+                   descP->sock) );
+
     descP->readState |= ESOCK_STATE_BOUND;
 
     return esock_atom_ok;
+}
+
+
+/* ========================================================================
+ */
+extern
+ERL_NIF_TERM essio_bindx(ErlNifEnv*       env,
+                         ESockDescriptor* descP,
+                         ESockAddress*    sockAddrP,
+                         int              addrCnt,
+                         int              action)
+{
+#if defined(HAVE_SCTP)
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "essio_bindx {%d} -> entry with"
+            "\r\n   address count: %d"
+            "\r\n   action:        0x%X"
+            "\r\nwhen"
+            "\r\n   bindx:         %s"
+            "\r\n",
+            descP->sock, addrCnt, action,
+            ((ctrl.sctp.bindx == NULL) ? "not supported" : "supported")) );
+
+    sock_ensure_bindx(env);
+
+    if (! IS_OPEN(descP->readState))
+        return esock_make_error_closed(env);
+
+    SSDBG( descP, ("UNIX-ESSIO", "essio_bindx {%d} -> try bindx\r\n",
+                   descP->sock) );
+
+    /*
+     * Add additional addresses by calling bindx with one address
+     * at a time, since this is what some OSes promise will work.
+     */
+    for (int i = 0; i < addrCnt; i++) {
+        
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_bindx(%d) -> try bindx for address %d (of %d)\r\n",
+                descP->sock, i, addrCnt) );
+
+        if (sock_bindx(descP->sock, &sockAddrP[i].sa, 1, action) < 0) {
+            return esock_make_error_errno(env, sock_errno());
+        }
+
+    }
+
+    SSDBG( descP, ("UNIX-ESSIO", "essio_bindx {%d} -> bound\r\n",
+                   descP->sock) );
+
+    descP->readState |= ESOCK_STATE_BOUND;
+
+    return esock_atom_ok;
+
+#else
+
+    /* We should never be called in this case,
+     * but just to be on the safe side...
+     */
+    return enif_raise_exception(env, MKA(env, "notsup"));
+
+#endif    
 }
 
 
@@ -1296,6 +2017,15 @@ ERL_NIF_TERM essio_connect(ErlNifEnv*       env,
 
     ESOCK_ASSERT( enif_self(env, &self) != NULL );
 
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "essio_connect(%d) -> entry with"
+            "\r\n   sockRef:    %T"
+            "\r\n   connRef:    %T"
+            "\r\n   writeState: %d"
+            "\r\n",
+            descP->sock, sockRef, connRef, descP->writeState) );
+
     /*
      * Verify that we are in the proper state
      */
@@ -1311,6 +2041,11 @@ ERL_NIF_TERM essio_connect(ErlNifEnv*       env,
 
     if (descP->connectorP != NULL) {
         /* Connect in progress */
+
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_connect(%d) -> connect in progress"
+                "\r\n", descP->sock) );
 
         if (COMPARE_PIDS(&self, &descP->connector.pid) != 0) {
 	    /* Other process has connect in progress */
@@ -1332,11 +2067,28 @@ ERL_NIF_TERM essio_connect(ErlNifEnv*       env,
         descP->connectorP = NULL;
         descP->writeState &= ~ESOCK_STATE_CONNECTING;
 
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_connect(%d) -> try verify connected"
+                "\r\n", descP->sock) );
+
         if (! verify_is_connected(descP, &save_errno)) {
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_connect(%d) -> connect verification failed"
+                    "\r\n   errno: %d"
+                    "\r\n", descP->sock, save_errno) );
+
             return esock_make_error_errno(env, save_errno);
         }
 
         descP->writeState |= ESOCK_STATE_CONNECTED;
+
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_connect(%d) -> connection verified"
+                "\r\n", descP->sock) );
 
         return esock_atom_ok;
     }
@@ -1351,6 +2103,15 @@ ERL_NIF_TERM essio_connect(ErlNifEnv*       env,
         return esock_raise_invalid(env, esock_atom_state);
 
     /* Initial connect call, with address */
+    
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "essio_connect(%d) -> try connect with"
+            "\r\n   port: %d"
+            "\r\n   addr: %d"
+            "\r\n",
+            descP->sock,
+            addrP->in4.sin_port, addrP->in4.sin_addr) );
 
     if (sock_connect(descP->sock, (struct sockaddr*) addrP, addrLen) == 0) {
         /* Success already! */
@@ -1404,6 +2165,156 @@ ERL_NIF_TERM essio_connect(ErlNifEnv*       env,
         return esock_make_error_errno(env, save_errno);
 
     } // switch(save_errno)
+}
+
+
+/*  ========================================================================
+ */
+extern
+ERL_NIF_TERM essio_connectx(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            ERL_NIF_TERM     sockRef,
+                            ERL_NIF_TERM     connRef,
+                            ESockAddress*    sockAddrs,
+                            int              addrsCnt)
+{
+#if defined(HAVE_SCTP)
+    int          save_errno;
+    ErlNifPid    self;
+    sctp_assoc_t assocId;
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "essio_connectx {%d} -> entry with"
+            "\r\n   address count: %d"
+            "\r\nwhen"
+            "\r\n   connectx:      %s"
+            "\r\n",
+            descP->sock, addrsCnt,
+            ((ctrl.sctp.connectx == NULL) ? "not supported" : "supported")) );
+
+    sock_ensure_connectx(env);
+
+    ESOCK_ASSERT( enif_self(env, &self) != NULL );
+
+    /*
+     * Verify that we are in the proper state
+     */
+
+    if (! IS_OPEN(descP->writeState))
+        return esock_make_error_closed(env);
+
+    /* Connect and Write uses the same select flag
+     * so they can not be simultaneous
+     */
+    if (descP->currentWriterP != NULL)
+        return esock_make_error_invalid(env, esock_atom_state);
+
+    if (descP->connectorP != NULL) {
+
+        /* Connect in progress */
+
+        if (COMPARE_PIDS(&self, &descP->connector.pid) != 0) {
+	    /* Other process has connect in progress.
+             * This is a bad call sequence
+             * - connect without an address is only allowed
+             *   for the connecting process
+             */
+            return esock_raise_invalid(env, esock_atom_state);
+
+        }
+
+        /* Finalize after received select message */
+
+        esock_requestor_release("essio_connect finalize -> connected",
+                                env, descP, &descP->connector);
+        descP->connectorP = NULL;
+        descP->writeState &= ~ESOCK_STATE_CONNECTING;
+
+        /* Does this work for an SCTP socket? */
+        if (! verify_is_connected(descP, &save_errno)) {
+            return esock_make_error_errno(env, save_errno);
+        }
+
+        descP->writeState |= ESOCK_STATE_CONNECTED;
+
+        return esock_atom_ok;
+    }
+
+
+    /* No connect in progress */
+
+    /* If socket domain is IPv4:
+     *    Sock addresses must all be family IPv4
+     * If socket domain is IPv6:
+     *    Sock addresses must all be family IPv4 *or* IPv6
+     */
+
+    /* Has this not already been checked? */
+    if ((descP->domain != AF_INET) && (descP->domain != AF_INET6))
+        return enif_make_badarg(env);
+
+    /* Initial connect call, with address(s) */
+
+    if (sock_connectx(descP->sock,
+                      (struct sockaddr*) sockAddrs, addrsCnt,
+                      &assocId) == 0) {
+        /* Success already! */
+        SSDBG( descP, ("UNIX-ESSIO", "essio_connectx {%d} -> connected\r\n",
+                       descP->sock) );
+
+        descP->writeState |= ESOCK_STATE_CONNECTED;
+
+        return esock_make_ok2(env, MKI(env, assocId));
+    }
+
+    /* Connect returned error */
+    save_errno = sock_errno();
+
+    switch (save_errno) {
+
+    case EINPROGRESS:   /* Unix & OSE!!        */
+        SSDBG( descP,
+               ("UNIX-ESSIO", "essio_connect {%d} -> would block => select\r\n",
+                descP->sock) );
+        {
+            int sres;
+
+            if ((sres =
+                 esock_select_write(env, descP->sock, descP, NULL,
+                                    sockRef, connRef)) < 0)
+                return
+                    enif_raise_exception(env,
+                                         MKT2(env, esock_atom_select_write,
+                                              MKI(env, sres)));
+            /* Initiate connector */
+            descP->connector.pid = self;
+            ESOCK_ASSERT( MONP("essio_connect -> conn",
+                               env, descP,
+                               &self, &descP->connector.mon) == 0 );
+            descP->connector.env = esock_alloc_env("connector");
+            descP->connector.ref = CP_TERM(descP->connector.env, connRef);
+            descP->connectorP = &descP->connector;
+            descP->writeState |=
+                (ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
+
+            return esock_atom_select;
+        }
+        break;
+
+    default:
+        SSDBG( descP,
+               ("UNIX-ESSIO", "essio_connect {%d} -> error: %d\r\n",
+                descP->sock, save_errno) );
+
+        return esock_make_error_errno(env, save_errno);
+
+    } // switch(save_errno)
+#else
+    /* We should never be called in this case,
+     * but just to be on the safe side...
+     */
+    return enif_raise_exception(env, MKA(env, "notsup"));
+#endif
 }
 
 
@@ -1579,7 +2490,7 @@ ERL_NIF_TERM essio_accept_listening_error(ErlNifEnv*       env,
                 descP->sock) );
 
 	descP->currentAcceptor.pid = caller;
-        ESOCK_ASSERT( MONP("essio_accept_listening -> current acceptor",
+        ESOCK_ASSERT( MONP("essio_accept_listening_error -> current acceptor",
                            env, descP,
                            &descP->currentAcceptor.pid,
                            &descP->currentAcceptor.mon) == 0 );
@@ -1605,7 +2516,7 @@ ERL_NIF_TERM essio_accept_listening_error(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("UNIX-ESSIO",
-                "essio_accept_listening {%d} -> errno: %d\r\n",
+                "essio_accept_listening_error {%d} -> errno: %d\r\n",
                 descP->sock, save_errno) );
 
         ESOCK_CNT_INC(env, descP, sockRef,
@@ -1943,6 +2854,7 @@ BOOLEAN_T essio_accept_accepted(ErlNifEnv*       env,
     enif_release_resource(accDescP);
 
     accDescP->ctrlPid = pid;
+
     /* pid has actually been compared equal to self()
      * in this code path just a little while ago
      */
@@ -1964,6 +2876,113 @@ BOOLEAN_T essio_accept_accepted(ErlNifEnv*       env,
 
     return TRUE;
 }
+
+
+#define ESOCK_ENSURE_OPEN(E, D)                 \
+    if (! IS_OPEN((D)->readState) )             \
+        return esock_make_error_closed((E))
+
+
+/* ========================================================================
+ * peeloff - create a new one-to-one socket from an existing one-to-many
+ *           socket.
+ */
+#if defined(HAVE_SCTP)
+extern
+ERL_NIF_TERM essio_peeloff(ErlNifEnv*       env,
+                           ESockDescriptor* descP,
+                           ERL_NIF_TERM     sockRef,
+                           ESockAssocId     assocId)
+{
+    ESockDescriptor* poDescP;
+    SOCKET           sock;
+    ErlNifPid        self;
+    ERL_NIF_TERM     poRef;
+
+    sock_ensure_peeloff(env);
+    ESOCK_ENSURE_OPEN(env, descP);
+
+    ESOCK_ASSERT( enif_self(env, &self) != NULL );
+
+    /* SHOULD ANYBODY BE ALLOWED TO DO PEELOFF?
+     * OR SHOULD IT BE JUST THE "OWNER"?
+     */
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "%s(%d) -> try peeloff for assoc-id %d:"
+            "\r\n   Owner: %T"
+            "\r\n   Self:  %T"
+            "\r\n",
+            __FUNCTION__, descP->sock, assocId,
+            MKPID(env, &descP->ctrlPid), MKPID(env, &self)) );
+
+    if (ESOCK_IS_ERROR(sock = sock_peeloff(descP->sock, assocId))) {
+        int save_errno = sock_errno();
+
+        return esock_make_error_errno(env, save_errno);
+    }
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "%s(%d) -> "
+            "set non-blocking for new sock %d and alloc descriptor\r\n",
+            __FUNCTION__, descP->sock, sock) );
+
+    SET_NONBLOCKING(sock);
+
+    poDescP = esock_alloc_descriptor(sock);
+    poDescP->domain   = descP->domain;
+    poDescP->type     = SOCK_STREAM;
+    poDescP->protocol = descP->protocol;
+
+    MLOCK(descP->writeMtx);
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "%s(%d) -> inherit various options\r\n",
+            __FUNCTION__, descP->sock, sock) );
+
+    poDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
+    poDescP->rNum     = descP->rNum;    // Inherit buffer uses
+    poDescP->rNumCnt  = 0;
+    poDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer size
+    poDescP->wCtrlSz  = descP->wCtrlSz; // Inherit buffer size
+    poDescP->iow      = descP->iow;     // Inherit iow
+    poDescP->dbg      = descP->dbg;     // Inherit debug flag
+    poDescP->useReg   = descP->useReg;  // Inherit useReg flag
+    esock_inc_socket(poDescP->domain, poDescP->type, poDescP->protocol);
+
+    poRef = enif_make_resource(env, poDescP);
+    enif_release_resource(poDescP);
+
+    poDescP->ctrlPid = self;
+
+    /* pid has actually been compared equal to self()
+     * in this code path just a little while ago
+     */
+    ESOCK_ASSERT( MONP("essio_peeloff -> ctrl",
+                       env, poDescP,
+                       &poDescP->ctrlPid,
+                       &poDescP->ctrlMon) == 0 );
+
+    poDescP->readState  = ESOCK_STATE_CONNECTED;
+    poDescP->writeState = ESOCK_STATE_CONNECTED;
+    poDescP->type       = SOCK_STREAM;
+
+    MUNLOCK(descP->writeMtx);
+    
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "%s(%d) -> (maybe) register (new) socket: %T\r\n",
+            __FUNCTION__, descP->sock, poRef) );
+
+    /* And finally (maybe) update the registry */
+    if (descP->useReg) esock_send_reg_add_msg(env, descP, poRef);
+
+    return esock_make_ok2(env, poRef);
+}
+#endif
 
 
 
@@ -2073,6 +3092,8 @@ ERL_NIF_TERM essio_sendto(ErlNifEnv*       env,
 
 
 /* ========================================================================
+ * eMsg contains the fields; addr, iov and ctrl.
+ * We do not use the value of the iov field (here) since we have the eIOV.
  */
 extern
 ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
@@ -2086,12 +3107,22 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
 {
     ERL_NIF_TERM  res, eAddr, eCtrl;
     ESockAddress  addr;
-    struct msghdr msgHdr;
-    ErlNifIOVec  *iovec = NULL;
+    struct msghdr msgHdr = {0};
+    ErlNifIOVec*  iovec = NULL;
     char*         ctrlBuf;
     size_t        ctrlBufLen,  ctrlBufUsed;
     ssize_t       dataSize,    sendmsg_result;
     ERL_NIF_TERM  writerCheck, tail;
+#if defined(ESOCK_NON_EMPTY_IOV)
+    int           dummy;
+    SysIOVec      dummyIOV[1];
+#endif
+
+    SSDBG( descP, ("UNIX-ESSIO",
+                   "essio_sendmsg(%d) -> entry with"
+                   "\r\n   length(eIOV): %d"
+                   "\r\n",
+                   descP->sock, esock_get_list_length(env, eIOV, -1)) );
 
     if (! IS_OPEN(descP->writeState))
         return esock_make_error_closed(env);
@@ -2106,7 +3137,7 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
      * or enqueue this process if there is a current writer  */
     if (! send_check_writer(env, descP, sendRef, &writerCheck)) {
         SSDBG( descP,
-               ("UNIX-ESSIO", "essio_sendmsg {%d} -> writer check failed: "
+               ("UNIX-ESSIO", "essio_sendmsg(%d) -> writer check failed: "
                 "\r\n   %T\r\n", descP->sock, writerCheck) );
         return writerCheck;
     }
@@ -2117,7 +3148,7 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
     if (! GET_MAP_VAL(env, eMsg, esock_atom_addr, &eAddr)) {
 
         SSDBG( descP, ("UNIX-ESSIO",
-                       "essio_sendmsg {%d} -> no address\r\n", descP->sock) );
+                       "essio_sendmsg(%d) -> no address\r\n", descP->sock) );
 
         msgHdr.msg_name    = NULL;
         msgHdr.msg_namelen = 0;
@@ -2126,7 +3157,7 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
         msgHdr.msg_namelen = sizeof(addr);
         sys_memzero((char *) msgHdr.msg_name, msgHdr.msg_namelen);
 
-        SSDBG( descP, ("UNIX-ESSIO", "essio_sendmsg {%d} ->"
+        SSDBG( descP, ("UNIX-ESSIO", "essio_sendmsg(%d) ->"
                        "\r\n   address: %T"
                        "\r\n", descP->sock, eAddr) );
 
@@ -2134,7 +3165,7 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
                                     msgHdr.msg_name,
                                     &msgHdr.msg_namelen)) {
             SSDBG( descP, ("UNIX-ESSIO",
-                           "essio_sendmsg {%d} -> invalid address\r\n",
+                           "essio_sendmsg(%d) -> invalid address\r\n",
                            descP->sock) );
             return esock_make_invalid(env, esock_atom_addr);
         }
@@ -2145,13 +3176,13 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
      */
     if ((! enif_inspect_iovec(NULL, dataP->iov_max, eIOV, &tail, &iovec))) {
         SSDBG( descP, ("UNIX-ESSIO",
-                       "essio_sendmsg {%d} -> not an iov\r\n",
+                       "essio_sendmsg(%d) -> not an iov\r\n",
                        descP->sock) );
 
         return esock_make_invalid(env, esock_atom_iov);
     }
 
-    SSDBG( descP, ("UNIX-ESSIO", "essio_sendmsg {%d} ->"
+    SSDBG( descP, ("UNIX-ESSIO", "essio_sendmsg(%d) ->"
                    "\r\n   iovcnt: %lu"
                    "\r\n   tail:   %s"
                    "\r\n", descP->sock,
@@ -2170,7 +3201,7 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
         } else {
             /* We can not send the whole packet in one sendmsg() call */
             SSDBG( descP, ("UNIX-ESSIO",
-                           "essio_sendmsg {%d} -> iovcnt > iov_max\r\n",
+                           "essio_sendmsg(%d) -> iovcnt > iov_max\r\n",
                            descP->sock) );
             res = esock_make_invalid(env, esock_atom_iov);
             goto done_free_iovec;
@@ -2189,6 +3220,7 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
          * there was no more data.  Otherwise there is more
          * data or the 'iov' is invalid.
          */
+
         for (;;) {
             if (enif_get_list_cell(env, tail, &h, &t) &&
                 enif_inspect_binary(env, h, &bin) &&
@@ -2198,12 +3230,12 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
             } else
                 break;
         }
-
+        
         if ((! enif_is_empty_list(env, tail)) &&
             (descP->type != SOCK_STREAM)) {
             /* We can not send the whole packet in one sendmsg() call */
             SSDBG( descP, ("UNIX-ESSIO",
-                           "essio_sendmsg {%d} -> invalid tail\r\n",
+                           "essio_sendmsg(%d) -> invalid tail\r\n",
                            descP->sock) );
             res = esock_make_invalid(env, esock_atom_iov);
             goto done_free_iovec;
@@ -2216,7 +3248,7 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
             dataSize += len;
             if (dataSize < len) {
                 /* Overflow */
-                SSDBG( descP, ("UNIX-ESSIO", "essio_sendmsg {%d} -> Overflow"
+                SSDBG( descP, ("UNIX-ESSIO", "essio_sendmsg(%d) -> Overflow"
                                "\r\n   i:         %lu"
                                "\r\n   len:       %lu"
                                "\r\n   dataSize:  %ld"
@@ -2229,15 +3261,39 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
     }
     SSDBG( descP,
            ("UNIX-ESSIO",
-            "essio_sendmsg {%d} -> iovec size verified"
+            "essio_sendmsg(%d) -> iovec size verified"
+            "\r\n   iov:        0x%lX"
             "\r\n   iov length: %lu"
             "\r\n   data size:  %u"
             "\r\n",
             descP->sock,
+            iovec->iov,
             (unsigned long) iovec->iovcnt, (long) dataSize) );
 
-    msgHdr.msg_iovlen = iovec->iovcnt;
+#if defined(ESOCK_NON_EMPTY_IOV)
+    /*
+     * *** HACKETI HACK HACK ***
+     *
+     * Solaris do not seem to allow empty iov,
+     * so, if size == 0, fake it.
+     */
+    SSDBG( descP, ("UNIX-ESSIO", "essio_sendmsg(%d) -> do not allow empty iov"
+                   "\r\n", descP->sock) );
+    if (iovec->iovcnt > 0) {
+        msgHdr.msg_iov    = iovec->iov;
+        msgHdr.msg_iovlen = iovec->iovcnt;
+    } else {
+        dummyIOV[0].iov_len  = 0;
+        dummyIOV[0].iov_base = &dummy;
+        msgHdr.msg_iov       = dummyIOV;
+        msgHdr.msg_iovlen    = 1;
+    }
+#else
+    SSDBG( descP, ("UNIX-ESSIO", "essio_sendmsg(%d) -> allow empty iov"
+                   "\r\n", descP->sock) );
     msgHdr.msg_iov    = iovec->iov;
+    msgHdr.msg_iovlen = iovec->iovcnt;    
+#endif
 
     /* Extract the *optional* 'ctrl' */
     if (GET_MAP_VAL(env, eMsg, esock_atom_ctrl, &eCtrl)) {
@@ -2245,7 +3301,8 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
         ctrlBuf    = (char*) MALLOC(ctrlBufLen);
         ESOCK_ASSERT( ctrlBuf != NULL );
     }
-    SSDBG( descP, ("UNIX-ESSIO", "essio_sendmsg {%d} -> optional ctrl: "
+
+    SSDBG( descP, ("UNIX-ESSIO", "essio_sendmsg(%d) -> optional ctrl: "
                    "\r\n   ctrlBuf:    %p"
                    "\r\n   ctrlBufLen: %lu"
                    "\r\n   eCtrl:      %T"
@@ -2259,7 +3316,7 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
                               eCtrl,
                               ctrlBuf, ctrlBufLen, &ctrlBufUsed)) {
             SSDBG( descP, ("UNIX-ESSIO",
-                           "essio_sendmsg {%d} -> invalid ctrl\r\n",
+                           "essio_sendmsg(%d) -> invalid ctrl\r\n",
                            descP->sock) );
             res = esock_make_invalid(env, esock_atom_ctrl);
             goto done_free_iovec;
@@ -2289,8 +3346,8 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
     if (ctrlBuf != NULL) FREE(ctrlBuf);
 
     SSDBG( descP,
-           ("UNIX-ESSIO", "essio_sendmsg {%d} -> done"
-            "\r\n   %T"
+           ("UNIX-ESSIO", "essio_sendmsg(%d) -> done"
+            "\r\n   res: %T"
             "\r\n", descP->sock, res) );
 
     return res;
@@ -2743,192 +3800,68 @@ ERL_NIF_TERM essio_recv(ErlNifEnv*       env,
                         ssize_t          len,
                         int              flags)
 {
-    ERL_NIF_TERM readerCheck;
-    int          save_errno;
+    int          saveErrno;
+    ErlNifBinary bin, *bufP;
     ssize_t      readResult;
-    /* Receive as much as requested, or if 0 is requested use
-     * the default size (configured)
-     */
-    size_t       recvLen = (len != 0 ? len : descP->rBufSz);
+    size_t       bufSz = (len != 0 ? len : descP->rBufSz); // 0 means default
+    ERL_NIF_TERM ret;
 
     SSDBG( descP, ("UNIX-ESSIO", "essio_recv {%d} -> entry with"
-                   "\r\n   count,size: (%ld:%u:%lu)"
+                   "\r\n   bufSz: %lu"
+                   "\r\n   count: %u"
+                   "\r\n   len:   %ld"
                    "\r\n", descP->sock,
-                   (long) len, descP->rNumCnt, (unsigned long) recvLen) );
+                   (unsigned long) bufSz, descP->rNumCnt, (long) len) );
 
-    if (! IS_OPEN(descP->readState))
-        return esock_make_error_closed(env);
 
-    /* Accept and Read uses the same select flag
-     * so they can not be simultaneous
-     */
-    if (descP->currentAcceptorP != NULL)
-        return esock_make_error_invalid(env, esock_atom_state);
-
-    /* Ensure that we either have no current reader or that we are it,
-     * or enqueue this process if there is a current reader */
-    if (! recv_check_reader(env, descP, recvRef, &readerCheck)) {
+    /* Check basic state and current reader */
+    if (! recv_check_entry(env, descP, recvRef, &ret)) {
         SSDBG( descP,
-               ("UNIX-ESSIO", "essio_recv {%d} -> reader check failed: "
-                "\r\n   %T"
-                "\r\n", descP->sock, readerCheck) );
-        return readerCheck;
+               ("UNIX-ESSIO", "essio_recv {%d} -> entry failed: "
+                "\r\n   %T\r\n", descP->sock, ret) );
+        return ret;
     }
 
+    bufP = &descP->buf;
+    ESOCK_ASSERT( recv_alloc_buf(bufSz, bufP) );
 
-    /* Allocate the receive buffer */
-    if (descP->readBuf.data == NULL) {
-        ESOCK_ASSERT( ALLOC_BIN(recvLen, &descP->readBuf) );
-        descP->readResult = 0;
-    } else {
-        /* We already have a buffer.
-         * Only happens for SOCK_STREAM when a recv didn't
-         * fill the buffer (partial recv).
-         */
-        if ((len == 0) && (0 < descP->readResult)) {
-            /* The request is for any amount of data
-             * - deliver what we have
-             */
-            ESOCK_ASSERT( REALLOC_BIN(&descP->readBuf, descP->readResult) );
-            return recv_check_full_done(env, descP, sockRef);
-        } else if (descP->readBuf.size < recvLen) {
-            /* Our buffer is too small */
-            ESOCK_ASSERT( REALLOC_BIN(&descP->readBuf, recvLen) );
-        } else if (recvLen < descP->readResult) {
-            /* We have more buffered than what is requested
-             * - deliver the start of the buffer
-             *   and copy the rest to a new buffer */
-            ErlNifBinary buf;
-            ERL_NIF_TERM ret;
-            size_t keepLen = descP->readResult - recvLen;
-            ESOCK_ASSERT( ALLOC_BIN(keepLen, &buf) );
-            sys_memcpy(buf.data, descP->readBuf.data + recvLen,
-                       keepLen);
-            ESOCK_ASSERT( REALLOC_BIN(&descP->readBuf, recvLen) );
-            ret = recv_check_full_done(env, descP, sockRef);
-            descP->readBuf    = buf;
-            descP->readResult = keepLen;
-            return ret;
-        } else if (descP->readResult < recvLen) {
-            /* The request is for more data than we have buffered
-             * - we need to receive more data */
-            if (recvLen < descP->readBuf.size) {
-                /* Our buffer is too large */
-                ESOCK_ASSERT( REALLOC_BIN(&descP->readBuf, recvLen) );
-            } /* else our buffer is just the right size */
-        } else {
-            /* Our buffer contains exactly what is requested
-             * - just deliver it all
-             */
-            return recv_check_full_done(env, descP, sockRef);
-        }
-    }
-    ESOCK_ASSERT( recvLen == descP->readBuf.size );
-    recvLen = descP->readBuf.size - descP->readResult;
-
-    // If it fails (read = -1), we need errno...
     SSDBG( descP, ("UNIX-ESSIO", "essio_recv {%d} -> try read (%lu)\r\n",
-                   descP->sock, (unsigned long) recvLen) );
+                   descP->sock, (unsigned long) len) );
 
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_read_tries, &descP->readTries, 1);
 
-    readResult =
-        sock_recv(descP->sock,
-                  descP->readBuf.data + descP->readResult, recvLen,
-                  flags);
-    if (ESOCK_IS_ERROR(readResult)) {
-        save_errno = sock_errno();
-    } else {
-        save_errno = 0; // The value does not actually matter in this case
-    }
+    /* recv() */
+    readResult = sock_recv(descP->sock, bufP->data, bufP->size, flags);
+    saveErrno  = ESOCK_IS_ERROR(readResult) ? sock_errno() : 0;
 
     SSDBG( descP, ("UNIX-ESSIO",
                    "essio_recv {%d} -> readResult: %ld (%d)\r\n",
-                   descP->sock, (long) readResult, save_errno) );
+                   descP->sock, (long) readResult, saveErrno) );
 
-    return recv_check_result(env, descP, len, save_errno, readResult,
-                             sockRef, recvRef);
-}
+    /* Check for errors and end of stream */
+    if (! recv_check_result(env, descP, sockRef, recvRef,
+                            readResult, saveErrno, &ret) ) {
+        /* Keep the buffer */
+        return ret;
+    }
+    /* readResult >= 0 */
 
+    ESOCK_ASSERT( recv_create_bin(bufP, readResult, &bin) );
 
-/* *** recv_check_result ***
- *
- * Process the result of a call to recv.
- */
-static
-ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
-                               ESockDescriptor* descP,
-                               ssize_t          toRead,
-                               int              saveErrno,
-                               ssize_t          readResult,
-                               ERL_NIF_TERM     sockRef,
-                               ERL_NIF_TERM     recvRef)
-{
-    ERL_NIF_TERM res;
-
-    SSDBG( descP,
-           ("UNIX-ESSIO", "recv_check_result(%T) {%d} -> entry with"
-            "\r\n   toRead:     %ld"
-            "\r\n   saveErrno:  %d"
-            "\r\n   readResult: %ld"
-            "\r\n   recvRef:    %T"
-            "\r\n", sockRef, descP->sock,
-            (long) toRead, saveErrno, (long) readResult, recvRef) );
-
-
-    /* <KOLLA>
-     *
-     * We need to handle readResult = 0 for other type(s) (DGRAM) when
-     * its actually valid to read 0 bytes.
-     *
-     * </KOLLA>
-     */
-
-    if ((readResult == 0) && (descP->type == SOCK_STREAM)) {
-        ERL_NIF_TERM reason = esock_atom_closed;
-
-        /* Stream closed from other side
-         *
-         * When a stream socket peer has performed an orderly shutdown,
-         * the return value will be 0 (the traditional "end-of-file" return).
-         *
-         * *We* do never actually try to read 0 bytes!
-         *
-         * We must also notify any waiting readers!
-         */
-
-        if (0 < descP->readResult) {
-            ERL_NIF_TERM data;
-            /* We had data buffered */
-            ESOCK_ASSERT( REALLOC_BIN(&descP->readBuf, descP->readResult) );
-            data = MKBIN(env, &descP->readBuf);
-            descP->readBuf.data = NULL;
-            res = esock_make_error(env, MKT2(env, reason, data));
-        } else {
-            res = esock_make_error(env, reason);
-        }
-
-        recv_error_current_reader(env, descP, sockRef, reason);
-
-    } else if (readResult < 0) {
-
-        /* +++ Error handling +++ */
-
-        res = recv_check_fail(env, descP, saveErrno, sockRef, recvRef);
-
-    } else if ((descP->readResult += readResult) < descP->readBuf.size) {
+    if (bin.size < bufP->size) {
 
         /* +++ We did not fill the buffer +++ */
 
         SSDBG( descP,
                ("UNIX-ESSIO",
-                "recv_check_result(%T) {%d} -> [%lu] "
+                "essio_recv {%d} -> [%lu] "
                 "did not fill the buffer (%ld)\r\n",
-                sockRef, descP->sock, (unsigned long) descP->readBuf.size,
-                (long) descP->readResult) );
+                descP->sock, (unsigned long) bufP->size,
+                (unsigned long) bin.size) );
 
-        res = recv_check_partial(env, descP, toRead, sockRef, recvRef);
+        /* Return {ok|timeout|select|select_read, Bin} */
+        return recv_check_partial(env, descP, sockRef, recvRef, len, &bin);
 
     } else {
 
@@ -2936,16 +3869,13 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("UNIX-ESSIO",
-                "recv_check_result(%T) {%d} -> [%lu] filled the buffer\r\n",
-                sockRef, descP->sock,
-                (unsigned long) descP->readBuf.size) );
+                "essio_recv {%d} -> [%lu] filled the buffer\r\n",
+                descP->sock, (unsigned long) bin.size) );
 
-        res = recv_check_full(env, descP, toRead, sockRef, recvRef);
+        /* Return {more|ok|select_read, Bin} */
+        return recv_check_full(env, descP, sockRef, recvRef, len, &bin);
     }
-
-    return res;
 }
-
 
 
 /* ========================================================================
@@ -2963,149 +3893,88 @@ ERL_NIF_TERM essio_recvfrom(ErlNifEnv*       env,
                             int              flags)
 {
     ESockAddress  fromAddr;
-    SOCKLEN_T     addrLen;
-    ssize_t       read;
-    int           save_errno;
-    ErlNifBinary  buf;
-    ERL_NIF_TERM  readerCheck;
-    size_t        bufSz = (len != 0 ? len : descP->rBufSz);
+    SOCKLEN_T     fromAddrLen;
+    ssize_t       readResult;
+    int           saveErrno;
+    ErlNifBinary  bin, *bufP;
+    size_t        bufSz = (len != 0 ? len : descP->rBufSz); // 0 means default
+    ERL_NIF_TERM  ret;
 
     SSDBG( descP, ("UNIX-ESSIO", "essio_recvfrom {%d} -> entry with"
-                   "\r\n   bufSz: %d"
-                   "\r\n", descP->sock, bufSz) );
+                   "\r\n   bufSz: %lu (%ld)"
+                   "\r\n", descP->sock,
+                   (unsigned long) bufSz, (long) len) );
 
-    if (! IS_OPEN(descP->readState))
-        return esock_make_error_closed(env);
-
-    /* Accept and Read uses the same select flag
-     * so they can not be simultaneous
-     */
-    if (descP->currentAcceptorP != NULL)
-        return esock_make_error_invalid(env, esock_atom_state);
-
-    /* Ensure that we either have no current reader or that we are it,
-     * or enqueue this process if there is a current reader */
-    if (! recv_check_reader(env, descP, recvRef, &readerCheck)) {
+    /* Check basic state and current reader */
+    if (! recv_check_entry(env, descP, recvRef, &ret)) {
         SSDBG( descP,
-               ("UNIX-ESSIO", "essio_recv {%d} -> reader check failed: "
-                "\r\n   %T\r\n", descP->sock, readerCheck) );
-        return readerCheck;
+               ("UNIX-ESSIO", "essio_recvfrom {%d} -> entry failed: "
+                "\r\n   %T\r\n", descP->sock, ret) );
+        return ret;
     }
 
-    /* Allocate a buffer:
-     * Either as much as we want to read or (if zero (0)) use the "default"
-     * size (what has been configured).
-     */
-    ESOCK_ASSERT( ALLOC_BIN(bufSz, &buf) );
+    bufP = &descP->buf;
+    ESOCK_ASSERT( recv_alloc_buf(bufSz, bufP) );
 
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_read_tries, &descP->readTries, 1);
 
-    addrLen = sizeof(fromAddr);
-    sys_memzero((char*) &fromAddr, addrLen);
+    fromAddrLen = sizeof(fromAddr);
+    sys_memzero((char*) &fromAddr, fromAddrLen);
 
-    read = sock_recvfrom(descP->sock, buf.data, buf.size, flags,
-                         &fromAddr.sa, &addrLen);
-    if (ESOCK_IS_ERROR(read))
-        save_errno = sock_errno();
-    else
-        save_errno = 0; // The value does not actually matter in this case
+    /* recvfrom() */
+    readResult = sock_recvfrom(descP->sock, bufP->data, bufP->size, flags,
+                               &fromAddr.sa, &fromAddrLen);
+    saveErrno = ESOCK_IS_ERROR(readResult) ? sock_errno() : 0;
 
-    return recvfrom_check_result(env, descP, read, save_errno,
-                                 &buf, &fromAddr, addrLen,
-                                 sockRef, recvRef);
-}
+    /* Check for errors and end of stream */
+    if (! recv_check_result(env, descP, sockRef, recvRef,
+                            readResult, saveErrno, &ret) ) {
+        /* Keep the buffer */
+        return ret;
+    }
+    /* readResult >= 0 */
 
+    ESOCK_ASSERT( recv_create_bin(bufP, readResult, &bin) );
 
-/* The recvfrom function delivers one (1) message. If our buffer
- * is too small, the message will be truncated. So, regardless
- * if we filled the buffer or not, we have got what we are going
- * to get regarding this message.
- */
-
-static
-ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
-                                   ESockDescriptor* descP,
-                                   ssize_t          read,
-                                   int              saveErrno,
-                                   ErlNifBinary*    bufP,
-                                   ESockAddress*    fromAddrP,
-                                   SOCKLEN_T        fromAddrLen,
-                                   ERL_NIF_TERM     sockRef,
-                                   ERL_NIF_TERM     recvRef)
-{
-    ERL_NIF_TERM data, res;
-
-    SSDBG( descP,
-           ("UNIX-ESSIO", "recvfrom_check_result(%T) {%d} -> entry with"
-            "\r\n   read:      %ld"
-            "\r\n   saveErrno: %d"
-            "\r\n   recvRef:   %T"
-            "\r\n", sockRef, descP->sock,
-            (long) read, saveErrno, recvRef) );
-
-    /* <KOLLA>
+    /* The recvfrom function delivers one (1) message. If our buffer
+     * is too small, the message will be truncated. So, regardless
+     * if we filled the buffer or not, we have got what we are going
+     * to get regarding this message.
      *
-     * We need to handle read = 0 for non_stream socket type(s) when
-     * its actually valid to read 0 bytes.
-     *
-     * </KOLLA>
+     * Encode the message and source address
      */
 
-    if ((read == 0) && (descP->type == SOCK_STREAM)) {
+    descP->rNumCnt = 0;
 
-        /*
-         * When a stream socket peer has performed an orderly shutdown,
-         * the return value will be 0 (the traditional "end-of-file" return).
-         *
-         * *We* do never actually try to read 0 bytes!
-         */
+    ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_pkg,
+                  &descP->readPkgCnt, 1);
+    ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_byte,
+                  &descP->readByteCnt, bin.size);
+    if (bin.size > descP->readPkgMax)
+        descP->readPkgMax = bin.size;
 
-        ESOCK_CNT_INC(env, descP, sockRef,
-                      esock_atom_read_fails, &descP->readFails, 1);
+    esock_encode_sockaddr(env,
+                          &fromAddr, fromAddrLen,
+                          &ret);
 
-        FREE_BIN(bufP);
+    /* MKBIN transfers "ownership" of the *allocated* binary to an
+     * erlang term in env (no need to free; it will be GC:ed).
+     */
+    /* {FromAddr, Bin} */
+    ret = MKT2(env, ret, MKBIN(env, &bin));
 
-        return esock_make_error_closed(env);
+    if (descP->selectRead && (COMPARE(recvRef, esock_atom_zero) != 0)) {
+        /* Return {select_read, {FromAddr, Bin}} */
+        ret = MKT2(env, esock_atom_select_read, ret);
+        return recv_check_select(env, descP, sockRef, recvRef, ret);
     }
-
-    if (read < 0) {
-
-        /* +++ Error handling +++ */
-
-        res = recv_check_fail(env, descP, saveErrno, sockRef, recvRef);
-        FREE_BIN(bufP);
-
-    } else {
-
-        /* +++ We successfully got a message - time to encode the address +++ */
-
-        ERL_NIF_TERM eSockAddr;
-
-        esock_encode_sockaddr(env,
-                              fromAddrP, fromAddrLen,
-                              &eSockAddr);
-
-        if (read != bufP->size) {
-            ESOCK_ASSERT( REALLOC_BIN(bufP, read) );
-        }
-        data = MKBIN(env, bufP);
-
-        ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_pkg,
-                      &descP->readPkgCnt, 1);
-        ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_byte,
-                      &descP->readByteCnt, read);
-
+    else {
         recv_update_current_reader(env, descP, sockRef);
-
-        res = esock_make_ok2(env, MKT2(env, eSockAddr, data));
-
+        /* Return {ok, {FromAddr, Bin}} */
+        return esock_make_ok2(env, ret);
     }
-
-    return res;
-
 }
-
 
 
 /* ========================================================================
@@ -3124,15 +3993,14 @@ ERL_NIF_TERM essio_recvmsg(ErlNifEnv*       env,
                            int              flags)
 {
     SOCKLEN_T     addrLen;
-    ssize_t       read;
-    int           save_errno;
+    ssize_t       readResult;
+    int           saveErrno;
     size_t        bufSz  = (bufLen  != 0 ? bufLen  : descP->rBufSz);
     size_t        ctrlSz = (ctrlLen != 0 ? ctrlLen : descP->rCtrlSz);
-    struct msghdr msgHdr;
+    struct msghdr msgHdr = {0};
     SysIOVec      iov[1];  // Shall we always use 1?
-    ErlNifBinary  data[1]; // Shall we always use 1?
-    ErlNifBinary  ctrl;
-    ERL_NIF_TERM  readerCheck;
+    ErlNifBinary  ctrl, bin, *bufP;
+    ERL_NIF_TERM  ret;
     ESockAddress  addr;
 
     SSDBG( descP, ("UNIX-ESSIO", "essio_recvmsg {%d} -> entry with"
@@ -3142,27 +4010,18 @@ ERL_NIF_TERM essio_recvmsg(ErlNifEnv*       env,
                    (unsigned long) bufSz, (long) bufLen,
                    (unsigned long) ctrlSz, (long) ctrlLen) );
 
-    if (! IS_OPEN(descP->readState))
-        return esock_make_error_closed(env);
-
-    /* Accept and Read uses the same select flag
-     * so they can not be simultaneous
-     */
-    if (descP->currentAcceptorP != NULL)
-        return esock_make_error_invalid(env, esock_atom_state);
-
-    /* Ensure that we either have no current reader or that we are it,
-     * or enqueue this process if there is a current reader */
-    if (! recv_check_reader(env, descP, recvRef, &readerCheck)) {
+    /* Check basic state and current reader */
+    if (! recv_check_entry(env, descP, recvRef, &ret)) {
         SSDBG( descP,
-               ("UNIX-ESSIO", "essio_recvmsg {%d} -> reader check failed: "
-                "\r\n   %T\r\n", descP->sock, readerCheck) );
-        return readerCheck;
+               ("UNIX-ESSIO", "essio_recvmsg {%d} -> entry failed: "
+                "\r\n   %T\r\n", descP->sock, ret) );
+        return ret;
     }
 
-    /* Allocate the (msg) data buffer:
+    /* Allocate the data buffer
      */
-    ESOCK_ASSERT( ALLOC_BIN(bufSz, &data[0]) );
+    bufP = &descP->buf;
+    ESOCK_ASSERT( recv_alloc_buf(bufSz, bufP) );
 
     /* Allocate the ctrl (buffer):
      */
@@ -3175,8 +4034,8 @@ ERL_NIF_TERM essio_recvmsg(ErlNifEnv*       env,
     sys_memzero((char*) &addr,   addrLen);
     sys_memzero((char*) &msgHdr, sizeof(msgHdr));
 
-    iov[0].iov_base = data[0].data;
-    iov[0].iov_len  = data[0].size;
+    iov[0].iov_base = bufP->data;
+    iov[0].iov_len  = bufP->size;
 
     msgHdr.msg_name       = &addr;
     msgHdr.msg_namelen    = addrLen;
@@ -3185,110 +4044,26 @@ ERL_NIF_TERM essio_recvmsg(ErlNifEnv*       env,
     msgHdr.msg_control    = ctrl.data;
     msgHdr.msg_controllen = ctrl.size;
 
-    read = sock_recvmsg(descP->sock, &msgHdr, flags);
-    if (ESOCK_IS_ERROR(read))
-        save_errno = sock_errno();
-    else
-        save_errno = 0; // The value does not actually matter in this case
+    /* recvmsg() */
+    readResult = sock_recvmsg(descP->sock, &msgHdr, flags);
+    saveErrno = ESOCK_IS_ERROR(readResult) ? sock_errno() : 0;
 
-    return recvmsg_check_result(env, descP, read, save_errno,
-                                &msgHdr,
-                                data,  // Needed for iov encode
-                                &ctrl, // Needed for ctrl header encode
-                                sockRef, recvRef);
-}
+    /* Check for errors and end of stream */
+    if (! recv_check_result(env, descP, sockRef, recvRef,
+                            readResult, saveErrno, &ret) ) {
+        /* Keep the data buffer */
+        FREE_BIN(&ctrl);
+        return ret;
+    }
+    /* readResult >= 0 */
 
+    ESOCK_ASSERT( recv_create_bin(bufP, readResult, &bin) );
 
-/* *** recvmsg_check_result ***
- *
- * The recvmsg function delivers one (1) message. If our buffer
- * is to small, the message will be truncated. So, regardless
- * if we filled the buffer or not, we have got what we are going
- * to get regarding this message.
- */
-static
-ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*       env,
-                                  ESockDescriptor* descP,
-                                  ssize_t          read,
-                                  int              saveErrno,
-                                  struct msghdr*   msgHdrP,
-                                  ErlNifBinary*    dataBufP,
-                                  ErlNifBinary*    ctrlBufP,
-                                  ERL_NIF_TERM     sockRef,
-                                  ERL_NIF_TERM     recvRef)
-{
-    ERL_NIF_TERM res;
-
-    SSDBG( descP,
-           ("UNIX-ESSIO", "recvmsg_check_result(%T) {%d} -> entry with"
-            "\r\n   read:      %ld"
-            "\r\n   saveErrno: %d"
-            "\r\n   recvRef:   %T"
-            "\r\n", sockRef, descP->sock,
-            (long) read, saveErrno, recvRef) );
-
-
-    /* <KOLLA>
-     *
-     * We need to handle read = 0 for non_stream socket type(s) when
-     * its actually valid to read 0 bytes.
-     *
-     * </KOLLA>
+    /* The recvmsg function delivers one (1) message. If our buffer
+     * is to small, the message will be truncated. So, regardless
+     * if we filled the buffer or not, we have got what we are going
+     * to get regarding this message.
      */
-
-    if ((read == 0) && (descP->type == SOCK_STREAM)) {
-        
-        /*
-         * When a stream socket peer has performed an orderly shutdown,
-         * the return value will be 0 (the traditional "end-of-file" return).
-         *
-         * *We* do never actually try to read 0 bytes!
-         */
-
-        ESOCK_CNT_INC(env, descP, sockRef,
-                      esock_atom_read_fails, &descP->readFails, 1);
-
-        FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
-
-        return esock_make_error_closed(env);
-    }
-
-
-    if (read < 0) {
-
-        /* +++ Error handling +++ */
-
-        res = recv_check_fail(env, descP, saveErrno, sockRef, recvRef);
-        FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
-
-    } else {
-
-        /* +++ We successfully got a message - time to encode it +++ */
-
-        res = recvmsg_check_msg(env, descP, read, msgHdrP,
-                                dataBufP, ctrlBufP, sockRef);
-
-    }
-
-    return res;
-
-}
-
-
-/* *** recvmsg_check_msg ***
- *
- * We successfully read one message. Time to process.
- */
-static
-ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
-                               ESockDescriptor* descP,
-                               ssize_t          read,
-                               struct msghdr*   msgHdrP,
-                               ErlNifBinary*    dataBufP,
-                               ErlNifBinary*    ctrlBufP,
-                               ERL_NIF_TERM     sockRef)
-{
-    ERL_NIF_TERM eMsg;
 
     /*
      * <KOLLA>
@@ -3300,24 +4075,467 @@ ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
      * </KOLLA>
      */
 
-    encode_msg(env, descP,
-               read, msgHdrP, dataBufP, ctrlBufP,
-               &eMsg);
-
     SSDBG( descP,
-           ("UNIX-ESSIO", "recvmsg_check_result(%T) {%d} -> ok\r\n",
-            sockRef, descP->sock) );
+           ("UNIX-ESSIO", "essio_recvmsg {%d} -> ok\r\n",
+            descP->sock) );
+
+    descP->rNumCnt = 0;
 
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_read_pkg, &descP->readPkgCnt, 1);
     ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_byte,
-                  &descP->readByteCnt, read);
+                  &descP->readByteCnt, readResult);
+    if (readResult > descP->readPkgMax)
+        descP->readPkgMax = readResult;
 
-    recv_update_current_reader(env, descP, sockRef);
+    encode_msg(env, descP,
+               readResult, &msgHdr, &bin, &ctrl,
+               &ret);
 
-    return esock_make_ok2(env, eMsg);
+    if (descP->selectRead && (COMPARE(recvRef, esock_atom_zero) != 0)) {
+        /* Return {select_read, Msg} */
+        ret = MKT2(env, esock_atom_select_read, ret);
+        return recv_check_select(env, descP, sockRef, recvRef, ret);
+    }
+    else {
+        recv_update_current_reader(env, descP, sockRef);
+        /* Return {ok, Msg} */
+        return esock_make_ok2(env, ret);
+    }
 }
 
+
+#ifdef HAVE_RECVMMSG
+/* ========================================================================
+ */
+ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            ERL_NIF_TERM     sockRef,
+                            ERL_NIF_TERM     recvRef,
+                            unsigned int     vlen,
+                            ssize_t          bufLen,
+                            ssize_t          ctrlLen,
+                            int              flags)
+{
+    int             readResult = 0;
+    ESockAddress*   addrs = NULL;
+    unsigned char*  recvBufs = NULL;
+    unsigned char*  recvCtrl = NULL;
+    struct mmsghdr* recvMmsghdrs = NULL;
+    struct iovec*   recvIovecs = NULL;
+    ErlNifBinary*   bufs = NULL;
+    ErlNifBinary*   ctrls = NULL;
+    char*           heapPool = NULL;
+    SOCKLEN_T       addrLen = sizeof(ESockAddress);
+    size_t          bufSz  = (bufLen  != 0 ? bufLen  : descP->rBufSz);
+    size_t          ctrlSz = (ctrlLen != 0 ? ctrlLen : descP->rCtrlSz);
+    int             saveErrno;
+    ERL_NIF_TERM    ret;
+    ERL_NIF_TERM    resultList;
+    unsigned int    i = 0;
+
+    if (vlen > ESOCK_MMSG_MAX)
+        vlen = ESOCK_MMSG_MAX;
+
+    SSDBG( descP, ("UNIX-ESSIO", "essio_recvmmsg {%d} -> entry with"
+                   "\r\n   vlen:    %u"
+                   "\r\n   bufSz:   %lu (%ld)"
+                   "\r\n   ctrlSz:  %ld (%ld)"
+                   "\r\n", descP->sock,
+                   vlen, (unsigned long) bufSz, (long) bufLen,
+                   (unsigned long) ctrlSz, (long) ctrlLen) );
+
+    if (! recv_check_entry(env, descP, recvRef, &ret)) {
+        SSDBG( descP,
+               ("UNIX-ESSIO", "essio_recvmmsg {%d} -> entry failed: "
+                "\r\n   %T\r\n", descP->sock, ret) );
+        return ret;
+    }
+
+    {
+        size_t bufs_sz     = vlen * sizeof(ErlNifBinary);
+        size_t ctrls_sz    = vlen * sizeof(ErlNifBinary);
+        size_t addrs_sz    = vlen * sizeof(ESockAddress);
+        size_t mmsghdrs_sz = vlen * sizeof(struct mmsghdr);
+        size_t iovecs_sz   = vlen * sizeof(struct iovec);
+        size_t bufdata_sz  = vlen * bufSz;
+        size_t ctrldata_sz = vlen * ctrlSz;
+        size_t total_sz = bufs_sz + ctrls_sz + addrs_sz + mmsghdrs_sz + iovecs_sz + bufdata_sz + ctrldata_sz;
+        ESOCK_ASSERT((heapPool = (char*) MALLOC(total_sz)) != NULL );
+        sys_memzero(heapPool, bufs_sz + ctrls_sz + addrs_sz);
+        bufs         = (ErlNifBinary*)   (heapPool);
+        ctrls        = (ErlNifBinary*)   (heapPool + bufs_sz);
+        addrs        = (ESockAddress*)   (heapPool + bufs_sz + ctrls_sz);
+        recvMmsghdrs = (struct mmsghdr*) (heapPool + bufs_sz + ctrls_sz + addrs_sz);
+        recvIovecs   = (struct iovec*)   (heapPool + bufs_sz + ctrls_sz + addrs_sz + mmsghdrs_sz);
+        recvBufs     = (unsigned char*)  (heapPool + bufs_sz + ctrls_sz + addrs_sz + mmsghdrs_sz + iovecs_sz);
+        recvCtrl     = (unsigned char*)  (heapPool + bufs_sz + ctrls_sz + addrs_sz + mmsghdrs_sz + iovecs_sz + bufdata_sz);
+    }
+
+    /* Set up mmsghdr structures to point into raw memory blocks */
+    for (i = 0; i < vlen; i++) {
+        recvIovecs[i].iov_base = recvBufs + (i * bufSz);
+        recvIovecs[i].iov_len  = bufSz;
+        recvMmsghdrs[i].msg_hdr.msg_name       = &addrs[i];
+        recvMmsghdrs[i].msg_hdr.msg_namelen    = addrLen;
+        recvMmsghdrs[i].msg_hdr.msg_iov        = &recvIovecs[i];
+        recvMmsghdrs[i].msg_hdr.msg_iovlen     = 1;
+        recvMmsghdrs[i].msg_hdr.msg_control    = recvCtrl + (i * ctrlSz);
+        recvMmsghdrs[i].msg_hdr.msg_controllen = ctrlSz;
+        recvMmsghdrs[i].msg_hdr.msg_flags      = 0;
+        recvMmsghdrs[i].msg_len                = 0;
+    }
+
+    ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_tries, &descP->readTries, 1);
+
+    /* Passing NULL for timeout makes recvmmsg return ALL available messages
+     * (up to vlen) in a single call.
+     */
+    readResult = sock_recvmmsg(descP->sock, recvMmsghdrs, vlen, flags, NULL);
+    saveErrno = ESOCK_IS_ERROR(readResult) ? sock_errno() : 0;
+
+    if (readResult == 0) {
+        ret = esock_make_ok2(env, MKEL(env));
+        goto cleanup;
+    }
+
+    if (!recv_check_result(env, descP, sockRef, recvRef, readResult, saveErrno, &ret)) {
+        goto cleanup;
+    }
+
+    /* Allocate ErlNifBinary structures only for received messages (readResult),
+     * copying data from raw memory blocks.
+     */
+    {
+        size_t totalBytes = 0;
+        ERL_NIF_TERM* elems;
+        ESOCK_ASSERT( (elems = MALLOC(readResult * sizeof(ERL_NIF_TERM))) != NULL );
+
+        for (i = 0; i < (unsigned int) readResult; i++) {
+            ErlNifBinary bin;
+            size_t       ctrlLen;
+            unsigned int msgLen = recvMmsghdrs[i].msg_len;
+
+            /* With MSG_TRUNC, msg_len is the untruncated datagram length, which
+             * may exceed the receive buffer; only bufSz bytes were actually
+             * stored. Clamp so we never read past recvBufs or write past the
+             * result binary. */
+            if (msgLen > bufSz)
+                msgLen = bufSz;
+
+            ESOCK_ASSERT( ALLOC_BIN(bufSz, &bufs[i]) );
+            sys_memcpy(bufs[i].data, recvBufs + (i * bufSz), msgLen);
+            bufs[i].size = bufSz;
+
+            ESOCK_ASSERT( ALLOC_BIN(ctrlSz, &ctrls[i]) );
+            ctrlLen = (recvMmsghdrs[i].msg_hdr.msg_controllen < ctrlSz)
+                ? recvMmsghdrs[i].msg_hdr.msg_controllen
+                : ctrlSz;
+            sys_memcpy(ctrls[i].data, recvCtrl + (i * ctrlSz), ctrlLen);
+            ctrls[i].size = ctrlSz;
+
+            recvMmsghdrs[i].msg_hdr.msg_control = ctrls[i].data;
+
+            ESOCK_ASSERT( recv_create_bin(&bufs[i], msgLen, &bin) );
+            encode_msg(env, descP,
+                       msgLen, &recvMmsghdrs[i].msg_hdr, &bin, &ctrls[i],
+                       &elems[i]);
+
+            /* Update counters */
+            totalBytes += msgLen;
+            if (msgLen > descP->readPkgMax)
+                descP->readPkgMax = msgLen;
+        }
+
+        resultList = enif_make_list_from_array(env, elems, readResult);
+        enif_free(elems);
+
+        /* Update packet and byte counters */
+        ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_pkg, &descP->readPkgCnt, readResult);
+        ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_byte, &descP->readByteCnt, totalBytes);
+    }
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "essio_recvmmsg {%d} -> ok, received %d messages\r\n",
+            descP->sock, readResult) );
+
+    if (descP->selectRead && (COMPARE(recvRef, esock_atom_zero) != 0)) {
+        ret = MKT2(env, esock_atom_select_read, resultList);
+        ret = recv_check_select(env, descP, sockRef, recvRef, ret);
+    } else {
+        recv_update_current_reader(env, descP, sockRef);
+        ret = esock_make_ok2(env, resultList);
+    }
+
+cleanup:
+    /* Free ErlNifBinary structures only for received messages.
+     * Note: recv_create_bin may have transferred ownership (set data = NULL),
+     * in which case FREE_BIN is a no-op. We only free binaries we still own.
+     * When exiting early from the allocation loop, i is at the index where
+     * allocation failed, so we free indices 0 to i-1. On successful completion,
+     * i equals readResult, so we free indices 0 to readResult-1.
+     */
+    {
+        unsigned int countToFree = (i < (unsigned int) readResult) ? i : (unsigned int) readResult;
+        if (countToFree > 0) {
+            for (unsigned int j = 0; j < countToFree; j++) {
+                if (bufs[j].data != NULL) {
+                    FREE_BIN(&bufs[j]);
+                }
+                if (ctrls[j].data != NULL) {
+                    FREE_BIN(&ctrls[j]);
+                }
+            }
+        }
+    }
+
+    if (heapPool) enif_free(heapPool);
+
+    return ret;
+}
+#else /* HAVE_RECVMMSG */
+ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            ERL_NIF_TERM     sockRef,
+                            ERL_NIF_TERM     recvRef,
+                            unsigned int     vlen,
+                            ssize_t          bufLen,
+                            ssize_t          ctrlLen,
+                            int              flags)
+{
+    (void)descP; (void)sockRef; (void)recvRef;
+    (void)vlen; (void)bufLen; (void)ctrlLen; (void)flags;
+    return enif_raise_exception(env, MKA(env, "notsup"));
+}
+#endif /* HAVE_RECVMMSG */
+
+
+#ifdef HAVE_SENDMMSG
+/* ========================================================================
+ * Same criterion as send_check_result: written < dataSize => partial.
+ * We do not call send_check_result (it has side effects: writer state,
+ * stats). We only produce per-message result: 'full' or bytes written,
+ * so Erlang can build rest iovecs by slicing (same as sendmsg continuation).
+ */
+ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            ERL_NIF_TERM     sockRef,
+                            ERL_NIF_TERM     sendRef,
+                            ERL_NIF_TERM     eMsgs,
+                            int              flags,
+                            const ESockData* dataP)
+{
+    ERL_NIF_TERM    ret, eMsg, eAddr, eCtrl, eIOV, tail;
+    int             sendResult;
+    ERL_NIF_TERM    writerCheck;
+    unsigned int    i = 0;
+    unsigned int    msgCount = 0;
+    struct mmsghdr* sendMmsghdrs = NULL;
+    ESockAddress*   addrs = NULL;
+    char**          ctrlBufs = NULL;
+    size_t*         ctrlBufLens = NULL;
+    size_t*         ctrlBufUseds = NULL;
+    ErlNifIOVec**   iovecPtrs = NULL;
+    char*           heapPool = NULL;
+    char*           ctrlBufData = NULL;
+
+    if (! IS_OPEN(descP->writeState))
+        return esock_make_error_closed(env);
+
+    /* Connect and Write uses the same select flag
+     * so they can not be simultaneous
+     */
+    if (descP->connectorP != NULL)
+        return esock_make_error_invalid(env, esock_atom_state);
+
+    /* Ensure that we either have no current writer or we are it,
+     * or enqueue this process if there is a current writer  */
+    if (! send_check_writer(env, descP, sendRef, &writerCheck)) {
+        SSDBG( descP,
+               ("UNIX-ESSIO", "essio_sendmmsg {%d} -> writer check failed: "
+                "\r\n   %T\r\n", descP->sock, writerCheck) );
+        return writerCheck;
+    }
+
+    /* Count messages */
+    tail = eMsgs;
+    while (!enif_is_empty_list(env, tail)) {
+        if (!enif_get_list_cell(env, tail, &eMsg, &tail)) {
+            return enif_make_badarg(env);
+        }
+        if (!IS_MAP(env, eMsg)) {
+            return enif_make_badarg(env);
+        }
+        msgCount++;
+    }
+
+    if (msgCount == 0) {
+        return esock_atom_ok;
+    }
+
+    if (msgCount > ESOCK_MMSG_MAX)
+        msgCount = ESOCK_MMSG_MAX;
+
+    {
+        size_t mmsghdrs_sz     = msgCount * sizeof(struct mmsghdr);
+        size_t addrs_sz        = msgCount * sizeof(ESockAddress);
+        size_t ctrlBufs_sz     = msgCount * sizeof(char*);
+        size_t ctrlBufLens_sz  = msgCount * sizeof(size_t);
+        size_t ctrlBufUseds_sz = msgCount * sizeof(size_t);
+        size_t iovecPtrs_sz    = msgCount * sizeof(ErlNifIOVec*);
+        size_t ctrlBufData_sz  = msgCount * descP->wCtrlSz;
+        size_t total_sz = mmsghdrs_sz + addrs_sz + ctrlBufs_sz + ctrlBufLens_sz + ctrlBufUseds_sz + iovecPtrs_sz + ctrlBufData_sz;
+        ESOCK_ASSERT((heapPool = (char*) MALLOC(total_sz)) != NULL );
+        sys_memzero(heapPool, total_sz);
+        sendMmsghdrs = (struct mmsghdr*) (heapPool);
+        addrs        = (ESockAddress*) (heapPool + mmsghdrs_sz);
+        ctrlBufs     = (char**) (heapPool + mmsghdrs_sz + addrs_sz);
+        ctrlBufLens  = (size_t*) (heapPool + mmsghdrs_sz + addrs_sz + ctrlBufs_sz);
+        ctrlBufUseds = (size_t*) (heapPool + mmsghdrs_sz + addrs_sz + ctrlBufs_sz + ctrlBufLens_sz);
+        iovecPtrs    = (ErlNifIOVec**) (heapPool + mmsghdrs_sz + addrs_sz + ctrlBufs_sz + ctrlBufLens_sz + ctrlBufUseds_sz);
+        ctrlBufData  = (char*) (heapPool + mmsghdrs_sz + addrs_sz + ctrlBufs_sz + ctrlBufLens_sz + ctrlBufUseds_sz + iovecPtrs_sz);
+        for (i = 0; i < msgCount; i++) {
+            ctrlBufs[i] = ctrlBufData + (i * descP->wCtrlSz);
+        }
+    }
+
+    /* Initialize arrays to ensure safe cleanup on early exit.
+     * This is especially important for iovecPtrs which may not be
+     * set if validation fails before enif_inspect_iovec() is called.
+     */
+    for (i = 0; i < msgCount; i++) {
+        iovecPtrs[i] = NULL;
+    }
+
+    /* Process each message */
+    i = 0;
+    tail = eMsgs;
+    while (!enif_is_empty_list(env, tail) && i < msgCount) {
+        ERL_NIF_TERM tail2;
+        sys_memzero((char*) &sendMmsghdrs[i], sizeof(struct mmsghdr));
+        enif_get_list_cell(env, tail, &eMsg, &tail);
+
+        /* Extract address */
+        if (GET_MAP_VAL(env, eMsg, esock_atom_addr, &eAddr)) {
+            sendMmsghdrs[i].msg_hdr.msg_name = &addrs[i];
+            sendMmsghdrs[i].msg_hdr.msg_namelen = sizeof(ESockAddress);
+            sys_memzero((char*) &addrs[i], sizeof(ESockAddress));
+            if (!esock_decode_sockaddr(env, eAddr,
+                                      sendMmsghdrs[i].msg_hdr.msg_name,
+                                      &sendMmsghdrs[i].msg_hdr.msg_namelen)) {
+                ret = esock_make_invalid(env, esock_atom_addr);
+                goto cleanup;
+            }
+        } else {
+            sendMmsghdrs[i].msg_hdr.msg_name = NULL;
+        }
+
+        /* Extract IOV */
+        if (!GET_MAP_VAL(env, eMsg, esock_atom_iov, &eIOV)) {
+            ret = enif_make_badarg(env);
+            goto cleanup;
+        }
+        if (!enif_inspect_iovec(NULL, dataP->iov_max, eIOV, &tail2, &iovecPtrs[i])) {
+            ret = enif_make_badarg(env);
+            goto cleanup;
+        }
+        if (iovecPtrs[i]->iovcnt > dataP->iov_max) {
+            ret = esock_make_invalid(env, esock_atom_iov);
+            goto cleanup;
+        }
+        sendMmsghdrs[i].msg_hdr.msg_iov = iovecPtrs[i]->iov;
+        sendMmsghdrs[i].msg_hdr.msg_iovlen = iovecPtrs[i]->iovcnt;
+
+        /* Extract control messages */
+        if (GET_MAP_VAL(env, eMsg, esock_atom_ctrl, &eCtrl)) {
+            ctrlBufLens[i] = descP->wCtrlSz;
+            if (!decode_cmsghdrs(env, descP, eCtrl,
+                                ctrlBufs[i], ctrlBufLens[i], &ctrlBufUseds[i])) {
+                ret = esock_make_invalid(env, esock_atom_ctrl);
+                goto cleanup;
+            }
+            sendMmsghdrs[i].msg_hdr.msg_control = ctrlBufs[i];
+            sendMmsghdrs[i].msg_hdr.msg_controllen = ctrlBufUseds[i];
+        } else {
+            sendMmsghdrs[i].msg_hdr.msg_control = NULL;
+        }
+
+        i++;
+    }
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_write_tries, &descP->writeTries, 1);
+
+    /* Call sendmmsg */
+    sendResult = sock_sendmmsg(descP->sock, sendMmsghdrs, msgCount, flags);
+
+    if (sendResult < 0) {
+        ret = send_check_result(env, descP, sendResult, 0, FALSE,
+                                sockRef, sendRef);
+    } else {
+        /*
+         * Same criterion as send_check_result: for each updated message,
+         * written < dataSize => partial. Only add partials to the result
+         * list; each element is {Index, Written} so Erlang can slice the
+         * right message. Two indexes: i over messages, resultIdx over
+         * result list (only incremented for partials).
+         */
+        unsigned int updatedCount = (unsigned int) sendResult;
+        BOOLEAN_T allFull = TRUE;
+        ERL_NIF_TERM* resultElems = NULL;
+        unsigned int resultIdx = 0;
+        unsigned int k;
+
+        if (updatedCount > 0) {
+            ESOCK_ASSERT((resultElems = (ERL_NIF_TERM*) MALLOC(updatedCount * sizeof(ERL_NIF_TERM))) != NULL );
+            for (i = 0; i < updatedCount; i++) {
+                size_t expectedLen = 0;
+                for (k = 0; k < iovecPtrs[i]->iovcnt; k++) {
+                    expectedLen += iovecPtrs[i]->iov[k].iov_len;
+                }
+                if (sendMmsghdrs[i].msg_len != expectedLen) {
+                    allFull = FALSE;
+                    resultElems[resultIdx++] = MKT2(env, MKI(env, (int) i),
+                        MKI(env, (int) sendMmsghdrs[i].msg_len));
+                }
+            }
+            if (allFull) {
+                enif_free(resultElems);
+                ret = esock_atom_ok;
+            } else {
+                ret = esock_make_ok2(env,
+                    enif_make_list_from_array(env, resultElems, resultIdx));
+                enif_free(resultElems);
+            }
+        } else {
+            ret = esock_atom_ok;
+        }
+    }
+
+cleanup:
+    for (i = 0; i < msgCount; i++) {
+        if (iovecPtrs && iovecPtrs[i]) {
+            FREE_IOVEC(iovecPtrs[i]);
+        }
+    }
+    if (heapPool) enif_free(heapPool);
+
+    return ret;
+}
+#else /* HAVE_SENDMMSG */
+ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
+                           ESockDescriptor* descP,
+                           ERL_NIF_TERM     sockRef,
+                           ERL_NIF_TERM     sendRef,
+                           ERL_NIF_TERM     eMsgs,
+                           int              flags,
+                           const ESockData* dataP)
+{
+    (void)descP; (void)sockRef; (void)sendRef;
+    (void)eMsgs; (void)flags; (void)dataP;
+    return enif_raise_exception(env, MKA(env, "notsup"));
+}
+#endif /* HAVE_SENDMMSG */
 
 
 /* ========================================================================
@@ -3646,8 +4864,99 @@ ERL_NIF_TERM essio_fin_close(ErlNifEnv*       env,
 
 
 /* ========================================================================
+ * *** essio_socknames ***
+ */
+#if defined(HAVE_SCTP)
+extern
+ERL_NIF_TERM essio_socknames(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             sctp_assoc_t     assocId)
+{
+    struct sockaddr* sa;
+    int              n;
+    ERL_NIF_TERM     eaddrs, res;
+
+    sock_ensure_names(env);
+
+    n = sock_names(descP->sock, assocId, &sa);
+    if (n > 0) {
+        eaddrs = essio_addrs_encode(env, descP, n, sa);
+        res    = esock_make_ok2(env, eaddrs);
+        ctrl.sctp.freeladdrs(sa);
+    } else if (n == 0) {
+        eaddrs = MKEL(env);
+        res    = esock_make_ok2(env, eaddrs);
+    } else {
+        int save_errno = sock_errno();
+
+        res = esock_make_error_errno(env, save_errno);
+    }
+
+    return res;
+}
+
+
+static
+ERL_NIF_TERM essio_addrs_encode(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                int              n,
+                                struct sockaddr* sa)
+{
+    ERL_NIF_TERM esa;
+    SocketTArray esat = TARRAY_CREATE(n);
+
+    for (int i = 0; i < n; i++) {
+        ERL_NIF_TERM ea;
+
+        esock_encode_sockaddr(env, (ESockAddress*) &sa[i], -1, &ea);
+        
+        TARRAY_ADD(esat, ea);
+    }
+
+    TARRAY_TOLIST(esat, env, &esa);
+
+    return esa;
+}
+#endif
+
+
+/* ========================================================================
  * *** essio_peername should go here - if we need one ***
  */
+
+
+/* ========================================================================
+ * *** essio_peernames ***
+ */
+#if defined(HAVE_SCTP)
+extern
+ERL_NIF_TERM essio_peernames(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             sctp_assoc_t     assocId)
+{
+    struct sockaddr* sa;
+    int              n;
+    ERL_NIF_TERM     eaddrs, res;
+
+    sock_ensure_peers(env);
+
+    n = sock_peers(descP->sock, assocId, &sa);
+    if (n > 0) {
+        eaddrs = essio_addrs_encode(env, descP, n, sa);
+        res    = esock_make_ok2(env, eaddrs);
+        ctrl.sctp.freepaddrs(sa);
+    } else if (n == 0) {
+        eaddrs = MKEL(env);
+        res    = esock_make_ok2(env, eaddrs);
+    } else {
+        int save_errno = sock_errno();
+
+        res = esock_make_error_errno(env, save_errno);
+    }
+
+    return res;
+}
+#endif
 
 
 /* ========================================================================
@@ -4997,8 +6306,8 @@ ERL_NIF_TERM encode_ioctl_ifconf(ErlNifEnv*       env,
     if (len > 0) {
         ERL_NIF_TERM  elem, array;
         SocketTArray  tarray = TARRAY_CREATE(32);
-        unsigned int  n     = 1; // Just for debugging
-        unsigned int  i     = 0;
+        unsigned int  n      = 1; // Just for debugging
+        unsigned int  i      = 0;
         unsigned int  sz;
         struct ifreq* ifrP;
 
@@ -5008,7 +6317,7 @@ ERL_NIF_TERM encode_ioctl_ifconf(ErlNifEnv*       env,
                    ("UNIX-ESSIO",
                     "encode_ioctl_ifconf -> encode entry %d at %d\r\n", n, i) );
 
-            ifrP = (struct ifreq*) VOIDP(ifcP->ifc_buf + i);
+            ifrP = (struct ifreq*) (((char*)ifcP->ifc_buf) + i);
             sz   = sizeof(ifrP->ifr_name) + SIZEA(ifrP->ifr_addr);
             if (sz < sizeof(*ifrP)) sz = sizeof(*ifrP);
 
@@ -5472,6 +6781,29 @@ ERL_NIF_TERM make_ifreq(ErlNifEnv*   env,
  * Checks if we have a current writer and if that is us.
  * If not (current writer), then we must be made to wait
  * for our turn. This is done by pushing us unto the writer queue.
+ *
+ * Two-Level Locking Architecture:
+ * ------------------------------
+ * The socket implementation uses a two-level locking system to handle
+ * concurrency:
+ *
+ * 1. Mutex Level (writeMtx/readMtx):
+ *    - Acquired at the NIF entry point (e.g., nif_sendmsg, nif_sendmmsg)
+ *    - Protects C-level socket descriptor state during entire NIF execution
+ *    - Prevents concurrent access to descriptor fields from multiple threads
+ *    - Serializes C-level operations
+ *
+ * 2. Process-Level Queue (currentWriterP/currentReaderP):
+ *    - Managed by send_check_writer() and recv_check_entry()
+ *    - Handles Erlang process-level concurrency when multiple processes
+ *      try to write/read simultaneously
+ *    - Queues processes that aren't the "current writer/reader"
+ *    - Returns 'select' atom to queue the process for later execution
+ *    - Ensures only one Erlang process is active writer/reader at a time
+ *
+ * The mutex protects C-level state, while the process queue handles
+ * Erlang-level concurrency. Both sendmsg and sendmmsg must call
+ * send_check_writer() to maintain proper writer queue behavior.
  */
 static
 BOOLEAN_T send_check_writer(ErlNifEnv*       env,
@@ -5549,7 +6881,7 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
     err = send_error ? sock_errno() : 0;
 
     SSDBG( descP,
-           ("UNIX-ESSIO", "send_check_result(%T) {%d} -> entry with"
+           ("UNIX-ESSIO", "send_check_result(%T, %d) -> entry with"
             "\r\n   send_result:  %ld"
             "\r\n   dataSize:     %ld"
             "\r\n   err:          %d"
@@ -5566,7 +6898,7 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
 
             SSDBG( descP,
                    ("UNIX-ESSIO",
-                    "send_check_result(%T) {%d} -> try again"
+                    "send_check_result(%T, %d) -> try again"
                     "\r\n", sockRef, descP->sock) );
 
             res = send_check_retry(env, descP, -1, sockRef, sendRef);
@@ -5579,7 +6911,7 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
             /* Not the entire package */
             SSDBG( descP,
                    ("UNIX-ESSIO",
-                    "send_check_result(%T) {%d} -> "
+                    "send_check_result(%T, %d) -> "
                     "not entire package written (%d of %d)"
                     "\r\n", sockRef, descP->sock,
                     written, dataSize) );
@@ -5589,7 +6921,7 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
             /* We sent all we could, but not everything (data in tail) */
             SSDBG( descP,
                    ("UNIX-ESSIO",
-                    "send_check_result(%T) {%d} -> "
+                    "send_check_result(%T, %d) -> "
                     "not entire package written (%d but data in tail)"
                     "\r\n", sockRef, descP->sock,
                     written) );
@@ -5604,7 +6936,7 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
 
     SSDBG( descP,
            ("UNIX-ESSIO",
-            "send_check_result(%T) {%d} -> done:"
+            "send_check_result(%T, %d) -> done:"
             "\r\n   res: %T"
             "\r\n", sockRef, descP->sock,
             res) );
@@ -5892,8 +7224,8 @@ BOOLEAN_T decode_cmsghdrs(ErlNifEnv*       env,
     unsigned int len;
     int          i;
 
-    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdrs {%d} -> entry with"
-                   "\r\n   eCMsg:      %T"
+    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdrs(%d) -> entry with"
+                   "\r\n   eCMsg:         %T"
                    "\r\n   cmsgHdrBufP:   0x%lX"
                    "\r\n   cmsgHdrBufLen: %d"
                    "\r\n", descP->sock,
@@ -5904,13 +7236,13 @@ BOOLEAN_T decode_cmsghdrs(ErlNifEnv*       env,
 
     SSDBG( descP,
            ("UNIX-ESSIO",
-            "decode_cmsghdrs {%d} -> list length: %d\r\n",
+            "decode_cmsghdrs(%d) -> list length: %d\r\n",
             descP->sock, len) );
 
     for (i = 0, list = eCMsg, rem  = cmsgHdrBufLen, bufP = cmsgHdrBufP;
          i < len; i++) {
             
-        SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdrs {%d} -> process elem %d:"
+        SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdrs(%d) -> process elem %d:"
                        "\r\n   (buffer) rem:     %u"
                        "\r\n   (buffer) totUsed: %u"
                        "\r\n", descP->sock, i, rem, totUsed) );
@@ -5932,8 +7264,8 @@ BOOLEAN_T decode_cmsghdrs(ErlNifEnv*       env,
 
     *cmsgHdrBufUsed = totUsed;
 
-    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdrs {%d} -> done"
-                   "\r\n   all %u ctrl headers processed"
+    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdrs(%d) -> done when"
+                   "\r\n   all (%u) ctrl headers processed"
                    "\r\n   totUsed = %lu\r\n",
                    descP->sock, len, (unsigned long) totUsed) );
 
@@ -5971,26 +7303,26 @@ BOOLEAN_T decode_cmsghdr(ErlNifEnv*       env,
     ERL_NIF_TERM eLevel, eType, eData, eValue;
     int          level;
 
-    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr {%d} -> entry with"
+    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr(%d) -> entry with"
                    "\r\n   eCMsg: %T"
                    "\r\n", descP->sock, eCMsg) );
 
     // Get 'level' field
     if (! GET_MAP_VAL(env, eCMsg, esock_atom_level, &eLevel))
         return FALSE;
-    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr {%d} -> eLevel: %T"
+    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr(%d) -> eLevel: %T"
                    "\r\n", descP->sock, eLevel) );
 
     // Get 'type' field
     if (! GET_MAP_VAL(env, eCMsg, esock_atom_type, &eType))
         return FALSE;
-    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr {%d} -> eType:  %T"
+    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr(%d) -> eType:  %T"
                    "\r\n", descP->sock, eType) );
 
     // Decode Level
     if (! esock_decode_level(env, eLevel, &level))
         return FALSE;
-    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr {%d}-> level:  %d\r\n",
+    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr(%d) -> level:  %d\r\n",
                    descP->sock, level) );
 
     // Get 'data' field
@@ -5999,7 +7331,7 @@ BOOLEAN_T decode_cmsghdr(ErlNifEnv*       env,
         // Get 'value' field
         if (! GET_MAP_VAL(env, eCMsg, esock_atom_value, &eValue))
             return FALSE;
-        SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr {%d} -> eValue:  %T"
+        SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr(%d) -> eValue:  %T"
                    "\r\n", descP->sock, eValue) );
 
         // Decode Value
@@ -6013,7 +7345,7 @@ BOOLEAN_T decode_cmsghdr(ErlNifEnv*       env,
         if (GET_MAP_VAL(env, eCMsg, esock_atom_value, &eValue))
             return FALSE;
 
-        SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr {%d} -> eData:  %T"
+        SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr(%d) -> eData:  %T"
                    "\r\n", descP->sock, eData) );
 
         // Decode Data
@@ -6022,8 +7354,9 @@ BOOLEAN_T decode_cmsghdr(ErlNifEnv*       env,
             return FALSE;
     }
 
-    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr {%d}-> used:  %lu\r\n",
-                   descP->sock, (unsigned long) *used) );
+    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr(%d)-> done when"
+                   "\r\n   used:  %lu"
+                   "\r\n", descP->sock, (unsigned long) *used) );
 
     return TRUE;
 }
@@ -6047,7 +7380,7 @@ BOOLEAN_T decode_cmsghdr_value(ErlNifEnv*   env,
 
     SSDBG( descP,
            ("UNIX-ESSIO",
-            "decode_cmsghdr_value {%d} -> entry  \r\n"
+            "decode_cmsghdr_value(%d) -> entry  \r\n"
             "   eType:  %T\r\n"
             "   eValue: %T\r\n",
             descP->sock, eType, eValue) );
@@ -6056,8 +7389,8 @@ BOOLEAN_T decode_cmsghdr_value(ErlNifEnv*   env,
     if (! IS_ATOM(env, eType)) {
         SSDBG( descP,
                ("UNIX-ESSIO",
-                "decode_cmsghdr_value {%d} -> FALSE:\r\n"
-                "   eType not an atom\r\n",
+                "decode_cmsghdr_value(%d) -> FALSE:"
+                "\r\n   eType not an atom\r\n",
                 descP->sock) );
         return FALSE;
     }
@@ -6074,10 +7407,11 @@ BOOLEAN_T decode_cmsghdr_value(ErlNifEnv*   env,
 
         SSDBG( descP,
                ("UNIX-ESSIO",
-                "decode_cmsghdr_value {%d} -> FALSE:\r\n"
-                "   cmsgTable:  %p\r\n"
-                "   cmsgSpecP:  %p\r\n",
-                descP->sock, cmsgTable, cmsgSpecP) );
+                "decode_cmsghdr_value(%d) -> FALSE:"
+                "\r\n   cmsgTable:  %p"
+                "\r\n   num:        %d"
+                "\r\n   cmsgSpecP:  %p",
+                descP->sock, cmsgTable, num, cmsgSpecP) );
         return FALSE;
     }
 
@@ -6085,8 +7419,9 @@ BOOLEAN_T decode_cmsghdr_value(ErlNifEnv*   env,
         // Decode function failed
         SSDBG( descP,
                ("UNIX-ESSIO",
-                "decode_cmsghdr_value {%d} -> FALSE:\r\n"
-                "   decode function failed\r\n",
+                "decode_cmsghdr_value(%d) -> FALSE:"
+                "\r\n   decode function failed"
+                "\r\n",
                 descP->sock) );
         return FALSE;
     }
@@ -6097,14 +7432,16 @@ BOOLEAN_T decode_cmsghdr_value(ErlNifEnv*   env,
 
     SSDBG( descP,
            ("UNIX-ESSIO",
-            "decode_cmsghdr_value {%d} -> TRUE:\r\n"
-            "   level:   %d\r\n"
-            "   type:    %d\r\n",
-            "   *usedP:  %lu\r\n",
+            "decode_cmsghdr_value(%d) -> TRUE:"
+            "\r\n   level:  %d"
+            "\r\n   type:   %d"
+            "\r\n   *usedP: %lu"
+            "\r\n",
             descP->sock, level, type, (unsigned long) *usedP) );
 
     cmsgP->cmsg_level = level;
-    cmsgP->cmsg_type = type;
+    cmsgP->cmsg_type  = type;
+
     return TRUE;
 }
 
@@ -6212,10 +7549,31 @@ BOOLEAN_T decode_cmsghdr_data(ErlNifEnv*       env,
  * a map, which has a specific set of attributes:
  *
  *     addr (source address) - sockaddr()
- *     iov                   - [binary()]
+ *     iov                   - [binary()] | sctp_event()
  *     ctrl                  - [cmsg()]
  *     flags                 - msg_flags()
  */
+
+#if defined(HAVE_SCTP)
+
+#if defined(IPPROTO_SCTP)
+#define IS_SCTP(D)              ((D)->protocol == IPPROTO_SCTP)
+#else
+#define IS_SCTP(D)              FALSE
+#endif
+
+#if defined(MSG_NOTIFICATION)
+#define IS_SCTP_NOTIFICATION(F) ((F) & MSG_NOTIFICATION)
+#else
+#define IS_SCTP_NOTIFICATION(F) FALSE
+#endif
+
+#else
+
+#define IS_SCTP(D)              FALSE
+#define IS_SCTP_NOTIFICATION(F) FALSE
+
+#endif
 
 static
 void encode_msg(ErlNifEnv*       env,
@@ -6226,15 +7584,17 @@ void encode_msg(ErlNifEnv*       env,
                 ErlNifBinary*    ctrlBufP,
                 ERL_NIF_TERM*    eMsg)
 {
-    ERL_NIF_TERM addr, iov, ctrl, flags;
+    ERL_NIF_TERM addr, dataOrNotif, dataOrNotifKey, ctrl, flags;
 
     SSDBG( descP,
            ("UNIX-ESSIO", "encode_msg {%d} -> entry with"
             "\r\n   read: %ld"
             "\r\n", descP->sock, (long) read) );
 
+    /* +++ Time for address stuff +++ */
+
     /* The address is not used if we are connected (unless, maybe,
-     * family is 'local'), so check (length = 0) before we try to encodel
+     * family is 'local'), so check (length = 0) before we try to encode.
      */
     if (msgHdrP->msg_namelen != 0) {
         esock_encode_sockaddr(env,
@@ -6245,23 +7605,8 @@ void encode_msg(ErlNifEnv*       env,
         addr = esock_atom_undefined;
     }
 
-    SSDBG( descP,
-           ("UNIX-ESSIO", "encode_msg {%d} -> encode iov"
-            "\r\n   msg_iovlen: %lu"
-            "\r\n",
-            descP->sock,
-            (unsigned long) msgHdrP->msg_iovlen) );
 
-    esock_encode_iov(env, read,
-                     msgHdrP->msg_iov, msgHdrP->msg_iovlen, dataBufP,
-                     &iov);
-
-    SSDBG( descP,
-           ("UNIX-ESSIO",
-            "encode_msg {%d} -> try encode cmsgs\r\n",
-            descP->sock) );
-
-    encode_cmsgs(env, descP, ctrlBufP, msgHdrP, &ctrl);
+    /* +++ Time for flag stuff +++ */
 
     SSDBG( descP,
            ("UNIX-ESSIO",
@@ -6270,6 +7615,17 @@ void encode_msg(ErlNifEnv*       env,
 
     esock_encode_msg_flags(env, descP, msgHdrP->msg_flags, &flags);
 
+
+    /* +++ Time for control messages stuff +++ */
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "encode_msg {%d} -> try encode cmsgs\r\n",
+            descP->sock) );
+
+    encode_cmsgs(env, descP, ctrlBufP, msgHdrP, &ctrl);
+
+
     SSDBG( descP,
            ("UNIX-ESSIO", "encode_msg {%d} -> components encoded:"
             "\r\n   addr:  %T"
@@ -6277,12 +7633,62 @@ void encode_msg(ErlNifEnv*       env,
             "\r\n   flags: %T"
             "\r\n", descP->sock, addr, ctrl, flags) );
 
+
+    /* +++ Time for data (iov or an sctp event) stuff +++ */
+
+    /* Check if this is an (SCTP) event */
+    if (IS_SCTP(descP) && IS_SCTP_NOTIFICATION(msgHdrP->msg_flags)) {
+
+        /* We get back an sctp event in the form of a (erlang) term,
+         * so we reuse the iov variable, even though its not an I/O vector.
+         * Note:
+         * MSG_NOTIFICATION has actually the same value as MSG_MORE.
+         * So the (flags) encode above has actually put 'more' into the
+         * the list...
+         * In order to fix this we iterate through the list and copy each
+         * element *other* than 'more', which we instead replace with
+         * 'notification'. Ugly, but this will have to do for now...
+         *
+         * Note that ownership of the (data) binary is not
+         * transfered to an (erlang) term in this case, but decoded
+         * here and therefor we need to explicitly free the memory.
+         */
+
+        flags = esock_encode_msg_flags_convert2sctp(env, descP, flags);
+
+        SSDBG( descP,
+               ("UNIX-ESSIO", "encode_msg {%d} -> encode sctp event"
+                "\r\n", descP->sock) );
+
+        essio_encode_sctp_notification(env, descP, dataBufP, &dataOrNotif);
+        dataOrNotifKey = esock_atom_notification;
+
+        /* Ownership of the data buffer is not *in this case* transfered
+         * to a (erlang) term: explicit FREE
+         */
+        FREE_BIN(dataBufP);
+
+    } else {
+
+        SSDBG( descP,
+               ("UNIX-ESSIO", "encode_msg {%d} -> encode iov"
+                "\r\n   msg_iovlen: %lu"
+                "\r\n",
+                descP->sock,
+                (unsigned long) msgHdrP->msg_iovlen) );
+
+        esock_encode_iov(env, read,
+                         msgHdrP->msg_iov, msgHdrP->msg_iovlen, dataBufP,
+                         &dataOrNotif);
+        dataOrNotifKey = esock_atom_iov;
+    }
+
     {
-        ERL_NIF_TERM keys[]  = {esock_atom_iov,
+        ERL_NIF_TERM keys[]  = {dataOrNotifKey,
                                 esock_atom_ctrl,
                                 esock_atom_flags,
                                 esock_atom_addr};
-        ERL_NIF_TERM vals[]  = {iov, ctrl, flags, addr};
+        ERL_NIF_TERM vals[]  = {dataOrNotif, ctrl, flags, addr};
         size_t       numKeys = NUM(keys);
         
         ESOCK_ASSERT( numKeys == NUM(vals) );
@@ -6306,6 +7712,1289 @@ void encode_msg(ErlNifEnv*       env,
            ("UNIX-ESSIO", "encode_msg {%d} -> done\r\n", descP->sock) );
 }
 
+static
+ERL_NIF_TERM esock_encode_msg_flags_convert2sctp(ErlNifEnv*       env,
+                                                 ESockDescriptor* descP,
+                                                 ERL_NIF_TERM     flags)
+{
+    ERL_NIF_TERM elem, tail, list, sctpMsgFlags;
+    unsigned int i, len;
+    SocketTArray ta;
+
+    ESOCK_ASSERT( GET_LIST_LEN(env, flags, &len) );
+
+    ta = TARRAY_CREATE(len);
+
+    for (i = 0, list = flags;
+         i < len; i++) {
+
+        ESOCK_ASSERT( GET_LIST_ELEM(env, list, &elem, &tail) );
+
+        /*
+         * MSG_NOTIFICATION has the same value as MSG_MORE
+         * but since MORE is ahead of NOTIFICATION in our
+         * flags array, its MORE that will be encoded.
+         * So for sctp, we "fix it in post"...
+         */
+        if (IS_IDENTICAL(elem, esock_atom_more)) {
+            TARRAY_ADD(ta, esock_atom_notification);
+        } else {
+            TARRAY_ADD(ta, elem);
+        }
+
+        list = tail;
+    }
+
+    TARRAY_TOLIST(ta, env, &sctpMsgFlags);
+
+    return sctpMsgFlags;
+
+}
+
+
+static
+void essio_encode_sctp_notification(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    ErlNifBinary*    binP,
+                                    ERL_NIF_TERM*    eEvent)
+{
+#if defined(HAVE_SCTP)
+    union sctp_notification* np = (union sctp_notification*) binP->data;
+
+    switch (np->sn_header.sn_type) {
+#if defined(SCTP_ASSOC_CHANGE)
+    case SCTP_ASSOC_CHANGE:
+        essio_encode_sctp_notif_assoc_change(env, descP,
+                                             &(np->sn_assoc_change),
+                                             eEvent);
+        break;
+#endif
+
+#if defined(SCTP_PEER_ADDR_CHANGE)
+    case SCTP_PEER_ADDR_CHANGE:
+        essio_encode_sctp_notif_paddr_change(env, descP,
+                                             &(np->sn_paddr_change),
+                                             eEvent);
+        break;
+#endif
+
+#if defined(SCTP_SEND_FAILED)
+    case SCTP_SEND_FAILED:
+        essio_encode_sctp_notif_send_failed(env, descP,
+                                            &(np->sn_send_failed),
+                                            eEvent);
+        break;
+#endif
+
+#if defined(SCTP_REMOTE_ERROR)
+    case SCTP_REMOTE_ERROR:
+        essio_encode_sctp_notif_remote_error(env, descP,
+                                             &(np->sn_remote_error),
+                                             eEvent);
+        break;
+#endif
+
+#if defined(SCTP_SHUTDOWN_EVENT)
+    case SCTP_SHUTDOWN_EVENT:
+        essio_encode_sctp_notif_shutdown_event(env, descP,
+                                               &(np->sn_shutdown_event),
+                                               eEvent);
+        break;
+#endif
+
+#if defined(SCTP_ADAPTATION_INDICATION)
+    case SCTP_ADAPTATION_INDICATION:
+        essio_encode_sctp_notif_adapt_event(env, descP,
+                                            &(np->sn_adaptation_event),
+                                            eEvent);
+        break;
+#endif
+
+#if defined(SCTP_PARTIAL_DELIVERY_EVENT)
+    case SCTP_PARTIAL_DELIVERY_EVENT:
+        essio_encode_sctp_notif_pdapi_event(env, descP,
+                                            &(np->sn_pdapi_event),
+                                            eEvent);
+        break;
+#endif
+
+#if defined(SCTP_AUTHENTICATION_INDICATION)
+    case SCTP_AUTHENTICATION_INDICATION:
+        essio_encode_sctp_notif_authkey(env, descP,
+                                        &(np->sn_authkey_event),
+                                        eEvent);
+        break;
+#endif
+
+#if defined(SCTP_SENDER_DRY_EVENT)
+    case SCTP_SENDER_DRY_EVENT:
+        essio_encode_sctp_notif_sender_dry(env, descP,
+                                           &(np->sn_sender_dry_event),
+                                           eEvent);
+        break;
+#endif
+
+#if defined(SCTP_STREAM_RESET_EVENT)
+    case SCTP_STREAM_RESET_EVENT:
+        essio_encode_sctp_notif_stream_reset_event(env, descP,
+                                                   &(np->sn_strreset_event),
+                                                   eEvent);
+        break;
+#endif
+
+#if defined(SCTP_ASSOC_RESET_EVENT)
+    case SCTP_ASSOC_RESET_EVENT:
+        essio_encode_sctp_notif_assoc_reset_event(env, descP,
+                                                  &(np->sn_assocreset_event),
+                                                  eEvent);
+        break;
+#endif
+
+#if defined(SCTP_STREAM_CHANGE_EVENT)
+    case SCTP_STREAM_CHANGE_EVENT:
+        essio_encode_sctp_notif_stream_change_event(env, descP,
+                                                    &(np->sn_strchange_event),
+                                                    eEvent);
+        break;
+#endif
+
+#if defined(SCTP_SEND_FAILED_EVENT)
+    case SCTP_SEND_FAILED_EVENT:
+        essio_encode_sctp_notif_send_failed_event(env, descP,
+                                                  &(np->sn_send_failed_event),
+                                                  eEvent);
+        break;
+#endif
+
+    default:
+        essio_encode_sctp_notif_generic(env, descP,
+                                        MKUI(env, np->sn_header.sn_type),
+                                        np,
+                                        eEvent);
+        break;
+    }
+#else
+    /* We should never be called in this case,
+     * but just to be on the safe side...
+     */
+    *eEvent = esock_atom_undefined;
+#endif
+}
+
+
+/*
+ * eEvent :: #{'$esock_name'    := sctp_notfication,
+ *             type             := assoc_change,
+ *             flags            := pos_integer(),
+ *             state            := assoc_change_state(),
+ *             error            := sctp_operation_error(), %% RFC4960
+ *             outbound_streams := integer(),
+ *             inbound_streams  := integer(),
+ *             assoc_id         := assoc_id()}
+ */
+
+#if defined(SCTP_ASSOC_CHANGE)
+static
+void essio_encode_sctp_notif_assoc_change(ErlNifEnv*                env,
+                                          ESockDescriptor*          descP,
+                                          struct sctp_assoc_change* acp,
+                                          ERL_NIF_TERM*             eEvent)
+{
+    ERL_NIF_TERM eflags, estate, eerr, eouts, eins, eaid;
+
+    eflags = MKUI(env, acp->sac_flags); // What are these?
+
+    switch (acp->sac_state) {
+    case SCTP_COMM_UP:
+        estate = esock_atom_comm_up;
+        break;
+    case SCTP_COMM_LOST:
+        estate = esock_atom_comm_lost;
+        break;
+    case SCTP_RESTART:
+        estate = esock_atom_restart;
+        break;
+    case SCTP_SHUTDOWN_COMP:
+        estate = esock_atom_shutdown_comp;
+        break;
+    case SCTP_CANT_STR_ASSOC:
+        estate = esock_atom_cant_str_assoc;
+        break;
+    default:
+        estate = MKUI(env, acp->sac_state);
+        break;
+    }
+
+    eerr   = essio_encode_sctp_operation_error(env, descP, acp->sac_error);
+    eouts  = MKUI(env, acp->sac_outbound_streams);
+    eins   = MKUI(env, acp->sac_inbound_streams);
+    eaid   = MKUI(env, acp->sac_assoc_id);
+
+    {
+        ERL_NIF_TERM keys[]  = {esock_atom_esock_name,
+            esock_atom_type, esock_atom_flags,
+            esock_atom_state, esock_atom_error, esock_atom_outbound_streams,
+            esock_atom_inbound_streams, esock_atom_assoc_id};
+        ERL_NIF_TERM vals[] = {esock_atom_sctp_notification,
+            esock_atom_assoc_change, eflags,
+            estate, eerr, eouts,
+            eins, eaid};
+        size_t       numKeys = NUM(keys);
+
+        ESOCK_ASSERT( numKeys == NUM(vals) );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eEvent) );
+    }
+}
+#endif
+
+
+#if defined(SCTP_ASSOC_CHANGE) || defined(SCTP_REMOTE_ERROR) || defined(SCTP_SEND_FAILED) || defined(SCTP_SEND_FAILED_EVENT)
+
+/*
+ * SCTP Operation Error according to RFC 4960.
+ * 
+ */
+
+static
+ERL_NIF_TERM essio_encode_sctp_operation_error(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               uint16_t         error)
+{
+    ERL_NIF_TERM eerr;
+
+    switch (error) {
+#if defined(SCTP_ERR_UNKNOWN)
+    case SCTP_ERR_UNKNOWN:
+        eerr = esock_atom_unknown;
+        break;
+#endif
+#if defined(SCTP_ERR_BAD_SID)
+    case SCTP_ERR_BAD_SID:
+        eerr = MKA(env, "bad_sid");
+        break;
+#endif
+#if defined(SCTP_ERR_MISSING_PARM)
+    case SCTP_ERR_MISSING_PARM:
+        // eerr = esock_atom_missing_parm;
+        eerr = MKA(env, "missing_parm");
+        break;
+#endif
+#if defined(SCTP_ERR_STALE_COOKIE)
+    case SCTP_ERR_STALE_COOKIE:
+        // eerr = esock_atom_stale_cookie;
+        eerr = MKA(env, "stale_cookie");
+        break;
+#endif
+#if defined(SCTP_ERR_NO_RESOURCES)
+    case SCTP_ERR_NO_RESOURCES:
+        // eerr = esock_atom_no_resource;
+        eerr = MKA(env, "no_resource");
+        break;
+#endif
+#if defined(SCTP_ERR_BAD_ADDR)
+    case SCTP_ERR_BAD_ADDR:
+        // eerr = esock_atom_bad_addr;
+        eerr = MKA(env, "bad_addr");
+        break;
+#endif
+#if defined(SCTP_ERR_UNREC_CHUNK)
+    case SCTP_ERR_UNREC_CHUNK:
+        // eerr = esock_atom_unrec_chunk;
+        eerr = MKA(env, "unrec_chunk");
+        break;
+#endif
+#if defined(SCTP_ERR_BAD_MANDPARM)
+    case SCTP_ERR_BAD_MANDPARM:
+        // eerr = esock_atom_bad_mandparm;
+        eerr = MKA(env, "bad_mandparm");
+        break;
+#endif
+#if defined(SCTP_ERR_UNREC_PARM)
+    case SCTP_ERR_UNREC_PARM:
+        // eerr = esock_atom_unrec_parm;
+        eerr = MKA(env, "unrec_parm");
+        break;
+#endif
+#if defined(SCTP_ERR_NO_USR_DATA)
+    case SCTP_ERR_NO_USR_DATA:
+        // eerr = esock_atom_no_usr_data;
+        eerr = MKA(env, "no_usr_data");
+        break;
+#endif
+#if defined(SCTP_ERR_COOKIE_SHUT)
+    case SCTP_ERR_COOKIE_SHUT:
+        // eerr = esock_atom_cookie_shut;
+        eerr = MKA(env, "cookie_shut");
+        break;
+#endif
+#if defined(SCTP_ERR_RESTART_NEW_ADDRS)
+    case SCTP_ERR_RESTART_NEW_ADDRS:
+        // eerr = esock_atom_restart_new_addrs;
+        eerr = MKA(env, "restart_new_addrs");
+        break;
+#endif
+#if defined(SCTP_ERR_USER_ABORT)
+    case SCTP_ERR_USER_ABORT:
+        // eerr = esock_atom_user_abort;
+        eerr = MKA(env, "user_abort");
+        break;
+#endif
+#if defined(SCTP_ERR_DELETE_LASTADDR)
+    case SCTP_ERR_DELETE_LASTADDR:
+        // eerr = esock_atom_delete_lastaddr;
+        eerr = MKA(env, "delete_lastaddr");
+        break;
+#endif
+#if defined(SCTP_ERR_RESOURCE_SHORTAGE)
+    case SCTP_ERR_RESOURCE_SHORTAGE:
+        // eerr = esock_atom_resource_shortage;
+        eerr = MKA(env, "resource_shortage");
+        break;
+#endif
+#if defined(SCTP_ERR_DELETE_SRCADDR)
+    case SCTP_ERR_DELETE_SRCADDR:
+        // eerr = esock_atom_delete_srcaddr;
+        eerr = MKA(env, "delete_srcaddr");
+        break;
+#endif
+#if defined(SCTP_ERR_AUTH_ERR)
+    case SCTP_ERR_AUTH_ERR:
+        // eerr = esock_atom_auth_err;
+        eerr = MKA(env, "auth_err");
+        break;
+#endif
+    default:
+        eerr = MKUI(env, error);
+        break;
+    }
+
+    return eerr;
+}
+#endif
+
+/*
+ * eEvent :: #{'$esock_name' := sctp_notfication,
+ *             type          := peer_addr_change,
+ *             flags         := integer(),
+ *             addr          := socket:sockaddr(),
+ *             state         := peer_addr_change_state(),
+ *             error         := integer(),
+ *             assoc_id      := assoc_id()}
+ */
+#if defined(SCTP_PEER_ADDR_CHANGE)
+static
+void essio_encode_sctp_notif_paddr_change(ErlNifEnv*                env,
+                                          ESockDescriptor*          descP,
+                                          struct sctp_paddr_change* p,
+                                          ERL_NIF_TERM*             eEvent)
+{
+    ERL_NIF_TERM eflags, eaddr, estate, eerr, eaid;
+
+    eflags = MKUI(env, p->spc_flags); // We should translate this also...
+
+    /* <crapity-crap-crap> */
+    PUSH_SUPPRESS_ADDRESS_OF_PACKED_MEMBER();
+    essio_encode_sockaddr_storage(env, descP, &p->spc_aaddr, &eaddr);
+    POP_SUPPRESS_ADDRESS_OF_PACKED_MEMBER();
+    /* </crapity-crap-crap> */
+
+    switch (p->spc_state) {
+    case SCTP_ADDR_AVAILABLE:
+        estate = esock_atom_addr_available;
+        break;
+    case SCTP_ADDR_UNREACHABLE:
+        estate = esock_atom_addr_unreachable;
+        break;
+    case SCTP_ADDR_REMOVED:
+        estate = esock_atom_addr_removed;
+        break;
+    case SCTP_ADDR_ADDED:
+        estate = esock_atom_addr_added;
+        break;
+    case SCTP_ADDR_MADE_PRIM:
+        estate = esock_atom_addr_made_prim;
+        break;
+#if defined(SCTP_ADDR_CONFIRMED)
+    case SCTP_ADDR_CONFIRMED:
+        estate = esock_atom_addr_confirmed;
+        break;
+#endif
+#if defined(SCTP_ADDR_POTENTIALLY_FAILED)
+    case SCTP_ADDR_POTENTIALLY_FAILED:
+        estate = esock_atom_addr_potentially_failed;
+        break;
+#endif
+    default:
+        estate = MKUI(env, p->spc_state);
+        break;
+    }
+
+    eerr = MKUI(env, p->spc_error); // We should translate this also...
+    eaid = MKUI(env, p->spc_assoc_id);
+
+    {
+        ERL_NIF_TERM keys[]  = {esock_atom_esock_name,
+            esock_atom_type, esock_atom_flags,
+            esock_atom_state, esock_atom_error,
+            esock_atom_assoc_id};
+        ERL_NIF_TERM vals[] = {esock_atom_sctp_notification,
+            esock_atom_peer_addr_change, eflags,
+            estate, eerr,
+            eaid};
+        size_t       numKeys = NUM(keys);
+
+        ESOCK_ASSERT( numKeys == NUM(vals) );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eEvent) );
+    }
+}
+
+static
+void essio_encode_sockaddr_storage(ErlNifEnv*               env,
+                                   ESockDescriptor*         descP,
+                                   struct sockaddr_storage* addr,
+                                   ERL_NIF_TERM*            eaddr)
+{
+    ERL_NIF_TERM tmp;
+    unsigned int len  = sizeof(struct sockaddr_storage);
+    int          fam  = addr->ss_family;
+
+    switch (fam) {
+    case AF_INET:
+        esock_encode_sockaddr_in(env, (struct sockaddr_in*) addr, len, &tmp);
+        break;
+
+#if defined(HAVE_IN6) && defined(AF_INET6)
+    case AF_INET6:
+        esock_encode_sockaddr_in6(env, (struct sockaddr_in6*) addr, len, &tmp);
+        break;
+#endif
+        
+#if defined(HAVE_SYS_UN_H)
+    case AF_UNIX:
+        esock_encode_sockaddr_un(env, (struct sockaddr_un*) addr, len, &tmp);
+        break;
+#endif
+
+#if defined(AF_UNSPEC)
+    case AF_UNSPEC:
+        esock_encode_sockaddr_native(env, (struct sockaddr *) addr, len,
+                                     esock_atom_unspec,
+                                     &tmp);
+        break;
+#endif
+
+    default:
+        tmp = esock_atom_undefined;
+        break;
+    }
+
+    *eaddr = tmp;
+}
+#endif
+
+
+/*
+ * Deprecated!
+ *
+ * eEvent :: #{'$esock_name' := sctp_notfication,
+ *             type          := send_failed,
+ *             flags         := integer(),
+ *             error         := integer(),
+ *             info          := snd_rcv_info(),
+ *             assoc_id      := assoc_id(),
+ *             data          := binary()}
+ *
+ * snd_rcv_info() :: #{stream       := uint16(),
+ *                     ssn          := uint16(),
+ *                     flags        := snd_rcv_info_flags(),
+ *                     ppid         := uint16(),
+ *                     context      := uint32(),
+ *                     time_to_live := uint32(),
+ *                     tsn          := uint32(),
+ *                     cum_tsn      := uint32(),
+ *                     assoc_id     := int32()}
+ *
+ * snd_rcv_info_flags() :: [unordered | addr_over | abort | eof]
+ */
+#if defined(SCTP_SEND_FAILED)
+static
+void essio_encode_sctp_notif_send_failed(ErlNifEnv*               env,
+                                         ESockDescriptor*         descP,
+                                         struct sctp_send_failed* p,
+                                         ERL_NIF_TERM*            eEvent)
+{
+    char*        chunkP;
+    int          chunkLen;
+    ERL_NIF_TERM eflags, eerr, einfo, eaid, edata;
+
+    eflags = essio_encode_sctp_notif_send_failed_flags(env, descP,
+                                                       p->ssf_flags);
+    eerr   = essio_encode_sctp_operation_error(env, descP, p->ssf_error);
+    eaid   = MKUI(env, p->ssf_assoc_id);
+
+    essio_encode_sctp_sndrcvinfo(env, descP, &p->ssf_info, &einfo);
+
+#if defined(HAVE_STRUCT_SCTP_SEND_FAILED_SSF_DATA)
+    chunkP   = (char*) (&(p->ssf_data));
+#else
+    chunkP   = ((char*) &(p->ssf_assoc_id)) + sizeof(p->ssf_assoc_id);
+#endif
+    chunkLen = p->ssf_length - (chunkP - (char*) p);
+    edata    = esock_make_new_binary(env, chunkP, chunkLen);
+
+    {
+        ERL_NIF_TERM keys[]  = {esock_atom_esock_name,
+            esock_atom_type, esock_atom_flags, esock_atom_error,
+            esock_atom_info, esock_atom_assoc_id, esock_atom_data};
+        ERL_NIF_TERM vals[] = {esock_atom_sctp_notification,
+            esock_atom_send_failed, eflags, eerr,
+            einfo, eaid, edata};
+        size_t       numKeys = NUM(keys);
+
+        ESOCK_ASSERT( numKeys == NUM(vals) );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eEvent) );
+    }
+}
+
+
+static
+ERL_NIF_TERM essio_encode_sctp_notif_send_failed_flags(ErlNifEnv*       env,
+                                                       ESockDescriptor* descP,
+                                                       unsigned int     flags)
+{
+    return essio_encode_sctp_send_failed_flags(env, descP, flags);
+}
+
+
+static
+void essio_encode_sctp_sndrcvinfo(ErlNifEnv*              env,
+                                  ESockDescriptor*        descP,
+                                  struct sctp_sndrcvinfo* p,
+                                  ERL_NIF_TERM*           einfo)
+{
+#if defined(SCTP_SNDRCV)
+    BOOLEAN_T tmp;
+
+    tmp = esock_cmsg_encode_sctp_sndrcv(env,
+                                        (unsigned char*) p,
+                                        sizeof(struct sctp_sndrcvinfo),
+                                        einfo);
+    if (!tmp)
+        *einfo = esock_atom_undefined;
+
+    VOID(descP);
+
+#else
+
+    VOID(env);
+    VOID(descP);
+    VOID(p);
+
+    *einfo = esock_atom_undefined;
+
+#endif
+}
+
+#endif
+
+
+#if defined(SCTP_SEND_FAILED) || defined(SCTP_SEND_FAILED_EVENT)
+
+/* The 'send_failed' flags are identical for
+ * 'SCTP_SEND_FAILED' and 'SCTP_SEND_FAILED_EVENT'.
+ * So this is a common function for handle both.
+ * Note that on some platforms 'SCTP_SEND_FAILED'
+ * is deprecated.
+ */
+static
+ERL_NIF_TERM essio_encode_sctp_send_failed_flags(ErlNifEnv*       env,
+                                                 ESockDescriptor* descP,
+                                                 unsigned int     flags)
+{
+    SocketTArray ta = TARRAY_CREATE(2);
+    ERL_NIF_TERM eflags;
+
+#if defined(ESOCK_SCTP_DATA_UNSENT)
+    if (flags & SCTP_DATA_UNSENT)
+        TARRAY_ADD(ta, esock_atom_data_unsent);
+#endif
+
+#if defined(ESOCK_SCTP_DATA_SENT)
+    if (flags & SCTP_DATA_SENT)
+        TARRAY_ADD(ta, esock_atom_data_sent);
+#endif
+
+    TARRAY_TOLIST(ta, env, &eflags);
+
+    return eflags;
+}
+
+#endif
+
+
+/*
+ * eEvent :: #{'$esock_name' := sctp_notfication,
+ *             type          := send_failed_event,
+ *             flags         := integer(), % Should be [flag()]
+ *             error         := integer(),
+ *             info          := snd_info(),
+ *             assoc_id      := assoc_id(),
+ *             data          := binary()}
+ *
+ * snd_info() :: #{sid      := uint16(),
+ *                 flags    := uint16(), % Should be [flag()]
+ *                 ppid     := uint16(),
+ *                 context  := uint32(),
+ *                 assic_id := assoc_id()}
+ */
+#if defined(SCTP_SEND_FAILED_EVENT)
+/*
+ * On linux (at least) the members of 'struct sctp_send_failed_event'
+ * is for some reason (copy-paste most likely) prefixed 'ssf_' instead
+ * of 'ssfe_' (which is the case on FreeBSD).
+ * This test only tests for the data field but we assume its the same
+ * prefix for all fields.
+ * EXCEPT FOR THE FIELD 'ssfe_info'... EFFING F!!#&&&!!%!%!%
+ */
+#if defined(HAVE_STRUCT_SCTP_SEND_FAILED_EVENT_SSFE_DATA)
+#define SSFE_MEMBER(M) ssfe_ ## M
+#else
+#define SSFE_MEMBER(M) ssf_ ## M
+#endif
+static
+void essio_encode_sctp_notif_send_failed_event(ErlNifEnv*               env,
+                                               ESockDescriptor*         descP,
+                                               struct sctp_send_failed_event* p,
+                                               ERL_NIF_TERM*            eEvent)
+{
+    char*        chunkP;
+    int          chunkLen;
+    ERL_NIF_TERM eflags, eerr, einfo, eaid, edata;
+
+    eflags = essio_encode_sctp_notif_send_failed_event_flags(env, descP,
+                                                             p->SSFE_MEMBER(flags));
+    eerr   = essio_encode_sctp_operation_error(env, descP,
+                                               p->SSFE_MEMBER(error));
+    eaid   = MKUI(env, p->SSFE_MEMBER(assoc_id));
+
+    essio_encode_sctp_sndinfo(env, descP, &p->ssfe_info, &einfo);
+
+    chunkP   = (char*) (&(p->SSFE_MEMBER(data)));
+    chunkLen = p->SSFE_MEMBER(length) - (chunkP - (char*) p);
+    edata    = esock_make_new_binary(env, chunkP, chunkLen);
+
+    {
+        ERL_NIF_TERM keys[]  = {esock_atom_esock_name,
+            esock_atom_type, esock_atom_flags, esock_atom_error,
+            esock_atom_info, esock_atom_assoc_id, esock_atom_data};
+        ERL_NIF_TERM vals[] = {esock_atom_sctp_notification,
+            esock_atom_send_failed_event, eflags, eerr,
+            einfo, eaid, edata};
+        size_t       numKeys = NUM(keys);
+
+        ESOCK_ASSERT( numKeys == NUM(vals) );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eEvent) );
+    }
+}
+
+static
+ERL_NIF_TERM essio_encode_sctp_notif_send_failed_event_flags(ErlNifEnv*       env,
+                                                             ESockDescriptor* descP,
+                                                             unsigned int     flags)
+{
+    return essio_encode_sctp_send_failed_flags(env, descP, flags);
+}
+
+static
+void essio_encode_sctp_sndinfo(ErlNifEnv*           env,
+                               ESockDescriptor*     descP,
+                               struct sctp_sndinfo* p,
+                               ERL_NIF_TERM*        einfo)
+{
+    ERL_NIF_TERM esid     = MKUI(env, p->snd_sid);
+    ERL_NIF_TERM eflags   = MKUI(env, p->snd_flags); // We should translate this also...
+    ERL_NIF_TERM eppid    = MKUI(env, p->snd_ppid);
+    ERL_NIF_TERM econtext = MKUI(env, p->snd_context);
+    ERL_NIF_TERM eaid     = MKUI(env, p->snd_assoc_id);
+
+    VOID(descP);
+
+    {
+        ERL_NIF_TERM keys[]  = {esock_atom_sid, esock_atom_flags,
+            esock_atom_ppid, esock_atom_context, esock_atom_assoc_id};
+        ERL_NIF_TERM vals[] = {esid, eflags,
+            eppid, econtext, eaid};
+        size_t       numKeys = NUM(keys);
+
+        ESOCK_ASSERT( numKeys == NUM(vals) );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, einfo) );
+    }
+}
+#endif
+
+
+/*
+ * eEvent :: #{'$esock_name' := sctp_notfication,
+ *             type          := remote_error,
+ *             flags         := pos_integer(),
+ *             error         := sctp_operation_error(),
+ *             assoc_id      := assoc_id(),
+ *             remote_causes := [integer()]}
+ */
+#if defined(SCTP_REMOTE_ERROR)
+static
+void essio_encode_sctp_notif_remote_error(ErlNifEnv*                env,
+                                          ESockDescriptor*          descP,
+                                          struct sctp_remote_error* p,
+                                          ERL_NIF_TERM*             eEvent)
+{
+    char*        chunkP;
+    int          chunkLen;
+    ERL_NIF_TERM eflags, eerr, eaid, eremcauses;
+
+    eflags = MKUI(env, p->sre_flags); // What are these?
+    eerr   = essio_encode_sctp_operation_error(env, descP, p->sre_error);
+    eaid   = MKUI(env, p->sre_assoc_id);
+
+#if defined(HAVE_STRUCT_SCTP_REMOTE_ERROR_SRE_DATA)
+    chunkP = (char*) (&(p->sre_data));
+#else
+    chunkP = ((char*) &(p->sre_assoc_id)) + sizeof(p->sre_assoc_id);
+#endif
+    chunkLen = p->sre_length - (chunkP - (char *) p);
+
+    /* Need to improve this
+     * and also find a description of the remote causes
+     * so that we can translate them into atoms
+     * among other things...
+     */
+    essio_encode_sctp_notif_remote_causes(env,
+                                          chunkP, chunkLen,
+                                          &eremcauses);
+
+    {
+        ERL_NIF_TERM keys[]  = {esock_atom_esock_name,
+            esock_atom_type, esock_atom_flags, esock_atom_error,
+            esock_atom_assoc_id, esock_atom_remote_causes};
+        ERL_NIF_TERM vals[] = {esock_atom_sctp_notification,
+            esock_atom_remote_error, eflags, eerr,
+            eaid, eremcauses};
+        size_t       numKeys = NUM(keys);
+
+        ESOCK_ASSERT( numKeys == NUM(vals) );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eEvent) );
+    }
+}
+
+
+static
+void essio_encode_sctp_notif_remote_causes(ErlNifEnv*    env,
+                                           char*         chunkP,
+                                           int           chunkTLen,
+                                           ERL_NIF_TERM* eRCauses)
+{
+    /* The "chunk" itself contains its length, which must not be greater than
+     * the "chunkTLen" (total chunk length) derived from the over-all msg size.
+     */
+    int len = sock_ntohs(*((uint16_t*)(chunkP+2)));
+
+    if ((len >= 4) && (len <= chunkTLen)) {
+        char*        causes;
+        char*        cause;
+        int          chunkOff, chunkCode, chunkLen;
+        SocketTArray ta = TARRAY_CREATE(20); // Just to be on the safe side
+
+        causes    = chunkP + 4;
+        cause     = causes;
+        chunkOff  = 0;
+        len      -= 4;  /* Total length of the "causes" fields */
+
+        while (chunkOff < len) {
+            chunkCode = sock_ntohs (*((uint16_t*)(cause)));
+            chunkLen  = sock_ntohs (*((uint16_t*)(cause + 2)));
+            if (chunkLen <= 0)
+                /* Strange, but must guard against that!  */
+                break;
+
+            TARRAY_ADD(ta, MKI(env, chunkCode));
+
+            cause    += chunkLen;
+            chunkOff += chunkLen;
+        }
+
+        TARRAY_TOLIST(ta, env, eRCauses);
+
+    } else {
+
+        *eRCauses = MKEL(env);
+
+    }
+}
+#endif
+
+
+/*
+ * eEvent :: #{'$esock_name' := sctp_notfication,
+ *             type          := shutdown_event,
+ *             flags         := integer(), % Should be [flag()]
+ *             assoc_id      := assoc_id()}
+ */
+#if defined(SCTP_SHUTDOWN_EVENT)
+static
+void essio_encode_sctp_notif_shutdown_event(ErlNifEnv*                  env,
+                                            ESockDescriptor*            descP,
+                                            struct sctp_shutdown_event* p,
+                                            ERL_NIF_TERM*               eEvent)
+{
+    ERL_NIF_TERM eflags, eaid;
+
+    eflags = MKUI(env, p->sse_flags); // We should translate this also...
+    eaid   = MKUI(env, p->sse_assoc_id);
+
+    {
+        ERL_NIF_TERM keys[]  = {esock_atom_esock_name,
+            esock_atom_type, esock_atom_flags, esock_atom_assoc_id};
+        ERL_NIF_TERM vals[] = {esock_atom_sctp_notification,
+            esock_atom_shutdown_event, eflags, eaid};
+        size_t       numKeys = NUM(keys);
+
+        ESOCK_ASSERT( numKeys == NUM(vals) );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eEvent) );
+    }
+}
+#endif
+
+
+/*
+ * eEvent :: #{'$esock_name' := sctp_notfication,
+ *             type          := adaptation_event,
+ *             flags         := integer(),
+ *             adaption_ind  := integer(),
+ *             assoc_id      := assoc_id()}
+ */
+#if defined(SCTP_ADAPTATION_INDICATION)
+static
+void essio_encode_sctp_notif_adapt_event(ErlNifEnv*                    env,
+                                         ESockDescriptor*              descP,
+                                         struct sctp_adaptation_event* p,
+                                         ERL_NIF_TERM*                 eEvent)
+{
+    ERL_NIF_TERM eflags, eandi, eaid;
+
+    eflags = MKUI(env, p->sai_flags); // We should translate this also...
+    eandi  = MKUI(env, p->sai_adaptation_ind);
+    eaid   = MKUI(env, p->sai_assoc_id);
+
+    {
+        ERL_NIF_TERM keys[]  = {esock_atom_esock_name,
+            esock_atom_type, esock_atom_flags,
+            esock_atom_adaptation_indication, esock_atom_assoc_id};
+        ERL_NIF_TERM vals[] = {esock_atom_sctp_notification,
+            esock_atom_adaptation_event, eflags,
+            eandi, eaid};
+        size_t       numKeys = NUM(keys);
+
+        ESOCK_ASSERT( numKeys == NUM(vals) );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eEvent) );
+    }
+}
+#endif
+
+
+/*
+ * eEvent :: #{'$esock_name' := sctp_notfication,
+ *             type          := partial_delivery_event,
+ *             flags         := uint16(), % Should be [flag()]
+ *             indication    := uint16(),
+ *             assoc_id      := assoc_id(),
+ *             stream        => uint32(),
+ *             seq           => uint32()}
+ *
+ * This is ugly, but since 'stream' and/or 'seq' does not exist
+ * on all platforms, we have no choice...
+ */
+#if defined(SCTP_PARTIAL_DELIVERY_EVENT)
+static
+void essio_encode_sctp_notif_pdapi_event(ErlNifEnv*               env,
+                                         ESockDescriptor*         descP,
+                                         struct sctp_pdapi_event* p,
+                                         ERL_NIF_TERM*            eEvent)
+{
+    ERL_NIF_TERM eflags, eind, eaid;
+#if defined(HAVE_STRUCT_SCTP_PDAPI_EVENT_PDAPI_STREAM)
+    ERL_NIF_TERM estream;
+#endif
+#if defined(HAVE_STRUCT_SCTP_PDAPI_EVENT_PDAPI_SEQ)
+    ERL_NIF_TERM eseq;
+#endif
+
+    eflags  = MKUI(env, p->pdapi_flags); // We should translate this also...
+    eind    = MKUI(env, p->pdapi_indication);
+    eaid    = MKUI(env, p->pdapi_assoc_id);
+
+#if defined(HAVE_STRUCT_SCTP_PDAPI_EVENT_PDAPI_STREAM)
+    estream = MKUI(env, p->pdapi_stream);
+#endif
+#if defined(HAVE_STRUCT_SCTP_PDAPI_EVENT_PDAPI_SEQ)
+    eseq = MKUI(env, p->pdapi_seq);
+#endif
+
+    {
+        // esock_atom_stream, esock_atom_seq
+        ERL_NIF_TERM keys[]  = {esock_atom_esock_name,
+            esock_atom_type,
+            esock_atom_flags,
+            esock_atom_indication, esock_atom_assoc_id
+#if defined(HAVE_STRUCT_SCTP_PDAPI_EVENT_PDAPI_STREAM)
+            ,
+            esock_atom_stream
+#endif
+#if defined(HAVE_STRUCT_SCTP_PDAPI_EVENT_PDAPI_SEQ)
+            ,
+            esock_atom_seq
+#endif            
+        };
+        ERL_NIF_TERM vals[] = {esock_atom_sctp_notification,
+            esock_atom_partial_delivery, eflags,
+            eind, eaid
+#if defined(HAVE_STRUCT_SCTP_PDAPI_EVENT_PDAPI_STREAM)
+            ,
+            estream
+#endif
+#if defined(HAVE_STRUCT_SCTP_PDAPI_EVENT_PDAPI_SEQ)
+            ,
+            eseq
+#endif            
+        };
+        size_t       numKeys = NUM(keys);
+
+        ESOCK_ASSERT( numKeys == NUM(vals) );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eEvent) );
+
+    }
+}
+#endif
+
+
+/*
+ * eEvent :: #{'$esock_name' := sctp_notfication,
+ *             type          := authkey,
+ *             flags         := integer(), % Should be [flag()]
+ *             keynumber     := integer(),
+ *             altkeynumber  := integer(),
+ *             indication    := integer(),
+ *             assoc_id      := assoc_id()}
+ */
+#if defined(SCTP_AUTHENTICATION_INDICATION)
+static
+void essio_encode_sctp_notif_authkey(ErlNifEnv*                 env,
+                                     ESockDescriptor*           descP,
+                                     struct sctp_authkey_event* p,
+                                     ERL_NIF_TERM*              eEvent)
+{
+    ERL_NIF_TERM eflags     = MKUI(env, p->auth_flags); // We should translate this also...
+    ERL_NIF_TERM ekeynum    = MKUI(env, p->auth_keynumber);
+    ERL_NIF_TERM ealtkeynum = MKUI(env, p->auth_altkeynumber);
+    ERL_NIF_TERM eind       = MKUI(env, p->auth_indication);
+    ERL_NIF_TERM eaid       = MKUI(env, p->auth_assoc_id);
+
+    {
+        ERL_NIF_TERM keys[]  = {esock_atom_esock_name,
+            esock_atom_type,
+            esock_atom_flags, esock_atom_keynumber, esock_atom_altkeynumber,
+            esock_atom_indication, esock_atom_assoc_id};
+        ERL_NIF_TERM vals[] = {esock_atom_sctp_notification,
+            esock_atom_authkey,
+            eflags, ekeynum, ealtkeynum,
+            eind, eaid};
+        size_t       numKeys = NUM(keys);
+
+        ESOCK_ASSERT( numKeys == NUM(vals) );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eEvent) );
+    }
+}
+#endif
+
+
+/*
+ * eEvent :: #{'$esock_name' := sctp_notfication,
+ *             type     := sender_dry,
+ *             flags    := integer(), % Should be [flag()]
+ *             assoc_id := assoc_id()}
+ */
+#if defined(SCTP_SENDER_DRY_EVENT)
+static
+void essio_encode_sctp_notif_sender_dry(ErlNifEnv*                    env,
+                                        ESockDescriptor*              descP,
+                                        struct sctp_sender_dry_event* p,
+                                        ERL_NIF_TERM*                 eEvent)
+{
+    ERL_NIF_TERM eflags = MKUI(env, p->sender_dry_flags); // We should translate this also...
+    ERL_NIF_TERM eaid   = MKUI(env, p->sender_dry_assoc_id);
+
+    {
+        ERL_NIF_TERM keys[]  = {esock_atom_esock_name,
+            esock_atom_type,
+            esock_atom_flags, esock_atom_assoc_id};
+        ERL_NIF_TERM vals[] = {esock_atom_sctp_notification,
+            esock_atom_sender_dry,
+            eflags, eaid};
+        size_t       numKeys = NUM(keys);
+
+        ESOCK_ASSERT( numKeys == NUM(vals) );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eEvent) );
+    }
+}
+#endif
+
+
+#if defined(SCTP_STREAM_RESET_EVENT)
+/*
+ * eEvent :: #{'$esock_name' := sctp_notfication,
+ *             type    := stream_reset,
+ *             flags   := [incoming_ssn | outgoing_ssn | denied | failed]
+ *             streams := [uint16()]}
+ */
+
+static
+void essio_encode_sctp_notif_stream_reset_event(ErlNifEnv*                      env,
+                                                ESockDescriptor*                descP,
+                                                struct sctp_stream_reset_event* p,
+                                                ERL_NIF_TERM*                   eEvent)
+{
+    uint16_t*    streams;
+    char*        chunkP;
+    unsigned int chunkLen;
+    ERL_NIF_TERM eaid  = MKUI(env, p->strreset_assoc_id);
+    ERL_NIF_TERM eflags, estreams;
+    SocketTArray ta    = TARRAY_CREATE(4);
+
+    /* *** flags *** */
+
+#if defined(SCTP_STREAM_RESET_INCOMING_SSN)
+    if (p->strreset_flags & SCTP_STREAM_RESET_INCOMING_SSN)
+        TARRAY_ADD(ta, esock_atom_incoming_ssn);
+#endif
+
+#if defined(SCTP_STREAM_RESET_OUTCOMING_SSN)
+    if (p->strreset_flags & SCTP_STREAM_RESET_OUTCOMING_SSN)
+        TARRAY_ADD(ta, esock_atom_outgoing_ssn);
+#endif
+
+#if defined(SCTP_STREAM_RESET_DENIED)
+    if (p->strreset_flags & SCTP_STREAM_RESET_DENIED)
+        TARRAY_ADD(ta, esock_atom_denied);
+#endif
+
+#if defined(SCTP_STREAM_RESET_FAILED)
+    if (p->strreset_flags & SCTP_STREAM_RESET_FAILED)
+        TARRAY_ADD(ta, esock_atom_failed);
+#endif
+
+    TARRAY_TOLIST(ta, env, &eflags);
+
+
+    /* *** streams *** */
+
+#if defined(HAVE_STRUCT_SCTP_STREAM_RESET_EVENT_STRRESET_STREAM_LIST)
+    streams  = p->strreset_stream_list;
+#elif defined(HAVE_STRUCT_SCTP_STREAM_RESET_EVENT_STRRESET_LIST)
+    streams  = p->strreset_list;
+#else
+    /* Not sure if this can happen, but just to be on the safe side */
+    streams  = NULL;
+#endif
+    if (streams != NULL) {
+        chunkP   = (char*) streams;
+        chunkLen = p->strreset_length - (chunkP - (char*) p);
+        chunkLen = chunkLen / 2; // array is of 16-bit values
+        if (chunkLen >= 1) {
+            unsigned int i;
+            SocketTArray sta = TARRAY_CREATE(20); // Just to be on the safe side
+            
+            for (i = 0; i < chunkLen; i++) {
+                TARRAY_ADD(sta, MKUI(env, sock_ntohs( streams[i] ) ));
+            }
+
+            TARRAY_TOLIST(sta, env, &estreams);
+
+        } else {
+            estreams = MKEL(env);
+        }
+    } else {
+        estreams = MKEL(env);
+    }
+
+
+    /* *** And finally put it all together *** */
+
+    {
+        ERL_NIF_TERM keys[]  = {esock_atom_esock_name,
+                                esock_atom_type,
+                                esock_atom_flags,
+                                esock_atom_assoc_id,
+                                esock_atom_streams};
+        ERL_NIF_TERM vals[] = {esock_atom_sctp_notification,
+                               esock_atom_stream_reset,
+                               eflags,
+                               eaid,
+                               estreams};
+        size_t       numKeys = NUM(keys);
+
+        ESOCK_ASSERT( numKeys == NUM(vals) );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eEvent) );
+    }
+}
+
+#endif
+
+
+#if defined(SCTP_ASSOC_RESET_EVENT)
+/*
+ * eEvent :: #{'$esock_name' := sctp_notfication,
+ *             type       := assoc_reset,
+ *             flags      := [denied | failed]
+ *             local_tsn  := uint32(),
+ *             remote_tsn := uint32()}
+ */
+
+static
+void essio_encode_sctp_notif_assoc_reset_event(ErlNifEnv*                    env,
+                                               ESockDescriptor*              descP,
+                                               struct sctp_assoc_reset_event* p,
+                                               ERL_NIF_TERM*                 eEvent)
+{
+    ERL_NIF_TERM eaid  = MKUI(env, p->assocreset_assoc_id);
+    ERL_NIF_TERM eltsn = MKUI(env, p->assocreset_local_tsn);
+    ERL_NIF_TERM ertsn = MKUI(env, p->assocreset_remote_tsn);
+    ERL_NIF_TERM eflags;
+    unsigned int flags = p->assocreset_flags;
+    SocketTArray ta    = TARRAY_CREATE(2);
+
+#if defined(SCTP_ASSOC_RESET_DENIED)
+    if (flags & SCTP_ASSOC_RESET_DENIED)
+        TARRAY_ADD(ta, esock_atom_denied);
+#endif
+
+#if defined(SCTP_ASSOC_RESET_FAILED)
+    if (flags & SCTP_ASSOC_RESET_FAILED)
+        TARRAY_ADD(ta, esock_atom_failed);
+#endif
+        
+    TARRAY_TOLIST(ta, env, &eflags);
+
+    {
+        ERL_NIF_TERM keys[]  = {esock_atom_esock_name,
+                                esock_atom_type,
+                                esock_atom_flags,
+                                esock_atom_assoc_id,
+                                esock_atom_local_tsn,
+                                esock_atom_remote_tsn};
+        ERL_NIF_TERM vals[] = {esock_atom_sctp_notification,
+                               esock_atom_assoc_reset,
+                               eflags,
+                               eaid,
+                               eltsn,
+                               ertsn};
+        size_t       numKeys = NUM(keys);
+
+        ESOCK_ASSERT( numKeys == NUM(vals) );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eEvent) );
+    }
+}
+
+#endif
+
+
+#if defined(SCTP_STREAM_CHANGE_EVENT)
+/*
+ * eEvent :: #{'$esock_name' := sctp_notfication,
+ *             type        := stream_change,
+ *             flags       := [denied | failed]
+ *             in_streams  := uint16(),
+ *             out_streams := uint16()}
+ */
+
+static
+void essio_encode_sctp_notif_stream_change_event(ErlNifEnv*                    env,
+                                                 ESockDescriptor*              descP,
+                                                 struct sctp_stream_change_event* p,
+                                                 ERL_NIF_TERM*                 eEvent)
+{
+    ERL_NIF_TERM eaid    = MKUI(env, p->strchange_assoc_id);
+    ERL_NIF_TERM einstr  = MKUI(env, p->strchange_instrms);
+    ERL_NIF_TERM eoutstr = MKUI(env, p->strchange_outstrms);
+    ERL_NIF_TERM eflags;
+    unsigned int flags = p->strchange_flags;
+    SocketTArray ta    = TARRAY_CREATE(2);
+
+#if defined(SCTP_STREAM_CHANGE_DENIED)
+    if (flags & SCTP_STREAM_CHANGE_DENIED)
+        TARRAY_ADD(ta, esock_atom_denied);
+#endif
+
+#if defined(SCTP_STREAM_CHANGE_FAILED)
+    if (flags & SCTP_STREAM_CHANGE_FAILED)
+        TARRAY_ADD(ta, esock_atom_failed);
+#endif
+        
+    TARRAY_TOLIST(ta, env, &eflags);
+
+    {
+        ERL_NIF_TERM keys[]  = {esock_atom_esock_name,
+                                esock_atom_type,
+                                esock_atom_flags,
+                                esock_atom_assoc_id,
+                                esock_atom_inbound_streams,
+                                esock_atom_outbound_streams};
+        ERL_NIF_TERM vals[] = {esock_atom_sctp_notification,
+                               esock_atom_stream_change,
+                               eflags,
+                               eaid,
+                               einstr,
+                               eoutstr};
+        size_t       numKeys = NUM(keys);
+
+        ESOCK_ASSERT( numKeys == NUM(vals) );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eEvent) );
+    }
+}
+
+#endif
+
+
+/*
+ * This is a fallback type for notifications we have not yet
+ * any encode.
+ *
+ * eEvent :: #{'$esock_name' := sctp_notfication,
+ *             type     := pos_integer(),
+ *             flags    := pos_integer()}
+ */
+#if defined(HAVE_SCTP)
+static
+void essio_encode_sctp_notif_generic(ErlNifEnv*               env,
+                                     ESockDescriptor*         descP,
+                                     ERL_NIF_TERM             etype,
+                                     union sctp_notification* p,
+                                     ERL_NIF_TERM*            eEvent)
+{
+    ERL_NIF_TERM eflags = MKUI(env, p->sn_header.sn_flags);
+
+    {
+        ERL_NIF_TERM keys[]  = {esock_atom_esock_name,
+                                esock_atom_type,
+                                esock_atom_flags};
+        ERL_NIF_TERM vals[]  = {esock_atom_sctp_notification,
+                                etype,
+                                eflags};
+        size_t       numKeys = NUM(keys);
+
+        ESOCK_ASSERT( numKeys == NUM(vals) );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eEvent) );
+    }
+}
+#endif
 
 
 /* +++ encode_cmsgs +++
@@ -6841,9 +9530,8 @@ void essio_dtor(ErlNifEnv*       env,
     descP->writeState |= (ESOCK_STATE_DTOR | ESOCK_STATE_CLOSED);
     descP->pattern     = (ESOCK_DESC_PATTERN_DTOR | ESOCK_STATE_CLOSED);
 
-    if (descP->readBuf.data != NULL) {
-        FREE_BIN(&descP->readBuf);
-        descP->readBuf.data = NULL;
+    if (descP->buf.data != NULL) {
+        FREE_BIN(&descP->buf);
     }
 
     esock_free_env("dtor reader", descP->currentReader.env);
@@ -7128,25 +9816,84 @@ void essio_down(ErlNifEnv*           env,
 
 /* *** Recv/recvfrom/recvmsg utility functions *** */
 
-/* *** recv_check_reader ***
- *
- * Checks if we have a current reader and if that is us. If not,
- * then we must be made to wait for our turn. This is done by pushing
- * us unto the reader queue.
- * Note that we do *not* actually initiate the currentReader structure
- * here, since we do not actually know yet if we need to! We do that in
- * the [recv|recvfrom|recvmsg]_check_result function.
- */
+static
+BOOLEAN_T recv_alloc_buf(size_t           size,
+                         ErlNifBinary    *bufP)
+{
+    if (bufP->data == NULL) {
+        return ALLOC_BIN(size, bufP);
+    }
+    else {
+        if (size != bufP->size)
+            return REALLOC_BIN(bufP, size);
+        else
+            return TRUE;
+    }
+}
 
 static
-BOOLEAN_T recv_check_reader(ErlNifEnv*       env,
-                            ESockDescriptor* descP,
-                            ERL_NIF_TERM     ref,
-                            ERL_NIF_TERM*    checkResult)
+BOOLEAN_T recv_create_bin(ErlNifBinary *bufP, size_t size, ErlNifBinary *binP)
 {
+    /* Don't touch bufP->size
+     */
+    if (size >= bufP->size) {
+        /* Buffer full
+         * - use it as return binary and drop buffer
+         */
+        ESOCK_ASSERT( bufP->size >= size );
+        *binP = *bufP;
+        bufP->data = NULL;
+        return TRUE;
+    }
+    else if (size >= (bufP->size & ~4095) ||
+             size >= (bufP->size >> 1) + (bufP->size >> 2)) {
+        /* Less than a 4 K page shrink or less than 25% shrink
+         * - reallocate and drop buffer
+         */
+        *binP = *bufP;
+        bufP->data = NULL;
+        return REALLOC_BIN(binP, size);
+    }
+    else {
+        BOOLEAN_T ret;
+        /* Keep buffer, copy content to new allocated binary
+         */
+        ret = ALLOC_BIN(size, binP);
+        if (ret)
+            sys_memcpy(binP->data, bufP->data, size);
+        return ret;
+    }
+}
+
+static
+BOOLEAN_T recv_check_entry(ErlNifEnv       *env,
+                           ESockDescriptor *descP,
+                           ERL_NIF_TERM     recvRef,
+                           ERL_NIF_TERM    *retP)
+{
+    if (! IS_OPEN(descP->readState)) {
+        *retP = esock_make_error_closed(env);
+        return FALSE;
+    }
+
+    /* Accept and Read uses the same select flag
+     * so they can not be simultaneous
+     */
+    if (descP->currentAcceptorP != NULL) {
+        *retP = esock_make_error_invalid(env, esock_atom_state);
+        return FALSE;
+    }
+
+    /* Check if we have a current reader and if that is us. If not,
+     * then we must be made to wait for our turn. This is done by pushing
+     * us unto the reader queue.
+     * Note that we do *not* actually initiate the currentReader structure
+     * here, since we do not actually know yet if we need to! We do that in
+     * the [recv|recvfrom|recvmsg]_check_result function.
+     */
     if (descP->currentReaderP != NULL) {
         ErlNifPid caller;
-        
+
         ESOCK_ASSERT( enif_self(env, &caller) != NULL );
 
         if (COMPARE_PIDS(&descP->currentReader.pid, &caller) != 0) {
@@ -7155,31 +9902,80 @@ BOOLEAN_T recv_check_reader(ErlNifEnv*       env,
             SSDBG( descP,
                    ("UNIX-ESSIO",
                     "recv_check_reader {%d} -> not (current) reader"
-                    "\r\n   ref: %T"
-                    "\r\n", descP->sock, ref) );
+                    "\r\n   recvRef: %T"
+                    "\r\n", descP->sock, recvRef) );
 
             if (! esock_reader_search4pid(env, descP, &caller)) {
-                if (COMPARE(ref, esock_atom_zero) == 0)
-                    goto done_ok;
-                esock_reader_push(env, descP, caller, ref, NULL);
-                *checkResult = esock_atom_select;
+                if (COMPARE(recvRef, esock_atom_zero) == 0) {
+                    *retP = esock_atom_timeout;
+                }
+                else {
+                    esock_reader_push(env, descP, caller, recvRef, NULL);
+                    *retP = esock_atom_select;
+                }
             } else {
                 /* Reader already in queue */
-                *checkResult = esock_raise_invalid(env, esock_atom_state);
+                *retP = esock_raise_invalid(env, esock_atom_state);
             }
-            
+
             SSDBG( descP,
                    ("UNIX-ESSIO",
                     "recv_check_reader {%d} -> queue (push) result: %T\r\n",
-                    descP->sock, *checkResult) );
+                    descP->sock, *retP) );
 
             return FALSE;
         }
     }
+    *retP = esock_atom_ok; /* Ignored */
+    return TRUE;
+}
 
- done_ok:
-    // Does not actually matter in this case, but ...
-    *checkResult = esock_atom_ok;
+
+/* *** recv_check_result ***
+ *
+ * Common for all recv* functions; check for end of stream
+ * and recv error, set the result term and return TRUE.
+ * If neither return FALSE and let the caller handle the message.
+ */
+static
+BOOLEAN_T recv_check_result(ErlNifEnv       *env,
+                            ESockDescriptor *descP,
+                            ERL_NIF_TERM     sockRef,
+                            ERL_NIF_TERM     recvRef,
+                            ssize_t          readResult,
+                            int              saveErrno,
+                            ERL_NIF_TERM    *retP)
+{
+    if ((readResult == 0) && (descP->type == SOCK_STREAM)) {
+        ERL_NIF_TERM reason = esock_atom_closed;
+
+        /* Stream closed from other side
+         *
+         * When a stream socket peer has performed an orderly shutdown,
+         * the return value will be 0 (the traditional "end-of-file" return).
+         *
+         * *We* do never actually try to read 0 bytes!
+         *
+         * We must also notify any waiting readers!
+         */
+
+        ESOCK_CNT_INC(env, descP, sockRef,
+                      esock_atom_read_fails, &descP->readFails, 1);
+
+        recv_error_current_reader(env, descP, sockRef, reason);
+        /* Return {error, closed} */
+        *retP = esock_make_error(env, reason);
+        return FALSE;
+    }
+    else if (readResult < 0) {
+
+        /* +++ Error handling +++ */
+
+        /* 'timeout' | {error, SaveErrno} */
+        *retP = recv_check_fail(env, descP, sockRef, recvRef, saveErrno);
+        return FALSE;
+    }
+
     return TRUE;
 }
 
@@ -7189,46 +9985,39 @@ BOOLEAN_T recv_check_reader(ErlNifEnv*       env,
  * This function is called if we filled the allocated buffer.
  * But are we done yet?
  *
- * toRead = 0 means: Give me everything you have => maybe
- * toRead > 0 means: Yes
+ * len = 0 means: Give me everything you have => maybe
+ * len > 0 means: Yes
+ *
+ * Return {more|ok|select_read, Bin}
  */
-
 static
 ERL_NIF_TERM recv_check_full(ErlNifEnv*       env,
                              ESockDescriptor* descP,
-                             ssize_t          toRead,
                              ERL_NIF_TERM     sockRef,
-                             ERL_NIF_TERM     recvRef)
+                             ERL_NIF_TERM     recvRef,
+                             ssize_t          len,
+                             ErlNifBinary    *bufP)
 {
     ERL_NIF_TERM res;
 
-    if ((toRead == 0) &&
+    if ((len == 0) &&
         (descP->type == SOCK_STREAM)) {
 
         /* +++ Give us everything you have got =>     *
          *     (maybe) needs to continue          +++ */
 
-        /* Send up each chunk of data for each of the read
-         * and let the erlang code assemble it: {more, Bin}
-         * (when complete it should return {ok, Bin}).
-         * We need to read at least one more time to be sure if its
-         * done...
-         *
-         * Also, we need to check if the rNumCnt has reached its max (rNum),
-         * in which case we will assume the read to be done!
-         */
-
         SSDBG( descP,
                ("UNIX-ESSIO",
                 "recv_check_full(%T) {%d} -> shall we continue reading?"
-                "\r\n   readResult: %ld"
-                "\r\n   rNum:       %u"
-                "\r\n   rNumCnt:    %u"
+                "\r\n   bufSz:    %ld"
+                "\r\n   rNum:     %u"
+                "\r\n   rNumCnt:  %u"
                 "\r\n", sockRef, descP->sock,
-                (unsigned long) descP->readResult, descP->rNum,
+                (unsigned long) bufP->size, descP->rNum,
                 descP->rNumCnt) );
 
-        res = recv_check_full_maybe_done(env, descP, sockRef, recvRef);
+        /* Res = {more|ok|select_read, Bin} */
+        res = recv_check_full_maybe_done(env, descP, sockRef, recvRef, bufP);
 
     } else {
 
@@ -7238,10 +10027,10 @@ ERL_NIF_TERM recv_check_full(ErlNifEnv*       env,
                ("UNIX-ESSIO",
                 "recv_check_full(%T) {%d} -> [%ld] "
                 "we got exactly what we could fit\r\n",
-                sockRef, descP->sock, (long) toRead) );
+                sockRef, descP->sock, (long) len) );
 
-        res = recv_check_full_done(env, descP, sockRef);
-
+        /* Res = {ok|select_read, Bin} */
+        res = recv_check_full_done(env, descP, sockRef, recvRef, bufP);
     }
 
     return res;
@@ -7251,48 +10040,32 @@ ERL_NIF_TERM recv_check_full(ErlNifEnv*       env,
 
 /* *** recv_check_full_maybe_done ***
  *
- * Send up each chunk of data for each of the read
- * and let the erlang code assemble it: {more, Bin}
- * (when complete it should return {ok, Bin}).
- * We need to read at least one more time to be sure if its
- * done...
- *
- * Also, we need to check if the rNumCnt has reached its max (rNum),
- * in which case we will assume the read to be done!
- */
-
+ * Increment and check rNumCnt.  If it hasn't reached its max
+ * (rNum); return       {more, Bin},
+ * then more reads should be done,
+ * otherwise return     {ok|select_read, Bin}
+ * depending on selectRead.
+*/
 static
 ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
                                         ESockDescriptor* descP,
                                         ERL_NIF_TERM     sockRef,
-                                        ERL_NIF_TERM     recvRef)
+                                        ERL_NIF_TERM     recvRef,
+                                        ErlNifBinary    *bufP)
 {
     ERL_NIF_TERM ret;
 
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_read_byte, &descP->readByteCnt,
-                  descP->readResult);
-    descP->readPkgMaxCnt += descP->readResult;
+                  bufP->size);
+    descP->readPkgMaxCnt += bufP->size;
 
     descP->rNumCnt++;
     if (descP->rNumCnt >= descP->rNum) {
 
-        descP->rNumCnt = 0;
+        /* Ret = {ok|select_read, Bin} */
+        ret = recv_check_full_done(env, descP, sockRef, recvRef, bufP);
 
-        ESOCK_CNT_INC(env, descP, sockRef,
-                      esock_atom_read_pkg, &descP->readPkgCnt, 1);
-        if (descP->readPkgMaxCnt > descP->readPkgMax)
-            descP->readPkgMax = descP->readPkgMaxCnt;
-        descP->readPkgMaxCnt = 0;
-
-        recv_update_current_reader(env, descP, sockRef);
-
-        /* This transfers "ownership" of the *allocated* binary to an
-         * erlang term (no need for an explicit free).
-         */
-
-        ret = esock_make_ok2(env, MKBIN(env, &descP->readBuf));
-        descP->readBuf.data = NULL;
     } else {
 
         /* Yes, we *do* need to continue reading */
@@ -7307,10 +10080,10 @@ ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
                ("UNIX-ESSIO",
                 "recv_check_full_maybe_done(%T) {%d} -> [%lu] "
                 "we are done for now - read more\r\n",
-                sockRef, descP->sock, (unsigned long) descP->readBuf.size) );
+                sockRef, descP->sock, (unsigned long) bufP->size) );
 
-        ret = MKT2(env, esock_atom_more, MKBIN(env, &descP->readBuf));
-        descP->readBuf.data = NULL;
+        /* Ret =  {more, Bin} */
+        ret = MKT2(env, esock_atom_more, MKBIN(env, bufP));
     }
 
     return ret;
@@ -7321,54 +10094,59 @@ ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
 /* *** recv_check_full_done ***
  *
  * A successful recv and we filled the buffer.
- *
- * Deliver the whole buffer as a binary.
+ * - return {ok|select_read, Bin}
  */
-
 static
 ERL_NIF_TERM recv_check_full_done(ErlNifEnv*       env,
                                   ESockDescriptor* descP,
-                                  ERL_NIF_TERM     sockRef)
+                                  ERL_NIF_TERM     sockRef,
+                                  ERL_NIF_TERM     recvRef,
+                                  ErlNifBinary    *bufP)
 {
-    ERL_NIF_TERM data;
+    ERL_NIF_TERM res;
+
+    descP->rNumCnt = 0;
+
+    res = MKBIN(env, bufP);
 
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_read_pkg, &descP->readPkgCnt, 1);
     ESOCK_CNT_INC(env, descP, sockRef,
-                  esock_atom_read_byte, &descP->readByteCnt,
-                  descP->readResult);
+                  esock_atom_read_byte, &descP->readByteCnt, bufP->size);
 
-    descP->rNumCnt = 0;
-
-    descP->readPkgMaxCnt += descP->readResult;
+    descP->readPkgMaxCnt += bufP->size;
     if (descP->readPkgMaxCnt > descP->readPkgMax)
         descP->readPkgMax = descP->readPkgMaxCnt;
     descP->readPkgMaxCnt = 0;
 
-    recv_update_current_reader(env, descP, sockRef);
+    if (descP->selectRead && (COMPARE(recvRef, esock_atom_zero) != 0)) {
+        /* {select_read, Bin} */
+        res = MKT2(env, esock_atom_select_read, res);
+        return recv_check_select(env, descP, sockRef, recvRef, res);
+    }
+    else {
+        recv_update_current_reader(env, descP, sockRef);
 
-    /* This transfers "ownership" of the *allocated* binary to an
-     * erlang term (no need for an explicit free).
-     */
-    data = MKBIN(env, &descP->readBuf);
-    descP->readBuf.data = NULL;
+        /* This transfers "ownership" of the *allocated* binary to an
+         * erlang term (no need for an explicit free).
+         */
 
-    return esock_make_ok2(env, data);
+        /* Return {ok, Bin} */
+        return esock_make_ok2(env, res);
+    }
 }
-
 
 
 /* *** recv_check_fail ***
  *
  * Handle recv failure.
  */
-
 static
 ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
                              ESockDescriptor* descP,
-                             int              saveErrno,
                              ERL_NIF_TERM     sockRef,
-                             ERL_NIF_TERM     recvRef)
+                             ERL_NIF_TERM     recvRef,
+                             int              saveErrno)
 {
     ERL_NIF_TERM res;
 
@@ -7388,7 +10166,8 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
         ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_fails,
                       &descP->readFails, 1);
 
-        res = recv_check_fail_econnreset(env, descP, sockRef, recvRef);
+        /* Res = {error, econnreset} */
+        res = recv_check_fail_econnreset(env, descP, sockRef);
 
     } else if ((saveErrno == ERRNO_BLOCK) ||
                (saveErrno == EAGAIN)) {
@@ -7399,10 +10178,20 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
                 "\r\n   recvRef: %T"
                 "\r\n", sockRef, descP->sock, recvRef) );
 
-        if (COMPARE(recvRef, esock_atom_zero) == 0)
+        if (COMPARE(recvRef, esock_atom_zero) == 0) {
+
+            recv_update_current_reader(env, descP, sockRef);
+
+            /* Would block and zero time-out - this is a time-out
+             * Res = 'timeout'
+             */
             res = esock_atom_timeout;
-        else
-            res = recv_check_retry(env, descP, sockRef, recvRef);
+        }
+        else {
+            /* Res = 'select' */
+            res = recv_check_select(env, descP, sockRef, recvRef,
+                                    esock_atom_select);
+        }
 
     } else {
 
@@ -7415,7 +10204,8 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
         ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_fails,
                       &descP->readFails, 1);
 
-        res = recv_check_fail_gen(env, descP, saveErrno, sockRef);
+        /* Res = {error, SaveErrno} */
+        res = recv_check_fail_gen(env, descP, sockRef, saveErrno);
     }
 
     return res;
@@ -7426,17 +10216,17 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
  *
  * The recv call had a "general" failure.
  */
-
 static
 ERL_NIF_TERM recv_check_fail_gen(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
-                                 int              saveErrno,
-                                 ERL_NIF_TERM     sockRef)
+                                 ERL_NIF_TERM     sockRef,
+                                 int              saveErrno)
 {
     ERL_NIF_TERM reason = MKA(env, erl_errno_id(saveErrno));
 
     recv_error_current_reader(env, descP, sockRef, reason);
 
+    /* Return {error, SaveErrno} */
     return esock_make_error(env, reason);
 }
 
@@ -7446,12 +10236,10 @@ ERL_NIF_TERM recv_check_fail_gen(ErlNifEnv*       env,
  * We detected that the socket was closed while reading.
  * Inform current and waiting readers.
  */
-
 static
 ERL_NIF_TERM recv_check_fail_econnreset(ErlNifEnv*       env,
                                         ESockDescriptor* descP,
-                                        ERL_NIF_TERM     sockRef,
-                                        ERL_NIF_TERM     recvRef)
+                                        ERL_NIF_TERM     sockRef)
 {
     ERL_NIF_TERM reason = MKA(env, erl_errno_id(ECONNRESET));
     ERL_NIF_TERM res = esock_make_error(env, reason);
@@ -7473,32 +10261,26 @@ ERL_NIF_TERM recv_check_fail_econnreset(ErlNifEnv*       env,
 
     recv_error_current_reader(env, descP, sockRef, reason);
 
+    /* Return {error, econnreset} */
     return res;
 }
 
 
-/* *** recv_check_retry ***
+/* *** recv_check_select ***
  *
- * The recv call would have blocked, so retry.
+ * The recv call should be retried
+ * - initiate select read and return Msg or an exception
  */
-
 static
-ERL_NIF_TERM recv_check_retry(ErlNifEnv*       env,
-                              ESockDescriptor* descP,
-                              ERL_NIF_TERM     sockRef,
-                              ERL_NIF_TERM     recvRef)
+ERL_NIF_TERM recv_check_select(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               ERL_NIF_TERM     sockRef,
+                               ERL_NIF_TERM     recvRef,
+                               ERL_NIF_TERM     msg)
 {
     int          sres;
-    ERL_NIF_TERM res;
 
-    descP->rNumCnt = 0;
-    recv_init_current_reader(env, descP, recvRef);
-
-    SSDBG( descP,
-           ("UNIX-ESSIO",
-            "recv_check_retry(%T) {%d} -> SELECT for more"
-            "\r\n   recvRef: %T"
-            "\r\n", sockRef, descP->sock, recvRef) );
+    /* SELECT for more data */
 
     if ((sres = esock_select_read(env, descP->sock, descP, NULL,
                                   sockRef, recvRef)) < 0) {
@@ -7507,38 +10289,58 @@ ERL_NIF_TERM recv_check_retry(ErlNifEnv*       env,
          */
         recv_update_current_reader(env, descP, sockRef);
 
-        res = enif_raise_exception(env,
-                                   MKT2(env, esock_atom_select_read,
-                                        MKI(env, sres)));
+        /* Return error({select_read, SRes}) */
+        return enif_raise_exception(env,
+                                    MKT2(env, esock_atom_select_read,
+                                         MKI(env, sres)));
     } else {
+
+        recv_init_current_reader(env, descP, recvRef);
+
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "recv_check_select(%T) {%d} -> SELECT for more"
+                "\r\n   recvRef: %T"
+                "\r\n   msg:     %T"
+                "\r\n", sockRef, descP->sock, recvRef, msg) );
+
         descP->readState |= ESOCK_STATE_SELECTED;
-        res = esock_atom_select;
+        return msg;
     }
-
-    return res;
 }
-
 
 
 /* *** recv_check_partial ***
  *
  * Handle a successful recv which only partly filled the specified buffer.
+ *
+ * Return {ok|timeout|select|select_read, Bin}
  */
-
 static
 ERL_NIF_TERM recv_check_partial(ErlNifEnv*       env,
                                 ESockDescriptor* descP,
-                                ssize_t          toRead,
                                 ERL_NIF_TERM     sockRef,
-                                ERL_NIF_TERM     recvRef)
+                                ERL_NIF_TERM     recvRef,
+                                ssize_t          len,
+                                ErlNifBinary    *bufP)
 {
     ERL_NIF_TERM res;
 
-    descP->rNumCnt = 0;
-
     /* Buffer not filled */
 
-    if ((descP->type == SOCK_STREAM) && (toRead > 0)) {
+    descP->rNumCnt = 0;
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_read_byte, &descP->readByteCnt, bufP->size);
+
+    descP->readPkgMaxCnt += bufP->size;
+    if (descP->readPkgMaxCnt > descP->readPkgMax)
+        descP->readPkgMax = descP->readPkgMaxCnt;
+    descP->readPkgMaxCnt = 0;
+
+    res = MKBIN(env, bufP);
+
+    if ((descP->type == SOCK_STREAM) && (len > 0)) {
 
         /* A stream socket with specified read size
          * - more data is needed
@@ -7546,130 +10348,63 @@ ERL_NIF_TERM recv_check_partial(ErlNifEnv*       env,
 
         if (COMPARE(recvRef, esock_atom_zero) == 0) {
 
-            /* Polling read - deliver as {timeout,Data} */
+            /* Polling read */
 
+            ESOCK_CNT_INC(env, descP, sockRef,
+                          esock_atom_read_pkg, &descP->readPkgCnt, 1);
             SSDBG( descP,
                    ("UNIX-ESSIO",
                     "recv_check_partial(%T) {%d} -> [%ld] split buffer time-out"
                     "\r\n   recvRef: %T"
-                    "\r\n", sockRef, descP->sock, (long) toRead,
+                    "\r\n", sockRef, descP->sock, (long) len,
                     recvRef) );
 
-            res = recv_check_partial_done(env, descP, sockRef,
-                                          esock_atom_timeout);
+            recv_update_current_reader(env, descP, sockRef);
+            /* Res = {timeout, Bin} */
+            res = MKT2(env, esock_atom_timeout, res);
         } else {
 
-            /* Incomplete data
-             * - return a select result to initiate a retry
-             */
+            /* Incomplete data */
 
             SSDBG( descP,
                    ("UNIX-ESSIO",
                     "recv_check_partial(%T) {%d} -> [%ld]"
                     " only part of message - expect more"
                     "\r\n   recvRef: %T"
-                    "\r\n", sockRef, descP->sock, (long) toRead,
+                    "\r\n", sockRef, descP->sock, (long) len,
                     recvRef) );
 
-            res = recv_check_partial_part(env, descP, sockRef, recvRef);
+
+            /* Res = {select, Bin} */
+            res = MKT2(env, esock_atom_select, res);
+            res = recv_check_select(env, descP, sockRef, recvRef, res);
+
         }
     } else {
 
-        /* No more data is needed - deliver as {ok,Data} */
+        /* No more data is needed */
+
+        ESOCK_CNT_INC(env, descP, sockRef,
+                      esock_atom_read_pkg, &descP->readPkgCnt, 1);
 
         SSDBG( descP,
                ("UNIX-ESSIO",
                 "recv_check_partial(%T) {%d} -> [%ld] split buffer"
                 "\r\n   recvRef: %T"
-                "\r\n", sockRef, descP->sock, (long) toRead,
+                "\r\n", sockRef, descP->sock, (long) len,
                 recvRef) );
 
-        res = recv_check_partial_done(env, descP, sockRef, esock_atom_ok);
+        if (descP->selectRead && (COMPARE(recvRef, esock_atom_zero) != 0)) {
+            /* Res = {select_read, Bin} */
+            res = MKT2(env, esock_atom_select_read, res);
+            res = recv_check_select(env, descP, sockRef, recvRef, res);
+        }
+        else {
+            /* Res = {ok, Bin} */
+            recv_update_current_reader(env, descP, sockRef);
+            res = esock_make_ok2(env, res);
+        }
     }
-
-    return res;
-}
-
-
-/* *** recv_check_partial_done ***
- *
- * A successful but only partial recv, which fulfilled the required read.
- */
-
-static
-ERL_NIF_TERM recv_check_partial_done(ErlNifEnv*       env,
-                                     ESockDescriptor* descP,
-                                     ERL_NIF_TERM     sockRef,
-                                     ERL_NIF_TERM     returnTag)
-{
-    ERL_NIF_TERM data;
-
-    descP->rNumCnt = 0;
-    ESOCK_CNT_INC(env, descP, sockRef,
-                  esock_atom_read_pkg, &descP->readPkgCnt, 1);
-    ESOCK_CNT_INC(env, descP, sockRef,
-                  esock_atom_read_byte, &descP->readByteCnt, descP->readResult);
-
-    descP->readPkgMaxCnt += descP->readResult;
-    if (descP->readPkgMaxCnt > descP->readPkgMax)
-        descP->readPkgMax = descP->readPkgMaxCnt;
-    descP->readPkgMaxCnt = 0;
-
-    recv_update_current_reader(env, descP, sockRef);
-
-    /* This transfers "ownership" of the *allocated* binary to an
-     * erlang term (no need for an explicit free).
-     */
-    ESOCK_ASSERT( REALLOC_BIN(&descP->readBuf, descP->readResult) );
-    data = MKBIN(env, &descP->readBuf);
-    descP->readBuf.data = NULL;
-
-    SSDBG( descP,
-           ("UNIX-ESSIO", "recv_check_partial_done(%T) {%d} -> [%ld] done\r\n",
-            sockRef, descP->sock, (long) descP->readResult) );
-
-    return MKT2(env, returnTag, data);
-}
-
-
-/* *** recv_check_partial_part ***
- *
- * A successful but only partial recv, which only partly fulfilled
- * the required read.
- */
-
-static
-ERL_NIF_TERM recv_check_partial_part(ErlNifEnv*       env,
-                                     ESockDescriptor* descP,
-                                     ERL_NIF_TERM     sockRef,
-                                     ERL_NIF_TERM     recvRef)
-{
-    ERL_NIF_TERM res;
-    int          sres;
-
-    ESOCK_CNT_INC(env, descP, sockRef,
-                  esock_atom_read_byte, &descP->readByteCnt, descP->readResult);
-
-    recv_init_current_reader(env, descP, recvRef);
-
-    /* SELECT for more data */
-
-    sres = esock_select_read(env, descP->sock, descP, NULL,
-                             sockRef, recvRef);
-    if (sres < 0) {
-        /* Unlikely that any next reader will have better luck,
-         * but why not give them a shot - the queue will be cleared
-         */
-        recv_update_current_reader(env, descP, sockRef);
-
-        res = enif_raise_exception(env,
-                                   MKT2(env, esock_atom_select_read,
-                                        MKI(env, sres)));
-    } else {
-        descP->readState |= ESOCK_STATE_SELECTED;
-	res  = esock_atom_select;
-    }
-    /* Keep the buffer binary */;
 
     return res;
 }
@@ -7981,4 +10716,4 @@ void essio_down_reader(ErlNifEnv*           env,
 }
 
 
-#endif
+#endif // ESOCK_ENABLE

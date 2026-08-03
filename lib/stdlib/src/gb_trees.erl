@@ -1,3 +1,11 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2026. All Rights Reserved.
+%% Copyright (C) 1999-2001 Sven-Olof Nyström, Richard Carlsson
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -10,124 +18,17 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% %CopyrightEnd%
+%%
 %% =====================================================================
 %% General Balanced Trees - highly efficient dictionaries.
-%%
-%% Copyright (C) 1999-2001 Sven-Olof Nyström, Richard Carlsson
 %%
 %% An efficient implementation of Prof. Arne Andersson's General
 %% Balanced Trees. These have no storage overhead compared to plain
 %% unbalanced binary trees, and their performance is in general better
 %% than AVL trees.
 %% ---------------------------------------------------------------------
-%% Operations:
 %%
-%% - empty(): returns empty tree.
-%%
-%% - is_empty(T): returns 'true' if T is an empty tree, and 'false'
-%%   otherwise.
-%%
-%% - size(T): returns the number of nodes in the tree as an integer.
-%%   Returns 0 (zero) if the tree is empty.
-%%
-%% - lookup(X, T): looks up key X in tree T; returns {value, V}, or
-%%   `none' if the key is not present.
-%%
-%% - get(X, T): retreives the value stored with key X in tree T. Assumes
-%%   that the key is present in the tree.
-%%
-%% - insert(X, V, T): inserts key X with value V into tree T; returns
-%%   the new tree. Assumes that the key is *not* present in the tree.
-%%
-%% - update(X, V, T): updates key X to value V in tree T; returns the
-%%   new tree. Assumes that the key is present in the tree.
-%%
-%% - enter(X, V, T): inserts key X with value V into tree T if the key
-%%   is not present in the tree, otherwise updates key X to value V in
-%%   T. Returns the new tree.
-%%
-%% - delete(X, T): removes key X from tree T; returns new tree. Assumes
-%%   that the key is present in the tree.
-%%
-%% - delete_any(X, T): removes key X from tree T if the key is present
-%%   in the tree, otherwise does nothing; returns new tree.
-%%
-%% - take(X, T): removes element with key X from tree T; returns new tree
-%%   without removed element. Assumes that the key is present in the tree.
-%%
-%% - take_any(X, T): removes element with key X from tree T and returns
-%%   a new tree if the key is present; otherwise does nothing and returns
-%%   'error'.
-%%
-%% - balance(T): rebalances tree T. Note that this is rarely necessary,
-%%   but may be motivated when a large number of entries have been
-%%   deleted from the tree without further insertions. Rebalancing could
-%%   then be forced in order to minimise lookup times, since deletion
-%%   only does not rebalance the tree.
-%%
-%% - is_defined(X, T): returns `true' if key X is present in tree T, and
-%%   `false' otherwise.
-%%
-%% - keys(T): returns an ordered list of all keys in tree T.
-%%
-%% - values(T): returns the list of values for all keys in tree T,
-%%   sorted by their corresponding keys. Duplicates are not removed.
-%%
-%% - to_list(T): returns an ordered list of {Key, Value} pairs for all
-%%   keys in tree T.
-%%
-%% - from_orddict(L): turns an ordered list L of {Key, Value} pairs into
-%%   a tree. The list must not contain duplicate keys.
-%%
-%% - smallest(T): returns {X, V}, where X is the smallest key in tree T,
-%%   and V is the value associated with X in T. Assumes that the tree T
-%%   is nonempty.
-%%
-%% - largest(T): returns {X, V}, where X is the largest key in tree T,
-%%   and V is the value associated with X in T. Assumes that the tree T
-%%   is nonempty.
-%%
-%% - take_smallest(T): returns {X, V, T1}, where X is the smallest key
-%%   in tree T, V is the value associated with X in T, and T1 is the
-%%   tree T with key X deleted. Assumes that the tree T is nonempty.
-%%
-%% - take_largest(T): returns {X, V, T1}, where X is the largest key
-%%   in tree T, V is the value associated with X in T, and T1 is the
-%%   tree T with key X deleted. Assumes that the tree T is nonempty.
-%%
-%% - smaller(K, T): returns {Key, Value} pair, where Key is the
-%%   greatest key strictly less than K, or `none' if no such key exists.
-%%
-%% - larger(K, T): returns {Key, Value} pair, where Key is the
-%%   least key strictly greater than K, or `none' if no such key exists.
-%%
-%% - iterator(T): returns an iterator that can be used for traversing
-%%   the entries of tree T; see `next'. Equivalent to iterator(T, ordered).
-%%
-%% - iterator(T, Order): returns an iterator that can be used for traversing
-%%   the entries of tree T in either ordered or reversed direction; see `next'.
-%%   The implementation of this is very efficient; traversing the whole tree
-%%   using `next' is only slightly slower than getting the list of all elements
-%%   using `to_list' and traversing that. The main advantage of the iterator
-%%   approach is that it does not require the complete list of all
-%%   elements to be built in memory at one time.
-%%
-%% - iterator_from(K, T): returns an iterator that can be used for
-%%   traversing the entries of tree T with key greater than or
-%%   equal to K; see `next'. Equivalent to iterator_from(K, T, ordered).
-%%
-%% - iterator_from(K, T, Order): returns an iterator that can be used for
-%%   traversing the entries of tree T in either ordered or reversed direction,
-%%   starting from the key equal to or closest to K; see `next'.
-%%
-%% - next(S): returns {X, V, S1} where X is the next key referred to
-%%   by the iterator S, and S1 is the new iterator to be used for
-%%   traversing the remaining entries, or the atom `none' if no entries
-%%   remain.
-%%
-%% - map(F, T): maps the function F(K, V) -> V' to all key-value pairs
-%%   of the tree T and returns a new tree T' with the same set of keys
-%%   as T and the new set of values V'.
 
 -module(gb_trees).
 -moduledoc """
@@ -152,15 +53,15 @@ The original balance condition `h(T) <= ceil(c * log(|T|))` has been changed to
 the similar (but not quite equivalent) condition `2 ^ h(T) <= |T| ^ c`. This
 should also be OK.
 
-## See Also
+### See Also
 
-`m:dict`, `m:gb_sets`
+`m:dict`, `m:gb_sets`, `m:maps`
 """.
 
 -export([empty/0, is_empty/1, size/1, lookup/2, get/2, insert/3,
 	 update/3, enter/3, delete/2, delete_any/2, balance/1,
-	 is_defined/2, keys/1, values/1, to_list/1, from_orddict/1,
-	 smallest/1, largest/1, take/2, take_any/2,
+         is_defined/2, keys/1, values/1, to_list/1, from_list/1,
+         from_orddict/1, smallest/1, largest/1, take/2, take_any/2,
          take_smallest/1, take_largest/1, smaller/2, larger/2,
          iterator/1, iterator/2, iterator_from/2, iterator_from/3,
          next/1, map/2]).
@@ -211,13 +112,33 @@ should also be OK.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--doc "Returns a new empty tree.".
+-doc """
+Returns a new empty tree.
+
+## Examples
+
+```erlang
+1> gb_trees:to_list(gb_trees:empty()).
+[]
+```
+""".
 -spec empty() -> tree(none(), none()).
 
 empty() ->
     {0, nil}.
 
--doc "Returns `true` if `Tree` is an empty tree, othwewise `false`.".
+-doc """
+Returns `true` if `Tree` is an empty tree; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> gb_trees:is_empty(gb_trees:empty()).
+true
+2> gb_trees:is_empty(gb_trees:from_list([{a,99}])).
+false
+```
+""".
 -spec is_empty(Tree) -> boolean() when
       Tree :: tree().
 
@@ -226,7 +147,19 @@ is_empty({0, nil}) ->
 is_empty(_) ->
     false.
 
--doc "Returns the number of nodes in `Tree`.".
+-doc """
+Returns the number of nodes in `Tree`.
+
+## Examples
+
+```erlang
+1> gb_trees:size(gb_trees:empty()).
+0
+2> gb_trees:size(gb_trees:from_list([{a,1},{b,2}])).
+2
+```
+
+""".
 -spec size(Tree) -> non_neg_integer() when
       Tree :: tree().
 
@@ -236,8 +169,17 @@ size({Size, _}) when is_integer(Size), Size >= 0 ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -doc """
-Looks up `Key` in `Tree`. Returns `{value, Value}`, or `none` if `Key` is not
-present.
+Looks up `Key` in `Tree` and returns `{value, Value}` if found, or `none` if not present.
+
+## Examples
+
+```erlang
+1> Tree = gb_trees:from_list([{a,1},{b,2},{c,3}]).
+2> gb_trees:lookup(a, Tree).
+{value,1}
+3> gb_trees:lookup(z, Tree).
+none
+```
 """.
 -spec lookup(Key, Tree) -> 'none' | {'value', Value} when
       Tree :: tree(Key, Value).
@@ -265,7 +207,20 @@ lookup_1(_, nil) ->
 
 %% This is a specialized version of `lookup'.
 
--doc "Returns `true` if `Key` is present in `Tree`, otherwise `false`.".
+-doc """
+Returns `true` if `Key` is present in `Tree`; otherwise, returns
+`false`.
+
+## Examples
+
+```erlang
+1> Tree = gb_trees:from_list([{a,1},{b,2},{c,3}]).
+2> gb_trees:is_defined(a, Tree).
+true
+3> gb_trees:is_defined(x, Tree).
+false
+```
+""".
 -spec is_defined(Key, Tree) -> boolean() when
       Tree :: tree(Key, Value :: term()).
 
@@ -286,8 +241,16 @@ is_defined_1(_, nil) ->
 %% This is a specialized version of `lookup'.
 
 -doc """
-Retrieves the value stored with `Key` in `Tree`. Assumes that the key is present
-in the tree, crashes otherwise.
+Retrieves the value stored with `Key` in `Tree`; raises an exception
+if `Key` is not present.
+
+## Examples
+
+```erlang
+1> Tree = gb_trees:from_list([{a,1},{b,2}]).
+2> gb_trees:get(b, Tree).
+2
+```
 """.
 -spec get(Key, Tree) -> Value when
       Tree :: tree(Key, Value).
@@ -305,8 +268,18 @@ get_1(_, {_, Value, _, _}) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -doc """
-Updates `Key` to value `Value` in `Tree1` and returns the new tree. Assumes that
-the key is present in the tree.
+Updates `Key` to value `Value` in `Tree1` and returns the new tree.
+
+Assumes that the key is present in the tree.
+
+## Examples
+
+```erlang
+1> Tree1 = gb_trees:from_list([{a,1},{b,2}]).
+2> Tree2 = gb_trees:update(a, 99, Tree1).
+3> gb_trees:to_list(Tree2).
+[{a,99},{b,2}]
+```
 """.
 -spec update(Key, Value, Tree1) -> Tree2 when
       Tree1 :: tree(Key, Value),
@@ -328,8 +301,17 @@ update_1(Key, Value, {_, _, Smaller, Bigger}) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -doc """
-Inserts `Key` with value `Value` into `Tree1` and returns the new tree. Assumes
-that the key is not present in the tree, crashes otherwise.
+Inserts `Key` with value `Value` into `Tree1`, returning the new
+tree; raises an exception if `Key` is already present.
+
+## Examples
+
+```erlang
+1> Tree1 = gb_trees:from_list([{a,1},{b,2}]).
+2> Tree2 = gb_trees:insert(c, 10, Tree1).
+3> gb_trees:to_list(Tree2).
+[{a,1},{b,2},{c,10}]
+```
 """.
 -spec insert(Key, Value, Tree1) -> Tree2 when
       Tree1 :: tree(Key, Value),
@@ -383,8 +365,19 @@ insert_1(Key, _, _, _) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -doc """
-Inserts `Key` with value `Value` into `Tree1` if the key is not present in the
-tree, otherwise updates `Key` to value `Value` in `Tree1`. Returns the new tree.
+Inserts `Key` with value `Value` into `Tree1` if not present, or
+updates the value for `Key` to `Value` if present; returns the new
+tree.
+
+## Examples
+
+```erlang
+1> Tree1 = gb_trees:from_list([{a,1},{b,2}]).
+2> Tree2 = gb_trees:enter(c, 10, Tree1).
+3> Tree3 = gb_trees:enter(a, 100, Tree2).
+4> gb_trees:to_list(Tree3).
+[{a,100},{b,2},{c,10}]
+```
 """.
 -spec enter(Key, Value, Tree1) -> Tree2 when
       Tree1 :: tree(Key, Value),
@@ -414,10 +407,21 @@ count(nil) ->
 -doc """
 Rebalances `Tree1`.
 
-Notice that this is rarely necessary, but can be motivated
+Note that this is rarely necessary, but can be motivated
 when many nodes have been deleted from the tree without further insertions.
 Rebalancing can then be forced to minimize lookup times, as deletion does not
 rebalance the tree.
+
+## Examples
+
+```erlang
+1> Tree1 = gb_trees:from_list([{I,2*I} || I <- lists:seq(1, 100)]).
+2> Delete = fun gb_trees:delete/2.
+3> Tree2 = lists:foldl(Delete, Tree1, lists:seq(1, 50)).
+4> gb_trees:size(Tree2).
+50
+5> Tree3 = gb_trees:balance(Tree2).
+```
 """.
 -spec balance(Tree1) -> Tree2 when
       Tree1 :: tree(Key, Value),
@@ -427,28 +431,77 @@ balance({S, T}) when is_integer(S), S >= 0 ->
     {S, balance(T, S)}.
 
 balance(T, S) ->
-    balance_list(to_list_1(T), S).
+    balance_list_unchecked(to_list_1(T), S).
 
-balance_list(L, S) ->
-    {T, []} = balance_list_1(L, S),
+balance_list_unchecked(L, S) ->
+    {T, []} = balance_list_unchecked_1(L, S),
     T.
 
-balance_list_1(L, S) when S > 1 ->
-    Sm = S - 1,
-    S2 = Sm div 2,
-    S1 = Sm - S2,
-    {T1, [{K, V} | L1]} = balance_list_1(L, S1),
-    {T2, L2} = balance_list_1(L1, S2),
+balance_list_unchecked_1(L, S) when S > 1 ->
+    {S1, S2} = split_list_size(S),
+    {T1, [{K, V} | L1]} = balance_list_unchecked_1(L, S1),
+    {T2, L2} = balance_list_unchecked_1(L1, S2),
     T = {K, V, T1, T2},
     {T, L2};
-balance_list_1([{Key, Val} | L], 1) ->
+balance_list_unchecked_1([{Key, Val} | L], 1) ->
     {{Key, Val, nil, nil}, L};
-balance_list_1(L, 0) ->
+balance_list_unchecked_1(L, 0) ->
+    {nil, L}.
+
+balance_list_checked(L, S) ->
+    {T, []} = balance_list_checked_1(L, S),
+    T.
+
+balance_list_checked_1(L, S) when S > 1 ->
+    {S1, S2} = split_list_size(S),
+    {T1, [{K, V} | L1]} = balance_list_checked_1(L, S1),
+    case L1 of
+        [{K1, _} | _] when K >= K1 ->
+            erlang:error({badarg, not_orddict});
+        _ ->
+            {T2, L2} = balance_list_checked_1(L1, S2),
+            T = {K, V, T1, T2},
+            {T, L2}
+    end;
+balance_list_checked_1([{K1, _}, {K2, _} | _], 1) when K1 >= K2 ->
+    erlang:error({badarg, not_orddict});
+balance_list_checked_1([{Key, Val} | L], 1) ->
+    {{Key, Val, nil, nil}, L};
+balance_list_checked_1(L, 0) ->
     {nil, L}.
 
 -doc """
-Turns an ordered list `List` of key-value tuples into a tree. The list must not
-contain duplicate keys.
+Returns a tree of the key-value tuples in `List`,
+where `List` can be unordered and contain duplicate keys.
+
+## Examples
+
+```erlang
+1> Unordered = [{x, 1}, {y, 2}, {a, 3}, {x, 4}, {y, 5}, {b, 6}].
+2> gb_trees:to_list(gb_trees:from_list(Unordered)).
+[{a,3},{b,6},{x,4},{y,5}]
+```
+""".
+-doc #{since => ~"OTP 29.0"}.
+-spec from_list(List) -> Tree when
+      List :: [{Key, Value}],
+      Tree :: tree(Key, Value).
+
+from_list(L) ->
+    from_orddict_unchecked(orddict:from_list(L)).
+
+-doc """
+Turns an ordered list `List` of key-value tuples into a tree.
+
+The list must not contain duplicate keys.
+
+## Examples
+
+```erlang
+1> Tree = gb_trees:from_orddict([{a,1},{b,2}]).
+2> gb_trees:to_list(Tree).
+[{a,1},{b,2}]
+```
 """.
 -spec from_orddict(List) -> Tree when
       List :: [{Key, Value}],
@@ -456,13 +509,29 @@ contain duplicate keys.
 
 from_orddict(L) ->
     S = length(L),
-    {S, balance_list(L, S)}.
+    {S, balance_list_checked(L, S)}.
+
+from_orddict_unchecked(L) ->
+    S = length(L),
+    {S, balance_list_unchecked(L, S)}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -doc """
-Removes the node with key `Key` from `Tree1` if the key is present in the tree,
-otherwise does nothing. Returns the new tree.
+Removes the node with key `Key` from `Tree1` if present and returns the
+resulting tree; otherwise, returns `Tree1` unchanged.
+
+## Examples
+
+```erlang
+1> Tree1 = gb_trees:from_list([{a,1},{b,2}]).
+2> Tree2 = gb_trees:delete_any(a, Tree1).
+3> gb_trees:to_list(Tree2).
+[{b,2}]
+4> Tree3 = gb_trees:delete_any(z, Tree2).
+5> Tree2 == Tree3.
+true
+```
 """.
 -spec delete_any(Key, Tree1) -> Tree2 when
       Tree1 :: tree(Key, Value),
@@ -476,11 +545,18 @@ delete_any(Key, T) ->
 	    T
     end.
 
-%%% delete. Assumes that key is present.
-
 -doc """
-Removes the node with key `Key` from `Tree1` and returns the new tree. Assumes
-that the key is present in the tree, crashes otherwise.
+Removes the node with key `Key` from `Tree1`, returning the new tree;
+raises an exception if `Key` is not present.
+
+## Examples
+
+```erlang
+1> Tree1 = gb_trees:from_list([{a,1},{b,2}]).
+2> Tree2 = gb_trees:delete(a, Tree1).
+3> gb_trees:to_list(Tree2).
+[{b,2}]
+```
 """.
 -spec delete(Key, Tree1) -> Tree2 when
       Tree1 :: tree(Key, Value),
@@ -511,9 +587,21 @@ merge(Smaller, Larger) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -doc """
-Returns a value `Value` from node with key `Key` and new `Tree2` without the
-node with this value. Returns `error` if the node with the key is not present in
-the tree.
+Returns a value `Value` from the node with key `Key` and a new tree `Tree2`
+with that node removed; returns `error` if `Key` is not present in `Tree1`.
+
+## Examples
+
+```erlang
+1> Tree0 = gb_trees:from_list([{a,1},{b,2},{c,3}]).
+2> {Value,Tree1} = gb_trees:take_any(b, Tree0).
+3> Value.
+2
+4> gb_trees:to_list(Tree1).
+[{a,1},{c,3}]
+5> gb_trees:take_any(x, Tree0).
+error
+```
 """.
 -doc(#{since => <<"OTP 20.0">>}).
 -spec take_any(Key, Tree1) -> {Value, Tree2} | 'error' when
@@ -531,9 +619,21 @@ take_any(Key, Tree) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -doc """
-Returns a value `Value` from node with key `Key` and new `Tree2` without the
-node with this value. Assumes that the node with key is present in the tree,
-crashes otherwise.
+Returns a value `Value` from the node with key `Key` and a new tree `Tree2`
+with that node removed.
+
+Assumes that `Key` is present in the tree.
+
+## Examples
+
+```erlang
+1> Tree0 = gb_trees:from_list([{a,1},{b,2},{c,3}]).
+2> {Value,Tree1} = gb_trees:take(b, Tree0).
+3> Value.
+2
+4> gb_trees:to_list(Tree1).
+[{a,1},{c,3}]
+```
 """.
 -doc(#{since => <<"OTP 20.0">>}).
 -spec take(Key, Tree1) -> {Value, Tree2} when
@@ -559,8 +659,23 @@ take_1(_, {_Key, Value, Smaller, Larger}) ->
 
 -doc """
 Returns `{Key, Value, Tree2}`, where `Key` is the smallest key in `Tree1`,
-`Value` is the value associated with this key, and `Tree2` is this tree with the
-corresponding node deleted. Assumes that the tree is not empty.
+`Value` is the value associated with that key, and `Tree2` is the tree
+with the corresponding node removed.
+
+Assumes that the tree is not empty.
+
+## Examples
+
+```erlang
+1> Tree0 = gb_trees:from_list([{a,1},{b,2},{c,3}]).
+2> {Key,Value,Tree1} = gb_trees:take_smallest(Tree0).
+3> Key.
+a
+4> Value.
+1
+5> gb_trees:to_list(Tree1).
+[{b,2},{c,3}]
+```
 """.
 -spec take_smallest(Tree1) -> {Key, Value, Tree2} when
       Tree1 :: tree(Key, Value),
@@ -578,7 +693,17 @@ take_smallest1({Key, Value, Smaller, Larger}) ->
 
 -doc """
 Returns `{Key, Value}`, where `Key` is the smallest key in `Tree`, and `Value`
-is the value associated with this key. Assumes that the tree is not empty.
+is the value associated with this key.
+
+Assumes that the tree is not empty.
+
+## Examples
+
+```erlang
+1> Tree = gb_trees:from_list([{a,1},{b,2},{c,3}]).
+2> gb_trees:smallest(Tree).
+{a,1}
+```
 """.
 -spec smallest(Tree) -> {Key, Value} when
       Tree :: tree(Key, Value).
@@ -592,9 +717,24 @@ smallest_1({_Key, _Value, Smaller, _Larger}) ->
     smallest_1(Smaller).
 
 -doc """
-Returns `{Key, Value, Tree2}`, where `Key` is the largest key in `Tree1`,
-`Value` is the value associated with this key, and `Tree2` is this tree with the
-corresponding node deleted. Assumes that the tree is not empty.
+Returns `{Key, Value, Tree2}`, where `Key` is the largest key in
+`Tree1`, `Value` is the value associated with this key, and `Tree2` is
+this tree with the corresponding node deleted.
+
+Assumes that the tree is not empty.
+
+## Examples
+
+```erlang
+1> Tree0 = gb_trees:from_list([{a,1},{b,2},{c,3}]).
+2> {Key,Value,Tree1} = gb_trees:take_largest(Tree0).
+3> Key.
+c
+4> Value.
+3
+5> gb_trees:to_list(Tree1).
+[{a,1},{b,2}]
+```
 """.
 -spec take_largest(Tree1) -> {Key, Value, Tree2} when
       Tree1 :: tree(Key, Value),
@@ -612,7 +752,17 @@ take_largest1({Key, Value, Smaller, Larger}) ->
 
 -doc """
 Returns `{Key, Value}`, where `Key` is the largest key in `Tree`, and `Value` is
-the value associated with this key. Assumes that the tree is not empty.
+the value associated with this key.
+
+Assumes that the tree is not empty.
+
+## Examples
+
+```erlang
+1> Tree = gb_trees:from_list([{a,1},{b,2},{c,3}]).
+2> gb_trees:largest(Tree).
+{c,3}
+```
 """.
 -spec largest(Tree) -> {Key, Value} when
       Tree :: tree(Key, Value).
@@ -629,9 +779,21 @@ largest_1({_Key, _Value, _Smaller, Larger}) ->
 
 -doc """
 Returns `{Key2, Value}`, where `Key2` is the greatest key strictly less than
-`Key1`, `Value` is the value associated with this key.
+`Key1`, and `Value` is the value associated with this key.
 
 Returns `none` if no such pair exists.
+
+## Examples
+
+```erlang
+1> Tree = gb_trees:from_list([{a,1},{b,2},{c,3}]).
+2> gb_trees:smaller(c, Tree).
+{b,2}
+3> gb_trees:smaller(bb, Tree).
+{b,2}
+4> gb_trees:smaller(a, Tree).
+none
+```
 """.
 -doc(#{since => <<"OTP 27.0">>}).
 -spec smaller(Key1, Tree) -> none | {Key2, Value} when
@@ -655,9 +817,21 @@ smaller_1(Key, {_Key, _Value, Smaller, _Larger}) ->
 
 -doc """
 Returns `{Key2, Value}`, where `Key2` is the least key strictly greater than
-`Key1`, `Value` is the value associated with this key.
+`Key1`, and `Value` is the value associated with this key.
 
 Returns `none` if no such pair exists.
+
+## Examples
+
+```erlang
+1> Tree = gb_trees:from_list([{a,1},{b,2},{c,3}]).
+2> gb_trees:larger(c, Tree).
+none
+3> gb_trees:larger(bb, Tree).
+{c,3}
+4> gb_trees:larger(a, Tree).
+{b,2}
+```
 """.
 -doc(#{since => <<"OTP 27.0">>}).
 -spec larger(Key1, Tree) -> none | {Key2, Value} when
@@ -681,10 +855,22 @@ larger_1(Key, {_Key, _Value, _Smaller, Larger}) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--doc "Converts a tree into an ordered list of key-value tuples.".
+-doc """
+Converts a tree into an ordered list of key-value tuples.
+
+## Examples
+
+```erlang
+1> Tree = gb_trees:from_list([{a,1},{b,2},{c,3}]).
+2> gb_trees:to_list(Tree).
+[{a,1},{b,2},{c,3}]
+3> gb_trees:to_list(gb_trees:empty()).
+[]
+```
+""".
 -spec to_list(Tree) -> [{Key, Value}] when
       Tree :: tree(Key, Value).
-			   
+
 to_list({_, T}) ->
     to_list(T, []).
 
@@ -696,7 +882,19 @@ to_list(nil, L) -> L.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--doc "Returns the keys in `Tree` as an ordered list.".
+-doc """
+Returns the keys in `Tree` as an ordered list.
+
+## Examples
+
+```erlang
+1> Tree = gb_trees:from_list([{a,1},{b,2},{c,3}]).
+2> gb_trees:keys(Tree).
+[a,b,c]
+3> gb_trees:keys(gb_trees:empty()).
+[]
+```
+""".
 -spec keys(Tree) -> [Key] when
       Tree :: tree(Key, Value :: term()).
 
@@ -710,8 +908,18 @@ keys(nil, L) -> L.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -doc """
-Returns the values in `Tree` as an ordered list, sorted by their corresponding
-keys. Duplicates are not removed.
+Returns the values in `Tree` as an ordered list, sorted by their
+corresponding keys.
+
+Duplicates are not removed.
+
+## Examples
+
+```erlang
+1> Tree = gb_trees:from_list([{a,1},{b,2},{c,3},{d,1}]).
+2> gb_trees:values(Tree).
+[1,2,3,1]
+```
 """.
 -spec values(Tree) -> [Value] when
       Tree :: tree(Key :: term(), Value).
@@ -725,12 +933,7 @@ values(nil, L) -> L.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--doc """
-Returns an iterator that can be used for traversing the entries of `Tree`; see
-`next/1`.
-
-Equivalent to [`iterator(Tree, ordered)`](`iterator/2`).
-""".
+-doc(#{equiv => iterator(Tree, ordered)}).
 -spec iterator(Tree) -> Iter when
       Tree :: tree(Key, Value),
       Iter :: iter(Key, Value).
@@ -742,11 +945,21 @@ iterator(Tree) ->
 Returns an iterator that can be used for traversing the entries of `Tree` in
 either `ordered` or `reversed` direction; see `next/1`.
 
-The implementation of this is very efficient; traversing the whole tree using
+The implementation is very efficient; traversing the whole tree using
 [`next/1`](`next/1`) is only slightly slower than getting the list of all
 elements using `to_list/1` and traversing that. The main advantage of the
-iterator approach is that it does not require the complete list of all elements
-to be built in memory at one time.
+iterator approach is that it avoids building the complete list of all elements
+in memory at once.
+
+## Examples
+
+```erlang
+1> Tree = gb_trees:from_list([{a,1},{b,2},{c,3}]).
+2> Iter0 = gb_trees:iterator(Tree, ordered).
+3> {a,1,Iter1} = gb_trees:next(Iter0).
+4> RevIter0 = gb_trees:iterator(Tree, reversed).
+5> {c,3,RevIter1} = gb_trees:next(RevIter0).
+```
 """.
 -doc(#{since => <<"OTP 27.0">>}).
 -spec iterator(Tree, Order) -> Iter when
@@ -778,13 +991,7 @@ iterator_r(nil, As) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--doc """
-Returns an iterator that can be used for traversing the entries of `Tree`; see
-`next/1`. The difference as compared to the iterator returned by `iterator/1` is
-that the iterator starts with the first key greater than or equal to `Key`.
-
-Equivalent to [`iterator_from(Key, Tree, ordered)`](`iterator_from/3`).
-""".
+-doc(#{equiv => iterator_from(Key, Tree, ordered)}).
 -doc(#{since => <<"OTP 18.0">>}).
 -spec iterator_from(Key, Tree) -> Iter when
       Tree :: tree(Key, Value),
@@ -794,10 +1001,20 @@ iterator_from(Key, Tree) ->
     iterator_from(Key, Tree, ordered).
 
 -doc """
-Returns an iterator that can be used for traversing the entries of `Tree` in
-either `ordered` or `reversed` direction; see `next/1`. The difference as
-compared to the iterator returned by `iterator/2` is that the iterator starts
-with the first key next to or equal to `Key`.
+Returns an iterator over the entries of `Tree` in the given `Order`, starting
+from `Key` or, if absent, the first key that follows in the iteration order,
+if any; see `next/1`.
+
+## Examples
+
+```erlang
+1> Tree = gb_trees:from_list([{a,1},{b,2},{c,3},{d,4}]).
+2> Iter0 = gb_trees:iterator_from(aa, Tree, ordered).
+3> {b,2,Iter1} = gb_trees:next(Iter0).
+4> RevIter0 = gb_trees:iterator_from(c, Tree, reversed).
+5> {c,3,RevIter1} = gb_trees:next(RevIter0).
+6> {b,2,RevIter2} = gb_trees:next(RevIter1).
+```
 """.
 -doc(#{since => <<"OTP 27.0">>}).
 -spec iterator_from(Key, Tree, Order) -> Iter when
@@ -834,6 +1051,17 @@ iterator_from_r(_, nil, As) ->
 Returns `{Key, Value, Iter2}`, where `Key` is the next key referred to by
 iterator `Iter1`, and `Iter2` is the new iterator to be used for traversing the
 remaining nodes, or the atom `none` if no nodes remain.
+
+## Examples
+
+```erlang
+1> Tree = gb_trees:from_list([{a,1},{b,2},{c,3}]).
+2> Iter0 = gb_trees:iterator(Tree).
+3> {a,1,Iter1} = gb_trees:next(Iter0).
+4> {b,2,Iter2} = gb_trees:next(Iter1).
+5> {c,3,Iter3} = gb_trees:next(Iter2).
+6> none = gb_trees:next(Iter3).
+```
 """.
 -spec next(Iter1) -> 'none' | {Key, Value, Iter2} when
       Iter1 :: iter(Key, Value),
@@ -849,9 +1077,18 @@ next({_, []}) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -doc """
-Maps function F(K, V1) -> V2 to all key-value pairs of tree `Tree1`. Returns a
-new tree `Tree2` with the same set of keys as `Tree1` and the new set of values
-`V2`.
+Maps `Function(K, V1) -> V2` to all key-value pairs of tree `Tree1`,
+returning a new tree `Tree2` with the same set of keys as
+`Tree1` and the new set of values `V2`.
+
+## Examples
+
+```erlang
+1> Tree0 = gb_trees:from_list([{a,1},{b,2},{c,3}]).
+2> Tree1 = gb_trees:map(fun(_, V) -> 2 * V end, Tree0).
+3> gb_trees:to_list(Tree1).
+[{a,2},{b,4},{c,6}]
+```
 """.
 -spec map(Function, Tree1) -> Tree2 when
       Function :: fun((K :: Key, V1 :: Value1) -> V2 :: Value2),
@@ -864,3 +1101,11 @@ map(F, {Size, Tree}) when is_function(F, 2) ->
 map_1(_, nil) -> nil;
 map_1(F, {K, V, Smaller, Larger}) ->
     {K, F(K, V), map_1(F, Smaller), map_1(F, Larger)}.
+
+
+-compile({inline, [split_list_size/1]}).
+split_list_size(S) ->
+    Sm = S - 1,
+    S2 = Sm div 2,
+    S1 = Sm - S2,
+    {S1, S2}.

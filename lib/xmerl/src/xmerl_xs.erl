@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,31 +22,6 @@
 
 %% Description  : Implements XSLT like transformations in Erlang
 
-%% @doc
-%       Erlang has similarities to XSLT since both languages
-% 	have a functional programming approach. Using <code>xmerl_xpath</code>
-% 	it is possible to write XSLT like transforms in Erlang.
-%
-%     <p>XSLT stylesheets are often used when transforming XML
-%       documents, to other XML documents or (X)HTML for presentation.
-%       XSLT contains quite many
-%       functions and learning them all may take some effort.
-%       This document assumes a basic level of
-%       understanding of XSLT.
-%     </p>
-%     <p>Since XSLT is based on a functional programming approach
-%       with pattern matching and recursion it is possible to write
-%       similar style sheets in Erlang. At least for basic
-%       transforms. This
-%       document describes how to use the XPath implementation together
-%       with Erlangs pattern matching and a couple of functions to write
-%       XSLT like transforms.</p>
-%     <p>This approach is probably easier for an Erlanger but
-%       if you need to use real XSLT stylesheets in order to "comply to
-%       the standard" there is an adapter available to the Sablotron
-%       XSLT package which is written i C++.
-% See also the <a href="xmerl_xs_examples.html">Tutorial</a>.
-%     </p>
 -module(xmerl_xs).
 -moduledoc """
 XSLT-like XML document transformations.
@@ -92,12 +69,23 @@ Example, original XSLT:
 
 becomes in Erlang:
 
-```text
+```erlang
   template(E = #xmlElement{ parents=[{'doc',_}|_], name='title'}) ->
     ["<h1>",
      xslapply(fun template/1, E),
      "</h1>"];
 
+```
+
+## Examples
+
+```erlang
+1> Xml = "<root><item>one</item><item>two</item></root>".
+"<root><item>one</item><item>two</item></root>"
+2> {Doc, []} = xmerl_scan:string(Xml).
+...
+3> xmerl_xs:xslapply(fun(E) -> xmerl_xs:value_of(E) end, xmerl_xs:select("/root/item", Doc)).
+[["one"],["two"]]
 ```
 """.
 -spec xslapply(Fun, ElementList) -> io_lib:chars() when
@@ -131,8 +119,20 @@ becomes:
        value_of(select(".", E)), "</h1></div>"]
 
 ```
+
+## Examples
+
+```erlang
+1> Xml = "<root><item>one</item><item>two</item></root>".
+"<root><item>one</item><item>two</item></root>"
+2> {Doc, []} = xmerl_scan:string(Xml).
+...
+3> xmerl_xs:value_of(xmerl_xs:select("/root/item[2]", Doc)).
+["two"]
+```
 """.
--spec value_of(E :: xmerl:element()) -> io_lib:chars().
+-spec value_of(E) -> io_lib:chars() when
+      E :: xmerl:element() | [xmerl:element()].
 value_of(E)->
     lists:reverse(xmerl_lib:foldxml(fun value_of1/2, [], E)).
 
@@ -147,8 +147,30 @@ Extract the nodes from the xml tree according to XPath.
 Equivalent to [`xmerl_xpath:string(Str, E)`](`xmerl_xpath:string/2`).
 
 _See also:_ `value_of/1`.
+
+## Examples
+
+```erlang
+1> Xml = "<root><item>one</item><item>two</item></root>".
+"<root><item>one</item><item>two</item></root>"
+2> {Doc, []} = xmerl_scan:string(Xml).
+...
+3> xmerl_xs:value_of(xmerl_xs:select("/root/item[2]", Doc)).
+["two"]
+```
 """.
--spec select(String :: term(), E :: xmerl:element()) -> _.
+-spec select(String, E) -> Result when
+      String  :: term(),
+      E :: xmerl:element(),
+      Result :: [xmerl:xmlElement()
+                | xmerl:xmlAttribute()
+                | xmerl:xmlText()
+                | xmerl:xmlPI()
+                | xmerl:xmlComment()
+                | xmerl:xmlNsNode()
+                | xmerl:xmlDocument()] |
+                Scalar,
+      Scalar  :: #xmlObj{}.
 select(Str,E)->
     xmerl_xpath:string(Str,E).
 
@@ -157,6 +179,19 @@ The default fallback behaviour.
 
 Template funs should end with:
 `template(E) -> built_in_rules(fun template/1, E)`.
+
+## Examples
+
+```erlang
+1> Xml = "<root><item>one</item></root>".
+"<root><item>one</item></root>"
+2> {Doc, []} = xmerl_scan:string(Xml).
+...
+3> [Text] = xmerl_xs:select("/root/item/text()", Doc).
+...
+4> xmerl_xs:built_in_rules(fun(_) -> [] end, Text).
+"one"
+```
 """.
 -spec built_in_rules(Fun, E :: xmerl:element()) -> io_lib:chars() when
       Fun :: fun ((xmerl:element()) -> io_lib:chars()).

@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -25,7 +27,7 @@
          byte_split_binary/1,bit_split_binary/1,match_huge_bin/1,
          bs_match_string_edge_case/1,contexts/1,
          empty_binary/1,small_bitstring/1,
-         known_position/1]).
+         known_position/1,units/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -34,7 +36,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() ->
     [byte_split_binary, bit_split_binary, match_huge_bin,
      bs_match_string_edge_case, contexts, empty_binary,
-     small_bitstring,known_position].
+     small_bitstring,known_position,units].
 
 groups() ->
     [].
@@ -337,6 +339,36 @@ known_position(_Config) ->
 
     ok.
 
+units(_Config) ->
+    %% GH-10937: It turned out that we didn't have any test for units
+    %% other than 1 and 8.
+    ok = unit_13(<<>>),
+    ok = unit_13(<<42:13>>),
+    ok = unit_13(<<-1:26>>),
+    error = unit_13("a"),
+    error = unit_13("ab"),
+
+    ok = unit_16(<<>>),
+    ok = unit_16(~"ab"),
+    error = unit_16(~"a"),
+    error = unit_16(~"abc"),
+    error = unit_16(<<7:3>>),
+
+    ok.
+
+unit_13(Bin) ->
+    case Bin of
+        <<_/binary-unit:13>> -> ok;
+        _ -> error
+    end.
+
+unit_16(Bin) ->
+    case Bin of
+        <<_/binary-unit:16>> -> ok;
+        _ -> error
+    end.
+
+
 %%%
 %%% Common utilities.
 %%%
@@ -346,10 +378,7 @@ rand_seed() ->
     io:format("\n*** rand:export_seed() = ~w\n\n", [rand:export_seed()]),
     ok.
 
-make_unaligned_sub_binary(Bin0) ->
-    Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = size(Bin0),
-    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
-    Bin.
+make_unaligned_sub_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3).
 
 id(I) -> I.

@@ -1,10 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec adler32_combine(FirstAdler, SecondAdler, SecondSize) ->[0m
-  [;1m                         non_neg_integer()[0m
-  [;1m                         when[0m
-  [;1m                             FirstAdler :: non_neg_integer(),[0m
-  [;1m                             SecondAdler :: non_neg_integer(),[0m
-  [;1m                             SecondSize :: non_neg_integer().[0m
+[1m  adler32_combine(FirstAdler, SecondAdler, SecondSize)[0m
 
   Combines two previously computed adler32 checksums.
 
@@ -16,7 +18,7 @@
     Y = erlang:adler32(Data1),
     Z = erlang:adler32(Y,Data2).
 
-  assigns the same value to [;;4mZ[0m as this:
+  assigns the same value to [4mZ[0m as this:
 
     X = erlang:adler32(Data1),
     Y = erlang:adler32(Data2),

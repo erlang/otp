@@ -1,8 +1,11 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-type garbage_collection_defaults() ::[0m
-  [;1m          [{max_heap_size, non_neg_integer()} |[0m
-  [;1m           {min_bin_vheap_size, non_neg_integer()} |[0m
-  [;1m           {min_heap_size, non_neg_integer()} |[0m
-  [;1m           {fullsweep_after, non_neg_integer()}].[0m
+[1m  garbage_collection_defaults()[0m
 
   A list with the system wide garbage collection defaults.

@@ -534,7 +534,7 @@ remove(ConfigDB) ->
 update_password(Port, Dir, Old, New, New)->
     update_password(undefined, Port, Dir, Old, New, New).
 
-update_password(Addr, Port, Dir, Old, New, New) when list(New) ->
+update_password(Addr, Port, Dir, Old, New, New) when is_list(New) ->
     mod_auth_server:update_password(Addr, Port, Dir, Old, New);
 
 update_password(_Addr, _Port, _Dir, _Old, New, New) ->
@@ -712,9 +712,9 @@ list_group_members(GroupName, Addr, Port, Dir) ->
 %%        {authPassword, AuthPassword} | FunctionSpecificData]
 get_options(Opt, mandatory)->
     case httpd_util:key1search(Opt, port, undefined) of
-	Port when integer(Port) ->
+        Port when is_integer(Port) ->
 	    case httpd_util:key1search(Opt, dir, undefined) of
-		Dir when list(Dir) ->
+                Dir when is_list(Dir) ->
 		    Addr = httpd_util:key1search(Opt,
 						 addr,
 						 undefined),
@@ -746,3 +746,26 @@ get_options(Opt, userData)->
 
 lookup(Db, Key) ->
     ets:lookup(Db, Key).
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

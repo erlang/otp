@@ -1,4 +1,11 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,13 +17,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%%
-%%     $Id: core_scan.erl,v 1.1 2008/12/17 09:53:42 mikpe Exp $
-%%
-%% Purpose: Scanner for Core Erlang.
+%% %CopyrightEnd%
 
 %% For handling ISO 8859-1 (Latin-1) we use the following type
 %% information:
@@ -287,7 +288,7 @@ scan1([$$|Cs0], Toks, Pos) ->				%Character constant
 scan1([$'|Cs0], Toks, Pos) ->				%Atom (always quoted)
     {S,Cs1,Pos1} = scan_string(Cs0, $', Pos),
     case catch list_to_atom(S) of
-	A when atom(A) ->
+        A when is_atom(A) ->
 	    scan1(Cs1, [{atom,Pos,A}|Toks], Pos1);
 	_Error -> scan_error({illegal,atom}, Pos)
     end;
@@ -312,7 +313,7 @@ scan1([], Toks0, _) ->
 scan_key_word(C, Cs0, Toks, Pos) ->
     {Wcs,Cs} = scan_name(Cs0, []),
     case catch list_to_atom([C|reverse(Wcs)]) of
-	Name when atom(Name) ->
+        Name when is_atom(Name) ->
 	    scan1(Cs, [{Name,Pos}|Toks], Pos);
 	_Error -> scan_error({illegal,atom}, Pos)
     end.
@@ -320,7 +321,7 @@ scan_key_word(C, Cs0, Toks, Pos) ->
 scan_variable(C, Cs0, Toks, Pos) ->
     {Wcs,Cs} = scan_name(Cs0, []),
     case catch list_to_atom([C|reverse(Wcs)]) of
-	Name when atom(Name) ->
+        Name when is_atom(Name) ->
 	    scan1(Cs, [{var,Pos,Name}|Toks], Pos);
 	_Error -> scan_error({illegal,var}, Pos)
     end.
@@ -467,7 +468,7 @@ scan_after_fraction([$e|Cs], Ncs, Toks, SPos, CPos) ->
     scan_exponent(Cs, [$E|Ncs], Toks, SPos, CPos);
 scan_after_fraction(Cs, Ncs, Toks, SPos, CPos) ->
     case catch list_to_float(reverse(Ncs)) of
-	N when float(N) ->
+        N when is_float(N) ->
 	    scan1(Cs, [{float,SPos,N}|Toks], CPos);
 	_Error -> scan_error({illegal,float}, SPos)
     end.
@@ -485,7 +486,7 @@ scan_exponent(Cs, Ncs, Toks, SPos, CPos) ->
 scan_exponent1([C|Cs0], Ncs0, Toks, SPos, CPos) when C >= $0, C =< $9 ->
     {Ncs,Cs,CPos1} = scan_integer(Cs0, [C|Ncs0], CPos),
     case catch list_to_float(reverse(Ncs)) of
-	N when float(N) ->
+        N when is_float(N) ->
 	    scan1(Cs, [{float,SPos,N}|Toks], CPos1);
 	_Error -> scan_error({illegal,float}, SPos)
     end;

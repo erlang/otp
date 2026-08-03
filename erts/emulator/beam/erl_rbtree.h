@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
+ *
+ * SPDX-License-Identifier: Apache-2.0
  * 
- * Copyright Ericsson AB 2015-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2015-2025. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1363,8 +1365,6 @@ ERTS_RBT_FUNC__(foreach_unordered__)(ERTS_RBT_T **root,
 	x = *root;
 	if (!x)
 	    return reds;
-	if (destroying)
-	    *root = NULL;
     }
 
     while (1) {
@@ -1387,6 +1387,7 @@ ERTS_RBT_FUNC__(foreach_unordered__)(ERTS_RBT_T **root,
 	while (1) {
 #ifdef ERTS_RBT_DEBUG
 	    int cdir;
+            ERTS_UNDEF(cdir,0);
 #endif
 	    if (yielding && reds <= 0) {
 		ystate->x = x;
@@ -1425,6 +1426,9 @@ ERTS_RBT_FUNC__(foreach_unordered__)(ERTS_RBT_T **root,
 
 	    if (!p) {
                 /* Done */
+                if (destroying) {
+                    *root = NULL;
+                }
 		if (yielding) {
 		    ystate->x = NULL;
 		    ystate->up = 0;
@@ -1484,8 +1488,6 @@ ERTS_RBT_FUNC__(foreach_ordered__)(ERTS_RBT_T **root,
 	x = *root;
 	if (!x)
 	    return reds;
-	if (destroying)
-	    *root = NULL;
     }
 
     while (1) {
@@ -1580,12 +1582,16 @@ ERTS_RBT_FUNC__(foreach_ordered__)(ERTS_RBT_T **root,
 	    }
 
 	    if (!p) {
+                /* Done */
+                if (destroying) {
+                    *root = NULL;
+                }
 		if (yielding) {
 		    ystate->x = NULL;
 		    ystate->up = 0;
                     return reds <= 0 ? 1 : reds;
 		}
-		return 1; /* Done */
+		return 1;
 	    }
 	    x = p;
 	}

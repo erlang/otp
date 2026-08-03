@@ -1,3 +1,25 @@
+;;; erlang-flymake.el   -*-  lexical-binding: t; -*-
+;;;
+;;; %CopyrightBegin%
+;;;
+;;; SPDX-License-Identifier: Apache-2.0
+;;;
+;;; Copyright Ericsson AB 2010-2025. All Rights Reserved.
+;;;
+;;; Licensed under the Apache License, Version 2.0 (the "License");
+;;; you may not use this file except in compliance with the License.
+;;; You may obtain a copy of the License at
+;;;
+;;;     http://www.apache.org/licenses/LICENSE-2.0
+;;;
+;;; Unless required by applicable law or agreed to in writing, software
+;;; distributed under the License is distributed on an "AS IS" BASIS,
+;;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;;; See the License for the specific language governing permissions and
+;;; limitations under the License.
+;;;
+;;; %CopyrightEnd%
+;;;
 ;; erlang-flymake.el
 ;;
 ;; Syntax check erlang source code on the fly (integrates with flymake).
@@ -7,12 +29,6 @@
 ;;
 ;;     (require 'erlang-flymake)
 ;;
-;; Flymake is rather eager and does its syntax checks frequently by
-;; default and if you are bothered by this, you might want to put the
-;; following in your .emacs as well:
-;;
-;;     (erlang-flymake-only-on-save)
-;;
 ;; There are a couple of variables which control the compilation options:
 ;; * erlang-flymake-get-code-path-dirs-function
 ;; * erlang-flymake-get-include-dirs-function
@@ -21,12 +37,10 @@
 ;; This code is inspired by http://www.emacswiki.org/emacs/FlymakeErlang.
 
 (require 'flymake)
-(eval-when-compile
-  (require 'cl-lib))
 
 (defvar erlang-flymake-command
   "erlc"
-  "The command that will be used to perform the syntax check")
+  "The command that will be used to perform the syntax check.")
 
 (defvar erlang-flymake-get-code-path-dirs-function
   'erlang-flymake-get-code-path-dirs
@@ -42,18 +56,7 @@
         "+warn_export_vars"
         "+strong_validation"
         "+report")
-  "A list of options that will be passed to the compiler")
-
-(defun erlang-flymake-only-on-save ()
-  "Trigger flymake only when the buffer is saved (disables syntax
-check on newline and when there are no changes)."
-  (interactive)
-  ;; There doesn't seem to be a way of disabling this; set to the
-  ;; largest int available as a workaround (most-positive-fixnum
-  ;; equates to 8.5 years on my machine, so it ought to be enough ;-) )
-  (setq flymake-no-changes-timeout most-positive-fixnum)
-  (setq flymake-start-syntax-check-on-newline nil))
-
+  "A list of options that will be passed to the compiler.")
 
 (defun erlang-flymake-get-code-path-dirs ()
   (list (concat (erlang-flymake-get-app-dir) "ebin")))
@@ -66,37 +69,93 @@ check on newline and when there are no changes)."
   (let ((src-path (file-name-directory (buffer-file-name))))
     (file-name-directory (directory-file-name src-path))))
 
-(defun erlang-flymake-init ()
-  (let* ((temp-file
-          (cl-letf (((symbol-function 'flymake-get-temp-dir) #'erlang-flymake-temp-dir))
-            (flymake-proc-init-create-temp-buffer-copy
-             'flymake-create-temp-with-folder-structure)))
+(defvar-local erlang-flymake--proc nil
+  "Internal variable for the Erlang flymake backend process.")
+
+(defun erlang-flymake-backend (report-fn &rest _args)
+  "Flymake backend for Erlang using erlc.
+REPORT-FN is the flymake callback."
+  (when (process-live-p erlang-flymake--proc)
+    (kill-process erlang-flymake--proc))
+  (let* ((source (current-buffer))
+         (filename (buffer-file-name source))
          (code-dir-opts
-          (erlang-flymake-flatten
-           (mapcar (lambda (dir) (list "-pa" dir))
-                   (funcall erlang-flymake-get-code-path-dirs-function))))
+          (apply #'append
+                 (mapcar (lambda (dir) (list "-pa" dir))
+                         (funcall erlang-flymake-get-code-path-dirs-function))))
          (inc-dir-opts
-          (erlang-flymake-flatten
-           (mapcar (lambda (dir) (list "-I" dir))
-                   (funcall erlang-flymake-get-include-dirs-function))))
-         (compile-opts
-          (append inc-dir-opts
-                  code-dir-opts
-                  erlang-flymake-extra-opts)))
-    (list erlang-flymake-command (append compile-opts (list temp-file)))))
+          (apply #'append
+                 (mapcar (lambda (dir) (list "-I" dir))
+                         (funcall erlang-flymake-get-include-dirs-function))))
+         (compile-opts (append inc-dir-opts
+                               code-dir-opts
+                               erlang-flymake-extra-opts
+                               (list filename))))
+    (save-restriction
+      (widen)
+      (setq erlang-flymake--proc
+            (make-process
+             :name "erlang-flymake"
+             :noquery t
+             :connection-type 'pipe
+             :buffer (generate-new-buffer " *erlang-flymake*")
+             :command (cons erlang-flymake-command compile-opts)
+             :sentinel
+             (lambda (proc _event)
+               (when (memq (process-status proc) '(exit signal))
+                 (unwind-protect
+                     (when (with-current-buffer source
+                             (eq proc erlang-flymake--proc))
+                       (with-current-buffer (process-buffer proc)
+                         (goto-char (point-min))
+                         (let (diagnostics)
+                           (while (search-forward-regexp
+                                   "^\\(.*\\):\\([0-9]+\\):\\([0-9]+\\):\\s-*\\(warning\\|error\\):\\s-*\\(.*\\)$"
+                                   nil t)
+                             (let* ((file (match-string 1))
+                                    (line (string-to-number (match-string 2)))
+                                    (col (string-to-number (match-string 3)))
+                                    (type (if (string= (match-string 4) "warning")
+                                             :warning
+                                           :error))
+                                    (msg (match-string 5))
+                                    (region (flymake-diag-region source line col)))
+                               (when (and region
+                                          (string= (file-truename file)
+                                                   (file-truename filename)))
+                                 (push (flymake-make-diagnostic
+                                        source (car region) (cdr region)
+                                        type msg)
+                                       diagnostics))))
+                           ;; Also match old-style output without column:
+                           ;; file.erl:LINE: warning/error: message
+                           (goto-char (point-min))
+                           (while (search-forward-regexp
+                                   "^\\(.*\\):\\([0-9]+\\):\\s-*\\(warning\\|error\\):\\s-*\\(.*\\)$"
+                                   nil t)
+                             (let* ((file (match-string 1))
+                                    (line (string-to-number (match-string 2)))
+                                    (type (if (string= (match-string 3) "warning")
+                                             :warning
+                                           :error))
+                                    (msg (match-string 4))
+                                    (region (flymake-diag-region source line)))
+                               (when (and region
+                                          (string= (file-truename file)
+                                                   (file-truename filename)))
+                                 (push (flymake-make-diagnostic
+                                        source (car region) (cdr region)
+                                        type msg)
+                                       diagnostics))))
+                           (funcall report-fn (nreverse diagnostics)))))
+                   (kill-buffer (process-buffer proc))))))))))
 
-(defun erlang-flymake-temp-dir ()
-  ;; Squeeze the user's name in there in order to make sure that files
-  ;; for two users who are working on the same computer (like a linux
-  ;; box) don't collide
-  (format "%s/flymake-%s" temporary-file-directory user-login-name))
+(defun erlang-flymake-setup ()
+  "Set up the Erlang flymake backend for the current buffer."
+  (add-hook 'flymake-diagnostic-functions #'erlang-flymake-backend nil t))
 
-(defun erlang-flymake-flatten (list)
-  (apply #'append list))
-
-(add-to-list 'flymake-allowed-file-name-masks
-             '("\\.erl\\'" erlang-flymake-init))
-(add-hook 'erlang-mode-hook 'flymake-mode)
+(add-hook 'erlang-mode-hook #'erlang-flymake-setup)
+(add-hook 'erlang-mode-hook #'flymake-mode)
 
 (provide 'erlang-flymake)
 ;; erlang-flymake ends here

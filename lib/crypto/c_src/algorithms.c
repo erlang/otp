@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +26,7 @@
 #include "mac.h"
 #ifdef HAS_3_0_API
 #include "digest.h"
+#include "pkey.h"
 #endif
 
 #ifdef HAS_3_0_API
@@ -158,10 +161,14 @@ void init_hash_types(ErlNifEnv* env) {
 
 ERL_NIF_TERM pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    unsigned int cnt  =
-        FIPS_MODE() ? algo_pubkey_fips_cnt : algo_pubkey_cnt;
+    const bool fips = FIPS_MODE();
+    unsigned int cnt  = fips ? algo_pubkey_fips_cnt : algo_pubkey_cnt;
+    ERL_NIF_TERM list = enif_make_list_from_array(env, algo_pubkey, cnt);
 
-    return enif_make_list_from_array(env, algo_pubkey, cnt);
+#ifdef HAS_3_0_API
+    list = build_pkey_type_list(env, list, fips);
+#endif
+    return list;
 }
 
 void init_pubkey_types(ErlNifEnv* env) {
@@ -191,8 +198,19 @@ void init_pubkey_types(ErlNifEnv* env) {
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "eddh");
 #endif
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "srp");
-
     ASSERT(algo_pubkey_cnt <= sizeof(algo_pubkey)/sizeof(ERL_NIF_TERM));
+}
+
+ERL_NIF_TERM kem_algorithms_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+#ifdef HAVE_ML_KEM
+    return enif_make_list3(env,
+                           atom_mlkem512,
+                           atom_mlkem768,
+                           atom_mlkem1024);
+#else
+    return enif_make_list(env, 0);
+#endif
 }
 
 
@@ -604,12 +622,16 @@ int init_curves(ErlNifEnv* env, int fips) {
 #endif
 
     if (!fips) {
-#ifdef HAVE_EDDSA
+#ifdef HAVE_ED25519
         algo_curve[fips][cnt++] = enif_make_atom(env,"ed25519");
+#endif
+#ifdef HAVE_ED448
         algo_curve[fips][cnt++] = enif_make_atom(env,"ed448");
 #endif
-#ifdef HAVE_EDDH
+#ifdef HAVE_X25519
         algo_curve[fips][cnt++] = enif_make_atom(env,"x25519");
+#endif
+#ifdef HAVE_X448
         algo_curve[fips][cnt++] = enif_make_atom(env,"x448");
 #endif
     }

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2017-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -164,7 +166,7 @@ erl -kernel logger '[{handler,default,logger_std_h,
 An example of how to replace the standard handler with a disk_log handler at
 startup is found in the `m:logger_disk_log_h` manual.
 
-## See Also
+### See Also
 
 `m:logger`, `m:logger_disk_log_h`
 """.

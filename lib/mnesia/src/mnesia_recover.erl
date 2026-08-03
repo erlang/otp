@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -221,15 +223,15 @@ note_decision(Tid, Outcome) ->
     ?ets_insert(Tab, #transient_decision{tid = Tid, outcome = Outcome}).
 
 note_up(Node, _Date, _Time) ->
-    ?ets_delete(mnesia_decision, Node).
+    ?ets_delete(mnesia_decision, {node, Node}).
     
 note_down(Node, Date, Time) ->
-    ?ets_insert(mnesia_decision, {mnesia_down, Node, Date, Time}).
+    ?ets_insert(mnesia_decision, {mnesia_down, {node, Node}, Date, Time}).
     
 note_master_nodes(Tab, []) ->
-    ?ets_delete(mnesia_decision, Tab);
+    ?ets_delete(mnesia_decision, {tab, Tab});
 note_master_nodes(Tab, Nodes) when is_list(Nodes) ->
-    Master = {master_nodes, Tab, Nodes},
+    Master = {master_nodes, {tab, Tab}, Nodes},
     ?ets_insert(mnesia_decision, Master).
 
 note_outcome(D) when D#decision.disc_nodes == [] ->
@@ -293,12 +295,12 @@ get_mnesia_downs() ->
     Tab = mnesia_decision,
     Pat = {mnesia_down, '_', '_', '_'},
     Downs = ?ets_match_object(Tab, Pat),
-    [Node || {mnesia_down, Node, _Date, _Time} <- Downs].
+    [Node || {mnesia_down, {node, Node}, _Date, _Time} <- Downs].
 
 %% Check if we have got a mnesia_down from Node
 has_mnesia_down(Node) ->
-    case ?ets_lookup(mnesia_decision, Node) of
-	[{mnesia_down, Node, _Date, _Time}] ->
+    case ?ets_lookup(mnesia_decision, {node, Node}) of
+	[{mnesia_down, {node, Node}, _Date, _Time}] ->
 	    true;
 	[] ->
 	    false
@@ -378,10 +380,10 @@ get_master_node_info() ->
 
 get_master_node_tables() ->
     Masters = get_master_node_info(),
-    [Tab || {master_nodes, Tab, _Nodes} <- Masters].
+    [Tab || {master_nodes, {tab, Tab}, _Nodes} <- Masters].
 
 get_master_nodes(Tab) ->
-    try ?ets_lookup_element(mnesia_decision, Tab, 3)
+    try ?ets_lookup_element(mnesia_decision, {tab, Tab}, 3)
     catch error:_ -> []
     end.
 
@@ -493,7 +495,7 @@ load_decision_tab(Cont, InitBy) ->
 %% From now on all decisions are logged in the transaction log file
 convert_old() ->
     HasOldStuff = 
-	mnesia_lib:exists(mnesia_log:previous_decision_log_file()) or
+	mnesia_lib:exists(mnesia_log:previous_decision_log_file()) orelse
 	mnesia_lib:exists(mnesia_log:decision_log_file()),
     case HasOldStuff of
 	true ->
@@ -530,7 +532,15 @@ confirm_decision_log_dump() ->
 dump_decision_tab() ->
     Tab = mnesia_decision,
     All = mnesia_lib:db_match_object(ram_copies,Tab, '_'),
-    mnesia_log:save_decision_tab({decision_list, All}).
+    Converted = lists:map(fun convert_decision_to_disk_format/1, All),
+    mnesia_log:save_decision_tab({decision_list, Converted}).
+
+convert_decision_to_disk_format({mnesia_down, {node, Node}, Date, Time}) ->
+    {mnesia_down, Node, Date, Time};
+convert_decision_to_disk_format({master_nodes, {tab, Tab}, Nodes}) ->
+    {master_nodes, Tab, Nodes};
+convert_decision_to_disk_format(Decision) ->
+    Decision.
 
 note_log_decisions([What | Tail], InitBy) ->
     note_log_decision(What, InitBy),
@@ -767,7 +777,8 @@ handle_call(Msg, _From, State) ->
     {noreply, State}.
 
 do_log_mnesia_up(Node) ->
-    Yoyo = {mnesia_up, Node, Date = date(), Time = time()},
+    {Date, Time} = erlang:localtime(),
+    Yoyo = {mnesia_up, Node, Date, Time},
     case mnesia_monitor:use_dir() of
 	true ->
 	    mnesia_log:append(latest_log, Yoyo),
@@ -778,7 +789,8 @@ do_log_mnesia_up(Node) ->
     note_up(Node, Date, Time).
 
 do_log_mnesia_down(Node) ->
-    Yoyo = {mnesia_down, Node, Date = date(), Time = time()},
+    {Date, Time} = erlang:localtime(),
+    Yoyo = {mnesia_down, Node, Date, Time},
     case mnesia_monitor:use_dir() of
 	true ->
 	    mnesia_log:append(latest_log, Yoyo),
@@ -1162,7 +1174,7 @@ add_remote_decision(Node, NewD, State) ->
 	Outcome == unclear ->
 	    ignore;
 	true ->
-	    case lists:member(node(), NewD#decision.disc_nodes) or
+	    case lists:member(node(), NewD#decision.disc_nodes) orelse
 		 lists:member(node(), NewD#decision.ram_nodes) of
 		true ->
 		    tell_im_certain([Node], D);
@@ -1224,8 +1236,8 @@ send_decisions([]) ->
     ok.
 
 arrange([To | ToNodes], D, Acc, ForceSend) when is_record(D, decision) ->
-    NeedsAdd = (ForceSend or
-		lists:member(To, D#decision.disc_nodes) or
+    NeedsAdd = (ForceSend orelse
+		lists:member(To, D#decision.disc_nodes) orelse
 		lists:member(To, D#decision.ram_nodes)),
     case NeedsAdd of
 	true ->

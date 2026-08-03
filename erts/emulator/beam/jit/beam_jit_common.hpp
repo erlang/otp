@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2021-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2021-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +23,7 @@
 #ifndef __BEAM_JIT_COMMON_HPP__
 #define __BEAM_JIT_COMMON_HPP__
 
-#ifndef ASMJIT_ASMJIT_H_INCLUDED
-#    include <asmjit/asmjit.hpp>
-#endif
+#include <asmjit/core.h>
 
 #include <string>
 #include <vector>
@@ -85,6 +85,8 @@ protected:
     BeamAssemblerCommon(BaseAssembler &assembler);
     ~BeamAssemblerCommon();
 
+    void lateInit();
+
     void codegen(JitAllocator *allocator,
                  const void **executable_ptr,
                  void **writable_ptr);
@@ -133,7 +135,11 @@ struct BeamModuleAssemblerCommon {
     Eterm mod;
 
     /* Map of label number to asmjit Label */
-    typedef std::unordered_map<BeamLabel, const Label> LabelMap;
+    /* BEAM labels are dense (1..num_labels), so they map to asmjit labels
+     * through a plain vector indexed by label number; slot 0 is unused.
+     * Label resolution happens for nearly every emitted instruction, which
+     * is too hot for a hash map. */
+    typedef std::vector<Label> LabelMap;
     LabelMap rawLabels;
 
     struct patch {
@@ -427,68 +433,6 @@ struct BeamModuleAssemblerCommon {
     }
 };
 
-/* This is a view into a contiguous container (like an array or `std::vector`),
- * letting us reuse the existing argument array in `beamasm_emit` while keeping
- * our interfaces convenient.
- *
- * Needless to say, spans must not live longer than the container they wrap, so
- * you must be careful not to return a span of an rvalue or stack-allocated
- * container.
- *
- * We can replace this with std::span once we require C++20. */
-template<typename T>
-class Span {
-    const T *_data;
-    size_t _size;
-
-public:
-    template<typename Container>
-    Span(const Container &other) : Span(other.data(), other.size()) {
-    }
-
-    template<typename Container>
-    Span(Container &other) : Span(other.data(), other.size()) {
-    }
-
-    Span(const T *begin, const T *end) : Span(begin, end - begin) {
-    }
-
-    Span(const T *data, size_t size) : _data(data), _size(size) {
-    }
-
-    Span<T> subspan(size_t index, size_t count) const {
-        ASSERT(index <= size() && count <= (size() - index));
-        return Span<T>(begin() + index, count);
-    }
-
-    const auto size() const {
-        return _size;
-    }
-
-    const auto begin() const {
-        return &_data[0];
-    }
-
-    const auto end() const {
-        return &_data[size()];
-    }
-
-    const T &operator[](size_t index) const {
-#ifdef DEBUG
-        ASSERT(index < _size);
-#endif
-        return _data[index];
-    }
-
-    const T &front() const {
-        return operator[](0);
-    }
-
-    const T &back() const {
-        return operator[](size() - 1);
-    }
-};
-
 static const Uint BSC_SEGMENT_OFFSET = 10;
 
 typedef enum : Uint {
@@ -598,15 +542,9 @@ Uint beam_jit_get_map_elements(Eterm map,
 
 void beam_jit_bs_field_size_argument_error(Process *c_p, Eterm size);
 void beam_jit_bs_add_argument_error(Process *c_p, Eterm A, Eterm B);
-Eterm beam_jit_bs_init(Process *c_p,
-                       Eterm *reg,
-                       ERL_BITS_DECLARE_STATEP,
-                       Eterm num_bytes,
-                       Uint alloc,
-                       unsigned Live);
 Eterm beam_jit_bs_init_bits(Process *c_p,
                             Eterm *reg,
-                            ERL_BITS_DECLARE_STATEP,
+                            ErlBitsState *EBS,
                             Uint num_bits,
                             Uint alloc,
                             unsigned Live);
@@ -629,6 +567,7 @@ void beam_jit_bs_construct_fail_info(Process *c_p,
                                      Eterm arg3,
                                      Eterm arg1);
 Sint beam_jit_bs_bit_size(Eterm term);
+void beam_jit_bs_put_binary_all(ErlBitsState *EBS, Process *c_p, Eterm arg);
 
 Eterm beam_jit_int128_to_big(Process *p, Uint sign, Uint low, Uint high);
 
@@ -651,10 +590,11 @@ void beam_jit_return_to_trace(Process *c_p,
 
 Eterm beam_jit_build_argument_list(Process *c_p, const Eterm *regs, int arity);
 
-Export *beam_jit_handle_unloaded_fun(Process *c_p,
-                                     Eterm *reg,
-                                     int arity,
-                                     Eterm fun_thing);
+const Export *beam_jit_handle_unloaded_fun(Process *c_p,
+                                           Eterm *reg,
+                                           int arity,
+                                           Eterm fun_thing,
+                                           ErtsCodeIndex code_ix);
 
 bool beam_jit_is_list_of_immediates(Eterm term);
 bool beam_jit_is_shallow_boxed(Eterm term);

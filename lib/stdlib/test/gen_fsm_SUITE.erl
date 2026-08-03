@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +22,7 @@
 -module(gen_fsm_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 %% Test cases
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
@@ -135,8 +138,7 @@ start2(Config) when is_list(Config) ->
     shutdown_stopped =
 	gen_fsm:sync_send_all_state_event(Pid0, stop_shutdown),
     receive {'DOWN',MRef,_,_,shutdown} -> ok end,
-    {'EXIT', {noproc,_}} =
-	(catch gen_fsm:sync_send_event(Pid0, hej)),
+    ?assertExit({noproc,_}, gen_fsm:sync_send_event(Pid0, hej)),
 
     [] = get_messages(),
     ok.
@@ -312,7 +314,7 @@ stop1(_Config) ->
     {ok, Pid} = gen_fsm:start(?MODULE, [], []),
     ok = gen_fsm:stop(Pid),
     false = erlang:is_process_alive(Pid),
-    {'EXIT',noproc} = (catch gen_fsm:stop(Pid)),
+    ?assertExit(noproc, gen_fsm:stop(Pid)),
     ok.
 
 %% Anonymous, other reason
@@ -325,7 +327,7 @@ stop2(_Config) ->
 %% Anonymous, invalid timeout
 stop3(_Config) ->
     {ok,Pid} = gen_fsm:start(?MODULE, [], []),
-    {'EXIT',_} = (catch gen_fsm:stop(Pid, other_reason, invalid_timeout)),
+    ?assertExit(_, gen_fsm:stop(Pid, other_reason, invalid_timeout)),
     true = erlang:is_process_alive(Pid),
     ok = gen_fsm:stop(Pid),
     false = erlang:is_process_alive(Pid),
@@ -336,7 +338,7 @@ stop4(_Config) ->
     {ok,Pid} = gen_fsm:start({local,to_stop},?MODULE, [], []),
     ok = gen_fsm:stop(to_stop),
     false = erlang:is_process_alive(Pid),
-    {'EXIT',noproc} = (catch gen_fsm:stop(to_stop)),
+    ?assertExit(noproc, gen_fsm:stop(to_stop)),
     ok.
 
 %% Registered name and local node
@@ -344,7 +346,7 @@ stop5(_Config) ->
     {ok,Pid} = gen_fsm:start({local,to_stop},?MODULE, [], []),
     ok = gen_fsm:stop({to_stop,node()}),
     false = erlang:is_process_alive(Pid),
-    {'EXIT',noproc} = (catch gen_fsm:stop({to_stop,node()})),
+    ?assertExit(noproc, gen_fsm:stop({to_stop,node()})),
     ok.
 
 %% Globally registered name
@@ -352,7 +354,7 @@ stop6(_Config) ->
     {ok, Pid} = gen_fsm:start({global, to_stop}, ?MODULE, [], []),
     ok = gen_fsm:stop({global,to_stop}),
     false = erlang:is_process_alive(Pid),
-    {'EXIT',noproc} = (catch gen_fsm:stop({global,to_stop})),
+    ?assertExit(noproc, gen_fsm:stop({global,to_stop})),
     ok.
 
 %% 'via' registered name
@@ -362,7 +364,7 @@ stop7(_Config) ->
 			      ?MODULE, [], []),
     ok = gen_fsm:stop({via, dummy_via, to_stop}),
     false = erlang:is_process_alive(Pid),
-    {'EXIT',noproc} = (catch gen_fsm:stop({via, dummy_via, to_stop})),
+    ?assertExit(noproc, gen_fsm:stop({via, dummy_via, to_stop})),
     ok.
 
 %% Anonymous on remote node
@@ -373,9 +375,9 @@ stop8(_Config) ->
     {ok, Pid} = rpc:call(Node,gen_fsm,start,[?MODULE,[],[]]),
     ok = gen_fsm:stop(Pid),
     false = rpc:call(Node,erlang,is_process_alive,[Pid]),
-    {'EXIT',noproc} = (catch gen_fsm:stop(Pid)),
+    ?assertExit(noproc, gen_fsm:stop(Pid)),
     peer:stop(Peer),
-    {'EXIT',{{nodedown,Node},_}} = (catch gen_fsm:stop(Pid)),
+    ?assertExit({{nodedown,Node},_}, gen_fsm:stop(Pid)),
     ok.
 
 %% Registered name on remote node
@@ -387,9 +389,9 @@ stop9(_Config) ->
     ok = gen_fsm:stop({to_stop,Node}),
     undefined = rpc:call(Node,erlang,whereis,[to_stop]),
     false = rpc:call(Node,erlang,is_process_alive,[Pid]),
-    {'EXIT',noproc} = (catch gen_fsm:stop({to_stop,Node})),
+    ?assertExit(noproc, gen_fsm:stop({to_stop,Node})),
     peer:stop(Peer),
-    {'EXIT',{{nodedown,Node},_}} = (catch gen_fsm:stop({to_stop,Node})),
+    ?assertExit({{nodedown,Node},_}, gen_fsm:stop({to_stop,Node})),
     ok.
 
 %% Globally registered name on remote node
@@ -401,9 +403,9 @@ stop10(_Config) ->
     ok = global:sync(),
     ok = gen_fsm:stop({global,to_stop}),
     false = rpc:call(Node,erlang,is_process_alive,[Pid]),
-    {'EXIT',noproc} = (catch gen_fsm:stop({global,to_stop})),
+    ?assertExit(noproc, gen_fsm:stop({global,to_stop})),
     peer:stop(Peer),
-    {'EXIT',noproc} = (catch gen_fsm:stop({global,to_stop})),
+    ?assertExit(noproc, gen_fsm:stop({global,to_stop})),
     ok.
 
 %% Check that time outs in calls work
@@ -412,8 +414,7 @@ abnormal1(Config) when is_list(Config) ->
 
     %% timeout call.
     delayed = gen_fsm:sync_send_event(my_fsm, {delayed_answer,1}, 100),
-    {'EXIT',{timeout,_}} =
-	(catch gen_fsm:sync_send_event(my_fsm, {delayed_answer,10}, 1)),
+    ?assertExit({timeout, _}, gen_fsm:sync_send_event(my_fsm, {delayed_answer,10}, 1)),
 
     [] = get_messages(),
     ok.
@@ -426,8 +427,7 @@ abnormal2(Config) when is_list(Config) ->
 	gen_fsm:start_link(gen_fsm_SUITE, [], []),
 
     %% bad return value in the gen_fsm loop
-    {'EXIT',{{bad_return_value, badreturn},_}} =
-	(catch gen_fsm:sync_send_event(Pid, badreturn)),
+    ?assertExit({{bad_return_value, badreturn}, _}, gen_fsm:sync_send_event(Pid, badreturn)),
 
     [{'EXIT',Pid,{bad_return_value,badreturn}}] = get_messages(),
     process_flag(trap_exit, OldFl),
@@ -446,8 +446,7 @@ shutdown(Config) when is_list(Config) ->
     receive {'EXIT',Pid0,{shutdown,reason}} -> ok end,
     process_flag(trap_exit, false),
 
-    {'EXIT', {noproc,_}} =
-	(catch gen_fsm:sync_send_event(Pid0, hej)),
+    ?assertExit({noproc, _}, gen_fsm:sync_send_event(Pid0, hej)),
 
     receive
 	Any ->
@@ -466,8 +465,7 @@ sys1(Config) when is_list(Config) ->
 	gen_fsm:start(gen_fsm_SUITE, [], []),
     {status, Pid, {module,gen_fsm}, _} = sys:get_status(Pid),
     sys:suspend(Pid),
-    {'EXIT', {timeout,_}} =
-	(catch gen_fsm:sync_send_event(Pid, hej)),
+    ?assertExit({timeout, _}, gen_fsm:sync_send_event(Pid, hej)),
     sys:resume(Pid),
     stop_it(Pid).
 
@@ -526,8 +524,7 @@ error_format_status(Config) when is_list(Config) ->
     Parent = self(),
     {ok, Pid} = gen_fsm:start(gen_fsm_SUITE, {state_data, StateData}, []),
     %% bad return value in the gen_fsm loop
-    {'EXIT',{{bad_return_value, badreturn},_}} =
-	(catch gen_fsm:sync_send_event(Pid, badreturn)),
+    ?assertExit({{bad_return_value, badreturn}, _}, gen_fsm:sync_send_event(Pid, badreturn)),
     receive
 	{error,_GroupLeader,{Pid,
 			     "** State machine "++_,
@@ -602,9 +599,10 @@ replace_state(Config) when is_list(Config) ->
     {state0, NState2} = sys:get_state(Pid),
     %% verify no change in state if replace function crashes
     Replace3 = fun(_) -> error(fail) end,
-    {'EXIT',{{callback_failed,
-	      {gen_fsm,system_replace_state},{error,fail}},_}} =
-	(catch sys:replace_state(Pid, Replace3)),
+    ?assertError({callback_failed,
+                  {gen_fsm, system_replace_state},
+                  {error, fail}},
+                 sys:replace_state(Pid, Replace3)),
     {state0, NState2} = sys:get_state(Pid),
     %% verify state replaced if process sys suspended
     ok = sys:suspend(Pid),
@@ -1374,7 +1372,7 @@ wfor(Msg) ->
 
 stop_it(FSM) ->
     stopped = gen_fsm:sync_send_all_state_event(FSM, stop),
-    {'EXIT',_} = 	(catch gen_fsm:sync_send_event(FSM, hej)),
+    ?assertExit(_, gen_fsm:sync_send_event(FSM, hej)),
     ok.
 
 

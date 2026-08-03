@@ -1,8 +1,15 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec list_to_binary(IoList) -> binary() when IoList :: iolist().[0m
+[1m  list_to_binary(IoList)[0m
 
-  Returns a binary that is made from the integers and binaries in [;;4m[0m
-  [;;4mIoList[0m.
+  Returns a binary that is made from the integers and binaries in [4m[0m
+  [4mIoList[0m.
 
   For example:
 

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,9 @@
 
 -module(observer_trace_wx).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_possibly_unsafe_function, {file, consult, 1}}]).
 
 -export([start_link/3, add_processes/1, add_ports/1]).
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
@@ -992,8 +997,8 @@ create_logwindow(Parent, true) ->
     LogWin = wxFrame:new(Parent, ?LOG_WIN, "Trace Log", [{size, {750*Scale, 800*Scale}}]),
     MB = wxMenuBar:new(),
     File = wxMenu:new(),
-    wxMenu:append(File, ?LOG_CLEAR, "Clear Log\tCtrl-C"),
-    wxMenu:append(File, ?LOG_SAVE, "Save Log\tCtrl-S"),
+    wxMenu:append(File, ?LOG_CLEAR, "Clear Log\tCtrl+C"),
+    wxMenu:append(File, ?LOG_SAVE, "Save Log\tCtrl+S"),
     wxMenu:append(File, ?wxID_CLOSE, "Close"),
     wxMenuBar:append(MB, File, "File"),
     wxFrame:setMenuBar(LogWin, MB),

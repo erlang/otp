@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,7 +47,7 @@
 -export([add/1, default/1, info/1, lib/1, read/1, read2/1, remove/1,
          replace/1, update/1, deprecated/1, trycatch/1,
          fun_mfa/1,
-         fun_mfa_vars/1, qlc/1]).
+         fun_mfa_vars/1, qlc/1, unsafe/1, documented/1]).
 
 -export([analyze/1, basic/1, md/1, q/1, variables/1, unused_locals/1,
          behaviour/1]).
@@ -80,7 +82,7 @@ groups() ->
      {files, [],
       [add, default, info, lib, read, read2, remove, replace,
        update, deprecated, trycatch, fun_mfa,
-       fun_mfa_vars, qlc]},
+       fun_mfa_vars, qlc, unsafe, documented]},
      {analyses, [],
 
       [analyze, basic, md, q, variables, unused_locals, behaviour]},
@@ -902,6 +904,8 @@ lib(Conf) when is_list(Conf) ->
           {{lib2,unknown,0},0}, {{lib3,f,0},0}]} = xref:q(s,"(Lin)LM"),
     {ok,[lib1,lib2,lib3,t,unknown]} = xref:q(s,"M"),
     {ok,[{lib2,f,0},{lib3,f,0},{t,t,0}]} = xref:q(s,"X * M"),
+    {ok, ExportsNotUsed} = xref:analyze(s, exports_not_used),
+    [{t,t,0}] = ExportsNotUsed,
     check_state(s),
 
     copy_file(fname(Dir, "lib1.erl"), fname(Dir,"lib1.beam")),
@@ -940,18 +944,16 @@ read(Conf) when is_list(Conf) ->
     File = fname(Dir, "read"),
     Beam = fname(Dir, "read.beam"),
     {ok, read} = compile:file(File, [debug_info,{outdir,Dir}]),
-    do_read(File, abstract_v2),
-    copy_file(fname(Dir, "read.beam.v1"), Beam),
-    do_read(File, abstract_v1),
+    do_read(File),
     ok = file:delete(Beam),
     ok.
 
-do_read(File, Version) ->
+do_read(File) ->
     {ok, _} = start(s),
     ok = xref:set_default(s, [{verbose,false}, {warnings, false}]),
     {ok, read} = xref:add_module(s, File),
 
-    {U, OK, OKB} = read_expected(Version),
+    {U, OK, OKB} = read_expected(),
 
     %% {ok, UC} = xref:q(s, "(Lin) UC"),
     %% RR = to_external(converse(family_to_relation(family(UC)))),
@@ -1008,10 +1010,10 @@ do_read(File, Version) ->
     xref:stop(s).
 
 %% What is expected when xref_SUITE_data/read/read.erl is added:
-read_expected(Version) ->
+read_expected() ->
     %% Line positions in xref_SUITE_data/read/read.erl:
-    POS1 = 28, POS2 = POS1+10, POS3 = POS2+6, POS4 = POS3+6, POS5 = POS4+10,
-    POS6 = POS5+5, POS7 = POS6+6, POS8 = POS7+6, POS9 = POS8+8,
+    POS0 = 26, POS1 = POS0+9, POS2 = POS1+10, POS3 = POS2+6, POS4 = POS3+6,
+    POS5 = POS4+10, POS6 = POS5+5, POS7 = POS6+6, POS8 = POS7+6, POS9 = POS8+8,
     POS10 = POS9+10, POS11 = POS10+7, POS12 = POS11+8, POS13 = POS12+10,
     POS14 = POS13+18, POS15 = POS14+23,
 
@@ -1058,8 +1060,8 @@ read_expected(Version) ->
          {POS13+3,{FF,{'$M_EXPR','$F_EXPR',-1}}},
          {POS14+8,{{read,bi,0},{'$M_EXPR','$F_EXPR',1}}}],
 
-    O1 = [{20,{{read,lc,0},{ets,new,0}}},
-          {21,{{read,lc,0},{ets,tab2list,1}}},
+    O1 = [{POS0+1,{{read,lc,0},{ets,new,0}}},
+          {POS0+2,{{read,lc,0},{ets,tab2list,1}}},
           {POS1+1,{FF,{erlang,spawn,1}}},
           {POS1+1,{FF,{mod17,fun17,0}}},
           {POS1+2,{FF,{erlang,spawn,1}}},
@@ -1128,17 +1130,7 @@ read_expected(Version) ->
           {POS14+11,{{read,bi,0},{erlang,module_info,0}}},
           {POS14+17,{{read,bi,0},{read,bi,0}}}],
 
-    OK = case Version of
-             abstract_v1 ->
-                 [{0,{FF,{read,'$F_EXPR',178}}},
-                  {0,{FF,{modul,'$F_EXPR',179}}}]
-                 ++ O1;
-             _ ->
-                 [{16,{FF,{read,'$F_EXPR',178}}},
-                  {17,{FF,{modul,'$F_EXPR',179}}}]
-                 ++
-                 O1
-         end,
+    OK = O1,
 
     %% When builtins =:= true:
     OKB1 = [{POS13+1,{FF,{erts_debug,apply,4}}},
@@ -1178,20 +1170,14 @@ read_expected(Version) ->
             {POS14+3, {{read,bi,0},{erlang,length,1}}}],
 
     %% Operators (OTP-8647):
-    OKB = case Version of
-              abstract_v1 ->
-                  [{POS8+3, {FF,{erlang,apply,3}}},
-                   {POS10+1, {FF,{erlang,apply,3}}},
-                   {POS10+6, {FF,{erlang,apply,3}}}];
-              _ ->
-                  [{POS13+16, {{read,bi,0},{erlang,'!',2}}},
-                   {POS13+16, {{read,bi,0},{erlang,'-',1}}},
-                   {POS13+16, {{read,bi,0},{erlang,self,0}}},
-                   {POS15+1,  {{read,bi,0},{erlang,'>',2}}},
-                   {POS15+2,  {{read,bi,0},{erlang,'-',2}}},
-                   {POS15+2,  {{read,bi,0},{erlang,'*',2}}},
-                   {POS15+8,  {{read,bi,0},{erlang,'/',2}}}]
-          end
+    OKB = [{POS13+16, {{read,bi,0},{erlang,'!',2}}},
+           {POS13+16, {{read,bi,0},{erlang,'-',1}}},
+           {POS13+16, {{read,bi,0},{erlang,self,0}}},
+           {POS15+1,  {{read,bi,0},{erlang,'>',2}}},
+           {POS15+2,  {{read,bi,0},{erlang,'-',2}}},
+           {POS15+2,  {{read,bi,0},{erlang,'*',2}}},
+           {POS15+8,  {{read,bi,0},{erlang,'/',2}}}]
+
     ++ [{POS14+19, {{read,bi,0},{erlang,'+',2}}},
         {POS14+21, {{read,bi,0},{erlang,'+',2}}},
         {POS13+16, {{read,bi,0},{erlang,'==',2}}},
@@ -1204,7 +1190,7 @@ read_expected(Version) ->
 
 %% Data read from the Abstract Code (cont)
 read2(Conf) when is_list(Conf) ->
-    %% Handles the spawn_opt versions added in R9 (OTP-4180).
+    %% Handles spawn_opt-related variations in older OTP versions.
     %% Expected augmentations: try/catch, cond.
     CopyDir = ?copydir,
     Dir = fname(CopyDir,"read"),
@@ -1400,87 +1386,10 @@ update(Conf) when is_list(Conf) ->
 deprecated(Conf) when is_list(Conf) ->
     Dir = ?copydir,
     File = fname(Dir, "depr.erl"),
-    MFile_r9c = fname(Dir, "depr_r9c"),
     MFile = fname(Dir, "depr"),
     Beam = fname(Dir, "depr.beam"),
-    %% This file has been compiled to ?datadir/depr_r9c.beam
-    %% using the R9C compiler. From R10B and onwards the linter
-    %% checks the 'deprecated' attribute as well.
-    %     Test = <<"-module(depr).
 
-    %               -export([t/0,f/1,bar/2,f/2,g/3]).
-
-    %               -deprecated([{f,1},                             % DF
-    %                            {bar,2,eventually}]).              % DF_3
-    %               -deprecated([{f,1,next_major_release}]).        % DF_2 (again)
-    %               -deprecated([{frutt,0,next_version}]).          % message...
-    %               -deprecated([{f,2,next_major_release},          % DF_2
-    %                            {g,3,next_version},                % DF_1
-    %                            {ignored,10,100}]).                % message...
-    %               -deprecated([{does_not_exist,1}]).              % message...
-
-    %               -deprecated(foo).                               % message...
-
-    %               t() ->
-    %                   frutt(1),
-    %                   g(1,2, 3),
-    %                   ?MODULE:f(10).
-
-    %               f(A) ->
-    %                   ?MODULE:f(A,A).
-
-    %               f(X, Y) ->
-    %                   ?MODULE:g(X, Y, X).
-
-    %               g(F, G, H) ->
-    %                   ?MODULE:bar(F, {G,H}).
-
-    %               bar(_, _) ->
-    %                   true.
-
-    %               frutt(_) ->
-    %                   frutt().
-
-    %               frutt() ->
-    %                   true.
-    %              ">>,
-
-    %    ok = file:write_file(File, Test),
-    %    {ok, depr_r9c} = compile:file(File, [debug_info,{outdir,Dir}]),
-
-    {ok, _} = xref:start(s),
-    {ok, depr_r9c} = xref:add_module(s, MFile_r9c),
-    M9 = depr_r9c,
-    DF_1 = usort([{{M9,f,2},{M9,g,3}}]),
-    DF_2 = usort(DF_1++[{{M9,f,1},{M9,f,2}},{{M9,t,0},{M9,f,1}}]),
-    DF_3 = usort(DF_2++[{{M9,g,3},{M9,bar,2}}]),
-    DF = usort(DF_3++[{{M9,t,0},{M9,f,1}}]),
-
-    {ok,DF} = xref:analyze(s, deprecated_function_calls),
-    {ok,DF_1} =
-    xref:analyze(s, {deprecated_function_calls,next_version}),
-    {ok,DF_2} =
-    xref:analyze(s, {deprecated_function_calls,next_major_release}),
-    {ok,DF_3} =
-    xref:analyze(s, {deprecated_function_calls,eventually}),
-
-    D = to_external(range(from_term(DF))),
-    D_1 = to_external(range(from_term(DF_1))),
-    D_2 = to_external(range(from_term(DF_2))),
-    D_3 = to_external(range(from_term(DF_3))),
-
-    {ok,D} = xref:analyze(s, deprecated_functions),
-    {ok,D_1} =
-    xref:analyze(s, {deprecated_functions,next_version}),
-    {ok,D_2} =
-    xref:analyze(s, {deprecated_functions,next_major_release}),
-    {ok,D_3} =
-    xref:analyze(s, {deprecated_functions,eventually}),
-
-    ok = check_state(s),
-    xref:stop(s),
-
-    Test2= <<"-module(depr).
+    Test = <<"-module(depr).
 
               -export([t/0,f/1,bar/2,f/2,g/3,string/0]).
 
@@ -1510,7 +1419,7 @@ deprecated(Conf) when is_list(Conf) ->
                   ?MODULE:t().
              ">>,
 
-    ok = file:write_file(File, Test2),
+    ok = file:write_file(File, Test),
     {ok, depr} = compile:file(File, [debug_info,{outdir,Dir}]),
 
     {ok, _} = xref:start(s),
@@ -1535,7 +1444,7 @@ deprecated(Conf) when is_list(Conf) ->
     xref:stop(s),
 
     %% All of the module is deprecated.
-    Test3= <<"-module(depr).
+    MTest= <<"-module(depr).
 
               -export([t/0,f/1,bar/2,f/2,g/3]).
 
@@ -1560,7 +1469,7 @@ deprecated(Conf) when is_list(Conf) ->
                   ?MODULE:t().
              ">>,
 
-    ok = file:write_file(File, Test3),
+    ok = file:write_file(File, MTest),
     {ok, depr} = compile:file(File, [debug_info,{outdir,Dir}]),
 
     {ok, _} = xref:start(s),
@@ -1801,8 +1710,8 @@ analyze(Conf) when is_list(Conf) ->
     Xbeam = fname(EB2, "x.beam"),
     Ybeam = fname(EB1_1, "y.beam"),
 
-    {ok, x} = compile:file(X, [debug_info, {outdir,EB2}]),
-    {ok, y} = compile:file(Y, [debug_info, {outdir,EB1_1}]),
+    {ok, x} = compile:file(X, [return_errors, debug_info, {outdir,EB2}]),
+    {ok, y} = compile:file(Y, [return_errors, debug_info, {outdir,EB1_1}]),
 
     {ok, rel2, S1} = xref_base:add_release(S0, Dir, [{verbose,false}]),
     S = set_up(S1),
@@ -2530,6 +2439,224 @@ add_modules([{Mod, Test} |Tests], Conf) ->
     ok = file:delete(Beam),
     add_modules(Tests, Conf).
 
+%% Unsafe functions.
+unsafe(Conf) when is_list(Conf) ->
+    Dir = filename:join(?privdir, "unsafe"),
+    _ = file:make_dir(Dir),
+
+    {ok, _} = xref:start(s),
+
+    {ok,UF} = xref:analyze(s, unsafe_function_calls),
+    [] = U = to_external(range(from_term(UF))),
+    {ok, U} = xref:analyse(s, unsafe_function_calls),
+
+    ok = check_state(s),
+
+    Test1 = <<"-module(unsafe_1).
+
+               -export([t/0,f/1,bar/2,f/2,g/3,string/0]).
+
+               -unsafe([{f,'_'}]).                         % US_1
+
+               %% This is OK to call within the application, but not without.
+               -doc hidden.
+               t() ->
+                   g(1,2, 3),
+                   ?MODULE:f(10).
+
+               f(A) ->
+                   ?MODULE:f(A,A).
+
+               f(X, Y) ->
+                   ?MODULE:g(X, Y, X).
+
+               g(F, G, H) ->
+                   ?MODULE:bar(F, {G,H}).
+
+               string() ->
+                   ?MODULE:string().
+
+               bar(_, _) ->
+                   ?MODULE:t().
+               ">>,
+
+    compile_helper([{"unsafe_1", Test1}],
+                   Dir,
+                   fun() -> 
+                       {ok, lib1} = xref:add_application(s,
+                                                         Dir,
+                                                         [{name, lib1}])
+                   end),
+
+    MAlpha = unsafe_1,
+    USa = usort([{{MAlpha,f,1},{MAlpha,f,2}},{{MAlpha,t,0},{MAlpha,f,1}}]),
+
+    {ok,USa} = xref:analyse(s, unsafe_function_calls),
+    {ok,[{MAlpha,f,1},{MAlpha,f,2}]} = xref:q(s, "US_1"),
+
+    ok = check_state(s),
+
+    %% All of the module is unsafe.
+    Test2 = <<"-module(unsafe_2).
+
+               -export([t/0,f/1,bar/2,f/2,g/3]).
+
+               -unsafe([{f,'_',possibly}]).                % US_2
+               -unsafe([{g,'_'}]).                         % US_1
+               -unsafe(module).                            % US_1
+
+               t() ->
+                   g(1,2, 3),
+                   ?MODULE:f(10).
+
+               f(A) ->
+                   ?MODULE:f(A,A).
+
+               f(X, Y) ->
+                   ?MODULE:g(X, Y, X).
+
+               g(F, G, H) ->
+                   ?MODULE:bar(F, {G,H}).
+
+               bar(_, _) ->
+                   unsafe_1:t(). %% Cross-application edge to DC_2!
+               ">>,
+
+    compile_helper([{"unsafe_2", Test2}],
+                   Dir,
+                   fun() -> 
+                       {ok, lib2} = xref:add_application(s,
+                                                         Dir,
+                                                         [{name, lib2}])
+                   end),
+
+    MBeta = unsafe_2,
+    USb = usort(USa ++
+                [%% Cross-application call to private function, which is not
+                 %% marked unsafe on its own.
+                 {{MBeta,bar,2},{MAlpha,t,0}},
+                 %% Unsafe calls within unsafe_2
+                 {{MBeta,f,1},{MBeta,f,2}},
+                 {{MBeta,f,2},{MBeta,g,3}},
+                 {{MBeta,g,3},{MBeta,bar,2}},
+                 {{MBeta,t,0},{MBeta,f,1}}]),
+
+    {ok,USb} = xref:analyse(s, unsafe_function_calls),
+
+    {ok,[{MBeta,f,1},
+         {MBeta,f,2}]} = xref:q(s, "US_2"),
+
+    {ok,[{MAlpha,f,1},
+         {MAlpha,f,2},
+         {MBeta,bar,2},
+         {MBeta,f,1},
+         {MBeta,f,2},
+         {MBeta,g,3},
+         {MBeta,t,0}]} = xref:q(s, "US_1"),
+
+    ok = check_state(s),
+    xref:stop(s),
+
+    ok.
+
+%% Un/documented functions.
+documented(Conf) when is_list(Conf) ->
+    Dir = filename:join(?privdir, "documented"),
+    _ = file:make_dir(Dir),
+
+    {ok, _} = xref:start(s),
+
+    {ok,UF} = xref:q(s, "DC"),
+    [] = U = to_external(range(from_term(UF))),
+    {ok, U} = xref:q(s, "DC"),
+
+    ok = check_state(s),
+
+    Test1 = <<"-module(documented_1).
+
+               -export([t/0,f/1,bar/2,f/2,g/3,string/0]).
+
+               -doc hidden.                         % DC_2
+               t() ->
+                   g(1,2, 3),
+                   ?MODULE:f(10).
+
+               -doc \"present\".                    % DC_1
+               f(A) ->
+                   ?MODULE:f(A,A).
+
+               -doc \"present\".                    % DC_1
+               f(X, Y) ->
+                   ?MODULE:g(X, Y, X).
+
+               -doc \"present\".                    % DC_1
+               g(F, G, H) ->
+                   ?MODULE:bar(F, {G,H}).
+
+               -doc \"present\".                    % DC_1
+               string() ->
+                   ?MODULE:string().
+
+               -doc #{ equiv => string/0 }.         % DC_1
+               equiv() ->
+                   ?MODULE:string().
+
+               bar(_, _) ->                         % No annotation!
+                   ?MODULE:t().
+               ">>,
+
+    Test2 = <<"-module(documented_2).
+
+               -export([t/0, bar/2]).
+
+               t() ->                               % No annotation!
+                   documented_1:t().
+
+               bar(A, B) ->                         % No annotation!
+                   documented_1:bar(A, B).
+               ">>,
+
+    compile_helper([{"documented_1", Test1}],
+                   Dir,
+                   fun() -> 
+                       {ok, lib1} = xref:add_application(s,
+                                                         Dir,
+                                                         [{name, lib1}])
+                   end),
+
+    compile_helper([{"documented_2", Test2}],
+                   Dir,
+                   fun() -> 
+                       {ok, lib2} = xref:add_application(s,
+                                                         Dir,
+                                                         [{name, lib2}])
+                   end),
+
+    MAlpha = documented_1,
+    MBeta = documented_2,
+
+    {ok,[{MAlpha,f,1},
+         {MAlpha,f,2},
+         {MAlpha,g,3},
+         {MAlpha,string,0}]} = xref:q(s, "DC_1"),
+    {ok,[{MAlpha,t,0}]} = xref:q(s, "DC_2"),
+    {ok,[{MAlpha,bar,2},
+         {MBeta,bar,2},
+         {MBeta,t,0}]} = xref:q(s, "(X - DC_2) - DC_1"),
+
+    %% Note that this does not include the call to documented_1:t/0 since that
+    %% is a _private function_, not an _undocumented_ one.
+    {ok,[{{MBeta,bar,2},{MAlpha,bar,2}}]}
+        = xref:analyse(s, undocumented_function_calls),
+
+    {ok,[{{MBeta,t,0},{MAlpha,t,0}}]} =
+        xref:analyse(s, private_function_calls),
+
+    ok = check_state(s),
+    xref:stop(s),
+
+    ok.
+
 %%%
 %%% Utilities
 %%%
@@ -2601,12 +2728,13 @@ eval(Query, S) ->
     unsetify(Answer).
 
 add_module(S, XMod, DefAt, X, LCallAt, XCallAt, XC, LC) ->
-    Attr = {[], [], []},
     Depr0 = {[], [], [], []},
     DBad = [],
     Depr = {Depr0,DBad},
     OL = [],
-    Data = {DefAt, LCallAt, XCallAt, LC, XC, X, Attr, Depr, OL},
+    Doc = {[], []},
+    US = {{[], []}, []},
+    Data = {DefAt, LCallAt, XCallAt, LC, XC, X, Depr, OL, Doc, US},
     Unres = [],
     {ok, _Module, _Bad, State} =
     xref_base:do_add_module(S, XMod, Unres, Data),
@@ -2864,3 +2992,22 @@ add_erts_code_path(KernelPath) ->
         _Other1 ->
             [KernelPath]
     end.
+
+compile_helper([{Name, Source} | Rest], Dir, Fun) ->
+    File = fname(Dir, Name ++ ".erl"),
+    Beam = fname(Dir, Name ++ ".beam"),
+
+    ok = file:write_file(File, Source),
+    {ok, _} = compile:file(File,
+                           [return_errors,
+                            debug_info,
+                            {outdir,Dir}]),
+
+    try
+        compile_helper(Rest, Dir, Fun)
+    after
+        file:delete(File),
+        file:delete(Beam)
+    end;
+compile_helper([], _Dir, Fun) ->
+    Fun().

@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,11 +16,13 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(user_sup).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 %% ---------------------------------------------
 %% This is a supervisor bridge hiding the process
@@ -82,14 +86,13 @@ relay1(Pid) ->
 
 
 %%-----------------------------------------------------------------
-%% Sleep a while in order to let user write all (some) buffered 
-%% information before termination.
+%% Wait for user_drv to flush buffered output before termination.
 %%-----------------------------------------------------------------
 
 -spec terminate(term(), pid()) -> 'ok'.
 
 terminate(_Reason, UserPid) ->
-    receive after 1000 -> ok end,
+    _ = user_drv:flush(),
     exit(UserPid, kill),
     ok.
 
@@ -124,13 +127,13 @@ check_flags([{nouser, []} |T], Attached, _) -> check_flags(T, Attached, nouser);
 check_flags([{user, [User]} | T], Attached, _) ->
     check_flags(T, Attached, {list_to_atom(User), start, []});
 check_flags([{noshell, []} | T], Attached, _) ->
-    check_flags(T, Attached, {user_drv, start, [#{ initial_shell => noshell }]});
+    check_flags(T, Attached, {user_drv, start, [#{ initial_shell => noshell, input => cooked }]});
 check_flags([{oldshell, []} | T], false, _) ->
     %% When running in detached mode, we ignore any -oldshell flags as we do not
     %% want input => true to be set as they may halt the node (on bsd)
     check_flags(T, false, {user_drv, start, [#{ initial_shell => oldshell }]});
 check_flags([{noinput, []} | T], Attached, _) ->
-    check_flags(T, Attached, {user_drv, start, [#{ initial_shell => noshell, input => false }]});
+    check_flags(T, Attached, {user_drv, start, [#{ initial_shell => noshell, input => disabled }]});
 check_flags([{master, [Node]} | T], Attached, _) ->
     check_flags(T, Attached, {master, list_to_atom(Node)});
 check_flags([_H | T], Attached, User) -> check_flags(T, Attached, User);

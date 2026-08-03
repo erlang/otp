@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,6 +24,20 @@ limitations under the License.
 ## Introduction
 
 This document lists planned upcoming potential incompatibilities in Erlang/OTP.
+
+## OTP 30
+
+### erlang:fun_info(Fun, pid)
+
+As of OTP 27, the functions
+[`erlang:fun_info/1,2`](`erlang:fun_info/1`) always say that the
+local `init` process created all funs, regardless of which process or
+node the fun was originally created on.
+
+In OTP 30, the `{pid,_}` element will be removed altogether. That is,
+`erlang:fun_info(Fun, pid)` will raise a `badarg` exception, and
+`erlang:fun_info(Fun)` will no longer include a `{pid,Pid}` item in
+the returned list. (This was originally scheduled to occur in OTP 28.)
 
 ## OTP 27
 
@@ -250,6 +266,17 @@ second argument.
 Escripts will be compiled, and it will no longer be possible to force an escript
 to be interpreted by using the directive `-mode(interpret)`.
 
+[]{}{: #max_connections_open }
+
+### New Inets http client option
+
+New option in Inets' http client `httpc:set_options([{max_connections_open, N}])`
+is introduced to prevent bandwidth exhaustion while trying to complete multiple
+requests at once, making the remote server close connection before the request
+is finished. The option is set for maintaining backwards compatibility allowing
+infinite amount of connections, but will be decreased in OTP 30 allowing as smooth
+request flow as possible.
+
 ## OTP 29
 
 ### It will no longer be possible to disable feature maybe_expr
@@ -265,3 +292,8 @@ occurrences of `maybe` without quotes.
 
 As of OTP 29, the `cprof` and `eprof` will be removed in favor of `m:tprof`
 added in OTP 27.
+
+### CWD or '.' is now placed last in code path
+
+As of OTP 29, the CWD is added last instead of first in code path. It can be added first with
+-pa '.' if needed.

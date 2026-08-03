@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -313,7 +315,7 @@ section [Options Menu](debugger_chapter.md#options).
   windows for terminated processes are closed.
 
 - **_Kill All_** - Terminates all processes listed in the window using
-  [`exit(Pid, kill)`](`exit/2`).
+  [`exit_signal(Pid, kill)`](`exit_signal/2`).
 
 ### Module Menu
 
@@ -352,7 +354,7 @@ The following menu items apply to the currently selected process:
 - **_Attach_** - Attaches to the process and open an
   [Attach Process window](debugger_chapter.md#attach).
 
-- **_Kill_** - Terminates the process using [`exit(Pid, kill)`](`exit/2`).
+- **_Kill_** - Terminates the process using [`exit_signal(Pid, kill)`](`exit_signal/2`).
 
 ### Break Menu
 
@@ -555,7 +557,7 @@ all areas except the Trace area are displayed.
 - **_Where_** - Verifies that the current location of the execution is visible
   in the code area.
 
-- **_Kill_** - Terminates the process using [`exit(Pid, kill)`](`exit/2`).
+- **_Kill_** - Terminates the process using [`exit_signal(Pid, kill)`](`exit_signal/2`).
 
 - **_Messages_** - Inspects the message queue of the process. The queue is
   displayed in the Evaluator area.

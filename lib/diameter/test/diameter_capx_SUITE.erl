@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,6 +52,7 @@
          c_client_reject/1]).
 
 -include("diameter.hrl").
+-include("diameter_util.hrl").
 -include("diameter_gen_base_rfc3588.hrl").
 %% Use only the Vendor-Specific-Application-Id record from the base
 %% include, to test the independence of capabilities configuration
@@ -57,8 +60,6 @@
 %% 6733.
 
 %% ===========================================================================
-
--define(util, diameter_util).
 
 -define(CLIENT, client).
 -define(SERVER, server).
@@ -112,6 +113,7 @@ all() ->
 traffic(_Config) ->
     run().
 
+
 %% ===========================================================================
 
 %% Testcases all come in two flavours, client and server.
@@ -127,7 +129,7 @@ tc() ->
 
 run() ->
     try
-        ?util:run([{fun traffic/0, 15000}])
+        ?RUN([{fun traffic/0, 15000}])
     after
         ok = diameter:stop(),
         [] = [M || N <- ?NOAPPS,
@@ -140,16 +142,19 @@ run() ->
 traffic() ->
     lists:foreach(fun load_dict/1, ?NOAPPS),
     ok = diameter:start(),
+    
     _ = vendor_id(),
     ok = diameter:start_service(?SERVER, ?SERVICE),
     ok = diameter:start_service(?CLIENT, ?SERVICE),
     LRefs = add_listeners(),
-    ?util:run([[fun traffic/3, F, D, LRefs] || D <- ?DICTS,
-                                               N <- tc(),
-                                               F <- tc(N)]),
+    ?RUN([[fun traffic/3, F, D, LRefs] || D <- ?DICTS,
+                                          N <- tc(),
+                                          F <- tc(N)]),
     ok = diameter:remove_transport(?SERVER, true),
     ok = diameter:stop_service(?CLIENT),
-    ok = diameter:stop_service(?SERVER).
+    ok = diameter:stop_service(?SERVER),
+
+    ok.
 
 %% Generate a unique hostname for each testcase so that watchdogs
 %% don't prevent a connection from being brought up immediately.
@@ -158,13 +163,13 @@ traffic(F, Dict, {_Base, _Acct} = LRefs) ->
           F,
           [[{lref, LRefs},
             {rfc, Dict},
-            {host, ?L(F) ++ "." ++ ?util:unique_string()}]]).
+            {host, ?L(F) ++ "." ++ ?UNIQUE_STRING()}]]).
 
 %% Ensure that both integer and list-valued vendor id's can be
 %% configured in a Vendor-Specific-Application-Id, the arity having
 %% changed between RFC 3588 and RFC 6733.
 vendor_id() ->
-    ?util:run([[fun vid/1, V] || V <- [1, [1], [1,2], x]]).
+    ?RUN([[fun vid/1, V] || V <- [1, [1], [1,2], x]]).
 
 vid(V) ->
     RC = diameter:start_service(make_ref(),
@@ -449,12 +454,12 @@ host(Config) ->
     ?HOST(H).
 
 listen(Name, Opts) ->
-    ?util:listen(Name, tcp, Opts).
+    ?LISTEN(Name, tcp, Opts).
 
 connect(Config, T, Opts) ->
     {_, H} = lists:keyfind(host, 1, Config),
     LRef = lref(Config, T),
-    [PortNr] = ?util:lport(tcp, LRef),
+    [PortNr] = ?LPORT(tcp, LRef),
     {ok, CRef}
         = diameter:add_transport(?CLIENT, {connect, opts(H, PortNr, Opts)}),
     {CRef, LRef}.

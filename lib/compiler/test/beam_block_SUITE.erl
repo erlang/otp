@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2015-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(beam_block_SUITE).
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
@@ -206,8 +209,8 @@ repro([{Temp, Slot}|Xs], TempNames, Slots0) ->
 
 encode_wildcards3([],[],_,_) -> [];
 encode_wildcards3([Level|Levels],[BitsInLevel|BitsRest],LevelNo,TotSize) ->
-    case (catch ?MODULE:encode_wildcard(Level,BitsInLevel,TotSize-BitsInLevel,
-					length(Levels))) of
+    case catch ?MODULE:encode_wildcard(Level,BitsInLevel,TotSize-BitsInLevel,
+                                       length(Levels)) of
 	{'EXIT',{Reason,Info}} ->
 	    exit({Reason,{LevelNo,Info}});
 
@@ -315,11 +318,11 @@ coverage(Config) ->
     {b,a,badarith} = coverage_3(a, b),
     ok = coverage_3(0, 1),
 
-    {'EXIT',{badarg,_}} = catch coverage_4(a, b),
+    ?assertError(badarg, coverage_4(a, b)),
 
     ~"true" = coverage_5(id(latin1), id(true)),
     ~"true" = coverage_5(id(utf8), id(false)),
-    {'EXIT',{badarg,_}} = catch coverage_5(id(42), id(42)),
+    ?assertError(badarg, coverage_5(id(42), id(42))),
 
     ok.
 

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,6 +54,16 @@
 -else.
 -include_lib("common_test/include/ct.hrl").
 -endif.
+
+-define(do_catch(__X), do_catch(fun() -> __X end)).
+
+do_catch(F) ->
+    try {ok, F()}
+    catch
+        throw:R -> {throw, R};
+        exit:R -> {exit, R};
+        error:R:S -> {error, R, S}
+    end.
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -383,6 +395,20 @@ spawn_opt(Config) when is_list(Config) ->
     FunMFArgs = proc_lib:initial_call(Pid1),
     FunMFArity = proc_lib:translate_initial_call(Pid1),
     Pid1 ! die,
+
+    %% Check modified initial_call
+
+    Pid2 = proc_lib:spawn_opt(fun() ->
+                                      put('$initial_call', undefined),
+                                      receive _ -> ok end
+                              end, [link]),
+    false = proc_lib:initial_call(Pid2),
+    {proc_lib, init_p, 5} = proc_lib:translate_initial_call(Pid2),
+    Dict2 = process_info(Pid2, [{dictionary, '$initial_call'}]),
+    false = proc_lib:initial_call(Dict2),
+    {proc_lib, init_p, 5} = proc_lib:translate_initial_call(Dict2),
+
+    Pid2 ! die,
     ok.
 
 
@@ -658,7 +684,7 @@ stop(_Config) ->
     false = erlang:is_process_alive(Pid1),
 
     %% Process does not exit
-    {'EXIT',noproc} = (catch proc_lib:stop(Pid1)),
+    {exit, noproc} = ?do_catch(proc_lib:stop(Pid1)),
 
     %% Badly handled system message
     DieProc =
@@ -669,7 +695,7 @@ stop(_Config) ->
 		end
 	end,
     Pid2 = proc_lib:spawn(DieProc),
-    {'EXIT',{die,_}} = (catch proc_lib:stop(Pid2)),
+    {exit, {die, _}} = ?do_catch(proc_lib:stop(Pid2)), 
 
     %% Hanging process => timeout
     HangProc =
@@ -680,13 +706,13 @@ stop(_Config) ->
 		end
 	end,
     Pid3 = proc_lib:spawn(HangProc),
-    {'EXIT',timeout} = (catch proc_lib:stop(Pid3,normal,1000)),
+    {exit, timeout} = ?do_catch(proc_lib:stop(Pid3,normal,1000)),
 
     %% Ensure that a termination message is always sent to the
     %% target process and that it eventually terminates.
     Pid4 = proc_lib:spawn(HangProc),
     Ref4 = monitor(process, Pid4),
-    {'EXIT', timeout} = (catch proc_lib:stop(Pid4, normal, 0)),
+    {exit, timeout} = ?do_catch(proc_lib:stop(Pid4, normal, 0)),
     ok = receive
 	{'DOWN', Ref4, process, _, _} ->
 	    ok;
@@ -694,6 +720,18 @@ stop(_Config) ->
     after 6000 ->
 	timeout
     end,
+
+    %% Ensure that if process stops with same reason just as stop is called,
+    %% stop does not throw an exception.
+    PidNormalStop = proc_lib:spawn(fun() -> timer:sleep(1000) end),
+    ok = proc_lib:stop(PidNormalStop,normal,2000),
+    false = erlang:is_process_alive(PidNormalStop),
+    PidDieStop = proc_lib:spawn(fun() -> timer:sleep(1000), exit(die) end),
+    ok = proc_lib:stop(PidDieStop,die,2000),
+    false = erlang:is_process_alive(PidDieStop),
+    PidDieStopCrash = proc_lib:spawn(fun() -> timer:sleep(1000), exit(die) end),
+    {exit, {die, _}} = ?do_catch(proc_lib:stop(PidDieStopCrash,normal,2000)),
+    false = erlang:is_process_alive(PidDieStopCrash),
 
     %% Success case with other reason than 'normal'
     Pid5 = proc_lib:spawn(SysMsgProc),
@@ -703,7 +741,7 @@ stop(_Config) ->
     %% System message is handled, but process dies with other reason
     %% than the given (in system_terminate/4 below)
     Pid6 = proc_lib:spawn(SysMsgProc),
-    {'EXIT',{{badmatch,2},_Stacktrace}} = (catch proc_lib:stop(Pid6,crash,infinity)),
+    {exit, {{badmatch, 2}, _}} = ?do_catch(proc_lib:stop(Pid6,crash,infinity)),
     false = erlang:is_process_alive(Pid6),
 
     %% Local registered name
@@ -725,13 +763,13 @@ stop(_Config) ->
     false = rpc:call(Node,erlang,is_process_alive,[Pid8]),
 
     %% Local and remote registered name, but non-existing
-    {'EXIT',noproc} = (catch proc_lib:stop(to_stop)),
-    {'EXIT',noproc} = (catch proc_lib:stop({to_stop,Node})),
+    {exit, noproc} = ?do_catch(proc_lib:stop(to_stop)),
+    {exit, noproc} = ?do_catch(proc_lib:stop({to_stop,Node})),
 
     peer:stop(Peer),
 
     %% Remote registered name, but non-existing node
-    {'EXIT',{{nodedown,Node},_}} = (catch proc_lib:stop({to_stop,Node})),
+    {exit, {{nodedown, Node}, _}} = ?do_catch(proc_lib:stop({to_stop,Node})),
     ok.
 
 system_terminate(crash,_Parent,_Deb,_State) ->

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -69,7 +71,7 @@ Interface module for the Event Trace (ET) application
 -compile([{nowarn_deprecated_function,[{erlang,now,0}]}]).
 
 -include("et_internal.hrl").
--include("../include/et.hrl").
+-include_lib("et/include/et.hrl").
 
 -record(state, {parent_pid,
 		auto_shutdown, % Optionally shutdown when the last subscriber dies 

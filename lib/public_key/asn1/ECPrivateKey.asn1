@@ -1,31 +1,68 @@
-ECPrivateKey { iso(1) identified-organization(3) dod(6)
-  internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
-  id-mod-ecprivateKey(65) }
+-- %CopyrightBegin%
+--
+-- SPDX-License-Identifier: BSD-3-Clause
+--
+-- Copyright (c) 2010 IETF Trust and the persons identified as the document authors.  All rights reserved.
+-- Copyright Ericsson AB 2013-2025. All Rights Reserved.
+--
+-- Redistribution and use in source and binary forms, with or without
+-- modification, are permitted provided that the following conditions are met:
+--
+-- 1. Redistributions of source code must retain the above copyright notice,
+--    this list of conditions and the following disclaimer.
+--
+-- 2. Redistributions in binary form must reproduce the above copyright notice,
+--    this list of conditions and the following disclaimer in the documentation
+--    and/or other materials provided with the distribution.
+--
+-- 3. Neither the name of the copyright holder nor the names of its contributors
+--    may be used to endorse or promote products derived from this software
+--    without specific prior written permission.
+--
+-- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS IS”
+-- AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+-- IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+-- ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+-- LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+-- CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+-- SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+-- INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+-- CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+-- ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+-- POSSIBILITY OF SUCH DAMAGE.
+--
+-- %CopyrightEnd%
 
-DEFINITIONS EXPLICIT TAGS ::=
+ ECPrivateKey { iso(1) identified-organization(3) dod(6)
+     internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
+     id-mod-ecprivateKey(65) }
 
-BEGIN
+   DEFINITIONS EXPLICIT TAGS ::=
 
--- EXPORTS ALL;
+   BEGIN
 
-IMPORTS
+   -- EXPORTS ALL;
 
--- FROM New PKIX ASN.1 [RFC5912]
+   IMPORTS
 
-EcpkParameters FROM PKIX1Algorithms88;
+   -- FROM New PKIX ASN.1 [RFC5912]
 
-ECPrivateKey ::= SEQUENCE {
-  version        INTEGER,
-  privateKey     CurvePrivateKey,
-  parameters [0] EcpkParameters OPTIONAL,
-  publicKey  [1] CurvePublicKey OPTIONAL,
-  -- Should be PKCS-8 Attributes but problem at the moment with PKCS-8 being part
-  -- of PCKS-FRAME and PKIX1Algorithms88 is part of OTP-PUB-KEY. Procrastinate
-  -- the solution as it mostly not used anyway
-  attributes     ANY OPTIONAL
-}
+   ECParameters{}, NamedCurve
+     FROM PKIXAlgs-2009
+       { iso(1) identified-organization(3) dod(6) internet(1)
+         security(5) mechanisms(5) pkix(7) id-mod(0)
+         id-mod-pkix1-algorithms2008-02(56) }
 
-CurvePrivateKey ::= OCTET STRING
-CurvePublicKey ::= BIT STRING
+   ;
 
-END
+   ECPrivateKey ::= SEQUENCE {
+     version        INTEGER { ecPrivkeyVer1(1) } (ecPrivkeyVer1),
+     privateKey     OCTET STRING,
+-- FIXME: Remove this ugly workaround
+     parameters [0] CHOICE { namedCurve OBJECT IDENTIFIER } OPTIONAL,
+--     parameters [0] ECParameters {{ NamedCurve }} OPTIONAL,
+     publicKey  [1] BIT STRING OPTIONAL,
+     attributes     ANY OPTIONAL
+   }
+
+   END

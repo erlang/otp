@@ -1,6 +1,6 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_X86_H_INCLUDED
@@ -28,30 +28,21 @@
 //!       with \ref x86::Compiler.
 //!
 //!   - Instruction representation:
-//!     - \ref x86::Inst::Id - Provides instruction identifiers for both X86/X86_64 architectures.
-//!     - \ref InstOptions - Provides generic and X86/X86_64 specific options.
+//!     - \ref x86::Inst::Id - Provides instruction identifiers of X86|X86_64 architecture.
+//!     - \ref InstOptions - Provides generic and X86|X86_64 specific options.
 //!
 //! ### Register Operands
 //!
-//!   - \ref x86::Reg - Base class for any X86 register.
-//!     - \ref x86::Gp - General purpose register:
-//!       - \ref x86::GpbLo - 8-bit low register.
-//!       - \ref x86::GpbHi - 8-bit high register.
-//!       - \ref x86::Gpw - 16-bit register.
-//!       - \ref x86::Gpd - 32-bit register.
-//!       - \ref x86::Gpq - 64-bit register (X64 only).
-//!     - \ref x86::Vec - Vector (SIMD) register:
-//!       - \ref x86::Xmm - 128-bit SIMD register (SSE+).
-//!       - \ref x86::Ymm - 256-bit SIMD register (AVX+).
-//!       - \ref x86::Zmm - 512-bit SIMD register (AVX512+).
-//!     - \ref x86::Mm - 64-bit MMX register.
-//!     - \ref x86::St - 80-bit FPU register.
-//!     - \ref x86::KReg - opmask registers (AVX512+).
-//!     - \ref x86::SReg - segment register.
-//!     - \ref x86::CReg - control register.
-//!     - \ref x86::DReg - debug register.
-//!     - \ref x86::Bnd - bound register (discontinued).
-//!     - \ref x86::Rip - relative instruction pointer.
+//!   - \ref x86::Gp - General purpose register (abstracts 8-bit, 16-bit, 32-bit, and 64-bit GP registers).
+//!   - \ref x86::Vec - Vector (SIMD) register (abstracts XMM, YMM, and ZMM registers).
+//!   - \ref x86::Mm - 64-bit MMX register.
+//!   - \ref x86::St - 80-bit FPU register.
+//!   - \ref x86::KReg - opmask registers (AVX512+).
+//!   - \ref x86::SReg - segment register.
+//!   - \ref x86::CReg - control register.
+//!   - \ref x86::DReg - debug register.
+//!   - \ref x86::Bnd - bound register (discontinued).
+//!   - \ref x86::Rip - relative instruction pointer.
 //!
 //! ### Memory Operands
 //!
@@ -78,16 +69,16 @@
 //!   - \ref x86::VReduceImm - `REDUCE[PD|PS|SD|SS]` predicate (AVX512+).
 //!   - \ref x86::TLogImm - `VPTERNLOG[D|Q]` predicate and operations (AVX512+).
 
-#include "core.h"
+#include <asmjit/core.h>
 
-#include "asmjit-scope-begin.h"
-#include "x86/x86assembler.h"
-#include "x86/x86builder.h"
-#include "x86/x86compiler.h"
-#include "x86/x86emitter.h"
-#include "x86/x86globals.h"
-#include "x86/x86instdb.h"
-#include "x86/x86operand.h"
-#include "asmjit-scope-end.h"
+#include <asmjit/asmjit-scope-begin.h>
+#include <asmjit/x86/x86assembler.h>
+#include <asmjit/x86/x86builder.h>
+#include <asmjit/x86/x86compiler.h>
+#include <asmjit/x86/x86emitter.h>
+#include <asmjit/x86/x86globals.h>
+#include <asmjit/x86/x86instdb.h>
+#include <asmjit/x86/x86operand.h>
+#include <asmjit/asmjit-scope-end.h>
 
 #endif // ASMJIT_X86_H_INCLUDED

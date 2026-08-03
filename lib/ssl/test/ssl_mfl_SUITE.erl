@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +25,7 @@
 
 -include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
--include("ssl_record.hrl").
+-include_lib("ssl/src/ssl_record.hrl").
 
 %% Common test
 -export([all/0,
@@ -59,12 +61,13 @@ all() ->
      {group, 'dtlsv1'}].
 
 groups() ->
-    [{'tlsv1.3', [], common_tests()},
-     {'tlsv1.2', [], common_tests() ++ pre_tls_1_3()},
-     {'tlsv1.1', [], common_tests() ++ pre_tls_1_3()},
-     {'tlsv1', [], common_tests() ++ pre_tls_1_3()},
-     {'dtlsv1.2', [], common_tests() ++ pre_tls_1_3()},
-     {'dtlsv1', [], common_tests() ++ pre_tls_1_3()}
+    [{'tlsv1.3', [parallel], common_tests()},
+     {'tlsv1.2', [parallel], common_tests() ++ pre_tls_1_3()},
+     {'tlsv1.1', [parallel], common_tests() ++ pre_tls_1_3()},
+     {'tlsv1', [parallel], common_tests() ++ pre_tls_1_3()},
+     {'dtlsv1.2', [parallel], common_tests() ++ pre_tls_1_3()},
+     {'dtlsv1', [parallel], common_tests() ++ pre_tls_1_3()},
+     {transport_socket, [parallel], common_tests()}
     ].
 
 common_tests() ->

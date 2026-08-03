@@ -1,3 +1,23 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2009-2026. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
@@ -16,9 +36,11 @@ MODULES= \
 	binref \
 	c_SUITE \
 	calendar_SUITE \
+	calendar_prop_SUITE \
 	dets_SUITE \
 	dict_SUITE \
 	dict_test_lib \
+	graph_SUITE \
 	digraph_SUITE \
 	digraph_utils_SUITE \
 	dummy1_h \
@@ -52,6 +74,7 @@ MODULES= \
 	gen_statem_SUITE \
 	id_transform_SUITE \
 	io_SUITE \
+	io_ansi_SUITE \
 	io_proto_SUITE \
 	json_SUITE \
 	lists_SUITE \
@@ -68,8 +91,10 @@ MODULES= \
 	queue_property_test_SUITE \
 	rand_SUITE \
 	random_SUITE \
+	records_SUITE \
 	re_SUITE \
 	run_pcre_tests \
+	run_old_pcre1_tests \
 	re_testoutput1_replacement_test \
 	re_testoutput1_split_test \
 	slave_SUITE \
@@ -110,16 +135,22 @@ MODULES= \
 	random_iolist \
 	error_logger_forwarder \
 	maps_SUITE \
+	zstd_SUITE \
 	zzz_SUITE
 
 ERTS_MODULES= erts_test_utils
 SASL_MODULES= otp_vsns
-KERNEL_MODULES= rtnode
+KERNEL_MODULES= rtnode shell_test_lib
+KERNEL_HRL= shell_test_lib
+
+DOCTEST_MARKDOWN = ../doc/guides/uri_string_usage.md
+DOCTEST_NATIVE_RECORDS_MARKDOWN = $(ERL_TOP)/system/doc/reference_manual/ref_man_native_records.md
 
 ERL_FILES=	$(MODULES:%=%.erl) \
 		$(ERTS_MODULES:%=$(ERL_TOP)/erts/emulator/test/%.erl) \
 		$(SASL_MODULES:%=$(ERL_TOP)/lib/sasl/test/%.erl) \
-		$(KERNEL_MODULES:%=$(ERL_TOP)/lib/kernel/test/%.erl)
+		$(KERNEL_MODULES:%=$(ERL_TOP)/lib/kernel/test/%.erl) \
+		$(KERNEL_HRL:%=$(ERL_TOP)/lib/kernel/test/%.hrl)
 
 EXTRA_FILES= $(ERL_TOP)/otp_versions.table
 
@@ -163,7 +194,7 @@ docs:
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
@@ -174,7 +205,16 @@ release_tests_spec: make_emakefile
 		$(ERL_FILES) $(COVERFILE) $(EXTRA_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
+	$(INSTALL_DIR) "$(RELSYSDIR)/unicode_SUITE_data"
+	$(INSTALL_DATA) ../uc_spec/PropList.txt ../uc_spec/DerivedCoreProperties.txt \
+	       "$(RELSYSDIR)/unicode_SUITE_data"
 	$(INSTALL_DIR) "$(RELSYSDIR)/stdlib_SUITE_data"
 	$(INSTALL_DATA) $(ERL_TOP)/make/otp_version_tickets "$(RELSYSDIR)/stdlib_SUITE_data"
+	$(INSTALL_DIR) "$(RELSYSDIR)/uri_string_SUITE_data"
+	$(INSTALL_DATA) $(DOCTEST_MARKDOWN) "$(RELSYSDIR)/uri_string_SUITE_data"
+	$(INSTALL_DIR) "$(RELSYSDIR)/records_SUITE_data"
+	$(INSTALL_DATA) $(DOCTEST_NATIVE_RECORDS_MARKDOWN) "$(RELSYSDIR)/records_SUITE_data"
+
+	cd ../examples && $(MAKE) $@
 
 release_docs_spec:

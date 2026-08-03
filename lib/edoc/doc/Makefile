@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2004-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,10 +36,10 @@ assets/edoc.dtd:
 	$(V_at)cp "../priv/edoc.dtd" "$@"
 
 
-## Include SOURCES, HRL_FILES and YRL_FILES
+## Include ERL_FILES, HRL_FILES and YRL_FILES
 include ../src/files.mk
 
-NO_PARSE_SOURCES=$(filter-out edoc_parser.erl, $(SOURCES))
+NO_PARSE_SOURCES=$(filter-out edoc_parser.erl, $(ERL_FILES))
 CHUNK_FILES=$(NO_PARSE_SOURCES:%.erl=$(CHUNKSDIR)/%.chunk) $(YRL_FILES:%.yrl=$(CHUNKSDIR)/%.chunk)
 
 $(HTMLDIR)/index.html: assets/edoc_doclet.hrl assets/edoc.dtd $(CHUNK_FILES)

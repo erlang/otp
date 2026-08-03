@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,7 +31,7 @@ version scheme used is described in detail in
 [Version Scheme](versions.md#version_scheme).
 
 OTP of a specific version is a set of applications of specific versions. The
-application versions identified by an OTP version corresponds to application
+application versions identified by an OTP version correspond to application
 versions that have been tested together by the Erlang/OTP team at Ericsson AB.
 An OTP system can, however, be put together with applications from different OTP
 versions. Such a combination of application versions has not been tested by the
@@ -48,7 +50,7 @@ constructed by calling
 
 In an installed OTP development system, the OTP version can be read from the
 text file `<OTP installation root>/releases/<OTP release number>/OTP_VERSION`.
-The absolute path to the file can by constructed by calling
+The absolute path to the file can be constructed by calling
 `filename:join([`[`code:root_dir()`](`code:root_dir/0`)`, "releases", `[`erlang:system_info(otp_release)`](`m:erlang#system_info_otp_release`)`, "OTP_VERSION"]).`
 
 If the version read from the `OTP_VERSION` file in a development system has a
@@ -80,7 +82,7 @@ that are part of a specific OTP version, and has the following format:
 to identify the source.
 
 `<ChangedAppVersions>` and `<UnchangedAppVersions>` are space-separated lists of
-application versions and has the format `<application>-<vsn>`.
+application versions and have the format `<application>-<vsn>`.
 
 - `<ChangedAppVersions>` corresponds to changed applications with new version
   numbers in this OTP version.
@@ -132,7 +134,7 @@ Normally, a version is constructed as `<Major>.<Minor>.<Patch>`, where
 dot-separated parts are possible.
 
 The dot-separated parts consist of non-negative integers. If all parts
-less significant than `<Minor>` equals `0`, they are omitted. The
+less significant than `<Minor>` equal `0`, they are omitted. The
 three normal parts `<Major>.<Minor>.<Patch>` are changed as follows:
 
 - `<Major>` - Increases when major changes, including incompatibilities, are
@@ -172,7 +174,7 @@ ancestor. When branching multiple times from the same base version,
 can be compared as described in the previous paragraph.
 
 An example of branched versions: The version `6.0.2.1` is a branched version
-from the base version `6.0.2`. Versions on the form `6.0.2.<X>` can be compared
+from the base version `6.0.2`. Versions of the form `6.0.2.<X>` can be compared
 with normal versions smaller than or equal to `6.0.2`, and other versions on the
 form `6.0.2.<X>`. The version `6.0.2.1` will include all changes in `6.0.2`.
 However, `6.0.3` will most likely _not_ include all changes in `6.0.2.1` (note
@@ -196,9 +198,9 @@ usually contain more changes than emergency patch packages. Emergency patch
 packages are released to solve one or more specific issues when such are
 discovered.
 
-The release of a maintenance patch package usually imply an increase
+The release of a maintenance patch package usually implies an increase
 of the OTP `<Minor>` version, while the release of an emergency patch
-package usually imply an increase of the OTP `<Patch>`
+package usually implies an increase of the OTP `<Patch>`
 version. However, this is not always the case, as changes in OTP
 versions are determined by actual code modifications rather than
 whether the patch was planned or not. For more information see

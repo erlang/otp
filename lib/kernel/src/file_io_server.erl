@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,8 @@
 %%
 -module(file_io_server).
 -moduledoc false.
+
+-compile(nowarn_deprecated_catch).
 
 %% A simple file server for io to one file instance per server instance.
 
@@ -928,7 +932,7 @@ cbv({utf32,big}, <<0:8>>) ->
 cbv({utf32,big}, <<0:8,X:8>>) when X =< 16 ->
     2;
 cbv({utf32,big}, <<0:8,X:8,Y:8>>) 
-  when X =< 16, ((X > 0) or ((Y =< 215) or (Y >= 224))) ->
+  when X =< 16, X > 0 orelse Y =< 215 orelse Y >= 224 ->
     1;
 cbv({utf32,big},_) ->
     false;
@@ -939,7 +943,7 @@ cbv({utf32,little},<<_:8,_:8>>) ->
 cbv({utf32,little},<<X:8,255:8,0:8>>) when X =:= 254; X =:= 255 ->
     false;
 cbv({utf32,little},<<_:8,Y:8,X:8>>) 
-  when X =< 16, ((X > 0) or ((Y =< 215) or (Y >= 224))) ->
+  when X =< 16, X > 0 orelse Y =< 215 orelse Y >= 224 ->
     1;
 cbv({utf32,little},_) ->
     false.

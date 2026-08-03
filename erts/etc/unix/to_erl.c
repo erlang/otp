@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
+ *
+ * SPDX-License-Identifier: Apache-2.0
  * 
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -351,16 +353,12 @@ int main(int argc, char **argv)
     show_terminal_settings(&tty_smode);
 #endif
     /*
-     * 	 "Write a ^L to the FIFO which causes the other end to redisplay
-     *    the input line."
-     * This does not seem to work as was intended in old comment above.
-     * However, this control character is now (R12B-3) used by run_erl
-     * to trigger the version handshaking between to_erl and run_erl
-     * at the start of every new to_erl-session.
+     * Write ^[l to the FIFO. This trigger the version handshaking
+     * between to_erl and run_erl and a redraw in erl, at the start
+     * of every new to_erl-session.
      */
-
-    if (write(wfd, "\014", 1) < 0) {
-	fprintf(stderr, "Error in writing ^L to FIFO.\n");
+    if (write(wfd, "\033l", 2) < 0) {
+        fprintf(stderr, "Error in writing ^[l to FIFO.\n");
     }
 
     /*

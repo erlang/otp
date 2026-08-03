@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,10 +23,10 @@ limitations under the License.
 
 ## The Erlang Shell
 
-Most operating systems have a command interpreter or shell, UNIX and Linux have
-many, Windows has the command prompt, powershell and more. Erlang has its own shell
-where bits of Erlang code can be written directly, and be evaluated to see what happens (see
-the `m:shell` manual page in STDLIB).
+Most operating systems have a command interpreter or shell. UNIX and Linux have
+many. Windows has the command prompt, PowerShell, and more. Erlang has its own
+shell where you can write and evaluate bits of Erlang code directly (see the
+`m:shell` manual page in STDLIB).
 
 Start the Erlang shell (in Linux or UNIX) by starting a shell or command
 interpreter in your operating system and typing `erl`. You will see something
@@ -32,9 +34,9 @@ like this.
 
 ```text
 $ erl
-Erlang R15B (erts-5.9.1) [source] [smp:8:8] [rq:8] [async-threads:0] [hipe] [kernel-poll:false]
+Erlang/OTP 28 [erts-16.3] [source] [64-bit] [smp:16:16] [ds:16:16:10] [async-threads:1] [jit:ns]
 
-Eshell V5.9.1  (abort with ^G)
+Eshell V16.3 (press Ctrl+G to abort, type help(). for help)
 1>
 ```
 
@@ -48,8 +50,8 @@ and a carriage return.
 2> 
 ```
 
-As shown, the Erlang shell numbers the lines that can be entered, (as 1> 2>) and
-that it correctly says that 2 + 5 is 7. If you make writing mistakes in the
+As shown, the Erlang shell numbers the lines that can be entered (as `1>`, `2>`, ...)
+and correctly says that 2 + 5 is 7. If you make writing mistakes in the
 shell, you can delete with the backspace key, as in most shells. There are many
 more editing commands in the shell (see
 [tty - A command line interface](`e:erts:tty.md`) in ERTS User's Guide).
@@ -91,10 +93,10 @@ $
 
 ## Modules and Functions
 
-A programming language is not much use if you only can run code from the shell.
+A programming language is not much use if you can only run code from the shell.
 So here is a small Erlang program. Enter it into a file named `tut.erl` using a
 suitable text editor. The file name `tut.erl` is important, and also that it is
-in the same directory as the one where you started `erl`). If you are lucky your
+in the same directory as the one where you started `erl`. If you are lucky, your
 editor has an Erlang mode that makes it easier for you to enter and format your
 code nicely (see [The Erlang mode for Emacs](`e:tools:erlang_mode_chapter.md`)
 in Tools User's Guide), but you can manage perfectly well without. Here is the
@@ -119,7 +121,7 @@ This can be done in an Erlang shell as follows, where `c` means compile:
 
 The `{ok,tut}` means that the compilation is OK. If it says `error` it means
 that there is some mistake in the text that you entered. Additional error
-messages gives an idea to what is wrong so you can modify the text and then try
+messages give an idea about what is wrong so you can modify the text and then try
 to compile the program again.
 
 Now run the program:
@@ -162,7 +164,7 @@ module `tut`. More about this later. Again, notice the `.` at the end of the
 line.
 
 Now for a more complicated example, the factorial of a number. For example, the
-factorial of 4 is 4 _ 3 _ 2 * 1, which equals 24.
+factorial of 4 is `4 * 3 * 2 * 1`, which equals 24.
 
 Enter the following code in a file named `tut1.erl`:
 
@@ -176,10 +178,10 @@ fac(N) ->
     N * fac(N - 1).
 ```
 
-So this is a module, called `tut1` that contains a function called `fac>`, which
+So this is a module called `tut1` that contains a function called `fac`, which
 takes one argument, `N`.
 
-The first part says that the factorial of 1 is 1.:
+The first part says that the factorial of 1 is 1:
 
 ```erlang
 fac(1) ->
@@ -187,7 +189,7 @@ fac(1) ->
 ```
 
 Notice that this part ends with a semicolon `;` that indicates that there is
-more of the function `fac>` to come.
+more of the function `fac` to come.
 
 The second part says that the factorial of N is N multiplied by the factorial of
 N - 1:
@@ -214,7 +216,7 @@ And now calculate the factorial of 4.
 24
 ```
 
-Here the function `fac>` in module `tut1` is called with argument `4`.
+Here the function `fac` in module `tut1` is called with argument `4`.
 
 A function can have many arguments. Let us expand the module `tut1` with the
 function to multiply two numbers:
@@ -256,12 +258,12 @@ variables are `Number`, `ShoeSize`, and `Age`.
 
 ## Atoms
 
-Atom is another data type in Erlang. Atoms start with a small letter (see
+Atoms are another data type in Erlang. Atoms start with a lowercase letter (see
 [Atom](`e:system:data_types.md`)), for example, `charles`, `centimeter`, and
 `inch`. Atoms are simply names, nothing else. They are not like variables, which
 can have a value.
 
-Enter the next program in a file named `tut2.erl`). It can be useful for
+Enter the next program in a file named `tut2.erl`. It can be useful for
 converting from inches to centimeters and conversely:
 
 ```erlang
@@ -336,7 +338,7 @@ curly brackets, `{` and `}`.
 
 So, `{inch,3}` denotes 3 inches and `{centimeter,5}` denotes 5 centimeters. Now
 let us write a new program that converts centimeters to inches and conversely.
-Enter the following code in a file called `tut3.erl`):
+Enter the following code in a file called `tut3.erl`:
 
 ```erlang
 -module(tut3).
@@ -359,8 +361,8 @@ Compile and test:
 {inch,5.0}
 ```
 
-Notice on line 16 that 5 inches is converted to centimeters and back again and
-reassuringly get back to the original value. That is, the argument to a function
+Notice on line 16 that 5 inches are converted to centimeters and back again,
+yielding the original value. This also shows that the argument to a function
 can be the result of another function. Consider how line 16 (above) works. The
 argument given to the function `{inch,5}` is first matched against the first
 head clause of `convert_length`, that is, `convert_length({centimeter,X})`. It
@@ -384,7 +386,7 @@ is `{c,-10}`. Here `c` represents Celsius and `f` Fahrenheit.
 
 ## Lists
 
-Whereas tuples group things together, it is also needed to represent lists of
+Whereas tuples group things together, it is also necessary to represent lists of
 things. Lists in Erlang are surrounded by square brackets, `[` and `]`. For
 example, a list of the temperatures of various cities in the world can be:
 
@@ -397,7 +399,7 @@ Notice that this list was so long that it did not fit on one line. This does not
 matter, Erlang allows line breaks at all "sensible places" but not, for example,
 in the middle of atoms, integers, and others.
 
-A useful way of looking at parts of lists, is by using `|`. This is best
+A useful way of looking at parts of lists is by using `|`. This is best
 explained by an example using the shell:
 
 ```erlang
@@ -409,8 +411,8 @@ explained by an example using the shell:
 [2,3,4,5]
 ```
 
-To separate the first elements of the list from the rest of the list, `|` is
-used. `First` has got value `1` and `TheRest` has got the value `[2,3,4,5]`.
+To separate the first element of the list from the rest of the list, `|` is
+used. `First` has the value `1` and `TheRest` has the value `[2,3,4,5]`.
 
 Another example:
 
@@ -517,7 +519,7 @@ Let us jump straight into the deep end with an example using some interesting
 features.
 
 The following example shows how to calculate alpha blending using maps to
-reference color and alpha channels. Enter the code in a file named `color.erl`):
+reference color and alpha channels. Enter the code in a file named `color.erl`:
 
 ```erlang
 -module(color).
@@ -640,7 +642,7 @@ existing key with a new value is with the `:=` operator.
 Erlang has many standard modules to help you do things. For example, the module
 `m:io` contains many functions that help in doing formatted input/output. To look
 up information about standard modules, the command `h(..)` can be used at the
-erlang shell. Try the erlang shell command:
+Erlang shell. Try the Erlang shell command:
 
 ```text
 1> h(io).
@@ -682,7 +684,7 @@ ok
 The function `io:format/2` (that is, `format` with two arguments) takes two lists.
 The first one is nearly always a list written between `" "`. This list is printed
 out as it is, except that each `~w` is replaced by a term taken in order from the
-second list. Each ~n is replaced by a new line. The `io:format/2` function
+second list. Each `~n` is replaced by a new line. The `io:format/2` function
 itself returns the atom `ok` if everything goes as planned. Like other functions
 in Erlang, it crashes if an error occurs. This is not a fault in Erlang, it is a
 deliberate policy. Erlang has sophisticated mechanisms to handle errors which
@@ -745,7 +747,7 @@ When `format_temps` is called the first time, `City` gets the value
 `{moscow,{c,-10}}` and `Rest` is the rest of the list. So the function
 `print_temp(convert_to_celsius({moscow,{c,-10}}))` is called.
 
-Here is a function call as `convert_to_celsius({moscow,{c,-10}})` as the
+Here is a function call with `convert_to_celsius({moscow,{c,-10}})` as the
 argument to the function `print_temp`. When function calls are _nested_ like
 this, they execute (evaluate) from the inside out. That is, first
 `convert_to_celsius({moscow,{c,-10}})` is evaluated, which gives the value
@@ -808,7 +810,7 @@ value of the head of the list. In the above this would be
 `list_max([2,3,4,5,7,4,3,2,1],1)`. If you tried to use `list_max/1` with an
 empty list or tried to use it with something that is not a list at all, you
 would cause an error. Notice that the Erlang philosophy is not to handle errors
-of this type in the function they occur, but to do so elsewhere. More about this
+of this type in the function in which they occur, but to do so elsewhere. More about this
 later.
 
 In `list_max/2`, you walk down the list and use `Head` instead of
@@ -832,7 +834,7 @@ Some useful operators in guards are:
 (see [Guard Sequences](`e:system:expressions.md`)).
 
 To change the above program to one that works out the minimum value of the
-element in a list, you only need to write < instead of >. (But it would be wise
+elements in a list, you only need to write `<` instead of `>`. (But it would be wise
 to change the name of the function to `list_min`.)
 
 Earlier it was mentioned that a variable can only be given a value once in its
@@ -841,8 +843,8 @@ is OK since every time you call `list_max/2` you create a new scope and one can
 regard `Result_so_far` as a different variable in each scope.
 
 Another way of creating and giving a variable a value is by using the match
-operator = . So if you write `M = 5`, a variable called `M` is created with the
-value 5. If, in the same scope, you then write `M = 6`, an error is returned.
+operator `=`. So if you write `M = 5`, a variable called `M` is created with the
+value `5`. If, in the same scope, you then write `M = 6`, an error is returned.
 Try this out in the shell:
 
 ```erlang
@@ -934,15 +936,15 @@ reverse([], Reversed_List) ->
 ```
 
 Consider how `Reversed_List` is built. It starts as [], then successively the
-heads are taken off of the list to be reversed and added to the the
+heads are taken off of the list to be reversed and added to the
 `Reversed_List`, as shown in the following:
 
 ```erlang
-reverse([1|2,3], []) =>
+reverse([1|[2,3]], []) =>
     reverse([2,3], [1|[]])
 
-reverse([2|3], [1]) =>
-    reverse([3], [2|[1])
+reverse([2|[3]], [1]) =>
+    reverse([3], [2|[1]])
 
 reverse([3|[]], [2,1]) =>
     reverse([], [3|[2,1]])
@@ -953,7 +955,7 @@ reverse([], [3,2,1]) =>
 
 The module `lists` contains many functions for manipulating lists, for example,
 for reversing them. So before writing a list-manipulating function it is a good
-idea to check if one not already is written for you (see the `m:lists` manual
+idea to check if one has not already been written for you (see the `m:lists` manual
 page in STDLIB).
 
 Now let us get back to the cities and temperatures, but take a more structured
@@ -1000,7 +1002,7 @@ format_temps(List_of_cities) ->
 
 Here `format_temps/1` calls `convert_list_to_c/1`. `convert_list_to_c/1` takes
 off the head of the `List_of_cities`, converts it to Celsius if needed. The `|`
-operator is used to add the (maybe) converted to the converted rest of the list:
+operator is used to add the (maybe converted) value to the rest of the list:
 
 ```erlang
 [Converted_City | convert_list_to_c(Rest)];
@@ -1137,9 +1139,9 @@ ok
 ## If and Case
 
 The function `find_max_and_min` works out the maximum and minimum temperature. A
-new construct, `if`, is introduced here. If works as follows:
+new construct, `if`, is introduced here. `if` works as follows:
 
-```c
+```erlang
 if
     Condition 1 ->
         Action 1;
@@ -1304,7 +1306,7 @@ month_length(Year, Month) ->
 BIFs are functions that for some reason are built-in to the Erlang virtual
 machine. BIFs often implement functionality that is impossible or is too
 inefficient to implement in Erlang. Some BIFs can be called using the function
-name only but they are by default belonging to the `erlang` module. For example,
+name only, but by default they belong to the `erlang` module. For example,
 the call to the BIF `trunc` below is equivalent to a call to `erlang:trunc`.
 
 As shown, first it is checked if a year is leap. If a year is divisible by 400,
@@ -1326,9 +1328,9 @@ trunc(5.0) = 5
 5 * 400 = 2000
 ```
 
-That is, a leap year. The next two `trunc`\-tests evaluate if the year is
+That is, a leap year. The next two `trunc`-tests evaluate if the year is
 divisible by 100 or 4 in the same way. The first `if` returns `leap` or
-`not_leap`, which lands up in the variable `Leap`. This variable is used in the
+`not_leap`, which ends up in the variable `Leap`. This variable is used in the
 guard for `feb` in the following `case` that tells us how long the month is.
 
 This example showed the use of `trunc`. It is easier to use the Erlang operator
@@ -1405,9 +1407,11 @@ functions. Here is an example using the shell:
 10
 ```
 
-Here is defined a function that doubles the value of a number and assigned this
-function to a variable. Thus `Xf(5)` returns value 10. Two useful functions when
-working with lists are `foreach` and `map`, which are defined as follows:
+Here a function that doubles the value of a number is defined and assigned to
+a variable. Thus `Xf(5)` returns value 10.
+
+Two useful functions when working with lists are `foreach` and `map`, which
+are defined as follows:
 
 ```erlang
 foreach(Fun, [First|Rest]) ->
@@ -1422,10 +1426,10 @@ map(Fun, []) ->
     [].
 ```
 
-These two functions are provided in the standard module `lists`. `foreach` takes
+These two functions are provided in the standard library module `lists`. `foreach` takes
 a list and applies a fun to every element in the list. `map` creates a new list
 by applying a fun to every element in a list. Going back to the shell, `map` is
-used and a fun to add 3 to every element of a list:
+used with a fun to add 3 to every element of a list:
 
 ```erlang
 88> Add_3 = fun(X) -> X + 3 end.
@@ -1484,8 +1488,8 @@ lists:map(fun convert_to_c/1, List)
 ```
 
 When a function defined elsewhere is used as a fun, it can be referred to as
-`Function/Arity` (remember that `Arity` = number of arguments). So in the
-`map`\-call `lists:map(fun convert_to_c/1, List)` is written. As shown,
+`fun Function/Arity` (remember that `Arity` = number of arguments). That is
+why `fun convert_to_c/1` can be used in the call above. As shown,
 `convert_list_to_c` becomes much shorter and easier to understand.
 
 The standard module `lists` also contains a function `sort(Fun, List)` where

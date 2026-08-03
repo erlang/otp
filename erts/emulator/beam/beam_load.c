@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -170,6 +172,10 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
         BeamLoadError0(stp, "corrupt locals table");
     case BEAMFILE_READ_CORRUPT_TYPE_TABLE:
         BeamLoadError0(stp, "corrupt type table");
+    case BEAMFILE_READ_CORRUPT_DEBUG_TABLE:
+        BeamLoadError0(stp, "corrupt BEAM debug information table");
+    case BEAMFILE_READ_CORRUPT_RECORD_TABLE:
+        BeamLoadError0(stp, "corrupt record table");
     case BEAMFILE_READ_SUCCESS:
         break;
     }
@@ -194,8 +200,16 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
          *
          * We know that because OTP 23/24/25/26 artifically set the
          * highest used op code to the op code for the `swap`
-         * instruction introduced in OTP 23. (OTP 27 artificially sets
-         * the highest op code to `make_fun3` introduced in OTP 24.)
+         * instruction introduced in OTP 23.
+         *
+         * Newer releases sets the highest op code like this:
+         *
+         * Release  Highest op code (introduced in)
+         * -------  --------------- ---------------
+         * OTP 27   make_fun3       (OTP 24)
+         * OTP 28   bs_create_bin   (OTP 25)
+         * OTP 29   update_record   (OTP 26)
+         * OTP 30   executable_line (OTP 27)
          *
          * Old BEAM files produced by OTP R12 and earlier may be
          * incompatible with the current runtime system. We used to
@@ -207,7 +221,7 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
                        "This BEAM file was compiled for an old version of "
                        "the runtime system.\n"
                        "  To fix this, please re-compile this module with "
-                       "Erlang/OTP 24 or later.\n");
+                       "Erlang/OTP 25 or later.\n");
     }
 
     if (!load_code(stp)) {
@@ -281,6 +295,8 @@ erts_finish_loading(Binary* magic, Process* c_p,
 
                 ASSERT(ep->trampoline.breakpoint.address == 0);
             }
+            ASSERT(!erts_export_is_bif_traced(ep));
+            ep->is_bif_traced = 0;
         }
         ASSERT(mod_tab_p->curr.num_breakpoints == 0);
         ASSERT(mod_tab_p->curr.num_traced_exports == 0);
@@ -499,6 +515,8 @@ static int load_code(LoaderState* stp)
             int specific, arity, arg, i;
             Uint32 mask[3] = {0, 0, 0};
 
+            ERTS_UNDEF(arity, 0); /* Suppress warning. */
+
             if (num_specific != 0) {
                 /* The `bs_append` instruction made obsolete in
                  * Erlang/OTP 28 has 8 operands. Therefore, the if
@@ -580,6 +598,9 @@ static int load_code(LoaderState* stp)
                  * the instruction is obsolete.
                  */
                 if (num_specific == 0 && gen_opc[tmp_op->op].transform == 0) {
+                    beamopallocator_free_op(&stp->op_allocator,
+                                            stp->genop);
+                    stp->genop = NULL;
                     BeamLoadError0(stp, PLEASE_RECOMPILE);
                 }
 
@@ -616,6 +637,9 @@ static int load_code(LoaderState* stp)
                         }
                     }
                 default:
+                    beamopallocator_free_op(&stp->op_allocator,
+                                            stp->genop);
+                    stp->genop = NULL;
                     BeamLoadError0(stp, "no specific operation found");
                 }
             }
@@ -672,24 +696,6 @@ erts_release_literal_area(ErtsLiteralArea* literal_area)
             {
                 Binary *bin = ((BinRef*)oh)->val;
                 erts_bin_release(bin);
-                break;
-            }
-        case FUN_REF_SUBTAG:
-            {
-                ErlFunEntry* fe = ((FunRef*)oh)->entry;
-
-                /* All fun entries are NULL during module loading, before the
-                 * code is finalized, so we need to tolerate it to avoid
-                 * crashing in the prepared code destructor.
-                 *
-                 * Strictly speaking it would be nice to crash when we see this
-                 * outside of loading, but it's too complicated to keep track
-                 * of whether we are. */
-                if (fe != NULL) {
-                    if (erts_refc_dectest(&fe->refc, 0) == 0) {
-                        erts_erase_fun_entry(fe);
-                    }
-                }
                 break;
             }
         case REF_SUBTAG:

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2024-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2024-2026. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,40 +20,33 @@
 %% %CopyrightEnd%
 %%
 
-%% There are some environment variables that can be used to "manipulate"
-%% the test suite: 
-%%
-%% Variable that controls which 'groups' are to run (with default values)
-%%
-%%         ESOCK_TEST_TRAFFIC_COUNTERS:   include
-%%         ESOCK_TEST_TRAFFIC_CHUNKS:     include
-%%         ESOCK_TEST_TRAFFIC_PING_PONG:  include
-%%
 %% Variable that controls "verbosity" of the test case(s):
 %%
 %%         ESOCK_TEST_QUIET: true (default) | false
 %%
 
 %% Run the entire test suite: 
-%% ts:run(kernel, socket_SUITE, [batch]).
+%% ts:run(kernel, socket_traffic_SUITE, [batch]).
 %%
 %% Run a specific group:
-%% ts:run(kernel, socket_SUITE, {group, foo}, [batch]).
+%% ts:run(kernel, socket_traffic_SUITE, {group, foo}, [batch]).
 %%
 %% Run a specific test case:
-%% ts:run(kernel, socket_SUITE, foo, [batch]).
+%% ts:run(kernel, socket_traffic_SUITE, foo, [batch]).
 %%
 %% (cd /mnt/c/$LOCAL_TESTS/26/kernel_test/ && $ERL_TOP/bin/win32/erl.exe -sname kernel-26-tester -pa c:$LOCAL_TESTS/26/test_server)
 %% application:set_env(kernel, test_inet_backends, true).
+%%
 %% S = fun() -> ts:run(kernel, socket_SUITE, [batch]) end.
 %% S = fun(SUITE) -> ts:run(kernel, SUITE, [batch]) end.
-%% S = fun() -> ct:run_test([{suite, socket_SUITE}]) end.
-%% S = fun(SUITE) -> ct:run_test([{suite, SUITE}]) end.
 %% G = fun(GROUP) -> ts:run(kernel, socket_SUITE, {group, GROUP}, [batch]) end.
 %% G = fun(SUITE, GROUP) -> ts:run(kernel, SUITE, {group, GROUP}, [batch]) end.
+%% T = fun(TC) -> ts:run(kernel, socket_SUITE, TC, [batch]) end.
+%%
+%% S = fun() -> ct:run_test([{suite, socket_SUITE}]) end.
+%% S = fun(SUITE) -> ct:run_test([{suite, SUITE}]) end.
 %% G = fun(GROUP) -> ct:run_test([{suite, socket_SUITE}, {group, GROUP}]) end.
 %% G = fun(SUITE, GROUP) -> ct:run_test([{suite, SUITE}, {group, GROUP}]) end.
-%% T = fun(TC) -> ts:run(kernel, socket_SUITE, TC, [batch]) end.
 %% T = fun(TC) -> ct:run_test([{suite, socket_SUITE}, {testcase, TC}]) end.
 %% T = fun(S, TC) -> ct:run_test([{suite, S}, {testcase, TC}]) end.
 %% T = fun(S, G, TC) -> ct:run_test([{suite, S}, {group, G}, {testcase, TC}]) end.
@@ -66,6 +61,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 -include("socket_test_evaluator.hrl").
+-include("socket_test_lib.hrl").
 -include("kernel_test_lib.hrl").
 
 %% Suite exports
@@ -76,7 +72,7 @@
 
 %% Test cases
 -export([
-         %% *** Traffic ***
+         %% *** Counters ***
          traffic_send_and_recv_counters_tcp4/1,
          traffic_send_and_recv_counters_tcp6/1,
          traffic_send_and_recv_counters_tcpL/1,
@@ -94,12 +90,14 @@
          traffic_sendmsg_and_recvmsg_counters_udp6/1,
          traffic_sendmsg_and_recvmsg_counters_udpL/1,
 
+         %% *** Chunks ***
          traffic_send_and_recv_chunks_tcp4/1,
          traffic_send_and_recv_chunks_tcp6/1,
          traffic_send_and_recv_chunks_tcpL/1,
          traffic_send_and_recv_chunks_sctp4/1,
          traffic_send_and_recv_chunks_sctp6/1,
 
+         %% *** Ping Pong ***
          traffic_ping_pong_small_send_and_recv_tcp4/1,
          traffic_ping_pong_small_send_and_recv_tcp6/1,
          traffic_ping_pong_small_send_and_recv_tcpL/1,
@@ -144,19 +142,30 @@
          traffic_ping_pong_small_sendmsg_and_recvmsg_udpL/1,
          traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4/1,
          traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6/1,
-         traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL/1
+         traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL/1,
+
+         %% *** Bench ***
+         traffic_bench_sendv_and_recv_tcp4/1,
+         traffic_bench_send_and_recv_tcp4/1,
+         traffic_bench_sendv_and_recv_tcp6/1,
+         traffic_bench_send_and_recv_tcp6/1,
+         traffic_bench_sendv_and_recv_tcpL/1,
+         traffic_bench_send_and_recv_tcpL/1
         ]).
 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--define(SLIB,       socket_test_lib).
 -define(KLIB,       kernel_test_lib).
 -define(LOGGER,     socket_test_logger).
 
 -define(DATA,       <<"HOPPSAN">>). % Temporary
 -define(FAIL(R),    exit(R)).
+
+%% We should never have to wait any significant time.
+%% The point is to *not* have the test case time out.
+-define(TPP_SEND_TIMEOUT, 5000).
 
 -define(TPP_SMALL,  lists:seq(1, 8)).
 -define(TPP_MEDIUM, lists:flatten(lists:duplicate(100, ?TPP_SMALL))).
@@ -168,6 +177,9 @@
 -define(TPP_NUM(Config, Base), (Base) div lookup(kernel_factor, 1, Config)).
 
 
+-define(BENCH_SUITE, socket_traffic).
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 suite() ->
@@ -175,10 +187,41 @@ suite() ->
      {timetrap, {minutes,1}}].
 
 all() -> 
-    Groups = [{counters,  "ESOCK_TEST_TRAFFIC_COUNTERS",  include},
-              {chunks,    "ESOCK_TEST_TRAFFIC_CHUNKS",    include},
-              {ping_pong, "ESOCK_TEST_TRAFFIC_PING_PONG", include}],
-    [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
+    [{group, standard}].
+
+
+groups() -> 
+    [
+     %% Top level "wrapper" groups
+     %% A normal (standard) test run will be running the 'suite'.
+     %% Which will run the 'standard' group, with all test cases but
+     %% the 'tbench' group of test cases will run with a short
+     %% run time.
+     %% A benchmark test run will run the 'bench' group directly,
+     %% with an "extended" run time.
+     %%
+     {standard,            [], standard_cases()},
+     {bench,               [], bench_cases()},
+
+     {counters,            [], traffic_counters_cases()},
+     {chunks,              [], traffic_chunks_cases()},
+     {ping_pong,           [], traffic_ping_pong_cases()},
+     {tbench,              [], traffic_bench_cases()},
+     {pp_send_recv,        [], traffic_pp_send_recv_cases()},
+     {pp_sendto_recvfrom,  [], traffic_pp_sendto_recvfrom_cases()},
+     {pp_sendmsg_recvmsg,  [], traffic_pp_sendmsg_recvmsg_cases()}
+    ].
+
+standard_cases() ->
+    GroupsEnv = [
+                 {counters,  "ESOCK_TEST_TRAFFIC_COUNTERS",  include},
+                 {chunks,    "ESOCK_TEST_TRAFFIC_CHUNKS",    include},
+                 {ping_pong, "ESOCK_TEST_TRAFFIC_PING_PONG", include},
+                 {tbench,    "ESOCK_TEST_TRAFFIC_BENCH",     include}
+                ],
+    Groups =
+        [use_group(Group, Env, Default) || {Group, Env, Default} <- GroupsEnv],
+    lists:flatten(Groups).
 
 use_group(_Group, undefined, exclude) ->
     [];
@@ -200,17 +243,12 @@ use_group(Group, Env, Default) ->
 			[]
 		end
 	end.
-    
 
-groups() -> 
-    [{counters,            [], traffic_counters_cases()},
-     {chunks,              [], traffic_chunks_cases()},
-     {ping_pong,           [], traffic_ping_pong_cases()},
-     {pp_send_recv,        [], traffic_pp_send_recv_cases()},
-     {pp_sendto_recvfrom,  [], traffic_pp_sendto_recvfrom_cases()},
-     {pp_sendmsg_recvmsg,  [], traffic_pp_sendmsg_recvmsg_cases()}
+
+bench_cases() ->
+    [
+     {group, tbench}
     ].
-     
 
 traffic_counters_cases() ->
     [
@@ -246,6 +284,16 @@ traffic_ping_pong_cases() ->
      {group, pp_send_recv},
      {group, pp_sendto_recvfrom},
      {group, pp_sendmsg_recvmsg}
+    ].
+
+traffic_bench_cases() ->
+    [
+     traffic_bench_sendv_and_recv_tcp4,
+     traffic_bench_send_and_recv_tcp4,
+     traffic_bench_sendv_and_recv_tcp6,
+     traffic_bench_send_and_recv_tcp6,
+     traffic_bench_sendv_and_recv_tcpL,
+     traffic_bench_send_and_recv_tcpL
     ].
 
 traffic_pp_send_recv_cases() ->
@@ -312,7 +360,8 @@ init_per_suite(Config0) ->
        "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
     
     try socket:info() of
-        #{} ->
+        #{load_nif_result := ok} ->
+	    ?P("~s -> socket nif loaded", [?FUNCTION_NAME]),
             case ?KLIB:init_per_suite(Config0) of
                 {skip, _} = SKIP ->
                     SKIP;
@@ -350,11 +399,22 @@ init_per_suite(Config0) ->
                                     {skip, "Failed starting logger"}
                             end
                     end
-            end
+            end;
+
+	#{load_nif_result := LoadRes} ->
+	    ?P("~s -> 'socket' not supperted"
+	       "~n   (socket) nif load result: ~p", [?FUNCTION_NAME, LoadRes]),
+	    {skip, "esock not supported (nif not loaded)"};
+	_ ->
+            ?P("~s -> 'socket' not supperted", [?FUNCTION_NAME]),
+	    {skip, "esock not supported"}
+
     catch
         error : notsup ->
+            ?P("~s -> 'socket' not supperted (error:notsup)", [?FUNCTION_NAME]),
             {skip, "esock not supported"};
         error : undef ->
+            ?P("~s -> 'socket' not supperted (error:undef)", [?FUNCTION_NAME]),
             {skip, "esock not configured"}
     end.
 
@@ -367,7 +427,7 @@ end_per_suite(Config0) ->
     %% Stop the local monitor
     kernel_test_sys_monitor:stop(),
 
-    (catch ?LOGGER:stop()),
+    ?CATCH_AND_IGNORE( ?LOGGER:stop() ),
 
     Config1 = ?KLIB:end_per_suite(Config0),
 
@@ -377,7 +437,31 @@ end_per_suite(Config0) ->
     Config1.
 
 
+init_per_group(standard = GroupName, Config) ->
+    ?P("init_per_group -> entry with"
+       "~n      GroupName: ~p"
+       "~n      Config:    ~p"
+       "~n   when"
+       "~n      Nodes:     ~p", [GroupName, Config, erlang:nodes()]),
+    [{category, GroupName} | Config];
+init_per_group(bench = GroupName, Config) ->
+    ?P("init_per_group -> entry with"
+       "~n      GroupName: ~p"
+       "~n      Config:    ~p"
+       "~n   when"
+       "~n      Nodes:     ~p", [GroupName, Config, erlang:nodes()]),
+    case proplists:get_value(category, Config, undefined) of
+        undefined ->
+            [{category, GroupName} | Config];
+        _ ->
+            Config
+    end;
 init_per_group(_GroupName, Config) ->
+    ?P("init_per_group -> entry with"
+       "~n      GroupName: ~p"
+       "~n      Config:    ~p"
+       "~n   when"
+       "~n      Nodes:     ~p", [_GroupName, Config, erlang:nodes()]),
     Config.
 
 end_per_group(_GroupName, Config) ->
@@ -422,7 +506,10 @@ traffic_send_and_recv_counters_tcp4(_Config) when is_list(_Config) ->
                    InitState = #{domain => inet,
                                  proto  => tcp,
                                  recv   => fun(S)    -> socket:recv(S)    end,
-                                 send   => fun(S, D) -> socket:send(S, D) end},
+                                 send   => fun(S, D) ->
+                                                   socket:send(S, D,
+                                                               ?TPP_SEND_TIMEOUT)
+                                           end},
                    ok = traffic_send_and_recv_stream(InitState)
            end).
 
@@ -435,13 +522,16 @@ traffic_send_and_recv_counters_tcp4(_Config) when is_list(_Config) ->
 
 traffic_send_and_recv_counters_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
-    tc_try(traffic_send_and_recv_counters_tcp6,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv6() end,
            fun() ->
                    InitState = #{domain => inet6,
                                  proto  => tcp,
                                  recv   => fun(S)    -> socket:recv(S)    end,
-                                 send   => fun(S, D) -> socket:send(S, D) end},
+                                 send   => fun(S, D) ->
+                                                   socket:send(S, D,
+                                                               ?TPP_SEND_TIMEOUT)
+                                           end},
                    ok = traffic_send_and_recv_stream(InitState)
            end).
 
@@ -454,13 +544,15 @@ traffic_send_and_recv_counters_tcp6(_Config) when is_list(_Config) ->
 
 traffic_send_and_recv_counters_tcpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
-    tc_try(traffic_send_and_recv_counters_tcpL,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
                    InitState = #{domain => local,
                                  proto  => default,
                                  recv   => fun(S)    -> socket:recv(S)    end,
-                                 send   => fun(S, D) -> socket:send(S, D) end},
+                                 send   => fun(S, D) ->
+                                                   socket:send(S, D, ?TPP_SEND_TIMEOUT)
+                                           end},
                    ok = traffic_send_and_recv_stream(InitState)
            end).
 
@@ -483,7 +575,10 @@ traffic_send_and_recv_counters_sctp4(_Config) when is_list(_Config) ->
                    InitState = #{domain => inet,
                                  proto  => sctp,
                                  recv   => fun(S)    -> socket:recv(S)    end,
-                                 send   => fun(S, D) -> socket:send(S, D) end},
+                                 send   => fun(S, D) ->
+                                                   socket:send(S, D,
+                                                               ?TPP_SEND_TIMEOUT)
+                                           end},
                    ok = traffic_send_and_recv_stream(InitState)
            end).
 
@@ -506,7 +601,9 @@ traffic_send_and_recv_counters_sctp6(_Config) when is_list(_Config) ->
                    InitState = #{domain => inet6,
                                  proto  => sctp,
                                  recv   => fun(S)    -> socket:recv(S)    end,
-                                 send   => fun(S, D) -> socket:send(S, D) end},
+                                 send   => fun(S, D) ->
+                                                   socket:send(S, D, ?TPP_SEND_TIMEOUT)
+                                           end},
                    ok = traffic_send_and_recv_stream(InitState)
            end).
 
@@ -537,7 +634,8 @@ traffic_sendmsg_and_recvmsg_counters_tcp4(_Config) when is_list(_Config) ->
                                            end,
                                  send   => fun(S, Data) ->
                                                    Msg = #{iov => [Data]},
-                                                   socket:sendmsg(S, Msg)
+                                                   socket:sendmsg(S, Msg,
+                                                                  ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_stream(InitState)
            end).
@@ -551,7 +649,7 @@ traffic_sendmsg_and_recvmsg_counters_tcp4(_Config) when is_list(_Config) ->
 
 traffic_sendmsg_and_recvmsg_counters_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
-    tc_try(traffic_sendmsg_and_recvmsg_counters_tcp6,
+    tc_try(?FUNCTION_NAME,
            fun() ->
                    is_not_windows(),
                    has_support_ipv6()
@@ -569,7 +667,8 @@ traffic_sendmsg_and_recvmsg_counters_tcp6(_Config) when is_list(_Config) ->
                                            end,
                                  send   => fun(S, Data) ->
                                                    Msg = #{iov => [Data]},
-                                                   socket:sendmsg(S, Msg)
+                                                   socket:sendmsg(S, Msg,
+                                                                 ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_stream(InitState)
            end).
@@ -583,7 +682,7 @@ traffic_sendmsg_and_recvmsg_counters_tcp6(_Config) when is_list(_Config) ->
 
 traffic_sendmsg_and_recvmsg_counters_tcpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
-    tc_try(traffic_sendmsg_and_recvmsg_counters_tcpL,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
                    InitState = #{domain => local,
@@ -598,7 +697,8 @@ traffic_sendmsg_and_recvmsg_counters_tcpL(_Config) when is_list(_Config) ->
                                            end,
                                  send   => fun(S, Data) ->
                                                    Msg = #{iov => [Data]},
-                                                   socket:sendmsg(S, Msg)
+                                                   socket:sendmsg(S, Msg,
+                                                                 ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_stream(InitState)
            end).
@@ -632,7 +732,8 @@ traffic_sendmsg_and_recvmsg_counters_sctp4(_Config) when is_list(_Config) ->
                                            end,
                                  send   => fun(S, Data) ->
                                                    Msg = #{iov => [Data]},
-                                                   socket:sendmsg(S, Msg)
+                                                   socket:sendmsg(S, Msg,
+                                                                 ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_stream(InitState)
            end).
@@ -666,7 +767,8 @@ traffic_sendmsg_and_recvmsg_counters_sctp6(_Config) when is_list(_Config) ->
                                            end,
                                  send   => fun(S, Data) ->
                                                    Msg = #{iov => [Data]},
-                                                   socket:sendmsg(S, Msg)
+                                                   socket:sendmsg(S, Msg,
+                                                                  ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_stream(InitState)
            end).
@@ -1028,7 +1130,7 @@ traffic_send_and_recv_stream(InitState) ->
                    end},
          #{desc => "close connection socket (just in case)",
            cmd  => fun(#{csock := Sock} = State) ->
-                           (catch socket:close(Sock)),
+                           ?CATCH_AND_IGNORE( socket:close(Sock) ),
                            {ok, maps:remove(csock, State)}
                    end},
          #{desc => "close listen socket",
@@ -1044,7 +1146,7 @@ traffic_send_and_recv_stream(InitState) ->
                                            fun() -> State end),
                            {ok, maps:remove(lsock, State1)};
                       (#{lsock := Sock} = State) ->
-                           (catch socket:close(Sock)),
+                           ?CATCH_AND_IGNORE( socket:close(Sock) ),
                            {ok, maps:remove(lsock, State)}
                    end},
 
@@ -1678,12 +1780,12 @@ traffic_sar_counters_validation(Counters, ValidateCounters) ->
 traffic_sar_counters_validation2(Counters, []) ->
     %% ?SEV_IPRINT("traffic_sar_counters_validation2 -> Remaining Counters: "
     %%             "~n   ~p", [Counters]),
-    (catch lists:foreach(
-             fun({_Cnt, 0})   -> ok;
-                ({Cnt,  Val}) ->
-                     throw({error, {invalid_counter, Cnt, Val}})
-             end,
-             Counters));
+    ?CATCH_AND_RETURN( lists:foreach(
+			 fun({_Cnt, 0})   -> ok;
+			    ({Cnt,  Val}) ->
+				 throw({error, {invalid_counter, Cnt, Val}})
+			 end,
+			 Counters) );
 traffic_sar_counters_validation2(Counters, [{Cnt, Val}|ValidateCounters]) ->
     %% ?SEV_IPRINT("traffic_sar_counters_validation2 -> try validate ~w when"
     %%             "~n   Counters:         ~p"
@@ -1730,7 +1832,9 @@ traffic_sendto_and_recvfrom_counters_udp4(_Config) when is_list(_Config) ->
                                                    socket:recvfrom(S)
                                            end,
                                  send   => fun(S, Data, Dest) ->
-                                                   socket:sendto(S, Data, Dest)
+                                                   socket:sendto(S, Data, Dest,
+                                                                 [],
+                                                                 ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_udp(InitState)
            end).
@@ -1753,7 +1857,9 @@ traffic_sendto_and_recvfrom_counters_udp6(_Config) when is_list(_Config) ->
                                                    socket:recvfrom(S)
                                            end,
                                  send   => fun(S, Data, Dest) ->
-                                                   socket:sendto(S, Data, Dest)
+                                                   socket:sendto(S, Data, Dest,
+                                                                 [],
+                                                                 ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_udp(InitState)
            end).
@@ -1779,7 +1885,9 @@ traffic_sendto_and_recvfrom_counters_udpL(_Config) when is_list(_Config) ->
                                                    socket:recvfrom(S)
                                            end,
                                  send   => fun(S, Data, Dest) ->
-                                                   socket:sendto(S, Data, Dest)
+                                                   socket:sendto(S, Data, Dest,
+                                                                 [],
+                                                                 ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_udp(InitState)
            end).
@@ -1810,7 +1918,8 @@ traffic_sendmsg_and_recvmsg_counters_udp4(_Config) when is_list(_Config) ->
                                  send   => fun(S, Data, Dest) ->
                                                    Msg = #{addr => Dest,
                                                               iov  => [Data]},
-                                                   socket:sendmsg(S, Msg)
+                                                   socket:sendmsg(S, Msg,
+                                                                  ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_udp(InitState)
            end).
@@ -1841,7 +1950,8 @@ traffic_sendmsg_and_recvmsg_counters_udp6(_Config) when is_list(_Config) ->
                                  send   => fun(S, Data, Dest) ->
                                                    Msg = #{addr => Dest,
                                                               iov  => [Data]},
-                                                   socket:sendmsg(S, Msg)
+                                                   socket:sendmsg(S, Msg,
+                                                                  ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_udp(InitState)
            end).
@@ -1875,7 +1985,8 @@ traffic_sendmsg_and_recvmsg_counters_udpL(_Config) when is_list(_Config) ->
                                  send   => fun(S, Data, Dest) ->
                                                    Msg = #{addr => Dest,
                                                               iov  => [Data]},
-                                                   socket:sendmsg(S, Msg)
+                                                   socket:sendmsg(S, Msg,
+                                                                  ?TPP_SEND_TIMEOUT)
                                            end},
                    ok = traffic_send_and_recv_udp(InitState)
            end).
@@ -2187,7 +2298,7 @@ traffic_send_and_recv_udp(InitState) ->
                                            fun() -> State end),
                            {ok, maps:remove(lsock, State1)};
                       (#{sock := Sock} = State) ->
-                           (catch socket:close(Sock)),
+                           ?CATCH_AND_IGNORE( socket:close(Sock) ),
                            {ok, maps:remove(sock, State)}
                    end},
 
@@ -2817,6 +2928,7 @@ traffic_send_and_recv_chunks_stream(InitState) ->
          %% *** Wait for start order part ***
          #{desc => "await start",
            cmd  => fun(State) ->
+			   put(sname, server),
                            Tester = ?SEV_AWAIT_START(),
                            {ok, State#{tester => Tester}}
                    end},
@@ -2908,9 +3020,10 @@ traffic_send_and_recv_chunks_stream(InitState) ->
          #{desc => "recv chunk 1",
            cmd  => fun(#{csock := Sock} = State) ->
                            case socket:recv(Sock, 100) of
-                               {ok, Chunk} ->
-                                   ?SEV_IPRINT("recv of chunk 1 of ~p bytes",
-                                               [size(Chunk)]),
+                               {ok, Chunk} when byte_size(Chunk) =:= 100 ->
+                                   ?SEV_IPRINT(
+				      "recv chunk 1 (~p bytes)",
+				      [byte_size(Chunk)]),
                                    {ok, State#{chunks => [b2l(Chunk)]}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -2920,9 +3033,12 @@ traffic_send_and_recv_chunks_stream(InitState) ->
            cmd  => fun(#{csock  := Sock,
                          chunks := Chunks} = State) ->
                            case socket:recv(Sock, 100) of
-                               {ok, Chunk} ->
-                                   ?SEV_IPRINT("recv of chunk 2 of ~p bytes",
-                                               [size(Chunk)]),
+                               {ok, Chunk} when byte_size(Chunk) =:= 100 ->
+                                   ?SEV_IPRINT(
+				      "recv chunk 2 (~p bytes):"
+				      "~n   (Acced) Chunks: ~p bytes",
+				      [byte_size(Chunk),
+				       lists:flatlength(Chunks)]),
                                    {ok, State#{chunks => [b2l(Chunk)|Chunks]}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -2932,9 +3048,12 @@ traffic_send_and_recv_chunks_stream(InitState) ->
            cmd  => fun(#{csock  := Sock,
                          chunks := Chunks} = State) ->
                            case socket:recv(Sock, 100) of
-                               {ok, Chunk} ->
-                                   ?SEV_IPRINT("recv of chunk 3 of ~p bytes",
-                                               [size(Chunk)]),
+                               {ok, Chunk} when byte_size(Chunk) =:= 100 ->
+                                   ?SEV_IPRINT(
+				      "recv chunk 3 (~p bytes):"
+				      "~n   (Acced) Chunks: ~p bytes",
+				      [byte_size(Chunk),
+				       lists:flatlength(Chunks)]),
                                    {ok, State#{chunks => [b2l(Chunk)|Chunks]}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -2944,9 +3063,12 @@ traffic_send_and_recv_chunks_stream(InitState) ->
            cmd  => fun(#{csock  := Sock,
                          chunks := Chunks} = State) ->
                            case socket:recv(Sock, 100) of
-                               {ok, Chunk} ->
-                                   ?SEV_IPRINT("recv of chunk 4 of ~p bytes",
-                                               [size(Chunk)]),
+                               {ok, Chunk} when byte_size(Chunk) =:= 100 ->
+                                   ?SEV_IPRINT(
+				      "recv chunk 4 (~p bytes):"
+				      "~n   (Acced) Chunks: ~p bytes",
+				      [byte_size(Chunk),
+				       lists:flatlength(Chunks)]),
                                    {ok, State#{chunks => [b2l(Chunk)|Chunks]}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -2956,9 +3078,12 @@ traffic_send_and_recv_chunks_stream(InitState) ->
            cmd  => fun(#{csock  := Sock,
                          chunks := Chunks} = State) ->
                            case socket:recv(Sock, 100) of
-                               {ok, Chunk} ->
-                                   ?SEV_IPRINT("recv of chunk 5 of ~p bytes",
-                                               [size(Chunk)]),
+                               {ok, Chunk} when byte_size(Chunk) =:= 100 ->
+                                   ?SEV_IPRINT(
+				      "recv chunk 5 (~p bytes):"
+				      "~n   (Acced) Chunks: ~p bytes",
+				      [byte_size(Chunk),
+				       lists:flatlength(Chunks)]),
                                    {ok, State#{chunks => [b2l(Chunk)|Chunks]}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -2968,9 +3093,12 @@ traffic_send_and_recv_chunks_stream(InitState) ->
            cmd  => fun(#{csock  := Sock,
                          chunks := Chunks} = State) ->
                            case socket:recv(Sock, 100) of
-                               {ok, Chunk} ->
-                                   ?SEV_IPRINT("recv of chunk 6 of ~p bytes",
-                                               [size(Chunk)]),
+                               {ok, Chunk} when byte_size(Chunk) =:= 100 ->
+                                   ?SEV_IPRINT(
+				      "recv chunk 6 (~p bytes):"
+				      "~n   (Acced) Chunks: ~p bytes",
+				      [byte_size(Chunk),
+				       lists:flatlength(Chunks)]),
                                    {ok, State#{chunks => [b2l(Chunk)|Chunks]}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -2980,9 +3108,12 @@ traffic_send_and_recv_chunks_stream(InitState) ->
            cmd  => fun(#{csock  := Sock,
                          chunks := Chunks} = State) ->
                            case socket:recv(Sock, 100) of
-                               {ok, Chunk} ->
-                                   ?SEV_IPRINT("recv of chunk 7 of ~p bytes",
-                                               [size(Chunk)]),
+                               {ok, Chunk} when byte_size(Chunk) =:= 100 ->
+                                   ?SEV_IPRINT(
+				      "recv chunk 7 (~p bytes):"
+				      "~n   (Acced) Chunks: ~p bytes",
+				      [byte_size(Chunk),
+				       lists:flatlength(Chunks)]),
                                    {ok, State#{chunks => [b2l(Chunk)|Chunks]}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -2992,9 +3123,12 @@ traffic_send_and_recv_chunks_stream(InitState) ->
            cmd  => fun(#{csock  := Sock,
                          chunks := Chunks} = State) ->
                            case socket:recv(Sock, 100) of
-                               {ok, Chunk} ->
-                                   ?SEV_IPRINT("recv of chunk 8 of ~p bytes",
-                                               [size(Chunk)]),
+                               {ok, Chunk} when byte_size(Chunk) =:= 100 ->
+                                   ?SEV_IPRINT(
+				      "recv chunk 8 (~p bytes):"
+				      "~n   (Acced) Chunks: ~p bytes",
+				      [byte_size(Chunk),
+				       lists:flatlength(Chunks)]),
                                    {ok, State#{chunks => [b2l(Chunk)|Chunks]}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -3004,9 +3138,12 @@ traffic_send_and_recv_chunks_stream(InitState) ->
            cmd  => fun(#{csock  := Sock,
                          chunks := Chunks} = State) ->
                            case socket:recv(Sock, 100) of
-                               {ok, Chunk} ->
-                                   ?SEV_IPRINT("recv of chunk 9 of ~p bytes",
-                                               [size(Chunk)]),
+                               {ok, Chunk} when byte_size(Chunk) =:= 100 ->
+                                   ?SEV_IPRINT(
+				      "recv chunk 9 (~p bytes):"
+				      "~n   (Acced) Chunks: ~p bytes",
+				      [byte_size(Chunk),
+				       lists:flatlength(Chunks)]),
                                    {ok, State#{chunks => [b2l(Chunk)|Chunks]}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -3016,9 +3153,12 @@ traffic_send_and_recv_chunks_stream(InitState) ->
            cmd  => fun(#{csock  := Sock,
                          chunks := Chunks} = State) ->
                            case socket:recv(Sock, 100) of
-                               {ok, Chunk} ->
-                                   ?SEV_IPRINT("recv of chunk 10 of ~p bytes",
-                                               [size(Chunk)]),
+                               {ok, Chunk} when byte_size(Chunk) =:= 100 ->
+                                   ?SEV_IPRINT(
+				      "recv (final) chunk 10 (~p bytes):"
+				      "~n   (Acced) Chunks: ~p",
+				      [byte_size(Chunk),
+				       lists:flatlength(Chunks)]),
                                    {ok, State#{chunks => [b2l(Chunk)|Chunks]}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -3044,8 +3184,11 @@ traffic_send_and_recv_chunks_stream(InitState) ->
          #{desc => "recv (one big)",
            cmd  => fun(#{tester := Tester, csock := Sock, size := Size} = _State) ->
                            %% socket:setopt(Sock, otp, debug, true),
+			   ?SEV_IPRINT("try recv ~w bytes", [Size]),
                            case socket:recv(Sock, Size) of
                                {ok, Data} ->
+				   ?SEV_IPRINT("recv ~w bytes",
+					       [byte_size(Data)]),
                                    ?SEV_ANNOUNCE_READY(Tester,
                                                        recv_one_big,
                                                        b2l(Data)),
@@ -3066,7 +3209,7 @@ traffic_send_and_recv_chunks_stream(InitState) ->
                    end},
          #{desc => "close connection socket (just in case)",
            cmd  => fun(#{csock := Sock} = State) ->
-                           (catch socket:close(Sock)),
+                           ?CATCH_AND_IGNORE( socket:close(Sock) ),
                            {ok, maps:remove(csock, State)}
                    end},
          #{desc => "close listen socket",
@@ -3082,7 +3225,7 @@ traffic_send_and_recv_chunks_stream(InitState) ->
                                            fun() -> State end),
                            {ok, maps:remove(lsock, State1)};
                       (#{lsock := Sock} = State) ->
-                           (catch socket:close(Sock)),
+                           ?CATCH_AND_IGNORE( socket:close(Sock) ),
                            {ok, maps:remove(lsock, State)}
                    end},
 
@@ -3095,6 +3238,7 @@ traffic_send_and_recv_chunks_stream(InitState) ->
          %% *** Wait for start order part ***
          #{desc => "await start",
            cmd  => fun(State) ->
+			   put(sname, client),
                            {Tester, ServerSA} = ?SEV_AWAIT_START(),
                            {ok, State#{tester    => Tester,
                                        server_sa => ServerSA}}
@@ -3515,6 +3659,7 @@ traffic_send_and_recv_chunks_stream(InitState) ->
          %% *** Init part ***
          #{desc => "monitor server",
            cmd  => fun(#{server := Pid} = _State) ->
+			   put(sname, tester),
                            _MRef = erlang:monitor(process, Pid),
                            ok
                    end},
@@ -5026,7 +5171,7 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL(Config) when is_list(Config) -
 %% Ping-Pong for TCP
 
 traffic_ping_pong_send_and_recv_stream(InitState) ->
-    Send = fun(Sock, Data) -> socket:send(Sock, Data) end,
+    Send = fun(Sock, Data) -> socket:send(Sock, Data, ?TPP_SEND_TIMEOUT) end,
     Recv = fun(Sock, Sz)   -> socket:recv(Sock, Sz) end,
     InitState2 = InitState#{send => Send, % Send function
                             recv => Recv  % Receive function
@@ -5072,10 +5217,10 @@ traffic_ping_pong_sendmsg_and_recvmsg_stream(InitState) ->
 traffic_ping_pong_sendmsg_and_recvmsg_stream2(InitState) ->
     Send = fun(Sock, Data) when is_binary(Data) ->
                    Msg = #{iov => [Data]},
-                   socket:sendmsg(Sock, Msg);
+                   socket:sendmsg(Sock, Msg, ?TPP_SEND_TIMEOUT);
               (Sock, Data) when is_list(Data) -> %% We assume iovec...
                    Msg = #{iov => Data},
-                   socket:sendmsg(Sock, Msg)
+                   socket:sendmsg(Sock, Msg, 5000)
            end,
     InitState2 = InitState#{send => Send}, % Send function
     traffic_ping_pong_send_and_receive_stream(InitState2).
@@ -5307,7 +5452,7 @@ traffic_ping_pong_send_and_receive_stream2(InitState) ->
            cmd  => fun(#{domain   := local,
                          lsock    := Sock,
                          local_sa := #{path := Path}} = State) ->
-                           (catch socket:close(Sock)),
+                           ?CATCH_AND_IGNORE( socket:close(Sock) ),
                            State1 =
                                unlink_path(Path,
                                            fun() -> 
@@ -5316,7 +5461,7 @@ traffic_ping_pong_send_and_receive_stream2(InitState) ->
                                            fun() -> State end),
                            {ok, maps:remove(lsock, State1)};
                       (#{lsock := Sock} = State) ->
-                           (catch socket:close(Sock)),
+                           ?CATCH_AND_IGNORE( socket:close(Sock) ),
                            {ok, maps:remove(lsock, State)}
                    end},
 
@@ -6379,6 +6524,18 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
          #{desc => "await (remote) handler ready",
            cmd  => fun(#{tester  := Tester,
                          handler := Handler} = _State) ->
+                           %% If this fails then we should really skip
+                           %% as it has actually nothing to do with the
+                           %% test. But for now we just let it crash...
+                           %% case ?SEV_AWAIT_READY(Handler, handler, init, 
+                           %%                       [{tester, Tester}]) of
+                           %%     ok ->
+                           %%         ok;
+                           %%     {error, Reason} ->
+                           %%         ?SEV_EPRINT("Handler failed initiate: "
+                           %%                     "~n   ~p", [Reason]),
+                           %%         {skip, Reason}
+                           %% end
                            ?SEV_AWAIT_READY(Handler, handler, init, 
                                             [{tester, Tester}])
                    end},
@@ -6749,11 +6906,14 @@ tpp_udp_client_handler_create(Node) ->
 tpp_udp_client_handler(Parent) ->
     tpp_udp_client_handler_init(Parent),
     ?SEV_IPRINT("await start command"),
-    {ServerSA, Proto, BufInit, Send, Recv} = tpp_udp_handler_await_start(Parent),
+    {ServerSA, Proto, BufInit, Send, Recv} =
+        tpp_udp_handler_await_start(Parent),
     ?SEV_IPRINT("start command with"
                 "~n   ServerSA: ~p", [ServerSA]),
     Domain   = maps:get(family, ServerSA),
+    ?SEV_IPRINT("try create (domain ~w) socket", [Domain]),
     Sock     = tpp_udp_sock_open(Domain, Proto, BufInit),
+    ?SEV_IPRINT("try bind socket"),
     Path     = tpp_udp_sock_bind(Sock, Domain),
     ?SEV_IPRINT("announce ready", []),
     tpp_udp_handler_announce_ready(Parent, init),
@@ -6963,6 +7123,449 @@ tpp_udp_sock_close(Sock, Path) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Benchmark test cases
+%% This test is (currently) very simple. Both parties of the test
+%% (server and client) runs in the same (this) node.
+
+-define(TB_IOV_CHUNK(Sz,V), list_to_binary(lists:duplicate((Sz), (V)))).
+tb_iov() ->
+    IOV0 = 
+        [
+         ?TB_IOV_CHUNK(8,       16#01),
+         ?TB_IOV_CHUNK(16*1024, 16#02),
+         ?TB_IOV_CHUNK(256,     16#03),
+         ?TB_IOV_CHUNK(8*1024,  16#04),
+         ?TB_IOV_CHUNK(512,     16#05),
+         ?TB_IOV_CHUNK(1*1024,  16#06),
+         ?TB_IOV_CHUNK(1*1024,  16#07),
+         ?TB_IOV_CHUNK(1*1024,  16#08),
+         ?TB_IOV_CHUNK(1*1024,  16#09),
+         ?TB_IOV_CHUNK(1*1024,  16#0A),
+         ?TB_IOV_CHUNK(1*1024,  16#0B),
+         ?TB_IOV_CHUNK(1*1024,  16#0C),
+         ?TB_IOV_CHUNK(16,      16#0D),
+         ?TB_IOV_CHUNK(256,     16#0E),
+         ?TB_IOV_CHUNK(16*1024, 16#0F),
+         ?TB_IOV_CHUNK(32,      16#10),
+         ?TB_IOV_CHUNK(8,       16#11),
+         ?TB_IOV_CHUNK(128,     16#12),
+         ?TB_IOV_CHUNK(2*1024,  16#13),
+         ?TB_IOV_CHUNK(16,      16#14),
+         ?TB_IOV_CHUNK(32,      16#15),
+         ?TB_IOV_CHUNK(64,      16#16),
+         ?TB_IOV_CHUNK(4*1024,  16#17)     
+        ],
+    IOV1 = lists:flatten([begin
+                              Sz = byte_size(B),
+                              [<<Sz:32/integer>>, B]
+                          end || B <- IOV0]),
+    TSz = iolist_size(IOV1),
+    [<<TSz:32/integer>> | IOV1].
+
+tb_runtime(Config) ->
+    ?SEV_IPRINT("~w -> entry with"
+                "~n   Config: ~p", [?FUNCTION_NAME, Config]),
+    case proplists:get_value(category, Config, standard) of
+        bench ->
+            ?MINS(1);
+        standard ->
+            ?SECS(10)
+    end.
+
+traffic_bench_sendv_and_recv_tcp4(Config) when is_list(Config) ->
+    RunTime = tb_runtime(Config),
+    ?TT(RunTime + ?MINS(1)),
+    IOV = tb_iov(),
+    Send = fun(S, Data) when is_list(Data) ->
+                   socket:sendv(S, Data)
+           end,
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_ipv4() end,
+           fun() ->
+                   InitState = #{bname    => sendv_inet4,
+                                 domain   => inet,
+                                 send     => Send,
+                                 iov      => IOV,
+                                 run_time => RunTime},
+                   do_traffic_bench_send_and_recv(InitState)
+           end).
+
+traffic_bench_send_and_recv_tcp4(Config) when is_list(Config) ->
+    RunTime = tb_runtime(Config),
+    ?TT(RunTime + ?MINS(1)),
+    IOV = tb_iov(),
+    Send = fun(S, Data) when is_list(Data) ->
+                   socket:send(S, iolist_to_binary(Data))
+           end,
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_ipv4() end,
+           fun() ->
+                   InitState = #{bname    => send_inet4,
+                                 domain   => inet,
+                                 send     => Send,
+                                 iov      => IOV,
+                                 run_time => RunTime},
+                   do_traffic_bench_send_and_recv(InitState)
+           end).
+
+traffic_bench_sendv_and_recv_tcp6(Config) when is_list(Config) ->
+    RunTime = tb_runtime(Config),
+    ?TT(RunTime + ?MINS(1)),
+    IOV = tb_iov(),
+    Send = fun(S, Data) when is_list(Data) ->
+                   socket:sendv(S, Data)
+           end,
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   InitState = #{bname    => sendv_inet6,
+                                 domain   => inet6,
+                                 send     => Send,
+                                 iov      => IOV,
+                                 run_time => RunTime},
+                   do_traffic_bench_send_and_recv(InitState)
+           end).
+
+traffic_bench_send_and_recv_tcp6(Config) when is_list(Config) ->
+    RunTime = tb_runtime(Config),
+    ?TT(RunTime + ?MINS(1)),
+    IOV = tb_iov(),
+    Send = fun(S, Data) when is_list(Data) ->
+                   socket:send(S, iolist_to_binary(Data))
+           end,
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   InitState = #{bname    => send_inet6,
+                                 domain   => inet6,
+                                 send     => Send,
+                                 iov      => IOV,
+                                 run_time => RunTime},
+                   do_traffic_bench_send_and_recv(InitState)
+           end).
+
+traffic_bench_sendv_and_recv_tcpL(Config) when is_list(Config) ->
+    RunTime = tb_runtime(Config),
+    ?TT(RunTime + ?MINS(1)),
+    IOV = tb_iov(),
+    Send = fun(S, Data) when is_list(Data) ->
+                   socket:sendv(S, Data)
+           end,
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   InitState = #{bname    => sendv_local,
+                                 domain   => local,
+                                 send     => Send,
+                                 iov      => IOV,
+                                 run_time => RunTime},
+                   do_traffic_bench_send_and_recv(InitState)
+           end).
+
+traffic_bench_send_and_recv_tcpL(Config) when is_list(Config) ->
+    RunTime = tb_runtime(Config),
+    ?TT(RunTime + ?MINS(1)),
+    IOV = tb_iov(),
+    Send = fun(S, Data) when is_list(Data) ->
+                   socket:send(S, iolist_to_binary(Data))
+           end,
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   InitState = #{bname    => send_local,
+                                 domain   => local,
+                                 send     => Send,
+                                 iov      => IOV,
+                                 run_time => RunTime},
+                   do_traffic_bench_send_and_recv(InitState)
+           end).
+
+do_traffic_bench_send_and_recv(#{bname    := BName,
+                                 run_time := RTime} = InitState) ->
+    ?SEV_IPRINT("[ctrl] start server"),
+    {PathOrPort, Server} = tb_server_start(InitState),
+    ?SEV_IPRINT("[ctrl] start client"),
+    Client               = tb_client_start(InitState, PathOrPort),
+    TRef = erlang:start_timer(RTime, self(), tb_timeout),
+    ?SEV_IPRINT("[ctrl] await completion"),
+    tb_await_completion(BName, Server, Client, TRef).
+
+tb_await_completion(BName,
+                    {ServerPid, ServerMRef} = Server,
+                    {ClientPid, ClientMRef} = Client,
+                    TRef) ->
+    receive
+        {timeout, TRef, tb_timeout} ->
+            ?SEV_IPRINT("[ctrl] bench timeout received - begin termination"),
+            ClientPid ! {self(), stop},
+            tb_await_termination(BName, Server, Client);
+        {'DOWN', ClientMRef, process, ClientPid, ClientReason} ->
+            ?SEV_EPRINT("[ctrl] received unexpected client down: "
+                        "~n   ~p", [ClientReason]),
+            erlang:cancel_timer(TRef),
+            exit(ClientPid, kill),
+            exit(ClientReason);
+        {'DOWN', ServerMRef, process, ServerPid, ServerReason} ->
+            ?SEV_EPRINT("[ctrl] received unexpected server down: "
+                        "~n   ~p", [ServerReason]),
+            erlang:cancel_timer(TRef),
+            exit(ClientPid, kill),
+            exit(ServerReason)
+    end.
+
+tb_await_termination(BName, Server, Client) ->
+    tb_await_termination(BName, Server, Client, undefined).
+
+tb_await_termination(BName,
+                     {ServerPid, ServerMRef} = Server,
+                     {ClientPid, ClientMRef} = Client,
+                     undefined = Comment) ->
+    %% ?SEV_IPRINT("[ctrl] await client and server down"),
+    receive
+        {'DOWN', ClientMRef, process, ClientPid, {done, {Exchange, UnitStr}}} ->
+            ?SEV_IPRINT("[ctrl] "
+                        "received (expected) down from client with result"),
+            ct_event:notify( ?BENCH_EVENT(BName, Exchange) ),
+            ?SEV_IPRINT("[ctrl] await server termination"),
+            NewComment = {comment, ?F("~p ~s", [Exchange, UnitStr])},
+            tb_await_termination(BName,
+                                 Server, undefined, NewComment);
+        {'DOWN', ClientMRef, process, ClientPid, ClientReason} ->
+            ?SEV_EPRINT("[ctrl] unexpected termination from client: "
+                        "~n   ~p", [ClientReason]),
+            exit(ServerPid, kill),
+            exit(ClientReason);
+        {'DOWN', ServerMRef, process, ServerPid, ServerReason} ->
+            ?SEV_IPRINT("[ctrl] received down from server: "
+                        "~n   ~p", [ServerReason]),
+            tb_await_termination(BName,
+                                 undefined, Client, Comment)
+    end;
+tb_await_termination(_BName,
+                     {ServerPid, ServerMRef} = _Server,
+                     undefined,
+                     Result) ->
+    %% ?SEV_IPRINT("[ctrl] await server down"),
+    receive
+        {'DOWN', ServerMRef, process, ServerPid, _} ->
+            ?SEV_IPRINT("[ctrl] received (expected) down from server - "
+                        "we are done"),
+            Result
+    end;
+tb_await_termination(BName,
+                     undefined,
+                     {ClientPid, ClientMRef} = _Client,
+                     undefined = _Result) ->
+    %% ?SEV_IPRINT("[ctrl] await client down (with result)"),
+    receive
+        {'DOWN', ClientMRef, process, ClientPid, {done, {Exchange, UnitStr}}} ->
+            ?SEV_IPRINT("[ctrl] received down from client - we are done"),
+            ct_event:notify( ?BENCH_EVENT(BName, Exchange) ),
+            {comment, ?F("~p ~s", [Exchange, UnitStr])};
+        {'DOWN', ClientMRef, process, ClientPid, ClientReason} ->
+            ?SEV_EPRINT("[ctrl] unexpected termination from client: "
+                        "~n   ~p", [ClientReason]),
+            exit(ClientReason)
+    end.
+    
+
+tb_server_start(#{domain := Fam,
+                  send   := Send}) ->
+    Self = self(),
+    Server = {Pid, MRef} =
+        spawn_monitor(fun() ->
+                              tb_server_init(#{parent => Self,
+                                               domain => Fam,
+                                               send   => Send})
+                      end),
+    receive
+        {Pid, PathOrPort} ->
+            ?SEV_IPRINT("[ctrl] server started: ~p", [PathOrPort]),
+            {PathOrPort, Server};
+        {'DOWN', MRef, process, Pid, Info} ->
+            ?SEV_EPRINT("[ctrl] server start failure: "
+                        "~n   ~p", [Info]),
+            exit({tb_server_start, Info})
+    end.
+
+tb_decode(Bin) when is_binary(Bin) ->
+    tb_decode(Bin, []).
+
+tb_decode(<<>>, Acc) ->
+    lists:reverse(Acc);
+tb_decode(<<Sz:32/integer, Data:Sz/binary, Rest/binary>>, Acc) ->
+    tb_decode(Rest, [Data, <<Sz:32/integer>> | Acc]).
+
+tb_server_init(#{parent := Pid, domain := Fam} = State) ->
+    ?SEV_IPRINT("[server] initiate"),
+    SA                    = which_local_socket_addr(Fam),
+    {ok, LS}              = socket:open(Fam, stream),
+    ok                    = socket:bind(LS, SA),
+    ok                    = socket:listen(LS),
+    case SA of
+         #{path := Path} ->
+            Pid ! {self(), {path, Path}};
+        _ ->
+            {ok, #{port := Port}} = socket:sockname(LS),
+            Pid ! {self(), {port, Port}}
+    end,
+    ?SEV_IPRINT("[server] ready for client connect"),
+    {ok, AS}              = socket:accept(LS),
+    ?SEV_IPRINT("[server] client connected - test started"),
+    tb_server_loop(State#{listen => LS,
+                          accept => AS}).
+
+%% Make it simple: The data begins with a 4 byte size, so read that,
+%% and then that amount of data.
+tb_server_loop(#{listen := LS, accept := AS, send := Send} = State) ->
+    case socket:recv(AS, 4) of
+        {ok, <<Sz:32/integer>> = SzBin} ->
+            case socket:recv(AS, Sz) of
+                {ok, Data} ->
+                    IOV = tb_decode(Data),
+                    case Send(AS, [SzBin | IOV]) of
+                        ok ->
+                            tb_server_loop(State);
+                        {error, SReason} ->
+                            ?SEV_EPRINT("[server] unexpected send error:"
+                                        "~n   ~p", [SReason]),
+                            ?CATCH_AND_IGNORE( socket:close(LS) ),
+                            ?CATCH_AND_IGNORE( socket:close(AS) ),
+                            exit({tb_server_send, SReason})
+                    end;
+                {error, R2Reason} ->
+                    ?SEV_EPRINT("[server] unexpected read (data) error:"
+                                "~n   ~p", [R2Reason]),
+                    ?CATCH_AND_IGNORE( socket:close(LS) ),
+                    ?CATCH_AND_IGNORE( socket:close(AS) ),
+                    exit({tb_server_recv2, R2Reason})
+            end;
+        {error, closed} ->
+            ?SEV_IPRINT("[server] socket closed => terminate"),
+            ?CATCH_AND_IGNORE( socket:close(LS) ),
+            ?CATCH_AND_IGNORE( socket:close(AS) ),
+            exit(normal);
+        {error, R1Reason} ->
+            ?SEV_EPRINT("[server] unexpected read (sz) error:"
+                        "~n   ~p", [R1Reason]),
+            ?CATCH_AND_IGNORE( socket:close(LS) ),
+            ?CATCH_AND_IGNORE( socket:close(AS) ),
+            exit({tb_server_recv1, R1Reason})
+    end.                    
+
+
+tb_client_start(#{domain := Fam,
+                  send   := Send,
+                  iov    := IOV}, PathOrPort) ->
+    Self = self(),
+    Client = {Pid, MRef} =
+        spawn_monitor(fun() ->
+                              tb_client_init(#{parent       => Self,
+                                               domain       => Fam,
+                                               send         => Send,
+                                               iov          => IOV,
+                                               path_or_port => PathOrPort})
+                      end),
+    receive
+        {Pid, ok} ->
+            Client;
+        {'DOWN', MRef, process, Pid, Info} ->
+            ?SEV_EPRINT("client start failure: "
+                        "~n   ~p", [Info]),
+            exit({tb_client_start, Info})
+    end.
+
+tb_client_init(#{parent       := Pid,
+                 domain       := Fam,
+                 path_or_port := PathOrPort,
+                 send         := Send,
+                 iov          := IOV}) ->
+    ?SEV_IPRINT("[client] initiate"),
+    SA       = which_local_socket_addr(Fam),
+    {ok, CS} = socket:open(Fam, stream),
+    ok       = socket:bind(CS, SA),
+    SSA = case PathOrPort of
+              {path, Path} ->
+                  SA#{path => Path};
+              {port, Port} ->
+                  SA#{port => Port}
+          end,
+    ok       = socket:connect(CS, SSA),
+    Pid ! {self(), ok},
+    ?SEV_IPRINT("[client] connected to server - begin test"),
+    tb_client_loop(Pid, CS, Send, IOV, ts(), 0, 0).
+
+tb_client_loop(Pid, Sock, Send, Data0, TStart, ARcv0, N0) ->
+    case Send(Sock, Data0) of
+        ok ->
+            case socket:recv(Sock, 4) of
+                {ok, <<Sz:32/integer>> = SzBin} ->
+                    case socket:recv(Sock, Sz) of
+                        {ok, Data} ->
+                            IOV0 = tb_decode(Data),
+                            case tb_client_is_done(Pid) of
+                                true ->
+                                    TStop = ts(),
+                                    TDiff = TStop - TStart,
+                                    ARcv  = ARcv0 + 4 + byte_size(Data),
+                                    {Exchange, UnitStr} = Res =
+                                        case ARcv div TDiff of
+                                            E when (E > 1024) ->
+                                                {E div 1024,
+                                                 "kb/msec"};
+                                            E ->
+                                                {E, "b/msec"}
+                                        end,
+                                    N     = N0 + 1,
+                                    ?SEV_IPRINT("[client] test result:"
+                                                "~n   TDiff:      ~w msec"
+                                                "~n   Data:       ~w bytes"
+                                                "~n   Exchange:   ~w ~s"
+                                                "~n   Iterations: ~w",
+                                                [TDiff, ARcv,
+                                                 Exchange, UnitStr,
+                                                 N]),
+                                    ?CATCH_AND_IGNORE( socket:close(Sock) ),
+                                    exit({done, Res});
+                                false ->
+                                    IOV = [SzBin | IOV0],
+                                    tb_client_loop(Pid,
+                                                   Sock, Send, IOV,
+                                                   TStart,
+                                                   ARcv0 + 4 + byte_size(Data),
+                                                   N0+1)
+                            end;
+                        {error, R2Reason} ->
+                            ?SEV_EPRINT("[client] unexpected read (data) error:"
+                                        "~n   ~p", [R2Reason]),
+                            ?CATCH_AND_IGNORE( socket:close(Sock) ),
+                            exit({tb_client_recv2, R2Reason})
+                    end;
+                {error, R1Reason} ->
+                    ?SEV_EPRINT("[client] unexpected read (sz) error:"
+                                "~n   ~p", [R1Reason]),
+                    ?CATCH_AND_IGNORE( socket:close(Sock) ),
+                    exit({tb_client_recv1, R1Reason})
+            end;
+        {error, SReason} ->
+            ?SEV_EPRINT("[client] unexpected send error:"
+                        "~n   ~p", [SReason]),
+            ?CATCH_AND_IGNORE( socket:close(Sock) ),
+            exit({tb_client_send, SReason})
+    end.                    
+
+tb_client_is_done(Pid) ->
+    receive
+        {Pid, stop} ->
+            ?SEV_IPRINT("[client] received stop command - test is over"),
+            true
+    after 0 ->
+            false
+end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 sock_bind(Sock, LSA) ->
     try socket:bind(Sock, LSA) of
         ok = OK ->
@@ -6998,7 +7601,7 @@ local_host() ->
 %% don't clash.
 
 mk_unique_path() ->
-    ?SLIB:mk_unique_path().
+    ?MK_UNIQ_PATH().
 
 
 which_local_socket_addr(local = Domain) ->
@@ -7013,6 +7616,17 @@ which_local_socket_addr(Domain) ->
         {ok, [#{addr := Addr}|_]} ->
             #{family => Domain,
               addr   => Addr};
+        {error, no_address = Reason} ->
+            ?SEV_IPRINT("failed get (valid) local host address: ~w"
+                        "~n   Host Info: "
+                        "~n      ~p",
+                        [case net:getifaddrs(Domain) of
+                             {ok, Info} ->
+                                 Info;
+                             _ ->
+                                 undefined
+                         end]),
+            ?FAIL(Reason);
         {error, Reason} ->
             ?FAIL(Reason)
     end.
@@ -7088,20 +7702,7 @@ has_support_unix_domain_socket() ->
     end.
 
 has_support_sctp() ->
-    case os:type() of
-        {win32, _} ->
-            skip("Not supported");
-        {unix, netbsd} ->
-            %% XYZ We will have to investigate this later...
-            skip("Not supported");
-        _ ->
-            case socket:is_supported(sctp) of
-                true ->
-                    ok;
-                false ->
-                    skip("Not supported")
-            end
-    end.
+    ?HAS_SUPPORT_SCTP().
 
 
 %% The idea is that this function shall test if the test host has 
@@ -7235,3 +7836,5 @@ i(F, A) ->
     io:format(user, FStr ++ "~n", []),
     io:format(FStr, []).
 
+ts() ->
+    erlang:system_time(millisecond).

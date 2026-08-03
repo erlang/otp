@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2017-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,8 +35,8 @@ terminate(Reason, State, Data) ->
 format_status(#{ data := Fun } = S) when is_function(Fun) ->
     Fun(S);
 format_status(#{ reason := _, state := State, data := Data } = Map) ->
-    ct:pal("format_status(~p)",[Map]),
+    ct:log("format_status(~p)",[Map]),
     Map#{ state := {formatted, State},  data := {formatted, Data}};
 format_status(Map) ->
-    ct:pal("format_status(~p)",[Map]),
+    ct:log("format_status(~p)",[Map]),
     Map#{ data := format_data, state := format_status_called }.

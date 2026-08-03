@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,6 +45,8 @@ Type definitions that are used more than once in this module:
 
 `m:httpc`, `m:httpd`
 """.
+
+-compile([{nowarn_possibly_unsafe_function, {file, consult, 1}}]).
 
 %% API
 -export([start/0, start/1, start/2, start/3,  

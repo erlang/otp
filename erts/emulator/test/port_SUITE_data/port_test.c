@@ -1,4 +1,26 @@
 /*
+ * %CopyrightBegin%
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * %CopyrightEnd%
+ */
+
+/*
  * Author:  Bjorn Gustavsson
  * Purpose: A port program to be used for testing the open_port bif.
  */
@@ -71,11 +93,11 @@ typedef struct {
 
 PORT_TEST_DATA* port_data;
 
-static int packet_loop();
-static void reply();
-static void write_reply();
-static void ensure_buf_big_enough();
-static int readn();
+static int packet_loop(void);
+static void reply(char *buf, int size);
+static void write_reply(char *buf, int size);
+static void ensure_buf_big_enough(int size);
+static int readn(int fd, unsigned char *buf, int len);
 static void delay(unsigned ms);
 static void dump(unsigned char* buf, int sz, int max);
 static void replace_stdout(char* filename);
@@ -212,7 +234,7 @@ int main(int argc, char *argv[])
       replace_stdout(port_data->output_file);
 
   if (port_data->fd_count)
-      reply(&fd_count, sizeof(fd_count));
+      reply((char *) &fd_count, sizeof(fd_count));
 
   if (port_data->no_packet_loop){
       free(port_data);

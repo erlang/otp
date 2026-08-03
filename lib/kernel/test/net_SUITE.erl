@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -157,8 +159,8 @@ init_per_suite(Config0) ->
        "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
 
     try net:info() of
-        #{} ->
-
+        #{load_nif_result := ok} ->
+	    ?P("~s -> 'net' nif loaded", [?FUNCTION_NAME]),
             case ?LIB:init_per_suite(Config0) of
                 {skip, _} = SKIP ->
                     SKIP;
@@ -172,11 +174,20 @@ init_per_suite(Config0) ->
                     kernel_test_sys_monitor:start(),
 
                     Config1
-            end
+            end;
+
+	#{load_nif_result := LoadRes} ->
+	    ?P("~s -> 'net' not supperted"
+	       "~n   (net) nif load result: ~p", [?FUNCTION_NAME, LoadRes]),
+	    {skip, "esock not supported (nif not loaded)"};
+	_ ->
+            ?P("~s -> 'net' not supperted", [?FUNCTION_NAME]),
+	    {skip, "esock not supported"}
 
     catch
         error : notsup ->
-            {skip, "net not supported"}
+            ?P("~s -> 'net' not supperted (error:notsup)", [?FUNCTION_NAME]),
+            {skip, "'net' not supported"}
     end.
 
 end_per_suite(Config0) ->
@@ -1216,6 +1227,6 @@ i(F) ->
 
 i(F, A) ->
     FStr = f("[~s] " ++ F, [formated_timestamp()|A]),
-    io:format(user, FStr ++ "~n", []),
-    io:format(FStr, []).
+    io:format(user, "~ts~n", [FStr]),
+    io:format("~ts", [FStr]).
 

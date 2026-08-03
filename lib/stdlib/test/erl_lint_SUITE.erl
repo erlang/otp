@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -72,7 +74,8 @@
          stacktrace_syntax/1,
          otp_14285/1, otp_14378/1,
          external_funs/1,otp_15456/1,otp_15563/1,
-         unused_type/1,binary_types/1,removed/1, otp_16516/1,
+         types/1,
+         removed/1, otp_16516/1,
          inline_nifs/1,
          undefined_nifs/1,
          no_load_nif/1,
@@ -80,13 +83,20 @@
          otp_16824/1,
          underscore_match/1,
          unused_record/1,
+         untyped_record/1,
          unused_type2/1,
          eep49/1,
          redefined_builtin_type/1,
          tilde_k/1,
          match_float_zero/1,
          undefined_module/1,
-         update_literal/1]).
+         update_literal/1,
+         messages_with_jaro_suggestions/1,
+         illegal_zip_generator/1,
+         record_info_0/1,
+         coverage/1,
+         native_records/1,
+         cs_deprecated_attr/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -109,11 +119,13 @@ all() ->
      record_errors, otp_11879_cont,
      non_latin1_module, illegal_module_name, otp_14323,
      stacktrace_syntax, otp_14285, otp_14378, external_funs,
-     otp_15456, otp_15563, unused_type, binary_types, removed, otp_16516,
+     otp_15456, otp_15563,
+     types,
+     removed, otp_16516,
      undefined_nifs,
      no_load_nif,
      inline_nifs, warn_missing_spec, otp_16824,
-     underscore_match, unused_record, unused_type2,
+     underscore_match, unused_record, untyped_record, unused_type2,
      eep49,
      redefined_builtin_type,
      tilde_k,
@@ -121,7 +133,13 @@ all() ->
      documentation_attributes,
      match_float_zero,
      undefined_module,
-     update_literal].
+     update_literal,
+     messages_with_jaro_suggestions,
+     illegal_zip_generator,
+     record_info_0,
+     coverage,
+     native_records,
+     cs_deprecated_attr].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -351,9 +369,9 @@ unused_vars_warn_lc(Config) when is_list(Config) ->
                   [Z || Z <- (Y = X), % Y unused.
                        Y > X]; % Y unbound.
               k(X) ->
-                  [Y || Y = X > 3, Z = X]; % Z unused.
+                  [Y || true =:= (Y = X > 3), true =:= (Z = X)]; % Z unused.
               k(X) ->
-                  [Z || Y = X > 3, Z = X]. % Y unused.
+                  [Z || true =:= (Y = X > 3), true =:= (Z = X)]. % Y unused.
            ">>,
            [warn_unused_vars],
            {error,[{{8,21},erl_lint,{unbound_var,'Y'}},
@@ -362,8 +380,10 @@ unused_vars_warn_lc(Config) when is_list(Config) ->
                    {{4,34},erl_lint,{unused_var,'Y'}},
                    {{8,34},erl_lint,{unused_var,'Y'}},
                    {{10,31},erl_lint,{unused_var,'Y'}},
-                   {{13,36},erl_lint,{unused_var,'Z'}},
-                   {{15,25},erl_lint,{unused_var,'Y'}}]}},
+                   {{13,20},erl_lint,{export_var_subexpr,'Y',{'=:=',{13,30}}}},
+                   {{13,57},erl_lint,{unused_var,'Z'}},
+                   {{15,20},erl_lint,{export_var_subexpr,'Z',{'=:=',{15,52}}}},
+                   {{15,35},erl_lint,{unused_var,'Y'}}]}},
 
           {lc14,
            <<"lc2() ->
@@ -609,7 +629,7 @@ unused_vars_warn_fun(Config) when is_list(Config) ->
                           (C == <<A:A>>) and (<<17:B>> == D)
                   end.
            ">>,
-           [warn_unused_vars],
+           [warn_unused_vars,nowarn_obsolete_bool_op],
            {warnings,[{{1,24},erl_lint,{unused_var,'A'}},
                       {{2,23},erl_lint,{unused_var,'A'}},
                       {{2,23},erl_lint,{shadowed_var,'A','fun'}},
@@ -774,7 +794,7 @@ unused_unsafe_vars_warn(Config) when is_list(Config) ->
                   _ = case ok of _ -> fun() -> ok end end,
                   fun (X) -> X end.
            ">>,
-           [warn_unused_vars],
+           [warn_unused_vars,nowarn_deprecated_catch],
            []}],
     run(Config, Ts),
     ok.
@@ -896,7 +916,7 @@ shadow_vars(Config) when is_list(Config) ->
                   _ = case ok of _ -> fun() -> ok end end,
                   fun (MS) -> MS end. % MS not shadowed here
            ">>,
-           [],
+           [nowarn_deprecated_catch],
            []}],
     [] = run(Config, Ts),
     ok.
@@ -1034,7 +1054,7 @@ singleton_type_var_errors(Config) when is_list(Config) ->
                   error.
              ">>,
            [],
-           {warnings,[{{2,36},erl_lint,{singleton_typevar,'Unknown'}}]}},
+           {errors,[{{2,36},erl_lint,{singleton_typevar,'Unknown'}}], []}},
 
           {singleton_error2,
            <<"-spec test_singleton_list_typevars_in_union([Opts]) -> term() when
@@ -1042,7 +1062,7 @@ singleton_type_var_errors(Config) when is_list(Config) ->
                 test_singleton_list_typevars_in_union(_) ->
                     error.">>,
            [],
-           {warnings,[{{2,36},erl_lint,{singleton_typevar,'Unknown'}}]}},
+           {errors,[{{2,36},erl_lint,{singleton_typevar,'Unknown'}}], []}},
 
           {singleton_error3,
            <<"-spec test_singleton_list_typevars_in_list([Opts]) -> term() when
@@ -1067,7 +1087,7 @@ singleton_type_var_errors(Config) when is_list(Config) ->
                 test_singleton_buried_typevars_in_union(_) ->
                     error.">>,
            [],
-           {warnings,[{{3,38},erl_lint,{singleton_typevar,'X'}}]}},
+           {errors,[{{3,38},erl_lint,{singleton_typevar,'X'}}], []}},
 
           {singleton_error6,
            <<"-spec test_multiple_subtypes_to_same_typevar(Opts) -> term() when
@@ -1098,15 +1118,6 @@ singleton_type_var_errors(Config) when is_list(Config) ->
                   error.">>,
            [],
            {errors,[{{2,21},erl_lint,{singleton_typevar,'Unused'}}],[]}},
-
-          {singleton_disabled_warning,
-           <<"-spec test_singleton_typevars_in_union(Opts) -> term() when
-                      Opts :: {ok, Unknown} | {error, Unknown}.
-                test_singleton_typevars_in_union(_) ->
-                  error.
-             ">>,
-           [nowarn_singleton_typevar],
-           []},
 
           {singleton_ok1,
            <<"-spec test_multiple_occurrences_singleton(Opts) -> term() when
@@ -1186,13 +1197,72 @@ unused_function(Config) when is_list(Config) ->
                 32*X.
            ">>,
 	   {[]},		     %Tuple indicates no 'export_all'.
-	   []}],
+	   []},
+
+          %% Raises a warning that flurb/1 is unused, and that we should
+          %% probably export it because it's referenced in t/0 and u/1.
+          {func4,
+           <<"-export([t/0, u/1]).
+
+              t() ->
+                 fun ?MODULE:flurb/1.
+              u(X) ->
+                 ?MODULE:flurb(X).
+
+              flurb(X) ->
+                32*X.
+           ">>,
+           {[]}, %% Tuple indicates no 'export_all'.
+           {warnings,[{{4,18},erl_lint,{unexported_function,{lint_test,flurb,1}}},
+             {{6,19},erl_lint,{unexported_function,{lint_test,flurb,1}}},
+             {{8,15},erl_lint,{unused_function,{flurb,1}}}]}},
+
+          %% Turn off warnings for unexported functions using a -compile()
+          %% directive.
+          {func5,
+           <<"-export([t/0, u/1]).
+              -compile(nowarn_unexported_function).
+
+              t() ->
+                 fun ?MODULE:flurb/1.
+              u(X) ->
+                 ?MODULE:flurb(X).
+
+              flurb(X) ->
+                32*X.
+           ">>,
+           {[]}, %% Tuple indicates no 'export_all'.
+           {warnings,[{{9,15},erl_lint,{unused_function,{flurb,1}}}]}},
+
+          %% GH-9267: references prior to the -export directive caused false
+          %% positives.
+          {func6,
+           <<"-record(blurf, {a = ?MODULE:t() }).
+              -export([t/0]).
+
+              t() ->
+                 #blurf{a=hello}.
+           ">>,
+           {[]}, %% Tuple indicates no 'export_all'.
+           []},
+
+          %% GH-9267: references prior to the -export directive caused false
+          %% positives.
+          {func7,
+           <<"-callback foo() -> ok.
+              -export([t/0]).
+
+              t() ->
+                 ?MODULE:behaviour_info(callbacks).
+           ">>,
+           {[]}, %% Tuple indicates no 'export_all'.
+           []}],
 
     [] = run(Config, Ts),
     ok.
 
 %% Test warnings for unused types
-unused_type(Config) when is_list(Config) ->
+types(Config) ->
     Ts = [{func1,
            <<"-type foo() :: term().">>,
            {[]},                                %Tuple indicates no export_all
@@ -1209,14 +1279,10 @@ unused_type(Config) when is_list(Config) ->
            <<"-compile(nowarn_unused_type).
               -type foo() :: term().">>,
            {[]},                                %Tuple indicates no export_all
-           []}],
+           []},
 
-    [] = run(Config, Ts),
-    ok.
-
-%% OTP-17301. Types nonempty_binary(), nonempty_bitstring().
-binary_types(Config) when is_list(Config) ->
-    Ts = [{binary1,
+          %% OTP-17301. Types nonempty_binary(), nonempty_bitstring().
+          {binary1,
            <<"-type nonempty_binary() :: term().">>,
            [nowarn_unused_type],
            {warnings,[{{1,22},erl_lint,
@@ -1225,7 +1291,24 @@ binary_types(Config) when is_list(Config) ->
            <<"-type nonempty_bitstring() :: term().">>,
            [nowarn_unused_type],
            {warnings,[{{1,22},erl_lint,
-                       {redefine_builtin_type,{nonempty_bitstring,0}}}]}}],
+                       {redefine_builtin_type,{nonempty_bitstring,0}}}]}},
+
+          %% Test for bad types.
+          {bad_export_type1,
+           <<"-export_type(no_arity).
+              -export_type(undefined_type/0).
+              -export_type([fine/0,fine/0]).
+              -type fine() :: any().
+              -type duplicated() :: atom().
+              -type duplicated() :: integer().
+             ">>,
+           [nowarn_unused_type],
+           {error,[{{1,22},erl_lint,{bad_export_type,no_arity}},
+                   {{2,16},erl_lint,{bad_export_type,{undefined_type,0}}},
+                   {{6,16},erl_lint,{redefine_type,{duplicated,0}}}],
+            [{{3,16},erl_lint,{duplicated_export_type,{fine,0}}}]}}
+         ],
+
     [] = run(Config, Ts),
     ok.
 
@@ -1245,7 +1328,8 @@ unsafe_vars(Config) when is_list(Config) ->
                   X.
            ">>,
            [warn_unused_vars],
-           {warnings,[{{2,38},erl_lint,{unused_var,'Y'}}]}},
+           {warnings,[{{2,38},erl_lint,{unused_var,'Y'}},
+                      {{3,19},erl_lint,{export_var_subexpr,'X',{'orelse',{2,30}}}}]}},
           {unsafe3,
            <<"t3() ->
                   (X = true) andalso (Y = false),
@@ -1260,7 +1344,8 @@ unsafe_vars(Config) when is_list(Config) ->
                   X.
            ">>,
            [warn_unused_vars],
-           []},
+           {warnings,[{{2,46},erl_lint,{export_var_subexpr,'X',{'andalso',{2,30}}}},
+                      {{3,19},erl_lint,{export_var_subexpr,'X',{'andalso',{2,30}}}}]}},
           {unsafe5,
            <<"t5() ->
                   Y = 3,
@@ -1268,7 +1353,8 @@ unsafe_vars(Config) when is_list(Config) ->
                   {X,Y}.
            ">>,
            [warn_unused_vars],
-           []},
+           {warnings,[{{3,39},erl_lint,{export_var_subexpr,'X',{'andalso',{3,30}}}},
+                      {{4,20},erl_lint,{export_var_subexpr,'X',{'andalso',{3,30}}}}]}},
           {unsafe6,
            <<"t6() ->
                   X = true,
@@ -1292,7 +1378,7 @@ unsafe_vars(Config) when is_list(Config) ->
                   case X of _ -> catch _Y = 1 end,
                   _Y."
            >>,
-           [],
+           [nowarn_deprecated_catch],
            {errors,[{{3,19},erl_lint,{unsafe_var,'_Y',{'catch',{2,34}}}}],
             []}},
            {unsafe9,
@@ -1321,7 +1407,7 @@ unsafe_vars(Config) when is_list(Config) ->
                   end,
                   {A,B,C,D}."
            >>,
-           [],
+           [nowarn_deprecated_catch],
            {errors,[{{24,20},erl_lint,{unsafe_var,'A',{'catch',{4,27}}}},
                     {{24,22},erl_lint,{unsafe_var,'B',{'case',{2,19}}}},
                     {{24,26},erl_lint,{unsafe_var,'D',{'case',{2,19}}}}],
@@ -1498,15 +1584,15 @@ unsafe_vars_try(Config) when is_list(Config) ->
 	   {errors,[{{5,41},erl_lint,{unsafe_var,'R',{'try',{3,19}}}},
 		    {{7,24},erl_lint,{unsafe_var,'Rc',{'try',{3,19}}}},
 		    {{13,38},erl_lint,{unsafe_var,'R',{'try',{10,19}}}},
-		    {{13,40},erl_lint,{unbound_var,'RR'}},
-		    {{13,43},erl_lint,{unbound_var,'Ro'}},
+		    {{13,40},erl_lint,{unbound_var,'RR','R'}},
+		    {{13,43},erl_lint,{unbound_var,'Ro','R'}},
 		    {{15,24},erl_lint,{unsafe_var,'R',{'try',{10,19}}}},
 		    {{15,26},erl_lint,{unsafe_var,'RR',{'try',{10,19}}}},
 		    {{15,29},erl_lint,{unsafe_var,'Ro',{'try',{10,19}}}},
 		    {{15,32},erl_lint,{unsafe_var,'Class',{'try',{10,19}}}},
 		    {{15,38},erl_lint,{unsafe_var,'Data',{'try',{10,19}}}},
 		    {{21,38},erl_lint,{unsafe_var,'R',{'try',{18,19}}}},
-		    {{21,40},erl_lint,{unbound_var,'RR'}},
+		    {{21,40},erl_lint,{unbound_var,'RR','R'}},
 		    {{23,27},erl_lint,{unsafe_var,'R',{'try',{18,19}}}},
 		    {{23,29},erl_lint,{unsafe_var,'RR',{'try',{18,19}}}},
 		    {{23,32},erl_lint,{unsafe_var,'Class',{'try',{18,19}}}},
@@ -1531,8 +1617,8 @@ unsafe_vars_try(Config) when is_list(Config) ->
            ">>,
 	   [],
 	   {errors,[{{6,41},erl_lint,{unsafe_var,'R',{'try',{3,19}}}},
-		    {{6,43},erl_lint,{unbound_var,'RR'}},
-		    {{6,46},erl_lint,{unbound_var,'Ro'}},
+		    {{6,43},erl_lint,{unbound_var,'RR','R'}},
+		    {{6,46},erl_lint,{unbound_var,'Ro','R'}},
 		    {{8,27},erl_lint,{unsafe_var,'R',{'try',{3,19}}}},
 		    {{8,29},erl_lint,{unsafe_var,'RR',{'try',{3,19}}}},
 		    {{8,32},erl_lint,{unsafe_var,'Ro',{'try',{3,19}}}},
@@ -1617,18 +1703,6 @@ guard(Config) when is_list(Config) ->
     %% Well, these could be plain code...
     Ts = [{guard1,
            <<"-record(apa, {}).
-              t(A) when atom(A) ->
-                  atom;
-              t(A) when binary(A) ->
-                  binary;
-              t(A) when constant(A) ->
-                  constant;
-              t(A) when float(A) ->
-                  float;
-              t(A) when function(A) ->
-                  function;
-              t(A) when integer(A) ->
-                  integer;
               t(A) when is_atom(A) ->
                   is_atom;
               t(A) when is_binary(A) ->
@@ -1656,41 +1730,14 @@ guard(Config) when is_list(Config) ->
               t(A) when is_reference(A) ->
                   is_reference;
               t(A) when is_tuple(A) ->
-                  is_tuple;
-              t(A) when list(A) ->
-                  list;
-              t(A) when number(A) ->
-                  number;
-              t(A) when pid(A) ->
-                  pid;
-              t(A) when port(A) ->
-                  port;
-              t(A) when record(A, apa) ->
-                  record;
-              t(A) when reference(A) ->
-                  reference;
-              t(A) when tuple(A) ->
-                  tuple.
+                  is_tuple.
            ">>,
            [nowarn_obsolete_guard],
            {errors,
-	    [{{6,25},erl_lint,illegal_guard_expr},
-             {{18,25},erl_lint,illegal_guard_expr}],
+            [{{6,25},erl_lint,illegal_guard_expr}],
 	    []}},
           {guard2,
            <<"-record(apa,{}).
-              t1(A) when atom(A), atom(A) ->
-                  atom;
-              t1(A) when binary(A), binary(A) ->
-                  binary;
-              t1(A) when constant(A), constant(A) ->
-                  constant;
-              t1(A) when float(A), float(A) ->
-                  float;
-              t1(A) when function(A), function(A) ->
-                  function;
-              t1(A) when integer(A), integer(A) ->
-                  integer;
               t1(A) when is_atom(A), is_atom(A) ->
                   is_atom;
               t1(A) when is_binary(A), is_binary(A) ->
@@ -1718,40 +1765,14 @@ guard(Config) when is_list(Config) ->
               t1(A) when is_reference(A), is_reference(A) ->
                   is_reference;
               t1(A) when is_tuple(A), is_tuple(A) ->
-                  is_tuple;
-              t1(A) when list(A), list(A) ->
-                  list;
-              t1(A) when number(A), number(A) ->
-                  number;
-              t1(A) when pid(A), pid(A) ->
-                  pid;
-              t1(A) when port(A), port(A) ->
-                  port;
-              t1(A) when record(A, apa), record(A, apa) ->
-                  record;
-              t1(A) when reference(A), reference(A) ->
-                  reference;
-              t1(A) when tuple(A), tuple(A) ->
-                  tuple.
+                  is_tuple.
            ">>,
            [nowarn_obsolete_guard],
 	   {errors,[{{6,26},erl_lint,illegal_guard_expr},
-		    {{6,39},erl_lint,illegal_guard_expr},
-		    {{18,26},erl_lint,illegal_guard_expr},
-		    {{18,42},erl_lint,illegal_guard_expr}],
+                    {{6,42},erl_lint,illegal_guard_expr}],
 	    []}},
           {guard3,
            <<"-record(apa,{}).
-              t2(A) when atom(A); atom(A) ->
-                  atom;
-              t2(A) when binary(A); binary(A) ->
-                  binary;
-              t2(A) when float(A); float(A) ->
-                  float;
-              t2(A) when function(A); function(A) ->
-                  function;
-              t2(A) when integer(A); integer(A) ->
-                  integer;
               t2(A) when is_atom(A); is_atom(A) ->
                   is_atom;
               t2(A) when is_binary(A); is_binary(A) ->
@@ -1777,21 +1798,7 @@ guard(Config) when is_list(Config) ->
               t2(A) when is_reference(A); is_reference(A) ->
                   is_reference;
               t2(A) when is_tuple(A); is_tuple(A) ->
-                  is_tuple;
-              t2(A) when list(A); list(A) ->
-                  list;
-              t2(A) when number(A); number(A) ->
-                  number;
-              t2(A) when pid(A); pid(A) ->
-                  pid;
-              t2(A) when port(A); port(A) ->
-                  port;
-              t2(A) when record(A, apa); record(A, apa) ->
-                  record;
-              t2(A) when reference(A); reference(A) ->
-                  reference;
-              t2(A) when tuple(A); tuple(A) ->
-                  tuple.
+                  is_tuple.
            ">>,
            [nowarn_obsolete_guard],
 	   []},
@@ -1826,13 +1833,11 @@ guard(Config) when is_list(Config) ->
               t3(A) when is_tuple(A) or is_tuple(A) ->
                   is_tuple.
            ">>,
-           [nowarn_obsolete_guard],
+           [nowarn_obsolete_guard,nowarn_obsolete_bool_op],
            []}],
     [] = run(Config, Ts),
     Ts1 = [{guard5,
             <<"-record(apa, {}).
-               t3(A) when record(A, {apa}) ->
-                   foo;
                t3(A) when is_record(A, {apa}) ->
                    foo;
                t3(A) when erlang:is_record(A, {apa}) ->
@@ -1845,8 +1850,6 @@ guard(Config) when is_list(Config) ->
                    foo;
                t3(A) when erlang:is_record(A, apa, []) ->
                    foo;
-               t3(A) when record(A, apa) ->
-                   foo;
                t3(A) when is_record(A, apa) ->
                    foo;
                t3(A) when erlang:is_record(A, apa) ->
@@ -1858,8 +1861,7 @@ guard(Config) when is_list(Config) ->
 		     {{6,27},erl_lint,illegal_guard_expr},
 		     {{8,27},erl_lint,illegal_guard_expr},
 		     {{10,27},erl_lint,illegal_guard_expr},
-		     {{12,27},erl_lint,illegal_guard_expr},
-		     {{14,27},erl_lint,illegal_guard_expr}],
+                     {{12,27},erl_lint,illegal_guard_expr}],
 	     []}},
            {guard6,
             <<"-record(apa,{a=a,b=foo:bar()}).
@@ -1879,7 +1881,7 @@ guard(Config) when is_list(Config) ->
                [X || X <- [1,#apa{},3], (3+is_record(X, apa)) or 
                                         (is_record(X, apa)*2)].
             ">>,
-            [],
+            [nowarn_obsolete_bool_op],
             []},
 	   {guard8,
 	    <<"t(A) when erlang:is_foobar(A) -> ok;
@@ -1899,13 +1901,13 @@ guard(Config) when is_list(Config) ->
                      {{2,29},erl_lint,illegal_guard_expr}],
              []}},
            {guard10,
-            <<"is_port(_) -> false.
+            <<"port(_) -> false.
                t(P) when port(P) -> ok.
             ">>,
             [],
-            {error,
-	     [{{2,26},erl_lint,{obsolete_guard_overridden,port}}],
-	     [{{2,26},erl_lint,{obsolete_guard,{port,1}}}]}},
+            {errors,
+             [{{2,26},erl_lint,{illegal_guard_local_call,{port,1}}}],
+             []}},
            {guard11,
             <<"-record(bar, {a = mk_a()}).
                mk_a() -> 1.
@@ -1940,6 +1942,7 @@ otp_4886(Config) when is_list(Config) ->
            {errors,[{{3,32},erl_lint,{undefined_record,foo}},
                     {{4,39},erl_lint,{undefined_record,foo}},
                     {{5,41},erl_lint,{undefined_record,foo}}],
+
             []}}],
     [] = run(Config, Ts),
     ok.
@@ -1960,11 +1963,11 @@ otp_4988(Config) when is_list(Config) ->
                   {A}.
              ">>,
            [],
-           {errors,[{{1,22},erl_lint,{bad_inline,{1,foo}}},
-                    {{1,22},erl_lint,{bad_inline,{f,3}}},
-                    {{1,22},erl_lint,{bad_inline,{f,4}}},
-                    {{1,22},erl_lint,{bad_inline,{f,a}}},
-                    {{3,16},erl_lint,{bad_inline,{g,12}}}],
+            {errors,[{{1,22},erl_lint,{bad_inline,{1,foo}}},
+                    {{1,22},erl_lint,{bad_inline,{f,3},{f,[2]}}},
+                    {{1,22},erl_lint,{bad_inline,{f,4},{f,[2]}}},
+                    {{1,22},erl_lint,{bad_inline,{f,a},{f,[2]}}},
+                    {{3,16},erl_lint,{bad_inline,{g,12},{g,[1]}}}],
             []}}],
     [] = run(Config, Ts),
     ok.
@@ -2230,7 +2233,27 @@ otp_5917(Config) when is_list(Config) ->
     [] = run(Config, Ts),
     ok.
 
-%% OTP-6585. Check the deprecated guards list/1, pid/1, ....
+%% Check the 'deprecated_type' and 'deprecated_callback' attributes.
+cs_deprecated_attr(Config) when is_list(Config) ->
+    Ts = [{deprecated_type_1,
+          <<"-export_type([foo/0]).
+             -deprecated_type([{foo, 0, 1}]).
+             -type foo() :: integer().
+            ">>,
+           {[]},
+           {errors,[{{2,15},erl_lint,{invalid_deprecated,{foo,0,1}}}],
+            []}},
+          {deprecated_callback_1,
+          <<"-callback bar(integer()) -> ok.
+             -deprecated_callback([{bar, 1, 42}]).
+            ">>,
+           {[]},
+           {errors,[{{2,15},erl_lint,{invalid_deprecated,{bar,1,42}}}],
+            []}}],
+    [] = run(Config, Ts),
+    ok.
+
+%% OTP-6585. Check that deprecated guards list/1, pid/1, etc. are no longer recognized
 otp_6585(Config) when is_list(Config) ->
     Ts = [{otp_6585_1,
           <<"-export([t/0]).
@@ -2239,15 +2262,18 @@ otp_6585(Config) when is_list(Config) ->
 
              f(A) when list(A) -> list;
              f(R) when record(R, r) -> rec;
-             f(P) when pid(P) -> pid.
+             f(P) when pid(P) -> pid;
+             f(A) when float(A) -> float.
 
              t() ->
                  f([]).
             ">>,
-           [warn_obsolete_guard],
-           {warnings,[{{5,24},erl_lint,{obsolete_guard,{list,1}}},
-                      {{6,24},erl_lint,{obsolete_guard,{record,2}}},
-                      {{7,24},erl_lint,{obsolete_guard,{pid,1}}}]}}],
+           [],
+           {error,[{{5,24},erl_lint,illegal_guard_expr},
+                   {{6,24},erl_lint,illegal_guard_expr},
+                   {{7,24},erl_lint,illegal_guard_expr},
+                   {{8,24},erl_lint,{illegal_type_test,{float,1}}}],
+            [{{3,15},erl_lint,{unused_record,r}}]}}],
     [] = run(Config, Ts),
     ok.
 
@@ -2311,12 +2337,17 @@ otp_5362(Config) when is_list(Config) ->
              -compile({nowarn_unused_function,{unused_function,2}}).
              unused_function(_, _) ->
                  ok.
+
+             -compile({nowarn_unused_function,{totally_undefined,0}}).
            ">>,
           {[warn_unused_vars, warn_unused_import]},
-           {error,[{{5,15},erl_lint,{bad_inline,{inl,7}}},
-                   {{6,15},erl_lint,{bad_inline,{inl,17}}},
-                   {{11,18},erl_lint,{undefined_function,{fipp,0}}},
-                   {{22,15},erl_lint,{bad_nowarn_unused_function,{and_not_used,2}}}],
+           {error,[{{5,15},erl_lint,{bad_inline,{inl,7},{inl,[1]}}},
+                   {{6,15},erl_lint,{bad_inline,{inl,17},{inl,[1]}}},
+                   {{11,18},erl_lint,{undefined_function,{fipp,0},{foop,[0]}}},
+                   {{22,15},erl_lint,{bad_nowarn_unused_function,
+                                      {and_not_used,2},{and_not_used,[1]}}},
+                   {{30,15},erl_lint,
+                    {bad_nowarn_unused_function,{totally_undefined,0}}}],
             [{{3,15},erl_lint,{unused_import,{{b,1},lists}}},
              {{9,14},erl_lint,{unused_function,{foop,0}}},
              {{19,14},erl_lint,{unused_function,{not_used,0}}},
@@ -2362,12 +2393,12 @@ otp_5362(Config) when is_list(Config) ->
            ">>,
            {[nowarn_unused_function,
              warn_deprecated_function]},
-           {error,
-            [{{5,19},erl_lint,{call_to_redefined_old_bif,{spawn,1}}}],
+           {warnings,
             [{{4,19},erl_lint,{deprecated,{erlang,now,0},
                           "see the \"Time and Time Correction in Erlang\" "
                           "chapter of the ERTS User's Guide for more "
-                          "information"}}]}},
+                          "information"}},
+             {{5,19},erl_lint,{call_to_redefined_bif,{spawn,1}}}]}},
           {otp_5362_5,
            <<"-compile(nowarn_deprecated_function).
               -compile(nowarn_bif_clash).
@@ -2401,6 +2432,7 @@ otp_5362(Config) when is_list(Config) ->
               -compile([{nowarn_deprecated_function, 
                                 [{erlang,now,-1},{3,now,-1}]}, % 2 bad
                      {nowarn_deprecated_function, {{a,b,c},now,-1}}]). % bad
+              -compile({nowarn_bif_clash,{not_a_bif_at_all,1}}).
               spawn(A) ->
                   erlang:now(),
                   spawn(A).
@@ -2408,7 +2440,11 @@ otp_5362(Config) when is_list(Config) ->
            {[nowarn_unused_function]},
            {errors,[{{3,16},erl_lint,disallowed_nowarn_bif_clash},
                     {{4,16},erl_lint,disallowed_nowarn_bif_clash},
-                    {{4,16},erl_lint,{bad_nowarn_bif_clash,{spawn,2}}}],
+                    {{4,16},erl_lint,{bad_nowarn_bif_clash,{spawn,2},
+                                      {spawn,[1]}}},
+                    {{8,16},erl_lint,disallowed_nowarn_bif_clash},
+                    {{8,16},erl_lint,
+                     {bad_nowarn_bif_clash,{not_a_bif_at_all,1}}}],
             []}
            },
 
@@ -2554,7 +2590,7 @@ otp_5371(Config) when is_list(Config) ->
            <<"t(<<A:8>> = <<B:8>>) ->
                   {A,B}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
            []},
 	  {otp_5371_2,
            <<"x([<<A:8>>] = [<<B:8>>]) ->
@@ -2562,7 +2598,7 @@ otp_5371(Config) when is_list(Config) ->
               y({a,<<A:8>>} = {b,<<B:8>>}) ->
                   {A,B}.
              ">>,
-           [],
+           [nowarn_match_alias_pats],
            {warnings,[{{3,15},v3_core,{nomatch,pattern}}]}},
 	  {otp_5371_3,
            <<"-record(foo, {a,b,c}).
@@ -2579,7 +2615,7 @@ otp_5371(Config) when is_list(Config) ->
               e(#foo{a=x,b = <<X:8>>} = #buzz{x=glurf,y = <<Y:8>>}) ->
                   {X,Y}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
            {warnings,[{{4,15},v3_core,{nomatch,pattern}},
                       {{8,15},v3_core,{nomatch,pattern}},
                       {{10,15},v3_core,{nomatch,pattern}},
@@ -2595,7 +2631,7 @@ otp_5371(Config) when is_list(Config) ->
               c(#foo{a = <<X:8>>} = #buzz{y = <<Y:8>>}) ->
                   {X,Y}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
 	   {warnings,[{{4,15},v3_core,{nomatch,pattern}},
 		      {{6,15},v3_core,{nomatch,pattern}},
 		      {{8,15},v3_core,{nomatch,pattern}}]}}
@@ -2610,33 +2646,33 @@ otp_7227(Config) when is_list(Config) ->
            <<"t([<<A:8>> = {C,D} = <<B:8>>]) ->
                   {A,B,C,D}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
            {warnings,[{{1,21},v3_core,{nomatch,pattern}}]}},
 	  {otp_7227_2,
            <<"t([(<<A:8>> = {C,D}) = <<B:8>>]) ->
                   {A,B,C,D}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
 	   {warnings,[{{1,21},v3_core,{nomatch,pattern}}]}},
 	  {otp_7227_3,
            <<"t([(<<A:8>> = {C,D}) = (<<B:8>> = <<C:8>>)]) ->
                   {A,B,C,D}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
            {warnings,[{{1,21},v3_core,{nomatch,pattern}}]}},
 	  {otp_7227_4,
            <<"t(Val) ->
                   <<A:8>> = <<B:8>> = Val,
                   {A,B}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
 	   []},
 	  {otp_7227_5,
            <<"t(Val) ->
                   <<A:8>> = X = <<B:8>> = Val,
                   {A,B,X}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
 	   []},
 	  {otp_7227_6,
            <<"t(X, Y) ->
@@ -2650,21 +2686,21 @@ otp_7227(Config) when is_list(Config) ->
                   (<<A:8>> = X) = (<<B:8>> = <<A:4,B:4>>) = Val,
                   {A,B,X}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
            []},
           {otp_7227_8,
            <<"t(Val) ->
                   (<<A:8>> = X) = (Y = <<B:8>>) = Val,
                   {A,B,X,Y}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
 	   []},
 	  {otp_7227_9,
            <<"t(Val) ->
                   (Z = <<A:8>> = X) = (Y = <<B:8>> = W) = Val,
                   {A,B,X,Y,Z,W}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
            []}
 	 ],
     [] = run(Config, Ts),
@@ -2676,38 +2712,38 @@ binary_aliases(Config) when is_list(Config) ->
            <<"t([<<Size:8,_/bits>> = <<_:8,Data:Size/bits>>]) ->
                   Data.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
            {errors,[{{1,55},erl_lint,{unbound_var,'Size'}}],[]}},
           {binary_aliases_2,
            <<"t(#{key := <<Size:8,_/bits>>} = #{key := <<_:8,Data:Size/bits>>}) ->
                   Data.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
            {errors,[{{1,73},erl_lint,{unbound_var,'Size'}}],[]}},
           {binary_aliases_3,
            <<"t(<<_:8,Data:Size/bits>> = <<Size:8,_/bits>>) ->
                   Data.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
            {errors,[{{1,34},erl_lint,{unbound_var,'Size'}}],[]}},
           {binary_aliases_4,
            <<"t([<<_:8,Data:Size/bits>> = <<Size:8,_/bits>>]) ->
                   Data.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
            {errors,[{{1,35},erl_lint,{unbound_var,'Size'}}],[]}},
           {binary_aliases_5,
            <<"t(Bin) ->
                   <<_:8,A:Size>> = <<_:8,B:Size/bits>> = <<Size:8,_/bits>> = Bin,
                   {A,B,Size}.
              ">>,
-           [],
+           [nowarn_match_alias_pats],
            []},
           {binary_aliases_6,
            <<"t(<<_:8,A:Size>> = <<_:8,B:Size/bits>> = <<Size:8,_/bits>>) ->
                   {A,B,Size}.
              ">>,
-           [],
+           [nowarn_match_alias_pats],
            {errors,[{{1,31},erl_lint,{unbound_var,'Size'}},
                     {{1,48},erl_lint,{unbound_var,'Size'}}],
             []}}
@@ -2741,7 +2777,7 @@ otp_5644(Config) when is_list(Config) ->
               i(X) ->
                   X.
             ">>,
-           [],
+           [nowarn_unexported_function],
            []}],
     [] = run(Config, Ts),
     ok.
@@ -2943,7 +2979,7 @@ otp_5878(Config) when is_list(Config) ->
              {{5,30},erl_lint,illegal_guard_expr},
              {{7,30},erl_lint,illegal_guard_expr}],
            []} =
-        run_test2(Config, Ill2, [warn_unused_record]),
+        run_test2(Config, Ill2, [warn_unused_record,nowarn_obsolete_bool_op]),
 
     Ill3 = <<"t() -> ok.">>,
     {errors,[{{1,1},erl_lint,undefined_module}],[]} =
@@ -3082,7 +3118,7 @@ otp_11254(Config) when is_list(Config) ->
             manifest(Module, Name) ->
               fun Module:Nine/1.
          ">>,
-    {error,[{{4,26},erl_lint,{unbound_var,'Nine'}}],
+    {error,[{{4,26},erl_lint,{unbound_var,'Nine','Name'}}],
      [{{3,30},erl_lint,{unused_var,'Name'}}]} =
         run_test2(Config, Ts, []),
     ok.
@@ -3190,8 +3226,8 @@ bif_clash(Config) when is_list(Config) ->
               size({N,_}) ->
                 N.
              ">>,
-           [],
-	   {errors,[{{2,19},erl_lint,{call_to_redefined_old_bif,{size,1}}}],[]}},
+           [nowarn_unexported_function],
+	   {warnings,[{{2,19},erl_lint,{call_to_redefined_bif,{size,1}}}]}},
 
 	  %% Verify that warnings cannot be turned off in the old way.
 	  {clash2,
@@ -3220,7 +3256,7 @@ bif_clash(Config) when is_list(Config) ->
              ">>,
 	   [],
 	   []},
-	  %% But this is totally wrong - meaning of the program changed in R14, so this is an error
+	  %% For a pre R14 bif, it used to be an error, but is now a warning
 	  {clash4,
            <<"-export([size/1]).
               size({N,_}) ->
@@ -3229,20 +3265,22 @@ bif_clash(Config) when is_list(Config) ->
                 size(X).
              ">>,
 	   [],
-	   {errors,[{{5,17},erl_lint,{call_to_redefined_old_bif,{size,1}}}],[]}},
-	  %% For a post R14 bif, its only a warning
+	   {warnings,[{{5,17},erl_lint,{call_to_redefined_bif,{size,1}}}]}},
+	  %% For a post R14 bif, its only a warning; also check symbolic funs
 	  {clash5,
-           <<"-export([binary_part/2]).
+           <<"-export([binary_part/2,f/0]).
               binary_part({B,_},{X,Y}) ->
                 binary_part(B,{X,Y});
               binary_part(B,{X,Y}) ->
                 binary:part(B,X,Y).
+              f() -> fun binary_part/2.
              ">>,
 	   [],
-	   {warnings,[{{3,17},erl_lint,{call_to_redefined_bif,{binary_part,2}}}]}},
+	   {warnings,[{{3,17},erl_lint,{call_to_redefined_bif,{binary_part,2}}},
+                      {{6,22},erl_lint,{call_to_redefined_bif,{binary_part,2}}}]}},
 	  %% If you really mean to call yourself here, you can "unimport" size/1
 	  {clash6,
-           <<"-export([size/1]).
+           <<"-export([size/1,f/0]).
               -compile({no_auto_import,[size/1]}).
               size([]) ->
                 0;
@@ -3250,6 +3288,7 @@ bif_clash(Config) when is_list(Config) ->
                 N;
               size([_|T]) ->
                 1+size(T).
+              f() -> fun size/1.
              ">>,
 	   [],
 	   []},
@@ -3316,7 +3355,7 @@ bif_clash(Config) when is_list(Config) ->
                  binary_part(X,{1,2}) =:= fun binary_part/2.
              ">>,
 	   [],
-	   {errors,[{{5,43},erl_lint,{undefined_function,{binary_part,2}}}],[]}},
+	   {errors,[{{5,43},erl_lint,{fun_import,{binary_part,2}}}],[]}},
           %% Not from erlang and not from anywhere else
 	  {clash13,
            <<"-export([x/1]).
@@ -3326,7 +3365,7 @@ bif_clash(Config) when is_list(Config) ->
                  binary_part(X,{1,2}) =:= fun binary_part/2.
              ">>,
 	   [],
-	   {errors,[{{5,43},erl_lint,{undefined_function,{binary_part,2}}}],[]}},
+	   {errors,[{{5,43},erl_lint,{fun_import,{binary_part,2}}}],[]}},
 	  %% ...while real auto-import is OK.
 	  {clash14,
            <<"-export([x/1]).
@@ -3335,7 +3374,7 @@ bif_clash(Config) when is_list(Config) ->
              ">>,
 	   [],
 	   []},
-          %% Import directive clashing with old bif is an error, regardless of if it's called or not
+          %% Import directive clashing with old bif used to be an error, now a warning
 	  {clash15,
            <<"-export([x/1]).
               -import(x,[abs/1]).
@@ -3343,7 +3382,7 @@ bif_clash(Config) when is_list(Config) ->
                  binary_part(X,{1,2}).
              ">>,
 	   [],
-	   {errors,[{{2,16},erl_lint,{redefine_old_bif_import,{abs,1}}}],[]}},
+	   {warnings,[{{2,16},erl_lint,{redefine_bif_import,{abs,1}}}]}},
 	  %% For a new BIF, it's only a warning
 	  {clash16,
            <<"-export([x/1]).
@@ -3478,6 +3517,15 @@ behaviour_basic(Config) when is_list(Config) ->
            {warnings,[{{1,22},erl_lint,{undefined_behaviour_func,{start,2},application}}]}}
 	 ],
     [] = run(Config, Ts),
+
+    Subst0 = #{behaviour1 => [nowarn_undefined_behaviour_func],
+               behaviour2 => [nowarn_undefined_behaviour_func],
+               behaviour4 => [nowarn_undefined_behaviour_func]},
+    [] = run(Config, rewrite(Ts, Subst0)),
+
+    Subst = #{K => [nowarn_behaviours] || K := _ <- Subst0},
+    [] = run(Config, rewrite(Ts, Subst)),
+
     ok.
 
 %% Basic tests with multiple behaviours.
@@ -3544,13 +3592,14 @@ behaviour_multiple(Config) when is_list(Config) ->
 
 	  {behaviour4,
            <<"-behaviour(gen_server).
-              -behaviour(gen_fsm).
+              -behaviour(gen_statem).
               -behaviour(supervisor).
               -export([init/1,handle_call/3,handle_cast/2,
                        handle_info/2,handle_info/3,
                        handle_event/3,handle_sync_event/4,
                        code_change/3,code_change/4,
-                       terminate/2,terminate/3,terminate/4]).
+                       terminate/2,terminate/3,terminate/4,
+                       callback_mode/0]).
               init(_) -> ok.
               handle_call(_, _, _) -> ok.
               handle_event(_, _, _) -> ok.
@@ -3563,22 +3612,32 @@ behaviour_multiple(Config) when is_list(Config) ->
               terminate(_, _) -> ok.
               terminate(_, _, _) -> ok.
               terminate(_, _, _, _) -> ok.
+              callback_mode() -> state_functions.
              ">>,
            [],
 	   {warnings,[{{2,16},
 		       erl_lint,
-		       {conflicting_behaviours,{init,1},gen_fsm,{1,22},gen_server}},
+		       {conflicting_behaviours,{init,1},gen_statem,{1,22},gen_server}},
 		      {{3,16},
 		       erl_lint,
 		       {conflicting_behaviours,{init,1},supervisor,{1,22},gen_server}}]}}
 	 ],
     [] = run(Config, Ts),
+
+    Subst = #{behaviour3 => [nowarn_undefined_behaviour_func,
+                             nowarn_conflicting_behaviours],
+              american_behavior3 => [nowarn_undefined_behaviour_func,
+                                     nowarn_conflicting_behaviours],
+              behaviour4 => [nowarn_conflicting_behaviours]},
+    [] = run(Config, rewrite(Ts, Subst)),
+
     ok.
 
 %% OTP-11861. behaviour_info() and -callback.
 otp_11861(Conf) when is_list(Conf) ->
     CallbackFiles = [callback1, callback2, callback3,
-                     bad_behaviour1, bad_behaviour2],
+                     bad_behaviour1, bad_behaviour2,
+                     bad_behaviour3],
     lists:foreach(fun(M) ->
                           F = filename:join(?datadir, M),
                           Opts = [{outdir,?privdir}, return],
@@ -3759,9 +3818,31 @@ otp_11861(Conf) when is_list(Conf) ->
               f1(_) -> ok.
              ">>,
            [],
-           []}
+           []},
+
+          {otp_11861_19,
+           <<"
+              -export([good/1]).
+              -behaviour(bad_behaviour3).
+              good(_) -> ok.
+             ">>,
+           [],
+           {warnings,[{{3,16},erl_lint,{ill_defined_optional_callbacks,bad_behaviour3}}]}}
 	 ],
     [] = run(Conf, Ts),
+
+    Subst0 = #{otp_11861_1 => [nowarn_conflicting_behaviours],
+               otp_11861_11 => [nowarn_ill_defined_behaviour_callbacks],
+               otp_11861_12 => [nowarn_undefined_behaviour],
+               otp_11861_13 => [nowarn_undefined_behaviour],
+               otp_11861_17 => [nowarn_undefined_behaviour_callbacks],
+               otp_11861_19 => [nowarn_ill_defined_optional_callbacks]
+              },
+    [] = run(Conf, rewrite(Ts, Subst0)),
+
+    Subst = #{K => [nowarn_behaviours] || K := _ <- Subst0},
+    [] = run(Conf, rewrite(Ts, Subst)),
+
     true = code:set_path(CodePath),
     ok.
 
@@ -3957,9 +4038,30 @@ basic_errors(Config) ->
 	   [],
 	   {errors,[{{2,15},erl_lint,{redefine_function,{f,0}}}],[]}},
 
-	  {redefine_record,
+	  {redefine_record_1,
 	   <<"-record(r, {a}).
               -record(r, {a}).
+	      f(#r{}) -> ok.">>,
+	   [],
+	   {errors,[{{2,16},erl_lint,{redefine_record,r}}],[]}},
+
+	  {redefine_record_2,
+	   <<"-record #r{a}.
+              -record(r, {a}).
+	      f(#r{}) -> ok.">>,
+	   [],
+	   {errors,[{{2,16},erl_lint,{redefine_record,r}}],[]}},
+
+	  {redefine_record_3,
+	   <<"-record(r, {a}).
+              -record #r{a}.
+	      f(#r{}) -> ok.">>,
+	   [],
+	   {errors,[{{2,16},erl_lint,{redefine_record,r}}],[]}},
+
+	  {redefine_record_4,
+	   <<"-record #r{a}.
+              -record #r{a}.
 	      f(#r{}) -> ok.">>,
 	   [],
 	   {errors,[{{2,16},erl_lint,{redefine_record,r}}],[]}},
@@ -4001,8 +4103,14 @@ bin_syntax_errors(Config) ->
               t(X) ->
                 {<<X/binary-integer>>,<<X/signed-unsigned-integer>>,
                  <<X/little-big>>,<<X/unit:4-unit:8>>};
-              t(<<_:{A,B}>>) -> ok.
-
+              t(<<_:{A,B}>>) -> ok;
+              t(_) ->
+                {<<\"\\x{aa}\">>,
+                 <<\"\\x{aaa}\">>,
+                 <<0>>,<<-1>>,
+                 <<255>>,<<256>>,
+                 <<32767:15>>,<<32768:15>>,
+                 <<-32768:16/signed>>,<<-32769:16/signed>>}.
               l() ->
                   foo.
 	    ">>,
@@ -4023,8 +4131,14 @@ bin_syntax_errors(Config) ->
 	    [{{1,27},erl_lint,non_integer_bitsize},
              {{4,21},erl_lint,non_integer_bitsize},
              {{7,12},erl_lint,{bad_bitsize,"float"}},
-             {{13,21},erl_lint,non_integer_bitsize}]}}
-	 ],
+             {{13,21},erl_lint,non_integer_bitsize},
+             {{15,20},erl_lint,latin1_binary},
+             {{16,20},erl_lint,truncated_character},
+             {{17,26},erl_lint,{truncated_integer,-1,8,unsigned}},
+             {{18,28},erl_lint,{truncated_integer,256,8,unsigned}},
+             {{19,33},erl_lint,{truncated_integer,32768,15,unsigned}},
+             {{20,41},erl_lint,{truncated_integer,-32769,16,signed}}
+            ]}}],
     [] = run(Config, Ts),
     ok.
 
@@ -4196,7 +4310,7 @@ maps_parallel_match(Config) when is_list(Config) ->
                 #{k1 := K1,k2 := K2}] = [M],
                [V1,V2].
            ">>,
-           [],
+           [nowarn_match_alias_pats],
            {errors,[{{3,19},erl_lint,{unbound_var,'K1'}},
                     {{4,19},erl_lint,{unbound_var,'K2'}}],[]}},
           {parallel_map_patterns_unbound_not_toplevel2,
@@ -4205,7 +4319,7 @@ maps_parallel_match(Config) when is_list(Config) ->
                [#{k := K} = #{K := V}] = [M],
                V.
            ">>,
-           [],
+           [nowarn_match_alias_pats],
            {errors,[{{3,31},erl_lint,{unbound_var,'K'}}],[]}},
           {parallel_map_patterns_bound1,
            <<"
@@ -4215,7 +4329,7 @@ maps_parallel_match(Config) when is_list(Config) ->
                #{k1 := K1,k2 := K2} = M,
                [V1,V2].
            ">>,
-           [],
+           [nowarn_match_alias_pats],
            []},
           {parallel_map_patterns_bound2,
            <<"
@@ -4223,7 +4337,7 @@ maps_parallel_match(Config) when is_list(Config) ->
                #{K := V} = #{k := K} = M,
                V.
            ">>,
-           [],
+           [nowarn_match_alias_pats],
            []},
           {parallel_map_patterns_bound3,
            <<"
@@ -4233,7 +4347,7 @@ maps_parallel_match(Config) when is_list(Config) ->
                #{k1 := K1,k2 := K2} = M,
                [V1,V2].
            ">>,
-           [],
+           [nowarn_match_alias_pats],
            []},
           {parallel_map_patterns_literal,
            <<"
@@ -4243,7 +4357,7 @@ maps_parallel_match(Config) when is_list(Config) ->
                #{k1 := V1,k2 := V2} = M,
                [V1,V2].
            ">>,
-           [],
+           [nowarn_match_alias_pats],
            []}],
     [] = run(Config, Ts),
     ok.
@@ -4263,7 +4377,7 @@ otp_11851(Config) when is_list(Config) ->
 
             -type map(A) :: A.
 
-            -type record() :: a | b.
+            -type record_local() :: a | b.
 
             -type integer(A) :: A.
 
@@ -4278,7 +4392,7 @@ otp_11851(Config) when is_list(Config) ->
             -type 'fun'(X, Y) :: X | Y.
 
             -type all() :: range(atom(), integer()) | union(pid()) | product()
-                         | tuple(reference()) | map(function()) | record()
+                         | tuple(reference()) | map(function()) | record_local()
                          | integer(atom()) | atom(integer())
                          | binary(pid(), tuple()) | 'fun'(port())
                          | 'fun'() | 'fun'(<<>>, 'none').
@@ -5049,7 +5163,32 @@ unused_record(Config) when is_list(Config) ->
                   a.
             ">>,
            {[]},
+           []},
+          {unused_record_3,
+          <<"-export([t/0]).
+             -record #a{x,y}.
+             -compile(nowarn_unused_record).
+              t() ->
+                  a.
+            ">>,
+           {[]},
            []}
+         ],
+    [] = run(Config, Ts),
+
+    ok.
+
+untyped_record(Config) when is_list(Config) ->
+    Ts = [{untyped_record_1,
+          <<"-export([t/0]).
+             -record(a, {x :: integer(), y}).
+             -record(b, {}).
+             -compile(warn_untyped_record).
+              t() ->
+                  {#a{}, #b{}}.
+            ">>,
+           {[]},
+           {warnings,[{{2,15},erl_lint,{untyped_record,a}}]}}
          ],
     [] = run(Config, Ts),
 
@@ -5395,9 +5534,508 @@ update_literal(Config) ->
 
     ok.
 
+%% For certain kinds of errors that are easily caused by typos, error 
+%% messages try to suggest fixes according to jaro_similarity.
+messages_with_jaro_suggestions(Config) ->
+    Ts = [{on_load_fun,
+           <<"-on_load(foa/0).
+              foo() -> ok.">>,
+           {[]},
+           {error,[{{1,22},erl_lint,{undefined_on_load,{foa,0},foo}}],
+            [{{2,15},erl_lint,{unused_function,{foo,0}}}]}},
+          {undefined_nif,
+           <<"-export([foo/1,bar/2]).
+              -nifs([foa/1,bar/1]).
+              -on_load(init/0).
+              init() ->
+                  ok = erlang:load_nif(\"./example_nif\", 0).
+              foo(_X) ->
+                  erlang:nif_error(nif_library_not_loaded).
+              bar(_X,_Y) ->
+                  erlang:nif_error(nif_library_not_loaded).">>,
+           {[]},
+           {errors,[{{2,16},erl_lint,{undefined_nif,{bar,1},{bar,[2]}}},
+                    {{2,16},erl_lint,{undefined_nif,{foa,1},{foo,[1]}}}],[]}},
+          {record_and_field,
+           <<"-record(meep, { moo, muu }).
+              t(State) ->
+                  Var = State#meep.mo,
+                  State#mee{ moo = Var }.">>,
+           {[]},
+           {error,[{{3,36},erl_lint,{undefined_field,meep,mo,moo}},
+                   {{4,24},erl_lint,{undefined_record,mee,meep}}],
+            [{{2,15},erl_lint,{unused_function,{t,1}}},
+             {{3,19},erl_lint,{unused_var,'Var'}}]}},
+          {unbound_var,
+           <<"-record(meep, { moo, muu }).
+              t(State) ->
+                  Var = State#meep.moo,
+                  Stat#meep{ moo = Var }.">>,
+           {[]},
+           {error,[{{4,19},erl_lint,{unbound_var,'Stat','State'}}],
+            [{{2,15},erl_lint,{unused_function,{t,1}}}]}},
+          {undefined_fun,
+           <<"-export([bar/1,foo/2]).
+              baz(X) -> X.
+              foo(X) -> X.
+              foo(X, Y, Z) -> X + Y + Z.">>,
+           {[]},
+           {error,[{{1,22},erl_lint,{undefined_function,{bar,1},{baz,[1]}}},
+                   {{1,22},erl_lint,{undefined_function,{foo,2},{foo,[1,3]}}}],
+                  [{{2,15},erl_lint,{unused_function,{baz,1}}},
+                   {{3,15},erl_lint,{unused_function,{foo,1}}},
+                   {{4,15},erl_lint,{unused_function,{foo,3}}}]}},
+          {nowarn_undefined_fun,
+           <<"-compile({nowarn_unused_function,[{an_not_used,1}]}).
+              and_not_used(_) -> foo.">>,
+           {[]},
+           {error,[{{1,22}, erl_lint,
+                    {bad_nowarn_unused_function,{an_not_used,1},{and_not_used,[1]}}}],
+            [{{2,15},erl_lint,{unused_function,{and_not_used,1}}}]}},
+          {bad_inline,
+           <<"-compile({inline, [{foo,1},{ba,1}]}).
+              foa(A) -> {A}.
+              ba(A, A) -> [A].">>,
+           {[]},
+           {error,[{{1,22},erl_lint,{bad_inline,{ba,1},{ba,[2]}}},
+                   {{1,22},erl_lint,{bad_inline,{foo,1},{foa,[1]}}}],
+                  [{{2,15},erl_lint,{unused_function,{foa,1}}},
+                   {{3,15},erl_lint,{unused_function,{ba,2}}}]}},
+          {bad_dialyzer_attribute,
+            <<"-dialyzer({nowarn_function,[foo/2,bar/1]}).
+                foo(X, Y, Z) -> X + Y + Z.
+                baz(A) -> A.">>,
+            {[]},
+            {error,[{{1,22},erl_lint,{undefined_function,{bar,1},{baz,[1]}}},
+                    {{1,22},erl_lint,{undefined_function,{foo,2},{foo,[3]}}}],
+                   [{{2,17},erl_lint,{unused_function,{foo,3}}},
+                    {{3,17},erl_lint,{unused_function,{baz,1}}}]}}
+         ],
+    [] = run(Config, Ts),
+
+    ok.
+
+illegal_zip_generator(Config) ->
+    Ts = [{not_generator,
+           <<"-compile({nowarn_unused_function,[{foo,0}]}).
+            foo() -> [X + Y || X <- [1,2,3,4] && Y <- [5,6,7] && X > 1].
+            ">>,
+           {[]},
+           {errors,[{{2,68},erl_lint,illegal_zip_generator}],[]}},
+           {not_generator,
+           <<"-compile({nowarn_unused_function,[{bar,0}]}).
+            bar() -> [X + Y || X <- [[1,2],[3,4]] && lists:sum(X) > 0 && Y <- [5,6,7]].
+            ">>,
+           {[]},
+           {errors,[{{2,67},erl_lint,illegal_zip_generator}],[]}},
+           {not_generator,
+           <<"-compile({nowarn_unused_function,[{foo,0}]}).
+            foo() -> [X || X <- [a, b] && F()].
+            ">>,
+           {[]},
+           {errors,[{{2,43},erl_lint,illegal_zip_generator}],[]}},
+           {not_generator,
+           <<"-compile({nowarn_unused_function,[{foo,0}]}).
+            foo() -> [X || a && b].
+            ">>,
+           {[]},
+           {errors,[{{2,23},erl_lint,{unbound_var,'X'}},
+                    {{2,28},erl_lint,illegal_zip_generator},
+                    {{2,33},erl_lint,illegal_zip_generator}],
+                    []}}
+           ],
+    [] = run(Config,Ts),
+
+    ok.
+
+%% GH-9694. Only record_info/2 should be checked for illegal_record_info
+record_info_0(Config) ->
+    Ts = [{record_info_0,
+           <<"-export([f/0]).
+              record_info() -> ok.
+              f() -> record_info().
+            ">>,
+           [],
+           []},
+          {record_info_1,
+           <<"-export([g/0]).
+              record_info(X) -> X.
+              g() -> record_info(ok).
+            ">>,
+           [],
+           []}
+         ],
+    [] = run(Config, Ts),
+
+    ok.
+
+coverage(Config) ->
+    do_coverage(),
+
+    Ts = [{keyword_warning,
+           <<"-feature(maybe_expr, disable).
+              -compile(warn_keywords).
+              f() -> maybe.
+              g() -> 'maybe'.
+            ">>,
+           [],
+           {warnings,[{{3,22},erl_lint,{future_feature,maybe_expr,'maybe'}}]}},
+
+          {invalid_stuff,
+           <<"-record(r, {a}).
+              f() -> []().
+              g() -> (no_record)#r{a=42}.
+            ">>,
+           [no_copt],
+           {warnings,[{{2,22},erl_lint,invalid_call},
+                      {{3,33},erl_lint,invalid_record}]}}
+         ],
+    [] = run(Config, Ts),
+
+    ok.
+
+%% Improve code coverage for erl_parse and erl_lint by compiling
+%% all source code in STDLIB.
+do_coverage() ->
+    Wc = filename:join(code:lib_dir(stdlib), "src/*.erl"),
+    KernelInc = filename:join(code:lib_dir(kernel), "include"),
+    StdlibInc = filename:join(code:lib_dir(stdlib), "include"),
+    Res = [begin
+               Mod = filename:rootname(filename:basename(File)),
+               Opts = [return,binary,'E',
+                       {i,KernelInc},{i,StdlibInc}],
+               case compile:file(File, Opts) of
+                   {ok,_,_,_} ->
+                       Mod
+               end
+           end || File <- filelib:wildcard(Wc)],
+    io:format("~p\n", [Res]),
+    ok.
+
+native_records(Conf) ->
+    DataDir = ?datadir,
+    Ts = [{basic,
+           ~"""
+           -record #r{x=42::integer(), y::integer()}.
+           -type r() :: #r{}.
+           -import_record(ext_records, [ext]).
+
+           -export_record([almost_unused]).
+           -record #almost_unused{}.
+
+           -spec t(integer(), integer()) -> {integer(), [r()]}.
+           t(A, B) ->
+               R1 = #ext_records:r{x=A, y=2},
+               R2 = #r{y=B},
+               R3 = #r{x=100,y=200},
+               #r{x=X, y=Y} = R3,
+               #ext_records:r{x=X, y=Y} = R3,
+               #_{x=X, y=Y} = R3,
+               X = R3#r.x,
+               Y = R3#_.y,
+               R4 = R3#r{x = 1, y = 2},
+               {X + Y, [R1,R2,R4]}.
+
+           -import_record(more_records, [whatever]).
+
+           m(#lint_test:r{x=0,y=0}) -> 100;
+           m(#r{x=X,y=Y}) -> X + Y;
+           m(#ext_records:r{x=X,y=Y}) -> X + Y;
+           m(R) when R#r.x > 100, R#lint_test:r.y > 100 -> 1000;
+           m(#ext{i=I}) -> I;
+           m(#_{x=X,y=Y}) -> X + Y.
+
+           ue(A, B) ->
+              Ext = ext_records:ext(),
+              Ext#ext{a=A, b=B}.
+
+           -record #def{a=[$c,0.5,{"a",~"b,c"}]}.
+           cover_defaults() -> #def{}.
+           """,
+           [],
+           []},
+          {types_and_specs,
+           ~"""
+           -record #rec{x=42::integer(), y::integer()}.
+           -import_record(ext_records, [pos]).
+
+           -type rec() :: #rec{}.
+           -type ext_dir() :: #ext_records:dir{}.
+
+           -spec build() -> rec().
+           build() -> #rec{x=0, y=1}.
+
+           -spec build2() -> #lint_test:rec{}.
+           build2() -> #rec{x=0, y=1}.
+
+           -spec check_dir(ext_dir()) -> boolean().
+           check_dir(#ext_records:dir{}) -> ok.
+
+           -spec check_dir2(#ext_records:dir{}) -> boolean().
+           check_dir2(#ext_records:dir{}) -> ok.
+           """,
+           [],
+           []},
+          {redefine_imported_native_record_1,
+           <<"-record #a{}.
+              -record(b, {}).
+              -import_record(ext, [a,b]).
+              t() -> {#a{}, #b{}}.
+             ">>,
+           [],
+           {errors,[{{3,16},erl_lint,{redefine_local_record,a}},
+                    {{3,16},erl_lint,{redefine_local_record,b}}],
+            []}},
+          {redefine_imported_native_record_2,
+           <<"-import_record(ext, [r1,r2]).
+              -record #r1{}.
+              -record(r2, {}).
+              t() -> {#r1{}, #r2{}}.
+             ">>,
+           [],
+           {errors,[{{2,16},erl_lint,{redefine_imported_record,{ext,r1}}},
+                    {{3,16},erl_lint,{redefine_imported_record,{ext,r2}}}],
+            []}},
+          {redefine_imported_native_record_3,
+           <<"-import_record(ext, [r]).
+              -import_record(ext, [r]).">>,
+           [nowarn_unused_record],
+           {errors,[{{2,16},erl_lint,{redefine_imported_record,{ext,r}}}],[]}},
+
+          %% expressions
+          {redefine_record_field_1,
+           <<"-record #a{a, b}.
+              mk_a() -> #a{a = 1, a = b}.
+              get_a(#a{b = b, b = c}) -> ok.">>,
+           [],
+           {errors,[{{2,35},erl_lint,{redefine_field,a,a}},
+                    {{3,31},erl_lint,{redefine_field,a,b}}],[]}},
+          {redefine_record_field_2,
+           <<"mk_a() -> #ext_records:a{a = 1, a = b}.
+              get_a(#ext_records:a{b = b, b = c}) -> ok.">>,
+           [],
+           {errors,[{{1,53},erl_lint,{redefine_field,{ext_records,a},a}},
+                    {{2,43},erl_lint,{redefine_field,{ext_records,a},b}}],[]}},
+          {redefine_record_field_3,
+           <<"-import_record(ext_records, [r]).
+              mk_a() -> #r{a = 1, a = b}.
+              get_a(#r{b = b, b = c}) -> ok.">>,
+           [],
+           {errors,[{{2,35},erl_lint,{redefine_field,r,a}},
+                    {{3,31},erl_lint,{redefine_field,r,b}}],[]}},
+          {redefine_record_field_def,
+           <<"-record #r1{a, a}.
+              -record #r2{a=atom, a}.
+              -record #r3{a, a=atom}.
+              -record #r4{a=atom, b}.">>,
+           [nowarn_unused_record],
+           {errors,[{{1,36},erl_lint,{redefine_field,r1,a}},
+                    {{2,35},erl_lint,{redefine_field,r2,a}},
+                    {{3,30},erl_lint,{redefine_field,r3,a}}],
+            []}},
+          {undefined_field_1,
+           <<"-record #r{a=a, c=c}.
+               mk() -> #r{a = a, b = b}.
+               pat(#r{a = A, b = B}) -> {A, B}.
+               update(S) -> S#r{b = b}.
+               get1(S) -> S#r.b.
+               get2(S, B) when B == S#r.b -> ok.">>,
+           [],
+           {error,
+            [{{2,34},erl_lint,{undefined_field,r,b}}],
+            [{{3,30},erl_lint,{undefined_field,r,b}},
+             {{4,33},erl_lint,{undefined_field,r,b}},
+             {{5,31},erl_lint,{undefined_field,r,b}},
+             {{6,41},erl_lint,{undefined_field,r,b}}]}},
+          {undefined_field_2,
+           <<"-record #r{a=a, c=c}.
+               mk() -> #r{a = a, b = b}.
+               pat(#r{a = A, b = B}) -> {A, B}.
+               update(S) -> S#r{b = b}.
+               get1(S) -> S#r.b.
+               get2(S, B) when B == S#r.b -> ok.">>,
+           [nowarn_undefined_field],
+           {errors,
+            [{{2,34},erl_lint,{undefined_field,r,b}}],
+            []}},
+          {no_init_1,
+           <<"-record #r{a, b, c = c}.
+                mk1() -> #r{}.
+                mk2() -> #r{a = a}.
+                mk3() -> #?MODULE:r{}.">>,
+           [],
+           {error,
+            [{{2,26},erl_lint,{novalue,r,a}},
+             {{2,26},erl_lint,{novalue,r,b}},
+             {{3,26},erl_lint,{novalue,r,b}}],
+            [{{4,26},erl_lint,{novalue,{lint_test,r},a}},
+             {{4,26},erl_lint,{novalue,{lint_test,r},b}}]}},
+          {no_init_2,
+           <<"-record #r{a, b, c = c}.
+                mk1() -> #r{}.
+                mk2() -> #r{a = a}.
+                mk3() -> #?MODULE:r{}.">>,
+           [nowarn_novalue],
+           {errors,[{{2,26},erl_lint,{novalue,r,a}},
+                    {{2,26},erl_lint,{novalue,r,b}},
+                    {{3,26},erl_lint,{novalue,r,b}}],
+            []}},
+          {undefined_record_1,
+           <<"t() ->
+                  X = no_record,
+                  is_record(X, foo),
+                  erlang:is_record(X, foo).
+              m(#foo{}) -> ok.
+             ">>,
+           [],
+           {errors,[{{3,32},erl_lint,{undefined_record,foo}},
+                    {{4,39},erl_lint,{undefined_record,foo}},
+                    {{5,17},erl_lint,{undefined_record,foo}}],
+            []}},
+          {illegal_native_record_def_1,
+           <<"t1() ->
+                  #_{x=1}.
+             ">>,
+           [],
+           {errors,[{{2,19},erl_lint,{undefined_native_record,'_'}}],
+            []}},
+          {illegal_native_record_def_2,
+           <<"-record #r1{a = is_atom(0)}.
+              -record #r2{a = [0, is_atom(0)]}.
+              -record #r3{a = #{1=>e:f()} }.">>,
+           [nowarn_unused_record],
+           {errors,[{{1,33},erl_lint,{illegal_native_record_default,r1,a}},
+                    {{2,27},erl_lint,{illegal_native_record_default,r2,a}},
+                    {{3,27},erl_lint,{illegal_native_record_default,r3,a}}],
+            []}},
+          {define_in_guard,
+           <<"-record #r{a=0}.
+              t() when is_record(#r{}) -> ok.
+              s() when is_record(#ext_records:r{}) -> ok.
+             ">>,
+           [],
+           {errors,[{{2,34},erl_lint,native_record_in_guard},
+                    {{3,34},erl_lint,native_record_in_guard}],
+            []}},
+          {illegal_record_info,
+           <<"-record #r{}.
+              t() ->
+                  {record_info(size, r), record_info(fields, r)}.">>,
+           [],
+           {error,[{{3,32},erl_lint,native_record_illegal_record_info},
+                   {{3,54},erl_lint,native_record_illegal_record_info}],
+            [{{1,22},erl_lint,{unused_record,r}}]}},
+          {illegal_record_index,
+           <<"-record #r{x,y}.
+              t(R) when element(#r.x, R) ->
+                  #r.y.
+              m(#r.x) -> ok.">>,
+           [],
+           {errors,[{{2,33},erl_lint,{native_record_illegal_record_index,r,x}},
+                    {{3,19},erl_lint,{native_record_illegal_record_index,r,y}},
+                    {{4,17},erl_lint,{native_record_illegal_record_index,r,x}}],
+            []}},
+          {multi_field_init,
+           <<"-record #r{x,y,z}.
+              c(R) ->
+                  {#r{_=same},
+                   R#r{_=same}}.">>,
+           [],
+           {errors,[{{3,23},erl_lint,native_record_illegal_multi_field_init},
+                    {{4,24},erl_lint,native_record_illegal_multi_field_init}],
+            []}},
+          {bad_export_record,
+           <<"-record(old, {}).
+              -record #bar{}.
+
+              -export_record([bar]).
+              -export_record([bar]).
+              -export_record([old]).
+              -export_record([foo]).
+              -export_record(42).
+              -export_record([42]).
+              -export_record([{a,b,c}]).
+              -export_record([a|b]).">>,
+           [],
+           {errors,[{{6,16},erl_lint,tuple_record_export},
+                    {{7,16},erl_lint,{undefined_native_record,foo}},
+                    {{8,16},erl_lint,bad_export_record},
+                    {{9,16},erl_lint,bad_export_record},
+                    {{10,16},erl_lint,bad_export_record},
+                    {{11,16},erl_lint,bad_export_record},
+                    {{11,16},erl_lint,{undefined_native_record,a}}],
+            []}},
+          {bad_record_def,
+           <<"-record r0.
+              -record #r1.
+              -record #r2, {}.">>,
+           [],
+           {errors,[{{1,29},
+                     erl_parse,
+                     [98,97,100,32,"record",32,100,101,99,108,97,114,97,116,105,111,
+                      110]},
+                    {{2,23},
+                     erl_parse,
+                     [98,97,100,32,"record",32,100,101,99,108,97,114,97,116,105,111,
+                      110]},
+                    {{3,23},
+                     erl_parse,
+                     [98,97,100,32,"record",32,100,101,99,108,97,114,97,116,105,111,
+                      110]}],
+            []}
+          },
+          {illegal_type_restriction,
+           <<"-record #xy{x :: number(), y :: number()}.
+             -type xy() :: #xy{}.
+             -type int_xy() :: #xy{x :: integer(), y :: integer()}.
+
+             -spec mk_int_xy() -> #xy{x :: integer(), y :: integer()}.
+             mk_int_xy() -> #xy{x=0,y=1}.
+
+             -spec int_inc_xy(int_xy()) -> int_xy().
+             int_inc_xy(#xy{x=X,y=Y}) -> #xy{x=X+1, y=Y+1}.
+
+              -spec mk_xy() -> xy().
+              mk_xy() -> #xy{x=42.0,y=100.0}.">>,
+           [],
+           {errors,[{{3,36},erl_lint,native_record_field_types},
+                    {{5,39},erl_lint,native_record_field_types}],
+            []}
+          },
+          {native_record_header,
+           ~"""
+           -include("native_record_header.hrl").
+               id() -> ok.
+           """,
+           [{i,DataDir}, {keep_all_warnings,true}],
+           {warnings, [{{1,2},erl_lint,{native_record_header,a}}]}
+          },
+          {bad_import_record,
+           <<"-import_record([rec]).">>,
+           [],
+           {errors,[{{1,36},erl_parse,"bad "++["import_record"] ++" declaration"}],
+            []}
+          }
+         ],
+    [] = run(Conf, Ts),
+    ok.
+
 %%%
 %%% Common utilities.
 %%%
+
+rewrite([{Name,Code,[],{warnings,_}}=H|T], Subst) ->
+    case Subst of
+        #{Name := Opts} ->
+            io:format("~s: testing with options ~p\n", [Name,Opts]),
+            [{Name,Code,Opts,[]}|rewrite(T, Subst)];
+        #{} ->
+            [H|rewrite(T, Subst)]
+    end;
+rewrite([H|T], Subst) ->
+    [H|rewrite(T, Subst)];
+rewrite([], _Subst) ->
+    [].
 
 format_error(E) ->
     lists:flatten(erl_lint:format_error(E)).
@@ -5460,7 +6098,8 @@ run_test2(Conf, Test, Warnings0) ->
 
     case compile:file(File, [binary|Opts]) of
         {ok, _M, Code, Ws} when is_binary(Code) ->
-            warnings(File, Ws, Test);
+            KeepAllWarnings = proplists:get_bool(keep_all_warnings, Opts),
+            warnings(File, Ws, Test, KeepAllWarnings);
         {error, [{File,Es}], []} ->
             print_diagnostics(Es, Test),
 	    {errors, call_format_error(Es), []};
@@ -5474,8 +6113,9 @@ run_test2(Conf, Test, Warnings0) ->
 	    {errors2, Es1, Es2}
     end.
 
-warnings(File, Ws, Source) ->
-    case lists:append([W || {F, W} <- Ws, F =:= File]) of
+warnings(File, Ws, Source, KeepAllWarnings) ->
+    case lists:append([W || {F, W} <- Ws,
+                            KeepAllWarnings orelse F =:= File]) of
         [] ->
 	    [];
         L ->

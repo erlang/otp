@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,12 +16,14 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 -module(xmerl_xsd_type).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 -export([check_simpleType/3,facet_fun/2,compare_floats/2,
 	 replace_ws/2,collapse_ws/1]).
@@ -36,17 +40,21 @@
 
 
 -define(catch_exit(_Call_,_Value_,_ErrorCause_),
-	case catch (_Call_) of
-	    {'EXIT',_} ->
-		{error,{type,_ErrorCause_,_Value_}};
-	    {error,_} ->
-		{error,{_ErrorCause_,_Value_}};
-	    _ ->
-		{ok,_Value_}
+	try (_Call_) of
+            _Result_ ->
+                catch_exit_result(_Result_,_Value_,_ErrorCause_)
+        catch
+            error:_ ->
+                {error,{type,_ErrorCause_,_Value_}};
+            exit:_ ->
+		{error,{type,_ErrorCause_,_Value_}}
 	end).
 
 -define(is_whitespace(__WS__),
 	__WS__==16#20; __WS__==16#9;__WS__==16#a; __WS__==16#d).
+
+catch_exit_result({error,_},Value,ErrorCause) -> {error,{ErrorCause,Value}};
+catch_exit_result(_,Value,_ErrorCause) -> {ok,Value}.
 
 check_simpleType(Name,Value,S) when is_list(Name) ->
     ?debug("simpleType name a list: "++Name++"~n",[]),
@@ -89,7 +97,7 @@ check_simpleType(double,Value,_S) ->
 % extended format PnYnMnDTnHnMnS where n is an integer. The n value
 % before S may include decimal fraction.
 check_simpleType(duration,Value,_S) ->
-    ?catch_exit(check_duration(Value),Value,invalid_duration);	
+    ?catch_exit(check_duration(Value),Value,invalid_duration);
 check_simpleType(dateTime,Value,_S) ->
     ?catch_exit(check_dateTime(Value),Value,invalid_dateTime);
 check_simpleType(time,Value,_S) ->
@@ -131,11 +139,14 @@ check_simpleType(anyURI,Value,S) ->
     case xmerl_uri:parse(Value) of
 	{error,_} ->
 	    %% might be a relative uri, then it has to be a path in the context
-	    case catch file:read_file_info(filename:join(S#xsd_state.xsd_base,Value)) of
+	    try file:read_file_info(filename:join(S#xsd_state.xsd_base,Value)) of
 		{ok,_} ->
 		    {ok,Value};
 		_ ->
 		    {error,{value_not_anyURI,Value}}
+            catch
+                _:_ ->
+                    {error,{value_not_anyURI,Value}}
 	    end;
 	_ ->
 	    {ok,Value}
@@ -213,10 +224,11 @@ check_decimal(Value) ->
 %%     I=string:chr(Value,$.),
 %%     {NumberDot,Decimal}=lists:split(I,Value),
 %%     Number=string:strip(NumberDot,right,$.),
-%%     case catch {list_to_integer(Number),list_to_integer(Decimal)} of
-%% 	{'EXIT',_} ->
-%% 	    {error,{value_not_decimal,Value}};
-%% 	_ -> {ok,Value}
+%%     try {list_to_integer(Number),list_to_integer(Decimal)} of
+%%        _ -> {ok,Value}
+%%     catch
+%% 	  error:_ ->
+%% 	     {error,{value_not_decimal,Value}}
 %%     end.
 
 check_float(V="-INF") ->
@@ -261,7 +273,7 @@ check_duration("P"++Value) ->
     {Date,Time}=lists:splitwith(fun($T) -> false;(_) -> true end,Value),
     {ok,_} = check_duration_date(Date,["Y","M","D"]),
     {ok,_} = check_duration_time(Time,["T","H","M","S"]).
-	    
+
 check_duration_date("",_) ->
     {ok,""};
 check_duration_date(Date,[H|T]) ->
@@ -276,7 +288,7 @@ check_duration_date(Date,[H|T]) ->
     end.
 %% Time any combination of TnHnMfS
 %% n unsigned integers and f unsigned decimal
-%%check_duration_time(Time,["T","H","M","S"]) 
+%%check_duration_time(Time,["T","H","M","S"])
 check_duration_time("",[_H|_T]) ->
     {ok,""};
 check_duration_time(Time,[S]) ->
@@ -297,18 +309,20 @@ check_duration_time(Time,[H|T]) ->
     end.
 
 check_positive_integer(Value) ->
-    case catch list_to_integer(Value) of
+    try list_to_integer(Value) of
 	Int when is_integer(Int),Int>=0 ->
 	    {ok,Int};
 	_ ->
 	    {error,{value_not_integer,Value}}
+    catch
+        _:_ ->
+            {error,{value_not_integer,Value}}
     end.
-
 
 %% check_integer and thereof derived types
 check_integer(Value) ->
     {ok,list_to_integer(Value)}.
-    
+
 check_nonPositiveInteger(Value) ->
     check_constr_int(Value,undefined,0,illegal_nonPositiveInteger).
 
@@ -361,7 +375,7 @@ check_constr_int(Value,Min,Max,ErrMsg) ->
 	    {error,{ErrMsg}}
     end.
 
-%% DateTime on form: '-'? yyyy '-' mm '-' dd 'T' hh ':' mm ':' ss 
+%% DateTime on form: '-'? yyyy '-' mm '-' dd 'T' hh ':' mm ':' ss
 %% ('.' s+)? (zzzzzz)?
 check_dateTime("-"++DateTime) ->
     check_dateTime(DateTime);
@@ -390,14 +404,14 @@ check_month(Str) ->
     case check_positive_integer(Str) of
 	{ok,Int} when Int >= 1,Int =< 12 ->
 	    {ok,Int};
-	_ -> 
+	_ ->
 	    {error,{invalid_month,Str}}
     end.
 check_day(Str) ->
     case check_positive_integer(Str) of
 	{ok,Int} when Int >= 1,Int =< 31 ->
 	    {ok,Int};
-	_ -> 
+	_ ->
 	    {error,{invalid_day,Str}}
     end.
 
@@ -488,7 +502,7 @@ check_date(Date) ->
     {ok,_}=check_year(Year),
     {ok,_}=check_month(Month),
     {ok,_}=check_day(Day).
-    
+
 %% gYearMonth on the form: '-'? ccyy '-' mm zzzzzz?
 check_gYearMonth("-"++Value) ->
     check_gYearMonth(Value);
@@ -521,7 +535,7 @@ check_gYear(Value) ->
 		Y
 	end,
     {ok,_} = check_year(Year).
-    
+
 %% gMonthDay on the form: mm dd zzzzzz?
 check_gMonthDay("--"++Value) ->
     {M,"-"++DTZ} = lists:split(2,Value),
@@ -552,15 +566,16 @@ check_gMonth("--"++Value) ->
     end.
 
 check_base64Binary(Value) ->
-    case catch xmerl_b64Bin:parse(xmerl_b64Bin_scan:scan(Value)) of
+    try xmerl_b64Bin:parse(xmerl_b64Bin_scan:scan(Value)) of
 	{ok,_} ->
 	    {ok,Value};
 	Err = {error,_} ->
-	    Err;
-	{'EXIT',{error,Reason}} -> %% scanner failed on character
+	    Err
+    catch
+	exit:{error,Reason} -> %% scanner failed on character
 	    {error,Reason};
-	{'EXIT',Reason} ->
-	    {error,{internal_error,Reason}}
+	error:Reason:Stacktrace ->
+	    {error,{internal_error,{Reason,Stacktrace}}}
     end.
 
 %% tokens may not contain the carriage return (#xD), line feed (#xA)
@@ -641,7 +656,7 @@ check_IDREF(Value) ->
 
 check_IDREFS(Value) ->
     check_list_type(Value,fun check_IDREF/1).
-    
+
 check_ENTITY(Value) ->
     true = xmerl_lib:is_ncname(Value),
     {ok,Value}.
@@ -654,11 +669,11 @@ check_list_type(Value,BaseTypeFun) ->
     lists:foreach(BaseTypeFun,Tokens),
     {ok,Value}.
 
-ns_whitespace(WS) when WS==16#9;WS==16#A;WS==16#D -> 
+ns_whitespace(WS) when WS==16#9;WS==16#A;WS==16#D ->
     true;
 ns_whitespace(_) ->
     false.
-    
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  facet functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -697,7 +712,7 @@ facet_fun(Type,F) ->
     end.
 
 
-length_fun(T,V) 
+length_fun(T,V)
   when T==string;T==normalizedString;T==token;
        T=='Name';T=='NCName';T==language;T=='ID';
        T=='IDREF';T=='IDREFS';T=='ENTITY';T=='ENTITIES';
@@ -724,7 +739,7 @@ length_fun(T,_V) ->
 	    {error,{length_not_applicable_on,T}}
     end.
 
-minLength_fun(T,V) 
+minLength_fun(T,V)
   when T==string;T==normalizedString;T==token;
        T=='Name';T=='NCName';T==language;T=='ID';
        T=='IDREF';T=='IDREFS';T=='ENTITY';T=='ENTITIES';
@@ -751,7 +766,7 @@ minLength_fun(T,_V) ->
 	    {error,{minLength_not_applicable_on,T}}
     end.
 
-maxLength_fun(T,V) 
+maxLength_fun(T,V)
   when T==string;T==normalizedString;T==token;
        T=='Name';T=='NCName';T==language;T=='ID';
        T=='IDREF';T=='IDREFS';T=='ENTITY';T=='ENTITIES';
@@ -778,20 +793,29 @@ maxLength_fun(T,_V) ->
 	    {error,{maxLength_not_applicable_on,T}}
     end.
 
-pattern_fun(_Type,RegExp) ->
-    case xmerl_regexp:setup(RegExp) of
-	{ok,RE} ->
-	    fun(Val) ->
-		    case xmerl_regexp:first_match(Val,RE) of
-			{match,_,_} -> {ok,Val};
-			_ -> {error,{pattern_mismatch,Val,RegExp}}
-		    end
-	    end;
-	_ ->
-	    fun(Val) ->
-		    {error,{unsupported_pattern,Val,RegExp}}
-	    end
+pattern_fun(_Type, RegExp) ->
+    try
+        ReRegExp = xmerl_xsd_re:map(conv_list_to_binary(RegExp)),
+        BinReRegExp = unicode:characters_to_binary(lists:flatten(ReRegExp)),
+        {ok, CompiledRegExp} =
+            re:compile([$^, $(, BinReRegExp, $), $$], [no_auto_capture, unicode]),
+        fun(Val) ->
+                case re:run(conv_list_to_binary(Val), CompiledRegExp) of
+                    {match, _} -> {ok, Val};
+                    _ -> {error, {pattern_mismatch, Val, RegExp}}
+                end
+        end
+    catch
+        _ ->
+            fun(Val) ->
+		    {error,{unsupported_pattern, Val, RegExp}}
+ 	    end
     end.
+
+conv_list_to_binary(V) when is_binary(V) ->
+    V;
+conv_list_to_binary(V) when is_list(V) ->
+    unicode:characters_to_binary(V).
 
 enumeration_fun(_Type,V) ->
     fun(Val) ->
@@ -834,18 +858,21 @@ collapse_ws([H|T],Acc) ->
     collapse_ws(T,[H|Acc]);
 collapse_ws([],Acc) ->
     lists:reverse(lists:dropwhile(fun($ ) ->true;(_) -> false end,Acc)).
-    
-maxInclusive_fun(T,V) 
+
+maxInclusive_fun(T,V)
   when T==integer;T==positiveInteger;T==negativeInteger;
        T==nonNegativeInteger;T==nonPositiveInteger;T==long;
        T==unsignedLong;T==int;T==unsignedInt;T==short;
        T==unsignedShort;T==byte;T==unsignedByte ->
     fun(Val) ->
-	    case (catch list_to_integer(Val) =< list_to_integer(V)) of
+	    try list_to_integer(Val) =< list_to_integer(V) of
 		true ->
 		    {ok,Val};
-		_ -> 
+		false ->
 		    {error,{maxInclusive,Val,should_be_less_than_or_equal_with,V}}
+            catch
+                _:_ ->
+                    {error,{maxInclusive,Val,should_be_less_than_or_equal_with,V}}
 	    end
     end;
 maxInclusive_fun(T,V) when T==decimal;T==float;T==double ->
@@ -881,17 +908,20 @@ maxInclusive_fun(T,_V) ->
 %%        T==gMonth;T==gMonthDay;T==gDay ->
     fun(_) -> {error,{maxInclusive,not_implemented_for,T}} end.
 
-maxExclusive_fun(T,V) 
+maxExclusive_fun(T,V)
   when T==integer;T==positiveInteger;T==negativeInteger;
        T==nonNegativeInteger;T==nonPositiveInteger;T==long;
        T==unsignedLong;T==int;T==unsignedInt;T==short;
        T==unsignedShort;T==byte;T==unsignedByte ->
     fun(Val) ->
-	    case (catch list_to_integer(Val) < list_to_integer(V)) of
+	    try list_to_integer(Val) < list_to_integer(V) of
 		true ->
 		    {ok,Val};
-		_ -> 
+		false ->
 		    {error,{maxExclusive,Val,not_less_than,V}}
+            catch
+                _:_ ->
+                    {error,{maxExclusive,Val,not_less_than,V}}
 	    end
     end;
 maxExclusive_fun(T,V) when T==decimal;T==float;T==double ->
@@ -925,17 +955,20 @@ maxExclusive_fun(T,V) when T==dateTime ->
 maxExclusive_fun(T,_V) ->
     fun(_) -> {error,{maxExclusive,not_implemented_for,T}} end.
 
-minExclusive_fun(T,V) 
+minExclusive_fun(T,V)
   when T==integer;T==positiveInteger;T==negativeInteger;
        T==nonNegativeInteger;T==nonPositiveInteger;T==long;
        T==unsignedLong;T==int;T==unsignedInt;T==short;
        T==unsignedShort;T==byte;T==unsignedByte ->
     fun(Val) ->
-	    case (catch list_to_integer(Val) > list_to_integer(V)) of
+	    try list_to_integer(Val) > list_to_integer(V) of
 		true ->
 		    {ok,Val};
-		_ -> 
-		    {error,{minExclusive,Val,not_greater_than,V}}
+		false ->
+                    {error,{minExclusive,Val,not_greater_than,V}}
+            catch
+                _:_ ->
+                    {error,{minExclusive,Val,not_greater_than,V}}
 	    end
     end;
 minExclusive_fun(T,V) when T==decimal;T==float;T==double ->
@@ -969,17 +1002,20 @@ minExclusive_fun(T,V) when T==dateTime ->
 minExclusive_fun(T,_V) ->
     fun(_) -> {error,{minExclusive,not_implemented_for,T}} end.
 
-minInclusive_fun(T,V) 
+minInclusive_fun(T,V)
   when T==integer;T==positiveInteger;T==negativeInteger;
        T==nonNegativeInteger;T==nonPositiveInteger;T==long;
        T==unsignedLong;T==int;T==unsignedInt;T==short;
        T==unsignedShort;T==byte;T==unsignedByte ->
     fun(Val) ->
-	    case (catch list_to_integer(Val) >= list_to_integer(V)) of
+	    try list_to_integer(Val) >= list_to_integer(V) of
 		true ->
 		    {ok,Val};
-		_ -> 
+		false ->
 		    {error,{minInclusive,Val,not_greater_than_or_equal_with,V}}
+            catch
+                _:_ ->
+                    {error,{minInclusive,Val,not_greater_than_or_equal_with,V}}
 	    end
     end;
 minInclusive_fun(T,V) when T==decimal;T==float;T==double ->
@@ -1012,7 +1048,7 @@ minInclusive_fun(T,V) when T==dateTime ->
     end;
 minInclusive_fun(T,_V) ->
     fun(_) -> {error,{minInclusive,not_implemented_for,T}} end.
-    
+
 totalDigits_fun(T,V)
   when T==integer;T==positiveInteger;T==negativeInteger;T==nonNegativeInteger;
        T==nonPositiveInteger;T==long;T==unsignedLong;T==int;T==unsignedInt;
@@ -1028,7 +1064,7 @@ totalDigits_fun(T,V)
 		case lists:member($.,Val2) of
 		    true ->
 			length(lists:dropwhile(Pred,lists:reverse(Val2))) -1;
-		    _ -> 
+		    _ ->
 			length(Val2)
 		end,
 	    if
@@ -1040,12 +1076,12 @@ totalDigits_fun(T,V)
     end;
 totalDigits_fun(T,_V) ->
     fun(_) -> {error,{totalDigits,not_applicable,T}} end.
-		     
+
 fractionDigits_fun(T,V)
   when T==integer;T==positiveInteger;T==negativeInteger;T==nonNegativeInteger;
        T==nonPositiveInteger;T==long;T==unsignedLong;T==int;T==unsignedInt;
        T==short;T==unsignedShort;T==byte;T==unsignedByte;T==decimal ->
-    fun(Val) ->	
+    fun(Val) ->
 	    Len =
 		case string:tokens(Val,".") of
 		    [_I,Frc] when T==decimal ->
@@ -1056,7 +1092,7 @@ fractionDigits_fun(T,V)
 		    _ ->
 			0
 		end,
-	    if 
+	    if
 		Len =< V ->
 		    {ok,Val};
 		true ->
@@ -1065,7 +1101,7 @@ fractionDigits_fun(T,V)
     end;
 fractionDigits_fun(T,_V) ->
     fun(_) -> {error,{fractionDigits,not_applicable,T}} end.
-    
+
 
 %% The relation between F1 and F2 may be eq,lt or gt.
 %% lt: F1 < F2
@@ -1107,13 +1143,13 @@ compare_floats2({S1,B1,D1,E1},{_S2,B2,D2,E2}) ->
 	I1 < I2 -> sign(S1,lt);
 	true ->
 	    %% fractions are compared in lexicographic order
-	    if 
+	    if
 		D1 == D2 -> eq;
 		D1 < D2 -> sign(S1,lt);
 		D1 > D2 -> sign(S1,gt)
 	    end
     end.
-    
+
 str_to_float(String) ->
     {Sign,Str} =
 	case String of
@@ -1149,7 +1185,7 @@ pow(Mantissa,Exponent) ->
     end.
 
 pow(Mantissa,Fraction,Exponent) ->
-    (Mantissa * math:pow(10,Exponent)) + 
+    (Mantissa * math:pow(10,Exponent)) +
 	(list_to_integer(Fraction) * math:pow(10,Exponent-length(Fraction))).
 
 sign('-',gt) ->
@@ -1172,7 +1208,7 @@ remove_trailing_zeros(Str) ->
 %%        T==gMonth;T==gMonthDay;T==gDay ->
 
 %% compare_duration(V1,V2) compares V1 to V2
-%% returns gt | lt | eq | indefinite 
+%% returns gt | lt | eq | indefinite
 %% ex: V1 > V2 -> gt
 %%
 %% V1, V2 on format PnYnMnDTnHnMnS
@@ -1260,7 +1296,7 @@ compare_dateTime(P,Q) when is_list(Q) ->
     compare_dateTime(P,normalize_dateTime(dateTime_atoms(Q)));
 compare_dateTime(_P,_Q) ->
     indefinite.
-    
+
 fQuotient(A,B) when is_float(A) ->
     fQuotient(erlang:floor(A),B);
 fQuotient(A,B) when is_float(B) ->
@@ -1285,7 +1321,7 @@ modulo(A,B) ->
 
 modulo(A, Low, High) ->
     modulo(A - Low, High - Low) + Low.
-    
+
 maximumDayInMonthFor(YearValue, MonthValue) ->
     M = modulo(MonthValue, 1, 13),
     Y = YearValue + fQuotient(MonthValue, 1, 13),
@@ -1307,7 +1343,7 @@ monthValue(_M,Y) ->
 		    28
 	    end
     end.
-		
+
 %% S dateTime, D duration
 %% result is E dateTime, end of time period with start S and duration
 %% D. E = S + D.
@@ -1334,25 +1370,25 @@ add_duration2dateTime2({Syear,Smonth,Sday,Shour,Sminute,Ssec,Szone},
     Temp1 = Smonth + Dmonths,
     Emonth = modulo(Temp1,1,13),
     Carry1 = fQuotient(Temp1,1,13),
-    
+
     %% years
     Eyear = Syear + Dyears + Carry1,
-    
+
     %% seconds
     Temp2 = Ssec + Dsecs,
     Esecs = modulo(Temp2,60),
     Carry2 = fQuotient(Temp2,60),
-    
+
     %% minutes
     Temp3 = Sminute + Dminutes + Carry2,
     Eminute = modulo(Temp3,60),
     Carry3 = fQuotient(Temp3,60),
-    
+
     %% hours
     Temp4 = Shour + Dhours + Carry3,
     Ehour = modulo(Temp4,24),
     Carry4 = fQuotient(Temp4,24),
-    
+
     %% days
     TempDays =
 	case maximumDayInMonthFor(Eyear,Emonth) of
@@ -1428,7 +1464,7 @@ zone_atoms(Sign,Zone) when is_list(Zone) ->
 zone_atoms(_Sign,Zone) ->
     Zone.
 
-    
+
 %% Format: '-'? PnYnMnDTnHnMnS
 duration_atoms("-P"++Dur) ->
     duration_atoms2(Dur,neg);
@@ -1516,8 +1552,8 @@ get_sec([$S|T],Acc,_) ->
     {lists:reverse(Acc),T};
 get_sec(_,_,Str) ->
     {"0",Str}.
-    
-	    
+
+
 set_sign(pos,Istr) ->
     list_to_integer(Istr);
 set_sign(_,Istr) ->
@@ -1549,7 +1585,7 @@ normalize_dateTime({Y,M,D,Hour,Min,Sec,{Sign,ZH,ZM}}) ->
     TmpHour = Hour + set_sign(invert_sign(Sign),integer_to_list(ZH)) + Carry1,
     NHour = modulo(TmpHour,24),
     Carry2 = fQuotient(TmpHour,24),
-    
+
     {NY,NM,ND} =
 	carry_loop(D+Carry2,M,Y),
     {NY,NM,ND,NHour,NMin,Sec,{pos,0,0}};

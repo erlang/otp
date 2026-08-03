@@ -2,7 +2,9 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2001-2020. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2001-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,9 +20,12 @@
 #
 # %CopyrightEnd%
 
-TEST_SPEC_FILE = megaco.spec
+TEST_SPEC_FILE = \
+	megaco.spec \
+	megaco_bench.spec
 
-COVER_SPEC_FILE = megaco.cover
+COVER_SPEC_FILE = \
+	megaco.cover
 
 BEHAVIOUR_MODULES = \
 	megaco_test_generator

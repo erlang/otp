@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -102,7 +104,7 @@ count_new_lines(P, N) ->
     receive
 	{P,{data,S}} ->
 	    count_new_lines(P, count_new_lines_1(S, N))
-    after 0 ->
+    after 1000 ->
 	    N
     end.
 

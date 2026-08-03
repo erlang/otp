@@ -1,0 +1,22 @@
+// %CopyrightBegin%
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2025. All Rights Reserved.
+//
+// %CopyrightEnd%
+[
+    {
+      "ID": "erts-autoconf",
+      "description": "Autoconf scripts",
+      "copyrightText": "Copyright 1992-2021 Free Software Foundation, Inc.",
+      "downloadLocation": "https://www.gnu.org/software/autoconf/",
+      "homepage": "https://www.gnu.org/software/autoconf/",
+      "licenseDeclared": "(GPL-3.0-or-later WITH Autoconf-exception-generic-3.0) AND MIT",
+      "name": "Autoconf",
+      "versionInfo": "2.72",
+      "path": ["./erts/autoconf/config.guess", "./erts/autoconf/config.sub", "./erts/autoconf/install-sh"],
+      "supplier": "Organization: Free Software Foundation",
+      "purl": "pkg:generic/autoconf"
+    }
+]

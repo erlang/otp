@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2026. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,7 +53,7 @@
 -include_lib("kernel/include/inet.hrl").
 -include("socket_test_ttest.hrl").
 
--define(ACC_TIMEOUT,  5000).
+-define(ACC_TIMEOUT,  1000).
 -define(RECV_TIMEOUT, 5000).
 
 -define(LIB,            socket_test_ttest_lib).
@@ -173,7 +175,7 @@ server_init(Starter, Parent, Transport, Active) ->
 				  hcnt     => 0
 				 });
                 {error, PReason} ->
-                    (catch Mod:close(LSock)),
+                    ?CATCH_AND_IGNORE( Mod:close(LSock) ),
                     exit({port, PReason})
             end;
         {error, LReason} ->
@@ -202,21 +204,9 @@ server_accept(#{mod := Mod, lsock := LSock} = State, Timeout) ->
         {error, timeout} when (Timeout =/= nowait) ->
             State;
         {error, AReason} ->
-	    (catch Mod:close(LSock)),
+	    ?CATCH_AND_IGNORE( Mod:close(LSock) ),
             exit({accept, AReason})
     end.
-
-%% server_accept(#{mod   := Mod,
-%%                 lsock := LSock} = State) ->
-%%     case Mod:accept(LSock, ?ACC_TIMEOUT) of
-%%         {ok, Sock} ->
-%%             server_handle_accepted(State, Sock);
-%%         {error, timeout} ->
-%%             State;
-%%         {error, AReason} ->
-%% 	    (catch Mod:close(LSock)),
-%%             exit({accept, AReason})
-%%     end.
 
 server_handle_accepted(#{mod      := Mod,
                          lsock    := LSock,
@@ -240,8 +230,8 @@ server_handle_accepted(#{mod      := Mod,
             Handlers2 = [Pid | Handlers],
             State#{handlers => Handlers2};
         {error, CPReason} ->
-            (catch Mod:close(Sock)),
-            (catch Mod:close(LSock)),
+            ?CATCH_AND_IGNORE( Mod:close(Sock) ),
+            ?CATCH_AND_IGNORE( Mod:close(LSock) ),
             exit({controlling_process, CPReason})
     end.
     
@@ -290,7 +280,7 @@ server_handle_message(#{mod      := Mod,
                                   handler_stop(P)
                           end, H),
             ?I("try close listen socket"),
-            (catch Mod:close(LSock)),
+            ?CATCH_AND_IGNORE( Mod:close(LSock) ),
             ?I("stopped"),
             exit(normal);
 
@@ -426,6 +416,7 @@ handler_recv_message(#{mod        := Mod,
                    bcnt       => BCnt + MsgSz,
 		   last_reply => ID};
         {error, closed} ->
+            ?I("client done (socket close)"),
             handler_done(State);
         {error, timeout} ->
 	    ?I("timeout when: "
@@ -460,9 +451,10 @@ handler_recv_message(#{mod        := Mod,
         {error, closed} ->
             if
                 (size(Acc) =:= 0) ->
+                    ?I("client done (socket close)"),
                     handler_done(State);
                 true ->
-                    ?E("client done with partial message: "
+                    ?E("client done (socket close) with partial message: "
                        "~n   Last Reply Sent: ~w"
                        "~n   Message Count:   ~w"
                        "~n   Byte    Count:   ~w"
@@ -558,7 +550,7 @@ handler_send_reply(Mod, Sock, ID, Data) ->
         ok ->
             ok;
         {error, Reason} ->
-            (catch Mod:close(Sock)),
+            ?CATCH_AND_IGNORE( Mod:close(Sock) ),
             exit({send, Reason})
     end.
 
@@ -571,7 +563,7 @@ handler_done(#{start := Start,
                sock  := Sock,
                mcnt  := MCnt,
                bcnt  := BCnt}, Stop) ->
-    (catch Mod:close(Sock)),
+    ?CATCH_AND_IGNORE( Mod:close(Sock) ),
     exit({done, ?TDIFF(Start, Stop), MCnt, BCnt}).
 
 
@@ -580,14 +572,14 @@ handler_handle_message(#{mod := Mod, sock := Sock, parent := Parent} = State) ->
         {?MODULE, Ref, Parent, stop} ->
             ?I("handler: received stop from parent ~p", [Parent]),
             reply(Parent, Ref, ok),
-            (catch Mod:close(Sock)),
+            ?CATCH_AND_IGNORE( Mod:close(Sock) ),
             ?I("handler: stopped"),
             exit(normal);
 
         {'EXIT', Parent, Reason} ->
             ?E("handler: parent ~p exit: "
                "~n   ~p", [Parent, Reason]),
-            (catch Mod:close(Sock)),
+            ?CATCH_AND_IGNORE( Mod:close(Sock) ),
             exit({parent_exit, Reason})
     after 0 ->
             State

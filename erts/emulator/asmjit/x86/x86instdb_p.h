@@ -1,13 +1,13 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_X86_X86INSTDB_P_H_INCLUDED
 #define ASMJIT_X86_X86INSTDB_P_H_INCLUDED
 
-#include "../core/instdb_p.h"
-#include "../x86/x86instdb.h"
+#include <asmjit/core/instdb_p.h>
+#include <asmjit/x86/x86instdb.h>
 
 ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
@@ -17,7 +17,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
 namespace InstDB {
 
-//! Instruction encoding (X86).
+//! Instruction encoding (X86|X86_64).
 //!
 //! This is a specific identifier that is used by AsmJit to describe the way each instruction is encoded. Some
 //! encodings are special only for a single instruction as X86 instruction set contains a lot of legacy encodings,
@@ -76,6 +76,7 @@ enum EncodingId : uint32_t {
   kEncodingX86Out,                       //!< X86 out.
   kEncodingX86Outs,                      //!< X86 out[b|w|d].
   kEncodingX86Push,                      //!< X86 push.
+  kEncodingX86Pushw,                     //!< X86 pushw.
   kEncodingX86Pop,                       //!< X86 pop.
   kEncodingX86Ret,                       //!< X86 ret.
   kEncodingX86Rot,                       //!< X86 rcl, rcr, rol, ror, sal, sar, shl, shr.
@@ -121,7 +122,6 @@ enum EncodingId : uint32_t {
   kEncodingVexKmov,                      //!< VEX [RM|MR] (used by kmov[b|w|d|q]).
   kEncodingVexR_Wx,                      //!< VEX|EVEX [R] (propagatex VEX.W if GPQ used).
   kEncodingVexM,                         //!< VEX|EVEX [M].
-  kEncodingVexM_VM,                      //!< VEX|EVEX [M] (propagates VEX|EVEX.L, VSIB support).
   kEncodingVexMr_Lx,                     //!< VEX|EVEX [MR] (propagates VEX|EVEX.L if YMM used).
   kEncodingVexMr_VM,                     //!< VEX|EVEX [MR] (VSIB support).
   kEncodingVexMri,                       //!< VEX|EVEX [MRI].
@@ -135,7 +135,6 @@ enum EncodingId : uint32_t {
   kEncodingVexRm_Lx_Narrow,              //!< VEX|EVEX [RM] (the destination vector size is narrowed).
   kEncodingVexRm_Lx_Bcst,                //!< VEX|EVEX [RM] (can handle broadcast r32/r64).
   kEncodingVexRm_VM,                     //!< VEX|EVEX [RM] (propagates VEX|EVEX.L, VSIB support).
-  kEncodingVexRm_T1_4X,                  //!<     EVEX [RM] (used by NN instructions that use RM-T1_4X encoding).
   kEncodingVexRmi,                       //!< VEX|EVEX [RMI].
   kEncodingVexRmi_Wx,                    //!< VEX|EVEX [RMI] (propagates VEX|EVEX.W if GPQ used).
   kEncodingVexRmi_Lx,                    //!< VEX|EVEX [RMI] (propagates VEX|EVEX.L if YMM used).
@@ -191,15 +190,15 @@ enum EncodingId : uint32_t {
 
 //! Additional information table, provides CPU extensions required to execute an instruction and RW flags.
 struct AdditionalInfo {
-  //! Index to `_instFlagsTable`.
-  uint8_t _instFlagsIndex;
-  //! Index to `_rwFlagsTable`.
-  uint8_t _rwFlagsIndex;
+  //! Index to `inst_flags_table`.
+  uint8_t _inst_flags_index;
+  //! Index to `rw_flags_info_table`.
+  uint8_t _rw_flags_index;
   //! Features vector.
   uint8_t _features[6];
 
-  inline const uint8_t* featuresBegin() const noexcept { return _features; }
-  inline const uint8_t* featuresEnd() const noexcept { return _features + ASMJIT_ARRAY_SIZE(_features); }
+  inline const uint8_t* features_begin() const noexcept { return _features; }
+  inline const uint8_t* features_end() const noexcept { return _features + ASMJIT_ARRAY_SIZE(_features); }
 };
 
 struct RWInfo {
@@ -224,15 +223,15 @@ struct RWInfo {
   };
 
   uint8_t category;
-  uint8_t rmInfo;
-  uint8_t opInfoIndex[6];
+  uint8_t rm_info;
+  uint8_t op_info_index[6];
 };
 
 struct RWInfoOp {
-  uint64_t rByteMask;
-  uint64_t wByteMask;
-  uint8_t physId;
-  uint8_t consecutiveLeadCount;
+  uint64_t r_byte_mask;
+  uint64_t w_byte_mask;
+  uint8_t phys_id;
+  uint8_t consecutive_lead_count;
   uint8_t reserved[2];
   OpRWFlags flags;
 };
@@ -261,38 +260,50 @@ struct RWInfoRm {
   };
 
   uint8_t category;
-  uint8_t rmOpsMask;
-  uint8_t fixedSize;
+  uint8_t rm_ops_mask;
+  uint8_t fixed_size;
   uint8_t flags;
-  uint8_t rmFeature;
+  uint8_t rm_feature;
 };
 
 struct RWFlagsInfoTable {
   //! CPU/FPU flags read.
-  uint32_t readFlags;
+  uint32_t read_flags;
   //! CPU/FPU flags written or undefined.
-  uint32_t writeFlags;
+  uint32_t write_flags;
 };
 
-extern const uint8_t rwInfoIndexA[Inst::_kIdCount];
-extern const uint8_t rwInfoIndexB[Inst::_kIdCount];
-extern const RWInfo rwInfoA[];
-extern const RWInfo rwInfoB[];
-extern const RWInfoOp rwInfoOp[];
-extern const RWInfoRm rwInfoRm[];
-extern const RWFlagsInfoTable _rwFlagsInfoTable[];
-extern const InstRWFlags _instFlagsTable[];
+extern const uint8_t rw_info_index_a_table[Inst::_kIdCount];
+extern const uint8_t rw_info_index_b_table[Inst::_kIdCount];
+extern const RWInfo rw_info_a_table[];
+extern const RWInfo rw_info_b_table[];
+extern const RWInfoOp rw_info_op_table[];
+extern const RWInfoRm rw_info_rm_table[];
+extern const RWFlagsInfoTable rw_flags_info_table[];
+extern const InstRWFlags inst_flags_table[];
 
-extern const uint32_t _mainOpcodeTable[];
-extern const uint32_t _altOpcodeTable[];
+extern const uint32_t main_opcode_table[];
+extern const uint32_t alt_opcode_table[];
 
 #ifndef ASMJIT_NO_TEXT
-extern const InstNameIndex instNameIndex;
-extern const char _instNameStringTable[];
-extern const uint32_t _instNameIndexTable[];
+
+extern const InstNameIndex _inst_name_index;
+extern const char _inst_name_string_table[];
+extern const uint32_t _inst_name_index_table[];
+
+extern const char alias_name_string_table[];
+extern const uint32_t alias_name_index_table[];
+extern const uint32_t alias_index_to_inst_id_table[];
+
+// ${NameDataInfo:Begin}
+// ------------------- Automatically generated, do not edit -------------------
+static constexpr uint32_t kAliasTableSize = 44;
+// ----------------------------------------------------------------------------
+// ${NameDataInfo:End}
+
 #endif // !ASMJIT_NO_TEXT
 
-extern const AdditionalInfo _additionalInfoTable[];
+extern const AdditionalInfo additional_info_table[];
 
 } // {InstDB}
 

@@ -1,0 +1,94 @@
+-- %CopyrightBegin%
+--
+-- SPDX-License-Identifier: BSD-3-Clause
+--
+-- Copyright (c) 2010 IETF Trust and the persons identified as the document authors.  All rights reserved.
+-- Copyright Ericsson AB 2025. All Rights Reserved.
+--
+-- Redistribution and use in source and binary forms, with or without
+-- modification, are permitted provided that the following conditions are met:
+--
+-- 1. Redistributions of source code must retain the above copyright notice,
+--    this list of conditions and the following disclaimer.
+--
+-- 2. Redistributions in binary form must reproduce the above copyright notice,
+--    this list of conditions and the following disclaimer in the documentation
+--    and/or other materials provided with the distribution.
+--
+-- 3. Neither the name of the copyright holder nor the names of its contributors
+--    may be used to endorse or promote products derived from this software
+--    without specific prior written permission.
+--
+-- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS IS”
+-- AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+-- IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+-- ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+-- LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+-- CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+-- SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+-- INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+-- CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+-- ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+-- POSSIBILITY OF SUCH DAMAGE.
+--
+-- %CopyrightEnd%
+
+  AttributeCertificateVersion1-2009
+      {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9)
+      smime(16) modules(0) id-mod-v1AttrCert-02(49)}
+  DEFINITIONS EXPLICIT TAGS ::=
+  BEGIN
+  IMPORTS
+
+  SIGNATURE-ALGORITHM, ALGORITHM, AlgorithmIdentifier{}
+  FROM AlgorithmInformation-2009
+      {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0)
+      id-mod-algorithmInformation-02(58)}
+
+  AttributeSet{}, Extensions{}, EXTENSION, ATTRIBUTE
+  FROM PKIX-CommonTypes-2009
+      {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0) id-mod-pkixCommon-02(57) }
+
+  CertificateSerialNumber, UniqueIdentifier, SIGNED{}
+  FROM PKIX1Explicit-2009
+      { iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0) id-mod-pkix1-explicit-02(51) }
+
+  GeneralNames
+  FROM PKIX1Implicit-2009
+      { iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0) id-mod-pkix1-implicit-02(59) }
+
+  AttCertValidityPeriod, IssuerSerial
+  FROM PKIXAttributeCertificate-2009
+      { iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0) id-mod-attribute-cert-02(47) } ;
+
+  -- Definition extracted from X.509-1997 [X.509-97], but
+  -- different type names are used to avoid collisions.
+
+  AttributeCertificateV1 ::= SIGNED{AttributeCertificateInfoV1}
+
+  AttributeCertificateInfoV1 ::= SEQUENCE {
+     version AttCertVersionV1 DEFAULT v1,
+     subject CHOICE {
+        baseCertificateID [0] IssuerSerial,
+        -- associated with a Public Key Certificate
+        subjectName [1] GeneralNames },
+     -- associated with a name
+     issuer GeneralNames,
+     signature AlgorithmIdentifier{SIGNATURE-ALGORITHM, {...}},
+     serialNumber CertificateSerialNumber,
+     attCertValidityPeriod AttCertValidityPeriod,
+     attributes SEQUENCE OF AttributeSet{{AttrList}},
+     issuerUniqueID UniqueIdentifier OPTIONAL,
+     extensions Extensions{{AttributeCertExtensionsV1}} OPTIONAL }
+
+  AttCertVersionV1 ::= INTEGER { v1(0) }
+
+  AttrList ATTRIBUTE ::= {...}
+  AttributeCertExtensionsV1 EXTENSION ::= {...}
+
+  END

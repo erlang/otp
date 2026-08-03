@@ -577,6 +577,66 @@ as_tr_cpp="eval sed '$as_sed_cpp'" # deprecated
 as_sed_sh="y%*+%pp%;s%[^_$as_cr_alnum]%_%g"
 as_tr_sh="eval sed '$as_sed_sh'" # deprecated
 
+as_awk_strverscmp='
+  # Use only awk features that work with 7th edition Unix awk (1978).
+  # My, what an old awk you have, Mr. Solaris!
+  END {
+    while (length(v1) && length(v2)) {
+      # Set d1 to be the next thing to compare from v1, and likewise for d2.
+      # Normally this is a single character, but if v1 and v2 contain digits,
+      # compare them as integers and fractions as strverscmp does.
+      if (v1 ~ /^[0-9]/ && v2 ~ /^[0-9]/) {
+	# Split v1 and v2 into their leading digit string components d1 and d2,
+	# and advance v1 and v2 past the leading digit strings.
+	for (len1 = 1; substr(v1, len1 + 1) ~ /^[0-9]/; len1++) continue
+	for (len2 = 1; substr(v2, len2 + 1) ~ /^[0-9]/; len2++) continue
+	d1 = substr(v1, 1, len1); v1 = substr(v1, len1 + 1)
+	d2 = substr(v2, 1, len2); v2 = substr(v2, len2 + 1)
+	if (d1 ~ /^0/) {
+	  if (d2 ~ /^0/) {
+	    # Compare two fractions.
+	    while (d1 ~ /^0/ && d2 ~ /^0/) {
+	      d1 = substr(d1, 2); len1--
+	      d2 = substr(d2, 2); len2--
+	    }
+	    if (len1 != len2 && ! (len1 && len2 && substr(d1, 1, 1) == substr(d2, 1, 1))) {
+	      # The two components differ in length, and the common prefix
+	      # contains only leading zeros.  Consider the longer to be less.
+	      d1 = -len1
+	      d2 = -len2
+	    } else {
+	      # Otherwise, compare as strings.
+	      d1 = "x" d1
+	      d2 = "x" d2
+	    }
+	  } else {
+	    # A fraction is less than an integer.
+	    exit 1
+	  }
+	} else {
+	  if (d2 ~ /^0/) {
+	    # An integer is greater than a fraction.
+	    exit 2
+	  } else {
+	    # Compare two integers.
+	    d1 += 0
+	    d2 += 0
+	  }
+	}
+      } else {
+	# The normal case, without worrying about digits.
+	d1 = substr(v1, 1, 1); v1 = substr(v1, 2)
+	d2 = substr(v2, 1, 1); v2 = substr(v2, 2)
+      }
+      if (d1 < d2) exit 1
+      if (d1 > d2) exit 2
+    }
+    # Beware Solaris /usr/xgp4/bin/awk (at least through Solaris 10),
+    # which mishandles some comparisons of empty strings to integers.
+    if (length(v2)) exit 1
+    if (length(v1)) exit 2
+  }
+'
 
 test -n "$DJDIR" || exec 7<&0 </dev/null
 exec 6>&1
@@ -650,23 +710,16 @@ HAVE_GL_SUPPORT
 RC_FILE_TYPE
 WX_HAVE_STATIC_LIBS
 WX_WEBVIEW_DLL
-FORCED_DEBUG_BUILD
+WX_RESCOMP
 DEBUG_WX_LIBS_STATIC
 DEBUG_WX_LIBS
 DEBUG_WX_CXXFLAGS
 DEBUG_WX_CFLAGS
-WX_VERSION_MICRO
-WX_VERSION_MINOR
-WX_VERSION_MAJOR
-WX_RESCOMP
-WX_VERSION
 WX_LIBS_STATIC
 WX_LIBS
-WX_CXXFLAGS_ONLY
-WX_CFLAGS_ONLY
 WX_CXXFLAGS
 WX_CFLAGS
-WX_CPPFLAGS
+FORCED_DEBUG_BUILD
 WX_CONFIG_PATH
 ERLANG_ROOT_DIR
 ERLC
@@ -679,6 +732,7 @@ GLIB_LIBS
 GLIB_CFLAGS
 MIXED_MINGW
 MIXED_VC
+LD
 CPP
 RANLIB
 ac_ct_CXX
@@ -747,10 +801,8 @@ ac_subst_files=''
 ac_user_opts='
 enable_option_checking
 with_wx
+enable_security_hardening_flags
 with_wxdir
-with_wx_config
-with_wx_prefix
-with_wx_exec_prefix
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1381,17 +1433,21 @@ if test -n "$ac_init_help"; then
 
   cat <<\_ACEOF
 
+Optional Features:
+  --disable-option-checking  ignore unrecognized --enable/--with options
+  --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
+  --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+  --disable-security-hardening-flags
+                          disable Open Source Security Foundation security
+                          hardening flags
+
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-wxdir=PATH    specify location of wxWidgets include and lib
   --with-wx             use wxWidgets (default)
   --without-wx          don't use wxWidgets
-  --with-wxdir=PATH       Use uninstalled version of wxWidgets in PATH
-  --with-wx-config=CONFIG wx-config script to use (optional)
-  --with-wx-prefix=PREFIX Prefix where wxWidgets is installed (optional)
-  --with-wx-exec-prefix=PREFIX
-                          Exec prefix where wxWidgets is installed (optional)
+  --with-wxdir=PATH       Use wxWidgets in PATH
 
 Some influential environment variables:
   CC          C compiler command
@@ -1604,6 +1660,54 @@ fi
   as_fn_set_status $ac_retval
 
 } # ac_fn_c_try_cpp
+
+# ac_fn_c_try_link LINENO
+# -----------------------
+# Try to link conftest.$ac_ext, and return whether this succeeded.
+ac_fn_c_try_link ()
+{
+  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
+  rm -f conftest.$ac_objext conftest.beam conftest$ac_exeext
+  if { { ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:${as_lineno-$LINENO}: $ac_try_echo\""
+printf "%s\n" "$ac_try_echo"; } >&5
+  (eval "$ac_link") 2>conftest.err
+  ac_status=$?
+  if test -s conftest.err; then
+    grep -v '^ *+' conftest.err >conftest.er1
+    cat conftest.er1 >&5
+    mv -f conftest.er1 conftest.err
+  fi
+  printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext && {
+	 test "$cross_compiling" = yes ||
+	 test -x conftest$ac_exeext
+       }
+then :
+  ac_retval=0
+else case e in #(
+  e) printf "%s\n" "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_retval=1 ;;
+esac
+fi
+  # Delete the IPA/IPO (Inter Procedural Analysis/Optimization) information
+  # created by the PGI compiler (conftest_ipa8_conftest.oo), as it would
+  # interfere with the next link command; also delete a directory that is
+  # left behind by Apple's compiler.  We do this before executing the actions.
+  rm -rf conftest.dSYM conftest_ipa8_conftest.oo
+  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
+  as_fn_set_status $ac_retval
+
+} # ac_fn_c_try_link
 
 # ac_fn_c_try_run LINENO
 # ----------------------
@@ -3094,6 +3198,37 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+no_werror_CFLAGS=$(echo " $CFLAGS " | sed 's/ -Werror / /g')
+if test "X $CFLAGS " != "X$no_werror_CFLAGS"; then
+   CFLAGS="$no_werror_CFLAGS"
+   WERRORFLAGS=-Werror
+fi
+
 ## Delete previous failed configure results
 if test -f ./CONF_INFO; then
    rm ./CONF_INFO
@@ -3232,6 +3367,13 @@ test -n "$target_alias" &&
 
     # Adjust for local legacy windows hack...
     case $host in #(
+  local-aarch64-*-windows) :
+
+                host=win32
+                host_os=win32
+                host_vendor=
+                host_cpu=aarch64
+             ;; #(
   local-*-windows) :
 
                 host=win32
@@ -3246,6 +3388,13 @@ esac
 
     # Adjust for local legacy windows hack...
     case $build in #(
+  local-aarch64-*-windows) :
+
+                build=win32
+                build_os=win32
+                build_vendor=
+                build_cpu=aarch64
+             ;; #(
   local-*-windows) :
 
                 build=win32
@@ -3260,6 +3409,13 @@ esac
 
     # Adjust for local legacy windows hack...
     case $target in #(
+  local-aarch64-*-windows) :
+
+                target=win32
+                target_os=win32
+                target_vendor=
+                target_cpu=aarch64
+             ;; #(
   local-*-windows) :
 
                 target=win32
@@ -3271,18 +3427,19 @@ esac
      ;;
 esac
 
-    if test "$cross_compiling" = "yes" -a "$build" = "$host"
+    if test "$cross_compiling" = "yes" -a "$build" = "$host"  -a "$build_cpu" = "$host_cpu"
 then :
   as_fn_error $? "
-           Cross compiling with the same canonicalized 'host' value
-           as the canonicalized 'build' value.
+           Cross compiling with the same canonicalized 'host' and 'host_cpu'
+           values as the canonicalized 'build' and 'build_cpu' values
 
            We are cross compiling since the '--host=$host_alias'
            and the '--build=$build_alias' arguments differ. When
            cross compiling Erlang/OTP, also the canonicalized values of
            the '--build' and the '--host' arguments *must* differ. The
            canonicalized values of these arguments however both equals:
-           $host
+           host = build = $host,
+           host_cpu = build_cpu = $host_cpu
 
            You can check the canonical value by passing a value as
            argument to the 'make/autoconf/config.sub' script.
@@ -4963,6 +5120,169 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
+for ac_prog in ld.sh
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_prog_LD+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) if test -n "$LD"; then
+  ac_cv_prog_LD="$LD" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_prog_LD="$ac_prog"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi ;;
+esac
+fi
+LD=$ac_cv_prog_LD
+if test -n "$LD"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $LD" >&5
+printf "%s\n" "$LD" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+
+  test -n "$LD" && break
+done
+
+   if test -n "$ac_tool_prefix"; then
+  # Extract the first word of "${ac_tool_prefix}ld", so it can be a program name with args.
+set dummy ${ac_tool_prefix}ld; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_prog_LD+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) if test -n "$LD"; then
+  ac_cv_prog_LD="$LD" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_prog_LD="${ac_tool_prefix}ld"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi ;;
+esac
+fi
+LD=$ac_cv_prog_LD
+if test -n "$LD"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $LD" >&5
+printf "%s\n" "$LD" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+
+fi
+if test -z "$ac_cv_prog_LD"; then
+  ac_ct_LD=$LD
+  # Extract the first word of "ld", so it can be a program name with args.
+set dummy ld; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_prog_ac_ct_LD+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) if test -n "$ac_ct_LD"; then
+  ac_cv_prog_ac_ct_LD="$ac_ct_LD" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_prog_ac_ct_LD="ld"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi ;;
+esac
+fi
+ac_ct_LD=$ac_cv_prog_ac_ct_LD
+if test -n "$ac_ct_LD"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_ct_LD" >&5
+printf "%s\n" "$ac_ct_LD" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+  if test "x$ac_ct_LD" = x; then
+    LD=":"
+  else
+    case $cross_compiling:$ac_tool_warned in
+yes:)
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: using cross tools not prefixed with host triplet" >&5
+printf "%s\n" "$as_me: WARNING: using cross tools not prefixed with host triplet" >&2;}
+ac_tool_warned=yes ;;
+esac
+    LD=$ac_ct_LD
+  fi
+else
+  LD="$ac_cv_prog_LD"
+fi
+
+   if test "$LD" = ":"
+then :
+  as_fn_error $? "No linker found" "$LINENO" 5
+else case e in #(
+  e)
+    printf "configure:$LINENO: %s\n" 'setting LD to ${CC}' >&5
+
+      LD=${CC} ;;
+esac
+fi
+
 
 ac_ext=cpp
 ac_cpp='$CXXCPP $CPPFLAGS'
@@ -5014,6 +5334,907 @@ WXERL_CAN_BUILD_DRIVER=false
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: Building for $host_os" >&5
 printf "%s\n" "$as_me: Building for $host_os" >&6;}
 WXERL_CAN_BUILD_DRIVER=true
+
+
+
+
+  if test "X$host" = "Xwin32"
+then :
+   ossf_security_hardening_default=no
+else case e in #(
+  e)  ossf_security_hardening_default=yes ;;
+esac
+fi
+  # Check whether --enable-security-hardening-flags was given.
+if test ${enable_security_hardening_flags+y}
+then :
+  enableval=$enable_security_hardening_flags; case "$enableval" in
+       no) ossf_security_hardening=no ;;
+       *)  ossf_security_hardening=yes ;;
+     esac
+else case e in #(
+  e) ossf_security_hardening=$ossf_security_hardening_default ;;
+esac
+fi
+
+
+
+    if test "$ossf_security_hardening" = "yes"
+then :
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <string.h>
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+        if test "X$can_enable_flag" = "Xfalse"
+then :
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <string.h>
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+fi
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fstack-clash-protection to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fstack-clash-protection to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -fstack-clash-protection $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-fstack-clash-protection $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fstack-protector-strong to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fstack-protector-strong to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -fstack-protector-strong $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-fstack-protector-strong $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+        if test "X$can_enable_flag" = "Xfalse"
+then :
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fstack-protector to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fstack-protector to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -fstack-protector $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-fstack-protector $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+else case e in #(
+  e)
+            # Some systems (solaris) also require this to be part of LDFLAGS
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fstack-protector-strong to LDFLAGS (via LDFLAGS)" >&5
+printf %s "checking if we can add -fstack-protector-strong to LDFLAGS (via LDFLAGS)... " >&6; }
+    saved_LDFLAGS=$LDFLAGS;
+    saved_LDFLAG="-fstack-protector-strong";
+    LDFLAGS="$saved_LDFLAG $LDFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false
+     ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+    LDFLAGS=$saved_LDFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        LDFLAGS="$saved_LDFLAG $LDFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+         ;;
+esac
+fi
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fcf-protection=full to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fcf-protection=full to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -fcf-protection=full $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-fcf-protection=full $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -mbranch-protection=standard to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -mbranch-protection=standard to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -mbranch-protection=standard $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-mbranch-protection=standard $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fexceptions to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fexceptions to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -fexceptions $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-fexceptions $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fno-strict-overflow to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fno-strict-overflow to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -fno-strict-overflow $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-fno-strict-overflow $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fno-delete-null-pointer-checks to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fno-delete-null-pointer-checks to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -fno-delete-null-pointer-checks $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-fno-delete-null-pointer-checks $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fno-strict-aliasing to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fno-strict-aliasing to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -fno-strict-aliasing $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-fno-strict-aliasing $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fstrict-flex-arrays=3 to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fstrict-flex-arrays=3 to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -fstrict-flex-arrays=3 $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-fstrict-flex-arrays=3 $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+        if test "X$can_enable_flag" = "Xfalse"
+then :
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fstrict-flex-arrays=2 to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fstrict-flex-arrays=2 to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -fstrict-flex-arrays=2 $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-fstrict-flex-arrays=2 $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+else case e in #(
+  e) if test "X$can_enable_flag" != "Xtrue"
+then :
+  exit 1
+fi
+         ;;
+esac
+fi
+
+fi
+
+
+    if test "$ossf_security_hardening" = "yes"
+then :
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -D_GLIBCXX_ASSERTIONS to CXXFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -D_GLIBCXX_ASSERTIONS to CXXFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -D_GLIBCXX_ASSERTIONS $CXXFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CXXFLAGS="-D_GLIBCXX_ASSERTIONS $CXXFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+fi
+
+
+    if test "$ossf_security_hardening" = "yes"
+then :
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,-z,noexecstack to LDFLAGS (via LDFLAGS)" >&5
+printf %s "checking if we can add -Wl,-z,noexecstack to LDFLAGS (via LDFLAGS)... " >&6; }
+    saved_LDFLAGS=$LDFLAGS;
+    saved_LDFLAG="-Wl,-z,noexecstack";
+    LDFLAGS="$saved_LDFLAG $LDFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false
+     ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+    LDFLAGS=$saved_LDFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        LDFLAGS="$saved_LDFLAG $LDFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,-z,relro to LDFLAGS (via LDFLAGS)" >&5
+printf %s "checking if we can add -Wl,-z,relro to LDFLAGS (via LDFLAGS)... " >&6; }
+    saved_LDFLAGS=$LDFLAGS;
+    saved_LDFLAG="-Wl,-z,relro";
+    LDFLAGS="$saved_LDFLAG $LDFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false
+     ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+    LDFLAGS=$saved_LDFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        LDFLAGS="$saved_LDFLAG $LDFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,-z,now to LDFLAGS (via LDFLAGS)" >&5
+printf %s "checking if we can add -Wl,-z,now to LDFLAGS (via LDFLAGS)... " >&6; }
+    saved_LDFLAGS=$LDFLAGS;
+    saved_LDFLAG="-Wl,-z,now";
+    LDFLAGS="$saved_LDFLAG $LDFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false
+     ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+    LDFLAGS=$saved_LDFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        LDFLAGS="$saved_LDFLAG $LDFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,--as-needed to LDFLAGS (via LDFLAGS)" >&5
+printf %s "checking if we can add -Wl,--as-needed to LDFLAGS (via LDFLAGS)... " >&6; }
+    saved_LDFLAGS=$LDFLAGS;
+    saved_LDFLAG="-Wl,--as-needed";
+    LDFLAGS="$saved_LDFLAG $LDFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false
+     ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+    LDFLAGS=$saved_LDFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        LDFLAGS="$saved_LDFLAG $LDFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,--no-copy-dt-needed-entries to LDFLAGS (via LDFLAGS)" >&5
+printf %s "checking if we can add -Wl,--no-copy-dt-needed-entries to LDFLAGS (via LDFLAGS)... " >&6; }
+    saved_LDFLAGS=$LDFLAGS;
+    saved_LDFLAG="-Wl,--no-copy-dt-needed-entries";
+    LDFLAGS="$saved_LDFLAG $LDFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false
+     ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+    LDFLAGS=$saved_LDFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        LDFLAGS="$saved_LDFLAG $LDFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+fi
+
+
+
+case $host_os in
+    darwin*)
+                        CFLAGS=`echo "$CFLAGS" | sed 's/-mbranch-protection=standard/ /g'`
+        ;;
+    *)
+	    ;;
+esac
 
 
 
@@ -5141,7 +6362,6 @@ USER_CFLAGS=$CFLAGS
 if test  X"$MIXED_VC" = X"yes" ; then
    CFLAGS="-Owx"
 fi
-
 
 ac_header= ac_cache=
 for ac_item in $ac_header_c_list
@@ -5368,7 +6588,7 @@ esac
 case $host_os in
     mingw32)
 	DEBUG_CFLAGS="-g -Wall -DDEBUG $CFLAGS"
-	CFLAGS="-g -Wall -O2 $CFLAGS -fomit-frame-pointer -fno-strict-aliasing"
+	CFLAGS="-g -Wall -O2 $CFLAGS -fomit-frame-pointer"
 	;;
     win32)
 	DEBUG_CFLAGS="-g -Wall $CFLAGS -DDEBUG"
@@ -5377,11 +6597,11 @@ case $host_os in
     darwin*)
 	DEBUG_CFLAGS="-g -Wall -fPIC $CFLAGS -DDEBUG"
 	# omit-frame-pointer causes seg faults with 10.9 and clang
-	CFLAGS="-g -Wall -fPIC $CFLAGS -fno-strict-aliasing"
+	CFLAGS="-g -Wall -fPIC $CFLAGS"
 	;;
     *)
 	DEBUG_CFLAGS="-g -Wall -fPIC $CFLAGS -DDEBUG"
-	CFLAGS="-Wall -fPIC $CFLAGS -fomit-frame-pointer -fno-strict-aliasing"
+	CFLAGS="-Wall -fPIC $CFLAGS -fomit-frame-pointer"
 	;;
 esac
 
@@ -5394,7 +6614,7 @@ then :
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fno-move-loop-invariants to CXXNOOPT (via CFLAGS)" >&5
 printf %s "checking if we can add -fno-move-loop-invariants to CXXNOOPT (via CFLAGS)... " >&6; }
     saved_CFLAGS=$CFLAGS;
-    CFLAGS="-fno-move-loop-invariants $CXXNOOPT";
+    CFLAGS="-Werror -fno-move-loop-invariants $CXXNOOPT";
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -5418,9 +6638,9 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     if test "X$can_enable_flag" = "Xtrue"
 then :
 
+        CXXNOOPT="-fno-move-loop-invariants $CXXNOOPT"
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
-        CXXNOOPT="-fno-move-loop-invariants $CXXNOOPT"
 
 else case e in #(
   e)
@@ -5434,7 +6654,7 @@ fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fno-var-tracking-assignments to CXXNOOPT (via CFLAGS)" >&5
 printf %s "checking if we can add -fno-var-tracking-assignments to CXXNOOPT (via CFLAGS)... " >&6; }
     saved_CFLAGS=$CFLAGS;
-    CFLAGS="-fno-var-tracking-assignments $CXXNOOPT";
+    CFLAGS="-Werror -fno-var-tracking-assignments $CXXNOOPT";
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -5458,9 +6678,9 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     if test "X$can_enable_flag" = "Xtrue"
 then :
 
+        CXXNOOPT="-fno-var-tracking-assignments $CXXNOOPT"
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
-        CXXNOOPT="-fno-var-tracking-assignments $CXXNOOPT"
 
 else case e in #(
   e)
@@ -5638,140 +6858,37 @@ ERLANG_ROOT_DIR=$ERL_TOP
 
 
 
-if test "$cross_compiling" = "yes"
+if test  X"$MIXED_VC" = X"no"
 then :
-
-    	echo "Cross compilation of the wx driver is not supported yet, wx will NOT be usable" >> ./CONF_INFO
-    WXERL_CAN_BUILD_DRIVER=false
-    if test X"$with_wx" = X"yes" ; then
-        as_fn_error $? "Cross compilation of the wx driver is not supported yet, wx will NOT be usable" "$LINENO" 5
-    else
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: Cross compilation of the wx driver is not supported yet, wx will NOT be usable" >&5
-printf "%s\n" "$as_me: WARNING: Cross compilation of the wx driver is not supported yet, wx will NOT be usable" >&2;}
-    fi
-
-
-elif test  X"$MIXED_VC" = X"no"
-then :
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # Check whether --with-wxdir was given.
 if test ${with_wxdir+y}
 then :
   withval=$with_wxdir;  wx_config_name="$withval/wx-config"
-                  wx_config_args="--inplace"
 fi
 
 
-# Check whether --with-wx-config was given.
-if test ${with_wx_config+y}
+   if test x${WX_CONFIG_NAME} = x ; then
+      WX_CONFIG_NAME=wx-config
+   fi
+
+   if test "x$wx_config_name" != x ; then
+      WX_CONFIG_NAME="$wx_config_name"
+   fi
+
+   if test -x "$WX_CONFIG_NAME"
 then :
-  withval=$with_wx_config; wx_config_name="$withval"
-fi
 
-
-# Check whether --with-wx-prefix was given.
-if test ${with_wx_prefix+y}
-then :
-  withval=$with_wx_prefix; wx_config_prefix="$withval"
-else case e in #(
-  e) wx_config_prefix="" ;;
-esac
-fi
-
-
-# Check whether --with-wx-exec-prefix was given.
-if test ${with_wx_exec_prefix+y}
-then :
-  withval=$with_wx_exec_prefix; wx_config_exec_prefix="$withval"
-else case e in #(
-  e) wx_config_exec_prefix="" ;;
-esac
-fi
-
-
-    reqwx=3.0.2
-
-
-    if test x${WX_CONFIG_NAME+set} != xset ; then
-     WX_CONFIG_NAME=wx-config
-  fi
-
-  if test "x$wx_config_name" != x ; then
-     WX_CONFIG_NAME="$wx_config_name"
-  fi
-
-    if test x$wx_config_exec_prefix != x ; then
-     wx_config_args="$wx_config_args --exec-prefix=$wx_config_exec_prefix"
-     WX_LOOKUP_PATH="$wx_config_exec_prefix/bin"
-  fi
-  if test x$wx_config_prefix != x ; then
-     wx_config_args="$wx_config_args --prefix=$wx_config_prefix"
-     WX_LOOKUP_PATH="$WX_LOOKUP_PATH:$wx_config_prefix/bin"
-  fi
-  if test "$cross_compiling" = "yes"; then
-     wx_config_args="$wx_config_args --host=$host_alias"
-  fi
-
-    if test -x "$WX_CONFIG_NAME" ; then
-     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wx-config" >&5
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wx-config" >&5
 printf %s "checking for wx-config... " >&6; }
-     WX_CONFIG_PATH="$WX_CONFIG_NAME"
-     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $WX_CONFIG_PATH" >&5
+      WX_CONFIG_PATH="$WX_CONFIG_NAME"
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $WX_CONFIG_PATH" >&5
 printf "%s\n" "$WX_CONFIG_PATH" >&6; }
-  else
-     # Extract the first word of "$WX_CONFIG_NAME", so it can be a program name with args.
+
+else case e in #(
+  e)
+      # Extract the first word of "$WX_CONFIG_NAME", so it can be a program name with args.
 set dummy $WX_CONFIG_NAME; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
@@ -5785,8 +6902,7 @@ else case e in #(
   ;;
   *)
   as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-as_dummy=""$WX_LOOKUP_PATH:$PATH""
-for as_dir in $as_dummy
+for as_dir in $PATH
 do
   IFS=$as_save_IFS
   case $as_dir in #(((
@@ -5819,227 +6935,89 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-  fi
+      ;;
+esac
+fi
 
-  if test "$WX_CONFIG_PATH" != "no" ; then
-    WX_VERSION=""
-
-    min_wx_version=$reqwx
-    if test -z "--unicode" ; then
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets version >= $min_wx_version" >&5
-printf %s "checking for wxWidgets version >= $min_wx_version... " >&6; }
-    else
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets version >= $min_wx_version (--unicode)" >&5
-printf %s "checking for wxWidgets version >= $min_wx_version (--unicode)... " >&6; }
-    fi
-
-            WX_CONFIG_WITH_ARGS="$WX_CONFIG_PATH $wx_config_args --unicode"
-
-    WX_VERSION=`$WX_CONFIG_WITH_ARGS --version 2>/dev/null`
-    wx_config_major_version=`echo $WX_VERSION | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\1/'`
-    wx_config_minor_version=`echo $WX_VERSION | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\2/'`
-    wx_config_micro_version=`echo $WX_VERSION | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\3/'`
-
-    wx_requested_major_version=`echo $min_wx_version | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\1/'`
-    wx_requested_minor_version=`echo $min_wx_version | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\2/'`
-    wx_requested_micro_version=`echo $min_wx_version | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\3/'`
-
-
-    wx_ver_ok=""
-    if test "x$WX_VERSION" != x ; then
-      if test $wx_config_major_version -gt $wx_requested_major_version; then
-        wx_ver_ok=yes
-      else
-        if test $wx_config_major_version -eq $wx_requested_major_version; then
-           if test $wx_config_minor_version -gt $wx_requested_minor_version; then
-              wx_ver_ok=yes
-           else
-              if test $wx_config_minor_version -eq $wx_requested_minor_version; then
-                 if test $wx_config_micro_version -ge $wx_requested_micro_version; then
-                    wx_ver_ok=yes
-                 fi
-              fi
-           fi
-        fi
-      fi
-    fi
-
-
-    if test -n "$wx_ver_ok"; then
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes (version $WX_VERSION)" >&5
-printf "%s\n" "yes (version $WX_VERSION)" >&6; }
-      WX_LIBS=`$WX_CONFIG_WITH_ARGS --libs core,base,html,webview`
-
-                              { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets static library" >&5
-printf %s "checking for wxWidgets static library... " >&6; }
-      WX_LIBS_STATIC=`$WX_CONFIG_WITH_ARGS --static --libs core,base,html,webview 2>/dev/null`
-      if test "x$WX_LIBS_STATIC" = "x"; then
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-      else
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-      fi
-
-            wx_has_cppflags=""
-      if test $wx_config_major_version -gt 2; then
-        wx_has_cppflags=yes
-      else
-        if test $wx_config_major_version -eq 2; then
-           if test $wx_config_minor_version -gt 2; then
-              wx_has_cppflags=yes
-           else
-              if test $wx_config_minor_version -eq 2; then
-                 if test $wx_config_micro_version -ge 6; then
-                    wx_has_cppflags=yes
-                 fi
-              fi
-           fi
-        fi
-      fi
-
-            wx_has_rescomp=""
-      if test $wx_config_major_version -gt 2; then
-        wx_has_rescomp=yes
-      else
-        if test $wx_config_major_version -eq 2; then
-           if test $wx_config_minor_version -ge 7; then
-              wx_has_rescomp=yes
-           fi
-        fi
-      fi
-      if test "x$wx_has_rescomp" = x ; then
-                  WX_RESCOMP=
-      else
-         WX_RESCOMP=`$WX_CONFIG_WITH_ARGS --rescomp`
-      fi
-
-      if test "x$wx_has_cppflags" = x ; then
-                  WX_CFLAGS=`$WX_CONFIG_WITH_ARGS --cflags core,base,html,webview`
-         WX_CPPFLAGS=$WX_CFLAGS
-         WX_CXXFLAGS=$WX_CFLAGS
-
-         WX_CFLAGS_ONLY=$WX_CFLAGS
-         WX_CXXFLAGS_ONLY=$WX_CFLAGS
-      else
-                  WX_CPPFLAGS=`$WX_CONFIG_WITH_ARGS --cppflags core,base,html,webview`
-         WX_CXXFLAGS=`$WX_CONFIG_WITH_ARGS --cxxflags core,base,html,webview`
-         WX_CFLAGS=`$WX_CONFIG_WITH_ARGS --cflags core,base,html,webview`
-
-         WX_CFLAGS_ONLY=`echo $WX_CFLAGS | sed "s@^$WX_CPPFLAGS *@@"`
-         WX_CXXFLAGS_ONLY=`echo $WX_CXXFLAGS | sed "s@^$WX_CFLAGS *@@"`
-      fi
-
-      :
-
-    else
-
-       if test "x$WX_VERSION" = x; then
-                    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-       else
-          { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no (version $WX_VERSION is not new enough)" >&5
-printf "%s\n" "no (version $WX_VERSION is not new enough)" >&6; }
-       fi
-
-       WX_CFLAGS=""
-       WX_CPPFLAGS=""
-       WX_CXXFLAGS=""
-       WX_LIBS=""
-       WX_LIBS_STATIC=""
-       WX_RESCOMP=""
-
-       if test ! -z "--unicode"; then
-          wx_error_message="
-    The configuration you asked for $PACKAGE_NAME requires a wxWidgets
-    build with the following settings:
-        --unicode
-    but such build is not available.
-    To see the wxWidgets builds available on this system, please use
-    'wx-config --list' command. To use the default build, returned by
-    'wx-config --selected-config', use the options with their 'auto'
-    default values."
-       fi
-       wx_error_message="
-    The requested wxWidgets build couldn't be found.
-    $wx_error_message
-    If you still get this error, then check that 'wx-config' is
-    in path, the directory where wxWidgets libraries are installed
-    (returned by 'wx-config --libs' command) is in LD_LIBRARY_PATH
-    or equivalent variable and wxWidgets version is $reqwx or above."
-       	echo "$wx_error_message" >> ./CONF_INFO
+   if test "$WX_CONFIG_PATH" = "no"
+then :
+   	echo "wx-config not found, wx will NOT be usable" >> ./CONF_INFO
     WXERL_CAN_BUILD_DRIVER=false
     if test X"$with_wx" = X"yes" ; then
-        as_fn_error $? "$wx_error_message" "$LINENO" 5
+        as_fn_error $? "wx-config not found, wx will NOT be usable" "$LINENO" 5
     else
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: $wx_error_message" >&5
-printf "%s\n" "$as_me: WARNING: $wx_error_message" >&2;}
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: wx-config not found, wx will NOT be usable" >&5
+printf "%s\n" "$as_me: WARNING: wx-config not found, wx will NOT be usable" >&2;}
     fi
 
+else case e in #(
+  e)
 
+      wx_version=`$WX_CONFIG_PATH --version`
+      reqwx=3.0.2
+      as_arg_v1=$wx_version
+as_arg_v2=$reqwx
+awk "$as_awk_strverscmp" v1="$as_arg_v1" v2="$as_arg_v2" /dev/null
+case $? in #(
+  1) :
+    	echo "Requires wxWidgets $reqwx or later, wx will NOT be usable" >> ./CONF_INFO
+    WXERL_CAN_BUILD_DRIVER=false
+    if test X"$with_wx" = X"yes" ; then
+        as_fn_error $? "Requires wxWidgets $reqwx or later, wx will NOT be usable" "$LINENO" 5
+    else
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: Requires wxWidgets $reqwx or later, wx will NOT be usable" >&5
+printf "%s\n" "$as_me: WARNING: Requires wxWidgets $reqwx or later, wx will NOT be usable" >&2;}
     fi
-  else
+ ;; #(
+  0) :
+     ;; #(
+  2) :
+     ;; #(
+  *) :
+     ;;
+esac
 
-    WX_CFLAGS=""
-    WX_CPPFLAGS=""
-    WX_CXXFLAGS=""
-    WX_LIBS=""
-    WX_LIBS_STATIC=""
-    WX_RESCOMP=""
+      wx_needed=stc,xrc,html,adv,xml,core,base,gl,aui
 
-    :
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets libs and flags" >&5
+printf %s "checking for wxWidgets libs and flags... " >&6; }
+      wx_libs=`$WX_CONFIG_PATH --libs $wx_needed --optional-libs webview --unicode=yes`
+      wx_flags=`$WX_CONFIG_PATH --cxxflags --unicode=yes`
+      if test "x$wx_libs" = "x"
+then :
+   wxWin=0
+          { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+else case e in #(
+  e)  wxWin=1
+          { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }  ;;
+esac
+fi
 
-  fi
-
-
-
-
-
-
-
-
-
-
-
-      WX_VERSION_MAJOR="$wx_config_major_version"
-  WX_VERSION_MINOR="$wx_config_minor_version"
-  WX_VERSION_MICRO="$wx_config_micro_version"
-
-
-
-
-
-	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxwidgets webview" >&5
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxwidgets webview" >&5
 printf %s "checking for wxwidgets webview... " >&6; }
-	ac_ext=cpp
+      ac_ext=cpp
 ac_cpp='$CXXCPP $CPPFLAGS'
 ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
-	saved_CXXFLAGS=$CXXFLAGS
-	CXXFLAGS="$CXXFLAGS $WX_CXXFLAGS"
-        saved_LIBS=$LIBS
-        LIBS=$WX_LIBS
+      saved_CXXFLAGS=$CXXFLAGS
+      CXXFLAGS="$CXXFLAGS $wx_flags"
+      saved_LIBS=$LIBS
+      LIBS=$wx_libs
 
-	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	  #include "wx/wx.h"
-          #include "wx/webview.h"
+            #include "wx/wx.h"
+            #include "wx/webview.h"
 
 int
 main (void)
 {
-
-             wxWebView::New();
-
+ wxWebView::New();
   ;
   return 0;
 }
@@ -6054,655 +7032,110 @@ fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
 
-	CXXFLAGS=$saved_CXXFLAGS
-        LIBS=$saved_LIBS
-	ac_ext=c
+      CXXFLAGS=$saved_CXXFLAGS
+      LIBS=$saved_LIBS
+      ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $HAVE_WEBVIEW_SUPPORT" >&5
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $HAVE_WEBVIEW_SUPPORT" >&5
 printf "%s\n" "$HAVE_WEBVIEW_SUPPORT" >&6; }
 
-	if test X"$HAVE_WEBVIEW_SUPPORT" != X"yes" ; then
-	  WXELIBS=stc,xrc,html,adv,xml,core,base,gl,aui
-	  echo "wxWidgets was not compiled with --enable-webview or wxWebView developer package is not installed, wxWebView will NOT be available" >> ./CONF_INFO
-	else
-	  WXELIBS=stc,xrc,html,adv,xml,core,base,gl,aui,webview
-          printf "%s\n" "#define WXE_WEBVIEW 1" >>confdefs.h
-
-	fi
-
-    # Try to find debug libs first
-
-
-    if test x${WX_CONFIG_NAME+set} != xset ; then
-     WX_CONFIG_NAME=wx-config
-  fi
-
-  if test "x$wx_config_name" != x ; then
-     WX_CONFIG_NAME="$wx_config_name"
-  fi
-
-    if test x$wx_config_exec_prefix != x ; then
-     wx_config_args="$wx_config_args --exec-prefix=$wx_config_exec_prefix"
-     WX_LOOKUP_PATH="$wx_config_exec_prefix/bin"
-  fi
-  if test x$wx_config_prefix != x ; then
-     wx_config_args="$wx_config_args --prefix=$wx_config_prefix"
-     WX_LOOKUP_PATH="$WX_LOOKUP_PATH:$wx_config_prefix/bin"
-  fi
-  if test "$cross_compiling" = "yes"; then
-     wx_config_args="$wx_config_args --host=$host_alias"
-  fi
-
-    if test -x "$WX_CONFIG_NAME" ; then
-     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wx-config" >&5
-printf %s "checking for wx-config... " >&6; }
-     WX_CONFIG_PATH="$WX_CONFIG_NAME"
-     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $WX_CONFIG_PATH" >&5
-printf "%s\n" "$WX_CONFIG_PATH" >&6; }
-  else
-     # Extract the first word of "$WX_CONFIG_NAME", so it can be a program name with args.
-set dummy $WX_CONFIG_NAME; ac_word=$2
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_path_WX_CONFIG_PATH+y}
+      if test X"$HAVE_WEBVIEW_SUPPORT" != X"yes"
 then :
-  printf %s "(cached) " >&6
+   echo "wxWidgets was not compiled with --enable-webview or wxWebView developer package is not installed, wxWebView will NOT be available" >> ./CONF_INFO
 else case e in #(
-  e) case $WX_CONFIG_PATH in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_WX_CONFIG_PATH="$WX_CONFIG_PATH" # Let the user override the test with a path.
+  e)  printf "%s\n" "#define WXE_WEBVIEW 1" >>confdefs.h
   ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-as_dummy=""$WX_LOOKUP_PATH:$PATH""
-for as_dir in $as_dummy
-do
-  IFS=$as_save_IFS
-  case $as_dir in #(((
-    '') as_dir=./ ;;
-    */) ;;
-    *) as_dir=$as_dir/ ;;
-  esac
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_path_WX_CONFIG_PATH="$as_dir$ac_word$ac_exec_ext"
-    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  test -z "$ac_cv_path_WX_CONFIG_PATH" && ac_cv_path_WX_CONFIG_PATH="no"
-  ;;
-esac ;;
 esac
 fi
-WX_CONFIG_PATH=$ac_cv_path_WX_CONFIG_PATH
-if test -n "$WX_CONFIG_PATH"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $WX_CONFIG_PATH" >&5
-printf "%s\n" "$WX_CONFIG_PATH" >&6; }
-else
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-fi
 
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for static wxWidgets build" >&5
+printf %s "checking for static wxWidgets build... " >&6; }
+      wx_static_libs=`$WX_CONFIG_PATH --libs $wx_needed --optional-libs webview --unicode=yes --static=yes 2>/dev/null`
 
-  fi
-
-  if test "$WX_CONFIG_PATH" != "no" ; then
-    WX_VERSION=""
-
-    min_wx_version=$reqwx
-    if test -z "--unicode --debug=yes" ; then
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets version >= $min_wx_version" >&5
-printf %s "checking for wxWidgets version >= $min_wx_version... " >&6; }
-    else
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets version >= $min_wx_version (--unicode --debug=yes)" >&5
-printf %s "checking for wxWidgets version >= $min_wx_version (--unicode --debug=yes)... " >&6; }
-    fi
-
-            WX_CONFIG_WITH_ARGS="$WX_CONFIG_PATH $wx_config_args --unicode --debug=yes"
-
-    WX_VERSION=`$WX_CONFIG_WITH_ARGS --version 2>/dev/null`
-    wx_config_major_version=`echo $WX_VERSION | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\1/'`
-    wx_config_minor_version=`echo $WX_VERSION | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\2/'`
-    wx_config_micro_version=`echo $WX_VERSION | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\3/'`
-
-    wx_requested_major_version=`echo $min_wx_version | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\1/'`
-    wx_requested_minor_version=`echo $min_wx_version | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\2/'`
-    wx_requested_micro_version=`echo $min_wx_version | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\3/'`
-
-
-    wx_ver_ok=""
-    if test "x$WX_VERSION" != x ; then
-      if test $wx_config_major_version -gt $wx_requested_major_version; then
-        wx_ver_ok=yes
-      else
-        if test $wx_config_major_version -eq $wx_requested_major_version; then
-           if test $wx_config_minor_version -gt $wx_requested_minor_version; then
-              wx_ver_ok=yes
-           else
-              if test $wx_config_minor_version -eq $wx_requested_minor_version; then
-                 if test $wx_config_micro_version -ge $wx_requested_micro_version; then
-                    wx_ver_ok=yes
-                 fi
-              fi
-           fi
-        fi
-      fi
-    fi
-
-
-    if test -n "$wx_ver_ok"; then
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes (version $WX_VERSION)" >&5
-printf "%s\n" "yes (version $WX_VERSION)" >&6; }
-      WX_LIBS=`$WX_CONFIG_WITH_ARGS --libs $WXELIBS`
-
-                              { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets static library" >&5
-printf %s "checking for wxWidgets static library... " >&6; }
-      WX_LIBS_STATIC=`$WX_CONFIG_WITH_ARGS --static --libs $WXELIBS 2>/dev/null`
-      if test "x$WX_LIBS_STATIC" = "x"; then
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-      else
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-      fi
-
-            wx_has_cppflags=""
-      if test $wx_config_major_version -gt 2; then
-        wx_has_cppflags=yes
-      else
-        if test $wx_config_major_version -eq 2; then
-           if test $wx_config_minor_version -gt 2; then
-              wx_has_cppflags=yes
-           else
-              if test $wx_config_minor_version -eq 2; then
-                 if test $wx_config_micro_version -ge 6; then
-                    wx_has_cppflags=yes
-                 fi
-              fi
-           fi
-        fi
-      fi
-
-            wx_has_rescomp=""
-      if test $wx_config_major_version -gt 2; then
-        wx_has_rescomp=yes
-      else
-        if test $wx_config_major_version -eq 2; then
-           if test $wx_config_minor_version -ge 7; then
-              wx_has_rescomp=yes
-           fi
-        fi
-      fi
-      if test "x$wx_has_rescomp" = x ; then
-                  WX_RESCOMP=
-      else
-         WX_RESCOMP=`$WX_CONFIG_WITH_ARGS --rescomp`
-      fi
-
-      if test "x$wx_has_cppflags" = x ; then
-                  WX_CFLAGS=`$WX_CONFIG_WITH_ARGS --cflags $WXELIBS`
-         WX_CPPFLAGS=$WX_CFLAGS
-         WX_CXXFLAGS=$WX_CFLAGS
-
-         WX_CFLAGS_ONLY=$WX_CFLAGS
-         WX_CXXFLAGS_ONLY=$WX_CFLAGS
-      else
-                  WX_CPPFLAGS=`$WX_CONFIG_WITH_ARGS --cppflags $WXELIBS`
-         WX_CXXFLAGS=`$WX_CONFIG_WITH_ARGS --cxxflags $WXELIBS`
-         WX_CFLAGS=`$WX_CONFIG_WITH_ARGS --cflags $WXELIBS`
-
-         WX_CFLAGS_ONLY=`echo $WX_CFLAGS | sed "s@^$WX_CPPFLAGS *@@"`
-         WX_CXXFLAGS_ONLY=`echo $WX_CXXFLAGS | sed "s@^$WX_CFLAGS *@@"`
-      fi
-
-      wxWinWithGLDBG=1
-
-    else
-
-       if test "x$WX_VERSION" = x; then
-                    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-       else
-          { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no (version $WX_VERSION is not new enough)" >&5
-printf "%s\n" "no (version $WX_VERSION is not new enough)" >&6; }
-       fi
-
-       WX_CFLAGS=""
-       WX_CPPFLAGS=""
-       WX_CXXFLAGS=""
-       WX_LIBS=""
-       WX_LIBS_STATIC=""
-       WX_RESCOMP=""
-
-       if test ! -z "--unicode --debug=yes"; then
-          wx_error_message="
-    The configuration you asked for $PACKAGE_NAME requires a wxWidgets
-    build with the following settings:
-        --unicode --debug=yes
-    but such build is not available.
-    To see the wxWidgets builds available on this system, please use
-    'wx-config --list' command. To use the default build, returned by
-    'wx-config --selected-config', use the options with their 'auto'
-    default values."
-       fi
-       wx_error_message="
-    The requested wxWidgets build couldn't be found.
-    $wx_error_message
-    If you still get this error, then check that 'wx-config' is
-    in path, the directory where wxWidgets libraries are installed
-    (returned by 'wx-config --libs' command) is in LD_LIBRARY_PATH
-    or equivalent variable and wxWidgets version is $reqwx or above."
-       wxWinWithGLDBG=0
-
-    fi
-  else
-
-    WX_CFLAGS=""
-    WX_CPPFLAGS=""
-    WX_CXXFLAGS=""
-    WX_LIBS=""
-    WX_LIBS_STATIC=""
-    WX_RESCOMP=""
-
-    wxWinWithGLDBG=0
-
-  fi
-
-
-
-
-
-
-
-
-
-
-
-      WX_VERSION_MAJOR="$wx_config_major_version"
-  WX_VERSION_MINOR="$wx_config_minor_version"
-  WX_VERSION_MICRO="$wx_config_micro_version"
-
-
-
-
-
-
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for debug build of wxWidgets" >&5
-printf %s "checking for debug build of wxWidgets... " >&6; }
-    if test "$wxWinWithGLDBG" = 1; then
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; };
-    else
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; };
-    fi
-
-    DEBUG_WX_CFLAGS=$WX_CFLAGS
-    DEBUG_WX_CXXFLAGS=$WX_CXXFLAGS
-    DEBUG_WX_LIBS=$WX_LIBS
-    DEBUG_WX_LIBS_STATIC=$WX_LIBS_STATIC
-
-
-
-
-
-
-
-    if test x${WX_CONFIG_NAME+set} != xset ; then
-     WX_CONFIG_NAME=wx-config
-  fi
-
-  if test "x$wx_config_name" != x ; then
-     WX_CONFIG_NAME="$wx_config_name"
-  fi
-
-    if test x$wx_config_exec_prefix != x ; then
-     wx_config_args="$wx_config_args --exec-prefix=$wx_config_exec_prefix"
-     WX_LOOKUP_PATH="$wx_config_exec_prefix/bin"
-  fi
-  if test x$wx_config_prefix != x ; then
-     wx_config_args="$wx_config_args --prefix=$wx_config_prefix"
-     WX_LOOKUP_PATH="$WX_LOOKUP_PATH:$wx_config_prefix/bin"
-  fi
-  if test "$cross_compiling" = "yes"; then
-     wx_config_args="$wx_config_args --host=$host_alias"
-  fi
-
-    if test -x "$WX_CONFIG_NAME" ; then
-     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wx-config" >&5
-printf %s "checking for wx-config... " >&6; }
-     WX_CONFIG_PATH="$WX_CONFIG_NAME"
-     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $WX_CONFIG_PATH" >&5
-printf "%s\n" "$WX_CONFIG_PATH" >&6; }
-  else
-     # Extract the first word of "$WX_CONFIG_NAME", so it can be a program name with args.
-set dummy $WX_CONFIG_NAME; ac_word=$2
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_path_WX_CONFIG_PATH+y}
+      if test "x$wx_static_libs" = "x"
 then :
-  printf %s "(cached) " >&6
+   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+          WX_HAVE_STATIC_LIBS=false
 else case e in #(
-  e) case $WX_CONFIG_PATH in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_WX_CONFIG_PATH="$WX_CONFIG_PATH" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-as_dummy=""$WX_LOOKUP_PATH:$PATH""
-for as_dir in $as_dummy
-do
-  IFS=$as_save_IFS
-  case $as_dir in #(((
-    '') as_dir=./ ;;
-    */) ;;
-    *) as_dir=$as_dir/ ;;
-  esac
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_path_WX_CONFIG_PATH="$as_dir$ac_word$ac_exec_ext"
-    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  test -z "$ac_cv_path_WX_CONFIG_PATH" && ac_cv_path_WX_CONFIG_PATH="no"
-  ;;
-esac ;;
+  e)
+          { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+          WX_HAVE_STATIC_LIBS=true  ;;
 esac
 fi
-WX_CONFIG_PATH=$ac_cv_path_WX_CONFIG_PATH
-if test -n "$WX_CONFIG_PATH"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $WX_CONFIG_PATH" >&5
-printf "%s\n" "$WX_CONFIG_PATH" >&6; }
-else
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-fi
 
+      FORCED_DEBUG_BUILD=false
 
-  fi
+      RC_FILE_TYPE=o
 
-  if test "$WX_CONFIG_PATH" != "no" ; then
-    WX_VERSION=""
+      WX_CFLAGS=
+      WX_CXXFLAGS=$wx_flags
+      WX_LIBS=$wx_libs
+      WX_LIBS_STATIC=$wx_static_libs
+      DEBUG_WX_CFLAGS=$WX_CFLAGS
+      DEBUG_WX_CXXFLAGS=$WX_CXXFLAGS
+      DEBUG_WX_LIBS=$WX_LIBS
+      DEBUG_WX_LIBS_STATIC=$WX_LIBS_STATIC
 
-    min_wx_version=$reqwx
-    if test -z "--unicode --debug=no" ; then
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets version >= $min_wx_version" >&5
-printf %s "checking for wxWidgets version >= $min_wx_version... " >&6; }
-    else
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets version >= $min_wx_version (--unicode --debug=no)" >&5
-printf %s "checking for wxWidgets version >= $min_wx_version (--unicode --debug=no)... " >&6; }
-    fi
+      if test "$wxWin" != 1
+then :
+   	echo "
+           wxWidgets must be installed on your system.
 
-            WX_CONFIG_WITH_ARGS="$WX_CONFIG_PATH $wx_config_args --unicode --debug=no"
-
-    WX_VERSION=`$WX_CONFIG_WITH_ARGS --version 2>/dev/null`
-    wx_config_major_version=`echo $WX_VERSION | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\1/'`
-    wx_config_minor_version=`echo $WX_VERSION | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\2/'`
-    wx_config_micro_version=`echo $WX_VERSION | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\3/'`
-
-    wx_requested_major_version=`echo $min_wx_version | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\1/'`
-    wx_requested_minor_version=`echo $min_wx_version | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\2/'`
-    wx_requested_micro_version=`echo $min_wx_version | \
-           sed 's/\([0-9]*\).\([0-9]*\).\([0-9]*\)/\3/'`
-
-
-    wx_ver_ok=""
-    if test "x$WX_VERSION" != x ; then
-      if test $wx_config_major_version -gt $wx_requested_major_version; then
-        wx_ver_ok=yes
-      else
-        if test $wx_config_major_version -eq $wx_requested_major_version; then
-           if test $wx_config_minor_version -gt $wx_requested_minor_version; then
-              wx_ver_ok=yes
-           else
-              if test $wx_config_minor_version -eq $wx_requested_minor_version; then
-                 if test $wx_config_micro_version -ge $wx_requested_micro_version; then
-                    wx_ver_ok=yes
-                 fi
-              fi
-           fi
-        fi
-      fi
-    fi
-
-
-    if test -n "$wx_ver_ok"; then
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes (version $WX_VERSION)" >&5
-printf "%s\n" "yes (version $WX_VERSION)" >&6; }
-      WX_LIBS=`$WX_CONFIG_WITH_ARGS --libs $WXELIBS`
-
-                              { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets static library" >&5
-printf %s "checking for wxWidgets static library... " >&6; }
-      WX_LIBS_STATIC=`$WX_CONFIG_WITH_ARGS --static --libs $WXELIBS 2>/dev/null`
-      if test "x$WX_LIBS_STATIC" = "x"; then
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-      else
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-      fi
-
-            wx_has_cppflags=""
-      if test $wx_config_major_version -gt 2; then
-        wx_has_cppflags=yes
-      else
-        if test $wx_config_major_version -eq 2; then
-           if test $wx_config_minor_version -gt 2; then
-              wx_has_cppflags=yes
-           else
-              if test $wx_config_minor_version -eq 2; then
-                 if test $wx_config_micro_version -ge 6; then
-                    wx_has_cppflags=yes
-                 fi
-              fi
-           fi
-        fi
-      fi
-
-            wx_has_rescomp=""
-      if test $wx_config_major_version -gt 2; then
-        wx_has_rescomp=yes
-      else
-        if test $wx_config_major_version -eq 2; then
-           if test $wx_config_minor_version -ge 7; then
-              wx_has_rescomp=yes
-           fi
-        fi
-      fi
-      if test "x$wx_has_rescomp" = x ; then
-                  WX_RESCOMP=
-      else
-         WX_RESCOMP=`$WX_CONFIG_WITH_ARGS --rescomp`
-      fi
-
-      if test "x$wx_has_cppflags" = x ; then
-                  WX_CFLAGS=`$WX_CONFIG_WITH_ARGS --cflags $WXELIBS`
-         WX_CPPFLAGS=$WX_CFLAGS
-         WX_CXXFLAGS=$WX_CFLAGS
-
-         WX_CFLAGS_ONLY=$WX_CFLAGS
-         WX_CXXFLAGS_ONLY=$WX_CFLAGS
-      else
-                  WX_CPPFLAGS=`$WX_CONFIG_WITH_ARGS --cppflags $WXELIBS`
-         WX_CXXFLAGS=`$WX_CONFIG_WITH_ARGS --cxxflags $WXELIBS`
-         WX_CFLAGS=`$WX_CONFIG_WITH_ARGS --cflags $WXELIBS`
-
-         WX_CFLAGS_ONLY=`echo $WX_CFLAGS | sed "s@^$WX_CPPFLAGS *@@"`
-         WX_CXXFLAGS_ONLY=`echo $WX_CXXFLAGS | sed "s@^$WX_CFLAGS *@@"`
-      fi
-
-      wxWinWithGL=1
-
-    else
-
-       if test "x$WX_VERSION" = x; then
-                    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-       else
-          { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no (version $WX_VERSION is not new enough)" >&5
-printf "%s\n" "no (version $WX_VERSION is not new enough)" >&6; }
-       fi
-
-       WX_CFLAGS=""
-       WX_CPPFLAGS=""
-       WX_CXXFLAGS=""
-       WX_LIBS=""
-       WX_LIBS_STATIC=""
-       WX_RESCOMP=""
-
-       if test ! -z "--unicode --debug=no"; then
-          wx_error_message="
-    The configuration you asked for $PACKAGE_NAME requires a wxWidgets
-    build with the following settings:
-        --unicode --debug=no
-    but such build is not available.
-    To see the wxWidgets builds available on this system, please use
-    'wx-config --list' command. To use the default build, returned by
-    'wx-config --selected-config', use the options with their 'auto'
-    default values."
-       fi
-       wx_error_message="
-    The requested wxWidgets build couldn't be found.
-    $wx_error_message
-    If you still get this error, then check that 'wx-config' is
-    in path, the directory where wxWidgets libraries are installed
-    (returned by 'wx-config --libs' command) is in LD_LIBRARY_PATH
-    or equivalent variable and wxWidgets version is $reqwx or above."
-       wxWinWithGL=0
-
-    fi
-  else
-
-    WX_CFLAGS=""
-    WX_CPPFLAGS=""
-    WX_CXXFLAGS=""
-    WX_LIBS=""
-    WX_LIBS_STATIC=""
-    WX_RESCOMP=""
-
-    wxWinWithGL=0
-
-  fi
-
-
-
-
-
-
-
-
-
-
-
-      WX_VERSION_MAJOR="$wx_config_major_version"
-  WX_VERSION_MINOR="$wx_config_minor_version"
-  WX_VERSION_MICRO="$wx_config_micro_version"
-
-
-
-
-
-
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for standard build of wxWidgets" >&5
-printf %s "checking for standard build of wxWidgets... " >&6; }
-    if test "$wxWinWithGL" = 1; then
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; };
-    else
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; };
-    fi
-
-    if test "x$WX_LIBS_STATIC" = "x"; then
-       WX_HAVE_STATIC_LIBS=false
-    else
-       WX_HAVE_STATIC_LIBS=true
-    fi
-
-    wxWin=0
-
-    if test "$wxWinWithGLDBG" = 1; then
-        if test "$wxWinWithGL" = 1; then
-    	   wxWin=1
-	   FORCED_DEBUG_BUILD=false
-    	else
-    	   wxWin=1
-	   FORCED_DEBUG_BUILD=debug
-	   WX_CFLAGS=$DEBUG_WX_CFLAGS
-	   WX_CXXFLAGS=$DEBUG_WX_CXXFLAGS
-	   WX_LIBS=$DEBUG_WX_LIBS
-	   WX_LIBS_STATIC=$DEBUG_WX_LIBS_STATIC
-	fi
-    elif test "$wxWinWithGL" = 1; then
-    	wxWin=1
-	FORCED_DEBUG_BUILD=false
-    fi
-
-    RC_FILE_TYPE=o
-
-    if test "$wxWin" != 1; then
-       	echo "
-        wxWidgets must be installed on your system.
-
-        Please check that wx-config is in path, the directory
-        where wxWidgets libraries are installed (returned by
-        'wx-config --libs' or 'wx-config --static --libs' command)
-        is in LD_LIBRARY_PATH or equivalent variable and
-        wxWidgets version is $reqwx or above." >> ./CONF_INFO
+           Please check that wx-config is in path, the directory
+           where wxWidgets libraries are installed, returned by
+           'wx-config --libs' or 'wx-config --static --libs' command,
+           is in LD_LIBRARY_PATH or equivalent variable and
+           wxWidgets version is $reqwx or above." >> ./CONF_INFO
     WXERL_CAN_BUILD_DRIVER=false
     if test X"$with_wx" = X"yes" ; then
         as_fn_error $? "
-        wxWidgets must be installed on your system.
+           wxWidgets must be installed on your system.
 
-        Please check that wx-config is in path, the directory
-        where wxWidgets libraries are installed (returned by
-        'wx-config --libs' or 'wx-config --static --libs' command)
-        is in LD_LIBRARY_PATH or equivalent variable and
-        wxWidgets version is $reqwx or above." "$LINENO" 5
+           Please check that wx-config is in path, the directory
+           where wxWidgets libraries are installed, returned by
+           'wx-config --libs' or 'wx-config --static --libs' command,
+           is in LD_LIBRARY_PATH or equivalent variable and
+           wxWidgets version is $reqwx or above." "$LINENO" 5
     else
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING:
-        wxWidgets must be installed on your system.
+           wxWidgets must be installed on your system.
 
-        Please check that wx-config is in path, the directory
-        where wxWidgets libraries are installed (returned by
-        'wx-config --libs' or 'wx-config --static --libs' command)
-        is in LD_LIBRARY_PATH or equivalent variable and
-        wxWidgets version is $reqwx or above." >&5
+           Please check that wx-config is in path, the directory
+           where wxWidgets libraries are installed, returned by
+           'wx-config --libs' or 'wx-config --static --libs' command,
+           is in LD_LIBRARY_PATH or equivalent variable and
+           wxWidgets version is $reqwx or above." >&5
 printf "%s\n" "$as_me: WARNING:
-        wxWidgets must be installed on your system.
+           wxWidgets must be installed on your system.
 
-        Please check that wx-config is in path, the directory
-        where wxWidgets libraries are installed (returned by
-        'wx-config --libs' or 'wx-config --static --libs' command)
-        is in LD_LIBRARY_PATH or equivalent variable and
-        wxWidgets version is $reqwx or above." >&2;}
+           Please check that wx-config is in path, the directory
+           where wxWidgets libraries are installed, returned by
+           'wx-config --libs' or 'wx-config --static --libs' command,
+           is in LD_LIBRARY_PATH or equivalent variable and
+           wxWidgets version is $reqwx or above." >&2;}
     fi
 
-    fi
 
+fi
+
+
+
+
+
+
+
+
+
+
+    ;;
+esac
+fi
 else case e in #(
   e)  #else
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets in standard locations" >&5
@@ -6733,8 +7166,8 @@ printf "%s\n" "$as_me: OptionCheck: $with_wxdir $with_wx_prefix" >&6;}
 
     CWXWIN_PROG=`win32_path.sh -u "$PROGRAMFILES" 2>/dev/null`
 
-    CWXWIN3="$CWXWIN_PROG/wxWidgets-3.*.*
-    CWXWIN4="$CWXWIN_PROG/wxMSW-3.*.*
+    CWXWIN3="$CWXWIN_PROG/wxWidgets-3.*.*"
+    CWXWIN4="$CWXWIN_PROG/wxMSW-3.*.*"
 
     DOC_OPT1=/opt/local/pgm
     DOC_OPT2=/mnt/c/opt/local/pgm
@@ -6742,22 +7175,30 @@ printf "%s\n" "$as_me: OptionCheck: $with_wxdir $with_wx_prefix" >&6;}
     CWX_DOCUMENTED="$DOC_OPT2/wxWidgets-3.*.* $DOC_OPT2/wxMSW-3.*.* $CWX_DOCUMENTED"
 
     case $ac_cv_sizeof_void_p in
-    	 8)
-                VC_LIB=lib/vc_x64_lib
-                WX_ARCH=x64
-		DOC_OPT64_1=/opt/local64/pgm
-		DOC_OPT64_2=/mnt/c/opt/local64/pgm
-		CWX_DOCUMENTED="$DOC_OPT64_1/wxWidgets-3.*.* $DOC_OPT64_1/wxMSW-3.*.* $CWX_DOCUMENTED"
-		CWX_DOCUMENTED="$DOC_OPT64_2/wxWidgets-3.*.* $DOC_OPT64_2/wxMSW-3.*.* $CWX_DOCUMENTED"
-		;;
-         *)
-                VC_LIB=lib/vc_lib
-                WX_ARCH=x86
-		DOC_OPT3=/opt/local32/pgm
-		DOC_OPT4=/mnt/c/opt/local32/pgm
-		CWX_DOCUMENTED="$DOC_OPT3/wxWidgets-3.*.* $DOC_OPT3/wxMSW-3.*.* $CWX_DOCUMENTED"
-		CWX_DOCUMENTED="$DOC_OPT4/wxWidgets-3.*.* $DOC_OPT4/wxMSW-3.*.* $CWX_DOCUMENTED"
-		;;
+      8)
+        case $host_cpu in
+          aarch64)
+            VC_LIB=lib/vc_arm64_lib
+            WX_ARCH=aarch64
+            ;;
+          *)
+            VC_LIB=lib/vc_x64_lib
+            WX_ARCH=x64
+            ;;
+        esac
+        DOC_OPT64_1=/opt/local64/pgm
+        DOC_OPT64_2=/mnt/c/opt/local64/pgm
+        CWX_DOCUMENTED="$DOC_OPT64_1/wxWidgets-3.*.* $DOC_OPT64_1/wxMSW-3.*.* $CWX_DOCUMENTED"
+        CWX_DOCUMENTED="$DOC_OPT64_2/wxWidgets-3.*.* $DOC_OPT64_2/wxMSW-3.*.* $CWX_DOCUMENTED"
+        ;;
+      *)
+        VC_LIB=lib/vc_lib
+        WX_ARCH=x86
+        DOC_OPT3=/opt/local32/pgm
+        DOC_OPT4=/mnt/c/opt/local32/pgm
+        CWX_DOCUMENTED="$DOC_OPT3/wxWidgets-3.*.* $DOC_OPT3/wxMSW-3.*.* $CWX_DOCUMENTED"
+        CWX_DOCUMENTED="$DOC_OPT4/wxWidgets-3.*.* $DOC_OPT4/wxMSW-3.*.* $CWX_DOCUMENTED"
+        ;;
     esac
 
     CWXPATH="$CWXWIN0 $CWXWIN1 $CWXWIN2 $CWX_DOCUMENTED $CWXWIN3 $CWXWIN4"
@@ -7207,7 +7648,7 @@ then :
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror=return-type to CFLAGS (via CFLAGS)" >&5
 printf %s "checking if we can add -Werror=return-type to CFLAGS (via CFLAGS)... " >&6; }
     saved_CFLAGS=$CFLAGS;
-    CFLAGS="-Werror=return-type $CFLAGS";
+    CFLAGS="-Werror -Werror=return-type $CFLAGS";
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -7231,9 +7672,9 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     if test "X$can_enable_flag" = "Xtrue"
 then :
 
+        CFLAGS="-Werror=return-type $CFLAGS"
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
-        CFLAGS="-Werror=return-type $CFLAGS"
 
 else case e in #(
   e)
@@ -7247,7 +7688,7 @@ fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror=return-type to CXXFLAGS (via CFLAGS)" >&5
 printf %s "checking if we can add -Werror=return-type to CXXFLAGS (via CFLAGS)... " >&6; }
     saved_CFLAGS=$CFLAGS;
-    CFLAGS="-Werror=return-type $CXXFLAGS";
+    CFLAGS="-Werror -Werror=return-type $CXXFLAGS";
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -7271,9 +7712,9 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     if test "X$can_enable_flag" = "Xtrue"
 then :
 
+        CXXFLAGS="-Werror=return-type $CXXFLAGS"
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
-        CXXFLAGS="-Werror=return-type $CXXFLAGS"
 
 else case e in #(
   e)
@@ -7308,6 +7749,11 @@ WXERL_SYS_TYPE=$TARGET
 
 mkdir -p $WXERL_SYS_TYPE
 CONFIG_STATUS=$WXERL_SYS_TYPE/config.status
+
+
+if test "x$GCC" = xyes; then
+    CFLAGS="$WERRORFLAGS $CFLAGS"
+fi
 
 
 ac_config_files="$ac_config_files config.mk c_src/Makefile"
@@ -8470,7 +8916,4 @@ CORES=`ls core* 2>/dev/null`
 if test X"$CORES" != X"" ; then
    echo "Configure dumped core files" > ignore_core_files
 fi
-
-
-
 

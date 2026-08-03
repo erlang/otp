@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -34,7 +36,7 @@ distributed in the sense that they, for example, use services on other nodes.
 
 Since a distributed application can move between nodes, some addressing
 mechanism is required to ensure that it can be addressed by other applications,
-regardless on which node it currently executes. This issue is not addressed
+regardless of which node it currently executes on. This issue is not addressed
 here, but the `m:global` or `m:pg` modules in Kernel can be used for this purpose.
 
 ## Specifying Distributed Applications

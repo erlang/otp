@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -65,7 +67,7 @@ init_per_suite(Config) ->
     Root = ct:get_config(collect_host_info),
     RemoteFile = filename:join([Root, "crypto_info", hostname()++".data"]),
     CryptoStarted =
-        try crypto:start() of
+        try application:start(crypto) of
             ok -> true;
             {error, already_started} -> true;
             _ -> false

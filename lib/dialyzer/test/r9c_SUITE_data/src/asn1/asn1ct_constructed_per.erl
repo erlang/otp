@@ -42,7 +42,7 @@ gen_encode_set(Erules,TypeName,D) ->
 gen_encode_sequence(Erules,TypeName,D) ->
     gen_encode_constructed(Erules,TypeName,D).
 
-gen_encode_constructed(Erules,Typename,D) when record(D,type) ->
+gen_encode_constructed(Erules,Typename,D) when is_record(D,type) ->
     asn1ct_name:start(),
     asn1ct_name:new(term),
     asn1ct_name:new(bytes),
@@ -176,7 +176,7 @@ gen_decode_set(Erules,Typename,D) ->
 gen_decode_sequence(Erules,Typename,D) ->
     gen_decode_constructed(Erules,Typename,D).
 
-gen_decode_constructed(_Erules,Typename,D) when record(D,type) ->
+gen_decode_constructed(_Erules,Typename,D) when is_record(D,type) ->
     asn1ct_name:start(),
     {CompList,TableConsInfo} =
 	case D#type.def of
@@ -335,14 +335,14 @@ emit_opt_or_mand_check(Val,Term) ->
 %%end
 %%].
 
-gen_encode_choice(_Erules,Typename,D) when record(D,type) ->
+gen_encode_choice(_Erules,Typename,D) when is_record(D,type) ->
     {'CHOICE',CompList} = D#type.def,
     emit({"[",nl}),
     Ext = extensible(CompList),
     gen_enc_choice(Typename,CompList,Ext),
     emit({nl,"].",nl}).
 
-gen_decode_choice(_Erules,Typename,D) when record(D,type) ->
+gen_decode_choice(_Erules,Typename,D) when is_record(D,type) ->
     asn1ct_name:start(),
     asn1ct_name:new(bytes),
     {'CHOICE',CompList} = D#type.def,
@@ -354,7 +354,7 @@ gen_decode_choice(_Erules,Typename,D) when record(D,type) ->
 % Encode generator for SEQUENCE OF type
 
 
-gen_encode_sof(_Erules,Typename,SeqOrSetOf,D) when record(D,type) ->
+gen_encode_sof(_Erules,Typename,SeqOrSetOf,D) when is_record(D,type) ->
     asn1ct_name:start(),
 % Val = [Component]
 % ?RT_PER:encode_length(length(Val)),
@@ -388,7 +388,7 @@ gen_encode_sof(_Erules,Typename,SeqOrSetOf,D) when record(D,type) ->
 	end,
     gen_encode_sof_components(Typename,SeqOrSetOf,NewComponentType).
 
-gen_decode_sof(_Erules,Typename,SeqOrSetOf,D) when record(D,type) ->
+gen_decode_sof(_Erules,Typename,SeqOrSetOf,D) when is_record(D,type) ->
     asn1ct_name:start(),
 % Val = [Component]
 % ?RT_PER:encode_length(length(Val)),
@@ -512,7 +512,7 @@ mkvlist2([H|T]) ->
 mkvlist2([]) ->
     true.
 
-extensible(CompList) when list(CompList) ->
+extensible(CompList) when is_list(CompList) ->
     noext;
 extensible({RootList,ExtList}) ->
     {ext,length(RootList)+1,length(ExtList)}.
@@ -674,7 +674,7 @@ gen_enc_line(TopType,Cname,Type,Element, Pos,DynamicEnc,Ext) ->
 		    case (Type#type.def)#'ObjectClassFieldType'.fieldname of
 			{notype,T} ->
 			    throw({error,{notype,type_from_object,T}});
-			{Name,RestFieldNames} when atom(Name) ->
+                        {Name,RestFieldNames} when is_atom(Name) ->
 			    emit({"?RT_PER:encode_open_type([],?RT_PER:complete(",nl}),
 			    emit({"   ",Fun,"(",{asis,Name},", ",
 				  Element,", ",{asis,RestFieldNames},")))"});
@@ -802,7 +802,7 @@ gen_dec_components_call1(TopType,
 	#'Externaltypereference'{type=T} ->
 	    emit({nl,"%%  attribute number ",Tpos," with type ",
 		  T,nl});
-	IT when tuple(IT) ->
+        IT when is_tuple(IT) ->
 	    emit({nl,"%%  attribute number ",Tpos," with type ",
 		  element(2,IT),nl});
 	_ ->
@@ -1081,7 +1081,7 @@ gen_enc_choice2(TopType, L, Ext) ->
     gen_enc_choice2(TopType, L, 0, Ext).
 
 gen_enc_choice2(TopType,[H1,H2|T], Pos, Ext)
-when record(H1,'ComponentType'), record(H2,'ComponentType') ->
+when is_record(H1,'ComponentType'), is_record(H2,'ComponentType') ->
     Cname = H1#'ComponentType'.name,
     Type = H1#'ComponentType'.typespec,
     EncObj =
@@ -1101,7 +1101,7 @@ when record(H1,'ComponentType'), record(H2,'ComponentType') ->
     gen_enc_line(TopType,Cname,Type,"element(2,Val)", Pos+1,EncObj,Ext),
     emit({";",nl}),
     gen_enc_choice2(TopType,[H2|T], Pos+1, Ext);
-gen_enc_choice2(TopType,[H1|T], Pos, Ext) when record(H1,'ComponentType') ->
+gen_enc_choice2(TopType,[H1|T], Pos, Ext) when is_record(H1,'ComponentType') ->
     Cname = H1#'ComponentType'.name,
     Type = H1#'ComponentType'.typespec,
     EncObj =
@@ -1156,7 +1156,7 @@ gen_dec_choice2(TopType,L,Ext) ->
     gen_dec_choice2(TopType,L,0,Ext).
 
 gen_dec_choice2(TopType,[H1,H2|T],Pos,Ext)
-when record(H1,'ComponentType'), record(H2,'ComponentType') ->
+when is_record(H1,'ComponentType'), is_record(H2,'ComponentType') ->
     Cname = H1#'ComponentType'.name,
     Type = H1#'ComponentType'.typespec,
     case Type#type.def of
@@ -1170,9 +1170,9 @@ when record(H1,'ComponentType'), record(H2,'ComponentType') ->
 	    emit({"};",nl})
     end,
     gen_dec_choice2(TopType,[H2|T],Pos+1,Ext);
-gen_dec_choice2(TopType,[H1,_H2|T],Pos,Ext) when record(H1,'ComponentType') ->
+gen_dec_choice2(TopType,[H1,_H2|T],Pos,Ext) when is_record(H1,'ComponentType') ->
     gen_dec_choice2(TopType,[H1|T],Pos,Ext); % skip extensionmark
-gen_dec_choice2(TopType,[H1|T],Pos,Ext) when record(H1,'ComponentType') ->
+gen_dec_choice2(TopType,[H1|T],Pos,Ext) when is_record(H1,'ComponentType') ->
     Cname = H1#'ComponentType'.name,
     Type = H1#'ComponentType'.typespec,
     case Type#type.def of
@@ -1219,7 +1219,7 @@ get_components_prop() ->
     end.
 
 
-value_match(Index,Value) when atom(Value) ->
+value_match(Index,Value) when is_atom(Value) ->
     value_match(Index,atom_to_list(Value));
 value_match([],Value) ->
     Value;
@@ -1233,3 +1233,26 @@ value_match1(Value,[{VI,_}|VIs],Acc,Depth) ->
 notice_value_match() ->
     Module = get(currmod),
     put(value_match,{true,Module}).
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

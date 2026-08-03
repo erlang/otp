@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,9 +38,11 @@ all() ->
 init_per_suite(Config0) ->
     case ct_property_test:init_per_suite(Config0) of
         [_|_]=Config ->
-            try proper_erlang_abstract_code:module() of
+            try proplists:get_value(property_test_tool, Config) of
+                Prop when Prop =:= proper; Prop =:= eqc ->
+                    Config;
                 _ ->
-                    Config
+                    {skip,"No proper_erlang_abstract_code module"}
             catch
                 error:undef ->
                     {skip,"No proper_erlang_abstract_code module"}
@@ -50,7 +54,7 @@ init_per_suite(Config0) ->
 end_per_suite(Config) ->
     Config.
 
-compile(_Config) ->
+compile(Config) ->
     NumTests = case os:getenv("ERL_RANDOM_CODE_NUMTESTS") of
                    false ->
                        ?NUMTESTS;
@@ -58,10 +62,16 @@ compile(_Config) ->
                        list_to_integer(NumTests0)
                end,
 
-    %% Conservatively assume that we can run 10 tests each second.
-    TimeTrap = {seconds,60_000 + (NumTests+99) div 100},
+    %% Conservatively assume that we can run 5 tests each
+    %% second.
+    TimeTrap = {seconds, (60 + (NumTests+4) div 5)},
     ct:timetrap(TimeTrap),
     io:format("~p tests\n", [NumTests]),
-    true = proper:quickcheck(compile_prop:compile(),
-                             [quiet,{numtests,NumTests}]),
+    case proplists:get_value(property_test_tool, Config) of
+        proper ->
+            Opts = [quiet,{numtests,NumTests}],
+            true = proper:quickcheck(compile_prop:prop_compile(),Opts);
+        eqc ->  %% Half the number of tests for eqc
+            [] = eqc:module({numtests,?NUMTESTS div 2}, compile_prop)
+    end,
     ok.

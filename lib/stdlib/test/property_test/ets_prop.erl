@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,12 +20,15 @@
 %% %CopyrightEnd%
 %%
 -module(ets_prop).
+-compile([export_all, nowarn_export_all]).
 
 -include_lib("common_test/include/ct_property_test.hrl").
 
--type table_type() :: set | ordered_set | bag | duplicate_bag.
 
--define(ETS_TAB_DATA, proper_types:list({ct_proper_ext:safe_any(), ct_proper_ext:safe_any()})).
+-define(ETS_TAB_DATA, list({?CT_SAFE_ANY(), ?CT_SAFE_ANY()})).
+
+table_type() ->
+    oneof([set, ordered_set, bag, duplicate_bag]).
 
 %%%%%%%%%%%%%%%%%%
 %%% Properties %%%

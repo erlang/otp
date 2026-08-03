@@ -1,8 +1,10 @@
 # coding=utf-8
 #
 # %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
 # 
-# Copyright Ericsson AB 2013-2023. All Rights Reserved.
+# Copyright Ericsson AB 2013-2025. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -415,8 +417,6 @@ def boxed(valobj, depth = float('inf')):
         return '#Ref'
     if masked_hdr == c('FUN_SUBTAG'):
         return '#Fun'
-    if masked_hdr == c('FUN_REF_SUBTAG'):
-        return '#FunRef'
     if masked_hdr == c('HEAP_BITS_SUBTAG'):
         return '#HeapBits'
     if masked_hdr == c('SUB_BITS_SUBTAG'):

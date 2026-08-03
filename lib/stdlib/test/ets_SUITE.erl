@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,7 +68,8 @@
          fixtable_insert/1, rename/1, rename_unnamed/1, evil_rename/1,
 	 update_element/1, update_element_default/1, update_counter/1, evil_update_counter/1, partly_bound/1, match_heavy/1]).
 -export([update_counter_with_default/1]).
--export([update_counter_with_default_bad_pos/1]).
+-export([update_counter_with_default_bad_pos/1,
+	 update_counter_with_default_bad_default/1]).
 -export([update_counter_table_growth/1]).
 -export([member/1]).
 -export([memory/1]).
@@ -99,7 +102,7 @@
 	 exit_many_large_table_owner/1,
 	 exit_many_tables_owner/1,
 	 exit_many_many_tables_owner/1]).
--export([write_concurrency/1, heir/1, give_away/1, setopts/1]).
+-export([write_concurrency/1, heir/1, heir_2/1, give_away/1, setopts/1]).
 -export([bad_table/1, types/1]).
 -export([otp_9932/1]).
 -export([otp_9423/1]).
@@ -110,8 +113,10 @@
 -export([take/1]).
 -export([whereis_table/1]).
 -export([ms_excessive_nesting/1]).
+-export([doctests/1]).
 -export([error_info/1]).
 -export([bound_maps/1]).
+-export([racy_rename/1, racy_rename_writer/3]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 %% Convenience for manual testing
@@ -156,6 +161,7 @@ all() ->
      update_counter, evil_update_counter,
      update_counter_with_default,
      update_counter_with_default_bad_pos,
+     update_counter_with_default_bad_default,
      partly_bound,
      update_counter_table_growth,
      match_heavy, {group, fold}, member, t_delete_object,
@@ -178,7 +184,7 @@ all() ->
      smp_ordered_iteration,
      smp_select_delete, otp_8166, exit_large_table_owner,
      exit_many_large_table_owner, exit_many_tables_owner,
-     exit_many_many_tables_owner, write_concurrency, heir,
+     exit_many_many_tables_owner, write_concurrency, heir, heir_2,
      give_away, setopts, bad_table, types,
      otp_10182,
      otp_9932,
@@ -190,14 +196,16 @@ all() ->
      whereis_table,
      delete_unfix_race,
      test_throughput_benchmark,
-     {group, benchmark},
+     %%{group, benchmark},
      test_table_size_concurrency,
      test_table_memory_concurrency,
      test_delete_table_while_size_snapshot,
      test_decentralized_counters_setting,
      ms_excessive_nesting,
+     doctests,
      error_info,
-     bound_maps
+     bound_maps,
+     racy_rename
     ].
 
 
@@ -1113,17 +1121,18 @@ delete_all_objects_trap(Opts, Mode) ->
                 io:format("Wait for ets:delete_all_objects/1 to yield...\n", []),
                 Tester ! {ready, self()},
                 repeat_while(
-                  fun() ->
+                  fun(N) ->
                           case receive_any() of
                               {trace, Tester, out, {ets,internal_delete_all,2}} ->
-                                  false;
+                                  %% Wait for second reschedule as on DEBUG we get a forced trap
+                                  {N =:= 1, N+1};
                               "delete_all_objects done" ->
                                   ct:fail("No trap detected");
                               _M ->
                                   %%io:format("Ignored msg: ~p\n", [_M]),
-                                  true
+                                  {true, N}
                           end
-                  end),
+                  end, 1),
                 case Mode of
                     unfix ->
                         io:format("Unfix table and then exit...\n",[]),
@@ -2697,6 +2706,21 @@ update_element_default_opts(Opts) ->
 		    [{key1, key2, b, x}] = ets:lookup(Tab, Key),
 		    true = ets:update_element(Tab, Key, {3, c}, {key1, key2, a, y}),
 		    [{key1, key2, c, x}] = ets:lookup(Tab, Key),
+
+                    BadDefault = list_to_tuple(lists:seq(1, Pos-1)),
+                    badarg = try
+                                 ets:update_element(Tab, key_not_present, {1, x}, BadDefault)
+                             catch
+                                 error:badarg -> badarg
+                             end,
+
+                    %% OTP 29: Reject bad default object even if key may exists
+                    badarg = try
+                                 ets:update_element(Tab, Key, {3, d}, BadDefault)
+                             catch
+                                 error:badarg -> badarg
+                             end,
+
 		    ets:delete(Tab)
                 end
 	    )
@@ -3068,6 +3092,28 @@ update_counter_with_default_bad_pos_do(Opts) ->
              Class:Reason -> {Class, Reason}
          end,
     0 = ets:info(T, size),
+    ok.
+
+update_counter_with_default_bad_default(Config) when is_list(Config) ->
+    repeat_for_opts_all_set_table_types(fun update_counter_with_default_bad_default_do/1).
+
+update_counter_with_default_bad_default_do(Opts) ->
+    T = ets_new(a, [{keypos, 3} | Opts]),
+    0 = ets:info(T, size),
+    ok = try ets:update_counter(T, key, {2, 1}, {0, 0})
+	 catch
+	     error:badarg -> ok;
+	     Class:Reason -> {Class, Reason}
+	 end,
+    0 = ets:info(T, size),
+
+    %% OTP 29: Reject bad default object even if key exists
+    true = ets:insert(T, {0,0,key}),
+    badarg = try ets:update_counter(T, key, {2, 1}, {0, 0})
+             catch
+                 error:badarg -> badarg
+             end,
+    1 = ets:info(T, size),
     ok.
 
 update_counter_table_growth(_Config) ->
@@ -3537,6 +3583,38 @@ heir_1(HeirData,Mode,Opts) ->
     Founder ! {go, Heir},
     {'DOWN', Mref, process, Heir, normal} = receive_any().
 
+
+%% Test the heir option without gift data
+heir_2(Config) when is_list(Config) ->
+    repeat_for_opts(fun heir_2_do/1).
+
+
+heir_2_do(Opts) ->
+    Parent = self(),
+
+    FounderFn = fun() ->
+		    Tab = ets:new(foo, [private, {heir, Parent} | Opts]),
+		    true = ets:insert(Tab, {key, 1}),
+		    get_tab = receive_any(),
+		    Parent ! {tab, Tab},
+		    die_please = receive_any(),
+		    ok
+		end,
+
+    {Founder, FounderRef} = my_spawn_monitor(FounderFn),
+
+    Founder ! get_tab,
+    {tab, Tab} = receive_any(),
+    {'EXIT', {badarg, _}} = (catch ets:lookup(Tab, key)),
+
+    Founder ! die_please,
+    {'DOWN', FounderRef, process, Founder, normal} = receive_any(),
+    [{key, 1}] = ets:lookup(Tab, key),
+
+    true = ets:delete(Tab),
+    ok.
+
+
 %% Test ets:give_way/3.
 give_away(Config) when is_list(Config) ->
     repeat_for_opts(fun give_away_do/1).
@@ -3627,17 +3705,18 @@ setopts_do(Opts) ->
     T = ets_new(foo,[named_table, private | Opts]),
     none = ets:info(T,heir),
     Heir = my_spawn_link(fun()->heir_heir(Self) end),
-    ets:setopts(T,{heir,Heir,"Data"}),
+    ets:setopts(T,{heir,Heir}),
     Heir = ets:info(T,heir),
-    ets:setopts(T,{heir,self(),"Data"}),
+    ets:setopts(T,{heir,self()}),
     Self = ets:info(T,heir),
     ets:setopts(T,[{heir,Heir,"Data"}]),
     Heir = ets:info(T,heir),
+    ets:setopts(T,[{heir,self(),"Data"}]),
+    Self = ets:info(T,heir),
     ets:setopts(T,[{heir,none}]),
     none = ets:info(T,heir),
 
     {'EXIT',{badarg,_}} = (catch ets:setopts(T,[{heir,self(),"Data"},false])),
-    {'EXIT',{badarg,_}} = (catch ets:setopts(T,{heir,self()})),
     {'EXIT',{badarg,_}} = (catch ets:setopts(T,{heir,false})),
     {'EXIT',{badarg,_}} = (catch ets:setopts(T,heir)),
     {'EXIT',{badarg,_}} = (catch ets:setopts(T,{heir,false,"Data"})),
@@ -3761,12 +3840,7 @@ bad_table_call(T,{F,Args,_}) ->
 bad_table_call(T,{F,Args,_,tabarg_last}) ->
     {'EXIT',{badarg,_}} = (catch apply(ets, F, Args++[T]));
 bad_table_call(T,{F,Args,_,{return,Return}}) ->
-    try
-	Return = apply(ets, F, [T|Args])
-    catch
-	error:badarg -> ok
-    end.
-
+    Return = apply(ets, F, [T|Args]).
 
 %% Check rename of ets tables.
 rename(Config) when is_list(Config) ->
@@ -5400,8 +5474,8 @@ info_do(Opts) ->
                   end, set, Opts),
     PublicOrCurr =
         fun(Curr) ->
-                case lists:member({write_concurrency, false}, Opts) or
-                    lists:member(private, Opts) or
+                case lists:member({write_concurrency, false}, Opts) orelse
+                    lists:member(private, Opts) orelse
                     lists:member(protected, Opts) of
                     true -> Curr;
                     false -> public
@@ -7377,7 +7451,12 @@ smp_insert_do(Opts) ->
     ExecF = fun(_) -> true = ets:insert(smp_insert,{rand:uniform(KeyRange)})
             end,
     FiniF = fun(_) -> ok end,
-    run_smp_workers(InitF,ExecF,FiniF,100000),
+    %% Limit number of concurrent inserters on large multicore machines
+    %% as hash tables have been seen to not keep up with growth.
+    %% But probably not a problem in practice with such massively
+    %% concurrent frequent insertions.
+    MaxWorkers = 150,
+    run_smp_workers(InitF,ExecF,FiniF,100000, #{max => MaxWorkers}),
     verify_table_load(smp_insert),
     ets:delete(smp_insert).
 
@@ -7930,6 +8009,38 @@ types_do(Opts) ->
     verify_etsmem(EtsMem).
 
 
+racy_rename(_Config) ->
+    EtsMem = etsmem(),
+    ets:new(name_a, [named_table, public, {keypos, 1}]),
+    % A writer process does rename(A->B), insert(B, {key, value}), delete(B, key), rename(B->A) in a loop
+    % A reader process does lookup(A, key) in a loop. We want to make sure that it never sees value.
+    Parent = self(),
+    WriterIterations=10000,
+    Reader = spawn_link(fun () -> racy_rename_reader() end),
+    spawn_link(?MODULE, racy_rename_writer, [Parent, Reader, WriterIterations]),
+    receive done -> ok end,
+    true=ets:delete(name_a),
+    verify_etsmem(EtsMem).
+
+racy_rename_writer(Parent, Reader, 0) ->
+    exit(Reader, normal),
+    Parent ! done;
+racy_rename_writer(Parent, Reader, Iterations) ->
+    ets:rename(name_a, name_b),
+    ets:insert(name_b, {key, value}),
+    ets:delete(name_b, key),
+    ets:rename(name_b, name_a),
+    racy_rename_writer(Parent, Reader, Iterations - 1).
+
+racy_rename_reader() ->
+    try ets:lookup(name_a, key) of
+        [] -> ok;
+        Result -> exit({racy_lookup_result, Result})
+    catch
+        _:_ -> ok
+    end,
+    racy_rename_reader().
+
 %% OTP-9932: Memory overwrite when inserting large integers in compressed bag.
 %% Will crash with segv on 64-bit opt if not fixed.
 otp_9932(Config) when is_list(Config) ->
@@ -7967,7 +8078,7 @@ otp_9423(Config) when is_list(Config) ->
                               end
                       end,
               FiniF = fun(R) -> R end,
-              case run_smp_workers(InitF, ExecF, FiniF, infinite, 1) of
+              case run_smp_workers(InitF, ExecF, FiniF, infinite, #{exclude => 1}) of
                   Pids when is_list(Pids) ->
                       %%[P ! start || P <- Pids],
                       repeat(fun() -> ets_new(otp_9423, [named_table, public,
@@ -8220,6 +8331,19 @@ ms_excessive_nesting(Config) when is_list(Config) ->
                   "got system_limit"
           end,
     {comment, "match_spec_compile() "++ENMSC++"; select_replace(_,[ordered_set]) "++SRT++"; select_replace(_,[set]) "++SRH}.
+
+doctests(_Config) ->
+    ct_doctest:module(ets, [{skipped_blocks, 2},
+                             {missing_tests,
+                              [{all, 0},
+                               {delete, 1},
+                               {i, 0},
+                               {i, 1},
+                               {match_spec_run, 2},
+                               {repair_continuation, 2},
+                               {safe_fixtable, 2},
+                               {select, 2},
+                               {tab2list, 1}]}]).
 
 %% The following help functions are used by
 %% throughput_benchmark. They are declared on the top level beacuse
@@ -8880,11 +9004,15 @@ add_lists([E1|T1], [E2|T2], Acc) ->
     add_lists(T1, T2, [E1+E2 | Acc]).
 
 run_smp_workers(InitF,ExecF,FiniF,Laps) ->
-    run_smp_workers(InitF,ExecF,FiniF,Laps, 0).
-run_smp_workers(InitF,ExecF,FiniF,Laps, Exclude) ->
+    run_smp_workers(InitF,ExecF,FiniF,Laps, #{}).
+
+run_smp_workers(InitF,ExecF,FiniF,Laps, Opts) ->
+    Exclude = maps:get(exclude, Opts, 0),
+    Max = maps:get(max, Opts, infinite),
     case erlang:system_info(schedulers_online) of
         N when N > Exclude ->
-            run_workers_do(InitF,ExecF,FiniF,Laps, N - Exclude);
+            Workers = min(N - Exclude, Max),
+            run_workers_do(InitF, ExecF, FiniF, Laps, Workers);
         _ ->
             {skipped, "Too few schedulers online"}
     end.
@@ -9578,7 +9706,7 @@ error_info(_Config) ->
          {update_counter, ['$Tab', key, 2, {key,not_integer}]},
          {update_counter, ['$Tab', key, 3, {key,whatever}]},
 
-         {update_counter, ['$Tab', no_key, 1, default]},
+         {update_counter, ['$Tab', no_key, 1, default], [{error_term,default}]},
          {update_counter, ['$Tab', no_key, bad_increment, {tag,0}]},
          {update_counter, ['$Tab', no_key, {1, bad_increment}, {tag,0}]},
          {update_counter, ['$Tab', no_key, {1, 42}, {tag,0}], [{error_term,keypos}]},
@@ -9602,12 +9730,12 @@ error_info(_Config) ->
 	 {update_element, ['$Tab', no_key, {0, new}, {no_key, old}], [{error_term, position}]},
 	 {update_element, ['$Tab', no_key, {1, new}, {no_key, old}], [{error_term, keypos}]},
 	 {update_element, ['$Tab', no_key, {4, new}, {no_key, old}], [{error_term, position}]},
-	 {update_element, ['$Tab', no_key, {4, new}, not_tuple]},
+	 {update_element, ['$Tab', no_key, {4, new}, not_tuple], [{error_term, default}]},
 	 {update_element, [BagTab, no_key, {1, bagged}, {no_key, old}], []},
 	 {update_element, [OneKeyTab, no_key, {0, new}, {no_key, old}], [{error_term, position}]},
 	 {update_element, [OneKeyTab, no_key, {1, new}, {no_key, old}], [{error_term, keypos}]},
 	 {update_element, [OneKeyTab, no_key, {4, new}, {no_key, old}], [{error_term, position}]},
-	 {update_element, [OneKeyTab, no_key, {4, new}, not_tuple]},
+	 {update_element, [OneKeyTab, no_key, {4, new}, not_tuple], [{error_term, default}]},
 
          {whereis, [{bad,name}], [no_table]}
         ],
@@ -9998,11 +10126,8 @@ make_sub_binary(Bin) when is_binary(Bin) ->
 make_sub_binary(List) ->
     make_sub_binary(list_to_binary(List)).
 
-make_unaligned_sub_binary(Bin0) when is_binary(Bin0) ->
-    Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = size(Bin0),
-    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
-    Bin;
+make_unaligned_sub_binary(Bin) when is_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3);
 make_unaligned_sub_binary(List) ->
     make_unaligned_sub_binary(list_to_binary(List)).
 

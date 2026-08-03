@@ -1,3 +1,25 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
 -module(d).
 
 -export([start/0, stop/0]).
@@ -27,7 +49,7 @@ stop() ->
 %%%   Reason = not_started | no_response | {internal_error,term()}
 store(Name, Location) ->
     store(Name, ?AGE, Location).
-store(Name, Age, Location) when atom(Name), integer(Age), atom(Location) ->
+store(Name, Age, Location) when is_atom(Name), is_integer(Age), is_atom(Location) ->
     send({store, Name, Age, Location}).
 
 %%% move(OldLocation, NewLocation) -> Names | {error,Reason}
@@ -41,7 +63,7 @@ move(OldLocation, NewLocation) ->
 %%% location(Name) -> Location | no_such_person | {error,Reason}
 %%%   Name = atom()
 %%%   Reason = not_started | no_response | {internal_error,term()}
-location(Name) when atom(Name) ->
+location(Name) when is_atom(Name) ->
     send({location, Name}).
 
 %%% who_are_at(Location) -> Names | {error,Reason}
@@ -49,7 +71,7 @@ location(Name) when atom(Name) ->
 %%%   Names = [Name]
 %%%     Name = atom()
 %%%   Reason = not_started | no_response | {internal_error,term()}
-who_are_at(Location) when atom(Location) ->
+who_are_at(Location) when is_atom(Location) ->
     send({who_are_at, Location}).
 
 %%% who_are_older(Age) -> Names | {error,Reason}
@@ -57,7 +79,7 @@ who_are_at(Location) when atom(Location) ->
 %%%   Names = [Name]
 %%%     Name = atom()
 %%%   Reason = not_started | no_response | {internal_error,term()}
-who_are_older(Age) when integer(Age) ->
+who_are_older(Age) when is_integer(Age) ->
     send({who_are_older, Age}).
 
 %%% size() -> N | {error,Reason}
@@ -116,7 +138,7 @@ handle({move, OldLocation, NewLocation}, Db) ->
     {reply, Names, NewDb};
 handle({location, Name}, Db) ->
     case lists:keysearch(Name, #person.name, Db) of
-	{value, #person{location=Location}} when atom(Location) ->
+        {value, #person{location=Location}} when is_atom(Location) ->
 	    {reply, Location, Db};
 	false ->
 	    {reply, no_such_name, Db}

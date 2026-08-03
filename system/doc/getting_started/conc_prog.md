@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -47,7 +49,7 @@ module:
 
 -export([start/0, say_something/2]).
 
-say_something(What, 0) ->
+say_something(_What, 0) ->
     done;
 say_something(What, Times) ->
     io:format("~p~n", [What]),
@@ -69,7 +71,7 @@ done
 ```
 
 As shown, the function `say_something` writes its first argument the number of
-times specified by second argument. The function `start` starts two Erlang
+times specified by the second argument. The function `start` starts two Erlang
 processes, one that writes "hello" three times and one that writes "goodbye"
 three times. Both processes use the function `say_something`. Notice that a
 function used in this way by `spawn`, to start a process, must be exported from
@@ -147,7 +149,7 @@ start() ->
 ```erlang
 1> c(tut15).
 {ok,tut15}
-2> tut15: start().
+2> tut15:start().
 <0.36.0>
 Pong received ping
 Ping received pong
@@ -203,7 +205,7 @@ receive
    pattern2 ->
        actions2;
    ....
-   patternN
+   patternN ->
        actionsN
 end.
 ```
@@ -252,7 +254,7 @@ process "ping":
 Ping_PID ! pong
 ```
 
-Notice how the operator "\!" is used to send messages. The syntax of "\!" is:
+Notice how the operator `!` is used to send messages. The syntax of `!` is:
 
 ```erlang
 Pid ! Message
@@ -281,7 +283,7 @@ Pong_PID ! {ping, self()},
 ```
 
 `self/0` returns the pid of the process that executes `self/0`, in this case the
-pid of "ping". (Recall the code for "pong", this lands up in the variable
+pid of "ping". (Recall the code for "pong", this ends up in the variable
 `Ping_PID` in the `receive` previously explained.)
 
 "Ping" now waits for a reply from "pong":
@@ -395,7 +397,7 @@ pong ! {ping, self()},
 ## Distributed Programming
 
 Let us rewrite the ping pong program with "ping" and "pong" on different
-computers. First a few things are needed to set up to get this to work. The
+computers. First a few things need to be set up to get this to work. The
 distributed Erlang implementation provides a very basic authentication mechanism
 to prevent unintentional access to an Erlang system on another computer. Erlang
 systems which talk to each other must have the same _magic cookie_. The easiest
@@ -436,7 +438,7 @@ Erlang system running on a computer is called an _Erlang node_.
 
 (Note: `erl -sname` assumes that all nodes are in the same IP domain and we can
 use only the first component of the IP address, if we want to use nodes in
-different domains we use `-name` instead, but then all IP address must be given
+different domains we use `-name` instead, but then all IP addresses must be given
 in full.)
 
 Here is the ping pong example modified to run on two separate nodes:
@@ -481,20 +483,20 @@ started on kosken, called ping, and then a node on gollum, called pong.
 On kosken (on a Linux/UNIX system):
 
 ```text
-kosken> erl -sname ping
-Erlang (BEAM) emulator version 5.2.3.7 [hipe] [threads:0]
+kosken$ erl -sname ping
+Erlang/OTP 28 [erts-16.3] [source] [64-bit] [smp:16:16] [ds:16:16:10] [async-threads:1] [jit:ns]
 
-Eshell V5.2.3.7  (abort with ^G)
+Eshell V16.3 (press Ctrl+G to abort, type help(). for help)
 (ping@kosken)1>
 ```
 
 On gollum:
 
 ```text
-gollum> erl -sname pong
-Erlang (BEAM) emulator version 5.2.3.7 [hipe] [threads:0]
+gollum$ erl -sname pong
+Erlang/OTP 28 [erts-16.3] [source] [64-bit] [smp:16:16] [ds:16:16:10] [async-threads:1] [jit:ns]
 
-Eshell V5.2.3.7  (abort with ^G)
+Eshell V16.3 (press Ctrl+G to abort, type help(). for help)
 (pong@gollum)1>
 ```
 
@@ -531,7 +533,7 @@ Pong finished
 
 Looking at the `tut17` code, you see that the `pong` function itself is
 unchanged, the following lines work in the same way irrespective of on which
-node the "ping" process is executes:
+node the "ping" process is executed:
 
 ```erlang
 {ping, Ping_PID} ->
@@ -621,7 +623,7 @@ Before starting, notice the following:
 - This example only shows the message passing logic - no attempt has been made
   to provide a nice graphical user interface, although this can also be done in
   Erlang.
-- This sort of problem can be solved easier by use of the facilities in OTP,
+- This sort of problem can be solved more easily by using the facilities in OTP,
   which also provide methods for updating code on the fly and so on (see
   [OTP Design Principles](`e:system:design_principles.md`)).
 - The first program contains some inadequacies regarding handling of nodes which
@@ -664,9 +666,6 @@ File `messenger.erl`:
 %%% Reply {messenger, logged_on} logon was successful
 %%%
 %%% To server: {ClientPid, logoff}
-%%% Reply: {messenger, logged_off}
-%%%
-%%% To server: {ClientPid, logoff}
 %%% Reply: no reply
 %%%
 %%% To server: {ClientPid, message_to, ToName, Message} send a message
@@ -695,7 +694,7 @@ server_node() ->
     messenger@super.
 
 %%% This is the server process for the "messenger"
-%%% the user list has the format [{ClientPid1, Name1},{ClientPid22, Name2},...]
+%%% the user list has the format [{ClientPid1, Name1},{ClientPid2, Name2},...]
 server(User_List) ->
     receive
         {From, logon, Name} ->
@@ -732,22 +731,22 @@ server_logoff(From, User_List) ->
     lists:keydelete(From, 1, User_List).
 
 
-%%% Server transfers a message between user
+%%% Server transfers a message between users
 server_transfer(From, To, Message, User_List) ->
     %% check that the user is logged on and who he is
-    case lists:keysearch(From, 1, User_List) of
+    case lists:keyfind(From, 1, User_List) of
         false ->
             From ! {messenger, stop, you_are_not_logged_on};
-        {value, {From, Name}} ->
+        {From, Name} ->
             server_transfer(From, Name, To, Message, User_List)
     end.
 %%% If the user exists, send the message
 server_transfer(From, Name, To, Message, User_List) ->
     %% Find the receiver and send the message
-    case lists:keysearch(To, 2, User_List) of
+    case lists:keyfind(To, 2, User_List) of
         false ->
             From ! {messenger, receiver_not_found};
-        {value, {ToPid, To}} ->
+        {ToPid, To} ->
             ToPid ! {message_from, Name, Message},
             From ! {messenger, sent}
     end.
@@ -892,7 +891,7 @@ call. This would result in the process getting bigger and bigger for every loop.
 
 Functions in the `lists` module are used. This is a very useful module and a
 study of the manual page is recommended (`erl -man lists`).
-`lists:keymember(Key,Position,Lists)` looks through a list of tuples and looks
+`lists:keymember(Key,Position,List)` looks through a list of tuples and looks
 at `Position` in each tuple to see if it is the same as `Key`. The first element
 is position 1. If it finds a tuple where the element at `Position` is the same
 as `Key`, it returns `true`, otherwise `false`.
@@ -912,8 +911,8 @@ any) and returns the remaining list:
 [{x,y,z},{b,b,b},{q,r,s}]
 ```
 
-`lists:keysearch` is like `lists:keymember`, but it returns
-`{value,Tuple_Found}` or the atom `false`.
+`lists:keyfind` is like `lists:keymember`, but it returns
+`Tuple_Found` or the atom `false`.
 
 There are many very useful functions in the `lists` module.
 
@@ -972,10 +971,10 @@ server_transfer(From, fred, "hello", User_List),
 This checks that the pid `From` is in the `User_List`:
 
 ```erlang
-lists:keysearch(From, 1, User_List)
+lists:keyfind(From, 1, User_List)
 ```
 
-If `keysearch` returns the atom `false`, some error has occurred and the server
+If `keyfind` returns the atom `false`, some error has occurred and the server
 sends back the message:
 
 ```erlang
@@ -983,8 +982,8 @@ From ! {messenger, stop, you_are_not_logged_on}
 ```
 
 This is received by the client, which in turn does [`exit(normal)`](`exit/1`)
-and terminates. If `keysearch` returns `{value,{From,Name}}` it is certain that
-the user is logged on and that his name (peter) is in variable `Name`.
+and terminates. If `keyfind` returns `{From,Name}` it is certain that
+the user is logged on and that their name (peter) is in the variable `Name`.
 
 Let us now call:
 
@@ -993,11 +992,11 @@ server_transfer(From, peter, fred, "hello", User_List)
 ```
 
 Notice that as this is `server_transfer/5`, it is not the same as the previous
-function `server_transfer/4`. Another `keysearch` is done on `User_List` to find
+function `server_transfer/4`. Another `keyfind` is done on `User_List` to find
 the pid of the client corresponding to fred:
 
 ```erlang
-lists:keysearch(fred, 2, User_List)
+lists:keyfind(fred, 2, User_List)
 ```
 
 This time argument 2 is used, which is the second element in the tuple. If this
@@ -1010,10 +1009,10 @@ From ! {messenger, receiver_not_found};
 
 This is received by the client.
 
-If `keysearch` returns:
+If `keyfind` returns:
 
 ```erlang
-{value, {ToPid, fred}}
+{ToPid, fred}
 ```
 
 The following message is sent to fred's client:

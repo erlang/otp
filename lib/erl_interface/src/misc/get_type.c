@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2020. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1998-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,12 +40,14 @@ int ei_get_type(const char *buf, const int *index, int *type, int *len)
   case ERL_SMALL_ATOM_EXT:
   case ERL_SMALL_ATOM_UTF8_EXT:
     *type = ERL_ATOM_EXT;
+     EI_FALLTHROUGH();
   case ERL_SMALL_TUPLE_EXT:
     *len = get8(s);
     break;
 
   case ERL_ATOM_UTF8_EXT:
     *type = ERL_ATOM_EXT;
+    EI_FALLTHROUGH();
   case ERL_ATOM_EXT:
   case ERL_STRING_EXT:
     *len = get16be(s);

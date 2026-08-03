@@ -1,10 +1,17 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec make_ref() -> reference().[0m
+[1m  make_ref()[0m
 
   Returns a unique reference. The reference is unique among
   connected nodes.
 
-  [;;4mWarning[0m
+  [4mWarning[0m
 
     Before OTP 23 when a node is restarted multiple times with the
     same node name, references created on a newer node can be

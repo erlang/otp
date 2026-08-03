@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2022-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2022-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -113,11 +115,14 @@
 callback_mode() ->
     [state_functions, state_enter].
 
-init([?CLIENT_ROLE, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
+init([?CLIENT_ROLE, Sender, Tab, Host, Port, Socket, Options,  User, CbInfo]) ->
     State0 = #state{protocol_specific = Map} =
-        tls_gen_connection_1_3:initial_state(?CLIENT_ROLE, Sender,
+        tls_gen_connection_1_3:initial_state(?CLIENT_ROLE, Sender, Tab,
                                              Host, Port, Socket,
                                              Options, User, CbInfo),
+    #state{static_env = #static_env{user_socket = UserSocket}} = State0,
+    User ! {self(), user_socket, UserSocket},
+    put(tls_role, client),
     try
 	State = ssl_gen_statem:init_ssl_config(State0#state.ssl_options,
                                           ?CLIENT_ROLE, State0),
@@ -175,7 +180,7 @@ user_hello({call, From}, cancel, State) ->
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{handshake_env =  #handshake_env{continue_status = pause} = HSEnv,
                   ssl_options = Options0} = State0) ->
-    try ssl:update_options(NewOptions, ?CLIENT_ROLE, Options0) of
+    try ssl_config:update_options(NewOptions, ?CLIENT_ROLE, Options0) of
         Options ->
             State = ssl_gen_statem:ssl_config(Options, ?CLIENT_ROLE, State0),
             {next_state, wait_sh, State#state{recv = State#state.recv#recv{from = From},
@@ -247,6 +252,9 @@ start(internal, #server_hello{}, State0) ->
     %%so it is a previous version hello.
     ssl_gen_statem:handle_own_alert(
       ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?STATE(start), State0);
+start(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(start), State);
 start(info, Msg, State) ->
     tls_gen_connection:gen_info(Msg, ?STATE(start), State);
 start(Type, Msg, State) ->
@@ -299,6 +307,9 @@ wait_sh(internal, #server_hello{} = Hello,
             tls_gen_connection:next_event(hello_middlebox_assert,
                                           no_record, State1)
     end;
+wait_sh(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_sh), State);
 wait_sh(info, Msg, State) ->
     tls_gen_connection:gen_info(Msg, ?STATE(wait_sh), State);
 wait_sh(Type, Msg, State) ->
@@ -439,7 +450,9 @@ wait_finished(internal = Type, #change_cipher_spec{} = Msg, State) ->
                                                      ?STATE(wait_finished), State);
 wait_finished(internal,
               #finished{verify_data = VerifyData},
-              #state{static_env = #static_env{protocol_cb = Connection}}
+              #state{static_env = #static_env{protocol_cb = Connection,
+                                              role = Role},
+                     ssl_options = SSLOpts}
               = State0) ->
     {Ref,Maybe} = tls_gen_connection_1_3:do_maybe(),
     try
@@ -456,20 +469,17 @@ wait_finished(internal,
         State4 = Connection:queue_handshake(Finished, State3),
         %% Send first flight
         {State5, _} = Connection:send_handshake_flight(State4),
-        State6 = tls_handshake_1_3:calculate_traffic_secrets(State5),
-        State7 =
-            tls_handshake_1_3:maybe_calculate_resumption_master_secret(State6),
-        ExporterMasterSecret = tls_handshake_1_3:calculate_exporter_master_secret(State7),
-        State8 = tls_handshake_1_3:forget_master_secret(State7),
-        %% Configure traffic keys
+        State6 = tls_handshake_1_3:calculate_write_traffic_secrets(State5),
+        State7 = tls_handshake_1_3:calculate_read_traffic_secrets(State6),
+        State8 = tls_handshake_1_3:maybe_calculate_resumption_master_secret(State7),
         State9 = ssl_record:step_encryption_state(State8),
-        {Record, #state{protocol_specific = PS} = State} =
-            ssl_gen_statem:prepare_connection(State9, tls_gen_connection),
-
-        tls_gen_connection:next_event(connection, Record,
-                                      State#state{protocol_specific =
-                                                      PS#{exporter_master_secret =>
-                                                              ExporterMasterSecret}},
+        State10 = tls_handshake_1_3:prepare_connection(State9),
+        {Record, State} =
+            ssl_gen_statem:prepare_connection(State10, tls_gen_connection),
+        KeepSecrets = maps:get(keep_secrets, SSLOpts, false),
+        tls_gen_connection_1_3:maybe_traffic_keylog_1_3(KeepSecrets, Role,
+                                                        State#state.connection_states, 0),
+        tls_gen_connection:next_event(connection, Record, State,
                                       [{{timeout, handshake}, cancel}])
     catch
         {Ref, #alert{} = Alert} ->
@@ -484,6 +494,21 @@ wait_finished(Type, Msg, State) ->
                  term(), #state{}) ->
           gen_statem:state_function_result().
 %%--------------------------------------------------------------------
+connection(enter, _, #state{ssl_options = Opts} = State) ->
+    case maps:get(keep_secrets, Opts, undefined) of
+        {keylog_hs, _} ->
+            %% Mitigate consequences of keylog_hs being activated, as
+            %% this forces the client to remember secrets longer, that
+            %% is the client certification can fail after the client
+            %% reached connection state.
+            {next_state, ?STATE(connection), State, [{timeout, 1000, forget}]};
+        _ ->
+            {keep_state, State}
+    end;
+connection(timeout, forget, State) ->
+    {next_state, ?STATE(connection), tls_handshake_1_3:forget_master_secret(State)};
+connection(info, Msg, State) ->
+    tls_gen_connection:gen_info(Msg, connection, State);
 connection(Type, Msg, State) ->
     tls_gen_connection_1_3:connection(Type, Msg, State).
 
@@ -589,17 +614,25 @@ maybe_resumption(_) ->
     ok.
 
 maybe_generate_client_shares(#{versions := [?TLS_1_3|_],
-                               supported_groups :=
-                                   #supported_groups{
-                                      supported_groups = [Group|_]}}) ->
-    %% Generate only key_share entry for the most preferred group
-    ssl_cipher:generate_client_shares([Group]);
+                               psk_groups := Groups}) ->
+    %% Default will be the list of only the most preferred supported group
+    generate_client_shares(Groups);
 maybe_generate_client_shares(_) ->
     undefined.
 
 %%--------------------------------------------------------------------
 %% Internal functions
 %%--------------------------------------------------------------------
+generate_client_shares(Groups) ->
+    KeyShareEntry =
+        fun (Group) ->
+                #key_share_entry{group = Group,
+                                 key_exchange = tls_handshake_1_3:generate_kex_keys(Group)}
+        end,
+    ClientShares = lists:map(KeyShareEntry, Groups),
+    #key_share_client_hello{client_shares = ClientShares}.
+
+
 handle_exlusive_1_3_hello_or_hello_retry_request(ServerHello, State0) ->
     case do_handle_exlusive_1_3_hello_or_hello_retry_request(ServerHello,
                                                              State0) of
@@ -635,7 +668,7 @@ do_handle_exlusive_1_3_hello_or_hello_retry_request(
          connection_states = ConnectionStates0
         } = State0) ->
     {Ref,Maybe} = tls_gen_connection_1_3:do_maybe(),
-                                              try
+    try
         ClientGroups =
             Maybe(tls_handshake_1_3:get_supported_groups(ClientGroups0)),
         Cookie = maps:get(cookie, Extensions, undefined),
@@ -663,7 +696,7 @@ do_handle_exlusive_1_3_hello_or_hello_retry_request(
         %% replace the original "key_share" extension with one containing only a
         %% new KeyShareEntry for the group indicated in the selected_group field
         %% of the triggering HelloRetryRequest.
-        ClientKeyShare = ssl_cipher:generate_client_shares([SelectedGroup]),
+        ClientKeyShare = generate_client_shares([SelectedGroup]),
         TicketData =
             tls_handshake_1_3:get_ticket_data(self(), SessionTickets, UseTicket),
         OcspNonce = maps:get(ocsp_nonce, StaplingState, undefined),
@@ -862,10 +895,14 @@ server_share(#key_share_hello_retry_request{selected_group = Share}) ->
 client_private_key(Group, ClientShares) ->
     case lists:keysearch(Group, 2, ClientShares) of
         {value, #key_share_entry{key_exchange =
-                                     ClientPrivateKey = #'ECPrivateKey'{}}} ->
-            ClientPrivateKey;
-        {value, #key_share_entry{key_exchange = {_, ClientPrivateKey}}} ->
-                ClientPrivateKey;
+                                     PrivateKey = #'ECPrivateKey'{}}} ->
+            PrivateKey;
+        {value, #key_share_entry{key_exchange = {#'ECPrivateKey'{} = PrivateKey1, {_, PrivateKey2}}}} ->
+            {PrivateKey1, PrivateKey2};
+        {value, #key_share_entry{key_exchange = {{_, PrivateKey1}, {_, PrivateKey2}}}} ->
+            {PrivateKey1, PrivateKey2};
+        {value, #key_share_entry{key_exchange = {_, PrivateKey}}} ->
+            PrivateKey;
         false ->
             no_suitable_key
     end.
@@ -901,19 +938,10 @@ maybe_check_early_data_indication(_, State) ->
     ssl_record:step_encryption_state_write(State).
 
 signal_user_early_data(#state{
-                          connection_env =
-                              #connection_env{
-                                 user_application = {_, User}},
-                          static_env =
-                              #static_env{
-                                 socket = Socket,
-                                 protocol_cb = Connection,
-                                 transport_cb = Transport,
-                                 trackers = Trackers}} = State,
+                          connection_env = #connection_env{user_application = {_, User}},
+                          static_env = #static_env{user_socket = UserSocket}},
                        Result) ->
-    CPids = Connection:pids(State),
-    SslSocket = Connection:socket(CPids, Transport, Socket, Trackers),
-    User ! {ssl, SslSocket, {early_data, Result}}.
+    User ! {ssl, UserSocket, {early_data, Result}}.
 
 maybe_max_fragment_length(Extensions, State) ->
     ServerMaxFragEnum = maps:get(max_frag_enum, Extensions, undefined),

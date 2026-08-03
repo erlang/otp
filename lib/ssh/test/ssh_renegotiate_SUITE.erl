@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,7 +36,9 @@
          init_per_suite/1,
          end_per_suite/1,
          init_per_group/2,
-         end_per_group/2
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2
         ]).
 
 -export([
@@ -65,7 +69,7 @@
         ]).
 
 -define(NEWLINE, <<"\r\n">>).
-
+-define(ALIVE, {alive, #{count_max => 10, interval => 10_000}}).
 -define(REKEY_DATA_TMO, 1 * 60000). % Should be multiples of 60000
 
 %%--------------------------------------------------------------------
@@ -113,13 +117,20 @@ end_per_suite(_Config) ->
 init_per_group(_, Config) -> Config.
 
 end_per_group(_, Config) -> Config.
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+
+end_per_testcase(_TestCase, _Config) ->
+    ok.
+
 %%----------------------------------------------------------------------------
 %%% Idle timeout test
-rekey0() -> [{timetrap,{seconds,120}}].
-rekey1() -> [{timetrap,{seconds,120}}].
-rekey2() -> [{timetrap,{seconds,120}}].
-rekey3() -> [{timetrap,{seconds,120}}].
-rekey4() -> [{timetrap,{seconds,120}}].
+rekey0() -> [{timetrap,{seconds,120 * ssh_test_lib:timetrap_scale()}}].
+rekey1() -> [{timetrap,{seconds,120 * ssh_test_lib:timetrap_scale()}}].
+rekey2() -> [{timetrap,{seconds,120 * ssh_test_lib:timetrap_scale()}}].
+rekey3() -> [{timetrap,{seconds,120 * ssh_test_lib:timetrap_scale()}}].
+rekey4() -> [{timetrap,{seconds,120 * ssh_test_lib:timetrap_scale()}}].
     
 rekey0(Config) -> ssh_dbg:start(), ssh_dbg:on(renegotiation),
                   R = rekey_chk(Config, 0,                   0),
@@ -131,8 +142,13 @@ rekey3(Config) -> rekey_chk(Config, 0,                   infinity).
 rekey4(Config) -> rekey_chk(Config, 0,                   {infinity,infinity}).
 
 rekey_chk(Config, RLdaemon, RLclient) ->
-    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,	[{rekey_limit, RLdaemon}]),
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{rekey_limit, RLclient}]),
+    {Pid, Host, Port} =
+        ssh_test_lib:std_daemon(Config,
+                                [{subsystems, [ssh_sftpd:subsystem_spec([])]},
+                                 {rekey_limit, RLdaemon}, ?ALIVE]),
+    ConnectionRef =
+        ssh_test_lib:std_connect(Config, Host, Port,
+                                 [{rekey_limit, RLclient}, ?ALIVE]),
     Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
 
     %% Make both sides send something:
@@ -155,11 +171,18 @@ rekey_limit_client(Config) ->
     DataFile = filename:join(UserDir, "rekey.data"),
     Data = lists:duplicate(Limit+10,1),
     Algs = proplists:get_value(preferred_algorithms, Config),
-    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
-							{preferred_algorithms,Algs}]),
+    {Pid, Host, Port} =
+        ssh_test_lib:std_daemon(Config,
+                                [{subsystems, [ssh_sftpd:subsystem_spec([])]},
+                                 {max_random_length_padding,0},
+                                 ?ALIVE,
+                                 {preferred_algorithms,Algs}]),
 
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{rekey_limit, Limit},
-								  {max_random_length_padding,0}]),
+    ConnectionRef =
+        ssh_test_lib:std_connect(Config, Host, Port,
+                                 [{rekey_limit, Limit},
+                                  ?ALIVE,
+                                  {max_random_length_padding,0}]),
     {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
 
     %% Check that it doesn't rekey without data transfer
@@ -194,8 +217,6 @@ rekey_limit_client(Config) ->
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
 
-
-
 rekey_limit_daemon() -> [{timetrap,{seconds,500}}].
 rekey_limit_daemon(Config) ->
     Limit = 6000,
@@ -206,10 +227,15 @@ rekey_limit_daemon(Config) ->
     file:write_file(DataFile2, "hi\n"),
 
     Algs = proplists:get_value(preferred_algorithms, Config),
-    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[{rekey_limit, Limit},
-                                                        {max_random_length_padding,0},
-							{preferred_algorithms,Algs}]),
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{max_random_length_padding,0}]),
+    {Pid, Host, Port} =
+        ssh_test_lib:std_daemon(Config, [{subsystems, [ssh_sftpd:subsystem_spec([])]},
+                                         {rekey_limit, Limit},
+                                         {max_random_length_padding,0},
+                                         ?ALIVE,
+                                         {preferred_algorithms,Algs}]),
+    ConnectionRef =
+        ssh_test_lib:std_connect(Config, Host, Port,
+                                 [?ALIVE, {max_random_length_padding,0}]),
     {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
 
     %% Check that it doesn't rekey without data transfer
@@ -249,17 +275,23 @@ rekey_limit_daemon(Config) ->
 %% Check that datatransfer in the other direction does not trigger re-keying
 norekey_limit_client() -> [{timetrap,{seconds,500}}].
 norekey_limit_client(Config) ->
-    Limit = 6000,
+    Limit = 6500,
     UserDir = proplists:get_value(priv_dir, Config),
     DataFile = filename:join(UserDir, "rekey3.data"),
     file:write_file(DataFile, lists:duplicate(Limit+10,1)),
 
     Algs = proplists:get_value(preferred_algorithms, Config),
-    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
-							{preferred_algorithms,Algs}]),
+    {Pid, Host, Port} =
+        ssh_test_lib:std_daemon(Config,[{subsystems, [ssh_sftpd:subsystem_spec([])]},
+                                        {max_random_length_padding,0},
+                                        ?ALIVE,
+                                        {preferred_algorithms,Algs}]),
 
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{rekey_limit, Limit},
-								  {max_random_length_padding,0}]),
+    ConnectionRef =
+        ssh_test_lib:std_connect(Config, Host, Port,
+                                 [{rekey_limit, Limit},
+                                  ?ALIVE,
+                                  {max_random_length_padding,0}]),
     {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
 
     Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
@@ -282,11 +314,16 @@ norekey_limit_daemon(Config) ->
     DataFile = filename:join(UserDir, "rekey4.data"),
 
     Algs = proplists:get_value(preferred_algorithms, Config),
-    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[{rekey_limit, Limit},
-                                                        {max_random_length_padding,0},
-							{preferred_algorithms,Algs}]),
+    {Pid, Host, Port} =
+        ssh_test_lib:std_daemon(Config,[{subsystems, [ssh_sftpd:subsystem_spec([])]},
+                                        {rekey_limit, Limit},
+                                        {max_random_length_padding,0},
+                                        ?ALIVE,
+                                        {preferred_algorithms,Algs}]),
 
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{max_random_length_padding,0}]),
+    ConnectionRef =
+        ssh_test_lib:std_connect(Config, Host, Port,
+                                 [?ALIVE, {max_random_length_padding,0}]),
     {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
 
     Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
@@ -309,10 +346,16 @@ rekey_time_limit_client(Config) ->
     Minutes = ?REKEY_DATA_TMO div 60000,
     GB = 1024*1000*1000,
     Algs = proplists:get_value(preferred_algorithms, Config),
-    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
-							{preferred_algorithms,Algs}]),
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{rekey_limit, {Minutes, GB}},
-                                                                  {max_random_length_padding,0}]),
+    {Pid, Host, Port} =
+        ssh_test_lib:std_daemon(Config,[{subsystems, [ssh_sftpd:subsystem_spec([])]},
+                                        {max_random_length_padding,0},
+                                        ?ALIVE,
+                                        {preferred_algorithms,Algs}]),
+    ConnectionRef =
+        ssh_test_lib:std_connect(Config, Host, Port,
+                                 [{rekey_limit, {Minutes, GB}},
+                                  ?ALIVE,
+                                  {max_random_length_padding,0}]),
     rekey_time_limit(Pid, ConnectionRef).
 
 rekey_time_limit_daemon() -> [{timetrap,{seconds,500}}].
@@ -320,10 +363,15 @@ rekey_time_limit_daemon(Config) ->
     Minutes = ?REKEY_DATA_TMO div 60000,
     GB = 1024*1000*1000,
     Algs = proplists:get_value(preferred_algorithms, Config),
-    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[{rekey_limit, {Minutes, GB}},
-                                                        {max_random_length_padding,0},
-							{preferred_algorithms,Algs}]),
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{max_random_length_padding,0}]),
+    {Pid, Host, Port} =
+        ssh_test_lib:std_daemon(Config,[{subsystems, [ssh_sftpd:subsystem_spec([])]},
+                                        {rekey_limit, {Minutes, GB}},
+                                        {max_random_length_padding,0},
+                                        ?ALIVE,
+                                        {preferred_algorithms,Algs}]),
+    ConnectionRef =
+        ssh_test_lib:std_connect(Config, Host, Port,
+                                 [?ALIVE, {max_random_length_padding,0}]),
     rekey_time_limit(Pid, ConnectionRef).
 
 
@@ -355,12 +403,17 @@ renegotiate1(Config) ->
     DataFile = filename:join(UserDir, "renegotiate1.data"),
 
     Algs = proplists:get_value(preferred_algorithms, Config),
-    {Pid, Host, DPort} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
-							 {preferred_algorithms,Algs}]),
+    {Pid, Host, DPort} =
+        ssh_test_lib:std_daemon(Config,[{subsystems, [ssh_sftpd:subsystem_spec([])]},
+                                        {max_random_length_padding,0},
+                                        ?ALIVE,
+                                        {preferred_algorithms,Algs}]),
 
     {ok,RelayPid,_,RPort} = ssh_relay:start_link({0,0,0,0}, 0, Host, DPort),
 
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, RPort, [{max_random_length_padding,0}]),
+    ConnectionRef =
+        ssh_test_lib:std_connect(Config, Host, RPort,
+                                 [?ALIVE, {max_random_length_padding,0}]),
     {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
 
     Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
@@ -393,12 +446,18 @@ renegotiate2(Config) ->
     DataFile = filename:join(UserDir, "renegotiate2.data"),
 
     Algs = proplists:get_value(preferred_algorithms, Config),
-    {Pid, Host, DPort} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
-							 {preferred_algorithms,Algs}]),
+    {Pid, Host, DPort} =
+        ssh_test_lib:std_daemon(Config,
+                                [{subsystems, [ssh_sftpd:subsystem_spec([])]},
+                                 {max_random_length_padding,0},
+                                 ?ALIVE,
+                                 {preferred_algorithms,Algs}]),
 
     {ok,RelayPid,_,RPort} = ssh_relay:start_link({0,0,0,0}, 0, Host, DPort),
 
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, RPort, [{max_random_length_padding,0}]),
+    ConnectionRef =
+        ssh_test_lib:std_connect(Config, Host, RPort,
+                                 [?ALIVE, {max_random_length_padding,0}]),
     {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
 
     Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),

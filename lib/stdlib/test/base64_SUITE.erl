@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,13 +16,14 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 -module(base64_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 %% Test server specific exports
 -export([all/0, suite/0, groups/0, group/1]).
@@ -31,7 +34,7 @@
 	 base64_otp_5635/1, base64_otp_6279/1, big/1, illegal/1,
 	 mime_decode/1, mime_decode_modes/1,
 	 mime_decode_to_string/1, mime_decode_to_string_modes/1,
-	 roundtrip_1/1, roundtrip_2/1, roundtrip_3/1, roundtrip_4/1]).
+         roundtrip_1/1, roundtrip_2/1, roundtrip_3/1, roundtrip_4/1, doctests/1]).
 
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
@@ -46,7 +49,7 @@ all() ->
      base64_decode, base64_decode_to_string, base64_decode_modes,
      base64_otp_5635, base64_otp_6279, big, illegal,
      mime_decode, mime_decode_modes,
-     mime_decode_to_string, mime_decode_to_string_modes,
+     mime_decode_to_string, mime_decode_to_string_modes, doctests,
      {group, roundtrip}].
 
 groups() ->
@@ -124,19 +127,15 @@ base64_decode(Config) when is_list(Config) ->
         base64:decode(<<"QWxhZGRpbjpvcGVuIHNlc2FtZQ">>, #{padding => false}),
     <<"Aladdin:open sesame">> =
         base64:decode("QWxhZGRpbjpvcGVuIHNlc2FtZQ", #{padding => false}),
-    {'EXIT', {'missing_padding', _}} =
-        catch base64:decode(<<"QWxhZGRpbjpvcGVuIHNlc2FtZQ">>),
-    {'EXIT', {'missing_padding', _}} =
-        catch base64:decode("QWxhZGRpbjpvcGVuIHNlc2FtZQ"),
+    ?assertError(missing_padding, base64:decode(<<"QWxhZGRpbjpvcGVuIHNlc2FtZQ">>)),
+    ?assertError(missing_padding, base64:decode("QWxhZGRpbjpvcGVuIHNlc2FtZQ")),
     %% One pad
     <<"Hello World">> = base64:decode(<<"SGVsbG8gV29ybGQ=">>),
     <<"Hello World">> = base64:decode("SGVsbG8gV29ybGQ="),
     <<"Hello World">> = base64:decode(<<"SGVsbG8gV29ybGQ">>, #{padding => false}),
     <<"Hello World">> = base64:decode("SGVsbG8gV29ybGQ", #{padding => false}),
-    {'EXIT', {'missing_padding', _}} =
-        catch base64:decode_to_string(<<"SGVsbG8gV29ybGQ">>),
-    {'EXIT', {'missing_padding', _}} =
-        catch base64:decode_to_string("SGVsbG8gV29ybGQ"),
+    ?assertError(missing_padding, base64:decode_to_string(<<"SGVsbG8gV29ybGQ">>)),
+    ?assertError(missing_padding, base64:decode_to_string("SGVsbG8gV29ybGQ")),
     %% No pad
     <<"Aladdin:open sesam">> =
         base64:decode(<<"QWxhZGRpbjpvcGVuIHNlc2Ft">>),
@@ -173,19 +172,15 @@ base64_decode_to_string(Config) when is_list(Config) ->
         base64:decode_to_string(<<"QWxhZGRpbjpvcGVuIHNlc2FtZQ">>, #{padding => false}),
     "Aladdin:open sesame" =
         base64:decode_to_string("QWxhZGRpbjpvcGVuIHNlc2FtZQ", #{padding => false}),
-    {'EXIT', {'missing_padding', _}} =
-        catch base64:decode_to_string(<<"QWxhZGRpbjpvcGVuIHNlc2FtZQ">>),
-    {'EXIT', {'missing_padding', _}} =
-        catch base64:decode_to_string("QWxhZGRpbjpvcGVuIHNlc2FtZQ"),
+    ?assertError(missing_padding, base64:decode_to_string(<<"QWxhZGRpbjpvcGVuIHNlc2FtZQ">>)),
+    ?assertError(missing_padding, base64:decode_to_string("QWxhZGRpbjpvcGVuIHNlc2FtZQ")),
     %% One pad
     "Hello World" = base64:decode_to_string(<<"SGVsbG8gV29ybGQ=">>),
     "Hello World" = base64:decode_to_string("SGVsbG8gV29ybGQ="),
     "Hello World" = base64:decode_to_string(<<"SGVsbG8gV29ybGQ">>, #{padding => false}),
     "Hello World" = base64:decode_to_string("SGVsbG8gV29ybGQ", #{padding => false}),
-    {'EXIT', {'missing_padding', _}} =
-        catch base64:decode_to_string(<<"SGVsbG8gV29ybGQ">>),
-    {'EXIT', {'missing_padding', _}} =
-        catch base64:decode_to_string("SGVsbG8gV29ybGQ"),
+    ?assertError(missing_padding, base64:decode_to_string(<<"SGVsbG8gV29ybGQ">>)),
+    ?assertError(missing_padding, base64:decode_to_string("SGVsbG8gV29ybGQ")),
     %% No pad
     "Aladdin:open sesam" =
         base64:decode_to_string(<<"QWxhZGRpbjpvcGVuIHNlc2Ft">>),
@@ -218,13 +213,13 @@ base64_decode_modes(Config) when is_list(Config) ->
 
     DataBin = base64:decode("F+o/o++B/a+r", #{mode => standard}),
     DataBin = base64:decode("F-o_o--B_a-r", #{mode => urlsafe}),
-    {'EXIT', _} = catch base64:decode("F-o_o--B_a-r", #{mode => standard}),
-    {'EXIT', _} = catch base64:decode("F+o/o++B/a+r", #{mode => urlsafe}),
+    ?assertError(_, base64:decode("F-o_o--B_a-r", #{mode => standard})),
+    ?assertError(_, base64:decode("F+o/o++B/a+r", #{mode => urlsafe})),
 
     DataStr = base64:decode_to_string("F+o/o++B/a+r", #{mode => standard}),
     DataStr = base64:decode_to_string("F-o_o--B_a-r", #{mode => urlsafe}),
-    {'EXIT', _} = catch base64:decode_to_string("F-o_o--B_a-r", #{mode => standard}),
-    {'EXIT', _} = catch base64:decode_to_string("F+o/o++B/a+r", #{mode => urlsafe}),
+    ?assertError(_, base64:decode_to_string("F-o_o--B_a-r", #{mode => standard})),
+    ?assertError(_, base64:decode_to_string("F+o/o++B/a+r", #{mode => urlsafe})),
 
     ok.
 
@@ -236,7 +231,7 @@ base64_otp_5635(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 %% OTP-6279: Make sure illegal characters are rejected when decoding.
 base64_otp_6279(Config) when is_list(Config) ->
-    {'EXIT',_} = (catch base64:decode("dGVzda==a")),
+    ?assertError(_, base64:decode("dGVzda==a")),
     ok.
 %%-------------------------------------------------------------------------
 %% Encode and decode big binaries.
@@ -253,11 +248,11 @@ big(Config) when is_list(Config) ->
 illegal(Config) when is_list(Config) ->
     %% A few samples with different error reasons. Nothing can be
     %% assumed about the reason for the crash.
-    {'EXIT',_} = (catch base64:decode("()")),
-    {'EXIT',_} = (catch base64:decode(<<19:8,20:8,21:8,22:8>>)),
-    {'EXIT',_} = (catch base64:decode([19,20,21,22])),
-    {'EXIT',_} = (catch base64:decode_to_string(<<19:8,20:8,21:8,22:8>>)),
-    {'EXIT',_} = (catch base64:decode_to_string([19,20,21,22])),
+    ?assertError(_, base64:decode("()")),
+    ?assertError(_, base64:decode(<<19:8,20:8,21:8,22:8>>)),
+    ?assertError(_, base64:decode([19,20,21,22])),
+    ?assertError(_, base64:decode_to_string(<<19:8,20:8,21:8,22:8>>)),
+    ?assertError(_, base64:decode_to_string([19,20,21,22])),
     ok.
 %%-------------------------------------------------------------------------
 %% mime_decode and mime_decode_to_string have different implementations
@@ -518,3 +513,6 @@ mbb(N, Acc) when N > 256 ->
 mbb(N, Acc) ->
     B = list_to_binary(lists:seq(0, N-1)),
     lists:reverse(Acc, B).
+
+doctests(_Config) ->
+    ct_doctest:module(base64, [{skipped_blocks, 0}, {missing_tests, []}]).

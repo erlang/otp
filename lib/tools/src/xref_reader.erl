@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +22,7 @@
 -module(xref_reader).
 -moduledoc false.
 
--export([module/5]).
+-export([module/7]).
 
 -import(lists, [keysearch/3, member/2, reverse/1]).
 
@@ -33,6 +35,8 @@
 	 el=[],
 	 ex=[],
 	 x=[],
+         documented=[],
+         unsafe=[],
          df,
 	 builtins_too=false,
          is_abstr,            % abstract module?
@@ -40,29 +44,17 @@
 			      % (for coping with list comprehension)
 	 matches=[],          % records other bound variables
 	 unresolved=[],       % unresolved calls, {{mfa(),mfa()},Line}
-	 %% experimental; -xref(FunEdge) is recognized.
-	 lattrs=[],            % local calls, {{mfa(),mfa()},Line}
-	 xattrs=[],            % external calls, -"-
-	 battrs=[],	       % badly formed xref attributes, term().
          on_load               % function name
 	 }).
 
 -include("xref.hrl").
 
-%% The versions of the abstract code are as follows:
-%% R7:  abstract_v1
-%% R8:  abstract_v2
-%% R9C: raw_abstract_v1
-
-%% -> {ok, Module, {DefAt, LCallAt, XCallAt, LC, XC, X, Attrs, Depr, OL},
-%%         Unresolved}} | EXIT
-%% Attrs = {ALC, AXC, Bad}
-%% ALC, AXC and Bad are extracted from the attribute 'xref'. An experiment.
-module(Module, Forms, CollectBuiltins, X, DF) ->
+module(Module, Forms, CollectBuiltins, X, Deprecated, Documented, Unsafe) ->
     Attrs = [{Attr,V} || {attribute,_Anno,Attr,V} <- Forms],
     IsAbstract = xref_utils:is_abstract_module(Attrs),
     S = #xrefr{module = Module, builtins_too = CollectBuiltins,
-               is_abstr = IsAbstract, x = X, df = DF},
+               is_abstr = IsAbstract, x = X, df = Deprecated,
+               documented = Documented, unsafe = Unsafe},
     forms(Forms, S).
 
 forms([F | Fs], S) ->
@@ -70,21 +62,19 @@ forms([F | Fs], S) ->
     forms(Fs, S1);
 forms([], S) ->
     #xrefr{module = M, def_at = DefAt,
-	   l_call_at = LCallAt, x_call_at = XCallAt,
-	   el = LC, ex = XC, x = X, df = Depr, on_load = OnLoad,
-	   lattrs = AL, xattrs = AX, battrs = B, unresolved = U} = S,
+           l_call_at = LCallAt, x_call_at = XCallAt,
+           el = LC, ex = XC, x = X, df = Deprecated, on_load = OnLoad,
+           unresolved = U,
+       documented = Documented, unsafe = Unsafe} = S,
     OL = case OnLoad of
              undefined -> [];
              F ->
                  [{M, F, 0}]
          end,
-    Attrs = {lists:reverse(AL), lists:reverse(AX), lists:reverse(B)},
-    {ok, M, {DefAt, LCallAt, XCallAt, LC, XC, X, Attrs, Depr, OL}, U}.
+    Data = {DefAt, LCallAt, XCallAt, LC, XC, X, Deprecated, OL,
+            Documented, Unsafe},
+    {ok, M, Data, U}.
 
-form({attribute, Anno, xref, Calls}, S) -> % experimental
-    #xrefr{module = M, function = Fun,
-	   lattrs = L, xattrs = X, battrs = B} = S,
-    attr(Calls, erl_anno:line(Anno), M, Fun, L, X, B, S);
 form({attribute, _, on_load, {F, 0}}, S) ->
     S#xrefr{on_load = F};
 form({attribute, _Anno, _Attr, _Val}, S) ->
@@ -127,37 +117,6 @@ clauses([{clause, _Anno, _H, G, B} | Cs], FunVars, Matches, S) ->
 clauses([], _FunVars, _Matches, S) ->
     S.
 
-attr(NotList, Ln, M, Fun, AL, AX, B, S) when not is_list(NotList) ->
-    attr([NotList], Ln, M, Fun, AL, AX, B, S);
-attr([E={From, To} | As], Ln, M, Fun, AL, AX, B, S) ->
-    case mfa(From, M) of
-	{_, _, MFA} when MFA =:= Fun; [] =:= Fun ->
-	    attr(From, To, Ln, M, Fun, AL, AX, B, S, As, E);
-	{_, _, _} ->
-	    attr(As, Ln, M, Fun, AL, AX, [E | B], S);
-	_ ->
-	    attr(Fun, E, Ln, M, Fun, AL, AX, B, S, As, E)
-    end;
-attr([To | As], Ln, M, Fun, AL, AX, B, S) ->
-    attr(Fun, To, Ln, M, Fun, AL, AX, B, S, As, To);
-attr([], _Ln, _M, _Fun, AL, AX, B, S) ->
-    S#xrefr{lattrs = AL, xattrs = AX, battrs = B}.
-
-attr(From, To, Ln, M, Fun, AL, AX, B, S, As, E) ->
-    case {mfa(From, M), mfa(To, M)} of
-	{{true,_,F}, {_,external,T}} ->
-	    attr(As, Ln, M, Fun, AL, [{{F,T},Ln} | AX], B, S);
-	{{true,_,F}, {_,local,T}} ->
-	    attr(As, Ln, M, Fun, [{{F,T},Ln} | AL], AX, B, S);
-	_ -> attr(As, Ln, M, Fun, AL, AX, [E | B], S)
-    end.
-
-mfa({F,A}, M) when is_atom(F), is_integer(A) ->
-    {true, local, {M,F,A}};
-mfa(MFA={M,F,A}, M1) when is_atom(M), is_atom(F), is_integer(A) ->
-    {M=:=M1, external, MFA};
-mfa(_, _M) -> false.
-
 expr({'if', _Anno, Cs}, S) ->
     clauses(Cs, S);
 expr({'case', _Anno, E, Cs}, S) ->
@@ -188,13 +147,6 @@ expr({'fun', Anno, {function, Mod, Name, _Arity}}, S) ->
     %% New format in R15. M:F/A (one or more variables).
     As = {var, Anno, '_'},
     external_call(erlang, apply, [Mod, Name, As], Anno, true, S);
-%% Only abstract_v1 and abstract_v2.
-expr({'fun', Anno, {function, Name, Arity}, _Extra}, S) ->
-    %% Added in R8.
-    handle_call(local, S#xrefr.module, Name, Arity, Anno, S);
-expr({'fun', _Anno, {clauses, Cs}, _Extra}, S) ->
-    clauses(Cs, S);
-%% End abstract_v1 and abstract_v2.
 expr({'fun', Anno, {function, Name, Arity}}, S) ->
     %% Added in OTP 20.
     handle_call(local, S#xrefr.module, Name, Arity, Anno, S);

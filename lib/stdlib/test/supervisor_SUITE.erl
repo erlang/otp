@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +24,7 @@
 -module(supervisor_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 %% Testserver specific export
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -46,7 +49,8 @@
 	  sup_start_map_faulty_specs/1,
 	  sup_stop_infinity/1, sup_stop_timeout/1, sup_stop_timeout_dynamic/1,
 	  sup_stop_brutal_kill/1, sup_stop_brutal_kill_dynamic/1,
-          sup_stop_race/1, sup_stop_non_shutdown_exit_dynamic/1,
+          sup_stop_race/1, sup_stop_non_shutdown_exit_dynamic/1, auto_hibernate/1,
+	  sup_stop_manual/1, sup_stop_manual_timeout/1,
 	  child_adm/1, child_adm_simple/1, child_specs/1, child_specs_map/1,
 	  extra_return/1, sup_flags/1]).
 
@@ -90,7 +94,8 @@
 	 hanging_restart_loop_simple/1, code_change/1, code_change_map/1,
 	 code_change_simple/1, code_change_simple_map/1,
          order_of_children/1, scale_start_stop_many_children/1,
-         format_log_1/1, format_log_2/1, already_started_outside_supervisor/1]).
+         format_log_1/1, format_log_2/1, already_started_outside_supervisor/1,
+	 which_children/1, which_children_simple_one_for_one/1]).
 
 %%-------------------------------------------------------------------------
 
@@ -101,7 +106,7 @@ suite() ->
 all() -> 
     [{group, sup_start}, {group, sup_start_map}, {group, sup_stop}, child_adm,
      child_adm_simple, extra_return, child_specs, child_specs_map, sup_flags,
-     multiple_restarts,
+     multiple_restarts, auto_hibernate,
      {group, restart_one_for_one},
      {group, restart_one_for_all},
      {group, restart_simple_one_for_one},
@@ -119,7 +124,8 @@ all() ->
      hanging_restart_loop_rest_for_one, hanging_restart_loop_simple,
      code_change, code_change_map, code_change_simple, code_change_simple_map,
      order_of_children, scale_start_stop_many_children,
-     format_log_1, format_log_2, already_started_outside_supervisor].
+     format_log_1, format_log_2, already_started_outside_supervisor,
+     which_children, which_children_simple_one_for_one].
 
 groups() -> 
     [{sup_start, [],
@@ -137,7 +143,8 @@ groups() ->
      {sup_stop, [],
       [sup_stop_infinity, sup_stop_timeout, sup_stop_timeout_dynamic,
        sup_stop_brutal_kill, sup_stop_brutal_kill_dynamic,
-       sup_stop_race, sup_stop_non_shutdown_exit_dynamic]},
+       sup_stop_race, sup_stop_non_shutdown_exit_dynamic,
+       sup_stop_manual, sup_stop_manual_timeout]},
      {normal_termination, [],
       [external_start_no_progress_log, permanent_normal, transient_normal, temporary_normal]},
      {shutdown_termination, [],
@@ -651,6 +658,72 @@ sup_stop_non_shutdown_exit_dynamic(Config) when is_list(Config) ->
     ).
 
 %%-------------------------------------------------------------------------
+%% Tests that children are shut down when a supervisor is stopped via
+%% supervisor:stop/1
+%% Since supervisors are gen_servers and the basic functionality of the
+%% stop functions is already tested in gen_server_SUITE, we only make
+%% sure that children are terminated correctly when applied to a
+%% supervisor.
+sup_stop_manual(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+    Child1 = {child1, {supervisor_1, start_child, []}, 
+	      permanent, brutal_kill, worker, []},
+    Child2 = {child2, {supervisor_1, start_child, []}, 
+	      permanent, 1000, worker, []},
+    Child3 = {child3, {supervisor_1, start_child, []},
+	      permanent, 1000, worker, []},
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    link(CPid1),
+    {ok, CPid2} = supervisor:start_child(sup_test, Child2),
+    link(CPid2),
+    {ok, CPid3} = supervisor:start_child(sup_test, Child3),
+    link(CPid3),
+
+    CPid3 ! {sleep, 100000},
+
+    supervisor:stop(Pid),
+
+    check_exit_reason(Pid, normal),
+    check_exit_reason(CPid1, killed),
+    check_exit_reason(CPid2, shutdown),
+    check_exit_reason(CPid3, killed).
+
+%%-------------------------------------------------------------------------
+%% Tests that children are shut down when a supervisor is stopped via
+%% supervisor:stop/3, even if the stop call times out.
+%% Since supervisors are gen_servers and the basic functionality of the
+%% stop functions is already tested in gen_server_SUITE, we only make
+%% sure that children are terminated correctly when applied to a
+%% supervisor.
+sup_stop_manual_timeout(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+    Child1 = {child1, {supervisor_1, start_child, []}, 
+	      permanent, 5000, worker, []},
+    Child2 = {child2, {supervisor_1, start_child, []},
+	      permanent, 1000, worker, []},
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    link(CPid1),
+    {ok, CPid2} = supervisor:start_child(sup_test, Child2),
+    link(CPid2),
+
+    CPid1 ! {sleep, 1000},
+
+    try
+	supervisor:stop(Pid, normal, 100)
+    of
+	ok -> ct:fail(expected_timeout)
+    catch
+	exit:timeout ->
+	    ok
+    end,
+
+    check_exit_reason(Pid, normal),
+    check_exit_reason(CPid1, shutdown),
+    check_exit_reason(CPid2, shutdown).
+
+%%-------------------------------------------------------------------------
 %% The start function provided to start a child may return {ok, Pid}
 %% or {ok, Pid, Info}, if it returns the latter check that the
 %% supervisor ignores the Info, and includes it unchanged in return
@@ -702,6 +775,36 @@ extra_return(Config) when is_list(Config) ->
             ok
     end.
 
+auto_hibernate(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    HibernateAfterTimeout = 100,
+    Child = {child1, {supervisor_1, start_child, []}, permanent, 1000,
+	     worker, []},
+    SupFlags = #{strategy => one_for_one,
+		 intensity => 2,
+		 period => 3600,
+                 hibernate_after => HibernateAfterTimeout},
+    {ok, SPid} = start_link({ok, {SupFlags, [Child]}}),
+
+    %% After init test
+    is_not_in_erlang_hibernate(SPid),
+    timer:sleep(HibernateAfterTimeout),
+    is_in_erlang_hibernate(SPid),
+
+    %% Trigger an action
+    [{child1, CPid, worker, []}] = supervisor:which_children(sup_test),
+    is_not_in_erlang_hibernate(SPid),
+    timer:sleep(HibernateAfterTimeout),
+    is_in_erlang_hibernate(SPid),
+
+    %% Kill a child
+    terminate(CPid, kill),
+    is_not_in_erlang_hibernate(SPid),
+    timer:sleep(HibernateAfterTimeout),
+    is_in_erlang_hibernate(SPid),
+
+    ok.
+
 %%-------------------------------------------------------------------------
 %% Test API functions start_child/2, terminate_child/2, delete_child/2
 %% restart_child/2, which_children/1, count_children/1. Only correct
@@ -711,10 +814,14 @@ child_adm(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
-    {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, [Child]}}),
+    SupFlags = #{strategy => one_for_one,
+		 intensity => 1,
+		 period => 1000,
+                 hibernate_after => 0},
+    {ok, Pid} = start_link({ok, {SupFlags, [Child]}}),
 
     %% Test that supervisors of static nature are hibernated after start
-    {current_function, {erlang, hibernate, 3}} =
+    {current_function, {gen_server, loop_hibernate, 4}} =
 	process_info(Pid, current_function),
 
     [{child1, CPid, worker, []}] = supervisor:which_children(sup_test),
@@ -726,8 +833,8 @@ child_adm(Config) when is_list(Config) ->
 
     %% Termination
     {error, not_found} = supervisor:terminate_child(sup_test, hej),
-    {'EXIT',{noproc,{gen_server,call, _}}} =
-	(catch supervisor:terminate_child(foo, child1)),
+    ok = ?assertExit({noproc, {gen_server, call, _}},
+                     supervisor:terminate_child(foo, child1)),
     ok = supervisor:terminate_child(sup_test, child1),
     check_exit_reason(CPid, shutdown),
     [{child1,undefined,worker,[]}] = supervisor:which_children(sup_test),
@@ -748,8 +855,8 @@ child_adm(Config) when is_list(Config) ->
     %% Deletion
     {error, running} = supervisor:delete_child(sup_test, child1),
     {error, not_found} = supervisor:delete_child(sup_test, hej),
-    {'EXIT',{noproc,{gen_server,call, _}}} =
-	(catch supervisor:delete_child(foo, child1)),
+    ok = ?assertExit({noproc, {gen_server, call, _}},
+                     supervisor:delete_child(foo, child1)),
     ok = supervisor:terminate_child(sup_test, child1),
     ok = supervisor:delete_child(sup_test, child1),
     {error, not_found} = supervisor:restart_child(sup_test, child1),
@@ -757,8 +864,8 @@ child_adm(Config) when is_list(Config) ->
     [0,0,0,0] = get_child_counts(sup_test),
 
     %% Start
-    {'EXIT',{noproc,{gen_server,call, _}}} =
-	(catch supervisor:start_child(foo, Child)),
+    ok = ?assertExit({noproc, {gen_server, call, _}},
+                     supervisor:start_child(foo, Child)),
     {ok, CPid3} = supervisor:start_child(sup_test, Child),
     [{child1, CPid3, worker, []}] = supervisor:which_children(sup_test),
     [1,1,0,1] = get_child_counts(sup_test),
@@ -768,10 +875,10 @@ child_adm(Config) when is_list(Config) ->
     [{child1, CPid3, worker, []}] = supervisor:which_children(sup_test),
     [1,1,0,1] = get_child_counts(sup_test),
 
-    {'EXIT',{noproc,{gen_server,call,[foo,which_children,infinity]}}}
-	= (catch supervisor:which_children(foo)),
-    {'EXIT',{noproc,{gen_server,call,[foo,count_children,infinity]}}}
-	= (catch supervisor:count_children(foo)),
+    ok = ?assertExit({noproc, {gen_server, call, [foo, which_children, infinity]}},
+                     supervisor:which_children(foo)),
+    ok = ?assertExit({noproc, {gen_server, call, [foo, count_children, infinity]}},
+                     supervisor:count_children(foo)),
     ok.
 %%-------------------------------------------------------------------------
 %% The API functions terminate_child/2, delete_child/2 restart_child/2
@@ -792,8 +899,8 @@ child_adm_simple(Config) when is_list(Config) ->
     [1,0,0,0] = get_child_counts(sup_test),
 
     %% Start
-    {'EXIT',{noproc,{gen_server,call, _}}} =
-	(catch supervisor:start_child(foo, [])),
+    ok = ?assertExit({noproc, {gen_server, call, _}},
+                     supervisor:start_child(foo, [])),
     {ok, CPid1} = supervisor:start_child(sup_test, []),
     [{undefined, CPid1, worker, []}] =
 	supervisor:which_children(sup_test),
@@ -1286,8 +1393,8 @@ temporary_bystander(_Config) ->
     terminate(SupPid1, CPid1, child1, normal),
     terminate(SupPid2, CPid3, child1, normal),
     timer:sleep(350),
-    catch link(SupPid1),
-    catch link(SupPid2),
+    _ = try link(SupPid1) catch _:_ -> ok end,
+    _ = try link(SupPid2) catch _:_ -> ok end,
     %% The supervisor would die attempting to restart child2
     true = erlang:is_process_alive(SupPid1),
     true = erlang:is_process_alive(SupPid2),
@@ -2080,7 +2187,7 @@ dont_save_start_parameters_for_temporary_children(simple_one_for_one = Type) ->
     Size2 = erts_debug:flat_size(sys:get_status(Sup2)),
     Size3 = erts_debug:flat_size(sys:get_status(Sup3)),
 
-    true = (Size3 < Size1)  and  (Size3 < Size2),
+    true = Size3 < Size1 andalso Size3 < Size2,
 
     terminate(Sup1, shutdown),
     terminate(Sup2, shutdown),
@@ -2108,7 +2215,7 @@ dont_save_start_parameters_for_temporary_children(Type) ->
     Size2 = erts_debug:flat_size(sys:get_status(Sup2)),
     Size3 = erts_debug:flat_size(sys:get_status(Sup3)),
 
-    true = (Size3 < Size1)  and  (Size3 < Size2),
+    true = Size3 < Size1 andalso Size3 < Size2,
 
     terminate(Sup1, shutdown),
     terminate(Sup2, shutdown),
@@ -3727,6 +3834,72 @@ already_started_outside_supervisor(_Config) ->
     ok = check_exit([SupPid]),
     ok.
 
+%% Test which_children/1 and which_child/2.
+which_children(Config) when is_list(Config) ->
+    {ok, SupPid} = start_link({ok, {#{}, []}}),
+
+    [] = supervisor:which_children(SupPid),
+    {error, not_found} = supervisor:which_child(SupPid, childx),
+
+    {ok, Child1} = supervisor:start_child(SupPid, #{id => child1,
+						    start => {supervisor_1, start_child, []}}),
+    [{child1, Child1, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {ok, {child1, Child1, worker, [supervisor_1]}} = supervisor:which_child(SupPid, child1),
+    {error, not_found} = supervisor:which_child(SupPid, childx),
+
+    {ok, Child2} = supervisor:start_child(SupPid, #{id => child2,
+						    start => {supervisor_1, start_child, []}}),
+    [{child2, Child2, worker, [supervisor_1]},
+     {child1, Child1, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {ok, {child1, Child1, worker, [supervisor_1]}} = supervisor:which_child(SupPid, child1),
+    {ok, {child2, Child2, worker, [supervisor_1]}} = supervisor:which_child(SupPid, child2),
+    {error, not_found} = supervisor:which_child(SupPid, childx),
+
+    ok = supervisor:terminate_child(SupPid, child1),
+    [{child2, Child2, worker, [supervisor_1]},
+     {child1, undefined, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {ok, {child1, undefined, worker, [supervisor_1]}} = supervisor:which_child(SupPid, child1),
+    {ok, {child2, Child2, worker, [supervisor_1]}} = supervisor:which_child(SupPid, child2),
+    {error, not_found} = supervisor:which_child(SupPid, childx),
+
+    ok = supervisor:delete_child(SupPid, child1),
+    [{child2, Child2, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {error, not_found} = supervisor:which_child(SupPid, child1),
+    {ok, {child2, Child2, worker, [supervisor_1]}} = supervisor:which_child(SupPid, child2),
+    {error, not_found} = supervisor:which_child(SupPid, childx),
+
+    ok.
+
+which_children_simple_one_for_one(Config) when is_list(Config) ->
+    {ok, SupPid} = start_link({ok, {#{strategy => simple_one_for_one}, [#{id => child,
+									  start => {supervisor_1, start_child, []},
+									  restart => temporary}]}}),
+
+    [] = supervisor:which_children(SupPid),
+    {error, not_found} = supervisor:which_child(SupPid, self()),
+
+    {ok, Child1} = supervisor:start_child(SupPid, []),
+    [{undefined, Child1, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {ok, {undefined, Child1, worker, [supervisor_1]}} = supervisor:which_child(SupPid, Child1),
+    {error, not_found} = supervisor:which_child(SupPid, self()),
+
+    {ok, Child2} = supervisor:start_child(SupPid, []),
+    [{undefined, Child1, worker, [supervisor_1]},
+     {undefined, Child2, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {ok, {undefined, Child1, worker, [supervisor_1]}} = supervisor:which_child(SupPid, Child1),
+    {ok, {undefined, Child2, worker, [supervisor_1]}} = supervisor:which_child(SupPid, Child2),
+    {error, not_found} = supervisor:which_child(SupPid, self()),
+
+    ok = supervisor:terminate_child(SupPid, Child1),
+    [{undefined, Child2, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {error, not_found} = supervisor:which_child(SupPid, Child1),
+    {ok, {undefined, Child2, worker, [supervisor_1]}} = supervisor:which_child(SupPid, Child2),
+    {error, not_found} = supervisor:which_child(SupPid, self()),
+
+    {error, simple_one_for_one} = supervisor:which_child(SupPid, not_a_pid),
+
+    ok.
+
 %%-------------------------------------------------------------------------
 terminate(Pid, Reason) when Reason =/= supervisor ->
     terminate(dummy, Pid, dummy, Reason).
@@ -3829,6 +4002,45 @@ ensure_supervisor_is_stopped() ->
             ok;
         Pid ->
             terminate(Pid, shutdown)
+    end.
+
+is_in_erlang_hibernate(Pid) ->
+    receive after 1 -> ok end,
+    is_in_erlang_hibernate_1(200, Pid).
+
+is_in_erlang_hibernate_1(0, Pid) ->
+    ct:pal("~p\n", [erlang:process_info(Pid, current_function)]),
+    ct:fail(not_in_erlang_hibernate_3);
+is_in_erlang_hibernate_1(N, Pid) ->
+    {current_function,MFA} = erlang:process_info(Pid, current_function),
+    case MFA of
+	{gen_server, loop_hibernate, 4} ->
+	    ok;
+	{erlang,hibernate,3} ->
+	    ok;
+	_ ->
+	    receive after 10 -> ok end,
+	    is_in_erlang_hibernate_1(N-1, Pid)
+    end.
+
+is_not_in_erlang_hibernate(Pid) ->
+    receive after 1 -> ok end,
+    is_not_in_erlang_hibernate_1(200, Pid).
+
+is_not_in_erlang_hibernate_1(0, Pid) ->
+    ct:pal("~p\n", [erlang:process_info(Pid, current_function)]),
+    ct:fail(not_in_erlang_hibernate_3);
+is_not_in_erlang_hibernate_1(N, Pid) ->
+    {current_function,MFA} = erlang:process_info(Pid, current_function),
+    case MFA of
+        {gen_server, loop_hibernate, 4} ->
+            receive after 10 -> ok end,
+            is_not_in_erlang_hibernate_1(N-1, Pid);
+        {erlang,hibernate,3} ->
+            receive after 10 -> ok end,
+            is_not_in_erlang_hibernate_1(N-1, Pid);
+        _ ->
+            ok
     end.
 
 %%-----------------------------------------------------------------

@@ -1,3 +1,9 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: BSD-2-Clause
+%%
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
 %% Copyright (c) 2008,2009 Robert Virding. All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
@@ -22,6 +28,9 @@
 %% LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 %% ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 %% POSSIBILITY OF SUCH DAMAGE.
+%%
+%% %CopyrightEnd%
+%% 
 
 %%% A Lexical Analyser Generator for Erlang.
 %%%
@@ -36,10 +45,6 @@ Lexical analyzer generator for Erlang
 
 A regular expression based lexical analyzer generator for Erlang, similar to
 `lex` or `flex`.
-
-> #### Note {: .info }
->
-> The `leex` module was considered experimental when it was introduced.
 
 ## Default Leex Options
 
@@ -240,7 +245,8 @@ Floats (\+|-)?[0-9]+\.[0-9]+((E|e)(\+|-)?[0-9]+)?
 > Anchoring a regular expression with `^` and `$` is not implemented in the
 > current version of `leex` and generates a parse error.
 """.
--moduledoc(#{titles => [{function,<<"Generated Scanner Exports">>}]}).
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 -export([compile/3,file/1,file/2,format_error/1]).
 
@@ -281,7 +287,7 @@ Floats (\+|-)?[0-9]+\.[0-9]+((E|e)(\+|-)?[0-9]+)?
 %%%
 -export([string/1, string/2, token/2, token/3, tokens/2, tokens/3]).
 -doc #{equiv => string(String, 1)}.
--doc(#{title => <<"Generated Scanner Exports">>}).
+-doc(#{group => <<"Generated Scanner Exports">>}).
 -spec string(String) -> StringRet when
       String :: string(),
       StringRet :: {ok, Tokens, EndLoc} | ErrorInfo,
@@ -289,7 +295,7 @@ Floats (\+|-)?[0-9]+\.[0-9]+((E|e)(\+|-)?[0-9]+)?
       Token :: term(),
       ErrorInfo :: {error, error_info(), erl_anno:location()},
       EndLoc :: erl_anno:location().
-string(_String) -> error(undef).
+string(_String) -> erlang:nif_error(undef).
 -doc """
 Scans `String` and returns either all the tokens in it or an `error` tuple.
 
@@ -301,7 +307,7 @@ or [`erl_anno:location()`](`t:erl_anno:location/0`), depending on the
 >
 > It is an error if not all of the characters in `String` are consumed.
 """.
--doc(#{title => <<"Generated Scanner Exports">>}).
+-doc(#{group => <<"Generated Scanner Exports">>}).
 -spec string(String, StartLoc) -> StringRet when
       String :: string(),
       StringRet :: {ok, Tokens, EndLoc} | ErrorInfo,
@@ -310,10 +316,10 @@ or [`erl_anno:location()`](`t:erl_anno:location/0`), depending on the
       ErrorInfo :: {error, error_info(), erl_anno:location()},
       StartLoc :: erl_anno:location(),
       EndLoc :: erl_anno:location().
-string(_String, _StartLoc) -> error(undef).
+string(_String, _StartLoc) -> erlang:nif_error(undef).
 
 -doc #{equiv => token(Cont, Chars, 1)}.
--doc(#{title => <<"Generated Scanner Exports">>}).
+-doc(#{group => <<"Generated Scanner Exports">>}).
 -spec token(Cont, Chars) ->
     {more, Cont1} | {done, TokenRet, RestChars} when
       Cont :: [] | Cont1,
@@ -326,14 +332,14 @@ string(_String, _StartLoc) -> error(undef).
       ErrorInfo :: {error, error_info(), erl_anno:location()},
       Token :: term(),
       EndLoc :: erl_anno:location().
-token(_Cont, _Chars) -> error(undef).
+token(_Cont, _Chars) -> erlang:nif_error(undef).
 
 -doc """
 This is a re-entrant call to try and scan a single token from `Chars`.
 
 If there are enough characters in `Chars` to either scan a token or
 detect an error then this will be returned with
-`{done,...}`. Otherwise `{cont,Cont}` will be returned where `Cont` is
+`{done,...}`. Otherwise `{more,Cont}` will be returned where `Cont` is
 used in the next call to `token()` with more characters to try an scan
 the token. This is continued until a token has been scanned. `Cont` is
 initially `[]`.
@@ -347,7 +353,7 @@ io:request(InFile, {get_until,unicode,Prompt,Module,token,[Loc]})
   -> TokenRet
 ```
 """.
--doc(#{title => <<"Generated Scanner Exports">>}).
+-doc(#{group => <<"Generated Scanner Exports">>}).
 -spec token(Cont, Chars, StartLoc) ->
     {more, Cont1} | {done, TokenRet, RestChars} when
       Cont :: [] | Cont1,
@@ -361,10 +367,10 @@ io:request(InFile, {get_until,unicode,Prompt,Module,token,[Loc]})
       Token :: term(),
       StartLoc :: erl_anno:location(),
       EndLoc :: erl_anno:location().
-token(_Cont, _Chars, _StartLoc) -> error(undef).
+token(_Cont, _Chars, _StartLoc) -> erlang:nif_error(undef).
 
 -doc #{equiv => tokens(Cont, Chars, 1)}.
--doc(#{title => <<"Generated Scanner Exports">>}).
+-doc(#{group => <<"Generated Scanner Exports">>}).
 -spec tokens(Cont, Chars) ->
     {more, Cont1} | {done, TokensRet, RestChars} when
       Cont :: [] | Cont1,
@@ -378,13 +384,13 @@ token(_Cont, _Chars, _StartLoc) -> error(undef).
       Token :: term(),
       ErrorInfo :: {error, error_info(), erl_anno:location()},
       EndLoc :: erl_anno:location().
-tokens(_Cont, _Chars) -> error(undef).
+tokens(_Cont, _Chars) -> erlang:nif_error(undef).
 -doc """
 This is a re-entrant call to try and scan tokens from `Chars`.
 
 If there are enough characters in `Chars` to either scan tokens or
 detect an error then this will be returned with
-`{done,...}`. Otherwise `{cont,Cont}` will be returned where `Cont` is
+`{done,...}`. Otherwise `{more,Cont}` will be returned where `Cont` is
 used in the next call to `tokens()` with more characters to try an
 scan the tokens. This is continued until all tokens have been
 scanned. `Cont` is initially `[]`.
@@ -404,7 +410,7 @@ io:request(InFile, {get_until,unicode,Prompt,Module,tokens,[Loc]})
   -> TokensRet
 ```
 """.
--doc(#{title => <<"Generated Scanner Exports">>}).
+-doc(#{group => <<"Generated Scanner Exports">>}).
 -spec tokens(Cont, Chars, StartLoc) ->
     {more, Cont1} | {done, TokensRet, RestChars} when
       Cont :: [] | Cont1,
@@ -419,7 +425,7 @@ io:request(InFile, {get_until,unicode,Prompt,Module,tokens,[Loc]})
       ErrorInfo :: {error, error_info(), erl_anno:location()},
       StartLoc :: erl_anno:location(),
       EndLoc :: erl_anno:location().
-tokens(_Cont, _Chars, _StartLoc) -> error(undef).
+tokens(_Cont, _Chars, _StartLoc) -> erlang:nif_error(undef).
 
 %%%
 %%% Exported functions
@@ -2130,10 +2136,10 @@ prep_out_actions(As) ->
             ({A,Code,TokenChars,TokenLen,TokenLine,TokenCol,TokenLoc}) ->
                 Vs = [{TokenChars,"TokenChars"},
                       {TokenLen,"TokenLen"},
-                      {TokenLine or TokenLoc,"TokenLine"},
-                      {TokenCol or TokenLoc,"TokenCol"},
+                      {TokenLine orelse TokenLoc,"TokenLine"},
+                      {TokenCol orelse TokenLoc,"TokenCol"},
                       {TokenChars,"YYtcs"},
-                      {TokenLen or TokenChars,"TokenLen"}],
+                      {TokenLen orelse TokenChars,"TokenLen"}],
                 Vars = [if F -> S; true -> "_" end || {F,S} <- Vs],
                 Name = list_to_atom(lists:concat([yyaction_,A])),
                 [Chars,Len,Line,Col,_,_] = Vars,

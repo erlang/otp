@@ -1,5 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec crc32(Data) -> non_neg_integer() when Data :: iodata().[0m
+[1m  crc32(Data)[0m
 
-  Computes and returns the crc32 (IEEE 802.3 style) checksum for [;;4m[0m
-  [;;4mData[0m.
+  Computes and returns the crc32 (IEEE 802.3 style) checksum for [4m[0m
+  [4mData[0m.

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2012-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -126,6 +128,12 @@
 -export([dynamic_node_name/0, dynamic_node_name/1]).
 
 -export([term_to_string/1, term_to_string/2]).
+
+-export([system_monitor/1, system_monitor/3]).
+
+-export([processes_next/1]).
+
+-export([breakpoint/4, notify_breakpoint_hit/3]).
 
 %%
 %% Await result of send to port
@@ -1149,4 +1157,46 @@ term_to_string(T) ->
     Limit :: undefined | pos_integer().
 
 term_to_string(_T, _Limit) ->
+    erlang:nif_error(undefined).
+
+-spec system_monitor(Session) -> Return when
+      Session :: term(),
+      Return :: undefined | {pid(), [term()]}.
+system_monitor(_Session) ->
+    erlang:nif_error(undefined).
+
+-spec system_monitor(Session, MonitorPid, Options) -> Return when
+      Session :: term(),
+      MonitorPid :: undefined | session | pid(),
+      Options :: [term()],
+      Return :: undefined | ok | {pid(), Options}.
+system_monitor(_Session, _MonitorPid, _Options) ->
+    erlang:nif_error(undefined).
+
+-spec processes_next(integer()) -> {integer(), [pid()]} | 'none'.
+processes_next(_IterRef) ->
+    erlang:nif_error(undefined).
+
+%%
+%% Internal implementation of breakpoints
+%%
+-spec breakpoint(Module, Function, Arity, Line) -> ok when
+    Module :: atom(),
+    Function :: atom(),
+    Arity:: arity(),
+    Line :: pos_integer().
+breakpoint(Module, Function, Arity, Line) ->
+    Me = self(),
+    ResumeRef = make_ref(),
+    ResumeAction = fun() -> Me ! ResumeRef, ok end,
+    case notify_breakpoint_hit({Module, Function, Arity}, Line, ResumeAction) of
+        ok -> receive ResumeRef -> ok end;
+        _ -> ok
+    end.
+
+-spec notify_breakpoint_hit(MFA, Line, ResumeAction) -> ok | term() when
+    MFA :: mfa(),
+    Line :: pos_integer(),
+    ResumeAction :: fun(() -> ok).
+notify_breakpoint_hit(_, _, _) ->
     erlang:nif_error(undefined).

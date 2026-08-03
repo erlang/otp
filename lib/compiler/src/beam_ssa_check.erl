@@ -1,6 +1,8 @@
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -54,19 +56,19 @@ functions(_Tag, []) ->
 function(Tag, F) ->
     run_checks(beam_ssa:get_anno(ssa_checks, F, []), F, Tag).
 
-run_checks([{ssa_check_when,WantedResult,{atom,_,Tag},Args,Exprs}|Checks],
+run_checks([{ssa_check_when,WantedResult,{atom,_,Tag},Args,CheckAnnos,Exprs}|Checks],
            F, Tag) ->
-    check_function(Args, Exprs, WantedResult, F) ++ run_checks(Checks, F, Tag);
+    check_function(Args, CheckAnnos, Exprs, WantedResult, F) ++ run_checks(Checks, F, Tag);
 run_checks([_|Checks], F, Tag) ->
     run_checks(Checks, F, Tag);
 run_checks([], _, _) ->
     [].
 
-check_function(CheckArgs, Exprs, {atom,Loc,pass}, #b_function{args=_Args}=F) ->
-    run_check(CheckArgs, Exprs, Loc, F);
-check_function(CheckArgs, Exprs, {atom,Loc,Key}, #b_function{args=_Args}=F)
+check_function(CheckArgs, CheckAnnos, Exprs, {atom,Loc,pass}, #b_function{args=_Args}=F) ->
+    run_check(CheckArgs, CheckAnnos, Exprs, Loc, F);
+check_function(CheckArgs, CheckAnnos, Exprs, {atom,Loc,Key}, #b_function{args=_Args}=F)
   when Key =:= fail ; Key =:= xfail ->
-    case run_check(CheckArgs, Exprs, Loc, F) of
+    case run_check(CheckArgs, CheckAnnos, Exprs, Loc, F) of
         [] ->
             %% This succeeded but should have failed
             {File,_} = beam_ssa:get_anno(location, F),
@@ -74,13 +76,13 @@ check_function(CheckArgs, Exprs, {atom,Loc,Key}, #b_function{args=_Args}=F)
         _ ->
             []
     end;
-check_function(_, _, {atom,Loc,Result}, F) ->
+check_function(_, _, _, {atom,Loc,Result}, F) ->
     {File,_} = beam_ssa:get_anno(location, F),
     [{File,[{Loc,?MODULE,{unknown_result_kind,Result}}]}].
 
-run_check(CheckArgs, Exprs, Loc, #b_function{args=FunArgs}=F) ->
+run_check(CheckArgs, CheckAnnos, Exprs, Loc, #b_function{args=FunArgs}=F) ->
+    _ = check_annos(CheckAnnos, F#b_function.anno, #{}),
     init_and_run_check(CheckArgs, FunArgs, #{}, Loc, Exprs, F).
-
 
 %% Create a mapping from each argument in the check pattern to the
 %% actual arguments of the SSA function.
@@ -159,6 +161,12 @@ op_check([set,Result,{{atom,_,bif},{atom,_,Op}}|PArgs], PAnno,
         [Op, Result, Dst, PArgs, AArgs, _I]),
     Env = op_check_call(Op, Result, Dst, PArgs, AArgs, Env0),
     check_annos(PAnno, AAnno, Env);
+op_check([set,Result,{{atom,_,succeeded},{atom,_,Kind}}|PArgs], PAnno,
+         #b_set{dst=Dst,args=AArgs,op={succeeded,Kind},anno=AAnno}=_I, Env0) ->
+    ?DP("trying succeed ~p:~n  res: ~p <-> ~p~n  args: ~p <-> ~p~n  i: ~p~n",
+        [Kind, Result, Dst, PArgs, AArgs, _I]),
+    Env = op_check_call(dont_care, Result, Dst, PArgs, AArgs, Env0),
+    check_annos(PAnno, AAnno, Env);
 op_check([none,{atom,_,ret}|PArgs], PAnno,
          #b_ret{arg=AArg,anno=AAnno}=_I, Env) ->
     ?DP("trying return:, arg: ~p <-> ~p~n  i: ~p~n",
@@ -202,7 +210,7 @@ post_args(Pattern, Args, _Env) ->
 post_phi_args([{'...',_}], _, Env) ->
     Env;
 post_phi_args([{tuple,_,[PVar,PLbl]}|PArgs], [{AVar,ALbl}|AArgs], Env0) ->
-    Env = env_post(PVar, AVar, env_post(PLbl, ALbl, Env0)),
+    Env = env_post(PVar, AVar, env_post(PLbl, #b_literal{val=ALbl}, Env0)),
     post_phi_args(PArgs, AArgs, Env);
 post_phi_args([], [], Env) ->
     Env.
@@ -340,7 +348,7 @@ build_map_key({list,_,Elems}, Env) ->
 build_map_key({tuple,_,Elems}, Env) ->
     list_to_tuple([build_map_key(E, Env) || E <- Elems]);
 build_map_key({map,_,Elems}, Env) ->
-    #{build_map_key(K, Env) => build_map_key(V, Env) || {K,V} <- Elems};
+    #{build_map_key(K, Env) => build_map_key(V, Env) || {K,V} <:- Elems};
 build_map_key({var,_,V}, Env) ->
     map_get(V, Env);
 build_map_key(_Key, _Env) ->

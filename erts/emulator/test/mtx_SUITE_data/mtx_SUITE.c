@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2021. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +27,7 @@
  */
 
 #include <erl_nif.h>
+#include <erl_internal_test.h>
 
 #ifdef __WIN32__
 #  ifndef WIN32_LEAN_AND_MEAN
@@ -32,8 +35,6 @@
 #  endif
 #  include <windows.h>
 #else
-#  include "ethread.h"
-#  include "erl_misc_utils.h"
 #  include <unistd.h>
 #endif
 
@@ -46,33 +47,6 @@ fail(const char *file, int line, const char *function, const char *assertion);
 
 #undef ASSERT
 #define ASSERT(X) ((void) ((X) ? 1 : fail(__FILE__, __LINE__, __func__, #X)))
-
-#ifdef __WIN32__
-/*
- * We cannot access the ethread symbols directly; test
- * what we got in the nif api instead...
- */
-#define HAVE_FREQREAD_SUPPORT 0
-#define RWMUTEX_T ErlNifRWLock
-#define RWMUTEX_CREATE(FR) enif_rwlock_create("dummy")
-#define RWMUTEX_DESTROY enif_rwlock_destroy
-#define RWMUTEX_WLOCK enif_rwlock_rwlock
-#define RWMUTEX_TRYWLOCK enif_rwlock_tryrwlock
-#define RWMUTEX_WUNLOCK enif_rwlock_rwunlock
-#define RWMUTEX_TRYRLOCK enif_rwlock_tryrlock
-#define RWMUTEX_RLOCK enif_rwlock_rlock
-#define RWMUTEX_RUNLOCK enif_rwlock_runlock
-#define THR_ID ErlNifTid
-#define THR_CREATE(A, B, C, D) enif_thread_create("dummy", (A), (B), (C), (D))
-#define THR_JOIN enif_thread_join
-#define ATOMIC_T volatile LONG
-#define ATOMIC_INIT(VarP, Val) (*(VarP) = (Val))
-#define ATOMIC_SET(VarP, Val) (*(VarP) = (Val))
-#define ATOMIC_READ(VarP) (*(VarP))
-#define ATOMIC_INC InterlockedIncrement
-#define ATOMIC_DEC InterlockedDecrement
-
-#else
 
 #ifdef ETHR_USE_OWN_RWMTX_IMPL__
 #  define HAVE_FREQREAD_SUPPORT 1
@@ -89,32 +63,30 @@ RWMUTEX_CREATE(int freqread)
     if (freqread)
 	rwmtx_opt.type = ETHR_RWMUTEX_TYPE_FREQUENT_READ;
     ASSERT(rwmtx);
-    ASSERT(ethr_rwmutex_init_opt(rwmtx, &rwmtx_opt) == 0);
+    ASSERT(erts_internal_test.ethr_rwmutex_init_opt(rwmtx, &rwmtx_opt) == 0);
     return rwmtx;
 }
 static void
 RWMUTEX_DESTROY(ethr_rwmutex *rwmtx)
 {
-    ASSERT(ethr_rwmutex_destroy(rwmtx) == 0);
+    ASSERT(erts_internal_test.ethr_rwmutex_destroy(rwmtx) == 0);
     enif_free(rwmtx);
 }
-#define RWMUTEX_TRYWLOCK ethr_rwmutex_tryrwlock
-#define RWMUTEX_WLOCK ethr_rwmutex_rwlock
-#define RWMUTEX_WUNLOCK ethr_rwmutex_rwunlock
-#define RWMUTEX_TRYRLOCK ethr_rwmutex_tryrlock
-#define RWMUTEX_RLOCK ethr_rwmutex_rlock
-#define RWMUTEX_RUNLOCK ethr_rwmutex_runlock
-#define THR_ID ethr_tid
-#define THR_CREATE ethr_thr_create
-#define THR_JOIN ethr_thr_join
-#define ATOMIC_T ethr_atomic_t
-#define ATOMIC_INIT ethr_atomic_init
-#define ATOMIC_SET ethr_atomic_set
-#define ATOMIC_READ ethr_atomic_read
-#define ATOMIC_INC ethr_atomic_inc
-#define ATOMIC_DEC ethr_atomic_dec
-
-#endif
+#define RWMUTEX_TRYWLOCK erts_internal_test.ethr_rwmutex_tryrwlock
+#define RWMUTEX_WLOCK    erts_internal_test.ethr_rwmutex_rwlock
+#define RWMUTEX_WUNLOCK  erts_internal_test.ethr_rwmutex_rwunlock
+#define RWMUTEX_TRYRLOCK erts_internal_test.ethr_rwmutex_tryrlock
+#define RWMUTEX_RLOCK    erts_internal_test.ethr_rwmutex_rlock
+#define RWMUTEX_RUNLOCK  erts_internal_test.ethr_rwmutex_runlock
+#define THR_ID           ethr_tid
+#define THR_CREATE       erts_internal_test.ethr_thr_create
+#define THR_JOIN         erts_internal_test.ethr_thr_join
+#define ATOMIC_T         ethr_atomic_t
+#define ATOMIC_INIT      erts_internal_test.ethr_atomic_init
+#define ATOMIC_SET       erts_internal_test.ethr_atomic_set
+#define ATOMIC_READ      erts_internal_test.ethr_atomic_read
+#define ATOMIC_INC       erts_internal_test.ethr_atomic_inc
+#define ATOMIC_DEC       erts_internal_test.ethr_atomic_dec
 
 
 #if !defined(__func__)
@@ -685,7 +657,7 @@ milli_sleep(int ms)
 #ifdef __WIN32__
     Sleep(ms);
 #else
-    while (erts_milli_sleep(ms) != 0);
+    while (erts_internal_test.erts_milli_sleep(ms) != 0);
 #endif
 }
 

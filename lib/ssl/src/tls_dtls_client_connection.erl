@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,6 +30,8 @@
 
 -module(tls_dtls_client_connection).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, binary_to_term, 2}}]).
 
 -include_lib("public_key/include/public_key.hrl").
 
@@ -130,7 +134,11 @@ wait_stapling(internal, #certificate_status{} = CertStatus,
                        stapling_state =
                            StaplingState#{status => received_staple,
                                           staple => CertStatus}}}};
-%% Server did not send OCSP staple message
+%% TLS 1.2 only: server negotiated stapling (included status_request
+%% in ServerHello) but sent a different message instead of
+%% CertificateStatus. Mark as not_received and postpone the message
+%% for the certify state. Hard-fail is enforced later by
+%% cert_status_check/5 in ssl_handshake.
 wait_stapling(internal, Msg,
                    #state{static_env = #static_env{protocol_cb = _Connection},
                           handshake_env = #handshake_env{
@@ -176,9 +184,11 @@ certify(internal, #certificate{asn1_certificates = DerCerts},
                connection_env = #connection_env{
                                    negotiated_version = Version},
                ssl_options = Opts} = State)
-  when StaplingStatus == not_negotiated; StaplingStatus == received_staple ->
-    %% this clause handles also scenario with stapling disabled, so
-    %% 'not_negotiated' appears in guard
+  when StaplingStatus == not_negotiated; StaplingStatus == received_staple;
+       StaplingStatus == not_received ->
+    %% not_negotiated covers two cases: stapling disabled (configured=false)
+    %% and stapling enabled but server did not include status_request in
+    %% ServerHello. Hard-fail for the latter is enforced by cert_status_check/5.
     Certs = try [#cert{der=DerCert, otp=public_key:pkix_decode_cert(DerCert, otp)}
                  || DerCert <- DerCerts]
             catch
@@ -459,7 +469,8 @@ handle_session(#server_hello{cipher_suite = CipherSuite},
 	       Version, NewId, ConnectionStates, ProtoExt, Protocol0,
 	       #state{session = Session,
 		      handshake_env = #handshake_env{negotiated_protocol = CurrentProtocol} = HsEnv,
-                      connection_env = #connection_env{negotiated_version = ReqVersion} = CEnv} = State0) ->
+                      connection_env = #connection_env{negotiated_version = ReqVersion} = CEnv}
+               = State0) ->
     #{key_exchange := KeyAlgorithm} =
 	ssl_cipher_format:suite_bin_to_map(CipherSuite),
 
@@ -471,14 +482,18 @@ handle_session(#server_hello{cipher_suite = CipherSuite},
             _ -> {ProtoExt =:= npn, Protocol0}
         end,
 
+    IsNew = ssl_session:is_new(Session, NewId),
+
     State = State0#state{connection_states = ConnectionStates,
-			 handshake_env = HsEnv#handshake_env{kex_algorithm = KeyAlgorithm,
-                                                             premaster_secret = PremasterSecret,
-                                                             expecting_next_protocol_negotiation = ExpectNPN,
-                                                             negotiated_protocol = Protocol},
+			 handshake_env =
+                             HsEnv#handshake_env{resumption = not IsNew,
+                                                 kex_algorithm = KeyAlgorithm,
+                                                 premaster_secret = PremasterSecret,
+                                                 expecting_next_protocol_negotiation = ExpectNPN,
+                                                 negotiated_protocol = Protocol},
                          connection_env = CEnv#connection_env{negotiated_version = Version}},
 
-    case ssl_session:is_new(Session, NewId) of
+    case IsNew of
 	true ->
 	    handle_new_session(NewId, CipherSuite, State);
 	false ->
@@ -574,6 +589,7 @@ handle_resumed_session(SessId, #state{static_env = #static_env{host = Host,
 calculate_secret(#server_dh_params{dh_p = Prime, dh_g = Base,
 				   dh_y = ServerPublicDhKey} = Params,
 		 #state{handshake_env = HsEnv} = State, Connection) ->
+    validate_dh_prime_size(Prime),
     Keys = {_, PrivateDhKey} = crypto:generate_key(dh, [Prime, Base]),
     PremasterSecret =
 	ssl_handshake:premaster_secret(ServerPublicDhKey, PrivateDhKey, Params),
@@ -602,6 +618,7 @@ calculate_secret(#server_dhe_psk_params{
 		    #state{handshake_env = HsEnv,
                            ssl_options = #{user_lookup_fun := PSKLookup}} =
 		     State, Connection) ->
+    validate_dh_prime_size(Prime),
     Keys = {_, PrivateDhKey} =
 	crypto:generate_key(dh, [Prime, Base]),
     PremasterSecret = ssl_handshake:premaster_secret(ServerKey, PrivateDhKey, PSKLookup),
@@ -611,9 +628,9 @@ calculate_secret(#server_dhe_psk_params{
 			    Connection, certify, certify);
 calculate_secret(#server_ecdhe_psk_params{
                     dh_params = #server_ecdh_params{curve = ECCurve}} = ServerKey,
-                 #state{ssl_options = #{user_lookup_fun := PSKLookup}} =
-		     #state{handshake_env = HsEnv,
-                            session = Session} = State, Connection) ->
+                 #state{handshake_env = HsEnv,
+                        ssl_options = #{user_lookup_fun := PSKLookup},
+                        session = Session} = State, Connection) ->
     ECDHKeys = public_key:generate_key(ECCurve),
 
     PremasterSecret = ssl_handshake:premaster_secret(ServerKey, ECDHKeys, PSKLookup),
@@ -626,6 +643,7 @@ calculate_secret(#server_srp_params{srp_n = Prime, srp_g = Generator} = ServerKe
 		 #state{handshake_env = HsEnv,
                         ssl_options = #{srp_identity := SRPId}} = State,
 		 Connection) ->
+    validate_dh_prime_size(Prime),
     Keys = generate_srp_client_keys(Generator, Prime, 0),
     PremasterSecret = ssl_handshake:premaster_secret(ServerKey, Keys, SRPId),
     tls_dtls_gen_connection:calculate_master_secret(PremasterSecret,
@@ -866,6 +884,15 @@ ext_info(#{status := received_staple, staple := CertStatus} = StaplingState,
          #cert{otp = PeerCert}) ->
     #{cert_ext => #{public_key:pkix_subject_id(PeerCert) => [CertStatus]},
       stapling_state => StaplingState};
-ext_info(#{status := not_negotiated} = StaplingState, #cert{otp = PeerCert}) ->
+ext_info(#{status := StaplingStatus} = StaplingState, #cert{otp = PeerCert})
+  when StaplingStatus == not_negotiated; StaplingStatus == not_received ->
     #{cert_ext => #{public_key:pkix_subject_id(PeerCert) => []},
       stapling_state => StaplingState}.
+
+%% Minimum DH prime size: 2048 bits (256 bytes).
+%% NIST SP 800-57, RFC 7919. Prevents Logjam-style attacks with
+%% weak primes that can be factored by a resourceful attacker.
+validate_dh_prime_size(Prime) when byte_size(Prime) < ?MIN_DH_PRIM_BYTE_SIZE ->
+    throw(?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, dh_prime_too_short));
+validate_dh_prime_size(_) ->
+    ok.

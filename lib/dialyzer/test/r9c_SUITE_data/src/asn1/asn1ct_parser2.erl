@@ -1,4 +1,11 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,17 +17,10 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 2000, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%%
-%%     $Id: asn1ct_parser2.erl,v 1.1 2008/12/17 09:53:30 mikpe Exp $
+%% %CopyrightEnd%
 -module(asn1ct_parser2).
-
 -export([parse/1]).
 -include("asn1_records.hrl").
-
-%% parse all types in module
 parse(Tokens) ->
     case catch parse_ModuleDefinition(Tokens) of
 	{'EXIT',Reason} ->
@@ -158,7 +158,7 @@ parse_SymbolsFromModuleList(Tokens) ->
 parse_SymbolsFromModuleList(Tokens,Acc) ->
     {SymbolsFromModule,Rest} = parse_SymbolsFromModule(Tokens),
     case (catch parse_SymbolsFromModule(Rest)) of
-	{Sl,_Rest2} when record(Sl,'SymbolsFromModule') ->
+        {Sl,_Rest2} when is_record(Sl,'SymbolsFromModule') ->
 	    parse_SymbolsFromModuleList(Rest,[SymbolsFromModule|Acc]);
 	_  ->
 	    {lists:reverse([SymbolsFromModule|Acc]),Rest}
@@ -167,9 +167,9 @@ parse_SymbolsFromModuleList(Tokens,Acc) ->
 parse_SymbolsFromModule(Tokens) ->
     SetRefModuleName =
 	fun(N) ->
-		fun(X) when record(X,'Externaltypereference')->
+                fun(X) when is_record(X,'Externaltypereference')->
 			X#'Externaltypereference'{module=N};
-		   (X) when record(X,'Externalvaluereference')->
+                   (X) when is_record(X,'Externalvaluereference')->
 			X#'Externalvaluereference'{module=N}
 		end
 	end,
@@ -272,7 +272,7 @@ parse_or(_Tokens,[],ErrList) ->
     case ErrList of
 	[] ->
 	    throw({asn1_error,{parse_or,ErrList}});
-	L when list(L) ->
+        L when is_list(L) ->
 %%%	    throw({asn1_error,{parse_or,hd(lists:reverse(ErrList))}});
 	    %% chose to throw 1) the error with the highest line no,
 	    %% 2) the last error which is not a asn1_assignment_error or
@@ -289,7 +289,7 @@ parse_or(Tokens,[Fun|Frest],ErrList) ->
 	    parse_or(Tokens,Frest,[AsnErr|ErrList]);
 	AsnAssErr = {asn1_assignment_error,_} ->
 	    parse_or(Tokens,Frest,[AsnAssErr|ErrList]);
-	Result = {_,L} when list(L) ->
+        Result = {_,L} when is_list(L) ->
 	    Result;
 %	Result ->
 %	    Result
@@ -316,11 +316,11 @@ parse_Type(Tokens) ->
 		      Rest-> {[],Rest}
 		  end,
     {Tag2,Rest4} = case Rest3 of
-		       [{'IMPLICIT',_}|Rest31] when record(Tag,tag)->
+                       [{'IMPLICIT',_}|Rest31] when is_record(Tag,tag)->
 			   {[Tag#tag{type='IMPLICIT'}],Rest31};
-		       [{'EXPLICIT',_}|Rest31] when record(Tag,tag)->
+                       [{'EXPLICIT',_}|Rest31] when is_record(Tag,tag)->
 			   {[Tag#tag{type='EXPLICIT'}],Rest31};
-		       Rest31 when record(Tag,tag) ->
+                       Rest31 when is_record(Tag,tag) ->
 			   {[Tag#tag{type={default,get(tagdefault)}}],Rest31};
 		       Rest31 ->
 			   {Tag,Rest31}
@@ -337,7 +337,7 @@ parse_Type(Tokens) ->
     case hd(Rest5) of
 	{'(',_} ->
 	    {Constraints,Rest6} = parse_Constraints(Rest5),
-	    if record(Type,type) ->
+            if is_record(Type,type) ->
 		    {Type#type{constraint=merge_constraints(Constraints),
 			       tag=Tag2},Rest6};
 	       true ->
@@ -345,7 +345,7 @@ parse_Type(Tokens) ->
 			   tag=Tag2},Rest6}
 	    end;
 	_ ->
-	    if record(Type,type) ->
+            if is_record(Type,type) ->
 		    {Type#type{tag=Tag2},Rest5};
 	       true ->
 		    {#type{def=Type,tag=Tag2},Rest5}
@@ -743,7 +743,7 @@ parse_Unions(Tokens) ->
 	    {InterSec,Rest2};
 	{{'SingleValue',V1},{'SingleValue',V2}} ->
 	    {{'SingleValue',ordsets:union(to_set(V1),to_set(V2))},Rest2};
-	{V1,V2} when list(V2) ->
+        {V1,V2} when is_list(V2) ->
 	    {[V1] ++ [union|V2],Rest2};
 	{V1,V2} ->
 	    {[V1,union,V2],Rest2}
@@ -759,7 +759,7 @@ parse_UnionsRec([{'|',_}|Rest]) ->
 	    {V1,Rest3};
 	{{'SingleValue',V1},{'SingleValue',V2}} ->
 	    {{'SingleValue',ordsets:union(to_set(V1),to_set(V2))},Rest3};
-	{V1,V2} when list(V2) ->
+        {V1,V2} when is_list(V2) ->
 	    {[V1] ++ V2,Rest3};
 	{V1,V2} ->
 	    {[V1,V2],Rest3}
@@ -772,7 +772,7 @@ parse_UnionsRec([{'UNION',_}|Rest]) ->
 	    {V1,Rest3};
 	{{'SingleValue',V1},{'SingleValue',V2}} ->
 	    {{'SingleValue',ordsets:union(to_set(V1),to_set(V2))},Rest3};
-	{V1,V2} when list(V2) ->
+        {V1,V2} when is_list(V2) ->
 	    {[V1] ++ V2,Rest3};
 	{V1,V2} ->
 	    {[V1,V2],Rest3}
@@ -789,7 +789,7 @@ parse_Intersections(Tokens) ->
 	{{'SingleValue',V1},{'SingleValue',V2}} ->
 	    {{'SingleValue',
 	      ordsets:intersection(to_set(V1),to_set(V2))},Rest2};
-	{V1,V2} when list(V2) ->
+        {V1,V2} when is_list(V2) ->
 	    {[V1] ++ [intersection|V2],Rest2};
 	{V1,V2} ->
 	    {[V1,intersection,V2],Rest2};
@@ -807,7 +807,7 @@ parse_IElemsRec([{'^',_}|Rest]) ->
 	      ordsets:intersection(to_set(V1),to_set(V2))},Rest3};
 	{V1,[]} ->
 	    {V1,Rest3};
-	{V1,V2} when list(V2) ->
+        {V1,V2} when is_list(V2) ->
 	    {[V1] ++ V2,Rest3};
 	{V1,V2} ->
 	    {[V1,V2],Rest3};
@@ -824,7 +824,7 @@ parse_IElemsRec([{'INTERSECTION',_}|Rest]) ->
 	      ordsets:intersection(to_set(V1),to_set(V2))},Rest3};
 	{V1,[]} ->
 	    {V1,Rest3};
-	{V1,V2} when list(V2) ->
+        {V1,V2} when is_list(V2) ->
 	    {[V1] ++ V2,Rest3};
 	{V1,V2} ->
 	    {[V1,V2],Rest3};
@@ -1949,12 +1949,12 @@ is_word(Token) ->
 	true -> false;
 	_ ->
 	    if
-		atom(Token) ->
+                is_atom(Token) ->
 		    Item = atom_to_list(Token),
 		    is_word(Item);
-		list(Token), length(Token) == 1 ->
+                is_list(Token), length(Token) == 1 ->
 		    check_one_char_word(Token);
-		list(Token) ->
+                is_list(Token) ->
 		    [A|Rest] = Token,
 		    case check_first(A) of
 			true ->
@@ -2011,7 +2011,7 @@ check_rest(_) ->
     false.
 
 
-to_set(V) when list(V) ->
+to_set(V) when is_list(V) ->
 	ordsets:list_to_set(V);
 to_set(V) ->
 	ordsets:list_to_set([V]).
@@ -2550,7 +2550,7 @@ parse_SubtypeElements(Tokens) ->
 	    exit(Reason);
 	{asn1_error,Reason} ->
 	    throw(Reason);
-	Result = {Val,_} when record(Val,type) ->
+        Result = {Val,_} when is_record(Val,type) ->
 	    Result;
 	{Lower,[{'..',_}|Rest]} ->
 	    {Upper,Rest2} = parse_UpperEndpoint(Rest),
@@ -2650,11 +2650,11 @@ fixup_constraint(C) ->
     case C of
 	{'SingleValue',SubType} when element(1,SubType) == 'ContainedSubtype' ->
 	    SubType;
-	{'SingleValue',V} when list(V) ->
+        {'SingleValue',V} when is_list(V) ->
 	    C;
 	%%	    [C,{'ValueRange',{lists:min(V),lists:max(V)}}];
 	%% bug, turns wrong when an element in V is a reference to a defined value
-	{'PermittedAlphabet',{'SingleValue',V}} when list(V) ->
+        {'PermittedAlphabet',{'SingleValue',V}} when is_list(V) ->
 	    %%sort and remove duplicates
 	    V2 = {'SingleValue',
 		  ordsets:list_to_set(lists:flatten(V))},
@@ -2665,7 +2665,7 @@ fixup_constraint(C) ->
 	{'SizeConstraint',Sc} ->
 	    {'SizeConstraint',fixup_size_constraint(Sc)};
 
-	List when list(List) ->  %% In This case maybe a union or intersection
+        List when is_list(List) ->  %% In This case maybe a union or intersection
 	    [fixup_constraint(Xc)||Xc <- List];
 	Other ->
 	    Other
@@ -2681,25 +2681,25 @@ fixup_size_constraint({{'ValueRange',R1},{'ValueRange',R2}}) ->
 	{R1,R2};
 fixup_size_constraint({'SingleValue',[Sv]}) ->
 	fixup_size_constraint({'SingleValue',Sv});
-fixup_size_constraint({'SingleValue',L}) when list(L) ->
+fixup_size_constraint({'SingleValue',L}) when is_list(L) ->
 	ordsets:list_to_set(L);
 fixup_size_constraint({'SingleValue',L}) ->
 	{L,L};
 fixup_size_constraint({C1,C2}) ->
 	{fixup_size_constraint(C1), fixup_size_constraint(C2)}.
 
-get_line({_,Pos,Token}) when integer(Pos),atom(Token) ->
+get_line({_,Pos,Token}) when is_integer(Pos),is_atom(Token) ->
     Pos;
-get_line({Token,Pos}) when integer(Pos),atom(Token) ->
+get_line({Token,Pos}) when is_integer(Pos),is_atom(Token) ->
     Pos;
 get_line(_) ->
     undefined.
 
-get_token({_,Pos,Token}) when integer(Pos),atom(Token) ->
+get_token({_,Pos,Token}) when is_integer(Pos),is_atom(Token) ->
     Token;
-get_token({'$end',Pos}) when integer(Pos) ->
+get_token({'$end',Pos}) when is_integer(Pos) ->
     undefined;
-get_token({Token,Pos}) when integer(Pos),atom(Token) ->
+get_token({Token,Pos}) when is_integer(Pos),is_atom(Token) ->
     Token;
 get_token(_) ->
     undefined.
@@ -2715,7 +2715,7 @@ prioritize_error(ErrList) ->
 	    SplitErrs =
 		lists:splitwith(fun({_,X})->
 					case element(1,X) of
-					    Int when integer(Int) -> true;
+                                            Int when is_integer(Int) -> true;
 					    _ -> false
 					end
 				end,

@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -47,7 +49,7 @@ naive_reverse([]) ->
 As the `++` operator copies its left-hand side operand, the growing
 result is copied repeatedly, leading to quadratic complexity.
 
-On the other hand, using `++` in loop like this is perfectly fine:
+On the other hand, using `++` in a loop like this is perfectly fine:
 
 **OK**
 
@@ -62,7 +64,7 @@ naive_but_ok_reverse([], Acc) ->
 ```
 
 Each list element is copied only once. The growing result `Acc` is the right-hand
-side operand, which it is _not_ copied.
+side operand, which is _not_ copied.
 
 Experienced Erlang programmers would probably write as follows:
 
@@ -165,14 +167,14 @@ the copied term can be many times larger than the original term. For example:
 ```erlang
 init2() ->
     SharedSubTerms = lists:foldl(fun(_, A) -> [A|A] end, [0], lists:seq(1, 15)),
-    #state{data=Shared}.
+    #state{data=SharedSubTerms}.
 ```
 
 In the process that calls `init2/0`, the size of the `data` field in the `state`
 record will be 32 heap words. When the record is copied to the newly created
 process, sharing will be lost and the size of the copied `data` field will be
 131070 heap words. More details about
-[loss off sharing](eff_guide_processes.md#loss-of-sharing) are found in a later
+[loss of sharing](eff_guide_processes.md#loss-of-sharing) are found in a later
 section.
 
 To avoid the problem, outside of the fun extract only the fields of the record
@@ -201,27 +203,41 @@ fixed_accidental2(State) ->
           end).
 ```
 
-## list_to_atom/1
+## list_to_atom/1, binary_to_atom/1,2
 
 Atoms are not garbage-collected. Once an atom is created, it is never removed.
 The emulator terminates if the limit for the number of atoms (1,048,576 by
 default) is reached.
 
-Therefore, converting arbitrary input strings to atoms can be dangerous in a
+Therefore, converting arbitrary input strings (or binaries) to atoms can be dangerous in a
 system that runs continuously. If only certain well-defined atoms are allowed as
-input, [`list_to_existing_atom/1`](`erlang:list_to_existing_atom/1`) or
-[`binary_to_existing_atom/1`](`erlang:binary_to_existing_atom/1`) can be used
-to guard against a denial-of-service attack. (All atoms that are allowed must
+input, [`list_to_existing_atom/1`](`erlang:list_to_existing_atom/1`),
+[`binary_to_existing_atom/1`](`erlang:binary_to_existing_atom/1`), or
+[`binary_to_existing_atom/2`](`erlang:binary_to_existing_atom/2`) can be used
+to guard against a denial-of-service attack. All atoms that are allowed must
 have been created earlier, for example, by using all of them in a module
-and loading that module.)
+and loading that module.
 
-Using [`list_to_atom/1`](`list_to_atom/1`) to construct an atom that
+Using [`list_to_atom/1`](`list_to_atom/1`), [`binary_to_atom/1`](`binary_to_atom/1`), or
+[`binary_to_atom/2`](`binary_to_atom/2`) to construct an atom that
 is passed to [`apply/3`](`apply/3`) is quite expensive.
 
 **DO NOT**
 
 ```erlang
 apply(list_to_atom("some_prefix"++Var), foo, Args)
+```
+
+**DO NOT**
+
+```erlang
+apply(binary_to_atom(<<"some_prefix", Var/binary>>), foo, Args)
+```
+
+**DO NOT**
+
+```erlang
+apply(binary_to_atom(<<"some_prefix", Var/binary>>, utf8), foo, Args)
 ```
 
 ## length/1
@@ -258,38 +274,44 @@ list.
 
 [`setelement/3`](`erlang:setelement/3`) copies the tuple it modifies. Therefore,
 updating a tuple in a loop using [`setelement/3`](`setelement/3`) creates a new
-copy of the tuple every time.
+copy of the tuple on each iteration.
 
-There is one exception to the rule that the tuple is copied. If the compiler
-clearly can see that destructively updating the tuple would give the same result
-as if the tuple was copied, the call to [`setelement/3`](`setelement/3`) is
-replaced with a special destructive `setelement` instruction. In the following
-code sequence, the first [`setelement/3`](`setelement/3`) call copies the tuple
-and modifies the ninth element:
+### Compiler optimizations of setelement/3
+
+Under certain conditions, the compiler can coalesce multiple calls to
+[`setelement/3`](`setelement/3`) into a single operation, avoiding
+the cost of copying the tuple for each call.
+
+For example:
 
 ```erlang
 multiple_setelement(T0) when tuple_size(T0) =:= 9 ->
-    T1 = setelement(9, T0, bar),
+    T1 = setelement(5, T0, new_value),
     T2 = setelement(7, T1, foobar),
-    setelement(5, T2, new_value).
+    setelement(9, T2, bar).
 ```
 
-The two following [`setelement/3`](`setelement/3`) calls modify the tuple in
-place.
+The compiler will replace the three `setelement/3` calls with code that
+copies the tuple once and updates the elements at positions 5, 7, and 9.
 
-For the optimization to be applied, _all_ the following conditions must be true:
+Starting with Erlang/OTP 26, the following conditions must be met for
+[`setelement/3`](`setelement/3`) calls to be coalesced into a single
+operation:
 
-- The tuple argument must be known to be a tuple of a known size.
-- The indices must be integer literals, not variables or expressions.
-- The indices must be given in descending order.
-- There must be no calls to another function in between the calls to
+- The tuple argument must be known at compile time to be a tuple of a
+  specific size.
+
+- The element indices must be integer literals, not variables or expressions.
+
+- There must be no intervening expressions between the calls to
   [`setelement/3`](`setelement/3`).
-- The tuple returned from one [`setelement/3`](`setelement/3`) call must only be
-  used in the subsequent call to [`setelement/3`](`setelement/3`).
 
-If the code cannot be structured as in the `multiple_setelement/1` example, the
-best way to modify multiple elements in a large tuple is to convert the tuple to
-a list, modify the list, and convert it back to a tuple.
+- The tuple returned from one [`setelement/3`](`setelement/3`) call must be
+  used only in the subsequent [`setelement/3`](`setelement/3`) call.
+
+Before Erlang/OTP 26, an additional condition was that
+[`setelement/3`](`setelement/3`) calls had to be made in descending
+order of indices.
 
 ## size/1
 

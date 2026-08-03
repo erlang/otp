@@ -364,7 +364,7 @@ handle_cast({store_failed_auth, [Info, DecodedString, SDirData]}, Tables) ->
 	[] ->
 	    ?vtrace("no old login failures",[]),
 	    no;
-	List when list(List) ->
+        List when is_list(List) ->
 	    ?vtrace("~p old login failures",[length(List)]),
 	    ExpireTime = httpd_util:key1search(SDirData, fail_expire_time, 30)*60,
 	    ?vtrace("expire time ~p",[ExpireTime]),
@@ -567,7 +567,7 @@ list_auth([{Name, {ETS, DETS}}|Tables], Addr, Port, Dir, Acc) ->
     case ets:match_object(ETS, {success, {{'_', Dir, Addr, Port}, '_'}}) of
 	[] ->
 	    list_auth(Tables, Addr, Port, Dir, Acc);
-	List when list(List) ->
+        List when is_list(List) ->
 	    TN = universal_time(),
 	    NewAcc = lists:foldr(fun({success,{{U,Ad,P,D},T}},Ac) ->
 					 if
@@ -603,7 +603,7 @@ list_blocked([], Addr, Port, Dir, Acc) ->
 list_blocked([{Name, {ETS, DETS}}|Tables], Addr, Port, Dir, Acc) ->
     NewBlocked =
 	case ets:match_object(ETS, {blocked_user, {'_',Addr,Port,Dir,'_'}}) of
-	    List when list(List) ->
+            List when is_list(List) ->
 		lists:foldl(fun({blocked_user, X}, A) -> [X|A] end, Acc, List);
 	    _ ->
 		Acc
@@ -634,7 +634,7 @@ sync_dets_to_ets(DETS, ETS) ->
 check_blocked_user(Info, User, Dir, Addr, Port, ETS, DETS, CBModule) ->
     TN = universal_time(),
     case ets:match_object(ETS, {blocked_user, {User, '_', '_', '_', '_'}}) of
-	List when list(List) ->
+        List when is_list(List) ->
 	    Blocked = lists:foldl(fun({blocked_user, X}, A) ->
 					  [X|A] end, [], List),
 	    check_blocked_user(Info,User,Dir,Addr,Port,ETS,DETS,TN,Blocked,CBModule);
@@ -725,3 +725,26 @@ cast(Name, Msg) ->
         Result ->
             Result
     end.
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

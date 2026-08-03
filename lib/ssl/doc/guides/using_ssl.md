@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,12 +24,12 @@ limitations under the License.
 To see relevant version information for ssl, call `ssl:versions/0` .
 
 To see all supported cipher suites, call
-[`ssl:cipher_suites(all, 'tlsv1.3')` ](`ssl:cipher_suites/2`). The available
+[`ssl:cipher_suites(all, 'tlsv1.3')`](`ssl:cipher_suites/2`). The available
 cipher suites for a connection depend on the TLS version and prior to TLS-1.3 also on
 the certificate. To see the default cipher suite list change `all` to `default`.
 Note that TLS 1.3 and previous versions do not have any cipher suites in common,
 for listing cipher suites for a specific version use
-[`ssl:cipher_suites(exclusive, 'tlsv1.3')` ](`ssl:cipher_suites/2`). Specific
+[`ssl:cipher_suites(exclusive, 'tlsv1.3')`](`ssl:cipher_suites/2`). Specific
 cipher suites that you want your connection to use can also be specified.
 Default is to use the strongest available.
 
@@ -92,8 +94,8 @@ _Step 3:_ Do a transport accept on the TLS listen socket:
 
 > #### Note {: .info }
 >
-> ssl:transport_accept/1 and ssl:handshake/2 are separate functions so that the
-> handshake part can be called in a new erlang process dedicated to handling the
+> `ssl:transport_accept/1` and `ssl:handshake/2` are separate functions so that the
+> handshake part can be called in a new Erlang process dedicated to handling the
 > connection
 
 _Step 4:_ Start the client side:
@@ -122,8 +124,8 @@ _Step 5:_ Do the TLS handshake:
 
 > #### Note {: .info }
 >
-> A real server should use ssl:handshake/2 that has a timeout to avoid DoS
-> attacks. In the example the timeout defaults to infinty.
+> A real server should use `ssl:handshake/2`, which accepts a timeout, to avoid DoS
+> attacks. In the example the timeout defaults to `infinity`.
 
 _Step 6:_ Send a message over TLS:
 
@@ -387,28 +389,40 @@ See also [crypto documentation](`e:crypto:engine_load.md#engine_load`)
 The NSS keylog debug feature can be used by authorized users to for instance
 enable wireshark to decrypt TLS packets.
 
-_Server (with NSS key logging)_
-
-```erlang
-    server() ->
-        application:load(ssl),
-        {ok, _} = application:ensure_all_started(ssl),
-        Port = 11029,
-        LOpts = [{certs_keys, [#{certfile => "cert.pem", keyfile => "key.pem"}]},
-        {reuseaddr, true},
-        {versions, ['tlsv1.2','tlsv1.3']},
-        {keep_secrets, true} %% Enable NSS key log (debug option)
-        ],
-        {ok, LSock} = ssl:listen(Port, LOpts),
-        {ok, ASock} = ssl:transport_accept(LSock),
-        {ok, CSock} = ssl:handshake(ASock).
-```
-
-_Exporting the secrets_
+The option to be used is for legacy reasons called `keep_secrets` and of course
+defaults to `false`. The legacy value `true` will enable you retrieve keylogging from
+the connection in a polling manner and does not work as intended for all use cases.
 
 ```erlang
       {ok, [{keylog, KeylogItems}]} = ssl:connection_information(CSock, [keylog]).
-      file:write_file("key.log", [[KeylogItem,$\n] || KeylogItem <- KeylogItems]).
+      file:write(FileHandle, [[KeylogItem,$\n] || KeylogItem <- KeylogItems]).
+```
+
+Instead you should use the option values `{keylog, fun()}` or
+`{keylog_hs, fun()}` to retrieve keylogs on all key update events or to
+retrieve keylog if the connection fails during the handshake.
+
+> #### Warning {: .warning }
+>Note that enabling this is for debug
+>purposes and defeats the purpose of the TLS protocol, so use with
+>care.
+
+An outline of this use case:
+
+```erlang
+    Me = self(),
+    Fun = fun(KeylogInfo) ->
+                  Me ! {keylog, KeylogInfo}
+          end,
+    Options = [{keep_secrets, {keylog, Fun} ...]
+
+    ...
+
+    receive
+        {keylog	,#{items := KeylogItems, client_random := Rand}} ->
+	    FileHandle = get_file(Rand),
+	    file:write(FileHandle, [[KeylogItem,$\n] || KeylogItem <- KeylogItems])
+    ...
 ```
 
 ## Session Reuse Prior to TLS 1.3
@@ -713,7 +727,7 @@ tickets sent by the server.
 _Step 10 (client):_ Receive a new session ticket:
 
 ```erlang
-      Ticket = receive {ssl, session_ticket, {_, TicketData}} -> TicketData end.
+      Ticket = receive {ssl, session_ticket, Ticket0} -> Ticket0 end.
 ```
 
 _Step 11 (server):_ Accept a new connection on the server:

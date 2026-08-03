@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -50,7 +52,7 @@ driver_.
 > #### Warning {: .warning }
 >
 > An erroneous port driver causes the entire Erlang runtime system to leak
-> memory, hang or crash.
+> memory, hang, or crash.
 
 For information about port drivers, see:
 
@@ -79,7 +81,7 @@ Valid values for N are 1, 2, or 4. If binaries are to be used instead of lists
 of bytes, the option `binary` must be included.
 
 The port owner `Pid` can communicate with the port `Port` by sending and
-receiving messages. (In fact, any process can send the messages to the port, but
+receiving messages. (In fact, any process can send messages to the port, but
 the port owner must be identified in the message).
 
 Messages sent to ports are delivered asynchronously.
@@ -102,11 +104,11 @@ The following messages can be sent to a port:
 
 - **`{Pid,{connect,NewPid}}`** - Sets the port owner of `Port` to
     `NewPid`. Unless the port is already closed, the port replies
-    with`{Port,connected}` to the old port owner. Note that the old
+    with `{Port,connected}` to the old port owner. Note that the old
     port owner is still linked to the port, but the new port owner is
     not.
 
-Here follows the possible messages that can be received from a port. They
+Here follow the possible messages that can be received from a port. They
 are sent to the process that owns the port:
 
 - **`{Port,{data,Data}}`** - `Data` is received from the external program.
@@ -127,7 +129,7 @@ can be used:
 - [`port_close(Port)`](`port_close/1`) - Closes the port.
 
 - [`port_connect(Port, NewPid)`](`port_connect/2`) - Sets the port
-  owner of `Port`to `NewPid`. The old port owner `Pid` stays linked to
+  owner of `Port` to `NewPid`. The old port owner `Pid` stays linked to
   the port and must call [`unlink(Port)`](`unlink/1`) if this is not
   desired.
 

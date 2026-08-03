@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2022-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2022-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +33,7 @@
 #include "erl_map.h"
 #include "erl_binary.h"
 #include "erl_bits.h"
+#include "erl_record.h"
 
 /*                                                                           *\
  *                                                                           *
@@ -106,6 +109,7 @@
 #define FUNNY_NUMBER12 268440581
 #define FUNNY_NUMBER13 268440593
 #define FUNNY_NUMBER14 268440611
+#define FUNNY_NUMBER15 268440629
 
 static Uint32
 hash_binary_bytes(Eterm bin, Uint32 hash)
@@ -169,6 +173,7 @@ Uint32 make_hash(Eterm term_arg)
 #define MAKE_HASH_TERM_ARRAY_OP (FIRST_VACANT_TAG_DEF+1)
 #define MAKE_HASH_CDR_PRE_OP    (FIRST_VACANT_TAG_DEF+2)
 #define MAKE_HASH_CDR_POST_OP   (FIRST_VACANT_TAG_DEF+3)
+#define MAKE_HASH_RECORD_OP     (FIRST_VACANT_TAG_DEF+4)
 
     /* 
     ** Convenience macro for calculating a bytewise hash on an unsigned 32 bit 
@@ -236,7 +241,7 @@ tail_recur:
 
             if (is_local_fun(funp)) {
 
-                ErlFunEntry* fe = funp->entry.fun;
+                const ErlFunEntry* fe = funp->entry.fun;
                 Uint num_free = fun_num_free(funp);
 
                 hash = hash * FUNNY_NUMBER10 + num_free;
@@ -301,7 +306,7 @@ tail_recur:
             WSTACK_PUSH(stack, (UWord) MAKE_HASH_CDR_POST_OP);
             goto tail_recur;
         }
-        /* fall through */
+        ERTS_FALLTHROUGH();
     case LIST_DEF:
         {
             Eterm* list = list_val(term);
@@ -361,6 +366,16 @@ tail_recur:
     case MAP_DEF:
         hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + make_hash2(term);
         break;
+    case RECORD_DEF:
+        {
+            Eterm* ptr = boxed_val(term);
+            Uint arity = header_arity(*ptr);
+
+            WSTACK_PUSH3(stack, (UWord) arity, (UWord)(ptr+1), (UWord) arity);
+            op = MAKE_HASH_RECORD_OP;
+            continue;
+        }
+        break;
     case TUPLE_DEF:
         {
             Eterm* ptr = tuple_val(term);
@@ -368,8 +383,10 @@ tail_recur:
 
             WSTACK_PUSH3(stack, (UWord) arity, (UWord)(ptr+1), (UWord) arity);
             op = MAKE_HASH_TUPLE_OP;
-        }/*fall through*/
+        }
+        ERTS_FALLTHROUGH();
     case MAKE_HASH_TUPLE_OP:
+    case MAKE_HASH_RECORD_OP:
     case MAKE_HASH_TERM_ARRAY_OP:
         {
             Uint i = (Uint) WSTACK_POP(stack);
@@ -382,6 +399,9 @@ tail_recur:
             if (op == MAKE_HASH_TUPLE_OP) {
                 Uint32 arity = (Uint32) WSTACK_POP(stack);
                 hash = hash*FUNNY_NUMBER9 + arity;
+            } else if (op == MAKE_HASH_RECORD_OP) {
+                Uint32 arity = (Uint32) WSTACK_POP(stack);
+                hash = hash*FUNNY_NUMBER15 + arity;
             }
             break;
         }
@@ -462,17 +482,17 @@ Uint32 block_hash_final_bytes(byte *buf,
     ctx->c += full_length;
     switch(len)
     { /* all the case statements fall through */      
-    case 11: ctx->c+=((Uint32)k[10]<<24);
-    case 10: ctx->c+=((Uint32)k[9]<<16);
-    case 9 : ctx->c+=((Uint32)k[8]<<8);
+    case 11: ctx->c+=((Uint32)k[10]<<24); ERTS_FALLTHROUGH();
+    case 10: ctx->c+=((Uint32)k[9]<<16); ERTS_FALLTHROUGH();
+    case 9 : ctx->c+=((Uint32)k[8]<<8); ERTS_FALLTHROUGH();
     /* the first byte of c is reserved for the length */
-    case 8 : ctx->b+=((Uint32)k[7]<<24);
-    case 7 : ctx->b+=((Uint32)k[6]<<16);
-    case 6 : ctx->b+=((Uint32)k[5]<<8);
-    case 5 : ctx->b+=k[4];
-    case 4 : ctx->a+=((Uint32)k[3]<<24);
-    case 3 : ctx->a+=((Uint32)k[2]<<16);
-    case 2 : ctx->a+=((Uint32)k[1]<<8);
+    case 8 : ctx->b+=((Uint32)k[7]<<24); ERTS_FALLTHROUGH();
+    case 7 : ctx->b+=((Uint32)k[6]<<16); ERTS_FALLTHROUGH();
+    case 6 : ctx->b+=((Uint32)k[5]<<8); ERTS_FALLTHROUGH();
+    case 5 : ctx->b+=k[4]; ERTS_FALLTHROUGH();
+    case 4 : ctx->a+=((Uint32)k[3]<<24); ERTS_FALLTHROUGH();
+    case 3 : ctx->a+=((Uint32)k[2]<<16); ERTS_FALLTHROUGH();
+    case 2 : ctx->a+=((Uint32)k[1]<<8); ERTS_FALLTHROUGH();
     case 1 : ctx->a+=k[0];
     /* case 0: nothing left to add */
     }
@@ -689,6 +709,7 @@ finalize:
 typedef enum {
     tag_primary_list,
     arityval_subtag,
+    record_subtag,
     hamt_subtag_head_flatmap,
     map_subtag,
     fun_subtag,
@@ -705,6 +726,12 @@ typedef struct {
     Uint32 sh;
     Eterm* ptr;
 } ErtsMakeHash2Context_TAG_PRIMARY_LIST;
+
+typedef struct {
+    int i;
+    int arity;
+    Eterm* elem;
+} ErtsMakeHash2Context_RECORD_SUBTAG;
 
 typedef struct {
     int i;
@@ -759,6 +786,7 @@ typedef struct {
     union {
         ErtsMakeHash2Context_TAG_PRIMARY_LIST tag_primary_list;
         ErtsMakeHash2Context_ARITYVAL_SUBTAG arityval_subtag;
+        ErtsMakeHash2Context_RECORD_SUBTAG record_subtag;
         ErtsMakeHash2Context_HAMT_SUBTAG_HEAD_FLATMAP hamt_subtag_head_flatmap;
         ErtsMakeHash2Context_MAP_SUBTAG map_subtag;
         ErtsMakeHash2Context_FUN_SUBTAG fun_subtag;
@@ -835,7 +863,7 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
     Eterm term = term_param;
     ERTS_UNDEF(hash_xor_pairs, 0);
 
-/* (HCONST * {2, ..., 22}) mod 2^32 */
+/* (HCONST * {2, ..., 23}) mod 2^32 */
 #define HCONST_2 0x3c6ef372UL
 #define HCONST_3 0xdaa66d2bUL
 #define HCONST_4 0x78dde6e4UL
@@ -857,6 +885,7 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
 #define HCONST_20 0x5c558274UL
 #define HCONST_21 0xfa8cfc2dUL
 #define HCONST_22 0x98c475e6UL
+#define HCONST_23 0x36fbef9fUL
 
 #define HASH_MAP_TAIL (_make_header(1,_TAG_HEADER_REF))
 #define HASH_MAP_PAIR (_make_header(2,_TAG_HEADER_REF))
@@ -999,6 +1028,7 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
             switch (context->trap_location) {
             case hash2_common_3:           goto L_hash2_common_3;
             case tag_primary_list:         goto L_tag_primary_list;
+            case record_subtag:            goto L_record_subtag;
             case arityval_subtag:          goto L_arityval_subtag;
             case hamt_subtag_head_flatmap: goto L_hamt_subtag_head_flatmap;
             case map_subtag:               goto L_map_subtag;
@@ -1049,6 +1079,36 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
             Eterm hdr = *boxed_val(term);
             ASSERT(is_header(hdr));
             switch (hdr & _TAG_HEADER_MASK) {
+            case RECORD_SUBTAG:
+            {
+                ErtsRecordInstance* instance;
+                ErtsRecordDefinition *defp;
+                Uint def_hash_val;
+                ErtsMakeHash2Context_RECORD_SUBTAG ctx;
+                int field_count;
+
+                instance = RECORD_INST_P(term);
+                field_count = RECORD_INST_FIELD_COUNT(instance);
+                defp = RECORD_DEF_P(instance);
+                if (!term_to_Uint(defp->hash, &def_hash_val)) {
+                    ERTS_UNREACHABLE;
+                }
+
+                ctx.i = 0;
+                ctx.arity = field_count;
+                ctx.elem = instance->values;
+                UINT32_HASH_2(field_count, def_hash_val, HCONST_23);
+                if (ctx.arity == 0) /* Empty record */
+                    goto hash2_common;
+                for (ctx.i = ctx.arity - 1; ; ctx.i--) {
+                    term = ctx.elem[ctx.i];
+                    if (ctx.i == 0)
+                        break;
+                    ESTACK_PUSH(s, term);
+                    TRAP_LOCATION(record_subtag);
+                }
+            }
+            break;
             case ARITYVAL_SUBTAG:
             {
                 ErtsMakeHash2Context_ARITYVAL_SUBTAG ctx = {
@@ -1162,7 +1222,7 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                 ErlFunThing* funp = (ErlFunThing *) fun_val(term);
 
                 if (is_local_fun(funp)) {
-                    ErlFunEntry* fe = funp->entry.fun;
+                    const ErlFunEntry* fe = funp->entry.fun;
                     ErtsMakeHash2Context_FUN_SUBTAG ctx = {
                         .num_free = fun_num_free(funp),
                         .bptr = NULL};
@@ -1185,7 +1245,7 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                         term = *ctx.bptr;
                     }
                 } else {
-                    Export *ep = funp->entry.exp;
+                    const Export *ep = funp->entry.exp;
 
                     UINT32_HASH_2
                         (ep->info.mfa.arity,
@@ -1276,8 +1336,8 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                     byte *buf = erts_alloc(ERTS_ALC_T_TMP, nr_of_bytes);
                     Uint nr_of_bits_to_copy = ctx.sz*BYTE_BITS+ctx.bitsize;
                     if (can_trap) iterations_until_trap -= iters_for_bin;
-                    erts_copy_bits(ctx.bptr,
-                                   ctx.bitoffs, 1, buf, 0, 1, nr_of_bits_to_copy);
+                    erts_copy_bits_fwd(ctx.bptr, ctx.bitoffs,
+                                       buf, 0, nr_of_bits_to_copy);
                     hash = block_hash(buf, ctx.sz, con);
                     if (ctx.bitsize > 0) {
                         UINT32_HASH_2(ctx.bitsize,
@@ -1312,9 +1372,9 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                         Uint nr_of_bits_to_copy =
                             MIN(nr_of_bits_left, BINARY_BUF_SIZE_BITS);
                         ctx.done = nr_of_bits_left == nr_of_bits_to_copy;
-                        erts_copy_bits(ctx.bptr + ctx.no_bytes_processed,
-                                       ctx.bitoffs, 1, ctx.buf, 0, 1,
-                                       nr_of_bits_to_copy);
+                        erts_copy_bits_fwd(ctx.bptr + ctx.no_bytes_processed,
+                                           ctx.bitoffs, ctx.buf, 0,
+                                           nr_of_bits_to_copy);
                         block_hash_buffer(ctx.buf,
                                           bytes_to_process,
                                           block_hash_ctx);
@@ -1580,6 +1640,7 @@ enum {
     IHASH_TYPE_CDR,
     IHASH_TYPE_STRING,
     IHASH_TYPE_TUPLE,
+    IHASH_TYPE_RECORD,
     IHASH_TYPE_FLATMAP,
     IHASH_TYPE_HASHMAP_HEAD_ARRAY,
     IHASH_TYPE_HASHMAP_HEAD_BITMAP,
@@ -1786,6 +1847,34 @@ make_internal_hash(Eterm term, erts_ihash_t salt)
             ASSERT(is_header(hdr));
 
             switch (hdr & _TAG_HEADER_MASK) {
+            case RECORD_SUBTAG:
+            {
+                const Eterm *elements = &boxed_val(term)[0];
+                const int arity = header_arity(hdr);
+                ErtsRecordInstance* instance;
+                ErtsRecordDefinition* defp;
+
+                IHASH_MIX_ALPHA(IHASH_TYPE_RECORD);
+                IHASH_MIX_BETA(arity);
+
+                instance = (ErtsRecordInstance*)elements;
+                defp = RECORD_DEF_P(instance);
+
+                IHASH_PUSH_TERM(s, defp->hash);
+
+                if (arity > 1) {
+                    for (int i = 2; i < arity; i++) {
+                        IHASH_PUSH_TERM(s, elements[i]);
+                    }
+
+                    term = elements[arity];
+                    continue;
+                }
+
+                goto pop_next;
+            }
+            break;
+
             case ARITYVAL_SUBTAG:
             {
                 const Eterm *elements = &tuple_val(term)[0];
@@ -1948,7 +2037,7 @@ make_internal_hash(Eterm term, erts_ihash_t salt)
                     if (BIT_OFFSET(offset) != 0) {
                         byte *tmp = (byte*)erts_alloc(ERTS_ALC_T_TMP,
                                                       NBYTES(size));
-                        erts_copy_bits(data, offset, 1, tmp, 0, 1, size);
+                        erts_copy_bits_fwd(data, offset, tmp, 0, size);
                         bytes = tmp;
                     } else {
                         bytes = &data[BYTE_OFFSET(offset)];
@@ -1964,12 +2053,12 @@ make_internal_hash(Eterm term, erts_ihash_t salt)
                     value = 0;
                     switch(BYTE_SIZE(size) % sizeof(Uint64[2]))
                     {
-                    case 15: value ^= ((Uint64)bytes[it + 14]) << 0x30;
-                    case 14: value ^= ((Uint64)bytes[it + 13]) << 0x28;
-                    case 13: value ^= ((Uint64)bytes[it + 12]) << 0x20;
-                    case 12: value ^= ((Uint64)bytes[it + 11]) << 0x18;
-                    case 11: value ^= ((Uint64)bytes[it + 10]) << 0x10;
-                    case 10: value ^= ((Uint64)bytes[it +  9]) << 0x08;
+                    case 15: value ^= ((Uint64)bytes[it + 14]) << 0x30; ERTS_FALLTHROUGH();
+                    case 14: value ^= ((Uint64)bytes[it + 13]) << 0x28; ERTS_FALLTHROUGH();
+                    case 13: value ^= ((Uint64)bytes[it + 12]) << 0x20; ERTS_FALLTHROUGH();
+                    case 12: value ^= ((Uint64)bytes[it + 11]) << 0x18; ERTS_FALLTHROUGH();
+                    case 11: value ^= ((Uint64)bytes[it + 10]) << 0x10; ERTS_FALLTHROUGH();
+                    case 10: value ^= ((Uint64)bytes[it +  9]) << 0x08; ERTS_FALLTHROUGH();
                     case  9: value ^= ((Uint64)bytes[it +  8]) << 0x00;
                         {
                             value *= IHASH_C2;
@@ -1977,15 +2066,15 @@ make_internal_hash(Eterm term, erts_ihash_t salt)
                             value *= IHASH_C1;
                             hash_beta ^= value;
                             value = 0;
-                            /* !! FALL THROUGH !! */
+                            ERTS_FALLTHROUGH();
                         }
-                    case  8: value ^= ((Uint64)bytes[it + 7]) << 0x38;
-                    case  7: value ^= ((Uint64)bytes[it + 6]) << 0x30;
-                    case  6: value ^= ((Uint64)bytes[it + 5]) << 0x28;
-                    case  5: value ^= ((Uint64)bytes[it + 4]) << 0x20;
-                    case  4: value ^= ((Uint64)bytes[it + 3]) << 0x18;
-                    case  3: value ^= ((Uint64)bytes[it + 2]) << 0x10;
-                    case  2: value ^= ((Uint64)bytes[it + 1]) << 0x08;
+                    case  8: value ^= ((Uint64)bytes[it + 7]) << 0x38; ERTS_FALLTHROUGH();
+                    case  7: value ^= ((Uint64)bytes[it + 6]) << 0x30; ERTS_FALLTHROUGH();
+                    case  6: value ^= ((Uint64)bytes[it + 5]) << 0x28; ERTS_FALLTHROUGH();
+                    case  5: value ^= ((Uint64)bytes[it + 4]) << 0x20; ERTS_FALLTHROUGH();
+                    case  4: value ^= ((Uint64)bytes[it + 3]) << 0x18; ERTS_FALLTHROUGH();
+                    case  3: value ^= ((Uint64)bytes[it + 2]) << 0x10; ERTS_FALLTHROUGH();
+                    case  2: value ^= ((Uint64)bytes[it + 1]) << 0x08; ERTS_FALLTHROUGH();
                     case  1: value ^= ((Uint64)bytes[it + 0]) << 0x00;
                         {
                             value *= IHASH_C1;

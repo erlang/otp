@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1999-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,12 +35,14 @@
 #include "beam_bp.h"
 #include "beam_catches.h"
 #include "erl_binary.h"
+#include "erl_map.h"
 #include "erl_nif.h"
 #include "erl_bits.h"
 #include "erl_thr_progress.h"
 #include "erl_nfunc_sched.h"
 #include "erl_proc_sig_queue.h"
 #include "beam_file.h"
+#include "erl_record.h"
 
 #include "jit/beam_asm.h"
 
@@ -1082,7 +1086,24 @@ erts_check_copy_literals_gc_need(Process *c_p, int *redsp,
 		goto done;
 	}
     }
-    
+
+    /* Check if there are any *direct* references to literals in the process'
+     * registers.
+     *
+     * These are not guaranteed to be kept up to date, but as we can only land
+     * here during signal handling we KNOW that these are either up to date, or
+     * they are not actually live (effective arity is 0 in a `receive`). Should
+     * any of these registers contain garbage, we merely risk scheduling a
+     * pointless garbage collection as `any_heap_ref_ptrs` doesn't follow
+     * pointers, it just range-checks them. */
+    scanned += c_p->arity;
+    if (any_heap_ref_ptrs(&c_p->arg_reg[0],
+                          &c_p->arg_reg[c_p->arity],
+                          literals,
+                          lit_bsize)) {
+        goto done;
+    }
+
     res = 0; /* no need for gc */
 
 done: {
@@ -1249,6 +1270,196 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
         }
     }
     return 0;
+}
+
+BIF_RETTYPE code_get_debug_info_1(BIF_ALIST_1)
+{
+#ifdef BEAMASM
+    ErtsCodeIndex code_ix;
+    Module* modp;
+    const BeamCodeHeader* hdr;
+    const BeamCodeLineTab* lt;
+    const BeamDebugTab* debug;
+    Sint i, j;
+    Uint alloc_size;
+    Eterm result = NIL;
+    Eterm* hp;
+    Eterm* hend;
+
+    if (is_not_atom(BIF_ARG_1)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    code_ix = erts_active_code_ix();
+    modp = erts_get_module(BIF_ARG_1, code_ix);
+    if (modp == NULL) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    hdr = modp->curr.code_hdr;
+    if (hdr == NULL) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    lt = hdr->line_table;
+
+    debug = hdr->debug;
+    if (debug == NULL) {
+        return am_none;
+    }
+
+    alloc_size = 0;
+
+    for (i = 0; i < debug->item_count; i++) {
+        Uint num_vars = debug->items[i].num_vars;
+        Uint num_calls_terms = debug->items[i].num_calls_terms;
+
+        /* [ {Line, #{frame_size => FrameSize, vars => Pairs, calls => Calls}} ] */
+        alloc_size += 2 + 3 + MAP3_SZ;
+
+        /* Pairs = [{Name, Value}], where Value is an atom or 2-tuple.
+         *
+         * Assume they are all 2-tuples and HRelease() the excess
+         * later. */
+        alloc_size += num_vars * (2 + 3 + 3);
+
+        /* Calls = [mfa() | {atom(), arity()} | binary() */
+         for(j=0; j < num_calls_terms; j++) {
+             Eterm curr = debug->items[i].first[num_vars + j];
+
+             alloc_size += 2; /* cons */
+             if (is_integer(curr)) {
+                 if (unsigned_val(curr) <= MAX_ARG) {
+                     /* mfa() */
+                     alloc_size += 4;
+                     j+=2;
+                 } else {
+                     /* {atom, arity()} */
+                     alloc_size += 3;
+                     j+=1;
+                 }
+             }
+         }
+    }
+
+    hp = HAlloc(BIF_P, alloc_size);
+    hend = hp + alloc_size;
+
+    for (i = debug->item_count-1; i >= 0; i--) {
+        BeamDebugItem* item = &debug->items[i];
+        Sint frame_size = item->frame_size;
+        Uint num_vars = item->num_vars;
+        Uint num_calls_terms = item->num_calls_terms;
+        Eterm *tp;
+        Uint32 location_index, location;
+        Eterm frame_size_term;
+        Eterm var_list = NIL;
+        Eterm calls_list = NIL;
+        Eterm tmp;
+        int last_vars_idx = 2 * (num_vars - 1);
+        int last_calls_term_idx = 2 * num_vars + (num_calls_terms - 1);
+
+        location_index = item->location_index;
+
+        if (location_index == ERTS_UINT32_MAX) {
+            continue;
+        }
+        if (lt->loc_size == 2) {
+            location = lt->loc_tab.p2[location_index];
+        } else {
+            ASSERT(lt->loc_size == 4);
+            location = lt->loc_tab.p4[location_index];
+        }
+
+        switch (frame_size) {
+        case BEAMFILE_FRAMESIZE_ENTRY:
+            frame_size_term = am_entry;
+            break;
+        case BEAMFILE_FRAMESIZE_NONE:
+            frame_size_term = am_none;
+            break;
+        default:
+            ASSERT(frame_size >= 0);
+            frame_size_term = make_small(frame_size);
+            break;
+        }
+
+        tp = &item->first[last_vars_idx];
+        while (num_vars-- != 0) {
+            Eterm val;
+            Eterm tag;
+
+            switch(loader_tag(tp[1])) {
+            case LOADER_X_REG:
+                tag = am_x;
+                val = make_small(loader_x_reg_index(tp[1]));
+                break;
+            case LOADER_Y_REG:
+                tag = am_y;
+                val = make_small(loader_y_reg_index(tp[1]));
+                break;
+            default:
+                tag = am_value;
+                val = tp[1];
+                break;
+            }
+            tmp = TUPLE2(hp, tag, val);
+            hp += 3;
+
+            tmp = TUPLE2(hp, tp[0], tmp);
+            hp += 3;
+
+            tp -= 2;
+
+            var_list = CONS(hp, tmp, var_list);
+            hp += 2;
+        }
+
+        tp = &item->first[last_calls_term_idx];
+        while(num_calls_terms != 0) {
+            if (num_calls_terms > 1 && is_integer(tp[-1])) {
+                Uint arity = unsigned_val(tp[-1]) - (MAX_ARG+1);
+                ASSERT(arity >= 0 && arity <= MAX_ARG);
+
+                tmp = TUPLE2(hp, tp[0], make_small(arity));
+                hp += 3;
+
+                num_calls_terms -= 2;
+                tp -= 2;
+            } else if (num_calls_terms > 2 &&
+                       is_integer(tp[-2]) && unsigned_val(tp[-2]) <= MAX_ARG) {
+                tmp = TUPLE3(hp, tp[-1], tp[0], tp[-2]);
+                hp += 4;
+
+                num_calls_terms -= 3;
+                tp -= 3;
+            } else {
+                tmp = tp[0];
+                num_calls_terms -= 1;
+                tp -= 1;
+            }
+
+            calls_list = CONS(hp, tmp, calls_list);
+            hp += 2;
+        }
+
+        tmp = MAP3(hp,
+                   am_frame_size, frame_size_term,
+                   am_vars, var_list,
+                   am_calls, calls_list);
+        hp += MAP3_SZ;
+
+        tmp = TUPLE2(hp, make_small(LOC_LINE(location)), tmp);
+        hp += 3;
+
+        result = CONS(hp, tmp, result);
+        hp += 2;
+    }
+
+    ASSERT(hp <= hend);
+    HRelease(BIF_P, hend, hp);
+    return result;
+#endif
+
+    BIF_ERROR(BIF_P, BADARG);
 }
 
 /*
@@ -1762,8 +1973,9 @@ erts_purge_state_add_fun(ErlFunEntry *fe)
     purge_state.funs[purge_state.fe_count++] = fe;
 }
 
-Export *
-erts_suspend_process_on_pending_purge_lambda(Process *c_p, ErlFunEntry* fe)
+const Export *
+erts_suspend_process_on_pending_purge_lambda(Process *c_p,
+                                             const ErlFunEntry* fe)
 {
     erts_mtx_lock(&purge_state.mtx);
     if (purge_state.module == fe->module) {
@@ -2220,10 +2432,8 @@ delete_code(Module* modp)
                 }
             }
 
-            if (ep->bif_number != -1 && ep->is_bif_traced) {
-                /* Code unloading kills both global and local call tracing. */
-                ep->is_bif_traced = 0;
-            }
+            ASSERT(!erts_export_is_bif_traced(ep));
+            ep->is_bif_traced = 0;
 
             ep->trampoline.common.op = BeamOpCodeAddr(op_call_error_handler);
             ep->trampoline.not_loaded.deferred = 0;
@@ -2237,6 +2447,9 @@ delete_code(Module* modp)
 
     ASSERT(modp->curr.num_breakpoints == 0);
     ASSERT(modp->curr.num_traced_exports == 0);
+
+    erts_record_module_delete(module);
+
     modp->old = modp->curr;
     erts_module_instance_init(&modp->curr);
 }

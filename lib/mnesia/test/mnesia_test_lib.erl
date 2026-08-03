@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -79,6 +81,7 @@
 	 log/2,
 	 log/4,
 	 verbose/4,
+         match/4,
 	 default_config/0,
 	 diskless/1,
 	 eval_test_case/3,
@@ -103,6 +106,7 @@
 	 start_mnesia/2,
 	 start_appls/2,
 	 start_appls/3,
+	 start_ext_test_server/0,
 	 start_wait/2,
 	 storage_type/2,
 	 stop_mnesia/1,
@@ -130,10 +134,13 @@
 	 struct/1,
 	 init_per_testcase/2,
 	 end_per_testcase/2,
-	 kill_tc/2
+	 kill_tc/2,
+	 get_ext_test_server_name/0
 	]).
 
 -include("mnesia_test_lib.hrl").
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -151,6 +158,44 @@ end_per_testcase(_Func, Config) ->
     %% Nodes = select_nodes(all, Config, ?FILE, ?LINE),
     %% rpc:multicall(Nodes, mnesia, lkill, []),
     Config.
+
+
+match(Expr, Match, File, Line) ->
+    try
+        AR_0 = Expr(),
+        case Match(AR_0) of
+            true ->
+                verbose("ok, ~n Result as expected:~p~n",[AR_0], File, Line),
+                {success, AR_0};
+            {false, Pattern} ->
+                error("Expected ~ts Not Matching Actual result was:~n ~p~n",
+                      [Pattern, AR_0], File, Line),
+                {fail, AR_0}
+        end
+    catch
+        exit:{aborted, _ER_1}:Stacktrace when
+              element(1, _ER_1) =:= node_not_running;
+              element(1, _ER_1) =:= bad_commit;
+              element(1, _ER_1) =:= cyclic ->
+            %% Need to re-raise these to restart transaction
+            erlang:raise(exit, {aborted, _ER_1}, Stacktrace);
+        exit:AR_1:Stacktrace ->
+            AR_2 = {'EXIT', AR_1},
+            case Match(AR_2) of
+                true ->
+                    verbose("ok, ~n Result as expected:~p~n",[AR_2], File, Line),
+                    {success, AR_2};
+                {false, Pattern2} ->
+                    error("Expected ~ts Not Matching Actual result was:~n ~p~n ~p~n",
+                          [Pattern2, AR_2, Stacktrace], File, Line),
+                    {fail, AR_2}
+            end;
+        T1:AR_1:Stacktrace ->
+            error("Not Matching Actual result was:~n ~p~n  ~p~n",
+                  [{T1,AR_1}, Stacktrace], File, Line),
+            {fail,{T1,AR_1}}
+    end.
+
 
 %% Use ?log(Format, Args) as wrapper
 log(Format, Args, LongFile, Line) ->
@@ -430,7 +475,7 @@ default_module(DefaultModule, TestCases) when is_list(TestCases) ->
 		      T -> {true, {DefaultModule, T}}
 		  end
 	  end,
-    lists:zf(Fun, TestCases).
+    lists:filtermap(Fun, TestCases).
 
 get_suite(Module, TestCase, Config) ->
     case get_suite(Module, TestCase) of
@@ -681,6 +726,10 @@ do_prepare([{start_appls, Appls} | Actions], Selected, All, Config, File, Line) 
     do_prepare(Actions, Selected, All, Config, File, Line);
 do_prepare([{reload_appls, Appls} | Actions], Selected, All, Config, File, Line) ->
     reload_appls(Appls, Selected),
+    do_prepare(Actions, Selected, All, Config, File, Line);
+do_prepare([start_ext_test_server | Actions], Selected, All, Config, File, Line) ->
+    Expected = lists:duplicate(length(Selected), ok),
+    {Expected, []} = rpc:multicall(Selected, ?MODULE, start_ext_test_server, []),
     do_prepare(Actions, Selected, All, Config, File, Line).
 
 set_kill_timer(Config) ->
@@ -794,6 +843,20 @@ start_appls([Appl | Appls], Nodes, Config, Tabs) ->
     Bad ++ start_appls(Appls, Nodes, Config, Tabs);
 start_appls([], _Nodes, _Config, _Tabs) ->
     [].
+
+start_ext_test_server() ->
+    case global:whereis_name(get_ext_test_server_name()) of
+        Pid when is_pid(Pid) ->
+            gen_server:stop({global, get_ext_test_server_name()});
+        _ ->
+            ignore
+    end,
+    {ok, _} = gen_server:start({global, get_ext_test_server_name()}, ext_test_server,
+                                    [self()],
+                                    [{timeout, infinity}
+                                     %%, {debug, [trace]}
+                                    ]),
+    ok.
 
 remote_start(mnesia, Config, Nodes) ->
     case diskless(Config) of
@@ -1031,9 +1094,10 @@ verify_replica_location(Tab, DiscOnly0, Ram0, Disc0, AliveNodes0) ->
     timer:sleep(100),
 
     S1 = ?match(AliveNodes, lists:sort(mnesia:system_info(running_db_nodes))),
-    S2 = ?match(DiscOnly, lists:sort(mnesia:table_info(Tab, disc_only_copies))),
+    S2 = ?match(DiscOnly, lists:sort(mnesia:table_info(Tab, disc_only_copies) ++
+                    mnesia:table_info(Tab, ext_disc_only_copies))),
     S3 = ?match(Ram, lists:sort(mnesia:table_info(Tab, ram_copies) ++
-				    mnesia:table_info(Tab, ext_ets))),
+                    mnesia:table_info(Tab, ext_ram_copies))),
     S4 = ?match(Disc, lists:sort(mnesia:table_info(Tab, disc_copies))),
     S5 = ?match(Write, lists:sort(mnesia:table_info(Tab, where_to_write))),
     S6 = case lists:member(This, Read) of
@@ -1046,7 +1110,7 @@ verify_replica_location(Tab, DiscOnly0, Ram0, Disc0, AliveNodes0) ->
 
 ignore_dead(Nodes, AliveNodes) ->
     Filter = fun(Node) -> lists:member(Node, AliveNodes) end,
-    lists:sort(lists:zf(Filter, Nodes)).
+    lists:sort(lists:filtermap(Filter, Nodes)).
 
 
 remote_activate_debug_fun(N, I, F, C, File, Line) ->
@@ -1070,3 +1134,6 @@ sort({ok, L}) when is_list(L) ->
     {ok, lists:sort(L)};
 sort(W) ->
     W.
+
+get_ext_test_server_name() ->
+    list_to_atom("ext_test_server_" ++ atom_to_list(node())).

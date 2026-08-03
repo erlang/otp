@@ -78,6 +78,15 @@
    64-bit alignment will be forced. */
 #undef ERTS_STRUCTURE_ALIGNED_ALLOC
 
+/* Define if builtin ryu should be used */
+#undef ERTS_USE_BUILTIN_RYU
+
+/* Define if builtin zlib should be used */
+#undef ERTS_USE_BUILTIN_ZLIB
+
+/* Define if builtin zstd should be used */
+#undef ERTS_USE_BUILTIN_ZSTD
+
 /* Define if poll() should be used instead of select() */
 #undef ERTS_USE_POLL
 
@@ -89,6 +98,12 @@
 
 /* Enable esock */
 #undef ESOCK_ENABLE
+
+/* SCTP flag DATA-SENT defined */
+#undef ESOCK_SCTP_DATA_SENT
+
+/* SCTP flag DATA-UNSENT defined */
+#undef ESOCK_SCTP_DATA_UNSENT
 
 /* Socket address dl length */
 #undef ESOCK_SDL_LEN
@@ -116,6 +131,9 @@
 
 /* Use socket registry by default */
 #undef ESOCK_USE_SOCKET_REGISTRY
+
+/* Use verbose mutex names */
+#undef ESOCK_VERBOSE_MTX_NAMES
 
 /* Define if bigendian */
 #undef ETHR_BIGENDIAN
@@ -222,8 +240,11 @@
 /* Define if you have darwin style pthread_setname_np */
 #undef ETHR_HAVE_PTHREAD_SETNAME_NP_1
 
-/* Define if you have linux style pthread_setname_np */
+/* Define if you have linux style pthread_setname_np with 2 args */
 #undef ETHR_HAVE_PTHREAD_SETNAME_NP_2
+
+/* Define if you have netbsd style pthread_setname_np with 3 args */
+#undef ETHR_HAVE_PTHREAD_SETNAME_NP_3
 
 /* Define if you have bsd style pthread_set_name_np */
 #undef ETHR_HAVE_PTHREAD_SET_NAME_NP_2
@@ -438,6 +459,9 @@
 /* Define if x86/x86_64 out of order instructions should be synchronized */
 #undef ETHR_X86_OUT_OF_ORDER
 
+/* Define to 1 if _Float16 can be converted from/to double. */
+#undef FLOAT16_IS_CONVERTIBLE
+
 /* Define to 1 if you have the <arpa/nameser.h> header file. */
 #undef HAVE_ARPA_NAMESER_H
 
@@ -470,6 +494,10 @@
 
 /* Define to 1 if you have the <curses.h> header file. */
 #undef HAVE_CURSES_H
+
+/* Define to 1 if you have the declaration of 'daylight', and to 0 if you
+   don't. */
+#undef HAVE_DECL_DAYLIGHT
 
 /* Define to 1 if you have the declaration of 'getrlimit', and to 0 if you
    don't. */
@@ -672,6 +700,10 @@
    '-Waddress-of-packed-member'') */
 #undef HAVE_GCC_DIAG_IGNORE_WADDRESS_OF_PACKED_MEMBER
 
+/* define if compiler support _Pragma('GCC diagnostic ignored
+   '-Wformat-nonliteral'') */
+#undef HAVE_GCC_DIAG_IGNORE_WFORMAT_NONLITERAL
+
 /* Define to 1 if you have a good `getaddrinfo' function. */
 #undef HAVE_GETADDRINFO
 
@@ -864,6 +896,9 @@
 /* Define if setsockopt() accepts multicast options */
 #undef HAVE_MULTICAST_SUPPORT
 
+/* Define to 1 if you have the <ncurses/curses.h> header file. */
+#undef HAVE_NCURSES_CURSES_H
+
 /* Define to 1 if you have the <ndir.h> header file, and it defines 'DIR'. */
 #undef HAVE_NDIR_H
 
@@ -930,6 +965,9 @@
 /* Define to 1 if you have the 'pwrite' function. */
 #undef HAVE_PWRITE
 
+/* Define to 1 if you have the 'recvmmsg' function. */
+#undef HAVE_RECVMMSG
+
 /* Define to 1 if you have the 'res_gethostbyname' function. */
 #undef HAVE_RES_GETHOSTBYNAME
 
@@ -975,6 +1013,9 @@
 /* Define to 1 if you have the `sendfilev' function. */
 #undef HAVE_SENDFILEV
 
+/* Define to 1 if you have the 'sendmmsg' function. */
+#undef HAVE_SENDMMSG
+
 /* Define to 1 if you have the 'setlocale' function. */
 #undef HAVE_SETLOCALE
 
@@ -1010,6 +1051,9 @@
 
 /* Define to 1 if you have the 'strerror' function. */
 #undef HAVE_STRERROR
+
+/* Define to 1 if you have the 'strerrorname_np' function. */
+#undef HAVE_STRERRORNAME_NP
 
 /* Define to 1 if you have the 'strerror_r' function. */
 #undef HAVE_STRERROR_R
@@ -1050,8 +1094,29 @@
 /* Define to 1 if the system has the type 'struct ip_mreqn'. */
 #undef HAVE_STRUCT_IP_MREQN
 
-/* Define to 1 if 'assoc_id' is a member of 'struct sctp_accoc_value'. */
-#undef HAVE_STRUCT_SCTP_ACCOC_VALUE_ASSOC_ID
+/* Define to 1 if 'sas_assoc_id' is a member of 'struct sctp_assoc_stats'. */
+#undef HAVE_STRUCT_SCTP_ASSOC_STATS_SAS_ASSOC_ID
+
+/* Define to 1 if 'sas_ipackets' is a member of 'struct sctp_assoc_stats'. */
+#undef HAVE_STRUCT_SCTP_ASSOC_STATS_SAS_IPACKETS
+
+/* Define to 1 if 'sas_obs_rto_ipaddr' is a member of 'struct
+   sctp_assoc_stats'. */
+#undef HAVE_STRUCT_SCTP_ASSOC_STATS_SAS_OBS_RTO_IPADDR
+
+/* Define to 1 if 'sas_opackets' is a member of 'struct sctp_assoc_stats'. */
+#undef HAVE_STRUCT_SCTP_ASSOC_STATS_SAS_OPACKETS
+
+/* Define to 1 if 'sas_outofseqtsns' is a member of 'struct sctp_assoc_stats'.
+   */
+#undef HAVE_STRUCT_SCTP_ASSOC_STATS_SAS_OUTOFSEQTSNS
+
+/* Define to 1 if 'assoc_id' is a member of 'struct sctp_assoc_value'. */
+#undef HAVE_STRUCT_SCTP_ASSOC_VALUE_ASSOC_ID
+
+/* Define to 1 if 'sctp_assoc_reset_event' is a member of 'struct
+   sctp_event_subscribe'. */
+#undef HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_ASSOC_RESET_EVENT
 
 /* Define to 1 if 'sctp_authentication_event' is a member of 'struct
    sctp_event_subscribe'. */
@@ -1061,20 +1126,53 @@
    sctp_event_subscribe'. */
 #undef HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_SENDER_DRY_EVENT
 
+/* Define to 1 if 'sctp_stream_change_event' is a member of 'struct
+   sctp_event_subscribe'. */
+#undef HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_STREAM_CHANGE_EVENT
+
+/* Define to 1 if 'sctp_stream_reset_event' is a member of 'struct
+   sctp_event_subscribe'. */
+#undef HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_STREAM_RESET_EVENT
+
+/* Define to 1 if 'spp_dscp' is a member of 'struct sctp_paddrparams'. */
+#undef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_DSCP
+
 /* Define to 1 if 'spp_flags' is a member of 'struct sctp_paddrparams'. */
 #undef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_FLAGS
 
 /* Define to 1 if 'spp_pathmtu' is a member of 'struct sctp_paddrparams'. */
 #undef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_PATHMTU
 
+/* Define to 1 if 'spp_pv6_flowlabel' is a member of 'struct
+   sctp_paddrparams'. */
+#undef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_PV6_FLOWLABEL
+
 /* Define to 1 if 'spp_sackdelay' is a member of 'struct sctp_paddrparams'. */
 #undef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_SACKDELAY
+
+/* Define to 1 if 'pdapi_seq' is a member of 'struct sctp_pdapi_event'. */
+#undef HAVE_STRUCT_SCTP_PDAPI_EVENT_PDAPI_SEQ
+
+/* Define to 1 if 'pdapi_stream' is a member of 'struct sctp_pdapi_event'. */
+#undef HAVE_STRUCT_SCTP_PDAPI_EVENT_PDAPI_STREAM
 
 /* Define to 1 if 'sre_data' is a member of 'struct sctp_remote_error'. */
 #undef HAVE_STRUCT_SCTP_REMOTE_ERROR_SRE_DATA
 
+/* Define to 1 if 'ssfe_data' is a member of 'struct sctp_send_failed_event'.
+   */
+#undef HAVE_STRUCT_SCTP_SEND_FAILED_EVENT_SSFE_DATA
+
 /* Define to 1 if 'ssf_data' is a member of 'struct sctp_send_failed'. */
 #undef HAVE_STRUCT_SCTP_SEND_FAILED_SSF_DATA
+
+/* Define to 1 if 'strreset_list' is a member of 'struct
+   sctp_stream_reset_event'. */
+#undef HAVE_STRUCT_SCTP_STREAM_RESET_EVENT_STRRESET_LIST
+
+/* Define to 1 if 'strreset_stream_list' is a member of 'struct
+   sctp_stream_reset_event'. */
+#undef HAVE_STRUCT_SCTP_STREAM_RESET_EVENT_STRRESET_STREAM_LIST
 
 /* Define to 1 if 'sdl_len' is a member of 'struct sockaddr_dl'. */
 #undef HAVE_STRUCT_SOCKADDR_DL_SDL_LEN

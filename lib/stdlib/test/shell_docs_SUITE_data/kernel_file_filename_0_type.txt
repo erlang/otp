@@ -1,6 +1,13 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-type filename() :: string().[0m
+[1m  filename()[0m
 
-  A file name as returned from [;;4mfile[0m API functions.
+  A file name as returned from [4mfile[0m API functions.
 
-  See the documentation of the [;;4mname_all/0[0m type.
+  See the documentation of the [4mname_all/0[0m type.

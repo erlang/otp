@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2008-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +31,7 @@
 #include "bif.h"
 #include "erl_binary.h"
 #include "big.h"
-#include "zlib.h"
+#include "erl_zlib.h"
 #include "erl_md5.h"
 
 
@@ -277,8 +279,8 @@ static void crc32_wrap(void *vsum, const byte *buf, unsigned buflen)
 
 static void md5_wrap(void *vsum, const byte *buf, unsigned buflen)
 {
-    MD5_CTX *ctx = ((MD5_CTX *) vsum);
-    MD5Update(ctx, (unsigned char*)buf, buflen);
+    erts_md5_state *state = ((erts_md5_state*) vsum);
+    erts_md5_update(state, buf, buflen);
 }
 
 #define BYTES_PER_REDUCTION 10
@@ -454,11 +456,16 @@ md5_1(BIF_ALIST_1)
 {
     Eterm bin, rest;
     int res, err;
+    erts_md5_state context;
+    Sint32 reds;
 
-    MD5_CTX context;
-    MD5Init(&context);
+    erts_md5_init(&context);
 
-    rest = do_chksum(&md5_wrap,BIF_P,BIF_ARG_1,100,(void *) &context,&res,
+    /* Calibrate so that each reduction will do one round of MD5
+     * calculation (process 4 bytes). Round down to a multiple of 64
+     * bytes to avoid unnecessary copying to/from the state buffer. */
+    reds = (4 * ERTS_BIF_REDS_LEFT(BIF_P)) & ~0x3f;
+    rest = do_chksum(&md5_wrap,BIF_P,BIF_ARG_1,reds,(void *) &context,&res,
                      &err);
 
     if (err != 0) {
@@ -469,14 +476,14 @@ md5_1(BIF_ALIST_1)
     if (rest != NIL) {
         BUMP_ALL_REDS(BIF_P);
 
-        bin = erts_new_binary_from_data(BIF_P, sizeof(MD5_CTX), (byte*)&context);
+        bin = erts_new_binary_from_data(BIF_P, sizeof(erts_md5_state), (byte*)&context);
 
         BIF_TRAP2(&chksum_md5_2_exp, BIF_P, bin, rest);
     } else {
         byte checksum[MD5_SIZE];
 
         BUMP_REDS(BIF_P, res);
-        MD5Final(checksum, &context);
+        erts_md5_finish(checksum, &context);
 
         return erts_new_binary_from_data(BIF_P, MD5_SIZE, checksum);
     }
@@ -487,22 +494,24 @@ static BIF_RETTYPE
 md5_2(BIF_ALIST_2)
 {
     Uint offset, size;
-    MD5_CTX context;
+    erts_md5_state context;
     byte *bytes;
     Eterm rest;
     Eterm bin;
     int res, err;
+    Sint32 reds;
 
     /* No need to check context, this function cannot be called with unaligned
      * or badly sized context as it's always trapped to. */
     ERTS_GET_BITSTRING(BIF_ARG_1, bytes, offset, size);
 
-    ASSERT((offset == 0) && (size == NBITS(sizeof(MD5_CTX))));
+    ASSERT((offset == 0) && (size == NBITS(sizeof(erts_md5_state))));
     (void)offset;
     (void)size;
 
-    sys_memcpy(&context, bytes, sizeof(MD5_CTX));
-    rest = do_chksum(&md5_wrap, BIF_P, BIF_ARG_2, 100, (void*)&context, &res,
+    sys_memcpy(&context, bytes, sizeof(erts_md5_state));
+    reds = (4 * ERTS_BIF_REDS_LEFT(BIF_P)) & ~0x3f;
+    rest = do_chksum(&md5_wrap, BIF_P, BIF_ARG_2, reds, (void*)&context, &res,
                      &err);
 
     if (err != 0) {
@@ -513,14 +522,14 @@ md5_2(BIF_ALIST_2)
     if (rest != NIL) {
         BUMP_ALL_REDS(BIF_P);
 
-        bin = erts_new_binary_from_data(BIF_P, sizeof(MD5_CTX), (byte*)&context);
+        bin = erts_new_binary_from_data(BIF_P, sizeof(erts_md5_state), (byte*)&context);
 
         BIF_TRAP2(&chksum_md5_2_exp, BIF_P, bin, rest);
     } else {
         byte checksum[MD5_SIZE];
 
         BUMP_REDS(BIF_P, res);
-        MD5Final(checksum, &context);
+        erts_md5_finish(checksum, &context);
 
         return erts_new_binary_from_data(BIF_P, MD5_SIZE, checksum);
     }
@@ -532,8 +541,8 @@ md5_init_0(BIF_ALIST_0)
     Eterm bin;
     byte* bytes;
 
-    bin = erts_new_binary(BIF_P, sizeof(MD5_CTX), &bytes);
-    MD5Init((MD5_CTX*)bytes);
+    bin = erts_new_binary(BIF_P, sizeof(erts_md5_state), &bytes);
+    erts_md5_init((erts_md5_state*)bytes);
 
     BIF_RET(bin);
 }
@@ -542,23 +551,25 @@ BIF_RETTYPE
 md5_update_2(BIF_ALIST_2)
 {
     const byte *temp_alloc = NULL, *bytes;
-    MD5_CTX *context;
+    erts_md5_state *context;
     Eterm rest;
     Eterm bin;
     int res, err;
     Uint size;
+    Sint32 reds;
 
     bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &size, &temp_alloc);
-    if (bytes == NULL || size != sizeof(MD5_CTX)) {
+    if (bytes == NULL || size != sizeof(erts_md5_state)) {
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    bin = erts_new_binary(BIF_P, sizeof(MD5_CTX), (byte**)&context);
-    sys_memcpy(context, bytes, sizeof(MD5_CTX));
+    bin = erts_new_binary(BIF_P, sizeof(erts_md5_state), (byte**)&context);
+    sys_memcpy(context, bytes, sizeof(erts_md5_state));
 
     erts_free_aligned_binary_bytes(temp_alloc);
 
-    rest = do_chksum(&md5_wrap, BIF_P, BIF_ARG_2, 100, (void *)context, &res,
+    reds = (4 * ERTS_BIF_REDS_LEFT(BIF_P)) & ~0x3f;
+    rest = do_chksum(&md5_wrap, BIF_P, BIF_ARG_2, reds, (void *)context, &res,
                      &err);
 
     if (err != 0) {
@@ -579,21 +590,21 @@ BIF_RETTYPE
 md5_final_1(BIF_ALIST_1)
 {
     const byte *temp_alloc = NULL, *context;
-    MD5_CTX ctx_copy;
+    erts_md5_state ctx_copy;
     byte* result;
     Uint size;
     Eterm bin;
 
     context = erts_get_aligned_binary_bytes(BIF_ARG_1, &size, &temp_alloc);
-    if (context == NULL || size != sizeof(MD5_CTX)) {
+    if (context == NULL || size != sizeof(erts_md5_state)) {
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    sys_memcpy(&ctx_copy, context, sizeof(MD5_CTX));
+    sys_memcpy(&ctx_copy, context, sizeof(erts_md5_state));
     erts_free_aligned_binary_bytes(temp_alloc);
 
     bin = erts_new_binary(BIF_P, MD5_SIZE, &result);
-    MD5Final(result, &ctx_copy);
+    erts_md5_finish(result, &ctx_copy);
 
     BIF_RET(bin);
 }

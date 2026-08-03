@@ -1,6 +1,8 @@
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -86,12 +88,14 @@
          ssh_hostkey_fingerprint_list/1,
 
          chk_known_hosts/1,
-         ssh_hostkey_pkcs8/1
+         ssh_hostkey_pkcs8/1,
+         ec_private_key_version_compat/1
         ]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 -include("ssh_test_lib.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 %%%----------------------------------------------------------------
 %%% Common Test interface functions -------------------------------
@@ -108,7 +112,8 @@ all() ->
      {group, ssh_hostkey_fingerprint},
      {group, ssh_public_key_decode_encode},
      {group, pkcs8},
-     chk_known_hosts
+     chk_known_hosts,
+     ec_private_key_version_compat
     ].
 
 
@@ -573,13 +578,12 @@ ssh_list_public_key(Config) when is_list(Config) ->
                                   ["openssh_rsa_pub", "openssh_dsa_pub", "openssh_ecdsa_pub"]),
 
     true =
-        (chk_decode(Data_openssh,   Expect_openssh, openssh_key) and
-         chk_decode(Data_ssh2,      Expect_ssh2,    rfc4716_key) and
-         chk_decode(Data_openssh,   Expect_openssh, public_key)         and
-         chk_decode(Data_ssh2,      Expect_ssh2,    public_key)         and
-         chk_encode(Expect_openssh, openssh_key) and
-         chk_encode(Expect_ssh2,    rfc4716_key)
-        ).
+        chk_decode(Data_openssh,   Expect_openssh, openssh_key) andalso
+        chk_decode(Data_ssh2,      Expect_ssh2,    rfc4716_key) andalso
+        chk_decode(Data_openssh,   Expect_openssh, public_key)  andalso
+        chk_decode(Data_ssh2,      Expect_ssh2,    public_key)  andalso
+        chk_encode(Expect_openssh, openssh_key)                 andalso
+        chk_encode(Expect_ssh2,    rfc4716_key).
 
 chk_encode(Data, Type) ->
     case ssh_file:decode(ssh_file:encode(Data,Type), Type) of
@@ -638,12 +642,14 @@ ssh_rfc4716_rsa_comment(Config) when is_list(Config) ->
     {ok, RSARawSsh2} = file:read_file(filename:join(Datadir, "ssh2_rsa_comment_pub")),
     [{#'RSAPublicKey'{} = PubKey, Attributes}] =
         ssh_file:decode(RSARawSsh2, public_key),
-
     Headers = proplists:get_value(headers, Attributes),
-
     Value = proplists:get_value("Comment", Headers, undefined),
     true = Value =/= undefined,
-    RSARawSsh2 = ssh_file:encode([{PubKey, Attributes}], rfc4716_key).
+    Encoded = ssh_file:encode([{PubKey, Attributes}], rfc4716_key),
+    %% matching license in 1st segment
+    LicenseSize = byte_size(RSARawSsh2) - byte_size(Encoded),
+    <<_:LicenseSize/binary, RSARawSsh2NoLicense/binary>> = RSARawSsh2,
+    RSARawSsh2NoLicense = Encoded.
 
 %%--------------------------------------------------------------------
 ssh_rfc4716_dsa_comment(Config) when is_list(Config) ->
@@ -702,7 +708,7 @@ ssh_known_hosts(Config) when is_list(Config) ->
 
     Value1 = proplists:get_value(hostnames, Attributes1, undefined),
     Value2 = proplists:get_value(hostnames, Attributes2, undefined),
-    true = (Value1 =/= undefined) and (Value2 =/= undefined),
+    true = Value1 =/= undefined andalso Value2 =/= undefined,
 
     Encoded = ssh_file:encode(Decoded, known_hosts),
     Decoded = ssh_file:decode(Encoded, known_hosts).
@@ -717,7 +723,7 @@ ssh1_known_hosts(Config) when is_list(Config) ->
 
     Value1 = proplists:get_value(hostnames, Attributes1, undefined),
     Value2 = proplists:get_value(hostnames, Attributes2, undefined),
-    true = (Value1 =/= undefined) and (Value2 =/= undefined),
+    true = Value1 =/= undefined andalso Value2 =/= undefined,
 
     Comment ="dhopson@VMUbuntu-DSH comment with whitespaces",
     Comment = proplists:get_value(comment, Attributes3),
@@ -761,7 +767,7 @@ ssh1_auth_keys(Config) when is_list(Config) ->
 
     Value1 = proplists:get_value(bits, Attributes2, undefined),
     Value2 = proplists:get_value(bits, Attributes3, undefined),
-    true = (Value1 =/= undefined) and (Value2 =/= undefined),
+    true = Value1 =/= undefined andalso Value2 =/= undefined,
 
     Comment2 = Comment3 = "dhopson@VMUbuntu-DSH",
     Comment4 = Comment5 ="dhopson@VMUbuntu-DSH comment with whitespaces",
@@ -791,6 +797,32 @@ ssh_openssh_key_long_header(Config) when is_list(Config) ->
 
     Encoded = ssh_file:encode(Decoded, rfc4716_key),
     Decoded = ssh_file:decode(Encoded, rfc4716_key).
+
+ec_private_key_version_compat(Config) when is_list(Config) ->
+    Keys =
+        [begin
+             try
+                 % with OTP 28: version = ecPrivkeyVer1 (atom) not integer
+                 {Curve, public_key:generate_key({namedCurve, Curve})}
+             catch Error:Reason:Stacktrace ->
+                     ?CT_LOG("SKIP Curve = ~p Error = ~p Reason = ~p~n~p",
+                             [Curve, Error, Reason, Stacktrace]),
+                     skip
+             end
+         end || Curve <- [ed25519, ed448, secp256r1, secp384r1]],
+    case lists:any(fun(I) -> I /= skip end, Keys) of
+        true ->
+            [begin
+                 PrivLegacy = K#'ECPrivateKey'{version = 1}, % OTP-26, OTP-27
+                 Encoded = ssh_message:ssh2_privkey_encode(K),
+                 EncodedLegacy = ssh_message:ssh2_privkey_encode(PrivLegacy),
+                 ?assertEqual(Encoded, EncodedLegacy),
+                 ?CT_LOG("Curve = ~p [OK]", [Curve])
+             end || {Curve, K} <- Keys, K /= skip];
+        false ->
+            ct:fail(no_keys)
+    end,
+    ok.
 
 %%%----------------------------------------------------------------
 %%% Test case helpers

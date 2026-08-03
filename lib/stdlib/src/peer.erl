@@ -1,4 +1,9 @@
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2026. All Rights Reserved.
 %% Copyright WhatsApp Inc. and its affiliates. All rights reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,6 +17,8 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% %CopyrightEnd%
 %%
 
 %% @doc
@@ -41,6 +48,8 @@
 -module(peer).
 -author("maximfca@gmail.com").
 
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %% This mode has to be compilable on old nodes, so we ifdef out all
 %% -doc attributes when compiling before 27.
 -if(?OTP_RELEASE < 27).
@@ -51,6 +60,9 @@
 -moduledoc({file, "../doc/src/peer.md"}).
 -moduledoc(#{since => "OTP 25.0"}).
 -endif.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, binary_to_term, 1}},
+          nowarn_deprecated_catch]).
 
 %% API
 -export([

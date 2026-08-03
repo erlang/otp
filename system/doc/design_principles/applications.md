@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -30,7 +32,7 @@ After creating code to implement a specific functionality, you might
 consider transforming it into an *application* — a component that can be
 started and stopped as a unit, as well as reused in other systems.
 
-The steps to create an application is as follows:
+The steps to create an application are as follows:
 
 * Create an [application callback
   module](applications.md#callback_module) that describes how the
@@ -238,8 +240,8 @@ Other directories in the development environment may be needed. If source code
 from languages other than Erlang is used, for instance C-code for NIFs, that
 code should be placed in a separate directory. By convention it is recommended
 to prefix such directories with the language name, for example `c_src` for C,
-`java_src` for Java or `go_src` for Go. Directories with `_src` suffix indicates
-that it is a part of the application and the compilation step. The final build
+`java_src` for Java or `go_src` for Go. Directories with `_src` suffix indicate
+that they are a part of the application and the compilation step. The final build
 artifacts should target the `priv/lib` or `priv/bin` directories.
 
 The `priv` directory holds assets that the application needs during runtime.
@@ -307,7 +309,7 @@ A released application must follow a certain structure.
 
 The `src` directory could be useful to release for debugging purposes,
 but this is not required. The `include` directory should only be
-released if the applications has public include files.
+released if the application has public include files.
 
 It is encouraged to omit empty directories.
 
@@ -404,7 +406,7 @@ ok
 
 The application master stops the application by telling the top supervisor to
 shut down. The top supervisor tells all its child processes to shut down, and so
-on; the entire tree is terminated in reversed start order. The application
+on; the entire tree is terminated in reverse start order. The application
 master then calls the application callback function `stop/1` in the module
 defined by the `mod` key.
 

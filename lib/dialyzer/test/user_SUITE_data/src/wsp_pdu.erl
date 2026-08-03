@@ -1,9 +1,13 @@
-%%%=======================================================================
-%%% File        : wsp_pdu.erl
-%%% Author      : Tony Rogvall <tony@bit.hemma.se>
-%%% Description : WSP PDU
-%%% Created     : 18 Aug 2003 by <tony@bit.hemma.se>
-%%%=======================================================================
+%%%
+%%% %CopyrightBegin%
+%%%
+%%% SPDX-License-Identifier: NOASSERTION
+%%%
+%%% Copyright Tony Rogvall 2003. All Rights Reserved.
+%%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%%
+%%% %CopyrightEnd%
 %%%
 %%% There are a couple of bugs in this file. Some are detected by
 %%% Dialyzer v1.1 starting both from byte code and from source, some
@@ -15,10 +19,8 @@
 %%% require different techniques.
 %%%
 %%%=======================================================================
-
 -module(wsp_pdu).
 -export([encode/1, encode/2, decode/1, decode/2]).
-
 %% The following is just to suppress unused function warnings
 -export([decode_address/1, decode_header/2,
 	 decode_headers/1, decode_mms_version/1, decode_multipart/1,
@@ -27,10 +29,8 @@
 	 fmt_current_date/0,
 	 format_header/1, format_headers/1,
 	 parse_header/1, format/1]).
-
 -include("wsp.hrl").
 -include("wdp.hrl").
-
 -ifdef(debug).
 -define(dbg(Fmt,Args), io:format(Fmt, Args)).
 -else.
@@ -46,29 +46,29 @@
 
 
 format(Pdu) ->
-    if record(Pdu, wsp_connect) ->
+    if is_record(Pdu, wsp_connect) ->
 	    fmt(Pdu, record_info(fields, wsp_connect));
-       record(Pdu, wsp_connect_reply) ->
+       is_record(Pdu, wsp_connect_reply) ->
 	    fmt(Pdu, record_info(fields, wsp_connect_reply));
-       record(Pdu, wsp_redirect) ->
+       is_record(Pdu, wsp_redirect) ->
 	    fmt(Pdu, record_info(fields, wsp_redirect));
-       record(Pdu, wsp_disconnect) ->
+       is_record(Pdu, wsp_disconnect) ->
 	    fmt(Pdu, record_info(fields, wsp_disconnect));
-       record(Pdu, wsp_get) ->
+       is_record(Pdu, wsp_get) ->
 	    fmt(Pdu, record_info(fields, wsp_get));
-       record(Pdu, wsp_post) ->
+       is_record(Pdu, wsp_post) ->
 	    fmt(Pdu, record_info(fields, wsp_post));
-       record(Pdu,wsp_reply) ->
+       is_record(Pdu,wsp_reply) ->
 	    fmt(Pdu, record_info(fields, wsp_reply));
-       record(Pdu,wsp_data_fragment_pdu) ->
+       is_record(Pdu,wsp_data_fragment_pdu) ->
 	    fmt(Pdu, record_info(fields, wsp_data_fragment_pdu));
-       record(Pdu,wsp_push) ->
+       is_record(Pdu,wsp_push) ->
 	    fmt(Pdu, record_info(fields, wsp_push));
-       record(Pdu, wsp_suspend) ->
+       is_record(Pdu, wsp_suspend) ->
 	    fmt(Pdu, record_info(fields, wsp_suspend));
-       record(Pdu, wsp_resume) ->
+       is_record(Pdu, wsp_resume) ->
 	    fmt(Pdu, record_info(fields, wsp_resume));
-       record(Pdu, wsp_unknown_pdu) ->
+       is_record(Pdu, wsp_unknown_pdu) ->
 	    fmt(Pdu, record_info(fields, wsp_unknown_pdu))
     end.
 
@@ -81,7 +81,7 @@ fmt1([F|Fs],[V|Vs]) ->
 fmt1([], []) ->
     "".
 
-fmt_value(V) when binary(V) -> "#Bin";
+fmt_value(V) when is_binary(V) -> "#Bin";
 fmt_value(V) -> lists:flatten(io_lib:format("~p",[V])).
 
 
@@ -361,7 +361,7 @@ encode_pdu_type('DELETE') -> ?WSP_Delete;
 encode_pdu_type('TRACE') -> ?WSP_Trace;
 encode_pdu_type('POST') -> ?WSP_Post;
 encode_pdu_type('PUT') -> ?WSP_Put;
-encode_pdu_type(Type) when integer(Type) -> Type.
+encode_pdu_type(Type) when is_integer(Type) -> Type.
 
 
 decode_pdu_type(?WSP_Connect) -> connect;
@@ -386,15 +386,15 @@ decode_pdu_type(Type) -> Type.  %% allow unknown pdu types.
 
 %% Convert various data types to list
 
-to_list(I) when integer(I) ->
+to_list(I) when is_integer(I) ->
     integer_to_list(I);
-to_list(A) when atom(A) ->
+to_list(A) when is_atom(A) ->
     atom_to_list(A);
-to_list(Version={X,Y}) when integer(X), integer(Y) ->
+to_list(Version={X,Y}) when is_integer(X), is_integer(Y) ->
     format_version(Version);
 to_list(DateTime={{_,_,_},{_,_,_}}) ->
     fmt_date(DateTime);
-to_list(L) when list(L) ->
+to_list(L) when is_list(L) ->
     L.
 
 
@@ -435,7 +435,7 @@ encode_capabilities(Cap,Def) ->
 			   Cap#wsp_capabilities.server_message_size,
 			   Def#wsp_capabilities.server_message_size)],
     Unknown =
-	lists:map(fun({Id, Data}) when integer(Id) ->
+        lists:map(fun({Id, Data}) when is_integer(Id) ->
 			  <<1:1, Id:7, Data/binary>>;
 		     ({Id,Data}) ->
 			  <<(encode_text_string(Id))/binary, Data/binary>>
@@ -494,7 +494,7 @@ encode_capability(Capa, Value, _) ->
 
 	?WSP_CAP_HEADER_CODE_PAGES ->
 	    Data = list_to_binary(
-		     lists:map(fun(Page) when integer(Page) -> Page;
+                     lists:map(fun(Page) when is_integer(Page) -> Page;
 				  ({Page,Name}) ->
 				       [Page, encode_text_string(Name)]
 			       end, Value)),
@@ -507,9 +507,9 @@ encode_capability(Capa, Value, _) ->
 	?WSP_CAP_SERVER_MESSAGE_SIZE ->
 	    <<1:1, ?WSP_CAP_SERVER_MESSAGE_SIZE:7,
 	     (e_uintvar(Value))/binary>>;
-	_ when integer(Capa) ->
+        _ when is_integer(Capa) ->
 	    <<1:1, Capa:7, Value/binary>>;
-	_ when list(Capa) ->
+        _ when is_list(Capa) ->
 	    <<(encode_text_string(Capa))/binary, Value/binary>>
    end.
 
@@ -1049,10 +1049,10 @@ encode_header(H, Version) ->
 	    [16#c9, encode_x_wap_loc_invocation(H,Version)];
 	'X-Wap-Loc-Delivery' when Version >= ?WSP_15 ->
 	    [16#ca, encode_x_wap_loc_delivery(H,Version)];
-	Field when atom(Field) ->
+        Field when is_atom(Field) ->
 	    [encode_text_string(atom_to_list(Field)),
 	     encode_text_string(H#wsp_header.value)];
-	Field when list(Field) ->
+        Field when is_list(Field) ->
 	    [encode_text_string(Field),
 	     encode_text_string(H#wsp_header.value)]
     end.
@@ -1321,10 +1321,10 @@ encode_accept(H, Version) ->
 	    e_value(Media, Params)
     end.
 
-decode_accept(Value, Version) when integer(Value) ->
+decode_accept(Value, Version) when is_integer(Value) ->
     %% Constrained-encoding: Short-Integer
     ?WH('Accept',decode_well_known_media(Value, Version),[]);
-decode_accept(Value, Version) when list(Value) ->
+decode_accept(Value, Version) when is_list(Value) ->
     ?WH('Accept',decode_well_known_media(Value,Version),[]);
 decode_accept({_,Data}, Version)  ->
     %% Accept-general-form
@@ -1355,9 +1355,9 @@ encode_accept_charset(H, _Version) ->
 
 decode_accept_charset(0, _Version) ->
     ?WH('Accept-Charset',"*",[]);
-decode_accept_charset(Value, _Version) when integer(Value) ->
+decode_accept_charset(Value, _Version) when is_integer(Value) ->
     ?WH('Accept-Charset', decode_charset(Value),[]);
-decode_accept_charset(Value, _Version) when list(Value) ->
+decode_accept_charset(Value, _Version) when is_list(Value) ->
     ?WH('Accept-Charset',Value,[]);
 decode_accept_charset({short,Data}, _Version) ->
     %% Me guessing that the short form SHOULD be mulit octet integer!!!
@@ -1368,9 +1368,9 @@ decode_accept_charset({long,Value}, _Version) ->
     CharSet = case Data1 of
 		  0 ->
 		      "*";
-		  Value1 when integer(Value1) ->
+                  Value1 when is_integer(Value1) ->
 		      decode_charset(Value1);
-		  Value1 when list(Value1) ->
+                  Value1 when is_list(Value1) ->
 		      Value1;
 		  {short,Value1} ->
 		      Value2 = d_long(Value1),
@@ -1412,9 +1412,9 @@ decode_accept_encoding(1, _Version) ->
     ?WH('Accept-Encoding',"compress",[]);
 decode_accept_encoding(2, _Version) ->
     ?WH('Accept-Encoding',"deflate",[]);
-decode_accept_encoding(Value, Version) when list(Version) ->
+decode_accept_encoding(Value, Version) when is_list(Version) ->
     ?WH('Accept-Encoding',Value,[]);
-decode_accept_encoding({_,Data}, _Version) when binary(Data) ->
+decode_accept_encoding({_,Data}, _Version) when is_binary(Data) ->
     {Enc, Data1} = scan_header_data(Data),
     Params = if Data1 == <<>> ->
 		     [];
@@ -1427,7 +1427,7 @@ decode_accept_encoding({_,Data}, _Version) when binary(Data) ->
 	1 -> ?WH('Accept-Encoding',"compress",Params);
 	2 -> ?WH('Accept-Encoding',"deflate",Params);
 	3 -> ?WH('Accept-Encoding',"*",Params);
-	_ when list(Enc) ->
+        _ when is_list(Enc) ->
 	    ?WH('Accept-Encoding',Enc,Params)
     end.
 
@@ -1454,18 +1454,18 @@ encode_accept_language(H, _Version) ->
 
 decode_accept_language(0, _Version) ->
     ?WH('Accept-Language',"*",[]);
-decode_accept_language(Value, _Version) when integer(Value) ->
+decode_accept_language(Value, _Version) when is_integer(Value) ->
     ?WH('Accept-Language',decode_lang(Value),[]);
-decode_accept_language(Value, _Version) when list(Value) ->
+decode_accept_language(Value, _Version) when is_list(Value) ->
     ?WH('Accept-Language',Value,[]);
 decode_accept_language({_,Data}, _Version) ->
     {Data1, QData} = scan_header_data(Data),
     Charset = case Data1 of
 		  0 ->
 		      "*";
-		  Value1 when integer(Value1) ->
+                  Value1 when is_integer(Value1) ->
 		      decode_lang(Value1);
-		  Value1 when list(Value1) ->
+                  Value1 when is_list(Value1) ->
 		      Value1;
 		  {short,Data2} ->
 		      decode_lang(d_long(Data2))
@@ -1503,7 +1503,7 @@ decode_accept_ranges(0, _Version) ->
     ?WH('Accept-Ranges', "none", []);
 decode_accept_ranges(1, _Version) ->
     ?WH('Accept-Ranges', "bytes", []);
-decode_accept_ranges(Value, _Version) when list(Value) ->
+decode_accept_ranges(Value, _Version) when is_list(Value) ->
     ?WH('Accept-Ranges', Value, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1523,7 +1523,7 @@ format_age(H) ->
 encode_age(H, _Version) ->
     e_delta_seconds(H#wsp_header.value).
 
-decode_age(Value, _Version) when integer(Value) ->
+decode_age(Value, _Version) when is_integer(Value) ->
     ?WH('Age', Value, []);
 decode_age({short,Data}, _Version) ->
     ?WH('Age', d_long(Data), []).
@@ -1636,7 +1636,7 @@ encode_cache_control(H, Version) ->
     end.
 
 
-decode_cache_control(Value, _Version) when integer(Value) ->
+decode_cache_control(Value, _Version) when is_integer(Value) ->
     case Value of
 	0 -> ?WH('Cache-Control',"no-cache",[]);
 	1 -> ?WH('Cache-Control',"no-store",[]);
@@ -1648,7 +1648,7 @@ decode_cache_control(Value, _Version) when integer(Value) ->
 	9 -> ?WH('Cache-Control',"must-revalidate",[]);
 	10 -> ?WH('Cache-Control',"proxy-revalidate",[])
     end;
-decode_cache_control(Value, _Version) when list(Value) ->
+decode_cache_control(Value, _Version) when is_list(Value) ->
     ?WH('Cache-Control',Value,[]);
 decode_cache_control({_,Data},Version) ->
     {CacheDir, Data1} = scan_header_data(Data),
@@ -1668,7 +1668,7 @@ decode_cache_control({_,Data},Version) ->
 	11 ->
 	    {Sec,_} = d_integer_value(Data1),
 	    ?WH('Cache-Control',"",[{'s-maxage',Sec}]);
-	Ext when list(Ext) ->
+        Ext when is_list(Ext) ->
 	    {Param,_} = decode_parameter(Data1, Version),
 	    ?WH('Cache-Control',Ext,[Param])
     end.
@@ -1694,7 +1694,7 @@ encode_connection(H, _Version) ->
 
 decode_connection(0, _Version) ->
     ?WH('Connection', "close", []);
-decode_connection(Value, _Version) when list(Value) ->
+decode_connection(Value, _Version) when is_list(Value) ->
     ?WH('Connection', Value, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1712,7 +1712,7 @@ format_content_base(H) ->
 encode_content_base(H, _Version) ->
     encode_uri_value(H#wsp_header.value).
 
-decode_content_base(Value, _Version) when list(Value) ->
+decode_content_base(Value, _Version) when is_list(Value) ->
     ?WH('Content-Base', Value, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1743,7 +1743,7 @@ decode_content_encoding(1, _Version) ->
     ?WH('Content-Encoding', "compress", []);
 decode_content_encoding(2, _Version) ->
     ?WH('Content-Encoding',"deflate", []);
-decode_content_encoding(Value, _Version) when list(Value) ->
+decode_content_encoding(Value, _Version) when is_list(Value) ->
     ?WH('Content-Encoding', Value, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1770,14 +1770,14 @@ encode_content_language(H, _Version) ->
 
 decode_content_language(0, _Version) ->
     ?WH('Content-Language',"*",[]);
-decode_content_language(Value, _Version) when integer(Value) ->
+decode_content_language(Value, _Version) when is_integer(Value) ->
     ?WH('Content-Language',decode_lang(Value),[]);
-decode_content_language(Value, _Version) when list(Value) ->
+decode_content_language(Value, _Version) when is_list(Value) ->
     ?WH('Content-Language',Value,[]);
 decode_content_language({short,Data}, _Version) ->
     Value = d_long(Data),
     ?WH('Content-Language',decode_lang(Value),[]);
-decode_content_language(Value, _Version) when list(Value) ->
+decode_content_language(Value, _Version) when is_list(Value) ->
     ?WH('Content-Language',Value,[]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1795,7 +1795,7 @@ format_content_length(H) ->
 encode_content_length(H, _Version) ->
     encode_integer(H#wsp_header.value).
 
-decode_content_length(Value, _Version) when integer(Value) ->
+decode_content_length(Value, _Version) when is_integer(Value) ->
     ?WH('Content-Length', Value, []);
 decode_content_length({short,Data}, _Version) ->
     Value = d_long(Data),
@@ -1816,7 +1816,7 @@ format_content_location(H) ->
 encode_content_location(H, _Version) ->
     encode_uri_value(H#wsp_header.value).
 
-decode_content_location(Value, _Version) when list(Value) ->
+decode_content_location(Value, _Version) when is_list(Value) ->
     ?WH('Content-Location', decode_uri_value(Value), []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1904,15 +1904,15 @@ encode_content_type(H, Version) ->
 	    e_value(Media, Params)
     end.
 
-decode_content_type(Value,Version) when integer(Value) ->
+decode_content_type(Value,Version) when is_integer(Value) ->
     ?WH('Content-Type', decode_well_known_media(Value,Version), []);
-decode_content_type(Value,Version) when list(Value) ->
+decode_content_type(Value,Version) when is_list(Value) ->
     ?WH('Content-Type', decode_well_known_media(Value,Version), []);
 decode_content_type({_, Data}, Version) ->
     {Value,Data1} = scan_header_data(Data),
-    ContentType = if integer(Value) ->
+    ContentType = if is_integer(Value) ->
 			  decode_well_known_media(Value,Version);
-		     list(Value) ->
+                     is_list(Value) ->
 			  decode_well_known_media(Value,Version);
 		     true ->
 			  {_,Data2} = Value,
@@ -2099,19 +2099,19 @@ parse_if_range(Value) ->
 
 format_if_range(H) ->
     case H#wsp_header.value of
-	Value when list(Value) -> Value;
+        Value when is_list(Value) -> Value;
 	DateTime -> fmt_date(DateTime)
     end.
 
 encode_if_range(H, _Version) ->
     case H#wsp_header.value of
-	Value when list(Value) ->
+        Value when is_list(Value) ->
 	    encode_text_string(Value);
 	DateTime ->
 	    e_date(DateTime)
     end.
 
-decode_if_range(Value, _Version) when list(Value) ->
+decode_if_range(Value, _Version) when is_list(Value) ->
     ?WH('If-Range', decode_text_string(Value), []);
 decode_if_range(Value, _Version) ->
     ?WH('If-Range', d_date(Value), []).
@@ -2153,7 +2153,7 @@ format_location(H) ->
 encode_location(H, _Version) ->
     encode_uri_value(H#wsp_header.value).
 
-decode_location(Value, _Version) when list(Value) ->
+decode_location(Value, _Version) when is_list(Value) ->
     ?WH('Location', decode_uri_value(Value), []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2278,20 +2278,20 @@ parse_public(Value) ->
     ?WH('Public', parse_well_known_method(Value), []).
 
 format_public(H) ->
-    if atom(H#wsp_header.value) ->
+    if is_atom(H#wsp_header.value) ->
 	    atom_to_list(H#wsp_header.value);
-       list(H#wsp_header.value) ->
+       is_list(H#wsp_header.value) ->
 	    H#wsp_header.value
     end.
 
 encode_public(H, Version) ->
-    if atom(H#wsp_header.value) ->
+    if is_atom(H#wsp_header.value) ->
 	    encode_well_known_method(H#wsp_header.value,Version);
-       list(H#wsp_header.value) ->
+       is_list(H#wsp_header.value) ->
 	    encode_text_string(H#wsp_header.value)
     end.
 
-decode_public(Value, _Version) when list(Value) ->
+decode_public(Value, _Version) when is_list(Value) ->
     ?WH('Public', Value, []);
 decode_public(Value, Version) ->
     ?WH('Public', decode_well_known_method(Value,Version), []).
@@ -2311,7 +2311,7 @@ format_range(H) ->
 	    ["bytes=", integer_to_list(First), "-"];
 	{First,Last} ->
 	    ["bytes=", integer_to_list(First), "-", integer_to_list(Last)];
-	Len when integer(Len) ->
+        Len when is_integer(Len) ->
 	    ["bytes=-", integer_to_list(Len)]
     end.
 
@@ -2324,7 +2324,7 @@ encode_range(H, _Version) ->
 	    e_value(?ENCODE_SHORT(0),
 		    e_uintvar(First),
 		    e_uintvar(Last));
-	Len when integer(Len) ->
+        Len when is_integer(Len) ->
 	    e_value(?ENCODE_SHORT(1),
 		    e_uintvar(Len))
     end.
@@ -2361,7 +2361,7 @@ format_referer(H) ->
 encode_referer(H, _Version) ->
     encode_uri_value(H#wsp_header.value).
 
-decode_referer(Value, _Version) when list(Value) ->
+decode_referer(Value, _Version) when is_list(Value) ->
     ?WH('Referer', decode_uri_value(Value), []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2381,7 +2381,7 @@ parse_retry_after(Value) ->
 
 format_retry_after(H) ->
     Value = H#wsp_header.value,
-    if integer(Value) ->
+    if is_integer(Value) ->
 	    integer_to_list(Value);
        true ->
 	    fmt_date(Value)
@@ -2389,7 +2389,7 @@ format_retry_after(H) ->
 
 encode_retry_after(H, _Version) ->
     Value = H#wsp_header.value,
-    if integer(Value) ->
+    if is_integer(Value) ->
 	    e_value(?ENCODE_SHORT(1),
 		    e_delta_seconds(Value));
        true ->
@@ -2403,7 +2403,7 @@ decode_retry_after({_,Data}, _Version) ->
 	    ?WH('Retry-After', d_date(Data1), []);
 	{1, Data1} ->
 	    case scan_header_data(Data1) of
-		Sec when integer(Sec) ->
+                Sec when is_integer(Sec) ->
 		    ?WH('Retry-After', Sec, []);
 		{short,Data2} ->
 		    ?WH('Retry-After', d_long(Data2), [])
@@ -2452,7 +2452,7 @@ encode_transfer_encoding(H, _Version) ->
 
 decode_transfer_encoding(0, _Version) ->
     ?WH('Transfer-Encoding', "chunked", []);
-decode_transfer_encoding(Value, _Version) when list(Value)->
+decode_transfer_encoding(Value, _Version) when is_list(Value)->
     ?WH('Transfer-Encoding', Value, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2471,7 +2471,7 @@ format_upgrade(H) ->
 encode_upgrade(H, _Version) ->
     encode_text_string(H#wsp_header.value).
 
-decode_upgrade(Value, _Version) when list(Value) ->
+decode_upgrade(Value, _Version) when is_list(Value) ->
     ?WH('Upgrade', Value, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2508,9 +2508,9 @@ format_vary(H) ->
 encode_vary(H, Version) ->
     e_field_name(H#wsp_header.value, Version).
 
-decode_vary(Value, _Version) when integer(Value) ->
+decode_vary(Value, _Version) when is_integer(Value) ->
     ?WH('Vary', lookup_field_name(Value), []);
-decode_vary(Value, _Version) when list(Value) ->
+decode_vary(Value, _Version) when is_list(Value) ->
     ?WH('Vary', Value, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2528,7 +2528,7 @@ format_via(H) ->
 encode_via(H, _Version) ->
     encode_text_string(H#wsp_header.value).
 
-decode_via(Value, _Version) when list(Value) ->
+decode_via(Value, _Version) when is_list(Value) ->
     ?WH('Via', Value, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2564,7 +2564,7 @@ encode_warning(H, _Version) ->
 		    encode_text_string(Text))
     end.
 
-decode_warning(Value, _Version) when integer(Value) ->
+decode_warning(Value, _Version) when is_integer(Value) ->
     ?WH('Warning', {Value, "", ""}, []);
 decode_warning({_, Data}, _Version) ->
     {Code,Data1}= scan_header_data(Data),
@@ -2617,7 +2617,7 @@ encode_content_disposition(H, Version) ->
 		    encode_params(H#wsp_header.params, Version))
     end.
 
-decode_content_disposition({_,Data}, Version) when binary(Data) ->
+decode_content_disposition({_,Data}, Version) when is_binary(Data) ->
     case scan_header_data(Data) of
 	{0, Data1} ->
 	    Params = decode_params(Data1, Version),
@@ -2663,7 +2663,7 @@ format_x_wap_content_uri(H) ->
 encode_x_wap_content_uri(H, _Version) ->
     encode_uri_value(H#wsp_header.value).
 
-decode_x_wap_content_uri(Value, _Version) when list(Value) ->
+decode_x_wap_content_uri(Value, _Version) when is_list(Value) ->
     ?WH('X-Wap-Content-Uri', decode_uri_value(Value), []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2682,7 +2682,7 @@ format_x_wap_initiator_uri(H) ->
 encode_x_wap_initiator_uri(H, _Version) ->
     encode_uri_value(H#wsp_header.value).
 
-decode_x_wap_initiator_uri(Value, _Version) when list(Value) ->
+decode_x_wap_initiator_uri(Value, _Version) when is_list(Value) ->
     ?WH('X-Wap-Initiator-Uri', decode_uri_value(Value), []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2713,12 +2713,12 @@ encode_accept_application(H, _Version) ->
 
 decode_accept_application(0, _Version) ->
     ?WH('Accept-Application', "*", []);
-decode_accept_application(Value, _Version) when integer(Value) ->
+decode_accept_application(Value, _Version) when is_integer(Value) ->
     ?WH('Accept-Application', decode_push_application(Value), []);
 decode_accept_application({short,Data}, _Version) ->
     Value = d_long(Data),
     ?WH('Accept-Application', decode_push_application(Value), []);
-decode_accept_application(Value, _Version) when list(Value) ->
+decode_accept_application(Value, _Version) when is_list(Value) ->
     ?WH('Accept-Application', decode_uri_value(Value), []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2738,7 +2738,7 @@ format_bearer_indication(H) ->
 encode_bearer_indication(H, _Version) ->
     encode_integer(H#wsp_header.value).
 
-decode_bearer_indication(Value, _Version) when integer(Value) ->
+decode_bearer_indication(Value, _Version) when is_integer(Value) ->
     ?WH('Bearer-Indication', Value, []);
 decode_bearer_indication({short,Data}, _Version) ->
     Value = d_long(Data),
@@ -2761,7 +2761,7 @@ format_push_flag(H) ->
 encode_push_flag(H, _Version) ->
     ?ENCODE_SHORT(H#wsp_header.value).
 
-decode_push_flag(Value, _Version) when integer(Value) ->
+decode_push_flag(Value, _Version) when is_integer(Value) ->
     ?WH('Push-Flag', Value, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2851,7 +2851,7 @@ encode_profile_warning(H, _Version) ->
     end.
 
 
-decode_profile_warning(Value, _Version) when integer(Value) ->
+decode_profile_warning(Value, _Version) when is_integer(Value) ->
     Code = case Value of
 	       16#10 -> 100;
 	       16#11 -> 101;
@@ -2898,7 +2898,7 @@ format_expect(H) ->
     case H#wsp_header.value of
 	{Var,Val} ->
 	    [Var,"=",Val, format_params(H#wsp_header.params)];
-	Val when list(Val) ->
+        Val when is_list(Val) ->
 	    Val
     end.
 
@@ -2968,7 +2968,7 @@ decode_te({_, Data}, _Version) ->
 	    4 -> "gzip";
 	    5 -> "compress";
 	    6 -> "deflate";
-	    V when list(V) -> V
+            V when is_list(V) -> V
 	end,
     Params = case Data1 of
 		 <<>> ->  [];
@@ -2994,9 +2994,9 @@ format_trailer(H) ->
 encode_trailer(H, Version) ->
     e_field_name(H#wsp_header.value, Version).
 
-decode_trailer(Value, _Version) when integer(Value) ->
+decode_trailer(Value, _Version) when is_integer(Value) ->
     ?WH('Trailer', lookup_field_name(Value), []);
-decode_trailer(Value, _Version) when list(Value) ->
+decode_trailer(Value, _Version) when is_list(Value) ->
     ?WH('Trailer', Value, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -3037,7 +3037,7 @@ format_content_id(H) ->
 encode_content_id(H, _Version) ->
     encode_quoted_string(H#wsp_header.value).
 
-decode_content_id(Value, _Version) when list(Value) ->
+decode_content_id(Value, _Version) when is_list(Value) ->
     ?WH('Content-Id', decode_quoted_string(Value), []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -3186,9 +3186,9 @@ format_encoding_version(H) ->
 encode_encoding_version(H, _Version) ->
     encode_version(H#wsp_header.value).
 
-decode_encoding_version(Value, _Version) when integer(Value) ->
+decode_encoding_version(Value, _Version) when is_integer(Value) ->
     ?WH('Encoding-Version', decode_version(Value), []);
-decode_encoding_version(Value, _Version) when list(Value) ->
+decode_encoding_version(Value, _Version) when is_list(Value) ->
     %% Note: in this case we parse the Value since we
     %% Must know the Encoding version
     ?WH('Encoding-Version', parse_version(Value), []);
@@ -3741,7 +3741,7 @@ e_field_name(Value, Version) ->
 %%
 %% decode and normalise on form list_to_atom("Ulll-Ulll-Ull")
 %%
-normalise_field_name(Cs) when atom(Cs) ->
+normalise_field_name(Cs) when is_atom(Cs) ->
     Cs;
 normalise_field_name(Cs) ->
     list_to_atom(normalise_fieldU(Cs)).
@@ -3775,9 +3775,9 @@ trim1(Cs) -> Cs.
 
 d_field_name(Data) ->
     case scan_header_data(Data) of
-	{Code, Data1} when integer(Code) ->
+        {Code, Data1} when is_integer(Code) ->
 	    {lookup_field_name(Code), Data1};
-	{TmpField,Data1} when list(TmpField) ->
+        {TmpField,Data1} when is_list(TmpField) ->
 	    {normalise_field_name(TmpField), Data1}
     end.
 
@@ -4342,7 +4342,7 @@ encode_lang(Language) ->
 decode_push_application({short,Data}) ->
     decode_push_application(d_long(Data));
 
-decode_push_application(Code) when integer(Code) ->
+decode_push_application(Code) when is_integer(Code) ->
     case Code of
 	16#00 ->    "x-wap-application:*";
 	16#01 ->    "x-wap-application:push.sia";
@@ -4368,7 +4368,7 @@ decode_push_application(Code) when integer(Code) ->
 	16#800B ->  "x-wap-nai:mvsw.command";
 	16#8010 ->  "x-wap-openwave:iota.ua"
     end;
-decode_push_application(App) when list(App) ->
+decode_push_application(App) when is_list(App) ->
     App.
 
 
@@ -4493,7 +4493,7 @@ decode_credentials(Field, Data, Version) ->
 	    {User,Data1} = d_text_string(Data0),
 	    {Password,_Data2} = d_text_string(Data1),
 	    ?WH(Field, "basic", [User,Password]);
-	{Scheme, Data0} when list(Scheme) ->
+        {Scheme, Data0} when is_list(Scheme) ->
 	    Params = decode_params(Data0, Version),
 	    ?WH(Field, Scheme, Params)
     end.
@@ -4524,7 +4524,7 @@ decode_challenge(Field, Data, Version) ->
 	{0, Data0} ->
 	    {Realm,_} = d_text_string(Data0),
 	    ?WH(Field, {"basic", Realm}, []);
-	{Scheme, Data0} when list(Scheme) ->
+        {Scheme, Data0} when is_list(Scheme) ->
 	    {Realm,_} = d_text_string(Data0),
 	    Params = decode_params(Data0, Version),
 	    ?WH(Field, {Scheme,Realm}, Params)
@@ -4821,7 +4821,7 @@ encode_constrained_media(ContentType, Version) ->
     end.
 
 
-decode_well_known_media(Code, Version) when integer(Code) ->
+decode_well_known_media(Code, Version) when is_integer(Code) ->
     case Code of
 	%% WSP_REGISTERED_CONTENT_TYPES
 	16#0201 -> "application/vnd.uplanet.cacheop-wbxml";
@@ -4838,13 +4838,13 @@ decode_well_known_media(Code, Version) when integer(Code) ->
 	16#020C -> "image/x-up-wpng";
 	_ -> decode_constrained_media(Code, Version)
     end;
-decode_well_known_media(Media, _Version) when list(Media) ->
+decode_well_known_media(Media, _Version) when is_list(Media) ->
     Media;
 decode_well_known_media({short,_Data}, Version) ->
     decode_well_known_media(d_long(data), Version).	%% BUG HERE: Data
 
 
-decode_constrained_media(Code, _Version) when integer(Code) ->
+decode_constrained_media(Code, _Version) when is_integer(Code) ->
     case Code of
 	16#00 -> "*/*";
 	16#01 -> "text/*";
@@ -4927,7 +4927,7 @@ decode_constrained_media(Code, _Version) when integer(Code) ->
 	16#4A -> "application/vnd.oma.drm.rights+xml";
 	16#4B -> "application/vnd.oma.drm.rights+wbxml"
     end;
-decode_constrained_media(Media, _Version) when list(Media) ->
+decode_constrained_media(Media, _Version) when is_list(Media) ->
     Media.
 
 
@@ -4947,22 +4947,22 @@ parse_version(Value) ->
 
 format_version({Major,Minor}) ->
     [integer_to_list(Major),".",integer_to_list(Minor)];
-format_version(Major) when integer(Major) ->
+format_version(Major) when is_integer(Major) ->
     integer_to_list(Major);
-format_version(Version) when list(Version) ->
+format_version(Version) when is_list(Version) ->
     Version.
 
 encode_version({Major,Minor}) ->
     Ver = (((Major-1) band 16#7) bsl 4) bor (Minor band 16#f),
     ?ENCODE_SHORT(Ver);
-encode_version(Major) when integer(Major) ->
+encode_version(Major) when is_integer(Major) ->
     Ver = ((Major band 16#7) bsl 4) bor 16#f,
     ?ENCODE_SHORT(Ver);
-encode_version(Value) when list(Value) ->
+encode_version(Value) when is_list(Value) ->
     encode_text_string(Value).
 
 
-decode_version(Value) when integer(Value) ->
+decode_version(Value) when is_integer(Value) ->
     Major = (Value bsr 4) band 16#7,
     Minor = Value band 16#f,
     if Minor == 16#f ->
@@ -4970,21 +4970,21 @@ decode_version(Value) when integer(Value) ->
        true ->
 	    {Major+1,Minor}
     end;
-decode_version(Value) when list(Value) ->
+decode_version(Value) when is_list(Value) ->
     Value.
 
 
 encode_mms_version({Major,Minor}) ->
     Ver = ((Major band 16#7) bsl 4) bor (Minor band 16#f),
     ?ENCODE_SHORT(Ver);
-encode_mms_version(Major) when integer(Major) ->
+encode_mms_version(Major) when is_integer(Major) ->
     Ver = ((Major band 16#7) bsl 4) bor 16#f,
     ?ENCODE_SHORT(Ver);
-encode_mms_version(Value) when list(Value) ->
+encode_mms_version(Value) when is_list(Value) ->
     encode_text_string(Value).
 
 
-decode_mms_version(Value) when integer(Value) ->
+decode_mms_version(Value) when is_integer(Value) ->
     Major = (Value bsr 4) band 16#7,
     Minor = Value band 16#f,
     if Minor == 16#f ->
@@ -4992,7 +4992,7 @@ decode_mms_version(Value) when integer(Value) ->
        true ->
 	    {Major,Minor}
     end;
-decode_mms_version(Value) when list(Value) ->
+decode_mms_version(Value) when is_list(Value) ->
     Value.
 
 
@@ -5004,14 +5004,14 @@ e_delta_seconds(Value) ->
     encode_integer(Value).
 
 
-encode_integer(I) when integer(I), I >= 0 , I < 127 ->
+encode_integer(I) when is_integer(I), I >= 0 , I < 127 ->
     ?ENCODE_SHORT(I);
-encode_integer(I) when integer(I) ->
+encode_integer(I) when is_integer(I) ->
     encode_long_integer(I);
-encode_integer(List) when list(List) ->
+encode_integer(List) when is_list(List) ->
     encode_integer(list_to_integer(List)).
 
-decode_integer(Value) when integer(Value) ->
+decode_integer(Value) when is_integer(Value) ->
     Value;
 decode_integer({short,Data}) ->
     Sz = byte_size(Data)*8,
@@ -5060,7 +5060,7 @@ d_long(Data) when is_binary(Data) ->
 encode_uri_value(Data) ->
     encode_text_string(Data).
 
-decode_uri_value(Data) when list(Data) ->
+decode_uri_value(Data) when is_list(Data) ->
     Data.
 
 %% parse quoted string
@@ -5079,14 +5079,14 @@ encode_quoted_string(Value) ->
 
 
 
-decode_text_string(List) when list(List) ->
+decode_text_string(List) when is_list(List) ->
     List;
-decode_text_string(Bin) when binary(Bin) ->
+decode_text_string(Bin) when is_binary(Bin) ->
     binary_to_list(Bin).
 
 
 
-encode_text_string(A) when atom(A) ->
+encode_text_string(A) when is_atom(A) ->
     encode_text_string(atom_to_list(A));
 encode_text_string([H|T]) when H >= 128 ->
     <<(list_to_binary([127,H|T]))/binary,0>>;
@@ -5261,9 +5261,9 @@ encode_addresses([], Acc) ->
     list_to_binary(lists:reverse(Acc)).
 
 encode_address(#wdp_address { bearer = B, address = Addr, portnum = P }) ->
-    BAddr = if tuple(Addr) ->
+    BAddr = if is_tuple(Addr) ->
 		    list_to_binary(inet:ip_to_bytes(Addr));
-	       binary(Addr) ->
+               is_binary(Addr) ->
 		    Addr
 	    end,
     Len = byte_size(BAddr),
@@ -5282,7 +5282,7 @@ encode_address(#wdp_address { bearer = B, address = Addr, portnum = P }) ->
 
 -define(UNIX_TIME_OFFSET, 62167219200).
 
-d_date(Val) when integer(Val) ->
+d_date(Val) when is_integer(Val) ->
     calendar:gregorian_seconds_to_datetime(Val+?UNIX_TIME_OFFSET);
 d_date({short,Data}) when is_binary(Data) ->
     Sz = byte_size(Data)*8,

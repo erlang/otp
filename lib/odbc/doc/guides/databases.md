@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -85,7 +87,7 @@ format as they are part of an SQL-query. Example:
 > odbc:sql_query(Ref, "INSERT INTO EMPLOYEE VALUES(1, 'Jane', 'Doe', 'F')").
 > ```
 
-You may also input data using [param_query/3,4](`m:odbc#param_query`) and
+You may also input data using [param_query/3,4](`odbc:param_query/4`) and
 then the input data will have the Erlang type corresponding to the ODBC type of
 the column.[See ODBC to Erlang mapping](databases.md#type)
 
@@ -134,7 +136,7 @@ the Erlang application._
 > #### Note {: .info }
 >
 > To find out which data types will be returned for the columns in a table use
-> the function [describe_table/2,3](`m:odbc#describe_table`)
+> the function [describe_table/2,3](`odbc:describe_table/3`)
 
 ## Batch handling
 

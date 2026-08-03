@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -227,7 +229,28 @@ sleep(T) -> receive after T -> ok end.
 -doc false.
 -spec info() -> map().
 info() ->
-    prim_net:info().
+    try prim_net:info() of
+	Info ->
+	    Info#{load_nif_result => load_nif_result()}
+    catch error:undef:ST ->
+            case ST of
+                %% We rewrite errors coming from prim_net not existing
+                %% to notsup.
+                [{prim_net,info,[],_}|_] ->
+                    erlang:raise(error,notsup,ST);
+                _ ->
+                    erlang:raise(error,undef,ST)
+            end;
+	  _:_ ->
+	    #{load_nif_result => load_nif_result()}
+    end.
+
+load_nif_result() ->
+    try prim_net:p_get(load_nif_result)
+    catch
+	_:_ ->
+	    undefined
+    end.
 
 
 -doc false.

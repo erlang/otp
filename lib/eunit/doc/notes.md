@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +22,119 @@ limitations under the License.
 # EUnit Release Notes
 
 This document describes the changes made to the EUnit application.
+
+## Eunit 2.11
+
+### Improvements and New Features
+
+- Added `randomDelay` macro.
+
+  Own Id: OTP-19997 Aux Id: [PR-10614]
+
+- Added support for `-unsafe` attributes, which is used to mark functions as unsafe to use. 
+  
+  This is similar to but separate from deprecation, and the compiler will by default now generate warnings for calls to functions in Erlang/OTP that are known to be always unsafe.
+  
+  Furthermore, `m:xref` can now be used to find calls to functions in another application that lack a `-doc` attribute (`undocumented_function_calls`), calls to functions in another application marked `-doc false.` (`private_function_calls`), as well as calls to unsafe functions (`unsafe_function_calls`).
+
+  Own Id: OTP-20066 Aux Id: [PR-10839]
+
+[PR-10614]: https://github.com/erlang/otp/pull/10614
+[PR-10839]: https://github.com/erlang/otp/pull/10839
+
+## Eunit 2.10.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed EUnit {node, ...} instantiation by passing node name (instead of pid) and restored net_kernel auto-start for non-distributed nodes.
+
+  Own Id: OTP-20047 Aux Id: [PR-10788]
+
+[PR-10788]: https://github.com/erlang/otp/pull/10788
+
+## Eunit 2.10.2
+
+### Improvements and New Features
+
+- Release applications, tests, and documentation are now placed in their respective directories. Source SBOM with more packages.
+  
+  A `make release` application places only the necessary code in the release folder. The main change is that the documentation and examples are not part of the release folder anymore.
+  
+  `make release_docs` places the documentation in the released code under the `doc` folder.
+  
+  `make release_tests` places the tests in their own directory. It used to be the case that some source code was mixed with the tests, and this should not happen anymore.
+  
+  The Software Bill of Materials places the examples folders as if they are part of the `SPDX-otp-<app>-doc` packge, instead of placing examples as if they were running source code.
+  
+  Overall, this change cleans up many things that were not quite correct by definition, and everything should still continue to work as expected. To test a release, one can still run `./Install -minimal \`pwd\`` and add the release to the `PATH`. After that, one can run tests as usual, going into the released tests directory, entering `test_server` and running the emulator.
+  
+  Improves the source Software-Bill-of-Materials
+  
+  - The improvements adds new SPDX relations for `asmjit` and `zlib` to be `optional_components_of` the Erlang/OTP project.
+  - The `autoconf` scripts in `make` and `erts` have now been categorised as `build_tool_of` the Erlang/OTP project.
+  - All remaining `configure`, `configure.ac`, `config.h.in`, `Makefile.in`, `Makefile.src`, `EMakefile`, and `GNUMakefile` are now part of a specific SPDX package with relation `build_tool_of` the Erlang/OTP project.
+
+  Own Id: OTP-19886 Aux Id: [PR-10434]
+
+[PR-10434]: https://github.com/erlang/otp/pull/10434
+
+## Eunit 2.10.1
+
+### Improvements and New Features
+
+- The usages of deprecated slave module have been removed from the application. The fixture clause for spawning a test node now accepts Args either as a string or a list of strings (previously only a string was accepted).
+
+  Own Id: OTP-19738 Aux Id: [PR-10128]
+
+[PR-10128]: https://github.com/erlang/otp/pull/10128
+
+## Eunit 2.10
+
+### Fixed Bugs and Malfunctions
+
+- Fix so that when running tests in parallel and one test is cancelled due to a failing setup, it is report as cancelled. Before this fix the cancellation was ignored.
+
+  Own Id: OTP-19630 Aux Id: [PR-9794]
+
+[PR-9794]: https://github.com/erlang/otp/pull/9794
+
+### Improvements and New Features
+
+- [EEP-69: Nominal Types](https://www.erlang.org/eeps/eep-0069) has been implemented. As a side effect, nominal types can encode opaque types. We changed all opaque-handling logic and improved opaque warnings in Dialyzer.
+  
+  All existing Erlang type systems are structural: two types are seen as equivalent if their structures are the same. Type comparisons are based on the structures of the types, not on how the user explicitly defines them. For example, in the following example, `meter()` and `foot()` are equivalent. The two types can be used interchangeably. Neither of them differ from the basic type `integer()`.
+  
+  ````
+  -type meter() :: integer().
+  -type foot() :: integer().
+  ````
+  
+  Nominal typing is an alternative type system, where two types are equivalent if and only if they are declared with the same type name. The EEP proposes one new syntax -nominal for declaring nominal types. Under nominal typing, `meter()` and `foot()` are no longer compatible. Whenever a function expects type `meter()`, passing in type `foot()` would result in a Dialyzer error.
+  
+  ````
+  -nominal meter() :: integer().
+  -nominal foot() :: integer().
+  ````
+  
+  More nominal type-checking rules can be found in the EEP. It is worth noting that most work for adding nominal types and type-checking is in `erl_types.erl`. The rest are changes that removed the previous opaque type-checking, and added an improved version of it using nominal type-checking with reworked warnings.
+  
+  Backwards compatibility for opaque type-checking is not preserved by this PR. Previous opaque warnings can appear with slightly different wordings. A new kind of opaque warning `opaque_union` is added, together with a Dialyzer option `no_opaque_union` to turn this kind of warnings off.
+
+  Own Id: OTP-19364 Aux Id: [PR-9079]
+
+- Fixed licenses in files and added ORT curations to the following apps: otp, eldap, erl_interface, eunit, parsetools, stdlib, syntax_tools, and ERTS.
+
+  Own Id: OTP-19478 Aux Id: [PR-9376], [PR-9402], [PR-9819]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-9079]: https://github.com/erlang/otp/pull/9079
+[PR-9376]: https://github.com/erlang/otp/pull/9376
+[PR-9402]: https://github.com/erlang/otp/pull/9402
+[PR-9819]: https://github.com/erlang/otp/pull/9819
+[PR-9670]: https://github.com/erlang/otp/pull/9670
 
 ## Eunit 2.9.1
 

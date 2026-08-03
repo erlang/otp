@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 20016-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2016-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +28,9 @@
 
 -module(ssl_pem_cache).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -behaviour(gen_server).
 
 %% Internal application API
@@ -33,14 +38,19 @@
 	 start_link_dist/1,
 	 name/1,
 	 insert/2,
+         insert/3,
 	 clear/0]).
 
 % Spawn export
 -export([init_pem_cache_validator/1]).
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+-export([init/1,
+         handle_call/3,
+         handle_cast/2,
+         handle_info/2,
+	 terminate/2,
+         code_change/3]).
 
 -include("ssl_handshake.hrl").
 -include("ssl_internal.hrl").
@@ -104,6 +114,20 @@ insert(File, Content) ->
 	    cast({cache_pem, File, Content}),
             ok
     end.
+%%--------------------------------------------------------------------
+-spec insert(Name ::atom(), binary(), term()) -> ok | {error, ssl:reason()}.
+%%
+%% Description: Cache a pem file and return its content.
+%%--------------------------------------------------------------------
+insert(Name, File, Content) ->
+    case bypass_cache() of
+	true ->
+	    ok;
+	false ->
+	    cast(Name, {cache_pem, File, Content}),
+            ok
+    end.
+
 
 %%--------------------------------------------------------------------
 -spec clear() -> ok.
@@ -222,7 +246,10 @@ call(Msg) ->
     gen_server:call(get(ssl_pem_cache), {Msg, self()}, infinity).
 
 cast(Msg) ->
-    gen_server:cast(get(ssl_pem_cache), Msg).
+    cast(get(ssl_pem_cache), Msg).
+
+cast(Name, Msg) ->
+    gen_server:cast(Name, Msg).
 
 start_pem_cache_validator(PemCache, CheckPoint) ->
     spawn_link(?MODULE, init_pem_cache_validator, 

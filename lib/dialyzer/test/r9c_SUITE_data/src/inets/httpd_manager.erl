@@ -878,7 +878,7 @@ stop_block_tmr(Ref) ->
 
 
 %% Monitor blocker functions
-monitor_blocker(Pid) when pid(Pid) ->
+monitor_blocker(Pid) when is_pid(Pid) ->
     case (catch erlang:monitor(process,Pid)) of
 	MonitorRef ->
 	    MonitorRef;
@@ -916,21 +916,21 @@ update_status_with_time(Status,Key) ->
 universal_time() -> calendar:universal_time().
 
 
-auth_status(P) when pid(P) ->
+auth_status(P) when is_pid(P) ->
     Items = [status, message_queue_len, reductions,
 	     heap_size, stack_size, current_function],
     {auth_status, process_status(P,Items,[])};
 auth_status(_) ->
     {auth_status, undefined}.
 
-sec_status(P) when pid(P) ->
+sec_status(P) when is_pid(P) ->
     Items = [status, message_queue_len, reductions,
 	     heap_size, stack_size, current_function],
     {security_status, process_status(P,Items,[])};
 sec_status(_) ->
     {security_status, undefined}.
 
-acceptor_status(P) when pid(P) ->
+acceptor_status(P) when is_pid(P) ->
     Items = [status, message_queue_len, reductions,
 	     heap_size, stack_size, current_function],
     {acceptor_status, process_status(P,Items,[])};
@@ -972,7 +972,7 @@ set_verbosity(V) ->
     case httpd_util:key1search(V, all) of
 	undefined ->
 	    set_verbosity(V, Units);
-	Verbosity when atom(Verbosity) ->
+        Verbosity when is_atom(Verbosity) ->
 	    V1 = [{Unit, Verbosity} || Unit <- Units],
 	    set_verbosity(V1, Units)
     end.
@@ -1027,3 +1027,26 @@ call(ServerRef,Request) ->
 
 cast(ServerRef,Message) ->
     gen_server:cast(ServerRef,Message).
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

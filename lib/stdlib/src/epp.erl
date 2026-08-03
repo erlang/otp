@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -59,10 +61,12 @@ A string describing the error is obtained with the following call:
 Module:format_error(ErrorDescriptor)
 ```
 
-## See Also
+### See Also
 
 `m:erl_parse`
 """.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 %% An Erlang code preprocessor.
 
@@ -449,6 +453,7 @@ scanner, see [`{compiler_internal,term()}`](`m:erl_scan#compiler_interal`).
 		  {'location',StartLocation :: erl_anno:location()} |
                   {'reserved_word_fun', Fun :: fun((atom()) -> boolean())} |
                   {'features', [Feature :: atom()]} |
+                  {'deterministic', boolean()} |
 		  'extra' |
                   {'compiler_internal', [term()]}],
       Form :: erl_parse:abstract_form()
@@ -816,7 +821,7 @@ init_server(Pid, FileName, Options, St0) ->
             Path = [filename:dirname(FileName) |
                     proplists:get_value(includes, Options, [])],
             {ok,{_,ResWordFun0}} =
-                erl_features:keyword_fun([], fun erl_scan:f_reserved_word/1),
+                erl_features:init_parse_state([], fun erl_scan:f_reserved_word/1),
             ResWordFun =
                 proplists:get_value(reserved_word_fun, Options,
                                     ResWordFun0),
@@ -1151,15 +1156,16 @@ scan_toks([{'-',_Lh},{atom,_Le,elif}=Elif|Toks], From, St) ->
 scan_toks([{'-',_Lh},{atom,_Le,endif}=Endif|Toks], From, St) ->
     scan_endif(Toks, Endif, From, St);
 scan_toks([{'-',_Lh},{atom,_Lf,file}=FileToken|Toks0], From, St) ->
-    case catch expand_macros(Toks0, St) of
+    try expand_macros(Toks0, St) of
 	Toks1 when is_list(Toks1) ->
-            scan_file(Toks1, FileToken, From, St);
-	{error,ErrL,What} ->
-	    epp_reply(From, {error,{ErrL,epp,What}}),
-	    wait_req_scan(St)
+            scan_file(Toks1, FileToken, From, St)
+    catch
+        throw:{error,ErrL,What} ->
+            epp_reply(From, {error,{ErrL,epp,What}}),
+            wait_req_scan(St)
     end;
 scan_toks(Toks0, From, St) ->
-    case catch expand_macros(Toks0, St#epp{fname=Toks0}) of
+    try expand_macros(Toks0, St#epp{fname=Toks0}) of
 	Toks1 when is_list(Toks1) ->
             InPrefix =
                 St#epp.in_prefix
@@ -1172,8 +1178,9 @@ scan_toks(Toks0, From, St) ->
                         end,
 	    epp_reply(From, {ok,Toks1}),
 	    wait_req_scan(St#epp{in_prefix = InPrefix,
-                                 macs=scan_module(Toks1, St#epp.macs)});
-	{error,ErrL,What} ->
+                                 macs=scan_module(Toks1, St#epp.macs)})
+    catch
+        throw:{error,ErrL,What} ->
 	    epp_reply(From, {error,{ErrL,epp,What}}),
 	    wait_req_scan(St)
     end.
@@ -1330,7 +1337,7 @@ update_features(St0, Ind, Ftr, Loc) ->
             undefined -> fun erl_scan:f_reserved_word/1;
             Fun -> Fun
         end,
-    case erl_features:keyword_fun(Ind, Ftr, Ftrs0, KeywordFun) of
+    case erl_features:update_parse_state(Ind, Ftr, Ftrs0, KeywordFun) of
         {error, Reason} ->
             {error, {Reason, Loc}};
         {ok, {Ftrs1, ResWordFun1}} ->
@@ -1356,19 +1363,21 @@ scan_define(Toks, Def, From, St) ->
     wait_req_scan(St).
 
 scan_define_1([{',',_}=Comma|Toks], Mac,_Def, From, St) ->
-    case catch macro_expansion(Toks, Comma) of
+    try macro_expansion(Toks, Comma) of
         Expansion when is_list(Expansion) ->
-	    scan_define_2(none, {none,Expansion}, Mac, From, St);
-        {error,ErrL,What} ->
+	    scan_define_2(none, {none,Expansion}, Mac, From, St)
+    catch
+        throw:{error,ErrL,What} ->
             epp_reply(From, {error,{ErrL,epp,What}}),
             wait_req_scan(St)
     end;
 scan_define_1([{'(',_Ac}=T|Toks], Mac, _Def, From, St) ->
-    case catch macro_pars(Toks, [], T) of
+    try macro_pars(Toks, [], T) of
         {ok,{As,_}=MacroDef} ->
             Len = length(As),
-	    scan_define_2(Len, MacroDef, Mac, From, St);
-	{error,ErrL,What} ->
+	    scan_define_2(Len, MacroDef, Mac, From, St)
+    catch
+	throw:{error,ErrL,What} ->
             epp_reply(From, {error,{ErrL,epp,What}}),
             wait_req_scan(St)
     end;
@@ -2020,7 +2029,8 @@ macro_arg([{'if',Li}|Toks], E, Arg) ->
 macro_arg([{'case',Lc}|Toks], E, Arg) ->
     macro_arg(Toks, ['end'|E], [{'case',Lc}|Arg]);
 macro_arg([{'fun',Lc}|[{'(',_}|_]=Toks], E, Arg) ->
-    macro_arg(Toks, ['end'|E], [{'fun',Lc}|Arg]);
+    %% This can be either a fun definition or a fun type.
+    macro_arg(Toks, [fun_end|E], [{'fun',Lc}|Arg]);
 macro_arg([{'fun',_}=Fun,{var,_,_}=Name|[{'(',_}|_]=Toks], E, Arg) ->
     macro_arg(Toks, ['end'|E], [Name,Fun|Arg]);
 macro_arg([{'maybe',Lb}|Toks], E, Arg) ->
@@ -2031,6 +2041,23 @@ macro_arg([{'try',Lr}|Toks], E, Arg) ->
     macro_arg(Toks, ['end'|E], [{'try',Lr}|Arg]);
 macro_arg([{'cond',Lr}|Toks], E, Arg) ->
     macro_arg(Toks, ['end'|E], [{'cond',Lr}|Arg]);
+macro_arg([{'when',_}|_]=Toks, [fun_end|E], Arg) ->
+    %% This is the `when` inside a fun definition such as:
+    %%   fun() when true, true -> true end.
+    macro_arg(Toks, ['end'|E], Arg);
+macro_arg([{'->',_}|_]=Toks, [fun_end|E], Arg) ->
+    %% This is the `->` inside a fun definition such as:
+    %%   fun() -> ok end.
+    macro_arg(Toks, ['end'|E], Arg);
+macro_arg([{Rb,_Lrb}=T|Toks], [fun_end|E], Arg) ->
+    case Rb of
+        Eb when Eb =:= ','; Eb =:= ')'  ->
+            %% This is the end of a fun type such as:
+            %%    fun(() -> 'ok').
+            macro_arg([T|Toks], E, Arg);
+        _ ->
+            macro_arg(Toks, [fun_end|E], [T|Arg])
+    end;
 macro_arg([{Rb,Lrb}|Toks], [Rb|E], Arg) ->	%Found matching close
     macro_arg(Toks, E, [{Rb,Lrb}|Arg]);
 macro_arg([T|Toks], E, Arg) ->
@@ -2081,15 +2108,11 @@ expand_arg([], Ts, Anno, Rest, Bs) ->
 update_fun_name(Token, #epp{fname=Toks0}=St) when is_list(Toks0) ->
     %% ?FUNCTION_NAME or ?FUNCTION_ARITY is used for the first time in
     %% a function.  First expand macros (except ?FUNCTION_NAME and
-    %% ?FUNCTION_ARITY) in the form.
+    %% ?FUNCTION_ARITY) in the form, and then extract the name and
+    %% arity from the stream of tokens, and store the result in the
+    %% #epp{} record so we don't have to do it again.
 
-    Toks1 = (catch expand_macros(Toks0, St#epp{fname=undefined})),
-
-    %% Now extract the name and arity from the stream of tokens, and store
-    %% the result in the #epp{} record so we don't have to do it
-    %% again.
-
-    case Toks1 of
+    try expand_macros(Toks0, St#epp{fname=undefined}) of
 	[{atom,_,Name},{'(',_}|Toks] ->
 	    %% This is the beginning of a function definition.
 	    %% Scan the token stream up to the matching right
@@ -2101,12 +2124,13 @@ update_fun_name(Token, #epp{fname=Toks0}=St) when is_list(Toks0) ->
 	    %% of a form. Does not make sense.
 	    {var,_,Macro} = Token,
 	    throw({error,loc(Token),{illegal_function_usage,Macro}});
-	_ when is_list(Toks1) ->
+	Toks1 when is_list(Toks1) ->
 	    %% Not the beginning of a function (an attribute or a
 	    %% syntax error).
 	    {var,_,Macro} = Token,
-	    throw({error,loc(Token),{illegal_function,Macro}});
-	_ ->
+	    throw({error,loc(Token),{illegal_function,Macro}})
+    catch
+        throw:_ ->
 	    %% A macro expansion error. Return a dummy value and
 	    %% let the caller notice and handle the error.
 	    St#epp{fname={'_',0}}
@@ -2125,7 +2149,12 @@ update_fun_name_1([Tok|Toks], L, FA, St) ->
 		    update_fun_name_1(Toks, L, FA, St)
 	    end;
 	left ->
-	    update_fun_name_1(Toks, L+1, FA, St);
+            case FA of
+                {Name,0} ->
+                    update_fun_name_1(Toks, L+1, {Name,1}, St);
+                {_,_} ->
+                    update_fun_name_1(Toks, L+1, FA, St)
+            end;
 	right when L =:= 1 ->
 	    FA;
 	right ->
@@ -2172,6 +2201,8 @@ token_src({char,_,C}) ->
     io_lib:write_char(C);
 token_src({string, _, X}) ->
     io_lib:write_string(X);
+token_src({atom, _, X}) ->
+    io_lib:write_atom(X);
 token_src({_, _, X}) ->
     io_lib:format("~w", [X]).
 
@@ -2241,21 +2272,21 @@ wait_epp_reply(Epp, Mref) ->
 	    end
     end.
 
-expand_var([$$ | _] = NewName) ->
-    case catch expand_var1(NewName) of
-	{ok, ExpName} ->
-	    ExpName;
-	_ ->
+expand_var("$" ++ _ = NewName) ->
+    try
+        expand_var1(NewName)
+    catch
+        error:_ ->
 	    NewName
     end;
 expand_var(NewName) ->
     NewName.
 
 expand_var1(NewName) ->
-    [[$$ | Var] | Rest] = filename:split(NewName),
+    ["$" ++ Var | Rest] = filename:split(NewName),
     Value = os:getenv(Var),
     true = Value =/= false,
-    {ok, fname_join([Value | Rest])}.
+    fname_join([Value | Rest]).
 
 fname_join(["." | [_|_]=Rest]) ->
     fname_join(Rest);

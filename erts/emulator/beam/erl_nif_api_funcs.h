@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2009-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -223,6 +225,9 @@ ERL_NIF_API_FUNC_DECL(int, enif_get_string_length, (ErlNifEnv *env, ERL_NIF_TERM
 ERL_NIF_API_FUNC_DECL(int, enif_make_new_atom, (ErlNifEnv *env, const char *name, ERL_NIF_TERM *atom, ErlNifCharEncoding encoding));
 ERL_NIF_API_FUNC_DECL(int, enif_make_new_atom_len, (ErlNifEnv *env, const char *name, size_t len, ERL_NIF_TERM *atom, ErlNifCharEncoding encoding));
 ERL_NIF_API_FUNC_DECL(int, enif_set_option, (ErlNifEnv *env, ErlNifOption opt, ...));
+ERL_NIF_API_FUNC_DECL(size_t,enif_term_size,(ERL_NIF_TERM term));
+ERL_NIF_API_FUNC_DECL(int, enif_get_atom_cache_index, (ErlNifEnv *env, ERL_NIF_TERM atom, unsigned *index));
+ERL_NIF_API_FUNC_DECL(unsigned, enif_max_atom_cache_index, (void));
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
@@ -417,6 +422,9 @@ ERL_NIF_API_FUNC_DECL(int, enif_set_option, (ErlNifEnv *env, ErlNifOption opt, .
 #  define enif_make_new_atom ERL_NIF_API_FUNC_MACRO(enif_make_new_atom)
 #  define enif_make_new_atom_len ERL_NIF_API_FUNC_MACRO(enif_make_new_atom_len)
 #  define enif_set_option ERL_NIF_API_FUNC_MACRO(enif_set_option)
+#  define enif_term_size ERL_NIF_API_FUNC_MACRO(enif_term_size)
+#  define enif_get_atom_cache_index ERL_NIF_API_FUNC_MACRO(enif_get_atom_cache_index)
+#  define enif_max_atom_cache_index ERL_NIF_API_FUNC_MACRO(enif_max_atom_cache_index)
 /*
 ** ADD NEW ENTRIES HERE (before this comment)
 */
@@ -666,4 +674,3 @@ static ERL_NIF_INLINE ERL_NIF_TERM enif_make_list9(ErlNifEnv* env,
 #endif
 
 #endif
-

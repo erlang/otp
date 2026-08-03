@@ -2,7 +2,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2003-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2003-2026. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,6 +56,42 @@
 # FIXME For GDB you can also set the break point using "-break FUNCTION".
 # FIXME For GDB you can also point out your own .gdbini......
 
+install_gdb_tools ()
+{
+    if [ -z "$(find $ERL_TOP -name jit-reader.c)" ]
+    then
+        printf "%s" "Do you want to install gdb-tools? (Y/n) "
+        read -r confirm
+        case "$confirm" in
+            "Y"|"y"|"")
+                "$ERL_TOP"/otp_build download_gdb_tools
+                build_gdb_tools
+                ;;
+        esac
+    else
+        ## Check that correct version is present
+        "$ERL_TOP"/otp_build download_gdb_tools
+        build_gdb_tools
+    fi
+}
+
+build_gdb_tools ()
+{
+    if command -v gmake > /dev/null; then
+        (cd "$ERL_TOP"/erts/etc/common && gmake)
+    else
+        (cd "$ERL_TOP"/erts/etc/common && make)
+    fi
+}
+
+## If ERL_TOP is not set, we try to figure it out from
+## the location of cerl
+if [ -z "$ERL_TOP" ]; then
+    CERL="$0"
+    ERL_TOP="$(dirname "$(dirname "$CERL")")"
+    export ERL_TOP
+fi
+
 # These are marked for export
 export ROOTDIR
 export PROGNAME
@@ -83,26 +121,28 @@ run_asan=no
 run_rr=no
 skip_erlexec=no
 
-prog="$0"
-progdir="`dirname ${prog}`"
-dyn_erl_path="${progdir}/%DYN_ERL_PATH%"
-if [ -f "$dyn_erl_path" ]
-then
-    dyn_rootdir=`${dyn_erl_path} --realpath`
-    dyn_rootdir=`dirname ${dyn_rootdir}`
-    dyn_rootdir=`dirname ${dyn_rootdir}`
-else
-    dyn_rootdir=""
-fi
+absolute_parent() {
+    DIR=$(dirname "${1}");
+    (cd "$DIR" && pwd -P || echo "/");
+}
 
-# Default rootdir
-ROOTDIR=%SRC_ROOTDIR%
+find_rootdir() {
+    CANDIDATE="${1}";
+    while
+        CANDIDATE=$(absolute_parent "$CANDIDATE");
+        [ "$CANDIDATE" != "/" ] && [ ! -d "$CANDIDATE/erts-%VSN%" ];
+    do :; done;
 
-if [ "$dyn_rootdir" != "$ROOTDIR" ] && [ "$dyn_rootdir" != "" ]
-then
-    # It is likely that the files have been copied or moved
-    ROOTDIR="$dyn_rootdir"
-fi
+    if [ "$CANDIDATE" != "/" ]
+    then
+        # It is likely that the files have been copied or moved
+        echo "$CANDIDATE";
+    else
+        echo "${2}";
+    fi
+}
+
+ROOTDIR=$(find_rootdir "$0" "%SRC_ROOTDIR%")
 
 BINDIR="$ROOTDIR/bin/`$ROOTDIR/make/autoconf/config.guess`"
 TARGET=%TARGET%
@@ -399,6 +439,9 @@ if [ "x$GDB" = "x" ]; then
         fi
     elif [ $run_rr = yes ]; then
         if [ $1 = replay ] || [ $1 = eplay ]; then
+
+            install_gdb_tools
+
 	    rr_cmd=$1
             shift
             cmdfile="/tmp/.cerlgdb.$$"
@@ -435,6 +478,9 @@ if [ "x$GDB" = "x" ]; then
 	exec $EXEC $xargs ${1+"$@"}
     fi
 elif [ "x$GDB" = "xgdb" ]; then
+
+    install_gdb_tools
+
     case "x$core" in
 	x)
 	    # Get emu args to use from erlexec...
@@ -474,7 +520,9 @@ elif [ "x$GDB" = "xegdb" ]; then
     if [ "x$EMACS" = "x" ]; then
 	EMACS=emacs
     fi
-    
+
+    install_gdb_utils
+
     case "x$core" in
 	x)
 	    # Get emu args to use from erlexec...
@@ -513,6 +561,9 @@ elif [ "x$GDB" = "xegdb" ]; then
     EVAL="(progn (gdb \"gdb $GDBARGS -x $cmdfile\"))"
     exec $EMACS --eval "$EVAL"
 elif [ "x$GDB" = "xdump" ]; then
+
+    install_gdb_tools
+
     cmdfile="/tmp/.cerlgdb.$$"
     ## Examine the result of "file $core" in case it is not the emulator
     ## that created the dump

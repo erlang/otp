@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2014-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -666,9 +668,9 @@ Eterm erts_hashmap_from_array(ErtsHeapFactory* factory, Eterm *leafs, Uint n,
     return res;
 }
 
-static ERTS_INLINE Eterm
-from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs,
-               Uint n, flatmap_t **fmpp)
+/* Returns THE_NON_VALUE if duplicate keys found. */
+Eterm
+erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs, Uint n)
 {
     if (n <= MAP_SMALL_MAP_LIMIT) {
         Eterm *hp;
@@ -698,34 +700,23 @@ from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs,
 
         sys_memcpy((void *) hp, (void *) vs, n * sizeof(Eterm));
 
-        *fmpp = fmp;
-        return THE_NON_VALUE;
-    } else {
-        *fmpp = NULL;
-        return erts_hashmap_from_ks_and_vs(factory, ks, vs, n);
-    }
-}
-
-Eterm erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs, Uint n)
-{
-    Eterm res;
-    flatmap_t *fmp;
-
-    res = from_ks_and_vs(factory, ks, vs, n, &fmp);
-    if (fmp) {
         if (erts_validate_and_sort_flatmap(fmp)) {
-            res = make_flatmap(fmp);
+            return make_flatmap(fmp);
         }
         else {
-            res = THE_NON_VALUE;
+            return THE_NON_VALUE;
         }
+    } else {
+        return erts_hashmap_from_ks_and_vs_extra(factory, ks, vs, n,
+                                                 THE_NON_VALUE, THE_NON_VALUE,
+                                                 1);
     }
-    return res;
 }
 
 Eterm erts_hashmap_from_ks_and_vs_extra(ErtsHeapFactory *factory,
                                         Eterm *ks, Eterm *vs, Uint n,
-					Eterm key, Eterm value) {
+                                        Eterm key, Eterm value,
+                                        int reject_dupkeys) {
     erts_ihash_t sw, hx;
     Uint i,sz;
     hxnode_t *hxns;
@@ -756,7 +747,8 @@ Eterm erts_hashmap_from_ks_and_vs_extra(ErtsHeapFactory *factory,
 	hxns[i].i    = i;
     }
 
-    res = hashmap_from_unsorted_array(factory, hxns, sz, 0, ERTS_ALC_T_TMP);
+    res = hashmap_from_unsorted_array(factory, hxns, sz, reject_dupkeys,
+                                      ERTS_ALC_T_TMP);
 
     erts_free(ERTS_ALC_T_TMP, (void *) hxns);
 
@@ -1656,7 +1648,7 @@ recurse:
                 sp->abm = 0xffff;
                 break;
             }
-            case HAMT_SUBTAG_HEAD_BITMAP: sp->srcA++;
+            case HAMT_SUBTAG_HEAD_BITMAP: sp->srcA++; ERTS_FALLTHROUGH();
             case HAMT_SUBTAG_NODE_BITMAP: {
                 ASSERT(ctx->lvl < HAMT_MAX_LEVEL);
                 sp->abm = MAP_HEADER_VAL(hdrA);
@@ -1693,7 +1685,7 @@ recurse:
                 sp->bbm = 0xffff;
                 break;
             }
-            case HAMT_SUBTAG_HEAD_BITMAP: sp->srcB++;
+            case HAMT_SUBTAG_HEAD_BITMAP: sp->srcB++; ERTS_FALLTHROUGH();
             case HAMT_SUBTAG_NODE_BITMAP: {
                 ASSERT(ctx->lvl < HAMT_MAX_LEVEL);
                 sp->bbm = MAP_HEADER_VAL(hdrB);
@@ -2177,7 +2169,7 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	    vs = flatmap_get_values(mp);
 
             erts_factory_proc_init(&factory, p);
-	    res = erts_hashmap_from_ks_and_vs_extra(&factory,ks,vs,n,key,value);
+            res = erts_hashmap_from_ks_and_vs_extra(&factory,ks,vs,n,key,value,0);
             erts_factory_close(&factory);
 
 	    return res;
@@ -2329,6 +2321,7 @@ Uint hashmap_node_size(Eterm hdr, Eterm **nodep)
 	break;
     case HAMT_SUBTAG_HEAD_BITMAP:
         if (nodep) ++*nodep;
+        ERTS_FALLTHROUGH();
     case HAMT_SUBTAG_NODE_BITMAP:
         sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
         ASSERT(sz < 17);
@@ -2711,6 +2704,7 @@ Eterm erts_hashmap_insert_up(Eterm *hp, Eterm key, Eterm value,
 		/* subnodes, fake it */
 		fake = node;
 		node  = make_boxed(&fake);
+                ERTS_FALLTHROUGH();
 	    case TAG_PRIMARY_BOXED:
 		ptr = boxed_val(node);
 		hdr = *ptr;
@@ -2830,8 +2824,8 @@ static Eterm hashmap_keys(Process* p, Eterm node) {
     YCF_SPECIAL_CODE_END();
     root = (hashmap_head_t*) boxed_val(node);
     hp  = HAlloc(p, root->size * 2);
-    hashmap_iterator_init(&stack, node, 0);
-    while ((kv=hashmap_iterator_next(&stack)) != NULL) {
+    hashmap_iterator_init(&stack, node, 1);
+    while ((kv=hashmap_iterator_prev(&stack)) != NULL) {
 	res = CONS(hp, CAR(kv), res);
 	hp += 2;
     }
@@ -2874,8 +2868,8 @@ static Eterm hashmap_values(Process* p, Eterm node) {
 
     root = (hashmap_head_t*) boxed_val(node);
     hp  = HAlloc(p, root->size * 2);
-    hashmap_iterator_init(&stack, node, 0);
-    while ((kv=hashmap_iterator_next(&stack)) != NULL) {
+    hashmap_iterator_init(&stack, node, 1);
+    while ((kv=hashmap_iterator_prev(&stack)) != NULL) {
 	res = CONS(hp, CDR(kv), res);
 	hp += 2;
     }
@@ -3442,6 +3436,7 @@ BIF_RETTYPE erts_internal_map_hashmap_children_1(BIF_ALIST_1) {
                 BIF_ERROR(BIF_P, BADARG);
             case HAMT_SUBTAG_HEAD_BITMAP:
                 ptr++;
+                ERTS_FALLTHROUGH();
             case HAMT_SUBTAG_NODE_BITMAP:
                 ptr++;
                 sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
@@ -3759,9 +3754,15 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
          * `node` is not really needed, but it is very nice to
          * have when debugging.
          *
-         * `idx` always points to the next un-explored entry in
-         * a node. If there are no more un-explored entries,
-         * `idx` is equal to `sz`.
+         * For iterator mode:
+         *   `idx` always points to the next un-explored entry in
+         *   a node (forward direction). If there are no more entries,
+         *   `idx` is equal to `sz`.
+         *
+         * For list mode:
+         *   `idx` always points to the next un-explored entry in
+         *   a node (reverse direction). If there are no more entries,
+         *   `idx` is 0 (meaning we've gone past index 0).
          *
          * `sz` is the number of elements in the node.
          *
@@ -3811,7 +3812,12 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
 
         /* First we look for the leaf to start at using the
            path given. While doing so, we push each map node
-           and the index onto the stack to use later. */
+           and the index onto the stack to use later.
+
+           For list mode, we traverse in reverse order (from high to low index)
+           to produce elements in forward order when combined with CONS prepending.
+           For iterator mode, we traverse in forward order (from low to high index).
+        */
         for (i = 1; ; i++) {
             Eterm hdr;
 
@@ -3820,7 +3826,12 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
 
             sz = hashmap_node_size(hdr, &ptr);
 
-            idx = PATH_ELEM(curr_path);
+            if (type == iterator) {
+                idx = PATH_ELEM(curr_path);
+            } else {
+                /* List mode: path encodes offset from end */
+                idx = sz - 1 - PATH_ELEM(curr_path);
+            }
             if (idx >= sz)
                 goto badarg;
 
@@ -3829,7 +3840,12 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
                 break;
             }
 
-            WSTACK_PUSH4(stack, node, idx+1, sz, (UWord)ptr);
+            if (type == iterator) {
+                WSTACK_PUSH4(stack, node, idx+1, sz, (UWord)ptr);
+            } else {
+                /* List mode: store idx-1 as the next index to visit (going backward) */
+                WSTACK_PUSH4(stack, node, idx-1, sz, (UWord)ptr);
+            }
 
             node = ptr[idx];
 
@@ -3874,85 +3890,168 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
 
         orig_elems = elems;
 
-        /* We traverse the hashmap and return at most `elems` elements */
+        /* We traverse the hashmap and return at most `elems` elements.
+         * For iterator mode, we traverse forward (idx 0 to sz-1).
+         * For list mode, we traverse backward (idx sz-1 to 0) to produce
+         * forward order when combined with CONS prepending.
+         */
         while(1) {
 
-            if (idx == 0) {
-                if (elems < sz && is_arity_value(*hashmap_val(node))) {
-                    /*
-                     * This is a collision node!
-                     * Make sure 'elems' is large enough not to yield in the
-                     * middle of it. Collision nodes may be larger than 16
-                     * and that would complicate the 4-bit path format.
-                     */
-                    elems = sz;
-                    HRelease(BIF_P, hp_end, hp);
-                    hp = HAlloc(BIF_P, words_per_elem * elems);
-                    hp_end = hp + words_per_elem * elems;
+            if (type == iterator) {
+                /* Forward traversal: check collision at start (idx == 0) */
+                if (idx == 0) {
+                    if (elems < sz && is_arity_value(*hashmap_val(node))) {
+                        /*
+                         * This is a collision node!
+                         * Make sure 'elems' is large enough not to yield in the
+                         * middle of it. Collision nodes may be larger than 16
+                         * and that would complicate the 4-bit path format.
+                         */
+                        elems = sz;
+                        HRelease(BIF_P, hp_end, hp);
+                        hp = HAlloc(BIF_P, words_per_elem * elems);
+                        hp_end = hp + words_per_elem * elems;
+                    }
                 }
-            }
-            else
-                ASSERT(!is_arity_value(*hashmap_val(node)));
+                else
+                    ASSERT(!is_arity_value(*hashmap_val(node)));
 
-            while (idx < sz && elems != 0 && is_list(ptr[idx])) {
-                Eterm *lst = list_val(ptr[idx]);
-                if (type == iterator) {
+                /* Forward traversal: increment idx */
+                while (idx < sz && elems != 0 && is_list(ptr[idx])) {
+                    Eterm *lst = list_val(ptr[idx]);
                     *patch_ptr = make_tuple(hp);
                     hp[0] = make_arityval(3);
                     hp[1] = CAR(lst);
                     hp[2] = CDR(lst);
                     patch_ptr = &hp[3];
                     hp += 4;
-                } else {
-                    Eterm tup = TUPLE2(hp, CAR(lst), CDR(lst)); hp += 3;
-                    res = CONS(hp, tup, res); hp += 2;
+                    elems--;
+                    idx++;
                 }
-                elems--;
-                idx++;
-            }
 
-            ASSERT(idx == sz || !is_arity_value(*hashmap_val(node)));
+                ASSERT(idx == sz || !is_arity_value(*hashmap_val(node)));
 
-            if (elems == 0) {
-                if (idx < sz) {
-                    /* There are more elements in this node to explore */
-                    WSTACK_PUSH4(stack, node, idx+1, sz, (UWord)ptr);
-                } else {
-                    /* pop stack to find the next value */
-                    while (!WSTACK_ISEMPTY(stack)) {
-                        Eterm *ptr = (Eterm*)WSTACK_POP(stack);
-                        Uint sz = (Uint)WSTACK_POP(stack);
-                        Uint idx = (Uint)WSTACK_POP(stack);
-                        Eterm node = (Eterm)WSTACK_POP(stack);
-                        if (idx < sz) {
-                            WSTACK_PUSH4(stack, node, idx+1, sz, (UWord)ptr);
-                            break;
+                if (elems == 0) {
+                    if (idx < sz) {
+                        /* There are more elements in this node to explore */
+                        WSTACK_PUSH4(stack, node, idx+1, sz, (UWord)ptr);
+                    } else {
+                        /* pop stack to find the next value */
+                        while (!WSTACK_ISEMPTY(stack)) {
+                            Eterm *ptr = (Eterm*)WSTACK_POP(stack);
+                            Uint sz = (Uint)WSTACK_POP(stack);
+                            Uint idx = (Uint)WSTACK_POP(stack);
+                            Eterm node = (Eterm)WSTACK_POP(stack);
+                            if (idx < sz) {
+                                WSTACK_PUSH4(stack, node, idx+1, sz, (UWord)ptr);
+                                break;
+                            }
                         }
                     }
+                    break;
                 }
-                break;
-            }
-            else if (idx < sz) {
-                Eterm hdr;
-                /* Push next idx in current node */
-                WSTACK_PUSH4(stack, node, idx+1, sz, (UWord)ptr);
+                else if (idx < sz) {
+                    Eterm hdr;
+                    /* Push next idx in current node */
+                    WSTACK_PUSH4(stack, node, idx+1, sz, (UWord)ptr);
 
-                /* Continue with first idx in child node */
-                node = ptr[idx];
-                ptr = hashmap_val(ptr[idx]);
-                hdr = *ptr++;
-                sz = hashmap_node_size(hdr, &ptr);
-                idx = 0;
-            }
-            else if (!WSTACK_ISEMPTY(stack)) {
-                ptr = (Eterm*)WSTACK_POP(stack);
-                sz = (Uint)WSTACK_POP(stack);
-                idx = (Uint)WSTACK_POP(stack);
-                node = (Eterm)WSTACK_POP(stack);
-            }
-            else {
-                /* There are no more element in the hashmap */
-                break;
+                    /* Continue with first idx in child node */
+                    node = ptr[idx];
+                    ptr = hashmap_val(ptr[idx]);
+                    hdr = *ptr++;
+                    sz = hashmap_node_size(hdr, &ptr);
+                    idx = 0;
+                }
+                else if (!WSTACK_ISEMPTY(stack)) {
+                    ptr = (Eterm*)WSTACK_POP(stack);
+                    sz = (Uint)WSTACK_POP(stack);
+                    idx = (Uint)WSTACK_POP(stack);
+                    node = (Eterm)WSTACK_POP(stack);
+                }
+                else {
+                    /* There are no more elements in the hashmap */
+                    break;
+                }
+            } else {
+                /* List mode: reverse traversal */
+
+                /* Reverse traversal: check collision at end (idx == sz-1) */
+                if (idx == sz - 1) {
+                    if (elems < sz && is_arity_value(*hashmap_val(node))) {
+                        /*
+                         * This is a collision node!
+                         * Make sure 'elems' is large enough not to yield in the
+                         * middle of it. Collision nodes may be larger than 16
+                         * and that would complicate the 4-bit path format.
+                         */
+                        elems = sz;
+                        HRelease(BIF_P, hp_end, hp);
+                        hp = HAlloc(BIF_P, words_per_elem * elems);
+                        hp_end = hp + words_per_elem * elems;
+                    }
+                }
+                else
+                    ASSERT(!is_arity_value(*hashmap_val(node)));
+
+                /* Reverse traversal: decrement idx. We use a signed variable
+                 * to detect when we go below 0. */
+                {
+                    Sint sidx = (Sint)idx;
+                    while (sidx >= 0 && elems != 0 && is_list(ptr[sidx])) {
+                        Eterm *lst = list_val(ptr[sidx]);
+                        Eterm tup = TUPLE2(hp, CAR(lst), CDR(lst)); hp += 3;
+                        res = CONS(hp, tup, res); hp += 2;
+                        elems--;
+                        sidx--;
+                    }
+                    idx = (Uint)sidx;  /* May wrap to large value if sidx < 0 */
+                }
+
+                ASSERT(idx >= sz || !is_arity_value(*hashmap_val(node)));
+
+                if (elems == 0) {
+                    if (idx < sz) {
+                        /* There are more elements in this node to explore (idx is valid) */
+                        WSTACK_PUSH4(stack, node, idx-1, sz, (UWord)ptr);
+                    } else {
+                        /* idx wrapped (was -1), pop stack to find the next value */
+                        while (!WSTACK_ISEMPTY(stack)) {
+                            Eterm *ptr = (Eterm*)WSTACK_POP(stack);
+                            Uint sz = (Uint)WSTACK_POP(stack);
+                            Uint idx = (Uint)WSTACK_POP(stack);
+                            Eterm node = (Eterm)WSTACK_POP(stack);
+                            if (idx < sz) {
+                                /* idx is valid, continue from here */
+                                WSTACK_PUSH4(stack, node, idx-1, sz, (UWord)ptr);
+                                break;
+                            }
+                        }
+                    }
+                    break;
+                }
+                else if (idx < sz) {
+                    Eterm hdr;
+                    /* Push previous idx in current node (going backward) */
+                    WSTACK_PUSH4(stack, node, idx-1, sz, (UWord)ptr);
+
+                    /* Continue with last idx in child node */
+                    node = ptr[idx];
+                    ptr = hashmap_val(ptr[idx]);
+                    hdr = *ptr++;
+                    sz = hashmap_node_size(hdr, &ptr);
+                    idx = sz - 1;
+                }
+                else if (!WSTACK_ISEMPTY(stack)) {
+                    /* idx wrapped (was -1), pop from stack */
+                    ptr = (Eterm*)WSTACK_POP(stack);
+                    sz = (Uint)WSTACK_POP(stack);
+                    idx = (Uint)WSTACK_POP(stack);
+                    node = (Eterm)WSTACK_POP(stack);
+                }
+                else {
+                    /* There are no more elements in the hashmap */
+                    break;
+                }
             }
         }
 
@@ -3974,13 +4073,21 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
 
             /* Pop the stack to create the complete path to the next leaf */
             while(!WSTACK_ISEMPTY(stack)) {
-                Uint idx;
+                Uint idx, sz, path_elem;
 
                 (void)WSTACK_POP(stack);
-                (void)WSTACK_POP(stack);
-                idx = (Uint)WSTACK_POP(stack)-1;
-                /* idx - 1 because idx in the stack is pointing to
-                   the next element to fetch. */
+                sz = (Uint)WSTACK_POP(stack);
+                if (type == iterator) {
+                    idx = (Uint)WSTACK_POP(stack) - 1;
+                    /* idx - 1 because idx in the stack is pointing to
+                       the next element to fetch (forward direction). */
+                    path_elem = idx;
+                } else {
+                    idx = (Uint)WSTACK_POP(stack) + 1;
+                    /* idx + 1 because idx in the stack is pointing to
+                       the next element to fetch (backward direction). */
+                    path_elem = sz - 1 - idx;  /* Encode as offset from end */
+                }
                 (void)WSTACK_POP(stack);
 
                 depth--;
@@ -3992,7 +4099,7 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
                 }
 
                 curr_path <<= PATH_ELEM_SIZE;
-                curr_path |= idx;
+                curr_path |= path_elem;
             }
 
             if (path_digits) {

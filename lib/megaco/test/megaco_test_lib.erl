@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -909,6 +911,8 @@ linux_distro_str_to_distro_id("Fedora" ++ _) ->
     fedora;
 linux_distro_str_to_distro_id("Linux Mint" ++ _) ->
     linux_mint;
+linux_distro_str_to_distro_id("LMDE" ++ _) ->
+    linux_mint;
 linux_distro_str_to_distro_id("MontaVista" ++ _) ->
     montavista;
 linux_distro_str_to_distro_id("openSUSE" ++ _) ->
@@ -1196,7 +1200,8 @@ analyze_and_print_linux_host_info(Version) ->
                           "~n   Num Online Schedulers: ~s"
                           "~n", [CPU, str_num_schedulers()]),
                 num_schedulers_to_factor();
-            _ ->
+            _X ->
+		io:format("CPU: ~p~n", [_X]),
                 5
         end,
     AddLabelFactor = label2factor(Label),

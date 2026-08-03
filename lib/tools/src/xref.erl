@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -101,6 +103,30 @@ module. All unknown functions are also undefined functions; there is a
 [figure](xref_chapter.md#venn2) in the User's Guide that illustrates
 this relationship.
 
+The module attribute `ignore_xref` can be used to suppress warnings for
+certain modules or functions in your modules. The following forms are
+understood by Xref:
+
+```erlang
+-ignore_xref(module).
+-ignore_xref([module1, module2, module3]).
+
+-ignore_xref(function/0).
+-ignore_xref([function1/0, function2/1, function3/2]).
+-ignore_xref({function,0}).
+-ignore_xref([{function1,0}, {function2,1}, {function3,2}]).
+
+%% ignoring calls/references to other modules from the current
+-ignore_xref({other_mod1, func1, 0}).
+-ignore_xref([{other_mod1, func1, 0}, {other_mod2, func2, 1}]).
+```
+
+A _documented function_{: #documented_function } is a function that has a
+corresponding `-doc()` attribute. These are further divided into two
+categories: a function whose `-doc()` attribute is `false` or `hidden` is
+_documented as private_{: #private_function }, and function whose `-doc()` is
+not is _documented as public_{: #public_function }.
+
 The module attribute tag `deprecated` can be used to inform
 Xref about _deprecated functions_{: #deprecated_function } and optionally when
 functions are planned to be removed. A few examples show the idea:
@@ -129,6 +155,17 @@ functions are planned to be removed. A few examples show the idea:
 
 - `-deprecated({'_','_',eventually}).` - All exported functions in the
   module are deprecated and will eventually be removed.
+
+Likewise, the module attribute tag `unsafe` can be used to inform
+Xref about _unsafe functions_{: #unsafe_function }.
+
+- `-unsafe({f,1}).` - The exported function `f/1` is always unsafe.
+
+- `-unsafe({f,1,"Use g/1 instead"}).` - As above but with a descriptive
+  string. The string is currently unused by `xref` but other tools can make use
+  of it.
+
+- `-unsafe({f,1,possibly}).` - The exported function `f/1` is _possibly unsafe_
 
 Before any analysis can take place, module data must be _set up_. For instance,
 the cross reference and the unknown functions are computed when all module data
@@ -304,6 +341,20 @@ in `functions` mode only):
 - **`DF_3`** - Deprecated Functions. All deprecated functions to be removed in
   next version, next major release, or later.
 
+- **`DC`** - Documented Functions. All functions with a `-doc` directive.
+
+- **`DC_1`** - Documented Public Functions. All functions whose `-doc`
+  directive is not `false` or `hidden`.
+
+- **`DC_2`** - Documented Private Functions. All functions whose `-doc`
+  directive is `false` or `hidden`.
+
+- **`US`** - Unsafe Functions. All unsafe functions.
+
+- **`US_1`** - Unsafe Functions that cannot be used safely in any way.
+
+- **`US_2`** - Unsafe Functions that could potentially be used safely.
+
 These are a few [](){: #simple_facts } facts about the predefined variables (the
 set operators `+` (union) and `-` (difference) as well as the cast operator
 `(`Type`)` are described below):
@@ -340,6 +391,12 @@ set operators `+` (union) and `-` (difference) as well as the cast operator
 - `DF_2` is a subset of `DF_3`.
 - `DF_3` is a subset of `DF`.
 - `DF` is a subset of `X + B`.
+- `DC_2` is a subset of `DC`.
+- `DC_1` is a subset of `DC`.
+- `DC` is a subset of `X + B`.
+- `US_2` is a subset of `US`.
+- `US_1` is a subset of `US`.
+- `US` is a subset of `X + B`.
 
 An important notion is that of _conversion_{: #conversion } of expressions. The
 syntax of a cast expression is:
@@ -406,7 +463,7 @@ There are also unary set operators:
 Recall that a call is a pair (From, To). `domain` applied to a set of calls is
 interpreted as the set of all vertices From, and `range` as the set of all
 vertices To. The interpretation of the `strict` operator is the operand with all
-calls on the form (A, A) removed.
+calls of the form (A, A) removed.
 
 The interpretation of the _restriction operators_{: #restriction } is a subset
 of the first operand, a set of calls. The second operand, a set of vertices, is
@@ -556,7 +613,7 @@ variables assigned to by the `:=` operator can only be removed by calls to
 if any of the functions that make it necessary to set up module data again is
 called, all user variables are forgotten.
 
-## See Also
+### See Also
 
 `m:beam_lib`, `m:digraph`, `m:digraph_utils`, `m:re`,
 [User's Guide for Xref](xref_chapter.md)
@@ -592,6 +649,8 @@ called, all user variables are forgotten.
 -import(lists, [keydelete/3, keysearch/3]).
 
 -import(sofs, [to_external/1, is_sofs_set/1]).
+
+-include("xref.hrl").
 
 %%%----------------------------------------------------------------------
 %%% API
@@ -1500,6 +1559,9 @@ analyse(Name, What, Options) ->
                   | {'deprecated_function_calls', DeprFlag :: depr_flag()}
                   | 'deprecated_functions'
                   | {'deprecated_functions', DeprFlag :: depr_flag()}
+                  | 'private_function_calls'
+                  | 'undocumented_function_calls'
+                  | 'unsafe_function_calls'
                   | {'call', FuncSpec :: func_spec()}
                   | {'use', FuncSpec :: func_spec()}
                   | {'module_call', ModSpec :: mod_spec()}
@@ -1529,13 +1591,25 @@ analyze(Name, What) ->
     gen_server:call(Name, {analyze, What}, infinity).
 
 -doc """
-[](){: #analyze } Evaluates a predefined analysis.
+Evaluates a predefined analysis.
 
 Returns a sorted list without duplicates of `t:call/0` or
 `t:constant/0`, depending on the chosen analysis.  The predefined
 analyses, which operate on all [analyzed
 modules](`m:xref#analyzed_module`), are (analyses marked with (\*) are
 available only in [mode `functions`](`m:xref#mode`)):
+
+- **`private_function_calls`** - Returns a list of calls to
+  [private functions](`m:xref#private_function`) from applications other than
+  the one the callee is defined in.
+
+- **`undocumented_function_calls`** - Returns a list of calls to
+  functions _lacking_ a `-doc()` directive from applications other than the one
+  the callee is defined in.
+
+- **`unsafe_function_calls`** - Returns a list of
+  [unsafe functions](`m:xref#unsafe_function`). Note that this implies
+  `private_function_calls`.
 
 - **`undefined_function_calls`(\*)** - Returns a list of calls to
   [undefined functions](`m:xref#undefined_function`).
@@ -1963,16 +2037,16 @@ handle_call({variables, Options}, _From, State) ->
     {reply, Reply, NewState};
 handle_call({analyze, What}, _From, State) ->
     {Reply, NewState} = xref_base:analyze(State, What),
-    {reply, unsetify(Reply), NewState};
+    {reply, finalize(Reply, NewState), NewState};
 handle_call({analyze, What, Options}, _From, State) ->
     {Reply, NewState} = xref_base:analyze(State, What, Options),
-    {reply, unsetify(Reply), NewState};
+    {reply, finalize(Reply, NewState), NewState};
 handle_call({qry, Q}, _From, State) ->
     {Reply, NewState} = xref_base:q(State, Q),
-    {reply, unsetify(Reply), NewState};
+    {reply, finalize(Reply, NewState), NewState};
 handle_call({qry, Q, Options}, _From, State) ->
     {Reply, NewState} = xref_base:q(State, Q, Options),
-    {reply, unsetify(Reply), NewState};
+    {reply, finalize(Reply, NewState), NewState};
 handle_call(get_default, _From, State) ->
     Reply = xref_base:get_default(State),
     {reply, Reply, State};
@@ -2073,10 +2147,72 @@ do_analysis(State, Analysis) ->
 	    throw(Error)
     end.
 
-unsetify(Reply={ok, X}) ->
+finalize({ok, X}, #xref{ignores = Ignores}) ->
+    {ok, filter_xref_results(Ignores, unsetify(X))};
+finalize(Error, _State) ->
+    Error.
+
+unsetify(X) ->
     case is_sofs_set(X) of
-	true -> {ok, to_external(X)};
-	false -> Reply
-    end;
-unsetify(Reply) ->
-    Reply.
+        true -> to_external(X);
+        false -> X
+    end.
+
+%% Filters out behaviour functions and explicitly marked functions
+%% For example: `-ignore_xref([{F, A}, {M, F, A}, M, ...]).`
+filter_xref_results(_Ignores, Results) when not is_list(Results) ->
+    Results;
+filter_xref_results(Ignores, Results) ->
+    SearchModules = lists:usort(
+                      lists:map(
+                        fun({Mt,_Ft,_At}) -> Mt;
+                           ({{Ms,_Fs,_As},{_Mt,_Ft,_At}}) -> Ms;
+                           (_) -> undefined
+                        end, Results)),
+
+    Ignores1 = Ignores ++ lists:flatmap(fun(Module) ->
+                                    get_xref_ignorelist(Module)
+                            end, SearchModules),
+
+    lists:filter( fun(Result) -> pred_xref_result(Result, Ignores1) end, Results).
+
+pred_xref_result({Src, Dest}, Ignores) ->
+    pred_xref_result1(Src, Ignores)
+        andalso pred_xref_result1(Dest, Ignores);
+pred_xref_result(Vertex, Ignores) ->
+    pred_xref_result1(Vertex, Ignores).
+
+pred_xref_result1(Vertex, Ignores) ->
+    Mod = case Vertex of
+              {Module, _Func, _Arity} -> Module;
+              _ -> Vertex
+          end,
+    not lists:member(Vertex, Ignores) andalso not lists:member(Mod, Ignores).
+
+get_xref_ignorelist(Mod) ->
+    %% Get ignore_xref attribute and combine them in one list
+    Attributes = get_module_attrs(Mod),
+    IgnoreXref = keyall(ignore_xref, Attributes),
+    lists:foldl(
+      fun({F, A}, Acc) -> [{Mod,F,A} | Acc];
+         ({M, F, A}, Acc) -> [{M,F,A} | Acc];
+         (M, Acc) when is_atom(M) -> [M | Acc]
+      end, [], lists:flatten([IgnoreXref])).
+
+keyall(Key, List) ->
+    lists:flatmap(fun({K, L}) when Key =:= K -> L; (_) -> [] end, List).
+
+get_module_attrs(Mod) ->
+    case erlang:module_loaded(Mod) of
+        true ->
+            erlang:get_module_info(Mod, attributes);
+        false ->
+            case code:which(Mod) of
+                non_existing -> [];
+                Path ->
+                    case beam_lib:chunks(Path, [attributes]) of
+                        {ok, {Mod, [{attributes,As}]}} -> As;
+                        _ -> []
+                    end
+            end
+    end.

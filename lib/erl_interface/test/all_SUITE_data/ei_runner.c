@@ -1,8 +1,10 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2001-2021. All Rights Reserved.
- * 
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2001-2025. All Rights Reserved.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,7 +16,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 #include <stdio.h>
@@ -45,9 +47,9 @@ static int fd_to_erl;		/* File descriptor to Erlang. */
 
 static int packet_loop();
 static void ensure_buf_big_enough();
-static int readn();
+static int readn(int fd, unsigned char *buf, int len);
 static void reply(char* buf, unsigned size);
-static void dump();
+static void dump(unsigned char* buf, int sz, int max);
 
 void
 run_tests(char* argv0, TestCase test_cases[], unsigned number)
@@ -410,3 +412,18 @@ dump(buf, sz, max)
     }
 }
 
+/* Own stupid strcmp as the standard strcmp seems to
+** cause valgrind false positives
+** "Conditional jump or move depends on uninitialised value(s)"
+*/
+int my_strcmp(const char *s1, const char *s2)
+{
+    while (1) {
+        int r = (*s1 - *s2);
+        if (r || !*s1) {
+            return r;
+        }
+        s1++;
+        s2++;
+    }
+}

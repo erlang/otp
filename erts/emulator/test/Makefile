@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1997-2026. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -62,6 +64,7 @@ MODULES= \
 	dummy \
 	dump_SUITE \
 	efile_SUITE \
+	erl_debugger_SUITE \
 	erts_debug_SUITE \
 	estone_SUITE \
 	erl_link_SUITE \
@@ -86,6 +89,7 @@ MODULES= \
 	module_info_SUITE \
 	monitor_SUITE \
 	multi_load_SUITE \
+	native_record_SUITE \
 	nested_SUITE \
 	nif_SUITE \
 	node_container_SUITE \
@@ -141,7 +145,9 @@ MODULES= \
 	erts_test_utils \
 	erts_test_destructor \
 	crypto_reference \
-	literal_area_collector_test
+	literal_area_collector_test \
+        erts_test_sync_tracer \
+        ext_records
 
 NO_OPT= bs_bincomp \
 	bs_bit_binaries \
@@ -154,19 +160,6 @@ NO_OPT= bs_bincomp \
 	guard \
 	map
 
-R24= \
-	bs_construct \
-	process_max_heap_size
-
-R25= \
-	bs_bincomp \
-	bs_construct \
-	bs_match_bin \
-	bs_match_int \
-	bs_match_tail \
-	bs_match_misc \
-	bs_utf
-
 STRIPPED_TYPES= \
 	bs_bincomp \
 	bs_construct \
@@ -178,12 +171,6 @@ STRIPPED_TYPES= \
 
 NO_OPT_MODULES= $(NO_OPT:%=%_no_opt_SUITE)
 NO_OPT_ERL_FILES= $(NO_OPT_MODULES:%=%.erl)
-
-R24_MODULES= $(R24:%=%_r24_SUITE)
-R24_ERL_FILES= $(R24_MODULES:%=%.erl)
-
-R25_MODULES= $(R25:%=%_r25_SUITE)
-R25_ERL_FILES= $(R25_MODULES:%=%.erl)
 
 STRIPPED_TYPES_MODULES= $(STRIPPED_TYPES:%=%_stripped_types_SUITE)
 STRIPPED_TYPES_ERL_FILES= $(STRIPPED_TYPES_MODULES:%=%.erl)
@@ -225,15 +212,11 @@ ERL_COMPILE_FLAGS := $(filter-out +deterministic,$($(ERL_COMPILE_FLAGS)))
 # ----------------------------------------------------
 
 make_emakefile: $(NO_OPT_ERL_FILES) \
-  $(KERNEL_ERL_FILES) $(R24_ERL_FILES) $(R25_ERL_FILES) $(STRIPPED_TYPES_ERL_FILES)
+  $(KERNEL_ERL_FILES) $(STRIPPED_TYPES_ERL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) +compressed -o$(EBIN) \
 	$(MODULES) $(STDLIB_MODULES) $(KERNEL_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt +no_ssa_opt +no_bsm_opt \
         $(ERL_COMPILE_FLAGS) -o$(EBIN) $(NO_OPT_MODULES) >> $(EMAKEFILE)
-	$(ERL_TOP)/make/make_emakefile +r24 \
-        $(ERL_COMPILE_FLAGS) -o$(EBIN) $(R24_MODULES) >> $(EMAKEFILE)
-	$(ERL_TOP)/make/make_emakefile +r25 \
-        $(ERL_COMPILE_FLAGS) -o$(EBIN) $(R25_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +strip_types \
         $(ERL_COMPILE_FLAGS) -o$(EBIN) $(STRIPPED_TYPES_MODULES) >> $(EMAKEFILE)
 
@@ -257,12 +240,6 @@ targets: $(TARGET_FILES)
 %_no_opt_SUITE.erl: %_SUITE.erl
 	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
 
-%_r24_SUITE.erl: %_SUITE.erl
-	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
-
-%_r25_SUITE.erl: %_SUITE.erl
-	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
-
 %_stripped_types_SUITE.erl: %_SUITE.erl
 	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
 
@@ -279,8 +256,6 @@ release_tests_spec: make_emakefile
 		$(ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(KERNEL_ERL_FILES) "$(RELSYSDIR)"
-	$(INSTALL_DATA) $(R24_ERL_FILES) "$(RELSYSDIR)"
-	$(INSTALL_DATA) $(R25_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(STRIPPED_TYPES_ERL_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)

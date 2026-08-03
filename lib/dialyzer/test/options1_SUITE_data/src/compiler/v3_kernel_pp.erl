@@ -1,4 +1,11 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,16 +17,8 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%%
-%%     $Id: v3_kernel_pp.erl,v 1.1 2008/12/17 09:53:43 mikpe Exp $
-%%
-%% Purpose : Kernel Erlang (naive) prettyprinter
-
+%% %CopyrightEnd%
 -module(v3_kernel_pp).
-
 -include("v3_kernel.hrl").
 
 -export([format/1]).
@@ -71,13 +70,13 @@ format_1(#k_int{val=I}, _Ctxt) -> integer_to_list(I);
 format_1(#k_nil{}, _Ctxt) -> "[]";
 format_1(#k_string{val=S}, _Ctxt) -> io_lib:write_string(S);
 format_1(#k_var{name=V}, _Ctxt) ->
-    if atom(V) ->
+    if is_atom(V) ->
 	    case atom_to_list(V) of
 		[$_|Cs] -> "_X" ++ Cs;
 		[C|Cs] when C >= $A, C =< $Z -> [C|Cs];
 		Cs -> [$_|Cs]
 	    end;
-       integer(V) -> [$_|integer_to_list(V)]
+       is_integer(V) -> [$_|integer_to_list(V)]
     end;
 format_1(#k_cons{hd=H,tl=T}, Ctxt) ->
     Txt = ["["|format(H, ctxt_bump_indent(Ctxt, 1))],
@@ -341,7 +340,7 @@ format_fa_pair({F,A}, _Ctxt) -> [core_atom(F),$/,integer_to_list(A)].
 
 %% format_attribute({Name,Val}, Context) -> Txt.
 
-format_attribute({Name,Val}, Ctxt) when list(Val) ->
+format_attribute({Name,Val}, Ctxt) when is_list(Val) ->
     Txt = format(#k_atom{val=Name}, Ctxt),
     Ctxt1 = ctxt_bump_indent(Ctxt, width(Txt,Ctxt)+4),
     [Txt," = ",
@@ -415,7 +414,7 @@ unindent([$\t|T], N, Ctxt, C) ->
        true ->
 	    unindent([string:chars($\s, Tab - N)|T], 0, Ctxt, C)
     end;
-unindent([L|T], N, Ctxt, C) when list(L) ->
+unindent([L|T], N, Ctxt, C) when is_list(L) ->
     unindent(L, N, Ctxt, [T|C]);
 unindent([H|T], _N, _Ctxt, C) ->
     [H|[T|C]];
@@ -431,7 +430,7 @@ width([$\t|T], A, Ctxt, C) ->
     width(T, A + Ctxt#ctxt.tab_width, Ctxt, C);
 width([$\n|T], _A, Ctxt, C) ->
     width(unindent([T|C], Ctxt), Ctxt);
-width([H|T], A, Ctxt, C) when list(H) ->
+width([H|T], A, Ctxt, C) when is_list(H) ->
     width(H, A, Ctxt, [T|C]);
 width([_|T], A, Ctxt, C) ->
     width(T, A + 1, Ctxt, C);

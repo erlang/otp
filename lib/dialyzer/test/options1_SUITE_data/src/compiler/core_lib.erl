@@ -1,4 +1,11 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,13 +17,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%%
-%%     $Id: core_lib.erl,v 1.1 2008/12/17 09:53:42 mikpe Exp $
-%%
-%% Purpose: Core Erlang abstract syntax functions.
+%% %CopyrightEnd%
 
 -module(core_lib).
 
@@ -115,13 +116,13 @@ literal_value_list(Vals) -> lists:map(fun literal_value/1, Vals).
 %% make_literal(Value) -> LitExpr.
 %%  Make a literal expression from an Erlang value.
 
-make_literal(I) when integer(I) -> #c_int{val=I};
-make_literal(F) when float(F) -> #c_float{val=F};
-make_literal(A) when atom(A) -> #c_atom{val=A};
+make_literal(I) when is_integer(I) -> #c_int{val=I};
+make_literal(F) when is_float(F) -> #c_float{val=F};
+make_literal(A) when is_atom(A) -> #c_atom{val=A};
 make_literal([]) -> #c_nil{};
 make_literal([H|T]) ->
     #c_cons{hd=make_literal(H),tl=make_literal(T)};
-make_literal(T) when tuple(T) ->
+make_literal(T) when is_tuple(T) ->
     #c_tuple{es=make_literal_list(tuple_to_list(T))}.
 
 make_literal_list(Vals) -> lists:map(fun make_literal/1, Vals).

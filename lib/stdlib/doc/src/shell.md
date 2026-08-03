@@ -1,3 +1,24 @@
+<!--
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
 The Erlang shell.
 
 The shell is a user interface program for entering expression sequences. The
@@ -128,43 +149,55 @@ shell.
   This means, for example, that ports and ETS tables as well as processes linked
   to the evaluator process survive the exception.
 
-- **`rd(RecordName, RecordDefinition)`** - Defines a record in the shell.
+- **`rd(RecordName, RecordDefinition)`** - Defines a
+  [tuple-based record](`e:system:ref_man_records.md`) in the shell.
   `RecordName` is an atom and `RecordDefinition` lists the field names and the
   default values. Usually record definitions are made known to the shell by use
   of the `rr/1,2,3` commands described below, but sometimes it is handy to
   define records on the fly.
 
-- **`rf()`** - Removes all record definitions, then reads record definitions
+- **`rf()`** - Removes all record definitions, then reads
+  [tuple-based record definitions](`e:system:ref_man_records.md`)
   from the modules `shell_default` and `user_default` (if loaded). Returns the
   names of the records defined.
 
-- **`rf(RecordNames)`** - Removes selected record definitions. `RecordNames` is
-  a record name or a list of record names. To remove all record definitions, use
-  `'_'`.
+- **`rf(RecordNames)`** - Removes selected
+  [tuple-based record definitions](`e:system:ref_man_records.md`).
+  `RecordNames` is a record name or a list of record names.
+  To remove all record definitions, use `'_'`.
 
 - **`rl()`** - Prints all record definitions.
 
-- **`rl(RecordNames)`** - Prints selected record definitions. `RecordNames` is a
-  record name or a list of record names.
+- **`rl(RecordNames)`** - Prints selected
+  [tuple-based record definitions](`e:system:ref_man_records.md`).
+  `RecordNames` is a record name or a list of record names.
 
-- **`rp(Term)`** - Prints a term using the record definitions known to the
-  shell. All of `Term` is printed; the depth is not limited as is the case when
+- **`rp(Term)`** - Prints a term using the
+  [tuple-based record definitions](`e:system:ref_man_records.md`)
+  known to the shell.
+  All of `Term` is printed; the depth is not limited as is the case when
   a return value is printed.
 
-- **`rr(Module)`** - Reads record definitions from a module's BEAM file. If
+- **`rr(Module)`** - Reads
+  [tuple-based record definitions](`e:system:ref_man_records.md`)
+  from a module's BEAM file. If
   there are no record definitions in the BEAM file, the source file is located
   and read instead. Returns the names of the record definitions read. `Module`
   is an atom.
 
-- **`rr(Wildcard)`** - Reads record definitions from files. Existing definitions
+- **`rr(Wildcard)`** - Reads
+  [tuple-based record definitions](`e:system:ref_man_records.md`)
+  from files. Existing definitions
   of any of the record names read are replaced. `Wildcard` is a wildcard string
   as defined in `m:filelib`, but not an atom.
 
-- **`rr(WildcardOrModule, RecordNames)`** - Reads record definitions from files
+- **`rr(WildcardOrModule, RecordNames)`** - Reads
+  [tuple-based record definitions](`e:system:ref_man_records.md`)
   but discards record names not mentioned in `RecordNames` (a record name or a
   list of record names).
 
-- **`rr(WildcardOrModule, RecordNames, Options)`** - Reads record definitions
+- **`rr(WildcardOrModule, RecordNames, Options)`** - Reads
+  [tuple-based record definitions](`e:system:ref_man_records.md`)
   from files. The compiler options `{i, Dir}`, `{d, Macro}`, and
   `{d, Macro, Value}` are recognized and used for setting up the include path
   and macro definitions. To read all record definitions, use `'_'` as value of

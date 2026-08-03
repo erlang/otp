@@ -58,7 +58,7 @@ start(ConfigFile) ->
     %% ?D("start(~s) -> entry", [ConfigFile]),
     start(ConfigFile, []).
 
-start(ConfigFile, Verbosity) when list(ConfigFile), list(Verbosity) ->
+start(ConfigFile, Verbosity) when is_list(ConfigFile), is_list(Verbosity) ->
     httpd_sup:start(ConfigFile, Verbosity).
 
 
@@ -70,7 +70,7 @@ start_link() ->
 start_link(ConfigFile) ->
     start_link(ConfigFile, []).
 
-start_link(ConfigFile, Verbosity) when list(ConfigFile), list(Verbosity) ->
+start_link(ConfigFile, Verbosity) when is_list(ConfigFile), is_list(Verbosity) ->
     httpd_sup:start_link(ConfigFile, Verbosity).
 
 
@@ -79,13 +79,13 @@ start_link(ConfigFile, Verbosity) when list(ConfigFile), list(Verbosity) ->
 start2(Config) ->
     start2(Config, []).
 
-start2(Config, Verbosity) when list(Config), list(Verbosity) ->
+start2(Config, Verbosity) when is_list(Config), is_list(Verbosity) ->
     httpd_sup:start2(Config, Verbosity).
 
 start_link2(Config) ->
     start_link2(Config, []).
 
-start_link2(Config, Verbosity) when list(Config), list(Verbosity) ->
+start_link2(Config, Verbosity) when is_list(Config), is_list(Verbosity) ->
     httpd_sup:start_link2(Config, Verbosity).
 
 
@@ -94,18 +94,18 @@ start_link2(Config, Verbosity) when list(Config), list(Verbosity) ->
 stop() ->
   stop(8888).
 
-stop(Port) when integer(Port) ->
+stop(Port) when is_integer(Port) ->
     stop(undefined, Port);
-stop(Pid) when pid(Pid) ->
+stop(Pid) when is_pid(Pid) ->
     httpd_sup:stop(Pid);
-stop(ConfigFile) when list(ConfigFile) ->
+stop(ConfigFile) when is_list(ConfigFile) ->
     %% ?D("stop(~s) -> entry", [ConfigFile]),
     httpd_sup:stop(ConfigFile).
 
-stop(Addr, Port) when integer(Port) ->
+stop(Addr, Port) when is_integer(Port) ->
     httpd_sup:stop(Addr, Port).
 
-stop2(Config) when list(Config) ->
+stop2(Config) when is_list(Config) ->
     httpd_sup:stop2(Config).
 
 %% start_child
@@ -128,7 +128,7 @@ stop_child() ->
 stop_child(Port) ->
     stop_child(undefined,Port).
 
-stop_child(Addr, Port) when integer(Port) ->
+stop_child(Addr, Port) when is_integer(Port) ->
     inets_sup:stop_child(Addr, Port).
 
 
@@ -212,9 +212,9 @@ mrestart([H|T],Results) ->
 
 restart() -> restart(undefined,8888).
 
-restart(Port) when integer(Port) ->
+restart(Port) when is_integer(Port) ->
     restart(undefined,Port);
-restart(ConfigFile) when list(ConfigFile) ->
+restart(ConfigFile) when is_list(ConfigFile) ->
     case get_addr_and_port(ConfigFile) of
 	{ok,Addr,Port} ->
 	    restart(Addr,Port);
@@ -223,13 +223,13 @@ restart(ConfigFile) when list(ConfigFile) ->
     end.
 
 
-restart(Addr,Port) when integer(Port) ->
+restart(Addr,Port) when is_integer(Port) ->
     do_restart(Addr,Port).
 
-do_restart(Addr,Port) when integer(Port) ->
+do_restart(Addr,Port) when is_integer(Port) ->
     Name = make_name(Addr,Port),
     case whereis(Name) of
-	Pid when pid(Pid) ->
+        Pid when is_pid(Pid) ->
 	    httpd_manager:restart(Pid);
 	_ ->
 	    {error,not_started}
@@ -281,10 +281,10 @@ do_restart(Addr,Port) when integer(Port) ->
 %%%
 block() -> block(undefined,8888,disturbing).
 
-block(Port) when integer(Port) ->
+block(Port) when is_integer(Port) ->
     block(undefined,Port,disturbing);
 
-block(ConfigFile) when list(ConfigFile) ->
+block(ConfigFile) when is_list(ConfigFile) ->
     case get_addr_and_port(ConfigFile) of
 	{ok,Addr,Port} ->
 	    block(Addr,Port,disturbing);
@@ -292,13 +292,13 @@ block(ConfigFile) when list(ConfigFile) ->
 	    Error
     end.
 
-block(Addr,Port) when integer(Port) ->
+block(Addr,Port) when is_integer(Port) ->
     block(Addr,Port,disturbing);
 
-block(Port,Mode) when integer(Port), atom(Mode) ->
+block(Port,Mode) when is_integer(Port), is_atom(Mode) ->
     block(undefined,Port,Mode);
 
-block(ConfigFile,Mode) when list(ConfigFile), atom(Mode) ->
+block(ConfigFile,Mode) when is_list(ConfigFile), is_atom(Mode) ->
     case get_addr_and_port(ConfigFile) of
 	{ok,Addr,Port} ->
 	    block(Addr,Port,Mode);
@@ -307,12 +307,12 @@ block(ConfigFile,Mode) when list(ConfigFile), atom(Mode) ->
     end.
 
 
-block(Addr,Port,disturbing) when integer(Port) ->
+block(Addr,Port,disturbing) when is_integer(Port) ->
     do_block(Addr,Port,disturbing);
-block(Addr,Port,non_disturbing) when integer(Port) ->
+block(Addr,Port,non_disturbing) when is_integer(Port) ->
     do_block(Addr,Port,non_disturbing);
 
-block(ConfigFile,Mode,Timeout) when list(ConfigFile), atom(Mode), integer(Timeout) ->
+block(ConfigFile,Mode,Timeout) when is_list(ConfigFile), is_atom(Mode), is_integer(Timeout) ->
     case get_addr_and_port(ConfigFile) of
 	{ok,Addr,Port} ->
 	    block(Addr,Port,Mode,Timeout);
@@ -321,25 +321,25 @@ block(ConfigFile,Mode,Timeout) when list(ConfigFile), atom(Mode), integer(Timeou
     end.
 
 
-block(Addr,Port,non_disturbing,Timeout) when integer(Port), integer(Timeout) ->
+block(Addr,Port,non_disturbing,Timeout) when is_integer(Port), is_integer(Timeout) ->
     do_block(Addr,Port,non_disturbing,Timeout);
-block(Addr,Port,disturbing,Timeout) when integer(Port), integer(Timeout) ->
+block(Addr,Port,disturbing,Timeout) when is_integer(Port), is_integer(Timeout) ->
     do_block(Addr,Port,disturbing,Timeout).
 
-do_block(Addr,Port,Mode) when integer(Port), atom(Mode) ->
+do_block(Addr,Port,Mode) when is_integer(Port), is_atom(Mode) ->
     Name = make_name(Addr,Port),
     case whereis(Name) of
-	Pid when pid(Pid) ->
+        Pid when is_pid(Pid) ->
 	    httpd_manager:block(Pid,Mode);
 	_ ->
 	    {error,not_started}
     end.
 
 
-do_block(Addr,Port,Mode,Timeout) when integer(Port), atom(Mode) ->
+do_block(Addr,Port,Mode,Timeout) when is_integer(Port), is_atom(Mode) ->
     Name = make_name(Addr,Port),
     case whereis(Name) of
-	Pid when pid(Pid) ->
+        Pid when is_pid(Pid) ->
 	    httpd_manager:block(Pid,Mode,Timeout);
 	_ ->
 	    {error,not_started}
@@ -361,9 +361,9 @@ do_block(Addr,Port,Mode,Timeout) when integer(Port), atom(Mode) ->
 %%%              ConfigFile -> string()
 %%%
 unblock()                        -> unblock(undefined,8888).
-unblock(Port) when integer(Port) -> unblock(undefined,Port);
+unblock(Port) when is_integer(Port) -> unblock(undefined,Port);
 
-unblock(ConfigFile) when list(ConfigFile) ->
+unblock(ConfigFile) when is_list(ConfigFile) ->
     case get_addr_and_port(ConfigFile) of
 	{ok,Addr,Port} ->
 	    unblock(Addr,Port);
@@ -371,10 +371,10 @@ unblock(ConfigFile) when list(ConfigFile) ->
 	    Error
     end.
 
-unblock(Addr,Port) when integer(Port) ->
+unblock(Addr,Port) when is_integer(Port) ->
     Name = make_name(Addr,Port),
     case whereis(Name) of
-	Pid when pid(Pid) ->
+        Pid when is_pid(Pid) ->
 	    httpd_manager:unblock(Pid);
 	_ ->
 	    {error,not_started}
@@ -387,7 +387,7 @@ verbosity(Port,Who,Verbosity) ->
 verbosity(Addr,Port,Who,Verbosity) ->
     Name = make_name(Addr,Port),
     case whereis(Name) of
-	Pid when pid(Pid) ->
+        Pid when is_pid(Pid) ->
 	    httpd_manager:verbosity(Pid,Who,Verbosity);
 	_ ->
 	    not_started
@@ -411,9 +411,9 @@ verbosity(Addr,Port,Who,Verbosity) ->
 %%%              Reason  -> term()
 %%%
 get_admin_state()                        -> get_admin_state(undefined,8888).
-get_admin_state(Port) when integer(Port) -> get_admin_state(undefined,Port);
+get_admin_state(Port) when is_integer(Port) -> get_admin_state(undefined,Port);
 
-get_admin_state(ConfigFile) when list(ConfigFile) ->
+get_admin_state(ConfigFile) when is_list(ConfigFile) ->
     case get_addr_and_port(ConfigFile) of
 	{ok,Addr,Port} ->
 	    unblock(Addr,Port);
@@ -421,10 +421,10 @@ get_admin_state(ConfigFile) when list(ConfigFile) ->
 	    Error
     end.
 
-get_admin_state(Addr,Port) when integer(Port) ->
+get_admin_state(Addr,Port) when is_integer(Port) ->
     Name = make_name(Addr,Port),
     case whereis(Name) of
-	Pid when pid(Pid) ->
+        Pid when is_pid(Pid) ->
 	    httpd_manager:get_admin_state(Pid);
 	_ ->
 	    {error,not_started}
@@ -449,9 +449,9 @@ get_admin_state(Addr,Port) when integer(Port) ->
 %%%              Reason  -> term()
 %%%
 get_usage_state()                        -> get_usage_state(undefined,8888).
-get_usage_state(Port) when integer(Port) -> get_usage_state(undefined,Port);
+get_usage_state(Port) when is_integer(Port) -> get_usage_state(undefined,Port);
 
-get_usage_state(ConfigFile) when list(ConfigFile) ->
+get_usage_state(ConfigFile) when is_list(ConfigFile) ->
     case get_addr_and_port(ConfigFile) of
 	{ok,Addr,Port} ->
 	    unblock(Addr,Port);
@@ -459,10 +459,10 @@ get_usage_state(ConfigFile) when list(ConfigFile) ->
 	    Error
     end.
 
-get_usage_state(Addr,Port) when integer(Port) ->
+get_usage_state(Addr,Port) when is_integer(Port) ->
     Name = make_name(Addr,Port),
     case whereis(Name) of
-	Pid when pid(Pid) ->
+        Pid when is_pid(Pid) ->
 	    httpd_manager:get_usage_state(Pid);
 	_ ->
 	    {error,not_started}
@@ -494,7 +494,7 @@ get_usage_state(Addr,Port) when integer(Port) ->
 %%              program such as erl_call (see erl_interface).
 %%
 
-get_status(ConfigFile) when list(ConfigFile) ->
+get_status(ConfigFile) when is_list(ConfigFile) ->
     case get_addr_and_port(ConfigFile) of
 	{ok,Addr,Port} ->
 	    get_status(Addr,Port);
@@ -502,19 +502,19 @@ get_status(ConfigFile) when list(ConfigFile) ->
 	    Error
     end;
 
-get_status(Port) when integer(Port) ->
+get_status(Port) when is_integer(Port) ->
     get_status(undefined,Port,5000).
 
-get_status(Port,Timeout) when integer(Port), integer(Timeout) ->
+get_status(Port,Timeout) when is_integer(Port), is_integer(Timeout) ->
     get_status(undefined,Port,Timeout);
 
-get_status(Addr,Port) when list(Addr), integer(Port) ->
+get_status(Addr,Port) when is_list(Addr), is_integer(Port) ->
     get_status(Addr,Port,5000).
 
-get_status(Addr,Port,Timeout) when integer(Port) ->
+get_status(Addr,Port,Timeout) when is_integer(Port) ->
     Name = make_name(Addr,Port),
     case whereis(Name) of
-	Pid when pid(Pid) ->
+        Pid when is_pid(Pid) ->
 	    httpd_manager:get_status(Pid,Timeout);
 	_ ->
 	    not_started
@@ -593,3 +593,26 @@ read_mfile(Line,Fd,SoFar) ->
 read_line(Fd)      -> read_line1(io:get_line(Fd,[])).
 read_line1(eof)    -> eof;
 read_line1(String) -> httpd_conf:clean(String).
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

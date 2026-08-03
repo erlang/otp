@@ -1,6 +1,11 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-type sub_level() ::[0m
-  [;1m          [LevelEntry :: level_entry()] |[0m
-  [;1m          (LogicalCpuId :: {logical, non_neg_integer()}).[0m
+[1m  sub_level()[0m
 
 

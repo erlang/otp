@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1997-2026. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,8 +43,6 @@ include $(ERL_TOP)/make/target.mk
 include $(TARGET)/eidefs.mk
 
 include $(ERL_TOP)/make/output.mk
-
-include openssl/openssl.mk
 
 EBINDIR=../ebin
 
@@ -98,7 +98,7 @@ AR_FLAGS=rcv
 endif
 
 INCFLAGS = -I. -I../include -Iconnect -Iencode -Idecode -Imisc -Iepmd \
-	-Iopenssl/include -I$(TARGET) 
+	-Ierts -I$(TARGET) 
 
 ifeq ($(USING_VC),yes)
 WARNFLAGS = -Wall
@@ -109,7 +109,7 @@ endif
 WARNFLAGS += -DEI_NO_DEPR_WARN
 
 CFLAGS = @LIB_CFLAGS@ @DEFS@ $(WARNFLAGS) $(INCFLAGS) $(TYPE_FLAGS) \
-	-DERLANG_OPENSSL_INTEGRATION
+	-DERL_INTERFACE
 LIB_LD = @LIB_LD@
 LIB_LDFLAGS = @LIB_LDFLAGS@
 LIB_LD_FLAG_RUNTIME_LIBRARY_PATH = @LIB_LD_FLAG_RUNTIME_LIBRARY_PATH@
@@ -140,7 +140,7 @@ BINDIR     = $(ERL_TOP)/lib/erl_interface/bin/$(TARGET)
 # -Wno-char-subscripts
 # -Wshadow
 
-vpath %.c connect:encode:decode:misc:epmd:global:$(OPENSSL_VPATH)
+vpath %.c connect:encode:decode:misc:epmd:global:erts
 
 ###########################################################################
 #  List targets
@@ -290,7 +290,7 @@ EISOURCES = \
 	$(EPMDSRC) \
 	$(MISCSRC) \
 	$(GLOBALSOURCES) \
-	$(OPENSSL_SOURCES)
+	$(ERTS_SOURCES)
 
 CONNECTSRC = \
 	connect/ei_connect.c \
@@ -381,6 +381,9 @@ GLOBALSOURCES = \
 	global/global_unregister.c \
 	global/global_whereis.c
 
+ERTS_SOURCES = \
+	erts/erl_md5.c
+
 SOURCES = $(EISOURCES)
 
 NEVERUSED = \
@@ -426,6 +429,7 @@ clean:
 	rm -f $(FAKE_TARGETS)
 	rm -f $(APP_TARGET)
 	rm -f $(APPUP_TARGET)
+	rm -f erts/*; rmdir erts
 
 distclean: clean
 	rm -f config.h config.log config.status configure
@@ -649,13 +653,23 @@ $(MDD_OBJDIR)/ei_fake_prog_mdd_cxx$(EXE): prog/ei_fake_prog.c $(MDD_EILIB)
 		-L$(OBJDIR) -lei_r $(THR_LIBS) $(LIBS)
 
 ###########################################################################
+#  Steal some files from ERTS
+###########################################################################
+
+erts:
+	$(V_colon)echo "Copy files from erts..."
+	mkdir -p erts
+	cp $(ERL_TOP)/erts/emulator/beam/erl_md5.c erts/
+	cp $(ERL_TOP)/erts/emulator/beam/erl_md5.h erts/
+
+###########################################################################
 #  Create dependency file using gcc -MM
 ###########################################################################
 
 ifneq ($(ERTS_SKIP_DEPEND),true)
 depend: $(TARGET)/depend.mk
 
-$(TARGET)/depend.mk: $(TARGET)/config.h
+$(TARGET)/depend.mk: $(TARGET)/config.h erts
 	$(gen_verbose)
 	$(V_colon)echo "Generating dependency file depend.mk..."
 	@echo "# Generated dependency rules" > $@
@@ -674,17 +688,15 @@ $(TARGET)/depend.mk: $(TARGET)/config.h
 # For some reason this has to be after 'opt' target
 -include $(TARGET)/depend.mk
 else
-depend:
+depend: erts
 endif
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
 
 EXTRA = \
-	INSTALL \
 	Makefile \
 	Makefile.in \
-	README \
 	README.internal \
 	$(TARGET)/eidefs.mk
 

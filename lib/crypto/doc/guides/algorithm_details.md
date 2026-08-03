@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -176,6 +178,8 @@ name is present in the list returned by
 | `sha256`    | 32                                                     |
 | `sha384`    | 48                                                     |
 | `sha512`    | 64                                                     |
+| `sha512_224`| 28                                                     |
+| `sha512_256`| 32                                                     |
 | `sha3_224`  | 28                                                     |
 | `sha3_256`  | 32                                                     |
 | `sha3_384`  | 48                                                     |
@@ -200,6 +204,38 @@ the list returned by [crypto:supports(macs)](`crypto:supports/1`).
 
 The poly1305 mac wants an 32 bytes key and produces a 16 byte MAC by default.
 
+### SIPHASH
+
+SipHash is available with OpenSSL 3.0 or later if not disabled by configuration.
+
+To dynamically check availability, check that the name `siphash` is present in
+the list returned by [crypto:supports(macs)](`crypto:supports/1`).
+
+SipHash wants a 16 bytes key. It is configured through the `SubType` argument of
+[`crypto:mac/4`](`crypto:mac/4`), [`crypto:macN/5`](`crypto:macN/5`) and
+[`crypto:mac_init/3`](`crypto:mac_init/3`), which for `siphash` is a
+[`t:crypto:siphash_options/0`](`t:crypto:siphash_options/0`) map with any of the
+optional keys:
+
+| Key | Meaning | Values | Default |
+|------------|--------------------------------|-----------|---------|
+| `size` | output size in bytes | `8` or `16` | `16` |
+| `c_rounds` | SipHash compression rounds | `1`..`16` | `2` |
+| `d_rounds` | SipHash finalization rounds | `1`..`16` | `4` |
+
+The defaults correspond to SipHash-2-4 with a 16 byte output, matching the
+cryptolib defaults. The round counts are capped at `16` (well above the
+strongest standard variant, SipHash-4-8) so that a single call cannot
+monopolise a scheduler. Omitting the `SubType` (for example
+[`crypto:mac/3`](`crypto:mac/3`)) or passing `undefined` or `#{}` selects those
+defaults; any subset of the keys overrides individual parameters, so for example
+`#{size => 8}` selects the classic 64-bit SipHash-2-4 and `#{c_rounds => 1,
+d_rounds => 3}` selects SipHash-1-3.
+
+Note that the 8 and 16 byte outputs are _not_ truncations of one another; they
+differ in finalization, so the output size must be chosen explicitly through the
+`size` option.
+
 ## Hash
 
 To dynamically check availability, check that the wanted name in the _Names_
@@ -209,7 +245,7 @@ column is present in the list returned by
 | **Type** | **Names**                                                  | **Limited to** **OpenSSL versions** |
 | -------- | ---------------------------------------------------------- | ----------------------------------- |
 | SHA1     | sha                                                        |                                     |
-| SHA2     | sha224, sha256, sha384, sha512                             |                                     |
+| SHA2     | sha224, sha256, sha384, sha512, sha512_224, sha512_256     |                                     |
 | SHA3     | sha3_224, sha3_256, sha3_384, sha3_512, shake128, shake256 | ≥1.1.1                              |
 | SM3      | sm3                                                        | ≥1.1.1                              |
 | MD4      | md4                                                        |                                     |
@@ -232,19 +268,29 @@ atom `rsa` is present in the list returned by
 > The exact set of options and there syntax _may_ be changed without prior
 > notice.
 
-| **Option**                                                                                                            | **sign/verify**   | **public encrypt** **private decrypt** | **private encrypt** **public decrypt** |
-| --------------------------------------------------------------------------------------------------------------------- | ----------------- | -------------------------------------- | -------------------------------------- |
-| \{rsa_padding,rsa_x931_padding\}                                                                                      | x                 |                                        | x                                      |
-| \{rsa_padding,rsa_pkcs1_padding\}                                                                                     | x                 | x                                      | x                                      |
-| \{rsa_padding,rsa_pkcs1_pss_padding\} \{rsa_pss_saltlen, -2..\} \{rsa_mgf1_md, atom()\}                               | x (2) x (2) x (2) |                                        |                                        |
-| \{rsa_padding,rsa_pkcs1_oaep_padding\} \{rsa_mgf1_md, atom()\} \{rsa_oaep_label, binary()\}\} \{rsa_oaep_md, atom()\} |                   | x (2) x (2) x (3) x (3)                |                                        |
-| \{rsa_padding,rsa_no_padding\}                                                                                        | x (1)             |                                        |                                        |
+| Option                                 | sign/verify | public encrypt      | private encrypt     |
+| -------------------------------------- | ----------- | ------------------- | ------------------- |
+|                                        |             | **private decrypt** | **public decrypt**  |
+| \{rsa_padding,rsa_x931_padding\}       | x           |                     | x                   |
+|                                        |             |                     |                     |
+| \{rsa_padding,rsa_pkcs1_padding\}      | x           | x                   | x                   |
+|                                        |             |                     |                     |
+| \{rsa_padding,rsa_pkcs1_pss_padding\}  | x (2)       |                     |                     |
+| \{rsa_pss_saltlen, -2..\}              | x (2)       |                     |                     |
+| \{rsa_mgf1_md, atom()\}                | x (2)       |                     |                     |
+|                                        |             |                     |                     |
+| \{rsa_padding,rsa_pkcs1_oaep_padding\} |             | x (2)               |                     |
+| \{rsa_mgf1_md, atom()\}                |             | x (2)               |                     |
+| \{rsa_oaep_label, binary()\}\}         |             | x (3)               |                     |
+| \{rsa_oaep_md, atom()\}                |             | x (3)               |                     |
+|                                        |             |                     |                     |
+| \{rsa_padding,rsa_no_padding\}         | x (1)       |                     |                     |
 
 Notes:
 
-1. (1) OpenSSL ≤ 1.0.0
-1. (2) OpenSSL ≥ 1.0.1
-1. (3) OpenSSL ≥ 1.1.0
+1. OpenSSL ≤ 1.0.0
+1. OpenSSL ≥ 1.0.1
+1. OpenSSL ≥ 1.1.0
 
 ### DSS
 

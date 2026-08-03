@@ -2,7 +2,9 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2020. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2004-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -80,6 +82,9 @@ MIB_FILES = \
 	Test1.mib \
 	Test2.mib \
 	Test3.mib
+
+NETSNMP_MIB_FILES = \
+	OTP-C64-MIB.mib
 
 SPECS = snmp.spec
 

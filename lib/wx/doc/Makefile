@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2004-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,12 +31,5 @@ APPLICATION=wx
 # ----------------------------------------------------
 # Release Target
 # ----------------------------------------------------
-
-## Don't build docs if driver is not built,
-## exdoc can't load the driver in gl.erl onload function.
-
-ifneq ($(CAN_BUILD_DRIVER), true)
-DOC_TARGETS=
-endif
 
 include $(ERL_TOP)/make/doc.mk

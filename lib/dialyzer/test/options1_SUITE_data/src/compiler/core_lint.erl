@@ -1,4 +1,11 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,13 +17,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%%
-%%     $Id: core_lint.erl,v 1.1 2008/12/17 09:53:42 mikpe Exp $
-%% Purpose : Do necessary checking of Core Erlang code.
-
+%% %CopyrightEnd%
 %% Check Core module for errors.  Seeing this module is used in the
 %% compiler after optimisations wedone more checking than would be
 %% necessary after just parsing.  Don't check all constructs.
@@ -40,7 +41,6 @@
 %%
 %% We keep the names defined variables and functions in a ordered list
 %% of variable names and function name/arity pairs.
-
 -module(core_lint).
 
 
@@ -142,7 +142,7 @@ add_error(E, St) -> St#lint{errors=[{none,core_lint,E}|St#lint.errors]}.
 
 check_exports(Es, St) ->
     case all(fun (#c_fname{id=Name,arity=Arity}) when
-		       atom(Name), integer(Arity) -> true;
+                       is_atom(Name), is_integer(Arity) -> true;
 		 (_) -> false
 	     end, Es) of
 	true -> St;
@@ -250,7 +250,7 @@ gexpr(#c_call{module=#c_atom{val=erlang},
 	      name=#c_atom{},
 	      args=As}, Def, 1, St) ->
     gexpr_list(As, Def, St);
-gexpr(#c_primop{name=N,args=As}, Def, _Rt, St0) when record(N, c_atom) ->
+gexpr(#c_primop{name=N,args=As}, Def, _Rt, St0) when is_record(N, c_atom) ->
     gexpr_list(As, Def, St0);
 gexpr(#c_try{arg=E,vars=[#c_var{name=X}],body=#c_var{name=X},
 	     evars=[#c_var{},#c_var{},#c_var{}],handler=#c_atom{val=false}},
@@ -319,7 +319,7 @@ expr(#c_call{module=M,name=N,args=As}, Def, _Rt, St0) ->
     St1 = expr(M, Def, 1, St0),
     St2 = expr(N, Def, 1, St1),
     expr_list(As, Def, St2);
-expr(#c_primop{name=N,args=As}, Def, _Rt, St0) when record(N, c_atom) ->
+expr(#c_primop{name=N,args=As}, Def, _Rt, St0) when is_record(N, c_atom) ->
     expr_list(As, Def, St0);
 expr(#c_catch{body=B}, Def, Rt, St) ->
     return_match(Rt, 1, body(B, Def, 1, St));

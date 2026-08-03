@@ -1,6 +1,13 @@
 #!/usr/bin/env escript
 %% -*- erlang; coding: latin-1 -*-
-
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
+-compile(nowarn_latin1_binary).
 -export([main/1]).
 
 main(_) ->

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,6 +68,7 @@
 
         ]).
 
+-include_lib("common_test/include/ct.hrl").
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v1.hrl").
 -include("megaco_test_lib.hrl").
@@ -84,8 +87,8 @@
 -define(MG,  megaco_test_mg).
 -define(MGC, megaco_test_mgc).
 
--define(MGC_START(Pid, Mid, ET, Verb),
-        mgc_start(Pid, Mid, ET, Verb)).
+-define(MGC_START(Pid, Mid, ET, Conf, Verb),
+        mgc_start(Pid, Mid, ET, Conf, Verb)).
 -define(MGC_STOP(Pid),                 ?MGC:stop(Pid)).
 -define(MGC_GET_STATS(Pid, No),        ?MGC:get_stats(Pid, No)).
 -define(MGC_RESET_STATS(Pid),          ?MGC:reset_stats(Pid)).
@@ -128,6 +131,49 @@ suite() ->
     [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
+    %% This is a temporary messure to ensure that we can 
+    %% test the socket backend without effecting *all*
+    %% applications on *all* machines.
+    %% This flag is set only for *one* host.
+    case ?TEST_INET_BACKENDS() of
+        true ->
+            [
+             {group, inet_backend_default},
+             {group, inet_backend_inet},
+             {group, inet_backend_socket}
+            ];
+        _ ->
+            [
+             {group, inet_backend_default}
+            ]
+    end.
+
+groups() -> 
+    [
+     {inet_backend_default, [], inet_backend_default_cases()},
+     {inet_backend_inet,    [], inet_backend_inet_cases()},
+     {inet_backend_socket,  [], inet_backend_socket_cases()},
+
+     {all,                  [], all_cases()},
+     {ack,                  [], ack_cases()},
+     {trans_req,            [], trans_req_cases()},
+     {trans_req_and_ack,    [], trans_req_and_ack_cases()},
+     {pending,              [], pending_cases()},
+     {reply,                [], reply_cases()},
+     {tickets,              [], tickets_cases()},
+     {otp_7192,             [], otp_7192_cases()}
+    ].
+
+inet_backend_default_cases() ->
+    [{all, [], all_cases()}].
+
+inet_backend_inet_cases() ->
+    [{all, [], all_cases()}].
+
+inet_backend_socket_cases() ->
+    [{all, [], all_cases()}].
+
+all_cases() -> 
     [
      {group, ack},
      {group, trans_req},
@@ -135,17 +181,6 @@ all() ->
      {group, pending},
      {group, reply},
      {group, tickets}
-    ].
-
-groups() -> 
-    [
-     {ack,               [], ack_cases()},
-     {trans_req,         [], trans_req_cases()},
-     {trans_req_and_ack, [], trans_req_and_ack_cases()},
-     {pending,           [], pending_cases()},
-     {reply,             [], reply_cases()},
-     {tickets,           [], tickets_cases()},
-     {otp_7192,          [], otp_7192_cases()}
     ].
 
 ack_cases() ->
@@ -258,10 +293,38 @@ end_per_suite(Config0) when is_list(Config0) ->
 %% -----
 %%
 
+init_per_group(inet_backend_default = Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
+    [{socket_create_opts, []} | Config];
+init_per_group(inet_backend_inet = Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
+    case ?EXPLICIT_INET_BACKEND() of
+        true ->
+            %% The environment trumps us,
+            %% so only the default group should be run!
+            {skip, "explicit inet backend"};
+        false ->
+            [{socket_create_opts, [{inet_backend, inet}]} | Config]
+    end;
+init_per_group(inet_backend_socket = Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
+    case ?EXPLICIT_INET_BACKEND() of
+        true ->
+            %% The environment trumps us,
+            %% so only the default group should be run!
+            {skip, "explicit inet backend"};
+        false ->
+            [{socket_create_opts, [{inet_backend, socket}]} | Config]
+    end;
 init_per_group(Group, Config) ->
     ?ANNOUNCE_GROUP_INIT(Group),
     Config.
 
+end_per_group(Group, Config) when (inet_backend_default =:= Group) orelse
+                                  (inet_backend_init    =:= Group) orelse
+                                  (inet_backend_socket  =:= Group) ->
+    ?SLEEP(?SECS(5)),
+    Config;
 end_per_group(_GroupName, Config) ->
     Config.
 
@@ -309,6 +372,7 @@ single_ack(suite) ->
 single_ack(doc) ->
     [];
 single_ack(Config) when is_list(Config) ->
+    SCO = ?config(socket_create_opts, Config),
     Pre = fun() ->
                   MgcNode = make_node_name(mgc),
                   MgNode  = make_node_name(mg),
@@ -320,23 +384,25 @@ single_ack(Config) when is_list(Config) ->
                   ok = ?START_NODES(Nodes),
                   Nodes
           end,
-    Case = fun do_single_ack/1,
+    Case = fun(N) -> do_single_ack(SCO, N) end,
     Post = fun(Nodes) ->
                    d("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(rsingle_ack, Pre, Case, Post).
 
-do_single_ack([MgcNode, MgNode]) ->
+do_single_ack(SCO, [MgcNode, MgNode]) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
-    Mgc = ?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
+    Mgc = ?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, SCO, ?MGC_VERBOSITY),
 
     i("[MG] start"),    
     %% MgConf0 = [{MgNode, "mg", text, tcp, ?MG_VERBOSITY}],
     MgMid = {deviceName, "mg"},
-    MgConfig = [{auto_ack, true}, {trans_timer, 5000}, {trans_ack, true}],
+    MgConfig =
+        SCO ++
+        [{auto_ack, true}, {trans_timer, 5000}, {trans_ack, true}],
     Mg = ?MG_START(MgNode, MgMid, text, tcp, MgConfig, ?MG_VERBOSITY),
 
     d("MG user info: ~p", [?MG_USER_INFO(Mg, all)]),
@@ -381,6 +447,7 @@ multi_ack_timeout(suite) ->
 multi_ack_timeout(doc) ->
     [];
 multi_ack_timeout(Config) when is_list(Config) ->
+    SCO = ?config(socket_create_opts, Config),
     Cond = fun() ->
                    %% Regardless of other criteria,
                    %% if the factor is to high => SKIP
@@ -423,7 +490,8 @@ multi_ack_timeout(Config) when is_list(Config) ->
                           true ->
                               5
                       end,
-                  #{nodes     => Nodes,
+                  #{sco       => SCO,
+                    nodes     => Nodes,
                     max_count => MaxCount,
                     ttimeout  => ?SECS(10),
                     timeout   => ?SECS(60)}
@@ -435,7 +503,8 @@ multi_ack_timeout(Config) when is_list(Config) ->
            end,
     try_tc(multi_ack_timeout, Cond, Pre, Case, Post).
 
-do_multi_ack_timeout(#{nodes     := [MgcNode, MgNode],
+do_multi_ack_timeout(#{sco       := SCO,
+                       nodes     := [MgcNode, MgNode],
                        max_count := MaxCount,
                        ttimeout  := TTimeout,
                        timeout   := Timeout}) ->
@@ -443,15 +512,17 @@ do_multi_ack_timeout(#{nodes     := [MgcNode, MgNode],
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
-    Mgc = ?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
+    Mgc = ?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, SCO, ?MGC_VERBOSITY),
 
     i("[MG] start"),    
     %% MgConf0 = [{MgNode, "mg", text, tcp, ?MG_VERBOSITY}],
     MgMid = {deviceName, "mg"},
-    MgConfig = [{auto_ack,           true}, 
-		{trans_ack,          true},
-		{trans_timer,        TTimeout}, 
-		{trans_ack_maxcount, MaxCount + 10}],
+    MgConfig =
+        SCO ++
+        [{auto_ack,           true}, 
+         {trans_ack,          true},
+         {trans_timer,        TTimeout}, 
+         {trans_ack_maxcount, MaxCount + 10}],
     Mg = ?MG_START(MgNode, MgMid, text, tcp, MgConfig, ?MG_VERBOSITY),
 
     d("MG user info: ~p", [?MG_USER_INFO(Mg, all)]),
@@ -502,6 +573,7 @@ multi_ack_maxcount(suite) ->
 multi_ack_maxcount(doc) ->
     [];
 multi_ack_maxcount(Config) when is_list(Config) ->
+    SCO = ?config(socket_create_opts, Config),
     Pre = fun() ->
                   MgcNode  = make_node_name(mgc),
                   MgNode   = make_node_name(mg),
@@ -513,28 +585,30 @@ multi_ack_maxcount(Config) when is_list(Config) ->
                   ok = ?START_NODES(Nodes),
                   Nodes
           end,
-    Case = fun do_multi_ack_maxcount/1,
+    Case = fun(N) -> do_multi_ack_maxcount(SCO, N) end,
     Post = fun(Nodes) ->
                    d("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(multi_ack_maxcount, Pre, Case, Post).
 
-do_multi_ack_maxcount([MgcNode, MgNode]) ->
+do_multi_ack_maxcount(SCO, [MgcNode, MgNode]) ->
     MaxCount = 10,
 
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
-    Mgc = ?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
+    Mgc = ?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, SCO, ?MGC_VERBOSITY),
 
     i("[MG] start"),    
     %% MgConf0 = [{MgNode, "mg", text, tcp, ?MG_VERBOSITY}],
     MgMid = {deviceName, "mg"},
-    MgConfig = [%% {auto_ack,          true}, 
-		%% {trans_timer,    120000}, 
-		%% {trans_ack_maxcount, MaxCount}
-	       ],
+    MgConfig =
+        SCO ++
+        [%% {auto_ack,          true}, 
+         %% {trans_timer,    120000}, 
+         %% {trans_ack_maxcount, MaxCount}
+        ],
     Mg = ?MG_START(MgNode, MgMid, text, tcp, MgConfig, ?MG_VERBOSITY),
 
     d("MG user info: ~p", [?MG_USER_INFO(Mg, all)]),
@@ -9615,32 +9689,70 @@ make_node_name(Name) ->
 
 await_completion(Ids) ->
     case megaco_test_generator_lib:await_completion(Ids) of
-        {ok, Reply} ->
-            d("OK => Reply: ~n~p", [Reply]),
+        {ok, Result} ->
+            d("OK => "
+              "~n      Result: ~p", [Result]),
             ok;
-        {error, Reply} ->
-            e("await completion failed: "
-              "~n   ~p", [Reply]),
-            ?ERROR({failed, Reply})
+
+        {error, {OKs, Errs}} ->
+            e("completion failed: "
+              "~n      OKs:  ~p"
+              "~n      Errs: ~p"
+              "~n   when"
+              "~n      Ids:  ~p", [OKs, Errs, Ids]),
+            ?ERROR({failed, Errs});
+
+        %% The above should really cover it...
+        {error, Reason} ->
+            e("completion failed: "
+              "~n      Reason: ~p"
+              "~n   when"
+              "~n      Ids: ~p", [Reason, Ids]),
+            ?ERROR({failed, Reason})
     end.
 
 await_completion(Ids, Timeout) ->
     case megaco_test_generator_lib:await_completion(Ids, Timeout) of
-        {ok, Reply} ->
-            d("OK => Reply: ~n~p", [Reply]),
+        {ok, Result} ->
+            d("OK => "
+              "~n      Result: ~p", [Result]),
             ok;
-        {error, Reply} ->
-            e("await completion failed: "
-              "~n   ~p"
-              "~n   ~p", [Timeout, Reply]),
-            ?ERROR({failed, Reply})
+
+        {error, {timeout, Ts, OKs, Errs} = Reason} ->
+            e("completion failed: timeout"
+              "~n      Ts:      ~p"
+              "~n      OKs:     ~p"
+              "~n      Errs:    ~p"
+              "~n   when"
+              "~n      Ids:     ~p"
+              "~n      Timeout: ~p", [Ts, OKs, Errs, Ids, Timeout]),
+            ?ERROR({failed, Reason});
+
+        {error, {OKs, Errs}} ->
+            e("completion failed: "
+              "~n      OKs:     ~p"
+              "~n      Errs:    ~p"
+              "~n   when"
+              "~n      Ids:     ~p"
+              "~n      Timeout: ~p", [OKs, Errs, Ids, Timeout]),
+            ?ERROR({failed, Errs});
+
+        %% The above should really cover it...
+        {error, Reason} ->
+            e("completion failed: "
+              "~n      Reason:  ~p"
+              "~n   when"
+              "~n      Ids:     ~p"
+              "~n      Timeout: ~p", [Reason, Ids, Timeout]),
+            ?ERROR({failed, Reason})
     end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-mgc_start(Pid, Mid, ET, Verb) ->
-    try ?MGC:start(Pid, Mid, ET, Verb) of
+mgc_start(Pid, Mid, ET, Conf0, Verb) ->
+    Conf = Conf0 ++ [{megaco_trace, false}],
+    try ?MGC:start(Pid, Mid, ET, Conf, Verb) of
         {ok, MGC} ->
             MGC;
         {error, StartReason} ->
@@ -9658,7 +9770,8 @@ mgc_start(Pid, Mid, ET, Verb) ->
     end.
     
 
-mg_start(Pid, Mid, Enc, Transp, Conf, Verb) ->
+mg_start(Pid, Mid, Enc, Transp, Conf0, Verb) ->
+    Conf = Conf0 ++ [{megaco_trace, false}],
     try ?MG:start(Pid, Mid, Enc, Transp, Conf, Verb) of
         {ok, MG} ->
             MG; 

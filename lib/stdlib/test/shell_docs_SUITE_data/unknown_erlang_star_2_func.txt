@@ -1,5 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec '*'(number(), number()) -> number().[0m
+[1m  '*'(A, B)[0m
 
   The documentation for '*'/2 is hidden. This probably means that
   it is internal and not to be used by other applications.

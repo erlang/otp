@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -192,9 +194,10 @@ modules(Config) ->
     run(Config, [modules]).
 
 code_mods() ->
-    Dir  = code:lib_dir(diameter, ebin),
+    Dir  = ?LIB_DIR(diameter, ebin),
     {ok, Files} = file:list_dir(Dir),
     [?A(lists:reverse(R)) || N <- Files, "maeb." ++ R <- [lists:reverse(N)]].
+
 
 %% ===========================================================================
 %% # exports/1
@@ -596,6 +599,8 @@ is_app(S)
     {_, match} = {S, match(S, "^([a-z]([a-z_]*|[a-zA-Z]*))$")},
     true.
 
+
+%% ===========================================================================
 
 i(F) ->
     i(F, []).

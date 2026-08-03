@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -60,7 +62,7 @@ compatibility, be enabled by setting the Kernel configuration parameter
 `true`. For more information, see
 [SASL Error Logging](`e:sasl:error_logging.md`) in the SASL User's Guide.
 
-```erlang
+```text
 % erl -kernel logger_level info
 Erlang/OTP 21 [erts-10.0] [source-13c50db] [64-bit] [smp:4:4] [ds:4:4:10] [async-threads:1] [hipe]
 

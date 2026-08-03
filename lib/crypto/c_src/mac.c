@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +43,10 @@ struct mac_type_t {
     }alg;
     int type;
     size_t key_len;      /* != 0 to also match on key_len */
+#if defined(HAS_3_0_API)
+    const char* fetch_name;
+    EVP_MAC *evp_mac;
+#endif
 };
 
 /* masks in the flags field if mac_type_t */
@@ -50,6 +56,14 @@ struct mac_type_t {
 #define HMAC_mac 1
 #define CMAC_mac 2
 #define POLY1305_mac 3
+#define SIPHASH_mac 4
+
+/* Upper bound on the configurable SipHash round counts. The rounds multiply the
+   CPU work of a MAC call; since small inputs run on a normal scheduler and the
+   streaming finalization is never dirty-scheduled, an unbounded count could let
+   a single call hog a scheduler. 16 is well above the strongest standard
+   variant (SipHash-4-8). */
+#define SIPHASH_MAX_ROUNDS 16
 
 static struct mac_type_t mac_types[] =
 {
@@ -60,6 +74,9 @@ static struct mac_type_t mac_types[] =
 #else
      {EVP_PKEY_NONE}, NO_mac, 0
 #endif
+#if defined(HAS_3_0_API)
+     ,"POLY1305"
+#endif
     },
 
     {{"hmac"}, 0,
@@ -69,6 +86,9 @@ static struct mac_type_t mac_types[] =
      /* HMAC is always supported, but possibly with low-level routines */
      {EVP_PKEY_NONE}, HMAC_mac, 0
 #endif
+#if defined(HAS_3_0_API)
+     ,"HMAC"
+#endif
     },
 
     {{"cmac"}, 0,
@@ -77,6 +97,23 @@ static struct mac_type_t mac_types[] =
      {EVP_PKEY_CMAC}, CMAC_mac, 0
 #else
      {EVP_PKEY_NONE}, NO_mac, 0
+#endif
+#if defined(HAS_3_0_API)
+     ,"CMAC"
+#endif
+    },
+
+    {{"siphash"}, NO_FIPS_MAC,
+#ifdef HAVE_SIPHASH
+     /* SipHash-2-4 with 16 byte output by default. The rounds (c_rounds,
+        d_rounds) and output size are configurable per call through the
+        SubType options map. Requires a 16 byte key. */
+     {EVP_PKEY_SIPHASH}, SIPHASH_mac, 16
+#else
+     {EVP_PKEY_NONE}, NO_mac, 0
+#endif
+#if defined(HAS_3_0_API)
+     ,"SIPHASH"
 #endif
     },
 
@@ -114,10 +151,12 @@ void init_mac_types(ErlNifEnv* env)
 
     for (p = mac_types; p->name.str; p++) {
 	p->name.atom = enif_make_atom(env, p->name.str);
+#if defined(HAS_3_0_API)
+        p->evp_mac = EVP_MAC_fetch(NULL, p->fetch_name, NULL);
+#endif
     }
     p->name.atom = atom_false;  /* end marker */
 }
-
 
 ERL_NIF_TERM mac_types_as_list(ErlNifEnv* env)
 {
@@ -127,7 +166,7 @@ ERL_NIF_TERM mac_types_as_list(ErlNifEnv* env)
     hd = enif_make_list(env, 0);
     prev = atom_undefined;
 
-    for (p = mac_types; (p->name.atom & (p->name.atom != atom_false)); p++) {
+    for (p = mac_types; p->name.atom != atom_false; p++) {
         if (prev == p->name.atom)
             continue;
 
@@ -162,6 +201,68 @@ struct mac_type_t* get_mac_type_no_key(ERL_NIF_TERM type)
     }
     return NULL;
 }
+
+#ifdef HAVE_SIPHASH
+/* For SIPHASH the SubType (argv[1]) is either 'undefined' (use the cryptolib
+   defaults, i.e. SipHash-2-4 with 16 byte output) or a map with any of the
+   optional keys 'size' (8 | 16), 'c_rounds' (1..SIPHASH_MAX_ROUNDS) and
+   'd_rounds' (1..SIPHASH_MAX_ROUNDS).
+   The matching EVP_MAC parameters are appended to params[] and *params_n is
+   advanced. The integer values are read into the caller supplied storage,
+   which must stay alive until the EVP call. On a bad option a badarg term is
+   stored in *err and 0 is returned. */
+static int set_siphash_params(ErlNifEnv* env, ERL_NIF_TERM subtype,
+                              OSSL_PARAM* params, size_t* params_n,
+                              size_t* size_p, unsigned int* c_p, unsigned int* d_p,
+                              ERL_NIF_TERM* err)
+{
+    ERL_NIF_TERM val;
+    size_t map_size = 0, recognized = 0;
+
+    if (!enif_is_map(env, subtype)) {
+        if (subtype == atom_undefined)
+            /* 'undefined': use the cryptolib defaults */
+            return 1;
+        *err = EXCP_BADARG_N(env, 1, "siphash SubType must be undefined or an options map");
+        return 0;
+    }
+
+    if (enif_get_map_value(env, subtype, atom_size, &val)) {
+        unsigned int sz;
+        recognized++;
+        if (!enif_get_uint(env, val, &sz) || (sz != 8 && sz != 16)) {
+            *err = EXCP_BADARG_N(env, 1, "siphash 'size' must be 8 or 16");
+            return 0;
+        }
+        *size_p = (size_t)sz;
+        params[(*params_n)++] = OSSL_PARAM_construct_size_t("size", size_p);
+    }
+    if (enif_get_map_value(env, subtype, atom_c_rounds, &val)) {
+        recognized++;
+        if (!enif_get_uint(env, val, c_p) || *c_p < 1 || *c_p > SIPHASH_MAX_ROUNDS) {
+            *err = EXCP_BADARG_N(env, 1, "siphash 'c_rounds' must be an integer in 1..16");
+            return 0;
+        }
+        params[(*params_n)++] = OSSL_PARAM_construct_uint("c-rounds", c_p);
+    }
+    if (enif_get_map_value(env, subtype, atom_d_rounds, &val)) {
+        recognized++;
+        if (!enif_get_uint(env, val, d_p) || *d_p < 1 || *d_p > SIPHASH_MAX_ROUNDS) {
+            *err = EXCP_BADARG_N(env, 1, "siphash 'd_rounds' must be an integer in 1..16");
+            return 0;
+        }
+        params[(*params_n)++] = OSSL_PARAM_construct_uint("d-rounds", d_p);
+    }
+
+    /* Reject unknown keys so a typo does not silently fall back to defaults */
+    if (enif_get_map_size(env, subtype, &map_size) && map_size != recognized) {
+        *err = EXCP_BADARG_N(env, 1, "Unknown siphash option");
+        return 0;
+    }
+
+    return 1;
+}
+#endif /* HAVE_SIPHASH */
 
 /*******************************************************************
  *
@@ -203,6 +304,13 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     const char *subalg;
     unsigned char *out = NULL;
     size_t outlen;
+    OSSL_PARAM params[4];
+    const OSSL_PARAM *paramsp = NULL;
+    size_t params_n = 0;
+#ifdef HAVE_SIPHASH
+    size_t sip_size;
+    unsigned int sip_c, sip_d;
+#endif
 #else
     /* Old style */
     const EVP_MD *md = NULL;
@@ -365,6 +473,19 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         break;
 #endif
 
+        /***********
+         * SIPHASH *
+         ***********/
+        /* HAVE_SIPHASH implies the 3.0 EVP_MAC API (see openssl_config.h). The
+           rounds and output size are taken from the SubType options map and
+           applied via set_siphash_params() in the common 3.0 computation below. */
+#ifdef HAVE_SIPHASH
+    case SIPHASH_mac:
+        name = "SIPHASH";
+        subalg = NULL;
+        break;
+#endif
+
         /***************
          * Unknown MAC *
          ***************/
@@ -380,8 +501,20 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
       Common computations when we have 3.0 API
     */
 
+#ifdef HAVE_SIPHASH
+    if (macp->type == SIPHASH_mac) {
+        if (!set_siphash_params(env, argv[1], params, &params_n,
+                                &sip_size, &sip_c, &sip_d, &return_term))
+            goto err;
+    }
+#endif
+    if (params_n) {
+        params[params_n] = OSSL_PARAM_construct_end();
+        paramsp = params;
+    }
+
     if (!(out = EVP_Q_mac(NULL, name, NULL,
-                          subalg, NULL,
+                          subalg, paramsp,
                           key_bin.data, key_bin.size,
                           text.data, text.size,
                           NULL, 0, &outlen)))
@@ -529,12 +662,13 @@ static void mac_context_dtor(ErlNifEnv* env, struct mac_context *obj)
     if (obj == NULL)
         return;
 
-    if (obj->ctx)
+    if (obj->ctx) {
 #if defined(HAS_3_0_API)
         EVP_MAC_CTX_free(obj->ctx);
 #else
         EVP_MD_CTX_free(obj->ctx);
 #endif
+    }
 }
 
 /*******************************************************************
@@ -560,12 +694,14 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ErlNifBinary key_bin;
     ERL_NIF_TERM return_term;
 # if defined(HAS_3_0_API)
-    const char *name = NULL;
     const char *digest = NULL;
     const char *cipher = NULL;
-    EVP_MAC *mac = NULL;
-    OSSL_PARAM params[3];
+    OSSL_PARAM params[4];
     size_t params_n = 0;
+#  ifdef HAVE_SIPHASH
+    size_t sip_size;
+    unsigned int sip_c, sip_d;
+#  endif
 # else
     /* EVP_PKEY_CTX is available */
     const EVP_MD *md = NULL;
@@ -623,7 +759,6 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     goto err;
                 }
 # if defined(HAS_3_0_API)
-            name = "HMAC";
             digest = digp->str_v3;
 # else
             if (digp->md.p == NULL)
@@ -675,7 +810,6 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                 }
 
 #  if defined(HAS_3_0_API)
-            name = "CMAC";
             cipher = cipherp->str_v3;
 #  else
             /* Old style */
@@ -691,13 +825,23 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          ************/
 # ifdef HAVE_POLY1305
     case POLY1305_mac:
-#  if defined(HAS_3_0_API)
-        name = "POLY1305";
-#  else
+#  if !defined(HAS_3_0_API)
         /* Old style */
         /* poly1305 implies that EVP_PKEY_new_raw_private_key exists */
         pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_POLY1305, /*engine*/ NULL, key_bin.data,  key_bin.size);
 #  endif
+        break;
+# endif
+
+
+        /***********
+         * SIPHASH *
+         ***********/
+        /* HAVE_SIPHASH implies the 3.0 EVP_MAC API. No cipher/digest subtype;
+           the rounds and output size come from the SubType options map and are
+           applied via set_siphash_params() in the common 3.0 computation below. */
+# ifdef HAVE_SIPHASH
+    case SIPHASH_mac:
         break;
 # endif
 
@@ -716,8 +860,9 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     /*-----------------------------------------
       Common computations when we have 3.0 API
     */
-    if (!(mac = EVP_MAC_fetch(NULL, name, NULL)))
+    if (!macp->evp_mac) {
         assign_goto(return_term, err, EXCP_NOTSUP_N(env, 0, "Unsupported mac algorithm"));
+    }
 
     if (cipher != NULL)
         params[params_n++] =
@@ -725,12 +870,19 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if (digest != NULL)
         params[params_n++] =
             OSSL_PARAM_construct_utf8_string("digest", (char*)digest, 0);
+#  ifdef HAVE_SIPHASH
+    if (macp->type == SIPHASH_mac) {
+        if (!set_siphash_params(env, argv[1], params, &params_n,
+                                &sip_size, &sip_c, &sip_d, &return_term))
+            goto err;
+    }
+#  endif
     params[params_n] = OSSL_PARAM_construct_end();
 
     if ((obj = enif_alloc_resource(mac_context_rtype, sizeof(struct mac_context))) == NULL)
         assign_goto(return_term, err, EXCP_ERROR(env, "Can't allocate mac_context_rtype"));
 
-    if (!(obj->ctx = EVP_MAC_CTX_new(mac)))
+    if (!(obj->ctx = EVP_MAC_CTX_new(macp->evp_mac)))
         assign_goto(return_term, err, EXCP_ERROR(env, "Can't create EVP_MAC_CTX"));
     
     if (!EVP_MAC_init(obj->ctx, key_bin.data, key_bin.size, params))

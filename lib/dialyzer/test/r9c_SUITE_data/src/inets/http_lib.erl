@@ -48,24 +48,24 @@
 %%% Client Request:
 %%%    Check if 'close' in request headers
 %%% Only care about HTTP 1.1 clients!
-connection_close(Headers) when record(Headers,req_headers) ->
+connection_close(Headers) when is_record(Headers,req_headers) ->
     case Headers#req_headers.connection of
 	"close" ->
 	    true;
 	"keep-alive" ->
 	    false;
-	Value when list(Value) ->
+        Value when is_list(Value) ->
 	    true;
 	_ ->
 	    false
     end;
-connection_close(Headers) when record(Headers,res_headers) ->
+connection_close(Headers) when is_record(Headers,res_headers) ->
     case Headers#res_headers.connection of
 	"close" ->
 	    true;
 	"keep-alive" ->
 	    false;
-	Value when list(Value) ->
+        Value when is_list(Value) ->
 	    true;
 	_ ->
 	    false
@@ -230,7 +230,7 @@ read_client_body(Info,Timeout) ->
 	    ?DEBUG("read_entity_body2()->"
 		"Transfer-encoding:Chunked Data:",[]),
 	    read_client_chunked_body(Info,Timeout,?MAXBODYSIZE);
-	Encoding when list(Encoding) ->
+        Encoding when is_list(Encoding) ->
 	    ?DEBUG("read_entity_body2()->"
 		"Transfer-encoding:Unknown",[]),
 	    throw({error,unknown_coding});
@@ -257,7 +257,7 @@ read_server_body(Info,Timeout) ->
     ContLen=list_to_integer((Info#mod.headers)#req_headers.content_length),
     %% ?vtrace("ContentLength: ~p", [ContLen]),
     if
-	integer(ContLen),integer(MaxBodySz),ContLen>MaxBodySz ->
+        is_integer(ContLen),is_integer(MaxBodySz),ContLen>MaxBodySz ->
 	    throw({error,body_too_big});
 	true ->
 	    read_server_body2(Info,Timeout,ContLen,MaxBodySz)
@@ -279,15 +279,15 @@ read_server_body2(Info,Timeout,ContLen,MaxBodySz) ->
 	    ?DEBUG("read_entity_body2()->"
 		"Transfer-encoding:Chunked Data:",[]),
 	    read_server_chunked_body(Info,Timeout,MaxBodySz);
-	Encoding when list(Encoding) ->
+        Encoding when is_list(Encoding) ->
 	    ?DEBUG("read_entity_body2()->"
 		"Transfer-encoding:Unknown",[]),
 	    httpd_response:send_status(Info,501,"Unknown Transfer-Encoding"),
 	    http_lib:close(Info#mod.socket_type,Info#mod.socket),
 	    throw({error,{status_sent,"Unknown Transfer-Encoding "++Encoding}});
-	_ when integer(ContLen),integer(MaxBodySz),ContLen>MaxBodySz ->
+        _ when is_integer(ContLen),is_integer(MaxBodySz),ContLen>MaxBodySz ->
 	    throw({error,body_too_big});
-	_ when integer(ContLen) ->
+        _ when is_integer(ContLen) ->
 	    ?DEBUG("read_entity_body2()->"
 		"Transfer-encoding:none ",[]),
 	    Info#mod{entity_body=read_plain_body(Info#mod.socket_type,
@@ -665,7 +665,7 @@ get_auth_data("Basic "++EncodedString) ->
 	{error,Error}->
 	    {error,Error}
     end;
-get_auth_data(BadCredentials) when list(BadCredentials) ->
+get_auth_data(BadCredentials) when is_list(BadCredentials) ->
     {error,BadCredentials};
 get_auth_data(_) ->
     {error,nouser}.
@@ -743,3 +743,26 @@ tag([$:|Rest], Tag) ->
     {httpd_util:to_lower(lists:reverse(Tag)), httpd_util:strip(Rest)};
 tag([Chr|Rest], Tag) ->
     tag(Rest, [Chr|Tag]).
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

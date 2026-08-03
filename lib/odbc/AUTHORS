@@ -6,5 +6,13 @@ Original Authors:
 Contributors:
 Scott Lystig Fritchie - input/output variables for stored procedures
 willi@talk24.com - Some 64 bits adjustments
-Juhani Ränkimies -  SQL_WCHAR and SQL_WVARCHAR support
-Juhani Ränkimies -  TIMESTAMP support
+Juhani RÃ¤nkimies -  SQL_WCHAR and SQL_WVARCHAR support
+Juhani RÃ¤nkimies -  TIMESTAMP support
+
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1996-2025. All Rights Reserved.
+#
+# %CopyrightEnd%

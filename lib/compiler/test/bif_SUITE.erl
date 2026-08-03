@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2016-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +29,9 @@
 	 beam_validator/1,trunc_and_friends/1,cover_safe_and_pure_bifs/1,
          cover_trim/1,
          head_tail/1,
-         min_max/1]).
+         min_max/1,
+         non_throwing/1,
+         setelement/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -43,7 +47,9 @@ groups() ->
        cover_safe_and_pure_bifs,
        cover_trim,
        head_tail,
-       min_max
+       min_max,
+       non_throwing,
+       setelement
       ]}].
 
 init_per_suite(Config) ->
@@ -291,6 +297,93 @@ int_clamped_add(A) when is_integer(A) ->
 
 num_clamped_add(A) ->
     min(max(A, 0), 10) + 100.
+
+non_throwing(_Config) ->
+    abc = thing_to_atom(~"abc"),
+    [] = thing_to_atom(a),
+    [] = thing_to_atom(42),
+    [] = thing_to_atom([a,b,c]),
+    erlang = thing_to_existing_atom(~"erlang"),
+    [] = thing_to_existing_atom(~"not an existing atom"),
+    [] = thing_to_existing_atom(a),
+    ok.
+
+thing_to_atom(Bin0) ->
+    Bin = id(Bin0),
+    Res = try
+              binary_to_atom(Bin)
+          catch
+              _:_ ->
+                  []
+          end,
+    Res = try
+              binary_to_atom(Bin, utf8)
+          catch
+              _:_ ->
+                  []
+          end,
+    if
+        is_atom(Res) ->
+            List = unicode:characters_to_list(Bin),
+            Res = try
+                      list_to_atom(List)
+                  catch
+                      _:_ ->
+                          []
+                  end;
+        true ->
+            Res
+    end.
+thing_to_existing_atom(Bin0) ->
+    Bin = id(Bin0),
+    Res = try
+              binary_to_existing_atom(Bin)
+          catch
+              _:_ ->
+                  []
+          end,
+    Res = try
+              binary_to_existing_atom(Bin, utf8)
+          catch
+              _:_ ->
+                  []
+          end,
+    if
+        is_atom(Res) ->
+            List = unicode:characters_to_list(Bin),
+            Res = try
+                      list_to_existing_atom(List)
+                  catch
+                      _:_ ->
+                          []
+                  end;
+        true ->
+            Res
+    end.
+
+setelement(Config) ->
+    do_setelement(Config, []),
+    do_setelement(Config, [no_ssa_opt_deoptimize_update_tuple]),
+    ok.
+
+do_setelement(Config, ExtraOpts) ->
+    DataDir = test_lib:get_data_dir(Config),
+
+    Mod = test_setelement,
+
+    File = filename:join(DataDir, atom_to_list(Mod)) ++ ".erl",
+
+    io:format("Extra options: ~p\n", [ExtraOpts]),
+
+    {ok,Mod,Code} = compile:file(File, [report,binary|ExtraOpts]),
+    {module,Mod} = code:load_binary(Mod, "", Code),
+
+    ok = Mod:Mod(),
+
+    true = code:delete(Mod),
+    false = code:purge(Mod),
+
+    ok.
 
 %%%
 %%% Common utilities.

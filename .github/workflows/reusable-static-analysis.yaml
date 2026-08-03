@@ -1,0 +1,59 @@
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2024-2026. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+
+name: Static Analysis
+
+on:
+  workflow_call:
+    inputs:
+      base_branch:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# NOTE: This job should only be executed on the callee with `needs: pack`
+jobs:
+  static:
+    name: Run static analysis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # needed for SARIF upload
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/build-base-image
+        with:
+            BASE_BRANCH: ${{ inputs.base_branch }}
+
+        ## Check formatting of cpp code
+      - name: Check format
+        run: docker run otp "make format-check"
+        ## Run dialyzer
+      - name: Run dialyzer
+        run: docker run -v $PWD/:/github otp '/github/scripts/run-dialyzer'
+      - name: Check OSSF compiler flags
+        uses: ./.github/actions/ossf-compiler-flags-scanner
+        with:
+          upload: ${{ github.repository == 'erlang/otp' || github.event_name != 'push' }}

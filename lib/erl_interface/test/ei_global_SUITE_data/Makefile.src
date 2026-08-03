@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2000-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2000-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,5 +40,5 @@ clean:
 	$(RM) ei_global_test@exe@
 
 ei_global_test@exe@: $(EI_GLOBAL_OBJS) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o $@ $(EI_GLOBAL_OBJS) \
+	$(LD) $(EI_LDFLAGS) @CROSSLDFLAGS@ -o $@ $(EI_GLOBAL_OBJS) \
 	../all_SUITE_data/my_ussi@obj@ $(LIBFLAGS)

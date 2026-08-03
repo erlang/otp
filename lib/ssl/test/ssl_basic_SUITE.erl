@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -145,8 +147,8 @@ options_tests() ->
      unordered_protocol_versions_client].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    ssl_test_lib:clean_start(),
             ssl_test_lib:make_rsa_cert(Config0)
@@ -891,7 +893,8 @@ version_info_result(Socket) ->
     {ok, [{version, Version}]} = ssl:connection_information(Socket, [version]),
     {ok, Version}.
 
-min_heap_size_info(#sslsocket{pid = [Receiver, Sender]}) ->
+min_heap_size_info(#sslsocket{connection_handler = Receiver,
+                              payload_sender = Sender}) ->
     {garbage_collection, ReceiverGc} = process_info(Receiver, garbage_collection),
     {garbage_collection, SenderGc} = process_info(Sender, garbage_collection),
     {ok, proplists:get_value(min_heap_size, ReceiverGc), proplists:get_value(min_heap_size, SenderGc)}.

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,8 @@
 
 -module(reltool_utils).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 %% Public
 -export([root_dir/0, erl_libs/0, lib_dirs/1,
@@ -397,7 +401,7 @@ select_items(ListCtrl, OldItems, NewItems) ->
 		    false -> false
 		end
 	end,
-    case lists:zf(Filter, OldItems) of
+    case lists:filtermap(Filter, OldItems) of
 	[] ->
 	    %% None of the old selections are valid. Select the first.
 	    select_item(ListCtrl, NewItems);

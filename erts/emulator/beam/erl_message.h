@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1997-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -291,12 +293,22 @@ typedef struct {
     ErtsMessage **last; /* ... last (non-message) signal */
 } ErtsMsgQNMSigs;
 
+/*
+ * The ErtsRecvMarker struct is used for two other types of markers
+ * namely yield markers and prio queue markers.
+ */
+#define ERTS_RECV_MARKER_TYPE_RECV              0
+#define ERTS_RECV_MARKER_TYPE_YIELD             1
+#define ERTS_RECV_MARKER_TYPE_PRIO_Q_END        2
+#define ERTS_RECV_MARKER_TYPE_PRIO_Q_CONT       3
+
 typedef struct {
     ErtsSignal sig;
     ErtsMessage **prev_next;
-    signed char is_yield_mark;
+    signed char mark_type;
     signed char pass;
     signed char set_save;
+    signed char in_prioq;
     signed char in_sigq;
     signed char in_msgq;
     signed char prev_ix;
@@ -316,6 +328,7 @@ typedef struct {
     signed char used_ix;
     signed char unused;
     signed char pending_set_save_ix;
+    signed char set_save_ix;
 } ErtsRecvMarkerBlock;
 
 /* Size of default message buffer (erl_message.c) */

@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(application).
@@ -42,12 +44,11 @@ module_, exporting a predefined set of functions.
 For details about applications and behaviours, see
 [OTP Design Principles](`e:system:design_principles.md`).
 
-## See Also
+### See Also
 
 [OTP Design Principles](`e:system:design_principles.md`),
 [kernel](kernel_app.md), [app](app.md)
 """.
--moduledoc(#{titles => [{callback,<<"Callback Module">>}]}).
 -export([ensure_all_started/1, ensure_all_started/2, ensure_all_started/3,
 	 start/1, start/2,
 	 start_boot/1, start_boot/2, stop/1, 
@@ -128,7 +129,6 @@ of the top supervisor and `State` is any term. If omitted, `State` defaults to
 `[]`. If the application is stopped later, `State` is passed to
 [`Module:prep_stop/1`](`c:prep_stop/1`).
 """.
--doc(#{title => <<"Callback Module">>}).
 -callback start(StartType :: start_type(), StartArgs :: term()) ->
     {'ok', pid()} | {'ok', pid(), State :: term()} | {'error', Reason :: term()}.
 
@@ -141,7 +141,6 @@ cleaning up. The return value is ignored.
 a function exists. Otherwise `State` is taken from the return value of
 [`Module:start/2`](`c:start/2`).
 """.
--doc(#{title => <<"Callback Module">>}).
 -callback stop(State :: term()) ->
     term().
 
@@ -157,7 +156,6 @@ parameters.
 
 `Removed` is a list of all removed parameters.
 """.
--doc(#{title => <<"Callback Module">>}).
 -callback config_change(Changed, New, Removed) -> ok when
       Changed :: [{Par, Val}],
       New :: [{Par, Val}],
@@ -176,7 +174,6 @@ no state was returned. `NewState` is any term and is passed to
 The function is optional. If it is not defined, the processes are terminated and
 then [`Module:stop(State)`](`c:stop/1`) is called.
 """.
--doc(#{title => <<"Callback Module">>}).
 -callback prep_stop(State) -> NewState when
       State :: term(), NewState :: term().
 
@@ -195,7 +192,6 @@ which the start phase is defined.
 
 For a description of `StartType`, see [`Module:start/2`](`c:start/2`).
 """.
--doc(#{title => <<"Callback Module">>}).
 -callback start_phase(Phase, StartType, PhaseArgs) ->
     ok | {error, Reason} when
       Phase :: atom(),
@@ -415,7 +411,7 @@ enqueue_or_start_app(Name, App, DAG, Pending, Started, Opts) ->
     %% is always empty.
     case enqueue_or_start(ChildApps, OptionalApps, DAG, [], Started, Opts) of
         {ok, NewDAG, NewPending, NewStarted}
-        when NewPending =:= [], (Mode =:= serial) or (Mod =:= []) ->
+        when NewPending =:= [], Mode =:= serial orelse Mod =:= [] ->
             case application_controller:start_application(App, Type) of
                 ok ->
                     {ok, NewDAG, Pending, [App | NewStarted]};

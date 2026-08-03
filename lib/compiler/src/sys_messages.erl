@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright 2020-2024 Facebook, Inc. and its affiliates.
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -119,7 +121,7 @@ quote_source_2(Bin, Enc, StartLine, StartCol, EndLine, EndCol, Ctx) ->
                         Before ++ [{0, "..."}] ++ After
                 end,
             Lines2 = decorate(Lines1, StartLine, StartCol, EndLine, EndCol),
-            [[fmt_line(L, Text) || {L, Text} <- Lines2], $\n]
+            [[fmt_line(L, Text) || {L, Text} <:- Lines2], $\n]
     end.
 
 line_prefix() ->

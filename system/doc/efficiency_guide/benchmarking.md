@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -41,10 +43,10 @@ crypto:strong_rand_bytes(2).          1    2286 Ki     437 ns   29%
 ```
 
 From the **Time** column we can read out that on average a call to
-[`rand:bytes(2)`](`rand:bytes/1`) executes in 128 nano seconds, while
+[`rand:bytes(2)`](`rand:bytes/1`) executes in 128 nanoseconds, while
 a call to
 [`crypto:strong_rand_bytes(2)`](`crypto:strong_rand_bytes/1`) executes
-in 437 nano seconds.
+in 437 nanoseconds.
 
 From the **QPS** column we can read out how many calls that can be
 made in a second. For `rand:bytes(2)`, it is 7,784,000 calls per second.
@@ -52,11 +54,11 @@ made in a second. For `rand:bytes(2)`, it is 7,784,000 calls per second.
 The **Rel** column shows the relative differences, with `100%` indicating
 the fastest code.
 
-When generating two random bytes at the time, `rand:bytes/1` is more
+When generating two random bytes at a time, `rand:bytes/1` is more
 than three times faster than `crypto:strong_rand_bytes/1`. Assuming
 that we really need strong random numbers and we need to get them as
 fast as possible, what can we do? One way could be to generate more
-than two bytes at the time.
+than two bytes at a time.
 
 ```text
 % erlperf 'rand:bytes(100).' 'crypto:strong_rand_bytes(100).'
@@ -65,7 +67,7 @@ rand:bytes(100).                        1    2124 Ki     470 ns  100%
 crypto:strong_rand_bytes(100).          1    1915 Ki     522 ns   90%
 ```
 
-`rand:bytes/1` is still faster when we generate 100 bytes at the time,
+`rand:bytes/1` is still faster when we generate 100 bytes at a time,
 but the relative difference is smaller.
 
 ```
@@ -75,7 +77,7 @@ crypto:strong_rand_bytes(1000).          1    1518 Ki     658 ns  100%
 rand:bytes(1000).                        1     284 Ki    3521 ns   19%
 ```
 
-When we generate 1000 bytes at the time, `crypto:strong_rand_bytes/1` is
+When we generate 1000 bytes at a time, `crypto:strong_rand_bytes/1` is
 now the fastest.
 
 ## Benchmarking using Erlang/OTP functionality

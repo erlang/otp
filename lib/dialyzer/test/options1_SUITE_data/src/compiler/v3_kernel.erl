@@ -1,4 +1,10 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -9,6 +15,8 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% %CopyrightEnd%
 %%
 %% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
 %% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
@@ -1536,7 +1544,7 @@ aligned(B, S, U, Fs) when B rem 8 =:= 0 ->
 aligned(B, S, U, Fs) ->
     {incr_bits(B, S, U),Fs}.
 
-incr_bits(B, #k_int{val=S}, U) when integer(B) -> B + S*U;
+incr_bits(B, #k_int{val=S}, U) when is_integer(B) -> B + S*U;
 incr_bits(_, #k_atom{val=all}, _) -> 0;		%Always aligned
 incr_bits(B, _, 8) -> B;
 incr_bits(_, _, _) -> unknown.

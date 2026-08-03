@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -69,7 +71,8 @@
 	  read_compressed_cooked/1, read_compressed_cooked_binary/1,
 	  read_cooked_tar_problem/1,
 	  write_compressed/1, compress_errors/1, catenated_gzips/1,
-	  compress_async_crash/1]).
+	  compress_async_crash/1,
+          zstd/1]).
 
 -export([ make_link/1, read_link_info_for_non_link/1, symlinks/1]).
 
@@ -169,7 +172,8 @@ groups() ->
       [read_compressed_cooked, read_compressed_cooked_binary,
        read_cooked_tar_problem, read_not_really_compressed,
        write_compressed, compress_errors, catenated_gzips,
-       compress_async_crash]},
+       compress_async_crash,
+       zstd]},
      {links, [],
       [make_link, read_link_info_for_non_link, symlinks]},
      {bench, [],
@@ -3024,6 +3028,25 @@ compress_async_crash_loop(N, Path, ExpectedData) ->
     end,
     compress_async_crash_loop(N - 1, Path, ExpectedData).
 
+zstd(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Path = filename:join(DataDir, "test.zstd"),
+    ExpectedData = <<"qwerty">>,
+
+    _ = ?FILE_MODULE:delete(Path),
+    {ok, FdW} = ?FILE_MODULE:open(Path, [write, binary, {zstd, #{}}]),
+    ok = ?FILE_MODULE:write(FdW, ExpectedData),
+    ok = ?FILE_MODULE:close(FdW),
+
+    {ok, FdR} = ?FILE_MODULE:open(Path, [read, binary, {zstd, #{}}]),
+    {ok, ExpectedData} = ?FILE_MODULE:read(FdR, 1 bsl 10),
+    ok = ?FILE_MODULE:close(FdR),
+
+    {ok, Compressed} = ?FILE_MODULE:read_file(Path),
+    ExpectedData = iolist_to_binary(zstd:decompress(Compressed)),
+
+    ok.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 unicode(Config) when is_list(Config) ->
@@ -4130,7 +4153,16 @@ do_large_file(Name) ->
             ok;
         {eof, 4} ->
             %% Cannot read such large files on 32-bit
-            ok
+            ok;
+        {{error,enomem}, 8} ->
+            case memsize() of
+                MemSize when MemSize < 12_000_000_000 ->
+                    %% Expected memory fail.
+                    ok;
+                _ ->
+                    %% Memory should be sufficient.
+                    error(enomem)
+            end
     end,
     ok = ?FILE_MODULE:close(F2),
 

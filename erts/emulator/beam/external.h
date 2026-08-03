@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,6 +60,7 @@
 #define SMALL_ATOM_UTF8_EXT 'w'
 #define V4_PORT_EXT       'x'
 #define LOCAL_EXT         'y'
+#define RECORD_EXT        'C'
 
 #define DIST_HEADER       'D'
 #define DIST_FRAG_HEADER  'E'
@@ -114,9 +117,11 @@ typedef struct {
     } cache[ERTS_ATOM_CACHE_SIZE];
 } ErtsAtomCacheMap;
 
+#define ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES 255
+
 typedef struct {
     Uint32 size;
-    Eterm atom[ERTS_ATOM_CACHE_SIZE];
+    Eterm atom[ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES];
 } ErtsAtomTranslationTable;
 
 /*
@@ -127,6 +132,7 @@ typedef struct {
 #define ERTS_DIST_EXT_DFLAG_HDR      ((Uint32) 0x1)
 #define ERTS_DIST_EXT_ATOM_TRANS_TAB ((Uint32) 0x2)
 #define ERTS_DIST_EXT_BTT_SAFE       ((Uint32) 0x4)
+#define ERTS_DIST_EXT_INTERNAL_NC    ((Uint32) 0x8)
 
 #define ERTS_DIST_CON_ID_MASK ((Uint32) 0x00ffffff)
 
@@ -142,11 +148,11 @@ struct erl_dist_external_data {
 };
 
 typedef struct erl_dist_external {
-    Sint heap_size;
-    DistEntry *dep;
+    ErtsDistExternalData *data;
     Uint32 flags;
     Uint32 connection_id;
-    ErtsDistExternalData *data;
+    Sint heap_size;
+    DistEntry *dep;
     struct ErtsMonLnkDist__ *mld;   /* copied from DistEntry.mld */
     ErtsAtomTranslationTable attab;
 } ErtsDistExternal;

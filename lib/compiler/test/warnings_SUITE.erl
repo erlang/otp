@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(warnings_SUITE).
+-include_lib("stdlib/include/assert.hrl").
 
 %%-define(STANDALONE, true).
 
@@ -45,6 +48,9 @@
 	 bit_syntax/1,inlining/1,tuple_calls/1,
          recv_opt_info/1,opportunistic_warnings/1,
          eep49/1,inline_list_funcs/1]).
+
+%% Import SSA records.
+-import_record(beam_ssa, [b_set, b_literal, b_remote, b_local]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -600,29 +606,30 @@ bin_opt_info(Config) when is_list(Config) ->
                  split_binary(T, 4).
            ">>,
 
-    Ws = (catch run_test(Config, Code, [bin_opt_info])),
+    Ws = run_test(Config, Code, [bin_opt_info]),
 
     %% This is an inexact match since the pass reports exact instructions as
     %% part of the warnings, which may include annotations that vary from run
     %% to run.
     {warnings,
-     [{5,beam_ssa_bsm,{unsuitable_call,
-                       {{b_local,{b_literal,t1},1},
-                        {used_before_match,
-                         {b_set,_,_,{bif,byte_size},[_]}}}}},
+     [{5,beam_ssa_bsm,
+       {unsuitable_call,
+        {#b_local{name=#b_literal{val=t1},arity=1},
+         {used_before_match,
+          #b_set{op={bif,byte_size},args=[_]}}}}},
       {5,beam_ssa_bsm,{binary_created,_,_}},
       {11,beam_ssa_bsm,{binary_created,_,_}}, %% A =< B -> T
       {13,beam_ssa_bsm,context_reused},       %% A > B -> t2(T);
       {16,beam_ssa_bsm,context_reused}, %% when byte_size(T) < 4 ->
       {19,beam_ssa_bsm,{remote_call,
-                        {b_remote,
-                         {b_literal,erlang},
-                         {b_literal,split_binary},2}}},
+                        #b_remote{mod=#b_literal{val=erlang},
+                                  name=#b_literal{val=split_binary},
+                                  arity=2}}},
       {19,beam_ssa_bsm,{binary_created,_,_}}  %% split_binary(T, 4)
      ]} = Ws,
 
     %% For coverage: don't give the bin_opt_info option.
-    [] = (catch run_test(Config, Code, [])),
+    [] = run_test(Config, Code, []),
 
     %% Now try with abstract code and no location.
     %%
@@ -652,13 +659,13 @@ bin_opt_info(Config) when is_list(Config) ->
                                [],
                                [{call,0,{atom,0,t1},[{var,0,'T'}]}]},
                            {clause,0,[{bin,0,[]}],[],[{atom,0,ok}]}]}]}]}],
-    Wsf = (catch run_forms(Forms, [bin_opt_info])),
+    Wsf = run_forms(Forms, [bin_opt_info]),
 
     {warnings,
      [{none,beam_ssa_bsm,{unsuitable_call,
-                       {{b_local,{b_literal,t1},1},
-                        {used_before_match,
-                         {b_set,_,_,{bif,byte_size},[_]}}}}},
+                          {#b_local{name=#b_literal{val=t1},arity=1},
+                           {used_before_match,
+                            #b_set{op={bif,byte_size},args=[_]}}}}},
       {none,beam_ssa_bsm,{binary_created,_,_}}
      ]} = Wsf,
 
@@ -729,7 +736,7 @@ maps(Config) when is_list(Config) ->
                  {'EXIT',{badarg,_}} = (catch(M#{ a => 1 })),
                  ok.
            ">>,
-           [],
+           [nowarn_deprecated_catch],
            {warnings,[{{4,48},sys_core_fold,{failed,bad_map_update}}]}},
 	   {bad_map_src2,
            <<"
@@ -739,7 +746,7 @@ maps(Config) when is_list(Config) ->
 		 ok.
 	     id(I) -> I.
            ">>,
-	   [inline],
+	   [inline,nowarn_deprecated_catch],
 	    []},
 	   {bad_map_src3,
            <<"
@@ -747,7 +754,7 @@ maps(Config) when is_list(Config) ->
                  {'EXIT',{badarg,_}} = (catch <<>>#{ a := 1}),
                  ok.
            ">>,
-           [],
+           [nowarn_deprecated_catch],
            {warnings,[{{3,51},sys_core_fold,{failed,bad_map_update}}]}},
            {ok_map_literal_key,
            <<"
@@ -868,7 +875,77 @@ maps(Config) when is_list(Config) ->
                       {{25,20},v3_core,{map_key_repeated,#{"a" => 1}}},
                       {{28,21},v3_core,{map_key_repeated,#{"a" => <<"b">>}}},
                       {{32,21},v3_core,{map_key_repeated,#{<<"a">> => 1}}}
-                     ]}}
+                     ]}},
+          {map_nomatch,
+           ~"""
+            match_map_1(#{}) ->
+                a;
+            match_map_1(#{first := First}) ->
+                {b,First};
+            match_map_1(#{first := First, second := Second}) ->
+                {c,First,Second}.
+
+            match_map_1(#{}, A) ->
+                {a,A};
+            match_map_1(#{first := First}, A) ->
+                {b,A,First};
+            match_map_1(#{first := First, second := Second}, A) ->
+                {c,A,First,Second}.
+
+            match_map_2(#{first := First}) ->
+                {b,First};
+            match_map_2(#{first := First, second := Second}) ->
+                {c,First,Second}.
+
+            match_map_2(#{first := First}, A, B) ->
+                {b,A,B,First};
+            match_map_2(#{first := First, second := Second}, A, B) ->
+                {c,A,B,First,Second}.
+
+            match_map_3([#{} | _]) ->
+                a;
+            match_map_3([#{first := First} | _]) ->
+                {b,First};
+            match_map_3([#{first := First, second := Second} | _]) ->
+                {c,First,Second}.
+
+            match_map_4([#{first := First} | _]) ->
+                {b,First};
+            match_map_4([#{first := First, second := Second} | _]) ->
+                {c,First,Second}.
+            """,
+           [],
+           {warnings,[{{3,1},beam_core_to_ssa,{nomatch,{shadow,1}}},
+                      {{10,1},beam_core_to_ssa,{nomatch,{shadow,8}}},
+                      {{17,1},beam_core_to_ssa,{nomatch,{shadow,15}}},
+                      {{22,1},beam_core_to_ssa,{nomatch,{shadow,20}}},
+                      {{27,1},beam_core_to_ssa,{nomatch,{shadow,25}}},
+                      {{34,1},beam_core_to_ssa,{nomatch,{shadow,32}}}]}},
+          {map_nowarn,
+           %% There will be no warnings for shadowing for the
+           %% following functions, either because the first clause
+           %% actually can be executed or because the compiler's
+           %% checks are not sufficiently thorough.
+           ~"""
+            %% The compiler does not detect this shadowing.
+            match_map_nowarn_1([#{}]) -> no;
+            match_map_nowarn_1([#{a := A}]) -> {a,A}.
+
+            %% The guard in the first clause can fail.
+            match_map_nowarn_2(#{}, X) when is_integer(X) -> {a,X};
+            match_map_nowarn_2(#{b := B}, X) -> {b,X,B}.
+
+            %% The first clause will fail to match if the second
+            %% argument is not `x`.
+            match_map_nowarn_3(#{}, x) -> a;
+            match_map_nowarn_3(#{b := B}, y) -> {b,B}.
+
+            %% The compiler does not detect this shadowing.
+            match_map_nowarn_4(#{}, x) -> a;
+            match_map_nowarn_4(#{b := B}, x) -> {b,B}.
+            """,
+           [],
+           []}
          ],
     run(Config, Ts),
     ok.
@@ -1016,6 +1093,12 @@ bit_syntax(Config) ->
                 end.
               d(<<16#110000/utf8>>) -> error;
               d(_) -> ok.
+              e(<<X:1/big-signed-unit:64>>) -> {int, X};
+              e(<<X:1/big-unsigned-float-unit:64>>) -> {float, X}.
+              f(<<X:1/big-unsigned-float-unit:64>>) -> {float, X};
+              f(<<X:1/big-signed-unit:64>>) -> {int, X}.
+              g(<<X:4/signed-binary>>) -> X;
+              g(<<X:1/unsigned-binary-unit:32>>) -> X.
              ">>,
 	   [],
            {warnings,[{{2,15},sys_core_fold,{nomatch,no_clause}},
@@ -1035,7 +1118,9 @@ bit_syntax(Config) ->
                       {{12,37},sys_core_fold,{nomatch,{bit_syntax_size,bad}}},
                       {{15,21},sys_core_fold,{nomatch,{bit_syntax_unsigned,-42}}},
                       {{17,21},sys_core_fold,{nomatch,{bit_syntax_type,42,binary}}},
-                      {{19,19},sys_core_fold,{nomatch,{bit_syntax_unicode,1114112}}}
+                      {{19,19},sys_core_fold,{nomatch,{bit_syntax_unicode,1114112}}},
+                      {{22,15},beam_core_to_ssa,{nomatch,{shadow,21}}},
+                      {{26,15},beam_core_to_ssa,{nomatch,{shadow,25}}}
                      ]}
           }],
     run(Config, Ts),
@@ -1069,7 +1154,8 @@ inlining(Config) ->
 tuple_calls(Config) ->
     %% Make sure that no spurious warnings are generated.
     Ts = [{inlining_1,
-           <<"-compile(tuple_calls).
+           <<"-compile([tuple_calls,
+                        {nowarn_unsafe_function,{erlang, list_to_atom, 1}}]).
               dispatch(X) ->
                 (list_to_atom(\"prefix_\" ++
                 atom_to_list(suffix))):doit(X).
@@ -1112,7 +1198,7 @@ recv_opt_info(Config) when is_list(Config) ->
                     end.
            ">>,
 
-    Ws = (catch run_test(Config, Code, [recv_opt_info])),
+    Ws = run_test(Config, Code, [recv_opt_info]),
 
     %% This is an inexact match since the pass reports exact instructions as
     %% part of the warnings, which may include annotations that vary from run
@@ -1132,7 +1218,7 @@ recv_opt_info(Config) when is_list(Config) ->
          {23,beam_ssa_recv,{used_receive_marker,_}}]} = Ws,
 
     %% For coverage: don't give the recv_opt_info option.
-    [] = (catch run_test(Config, Code, [])),
+    [] = run_test(Config, Code, []),
 
     %% Now try with abstract code and no location.
     %%
@@ -1153,7 +1239,7 @@ recv_opt_info(Config) when is_list(Config) ->
                                      [{var,0,'Msg'}]}]}]}]}]}
     ],
 
-    Wsf = (catch run_forms(Forms, [recv_opt_info])),
+    Wsf = run_forms(Forms, [recv_opt_info]),
     {warnings, [{none,beam_ssa_recv,matches_any_message}]} = Wsf,
 
     ok.
@@ -1313,12 +1399,13 @@ lines_only_1({Loc,Mod,Error}) ->
 do_run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->
                 io:format("### ~s\n", [N]),
-                case catch run_test(Config, P, Ws) of
-                    E -> 
-                        BadL;
-                    Bad -> 
+                try run_test(Config, P, Ws) of
+                    E ->
+                        BadL
+                catch
+                    error:Bad:Stack ->
                         io:format("~nTest ~p failed. Expected~n  ~p~n"
-                                  "but got~n  ~p~n", [N, E, Bad]),
+                                  "but got~n  ~p ~p~n", [N, E, Bad, Stack]),
 			fail()
                 end
         end,

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,7 +49,9 @@ This module provides a set of cryptographic functions.
 
   - **POLY1305** - [ChaCha20 and Poly1305 for IETF Protocols (RFC 7539)](http://www.ietf.org/rfc/rfc7539.txt)
 
-- **Symmetric Ciphers** - 
+  - **SipHash** - [SipHash: a fast short-input PRF](https://ia.cr/2012/351)
+
+- **Symmetric Ciphers** -
 
   - **DES, 3DES and AES** - [Block Cipher Techniques (NIST)](https://csrc.nist.gov/projects/block-cipher-techniques)
 
@@ -147,26 +151,7 @@ try crypto:crypto_init(Ciph, Key, IV, true)
 end
 ```
 """.
--moduledoc(#{titles =>
-                 [{function,<<"Cipher API">>},
-                  {function,<<"Hash API">>},
-                  {function,<<"MAC API">>},
-                  {function,<<"Key API">>},
-                  {function,<<"Sign/Verify API">>},
-                  {function,<<"Random API">>},
-                  {function,<<"Utility Functions">>},
-                  {function,<<"Engine API">>},
-                  {function,<<"Legacy RSA Encryption API">>},
-                  {type,<<"Ciphers">>},
-                  {type,<<"Digests and hash">>},
-                  {type,<<"Elliptic Curves">>},
-                  {type,<<"Keys">>},
-                  {type,<<"Public/Private Keys">>},
-                  {type,<<"Public Key Ciphers">>},
-                  {type,<<"Public Key Sign and Verify">>},
-                  {type,<<"Diffie-Hellman Keys and parameters">>},
-                  {type,<<"Types for Engines">>},
-                  {type,<<"Internal data types">>}]}).
+
 
 -export([start/0, stop/0, info/0, info_lib/0, info_fips/0, supports/0, enable_fips_mode/1,
          version/0, bytes_to_integer/1]).
@@ -174,14 +159,16 @@ end
 -export([hash/2, hash_xof/3, hash_init/1, hash_update/2, hash_final/1, hash_final_xof/2]).
 -export([sign/4, sign/5, verify/5, verify/6]).
 -export([generate_key/2, generate_key/3, compute_key/4]).
--export([exor/2, strong_rand_bytes/1, mod_pow/3]).
+-export([encapsulate_key/2, decapsulate_key/3]).
+-export([exor/2, strong_rand_bytes/1, strong_rand_range/1, mod_pow/3]).
 -export([rand_seed/0, rand_seed_alg/1, rand_seed_alg/2]).
 -export([rand_seed_s/0, rand_seed_alg_s/1, rand_seed_alg_s/2]).
--export([rand_plugin_next/1]).
+-export([rand_plugin_next/1, rand_plugin_uniform/1,
+         rand_plugin_uniform/2, rand_plugin_bytes/2]).
+-export([rand_cache_plugin_next/1, rand_cache_plugin_bytes/2]).
 -export([rand_plugin_aes_next/1, rand_plugin_aes_jump/1]).
--export([rand_plugin_uniform/1]).
--export([rand_plugin_uniform/2]).
--export([rand_cache_plugin_next/1]).
+-export([rand_plugin_prng_next/1, rand_plugin_prng_jump/1,
+         rand_plugin_prng_bytes/2]).
 -export([rand_uniform/2]).
 -export([public_encrypt/4, private_decrypt/4]).
 -export([private_encrypt/4, public_decrypt/4]).
@@ -193,6 +180,17 @@ end
 
 %%%----------------------------------------------------------------
 %% Deprecated functions
+-deprecated([{start, 0, "use application:start(crypto) instead"},
+             {stop,  0, "use application:stop(crypto) instead"},
+             {enable_fips_mode, 1, "use config parameter fips_mode"}
+            ]).
+
+%%%----------------------------------------------------------------
+%% Unsafe functions
+-unsafe([{public_encrypt, 4, possibly},
+         {public_decrypt, 4, possibly},
+         {private_encrypt, 4, possibly},
+         {private_decrypt, 4, possibly}]).
 
 %%%----------------------------------------------------------------
 %% Removed functions.
@@ -243,6 +241,7 @@ end
 
          crypto_one_time/4, crypto_one_time/5,
          crypto_one_time_aead/6, crypto_one_time_aead/7,
+         crypto_one_time_aead_init/4, crypto_one_time_aead/4,
 
          crypto_final/1,
          crypto_get_data/1,
@@ -280,6 +279,7 @@ end
 
 -nifs([info_nif/0, info_lib/0, info_fips/0, enable_fips_mode_nif/1,
        hash_algorithms/0, pubkey_algorithms/0, cipher_algorithms/0,
+       kem_algorithms_nif/0,
        mac_algorithms/0, curve_algorithms/0, rsa_opts_algorithms/0,
        hash_info/1, hash_nif/2, hash_init_nif/1, hash_update_nif/2,
        hash_final_nif/1, hash_final_xof_nif/2, mac_nif/4, mac_init_nif/3, mac_update_nif/2,
@@ -289,11 +289,14 @@ end
        strong_rand_bytes_nif/1, strong_rand_range_nif/1, rand_uniform_nif/2,
        mod_exp_nif/4, do_exor/2, hash_equals_nif/2, pbkdf2_hmac_nif/5,
        pkey_sign_nif/5, pkey_verify_nif/6, pkey_crypt_nif/6,
+       pkey_sign_heavy_nif/5,
+       encapsulate_key_nif/2, decapsulate_key_nif/3,
        rsa_generate_key_nif/2, dh_generate_key_nif/4, dh_compute_key_nif/3,
        evp_compute_key_nif/3, evp_generate_key_nif/2, privkey_to_pubkey_nif/2,
        srp_value_B_nif/5, srp_user_secret_nif/7, srp_host_secret_nif/5,
        ec_generate_key_nif/2, ecdh_compute_key_nif/3, rand_seed_nif/1,
-       aead_cipher_nif/7, engine_by_id_nif/1, engine_init_nif/1,
+       aead_cipher_nif/7, aead_cipher_init_nif/4, aead_cipher_nif/4,
+       engine_by_id_nif/1, engine_init_nif/1,
        engine_free_nif/1, engine_load_dynamic_nif/0,
        engine_ctrl_cmd_strings_nif/3, engine_register_nif/2,
        engine_unregister_nif/2, engine_add_nif/1, engine_remove_nif/1,
@@ -312,7 +315,17 @@ end
                pk_sign_verify_opts/0,
                rsa_digest_type/0,
                sha1/0,
-               sha2/0
+               sha2/0,
+               sha3/0,
+               mldsa/0,
+               slh_dsa/0,
+               kem/0
+             ]).
+
+-export_type([
+              hmac_hash_algorithm/0,
+              cmac_cipher_algorithm/0,
+              siphash_options/0
              ]).
 
 -export_type([engine_ref/0,
@@ -332,12 +345,13 @@ end
 	 get_test_engine/0]).
 -export([rand_plugin_aes_jump_2pow20/1]).
 
--deprecated({rand_uniform, 2, "use rand:uniform/1 instead"}).
+-deprecated(
+   {rand_uniform, 2, "use strong_rand_range/1 instead"}).
 
 %% This should correspond to the similar macro in crypto.c
 -define(MAX_BYTES_TO_NIF, 20000). %%  Current value is: erlang:system_info(context_reductions) * 10
 
-%% Used by strong_rand_float/0
+%% Used by rand_plugin_uniform/1
 -define(HALF_DBL_EPSILON, 1.1102230246251565e-16). % math:pow(2, -53)
 
 
@@ -345,13 +359,17 @@ end
 
 %%% Basic
 -doc "Always `t:binary/0` when used as return value".
--doc(#{title => <<"Keys">>}).
+-doc(#{group => <<"Keys">>}).
 -type key_integer() :: integer() | binary(). % Always binary() when used as return value
 
+-doc "Key encapsulation mechanisms.".
+-doc(#{group => <<"Key Encapsulation Mechanism">>}).
+-type kem() :: mlkem512 | mlkem768 | mlkem1024.
+
 %%% Keys
--doc(#{title => <<"Public/Private Keys">>,equiv => rsa_params()}).
+-doc(#{group => <<"Public/Private Keys">>,equiv => rsa_params()}).
 -type rsa_public() :: [key_integer()] . % [E, N]
--doc(#{title => <<"Public/Private Keys">>,equiv => rsa_params()}).
+-doc(#{group => <<"Public/Private Keys">>,equiv => rsa_params()}).
 -type rsa_private() :: [key_integer()] . % [E, N, D] | [E, N, D, P1, P2, E1, E2, C]
 -doc """
 ```text
@@ -368,10 +386,10 @@ the calculation faster. P1 and P2 are first and second prime factors. E1 and E2
 are first and second exponents. C is the CRT coefficient. The terminology is
 taken from [RFC 3447](http://www.ietf.org/rfc/rfc3447.txt).
 """.
--doc(#{title => <<"Public/Private Keys">>}).
+-doc(#{group => <<"Public/Private Keys">>}).
 -type rsa_params() :: {ModulusSizeInBits::integer(), PublicExponent::key_integer()} .
 
--doc(#{title => <<"Public/Private Keys">>,equiv => dss_private()}).
+-doc(#{group => <<"Public/Private Keys">>,equiv => dss_private()}).
 -type dss_public() :: [key_integer()] . % [P, Q, G, Y]
 -doc """
 ```text
@@ -386,24 +404,24 @@ dss_private() = [P, Q, G, X]
 
 Where P, Q and G are the dss parameters and X is the private key.
 """.
--doc(#{title => <<"Public/Private Keys">>}).
+-doc(#{group => <<"Public/Private Keys">>}).
 -type dss_private() :: [key_integer()] . % [P, Q, G, X]
 
--doc(#{title => <<"Public/Private Keys">>,equiv => ecdsa_params()}).
+-doc(#{group => <<"Public/Private Keys">>,equiv => ecdsa_params()}).
 -type ecdsa_public()  :: key_integer() .
--doc(#{title => <<"Public/Private Keys">>,equiv => ecdsa_params()}).
+-doc(#{group => <<"Public/Private Keys">>,equiv => ecdsa_params()}).
 -type ecdsa_private() :: key_integer() .
--doc(#{title => <<"Public/Private Keys">>}).
+-doc(#{group => <<"Public/Private Keys">>}).
 -type ecdsa_params()  :: ec_named_curve() | ec_explicit_curve() .
 
--doc(#{title => <<"Public/Private Keys">>,equiv => eddsa_params()}).
+-doc(#{group => <<"Public/Private Keys">>,equiv => eddsa_params()}).
 -type eddsa_public()  :: key_integer() .
--doc(#{title => <<"Public/Private Keys">>,equiv => eddsa_params()}).
+-doc(#{group => <<"Public/Private Keys">>,equiv => eddsa_params()}).
 -type eddsa_private() :: key_integer() .
--doc(#{title => <<"Public/Private Keys">>}).
+-doc(#{group => <<"Public/Private Keys">>}).
 -type eddsa_params()  :: edwards_curve_ed() .
 
--doc(#{title => <<"Public/Private Keys">>,equiv => srp_private()}).
+-doc(#{group => <<"Public/Private Keys">>,equiv => srp_private()}).
 -type srp_public() :: key_integer() .
 -doc """
 ```text
@@ -418,21 +436,21 @@ srp_private() = key_integer()
 
 Where is `a` or `b` from [SRP design](http://srp.stanford.edu/design.html)
 """.
--doc(#{title => <<"Public/Private Keys">>}).
+-doc(#{group => <<"Public/Private Keys">>}).
 -type srp_private() :: key_integer() .
--doc(#{title => <<"Public/Private Keys">>,
+-doc(#{group => <<"Public/Private Keys">>,
        equiv => srp_host_comp_params()}).
 -type srp_gen_params()  :: {user,srp_user_gen_params()}  | {host,srp_host_gen_params()}.
--doc(#{title => <<"Public/Private Keys">>,
+-doc(#{group => <<"Public/Private Keys">>,
        equiv => srp_host_comp_params()}).
 -type srp_comp_params() :: {user,srp_user_comp_params()} | {host,srp_host_comp_params()}.
--doc(#{title => <<"Public/Private Keys">>,
+-doc(#{group => <<"Public/Private Keys">>,
        equiv => srp_host_comp_params()}).
 -type srp_user_gen_params() :: list(binary() | atom() | list()) .
--doc(#{title => <<"Public/Private Keys">>,
+-doc(#{group => <<"Public/Private Keys">>,
        equiv => srp_host_comp_params()}).
 -type srp_host_gen_params() :: list(binary() | atom() | list()) .
--doc(#{title => <<"Public/Private Keys">>,
+-doc(#{group => <<"Public/Private Keys">>,
        equiv => srp_host_comp_params()}).
 -type srp_user_comp_params() :: list(binary() | atom()) .
 -doc """
@@ -440,35 +458,35 @@ Where Verifier is `v`, Generator is `g` and Prime is` N`, DerivedKey is `X`, and
 Scrambler is `u` (optional will be generated if not provided) from
 [SRP design](http://srp.stanford.edu/design.html) Version = '3' | '6' | '6a'
 """.
--doc(#{title => <<"Public/Private Keys">>}).
+-doc(#{group => <<"Public/Private Keys">>}).
 -type srp_host_comp_params() :: list(binary() | atom()) .
 
--doc(#{title => <<"Diffie-Hellman Keys and parameters">>,
+-doc(#{group => <<"Diffie-Hellman Keys and parameters">>,
        equiv => dh_private()}).
 -type dh_public() :: key_integer() .
--doc(#{title => <<"Diffie-Hellman Keys and parameters">>}).
+-doc(#{group => <<"Diffie-Hellman Keys and parameters">>}).
 -type dh_private() :: key_integer() .
 -doc """
 ```text
-dh_params() = [P, G] | [P, G, PrivateKeyBitLength]
+dh_params() = [P, G] | [P, G, MaxPrivateKeyBitLength]
 ```
 """.
--doc(#{title => <<"Diffie-Hellman Keys and parameters">>}).
--type dh_params() :: [key_integer()] . % [P, G] | [P, G, PrivateKeyBitLength]
+-doc(#{group => <<"Diffie-Hellman Keys and parameters">>}).
+-type dh_params() :: [key_integer()] . % [P, G] | [P, G, MaxPrivateKeyBitLength]
 
--doc(#{title => <<"Diffie-Hellman Keys and parameters">>,
+-doc(#{group => <<"Diffie-Hellman Keys and parameters">>,
        equiv => ecdh_params()}).
 -type ecdh_public()  :: key_integer() .
--doc(#{title => <<"Diffie-Hellman Keys and parameters">>,
+-doc(#{group => <<"Diffie-Hellman Keys and parameters">>,
        equiv => ecdh_params()}).
 -type ecdh_private() :: key_integer() .
--doc(#{title => <<"Diffie-Hellman Keys and parameters">>}).
+-doc(#{group => <<"Diffie-Hellman Keys and parameters">>}).
 -type ecdh_params()  :: ec_named_curve() | edwards_curve_dh() | ec_explicit_curve() .
 
 
 %%% Curves
 
--doc(#{title => <<"Elliptic Curves">>,equiv => ec_curve()}).
+-doc(#{group => <<"Elliptic Curves">>,equiv => ec_curve()}).
 -type ec_explicit_curve() :: {Field :: ec_field(),
                               Curve :: ec_curve(),
                               BasePoint :: binary(),
@@ -478,27 +496,27 @@ dh_params() = [P, G] | [P, G, PrivateKeyBitLength]
                              } .
 
 -doc "Parametric curve definition.".
--doc(#{title => <<"Elliptic Curves">>}).
+-doc(#{group => <<"Elliptic Curves">>}).
 -type ec_curve() :: {A :: binary(),
                      B :: binary(),
                      Seed :: none | binary()
                     } .
 
--doc(#{title => <<"Elliptic Curves">>,equiv => ec_curve()}).
+-doc(#{group => <<"Elliptic Curves">>,equiv => ec_curve()}).
 -type ec_field() ::  ec_prime_field() | ec_characteristic_two_field() .
 
--doc(#{title => <<"Elliptic Curves">>,equiv => ec_basis()}).
+-doc(#{group => <<"Elliptic Curves">>,equiv => ec_basis()}).
 -type ec_prime_field()              :: {prime_field, Prime :: integer()} .
--doc(#{title => <<"Elliptic Curves">>,equiv => ec_basis()}).
+-doc(#{group => <<"Elliptic Curves">>,equiv => ec_basis()}).
 -type ec_characteristic_two_field() :: {characteristic_two_field, M :: integer(), Basis :: ec_basis()} .
 
 -doc "Curve definition details.".
--doc(#{title => <<"Elliptic Curves">>}).
+-doc(#{group => <<"Elliptic Curves">>}).
 -type ec_basis() :: {tpbasis, K :: non_neg_integer()}
                   | {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()}
                   |  onbasis .
 
--doc(#{title => <<"Elliptic Curves">>,equiv => edwards_curve_ed()}).
+-doc(#{group => <<"Elliptic Curves">>,equiv => edwards_curve_ed()}).
 -type ec_named_curve() :: brainpoolP160r1
                         | brainpoolP160t1
                         | brainpoolP192r1
@@ -584,23 +602,23 @@ dh_params() = [P, G] | [P, G, PrivateKeyBitLength]
                         | wtls9
                           .
 
--doc(#{title => <<"Elliptic Curves">>,equiv => edwards_curve_ed()}).
+-doc(#{group => <<"Elliptic Curves">>,equiv => edwards_curve_ed()}).
 -type edwards_curve_dh() :: x25519 | x448 .
 
--doc(#{title => <<"Utility functions">>}).
+-doc(#{group => <<"Utility functions">>}).
 -doc "Note that some curves are disabled if FIPS is enabled.".
--doc(#{title => <<"Elliptic Curves">>}).
+-doc(#{group => <<"Elliptic Curves">>}).
 -type edwards_curve_ed() :: ed25519 | ed448 .
 
 %%%----------------------------------------------------------------
 %%% New cipher schema
 %%%
--doc(#{title => <<"Ciphers">>}).
+-doc(#{group => <<"Ciphers">>}).
 -type cipher() :: cipher_no_iv()
                 | cipher_iv()
                 | cipher_aead() .
 
--doc(#{title => <<"Ciphers">>}).
+-doc(#{group => <<"Ciphers">>}).
 -type cipher_no_iv() :: aes_128_ecb
                       | aes_192_ecb
                       | aes_256_ecb
@@ -611,7 +629,7 @@ dh_params() = [P, G] | [P, G, PrivateKeyBitLength]
                       | sm4_ecb
                       | rc4 .
 
--doc(#{title => <<"Ciphers">>}).
+-doc(#{group => <<"Ciphers">>}).
 -type cipher_iv() :: aes_128_cbc
                    | aes_192_cbc
                    | aes_256_cbc
@@ -659,7 +677,7 @@ Ciphers known by the CRYPTO application.
 Note that this list might be reduced if the underlying libcrypto does not
 support all of them.
 """.
--doc(#{title => <<"Ciphers">>}).
+-doc(#{group => <<"Ciphers">>}).
 -type cipher_aead() :: aes_128_ccm
                      | aes_192_ccm
                      | aes_256_ccm
@@ -678,29 +696,29 @@ support all of them.
 
 %%%----------------------------------------------------------------
 
--doc(#{title => <<"Digests and hash">>}).
+-doc(#{group => <<"Digests and hash">>}).
 -type rsa_digest_type()   :: sha1() | sha2() | md5 | ripemd160 .
--doc(#{title => <<"Digests and hash">>}).
+-doc(#{group => <<"Digests and hash">>}).
 -type dss_digest_type()   :: sha1() | sha2() .
--doc(#{title => <<"Digests and hash">>}).
+-doc(#{group => <<"Digests and hash">>}).
 -type ecdsa_digest_type() :: sha1() | sha2() .
 
--doc(#{title => <<"Digests and hash">>,equiv => blake2()}).
+-doc(#{group => <<"Digests and hash">>,equiv => blake2()}).
 -type sha1() :: sha .
--doc(#{title => <<"Digests and hash">>,equiv => blake2()}).
--type sha2() :: sha224 | sha256 | sha384 | sha512 .
--doc(#{title => <<"Digests and hash">>,equiv => blake2()}).
+-doc(#{group => <<"Digests and hash">>,equiv => blake2()}).
+-type sha2() :: sha224 | sha256 | sha384 | sha512 | sha512_224 | sha512_256 .
+-doc(#{group => <<"Digests and hash">>,equiv => blake2()}).
 -type sha3() :: sha3_224 | sha3_256 | sha3_384 | sha3_512 .
--doc(#{title => <<"Digests and hash">>,equiv => blake2()}).
+-doc(#{group => <<"Digests and hash">>,equiv => blake2()}).
 -type sha3_xof() :: shake128 | shake256 .
--doc(#{title => <<"Digests and hash">>}).
+-doc(#{group => <<"Digests and hash">>}).
 -type blake2() :: blake2b | blake2s .
 
 -doc """
 The `t:compatibility_only_hash/0` algorithms are recommended only for
 compatibility with existing applications.
 """.
--doc(#{title => <<"Digests and hash">>}).
+-doc(#{group => <<"Digests and hash">>}).
 -type compatibility_only_hash() :: md5 | md4 .
 
 -type crypto_integer() :: binary() | integer().
@@ -789,7 +807,7 @@ format_error({Ex, {C_file,C_line}, Msg}, [{_M,_F,_Args,Opts} | _CallStack]) when
             end
     end.
 
--doc(#{title => <<"Utility Functions">>}).
+-doc(#{group => <<"Deprecated API">>}).
 -doc """
 Use [`application:start(crypto)`](`application:start/1`) instead.
 
@@ -803,7 +821,7 @@ Use [`application:start(crypto)`](`application:start/1`) instead.
 start() ->
     application:start(crypto).
 
--doc(#{title => <<"Utility Functions">>}).
+-doc(#{group => <<"Deprecated API">>}).
 -doc "Use [`application:stop(crypto)`](`application:stop/1`) instead.".
 -spec stop() -> ok | {error, Reason::term()}.
 stop() ->
@@ -813,19 +831,22 @@ stop() ->
 -spec supports() -> [Support]
                         when Support :: {hashs,   Hashs}
                                       | {ciphers, Ciphers}
+                                      | {kems, KEMs}
                                       | {public_keys, PKs}
                                       | {macs,    Macs}
                                       | {curves,  Curves}
                                       | {rsa_opts, RSAopts},
                              Hashs :: [sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | sm3 | compatibility_only_hash()],
                              Ciphers :: [cipher()],
-                             PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m],
-                             Macs :: [hmac | cmac | poly1305],
+                             KEMs :: [kem()],
+                             PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m | mldsa() | slh_dsa()],
+                             Macs :: [hmac | cmac | poly1305 | siphash],
                              Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
                              RSAopts :: [rsa_sign_verify_opt() | rsa_opt()] .
 supports() ->
      [{hashs,       supports(hashs)},
-      {ciphers,     supports(ciphers)}
+      {ciphers,     supports(ciphers)},
+      {kems,        supports(kems)}
       | [{T,supports(T)} || T <- [public_keys,
                                   macs,
                                   curves,
@@ -845,34 +866,38 @@ algorithms.
 -spec supports(Type) -> Support
                         when Type :: hashs
 			           | ciphers
+                                   | kems
                                    | public_keys
                                    | macs
                                    | curves
                                    | rsa_opts,
 			     Support :: Hashs
                                       | Ciphers
+                                      | KEMs
                                       | PKs
                                       | Macs
                                       | Curves
                                       | RSAopts,
                              Hashs :: [sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | compatibility_only_hash()],
                              Ciphers :: [cipher()],
+                             KEMs :: [kem()],
                              PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m],
-                             Macs :: [hmac | cmac | poly1305],
+                             Macs :: [hmac | cmac | poly1305 | siphash],
                              Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
                              RSAopts :: [rsa_sign_verify_opt() | rsa_opt()] .
 
 -define(CURVES, '$curves$').
 
--doc(#{title => <<"Utility Functions">>}).
+-doc(#{group => <<"Utility Functions">>}).
 supports(hashs)       -> hash_algorithms();
 supports(public_keys) -> pubkey_algorithms();
 supports(ciphers)     -> add_cipher_aliases(cipher_algorithms());
+supports(kems)        -> kem_algorithms_nif();
 supports(macs)        -> mac_algorithms();
 supports(curves)      -> curve_algorithms();
 supports(rsa_opts)    -> rsa_opts_algorithms().
 
--doc(#{title => <<"Utility Functions">>}).
+-doc(#{group => <<"Utility Functions">>}).
 -doc """
 Get the name and version of the libraries used by crypto.
 
@@ -897,7 +922,7 @@ version.
                                                 VerStr :: binary() .
 info_lib() -> ?nif_stub.
 
--doc(#{title => <<"Utility Functions">>}).
+-doc(#{group => <<"Utility Functions">>}).
 -doc """
 Get information about crypto and the OpenSSL backend.
 
@@ -906,24 +931,30 @@ Returns a map with information about the compilation and linking of crypto.
 Example:
 
 ```erlang
-1> crypto:info().
-#{compile_type => normal,
-  cryptolib_version_compiled => "OpenSSL 3.0.0 7 sep 2021",
-  cryptolib_version_linked => "OpenSSL 3.0.0 7 sep 2021",
-  link_type => dynamic,
-  otp_crypto_version => "5.0.2"}
-2>
+
+ 1> crypto:info().
+ #{compile_type => normal,
+   cryptolib_version_compiled => "OpenSSL 3.0.0 7 sep 2021",
+   cryptolib_version_linked => "OpenSSL 3.0.0 7 sep 2021",
+   link_type => dynamic,
+   otp_crypto_version => "5.0.2",
+   fips_provider_available => true,
+   fips_provider_buildinfo => "3.0.0"}
+ 2>
 ```
 
-More association types than documented may be present in the map.
+More association types than documented may be present in the map. Some of the
+associations (like fips) may be absent if not supported.
 """.
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 24.2">>}).
 -spec info() -> #{compile_type := normal | debug | valgrind | asan,
-                 cryptolib_version_compiled => string() | undefined,
+                  cryptolib_version_compiled := string() | undefined,
                   cryptolib_version_linked := string(),
                   link_type := dynamic | static,
-                  otp_crypto_version := string()
+                  otp_crypto_version := string(),
+                  fips_provider_available => boolean(),
+                  fips_provider_buildinfo => string()
                  }.
 info() -> 
     (info_nif())#{otp_crypto_version => crypto:version()}.
@@ -939,7 +970,8 @@ library. If crypto was built with FIPS support this can be either `enabled`
 (when running in FIPS mode) or `not_enabled`. For other builds
 this value is always `not_supported`.
 
-See `enable_fips_mode/1` about how to enable FIPS mode.
+See configuration parameter [fips_mode](`e:crypto:crypto_app.md#fips_mode`)
+about how to enable FIPS mode.
 
 > #### Warning {: .warning }
 >
@@ -947,7 +979,7 @@ See `enable_fips_mode/1` about how to enable FIPS mode.
 > exception `error:notsup`. Check [supports(ciphers)](`supports/1`) that in FIPS
 > mode returns the restricted list of available algorithms.
 """.
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 20.0">>}).
 -spec info_fips() -> not_supported | not_enabled | enabled.
 
@@ -964,7 +996,7 @@ option `--enable-fips`, and the underlying libcrypto must also support FIPS.
 
 See also `info_fips/0`.
 """.
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Deprecated API">>,
        since => <<"OTP 21.1">>}).
 -spec enable_fips_mode(Enable) -> Result when Enable :: boolean(),
                                               Result :: boolean().
@@ -973,16 +1005,24 @@ enable_fips_mode(Enable) ->
 
 enable_fips_mode_nif(_) -> ?nif_stub.
 
--doc(#{title => <<"MAC API">>}).
+-doc(#{group => <<"MAC API">>}).
 -doc """
 PKCS #5 PBKDF2 (Password-Based Key Derivation Function 2) in combination with
 HMAC.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+
+## Examples
+
+```erlang
+1> crypto:pbkdf2_hmac(sha256, <<"password">>, <<"salt">>, 1, 16).
+<<18,15,182,207,252,248,179,44,67,231,34,82,86,196,248,55>>
+```
 """.
--doc(#{title => <<"Engine API">>,since => <<"OTP 24.2">>}).
+-doc(#{group => <<"Engine API">>,since => <<"OTP 24.2">>}).
 -spec pbkdf2_hmac(Digest, Pass, Salt, Iter, KeyLen) -> Result
-          when Digest :: sha | sha224 | sha256 | sha384 | sha512,
+          when Digest :: sha | sha224 | sha256 | sha384 | sha512 | sha512_224 | sha512_256,
                Pass :: binary(),
                Salt :: binary(),
                Iter :: pos_integer(),
@@ -999,9 +1039,9 @@ pbkdf2_hmac_nif(_, _, _, _, _) -> ?nif_stub.
 %%%
 %%%================================================================
 
--doc(#{title => <<"Digests and hash">>}).
+-doc(#{group => <<"Digests and hash">>}).
 -type hash_algorithm() :: sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | sm3 | compatibility_only_hash() .
--doc(#{title => <<"Digests and hash">>}).
+-doc(#{group => <<"Digests and hash">>}).
 -type hash_xof_algorithm() :: sha3_xof() .
 
 -doc """
@@ -1011,8 +1051,16 @@ Returns a map with information about block_size, size and possibly other
 properties of the hash algorithm in question.
 
 For a list of supported hash algorithms, see [supports(hashs)](`supports/1`).
+
+
+## Examples
+
+```erlang
+1> crypto:hash_info(sha256).
+#{size => 32,type => 672,block_size => 64}
+```
 """.
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 22.0">>}).
 -spec hash_info(Type) -> Result
                              when Type :: hash_algorithm(),
@@ -1029,8 +1077,17 @@ Compute a message digest.
 Argument `Type` is the digest type and argument `Data` is the full message.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+
+## Examples
+
+```erlang
+1> crypto:hash(sha256, <<"abc">>).
+<<186,120,22,191,143,1,207,234,65,65,64,222,93,174,34,35,176,3,97,
+  163,150,23,122,156,180,16,255,97,242,0,21,173>>
+```
 """.
--doc(#{title => <<"Hash API">>,
+-doc(#{group => <<"Hash API">>,
        since => <<"OTP R15B02">>}).
 -spec hash(Type, Data) -> Digest when Type :: hash_algorithm(),
                                       Data :: iodata(),
@@ -1050,8 +1107,23 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 May raise exception `error:notsup` in case the chosen `Type` is not supported by
 the underlying libcrypto implementation.
+
+## Examples
+
+The supported XOF algorithms can vary with the linked libcrypto version. The example uses
+[`supports(hashs)`](`supports/1`) to check for `shake128` or `shake256` before
+demonstrating this function. The function will print the XOF hash (1 character,
+because of the 8 in the arguments) and output `ok`.
+
+```erlang
+1> S = <<"abc">>.
+2> Xofs = [io:format("XOF hash of '~s' with ~s: ~s\n", [S, Alg, crypto:hash_xof(Alg, S, 8)])
+   || Alg <- [shake128, shake256], lists:member(Alg, crypto:supports(hashs))],
+   ok.
+ok
+```
 """.
--doc(#{title => <<"Hash API">>,
+-doc(#{group => <<"Hash API">>,
        since => <<"OTP 26.0">>}).
 -spec hash_xof(Type, Data, Length) -> Digest when Type :: hash_xof_algorithm(),
                                                Data :: iodata(),
@@ -1061,7 +1133,7 @@ hash_xof(Type, Data, Length) ->
   Data1 = iolist_to_binary(Data),
   hash_xof(Type, Data1, erlang:byte_size(Data1), Length).
 
--doc(#{title => <<"Internal data types">>,equiv => mac_state()}).
+-doc(#{group => <<"Internal data types">>,equiv => mac_state()}).
 -opaque hash_state() :: reference().
 
 -doc """
@@ -1071,8 +1143,19 @@ Argument `Type` determines which digest to use. The returned state should be
 used as argument to `hash_update/2`.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+
+## Examples
+
+```erlang
+1> S0 = crypto:hash_init(sha256),
+   S1 = crypto:hash_update(S0, <<"abc">>),
+   crypto:hash_final(S1).
+<<186,120,22,191,143,1,207,234,65,65,64,222,93,174,34,35,176,3,97,
+  163,150,23,122,156,180,16,255,97,242,0,21,173>>
+```
 """.
--doc(#{title => <<"Hash API">>,
+-doc(#{group => <<"Hash API">>,
        since => <<"OTP R15B02">>}).
 -spec hash_init(Type) -> State when Type :: hash_algorithm(),
                                     State :: hash_state().
@@ -1091,8 +1174,13 @@ Returns `NewState` that must be passed into the next call to `hash_update/2` or
 `hash_final/1`.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+
+## Examples
+
+See `hash_init/1` for examples on how to use this function.
 """.
--doc(#{title => <<"Hash API">>,
+-doc(#{group => <<"Hash API">>,
        since => <<"OTP R15B02">>}).
 -spec hash_update(State, Data) -> NewState when State :: hash_state(),
                                                 NewState :: hash_state(),
@@ -1110,8 +1198,13 @@ Argument `State` as returned from the last call to
 the type of hash function used to generate it.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+
+## Examples
+
+See `hash_init/1` for examples on how to use this function.
 """.
--doc(#{title => <<"Hash API">>,
+-doc(#{group => <<"Hash API">>,
        since => <<"OTP R15B02">>}).
 -spec hash_final(State) -> Digest when State :: hash_state(),
                                        Digest :: binary().
@@ -1131,34 +1224,60 @@ hash_final_xof(State, Length) ->
 %%%
 %%%================================================================
 
--doc(#{title => <<"Digests and hash">>}).
+-doc(#{group => <<"Digests and hash">>}).
 -type hmac_hash_algorithm() ::  sha1() | sha2() | sha3() | sm3 | compatibility_only_hash().
 
--doc(#{title => <<"Digests and hash">>}).
+-doc(#{group => <<"Digests and hash">>}).
 -type cmac_cipher_algorithm() :: aes_128_cbc    | aes_192_cbc    | aes_256_cbc    | aes_cbc
                                | blowfish_cbc
                                | des_cbc | des_ede3_cbc
                                | rc2_cbc
                                  .
 
+-doc """
+Options controlling the `siphash` MAC, used as the `SubType` argument.
+
+- `size` - output size in bytes, either `8` or `16`. Defaults to `16`.
+- `c_rounds` - number of SipHash compression rounds, in the range `1..16`.
+  Defaults to `2`.
+- `d_rounds` - number of SipHash finalization rounds, in the range `1..16`.
+  Defaults to `4`.
+
+The defaults correspond to SipHash-2-4 with a 16 byte output. An empty map
+`#{}` (or `undefined`) selects all defaults; any subset of the keys may be
+given to override individual parameters. The round counts are capped (well
+above the strongest standard variant, SipHash-4-8) so that a single call
+cannot monopolise a scheduler.
+""".
+-doc(#{group => <<"MAC API">>}).
+-type siphash_options() :: #{size => 8 | 16,
+                             c_rounds => 1..16,
+                             d_rounds => 1..16}.
+
 %%%----------------------------------------------------------------
 %%% Calculate MAC for the whole text at once
 
 -doc """
-Compute a `poly1305` MAC (Message Authentication Code).
+Compute a `poly1305` or `siphash` MAC (Message Authentication Code).
 
-Same as [`mac(Type, undefined, Key, Data)`](`mac/4`).
+For `poly1305` this is the same as [`mac(poly1305, undefined, Key, Data)`](`mac/4`).
+For `siphash` this is the same as [`mac(siphash, #{}, Key, Data)`](`mac/4`), i.e.
+SipHash-2-4 with a 16 byte output; use [`mac/4`](`mac/4`) with a
+[`t:siphash_options/0`](`t:siphash_options/0`) map to configure the rounds or
+output size.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{title => <<"MAC API">>,
+-doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
--spec mac(Type :: poly1305, Key, Data) -> Mac
-                     when Key :: iodata(),
+-spec mac(Type, Key, Data) -> Mac
+                     when Type :: poly1305 | siphash,
+                          Key :: iodata(),
                           Data :: iodata(),
                           Mac :: binary().
 
-mac(poly1305, Key, Data) -> mac(poly1305, undefined, Key, Data).
+mac(poly1305, Key, Data) -> mac(poly1305, undefined, Key, Data);
+mac(siphash, Key, Data) -> mac(siphash, #{}, Key, Data).
 
 
 -doc """
@@ -1175,10 +1294,15 @@ Argument `Type` is the type of MAC and `Data` is the full message.
 - For `poly1305` it should be set to `undefined` or the [mac/2](`mac_init/2`)
   function could be used instead, see
   [Algorithm Details](algorithm_details.md#poly1305) in the User's Guide.
+- For `siphash` it is a [`t:siphash_options/0`](`t:siphash_options/0`) map (or
+  `undefined` / `#{}` for the defaults), selecting the output size and the
+  number of rounds, see [Algorithm Details](algorithm_details.md#siphash) in the
+  User's Guide.
 
 `Key` is the authentication key with a length according to the `Type` and
 `SubType`. The key length could be found with the `hash_info/1` (`hmac`) for and
 `cipher_info/1` (`cmac`) functions. For `poly1305` the key length is 32 bytes.
+For `siphash` the key length is 16 bytes.
 Note that the cryptographic quality of the key is not checked.
 
 The `Mac` result will have a default length depending on the `Type` and
@@ -1188,12 +1312,21 @@ default length is documented in
 the User's Guide.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+
+## Examples
+
+```erlang
+1> crypto:mac(hmac, sha256, <<"key">>, <<"data">>).
+<<80,49,254,61,152,156,109,21,55,160,19,250,110,115,157,162,52,99,253,
+  174,195,183,1,55,216,40,227,106,206,34,27,208>>
+```
 """.
--doc(#{title => <<"MAC API">>,
+-doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
 -spec mac(Type, SubType, Key, Data) -> Mac
-                     when Type :: hmac | cmac | poly1305,
-                          SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
+                     when Type :: hmac | cmac | poly1305 | siphash,
+                          SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | siphash_options() | undefined,
                           Key :: iodata(),
                           Data :: iodata(),
                           Mac :: binary().
@@ -1204,16 +1337,21 @@ mac(Type, SubType, Key0, Data) ->
 
 
 -doc """
-Compute a `poly1305` MAC (Message Authentication Code) with a limited length.
+Compute a `poly1305` or `siphash` MAC (Message Authentication Code) with a
+limited length.
 
-Same as [`macN(Type, undefined, Key, Data, MacLength)`](`macN/5`).
+This is the same as [`macN(Type, undefined, Key, Data, MacLength)`](`macN/5`),
+i.e. the default `SubType` (for `siphash`, SipHash-2-4 with a 16 byte output
+before truncation). Use [`macN/5`](`macN/5`) with a
+[`t:siphash_options/0`](`t:siphash_options/0`) map to configure `siphash`.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{title => <<"MAC API">>,
+-doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
--spec macN(Type :: poly1305, Key, Data, MacLength) -> Mac
-                     when Key :: iodata(),
+-spec macN(Type, Key, Data, MacLength) -> Mac
+                     when Type :: poly1305 | siphash,
+                          Key :: iodata(),
                           Data :: iodata(),
                           Mac :: binary(),
                           MacLength :: pos_integer().
@@ -1233,19 +1371,28 @@ returned hash will have that shorter length instead.
 The max `MacLength` is documented in
 [Algorithm Details](algorithm_details.md#message-authentication-codes-macs) in
 the User's Guide.
+
+
+## Examples
+
+```erlang
+1> crypto:macN(hmac, sha256, <<"key">>, <<"data">>, 4).
+<<80,49,254,61>>
+```
 """.
--doc(#{title => <<"MAC API">>,
+-doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
 -spec macN(Type, SubType, Key, Data, MacLength) -> Mac
-                     when Type :: hmac | cmac | poly1305,
-                          SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
+                     when Type :: hmac | cmac | poly1305 | siphash,
+                          SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | siphash_options() | undefined,
                           Key :: iodata(),
                           Data :: iodata(),
                           Mac :: binary(),
                           MacLength :: pos_integer().
 
 macN(Type, SubType, Key, Data, MacLength) ->
-    erlang:binary_part(mac(Type,SubType,Key,Data), 0, MacLength).
+    Mac = mac(Type, SubType, Key, Data),
+    erlang:binary_part(Mac, 0, min(MacLength, byte_size(Mac))).
 
 
 %%%----------------------------------------------------------------
@@ -1255,23 +1402,29 @@ macN(Type, SubType, Key, Data, MacLength) ->
 Contexts with an internal state that should not be manipulated but passed
 between function calls.
 """.
--doc(#{title => <<"Internal data types">>}).
+-doc(#{group => <<"Internal data types">>}).
 -opaque mac_state() :: reference() .
 
 -doc """
-Initialize a state for streaming `poly1305` MAC calculation.
+Initialize a state for streaming `poly1305` or `siphash` MAC calculation.
 
-Same as [`mac_init(Type, undefined, Key)`](`mac_init/3`).
+For `poly1305` this is the same as [`mac_init(poly1305, undefined, Key)`](`mac_init/3`).
+For `siphash` this is the same as [`mac_init(siphash, #{}, Key)`](`mac_init/3`),
+i.e. SipHash-2-4 with a 16 byte output; use [`mac_init/3`](`mac_init/3`) with a
+[`t:siphash_options/0`](`t:siphash_options/0`) map to configure it.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{title => <<"MAC API">>,
+-doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
--spec mac_init(Type :: poly1305, Key) -> State
-                          when Key :: iodata(),
+-spec mac_init(Type, Key) -> State
+                          when Type :: poly1305 | siphash,
+                               Key :: iodata(),
                                State :: mac_state() .
 mac_init(poly1305, Key) ->
-    ?nif_call(mac_init_nif(poly1305, undefined, Key)).
+    ?nif_call(mac_init_nif(poly1305, undefined, Key));
+mac_init(siphash, Key) ->
+    ?nif_call(mac_init_nif(siphash, #{}, Key)).
 
 
 -doc """
@@ -1288,10 +1441,15 @@ Initialize the state for streaming MAC calculation.
 - For `poly1305` it should be set to `undefined` or the [mac/2](`mac_init/2`)
   function could be used instead, see
   [Algorithm Details](algorithm_details.md#poly1305) in the User's Guide.
+- For `siphash` it is a [`t:siphash_options/0`](`t:siphash_options/0`) map (or
+  `undefined` / `#{}` for the defaults), selecting the output size and the
+  number of rounds, see [Algorithm Details](algorithm_details.md#siphash) in the
+  User's Guide.
 
 `Key` is the authentication key with a length according to the `Type` and
 `SubType`. The key length could be found with the `hash_info/1` (`hmac`) for and
 `cipher_info/1` (`cmac`) functions. For `poly1305` the key length is 32 bytes.
+For `siphash` the key length is 16 bytes.
 Note that the cryptographic quality of the key is not checked.
 
 The returned `State` should be used in one or more subsequent calls to
@@ -1302,12 +1460,22 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 See
 [examples in the User's Guide.](new_api.md#example-of-mac_init-mac_update-and-mac_final)
+
+
+## Examples
+
+```erlang
+1> S0 = crypto:mac_init(hmac, sha256, <<"key">>),
+   S1 = crypto:mac_update(S0, <<"data">>),
+   crypto:mac_finalN(S1, 4).
+<<80,49,254,61>>
+```
 """.
--doc(#{title => <<"MAC API">>,
+-doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
 -spec mac_init(Type, SubType, Key) -> State
-                          when Type :: hmac | cmac | poly1305,
-                               SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
+                          when Type :: hmac | cmac | poly1305 | siphash,
+                               SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | siphash_options() | undefined,
                                Key :: iodata(),
                                State :: mac_state() .
 mac_init(Type, SubType, Key0) ->
@@ -1328,8 +1496,13 @@ internal state. Hence, it is not possible to branch off a data stream by reusing
 old states.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+
+## Examples
+
+See `mac_init/2` for examples on how to use this function.
 """.
--doc(#{title => <<"MAC API">>,
+-doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
 -spec mac_update(State0, Data) -> State
                      when Data :: iodata(),
@@ -1353,7 +1526,7 @@ the User's Guide.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{title => <<"MAC API">>,
+-doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
 -spec mac_final(State) -> Mac
                               when State :: mac_state(),
@@ -1376,8 +1549,13 @@ The max `MacLength` is documented in
 the User's Guide.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+
+## Examples
+
+See `mac_init/2` for examples on how to use this function.
 """.
--doc(#{title => <<"MAC API">>,
+-doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
 -spec mac_finalN(State, MacLength) -> Mac
                               when State :: mac_state(),
@@ -1425,8 +1603,17 @@ support and possibly other properties of the cipher algorithm in question.
 
 For a list of supported cipher algorithms, see
 [supports(ciphers)](`supports/1`).
+
+
+## Examples
+
+```erlang
+1> crypto:cipher_info(aes_128_ctr).
+#{type => undefined,mode => ctr_mode,block_size => 1,iv_length => 16,
+  key_length => 16,prop_aead => false}
+```
 """.
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 22.0">>}).
 -spec cipher_info(Type) -> Result
                                when Type :: cipher(),
@@ -1481,21 +1668,21 @@ cipher_info(Type) ->
 %%%
 %%%================================================================
 
--doc(#{title => <<"Internal data types">>,equiv => mac_state()}).
+-doc(#{group => <<"Internal data types">>,equiv => mac_state()}).
 -opaque crypto_state() :: reference() .
 
--doc(#{title => <<"Ciphers">>,equiv => crypto_opt()}).
+-doc(#{group => <<"Ciphers">>,equiv => crypto_opt()}).
 -type crypto_opts() :: boolean()
                      | [ crypto_opt() ] .
 -doc "Selects encryption (`{encrypt,true}`) or decryption (`{encrypt,false}`).".
--doc(#{title => <<"Ciphers">>}).
+-doc(#{group => <<"Ciphers">>}).
 -type crypto_opt() :: {encrypt,boolean()}
                     | {padding, padding()} .
 -doc """
 This option handles padding in the last block. If not set, no padding is done
 and any bytes in the last unfilled block is silently discarded.
 """.
--doc(#{title => <<"Ciphers">>}).
+-doc(#{group => <<"Ciphers">>}).
 -type padding() :: cryptolib_padding() | otp_padding().
 -doc """
 The `cryptolib_padding` are paddings that may be present in the underlying
@@ -1504,10 +1691,10 @@ cryptolib linked to the Erlang/OTP crypto app.
 For OpenSSL, see the [OpenSSL documentation](https://openssl.org). and find
 `EVP_CIPHER_CTX_set_padding()` in cryptolib for your linked version.
 """.
--doc(#{title => <<"Ciphers">>}).
+-doc(#{group => <<"Ciphers">>}).
 -type cryptolib_padding() :: none | pkcs_padding .
 -doc "Erlang/OTP adds a either padding of zeroes or padding with random bytes.".
--doc(#{title => <<"Ciphers">>}).
+-doc(#{group => <<"Ciphers">>}).
 -type otp_padding() :: zero | random .
 
 
@@ -1525,8 +1712,17 @@ Equivalent to the call
 intended for ciphers without an IV (nounce).
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+
+## Examples
+
+```erlang
+1> S = crypto:crypto_init(aes_128_ecb, <<0:128>>, true),
+   crypto:crypto_update(S, <<0:128>>).
+<<102,233,75,212,239,138,44,59,136,76,250,89,202,52,43,46>>
+```
 """.
--doc(#{title => <<"Cipher API">>,
+-doc(#{group => <<"Cipher API">>,
        since => <<"OTP 22.0">>}).
 -spec crypto_init(Cipher, Key, FlagOrOptions) -> State
                                                    when Cipher :: cipher_no_iv(),
@@ -1574,8 +1770,17 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 See
 [examples in the User's Guide.](new_api.md#examples-of-crypto_init-4-and-crypto_update-2)
+
+
+## Examples
+
+```erlang
+1> S = crypto:crypto_init(aes_128_ctr, <<0:128>>, <<0:128>>, true),
+   crypto:crypto_update(S, <<0:32>>).
+<<102,233,75,212>>
+```
 """.
--doc(#{title => <<"Cipher API">>,
+-doc(#{group => <<"Cipher API">>,
        since => <<"OTP 22.0">>}).
 -spec crypto_init(Cipher, Key, IV, FlagOrOptions) -> State
                                                        when Cipher :: cipher_iv(),
@@ -1605,8 +1810,13 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 See
 [examples in the User's Guide.](new_api.md#examples-of-crypto_init-4-and-crypto_update-2)
+
+
+## Examples
+
+See `crypto_init/4` for examples on how to use this function.
 """.
--doc(#{title => <<"Cipher API">>,
+-doc(#{group => <<"Cipher API">>,
        since => <<"OTP 22.0">>}).
 -spec crypto_update(State, Data) -> Result
                             when State :: crypto_state(),
@@ -1631,7 +1841,7 @@ The data returned from this function may be empty if no padding was enabled in
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{title => <<"Cipher API">>,
+-doc(#{group => <<"Cipher API">>,
        since => <<"OTP 23.0">>}).
 -spec crypto_final(State) -> FinalResult
                             when State :: crypto_state(),
@@ -1659,8 +1869,18 @@ The information returned is a map, which currently contains at least:
 - **`encrypt`** - Is `true` if encryption is performed. It is `false` otherwise.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+
+## Examples
+
+```erlang
+1> S = crypto:crypto_init(aes_128_ctr, <<0:128>>, <<0:128>>, true),
+   crypto:crypto_update(S, <<0:32>>),
+   crypto:crypto_get_data(S).
+#{size => 4,encrypt => true,padding_size => -1,padding_type => undefined}
+```
 """.
--doc(#{title => <<"Cipher API">>,
+-doc(#{group => <<"Cipher API">>,
        since => <<"OTP 23.0">>}).
 -spec crypto_get_data(State) -> Result
                             when State :: crypto_state(),
@@ -1680,8 +1900,16 @@ Do a complete encrypt or decrypt of the full text.
 As `crypto_one_time/5` but for ciphers without IVs.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+
+## Examples
+
+```erlang
+1> crypto:crypto_one_time(aes_128_ecb, <<0:128>>, <<0:128>>, true).
+<<102,233,75,212,239,138,44,59,136,76,250,89,202,52,43,46>>
+```
 """.
--doc(#{title => <<"Cipher API">>,
+-doc(#{group => <<"Cipher API">>,
        since => <<"OTP 22.0">>}).
 -spec crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
                              Result
@@ -1709,8 +1937,16 @@ For encryption, set the `FlagOrOptions` to `true`. For decryption, set it to
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 See [examples in the User's Guide.](new_api.md#example-of-crypto_one_time-5)
+
+
+## Examples
+
+```erlang
+1> crypto:crypto_one_time(aes_128_ctr, <<0:128>>, <<0:128>>, <<0:32>>, true).
+<<102,233,75,212>>
+```
 """.
--doc(#{title => <<"Cipher API">>,
+-doc(#{group => <<"Cipher API">>,
        since => <<"OTP 22.0">>}).
 -spec crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
                              Result
@@ -1727,8 +1963,23 @@ crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
               {}).
 
 %%%----------------------------------------------------------------
--doc(#{equiv => crypto_one_time_aead/7}).
--doc(#{title => <<"Cipher API">>,
+-doc """
+Do a complete encrypt with an AEAD cipher of the full text
+with the default tag length.
+
+Equivalent to
+`crypto_one_time_aead(Cipher, Key, IV, InText, AAD, TagLength, true)`
+where `TagLength` is the default tag length for the given `Cipher`.
+
+
+## Examples
+
+```erlang
+1> crypto:crypto_one_time_aead(aes_128_gcm, <<0:128>>, <<0:96>>, <<"abc">>, <<"aad">>, true).
+{<<98,234,185>>,<<88,198,190,128,13,104,95,237,144,165,63,181,213,115,99,216>>}
+```
+""".
+-doc(#{group => <<"Cipher API">>,
        since => <<"OTP 22.0">>}).
 -spec crypto_one_time_aead(Cipher, Key, IV, InText, AAD, EncFlag::true) ->
                              Result
@@ -1747,7 +1998,6 @@ crypto_one_time_aead(Cipher, Key, IV, PlainText, AAD, true) ->
               {1,2,3,4,5,-1,6}
              ).
 
-
 -doc """
 Do a complete encrypt or decrypt with an AEAD cipher of the full text.
 
@@ -1757,6 +2007,13 @@ length is wanted, the `crypto_one_time_aead/6` form may be used.
 
 For decryption, set the `EncryptFlag` to `false` and put the tag to be checked
 in the argument `TagOrTagLength`.
+
+> #### Warning {: .warning }
+>
+> The length of the tag at decryption is not checked by the function. It is the
+> caller's responsibility to ensure that the length of the tag matches the
+> length of the tag used when the data was encrypted. Otherwise the decryption
+> may succeed if the given tag only matches the start of the proper tag.
 
 Additional Authentication Data (AAD) is plaintext data that will not be
 encrypted, but will be covered by authenticity protection. It should be provided
@@ -1769,8 +2026,17 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 See
 [examples in the User's Guide.](new_api.md#example-of-crypto_one_time_aead-6)
+
+
+## Examples
+
+```erlang
+1> {CipherText, Tag} = crypto:crypto_one_time_aead(aes_128_gcm, <<0:128>>, <<0:96>>, <<"abc">>, <<"aad">>, true),
+   crypto:crypto_one_time_aead(aes_128_gcm, <<0:128>>, <<0:96>>, CipherText, <<"aad">>, Tag, false).
+<<"abc">>
+```
 """.
--doc(#{title => <<"Cipher API">>,
+-doc(#{group => <<"Cipher API">>,
        since => <<"OTP 22.0">>}).
 -spec crypto_one_time_aead(Cipher, Key, IV, InText, AAD, TagOrTagLength, EncFlag) ->
                              Result
@@ -1811,6 +2077,67 @@ aead_tag_len(sm4_ccm) -> 16;
 aead_tag_len(_) ->
     error({badarg, "Not an AEAD cipher"}).
 
+
+
+-doc("""
+Initializes AEAD cipher.
+
+Similar to 'crypto_one_time_aead/7' but only does the initialization part,
+returns a handle that can be used with 'crypto_one_time_aead/4' serveral times.
+
+
+
+## Examples
+
+```erlang
+1> S = crypto:crypto_one_time_aead_init(aes_128_gcm, <<0:128>>, 16, true),
+   crypto:crypto_one_time_aead(S, <<0:96>>, <<"abc">>, <<"aad">>).
+<<98,234,185,88,198,190,128,13,104,95,237,144,165,63,181,213,115,99,216>>
+```
+""").
+-doc(#{group => <<"Cipher API">>,
+       since => <<"OTP 28.0">>}).
+-spec crypto_one_time_aead_init(Cipher, Key, TagLength, EncFlag) -> Result
+              when Cipher :: cipher_aead(),
+                   Key :: iodata(),
+                   TagLength :: non_neg_integer(), % or pos_integer() 1..
+                   EncFlag :: boolean(),
+                   Result :: crypto_state().
+
+crypto_one_time_aead_init(Cipher, Key, Length, Encode) when is_integer(Length) ->
+    ?nif_call(aead_cipher_init_nif(alias(Cipher,Key), iolist_to_binary(Key), Length, Encode),
+              [Cipher, Key, Length, Encode],
+              {}
+             ).
+
+-doc("""
+Do a complete encrypt or decrypt with an AEAD cipher of the full text.
+
+Similar to 'crypto_one_time_aead/7' but uses the handle from 'crypto_one_time_aead_init/4'.
+
+Appends the tag of the specified 'TagLength' to the end of the encrypted data, when doing encryption.
+Strips the tag from the end of 'InText' and verifies it when doing decryption.
+
+
+## Examples
+
+See `crypto_one_time_aead_init/4` for examples on how to use this function.
+""").
+-doc(#{group => <<"Cipher API">>,
+       since => <<"OTP 28.0">>}).
+-spec crypto_one_time_aead(State, IV, InText, AAD) ->
+                             Result
+                                 when State :: crypto_state(),
+                                      IV :: iodata(),
+                                      InText :: iodata(),
+                                      AAD :: iodata(),
+                                      Result :: EncryptResult | DecryptResult,
+                                      EncryptResult :: binary(),
+                                      DecryptResult :: binary() | error.
+crypto_one_time_aead(State, IV, InText, AAD) ->
+    ?nif_call(aead_cipher_nif(State, IV, InText, AAD)).
+
+
 %%%----------------------------------------------------------------
 %%% Cipher NIFs
 
@@ -1825,6 +2152,10 @@ ng_crypto_get_data_nif(_State) -> ?nif_stub.
 ng_crypto_one_time_nif(_Cipher, _Key, _IVec, _Data, _OptionsMap) -> ?nif_stub.
 
 aead_cipher_nif(_Type, _Key, _Ivec, _AAD, _In, _TagOrTagLength, _EncFlg) -> ?nif_stub.
+
+aead_cipher_init_nif(_Type, _Key, _TagOrTagLength, _EncFlg) -> ?nif_stub.
+
+aead_cipher_nif(_State, _IV, _InText, _AA) -> ?nif_stub.
 
 cipher_info_nif(_Type) -> ?nif_stub.
 
@@ -1915,11 +2246,9 @@ alias1_rev(C) -> C.
 
 %%%================================================================
 %%%
-%%% RAND - pseudo random numbers using RN_ and BN_ functions in crypto lib
+%%% RANDOM - pseudo random numbers using RN_ and BN_ functions in crypto lib
 %%%
 %%%================================================================
--type rand_cache_seed() ::
-        nonempty_improper_list(non_neg_integer(), binary()).
 
 -doc """
 Generate bytes with randomly uniform values 0..255.
@@ -1933,7 +2262,7 @@ from OpenSSL.
 May raise exception `error:low_entropy` in case the random generator failed due
 to lack of secure "randomness".
 """.
--doc(#{title => <<"Random API">>,
+-doc(#{group => <<"Random API">>,
        since => <<"OTP R14B03">>}).
 -spec strong_rand_bytes(N::non_neg_integer()) -> binary().
 strong_rand_bytes(Bytes) ->
@@ -1941,191 +2270,630 @@ strong_rand_bytes(Bytes) ->
         false -> erlang:error(low_entropy);
         Bin -> Bin
     end.
+
 strong_rand_bytes_nif(_Bytes) -> ?nif_stub.
 
 
+-doc(#{group => <<"Random API">>}).
 -doc """
-Create a state object for [random number generation](`m:rand`), in order to
-generate cryptographically strong random numbers (based on OpenSSL's
-`BN_rand_range`).
+Generate a random integer number.
 
-Saves the state in the process dictionary before returning it as
-well. See also `rand:seed/1` and `rand_seed_s/0`.
+The interval is `From =< N < To`. Uses the `crypto` library
+pseudo-random number generator. `To` must be larger than `From`.
 
-When using the state object from this function the `m:rand` functions using it
-may raise exception `error:low_entropy` in case the random generator failed due
+> #### Note {: .info }
+>
+> This function is deprecated because it originally used
+> the OpenSSL method BN_pseudo_rand_range that was not
+> cryptographically strong and could not run out of entropy.
+> That behaviour changed in OpenSSL and this function
+> cannot be fixed without making it raise `error:low_entropy`,
+> which is not backwards compatible.
+>
+> Instead, use `strong_rand_range(To - From) + From`
+>
+> Be aware of the possible `error:low_entropy` exception.
+
+
+## Examples
+
+```erlang
+1> crypto:rand_uniform(0, 10).
+```
+""".
+-spec rand_uniform(crypto_integer(), crypto_integer()) ->
+			  crypto_integer().
+rand_uniform(From, To) when is_binary(From), is_binary(To) ->
+    case rand_uniform_nif(From,To) of
+	<<Len:32/integer, MSB, Rest/binary>> when MSB > 127 ->
+	    <<(Len + 1):32/integer, 0, MSB, Rest/binary>>;
+	Whatever ->
+	    Whatever
+    end;
+rand_uniform(From,To) when is_integer(From),is_integer(To) ->
+    if From < 0 ->
+	    rand_uniform_pos(0, To - From) + From;
+       true ->
+	    rand_uniform_pos(From, To)
+    end.
+
+rand_uniform_pos(From,To) when From < To ->
+    BinFrom = mpint(From),
+    BinTo = mpint(To),
+    case rand_uniform(BinFrom, BinTo) of
+        Result when is_binary(Result) ->
+            erlint(Result);
+        Other ->
+            Other
+    end;
+rand_uniform_pos(_,_) ->
+    error(badarg).
+
+rand_uniform_nif(_From,_To) -> ?nif_stub.
+
+
+-doc """
+Mixes in the bytes of the given binary into the internal state
+of OpenSSL's random number generator.
+
+This calls the RAND_seed function from OpenSSL. Only use this if
+the system you are running on does not have enough "randomness" built in.
+Normally this is when `strong_rand_bytes/1` or a generator
+from `rand_seed_alg_s/1` raises `error:low_entropy`.
+""".
+-doc(#{group => <<"Random API">>,
+       since => <<"OTP 17.0">>}).
+-spec rand_seed(binary()) -> ok.
+rand_seed(Seed) when is_binary(Seed) ->
+    rand_seed_nif(Seed).
+
+rand_seed_nif(_Seed) -> ?nif_stub.
+
+
+-doc(#{group => <<"Random API">>,
+       since => <<"OTP 28.3">>}).
+-doc """
+Generate a random integer in a specified range.
+
+The returned random integer is in the interval is `0` =< `N` < `Range`.
+
+Uses the `crypto` library random number generator `BN_rand_range`.
+
+If the `Range` argument is a `pos_integer/0` the return value
+is a `non_neg_integer/0`.  If the `Range` argument is a positive integer
+in a `binary/0`, the return value is a non-negative integer in a `binary/0`.
+
+May raise exception `error:low_entropy` in case the random generator failed due
 to lack of secure "randomness".
 
-_Example_
+
+## Examples
+
+```erlang
+1> crypto:strong_rand_range(10).
+2> crypto:strong_rand_range(<<10>>).
+```
+""".
+-spec strong_rand_range(Range :: pos_integer()) -> N :: non_neg_integer();
+                       (Range :: binary()) ->      N :: binary().
+%% BN_rand_range
+strong_rand_range(Range) when is_integer(Range), Range > 0 ->
+    bin_to_int(strong_rand_range(int_to_bin(Range)));
+strong_rand_range(BinRange) when is_binary(BinRange) ->
+    case strong_rand_range_nif(BinRange) of
+        false ->
+            V = bin_to_int(BinRange),
+            if
+                0 < V ->
+                    erlang:error(low_entropy);
+                true ->
+                    error(badarg, [BinRange])
+            end;
+        <<BinResult/binary>> ->
+            BinResult
+    end;
+strong_rand_range(Range) ->
+    error(badarg, [Range]).
+
+strong_rand_range_nif(_BinRange) -> ?nif_stub.
+
+%%%================================================================
+%%%
+%%% RAND - Plug-In Generators for the `rand` module
+%%%
+%%%================================================================
+
+-type rand_plugin_state() :: no_state.
+-type rand_cache_state() :: binary().
+-type rand_plugin_aes_state() :: dynamic().
+-type rand_plugin_prng1_state() ::
+        rand_plugin_prng1_init_state() |
+        maybe_improper_list(binary(), {crypto_state(), binary()}).
+-type rand_plugin_prng1_init_state() ::
+        {cipher_iv(), binary(), binary(), binary()}.
+
+-doc """
+Create a generator for `m:rand` and save it in the process dictionary.
+
+Equivalent to `rand_seed_s/0` but also saves the returned
+state object (generator) in the process dictionary.  That is,
+it is equivalent to `rand:seed(rand_seed_s())`.
+
+See `rand:seed/1` and `rand_seed_s/0`.
+
+#### _Example_
 
 ```erlang
 _ = crypto:rand_seed(),
-_IntegerValue = rand:uniform(42), % [1; 42]
-_FloatValue = rand:uniform().     % [0.0; 1.0[
+IntegerValue = rand:uniform(42), % 1 .. 42
+FloatValue = rand:uniform().     % [0.0, 1.0)
 ```
+
+> ### Note {: .info }
+>
+> Note that when using the process dictionary for cryptographically
+> secure random numbers one has to ensure that no code called
+> between initializing the generator and between generating numbers
+> accidentally alters the generator state in the process dictionary.
+>
+> The safe approach is to use the `m:rand` functions that
+> do not use the process dictionary but take an explicit state argument:
+> the ones suffixed `_s`.  Thereby it is rather `rand_seed_s/0`
+> that should be used instead of this function.
 """.
--doc(#{title => <<"Random API">>,
+
+-doc(#{group => <<"Plug-In Generators">>,
        since => <<"OTP 20.0">>}).
--spec rand_seed() -> rand:state().
+-spec rand_seed() ->
+          {rand:alg_handler('crypto'), rand_plugin_state()}.
 rand_seed() ->
     rand:seed(rand_seed_s()).
 
 -doc """
-Create a state object for [random number generation](`m:rand`), in order to
-generate cryptographically strongly random numbers (based on OpenSSL's
-`BN_rand_range`). See also `rand:seed_s/1`.
+Create a generator for `m:rand`.
 
-When using the state object from this function the `m:rand` functions using it
-may raise exception `error:low_entropy` in case the random generator failed due
-to lack of secure "randomness".
+Create a state object (generator) for [random number generation](`m:rand`),
+which when used by the `m:rand` functions produce
+**cryptographically strong** random numbers (based on OpenSSL's
+`BN_rand_range` function). See `rand:seed_s/1`, and for example
+`rand:uniform_s/2`.
+
+This generator also implements generating bytes efficiently
+(based on OpenSSL's `RAND_bytes` function).
+See `rand:bytes_s/2` and `strong_rand_bytes/1`.
+*Since OTP 29.0*.
+
+#### _Example_
+
+```erlang
+S0 = crypto:rand_seed_s(),
+{RandomInteger, S1} = rand:uniform_s(1000, S0).
+```
+
+May cause the `m:rand` functions using this state object
+to raise the exception `error:low_entropy` in case
+the random generator failed due to lack of secure "randomness".
 
 > #### Note {: .info }
 >
 > The state returned from this function cannot be used to get a reproducible
-> random sequence as from the other `m:rand` functions, since reproducibility
-> does not match cryptographically safe.
+> random sequence as from the other `m:rand` functions, since that would
+> not be cryptographically safe.
 >
-> The only supported usage is to generate one distinct random sequence from this
-> start state.
+> The only supported usage is to generate one distinct random sequence.
 """.
--doc(#{title => <<"Random API">>,
+-doc(#{group => <<"Plug-In Generators">>,
        since => <<"OTP 20.0">>}).
--spec rand_seed_s() -> rand:state().
+-spec rand_seed_s() ->
+          {rand:alg_handler('crypto'), rand_plugin_state()}.
 rand_seed_s() ->
     rand_seed_alg_s(?MODULE).
 
 -doc """
-Create a state object for [random number generation](`m:rand`), in order to
-generate cryptographically strong random numbers.
+Create a generator for `m:rand` with specified algorithm,
+and save it in the process dictionary.
 
-Saves the state in the process dictionary before returning it as well. See also
-`rand:seed/1` and `rand_seed_alg_s/1`.
+Equivalent to `rand_seed_alg_s/1` but also saves the returned
+state object (generator) in the process dictionary.  That is,
+equivalent to `rand:seed(rand_seed_alg_s(Alg))`.
 
-When using the state object from this function the `m:rand` functions using it
-may raise exception `error:low_entropy` in case the random generator failed due
-to lack of secure "randomness".
+See `rand:seed/1` and `rand_seed_alg_s/1`.
+Note the warning about the usage of the process dictionary in `rand_seed/0`.
 
-_Example_
+#### _Example_
 
 ```erlang
 _ = crypto:rand_seed_alg(crypto_cache),
-_IntegerValue = rand:uniform(42), % [1; 42]
-_FloatValue = rand:uniform().     % [0.0; 1.0[
+IntegerValue = rand:uniform(42), % 1 .. 42
+FloatValue = rand:uniform().     % [0.0, 1.0)
 ```
 """.
--doc(#{title => <<"Random API">>,
+-doc(#{group => <<"Plug-In Generators">>,
        since => <<"OTP 21.0">>}).
--spec rand_seed_alg(Alg :: atom()) ->
-                           {rand:alg_handler(),
-                            atom() | rand_cache_seed()}.
+-spec rand_seed_alg(Alg :: 'crypto') ->
+          {rand:alg_handler('crypto'), rand_plugin_state()};
+                   (Alg :: 'crypto_cache') ->
+          {rand:alg_handler('crypto_cache'), rand_cache_state()};
+                   %%
+                   (ExportState ::
+                      {'crypto', rand_plugin_state()}) ->
+          {rand:alg_handler('crypto'), rand_plugin_state()};
+                   (ExportState ::
+                      {'crypto_cache', rand_cache_state()}) ->
+          {rand:alg_handler('crypto_cache'), rand_cache_state()};
+                   (ExportState ::
+                      {'crypto_aes', rand_plugin_aes_state()}) ->
+          {rand:alg_handler('crypto_aes'), rand_plugin_aes_state()};
+                   (ExportState ::
+                      {'crypto_prng1', rand_plugin_prng1_init_state()}) ->
+          {rand:alg_handler('crypto_prng1'), rand_plugin_prng1_init_state()};
+                   %%
+                   (State) -> State
+              when
+      State ::
+        {rand:alg_handler('crypto'), rand_plugin_state()} |
+        {rand:alg_handler('crypto_cache'), rand_cache_state()} |
+        {rand:alg_handler('crypto_aes'), rand_plugin_aes_state()} |
+        {rand:alg_handler('crypto_prng1'), rand_plugin_prng1_state()}.
 rand_seed_alg(Alg) ->
     rand:seed(rand_seed_alg_s(Alg)).
 
 -doc """
-Creates a state object for [random number generation](`m:rand`), in order to
-generate cryptographically unpredictable random numbers.
+Create and seed a generator for `m:rand` with specified algorithm,
+and save it in the process dictionary.
 
-Saves the state in the process dictionary before returning it as well. See also
-`rand_seed_alg_s/2`.
+Equivalent to `rand_seed_alg_s/2` but also saves the returned
+state object (generator) in the process dictionary.  That is,
+equivalent to `rand:seed(rand_seed_alg_s(Alg, Seed))`.
 
-_Example_
+See `rand:seed/1` and `rand_seed_alg_s/2`.
+Note the warning about the usage of the process dictionary in `rand_seed/0`.
+
+#### _Example_
 
 ```erlang
 _ = crypto:rand_seed_alg(crypto_aes, "my seed"),
-IntegerValue = rand:uniform(42), % [1; 42]
-FloatValue = rand:uniform(),     % [0.0; 1.0[
+IntegerValue = rand:uniform(42), % 1 .. 42
+FloatValue = rand:uniform(),     % [0.0, 1.0)
 _ = crypto:rand_seed_alg(crypto_aes, "my seed"),
 IntegerValue = rand:uniform(42), % Same values
 FloatValue = rand:uniform().     % again
 ```
 """.
--doc(#{title => <<"Random API">>,
+-doc(#{group => <<"Plug-In Generators">>,
        since => <<"OTP-22.0">>}).
--spec rand_seed_alg(Alg :: atom(), Seed :: term()) ->
-                           {rand:alg_handler(),
-                            atom() | rand_cache_seed()}.
+-spec rand_seed_alg(Alg :: 'crypto_aes', Seed :: iodata()) ->
+          {rand:alg_handler('crypto_aes'), rand_plugin_aes_state()};
+                   (Alg :: 'crypto_prng1', Seed :: iodata()) ->
+          {rand:alg_handler('crypto_prng1'), rand_plugin_prng1_state()}.
 rand_seed_alg(Alg, Seed) ->
     rand:seed(rand_seed_alg_s(Alg, Seed)).
 
--define(CRYPTO_CACHE_BITS, 56).
--define(CRYPTO_AES_BITS, 58).
+-define(CRYPTO_CACHE_BITS, 56). % Has to be divisible by 8
+-define(CRYPTO_PRNG_BITS, 58).
 
--doc(#{title => <<"Random API">>}).
+-doc(#{group => <<"Plug-In Generators">>}).
 -doc """
-Create a state object for [random number generation](`m:rand`), in order to
-generate cryptographically strongly random numbers.
+Create a generator for `m:rand` with specified algorithm.
 
-See also `rand:seed_s/1`.
+Create a state object (generator) for [random number generation](`m:rand`),
+which when used by the `m:rand` functions produce
+**cryptographically strong** random number.
 
-If `Alg` is `crypto` this function behaves exactly like `rand_seed_s/0`.
+See `rand:seed_s/1` and for example `rand:uniform_s/2`.
 
-If `Alg` is `crypto_cache` this function fetches random data with OpenSSL's
-`RAND_bytes` and caches it for speed using an internal word size of 56 bits that
-makes calculations fast on 64 bit machines.
+#### With `Alg = crypto`
 
-When using the state object from this function the `m:rand` functions using it
-may raise exception `error:low_entropy` in case the random generator failed due
-to lack of secure "randomness".
+The created generator uses OpenSSL's `BN_rand_range`
+for uniform integers and floats.
+
+The generator also implements generating bytes efficiently
+with OpenSSL's `RAND_bytes`, just like `strong_rand_bytes/1`.
+See also `rand:bytes_s/2`.  *Since OTP 29.0*.
+
+Because the OpenSSL library is called for every request,
+this generator has got a very small generator state, but a large
+call overhead, so for numbers and small numbers of bytes (about 10),
+it becomes *very* slow compared to the default PRNG
+in the `m:rand` module.  This is an unfair comparison because a PRNG
+is not cryptographically strong.  Still, for a larger numbers of bytes,
+(about 1 000 or more) this generator is the fastest.
+
+This function is equivalent to `rand_seed_s/0`.
+
+### With `Alg = crypto_cache`
+
+The created generator fetches random data with OpenSSL's `RAND_bytes`,
+just like `strong_rand_bytes/1`, and caches it in the generator's state.
+Then 56 bit numbers are extracted from the cache, which makes operations
+in module `m:rand` fast on 64 bit machines.
+
+The generator also implements extracting bytes efficiently.
+See also `rand:bytes_s/2`.  *Since OTP 29.0*.
+
+Caching random data improves *amortized* performance a lot
+so for numbers it becomes less than a factor 2 slower than
+the default PRNG in the `m:rand` module.  For bytes
+it performs very much like for `Alg = crypto` above.
+
+Since this generator caches random data it is a bad idea
+to copy its state in an attempt to fork into multiple generators.
+The forked generators will produce the same numbers
+until their caches are empty, which cannot be regarded as
+cryptographically strong, and is probably never useful.
+
+#### _Example_
+
+```erlang
+S0 = crypto:rand_seed_alg_s(crypto_cache),
+{IntegerValue, S1} = rand:uniform(42, S0), % 1 .. 42
+{FloatValue, S2} = rand:uniform(S1).       % [0.0, 1.0)
+```
+
+These generators may cause the `m:rand` functions using the returned
+state object to raise the exception `error:low_entropy` in case
+the random generator failed due to lack of secure "randomness".
 
 The cache size can be changed from its default value using the
-[crypto app's ](crypto_app.md)configuration parameter `rand_cache_size`.
+[crypto app's ](crypto_app.md) configuration parameter `rand_cache_size`.
 
 > #### Note {: .info }
 >
 > The state returned from this function cannot be used to get a reproducible
-> random sequence as from the other `m:rand` functions, since reproducibility
-> does not match cryptographically safe.
+> random sequence as from the other `m:rand` functions, since that would
+> not be cryptographically safe.
 >
-> In fact since random data is cached some numbers may get reproduced if you
-> try, but this is unpredictable.
+> In fact when random data is cached some numbers may get reproduced,
+> but this is unpredictable.
 >
-> The only supported usage is to generate one distinct random sequence from this
-> start state.
+> The only supported usage is to generate one distinct random sequence.
+
+#### With argument `ExportState`
+
+For completeness, this function accepts an `ExportState`
+from `rand:export_seed_s/1` used on one of this module's generators.
+This function can probably only be useful for algorithm `crypto_aes`.
+
+For algorithm `crypto` it is not very useful since the produced numbers
+are as unpredictable for a new generator as for one re-created
+with this function.
+
+The same goes for algorithm `crypto_cache`, but its exported state
+may contain cached random numbers which might delay having to call
+OpenSSL the first time, so there is a possible slight performance gain.
+
+For algorithm `crypto_aes` this function works as described in
+`rand:export_seed_s/1` and `rand:seed_s/1`.
+
+For algorithm `crypto_prng1` this function only works as described in
+`rand:export_seed_s/1` and `rand:seed_s/1` on the initial state
+after creation (seeding).  After the first random number
+has been created, the state contains a `t:crypto_state/0`
+that does not survive a roundtrip through Erlang's external term format.
+
+### With argument `State`
+
+For completeness, this function accepts a `State` just as `rand:seed_s` does.
+Calling this function with a `State` from one of the algorithms
+in this module only passes the state through, it is a no-op.
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec rand_seed_alg_s(Alg :: atom()) ->
-                             {rand:alg_handler(),
-                              atom() | rand_cache_seed()}.
-rand_seed_alg_s({AlgHandler, _AlgState} = State) when is_map(AlgHandler) ->
+-spec rand_seed_alg_s(Alg :: 'crypto') ->
+          {rand:alg_handler('crypto'), rand_plugin_state()};
+                     (Alg :: 'crypto_cache') ->
+          {rand:alg_handler('crypto_cache'), rand_cache_state()};
+                     %%
+                     (ExportState ::
+                        {'crypto', rand_plugin_state()}) ->
+          {rand:alg_handler('crypto'), rand_plugin_state()};
+                     (ExportState ::
+                        {'crypto_cache', rand_cache_state()}) ->
+          {rand:alg_handler('crypto_cache'), rand_cache_state()};
+                     (ExportState ::
+                        {'crypto_aes', rand_plugin_aes_state()}) ->
+          {rand:alg_handler('crypto_aes'), rand_plugin_aes_state()};
+                     (ExportState ::
+                        {'crypto_prng1', rand_plugin_prng1_init_state()}) ->
+          {rand:alg_handler('crypto_prng1'), rand_plugin_prng1_init_state()};
+                     %%
+                     (State) -> State
+              when
+      State ::
+        {rand:alg_handler('crypto'), rand_plugin_state()} |
+        {rand:alg_handler('crypto_cache'), rand_cache_state()} |
+        {rand:alg_handler('crypto_aes'), rand_plugin_aes_state()} |
+        {rand:alg_handler('crypto_prng1'), rand_plugin_prng1_state()}.
+rand_seed_alg_s({#{type := Alg}, _AlgState} = State)
+  when
+      Alg =:= crypto;
+      %% It is a bad idea to clone the following since they cache
+      %% data and crypto_prng1 contains a crypto_state(),
+      %% but since the user might as well just copy the State
+      %% variable it would be futile to block this duplication
+      Alg =:= crypto_cache;
+      Alg =:= crypto_aes;
+      Alg =:= crypto_prng1 ->
     State;
+%%
+rand_seed_alg_s({Alg = crypto_prng1, AlgState}) ->
+    %% Only the initial state can be exported+imported.
+    %% After that AlgState contains a crypto_state()
+    %% which makes the generated sequence predictable only
+    %% when not forked/copied.
+    if
+        tuple_size(AlgState) =:= 4 -> % Initial state
+            {mk_alg_handler(Alg),AlgState};
+        is_list(AlgState) -> % Cache
+            error(not_implemented)
+    end;
 rand_seed_alg_s({Alg, AlgState}) when is_atom(Alg) ->
     {mk_alg_handler(Alg),AlgState};
- rand_seed_alg_s(Alg) when is_atom(Alg) ->
-    {mk_alg_handler(Alg),mk_alg_state(Alg)}.
 %%
+rand_seed_alg_s(Alg) when is_atom(Alg) ->
+    {mk_alg_handler(Alg),mk_alg_state(Alg)}.
+%% mk_alg_handler/1 and mk_alg_state/1 will validate Alg
+
 -doc """
-Create a state object for [random number generation](`m:rand`), in order to
-generate cryptographically unpredictable random numbers.
+Create and seed a generator for `m:rand` with specified algorithm.
 
-See also `rand_seed_alg/1`.
+Create a state object (generator) for [random number generation](`m:rand`),
+which when used by the `m:rand` functions produce
+**cryptographically unpredictable** random numbers,
+that can be reproduced by re-using the same `Seed`.
 
-To get a long period the Xoroshiro928 generator from the `m:rand` module is used
-as a counter (with period 2^928 - 1) and the generator states are scrambled
-through AES to create 58-bit pseudo random values.
+See `rand:seed_s/1`, and for example `rand:uniform_s/2`,
+and compare to `rand_seed_alg/1`.
 
-The result should be statistically completely unpredictable random values, since
-the scrambling is cryptographically strong and the period is ridiculously long.
-But the generated numbers are not to be regarded as cryptographically strong
-since there is no re-keying schedule.
+The state objects created by this function has cached data so they use
+much more memory than the generators in the `m:rand` module.
+
+#### With `Alg = crypto_aes`
+
+The Xoroshiro928 generator from the `m:rand` module is used as a counter.
+The generator's state is scrambled through AES-256 to create a 58-bit
+pseudo random value.  This gives a long period (2^928 - 1).
+
+The result should be statistically completely unpredictable random values,
+since the scrambling is cryptographically strong and the period is
+extremely long.  But the generated numbers are not to be regarded as
+cryptographically strong since there is no re-keying schedule,
+and since the sequence is repeated for the same seed.
 
 - If you need cryptographically strong random numbers use `rand_seed_alg_s/1`
-  with `Alg =:= crypto` or `Alg =:= crypto_cache`.
-- If you need to be able to repeat the sequence use this function.
-- If you do not need the statistical quality of this function, there are faster
-  algorithms in the `m:rand` module.
+  with `Alg =:= crypto` or `Alg =:= crypto_cache`.
+- If you need to be able to repeat the sequence use this function
+  with `Alg =:= crypto_aes` (or `Alg =:= crypto_prng1`, below).
+- If you do not need the statistical quality of these generators,
+  there are faster generators in the `m:rand` module.
+  The *amortized* speed of this generator is about 3 times slower than
+  the `rand` module's [_default algorithm_](`m:rand#default-algorithm`).
+
+#### _Example_
+
+```erlang
+1> S0 = crypto:rand_seed_alg_s(crypto_aes, "my seed").
+2> %% 1..42
+   {IntegerValue, S1} = rand:uniform_s(42, S0).
+3> %% [0.0, 1.0)
+   {FloatValue, S2} = rand:uniform_s(S1).
+4> {IntegerValue,FloatValue}.
+{9,0.7624867055217882}
+5> S3 = crypto:rand_seed_alg_s(crypto_aes, "my seed").
+6> %% Same values
+   {IntegerValue, S4} = rand:uniform_s(42, S3).
+7> %% again
+   {FloatValue, S5} = rand:uniform_s(S4).
+```
 
 Thanks to the used generator the state object supports the
 [`rand:jump/0,1`](`rand:jump/0`) function with distance 2^512.
 
-Numbers are generated in batches and cached for speed reasons. The cache size
-can be changed from its default value using the
-[crypto app's ](crypto_app.md)configuration parameter `rand_cache_size`.
+Numbers are generated in batches and for speed reasons cached
+in the generator's state. The cache size can be changed from its default
+value using the [crypto app's ](crypto_app.md) configuration parameter
+`rand_cache_size`.
+
+Generating bytes, see `rand:bytes_s/2`, is done from the cached numbers,
+which limits the performance as for generating numbers.  `Alg = crypto`,
+is faster, for larger numbers of bytes significantly faster,
+but cannot be used to reproduce a sequence.  Another alternative
+is `Alg = crypto_prng1` that follows here.
+
+#### With `Alg = crypto_prng1` *Since OTP 29.0*.
+
+The created generator uses a stream cipher to encrypt data blocks of zeros,
+which effectively results in the stream cipher's key stream as binary data.
+The binary data is cached in the generator's state to achieve good
+*amortized* speed.  From the cached data 58 bit numbers are extracted,
+to facilitate fast operations in the `m:rand` module.
+The cache size can be changed from its default value using the
+[crypto app's ](crypto_app.md) configuration parameter `rand_cache_size`.
+
+This generator also implements extracting bytes efficiently
+through `rand:bytes_s/2`.
+
+The key stream from a stream cipher is cryptographically unpredictable,
+which should result in statistically completely unpredictable random values,
+but the generated numbers are not to be regarded as
+cryptographically strong since there is no re-keying schedule,
+and since the sequence is repeated for the same seed.
+
+For generating numbers, this generator is about 2 times slower
+than the default PRNG in the `m:rand` module.  For generating bytes,
+it is significantly faster, for any number of bytes.
+Compared to `Alg = crypto`, this generator has much less overhead,
+so for small numbers of bytes it is much faster.  Break-even is
+a bit above the cache size, and over that `Alg = crypto` is faster,
+but cannot be used to reproduce a sequence.
+
+#### _Example_
+
+```erlang
+1> S0 = crypto:rand_seed_alg_s(crypto_prng1, "my seed").
+2> %% 1..42
+   {IntegerValue, S1} = rand:uniform_s(42, S0).
+3> {Bytes, S2} = rand:bytes_s(7, S1).
+4> {IntegerValue,Bytes}.
+{20,<<52,185,212,38,248,228,127>>}
+5> S3 = crypto:rand_seed_alg_s(crypto_prng1, "my seed").
+6> %% Same values
+   {IntegerValue, S4} = rand:uniform_s(42, S3).
+7> %% again
+   {Bytes, S5} = rand:bytes_s(7, S4).
+```
+
+The generator's state contains a `crypto_state/0` which refers to
+the same encryption state even when copied, and the generator's state
+contains *cached* random data.  It is therefore a bad idea to copy
+the state in an attempt to fork into multiple generators.
+The forked generators will produce the same numbers
+until their caches are empty, and then refill their caches
+with different sections of the keystream.
+This is probably never useful.
+
+The created initial state, however, can be copied and exported,
+as descrided for `rand:export_seed_s/1` and `rand:seed_s/1`,
+since the `crypto_state/0` is not created until the first
+random value is generated.  An exported subsequent generator state
+cannot be passed intact through Erlang's external term format,
+and `rand_seed_alg_s/1` will fail for an exported state
+of this generator that is not an initial state.
+
+`rand:jump/1` is implemented for this generator, but also only for
+its initial state.  A jump, for this generator, is implemented
+by incrementing the cipher's IV to create a distinct keystream.
+This is not much different from using different seed values,
+but avoids a call to the hash function that is used when seeding.
+
+#### _Example_
+
+```erlang
+1> Sa0 = crypto:rand_seed_alg_s(crypto_prng1, "my seed").
+2> Sb0 = rand:jump(Sa0).
+3> {BytesA, Sa1} = rand:bytes_s(7, Sa0).
+4> {BytesB, Sb1} = rand:bytes_s(7, Sb0).
+5> BytesA.
+<<77,185,41,162,118,82,190>>
+6> BytesB.
+<<160,61,224,29,177,30,68>>
+7> SA0 = crypto:rand_seed_alg_s(crypto_prng1, "my seed").
+8> SB0 = rand:jump(SA0).
+%% Same values again
+9> {BytesA, SA1} = rand:bytes_s(7, SA0).
+10> {BytesB, SB1} = rand:bytes_s(7, SB0).
+```
+
+#### _Algorithm details_
+
+The `Seed` is hashed with SHA-384 to create a Key and IV
+for AES-256 that is run in CTR mode over blocks of zero data.
 """.
--doc(#{title => <<"Random API">>,
+-doc(#{group => <<"Plug-In Generators">>,
        since => <<"OTP 22.0">>}).
--spec rand_seed_alg_s(Alg :: atom(), Seed :: term()) ->
-                             {rand:alg_handler(),
-                              atom() | rand_cache_seed()}.
+-spec rand_seed_alg_s(Alg :: 'crypto_aes', Seed :: iodata()) ->
+          {rand:alg_handler('crypto_aes'), rand_plugin_aes_state()};
+                     (Alg :: 'crypto_prng1', Seed :: iodata()) ->
+          {rand:alg_handler('crypto_prng1'), rand_plugin_prng1_state()}.
 rand_seed_alg_s(Alg, Seed) when is_atom(Alg) ->
     {mk_alg_handler(Alg),mk_alg_state({Alg,Seed})}.
 
@@ -2134,20 +2902,30 @@ mk_alg_handler(?MODULE = Alg) ->
        bits => 64,
        next => fun ?MODULE:rand_plugin_next/1,
        uniform => fun ?MODULE:rand_plugin_uniform/1,
-       uniform_n => fun ?MODULE:rand_plugin_uniform/2};
+       uniform_n => fun ?MODULE:rand_plugin_uniform/2,
+       bytes => fun ?MODULE:rand_plugin_bytes/2};
 mk_alg_handler(crypto_cache = Alg) ->
     #{ type => Alg,
        bits => ?CRYPTO_CACHE_BITS,
-       next => fun ?MODULE:rand_cache_plugin_next/1};
+       next => fun ?MODULE:rand_cache_plugin_next/1,
+       bytes => fun ?MODULE:rand_cache_plugin_bytes/2};
 mk_alg_handler(crypto_aes = Alg) ->
     #{ type => Alg,
-       bits => ?CRYPTO_AES_BITS,
+       bits => ?CRYPTO_PRNG_BITS,
        next => fun ?MODULE:rand_plugin_aes_next/1,
-       jump => fun ?MODULE:rand_plugin_aes_jump/1}.
+       jump => fun ?MODULE:rand_plugin_aes_jump/1};
+mk_alg_handler(crypto_prng1 = Alg) ->
+    #{ type => Alg,
+       bits => ?CRYPTO_PRNG_BITS,
+       next => fun ?MODULE:rand_plugin_prng_next/1,
+       jump => fun ?MODULE:rand_plugin_prng_jump/1,
+       bytes => fun ?MODULE:rand_plugin_prng_bytes/2}.
 
 mk_alg_state(?MODULE) ->
     no_seed;
 mk_alg_state(crypto_cache) ->
+    %% Make the cache size an even number of integers,
+    %% rounded up, at least one
     CacheBits = ?CRYPTO_CACHE_BITS,
     BytesPerWord = (CacheBits + 7) div 8,
     GenBytes =
@@ -2159,7 +2937,10 @@ mk_alg_state({crypto_aes,Seed}) ->
     GenWords = (rand_cache_size() + 31) div 16,
     Key = crypto:hash(sha256, Seed),
     {F,Count} = longcount_seed(Seed),
-    {Key,GenWords,F,Count}.
+    {Key,GenWords,F,Count};
+mk_alg_state({crypto_prng1,Seed}) ->
+    rand_plugin_prng_seed(aes_256_ctr, hash(sha384, Seed)).
+
 
 rand_cache_size() ->
     DefaultCacheSize = 1024,
@@ -2172,33 +2953,79 @@ rand_cache_size() ->
             DefaultCacheSize
     end.
 
+
+%%% -------------------
+%%% Algorithm: 'crypto'
+
 -doc false.
-rand_plugin_next(Seed) ->
-    {bytes_to_integer(strong_rand_range(1 bsl 64)), Seed}.
+rand_plugin_next(State) ->
+    {strong_rand_range(1 bsl 64), State}.
 
 -doc false.
 rand_plugin_uniform(State) ->
-    {strong_rand_float(), State}.
+    Value = ?HALF_DBL_EPSILON * strong_rand_range(1 bsl 53),
+    {Value, State}.
 
 -doc false.
 rand_plugin_uniform(Max, State) ->
-    {bytes_to_integer(strong_rand_range(Max)) + 1, State}.
-
+    {strong_rand_range(Max) + 1, State}.
 
 -doc false.
-rand_cache_plugin_next({CacheBits, GenBytes, <<>>}) ->
-    rand_cache_plugin_next(
-      {CacheBits, GenBytes, strong_rand_bytes(GenBytes)});
-rand_cache_plugin_next({CacheBits, GenBytes, Cache}) ->
-    <<I:CacheBits, NewCache/binary>> = Cache,
-    {I, {CacheBits, GenBytes, NewCache}}.
+rand_plugin_bytes(N, State) ->
+    {strong_rand_bytes(N), State}.
 
+
+%%% -------------------------
+%%% Algorithm: 'crypto_cache'
+
+-doc false.
+rand_cache_plugin_next({CacheBits, GenBytes, Cache}) ->
+    rand_cache_plugin_next(CacheBits, GenBytes, Cache).
+%%
+rand_cache_plugin_next(CacheBits, GenBytes, Cache) ->
+    case Cache of
+        <<I:CacheBits, NewCache/binary>> ->
+            {I, {CacheBits, GenBytes, NewCache}};
+        <<>> ->
+            NewCache = strong_rand_bytes(GenBytes),
+            rand_cache_plugin_next(CacheBits, GenBytes, NewCache);
+        <<_/binary>> ->
+            <<NewBytes:((CacheBits bsr 3) - byte_size(Cache))/binary,
+              NewCache/binary>> = strong_rand_bytes(GenBytes),
+            <<I:CacheBits>> = <<Cache/binary, NewBytes/binary>>,
+            {I, {CacheBits, GenBytes, NewCache}}
+    end.
+
+-doc false.
+rand_cache_plugin_bytes(
+  N, State = {AlgHandler, {CacheBits, GenBytes, Cache}})
+  when is_integer(N), 0 =< N ->
+    case Cache of
+        <<Bytes:N/binary, NewCache/binary>> ->
+            {Bytes, {AlgHandler, {CacheBits, GenBytes, NewCache}}};
+        <<>> ->
+            {strong_rand_bytes(N), State};
+        <<_/binary>> ->
+            if
+                N =< GenBytes ->
+                    <<NewBytes:(N - byte_size(Cache))/binary,
+                      NewCache/binary>> = strong_rand_bytes(GenBytes),
+                    Bytes = <<Cache/binary, NewBytes/binary>>,
+                    {Bytes, {AlgHandler, {CacheBits, GenBytes, NewCache}}};
+                true ->
+                    {strong_rand_bytes(N), State}
+            end
+    end.
+
+
+%%% -----------------------
+%%% Algorithm: 'crypto_aes'
 
 %% Encrypt 128 bit counter values and use the 58 lowest
 %% encrypted bits as random numbers.
 %%
-%% The 128 bit counter is handled as 4 32 bit words
-%% to avoid bignums.  Generate a bunch of numbers
+%% The 128 bit counters contain two 58 bit state words
+%% from Xoroshiro928.  Generate a bunch of numbers
 %% at the time and cache them.
 %%
 -dialyzer({no_improper_lists, rand_plugin_aes_next/1}).
@@ -2223,7 +3050,7 @@ block_encrypt(Key, Data) ->
                  32 -> aes_256_ecb;
                  _ -> error(badarg)
              end,
-    try 
+    try
         crypto_one_time(Cipher, Key, Data, true)
     catch
         error:{error, {_File,_Line}, _Reason} ->
@@ -2231,7 +3058,6 @@ block_encrypt(Key, Data) ->
         error:{E, {_File,_Line}, _Reason} when E==notsup ; E==badarg ->
             error(E)
     end.
-
 
 %% A jump advances the counter 2^512 steps; the jump function
 %% is applied to the jump base and then the number of used
@@ -2292,79 +3118,107 @@ aes_cleartext(Cleartext, F, Count, GenWords) ->
 aes_cache(<<>>, Cache) ->
     Cache;
 aes_cache(
-  <<_:(128 - ?CRYPTO_AES_BITS), V:?CRYPTO_AES_BITS, Encrypted/binary>>,
+  <<_:(128 - ?CRYPTO_PRNG_BITS), V:?CRYPTO_PRNG_BITS, Encrypted/binary>>,
   Cache) ->
     [V|aes_cache(Encrypted, Cache)].
 
 
-strong_rand_range(Range) when is_integer(Range), Range > 0 ->
-    BinRange = int_to_bin(Range),
-    strong_rand_range(BinRange);
-strong_rand_range(BinRange) when is_binary(BinRange) ->
-    case strong_rand_range_nif(BinRange) of
-        false ->
-            erlang:error(low_entropy);
-        <<BinResult/binary>> ->
-            BinResult
-    end.
-strong_rand_range_nif(_BinRange) -> ?nif_stub.
+%%% -------------------------
+%%% Algorithm: 'crypto_prng1'
 
-strong_rand_float() ->
-    WholeRange = strong_rand_range(1 bsl 53),
-    ?HALF_DBL_EPSILON * bytes_to_integer(WholeRange).
-
--doc(#{title => <<"Random API">>}).
--doc """
-Generate a random integer number.
-
-The interval is `From =< N < To`. Uses the `crypto` library
-pseudo-random number generator. `To` must be larger than `From`.
-""".
--spec rand_uniform(crypto_integer(), crypto_integer()) ->
-			  crypto_integer().
-rand_uniform(From, To) when is_binary(From), is_binary(To) ->
-    case rand_uniform_nif(From,To) of
-	<<Len:32/integer, MSB, Rest/binary>> when MSB > 127 ->
-	    <<(Len + 1):32/integer, 0, MSB, Rest/binary>>;
-	Whatever ->
-	    Whatever
-    end;
-rand_uniform(From,To) when is_integer(From),is_integer(To) ->
-    if From < 0 ->
-	    rand_uniform_pos(0, To - From) + From;
-       true ->
-	    rand_uniform_pos(From, To)
+rand_plugin_prng_seed(CryptoAlg, SeedBin) ->
+      case cipher_info(CryptoAlg) of
+        #{ prop_aead  := false,
+           block_size := 1,
+           key_length := KeyLength,
+           iv_length  := IVLength } when 0 < IVLength ->
+            <<Key:KeyLength/binary, IV:IVLength/binary, _/binary>> = SeedBin,
+            %% Use 128 bytes as cache granularity since also stream ciphers
+            %% have a state block they operate on.
+            %%  128 bytes would be a 1024 bits cipher
+            Block =
+                <<0:64,0:64,0:64,0:64,
+                  0:64,0:64,0:64,0:64,
+                  0:64,0:64,0:64,0:64,
+                  0:64,0:64,0:64,0:64>>,
+            Size     = byte_size(Block),
+            Count    = (rand_cache_size() + Size - 1) div Size, % ciel
+            ZeroData = binary:copy(Block, Count),
+            {CryptoAlg, ZeroData, Key, IV}
     end.
 
-rand_uniform_pos(From,To) when From < To ->
-    BinFrom = mpint(From),
-    BinTo = mpint(To),
-    case rand_uniform(BinFrom, BinTo) of
-        Result when is_binary(Result) ->
-            erlint(Result);
-        Other ->
-            Other
-    end;
-rand_uniform_pos(_,_) ->
-    error(badarg).
+-dialyzer({no_improper_lists, rand_plugin_prng_next/1}).
+-doc false.
+rand_plugin_prng_next({CryptoAlg, ZeroData, Key, IV}) ->
+    CryptoState = crypto_init(CryptoAlg, Key, IV, true),
+    AlgState = {CryptoState, ZeroData},
+    rand_plugin_prng_next([<<>> | AlgState]);
+rand_plugin_prng_next(
+  [Cache | AlgState = {CryptoState, ZeroData}]) ->
+    case Cache of
+        <<_:(64 - ?CRYPTO_PRNG_BITS), I:?CRYPTO_PRNG_BITS,
+          NewCache/binary>> ->
+            {I, [NewCache | AlgState]};
+        <<_/binary>> ->
+            MissingSize = 8 - byte_size(Cache),
+            <<NewBytes:MissingSize/bytes, NewCache/binary>> =
+                crypto_update(CryptoState, ZeroData),
+            <<_:(64 - ?CRYPTO_PRNG_BITS), I:?CRYPTO_PRNG_BITS>> =
+                <<Cache/binary, NewBytes/bytes>>,
+            {I, [NewCache | AlgState]}
+    end.
 
-rand_uniform_nif(_From,_To) -> ?nif_stub.
+-dialyzer({no_improper_lists,
+           [rand_plugin_prng_bytes/2, rand_plugin_prng_bytes/4]}).
+-doc false.
+rand_plugin_prng_bytes(N, {AlgHandler, {CryptoAlg, ZeroData, Key, IV}})
+  when is_integer(N), 0 =< N ->
+    CryptoState = crypto_init(CryptoAlg, Key, IV, true),
+    AlgState = {CryptoState, ZeroData},
+    rand_plugin_prng_bytes(N, {AlgHandler, [<<>> | AlgState]});
+rand_plugin_prng_bytes(N, {AlgHandler, [Cache | AlgState]})
+  when is_integer(N), 0 =< N ->
+    case Cache of
+        <<Bytes:N/binary, NewCache/binary>> ->
+            {Bytes, {AlgHandler, [NewCache | AlgState]}};
+        <<_/binary>> ->
+            MissingBytes = N - byte_size(Cache),
+            rand_plugin_prng_bytes(MissingBytes, AlgHandler, AlgState, Cache)
+    end.
+%%
+rand_plugin_prng_bytes(
+  M, AlgHandler, AlgState = {CryptoState, ZeroData}, Cache) ->
+    if
+        M =< byte_size(ZeroData) ->
+            <<NewBytes:M/binary, NewCache/binary>> =
+                crypto_update(CryptoState, ZeroData),
+            Bytes = <<Cache/binary, NewBytes/binary>>,
+            {Bytes, {AlgHandler, [NewCache | AlgState]}};
+        true ->
+            NewBytes = crypto_update(CryptoState, ZeroData),
+            NewCache = <<Cache/binary, NewBytes/binary>>,
+            rand_plugin_prng_bytes(
+              M - byte_size(NewBytes), AlgHandler, AlgState, NewCache)
+    end.
 
+-doc false.
+rand_plugin_prng_jump({AlgHandler, {Alg, ZeroData, Key, IV}}) ->
+    {AlgHandler, {Alg, ZeroData, Key, jump_iv(IV)}};
+rand_plugin_prng_jump({_AlgHandler, [_Cache | _AlgState]}) ->
+    error(not_implemented).
 
--doc """
-Set the seed for PRNG to the given binary.
-
-This calls the RAND_seed function from openssl. Only use this if the system you
-are running on does not have enough "randomness" built in. Normally this is when
-`strong_rand_bytes/1` raises `error:low_entropy`.
-""".
--doc(#{title => <<"Random API">>,
-       since => <<"OTP 17.0">>}).
--spec rand_seed(binary()) -> ok.
-rand_seed(Seed) when is_binary(Seed) ->
-    rand_seed_nif(Seed).
-
-rand_seed_nif(_Seed) -> ?nif_stub.
+%% Increment the IV from the front, since that is easier
+%%
+jump_iv(IV) -> jump_iv(IV, <<>>).
+%%
+jump_iv(<<>>, JumpIV) -> JumpIV;
+jump_iv(<<X, Rest/binary>>, JumpIV) ->
+    if
+        X < 255 ->
+            <<JumpIV/binary, (X + 1), (binary:copy(Rest))/binary>>;
+        true ->
+            jump_iv(Rest, <<JumpIV/binary, 0>>)
+    end.
 
 %%%================================================================
 %%%
@@ -2372,14 +3226,22 @@ rand_seed_nif(_Seed) -> ?nif_stub.
 %%%
 %%%================================================================
 -doc "Algorithms for sign and verify.".
--doc(#{title => <<"Public Key Sign and Verify">>}).
--type pk_sign_verify_algs() :: rsa | dss | ecdsa | eddsa .
+-doc(#{group => <<"Public Key Sign and Verify">>}).
+-type pk_sign_verify_algs() :: rsa | dss | ecdsa | eddsa | mldsa() | slh_dsa().
+-type mldsa() :: mldsa44 | mldsa65 | mldsa87.
+-type mldsa_private() :: {seed | expandedkey, binary()}.
+-type mldsa_public() :: binary().
+-type slh_dsa() :: slh_dsa_shake_128s | slh_dsa_shake_128f | slh_dsa_sha2_128s | slh_dsa_sha2_128f
+                 | slh_dsa_shake_192s | slh_dsa_shake_192f | slh_dsa_sha2_192s | slh_dsa_sha2_192f
+                 | slh_dsa_shake_256s | slh_dsa_shake_256f | slh_dsa_sha2_256s | slh_dsa_sha2_256f.
+-type slh_dsa_private() :: binary().
+-type slh_dsa_public() :: binary().
 
--doc(#{title => <<"Public Key Sign and Verify">>,
+-doc(#{group => <<"Public Key Sign and Verify">>,
        equiv => rsa_sign_verify_padding()}).
 -type pk_sign_verify_opts() :: [ rsa_sign_verify_opt() ] .
 
--doc(#{title => <<"Public Key Sign and Verify">>,
+-doc(#{group => <<"Public Key Sign and Verify">>,
        equiv => rsa_sign_verify_padding()}).
 -type rsa_sign_verify_opt() :: {rsa_padding, rsa_sign_verify_padding()}
                              | {rsa_pss_saltlen, integer()}
@@ -2395,7 +3257,7 @@ Options for sign and verify.
 > The exact set of options and there syntax _may_ be changed without prior
 > notice.
 """.
--doc(#{title => <<"Public Key Sign and Verify">>}).
+-doc(#{group => <<"Public Key Sign and Verify">>}).
 -type rsa_sign_verify_padding() :: rsa_pkcs1_padding | rsa_pkcs1_pss_padding
                                  | rsa_x931_padding | rsa_no_padding
                                    .
@@ -2404,7 +3266,7 @@ Options for sign and verify.
 %%%----------------------------------------------------------------
 %%% Sign
 
--doc(#{title => <<"Sign/Verify API">>,
+-doc(#{group => <<"Sign/Verify API">>,
        since => <<"OTP R16B01">>}).
 -doc(#{equiv => sign/5}).
 -spec sign(Algorithm, DigestType, Msg, Key)
@@ -2419,6 +3281,8 @@ Options for sign and verify.
                            | dss_private()
                            | [ecdsa_private() | ecdsa_params()]
                            | [eddsa_private() | eddsa_params()]
+                           | mldsa_private()
+                           | slh_dsa_private()
                            | engine_key_ref(),
                       Signature :: binary() .
 
@@ -2437,8 +3301,18 @@ Algorithm `dss` can only be used together with digest type `sha`.
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 See also `public_key:sign/3`.
+
+
+## Examples
+
+```erlang
+1> {PublicKey, PrivateKey} = crypto:generate_key(rsa, {512, 65537}),
+   Signature = crypto:sign(rsa, sha256, <<"abc">>, PrivateKey, []),
+   crypto:verify(rsa, sha256, <<"abc">>, Signature, PublicKey, []).
+true
+```
 """.
--doc(#{title => <<"Sign/Verify API">>,
+-doc(#{group => <<"Sign/Verify API">>,
        since => <<"OTP 20.1">>}).
 -spec sign(Algorithm, DigestType, Msg, Key, Options)
           -> Signature
@@ -2452,23 +3326,50 @@ See also `public_key:sign/3`.
                            | dss_private()
                            | [ecdsa_private() | ecdsa_params()]
                            | [eddsa_private() | eddsa_params()]
+                           | mldsa_private()
+                           | slh_dsa_private()
                            | engine_key_ref(),
                       Options :: pk_sign_verify_opts(),
                       Signature :: binary() .
 
-sign(Algorithm0, Type0, Data, Key, Options) ->
+sign(Algorithm0, Type0, Data, Key0, Options) ->
     {Algorithm, Type} = sign_verify_compatibility(Algorithm0, Type0, Data),
-    ?nif_call(pkey_sign_nif(Algorithm, Type, Data, format_pkey(Algorithm, Key), Options),
-              {1, 2, 3, 4, 5},
-              [Algorithm0, Type0, Data, Key, Options]).
+    Key = format_pkey(Algorithm, Key0),
+    case is_heavy(Algorithm) of
+        false ->
+            ?nif_call(pkey_sign_nif(Algorithm, Type, Data, Key, Options),
+                      {1, 2, 3, 4, 5},
+                      [Algorithm0, Type0, Data, Key0, Options]);
+        true ->
+            ?nif_call(pkey_sign_heavy_nif(Algorithm, Type, Data, Key, Options),
+                      {1, 2, 3, 4, 5},
+                      [Algorithm0, Type0, Data, Key0, Options])
+    end.
+
 
 pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
+
+pkey_sign_heavy_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
+
+is_heavy(slh_dsa_shake_128s) -> true;
+is_heavy(slh_dsa_shake_128f) -> true;
+is_heavy(slh_dsa_sha2_128s) -> true;
+is_heavy(slh_dsa_sha2_128f) -> true;
+is_heavy(slh_dsa_shake_192s) -> true;
+is_heavy(slh_dsa_shake_192f) -> true;
+is_heavy(slh_dsa_sha2_192s) -> true;
+is_heavy(slh_dsa_sha2_192f) -> true;
+is_heavy(slh_dsa_shake_256s) -> true;
+is_heavy(slh_dsa_shake_256f) -> true;
+is_heavy(slh_dsa_sha2_256s) -> true;
+is_heavy(slh_dsa_sha2_256f) -> true;
+is_heavy(_) -> false.
 
 %%%----------------------------------------------------------------
 %%% Verify
 
 -doc(#{equiv => verify/6}).
--doc(#{title => <<"Sign/Verify API">>,
+-doc(#{group => <<"Sign/Verify API">>,
        since => <<"OTP R16B01">>}).
 -spec verify(Algorithm, DigestType, Msg, Signature, Key)
             -> Result
@@ -2483,6 +3384,8 @@ pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
                              | dss_public()
                              | [ecdsa_public() | ecdsa_params()]
                              | [eddsa_public() | eddsa_params()]
+                             | mldsa_public()
+                             | slh_dsa_public()
                              | engine_key_ref(),
                         Result :: boolean().
 
@@ -2500,8 +3403,13 @@ Algorithm `dss` can only be used together with digest type `sha`.
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 See also `public_key:verify/4`.
+
+
+## Examples
+
+See `sign/5` for examples on how to use this function.
 """.
--doc(#{title => <<"Sign/Verify API">>,
+-doc(#{group => <<"Sign/Verify API">>,
        since => <<"OTP 20.1">>}).
 -spec verify(Algorithm, DigestType, Msg, Signature, Key, Options)
             -> Result
@@ -2516,6 +3424,8 @@ See also `public_key:verify/4`.
                              | dss_public()
                              | [ecdsa_public() | ecdsa_params()]
                              | [eddsa_public() | eddsa_params()]
+                             | mldsa_public()
+                             | slh_dsa_public()
                              | engine_key_ref(),
                         Options :: pk_sign_verify_opts(),
                         Result :: boolean().
@@ -2541,17 +3451,17 @@ sign_verify_compatibility(Algorithm0, Type0, _Digest) ->
 %%% Only rsa works so far (although ecdsa | dss should do it)
 %%%================================================================
 -doc "Algorithms for public key encrypt/decrypt. Only RSA is supported.".
--doc(#{title => <<"Public Key Ciphers">>}).
+-doc(#{group => <<"Public Key Ciphers">>}).
 -type pk_encrypt_decrypt_algs() :: rsa .
 
--doc(#{title => <<"Public Key Ciphers">>,equiv => rsa_padding()}).
+-doc(#{group => <<"Public Key Ciphers">>,equiv => rsa_padding()}).
 -type pk_encrypt_decrypt_opts() ::  [rsa_opt()] | rsa_compat_opts().
 
 -doc """
 Those option forms are kept only for compatibility and should not be used in new
 code.
 """.
--doc(#{title => <<"Public Key Ciphers">>}).
+-doc(#{group => <<"Public Key Ciphers">>}).
 -type rsa_compat_opts() :: [{rsa_pad, rsa_padding()}]
                          | rsa_padding() .
 
@@ -2565,13 +3475,13 @@ Options for public key encrypt/decrypt. Only RSA is supported.
 > The exact set of options and there syntax _may_ be changed without prior
 > notice.
 """.
--doc(#{title => <<"Public Key Ciphers">>}).
+-doc(#{group => <<"Public Key Ciphers">>}).
 -type rsa_padding() :: rsa_pkcs1_padding
                      | rsa_pkcs1_oaep_padding
                      | rsa_x931_padding
                      | rsa_no_padding.
 
--doc(#{title => <<"Public Key Ciphers">>,equiv => rsa_padding()}).
+-doc(#{group => <<"Public Key Ciphers">>,equiv => rsa_padding()}).
 -type rsa_opt() :: {rsa_padding, rsa_padding()}
                  | {signature_md, atom()}
                  | {rsa_mgf1_md, sha}
@@ -2594,8 +3504,18 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 >
 > This is a legacy function, for security reasons do not use together with rsa_pkcs1_padding.
 
+
+
+## Examples
+
+```erlang
+1> {PublicKey, PrivateKey} = crypto:generate_key(rsa, {512, 65537}),
+   CipherText = crypto:public_encrypt(rsa, <<"abc">>, PublicKey, rsa_pkcs1_padding),
+   crypto:private_decrypt(rsa, CipherText, PrivateKey, rsa_pkcs1_padding).
+<<"abc">>
+```
 """.
--doc(#{title => <<"Legacy RSA Encryption API">>,
+-doc(#{group => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R16B01">>}).
 -spec public_encrypt(Algorithm, PlainText, PublicKey, Options) ->
                             CipherText when Algorithm :: pk_encrypt_decrypt_algs(),
@@ -2623,9 +3543,14 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 >
 > This is a legacy function, for security reasons do not use with rsa_pkcs1_padding.
 
+
+
+## Examples
+
+See `public_encrypt/4` for examples on how to use this function.
 """.
 
--doc(#{title => <<"Legacy RSA Encryption API">>,
+-doc(#{group => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R16B01">>}).
 -spec private_decrypt(Algorithm, CipherText, PrivateKey, Options) ->
                              PlainText when Algorithm :: pk_encrypt_decrypt_algs(),
@@ -2656,8 +3581,18 @@ Public-key decryption using the private key. See also `crypto:private_decrypt/4`
 > For digital signatures use of [`sign/4`](`sign/4`) together
 > with [`verify/5`](`verify/5`) is the prefered solution.
 
+
+
+## Examples
+
+```erlang
+1> {PublicKey, PrivateKey} = crypto:generate_key(rsa, {512, 65537}),
+   CipherText = crypto:private_encrypt(rsa, <<"abc">>, PrivateKey, rsa_pkcs1_padding),
+   crypto:public_decrypt(rsa, CipherText, PublicKey, rsa_pkcs1_padding).
+<<"abc">>
+```
 """.
--doc(#{title => <<"Legacy RSA Encryption API">>,
+-doc(#{group => <<"Legacy RSA Encryption API">>,
         since => <<"OTP R16B01">>}).
 -spec private_encrypt(Algorithm, PlainText, PrivateKey, Options) ->
                             CipherText when Algorithm :: pk_encrypt_decrypt_algs(),
@@ -2687,8 +3622,13 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 > For digital signatures use of [`verify/5`](`verify/5`) together
 > with [`sign/4`](`sign/4`) is the prefered solution.
 
+
+
+## Examples
+
+See `private_encrypt/4` for examples on how to use this function.
 """.
--doc(#{title => <<"Legacy RSA Encryption API">>,
+-doc(#{group => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R16B01">>}).
 -spec public_decrypt(Algorithm, CipherText, PublicKey, Options) ->
                              PlainText when Algorithm :: pk_encrypt_decrypt_algs(),
@@ -2717,15 +3657,14 @@ pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_
 %%%================================================================
 
 -doc(#{equiv => generate_key/3}).
--doc(#{title => <<"Key API">>,
+-doc(#{group => <<"Key API">>,
        since => <<"OTP R16B01">>}).
 -spec generate_key(Type, Params)
                  -> {PublicKey, PrivKeyOut}
-                        when Type :: dh | ecdh | eddh | eddsa | rsa | srp,
+                        when Type :: dh | ecdh | eddh | eddsa | rsa | mldsa() | mlkem512 | mlkem768 | mlkem1024 | slh_dsa() | srp,
                              PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
                              PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
-                             Params :: dh_params() | ecdh_params() | eddsa_params() | rsa_params() | srp_gen_params()
-                                       .
+                             Params :: dh_params() | ecdh_params() | eddsa_params() | rsa_params() | srp_gen_params() | [].
 generate_key(Type, Params) ->
     generate_key(Type, Params, undefined).
 
@@ -2743,21 +3682,33 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 > - and the `Type` is `dh` (diffie-hellman)
 > - and the parameter `P` (in `t:dh_params/0`) is one of the MODP groups (see
 >   [RFC 3526](https://tools.ietf.org/html/rfc3526))
-> - and the optional `PrivateKeyBitLength` parameter (in `t:dh_params/0`) is
+> - and the optional `MaxPrivateKeyBitLength` parameter (in `t:dh_params/0`) is
 >   present,
 >
 > then the optional key length parameter must be at least 224, 256, 302, 352 and
 > 400 for group sizes of 2048, 3072, 4096, 6144 and 8192, respectively.
+
+
+## Examples
+
+```erlang
+1> crypto:generate_key(ecdh, secp256r1, 1).
+{<<4,107,23,209,242,225,44,66,71,248,188,230,229,99,164,64,242,119,
+   3,125,129,45,235,51,160,244,161,57,69,216,152,194,150,79,227,66,
+   226,254,26,127,155,142,231,235,74,124,15,158,22,43,206,51,87,107,
+   49,94,206,203,182,64,104,55,191,81,245>>,
+ <<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1>>}
+```
 """.
--doc(#{title => <<"Key API">>,
+-doc(#{group => <<"Key API">>,
        since => <<"OTP R16B01">>}).
 -spec generate_key(Type, Params, PrivKeyIn)
                  -> {PublicKey, PrivKeyOut}
-                        when Type :: dh | ecdh | eddh | eddsa | rsa | srp,
+                        when Type :: dh | ecdh | eddh | eddsa | rsa | mldsa() | mlkem512 | mlkem768 | mlkem1024 | srp | slh_dsa(),
                              PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
                              PrivKeyIn :: undefined | dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
                              PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
-                             Params :: dh_params() | ecdh_params() | eddsa_params() | rsa_params() | srp_comp_params()
+                             Params :: dh_params() | ecdh_params() | eddsa_params() | rsa_params() | srp_comp_params() | []
                                        .
 
 generate_key(dh, DHParameters0, PrivateKey) ->
@@ -2799,9 +3750,8 @@ generate_key(rsa, {ModulusSize, PublicExponent}, undefined) ->
                          [rsa,{ModulusSize,PublicExponent}]);
         {Private, OldPrivate} when Private == OldPrivate ->
             {lists:sublist(Private,2), Private};
-        {_Private, _OldPrivate} ->
-            Where = lists:map(fun({A,B}) -> A == B end,
-                              lists:zip(_Private, _OldPrivate)),
+        {Private, OldPrivate} ->
+            Where = [A == B || A <- Private && B <- OldPrivate],
             erlang:error({new_old_differ,Where},
                          [rsa,{ModulusSize,PublicExponent}]);
         Private ->
@@ -2827,9 +3777,57 @@ generate_key(eddsa, Curve, PrivKey) when Curve == ed448 ;
     ?nif_call(evp_generate_key_nif(Curve, ensure_int_as_bin(PrivKey)),
               {2, 3},
               [eddsa, Curve, PrivKey]
-             ).
+             );
+generate_key(Type, [], PrivKey) ->
+    ?nif_call(evp_generate_key_nif(Type, PrivKey)).
+
 
 evp_generate_key_nif(_Curve, _PrivKey) -> ?nif_stub.
+
+
+-doc """
+Generate encapsulated shared secret from the other party's public key.
+
+Returns both a shared secret for encryption/decryption by local party and an
+encapsulated format of the same secret to be safely sent to the other
+party. With its private key, the other party can decapsulate the received secret
+(with `decapsulate_key/3` for example) to regenerate the same shared secret.
+
+Supported encapsulation methods can be obtained with
+[`supports(kems)`](`supports/1`).
+""".
+-doc(#{group => ~b"Key API",
+       since => ~b"OTP 28.1"}).
+-spec encapsulate_key(Type, OthersPublicKey) -> {Secret, EncapSecret}
+              when Type :: kem(),
+                   OthersPublicKey :: binary(),
+                   Secret :: binary(),
+                   EncapSecret :: binary().
+encapsulate_key(Type, OthersPublicKey) ->
+    encapsulate_key_nif(Type, OthersPublicKey).
+
+encapsulate_key_nif(_Type, _OthersPublicKey) -> ?nif_stub.
+
+
+-doc """
+Regenerate shared secret from encapsulated secret and private key.
+
+Returns a shared secret for encryption/decryption by local party.
+
+Supported encapsulation methods can be obtained with
+[`supports(kems)`](`supports/1`).
+""".
+-doc(#{group => ~b"Key API",
+       since => ~b"OTP 28.1"}).
+-spec decapsulate_key(Type, MyPrivKey, EncapSecret) -> Secret
+              when Type :: kem(),
+                   MyPrivKey :: binary(),
+                   EncapSecret :: binary(),
+                   Secret :: binary().
+decapsulate_key(Type, MyPrivKey, EncapSecret) ->
+    decapsulate_key_nif(Type, MyPrivKey, EncapSecret).
+
+decapsulate_key_nif(_Type, _MyPrivKey, _EncapSecret) -> ?nif_stub.
 
 
 -doc """
@@ -2839,8 +3837,19 @@ key.
 See also `public_key:compute_key/2`.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+
+## Examples
+
+```erlang
+1> {_PublicA, PrivateA} = crypto:generate_key(ecdh, secp256r1, 1),
+   {PublicB, _PrivateB} = crypto:generate_key(ecdh, secp256r1, 2),
+   crypto:compute_key(ecdh, PublicB, PrivateA, secp256r1).
+<<124,242,123,24,141,3,79,126,138,82,56,3,4,181,26,195,192,137,105,226,
+  119,242,27,53,166,11,72,252,71,102,153,120>>
+```
 """.
--doc(#{title => <<"Key API">>,
+-doc(#{group => <<"Key API">>,
        since => <<"OTP R16B01">>}).
 -spec compute_key(Type, OthersPublicKey, MyPrivateKey, Params)
                  -> SharedSecret
@@ -2916,11 +3925,19 @@ evp_compute_key_nif(_Curve, _OthersBin, _MyBin) -> ?nif_stub.
 %%%
 %%%================================================================
 
--doc(#{title => <<"Utility Functions">>}).
+-doc(#{group => <<"Utility Functions">>}).
 -doc """
 Perform bit-wise XOR (exclusive or) on the data supplied.
 
-The two byte sequences mus be of equal length.
+The two byte sequences must be of equal length.
+
+
+## Examples
+
+```erlang
+1> crypto:exor(<<1,2,3>>, <<3,2,1>>).
+<<2,0,2>>
+```
 """.
 -spec exor(iodata(), iodata()) -> binary().
 
@@ -2937,9 +3954,18 @@ exor(Bin1, Bin2) ->
 %%%
 %%%================================================================
 
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP R16B01">>}).
--doc "Compute the function `N^P mod M`.".
+-doc """
+Compute the function `N^P mod M`.
+
+## Examples
+
+```erlang
+1> {crypto:mod_pow(2, 10, 17), crypto:mod_pow(5, 0, 23)}.
+{<<4>>,<<1>>}
+```
+""".
 -spec mod_pow(N, P, M) -> Result when N :: binary() | integer(),
                                       P :: binary() | integer(),
                                       M :: binary() | integer(),
@@ -2961,13 +3987,13 @@ mod_pow(Base, Exponent, Prime) ->
 Identifies the key to be used. The format depends on the loaded engine. It is
 passed to the `ENGINE_load_(private|public)_key` functions in libcrypto.
 """.
--doc(#{title => <<"Types for Engines">>}).
+-doc(#{group => <<"Types for Engines">>}).
 -type key_id()   :: string() | binary() .
 -doc "The password of the key stored in an engine.".
--doc(#{title => <<"Types for Engines">>}).
+-doc(#{group => <<"Types for Engines">>}).
 -type password() :: string() | binary() .
 
--doc(#{title => <<"Types for Engines">>,equiv => engine_ref()}).
+-doc(#{group => <<"Types for Engines">>,equiv => engine_ref()}).
 -type engine_key_ref() :: #{engine :=   engine_ref(),
                             key_id :=   key_id(),
                             password => password(),
@@ -2976,13 +4002,13 @@ passed to the `ENGINE_load_(private|public)_key` functions in libcrypto.
 
 %%%---- Commands:
 -doc "Pre and Post commands for [engine_load/3 and /4](`engine_load/3`).".
--doc(#{title => <<"Types for Engines">>}).
+-doc(#{group => <<"Types for Engines">>}).
 -type engine_cmnd() :: {unicode:chardata(), unicode:chardata()}.
 
 %%----------------------------------------------------------------------
 %% Function: engine_get_all_methods/0
 %%----------------------------------------------------------------------
--doc(#{title => <<"Types for Engines">>}).
+-doc(#{group => <<"Types for Engines">>}).
 -type engine_method_type() :: engine_method_rsa | engine_method_dsa | engine_method_dh |
                               engine_method_rand | engine_method_ecdh | engine_method_ecdsa |
                               engine_method_ciphers | engine_method_digests | engine_method_store |
@@ -2990,7 +4016,7 @@ passed to the `ENGINE_load_(private|public)_key` functions in libcrypto.
                               engine_method_ec.
 
 -doc "The result of a call to `engine_load/3`.".
--doc(#{title => <<"Types for Engines">>}).
+-doc(#{group => <<"Types for Engines">>}).
 -type engine_ref() :: term().
 
 -doc """
@@ -3001,8 +4027,21 @@ underlying OpenSSL implementation.
 
 See also the chapter [Engine Load](engine_load.md#engine_load) in the User's
 Guide.
+
+
+## Examples
+
+Example will print all supported methods, but if OpenSSL engines feature is disabled, 
+it will print a different message.
+
+```erlang
+1> try crypto:engine_get_all_methods() of 
+       L -> io:format("Supported engine methods: ~p~n", [L]) 
+   catch error:notsup -> io:format("Engine feature is disabled~n", []) end.
+ok
+```
 """.
--doc(#{title => <<"Engine API">>,since => <<"OTP 20.2">>}).
+-doc(#{group => <<"Engine API">>,since => <<"OTP 20.2">>}).
 -spec engine_get_all_methods() -> Result when Result :: [engine_method_type()].
 engine_get_all_methods() ->
     engine_get_all_methods_nif().
@@ -3014,17 +4053,17 @@ engine_get_all_methods() ->
 Load an OpenSSL engine.
 
 Loads the OpenSSL engine given by `EngineId` if it is available and intialize
-it. Returns `ok` and an engine handle, or if the engine can't be loaded an error
-tuple is returned.
+it. Returns `ok` and an engine handle, or if the engine cannot be loaded
+an error tuple is returned.
 
 The function raises a `error:badarg` if the parameters are in wrong format. It
 may also raise the exception `error:notsup` in case there is no engine support
 in the underlying OpenSSL implementation.
 
 See also the chapter [Engine Load](engine_load.md#engine_load) in the User's
-Guide.
+Guide. Crypto Engine was deprecated in OpenSSL 3.0.
 """.
--doc(#{title => <<"Engine API">>,since => <<"OTP 20.2">>}).
+-doc(#{group => <<"Engine API">>,since => <<"OTP 20.2">>}).
 -spec engine_load(EngineId, PreCmds, PostCmds) ->
                          Result when EngineId::unicode:chardata(),
                                      PreCmds::[engine_cmnd()],
@@ -3093,7 +4132,7 @@ engine_load_2(Engine, PostCmds) ->
 Unload an OpenSSL engine.
 
 Unloads the OpenSSL engine given by `Engine`. An error tuple is returned if the
-engine can't be unloaded.
+engine cannot be unloaded.
 
 The function raises a `error:badarg` if the parameter is in wrong format. It may
 also raise the exception `error:notsup` in case there is no engine support in
@@ -3102,7 +4141,7 @@ the underlying OpenSSL implementation.
 See also the chapter [Engine Load](engine_load.md#engine_load) in the User's
 Guide.
 """.
--doc(#{title => <<"Engine API">>,since => <<"OTP 20.2">>}).
+-doc(#{group => <<"Engine API">>,since => <<"OTP 20.2">>}).
 -spec engine_unload(Engine) -> Result when Engine :: engine_ref(),
                                            Result :: ok | {error, Reason::term()}.
 engine_unload(Engine) ->
@@ -3126,7 +4165,7 @@ engine_unload(Engine, _EngineMethods) ->
 %%----------------------------------------------------------------------
 -doc """
 Get a reference to an already loaded engine with `EngineId`. An error tuple is
-returned if the engine can't be unloaded.
+returned if the engine cannot be unloaded.
 
 The function raises a `error:badarg` if the parameter is in wrong format. It may
 also raise the exception `error:notsup` in case there is no engine support in
@@ -3135,7 +4174,7 @@ the underlying OpenSSL implementation.
 See also the chapter [Engine Load](engine_load.md#engine_load) in the User's
 Guide.
 """.
--doc(#{title => <<"Engine API">>,since => <<"OTP 21.0.6">>}).
+-doc(#{group => <<"Engine API">>,since => <<"OTP 21.0.6">>}).
 -spec engine_by_id(EngineId) -> Result when EngineId :: unicode:chardata(),
                                             Result :: {ok, Engine::engine_ref()} | {error, Reason::term()} .
 engine_by_id(EngineId) ->
@@ -3156,7 +4195,7 @@ The function raises a `error:badarg` if the parameters are in wrong format. It
 may also raise the exception `error:notsup` in case there is no engine support
 in the underlying OpenSSL implementation.
 """.
--doc(#{title => <<"Engine API">>,since => <<"OTP 21.0.6">>}).
+-doc(#{group => <<"Engine API">>,since => <<"OTP 21.0.6">>}).
 -spec engine_add(Engine) -> Result when Engine :: engine_ref(),
                                         Result ::  ok | {error, Reason::term()} .
 engine_add(Engine) ->
@@ -3172,7 +4211,7 @@ The function raises a `error:badarg` if the parameters are in wrong format. It
 may also raise the exception `error:notsup` in case there is no engine support
 in the underlying OpenSSL implementation.
 """.
--doc(#{title => <<"Engine API">>,since => <<"OTP 21.0.6">>}).
+-doc(#{group => <<"Engine API">>,since => <<"OTP 21.0.6">>}).
 -spec engine_remove(Engine) -> Result when Engine :: engine_ref(),
                                            Result ::  ok | {error, Reason::term()} .
 engine_remove(Engine) ->
@@ -3189,7 +4228,7 @@ The function raises a `error:badarg` if the parameters are in wrong format. It
 may also raise the exception `error:notsup` in case there is no engine support
 in the underlying OpenSSL implementation.
 """.
--doc(#{title => <<"Engine API">>,since => <<"OTP 25.1">>}).
+-doc(#{group => <<"Engine API">>,since => <<"OTP 25.1">>}).
 -spec engine_register(Engine, EngineMethods) -> Result when Engine :: engine_ref(),
 					       EngineMethods::[engine_method_type()],
 					       Result ::  ok | {error, Reason::term()} .
@@ -3206,13 +4245,13 @@ engine_register(Engine, EngineMethods) when is_list(EngineMethods) ->
 %% Function: engine_unregister/2
 %%----------------------------------------------------------------------
 -doc """
-Unregister engine so it don't handle some type of methods.
+Unregister engine so it does not handle some type of methods.
 
 The function raises a `error:badarg` if the parameters are in wrong format. It
 may also raise the exception `error:notsup` in case there is no engine support
 in the underlying OpenSSL implementation.
 """.
--doc(#{title => <<"Engine API">>,since => <<"OTP 25.1">>}).
+-doc(#{group => <<"Engine API">>,since => <<"OTP 25.1">>}).
 -spec engine_unregister(Engine, EngineMethods) -> Result when Engine :: engine_ref(),
 						 EngineMethods::[engine_method_type()],
 						 Result ::  ok | {error, Reason::term()} .
@@ -3235,7 +4274,7 @@ The function raises a `error:badarg` if the parameters are in wrong format. It
 may also raise the exception `error:notsup` in case there is no engine support
 in the underlying OpenSSL implementation.
 """.
--doc(#{title => <<"Engine API">>,since => <<"OTP 21.0.6">>}).
+-doc(#{group => <<"Engine API">>,since => <<"OTP 21.0.6">>}).
 -spec engine_get_id(Engine) -> EngineId when Engine :: engine_ref(),
                                              EngineId :: unicode:chardata().
 engine_get_id(Engine) ->
@@ -3252,7 +4291,7 @@ The function raises a `error:badarg` if the parameters are in wrong format. It
 may also raise the exception `error:notsup` in case there is no engine support
 in the underlying OpenSSL implementation.
 """.
--doc(#{title => <<"Engine API">>,since => <<"OTP 21.0.6">>}).
+-doc(#{group => <<"Engine API">>,since => <<"OTP 21.0.6">>}).
 -spec engine_get_name(Engine) -> EngineName when Engine :: engine_ref(),
                                                  EngineName :: unicode:chardata().
 engine_get_name(Engine) ->
@@ -3271,9 +4310,9 @@ See also the chapter [Engine Load](engine_load.md#engine_load) in the User's
 Guide.
 
 May raise exception `error:notsup` in case engine functionality is not supported
-by the underlying OpenSSL implementation.
+by the underlying OpenSSL implementation. Crypto Engine was deprecated in OpenSSL 3.0.
 """.
--doc(#{title => <<"Engine API">>,since => <<"OTP 20.2">>}).
+-doc(#{group => <<"Engine API">>,since => <<"OTP 20.2">>}).
 -spec engine_list() -> Result when Result :: [EngineId::unicode:chardata()].
 engine_list() ->
     case engine_get_first_nif() of
@@ -3314,7 +4353,7 @@ The function raises a `error:badarg` if the parameters are in wrong format. It
 may also raise the exception `error:notsup` in case there is no engine support
 in the underlying OpenSSL implementation.
 """.
--doc(#{title => <<"Engine API">>,since => <<"OTP 20.2">>}).
+-doc(#{group => <<"Engine API">>,since => <<"OTP 20.2">>}).
 -spec engine_ctrl_cmd_string(Engine, CmdName, CmdArg) ->
                                     Result when Engine::term(),
                                                 CmdName::unicode:chardata(),
@@ -3332,7 +4371,7 @@ Send ctrl commands to an OpenSSL engine.
 `Optional` is a
 boolean argument that can relax the semantics of the function. If set to `true`
 it will only return failure if the ENGINE supported the given command name but
-failed while executing it, if the ENGINE doesn't support the command name it
+failed while executing it, if the ENGINE does not support the command name it
 will simply return success without doing anything. In this case we assume the
 user is only supplying commands specific to the given ENGINE so we set this to
 `false`.
@@ -3341,7 +4380,7 @@ The function raises a `error:badarg` if the parameters are in wrong format. It
 may also raise the exception `error:notsup` in case there is no engine support
 in the underlying OpenSSL implementation.
 """.
--doc(#{title => <<"Engine API">>,since => <<"OTP 20.2">>}).
+-doc(#{group => <<"Engine API">>,since => <<"OTP 20.2">>}).
 -spec engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
                                     Result when Engine::term(),
                                                 CmdName::unicode:chardata(),
@@ -3366,8 +4405,8 @@ engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
 Load a dynamic engine if not already done.
 
 Loada the engine given by `EngineId` and the path to the dynamic library
-implementing the engine. An error tuple is returned if the engine can't be
-loaded.
+implementing the engine. An error tuple is returned if the engine cannot
+be loaded.
 
 This function differs from the normal engine_load in the sense that it also add
 the engine id to OpenSSL's internal engine list. The difference between the
@@ -3388,7 +4427,7 @@ in the underlying OpenSSL implementation.
 See also the chapter [Engine Load](engine_load.md#engine_load) in the User's
 Guide.
 """.
--doc(#{title => <<"Engine API">>,since => <<"OTP 21.0.6">>}).
+-doc(#{group => <<"Engine API">>,since => <<"OTP 21.0.6">>}).
 -spec ensure_engine_loaded(EngineId, LibPath) -> Result when EngineId :: unicode:chardata(),
 						 LibPath :: unicode:chardata(),
 						 Result :: {ok, Engine::engine_ref()} |
@@ -3441,6 +4480,17 @@ ensure_engine_unloaded(Engine, _EngineMethods) ->
 %%% On load
 %%--------------------------------------------------------------------
 on_load() ->
+    %% Make sure crypto app is loaded in order to do get_env below.
+    case {code:get_mode(),application:load(crypto)} of
+        {_, {error,{already_loaded,crypto}}} -> ok;
+        {interactive, ok} -> ok;
+        {embedded, ok} ->
+            %% Application not already loaded by boot script. Why?
+            %% Could happen if application start type was 'none' in .rel file.
+            erlang:error({on_load, "Module 'crypto' cannot be loaded in embedded"
+                          " mode without application 'crypto' being loaded"})
+    end,
+
     LibBaseName = "crypto",
     PrivDir = code:priv_dir(crypto),
     LibName = case erlang:system_info(build_type) of
@@ -3467,13 +4517,25 @@ on_load() ->
 	      end,
     Lib = filename:join([PrivDir, "lib", LibName]),
     LibBin   = path2bin(Lib),
-    FipsMode = application:get_env(crypto, fips_mode, false) == true,
+    FipsMode =
+        case application:get_env(crypto, fips_mode) of
+            {ok, true} -> true;
+            {ok, false} -> false;
+            {ok, Other} ->
+                erlang:error({"crypto fips_mode must be true or false, not",Other});
+            undefined ->
+                erlang:error({"crypto fips_mode is undefined"})
+        end,
     Status = case erlang:load_nif(Lib, {?CRYPTO_NIF_VSN,LibBin,FipsMode}) of
 		 ok -> ok;
 		 {error, {load_failed, _}}=Error1 ->
-		     ArchLibDir =
-			 filename:join([PrivDir, "lib",
-					erlang:system_info(system_architecture)]),
+                     Arch = case os:type() of
+                                {win32, _} -> win32;
+                                _ ->
+                                    erlang:system_info(system_architecture)
+                            end,
+                     ArchLibDir =
+                         filename:join([PrivDir, "lib", Arch]),
 		     Candidate =
 			 filelib:wildcard(
                            filename:join(
@@ -3489,7 +4551,8 @@ on_load() ->
 		 Error1 -> Error1
 	     end,
     case Status of
-	ok -> ok;
+	ok ->
+            ok;
 	{error, {E, Str}} ->
             Fmt = "Unable to load crypto library. Failed with error:~n\"~p, ~s\"~n~s",
             Extra = case E of
@@ -3633,9 +4696,19 @@ ec_generate_key_nif(_Curve, _Key) -> ?nif_stub.
 
 ecdh_compute_key_nif(_Others, _Curve, _My) -> ?nif_stub.
 
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 17.0">>}).
--doc "Return all supported named elliptic curves.".
+-doc """
+Return all supported named elliptic curves.
+
+
+## Examples
+
+```erlang
+1> lists:member(secp256r1, crypto:ec_curves()).
+true
+```
+""".
 -spec ec_curves() -> [EllipticCurve] when EllipticCurve :: ec_named_curve()
                                                          | edwards_curve_dh()
                                                          | edwards_curve_ed() .
@@ -3643,9 +4716,19 @@ ecdh_compute_key_nif(_Others, _Curve, _My) -> ?nif_stub.
 ec_curves() ->
     crypto_ec_curves:curves().
 
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 17.0">>}).
--doc "Return the defining parameters of a elliptic curve.".
+-doc """
+Return the defining parameters of a elliptic curve.
+
+## Examples
+
+```erlang
+1> element(1, crypto:ec_curve(secp256r1)).
+{prime_field,<<255,255,255,255,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,
+               255,255,255,255,255,255,255,255,255,255,255,255>>}
+```
+""".
 -spec ec_curve(CurveName) -> ExplicitCurve when CurveName :: ec_named_curve(),
                                                 ExplicitCurve :: ec_explicit_curve() .
 ec_curve(X) ->
@@ -3657,7 +4740,7 @@ Fetch public key from a private key stored in an Engine.
 
 The key must be of the type indicated by the Type parameter.
 """.
--doc(#{title => <<"Engine API">>,since => <<"OTP 20.2">>}).
+-doc(#{group => <<"Engine API">>,since => <<"OTP 20.2">>}).
 -spec privkey_to_pubkey(Type, EnginePrivateKeyRef) -> PublicKey when Type :: rsa | dss,
                                                                      EnginePrivateKeyRef :: engine_key_ref(),
                                                                      PublicKey ::  rsa_public() | dss_public() .
@@ -3735,8 +4818,16 @@ Compare two binaries in constant time, such as results of HMAC computations.
 Returns true if the binaries are identical, false if they are of the same length
 but not identical. The function raises an `error:badarg` exception if the
 binaries are of different size.
+
+
+## Examples
+
+```erlang
+1> {crypto:hash_equals(<<1,2>>, <<1,2>>), crypto:hash_equals(<<1,2>>, <<1,3>>)}.
+{true,false}
+```
 """.
--doc(#{title => <<"Utility Functions">>, since => <<"OTP 25.0">>}).
+-doc(#{group => <<"Utility Functions">>, since => <<"OTP 25.0">>}).
 -spec hash_equals(BinA, BinB) -> Result
           when BinA :: binary(),
                BinB :: binary(),
@@ -3749,6 +4840,7 @@ hash_equals_nif(_A, _B) -> ?nif_stub.
 hash_algorithms() -> ?nif_stub.
 pubkey_algorithms() -> ?nif_stub.
 cipher_algorithms() -> ?nif_stub.
+kem_algorithms_nif() -> ?nif_stub.
 mac_algorithms() -> ?nif_stub.
 curve_algorithms() -> ?nif_stub.
 rsa_opts_algorithms() -> ?nif_stub.
@@ -3767,8 +4859,17 @@ int_to_bin_neg(-1, Ds=[MSB|_]) when MSB >= 16#80 ->
 int_to_bin_neg(X,Ds) ->
     int_to_bin_neg(X bsr 8, [(X band 255)|Ds]).
 
--doc "Convert binary representation, of an integer, to an Erlang integer.".
--doc(#{title => <<"Utility Functions">>,
+-doc """
+Convert binary representation, of an integer, to an Erlang integer.
+
+## Examples
+
+```erlang
+1> {crypto:bytes_to_integer(<<1,0>>), crypto:bytes_to_integer(<<255>>)}.
+{256,255}
+```
+""".
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP R16B01">>}).
 -spec bytes_to_integer(binary()) -> integer() .
 bytes_to_integer(Bin) ->

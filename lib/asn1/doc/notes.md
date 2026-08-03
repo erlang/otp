@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +22,163 @@ limitations under the License.
 # asn1 Release Notes
 
 This document describes the changes made to the asn1 application.
+
+## Asn1 5.5
+
+### Improvements and New Features
+
+- Added support for `-unsafe` attributes, which is used to mark functions as unsafe to use. 
+  
+  This is similar to but separate from deprecation, and the compiler will by default now generate warnings for calls to functions in Erlang/OTP that are known to be always unsafe.
+  
+  Furthermore, `m:xref` can now be used to find calls to functions in another application that lack a `-doc` attribute (`undocumented_function_calls`), calls to functions in another application marked `-doc false.` (`private_function_calls`), as well as calls to unsafe functions (`unsafe_function_calls`).
+
+  Own Id: OTP-20066 Aux Id: [PR-10839]
+
+[PR-10839]: https://github.com/erlang/otp/pull/10839
+
+## Asn1 5.4.3
+
+### Improvements and New Features
+
+- Release applications, tests, and documentation are now placed in their respective directories. Source SBOM with more packages.
+  
+  A `make release` application places only the necessary code in the release folder. The main change is that the documentation and examples are not part of the release folder anymore.
+  
+  `make release_docs` places the documentation in the released code under the `doc` folder.
+  
+  `make release_tests` places the tests in their own directory. It used to be the case that some source code was mixed with the tests, and this should not happen anymore.
+  
+  The Software Bill of Materials places the examples folders as if they are part of the `SPDX-otp-<app>-doc` packge, instead of placing examples as if they were running source code.
+  
+  Overall, this change cleans up many things that were not quite correct by definition, and everything should still continue to work as expected. To test a release, one can still run `./Install -minimal \`pwd\`` and add the release to the `PATH`. After that, one can run tests as usual, going into the released tests directory, entering `test_server` and running the emulator.
+  
+  Improves the source Software-Bill-of-Materials
+  
+  - The improvements adds new SPDX relations for `asmjit` and `zlib` to be `optional_components_of` the Erlang/OTP project.
+  - The `autoconf` scripts in `make` and `erts` have now been categorised as `build_tool_of` the Erlang/OTP project.
+  - All remaining `configure`, `configure.ac`, `config.h.in`, `Makefile.in`, `Makefile.src`, `EMakefile`, and `GNUMakefile` are now part of a specific SPDX package with relation `build_tool_of` the Erlang/OTP project.
+
+  Own Id: OTP-19886 Aux Id: [PR-10434]
+
+[PR-10434]: https://github.com/erlang/otp/pull/10434
+
+## Asn1 5.4.2
+
+### Fixed Bugs and Malfunctions
+
+- Decoding a constrained BIT STRING using JER was broken.
+
+  Own Id: OTP-19681 Aux Id: [PR-9949]
+
+- NIFs and linked-in drivers are now loadable when running in an Erlang source tree on Windows.
+
+  Own Id: OTP-19686 Aux Id: [PR-9969]
+
+[PR-9949]: https://github.com/erlang/otp/pull/9949
+[PR-9969]: https://github.com/erlang/otp/pull/9969
+
+## Asn1 5.4.1
+
+### Fixed Bugs and Malfunctions
+
+- The ASN.1 compiler could generate code that would cause Dialyzer with the `unmatched_returns` option to emit warnings.
+
+  Own Id: OTP-19638 Aux Id: [GH-9841], [PR-9846]
+
+[GH-9841]: https://github.com/erlang/otp/issues/9841
+[PR-9846]: https://github.com/erlang/otp/pull/9846
+
+## Asn1 5.4
+
+### Fixed Bugs and Malfunctions
+
+- The `undec_rest` option would be ignored in generated functions for exclusive decode. The option is now respected, meaning that the return value from such functions are now three-tuples instead of a two-tuples.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19290 Aux Id: [PR-8798]
+
+[PR-8798]: https://github.com/erlang/otp/pull/8798
+
+### Improvements and New Features
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+- The ancient ASN.1 modules used in `public_key` has been replaced with more modern versions, but we have strived to keep the documented Erlang API for the `public_key` application compatible.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19612 Aux Id: [PR-9774]
+
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+[PR-9774]: https://github.com/erlang/otp/pull/9774
+
+## Asn1 5.3.4.2
+
+### Fixed Bugs and Malfunctions
+
+- Decoding a constrained BIT STRING using JER was broken.
+
+  Own Id: OTP-19681 Aux Id: [PR-9949]
+
+[PR-9949]: https://github.com/erlang/otp/pull/9949
+
+## Asn1 5.3.4.1
+
+### Fixed Bugs and Malfunctions
+
+- The ASN.1 compiler could generate code that would cause Dialyzer with the `unmatched_returns` option to emit warnings.
+
+  Own Id: OTP-19638 Aux Id: [GH-9841], [PR-9846]
+
+[GH-9841]: https://github.com/erlang/otp/issues/9841
+[PR-9846]: https://github.com/erlang/otp/pull/9846
+
+## Asn1 5.3.4
+
+### Fixed Bugs and Malfunctions
+
+- Negative REAL numbers greater than -1 would be incorrectly encoded (the minus sign would be lost).
+
+  Own Id: OTP-19567 Aux Id: ERIERL-1214, [PR-9658]
+
+[PR-9658]: https://github.com/erlang/otp/pull/9658
+
+## Asn1 5.3.3
+
+### Fixed Bugs and Malfunctions
+
+- The JER backend will now include the SIZE constraint in the type info for OCTET STRINGs, and a SIZE constraint with a range will now be included for BIT STRINGs. This does not change the actual encoding or decoding of JER, but can be useful for tools.
+
+  Own Id: OTP-19542 Aux Id: ERIERL-1204, [PR-9588]
+
+[PR-9588]: https://github.com/erlang/otp/pull/9588
+
+### Improvements and New Features
+
+- When using the JSON encoding rules, it is now possible to call the decode/2 function in the following way with data that has already been decoded by json:decode/1:
+  
+  ```
+  SomeModule:decode(Type, {json_decoded, Decoded}).
+  ```
+
+  Own Id: OTP-19547 Aux Id: ERIERL-1206, [PR-9611]
+
+[PR-9611]: https://github.com/erlang/otp/pull/9611
+
+## Asn1 5.3.2
+
+### Fixed Bugs and Malfunctions
+
+- Multiple bugs in decoding of the `REAL` type has been eliminated. Also, the documentation for `REAL` has been updated to mention the special values `0`, `PLUS-INFINITY`, and `MINUS-INFINITY`.
+
+  Own Id: OTP-19504 Aux Id: [GH-9096], [PR-9469]
+
+[GH-9096]: https://github.com/erlang/otp/issues/9096
+[PR-9469]: https://github.com/erlang/otp/pull/9469
 
 ## Asn1 5.3.1
 
@@ -59,6 +218,14 @@ This document describes the changes made to the asn1 application.
 [PR-7738]: https://github.com/erlang/otp/pull/7738
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 [PR-8241]: https://github.com/erlang/otp/pull/8241
+
+## Asn1 5.2.2.1
+
+### Fixed Bugs and Malfunctions
+
+* The ASN.1 compiler could generate code that would cause Dialyzer with the `unmatched_returns` option to emit warnings.
+
+  Own Id: OTP-19638 Aux Id: GH-9841, PR-9846
 
 ## Asn1 5.2.2
 

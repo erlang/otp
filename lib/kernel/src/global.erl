@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -110,11 +112,13 @@ network problem.
 > If the fully connected network is not set up properly, try first to increase
 > the value of `net_setuptime`.
 
-## See Also
+### See Also
 
 `m:global_group`, `m:net_kernel`
 """.
 -behaviour(gen_server).
+
+-compile(nowarn_deprecated_catch).
 
 %% Global provides global registration of process names. The names are
 %% dynamically kept up to date with the entire network. Global can
@@ -1673,13 +1677,12 @@ save_node_resource_info(Node, Mon) ->
     ok.
 
 delete_node_resource_info(Mon) ->
-    case ets:lookup(global_node_resources, Mon) of
+    case ets:take(global_node_resources, Mon) of
         [] ->
             ok;
         [{Mon, Node}] ->
             [{Node, OldRes}] = ets:lookup(global_node_resources, Node),
             NewRes = maps:remove(Mon, OldRes),
-            true = ets:delete(global_node_resources, Mon),
             case maps:size(NewRes) of
                 0 ->
                     true = ets:delete(global_node_resources, Node),
@@ -1691,11 +1694,10 @@ delete_node_resource_info(Mon) ->
     end.
 
 delete_node_resources(Node, #state{} = State) ->
-    case ets:lookup(global_node_resources, Node) of
+    case ets:take(global_node_resources, Node) of
         [] ->
             State;
         [{Node, Resources}] ->
-            true = ets:delete(global_node_resources, Node),
             maps:fold(fun (Mon, ok, AccS0) ->
                               erlang:demonitor(Mon, [flush]),
                               true = ets:delete(global_node_resources, Mon),
@@ -2104,7 +2106,7 @@ can_set_lock({ResourceId, LockRequesterId}) ->
     end.
 
 insert_lock({ResourceId, LockRequesterId}=Id, Pid, PidRefs, S) ->
-    Ref = erlang:monitor(process, Pid),
+    Ref = erlang:monitor(process, Pid, [priority]),
     save_node_resource_info(node(Pid), Ref),
     true = ets:insert(global_pid_ids, {Pid, ResourceId}),
     true = ets:insert(global_pid_ids, {Ref, ResourceId}),
@@ -2141,13 +2143,13 @@ remove_lock(ResourceId, LockRequesterId, Pid, [{Pid,Ref}], Down, S0) ->
                   [{ResourceId, LockRequesterId}, Pid]);
 remove_lock(ResourceId, LockRequesterId, Pid, PidRefs0, _Down, S) ->
     ?trace({remove_lock_2, {id,ResourceId},{pid,Pid}}),
-    PidRefs = case lists:keyfind(Pid, 1, PidRefs0) of
-                  {Pid, Ref} ->
+    PidRefs = case lists:keytake(Pid, 1, PidRefs0) of
+		  {value, {Pid, Ref}, PidRefs1} ->
                       delete_node_resource_info(Ref),
                       true = erlang:demonitor(Ref, [flush]),
                       true = ets:delete_object(global_pid_ids, 
                                                {Ref, ResourceId}),
-                      lists:keydelete(Pid, 1, PidRefs0);
+                      PidRefs1;
                   false ->
                       PidRefs0
               end,
@@ -2222,7 +2224,7 @@ sync_other(Node, N) ->
     % exit(normal).
 
 insert_global_name(Name, Pid, Method, FromPidOrNode, ExtraInfo, S) ->
-    Ref = erlang:monitor(process, Pid),
+    Ref = erlang:monitor(process, Pid, [priority]),
     save_node_resource_info(node(Pid), Ref),
     true = ets:insert(global_names, {Name, Pid, Method, Ref}),
     true = ets:insert(global_pid_names, {Pid, Name}),
@@ -2286,9 +2288,8 @@ delete_global_name_keep_pid(Name, S) ->
     end.
 
 delete_global_name2(Name, S) ->
-    case ets:lookup(global_names, Name) of
+    case ets:take(global_names, Name) of
         [{Name, Pid, _Method, Ref}] ->
-            true = ets:delete(global_names, Name),
             delete_global_name2(Name, Pid, Ref, S);
         [] ->
             S
@@ -2301,9 +2302,8 @@ delete_global_name2(Name, Pid, Ref, S) ->
     ?trace({delete_global_name,{item,Name},{pid,Pid}}),
     true = ets:delete_object(global_pid_names, {Pid, Name}),
     true = ets:delete_object(global_pid_names, {Ref, Name}),
-    case ets:lookup(global_names_ext, Name) of
+    case ets:take(global_names_ext, Name) of
 	[{Name, Pid, RegNode}] ->
-            true = ets:delete(global_names_ext, Name),
             ?trace({delete_global_name, {name,Name,{pid,Pid},{RegNode,Pid}}}),
 	    dounlink_ext(Pid, RegNode);
 	[] ->
@@ -2783,12 +2783,12 @@ cancel_locker(Node, S, Tag, ToBeRunOnLockerF) ->
     ?trace({cancel_locker, {node,Node},{tag,Tag},
             {sync_tag_my, get({sync_tag_my, Node})},{resolvers,Resolvers}}),
     send_cancel_connect(Node, Tag, S),
-    case lists:keyfind(Node, 1, Resolvers) of
-	{_, Tag, Resolver} ->
+    case lists:keytake(Node, 1, Resolvers) of
+	{value, {_, Tag, Resolver}, Resolvers1} ->
             ?trace({{resolver, Resolver}}),
             exit(Resolver, kill),
             S1 = trace_message(S, {kill_resolver, Node}, [Tag, Resolver]),
-	    S1#state{resolvers = lists:keydelete(Node, 1, Resolvers)};
+	    S1#state{resolvers = Resolvers1};
 	_ ->
 	    S
     end.
@@ -2960,7 +2960,7 @@ unlink_pid(Pid) ->
     end.
 
 pid_is_locking(Pid, PidRefs) ->
-    lists:keyfind(Pid, 1, PidRefs) =/= false.
+    lists:keymember(Pid, 1, PidRefs).
 
 delete_lock(Ref, S0) ->
     Locks = pid_locks(Ref),
@@ -2971,14 +2971,12 @@ delete_lock(Ref, S0) ->
     lists:foldl(F, S0, Locks).
 
 pid_locks(Ref) ->
-    L = lists:flatmap(fun({_, ResourceId}) ->
-                              ets:lookup(global_locks, ResourceId)
-                      end, ets:lookup(global_pid_ids, Ref)),
-    [Lock || Lock = {_Id, _Req, PidRefs} <- L, 
-             ref_is_locking(Ref, PidRefs)].
+    [Lock || {_, ResourceId} <- ets:lookup(global_pid_ids, Ref),
+	     Lock = {_, _, PidRefs} <- ets:lookup(global_locks, ResourceId),
+	     ref_is_locking(Ref, PidRefs)].
 
 ref_is_locking(Ref, PidRefs) ->
-    lists:keyfind(Ref, 2, PidRefs) =/= false.                                  
+    lists:keymember(Ref, 2, PidRefs).                                  
 
 handle_nodeup(Node, #state{the_locker = TheLocker,
                            resolvers = Rs,

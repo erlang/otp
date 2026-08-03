@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +25,7 @@
 	 interesting/1,scope_return/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
 	 copy/1, referenced/1,guard/1,encode_decode/1,badargs/1,longest_common_trap/1,
-         check_no_invalid_read_bug/1,error_info/1, hex_encoding/1]).
+         check_no_invalid_read_bug/1,error_info/1, hex_encoding/1, join/1, doctests/1]).
 
 -export([random_number/1, make_unaligned/1]).
 
@@ -38,7 +40,7 @@ all() ->
      random_ref_comp, parts, bin_to_list, list_to_bin, copy,
      referenced, guard, encode_decode, badargs,
      longest_common_trap, check_no_invalid_read_bug,
-     error_info, hex_encoding].
+     error_info, hex_encoding, join, doctests].
 
 
 -define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
@@ -260,6 +262,13 @@ badargs(Config) when is_list(Config) ->
     badarg = ?MASK_ERROR(binary:encode_hex([])),
     badarg = ?MASK_ERROR(binary:encode_hex(#{})),
     badarg = ?MASK_ERROR(binary:encode_hex(foo)),
+
+    badarg = ?MASK_ERROR(binary:join(<<"">>, ",")),
+    badarg = ?MASK_ERROR(binary:join([""], <<",">>)),
+    badarg = ?MASK_ERROR(binary:join([123], <<",">>)),
+    badarg = ?MASK_ERROR(binary:join(123, <<",">>)),
+    badarg = ?MASK_ERROR(binary:join(#{}, <<",">>)),
+    badarg = ?MASK_ERROR(binary:join(foo, <<",">>)),
     ok.
 
 %% Whitebox test to force special trap conditions in
@@ -512,6 +521,10 @@ do_interesting(Module) ->
     [] = binary:split(<<>>, <<",">>, [global,trim]),
     [] = binary:split(<<>>, <<",">>, [global,trim_all]),
 
+    %% Assert empty binaries are shared
+    [<<"a">>, <<>> = WS1, WS2, <<"b">>] = binary:split(<<"a,,,b">>, <<",">>, [global]),
+    true = erts_debug:same(WS1, WS2),
+
     ReplaceFn = fun(Match) -> << <<(B + 1)>> || <<B>> <= Match >> end,
     badarg = ?MASK_ERROR(
 		Module:replace(<<1,2,3,4,5,6,7,8>>,
@@ -738,12 +751,13 @@ encode_decode_loop(Range, X) ->
     R = binary:decode_unsigned(make_unaligned(PaddedLittle),little),
     S = binref:decode_unsigned(PaddedLittle,little),
     T = binref:decode_unsigned(PaddedBig),
-    case (((A =:= B) and (B =:= C) and (C =:= D)) and
-						    ((E =:= F)) and
-								  ((N =:= G) and (G =:= H) and (H =:= I) and
-													   (I =:= J) and (J =:= K) and (K =:= L) and (L =:= M)) and
-																				  ((M =:= O) and (O =:= P) and (P =:= Q) and (Q =:= R) and
-																											 (R =:= S) and (S =:= T)))of
+
+    CmpFn = fun(Cmp1) -> fun(Cmp2) -> Cmp2 =:= Cmp1 end end,
+    case
+        lists:all(CmpFn(A), [B, C, D]) andalso
+        E =:= F andalso
+        lists:all(CmpFn(G), [H, I, J, K, L, M, N, O, P, Q, R, S, T])
+    of
 	true ->
 	    encode_decode_loop(Range,X-1);
 	_ ->
@@ -1295,7 +1309,7 @@ do_split_comp(N,H,Opts) ->
     A = ?MASK_ERROR(binref:split(H,N,Opts)),
     D = ?MASK_ERROR(binary:split(H,binary:compile_pattern(N),Opts)),
     if
-	(A =/= [N]) and is_list(A) ->
+	A =/= [N] andalso is_list(A) ->
 	    put(success_counter,get(success_counter)+1);
 	true ->
 	    ok
@@ -1343,7 +1357,7 @@ do_replace_comp(N,H,R,Opts) ->
     A = ?MASK_ERROR(binref:replace(H,N,R,Opts)),
     D = ?MASK_ERROR(binary:replace(H,binary:compile_pattern(N),R,Opts)),
     if
-	(A =/= N) and is_binary(A) ->
+	A =/= N andalso is_binary(A) ->
 	    put(success_counter,get(success_counter)+1);
 	true ->
 	    ok
@@ -1399,16 +1413,11 @@ mask_error({'EXIT',{Err,_}}) ->
 mask_error(Else) ->
     Else.
 
-make_unaligned(Bin0) when is_binary(Bin0) ->
-    Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = byte_size(Bin0),
-    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
-    Bin.
-make_unaligned2(Bin0) when is_binary(Bin0) ->
-    Bin1 = <<31:5,Bin0/binary,0:3>>,
-    Sz = byte_size(Bin0),
-    <<31:5,Bin:Sz/binary,0:3>> = id(Bin1),
-    Bin.
+make_unaligned(Bin) when is_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3).
+
+make_unaligned2(Bin) when is_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 5).
 
 check_no_invalid_read_bug(Config) when is_list(Config) ->
     check_no_invalid_read_bug(24);
@@ -1453,6 +1462,12 @@ error_info(_Config) ->
 
          {last,[<<1:1>>]},
          {last,[<<>>]},
+
+         {join,[no_list,<<>>]},
+         {join,[[a|b],<<>>]},
+         {join,[[a],<<>>]},
+         {join,[[],<<1:7>>]},
+         {join,[[],bad_separator]},
 
          {list_to_bin,[<<1,2,3>>]},
          {list_to_bin,[{1,2,3}]},
@@ -1580,6 +1595,15 @@ do_hex_roundtrip(Bytes) ->
         <<>> ->
             ok
     end.
+
+join(Config) when is_list(Config) ->
+    ~"a, b, c" = binary:join([~"a", ~"b", ~"c"], ~", "),
+    ~"a" = binary:join([~"a"], ~", "),
+    ~"" = binary:join([], ~", ").
+
+doctests(_Config) ->
+    ct_doctest:module(binary, [{skipped_blocks, 1},
+                                {missing_tests, [{list_to_bin, 1}]}]).
 
 %%%
 %%% Utilities.

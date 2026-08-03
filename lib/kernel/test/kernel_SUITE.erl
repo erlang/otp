@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,12 +24,7 @@
 %%%-----------------------------------------------------------------
 -module(kernel_SUITE).
 
-%% Prior to OTP 26, maybe_expr used to require runtime support. As it's now
-%% enabled by default, all modules are tagged with the feature even when they
-%% don't use it. Therefore, we explicitly disable it until OTP 25 is out of
-%% support.
--feature(maybe_expr, disable).
--compile(r24).
+-compile(r27).
 
 -include_lib("common_test/include/ct.hrl").
 

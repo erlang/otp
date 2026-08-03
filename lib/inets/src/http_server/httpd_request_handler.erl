@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -98,45 +100,48 @@ init([Manager, ConfigDB, AcceptTimeout]) ->
     %%link(Manager), 
     %% At this point the function httpd_request_handler:start/2 will return.
     proc_lib:init_ack({ok, self()}),
-    {SocketType, Socket} = await_socket_ownership_transfer(AcceptTimeout),
-    ServerName =
-        case httpd_util:lookup(ConfigDB, server_name) of
-            undefined ->
-                %% ERIERL-1190 workaround - on some rare occassions
-                %% server_name can't be read from ets table
-                net_adm:localhost();
-            EtsValue ->
-                EtsValue
-        end,
-    ServerNameBin = erlang:iolist_to_binary(ServerName),
-    Protocol = protocol(SocketType),
-    proc_lib:set_label({Protocol, ServerNameBin}),
-    
-    Peername = http_transport:peername(SocketType, Socket),
-    Sockname = http_transport:sockname(SocketType, Socket),
- 
-    %%Timeout value is in seconds we want it in milliseconds
-    KeepAliveTimeOut = 1000 * httpd_util:lookup(ConfigDB, keep_alive_timeout, 150),
-    
-    case http_transport:negotiate(SocketType, Socket, ?HANDSHAKE_TIMEOUT) of
-	{error, {tls_alert, {_, AlertDesc}} = Error} ->
-            ModData = #mod{config_db = ConfigDB, init_data = #init_data{peername = Peername,
-                                                                        sockname = Sockname}},
-            httpd_util:error_log(ConfigDB, httpd_logger:error_report('TLS', AlertDesc, 
-                                                                     ModData, ?LOCATION)),
-	    exit({shutdown, Error}); 
-        {error, _Reason} = Error ->
-            %% This happens if the peer closes the connection 
-            %% or the handshake is timed out. This is not
-            %% an error condition of the server and client will
-            %% retry in the timeout situation.  
-            exit({shutdown, Error}); 
-        {ok, TLSSocket} ->
-	    continue_init(Manager, ConfigDB, SocketType, TLSSocket, 
-                          Peername, Sockname, KeepAliveTimeOut);
-        ok  ->
-            continue_init(Manager, ConfigDB, SocketType, Socket, 
-                          Peername, Sockname, KeepAliveTimeOut)
+    case await_socket_ownership_transfer(AcceptTimeout) of
+        {error, Reason} -> {stop, Reason};
+        {SocketType, Socket} ->
+            ServerName =
+                case httpd_util:lookup(ConfigDB, server_name) of
+                    undefined ->
+                        %% ERIERL-1190 workaround - on some rare occassions
+                        %% server_name can't be read from ets table
+                        net_adm:localhost();
+                    EtsValue ->
+                        EtsValue
+                end,
+            ServerNameBin = erlang:iolist_to_binary(ServerName),
+            Protocol = protocol(SocketType),
+            proc_lib:set_label({Protocol, ServerNameBin}),
+
+            Peername = http_transport:peername(SocketType, Socket),
+            Sockname = http_transport:sockname(SocketType, Socket),
+
+            %%Timeout value is in seconds we want it in milliseconds
+            KeepAliveTimeOut = 1000 * httpd_util:lookup(ConfigDB, keep_alive_timeout, 150),
+
+            case http_transport:negotiate(SocketType, Socket, ?HANDSHAKE_TIMEOUT) of
+                {error, {tls_alert, {_, AlertDesc}} = Error} ->
+                    ModData = #mod{config_db = ConfigDB, init_data = #init_data{peername = Peername,
+                                                                                sockname = Sockname}},
+                    httpd_util:error_log(ConfigDB, httpd_logger:error_report('TLS', AlertDesc,
+                                                                             ModData, ?LOCATION)),
+                    exit({shutdown, Error});
+                {error, _Reason} = Error ->
+                    %% This happens if the peer closes the connection
+                    %% or the handshake is timed out. This is not
+                    %% an error condition of the server and client will
+                    %% retry in the timeout situation.
+                    exit({shutdown, Error});
+                {ok, TLSSocket} ->
+                    continue_init(Manager, ConfigDB, SocketType, TLSSocket,
+                                  Peername, Sockname, KeepAliveTimeOut);
+                ok  ->
+                    continue_init(Manager, ConfigDB, SocketType, Socket,
+                                  Peername, Sockname, KeepAliveTimeOut)
+            end
     end.
 
 continue_init(Manager, ConfigDB, SocketType, Socket, Peername, Sockname,
@@ -260,12 +265,16 @@ handle_info({Proto, Socket, Data},
 	    httpd_response:send_status(NewModData, ErrCode, ErrStr, {max_size, MaxSize}),
 	    {stop, normal, State#state{response_sent = true,
 				       mod = NewModData}};
-
-    {error, {version_error, ErrCode, ErrStr}, Version} ->
+        {error, {version_error, ErrCode, ErrStr}, Version} ->
         NewModData =  ModData#mod{http_version = Version},
 	    httpd_response:send_status(NewModData, ErrCode, ErrStr),
 	    {stop, normal, State#state{response_sent = true,
-				                   mod = NewModData}};
+				       mod = NewModData}};
+        {error, {bad_request, ErrCode, ErrStr}, Version} ->
+            NewModData =  ModData#mod{http_version = Version},
+            httpd_response:send_status(NewModData, ErrCode, ErrStr),
+            {stop, normal, State#state{response_sent = true,
+                                       mod = NewModData}};
 
     {http_chunk = Module, Function, Args} when ChunkState =/= undefined ->
         NewState = handle_chunk(Module, Function, Args, State),
@@ -383,7 +392,7 @@ await_socket_ownership_transfer(AcceptTimeout) ->
 	{socket_ownership_transfered, SocketType, Socket} ->
 	    {SocketType, Socket}
     after AcceptTimeout ->
-	    exit(accept_socket_timeout)
+            {error, accept_socket_timeout}
     end.
 
 
@@ -527,7 +536,7 @@ handle_body(#state{headers = Headers, body = Body,
 	_ -> 
 	    Length = list_to_integer(Headers#http_request_h.'content-length'),
 	    MaxChunk = max_client_body_chunk(ConfigDB),
-	    case ((Length =< MaxBodySize) or (MaxBodySize == nolimit)) of
+	    case Length =< MaxBodySize orelse MaxBodySize == nolimit of
 		true ->
 		    case httpd_request:body_chunk_first(Body, Length, MaxChunk) of 
                         %% This is the case that the we need more data to complete

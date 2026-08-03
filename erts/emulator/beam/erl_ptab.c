@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2012-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1463,6 +1465,78 @@ ptab_pix2el(ErtsPTab *ptab, int ix)
 	return NULL;
     else
 	return ptab_el;
+}
+
+#define ERTS_PTAB_REDS_MULTIPLIER 25
+
+Eterm
+erts_ptab_processes_next(Process *c_p, ErtsPTab *ptab, Uint first)
+{
+    Uint i;
+    int scanned;
+    Sint limit;
+    Uint need;
+    Eterm res;
+    Eterm* hp;
+    Eterm *hp_end;
+
+#ifdef DEBUG
+    int max_pids = 1;
+#else
+    int max_pids = MAX(ERTS_BIF_REDS_LEFT(c_p), 1);
+#endif
+
+    int num_pids = 0;
+    int n = max_pids * ERTS_PTAB_REDS_MULTIPLIER;
+    limit = MIN(ptab->r.o.max, first+n);
+
+    if (first == 0) {
+        /*
+         * Ensure no reorder of memory operations made before the first read in
+	 * the table with reads in the table.
+         */
+        ETHR_MEMBAR(ETHR_LoadLoad|ETHR_StoreLoad);
+    } else if (first == limit) {
+        /*
+         * Ensure no reorder of memory operations made after the last read in
+         * the table with reads in the table.
+         */
+        ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore);
+	return am_none;
+    } else if (first > limit) {
+        return THE_NON_VALUE;
+    }
+
+    need = 3 + max_pids * 2;
+    hp = HAlloc(c_p, need); /* we need two heap words for each id */
+    hp_end = hp + need;
+    res = make_list(hp);
+
+    for (i = first; i < limit && num_pids < max_pids; i++) {
+	ErtsPTabElementCommon *el = ptab_pix2el(ptab, i);
+	if (el) {
+	    hp[0] = el->id;
+	    hp[1] = make_list(hp+2);
+	    hp += 2;
+	    num_pids++;
+	}
+    }
+
+    if (num_pids == 0) {
+        res = NIL;
+    } else {
+        hp[-1] = NIL;
+    }
+
+    scanned = (i - first) / ERTS_PTAB_REDS_MULTIPLIER + 1;
+
+    res = TUPLE2(hp, make_small(i), res);
+    hp += 3;
+    HRelease(c_p, hp_end, hp);
+
+    BUMP_REDS(c_p, scanned);
+
+    return res;
 }
 
 Eterm

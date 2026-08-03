@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,35 +23,32 @@
 
 -module(phash2_properties).
 
--ifdef(PROPER).
-
--include_lib("proper/include/proper.hrl").
+-include_lib("common_test/include/ct_property_test.hrl").
 -export([prop_phash2_same_with_same_input/0,
          prop_phash2_same_with_same_long_input/0,
          prop_phash2_same_in_different_versions/1,
          prop_phash2_same_in_different_versions_with_long_input/1]).
--proptest([proper]).
 
 %%--------------------------------------------------------------------
 %% Properties --------------------------------------------------------
 %%--------------------------------------------------------------------
 
 prop_phash2_same_with_same_input() ->
-    ?FORALL(T, any(), erlang:phash2(T) =:= erlang:phash2(T)).
+    ?FORALL(T, ?CT_SAFE_ANY(), erlang:phash2(T) =:= erlang:phash2(T)).
 
 prop_phash2_same_with_same_long_input() ->
-    ?FORALL(T, any(),
+    ?FORALL(T, ?CT_SAFE_ANY(),
             begin
                 BigTerm = lists:duplicate(10000, T),
                 erlang:phash2(BigTerm) =:= erlang:phash2(BigTerm)
             end).
 
 prop_phash2_same_in_different_versions(DifferntVersionNode) ->
-    ?FORALL(T, any(),
+    ?FORALL(T, ?CT_SAFE_ANY(),
             erlang:phash2(T) =:= rpc:call(DifferntVersionNode,erlang,phash2,[T])).
 
 prop_phash2_same_in_different_versions_with_long_input(DifferntVersionNode) ->
-    ?FORALL(T, any(),
+    ?FORALL(T, ?CT_SAFE_ANY(),
             begin
                 BigTerm = lists:duplicate(10000, T),
                 RpcRes = rpc:call(DifferntVersionNode,erlang,phash2,[BigTerm]),
@@ -61,4 +60,3 @@ prop_phash2_same_in_different_versions_with_long_input(DifferntVersionNode) ->
 %% Generators  -------------------------------------------------------
 %%--------------------------------------------------------------------
 
--endif.

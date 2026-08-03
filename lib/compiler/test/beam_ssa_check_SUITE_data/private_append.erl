@@ -1,6 +1,8 @@
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -59,6 +61,7 @@
          transformable32/0,
          transformable32/1,
          transformable33/0,
+         transformable34/0,
 
 	 not_transformable1/2,
 	 not_transformable2/1,
@@ -75,6 +78,7 @@
          not_transformable13/1,
          not_transformable14/0,
          not_transformable15/2,
+         not_transformable16/1,
 
          id/1,
 
@@ -992,6 +996,18 @@ not_transformable15(V, _) when V ->
     << ok || catch <<(not_transformable15(id(ok), ok))/binary>> >>;
 not_transformable15(_, V) ->
     id(ok) bor V.
+
+%% Check that we don't use private_append when the same binary variable
+%% is used multiple times in a single bs_create_bin instruction.
+%% Using private_append would corrupt the binary after the first use,
+%% causing the second and third appends to read garbage data.
+not_transformable16(N) ->
+%ssa% (_) when post_ssa_opt ->
+%ssa% A = bs_init_writable(_),
+%ssa% B = call(_, _, A),
+%ssa% _ = bs_create_bin(append, _, B, ...).
+    Label = << <<$a>> || _ <- lists:seq(1, N) >>,
+    <<Label/binary, Label/binary, Label/binary>>.
 
 id(I) ->
     I.

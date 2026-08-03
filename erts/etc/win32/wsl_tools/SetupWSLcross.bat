@@ -1,73 +1,54 @@
+:: %CopyrightBegin%
+::
+:: SPDX-License-Identifier: Apache-2.0
+::
+:: Copyright Ericsson AB 2019-2026. All Rights Reserved.
+::
+:: Licensed under the Apache License, Version 2.0 (the "License");
+:: you may not use this file except in compliance with the License.
+:: You may obtain a copy of the License at
+::
+::     http://www.apache.org/licenses/LICENSE-2.0
+::
+:: Unless required by applicable law or agreed to in writing, software
+:: distributed under the License is distributed on an "AS IS" BASIS,
+:: WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+:: See the License for the specific language governing permissions and
+:: limitations under the License.
+::
+:: %CopyrightEnd%
+
 @echo off
 rem Setup MCL and echo the environment
 rem Usage: eval `cmd.exe /c SetupWSLcross.bat x64`
 
 IF "%~1"=="x86" GOTO search
 IF "%~1"=="x64" GOTO search
+IF "%~1"=="arm64" GOTO search
+IF "%~1"=="amd64_arm64" GOTO search
+IF "%~1"=="x64_arm64" GOTO search
 
 GOTO badarg
 
 :search
-IF EXIST "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat". (
-   call "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" %~1 > nul
-   goto continue
-)
 
-IF EXIST "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat". (
-   call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" %~1 > nul
-   goto continue
-)
+SET VSWHERE="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+FOR /F "delims=" %%P IN ('%VSWHERE% -latest -property installationPath') DO (
+   SET "VCVARSALL=%%P\VC\Auxiliary\Build\vcvarsall.bat"
+ )
 
-IF EXIST "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat". (
-   call "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat" %~1 > nul
-   goto continue
-)
-
-IF EXIST "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat". (
-   call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" %~1 > nul
-   goto continue
-)
-
-IF EXIST "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvarsall.bat". (
-   call "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" %~1 > nul
-   goto continue
-)
-
-IF EXIST "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat". (
-   call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" %~1 > nul
-   goto continue
-)
-
-IF EXIST "C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build\vcvarsall.bat". (
-   call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build\vcvarsall.bat" %~1 > nul
-   goto continue
-)
-
-IF EXIST "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat". (
-   call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" %~1 > nul
-   goto continue
-)
-
-IF EXIST "C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat". (
-   call "C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" %~1 > nul
-   goto continue
-)
-
-IF EXIST "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat". (
-   call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" %~1 > nul
-   goto continue
-)
-
-IF EXIST "C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat". (
-   call "C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat" %~1 > nul
-   goto continue
-)
-
-GOTO no_vcvars
+IF NOT DEFINED VCVARSALL GOTO no_vcvars
+IF NOT EXIST "%VCVARSALL%" GOTO no_vcvars
+call "%VCVARSALL%" %~1 > nul
 
 :continue
 
-FOR /F "delims==" %%F IN ('where cl.exe') DO SET _cl_exec_=%%F
+FOR /F "delims==" %%F IN ('where cl.exe') DO (
+   SET _cl_exec_=%%F
+   goto set_cl_path
+)
+
+:set_cl_path
 FOR %%F IN ("%_cl_exec_%") DO SET CL_PATH=%%~dpF
 
 FOR /F "delims==" %%F IN ('where rc.exe') DO SET _rc_exec_=%%F
@@ -87,7 +68,7 @@ wsl.exe echo "# Eval this file eval \`cmd.exe /c SetupWSLcross.bat\`"
 exit
 
 :badarg
-echo "Bad TARGET or not specified: %~1 expected x86 or x64"
+echo "Bad TARGET or not specified: %~1 expected x86, x64, arm64 or amd64_arm64(x64_arm64)"
 exit
 
 :no_vcvars

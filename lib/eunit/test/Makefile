@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2009-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2009-2026. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -85,5 +87,7 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DATA) eunit.spec $(EMAKEFILE) \
 		$(COVERFILE) $(ERL_FILES) \
 		"$(RELSYSDIR)"
+	(cd ..; tar cf - examples | (cd "$(RELSYSDIR)/"; tar xf -))
+	chmod -R ug+w "$(RELSYSDIR)/examples"
 
 release_docs_spec:

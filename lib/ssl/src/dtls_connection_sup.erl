@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -43,26 +45,36 @@ start_link() ->
 start_link_dist() ->
     supervisor:start_link({local, dtls_connection_sup_dist}, ?MODULE, []).
 
-start_child(Args) ->
-    supervisor:start_child(?MODULE, Args).
-        
-start_child_dist(Args) ->
-    supervisor:start_child(dtls_connection_sup_dist, Args).
-    
+start_child([_Role, _Host, _Port, _Socket, {SslOpts, _, _}, _User, _CbInfo] = Args) ->
+    start_child(?MODULE, SslOpts, Args).
+
+start_child_dist([_Role, _Host, _Port, _Socket, {SslOpts, _, _}, _User, _CbInfo] = Args) ->
+    start_child(dtls_connection_sup_dist, SslOpts, Args).
+
+start_child(Module, SslOpts, Args) ->
+    ReceiverSpawnOpts = maps:get(receiver_spawn_opts, SslOpts, []),
+    case supervisor:start_child(Module, [self(), ReceiverSpawnOpts]) of
+        {ok, Pid} ->
+            Pid ! {self(), options, Args},
+            {ok, Pid};
+        Error ->
+            Error
+    end.
+
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init(_) ->    
+init(_) ->
     SupFlags = #{strategy  => simple_one_for_one,
                  intensity =>   0,
                  period    => 3600
                 },
     ChildSpecs = [#{id       => undefined,
-                    start    => {ssl_gen_statem, start_link, []},
+                    start    => {ssl_gen_statem, dtls_start_link, []},
                     restart  => temporary,
                     shutdown => 4000,
                     modules  => [ssl_gen_statem, dtls_connection],
                     type     => worker
                    }
-                 ], 
+                 ],
     {ok, {SupFlags, ChildSpecs}}.

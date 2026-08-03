@@ -1,4 +1,11 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,13 +17,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%%
-%%     $Id: v3_codegen.erl,v 1.1 2008/12/17 09:53:42 mikpe Exp $
-%% Purpose : Code generator for Beam.
-
+%% %CopyrightEnd%
 %% The following assumptions have been made:
 %%
 %% 1. Matches, i.e. things with {match,M,Ret} wrappers, only return
@@ -35,7 +36,6 @@
 %%
 %% We try to use a consistent variable name scheme throughout.  The
 %% StackReg record is always called Bef,Int<n>,Aft.
-
 -module(v3_codegen).
 
 %% The main interface.
@@ -439,7 +439,7 @@ top_level_block(Keis, Bef, _MaxRegs, St0) when St0#cg.need_frame =:= false,
     %% This block need no stack frame.  However, we still need to turn the
     %% stack frame upside down.
     MaxY = length(Bef#sr.stk)-1,
-    Keis1 = flatmap(fun (Tuple) when tuple(Tuple) ->
+    Keis1 = flatmap(fun (Tuple) when is_tuple(Tuple) ->
 			    [turn_yregs(size(Tuple), Tuple, MaxY)];
 			(Other) ->
 			    [Other]
@@ -458,7 +458,7 @@ top_level_block(Keis, Bef, MaxRegs, St0) ->
 			    [{apply_last,Arity,FrameSz}];
 			(return) ->
 			    [{deallocate,FrameSz}, return];
-			(Tuple) when tuple(Tuple) ->
+                        (Tuple) when is_tuple(Tuple) ->
 			    [turn_yregs(size(Tuple), Tuple, MaxY)];
 			(Other) ->
 			    [Other]
@@ -474,7 +474,7 @@ top_level_block(Keis, Bef, MaxRegs, St0) ->
 turn_yregs(0, Tp, _) -> Tp;
 turn_yregs(El, Tp, MaxY) when element(1, element(El, Tp)) == yy ->
     turn_yregs(El-1, setelement(El, Tp, {y,MaxY-element(2, element(El, Tp))}), MaxY);
-turn_yregs(El, Tp, MaxY) when list(element(El, Tp)) ->
+turn_yregs(El, Tp, MaxY) when is_list(element(El, Tp)) ->
     New = map(fun ({yy,YY}) -> {y,MaxY-YY};
 		  (Other) -> Other end, element(El, Tp)),
     turn_yregs(El-1, setelement(El, Tp, New), MaxY);
@@ -820,7 +820,7 @@ build_call({remote,{atom,erlang},{atom,'!'}}, 2, St0) ->
     {[send],need_stack_frame(St0)};
 build_call({remote,{atom,Mod},{atom,Name}}, Arity, St0) ->
     {[{call_ext,Arity,{extfunc,Mod,Name,Arity}}],need_stack_frame(St0)};
-build_call(Name, Arity, St0) when atom(Name) ->
+build_call(Name, Arity, St0) when is_atom(Name) ->
     {Lbl,St1} = local_func_label(Name, Arity, need_stack_frame(St0)),
     {[{call,Arity,{f,Lbl}}],St1}.
 
@@ -1614,7 +1614,7 @@ put_stack(Val, [NotFree|Stk]) -> [NotFree|put_stack(Val, Stk)].
 put_stack_carefully(Val, Stk0) ->
     case catch put_stack_carefully1(Val, Stk0) of
 	error -> error;
-	Stk1 when list(Stk1) -> Stk1
+        Stk1 when is_list(Stk1) -> Stk1
     end.
 
 put_stack_carefully1(_, []) -> throw(error);

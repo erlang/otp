@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,18 +27,18 @@ Even experienced software developers often guess wrong about where the
 performance bottlenecks are in their programs. Therefore, profile your program
 to see where the performance bottlenecks are and concentrate on optimizing them.
 
-Erlang/OTP contains several tools to help finding bottlenecks:
+Erlang/OTP contains several tools to help find bottlenecks:
 
 - `m:tprof` is a tracing profiler that can measure call count, call time, or
   heap allocations per function call.
 - `m:fprof` provides the most detailed information about where the program time
   is spent, but it significantly slows down the program it profiles.
-- `m:dbg` is the generic erlang tracing frontend. By using the `timestamp` or
+- `m:dbg` is the generic Erlang tracing frontend. By using the `timestamp` or
   `cpu_timestamp` options it can be used to time how long function calls in a
   live system take.
 - `m:lcnt` is used to find contention points in the Erlang Run-Time System's
   internal locking mechanisms. It is useful when looking for bottlenecks in
-  interaction between process, port, ETS tables, and other entities that can be
+  interaction between processes, ports, ETS tables, and other entities that can be
   run in parallel.
 
 The tools are further described in [Tools](profiling.md#profiling_tools).
@@ -83,7 +85,7 @@ detailed breakdown of where memory is used.
 Processes, ports, and ETS tables can then be inspected using their respective
 information functions, that is,
 [`process_info/2`](`m:erlang#process_info_memory`),
-[`erlang:port_info/2 `](`m:erlang#port_info_memory`), and `ets:info/1`.
+[`erlang:port_info/2`](`m:erlang#port_info_memory`), and `ets:info/1`.
 
 Sometimes the system can enter a state where the reported memory from
 `erlang:memory(total)` is very different from the memory reported by
@@ -115,7 +117,7 @@ with more or less overhead.
   variety of information about the running system.
 - `m:etop` is a command line tool that can connect to remote nodes and display
   information similar to what the UNIX tool top shows.
-- `m:msacc` allows the user to get a view of what the Erlang Run-Time system is
+- `m:msacc` allows the user to get a view of what the Erlang Run-Time System is
   spending its time doing. Has a very low overhead, which makes it useful to run
   in heavily loaded systems to get some idea of where to start doing more
   granular profiling.
@@ -173,11 +175,15 @@ module basis. `cprof` has a low performance degradation effect (compared with
 
 ### Tool Summary
 
-| _Tool_  | _Results_                           | _Size of Result_ | _Effects on Program Execution Time_ | _Records Number of Calls_ | _Records Execution Time_ | _Records Called by_ | _Records Garbage Collection_ |
-| ------- | ----------------------------------- | ---------------- | ----------------------------------- | ------------------------- | ------------------------ | ------------------- | ---------------------------- |
-| `fprof` | Per process to screen/file          | Large            | Significant slowdown                | Yes                       | Total and own            | Yes                 | Yes                          |
-| `eprof` | Per process/function to screen/file | Medium           | Small slowdown                      | Yes                       | Only total               | No                  | No                           |
-| `cprof` | Per module to caller                | Small            | Small slowdown                      | Yes                       | No                       | No                  | No                           |
+|                                       | fprof                      | eprof                               | cprof                |
+| ------------------------------------- | -------------------------- | ----------------------------------- | -------------------- |
+| **Results**                           | Per process to screen/file | Per process/function to screen/file | Per module to caller |
+| **Size of Result**                    | Large                      | Medium                              | Small                |
+| **Effects on Program Execution Time** | Significant slowdown       | Small slowdown                      | Small slowdown       |
+| **Records Number of Calls**           | Yes                        | Yes                                 | Yes                  |
+| **Records Execution Time**            | Total and own              | Only total                          | No                   |
+| **Records Called by**                 | Yes                        | No                                  | No                   |
+| **Records Garbage Collection**        | Yes                        | No                                  | No                   |
 
 _Table: Tool Summary_
 
@@ -185,19 +191,19 @@ _Table: Tool Summary_
 
 `dbg` is a generic Erlang trace tool. By using the `timestamp` or
 `cpu_timestamp` options it can be used as a precision instrument to profile how
-long time a function call takes for a specific process. This can be very useful
+long a function call takes for a specific process. This can be very useful
 when trying to understand where time is spent in a heavily loaded system as it
 is possible to limit the scope of what is profiled to be very small. For more
 information, see the `m:dbg` manual page in Runtime Tools.
 
 ### lcnt
 
-`lcnt` is used to profile interactions in between entities that run in parallel.
-For example if you have a process that all other processes in the system needs
+`lcnt` is used to profile interactions between entities that run in parallel.
+For example if you have a process that all other processes in the system need
 to interact with (maybe it has some global configuration), then `lcnt` can be
 used to figure out if the interaction with that process is a problem.
 
-In the Erlang Run-time System entities are only run in parallel when there are
+In the Erlang Run-Time System entities are only run in parallel when there are
 multiple schedulers. Therefore `lcnt` will show more contention points (and thus
 be more useful) on systems using many schedulers on many cores.
 

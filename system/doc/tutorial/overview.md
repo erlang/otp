@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +23,7 @@ limitations under the License.
 
 ## Built-In Mechanisms
 
-Two interoperability mechanisms are built into the Erlang runtime system,
+Three interoperability mechanisms are built into the Erlang runtime system,
 _distributed Erlang_, _ports_, and _nifs_. A variation of ports is _linked-in drivers_.
 
 ### Distributed Erlang

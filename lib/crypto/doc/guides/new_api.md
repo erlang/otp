@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -147,7 +149,7 @@ the cipher text, but divided into three blocks just to show that it is possible
 to divide the plain text and cipher text differently for some ciphers:
 
 ```erlang
-	1> crypto:start().
+	1> application:start(crypto).
 	ok
 	2> Key = <<1:128>>.
 	<<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1>>

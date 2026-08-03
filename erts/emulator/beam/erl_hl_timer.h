@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
+ *
+ * SPDX-License-Identifier: Apache-2.0
  * 
- * Copyright Ericsson AB 2015-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2015-2025. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +24,7 @@
 #define ERL_HL_TIMER_H__
 
 typedef struct ErtsBifTimer_ ErtsBifTimers;
+typedef struct ErtsPausedBifTimers_ ErtsPausedBifTimers;
 typedef struct ErtsHLTimerService_ ErtsHLTimerService;
 
 #include "sys.h"
@@ -53,6 +56,11 @@ size_t erts_timer_type_size(ErtsAlcType_t type);
 int erts_set_proc_timer_term(Process *, Eterm);
 void erts_set_proc_timer_uword(Process *, UWord);
 void erts_cancel_proc_timer(Process *);
+void erts_pause_proc_timer(Process *);
+void erts_resume_paused_proc_timer(Process *);
+void erts_pause_bif_timers(Process *, ErtsProcLocks);
+void erts_resume_paused_bif_timers(Process *);
+void erts_destroy_paused_bif_timers(Process *c_p);
 void erts_set_port_timer(Port *, Sint64);
 void erts_cancel_port_timer(Port *);
 Sint64 erts_read_port_timer(Port *);

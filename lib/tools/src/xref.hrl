@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -38,6 +40,7 @@
 	  modules = dict:new(),         % dict-of(xref_mod())
 	  applications = dict:new(),    % dict-of(xref_app())
 	  releases = dict:new(),        % dict-of(xref_rel())
+          ignores = [],
 
 	  library_path = [],         % [string()] | code_path
 	  libraries = dict:new(),    % dict-of(xref_lib())
@@ -56,6 +59,7 @@
 	  builtins,          % whether calls to built-in functions are included
 	  info,              % number of exports, locals etc.
 	  no_unresolved = 0, % number of unresolved calls
+          attributes = [],   % module attributes
 	  data               
 	  %% Data has been read from the BEAM file, and is represented here
           %% as a list of sets.

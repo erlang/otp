@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,14 +20,19 @@
 %% %CopyrightEnd%
 %%
 -module(queue_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-compile([warnings_as_errors,
+          {nowarn_deprecated_function,[{queue,lait,1}]}]).
+
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2,
 	 init_per_group/2,end_per_group/2]).
 
--export([do/1, to_list/1, io_test/1, op_test/1, error/1, oops/1]).
+-export([do/1, to_list/1, io_test/1, op_test/1, error/1, oops/1,
+         doctests/1]).
 
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -37,10 +44,11 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
 
-all() -> 
-    [do, to_list, io_test, op_test, error, oops].
+all() ->
+    [do, to_list, io_test, op_test, error, oops,
+     doctests].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -197,8 +205,8 @@ io(Ops, Q, X) ->
 
 io([head | Tail], Q, [], X) ->
     true = queue:is_empty(Q),
-    {'EXIT',{empty,_}} = (catch {ok,queue:head(Q)}),
-    {'EXIT',{empty,_}} = (catch {ok,queue:tail(Q)}),
+    ?assertError(empty, queue:head(Q)),
+    ?assertError(empty, queue:tail(Q)),
     io(Tail, Q, [], X);
 io([head | Tail], Q, [H | T], X) ->
     H = queue:head(Q),
@@ -206,9 +214,9 @@ io([head | Tail], Q, [H | T], X) ->
     io(Tail, queue:tail(Q), T, X);
 io([daeh | Tail], Q, [], X) ->
     true = queue:is_empty(Q),
-    {'EXIT',{empty,_}} = (catch {ok,queue:daeh(Q)}),
-    {'EXIT',{empty,_}} = (catch {ok,queue:liat(Q)}),
-    {'EXIT',{empty,_}} = (catch {ok,queue:lait(Q)}),
+    ?assertError(empty, queue:daeh(Q)),
+    ?assertError(empty, queue:liat(Q)),
+    ?assertError(empty, queue:lait(Q)),
     io(Tail, Q, [], X);
 io([daeh | Tail], Q, QQ, X) ->
     H = queue:daeh(Q),
@@ -645,3 +653,6 @@ chk_tuple(QsA, QsB, T, _, _, N) when N > tuple_size(T) ->
 chk_tuple(QsA0, QsB0, T, X, Y, N) ->
     {QsA,QsB} = chk(QsA0, QsB0, element(N, T), element(N, X), element(N, Y)),
     chk_tuple(QsA, QsB, T, X, Y, N+1).
+
+doctests(_Config) ->
+    ct_doctest:module(queue, [{skipped_blocks, 0}]).

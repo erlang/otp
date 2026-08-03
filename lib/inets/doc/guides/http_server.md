@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -163,7 +165,7 @@ and cannot be the hostname that is allowed when putting in `bind_address`.
 `Inets` HTTP server provides two ways of creating dynamic web pages, each with
 its own advantages and disadvantages:
 
-- **_CGI scripts_** - Common Gateway Interface (CGI) scripts can be written in
+- **_CGI scripts (deprecated)_** - Common Gateway Interface (CGI) scripts can be written in
   any programming language. CGI scripts are standardized and supported by most
   web servers. The drawback with CGI scripts is that they are resource-intensive
   because of their design. CGI requires the server to fork a new OS process for
@@ -174,6 +176,11 @@ its own advantages and disadvantages:
   on the other hand, is `Inets` specific.
 
 ### CGI Version 1.1, RFC 3875
+
+> #### Note {: .info }
+> `mod_cgi` and `mod_actions` are deprecated since OTP 29 and will be removed in OTP 30.
+> Use `mod_esi` instead for dynamic page generation.
+>
 
 The module `mod_cgi` enables execution of
 [CGI scripts](http://www.ietf.org/rfc/rfc3875.txt) on the server. A file
@@ -311,7 +318,12 @@ of these modules is to be present in the module directive. Notice that there are
 some interaction dependencies to take into account, so the order of the modules
 cannot be random.
 
-### mod_action - Filetype/Method-Based Script Execution
+### mod_actions - Filetype/Method-Based Script Execution
+
+> #### Note {: .info }
+> `mod_cgi` and `mod_actions` are deprecated since OTP 29 and will be removed in OTP 30.
+> Use `mod_esi` instead for dynamic page generation.
+>
 
 This module runs CGI scripts whenever a file of a certain type or HTTP method
 (see [RFC 1945](http://tools.ietf.org/html/rfc1945)) is requested.
@@ -362,7 +374,7 @@ the schema and the tables are already created.
 ```erlang
 -module(mnesia_test).
 -export([start/0,load_data/0]).
--include_lib("mod_auth.hrl").
+-include_lib("inets/include/mod_auth.hrl").
 
 first_start() ->
     mnesia:create_schema([node()]),
@@ -400,6 +412,11 @@ can download the tables. Only the Dets and Mnesia storage methods allow writing
 of dynamic user data to disk. `plain` is a read only method.
 
 ### mod_cgi - CGI Scripts
+
+> #### Note {: .info }
+> `mod_cgi` and `mod_actions` are deprecated since OTP 29 and will be removed in OTP 30.
+> Use `mod_esi` instead for dynamic page generation.
+>
 
 This module handles invoking of CGI scripts.
 
@@ -480,7 +497,7 @@ Uses the following Erlang Web Server API interaction data:
 
 - `real_name` \- from `m:mod_alias`
 
-### mod_response_control - Requests with If\* Headers
+### mod_responsecontrol - Requests with If\* Headers
 
 This module controls that the conditions in the requests are fulfilled. For
 example, a request can specify that the answer only is of interest if the

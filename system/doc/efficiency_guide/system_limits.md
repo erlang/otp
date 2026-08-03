@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -30,7 +32,7 @@ see the [`+P`](`e:erts:erl_cmd.md#max_processes`) command-line flag
 in the [`erl(1)`](`e:erts:erl_cmd.md`) manual page in ERTS.
 
 - [](){: #unique_pids } **Unique Local Process Identifiers on a
-Runtime System Instance ** - On a 64 bit system at most `2⁶⁰ - 1`
+Runtime System Instance** - On a 64 bit system at most `2⁶⁰ - 1`
 unique process identifiers can be created, and on a 32 bit system at most `2²⁸ - 1`.
 
 - **Known nodes** - A remote node Y must be known to node X if there exists
@@ -45,7 +47,7 @@ limited by either the maximum number of simultaneously known remote nodes,
 [the maximum number of (Erlang) ports](#ports) available,
 or [the maximum number of sockets](#files_sockets) available.
 
-- **Characters in an atom** - 255.
+- [](){: #atom_name_limit } **Characters in an atom** - 255.
 
 - [](){: #atoms } **Atoms** - By default, the maximum number of atoms is 1,048,576.
 This limit can be raised or lowered using the `+t` option.
@@ -59,7 +61,7 @@ In the 64-bit run-time system, the maximum size is 2,305,843,009,213,693,951 byt
 If the limit is exceeded, bit syntax construction fails with a `system_limit`
 exception, while any attempt to match a binary that is too large
 fails. From Erlang/OTP 27, all other operations that create binaries (such as
-[`list_to_binary/1`](`list_to_binary/1`)) also enforces the same limit.
+[`list_to_binary/1`](`list_to_binary/1`)) also enforce the same limit.
 
 - **Total amount of data allocated by an Erlang node** - The Erlang runtime system
 can use the complete 32-bit (or 64-bit) address space, but the operating system
@@ -82,14 +84,17 @@ on a 32 bit system at most `2²⁸ - 1`.
 open files and sockets depends on [the maximum number of Erlang ports](#ports)
 available, as well as on operating system-specific settings and limits.
 
-- **Number of arguments to a function or fun** - 255.
+- **Number of arguments to a function** - 255.
+
+- **Number of arguments to a fun** - 255, minus one for each environment
+variable.
 
 - [](){: #unique_references } **Unique References on a Runtime System Instance** -
 Each scheduler thread has its own set of references, and all other threads have
-a shared set of references. Each set of references consist of `2⁶⁴ - 1`unique
+a shared set of references. Each set of references consists of `2⁶⁴ - 1` unique
 references. That is, the total amount of unique references that can be produced
 on a runtime system instance is `(NumSchedulers + 1) × (2⁶⁴ - 1)`. If a scheduler
-thread create a new reference each nano second, references will at earliest be
+thread creates a new reference each nanosecond, references will at earliest be
 reused after more than 584 years. That is, for the foreseeable future they are
 sufficiently unique.
 
@@ -104,11 +109,11 @@ sufficiently unique.
     the total amount of unique integers without the `monotonic`
     modifier is `(NumSchedulers + 1) × (2⁶⁴ - 1)`.
 
-  If a unique integer  is created each nano second, unique integers will be
+  If a unique integer is created each nanosecond, unique integers will be
   reused at earliest after more than 584 years. That is, for the foreseeable future
   they are sufficiently unique.
 
-- ** Timer resolution ** - On most systems, millisecond resolution. For more
+- **Timer resolution** - On most systems, millisecond resolution. For more
   information, see the [*Timers*](`e:erts:time_correction.md#timers`) section of
   the [*Time and Time Correction in Erlang*](`e:erts:time_correction.md`) ERTS
   User's guide.

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,15 +35,17 @@
          insert_on_edges/3,
          is_loop_header/1,
          linearize/1,
+         linearize_only/1,
          mapfold_blocks/4,
          mapfold_instrs/4,
          merge_blocks/2,
          normalize/1,
          no_side_effect/1,
+         can_be_guard_bif/3,
          predecessors/1,
          rename_vars/3,
          rpo/1,rpo/2,
-         split_blocks/4,
+         split_blocks_before/4,split_blocks_after/4,
          successors/1,successors/2,
          trim_unreachable/1,
          used/1,uses/2]).
@@ -56,6 +60,54 @@
               definition_map/0,predecessor_map/0]).
 
 -include("beam_ssa.hrl").
+
+-export_record([b_module, b_function, b_blk, b_set,
+                b_ret, b_br, b_switch,
+                b_var, b_literal, b_remote, b_local]).
+
+-record #b_module {anno=#{} :: beam_ssa:anno(),
+                   name :: module(),
+                   exports :: [{atom(),arity()}],
+                   attributes :: list(),
+                   body :: [beam_ssa:b_function()]}.
+-record #b_function {anno=#{} :: beam_ssa:anno(),
+                     args :: [beam_ssa:b_var()],
+                     bs :: #{beam_ssa:label()=>beam_ssa:b_blk()},
+                     cnt :: beam_ssa:label()}.
+
+-record #b_blk {anno=#{} :: beam_ssa:anno(),
+                is :: [beam_ssa:b_set()],
+                last :: beam_ssa:terminator()}.
+-record #b_set {anno=#{} :: beam_ssa:anno(),
+                dst=none :: 'none'|beam_ssa:b_var(),
+                op :: beam_ssa:op(),
+                args=[] :: [beam_ssa:argument()]}.
+
+%% Terminators.
+-record #b_ret {anno=#{} :: beam_ssa:anno(),
+                arg :: beam_ssa:value()}.
+
+-record #b_br {anno=#{},
+               bool :: beam_ssa:value(),
+               succ :: beam_ssa:label(),
+               fail :: beam_ssa:label()}.
+
+-record #b_switch {anno=#{} :: beam_ssa:anno(),
+                   arg :: beam_ssa:value(),
+                   fail :: beam_ssa:label(),
+                   list :: [{beam_ssa:b_literal(),beam_ssa:label()}]}.
+
+%% Values.
+-record #b_var {name :: beam_ssa:var_name()}.
+
+-record #b_literal {val :: beam_ssa:literal_value()}.
+
+-record #b_remote {mod   :: beam_ssa:value(),
+                   name  :: beam_ssa:value(),
+                   arity :: non_neg_integer()}.
+
+-record #b_local {name  :: beam_ssa:b_literal(),
+                  arity :: non_neg_integer()}.
 
 -type b_module()   :: #b_module{}.
 -type b_function() :: #b_function{}.
@@ -112,9 +164,11 @@
                    'build_stacktrace' |
                    'call' | 'catch_end' |
                    'executable_line' | 'extract' |
-                   'get_hd' | 'get_map_element' | 'get_tl' | 'get_tuple_element' |
+                   'get_hd' | 'get_map_element' | 'get_record_element' |
+                   'get_tl' | 'get_tuple_element' |
                    'has_map_field' |
-                   'is_nonempty_list' | 'is_tagged_tuple' |
+                   'is_record_accessible' | 'is_nonempty_list' |
+                   'is_any_native_record' | 'is_native_record' |
                    'kill_try_tag' |
                    'landingpad' |
                    'make_fun' | 'match_fail' | 'new_try_tag' |
@@ -132,14 +186,16 @@
                     '+' | '-' | '*' | '/'.
 
 %% Primops only used internally during code generation.
--type cg_prim_op() :: 'bs_checked_get' | 'bs_checked_skip' |
+-type cg_prim_op() :: 'bs_ensured_get' |
+                      'bs_ensured_match_string' |
+                      'bs_ensured_skip' |
                       'bs_get' | 'bs_get_position' | 'bs_match_string' |
                       'bs_restore' | 'bs_save' | 'bs_set_position' | 'bs_skip' |
                       'copy' | 'match_fail' | 'put_tuple_arity' |
-                      'set_tuple_element' | 'succeeded' |
+                      'succeeded' |
                       'update_record'.
 
--import(lists, [foldl/3,mapfoldl/3,member/2,reverse/1,sort/1]).
+-import(lists, [foldl/3,mapfoldl/3,reverse/1,reverse/2,sort/1]).
 
 -spec add_anno(Key, Value, Construct0) -> Construct when
       Key :: atom(),
@@ -217,9 +273,11 @@ no_side_effect(#b_set{op=Op}) ->
         get_hd -> true;
         get_tl -> true;
         get_map_element -> true;
+        get_record_element -> true;
         get_tuple_element -> true;
         has_map_field -> true;
         is_nonempty_list -> true;
+        is_record_accessible -> true;
         is_tagged_tuple -> true;
         make_fun -> true;
         match_fail -> true;
@@ -233,6 +291,21 @@ no_side_effect(#b_set{op=Op}) ->
         update_tuple -> true;
         _ -> false
     end.
+
+-spec can_be_guard_bif(atom(), atom(), integer()) -> boolean().
+
+can_be_guard_bif(M, F, A) ->
+    case {M,F,A} of
+        {erlang, binary_to_atom, 1} -> true;
+        {erlang, binary_to_atom, 2} -> true;
+        {erlang, binary_to_existing_atom, 1} -> true;
+        {erlang, binary_to_existing_atom, 2} -> true;
+        {erlang, list_to_atom, 1} -> true;
+        {erlang, list_to_existing_atom, 1} -> true;
+        {_,_,_} -> false
+    end.
+
+
 
 %% insert_on_edges(Insertions, BlockMap, Count) -> {BlockMap, Count}.
 %%  Inserts instructions on the specified normal edges. It will not work on
@@ -293,7 +366,7 @@ insert_on_edges_1([], Blocks, Count) ->
 
 insert_on_edges_reroute(#b_switch{fail=Fail0,list=List0}=Sw, Old, New) ->
     Fail = rename_label(Fail0, Old, New),
-    List = [{Value, rename_label(Dst, Old, New)} || {Value, Dst} <- List0],
+    List = [{Value, rename_label(Dst, Old, New)} || {Value, Dst} <:- List0],
     Sw#b_switch{fail=Fail,list=List};
 insert_on_edges_reroute(#b_br{succ=Succ0,fail=Fail0}=Br, Old, New) ->
     Succ = rename_label(Succ0, Old, New),
@@ -358,7 +431,7 @@ successors(#b_blk{last=Terminator}) ->
         #b_br{succ=Succ,fail=Fail} ->
             [Fail,Succ];
         #b_switch{fail=Fail,list=List} ->
-            [Fail|[L || {_,L} <- List]];
+            [Fail|[L || {_,L} <:- List]];
         #b_ret{} ->
             []
     end.
@@ -460,7 +533,7 @@ def(Ls, Blocks) when is_map(Blocks) ->
 
 def_unused(Ls, Unused, Blocks) when is_map(Blocks) ->
     Blks = [map_get(L, Blocks) || L <- Ls],
-    Preds = sets:from_list(Ls, [{version, 2}]),
+    Preds = sets:from_list(Ls),
     def_unused_1(Blks, Preds, [], Unused).
 
 %% dominators(Labels, BlockMap) -> {Dominators,Numbering}.
@@ -625,9 +698,25 @@ fold_blocks(Fun, Labels, Acc0, Blocks) when is_map(Blocks) ->
       Linear :: [{label(),b_blk()}].
 
 linearize(Blocks) when is_map(Blocks) ->
-    Seen = sets:new([{version, 2}]),
+    Seen = sets:new(),
     {Linear0,_} = linearize_1([0], Blocks, Seen, []),
-    Linear = fix_phis(Linear0, #{}),
+    Linear = fix_phis(Linear0, maps:from_list(Linear0)),
+    Linear.
+
+%% linearize_only(Blocks) -> [{BlockLabel,#b_blk{}}].
+%%  Linearize the intermediate representation of the code, discarding
+%%  unreachable blocks. Phi nodes will not be be adjusted, which makes
+%%  this function somewhat faster than linearize/1. However, it must
+%%  only be called when we KNOW that there is no need to adjust phi
+%%  nodes.
+
+-spec linearize_only(Blocks) -> Linear when
+      Blocks :: block_map(),
+      Linear :: [{label(),b_blk()}].
+
+linearize_only(Blocks) when is_map(Blocks) ->
+    Seen = sets:new(),
+    {Linear,_} = linearize_1([0], Blocks, Seen, []),
     Linear.
 
 -spec rpo(Blocks) -> [Label] when
@@ -643,7 +732,7 @@ rpo(Blocks) ->
       Labels :: [label()].
 
 rpo(From, Blocks) when is_map(Blocks) ->
-    Seen = sets:new([{version, 2}]),
+    Seen = sets:new(),
     {Ls,_} = rpo_1(From, Blocks, Seen, []),
     Ls.
 
@@ -667,7 +756,7 @@ between(From, To, Preds, Blocks) when is_map(Preds), is_map(Blocks) ->
     %% gathering once seen since we're only interested in the blocks in between.
     %% Uninteresting blocks can still be added if `From` doesn't dominate `To`,
     %% but that has no effect on the final result.
-    Filter = between_make_filter([To], Preds, sets:from_list([From], [{version, 2}])),
+    Filter = between_make_filter([To], Preds, sets:from_list([From])),
     {Paths, _} = between_rpo([From], Blocks, Filter, []),
 
     Paths.
@@ -678,7 +767,7 @@ between(From, To, Preds, Blocks) when is_map(Preds), is_map(Blocks) ->
 rename_vars(Rename, Labels, Blocks) when is_list(Rename) ->
     rename_vars(maps:from_list(Rename), Labels, Blocks);
 rename_vars(Rename, Labels, Blocks) when is_map(Rename), is_map(Blocks) ->
-    Preds = sets:from_list(Labels, [{version, 2}]),
+    Preds = sets:from_list(Labels),
     F = fun(#b_set{op=phi,args=Args0}=Set) ->
                 Args = rename_phi_vars(Args0, Preds, Rename),
                 normalize(Set#b_set{args=Args});
@@ -696,10 +785,12 @@ rename_vars(Rename, Labels, Blocks) when is_map(Rename), is_map(Blocks) ->
 
 %% split_blocks(Labels, Predicate, Blocks0, Count0) -> {Blocks,Count}.
 %%  Call Predicate(Instruction) for each instruction in the given
-%%  blocks. If Predicate/1 returns true, split the block
-%%  before this instruction.
+%%  blocks. If Predicate/1 returns true, split the block before this
+%%  instruction. Note that this function won't create a new empty
+%%  block if the predicate returns true for the first instruction in a
+%%  block.
 
--spec split_blocks(Labels, Pred, Blocks0, Count0) -> {Blocks,Count} when
+-spec split_blocks_before(Labels, Pred, Blocks0, Count0) -> {Blocks,Count} when
       Labels :: [label()],
       Pred :: fun((b_set()) -> boolean()),
       Blocks :: block_map(),
@@ -708,8 +799,25 @@ rename_vars(Rename, Labels, Blocks) when is_map(Rename), is_map(Blocks) ->
       Blocks :: block_map(),
       Count :: label().
 
-split_blocks(Ls, P, Blocks, Count) when is_map(Blocks) ->
-    split_blocks_1(Ls, P, Blocks, Count).
+split_blocks_before(Ls, P, Blocks, Count) when is_map(Blocks) ->
+    split_blocks_1(Ls, P, fun split_blocks_before_is/3, Blocks, Count).
+
+%% split_blocks_after(Labels, Predicate, Blocks0, Count0) -> {Blocks,Count}.
+%%  Call Predicate(Instruction) for each instruction in the given
+%%  blocks. If Predicate/1 returns true, split the block after this
+%%  instruction.
+
+-spec split_blocks_after(Labels, Pred, Blocks0, Count0) -> {Blocks,Count} when
+      Labels :: [label()],
+      Pred :: fun((b_set()) -> boolean()),
+      Blocks :: block_map(),
+      Count0 :: label(),
+      Blocks0 :: block_map(),
+      Blocks :: block_map(),
+      Count :: label().
+
+split_blocks_after(Ls, P, Blocks, Count) when is_map(Blocks) ->
+    split_blocks_1(Ls, P, fun split_blocks_after_is/3, Blocks, Count).
 
 -spec trim_unreachable(SSA0) -> SSA when
       SSA0 :: block_map() | [{label(),b_blk()}],
@@ -724,23 +832,16 @@ trim_unreachable(Blocks) when is_map(Blocks) ->
     %% Could perhaps be optimized if there is any need.
     maps:from_list(linearize(Blocks));
 trim_unreachable([_|_]=Blocks) ->
-    trim_unreachable_1(Blocks, sets:from_list([0], [{version, 2}])).
+    trim_unreachable_1(Blocks, sets:from_list([0])).
 
 -spec used(b_blk() | b_set() | terminator()) -> [b_var()].
 
 used(#b_blk{is=Is,last=Last}) ->
-    used_1([Last|Is], ordsets:new());
-used(#b_br{bool=#b_var{}=V}) ->
-    [V];
-used(#b_ret{arg=#b_var{}=V}) ->
-    [V];
-used(#b_set{op=phi,args=Args}) ->
-    ordsets:from_list([V || {#b_var{}=V,_} <- Args]);
-used(#b_set{args=Args}) ->
-    ordsets:from_list(used_args(Args));
-used(#b_switch{arg=#b_var{}=V}) ->
-    [V];
-used(_) -> [].
+    used_is(Is, used_terminator(Last));
+used(#b_set{}=I) ->
+    used_instr(I);
+used(Terminator) ->
+    used_terminator(Terminator).
 
 -spec definitions(Labels :: [label()], Blocks :: block_map()) -> definition_map().
 definitions(Labels, Blocks) ->
@@ -936,20 +1037,27 @@ fix_phis([{L,Blk0}|Bs], S) ->
               #b_blk{} ->
                   Blk0
           end,
-    Successors = successors(Blk),
-    [{L,Blk}|fix_phis(Bs, S#{L=>Successors})];
+    [{L,Blk}|fix_phis(Bs, S)];
 fix_phis([], _) -> [].
 
 fix_phis_1([#b_set{op=phi,args=Args0}=I|Is], L, S) ->
-    Args = [{Val,Pred} || {Val,Pred} <- Args0,
+    Args = [{Val,Pred} || {Val,Pred} <:- Args0,
                           is_successor(L, Pred, S)],
     [I#b_set{args=Args}|fix_phis_1(Is, L, S)];
 fix_phis_1(Is, _, _) -> Is.
 
 is_successor(L, Pred, S) ->
     case S of
-        #{Pred:=Successors} ->
-            member(L, Successors);
+        #{Pred := #b_blk{last=Last}} ->
+            case Last of
+                #b_br{bool=#b_literal{val=true},succ=L} ->
+                    true;
+                #b_br{bool=#b_literal{val=false},fail=L} ->
+                    true;
+                _ ->
+                    %% This predecessor no longer branches to block L.
+                    false
+            end;
         #{} ->
             %% This block has been removed.
             false
@@ -968,7 +1076,7 @@ trim_unreachable_1([{L,Blk0}|Bs], Seen0) ->
                     Seen = sets:add_element(Next, Seen0),
                     [{L,Blk}|trim_unreachable_1(Bs, Seen)];
                 [_|_]=Successors ->
-                    Seen = sets:union(Seen0, sets:from_list(Successors, [{version, 2}])),
+                    Seen = sets:union(Seen0, sets:from_list(Successors)),
                     [{L,Blk}|trim_unreachable_1(Bs, Seen)]
             end
     end;
@@ -980,7 +1088,7 @@ trim_phis(#b_blk{is=[#b_set{op=phi}|_]=Is0}=Blk, Seen) ->
 trim_phis(Blk, _Seen) -> Blk.
 
 trim_phis_1([#b_set{op=phi,args=Args0}=I|Is], Seen) ->
-    Args = [P || {_,L}=P <- Args0, sets:is_element(L, Seen)],
+    Args = [P || {_,L}=P <:- Args0, sets:is_element(L, Seen)],
     [I#b_set{args=Args}|trim_phis_1(Is, Seen)];
 trim_phis_1(Is, _Seen) -> Is.
 
@@ -1062,9 +1170,9 @@ flatmapfoldl(F, Accu0, [Hd|Tail]) ->
     {R++Rs,Accu2};
 flatmapfoldl(_, Accu, []) -> {[],Accu}.
 
-split_blocks_1([L|Ls], P, Blocks0, Count0) ->
+split_blocks_1([L|Ls], P, Split, Blocks0, Count0) ->
     #b_blk{is=Is0} = Blk = map_get(L, Blocks0),
-    case split_blocks_is(Is0, P, []) of
+    case Split(Is0, P, []) of
         {yes,Bef,Aft} ->
             NewLbl = Count0,
             Count = Count0 + 1,
@@ -1074,26 +1182,35 @@ split_blocks_1([L|Ls], P, Blocks0, Count0) ->
             Blocks1 = Blocks0#{L:=BefBlk,NewLbl=>NewBlk},
             Successors = successors(NewBlk),
             Blocks = update_phi_labels(Successors, L, NewLbl, Blocks1),
-            split_blocks_1([NewLbl|Ls], P, Blocks, Count);
+            split_blocks_1([NewLbl|Ls], P, Split, Blocks, Count);
         no ->
-            split_blocks_1(Ls, P, Blocks0, Count0)
+            split_blocks_1(Ls, P, Split, Blocks0, Count0)
     end;
-split_blocks_1([], _, Blocks, Count) ->
+split_blocks_1([], _, _, Blocks, Count) ->
     {Blocks,Count}.
 
-split_blocks_is([I|Is], P, []) ->
-    split_blocks_is(Is, P, [I]);
-split_blocks_is([I|Is], P, Acc) ->
+split_blocks_before_is([I|Is], P, []) ->
+    split_blocks_before_is(Is, P, [I]);
+split_blocks_before_is([I|Is], P, Acc) ->
     case P(I) of
         true ->
             {yes,reverse(Acc),[I|Is]};
         false ->
-            split_blocks_is(Is, P, [I|Acc])
+            split_blocks_before_is(Is, P, [I|Acc])
     end;
-split_blocks_is([], _, _) -> no.
+split_blocks_before_is([], _, _) -> no.
+
+split_blocks_after_is([I|Is], P, Acc) ->
+    case P(I) of
+        true ->
+            {yes,reverse(Acc, [I]),Is};
+        false ->
+            split_blocks_after_is(Is, P, [I|Acc])
+    end;
+split_blocks_after_is([], _, _) -> no.
 
 update_phi_labels_is([#b_set{op=phi,args=Args0}=I0|Is], Old, New) ->
-    Args = [{Arg,rename_label(Lbl, Old, New)} || {Arg,Lbl} <- Args0],
+    Args = [{Arg,rename_label(Lbl, Old, New)} || {Arg,Lbl} <:- Args0],
     I = I0#b_set{args=Args},
     [I|update_phi_labels_is(Is, Old, New)];
 update_phi_labels_is(Is, _, _) -> Is.
@@ -1103,16 +1220,30 @@ rename_label(Lbl, _Old, _New) -> Lbl.
 
 used_args([#b_var{}=V|As]) ->
     [V|used_args(As)];
+used_args([#b_remote{mod=#b_literal{},name=#b_literal{}}|As]) ->
+    used_args(As);
 used_args([#b_remote{mod=Mod,name=Name}|As]) ->
     used_args([Mod,Name|As]);
 used_args([_|As]) ->
     used_args(As);
 used_args([]) -> [].
 
-used_1([H|T], Used0) ->
-    Used = ordsets:union(used(H), Used0),
-    used_1(T, Used);
-used_1([], Used) -> Used.
+used_is([H|T], Used0) ->
+    Used = ordsets:union(used_instr(H), Used0),
+    used_is(T, Used);
+used_is([], Used) -> Used.
+
+used_instr(#b_set{op=phi,args=Args}) ->
+    ordsets:from_list([V || {#b_var{}=V,_} <- Args]);
+used_instr(#b_set{args=[#b_var{}]=Args}) ->
+    Args;
+used_instr(#b_set{args=Args}) ->
+    ordsets:from_list(used_args(Args)).
+
+used_terminator(#b_br{bool=#b_var{}=V}) -> [V];
+used_terminator(#b_ret{arg=#b_var{}=V}) -> [V];
+used_terminator(#b_switch{arg=#b_var{}=V}) -> [V];
+used_terminator(_) -> [].
 
 
 %%% Merge blocks.

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -169,7 +171,7 @@ erts_filter(Undef) ->
 
 deprecated_not_in_obsolete(Config) when is_list(Config) ->
     Server = proplists:get_value(xref_server, Config),
-    {ok,DeprecatedFunctions} = xref:q(Server, "DF"),
+    {ok,DeprecatedFunctions} = xref:q(Server, "DF + US"),
 
     L = foldl(fun({M,F,A}=MFA, Acc) ->
                       case otp_internal:obsolete(M, F, A) of
@@ -191,7 +193,7 @@ deprecated_not_in_obsolete(Config) when is_list(Config) ->
 
 obsolete_but_not_deprecated(Config) when is_list(Config) ->
     Server = proplists:get_value(xref_server, Config),
-    {ok,NotDeprecated} = xref:q(Server, "X - DF"),
+    {ok,NotDeprecated} = xref:q(Server, "(X - DF) - US"),
 
     L = foldl(fun({M,F,A}=MFA, Acc) ->
                       case otp_internal:obsolete(M, F, A) of
@@ -228,7 +230,7 @@ call_to_size_1(Config) when is_list(Config) ->
     not_recommended_calls(Config, Apps, {erlang,size,1}).
 
 call_to_now_0(Config) when is_list(Config) ->
-    %% Forbid the use of erlang:now/1 in all applications except et.
+    %% Forbid the use of erlang:now/0 in all applications except et.
     Apps = all_otp_applications(Config) -- [et],
     not_recommended_calls(Config, Apps, {erlang,now,0}).
 

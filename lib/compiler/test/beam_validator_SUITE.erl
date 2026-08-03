@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,12 +26,12 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 compiler_bug/1,stupid_but_valid/1,
 	 xrange/1,yrange/1,stack/1,call_last/1,merge_undefined/1,
-	 uninit/1,unsafe_catch/1,
+	 uninit/1,
 	 dead_code/1,
 	 overwrite_catchtag/1,overwrite_trytag/1,accessing_tags/1,bad_catch_try/1,
 	 cons_guard/1,
 	 freg_range/1,freg_uninit/1,
-	 bad_bin_match/1,bad_dsetel/1,
+	 bad_bin_match/1,
 	 state_after_fault_in_catch/1,no_exception_in_catch/1,
 	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1,
 	 map_field_lists/1,cover_bin_opt/1,
@@ -39,14 +41,15 @@
          branch_to_try_handler/1,call_without_stack/1,
          receive_marker/1,safe_instructions/1,
          missing_return_type/1,will_succeed/1,
-         bs_saved_position_units/1,parent_container/1,
+         parent_container/1,
          container_performance/1,
          infer_relops/1,
          not_equal_inference/1,bad_bin_unit/1,singleton_inference/1,
          inert_update_type/1,range_inference/1,
-         bif_inference/1]).
+         bif_inference/1,too_many_arguments/1,ensure_bits/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Config.
@@ -65,10 +68,10 @@ groups() ->
     [{p,test_lib:parallel(),
       [compiler_bug,stupid_but_valid,xrange,
        yrange,stack,call_last,merge_undefined,uninit,
-       unsafe_catch,dead_code,
+       dead_code,
        overwrite_catchtag,overwrite_trytag,accessing_tags,
        bad_catch_try,cons_guard,freg_range,freg_uninit,
-       bad_bin_match,bad_dsetel,
+       bad_bin_match,
        state_after_fault_in_catch,no_exception_in_catch,
        undef_label,illegal_instruction,failing_gc_guard_bif,
        map_field_lists,cover_bin_opt,val_dsetel,
@@ -78,11 +81,11 @@ groups() ->
        branch_to_try_handler,call_without_stack,
        receive_marker,safe_instructions,
        missing_return_type,will_succeed,
-       bs_saved_position_units,parent_container,
+       parent_container,
        container_performance,infer_relops,
        not_equal_inference,bad_bin_unit,singleton_inference,
        inert_update_type,range_inference,
-       bif_inference]}].
+       bif_inference,too_many_arguments,ensure_bits]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -209,15 +212,6 @@ uninit(Config) when is_list(Config) ->
        {unassigned,{y,0}}}}] = Errors,
     ok.
 
-unsafe_catch(Config) when is_list(Config) ->
-    Errors = do_val(unsafe_catch, Config),
-    [{{t,small,2},
-      {{bs_put_integer,{f,0},{integer,16},1,
-        {field_flags,[unsigned,big]},{y,0}},
-       21,
-       {unassigned,{y,0}}}}] = Errors,
-    ok.
-
 dead_code(Config) when is_list(Config) ->
     [] = do_val(dead_code, Config),
     ok.
@@ -306,14 +300,6 @@ bad_bin_match(Config) when is_list(Config) ->
 	do_val(bad_bin_match, Config),
     ok.
 
-bad_dsetel(Config) when is_list(Config) ->
-    Errors = do_val(bad_dsetel, Config),
-    [{{t,t,1},
-      {{set_tuple_element,{x,1},{x,0},1},
-       17,
-       illegal_context_for_set_tuple_element}}] = Errors,
-    ok.
-
 state_after_fault_in_catch(Config) when is_list(Config) ->
     Errors = do_val(state_after_fault_in_catch, Config),
     [{{state_after_fault_in_catch,badmatch,1},
@@ -336,6 +322,7 @@ undef_label(Config) when is_list(Config) ->
     M = {undef_label,
 	 [{t,1}],
 	 [],
+         #{},
 	 [{function,t,1,2,
 	   [{label,1},
 	    {func_info,{atom,undef_label},{atom,t},1},
@@ -351,13 +338,14 @@ undef_label(Config) when is_list(Config) ->
 	 5},
     Errors = beam_val(M),
     [{{undef_label,t,1},{undef_labels,[42]}},
-     {{undef_label,x,1},no_entry_label}] = Errors,
+     {{undef_label,x,1},invalid_function_header}] = Errors,
     ok.
 
 illegal_instruction(Config) when is_list(Config) ->
     M = {illegal_instruction,
 	 [{t,1},{x,1},{y,0}],
 	 [],
+         #{},
 	 [{function,t,1,2,
 	   [{label,1},
 	    {func_info,{atom,illegal_instruction},{atom,t},1},
@@ -797,84 +785,6 @@ mrt_1(Bool) ->
     true = is_boolean(Bool),
     Bool.
 
-%% ERL-1340: the unit of previously saved match positions wasn't updated.
-bs_saved_position_units(Config) when is_list(Config) ->
-    M = {bs_saved_position_units,
-         [{no_errors,1},{some_errors,1}],
-         [],
-         [{function,ctx_test_8,1,2,
-              [{label,1},
-               {func_info,{atom,bs_saved_position_units},{atom,ctx_test_8},1},
-               {label,2},
-               {'%',
-                   {var_info,
-                       {x,0},
-                       [{type,{t_bs_context,8}},accepts_match_context]}},
-               {move,nil,{x,0}},
-               return]},
-          {function,no_errors,1,4,
-              [{label,3},
-               {func_info,{atom,bs_saved_position_units},{atom,no_errors},1},
-               {label,4},
-               {'%',{var_info,{x,0},[accepts_match_context]}},
-               {test,bs_start_match3,{f,3},1,[{x,0}],{x,1}},
-               {bs_get_position,{x,1},{x,0},2},
-               {test,bs_test_unit,{f,5},[{x,1},8]},
-               {bs_set_position,{x,1},{x,0}},
-               {test,bs_get_binary2,
-                   {f,5},
-                   2,
-                   [{x,1},{atom,all},1,{field_flags,[unsigned,big]}],
-                   {x,2}},
-               {bs_set_position,{x,1},{x,0}},
-               {bs_get_tail,{x,1},{x,0},3},
-               {test,is_eq_exact,{f,5},[{x,2},{x,0}]},
-               {move,{x,1},{x,0}},
-               %% Context unit should be 8 here.
-               {call_only,1,{f,2}},
-               {label,5},
-               {bs_get_tail,{x,1},{x,0},2},
-               {jump,{f,3}}]},
-          {function,some_errors,1,7,
-              [{label,6},
-               {func_info,{atom,bs_saved_position_units},{atom,some_errors},1},
-               {label,7},
-               {'%',{var_info,{x,0},[accepts_match_context]}},
-               {test,bs_start_match3,{f,6},1,[{x,0}],{x,1}},
-               {bs_get_position,{x,1},{x,0},2},
-               {test,bs_get_binary2,
-                   {f,8},
-                   2,
-                   [{x,1},{atom,all},4,{field_flags,[unsigned,big]}],
-                   {x,2}},
-               {bs_set_position,{x,1},{x,0}},
-               {test,bs_test_unit,{f,9},[{x,1},3]},
-               {bs_set_position,{x,1},{x,0}},
-               {bs_get_tail,{x,1},{x,0},3},
-               {test,is_eq_exact,{f,8},[{x,2},{x,0}]},
-               {move,{x,1},{x,0}},
-               %% Context unit should be 12 here, failing validation.
-               {call_only,1,{f,2}},
-               {label,8},
-               {bs_get_tail,{x,1},{x,0},2},
-               {jump,{f,6}},
-               {label,9},
-               %% Context unit should be 4 here.
-               {move,nil,{x,0}},
-               return]}],
-         10},
-
-    Errors = beam_val(M),
-
-    [{{bs_saved_position_units,some_errors,1},
-      {{call_only,1,{f,2}},
-       14,
-       {bad_arg_type,{x,0},
-                     {t_bs_context,12},
-                     {t_bs_context,8}}}}] = Errors,
-
-    ok.
-
 %%%-------------------------------------------------------------------------
 
 transform_remove(Remove, Module) ->
@@ -883,9 +793,9 @@ transform_remove(Remove, Module) ->
 transform_i(Transform, Module) ->
     transform_is(fun(Is) -> [Transform(I) || I <- Is] end, Module).
 
-transform_is(Transform, {Mod,Exp,Imp,Fs0,Lc}) ->
+transform_is(Transform, {Mod,Exp,Attr,Anno,Fs0,Lc}) ->
     Fs = [transform_is_1(Transform, F) || F <- Fs0],
-    {Mod,Exp,Imp,Fs,Lc}.
+    {Mod,Exp,Attr,Anno,Fs,Lc}.
 
 transform_is_1(Transform, {function,N,A,E,Is0}) ->
     Is = Transform(Is0),
@@ -918,7 +828,7 @@ beam_val(M) ->
 
 val_dsetel(_Config) ->
     self() ! 13,
-    {'EXIT',{{try_clause,participating},_}} = (catch night(0)),
+    ?assertError({try_clause,participating}, night(0)),
     ok.
 
 night(Turned) ->
@@ -1060,14 +970,14 @@ infer_relops_false(_, _) -> ge.
 
 %% OTP-18365: A brainfart in inference for '=/=' inverted the results.
 not_equal_inference(_Config) ->
-    {'EXIT', {function_clause, _}} = (catch not_equal_inference_1(id([0]))),
+    ?assertError(function_clause, not_equal_inference_1(id([0]))),
     ok.
 
 not_equal_inference_1(X) when (X /= []) /= is_port(0 div 0) ->
     [X || _ <- []].
 
 bad_bin_unit(_Config) ->
-    {'EXIT', {function_clause,_}} = catch bad_bin_unit_1(<<1:1>>),
+    ?assertError(function_clause, bad_bin_unit_1(<<1:1>>)),
     [] = bad_bin_unit_2(),
     ok.
 
@@ -1168,6 +1078,100 @@ bif_inference_is_function(A, A)  when A orelse ok; is_function(A) ->
     ok;
 bif_inference_is_function(_, _) ->
     error.
+
+%% GH-9113: We didn't reject funs, comprehensions, and the likes which exceeded
+%% the argument limit.
+too_many_arguments(_Config) ->
+    M = {too_many_arguments,
+         [{t,256},{t,0}],
+         [],
+         #{},
+         [{function,t,256,2,
+           [{label,1},
+            {func_info,{atom,too_many_arguments},{atom,t},256},
+            {label,2},
+            return]},
+          {function,t,0,4,
+           [{label,3},
+            %% Mismatching arity.
+            {func_info,{atom,too_many_arguments},{atom,t},5},
+            {label,4},
+            return]}],
+         5},
+    Errors = beam_val(M),
+    [{{too_many_arguments,t,256},too_many_arguments},
+     {{too_many_arguments,t,0},invalid_function_header}] = Errors,
+    ok.
+
+%% GH-9304: Validator did not check that operations were preceded by
+%% ensure_at_least / ensure_exactly.
+ensure_bits(_Config) ->
+    M = {ensure,
+         [{t,1}],
+         [],
+         #{},
+         [{function,short_eal,1,2,
+           [{label,1},
+            {func_info,{atom,short_eal},{atom,short_eal},1},
+            {label,2},
+            {test,bs_start_match3,{f,3},1,[{x,0}],{x,0}},
+            {bs_match,{f,3},{x,0},
+             {commands,[{ensure_at_least,15,1}, %% One bit short.
+                        {'=:=',nil,8,0},
+                        {'=:=',nil,8,0}]}},
+            {move,{atom,yay},{x,0}},
+            return,
+            {label,3},
+            {move,{atom,boo},{x,0}},
+            return]},
+          {function,short_ex,1,6,
+           [{label,5},
+            {func_info,{atom,short_ex},{atom,short_ex},1},
+            {label,6},
+            {test,bs_start_match3,{f,7},1,[{x,0}],{x,0}},
+            {bs_match,{f,7},{x,0},
+             {commands,[{ensure_exactly,7},{'=:=',nil,8,0}]}},
+            {move,{atom,yay},{x,0}},
+            return,
+            {label,7},
+            {move,{atom,boo},{x,0}},
+            return]},
+         {function,missing_ensure,1,9,
+           [{label,8},
+            {func_info,{atom,missing_ensure},{atom,missing_ensure},1},
+            {label,9},
+            {test,bs_start_match3,{f,10},1,[{x,0}],{x,0}},
+            {bs_match,{f,10},{x,0},
+             {commands,[{'=:=',nil,8,0}]}},
+            {move,{atom,yay},{x,0}},
+            return,
+            {label,10},
+            {move,{atom,boo},{x,0}},
+            return]}],
+         11},
+    Errors = beam_val(M),
+    [{{short_eal,short_eal,1},
+      {{bs_match,
+           {f,3},
+           {x,0},
+           {commands,
+               [{ensure_at_least,15,1},
+                {'=:=',nil,8,0},
+                {'=:=',nil,8,0}]}},
+       5,
+       {insufficient_bits,{'=:=',nil,8,0},8,7}}},
+     {{short_ex,short_ex,1},
+      {{bs_match,
+           {f,7},
+           {x,0},
+           {commands,[{ensure_exactly,7},{'=:=',nil,8,0}]}},
+       5,
+       {insufficient_bits,{'=:=',nil,8,0},8,7}}},
+     {{missing_ensure,missing_ensure,1},
+      {{bs_match,{f,10},{x,0},{commands,[{'=:=',nil,8,0}]}},
+       5,
+       {insufficient_bits,{'=:=',nil,8,0},8,0}}}] = Errors,
+    ok.
 
 id(I) ->
     I.

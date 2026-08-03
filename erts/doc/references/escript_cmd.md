@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -276,4 +278,4 @@ symbolic links from a `bin` directory in the path.
 >
 > The configuration of the Erlang emulator invoked by `escript` can also be
 > controlled using the
-> [environment variables understood by `erl`](erl_cmd.md#environment_variables).
+> [environment variables understood by `erl`](erl_cmd.md#environment-variables).

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,6 +45,8 @@ Possible configuration variables include:
 > `Config` property list, is deprecated. Please use `proplists:get_value/2-3`
 > instead.
 """.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 -include("ct.hrl").
 -include("ct_util.hrl").
@@ -1053,6 +1057,18 @@ suite result page.
 
 If called several times, only the last comment is printed. The test case return
 value `{comment,Comment}` overwrites the string set by this function.
+
+> #### Warning {: .warning }
+>
+> This function (and `ct:comment/2`) should only be called from the process running
+> the common_test functions, typically the test case process or its descendant.
+> Be aware that if you spawn a new process in one common_test function (e.g. `init_per_suite`)
+> and then execute `ct:comment/1-2` in that new process while the test execution has moved
+> to another common_test function (e.g. `init_per_testcase` or test case function) the comment
+> might not be printed in the correct place in HTML logs or at all.
+>
+> Calling this function from a process that is neither a common_test process, nor its
+> descendant does not result in the comment being printed anywhere.
 """.
 -spec comment(Comment) -> ok
       when Comment :: term().
@@ -1447,11 +1463,10 @@ the new timetrap.
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec timetrap(Time) -> infinity | pid()
-      when Time :: {hours, Hours} | {minutes, Mins} | {seconds, Secs} | Millisecs | infinity | Func,
+      when Time :: {hours, Hours} | {minutes, Mins} | {seconds, Secs} | timeout() | Func,
            Hours :: integer(),
            Mins :: integer(),
            Secs :: integer(),
-           Millisecs :: integer(),
            Func :: {M, F, A} | function(),
            M :: atom(),
            F :: atom(),
@@ -1469,7 +1484,7 @@ Note the `Time` is not the scaled result.
 """.
 -doc(#{since => <<"OTP R15B">>}).
 -spec get_timetrap_info() -> {Time, {Scaling,ScaleVal}}
-      when Time :: integer() | infinity,
+      when Time :: timeout(),
            Scaling :: boolean(),
            ScaleVal :: integer().
 get_timetrap_info() ->
@@ -1484,11 +1499,11 @@ up the time automatically if `scale_timetraps` is set to `true` (default is
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec sleep(Time) -> ok
-      when Time :: {hours, Hours} | {minutes, Mins} | {seconds, Secs} | Millisecs | infinity,
+      when Time :: {hours, Hours} | {minutes, Mins} | {seconds, Secs} | Millisecs,
            Hours :: integer(),
            Mins :: integer(),
            Secs :: integer(),
-           Millisecs :: integer() | float().
+           Millisecs :: timeout() | float().
 sleep({hours,Hs}) ->
     sleep(trunc(Hs * 1000 * 60 * 60));
 sleep({minutes,Ms}) ->

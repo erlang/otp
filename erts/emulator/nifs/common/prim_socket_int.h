@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2022-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2022-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,28 +33,6 @@
 
 #include "socket_int.h"
 #include "socket_dbg.h"
-
-
-/* ********************************************************************* *
- *                              SOCKET and HANDLE                        *
- * ********************************************************************* *
- */
-
-#if defined(__WIN32__)
-
-#define INVALID_EVENT NULL
-#define SOCKET_FORMAT_STR "%lld"
-
-#else
-
-#define INVALID_HANDLE (-1)
-typedef int HANDLE;
-#define INVALID_SOCKET (-1)
-typedef int SOCKET; /* A subset of HANDLE */
-#define INVALID_EVENT INVALID_HANDLE
-#define SOCKET_FORMAT_STR "%d"
-
-#endif
 
 
 /* ********************************************************************* *
@@ -124,6 +104,11 @@ typedef int SOCKET; /* A subset of HANDLE */
  *                                 Misc                                  *
  * ********************************************************************* *
  */
+
+#define ESOCK_IDENTITY(c)    c
+#define ESOCK_STRINGIFY_1(b) ESOCK_IDENTITY(#b)
+#define ESOCK_STRINGIFY(a)   ESOCK_STRINGIFY_1(a)
+
 
 #define ESOCK_GET_RESOURCE(ENV, REF, RES) \
     enif_get_resource((ENV), (REF), esocks, (RES))
@@ -338,6 +323,16 @@ extern const int       esock_msg_flags_length;
 extern const ESockFlag esock_ioctl_flags[];
 extern const int       esock_ioctl_flags_length;
 
+#if defined(HAVE_SCTP)
+typedef sctp_assoc_t ESockAssocId;
+#else
+/* We need a "dummy" here since the type is used in mandatory
+ * callback functions (functions we will never use, if we do
+ * not have SCTP). For instance; on Windows.
+ */
+typedef int ESockAssocId;
+#endif
+
 
 /* ********************************************************************* *
  *                     The socket nif global info                        *
@@ -474,11 +469,9 @@ typedef struct {
      */
     ESockRequestor     currentReader;
     ESockRequestor*    currentReaderP; // NULL or &currentReader
+    ErlNifBinary       buf;
 #endif
     ESockRequestQueue  readersQ;
-
-    ErlNifBinary       readBuf;
-    ssize_t            readResult;
 
     ESockCounter       readPkgCnt;
     ESockCounter       readPkgMax;
@@ -543,6 +536,7 @@ typedef struct {
     SOCKET             sock;
     SOCKET             origFD; // A 'socket' created from this FD
     BOOLEAN_T          closeOnClose; // Have we dup'ed or not
+    BOOLEAN_T          selectRead; // Try to have read select active
     /* +++ The dbg flag for SSDBG +++ */
     BOOLEAN_T          dbg;
     BOOLEAN_T          useReg;
@@ -587,6 +581,11 @@ extern BOOLEAN_T esock_getopt_int(SOCKET sock,
                                   int    level,
                                   int    opt,
                                   int*   valP);
+
+extern BOOLEAN_T esock_getopt_uint(SOCKET        sock,
+                                   int           level,
+                                   int           opt,
+                                   unsigned int *valP);
 
 
 /* ** Socket Registry functions *** */
@@ -634,6 +633,17 @@ extern ERL_NIF_TERM esock_make_monitor_term(ErlNifEnv*          env,
 extern BOOLEAN_T esock_monitor_eq(const ESockMonitor* monP,
                                   const ErlNifMonitor* mon);
 
+/* SCTP Functions */
+#if defined(HAVE_SCTP)
+
+#if defined(SCTP_SNDRCV)
+extern BOOLEAN_T esock_cmsg_encode_sctp_sndrcv(ErlNifEnv     *env,
+                                               unsigned char *data,
+                                               size_t         dataLen,
+                                               ERL_NIF_TERM  *eResult);
+#endif
+
+#endif
 
 /* *** Counter functions *** */
 extern BOOLEAN_T esock_cnt_inc(ESockCounter* cnt, ESockCounter inc);

@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +22,333 @@ limitations under the License.
 # Crypto Release Notes
 
 This document describes the changes made to the Crypto application.
+
+## Crypto 5.9.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed crash in `crypto:macN/5` when supplied `MacLength` was greater than length of what the underlying hash returned.
+
+  Own Id: OTP-20239 Aux Id: [PR-11239]
+
+- Fixed segfault in `crypto:aead_cipher_init_nif` when argument validation fails.
+
+  Own Id: OTP-20241 Aux Id: [PR-11330]
+
+- Fix cipher key buffer overread for `chacha20_poly1305`.
+
+  Own Id: OTP-20244 Aux Id: [PR-11337]
+
+[PR-11239]: https://github.com/erlang/otp/pull/11239
+[PR-11330]: https://github.com/erlang/otp/pull/11330
+[PR-11337]: https://github.com/erlang/otp/pull/11337
+
+## Crypto 5.9.1
+
+### Fixed Bugs and Malfunctions
+
+- `crypto:compute_key/4` for `eddh` and [`crypto:generate_key/2,3`](`crypto:generate_key/3`) for `eddh`/`eddsa` now raise an `error:{notsup, Info, Description}` exception instead of returning the atom `notsup` when the underlying cryptolib lacks support.
+
+  Own Id: OTP-20215 Aux Id: [PR-11302]
+
+[PR-11302]: https://github.com/erlang/otp/pull/11302
+
+## Crypto 5.9
+
+### Fixed Bugs and Malfunctions
+
+- Fixed `crypto:hash_equals/2` and FIPS when crypto is statically linked to the beam (with `--enable-static-nifs` and `--disable-dynamic-ssl-lib`).
+
+  Own Id: OTP-20025 Aux Id: [PR-10817]
+
+[PR-10817]: https://github.com/erlang/otp/pull/10817
+
+### Improvements and New Features
+
+- The `rand:bytes/1` and `rand:bytes_s/2` functions have been optimized by implementing a new internal callback function that `crypto:rand_seed_alg/1` and `crypto:alg_seed_alg_s/1` have been updated to use.
+  
+  A new algorithm `crypto_prng1`, which also takes advantage of this new internal callback, has been added to `crypto:rand_seed_alg/2` and `crypto:rand_seed_alg_s/2`.  It is much faster then the existing `crypto_aes`, in particular for generating bytes.
+
+  Own Id: OTP-19882 Aux Id: OTP-19827, [PR-10453]
+
+- In interactive mode, application `crypto` is automatically loaded when the `m:crypto` module is loaded. This will ensure that the correct value of configuration parameter `fips_mode` is used to initialize OpenSSL if module `crypto` is called/loaded before the application `crypto` has been loaded. In embedded mode, module `crypto` will fail to load if the application has not been loaded.
+
+  Own Id: OTP-20035 Aux Id: [PR-10830]
+
+- OpenSSL engine support has been removed on Windows.
+
+  Own Id: OTP-20036 Aux Id: [PR-10836]
+
+- Added support for `-unsafe` attributes, which is used to mark functions as unsafe to use. 
+  
+  This is similar to but separate from deprecation, and the compiler will by default now generate warnings for calls to functions in Erlang/OTP that are known to be always unsafe.
+  
+  Furthermore, `m:xref` can now be used to find calls to functions in another application that lack a `-doc` attribute (`undocumented_function_calls`), calls to functions in another application marked `-doc false.` (`private_function_calls`), as well as calls to unsafe functions (`unsafe_function_calls`).
+
+  Own Id: OTP-20066 Aux Id: [PR-10839]
+
+- The runtime system now supports generating encrypted crash dumps. See the description of `--enable-encrypted-crash-dumps` in [Building and Installing Erlang/OTP](https://www.erlang.org/doc/system/install.html).
+
+  Own Id: OTP-20085 Aux Id: [PR-10993]
+
+[PR-10453]: https://github.com/erlang/otp/pull/10453
+[PR-10830]: https://github.com/erlang/otp/pull/10830
+[PR-10836]: https://github.com/erlang/otp/pull/10836
+[PR-10839]: https://github.com/erlang/otp/pull/10839
+[PR-10993]: https://github.com/erlang/otp/pull/10993
+
+## Crypto 5.8.3.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed crash in `crypto:macN/5` when supplied `MacLength` was greater than length of what the underlying hash returned.
+
+  Own Id: OTP-20239 Aux Id: [PR-11239]
+
+- Fixed segfault in `crypto:aead_cipher_init_nif` when argument validation fails.
+
+  Own Id: OTP-20241 Aux Id: [PR-11330]
+
+- Fix cipher key buffer overread for `chacha20_poly1305`.
+
+  Own Id: OTP-20244 Aux Id: [PR-11337]
+
+[PR-11239]: https://github.com/erlang/otp/pull/11239
+[PR-11330]: https://github.com/erlang/otp/pull/11330
+[PR-11337]: https://github.com/erlang/otp/pull/11337
+
+## Crypto 5.8.3.1
+
+### Fixed Bugs and Malfunctions
+
+- `crypto:compute_key/4` for `eddh` and [`crypto:generate_key/2,3`](`crypto:generate_key/3`) for `eddh`/`eddsa` now raise an `error:{notsup, Info, Description}` exception instead of returning the atom `notsup` when the underlying cryptolib lacks support.
+
+  Own Id: OTP-20215 Aux Id: [PR-11302]
+
+[PR-11302]: https://github.com/erlang/otp/pull/11302
+
+## Crypto 5.8.3
+
+### Fixed Bugs and Malfunctions
+
+- Fix memory leak in `crypo:engine_load` if called with incorrect commands.
+
+  Own Id: OTP-20014 Aux Id: [PR-10798]
+
+[PR-10798]: https://github.com/erlang/otp/pull/10798
+
+## Crypto 5.8.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed `crypto:crypto_one_time_aead/4`, which could crash the runtime system if invoked in parallel with the same state.
+
+  Own Id: OTP-19973 Aux Id: [GH-10652], [PR-10668]
+
+[GH-10652]: https://github.com/erlang/otp/issues/10652
+[PR-10668]: https://github.com/erlang/otp/pull/10668
+
+## Crypto 5.8.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed static linking of OpenSSL 3.5+ on Windows.
+
+  Own Id: OTP-19993 Aux Id: [PR-10732]
+
+[PR-10732]: https://github.com/erlang/otp/pull/10732
+
+## Crypto 5.8
+
+### Fixed Bugs and Malfunctions
+
+- The deprecated function `crypto:rand_uniform/2` has gotten a new replacement function `crypto:strong_rand_range/1`.  When implementing this the documentation of `crypto` and `rand` has been rewritten a bit and improved.
+
+  Own Id: OTP-19841 Aux Id: [PR-10344]
+
+[PR-10344]: https://github.com/erlang/otp/pull/10344
+
+### Improvements and New Features
+
+- You can now build OTP with OpenSSL 3.5 or later on windows.
+
+  Own Id: OTP-19848
+
+- Added SLH-DSA algorithms for sign/verify. Twelve variants supported in total; all combinations of SHAKE or SHA2 hashing, with 128, 192 or 256 bits, and fast(`f`) or small(`s`).
+
+  Own Id: OTP-19856 Aux Id: [PR-10268]
+
+- Made `crypto:generate_key(dh, [P, G, MaxPrivateKeyBitLength])` accept values of `MaxPrivateKeyBitLength` to be equal or larger than the bit length of `P`. If so, the maximum bit length is adjusted down to `P`'s bit length minus one.
+
+  Own Id: OTP-19872 Aux Id: [PR-10394]
+
+[PR-10268]: https://github.com/erlang/otp/pull/10268
+[PR-10394]: https://github.com/erlang/otp/pull/10394
+
+## Crypto 5.7
+
+### Fixed Bugs and Malfunctions
+
+- NIFs and linked-in drivers are now loadable when running in an Erlang source tree on Windows.
+
+  Own Id: OTP-19686 Aux Id: [PR-9969]
+
+- Fixed bug seen to cause beam crash when doing `init:restart()` with `crypto` statically linked to OpenSSL (`--disable-dynamic-ssl-lib`). Bug exists since OTP 28.0.
+
+  Own Id: OTP-19721 Aux Id: [GH-10061], [PR-10076]
+
+- Fixed `crypto:strong_rand_bytes` failing after `init:restart` on MacOS with statically linked OpenSSL.
+
+  Own Id: OTP-19725 Aux Id: [GH-10079], [PR-10085]
+
+- Fixed `crypto:hash(shake128 | shake256)` for OpenSSL 3.4 and newer.
+
+  Own Id: OTP-19733 Aux Id: [GH-9901], [PR-9982]
+
+- Rendering of some tables in the documentation has been improved.
+
+  Own Id: OTP-19752 Aux Id: [PR-10142]
+
+[PR-9969]: https://github.com/erlang/otp/pull/9969
+[GH-10061]: https://github.com/erlang/otp/issues/10061
+[PR-10076]: https://github.com/erlang/otp/pull/10076
+[GH-10079]: https://github.com/erlang/otp/issues/10079
+[PR-10085]: https://github.com/erlang/otp/pull/10085
+[GH-9901]: https://github.com/erlang/otp/issues/9901
+[PR-9982]: https://github.com/erlang/otp/pull/9982
+[PR-10142]: https://github.com/erlang/otp/pull/10142
+
+### Improvements and New Features
+
+- Support for ML-DSA and ML-KEM provided by OpenSSL 3.5.
+  
+  Algorithms `mldsa44`, `mldsa65` and `mldsa87` can be passed to `crypto:sign/4` and `crypto:verify/5`.
+  
+  New functions `crypto:encapsulate_key/2` and `crypto:decapsulate_key/3` can be used with `mlkem512`, `mlkem768` and `mlkem1024` to safely generate and communicate an encapsulated shared secret.
+
+  Own Id: OTP-19657 Aux Id: [PR-9900]
+
+- Added support for SHA2 512/224 and SHA2 512/256 truncated hashes.
+
+  Own Id: OTP-19666 Aux Id: [PR-9721]
+
+[PR-9900]: https://github.com/erlang/otp/pull/9900
+[PR-9721]: https://github.com/erlang/otp/pull/9721
+
+## Crypto 5.6
+
+### Fixed Bugs and Malfunctions
+
+- Fixed minor potential leak of EVP_MAC when `crypto` module is unloaded.
+
+  Own Id: OTP-19500 Aux Id: [PR-9119]
+
+- Added copyright and license to crypto_ec_curves.erl
+
+  Own Id: OTP-19554
+
+[PR-9119]: https://github.com/erlang/otp/pull/9119
+
+### Improvements and New Features
+
+- The `crypto:start/0`, `crypto:stop/0`, and `crypto:enable_fips_mode/1` functions have been deprecated.
+
+  Own Id: OTP-19155 Aux Id: [PR-8592]
+
+- Warnings are now logged if module `m:crypto` with FIPS-supported OpenSSL is loaded without application [`crypto`](index.html) being loaded. In this case FIPS will be disabled even if the user had set application parameter `fips_mode`.
+
+  Own Id: OTP-19156 Aux Id: [PR-8590]
+
+- The functionality of `crypto:crypto_one_time_aead/6` is now also available in the new functions `crypto:crypto_one_time_aead_init/4` and
+  `crypto:crypto_one_time_aead/4`, which makes it possible to reuse initialization.
+
+  Own Id: OTP-19426 Aux Id: [PR-9289]
+
+- Added support for compiling Erlang/OTP for Windows on ARM64.
+
+  Own Id: OTP-19480 Aux Id: [PR-8734]
+
+- New key `fips_provider_buildinfo` in map returned by `crypto:info/0`. If present, it contains the version of the FIPS provider which may be different than the version of the rest of OpenSSL.
+
+  Own Id: OTP-19487 Aux Id: [GH-9366], [PR-9410]
+
+- Exported `crypto` types `sha3()`, `hmac_hash_algorithm()` and `cmac_cipher_algorithm()`.
+
+  Own Id: OTP-19510 Aux Id: [PR-9448]
+
+- When compiling C/C++ code on Unix systems, the compiler hardening flags suggested by the [Open Source Security Foundation](https://github.com/ossf/wg-best-practices-os-developers/blob/main/docs/Compiler-Hardening-Guides/Compiler-Options-Hardening-Guide-for-C-and-C%2B%2B.md) are now enabled by default. To disable them, pass `--disable-security-hardening-flags` to `configure`.
+
+  Own Id: OTP-19519 Aux Id: [PR-9441]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-8592]: https://github.com/erlang/otp/pull/8592
+[PR-8590]: https://github.com/erlang/otp/pull/8590
+[PR-9289]: https://github.com/erlang/otp/pull/9289
+[PR-8734]: https://github.com/erlang/otp/pull/8734
+[GH-9366]: https://github.com/erlang/otp/issues/9366
+[PR-9410]: https://github.com/erlang/otp/pull/9410
+[PR-9448]: https://github.com/erlang/otp/pull/9448
+[PR-9441]: https://github.com/erlang/otp/pull/9441
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+
+## Crypto 5.5.3.4
+
+### Fixed Bugs and Malfunctions
+
+- Fixed crash in `crypto:macN/5` when supplied `MacLength` was greater than length of what the underlying hash returned.
+
+  Own Id: OTP-20239 Aux Id: [PR-11239]
+
+- Fix cipher key buffer overread for `chacha20_poly1305`.
+
+  Own Id: OTP-20244 Aux Id: [PR-11337]
+
+[PR-11239]: https://github.com/erlang/otp/pull/11239
+[PR-11337]: https://github.com/erlang/otp/pull/11337
+
+## Crypto 5.5.3.3
+
+### Fixed Bugs and Malfunctions
+
+- `crypto:compute_key/4` for `eddh` and [`crypto:generate_key/2,3`](`crypto:generate_key/3`) for `eddh`/`eddsa` now raise an `error:{notsup, Info, Description}` exception instead of returning the atom `notsup` when the underlying cryptolib lacks support.
+
+  Own Id: OTP-20215 Aux Id: [PR-11302]
+
+[PR-11302]: https://github.com/erlang/otp/pull/11302
+
+## Crypto 5.5.3.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed bug that could cause runtime crash after ~2 billion calls to `crypto:mac_init` due to a double EVP_MAC_free.
+
+  Own Id: OTP-20041 Aux Id: [PR-10859]
+
+[PR-10859]: https://github.com/erlang/otp/pull/10859
+
+## Crypto 5.5.3.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed static linking of OpenSSL 3.5+ on Windows.
+
+  Own Id: OTP-19993 Aux Id: [PR-10732]
+
+[PR-10732]: https://github.com/erlang/otp/pull/10732
+
+## Crypto 5.5.3
+
+### Fixed Bugs and Malfunctions
+
+- `crypto` will now work when ED25519 and X25519 are available while ED448 and X448 are not, which is the case in LibreSSL. This is necessary for supporting TLS1.3 using LibreSSL.
+
+  Own Id: OTP-19399 Aux Id: [GH-9000], [PR-9136]
+
+[GH-9000]: https://github.com/erlang/otp/issues/9000
+[PR-9136]: https://github.com/erlang/otp/pull/9136
 
 ## Crypto 5.5.2
 
@@ -115,6 +444,14 @@ This document describes the changes made to the Crypto application.
 [PR-7809]: https://github.com/erlang/otp/pull/7809
 [PR-8168]: https://github.com/erlang/otp/pull/8168
 [PR-8233]: https://github.com/erlang/otp/pull/8233
+
+## Crypto 5.4.2.4
+
+### Fixed Bugs and Malfunctions
+
+* Fixed static linking of OpenSSL 3.5+ on Windows.
+
+  Own Id: OTP-19993 Aux Id: PR-10732
 
 ## Crypto 5.4.2.3
 

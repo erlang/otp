@@ -2,4 +2,4 @@
 inf_loop2.erl:122:1: The pattern [{_, LNorms}] can never match the type []
 inf_loop2.erl:124:1: The pattern [{LinksA, LNormA}, {LinksB, LNormB}] can never match the type []
 inf_loop2.erl:132:15: The pattern [{_, Norm} | _] can never match the type []
-inf_loop2.erl:74:74: The call gb_trees:get(Edge::any(),Etab::array:array(_)) does not have an opaque term of type gb_trees:tree(_,_) as 2nd argument
+inf_loop2.erl:74:74: The call gb_trees:get(Edge::any(),Etab::array:array(_)) will never return since the success typing is (any(),{_,{_,_,_,_}}) -> any() and the contract is (Key,Tree) -> Value when Tree :: tree(Key,Value)

@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2009-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2009-2026. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +32,8 @@ TESTMODS = sudoku sudoku_board sudoku_game sudoku_gui
 TESTTARGETS = $(TESTMODS:%=%.beam)
 TESTSRC = $(TESTMODS:%=%.erl)
 
-ERL_COMPILE_FLAGS += +nowarn_missing_doc +nowarn_missing_spec_documented
+ERL_COMPILE_FLAGS += +nowarn_missing_doc +nowarn_missing_spec_documented +nowarn_deprecated_catch \
+		     -I $(ERL_TOP)/lib -pa $(ERL_TOP)/lib/wx/ebin
 
 # Targets
 $(TYPES):	$(TESTTARGETS)
@@ -43,7 +46,7 @@ docs:
 run: opt
 	erl -smp -detached -pa $(TOPDIR)/ebin -s sudoku
 
-EXRELSYSDIR = "$(RELSYSDIR)/examples/sudoku"
+EXRELSYSDIR = "$(RELSYSDIR)/doc/examples/sudoku"
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 docs:

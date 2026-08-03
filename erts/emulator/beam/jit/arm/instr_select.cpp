@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +32,8 @@ static constexpr bool isInt13(T value) {
     typedef typename std::make_unsigned<T>::type U;
     typedef typename std::make_signed<T>::type S;
 
-    return Support::isUInt12(U(value)) || Support::isUInt12(-S(value));
+    return Support::is_uint_n<12>(U(value)) ||
+           Support::is_uint_n<12>(-S(value));
 }
 
 /* The `cmp`/`cmn` instructions in AArch64 only accept 12-bit unsigned immediate
@@ -43,7 +46,7 @@ static constexpr bool isInt13(T value) {
  *
  * This function finds the `base` and `shift` that result in the most number
  * of elements fitting in a 13-bit immediate. */
-static std::pair<UWord, int> plan_untag(const Span<ArgVal> &args) {
+static std::pair<UWord, int> plan_untag(const Span<const ArgVal> &args) {
     auto left = args.begin(), right = args.begin();
     auto best_left = left, best_right = right;
     int count, shift;
@@ -103,7 +106,7 @@ static std::pair<UWord, int> plan_untag(const Span<ArgVal> &args) {
 
 const std::vector<ArgVal> BeamModuleAssembler::emit_select_untag(
         const ArgSource &Src,
-        const Span<ArgVal> &args,
+        const Span<const ArgVal> &args,
         a64::Gp comparand,
         Label fail,
         UWord base,
@@ -113,15 +116,15 @@ const std::vector<ArgVal> BeamModuleAssembler::emit_select_untag(
     /* Emit code to test that the source value has the correct type and
      * untag it. */
     comment("(comparing untagged+rebased values)");
-    if ((args.front().isSmall() && always_small(Src)) ||
-        (args.front().isAtom() && exact_type<BeamTypeId::Atom>(Src))) {
+    if ((args.first().isSmall() && always_small(Src)) ||
+        (args.first().isAtom() && exact_type<BeamTypeId::Atom>(Src))) {
         comment("(skipped type test)");
     } else {
-        if (args.front().isSmall()) {
+        if (args.first().isSmall()) {
             a.and_(TMP1, comparand, imm(_TAG_IMMED1_MASK));
             a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
         } else {
-            ASSERT(args.front().isAtom());
+            ASSERT(args.first().isAtom());
             a.and_(TMP1, comparand, imm(_TAG_IMMED2_MASK));
             a.cmp(TMP1, imm(_TAG_IMMED2_ATOM));
         }
@@ -195,7 +198,7 @@ const std::vector<ArgVal> BeamModuleAssembler::emit_select_untag(
 
 void BeamModuleAssembler::emit_linear_search(a64::Gp comparand,
                                              Label fail,
-                                             const Span<ArgVal> &args) {
+                                             const Span<const ArgVal> &args) {
     int count = args.size() / 2;
 
     ASSERT(count < 128);
@@ -246,16 +249,17 @@ void BeamModuleAssembler::emit_linear_search(a64::Gp comparand,
     }
 
     /* An invalid label means fallthrough to the next instruction. */
-    if (fail.isValid()) {
+    if (fail.is_valid()) {
         a.b(resolve_label(fail, disp128MB));
         mark_unreachable_check_pending_stubs();
     }
 }
 
-void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgRegister &Src,
-                                                    const ArgLabel &Fail,
-                                                    const ArgWord &Size,
-                                                    const Span<ArgVal> &args) {
+void BeamModuleAssembler::emit_i_select_tuple_arity(
+        const ArgRegister &Src,
+        const ArgLabel &Fail,
+        const ArgWord &Size,
+        const Span<const ArgVal> &args) {
     auto src = load_source(Src);
 
     emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
@@ -276,10 +280,11 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgRegister &Src,
     emit_binsearch_nodes(TMP1, 0, args.size() / 2 - 1, fail, args);
 }
 
-void BeamModuleAssembler::emit_i_select_val_lins(const ArgSource &Src,
-                                                 const ArgVal &Fail,
-                                                 const ArgWord &Size,
-                                                 const Span<ArgVal> &args) {
+void BeamModuleAssembler::emit_i_select_val_lins(
+        const ArgSource &Src,
+        const ArgVal &Fail,
+        const ArgWord &Size,
+        const Span<const ArgVal> &args) {
     ASSERT(Size.get() == args.size());
     Label fail, next;
 
@@ -308,7 +313,7 @@ void BeamModuleAssembler::emit_i_select_val_lins(const ArgSource &Src,
          * emit_linear_search() that not branch is needed at the end
          * of the linear search.
          */
-        next = a.newLabel();
+        next = a.new_label();
     }
 
     auto src = load_source(Src, ARG1);
@@ -322,7 +327,7 @@ void BeamModuleAssembler::emit_i_select_val_lins(const ArgSource &Src,
     } else {
         auto untagged =
                 emit_select_untag(Src, args, src.reg, next, base, shift);
-        emit_linear_search(ARG1, fail, untagged);
+        emit_linear_search(ARG1, fail, Span(untagged.data(), untagged.size()));
     }
 
     if (!Fail.isLabel()) {
@@ -330,10 +335,11 @@ void BeamModuleAssembler::emit_i_select_val_lins(const ArgSource &Src,
     }
 }
 
-void BeamModuleAssembler::emit_i_select_val_bins(const ArgSource &Src,
-                                                 const ArgVal &Fail,
-                                                 const ArgWord &Size,
-                                                 const Span<ArgVal> &args) {
+void BeamModuleAssembler::emit_i_select_val_bins(
+        const ArgSource &Src,
+        const ArgVal &Fail,
+        const ArgWord &Size,
+        const Span<const ArgVal> &args) {
     ASSERT(Size.get() == args.size());
 
     int count = args.size() / 2;
@@ -345,7 +351,7 @@ void BeamModuleAssembler::emit_i_select_val_bins(const ArgSource &Src,
         fail = rawLabels[Fail.as<ArgLabel>().get()];
     } else {
         ASSERT(Fail.isNil());
-        fail = a.newLabel();
+        fail = a.new_label();
     }
 
     comment("Binary search in table of %lu elements", count);
@@ -361,7 +367,11 @@ void BeamModuleAssembler::emit_i_select_val_bins(const ArgSource &Src,
     } else {
         auto untagged =
                 emit_select_untag(Src, args, src.reg, fail, base, shift);
-        emit_binsearch_nodes(ARG1, 0, count - 1, fail, untagged);
+        emit_binsearch_nodes(ARG1,
+                             0,
+                             count - 1,
+                             fail,
+                             Span(untagged.data(), untagged.size()));
     }
 
     if (!Fail.isLabel()) {
@@ -377,7 +387,7 @@ void BeamModuleAssembler::emit_binsearch_nodes(a64::Gp reg,
                                                size_t Left,
                                                size_t Right,
                                                Label fail,
-                                               const Span<ArgVal> &args) {
+                                               const Span<const ArgVal> &args) {
     ASSERT(Left <= Right);
     ASSERT(Right < args.size() / 2);
 
@@ -405,7 +415,7 @@ void BeamModuleAssembler::emit_binsearch_nodes(a64::Gp reg,
                       args.begin() + Left + count,
                       args.begin() + count + Left + remaining);
 
-        emit_linear_search(reg, fail, shrunk);
+        emit_linear_search(reg, fail, Span(shrunk.data(), shrunk.size()));
 
         return;
     }
@@ -426,7 +436,7 @@ void BeamModuleAssembler::emit_binsearch_nodes(a64::Gp reg,
 
     a.b_eq(resolve_beam_label(lbl, disp1MB));
 
-    Label right_tree = a.newLabel();
+    Label right_tree = a.new_label();
     a.b_hs(resolve_label(right_tree, disp1MB));
 
     emit_binsearch_nodes(reg, Left, mid - 1, fail, args);
@@ -439,12 +449,17 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
                                              const ArgVal &Fail,
                                              const ArgWord &Base,
                                              const ArgWord &Size,
-                                             const Span<ArgVal> &args) {
+                                             const Span<const ArgVal> &args) {
     Label fail;
-    Label data = a.newLabel();
+    Label data = a.new_label();
     auto src = load_source(Src, TMP1);
 
     ASSERT(Size.get() == args.size());
+
+    if (Fail.isNil()) {
+        /* NIL means fallthrough to the next instruction. */
+        fail = a.new_label();
+    }
 
     if (always_small(Src)) {
         comment("(skipped type test)");
@@ -455,10 +470,6 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
         if (Fail.isLabel()) {
             a.b_ne(resolve_beam_label(Fail, disp1MB));
         } else {
-            /* NIL means fallthrough to the next instruction. */
-            ASSERT(Fail.isNil());
-
-            fail = a.newLabel();
             a.b_ne(fail);
         }
     }
@@ -466,7 +477,7 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
     a.asr(TMP1, src.reg, imm(_TAG_IMMED1_SIZE));
 
     if (Base.get() != 0) {
-        if (Support::isUInt12((Sint)Base.get())) {
+        if (Support::is_uint_n<12>((Sint)Base.get())) {
             a.sub(TMP1, TMP1, imm(Base.get()));
         } else {
             mov_imm(TMP3, Base.get());
@@ -488,7 +499,7 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
         embed_vararg_rodata(args, TMP2);
     }
 
-    a.ldr(TMP3, arm::Mem(TMP2, TMP1, arm::lsl(3)));
+    a.ldr(TMP3, a64::Mem(TMP2, TMP1, a64::lsl(3)));
     a.br(TMP3);
 
     mark_unreachable_check_pending_stubs();
@@ -496,12 +507,12 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
     a.bind(data);
     if (embedInText) {
         for (const ArgVal &arg : args) {
-            ASSERT(arg.getType() == ArgVal::Label);
-            a.embedLabel(rawLabels[arg.as<ArgLabel>().get()]);
+            ASSERT(arg.getType() == ArgVal::Type::Label);
+            a.embed_label(rawLabels[arg.as<ArgLabel>().get()]);
         }
     }
 
-    if (Fail.getType() == ArgVal::Immediate) {
+    if (Fail.isNil()) {
         a.bind(fail);
     }
 }

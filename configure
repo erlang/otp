@@ -2,7 +2,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2018-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2018-2026. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -163,6 +165,8 @@ while test $# != 0; do
                            [ "$skip_app" = "erl_interface" ]; then
                         echo "ERROR: $skip_app is a mandatory application" 1>&2
                         exit 1
+		    elif [ "$skip_app" = "odbc" ]; then
+			echo "make of odbc c_src will be skipped due to user configure option --without-odbc" >> lib/$skip_app/CONF_INFO;
 		    elif test -d "lib/$skip_app"; then
 			skip_applications="$skip_applications $skip_app"
 		    fi;;

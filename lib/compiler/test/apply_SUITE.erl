@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,18 +16,19 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(apply_SUITE).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-         mfa/1,fun_apply/1,involved/1]).
+         mfa/1,fun_apply/1,precedence/1,involved/1]).
 
--export([foo/0,bar/1,baz/2]).
+-export([foo/0,bar/1,baz/2,get_callback/0]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -36,6 +39,7 @@ groups() ->
     [{p,test_lib:parallel(),
       [mfa,
        fun_apply,
+       precedence,
        involved
       ]}].
 
@@ -75,10 +79,10 @@ mfa(Config) when is_list(Config) ->
     {[a,b]} = ?APPLY1(Mod, (id(bar)), [a,b]),
     {39,{a}} = ?APPLY2(Mod, (id(baz)), 39, {a}),
 
-    {'EXIT',_} = (catch ?APPLY2(Mod, (id(bazzzzzz)), a, b)),
-    {'EXIT',_} = (catch ?APPLY2({}, baz, a, b)),
-    {'EXIT',_} = (catch ?APPLY2(?MODULE, [], a, b)),
-    {'EXIT',_} = (catch bad_literal_call(1)),
+    ?assertError(_, ?APPLY2(Mod, (id(bazzzzzz)), a, b)),
+    ?assertError(_, ?APPLY2({}, baz, a, b)),
+    ?assertError(_, ?APPLY2(?MODULE, [], a, b)),
+    ?assertError(_, bad_literal_call(1)),
 
     ok = apply(Mod, foo, id([])),
     {[a,b|c]} = apply(Mod, bar, id([[a,b|c]])),
@@ -136,6 +140,12 @@ fun_apply(Config) when is_list(Config) ->
     {42,{a}} = ?FUNAPPLY2((id(fun ?MODULE:baz/2)), 42, {a}),
 
     ok.
+
+get_callback() ->
+    lists.
+
+precedence(_Config) ->
+    [3,2,1] = ?MODULE:get_callback():reverse([1,2,3]).
 
 involved(_Config) ->
     self() ! message,

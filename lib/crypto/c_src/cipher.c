@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +22,7 @@
 
 #include "cipher.h"
 #include "info.h"
+#include "evp.h"
 
 #define NOT_AEAD {{0,0,0}}
 #define AEAD_CTRL {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}
@@ -124,7 +127,7 @@ static struct cipher_type_t cipher_types[] =
 
     /*==== AEAD ciphers ====*/
 #if defined(HAVE_CHACHA20_POLY1305)
-    {{"chacha20_poly1305"}, "chacha20-poly1305", {&EVP_chacha20_poly1305}, 0, NO_FIPS_CIPHER | AEAD_CIPHER, AEAD_CTRL},
+    {{"chacha20_poly1305"}, "chacha20-poly1305", {&EVP_chacha20_poly1305}, 32, NO_FIPS_CIPHER | AEAD_CIPHER, AEAD_CTRL},
 #else
     {{"chacha20_poly1305"}, "chacha20-poly1305", {NULL}, 0, NO_FIPS_CIPHER | AEAD_CIPHER, {{0,0,0}}},
 #endif

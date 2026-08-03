@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,6 +73,9 @@ typedef struct process Process;
 #include "erl_thr_progress.h"
 #undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
 
+// Included for ERTS_POLL_USE_SCHEDULER_POLLING
+#include "erl_poll.h"
+
 #define ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT_OPT	0
 #define ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT		0
 
@@ -95,7 +100,7 @@ struct saved_calls {
    int len;
    int n;
    int cur;
-   Export *ct[1];
+   const Export *ct[1];
 };
 
 extern Export exp_send, exp_receive, exp_timeout;
@@ -160,16 +165,14 @@ extern int erts_dio_sched_thread_suggested_stack_size;
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 4))
 #define ERTS_RUNQ_FLG_NONEMPTY \
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 5))
-#define ERTS_RUNQ_FLG_PROTECTED \
-  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 6))
 #define ERTS_RUNQ_FLG_EXEC \
-  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 7))
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 6))
 #define ERTS_RUNQ_FLG_MSB_EXEC \
-  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 8))
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 7))
 #define ERTS_RUNQ_FLG_MISC_OP \
-  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 9))
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 8))
 #define ERTS_RUNQ_FLG_HALTING \
-  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 10))
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 9))
 
 #define ERTS_RUNQ_FLG_MAX (ERTS_RUNQ_FLG_BASE2 + 12)
 
@@ -283,8 +286,7 @@ typedef enum {
 
 /*
  * Keep ERTS_SSI_AUX_WORK flags ordered in expected frequency
- * order relative each other. Most frequent at lowest at lowest
- * index.
+ * order relative each other. Most frequent at lowest index.
  *
  * ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED_IX *need* to be
  * highest index...
@@ -468,36 +470,36 @@ struct ErtsMigrationPaths_ {
 
 
 struct ErtsRunQueue_ {
-    int ix;
-
     erts_mtx_t mtx;
-    erts_cnd_t cnd;
+    erts_atomic32_t flags;
 
+    struct {
+	ErtsRunQueueInfo prio_info[ERTS_NO_PROC_PRIO_LEVELS];
+	/* We use the same prio queue for low and
+	   normal prio processes */
+	ErtsRunPrioQueue prio[ERTS_NO_PROC_PRIO_LEVELS-1];
+      Uint context_switches;
+      Uint reductions;
+    } procs;
+
+    erts_aint32_t max_len;
+    erts_atomic32_t len;
+
+    /* The fields above are the ones that are commonly accessed by other cores during task stealing
+       They are grouped together to improve cache locality. */
+
+    int ix;
     ErtsSchedulerSleepList sleepers;
 
     ErtsSchedulerData *scheduler;
-    int waiting; /* < 0 in sys schedule; > 0 on cnd variable */
+    int waiting;
     int woken;
-    erts_atomic32_t flags;
     int check_balance_reds;
     int full_reds_history_sum;
     int full_reds_history[ERTS_FULL_REDS_HISTORY_SIZE];
     int out_of_work_count;
-    erts_aint32_t max_len;
-    erts_atomic32_t len;
     int wakeup_other;
     int wakeup_other_reds;
-
-    struct {
-	Uint context_switches;
-	Uint reductions;
-
-	ErtsRunQueueInfo prio_info[ERTS_NO_PROC_PRIO_LEVELS];
-
-	/* We use the same prio queue for low and
-	   normal prio processes */
-	ErtsRunPrioQueue prio[ERTS_NO_PROC_PRIO_LEVELS-1];
-    } procs;
 
     struct {
 	ErtsMiscOpList *start;
@@ -721,6 +723,9 @@ struct ErtsSchedulerData_ {
 	Uint64 out;
 	Uint64 in;
     } io;
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+    ErtsSysFdType nif_select_fds[5]; /* Used by check io */
+#endif
     struct {
         ErtsSignal* sig;
         Eterm to;
@@ -784,11 +789,13 @@ void erts_non_empty_runq(ErtsRunQueue *rq);
 ERTS_GLB_INLINE void erts_inc_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio);
 ERTS_GLB_INLINE void erts_dec_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio);
 ERTS_GLB_INLINE void erts_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi);
+ERTS_GLB_INLINE void erts_add_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio, unsigned n);
+ERTS_GLB_INLINE void erts_sub_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio, unsigned n);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE void
-erts_inc_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
+erts_add_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio, unsigned n)
 {
     erts_aint32_t len;
 
@@ -798,7 +805,7 @@ erts_inc_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
 
     if (len == 0)
 	erts_non_empty_runq(rq);
-    len++;
+    len += n;
     if (rq->max_len < len)
 	rq->max_len = len;
     ASSERT(len > 0);
@@ -812,7 +819,7 @@ erts_inc_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
 	erts_atomic32_read_bor_nob(&rq->flags,
 				       (erts_aint32_t) (1 << prio));
     }
-    len++;
+    len += n;
     if (rqi->max_len < len)
 	rqi->max_len = len;
 
@@ -820,19 +827,25 @@ erts_inc_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
 }
 
 ERTS_GLB_INLINE void
-erts_dec_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
+erts_inc_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
+{
+    erts_add_runq_len(rq, rqi, prio, 1);
+}
+
+ERTS_GLB_INLINE void
+erts_sub_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio, unsigned n)
 {
     erts_aint32_t len;
 
     ERTS_LC_ASSERT(erts_lc_runq_is_locked(rq));
 
     len = erts_atomic32_read_dirty(&rq->len);
-    len--;
+    len -= n;
     ASSERT(len >= 0);
     erts_atomic32_set_nob(&rq->len, len);
 
     len = erts_atomic32_read_dirty(&rqi->len);
-    len--;
+    len -= n;
     ASSERT(len >= 0);
     if (len == 0) {
 	ASSERT((erts_atomic32_read_nob(&rq->flags)
@@ -841,7 +854,12 @@ erts_dec_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
 					~((erts_aint32_t) (1 << prio)));
     }
     erts_atomic32_set_relb(&rqi->len, len);
+}
 
+ERTS_GLB_INLINE void
+erts_dec_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
+{
+    erts_sub_runq_len(rq, rqi, prio, 1);
 }
 
 ERTS_GLB_INLINE void
@@ -879,9 +897,11 @@ erts_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 #define ERTS_PSD_DIST_ENTRY	                8
 #define ERTS_PSD_CALL_MEMORY_BP	                9
 #define ERTS_PSD_TS_EVENT                       10
-#define ERTS_PSD_PENDING_SUSPEND                11 /* keep last... */
+#define ERTS_PSD_SYSMON_MSGQ_LEN_LOW            11
+#define ERTS_PSD_PRIO_Q_INFO                    12
+#define ERTS_PSD_PENDING_SUSPEND                13 /* keep last... */
 
-#define ERTS_PSD_SIZE				12
+#define ERTS_PSD_SIZE				14
 
 typedef struct {
     void *data[ERTS_PSD_SIZE];
@@ -922,6 +942,9 @@ typedef struct {
 
 #define ERTS_PSD_TS_EVENT_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_TS_EVENT_SET_LOCKS ERTS_PROC_LOCK_MAIN
+
+#define ERTS_PSD_PRIO_Q_INFO_GET_LOCKS ERTS_PROC_LOCK_MAIN
+#define ERTS_PSD_PRIO_Q_INFO_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
 #define ERTS_PSD_PENDING_SUSPEND_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_PENDING_SUSPEND_SET_LOCKS ERTS_PROC_LOCK_MAIN
@@ -1149,6 +1172,8 @@ struct process {
     ErtsSchedulerData *scheduler_data;
     erts_atomic_t run_queue;
 
+    ErtsPausedBifTimers* paused_bif_timers; /* BIF timers paused during suspend */
+
 #ifdef USE_VM_PROBES
     Eterm dt_utag;              /* Place to store the dynamic trace user tag */
     Uint dt_utag_flags;         /* flag field for the dt_utag */
@@ -1176,6 +1201,7 @@ struct process {
 #ifdef DEBUG
     Uint debug_reds_in;
 #endif
+
 };
 
 extern Eterm erts_init_process_id; /* pid of init process */
@@ -1194,19 +1220,6 @@ void erts_check_for_holes(Process* p);
 #else
 # define INIT_HOLE_CHECK(p)
 # define ERTS_HOLE_CHECK(p)
-#endif
-
-/*
- * The MBUF_GC_FACTOR decides how easily a process is subject to GC 
- * due to message buffers allocated outside the heap.
- * The larger the factor, the easier the process gets GCed.
- * On a small memory system with lots of processes, this makes a significant 
- * difference, especially since the GCs help fragmentation quite a bit too.
- */
-#if defined(SMALL_MEMORY)
-#define MBUF_GC_FACTOR 4
-#else
-#define MBUF_GC_FACTOR 1
 #endif
 
 #define SEQ_TRACE_TOKEN(p)  ((p)->seq_trace_token)
@@ -1391,6 +1404,15 @@ void erts_check_for_holes(Process* p);
 /* MAYBE_SELF_SIGS - We might have outstanding signals
    from ourselves to ourselves. */
 #define ERTS_PXSFLG_MAYBE_SELF_SIGS	(((erts_aint32_t) 1) << 8)
+/* HANDOVER_CODE_MOD_PERM - Waiting process was given the code mod permission
+   but has not yet seized the lock. */
+#define ERTS_PXSFLG_HANDOVER_CODE_MOD_PERM   (((erts_aint32_t) 1) << 9)
+/* HANDOVER_CODE_STAGE_PERM - Waiting process was given the code stage permission
+   but has not yet seized the lock. */
+#define ERTS_PXSFLG_HANDOVER_CODE_STAGE_PERM (((erts_aint32_t) 1) << 10)
+/* GC - Process is garbage collecting */
+#define ERTS_PXSFLG_GC			     (((erts_aint32_t) 1) << 11)
+
 
 #define ERTS_PXSFLGS_QMASK 		ERTS_PSFLGS_QMASK
 #define ERTS_PXSFLGS_IN_CPU_PRQ_MASK_OFFSET 0
@@ -1512,7 +1534,8 @@ typedef struct {
 
     Eterm tag;                  /* spawn_request tag (if SPO_ASYNC is set) */
     Eterm monitor_tag;          /* monitor tag (if SPO_MONITOR is set) */
-    Uint16 monitor_oflags;      /* flags to bitwise-or onto origin flags */
+    Uint32 monitor_oflags;      /* flags to bitwise-or onto origin flags */
+    Uint32 link_oflags;         /* flags to bitwise-or onto origin link flags */
     Eterm opts;                 /* Option list for seq-trace... */
 
     /* Input fields used for distributed spawn only */
@@ -1546,7 +1569,8 @@ typedef struct {
         (SOP)->opts = NIL;                                              \
         (SOP)->tag = am_spawn_reply;                                    \
         (SOP)->monitor_tag = THE_NON_VALUE;                             \
-        (SOP)->monitor_oflags = (Uint16) 0;                             \
+        (SOP)->monitor_oflags = (Uint32) 0;                             \
+        (SOP)->link_oflags = (Uint32) 0;                                \
     } while (0)
 
 /*
@@ -1575,21 +1599,18 @@ ERTS_GLB_INLINE void erts_heap_frag_shrink(Process* p, Eterm* hp)
 Eterm* erts_heap_alloc(Process* p, Uint need, Uint xtra);
 
 extern erts_rwmtx_t erts_cpu_bind_rwmtx;
-/* If any of the erts_system_monitor_* variables are set (enabled),
-** erts_system_monitor must be != NIL, to allow testing on just
-** the erts_system_monitor_* variables.
-*/
-extern Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor);
+
 extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_gc);
 extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_schedule);
 extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_large_heap);
-extern Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_msgq_on);
+extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_msgq_on);
 extern Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_msgq_off);
+extern Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_busy_port_cnt);
+extern Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_busy_dist_port_cnt);
 struct erts_system_monitor_flags_t {
-	 unsigned int busy_port : 1;
-    unsigned int busy_dist_port : 1;
+    bool busy_port;
+    bool busy_dist_port;
 };
-extern struct erts_system_monitor_flags_t erts_system_monitor_flags;
 
 /* system_profile, same rules as for system_monitor.
 	erts_profile must be != NIL when 
@@ -1647,8 +1668,58 @@ extern int erts_system_profile_ts_type;
 #define FS_NON_FETCH_CNT1      (1 << 9) /* First bit of non-fetch signals counter */
 #define FS_NON_FETCH_CNT2      (1 << 10)/* Second bit of non-fetch signals counter */
 #define FS_NON_FETCH_CNT4      (1 << 11)/* Third bit of non-fetch signals counter */
-#define FS_MON_MSGQ_LEN        (1 << 12) /* Monitor of msgq len enabled */
-#define FS_MON_MSGQ_LEN_LONG   (1 << 13)/* --"-- and it is currently long */
+#define FS_MON_MSGQ_LEN_HIGH   (1 << 12)/* Monitor of msgq high limit for some session(s) */
+#define FS_MON_MSGQ_LEN_LOW    (1 << 13)/* Monitor of msgq low limit for some session(s) */
+#define FS_SET_SAVE_INFO_1     (1 << 14)/* set save info bit 1 */
+#define FS_SET_SAVE_INFO_2     (1 << 15)/* set save info bit 2 */
+#define FS_PRIO_MQ_SAVE        (1 << 16)/* Save points into prio queue */
+#define FS_PRIO_MQ             (1 << 17)/* Prio message queue installed */
+#define FS_PRIO_MQ_END_MARK    (1 << 18)/* Prio message queue end marker in queue */
+
+#define FS_DBG_MQ_PTRS_UNREL   (1 << 31)/* MsgQ pointers unreliable (signal handling) */
+
+/*
+ * The FS_SET_SAVE_INFO_* bits of the signal queue flags map to the following
+ * values. This information determines how to handle the save pointer with
+ * regards to the priority (part of the message) queue.
+ *
+ * - FS_SET_SAVE_INFO_FIRST  - We began searching for messages at the start
+ *                             of the message queue.
+ * - FS_SET_SAVE_INFO_LAST   - We began searching for a message at the current
+ *                             end of the message queue. This is an ERTS
+ *                             internal receive optimization where we trap out
+ *                             to a known receive. When set, the save pointer
+ *                             should always point past the end of the prio
+ *                             queue. 
+ * - FS_SET_SAVE_INFO_RCVM   - We began searching for messages at receive
+ *                             marker identified by the 'set_save_ix' field in
+ *                             the receive marker block.
+ * - FS_SET_SAVE_INFO_MARK   - The prio queue continuation marker is inserted
+ *                             in the message queue. When we reach the end of
+ *                             the prio queue, we should continue at the marker.
+ *                             Information about the previous set save info
+ *                             state can be found in the 'saved_save_info' field
+ *                             in the priority queue info block.
+ */
+
+#define FS_SET_SAVE_INFO_MASK  (FS_SET_SAVE_INFO_1 | FS_SET_SAVE_INFO_2)
+
+#define FS_SET_SAVE_INFO_FIRST (0)
+#define FS_SET_SAVE_INFO_RCVM  (FS_SET_SAVE_INFO_1)
+#define FS_SET_SAVE_INFO_MARK  (FS_SET_SAVE_INFO_2)
+#define FS_SET_SAVE_INFO_LAST  (FS_SET_SAVE_INFO_1 | FS_SET_SAVE_INFO_2)
+
+#define ERTS_MQ_SET_SAVE_INFO(P, SI)                                    \
+    do {                                                                \
+        ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN                              \
+                       & erts_proc_lc_my_proc_locks((P)));              \
+        ASSERT(((SI) & ~FS_SET_SAVE_INFO_MASK) == 0);                   \
+        (P)->sig_qs.flags &= ~FS_SET_SAVE_INFO_MASK;                    \
+        (P)->sig_qs.flags |= (SI);                                      \
+    } while (0)
+
+#define ERTS_MQ_GET_SAVE_INFO(P)                                        \
+    ((P)->sig_qs.flags & FS_SET_SAVE_INFO_MASK)
 
 #define FS_NON_FETCH_CNT_MASK \
     (FS_NON_FETCH_CNT1|FS_NON_FETCH_CNT2|FS_NON_FETCH_CNT4)
@@ -2089,6 +2160,7 @@ void erts_print_scheduler_info(fmtfn_t to, void *to_arg, ErtsSchedulerData *esdp
 void erts_print_run_queue_info(fmtfn_t, void *to_arg, ErtsRunQueue*);
 void erts_dump_extended_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
 void erts_dump_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
+const char* erts_internal_fun_description_from_pc(ErtsCodePtr);
 
 #define ERTS_PI_FLAG_SINGELTON                          (1 << 0)
 #define ERTS_PI_FLAG_ALWAYS_WRAP                        (1 << 1)
@@ -2325,6 +2397,11 @@ erts_psd_set(Process *p, int ix, void *data)
     ((erts_tse_t *) erts_psd_get((P), ERTS_PSD_TS_EVENT))
 #define ERTS_PROC_SET_TS_EVENT(P, TSE) \
     ((erts_tse_t *) erts_psd_set((P), ERTS_PSD_TS_EVENT, (void *) (TSE)))
+
+#define ERTS_PROC_GET_PRIO_Q_INFO(P) \
+    ((ErtsPrioQInfo *) erts_psd_get((P), ERTS_PSD_PRIO_Q_INFO))
+#define ERTS_PROC_SET_PRIO_Q_INFO(P, PRIO_Q_INFO) \
+    ((ErtsPrioQInfo *) erts_psd_set((P), ERTS_PSD_PRIO_Q_INFO, (void *) (PRIO_Q_INFO)))
 
 #define ERTS_PROC_GET_PENDING_SUSPEND(P) \
     ((void *) erts_psd_get((P), ERTS_PSD_PENDING_SUSPEND))
@@ -2976,9 +3053,16 @@ Uint32 erts_sched_local_random_hash_64_to_32_shift(Uint64 key)
 ERTS_GLB_INLINE
 Uint32 erts_sched_local_random(Uint additional_seed)
 {
+    extern erts_atomic_t erts_sched_local_random_nosched_state;
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
-    esdp->rand_state++;
-    return erts_sched_local_random_hash_64_to_32_shift(esdp->rand_state
+    Uint64 rand_state;
+
+    if(ERTS_UNLIKELY(esdp == NULL)) {
+        rand_state = erts_atomic_inc_read_nob(&erts_sched_local_random_nosched_state);
+    } else {
+        rand_state = esdp->rand_state++;
+    }
+    return erts_sched_local_random_hash_64_to_32_shift(rand_state
                                                        + additional_seed);
 }
 

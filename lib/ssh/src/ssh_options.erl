@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +25,11 @@
 -module(ssh_options).
 -moduledoc false.
 
+%% file:consult/1 can create atoms from file content. This is acceptable
+%% here because the file path comes from the daemon operator's dh_gex_groups
+%% configuration — not from wire data.
+-compile([{nowarn_possibly_unsafe_function, {file, consult, 1}}]).
+
 -include("ssh.hrl").
 -include_lib("kernel/include/file.hrl").
 
@@ -36,8 +43,7 @@
          no_sensitive/2,
          initial_default_algorithms/2,
          check_preferred_algorithms/1,
-         merge_options/3
-        ]).
+         merge_options/3]).
 
 -export_type([private_options/0
              ]).
@@ -224,12 +230,10 @@ handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
                ]
               },
               OptionDefinitions),
-
-
         %% Enter the user's values into the map; unknown keys are
         %% treated as socket options
-        check_and_save(OptsList2, OptionDefinitions, InitialMap)
-
+        maybe_add_fake_passwd_checker(Role,
+                                      check_and_save(OptsList2, OptionDefinitions, InitialMap))
     catch
         error:{EO, KV, Reason} when EO == eoptions ; EO == eerl_env ->
             if
@@ -247,7 +251,16 @@ check_and_save(OptsList, OptionDefinitions, InitialMap) ->
       lists:foldl(fun(KV, Vals) ->
                           save(KV, OptionDefinitions, Vals)
                   end, InitialMap, OptsList)).
-    
+
+maybe_add_fake_passwd_checker(server, Options) ->
+    case ?GET_OPT(pwdfun, Options) of
+        undefined ->
+            ?PUT_INTERNAL_OPT({fake_passwd_checker, make_passwd_fun("fake")}, Options);
+        _ ->
+            Options
+    end;
+maybe_add_fake_passwd_checker(_Client, Options) ->
+    Options.
 
 cnf_key(server) -> server_options;
 cnf_key(client) -> client_options.
@@ -285,7 +298,7 @@ check_fun(Key, Defs) ->
             #{chk := Fun} = maps:get(Key, Defs),
             Fun;
         true ->
-            fun(_,_) -> forbidden end
+            fun(_) -> forbidden end
     end.
 
 %%%================================================================
@@ -404,13 +417,14 @@ default(server) ->
     (default(common))
         #{
       subsystems =>
-          #{default => [ssh_sftpd:subsystem_spec([])],
+          #{default => [],
             chk => fun(L) ->
                            is_list(L) andalso
-                               lists:all(fun({Name,{CB,Args}}) ->
+                               lists:all(fun(SubSystem = {Name,{CB,Args}}) ->
                                                  check_string(Name) andalso
                                                      is_atom(CB) andalso
-                                                     is_list(Args);
+                                                     is_list(Args) andalso
+                                                     check_subsystem(SubSystem);
                                             (_) ->
                                                  false
                                          end, L)
@@ -419,7 +433,7 @@ default(server) ->
            },
 
       shell =>
-          #{default => ?DEFAULT_SHELL,
+          #{default => disabled,
             chk => fun({M,F,A}) -> is_atom(M) andalso is_atom(F) andalso is_list(A);
                       (disabled) -> true;
                       (V) -> check_function1(V) orelse
@@ -429,9 +443,10 @@ default(server) ->
            },
 
       exec =>
-          #{default => undefined,
+          #{default => disabled,
             chk => fun({direct, V}) ->  check_function1(V) orelse check_function2(V) orelse check_function3(V);
                       (disabled) -> true;
+                      (erlang_eval) -> true; % Enable Erlang term evaluation
                       %% Compatibility (undocumented):
                       ({M,F,A}) -> is_atom(M) andalso is_atom(F) andalso is_list(A);
                       (V) -> check_function1(V) orelse check_function2(V) orelse check_function3(V)
@@ -455,7 +470,7 @@ default(server) ->
 
       tcpip_tunnel_in =>
            #{default => false,
-             chk => fun(V) -> erlang:is_boolean(V) end,
+             chk => fun(V) -> check_function2(V) orelse erlang:is_boolean(V) end,
              class => user_option
             },
 
@@ -482,11 +497,28 @@ default(server) ->
       user_passwords =>
           #{default => [],
             chk => fun(V) ->
-                           is_list(V) andalso
-                               lists:all(fun({S1,S2}) ->
-                                                 check_string(S1) andalso 
-                                                     check_string(S2)   
-                                         end, V)
+                       is_list(V) andalso
+                       lists:foldr(
+                           fun
+                               (_, false) ->
+                                   false;
+                               ({User, Passwd}, {true, Acc}) ->
+                                   case
+                                       check_string(User) andalso
+                                       check_string(Passwd) andalso
+                                       make_passwd_fun(Passwd)
+                                   of
+                                       Fun when is_function(Fun, 1) ->
+                                           {true, [{User, Fun} | Acc]};
+                                       _ ->
+                                           false
+                                   end;
+                               (_, _) ->
+                                   false
+                           end,
+                           {true, []},
+                           V
+                       )
                    end,
             class => user_option
            },
@@ -505,7 +537,17 @@ default(server) ->
 
       password =>
           #{default => undefined,
-            chk => fun(V) -> check_string(V) end,
+            chk => fun(V) ->
+                       case
+                           check_string(V) andalso
+                           make_passwd_fun(V)
+                       of
+                           Fun when is_function(Fun, 1) ->
+                               {true, Fun};
+                           _ ->
+                               false
+                       end
+                   end,
             class => user_option
            },
 
@@ -516,7 +558,7 @@ default(server) ->
            },
 
       dh_gex_limits =>
-          #{default => {0, infinity},
+          #{default => {2047, infinity},
             chk => fun({I1,I2}) ->
                            check_pos_integer(I1) andalso
                                check_pos_integer(I2) andalso
@@ -589,6 +631,18 @@ default(server) ->
             class => user_option
            },
 
+      bannerfun =>
+          #{default => fun(_) -> <<>> end,
+            chk => fun(V) -> check_function1(V) end,
+            class => user_option
+           },
+
+      max_auth_request_size =>
+          #{default => ?SSH_MAX_PACKET_SIZE,
+            chk => fun(V) -> check_pos_integer(V) end,
+            class => user_option
+           },
+
 %%%%% Undocumented
       infofun =>
           #{default => fun(_,_,_) -> void end,
@@ -651,7 +705,7 @@ default(client) ->
            },
 
       dh_gex_limits =>
-          #{default => {1024, 6144, 8192},      % FIXME: Is this true nowadays?
+          #{default => {2047, 6144, 8192},
             chk => fun({Min,I,Max}) ->
                            lists:all(fun check_pos_integer/1,
                                      [Min,I,Max]);
@@ -853,6 +907,15 @@ default(common) ->
              class => user_option
             },
 
+      alive =>
+          #{default => #{count_max => 3, interval => infinity},
+            chk => fun(#{count_max := Count, interval := Interval}) ->
+                           check_pos_integer(Count) andalso
+                               check_timeout(Interval)
+                   end,
+            class => user_option
+           },
+
 %%%%% Undocumented
        transport =>
            #{default => ?DEFAULT_TRANSPORT,
@@ -886,8 +949,34 @@ default(common) ->
            #{default => ?MAX_RND_PADDING_LEN,
              chk => fun(V) -> check_non_neg_integer(V) end,
              class => undoc_user_option
+            },
+
+       channel_close_timeout =>
+           #{default => 5 * 1000,
+             chk => fun(V) -> check_non_neg_integer(V) end,
+             class => undoc_user_option
             }
      }.
+
+make_passwd_fun(PlainPwd) ->
+    PlainPwdBin = unicode:characters_to_binary(PlainPwd),
+    Salt = crypto:strong_rand_bytes(?SSH_PKBDF2_KEYLENGTH),
+    HashedPwd = crypto:pbkdf2_hmac(?SSH_PKBDF2_DIGEST,
+                                   PlainPwdBin, Salt,
+                                   ?SSH_PKBDF2_ITERATIONS,
+                                   ?SSH_PKBDF2_KEYLENGTH),
+    fun
+        Chk(PlainCheckPwd) when is_binary(PlainCheckPwd) ->
+            HashedCheckPwd = crypto:pbkdf2_hmac(?SSH_PKBDF2_DIGEST,
+                                                PlainCheckPwd, Salt,
+                                                ?SSH_PKBDF2_ITERATIONS,
+                                                ?SSH_PKBDF2_KEYLENGTH),
+            crypto:hash_equals(HashedPwd, HashedCheckPwd);
+        Chk(PlainCheckPwd) when is_list(PlainCheckPwd) ->
+            Chk(unicode:characters_to_binary(PlainCheckPwd));
+        Chk(_) ->
+            false
+    end.
 
 
 %%%================================================================
@@ -1265,4 +1354,15 @@ error_if_empty([_|T]) ->
 error_if_empty([]) ->
     ok.
 
-%%%----------------------------------------------------------------
+check_subsystem({"sftp", {ssh_sftpd, Args}}) ->
+    Root = proplists:get_value(root, Args, ""),
+    case Root =:= "" orelse filename:pathtype(Root) =:= absolute of
+        true ->
+            true;
+        false ->
+            error_in_check(
+              {"sftp", {ssh_sftpd, Args}},
+              io_lib:format("SFTP root option must be an absolute path, got: ~p", [Root]))
+    end;
+check_subsystem(_) ->
+    true.

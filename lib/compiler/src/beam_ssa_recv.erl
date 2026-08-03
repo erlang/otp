@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -117,7 +119,7 @@
 format_error(OptInfo) ->
     format_opt_info(OptInfo).
 
--record(scan, { graph=beam_digraph:new(),
+-record(scan, { graph=graph:new(),
                 module :: #{ beam_ssa:b_local() => {beam_ssa:block_map(),
                                                     [beam_ssa:b_var()],
                                                     [beam_ssa:b_var()]} },
@@ -315,16 +317,16 @@ scan_add_edge(From, To, State) ->
 scan_add_edge(From, To, Label, State0) ->
     State = scan_add_vertex(To, scan_add_vertex(From, State0)),
 
-    Graph = beam_digraph:add_edge(State#scan.graph, From, To, Label),
+    Graph = graph:add_edge(State#scan.graph, From, To, Label),
 
     State#scan{graph=Graph}.
 
 scan_add_vertex(Vertex, #scan{graph=Graph0}=State) ->
-    case beam_digraph:has_vertex(Graph0, Vertex) of
+    case graph:has_vertex(Graph0, Vertex) of
         true ->
             State;
         false ->
-            Graph = beam_digraph:add_vertex(Graph0, Vertex),
+            Graph = graph:add_vertex(Graph0, Vertex),
             State#scan{graph=Graph}
     end.
 
@@ -363,7 +365,7 @@ si_remote_call_1(Dst, [Callee | Args], Lbl, Blocks) ->
                   none
           end,
     case MFA of
-        {erlang,alias,A} when is_integer(A), 0 =< A, A =< 1 ->
+        {erlang,alias,A} when is_integer(A, 0, 1) ->
             {makes_ref, Lbl, Dst};
         {erlang,demonitor,2} ->
             case Args of
@@ -378,12 +380,12 @@ si_remote_call_1(Dst, [Callee | Args], Lbl, Blocks) ->
             end;
         {erlang,make_ref,0} ->
             {makes_ref, Lbl, Dst};
-        {erlang,monitor,A} when is_integer(A), 2 =< A, A =< 3 ->
+        {erlang,monitor,A} when is_integer(A, 2, 3) ->
             {makes_ref, Lbl, Dst};
-        {erlang,spawn_monitor,A} when is_integer(A), 1 =< A, A =< 4 ->
+        {erlang,spawn_monitor,A} when is_integer(A, 1, 4) ->
             RPO = beam_ssa:rpo([Lbl], Blocks),
             si_ref_in_tuple(RPO, Blocks, Dst);
-        {erlang,spawn_request,A} when is_integer(A), 1 =< A, A =< 5 ->
+        {erlang,spawn_request,A} when is_integer(A, 1, 5) ->
             {makes_ref, Lbl, Dst};
         _ ->
             %% As an aside, spawn_opt/2-5 is trivially supported by handling it
@@ -454,14 +456,14 @@ propagate_references(Candidates, G) ->
     propagate_references_1(Roots, G, #{}).
 
 propagate_references_1([{Vertex, Ref} | VRefs], G, Acc0) ->
-    Refs = maps:get(Vertex, Acc0, sets:new([{version, 2}])),
+    Refs = maps:get(Vertex, Acc0, sets:new()),
     Acc = case sets:is_element(Ref, Refs) of
               true ->
                   %% Already visited
                   Acc0;
               false ->
                   Acc1 = Acc0#{ Vertex => sets:add_element(Ref, Refs) },
-                  Next = pr_successors(beam_digraph:out_edges(G, Vertex), Ref),
+                  Next = pr_successors(graph:out_edges(G, Vertex), Ref),
                   propagate_references_1(Next, G, Acc1)
           end,
     propagate_references_1(VRefs, G, Acc);
@@ -667,19 +669,19 @@ intersect_uses(UsageMap, RefMap, Graph) ->
                               [begin
                                    Vertex = {FuncId, Lbl},
                                    {Vertex, Ref}
-                               end || {Lbl, _I, Ref} <- Uses] ++ Acc
+                               end || {Lbl, _I, Ref} <:- Uses] ++ Acc
                       end, [], UsageMap),
     intersect_uses_1(Roots, RefMap, Graph, #{}).
 
 intersect_uses_1([{Vertex, Ref} | Vs], RefMap, Graph, Acc0) ->
-    PossibleRefs = maps:get(Vertex, RefMap, sets:new([{version, 2}])),
-    ActiveRefs0 = maps:get(Vertex, Acc0, sets:new([{version, 2}])),
+    PossibleRefs = maps:get(Vertex, RefMap, sets:new()),
+    ActiveRefs0 = maps:get(Vertex, Acc0, sets:new()),
     Acc = case {sets:is_element(Ref, PossibleRefs),
                 sets:is_element(Ref, ActiveRefs0)} of
               {true, false} ->
                   %% This block lies between reference creation and the receive
                   %% block, add it to the intersection.
-                  Edges = beam_digraph:in_edges(Graph, Vertex),
+                  Edges = graph:in_edges(Graph, Vertex),
                   Next = iu_predecessors(Edges, Ref),
                   ActiveRefs = sets:add_element(Ref, ActiveRefs0),
                   intersect_uses_1(Next, RefMap, Graph,
@@ -723,7 +725,7 @@ plan_markers(Candidates, UsageMap) ->
               end, #{}, Candidates).
 
 plan_markers_1(MakeRefs0, FuncId, UsageMap) ->
-    [Marker || {_, _, _, ExtractedAt, Ref}=Marker <- MakeRefs0,
+    [Marker || {_, _, _, ExtractedAt, Ref}=Marker <:- MakeRefs0,
                case UsageMap of
                    #{ {FuncId, ExtractedAt} := Refs } ->
                        sets:is_element(Ref, Refs);
@@ -733,7 +735,7 @@ plan_markers_1(MakeRefs0, FuncId, UsageMap) ->
 
 plan_clears(UsageMap, Graph) ->
     maps:fold(fun({FuncId, _}=Vertex, ActiveRefs, Acc) ->
-                      Edges = beam_digraph:out_edges(Graph, Vertex),
+                      Edges = graph:out_edges(Graph, Vertex),
                       case plan_clears_1(Edges, ActiveRefs, UsageMap) of
                           [_|_]=Clears ->
                               Clears0 = maps:get(FuncId, Acc, []),
@@ -745,7 +747,7 @@ plan_clears(UsageMap, Graph) ->
 
 plan_clears_1([{From, To, branch} | Edges], ActiveRefs, UsageMap) ->
     %% Clear all references that are no longer active on the `To` block.
-    ToRefs = maps:get(To, UsageMap, sets:new([{version, 2}])),
+    ToRefs = maps:get(To, UsageMap, sets:new()),
     Refs = sets:subtract(ActiveRefs, ToRefs),
 
     {FuncId, FromLbl} = From,

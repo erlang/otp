@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2002-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,19 +34,46 @@
 #include <sys/mman.h>
 #endif
 
-int erts_mem_guard(void *p, UWord size) {
+#if defined(HAVE_MADVISE) && defined(MADV_FREE)
+/* Note that we don't default to MADV_DONTNEED since it promises that
+ * the given region will be zeroed on access, which turned out to be
+ * too much of a performance hit. */
+int erts_madvise_discard_advice = MADV_FREE;
+#endif
+
+int erts_mem_guard(void *p, UWord size, int readable, int writable) {
+
 #if defined(WIN32)
     DWORD oldProtect;
+    DWORD newProtect = PAGE_NOACCESS;
     BOOL success;
 
+    if (readable && writable) {
+        newProtect = PAGE_READWRITE;
+    } else if (readable) {
+        newProtect = PAGE_READONLY;
+    } else {
+        ERTS_INTERNAL_ERROR(!"mem_guard invalid page permissions");
+    }
     success = VirtualProtect((LPVOID*)p,
                              size,
-                             PAGE_NOACCESS,
+                             newProtect,
                              &oldProtect);
 
     return success ? 0 : -1;
 #elif defined(HAVE_SYS_MMAN_H)
-    return mprotect(p, size, PROT_NONE);
+    int flags = 0;
+
+    /* Check that the ptr is aligned at page boundary */
+    ASSERT((Uint)p % sys_page_size == 0);
+    
+    if (writable) {
+        flags |= PROT_WRITE;
+    }
+    if (readable) {
+        flags |= PROT_READ;
+    }
+    return mprotect(p, size, flags);
 #else
     errno = ENOTSUP;
     return -1;

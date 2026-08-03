@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,12 +16,14 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
 -module(asn1ct_constructed_ber_bin_v2).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 -export([gen_encode_sequence/3]).
 -export([gen_decode_sequence/3]).
@@ -171,9 +175,9 @@ enc_match_input(#gen{pack=record}, ValName, CompList) ->
 enc_match_input(#gen{pack=map}, ValName, CompList) ->
     Len = length(CompList),
     Vars = [lists:concat(["Cindex",N]) || N <- lists:seq(1, Len)],
-    Zipped = lists:zip(CompList, Vars),
     M = [[{asis,Name},":=",Var] ||
-            {#'ComponentType'{prop=mandatory,name=Name},Var} <- Zipped],
+            #'ComponentType'{prop=mandatory,name=Name} <- CompList &&
+                Var <- Vars],
     case M of
         [] ->
             ok;
@@ -181,7 +185,8 @@ enc_match_input(#gen{pack=map}, ValName, CompList) ->
             emit(["#{",lists:join(",", M),"} = ",ValName,com,nl])
     end,
     Os0 = [{Name,Var} ||
-              {#'ComponentType'{prop=Prop,name=Name},Var} <- Zipped,
+              #'ComponentType'{prop=Prop,name=Name} <- CompList &&
+                  Var <- Vars,
               Prop =/= mandatory],
     F = fun({Name,Var}) ->
                 [Var," = case ",ValName," of\n"
@@ -316,8 +321,8 @@ dec_external(#gen{pack=map}, _RecordName) ->
     Vars = asn1ct_name:all(term),
     Names = ['direct-reference','indirect-reference',
              'data-value-descriptor',encoding],
-    Zipped = lists:zip(Names, Vars),
-    MapInit = lists:join(",", [["'",N,"'=>",{var,V}] || {N,V} <- Zipped]),
+    MapInit = lists:join(",", [["'",N,"'=>",{var,V}] ||
+                                  N <- Names && V <- Vars]),
     emit(["OldFormat = #{",MapInit,"}",com,nl,
           "ASN11994Format =",nl,
           {call,ext,transform_to_EXTERNAL1994_maps,
@@ -355,6 +360,7 @@ gen_dec_postponed_decs(DecObj,[{_Cname,{FirstPFN,PFNList},Term,
 				TmpTerm,_Tag,OptOrMand}|Rest]) ->
 
     asn1ct_name:new(tmpterm),
+    asn1ct_name:new(class),
     asn1ct_name:new(reason),
     asn1ct_name:new(tmptlv),
 
@@ -368,15 +374,16 @@ gen_dec_postponed_decs(DecObj,[{_Cname,{FirstPFN,PFNList},Term,
 		emit_opt_or_mand_check(Val,TmpTerm),
 		6
 	end,
-    emit([indent(N+3),"case (catch ",DecObj,"(",{asis,FirstPFN},
-	  ", ",TmpTerm,", ",{asis,PFNList},")) of",nl]),
-    emit([indent(N+6),"{'EXIT', ",{curr,reason},"} ->",nl]),
+    emit([indent(N+3),"try ",DecObj,"(",{asis,FirstPFN},
+	  ", ",TmpTerm,", ",{asis,PFNList},")",nl]),
+    emit([indent(N+3),"catch",nl,
+          indent(N+6),{curr,class},":",{curr,reason},
+          " when ", {curr,class}, " =:= error; ",
+          {curr,class}, " =:= exit ->",nl]),
     emit([indent(N+9),"exit({'Type not compatible with table constraint',",
-	  {curr,reason},"});",nl]),
-    emit([indent(N+6),{curr,tmpterm}," ->",nl]),
-    emit([indent(N+9),{curr,tmpterm},nl]),
-    
-    case OptOrMand of 
+	  {curr,reason},"})",nl]),
+
+    case OptOrMand of
 	mandatory -> emit([indent(N+3),"end,",nl]);
 	_ ->
 	    emit([indent(N+3),"end",nl,
@@ -1247,6 +1254,7 @@ gen_dec_line(Erules,TopType,Cname,CTags,Type,OptOrMand,DecObjInf)  ->
 
 gen_dec_call({typefield,_},_,_,_Cname,Type,BytesVar,Tag,_,_,false,_) ->
     %%  this in case of a choice with typefield components
+    asn1ct_name:new(class),
     asn1ct_name:new(reason),
     asn1ct_name:new(opendec),
     asn1ct_name:new(tmpterm),
@@ -1259,15 +1267,17 @@ gen_dec_call({typefield,_},_,_,_Cname,Type,BytesVar,Tag,_,_,false,_) ->
 	  {call,ber,decode_open_type,
 	   [BytesVar,{asis,Tag}]},com,nl]),
 
-    emit([indent(9),"case (catch ObjFun(",{asis,FirstPFName},
+    emit([indent(9),"try ObjFun(",{asis,FirstPFName},
 	  ", ",{curr,tmptlv},", ",{asis,RestPFName},
-	  ")) of", nl]),%% ??? What about Tag 
-    emit([indent(12),"{'EXIT',",{curr,reason},"} ->",nl]),
+	  ")", nl]),
+    emit(["catch",nl,
+          {curr,class},":",{curr,reason},
+          " when ", {curr,class}, " =:= error; ",
+          {curr,class}, " =:= exit ->",nl]),
     emit([indent(15),"exit({'Type not ",
-	  "compatible with table constraint', ",{curr,reason},"});",nl]),
-    emit([indent(12),{curr,tmpterm}," ->",nl]),
-    emit([indent(15),{curr,tmpterm},nl]),
-    emit([indent(9),"end",nl,indent(6),"end",nl]),
+	  "compatible with table constraint', ",{curr,reason},"})",nl]),
+    emit([indent(9),"end",nl,
+          indent(6),"end",nl]),
     [];
 gen_dec_call({typefield,_},_,_,Cname,Type,BytesVar,Tag,_,_,_DecObjInf,OptOrMandComp) ->
     call(decode_open_type, [BytesVar,{asis,Tag}]),

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +26,8 @@
 %%
 -module(prim_inet).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 %% Primitive inet_drv interface
 
@@ -75,10 +79,12 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 open(Protocol, Family, Type) ->
-    open(Protocol, Family, Type, [], ?INET_REQ_OPEN, []).
+    P = enc_proto(Protocol),
+    open(Protocol, Family, Type, [], ?INET_REQ_OPEN, [P]).
 
 open(Protocol, Family, Type, Opts) ->
-    open(Protocol, Family, Type, Opts, ?INET_REQ_OPEN, []).
+    P = enc_proto(Protocol),
+    open(Protocol, Family, Type, Opts, ?INET_REQ_OPEN, [P]).
 
 %% FDOPEN(tcp|udp|sctp, inet|inet6|local, stream|dgram|seqpacket, integer())
 
@@ -124,14 +130,21 @@ enc_type(stream) -> ?INET_TYPE_STREAM;
 enc_type(dgram) -> ?INET_TYPE_DGRAM;
 enc_type(seqpacket) -> ?INET_TYPE_SEQPACKET.
 
-protocol2drv(tcp)  -> "tcp_inet";
-protocol2drv(udp)  -> "udp_inet";
-protocol2drv(sctp) -> "sctp_inet".
+protocol2drv(tcp)   -> "tcp_inet";
+protocol2drv(udp)   -> "udp_inet";
+protocol2drv(sctp)  -> "sctp_inet";
+protocol2drv(mptcp) -> "tcp_inet".
 
 drv2protocol("tcp_inet")  -> tcp;
 drv2protocol("udp_inet")  -> udp;
 drv2protocol("sctp_inet") -> sctp;
 drv2protocol(_)           -> undefined.
+
+enc_proto(default) -> ?INET_PROTO_DEFAULT;
+enc_proto(tcp)     -> ?INET_PROTO_TCP;
+enc_proto(udp)     -> ?INET_PROTO_UDP;
+enc_proto(sctp)    -> ?INET_PROTO_SCTP;
+enc_proto(mptcp)   -> ?INET_PROTO_MPTCP.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -1574,7 +1587,11 @@ enc_opt(line_delimiter)  -> ?INET_LOPT_LINE_DELIM;
 enc_opt(raw)             -> ?INET_OPT_RAW;
 enc_opt(bind_to_device)  -> ?INET_OPT_BIND_TO_DEVICE;
 enc_opt(read_ahead)      -> ?INET_LOPT_TCP_READ_AHEAD;
-enc_opt(non_block_send)  -> ?INET_OPT_NON_BLOCK_SEND;
+enc_opt(non_block_send)  -> ?INET_LOPT_NON_BLOCK_SEND;
+enc_opt(keepcnt)         -> ?TCP_OPT_KEEPCNT;
+enc_opt(keepidle)        -> ?TCP_OPT_KEEPIDLE;
+enc_opt(keepintvl)       -> ?TCP_OPT_KEEPINTVL;
+enc_opt(user_timeout)    -> ?TCP_OPT_USER_TIMEOUT;
 enc_opt(debug)           -> ?INET_OPT_DEBUG;
 % Names of SCTP opts:
 enc_opt(sctp_rtoinfo)	 	   -> ?SCTP_OPT_RTOINFO;
@@ -1647,7 +1664,11 @@ dec_opt(?INET_LOPT_LINE_DELIM)      -> line_delimiter;
 dec_opt(?INET_OPT_RAW)              -> raw;
 dec_opt(?INET_OPT_BIND_TO_DEVICE) -> bind_to_device;
 dec_opt(?INET_LOPT_TCP_READ_AHEAD) -> read_ahead;
-dec_opt(?INET_OPT_NON_BLOCK_SEND) -> non_block_send;
+dec_opt(?INET_LOPT_NON_BLOCK_SEND) -> non_block_send;
+dec_opt(?TCP_OPT_KEEPCNT)         -> keepcnt;
+dec_opt(?TCP_OPT_KEEPIDLE)        -> keepidle;
+dec_opt(?TCP_OPT_KEEPINTVL)       -> keepintvl;
+dec_opt(?TCP_OPT_USER_TIMEOUT)    -> user_timeout;
 dec_opt(?INET_OPT_DEBUG)          -> debug;
 dec_opt(I) when is_integer(I)     -> undefined.
 
@@ -1762,6 +1783,10 @@ type_opt_1(show_econnreset) -> bool;
 type_opt_1(bind_to_device)  -> binary;
 type_opt_1(read_ahead)      -> bool;
 type_opt_1(non_block_send)  -> bool;
+type_opt_1(keepcnt)         -> int;
+type_opt_1(keepidle)        -> int;
+type_opt_1(keepintvl)       -> int;
+type_opt_1(user_timeout)    -> uint;
 type_opt_1(debug)           -> bool;
 %% 
 %% SCTP options (to be set). If the type is a record type, the corresponding

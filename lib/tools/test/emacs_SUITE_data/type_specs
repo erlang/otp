@@ -2,6 +2,7 @@
 %% Copyright Ericsson AB 2017. All Rights Reserved.
 
 %% Tests how types and specs are indented (also that the editor can parse them)
+%% Verifies -doc attributes and basic testing of strings as well
 %% May need improvements
 
 
@@ -136,3 +137,36 @@
 -opaque attributes_data() ::
           [{'column', column()} | {'line', info_line()} |
            {'text', string()}] |  {line(),column()}.
+
+
+%% Test multiline strings as well
+%%  since the tests works by removing indentation and then
+%%  adding them again strings can only be tested without leading spaces
+
+-doc """
+startline
+second line zero indentation
+" String indented to steps"
+last not indented
+""".
+
+%% Uncommment and test manually
+%% more_strings() ->
+%%     """
+%%       ok, This string
+%%         should not be changed
+%%     column 0
+%%     """,
+%%     foo.
+
+func2() ->
+    "
+asd
+asd
+asd
+",
+    foo.
+
+func3() ->
+    "",
+    asd.

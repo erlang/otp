@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -65,7 +67,7 @@ The functions [`anno_from_term()`](`erl_parse:anno_from_term/1`),
 [`new_anno()`](`erl_parse:new_anno/1`), in the `erl_parse` module can be used
 for manipulating annotations in abstract code.
 
-## See Also
+### See Also
 
 `m:erl_parse`, `m:erl_scan`
 """.
@@ -75,7 +77,7 @@ for manipulating annotations in abstract code.
 -export([column/1, end_location/1, file/1, generated/1,
          line/1, location/1, record/1, text/1]).
 -export([set_file/2, set_generated/2, set_line/2, set_location/2,
-         set_record/2, set_text/2]).
+         set_end_location/2, set_record/2, set_text/2]).
 
 %% To be used when necessary to avoid Dialyzer warnings.
 -export([to_term/1, from_term/1]).
@@ -100,7 +102,8 @@ for manipulating annotations in abstract code.
 -type annotation() :: {'file', filename()}
                     | {'generated', generated()}
                     | {'location', location()}
-                    | {'record', record()}
+                    | {'end_location', location()}
+                    | {'record', record_local()}
                     | {'text', string()}.
 
 -ifdef(DEBUG).
@@ -118,9 +121,9 @@ or a list of key-value pairs.
 -type column() :: pos_integer().
 -type generated() :: boolean().
 -type filename() :: file:filename_all().
--type line() :: non_neg_integer().
--type location() :: line() | {line(), column()}.
--type record() :: boolean().
+-nominal line() :: non_neg_integer().
+-nominal location() :: line() | {line(), column()}.
+-type record_local() :: boolean().
 -type text() :: string().
 
 -ifdef(DEBUG).
@@ -216,6 +219,10 @@ is_anno2(location, Line) when ?LN(Line) ->
     true;
 is_anno2(location, {Line, Column}) when ?LN(Line), ?COL(Column) ->
     true;
+is_anno2(end_location, Line) when ?LN(Line) ->
+    true;
+is_anno2(end_location, {Line, Column}) when ?LN(Line), ?COL(Column) ->
+    true;
 is_anno2(generated, true) ->
     true;
 is_anno2(file, Filename) ->
@@ -251,24 +258,37 @@ column(Anno) ->
     end.
 
 -doc """
-Returns the end location of the text of the annotations Anno. If there is no
-text, `undefined` is returned.
+Returns the end location of the annotations Anno.
+
+If the end location annotation is present, its value is returned. Otherwise,
+if the text annotation is present, the end location is inferred from the
+location and the text. Finally, if there is no text, `undefined` is returned.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
 -spec end_location(Anno) -> location() | 'undefined' when
       Anno :: anno().
 
+end_location(Line) when ?ALINE(Line) ->
+    undefined;
+end_location({Line, Column}) when ?ALINE(Line), ?ACOLUMN(Column) ->
+    undefined;
 end_location(Anno) ->
-    case text(Anno) of
+    case anno_info(Anno, end_location) of
         undefined ->
-            undefined;
-        Text ->
-            case location(Anno) of
-                {Line, Column} ->
-                    end_location(Text, Line, Column);
-                Line ->
-                    end_location(Text, Line)
-            end
+            case text(Anno) of
+                undefined ->
+                    undefined;
+                Text ->
+                    case location(Anno) of
+                        {Line, Column} ->
+                            end_location(Text, Line, Column);
+                        Line ->
+                            end_location(Text, Line)
+                    end
+            end;
+
+        Location ->
+            Location
     end.
 
 -doc """
@@ -314,7 +334,10 @@ line(Anno) ->
             Line
     end.
 
--doc "Returns the location of the annotations Anno.".
+-doc """
+Returns the location of the annotations Anno. If there is no location,
+a zero line number is returned.
+""".
 -doc(#{since => <<"OTP 18.0">>}).
 -spec location(Anno) -> location() when
       Anno :: anno().
@@ -324,10 +347,10 @@ location(Line) when ?ALINE(Line) ->
 location({Line, Column}=Location) when ?ALINE(Line), ?ACOLUMN(Column) ->
     Location;
 location(Anno) ->
-    anno_info(Anno, location).
+    anno_info(Anno, location, 0).
 
 -doc false.
--spec record(Anno) -> record() when
+-spec record(Anno) -> record_local() when
       Anno :: anno().
 
 record(Line) when ?ALINE(Line) ->
@@ -403,10 +426,19 @@ set_location({L, C}=Loc, {Line, Column}) when ?ALINE(Line), ?ACOLUMN(Column),
 set_location(Location, Anno) ->
     set(location, Location, Anno).
 
+-doc "Modifies the end location of the annotations Anno.".
+-doc(#{since => <<"OTP 28.0">>}).
+-spec set_end_location(Location, Anno) -> Anno when
+      Location :: location(),
+      Anno :: anno().
+
+set_end_location(Location, Anno) ->
+    set(end_location, Location, Anno).
+
 -doc "Modifies the record marker of the annotations Anno.".
 -doc(#{since => <<"OTP 18.0">>}).
 -spec set_record(Record, Anno) -> Anno when
-      Record :: record(),
+      Record :: record_local(),
       Anno :: anno().
 
 set_record(Record, Anno) ->
@@ -507,6 +539,10 @@ is_settable(generated, Boolean) when Boolean; not Boolean ->
 is_settable(location, Line) when ?LLINE(Line) ->
     true;
 is_settable(location, {Line, Column}) when ?LLINE(Line), ?LCOLUMN(Column) ->
+    true;
+is_settable(end_location, Line) when ?LLINE(Line) ->
+    true;
+is_settable(end_location, {Line, Column}) when ?LLINE(Line), ?LCOLUMN(Column) ->
     true;
 is_settable(record, Boolean) when Boolean; not Boolean ->
     true;

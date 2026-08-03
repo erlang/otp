@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2010-2026. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -107,7 +109,7 @@ endif
 # ----------------------------------------------------
 
 ifeq ($(TYPE),debug)
-ERL_COMPILE_FLAGS += -Ddebug
+ERL_COMPILE_FLAGS += -Ddebug +warn_obsolete_bool_op
 endif
 
 # The "warn" flag is on by default, so unless we add the
@@ -120,7 +122,7 @@ endif
 
 ERL_COMPILE_FLAGS += \
 	+warn_export_vars \
-	+warn_unused_vars \
+	+warn_unused_vars +nowarn_deprecated_catch \
 	$(MISSING_SPEC_DOCUMENTED) \
 	+'{parse_transform,sys_pre_attributes}' \
 	+'{attribute,insert,app_vsn,"$(APP_VSN)"}' \
@@ -272,7 +274,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 # Can't $(INSTALL_DIR) more than one directory at a time on Solaris.
 
 release_spec: opt
-	for d in bin ebin examples include src/dict; do \
+	for d in bin ebin include src/dict; do \
 	    $(INSTALL_DIR) "$(RELSYSDIR)/$$d"; \
 	done
 	$(INSTALL_SCRIPT) $(BINS:%=../bin/%) "$(RELSYSDIR)/bin"
@@ -281,7 +283,7 @@ release_spec: opt
 	                "$(RELSYSDIR)/include"
 	$(INSTALL_DATA) $(DICTS:%=dict/%.dia) "$(RELSYSDIR)/src/dict"
 	$(MAKE) ERL_DETERMINISTIC=$(ERL_DETERMINISTIC) $(TARGET_DIRS:%/=release_src_%)
-	$(MAKE) ERL_DETERMINISTIC=$(ERL_DETERMINISTIC) $(EXAMPLE_DIRS:%/=release_examples_%)
+
 
 $(TARGET_DIRS:%/=release_src_%): release_src_%:
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/$*"
@@ -291,11 +293,13 @@ $(TARGET_DIRS:%/=release_src_%): release_src_%:
 	                "$(RELSYSDIR)/src/$*"
 
 $(EXAMPLE_DIRS:%/=release_examples_%): release_examples_%:
-	$(INSTALL_DIR) "$(RELSYSDIR)/examples/$*"
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples/$*"
 	$(INSTALL_DATA) $(patsubst %, ../examples/%, $(filter $*/%, $(EXAMPLES))) \
-	                "$(RELSYSDIR)/examples/$*"
+	                "$(RELSYSDIR)/doc/examples/$*"
 
 release_docs_spec:
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples"
+	$(MAKE) ERL_DETERMINISTIC=$(ERL_DETERMINISTIC) $(EXAMPLE_DIRS:%/=release_examples_%)
 
 # ----------------------------------------------------
 # Dependencies

@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -63,7 +65,7 @@ The EPMD Protocol supports various tasks:
 - Getting all Registered Names
 - Dumping all Data from EPMD
 - Killing EPMD
-- `STOP_REQ` (Not Used)
+- `EPMD_STOP_REQ` (Not Used)
 
 The requests served by the EPMD for these tasks are summarized in the following figure.
 
@@ -77,34 +79,34 @@ sequenceDiagram
     participant EPMD
 
     Note over EPMD: Register a Node in EPMD
-    client ->> EPMD: ALIVE2_REQ
+    client ->> EPMD: EPMD_ALIVE2_REQ
     alt
-        EPMD -->> client: ALIVE2_X_RESP
+        EPMD -->> client: EPMD_ALIVE2_X_RESP
     else
-        EPMD -->> client: ALIVE2_RESP
+        EPMD -->> client: EPMD_ALIVE2_RESP
     end
 
     Note over EPMD: Unregister a Node in EPMD
     client ->> EPMD: ALIVE_CLOSE_REQ
 
     Note over client: Get the Distribution Port of Another Node
-    client ->> EPMD: PORT_PLEASE2_REQ
-    EPMD -->> client: PORT2_RESP
+    client ->> EPMD: EPMD_PORT2_REQ
+    EPMD -->> client: EPMD_PORT2_RESP
 
     Note over client: Get All Registered Names from EPMD
-    client ->> EPMD: NAMES_REQ
+    client ->> EPMD: EPMD_NAMES_REQ
     EPMD -->> client: NAMES_RESP
 
     Note over EPMD: Dump all Data from EPMD
-    client ->> EPMD: DUMP_REQ
+    client ->> EPMD: EPMD_DUMP_REQ
     EPMD -->> client: DUMP_RESP
 
     Note over EPMD: Kill EPMD
-    client ->> EPMD: KILL_REQ
+    client ->> EPMD: EPMD_KILL_REQ
     EPMD -->> client: KILL_RESP
 
-    Note over EPMD: STOP_REQ (Not Used)
-    client ->> EPMD: STOP_REQ
+    Note over EPMD: EPMD_STOP_REQ (Not Used)
+    client ->> EPMD: EPMD_STOP_REQ
     EPMD -->> client: STOP_OK_RESP
     EPMD -->> client: STOP_NOTOK_RESP
 ```
@@ -121,8 +123,8 @@ _Table: Request Format_
 ### Register a Node in EPMD
 
 When a distributed node is started it registers itself in the EPMD. The message
-`ALIVE2_REQ` described below is sent from the node to the EPMD. The response
-from the EPMD is `ALIVE2_X_RESP` (or `ALIVE2_RESP`):
+`EPMD_ALIVE2_REQ` described below is sent from the node to the EPMD. The response
+from the EPMD is `EPMD_ALIVE2_X_RESP` (or `EPMD_ALIVE2_RESP`):
 
 ```mermaid
 ---
@@ -132,11 +134,11 @@ sequenceDiagram
     participant client as Client (or Node)
     participant EPMD
 
-    client ->> EPMD: ALIVE2_REQ
+    client ->> EPMD: EPMD_ALIVE2_REQ
     alt
-        EPMD -->> client: ALIVE2_X_RESP
+        EPMD -->> client: EPMD_ALIVE2_X_RESP
     else
-        EPMD -->> client: ALIVE2_RESP
+        EPMD -->> client: EPMD_ALIVE2_RESP
     end
 ```
 
@@ -144,7 +146,7 @@ sequenceDiagram
 | ----- | -------- | ---------- | ---------- | ---------------- | --------------- | ------ | ---------- | ------ | ------- |
 | `120` | `PortNo` | `NodeType` | `Protocol` | `HighestVersion` | `LowestVersion` | `Nlen` | `NodeName` | `Elen` | `Extra` |
 
-_Table: ALIVE2_REQ (120)_
+_Table: EPMD_ALIVE2_REQ (120)_
 
 - **`PortNo`** - The port number on which the node accept connection requests.
 
@@ -172,21 +174,21 @@ The connection created to the EPMD must be kept as long as the node is a
 distributed node. When the connection is closed, the node is automatically
 unregistered from the EPMD.
 
-The response message is either `ALIVE2_X_RESP` or `ALIVE2_RESP` depending on
+The response message is either `EPMD_ALIVE2_X_RESP` or `EPMD_ALIVE2_RESP` depending on
 distribution version. If both the node and EPMD support distribution version 6
-then the response is `ALIVE2_X_RESP` otherwise it is the older `ALIVE2_RESP`:
+then the response is `EPMD_ALIVE2_X_RESP` otherwise it is the older `EPMD_ALIVE2_RESP`:
 
 | 1     | 1        | 4          |
 | ----- | -------- | ---------- |
 | `118` | `Result` | `Creation` |
 
-_Table: ALIVE2_X_RESP (118) with 32 bit creation_
+_Table: EPMD_ALIVE2_X_RESP (118) with 32 bit creation_
 
 | 1     | 1        | 2          |
 | ----- | -------- | ---------- |
 | `121` | `Result` | `Creation` |
 
-_Table: ALIVE2_RESP (121) with 16-bit creation_
+_Table: EPMD_ALIVE2_RESP (121) with 16-bit creation_
 
 Result = 0 -> ok, result > 0 -> error.
 
@@ -210,7 +212,7 @@ sequenceDiagram
 ### Get the Distribution Port of Another Node
 
 When one node wants to connect to another node it starts with a
-`PORT_PLEASE2_REQ` request to the EPMD on the host where the node resides to get
+`EPMD_PORT2_REQ` request to the EPMD on the host where the node resides to get
 the distribution port that the node listens to:
 
 ```mermaid
@@ -221,8 +223,8 @@ sequenceDiagram
     participant client as Client (or Node)
     participant EPMD
     
-    client ->> EPMD: PORT_PLEASE2_REQ
-    EPMD -->> client: PORT2_RESP
+    client ->> EPMD: EPMD_PORT2_REQ
+    EPMD -->> client: EPMD_PORT2_RESP
 ```
 
 
@@ -230,7 +232,7 @@ sequenceDiagram
 | ----- | ---------- |
 | `122` | `NodeName` |
 
-_Table: PORT_PLEASE2_REQ (122)_
+_Table: EPMD_PORT2_REQ (122)_
 
 where N = `Length` \- 1.
 
@@ -238,7 +240,7 @@ where N = `Length` \- 1.
 | ----- | -------- |
 | `119` | `Result` |
 
-_Table: PORT2_RESP (119) Response Indicating Error, Result > 0_
+_Table: EPMD_PORT2_RESP (119) Response Indicating Error, Result > 0_
 
 or
 
@@ -246,7 +248,7 @@ or
 | ----- | -------- | -------- | ---------- | ---------- | ---------------- | --------------- | ------ | ---------- | ------ | -------- |
 | `119` | `Result` | `PortNo` | `NodeType` | `Protocol` | `HighestVersion` | `LowestVersion` | `Nlen` | `NodeName` | `Elen` | >`Extra` |
 
-_Table: PORT2_RESP, Result = 0_
+_Table: EPMD_PORT2_RESP, Result = 0_
 
 If `Result` > 0, the packet only consists of `[119, Result]`.
 
@@ -266,7 +268,7 @@ sequenceDiagram
     participant client as Client (or Node)
     participant EPMD
     
-    client ->> EPMD: NAMES_REQ
+    client ->> EPMD: EPMD_NAMES_REQ
     EPMD -->> client: NAMES_RESP
 ```
 
@@ -274,9 +276,9 @@ sequenceDiagram
 | ----- |
 | `110` |
 
-_Table: NAMES_REQ (110)_
+_Table: EPMD_NAMES_REQ (110)_
 
-The response for a `NAMES_REQ` is as follows:
+The response for a `EPMD_NAMES_REQ` is as follows:
 
 | 4            |             |
 | ------------ | ----------- |
@@ -305,7 +307,7 @@ sequenceDiagram
     participant client as Client (or Node)
     participant EPMD
     
-    client ->> EPMD: DUMP_REQ
+    client ->> EPMD: EPMD_DUMP_REQ
     EPMD -->> client: DUMP_RESP
 ```
 
@@ -314,9 +316,9 @@ sequenceDiagram
 | ----- |
 | `100` |
 
-_Table: DUMP_REQ_
+_Table: EPMD_DUMP_REQ_
 
-The response for a `DUMP_REQ` is as follows:
+The response for a `EPMD_DUMP_REQ` is as follows:
 
 | 4            |             |
 | ------------ | ----------- |
@@ -353,7 +355,7 @@ sequenceDiagram
     participant client as Client (or Node)
     participant EPMD
     
-    client ->> EPMD: KILL_REQ
+    client ->> EPMD: EPMD_KILL_REQ
     EPMD -->> client: KILL_RESP
 ```
 
@@ -361,9 +363,9 @@ sequenceDiagram
 | ----- |
 | `107` |
 
-_Table: KILL_REQ_
+_Table: EPMD_KILL_REQ_
 
-The response for a `KILL_REQ` is as follows:
+The response for a `EPMD_KILL_REQ` is as follows:
 
 | 2          |
 | ---------- |
@@ -373,17 +375,17 @@ _Table: KILL_RESP_
 
 where `OKString` is "OK".
 
-### STOP_REQ (Not Used)
+### EPMD_STOP_REQ (Not Used)
 
 ```mermaid
 ---
-title: STOP_REQ (Not Used)
+title: EPMD_STOP_REQ (Not Used)
 ---
 sequenceDiagram
     participant client as Client (or Node)
     participant EPMD
     
-    client ->> EPMD: STOP_REQ
+    client ->> EPMD: EPMD_STOP_REQ
     EPMD -->> client: STOP_OK_RESP
     EPMD -->> client: STOP_NOTOK_RESP
 ```
@@ -392,11 +394,11 @@ sequenceDiagram
 | ----- | ---------- |
 | `115` | `NodeName` |
 
-_Table: STOP_REQ_
+_Table: EPMD_STOP_REQ_
 
 where n = `Length` \- 1.
 
-The response for a `STOP_REQ` is as follows:
+The response for a `EPMD_STOP_REQ` is as follows:
 
 | 7          |
 | ---------- |
@@ -819,6 +821,23 @@ following capability flags are defined:
   [`ALIAS_SEND_TT`](erl_dist_protocol.md#ALIAS_SEND_TT) control messages.
   Introduced in OTP 24.
 
+  > #### Warning {: .warning }
+  >
+  > `DFLAG_ALIAS` is deprecated and is scheduled for removal in OTP 30. It has
+  > been replaced by
+  > [`DFLAG_ALTACT_SIG`](erl_dist_protocol.md#DFLAG_ALTACT_SIG).
+
+- **`-define(DFLAG_ALTACT_SIG, (1 bsl 37)).`{: #DFLAG_ALTACT_SIG }** - The node
+  supports alternate action messages (alias and priority messages) and can by
+  this handle the
+  [`ALTACT_SIG_SEND`](erl_dist_protocol.md#ALTACT_SIG_SEND) control messages.
+  Introduced in OTP 28.
+
+- **`-define(DFLAG_NATIVE_RECORDS, (1 bsl 38)).`{: #DFLAG_NATIVE_RECORDS }** -
+  The node supports native record terms encoded with the
+  [`RECORD_EXT`](erl_ext_dist.md#record_ext) tag.
+  Introduced in OTP 29.
+
 There is also function `dist_util:strict_order_flags/0` returning all flags
 (bitwise or:ed together) corresponding to features that require strict ordering
 of data over distribution channels.
@@ -911,7 +930,7 @@ distributed operation it encodes:
 
 - **`EXIT2`** - `{8, FromPid, ToPid, Reason}`
 
-  This signal is sent by a call to the erlang:exit/2 bif
+  This signal is sent by a call to the erlang:exit_signal/2 bif
 
 - **`SEND_TT`** - `{12, Unused, ToPid, TraceToken}`
 
@@ -1133,20 +1152,64 @@ distributed operation it encodes:
 
 - **`ALIAS_SEND`{: #ALIAS_SEND }** - `{33, FromPid, Alias}`
 
+  > #### Warning {: .warning }
+  >
+  > This signal is deprecated and has been scheduled for removal in OTP 30.
+  > It has been replaced by the
+  > the [`ALTACT_SIG_SEND`](erl_dist_protocol.md#ALTACT_SIG_SEND) signal.
+
   Followed by `Message`.
 
   This control message is used when sending the message `Message` to the process
   identified by the process alias `Alias`. Nodes that can handle this control
   message sets the distribution flag
-  [`DFLAG_ALIAS`](erl_dist_protocol.md#dflags) in the connection setup
+  [`DFLAG_ALIAS`](erl_dist_protocol.md#DFLAG_ALIAS) in the connection setup
   handshake.
 
 - **`ALIAS_SEND_TT`{: #ALIAS_SEND_TT }** - `{34, FromPid, Alias, Token}`
+
+  > #### Warning {: .warning }
+  >
+  > This signal is deprecated and has been scheduled for removal in OTP 30.
+  > It has been replaced by the
+  > the [`ALTACT_SIG_SEND`](erl_dist_protocol.md#ALTACT_SIG_SEND) signal.
 
   Followed by `Message`.
 
   Same as [`ALIAS_SEND`](erl_dist_protocol.md#ALIAS_SEND), but also with a
   sequential trace `Token`.
+
+### New Ctrlmessages for Erlang/OTP 28
+
+- **`ALTACT_SIG_SEND`{: #ALTACT_SIG_SEND }** - `{37, Flags, SenderPid, To}` or `{37, Flags, SenderPid, To, Token}`
+
+  Followed by `Data`.
+
+  This control message is used when sending an alternate action signal with
+  associated `Data` to the process identified by `To`. Currently defined
+  alternate action signals are alias and priority message signals and exit
+  signals. That is, signals with an action upon reception which is different
+  than the default action.
+
+  Currently the following bitwise flags are defined:
+  * `ALTACT_SIG_FLG_PRIO` - **`1`** - This is a priority signal
+  * `ALTACT_SIG_FLG_TOKEN` - **`2`** - The control message is a 5-tuple with
+    token as element 5; otherwise, the control message is a 4-tuple.
+  * `ALTACT_SIG_FLG_ALIAS` - **`4`** - Send to an alias, i.e., `To` is a reference
+  * `ALTACT_SIG_FLG_NAME` - **`8`** - Send to a registered name, i.e., `To` is an atom
+  * `ALTACT_SIG_FLG_EXIT` - **`16`** - The signal is an exit signal
+
+  If neither `ALTACT_SIG_FLG_ALIAS` nor `ALTACT_SIG_FLG_NAME` is set, `To` is
+  a process identifier.
+
+  If `ALTACT_SIG_FLG_EXIT` is not set, the signal is a message signal.
+
+  For a message signal `Data` corresponds to the actual message term, and for
+  an exit signal `Data` corresponds to the exit reason term.
+
+  Nodes that can handle this control message sets the distribution flag
+  [`DFLAG_ALTACT_SIG`](erl_dist_protocol.md#DFLAG_ALTACT_SIG) in the connection
+  setup handshake.
 
 [](){: #link_protocol } [](){: #new_link_protocol } [](){: #old_link_protocol }
 

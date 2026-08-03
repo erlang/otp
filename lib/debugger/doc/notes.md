@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +22,152 @@ limitations under the License.
 # Debugger Release Notes
 
 This document describes the changes made to the Debugger application.
+
+## Debugger 7.0
+
+### Improvements and New Features
+
+- Native records as described in [EEP-79](https://www.erlang.org/eeps/eep-0079) has been implemented.
+  
+  A native record is a data structure similar to the traditional tuple-based records, except that is a true data type.
+  
+  Native records are considered experimental in Erlang/OTP 29 and possibly also in Erlang/OTP 30, meaning that their behavior may change, potentially requiring updates to applications that use them.
+
+  Own Id: OTP-19785 Aux Id: [PR-10617]
+
+- Tools such as the debugger, `m:beam_lib`, and `m:xref` no longer support BEAM files created before OTP 13B.
+
+  Own Id: OTP-19906 Aux Id: [PR-10519]
+
+- Multi-valued comprehensions according to [EEP 78](https://www.erlang.org/eeps/eep-0078) has been implemented.
+  
+  Example:
+  
+  ```erlang
+  > [I, -I || I <- lists:seq(1, 5)].
+  [1,-1,2,-2,3,-3,4,-4,5,-5]
+  ```
+
+  Own Id: OTP-19942 Aux Id: [PR-9374]
+
+- Added support for `-unsafe` attributes, which is used to mark functions as unsafe to use. 
+  
+  This is similar to but separate from deprecation, and the compiler will by default now generate warnings for calls to functions in Erlang/OTP that are known to be always unsafe.
+  
+  Furthermore, `m:xref` can now be used to find calls to functions in another application that lack a `-doc` attribute (`undocumented_function_calls`), calls to functions in another application marked `-doc false.` (`private_function_calls`), as well as calls to unsafe functions (`unsafe_function_calls`).
+
+  Own Id: OTP-20066 Aux Id: [PR-10839]
+
+[PR-10617]: https://github.com/erlang/otp/pull/10617
+[PR-10519]: https://github.com/erlang/otp/pull/10519
+[PR-9374]: https://github.com/erlang/otp/pull/9374
+[PR-10839]: https://github.com/erlang/otp/pull/10839
+
+## Debugger 6.0.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed unbound error in interpreted modules
+
+  Own Id: OTP-19719 Aux Id: [GH-10057], [PR-10066]
+
+[GH-10057]: https://github.com/erlang/otp/issues/10057
+[PR-10066]: https://github.com/erlang/otp/pull/10066
+
+## Debugger 6.0.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed debugger priv dir, which was removed and caused crashes when the icons could not be found.
+
+  Own Id: OTP-19687 Aux Id: [PR-9994], [GH-9858]
+
+[PR-9994]: https://github.com/erlang/otp/pull/9994
+[GH-9858]: https://github.com/erlang/otp/issues/9858
+
+## Debugger 6.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Restore deleted icon so that debugger does not crash on startup.
+
+  Own Id: OTP-19641 Aux Id: [GH-9858], [PR-9861]
+
+[GH-9858]: https://github.com/erlang/otp/issues/9858
+[PR-9861]: https://github.com/erlang/otp/pull/9861
+
+## Debugger 6.0
+
+### Fixed Bugs and Malfunctions
+
+- Error handling has been improved when modules fail to load.
+
+  Own Id: OTP-19484 Aux Id: [GH-7819], [PR-9399]
+
+[GH-7819]: https://github.com/erlang/otp/issues/7819
+[PR-9399]: https://github.com/erlang/otp/pull/9399
+
+### Improvements and New Features
+
+- Comprehensions have been extended with zip generators  according to [EEP 73](https://www.erlang.org/eeps/eep-0073). 
+  
+  Example:
+  
+  ```
+  1> [A+B || A <- [1,2,3] && B <- [4,5,6]].
+  [5,7,9]
+  ```
+
+  Own Id: OTP-19184 Aux Id: [PR-8926]
+
+- New strict generators have been added for comprehensions.
+  
+  The currently existing generators are "relaxed": they ignore terms in the
+  right-hand side expression that do not match the left-hand side pattern.
+  
+  The new strict generators fail with exception `badmatch` if a pattern doesn't match.
+  
+  Examples:
+  
+  Using the current relaxed generator operator `<-`, any element not matching
+  the pattern `{_,_}` will be silently discarded:
+  
+  ```
+  1> [T || {_,_}=T <- [{ok,1},ok,{error,2}]].
+  [{ok,1},{error,2}]
+  ```
+  If the intention is that all lists processed by a list comprehension must only
+  contain tuples of size two, using the new strict version of the operator ensures
+  that term not matching will cause a crash:
+  
+  ```
+  2> [T || {_,_}=T <:- [{ok,1},ok,{error,2}]].
+  ** exception error: no match of right hand side value ok
+  ```
+  Using the strict generator operator to mark the intention that all list elements must match the pattern could help finding mistakes quicker if something unpexected is added to the list processed by the generator.
+  
+  The strict version for bitstring generators is `<:=`.
+
+  Own Id: OTP-19317 Aux Id: [PR-8625]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-8926]: https://github.com/erlang/otp/pull/8926
+[PR-8625]: https://github.com/erlang/otp/pull/8625
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+
+## Debugger 5.5.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix unbound error in interpreted modules
+
+  Own Id: OTP-19719 Aux Id: [GH-10057], [PR-10066]
+
+[GH-10057]: https://github.com/erlang/otp/issues/10057
+[PR-10066]: https://github.com/erlang/otp/pull/10066
 
 ## Debugger 5.5
 

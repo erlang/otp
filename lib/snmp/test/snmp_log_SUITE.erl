@@ -1,7 +1,9 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -192,18 +194,37 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 open_and_close(suite) -> [];
 open_and_close(Config) when is_list(Config) ->
     ?P(open_and_close),
-    put(sname,open_and_close),
-    put(verbosity,trace),
-    Dir    = ?config(log_dir, Config),
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   put(sname,     ?FUNCTION_NAME),
+                   put(verbosity, trace),
+                   ?config(log_dir, Config)
+           end,
+    TC   = fun(Dir) ->
+                   do_open_and_close(Dir)
+           end,
+    Post = fun(_) ->
+                   ok
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+do_open_and_close(Dir) ->
     Name   = "snmp_test",
     File   = join(Dir, "snmp_test.log"),
     Size   = {1024, 10},
     Repair = true,
+    ?IPRINT("~w -> create log", [?FUNCTION_NAME]),
     {ok, Log} = snmp_log:create(Name, File, Size, Repair),
+    ?IPRINT("~w -> sync log", [?FUNCTION_NAME]),
     ok = snmp_log:sync(Log),
+    ?IPRINT("~w -> get (log) info", [?FUNCTION_NAME]),
     {ok, Info} = snmp_log:info(Log),
+    ?IPRINT("~w -> display (log) info", [?FUNCTION_NAME]),
     display_info(Info),
-    ok = snmp_log:close(Log).
+    ?IPRINT("~w -> close log", [?FUNCTION_NAME]),
+    ok = snmp_log:close(Log),
+    ?IPRINT("~w -> done", [?FUNCTION_NAME]),
+    ok.
     
 
 %%======================================================================
@@ -213,16 +234,21 @@ open_write_and_close1(suite) ->
 open_write_and_close1(doc) -> 
     "Open a plain (no sequence-numbering) log file";
 open_write_and_close1(Config) when is_list(Config) ->
-    ?P(open_write_and_close1),
-    put(sname,open_write_and_close1),
-    put(verbosity,trace),
-    ?DBG("open_write_and_close1 -> start", []),
-
-    SeqNoGen = none, 
-    ok = open_write_and_close(SeqNoGen, Config),
-
-    ?DBG("open_write_and_close1 -> done", []),
-    ok.
+    ?P(?FUNCTION_NAME),
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   put(sname,     ?FUNCTION_NAME),
+                   put(verbosity, trace),
+                   ?config(log_dir, Config)
+           end,
+    TC   = fun(Dir) ->
+                   SeqNoGen = none, 
+                   ok = open_write_and_close(SeqNoGen, Dir)
+           end,
+    Post = fun(_) ->
+                   ok
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
     
 
 %%======================================================================
@@ -232,16 +258,21 @@ open_write_and_close2(suite) ->
 open_write_and_close2(doc) -> 
     "Open a log file with sequence-numbering explicitly disabled";
 open_write_and_close2(Config) when is_list(Config) ->
-    ?P(open_write_and_close2),
-    put(sname,open_write_and_close2),
-    put(verbosity,trace),
-    ?DBG("open_write_and_close2 -> start", []),
-
-    SeqNoGen = disabled, 
-    ok = open_write_and_close(SeqNoGen, Config),
-
-    ?DBG("open_write_and_close2 -> done", []),
-    ok.
+    ?P(?FUNCTION_NAME),
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   put(sname,     ?FUNCTION_NAME),
+                   put(verbosity, trace),
+                   ?config(log_dir, Config)
+           end,
+    TC   = fun(Dir) ->
+                   SeqNoGen = disabled, 
+                   ok = open_write_and_close(SeqNoGen, Dir)
+           end,
+    Post = fun(_) ->
+                   ok
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
 
 %%======================================================================
@@ -251,18 +282,23 @@ open_write_and_close3(suite) ->
 open_write_and_close3(doc) -> 
     "Open a log file with sequence-numbering using MFA";
 open_write_and_close3(Config) when is_list(Config) ->
-    ?P(open_write_and_close3),
-    put(sname,open_write_and_close3),
-    put(verbosity,trace),
-    ?DBG("open_write_and_close2 -> start", []),
+    ?P(?FUNCTION_NAME),
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   put(sname,     ?FUNCTION_NAME),
+                   put(verbosity, trace),
+                   ?config(log_dir, Config)
+           end,
+    TC   = fun(Dir) ->
+                   seqno_init(), 
+                   SeqNoGen = {?MODULE, next_seqno, [10, 100]}, 
+                   ok = open_write_and_close(SeqNoGen, Dir)
+           end,
+    Post = fun(_) -> 
+                   seqno_finish()
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
-    seqno_init(), 
-    SeqNoGen = {?MODULE, next_seqno, [10, 100]}, 
-    ok = open_write_and_close(SeqNoGen, Config),
-    seqno_finish(),
-
-    ?DBG("open_write_and_close2 -> done", []),
-    ok.
 
 
 %%======================================================================
@@ -272,18 +308,22 @@ open_write_and_close4(suite) ->
 open_write_and_close4(doc) -> 
     "Open a log file with sequence-numbering using fun";
 open_write_and_close4(Config) when is_list(Config) ->
-    ?P(open_write_and_close4),
-    put(sname,open_write_and_close4),
-    put(verbosity,trace),
-    ?DBG("open_write_and_close2 -> start", []),
-
-    seqno_init(), 
-    SeqNoGen = fun() -> next_seqno(10, 100) end, 
-    ok = open_write_and_close(SeqNoGen, Config),
-    seqno_finish(),
-
-    ?DBG("open_write_and_close2 -> done", []),
-    ok.
+    ?P(?FUNCTION_NAME),
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   put(sname,     ?FUNCTION_NAME),
+                   put(verbosity, trace),
+                   ?config(log_dir, Config)
+           end,
+    TC   = fun(Dir) ->
+                   seqno_init(), 
+                   SeqNoGen = fun() -> next_seqno(10, 100) end, 
+                   ok = open_write_and_close(SeqNoGen, Dir)
+           end,
+    Post = fun(_) ->
+                   seqno_finish()
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
 
 %%======================================================================
@@ -309,16 +349,24 @@ next_seqno(Initial, Max) ->
 	Next when is_integer(Next) ->
 	    Next
     end.
+
+pretty_seqnogen(SeqNoGen) when is_atom(SeqNoGen) ->
+    atom_to_list(SeqNoGen);
+pretty_seqnogen({_Mod, _Func, _Args} = _SeqNoGen) ->
+    "tuple";
+pretty_seqnogen(SeqNoGen) when is_function(SeqNoGen) ->
+    "function".
     
-open_write_and_close(SeqNoGen, Config) ->
-    ?DBG("open_write_and_close1 -> start", []),
-    Dir    = ?config(log_dir, Config),
+open_write_and_close(SeqNoGen, Dir) ->
+    ?IPRINT("~w(~s) -> entry", [?FUNCTION_NAME, pretty_seqnogen(SeqNoGen)]),
+
     Name   = "snmp_test",
     File   = join(Dir, "snmp_test.log"),
     Size   = {1024, 10},
     Repair = true,
-    ?DBG("open_write_and_close -> create log", []),
-    
+
+    ?IPRINT("~w(~s) -> create log",
+            [?FUNCTION_NAME, pretty_seqnogen(SeqNoGen)]),
     {ok, Log} =
 	case SeqNoGen of
 	    none -> 
@@ -330,7 +378,8 @@ open_write_and_close(SeqNoGen, Config) ->
     Vsn       = 'version-2',
     Community = "all-rights",
 
-    ?DBG("open_write_and_close1 -> create messages to log", []),
+    ?IPRINT("~w(~s) -> create messages to log",
+            [?FUNCTION_NAME, pretty_seqnogen(SeqNoGen)]),
     %% A request
     Req = get_next_request(Vsn, Community, [1,1], 1, 235779012),
 
@@ -343,24 +392,31 @@ open_write_and_close(SeqNoGen, Config) ->
     Msgs = lists:flatten(lists:duplicate(1002,[Req,Rep])),
 
     %% And now log them:
-    ?DBG("open_write_and_close1 -> log ~p messages, ~p bytes", 
-	[length(Msgs), size(list_to_binary(Msgs))]),
+    ?IPRINT("~w(~s) -> log ~p messages, ~p bytes",
+            [?FUNCTION_NAME, pretty_seqnogen(SeqNoGen),
+             length(Msgs), size(list_to_binary(Msgs))]),
     Addr = ?LOCALHOST(),
     Port = 162,
     Logger = fun(Packet) ->
 		     ok = snmp_log:log(Log, Packet, Addr, Port)
 	     end,
     lists:foreach(Logger, Msgs),
+    ?IPRINT("~w(~s) -> check notify",
+            [?FUNCTION_NAME, pretty_seqnogen(SeqNoGen)]),
     check_notify(),
     
-    ?DBG("open_write_and_close1 -> display info", []),
+    ?IPRINT("~w(~s) -> display (log) info",
+            [?FUNCTION_NAME, pretty_seqnogen(SeqNoGen)]),
     {ok, Info} = snmp_log:info(Log),
     display_info(Info),
 
+    ?IPRINT("~w(~s) -> close log",
+            [?FUNCTION_NAME, pretty_seqnogen(SeqNoGen)]),
     ?DBG("open_write_and_close1 -> close log", []),
     ok = snmp_log:close(Log),
 
-    ?DBG("open_write_and_close -> done", []),
+    ?IPRINT("~w(~s) -> done",
+            [?FUNCTION_NAME, pretty_seqnogen(SeqNoGen)]),
     ok.
     
 
@@ -371,22 +427,37 @@ log_to_io1(suite) -> [];
 log_to_io1(doc) -> "Log to io from the same process that opened "
 		       "and wrote the log";
 log_to_io1(Config) when is_list(Config) ->
-    ?P(log_to_io1),
-    put(sname,l2i1),
-    put(verbosity,debug),
-    ?DBG("log_to_io1 -> start", []),
-    Dir    = ?config(log_dir, Config),
+    ?P(?FUNCTION_NAME),
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   put(sname,     ?FUNCTION_NAME),
+                   put(verbosity, debug),
+                   ?config(log_dir, Config)
+           end,
+    TC   = fun(Dir) ->
+                   do_log_to_io1(Dir)
+           end,
+    Post = fun(_) ->
+                   ok
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+
+do_log_to_io1(Dir) ->
+    ?IPRINT("~w -> entry", [?FUNCTION_NAME]),
+
     Name   = "snmp_test_l2i1",
     File   = join(Dir, "snmp_test_l2i1.log"),
     Size   = {1024, 10},
     Repair = true,
-    ?DBG("log_to_io1 -> create log", []),
+
+    ?IPRINT("~w -> create log", [?FUNCTION_NAME]),
     {ok, Log} = snmp_log:create(Name, File, Size, Repair),
 
-    ?DBG("log_to_io1 -> create messages to log", []),
+    ?IPRINT("~w -> create messages to log", [?FUNCTION_NAME]),
     Msgs = messages(),
 
-    ?DBG("log_to_io1 -> create logger funs", []),
+    ?IPRINT("~w -> create logger fun(s)", [?FUNCTION_NAME]),
     Addr = ?LOCALHOST(),
     Port = 162,
     Logger = fun(Packet) ->
@@ -399,20 +470,22 @@ log_to_io1(Config) when is_list(Config) ->
 		  end,
     To = lists:duplicate(100, 100),
 
-    ?DBG("log_to_io1 -> log the messages", []),
+    ?IPRINT("~w -> log the messages", [?FUNCTION_NAME]),
     lists:foreach(BatchLogger, To),
 
-    ?DBG("log_to_io1 -> display info", []),
+    ?IPRINT("~w -> get (log) info", [?FUNCTION_NAME]),
     {ok, Info} = snmp_log:info(Log),
+
+    ?IPRINT("~w -> display (log) info", [?FUNCTION_NAME]),
     display_info(Info),
 
-    ?DBG("log_to_io1 -> do the convert to io (stdout)", []),
+    ?IPRINT("~w -> do the convert to io (stdout)", [?FUNCTION_NAME]),
     ? line ok = snmp:log_to_io(Dir, [], Name, File, false),
 
-    ?DBG("log_to_io1 -> close log", []),
+    ?IPRINT("~w -> close log", [?FUNCTION_NAME]),
     ok = snmp_log:close(Log),
 
-    ?DBG("log_to_io1 -> done", []),
+    ?IPRINT("~w -> done", [?FUNCTION_NAME]),
     ok.
 
 
@@ -425,35 +498,50 @@ log_to_io2(suite) -> [];
 log_to_io2(doc) -> "Log to io from a different process than which "
 		       "opened and wrote the log";
 log_to_io2(Config) when is_list(Config) ->
+    ?P(?FUNCTION_NAME),
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   put(sname,     ?FUNCTION_NAME),
+                   put(verbosity, debug),
+                   Dir    = ?config(log_dir,     Config),
+                   Factor = ?config(snmp_factor, Config),
+                   {Dir, Factor}
+           end,
+    TC   = fun({Dir, Factor}) ->
+                   do_log_to_io2(Dir, Factor)
+           end,
+    Post = fun(_) ->
+                   ok
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+do_log_to_io2(Dir, Factor) ->
+    ?IPRINT("~w -> entry", [?FUNCTION_NAME]),
+
     process_flag(trap_exit, true),
-    ?P(log_to_io2),
-    put(sname, l2i2),
-    put(verbosity,debug),
-    ?DBG("log_to_io2 -> start", []),
-    Dir    = ?config(log_dir, Config),
-    Factor = ?config(snmp_factor, Config),
+
     Name   = "snmp_test_l2i2",
     File   = join(Dir, "snmp_test_l2i2.log"),
     Size   = {1024, 10},
     Repair = true,
     
-    ?DBG("log_to_io2 -> create log writer process", []),
+    ?IPRINT("~w -> create log writer process", [?FUNCTION_NAME]),
     {ok, Log, Logger} =
         log_writer_start(Name, File, Size, Repair, Factor),
 
-    ?DBG("log_to_io2 -> create log reader process", []),
+    ?IPRINT("~w -> create log reader process", [?FUNCTION_NAME]),
     {ok, Reader} = log_reader_start(),
 
     ?DBG("log_to_io2 -> wait some time", []),
     ?SLEEP(5000),
 
-    ?DBG("log_to_io2 -> display log info", []),
+    ?IPRINT("~w -> display log info", [?FUNCTION_NAME]),
     log_writer_info(Logger),
 
-    ?DBG("log_to_io2 -> instruct the log writer to sleep some", []),
+    ?IPRINT("~w -> instruct the log writer to sleep some", [?FUNCTION_NAME]),
     ok = log_writer_sleep(Logger, 5000),
 
-    ?DBG("log_to_io2 -> instruct the log reader to log to io", []),
+    ?IPRINT("~w -> instruct the log reader to log to io", [?FUNCTION_NAME]),
     Res = 
 	log_reader_log_to(Reader, 
 			  fun() -> 
@@ -463,23 +551,24 @@ log_to_io2(Config) when is_list(Config) ->
 			  end),
 
     case Res of
-	{ok, _Info} ->
-	    ?DBG("log_to_io2 -> ~n   Info: ~p", [_Info]),
+	{ok, Info} ->
+            ?IPRINT("~w -> successs:"
+                    "~n   Info: ~p", [?FUNCTION_NAME, Info]),
 	    ok;
 	{Error, Info} ->
-	    ?DBG("log_to_io2 -> log to io failed: "
-		 "~n   Error: ~p"
-		 "~n   Info:  ~p", [Error, Info]),
+            ?EPRINT("~w -> failure:"
+                    "~n   Error: ~p"
+                    "~n   Info:  ~p", [?FUNCTION_NAME, Error, Info]),
 	    ?FAIL({log_lo_io_failed, Error, Info})
     end,
 
-    ?DBG("log_to_io2 -> instruct the log writer to stop", []),
+    ?IPRINT("~w -> instruct the log writer to stop", [?FUNCTION_NAME]),
     log_writer_stop(Logger),
 
-    ?DBG("log_to_io2 -> instruct the log reader to stop", []),
+    ?IPRINT("~w -> instruct the log reader to stop", [?FUNCTION_NAME]),
     log_reader_stop(Reader),
 
-    ?DBG("log_to_io2 -> done", []),
+    ?IPRINT("~w -> done", [?FUNCTION_NAME]),
     ok.
 
 
@@ -487,50 +576,57 @@ log_to_io2(Config) when is_list(Config) ->
 
 log_to_txt1(suite) -> [];
 log_to_txt1(Config) when is_list(Config) ->
-    ?P(log_to_txt1),
-    put(sname,l2t1),
-    put(verbosity,debug),
-    ?DBG("log_to_txt1 -> start", []),
-
-    Name     = "snmp_test_l2t1",
-    SeqNoGen = disabled, 
-    ok = log_to_txt(Name, SeqNoGen, Config),
-
-    ?DBG("log_to_txt1 -> done", []),
-    ok.
-
+    ?P(?FUNCTION_NAME),
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   put(sname,     ?FUNCTION_NAME),
+                   put(verbosity, debug),
+                   ?config(log_dir, Config)
+           end,
+    TC   = fun(Dir) ->
+                   Name     = "snmp_test_l2t1",
+                   SeqNoGen = disabled, 
+                   log_to_txt(Name, SeqNoGen, Dir)
+           end,
+    Post = fun(_) ->
+                   ok
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
 
 %%======================================================================
 
 log_to_txt2(suite) -> [];
 log_to_txt2(Config) when is_list(Config) ->
-    ?P(log_to_txt2),
-    put(sname,l2t2),
-    put(verbosity,debug),
-    ?DBG("log_to_txt2 -> start", []),
-
-    Name     = "snmp_test_l2t2",
-    seqno_init(), 
-    SeqNoGen = {?MODULE, next_seqno, [1, 100]}, 
-    ok = log_to_txt(Name, SeqNoGen, Config),
-    seqno_finish(),
-
-    ?DBG("log_to_txt2 -> done", []),
-    ok.
-
+    ?P(?FUNCTION_NAME),
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   put(sname,     ?FUNCTION_NAME),
+                   put(verbosity, debug),
+                   ?config(log_dir, Config)
+           end,
+    TC   = fun(Dir) ->
+                   Name = "snmp_test_l2t2",
+                   seqno_init(), 
+                   SeqNoGen = {?MODULE, next_seqno, [1, 100]}, 
+                   log_to_txt(Name, SeqNoGen, Dir)
+           end,
+    Post = fun(_) ->
+                   seqno_finish()
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
 
 %%======================================================================
 
-log_to_txt(Name, SeqNoGen, Config) when is_list(Config) ->
-    ?DBG("log_to_txt -> entry", []),
-    Dir    = ?config(log_dir, Config),
+log_to_txt(Name, SeqNoGen, Dir) ->
+    ?IPRINT("~w -> entry", [?FUNCTION_NAME]),
+
     File   = join(Dir, Name ++ ".log"),
     Size   = {10240, 10},
     Repair = true,
 
-    ?DBG("log_to_txt -> create log", []),
+    ?IPRINT("~w -> create log", [?FUNCTION_NAME]),
     {ok, Log} =
 	case SeqNoGen of
 	    none -> 
@@ -539,10 +635,10 @@ log_to_txt(Name, SeqNoGen, Config) when is_list(Config) ->
 		snmp_log:create(Name, File, SeqNoGen, Size, Repair)
 	end,
 
-    ?DBG("log_to_txt -> create messages to log", []),
+    ?IPRINT("~w -> create messages to log", [?FUNCTION_NAME]),
     Msgs = messages(),
 
-    ?DBG("log_to_txt -> create logger funs", []),
+    ?IPRINT("~w -> create logger fun(s)", [?FUNCTION_NAME]),
     Addr = ?LOCALHOST(),
     Port = 162,
     Logger = fun(Packet) ->
@@ -555,55 +651,66 @@ log_to_txt(Name, SeqNoGen, Config) when is_list(Config) ->
 		  end,
     To = lists:duplicate(10, 5000),
 
-    ?DBG("log_to_txt -> log the messages", []),
+    ?IPRINT("~w -> log the messages", [?FUNCTION_NAME]),
     Start = calendar:local_time(),
     lists:foreach(BatchLogger, To),
     Stop  = calendar:local_time(),
 
-    ?DBG("log_to_txt -> display info", []),
+    ?IPRINT("~w -> get (log) info", [?FUNCTION_NAME]),
     {ok, Info} = snmp_log:info(Log),
+    ?IPRINT("~w -> display (log) info", [?FUNCTION_NAME]),
     display_info(Info),
 
     Out1a = join(Dir, "snmp_text-1-unblocked.txt"),
-    ?DBG("log_to_txt -> do the convert to a text file (~s) unblocked", [Out1a]),
+    ?IPRINT("~w -> do the convert to a text file (~s) unblocked",
+            [?FUNCTION_NAME, Out1a]),
     ok = snmp:log_to_txt(Dir, [], Out1a, Log, File, false),
 
     {ok, #file_info{size = Size1a}} = file:read_file_info(Out1a),
-    ?DBG("log_to_txt -> text file size: ~p", [Size1a]),
+    ?IPRINT("~w -> text file size: ~p",
+            [?FUNCTION_NAME, Size1a]),
     validate_size(Size1a),
 
     Out1b = join(Dir, "snmp_text-1-blocked.txt"),
-    ?DBG("log_to_txt -> do the convert to a text file (~s) blocked", [Out1b]),
+    ?IPRINT("~w -> do the convert to a text file (~s) blocked",
+            [?FUNCTION_NAME, Out1b]),
     ok = snmp:log_to_txt(Dir, [], Out1b, Log, File, true),
 
     {ok, #file_info{size = Size1b}} = file:read_file_info(Out1b),
-    ?DBG("log_to_txt -> text file size: ~p", [Size1b]),
+    ?IPRINT("~w -> text file size: ~p",
+            [?FUNCTION_NAME, Size1b]),
     validate_size(Size1b, {eq, Size1a}),
 
     Out2 = join(Dir, "snmp_text-2.txt"),
-    ?DBG("log_to_txt -> do the convert to a text file when"
-	"~n   Start: ~p"
-	"~n   Stop:  ~p"
-	"~n   Out2:  ~p", [Start, Stop, Out2]),
+    ?IPRINT("~w -> do the convert to a text file when"
+            "~n   Start: ~p"
+            "~n   Stop:  ~p"
+            "~n   Out2:  ~p",
+            [?FUNCTION_NAME, Start, Stop, Out2]),
     ok = snmp:log_to_txt(Dir, [], Out2, Log, File, Start, Stop),
 
     {ok, #file_info{size = Size2}} = file:read_file_info(Out2),
-    ?DBG("log_to_txt -> text file size: ~p", [Size2]),
+    ?IPRINT("~w -> text file size: ~p",
+            [?FUNCTION_NAME, Size2]),
     validate_size(Size2, {le, Size1a}),
 
     %% Calculate new start / stop times...
     GStart = calendar:datetime_to_gregorian_seconds(Start),
-    ?DBG("log_to_txt -> GStart: ~p", [GStart]),
+    ?IPRINT("~w -> GStart: ~p",
+            [?FUNCTION_NAME, GStart]),
     GStop  = calendar:datetime_to_gregorian_seconds(Stop),
-    ?DBG("log_to_txt -> GStop: ~p", [GStop]),
+    ?IPRINT("~w -> GStop: ~p",
+            [?FUNCTION_NAME, GStop]),
     Diff4 = (GStop - GStart) div 4,
-    ?DBG("log_to_txt -> Diff4: ~p", [Diff4]),
+    ?IPRINT("~w -> Diff4: ~p",
+            [?FUNCTION_NAME, Diff4]),
     GStart2 = GStart + Diff4,
     GStop2  = GStop - Diff4,
     if 
 	GStop2 > GStart2 ->
 	    ok;
 	true ->
+            ?EPRINT("~w -> invalid diff", [?FUNCTION_NAME]),
 	    ?FAIL({date_calc_failure, GStart2, GStop2})
     end,
     
@@ -611,20 +718,22 @@ log_to_txt(Name, SeqNoGen, Config) when is_list(Config) ->
     Stop2  = calendar:gregorian_seconds_to_datetime(GStop2),
     
     Out3 = join(Dir, "snmp_text-3.txt"),
-    ?DBG("log_to_txt -> do the convert to a text file when"
-	"~n   Start2: ~p"
-	"~n   Stop2:  ~p"
-	"~n   Out3:   ~p", [Start2, Stop2, Out3]),
+    ?IPRINT("~w -> do the convert to a text file when"
+            "~n   Start2: ~p"
+            "~n   Stop2:  ~p"
+            "~n   Out3:   ~p",
+            [?FUNCTION_NAME, Start2, Stop2, Out3]),
     ok = snmp:log_to_txt(Dir, [], Out3, Log, File, Start2, Stop2),
 
     {ok, #file_info{size = Size3}} = file:read_file_info(Out3),
-    ?DBG("log_to_txt -> text file size: ~p", [Size3]),
+    ?IPRINT("~w -> text file size: ~p",
+            [?FUNCTION_NAME, Size3]),
     validate_size(Size3, {l, Size1a}),    
 
-    ?DBG("log_to_txt -> close log", []),
+    ?IPRINT("~w -> close log", [?FUNCTION_NAME]),
     ok = snmp_log:close(Log),
 
-    ?DBG("log_to_txt -> done", []),
+    ?IPRINT("~w -> done", [?FUNCTION_NAME]),
     ok.
 
 
@@ -641,13 +750,28 @@ log_to_txt3(doc) ->
     "Log to txt file from a different process than which "
 	"opened and wrote the log";
 log_to_txt3(Config) when is_list(Config) ->
+    ?P(?FUNCTION_NAME),
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   put(sname,     ?FUNCTION_NAME),
+                   put(verbosity, debug),
+                   Dir    = ?config(log_dir,     Config),
+                   Factor = ?config(snmp_factor, Config),
+                   {Dir, Factor}
+           end,
+    TC   = fun({Dir, Factor}) ->
+                   do_log_to_txt3(Dir, Factor)
+           end,
+    Post = fun(_) ->
+                   ok
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+do_log_to_txt3(Dir, Factor) ->
+    ?IPRINT("~w -> entry", [?FUNCTION_NAME]),
+
     process_flag(trap_exit, true),
-    ?P(log_to_txt3),
-    put(sname,l2t3),
-    put(verbosity,debug),
-    ?DBG("log_to_txt3 -> start", []),
-    Dir     = ?config(log_dir, Config),
-    Factor  = ?config(snmp_factor, Config),
+
     Name    = "snmp_test_l2t3",
     LogFile = join(Dir, "snmp_test_l2t3.log"),
     TxtFile = join(Dir, "snmp_test_l2t3.txt"),
@@ -658,23 +782,24 @@ log_to_txt3(Config) when is_list(Config) ->
     StdMibDir = filename:join(code:priv_dir(snmp), "mibs") ++ "/",
     Mibs = [join(StdMibDir, "SNMPv2-MIB")],
 
-    ?DBG("log_to_txt3 -> create log writer process", []),
+    ?IPRINT("~w -> create log writer process", [?FUNCTION_NAME]),
     {ok, Log, Logger} =
         log_writer_start(Name, LogFile, Size, Repair, Factor),
 
-    ?DBG("log_to_txt3 -> create log reader process", []),
+    ?IPRINT("~w -> create log reader process", [?FUNCTION_NAME]),
     {ok, Reader} = log_reader_start(),
 
-    ?DBG("log_to_txt3 -> wait some time", []),
+    ?IPRINT("~w -> wait some time", [?FUNCTION_NAME]),
     ?SLEEP(5000),
 
-    ?DBG("log_to_txt3 -> display log info", []),
+    ?IPRINT("~w -> display (log) info", [?FUNCTION_NAME]),
     log_writer_info(Logger),
 
-    ?DBG("log_to_txt3 -> instruct the log writer to sleep some", []),
+    ?IPRINT("~w -> instruct the log writer to sleep some", [?FUNCTION_NAME]),
     ok = log_writer_sleep(Logger, 5000),
 
-    ?DBG("log_to_txt3 -> instruct the log reader to log to txt", []),
+    ?IPRINT("~w -> instruct the log reader to log to txt", [?FUNCTION_NAME]),
+    ?DBG("log_to_txt3 -> ", []),
     Res = 
 	log_reader_log_to(Reader, 
 			  fun() -> 
@@ -683,40 +808,47 @@ log_to_txt3(Config) when is_list(Config) ->
 				  R = snmp_log:log_to_txt(Log, LogFile, Dir, 
 							  Mibs, TxtFile),
 				  T2 = snmp_misc:now(ms),
-				  ?IPRINT("Time converting file: ~w ms", [T2 - T1]),
+				  ?IPRINT("Time converting file: ~w ms",
+                                          [T2 - T1]),
 				  {R, I}
 			  end),
 
     case Res of
-	{ok, _Info} ->
-	    ?DBG("log_to_txt3 -> ~n   Info: ~p", [_Info]),
+	{ok, Info} ->
+            ?IPRINT("~w -> success: "
+                    "~n   Info: ~p", [?FUNCTION_NAME, Info]),
 	    {ok, #file_info{size = FileSize}} =
 		file:read_file_info(TxtFile),
-	    ?DBG("log_to_txt3 -> text file size: ~p", [FileSize]),
+            ?IPRINT("~w -> validate file size: ~p", [?FUNCTION_NAME, FileSize]),
 	    validate_size(FileSize);
 	{Error, Info} ->
-	    ?EPRINT("log to txt failed: "
+	    ?EPRINT("~w -> log to txt failed: "
                     "~n   Error: ~p"
-                    "~n   Info:  ~p", [Error, Info]),
+                    "~n   Info:  ~p", [?FUNCTION_NAME, Error, Info]),
 	    ?FAIL({log_lo_txt_failed, Error, Info})
     end,
 
-    ?DBG("log_to_txt3 -> instruct the log writer to stop", []),
+    ?IPRINT("~w -> instruct the log writer to stop", [?FUNCTION_NAME]),
     log_writer_stop(Logger),
 
-    ?DBG("log_to_txt3 -> instruct the log reader to stop", []),
+    ?DBG("log_to_txt3 -> instruct the log writer to stop", []),
     log_reader_stop(Reader),
 
-    ?IPRINT("log_to_txt3 -> done", []),
+    ?DBG("log_to_txt3 -> done", []),
     ok.
 
 
-validate_size(0) ->
+validate_size(0 = A) ->
+    ?EPRINT("Size validation failed: "
+            "~n   A: ~p", [A]),
     ?FAIL(invalid_size);
 validate_size(_) ->
     ok.
 
-validate_size(0, _) ->
+validate_size(0 = A, B) ->
+    ?EPRINT("Size validation failed: "
+            "~n   A: ~p"
+            "~n   B: ~p", [A, B]),
     ?FAIL(invalid_size);
 validate_size(A, {eq, A}) ->
     ok;
@@ -725,6 +857,9 @@ validate_size(A, {le, B}) when A =< B ->
 validate_size(A, {l, B}) when A < B ->
     ok;
 validate_size(A, B) ->
+    ?EPRINT("Size validation failed: "
+            "~n   A: ~p"
+            "~n   B: ~p", [A, B]),
     ?FAIL({invalid_size, A, B}).
 
     

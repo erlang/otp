@@ -1,7 +1,9 @@
 %% This is an -*- erlang -*- file.
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -73,14 +75,12 @@
             httpd_socket,
             httpd_sup,
             httpd_util,
-            mod_actions,
             mod_alias,
             mod_auth,
             mod_auth_dets,
             mod_auth_mnesia,
             mod_auth_plain,
             mod_auth_server,
-            mod_cgi,
             mod_dir,
             mod_disk_log,
             mod_esi,
@@ -91,7 +91,11 @@
             mod_responsecontrol,
             mod_security,
             mod_security_server,
-            mod_trace
+            mod_trace,
+
+            %% HTTP server, deprecated:
+            mod_cgi,
+            mod_actions
         ]},
   {registered,[inets_sup, httpc_manager]},
   %% If the "new" ssl is used then 'crypto' must be started before inets.

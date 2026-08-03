@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -47,13 +49,13 @@ of the Kernel, STDLIB, and SASL applications.
 _Step 1_) A release is created as described in [Releases](release_structure.md).
 
 _Step 2_) The release is transferred to and installed at target environment. For
-information of how to install the first target system, see
+information on how to install the first target system, see
 [System Principles](`e:system:create_target.md`).
 
 _Step 3_) Modifications, for example, error corrections, are made to the code in
 the development environment.
 
-_Step 4_) At some point, it is time to make a new version of release. The
+_Step 4_) At some point, it is time to make a new version of the release. The
 relevant `.app` files are updated and a new `.rel` file is written.
 
 _Step 5_) For each modified application, an
@@ -238,7 +240,7 @@ If a new module is introduced, the following instruction is used:
 ```
 
 This instruction loads module `Module`. When running Erlang in
-embedded mode it is necessary to use this this instruction. It is not
+embedded mode it is necessary to use this instruction. It is not
 strictly required when running Erlang in interactive mode, since the
 code server automatically searches for and loads unloaded modules.
 
@@ -693,7 +695,7 @@ function `ch3:available/0` is now available:
 ".../lib/ch_app-1/ebin/ch_sup.beam"
 ```
 
-Processes in `ch_app` for which code have not been updated, for example, the
+Processes in `ch_app` for which code has not been updated, for example, the
 supervisor, are still evaluating code from `ch_app-1`.
 
 _Step 8)_ If the target system is now rebooted, it uses version "A" again. The
@@ -733,7 +735,7 @@ When an installed release is made permanent, the system process `init` is set to
 point out the new `sys.config`.
 
 After the installation, the application controller compares the old and new
-configuration parameters for all running applications and call the callback
+configuration parameters for all running applications and calls the callback
 function:
 
 ```erlang

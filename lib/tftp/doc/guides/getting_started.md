@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -30,13 +32,14 @@ a sample file using the TFTP client.
 _Step 1._ Create a sample file to be used for the transfer:
 
 ```text
-      $ echo "Erlang/OTP 21" > file.txt
+      $ echo "Erlang/OTP 21" > /tmp/file.txt
 ```
 
 _Step 2._ Start the TFTP server:
 
 ```erlang
-      1> {ok, Pid} = tftp:start([{port, 19999}]).
+      1> Callback = {callback,{"",tftp_file,[{root_dir,"/tmp"}]}}.
+      2> {ok, Pid} = tftp:start([{port, 19999}, Callback]).
       {ok,<0.65.0>}
 ```
 

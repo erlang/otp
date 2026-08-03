@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -41,7 +43,7 @@ The MGC, with its four listeners, may be started with:
       megaco_simple_mgc:start().
 ```
 
-or simply 'gmake mgc'.
+or simply 'make mgc'.
 
 The -s megaco_filter option to erl implies, the event tracing mechanism to be
 enabled and an interactive sequence chart tool to be started. This may be quite

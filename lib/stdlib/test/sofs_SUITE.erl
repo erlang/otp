@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2017. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,6 +32,7 @@
 -include_lib("common_test/include/ct.hrl").
 -define(format(S, A), ok).
 -endif.
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
@@ -58,7 +61,9 @@
 	  family_intersection_2/1, family_union_2/1,
 	  partition_family/1]).
 
--import(sofs, 
+-export([doctests/1]).
+
+-import(sofs,
 	[a_function/1, a_function/2, constant_function/2,
 	 canonical_relation/1, composite/2,
 	 converse/1, extension/3, from_term/1, from_term/2,
@@ -87,14 +92,44 @@
 
 -compile({inline,[{eval,2}]}).
 
+-define(assertErrorStack(Term, Stack, Expr),
+        begin
+            ((fun () ->
+                  try (Expr) of
+                      X__V -> erlang:error({assertErrorStack,
+                                            [{module, ?MODULE},
+                                             {line, ?LINE},
+                                             {expression, (??Expr)},
+                                             {pattern,
+                                              "{ error , "++(??Term)
+                                              ++" , "++(??Stack)++" }"},
+                                             {unexpected_success, X__V}]})
+                  catch
+                      X__C:X__T:X__S ->
+                          case {X__C, X__T, X__S} of
+                              {error, Term, Stack} -> ok;
+                              _ -> erlang:error({assertErrorStack,
+                                                [{module, ?MODULE},
+                                                 {line, ?LINE},
+                                                 {expression, (??Expr)},
+                                                 {pattern,
+                                                  "{ error , "++(??Term)
+                                                  ++" , "++(??Stack)++" }"},
+                                                 {unexpected_exception,
+                                                  {X__C, X__T, X__S}}]})
+                          end
+                  end
+              end)())
+        end).
+
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,2}}].
 
-all() -> 
-    [{group, sofs}, {group, sofs_family}].
+all() ->
+    [{group, sofs}, {group, sofs_family}, doctests].
 
-groups() -> 
+groups() ->
     [{sofs, [],
       [from_term_1, set_1, from_sets_1, relation_1,
        a_function_1, family_1, relation_to_family_1, domain_1,
@@ -143,9 +178,9 @@ end_per_testcase(_Case, _Config) ->
 from_term_1(Conf) when is_list(Conf) ->
     %% would go wrong: projection(1,from_term([{2,b},{1,a,b}])),
 
-    {'EXIT', {badarg, _}} = (catch from_term([], {atom,'_',atom})),
-    {'EXIT', {badarg, _}} = (catch from_term([], [])),
-    {'EXIT', {badarg, _}} = (catch from_term([], [atom,atom])),
+    ?assertError(badarg, from_term([], {atom,'_',atom})),
+    ?assertError(badarg, from_term([], [])),
+    ?assertError(badarg, from_term([], [atom,atom])),
 
     [] = to_external(from_term([])),
     eval(from_term([]), empty_set()),
@@ -166,8 +201,7 @@ from_term_1(Conf) when is_list(Conf) ->
 	to_external(from_term([{{a,b},[a,b],{{a},{b}}}])),
     [{{a,{[a,b]},a}},{{z,{[y,z]},z}}] =
 	to_external(from_term([{{a,{[a,b,a]},a}},{{z,{[y,y,z]},z}}])),
-    {'EXIT', {badarg, _}} =
-	(catch from_term([{m1,[{m1,f1,1},{m1,f2,2}]},{m2,[]},{m3,[a]}])),
+    ?assertError(badarg, from_term([{m1,[{m1,f1,1},{m1,f2,2}]},{m2,[]},{m3,[a]}])),
     MS1 = [{m1,[{m1,f1,1},{m1,f2,2}]},{m2,[]},{m3,[{m3,f3,3}]}],
     eval(to_external(from_term(MS1)), MS1),
 
@@ -179,18 +213,16 @@ from_term_1(Conf) when is_list(Conf) ->
     eval(type(from_term([[a],[{b,c}]],[[atomic]])),
 	 [[atomic]]),
 
-    {'EXIT', {badarg, _}} = (catch from_term([[],[],a])),
-    {'EXIT', {badarg, _}} = (catch from_term([{[a,b],[c,{d}]}])),
-    {'EXIT', {badarg, _}} = (catch from_term([[],[a],[{a}]])),
-    {'EXIT', {badarg, _}} = (catch from_term([a,{a,b}])),
-    {'EXIT', {badarg, _}} = (catch from_term([[a],[{b,c}]],[['_']])),
-    {'EXIT', {badarg, _}} = (catch from_term([a | {a,b}])),
-    {'EXIT', {badarg, _}} =
-	(catch from_term([{{a},b,c},{d,e,f}],[{{atom},atom,atom}])),
-    {'EXIT', {badarg, _}} =
-	(catch from_term([{a,{b,c}} | tail], [{atom,{atom,atom}}])),
-    {'EXIT', {badarg, _}} = (catch from_term({})),
-    {'EXIT', {badarg, _}} = (catch from_term([{}])),
+    ?assertError(badarg, from_term([[],[],a])),
+    ?assertError(badarg, from_term([{[a,b],[c,{d}]}])),
+    ?assertError(badarg, from_term([[],[a],[{a}]])),
+    ?assertError(badarg, from_term([a,{a,b}])),
+    ?assertError(badarg, from_term([[a],[{b,c}]],[['_']])),
+    ?assertError(badarg, from_term([a | {a,b}])),
+    ?assertError(badarg, from_term([{{a},b,c},{d,e,f}],[{{atom},atom,atom}])),
+    ?assertError(badarg, from_term([{a,{b,c}} | tail], [{atom,{atom,atom}}])),
+    ?assertError(badarg, from_term({})),
+    ?assertError(badarg, from_term([{}])),
 
     [{foo,bar},[b,a]] =
         to_external(from_term([[b,a],{foo,bar},[b,a]], [atom])),
@@ -202,7 +234,7 @@ from_term_1(Conf) when is_list(Conf) ->
 
     {atom, atom} = type(from_term({a,b}, {atom, atom})),
     atom = type(from_term(a, atom)),
-    {'EXIT', {badarg, _}} = (catch from_term({a,b},{atom})),
+    ?assertError(badarg, from_term({a,b},{atom})),
     [{{a},b,c},{{d},e,f}] =
 	to_external(from_term([{{a},b,c},{{a},b,c},{{d},e,f}],
 			      [{{atom},atom,atom}])),
@@ -228,8 +260,8 @@ from_term_1(Conf) when is_list(Conf) ->
 
 set_1(Conf) when is_list(Conf) ->
     %% set/1
-    {'EXIT', {badarg, _}} = (catch set(a)),
-    {'EXIT', {badarg, _}} = (catch set({a})),
+    ?assertError(badarg, set(a)),
+    ?assertError(badarg, set({a})),
     eval(set([]), from_term([],[atom])),
     eval(set([a,b,c]), from_term([a,b,c])),
     eval(set([a,b,a,a,b]), from_term([a,b])),
@@ -241,15 +273,15 @@ set_1(Conf) when is_list(Conf) ->
     eval(set([h,e,c,k,d]), from_term([c,d,e,h,k])),
 
     %% set/2
-    {'EXIT', {badarg, _}} = (catch set(a, [a])),
-    {'EXIT', {badarg, _}} = (catch set({a}, [a])),
-    {'EXIT', {badarg, _}} = (catch set([a], {a})),
-    {'EXIT', {badarg, _}} = (catch set([a], a)),
-    {'EXIT', {badarg, _}} = (catch set([a], [a,b])),
-    {'EXIT', {badarg, _}} = (catch set([a | b],[foo])),
-    {'EXIT', {badarg, _}} = (catch set([a | b],['_'])),
-    {'EXIT', {badarg, _}} = (catch set([a | b],[[atom]])),
-    {'EXIT', {badarg, _}} = (catch set([{}],[{}])),
+    ?assertError(badarg, set(a, [a])),
+    ?assertError(badarg, set({a}, [a])),
+    ?assertError(badarg, set([a], {a})),
+    ?assertError(badarg, set([a], a)),
+    ?assertError(badarg, set([a], [a,b])),
+    ?assertError(badarg, set([a | b],[foo])),
+    ?assertError(badarg, set([a | b],['_'])),
+    ?assertError(badarg, set([a | b],[[atom]])),
+    ?assertError(badarg, set([{}],[{}])),
     eval(set([a],['_']), from_term([a],['_'])),
     eval(set([], ['_']), empty_set()),
     eval(set([a,b,a,b],[foo]), from_term([a,b],[foo])),
@@ -261,33 +293,30 @@ from_sets_1(Conf) when is_list(Conf) ->
 
     %% unordered
     eval(from_sets([]), E),
-    {'EXIT', {type_mismatch, _}} =
-	(catch from_sets([from_term([{a,b}]), 
-                          E,
-                          from_term([{a,b,c}])])),
+    ?assertError(type_mismatch, from_sets([from_term([{a,b}]),
+                                           E,
+                                           from_term([{a,b,c}])])),
     eval(from_sets([from_term([{a,b}]), E]),
 	 from_term([[],[{a,b}]])),
 
     eval(from_sets([from_term({a,b},{atom,atom}),
 		    from_term({b,c},{atom,atom})]),
 	 relation([{a,b}, {b,c}])),
-    {'EXIT', {type_mismatch, _}} =
-	(catch from_sets([from_term({a,b},{atom,atom}), 
-			  from_term({a,b,c},{atom,atom,atom})])),
-    {'EXIT', {badarg, _}} = (catch from_sets(foo)),
+    ?assertError(type_mismatch, from_sets([from_term({a,b},{atom,atom}),
+                                           from_term({a,b,c},{atom,atom,atom})])),
+    ?assertError(badarg, from_sets(foo)),
     eval(from_sets([E]), from_term([[]])),
     eval(from_sets([E,E]), from_term([[]])),
     eval(from_sets([E,set([a])]), from_term([[],[a]])),
-    {'EXIT', {badarg, _}} = (catch from_sets([E,{a}])),
-    {'EXIT', {type_mismatch, _}} =
-	(catch from_sets([E,from_term({a}),E])),
-    {'EXIT', {type_mismatch, _}} = (catch from_sets([from_term({a}),E])),
+    ?assertError(badarg, from_sets([E,{a}])),
+    ?assertError(type_mismatch, from_sets([E,from_term({a}),E])),
+    ?assertError(type_mismatch, from_sets([from_term({a}),E])),
 
     %% ordered
     O = {from_term(a,atom), from_term({b}, {atom}), set([c,d])},
     eval(from_sets(O), from_term({a,{b},[c,d]}, {atom,{atom},[atom]})),
-    {'EXIT', {badarg, _}} = (catch from_sets([a,b])),
-    {'EXIT', {badarg, _}} = (catch from_sets({a,b})),
+    ?assertError(badarg, from_sets([a,b])),
+    ?assertError(badarg, from_sets({a,b})),
     eval(from_sets({from_term({a}),E}), from_term({{a},[]})),
     ok.
 
@@ -295,11 +324,11 @@ relation_1(Conf) when is_list(Conf) ->
     %% relation/1
     eval(relation([]), from_term([], [{atom,atom}])),
     eval(from_term([{a}]), relation([{a}])),
-    {'EXIT', {badarg, _}} = (catch relation(a)),
-    {'EXIT', {badarg, _}} = (catch relation([{a} | a])),
-    {'EXIT', {badarg, _}} = (catch relation([{}])),
-    {'EXIT', {badarg, _}} = (catch relation([],0)),
-    {'EXIT', {badarg, _}} = (catch relation([{a}],a)),
+    ?assertError(badarg, relation(a)),
+    ?assertError(badarg, relation([{a} | a])),
+    ?assertError(badarg, relation([{}])),
+    ?assertError(badarg, relation([],0)),
+    ?assertError(badarg, relation([{a}],a)),
 
     %% relation/2
     eval(relation([{a},{b}], 1), from_term([{a},{b}])),
@@ -307,14 +336,14 @@ relation_1(Conf) when is_list(Conf) ->
 	 from_term([{1,a},{2,b}], [{x,y}])),
     eval(relation([{[1,2],a},{[2,1],b},{[2,1],a}], [{[x],y}]),
 	 from_term([{[1,2],a},{[1,2],b}], [{[x],y}])),
-    {'EXIT', {badarg, _}} = (catch relation([{1,a},{2,b}], [{[x],y}])),
-    {'EXIT', {badarg, _}} = (catch relation([{1,a},{1,a,b}], [{x,y}])),
-    {'EXIT', {badarg, _}} = (catch relation([{a}], 2)),
-    {'EXIT', {badarg, _}} = (catch relation([{a},{b},{c,d}], 1)),
+    ?assertError(badarg, relation([{1,a},{2,b}], [{[x],y}])),
+    ?assertError(badarg, relation([{1,a},{1,a,b}], [{x,y}])),
+    ?assertError(badarg, relation([{a}], 2)),
+    ?assertError(badarg, relation([{a},{b},{c,d}], 1)),
     eval(relation([{{a},[{foo,bar}]}], ['_']),
 	 from_term([{{a},[{foo,bar}]}], ['_'])),
     eval(relation([], ['_']), from_term([], ['_'])),
-    {'EXIT', {badarg, _}} = (catch relation([[a]],['_'])),
+    ?assertError(badarg, relation([[a]],['_'])),
     eval(relation([{[a,b,a]}], [{[atom]}]), from_term([{[a,b,a]}])),
     eval(relation([{[a,b,a],[[d,e,d]]}], [{[atom],[[atom]]}]),
 	 from_term([{[a,b,a],[[d,e,d]]}])),
@@ -326,19 +355,16 @@ a_function_1(Conf) when is_list(Conf) ->
     %% a_function/1
     eval(a_function([]), from_term([], [{atom,atom}])),
     eval(a_function([{a,b},{a,b},{b,c}]), from_term([{a,b},{b,c}])),
-    {'EXIT', {badarg, _}} = (catch a_function([{a}])),
-    {'EXIT', {badarg, _}} = (catch a_function([{a},{b},{c,d}])),
-    {'EXIT', {badarg, _}} = (catch a_function(a)),
-    {'EXIT', {badarg, _}} = (catch a_function([{a,b} | a])),
-    {'EXIT', {bad_function, _}} =
-	(catch a_function([{a,b},{b,c},{a,c}])),
+    ?assertError(badarg, a_function([{a}])),
+    ?assertError(badarg, a_function([{a},{b},{c,d}])),
+    ?assertError(badarg, a_function(a)),
+    ?assertError(badarg, a_function([{a,b} | a])),
+    ?assertError(bad_function, a_function([{a,b},{b,c},{a,c}])),
     F = 0.0, I = round(F),
     if
         F == I -> % term ordering
-            {'EXIT', {bad_function, _}} =
-                (catch a_function([{I,a},{F,b}])),
-            {'EXIT', {bad_function, _}} =
-		(catch a_function([{[I],a},{[F],b}],[{[a],b}]));
+            ?assertError(bad_function, a_function([{I,a},{F,b}])),
+            ?assertError(bad_function, a_function([{[I],a},{[F],b}],[{[a],b}]));
         true -> 
             2 = no_elements(a_function([{I,a},{F,b}])),
             2 = no_elements(a_function([{[I],a},{[F],b}],[{[a],b}]))
@@ -349,18 +375,17 @@ a_function_1(Conf) when is_list(Conf) ->
     eval(a_function([], FT), from_term([], FT)),
     eval(a_function([{a,b},{b,c},{b,c}], FT),
 	 from_term([{a,b},{b,c}], FT)),
-    {'EXIT', {badarg, _}} = (catch a_function([{a,b}], [{a}])),
-    {'EXIT', {badarg, _}} = (catch a_function([{a,b}], [{a,[b,c]}])),
-    {'EXIT', {badarg, _}} = (catch a_function([{a}], FT)),
-    {'EXIT', {badarg, _}} = (catch a_function([{a},{b},{c,d}], FT)),
-    {'EXIT', {badarg, _}} = (catch a_function(a, FT)),
-    {'EXIT', {badarg, _}} = (catch a_function([{a,b} | a], FT)),
+    ?assertError(badarg, a_function([{a,b}], [{a}])),
+    ?assertError(badarg, a_function([{a,b}], [{a,[b,c]}])),
+    ?assertError(badarg, a_function([{a}], FT)),
+    ?assertError(badarg, a_function([{a},{b},{c,d}], FT)),
+    ?assertError(badarg, a_function(a, FT)),
+    ?assertError(badarg, a_function([{a,b} | a], FT)),
     eval(a_function([{{a},[{foo,bar}]}], ['_']),
 	 from_term([{{a},[{foo,bar}]}], ['_'])),
     eval(a_function([], ['_']), from_term([], ['_'])),
-    {'EXIT', {badarg, _}} = (catch a_function([[a]],['_'])),
-    {'EXIT', {bad_function, _}} =
-	(catch a_function([{a,b},{b,c},{a,c}], FT)),
+    ?assertError(badarg, a_function([[a]],['_'])),
+    ?assertError(bad_function, a_function([{a,b},{b,c},{a,c}], FT)),
     eval(a_function([{a,[a]},{a,[a,a]}], [{atom,[atom]}]),
 	 from_term([{a,[a]}])),
     eval(a_function([{[b,a],c},{[a,b],c}], [{[atom],atom}]),
@@ -370,24 +395,20 @@ a_function_1(Conf) when is_list(Conf) ->
 family_1(Conf) when is_list(Conf) ->
     %% family/1
     eval(family([]), from_term([],[{atom,[atom]}])),
-    {'EXIT', {badarg, _}} = (catch family(a)),
-    {'EXIT', {badarg, _}} = (catch family([a])),
-    {'EXIT', {badarg, _}} = (catch family([{a,b}])),
-    {'EXIT', {badarg, _}} = (catch family([{a,[]} | a])),
-    {'EXIT', {badarg, _}} = (catch family([{a,[a|b]}])),
-    {'EXIT', {bad_function, _}} =
-        (catch family([{a,[a]},{a,[]}])),
-    {'EXIT', {bad_function, _}} =
-	(catch family([{a,[]},{b,[]},{a,[a]}])),
+    ?assertError(badarg, family(a)),
+    ?assertError(badarg, family([a])),
+    ?assertError(badarg, family([{a,b}])),
+    ?assertError(badarg, family([{a,[]} | a])),
+    ?assertError(badarg, family([{a,[a|b]}])),
+    ?assertError(bad_function, family([{a,[a]},{a,[]}])),
+    ?assertError(bad_function, family([{a,[]},{b,[]},{a,[a]}])),
     F = 0.0, I = round(F),
     if
         F == I -> % term ordering
-            {'EXIT', {bad_function, _}} =
-                (catch family([{I,[a]},{F,[b]}])),
+            ?assertError(bad_function, family([{I,[a]},{F,[b]}])),
             true = (1 =:= no_elements(family([{a,[I]},{a,[F]}])));
-        true -> 
-            {'EXIT', {bad_function, _}} =
-                (catch family([{a,[I]},{a,[F]}]))
+        true ->
+            ?assertError(bad_function, family([{a,[I]},{a,[F]}]))
     end,
     eval(family([{a,[]},{b,[b]},{a,[]}]), from_term([{a,[]},{b,[b]}])),
     eval(to_external(family([{b,[{hej,san},tjo]},{a,[]}])),
@@ -397,15 +418,13 @@ family_1(Conf) when is_list(Conf) ->
     %% family/2
     FT = [{a,[a]}],
     eval(family([], FT), from_term([],FT)),
-    {'EXIT', {badarg, _}} = (catch family(a,FT)),
-    {'EXIT', {badarg, _}} = (catch family([a],FT)),
-    {'EXIT', {badarg, _}} = (catch family([{a,b}],FT)),
-    {'EXIT', {badarg, _}} = (catch family([{a,[]} | a],FT)),
-    {'EXIT', {badarg, _}} = (catch family([{a,[a|b]}], FT)),
-    {'EXIT', {bad_function, _}} =
-        (catch family([{a,[a]},{a,[]}], FT)),
-    {'EXIT', {bad_function, _}} =
-	(catch family([{a,[]},{b,[]},{a,[a]}], FT)),
+    ?assertError(badarg, family(a,FT)),
+    ?assertError(badarg, family([a],FT)),
+    ?assertError(badarg, family([{a,b}],FT)),
+    ?assertError(badarg, family([{a,[]} | a],FT)),
+    ?assertError(badarg, family([{a,[a|b]}], FT)),
+    ?assertError(bad_function, family([{a,[a]},{a,[]}], FT)),
+    ?assertError(bad_function, family([{a,[]},{b,[]},{a,[a]}], FT)),
     eval(family([{a,[]},{b,[b,b]},{a,[]}], FT),
 	 from_term([{a,[]},{b,[b]}], FT)),
     eval(to_external(family([{b,[{hej,san},tjo]},{a,[]}], FT)),
@@ -414,10 +433,9 @@ family_1(Conf) when is_list(Conf) ->
     eval(family([{{a},[{foo,bar}]}], ['_']),
 	 from_term([{{a},[{foo,bar}]}], ['_'])),
     eval(family([], ['_']), from_term([], ['_'])),
-    {'EXIT', {badarg, _}} = (catch family([[a]],['_'])),
-    {'EXIT', {badarg, _}} = (catch family([{a,b}],['_'])),
-    {'EXIT', {badarg, _}} =
-	(catch family([{a,[foo]}], [{atom,atom}])),
+    ?assertError(badarg, family([[a]],['_'])),
+    ?assertError(badarg, family([{a,b}],['_'])),
+    ?assertError(badarg, family([{a,[foo]}], [{atom,atom}])),
     eval(family([{{a},[{foo,bar}]}], [{{dt},[{r1,t2}]}]),
 	 from_term([{{a},[{foo,bar}]}], [{{dt},[{r1,t2}]}])),
     eval(family([{a,[a]},{a,[a,a]}],[{atom,[atom]}]),
@@ -466,18 +484,13 @@ projection(Conf) when is_list(Conf) ->
 		    relation([{1,1,1,2}, {1,1,3,1}])),
 	 relation([{1,1,1,1}, {1,1,1,2}])),
 
-    {'EXIT', {badarg, _}} = (catch projection(1, set([]))),
-    {'EXIT', {function_clause, _}} =
-	(catch projection({external, fun({A}) -> A end}, S1)),
-    {'EXIT', {badarg, _}} =
-	(catch projection({external, fun({A,_}) -> {A,0} end}, 
-			  from_term([{1,a}]))),
+    ?assertError(badarg, projection(1, set([]))),
+    ?assertError(function_clause, projection({external, fun({A}) -> A end}, S1)),
+    ?assertError(badarg, projection({external, fun({A,_}) -> {A,0} end}, from_term([{1,a}]))),
 
     %% {} is not an ordered set
-    {'EXIT', {badarg, _}} =
-        (catch projection({external, fun(_) -> {} end}, ER)),
-    {'EXIT', {badarg, _}} =
-        (catch projection({external, fun(_) -> {{}} end}, ER)),
+    ?assertError(badarg, projection({external, fun(_) -> {} end}, ER)),
+    ?assertError(badarg, projection({external, fun(_) -> {{}} end}, ER)),
     eval(projection({external, fun({T,_}) -> T end},
 		    relation([{{},a},{{},b}])),
 	 set([{}])),
@@ -517,11 +530,8 @@ projection(Conf) when is_list(Conf) ->
     end,
 
     %% set of sets
-    {'EXIT', {badarg, _}} =
-        (catch projection({external, fun(X) -> X end}, 
-			  from_term([], [[atom]]))),
-    {'EXIT', {badarg, _}} =
-        (catch projection({external, fun(X) -> X end}, from_term([[a]]))),
+    ?assertError(badarg, projection({external, fun(X) -> X end}, from_term([], [[atom]]))),
+    ?assertError(badarg, projection({external, fun(X) -> X end}, from_term([[a]]))),
     eval(projection(fun sofs:union/1,
 		    from_term([[[1,2],[2,3]], [[a,b],[b,c]]])),
 	 from_term([[1,2,3], [a,b,c]])),
@@ -541,8 +551,7 @@ projection(Conf) when is_list(Conf) ->
     eval(projection(Fun10, from_term([[1]])), from_term([{1,1}])),
     eval(projection(fun(_) -> from_term({a}) end, from_term([[a]])),
 	 from_term([{a}])),
-    {'EXIT', {badarg, _}} =
-	(catch projection(fun(_) -> {a} end, from_term([[a]]))),
+    ?assertError(badarg, projection(fun(_) -> {a} end, from_term([[a]]))),
 
     ok.
 
@@ -597,20 +606,14 @@ substitution(Conf) when is_list(Conf) ->
     eval(substitution(fun(_) -> E end, from_term([[a],[b]])),
 	 from_term([{[a],[]},{[b],[]}])),
 
-    {'EXIT', {badarg, _}} = (catch substitution(1, set([]))),
+    ?assertError(badarg, substitution(1, set([]))),
     eval(substitution(1, ER), from_term([], [{{atom,atom},atom}])),
-    {'EXIT', {function_clause, _}} =
-	(catch substitution({external, fun({A,_}) -> A end}, set([]))),
-    {'EXIT', {badarg, _}} =
-	(catch substitution({external, fun({A,_}) -> {A,0} end}, 
-			    from_term([{1,a}]))),
+    ?assertError(function_clause, substitution({external, fun({A,_}) -> A end}, set([]))),
+    ?assertError(badarg, substitution({external, fun({A,_}) -> {A,0} end}, from_term([{1,a}]))),
 
     %% set of sets
-    {'EXIT', {badarg, _}} =
-        (catch substitution({external, fun(X) -> X end}, 
-			    from_term([], [[atom]]))),
-    {'EXIT', {badarg, _}} =
-        (catch substitution({external, fun(X) -> X end}, from_term([[a]]))),
+    ?assertError(badarg, substitution({external, fun(X) -> X end}, from_term([], [[atom]]))),
+    ?assertError(badarg, substitution({external, fun(X) -> X end}, from_term([[a]]))),
     eval(substitution(fun(X) -> X end, from_term([], [[atom]])), E),
     eval(substitution(fun sofs:union/1,
 		      from_term([[[1,2],[2,3]], [[a,b],[b,c]]])),
@@ -630,15 +633,12 @@ substitution(Conf) when is_list(Conf) ->
 	    end,
     eval(substitution(Fun10, from_term([[1]])),
 	 from_term([{[1],{1,1}}])),
-    {'EXIT', {type_mismatch, _}} =
-        (catch substitution(Fun10, from_term([[1],[2]]))),
-    {'EXIT', {type_mismatch, _}} =
-        (catch substitution(Fun10, from_term([[1],[0]]))),
+    ?assertError(type_mismatch, substitution(Fun10, from_term([[1],[2]]))),
+    ?assertError(type_mismatch, substitution(Fun10, from_term([[1],[0]]))),
 
     eval(substitution(fun(_) -> from_term({a}) end, from_term([[a]])),
 	 from_term([{[a],{a}}])),
-    {'EXIT', {badarg, _}} =
-	(catch substitution(fun(_) -> {a} end, from_term([[a]]))),
+    ?assertError(badarg, substitution(fun(_) -> {a} end, from_term([[a]]))),
 
     ok.
 
@@ -693,34 +693,22 @@ restriction(Conf) when is_list(Conf) ->
     eval(restriction(2, relation([{b,d}]), E), ER),
     eval(restriction(XId, E, set([a])), E),
     eval(restriction(1, S1, E), ER),
-    {'EXIT', {badarg, _}} =
-	(catch restriction(3, relation([{a,b}]), E)),
-    {'EXIT', {badarg, _}} =
-	(catch restriction(3, relation([{a,b}]), relation([{b,d}]))),
-    {'EXIT', {badarg, _}} =
-	(catch restriction(3, relation([{a,b}]), set([{b,d}]))),
-    {'EXIT', {type_mismatch, _}} =
-	(catch restriction(2, relation([{a,b}]), relation([{b,d}]))),
-    {'EXIT', {type_mismatch, _}} =
-	(catch restriction({external, fun({A,_B}) -> A end}, 
-			   relation([{a,b}]), relation([{b,d}]))),
-    {'EXIT', {badarg, _}} =
-	(catch restriction({external, fun({A,_}) -> {A,0} end}, 
-			   from_term([{1,a}]),
-			   from_term([{1,0}]))),
+    ?assertError(badarg, restriction(3, relation([{a,b}]), E)),
+    ?assertError(badarg, restriction(3, relation([{a,b}]), relation([{b,d}]))),
+    ?assertError(badarg, restriction(3, relation([{a,b}]), set([{b,d}]))),
+    ?assertError(type_mismatch, restriction(2, relation([{a,b}]), relation([{b,d}]))),
+    ?assertError(type_mismatch, restriction({external, fun({A,_B}) -> A end}, relation([{a,b}]), relation([{b,d}]))),
+    ?assertError(badarg, restriction({external, fun({A,_}) -> {A,0} end}, from_term([{1,a}]), from_term([{1,0}]))),
     eval(restriction(2, relation([{a,d},{b,e},{c,b},{d,c}]), set([b,d])),
 	 relation([{a,d},{c,b}])),
-    {'EXIT', {function_clause, _}} =
-	(catch restriction({external, fun({A,_B}) -> A end}, set([]), E)),
+    ?assertError(function_clause, restriction({external, fun({A,_B}) -> A end}, set([]), E)),
 
     Fun3 = fun(S) -> from_term({to_external(S),0}, {type(S),atom}) end,
     eval(restriction(Fun3, set([1,2]), from_term([{1,0}])),
 	 from_term([1])),
 
     %% set of sets
-    {'EXIT', {badarg, _}} =
-        (catch restriction({external, fun(X) -> X end}, 
-			   from_term([], [[atom]]), set([a]))),
+    ?assertError(badarg, restriction({external, fun(X) -> X end}, from_term([], [[atom]]), set([a]))),
     S2 = from_term([], [[atom]]),
     eval(restriction(Id, S2, E), E),
     S3 = from_term([[a],[b]], [[atom]]),
@@ -736,10 +724,7 @@ restriction(Conf) when is_list(Conf) ->
 		     from_term([], [[atom]]),
 		     from_term([], [[a]])),
 	 from_term([], [[atom]])),
-    {'EXIT', {type_mismatch, _}} =
-        (catch restriction(fun(_) -> from_term([a]) end, 
-                           from_term([[1,2],[3,4]]),
-                           from_term([], [atom]))),
+    ?assertError(type_mismatch, restriction(fun(_) -> from_term([a]) end, from_term([[1,2],[3,4]]), from_term([], [atom]))),
     Fun10 = fun(S) ->
 		    %% Cheating a lot...
 		    case to_external(S) of
@@ -747,16 +732,9 @@ restriction(Conf) when is_list(Conf) ->
 			_ -> S
 		    end
 	    end,
-    {'EXIT', {type_mismatch, _}} =
-        (catch restriction(Fun10, from_term([[1]]), from_term([], [[atom]]))),
-    {'EXIT', {type_mismatch, _}} =
-        (catch restriction(fun(_) -> from_term({a}) end, 
-                           from_term([[a]]),
-                           from_term([], [atom]))),
-    {'EXIT', {badarg, _}} =
-        (catch restriction(fun(_) -> {a} end, 
-                           from_term([[a]]),
-                           from_term([], [atom]))),
+    ?assertError(type_mismatch, restriction(Fun10, from_term([[1]]), from_term([], [[atom]]))),
+    ?assertError(type_mismatch, restriction(fun(_) -> from_term({a}) end, from_term([[a]]), from_term([], [atom]))),
+    ?assertError(badarg, restriction(fun(_) -> {a} end, from_term([[a]]), from_term([], [atom]))),
     ok.
 
 drestriction(Conf) when is_list(Conf) ->
@@ -808,34 +786,22 @@ drestriction(Conf) when is_list(Conf) ->
     eval(drestriction(2, relation([{b,d}]), E), relation([{b,d}])),
     eval(drestriction(XId, E, set([a])), E),
     eval(drestriction(1, S1, E), S1),
-    {'EXIT', {badarg, _}} =
-	(catch drestriction(3, relation([{a,b}]), E)),
-    {'EXIT', {badarg, _}} =
-	(catch drestriction(3, relation([{a,b}]), relation([{b,d}]))),
-    {'EXIT', {badarg, _}} =
-	(catch drestriction(3, relation([{a,b}]), set([{b,d}]))),
-    {'EXIT', {type_mismatch, _}} =
-	(catch drestriction(2, relation([{a,b}]), relation([{b,d}]))),
-    {'EXIT', {type_mismatch, _}} =
-	(catch drestriction({external, fun({A,_B}) -> A end}, 
-			    relation([{a,b}]), relation([{b,d}]))),
-    {'EXIT', {badarg, _}} =
-	(catch drestriction({external, fun({A,_}) -> {A,0} end}, 
-			    from_term([{1,a}]),
-			    from_term([{1,0}]))),
+    ?assertError(badarg, drestriction(3, relation([{a,b}]), E)),
+    ?assertError(badarg, drestriction(3, relation([{a,b}]), relation([{b,d}]))),
+    ?assertError(badarg, drestriction(3, relation([{a,b}]), set([{b,d}]))),
+    ?assertError(type_mismatch, drestriction(2, relation([{a,b}]), relation([{b,d}]))),
+    ?assertError(type_mismatch, drestriction({external, fun({A,_B}) -> A end}, relation([{a,b}]), relation([{b,d}]))),
+    ?assertError(badarg, drestriction({external, fun({A,_}) -> {A,0} end}, from_term([{1,a}]), from_term([{1,0}]))),
     eval(drestriction(2, relation([{a,d},{b,e},{c,b},{d,c}]), set([b,d])),
 	 relation([{b,e},{d,c}])),
-    {'EXIT', {function_clause, _}} =
-	(catch drestriction({external, fun({A,_B}) -> A end}, set([]), E)),
+    ?assertError(function_clause, drestriction({external, fun({A,_B}) -> A end}, set([]), E)),
 
     Fun3 = fun(S) -> from_term({to_external(S),0}, {type(S),atom}) end,
     eval(drestriction(Fun3, set([1,2]), from_term([{1,0}])),
 	 from_term([2])),
 
     %% set of sets
-    {'EXIT', {badarg, _}} =
-        (catch drestriction({external, fun(X) -> X end}, 
-			    from_term([], [[atom]]), set([a]))),
+    ?assertError(badarg, drestriction({external, fun(X) -> X end}, from_term([], [[atom]]), set([a]))),
     S2 = from_term([], [[atom]]),
     eval(drestriction(Id, S2, E), S2),
     S3 = from_term([[a],[b]], [[atom]]),
@@ -851,10 +817,7 @@ drestriction(Conf) when is_list(Conf) ->
 		      from_term([], [[atom]]),
 		      from_term([], [[a]])),
 	 from_term([], [[atom]])),
-    {'EXIT', {type_mismatch, _}} =
-        (catch drestriction(fun(_) -> from_term([a]) end, 
-                            from_term([[1,2],[3,4]]),
-                            from_term([], [atom]))),
+    ?assertError(type_mismatch, drestriction(fun(_) -> from_term([a]) end, from_term([[1,2],[3,4]]), from_term([], [atom]))),
     Fun10 = fun(S) ->
 		    %% Cheating a lot...
 		    case to_external(S) of
@@ -862,16 +825,9 @@ drestriction(Conf) when is_list(Conf) ->
 			_ -> S
 		    end
 	    end,
-    {'EXIT', {type_mismatch, _}} =
-        (catch drestriction(Fun10, from_term([[1]]), from_term([], [[atom]]))),
-    {'EXIT', {type_mismatch, _}} =
-        (catch drestriction(fun(_) -> from_term({a}) end, 
-                            from_term([[a]]),
-                            from_term([], [atom]))),
-    {'EXIT', {badarg, _}} =
-        (catch drestriction(fun(_) -> {a} end, 
-			    from_term([[a]]),
-			    from_term([], [atom]))),
+    ?assertError(type_mismatch, drestriction(Fun10, from_term([[1]]), from_term([], [[atom]]))),
+    ?assertError(type_mismatch, drestriction(fun(_) -> from_term({a}) end, from_term([[a]]), from_term([], [atom]))),
+    ?assertError(badarg, drestriction(fun(_) -> {a} end, from_term([[a]]), from_term([], [atom]))),
     ok.
 
 strict_relation_1(Conf) when is_list(Conf) ->
@@ -881,8 +837,7 @@ strict_relation_1(Conf) when is_list(Conf) ->
     eval(strict_relation(ER), ER),
     eval(strict_relation(relation([{1,a},{a,a},{2,b}])),
 	 relation([{1,a},{2,b}])),
-    {'EXIT', {badarg, _}} =
-        (catch strict_relation(relation([{1,2,3}]))),
+    ?assertError(badarg, strict_relation(relation([{1,2,3}]))),
     F = 0.0, I = round(F),
     FR = relation([{F,I}]),
     if
@@ -899,11 +854,11 @@ extension(Conf) when is_list(Conf) ->
     EF = family([]),
     C1 = from_term(3),
     C2 = from_term([3]),
-    {'EXIT', {function_clause, _}} = (catch extension(foo, E, C1)),
-    {'EXIT', {function_clause, _}} = (catch extension(ER, foo, C1)),
-    {'EXIT', {{case_clause, _},_}} = (catch extension(ER, E, foo)),
-    {'EXIT', {type_mismatch, _}} = (catch extension(ER, E, E)),
-    {'EXIT', {badarg, _}} = (catch extension(C2, E, E)),
+    ?assertError(function_clause, extension(foo, E, C1)),
+    ?assertError(function_clause, extension(ER, foo, C1)),
+    ?assertError({case_clause, _}, extension(ER, E, foo)),
+    ?assertError(type_mismatch, extension(ER, E, E)),
+    ?assertError(badarg, extension(C2, E, E)),
     eval(E, extension(E, E, E)),
     eval(EF, extension(EF, E, E)),
     eval(family([{3,[]}]), extension(EF, set([3]), E)),
@@ -945,11 +900,9 @@ weak_relation_1(Conf) when is_list(Conf) ->
 	 relation([{1,1},{a,1},{a,a},{a,b},{b,b}])),
     eval(weak_relation(relation([{a,1},{a,b},{7,w}])),
 	 relation([{1,1},{7,7},{7,w},{a,1},{a,a},{a,b},{b,b},{w,w}])),
-    {'EXIT', {badarg, _}} =
-	(catch weak_relation(from_term([{{a},a}]))),
-    {'EXIT', {badarg, _}} =
-	(catch weak_relation(from_term([{a,a}],[{d,r}]))),
-    {'EXIT', {badarg, _}} = (catch weak_relation(relation([{1,2,3}]))),
+    ?assertError(badarg, weak_relation(from_term([{{a},a}]))),
+    ?assertError(badarg, weak_relation(from_term([{a,a}],[{d,r}]))),
+    ?assertError(badarg, weak_relation(relation([{1,2,3}]))),
 
     F = 0.0, I = round(F),
     if
@@ -966,8 +919,8 @@ weak_relation_1(Conf) when is_list(Conf) ->
     ok.
 
 to_sets_1(Conf) when is_list(Conf) ->
-    {'EXIT', {badarg, _}} = (catch to_sets(from_term(a))),
-    {'EXIT', {function_clause, _}} = (catch to_sets(a)),
+    ?assertError(badarg, to_sets(from_term(a))),
+    ?assertError(function_clause, to_sets(a)),
     %% unordered
     [] = to_sets(empty_set()),
     eval(to_sets(from_term([a])), [from_term(a)]),
@@ -999,27 +952,20 @@ specification(Conf) when is_list(Conf) ->
     eval(specification({external,Fun2x}, S2), from_term([[1],[3]])),
 
     Fun3 = fun(_) -> neither_true_nor_false end,
-    {'EXIT', {badarg, _}} =
-	(catch specification(Fun3, set([a]))),
-    {'EXIT', {badarg, _}} =
-	(catch specification({external, Fun3}, set([a]))),
-    {'EXIT', {badarg, _}} =
-	(catch specification(Fun3, from_term([[a]]))),
-    {'EXIT', {function_clause, _}} =
-	(catch specification(Fun, a)),
+    ?assertError(badarg, specification(Fun3, set([a]))),
+    ?assertError(badarg, specification({external, Fun3}, set([a]))),
+    ?assertError(badarg, specification(Fun3, from_term([[a]]))),
+    ?assertError(function_clause, specification(Fun, a)),
     ok.
 
 union_1(Conf) when is_list(Conf) ->
     E = empty_set(),
     ER = relation([], 2),
-    {'EXIT', {badarg, _}} = (catch union(ER)),
-    {'EXIT', {type_mismatch, _}} =
-	(catch union(relation([{a,b}]), relation([{a,b,c}]))),
-    {'EXIT', {type_mismatch, _}} =
-	(catch union(from_term([{a,b}]), from_term([{c,[x]}]))),
-    {'EXIT', {type_mismatch, _}} =
-	(catch union(from_term([{a,b}]), from_term([{c,d}], [{d,r}]))),
-    {'EXIT', {badarg, _}} = (catch union(set([a,b,c]))),
+    ?assertError(badarg, union(ER)),
+    ?assertError(type_mismatch, union(relation([{a,b}]), relation([{a,b,c}]))),
+    ?assertError(type_mismatch, union(from_term([{a,b}]), from_term([{c,[x]}]))),
+    ?assertError(type_mismatch, union(from_term([{a,b}]), from_term([{c,d}], [{d,r}]))),
+    ?assertError(badarg, union(set([a,b,c]))),
     eval(union(E), E),
     eval(union(from_term([[]],[[atom]])), set([])),
     eval(union(from_term([[{a,b},{b,c}],[{b,c}]])),
@@ -1039,12 +985,10 @@ union_1(Conf) when is_list(Conf) ->
 
 intersection_1(Conf) when is_list(Conf) ->
     E = empty_set(),
-    {'EXIT', {badarg, _}} = (catch intersection(from_term([a,b]))),
-    {'EXIT', {badarg, _}} = (catch intersection(E)),
-    {'EXIT', {type_mismatch, _}} =
-	(catch intersection(relation([{a,b}]), relation([{a,b,c}]))),
-    {'EXIT', {type_mismatch, _}} =
-	(catch intersection(relation([{a,b}]), from_term([{a,b}],[{d,r}]))),
+    ?assertError(badarg, intersection(from_term([a,b]))),
+    ?assertError(badarg, intersection(E)),
+    ?assertError(type_mismatch, intersection(relation([{a,b}]), relation([{a,b,c}]))),
+    ?assertError(type_mismatch, intersection(relation([{a,b}]), from_term([{a,b}],[{d,r}]))),
 
     eval(intersection(from_term([[a,b,c],[d,e,f],[g,h,i]])), set([])),
 
@@ -1061,11 +1005,9 @@ intersection_1(Conf) when is_list(Conf) ->
 
 difference(Conf) when is_list(Conf) ->
     E = empty_set(),
-    {'EXIT', {type_mismatch, _}} =
-	(catch difference(relation([{a,b}]), relation([{a,b,c}]))),
+    ?assertError(type_mismatch, difference(relation([{a,b}]), relation([{a,b,c}]))),
     eval(difference(E, E), E),
-    {'EXIT', {type_mismatch, _}} =
-	(catch difference(relation([{a,b}]), from_term([{a,c}],[{d,r}]))),
+    ?assertError(type_mismatch, difference(relation([{a,b}]), from_term([{a,c}],[{d,r}]))),
     eval(difference(set([a,b,c,d,f]), set([a,d,e,g])),
 	 set([b,c,f])),
     eval(difference(set([a,b,c]), set([d,e,f])),
@@ -1080,10 +1022,8 @@ difference(Conf) when is_list(Conf) ->
 
 symdiff(Conf) when is_list(Conf) ->
     E = empty_set(),
-    {'EXIT', {type_mismatch, _}} =
-	(catch symdiff(relation([{a,b}]), relation([{a,b,c}]))),
-    {'EXIT', {type_mismatch, _}} =
-	(catch symdiff(relation([{a,b}]), from_term([{a,b}], [{d,r}]))),
+    ?assertError(type_mismatch, symdiff(relation([{a,b}]), relation([{a,b,c}]))),
+    ?assertError(type_mismatch, symdiff(relation([{a,b}]), from_term([{a,b}], [{d,r}]))),
     eval(symdiff(E, E), E),
     eval(symdiff(set([a,b,c,d,e,f]), set([0,1,a,c])),
 	 union(set([b,d,e,f]), set([0,1]))),
@@ -1111,12 +1051,9 @@ symmetric_partition(Conf) when is_list(Conf) ->
     T2 = set([3,4]),
     T3 = set([5,6]),
     T4 = set([1,2,5,6]),
-    {'EXIT', {type_mismatch, _}} =
-	(catch symmetric_partition(relation([{a,b}]), relation([{a,b,c}]))),
+    ?assertError(type_mismatch, symmetric_partition(relation([{a,b}]), relation([{a,b,c}]))),
     {E, E, E} = symmetric_partition(E, E),
-    {'EXIT', {type_mismatch, _}} =
-	(catch symmetric_partition(relation([{a,b}]), 
-                                   from_term([{a,c}],[{d,r}]))),
+    ?assertError(type_mismatch, symmetric_partition(relation([{a,b}]), from_term([{a,c}],[{d,r}]))),
     {E, E, S1} = symmetric_partition(E, S1),
     {S1, E, E} = symmetric_partition(S1, E),
     {T1, T2, T3} = symmetric_partition(S1, S2),
@@ -1148,13 +1085,13 @@ is_set_1(Conf) when is_list(Conf) ->
     true = is_set(from_term([a])),
     false = is_set(from_term({a})),
     false = is_set(from_term(a)),
-    {'EXIT', _} = (catch is_set(a)),
+    ?assertError(_, is_set(a)),
 
     true = is_empty_set(E),
     false = is_empty_set(from_term([a])),
     false = is_empty_set(from_term({a})),
     false = is_empty_set(from_term(a)),
-    {'EXIT', _} = (catch is_empty_set(a)),
+    ?assertError(_, is_empty_set(a)),
 
     ok.
 
@@ -1162,14 +1099,9 @@ is_equal(Conf) when is_list(Conf) ->
     E = empty_set(),
     true = is_equal(E, E),
     false = is_equal(from_term([a]), E),
-    {'EXIT', {type_mismatch, _}} =
-	(catch is_equal(intersection(set([a]), set([b])),
-			intersection(from_term([{a}]), from_term([{b}])))),
-    {'EXIT', {type_mismatch, _}} =
-	(catch is_equal(from_term([],[{[atom],atom,[atom]}]), 
-			from_term([],[{[atom],{atom},[atom]}]))),
-    {'EXIT', {type_mismatch, _}} =
-	(catch is_equal(set([a]), from_term([a],[type]))),
+    ?assertError(type_mismatch, is_equal(intersection(set([a]), set([b])), intersection(from_term([{a}]), from_term([{b}])))),
+    ?assertError(type_mismatch, is_equal(from_term([],[{[atom],atom,[atom]}]), from_term([],[{[atom],{atom},[atom]}]))),
+    ?assertError(type_mismatch, is_equal(set([a]), from_term([a],[type]))),
 
     E2 = from_sets({from_term(a,atom)}),
     true = is_equal(E2, E2),
@@ -1177,17 +1109,12 @@ is_equal(Conf) when is_list(Conf) ->
     false = is_equal(from_term([{[a],[],c}]),
 		     from_term([{[],[],q}])),
 
-    {'EXIT', {type_mismatch, _}} =
-        (catch is_equal(E, E2)),
-    {'EXIT', {type_mismatch, _}} =
-        (catch is_equal(E2, E)),
+    ?assertError(type_mismatch, is_equal(E, E2)),
+    ?assertError(type_mismatch, is_equal(E2, E)),
     true = is_equal(from_term({[],a,[]},{[atom],atom,[atom]}),
 		    from_term({[],a,[]},{[atom],atom,[atom]})),
-    {'EXIT', {type_mismatch, _}} =
-	(catch is_equal(from_term({[],a,[]},{[atom],atom,[atom]}), 
-			from_term({[],{a},[]},{[atom],{atom},[atom]}))),
-    {'EXIT', {type_mismatch, _}} =
-	(catch is_equal(from_term({a}), from_term({a},{type}))),
+    ?assertError(type_mismatch, is_equal(from_term({[],a,[]},{[atom],atom,[atom]}), from_term({[],{a},[]},{[atom],{atom},[atom]}))),
+    ?assertError(type_mismatch, is_equal(from_term({a}), from_term({a},{type}))),
 
     ok.
 
@@ -1200,17 +1127,14 @@ is_subset(Conf) when is_list(Conf) ->
     false = is_subset(set([a,b,c]), set([b,c])),
     false = is_subset(set([b,c]), set([a,c])),
     false = is_subset(set([d,e]), set([a,b])),
-    {'EXIT', {type_mismatch, _}} =
-	(catch is_subset(intersection(set([a]), set([b])),
-			 intersection(from_term([{a}]), from_term([{b}])))),
-    {'EXIT', {type_mismatch, _}} =
-        (catch is_subset(set([a]), from_term([a,b], [at]))),
+    ?assertError(type_mismatch, is_subset(intersection(set([a]), set([b])), intersection(from_term([{a}]), from_term([{b}])))),
+    ?assertError(type_mismatch, is_subset(set([a]), from_term([a,b], [at]))),
     ok.
 
 is_a_function_1(Conf) when is_list(Conf) ->
     E = empty_set(),
     ER = relation([], 2),
-    {'EXIT', {badarg, _}} = (catch is_a_function(set([a,b]))),
+    ?assertError(badarg, is_a_function(set([a,b]))),
     true = is_a_function(E),
     true = is_a_function(ER),
     true = is_a_function(relation([])),
@@ -1231,10 +1155,8 @@ is_a_function_1(Conf) when is_list(Conf) ->
 
 is_disjoint(Conf) when is_list(Conf) ->
     E = empty_set(),
-    {'EXIT', {type_mismatch, _}} =
-	(catch is_disjoint(relation([{a,1}]), set([a,b]))),
-    {'EXIT', {type_mismatch, _}} =
-	(catch is_disjoint(set([a]), from_term([a],[mota]))),
+    ?assertError(type_mismatch, is_disjoint(relation([{a,1}]), set([a,b]))),
+    ?assertError(type_mismatch, is_disjoint(set([a]), from_term([a],[mota]))),
     true = is_disjoint(E, E),
     false = is_disjoint(set([a,b,c]),set([b,c,d])),
     false = is_disjoint(set([b,c,d]),set([a,b,c])),
@@ -1244,9 +1166,9 @@ is_disjoint(Conf) when is_list(Conf) ->
 join(Conf) when is_list(Conf) ->
     E = empty_set(),
 
-    {'EXIT', {badarg, _}} = (catch join(relation([{a,1}]), 3, E, 5)),
-    {'EXIT', {badarg, _}} = (catch join(E, 1, relation([{a,1}]), 3)),
-    {'EXIT', {badarg, _}} = (catch join(E, 1, from_term([a]), 1)),
+    ?assertError(badarg, join(relation([{a,1}]), 3, E, 5)),
+    ?assertError(badarg, join(E, 1, relation([{a,1}]), 3)),
+    ?assertError(badarg, join(E, 1, from_term([a]), 1)),
 
     eval(join(E, 1, E, 2), E),
     eval(join(E, 1, from_term([{{a},b}]), 2), E),
@@ -1279,8 +1201,7 @@ join(Conf) when is_list(Conf) ->
 
 canonical(Conf) when is_list(Conf) ->
     E = empty_set(),
-    {'EXIT', {badarg, _}} =
-        (catch canonical_relation(set([a,b]))),
+    ?assertError(badarg, canonical_relation(set([a,b]))),
     eval(canonical_relation(E), E),
     eval(canonical_relation(from_term([[]])), E),
     eval(canonical_relation(from_term([[a,b,c]])),
@@ -1297,13 +1218,13 @@ relation_to_family_1(Conf) when is_list(Conf) ->
     F = family([{b,[1]},{c,[7,9,11]}]),
     eval(relation_to_family(R), F),
     eval(sofs:rel2fam(R), F),
-    {'EXIT', {badarg, _}} = (catch relation_to_family(set([a]))),
+    ?assertError(badarg, relation_to_family(set([a]))),
     ok.
 
 domain_1(Conf) when is_list(Conf) ->
     E = empty_set(),
     ER = relation([]),
-    {'EXIT', {badarg, _}} = (catch domain(relation([],3))),
+    ?assertError(badarg, domain(relation([],3))),
     eval(domain(E), E),
     eval(domain(ER), set([])),
     eval(domain(relation([{1,a},{1,b},{2,a},{2,b}])), set([1,2])),
@@ -1323,7 +1244,7 @@ domain_1(Conf) when is_list(Conf) ->
 range_1(Conf) when is_list(Conf) ->
     E = empty_set(),
     ER = relation([]),
-    {'EXIT', {badarg, _}} = (catch range(relation([],3))),
+    ?assertError(badarg, range(relation([],3))),
     eval(range(E), E),
     eval(range(ER), set([])),
     eval(range(relation([{1,a},{1,b},{2,a},{2,b}])), set([a,b])),
@@ -1333,11 +1254,9 @@ range_1(Conf) when is_list(Conf) ->
 inverse_1(Conf) when is_list(Conf) ->
     E = empty_set(),
     ER = relation([]),
-    {'EXIT', {badarg, _}} = (catch inverse(relation([],3))),
-    {'EXIT', {bad_function, _}} =
-	(catch inverse(relation([{1,a},{1,b}]))),
-    {'EXIT', {bad_function, _}} =
-	(catch inverse(relation([{1,a},{2,a}]))),
+    ?assertError(badarg, inverse(relation([],3))),
+    ?assertError(bad_function, inverse(relation([{1,a},{1,b}]))),
+    ?assertError(bad_function, inverse(relation([{1,a},{2,a}]))),
     eval(inverse(E), E),
     eval(inverse(ER), ER),
     eval(inverse(relation([{a,1},{b,2},{c,3}])),
@@ -1346,7 +1265,7 @@ inverse_1(Conf) when is_list(Conf) ->
     FR = relation([{I,a},{F,b}]),
     if
         F == I -> % term ordering
-            {'EXIT', {bad_function, _}} = (catch inverse(FR));
+            ?assertError(bad_function, inverse(FR));
         true -> 
             eval(inverse(FR), relation([{a,I},{b,F}]))
     end,
@@ -1355,7 +1274,7 @@ inverse_1(Conf) when is_list(Conf) ->
 converse_1(Conf) when is_list(Conf) ->
     E = empty_set(),
     ER = relation([]),
-    {'EXIT', {badarg, _}} = (catch converse(relation([],3))),
+    ?assertError(badarg, converse(relation([],3))),
     eval(converse(ER), ER),
     eval(converse(E), E),
     eval(converse(relation([{a,1},{b,2},{c,3}])),
@@ -1372,8 +1291,8 @@ no_elements_1(Conf) when is_list(Conf) ->
     1 = no_elements(from_term([a])),
     10 = no_elements(from_term(lists:seq(1,10))),
     3 = no_elements(from_term({a,b,c},{atom,atom,atom})),
-    {'EXIT', {badarg, _}} = (catch no_elements(from_term(a))),
-    {'EXIT', {function_clause, _}} = (catch no_elements(a)),
+    ?assertError(badarg, no_elements(from_term(a))),
+    ?assertError(function_clause, no_elements(a)),
     ok.
 
 image(Conf) when is_list(Conf) ->
@@ -1390,10 +1309,8 @@ image(Conf) when is_list(Conf) ->
 	 from_term([{1}])),
     eval(image(relation([{1,a},{2,a},{3,a},{4,b},{2,b}]), set([1,2,4])),
 	 set([a,b])),
-    {'EXIT', {badarg, _}} =
-	(catch image(from_term([a,b]), E)),
-    {'EXIT', {type_mismatch, _}} =
-	(catch image(from_term([{[a],1}]), set([[a]]))),
+    ?assertError(badarg, image(from_term([a,b]), E)),
+    ?assertError(type_mismatch, image(from_term([{[a],1}]), set([[a]]))),
     ok.
 
 inverse_image(Conf) when is_list(Conf) ->
@@ -1415,10 +1332,8 @@ inverse_image(Conf) when is_list(Conf) ->
 					  {3,a},{4,b},{2,b}])),
 		       set([1,2,4])),
 	 set([a,b])),
-    {'EXIT', {badarg, _}} =
-	(catch inverse_image(from_term([a,b]), E)),
-    {'EXIT', {type_mismatch, _}} =
-	(catch inverse_image(converse(from_term([{[a],1}])), set([[a]]))),
+    ?assertError(badarg, inverse_image(from_term([a,b]), E)),
+    ?assertError(type_mismatch, inverse_image(converse(from_term([{[a],1}])), set([[a]]))),
     ok.
 
 composite_1(Conf) when is_list(Conf) ->
@@ -1427,15 +1342,11 @@ composite_1(Conf) when is_list(Conf) ->
     eval(composite(E, E), E),
     eval(composite(E, a_function([{a,b}])), E),
     eval(composite(relation([{a,b}]), E), E),
-    {'EXIT', {bad_function, _}} =
-	(catch composite(EF, relation([{a,b},{a,c}]))),
-    {'EXIT', {bad_function, _}} =
-	(catch composite(a_function([{b,a}]), EF)),
-    {'EXIT', {bad_function, _}} =
-	(catch composite(relation([{1,a},{2,b},{2,a}]), 
-			 a_function([{a,1},{b,3}]))),
-    {'EXIT', {bad_function, _}} =
-	(catch composite(a_function([{1,a},{2,b}]), a_function([{b,3}]))),
+    ?assertError(bad_function, composite(EF, relation([{a,b},{a,c}]))),
+    ?assertError(bad_function, composite(a_function([{b,a}]), EF)),
+    ?assertError(bad_function, composite(relation([{1,a},{2,b},{2,a}]),
+                                         a_function([{a,1},{b,3}]))),
+    ?assertError(bad_function, composite(a_function([{1,a},{2,b}]), a_function([{b,3}]))),
     eval(composite(EF, EF), EF),
     eval(composite(a_function([{b,a}]), from_term([{a,{b,c}}])),
 	 from_term([{b,{b,c}}])),
@@ -1448,24 +1359,19 @@ composite_1(Conf) when is_list(Conf) ->
     eval(composite(a_function([{1,c}]),
 		   a_function([{a,1},{b,3},{c,4}])),
 	 a_function([{1,4}])),
-    {'EXIT', {bad_function, _}} =
-	(catch composite(a_function([{1,a},{2,b}]), 
-			 a_function([{a,1},{c,3}]))),
-    {'EXIT', {badarg, _}} =
-	(catch composite(from_term([a,b]), E)),
-    {'EXIT', {badarg, _}} =
-	(catch composite(E, from_term([a,b]))),
-    {'EXIT', {type_mismatch, _}} =
-        (catch composite(from_term([{a,b}]), from_term([{{a},b}]))),
-    {'EXIT', {type_mismatch, _}} =
-        (catch composite(from_term([{a,b}]), 
-			 from_term([{b,c}], [{d,r}]))),
+    ?assertError(bad_function, composite(a_function([{1,a},{2,b}]),
+                                         a_function([{a,1},{c,3}]))),
+    ?assertError(badarg, composite(from_term([a,b]), E)),
+    ?assertError(badarg, composite(E, from_term([a,b]))),
+    ?assertError(type_mismatch, composite(from_term([{a,b}]), from_term([{{a},b}]))),
+    ?assertError(type_mismatch, composite(from_term([{a,b}]),
+                                          from_term([{b,c}], [{d,r}]))),
     F = 0.0, I = round(F),
     FR1 = relation([{1,c}]),
     FR2 = relation([{I,1},{F,3},{c,4}]),
     if
         F == I -> % term ordering
-            {'EXIT', {bad_function, _}} = (catch composite(FR1, FR2));
+            ?assertError(bad_function, composite(FR1, FR2));
         true -> 
             eval(composite(FR1, FR2), a_function([{1,4}]))
     end,
@@ -1486,25 +1392,20 @@ relative_product_1(Conf) when is_list(Conf) ->
 				     {1,d},{2,e},{3,f}]),
 			   relation([{1,q},{3,w}])),
 	 relation([{c,q},{d,q},{f,w}])),
-    {'EXIT', {badarg, _}} =
-	(catch relative_product1(from_term([a,b]), ER)),
-    {'EXIT', {badarg, _}} =
-	(catch relative_product1(ER, from_term([a,b]))),
-    {'EXIT', {type_mismatch, _}} =
-        (catch relative_product1(from_term([{a,b}]), from_term([{{a},b}]))),
-    {'EXIT', {type_mismatch, _}} =
-        (catch relative_product1(from_term([{a,b}]), 
-				 from_term([{b,c}], [{d,r}]))),
+    ?assertError(badarg, relative_product1(from_term([a,b]), ER)),
+    ?assertError(badarg, relative_product1(ER, from_term([a,b]))),
+    ?assertError(type_mismatch, relative_product1(from_term([{a,b}]), from_term([{{a},b}]))),
+    ?assertError(type_mismatch, relative_product1(from_term([{a,b}]),
+                                                   from_term([{b,c}], [{d,r}]))),
     ok.
 
 relative_product_2(Conf) when is_list(Conf) ->
     E = empty_set(),
     ER = relation([]),
 
-    {'EXIT', {badarg, _}} = (catch relative_product({from_term([a,b])})),
-    {'EXIT', {type_mismatch, _}} =
-	(catch relative_product({from_term([{a,b}]), from_term([{{a},b}])})),
-    {'EXIT', {badarg, _}} = (catch relative_product({})),
+    ?assertError(badarg, relative_product({from_term([a,b])})),
+    ?assertError(type_mismatch, relative_product({from_term([{a,b}]), from_term([{{a},b}])})),
+    ?assertError(badarg, relative_product({})),
     true = is_equal(relative_product({ER}),
 		    from_term([], [{atom,{atom}}])),
     eval(relative_product({relation([{a,b},{c,a}]),
@@ -1515,15 +1416,12 @@ relative_product_2(Conf) when is_list(Conf) ->
     eval(relative_product({E}, relation([{a,b}])), E),
     eval(relative_product({E,from_term([], [{{atom,atom,atom},atom}])}),
 	 E),
-    {'EXIT', {badarg, _}} =
-        (catch relative_product({from_term([a,b])}, E)),
-    {'EXIT', {badarg, _}} =
-	(catch relative_product({relation([])}, set([]))),
-    {'EXIT', {type_mismatch, _}} =
-	(catch relative_product({from_term([{a,b}]), 
-				 from_term([{{a},b}])}, ER)),
+    ?assertError(badarg, relative_product({from_term([a,b])}, E)),
+    ?assertError(badarg, relative_product({relation([])}, set([]))),
+    ?assertError(type_mismatch, relative_product({from_term([{a,b}]),
+                                                   from_term([{{a},b}])}, ER)),
 
-    {'EXIT', {badarg, _}} = (catch relative_product({}, ER)),
+    ?assertError(badarg, relative_product({}, ER)),
     relprod2({relation([{a,b}])}, from_term([],[{{atom},atom}]), ER),
     relprod2({relation([{a,b}]),relation([{a,1}])},
 	     from_term([{{b,1},{tjo,hej,sa}}]),
@@ -1562,8 +1460,8 @@ product_1(Conf) when is_list(Conf) ->
     eval(product({from_term([a,b]), from_term([{a,b},{c,d}]),
 		  from_term([1])}),
 	 from_term([{a,{a,b},1},{a,{c,d},1},{b,{a,b},1},{b,{c,d},1}])),
-    {'EXIT', {badarg, _}} = (catch product({})),
-    {'EXIT', {badarg, _}} = (catch product({foo})),
+    ?assertError(badarg, product({})),
+    ?assertError(badarg, product({foo})),
     eval(product({E}), E),
     eval(product({E, E}), E),
     eval(product(set([a,b]), set([1,2])),
@@ -1603,8 +1501,8 @@ partition_1(Conf) when is_list(Conf) ->
         true -> 
             eval(partition(1, FR), from_term([[{I,a}],[{F,b}]]))
     end,
-    {'EXIT', {badarg, _}} = (catch partition(2, set([a]))),
-    {'EXIT', {badarg, _}} = (catch partition(1, set([a]))),
+    ?assertError(badarg, partition(2, set([a]))),
+    ?assertError(badarg, partition(1, set([a]))),
     eval(partition(Id, set([a])), from_term([[a]])),
 
     eval(partition(E), E),
@@ -1612,7 +1510,7 @@ partition_1(Conf) when is_list(Conf) ->
     P2 = from_term([[a,d],[b,c,e,f,q,v]]),
     eval(partition(union(P1, P2)),
 	 from_term([[a],[b,c],[d],[e,f],[g,h],[q,v]])),
-    {'EXIT', {badarg, _}} = (catch partition(from_term([a]))),
+    ?assertError(badarg, partition(from_term([a]))),
     ok.
 
 partition_3(Conf) when is_list(Conf) ->
@@ -1658,21 +1556,15 @@ partition_3(Conf) when is_list(Conf) ->
     S2 = set([a]),
     eval(partition(XId, E, S2), lpartition(XId, E, S2)),
     eval(partition(XId, S1, E), lpartition(XId, S1, E)),
-    {'EXIT', {badarg, _}} =
-	(catch partition(3, relation([{a,b}]), E)),
-    {'EXIT', {badarg, _}} =
-	(catch partition(3, relation([{a,b}]), relation([{b,d}]))),
-    {'EXIT', {badarg, _}} =
-	(catch partition(3, relation([{a,b}]), set([{b,d}]))),
-    {'EXIT', {type_mismatch, _}} =
-	(catch partition(2, relation([{a,b}]), relation([{b,d}]))),
-    {'EXIT', {type_mismatch, _}} =
-	(catch partition({external, fun({A,_B}) -> A end}, 
-			 relation([{a,b}]), relation([{b,d}]))),
-    {'EXIT', {badarg, _}} =
-	(catch partition({external, fun({A,_}) -> {A,0} end}, 
-			 from_term([{1,a}]),
-			 from_term([{1,0}]))),
+    ?assertError(badarg, partition(3, relation([{a,b}]), E)),
+    ?assertError(badarg, partition(3, relation([{a,b}]), relation([{b,d}]))),
+    ?assertError(badarg, partition(3, relation([{a,b}]), set([{b,d}]))),
+    ?assertError(type_mismatch, partition(2, relation([{a,b}]), relation([{b,d}]))),
+    ?assertError(type_mismatch, partition({external, fun({A,_B}) -> A end},
+                                          relation([{a,b}]), relation([{b,d}]))),
+    ?assertError(badarg, partition({external, fun({A,_}) -> {A,0} end},
+                                   from_term([{1,a}]),
+                                   from_term([{1,0}]))),
 
     S18a = relation([{1,e},{2,b},{3,c},{4,b},{5,a},{6,0}]),
     S18b = set([b,d,f]),
@@ -1694,8 +1586,7 @@ partition_3(Conf) when is_list(Conf) ->
     S17b = set([b,c,d]),
     eval(partition(1, S17a, S17b), lpartition(1, S17a, S17b)),
 
-    {'EXIT', {function_clause, _}} =
-	(catch partition({external, fun({A,_B}) -> A end}, set([]), E)),
+    ?assertError(function_clause, partition({external, fun({A,_B}) -> A end}, set([]), E)),
 
     Fun3 = fun(S) -> from_term({to_external(S),0}, {type(S),atom}) end,
     S9a = set([1,2]),
@@ -1710,9 +1601,8 @@ partition_3(Conf) when is_list(Conf) ->
     eval(partition(1, S15a, S15b), lpartition(1, S15a, S15b)),
 
     %% set of sets
-    {'EXIT', {badarg, _}} =
-        (catch partition({external, fun(X) -> X end}, 
-			 from_term([], [[atom]]), set([a]))),
+    ?assertError(badarg, partition({external, fun(X) -> X end},
+                                   from_term([], [[atom]]), set([a]))),
 
     S10 = from_term([], [[atom]]),
     eval(partition(Id, S10, E), lpartition(Id, S10, E)),
@@ -1734,10 +1624,9 @@ partition_3(Conf) when is_list(Conf) ->
     S13b = from_term([], [[a]]),
     eval(partition(Fun13, S13a, S13b), lpartition(Fun13, S13a, S13b)),
 
-    {'EXIT', {type_mismatch, _}} =
-        (catch partition(fun(_) -> from_term([a]) end, 
-			 from_term([[1,2],[3,4]]),
-			 from_term([], [atom]))),
+    ?assertError(type_mismatch, partition(fun(_) -> from_term([a]) end,
+                                          from_term([[1,2],[3,4]]),
+                                          from_term([], [atom]))),
     Fun10 = fun(S) ->
 		    %% Cheating a lot...
 		    case to_external(S) of
@@ -1745,16 +1634,13 @@ partition_3(Conf) when is_list(Conf) ->
 			_ -> S
 		    end
 	    end,
-    {'EXIT', {type_mismatch, _}} =
-        (catch partition(Fun10, from_term([[1]]), from_term([], [[atom]]))),
-    {'EXIT', {type_mismatch, _}} =
-        (catch partition(fun(_) -> from_term({a}) end, 
-			 from_term([[a]]),
-			 from_term([], [atom]))),
-    {'EXIT', {badarg, _}} =
-        (catch partition(fun(_) -> {a} end, 
-			 from_term([[a]]),
-			 from_term([], [atom]))),
+    ?assertError(type_mismatch, partition(Fun10, from_term([[1]]), from_term([], [[atom]]))),
+    ?assertError(type_mismatch, partition(fun(_) -> from_term({a}) end,
+                                          from_term([[a]]),
+                                          from_term([], [atom]))),
+    ?assertError(badarg, partition(fun(_) -> {a} end,
+                                   from_term([[a]]),
+                                   from_term([], [atom]))),
     ok.
 
 lpartition(F, S1, S2) ->
@@ -1764,10 +1650,8 @@ multiple_relative_product(Conf) when is_list(Conf) ->
     E = empty_set(),
     ER = relation([]),
     T = relation([{a,1},{a,11},{b,2},{c,3},{c,33},{d,4}]),
-    {'EXIT', {badarg, _}} =
-        (catch multiple_relative_product({}, ER)),
-    {'EXIT', {badarg, _}} =
-	(catch multiple_relative_product({}, relation([{a,b}]))),
+    ?assertError(badarg, multiple_relative_product({}, ER)),
+    ?assertError(badarg, multiple_relative_product({}, relation([{a,b}]))),
     eval(multiple_relative_product({E,T,T}, relation([], 3)), E),
     eval(multiple_relative_product({T,T,T}, E), E),
     eval(multiple_relative_product({T,T,T}, relation([],3)),
@@ -1778,8 +1662,7 @@ multiple_relative_product(Conf) when is_list(Conf) ->
 		    {{a,b,c},{11,2,3}}, {{a,b,c},{11,2,33}},
 		    {{c,d,a},{3,4,1}}, {{c,d,a},{3,4,11}},
 		    {{c,d,a},{33,4,1}}, {{c,d,a},{33,4,11}}])),
-    {'EXIT', {type_mismatch, _}} =
-	(catch multiple_relative_product({T}, from_term([{{a}}]))), 
+    ?assertError(type_mismatch, multiple_relative_product({T}, from_term([{{a}}]))),
     ok.
 
 digraph(Conf) when is_list(Conf) ->
@@ -1789,15 +1672,14 @@ digraph(Conf) when is_list(Conf) ->
     F = relation_to_family(R),
     Type = type(F),
 
-    {'EXIT', {badarg, _}} =
-        (catch family_to_digraph(set([a]))),
-    digraph_fail(badarg, catch family_to_digraph(set([a]), [foo])),
-    digraph_fail(badarg, catch family_to_digraph(F, [foo])),
-    digraph_fail(cyclic, catch family_to_digraph(family([{a,[a]}]),[acyclic])),
+    ?assertError(badarg, family_to_digraph(set([a]))),
+    ?assertErrorStack(badarg, [{sofs, family_to_digraph, 2, _}|_], family_to_digraph(set([a]), [foo])),
+    ?assertErrorStack(badarg, [{sofs, family_to_digraph, 2, _}|_], family_to_digraph(F, [foo])),
+    ?assertErrorStack(cyclic, [{sofs, family_to_digraph, 2, _}|_], family_to_digraph(family([{a,[a]}]),[acyclic])),
 
     G1 = family_to_digraph(E),
-    {'EXIT', {badarg, _}} = (catch digraph_to_family(G1, foo)),
-    {'EXIT', {badarg, _}} = (catch digraph_to_family(G1, atom)),
+    ?assertError(badarg, digraph_to_family(G1, foo)),
+    ?assertError(badarg, digraph_to_family(G1, atom)),
     true = [] == to_external(digraph_to_family(G1)),
     true = [] == to_external(digraph_to_family(G1, Type)),
     true = digraph:delete(G1),
@@ -1825,19 +1707,13 @@ digraph(Conf) when is_list(Conf) ->
             G4 = digraph:new(),
             digraph:add_vertex(G4, Fl),
             digraph:add_vertex(G4, I),
-            {'EXIT', {badarg, _}} =
-                (catch digraph_to_family(G4, Type)),
-            {'EXIT', {badarg, _}} =
-                (catch digraph_to_family(G4)),
+            ?assertError(badarg, digraph_to_family(G4, Type)),
+            ?assertError(badarg, digraph_to_family(G4)),
             true = digraph:delete(G4);
         true -> ok
     end,
 
     true = T0 == lists:sort(ets:all()),
-    ok.
-
-digraph_fail(ExitReason, Fail) ->
-    {'EXIT', {ExitReason, [{sofs,family_to_digraph,2,_}|_]}} = Fail,
     ok.
 
 constant_function(Conf) when is_list(Conf) ->
@@ -1846,8 +1722,8 @@ constant_function(Conf) when is_list(Conf) ->
     eval(constant_function(E, C), E),
     eval(constant_function(set([a,b]), E), from_term([{a,[]},{b,[]}])),
     eval(constant_function(set([a,b]), C), from_term([{a,3},{b,3}])),
-    {'EXIT', {badarg, _}} = (catch constant_function(C, C)),
-    {'EXIT', {badarg, _}} = (catch constant_function(set([]), foo)),
+    ?assertError(badarg, constant_function(C, C)),
+    ?assertError(badarg, constant_function(set([]), foo)),
     ok.
 
 misc(Conf) when is_list(Conf) ->
@@ -1861,8 +1737,7 @@ misc(Conf) when is_list(Conf) ->
     %% the "functional" part:
     eval(union(intersection(partition(1,S), partition(Id,S))),
 	 difference(S, RR)),
-    {'EXIT', {undef, _}} =
-        (catch projection(fun external:foo/1, set([a,b,c]))),
+    ?assertError(undef, projection(fun external:foo/1, set([a,b,c]))),
     ok.
 
 relational_restriction(R) ->
@@ -1874,8 +1749,7 @@ family_specification(Conf) when is_list(Conf) ->
     E = empty_set(),
     %% internal
     eval(family_specification(fun sofs:is_set/1, E), E),
-    {'EXIT', {badarg, _}} =
-	(catch family_specification(fun sofs:is_set/1, set([]))),
+    ?assertError(badarg, family_specification(fun sofs:is_set/1, set([]))),
     F1 = from_term([{1,[1]}]),
     eval(family_specification(fun sofs:is_set/1, F1), F1),
     Fun = fun(S) -> is_subset(S, set([0,1,2,3,4])) end,
@@ -1884,10 +1758,9 @@ family_specification(Conf) when is_list(Conf) ->
     F3 = from_term([{a,[]},{b,[]}]),
     eval(family_specification(fun sofs:is_set/1, F3), F3),
     Fun2 = fun(_) -> throw(fippla) end, 
-    fippla = (catch family_specification(Fun2, family([{a,[1]}]))),
+    ?assertThrow(fippla, family_specification(Fun2, family([{a,[1]}]))),
     Fun3 = fun(_) -> neither_true_nor_false end,
-    {'EXIT', {badarg, _}} =
-	(catch family_specification(Fun3, F3)),
+    ?assertError(badarg, family_specification(Fun3, F3)),
 
     %% external
     IsList = {external, fun(L) when is_list(L) -> true; (_) -> false end},
@@ -1895,9 +1768,8 @@ family_specification(Conf) when is_list(Conf) ->
     eval(family_specification(IsList, F1), F1),
     MF = {external, fun(L) -> lists:member(3, L) end},
     eval(family_specification(MF, F2), family([{b,[3,4,5]}])),
-    fippla = (catch family_specification(Fun2, family([{a,[1]}]))),
-    {'EXIT', {badarg, _}} =
-	(catch family_specification({external, Fun3}, F3)),
+    ?assertThrow(fippla, family_specification(Fun2, family([{a,[1]}]))),
+    ?assertError(badarg, family_specification({external, Fun3}, F3)),
     ok.
 
 family_domain_1(Conf) when is_list(Conf) ->
@@ -1919,9 +1791,9 @@ family_domain_1(Conf) when is_list(Conf) ->
 	 from_term([{{a},[]}])),
     eval(family_domain(from_term([], type(FR))),
 	 from_term([], [{atom,[atom]}])),
-    {'EXIT', {badarg, _}} = (catch family_domain(set([a]))),
-    {'EXIT', {badarg, _}} = (catch family_field(set([a]))),
-    {'EXIT', {badarg, _}} = (catch family_domain(set([{a,[b]}]))),
+    ?assertError(badarg, family_domain(set([a]))),
+    ?assertError(badarg, family_field(set([a]))),
+    ?assertError(badarg, family_domain(set([{a,[b]}]))),
     ok.
 
 family_range_1(Conf) when is_list(Conf) ->
@@ -1940,8 +1812,8 @@ family_range_1(Conf) when is_list(Conf) ->
 	 from_term([{{a},[]}])),
     eval(family_range(from_term([], type(FR))),
 	 from_term([], [{atom,[atom]}])),
-    {'EXIT', {badarg, _}} = (catch family_range(set([a]))),
-    {'EXIT', {badarg, _}} = (catch family_range(set([{a,[b]}]))),
+    ?assertError(badarg, family_range(set([a]))),
+    ?assertError(badarg, family_range(set([{a,[b]}]))),
     ok.
 
 family_to_relation_1(Conf) when is_list(Conf) ->
@@ -1953,7 +1825,7 @@ family_to_relation_1(Conf) when is_list(Conf) ->
     eval(sofs:fam2rel(EF), ER),
     F = family([{a,[]},{b,[1]},{c,[7,9,11]}]),
     eval(family_to_relation(F), relation([{b,1},{c,7},{c,9},{c,11}])),
-    {'EXIT', {badarg, _}} = (catch family_to_relation(set([a]))),
+    ?assertError(badarg, family_to_relation(set([a]))),
     ok.
 
 union_of_family_1(Conf) when is_list(Conf) ->
@@ -1966,7 +1838,7 @@ union_of_family_1(Conf) when is_list(Conf) ->
     eval(union_of_family(FR), set([1,2,3,4,5])),
     eval(union_of_family(sofs:family([{a,[1,2]},{b,[1,2]}])),
 	 set([1,2])),
-    {'EXIT', {badarg, _}} = (catch union_of_family(set([a]))),
+    ?assertError(badarg, union_of_family(set([a]))),
     ok.
 
 intersection_of_family_1(Conf) when is_list(Conf) ->
@@ -1974,11 +1846,10 @@ intersection_of_family_1(Conf) when is_list(Conf) ->
     eval(intersection_of_family(EF), set([])),
     FR = from_term([{a,[1,2,3]},{b,[2,3]},{c,[3,4,5]}]),
     eval(intersection_of_family(FR), set([3])),
-    {'EXIT', {badarg, _}} =
-        (catch intersection_of_family(family([]))),
+    ?assertError(badarg, intersection_of_family(family([]))),
     EE = from_term([], [[atom]]),
-    {'EXIT', {badarg, _}} = (catch intersection_of_family(EE)),
-    {'EXIT', {badarg, _}} = (catch intersection_of_family(set([a]))),
+    ?assertError(badarg, intersection_of_family(EE)),
+    ?assertError(badarg, intersection_of_family(set([a]))),
     ok.
 
 family_projection(Conf) when is_list(Conf) ->
@@ -1991,10 +1862,8 @@ family_projection(Conf) when is_list(Conf) ->
     eval(family_projection(fun sofs:union/1, E), E),
     eval(family_projection(fun sofs:union/1, from_term(L1, SSType)),
 	 family(L1)),
-    {'EXIT', {badarg, _}} =
-        (catch family_projection(fun sofs:union/1, set([]))),
-    {'EXIT', {badarg, _}} =
-        (catch family_projection(fun sofs:union/1, from_term([{1,[1]}]))),
+    ?assertError(badarg, family_projection(fun sofs:union/1, set([]))),
+    ?assertError(badarg, family_projection(fun sofs:union/1, from_term([{1,[1]}]))),
 
     F2 = from_term([{a,[[1],[2]]},{b,[[3,4],[5]]}], SSType),
     eval(family_projection(fun sofs:union/1, F2),
@@ -2017,12 +1886,9 @@ family_projection(Conf) when is_list(Conf) ->
     eval(family_projection(Fun1, family([{a,[1]}])),
 	 from_term([{a,{1,1}}])),
     Fun2 = fun(_) -> throw(fippla) end, 
-    fippla =
-        (catch family_projection(Fun2, family([{a,[1]}]))),
-    {'EXIT', {type_mismatch, _}} =
-        (catch family_projection(Fun1, from_term([{1,[1]},{2,[2]}]))),
-    {'EXIT', {type_mismatch, _}} =
-        (catch family_projection(Fun1, from_term([{1,[1]},{0,[0]}]))),
+    ?assertThrow(fippla, family_projection(Fun2, family([{a,[1]}]))),
+    ?assertError(type_mismatch, family_projection(Fun1, from_term([{1,[1]},{2,[2]}]))),
+    ?assertError(type_mismatch, family_projection(Fun1, from_term([{1,[1]},{0,[0]}]))),
 
     eval(family_projection(fun(_) -> E end, from_term([{a,[]}])),
 	 from_term([{a,[]}])),
@@ -2030,9 +1896,8 @@ family_projection(Conf) when is_list(Conf) ->
     Z = from_term(0),
     eval(family_projection(fun(S) -> local_adjoin(S, Z) end, F4),
 	 from_term([{a,[{{1,2,3},0}]},{b,[{{4,5,6},0}]},{c,[]},{m3,[]}])),
-    {'EXIT', {badarg, _}} =
-        (catch family_projection({external, fun(X) -> X end}, 
-				 from_term([{1,[1]}]))),
+    ?assertError(badarg, family_projection({external, fun(X) -> X end},
+                                           from_term([{1,[1]}]))),
 
     %% ordered set element
     eval(family_projection(fun(_) -> from_term(a, atom) end,
@@ -2065,14 +1930,11 @@ family_difference(Conf) when is_list(Conf) ->
     eval(family_difference(from_term([{a,[a,b,c,d]},{c,[b,c]}]),
 			   from_term([{a,[b,c]},{b,[d]},{d,[e,f]}])),
 	 from_term([{a,[a,d]},{c,[b,c]}])),
-    {'EXIT', {badarg, _}} =
-	(catch family_difference(set([]), set([]))),
-    {'EXIT', {type_mismatch, _}} =
-	(catch family_difference(from_term([{a,[b,c]}]),
-                                 from_term([{e,[{f}]}]))),
-    {'EXIT', {type_mismatch, _}} =
-	(catch family_difference(from_term([{a,[b]}]),
-                                 from_term([{c,[d]}], [{i,[s]}]))),
+    ?assertError(badarg, family_difference(set([]), set([]))),
+    ?assertError(type_mismatch, family_difference(from_term([{a,[b,c]}]),
+                                                   from_term([{e,[{f}]}]))),
+    ?assertError(type_mismatch, family_difference(from_term([{a,[b]}]),
+                                                   from_term([{c,[d]}], [{i,[s]}]))),
     ok.
 
 family_intersection_1(Conf) when is_list(Conf) ->
@@ -2080,15 +1942,14 @@ family_intersection_1(Conf) when is_list(Conf) ->
     EF = family([]),
     ES = from_term([], [{atom,[[atom]]}]),
     eval(family_intersection(E), E),
-    {'EXIT', {badarg, _}} = (catch family_intersection(EF)),
+    ?assertError(badarg, family_intersection(EF)),
     eval(family_intersection(ES), EF),
-    {'EXIT', {badarg, _}} = (catch family_intersection(set([]))),
-    {'EXIT', {badarg, _}} =
-        (catch family_intersection(from_term([{a,[1,2]}]))),
+    ?assertError(badarg, family_intersection(set([]))),
+    ?assertError(badarg, family_intersection(from_term([{a,[1,2]}]))),
     F1 = from_term([{a,[[1],[2],[2,3]]},{b,[]},{c,[[4]]}]),
-    {'EXIT', {badarg, _}} = (catch family_intersection(F1)),
+    ?assertError(badarg, family_intersection(F1)),
     F2 = from_term([{b,[[1],[2],[2,3]]},{a,[]},{c,[[4]]}]),
-    {'EXIT', {badarg, _}} = (catch family_intersection(F2)),
+    ?assertError(badarg, family_intersection(F2)),
     F3 = from_term([{a,[[1,2,3],[2],[2,3]]},{c,[[4,5,6],[5,6,7]]}]),
     eval(family_intersection(F3), family([{a,[2]},{c,[5,6]}])),
     ok.
@@ -2112,9 +1973,8 @@ family_intersection_2(Conf) when is_list(Conf) ->
     eval(family_intersection(E, from_term([{e,[f,g]}])), EF),
     eval(family_intersection(from_term([{e,[f,g]}]), EF), EF),
     eval(family_intersection(from_term([{e,[f,g]}]), E), EF),
-    {'EXIT', {type_mismatch, _}} =
-	(catch family_intersection(from_term([{a,[b,c]}]),
-                                   from_term([{e,[{f}]}]))),
+    ?assertError(type_mismatch, family_intersection(from_term([{a,[b,c]}]),
+                                                     from_term([{e,[{f}]}]))),
 
     F11 = family([{a,[1,2,3]},{b,[0,2,4]},{c,[0,3,6,9]}]),
     eval(union_of_family(F11), set([0,1,2,3,4,6,9])),
@@ -2128,9 +1988,8 @@ family_union_1(Conf) when is_list(Conf) ->
     ES = from_term([], [{atom,[[atom]]}]),
     eval(family_union(E), E),
     eval(family_union(ES), EF),
-    {'EXIT', {badarg, _}} = (catch family_union(set([]))),
-    {'EXIT', {badarg, _}} =
-        (catch family_union(from_term([{a,[1,2]}]))),
+    ?assertError(badarg, family_union(set([]))),
+    ?assertError(badarg, family_union(from_term([{a,[1,2]}]))),
     eval(family_union(from_term([{a,[[1],[2],[2,3]]},{b,[]},{c,[[4]]}])),
 	 family([{a,[1,2,3]},{b,[]},{c,[4]}])),
     ok.
@@ -2155,11 +2014,9 @@ family_union_2(Conf) when is_list(Conf) ->
 	 from_term([{e,[f,g]}])),
     eval(family_union(from_term([{e,[f,g]}]), E),
 	 from_term([{e,[f,g]}])),
-    {'EXIT', {badarg, _}} =
-	(catch family_union(set([]),set([]))),
-    {'EXIT', {type_mismatch, _}} =
-	(catch family_union(from_term([{a,[b,c]}]), 
-                            from_term([{e,[{f}]}]))),
+    ?assertError(badarg, family_union(set([]),set([]))),
+    ?assertError(type_mismatch, family_union(from_term([{a,[b,c]}]),
+                                              from_term([{e,[{f}]}]))),
     ok.
 
 partition_family(Conf) when is_list(Conf) ->
@@ -2174,10 +2031,9 @@ partition_family(Conf) when is_list(Conf) ->
     eval(partition_family(fun sofs:union/1, E), E),
     eval(partition_family(1, ER), EF),
     eval(partition_family(2, ER), EF),
-    {'EXIT', {badarg, _}} = (catch partition_family(1, set([]))),
-    {'EXIT', {badarg, _}} = (catch partition_family(2, set([]))),
-    {'EXIT', {function_clause, _}} =
-	(catch partition_family(fun({_A,B}) -> {B} end, from_term([{1}]))),
+    ?assertError(badarg, partition_family(1, set([]))),
+    ?assertError(badarg, partition_family(2, set([]))),
+    ?assertError(function_clause, partition_family(fun({_A,B}) -> {B} end, from_term([{1}]))),
     eval(partition_family(1, relation([{1,a},{1,b},{2,c},{2,d}])),
 	 from_term([{1,[{1,a},{1,b}]},{2,[{2,c},{2,d}]}])),
     eval(partition_family(1, relation([{1,a},{2,b}])),
@@ -2202,9 +2058,8 @@ partition_family(Conf) when is_list(Conf) ->
     eval(partition_family(Fun2, relation([{a,1},{a,2},{b,3}])),
 	 from_term([{{a},[{a,1},{a,2}]},{{b},[{b,3}]}])),
 
-    {'EXIT', {badarg, _}} =
-	(catch partition_family({external, fun({A,_}) -> {A,0} end}, 
-				from_term([{1,a}]))),
+    ?assertError(badarg, partition_family({external, fun({A,_}) -> {A,0} end},
+                                          from_term([{1,a}]))),
     [{{atom,atom},[{atom,atom,atom,atom}]}] =
 	type(partition_family({external, fun({A,_B,C,_D}) -> {C,A} end}, 
 			      relation([],4))),
@@ -2229,12 +2084,10 @@ partition_family(Conf) when is_list(Conf) ->
 		 from_term([{I,[{I,a}]},{F,[{F,b}]}]))
     end,
     %% set of sets
-    {'EXIT', {badarg, _}} =
-        (catch partition_family({external, fun(X) -> X end}, 
-				from_term([], [[atom]]))),
-    {'EXIT', {badarg, _}} =
-        (catch partition_family({external, fun(X) -> X end}, 
-				from_term([[a]]))),
+    ?assertError(badarg, partition_family({external, fun(X) -> X end},
+                                          from_term([], [[atom]]))),
+    ?assertError(badarg, partition_family({external, fun(X) -> X end},
+                                          from_term([[a]]))),
     eval(partition_family(fun sofs:union/1,
 			  from_term([[[1],[1,2]], [[1,2]]])),
 	 from_term([{[1,2], [[[1],[1,2]],[[1,2]]]}])),
@@ -2258,9 +2111,12 @@ partition_family(Conf) when is_list(Conf) ->
     eval(partition_family(fun(_) -> from_term({a}) end,
 			  from_term([[a]])),
 	 from_term([{{a},[[a]]}])),
-    {'EXIT', {badarg, _}} =
-	(catch partition_family(fun(_) -> {a} end, from_term([[a]]))),
+    ?assertError(badarg, partition_family(fun(_) -> {a} end, from_term([[a]]))),
     ok.
+
+doctests(_Config) ->
+    ct_doctest:module(sofs, [{skipped_blocks, 2},
+                              {missing_tests, []}]).
 
 %% Not meant to be efficient...
 local_adjoin(S, C) ->
@@ -2274,4 +2130,3 @@ eval(R, E) when R == E ->
 eval(R, E) ->
     io:format("expected ~p~n got ~p~n", [E, R]),
     exit({R,E}).
-

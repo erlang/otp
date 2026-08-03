@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +24,7 @@ limitations under the License.
 ## Processes
 
 Erlang is designed for massive concurrency. Erlang processes are lightweight
-(grow and shrink dynamically) with small memory footprint, fast to create and
+(grow and shrink dynamically) with a small memory footprint, fast to create and
 terminate, and the scheduling overhead is low.
 
 ## Process Creation
@@ -39,7 +41,7 @@ spawn(Module, Name, Args) -> pid()
 `spawn()` creates a new process and returns the pid.
 
 The new process starts executing in `Module:Name(Arg1,...,ArgN)` where the
-arguments are the elements of the (possible empty) `Args` argument list.
+arguments are the elements of the (possibly empty) `Args` argument list.
 
 There exist a number of different `spawn` BIFs:
 
@@ -55,11 +57,11 @@ Besides addressing a process by using its pid, there are also BIFs for
 registering a process under a name. The name must be an atom and is
 automatically unregistered if the process terminates:
 
-| _BIF_                                 | _Description_                                                                          |
+| BIF                                   | Description                                                                            |
 | ------------------------------------- | -------------------------------------------------------------------------------------- |
 | [`register(Name, Pid)`](`register/2`) | Associates the name `Name`, an atom, with the process `Pid`.                           |
 | `registered/0`                        | Returns a list of names that have been registered using [`register/2`](`register/2`).  |
-| [`whereis(Name)`](`whereis/1`)        | Returns the pid registered under `Name`, or `undefined `if the name is not registered. |
+| [`whereis(Name)`](`whereis/1`)        | Returns the pid registered under `Name`, or `undefined` if the name is not registered. |
 
 _Table: Name Registration BIFs_
 
@@ -74,7 +76,7 @@ scenario. Using a process alias when sending the reply makes it possible for the
 receiver of the reply to prevent the reply from reaching its message queue if
 the operation times out or if the connection between the processes is lost.
 
-A process alias can be used as identifier of the receiver when sending a message
+A process alias can be used as an identifier of the receiver when sending a message
 using the [send operator (`!`)](expressions.md#send) or send BIFs such as
 `erlang:send/2`. As long as the process alias is active, messages will be
 delivered the same way as if the process identifier of the process that created
@@ -101,7 +103,7 @@ deactivation of aliases.
 
 It is _not_ possible to:
 
-- create an alias identifying another process than the caller.
+- create an alias identifying a process other than the caller.
 - deactivate an alias unless it identifies the caller.
 - look up an alias.
 - look up the process identified by an alias.
@@ -116,7 +118,7 @@ and distribution transparency.
 When a process terminates, it always terminates with an _exit reason_. The
 reason can be any term.
 
-A process is said to terminate _normally_, if the exit reason is the atom
+A process is said to terminate _normally_ if the exit reason is the atom
 `normal`. A process with no more code to execute terminates normally.
 
 A process terminates with an exit reason `{Reason,Stack}` when a run-time error
@@ -131,8 +133,8 @@ A process can terminate itself by calling one of the following BIFs:
 The process then terminates with reason `Reason` for [`exit/1`](`exit/1`) or
 `{Reason,Stack}` for the others.
 
-A process can also be terminated if it receives an exit signal with another exit
-reason than `normal`, see [Error Handling](ref_man_processes.md#errors).
+A process can also be terminated if it receives an exit signal with an exit
+reason other than `normal`, see [Error Handling](ref_man_processes.md#errors).
 
 ## Signals
 
@@ -170,7 +172,7 @@ been performed.
 - **`unlink`** - Sent when calling the [unlink/1](`erlang:unlink/1`) BIF.
 
 - **`exit`** - Sent either when explicitly sending an `exit` signal by calling
-  the [exit/2](`erlang:exit/2`) BIF, or when a
+  the [exit_signal/2](`erlang:exit_signal/2`) BIF, or when a
   [linked process terminates](ref_man_processes.md#sending_exit_signals). If the
   signal is sent due to a link, the signal is sent after all
   [_directly visible Erlang resources_](ref_man_processes.md#visible-resources)
@@ -223,7 +225,7 @@ been performed.
 - **`port_command`, `port_connect`, `port_close`** - Sent by a process to a port
   on the local node using the [send operator (`!`)](expressions.md#send), or by
   calling one of the [`send()`](`erlang:send/2`) BIFs. The signal is sent by
-  passing a term on the format `{Owner, {command, Data}}`,
+  passing a term of the format `{Owner, {command, Data}}`,
   `{Owner, {connect, Pid}}`, or `{Owner, close}` as message.
 
 - **`port_command_request`/`port_command_reply`,
@@ -271,7 +273,7 @@ implementation details of the runtime system that you should _not_ rely on. As
 an example, many of the reply signals are ordinary message signals. When
 the operation is synchronous, the reply signals do not have to be message
 signals. The current implementation takes advantage of this and, depending on
-the state of the system, use alternative ways of delivering the reply signals.
+the state of the system, uses alternative ways of delivering the reply signals.
 The implementation of these reply signals may also, at any time, be changed to
 not use message signals where it previously did.
 
@@ -291,34 +293,34 @@ the state of the receiving process. Actions taken for the most common signals:
   [process alias](ref_man_processes.md#process-aliases) that is no longer
   active, the message signal will be dropped; otherwise, if the alias is still
   active or the message signal was sent by other means, the message is added to
-  the end of the message queue. When the message has been added to the message
+  the message queue. When the message has been added to the message
   queue, the receiving process can fetch the message from the message queue
   using the [`receive`](expressions.md#receive) expression.
 
-- **`link`, `unlink`** - Very simplified it can be viewed as updating process
-  local information about the link. A detailed description of the
+- **`link`, `unlink`** - Very simplified, it can be viewed as updating process-local
+  information about the link. A detailed description of the
   [link protocol](`e:erts:erl_dist_protocol.md#link_protocol`) can be found in
   the _Distribution Protocol_ chapter of the _ERTS User's Guide_.
 
 - **`exit`** - Set the receiver in an exiting state, drop the signal, or convert
-  the signal into a message and add it to the end of the message queue. If the
+  the signal into a message and add it to the message queue. If the
   receiver is set in an exiting state, no more Erlang code will be executed and
   the process is scheduled for termination. The section
   [_Receiving Exit Signals_](ref_man_processes.md#receiving_exit_signals) below
   gives more details on the action taken when an `exit` signal is received.
 
-- **`monitor`, `demonitor`** - Update process local information about the
+- **`monitor`, `demonitor`** - Update process-local information about the
   monitor.
 
 - **`down`, `change`** - Convert into a message if the corresponding monitor is
   still active; otherwise, drop the signal. If the signal is converted into a
-  message, it is also added to the end of the message queue.
+  message, it is also added to the message queue.
 
 - **`group_leader`** - Change the group leader of the process.
 
-- **`spawn_reply`** - Convert into a message, or drop the signal depending on
+- **`spawn_reply`** - Convert into a message or drop the signal, depending on
   the reply and how the `spawn_request` signal was configured. If the signal is
-  converted into a message it is also added to the end of the message queue. For
+  converted into a message, it is also added to the message queue. For
   more information see the [`spawn_request()`](`erlang:spawn_request/5`) BIF.
 
 - **`alive_request`** - Schedule execution of the _is alive_ test. If the
@@ -332,7 +334,7 @@ the state of the receiving process. Actions taken for the most common signals:
   `check_process_code_request`** - Schedule execution of the requested
   operation. The reply signal will be sent when the operation has been executed.
 
-Note that some actions taken when a signal is received involves _scheduling_
+Note that some of the actions taken when a signal is received involve _scheduling_
 further actions which will result in a reply signal when these scheduled actions
 have completed. This implies that the reply signals may be sent in a different
 order than the order of the incoming signals that triggered these operations.
@@ -340,14 +342,118 @@ This does, however, _not_ violate the
 [signal ordering guarantee](ref_man_processes.md#signal-delivery) of the
 language.
 
-[](){: #message-queue-order } The order of messages in the message queue of a
-process reflects the order in which the signals corresponding to the messages
-has been received since
-[all signals that add messages to the message queue add them at the end of the message queue](ref_man_processes.md#receiving-signals).
-Messages corresponding to signals from the same sender are also ordered in the
-same order as the signals were sent due to the
+[](){: #message-queue-order }
+
+#### Adding Messages to the Message Queue
+
+When a message signal is received, the action taken is to add the message to the
+message queue. The actions of other signals, upon reception, may also add messages
+to the message queue ([see above](ref_man_processes.md#receiving-signals)).
+Unless the receiving process has enabled priority messages, all messages are
+added to the end of the message queue. In the case that the receiver has not
+enabled priority messages, the order of the messages in the message queue will
+reflect the order in which the signals corresponding to the messages in the queue
+were received. Messages corresponding to signals from the same sender will then
+also be ordered in the same order as the signals were sent due to the
 [signal ordering guarantee](ref_man_processes.md#signal-delivery) of the
 language.
+
+[](){: #priority-messages }
+
+As of OTP 28.0, a process may
+[enable reception of priority messages](ref_man_processes.md#enable-prio-msg-recv).
+If the receiving process has enabled priority messages, the receiver will at
+reception of a message signal, or another signal that is converted into a
+message, check if it should be accepted as a priority message or not. If
+accepted as a priority message, it will be added after the last accepted priority
+message in the queue; otherwise, it will be treated as an ordinary message and
+will be added at the end of the message queue.
+
+![Priority Message Reception](assets/prio-msg-recv.png "Priority Message Reception")
+
+Figure 1.
+
+When messages that have been accepted as priority messages exist in the message
+queue, the order of the messages in the message queue will *not* reflect the
+order in which the signals corresponding to the messages in the queue were
+received. However, the order of priority messages corresponds to the order in
+which those corresponding signals were received, and the order of ordinary
+messages corresponds to the order in which those corresponding signals
+were received. Thus, two messages sent from the same sender may be in a different
+order from the order in which they were sent.
+
+Note that priority messages *do not* violate the
+[signal ordering guarantee](ref_man_processes.md#signal-delivery) of the
+language. The signals are still delivered in the same order to the receiving
+process. The *only* difference is how messages are added to the message queue
+after the signals have been received by the receiving process.
+
+A [`receive`](expressions.md#receive) expression will select the first message,
+from the start, in the message queue that matches, just as if only ordinary
+messages exist in the message queue. The total message queue length in figure 1
+equals `P+M`. The lengths `P` and `M` are not visible; only the total message
+queue length can be determined. There is no way for the Erlang code to
+distinguish a priority message from an ordinary message when fetching a message
+from the message queue. Such knowledge needs to be part of the message protocol
+that the process should adhere to.
+
+[](){: #enable-prio-msg-recv }
+#### Enabling Priority Message Reception
+
+[](){: #priority-message-warning }
+
+> #### Warning {: .warning }
+>
+> Priority messages are intended to solve very specific problems where it
+> previously was very hard to solve such problems efficiently using ordinary
+> signaling. You *very seldom* need to resort to usage of priority messages.
+> Receiving processes have *not* been optimized for handling large amounts of
+> priority messages. If a process accumulates a large amount of priority
+> messages, the design of that message protocol should be redesigned since
+> this is not how priority messages are intended to be used.
+
+A process can enable priority message reception by creating a *priority
+process alias* or shorter *priority alias*. Such an alias is created by
+calling the `erlang:alias/1` BIF with the `priority` option. This priority
+alias then needs to be distributed to processes that are to be able to send
+priority messages to the process that created the alias. In order to send a
+priority message, the priority alias should be passed to the `erlang:send/3`
+BIF at the same time as the option `priority` is passed in the option list.
+Note that both the priority alias and the `priority` option need to
+be passed in order for the message to be accepted as a priority message.
+
+The priority alias can also be used for sending exit signals which will be
+handled as priority messages if the receiver is trapping exits. In this case
+the priority alias should be passed as the first argument to the `erlang:exit/3`
+BIF and the option `priority` should be passed in the option list. Also in
+this case both the priority alias and the `priority` option need to be
+passed in order for the message to be accepted as a priority message. Note that
+this *only* affects how a potential exit message is handled if the receiver is
+trapping exits. The exit signal as such will not get a higher priority.
+
+If the creator of the priority alias deactivates the alias, the signals sent
+using the alias will be dropped the same way as for any
+[process alias](ref_man_processes.md#process-aliases).
+
+Priority message reception can also be enabled for exit signals due to
+broken links and messages triggered due to monitors. Since these signals are
+not sent when a process calls a specific function for sending a signal, but
+instead are sent when specific events occur in the system, a priority alias
+cannot be used for this.
+
+In order to enable priority message reception of messages triggered by a
+monitor, the process that creates the monitor needs to create it using the
+`erlang:monitor/3` BIF and pass the option `priority`. A message received
+due to the monitor being triggered will then be handled as a priority
+message.
+
+In order to enable priority message reception for exit signals due to
+broken links, the process that wants the exit signal as a priority message
+needs to call the `erlang:link/2` BIF with the `priority` option. The
+`priority` option will only enable priority message handling of exit signals
+for the process that called the `erlang:link/2` BIF with the `priority`
+option. Also in this case, this *only* affects how a potential exit message
+is handled if the receiver is trapping exits.
 
 [](){: #visible-resources }
 
@@ -358,7 +464,7 @@ signals from an exiting process due to `alive_request`s are not sent until all
 _directly visible Erlang resources_ held by the terminating process have been
 released. With _directly visible Erlang resources_ we here mean all resources
 made available by the language excluding resources held by heap data, dirty
-native code execution and the process identifier of the terminating process.
+native code execution, and the process identifier of the terminating process.
 Examples of _directly visible Erlang resources_ are
 [registered name](ref_man_processes.md#registered-processes) and [ETS](`m:ets`)
 tables.
@@ -375,15 +481,15 @@ system cannot force the native code to stop executing. The runtime system tries
 to prevent the execution of the dirty native code from affecting other processes
 by, for example, disabling functionality such as
 [`enif_send()`](`e:erts:erl_nif.md#enif_send`) when used from a terminated
-process, but if the NIF is not well behaved it can still affect other processes.
-A well behaved dirty NIF should test if
+process, but if the NIF is not well-behaved it can still affect other processes.
+A well-behaved dirty NIF should test if
 [the process it is executing in has exited](`e:erts:erl_nif.md#enif_is_current_process_alive`),
 and if so stop executing.
 
 In the general case, the heap of a process cannot be removed before all signals
 that it needs to send have been sent. Resources held by heap data are the memory
 blocks containing the heap, but also include things referred to from the heap
-such as off heap binaries, and resources held via NIF
+such as off-heap binaries, and resources held via NIF
 [resource objects](`e:erts:erl_nif.md#resource_objects`) on the heap.
 
 [](){: #signal-delivery }
@@ -401,15 +507,15 @@ channel goes down.
 The only signal ordering guarantee given is the following: if an entity sends
 multiple signals to the same destination entity, the order is preserved; that
 is, if `A` sends a signal `S1` to `B`, and later sends signal `S2` to `B`, `S1`
-is guaranteed not to arrive after `S2`. Note that `S1` may, or may not have been
+is guaranteed not to arrive after `S2`. Note that `S1` may or may not have been
 lost.
 
 [](){: #signal-irregularities }
 
 ### Irregularities
 
-- **Synchronous Error Checking** - Some functionality that send signals have
-  synchronous error checking when sending locally on a node and fail if the
+- **Synchronous Error Checking** - Some functionality that sends signals has
+  synchronous error checking when sending locally on a node and fails if the
   receiver is not present at the time when the signal is sent:
 
   - The [send operator (`!`)](expressions.md#send),
@@ -419,18 +525,11 @@ lost.
   - `erlang:link/1`
   - `erlang:group_leader/2`
 
-- **Unexpected Behaviours of Exit Signals** - When a process sends an exit
-  signal with exit reason `normal` to itself by calling
-  [`erlang:exit(self(), normal)`](`erlang:exit/2`) it will be terminated
-  [when the `exit` signal is received](ref_man_processes.md#receiving_exit_signals).
-  In all other cases when an exit signal with exit reason `normal` is received,
-  it is dropped.
-
-  When an
+- **Unexpected Behaviours of Exit Signals** - When an
   [`exit` signal with exit reason `kill` is received](ref_man_processes.md#receiving_exit_signals),
   the action taken is different depending on whether the signal was sent due to
   a linked process terminating, or the signal was explicitly sent using the
-  [`exit/2`](`erlang:exit/2`) BIF. When sent using the [`exit/2`](`exit/2`) BIF,
+  [`exit_signal/2`](`erlang:exit_signal/2`) BIF. When sent using the [`exit_signal/2`](`exit_signal/2`) BIF,
   the signal cannot be [trapped](`m:erlang#process_flag_trap_exit`), while it
   can be trapped if the signal was sent due to a link.
 
@@ -438,8 +537,8 @@ lost.
   #blocking-signaling-over-distribution } **
    When sending a signal over a distribution channel, the sending process may be
   suspended even though the signal is supposed to be sent asynchronously. This is
-  due to the built in flow control over the channel that has been present more or
-  less for ever. When the size of the output buffer for the channel reach the _distribution
+  due to the built-in flow control over the channel that has been present more or
+  less forever. When the size of the output buffer for the channel reaches the _distribution
   buffer busy limit_, processes sending on the channel will be suspended until the
   size of the buffer shrinks below the limit.
 
@@ -450,9 +549,9 @@ lost.
 
   Since this functionality has been present for so long, it is not possible to
   remove it, but it is possible to enable _fully asynchronous distributed
-  signaling_ on a per process level using
+  signaling_ on a per-process level using
   [`process_flag(async_dist, Bool)`](`m:erlang#process_flag_async_dist`) which
-  can be used to solve problems occuring due to blocking signaling. However,
+  can be used to solve problems occurring due to blocking signaling. However,
   note that you need to make sure that flow control for data sent using _fully
   asynchronous distributed signaling_ is implemented, or that the amount of such
   data is known to always be limited; otherwise, you may get into a situation
@@ -466,14 +565,14 @@ Erlang too long and it would break a lot of existing code.
 
 ## Links
 
-Two processes can be _linked_ to each other. Also a process and a port that
+Two processes can be _linked_ to each other. Also, a process and a port that
 reside on the same node can be linked to each other. A link between two
 processes can be created if one of them calls the [`link/1`](`erlang:link/1`)
 BIF with the process identifier of the other process as argument. Links can also
-be created using one the following spawn BIFs
+be created using one of the following spawn BIFs
 [`spawn_link()`](`erlang:spawn_link/4`), [`spawn_opt()`](`erlang:spawn_opt/5`),
 or [`spawn_request()`](`erlang:spawn_request/5`). The spawn operation and the
-link operation will be performed atomically, in these cases.
+link operation will be performed atomically in these cases.
 
 If one of the participants of a link terminates, it will
 [send an exit signal](ref_man_processes.md#sending_exit_signals) to the other
@@ -508,7 +607,7 @@ for more information about OTP supervision trees, which use this feature.
 
 ### Sending Exit Signals
 
-When a process or port [terminates](ref_man_processes.md#process-termination) it
+When a process or port [terminates](ref_man_processes.md#process-termination), it
 will send exit signals to all processes and ports that it is
 [linked](ref_man_processes.md#links) to. The exit signal will contain the
 following information:
@@ -529,18 +628,18 @@ following information:
     preceding call to the [`link(PidOrPort)`](`erlang:link/1`) BIF. The process
     or port identified as sender of the exit signal will equal the `PidOrPort`
     argument passed to [`link/1`](`link/1`).
-  - `noconnection` in case the linked processes resides on different nodes and
+  - `noconnection` in case the linked processes reside on different nodes and
     the connection between the nodes was lost or could not be established. The
     process or port identified as sender of the exit signal might in this case
     still be alive.
 
 Exit signals can also be sent explicitly by calling the
-[`exit(PidOrPort, Reason)`](`erlang:exit/2`) BIF. The exit signal is sent to the
+[`exit_signal(PidOrPort, Reason)`](`erlang:exit_signal/2`) BIF. The exit signal is sent to the
 process or port identified by the `PidOrPort` argument. The exit signal sent
 will contain the following information:
 
 - **Sender identifier** - The process identifier of the process that called
-  [`exit/2`](`exit/2`).
+  [`exit_signal/2`](`exit_signal/2`).
 
 - **Receiver identifier** - The process or port identifier of the process or
   port which the exit signal is sent to.
@@ -549,7 +648,7 @@ will contain the following information:
   signal was not sent due to a link.
 
 - **Exit reason** - The term passed as `Reason` in the call to
-  [`exit/2`](`exit/2`). If `Reason` is the atom `kill`, the receiver cannot
+  [`exit_signal/2`](`exit_signal/2`). If `Reason` is the atom `kill`, the receiver cannot
   [trap the exit](`m:erlang#process_flag_trap_exit`) signal and will
   unconditionally terminate when it receives the signal.
 
@@ -565,7 +664,7 @@ What happens when a process receives an exit signal depends on:
 - The sender of the exit signal.
 - The state of the `link` flag of the exit signal. If the `link` flag is set,
   the exit signal was sent due to a link; otherwise, the exit signal was sent by
-  a call to the [`exit/2`](`erlang:exit/2`) BIF.
+  a call to the [`exit_signal/2`](`erlang:exit_signal/2`) BIF.
 - If the `link` flag is set, what happens also depends on whether the
   [link is still active or not](`erlang:unlink/1`) when the exit signal is
   received.
@@ -577,8 +676,8 @@ received by a process:
 
   - the `link` flag of the exit signal is set and the corresponding link has
     been deactivated.
-  - the exit reason of the exit signal is the atom `normal`, the receiver is not
-    trapping exits, and the receiver and sender are not the same process.
+  - the exit reason of the exit signal is the atom `normal`, and the receiver
+    is not trapping exits.
 
 - The receiving process is terminated if:
 
@@ -587,14 +686,10 @@ received by a process:
     the atom `killed` as exit reason.
   - the receiver is not trapping exits, and the exit reason is something other
     than the atom `normal`. Also, if the `link` flag of the exit signal is set,
-    the link also needs to be active otherwise the exit signal will be dropped.
+    the link also needs to be active; otherwise, the exit signal will be dropped.
     The exit reason of the receiving process will equal the exit reason of the
     exit signal. Note that if the `link` flag is set, an exit reason of `kill`
     will _not_ be converted to `killed`.
-  - the exit reason of the exit signal is the atom `normal` and the sender of
-    the exit signal is the same process as the receiver. The `link` flag cannot
-    be set in this case. The exit reason of the receiving process will be the
-    atom `normal`.
 
 - The exit signal is converted to a message signal and added to the end of the
   message queue of the receiver, if the receiver is trapping exits, the `link`
@@ -605,7 +700,7 @@ received by a process:
     `kill` will _not_ terminate the process in this case and it will not be
     converted to `killed`.
 
-  The converted message will be on the form `{'EXIT', SenderID, Reason}` where
+  The converted message will be of the form `{'EXIT', SenderID, Reason}` where
   `Reason` equals the exit reason of the exit signal and `SenderID` is the
   identifier of the process or port that sent the exit signal.
 
@@ -626,7 +721,7 @@ If `Pid2` does not exist, the 'DOWN' message is sent immediately with `Reason`
 set to `noproc`.
 
 Monitors are unidirectional. Repeated calls to `erlang:monitor(process, Pid)`
-creates several independent monitors, and each one sends a 'DOWN' message when
+create several independent monitors, and each one sends a 'DOWN' message when
 `Pid` terminates.
 
 A monitor can be removed by calling [`erlang:demonitor(Ref)`](`erlang:demonitor/1`).

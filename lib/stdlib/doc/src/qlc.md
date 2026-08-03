@@ -1,3 +1,24 @@
+<!--
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
 This module provides a query interface to [Mnesia](`m:mnesia`), [ETS](`m:ets`),
 [Dets](`m:dets`), and other data structures that provide an iterator style
 traversal of objects.
@@ -480,7 +501,7 @@ join operator is `==/2`, and the table where constants are to be looked up uses
 `=:=/2` when testing keys for equality, then the `qlc` module does not consider
 lookup join for that table.
 
-## See Also
+### See Also
 
 `m:dets`, `m:erl_eval`, `m:erlang`, `m:error_logger`, `m:ets`, `m:file`,
 `m:file_sorter`, `m:mnesia`, `m:shell`,

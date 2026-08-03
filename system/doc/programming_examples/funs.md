@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -123,7 +125,7 @@ Using the function `foreach`, the function `broadcast` becomes:
 foreach(fun(Pid) -> Pid ! M end, L)
 ```
 
-`foreach` is evaluated for its side-effect and not its value. `foreach(Fun ,L)`
+`foreach` is evaluated for its side-effect and not its value. `foreach(Fun, L)`
 calls `Fun(X)` for each element `X` in `L` and the processing occurs in the
 order that the elements were defined in `L`. `map` does not define the order in
 which its elements are processed.
@@ -131,7 +133,7 @@ which its elements are processed.
 ## Syntax of Funs
 
 Funs are written with the following syntax (see
-[Fun Expressions ](`e:system:expressions.md#fun-expressions`)for full description):
+[Fun Expressions](`e:system:expressions.md#fun-expressions`) for full description):
 
 ```erlang
 F = fun (Arg1, Arg2, ... ArgN) ->
@@ -247,7 +249,7 @@ diagnostic:
 This indicates that the variable `File`, which is defined inside the fun,
 collides with the variable `File`, which is defined outside the fun.
 
-The rules for importing variables into a fun has the consequence that certain
+The rules for importing variables into a fun have the consequence that certain
 pattern matching operations must be moved into guard expressions and cannot be
 written in the head of the fun. For example, you might write the following code
 if you intend the first clause of `F` to be evaluated when the value of its
@@ -321,7 +323,7 @@ any(Pred, []) ->
 A predicate is a function that returns `true` or `false`. `any` is `true` if
 there is a term `X` in the list such that `P(X)` is `true`.
 
-A predicate `Big(X)` is defined, which is `true` if its argument is greater that
+A predicate `Big(X)` is defined, which is `true` if its argument is greater than
 10:
 
 ```erlang
@@ -487,7 +489,7 @@ diff(L1, L2) ->
 
 This gives the list of all elements in L1 that are not contained in L2.
 
-The AND intersection of the list `L1` and `L2` is also easily defined:
+The AND intersection of the lists `L1` and `L2` is also easily defined:
 
 ```erlang
 intersection(L1,L2) -> filter(fun(X) -> member(X,L1) end, L2).
@@ -535,7 +537,7 @@ dropwhile(Pred, []) ->
 ### splitwith
 
 `lists:splitwith/2` splits the list `L` into the two sublists `{L1, L2}`, where
-`L = takewhile(P, L)` and `L2 = dropwhile(P, L)`:
+`L1 = takewhile(P, L)` and `L2 = dropwhile(P, L)`:
 
 ```erlang
 splitwith(Pred, L) ->
@@ -559,7 +561,7 @@ splitwith(Pred, [], L) ->
 
 So far, only functions that take funs as arguments have been described. More
 powerful functions, that themselves return funs, can also be written. The
-following examples illustrate these type of functions.
+following examples illustrate these types of functions.
 
 ### Simple Higher Order Functions
 
@@ -617,7 +619,7 @@ Parser(Toks) -> {ok, Tree, Toks1} | fail
 `{ok, Tree, Toks1}`.
 
 - `Tree` is a parse tree.
-- `Toks1` is a tail of `Tree` that contains symbols encountered after the
+- `Toks1` is a tail of `Toks` that contains symbols encountered after the
   structure that was correctly parsed.
 
 An unsuccessful parse returns `fail`.

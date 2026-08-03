@@ -1,4 +1,11 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,13 +17,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Richard Carlsson.
-%% Copyright (C) 1999-2002 Richard Carlsson.
-%% Portions created by Ericsson are Copyright 2001, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%%
-%%     $Id: cerl.erl,v 1.3 2010/03/04 13:54:20 maria Exp $
-
+%% %CopyrightEnd%
 %% =====================================================================
 %% @doc Core Erlang abstract syntax trees.
 %%
@@ -330,9 +331,9 @@ ann_abstract(As, T) ->
 %%
 %% @see abstract/1
 
-is_literal_term(T) when integer(T) -> true;
-is_literal_term(T) when float(T) -> true;
-is_literal_term(T) when atom(T) -> true;
+is_literal_term(T) when is_integer(T) -> true;
+is_literal_term(T) when is_float(T) -> true;
+is_literal_term(T) when is_atom(T) -> true;
 is_literal_term([]) -> true;
 is_literal_term([H | T]) ->
     case is_literal_term(H) of
@@ -341,7 +342,7 @@ is_literal_term([H | T]) ->
 	false ->
 	    false
     end;
-is_literal_term(T) when tuple(T) ->
+is_literal_term(T) when is_tuple(T) ->
     is_literal_term_list(tuple_to_list(T));
 is_literal_term(_) ->
     false.
@@ -458,7 +459,7 @@ unfold_literal(Node) ->
 
 unfold_concrete(Val) ->
     case Val of
-	_ when tuple(Val) ->
+        _ when is_tuple(Val) ->
 	    c_tuple_skel(unfold_concrete_list(tuple_to_list(Val)));
 	[H|T] ->
 	    c_cons_skel(unfold_concrete(H), unfold_concrete(T));
@@ -676,7 +677,7 @@ ann_c_int(As, Value) ->
 %% integer literal, otherwise <code>false</code>.
 %% @see c_int/1
 
-is_c_int(#literal{val = V}) when integer(V) ->
+is_c_int(#literal{val = V}) when is_integer(V) ->
     true;
 is_c_int(_) ->
     false.
@@ -734,7 +735,7 @@ ann_c_float(As, Value) ->
 %% floating-point literal, otherwise <code>false</code>.
 %% @see c_float/1
 
-is_c_float(#literal{val = V}) when float(V) ->
+is_c_float(#literal{val = V}) when is_float(V) ->
     true;
 is_c_float(_) ->
     false.
@@ -777,7 +778,7 @@ float_lit(Node) ->
 %% @see atom_name/1
 %% @see atom_lit/1
 
-c_atom(Name) when atom(Name) ->
+c_atom(Name) when is_atom(Name) ->
     #literal{val = Name};
 c_atom(Name) ->
     #literal{val = list_to_atom(Name)}.
@@ -787,7 +788,7 @@ c_atom(Name) ->
 %%	    Name = atom() | string()
 %% @see c_atom/1
 
-ann_c_atom(As, Name) when atom(Name) ->
+ann_c_atom(As, Name) when is_atom(Name) ->
     #literal{val = Name, ann = As};
 ann_c_atom(As, Name) ->
     #literal{val = list_to_atom(Name), ann = As}.
@@ -800,7 +801,7 @@ ann_c_atom(As, Name) ->
 %%
 %% @see c_atom/1
 
-is_c_atom(#literal{val = V}) when atom(V) ->
+is_c_atom(#literal{val = V}) when is_atom(V) ->
     true;
 is_c_atom(_) ->
     false.
@@ -867,7 +868,7 @@ atom_lit(Node) ->
 %% @see char_lit/1
 %% @see is_print_char/1
 
-c_char(Value)  when integer(Value), Value >= 0 ->
+c_char(Value)  when is_integer(Value), Value >= 0 ->
     #literal{val = Value}.
 
 
@@ -891,7 +892,7 @@ ann_c_char(As, Value) ->
 %% @see c_char/1
 %% @see is_print_char/1
 
-is_c_char(#literal{val = V}) when integer(V), V >= 0 ->
+is_c_char(#literal{val = V}) when is_integer(V), V >= 0 ->
     is_char_value(V);
 is_c_char(_) ->
     false.
@@ -909,7 +910,7 @@ is_c_char(_) ->
 %% @see c_char/1
 %% @see is_c_char/1
 
-is_print_char(#literal{val = V}) when integer(V), V >= 0 ->
+is_print_char(#literal{val = V}) when is_integer(V), V >= 0 ->
     is_print_char_value(V);
 is_print_char(_) ->
     false.
@@ -1472,7 +1473,7 @@ update_c_tuple_skel(Old, Es) ->
 
 is_c_tuple(#tuple{}) ->
     true;
-is_c_tuple(#literal{val = V}) when tuple(V) ->
+is_c_tuple(#literal{val = V}) when is_tuple(V) ->
     true;
 is_c_tuple(_) ->
     false.
@@ -1502,7 +1503,7 @@ tuple_es(#literal{val = V}) ->
 
 tuple_arity(#tuple{es = Es}) ->
     length(Es);
-tuple_arity(#literal{val = V}) when tuple(V) ->
+tuple_arity(#literal{val = V}) when is_tuple(V) ->
     tuple_size(V).
 
 
@@ -1631,7 +1632,7 @@ update_c_fname(Node, Atom, Arity) ->
 %% @see c_var/1
 %% @see c_var_name/1
 
-is_c_fname(#var{name = {A, N}}) when atom(A), integer(N), N >= 0 ->
+is_c_fname(#var{name = {A, N}}) when is_atom(A), is_integer(N), N >= 0 ->
     true;
 is_c_fname(_) ->
     false.
@@ -1939,7 +1940,7 @@ bitstr_bitsize(Node) ->
 	    case concrete(Size) of
 		all ->
 		    all;
-		S when integer(S) ->
+                S when is_integer(S) ->
 		    S*concrete(Node#bitstr.unit);
 		true ->
 		    any
@@ -3369,11 +3370,11 @@ list_to_records([T | Ts]) ->
 list_to_records([]) ->
     [].
 
-lit_to_records(V, A) when integer(V) ->
+lit_to_records(V, A) when is_integer(V) ->
     #c_int{anno = A, val = V};
-lit_to_records(V, A) when float(V) ->
+lit_to_records(V, A) when is_float(V) ->
     #c_float{anno = A, val = V};
-lit_to_records(V, A) when atom(V) ->
+lit_to_records(V, A) when is_atom(V) ->
     #c_atom{anno = A, val = V};
 lit_to_records([H | T] = V, A) ->
     case is_print_char_list(V) of
@@ -3386,7 +3387,7 @@ lit_to_records([H | T] = V, A) ->
     end;
 lit_to_records([], A) ->
     #c_nil{anno = A};
-lit_to_records(V, A) when tuple(V) ->
+lit_to_records(V, A) when is_tuple(V) ->
     #c_tuple{anno = A, es = lit_list_to_records(tuple_to_list(V))}.
 
 lit_list_to_records([T | Ts]) ->
@@ -3542,7 +3543,7 @@ data_type(#literal{val = V}) ->
     case V of
 	[_ | _] ->
 	    cons;
-	_ when tuple(V) ->
+        _ when is_tuple(V) ->
 	    tuple;
 	_ ->
 	    {'atomic', V}
@@ -3572,7 +3573,7 @@ data_es(#literal{val = V}) ->
     case V of
 	[Head | Tail] ->
 	    [#literal{val = Head}, #literal{val = Tail}];
-	_ when tuple(V) ->
+        _ when is_tuple(V) ->
 	    make_lit_list(tuple_to_list(V));
 	_ ->
 	    []
@@ -3596,7 +3597,7 @@ data_arity(#literal{val = V}) ->
     case V of
 	[_ | _] ->
 	    2;
-	_ when tuple(V) ->
+        _ when is_tuple(V) ->
 	    tuple_size(V);
 	_ ->
 	    0
@@ -3961,11 +3962,11 @@ meta_1(literal, Node) ->
     %% We handle atomic literals separately, to get a bit
     %% more compact code. For the rest, we use 'abstract'.
     case concrete(Node) of
-	V when atom(V) ->
+        V when is_atom(V) ->
 	    meta_call(c_atom, [Node]);
-	V when integer(V) ->
+        V when is_integer(V) ->
 	    meta_call(c_int, [Node]);
-	V when float(V) ->
+        V when is_float(V) ->
 	    meta_call(c_float, [Node]);
 	[] ->
 	    meta_call(c_nil, []);
@@ -4135,7 +4136,7 @@ is_print_char_value(V) when V =:= $\' -> true;
 is_print_char_value(V) when V =:= $\\ -> true;
 is_print_char_value(_) -> false.
 
-is_char_list([V | Vs]) when integer(V) ->
+is_char_list([V | Vs]) when is_integer(V) ->
     case is_char_value(V) of
 	true ->
 	    is_char_list(Vs);
@@ -4147,7 +4148,7 @@ is_char_list([]) ->
 is_char_list(_) ->
     false.
 
-is_print_char_list([V | Vs]) when integer(V) ->
+is_print_char_list([V | Vs]) when is_integer(V) ->
     case is_print_char_value(V) of
 	true ->
 	    is_print_char_list(Vs);

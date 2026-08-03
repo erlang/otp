@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -98,6 +100,7 @@ static char *plusM_au_alloc_switches[] = {
 /* +M other arguments */
 static char *plusM_other_switches[] = {
     "ea",
+    "umadtn",
     "ummc",
     "uycs",
     "usac",
@@ -554,38 +557,68 @@ int main(int argc, char **argv)
 
     if (s == NULL) {
         erts_snprintf(tmpStr, sizeof(tmpStr),
-            "%s" PATHSEP "%s" DIRSEP "bin" PATHSEP, bindir, rootdir);
+            "%s" PATHSEP "%s" DIRSEP "bin", bindir, rootdir);
+        set_env("PATH", tmpStr);
     } else if (strstr(s, rootdir) == NULL) {
-        erts_snprintf(tmpStr, sizeof(tmpStr),
+        char *pathBuf = NULL;
+        int pathBufLen = 0;
+        int path_sep_length = strlen(PATHSEP);
+        int dir_sep_length = strlen(DIRSEP);
+
+        pathBufLen =
+            strlen(bindir) + path_sep_length
+            + strlen(rootdir) + dir_sep_length + strlen("bin") + path_sep_length
+            + strlen(s) + 1;
+
+        pathBuf = emalloc(pathBufLen);
+
+        erts_snprintf(pathBuf, pathBufLen,
             "%s" PATHSEP "%s" DIRSEP "bin" PATHSEP "%s", bindir, rootdir, s);
+        set_env("PATH", pathBuf);
     } else {
-        const char *bindir_slug, *bindir_slug_index;
-        int bindir_slug_length;
+        char *pathBuf = NULL;
+        int pathBufLen = 0;
+
+        char *sep_index;
+        int sep_length = strlen(PATHSEP);
+        int bindir_length = strlen(bindir);
         const char *in_index;
         char *out_index;
 
-        erts_snprintf(tmpStr, sizeof(tmpStr), "%s" PATHSEP, bindir);
+        pathBufLen = strlen(s) + strlen(bindir) + strlen(PATHSEP) + 1;
+        pathBuf = emalloc(pathBufLen);
 
-        bindir_slug = strsave(tmpStr);
-        bindir_slug_length = strlen(bindir_slug);
+        strcpy(pathBuf, bindir);
 
-        out_index = &tmpStr[bindir_slug_length];
+        out_index = &pathBuf[bindir_length];
         in_index = s;
 
-        while ((bindir_slug_index = strstr(in_index, bindir_slug))) {
-            int block_length = (bindir_slug_index - in_index);
+        while ((sep_index = strstr(in_index, PATHSEP))) {
+            int elem_length = (sep_index - in_index);
 
-            memcpy(out_index, in_index, block_length);
+            if (bindir_length != elem_length ||
+                0 != strncmp(in_index, bindir, elem_length)) {
+                strcpy(out_index, PATHSEP);
+                out_index += sep_length;
+                memcpy(out_index, in_index, elem_length);
+                out_index += elem_length;
+            }
 
-            in_index = bindir_slug_index + bindir_slug_length;
-            out_index += block_length;
+            in_index = sep_index + sep_length;
         }
-        efree((void*)bindir_slug);
-        strcpy(out_index, in_index);
-    }
 
+        if (0 != strcmp(in_index, bindir)) {
+            strcpy(out_index, PATHSEP);
+            out_index += sep_length;
+            strcpy(out_index, in_index);
+        } else {
+            *out_index = '\0';
+        }
+
+        set_env("PATH", pathBuf);
+        efree(pathBuf);
+    }
     free_env_val(s);
-    set_env("PATH", tmpStr);
 
     i = 1;
 
@@ -856,6 +889,16 @@ int main(int argc, char **argv)
 		      add_Eargs(argv[i+1]);
 		      i++;
 		      break;
+                  case 'D':
+                      if (argv[i][2] != 'i') {
+                          goto the_default;
+                      }
+                      NEXT_ARG_CHECK();
+                      argv[i][0] = '-';
+                      add_Eargs(argv[i]);
+                      add_Eargs(argv[i+1]);
+                      i++;
+                      break;
 		  case 'I':
                       if (argv[i][2] == 'O' && (argv[i][3] == 't' || argv[i][3] == 'p')) {
                           if (argv[i][4] != '\0')
@@ -1249,7 +1292,6 @@ usage_aux(void)
 	  "[+C MODE] [+dcg DECENTRALIZED_COUNTER_GROUPS_LIMIT] [+h HEAP_SIZE_OPTION] "
           "[+J[Pperf|Msingle] JIT_OPTION] "
 	  "[+M<SUBSWITCH> <ARGUMENT>] [+P MAX_PROCS] [+Q MAX_PORTS] "
-	  "[+R COMPAT_REL] "
 	  "[+r] [+rg READER_GROUPS_LIMIT] [+s<SUBSWITCH> SCHEDULER_OPTION] "
 	  "[+S NO_SCHEDULERS:NO_SCHEDULERS_ONLINE] "
 	  "[+SP PERCENTAGE_SCHEDULERS:PERCENTAGE_SCHEDULERS_ONLINE] "
@@ -1910,7 +1952,15 @@ read_args_file(char *filename)
 
     do {
 	errno = 0;
+#ifdef __WIN32__
+	{
+	    WCHAR *wfilename = utf8_to_utf16((unsigned char *)filename);
+	    file = _wfopen(wfilename, L"r");
+	    efree(wfilename);
+	}
+#else
 	file = fopen(filename, "r");
+#endif
     } while (!file && errno == EINTR);
     if (!file) {
 #ifdef __WIN32__

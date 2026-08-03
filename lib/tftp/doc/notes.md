@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +20,87 @@ limitations under the License.
 %CopyrightEnd%
 -->
 # TFTP Release Notes
+
+## Tftp 1.3
+
+### Improvements and New Features
+
+- The legacy `and` and `or` operators have been replaced with other language constructs.
+
+  Own Id: OTP-19744 Aux Id: [PR-10114], [PR-10554], [PR-10568], [PR-10579], [PR-10585], [PR-10598], [PR-10710], [PR-10718], [PR-10580], [PR-10730]
+
+- All use of legacy `catch` in the TFTP application has been rewritten.
+  
+  In the process, deep return using `exit/1` or `throw/1` from callbacks has been changed to only work with `throw/1`, as customary.  This was considered a misfeature.
+  
+  Explicit loading of callback module or logger module has been removed, since that was against what one would expect for embedded mode.
+
+  Own Id: OTP-19996 Aux Id: [PR-10753]
+
+- Added support for `-unsafe` attributes, which is used to mark functions as unsafe to use. 
+  
+  This is similar to but separate from deprecation, and the compiler will by default now generate warnings for calls to functions in Erlang/OTP that are known to be always unsafe.
+  
+  Furthermore, `m:xref` can now be used to find calls to functions in another application that lack a `-doc` attribute (`undocumented_function_calls`), calls to functions in another application marked `-doc false.` (`private_function_calls`), as well as calls to unsafe functions (`unsafe_function_calls`).
+
+  Own Id: OTP-20066 Aux Id: [PR-10839]
+
+[PR-10114]: https://github.com/erlang/otp/pull/10114
+[PR-10554]: https://github.com/erlang/otp/pull/10554
+[PR-10568]: https://github.com/erlang/otp/pull/10568
+[PR-10579]: https://github.com/erlang/otp/pull/10579
+[PR-10585]: https://github.com/erlang/otp/pull/10585
+[PR-10598]: https://github.com/erlang/otp/pull/10598
+[PR-10710]: https://github.com/erlang/otp/pull/10710
+[PR-10718]: https://github.com/erlang/otp/pull/10718
+[PR-10580]: https://github.com/erlang/otp/pull/10580
+[PR-10730]: https://github.com/erlang/otp/pull/10730
+[PR-10753]: https://github.com/erlang/otp/pull/10753
+[PR-10839]: https://github.com/erlang/otp/pull/10839
+
+## Tftp 1.2.4
+
+### Fixed Bugs and Malfunctions
+
+- An issue in the undocumented initial state option \[\{root_dir,Dir\}] to the tftp_file module has been fixed. The request file name was just concatenated to Dir so it was possible to traverse above Dir by using "../" file path components. Now the option actually restricts local file operations to the Dir directory and subdirectories.
+  
+  The initial state option and how to use it was previously undocumented, so it is unlikely that anyone would have used it without understanding its peculiarities.
+  
+  The documentation of the TFTP application has also been clarified to make it obvious that the default server configuration allows read and write access to all files that are readable or writable by the user running the Erlang VM, and that the default configuration therefore should be avoided.
+  
+  Thanks to Luigino Camastra at Aisle Research, for finding and reporting this issue.
+
+  Own Id: OTP-19981 Aux Id: [PR-10706], [CVE-2026-21620]
+
+[PR-10706]: https://github.com/erlang/otp/pull/10706
+[CVE-2026-21620]: https://nvd.nist.gov/vuln/detail/2026-21620
+
+## Tftp 1.2.3
+
+### Improvements and New Features
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+
+## Tftp 1.2.2.1
+
+### Fixed Bugs and Malfunctions
+
+- An issue in the undocumented initial state option \[\{root_dir,Dir\}] to the tftp_file module has been fixed. The request file name was just concatenated to Dir so it was possible to traverse above Dir by using "../" file path components. Now the option actually restricts local file operations to the Dir directory and subdirectories.
+  
+  The initial state option and how to use it was previously undocumented, so it is unlikely that anyone would have used it without understanding its peculiarities.
+  
+  The documentation of the TFTP application has also been clarified to make it obvious that the default server configuration allows read and write access to all files that are readable or writable by the user running the Erlang VM, and that the default configuration therefore should be avoided.
+  
+  Thanks to Luigino Camastra at Aisle Research, for finding and reporting this issue.
+
+  Own Id: OTP-19981 Aux Id: [PR-10706], [CVE-2026-21620]
+
+[PR-10706]: https://github.com/erlang/otp/pull/10706
+[CVE-2026-21620]: https://nvd.nist.gov/vuln/detail/2026-21620
 
 ## Tftp 1.2.2
 
@@ -51,6 +134,20 @@ limitations under the License.
 
 [PR-7700]: https://github.com/erlang/otp/pull/7700
 [PR-8026]: https://github.com/erlang/otp/pull/8026
+
+## Tftp 1.1.1.1
+
+### Fixed Bugs and Malfunctions
+
+* An issue in the undocumented initial state option \[\{root_dir,Dir\}] to the tftp_file module has been fixed. The request file name was just concatenated to Dir so it was possible to traverse above Dir by using "../" file path components. Now the option actually restricts local file operations to the Dir directory and subdirectories.
+
+  The initial state option and how to use it was previously undocumented, so it is unlikely that anyone would have used it without understanding its peculiarities.
+
+  The documentation of the TFTP application has also been clarified to make it obvious that the default server configuration allows read and write access to all files that are readable or writable by the user running the Erlang VM, and that the default configuration therefore should be avoided.
+
+  Thanks to Luigino Camastra at Aisle Research, for finding and reporting this issue.
+
+  Own Id: OTP-19981 Aux Id: PR-10706, CVE-2026-21620
 
 ## Tftp 1.1.1
 

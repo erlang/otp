@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +23,7 @@ limitations under the License.
 
 This section gives a few examples on how to handle binaries in an efficient way.
 The sections that follow take an in-depth look at how binaries are implemented
-and how to best take advantages of the optimizations done by the compiler and
+and how to best take advantage of the optimizations done by the compiler and
 runtime system.
 
 Binaries can be efficiently _built_ in the following way:
@@ -116,12 +118,12 @@ Four types of binary objects are available internally:
 
 > #### Change {: .info }
 >
-> In Erlang/OTP 27, the handling of binaries and bitstrings were
+> In Erlang/OTP 27, the handling of binaries and bitstrings was
 > rewritten. To fully leverage those changes in the run-time system,
 > the compiler needs to be updated, which is planned for a future
 > release.
 >
-> Since, practically speaking, not much have changed from an efficiency
+> Since, practically speaking, not much has changed from an efficiency
 > and optimization perspective, the following description has not yet
 > been updated to describe the implementation in Erlang/OTP 27.
 
@@ -194,7 +196,7 @@ This optimization is applied by the runtime system in a way that makes it
 effective in most circumstances (for exceptions, see
 [Circumstances That Force Copying](binaryhandling.md#forced_copying)). The
 optimization in its basic form does not need any help from the compiler.
-However, the compiler add hints to the runtime system when it is safe to apply
+However, the compiler adds hints to the runtime system when it is safe to apply
 the optimization in a more efficient way.
 
 > #### Change {: .info }
@@ -425,7 +427,7 @@ all_but_zeroes_to_list(<<Byte,T/binary>>, Acc, Remaining) ->
 
 The compiler removes building of sub binaries in the second and third clauses,
 and it adds an instruction to the first clause that converts `Buffer` from a
-match context to a sub binary (or do nothing if `Buffer` is a binary already).
+match context to a sub binary (or does nothing if `Buffer` is already a binary).
 
 But in more complicated code, how can one know whether the optimization is
 applied or not?

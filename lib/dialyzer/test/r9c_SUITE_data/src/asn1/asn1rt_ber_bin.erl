@@ -1,4 +1,11 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,15 +17,8 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%%
-%%     $Id: asn1rt_ber_bin.erl,v 1.1 2008/12/17 09:53:30 mikpe Exp $
+%% %CopyrightEnd%
 -module(asn1rt_ber_bin).
-
-%% encoding / decoding of BER
-
 -export([decode/1]).
 -export([fixoptionals/2,split_list/2,cindex/3,restbytes2/3,
 	 list_to_record/2,
@@ -155,7 +155,7 @@ decode_tlv(Bin) ->
 % if HeadLen == indefinite -> return {List,indefinite}
 split_list(List,indefinite) ->
     {List, indefinite};
-split_list(Bin, Len) when binary(Bin) ->
+split_list(Bin, Len) when is_binary(Bin) ->
     split_binary(Bin,Len);
 split_list(List,Len) ->
     {lists:sublist(List,Len),lists:nthtail(Len,List)}.
@@ -243,13 +243,13 @@ cindex(Ix,Val,Cname) ->
 %%===============================================================================
 
 % converts a list to a record if necessary
-list_to_record(Name,List) when list(List) ->
+list_to_record(Name,List) when is_list(List) ->
     list_to_tuple([Name|List]);
-list_to_record(_Name,Tuple) when tuple(Tuple) ->
+list_to_record(_Name,Tuple) when is_tuple(Tuple) ->
     Tuple.
 
 
-fixoptionals(OptList,Val) when list(Val) ->
+fixoptionals(OptList,Val) when is_list(Val) ->
     fixoptionals(OptList,Val,1,[],[]).
 
 fixoptionals([{Name,Pos}|Ot],[{Name,Val}|Vt],_Opt,Acc1,Acc2) ->
@@ -458,7 +458,7 @@ encode_tags1([Tag1 | Trest], Acc) ->
 encode_tags1([], Acc) ->
     Acc. % the resulting tags are returned in reverse order
 
-encode_one_tag(Bin) when binary(Bin) ->
+encode_one_tag(Bin) when is_binary(Bin) ->
     {Bin,size(Bin)};
 encode_one_tag(#tag{class=Class,number=No,type=Type, form = Form}) ->
     NewForm = case Type of
@@ -508,17 +508,17 @@ encode_one_tag(#tag{class=Class,number=No,type=Type, form = Form}) ->
 
 %% This version does not consider Explicit tagging of the open type. It
 %% is only left because of backward compatibility.
-encode_open_type(Val) when list(Val) ->
+encode_open_type(Val) when is_list(Val) ->
     {Val,size(list_to_binary(Val))};
 encode_open_type(Val) ->
     {Val, size(Val)}.
 
 %%
-encode_open_type(Val, []) when list(Val) ->
+encode_open_type(Val, []) when is_list(Val) ->
     {Val,size(list_to_binary(Val))};
 encode_open_type(Val,[]) ->
     {Val, size(Val)};
-encode_open_type(Val, Tag) when list(Val) ->
+encode_open_type(Val, Tag) when is_list(Val) ->
     encode_tags(Tag,Val,size(list_to_binary(Val)));
 encode_open_type(Val,Tag) ->
     encode_tags(Tag,Val, size(Val)).
@@ -568,7 +568,7 @@ decode_open_type(ber,Bytes,ExplTag) ->
 %% encode_boolean(Integer, tag | notag) -> [octet list]
 %%===============================================================================
 
-encode_boolean({Name, Val}, DoTag) when atom(Name) ->
+encode_boolean({Name, Val}, DoTag) when is_atom(Name) ->
     dotag(DoTag, ?N_BOOLEAN, encode_boolean(Val));
 encode_boolean(true,[]) ->
     {[1,1,16#FF],3};
@@ -624,19 +624,19 @@ decode_boolean2(Buffer, _) ->
 %%    Tag = tag | notag
 %%===========================================================================
 
-encode_integer(C, Val, []) when integer(Val) ->
+encode_integer(C, Val, []) when is_integer(Val) ->
     {EncVal,Len}=encode_integer(C, Val),
     dotag_universal(?N_INTEGER,EncVal,Len);
-encode_integer(C, Val, Tag) when integer(Val) ->
+encode_integer(C, Val, Tag) when is_integer(Val) ->
     dotag(Tag, ?N_INTEGER, encode_integer(C, Val));
-encode_integer(C,{Name,Val},Tag) when atom(Name) ->
+encode_integer(C,{Name,Val},Tag) when is_atom(Name) ->
     encode_integer(C,Val,Tag);
 encode_integer(_, Val, _) ->
     exit({error,{asn1, {encode_integer, Val}}}).
 
 
 
-encode_integer(C, Val, NamedNumberList, Tag) when atom(Val) ->
+encode_integer(C, Val, NamedNumberList, Tag) when is_atom(Val) ->
     case lists:keysearch(Val, 1, NamedNumberList) of
 	{value,{_, NewVal}} ->
 	    dotag(Tag, ?N_INTEGER, encode_integer(C, NewVal));
@@ -728,7 +728,7 @@ check_integer_constraint(Result={Val, _Buffer,_},Range) ->
 	    Result;
 	{_,_} ->
 	    exit({error,{asn1,{integer_range,Range,Val}}});
-	SingleValue when integer(SingleValue) ->
+        SingleValue when is_integer(SingleValue) ->
 	    exit({error,{asn1,{integer_range,Range,Val}}});
 	_ -> % some strange constraint that we don't support yet
 	    Result
@@ -739,25 +739,25 @@ check_integer_constraint(Result={Val, _Buffer,_},Range) ->
 
 %% encode enumerated value
 %%============================================================================
-encode_enumerated(Val, []) when integer(Val)->
+encode_enumerated(Val, []) when is_integer(Val)->
     {EncVal,Len} = encode_integer(false,Val),
     dotag_universal(?N_ENUMERATED,EncVal,Len);
-encode_enumerated(Val, DoTag) when integer(Val)->
+encode_enumerated(Val, DoTag) when is_integer(Val)->
     dotag(DoTag, ?N_ENUMERATED, encode_integer(false,Val));
-encode_enumerated({Name,Val}, DoTag) when atom(Name) ->
+encode_enumerated({Name,Val}, DoTag) when is_atom(Name) ->
     encode_enumerated(Val, DoTag).
 
 %% The encode_enumerated functions below this line can be removed when the
 %% new code generation is stable. (the functions might have to be kept here
 %% a while longer for compatibility reasons)
 
-encode_enumerated(C, Val, {NamedNumberList,ExtList}, DoTag) when atom(Val) ->
+encode_enumerated(C, Val, {NamedNumberList,ExtList}, DoTag) when is_atom(Val) ->
     case catch encode_enumerated(C, Val, NamedNumberList, DoTag) of
 	{'EXIT',_} -> encode_enumerated(C, Val, ExtList, DoTag);
 	Result -> Result
     end;
 
-encode_enumerated(C, Val, NamedNumberList, DoTag) when atom(Val) ->
+encode_enumerated(C, Val, NamedNumberList, DoTag) when is_atom(Val) ->
     case lists:keysearch(Val, 1, NamedNumberList) of
 	{value, {_, NewVal}} when DoTag == []->
 	    {EncVal,Len} = encode_integer(C,NewVal),
@@ -768,10 +768,10 @@ encode_enumerated(C, Val, NamedNumberList, DoTag) when atom(Val) ->
 	    exit({error,{asn1, {enumerated_not_in_range, Val}}})
     end;
 
-encode_enumerated(C, {asn1_enum, Val}, {_,_}, DoTag) when integer(Val) ->
+encode_enumerated(C, {asn1_enum, Val}, {_,_}, DoTag) when is_integer(Val) ->
     dotag(DoTag, ?N_ENUMERATED, encode_integer(C,Val));
 
-encode_enumerated(C, {Name,Val}, NamedNumberList, DoTag) when atom(Name) ->
+encode_enumerated(C, {Name,Val}, NamedNumberList, DoTag) when is_atom(Name) ->
     encode_enumerated(C, Val, NamedNumberList, DoTag);
 
 encode_enumerated(_, Val, _, _) ->
@@ -858,7 +858,7 @@ encode_real('PLUS-INFINITY', DoTag) ->
     dotag(DoTag, ?N_REAL, {[64],1});
 encode_real('MINUS-INFINITY', DoTag) ->
     dotag(DoTag, ?N_REAL, {[65],1});
-encode_real(Val, DoTag) when tuple(Val)->
+encode_real(Val, DoTag) when is_tuple(Val)->
     dotag(DoTag, ?N_REAL, encode_real(Val)).
 
 %%%%%%%%%%%%%%
@@ -1044,15 +1044,15 @@ decode_real2(Buffer0, Form, Len, RemBytes1) ->
 %% C is constrint Len, only valid when identifiers
 %%============================================================================
 
-encode_bit_string(C,Bin={Unused,BinBits},NamedBitList,DoTag) when integer(Unused), binary(BinBits) ->
+encode_bit_string(C,Bin={Unused,BinBits},NamedBitList,DoTag) when is_integer(Unused), is_binary(BinBits) ->
     encode_bin_bit_string(C,Bin,NamedBitList,DoTag);
-encode_bit_string(C, [FirstVal | RestVal], NamedBitList, DoTag) when atom(FirstVal) ->
+encode_bit_string(C, [FirstVal | RestVal], NamedBitList, DoTag) when is_atom(FirstVal) ->
     encode_bit_string_named(C, [FirstVal | RestVal], NamedBitList, DoTag);
 
 encode_bit_string(C, [{bit,X} | RestVal], NamedBitList, DoTag) ->
     encode_bit_string_named(C, [{bit,X} | RestVal], NamedBitList, DoTag);
 
-encode_bit_string(C, [FirstVal| RestVal], NamedBitList, DoTag) when integer(FirstVal) ->
+encode_bit_string(C, [FirstVal| RestVal], NamedBitList, DoTag) when is_integer(FirstVal) ->
     encode_bit_string_bits(C, [FirstVal | RestVal], NamedBitList, DoTag);
 
 encode_bit_string(_, 0, _, []) ->
@@ -1067,18 +1067,18 @@ encode_bit_string(_, [], _, []) ->
 encode_bit_string(_, [], _, DoTag) ->
     dotag(DoTag, ?N_BIT_STRING, {<<0>>,1});
 
-encode_bit_string(C, IntegerVal, NamedBitList, DoTag) when integer(IntegerVal) ->
+encode_bit_string(C, IntegerVal, NamedBitList, DoTag) when is_integer(IntegerVal) ->
     BitListVal = int_to_bitlist(IntegerVal),
     encode_bit_string_bits(C, BitListVal, NamedBitList, DoTag);
 
-encode_bit_string(C, {Name,BitList}, NamedBitList, DoTag) when atom(Name) ->
+encode_bit_string(C, {Name,BitList}, NamedBitList, DoTag) when is_atom(Name) ->
     encode_bit_string(C, BitList, NamedBitList, DoTag).
 
 
 
 int_to_bitlist(0) ->
     [];
-int_to_bitlist(Int) when integer(Int), Int >= 0 ->
+int_to_bitlist(Int) when is_integer(Int), Int >= 0 ->
     [Int band 1 | int_to_bitlist(Int bsr 1)].
 
 
@@ -1186,7 +1186,7 @@ encode_bit_string_named(C, [FirstVal | RestVal], NamedBitList, DoTag) ->
 
 get_all_bitposes([{bit,ValPos}|Rest], NamedBitList, Ack) ->
     get_all_bitposes(Rest, NamedBitList, [ValPos | Ack ]);
-get_all_bitposes([Val | Rest], NamedBitList, Ack) when atom(Val) ->
+get_all_bitposes([Val | Rest], NamedBitList, Ack) when is_atom(Val) ->
     case lists:keysearch(Val, 1, NamedBitList) of
 	{value, {_ValName, ValPos}} ->
 	    get_all_bitposes(Rest, NamedBitList, [ValPos | Ack]);
@@ -1223,12 +1223,12 @@ make_and_set_list(Len, [], XPos) ->
 %%=================================================================
 %% Encode bit string for lists of ones and zeroes
 %%=================================================================
-encode_bit_string_bits(C, BitListVal, _NamedBitList, DoTag) when list(BitListVal) ->
+encode_bit_string_bits(C, BitListVal, _NamedBitList, DoTag) when is_list(BitListVal) ->
     {Len,Unused,OctetList} =
 	case get_constraint(C,'SizeConstraint') of
 	    no ->
 		encode_bitstring(BitListVal);
-	    Constr={Min,Max} when integer(Min),integer(Max) ->
+            Constr={Min,Max} when is_integer(Min),is_integer(Max) ->
 		encode_constr_bit_str_bits(Constr,BitListVal,DoTag);
 	    {Constr={_,_},[]} ->
 		%% constraint with extension mark
@@ -1433,11 +1433,11 @@ decode_bitstring_NNL([0|BitList],NamedNumberList,No,Result) ->
 %% The OctetList must be a flat list of integers in the range 0..255
 %% the function does not check this because it takes to much time
 %%============================================================================
-encode_octet_string(_C, OctetList, []) when binary(OctetList) ->
+encode_octet_string(_C, OctetList, []) when is_binary(OctetList) ->
     dotag_universal(?N_OCTET_STRING,OctetList,size(OctetList));
-encode_octet_string(_C, OctetList, DoTag) when binary(OctetList) ->
+encode_octet_string(_C, OctetList, DoTag) when is_binary(OctetList) ->
     dotag(DoTag, ?N_OCTET_STRING, {OctetList,size(OctetList)});
-encode_octet_string(_C, OctetList, DoTag) when list(OctetList) ->
+encode_octet_string(_C, OctetList, DoTag) when is_list(OctetList) ->
     case length(OctetList) of
 	Len when DoTag == [] ->
 	    dotag_universal(?N_OCTET_STRING,OctetList,Len);
@@ -1446,7 +1446,7 @@ encode_octet_string(_C, OctetList, DoTag) when list(OctetList) ->
     end;
 % encode_octet_string(C, OctetList, DoTag) when list(OctetList) ->
 %     dotag(DoTag, ?N_OCTET_STRING, {OctetList,length(OctetList)});
-encode_octet_string(C, {Name,OctetList}, DoTag) when atom(Name) ->
+encode_octet_string(C, {Name,OctetList}, DoTag) when is_atom(Name) ->
     encode_octet_string(C, OctetList, DoTag).
 
 
@@ -1504,7 +1504,7 @@ decode_null_notag(Buffer, Tags, OptOrMand) ->
 %% encode Object Identifier value
 %%============================================================================
 
-encode_object_identifier({Name,Val}, DoTag) when atom(Name) ->
+encode_object_identifier({Name,Val}, DoTag) when is_atom(Name) ->
     encode_object_identifier(Val, DoTag);
 encode_object_identifier(Val, []) ->
     {EncVal,Len} = e_object_identifier(Val),
@@ -1514,11 +1514,11 @@ encode_object_identifier(Val, DoTag) ->
 
 e_object_identifier({'OBJECT IDENTIFIER', V}) ->
     e_object_identifier(V);
-e_object_identifier({Cname, V}) when atom(Cname), tuple(V) ->
+e_object_identifier({Cname, V}) when is_atom(Cname), is_tuple(V) ->
     e_object_identifier(tuple_to_list(V));
-e_object_identifier({Cname, V}) when atom(Cname), list(V) ->
+e_object_identifier({Cname, V}) when is_atom(Cname), is_list(V) ->
     e_object_identifier(V);
-e_object_identifier(V) when tuple(V) ->
+e_object_identifier(V) when is_tuple(V) ->
     e_object_identifier(tuple_to_list(V));
 
 %%%%%%%%%%%%%%%
@@ -1625,18 +1625,18 @@ dec_subidentifiers(<<H,T/binary>>,Av,Al,Len) ->
 %% encode Numeric Printable Teletex Videotex Visible IA5 Graphic General strings
 %%============================================================================
 encode_restricted_string(_C, OctetList, StringType, [])
-  when binary(OctetList) ->
+  when is_binary(OctetList) ->
     dotag_universal(StringType,OctetList,size(OctetList));
 encode_restricted_string(_C, OctetList, StringType, DoTag)
-  when binary(OctetList) ->
+  when is_binary(OctetList) ->
     dotag(DoTag, StringType, {OctetList, size(OctetList)});
 encode_restricted_string(_C, OctetList, StringType, [])
-  when list(OctetList) ->
+  when is_list(OctetList) ->
     dotag_universal(StringType,OctetList,length(OctetList));
 encode_restricted_string(_C, OctetList, StringType, DoTag)
-  when list(OctetList) ->
+  when is_list(OctetList) ->
     dotag(DoTag, StringType, {OctetList, length(OctetList)});
-encode_restricted_string(C,{Name,OctetL},StringType,DoTag) when atom(Name)->
+encode_restricted_string(C,{Name,OctetL},StringType,DoTag) when is_atom(Name)->
     encode_restricted_string(C, OctetL, StringType, DoTag).
 
 %%============================================================================
@@ -1672,13 +1672,13 @@ check_and_convert_restricted_string(Val,StringType,Range,NamedNumberList,_BinOrO
     {StrLen,NewVal} = case StringType of
 			  ?N_BIT_STRING when NamedNumberList /= [] ->
 			      {no_check,Val};
-			  ?N_BIT_STRING when list(Val) ->
+                          ?N_BIT_STRING when is_list(Val) ->
 			      {length(Val),Val};
-			  ?N_BIT_STRING when tuple(Val) ->
+                          ?N_BIT_STRING when is_tuple(Val) ->
 			      {(size(element(2,Val))*8) - element(1,Val),Val};
-			  _ when binary(Val) ->
+                          _ when is_binary(Val) ->
 			      {size(Val),binary_to_list(Val)};
-			  _ when list(Val) ->
+                          _ when is_list(Val) ->
 			      {length(Val), Val}
 		      end,
     case Range of
@@ -1697,7 +1697,7 @@ check_and_convert_restricted_string(Val,StringType,Range,NamedNumberList,_BinOrO
 	    NewVal;
 	{_,_} ->
 	    exit({error,{asn1,{length,Range,Val}}});
-	_Len when integer(_Len) ->
+        _Len when is_integer(_Len) ->
 	    exit({error,{asn1,{length,Range,Val}}});
 	_ -> % some strange constraint that we don't support yet
 	    NewVal
@@ -1760,9 +1760,9 @@ decode_restricted_parts(Buffer, RestBytes, [], StringType, RestTags, Len, NNList
 	case StringType of
 	    ?N_BIT_STRING when BinOrOld == bin ->
 		{concat_bit_binaries(AccVal, Val), AccRb+Rb};
-	    _ when binary(Val),binary(AccVal) ->
+            _ when is_binary(Val),is_binary(AccVal) ->
 		{<<AccVal/binary,Val/binary>>,AccRb+Rb};
-	    _ when binary(Val), AccVal==[] ->
+            _ when is_binary(Val), AccVal==[] ->
 		{Val,AccRb+Rb};
 	    _ ->
 		{AccVal++Val, AccRb+Rb}
@@ -1802,7 +1802,7 @@ decode_restricted(Buffer, InnerLen, StringType, NamedNumberList,BinOrOld) ->
 %% encode Universal string
 %%============================================================================
 
-encode_universal_string(C, {Name, Universal}, DoTag) when atom(Name) ->
+encode_universal_string(C, {Name, Universal}, DoTag) when is_atom(Name) ->
     encode_universal_string(C, Universal, DoTag);
 encode_universal_string(_C, Universal, []) ->
     OctetList = mk_uni_list(Universal),
@@ -1848,7 +1848,7 @@ mk_universal_string([A,B,C,D|T],Acc) ->
 %% encode BMP string
 %%============================================================================
 
-encode_BMP_string(C, {Name,BMPString}, DoTag) when atom(Name)->
+encode_BMP_string(C, {Name,BMPString}, DoTag) when is_atom(Name)->
     encode_BMP_string(C, BMPString, DoTag);
 encode_BMP_string(_C, BMPString, []) ->
     OctetList = mk_BMP_list(BMPString),
@@ -1894,7 +1894,7 @@ mk_BMP_string([C,D|T],US) ->
 %% encode Generalized time
 %%============================================================================
 
-encode_generalized_time(C, {Name,OctetList}, DoTag) when atom(Name) ->
+encode_generalized_time(C, {Name,OctetList}, DoTag) when is_atom(Name) ->
     encode_generalized_time(C, OctetList, DoTag);
 encode_generalized_time(_C, OctetList, []) ->
     dotag_universal(?N_GeneralizedTime,OctetList,length(OctetList));
@@ -1935,7 +1935,7 @@ decode_generalized_time_notag(Buffer, Range, Tags, TotalLen, OptOrMand) ->
 %% encode UTC time
 %%============================================================================
 
-encode_utc_time(C, {Name,OctetList}, DoTag) when atom(Name) ->
+encode_utc_time(C, {Name,OctetList}, DoTag) when is_atom(Name) ->
     encode_utc_time(C, OctetList, DoTag);
 encode_utc_time(_C, OctetList, []) ->
     dotag_universal(?N_UTCTime, OctetList,length(OctetList));
@@ -2055,7 +2055,7 @@ check_if_valid_tag(<<0,0,_/binary>>,_,_) ->
     asn1_EOC;
 check_if_valid_tag(<<>>, _, OptOrMand) ->
     check_if_valid_tag2(false,[],[],OptOrMand);
-check_if_valid_tag(Bytes, ListOfTags, OptOrMand) when binary(Bytes) ->
+check_if_valid_tag(Bytes, ListOfTags, OptOrMand) when is_binary(Bytes) ->
     {Tag, _, _} = decode_tag(Bytes),
     check_if_valid_tag(Tag, ListOfTags, OptOrMand);
 
@@ -2277,7 +2277,7 @@ concat_bit_binaries({U1,B1},{U2,B2}) ->
     S2 = (size(B2) * 8) - U2,
     PadBits = 8 - ((S1+S2) rem 8),
     {PadBits, <<B1:S1/binary-unit:1,B2:S2/binary-unit:1,0:PadBits>>};
-concat_bit_binaries(L1,L2) when list(L1),list(L2) ->
+concat_bit_binaries(L1,L2) when is_list(L1),is_list(L2) ->
     %% this case occur when decoding with NNL
     L1 ++ L2.
 

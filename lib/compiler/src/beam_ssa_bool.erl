@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -123,12 +125,13 @@
 
 -include("beam_ssa.hrl").
 
--record(st, {defs=#{},
-             ldefs=#{},
-             count :: beam_ssa:label(),
-             dom,
-             uses,
-             in_or=false :: boolean()}).
+-record #st{defs=#{},
+            ldefs=#{},
+            count :: beam_ssa:label(),
+            dom,
+            uses,
+            preds=#{} :: #{beam_ssa:label() => [beam_ssa:label()]},
+            in_or=false :: boolean()}.
 
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
                     {'ok',beam_ssa:b_module()}.
@@ -213,7 +216,7 @@ pre_opt(Blocks, Count) ->
     Sub = maps:remove(uses, Sub1),
 
     %% Now do the actual optimizations.
-    Reached = sets:from_list([hd(Top)], [{version, 2}]),
+    Reached = sets:from_list([hd(Top)]),
     pre_opt(Top, Sub, Reached, Count, Blocks).
 
 -spec get_phi_info(Ls, Blocks, Sub0) -> Sub when
@@ -319,13 +322,13 @@ pre_opt([L|Ls], Sub0, Reached0, Count0, Blocks) ->
                     Blk = Blk0#b_blk{is=Is++[Test],last=Br},
                     Successors = beam_ssa:successors(Blk),
                     Reached = sets:union(Reached0,
-                                              sets:from_list(Successors, [{version, 2}])),
+                                              sets:from_list(Successors)),
                     pre_opt(Ls, Sub, Reached, Count, Blocks#{L:=Blk});
                 Last ->
                     Blk = Blk0#b_blk{is=Is,last=Last},
                     Successors = beam_ssa:successors(Blk),
                     Reached = sets:union(Reached0,
-                                              sets:from_list(Successors, [{version, 2}])),
+                                              sets:from_list(Successors)),
                     pre_opt(Ls, Sub, Reached, Count0, Blocks#{L:=Blk})
             end
     end;
@@ -333,7 +336,7 @@ pre_opt([], _, _, Count, Blocks) ->
     {Blocks,Count}.
 
 pre_opt_is([#b_set{op=phi,dst=Dst,args=Args0}=I0|Is], Reached, Sub0, Acc) ->
-    Args1 = [{Val,From} || {Val,From} <- Args0,
+    Args1 = [{Val,From} || {Val,From} <:- Args0,
                            sets:is_element(From, Reached)],
     Args = sub_args(Args1, Sub0),
     case all_same(Args) of
@@ -661,7 +664,8 @@ bool_opt_rewrite(Bool, From, Br, Blocks0, St0) ->
 
     %% Optimize the digraph.
     LDefs = digraph_bool_def(G0),
-    St = St1#st{ldefs=LDefs},
+    Preds = beam_ssa:predecessors(Blocks1),
+    St = St1#st{ldefs=LDefs,preds=Preds},
     G1 = opt_digraph_top(Bool, G0, St),
     G = shortcut_branches(Root, G1, St),
 
@@ -674,7 +678,7 @@ bool_opt_rewrite(Bool, From, Br, Blocks0, St0) ->
     %% because the map of definitions in St#st.defs would not be updated
     %% to include the newly optimized blocks.
     DomBlk0 = map_get(Dom, Blocks1),
-    Blocks2 = maps:without([L || {L,#b_blk{}} <- Bs], Blocks1),
+    Blocks2 = maps:without([L || {L,#b_blk{}} <:- Bs], Blocks1),
 
     %% Convert the optimized digraph back to SSA code.
     Blocks3 = digraph_to_ssa([Root], G, Blocks2),
@@ -739,7 +743,7 @@ collect_phi_args(Args, Anno) ->
                 [] ->
                     %% This phi node only contains literal values.
                     %% Force the inclusion of referenced blocks.
-                    Ls = [{block,L} || {_,L} <- Args],
+                    Ls = [{block,L} || {_,L} <:- Args],
                     {[],Ls}
             end;
         false ->
@@ -788,7 +792,7 @@ split_dom_block_is([], PreAcc) ->
 
 collect_digraph_blocks(FirstL, LastL, #b_br{succ=Succ,fail=Fail}, Blocks) ->
     Ws = gb_sets:singleton(FirstL),
-    Seen = sets:from_list([Succ,Fail], [{version, 2}]),
+    Seen = sets:from_list([Succ,Fail]),
     collect_digraph_blocks(Ws, LastL, Blocks, Seen, []).
 
 collect_digraph_blocks(Ws0, LastL, Blocks, Seen0, Acc0) ->
@@ -828,7 +832,7 @@ cdb_update_workset([], _Seen, Ws) -> Ws.
 
 build_digraph(Bs, #b_br{succ=Succ,fail=Fail}, St0) ->
     Ignore = ordsets:from_list([Succ,Fail]),
-    G0 = beam_digraph:new(),
+    G0 = graph:new(),
     {Map0,G1,St1} = build_mapping(Bs, #{}, G0, St0),
     {Map,G2} = add_external_vertices(Ignore, Map0, G1),
     {G,St} = build_digraph_1(Bs, G2, Map, St1),
@@ -846,13 +850,13 @@ build_mapping([{L,Blk}|Bs], Map0, G0, St0) ->
                 #b_blk{is=[]} -> br;
                 #b_blk{} -> initial
             end,
-    G = beam_digraph:add_vertex(G0, Vtx, Label),
+    G = graph:add_vertex(G0, Vtx, Label),
     build_mapping(Bs, Map, G, St);
 build_mapping([], Map, G, St) ->
     {Map,G,St}.
 
 add_external_vertices([V|Vs], Map0, G0) ->
-    G = beam_digraph:add_vertex(G0, V, {external,#{}}),
+    G = graph:add_vertex(G0, V, {external,#{}}),
     Map = Map0#{V=>V},
     add_external_vertices(Vs, Map, G);
 add_external_vertices([], Map, G) ->
@@ -874,7 +878,7 @@ build_digraph_is([#b_set{op=phi,args=Args0}=I0|Is], Last, Vtx, Map, G, St) ->
     Args = [{V,case Map of
                    #{L:=Other} -> Other;
                    #{} -> not_possible()
-               end} || {V,L} <- Args0],
+               end} || {V,L} <:- Args0],
     I = I0#b_set{args=Args},
     build_digraph_is_1(I, Is, Last, Vtx, Map, G, St);
 build_digraph_is([#b_set{}=I|Is], Last, Vtx, Map, G, St) ->
@@ -888,11 +892,11 @@ build_digraph_is([], Last, From, Map, G0, St) ->
     case Last of
         #b_br{bool=#b_literal{val=true},succ=To0,fail=To0} ->
             To = map_get(To0, Map),
-            G = beam_digraph:add_edge(G0, From, To, next),
+            G = graph:add_edge(G0, From, To, next),
             {G,St};
         #b_br{bool=#b_var{}=Bool,succ=Succ0,fail=Fail0} ->
             #{Succ0:=Succ,Fail0:=Fail} = Map,
-            case beam_digraph:vertex(G0, From) of
+            case graph:vertex(G0, From) of
                 #b_set{dst=Bool} ->
                     G = add_succ_fail_edges(From, Succ, Fail, G0),
                     {G,St};
@@ -901,7 +905,7 @@ build_digraph_is([], Last, From, Map, G0, St) ->
                     not_possible();
                 br ->
                     G1 = add_succ_fail_edges(From, Succ, Fail, G0),
-                    G = beam_digraph:add_vertex(G1, From, {br,Bool}),
+                    G = graph:add_vertex(G1, From, {br,Bool}),
                     {G,St}
             end;
         _ ->
@@ -909,14 +913,14 @@ build_digraph_is([], Last, From, Map, G0, St) ->
     end.
 
 build_digraph_is_1(I, Is, Last, Vtx, Map, G0, St0) ->
-    G1 = beam_digraph:add_vertex(G0, Vtx, I),
+    G1 = graph:add_vertex(G0, Vtx, I),
     case Is of
         [] ->
             build_digraph_is(Is, Last, Vtx, Map, G1, St0);
         [_|_] ->
             {NextVtx,St} = new_label(St0),
-            G2 = beam_digraph:add_vertex(G1, NextVtx, initial),
-            G = beam_digraph:add_edge(G2, Vtx, NextVtx, next),
+            G2 = graph:add_vertex(G1, NextVtx, initial),
+            G = graph:add_edge(G2, Vtx, NextVtx, next),
             build_digraph_is(Is, Last, NextVtx, Map, G, St)
     end.
 
@@ -994,7 +998,7 @@ opt_digraph_instr(#b_set{dst=Dst}=I, G0, St) ->
         #b_set{op=phi,dst=Bool} ->
             Vtx = get_vertex(Bool, St),
             G2 = del_out_edges(Vtx, G1),
-            G = beam_digraph:add_edge(G2, Vtx, Succ, next),
+            G = graph:add_edge(G2, Vtx, Succ, next),
             redirect_test(Bool, {fail,Fail}, G, St);
         #b_set{} ->
             G1
@@ -1006,10 +1010,10 @@ ensure_single_use(Bool, G, #st{uses=U}=St) ->
             G;
         Uses ->
             Vtx = get_vertex(Bool, St),
-            ensure_single_use_1(Bool, Vtx, Uses, G)
+            ensure_single_use_1(Bool, Vtx, Uses, G, St)
     end.
 
-ensure_single_use_1(Bool, Vtx, Uses, G) ->
+ensure_single_use_1(Bool, Vtx, Uses, G, #st{preds=Preds}) ->
     Fail = case get_targets(Vtx, G) of
                {br,_,Fail0} -> Fail0;
                _ -> not_possible()
@@ -1018,16 +1022,18 @@ ensure_single_use_1(Bool, Vtx, Uses, G) ->
                       (_) -> false
                    end, Uses) of
         {[_],[_]} ->
-            case {beam_digraph:vertex(G, Fail),
-                  beam_digraph:in_edges(G, Fail)} of
-                {{external,Bs0}, [_]} ->
+            case {graph:vertex(G, Fail),
+                  graph:in_edges(G, Fail),
+                  Preds} of
+                {{external,Bs0}, [_], #{Fail := [_]}} ->
                     %% The only other use of the variable Bool
                     %% is in the failure block and it can only
-                    %% be reached through this test, so we can
-                    %% replace it with the literal `false`
-                    %% in that block.
+                    %% be reached through this test (Fail has
+                    %% a single predecessor in the digraph and
+                    %% in the function CFG), so we can replace
+                    %% it with the literal `false` in that block.
                     Bs = Bs0#{Bool => #b_literal{val=false}},
-                    beam_digraph:add_vertex(G, Fail, {external,Bs});
+                    graph:add_vertex(G, Fail, {external,Bs});
                 _ ->
                     not_possible()
             end;
@@ -1038,8 +1044,8 @@ ensure_single_use_1(Bool, Vtx, Uses, G) ->
 convert_to_br_node(I, Target, G0, St) ->
     Vtx = get_vertex(I, St),
     G1 = del_out_edges(Vtx, G0),
-    G = beam_digraph:add_vertex(G1, Vtx, br),
-    beam_digraph:add_edge(G, Vtx, Target, next).
+    G = graph:add_vertex(G1, Vtx, br),
+    graph:add_edge(G, Vtx, Target, next).
 
 
 %% ensure_no_failing_instructions(First, Second, G, St) -> ok.
@@ -1054,7 +1060,7 @@ convert_to_br_node(I, Target, G0, St) ->
 ensure_no_failing_instructions(First, Second, G, St) ->
     Vs = covered(get_vertex(First, St), get_vertex(Second, St), G),
     case any(fun(V) ->
-                     case beam_digraph:vertex(G, V) of
+                     case graph:vertex(G, V) of
                          #b_set{op=Op} ->
                              can_fail(Op, V, G);
                          _ ->
@@ -1090,10 +1096,10 @@ eaten_by_phi(V, G) ->
     end.
 
 follow_branch(G, Br) ->
-    case beam_digraph:vertex(G, Br) of
+    case graph:vertex(G, Br) of
         br ->
-            [To] = beam_digraph:out_neighbours(G, Br),
-            beam_digraph:vertex(G, To);
+            [To] = graph:out_neighbours(G, Br),
+            graph:vertex(G, To);
         _ ->
             none
     end.
@@ -1105,7 +1111,7 @@ follow_branch(G, Br) ->
 
 order_args([#b_var{}=VarA,#b_var{}=VarB], G, St) ->
     {VA,VB} = {get_vertex(VarA, St),get_vertex(VarB, St)},
-    case beam_digraph:is_path(G, VA, VB) of
+    case graph:has_path(G, VA, VB) of
         true ->
             %% Core Erlang code generated by v3_core always
             %% has operands already in correct order.
@@ -1113,7 +1119,7 @@ order_args([#b_var{}=VarA,#b_var{}=VarB], G, St) ->
         false ->
             %% Core Erlang code generated by other frontends
             %% such as LFE may have the operands swapped.
-            true = beam_digraph:is_path(G, VB, VA),       %Assertion.
+            true = graph:has_path(G, VB, VA),       %Assertion.
             {VarB,VarB}
     end;
 order_args(_Args, _G, _St) ->
@@ -1157,7 +1163,7 @@ redirect_test_1(V, SuccFail, G) ->
 
 redirect_phi(Phi, Args, SuccFail, G0, St) ->
     PhiVtx = get_vertex(Phi, St),
-    G = beam_digraph:add_vertex(G0, PhiVtx, br),
+    G = graph:add_vertex(G0, PhiVtx, br),
     redirect_phi_1(PhiVtx, sort(Args), SuccFail, G, St).
 
 redirect_phi_1(PhiVtx, [{#b_literal{val=false},FalseExit},
@@ -1217,15 +1223,15 @@ redirect_phi_1(PhiVtx, [{#b_literal{val=false},FalseExit},
     %%
     ensure_disjoint_paths(G0, BoolVtx, FalseExit),
 
-    [FalseOut] = beam_digraph:out_edges(G0, FalseExit),
-    G1 = beam_digraph:del_edge(G0, FalseOut),
+    [FalseOut] = graph:out_edges(G0, FalseExit),
+    G1 = graph:del_edge(G0, FalseOut),
     case SuccFail of
         {fail,Fail} ->
-            G2 = beam_digraph:add_edge(G1, FalseExit, Fail, next),
+            G2 = graph:add_edge(G1, FalseExit, Fail, next),
             G = add_succ_fail_edges(BoolVtx, PhiVtx, FalseExit, G2),
             do_opt_digraph([SuccBool], G, St);
         {succ,Succ} ->
-            G2 = beam_digraph:add_edge(G1, FalseExit, PhiVtx, next),
+            G2 = graph:add_edge(G1, FalseExit, PhiVtx, next),
             G = add_succ_fail_edges(BoolVtx, Succ, PhiVtx, G2),
             do_opt_digraph([SuccBool], G, St)
     end;
@@ -1239,9 +1245,9 @@ redirect_phi_1(PhiVtx, [{#b_literal{val=true},TrueExit},
     %% must ensure that paths are disjoint.
     ensure_disjoint_paths(G0, BoolVtx, TrueExit),
 
-    [TrueOut] = beam_digraph:out_edges(G0, TrueExit),
-    G1 = beam_digraph:del_edge(G0, TrueOut),
-    G2 = beam_digraph:add_edge(G1, TrueExit, PhiVtx, next),
+    [TrueOut] = graph:out_edges(G0, TrueExit),
+    G1 = graph:del_edge(G0, TrueOut),
+    G2 = graph:add_edge(G1, TrueExit, PhiVtx, next),
     G = add_succ_fail_edges(BoolVtx, PhiVtx, Fail, G2),
     %% As as future improvement, we could follow TrueExit
     %% back to its originating boolean expression and
@@ -1252,19 +1258,19 @@ redirect_phi_1(_PhiVtx, [{#b_literal{val=false},FalseExit},
                SuccFail, G0, _St) ->
     case SuccFail of
         {fail,Fail} ->
-            [FalseOut] = beam_digraph:out_edges(G0, FalseExit),
-            G = beam_digraph:del_edge(G0, FalseOut),
-            beam_digraph:add_edge(G, FalseExit, Fail, next);
+            [FalseOut] = graph:out_edges(G0, FalseExit),
+            G = graph:del_edge(G0, FalseOut),
+            graph:add_edge(G, FalseExit, Fail, next);
         {succ,Succ} ->
-            [TrueOut] = beam_digraph:out_edges(G0, TrueExit),
-            G = beam_digraph:del_edge(G0, TrueOut),
-            beam_digraph:add_edge(G, TrueExit, Succ, next)
+            [TrueOut] = graph:out_edges(G0, TrueExit),
+            G = graph:del_edge(G0, TrueOut),
+            graph:add_edge(G, TrueExit, Succ, next)
     end;
 redirect_phi_1(_PhiVtx, _Args, _SuccFail, _G, _St) ->
     not_possible().
 
 digraph_bool_def(G) ->
-    Vs = beam_digraph:vertices(G),
+    Vs = graph:vertices_with_labels(G),
     #{Dst => Vtx || {Vtx,#b_set{dst=Dst}} <- Vs}.
 
 %% ensure_disjoint_paths(G, Vertex1, Vertex2) -> ok.
@@ -1273,7 +1279,7 @@ digraph_bool_def(G) ->
 %%  directions, but better safe than sorry.)
 
 ensure_disjoint_paths(G, V1, V2) ->
-    case beam_digraph:is_path(G, V1, V2) orelse beam_digraph:is_path(G, V2, V1) of
+    case graph:has_path(G, V1, V2) orelse graph:has_path(G, V2, V1) of
         true -> not_possible();
         false -> ok
     end.
@@ -1292,7 +1298,7 @@ ensure_disjoint_paths(G, V1, V2) ->
 %%%
 
 shortcut_branches(Vtx, G, St) ->
-    Vs = reverse(beam_digraph:reverse_postorder(G, [Vtx])),
+    Vs = reverse(graph:reverse_postorder(G, [Vtx])),
     do_shortcut_branches(Vs, G, St).
 
 do_shortcut_branches([V|Vs], G0, St) ->
@@ -1317,11 +1323,11 @@ do_shortcut_branches([], G, _St) -> G.
 redirect_edge(_From, To, {_Label,To}, G) ->
     G;
 redirect_edge(From, To0, {Label,To}, G0) ->
-    G = beam_digraph:del_edge(G0, {From,To0,Label}),
-    beam_digraph:add_edge(G, From, To, Label).
+    G = graph:del_edge(G0, {From,To0,Label}),
+    graph:add_edge(G, From, To, Label).
 
 eval_bs(Vtx, G, St) ->
-    case beam_digraph:vertex(G, Vtx) of
+    case graph:vertex(G, Vtx) of
         #b_set{op={bif,'=:='},args=[#b_var{}=Bool,#b_literal{val=true}]} ->
             case get_def(Bool, G, St) of
                 #b_set{op=phi}=Phi ->
@@ -1357,7 +1363,7 @@ phi_bs(#b_set{op=phi,dst=PhiDst,args=PhiArgs}) ->
     end.
 
 eval_instr(Vtx, G, Bs) ->
-    case beam_digraph:vertex(G, Vtx) of
+    case graph:vertex(G, Vtx) of
         #b_set{} when map_size(Bs) =:= 0 ->
             %% With no bindings, eval_safe_bool_expr() is
             %% unlikely to do anything useful. If we would
@@ -1373,8 +1379,8 @@ eval_instr(Vtx, G, Bs) ->
         br ->
             %% We can shortcut this branch unless its
             %% target is a phi node.
-            [Next] = beam_digraph:out_neighbours(G, Vtx),
-            case beam_digraph:vertex(G, Next) of
+            [Next] = graph:out_neighbours(G, Vtx),
+            case graph:vertex(G, Next) of
                 #b_set{op=phi} -> Vtx;
                 _ -> eval_instr(Next, G, Bs)
             end;
@@ -1434,7 +1440,7 @@ eval_literal_args([], Acc) ->
 %%%
 
 ensure_init(Root, G, G0) ->
-    Vs = beam_digraph:vertices(G),
+    Vs = graph:vertices_with_labels(G),
 
     %% Build an ordset of a all variables used by the code
     %% before the optimization.
@@ -1444,7 +1450,7 @@ ensure_init(Root, G, G0) ->
     %% the digraph. Variables not included in this map have been
     %% defined by code before the code in the digraph.
     Vars = #{Dst => unset || {_,#b_set{dst=Dst}} <- Vs},
-    RPO = beam_digraph:reverse_postorder(G, [Root]),
+    RPO = graph:reverse_postorder(G, [Root]),
     ensure_init_1(RPO, Used, G, #{Root=>Vars}).
 
 ensure_init_1([V|Vs], Used, G, InitMaps0) ->
@@ -1454,10 +1460,10 @@ ensure_init_1([], _, _, _) -> ok.
 
 ensure_init_instr(Vtx, Used, G, InitMaps0) ->
     VarMap0 = map_get(Vtx, InitMaps0),
-    case beam_digraph:vertex(G, Vtx) of
+    case graph:vertex(G, Vtx) of
         #b_set{dst=Dst}=I ->
             do_ensure_init_instr(I, VarMap0, InitMaps0),
-            OutVs = beam_digraph:out_neighbours(G, Vtx),
+            OutVs = graph:out_neighbours(G, Vtx),
             VarMap = VarMap0#{Dst=>set},
             InitMaps = InitMaps0#{Vtx:=VarMap},
             ensure_init_successors(OutVs, G, VarMap, InitMaps);
@@ -1500,17 +1506,17 @@ ensure_init_instr(Vtx, Used, G, InitMaps0) ->
                     end
             end;
         _ ->
-            OutVs = beam_digraph:out_neighbours(G, Vtx),
+            OutVs = graph:out_neighbours(G, Vtx),
             ensure_init_successors(OutVs, G, VarMap0, InitMaps0)
     end.
 
 ensure_init_used(G) ->
-    Vs = beam_digraph:vertices(G),
+    Vs = graph:vertices_with_labels(G),
     ensure_init_used_1(Vs, G, []).
 
 ensure_init_used_1([{Vtx,#b_set{dst=Dst}=I}|Vs], G, Acc0) ->
     Acc1 = [beam_ssa:used(I)|Acc0],
-    case beam_digraph:out_degree(G, Vtx) of
+    case graph:out_degree(G, Vtx) of
         2 ->
             Acc = [[Dst]|Acc1],
             ensure_init_used_1(Vs, G, Acc);
@@ -1582,7 +1588,7 @@ join_inits_1([], VarMap) ->
 %%%
 
 digraph_to_ssa(Ls, G, Blocks0) ->
-    Seen = sets:new([{version, 2}]),
+    Seen = sets:new(),
     {Blocks,_} = digraph_to_ssa(Ls, G, Blocks0, Seen),
     Blocks.
 
@@ -1598,7 +1604,7 @@ digraph_to_ssa([], _G, Blocks, Seen) ->
     {Blocks,Seen}.
 
 digraph_to_ssa_blk(From, G, Blocks, Acc0) ->
-    case beam_digraph:vertex(G, From) of
+    case graph:vertex(G, From) of
         #b_set{dst=Dst}=I ->
             case get_targets(From, G) of
                 {br,Succ,Fail} ->
@@ -1632,7 +1638,7 @@ digraph_to_ssa_blk(From, G, Blocks, Acc0) ->
         {external,Sub} ->
             #b_blk{is=Is0} = Blk = map_get(From, Blocks),
             Is = [I#b_set{args=sub_args(Args0, Sub)} ||
-                     #b_set{args=Args0}=I <- Is0],
+                     #b_set{args=Args0}=I <:- Is0],
             {Blk#b_blk{is=Is},[]}
     end.
 
@@ -1660,7 +1666,7 @@ get_def(#b_var{}=Bool, #st{defs=Defs}) ->
 get_def(Var, G, #st{ldefs=LDefs,defs=Defs}) ->
     case LDefs of
         #{Var:=Vtx} ->
-            beam_digraph:vertex(G, Vtx);
+            graph:vertex(G, Vtx);
         #{} ->
             %% Not in the graph. Returning definitions for phi nodes
             %% outside the graph is useful for shortcut_branches().
@@ -1671,10 +1677,10 @@ get_def(Var, G, #st{ldefs=LDefs,defs=Defs}) ->
     end.
 
 add_succ_fail_edges(From, Succ, Fail, G0) ->
-    G1 = beam_digraph:add_edge(G0, From, Succ, succ),
-    G = beam_digraph:add_edge(G1, From, Fail, fail),
-    case beam_digraph:out_edges(G0, From) of
-        [{From,_,next}=E] -> beam_digraph:del_edge(G, E);
+    G1 = graph:add_edge(G0, From, Succ, succ),
+    G = graph:add_edge(G1, From, Fail, fail),
+    case graph:out_edges(G0, From) of
+        [{From,_,next}=E] -> graph:del_edge(G, E);
         [] -> G
     end.
 
@@ -1684,7 +1690,7 @@ get_vertex(#b_var{}=Var, #st{ldefs=LDefs}) ->
     map_get(Var, LDefs).
 
 get_targets(Vtx, G) when is_integer(Vtx) ->
-    case beam_digraph:out_edges(G, Vtx) of
+    case graph:out_edges(G, Vtx) of
         [{_,To,next}] ->
             {br,To};
         [{_,Succ,succ},{_,Fail,fail}] ->
@@ -1699,17 +1705,17 @@ get_targets(#b_var{}=Var, G, #st{ldefs=LDefs}) ->
     get_targets(map_get(Var, LDefs), G).
 
 del_out_edges(V, G) ->
-    beam_digraph:del_edges(G, beam_digraph:out_edges(G, V)).
+    graph:del_edges(G, graph:out_edges(G, V)).
 
 covered(From, To, G) ->
     Seen0 = #{},
     {yes,Seen} = covered_1(From, To, G, Seen0),
-    [V || {V,reached} <- maps:to_list(Seen)].
+    [V || V := reached <- Seen].
 
 covered_1(To, To, _G, Seen) ->
     {yes,Seen};
 covered_1(From, To, G, Seen) ->
-    Vs = beam_digraph:out_neighbours(G, From),
+    Vs = graph:out_neighbours(G, From),
     covered_list(Vs, To, G, Seen, no).
 
 covered_list([V|Vs], To, G, Seen0, AnyFound) ->
@@ -1732,10 +1738,10 @@ covered_list([], _, _, Seen, AnyFound) ->
     {AnyFound,Seen}.
 
 digraph_roots(G) ->
-    digraph_roots_1(beam_digraph:vertices(G), G).
+    digraph_roots_1(graph:vertices(G), G).
 
-digraph_roots_1([{V,_}|Vs], G) ->
-    case beam_digraph:in_degree(G, V) of
+digraph_roots_1([V|Vs], G) ->
+    case graph:in_degree(G, V) of
         0 ->
             [V|digraph_roots_1(Vs, G)];
         _ ->

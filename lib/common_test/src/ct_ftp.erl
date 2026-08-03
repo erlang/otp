@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -22,6 +24,8 @@
 -moduledoc """
 FTP client module (based on the `ftp` application).
 """.
+
+-deprecated([{'_','_',"Legacy protocol support will be dropped in OTP-30"}]).
 
 %% API
 -export([get/3,put/3, open/1,close/1, send/2,send/3, 
@@ -31,6 +35,10 @@ FTP client module (based on the `ftp` application).
 -export([init/3,handle_msg/2,reconnect/2,terminate/2]).
 
 -include("ct_util.hrl").
+
+%% All ftp functions are deprecated. This whole module will be removed
+%% when ftp is removed
+-compile(nowarn_deprecated_function).
 
 -record(state,{ftp_pid,target_name}).
 

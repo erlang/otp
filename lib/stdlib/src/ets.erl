@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -209,7 +211,7 @@ fully bound. Example:
 ```erlang
 1> T = ets:new(t,[ordered_set]), ets:insert(T, {"555-1234", "John Smith"}).
 true
-2> %% Efficient search of all with area code 555
+%% Efficient search of all with area code 555
 2> ets:match(T,{[$5,$5,$5,$- |'$1'],'$2'}).
 [["1234","John Smith"]]
 ```
@@ -225,6 +227,9 @@ explanation, see `select/2`. For a detailed description, see section
 A match specifications with excessive nesting will cause a
 [`system_limit`](`m:ets#ets_failures`) error exception to be raised.
 """.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, binary_to_term, 1}},
+          nowarn_deprecated_catch]).
 
 %% Interface to the Term store BIF's
 %% ets == Erlang Term Store
@@ -250,7 +255,8 @@ A match specifications with excessive nesting will cause a
 -export([i/0, i/1, i/2, i/3]).
 
 -export_type([table/0, table_access/0, table_type/0,
-              tid/0, match_spec/0, compiled_match_spec/0, match_pattern/0]).
+              tid/0, match_spec/0, compiled_match_spec/0, match_pattern/0,
+              continuation/0]).
 
 %%-----------------------------------------------------------------------------
 
@@ -258,9 +264,14 @@ A match specifications with excessive nesting will cause a
 -type table()         :: atom() | tid().
 -type table_type()    :: set | ordered_set | bag | duplicate_bag.
 -doc """
-Opaque continuation used by [`select/1,3`](`select/1`),
+Semi-opaque continuation used by [`select/1,3`](`select/1`),
 [`select_reverse/1,3`](`select_reverse/1`), [`match/1,3`](`match/1`), and
 [`match_object/1,3`](`match_object/1`).
+
+> #### Note {: .info }
+>
+> It is only allowed to match a continuation against `'$end_of_table'`. All other
+> values should be considered as opaque implementation details that might change.
 """.
 -type continuation()  :: '$end_of_table'
                        | {table(),integer(),integer(),compiled_match_spec(),list(),integer()}
@@ -340,6 +351,18 @@ delete(_) ->
 -doc """
 Deletes all objects with key `Key` from table `Table`. This function succeeds
 even if no objects with key `Key` exist.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []).
+2> ets:insert(T, {k,1}).
+true
+3> ets:delete(T, k).
+true
+4> ets:lookup(T, k).
+[]
+```
 """.
 -spec delete(Table, Key) -> true when
       Table :: table(),
@@ -351,6 +374,18 @@ delete(_, _) ->
 -doc """
 Delete all objects in the ETS table `Table`. The operation is guaranteed to be
 [atomic and isolated](`m:ets#module-concurrency`).
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []).
+2> ets:insert(T, [{a,1},{b,2}]).
+true
+3> ets:delete_all_objects(T).
+true
+4> ets:info(T, size).
+0
+```
 """.
 -spec delete_all_objects(Table) -> true when
       Table :: table().
@@ -371,6 +406,18 @@ internal_delete_all(_, _) ->
 Delete the exact object `Object` from the ETS table, leaving objects with the
 same key but other differences (useful for type `bag`). In a `duplicate_bag`
 table, all instances of the object are deleted.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, [bag]).
+2> ets:insert(T, [{k,1},{k,2}]).
+true
+3> ets:delete_object(T, {k,1}).
+true
+4> ets:lookup(T, k).
+[{k,2}]
+```
 """.
 -spec delete_object(Table, Object) -> true when
       Table :: table(),
@@ -386,6 +433,16 @@ according to the internal order of the table is returned. If the table is empty,
 `'$end_of_table'` is returned.
 
 To find subsequent keys in the table, use `next/2`.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, [ordered_set]).
+2> ets:insert(T, [{2,b},{1,a}]).
+true
+3> ets:first(T).
+1
+```
 """.
 -spec first(Table) -> Key | '$end_of_table' when
       Table :: table(),
@@ -400,6 +457,16 @@ stored in the table. This is equivalent to doing `first/1` followed by a
 `lookup/2`. If the table is empty, `'$end_of_table'` is returned.
 
 To find subsequent objects in the table, use `next_lookup/2`.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, [ordered_set]).
+2> ets:insert(T, [{2,b},{1,a}]).
+true
+3> ets:first_lookup(T).
+{1,[{1,a}]}
+```
 """.
 -doc(#{since => <<"OTP 27.0">>}).
 -spec first_lookup(Table) -> {Key, [Object]} | '$end_of_table' when
@@ -420,6 +487,18 @@ The calling process must be the table owner.
 Notice that this function does not affect option [`heir`](`m:ets#heir`) of the
 table. A table owner can, for example, set `heir` to itself, give the table
 away, and then get it back if the receiver terminates.
+
+## Examples
+
+```erlang
+1> Parent = self().
+2> Giver = spawn(fun() ->
+    T = ets:new(t, []),
+    ets:give_away(T, Parent, gift)
+  end).
+3> receive M -> M end.
+{'ETS-TRANSFER', T, Giver, gift}
+```
 """.
 -spec give_away(Table, Pid, GiftData) -> true when
       Table :: table(),
@@ -430,10 +509,11 @@ give_away(_, _, _) ->
     erlang:nif_error(undef).
 
 -doc """
-Returns information about table `Table` as a list of tuples. If `Table` has the
-correct type for a table identifier, but does not refer to an existing ETS
-table, `undefined` is returned. If `Table` is not of the correct type, a
-`badarg` exception is raised.
+Returns information about table `Table` as a list of tuples.
+
+If `Table` has the correct type for a table identifier, but does not refer
+to an existing ETS table, `undefined` is returned. If `Table` is not of the
+correct type, a `badarg` exception is raised.
 
 - **`{compressed, boolean()}`** - Indicates if the table is compressed.
 
@@ -477,6 +557,28 @@ table, `undefined` is returned. If `Table` is not of the correct type, a
 > [`decentralized_counters`](`m:ets#new_2_decentralized_counters`) table option.
 > The execution time is much longer when the `decentralized_counters` option is
 > set to `true` than when the `decentralized_counters` option is set to `false`.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []).
+2> lists:sort(ets:info(T)).
+[{compressed,false},
+ {decentralized_counters,false},
+ {heir,none},
+ {id,_},
+ {keypos,1},
+ {memory,_},
+ {name,t},
+ {named_table,false},
+ {node,_},
+ {owner,_},
+ {protection,protected},
+ {read_concurrency,false},
+ {size,0},
+ {type,set},
+ {write_concurrency,false}]
+```
 """.
 -spec info(Table) -> InfoList | undefined when
       Table :: table(),
@@ -494,7 +596,7 @@ table, `undefined` is returned. If `Table` is not of the correct type, a
                  | {protection, table_access()}
                  | {size, non_neg_integer()}
                  | {type, table_type()}
-		 | {write_concurrency, boolean()}
+		 | {write_concurrency, boolean() | auto}
 		 | {read_concurrency, boolean()}.
 
 info(_) ->
@@ -567,6 +669,13 @@ items are allowed:
 > when the second argument of the function is `size` or `memory`. The execution
 > time is much longer when the `decentralized_counters` option is set to `true`
 > than when the `decentralized_counters` option is set to `false`.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []), set = ets:info(T, type).
+set
+```
 """.
 -spec info(Table, Item) -> Value | undefined when
       Table :: table(),
@@ -615,6 +724,16 @@ inserted in list order (from head to tail). That is, a subsequent call to
 > until OTP 25.3. However, it is unpredictable and may or may not happen. A
 > longer list will increase the probabiliy of the insertion being done in
 > reverse.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []).
+2> ets:insert(T, {k,1}).
+true
+3> ets:lookup(T, k).
+[{k,1}]
+```
 """.
 -spec insert(Table, ObjectOrObjects) -> true when
       Table :: table(),
@@ -632,6 +751,16 @@ If `ObjectOrObjects` is a list, the function checks _every_ key before inserting
 anything. Nothing is inserted unless _all_ keys present in the list are absent
 from the table. Like [`insert/2`](`insert/2`), the entire operation is
 guaranteed to be [atomic and isolated](`m:ets#module-concurrency`).
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []).
+2> true = ets:insert_new(T, {k,1}).
+true
+3> false = ets:insert_new(T, {k,2}).
+false
+```
 """.
 -spec insert_new(Table, ObjectOrObjects) -> boolean() when
       Table :: table(),
@@ -660,6 +789,17 @@ only valid on the Erlang node where it was compiled by calling
 > node and back, the result _may or may not_ be a valid compiled match
 > specification depending on if the original compiled match specification was
 > still alive.
+
+## Examples
+
+```erlang
+1> MS = ets:fun2ms(fun(X) -> X end).
+2> ets:is_compiled_ms(MS).
+false
+3> CMS = ets:match_spec_compile(MS).
+4> ets:is_compiled_ms(CMS).
+true
+```
 """.
 -spec is_compiled_ms(Term) -> boolean() when
       Term :: term().
@@ -673,6 +813,16 @@ type `ordered_set`. For other table types, the function is synonymous to
 `first/1`. If the table is empty, `'$end_of_table'` is returned.
 
 To find preceding keys in the table, use `prev/2`.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, [ordered_set]).
+2> ets:insert(T, [{1,a},{2,b}]).
+true
+3> ets:last(T).
+2
+```
 """.
 -spec last(Table) -> Key | '$end_of_table' when
       Table :: table(),
@@ -687,6 +837,16 @@ stored in the table. This is equivalent to doing `last/1` followed by a
 `lookup/2`. If the table is empty, `'$end_of_table'` is returned.
 
 To find preceding objects in the table, use `prev_lookup/2`.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, [ordered_set]).
+2> ets:insert(T, [{1,a},{2,b}]).
+true
+3> ets:last_lookup(T).
+{2,[{2,b}]}
+```
 """.
 -doc(#{since => <<"OTP 27.0">>}).
 -spec last_lookup(Table) -> {Key, [Object]} | '$end_of_table' when
@@ -720,6 +880,16 @@ Notice that the sequential order of object insertions is preserved; the first
 object inserted with the specified key is the first in the resulting list, and
 so on. See also the note about
 [list insertion order](`m:ets#insert_list_order`).
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []).
+2> ets:insert(T, {k,1}).
+true
+3> ets:lookup(T, k).
+[{k,1}]
+```
 """.
 -spec lookup(Table, Key) -> [Object] when
       Table :: table(),
@@ -738,13 +908,23 @@ the `Pos`:th element of every object with key `Key`.
 
 If no object with key `Key` exists, the function exits with reason `badarg`.
 
-If `Pos` is larger than the size of the tuple, the function exits with reason
-`badarg`.
+If `Pos` is larger than the size of any tuple with a matching key, the function
+exits with reason `badarg`.
 
 The difference between `set`, `bag`, and `duplicate_bag` on one hand, and
 `ordered_set` on the other, regarding the fact that `ordered_set` view keys as
 equal when they _compare equal_ whereas the other table types regard them equal
 only when they _match_, holds for [`lookup_element/3`](`lookup_element/3`).
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []).
+2> ets:insert(T, {k,10,20}).
+true
+3> ets:lookup_element(T, k, 3).
+20
+```
 """.
 -spec lookup_element(Table, Key, Pos) -> Elem when
       Table :: table(),
@@ -771,9 +951,17 @@ The difference between `set`, `bag`, and `duplicate_bag` on one hand, and
 `ordered_set` on the other, regarding the fact that `ordered_set` view keys as
 equal when they _compare equal_ whereas the other table types regard them equal
 only when they _match_, holds for [`lookup_element/4`](`lookup_element/4`).
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []).
+2> ets:lookup_element(T, missing, 2, none).
+none
+```
 """.
 -doc(#{since => <<"OTP 26.0">>}).
--spec lookup_element(Table, Key, Pos, Default) -> Elem when
+-spec lookup_element(Table, Key, Pos, Default) -> Elem | Default when
     Table :: table(),
     Key :: term(),
     Pos :: pos_integer(),
@@ -796,11 +984,13 @@ The function returns a list with one element for each matching object, where
 each element is an ordered list of pattern variable bindings, for example:
 
 ```erlang
-6> ets:match(T, '$1'). % Matches every object in table
-[[{rufsen,dog,7}],[{brunte,horse,5}],[{ludde,dog,5}]]
-7> ets:match(T, {'_',dog,'$1'}).
-[[7],[5]]
-8> ets:match(T, {'_',cow,'$1'}).
+1> T = ets:new(t, [ordered_set]).
+2> ets:insert(T, [{rufsen,dog,7}, {brunte,horse,5}, {ludde,dog,5}]).
+3> ets:match(T, '$1').
+[[{brunte,horse,5}],[{ludde,dog,5}],[{rufsen,dog,7}]]
+4> ets:match(T, {'_',dog,'$1'}).
+[[5],[7]]
+5> ets:match(T, {'_',cow,'$1'}).
 []
 ```
 
@@ -831,6 +1021,16 @@ If the table is empty, `'$end_of_table'` is returned.
 
 Use `safe_fixtable/2` to guarantee [safe traversal](`m:ets#traversal`) for
 subsequent calls to `match/1`.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []).
+2> ets:insert(T, [{a,1},{b,2}]).
+true
+3> ets:match(T, '$1', 1).
+{[[{a,1}]],_}
+```
 """.
 -spec match(Table, Pattern, Limit) -> {[Match], Continuation} |
                                        '$end_of_table'  when
@@ -849,6 +1049,17 @@ in the initial [`match/3`](`match/3`) call is returned together with a new
 `Continuation`, which can be used in subsequent calls to this function.
 
 When there are no more objects in the table, `'$end_of_table'` is returned.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, [ordered_set]).
+2> ets:insert(T, [{1,a},{2,b},{3,c}]).
+true
+3> {[[{1,a}],[{2,b}]], C} = ets:match(T, '$1', 2).
+4> ets:match(C).
+{[[{3,c}]], '$end_of_table'}
+```
 """.
 -spec match(Continuation) -> {[Match], Continuation} |
                                 '$end_of_table'  when
@@ -870,6 +1081,16 @@ large.
 
 For tables of type `ordered_set`, the result is in the same order as in a
 `first`/`next` traversal.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []).
+2> ets:insert(T, [{a,1},{b,2}]).
+true
+3> ets:match_object(T, {b,'_'}).
+[{b,2}]
+```
 """.
 -spec match_object(Table, Pattern) -> [Object] when
       Table :: table(),
@@ -890,6 +1111,16 @@ If the table is empty, `'$end_of_table'` is returned.
 
 Use `safe_fixtable/2` to guarantee [safe traversal](`m:ets#traversal`) for
 subsequent calls to `match_object/1`.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []).
+2> ets:insert(T, [{a,1},{b,2}]).
+true
+3> ets:match_object(T, {b,'_'}, 1).
+{[{b,2}],_}
+```
 """.
 -spec match_object(Table, Pattern, Limit) -> {[Object], Continuation} |
                                            '$end_of_table' when
@@ -909,6 +1140,18 @@ together with a new `Continuation`, which can be used in subsequent calls to
 this function.
 
 When there are no more objects in the table, `'$end_of_table'` is returned.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, [ordered_set]).
+2> ets:insert(T, [{1,a},{2,a},{3,a},{4,b}]).
+true
+3> {_, C} = ets:match_object(T, {'_', a}, 2).
+{[{1,a},{2,a}], _}
+4> ets:match_object(C).
+{[{3,a}], '$end_of_table'}
+```
 """.
 -spec match_object(Continuation) -> {[Object], Continuation} |
                                     '$end_of_table' when
@@ -931,6 +1174,15 @@ exception is raised.
 >
 > This function has limited use in normal code. It is used by the `m:dets`
 > module to perform the `dets:select/1` operations.
+
+## Examples
+
+```erlang
+1> MS = ets:fun2ms(fun(X) -> X end).
+2> CMS = ets:match_spec_compile(MS).
+3> [foo] = ets:match_spec_run([foo], CMS).
+[foo]
+```
 """.
 -spec match_spec_compile(MatchSpec) -> CompiledMatchSpec when
       MatchSpec :: match_spec(),
@@ -950,6 +1202,15 @@ match_spec_run_r(_, _, _) ->
 -doc """
 Works like `lookup/2`, but does not return the objects. Returns `true` if one or
 more elements in the table has key `Key`, otherwise `false`.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []).
+2> ets:insert(T, {k,1}).
+3> ets:member(T, k).
+true
+```
 """.
 -spec member(Table, Key) -> boolean() when
       Table :: table(),
@@ -1017,10 +1278,15 @@ same as specifying
 
   [](){: #heir }
 
-- **`{heir,Pid,HeirData} | {heir,none}`** - Set a process as heir. The heir
-  inherits the table if the owner terminates. Message
-  `{'ETS-TRANSFER',tid(),FromPid,HeirData}` is sent to the heir when that
-  occurs. The heir must be a local process. Default heir is `none`, which
+- **`{heir,Pid,HeirData}  | {heir,Pid} | {heir,none}`** - Set a process as heir.
+  The heir inherits the table if the owner terminates. If `HeirData` is given, a
+  message `{'ETS-TRANSFER',tid(),FromPid,HeirData}` is sent to the heir when
+  that occurs. If `{heir,Pid}` is given, no `'ETS-TRANSFER'` message is
+  sent. The user must then make sure the heir gets notified some other way
+  (through a link or monitor for example) to avoid the table being left unnoticed
+  by its new owner.
+
+  The heir must be a local process. Default heir is `none`, which
   destroys the table when the owner terminates.
 
   [](){: #new_2_write_concurrency }
@@ -1125,12 +1391,22 @@ same as specifying
   to consume less memory. However, it will make table operations slower.
   Especially operations that need to inspect entire objects, such as `match` and
   `select`, get much slower. The key element is not compressed.
+
+## Examples
+
+```erlang
+1> ets:new(my_table, [named_table]).
+my_table
+2> ets:whereis(my_table) =/= undefined.
+true
+```
 """.
 -spec new(Name, Options) -> table() when
       Name :: atom(),
       Options :: [Option],
       Option :: Type | Access | named_table | {keypos,Pos}
-              | {heir, Pid :: pid(), HeirData} | {heir, none} | Tweaks,
+              | {heir, Pid} | {heir, Pid, HeirData} | {heir, none}
+              | Tweaks,
       Type :: table_type(),
       Access :: table_access(),
       WriteConcurrencyAlternative :: boolean() | auto,
@@ -1139,6 +1415,7 @@ same as specifying
               | {decentralized_counters, boolean()}
               | compressed,
       Pos :: pos_integer(),
+      Pid :: pid(),
       HeirData :: term().
 
 new(_, _) ->
@@ -1157,6 +1434,15 @@ Unless a table of type `set`, `bag`, or `duplicate_bag` is fixated using
 exists in the table. For table type `ordered_set`, the function always returns
 the next key after `Key1` in term order, regardless whether `Key1` ever existed
 in the table.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, [ordered_set]).
+2> ets:insert(T, [{1,a},{2,b}]).
+3> ets:next(T, 1).
+2
+```
 """.
 -spec next(Table, Key1) -> Key2 | '$end_of_table' when
       Table :: table(),
@@ -1172,6 +1458,15 @@ stored in the table. This is equivalent to doing `next/2` followed by a
 `lookup/2`. If no next key exists, `'$end_of_table'` is returned.
 
 It can be interleaved with `next/2` during traversal.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, [ordered_set]).
+2> ets:insert(T, [{1,a},{2,b}]).
+3> ets:next_lookup(T, 1).
+{2,[{2,b}]}
+```
 """.
 -doc(#{since => <<"OTP 27.0">>}).
 -spec next_lookup(Table, Key1) -> {Key2, [Object]} | '$end_of_table' when
@@ -1190,6 +1485,15 @@ function is synonymous to `next/2`. If no previous key exists, `'$end_of_table'`
 is returned.
 
 To find the last key in an `ordered_set` table, use `last/1`.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, [ordered_set]).
+2> ets:insert(T, [{1,a},{2,b}]).
+3> 1 = ets:prev(T, 2).
+1
+```
 """.
 -spec prev(Table, Key1) -> Key2 | '$end_of_table' when
       Table :: table(),
@@ -1205,6 +1509,15 @@ stored in the table. This is equivalent to doing `prev/2` followed by a
 `lookup/2`. If no previous key exists, `'$end_of_table'` is returned.
 
 It can be interleaved with `prev/2` during traversal.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, [ordered_set]).
+2> ets:insert(T, [{1,a},{2,b}]).
+3> {1,[{1,a}]} = ets:prev_lookup(T, 2).
+{1,[{1,a}]}
+```
 """.
 -doc(#{since => <<"OTP 27.0">>}).
 -spec prev_lookup(Table, Key1) -> {Key2, [Object]} | '$end_of_table' when
@@ -1220,6 +1533,19 @@ prev_lookup(_, _) ->
 -doc """
 Renames the named table `Table` to the new name `Name`. Afterwards, the old name
 cannot be used to access the table. Renaming an unnamed table has no effect.
+
+## Examples
+
+```erlang
+1> ets_rename_old = ets:new(ets_rename_old, [named_table]).
+ets_rename_old
+2> ets_rename_new = ets:rename(ets_rename_old, ets_rename_new).
+ets_rename_new
+3> undefined = ets:whereis(ets_rename_old), ets_rename_new = ets:info(ets_rename_new, name).
+ets_rename_new
+4> ets:delete(ets_rename_new).
+true
+```
 """.
 -spec rename(Table, Name) -> Name when
       Table :: table(),
@@ -1249,7 +1575,7 @@ inserted or deleted during a traversal may or may not be returned by
 [`next/2`](`next/2`) depending on the ordering of keys within the table and if
 the key exists at the time [`next/2`](`next/2`) is called.
 
-_Example:_
+## Examples
 
 ```erlang
 clean_all_with_value(Table,X) ->
@@ -1317,38 +1643,38 @@ or using the special match variables `'$_'` (the whole matching object) and
 `'$$'` (all match variables in a list), so that the following
 [`match/2`](`match/2`) expression:
 
-```text
+```erlang
 ets:match(Table,{'$1','$2','$3'})
 ```
 
 is exactly equivalent to:
 
-```text
+```erlang
 ets:select(Table,[{{'$1','$2','$3'},[],['$$']}])
 ```
 
 And that the following [`match_object/2`](`match_object/2`) call:
 
-```text
+```erlang
 ets:match_object(Table,{'$1','$2','$1'})
 ```
 
 is exactly equivalent to
 
-```text
+```erlang
 ets:select(Table,[{{'$1','$2','$1'},[],['$_']}])
 ```
 
 Composite terms can be constructed in the `Result` part either by simply writing
 a list, so that the following code:
 
-```text
+```erlang
 ets:select(Table,[{{'$1','$2','$3'},[],['$$']}])
 ```
 
 gives the same output as:
 
-```text
+```erlang
 ets:select(Table,[{{'$1','$2','$3'},[],[['$1','$2','$3']]}])
 ```
 
@@ -1359,7 +1685,7 @@ mistaken for a `Guard`).
 
 Therefore the following call:
 
-```text
+```erlang
 ets:select(Table,[{{'$1','$2','$1'},[],['$_']}])
 ```
 
@@ -1384,13 +1710,13 @@ The `Guard` section can also contain logic and arithmetic operations, which are
 written with the same syntax as the guard tests (prefix notation), so that the
 following guard test written in Erlang:
 
-```text
+```erlang
 is_integer(X), is_integer(Y), X + Y < 4711
 ```
 
 is expressed as follows (`X` replaced with `'$1'` and `Y` with `'$2'`):
 
-```text
+```erlang
 [{is_integer, '$1'}, {is_integer, '$2'}, {'<', {'+', '$1', '$2'}, 4711}]
 ```
 
@@ -1418,6 +1744,17 @@ If the table is empty, `'$end_of_table'` is returned.
 
 Use `safe_fixtable/2` to guarantee [safe traversal](`m:ets#traversal`) for
 subsequent calls to `select/1`.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, [ordered_set]).
+2> ets:insert(T, [{1,a},{2,b}]).
+true
+3> MS = ets:fun2ms(fun({K,_}=Obj) when K =:= 2 -> Obj end).
+4> ets:select(T, MS, 1).
+{[{2,b}],_}
+```
 """.
 -spec select(Table, MatchSpec, Limit) -> {[Match],Continuation} |
                                        '$end_of_table' when
@@ -1436,6 +1773,19 @@ in the initial [`select/3`](`select/3`) call is returned together with a new
 `Continuation`, which can be used in subsequent calls to this function.
 
 When there are no more objects in the table, `'$end_of_table'` is returned.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, [ordered_set]).
+2> ets:insert(T, [{1,a},{2,b}]).
+true
+3> MS = ets:fun2ms(fun(X) -> X end).
+[{'$1',[],['$1']}]
+4> {_, C} = ets:select(T, MS, 1).
+5> {L,_} = ets:select(C), is_list(L).
+true
+```
 """.
 -spec select(Continuation) -> {[Match],Continuation} | '$end_of_table' when
       Match :: term(),
@@ -1452,6 +1802,17 @@ For any other result from the match specification the object is not considered a
 match and is therefore not counted.
 
 The function returns the number of objects matched.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []).
+2> ets:insert(T, [{a,1},{b,2},{c,2}]).
+true
+3> MS = ets:fun2ms(fun({_,V}) when V =:= 2 -> true end).
+4> ets:select_count(T, MS).
+2
+```
 """.
 -spec select_count(Table, MatchSpec) -> NumMatched when
       Table :: table(),
@@ -1475,6 +1836,17 @@ The function returns the number of objects deleted from the table.
 > The match specification has to return the atom `true` if the object is to be
 > deleted. No other return value gets the object deleted. So one cannot use the
 > same match specification for looking up elements as for deleting them.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []).
+2> ets:insert(T, [{a,1},{b,2},{c,2}]).
+true
+3> MS = ets:fun2ms(fun({_,V}) when V =:= 2 -> true end).
+4> 2 = ets:select_delete(T, MS), ets:info(T, size).
+1
+```
 """.
 -spec select_delete(Table, MatchSpec) -> NumDeleted when
       Table :: table(),
@@ -1550,6 +1922,17 @@ select_replace(_, _) ->
 Works like `select/2`, but returns the list in reverse order for table type
 `ordered_set`. For all other table types, the return value is identical to that
 of [`select/2`](`select/2`).
+
+## Examples
+
+```erlang
+1> T = ets:new(t, [ordered_set]).
+2> ets:insert(T, [{1,a},{2,b},{3,c}]).
+true
+3> MS = ets:fun2ms(fun({K,_}) -> K end).
+4> ets:select_reverse(T, MS).
+[3,2,1]
+```
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec select_reverse(Table, MatchSpec) -> [Match] when
@@ -1569,6 +1952,17 @@ other table types, the return value is identical to that of
 Notice that this is _not_ equivalent to reversing the result list of a
 [`select/3`](`select/3`) call, as the result list is not only reversed, but also
 contains the last `Limit` matching objects in the table, not the first.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, [ordered_set]).
+2> ets:insert(T, [{1,a},{2,b},{3,c}]).
+true
+3> MS = ets:fun2ms(fun({K,_}) -> K end).
+4> {L, C} = ets:select_reverse(T, MS, 2), (L =:= [3,2]) andalso is_tuple(C).
+true
+```
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec select_reverse(Table, MatchSpec, Limit) -> {[Match],Continuation} |
@@ -1589,26 +1983,21 @@ in the Erlang term order. The returned list also contains objects with keys in
 reverse order. For all other table types, the behavior is exactly that of
 `select/1`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> T = ets:new(x,[ordered_set]).
 2> [ ets:insert(T,{N}) || N <- lists:seq(1,10) ].
-...
 3> {R0,C0} = ets:select_reverse(T,[{'_',[],['$_']}],4).
-...
 4> R0.
 [{10},{9},{8},{7}]
 5> {R1,C1} = ets:select_reverse(C0).
-...
 6> R1.
 [{6},{5},{4},{3}]
 7> {R2,C2} = ets:select_reverse(C1).
-...
 8> R2.
 [{2},{1}]
 9> '$end_of_table' = ets:select_reverse(C2).
-...
 ```
 """.
 -doc(#{since => <<"OTP R14B">>}).
@@ -1623,11 +2012,19 @@ select_reverse(_) ->
 -doc """
 Sets table options. The only allowed option to be set after the table has been
 created is [`heir`](`m:ets#heir`). The calling process must be the table owner.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []), true = ets:setopts(T, {heir, none}).
+true
+```
 """.
 -spec setopts(Table, Opts) -> true when
       Table :: table(),
       Opts :: Opt | [Opt],
-      Opt :: {heir, pid(), HeirData} | {heir,none},
+      Opt :: {heir, Pid} | {heir, Pid, HeirData} | {heir,none},
+      Pid :: pid(),
       HeirData :: term().
 
 setopts(_, _) ->
@@ -1646,6 +2043,13 @@ Unless a table of type `set`, `bag`, or `duplicate_bag` is protected using
 `safe_fixtable/2`, a traversal can fail if concurrent updates are made to the
 table. For table type `ordered_set`, the function returns a list containing
 object `I` in Erlang term order.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []), true = ets:insert(T, {a,1}), true = is_list(ets:slot(T, 0)).
+true
+```
 """.
 -spec slot(Table, I) -> [Object] | '$end_of_table' when
       Table :: table(),
@@ -1661,6 +2065,13 @@ Returns and removes a list of all objects with key `Key` in table `Table`.
 The specified `Key` is used to identify the object by either _comparing equal_
 the key of an object in an `ordered_set` table, or _matching_ in other types of
 tables (for details on the difference, see `lookup/2` and `new/2`).
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []), true = ets:insert(T, {k,1}), [{k,1}] = ets:take(T, k), [] = ets:lookup(T, k).
+[]
+```
 """.
 -doc(#{since => <<"OTP 18.0">>}).
 -spec take(Table, Key) -> [Object] when
@@ -1721,18 +2132,26 @@ If a default object `Default` is specified, it is used as the object to be
 updated if the key is missing from the table. The value in place of the key is
 ignored and replaced by the proper key value. The return value is as if the
 default object had not been used, that is, a single updated element or a list of
-them.
+them. An invalid default object will fail the function even if the key exists in
+the table.
 
 The function fails with reason `badarg` in the following situations:
 
 - The table type is not `set` or `ordered_set`.
 - No object with the correct key exists and no default object was supplied.
 - The object has the wrong arity.
-- The default object arity is smaller than `<keypos>`.
+- The default object is not a tuple with an arity of at least `<keypos>` of the table.
 - Any field from the default object that is updated is not an integer.
 - The element to update is not an integer.
 - The element to update is also the key.
 - Any of `Pos`, `Incr`, `Threshold`, or `SetValue` is not an integer.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []), 5 = ets:update_counter(T, c, 5, {c,0}).
+5
+```
 """.
 -doc(#{since => <<"OTP 18.0">>}).
 -spec update_counter(Table, Key, UpdateOp | Incr | [UpdateOp], Default) -> Result | [Result] when
@@ -1783,18 +2202,26 @@ of an object in a `set` table, or _compare equal_ to the key of an object in an
 
 If a default object `Default` is specified, it is used as the object to be
 updated if the key is missing from the table. The value in place of the key is
-ignored and replaced by the proper key value.
+ignored and replaced by the proper key value. An invalid default object will
+fail the function even if the key exists in the table.
 
 The function fails with reason `badarg` in the following situations:
 
 - The table type is not `set` or `ordered_set`.
 - `Pos` < 1.
 - `Pos` > object arity.
-- The default object arity is smaller than `<keypos>`.
+- The default object is not a tuple with an arity of at least `<keypos>` of the table.
 - The element to update is also the key.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []), true = ets:update_element(T, k, {2,99}, {k,0}), [{k,99}] = ets:lookup(T, k).
+[{k,99}]
+```
 """.
 -doc(#{since => <<"OTP 27.0">>}).
--spec update_element(Table, Key, ElementSpec, Default) -> true when
+-spec update_element(Table, Key, ElementSpec, Default) -> boolean() when
       Table :: table(),
       Key :: term(),
       ElementSpec :: {Pos, Value} | [{Pos, Value}],
@@ -1808,11 +2235,20 @@ update_element(_, _, _, _) ->
 -doc """
 This function returns the `t:tid/0` of the named table identified by
 `TableName`, or `undefined` if no such table exists. The `t:tid/0` can be used
-in place of the table name in all operations, which is slightly faster since the
-name does not have to be resolved on each call.
+in place of the table name in all operations, which is slightly faster since
+the name does not have to be resolved on each call.
 
-If the table is deleted, the `t:tid/0` will be invalid even if another named
-table is created with the same name.
+Another reason for using `whereis/1` is to make sure a sequence of calls are
+accessing the same table even if the table is (concurrently) deleted and
+recreated with the same name. When the table is deleted, its `t:tid/0` will be
+invalid even if another table is created with the same name.
+
+## Examples
+
+```erlang
+1> wtab = ets:new(wtab, [named_table]), true = (ets:whereis(wtab) =/= undefined).
+true
+```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
 -spec whereis(TableName) -> tid() | undefined when
@@ -1838,7 +2274,7 @@ list containing all results. If an element in `List` does not match, nothing is
 returned for that element. The length of the result list is therefore equal or
 less than the length of parameter `List`.
 
-_Example:_
+## Examples
 
 The following two calls give the same result (but certainly not the same
 execution time):
@@ -1971,7 +2407,7 @@ constructs that have no representation in a match specification (`if`, `case`,
 
 The return value is the resulting match specification.
 
-_Example:_
+## Examples
 
 ```erlang
 1> ets:fun2ms(fun({M,N}) when N > 3 -> M end).
@@ -1981,9 +2417,9 @@ _Example:_
 Variables from the environment can be imported, so that the following works:
 
 ```erlang
-2> X=3.
+1> X=3.
 3
-3> ets:fun2ms(fun({M,N}) when N > X -> M end).
+2> ets:fun2ms(fun({M,N}) when N > X -> M end).
 [{{'$1','$2'},[{'>','$2',{const,3}}],['$1']}]
 ```
 
@@ -1993,11 +2429,7 @@ global function calls cannot be in the guard or body of the fun. Calls to
 built-in match specification functions is of course allowed:
 
 ```erlang
-4> ets:fun2ms(fun({M,N}) when N > X, my_fun(M) -> M end).
-Error: fun containing local Erlang function calls
-('my_fun' called in guard) cannot be translated into match_spec
-{error,transform_error}
-5> ets:fun2ms(fun({M,N}) when N > X, is_atom(M) -> M end).
+1> X = 3, ets:fun2ms(fun({M,N}) when N > X, is_atom(M) -> M end).
 [{{'$1','$2'},[{'>','$2',{const,3}},{is_atom,'$1'}],['$1']}]
 ```
 
@@ -2025,9 +2457,7 @@ fun2ms(ShellFun) when is_function(ShellFun) ->
         {fun_data,ImportList,Clauses} ->
             case ms_transform:transform_from_shell(
                    ?MODULE,Clauses,ImportList) of
-                {error,[{_,[{_,_,Code}|_]}|_],_} ->
-                    io:format("Error: ~ts~n",
-                              [ms_transform:format_error(Code)]),
+                {error,[_|_],_} ->
                     {error,transform_error};
                 Else ->
                     Else
@@ -2049,6 +2479,16 @@ except for `ordered_set` tables, where they are traversed first to last.
 If `Function` inserts objects into the table, or another process inserts objects
 into the table, those objects _can_ (depending on key ordering) be included in
 the traversal.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, [ordered_set]).
+2> ets:insert(T, [{1,10},{2,20}]).
+true
+3> ets:foldl(fun({_,V}, A) -> A + V end, 0, T).
+30
+```
 """.
 -spec foldl(Function, Acc0, Table) -> Acc1 when
       Function :: fun((Element :: term(), AccIn) -> AccOut),
@@ -2081,6 +2521,16 @@ except for `ordered_set` tables, where they are traversed last to first.
 If `Function` inserts objects into the table, or another process inserts objects
 into the table, those objects _can_ (depending on key ordering) be included in
 the traversal.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, [ordered_set]).
+2> ets:insert(T, [{1,10},{2,20}]).
+true
+3> ets:foldr(fun({_,V}, A) -> A + V end, 0, T).
+30
+```
 """.
 -spec foldr(Function, Acc0, Table) -> Acc1 when
       Function :: fun((Element :: term(), AccIn) -> AccOut),
@@ -2118,6 +2568,24 @@ table `DetsTab`. Existing objects in the ETS table are kept unless overwritten.
 
 If any of the tables does not exist or the Dets table is not open, a `badarg`
 exception is raised.
+
+## Examples
+
+```erlang
+1> File = "ets_from_dets_example.dets".
+"ets_from_dets_example.dets"
+2> {ok,_} = dets:open_file(ets_from_dets_example, [{file, File}]).
+{ok,ets_from_dets_example}
+3> ok = dets:insert(ets_from_dets_example, {k,1}).
+ok
+4> T = ets:new(t, []).
+5> ets:from_dets(T, ets_from_dets_example).
+true
+6> ets:lookup(T, k).
+[{k,1}]
+7> ok = dets:close(ets_from_dets_example), ok = file:delete(File).
+ok
+```
 """.
 -spec from_dets(Table, DetsTab) -> 'true' when
       Table :: table(),
@@ -2141,6 +2609,24 @@ from_dets(EtsTable, DetsTable) ->
 Fills an already created/opened Dets table with the objects in the already
 opened ETS table named `Table`. The Dets table is emptied before the objects are
 inserted.
+
+## Examples
+
+```erlang
+1> File = "ets_to_dets_example.dets".
+"ets_to_dets_example.dets"
+2> T = ets:new(t, []).
+3> ets:insert(T, {k,1}).
+true
+4> {ok,_} = dets:open_file(ets_to_dets_example, [{file, File}]).
+{ok,ets_to_dets_example}
+5> ets_to_dets_example = ets:to_dets(T, ets_to_dets_example).
+ets_to_dets_example
+6> dets:lookup(ets_to_dets_example, k).
+[{k,1}]
+7> ok = dets:close(ets_to_dets_example), ok = file:delete(File).
+ok
+```
 """.
 -spec to_dets(Table, DetsTab) -> DetsTab when
       Table :: table(),
@@ -2178,6 +2664,13 @@ This is a useful debugging and test tool, especially when writing complicated
 [`select/2`](`select/2`) calls.
 
 See also: `erlang:match_spec_test/3`.
+
+## Examples
+
+```erlang
+1> MS = ets:fun2ms(fun({a,N}) -> N end), {ok,1} = ets:test_ms({a,1}, MS).
+{ok,1}
+```
 """.
 -spec test_ms(Tuple, MatchSpec) -> {'ok', Result} | {'error', Errors} when
       Tuple :: tuple(),
@@ -2210,6 +2703,17 @@ If the table type is `set` and more than one object exists with a given key, one
 of the objects is chosen. This is not necessarily the last object with the given
 key in the sequence of objects returned by the input functions. This holds also
 for duplicated objects stored in tables of type `bag`.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []).
+2> Init = fun(read) -> {[{k,1}], fun(read) -> end_of_input; (close) -> ok end}; (close) -> ok end.
+3> ets:init_table(T, Init).
+true
+4> ets:lookup(T, k).
+[{k,1}]
+```
 """.
 -spec init_table(Table, InitFun) -> 'true' when
       Table :: table(),
@@ -2217,7 +2721,8 @@ for duplicated objects stored in tables of type `bag`.
       Arg :: 'read' | 'close',
       Res :: 'end_of_input' | {Objects :: [term()], InitFun} | term().
 
-init_table(Table, Fun) ->
+init_table(TableArg, Fun) ->
+    Table = soft_whereis(TableArg),
     ets:delete_all_objects(Table),
     init_table_continue(Table, Fun(read)).
 
@@ -2243,6 +2748,18 @@ init_table_sub(Table, [H|T]) ->
 -doc """
 Deletes all objects that match pattern `Pattern` from table `Table`. For a
 description of patterns, see `match/2`.
+
+## Examples
+
+```erlang
+1> T = ets:new(t, []).
+2> ets:insert(T, [{a,1},{b,2},{c,2}]).
+true
+3> ets:match_delete(T, {'_',2}).
+true
+4> ets:info(T, size).
+1
+```
 """.
 -spec match_delete(Table, Pattern) -> 'true' when
       Table :: table(),
@@ -2283,6 +2800,22 @@ tab2list(T) ->
 Dumps table `Table` to file `Filename`.
 
 Equivalent to [`tab2file(Table, Filename,[])`](`tab2file/3`)
+
+## Examples
+
+```erlang
+1> File = "ets_tab2file_example.ets".
+"ets_tab2file_example.ets"
+2> T = ets:new(t, []).
+3> ets:insert(T, {k,1}).
+true
+4> ok = ets:tab2file(T, File).
+ok
+5> {ok, T2} = ets:file2tab(File), ets:lookup(T2, k).
+[{k,1}]
+6> ets:delete(T2), ok = file:delete(File).
+ok
+```
 """.
 -spec tab2file(Table, Filename) -> 'ok' | {'error', Reason} when
       Table :: table(),
@@ -2325,6 +2858,20 @@ versions of ETS before that in STDLIB 1.15.1
 
 If option `sync` is set to `true`, it ensures that the content of the file is
 written to the disk before `tab2file` returns. Defaults to `{sync, false}`.
+
+## Examples
+
+```erlang
+1> File = "ets_tab2file3_example.ets".
+"ets_tab2file3_example.ets"
+2> T = ets:new(t, []).
+3> ets:insert(T, {k,1}).
+true
+4> ok = ets:tab2file(T, File, [{extended_info,[object_count]}]).
+ok
+5> {ok, _} = ets:file2tab(File, [{verify,true}]), ok = file:delete(File).
+ok
+```
 """.
 -spec tab2file(Table, Filename, Options) -> 'ok' | {'error', Reason} when
       Table :: table(),
@@ -2334,8 +2881,16 @@ written to the disk before `tab2file` returns. Defaults to `{sync, false}`.
       ExtInfo :: 'md5sum' | 'object_count',
       Reason :: term().
 
-tab2file(Table, File, Options) ->
+tab2file(TabArg, File, Options) ->
     try
+        Info0 = case ets:info(TabArg) of
+            undefined ->
+                throw(badtab);
+            I ->
+                I
+        end,
+        {id, Table} = lists:keyfind(id, 1, Info0),
+
 	{ok, FtOptions} = parse_ft_options(Options),
 	_ = file:delete(File),
 	case file:read_file_info(File) of
@@ -2351,13 +2906,6 @@ tab2file(Table, File, Options) ->
 		throw(Reason)
 	end,
 	try
-	    Info0 = case ets:info(Table) of
-		       undefined ->
-			   %% erlang:error(badarg, [Table, File, Options]);
-			   throw(badtab);
-		       I ->
-			   I
-	    end,
 	    Info = [list_to_tuple(Info0 ++ 
 				  [{major_version,?MAJOR_F2T_VERSION},
 				   {minor_version,?MINOR_F2T_VERSION},
@@ -2384,7 +2932,14 @@ tab2file(Table, File, Options) ->
 		     end, 
 		     true}
 	    end,
-	    ets:safe_fixtable(Table,true),
+            try
+                ets:safe_fixtable(Table,true)
+            catch
+                error:badarg ->
+                    %% Table is probably someone else's private.
+                    %% Be consistent and return error tuple.
+                    throw(badtab)
+            end,
 	    {NewState1,Num} = try
 				  NewState = LogFun(InitState,Info),
 				  dump_file(
@@ -2511,6 +3066,22 @@ Reads a file produced by `tab2file/2` or `tab2file/3` and creates the
 corresponding table `Table`.
 
 Equivalent to [`file2tab(Filename, [])`](`file2tab/2`).
+
+## Examples
+
+```erlang
+1> File = "ets_file2tab_example.ets".
+"ets_file2tab_example.ets"
+2> T = ets:new(t, []).
+3> ets:insert(T, {k,1}).
+true
+4> ok = ets:tab2file(T, File).
+ok
+5> {ok, T2} = ets:file2tab(File), ets:lookup(T2, k).
+[{k,1}]
+6> ets:delete(T2), ok = file:delete(File).
+ok
+```
 """.
 -spec file2tab(Filename) -> {'ok', Table} | {'error', Reason} when
       Filename :: file:name(),
@@ -2542,6 +3113,20 @@ If verification is turned on and the file was written with option
 more CPU time than otherwise.
 
 `{verify,false}` is the default.
+
+## Examples
+
+```erlang
+1> File = "ets_file2tab2_example.ets".
+"ets_file2tab2_example.ets"
+2> T = ets:new(t, []).
+3> ets:insert(T, {k,1}).
+true
+4> ok = ets:tab2file(T, File, [{extended_info,[object_count]}]).
+ok
+5> {ok, _} = ets:file2tab(File, [{verify,true}]), ok = file:delete(File).
+ok
+```
 """.
 -spec file2tab(Filename, Options) -> {'ok', Table} | {'error', Reason} when
       Filename :: file:name(),
@@ -2996,6 +3581,22 @@ The following items are returned:
 
 An error is returned if the file is inaccessible, badly damaged, or not produced
 with `tab2file/2` or `tab2file/3`.
+
+## Examples
+
+```erlang
+1> File = "ets_tabfile_info_example.ets".
+"ets_tabfile_info_example.ets"
+2> T = ets:new(t, []).
+3> ets:insert(T, {k,1}).
+true
+4> ok = ets:tab2file(T, File).
+ok
+5> {ok, Info} = ets:tabfile_info(File), is_list(Info).
+true
+6> file:delete(File).
+ok
+```
 """.
 -spec tabfile_info(Filename) -> {'ok', TableInfo} | {'error', Reason} when
       Filename :: file:name(),
@@ -3102,22 +3703,32 @@ _Examples:_
 An explicit match specification is here used to traverse the table:
 
 ```erlang
-9> true = ets:insert(Table = ets:new(t, []), [{1,a},{2,b},{3,c},{4,d}]),
-MS = ets:fun2ms(fun({X,Y}) when (X > 1) or (X < 5) -> {Y} end),
-QH1 = ets:table(Table, [{traverse, {select, MS}}]).
+1> T = ets:new(t, []).
+2> ets:insert(T, [{1, a}, {2, b}, {3, c}, {4, d}, {5, e}]).
+3> MS = ets:fun2ms(fun({X, Y}) when X > 1 andalso X < 5 -> {Y} end).
+4> QH1 = ets:table(T, [{traverse, {select, MS}}]).
 ```
 
 An example with an implicit match specification:
 
 ```erlang
-10> QH2 = qlc:q([{Y} || {X,Y} <- ets:table(Table), (X > 1) or (X < 5)]).
+1> T = ets:new(t, []).
+2> ets:insert(T, [{1, a}, {2, b}, {3, c}, {4, d}, {5, e}]).
+true
+3> is_tuple(qlc:q([{Y} || {X, Y} <- ets:table(T), X > 1 andalso X < 5])).
+true
 ```
 
 The latter example is equivalent to the former, which can be verified using
 function `qlc:info/1`:
 
 ```erlang
-11> qlc:info(QH1) =:= qlc:info(QH2).
+1> T = ets:new(t, []).
+2> ets:insert(T, [{1, a}, {2, b}, {3, c}, {4, d}, {5, e}]).
+true
+3> MS = ets:fun2ms(fun({X, Y}) when X > 1 andalso X < 5 -> {Y} end).
+4> QH1 = ets:table(T, [{traverse, {select, MS}}]).
+5> QH2 = qlc:q([{Y} || {X, Y} <- ets:table(T), X > 1 andalso X < 5]), qlc:info(QH1) =:= qlc:info(QH2).
 true
 ```
 
@@ -3134,7 +3745,8 @@ identical information is returned for the two query handles.
       TraverseMethod :: 'first_next' | 'last_prev'
                       | 'select' | {'select', MatchSpec :: match_spec()}.
 
-table(Table, Opts) ->
+table(TableArg, Opts) ->
+    Table = soft_whereis(TableArg),
     case options(Opts, [traverse, n_objects]) of
         {badarg,_} ->
             erlang:error(badarg, [Table, Opts]);
@@ -3339,7 +3951,8 @@ i(Table, Height) ->
 -doc false.
 -spec i(table(), pos_integer(), pos_integer()) -> 'ok'.
 
-i(Table, Height, Width) ->
+i(TableArg, Height, Width) ->
+    Table = soft_whereis(TableArg),
     First = ets:first(Table),
     display_items(Height, Width, Table, First, 1, 1).
 

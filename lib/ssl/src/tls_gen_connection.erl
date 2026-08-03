@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,19 +27,16 @@
 -module(tls_gen_connection).
 -moduledoc false.
 
--include_lib("public_key/include/public_key.hrl").
--include_lib("kernel/include/logger.hrl").
-
 -include("tls_connection.hrl").
 -include("tls_handshake.hrl").
 -include("tls_record.hrl").
 -include("ssl_alert.hrl").
--include("ssl_api.hrl").
 -include("ssl_internal.hrl").
 -include("tls_record_1_3.hrl").
 
 %% Setup
--export([start_fsm/8,
+-export([start_fsm/6,
+         start_fsm/7,
          pids/1,
          initialize_tls_sender/1]).
 
@@ -58,8 +57,7 @@
          handle_protocol_record/3]).
 
 %% Data handling
--export([socket/4,
-         setopts/3,
+-export([setopts/3,
          getopts/3,
          handle_info/3,
          gen_info/3]).
@@ -77,20 +75,33 @@
 %%====================================================================
 %% Setup
 %%====================================================================
-start_fsm(Role, Host, Port, Socket,
-          {SSLOpts, _, Trackers} = Opts,
-	  User, {CbModule, _, _, _, _} = CbInfo,
-	  Timeout) ->
+start_fsm(Host, Port, Socket, {SSLOpts, _, _Trackers} = Opts,
+	  User, CbInfo, Timeout) ->
     ErlDist = maps:get(erl_dist, SSLOpts, false),
     SenderSpawnOpts = maps:get(sender_spawn_opts, SSLOpts, []),
     SenderOptions = handle_sender_options(ErlDist, SenderSpawnOpts),
-    Starter = start_connection_tree(User, ErlDist, SenderOptions,
-                                    Role, [Host, Port, Socket, Opts, User, CbInfo]),
-    receive
-        {Starter, SockReceiver, SockSender} ->
-            socket_control(Socket, SockReceiver, SockSender, CbModule, Trackers, Timeout);
-        {Starter, Error} ->
-            Error
+    {ok, DynSup} = start_connection_tree(ErlDist, SenderOptions,
+                                   [client, Host, Port, Socket, Opts, User, CbInfo]),
+    {ok, {_, Receiver,_,_}} = supervisor:which_child(DynSup, receiver),
+    receive {Receiver, user_socket, UserSocket} ->
+            case ssl_gen_statem:socket_control(UserSocket) of
+                {ok, SslSocket} ->
+                    ssl_gen_statem:handshake(SslSocket, Timeout);
+                Error ->
+                    Error
+            end
+    end.
+
+start_fsm(Port, Socket, {SSLOpts, _, _Trackers} = Opts,
+	  User, CbInfo, _Timeout) ->
+    ErlDist = maps:get(erl_dist, SSLOpts, false),
+    SenderSpawnOpts = maps:get(sender_spawn_opts, SSLOpts, []),
+    SenderOptions = handle_sender_options(ErlDist, SenderSpawnOpts),
+    {ok, DynSup} = start_connection_tree(ErlDist, SenderOptions,
+                                   [server, "localhost", Port, Socket, Opts, User, CbInfo]),
+    {ok, {_, Receiver,_,_}} = supervisor:which_child(DynSup, receiver),
+    receive {Receiver, user_socket, UserSocket} ->
+            ssl_gen_statem:socket_control(UserSocket)
     end.
 
 handle_sender_options(ErlDist, SpawnOpts) ->
@@ -101,50 +112,13 @@ handle_sender_options(ErlDist, SpawnOpts) ->
             [[{spawn_opt, SpawnOpts}]]
     end.
 
-start_connection_tree(User, IsErlDist, SenderOpts, Role, ReceiverOpts) ->
-    StartConnectionTree =
-        fun() ->
-                try start_dyn_connection_sup(IsErlDist) of
-                    {ok, DynSup} ->
-                        case tls_dyn_connection_sup:start_child(DynSup, sender, SenderOpts) of
-                            {ok, Sender} ->
-                                case tls_dyn_connection_sup:start_child(DynSup, receiver,
-                                                                        [Role, Sender |
-                                                                         ReceiverOpts]) of
-                                    {ok, Receiver} ->
-                                        User ! {self(), Receiver, Sender};
-                                    {error, Error} ->
-                                        User ! {self(), Error},
-                                        exit(DynSup, shutdown)
-                                end;
-                            {error, Error} ->
-                                User ! {self(), Error},
-                                exit(DynSup, shutdown)
-                        end;
-                    {error, Error} ->
-                        User ! {self(), Error}
-                catch exit:{noproc, _} ->
-                        User ! {self(), {error, ssl_not_started}};
-                      _:Reason:ST ->  %% Don't hang signal internal error
-                        ?SSL_LOG(notice, internal_error, [{error, Reason}, {stacktrace, ST}]),
-                        User ! {self(), {error, internal_error}}
-                end
-        end,
-    spawn(StartConnectionTree).
-
-start_dyn_connection_sup(true) ->
-    tls_connection_sup:start_child_dist([]);
-start_dyn_connection_sup(false) ->
-    tls_connection_sup:start_child([]).
-
-socket_control(Socket, SockReceiver, SockSender, CbModule, Trackers, Timeout) ->
-    case ssl_gen_statem:socket_control(?MODULE, Socket, [SockReceiver, SockSender],
-                                       CbModule, Trackers) of
-        {ok, SslSocket} ->
-            ssl_gen_statem:handshake(SslSocket, Timeout);
-        Error ->
-            Error
-    end.
+start_connection_tree(IsErlDist, SenderOpts, ReceiverOpts) ->
+    case IsErlDist of
+        false ->
+            tls_connection_sup:start_child([SenderOpts, ReceiverOpts]);
+        true ->
+            tls_connection_sup:start_child_dist([SenderOpts, ReceiverOpts])
+    end.   
 
 pids(#state{protocol_specific = #{sender := Sender}}) ->
     [self(), Sender].
@@ -156,7 +130,7 @@ initialize_tls_sender(#state{static_env = #static_env{
                                              trackers = Trackers
                                             },
                              connection_env = #connection_env{negotiated_version = Version},
-                             socket_options = SockOpts,
+                             tab = Tab,
                              ssl_options = #{renegotiate_at := RenegotiateAt,
                                              key_update_at := KeyUpdateAt,
                                              log_level := LogLevel
@@ -164,11 +138,17 @@ initialize_tls_sender(#state{static_env = #static_env{
                              connection_states = #{current_write := ConnectionWriteState} = CS,
                              protocol_specific = #{sender := Sender}}) ->
     HibernateAfter = maps:get(hibernate_after, SSLOpts, infinity),
+    KeyLogFun = case maps:get(keep_secrets, SSLOpts, false) of
+                    {keylog, Fun} ->
+                        Fun;
+                    _ ->
+                        undefined
+                end,
     Init = #{current_write => ConnectionWriteState,
              beast_mitigation => maps:get(beast_mitigation, CS, disabled),
              role => Role,
              socket => Socket,
-             socket_options => SockOpts,
+             socket_opts_tab => Tab,
              erl_dist => maps:get(erl_dist, SSLOpts, false),
              trackers => Trackers,
              transport_cb => Transport,
@@ -176,7 +156,8 @@ initialize_tls_sender(#state{static_env = #static_env{
              renegotiate_at => RenegotiateAt,
              key_update_at => KeyUpdateAt,
              log_level => LogLevel,
-             hibernate_after => HibernateAfter},
+             hibernate_after => HibernateAfter,
+             keylog_fun => KeyLogFun},
     tls_sender:initialize(Sender, Init).
 
 %%====================================================================
@@ -224,8 +205,9 @@ queue_change_cipher(Msg, #state{connection_env = #connection_env{negotiated_vers
 
 reinit(#state{protocol_specific = #{sender := Sender},
               connection_env = #connection_env{negotiated_version = Version},
-              connection_states = #{current_write := Write}} = State0) ->
-    tls_sender:update_connection_state(Sender, Write, Version),
+              connection_states = #{current_write := Write} = ConnectionStates} = State0) ->
+    MaxFragLength = maps:get(max_fragment_length, ConnectionStates, undefined),
+    tls_sender:update_connection_state(Sender, Write, Version, MaxFragLength),
     State = reinit_handshake_data(State0),
     garbage_collect(),
     State.
@@ -238,7 +220,8 @@ reinit_handshake_data(#state{handshake_env = HsEnv} =State) ->
        handshake_env = HsEnv#handshake_env{tls_handshake_history =
                                                ssl_handshake:init_handshake_history(),
                                            public_key_info = undefined,
-                                           premaster_secret = undefined}
+                                           premaster_secret = undefined,
+                                           expecting_finished = false}
      }.
 
 select_sni_extension(#client_hello{extensions = #{sni := SNI}}) ->
@@ -252,9 +235,6 @@ empty_connection_state(ConnectionEnd) ->
 %%====================================================================
 %% Data handling
 %%====================================================================	     
-
-socket(Pids,  Transport, Socket, Trackers) ->
-    tls_socket:socket(Pids, Transport, Socket, tls_connection, Trackers).
 
 setopts(Transport, Socket, Other) ->
     tls_socket:setopts(Transport, Socket, Other).
@@ -283,7 +263,23 @@ gen_info(Event, StateName, State) ->
 					    StateName, State)
     end.
 
-%% raw data from socket, upack records
+%% socket:socket() have data fetch and unpack records
+handle_info({Protocol, Socket, Type, Handle}, StateName,
+            #state{static_env = #static_env{socket = Socket,
+                                            data_tag = Protocol,
+                                            transport_cb = Transport},
+                   protocol_specific = #{socket_active := N}=PS}
+            = State0)
+  when Type =:= select; Type =:= completion ->
+    {Data, SelInfo} = Transport:data_available(Socket, Type, Handle, N > 0),
+    State1 = State0#state{protocol_specific = PS#{socket_active := N-1, sel_info => SelInfo}},
+    case next_tls_record(Data, StateName, State1) of
+	{Record, State} ->
+	    next_event(StateName, Record, State);
+	#alert{} = Alert ->
+	    ssl_gen_statem:handle_own_alert(Alert, StateName, State0)
+    end;
+%% raw data from (gen_tcp) socket, unpack records
 handle_info({Protocol, _, Data}, StateName,
             #state{static_env = #static_env{data_tag = Protocol}} = State0) ->
     case next_tls_record(Data, StateName, State0) of
@@ -296,15 +292,15 @@ handle_info({PassiveTag, Socket},  StateName,
             #state{static_env = #static_env{socket = Socket, passive_tag = PassiveTag} = StatEnv,
                    recv = #recv{from = From},
                    protocol_buffers = #protocol_buffers{tls_cipher_texts = CTs},
-                   protocol_specific = PS
+                   protocol_specific = PS0
                   } = State0) ->
     case (From =/= undefined) andalso (CTs == []) of
         true ->
-            do_activate_socket(PS, StatEnv),
-            State = State0#state{protocol_specific = PS#{active_n_toggle => false}},
+            PS = do_activate_socket(PS0, StatEnv),
+            State = State0#state{protocol_specific = PS},
             next_event(StateName, no_record, State);
         false ->
-            State = State0#state{protocol_specific = PS#{active_n_toggle => true}},
+            State = State0#state{protocol_specific = PS0#{active_n_toggle => true}},
             next_event(StateName, no_record, State)
     end;
 handle_info({CloseTag, Socket}, StateName,
@@ -312,10 +308,11 @@ handle_info({CloseTag, Socket}, StateName,
                                    role = Role,
                                    host = Host,
                                    port = Port,
-                                   socket = Socket, 
+                                   socket = Socket,
                                    close_tag = CloseTag},
                    handshake_env = #handshake_env{renegotiation = Type},
-                   session = Session} = State) when  StateName =/= connection ->
+                   session = Session} = State)
+  when StateName =/= connection ->
     ssl_gen_statem:maybe_invalidate_session(Type, Role, Host, Port, Session),
     Alert = ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, transport_closed),
     ssl_gen_statem:handle_normal_shutdown(Alert#alert{role = Role}, StateName, State),
@@ -369,12 +366,23 @@ handle_info({ssl_tls, Port, Type, {Major, Minor}, Data}, StateName,
                    ssl_options = #{ktls := true}} = State0) ->
     Len = byte_size(Data),
     handle_info({Protocol, Port, <<Type, Major, Minor, Len:16, Data/binary>>}, StateName, State0);
+handle_info({ErrorTag, Socket, abort, {_Handle, closed}}, StateName,
+            #state{static_env = #static_env{
+                                   socket = Socket,
+                                   error_tag = ErrorTag,
+                                   close_tag = CloseTag
+                                  }
+                  } = State)  ->
+    handle_info({CloseTag, Socket}, StateName, State);
 handle_info(Msg, StateName, State) ->
     ssl_gen_statem:handle_info(Msg, StateName, State).
 
 %%====================================================================
 %% State transition handling
-%%====================================================================	     
+%%====================================================================
+
+next_event(connection,  #ssl_tls{} = Record, State) ->
+    handle_protocol_record(Record, connection, State);
 next_event(StateName, Record, State) ->
     next_event(StateName, Record, State, []).
 
@@ -393,37 +401,7 @@ next_event(StateName,  #ssl_tls{} = Record, State, Actions) ->
 next_event(StateName,  #alert{} = Alert, State, Actions) ->
     {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}.
 
-%%% TLS record protocol level application data messages 
-handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA}, StateName,
-                       #state{static_env = #static_env{role = server},
-                              handshake_env = #handshake_env{renegotiation = {false, first}}
-                             } = State) when StateName == initial_hello;
-                                             StateName == hello;
-                                             StateName == certify;
-                                             StateName == wait_cert_verify;
-                                             StateName == wait_stapling;
-                                             StateName == abbreviated;
-                                             StateName == cipher
-                                             ->
-    %% Application data can not be sent before initial handshake pre TLS-1.3.
-    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
-    ssl_gen_statem:handle_own_alert(Alert, StateName, State);
-handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, early_data = false}, StateName,
-                       #state{static_env = #static_env{role = server}
-                             } = State) when StateName == start;
-                                             StateName == recvd_ch;
-                                             StateName == negotiated;
-                                             StateName == wait_eoed ->
-    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, none_early_application_data_before_handshake),
-    ssl_gen_statem:handle_own_alert(Alert, StateName, State);
-handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA}, StateName,
-                       #state{static_env = #static_env{role = server}
-                             } = State) when StateName == wait_cert;
-                                             StateName == wait_cv;
-                                             StateName == wait_finished->
-    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE,
-                       application_data_before_handshake_or_intervened_in_post_handshake_auth),
-    ssl_gen_statem:handle_own_alert(Alert, StateName, State);
+%%% TLS record protocol level application data messages
 handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName,
                        #state{recv = #recv{from = From},
                               socket_options = #socket_options{active = false}} = State0)
@@ -435,7 +413,7 @@ handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, Stat
             TimerAction = [{{timeout, recv}, infinity, timeout}],
             next_event(StateName, Record, State, TimerAction);
         {Record, State} ->
-            next_event(StateName, Record, State, [])
+            next_event(StateName, Record, State)
     end;
 handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName, State0) ->
     case ssl_gen_statem:read_application_data(Data, State0) of
@@ -653,10 +631,16 @@ next_tls_record(Data, StateName,
         end,
     MaxFragLen = maps:get(max_fragment_length, State#state.connection_states, undefined),
     case tls_record:get_tls_records(Data, Versions, Buf0, MaxFragLen, Downgrade) of
-	{Records, Buf1} ->
+	{Records, Buf1} when StateName == connection ->
 	    CT1 = CT0 ++ Records,
 	    next_record(StateName, Buffers#protocol_buffers{tls_record_buffer = Buf1,
                                                             tls_cipher_texts = CT1}, State);
+        {Records, Buf1} ->
+            CT1 = CT0 ++ Records,
+            [ssl_logger:debug(get(log_level), inbound, 'record', Record) || Record <- Records],
+	    next_record(StateName, Buffers#protocol_buffers{tls_record_buffer = Buf1,
+                                                            tls_cipher_texts = CT1}, State);
+
 	#alert{} = Alert ->
 	    handle_record_alert(Alert, State)
     end.
@@ -734,15 +718,17 @@ activate_socket(#state{protocol_specific = #{active_n_toggle := true} = Protocol
                        static_env = StatEnv
                       } = State,
                 PBuffers) ->
-    do_activate_socket(ProtocolSpec, StatEnv),
-    {no_record, State#state{protocol_specific = ProtocolSpec#{active_n_toggle => false},
-                            protocol_buffers = PBuffers}}.
+    PS = do_activate_socket(ProtocolSpec, StatEnv),
+    {no_record, State#state{protocol_specific = PS, protocol_buffers = PBuffers}}.
 
-do_activate_socket(#{active_n := N},
+do_activate_socket(#{active_n := N} = PS,
                    #static_env{socket = Socket, close_tag = CloseTag, transport_cb = Transport}) ->
     case tls_socket:setopts(Transport, Socket, [{active, N}]) of
-        ok -> ok;
-        _ -> self() ! {CloseTag, Socket}
+        ok ->
+            PS#{active_n_toggle => false, socket_active => N};
+        _ ->
+            self() ! {CloseTag, Socket},
+            PS#{active_n_toggle => false}
     end.
 
 %% Decipher next record and concatenate consecutive ?APPLICATION_DATA records into one
@@ -750,9 +736,9 @@ do_activate_socket(#{active_n := N},
 next_record(State, CipherTexts, ConnectionStates, PBuffers, Check) ->
     next_record(State, CipherTexts, ConnectionStates, Check, PBuffers, false, []).
 %%
-next_record(#state{connection_env = #connection_env{negotiated_version = ?TLS_1_3 = Vsn}} = State,
+next_record(#state{connection_env = #connection_env{negotiated_version = ?TLS_1_3}} = State,
             [CT|CipherTexts], ConnectionStates0, Check, PBuffers0, IsEarlyData, Acc) ->
-    case tls_record:decode_cipher_text(Vsn, CT, ConnectionStates0, Check) of
+    case tls_record_1_3:decode_cipher_text(CT, ConnectionStates0) of
         {Record0 = #ssl_tls{type = ?APPLICATION_DATA, fragment = Fragment0}, ConnectionStates} ->
             case CipherTexts of
                 [] ->
@@ -875,27 +861,27 @@ handle_unnegotiated_version(undefined, #{versions := [Version|_]} = Options, Dat
 handle_unnegotiated_version(Version, Options, Data, Buff, _, _) ->
     tls_handshake:get_tls_handshakes(Version, Data, Buff, Options).
 
-assert_buffer_sanity(<<?BYTE(_Type), ?UINT24(Length), Rest/binary>>, 
+assert_buffer_sanity(<<?BYTE(_Type), ?UINT24(Length), Rest/binary>>,
                      #{max_handshake_size := Max}) when
-      Length =< Max ->  
+      Length =< Max ->
     case byte_size(Rest) of
         N when N < Length ->
             true;
-        N when N > Length ->       
-            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, 
+        N when N > Length ->
+            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
                              too_big_handshake_data));
         _ ->
-            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, 
-                             malformed_handshake_data))  
-    end;  
+            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
+                             malformed_handshake_data))
+    end;
 assert_buffer_sanity(Bin, _) ->
     case byte_size(Bin) of
-        N when N < 3 ->
+        N when N < 4 ->
             true;
-        _ ->       
-            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, 
+        _ ->
+            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
                              malformed_handshake_data))
-    end.  
+    end.
 
 decode_alerts(Bin) ->
     ssl_alert:decode(Bin).
@@ -910,10 +896,12 @@ handle_alerts([#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} | _Alerts],
                                                           recv =  #recv{from = From}} = State}) when From == undefined ->
     %% Linger to allow recv and setopts to possibly fetch data not yet delivered to user to be fetched
     {next_state, StateName, State#state{connection_env = CEnv#connection_env{socket_tls_closed = true}}};
-handle_alerts([#alert{level = ?FATAL} = Alert | _Alerts], 
+handle_alerts([#alert{level = ?FATAL} = Alert0 | _Alerts],
               {next_state, connection = StateName, #state{connection_env = CEnv, 
+                                                          static_env = #static_env{role = Role},
                                                           socket_options = #socket_options{active = false},
                                                           recv = #recv{from = From}} = State}) when From == undefined ->
+    Alert = Alert0#alert{role = ssl_gen_statem:opposite_role(Role)},
     %% Linger to allow recv and setopts to retrieve alert reason 
     {next_state, StateName, State#state{connection_env = CEnv#connection_env{socket_tls_closed = Alert}}};
 handle_alerts([Alert | Alerts], {next_state, StateName, State}) ->

@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -6346,8 +6348,8 @@ rsmos_mg_verify_notify_reply_fun(SN, Tid) ->
 	     
 rsmos_mg_verify_notify_reply(
   {handle_trans_reply, _CH, ?VERSION, {ok, {SN, Last, [AR]}}, _}, SN, Tid) 
-  when ((SN == 1) and (Last == true)) or 
-       ((SN =/= 1) and (Last == false)) ->
+  when SN == 1, Last == true;
+       SN =/= 1, Last == false ->
     (catch rsmos_mg_do_verify_notify_reply(Tid, AR));
 rsmos_mg_verify_notify_reply(Crap, SN, Tid) ->
     io:format("rsmos_mg_verify_notify_reply -> unknown reply"
@@ -7919,8 +7921,8 @@ cre_transaction(Trans) when is_record(Trans, 'TransactionRequest') ->
 cre_transaction(Trans) when is_record(Trans, 'TransactionPending') ->
     {transactionPending, Trans};
 cre_transaction(Trans) 
-  when is_record(Trans, 'TransactionReply') or
-       (is_tuple(Trans) and (element(1, Trans) == 'TransactionReply')) ->
+  when is_record(Trans, 'TransactionReply');
+       is_tuple(Trans), element(1, Trans) == 'TransactionReply' ->
     {transactionReply, Trans};
 cre_transaction(Trans) when is_list(Trans) ->
     {transactionResponseAck, Trans};

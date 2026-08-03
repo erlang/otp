@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1506,6 +1508,7 @@ handle_ctrl_result({pos_compl, Lines},
                           ipfamily = inet,
                           client   = From,
                           caller   = {setup_data_connection, Caller},
+                          csock    = CSock,
                           timeout  = Timeout,
                           sockopts_data_passive = SockOpts,
                           ftp_extension = false} = State) when is_list(Lines) ->
@@ -1514,10 +1517,10 @@ handle_ctrl_result({pos_compl, Lines},
         lists:splitwith(fun(?LEFT_PAREN) -> false; (_) -> true end, Lines),
     {NewPortAddr, _} =
         lists:splitwith(fun(?RIGHT_PAREN) -> false; (_) -> true end, Rest),
-    [A1, A2, A3, A4, P1, P2] =
+    [_, _, _, _, P1, P2] =
         lists:map(fun(X) -> list_to_integer(X) end,
                   string:tokens(NewPortAddr, [$,])),
-    IP   = {A1, A2, A3, A4},
+    {ok, {IP, _}} = peername(CSock),
     Port = (P1 * 256) + P2,
 
     ?DBG('<--data tcp connect to ~p:~p, Caller=~p~n',[IP,Port,Caller]),

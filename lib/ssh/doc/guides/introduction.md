@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -32,8 +34,9 @@ The `ssh` application is an implementation of the SSH Transport, Connection and
 Authentication Layer Protocols in Erlang. It provides the following:
 
 - API functions to write customized SSH clients and servers applications
-- The Erlang shell available over SSH
-- An SFTP client (`m:ssh_sftp`) and server (`m:ssh_sftpd`)
+- The Erlang shell available over SSH, enabled via the `shell` daemon option
+- An SFTP client (`m:ssh_sftp`) and server (`m:ssh_sftpd`), enabled via the
+  `subsystems` daemon option
 
 ## Prerequisites
 
@@ -46,16 +49,17 @@ Conceptually, the SSH protocol can be partitioned into four layers:
 
 ```mermaid
 ---
-title: SSH Protocol Architecture
+title: SSH Protocol Architecture (RFC 4251)
 ---
 
 block-beta
-    columns 2
+    columns 4
 
-    l1["SSH Client/Server Applications"]:2
-    l2a["Connection Protocol"] l2b["Authentication Protocol"]
-    l3["Transport Protocol"]:2
-    l4["TCP/IP Stack"]:2
+    Shell Exec SFTP Custom
+    l1["Connection / Channels\n(RFC 4254)"]:4
+    l2["Authentication\n(RFC 4252)"]:4
+    l3["Transport\n(RFC 4253)"]:4
+    l4["TCP/IP"]:4
 ```
 
 ### Transport Protocol
@@ -112,15 +116,16 @@ the application logic.
 Channels come in the following three flavors:
 
 - _Subsystem_ \- Named services that can be run as part of an SSH server, such
-  as SFTP [(ssh_sftpd)](`m:ssh_sftpd`), that is built into the SSH daemon
-  (server) by default, but it can be disabled. The Erlang `ssh` daemon can be
-  configured to run any Erlang- implemented SSH subsystem.
-- _Shell_ \- Interactive shell. By default the Erlang daemon runs the Erlang
-  shell. The shell can be customized by providing your own read-eval-print loop.
+  as SFTP [(ssh_sftpd)](`m:ssh_sftpd`). No subsystems are enabled by default.
+  The Erlang `ssh` daemon can be configured to run any Erlang-implemented SSH
+  subsystem.
+- _Shell_ \- Interactive shell. By default the Erlang daemon does not expose the Erlang
+  shell. It can be enabled with option `{shell, {shell, start, []}}`.
+  The shell can be customized by providing your own read-eval-print loop.
   You can also provide your own Command-Line Interface (CLI) implementation, but
   that is much more work.
-- _Exec_ \- One-time remote execution of commands. See function
-  `ssh_connection:exec/4` for more information.
+- _Exec_ \- By default one-time remote execution of commands is disabled.
+  See function `ssh_connection:exec/4` for more information.
 
 ## Where to Find More Information
 

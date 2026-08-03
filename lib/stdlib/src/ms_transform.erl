@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,11 +16,14 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(ms_transform).
 -moduledoc({file, "../doc/src/ms_transform.md"}).
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
+          nowarn_deprecated_catch]).
 
 -export([format_error/1,transform_from_shell/3,
          parse_transform/2,parse_transform_info/0]).
@@ -75,7 +80,8 @@ Takes an error code returned by one of the other functions in the module and
 creates a textual description of the error.
 """.
 -spec(format_error(Error) -> Chars when
-      Error :: {error, module(), term()},
+      Error :: Code | {Code, _} | {Code, _, _} | {Code, _, _, _},
+      Code :: non_neg_integer(),
       Chars :: io_lib:chars()).
 
 format_error({?WARN_SHADOW_VAR,Name}) ->
@@ -1023,7 +1029,7 @@ pseudo_guard_function(get_tcw,0) -> true;
 pseudo_guard_function(_,_) -> false.
 
 guard_function(X,A) ->
-    real_guard_function(X,A) or pseudo_guard_function(X,A).
+    real_guard_function(X,A) orelse pseudo_guard_function(X,A).
 
 action_function(set_seq_token,2) -> true;
 action_function(get_seq_token,0) -> true;
@@ -1112,17 +1118,17 @@ cmp_operator(_,_) ->
     false.
 
 is_operator(X,A,_) ->
-    bool_operator(X,A) or arith_operator(X,A) or cmp_operator(X,A).
+    bool_operator(X,A) orelse arith_operator(X,A) orelse cmp_operator(X,A).
 
 is_imported_from_erlang(X,A,_) ->
-    real_guard_function(X,A) or bool_test(X,A) or bool_operator(X,A) or
-    arith_operator(X,A) or cmp_operator(X,A).
+    real_guard_function(X,A) orelse bool_test(X,A) orelse bool_operator(X,A) orelse
+    arith_operator(X,A) orelse cmp_operator(X,A).
 
 is_ms_function(X,A,body) ->
-    action_function(X,A) or guard_function(X,A) or bool_test(X,A);
+    action_function(X,A) orelse guard_function(X,A) orelse bool_test(X,A);
 
 is_ms_function(X,A,guard) ->
-    guard_function(X,A) or bool_test(X,A).
+    guard_function(X,A) orelse bool_test(X,A).
 
 fixup_environment(L,B) when is_list(L) ->    
     lists:map(fun(X) ->

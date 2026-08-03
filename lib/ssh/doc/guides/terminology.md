@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,26 +21,17 @@ limitations under the License.
 -->
 # Terminology
 
-## General Information
+This chapter explains terms that may cause confusion.
 
-In the following terms that may cause confusion are explained.
+The term "user" is used differently in [OpenSSH](http://www.openssh.com) and
+SSH in Erlang/OTP. The reason is the different environments and use cases that
+are not immediately obvious. The following sections explain the differences and
+give a rationale for why Erlang/OTP handles "user" as it does.
 
-## The term "user"
-
-A "user" is a term that everyone understands intuitively. However, the
-understandings may differ which can cause confusion.
-
-The term is used differently in [OpenSSH](http://www.openssh.com) and SSH in
-Erlang/OTP. The reason is the different environments and use cases that are not
-immediately obvious.
-
-This chapter aims at explaining the differences and giving a rationale for why
-Erlang/OTP handles "user" as it does.
-
-### In OpenSSH
+## The Term "user" in OpenSSH
 
 Many have been in contact with the command 'ssh' on a Linux machine (or similar)
-to remotly log in on another machine. One types
+to remotely log in on another machine. One types
 
 ```text
 ssh host
@@ -64,7 +57,7 @@ is exactly as that context: The _user_ could read, write and execute programs
 according to the OS rules. In addition, the user has a home directory (`$HOME`)
 and there is a `$HOME/.ssh/` directory with ssh-specific files.
 
-#### SSH password authentication
+### Password Authentication
 
 When SSH tries to log in to a host, the ssh protocol communicates the user name
 (as a string) and a password. The remote ssh server checks that there is such a
@@ -72,7 +65,7 @@ user defined and that the provided password is acceptable.
 
 If so, the user is authorized.
 
-#### SSH public key authentication
+### Public Key Authentication
 
 This is a stronger method where the ssh protocol brings the user name, the
 user's public key and some cryptographic information which we could ignore here.
@@ -86,7 +79,7 @@ The ssh server on the remote host checks:
 
 if so, the user is authorized.
 
-#### The SSH server on UNIX/Linux/etc after a successful authentication
+### After a Successful Authentication
 
 After a successful incoming authentication, a new process runs as the just
 authenticated user.
@@ -98,7 +91,7 @@ arrives from the client (that's "you").
 In case of a sftp request, an sftp server is started in with the user's rights.
 So it could read, write or delete files if allowed for that user.
 
-### In Erlang/OTP SSH
+## The Term "user" in Erlang/OTP SSH
 
 For the Erlang/OTP SSH server the situation is different. The server executes in
 an Erlang process in the Erlang emulator which in turn executes in an OS
@@ -106,7 +99,7 @@ process. The emulator does not try to change its user when authenticated over
 the SSH protocol. So the remote user name is only for authentication purposes in
 the Erlang/OTP SSH application.
 
-#### Password authentication in Erlang SSH
+### Password Authentication
 
 The Erlang/OTP SSH server checks the user name and password in the following
 order:
@@ -117,10 +110,13 @@ order:
    defined and the username and the password matches, the authentication is a
    success.
 1. Else, if the option [`password`](`m:ssh#option-password`) is defined and
-   matches the password the authentication is a success. Note that the use of
-   this option is not recommended in non-test code.
+   matches the password the authentication is a success.
 
-#### Public key authentication in Erlang SSH
+> #### Warning {: .warning }
+>
+> The `password` option is intended for testing only.
+
+### Public Key Authentication
 
 The user name, public key and cryptographic data (a signature) that is sent by
 the client are used as follows (some steps left out for clarity):
@@ -144,7 +140,13 @@ If the provided public key is not found, the authentication fails.
 1. Finally, if the provided public key is found, the signature provided by the
    client is checked with the public key.
 
-#### The Erlang/OTP SSH server after a successful authentication
+### After a Successful Authentication
+
+> #### Note {: .info }
+>
+> Shell, exec, and SFTP are disabled by default. They must be
+> explicitly enabled in the daemon options. See the
+> [Hardening](hardening.md) guide for details.
 
 After a successful authentication an _Erlang process_ is handling the service
 request from the remote ssh client. The rights of that process are those of the
@@ -155,8 +157,24 @@ the server's emulator. The rights in that shell is independent of the just
 authenticated user.
 
 In case of an sftp request, an sftp server is started with the rights of the
-user of the Erlang emulator's OS process. So with sftp the authenticated user
-does not influence the rights.
+user of the Erlang emulator's OS process, provided the SFTP subsystem is
+enabled. So with sftp, the file access rights are those of the OS process
+running the Erlang emulator, regardless of the authenticated SSH user.
 
 So after an authentication, the user name is not used anymore and has no
 influence.
+
+## Authentication vs Authorization
+
+*Authentication* verifies identity ("are you who you claim to be?").
+*Authorization* grants permissions ("are you allowed to do this?").
+
+The OpenSSH file `authorized_keys` is named from a historical
+convention. Checking a key against this file is *authentication*,
+not *authorization*. Erlang/OTP SSH uses the same filename for
+compatibility with OpenSSH.
+
+In Erlang/OTP SSH, after successful authentication all operations
+run with the rights of the OS process running the Erlang emulator,
+regardless of the authenticated SSH user. See the sections above
+for details.

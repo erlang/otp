@@ -203,10 +203,10 @@ create_settings([{http_autoredirect,Val}|Settings],Out) ->
 create_settings([{http_ssl,Val}|Settings],Out) ->
     create_settings(Settings,Out#client_settings{ssl=Val});
 create_settings([{http_pipelinesize,Val}|Settings],Out)
-  when integer(Val),Val>0 ->
+  when is_integer(Val),Val>0 ->
     create_settings(Settings,Out#client_settings{max_quelength=Val});
 create_settings([{http_sessions,Val}|Settings],Out)
-  when integer(Val),Val>0 ->
+  when is_integer(Val),Val>0 ->
     create_settings(Settings,Out#client_settings{max_sessions=Val});
 create_settings([{Key,_Val}|_Settings],_Out) ->
     io:format("ERROR bad settings, got ~p~n",[Key]),
@@ -258,3 +258,26 @@ pp_headers(#res_headers{connection=Connection,
 	   _ ->	 [{'Content-Type',Content_type}]
        end,
     H1++H2++H3++H4++HCL++HCT++Other.
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

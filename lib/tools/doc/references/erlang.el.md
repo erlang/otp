@@ -1,3 +1,24 @@
+<!--
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
 # Erlang mode for Emacs
 
 Possibly the most important feature of an editor designed for programmers is the
@@ -18,8 +39,8 @@ The following command are directly available for indentation.
 
 -   _`TAB`_ (`erlang-indent-command`) - Indents the current line of code.
 -   _`M-C-\`_ (`indent-region`) - Indents all lines in the region.
--   _`M-l`_ (`indent-for-comment`) - Insert a comment character to the right of
-    the code on the line (if any).
+-   _`M-;`_ (`comment-indent`) - Insert a comment character to the right of the
+    code on the line (if any).
 
 Lines containing comment are indented differently depending on the number of
 %-characters used:
@@ -128,7 +149,7 @@ sum([], Sum)    -> Sum.             % base case
 
 ## Syntax highlighting
 
-The syntax highlighting can be activated from the Erlang menu. There are four
+The syntax highlighting can be activated from the Erlang menu. There are five
 different alternatives:
 
 -   Off: Normal black and white display.
@@ -136,7 +157,8 @@ different alternatives:
     and character constants will be colored.
 -   Level 2: The above, attributes, Erlang bif:s, guards, and words in comments
     enclosed in single quotes will be colored.
--   Level 3: The above, variables, records, and macros will be colored. (This
+-   Level 3: The above, variables, records, and macros will be colored.
+-   Level 4: The above plus everything else that can be highlighted. (This
     level is also known as the Christmas tree level.)
 
 ## Tags
@@ -144,16 +166,11 @@ different alternatives:
 For the tag commands to work it requires that you have generated a tag file. See
 [Erlang mode users guide](erlang_mode_chapter.md#tags)
 
--   _`M-.`_ (`find-tag`) - Find a function definition. The default value is the
-    function name under the point.
--   Find Tag (`erlang-find-tag`) - Like the Elisp-function
-    `find-tag'. Capable of retrieving Erlang modules. Tags can be given on the forms `tag',
-    `module:', `module:tag'.
--   _`M-+`_ (`erlang-find-next-tag`) - Find the next occurrence of tag.
--   _`M-TAB`_ (`erlang-complete-tag`) - Perform completion on the tag entered in
-    a tag search. Completes to the set of names listed in the current tags
-    table.
--   Tags aprops (`tags-apropos`) - Display list of all tags in tags table REGEXP
+-   _`M-.`_ (`xref-find-definitions`) - Find a function definition. The default
+    value is the function name under the point.
+-   _`M-?`_ (`xref-find-references`) - Find all references to the function under
+    the point.
+-   Tags apropos (`tags-apropos`) - Display list of all tags in tags table REGEXP
     matches.
 -   _`C-x t s`_ (`tags-search`) - Search through all files listed in tags table
     for match for REGEXP. Stops when a match is found.
@@ -175,20 +192,19 @@ package "tempo". Here follows a brief description of the available skeletons:
     information about the module), and Large Header (medium header with some
     extra layout structure).
 -   Small Server - skeleton for a simple server not using OTP.
--   Application - skeletons for the OTP application behavior
+-   Application - skeleton for the OTP application behavior
 -   Supervisor - skeleton for the OTP supervisor behavior
--   Supervisor Bridge - skeleton for the OTP supervisor bridge behavior
 -   gen_server - skeleton for the OTP gen_server behavior
 -   gen_event - skeleton for the OTP gen_event behavior
--   gen_fsm - skeleton for the OTP gen_fsm behavior
 -   gen_statem (StateName/3) - skeleton for the OTP gen_statem behavior using
     state name functions
 -   gen_statem (handle_event/4) - skeleton for the OTP gen_statem behavior using
     one state function
+-   wx_object - skeleton for the wx_object behavior
 -   Library module - skeleton for a module that does not implement a process.
--   Corba callback - skeleton for a Corba callback module.
--   Erlang test suite - skeleton for a callback module for the erlang test
-    server.
+-   Small Common Test suite - skeleton for a basic Common Test suite
+-   Large Common Test suite - skeleton for a full Common Test suite
+-   Common Test Hook - skeleton for a Common Test hook module
 
 ## Shell
 
@@ -223,8 +239,8 @@ final slash. Practically, you should add a line on the following form to your
 ## Starting IMenu
 
 -   _`M-x imenu-add-to-menubar RET`_ - This command will create the IMenu menu
-    containing all the functions in the current buffer.The command will ask you
-    for a suitable name for the menu. Not supported by Xemacs.
+    containing all the functions in the current buffer. The command will ask you
+    for a suitable name for the menu.
 
 ## Version
 

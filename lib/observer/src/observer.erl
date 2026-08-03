@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,6 +31,8 @@ for Erlang tracing with module `m:ttb`.
 For details about how to get started, see the [`User's Guide`](observer_ug.md).
 """.
 -moduledoc(#{since => "OTP R15B"}).
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 -export([start/0, start/1, start_and_wait/0, start_and_wait/1, stop/0]).
 

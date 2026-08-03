@@ -1,8 +1,10 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2014-2023. All Rights Reserved.
- * 
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2014-2025. All Rights Reserved.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,7 +16,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -118,12 +120,13 @@ int    hashmap_key_hash_cmp(Eterm* ap, Eterm* bp);
 Eterm  erts_hashmap_from_array(ErtsHeapFactory*, Eterm *leafs, Uint n, int reject_dupkeys);
 
 #define erts_hashmap_from_ks_and_vs(F, KS, VS, N) \
-    erts_hashmap_from_ks_and_vs_extra((F), (KS), (VS), (N), THE_NON_VALUE, THE_NON_VALUE);
+    erts_hashmap_from_ks_and_vs_extra((F), (KS), (VS), (N), THE_NON_VALUE, THE_NON_VALUE, 0);
 
 Eterm erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs, Uint n);
 Eterm  erts_hashmap_from_ks_and_vs_extra(ErtsHeapFactory *factory,
                                          Eterm *ks, Eterm *vs, Uint n,
-					 Eterm k, Eterm v);
+                                         Eterm k, Eterm v,
+                                         int reject_dupkeys);
 
 const Eterm *erts_maps_get(Eterm key, Eterm map);
 

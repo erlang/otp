@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -99,7 +101,7 @@ print_person(PersonId) ->
             print_age(Person),
             print_occupation(Person);
         [] ->
-            io:format("No person with ID = ~p~n", [PersonID])
+            io:format("No person with ID = ~p~n", [PersonId])
     end.
 
 %%% Internal functions
@@ -121,23 +123,23 @@ print_person(PersonId) ->
     %% Look up the person in the named table person,
     case ets:lookup(person, PersonId) of
         [Person] ->
-            print_name(PersonID),
-            print_age(PersonID),
-            print_occupation(PersonID);
+            print_name(PersonId),
+            print_age(PersonId),
+            print_occupation(PersonId);
         [] ->
-            io:format("No person with ID = ~p~n", [PersonID])
+            io:format("No person with ID = ~p~n", [PersonId])
     end.
 
 %%% Internal functions
-print_name(PersonID) ->
+print_name(PersonId) ->
     [Person] = ets:lookup(person, PersonId),
     io:format("No person ~p~n", [Person#person.name]).
 
-print_age(PersonID) ->
+print_age(PersonId) ->
     [Person] = ets:lookup(person, PersonId),
     io:format("No person ~p~n", [Person#person.age]).
 
-print_occupation(PersonID) ->
+print_occupation(PersonId) ->
     [Person] = ets:lookup(person, PersonId),
     io:format("No person ~p~n", [Person#person.occupation]).
 ```
@@ -148,7 +150,7 @@ For non-persistent database storage, prefer Ets tables over Mnesia
 `local_content` tables. Even the Mnesia `dirty_write` operations carry a fixed
 overhead compared to Ets writes. Mnesia must check if the table is replicated or
 has indices, this involves at least one Ets lookup for each `dirty_write`. Thus,
-Ets writes is always faster than Mnesia writes.
+Ets writes are always faster than Mnesia writes.
 
 ### tab2list
 
@@ -304,7 +306,7 @@ that the gain is significant when the key can be used to lookup elements.
 
 If you frequently do lookups on a field that is not the key of the table, you
 lose performance using [mnesia:select()](`mnesia:select/3`) or
-[`mnesia:match_object()`](`mnesia:match_object/1`) as these function traverse
+[`mnesia:match_object()`](`mnesia:match_object/1`) as these functions traverse
 the whole table. Instead, you can create a secondary index and use
 `mnesia:index_read/3` to get faster access at the expense of using more
 memory.
@@ -329,7 +331,7 @@ PersonsAge42 =
 
 Using transactions is a way to guarantee that the distributed Mnesia database
 remains consistent, even when many different processes update it in parallel.
-However, if you have real-time requirements it is recommended to use dirtry
+However, if you have real-time requirements it is recommended to use dirty
 operations instead of transactions. When using dirty operations, you lose the
 consistency guarantee; this is usually solved by only letting one process update
 the table. Other processes must send update requests to that process.

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -336,10 +338,10 @@ skip_prefix(Name, _) ->
 %% that you know exists, but you are not sure which one it is.
 %%
 %% Example: basename("~/src/kalle.erl", ".erl") -> "kalle"
-%%	    basename("~/src/kalle.jam", ".erl") -> "kalle.jam"
+%%	    basename("~/src/kalle.beam", ".erl") -> "kalle.beam"
 %%	    basename("~/src/kalle.old.erl", ".erl") -> "kalle.old"
 %%
-%%	    rootname(basename("xxx.jam")) -> "xxx"
+%%	    rootname(basename("xxx.beam")) -> "xxx"
 %%	    rootname(basename("xxx.erl")) -> "xxx"
 
 -doc """
@@ -519,7 +521,7 @@ dirjoin1([H|T],Acc,Sep) ->
 %% is no extension.
 %%
 %% Example: extension("foo.erl") -> ".erl"
-%%	    extension("jam.src/kalle") -> ""
+%%	    extension("bork.src/kalle") -> ""
 %%
 %% On Windows:  fn:dirname("\\usr\\src/kalle.erl") -> "/usr/src"
 
@@ -532,7 +534,7 @@ _Examples:_
 ```erlang
 15> filename:extension("foo.erl").
 ".erl"
-16> filename:extension("beam.src/kalle").
+16> filename:extension("bork.src/kalle").
 []
 ```
 """.
@@ -781,7 +783,7 @@ Returns the path type, which is one of the following:
       Path :: file:name_all().
 pathtype(Atom) when is_atom(Atom) ->
     pathtype(atom_to_list(Atom));
-pathtype(Name) when is_list(Name) or is_binary(Name) ->
+pathtype(Name) when is_list(Name); is_binary(Name) ->
     case os:type() of
 	{win32, _} ->
 	    win32_pathtype(Name);
@@ -830,8 +832,8 @@ win32_pathtype(_) 		  -> relative.
 
 %% Returns all characters in the filename, except the extension.
 %%
-%% Examples: rootname("/jam.src/kalle") -> "/jam.src/kalle"
-%%           rootname("/jam.src/foo.erl") -> "/jam.src/foo"
+%% Examples: rootname("/bork.src/kalle") -> "/bork.src/kalle"
+%%           rootname("/bork.src/foo.erl") -> "/bork.src/foo"
 
 -doc """
 Removes the filename extension.
@@ -839,10 +841,10 @@ Removes the filename extension.
 _Examples:_
 
 ```erlang
-1> filename:rootname("/beam.src/kalle").
-"/beam.src/kalle"
-2> filename:rootname("/beam.src/foo.erl").
-"/beam.src/foo"
+1> filename:rootname("/bork.src/kalle").
+"/bork.src/kalle"
+2> filename:rootname("/bork.src/foo.erl").
+"/bork.src/foo"
 ```
 """.
 -spec rootname(Filename) -> file:filename_all() when
@@ -872,8 +874,8 @@ rootname([], Root, _Ext, _OsType) ->
 %% If the filename has another extension, the complete filename is
 %% returned.
 %%
-%% Examples: rootname("/jam.src/kalle.jam", ".erl") -> "/jam.src/kalle.jam"
-%%           rootname("/jam.src/foo.erl", ".erl") -> "/jam.src/foo"
+%% Examples: rootname("/bork.src/kalle.beam", ".erl") -> "/bork.src/kalle.beam"
+%%           rootname("/bork.src/foo.erl", ".erl") -> "/bork.src/foo"
 
 -doc """
 Removes the filename extension `Ext` from `Filename`.
@@ -881,10 +883,10 @@ Removes the filename extension `Ext` from `Filename`.
 _Examples:_
 
 ```erlang
-1> filename:rootname("/beam.src/foo.erl", ".erl").
-"/beam.src/foo"
-2> filename:rootname("/beam.src/foo.beam", ".erl").
-"/beam.src/foo.beam"
+1> filename:rootname("/bork.src/foo.erl", ".erl").
+"/bork.src/foo"
+2> filename:rootname("/bork.src/foo.beam", ".erl").
+"/bork.src/foo.beam"
 ```
 """.
 -spec rootname(Filename, Ext) -> file:filename_all() when
@@ -1125,8 +1127,8 @@ filename_string_to_binary(List) ->
                           version => string() | binary()}.
 
 -doc """
-Equivalent to [basedir(PathType, Application, #\{\})](`m:filename#basedir_3_1`)
-or [basedir(PathsType, Application, #\{\})](`m:filename#basedir_3_2`).
+Equivalent to [basedir(PathType, Application, #\{\})](`basedir/3`)
+or [basedir(PathsType, Application, #\{\})](`basedir/3`).
 """.
 -doc(#{since => <<"OTP 19.0">>}).
 -spec basedir(PathType,Application) -> file:filename_all() when
@@ -1141,12 +1143,11 @@ basedir(Type,Application) when is_atom(Type), is_list(Application) orelse
     basedir(Type, Application, #{}).
 
 -doc """
-[](){: #basedir_3_1 } [](){: #basedir_3_2 }
+Returns a suitable path, or paths, for a given type.
 
-Returns a suitable path, or paths, for a given type. If `os` is not set in
-`Opts` the function will default to the native option, that is `'linux'`,
-`'darwin'` or `'windows'`, as understood by `os:type/0`. Anything not recognized
-as `'darwin'` or `'windows'` is interpreted as `'linux'`.
+If `os` is not set in `Opts` the function will default to the native option, that
+is `'linux'`, `'darwin'` or `'windows'`, as understood by `os:type/0`.
+Anything not recognized as `'darwin'` or `'windows'` is interpreted as `'linux'`.
 
 The options `'author'` and `'version'` are only used with `'windows'` option
 mode.

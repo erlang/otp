@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -62,8 +64,8 @@ $ make
 If `FIPS_mode_set` returns `no` the OpenSSL library is not FIPS enabled and
 crypto won't support FIPS mode either.
 
-1. Set the `fips_mode` configuration setting of the crypto application to `true`
-   _before loading the crypto module_.
+1. Set the [`fips_mode`](crypto_app.md#fips_mode) configuration setting of the
+   crypto application to `true` _before loading the crypto module_.
 
 The best place is in the `sys.config` system configuration file of the release.
 

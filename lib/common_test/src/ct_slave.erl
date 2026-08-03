@@ -1,7 +1,9 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,6 +35,8 @@ This module exports functions used by the `Common Test` Master to start and stop
 term in the Test Specification.
 """.
 -moduledoc(#{since => "OTP R14B"}).
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 -export([start/1, start/2, start/3, stop/1, stop/2]).
 
@@ -348,7 +352,7 @@ do_start(Host, Node, Options) ->
 	{ok, ENode}->
 	     ok;
 	{error, Timeout, ENode}
-	     when ((Timeout==init_timeout) or (Timeout==startup_timeout)) and
+	     when Timeout==init_timeout orelse Timeout==startup_timeout,
 		  Options#options.kill_if_fail->
 	     do_stop(ENode);
 	_-> ok

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -481,7 +483,7 @@ get_opt(Tag, EvalState, Default) ->
 %% goes for processes that didn't respond to the suspend message.
 %%-----------------------------------------------------------------
 suspend(Mod, Procs, Timeout) ->
-    lists:zf(fun({_Sup, _Name, Pid, Mods}) -> 
+    lists:filtermap(fun({_Sup, _Name, Pid, Mods}) ->
 		     case lists:member(Mod, Mods) of
 			 true ->
 			     case catch sys_suspend(Pid, Timeout) of
@@ -523,7 +525,7 @@ sys_change_code(Pid, Mod, Vsn, Extra, Timeout) ->
     sys:change_code(Pid, Mod, Vsn, Extra, Timeout).
 
 stop(Mod, Procs) ->
-    lists:zf(fun({undefined, _Name, _Pid, _Mods}) ->
+    lists:filtermap(fun({undefined, _Name, _Pid, _Mods}) ->
 		     false;
 		({Sup, Name, _Pid, Mods}) -> 
 		     case lists:member(Mod, Mods) of

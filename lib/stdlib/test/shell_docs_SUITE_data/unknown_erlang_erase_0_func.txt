@@ -1,5 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erase() -> [{Key, Val}] when Key :: term(), Val :: term().[0m
+[1m  erase()[0m
 
   Returns the process dictionary and deletes it.
 

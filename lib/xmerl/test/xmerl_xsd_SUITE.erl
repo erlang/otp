@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,7 +68,8 @@ groups() ->
        sis2, state2file_file2state, union]},
      {ticket_tests, [],
       [ticket_6910, ticket_7165, ticket_7190, ticket_7288,
-       ticket_7736, ticket_8599, ticket_9410]},
+       ticket_7736, ticket_8599, ticket_9410, ticket_19762,
+       ticket_19792]},
      {facets, [],
       [length, minLength, maxLength, pattern, enumeration,
        whiteSpace, maxInclusive, maxExclusive, minExclusive,
@@ -965,10 +968,30 @@ ticket_8599(Config) ->
     
     {{xmlElement,persons,persons,_,_,_,_,_,_,_,_,_},_GlobalState} = xmerl_xsd:validate(E, S).
 
-
 ticket_9410(Config) ->
-    file:set_cwd(datadir_join(Config,[".."])),
-    {ok, _S} = xmerl_xsd:process_schema("xmerl_xsd_SUITE_data/small.xsd").
+    {ok, _S} = xmerl_xsd:process_schema(datadir_join(Config,["small.xsd"])).
+
+ticket_19762(Config) ->
+    {E, _} = xmerl_scan:file(datadir_join(Config,["ticket_19762.xml"]),[]),
+    {ok, S} = xmerl_xsd:process_schema(datadir_join(Config,["ticket_19762.xsd"])),
+    {E, _} = xmerl_xsd:validate(E, S),
+    ok.
+
+
+ticket_19792(Config) ->
+    {ok, S} = xmerl_xsd:process_schema(datadir_join(Config,["ticket_19792.xsd"])),
+    {E0,_} = xmerl_scan:file(datadir_join(Config,["ticket_19792_0.xml"])),
+    {{xmlElement,file,file,_,_,_,_,_,_,_,_,_},_GlobalState1} = xmerl_xsd:validate(E0, S),
+    {E1,_} = xmerl_scan:file(datadir_join(Config,["ticket_19792_1.xml"])),
+    {{xmlElement,file,file,_,_,_,_,_,_,_,_,_},_GlobalState1} = xmerl_xsd:validate(E1, S),
+    {E2,_} = xmerl_scan:file(datadir_join(Config,["ticket_19792_2.xml"])),
+    {{xmlElement,file,file,_,_,_,_,_,_,_,_,_},_GlobalState2} = xmerl_xsd:validate(E2, S),
+    {E3,_} = xmerl_scan:file(datadir_join(Config,["ticket_19792_3.xml"])),
+    {{xmlElement,file,file,_,_,_,_,_,_,_,_,_},_GlobalState3} = xmerl_xsd:validate(E3, S),
+    {E4,_} = xmerl_scan:file(datadir_join(Config,["ticket_19792_4.xml"])),
+    {{xmlElement,file,file,_,_,_,_,_,_,_,_,_},_GlobalState4} = xmerl_xsd:validate(E4, S),
+    ok.
+
 
 %%======================================================================
 %% Support Functions

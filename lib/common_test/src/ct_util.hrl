@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -83,6 +85,7 @@
 -define(css_default, "ct_default.css").
 -define(sortable_table_name, "SortableTable").
 -define(jquery_script, "jquery-latest.js").
+-define(jquery_migrate_script, "jquery-migrate.js").
 -define(tablesorter_script, "jquery.tablesorter.min.js").
 
 %% Logging information for error handler

@@ -1,9 +1,15 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec list_to_bitstring(BitstringList) -> bitstring()[0m
-  [;1m                           when BitstringList :: bitstring_list().[0m
+[1m  list_to_bitstring(BitstringList)[0m
 
   Returns a bitstring that is made from the integers and bitstrings
-  in [;;4mBitstringList[0m. (The last tail in [;;4mBitstringList[0m is allowed
+  in [4mBitstringList[0m. (The last tail in [4mBitstringList[0m is allowed
   to be a bitstring.)
 
   For example:

@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,6 +26,228 @@ version. The intention of this document is to list all incompatibilities as well
 as all enhancements and bugfixes for every release of Mnesia. Each release of
 Mnesia thus constitutes one section in this document. The title of each section
 is the version number of Mnesia.
+
+## Mnesia 4.26.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed docs of `mnesia:write/3` to clarify when a transaction can terminate.
+
+  Own Id: OTP-20149 Aux Id: [GH-11104], [PR-11145]
+
+[GH-11104]: https://github.com/erlang/otp/issues/11104
+[PR-11145]: https://github.com/erlang/otp/pull/11145
+
+## Mnesia 4.26
+
+### Improvements and New Features
+
+- `mnesia` now has new functions `select_reverse/1-6` supporting iteration over tables in reverse order.
+
+  Own Id: OTP-19611 Aux Id: [GH-8993], [PR-9475]
+
+- The `mnesia_registry` module has been removed.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19807 Aux Id: [PR-7315]
+
+- Added support for `-unsafe` attributes, which is used to mark functions as unsafe to use. 
+  
+  This is similar to but separate from deprecation, and the compiler will by default now generate warnings for calls to functions in Erlang/OTP that are known to be always unsafe.
+  
+  Furthermore, `m:xref` can now be used to find calls to functions in another application that lack a `-doc` attribute (`undocumented_function_calls`), calls to functions in another application marked `-doc false.` (`private_function_calls`), as well as calls to unsafe functions (`unsafe_function_calls`).
+
+  Own Id: OTP-20066 Aux Id: [PR-10839]
+
+[GH-8993]: https://github.com/erlang/otp/issues/8993
+[PR-9475]: https://github.com/erlang/otp/pull/9475
+[PR-7315]: https://github.com/erlang/otp/pull/7315
+[PR-10839]: https://github.com/erlang/otp/pull/10839
+
+## Mnesia 4.25.3.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed docs of `mnesia:write/3` to clarify when a transaction can terminate.
+
+  Own Id: OTP-20149 Aux Id: [GH-11104], [PR-11145]
+
+[GH-11104]: https://github.com/erlang/otp/issues/11104
+[PR-11145]: https://github.com/erlang/otp/pull/11145
+
+## Mnesia 4.25.3
+
+### Fixed Bugs and Malfunctions
+
+- Added documentation for `user_properties`  and functions `read_table_property/2`, `write_table_property/2`, `delete_table_property`.
+  Enhanced documentation for `frag_properties`.
+
+  Own Id: OTP-20038 Aux Id: [GH-10812], [PR-10881]
+
+- Fixed a bug where stacktrace was not returned from `mnesia:transaction/1` when transaction aborts with an error exception.
+
+  Own Id: OTP-20094 Aux Id: [GH-10967], [PR-11002]
+
+[GH-10812]: https://github.com/erlang/otp/issues/10812
+[PR-10881]: https://github.com/erlang/otp/pull/10881
+[GH-10967]: https://github.com/erlang/otp/issues/10967
+[PR-11002]: https://github.com/erlang/otp/pull/11002
+
+## Mnesia 4.25.2
+
+### Improvements and New Features
+
+- Release applications, tests, and documentation are now placed in their respective directories. Source SBOM with more packages.
+  
+  A `make release` application places only the necessary code in the release folder. The main change is that the documentation and examples are not part of the release folder anymore.
+  
+  `make release_docs` places the documentation in the released code under the `doc` folder.
+  
+  `make release_tests` places the tests in their own directory. It used to be the case that some source code was mixed with the tests, and this should not happen anymore.
+  
+  The Software Bill of Materials places the examples folders as if they are part of the `SPDX-otp-<app>-doc` packge, instead of placing examples as if they were running source code.
+  
+  Overall, this change cleans up many things that were not quite correct by definition, and everything should still continue to work as expected. To test a release, one can still run `./Install -minimal \`pwd\`` and add the release to the `PATH`. After that, one can run tests as usual, going into the released tests directory, entering `test_server` and running the emulator.
+  
+  Improves the source Software-Bill-of-Materials
+  
+  - The improvements adds new SPDX relations for `asmjit` and `zlib` to be `optional_components_of` the Erlang/OTP project.
+  - The `autoconf` scripts in `make` and `erts` have now been categorised as `build_tool_of` the Erlang/OTP project.
+  - All remaining `configure`, `configure.ac`, `config.h.in`, `Makefile.in`, `Makefile.src`, `EMakefile`, and `GNUMakefile` are now part of a specific SPDX package with relation `build_tool_of` the Erlang/OTP project.
+
+  Own Id: OTP-19886 Aux Id: [PR-10434]
+
+[PR-10434]: https://github.com/erlang/otp/pull/10434
+
+## Mnesia 4.25.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed bug where `mnesia:del_table_copy/3` could fail when deleting a node that had tables which was not active anywhere.
+
+  Own Id: OTP-19890 Aux Id: ERIERL-1268, [PR-10482]
+
+[PR-10482]: https://github.com/erlang/otp/pull/10482
+
+## Mnesia 4.25
+
+### Fixed Bugs and Malfunctions
+
+- Add missing documentation about mnesia:activity/4
+
+  Own Id: OTP-19769 Aux Id: [PR-10186]
+
+- With this change mnesia will try to not leak internal messages to user processes.
+
+  Own Id: OTP-19855 Aux Id: [GH-10347], [PR-10379]
+
+[PR-10186]: https://github.com/erlang/otp/pull/10186
+[GH-10347]: https://github.com/erlang/otp/issues/10347
+[PR-10379]: https://github.com/erlang/otp/pull/10379
+
+### Improvements and New Features
+
+- The `mnesia_registry` module will be removed in Erlang/OTP 29.
+
+  Own Id: OTP-19808 Aux Id: [PR-10275]
+
+[PR-10275]: https://github.com/erlang/otp/pull/10275
+
+## Mnesia 4.24.1
+
+### Fixed Bugs and Malfunctions
+
+- Mnesia no longer crashes when the node name is used as a table name.
+
+  Own Id: OTP-19745 Aux Id: [PR-10147]
+
+[PR-10147]: https://github.com/erlang/otp/pull/10147
+
+## Mnesia 4.24
+
+### Improvements and New Features
+
+- [EEP-69: Nominal Types](https://www.erlang.org/eeps/eep-0069) has been implemented. As a side effect, nominal types can encode opaque types. We changed all opaque-handling logic and improved opaque warnings in Dialyzer.
+  
+  All existing Erlang type systems are structural: two types are seen as equivalent if their structures are the same. Type comparisons are based on the structures of the types, not on how the user explicitly defines them. For example, in the following example, `meter()` and `foot()` are equivalent. The two types can be used interchangeably. Neither of them differ from the basic type `integer()`.
+  
+  ````
+  -type meter() :: integer().
+  -type foot() :: integer().
+  ````
+  
+  Nominal typing is an alternative type system, where two types are equivalent if and only if they are declared with the same type name. The EEP proposes one new syntax -nominal for declaring nominal types. Under nominal typing, `meter()` and `foot()` are no longer compatible. Whenever a function expects type `meter()`, passing in type `foot()` would result in a Dialyzer error.
+  
+  ````
+  -nominal meter() :: integer().
+  -nominal foot() :: integer().
+  ````
+  
+  More nominal type-checking rules can be found in the EEP. It is worth noting that most work for adding nominal types and type-checking is in `erl_types.erl`. The rest are changes that removed the previous opaque type-checking, and added an improved version of it using nominal type-checking with reworked warnings.
+  
+  Backwards compatibility for opaque type-checking is not preserved by this PR. Previous opaque warnings can appear with slightly different wordings. A new kind of opaque warning `opaque_union` is added, together with a Dialyzer option `no_opaque_union` to turn this kind of warnings off.
+
+  Own Id: OTP-19364 Aux Id: [PR-9079]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-9079]: https://github.com/erlang/otp/pull/9079
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+
+## Mnesia 4.23.5.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed docs of `mnesia:write/3` to clarify when a transaction can terminate.
+
+  Own Id: OTP-20149 Aux Id: [GH-11104], [PR-11145]
+
+[GH-11104]: https://github.com/erlang/otp/issues/11104
+[PR-11145]: https://github.com/erlang/otp/pull/11145
+
+## Mnesia 4.23.5.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug where stacktrace was not returned from `mnesia:transaction/1` when transaction aborts with an error exception.
+
+  Own Id: OTP-20094 Aux Id: [GH-10967], [PR-11002]
+
+[GH-10967]: https://github.com/erlang/otp/issues/10967
+[PR-11002]: https://github.com/erlang/otp/pull/11002
+
+## Mnesia 4.23.5.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed bug where `mnesia:del_table_copy/3` could fail when deleting a node that had tables which was not active anywhere.
+
+  Own Id: OTP-19890 Aux Id: ERIERL-1268, [PR-10482]
+
+[PR-10482]: https://github.com/erlang/otp/pull/10482
+
+## Mnesia 4.23.5
+
+### Fixed Bugs and Malfunctions
+
+- With this change mnesia will merge schema of tables using external backends.
+
+  Own Id: OTP-19437 Aux Id: [PR-9534]
+
+[PR-9534]: https://github.com/erlang/otp/pull/9534
+
+## Mnesia 4.23.4
+
+### Fixed Bugs and Malfunctions
+
+- Mnesia could fail to load a table, if one of the copy holders was moved during startup.
+
+  Own Id: OTP-19501 Aux Id: ERIERL-1195, [PR-9499]
+
+[PR-9499]: https://github.com/erlang/otp/pull/9499
 
 ## Mnesia 4.23.3
 
@@ -56,6 +280,17 @@ is the version number of Mnesia.
   Own Id: OTP-18955 Aux Id: [PR-8026]
 
 [PR-8026]: https://github.com/erlang/otp/pull/8026
+
+## Mnesia 4.23.1.2
+
+### Fixed Bugs and Malfunctions
+
+* With this change mnesia will merge schema of tables using external backends.
+
+  Own Id: OTP-19437 Aux Id: PR-9534
+* Mnesia could fail to load a table, if one of the copy holders was moved during startup.
+
+  Own Id: OTP-19501 Aux Id: ERIERL-1195, PR-9499
 
 ## Mnesia 4.23.1.1
 
@@ -114,6 +349,14 @@ is the version number of Mnesia.
   \*** POTENTIAL INCOMPATIBILITY \***
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
+
+## Mnesia 4.21.4.4
+
+### Fixed Bugs and Malfunctions
+
+* Mnesia could fail to load a table, if one of the copy holders was moved during startup.
+
+  Own Id: OTP-19501 Aux Id: ERIERL-1195, PR-9499
 
 ## Mnesia 4.21.4.3
 

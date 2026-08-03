@@ -1,8 +1,10 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1996-2022. All Rights Reserved.
-# 
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1996-2026. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 #
 
@@ -31,7 +33,7 @@ VSN=$(MNESIA_VSN)
 # ----------------------------------------------------
 # Release Macros
 # ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/lib/mnesia-$(VSN)
+RELSYSDIR = $(RELEASE_PATH)/lib/mnesia-$(VSN)/doc
 
 # ----------------------------------------------------
 # Common Macros
@@ -79,6 +81,8 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
+
+release_docs_spec:
 	$(INSTALL_DIR) "$(RELSYSDIR)/examples"
 	$(INSTALL_DATA) $(ERL_FILES) $(DATA_FILES) $(HRL_FILES) "$(RELSYSDIR)/examples"
 	$(INSTALL_DIR) "$(RELSYSDIR)/examples/bench"
@@ -99,6 +103,3 @@ release_spec: opt
           bench.config7 \
           "$(RELSYSDIR)/examples/bench")
 	(cd bench; $(INSTALL_SCRIPT) bench.sh "$(RELSYSDIR)/examples/bench")
-
-release_docs_spec:
-

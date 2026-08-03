@@ -1,5 +1,12 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 2004-2010 held by the authors. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -11,6 +18,8 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% %CopyrightEnd%
 
 %%%-------------------------------------------------------------------
 %%% File    : dialyzer_utils.erl
@@ -159,6 +168,18 @@ get_record_and_type_info(Core) ->
   Tuples = core_to_attr_tuples(Core),
   get_record_and_type_info(Tuples, Module, maps:new(), "nofile").
 
+get_record_and_type_info([{native_record, Location, [{Name, Fields0}]}|Left],
+			 Module, RecDict, File) ->
+  {ok, Fields} = get_record_fields(Fields0, RecDict),
+  FN = {File, Location},
+  NewRecDict = maps:put({native_record, {Module,Name}}, {FN, Fields}, RecDict),
+  get_record_and_type_info(Left, Module, NewRecDict, File);
+get_record_and_type_info([{import_record, _Location, [{Mod, Names}]}|Left],
+                         Module, RecDict, File) ->
+  NewRecDict = lists:foldl(fun(Name, Acc) ->
+                             maps:put({import_record, Name}, Mod, Acc)
+                           end, RecDict, Names),
+  get_record_and_type_info(Left, Module, NewRecDict, File);
 get_record_and_type_info([{record, Location, [{Name, Fields0}]}|Left],
 			 Module, RecDict, File) ->
   {ok, Fields} = get_record_fields(Fields0, RecDict),
@@ -176,7 +197,7 @@ get_record_and_type_info([{type, Location, [{{record, Name}, Fields0, []}]}
   get_record_and_type_info(Left, Module, NewRecDict, File);
 get_record_and_type_info([{Attr, Location, [{Name, TypeForm}]}|Left],
 			 Module, RecDict, File)
-               when Attr =:= 'type'; Attr =:= 'opaque' ->
+               when Attr =:= 'type'; Attr =:= 'opaque'; Attr =:= 'nominal' ->
   FN = {File, Location},
   try add_new_type(Attr, Name, TypeForm, [], Module, FN, RecDict) of
     NewRecDict ->
@@ -186,7 +207,7 @@ get_record_and_type_info([{Attr, Location, [{Name, TypeForm}]}|Left],
   end;
 get_record_and_type_info([{Attr, Location, [{Name, TypeForm, Args}]}|Left],
 			 Module, RecDict, File)
-               when Attr =:= 'type'; Attr =:= 'opaque' ->
+               when Attr =:= 'type'; Attr =:= 'opaque'; Attr =:= 'nominal' ->
   FN = {File, Location},
   try add_new_type(Attr, Name, TypeForm, Args, Module, FN, RecDict) of
     NewRecDict ->
@@ -288,6 +309,22 @@ process_record_remote_types_module(Module, CServer) ->
   RecordFun =
     fun({Key, Value}, C2) ->
         case Key of
+          {native_record, Name} ->
+            {FileLocation, Fields} = Value,
+            {File, _Location} = FileLocation,
+            Site = {native_record, Name, File},
+            FieldFun =
+              fun({FieldName, Field, _}, C5) ->
+                {FieldT, C6} =
+                  erl_types:t_from_form
+                    (Field, ExpTypes, Site,
+                    RecordTable, VarTable,
+                    C5),
+                {{FieldName, Field, FieldT}, C6}
+              end,
+            {FieldsList, C3} =
+              lists:mapfoldl(FieldFun, C2, Fields),
+            {{Key, {FileLocation, FieldsList}}, C3};
           {record, Name} ->
             {FileLocation, Fields} = Value,
             {File, _Location} = FileLocation,
@@ -311,6 +348,8 @@ process_record_remote_types_module(Module, CServer) ->
             {FieldsList, C3} =
               lists:mapfoldl(FieldFun, C2, orddict:to_list(Fields)),
             {{Key, {FileLocation, orddict:from_list(FieldsList)}}, C3};
+          {import_record, _Name} ->
+            {{Key, Value}, C2};
           {_TypeOrOpaque, Name, NArgs} ->
             %% Make sure warnings about unknown types are output
             %% also for types unused by specs.
@@ -375,7 +414,13 @@ process_opaque_types(AllModules, CServer, TempExpTypes) ->
                   {{Key, {F, Type}}, C3};
                 {type, _Name, _NArgs} ->
                   {{Key, Value}, C2};
+                {nominal, _Name, _NArgs} ->
+                  {{Key, Value}, C2};
                 {record, _RecName} ->
+                  {{Key, Value}, C2};
+                {native_record, _RecName} ->
+                  {{Key, Value}, C2};
+                {import_record, _RecName} ->
                   {{Key, Value}, C2}
               end
           end,
@@ -414,6 +459,18 @@ check_record_fields(AllModules, CServer, TempExpTypes) ->
                     end,
                   Fun = fun() -> lists:foldl(FieldFun, C2, Fields) end,
                   msg_with_position(Fun, FileLocation);
+                {native_record, Name} ->
+                  {FileLocation, Fields} = Value,
+                  {File, _Location} = FileLocation,
+                  Site = {native_record, Name, File},
+                  FieldFun =
+                    fun({_, Field, _}, C4) ->
+                      CheckForm(Field, Site, C4)
+                    end,
+                  Fun = fun() -> lists:foldl(FieldFun, C2, Fields) end,
+                  msg_with_position(Fun, FileLocation);
+                {import_record, _Name} ->
+                  C2;
                 {_OpaqueOrType, Name, NArgs} ->
                   {{_Module, FileLocation, Form, _ArgNames}, _Type} = Value,
                   {File, _Location} = FileLocation,
@@ -503,7 +560,7 @@ get_optional_callbacks(Tuples, ModName) ->
 
 get_spec_info([{Contract, Ln, [{Id, TypeSpec}]}|Left],
 	      SpecMap, CallbackMap, RecordsMap, ModName, OptCb, File)
-  when ((Contract =:= 'spec') or (Contract =:= 'callback')),
+  when Contract =:= 'spec' orelse Contract =:= 'callback',
        is_list(TypeSpec) ->
   MFA = case Id of
 	  {_, _, _} = T -> T;
@@ -562,7 +619,7 @@ core_to_attr_tuples(Core) ->
       %% Starting from Erlang/OTP 26, locally defining a type having
       %% the same name as a built-in type is allowed. Change the tag
       %% from `type` to `user_type` for all such redefinitions.
-      massage_forms(As, sets:new([{version, 2}]))
+      massage_forms(As, sets:new())
   end.
 
 get_core_location([L | _As]) when is_integer(L) -> L;
@@ -590,7 +647,8 @@ massage_type({type, Loc, 'fun',
   Ret = massage_type(Ret0, Defs),
   {type, Loc, 'fun', [Args, Ret]};
 massage_type({type, Loc, Name, Args0}, Defs) when is_list(Args0) ->
-  case sets:is_element({Name, length(Args0)}, Defs) of
+  case sets:is_element({Name, length(Args0)}, Defs) andalso
+       erl_internal:is_type(Name, length(Args0)) of
     true ->
       %% This name for a built-in type has been overriden locally
       %% with a new definition.
@@ -969,11 +1027,11 @@ pp_flags([Flag|Flags]) ->
 				  pp_flags(Flags))).
 
 keep_endian(Flags) ->
-  [cerl:c_atom(X) || X <- Flags, (X =:= little) or (X =:= native)].
+  [cerl:c_atom(X) || X <- Flags, X =:= little orelse X =:= native].
 
 keep_all(Flags) ->
   [cerl:c_atom(X) || X <- Flags,
-		     (X =:= little) or (X =:= native) or (X =:= signed)].
+		     X =:= little orelse X =:= native orelse X =:= signed].
 
 pp_unit(Unit, Ctxt, Cont) ->
   case cerl:concrete(Unit) of
@@ -1105,9 +1163,9 @@ refold_concrete_pat(Val) ->
 	false -> label(cerl:c_tuple_skel(Els))
       end;
     [H|T] ->
-      case  cerl:is_literal(HP=refold_concrete_pat(H))
-	and cerl:is_literal(TP=refold_concrete_pat(T))
-      of
+      HP = refold_concrete_pat(H),
+      TP = refold_concrete_pat(T),
+      case cerl:is_literal(HP) andalso cerl:is_literal(TP) of
 	true -> cerl:abstract(Val);
 	false -> label(cerl:c_cons_skel(HP, TP))
       end;

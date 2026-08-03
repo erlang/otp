@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -72,13 +74,13 @@ end_per_testcase(_Case, _Config) ->
 basic(_Config) ->
     int:auto_attach([init], {?MODULE,auto_attach}),
     S1 = [] = ordsets1:new_set(),
-    ok = i:ib(ordsets1, 86),                    %Set one breakpoint.
+    ok = i:ib(ordsets1, 88),                   %Set one breakpoint.
     S2 = [xxx] = ordsets1:add_element(xxx, S1),
     S3 = [xxx,y] = ordsets1:add_element(y, S2),
-    ok = i:ib(ordsets1, union, 2),              %Set five breakpoints.
+    ok = i:ib(ordsets1, union, 2),  %Set five breakpoints.
     [xxx,y,z] = ordsets1:union(S3, [z]),
     All = lists:sort(int:all_breaks()),
-    [{{ordsets1,86}, _}, {{ordsets1,_},_}|_] = All,
+    [{{ordsets1,88}, _}, {{ordsets1,_},_}|_] = All,
     6 = length(All),
     [] = lists:sort(int:all_breaks(foobar)),
     All = lists:sort(int:all_breaks(ordsets1)),
@@ -98,11 +100,11 @@ attach_loop(Pid, Meta) ->
 	    attach_loop(Pid, Meta)
     end.
 
-attach_cmd({Meta,{break_at,ordsets1,36,2}}, _Pid, Meta) ->
+attach_cmd({Meta,{break_at,ordsets1,38,2}}, _Pid, Meta) ->
     int:meta(Meta, continue);
-attach_cmd({Meta,{break_at,ordsets1,87,_}}, _Pid, Meta) ->
+attach_cmd({Meta,{break_at,ordsets1,89,_}}, _Pid, Meta) ->
     int:meta(Meta, continue);
-attach_cmd({Meta,{break_at,ordsets1,Line,_}}, _Pid, Meta) when 107 =< Line, Line =< 115 ->
+attach_cmd({Meta,{break_at,ordsets1,Line,_}}, _Pid, Meta) when 109 =< Line, Line =< 117 ->
     int:meta(Meta, finish);
 attach_cmd({Meta,{break_at,_Mod,_Line,_Other}}=Cmd, _Pid, Meta) ->
     io:format("attached: no action for ~p", [Cmd]);

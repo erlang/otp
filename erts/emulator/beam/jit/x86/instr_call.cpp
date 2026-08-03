@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,6 +41,10 @@ void BeamGlobalAssembler::emit_dispatch_return() {
 }
 
 void BeamModuleAssembler::emit_return() {
+    emit_return_do(false);
+}
+
+void BeamModuleAssembler::emit_return_do(bool set_I) {
 #ifdef JIT_HARD_DEBUG
     /* Validate return address and {x,0} */
     emit_validate(ArgWord(1));
@@ -51,7 +57,7 @@ void BeamModuleAssembler::emit_return() {
     a.mov(getCPRef(), imm(NIL));
 #endif
 
-    if (erts_alcu_enable_code_atags) {
+    if (erts_alcu_enable_code_atags || set_I) {
         /* See emit_i_test_yield. */
 #if defined(NATIVE_ERLANG_STACK)
         a.mov(ARG3, x86::qword_ptr(E));
@@ -98,7 +104,7 @@ void BeamGlobalAssembler::emit_dispatch_save_calls_export() {
 
     a.mov(ARG1, c_p);
     a.mov(ARG2, RET);
-    runtime_call<2>(save_calls);
+    runtime_call<void (*)(Process *, const Export *), save_calls>();
 
     emit_leave_runtime();
 
@@ -139,7 +145,7 @@ void BeamModuleAssembler::emit_i_call_ext_last(const ArgExport &Exp,
 static ErtsCodeMFA apply3_mfa = {am_erlang, am_apply, 3};
 
 x86::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
-    Label dispatch = a.newLabel(), entry = a.newLabel();
+    Label dispatch = a.new_label(), entry = a.new_label();
 
     align_erlang_cp();
     a.bind(entry);
@@ -157,7 +163,8 @@ x86::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
 
     mov_imm(ARG4, 0);
 
-    runtime_call<4>(apply);
+    runtime_call<const Export *(*)(Process *, Eterm *, ErtsCodePtr, Uint),
+                 apply>();
 
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
@@ -188,7 +195,7 @@ void BeamModuleAssembler::emit_i_apply_only() {
 
 x86::Mem BeamModuleAssembler::emit_fixed_apply(const ArgWord &Arity,
                                                bool includeI) {
-    Label dispatch = a.newLabel(), entry = a.newLabel();
+    Label dispatch = a.new_label(), entry = a.new_label();
 
     align_erlang_cp();
     a.bind(entry);
@@ -208,8 +215,8 @@ x86::Mem BeamModuleAssembler::emit_fixed_apply(const ArgWord &Arity,
 
     mov_imm(ARG5, 0);
 
-    runtime_call<5>(fixed_apply);
-
+    runtime_call<const Export *(*)(Process *, Eterm *, Uint, ErtsCodePtr, Uint),
+                 fixed_apply>();
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     a.test(RET, RET);

@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1999-2026. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,10 +58,10 @@ REDIRECTS=$(foreach guide,$(SYSTEM),system/$(guide).md) \
 
 system core database oam interfaces tools testing documentation:
 	$(V_at)mkdir $@
-system/%.md: | system
+system/%.md: Makefile | system
 	$(gen_verbose)GUIDE=$(basename $(notdir $@)) && \
 		TITLE=$$(grep "$${GUIDE}" ../guides | awk -F: '{print $$2}') && \
-		echo "# $${TITLE}\n\n<script>window.location.replace(\"../system/doc/html/$${GUIDE}.html\")</script>" > $@
+		echo "# $${TITLE}" > $@
 
 ## No nothing for README
 %.md: %.md.in ../../../OTP_VERSION ../../../make/ex_doc_vsn
@@ -78,10 +80,12 @@ man_index.md: src/otp_man_index.beam $(wildcard $(ERL_TOP)/erts/ebin/*.beam) $(w
 	$(gen_verbose)$(ERL) +pc unicode -noshell -pa src -s otp_man_index gen "$@" -s erlang halt
 
 core/erts.md: Makefile | core
-	$(gen_verbose)echo "# erts\n\n<script>window.location.replace(\"../erts/doc/html/index.html\")</script>" > $@
+	$(gen_verbose)echo "# erts" > $@
+
+MISSING_APP_DISCLAIMER="The documentation for this application was not generated because the application was skipped during the source build."
 %.md: Makefile | core database oam interfaces tools testing documentation
 	$(gen_verbose)APP=$(basename $(notdir $@)) && \
-		echo "# $${APP}\n\n<script>window.location.replace(\"../lib/$${APP}/doc/html/index.html\")</script>" > $@
+		echo "# $${APP}\n\n$(MISSING_APP_DISCLAIMER)\n" > $@
 
 HTML_DEPS=README.md man_index.md ../guides $(REDIRECTS)
 EPUB=false

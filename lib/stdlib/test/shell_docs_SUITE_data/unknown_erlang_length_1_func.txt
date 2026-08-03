@@ -1,7 +1,14 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec length(List) -> non_neg_integer() when List :: [term()].[0m
+[1m  length(List)[0m
 
-  Returns the length of [;;4mList[0m.
+  Returns the length of [4mList[0m.
 
   For example:
 

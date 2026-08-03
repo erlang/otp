@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -318,29 +320,34 @@ do_fold_files2([], _Dir, _RegExp, _OrigRE, _Recursive, _Fun, Acc, _Mod) ->
     Acc;
 do_fold_files2([File|T], Dir, RegExp, OrigRE, Recursive, Fun, Acc0, Mod) ->
     FullName = filename:join(Dir, File),
-    case do_is_regular(FullName, Mod) of
-	true  ->
-	    case (catch re:run(File, if is_binary(File) -> OrigRE; 
-					true -> RegExp end, 
-			       [{capture,none}])) of
-		match  -> 
-		    Acc = Fun(FullName, Acc0),
-		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc, Mod);
-		{'EXIT',_} ->
-		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc0, Mod);
-		nomatch ->
-		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc0, Mod)
-	    end;
-	false ->
-	    case Recursive andalso do_is_dir(FullName, Mod) of
-		true ->
-		    Acc1 = do_fold_files1(FullName, RegExp, OrigRE, Recursive,
-					  Fun, Acc0, Mod),
-		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc1, Mod);
-		false ->
-		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc0, Mod)
-	    end
-    end.
+    Acc1 = case do_is_regular(FullName, Mod) of
+               true  ->
+                   try
+                       re:run(File,
+                              if
+                                  is_binary(File) -> OrigRE;
+                                  true -> RegExp
+                              end,
+                              [{capture,none}])
+                   of
+                       match ->
+                           Fun(FullName, Acc0);
+                       nomatch ->
+                           Acc0
+                   catch
+                       _:_ ->
+                           Acc0
+                   end;
+               false ->
+                   case Recursive andalso do_is_dir(FullName, Mod) of
+                       true ->
+                           do_fold_files1(FullName, RegExp, OrigRE, Recursive,
+                                          Fun, Acc0, Mod);
+                       false ->
+                           Acc0
+                   end
+           end,
+    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc1, Mod).
 
 do_last_modified(File, Mod) ->
     case eval_read_file_info(File, Mod) of
@@ -997,7 +1004,7 @@ safe_relative_path(Path, "") ->
 safe_relative_path(Path, Cwd) ->
     srp_path(filename:split(Path),
              Cwd,
-             sets:new([{version, 2}]),
+             sets:new(),
              []).
 
 srp_path([], _Cwd, _Seen, []) ->
@@ -1017,7 +1024,7 @@ srp_path([<<"..">>|_Segs], _Cwd, _Seen, []) ->
 srp_path([<<"..">>|Segs], Cwd, Seen, [_|_]=Acc) ->
     srp_path(Segs, Cwd, Seen, lists:droplast(Acc));
 srp_path([clear|Segs], Cwd, _Seen, Acc) ->
-    srp_path(Segs, Cwd, sets:new([{version, 2}]), Acc);
+    srp_path(Segs, Cwd, sets:new(), Acc);
 srp_path([Seg|_]=Segs, Cwd, Seen, Acc) ->
     case filename:pathtype(Seg) of
         relative ->

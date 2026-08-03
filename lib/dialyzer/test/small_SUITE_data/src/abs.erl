@@ -76,3 +76,6 @@ int() ->
 
 float() ->
     math:sqrt(1.0).
+
+%% SPDX-License-Identifier: Apache-2.0
+%% SPDX-FileCopyrightText: 2024 Erlang/OTP and its contributors

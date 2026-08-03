@@ -1,8 +1,10 @@
 # 
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2008-2024. All Rights Reserved.
-# 
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2008-2025. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 # 
 # Note, this makefile is not called during normal build process, it should
@@ -84,7 +86,7 @@ KERNEL_SRC=$(ERL_TOP)/lib/kernel/src
 KERNEL_INCLUDE=$(ERL_TOP)/lib/kernel/include
 STDLIB_INCLUDE=$(ERL_TOP)/lib/stdlib/include
 
-ERL_COMPILE_FLAGS += -I$(KERNEL_SRC) -I$(KERNEL_INCLUDE)
+ERL_COMPILE_FLAGS += -I$(KERNEL_SRC) -I$(KERNEL_INCLUDE) +nowarn_deprecated_catch
 
 ifeq ($(ERL_DETERMINISTIC),yes)
 	ERL_COMPILE_FLAGS += +deterministic
@@ -171,10 +173,5 @@ dialyzer: $(DIA_PLT)
                   ../ebin \
                   $(DIA_WARNINGS) \
                   --verbose
-
-# Include dependencies -- list below added by PaN
-$(EBIN)/erl_prim_loader.beam: $(KERNEL_SRC)/inet_boot.hrl $(KERNEL_INCLUDE)/file.hrl
-$(EBIN)/prim_file.beam: $(KERNEL_SRC)/file_int.hrl $(KERNEL_INCLUDE)/file.hrl
-$(EBIN)/prim_inet.beam: $(KERNEL_SRC)/inet_int.hrl $(KERNEL_INCLUDE)/inet_sctp.hrl
-$(EBIN)/prim_zip.beam: zip_internal.hrl $(KERNEL_INCLUDE)/file.hrl $(STDLIB_INCLUDE)/zip.hrl
-$(EBIN)/init.beam: $(KERNEL_INCLUDE)/file.hrl
+DEP_REL_TOP=../../../lib/
+include $(ERL_TOP)/make/dep.mk

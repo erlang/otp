@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +22,209 @@ limitations under the License.
 # Syntax_Tools Release Notes
 
 This document describes the changes made to the Syntax_Tools application.
+
+## Syntax_Tools 4.1
+
+### Fixed Bugs and Malfunctions
+
+- `merl:compile_and_load/1` could crash when compiling code containing comments.
+  
+  `merl:quote/2` would fail to handle literal UTF-8 encoded binaries.
+
+  Own Id: OTP-20077 Aux Id: [PR-10243], [PR-10962]
+
+[PR-10243]: https://github.com/erlang/otp/pull/10243
+[PR-10962]: https://github.com/erlang/otp/pull/10962
+
+### Improvements and New Features
+
+- The legacy `and` and `or` operators have been replaced with other language constructs.
+
+  Own Id: OTP-19744 Aux Id: [PR-10114], [PR-10554], [PR-10568], [PR-10579], [PR-10585], [PR-10598], [PR-10710], [PR-10718], [PR-10580], [PR-10730]
+
+- Multi-valued comprehensions according to [EEP 78](https://www.erlang.org/eeps/eep-0078) has been implemented.
+  
+  Example:
+  
+  ```erlang
+  > [I, -I || I <- lists:seq(1, 5)].
+  [1,-1,2,-2,3,-3,4,-4,5,-5]
+  ```
+
+  Own Id: OTP-19942 Aux Id: [PR-9374]
+
+- Added support for `-unsafe` attributes, which is used to mark functions as unsafe to use. 
+  
+  This is similar to but separate from deprecation, and the compiler will by default now generate warnings for calls to functions in Erlang/OTP that are known to be always unsafe.
+  
+  Furthermore, `m:xref` can now be used to find calls to functions in another application that lack a `-doc` attribute (`undocumented_function_calls`), calls to functions in another application marked `-doc false.` (`private_function_calls`), as well as calls to unsafe functions (`unsafe_function_calls`).
+
+  Own Id: OTP-20066 Aux Id: [PR-10839]
+
+[PR-10114]: https://github.com/erlang/otp/pull/10114
+[PR-10554]: https://github.com/erlang/otp/pull/10554
+[PR-10568]: https://github.com/erlang/otp/pull/10568
+[PR-10579]: https://github.com/erlang/otp/pull/10579
+[PR-10585]: https://github.com/erlang/otp/pull/10585
+[PR-10598]: https://github.com/erlang/otp/pull/10598
+[PR-10710]: https://github.com/erlang/otp/pull/10710
+[PR-10718]: https://github.com/erlang/otp/pull/10718
+[PR-10580]: https://github.com/erlang/otp/pull/10580
+[PR-10730]: https://github.com/erlang/otp/pull/10730
+[PR-9374]: https://github.com/erlang/otp/pull/9374
+[PR-10839]: https://github.com/erlang/otp/pull/10839
+
+## Syntax_Tools 4.0.3
+
+### Fixed Bugs and Malfunctions
+
+- Corrected the `af_zip_generator()` type in the parser and `syntax_tools`.
+
+  Own Id: OTP-19939
+
+### Improvements and New Features
+
+- Release applications, tests, and documentation are now placed in their respective directories. Source SBOM with more packages.
+  
+  A `make release` application places only the necessary code in the release folder. The main change is that the documentation and examples are not part of the release folder anymore.
+  
+  `make release_docs` places the documentation in the released code under the `doc` folder.
+  
+  `make release_tests` places the tests in their own directory. It used to be the case that some source code was mixed with the tests, and this should not happen anymore.
+  
+  The Software Bill of Materials places the examples folders as if they are part of the `SPDX-otp-<app>-doc` packge, instead of placing examples as if they were running source code.
+  
+  Overall, this change cleans up many things that were not quite correct by definition, and everything should still continue to work as expected. To test a release, one can still run `./Install -minimal \`pwd\`` and add the release to the `PATH`. After that, one can run tests as usual, going into the released tests directory, entering `test_server` and running the emulator.
+  
+  Improves the source Software-Bill-of-Materials
+  
+  - The improvements adds new SPDX relations for `asmjit` and `zlib` to be `optional_components_of` the Erlang/OTP project.
+  - The `autoconf` scripts in `make` and `erts` have now been categorised as `build_tool_of` the Erlang/OTP project.
+  - All remaining `configure`, `configure.ac`, `config.h.in`, `Makefile.in`, `Makefile.src`, `EMakefile`, and `GNUMakefile` are now part of a specific SPDX package with relation `build_tool_of` the Erlang/OTP project.
+
+  Own Id: OTP-19886 Aux Id: [PR-10434]
+
+[PR-10434]: https://github.com/erlang/otp/pull/10434
+
+## Syntax_Tools 4.0.2
+
+### Fixed Bugs and Malfunctions
+
+- Annotate map comprehensions and generators
+
+  Own Id: OTP-19817 Aux Id: [GH-10119]
+
+[GH-10119]: https://github.com/erlang/otp/issues/10119
+
+## Syntax_Tools 4.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed zip generator crash in `annotate_bindings/1`
+
+  Own Id: OTP-19731 Aux Id: [GH-10102], [PR-10104]
+
+[GH-10102]: https://github.com/erlang/otp/issues/10102
+[PR-10104]: https://github.com/erlang/otp/pull/10104
+
+## Syntax_Tools 4.0
+
+### Fixed Bugs and Malfunctions
+
+- A few minor issues were corrected in `m:syntax_tools`, as well in the `m:erl_anno` module.
+
+  Own Id: OTP-19422 Aux Id: [PR-9253]
+
+[PR-9253]: https://github.com/erlang/otp/pull/9253
+
+### Improvements and New Features
+
+- Comprehensions have been extended with zip generators  according to [EEP 73](https://www.erlang.org/eeps/eep-0073). 
+  
+  Example:
+  
+  ```
+  1> [A+B || A <- [1,2,3] && B <- [4,5,6]].
+  [5,7,9]
+  ```
+
+  Own Id: OTP-19184 Aux Id: [PR-8926]
+
+- New strict generators have been added for comprehensions.
+  
+  The currently existing generators are "relaxed": they ignore terms in the
+  right-hand side expression that do not match the left-hand side pattern.
+  
+  The new strict generators fail with exception `badmatch` if a pattern doesn't match.
+  
+  Examples:
+  
+  Using the current relaxed generator operator `<-`, any element not matching
+  the pattern `{_,_}` will be silently discarded:
+  
+  ```
+  1> [T || {_,_}=T <- [{ok,1},ok,{error,2}]].
+  [{ok,1},{error,2}]
+  ```
+  If the intention is that all lists processed by a list comprehension must only
+  contain tuples of size two, using the new strict version of the operator ensures
+  that term not matching will cause a crash:
+  
+  ```
+  2> [T || {_,_}=T <:- [{ok,1},ok,{error,2}]].
+  ** exception error: no match of right hand side value ok
+  ```
+  Using the strict generator operator to mark the intention that all list elements must match the pattern could help finding mistakes quicker if something unpexected is added to the list processed by the generator.
+  
+  The strict version for bitstring generators is `<:=`.
+
+  Own Id: OTP-19317 Aux Id: [PR-8625]
+
+- Fixed licenses in files and added ORT curations to the following apps: otp, eldap, erl_interface, eunit, parsetools, stdlib, syntax_tools, and ERTS.
+
+  Own Id: OTP-19478 Aux Id: [PR-9376], [PR-9402], [PR-9819]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-8926]: https://github.com/erlang/otp/pull/8926
+[PR-8625]: https://github.com/erlang/otp/pull/8625
+[PR-9376]: https://github.com/erlang/otp/pull/9376
+[PR-9402]: https://github.com/erlang/otp/pull/9402
+[PR-9819]: https://github.com/erlang/otp/pull/9819
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+
+## Syntax_Tools 3.2.2.2
+
+### Fixed Bugs and Malfunctions
+
+- Annotate map comprehensions and generators
+
+  Own Id: OTP-19817 Aux Id: [GH-10119]
+
+[GH-10119]: https://github.com/erlang/otp/issues/10119
+
+## Syntax_Tools 3.2.2.1
+
+### Fixed Bugs and Malfunctions
+
+- Backport fix for annotating maybe to OTP-27
+
+  Own Id: OTP-19740 Aux Id: [GH-10103], [PR-10118]
+
+[GH-10103]: https://github.com/erlang/otp/issues/10103
+[PR-10118]: https://github.com/erlang/otp/pull/10118
+
+## Syntax_Tools 3.2.2
+
+### Fixed Bugs and Malfunctions
+
+- Annotation of `maybe` expressions has been corrected.
+
+  Own Id: OTP-19405 Aux Id: [PR-8811]
+
+[PR-8811]: https://github.com/erlang/otp/pull/8811
 
 ## Syntax_Tools 3.2.1
 
@@ -59,6 +264,14 @@ This document describes the changes made to the Syntax_Tools application.
 
 [PR-7535]: https://github.com/erlang/otp/pull/7535
 [PR-8026]: https://github.com/erlang/otp/pull/8026
+
+## Syntax_Tools 3.1.0.1
+
+### Fixed Bugs and Malfunctions
+
+* Annotate map comprehensions and generators
+
+  Own Id: OTP-19817 Aux Id: GH-10119
 
 ## Syntax_Tools 3.1
 

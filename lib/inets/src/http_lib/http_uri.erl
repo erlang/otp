@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,6 +39,8 @@ For more information about URI, see
 -moduledoc(#{since => "OTP R15B01"}).
 
 -export([encode/1, decode/1]).
+
+-unsafe([{'_', '_', "use uri_string instead"}]).
 
 -deprecated({encode, 1, "use uri_string:quote function instead"}).
 -deprecated({decode, 1, "use uri_string:unquote function instead"}).

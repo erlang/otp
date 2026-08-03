@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2013-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -147,7 +149,7 @@ do_traffic(Factor) ->
     ?DL("do_traffic -> make sure we have distro"),
     true = is_alive(),  %% need distribution for peer nodes
     ?DL("do_traffic -> get nodes"),
-    Nodes = enslave(),
+    Nodes = get_nodes(),
     ?DL("do_traffic -> ping nodes"),
     [] = ping(Nodes),  %% drop client node
     ?DL("do_traffic -> start nodes"),
@@ -161,13 +163,13 @@ do_traffic(Factor) ->
     ?DL("do_traffic -> done"),
     ok.
 
-%% enslave/0
+%% get_nodes/0
 %%
 %% Start four nodes;
 %%   - one to implement a Diameter server,
 %%   - three to implement a client.
 
-enslave() ->
+get_nodes() ->
     Here = filename:dirname(code:which(?MODULE)),
     Ebin = filename:join([Here, "..", "ebin"]),
     Args = ["-pa", Here, Ebin],

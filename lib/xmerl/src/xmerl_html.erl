@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -31,10 +33,11 @@
 	 '#element#'/5,
 	 '#text#'/1,
 	 '#cdata#'/1,
+	 '#comment#'/1,
 	 p/4]).
 
 -import(xmerl_lib, [start_tag/2, end_tag/1, is_empty_data/1,
-		    find_attribute/2, export_text/1]).
+		    find_attribute/2, export_text/1, export_comment/1]).
 
 -include("xmerl.hrl").
 
@@ -50,6 +53,10 @@
 %% Handled the same as text.
 '#cdata#'(Text) ->
     export_text(Text).
+
+%% The '#comment#' function is called for every comment element.
+'#comment#'(Text) ->
+    export_comment(Text).
 
 %% The '#root#' tag is called when the entire structure has been
 %% exported. It does not appear in the structure itself.

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,8 +22,6 @@
 
 -module(pubkey_cert).
 -moduledoc false.
-
--include("public_key.hrl").
 
 %% path validation
 -export([init_validation_state/3,
@@ -47,7 +47,8 @@
          match_name/3,
 	 extensions_list/1,
          cert_auth_key_id/1,
-         time_str_2_gregorian_sec/1
+         time_str_2_gregorian_sec/1,
+         parse_and_check_validity_dates/1
         ]).
 
 %% Generate test data
@@ -55,7 +56,8 @@
          x509_pkix_sign_types/1,
          root_cert/2]).
 
--define(NULL, 0).
+-include("public_key_internal.hrl").
+-define(MAX_POLICY_TREE_NODES, 1000).
 
 %%====================================================================
 %% Internal application APIs
@@ -183,7 +185,7 @@ parse_and_check_validity_dates(OtpCert) ->
         
         % Expiration check
         if
-            ((NotBefore =< Now) and (Now =< NotAfter)) -> ok;
+            NotBefore =< Now, Now =< NotAfter -> ok;
             true -> expired
         end
 
@@ -237,17 +239,23 @@ validate_names(Cert, Permit, Exclude, Last, UserState, VerifyFun) ->
 			       AltSubject#'Extension'.extnValue
 		       end,
 
-	    case (is_permitted(Name, Permit) andalso
-		  is_permitted(AltNames, Permit) andalso
-		  (not is_excluded(Name, Exclude)) andalso
-		  (not is_excluded(AltNames, Exclude))) of
-		true ->
-		    UserState;
-		false ->
-		    verify_fun(Cert, {bad_cert, name_not_permitted},
-			      UserState, VerifyFun)
+	    case is_permitted_name(Name, Permit, Exclude) of
+                false ->
+                    verify_fun(Cert, {bad_cert, distinguished_name_not_permitted},
+                               UserState, VerifyFun);
+                true ->
+                    case is_permitted_name(AltNames, Permit, Exclude) of
+                        false ->
+                            verify_fun(Cert, {bad_cert, name_not_permitted},
+                                       UserState, VerifyFun);
+                        true ->
+                            UserState
+                    end
 	    end
     end.
+
+is_permitted_name(Name, Permit, Exclude) ->
+    (is_permitted(Name, Permit) andalso (not is_excluded(Name, Exclude))).
 
 %%--------------------------------------------------------------------
 -spec validate_signature(#cert{}, DER::binary(),
@@ -258,9 +266,10 @@ validate_names(Cert, Permit, Exclude, Last, UserState, VerifyFun) ->
 %% working_public_key_algorithm, the working_public_key, and
 %% the working_public_key_parameters in path_validation_state.
 %%--------------------------------------------------------------------
-validate_signature(Cert, DerCert, Key, KeyParams,
+validate_signature(Cert, DerCert, Key, KeyParams0,
 		   UserState, VerifyFun) ->
     OtpCert = otp_cert(Cert),
+    KeyParams = key_params(OtpCert#'OTPCertificate'.tbsCertificate, KeyParams0),
     case verify_signature(OtpCert, DerCert, Key, KeyParams) of
 	true ->
 	    UserState;
@@ -278,7 +287,7 @@ validate_signature(Cert, DerCert, Key, KeyParams,
 %% Description: Extracts data from DerCert needed to call public_key:verify/4.
 %%--------------------------------------------------------------------
 verify_data(DerCert) ->
-    {ok, OtpCert} = pubkey_cert_records:decode_cert(DerCert),
+    {ok, OtpCert} = pubkey_cert_records:decode_cert(DerCert, relaxed),
     extract_verify_data(OtpCert, DerCert).
 
 %%--------------------------------------------------------------------
@@ -673,11 +682,11 @@ x509_pkix_sign_types(#'SignatureAlgorithm'{algorithm = Alg}) ->
 %% Description: Generate a self-signed root cert
 %%%%--------------------------------------------------------------------
 root_cert(Name, Opts) ->
-    PrivKey = gen_key(proplists:get_value(key, Opts, default_key_gen())),
+    {SPubkeyInfo, PrivKey} = key_info(Opts),
+
     TBS = cert_template(),
     Issuer = subject("root", Name),
     SignatureId =  sign_algorithm(PrivKey, Opts),
-    SPI = public_key(PrivKey, SignatureId),
 
     OTPTBS =
         TBS#'OTPTBSCertificate'{
@@ -685,7 +694,7 @@ root_cert(Name, Opts) ->
           issuer = Issuer,
           validity = validity(Opts),
           subject = Issuer,
-          subjectPublicKeyInfo = SPI,
+          subjectPublicKeyInfo = SPubkeyInfo,
           extensions = extensions(undefined, ca, Opts)
          },
     #{cert => public_key:pkix_sign(OTPTBS, PrivKey),
@@ -713,21 +722,30 @@ validate_extensions(Cert, [], ValidationState =
 	true when SelfSigned ->
 	    {ValidationState, UserState0};
 	true  ->
-            UserState = validate_ext_key_usage(Cert, UserState0, VerifyFun, endentity),
-	    {ValidationState#path_validation_state{max_path_length = Len - 1},
-	     UserState};
-	false ->
-	    %% basic_constraint must appear in certs used for digital sign
-	    %% see 4.2.1.10 in rfc 3280
+            %% If the cA boolean is not asserted (basic_constraint)
+            %% then the keyCertSign bit in the key usage extension MUST NOT be
+            %% asserted. See 4.2.1.9 in RFC 5280
 	    case is_digitally_sign_cert(Cert) of
 		true ->
-		    missing_basic_constraints(Cert, SelfSigned,
+                     missing_basic_constraints(Cert, SelfSigned,
 					      ValidationState, VerifyFun,
 					      UserState0, Len);
-		false -> %% Example CRL signer only
-		    {ValidationState, UserState0}
-	    end
+                false ->
+                    UserState = validate_ext_key_usage(Cert, UserState0, VerifyFun, endentity),
+                    {ValidationState#path_validation_state{max_path_length = Len - 1},
+                     UserState}
+            end;
+        false ->
+            %% If the basic constraints extension is not present in a
+            %% version 3 certificate, or the extension is present but the cA boolean
+            %% is not asserted, then the certified public key MUST NOT be used to
+            %% verify certificate signature.
+            missing_basic_constraints(Cert, SelfSigned,
+                                      ValidationState, VerifyFun,
+                                      UserState0, Len)
     end;
+%% The pathLenConstraint field is meaningful only if cA is set to
+%% TRUE.
 validate_extensions(Cert,
 		    [#'Extension'{extnID = ?'id-ce-basicConstraints',
 				  extnValue =
@@ -745,8 +763,9 @@ validate_extensions(Cert,
 								  Length},
 			basic_constraint, SelfSigned,
 			UserState, VerifyFun);
-%% The pathLenConstraint field is meaningful only if cA is set to
-%% TRUE.
+
+%% cA:false — per RFC 5280 Section 6.1.4(k), treated identically to
+%% absent basicConstraints. The base case clause rejects if intermediate.
 validate_extensions(Cert, [#'Extension'{extnID = ?'id-ce-basicConstraints',
 					   extnValue =
 					       #'BasicConstraints'{cA = false}} |
@@ -805,13 +824,14 @@ validate_extensions(Cert, [#'Extension'{extnID = ?'id-ce-certificatePolicies',
 			      | Rest],
                     ValidationState,
 		    ExistBasicCon, SelfSigned, UserState, VerifyFun) ->
-    Tree = process_policy_tree(Info, SelfSigned, ValidationState),
+    {Tree, NodeCount} = process_policy_tree(Info, SelfSigned, ValidationState),
     validate_extensions(Cert, Rest,
 			ValidationState#path_validation_state{
                           policy_ext_present = true,
                           current_any_policy_qualifiers =
                               current_any_policy_qualifiers(Info),
-			  valid_policy_tree = Tree},
+			  valid_policy_tree = Tree,
+                          policy_tree_node_count = NodeCount},
 			ExistBasicCon, SelfSigned, UserState, VerifyFun);
 validate_extensions(Cert, [#'Extension'{extnID = ?'id-ce-policyConstraints'} = Ext
 			      | Rest], ValidationState, ExistBasicCon,
@@ -858,8 +878,9 @@ validate_extensions(Cert, [#'Extension'{} = Extension | Rest],
 			UserState, VerifyFun).
 
 handle_last_cert(Cert, #path_validation_state{last_cert = true,
-                                                 user_initial_policy_set = PolicySet,
-                                                 valid_policy_tree = Tree} = ValidationState0) ->
+                                              user_initial_policy_set = PolicySet,
+                                              valid_policy_tree = Tree,
+                                              policy_tree_node_count = NodeCount0} = ValidationState0) ->
     OtpCert = otp_cert(Cert),
     TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
     Extensions =
@@ -874,9 +895,13 @@ handle_last_cert(Cert, #path_validation_state{last_cert = true,
             _  ->
                 ValidationState0
     end,
-    ValidTree = policy_tree_intersection(PolicySet, Tree),
+    %% No assert needed — growth here is bounded by UserPolicySet size
+    %% (relying-party config, not attacker-controlled). Terminal operation
+    %% with no subsequent amplification possible.
+    {ValidTree, NodeCount} = policy_tree_intersection(PolicySet, Tree, NodeCount0),
     validate_policy_tree(Cert,
-                         ValidationState#path_validation_state{valid_policy_tree = ValidTree});
+                         ValidationState#path_validation_state{valid_policy_tree = ValidTree,
+                                                               policy_tree_node_count = NodeCount});
 handle_last_cert(_, ValidationState) ->
     ValidationState.
 
@@ -942,24 +967,28 @@ assert_valid_policy_tree(false, _Tree) -> % 6.1.3 e
 %% certificate and the valid_policy_tree is not NULL, process the
 %% policy information by performing the following steps in order:
 process_policy_tree(PolicyInformation, SelfSigned,
-                    #path_validation_state{valid_policy_tree = Tree0} =
-                        ValidationState) ->  
+                    #path_validation_state{valid_policy_tree = Tree0,
+                                           policy_tree_node_count = NodeCount0} =
+                        ValidationState) ->
     case pubkey_policy_tree:is_empty(Tree0) of
         true ->
-            Tree0;
+            {Tree0, NodeCount0};
         false ->
             %% Step 1 & 2
-            Tree = add_policy_children(PolicyInformation,
+            {Tree, NodeCount} = add_policy_children(PolicyInformation,
                                        SelfSigned, ValidationState),
+            assert_policy_tree_node_count(NodeCount),
             %% Step 3: If there is a node in the valid_policy_tree of depth i-1 or
             %% less without any child nodes, delete that node.  Repeat this step
             %% until there are no nodes of depth i-1 or less without children.
-            pubkey_policy_tree:prune_tree(Tree) 
+            PrunedTree = pubkey_policy_tree:prune_tree(Tree),
+            {PrunedTree, NodeCount}
     end.
 
 %% 6.1.3 d
 add_policy_children(PolicyInfoList0, SelfSigned,
                     #path_validation_state{valid_policy_tree = Tree0,
+                                           policy_tree_node_count = NodeCount0,
                                            inhibit_any_policy = AnyPolicyConstraint,
                                            cert_num = CertNum,
                                            max_path_length = PathLen
@@ -978,17 +1007,16 @@ add_policy_children(PolicyInfoList0, SelfSigned,
         fun(#{expected_policy_set := ExpPolicySet}) ->
                 policy_children(ExpPolicySet, PolicyInfoList)
         end,
-    Tree1 = pubkey_policy_tree:add_leaves(Tree0, LeafFun),
-    
+    {Tree1, NodeCount1} = pubkey_policy_tree:add_leaves(Tree0, NodeCount0, LeafFun),
     %% posibly ii
     AllLeaves = pubkey_policy_tree:all_leaves(Tree1),
     Siblings = fun(#{valid_policy := ?anyPolicy}) ->
                        any_policy_children(AllLeaves, PolicyInfoList);
                   (_) -> []
                end,
-    Tree = pubkey_policy_tree:add_leaf_siblings(Tree1, Siblings),
+    {Tree, NodeCount} = pubkey_policy_tree:add_leaf_siblings(Tree1, NodeCount1, Siblings),
     %% Step 2
-    handle_any_ext(Tree, AnyExt, AnyPolicyConstraint, SelfSigned, CertNum, PathLen).
+    handle_any_ext({Tree, NodeCount}, AnyExt, AnyPolicyConstraint, SelfSigned, CertNum, PathLen).
 
 %% 6.1.3 - d 1 i
 %% Step 1: For each policy P not equal to anyPolicy in the certificate
@@ -1040,9 +1068,9 @@ any_policy_children(_, _) ->
 %%   expected_policy_set in the parent node, set the qualifier_set to
 %%   AP-Q, and set the expected_policy_set to the value in the
 %%   valid_policy from this node.
-handle_any_ext(Tree, undefined, _, _, _,_) ->
-    Tree;
-handle_any_ext(Tree, #'PolicyInformation'{
+handle_any_ext({Tree, NodeCount}, undefined, _, _, _,_) ->
+    {Tree, NodeCount};
+handle_any_ext({Tree, NodeCount0}, #'PolicyInformation'{
                            policyIdentifier = ?anyPolicy,
                            policyQualifiers = Qualifiers}, AnyPolicyConstraint,
                SelfSigned, CertNum, PathLen) ->
@@ -1053,9 +1081,9 @@ handle_any_ext(Tree, #'PolicyInformation'{
             Siblings = fun(Node) ->
                                any_ext_policy_children(Node, Qualifiers, AllLeaves)
                        end,
-            pubkey_policy_tree:add_leaf_siblings(Tree, Siblings);
+            pubkey_policy_tree:add_leaf_siblings(Tree, NodeCount0, Siblings);
         false ->
-            Tree
+            {Tree, NodeCount0}
     end.
 
 any_ext_policy_children(#{expected_policy_set := ExpPolicySet}, Qualifiers, AllLeaves) ->
@@ -1070,23 +1098,26 @@ any_ext_policy_children(#{expected_policy_set := ExpPolicySet}, Qualifiers, AllL
 %% 6.1.4. b start:
 handle_policy_mappings(Cert,
                        #path_validation_state{valid_policy_tree = Tree0,
+                                              policy_tree_node_count = NodeCount0,
                                               policy_mapping_ext =
                                                   #'Extension'{extnID = ?'id-ce-policyMappings',
                                                                extnValue = PolicyMappings}}
                        = ValidationState) ->
-    case handle_policy_mappings(PolicyMappings, Cert, Tree0, ValidationState) of
-        {tree, Tree} ->
-            ValidationState#path_validation_state{valid_policy_tree = Tree};
+    case handle_policy_mappings(PolicyMappings, Cert, Tree0, NodeCount0, ValidationState) of
+        {tree, Tree, NodeCount} ->
+            ValidationState#path_validation_state{valid_policy_tree = Tree,
+                                                  policy_tree_node_count = NodeCount};
         {user_state, UState} ->
             ValidationState#path_validation_state{user_state = UState}
     end.
 
-handle_policy_mappings([], _, Tree, _) ->
-    {tree, Tree};
-handle_policy_mappings([Mappings | Rest], Cert, Tree0, ValidationState) ->
-    case handle_policy_mapping(Mappings, Cert, Tree0, ValidationState) of
-        {tree, Tree} ->
-            handle_policy_mappings(Rest, Cert, Tree, ValidationState);
+handle_policy_mappings([], _, Tree, NodeCount, _) ->
+    {tree, Tree, NodeCount};
+handle_policy_mappings([Mappings | Rest], Cert, Tree0, NodeCount0, ValidationState) ->
+    case handle_policy_mapping(Mappings, Cert, Tree0, NodeCount0, ValidationState) of
+        {tree, Tree, NodeCount} ->
+            assert_policy_tree_node_count(NodeCount),
+            handle_policy_mappings(Rest, Cert, Tree, NodeCount, ValidationState);
         Other ->
             Other
     end.
@@ -1095,24 +1126,20 @@ handle_policy_mappings([Mappings | Rest], Cert, Tree0, ValidationState) ->
 %% special value anyPolicy does not appear as an issuerDomainPolicy or
 %% a subjectDomainPolicy.
 handle_policy_mapping(#'PolicyMappings_SEQOF'{
-                         issuerDomainPolicy =
-                             IssuerPolicy,
-                         subjectDomainPolicy =
-                             SubjectPolicy} = Ext,
-                      Cert, Tree0,
-                      #path_validation_state{inhibit_policy_mapping =
-                                                 PolicyMappingConstraint,
-                                             current_any_policy_qualifiers =
-                                                 AnyQualifiers,
+                         issuerDomainPolicy = IssuerPolicy,
+                         subjectDomainPolicy = SubjectPolicy} = Ext,
+                      Cert, Tree0, NodeCount0,
+                      #path_validation_state{inhibit_policy_mapping = PolicyMappingConstraint,
+                                             current_any_policy_qualifiers = AnyQualifiers,
                                              verify_fun = VerifyFun,
-                                             user_state = UserState}
-                     ) ->
+                                             user_state = UserState}) ->
     case not (?anyPolicy == IssuerPolicy) andalso
         not (?anyPolicy == SubjectPolicy) of
         true ->
-            Tree = handle_policy_mapping_ext(Ext, Tree0,
-                                             PolicyMappingConstraint, AnyQualifiers),
-            {tree, Tree};
+            {Tree, NodeCount} =
+                handle_policy_mapping_ext(Ext, Tree0, NodeCount0,
+                                          PolicyMappingConstraint, AnyQualifiers),
+            {tree, Tree, NodeCount};
         false ->
             UserState = verify_fun(Cert, {bad_cert, {invalid_policy_mapping, Ext}},
                                    UserState, VerifyFun),
@@ -1121,9 +1148,8 @@ handle_policy_mapping(#'PolicyMappings_SEQOF'{
 
 %% 6.1.4. b continue:
 handle_policy_mapping_ext(#'PolicyMappings_SEQOF'{
-                         issuerDomainPolicy =
-                             IssuerPolicy},
-                         Tree0, 0, _) -> %% 6.1.4. b 2:
+                             issuerDomainPolicy = IssuerPolicy},
+                         Tree0, NodeCount, 0, _) -> %% 6.1.4. b 2:
     %% (2) If the policy_mapping variable is equal to 0:
 
     %% (i) delete each node of depth i in the valid_policy_tree where
@@ -1135,11 +1161,11 @@ handle_policy_mapping_ext(#'PolicyMappings_SEQOF'{
     %% children.
 
     Tree = pubkey_policy_tree:prune_leaves(Tree0, IssuerPolicy),
-    pubkey_policy_tree:prune_tree(Tree);
+    {pubkey_policy_tree:prune_tree(Tree), NodeCount};
 handle_policy_mapping_ext(#'PolicyMappings_SEQOF'{
                              issuerDomainPolicy = IssuerPolicy,
                              subjectDomainPolicy = SubjectPolicy},
-                          Tree, N, AnyQualifiers) when N > 0 -> %% 6.1.4. b 1:
+                          Tree, NodeCount0, N, AnyQualifiers) when N > 0 -> %% 6.1.4. b 1:
    
     %% (1) If the policy_mapping variable is greater than 0, for each
     %% node in the valid_policy_tree of depth i where ID-P is the
@@ -1190,9 +1216,9 @@ handle_policy_mapping_ext(#'PolicyMappings_SEQOF'{
 
     case pubkey_policy_tree:map_leaves(Tree, MapPolicy) of
         Tree -> %% If no policy was mapped!
-            pubkey_policy_tree:add_leaf_siblings(Tree, AnySiblings);
+            pubkey_policy_tree:add_leaf_siblings(Tree, NodeCount0, AnySiblings);
         NewTree ->
-            NewTree
+            {NewTree, NodeCount0}
     end.
 
 %% 6.1.4 i
@@ -1256,12 +1282,12 @@ maybe_decrement(N, true) ->
 
 %% Step G from RFC
 
-policy_tree_intersection([?anyPolicy], Tree) -> % (ii) from RFC
-    Tree;
-policy_tree_intersection(UserPolicySet, Tree0) ->
+policy_tree_intersection([?anyPolicy], Tree, NodeCount) -> % (ii) from RFC
+    {Tree, NodeCount};
+policy_tree_intersection(UserPolicySet, Tree0, NodeCount0) ->
     case pubkey_policy_tree:is_empty(Tree0) of
         true ->  % (i) from RFC
-            Tree0;
+            {Tree0, NodeCount0};
         false -> % (iii) from RFC
             %% Step 1 from RFC
             ValidPolicyNodeSet = pubkey_policy_tree:valid_policy_node_set(Tree0),
@@ -1271,10 +1297,11 @@ policy_tree_intersection(UserPolicySet, Tree0) ->
             Tree1 = pubkey_policy_tree:prune_invalid_nodes(Tree0, InvalidNodes),
 
             %% Step 3 from RFC
-            Tree = handle_any_policy_leaves(Tree1, ValidPolicyNodeSet, UserPolicySet),
+            {Tree, NodeCount} =
+                handle_any_policy_leaves(Tree1, NodeCount0, ValidPolicyNodeSet, UserPolicySet),
 
             %% Step 4 from RFC
-            pubkey_policy_tree:prune_tree(Tree)
+            {pubkey_policy_tree:prune_tree(Tree), NodeCount}
     end.
 
 apply_user_constraints(_, [?anyPolicy]) ->
@@ -1296,21 +1323,22 @@ apply_user_constraints([#{valid_policy := Policy} = Node | Rest],
             apply_user_constraints(Rest, UserPolicySet, [Node | Acc])
     end.
 
-handle_any_policy_leaves(Tree, _, [?anyPolicy]) ->
-    Tree;
-handle_any_policy_leaves(Tree0, ValidPolicyNodeSet, UserPolicySet) ->
+handle_any_policy_leaves(Tree, NodeCount, _, [?anyPolicy]) ->
+    {Tree, NodeCount};
+handle_any_policy_leaves(Tree0, NodeCount0, ValidPolicyNodeSet, UserPolicySet) ->
     case pubkey_policy_tree:any_leaves(Tree0) of
         [] ->
-            Tree0;
+            {Tree0, NodeCount0};
         AnyLeaves ->
-            Tree = add_policy_nodes(AnyLeaves, Tree0, ValidPolicyNodeSet, UserPolicySet),
-            pubkey_policy_tree:prune_leaves(Tree, ?anyPolicy)
+            {Tree, NodeCount} =
+                add_policy_nodes(AnyLeaves, Tree0, NodeCount0, ValidPolicyNodeSet, UserPolicySet),
+            {pubkey_policy_tree:prune_leaves(Tree, ?anyPolicy), NodeCount}
     end.
 
-add_policy_nodes([], Tree, _, _) ->
-    Tree;
-add_policy_nodes([#{qualifier_set := Qualifiers} | Rest], Tree0,
-                 ValidPolicyNodeSet, UserPolicySet) ->
+add_policy_nodes([], Tree, NodeCount, _, _) ->
+    {Tree, NodeCount};
+add_policy_nodes([#{qualifier_set := Qualifiers} | Rest],
+                 Tree0, NodeCount0, ValidPolicyNodeSet, UserPolicySet) ->
     PolicySet = [UPolicy ||  UPolicy <- UserPolicySet,
                              not pubkey_policy_tree:in_set(UPolicy, ValidPolicyNodeSet)],
     Children =
@@ -1319,8 +1347,14 @@ add_policy_nodes([#{qualifier_set := Qualifiers} | Rest], Tree0,
                        Children;
                   (_) -> []
                end,
-    add_policy_nodes(Rest, pubkey_policy_tree:add_leaf_siblings(Tree0, Siblings),
-                     ValidPolicyNodeSet, UserPolicySet).
+    {Tree, NodeCount} = pubkey_policy_tree:add_leaf_siblings(Tree0, NodeCount0, Siblings),
+    add_policy_nodes(Rest, Tree, NodeCount, ValidPolicyNodeSet, UserPolicySet).
+
+%% Monotonic counter — never decremented by pruning.
+assert_policy_tree_node_count(Count) when Count > ?MAX_POLICY_TREE_NODES ->
+    throw({bad_cert, policy_tree_exceeded});
+assert_policy_tree_node_count(_) ->
+    ok.
 
 %% End Wrap Up Policy Handling -------------------------------------------------
 
@@ -1439,7 +1473,7 @@ is_dir_name([[{'AttributeTypeAndValue', Type, What1}]|Rest1],
     end;
 is_dir_name(_,[],false) ->
     true;
-is_dir_name(_,_,_) ->
+is_dir_name(_A,_B,_) ->
     false.
 
 %% attribute values in types other than PrintableString are case
@@ -1730,17 +1764,20 @@ verify_signature(OtpCert, DerCert, Key, KeyParams) ->
                     public_key:verify(PlainText, DigestType, Signature, Key,
                                       verify_options(KeyParams));
                 'NULL' ->
+                    public_key:verify(PlainText, DigestType, Signature, Key);
+                asn1_NOVALUE ->
                     public_key:verify(PlainText, DigestType, Signature, Key)
             end;
-	_ ->
+        #'SLH-DSAPublicKey'{} ->
+            public_key:verify(PlainText, none, Signature, Key);
+        _ ->
 	    public_key:verify(PlainText, DigestType, Signature, {Key, KeyParams})
     end.
 
 encoded_tbs_cert(Cert) ->
-    {ok, PKIXCert} =
-	'OTP-PUB-KEY':decode_TBSCert_exclusive(Cert),
-    {'Certificate',
-     {'Certificate_tbsCertificate', EncodedTBSCert}, _, _} = PKIXCert,
+    {ok, PKIXCert} = 'OTP-PKIX':decode_TBSCert_exclusive(Cert),
+    {'OTPCertificate',
+     {'OTPCertificate_tbsCertificate', EncodedTBSCert}, _, _} = PKIXCert,
     EncodedTBSCert.
 
 public_key_info(PublicKeyInfo,
@@ -1748,8 +1785,8 @@ public_key_info(PublicKeyInfo,
 				       WorkingAlgorithm,
 				       working_public_key_parameters =
 				       WorkingParams}) ->
-    PublicKey = PublicKeyInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey,
-    AlgInfo = PublicKeyInfo#'OTPSubjectPublicKeyInfo'.algorithm,
+    #'OTPSubjectPublicKeyInfo'{subjectPublicKey=PublicKey,
+                               algorithm=AlgInfo} = PublicKeyInfo,
 
     PublicKeyParams = AlgInfo#'PublicKeyAlgorithm'.parameters,
     Algorithm = AlgInfo#'PublicKeyAlgorithm'.algorithm,
@@ -1977,10 +2014,10 @@ sign_algorithm(#'RSAPrivateKey'{} = Key , Opts) ->
       case proplists:get_value(rsa_padding, Opts, rsa_pkcs1_pss_padding) of
         rsa_pkcs1_pss_padding ->
             DigestId = rsa_digest_oid(proplists:get_value(digest, Opts, sha1)),
-            rsa_sign_algo(Key, DigestId, 'NULL');
+            rsa_sign_algo(Key, DigestId, asn1_NOVALUE);
         rsa_pss_rsae ->
             DigestId = rsa_digest_oid(proplists:get_value(digest, Opts, sha256)),
-            rsa_sign_algo(Key, DigestId, 'NULL')
+            rsa_sign_algo(Key, DigestId, asn1_NOVALUE)
       end;
 sign_algorithm({#'RSAPrivateKey'{} = Key,#'RSASSA-PSS-params'{} = Params}, _Opts) ->
     rsa_sign_algo(Key, ?'id-RSASSA-PSS', Params);
@@ -1996,7 +2033,13 @@ sign_algorithm(#'ECPrivateKey'{parameters = {namedCurve, EDCurve}}, _Opts)
 sign_algorithm(#'ECPrivateKey'{parameters = Parms}, Opts) ->
     Type = ecdsa_digest_oid(proplists:get_value(digest, Opts, sha1)),
     #'SignatureAlgorithm'{algorithm  = Type,
-                          parameters = Parms}.
+                          parameters = Parms};
+sign_algorithm(#'ML-DSAPrivateKey'{algorithm = Algo}, _) ->
+    #'SignatureAlgorithm'{algorithm  = pubkey_cert_records:mldsa_algo_to_oid(Algo),
+                          parameters = asn1_NOVALUE};
+sign_algorithm(#'SLH-DSAPrivateKey'{algorithm = Algo}, _) ->
+    #'SignatureAlgorithm'{algorithm  = pubkey_cert_records:slh_dsa_algo_to_oid(Algo),
+                          parameters = asn1_NOVALUE}.
 
 rsa_sign_algo(#'RSAPrivateKey'{}, ?'id-RSASSA-PSS' = Type,  #'RSASSA-PSS-params'{} = Params) ->
     #'SignatureAlgorithm'{algorithm  = Type,
@@ -2040,29 +2083,29 @@ cert_chain(Role, Root, RootKey, Opts) ->
     cert_chain(Role, Root, RootKey, Opts, 0, []).
 
 cert_chain(Role, IssuerCert, IssuerKey, [PeerOpts], _, Acc) ->
-    Key = gen_key(proplists:get_value(key, PeerOpts, default_key_gen())),
+    {SPubKeyInfo, PrivKey} = key_info(PeerOpts),
     Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp),
-                IssuerKey, Key, "admin", " Peer cert", PeerOpts, peer),
-    [{Cert, encode_key(Key)}, {IssuerCert, encode_key(IssuerKey)} | Acc];
+                IssuerKey, SPubKeyInfo, PrivKey, "admin", " Peer cert", PeerOpts, peer),
+    [{Cert, encode_key(PrivKey)}, {IssuerCert, encode_key(IssuerKey)} | Acc];
 cert_chain(Role, IssuerCert, IssuerKey, [CAOpts | Rest], N, Acc) ->
-    Key = gen_key(proplists:get_value(key, CAOpts, default_key_gen())),
-    Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp), IssuerKey, Key, "webadmin",
+    {SPubKeyInfo, PrivKey} = key_info(CAOpts),
+    Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp), IssuerKey, SPubKeyInfo, PrivKey, "webadmin",
                 " Intermediate CA " ++ integer_to_list(N), CAOpts, ca),
-    cert_chain(Role, Cert, Key, Rest, N+1, [{IssuerCert, encode_key(IssuerKey)} | Acc]).
+    cert_chain(Role, Cert, PrivKey, Rest, N+1, [{IssuerCert, encode_key(IssuerKey)} | Acc]).
 
 cert(Role, #'OTPCertificate'{tbsCertificate = #'OTPTBSCertificate'{subject = Issuer}},
-     PrivKey, Key, Contact, Name, Opts, Type) ->
+     IssuerKey, SPubKeyInfo, _PrivKey, Contact, Name, Opts, Type) ->
     TBS = cert_template(),
-    SignAlgoId = sign_algorithm(PrivKey, Opts),
+    SignAlgoId = sign_algorithm(IssuerKey, Opts),
     OTPTBS = TBS#'OTPTBSCertificate'{
                signature = SignAlgoId,
                issuer =  Issuer,
                validity = validity(Opts),
                subject = subject(Contact, atom_to_list(Role) ++ Name),
-               subjectPublicKeyInfo = public_key(Key, SignAlgoId),
+               subjectPublicKeyInfo = SPubKeyInfo,
                extensions = extensions(Role, Type, Opts)
               },
-    public_key:pkix_sign(OTPTBS, PrivKey).
+    public_key:pkix_sign(OTPTBS, IssuerKey).
 
 ca_config(Root, CAsKeys) ->
     [Root | [CA || {CA, _}  <- CAsKeys]].
@@ -2076,6 +2119,10 @@ default_key_gen() ->
             {namedCurve, Oid}
     end.
 
+public_key({pub, PubKey}, #'SignatureAlgorithm'{algorithm = SignAlgoId}) ->
+    Algo = #'PublicKeyAlgorithm'{algorithm = SignAlgoId, parameters=asn1_NOVALUE},
+    #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
+                               subjectPublicKey = PubKey};
 public_key(#'RSAPrivateKey'{modulus=N, publicExponent=E},
            #'SignatureAlgorithm'{algorithm  = ?rsaEncryption,
                                  parameters = #'RSASSA-PSS-params'{} = Params}) ->
@@ -2092,7 +2139,7 @@ public_key({#'RSAPrivateKey'{modulus=N, publicExponent=E}, #'RSASSA-PSS-params'{
 			       subjectPublicKey = Public};
 public_key(#'RSAPrivateKey'{modulus=N, publicExponent=E}, _) ->
     Public = #'RSAPublicKey'{modulus=N, publicExponent=E},
-    Algo = #'PublicKeyAlgorithm'{algorithm= ?rsaEncryption, parameters='NULL'},
+    Algo = #'PublicKeyAlgorithm'{algorithm= ?rsaEncryption, parameters=asn1_NOVALUE},
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
 			       subjectPublicKey = Public};
 public_key(#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y}, _) ->
@@ -2162,6 +2209,25 @@ add_default_extensions(Defaults0, Exts) ->
                                end, Defaults0),
     Exts ++ Defaults.
 
+key_info(Opts) ->
+    case proplists:get_value(key, Opts, default_key_gen()) of
+        {both, PubKey0, PrivKey0} ->
+            SignatureId = sign_algorithm(PrivKey0, Opts),
+            SPubKey = public_key({pub, PubKey0}, SignatureId),
+            {SPubKey, PrivKey0};
+        KeyInfo ->
+            PrivKeyGen = gen_key(KeyInfo),
+            SignatureIdGen = sign_algorithm(PrivKeyGen, Opts),
+            SPubKeyGen = public_key(PrivKeyGen, SignatureIdGen),
+            {SPubKeyGen, PrivKeyGen}
+    end.
+
+encode_key(#'ML-DSAPrivateKey'{} = Key) ->
+    {Asn1Type, DER, _} = public_key:pem_entry_encode('PrivateKeyInfo', Key),
+    {Asn1Type, DER};
+encode_key(#'SLH-DSAPrivateKey'{} = Key) ->
+    {Asn1Type, DER, _} = public_key:pem_entry_encode('PrivateKeyInfo', Key),
+    {Asn1Type, DER};
 encode_key({#'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}} = Key) ->
     {Asn1Type, DER, _} = public_key:pem_entry_encode('PrivateKeyInfo', Key),
     {Asn1Type, DER};
@@ -2194,3 +2260,16 @@ otp_cert(#'OTPCertificate'{} = Cert) ->
     Cert;
 otp_cert(#cert{otp = OtpCert}) ->
     OtpCert.
+
+key_params(#'OTPTBSCertificate'{signature =
+                                    #'SignatureAlgorithm'{algorithm =
+                                                              ?'id-RSASSA-PSS',
+                                                          parameters = KeyParams}},
+           KeyParams0) when KeyParams0 == asn1_NOVALUE;
+                            KeyParams0 == 'NULL' ->
+    %% Sometimes parameters may be missing in issuer's
+    %% "SubjectPublicKeyInfo" but included in the certs
+    %% "SignatureAlgorithm" for RSA PSS signatures.
+    KeyParams;
+key_params(_, KeyParams) ->
+    KeyParams.

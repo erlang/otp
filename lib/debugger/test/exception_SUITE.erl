@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +39,7 @@ suite() ->
 %% Filler.
 %%
 %%
-%% This is line 40.
+%% This is line 42.
 even(N) when is_integer(N), N > 1, (N rem 2) == 0 ->
     odd(N-1)++[N].
 
@@ -370,14 +372,14 @@ odd_even(N, R) when is_integer(N), N > 1 ->
     odd_even(N-1,
 	     [if (N rem 2) == 0 ->
 		      {?MODULE,even,1,[{file,?MODULE_STRING++".erl"},
-				       {line,42}]};
+				       {line,44}]};
 		 true ->
 		      {?MODULE,odd,1,[{file,?MODULE_STRING++".erl"},
-				      {line,45}]}
+				      {line,47}]}
 	      end|R]);
 odd_even(1, R) ->
     [{?MODULE,odd,[1],[{file,?MODULE_STRING++".erl"},
-		       {line,44}]}|R].
+		       {line,46}]}|R].
 
 foo({value,Value}) -> Value;
 foo({'div',{A,B}}) ->

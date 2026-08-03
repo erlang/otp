@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -247,8 +249,17 @@ get_dump_when_done(Dump) ->
 get_dump_when_done(Dump, Sz) ->
     timer:sleep(1000),
     case file:read_file_info(Dump) of
-        {ok, #file_info{ size = Sz }} when Sz > 1000 ->
-            {ok, Bin} = file:read_file(Dump),
+        {ok, #file_info{ size = Sz }} when Sz > 4000 ->
+            Bin = case {os:getenv("ERL_CRASH_DUMP_PRIVATE_KEY_FOR_TESTING"),
+                        os:getenv("ERL_CRASH_DUMP_PUBLIC_KEY")} of
+                      {false, false} ->
+                          {ok, Bin0} = file:read_file(Dump),
+                          Bin0;
+                      {PrivKey, _} when PrivKey =/= false ->
+                          {ok, Data} = crashdump:pem_decrypt(Dump, PrivKey),
+                          iolist_to_binary(Data)
+                  end,
+
             ct:log("~s",[Bin]),
             {ok, Bin};
         {ok, #file_info{ size = NewSz }} ->

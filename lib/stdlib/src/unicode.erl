@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +21,7 @@
 %%
 -module(unicode).
 -moduledoc """
-Functions for converting Unicode characters.
+Functions for converting and classifying Unicode characters.
 
 This module contains functions for converting between different character
 representations. It converts between ISO Latin-1 characters and Unicode
@@ -67,9 +69,12 @@ normalization can be found in the
          characters_to_nfkc_list/1, characters_to_nfkc_binary/1
         ]).
 
+-export([is_whitespace/1, is_id_start/1, is_id_continue/1, category/1]).
+
 -export_type([chardata/0, charlist/0, encoding/0, external_chardata/0,
               external_charlist/0, latin1_char/0, latin1_chardata/0,
-              latin1_charlist/0, latin1_binary/0, unicode_binary/0]).
+              latin1_charlist/0, latin1_binary/0, unicode_binary/0,
+              category/0]).
 
 -type encoding()  :: 'latin1' | 'unicode' | 'utf8'
                    | 'utf16' | {'utf16', endian()}
@@ -104,6 +109,15 @@ than UTF-8 (that is, UTF-16 or UTF-32).
                               latin1_binary() |
                               latin1_charlist(),
                             latin1_binary() | nil()).
+-doc "Character category".
+-type category() ::
+        {letter, uppercase | lowercase | titlecase | modifier | other} |
+        {mark, non_spacing | spacing_combining | enclosing} |
+        {number, decimal | letter | other} |
+        {separator, space | line | paragraph} |
+        {other, control | format | surrogate | private | not_assigned} |
+        {punctuation, connector | dash | open | close | initial | final | other} |
+        {symbol, math | currency | modifier | other}.
 
 %% We must inline these functions so that the stacktrace points to
 %% the correct function.
@@ -117,6 +131,8 @@ than UTF-8 (that is, UTF-16 or UTF-32).
 %%%                         InEncoding is not {latin1 | unicode | utf8})
 
 -export([bin_is_7bit/1, characters_to_binary/2, characters_to_list/2]).
+
+-define(IS_CP(CP), is_integer(CP, 0, 16#10FFFF)).
 
 -doc false.
 -spec bin_is_7bit(Binary) -> boolean() when
@@ -677,12 +693,148 @@ characters_to_nfkc_binary(CD, N, Row, Acc) when N > 0 ->
 characters_to_nfkc_binary(CD, _, Row, Acc) ->
     characters_to_nfkc_binary(CD, ?GC_N, [], prepend_row_to_acc(Row, Acc)).
 
+-doc """
+Returns true if `Char` is a whitespace.
+
+Whitespace is defined in
+[Unicode Standard Annex #44](http://unicode.org/reports/tr44/).
+
+```erlang
+1> unicode:is_whitespace($\s).
+true
+2> unicode:is_whitespace($😊).
+false
+```
+""".
+-doc(#{since => ~"OTP 29.0"}).
+-spec is_whitespace(char()) -> boolean().
+is_whitespace(X) %% ASCII (and low number) Optimizations
+  when X =:= 9; X =:= 10; X =:= 11; X =:= 12; X =:= 13; X =:= 32;
+       X =:= 133; X =:= 160 ->
+    true;
+is_whitespace(Char) when is_integer(Char, 0, 5000) -> %% Arbitrary limit without whitespace
+    false;
+is_whitespace(Char) when ?IS_CP(Char) ->
+    unicode_util:is_whitespace(Char);
+is_whitespace(Term) ->
+    badarg_with_info([Term]).
+
+
+-doc """
+Returns true if `Char` is an identifier start.
+
+Identifier start is defined by the ID_Start property in
+[Unicode Standard Annex #31](https://unicode.org/reports/tr31/#D1).
+
+```erlang
+1> unicode:is_id_start($a).
+true
+2> unicode:is_id_start($_).
+false
+3> unicode:is_id_start($-).
+false
+```
+""".
+-doc(#{since => ~"OTP 29.0"}).
+-spec is_id_start(char()) -> boolean().
+is_id_start(X)  %% ASCII optimizations
+  when X =:= 65; X =:= 66; X =:= 67; X =:= 68; X =:= 69; X =:= 70; X =:= 71;
+       X =:= 72; X =:= 73; X =:= 74; X =:= 75; X =:= 76; X =:= 77; X =:= 78;
+       X =:= 79; X =:= 80; X =:= 81; X =:= 82; X =:= 83; X =:= 84; X =:= 85;
+       X =:= 86; X =:= 87; X =:= 88; X =:= 89; X =:= 90; X =:= 97; X =:= 98;
+       X =:= 99; X =:= 100; X =:= 101; X =:= 102; X =:= 103; X =:= 104; X =:= 105;
+       X =:= 106; X =:= 107; X =:= 108; X =:= 109; X =:= 110; X =:= 111; X =:= 112;
+       X =:= 113; X =:= 114; X =:= 115; X =:= 116; X =:= 117; X =:= 118; X =:= 119;
+       X =:= 120; X =:= 121; X =:= 122 ->
+    true;
+is_id_start(Char) when is_integer(Char, 0, 127) ->
+    false;
+is_id_start(Char) when ?IS_CP(Char) ->
+    case unicode_util:category(Char) of
+        {number,letter} -> true;
+        {letter,modifier} -> unicode_util:is_letter_not_pattern_syntax(Char);
+        {letter,_} -> true;
+        {_,_} -> unicode_util:is_other_id_start(Char)
+    end;
+is_id_start(Term) ->
+    badarg_with_info([Term]).
+
+
+-doc """
+Returns true if `Char` is an identifier continuation.
+
+Identifier continuation is defined by the ID_Continue property in
+[Unicode Standard Annex #31](https://unicode.org/reports/tr31/#D1).
+
+```erlang
+1> unicode:is_id_continue($a).
+true
+2> unicode:is_id_continue($_).
+true
+3> unicode:is_id_continue($-).
+false
+```
+""".
+-doc(#{since => ~"OTP 29.0"}).
+-spec is_id_continue(char()) -> boolean().
+is_id_continue(X)
+  when X =:= 48; X =:= 49; X =:= 50; X =:= 51; X =:= 52; X =:= 53; X =:= 54;
+       X =:= 55; X =:= 56; X =:= 57; X =:= 65; X =:= 66; X =:= 67; X =:= 68;
+       X =:= 69; X =:= 70; X =:= 71; X =:= 72; X =:= 73; X =:= 74; X =:= 75;
+       X =:= 76; X =:= 77; X =:= 78; X =:= 79; X =:= 80; X =:= 81; X =:= 82;
+       X =:= 83; X =:= 84; X =:= 85; X =:= 86; X =:= 87; X =:= 88; X =:= 89;
+       X =:= 90; X =:= 95; X =:= 97; X =:= 98; X =:= 99; X =:= 100; X =:= 101;
+       X =:= 102; X =:= 103; X =:= 104; X =:= 105; X =:= 106; X =:= 107;
+       X =:= 108; X =:= 109; X =:= 110; X =:= 111; X =:= 112; X =:= 113;
+       X =:= 114; X =:= 115; X =:= 116; X =:= 117; X =:= 118; X =:= 119;
+       X =:= 120; X =:= 121; X =:= 122 ->
+    true;
+is_id_continue(Char) when is_integer(Char, 0, 127) ->
+    false;
+is_id_continue(Char) when ?IS_CP(Char) ->
+    case unicode_util:category(Char) of
+        {punctuation, connector} -> true;
+        {mark,non_spacing} -> true;
+        {mark,spacing_combining} -> true;
+        {number,other} -> unicode_util:is_other_id_continue(Char);
+        {number,_} -> true;
+        {letter,modifier} -> unicode_util:is_letter_not_pattern_syntax(Char);
+        {letter,_} -> true;
+        {_,_} -> unicode_util:is_other_id_start(Char) orelse
+                     unicode_util:is_other_id_continue(Char)
+    end;
+is_id_continue(Term) ->
+    badarg_with_info([Term]).
+
+-doc """
+Returns the `Char` category.
+
+```erlang
+1> unicode:category($a).
+{letter,lowercase}
+2> unicode:category($Ä).
+{letter,uppercase}
+3> unicode:category($😊).
+{symbol,other}
+4> unicode:category($€).
+{symbol,currency}
+5> unicode:category($[).
+{punctuation,open}
+```
+""".
+-doc(#{since => ~"OTP 29.0"}).
+-spec category(char()) -> category().
+category(Char) when ?IS_CP(Char) ->
+    unicode_util:category(Char);
+category(Term) ->
+    badarg_with_info([Term]).
+
+%% internals
+
 acc_to_binary(Acc) ->
     list_to_binary(lists:reverse(Acc)).
 prepend_row_to_acc(Row, Acc) ->
     [characters_to_binary(lists:reverse(Row))|Acc].
-
-%% internals
 
 -doc false.
 characters_to_list_int(ML, Encoding) ->
@@ -827,7 +979,7 @@ cbv({utf32,big}, <<0:8>>) ->
 cbv({utf32,big}, <<0:8,X:8>>) when X =< 16 ->
     2;
 cbv({utf32,big}, <<0:8,X:8,Y:8>>)
-  when X =< 16, ((X > 0) or ((Y =< 215) or (Y >= 224))) ->
+  when X =< 16, X > 0 orelse Y =< 215 orelse Y >= 224 ->
     1;
 cbv({utf32,big},_) ->
     false;
@@ -838,7 +990,7 @@ cbv({utf32,little},<<_:8,_:8>>) ->
 cbv({utf32,little},<<X:8,255:8,0:8>>) when X =:= 254; X =:= 255 ->
     false;
 cbv({utf32,little},<<_:8,Y:8,X:8>>)
-  when X =< 16, ((X > 0) or ((Y =< 215) or (Y >= 224))) ->
+  when X =< 16, X > 0 orelse Y =< 215 orelse Y >= 224 ->
     1;
 cbv({utf32,little},_) ->
     false.
@@ -999,9 +1151,7 @@ do_o_binary(F,L) ->
 do_o_binary2(_F,[]) ->
     <<>>;
 do_o_binary2(F,[H|T]) ->
-    case (catch F(H)) of
-	{'EXIT',_} ->
-	    {error,<<>>,[H|T]};
+    try F(H) of
 	Bin when is_binary(Bin) ->
 	    case do_o_binary2(F,T) of
 		{error,Bin2,Rest} ->
@@ -1009,6 +1159,9 @@ do_o_binary2(F,[H|T]) ->
 		Bin3 ->
 		    [Bin|Bin3]
 	    end
+    catch
+        error:_ ->
+	    {error,<<>>,[H|T]}
     end.
 
 %% Specific functions only allowing codepoints in latin1 range
@@ -1081,6 +1234,8 @@ do_i_utf32_big_chk(<<U/utf32,R/binary>>) when U =< 255 ->
     case do_i_utf32_big_chk(R) of
 	{error,Trans,Rest} ->
 	    {error, [U|Trans], Rest};
+        {incomplete,Trans,Rest,N} ->
+            {incomplete, [U|Trans], Rest, N};
 	L when is_list(L) ->
 	    [U|L]
     end;
@@ -1099,6 +1254,8 @@ do_i_utf32_little_chk(<<U/utf32-little,R/binary>>) when U =< 255 ->
     case do_i_utf32_little_chk(R) of
 	{error,Trans,Rest} ->
 	    {error, [U|Trans], Rest};
+        {incomplete,Trans,Rest,N} ->
+            {incomplete, [U|Trans], Rest, N};
 	L when is_list(L) ->
 	    [U|L]
     end;

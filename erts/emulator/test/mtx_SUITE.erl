@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -80,12 +82,8 @@ all() ->
 init_per_suite(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     Lib = filename:join([DataDir, atom_to_list(?MODULE)]),
-    case {erlang:load_nif(Lib, none),erlang:system_info(threads)} of
-	{{error,_},false} ->
-	    {skip, "No thread support"};
-	_ ->
-	    Config
-    end.
+    ok = erlang:load_nif(Lib, none),
+    Config.
 
 end_per_suite(Config) when is_list(Config) ->
     catch erts_debug:set_internal_state(available_internal_state, false),

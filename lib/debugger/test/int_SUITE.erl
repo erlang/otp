@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -164,7 +166,7 @@ reverse_test(Num) ->
 %% at a time.
 %% This test case depends on lists1:reverse() to work,
 %% which is tested in a separate test case.
-member(Config) when list(Config) ->
+member(Config) when is_list(Config) ->
     ok=member_test(0),
     ok=member_test(1),
     ok=member_test(100),

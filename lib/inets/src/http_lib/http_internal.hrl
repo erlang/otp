@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,6 +32,8 @@
 -define(HTTP_MAX_VERSION_STRING, 8).
 -define(HTTP_MAX_METHOD_STRING, 20).
 -define(HTTP_MAX_CONTENT_LENGTH, 100000000).
+
+-define(DATA_20MB, <<0:16#A000000>>).
 
 %%% Response headers
 -record(http_response_h,{

@@ -1,7 +1,9 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -600,18 +602,20 @@ check_sec_module_result({error, Reason, ErrorInfo}, V3Hdr, Data, true, Log) ->
 	    "~n   Reason:    ~p"
 	    "~n   ErrorInfo: ~p", [Reason, ErrorInfo]),
     #v3_hdr{msgID = MsgID, msgSecurityModel = MsgSecModel} = V3Hdr,
+    {_, _, Opts} = ErrorInfo,
     Pdu = get_scoped_pdu(Data),
     case generate_v3_report_msg(MsgID, MsgSecModel, Pdu, ErrorInfo, Log) of
 	{ok, Report} ->
-	    discard({securityError, Reason}, Report);
+            discard({securityError, Reason, Opts}, Report);
 	{discarded, _SomeOtherReason} ->
-	    discard({securityError, Reason})
+            discard({securityError, Reason, Opts})
     end;
-check_sec_module_result({error, Reason, _ErrorInfo}, _, _, _, _) ->
+check_sec_module_result({error, Reason, ErrorInfo}, _, _, _, _) ->
     ?vtrace("security module result:"
-	    "~n   Reason:     ~p"
-	    "~n   _ErrorInfo: ~p", [Reason, _ErrorInfo]),
-    discard({securityError, Reason});
+            "~n   Reason:     ~p"
+            "~n   ErrorInfo: ~p", [Reason, ErrorInfo]),
+    {_, _, Opts} = ErrorInfo,
+    discard({securityError, Reason, Opts});
 check_sec_module_result(Res, _, _, _, _) ->
     ?vtrace("security module result:"
 	    "~n   Res: ~p", [Res]),
@@ -1087,8 +1091,21 @@ get_engine_id() ->
 get_agent_engine_id(Name) ->
     snmpm_config:get_agent_engine_id(Name).
 
-is_known_engine_id(EngineID, {Addr, Port}) ->
-    snmpm_config:is_known_engine_id(EngineID, Addr, Port).
+%% We cannot include 'Port' in this check since agents
+%% can use ephemeral ports (random ports) for traps/notifications.
+is_known_engine_id(EngineID, {Addr, _Port}) ->
+    Agents = snmpm_config:which_agents(engine_id, EngineID),
+    is_known_engine_id2(Agents, Addr).
+
+is_known_engine_id2([], _Addr) ->
+    false;
+is_known_engine_id2([TargetName|Agents], Addr) ->
+    case snmpm_config:agent_info(TargetName, address) of
+        {ok, Addr} ->
+            true;
+        _ ->
+            is_known_engine_id2(Agents, Addr)
+    end.
 
 
 %%-----------------------------------------------------------------

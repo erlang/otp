@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -249,7 +251,7 @@ do_one_send_failure(Config,From,FakeName,CName) ->
 
     {term,{Res,ETO,Iters,ETO}} = runner:get_term(P3, 20000),
     runner:recv_eot(P3),
-    true = ((Res < 0) and (Iters > 0)),
+    true = Res < 0 andalso Iters > 0,
     gen_tcp:close(SocketB),
     gen_tcp:close(EpmdSocket),
     ok.

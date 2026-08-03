@@ -1,6 +1,8 @@
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2016-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,7 +37,8 @@ all() ->
 
 groups() ->
     [{root, [], [{group, left}, {group, right}]},
-     {left, [], [test_case]},
+     {left, [], [test_case, {group, nested_group}]},
+     {nested_group, [], [test_case]},
      {right, [], [test_case]}].
 
 test_case(_Config) ->

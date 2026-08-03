@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -75,6 +77,8 @@ prop_ftp() ->
 ```
 """.
 -moduledoc(#{since => "OTP 17.3"}).
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 %%% API
 %% Main functions
@@ -202,10 +206,10 @@ init_tool(Config) ->
             {skip, "No property testing tool found"}
     end.
 
-init_tool_extensions(proper) ->
-    ProperExtDir = filename:join(code:lib_dir(common_test), proper_ext),
-    true = code:add_patha(ProperExtDir),
-    ct:log("Added ~ts to code path~n", [ProperExtDir]),
+init_tool_extensions(ToolModule) when ToolModule =:= eqc; ToolModule =:= proper ->
+    ExtDir = filename:join(code:lib_dir(common_test), proper_ext),
+    true = code:add_patha(ExtDir),
+    ct:log("Added ~ts to code path~n", [ExtDir]),
     ok;
 init_tool_extensions(_) ->
     ok.
@@ -702,4 +706,3 @@ median(L = [{_Value,_Weight}|_]) ->
     median( lists:append([lists:duplicate(W,V) || {V,W} <- L]) );
 median(_) ->
     undefined.
-

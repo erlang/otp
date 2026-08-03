@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,12 +16,14 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
 -module(httpc_manager).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 -behaviour(gen_server).
 
@@ -56,11 +60,13 @@
 -record(state, 
 	{
 	  cancel = [],	 % [{RequestId, HandlerPid, ClientPid}]  
-	  handler_db,    % ets() - Entry: #handler_info{}
+          handler_db,    % ets() - Entry:  {Id :: reference(), Pid :: pid(), From :: pid()}
 	  cookie_db,     % cookie_db()
 	  session_db,    % ets() - Entry:  #session{}
+          request_db,    % ets() - Entry:  {Ref :: reference(), #request{}}
 	  profile_name,  % atom()
-	  options = #options{}
+          options = #options{},
+          awaiting       % queue() - Entry: reference()
 	 }).
 
 -define(DELAY, 500).
@@ -434,11 +440,17 @@ do_init(ProfileName, CookiesDir) ->
     CookieDbName        = cookie_db_name(ProfileName), 
     CookieDb            = httpc_cookie:open_db(CookieDbName, CookiesDir, 
 					       SessionCookieDbName),
+    %% Request DB
+    ?hcrt("create request db", []),
+    RequestDbName = request_db_name(ProfileName),
+    ets:new(RequestDbName, [protected, set, named_table, {keypos, 1}]),
 
     State = #state{handler_db   = HandlerDbName, 
 		   cookie_db    = CookieDb, 
 		   session_db   = SessionDbName,
-		   profile_name = ProfileName}, 
+                   request_db   = RequestDbName,
+                   profile_name = ProfileName,
+                   awaiting     = queue:new()},
     {ok, State}.
 
 
@@ -509,7 +521,8 @@ handle_call(Req, From, #state{profile_name = ProfileName} = State) ->
 %%--------------------------------------------------------------------
 handle_cast({retry_or_redirect_request, {Time, Request}}, 
 	    #state{profile_name = ProfileName} = State) ->
-    {ok, _} = timer:apply_after(Time, ?MODULE, retry_request, [Request, ProfileName]),
+    NewRequest = Request#request{retried = true},
+    {ok, _} = timer:apply_after(Time, ?MODULE, retry_request, [NewRequest, ProfileName]),
     {noreply, State};
 
 handle_cast({retry_or_redirect_request, Request}, State) ->
@@ -555,7 +568,8 @@ handle_cast({set_options, Options}, State = #state{options = OldOptions}) ->
 		 port                  = get_port(Options, OldOptions),
 		 verbose               = get_verbose(Options, OldOptions),
 		 socket_opts           = get_socket_opts(Options, OldOptions),
-		 unix_socket           = get_unix_socket_opts(Options, OldOptions)
+                 unix_socket           = get_unix_socket_opts(Options, OldOptions),
+                 max_connections_open  = get_max_connections_open(Options, OldOptions)
 		}, 
     case {OldOptions#options.verbose, NewOptions#options.verbose} of
 	{Same, Same} ->
@@ -580,6 +594,9 @@ handle_cast({store_cookies, {Cookies, _}}, State) ->
     ok = do_store_cookies(Cookies, State),
     {noreply, State};
 
+handle_cast({await, RequestRef}, #state{awaiting = Awaiting} = State) ->
+    {noreply, State#state{awaiting = queue:in(RequestRef, Awaiting)}};
+
 handle_cast(Msg, #state{profile_name = ProfileName} = State) ->
     error_report(ProfileName, 
 		 "received unknown message"
@@ -592,12 +609,16 @@ handle_cast(Msg, #state{profile_name = ProfileName} = State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% Description: Handling all non call/cast messages
 %%---------------------------------------------------------
+
 handle_info({'EXIT', _, _}, State) ->
     %% Handled in DOWN
     {noreply, State};
-handle_info({'DOWN', _, _, Pid, _}, State) ->
-    ets:match_delete(State#state.handler_db, {'_', Pid, '_'}),  
+
+handle_info({'DOWN', _, _, Pid, _}, State0) ->
+    ets:match_delete(State0#state.handler_db, {'_', Pid, '_'}),
+    State = start_enqueued_request(State0),
     {noreply, State};
+
 handle_info(Info, State) ->
     Report = io_lib:format("Unknown message in "
 			   "httpc_manager:handle_info ~p~n", [Info]),
@@ -790,26 +811,66 @@ convert_options([{ip, Value}|T], Options) ->
     convert_options(T, Options#options{ip = Value});
 convert_options([{port, Value}|T], Options) ->
     convert_options(T, Options#options{port = Value});
+convert_options([{max_connections_open, Value}|T], Options) ->
+    convert_options(T, Options#options{max_connections_open = Value});
 convert_options([Option|T], Options = #options{socket_opts = SocketOpts}) ->
     convert_options(T, Options#options{socket_opts = SocketOpts ++ [Option]}).
 
-start_handler(#request{id   = Id, 
-		       from = From} = Request, 
-	      #state{profile_name = ProfileName, 
-		     handler_db   = HandlerDb, 
-		     options      = Options}) ->
+start_handler(#request{} = Request,
+              #state{options = #options{max_connections_open = infinity}} = State) ->
+    do_start_handler(Request, State);
+start_handler(#request{} = Request,
+              #state{handler_db   = HandlerDb,
+                     request_db   = RequestDb,
+                     options      = #options{max_connections_open =
+                                                 MaxConnectionsOpen}} = State) ->
+    ReachedLimit = ets:info(HandlerDb, size) >= MaxConnectionsOpen,
+    case ReachedLimit of
+        true -> wait_for_handler_to_end_then_start(RequestDb, Request);
+        false -> do_start_handler(Request, State)
+    end.
+
+do_start_handler(#request{id   = Id,
+                          from = From} = Request,
+                 #state{profile_name = ProfileName,
+                        handler_db   = HandlerDb,
+                        options      = Options}) ->
     {ok, Pid} =
-	case is_inets_manager() of
-	    true ->
-		httpc_handler_sup:start_child([whereis(httpc_handler_sup),
-					       Request, Options, ProfileName]);
-	    false ->
-		httpc_handler:start_link(self(), Request, Options, ProfileName)
-	end,
-    HandlerInfo = {Id, Pid, From}, 
-    ets:insert(HandlerDb, HandlerInfo), 
+        case is_inets_manager() of
+            true ->
+                httpc_handler_sup:start_child([whereis(httpc_handler_sup),
+                                               Request, Options, ProfileName]);
+            false ->
+                httpc_handler:start_link(self(), Request, Options, ProfileName)
+        end,
+    HandlerInfo = {Id, Pid, From},
+    ets:insert(HandlerDb, HandlerInfo),
     erlang:monitor(process, Pid).
 
+wait_for_handler_to_end_then_start(RequestDb, #request{} = Request) ->
+    RequestRef = make_ref(),
+    ets:insert(RequestDb, {RequestRef, Request}),
+    gen_server:cast(self(), {await, RequestRef}).
+
+start_enqueued_request(#state{awaiting = Awaiting,
+                              handler_db = HandlerDb,
+                              request_db = RequestDb,
+                              options = #options{max_connections_open = MaxConnectionsOpen}}
+                       = State0) ->
+    ReachedLimit = ets:info(HandlerDb, size) >= MaxConnectionsOpen,
+    case ReachedLimit of
+        true -> State0;
+        false ->
+            case queue:out(Awaiting) of
+                {{value, RequestRef}, NewAwaiting} ->
+                    State = State0#state{awaiting = NewAwaiting},
+                    [{RequestRef, Request}] = ets:take(RequestDb, RequestRef),
+                    do_start_handler(Request, State),
+                    State;
+                {empty, _} ->
+                    State0
+            end
+    end.
 
 select_session(Method, HostPort, Scheme, SessionType, 
 	       #state{options = #options{max_pipeline_length   = MaxPipe,
@@ -929,6 +990,9 @@ session_cookie_db_name(ProfileName) ->
 handler_db_name(ProfileName) ->
     make_db_name(ProfileName, "__handler_db").
 
+request_db_name(ProfileName) ->
+    make_db_name(ProfileName, "__request_db").
+
 make_db_name(ProfileName, Post) ->
     list_to_atom(atom_to_list(ProfileName) ++ Post).
     
@@ -1001,7 +1065,9 @@ get_option(port, #options{port = Port}) ->
 get_option(socket_opts, #options{socket_opts = SocketOpts}) ->
     SocketOpts;
 get_option(unix_socket, #options{unix_socket = UnixSocket}) ->
-    UnixSocket.
+    UnixSocket;
+get_option(max_connections_open, #options{max_connections_open = MaxConnectionsOpen}) ->
+    MaxConnectionsOpen.
 
 
 get_proxy(Opts, #options{proxy = Default}) ->
@@ -1045,6 +1111,9 @@ get_socket_opts(Opts, #options{socket_opts = Default}) ->
 
 get_unix_socket_opts(Opts, #options{unix_socket = Default}) ->
     proplists:get_value(unix_socket, Opts, Default).
+
+get_max_connections_open(Opts, #options{max_connections_open = Default}) ->
+    proplists:get_value(max_connections_open, Opts, Default).
 
 handle_verbose(debug) ->
     dbg:p(self(), [call]),

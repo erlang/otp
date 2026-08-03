@@ -1,3 +1,24 @@
+<!--
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
 Returns information about the current system.
 
 The documentation of this function is broken into the following sections in
@@ -70,11 +91,11 @@ order to make it easier to navigate.
 - [`System Information`](`m:erlang#system_info/1-system-information`) -
   [`c_compiler_used`](`m:erlang#system_info_c_compiler_used`),
   [`check_io`](`m:erlang#system_info_check_io`),
-  [`compat_rel`](`m:erlang#system_info_compat_rel`),
   [`debug_compiled`](`m:erlang#system_info_debug_compiled`),
   [`driver_version`](`m:erlang#system_info_driver_version`),
   [`dynamic_trace`](`m:erlang#system_info_dynamic_trace`),
   [`dynamic_trace_probes`](`m:erlang#system_info_dynamic_trace_probes`),
+  [`embedded_3pps`](`m:erlang#system_info_embedded_3pps`),
   [`emu_flavor`](`m:erlang#system_info_emu_flavor`),
   [`emu_type`](`m:erlang#system_info_emu_type`),
   [`info`](`m:erlang#system_info_info`),
@@ -786,12 +807,6 @@ Returns various information about the current system (emulator) as specified by 
   that the content of the returned list can vary between platforms and over
   time. It is only guaranteed that a list is returned.
 
-- `compat_rel`{: #system_info_compat_rel } - Returns the compatibility mode
-  of the local node as an integer. The integer returned represents the
-  Erlang/OTP release that the current emulator has been set to be backward
-  compatible with. The compatibility mode can be configured at startup by using
-  command-line flag [`+R`](erl_cmd.md#compat_rel) in `erl(1)`.
-
 - `debug_compiled`{: #system_info_debug_compiled } - Returns `true` if the
   emulator has been debug-compiled, otherwise `false`.
 
@@ -817,6 +832,30 @@ Returns various information about the current system (emulator) as specified by 
   `dtrace` or `systemtap`).
   
   Since: OTP R15B01
+
+- `embedded_3pps`{: #system_info_embedded_3pps } - Returns a map with
+  information about third party products embedded in the source code of
+  the Erlang/OTP runtime system. Note that often only parts (in some cases
+  minuscule parts) of these third party products have been embedded in the
+  source code. Currently the returned map contains the following keys:
+
+  - `included` - The value of this key is a list of atoms where each atom
+    represents a third party product from which code has been embedded in
+    the source code and also has been included into the built runtime system.
+
+  - `excluded` - The value of this key is a list of atoms where each atom
+    represents a third party product from which code has been embedded in
+    the source code, but which has been completely excluded in the built
+    runtime system. The exclusion might be due to the functionality being
+    disabled, due to the functionality being implemented using other
+    primitives on the specific system, or due to the runtime system being
+    linked against the same or another third party product installed on the
+    system.
+
+  Note that the returned map may be extended with new key/value pairs at
+  any time.
+
+  Since: OTP 28.5
 
 - `emu_flavor`{: #system_info_emu_flavor } - Returns an atom describing the
   flavor of the runtime system. This will be either `emu` or `jit`. Possible

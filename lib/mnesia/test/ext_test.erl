@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,9 @@
 %%
 
 -module(ext_test).
+
+-include("mnesia_test_lib.hrl").
+-include("ext_test_server.hrl").
 
 %% Initializations
 -export([init_backend/0, add_aliases/1, remove_aliases/1,
@@ -44,207 +49,224 @@
 	 insert/3, update_counter/4,
 	 lookup/3,
 	 delete/3, match_delete/3,
-	 select/1, select/3, select/4, repair_continuation/2
+	 select/1, select/3, select/4,
+	 select_reverse/3, select_reverse/4, repair_continuation/2
 	]).
 
--ifdef(DEBUG).
--define(DBG(DATA), io:format("~p:~p: ~p~n",[?MODULE, ?LINE, DATA])).
--define(DBG(FORMAT, ARGS), io:format("~p:~p: " ++ FORMAT,[?MODULE, ?LINE] ++ ARGS)).
--else.
--define(DBG(DATA), ok).
--define(DBG(FORMAT, ARGS), ok).
--endif.
-
-%% types() ->
-%%     [{fs_copies, ?MODULE},
-%%      {raw_fs_copies, ?MODULE}].
-
-semantics(ext_ets, storage) -> ram_copies;
-semantics(ext_ets, types  ) -> [set, ordered_set, bag];
-semantics(ext_ets, index_types) -> [ordered];
+semantics(ext_ram_copies, storage) -> ram_copies;
+semantics(ext_ram_copies, types  ) -> [set, ordered_set, bag];
+semantics(ext_ram_copies, index_types) -> [ordered];
+semantics(ext_disc_only_copies, storage) -> disc_only_copies;
+semantics(ext_disc_only_copies, types  ) -> [set, bag];
+semantics(ext_disc_only_copies, index_types) -> [bag];
 semantics(_Alias, _) ->
     undefined.
 
-%% valid_op(_, _) ->
-%%     true.
-
 init_backend() ->
-    ?DBG(init_backend),
+    ?DBG(),
     %% cheat and stuff a marker in mnesia_gvar
     K = backend_init_marker(),
     case try ets:lookup_element(mnesia_gvar, K, 2) catch _:_ -> error end of
         error ->
-            mnesia_lib:set(K, true);
+            mnesia_lib:set(K, true),
+            ok;
         Other ->
-            error({backend_already_initialized, {?MODULE, Other}})
-    end,
-    ok.
+            {error, {backend_already_initialized, {?MODULE, Other}}}
+    end.
 
 backend_init_marker() ->
     {test, ?MODULE, backend_init}.
 
+error_if_not_initialized() ->
+    case try ets:lookup_element(mnesia_gvar, backend_init_marker(), 2) catch _:_ -> error end of
+        error ->
+            ?DBG({backend_not_initialized, {?MODULE, error}}),
+            error({backend_not_initialized, {?MODULE, error}});
+        _Other ->
+            ok
+    end.
+
 add_aliases(_As) ->
     ?DBG(_As),
-    %ct:log("add_aliases(~p)", [_As]),
+    case init_backend() of
+        ok ->
+            ok;
+        _ ->
+            ignore
+    end,
+    error_if_not_initialized(),
     true = mnesia_lib:val(backend_init_marker()),
     ok.
 
-remove_aliases(_) ->
+remove_aliases(_As) ->
+    ?DBG(_As),
+    error_if_not_initialized(),
     ok.
 
 
 %% Table operations
 
-check_definition(ext_ets, _Tab, _Nodes, _Props) ->
-    ?DBG("~p ~p ~p~n", [_Tab, _Nodes, _Props]),
+check_definition(_Alias, _Tab, _Nodes, _Props) ->
+    ?DBG({_Alias, ext_test_server:tab_to_list(_Tab), _Nodes, _Props}),
     ok.
 
-create_table(ext_ets, Tab, Props) when is_atom(Tab) ->
-    Tid = ets:new(Tab, [public, proplists:get_value(type, Props, set), {keypos, 2}]),
-    ?DBG("~p Create: ~p(~p) ~p~n", [self(), Tab, Tid, Props]),
-    mnesia_lib:set({?MODULE, Tab}, Tid),
-    ok;
-create_table(_, Tag={Tab, index, {_Where, Type0}}, _Opts) ->
-    Type = case Type0 of
-	       ordered -> ordered_set;
-	       _ -> Type0
-	   end,
-    Tid = ets:new(Tab, [public, Type]),
-    ?DBG("~p(~p) ~p~n", [Tab, Tid, Tag]),
-    mnesia_lib:set({?MODULE, Tag}, Tid),
-    ok;
-create_table(_, Tag={_Tab, retainer, ChkPName}, _Opts) ->
-    Tid = ets:new(ChkPName, [set, public, {keypos, 2}]),
-    ?DBG("~p(~p) ~p~n", [_Tab, Tid, Tag]),
-    mnesia_lib:set({?MODULE, Tag}, Tid),
-    ok.
-
-delete_table(ext_ets, Tab) ->
-    try
-      ets:delete(mnesia_lib:val({?MODULE,Tab})),
-      mnesia_lib:unset({?MODULE,Tab}),
-      ok
-    catch _:_ ->
-	    ?DBG({double_delete, Tab}),
-	    ok
+create_table(Alias, Tab, Props) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), Props}),
+    try error_if_not_initialized() of
+        ok ->
+            call({?FUNCTION_NAME, Alias, Tab, Props})
+    catch error : {backend_not_initialized, _} = Reason ->
+        {aborted, Reason}
     end.
 
-load_table(ext_ets, _Tab, init_index, _Cs) -> ok;
-load_table(ext_ets, _Tab, _LoadReason, _Cs) ->
-    ?DBG("Load ~p ~p~n", [_Tab, _LoadReason]),
-    ok.
-%%     mnesia_monitor:unsafe_create_external(Tab, ext_ets, ?MODULE, Cs).
+delete_table(Alias, Tab) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab)}),
+    try error_if_not_initialized() of
+        ok ->
+            call({?FUNCTION_NAME, Alias, Tab})
+    catch error : {backend_not_initialized, _} ->
+        ok
+    end.
 
-sender_init(Alias, Tab, _RemoteStorage, _Pid) ->
-    KeysPerTransfer = 100,
-    {standard,
-     fun() -> mnesia_lib:db_init_chunk({ext,Alias,?MODULE}, Tab, KeysPerTransfer) end,
-     fun(Cont) -> mnesia_lib:db_chunk({ext,Alias,?MODULE}, Cont) end}.
+load_table(Alias, Tab, LoadReason, Cs) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), LoadReason, Cs}),
+    call({?FUNCTION_NAME, Alias, Tab, LoadReason, Cs}).
+
+sender_init(Alias, Tab, RemoteStorage, Pid) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), RemoteStorage, Pid}),
+    call({?FUNCTION_NAME, Alias, Tab, RemoteStorage, Pid, ?MODULE}).
 
 receiver_first_message(Sender, {first, Size}, _Alias, Tab) ->
-    ?DBG({first,Size}),
+    ?DBG({Sender, {first, Size}, _Alias, ext_test_server:tab_to_list(Tab)}),
+    error_if_not_initialized(),
     {Size, {Tab, Sender}}.
 
-receive_data(Data, ext_ets, Name, Sender, {Name, Tab, Sender}=State) ->
-    ?DBG({Data,State}),
-    true = ets:insert(Tab, Data),
-    {more, State};
-receive_data(Data, Alias, Tab, Sender, {Name, Sender}) ->
-    receive_data(Data, Alias, Tab, Sender, {Name, mnesia_lib:val({?MODULE,Tab}), Sender}).
+receive_data(Data, Alias, Name, Sender, State) ->
+    ?DBG({Data, Alias, ext_test_server:tab_to_list(Name), Sender, State}),
+    call({?FUNCTION_NAME, Data, Alias, Name, Sender, State}).
 
 receive_done(_Alias, _Tab, _Sender, _State) ->
-    ?DBG({done,_State}),
+    ?DBG({_Alias, ext_test_server:tab_to_list(_Tab), _Sender, _State}),
+    error_if_not_initialized(),
     ok.
 
-close_table(Alias, Tab) -> sync_close_table(Alias, Tab).
+close_table(Alias, Tab) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab)}),
+    error_if_not_initialized(),
+    sync_close_table(Alias, Tab).
 
-sync_close_table(ext_ets, _Tab) ->
-    ?DBG(_Tab).
+sync_close_table(Alias, Tab) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab)}),
+    call({?FUNCTION_NAME, Alias, Tab}).
 
-fixtable(ext_ets, Tab, Bool) ->
-    ?DBG({Tab,Bool}),
-    ets:safe_fixtable(mnesia_lib:val({?MODULE,Tab}), Bool).
+fixtable(Alias, Tab, Bool) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), Bool}),
+    call({?FUNCTION_NAME, Alias, Tab, Bool}).
 
-info(ext_ets, Tab, Type) ->
-    ?DBG({Tab,Type}),
-    Tid = mnesia_lib:val({?MODULE,Tab}),
-    try ets:info(Tid, Type) of
-	Val -> Val
-    catch _:_ ->
-	    undefined
-    end.
+info(Alias, Tab, Type) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), Type}),
+    call({?FUNCTION_NAME, Alias, Tab, Type}).
 
 real_suffixes() ->
-    [".dat"].
+    [".dat.ext"].
 
 tmp_suffixes() ->
     [].
 
 %% Index
 
-index_is_consistent(_Alias, _Ix, _Bool) -> ok.  % Ignore for now
-is_index_consistent(_Alias, _Ix) -> false.      % Always rebuild
+index_is_consistent(Alias, Ix, Bool) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Ix), Bool}),
+    call({?FUNCTION_NAME, Alias, Ix, Bool}).
+
+is_index_consistent(Alias, Ix) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Ix)}),
+    call({?FUNCTION_NAME, Alias, Ix}).
 
 %% Record operations
 
 validate_record(_Alias, _Tab, RecName, Arity, Type, _Obj) ->
+    ?DBG({_Alias, ext_test_server:tab_to_list(_Tab), RecName, Arity, Type, _Obj}),
+    error_if_not_initialized(),
     {RecName, Arity, Type}.
 
 validate_key(_Alias, _Tab, RecName, Arity, Type, _Key) ->
+    ?DBG({_Alias, ext_test_server:tab_to_list(_Tab), RecName, Arity, Type, _Key}),
+    error_if_not_initialized(),
     {RecName, Arity, Type}.
 
-insert(ext_ets, Tab, Obj) ->
-    ?DBG({Tab,Obj}),
-    try
-	ets:insert(mnesia_lib:val({?MODULE,Tab}), Obj),
-	ok
-    catch _:Reason ->
-	    io:format("CRASH ~p ~p~n",[Reason, mnesia_lib:val({?MODULE,Tab})])
-    end.
+insert(Alias, Tab, Obj) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), Obj}),
+    call({?FUNCTION_NAME, Alias, Tab, Obj}).
 
-lookup(ext_ets, Tab, Key) ->
-    ets:lookup(mnesia_lib:val({?MODULE,Tab}), Key).
+lookup(Alias, Tab, Obj) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), Obj}),
+    call({?FUNCTION_NAME, Alias, Tab, Obj}).
 
-delete(ext_ets, Tab, Key) ->
-    ets:delete(mnesia_lib:val({?MODULE,Tab}), Key).
+delete(Alias, Tab, Key) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), Key}),
+    call({?FUNCTION_NAME, Alias, Tab, Key}).
 
-match_delete(ext_ets, Tab, Pat) ->
-    ets:match_delete(mnesia_lib:val({?MODULE,Tab}), Pat).
+match_delete(Alias, Tab, Pat) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), Pat}),
+    call({?FUNCTION_NAME, Alias, Tab, Pat}).
 
-first(ext_ets, Tab) ->
-    ets:first(mnesia_lib:val({?MODULE,Tab})).
+first(Alias, Tab) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab)}),
+    call({?FUNCTION_NAME, Alias, Tab}).
 
-last(Alias, Tab) -> first(Alias, Tab).
+last(Alias, Tab) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab)}),
+    error_if_not_initialized(),
+    first(Alias, Tab).
 
-next(ext_ets, Tab, Key) ->
-    ets:next(mnesia_lib:val({?MODULE,Tab}), Key).
+next(Alias, Tab, Key) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), Key}),
+    call({?FUNCTION_NAME, Alias, Tab, Key}).
 
 prev(Alias, Tab, Key) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), Key}),
+    error_if_not_initialized(),
     next(Alias, Tab, Key).
 
-slot(ext_ets, Tab, Pos) ->
-    ets:slot(mnesia_lib:val({?MODULE,Tab}), Pos).
+slot(Alias, Tab, Pos) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), Pos}),
+    call({?FUNCTION_NAME, Alias, Tab, Pos}).
 
-update_counter(ext_ets, Tab, C, Val) ->
-    ets:update_counter(mnesia_lib:val({?MODULE,Tab}), C, Val).
+update_counter(Alias, Tab, C, Val) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), C, Val}),
+    call({?FUNCTION_NAME, Alias, Tab, C, Val}).
 
-select('$end_of_table' = End) -> End;
-select({ext_ets, C}) ->  ets:select(C).
+select(Continuation) ->
+    ?DBG(Continuation),
+    call({?FUNCTION_NAME, Continuation}).
 
 select(Alias, Tab, Ms) ->
-    Res = select(Alias, Tab, Ms, 100000),
-    select_1(Res).
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), Ms}),
+    call({?FUNCTION_NAME, Alias, Tab, Ms}).
 
-select_1('$end_of_table') -> [];
-select_1({Acc, C}) ->
-    case ets:select(C) of
-	'$end_of_table' -> Acc;
-	{New, Cont} ->
-	    select_1({New ++ Acc, Cont})
-    end.
+select(Alias, Tab, Ms, Limit) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), Ms, Limit}),
+    call({?FUNCTION_NAME, Alias, Tab, Ms, Limit}).
 
-select(ext_ets, Tab, Ms, Limit) when is_integer(Limit); Limit =:= infinity ->
-    ets:select(mnesia_lib:val({?MODULE,Tab}), Ms, Limit).
+select_reverse(Alias, Tab, Ms) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), Ms}),
+    call({?FUNCTION_NAME, Alias, Tab, Ms}).
+
+select_reverse(Alias, Tab, Ms, Limit) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), Ms, Limit}),
+    call({?FUNCTION_NAME, Alias, Tab, Ms, Limit}).
 
 repair_continuation(Cont, Ms) ->
-    ets:repair_continuation(Cont, Ms).
+    ?DBG({Cont, Ms}),
+    call({?FUNCTION_NAME, Cont, Ms}).
+
+call(Req) ->
+    error_if_not_initialized(),
+    case gen_server:call({global, mnesia_test_lib:get_ext_test_server_name()}, Req) of
+        #exception{c = Class, r = Reason, st = ST} = _Ex ->
+            ?DBG("call ~p resulted in an exception: ~p~n", [Req, _Ex]),
+            erlang:raise(Class, Reason, ST);
+        Res ->
+            Res
+    end.

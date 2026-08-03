@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -36,7 +38,7 @@ structuring model based on the idea of _workers_ and _supervisors_:
   and workers, which makes it possible to design and program fault-tolerant
   software.
 
-In the following figure, square boxes represents supervisors and circles
+In the following figure, square boxes represent supervisors and circles
 represent workers:
 
 [](){: #sup6 }
@@ -72,7 +74,7 @@ The behaviour module is part of Erlang/OTP. To implement a process such as a
 supervisor, the user only needs to implement the callback module, which is to
 export a pre-defined set of functions, the _callback functions_.
 
-The following example illustrate how code can be divided into a generic and a
+The following example illustrates how code can be divided into a generic and a
 specific part. Consider the following code (written in plain Erlang) for a
 simple server, which keeps track of a number of "channels". Other processes can
 allocate and free the channels by calling the functions `alloc/0` and `free/1`,
@@ -287,7 +289,7 @@ How to program applications is described in [Applications](applications.md).
 
 ## Releases
 
-A _release_ is a complete system made out from a subset of Erlang/OTP
+A _release_ is a complete system made from a subset of Erlang/OTP
 applications and a set of user-specific applications.
 
 How to program releases is described in [Releases](release_structure.md).

@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2000-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,33 +33,33 @@
 * to support anything other than a simple 8-byte number. When such
 * a use-case is identified, this type could be turned into a union.
 */
-typedef ErtsMonotonicTime BpDataAccumulator;
+typedef ErtsMonotonicTime BpTimemAccumulator;
 
 typedef struct {
     Eterm pid;
     Sint  count;
-    BpDataAccumulator accumulator;
-} bp_data_trace_item_t;
+    BpTimemAccumulator accumulator;
+} bp_pid_timem_bucket_t;
 
 typedef struct {
     Uint n;
     Uint used;
-    bp_data_trace_item_t *item;
-} bp_trace_hash_t;
+    bp_pid_timem_bucket_t buckets[];
+} bp_pid_timem_hash_t;
 
-typedef struct bp_data_time {     /* Call time, Memory trace */
-    Uint n;
+typedef struct {     /* Call time, Memory trace */
+    Uint nthreads;
     erts_refc_t refc;
-    bp_trace_hash_t hash[1];
-} BpDataCallTrace;
+    bp_pid_timem_hash_t* threads[];
+} BpTimemTrace;
 
 typedef struct process_breakpoint_trace_t {
     struct process_breakpoint_trace_t *next;
     ErtsTraceSession *session;
 
     const ErtsCodeInfo *ci;
-    BpDataAccumulator accumulator;
-    BpDataAccumulator allocated;        /* adjustment for GC and messages on the heap */
+    BpTimemAccumulator accumulator;
+    BpTimemAccumulator allocated;        /* adjustment for GC and messages on the heap */
 } process_breakpoint_trace_t; /* used within psd */
 
 typedef struct {
@@ -76,11 +78,9 @@ typedef struct GenericBpData {
     Binary* meta_ms;		/* Match spec for meta trace */
     BpMetaTracer* meta_tracer;	/* Meta tracer */
     BpCount* count;		/* For call count */
-    BpDataCallTrace* time;	/* For time trace */
-    BpDataCallTrace* memory;	/* For memory trace */
+    BpTimemTrace* time;	/* For time trace */
+    BpTimemTrace* memory;	/* For memory trace */
 } GenericBpData;
-
-#define ERTS_NUM_BP_IX 2
 
 typedef struct GenericBp {
     BeamInstr orig_instr;
@@ -108,8 +108,6 @@ enum erts_break_op{
     ERTS_BREAK_PAUSE
 };
 
-typedef Uint32 ErtsBpIndex;
-
 typedef struct {
     const ErtsCodeInfo *code_info;
     Module* mod;
@@ -119,6 +117,12 @@ typedef struct {
     Uint matched;		/* Number matched */
     BpFunction* matching;	/* Matching functions */
 } BpFunctions;
+
+enum erts_is_line_breakpoint {
+    IS_NOT_LINE_BP = 0,
+    IS_ENABLED_LINE_BP = 1,
+    IS_DISABLED_LINE_BP = 2,
+ };
 
 /*
 ** Function interface exported from beam_bp.c
@@ -132,7 +136,7 @@ void erts_commit_staged_bp(void);
 ERTS_GLB_INLINE ErtsBpIndex erts_active_bp_ix(void);
 ERTS_GLB_INLINE ErtsBpIndex erts_staging_bp_ix(void);
 
-void erts_bp_match_functions(BpFunctions* f, ErtsCodeMFA *mfa, int specified);
+void erts_bp_match_functions(BpFunctions* f, ErtsCodeMFA *mfa, int specified, int ignore_bifs);
 void erts_bp_match_export(BpFunctions* f, ErtsCodeMFA *mfa, int specified);
 void erts_bp_free_matched_functions(BpFunctions* f);
 
@@ -142,14 +146,15 @@ Uint erts_sum_all_session_flags(ErtsCodeInfo *ci_rw);
 void erts_uninstall_breakpoints(BpFunctions* f);
 
 void erts_consolidate_local_bp_data(BpFunctions* f);
-void erts_consolidate_export_bp_data(BpFunctions* f);
+void erts_consolidate_all_bp_data(BpFunctions* f, BpFunctions* e);
 void erts_free_breakpoints(void);
 
 void erts_set_trace_break(BpFunctions *f, Binary *match_spec);
 void erts_clear_trace_break(BpFunctions *f);
 
-void erts_set_export_trace(ErtsCodeInfo *ci, Binary *match_spec);
+void erts_set_export_trace(Export *ep, Binary *match_spec);
 void erts_clear_export_trace(ErtsCodeInfo *ci);
+int erts_export_is_bif_traced(const Export*);
 
 void erts_set_mtrace_break(BpFunctions *f, Binary *match_spec, ErtsTracer tracer);
 void erts_clear_mtrace_break(BpFunctions *f);
@@ -176,8 +181,18 @@ int erts_is_mtrace_break(ErtsTraceSession *session, const ErtsCodeInfo *ci,
 
 int erts_is_count_break(ErtsTraceSession *session, const ErtsCodeInfo *ci,
                         Uint *count_ret);
-int erts_is_call_break(Process *p, ErtsTraceSession *session, int is_time,
-                       const ErtsCodeInfo *ci, Eterm *call_time);
+bool erts_is_time_break(ErtsTraceSession*, const ErtsCodeInfo*);
+bool erts_is_memory_break(ErtsTraceSession*, const ErtsCodeInfo*);
+bool erts_prepare_timem_trace_info(Process *p,
+                                      ErtsTraceSession*,
+                                      bool want_call_time,
+                                      bool want_call_memory,
+                                      const ErtsCodeInfo*);
+void erts_timem_info_collect(void);
+void erts_timem_info_consolidate(void);
+void erts_build_timem_info(Process* p,
+                           Eterm *call_time, Eterm *call_memory);
+void erts_free_timem_info(void);
 
 void erts_call_trace_return(Process* c_p, const ErtsCodeInfo *ci,
                             Eterm bp_flags_term, Eterm session_weak_id);
@@ -191,12 +206,26 @@ void erts_clear_memory_break(BpFunctions *f);
 Eterm erts_make_bp_session_list(ErtsHeapFactory*, const ErtsCodeInfo*,
                                 Eterm tail);
 
+void erts_install_line_breakpoint(struct erl_module_instance *, ErtsCodePtr);
+void erts_uninstall_line_breakpoint(struct erl_module_instance *, ErtsCodePtr);
+enum erts_is_line_breakpoint erts_is_line_breakpoint_code(ErtsCodePtr);
+
+const Export *erts_line_breakpoint_hit__prepare_call(Process* c_p,
+                                                     ErtsCodePtr pc,
+                                                     Uint live,
+                                                     Eterm *regs,
+                                                     UWord *stk);
+Uint erts_line_breakpoint_hit__cleanup(Eterm *regs, UWord *stk);
+
 const ErtsCodeInfo *erts_find_local_func(const ErtsCodeMFA *mfa);
 
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+#ifdef DEBUG
+void assert_return_trace_frame(const Eterm *frame);
+void assert_return_to_trace_frame(const Eterm *frame);
+void assert_return_call_acc_trace_frame(const Eterm *frame);
+#endif
 
-extern erts_atomic32_t erts_active_bp_index;
-extern erts_atomic32_t erts_staging_bp_index;
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE ErtsBpIndex erts_active_bp_ix(void)
 {
@@ -205,7 +234,7 @@ ERTS_GLB_INLINE ErtsBpIndex erts_active_bp_ix(void)
 
 ERTS_GLB_INLINE ErtsBpIndex erts_staging_bp_ix(void)
 {
-    return erts_atomic32_read_nob(&erts_staging_bp_index);
+    return erts_atomic32_read_nob(&erts_active_bp_index) ^ 1;
 }
 
 ERTS_GLB_INLINE

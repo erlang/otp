@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +23,8 @@
 %% Implements  The WWW Common Gateway Interface Version 1.1
 
 -module(mod_cgi).
+
+-deprecated([{'_','_',"use 'mod_esi' for dynamic page generation"}]).
 -moduledoc false.
 
 -export([env/3]).
@@ -212,8 +216,8 @@ deliver_webpage(#mod{config_db = Db} = ModData, Port) ->
 		{ok, HTTPHeaders, Status} when is_binary(Body)->
 		    IsDisableChunkedSend = 
 			httpd_response:is_disable_chunked_send(Db),
-		    case (ModData#mod.http_version =/= "HTTP/1.1") or 
-			(IsDisableChunkedSend) of
+		    case ModData#mod.http_version =/= "HTTP/1.1" orelse 
+			IsDisableChunkedSend of
 			true ->
 			    send_headers(ModData, Status, 
 					 [{"connection", "close"}

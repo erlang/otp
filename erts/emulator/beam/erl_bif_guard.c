@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2006-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2006-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -330,6 +332,20 @@ BIF_RETTYPE size_1(BIF_ALIST_1)
     }
 
     BIF_ERROR(BIF_P, BADARG);
+}
+
+BIF_RETTYPE is_integer_3(BIF_ALIST_3)
+{
+    if(is_not_integer(BIF_ARG_2) ||
+       is_not_integer(BIF_ARG_3)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    if(is_not_integer(BIF_ARG_1)) {
+        BIF_RET(am_false);
+    }
+
+    BIF_RET((CMP_LE(BIF_ARG_2, BIF_ARG_1) && CMP_LE(BIF_ARG_1, BIF_ARG_3)) ?
+        am_true : am_false);
 }
 
 /**********************************************************************/

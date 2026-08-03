@@ -1,8 +1,10 @@
 # 
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2001-2024. All Rights Reserved.
-# 
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2001-2026. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 
 include $(ERL_TOP)/make/target.mk
@@ -40,7 +42,7 @@ VSN=$(MEGACO_VSN)
 # Release directory specification
 # ----------------------------------------------------
 RELSYSDIR = $(RELEASE_PATH)/lib/megaco-$(VSN)
-
+EXAMPLE_RELSYSDIR = $(RELEASE_PATH)/megaco_test/examples
 
 # ----------------------------------------------------
 # Target Specs
@@ -67,7 +69,7 @@ endif
 
 ERL_COMPILE_FLAGS += \
 	-pa $(ERL_TOP)/lib/megaco/ebin \
-	+nowarn_missing_doc +nowarn_missing_spec_documented \
+	+nowarn_missing_doc +nowarn_missing_spec_documented +nowarn_deprecated_catch \
 	-I../../include
 
 ifneq ($(MGC_HOST),)
@@ -186,12 +188,15 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 
 release_spec: opt
-	$(INSTALL_DIR) "$(RELSYSDIR)/examples"
-	$(INSTALL_DIR) "$(RELSYSDIR)/examples/simple"
-	$(INSTALL_DATA) $(ERL_FILES) $(TARGET_FILES) "$(RELSYSDIR)/examples/simple"
-
 
 release_docs_spec:
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples"
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples/simple"
+
+release_tests_spec:
+	$(INSTALL_DIR) "$(EXAMPLE_RELSYSDIR)"
+	$(INSTALL_DIR) "$(EXAMPLE_RELSYSDIR)/simple"
+	$(INSTALL_DATA) $(ERL_FILES) $(TARGET_FILES) "$(EXAMPLE_RELSYSDIR)/simple"
 
 
 # ----------------------------------------------------

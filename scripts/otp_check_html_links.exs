@@ -1,5 +1,25 @@
 #!/usr/bin/env elixir
 
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2023-2026. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+
 Mix.install([
   :floki
 ])
@@ -49,23 +69,30 @@ defmodule Anchors do
     nil
   end
 
-  def validate_href(_file, "http://" <> _href, _anchors) do
+  def validate_href(file, href, _anchors, content)
+      when (href === "" or href === :href) and content != [] do
+    warn(file, "found empty href")
     nil
   end
 
-  def validate_href(_file, "https://" <> _href, _anchors) do
+  def validate_href(_file, "http://" <> _href, _anchors, _content) do
     nil
   end
 
-  def validate_href(file, "`" <> _ = href, _anchors) do
+  def validate_href(_file, "https://" <> _href, _anchors, _content) do
+    nil
+  end
+
+  def validate_href(file, "`" <> _ = href, _anchors, _content) do
     warn(file, "found #{href}")
+    nil
   end
 
-  def validate_href(file, <<"#">> <> _anchor = href, anchors) do
-    validate_href(file, Path.basename(file) <> href, anchors)
+  def validate_href(file, <<"#">> <> _anchor = href, anchors, content) do
+    validate_href(file, Path.basename(file) <> href, anchors, content)
   end
 
-  def validate_href(file, href, anchors) do
+  def validate_href(file, href, anchors, _content) do
     target = Path.dirname(file) |> Path.join(href) |> Path.expand()
 
     case String.split(target, "#", parts: 2) do
@@ -114,11 +141,18 @@ defmodule Anchors do
     if String.contains?(file, "doc/html/assets/") do
       seen
     else
+      # Check anchors without href
+      Floki.find(document, "a:not([href])")
+      |> Enum.each(fn {_, _, content} ->
+        warn(file, "anchor tag without href: #{Floki.text(content)}")
+      end)
+
+      # Check anchors with href
       Floki.find(document, "a[href]")
-      |> Enum.reduce(seen, fn {_, attr, _}, seen ->
+      |> Enum.reduce(seen, fn {_, attr, content}, seen ->
         href = :proplists.get_value("href", attr)
 
-        case validate_href(file, href, anchors) do
+        case validate_href(file, href, anchors, content) do
           {target, anchor} ->
             {_, seen} =
               Map.get_and_update(seen, target, fn

@@ -1,0 +1,148 @@
+-- %CopyrightBegin%
+--
+-- SPDX-License-Identifier: BSD-3-Clause
+--
+-- Copyright (c) 2025 IETF Trust and the persons identified as the document authors.  All rights reserved.
+-- Copyright Ericsson AB 2026. All Rights Reserved.
+--
+-- Redistribution and use in source and binary forms, with or without
+-- modification, are permitted provided that the following conditions are met:
+--
+-- 1. Redistributions of source code must retain the above copyright notice,
+--    this list of conditions and the following disclaimer.
+--
+-- 2. Redistributions in binary form must reproduce the above copyright notice,
+--    this list of conditions and the following disclaimer in the documentation
+--    and/or other materials provided with the distribution.
+--
+-- 3. Neither the name of the copyright holder nor the names of its contributors
+--    may be used to endorse or promote products derived from this software
+--    without specific prior written permission.
+--
+-- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS IS”
+-- AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+-- IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+-- ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+-- LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+-- CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+-- SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+-- INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+-- CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+-- ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+-- POSSIBILITY OF SUCH DAMAGE.
+--
+-- %CopyrightEnd%
+
+X509-ML-KEM-2025
+{ iso(1) identified-organization(3) dod(6)
+  internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
+  id-mod-x509-ml-kem-2025(11) } -- id-mod-x509-ml-kem-2025(TBD)
+
+DEFINITIONS IMPLICIT TAGS ::= BEGIN
+
+EXPORTS ALL;
+
+IMPORTS
+
+ PUBLIC-KEY
+   FROM AlgorithmInformation-2009  -- [RFC 5912]
+     { iso(1) identified-organization(3) dod(6) internet(1)
+       security(5) mechanisms(5) pkix(7) id-mod(0)
+       id-mod-algorithmInformation-02(58) }
+
+ KEM-ALGORITHM
+   FROM KEMAlgorithmInformation-2023  -- [RFC 9629]
+     { iso(1) identified-organization(3) dod(6) internet(1)
+       security(5) mechanisms(5) pkix(7) id-mod(0)
+       id-mod-kemAlgorithmInformation-2023(109) };
+
+--
+-- ML-KEM Identifiers
+--
+
+nistAlgorithms OBJECT IDENTIFIER ::= { joint-iso-ccitt(2)
+  country(16) us(840) organization(1) gov(101) csor(3)
+  nistAlgorithm(4) }
+
+kems OBJECT IDENTIFIER ::= { nistAlgorithms 4 }
+
+id-alg-ml-kem-512 OBJECT IDENTIFIER ::= { kems 1 }
+
+id-alg-ml-kem-768 OBJECT IDENTIFIER ::= { kems 2 }
+
+id-alg-ml-kem-1024 OBJECT IDENTIFIER ::= { kems 3 }
+
+--
+-- Public Key Algorithms
+--
+
+PublicKeys PUBLIC-KEY ::= {
+  -- This expands PublicKeys from [RFC 5912]
+  pk-ml-kem-512 |
+  pk-ml-kem-768 |
+  pk-ml-kem-1024,
+  ...
+  }
+
+--
+-- ML-KEM Public Keys
+--
+
+pk-ml-kem-512 PUBLIC-KEY ::= {
+  IDENTIFIER id-alg-ml-kem-512
+  -- KEY no ASN.1 wrapping; 800 octets --
+  PARAMS ARE absent
+  CERT-KEY-USAGE { keyEncipherment }
+  PRIVATE-KEY ML-KEM-512-PrivateKey
+  }
+
+ML-KEM-512-PrivateKey ::= CHOICE {
+  seed [0] OCTET STRING (SIZE (64)),
+  expandedKey OCTET STRING (SIZE (1632)),
+  both SEQUENCE {
+      seed OCTET STRING (SIZE (64)),
+      expandedKey OCTET STRING (SIZE (1632))
+      }
+  }
+
+pk-ml-kem-768 PUBLIC-KEY ::= {
+  IDENTIFIER id-alg-ml-kem-768
+  -- KEY no ASN.1 wrapping; 1184 octets --
+  PARAMS ARE absent
+  CERT-KEY-USAGE { keyEncipherment }
+  PRIVATE-KEY ML-KEM-768-PrivateKey
+  }
+
+ML-KEM-768-PrivateKey ::= CHOICE {
+  seed [0] OCTET STRING (SIZE (64)),
+  expandedKey OCTET STRING (SIZE (2400)),
+  both SEQUENCE {
+      seed OCTET STRING (SIZE (64)),
+      expandedKey OCTET STRING (SIZE (2400))
+      }
+  }
+
+pk-ml-kem-1024 PUBLIC-KEY ::= {
+  IDENTIFIER id-alg-ml-kem-1024
+  -- KEY no ASN.1 wrapping; 1568 octets --
+  PARAMS ARE absent
+  CERT-KEY-USAGE { keyEncipherment }
+  PRIVATE-KEY ML-KEM-1024-PrivateKey
+  }
+
+ML-KEM-1024-PrivateKey ::= CHOICE {
+  seed [0] OCTET STRING (SIZE (64)),
+  expandedKey OCTET STRING (SIZE (3168)),
+  both SEQUENCE {
+      seed OCTET STRING (SIZE (64)),
+      expandedKey OCTET STRING (SIZE (3168))
+      }
+  }
+
+ML-KEM-512-PublicKey ::= OCTET STRING (SIZE (800))
+
+ML-KEM-768-PublicKey ::= OCTET STRING (SIZE (1184))
+
+ML-KEM-1024-PublicKey ::= OCTET STRING (SIZE (1568))
+
+END

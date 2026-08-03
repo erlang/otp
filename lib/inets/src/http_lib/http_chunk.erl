@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -235,7 +237,7 @@ decode_data(ChunkSize, TotalChunk,
 	    NewBody = <<BodySoFar/binary, Data/binary>>,
 	    {?MODULE, decode_size, [<<>>, [], 0, {MaxBodySize, NewBody, AccLength, MaxHeaderSize}]};
 	<<Data:ChunkSize/binary, ?CR, ?LF, Rest/binary>> 
-	when (AccLength < MaxBodySize) or (MaxBodySize == nolimit)  ->
+	when AccLength < MaxBodySize; MaxBodySize == nolimit  ->
 	    decode_size(Rest, [], 0,
 			{MaxBodySize, <<BodySoFar/binary, Data/binary>>,
 			 AccLength, MaxHeaderSize});

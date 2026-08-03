@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -150,6 +152,42 @@ typedef struct {
     BeamType *entries;
 } BeamFile_TypeTable;
 
+
+#define BEAMFILE_DEBUG_INFO_ENTRY_FRAME_SIZE 0
+#define BEAMFILE_DEBUG_INFO_ENTRY_VAR_MAPPINGS 1
+#define BEAMFILE_DEBUG_INFO_ENTRY_CALLS 2
+
+#define BEAMFILE_FRAMESIZE_ENTRY (-2)
+#define BEAMFILE_FRAMESIZE_NONE (-1)
+
+typedef struct {
+    Uint32 location_index;
+    Sint32 frame_size;
+    Sint32 num_vars;
+    Sint32 num_calls_terms;
+    Eterm *first;
+} BeamFile_DebugItem;
+
+typedef struct {
+    Sint32 item_count;
+    Sint32 term_count;
+    BeamFile_DebugItem *items;
+    Eterm *terms;
+    byte *is_literal;
+} BeamFile_DebugTable;
+
+typedef struct {
+    Eterm name;
+    Sint def_literal;
+    Sint32 num_fields;
+} BeamFile_Record;
+
+typedef struct {
+    Sint32 record_count;
+    Sint32 total_field_count;
+    BeamFile_Record *records;
+} BeamFile_RecordTable;
+
 typedef struct {
     IFF_File iff;
 
@@ -166,6 +204,8 @@ typedef struct {
     BeamFile_LambdaTable lambdas;
     BeamFile_LineTable lines;
     BeamFile_TypeTable types;
+    BeamFile_DebugTable debug;
+    BeamFile_RecordTable record;
 
     /* Static literals are those defined in the file, and dynamic literals are
      * those created when loading. The former is positively indexed starting
@@ -206,7 +246,9 @@ enum beamfile_read_result {
     BEAMFILE_READ_CORRUPT_LAMBDA_TABLE,
     BEAMFILE_READ_CORRUPT_LINE_TABLE,
     BEAMFILE_READ_CORRUPT_LITERAL_TABLE,
-    BEAMFILE_READ_CORRUPT_TYPE_TABLE
+    BEAMFILE_READ_CORRUPT_TYPE_TABLE,
+    BEAMFILE_READ_CORRUPT_DEBUG_TABLE,
+    BEAMFILE_READ_CORRUPT_RECORD_TABLE,
 };
 
 typedef struct {

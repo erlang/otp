@@ -1,4 +1,10 @@
-# ``Licensed under the Apache License, Version 2.0 (the "License");
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2015-2026. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
@@ -9,7 +15,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
+# %CopyrightEnd%
+#
 # The Initial Developer of the Original Code is Ericsson Utvecklings AB.
 # Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
 # AB. All Rights Reserved.''
@@ -40,7 +48,7 @@ docs:
 # ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-RELSYSDIR = $(RELEASE_PATH)/lib/stdlib-$(STDLIB_VSN)/examples
+RELSYSDIR = $(RELEASE_PATH)/lib/stdlib-$(STDLIB_VSN)/doc/examples
 
 # Pack and install the complete directory structure from 
 # here (CWD) and down, for all examples.
@@ -48,6 +56,12 @@ RELSYSDIR = $(RELEASE_PATH)/lib/stdlib-$(STDLIB_VSN)/examples
 EXAMPLES  = erl_id_trans.erl
 
 release_spec:
+
+release_docs_spec:
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(EXAMPLES) "$(RELSYSDIR)"
-release_docs_spec:
+
+release_tests_spec:
+	$(INSTALL_DIR) "$(RELEASE_PATH)/stdlib_test/"
+	(cd ..; tar cf - examples  | (cd "$(RELEASE_PATH)/stdlib_test"; tar xf -))
+	chmod -R ug+w "$(RELEASE_PATH)/stdlib_test/examples"

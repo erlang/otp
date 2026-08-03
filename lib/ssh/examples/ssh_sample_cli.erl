@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +39,7 @@ listen(Port) ->
     listen(Port, []).
 
 listen(Port, Options) ->
-    crypto:start(),
+    application:start(crypto),
     ssh:start(),
     ssh:daemon(any, Port, [{shell, fun(U, H) -> start_our_shell(U, H) end} | Options]).
 
@@ -291,7 +293,7 @@ lcm(_R, 0) -> 0;
 lcm(R, Q) ->
     (Q div gcd(R, Q)) * R.
 
-%%% Prime factors of a number (naïve implementation)
+%%% Prime factors of a number (naive implementation)
 factors(N) ->
     Nsqrt = trunc(math:sqrt(N)),
     factors([], N, 2, Nsqrt, []).

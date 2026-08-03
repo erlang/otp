@@ -122,7 +122,7 @@ init_ets_tables(Role) ->
     create_ets(Role, gcpFlowControlBitmap, #gcpFlowControlBitmap.key),
     ok.
 
-create_ets(Role, Table, Pos) when integer(Pos) ->
+create_ets(Role, Table, Pos) when is_integer(Pos) ->
     create_ets(Role,
                Table,
                [named_table, ordered_set, public, {keypos, Pos}]);
@@ -391,7 +391,17 @@ prio([ActionRequest | _]) ->
     prio(ContextId, ContextRequest).
 
 prio(?megaco_choose_context_id, #'ContextRequest'{priority = Prio})
-  when integer(Prio) ->
+  when is_integer(Prio) ->
     Prio;
 prio(_, _) ->
     ?PRIO_INFINITY.
+
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: NOASSERTION
+%%
+%% Copyright Ericsson Telecom AB 2001-2005. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% %CopyrightEnd%

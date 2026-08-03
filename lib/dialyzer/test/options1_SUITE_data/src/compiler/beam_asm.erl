@@ -1,4 +1,11 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,15 +17,8 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%%
-%%     $Id: beam_asm.erl,v 1.1 2008/12/17 09:53:40 mikpe Exp $
-%% Purpose : Assembler for threaded Beam.
-
+%% %CopyrightEnd%
 -module(beam_asm).
-
 -export([module/4,format_error/1]).
 -export([encode/2]).
 
@@ -31,7 +31,7 @@ module(Code, Abst, SourceFile, Opts) ->
     case assemble(Code, Abst, SourceFile, Opts) of
 	{error, Error} ->
 	    {error, [{none, ?MODULE, Error}]};
-	Bin when binary(Bin) ->
+        Bin when is_binary(Bin) ->
 	    {ok, Bin}
     end.
 
@@ -132,7 +132,7 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts) ->
 
 %% Build an IFF form.
 
-build_form(Id, Chunks0) when size(Id) == 4, list(Chunks0) ->
+build_form(Id, Chunks0) when size(Id) == 4, is_list(Chunks0) ->
     Chunks = list_to_binary(Chunks0),
     Size = size(Chunks),
     0 = Size rem 4,				% Assertion: correct padding?
@@ -140,10 +140,10 @@ build_form(Id, Chunks0) when size(Id) == 4, list(Chunks0) ->
 
 %% Build a correctly padded chunk (with no sub-header).
 
-chunk(Id, Contents) when size(Id) == 4, binary(Contents) ->
+chunk(Id, Contents) when size(Id) == 4, is_binary(Contents) ->
     Size = size(Contents),
     [<<Id/binary,Size:32>>,Contents|pad(Size)];
-chunk(Id, Contents) when list(Contents) ->
+chunk(Id, Contents) when is_list(Contents) ->
     chunk(Id, list_to_binary(Contents)).
 
 %% Build a correctly padded chunk (with a sub-header).
@@ -151,7 +151,7 @@ chunk(Id, Contents) when list(Contents) ->
 chunk(Id, Head, Contents) when size(Id) == 4, is_binary(Head), is_binary(Contents) ->
     Size = size(Head)+size(Contents),
     [<<Id/binary,Size:32,Head/binary>>,Contents|pad(Size)];
-chunk(Id, Head, Contents) when list(Contents) ->
+chunk(Id, Head, Contents) when is_list(Contents) ->
     chunk(Id, Head, list_to_binary(Contents)).
 
 pad(Size) ->
@@ -233,12 +233,12 @@ make_op({bif, Bif, Fail, Args, Dest}, Dict) ->
     end;
 make_op({bs_add=Op,Fail,[Src1,Src2,Unit],Dest}, Dict) ->
     encode_op(Op, [Fail,Src1,Src2,Unit,Dest], Dict);
-make_op({test,Cond,Fail,Ops}, Dict) when list(Ops) ->
+make_op({test,Cond,Fail,Ops}, Dict) when is_list(Ops) ->
     encode_op(Cond, [Fail|Ops], Dict);
 make_op({make_fun2,{f,Lbl},Index,OldUniq,NumFree}, Dict0) ->
     {Fun,Dict} = beam_dict:lambda(Lbl, Index, OldUniq, NumFree, Dict0),
     make_op({make_fun2,Fun}, Dict);
-make_op(Op, Dict) when atom(Op) ->
+make_op(Op, Dict) when is_atom(Op) ->
     encode_op(Op, [], Dict);
 make_op({kill,Y}, Dict) ->
     make_op({init,Y}, Dict);
@@ -255,7 +255,7 @@ make_op({Name,Arg1,Arg2,Arg3,Arg4,Arg5}, Dict) ->
 make_op({Name,Arg1,Arg2,Arg3,Arg4,Arg5,Arg6}, Dict) ->
     encode_op(Name, [Arg1,Arg2,Arg3,Arg4,Arg5,Arg6], Dict).
 
-encode_op(Name, Args, Dict0) when atom(Name) ->
+encode_op(Name, Args, Dict0) when is_atom(Name) ->
     {EncArgs,Dict1} = encode_args(Args, Dict0),
     Op = beam_opcodes:opcode(Name, length(Args)),
     Dict2 = beam_dict:opcode(Op, Dict1),
@@ -272,7 +272,7 @@ encode_arg({x, X}, Dict) when X >= 0 ->
     {encode(?tag_x, X), Dict};
 encode_arg({y, Y}, Dict) when Y >= 0 ->
     {encode(?tag_y, Y), Dict};
-encode_arg({atom, Atom}, Dict0) when atom(Atom) ->
+encode_arg({atom, Atom}, Dict0) when is_atom(Atom) ->
     {Index, Dict} = beam_dict:atom(Atom, Dict0),
     {encode(?tag_a, Index), Dict};
 encode_arg({integer, N}, Dict) ->
@@ -292,7 +292,7 @@ encode_arg({extfunc, M, F, A}, Dict0) ->
 encode_arg({list, List}, Dict0) ->
     {L, Dict} = encode_list(List, Dict0, []),
     {[encode(?tag_z, 1), encode(?tag_u, length(List))|L], Dict};
-encode_arg({float, Float}, Dict) when float(Float) ->
+encode_arg({float, Float}, Dict) when is_float(Float) ->
     {[encode(?tag_z, 0)|<<Float:64/float>>], Dict};
 encode_arg({fr,Fr}, Dict) ->
     {[encode(?tag_z, 2),encode(?tag_u,Fr)], Dict};

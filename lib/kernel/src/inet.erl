@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,14 +32,20 @@ See also [ERTS User's Guide: Inet Configuration](`e:erts:inet_cfg.md`)
 or more information about how to configure an Erlang runtime system
 for IP communication.
 
-The following two Kernel configuration parameters affect the behavior of all
-`m:gen_tcp` sockets opened on an Erlang node:
+The following four Kernel configuration parameters affect the behavior of all
+`m:gen_tcp`, `m:gen_udp` and `m:gen_sctp` sockets opened on an Erlang node:
 
 - `inet_default_connect_options` can contain a list of
   default options used for all sockets created by
-  a `gen_tcp:connect/2,3,4`](`gen_tcp:connect/2`) call.
+  a [`gen_tcp:connect/2,3,4`](`gen_tcp:connect/4`) call.
 - `inet_default_listen_options` can contain a list of default options
-  used for sockets created by a `gen_tcp:listen/2` call.
+  used for sockets created by a [`gen_tcp:listen/2`](`gen_tcp:listen/2`) call.
+- `inet_default_udp_options` can contain a list of
+  default options used for all sockets created by
+  a [`gen_udp:open/1,2`](`gen_udp:open/2`) call.
+- `inet_default_sctp_options` can contain a list of
+  default options used for all sockets created by
+  a [`gen_sctp:open/0,1`](`gen_sctp:open/1`) call.
 
 For the [`gen_tcp:accept/1,2`](`gen_tcp:accept/1`) call,
 the values of the listening socket options are inherited.
@@ -237,9 +245,8 @@ Function `parse_address/1` can be useful:
 - `exfull` - Message tables full
 - `nxdomain` - Hostname or domain name cannot be found
 """.
--moduledoc(#{titles =>
-                 [{type,<<"Exported data types">>},
-                  {type,<<"Internal data types">>}]}).
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 -include("inet.hrl").
 -include("inet_int.hrl").
@@ -330,9 +337,10 @@ Function `parse_address/1` can be useful:
 	element(1, Record) =:= element(1, RS),
 	tuple_size(Record) =:= element(2, RS)).
 
-%% Two kinds of debug macros (depnds on what you need to debug)
+%% Two kinds of debug macros (depends on what you need to debug)
 %% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
-%% -define(DBG(F, A), io:format("~w(~w) -> " ++ F ++ "~n", [?FUNCTION_NAME, ?LINE | A])).
+%% -define(DBG(F, A),
+%%         io:format("~w(~w) -> " ++ F ++ "~n", [?FUNCTION_NAME, ?LINE | A])).
 %% -define(DBG(F),    ?DBG(F, [])).
 -define(DBG(F, A),    ok).
 
@@ -355,34 +363,27 @@ Add the following directive to the module:
 -include_lib("kernel/include/inet.hrl").
 ```
 """.
--doc(#{title => <<"Exported data types">>}).
 -type hostent() :: #hostent{}.
 
--doc(#{title => <<"Exported data types">>}).
 -type hostname() :: atom() | string().
 
--doc(#{title => <<"Exported data types">>}).
 -type ip4_address() :: {0..255,0..255,0..255,0..255}.
 
--doc(#{title => <<"Exported data types">>}).
 -type ip6_address() :: {0..65535,0..65535,0..65535,0..65535,
 			0..65535,0..65535,0..65535,0..65535}.
 
--doc(#{title => <<"Exported data types">>}).
 -type ip_address() :: ip4_address() | ip6_address().
 
--doc(#{title => <<"Exported data types">>}).
 -type port_number() :: 0..65535.
 
 -doc """
 A general network address.
 
-A general network address format on the form `{Family, Destination}`
+A general network address format of the form `{Family, Destination}`
 where `Family` is an atom such as `local` and the format of `Destination`
 depends on `Family`.  `Destination` is a complete address (for example
 an IP address with port number).
 """.
--doc(#{title => <<"Exported data types">>}).
 -type family_address() :: inet_address() | inet6_address() | local_address().
 
 -doc """
@@ -392,7 +393,6 @@ A network address for the `inet` family (`AF_INET`, IPv4)
 > This address format is currently experimental and for completeness
 > to make all address families have a `{Family, Destination}` representation.
 """.
--doc(#{title => <<"Internal data types">>}).
 -type inet_address() ::
         {'inet', {ip4_address() | 'any' | 'loopback', port_number()}}.
 
@@ -403,7 +403,6 @@ A network address for the `inet6` family (`AF_INET6`, IPv6)
 > This address format is currently experimental and for completeness
 > to make all address families have a `{Family, Destination}` representation.
 """.
--doc(#{title => <<"Internal data types">>}).
 -type inet6_address() ::
         {'inet6', {ip6_address() | 'any' | 'loopback', port_number()}}.
 
@@ -427,7 +426,6 @@ on your system, normally `unix` in manual section 7.
 In most API functions where you can use this address family
 the port number must be `0`.
 """.
--doc(#{title => <<"Exported data types">>}).
 -type local_address() :: {'local', File :: binary() | string()}.
 
 -doc """
@@ -440,7 +438,6 @@ if the other side has no socket address. The `undefined`
 family can only occur in the unlikely event of an address family
 that the VM doesn't recognize.
 """.
--doc(#{title => <<"Exported data types">>}).
 -type returned_non_ip_address() ::
 	{'local', binary()} |
 	{'unspec', <<>>} |
@@ -453,7 +450,6 @@ An atom that is named from the POSIX error codes used in Unix,
 and in the runtime libraries of most C compilers.
 See section [POSIX Error Codes](#posix-error-codes).
 """.
--doc(#{title => <<"Exported data types">>}).
 -type posix() ::
         'eaddrinuse' | 'eaddrnotavail' | 'eafnosupport' | 'ealready' |
         'econnaborted' | 'econnrefused' | 'econnreset' |
@@ -477,32 +473,27 @@ A socket recognized by this module and its siblings.
 
 See `t:gen_tcp:socket/0` and `t:gen_udp:socket/0`.
 """.
--doc(#{title => <<"Exported data types">>}).
 -type socket() :: port() | module_socket().
 
 -doc """
 Implementation backend selector for `t:socket/0`.
 
-Selects the implementation backend for [sockets](`t:socket/0`.
+Selects the implementation backend for [sockets](`t:socket/0`).
 The current default is `inet` which uses `inet_drv.c` to call
 the platform's socket API. The value `socket` instead uses
 the `m:socket` module and its NIF implementation.
 
 This is a _temporary_ option that will be ignored in a future release.
 """.
--doc(#{title => <<"Exported data types">>}).
 -type inet_backend() :: {'inet_backend', 'inet' | 'socket'}.
 
--doc(#{title => <<"Exported data types">>}).
 -type socket_setopt() ::
         gen_sctp:option() | gen_tcp:option() | gen_udp:option().
 
--doc(#{title => <<"Exported data types">>}).
 -type socket_optval() ::
         gen_sctp:option_value() | gen_tcp:option() | gen_udp:option() |
         gen_tcp:pktoptions_value().
 
--doc(#{title => <<"Exported data types">>}).
 -type socket_getopt() ::
         gen_sctp:option_name() | gen_tcp:option_name() | gen_udp:option_name().
 
@@ -575,7 +566,6 @@ by the Solaris API function `getaddrinfo()`.
 > `Netmask` and `Broadaddr` values may be calculated, just as some `Flags`
 > values.
 """.
--doc(#{title => <<"Internal data types">>}).
 -type getifaddrs_ifopts() ::
         [Ifopt :: {flags, Flags :: [up | broadcast | loopback |
                                     pointtopoint | running | multicast]} |
@@ -585,19 +575,15 @@ by the Solaris API function `getaddrinfo()`.
                   {dstaddr, Dstaddr :: ip_address()} |
                   {hwaddr, Hwaddr :: [byte()]}].
 
--doc(#{title => <<"Exported data types">>}).
 -type address_family() :: 'inet' | 'inet6' | 'local'.
 
--doc(#{title => <<"Exported data types">>}).
 -type socket_protocol() :: 'tcp' | 'udp' | 'sctp'.
 
 -type socket_type() :: 'stream' | 'dgram' | 'seqpacket'.
 
--doc(#{title => <<"Exported data types">>}).
 -type socket_address() ::
 	ip_address() | 'any' | 'loopback' | local_address().
 
--doc(#{title => <<"Exported data types">>}).
 -type stat_option() ::
 	'recv_cnt' | 'recv_max' | 'recv_avg' | 'recv_oct' | 'recv_dvi' |
 	'send_cnt' | 'send_max' | 'send_avg' | 'send_oct' | 'send_pend'.
@@ -616,7 +602,6 @@ The value(s) correspond to the currently active socket
 or for a single send operation the option(s) to override
 the currently active socket option(s).
 """.
--doc(#{title => <<"Exported data types">>}).
 -type ancillary_data() ::
         [ {'tos', byte()} | {'tclass', byte()} | {'ttl', byte()} ].
 
@@ -975,10 +960,10 @@ The following options are available:
 
   Use active mode only if your high-level protocol provides its own flow control
   (for example, acknowledging received messages) or the amount of data exchanged
-  is small. `{active, false}` mode, use of the `{active, once}` mode, or
-  `{active, N}` mode with values of `N` appropriate for the application
-  to provide flow control. The other side cannot send faster than
-  the receiver can read.
+  is small. Using `{active, false}` mode, `{active, once}` mode, or
+  `{active, N}` mode with values of `N` appropriate for the application to
+  provide flow control, ensures the other side cannot send faster than the
+  receiver can read.
 
 - **`{broadcast, Boolean}` (UDP sockets)** [](){: #option-broadcast } -
   Enables/disables permission to send broadcasts.
@@ -1109,6 +1094,12 @@ The following options are available:
   transmission on a connected socket when no other data is exchanged. If the
   other end does not respond, the connection is considered broken and an error
   message is sent to the controlling process. Defaults to `false`.
+
+- **`{keepcnt, Integer}` (TCP/IP sockets)** - Linux specific `TCP_KEEPCNT`.
+
+- **`{keepidle, Integer}` (TCP/IP sockets)** - Linux specific `TCP_KEEPIDLE`.
+
+- **`{keepintvl, Integer}` (TCP/IP sockets)** - Linux specific `TCP_KEEPINTVL`.
 
 - **`{linger, {true|false, Seconds}}`** [](){: #option-linger } -
   Determines the time-out, in seconds, for flushing unsent data
@@ -1428,11 +1419,6 @@ The following options are available:
   > example, by enabling `reuseport` and then disabling `reuseport_lb` both will
   > end up being disabled.
 
-  > #### Note {: .info }
-  >
-  > This option is _currently_ not supported for socket created with
-  > `inet_backend = socket`
-
 - **`{reuseport_lb, Boolean}`[](){: #option-reuseport_lb }** -
   Allows or disallows reuse of local port _with_ load balancing.
   By default, reuse is disallowed.  See also [`reuseport`](#option-reuseport).
@@ -1445,11 +1431,6 @@ The following options are available:
   >  underlying option, operating on both may cause them to interact
   > in surprising ways. For example, by enabling `reuseport_lb`,
   > and then disabling `reuseport`, both will end up being disabled.
-
-  > #### Note {: .info }
-  >
-  > This option is _currently_ not supported for socket created with
-  > `inet_backend = socket`
 
 - **`{send_timeout, Integer}`** - Only allowed for connection-oriented sockets.
 
@@ -1507,6 +1488,9 @@ The following options are available:
   where this is implemented. The behavior and allowed range varies between
   different systems. The option is ignored on platforms where it is not
   implemented. Use with caution.
+
+- **`{user_timeout, Integer}` (TCP/IP sockets)** - Linux specific
+  `TCP_USER_TIMEOUT`.
 
 In addition to these options, _raw_ option specifications can be used. The raw
 options are specified as a tuple of arity four, beginning with tag `raw`,
@@ -2571,15 +2555,7 @@ gethostbyname(Name) ->
 	    gethostbyname_tm(Name, inet, false)
     end.
 
--doc """
-Resolve a hostname to a [`#hostent{}`](`t:hostent/0`) record,
-in a specific address family.
-
-Returns a [`#hostent{}`](`t:hostent/0`) record for the host
-with the specified `Hostname`, restricted to the specified address `Family`.
-
-See also `gethostbyname/1`.
-""".
+-doc(#{equiv => gethostbyname(Hostname, Family, infinity)}).
 -spec gethostbyname(Hostname, Family) ->
                            {ok, Hostent} | {error, posix()} when
       Hostname :: hostname(),
@@ -2589,7 +2565,17 @@ See also `gethostbyname/1`.
 gethostbyname(Name, Family) ->
     gethostbyname_tm(Name, Family, false).
 
--doc false.
+-doc """
+Resolve a hostname to a [`#hostent{}`](`t:hostent/0`) record,
+in a specific address family.
+
+Returns a [`#hostent{}`](`t:hostent/0`) record for the host
+with the specified `Name`, restricted to the specified address `Family`.
+
+`Timeout` specifies a time-out in milliseconds, or the atom `infinity`.
+
+See also `gethostbyname/1`.
+""".
 -spec gethostbyname(Name :: hostname(),
 	            Family :: address_family(),
 	            Timeout :: non_neg_integer() | 'infinity') ->
@@ -2619,12 +2605,7 @@ gethostbyname_tm(Name, Family, Timer) ->
     gethostbyname_tm(Name, Family, Timer, Opts).
 
 
--doc """
-Resolve (reverse) an address to a [`#hostent{}`](`t:hostent/0`) record.
-
-Returns a [`#hostent{}`](`t:hostent/0`) record for the host
-with the specified address.
-""".
+-doc(#{equiv => gethostbyaddr(Address, infinity)}).
 -spec gethostbyaddr(Address) -> {ok, Hostent} | {error, posix()} when
       Address :: string() | ip_address(),
       Hostent :: hostent().
@@ -2632,7 +2613,14 @@ with the specified address.
 gethostbyaddr(Address) ->
     gethostbyaddr_tm(Address, false).
 
--doc false.
+-doc """
+Resolve (reverse) an address to a [`#hostent{}`](`t:hostent/0`) record.
+
+Returns a [`#hostent{}`](`t:hostent/0`) record for the host
+with the specified address.
+
+`Timeout` specifies a time-out in milliseconds, or the atom `infinity`.
+""".
 -spec gethostbyaddr(Address :: string() | ip_address(),
 	            Timeout :: non_neg_integer() | 'infinity') ->
 	{'ok', #hostent{}} | {'error', posix()}.
@@ -2704,7 +2692,18 @@ port_info(P) when is_port(P) ->
     case erlang:port_info(P) of
 	PI0 when is_list(PI0) ->
 	    PI1 = port_info(PI0, [connected, links, input, output]) ++
-		[erlang:port_info(P, memory), erlang:port_info(P, monitors)],
+                case erlang:port_info(P, memory) of
+                    undefined ->
+                        [];
+                    {memory, _} = MEM ->
+                        [MEM]
+                end ++ 
+                case erlang:port_info(P, monitors) of
+                    undefined ->
+                        [];
+                    {monitors, _} = MONS ->
+                        [MONS]
+                end,
 	    PI2 = pi_replace([{connected, owner}], PI1),
 	    maps:from_list(PI2);
 	_ ->
@@ -2802,7 +2801,7 @@ getll(Socket) when is_port(Socket) ->
 
 getfd(?module_socket(GenSocketMod, ESock) = _Socket)
   when is_atom(GenSocketMod) ->
-    socket:getopt(ESock, otp, fd);
+    socket:getopt(ESock, {otp, fd});
 getfd(Socket) ->
     prim_inet:getfd(Socket).
 
@@ -2810,13 +2809,7 @@ getfd(Socket) ->
 %% Lookup an ip address
 %%
 
--doc """
-Resolve a host to an address, in a specific addresss family.
-
-Returns the [IP address](`t:ip_address/0`) for `Host` as a tuple of integers.
-`Host` can be an [IP address](`t:ip_address/0`), a single `t:hostname/0`,
-or a fully qualified `t:hostname/0`.
-""".
+-doc(#{equiv => getaddr(Host, Family, infinity)}).
 -spec getaddr(Host, Family) -> {ok, Address} | {error, posix()} when
       Host :: ip_address() | hostname(),
       Family :: address_family(),
@@ -2825,11 +2818,19 @@ or a fully qualified `t:hostname/0`.
 getaddr(Address, Family) ->
     getaddr(Address, Family, infinity).
 
--doc false.
+-doc """
+Resolve a host to an address, in a specific address family.
+
+Returns the [IP address](`t:ip_address/0`) for `Host` as a tuple of integers.
+`Host` can be an [IP address](`t:ip_address/0`), a single `t:hostname/0`,
+or a fully qualified `t:hostname/0`.
+
+`Timeout` specifies a time-out in milliseconds, or the atom `infinity`.
+""".
 -spec getaddr(Host :: ip_address() | hostname(),
-	      Family :: address_family(),
-	      Timeout :: non_neg_integer() | 'infinity') ->
-	{'ok', ip_address()} | {'error', posix()}.
+          Family :: address_family(),
+          Timeout :: non_neg_integer() | 'infinity') ->
+    {'ok', ip_address()} | {'error', posix()}.
 
 getaddr(Address, Family, Timeout) ->
     %% ?DBG([{address, Address}, {family, Family}, {timeout, Timeout}]),
@@ -2851,13 +2852,7 @@ getaddr_tm(Address, Family, Timer) ->
 	    Error
     end.
 
--doc """
-Resolve a host to a list of addresses, in a specific address family.
-
-Returns a list of all IP addresses for `Host`.
-`Host` can be an [IP address](`t:ip_address/0`),
-a single `t:hostname/0`, or a fully qualified `t:hostname/0`.
-""".
+-doc(#{equiv => getaddrs(Host, Family, infinity)}).
 -spec getaddrs(Host, Family) ->
 	{ok, Addresses} | {error, posix()} when
       Host :: ip_address() | hostname(),
@@ -2867,8 +2862,16 @@ a single `t:hostname/0`, or a fully qualified `t:hostname/0`.
 getaddrs(Address, Family) ->
     getaddrs(Address, Family, infinity).
 
--doc false.
--spec getaddrs(Host :: ip_address() | string() | atom(),
+-doc """
+Resolve a host to a list of addresses, in a specific address family.
+
+Returns a list of all IP addresses for `Host`.
+`Host` can be an [IP address](`t:ip_address/0`),
+a single `t:hostname/0`, or a fully qualified `t:hostname/0`.
+
+`Timeout` specifies a time-out in milliseconds, or the atom `infinity`.
+""".
+-spec getaddrs(Host :: ip_address() | hostname(),
 	       Family :: address_family(),
 	       Timeout :: non_neg_integer() | 'infinity') ->
 	{'ok', [ip_address()]} | {'error', posix()}.
@@ -3096,7 +3099,8 @@ connect_options() ->
      header, active, packet, packet_size, buffer, mode, deliver, line_delimiter,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send, raw,
-     show_econnreset, bind_to_device, read_ahead].
+     show_econnreset, bind_to_device, read_ahead,
+     keepcnt, keepidle, keepintvl, user_timeout].
 
 -doc false.
 connect_options(Opts, Mod) ->
@@ -3162,6 +3166,11 @@ con_opt([Opt | Opts], #connect_opts{ifaddr = IfAddr} = R, As) ->
 	{line_delimiter,C} when is_integer(C), C >= 0, C =< 255 ->
 	    con_add(line_delimiter, C, R, Opts, As);
 
+        {protocol, Proto}
+          when Proto =:= tcp;
+               Proto =:= mptcp ->
+            con_opt(Opts, R#connect_opts { protocol = Proto }, As);
+
 	{Name,Val} when is_atom(Name) -> con_add(Name, Val, R, Opts, As);
 
 	_ -> {error, badarg}
@@ -3187,10 +3196,12 @@ listen_options() ->
      header, active, packet, buffer, mode, deliver, backlog, ipv6_v6only,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send,
-     packet_size, raw, show_econnreset, bind_to_device, read_ahead].
+     packet_size, raw, show_econnreset, bind_to_device, read_ahead,
+     keepcnt, keepidle, keepintvl, user_timeout].
 
 -doc false.
 listen_options(Opts, Mod) ->
+    %% ?DBG({opts, Opts}, {mod, Mod}),
     BaseOpts =
 	case application:get_env(kernel, inet_default_listen_options) of
 	    {ok,List} when is_list(List) ->
@@ -3203,18 +3214,22 @@ listen_options(Opts, Mod) ->
 	    _ ->
 		#listen_opts{ opts = [{active,true}]}
 	end,
+    %% ?DBG({base_opts, BaseOpts}),
     case list_opt(Opts, BaseOpts, listen_options()) of
 	{ok, R} ->
 	    {ok, R#listen_opts {
 		   opts = lists:reverse(R#listen_opts.opts),
 		   ifaddr = Mod:translate_ip(R#listen_opts.ifaddr)
 		  }};
-	Error -> Error
+	Error ->
+            %% ?DBG([{error, Error}]),
+            Error
     end.
 
 list_opt([{raw,A,B,C}|Opts], #listen_opts{} = R, As) ->
     list_opt([{raw,{A,B,C}}|Opts], R, As);
 list_opt([Opt | Opts], #listen_opts{ifaddr = IfAddr} = R, As) ->
+    %% ?DBG([{opt, Opt}, {r, R}, {as, As}]),
     case Opt of
 	{ifaddr, Addr} when is_map(Addr) ->
             list_opt(Opts, R#listen_opts{ ifaddr = ensure_sockaddr(Addr) }, As);
@@ -3246,6 +3261,10 @@ list_opt([Opt | Opts], #listen_opts{ifaddr = IfAddr} = R, As) ->
         {active,N} when is_integer(N), N < 32768, N >= -32768 ->
             NOpts = lists:keydelete(active, 1, R#listen_opts.opts),
             list_opt(Opts, R#listen_opts { opts = [{active,N}|NOpts] }, As);
+        {protocol, Proto}
+          when Proto =:= tcp;
+               Proto =:= mptcp ->
+            list_opt(Opts, R#listen_opts { protocol = Proto }, As);
 	{Name,Val} when is_atom(Name) -> list_add(Name, Val, R, Opts, As);
 	_ -> {error, badarg}
     end;
@@ -3307,7 +3326,14 @@ udp_options() ->
 
 -doc false.
 udp_options(Opts, Mod) ->
-    case udp_opt(Opts, #udp_opts { }, udp_options()) of
+    BaseOpts =
+        case application:get_env(kernel, inet_default_udp_options) of
+            {ok, List} when is_list(List) ->
+                #udp_opts{opts = List};
+            _ ->
+                #udp_opts{}
+        end,
+    case udp_opt(Opts, BaseOpts, udp_options()) of
 	{ok, R} ->
 	    {ok, R#udp_opts {
 		   opts = lists:reverse(R#udp_opts.opts),
@@ -3437,12 +3463,30 @@ sctp_options() ->
     sctp_status,	   	 sctp_get_peer_addr_info
 ].
 
+merge_base_sctp_options(Opts, Mod, BaseOpts) ->
+    case sctp_opt(Opts, Mod, BaseOpts, sctp_options()) of
+        {ok, SO} ->
+            SO#sctp_opts{opts = lists:reverse(SO#sctp_opts.opts)};
+        {error, _} ->
+            BaseOpts
+    end.
+
 -doc false.
 sctp_options(Opts, Mod)  ->
     %% ?DBG([{opts, Opts}, {mod, Mod}]),
-    case sctp_opt(Opts, Mod, #sctp_opts{}, sctp_options()) of
-	{ok, SO} ->
-	    {ok,SO#sctp_opts{opts=lists:reverse(SO#sctp_opts.opts)}};
+    BaseOpts =
+        case application:get_env(kernel, inet_default_sctp_options) of
+            {ok, List} when is_list(List) ->
+                %% ?DBG([{list, List}]),
+                merge_base_sctp_options(List, Mod, #sctp_opts{});
+            _ ->
+                #sctp_opts{}
+        end,
+    %% ?DBG([{base_opts, BaseOpts}]),
+    case sctp_opt(Opts, Mod, BaseOpts, sctp_options()) of
+	{ok, #sctp_opts{opts = RevOpts} = SO} ->
+            %% ?DBG([{rev_opts, RevOpts}]),
+	    {ok,SO#sctp_opts{opts = lists:reverse(RevOpts)}};
 	Error ->
             %% ?DBG([{error, Error}]),
             Error
@@ -3603,11 +3647,24 @@ translate_ip(any,      inet6) -> {0,0,0,0,0,0,0,0};
 translate_ip(loopback, inet6) -> {0,0,0,0,0,0,0,1};
 translate_ip(IP, _)           -> IP.  % undefined goes here
 
+
+
+-spec mod(Opts, ModuleTag, Address, DomainDefaults) -> {module(), RestOpts} when
+      Opts           :: list(),
+      ModuleTag      :: atom(), % tcp_module | udp_module | ...
+      Address        :: undefined |
+                        {term(), inet:ip_address() | socket:sockaddr()},
+      DomainDefaults :: #{inet  => module(),
+                          inet6 => module(),
+                          local => module()},
+      RestOpts       :: list(). % Opts but with the module/family option removed
+
 mod(Opts, Tag, Address, Map) ->
     mod(Opts, Tag, Address, Map, undefined, []).
 %%
-mod([{Tag, M}|Opts], Tag, Address, Map, Mod, Acc) ->
-    mod(Opts, Tag, Address, Map, Mod, Acc, M);
+mod([{Tag, M}|Opts], Tag, Address, Map, _Mod, Acc) ->
+    %% If 'module' (Tag) is specified it allways takes precedence
+    mod(Opts, Tag, Address, Map, M, Acc);
 mod([{T, _} = Opt|Opts], Tag, _Address, Map, Mod, Acc)
   when T =:= ip; T =:= ifaddr->
     mod(Opts, Tag, Opt, Map, Mod, [Opt|Acc]);
@@ -3912,20 +3969,21 @@ gethostbyaddr_tm_native(Addr, Timer, Opts) ->
 	     undefined, % Internal - no bind()
 	   BPort :: port_number(),
 	   Opts :: [socket_setopt()],
-	   Protocol :: socket_protocol(),
+	   Protocol :: socket_protocol() | 'mptcp',
 	   Family :: address_family(),
 	   Type :: socket_type(),
 	   Module :: atom()) ->
 	{'ok', port()} | {'error', posix()}.
 
 open(Fd, BAddr, BPort, Opts, Protocol, Family, Type, Module)
-  when is_integer(Fd), 0 =< Fd ->
+  when is_integer(Fd), 0 =< Fd, is_integer(BPort) ->
     open_fd(Fd, BAddr, BPort, Opts, Protocol, Family, Type, Module);
-open(Fd_or_OpenOpts, BAddr, BPort, Opts, Protocol, Family, Type, Module) ->
+open(Fd_or_OpenOpts, BAddr, BPort, Opts, Protocol, Family, Type, Module)
+  when is_integer(BPort) ->
     open_opts(
       Fd_or_OpenOpts,
       if
-          BAddr =:= undefined, BPort =/= 0 ->
+          BAddr =:= undefined, BPort > 0 ->
               translate_ip(any, Family);
           true ->
               BAddr
@@ -3967,21 +4025,22 @@ open(Fd_or_OpenOpts, BAddr, BPort, Opts, Protocol, Family, Type, Module) ->
                   undefined, % Internal - translated to 'any'
                 BPort :: port_number(),
                 Opts :: [socket_setopt()],
-                Protocol :: socket_protocol(),
+                Protocol :: socket_protocol() | 'mptcp',
                 Family :: address_family(),
                 Type :: socket_type(),
                 Module :: atom()) ->
                        {'ok', port()} | {'error', posix()}.
 
 open_bind(Fd, BAddr, BPort, Opts, Protocol, Family, Type, Module)
-  when is_integer(Fd), 0 =< Fd ->
+  when is_integer(Fd), 0 =< Fd, is_integer(BPort) ->
     %% ?DBG([{fd, Fd},
     %%       {baddr, BAddr}, {bport, BPort},
     %%       {opts, Opts}, {proto, Protocol}, {fam, Family},
     %%       {type, Type}, {mod, Module}]),
     open_fd(Fd, BAddr, BPort, Opts, Protocol, Family, Type, Module);
 open_bind(
-  Fd_or_OpenOpts, BAddr, BPort, Opts, Protocol, Family, Type, Module) ->
+  Fd_or_OpenOpts, BAddr, BPort, Opts, Protocol, Family, Type, Module)
+  when is_integer(BPort) ->
     %% ?DBG([{fd_or_openopts, Fd_or_OpenOpts},
     %%       {baddr, BAddr}, {bport, BPort},
     %%       {opts, Opts}, {proto, Protocol}, {fam, Family},
@@ -4067,11 +4126,39 @@ open_setopts(S, BAddr, BPort, Opts, Module) ->
 
 
 
-bind(S, Addr, Port) when is_list(Addr) ->
+bind(S, Addr, Port) when is_list(Addr), is_integer(Port) ->
     bindx(S, Addr, Port);
-bind(S, Addr, Port) ->
-    %% ?DBG([{s, S}, {addr, Addr}, {port, Port}]),
-    prim_inet:bind(S, Addr, Port).
+bind(S, Addr, -1) ->
+    bind_random(S, Addr);
+bind(S, Addr, Port) when is_integer(Port) ->
+    do_bind(S, Addr, Port).
+
+do_bind(S, Addr, Port) ->
+    Result = prim_inet:bind(S, Addr, Port),
+    %% ?DBG([{s, S}, {addr, Addr}, {port, Port}, Result]),
+    Result.
+
+bind_random(S, Addr) ->
+    Cnt = 3,
+    bind_random(S, Addr, Cnt).
+%%
+bind_random(S, Addr, 0 = _Cnt) ->
+    Port = 0,
+    do_bind(S, Addr, Port);
+bind_random(S, Addr, Cnt) when is_integer(Cnt), 0 < Cnt ->
+    Port = inet_db:res_option(random_port),
+    bind_random(S, Addr, Cnt, Port).
+%%
+bind_random(S, Addr, _Cnt, 0 = Port) ->
+    do_bind(S, Addr, Port);
+bind_random(S, Addr, Cnt, Port) when ?port(Port) ->
+    case prim_inet:bind(S, Addr, Port) of
+        {ok, _} = OK ->
+            %% ?DBG([{s, S}, {addr, Addr}, {port, Port}, OK]),
+            OK;
+        {error, _} ->
+            bind_random(S, Addr, Cnt - 1)
+    end.
 
 bindx(S, [Addr], Port0) ->
     {IP, Port} = set_bindx_port(Addr, Port0),

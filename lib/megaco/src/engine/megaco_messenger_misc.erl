@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -89,16 +91,17 @@ encode_trans_request(CD, TR) when is_record(TR, 'TransactionRequest') ->
 encode_trans_reply(#conn_data{segment_send     = SegSend, 
 			      max_pdu_size     = Max,
 			      protocol_version = V} = CD, Reply) 
-  when (SegSend == infinity) or (is_integer(SegSend) and (SegSend > 0)) and 
-       is_integer(V) and (V >= 3) and 
-       is_integer(Max) and (Max >= ?MSG_HDR_SZ) ->
+  when SegSend == infinity;
+       is_integer(SegSend), SegSend > 0,
+       is_integer(V), V >= 3,
+       is_integer(Max), Max >= ?MSG_HDR_SZ ->
     (catch encode_segmented_trans_reply(CD, Reply));
 encode_trans_reply(CD, TR) when is_record(TR, megaco_transaction_reply) ->
     ?report_debug(CD, "encode trans reply", [TR]),
     Trans = {transactionReply, transform_transaction_reply(CD, TR)},
     encode_transaction(CD, Trans);
-encode_trans_reply(CD, TR) when is_tuple(TR) and 
-				(element(1, TR) == 'TransactionReply') ->
+encode_trans_reply(CD, TR) when is_tuple(TR), 
+				element(1, TR) == 'TransactionReply' ->
     ?report_debug(CD, "encode trans reply", [TR]),
     Trans = {transactionReply, TR},
     encode_transaction(CD, Trans).
@@ -353,7 +356,7 @@ do_send_message(ConnData, SendFunc, Bin, Extra) ->
 %%%-----------------------------------------------------------------
 
 transform_transaction_reply(#conn_data{protocol_version = V}, TR) 
-  when is_integer(V) and (V >= 3) ->
+  when is_integer(V), V >= 3 ->
     #megaco_transaction_reply{transactionId        = TransId, 
 			      immAckRequired       = IAR, 
 			      transactionResult    = TransRes,

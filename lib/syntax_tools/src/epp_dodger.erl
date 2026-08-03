@@ -1,7 +1,16 @@
 %% =====================================================================
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
+%% Copyright 2001-2006 Richard Carlsson
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,10 +28,7 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
-%% @copyright 2001-2006 Richard Carlsson
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @end
-%% =====================================================================
+%% %CopyrightEnd%
 
 %% NOTES:
 %%
@@ -61,13 +67,16 @@
 -moduledoc """
 Bypassing the Erlang preprocessor.
 
-This module tokenises and parses most Erlang source code without expanding
+This module tokenizes and parses most Erlang source code without expanding
 preprocessor directives and macro applications, as long as these are
 syntactically "well-behaved". Because the normal parse trees of the `erl_parse`
 module cannot represent these things (normally, they are expanded by the Erlang
 preprocessor [`//stdlib/epp`](`m:epp`) before the parser sees them), an extended
 syntax tree is created, using the `m:erl_syntax` module.
 """.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
+          nowarn_deprecated_catch]).
 
 -export([parse_file/1, quick_parse_file/1, parse_file/2,
 	 quick_parse_file/2, parse/1, quick_parse/1, parse/2,
@@ -322,10 +331,10 @@ parse_form(Dev, L0, Parser, Options) ->
     NoFail = proplists:get_bool(no_fail, Options),
     Opt = #opt{clever = proplists:get_bool(clever, Options)},
 
-    %% This as the *potential* to read options for enabling/disabling
-    %% features for the parsing of the file.
+    %% Note that options `{feature, FeatureName, enable|disable}` may
+    %% enable or disable features that affect the parsing of the file.
     {ok, {_Ftrs, ResWordFun}} =
-        erl_features:keyword_fun(Options, fun reserved_word/1),
+        erl_features:init_parse_state(Options, fun reserved_word/1),
 
     case io:scan_erl_form(Dev, "", L0, [{reserved_word_fun,ResWordFun}]) of
         {ok, Ts, L1} ->
@@ -346,7 +355,7 @@ parse_form(Dev, L0, Parser, Options) ->
                     {ok, F, L1}
             end;
         {error, _IoErr, _L1} = Err -> Err;
-        {error, _Reason} -> {eof, L0}; % This is probably encoding problem
+        {error, _Reason} -> {eof, L0}; % This is probably an encoding problem
         {eof, _L1} = Eof -> Eof
     end.
 
@@ -473,7 +482,7 @@ quick_macro_string(A) ->
     "(?" ++ atom_to_list(A) ++ ")".
 
 %% Skipping to the end of a macro call, tracking open/close constructs.
-%% @spec (Tokens) -> {Skipped, Rest}
+-spec skip_macro_args([term()]) -> {Skipped::[term()], Rest::[term()]}.
 
 skip_macro_args([{'(',_}=T | Ts]) ->
     skip_macro_args(Ts, [')'], [T]);

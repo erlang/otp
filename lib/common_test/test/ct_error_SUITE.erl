@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,7 +50,7 @@ init_per_suite(Config) ->
     DataDir = ?config(data_dir, Config),
     TestDir = filename:join(DataDir, "error/test/"),
     CTH = filename:join(TestDir, "verify_config.erl"),
-    ct:pal("Compiling ~p: ~p",
+    ct:log("Compiling ~p: ~p",
 	   [CTH,compile:file(CTH,[{outdir,TestDir},debug_info])]),
     ct_test_support:init_per_suite([{path_dirs,[TestDir]} | Config]).
 
@@ -64,7 +66,7 @@ end_per_testcase(TestCase, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [cfg_error, lib_error, no_compile, timetrap_end_conf,
+    [cfg_error, lib_error, no_compile, no_debug_info, timetrap_end_conf,
      timetrap_normal, timetrap_extended, timetrap_parallel,
      timetrap_fun, timetrap_fun_group, timetrap_with_float_mult,
      misc_errors, config_restored, config_func_errors].
@@ -143,7 +145,7 @@ no_compile(Config) when is_list(Config) ->
     Join = fun(D, S) -> filename:join(D, "error/test/"++S) end,
     Suites = [Join(DataDir, "no_compile_SUITE")],
     {Opts,ERPid} = setup([{suite,Suites}], Config),
-    ok = ct_test_support:run(Opts, Config),
+    {error, {make_failed, _}} = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(no_compile, 
@@ -153,6 +155,38 @@ no_compile(Config) when is_list(Config) ->
 
     TestEvents = events_to_check(no_compile),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
+
+%%%-----------------------------------------------------------------
+%%%
+no_debug_info(Config) when is_list(Config) ->
+
+    DataDir = ?config(data_dir, Config),
+
+    TestDir = filename:join(DataDir, "error/test/"),
+    ModFile = filename:join(TestDir, "misc_error_1_SUITE.erl"),
+    Result = compile:file(ModFile,[{outdir,TestDir},deterministic]),
+    ct:log("Compiling ~p: ~p", [ModFile,Result]),
+    ok = element(1,Result), %% Ensure compile succeeded.
+
+    try
+    Join = fun(D, S) -> filename:join(D, "error/test/"++S) end,
+    Suites = [Join(DataDir, "misc_error_1_SUITE")],
+    {Opts,ERPid} = setup([{suite,Suites}], Config),
+    ok = ct_test_support:run(Opts, Config),
+    Events = ct_test_support:get_events(ERPid, Config),
+
+    ct_test_support:log_events(misc_errors,
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
+
+    TestEvents = events_to_check(misc_errors),
+    ok = ct_test_support:verify_events(TestEvents, Events, Config)
+    after
+        ct:log("Removing ~p", [ModFile]),
+        code:delete(misc_error_1_SUITE),
+        file:delete(filename:join(TestDir, "misc_error_1_SUITE.beam"))
+    end.
 
 %%%-----------------------------------------------------------------
 %%%

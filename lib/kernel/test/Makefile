@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1997-2026. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,13 +45,18 @@ SOCKET_MODULES = \
 	socket_test_ttest_tcp_server_gen \
 	socket_test_ttest_tcp_server_gs \
 	socket_test_ttest_tcp_server_socket \
+	socket_sctp_traffic_lib \
+	socket_sctp_traffic_client \
+	socket_sctp_traffic_server \
 	socket_suites \
-	socket_SUITE \
 	socket_api_SUITE \
+	socket_sctp_SUITE \
+	socket_sctp_example_SUITE \
 	socket_traffic_SUITE \
-	socket_ttest_SUITE
+	socket_ttest_SUITE \
+	socket_SUITE
 
-MODULES= \
+MODULES = \
 	kernel_test_lib \
 	kernel_test_global_sys_monitor \
 	kernel_test_sys_monitor \
@@ -71,6 +78,7 @@ MODULES= \
 	appinc2top \
 	appinc2A \
 	appinc2B \
+	block_select_dist \
 	code_SUITE \
 	code_b_test \
 	code_coverage_SUITE \
@@ -88,6 +96,10 @@ MODULES= \
 	prim_file_SUITE \
 	ram_file_SUITE \
 	gen_tcp_api_SUITE \
+	test_inet_tcp \
+	test_inet6_tcp \
+	test_inet_udp \
+	test_inet6_udp \
 	gen_tcp_dist \
 	gen_tcp_echo_SUITE \
 	gen_tcp_misc_SUITE \
@@ -115,6 +127,7 @@ MODULES= \
 	logger_stress_SUITE \
 	logger_test_lib \
 	net_SUITE \
+	prim_net_SUITE \
 	os_SUITE \
 	pg_SUITE \
 	rtnode \
@@ -127,6 +140,8 @@ MODULES= \
 	sendfile_SUITE \
 	standard_error_SUITE \
 	multi_load_SUITE \
+	shell_test_lib \
+	group_SUITE \
 	zzz_SUITE
 
 APP_FILES = \
@@ -151,9 +166,12 @@ ERL_FILES= $(MODULES:%=%.erl) code_a_test.erl \
 
 HRL_FILES= \
 	kernel_test_lib.hrl \
+	socket_test_lib.hrl \
 	socket_test_evaluator.hrl \
 	socket_test_ttest.hrl \
-	socket_test_ttest_client.hrl
+	socket_test_ttest_client.hrl \
+	socket_sctp_traffic_lib.hrl \
+	shell_test_lib.hrl
 
 EXTRA_FILES= $(ERL_TOP)/otp_versions.table
 
@@ -228,8 +246,9 @@ release_tests_spec: make_emakefile
 		kernel.spec kernel_smoke.spec kernel_bench.spec kernel_gh.spec logger.spec \
 		$(EMAKEFILE) $(COVERFILE) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
-	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 	$(INSTALL_DIR) "$(RELSYSDIR)/kernel_SUITE_data"
 	$(INSTALL_DATA) $(ERL_TOP)/make/otp_version_tickets "$(RELSYSDIR)/kernel_SUITE_data"
+	(cd ..; tar cf - examples | (cd "$(RELSYSDIR)/"; tar xf -))
 
 release_docs_spec:

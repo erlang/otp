@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2001-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -218,7 +220,7 @@ BIF_RETTYPE erts_internal_port_command_3(BIF_ALIST_3)
 	    break;
 	case ERTS_PORT_OP_BUSY_SCHEDULED:
 	    ASSERT(!(flags & ERTS_PORT_SIG_FLG_FORCE));
-	    /* Fall through... */
+            ERTS_FALLTHROUGH();
 	case ERTS_PORT_OP_SCHEDULED:
 	    ASSERT(is_internal_ordinary_ref(ref));
 	    /* Signal order preserved by reply... */

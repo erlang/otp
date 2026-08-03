@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2021. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(convopts).
@@ -53,16 +55,16 @@ convopts(Opts) ->
 		    end,
 		{ok, 
 		 lists:flatten(
-		   [case Active of
-			[{active, true}] ->
-			    [{R, <<?UINT32_MAX:32>>}];
-			[{active, N}] when integer(N), 
-					   0 =< N, N < ?UINT32_MAX ->
-			    [{R, <<N:32>>}];
-			[{active, N}] when integer(N), 
-					   -?UINT32_MAX < N, N < 0 ->
-			    [{RR, <<-N:32>>}];
-			[{active, once}] ->
+                   [case Active of
+                        [{active, true}] ->
+                            [{R, <<?UINT32_MAX:32>>}];
+                        [{active, N}] when is_integer(N),
+                                           0 =< N, N < ?UINT32_MAX ->
+                            [{R, <<N:32>>}];
+                        [{active, N}] when is_integer(N),
+                                           -?UINT32_MAX < N, N < 0 ->
+                            [{RR, <<-N:32>>}];
+                        [{active, once}] ->
 			    [{R, <<1:32>>}];
 			[{active, false}] ->
 			    [{R, <<0:32>>}];
@@ -89,23 +91,23 @@ convopts(Opts) ->
 			_ ->
 			    throw({error, einval})
 		    end,
-		    case Dest of
-			%% Port addressed message
-			[{dest, {tipc_port_id, Port, Proc}}]
-			when binary(Port), 
-			     integer(Proc), 0 =< Proc, Proc =< ?UINT32_MAX
-			     ;
-			     list(Port), 
-			     integer(Proc), 0 =< Proc, Proc =< ?UINT32_MAX ->
-			    [{$p, [Port | <<Proc:32>>]}];
-			%% Name addressed message
-			[{dest, {tipc_name, Type, Inst, Zone}}]
-			when integer(Type), 0 =< Type, Type =< ?UINT32_MAX,
-			     integer(Inst), 0 =< Inst, Inst =< ?UINT32_MAX,
-			     integer(Zone), 0 =< Zone, Zone =< ?UINT32_MAX ->
-			    [{$B, <<Type:32, Inst:32, Zone:32>>}];
-			%%
-			%% This undocumented clause uses an undocumented 
+                    case Dest of
+                        %% Port addressed message
+                        [{dest, {tipc_port_id, Port, Proc}}]
+                          when is_binary(Port),
+                               is_integer(Proc), 0 =< Proc, Proc =< ?UINT32_MAX
+                             ;
+                               is_list(Port),
+                               is_integer(Proc), 0 =< Proc, Proc =< ?UINT32_MAX ->
+                            [{$p, [Port | <<Proc:32>>]}];
+                        %% Name addressed message
+                        [{dest, {tipc_name, Type, Inst, Zone}}]
+                          when is_integer(Type), 0 =< Type, Type =< ?UINT32_MAX,
+                               is_integer(Inst), 0 =< Inst, Inst =< ?UINT32_MAX,
+                               is_integer(Zone), 0 =< Zone, Zone =< ?UINT32_MAX ->
+                            [{$B, <<Type:32, Inst:32, Zone:32>>}];
+                        %%
+                        %% This undocumented clause uses an undocumented
 			%% feature of the TIPC socket interface that takes 
 			%% advantage of some gory internals of the protocol. 
 			%% It is protocol implementation dependent and 
@@ -114,19 +116,19 @@ convopts(Opts) ->
 			%% only be used when all other possibilities are 
 			%% exhausted.
 			%%
-			[{dest, {tipc_name, Type, Inst,
-				 {tipc_processor_id,
-				  Zone, Subnetwork, Processor}}}]
-			when integer(Type), 0 =< Type, Type =< ?UINT32_MAX,
-			     integer(Inst), 0 =< Inst, Inst =< ?UINT32_MAX,
-			     integer(Zone), 
-			     0 =< Zone,       Zone       < 16#FF,
-			     integer(Subnetwork), 
-			     0 =< Subnetwork, Subnetwork < 16#FFF,
-			     integer(Processor), 
-			     0 =< Processor,  Processor  < 16#FFF ->
-			    [{$B, <<Type:32, 
-				   Inst:32, 
+                        [{dest, {tipc_name, Type, Inst,
+                                 {tipc_processor_id,
+                                  Zone, Subnetwork, Processor}}}]
+                          when is_integer(Type), 0 =< Type, Type =< ?UINT32_MAX,
+                               is_integer(Inst), 0 =< Inst, Inst =< ?UINT32_MAX,
+                               is_integer(Zone),
+                             0 =< Zone,       Zone       < 16#FF,
+                               is_integer(Subnetwork),
+                             0 =< Subnetwork, Subnetwork < 16#FFF,
+                               is_integer(Processor),
+                             0 =< Processor,  Processor  < 16#FFF ->
+                            [{$B, <<Type:32,
+                                   Inst:32,
 				   Zone:8, Subnetwork:12, Processor:12>>}];
 			[] ->
 			    [];
@@ -140,7 +142,7 @@ convopts(Opts) ->
 
 
 
-getopts(List, Options) when list(List), list(Options) ->
+getopts(List, Options) when is_list(List), is_list(Options) ->
     getopts_1(Options, List, []).
 
 getopts_1([], List, Result) ->

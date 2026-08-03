@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -290,11 +292,11 @@ message is sent to the controlling process:
 `Reason` is mostly a [POSIX Error Code](`m:inet#posix-error-codes`).
 
 If the socket is in _passive mode_ (not in an _active mode_), received data
-can be retrieved with the`recv/2,3`](`recv/2`) calls. Note that incoming
+can be retrieved with the [`recv/2,3`](`recv/3`) calls. Note that incoming
 UDP packets that are longer than the receive buffer option specifies
 can be truncated without warning.
 
-The default value for the receive buffer option is `{recbuf, 8192}`.
+The default value for the receive buffer option is `{recbuf, 9216}`.
 """.
 -spec open(Port, Opts) -> {ok, Socket} | {error, Reason} when
       Port   :: inet:port_number(),
@@ -474,7 +476,7 @@ send(S, Host, Port, Packet) when is_port(S) ->
 -doc """
 Send a packet to the specified destination, with ancillary data.
 
-Equvalent to [`send(Socket, Host, Port, Packet)`](`send/4`)
+Equivalent to [`send(Socket, Host, Port, Packet)`](`send/4`)
 regarding `Host` and `Port` and also equivalent to
 [`send(Socket, Destination, AncData, Packet)`](#send-4-AncData)
 regarding the ancillary data: `AncData`.

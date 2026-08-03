@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,24 +24,17 @@
 
 -compile([export_all, nowarn_export_all]).
 
-%% This module only supports proper, as we don't have an eqc license to test
-%% with.
 
--proptest([proper]).
-
--ifdef(PROPER).
+-include_lib("common_test/include/ct_property_test.hrl").
 
 -define(BEAM_TYPES_INTERNAL, true).
 -include_lib("compiler/src/beam_types.hrl").
-
--include_lib("proper/include/proper.hrl").
--define(MOD_eqc,proper).
 
 -import(lists, [duplicate/2,foldl/3]).
 
 %% The default repetitions of 100 is a bit too low to reliably cover all type
 %% combinations, so we crank it up a bit.
--define(REPETITIONS, 5000).
+-define(REPETITIONS, 15000).
 
 absorption() ->
     numtests(?REPETITIONS, absorption_1()).
@@ -197,17 +192,18 @@ nested_generators(Depth) ->
      gen_fun(Depth - 1),
      gen_map(Depth - 1),
      ?LAZY(gen_tuple(Depth - 1)),
+     ?LAZY(gen_native_record(Depth - 1)),
      ?LAZY(gen_union(Depth - 1))].
 
 %% Proper's atom generator is far too wide, generating strings like 'û\2144Bò}'
 %% which are both hard to read and fill up the atom table really fast.
 readable_atom() ->
-    ?LET(Atom, range($0, $~), list_to_atom([Atom])).
+    ?LET(Atom, ?CT_RANGE($0, $~), list_to_atom([Atom])).
 
 %%
 
 gen_atom() ->
-    ?LET(Size, range(0, ?ATOM_SET_SIZE),
+    ?LET(Size, ?CT_RANGE(0, ?ATOM_SET_SIZE),
          ?LET(Set, duplicate(Size, readable_atom()),
               case ordsets:from_list(Set) of
                   [_|_]=Vs -> #t_atom{elements=ordsets:from_list(Vs)};
@@ -215,21 +211,21 @@ gen_atom() ->
               end)).
 
 gen_bs_matchable() ->
-    oneof([?LET(Unit, range(1, 16), #t_bs_matchable{tail_unit=Unit}),
-           ?LET(Unit, range(1, 16), #t_bs_context{tail_unit=Unit}),
-           ?LET({Unit, Appendable}, {range(1, 16), boolean()},
+    oneof([?LET(Unit, ?CT_RANGE(1, 16), #t_bs_matchable{tail_unit=Unit}),
+           ?LET(Unit, ?CT_RANGE(1, 16), #t_bs_context{tail_unit=Unit}),
+           ?LET({Unit, Appendable}, {?CT_RANGE(1, 16), bool()},
                 #t_bitstring{size_unit=Unit,appendable=Appendable})]).
 
 gen_float() ->
-    oneof([?LET({A, B}, {integer(), integer()},
+    oneof([?LET({A, B}, {int(), int()},
                 begin
                     Min = float(min(A, B)),
                     Max = float(max(A, B)),
                     #t_float{elements={Min,Max}}
                 end),
            ?LET({A, B, AExp, BExp},
-                {integer(0, 1_000_000), integer(0, 10_00_000),
-                 integer(-300, 300), integer(-300, 300)},
+                {?CT_RANGE(0, 1_000_000), ?CT_RANGE(0, 10_00_000),
+                 ?CT_RANGE(-300, 300), ?CT_RANGE(-300, 300)},
                 begin
                     F1 = A * math:pow(10, AExp),
                     F2 = B * math:pow(10, BExp),
@@ -240,16 +236,16 @@ gen_float() ->
            #t_float{}]).
 
 gen_fun(Depth) ->
-    ?SHRINK(?LET({Type, Arity}, {type(Depth), oneof([any, range(1, 4)])},
+    ?SHRINK(?LET({Type, Arity}, {type(Depth), oneof([any, ?CT_RANGE(1, 4)])},
                  #t_fun{type=Type,arity=Arity}),
             [#t_fun{}]).
 
 gen_integer() ->
-    oneof([?LET({A, B}, {integer(), integer()},
+    oneof([?LET({A, B}, {int(), int()},
                 #t_integer{elements={min(A,B), max(A,B)}}),
-           ?LET(Min, integer(),
+           ?LET(Min, int(),
                 #t_integer{elements={Min, '+inf'}}),
-           ?LET(Max, integer(),
+           ?LET(Max, int(),
                 #t_integer{elements={'-inf', Max}}),
            #t_integer{}]).
 
@@ -267,11 +263,11 @@ gen_map(Depth) ->
             [#t_map{}]).
 
 gen_number() ->
-    oneof([?LET({A, B}, {integer(), integer()},
+    oneof([?LET({A, B}, {int(), int()},
                 #t_number{elements={min(A,B), max(A,B)}}),
-           ?LET(Min, integer(),
+           ?LET(Min, int(),
                 #t_number{elements={Min, '+inf'}}),
-           ?LET(Max, integer(),
+           ?LET(Max, int(),
                 #t_number{elements={'-inf', Max}}),
            #t_number{}]).
 
@@ -280,8 +276,8 @@ gen_tuple(Depth) ->
             [#t_tuple{}]).
 
 gen_tuple_record(Depth) ->
-    ?LET({Start, Size}, {range(2, ?TUPLE_ELEMENT_LIMIT),
-                         range(1, ?TUPLE_ELEMENT_LIMIT * 2)},
+    ?LET({Start, Size}, {?CT_RANGE(2, ?TUPLE_ELEMENT_LIMIT),
+                         ?CT_RANGE(1, ?TUPLE_ELEMENT_LIMIT * 2)},
          ?LET({Tag, Es0}, {readable_atom(),
                            gen_tuple_elements(Start, Size, Depth)},
               begin
@@ -290,9 +286,9 @@ gen_tuple_record(Depth) ->
               end)).
 
 gen_tuple_plain(Depth) ->
-    ?LET({Start, Size}, {range(1, ?TUPLE_ELEMENT_LIMIT),
-                         range(0, ?TUPLE_ELEMENT_LIMIT * 2)},
-         ?LET({Exact, Es}, {boolean(), gen_tuple_elements(Start, Size, Depth)},
+    ?LET({Start, Size}, {?CT_RANGE(1, ?TUPLE_ELEMENT_LIMIT),
+                         ?CT_RANGE(0, ?TUPLE_ELEMENT_LIMIT * 2)},
+         ?LET({Exact, Es}, {bool(), gen_tuple_elements(Start, Size, Depth)},
               #t_tuple{exact=Exact,size=Size,elements=Es})).
 
 gen_tuple_elements(Start, Size, Depth) ->
@@ -311,30 +307,63 @@ gen_tuple_elements_1(Index, End, Gen) ->
         2 -> gen_tuple_elements_1(Index + 1, End, Gen)
     end.
 
+gen_native_record(Depth) ->
+    ?SHRINK(gen_native_record_1(Depth),
+            [#t_record{}]).
+
+gen_native_record_1(Depth) ->
+    ?LET(Size, ?CT_RANGE(1, 3),
+        ?LET({Name, E, Es}, {oneof([nil, {readable_atom(),readable_atom()}]),
+                          oneof([unknown, yes, no]),
+                          gen_native_record_elements(Size, Depth)},
+             #t_record{name=Name,exported=E,type=Es})).
+
+gen_native_record_elements(Size, Depth) ->
+    ?SHRINK(?LET(Types, duplicate(Size, {readable_atom(),
+                                         oneof([missing, present]),
+                                         term_type(Depth)}),
+                 foldl(fun({Index, Label, Type}, Acc) ->
+                               case Label of
+                                   missing -> Acc#{ Index => missing};
+                                   present -> Acc#{ Index => {present,Type} }
+                               end
+                       end, #{}, Types)),
+            [#{}]).
+
 gen_union(Depth) ->
-    ?SHRINK(oneof([gen_union_wide(Depth), gen_union_record(Depth)]),
-            [gen_union_record(?MAX_TYPE_DEPTH)]).
+    ?SHRINK(oneof([gen_union_wide(Depth),
+                   gen_union_record(Depth),
+                   gen_union_native_record(Depth)]),
+            [gen_union_record(?MAX_TYPE_DEPTH),
+             #t_record{}]).
 
 %% Creates a union with most (if not all) slots filled.
 gen_union_wide(Depth) ->
-    ?LET({A, B, C, D, E, F}, {gen_atom(),
-                              gen_bs_matchable(),
-                              gen_list(Depth),
-                              gen_tuple(Depth),
-                              oneof(nested_generators(Depth)),
-                              oneof(numerical_generators())},
+    ?LET({A, B, C, D, E, F, G},
+         {gen_atom(),
+          gen_bs_matchable(),
+          gen_list(Depth),
+          gen_tuple(Depth),
+          oneof(nested_generators(Depth)),
+          oneof(numerical_generators()),
+          gen_native_record(Depth)},
          begin
              T0 = join(A, B),
              T1 = join(T0, C),
              T2 = join(T1, D),
              T3 = join(T2, E),
-             join(T3, F)
+             T4 = join(T3, F),
+             join(T4, G)
          end).
 
 %% Creates a union consisting solely of records
 gen_union_record(Depth) ->
-    ?LET(Size, range(2, ?TUPLE_SET_LIMIT),
+    ?LET(Size, ?CT_RANGE(2, ?TUPLE_SET_LIMIT),
          ?LET(Tuples, duplicate(Size, gen_tuple_record(Depth)),
               foldl(fun join/2, none, Tuples))).
 
--endif.
+gen_union_native_record(Depth) ->
+    ?LET(Size, ?CT_RANGE(2, ?TUPLE_SET_LIMIT),
+         ?LET(Tuples, duplicate(Size, gen_native_record(Depth)),
+              foldl(fun join/2, none, Tuples))).
+

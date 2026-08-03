@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,8 +30,8 @@
 -export([opt/1]).
 
 -include("beam_ssa.hrl").
--import(lists, [append/1,foldl/3,keymember/3,last/1,member/2,
-                reverse/1,reverse/2,takewhile/2]).
+-import(lists, [append/1,foldl/3,last/1,member/2,
+                reverse/1,reverse/2,search/2,takewhile/2]).
 
 -type used_vars() :: #{beam_ssa:label():=sets:set(beam_ssa:b_var())}.
 
@@ -41,13 +43,13 @@
 -type test() :: {op_name(),beam_ssa:b_var(),beam_ssa:value()} |
                 {type_test(),beam_ssa:value()}.
 
--record(st,
-        {bs :: beam_ssa:block_map(),
-         us :: used_vars(),
-         skippable :: #{beam_ssa:label():='true'},
-         test=none :: 'none' | test(),
-         target=any :: 'any' | 'one_way' | beam_ssa:label()
-        }).
+-record #st{
+   bs :: beam_ssa:block_map(),
+   us :: used_vars(),
+   skippable :: #{beam_ssa:label():='true'},
+   test=none :: 'none' | test(),
+   target=any :: 'any' | 'one_way' | beam_ssa:label()
+  }.
 
 -spec opt([{Label0,Block0}]) -> [{Label,Block}] when
       Label0 :: beam_ssa:label(),
@@ -60,7 +62,8 @@ opt(Linear0) ->
     Blocks0 = maps:from_list(Linear0),
     St0 = #st{bs=Blocks0,us=Used,skippable=Skippable},
     St = shortcut_opt(St0),
-    #st{bs=Blocks} = combine_eqs(St#st{us=#{}}),
+    #st{bs=Blocks1} = combine_eqs(St#st{us=#{}}),
+    Blocks = shortcut_failed_succeeded(Blocks1),
     opt_redundant_tests(Blocks).
 
 %%%
@@ -184,7 +187,7 @@ shortcut(L, _From, Bs, #st{test=none,target=one_way}) when map_size(Bs) =:= 0 ->
     %% block has a two-way `br` terminator.
     #b_br{bool=#b_literal{val=true},succ=L,fail=L};
 shortcut(L, From, Bs, St) ->
-    shortcut_1(L, From, Bs, sets:new([{version, 2}]), St).
+    shortcut_1(L, From, Bs, sets:new(), St).
 
 shortcut_1(L, From, Bs0, UnsetVars0, St) ->
     case shortcut_2(L, From, Bs0, UnsetVars0, St) of
@@ -240,7 +243,7 @@ shortcut_3(L, From, Bs0, UnsetVars0, St) ->
                             %% because it refers to a variable defined
                             %% in this block.
                             shortcut_unsafe_br(Br, L, Bs, UnsetVars0, St);
-                        UnsetVars ->
+                        {safe, UnsetVars} ->
                             %% Continue checking whether this br is
                             %% suitable.
                             shortcut_test_br(Br, L, Bs, UnsetVars, St)
@@ -368,8 +371,11 @@ update_unset_vars(L, Is, Br, UnsetVars, #st{skippable=Skippable}) ->
             %% variables to the set of unset variables.
             case Br of
                 #b_br{bool=#b_var{}=Bool} ->
-                    case keymember(Bool, #b_set.dst, Is) of
-                        true ->
+                    IsExpected = fun(#b_set{dst=Dst}) ->
+                                         Dst =:= Bool
+                                 end,
+                    case search(IsExpected, Is) of
+                        {value,_} ->
                             %% Bool is a variable defined in this
                             %% block. Using the br instruction from
                             %% this block (and skipping the body of
@@ -381,16 +387,16 @@ update_unset_vars(L, Is, Br, UnsetVars, #st{skippable=Skippable}) ->
                             %% to the UnsetVars set would not change
                             %% the outcome of the tests in
                             %% is_br_safe/2.
-                            UnsetVars
+                            {safe, UnsetVars}
                     end;
                 #b_br{} ->
-                    UnsetVars
+                    {safe, UnsetVars}
             end;
         false ->
             %% Some variables defined in this block are used by
             %% successors. We must update the set of unset variables.
-            SetInThisBlock = [V || #b_set{dst=V} <- Is],
-            list_set_union(SetInThisBlock, UnsetVars)
+            SetInThisBlock = [V || #b_set{dst=V} <:- Is],
+            {safe, list_set_union(SetInThisBlock, UnsetVars)}
     end.
 
 shortcut_two_way(#b_br{succ=Succ,fail=Fail}, From, Bs0, UnsetVars0, St0) ->
@@ -859,6 +865,83 @@ eval_type_test_1(Test, Arg) ->
     erlang:Test(Arg).
 
 %%%
+%%% Shortcut repeated failed `succeeded:guard` tests. Consider this
+%%% code:
+%%%
+%%%     0:
+%%%       V1 = bs_start_match `new`, V0
+%%%       B1 = succeeded:guard V1
+%%%       br B1, ^Succ1, ^29
+%%%          .
+%%%          .
+%%%          .
+%%%     29:
+%%%       V2 = bs_start_match `new`, V0
+%%%       B2 = succeeded:guard _V2
+%%%       br B2, ^Succ2, ^36
+%%%
+%%% If the `bs_start_match` instruction in block 0 fails, the
+%%% `bs_start_match` instruction in block 29 will also fail.
+%%% Therefore, the `br` instruction can be modified to have use
+%%% the same failure label as in block 29:
+%%%
+%%%     0:
+%%%       V1 = bs_start_match `new`, V0
+%%%       B1 = succeeded:guard V1
+%%%       br B1, ^Succ1, ^36
+%%%          .
+%%%          .
+%%%          .
+%%%     29:
+%%%       V2 = bs_start_match `new`, V0
+%%%       B2 = succeeded:guard _V2
+%%%       br B2, ^Succ2, ^36
+%%%
+%%% If the only reference to block 29 was from block 0, block 29 will
+%%% be removed, and if block Succ2 was only referenced from block 29
+%%% block Succ2 would also be removed, and so on. For some functions
+%%% with complex binary matching, that could result in many blocks
+%%% being removed. One example of such a function is
+%%% `ssl_gen_statem:read_application_dist_data/5`.
+%%%
+%%% The same idea works for any instruction that precedes
+%%% `succeeded:guard`.
+%%%
+
+shortcut_failed_succeeded(Blocks) ->
+    Ls = reverse(beam_ssa:rpo(Blocks)),
+    shortcut_failed_succeeded(Ls, #{}, Blocks).
+
+shortcut_failed_succeeded([L|Ls], FailMap0, Blocks0) ->
+    Blk0 = map_get(L, Blocks0),
+    case Blk0 of
+        #b_blk{is=[#b_set{op=Op,dst=Result,args=Args},
+                   #b_set{op={succeeded,guard},dst=Bool,args=[Result]}],
+               last=#b_br{bool=Bool,fail=Fail0}=Br}
+          when Op =/= get_map_element ->
+            %% We don't do this optimization for `get_map_element`
+            %% because that would prevent multiple `get_map_element`
+            %% instructions to be combined into a single
+            %% `get_map_elements` BEAM instruction.
+            Instr = {Op,Args},
+            case FailMap0 of
+                #{Fail0 := {Instr,Fail}} ->
+                    %% The code at label Fail0 will always transfer
+                    %% control to label Fail.
+                    Blk = Blk0#b_blk{last=Br#b_br{fail=Fail}},
+                    Blocks = Blocks0#{L := Blk},
+                    FailMap = FailMap0#{L => {Instr,Fail}},
+                    shortcut_failed_succeeded(Ls, FailMap, Blocks);
+                #{} ->
+                    FailMap = FailMap0#{L => {Instr,Fail0}},
+                    shortcut_failed_succeeded(Ls, FailMap, Blocks0)
+            end;
+        #b_blk{} ->
+            shortcut_failed_succeeded(Ls, FailMap0, Blocks0)
+    end;
+shortcut_failed_succeeded([], _FailMap, Blocks) -> Blocks.
+
+%%%
 %%% Combine bif:'=:=', is_boolean/1 tests, and switch instructions
 %%% to switch instructions.
 %%%
@@ -1010,7 +1093,7 @@ comb_is([], _Bool, Safe) ->
 %%
 
 combine_lists(Fail, L1, L2, Blocks) ->
-    Ls = beam_ssa:rpo([Lbl || {_,Lbl} <- L1], Blocks),
+    Ls = beam_ssa:rpo([Lbl || {_,Lbl} <:- L1], Blocks),
     case member(Fail, Ls) of
         true ->
             %% One or more of labels in the first list
@@ -1030,7 +1113,7 @@ combine_lists_1(List0, List1) ->
     case are_lists_compatible(List0, List1) of
         true ->
             First = maps:from_list(List0),
-            List0 ++ [{Val,Lbl} || {Val,Lbl} <- List1,
+            List0 ++ [{Val,Lbl} || {Val,Lbl} <:- List1,
                                    not is_map_key(Val, First)];
         false ->
             none
@@ -1415,7 +1498,7 @@ used_vars([{L,#b_blk{is=Is}=Blk}|Bs], UsedVars0, Skip0) ->
     %% shortcut_opt/1.
 
     Successors = beam_ssa:successors(Blk),
-    Used0 = used_vars_succ(Successors, L, UsedVars0, sets:new([{version, 2}])),
+    Used0 = used_vars_succ(Successors, L, UsedVars0, sets:new()),
     Used = used_vars_blk(Blk, Used0),
     UsedVars = used_vars_phis(Is, L, Used, UsedVars0),
 
@@ -1425,8 +1508,8 @@ used_vars([{L,#b_blk{is=Is}=Blk}|Bs], UsedVars0, Skip0) ->
     %% successor). This information is also useful for speeding up
     %% shortcut_opt/1.
 
-    Defined0 = [Def || #b_set{dst=Def} <- Is],
-    Defined = sets:from_list(Defined0, [{version, 2}]),
+    Defined0 = [Def || #b_set{dst=Def} <:- Is],
+    Defined = sets:from_list(Defined0),
     MaySkip = sets:is_disjoint(Defined, Used0),
     case MaySkip of
         true ->
@@ -1462,12 +1545,12 @@ used_vars_phis(Is, L, Live0, UsedVars0) ->
         [] ->
             UsedVars;
         [_|_] ->
-            PhiArgs = append([Args || #b_set{args=Args} <- Phis]),
+            PhiArgs = append([Args || #b_set{args=Args} <:- Phis]),
             case [{P,V} || {#b_var{}=V,P} <- PhiArgs] of
                 [_|_]=PhiVars ->
                     PhiLive0 = rel2fam(PhiVars),
                     PhiLive = #{{L,P} => list_set_union(Vs, Live0) ||
-                                  {P,Vs} <- PhiLive0},
+                                  {P,Vs} <:- PhiLive0},
                     maps:merge(UsedVars, PhiLive);
                 [] ->
                     %% There were only literals in the phi node(s).
@@ -1497,7 +1580,7 @@ list_set_union([], Set) ->
 list_set_union([E], Set) ->
     sets:add_element(E, Set);
 list_set_union(List, Set) ->
-    sets:union(sets:from_list(List, [{version, 2}]), Set).
+    sets:union(sets:from_list(List), Set).
 
 sub(#b_set{args=Args}=I, Sub) when map_size(Sub) =/= 0 ->
     I#b_set{args=[sub_arg(A, Sub) || A <- Args]};

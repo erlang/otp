@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,38 +47,15 @@
 		AcTuAlReS
 	end()).
 
--define(match(ExpectedRes,Expr),
-	(_ = fun() ->
-                     try Expr of
-                         _AR_0 = ExpectedRes ->
-                             ?verbose("ok, ~n Result as expected:~p~n",[_AR_0]),
-                             {success,_AR_0};
-                         _AR_0 ->
-                             ?error("Not Matching Actual result was:~n ~p~n",[_AR_0]),
-                             {fail,_AR_0}
-                     catch
-                         exit:{aborted, _ER_1}:Stacktrace when
-                               element(1, _ER_1) =:= node_not_running;
-                               element(1, _ER_1) =:= bad_commit;
-                               element(1, _ER_1) =:= cyclic ->
-                             %% Need to re-raise these to restart transaction
-                             erlang:raise(exit, {aborted, _ER_1}, Stacktrace);
-                         exit:_AR_1:Stacktrace ->
-                             case fun(_AR_EXIT_) -> {'EXIT', _AR_EXIT_} end(_AR_1) of
-                                 _AR_2 = ExpectedRes ->
-                                     ?verbose("ok, ~n Result as expected:~p~n",[_AR_2]),
-                                     {success,_AR_2};
-                                 _AR_2 ->
-                                     ?error("Not Matching Actual result was:~n ~p~n ~p~n",
-                                            [_AR_2, Stacktrace]),
-                                     {fail,_AR_2}
-                             end;
-                         _T1_:_AR_1:Stacktrace ->
-                             ?error("Not Matching Actual result was:~n ~p~n  ~p~n",
-                                    [{_T1_,_AR_1}, Stacktrace]),
-                             {fail,{_T1_,_AR_1}}
-                     end
-             end())).
+-define(match(ExpectedRes, Expr),
+        mnesia_test_lib:match(fun() -> Expr end,
+                              fun(__Res__) ->
+                                      case __Res__ of
+                                          ExpectedRes -> true;
+                                          _ -> {false, ??ExpectedRes}
+                                      end
+                              end,
+                              ?FILE, ?LINE)).
 
 -define(match_inverse(NotExpectedRes,Expr),
 	(_ = fun() ->
@@ -116,6 +95,7 @@
 	mnesia_test_lib:prepare_test_case([{init_test_case, [mnesia]},
 					   delete_schema,
 					   create_schema,
+					   start_ext_test_server,
 					   {start_appls, [mnesia]}],
 					  N, Config, ?FILE, ?LINE)).
 
@@ -151,4 +131,4 @@
 -define(verify_mnesia(Ups, Downs),
 	mnesia_test_lib:verify_mnesia(Ups, Downs, ?FILE, ?LINE)).
 
--define(BACKEND, [{backend_types, [{ext_ets, ext_test},{ext_dets, ext_test}]}]).
+-define(BACKEND, [{backend_types, [{ext_ram_copies, ext_test}, {ext_disc_only_copies, ext_test}]}]).

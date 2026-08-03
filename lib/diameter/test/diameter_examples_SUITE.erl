@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2013-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -197,8 +199,8 @@ compile_dicts(Dir) ->
     ?EL("compile_dicts -> entry"),
     Out = mkdir(Dir, "dict"),
     ?EL("compile_dicts -> create paths"),
-    Dirs = [filename:join(H ++ ["examples", "dict"])
-            || H <- [[code:lib_dir(diameter)], [here(), ".."]]],
+    ModulePath = code:which(?MODULE),
+    Dirs = [filename:join([filename:dirname(ModulePath), "examples", "dict"])],
     [] = [{F,D,RC} || {_,F} <- sort(find_files(Dirs, ".*\\.dia$")),
                       D <- ?DICT0,
                       RC <- [make(F, D, Out)],
@@ -304,7 +306,7 @@ make_name(Dict) ->
 %% Compile example code under examples/code.
 
 compile_code(Tmpdir) ->
-    {ok, Pid, Node} = slave(peer:random_name(), here()),
+    {ok, Pid, Node} = peer(peer:random_name(), here()),
     try
         {ok, _Ebin} = rpc:call(Node, ?MODULE, install, [Tmpdir])
     after
@@ -313,14 +315,16 @@ compile_code(Tmpdir) ->
 
 %% Compile in another node since the code path is modified.
 install(Tmpdir) ->
-    {Top, Dia, Ebin} = install(here(), Tmpdir),
+    {_Top, Dia, Ebin} = install(here(), Tmpdir),
 
     %% Prepend the created directory just so that code:lib_dir/1 finds
     %% it when compile:file/2 tries to resolve include_lib.
     true = code:add_patha(Ebin),
     Dia = code:lib_dir(diameter),  %% assert
 
-    Src = filename:join([Top, "examples", "code"]),
+    ModulePath = code:which(?MODULE),
+    Src = filename:join([filename:dirname(ModulePath), "examples", "code"]),
+
     Files = find_files([Src], ".*\\.erl$"),
     [] = [{F,T} || {_,F} <- Files,
                    T <- [compile:file(F, [warnings_as_errors,
@@ -371,17 +375,17 @@ store(Path, Dict) ->
 
 %% ===========================================================================
 
-%% enslave/1
+%% get_nodes/1
 %%
 %% Start two nodes: one for the server, one for the client.
 
-enslave(Prefix) ->
+get_nodes(Prefix) ->
     [{S,N} || D <- [here()],
               S <- ?NODES,
               M <- [lists:append(["diameter", Prefix, ?L(S)])],
-              {ok, _, N} <- [slave(M,D)]].
+              {ok, _, N} <- [peer(M,D)]].
 
-slave(Name, Dir) ->
+peer(Name, Dir) ->
     Args = ["-pa", Dir, filename:join([Dir, "..", "ebin"])],
     {ok, _Pid, _Node} = ?PEER(#{name => Name, args => Args}).
 
@@ -436,7 +440,7 @@ traffic(client) ->
     receive {'DOWN', MRef, process, _, Reason} -> Reason end;
 
 traffic({Prot, Ebin}) ->
-    Nodes = enslave(?L(Prot)),
+    Nodes = get_nodes(?L(Prot)),
     [] = start([Prot, Ebin | Nodes]),
     [] = [RC || {T,N} <- Nodes,
                 RC <- [rpc:call(N, ?MODULE, traffic, [T])],

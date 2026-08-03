@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +25,7 @@
 
 -module(ts_erl_config).
 
+-compile([{nowarn_unsafe_function, {os, cmd, 1}}]).
 
 -export([variables/2]).
 
@@ -66,7 +69,7 @@ dl_vars(Vars, Base3, OsType) ->
  	".SUFFIXES: @dll@ @obj@ .c\n\n" ++
  	".c@dll@:\n" ++
  	"\t@CC@ -c @SHLIB_CFLAGS@ $(SHLIB_EXTRA_CFLAGS) -I@erl_include@ @DEFS@ $<\n" ++
-	"\t@SHLIB_LD@ @CROSSLDFLAGS@ @SHLIB_LDFLAGS@ $(SHLIB_EXTRA_LDFLAGS) -o $@ $*@obj@ @SHLIB_LDLIBS@ $(SHLIB_EXTRA_LDLIBS)",
+	"\t@SHLIB_LD@ $(EI_LDFLAGS) @CROSSLDFLAGS@ @SHLIB_LDFLAGS@ $(SHLIB_EXTRA_LDFLAGS) -o $@ $*@obj@ @SHLIB_LDLIBS@ $(SHLIB_EXTRA_LDLIBS)",
 
     ShlibRules = ts_lib:subst(ShlibRules0, Vars),
     case get_app_vars2(fun jinterface/2, Base3, OsType) of

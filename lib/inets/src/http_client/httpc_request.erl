@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -187,15 +189,26 @@ is_idempotent(_) ->
 %%-------------------------------------------------------------------------
 is_client_closing(Headers) ->
     case Headers#http_request_h.connection of
-	"close" ->
-	    true;
-	 _ ->
-	    false
+	undefined ->
+	    false;
+	Connection ->
+	    lists:member("close", http_util:connection_tokens(Connection))
     end.
 
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================
+post_data(Method, Headers, {[], []}, [])
+  when Method =:= get;
+       Method =:= head;
+       Method =:= options;
+       Method =:= trace;
+       Method =:= delete ->
+    %% RFC 9110: A user agent SHOULD NOT send a Content-Length header field
+    %% when the request message does not contain content and the method
+    %% semantics do not anticipate such data.
+    {Headers#http_request_h{'content-length' = undefined}, ""};
+
 post_data(Method, Headers, {ContentType, Body}, HeadersAsIs)
     when (Method =:= post)
          orelse (Method =:= put)

@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%%----------------------------------------------------------------------
@@ -58,7 +60,7 @@ The default behaviour is to create a file named `TAGS` in the current directory.
   directory `../projectdir`. The file contains information about the
   functions, records, and macro definitions of the three files.
 
-## See Also
+### See Also
 
 - Richard M. Stallman. GNU Emacs Manual, chapter "Editing Programs", section
   "Tag Tables". Free Software Foundation, 1995.

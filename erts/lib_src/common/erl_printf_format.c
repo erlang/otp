@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
+ *
+ * SPDX-License-Identifier: Apache-2.0
  * 
- * Copyright Ericsson AB 2005-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2025. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +46,17 @@
 #include <limits.h>
 #include "erl_printf.h"
 #include "erl_printf_format.h"
+
+
+/* Taken from https://best.openssf.org/Compiler-Hardening-Guides/Compiler-Options-Hardening-Guide-for-C-and-C++.html#warn-about-implicit-fallthrough-in-switch-statements */
+#ifdef __has_attribute
+#  if __has_attribute(__fallthrough__)
+#   define FALLTHROUGH()                    __attribute__((__fallthrough__))
+#  endif
+#endif
+#ifndef FALLTHROUGH
+# define FALLTHROUGH()                    do {} while (0)  /* fallthrough */
+#endif
 
 #ifdef DEBUG
 #include <assert.h>
@@ -234,6 +247,7 @@ static int fmt_uword(fmtfn_t fn,void* arg,int sign,ErlPfUWord uval,
 	break;
     case FMTC_X:
 	dc = heX;
+        FALLTHROUGH();
     case FMTC_x:
 	base = 16;
 	break;
@@ -286,6 +300,7 @@ static int fmt_long_long(fmtfn_t fn,void* arg,int sign,
 	break;
     case FMTC_X:
 	dc = heX;
+        FALLTHROUGH();
     case FMTC_x:
 	base = 16;
 	break;
@@ -413,7 +428,14 @@ static int fmt_double(fmtfn_t fn,void*arg,double val,
 	}
     }
 
+#ifdef HAVE_GCC_DIAG_IGNORE_WFORMAT_NONLITERAL
+_Pragma("GCC diagnostic push");
+_Pragma("GCC diagnostic ignored \"-Wformat-nonliteral\"");
+#endif
     size = sprintf(bufp, format_str, precision, val);
+#ifdef HAVE_GCC_DIAG_IGNORE_WFORMAT_NONLITERAL
+_Pragma("GCC diagnostic pop");
+#endif
     if (size < 0) {
 	if (errno > 0)
 	    res = -errno;
@@ -562,6 +584,7 @@ int erts_printf_format(fmtfn_t fn, void* arg, char* fmt, va_list ap)
 #else
 #error No 16-bit integer datatype found
 #endif
+                        break;
 		    case 8:
 #if SIZEOF_CHAR == 1
 			fmt |= FMTL_hh;

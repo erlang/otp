@@ -1,6 +1,15 @@
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
+%% Copyright 2004-2006 Mickaël Rémond, Richard Carlsson
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,11 +27,12 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
+%% %CopyrightEnd%
+%%
 %% NOTE: An object file that uses the macros in this header file shall
 %% never be considered a derived work under the the LGPL; these macros
 %% shall be regarded as "small" regardless of the exact line count.
 %%
-%% Copyright (C) 2004-2006 Mickaël Rémond, Richard Carlsson
 
 -ifndef(EUNIT_HRL).
 -define(EUNIT_HRL, true).
@@ -224,6 +234,25 @@
 -define(_assertCmdStatus(N, Cmd), ?_test(?assertCmdStatus(N, Cmd))).
 -define(_assertCmd(Cmd), ?_test(?assertCmd(Cmd))).
 -define(_assertCmdOutput(T, Cmd), ?_test(?assertCmdOutput(T, Cmd))).
+
+%% Macros to assist in finding race / time dependant bugs
+%% in exercised code.
+
+-ifdef(NODEBUG).
+-define(randomDelay(Prob, MinSec, MaxSec),  ok).
+-else.
+-define(randomDelay(Prob, MinSec, MaxSec),
+        (fun() ->
+            case rand:uniform() < (Prob) of
+                true ->
+                    %% Convert seconds to milliseconds for timer:sleep
+                    Delay = (MinSec) + rand:uniform() * ((MaxSec) - (MinSec)),
+                    timer:sleep(round(Delay * 1000));
+                false ->
+                    ok
+            end
+        end)()).
+-endif.
 
 %% Macros to simplify debugging (in particular, they work even when the
 %% standard output is being redirected by EUnit while running tests)

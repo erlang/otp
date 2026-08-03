@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,9 @@
 
 -module(reltool_server).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_possibly_unsafe_function, {file, consult, 1}}]).
 
 %% Public
 -export([
@@ -1806,7 +1811,7 @@ app_dirs2([Lib | Libs], Acc) ->
                                 false
                         end
                 end,
-            Files2 = lists:zf(Filter, Files),
+            Files2 = lists:filtermap(Filter, Files),
             app_dirs2(Libs, [Files2 | Acc]);
         {error, Reason} ->
 	    reltool_utils:throw_error("Illegal library ~tp: ~ts",

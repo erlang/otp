@@ -1,4 +1,11 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,14 +17,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%%
-%%     $Id: beam_clean.erl,v 1.1 2008/12/17 09:53:41 mikpe Exp $
-%%
-%% Purpose : Clean up, such as removing unused labels and unused functions.
-
+%% %CopyrightEnd%
 -module(beam_clean).
 
 -export([module/2]).
@@ -154,7 +154,7 @@ function_replace({function,Name,Arity,Entry,Asm0}, Dict) ->
 		  io:format("Function ~s/~w refers to undefined label ~w\n",
 			    [Name,Arity,Lbl]),
 		  exit(Reason);
-	      Asm1 when list(Asm1) -> Asm1
+              Asm1 when is_list(Asm1) -> Asm1
 	  end,
     {function,Name,Arity,Entry,Asm}.
 

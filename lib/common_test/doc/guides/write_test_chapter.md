@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -40,7 +42,7 @@ communication protocols such as RPC, SNMP, FTP, Telnet, and others.
 ## Test Suites
 
 A test suite is an ordinary Erlang module that contains test cases. It is
-recommended that the module has a name on the form `*_SUITE.erl`. Otherwise, the
+recommended that the module has a name of the form `*_SUITE.erl`. Otherwise, the
 directory and auto compilation function in `Common Test` cannot locate it (at
 least not by default).
 
@@ -254,7 +256,7 @@ The following tags have special meaning:
 
   A required variable can also be given a default value to be used if the
   variable is not found in any configuration file. To specify a default value,
-  add a tuple on the form `{default_config,ConfigVariableName,Value}` to the
+  add a tuple of the form `{default_config,ConfigVariableName,Value}` to the
   test case information list (the position in the list is irrelevant).
 
   _Examples:_

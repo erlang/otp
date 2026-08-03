@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -304,7 +306,7 @@ is to be called:
 sys:handle_debug(Deb, Func, Info, Event) => Deb1
 ```
 
-The arguments have the follow meaning:
+The arguments have the following meaning:
 
 - `Deb` is the debug structure as returned from `sys:debug_options/1`.
 - `Func` is a fun specifying a (user-defined) function used to format trace
@@ -371,10 +373,10 @@ The arguments have the following meaning:
 - `Request` and `From` from the received system message are to be
   passed as-is to the call to `sys:handle_system_msg/6`.
 - `Parent` is the pid of the parent process.
-- `Module` is the name of the module implementing the speciall process.
+- `Module` is the name of the module implementing the special process.
 - `Deb` is the debug structure.
 - `State` is a term describing the internal state and is passed on to
-  `Module:system_continue/3`, `Module:system_terminate/4`/
+  `Module:system_continue/3`, `Module:system_terminate/4`,
   `Module:system_get_state/1`, and `Module:system_replace_state/2`.
 
 `sys:handle_system_msg/6` does not return. It handles the system
@@ -392,7 +394,7 @@ one of the following functions:
 * `Module:system_get_state(State)` - if the process is to return its state.
 
 * `Module:system_replace_state(StateFun, State)` - if the process is
-  to replace its state using the fun `StateFun` fun. See `sys:replace_state/3`
+  to replace its state using the fun `StateFun`. See `sys:replace_state/3`
   for more information.
 
 * `system_code_change(Misc, Module, OldVsn, Extra)` - if the process is to
@@ -401,7 +403,7 @@ one of the following functions:
 A process in a supervision tree is expected to terminate with the same reason as
 its parent.
 
-In the example, system messages are handed by the following code:
+In the example, system messages are handled by the following code:
 
 ```erlang
 loop(Chs, Parent, Deb) ->
@@ -420,7 +422,7 @@ system_terminate(Reason, Parent, Deb, Chs) ->
     exit(Reason).
 
 system_get_state(Chs) ->
-    {ok, Chs, Chs}.
+    {ok, Chs}.
 
 system_replace_state(StateFun, Chs) ->
     NChs = StateFun(Chs),
@@ -541,7 +543,7 @@ init(Parent, Name, Module) ->
     ...,
     Dbg = sys:debug_options([]),
     proc_lib:init_ack(Parent, {ok, self()}),
-    loop(Parent, Module, Deb, ...).
+    loop(Parent, Module, Dbg, ...).
 
 ...
 ```

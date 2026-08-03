@@ -1,8 +1,10 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2008-2023. All Rights Reserved.
-# 
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2008-2025. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 #
 
@@ -43,17 +45,19 @@ MODULES = \
 	public_key \
 	pubkey_pem \
 	pubkey_ssh \
-	pubkey_pbe \
-	pubkey_cert \
-	pubkey_policy_tree \
         pubkey_cert_records \
-	pubkey_crl\
+	pubkey_crl \
+	pubkey_os_cacerts \
+	pubkey_translation \
+	pubkey_pbe \
 	pubkey_ocsp \
-	pubkey_os_cacerts
+	pubkey_cert \
+	pubkey_policy_tree
 
-HRL_FILES = $(INCLUDE)/public_key.hrl 
+HRL_FILES = $(INCLUDE)/public_key.hrl $(INCLUDE)/OTP-PUB-KEY.hrl \
+	$(INCLUDE)/PKIXCMP.hrl $(INCLUDE)/PKIXCRMF.hrl
 
-INTERNAL_HRL_FILES = pubkey_moduli.hrl
+INTERNAL_HRL_FILES = pubkey_moduli.hrl public_key_internal.hrl
 
 ERL_FILES = $(MODULES:%=%.erl)
 
@@ -78,7 +82,7 @@ PUB_KEY_FLAGS =
 # ----------------------------------------------------
 PUB_KEY_ERL_FLAGS += -I $(INCLUDE) -I ../asn1/
 
-ERL_COMPILE_FLAGS += $(PUB_KEY_ERL_FLAGS) \
+ERL_COMPILE_FLAGS += $(PUB_KEY_ERL_FLAGS) +warn_obsolete_bool_op \
 		     $(PUB_KEY_FLAGS) \
                      +'{parse_transform,sys_pre_attributes}' \
                      +'{attribute,insert,app_vsn,$(APP_VSN)}'
@@ -90,6 +94,7 @@ ERL_COMPILE_FLAGS += $(PUB_KEY_ERL_FLAGS) \
 $(TYPES): $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(HRL_FILES)
 
 $(EBIN)/pubkey_ssh.$(EMULATOR): pubkey_moduli.hrl
+$(TARGET_FILES): $(HRL_FILES)
 
 pubkey_moduli.hrl: ../priv/moduli
 	escript ../priv/convert.escript $< $@
@@ -120,3 +125,8 @@ release_spec: opt
 	$(INSTALL_DATA) $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) "$(RELSYSDIR)/ebin"
 
 release_docs_spec:
+
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+include $(ERL_TOP)/make/dep.mk

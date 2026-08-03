@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -559,6 +561,7 @@ read_disc_schema(Keep, IgnoreFallback) ->
             end
     end.
 
+-dialyzer({no_opaque_union, [do_read_disc_schema/2]}).
 do_read_disc_schema(Fname, Keep) ->
     T =
         case Keep of
@@ -1780,7 +1783,10 @@ remove_node_from_tabs([Tab|Rest], Node) ->
 		     remove_node_from_tabs(Rest, Node)];
 		_Ns ->
 		    Cs3 = verify_cstruct(Cs2),
-		    get_tid_ts_and_lock(Tab, write),
+                    case ?catch_val({Tab, active_replicas}) of
+                        [] -> ok;
+                        _ -> get_tid_ts_and_lock(Tab, write)
+                    end,
 		    [{op, del_table_copy, ram_copies, Node, vsn_cs2list(Cs3)}|
 		     remove_node_from_tabs(Rest, Node)]
 	    end
@@ -2841,6 +2847,7 @@ undo_prepare_commit(Tid, Commit) ->
 	[] ->
 	    ignore;
 	Ops ->
+            verbose("undo prepare: ~w:~n ~p~n", [Tid, Ops]),
 	    %% Catch to allow failure mnesia_controller may not be started
 	    ?SAFE(mnesia_controller:release_schema_commit_lock()),
 	    undo_prepare_ops(Tid, Ops)
@@ -3477,7 +3484,7 @@ do_make_merge_schema(Node, NeedsConv, RemoteCs = #cstruct{name = schema}) ->
     Masters = mnesia_recover:get_master_nodes(schema),
     HasRemoteMaster = lists:member(Node, Masters),
     HasLocalMaster = lists:member(node(), Masters),
-    Force = HasLocalMaster or HasRemoteMaster,
+    Force = HasLocalMaster orelse HasRemoteMaster,
     %% What is the storage types opinions?
     StCsLocal   = mnesia_lib:cs_to_storage_type(node(), Cs),
     StRcsLocal  = mnesia_lib:cs_to_storage_type(node(), RemoteCs),
@@ -3557,7 +3564,7 @@ do_make_merge_schema(Node, NeedsConv, RemoteCs = #cstruct{}) ->
     Masters = mnesia_recover:get_master_nodes(schema),
     HasRemoteMaster = lists:member(Node, Masters),
     HasLocalMaster = lists:member(node(), Masters),
-    Force = HasLocalMaster or HasRemoteMaster,
+    Force = HasLocalMaster orelse HasRemoteMaster,
     case ?catch_val({Tab, cstruct}) of
 	{'EXIT', _} ->
 	    %% A completely new table, created while Node was down
@@ -3674,7 +3681,13 @@ change_storage_type(N, disc_copies, Cs) ->
     Cs#cstruct{disc_copies = mnesia_lib:uniq(Nodes)};
 change_storage_type(N, disc_only_copies, Cs) ->
     Nodes = [N | Cs#cstruct.disc_only_copies],
-    Cs#cstruct{disc_only_copies = mnesia_lib:uniq(Nodes)}.
+    Cs#cstruct{disc_only_copies = mnesia_lib:uniq(Nodes)};
+change_storage_type(N, {ext, Alias, Mod}, Cs) ->
+    Key = {Alias, Mod},
+    {_, Nodes0} = lists:keyfind(Key, 1, Cs#cstruct.external_copies),
+    Nodes = mnesia_lib:uniq([N | Nodes0]),
+    ExternalCopies = lists:keyreplace(Key, 1, Cs#cstruct.external_copies, {Key, Nodes}),
+    Cs#cstruct{external_copies = ExternalCopies}.
 
 %% BUGBUG: Verify match of frag info; equalit demanded for all but add_node
 
@@ -3756,7 +3769,7 @@ verify_merge(RemoteCs) ->
 
 announce_im_running([N | Ns], SchemaCs) ->
     {L1, L2} = mnesia_recover:connect_nodes([N]),
-    case lists:member(N, L1) or lists:member(N, L2) of
+    case lists:member(N, L1) orelse lists:member(N, L2) of
 	true ->
 	    mnesia_lib:add({current, db_nodes}, N),
 	    mnesia_controller:add_active_replica(schema, N, SchemaCs);

@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -114,7 +116,7 @@ code_change(_Vsn, Chs, _Extra) ->
 ```
 
 The first argument is `{down,Vsn}` if there is a downgrade, or `Vsn` if there is
-a upgrade. The term `Vsn` is fetched from the 'original' version of the module,
+an upgrade. The term `Vsn` is fetched from the 'original' version of the module,
 that is, the version you are upgrading from, or downgrading to.
 
 The version is defined by the module attribute `vsn`, if any. There is no such
@@ -131,7 +133,7 @@ example in [Release Handling](release_handling.md#appup), where a function
 `available/0` is added to `ch3`.
 
 If a call is added to this function, say in module `m1`, a runtime error could
-can occur during release upgrade if the new version of `m1` is loaded first and
+occur during release upgrade if the new version of `m1` is loaded first and
 calls `ch3:available/0` before the new version of `ch3` is loaded.
 
 Thus, `ch3` must be loaded before `m1`, in the upgrade case, and conversely in
@@ -261,7 +263,7 @@ the restart strategy and maximum restart frequency properties, as well as
 changing the existing child specifications.
 
 Child processes can be added or deleted, but this is not handled automatically.
-Instructions must be given by in the `.appup` file.
+Instructions must be given in the `.appup` file.
 
 ### Changing Properties
 
@@ -386,14 +388,15 @@ terminated before the child specification is changed and the module is deleted.
 
 ## Adding or Deleting a Module
 
-_Example
+_Example_
 
-_ A new functional module `m` is added to `ch_app`:
+A new functional module `m` is added to `ch_app`:
 
 ```erlang
 {"2",
  [{"1", [{add_module, m}]}],
  [{"1", [{delete_module, m}]}]
+}.
 ```
 
 ## Starting or Terminating a Process
@@ -465,7 +468,7 @@ manually created.
 _Example_
 
 Assume there is a release containing an application `prim_app`, which
-have a supervisor `prim_sup` in its supervision tree.
+has a supervisor `prim_sup` in its supervision tree.
 
 In a new version of the release, the application `ch_app` is to be included in
 `prim_app`. That is, its topmost supervisor `ch_sup` is to be started as a child
@@ -570,7 +573,7 @@ processes to/from `prim_sup` with instructions for loading/unloading all
 Again, the `.relup` file is created manually, either from scratch or by editing a
 generated version. Load all code for `ch_app` first, and also load the
 application specification, before `prim_sup` is updated. When downgrading,
-`prim_sup` is to updated first, before the code for `ch_app` and its application
+`prim_sup` is to be updated first, before the code for `ch_app` and its application
 specification are unloaded.
 
 ```erlang

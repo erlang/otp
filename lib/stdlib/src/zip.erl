@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -60,7 +62,8 @@ convention, add `.zip` to the filename.
   archive, the whole archive must be recreated.
 """.
 -define(ERL_TAR_COMPATIBILITY, ~"erl_tar compatibility functions").
--moduledoc(#{ titles => [{function, ?ERL_TAR_COMPATIBILITY}]}).
+
+-compile(nowarn_deprecated_catch).
 
 %% Basic api
 -export([unzip/1, unzip/2, extract/1, extract/2,
@@ -393,7 +396,7 @@ Options:
       Archive :: file:name() | binary(),
       Options :: [Option],
       Option  :: {file_list, FileList} | cooked
-               | keep_old_files | verbose | memory |
+               | keep_old_files | verbose | memory | skip_directories |
                  {file_filter, FileFilter} | {cwd, CWD} |
                  {extra, extra()},
       FileList :: [file:name()],
@@ -416,18 +419,25 @@ do_unzip(F, Options) ->
     Opts = get_unzip_options(F, Options),
     #unzip_opts{input = Input, open_opts = OpO,
                 extra = ExtraOpts} = Opts,
-    In0 = Input({open, F, OpO -- [write]}, []),
-    RawIterator = fun raw_file_info_etc/5,
-    {Info, In1} = get_central_dir(In0, RawIterator, Input, ExtraOpts),
-    %% get rid of zip-comment
-    Z = zlib:open(),
-    Files = try
-                get_z_files(Info, Z, In1, Opts, [])
-            after
-                zlib:close(Z),
-                Input(close, In1)
-            end,
-    {ok, Files}.
+    try Input({open, F, OpO -- [write]}, []) of
+        In0 ->
+            RawIterator = fun raw_file_info_etc/5,
+            {Info, In1} = get_central_dir(In0, RawIterator, Input, ExtraOpts),
+            %% get rid of zip-comment
+            Z = zlib:open(),
+            Files = try
+                        get_z_files(Info, Z, In1, Opts, [])
+                    after
+                        zlib:close(Z),
+                        Input(close, In1)
+                    end,
+            {ok, Files}
+        catch throw:{_FN, {_, Error}} ->
+                %% When we open the archive, we return the file:open error
+                %% directly as the information that it is the archive that failed
+                %% to open is reduntant.
+                Error
+        end.
 
 %% Iterate over all files in a zip archive
 -doc """
@@ -638,26 +648,30 @@ Options:
 
 zip(F, Files, Options) ->
     case ?CATCH(do_zip(F, Files, Options)) of
-	{ok, R} -> {ok, R};
-	Error -> {error, Error}
+        {ok, R} -> {ok, R};
+        Error -> {error, Error}
     end.
 
 do_zip(F, Files, Options) ->
     Opts = get_zip_options(Files, Options),
     #zip_opts{output = Output, open_opts = OpO} = Opts,
-    Out0 = Output({open, F, OpO}, []),
-    Z = zlib:open(),
-    try
-        {Out1, LHS, Pos} = put_z_files(Files, Z, Out0, 0, Opts, []),
-        zlib:close(Z),
-        Out2 = put_central_dir(LHS, Pos, Out1, Opts),
-        Out3 = Output({close, F}, Out2),
-        {ok, Out3}
-    catch
-        C:R:Stk ->
-            ?CATCH(zlib:close(Z)),
-            Output({close, F}, Out0),
-            erlang:raise(C, R, Stk)
+    try Output({open, F, OpO}, []) of
+        Out0 ->
+            Z = zlib:open(),
+            try
+                {Out1, LHS, Pos} = put_z_files(Files, Z, Out0, 0, Opts, []),
+                zlib:close(Z),
+                Out2 = put_central_dir(LHS, Pos, Out1, Opts),
+                Out3 = Output(flush, Output({close, F}, Out2)),
+                {ok, Out3}
+            catch
+                C:R:Stk ->
+                    ?CATCH(zlib:close(Z)),
+                    Output(flush, Output({close, F}, Out0)),
+                    erlang:raise(C, R, Stk)
+            end
+    catch throw:{_FN, {_, Error}} ->
+            Error
     end.
 
 
@@ -701,7 +715,7 @@ One option is available:
       RetValue :: {ok, CommentAndFiles} | {error, Reason :: term()},
       CommentAndFiles :: [zip_comment() | zip_file()],
       Options :: [Option],
-      Option :: cooked | {extra, extra()}).
+      Option :: cooked | skip_directories | {extra, extra()}).
 
 list_dir(F, Options) ->
     case ?CATCH(do_list_dir(F, Options)) of
@@ -712,22 +726,26 @@ list_dir(F, Options) ->
 do_list_dir(F, Options) ->
     Opts = get_list_dir_options(F, Options),
     #list_dir_opts{input = Input, open_opts = OpO,
-		   raw_iterator = RawIterator,
+                   raw_iterator = RawIterator,
                    skip_dirs = SkipDirs,
                    extra = ExtraOpts} = Opts,
-    In0 = Input({open, F, OpO}, []),
-    {Info, In1} = get_central_dir(In0, RawIterator, Input, ExtraOpts),
-    Input(close, In1),
-    if SkipDirs ->
-            {ok,
-             lists:filter(
-               fun(#zip_file{ name = Name }) ->
-                       lists:last(Name) =/= $/;
-                  (#zip_comment{}) ->
-                       true
-               end, Info)};
-       true ->
-            {ok, Info}
+    try Input({open, F, OpO}, []) of
+        In0 ->
+            {Info, In1} = get_central_dir(In0, RawIterator, Input, ExtraOpts),
+            Input(close, In1),
+            if SkipDirs ->
+                    {ok,
+                     lists:filter(
+                       fun(#zip_file{ name = Name }) ->
+                               lists:last(Name) =/= $/;
+                          (#zip_comment{}) ->
+                               true
+                       end, Info)};
+               true ->
+                    {ok, Info}
+            end
+    catch throw:{_FN, {_, Error}} ->
+            Error
     end.
 
 -doc(#{equiv => zip_open/2}).
@@ -855,10 +873,14 @@ t(F, RawPrint) ->
 do_t(F, RawPrint) ->
     Input = get_input(F),
     OpO = [raw],
-    In0 = Input({open, F, OpO}, []),
-    {_Info, In1} = get_central_dir(In0, RawPrint, Input, ?EXTRA_OPTIONS),
-    Input(close, In1),
-    ok.
+    try Input({open, F, OpO}, []) of
+        In0 ->
+            {_Info, In1} = get_central_dir(In0, RawPrint, Input, ?EXTRA_OPTIONS),
+            Input(close, In1),
+            ok
+    catch throw:{_FN, {_, Error}} ->
+            Error
+    end.
 
 %% Print zip directory in long form (like ls -l)
 
@@ -1081,7 +1103,7 @@ get_list_dir_options(F, Options) ->
     get_list_dir_opt(Options, Opts).
 
 %% aliases for erl_tar compatibility
--doc #{ title => ?ERL_TAR_COMPATIBILITY }.
+-doc(#{group => ?ERL_TAR_COMPATIBILITY }).
 -doc #{ equiv => list_dir(Archive, []) }.
 -spec(table(Archive) -> RetValue when
       Archive :: file:name() | binary(),
@@ -1090,7 +1112,7 @@ get_list_dir_options(F, Options) ->
 
 table(F) -> list_dir(F).
 
--doc #{ title => ?ERL_TAR_COMPATIBILITY }.
+-doc(#{group => ?ERL_TAR_COMPATIBILITY }).
 -doc #{ equiv => list_dir(Archive, Options) }.
 -spec(table(Archive, Options) -> RetValue when
       Archive :: file:name() | binary(),
@@ -1102,7 +1124,7 @@ table(F) -> list_dir(F).
 
 table(F, O) -> list_dir(F, O).
 
--doc #{ title => ?ERL_TAR_COMPATIBILITY }.
+-doc(#{group => ?ERL_TAR_COMPATIBILITY }).
 -doc(#{ equiv => zip(Name, FileList)} ).
 -spec(create(Name, FileList) -> RetValue when
       Name     :: file:name(),
@@ -1115,7 +1137,7 @@ table(F, O) -> list_dir(F, O).
 
 create(F, Fs) -> zip(F, Fs).
 
--doc #{ title => ?ERL_TAR_COMPATIBILITY }.
+-doc(#{group => ?ERL_TAR_COMPATIBILITY }).
 -doc(#{ equiv => zip(Name, FileList, Options) }).
 -spec(create(Name, FileList, Options) -> RetValue when
       Name     :: file:name(),
@@ -1129,7 +1151,7 @@ create(F, Fs) -> zip(F, Fs).
                 | {error, Reason :: term()}).
 create(F, Fs, O) -> zip(F, Fs, O).
 
--doc #{ title => ?ERL_TAR_COMPATIBILITY }.
+-doc(#{group => ?ERL_TAR_COMPATIBILITY }).
 -doc(#{ equiv => unzip(Archive)} ).
 -spec(extract(Archive) -> RetValue when
       Archive :: file:name() | binary(),
@@ -1142,7 +1164,7 @@ create(F, Fs, O) -> zip(F, Fs, O).
 
 extract(F) -> unzip(F).
 
--doc #{ title => ?ERL_TAR_COMPATIBILITY }.
+-doc(#{group => ?ERL_TAR_COMPATIBILITY }).
 -doc(#{ equiv => unzip(Archive, Options) }).
 -spec(extract(Archive, Options) -> RetValue when
       Archive :: file:name() | binary(),
@@ -1237,12 +1259,12 @@ get_filename({Name, _}, Type) ->
 get_filename({Name, _, _}, Type) ->
     get_filename(Name, Type);
 get_filename(Name, regular) ->
-    Name;
+    sanitize_filename(Name);
 get_filename(Name, directory) ->
     %% Ensure trailing slash
     case lists:reverse(Name) of
-	[$/ | _Rev] -> Name;
-	Rev         -> lists:reverse([$/ | Rev])
+	[$/ | _Rev] -> sanitize_filename(Name);
+	Rev         -> sanitize_filename(lists:reverse([$/ | Rev]))
     end.
 
 add_cwd(_CWD, {_Name, _} = F) -> F;
@@ -1703,19 +1725,23 @@ do_openzip_open(F, Options) ->
     #openzip_opts{output = Output, open_opts = OpO, cwd = CWD,
                   skip_dirs = SkipDirs, extra = ExtraOpts} = Opts,
     Input = get_input(F),
-    In0 = Input({open, F, OpO -- [write]}, []),
-    {[#zip_comment{comment = C} | Files], In1} =
-	get_central_dir(In0, fun raw_file_info_etc/5, Input, ExtraOpts),
-    Z = zlib:open(),
-    {ok, #openzip{zip_comment = C,
-		  files = Files,
-		  in = In1,
-		  input = Input,
-		  output = Output,
-		  zlib = Z,
-		  cwd = CWD,
-                  skip_dirs = SkipDirs,
-                  extra = ExtraOpts}}.
+    try Input({open, F, OpO -- [write]}, []) of
+        In0 ->
+            {[#zip_comment{comment = C} | Files], In1} =
+                get_central_dir(In0, fun raw_file_info_etc/5, Input, ExtraOpts),
+            Z = zlib:open(),
+            {ok, #openzip{zip_comment = C,
+                          files = Files,
+                          in = In1,
+                          input = Input,
+                          output = Output,
+                          zlib = Z,
+                          cwd = CWD,
+                          skip_dirs = SkipDirs,
+                          extra = ExtraOpts}}
+    catch throw:{_FN, {_, Error}} ->
+        Error
+    end.
 
 %% retrieve all files from an open archive
 openzip_get(OpenZip) ->
@@ -2216,8 +2242,8 @@ cd_file_header_to_file_info(FileName,
 
 %% get all files using file list
 %% (the offset list is already filtered on which file to get... isn't it?)
-get_z_files([], _Z, _In, _Opts, Acc) ->
-    lists:reverse(Acc);
+get_z_files([], _Z, _In, #unzip_opts{ output = Output }, Acc) ->
+    flush_and_reverse(Output, Acc, []);
 get_z_files([#zip_comment{comment = _} | Rest], Z, In, Opts, Acc) ->
     get_z_files(Rest, Z, In, Opts, Acc);
 get_z_files([{#zip_file{offset = Offset} = ZipFile, ZipExtra} | Rest], Z, In0,
@@ -2238,6 +2264,11 @@ get_z_files([{#zip_file{offset = Offset} = ZipFile, ZipExtra} | Rest], Z, In0,
 	_ ->
 	    get_z_files(Rest, Z, In0, Opts, Acc0)
     end.
+
+flush_and_reverse(Output, [H|T], Acc) ->
+    flush_and_reverse(Output, T, [Output(flush, H) | Acc]);
+flush_and_reverse(_Output, [], Acc) ->
+    Acc.
 
 %% get a file from the archive, reading chunks
 get_z_file(In0, Z, Input, Output, OpO, FB,
@@ -2278,8 +2309,8 @@ get_z_file(In0, Z, Input, Output, OpO, FB,
 
             IsDir = lists:last(FileName) =:= $/,
 
-	    case ReadAndWrite andalso not (IsDir andalso SkipDirs) of
-		true ->
+            case ReadAndWrite andalso not (IsDir andalso SkipDirs) of
+                true ->
                     {Type, Out, In} =
                         case lists:last(FileName) of
                             $/ ->
@@ -2292,7 +2323,7 @@ get_z_file(In0, Z, Input, Output, OpO, FB,
                                 In5 = skip_z_data_descriptor(GPFlag, Input, In4),
 
                                 FB(FileName),
-                                CRC =:= CRC32 orelse throw({bad_crc, FileName}),
+                                CRC =:= CRC32 orelse throw({FileName, bad_crc}),
                                 {file, Out1, In5}
                         end,
 
@@ -2300,11 +2331,20 @@ get_z_file(In0, Z, Input, Output, OpO, FB,
                                  Output({file_info, FileNameWithCwd}, Out),
                                  LHExtra, ZipFile),
 
-                    Out2 = Output({set_file_info, FileNameWithCwd, FileInfo, [{time, local}]}, Out),
+                    SetFileInfo =
+                        fun(O) -> Output({set_file_info, FileNameWithCwd, FileInfo, [{time, local}]}, O) end,
+
+                    Out2 =
+                        if Type =:= dir ->
+                                Output({delay, SetFileInfo}, Out);
+                           Type =:= file ->
+                                SetFileInfo(Out)
+                        end,
+
                     {Type, Out2, In};
-		false ->
-		    {ignore, In3}
-	    end;
+                false ->
+                    {ignore, In3}
+            end;
 	Else ->
 	    throw({bad_local_file_header, Else})
     end.
@@ -2326,35 +2366,75 @@ check_valid_location(CWD, FileName) ->
                     end,
     %% check for directory traversal exploit
     {IsValid, Name} =
-        case check_dir_level(filename:split(FileName), 0) of
-            {FileOrDir,Level} when Level < 0 ->
+        case check_dir_level(FileName) of
+            {FileOrDir, invalid} ->
                 CWD1 = if CWD == "" -> "./";
                           true      -> CWD
                        end,
                 error_logger:format("Illegal path: ~ts, extracting in ~ts~n",
                                     [add_cwd(CWD,FileName),CWD1]),
                 {false, FileOrDir};
-            _ ->
+            {_FileOrDir, valid} ->
                 {true, FileName}
         end,
     {IsValid, string:trim(Name, trailing, "/") ++ TrailingSlash}.
 
-check_dir_level([FileOrDir], Level) ->
-    {FileOrDir,Level};
-check_dir_level(["." | Parts], Level) ->
-    check_dir_level(Parts, Level);
-check_dir_level([".." | Parts], Level) ->
-    check_dir_level(Parts, Level-1);
-check_dir_level([_Dir | Parts], Level) ->
-    check_dir_level(Parts, Level+1).
+check_dir_level(FileName) ->
+    %% Normalize the path by rejecting `.`. If we have an invalid path like
+    %% "../hello/.", we will then present it to the filter as "hello".
+    %%
+    %% Note that "." is returned as-is for quirks-compatibility.
+    Parts = [Component || Component <- filename:split(FileName),
+             not string:equal(Component, ".")],
+    case Parts of
+        [_|_] ->
+            try cdl_1(Parts, 0) of
+                Res -> Res
+            catch
+                error:_ -> error({invalid_filename, FileName})
+            end;
+        [] ->
+            {".", invalid}
+    end.
+
+cdl_1([".." | Parts], Level) ->
+    case Level > 0 of
+        true ->
+            cdl_1(Parts, Level - 1);
+        false ->
+            %% We must never return ".." when marked invalid since there's no
+            %% way that the filter can do anything sensible with it. It's
+            %% better to crash.
+            Last = lists:last(Parts),
+            false = string:equal(Last, ".."),
+            {Last, invalid}
+    end;
+cdl_1([FileOrDir], Level) ->
+    true = Level >= 0,                          %Assertion.
+    {FileOrDir, valid};
+cdl_1([_Dir | Parts], Level) ->
+    cdl_1(Parts, Level + 1).
 
 get_filename_extra(FileNameLen, ExtraLen, B, GPFlag) ->
     try
         <<BFileName:FileNameLen/binary, BExtra:ExtraLen/binary>> = B,
-        {binary_to_chars(BFileName, GPFlag), BExtra}
+        {sanitize_filename(binary_to_chars(BFileName, GPFlag)), BExtra}
     catch
         _:_ ->
             throw(bad_file_header)
+    end.
+
+sanitize_filename(Filename) ->
+    case filename:pathtype(Filename) of
+        relative -> Filename;
+        _ ->
+            %% With absolute or volumerelative, we drop the prefix and rejoin
+            %% the path to create a relative path
+            Relative = filename:join(tl(filename:split(Filename))),
+            error_logger:format("Illegal absolute path: ~ts, converting to ~ts~n",
+                                [Filename, Relative]),
+            relative = filename:pathtype(Relative),
+            Relative
     end.
 
 %% get compressed or stored data
@@ -2451,11 +2531,25 @@ file_header_ctime_to_datetime(FH) ->
 %% bit   0 - 4 	 5 - 10 11 - 15    16 - 20      21 - 24        25 - 31
 %% value second  minute hour 	   day (1 - 31) month (1 - 12) years from 1980
 dos_date_time_to_datetime(DosDate, DosTime) ->
-    <<Hour:5, Min:6, Sec:5>> = <<DosTime:16>>,
+    <<Hour:5, Min:6, DoubleSec:5>> = <<DosTime:16>>,
     <<YearFrom1980:7, Month:4, Day:5>> = <<DosDate:16>>,
-    {{YearFrom1980+1980, Month, Day},
-     {Hour, Min, Sec * 2}}.
+    Date = {YearFrom1980+1980, Month, Day},
+    if DoubleSec > 29 ->
+            %% If DoubleSec * 2 > 59, something is broken
+            %% with this archive, but unzip wraps the value
+            %% so we do the same by converting to greg seconds
+            %% and then back again.
+            Datetime0 = {Date, {Hour, Min, 0}},
+            GSec0 = calendar:datetime_to_gregorian_seconds(Datetime0),
+            GSec = GSec0 + DoubleSec * 2,
+            calendar:gregorian_seconds_to_datetime(GSec);
+       true ->
+            {Date, {Hour, Min, DoubleSec * 2}}
+    end.
 
+dos_date_time_from_datetime({{Year, _Month, _Day}, {_Hour, _Min, _Sec}}) when Year < 1980 ->
+    error_logger:format("Found timestamp before 1980, using 1st of Jan 1980~n",[]),
+    dos_date_time_from_datetime({{1980, 1, 1}, {0, 0, 0}});
 dos_date_time_from_datetime({{Year, Month, Day}, {Hour, Min, Sec}}) ->
     YearFrom1980 = Year-1980,
     <<DosTime:16>> = <<Hour:5, Min:6, (Sec div 2):5>>,
@@ -2678,17 +2772,22 @@ binary_io({set_file_info, _F, _FI}, B) ->
 binary_io({set_file_info, _F, _FI, _O}, B) ->
     B;
 binary_io({ensure_path, Dir}, _B) ->
-    {Dir, <<>>}.
+    {Dir, <<>>};
+binary_io({delay, Fun}, B) ->
+    %% We don't delay things in binary_io
+    Fun(B);
+binary_io(flush, FN) ->
+    FN.
 
-file_io({file_info, F}, _) ->
-    case file:read_file_info(F) of
+file_io({file_info, FN}, _) ->
+    case file:read_file_info(FN) of
 	{ok, Info} -> Info;
-	{error, E} -> throw(E)
+	{error, E} -> throw({FN, {{file, file_info, [FN]}, E}})
     end;
-file_io({file_info, F, Opts}, _) ->
-    case file:read_file_info(F, Opts) of
+file_io({file_info, FN, Opts}, _) ->
+    case file:read_file_info(FN, Opts) of
 	{ok, Info} -> Info;
-	{error, E} -> throw(E)
+	{error, E} -> throw({FN, {{file, file_info, [FN, Opts]}, E}})
     end;
 file_io({open, FN, Opts}, _) ->
     case lists:member(write, Opts) of
@@ -2696,63 +2795,70 @@ file_io({open, FN, Opts}, _) ->
 	_ -> ok
     end,
     case file:open(FN, Opts++[binary]) of
-	{ok, H} -> H;
-	{error, E} -> throw(E)
+	{ok, H} -> {H, FN};
+	{error, E} -> throw({FN, {{file, open, [FN, Opts++[binary]]}, E}})
     end;
-file_io({read, N}, H) ->
+file_io({read, N}, {H, FN} = S) ->
     case file:read(H, N) of
-	{ok, B} -> {B, H};
-	eof -> {eof, H};
-	{error, E} -> throw(E)
+	{ok, B} -> {B, S};
+	eof -> {eof, S};
+	{error, E} -> throw({FN, {{file, read, [H, N]}, E}})
     end;
-file_io({pread, Pos, N}, H) ->
+file_io({pread, Pos, N}, {H, FN} = S) ->
     case file:pread(H, Pos, N) of
-	{ok, B} -> {B, H};
-	eof -> {eof, H};
-	{error, E} -> throw(E)
+	{ok, B} -> {B, S};
+	eof -> {eof, S};
+	{error, E} -> throw({FN, {{file, pread, [H, Pos, N]}, E}})
     end;
-file_io({seek, S, Pos}, H) ->
-    case file:position(H, {S, Pos}) of
-	{ok, _NewPos} -> H;
-	{error, Error} -> throw(Error)
+file_io({seek, How, Pos}, {H, FN} = S) ->
+    case file:position(H, {How, Pos}) of
+	{ok, _NewPos} -> S;
+	{error, E} -> throw({FN, {{file, position, [H, {S, Pos}]}, E}})
     end;
-file_io({position, S, Pos}, H) ->
-    case file:position(H, {S, Pos}) of
-	{ok, NewPos} -> {NewPos, H};
-	{error, Error} -> throw(Error)
+file_io({position, How, Pos}, {H, FN} = S) ->
+    case file:position(H, {How, Pos}) of
+	{ok, NewPos} -> {NewPos, S};
+	{error, E} -> throw({FN, {{file, position, [H, {S, Pos}]}, E}})
     end;
-file_io({write, Data}, H) ->
+file_io({write, Data}, {H, FN} = S) ->
     case file:write(H, Data) of
-	ok -> H;
-	{error, Error} -> throw(Error)
+	ok -> S;
+	{error, E} -> throw({FN, {{file, write, [H, Data]}, E}})
     end;
-file_io({pwrite, Pos, Data}, H) ->
+file_io({pwrite, Pos, Data}, {H, FN} = S) ->
     case file:pwrite(H, Pos, Data) of
-	ok -> H;
-	{error, Error} -> throw(Error)
+	ok -> S;
+	{error, E} -> throw({FN, {{file, pwrite, [H, Pos, Data]}, E}})
     end;
-file_io({close, FN}, H) ->
+file_io({close, FN}, {H, FN}) ->
     case file:close(H) of
-	ok -> FN;
-	{error, Error} -> throw(Error)
+	ok -> #{ name => FN, flush => []};
+	{error, Error} -> throw({{FN, {file, close, [H]}, Error}})
     end;
-file_io(close, H) ->
-    file_io({close, ok}, H);
-file_io({list_dir, F}, _H) ->
-    case file:list_dir(F) of
+file_io(close, {_H, FN} = S) ->
+    file_io({close, FN}, S);
+file_io({list_dir, FN}, _S) ->
+    case file:list_dir(FN) of
 	{ok, Files} -> Files;
-	{error, Error} -> throw(Error)
+	{error, Error} -> throw({FN, {file, list_dir, [FN]}, Error})
     end;
-file_io({set_file_info, F, FI}, H) ->
-    case file:write_file_info(F, FI) of
-	ok -> H;
-	{error, Error} -> throw(Error)
+file_io({set_file_info, FN, FI}, S) ->
+    case file:write_file_info(FN, FI) of
+	ok -> S;
+	{error, Error} -> throw({FN, {file, write_file_info, [FN, FI]}, Error})
     end;
-file_io({set_file_info, F, FI, O}, H) ->
-    case file:write_file_info(F, FI, O) of
-	ok -> H;
-	{error, Error} -> throw(Error)
+file_io({set_file_info, FN, FI, O}, S) ->
+    case file:write_file_info(FN, FI, O) of
+	ok -> S;
+	{error, Error} -> throw({FN, {file, write_file_info, [FN, FI, O]}, Error})
     end;
-file_io({ensure_path, Dir}, _H) ->
-    ok = filelib:ensure_path(Dir),
-    Dir.
+file_io({ensure_path, Dir}, _S) ->
+    case filelib:ensure_path(Dir) of
+        ok -> #{ name => Dir, flush => []};
+        {error, E} -> {Dir, {file, ensure_path, [Dir]}, E}
+    end;
+file_io({delay, Fun}, #{flush := Flush} = H) ->
+    H#{flush := [Fun | Flush] };
+file_io(flush, #{ name := Name, flush := Flush }) ->
+    _ = [F(Name) || F <- Flush],
+    Name.

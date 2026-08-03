@@ -1,6 +1,10 @@
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %%
 %% Copyright WhatsApp Inc. and its affiliates. All rights reserved.
+%% Copyright Ericsson AB 2024-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -14,6 +18,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% %CopyrightEnd%
 %%
 %%-------------------------------------------------------------------
 %%
@@ -941,7 +946,7 @@ profile(Module, Function, Args, Options) when is_atom(Module), is_atom(Function)
 init(Config) ->
     Type = maps:get(type, Config, call_count),
     false = erlang:process_flag(trap_exit, true), %% need this for reliable terminate/2 call
-    Session = trace:session_create(maps:get(session_name, Config, ?MODULE), self(), []),
+    Session = trace:session_create(maps:get(session, Config, ?MODULE), self(), []),
     {ok, #tprof_state{session = Session, type = Type}}.
 
 -doc false.
@@ -1037,6 +1042,7 @@ collect_trace(Session, Mod, FunList, Acc, Type) ->
 %% statistics won't be correct anyway. Hence the warning in the user
 %% guide, guarding against hot code reload while tracing.
 combine_trace({_, false}) -> fail;
+combine_trace({_, undefined}) -> skip; %% module unloaded after code:all_loaded()
 combine_trace({call_count, 0}) -> skip;
 combine_trace({call_count, Num}) -> [{all, Num, Num}];
 combine_trace({call_time, Times}) ->
@@ -1122,12 +1128,14 @@ format_impl(Device, {Type, Total, Inspected}) ->
     format_each(Device, Type, Total, Inspected).
 
 format_each(Device, call_count, _Total, Inspected) ->
-    {Widths, Lines} = lists:foldl(
-        fun ({Mod, {F, A}, Calls, _Value, _VPC, Percent}, {Widths, Ln}) ->
-            Line = [lists:flatten(io_lib:format("~tw:~tw/~w", [Mod, F, A])),
-                integer_to_list(Calls), float_to_list(Percent, [{decimals, 2}])],
-            NewWidths = [erlang:max(Old, New) || {Old, New} <- lists:zip([string:length(L) || L <- Line], Widths)],
-            {NewWidths, [Line | Ln]}
+    {Widths, Lines} =
+        lists:foldl(
+          fun ({Mod, {F, A}, Calls, _Value, _VPC, Percent}, {Widths, Ln}) ->
+                  Line = [lists:flatten(io_lib:format("~tw:~tw/~w", [Mod, F, A])),
+                          integer_to_list(Calls), float_to_list(Percent, [{decimals, 2}])],
+                  NewWidths = [max(Old, New) ||
+                                  Old <- [string:length(L) || L <- Line] && New <- Widths],
+                {NewWidths, [Line | Ln]}
         end, {[0, 5, 5], []}, Inspected),
 
     %% figure out formatting line
@@ -1145,15 +1153,17 @@ format_labelled(Device, Label, Total, Inspected) ->
     %% The width of the value is either total or label
     ValueWidth = erlang:max(length(Label), length(integer_to_list(Total))),
 
-    {Widths, Lines} = lists:foldl(
-        fun ({Mod, {F, A}, Calls, Value, VPC, Percent}, {Widths, Ln}) ->
-            Line = [lists:flatten(io_lib:format("~tw:~tw/~w", [Mod, F, A])),
-                integer_to_list(Calls), integer_to_list(Value),
-                float_to_list(VPC, [{decimals, 2}]),
-                float_to_list(Percent, [{decimals, 2}])],
-            NewWidths = [erlang:max(Old, New) || {Old, New} <- lists:zip([string:length(L) || L <- Line], Widths)],
-            {NewWidths, [Line | Ln]}
-        end, {[0, 5, ValueWidth, 8, 5], []}, Inspected),
+    {Widths, Lines} =
+        lists:foldl(
+          fun ({Mod, {F, A}, Calls, Value, VPC, Percent}, {Widths, Ln}) ->
+                  Line = [lists:flatten(io_lib:format("~tw:~tw/~w", [Mod, F, A])),
+                          integer_to_list(Calls), integer_to_list(Value),
+                          float_to_list(VPC, [{decimals, 2}]),
+                          float_to_list(Percent, [{decimals, 2}])],
+                  NewWidths = [max(Old, New) ||
+                                  Old <- [string:length(L) || L <- Line] && New <- Widths],
+                  {NewWidths, [Line | Ln]}
+          end, {[0, 5, ValueWidth, 8, 5], []}, Inspected),
 
     %% figure out formatting line
     Fmt = lists:flatten(io_lib:format("~~.~wts  ~~~ws  ~~~wts  ~~~ws  [~~~ws]~~n", Widths)),

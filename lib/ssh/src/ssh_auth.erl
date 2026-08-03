@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -234,9 +236,8 @@ handle_userauth_request(#ssh_msg_service_request{name = Name = "ssh-userauth"},
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  service = "ssh-connection",
 						  method = "password",
-						  data = <<?FALSE, ?UINT32(Sz), BinPwd:Sz/binary>>}, _, 
+						  data = <<?FALSE, ?UINT32(Sz), Password:Sz/binary>>}, _, 
 			#ssh{userauth_supported_methods = Methods} = Ssh) ->
-    Password = unicode:characters_to_list(BinPwd),
     case check_password(User, Password, Ssh) of
 	{true,Ssh1} ->
 	    {authorized, User,
@@ -452,7 +453,7 @@ handle_userauth_info_response(#ssh_msg_userauth_info_response{num_responses = 1,
 	orelse 
 	proplists:get_value(one_empty, ?GET_OPT(tstflg,Opts), false),
 
-    case check_password(User, unicode:characters_to_list(Password), Ssh) of
+    case check_password(User, Password, Ssh) of
 	{true,Ssh1} when SendOneEmpty==true ->
 	    {authorized_but_one_more, User,
              {#ssh_msg_userauth_info_request{name = "",
@@ -514,17 +515,23 @@ check_password(User, Password, #ssh{opts=Opts} = Ssh) ->
             end;
 
 	undefined ->
-	    Static = get_password_option(Opts, User),
-	    {ssh_lib:comp(Password,Static), Ssh};
+            case get_password_option(Opts, User) of
+                Checker when is_function(Checker, 1) ->
+                    {Checker(Password), Ssh};
+                _ ->
+                    %% Run fake PBKDF2 to prevent timing oracle (GHSA-3w6p-vwhf-wvp4)
+                    _ = (?GET_INTERNAL_OPT(fake_passwd_checker, Opts))(Password),
+                    {false, Ssh}
+            end;
 
 	Checker when is_function(Checker,2) ->
-	    {Checker(User, Password), Ssh};
+	    {Checker(User, unicode:characters_to_list(Password)), Ssh};
 
 	Checker when is_function(Checker,4) ->
 	    #ssh{pwdfun_user_state = PrivateState,
 		 peer = {_,PeerAddr={_,_}}
 		} = Ssh,
-	    case Checker(User, Password, PeerAddr, PrivateState) of
+	    case Checker(User, unicode:characters_to_list(Password), PeerAddr, PrivateState) of
 		true ->
 		    {true,Ssh};
 		false ->
@@ -545,7 +552,7 @@ get_password_option(Opts, User) ->
 	{value, {User, Pw}} -> Pw;
 	false -> ?GET_OPT(password, Opts)
     end.
-	    
+
 pre_verify_sig(User, KeyBlob,  #ssh{opts=Opts}) ->
     try
 	Key = ssh_message:ssh2_pubkey_decode(KeyBlob), % or exception

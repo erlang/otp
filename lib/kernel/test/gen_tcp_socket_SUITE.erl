@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +25,7 @@
 -compile([export_all, nowarn_export_all]).
 
 -include_lib("common_test/include/ct_event.hrl").
+-include("kernel_test_lib.hrl").
 
 all() ->
     [{group, smoketest}].
@@ -77,14 +80,19 @@ testcases(direct) ->
 -define(DBG(Term), dbg(?FUNCTION_NAME, ?LINE, begin Term end)).
 
 init_per_suite(Config) ->
-    case socket:is_supported(protocols, tcp) of
-        true ->
-            ct:pal("socket:info():~n    ~p~n", [socket:info()]),
-            {ok, BindAddr} = kernel_test_lib:which_local_addr(?DOMAIN),
-            [{bind_addr, #{ family => ?DOMAIN, addr   => BindAddr }}
-            | Config];
-        false ->
-            {skip, "Socket not supported"}
+    case is_socket_supported() of
+	ok ->
+	    case socket:is_supported(protocols, tcp) of
+		true ->
+		    ct:pal("socket:info():~n    ~p~n", [socket:info()]),
+		    {ok, BindAddr} = kernel_test_lib:which_local_addr(?DOMAIN),
+		    [{bind_addr, #{ family => ?DOMAIN, addr   => BindAddr }}
+		    | Config];
+		false ->
+		    {skip, "Socket not supported"}
+	    end;
+        {skip, _} = SKIP ->
+	    SKIP
     end.
 
 end_per_suite(_Config) ->
@@ -695,6 +703,28 @@ recv_loop_active_n(S, Sizes, M, N) ->
     end.
 
 %% -------
+
+is_socket_supported() ->
+    try socket:info() of
+	#{load_nif_result := ok} ->
+            ?P("~s -> we support 'socket'", [?FUNCTION_NAME]),
+            ok;
+	#{load_nif_result := LoadRes} ->
+	    ?P("~s -> 'socket' not supperted"
+	       "~n   (socket) nif load result: ~p", [?FUNCTION_NAME, LoadRes]),
+	    {skip, "esock not supported"};
+	_ ->
+            ?P("~s -> 'socket' not supperted", [?FUNCTION_NAME]),
+	    {skip, "esock not supported"}
+    catch
+        error : notsup ->
+            ?P("~s(error,notsup) -> 'socket' not supperted", [?FUNCTION_NAME]),
+            {skip, "esock not supported"};
+        error : undef ->
+            ?P("~s(error,undef) -> 'socket' not supperted", [?FUNCTION_NAME]),
+            {skip, "esock not configured"}
+    end.
+
 
 report(Name, Value, Suffix) ->
     ct:pal("### ~s: ~w ~s", [Name, Value, Suffix]),

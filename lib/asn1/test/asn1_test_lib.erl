@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,8 @@
 %%
 %%
 -module(asn1_test_lib).
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 -export([compile/3,compile_all/3,compile_erlang/3,
 	 rm_dirs/1,
@@ -89,7 +93,10 @@ module(F0) ->
 %%    filename:join(CaseDir, F ++ ".beam").
 
 compile_file(File, Options0) ->
-    Options = [warnings_as_errors|Options0],
+    Options = [warn_export_vars,warnings_as_errors,
+               {nowarn_possibly_unsafe_function, {erlang, binary_to_atom, 1}},
+               {nowarn_possibly_unsafe_function, {erlang, binary_to_atom, 2}}
+               | Options0],
     try
         ok = asn1ct:compile(File, Options),
         ok = compile_maps(File, Options)
@@ -197,7 +204,7 @@ roundtrip_enc(Mod, Type, Value, ExpectedValue) ->
             ExpectedValue = Mod:decode(Type, Encoded)
     end,
     map_roundtrip(Mod, Type, Encoded),
-    test_ber_indefinite(Mod, Type, Encoded, ExpectedValue),
+    test_special(Mod, Type, Encoded, ExpectedValue),
     Encoded.
 
 map_roundtrip(Mod, Type, Encoded) ->
@@ -248,9 +255,10 @@ match_value_tuple(I, T1, T2) when I =< tuple_size(T1) ->
 match_value_tuple(_, _, _) ->
     ok.
 
-test_ber_indefinite(Mod, Type, Encoded, ExpectedValue) ->
+test_special(Mod, Type, Encoded, ExpectedValue) ->
     case Mod:encoding_rule() of
 	ber ->
+            %% Test indefinite decoding for BER.
 	    Indefinite = iolist_to_binary(ber_indefinite(Encoded)),
             case Mod:decode(Type, Indefinite) of
                 {ok,ExpectedValue} ->
@@ -258,7 +266,14 @@ test_ber_indefinite(Mod, Type, Encoded, ExpectedValue) ->
                 ExpectedValue ->
                     ok
             end;
-	_ ->
+        jer ->
+            %% Test already decoded JSON for JER.
+            JsonDecoded = json:decode(Encoded),
+            case Mod:decode(Type, {json_decoded,JsonDecoded}) of
+                {ok,ExpectedValue} -> ok;
+                ExpectedValue -> ok
+            end;
+        _ ->
 	    ok
     end.
 

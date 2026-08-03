@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +22,9 @@
 
 -module(ct_run).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_possibly_unsafe_function, {file, consult, 1}}]).
 
 %% Script interface
 -export([script_start/0,script_usage/0]).
@@ -307,7 +312,7 @@ script_start1(Parent, Args) ->
     AbortIfMissing = get_start_opt(abort_if_missing_suites,
 				   fun([]) -> true;
 				      ([Bool]) -> list_to_atom(Bool)
-				   end, false, Args),
+				   end, true, Args),
     %% silent connections
     SilentConns =
 	get_start_opt(silent_connections,
@@ -1036,7 +1041,7 @@ run_test2(StartOpts) ->
 	end,
 
     %% abort test run if some suites can't be compiled
-    AbortIfMissing = get_start_opt(abort_if_missing_suites, value, false,
+    AbortIfMissing = get_start_opt(abort_if_missing_suites, value, true,
 				   StartOpts),
 
     %% decrypt config file
@@ -1272,10 +1277,10 @@ run_dir(Opts = #opts{logdir = LogDir,
 			true -> D end || D <- Dirs],
 	    reformat_result(catch do_run(tests(Dirs1), [], Opts1, StartOpts));
 
-	{Dir=[Hd|_],undefined,[]} when is_list(Dir) and is_integer(Hd) ->
+	{Dir=[Hd|_],undefined,[]} when is_list(Dir), is_integer(Hd) ->
 	    reformat_result(catch do_run(tests(Dir), [], Opts1, StartOpts));
 
-	{Dir,undefined,[]} when is_atom(Dir) and (Dir /= undefined) ->
+	{Dir,undefined,[]} when is_atom(Dir), Dir /= undefined ->
 	    reformat_result(catch do_run(tests(atom_to_list(Dir)),
 					 [], Opts1, StartOpts));
 
@@ -1283,13 +1288,13 @@ run_dir(Opts = #opts{logdir = LogDir,
 	    Suites1 = [suite_to_test(S) || S <- Suites],
 	    reformat_result(catch do_run(tests(Suites1), [], Opts1, StartOpts));
 
-	{undefined,Suite,[]} when is_atom(Suite) and
-				  (Suite /= undefined) ->
+	{undefined,Suite,[]} when is_atom(Suite),
+				  Suite /= undefined ->
 	    {Dir,Mod} = suite_to_test(Suite),
 	    reformat_result(catch do_run(tests(Dir, Mod), [], Opts1, StartOpts));
 
-	{undefined,Suite,GsAndCs} when is_atom(Suite) and
-				       (Suite /= undefined) ->
+	{undefined,Suite,GsAndCs} when is_atom(Suite),
+				       Suite /= undefined ->
 	    {Dir,Mod} = suite_to_test(Suite),
 	    reformat_result(catch do_run(tests(Dir, Mod, GsAndCs),
 					 [], Opts1, StartOpts));
@@ -1297,9 +1302,9 @@ run_dir(Opts = #opts{logdir = LogDir,
 	{undefined,[Hd,_|_],_GsAndCs} when not is_integer(Hd) ->
 	    exit({error,multiple_suites_and_cases});
 
-	{undefined,Suite=[Hd|Tl],GsAndCs} when is_integer(Hd) ;
-					       (is_list(Hd) and	(Tl == [])) ;
-					       (is_atom(Hd) and	(Tl == [])) ->
+	{undefined,Suite=[Hd|Tl],GsAndCs} when is_integer(Hd);
+					       is_list(Hd), Tl == [];
+					       is_atom(Hd), Tl == [] ->
 	    {Dir,Mod} = suite_to_test(Suite),
 	    reformat_result(catch do_run(tests(Dir, Mod, GsAndCs),
 					 [], Opts1, StartOpts));
@@ -1310,19 +1315,19 @@ run_dir(Opts = #opts{logdir = LogDir,
 	{undefined,undefined,GsAndCs} when GsAndCs /= [] ->
 	    exit({error,incorrect_start_options});
 
-	{Dir,Suite,GsAndCs} when is_integer(hd(Dir)) ;
-				 (is_atom(Dir) and (Dir /= undefined)) ;
-				 ((length(Dir) == 1) and is_atom(hd(Dir))) ;
-				 ((length(Dir) == 1) and is_list(hd(Dir))) ->
+	{Dir,Suite,GsAndCs} when is_integer(hd(Dir));
+				 is_atom(Dir), Dir /= undefined;
+				 is_atom(hd(Dir)), length(Dir) == 1;
+				 is_list(hd(Dir)), length(Dir) == 1 ->
 	    Dir1 = if is_atom(Dir) -> atom_to_list(Dir);
 		      true -> Dir end,
 	    if Suite == undefined ->
 		  exit({error,incorrect_start_options});
 
-	       is_integer(hd(Suite)) ;
-	       (is_atom(Suite) and (Suite /= undefined)) ;
-	       ((length(Suite) == 1) and is_atom(hd(Suite))) ;
-	       ((length(Suite) == 1) and is_list(hd(Suite))) ->
+	       is_integer(hd(Suite));
+	       is_atom(Suite), Suite /= undefined;
+	       is_atom(hd(Suite)), length(Suite) == 1;
+	       is_list(hd(Suite)), length(Suite) == 1 ->
 		    {Dir2,Mod} = suite_to_test(Dir1, Suite),
 		    case GsAndCs of
 			[] ->
@@ -1608,11 +1613,11 @@ suite_to_test(Dir, Suite) when is_list(Suite) ->
 	    {DirName,list_to_atom(filename:rootname(File))}
     end.
 
-groups_and_cases(Gs, Cs) when ((Gs == undefined) or (Gs == [])) and
-			      ((Cs == undefined) or (Cs == [])) ->
+groups_and_cases(Gs, Cs) when Gs == undefined orelse Gs == [],
+			      Cs == undefined orelse Cs == [] ->
     [];
 groups_and_cases(Gs, Cs) when Gs == undefined ; Gs == [] ->
-    if (Cs == all) or (Cs == [all]) or (Cs == ["all"]) -> all;
+    if Cs == all; Cs == [all]; Cs == ["all"] -> all;
        true -> [ensure_atom(C) || C <- listify(Cs)]
     end;
 groups_and_cases(GOrGs, Cs) when (is_atom(GOrGs) orelse
@@ -1620,8 +1625,8 @@ groups_and_cases(GOrGs, Cs) when (is_atom(GOrGs) orelse
 				   (is_atom(hd(GOrGs)) orelse
 				    (is_list(hd(GOrGs)) andalso
 				     is_atom(hd(hd(GOrGs))))))) ->
-    if (Cs == undefined) or (Cs == []) or
-       (Cs == all) or (Cs == [all]) or (Cs == ["all"]) ->
+    if Cs == undefined; Cs == [];
+       Cs == all; Cs == [all]; Cs == ["all"] ->
 	    [{GOrGs,all}];
        true ->
 	    [{GOrGs,[ensure_atom(C) || C <- listify(Cs)]}]
@@ -1630,7 +1635,7 @@ groups_and_cases(Gs, Cs) when is_integer(hd(hd(Gs))) ->
     %% if list of strings, this comes from 'ct_run -group G1 G2 ...' and
     %% we need to parse the strings
     Gs1 = 
-	if (Gs == [all]) or (Gs == ["all"]) ->
+	if Gs == [all]; Gs == ["all"] ->
 		all;
 	   true ->
 		lists:map(fun(G) ->
@@ -2358,7 +2363,7 @@ start_cover(Opts=#opts{coverspec=CovData,cover_stop=CovStop},LogDir) ->
 		[TsCoverInfo]),
 
     %% start cover on specified nodes
-    if (CovNodes /= []) and (CovNodes /= undefined) ->
+    if CovNodes /= [], CovNodes /= undefined ->
 	    ct_logs:log("COVER INFO",
 			"Nodes included in cover "
 			"session: ~tw",

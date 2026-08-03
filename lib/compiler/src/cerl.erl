@@ -1,4 +1,11 @@
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 1999-2002 Richard Carlsson
+%% Copyright Ericsson AB 2013-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -11,7 +18,8 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% @copyright 1999-2002 Richard Carlsson
+%% %CopyrightEnd%
+%%
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %%
 
@@ -54,6 +62,8 @@ function `type/1`.
 > trees.
 """.
 
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([abstract/1, add_ann/2, alias_pat/1, alias_var/1,
          ann_abstract/2, ann_c_alias/3, ann_c_apply/3, ann_c_atom/2,
          ann_c_bitstr/5, ann_c_bitstr/6,
@@ -93,7 +103,7 @@ function `type/1`.
          is_c_fun/1, is_c_int/1, is_c_let/1, is_c_letrec/1, is_c_list/1,
          is_c_map/1, is_c_map_empty/1, is_c_map_pattern/1,
          is_c_module/1, is_c_nil/1, is_c_primop/1, is_c_receive/1,
-         is_c_seq/1, is_c_string/1, is_c_try/1, is_c_tuple/1,
+         is_c_seq/1, is_c_string/1, is_c_record/1, is_c_try/1, is_c_tuple/1,
          is_c_values/1, is_c_var/1, is_data/1, is_leaf/1, is_literal/1,
          is_literal_term/1, is_print_char/1, is_print_string/1,
          let_arg/1, let_arity/1, let_body/1, let_vars/1, letrec_body/1,
@@ -107,7 +117,11 @@ function `type/1`.
          pat_list_vars/1, pat_vars/1, primop_args/1, primop_arity/1,
          primop_name/1, receive_action/1, receive_clauses/1,
          receive_timeout/1, seq_arg/1, seq_body/1, set_ann/2,
-         string_lit/1, string_val/1, subtrees/1, to_records/1,
+         string_lit/1, string_val/1,
+         c_record/2, ann_c_record/4, record_id/1, record_es/1, record_arg/1,
+         c_record_pair/2, ann_c_record_pair/3,
+         record_pair_key/1, record_pair_val/1,
+         subtrees/1, to_records/1,
          try_arg/1, try_body/1, try_vars/1, try_evars/1, try_handler/1,
          tuple_arity/1, tuple_es/1, type/1, unfold_literal/1,
          update_c_alias/3, update_c_apply/3, update_c_call/4,
@@ -116,7 +130,9 @@ function `type/1`.
          update_c_fname/3, update_c_fun/3, update_c_let/4,
          update_c_letrec/3, update_c_map/3, update_c_map_pair/4,
          update_c_module/5, update_c_primop/3,
-         update_c_receive/4, update_c_seq/3, update_c_try/6,
+         update_c_receive/4, update_c_seq/3,
+         update_c_record/4, update_c_record_pair/3,
+         update_c_try/6,
          update_c_tuple/2, update_c_tuple_skel/2, update_c_values/2,
          update_c_var/2, update_data/3, update_list/2, update_list/3,
          update_data_skel/3, update_tree/2, update_tree/3,
@@ -128,7 +144,7 @@ function `type/1`.
 
 -export_type([c_binary/0, c_bitstr/0, c_call/0, c_clause/0, c_cons/0, c_fun/0,
 	      c_let/0, c_literal/0, c_map/0, c_map_pair/0,
-	      c_module/0, c_tuple/0,
+	      c_module/0, c_record/0, c_record_pair/0, c_tuple/0,
 	      c_values/0, c_var/0, cerl/0, var_name/0]).
 
 -include("core_parse.hrl").
@@ -148,6 +164,8 @@ function `type/1`.
 -type c_literal() :: #c_literal{}.
 -type c_map()     :: #c_map{}.
 -type c_map_pair() :: #c_map_pair{}.
+-type c_record()  :: #c_record{}.
+-type c_record_pair() :: #c_record_pair{}.
 -type c_module()  :: #c_module{}.
 -type c_opaque()  :: #c_opaque{}.
 -type c_primop()  :: #c_primop{}.
@@ -161,7 +179,7 @@ function `type/1`.
 -type cerl() :: c_alias()  | c_apply()  | c_binary()  | c_bitstr()
               | c_call()   | c_case()   | c_catch()   | c_clause()  | c_cons()
               | c_fun()    | c_let()    | c_letrec()  | c_literal()
-	      | c_map()    | c_map_pair()
+	      | c_map()    | c_map_pair() | c_record() | c_record_pair()
 	      | c_module() | c_opaque()
               | c_primop() | c_receive() | c_seq()
               | c_try()    | c_tuple()  | c_values()  | c_var().
@@ -185,10 +203,11 @@ function `type/1`.
 %% the annotation field only).
 %% =====================================================================
 
--type ctype() :: 'alias'   | 'apply'  | 'binary' | 'bitstr' | 'call' | 'case'
-               | 'catch'   | 'clause' | 'cons'   | 'fun'    | 'let'  | 'letrec'
-               | 'literal' | 'map'  | 'map_pair' | 'module' | 'primop'
-               | 'receive' | 'seq'    | 'try'    | 'tuple'  | 'values' | 'var'.
+-type ctype() :: 'alias'   | 'apply'  | 'binary' | 'bitstr' | 'call'   | 'case'
+               | 'catch'   | 'clause' | 'cons'   | 'fun'    | 'let'    | 'letrec'
+               | 'literal' | 'map'  | 'map_pair' | 'module' | 'opaque' | 'primop'
+               | 'receive' | 'seq'  | 'record'   | 'record_pair'
+               | 'try'     | 'tuple'  | 'values' | 'var'.
 
 -doc """
 Returns the type tag of `Node`.
@@ -215,6 +234,7 @@ Current node types are:
 - `primop`
 - `receive`
 - `seq`
+- `record`
 - `try`
 - `tuple`
 - `values`
@@ -234,7 +254,7 @@ The only purpose of the `opaque` type is to facilitate testing of the compiler.
 _See also: _`abstract/1`, `c_alias/2`, `c_apply/2`, `c_binary/1`, `c_bitstr/5`,
 `c_call/3`, `c_case/2`, `c_catch/1`, `c_clause/3`, `c_cons/2`, `c_fun/2`,
 `c_let/3`, `c_letrec/2`, `c_module/3`, `c_primop/2`, `c_receive/1`, `c_seq/2`,
-`c_try/5`, `c_tuple/1`, `c_values/1`, `c_var/1`, `data_type/1`,
+`c_record/2`, `c_try/5`, `c_tuple/1`, `c_values/1`, `c_var/1`, `data_type/1`,
 `from_records/1`, `get_ann/1`, `meta/1`, `subtrees/1`, `to_records/1`.
 """.
 -spec type(Node :: cerl()) -> ctype().
@@ -258,6 +278,8 @@ type(#c_module{}) -> module;
 type(#c_primop{}) -> primop;
 type(#c_receive{}) -> 'receive';
 type(#c_seq{}) -> seq;
+type(#c_record{}) -> record;
+type(#c_record_pair{}) -> record_pair;
 type(#c_try{}) -> 'try';
 type(#c_tuple{}) -> tuple;
 type(#c_values{}) -> values;
@@ -295,8 +317,8 @@ _See also: _`set_ann/2`.
 """.
 -spec get_ann(Node :: cerl()) -> [term()].
 
-get_ann(Node) ->
-    element(2, Node).
+get_ann(#_{anno=Anno}) ->
+    Anno.
 
 
 -doc """
@@ -306,8 +328,8 @@ _See also: _`add_ann/2`, `copy_ann/2`, `get_ann/1`.
 """.
 -spec set_ann(Node :: cerl(), Annotations :: [term()]) -> cerl().
 
-set_ann(Node, List) ->
-    setelement(2, Node, List).
+set_ann(Node, List) when is_record(Node) ->
+    Node#_{anno=List}.
 
 
 -doc """
@@ -651,7 +673,7 @@ _See also: _`c_module/4`.
 -spec module_vars(Node :: c_module()) -> [cerl()].
 
 module_vars(Node) ->
-    [F || {F, _} <- module_defs(Node)].
+    [F || {F, _} <:- module_defs(Node)].
 
 %% ---------------------------------------------------------------------
 
@@ -1384,7 +1406,7 @@ _See also: _`ann_c_map/2`, `is_c_map/1`, `is_c_map_empty/1`, `is_c_map_pattern/1
 -spec c_map_pattern(Pairs :: [c_map_pair()]) -> c_map().
 
 c_map_pattern(Pairs) ->
-    #c_map{es=Pairs, is_pat=true}.
+    #c_map{es=Pairs, arg=#c_literal{val=#{}}, is_pat=true}.
 
 
 -type map_op() :: #c_literal{val::'assoc'} | #c_literal{val::'exact'}.
@@ -1497,7 +1519,7 @@ ann_c_map(As, M, Es) ->
 -spec ann_c_map_pattern(Annotations :: [term()], Pairs :: [c_map_pair()]) -> c_map().
 
 ann_c_map_pattern(As, Pairs) ->
-    #c_map{anno=As, es=Pairs, is_pat=true}.
+    #c_map{anno=As, arg=#c_literal{val=#{}}, es=Pairs, is_pat=true}.
 
 update_map_literal([#c_map_pair{op=#c_literal{val=assoc},key=Ck,val=Cv}|Es], M) ->
     %% M#{K => V}
@@ -1623,6 +1645,148 @@ _See also: _`c_map_pair/2`, `c_map_pair_exact/2`.
 
 map_pair_op(#c_map_pair{op=Op}) -> Op.
 
+%% ---------------------------------------------------------------------
+
+-type record_id() :: c_literal().
+
+-doc """
+Creates an abstract record constructor.
+
+_See also: _`ann_c_record/3`, `is_c_record/1`, `record_id/1`, `record_es/1`,
+`c_record_pair/2`, `update_c_record/4`.
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec c_record(Argument :: record_id(),
+               Pairs :: [c_record_pair()]) -> #c_record{}.
+
+c_record(Id, Es) ->
+    #c_record{id=Id, arg=#c_literal{val=ok}, es=Es}.
+
+-doc "_See also: _`c_record/2`.".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec ann_c_record(Annotations :: [term()],
+                   Argument :: c_var() | c_record() | c_literal(),
+                   Id :: term(),
+                   Pairs :: [c_record_pair()]) -> #c_record{}.
+
+ann_c_record(As, Arg, Id, Es) ->
+    #c_record{arg=Arg, id=Id, es=Es, anno=As}.
+
+-doc """
+Returns the list of native record pair subtrees of an abstract record.
+
+_See also: _`c_record/2`.
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec record_es(Node :: c_record()) -> [c_record_pair()].
+
+record_es(#c_record{es = Es}) ->
+    Es.
+
+-doc """
+Returns the identifier of of an abstract record.
+
+_See also: _`c_record/2`.
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec record_id(Node :: c_record()) -> record_id().
+
+record_id(#c_record{id = Id}) ->
+    Id.
+
+-doc """
+Returns the argument subtree of an abstract record.
+
+_See also: _`c_record/2`.
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+
+-spec record_arg(Node :: c_record()) -> c_var() | c_literal().
+
+record_arg(#c_record{arg = M}) ->
+    M.
+
+-doc """
+_See also: _`c_record/2`.
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec update_c_record(Node :: c_record() | c_literal(),
+                      Arg :: c_var() | c_literal(),
+                      Id :: record_id(),
+                      Pairs :: [c_record_pair()]) -> c_record().
+
+update_c_record(#c_record{}=Old, Arg, Id, Es) ->
+    Old#c_record{arg=Arg, id = Id, es = Es}.
+
+-doc """
+Returns `true` if `Node` is an abstract record, otherwise `false`.
+
+_See also: _`c_record/2`.
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec is_c_record(Node :: cerl()) -> boolean().
+
+is_c_record(#c_record{}) ->
+    true;
+is_c_record(_) ->
+    false.
+
+%% ---------------------------------------------------------------------
+
+-doc """
+Creates an abstract record pair.
+
+These can only occur as components of an abstract record creation
+expression or an abstract update expression (see `c_record/2`).
+
+The result represents "`Key = Value`".
+
+_See also: _`ann_c_record_pair/3`, `record_pair_key/1`, `record_pair_val/1`.
+""".  -doc(#{since => <<"OTP 29.0">>}).  -spec
+c_record_pair(Key :: c_literal(), Value :: cerl()) -> c_record_pair().
+
+c_record_pair(K, V) ->
+    #c_record_pair{key = K, val=V}.
+
+-doc "_See also: _`c_record/2`.".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec ann_c_record_pair(Annotations :: [term()],
+                        Key :: cerl(), Value :: cerl()) -> c_record_pair().
+
+ann_c_record_pair(As, K, V) ->
+    #c_record_pair{key = K, val=V, anno = As}.
+
+-doc """
+Returns the key subtree of an abstract record pair.
+
+_See also: _`c_record_pair/2`.
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+
+-spec record_pair_key(Node :: c_record_pair()) -> c_literal().
+
+record_pair_key(#c_record_pair{key=K}) -> K.
+
+-doc """
+Returns the value subtree of an abstract record pair.
+
+_See also: _`c_record_pair/2`.
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+
+-spec record_pair_val(Node :: c_record_pair()) -> cerl().
+
+record_pair_val(#c_record_pair{val=V}) -> V.
+
+-doc """
+_See also: _`c_record_pair/2`.
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec update_c_record_pair(Node :: c_record_pair(),
+                           Key :: c_literal(),
+                           Value :: cerl()) -> c_record_pair().
+update_c_record_pair(Node, K, V) ->
+    Node#c_record_pair{key = K, val = V}.
 
 %% ---------------------------------------------------------------------
 
@@ -1774,7 +1938,7 @@ A variable is identified by its name, given by the `Name` parameter.
 If a name is given by a single atom, it should either be a "simple" atom which
 does not need to be single-quoted in Erlang, or otherwise its print name should
 correspond to a proper Erlang variable, that is, begin with an uppercase character
-or an underscore. Names on the form `{A, N}` represent function name variables
+or an underscore. Names of the form `{A, N}` represent function name variables
 "`A/N`"; these are special variables which may be bound only in the function
 definitions of a module or a `letrec`. They may not be bound in `let`
 expressions and cannot occur in clause patterns. The atom `A` in a function name
@@ -2561,7 +2725,7 @@ _See also: _`c_letrec/2`.
 -spec letrec_vars(Node :: c_letrec()) -> [cerl()].
 
 letrec_vars(Node) ->
-    [F || {F, _} <- letrec_defs(Node)].
+    [F || {F, _} <:- letrec_defs(Node)].
 
 
 %% ---------------------------------------------------------------------
@@ -2812,7 +2976,11 @@ pat_vars(Node, Vs) ->
 	    %% bitstr_size is not a pattern var, excluded
 	    pat_vars(bitstr_val(Node), Vs);
 	alias ->
-	    pat_vars(alias_pat(Node), [alias_var(Node) | Vs])
+	    pat_vars(alias_pat(Node), [alias_var(Node) | Vs]);
+        record ->
+            pat_list_vars(record_es(Node), Vs);
+        record_pair ->
+	    pat_list_vars([record_pair_val(Node)], Vs)
     end.
 
 
@@ -3725,8 +3893,12 @@ subtrees(T) ->
 		    [[cons_hd(T)], [cons_tl(T)]];
 		tuple ->
 		    [tuple_es(T)];
+                record ->
+                    [[record_arg(T)], [record_id(T)], record_es(T)];
+                record_pair ->
+                    [[record_pair_key(T)], [record_pair_val(T)]];
 		map ->
-		    [map_es(T)];
+                    [[map_arg(T)], map_es(T)];
 		map_pair ->
 		    [[map_pair_op(T)],[map_pair_key(T)],[map_pair_val(T)]];
 		'let' ->
@@ -3858,6 +4030,10 @@ ann_make_tree(As, alias, [[V], [P]]) -> ann_c_alias(As, V, P);
 ann_make_tree(As, 'fun', [Vs, [B]]) -> ann_c_fun(As, Vs, B);
 ann_make_tree(As, 'receive', [Cs, [T], [A]]) ->
     ann_c_receive(As, Cs, T, A);
+ann_make_tree(As, record, [[A], [Id], Es]) ->
+    ann_c_record(As, A, Id, Es);
+ann_make_tree(As, record_pair, [[K],[V]]) ->
+    ann_c_record_pair(As, K, V);
 ann_make_tree(As, 'try', [[E], Vs, [B], Evs, [H]]) ->
     ann_c_try(As, E, Vs, B, Evs, H);
 ann_make_tree(As, 'catch', [[B]]) -> ann_c_catch(As, B);
@@ -4027,16 +4203,16 @@ meta_1('catch', Node) ->
 meta_1(letrec, Node) ->
     meta_call(c_letrec,
 	      [make_list([c_tuple([meta(N), meta(F)])
-			  || {N, F} <- letrec_defs(Node)]),
+			  || {N, F} <:- letrec_defs(Node)]),
 	       meta(letrec_body(Node))]);
 meta_1(module, Node) ->
     meta_call(c_module,
 	      [meta(module_name(Node)),
 	       make_list(meta_list(module_exports(Node))),
 	       make_list([c_tuple([meta(A), meta(V)])
-			  || {A, V} <- module_attrs(Node)]),
+			  || {A, V} <:- module_attrs(Node)]),
 	       make_list([c_tuple([meta(N), meta(F)])
-			  || {N, F} <- module_defs(Node)])]).
+			  || {N, F} <:- module_defs(Node)])]).
 
 meta_call(F, As) ->
     c_call(c_atom(?MODULE), c_atom(F), As).

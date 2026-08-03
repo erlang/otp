@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +26,6 @@
 
 %%% This test suite tests different options for the ssh functions
 
-
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 -include("ssh_test_lib.hrl").
@@ -37,7 +38,8 @@
          auth_none/1,
          connectfun_disconnectfun_client/1, 
 	 disconnectfun_option_client/1, 
-	 disconnectfun_option_server/1, 
+	 disconnectfun_option_server/1,
+	 bannerfun_server/1,
 	 id_string_no_opt_client/1, 
 	 id_string_no_opt_server/1, 
 	 id_string_own_string_client/1, 
@@ -55,6 +57,9 @@
          max_sessions_drops_tcp_connects/0,
 	 server_password_option/1, 
 	 server_userpassword_option/1, 
+	 server_userpassword_timing/0,
+	 server_userpassword_timing/1,
+	 server_pubkey_timing/1,
 	 server_pwdfun_option/1,
 	 server_pwdfun_4_option/1,
 	 server_keyboard_interactive/1,
@@ -83,12 +88,20 @@
 	 hostkey_fingerprint_check_list/1,
          save_accepted_host_option/1,
          raw_option/1,
+         config_file/0,
          config_file/1,
          config_file_modify_algorithms_order/1,
          daemon_replace_options_simple/1,
          daemon_replace_options_algs/1,
          daemon_replace_options_algs_connect/1,
-         daemon_replace_options_algs_conf_file/1
+         daemon_replace_options_algs_conf_file/1,
+         daemon_replace_options_not_found/1,
+         daemon_loopback_binding/1,
+         pk_check_user_option/1,
+         pwdfun_lockout_ets/1,
+         max_auth_request_size_large_enough/1,
+         max_auth_request_size_too_small/1,
+         max_auth_request_size_invalid_option/1
 	]).
 
 %%% Common test callbacks
@@ -114,9 +127,12 @@ suite() ->
 
 all() -> 
     [connectfun_disconnectfun_server,
+     bannerfun_server,
      connectfun_disconnectfun_client,
      server_password_option,
      server_userpassword_option,
+     server_userpassword_timing,
+     server_pubkey_timing,
      server_pwdfun_option,
      server_pwdfun_4_option,
      server_keyboard_interactive,
@@ -159,7 +175,9 @@ all() ->
      daemon_replace_options_algs,
      daemon_replace_options_algs_connect,
      daemon_replace_options_algs_conf_file,
-     {group, hardening_tests}
+     daemon_replace_options_not_found,
+     {group, hardening_tests},
+     {group, max_auth_request_size}
     ].
 
 groups() ->
@@ -171,11 +189,17 @@ groups() ->
 			    max_sessions_ssh_connect_sequential,
 			    max_sessions_sftp_start_channel_parallel,
 			    max_sessions_sftp_start_channel_sequential,
-                            max_sessions_drops_tcp_connects
+                            max_sessions_drops_tcp_connects,
+                            daemon_loopback_binding,
+                            pk_check_user_option,
+                            pwdfun_lockout_ets
 			   ]},
      {dir_options, [], [user_dir_option,
                         user_dir_fun_option,
-			system_dir_option]}
+                        system_dir_option]},
+     {max_auth_request_size, [], [max_auth_request_size_large_enough,
+                                  max_auth_request_size_too_small,
+                                  max_auth_request_size_invalid_option]}
     ].
 
 
@@ -600,6 +624,7 @@ auth_none(Config) ->
 			     {user_dir, UserDir},
 			     {auth_methods, "password"}, % to make even more sure we don't use public-key-auth
 			     {user_passwords, [{"foo","somepwd"}]}, % Not to be used
+                             {alive, #{count_max => 1, interval => 2000}},
                              {no_auth_needed, true} % we test this
 			    ]),
     ClientConnRef1 =
@@ -776,6 +801,47 @@ connectfun_disconnectfun_server(Config) ->
 	    after 0 -> ok
 	    end,
 	    {fail, "No connectfun action"}
+    end.
+
+%%--------------------------------------------------------------------
+bannerfun_server(Config) ->
+    UserDir = proplists:get_value(user_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+
+    Parent = self(),
+    Ref = make_ref(),
+    BannerFun = fun(U) -> Parent ! {banner,Ref,U}, list_to_binary(U) end,
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {failfun, fun ssh_test_lib:failfun/2},
+					     {bannerfun, BannerFun}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_dir, UserDir},
+					  {user_interaction, false}]),
+    receive
+	{banner,Ref,U} ->
+	   "foo" = U,
+            %% Make sure no second banner is sent
+            receive
+		{banner,Ref,U} ->
+                    ssh:close(ConnectionRef),
+                    ssh:stop_daemon(Pid),
+                    {fail, "More than 1 banner sent"}
+	    after 2000 ->
+                    ssh:close(ConnectionRef),
+                    ssh:stop_daemon(Pid)
+	    end
+    after 10000 ->
+	    receive
+		X -> ct:log("received ~p",[X])
+	    after 0 -> ok
+	    end,
+	    {fail, "No bannerfun action"}
     end.
 
 %%--------------------------------------------------------------------
@@ -1076,7 +1142,7 @@ really_do_hostkey_fingerprint_check(Config, HashAlg) ->
                                end,
 			   ct:log("check ~p == ~p (~p) and ~n~p~n in ~p (~p)~n",
 				  [PeerName,Host,HostCheck,FP,FPs,FPCheck]),
-			   HostCheck and FPCheck
+			   HostCheck andalso FPCheck
 		   end,
     
     ssh_test_lib:connect(Host, Port, [{silently_accept_hosts,
@@ -1350,9 +1416,10 @@ ssh_connect_nonegtimeout_connected(Config, Parallel) ->
     ct:log("Parallel: ~p",[Parallel]),
    
     {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
-					       {parallel_login, Parallel},
-					       {negotiation_timeout, NegTimeOut},
-					       {failfun, fun ssh_test_lib:failfun/2}]),
+                                               {parallel_login, Parallel},
+                                               {negotiation_timeout, NegTimeOut},
+                                               {failfun, fun ssh_test_lib:failfun/2},
+                                               {shell, {shell, start, []}}]),
     ct:log("~p Listen ~p:~p",[_Pid,_Host,Port]),
     ct:sleep(500),
 
@@ -1503,7 +1570,8 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 					     {user_dir, UserDir},
 					     {user_passwords, [{"carni", "meat"}]},
 					     {parallel_login, ParallelLogin},
-					     {max_sessions, MaxSessions}
+                                             {max_sessions, MaxSessions},
+                                             {subsystems, [ssh_sftpd:subsystem_spec([])]}
 					    ]),
     ct:log("~p Listen ~p:~p for max ~p sessions",[Pid,Host,Port,MaxSessions]),
     try [Connect(Host,Port) || _ <- lists:seq(1,MaxSessions)]
@@ -1679,6 +1747,7 @@ raw_option(_Config) ->
     #{socket_options := Opts} = ssh_options:handle_options(server, Opts).
 
 %%--------------------------------------------------------------------
+config_file() -> [{timetrap,{seconds,15 * ssh_test_lib:timetrap_scale()}}].
 config_file(Config) ->
     %% First find common algs:
     ServerAlgs = ssh_test_lib:default_algorithms(sshd),
@@ -1934,7 +2003,8 @@ daemon_replace_options_algs_connect(Config) ->
 
     {Pid, Host, Port} =
         ssh_test_lib:std_daemon(Config,
-                                [{preferred_algorithms,[{kex,[A1]}]}
+                                [{exec, erlang_eval},
+                                 {preferred_algorithms,[{kex,[A1]}]}
                                 ]),
     [A1] = get_preferred_algorithms(Pid, kex),
 
@@ -2033,6 +2103,195 @@ daemon_replace_options_algs_conf_file(Config) ->
     end.
 
 %%--------------------------------------------------------------------
+daemon_replace_options_not_found(_Config) ->
+    %% when the daemon doesn't exist the error should be the same
+    %% in daemon_info and daemon_replace_options
+    %% which is {error, bad_daemon_ref}
+    Error = ssh:daemon_info(self()),
+    Error = ssh:daemon_replace_options(self(), []).
+
+
+%%--------------------------------------------------------------------
+%%% Test that a normal-sized auth request succeeds with an explicit large limit
+max_auth_request_size_large_enough(Config) when is_list(Config) ->
+    UserDir = proplists:get_value(user_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+    %% Set a large enough limit that normal auth requests pass through
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+                                             {user_dir, UserDir},
+                                             {password, "morot"},
+                                             {max_auth_request_size, 1024},
+                                             {failfun, fun ssh_test_lib:failfun/2}]),
+
+    ConnectionRef =
+        ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                          {user, "foo"},
+                                          {password, "morot"},
+                                          {user_interaction, false},
+                                          {user_dir, UserDir}]),
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+%%% Test that a normal-sized auth request is rejected when max_auth_request_size
+%%% is set to small value
+max_auth_request_size_too_small(Config) when is_list(Config) ->
+    UserDir = proplists:get_value(user_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+    %% Set a very small limit so that even a normal password auth request
+    %% exceeds the max_auth_request_size and the server disconnects
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+                                             {user_dir, UserDir},
+                                             {password, "morot"},
+                                             {max_auth_request_size, 1},
+                                             {failfun, fun ssh_test_lib:failfun/2}]),
+
+    {error, "Auth length exceeded."} =
+        ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                 {save_accepted_host, false},
+                                 {user, "foo"},
+                                 {password, "morot"},
+                                 {user_interaction, false},
+                                 {user_dir, UserDir}]),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+%%% Test that the option validation rejects invalid max_auth_request_size values
+max_auth_request_size_invalid_option(Config) when is_list(Config) ->
+    SysDir = proplists:get_value(data_dir, Config),
+    %% zero value should be rejected
+    {error, {eoptions, _}} = ssh:daemon(0, [{system_dir, SysDir},
+                                            {max_auth_request_size, 0}]),
+    %% Negative value should be rejected
+    {error, {eoptions, _}} = ssh:daemon(0, [{system_dir, SysDir},
+                                            {max_auth_request_size, -1}]),
+    %% Non-integer value should be rejected
+    {error, {eoptions, _}} = ssh:daemon(0, [{system_dir, SysDir},
+                                            {max_auth_request_size, "not_an_integer"}]),
+    %% Atom value should be rejected
+    {error, {eoptions, _}} = ssh:daemon(0, [{system_dir, SysDir},
+                                            {max_auth_request_size, infinity}]).
+
+%%--------------------------------------------------------------------
+daemon_loopback_binding(Config) ->
+    %% Verify that daemon/3 with loopback binds to loopback address
+    SysDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
+    {Pid, _Host, Port} = ssh_test_lib:daemon(loopback, 0,
+                                             [{system_dir, SysDir},
+                                              {user_dir, UserDir},
+                                              {user_passwords, [{"usr1","pwd1"}]}]),
+    {ok, Info} = ssh:daemon_info(Pid),
+    ?CT_LOG("Daemon info: ~p", [Info]),
+    {127,0,0,1} = proplists:get_value(ip, Info),
+
+    %% Connect via loopback should succeed
+    {ok, C} = ssh:connect(loopback, Port,
+                          [{silently_accept_hosts, true},
+                           {user, "usr1"},
+                           {password, "pwd1"},
+                           {user_dir, UserDir}]),
+    ssh:close(C),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+pk_check_user_option(Config) ->
+    %% Verify that pk_check_user rejects unknown usernames even with
+    %% valid public key authentication.
+    PrivDir = proplists:get_value(priv_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+    UserDir = PrivDir,
+
+    {Pid, Host, Port} = ssh_test_lib:daemon(
+                           [{system_dir, SysDir},
+                            {user_dir, UserDir},
+                            {pk_check_user, true},
+                            {user_passwords, [{"usr1", "pwd1"}]},
+                            {failfun, fun ssh_test_lib:failfun/2}]),
+
+    ConnBase = [{silently_accept_hosts, true},
+                {user_dir, UserDir},
+                {user_interaction, false}],
+
+    %% Connect as "usr1" with pubkey — should succeed
+    ?CT_LOG("Connecting as 'usr1' (known user) with pubkey", []),
+    {ok, C1} = ssh:connect(Host, Port, [{user, "usr1"} | ConnBase]),
+    ?CT_LOG("Known user accepted", []),
+    ssh:close(C1),
+
+    %% Connect as "unknownuser" with same valid key — should fail
+    ?CT_LOG("Connecting as 'unknownuser' with pubkey", []),
+    {error, Reason} = ssh:connect(Host, Port, [{user, "unknownuser"} | ConnBase]),
+    ?CT_LOG("Unknown user rejected: ~p", [Reason]),
+
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+pwdfun_lockout_ets(Config) ->
+    %% Verify cross-connection account lockout using ETS + pwdfun/4.
+    SysDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
+
+    Tab = ets:new(test_lockouts, [public, set]),
+    Threshold = 3,
+
+    PwdFun = fun(User, Password, _PeerAddr, State) ->
+                 case ets:lookup(Tab, {locked, User}) of
+                     [_] ->
+                         disconnect;
+                     [] ->
+                         case {User, Password} of
+                             {"usr1", "pwd1"} ->
+                                 ets:delete(Tab, {attempts, User}),
+                                 {true, State};
+                             _ ->
+                                 N = ets:update_counter(Tab, {attempts, User},
+                                                        1, {{attempts, User}, 0}),
+                                 case N >= Threshold of
+                                     true ->
+                                         ets:insert(Tab, {{locked, User}, true}),
+                                         ets:delete(Tab, {attempts, User});
+                                     false -> ok
+                                 end,
+                                 {false, State}
+                         end
+                 end
+             end,
+
+    {Pid, Host, Port} = ssh_test_lib:daemon(
+                           [{system_dir, SysDir},
+                            {user_dir, UserDir},
+                            {auth_methods, "password"},
+                            {pwdfun, PwdFun},
+                            {failfun, fun ssh_test_lib:failfun/2}]),
+
+    ConnOpts = fun(Pwd) ->
+                   [{silently_accept_hosts, true},
+                    {user, "usr1"},
+                    {password, Pwd},
+                    {user_dir, UserDir},
+                    {user_interaction, false}]
+               end,
+
+    ?CT_LOG("Verifying correct password works before lockout", []),
+    {ok, C0} = ssh:connect(Host, Port, ConnOpts("pwd1")),
+    ssh:close(C0),
+
+    ?CT_LOG("Sending ~p failed attempts to trigger lockout", [Threshold]),
+    [begin
+         {error, Reason} = ssh:connect(Host, Port, ConnOpts("wrong")),
+         ?CT_LOG("Attempt ~p failed: ~p", [I, Reason])
+     end || I <- lists:seq(1, Threshold)],
+
+    ?CT_LOG("Verifying account is locked — correct password should fail", []),
+    {error, LockedReason} = ssh:connect(Host, Port, ConnOpts("pwd1")),
+    ?CT_LOG("Locked account connect failed: ~p", [LockedReason]),
+
+    ?CT_LOG("Account lockout verified", []),
+    ets:delete(Tab),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 
@@ -2111,3 +2370,64 @@ test_not_connect(Config, Host, Port, Opts) ->
         error:{badmatch, {error,_}} -> ok
     end.
 
+
+%%--------------------------------------------------------------------
+%% Verify that password auth timing does not reveal username validity.
+%% Regression test for GHSA-3w6p-vwhf-wvp4.
+server_userpassword_timing() ->
+    [{timetrap, {seconds,60}}].
+
+server_userpassword_timing(Config) when is_list(Config) ->
+    UserDir = proplists:get_value(user_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+                                             {user_dir, UserDir},
+                                             {auth_methods, "password"},
+                                             {user_passwords, [{"alice", "s3cret"}]}]),
+    Opts = [{silently_accept_hosts, true},
+            {user_interaction, false},
+            {save_accepted_host, false},
+            {auth_methods, "password"},
+            {user_dir, UserDir},
+            {password, "wrong"}],
+    F = fun(User) -> time_auth(Host, Port, User, Opts) end,
+    ssh_test_lib:assert_timing_symmetry(F, "alice", "invalid"),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+%% Verify that pubkey auth with pk_check_user timing does not reveal
+%% username validity. Regression test for GHSA-3w6p-vwhf-wvp4.
+server_pubkey_timing(Config) when is_list(Config) ->
+    UserDir = proplists:get_value(priv_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+    %% Server user_dir has no authorized_keys, so pubkey auth fails
+    %% for both users. This isolates the pk_check_user timing from
+    %% auth success/failure differences.
+    ServerUserDir = filename:join(UserDir, "srv_no_authkeys"),
+    ok = file:make_dir(ServerUserDir),
+    ssh_test_lib:setup_all_user_host_keys(Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+                                             {user_dir, ServerUserDir},
+                                             {auth_methods, "publickey"},
+                                             {user_passwords, [{"alice", "s3cret"}]},
+                                             {pk_check_user, true}]),
+    Opts = [{silently_accept_hosts, true},
+            {user_interaction, false},
+            {save_accepted_host, false},
+            {auth_methods, "publickey"},
+            {user_dir, UserDir}],
+    F = fun(User) -> time_auth(Host, Port, User, Opts) end,
+    ssh_test_lib:assert_timing_symmetry(F, "alice", "invalid"),
+    ssh:stop_daemon(Pid).
+
+time_auth(Host, Port, User, Opts) ->
+    T0 = erlang:monotonic_time(millisecond),
+    Result = ssh:connect(Host, Port, [{user, User} | Opts]),
+    T1 = erlang:monotonic_time(millisecond),
+    case Result of
+        {ok, C} -> ssh:close(C);
+        _ -> ok
+    end,
+    Delta = T1 - T0,
+    ?CT_LOG("Connection result = ~p in ~p ms", [Result, Delta]),
+    Delta.

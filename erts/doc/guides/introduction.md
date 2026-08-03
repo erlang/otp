@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,15 +25,6 @@ limitations under the License.
 
 The Erlang Runtime System Application, ERTS, contains functionality necessary to
 run the Erlang system.
-
-> #### Note {: .info }
->
-> By default, `ERTS` is only guaranteed to be compatible with other Erlang/OTP
-> components from the same release as `ERTS` itself.
->
-> For information on how to communicate with Erlang/OTP components from earlier
-> releases, see the documentation of system flag [`+R`](erl_cmd.md#compat_rel)
-> in [erl](erl_cmd.md).
 
 ## Prerequisites
 

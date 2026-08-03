@@ -217,9 +217,9 @@ recv({ssl,SSLConfig},Socket,Length,Timeout) ->
     ssl:recv(Socket,Length,Timeout).
 
 -ifdef(inets_debug).
-data_size(L) when list(L) ->
+data_size(L) when is_list(L) ->
     httpd_util:flatlength(L);
-data_size(B) when binary(B) ->
+data_size(B) when is_binary(B) ->
     size(B);
 data_size(O) ->
     {unknown_size,O}.
@@ -352,7 +352,7 @@ ssl_password(ConfigDB) ->
 		    [];
 		Function ->
 		    case catch apply(Module, Function, []) of
-			Password when list(Password) ->
+                        Password when is_list(Password) ->
 			    [{password, Password}];
 			Error ->
 			    error_report(ssl_password,Module,Function,Error),
@@ -380,3 +380,26 @@ ssl_ca_certificate_file(ConfigDB) ->
 
 error_report(Where,M,F,Error) ->
     error_logger:error_report([{?MODULE, Where}, {apply, {M, F, []}}, Error]).
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

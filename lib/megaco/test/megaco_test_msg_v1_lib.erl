@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -229,7 +231,7 @@ cre_Message(V, Mid, {errorDescriptor, ED} = Body)
 %% cre_ErrorText(T) when list(T) ->
 %%     T.
 
-cre_ContextID(Val) when (0 =< Val) and (Val =< 4294967295) ->
+cre_ContextID(Val) when 0 =< Val, Val =< 4294967295 ->
     Val;
 cre_ContextID(Val) ->
     exit({invalid_ContextID, Val}).
@@ -290,30 +292,30 @@ cre_TransactionRequest(TransID, ARs) when is_integer(TransID) andalso is_list(AR
 %%     #'TransactionAck'{firstAck = FirstAck, 
 %% 		      lastAck  = LastAck}.
 
-cre_ActionRequest(CtxID, CmdReqs) 
-  when is_integer(CtxID) and is_list(CmdReqs) ->
+cre_ActionRequest(CtxID, CmdReqs)
+  when is_integer(CtxID), is_list(CmdReqs) ->
     #'ActionRequest'{contextId       = CtxID,
 		     commandRequests = CmdReqs}.
 
-cre_ActionRequest(CtxID, CtxReq, CmdReqs) 
-  when is_integer(CtxID) and 
-       is_record(CtxReq, 'ContextRequest') and
+cre_ActionRequest(CtxID, CtxReq, CmdReqs)
+  when is_integer(CtxID),
+       is_record(CtxReq, 'ContextRequest'),
        is_list(CmdReqs) ->
     #'ActionRequest'{contextId       = CtxID,
 		     contextRequest  = CtxReq,
 		     commandRequests = CmdReqs};
-cre_ActionRequest(CtxID, CAAR, CmdReqs) 
-  when is_integer(CtxID) and 
-       is_record(CAAR, 'ContextAttrAuditRequest') and 
+cre_ActionRequest(CtxID, CAAR, CmdReqs)
+  when is_integer(CtxID),
+       is_record(CAAR, 'ContextAttrAuditRequest'),
        is_list(CmdReqs) ->
     #'ActionRequest'{contextId           = CtxID,
 		     contextAttrAuditReq = CAAR,
 		     commandRequests     = CmdReqs}.
 
-cre_ActionRequest(CtxID, CtxReq, CAAR, CmdReqs) 
-  when is_integer(CtxID) and 
-       is_record(CtxReq, 'ContextRequest') and 
-       is_record(CAAR, 'ContextAttrAuditRequest') and 
+cre_ActionRequest(CtxID, CtxReq, CAAR, CmdReqs)
+  when is_integer(CtxID),
+       is_record(CtxReq, 'ContextRequest'),
+       is_record(CAAR, 'ContextAttrAuditRequest'),
        is_list(CmdReqs) ->
     #'ActionRequest'{contextId           = CtxID,
 		     contextRequest      = CtxReq,
@@ -956,12 +958,12 @@ cre_PkgdName(N) when is_list(N) ->
     end.
 cre_PkgdName(root, root) ->
     "*/*";
-cre_PkgdName(PackageName, root) 
-  when is_list(PackageName) and (length(PackageName) =< 64) ->
+cre_PkgdName(PackageName, root)
+  when length(PackageName) =< 64 ->
     PackageName ++ "/*";
-cre_PkgdName(PackageName, ItemID) 
-  when ((is_list(PackageName) and (length(PackageName) =< 64)) and
-	(is_list(ItemID)      and (length(ItemID) =< 64))) ->
+cre_PkgdName(PackageName, ItemID)
+  when length(PackageName) =< 64,
+       length(ItemID) =< 64 ->
     PackageName ++ "/" ++ ItemID;
 cre_PkgdName(PackageName, ItemID) ->
     error({invalid_PkgdName, {PackageName, ItemID}}).

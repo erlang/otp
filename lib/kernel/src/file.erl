@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,8 +60,7 @@ translate a filename specified as a binary on systems with transparent naming.
 
 When running in `utf8` mode, functions `list_dir/1` and `read_link/1` never
 return raw filenames. To return all filenames including raw filenames, use
-functions [`list_dir_all/1`](`m:file#list_dir_all`) and
-[`read_link_all/1`](`m:file#read_link_all`).
+functions `list_dir_all/1` and `read_link_all/1`.
 
 See also section
 [Notes About Raw Filenames](`e:stdlib:unicode_usage.md#notes-about-raw-filenames`)
@@ -182,12 +183,14 @@ operating system kernel.
 > handling the file exits. The dead file process can hang if a process tries to
 > access it later. This will be fixed in a future release.
 
-## See Also
+### See Also
 
 `m:filename`
 """.
 
 -removed([{pid2name,1,"this functionality is no longer supported"}]).
+
+-unsafe([{consult, '_', possibly}, {path_consult, '_', possibly}]).
 
 %% Interface module for the file server and the file io servers.
 
@@ -281,7 +284,9 @@ An IO device as returned by `open/2`.
                       Size :: non_neg_integer(),
                       Delay :: non_neg_integer()}
 		   | 'delayed_write' | {'read_ahead', Size :: pos_integer()}
-		   | 'read_ahead' | 'compressed' | 'compressed_one'
+		   | 'read_ahead' | 'compressed' | 'compressed_one' |
+		     {zstd, zstd:compress_parameters() |
+		            zstd:decompress_parameters()}
 		   | {'encoding', unicode:encoding()}
 		   | sync.
 -type deep_list() :: [char() | atom() | deep_list()].
@@ -341,10 +346,9 @@ runtime libraries of most C compilers.
 -export([native_name_encoding/0]).
 
 -doc """
-[](){: #native_name_encoding } Returns the filename encoding mode. If it is
-`latin1`, the system translates no filenames. If it is `utf8`, filenames are
-converted back and forth to the native filename encoding (usually UTF-8, but
-UTF-16 on Windows).
+Returns the filename encoding mode. If it is `latin1`, the system translates no
+filenames. If it is `utf8`, filenames are converted back and forth to the native
+filename encoding (usually UTF-8, but UTF-16 on Windows).
 """.
 -doc(#{since => <<"OTP R14B01">>}).
 -spec native_name_encoding() -> latin1 | utf8.
@@ -856,7 +860,7 @@ read_link_info(Name, Opts) when is_list(Opts) ->
 
 
 -doc """
-[](){: #read_link_all } Returns `{ok, Filename}` if `Name` refers to a symbolic
+Returns `{ok, Filename}` if `Name` refers to a symbolic
 link that is not a raw filename, or `{error, Reason}` otherwise. On platforms
 that do not support symbolic links, the return value is `{error,enotsup}`.
 
@@ -880,7 +884,7 @@ read_link(Name) ->
 -doc """
 Returns `{ok, Filename}` if `Name` refers to a symbolic link or
 `{error, Reason}` otherwise. On platforms that do not support symbolic links,
-the return value is `{error,enotsup}`.
+the return value is `{error, enotsup}`.
 
 Notice that `Filename` can be either a list or a binary.
 
@@ -1041,7 +1045,7 @@ list_dir(Name) ->
     check_and_call(list_dir, [file_name(Name)]).
 
 -doc """
-[](){: #list_dir_all } Lists all the files in a directory, including files with
+Lists all the files in a directory, including files with
 raw filenames. Returns `{ok, Filenames}` if successful, otherwise
 `{error, Reason}`. `Filenames` is a list of the names of all the files in the
 directory. The names are not sorted.
@@ -1342,6 +1346,12 @@ more of the following options:
   Option `compressed` must be combined with `read` or `write`, but not both.
   Notice that the file size obtained with `read_file_info/1` does probably not
   match the number of bytes that can be read from a compressed file.
+
+- **`{zstd, Opts}`** - Makes it possible to read or write zstd compressed
+  files. Option `compressed` must be combined with `read` or `write`, but not
+  both. Notice that the file size obtained with `read_file_info/1` does
+  probably not match the number of bytes that can be read from a compressed
+  file.
 
 - **`compressed_one`** - Read one member of a gzip compressed file. Option
   `compressed_one` can only be combined with `read`.

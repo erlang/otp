@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,6 +47,8 @@
          exec_direct_with_io_in_sshc/1,
          exec_with_io_in_sshc/1,
          tunnel_in_erlclient_erlserver/1,
+         tunnel_in_erlclient_erlserver_allowed/1,
+         tunnel_in_erlclient_erlserver_denied/1,
          tunnel_in_erlclient_openssh_server/1,
          tunnel_in_non_erlclient_erlserver/1,
          tunnel_out_erlclient_erlserver/1,
@@ -54,7 +58,7 @@
         ]).
 
 -define(REKEY_DATA_TMO, 65000).
-
+-define(ALIVE, {alive, #{count_max => 3, interval => ssh_test_lib:alive_interval()}}).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -74,6 +78,8 @@ all() ->
 
 groups() -> 
     [{erlang_client, [], [tunnel_in_erlclient_erlserver,
+                          tunnel_in_erlclient_erlserver_allowed,
+                          tunnel_in_erlclient_erlserver_denied,
                           tunnel_out_erlclient_erlserver,
                           {group, tunnel_distro_server},
                           erlang_shell_client_openssh_server,
@@ -129,11 +135,21 @@ end_per_group(_, Config) ->
     Config.
 
 
+init_per_testcase(TC, Config) when TC == eclient_oserver_kex_strict;
+                                   TC == eserver_oclient_kex_strict ->
+    case os:type() of
+        {unix,_} ->
+            ssh:start(),
+            Level = ssh_test_lib:get_log_level(),
+            ssh_test_lib:set_log_level(debug),
+            [{saved_log_level, Level} | ssh_test_lib:verify_sanity_check(Config)];
+        Type ->
+            {skip, io_lib:format("Unsupported test on ~p",[Type])}
+    end;
 init_per_testcase(erlang_server_openssh_client_renegotiate, Config) ->
     case os:type() of
 	{unix,_} ->
-            ssh:start(),
-            ssh_test_lib:verify_sanity_check(Config);
+            init_per_testcase(default, Config);
 	Type ->
             {skip, io_lib:format("Unsupported test on ~p",[Type])}
     end;
@@ -141,6 +157,11 @@ init_per_testcase(_TestCase, Config) ->
     ssh:start(),
     ssh_test_lib:verify_sanity_check(Config).
 
+end_per_testcase(TC, Config) when TC == eclient_oserver_kex_strict;
+                                  TC == eserver_oclient_kex_strict ->
+    ssh_test_lib:set_log_level(proplists:get_value(saved_log_level, Config)),
+    ssh:stop(),
+    ok;
 end_per_testcase(_TestCase, _Config) ->
     ssh:stop(),
     ok.
@@ -151,17 +172,14 @@ end_per_testcase(_TestCase, _Config) ->
 erlang_shell_client_openssh_server(Config) when is_list(Config) ->
     eclient_oserver_helper2(eclient_oserver_helper1(), Config).
 
-eclient_oserver_kex_strict(Config) when is_list(Config)->
-    case proplists:get_value(kex_strict, Config) of
+eclient_oserver_kex_strict(Config0) when is_list(Config0)->
+    case proplists:get_value(kex_strict, Config0) of
         true ->
-            {ok, TestRef} = ssh_test_lib:add_log_handler(),
-            Level = ssh_test_lib:get_log_level(),
-            ssh_test_lib:set_log_level(debug),
+            Config = ssh_test_lib:add_log_handler(?FUNCTION_NAME, Config0),
             HelperParams = eclient_oserver_helper1(),
-            {ok, Events} = ssh_test_lib:get_log_events(TestRef),
+            {ok, Events} = ssh_test_lib:get_log_events(Config),
             true = ssh_test_lib:kex_strict_negotiated(client, Events),
-            ssh_test_lib:set_log_level(Level),
-            ssh_test_lib:rm_log_handler(),
+            ssh_test_lib:rm_log_handler(?FUNCTION_NAME),
             eclient_oserver_helper2(HelperParams, Config);
         _ ->
             {skip, "KEX strict not support by local OpenSSH"}
@@ -201,6 +219,8 @@ eclient_oserver_helper2({Shell, Prev, IO}, Config) ->
 exec_with_io_in_sshc(Config) when is_list(Config) ->
     SystemDir = proplists:get_value(data_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                             {exec, erlang_eval},
+                                             ?ALIVE,
                                              {failfun, fun ssh_test_lib:failfun/2}]),
     ct:sleep(500),
 
@@ -210,6 +230,8 @@ exec_with_io_in_sshc(Config) when is_list(Config) ->
                                                           [" -o UserKnownHostsFile=", "/dev/null",
                                                            " -o CheckHostIP=no"
                                                            " -o StrictHostKeyChecking=no"
+                                                           " -o ServerAliveCountMax=3"
+                                                           " -o ServerAliveInterval=100"
                                                            " -q"
                                                            " -x" % Disable X forwarding
                                                           ],
@@ -230,6 +252,7 @@ exec_direct_with_io_in_sshc(Config) when is_list(Config) ->
     SystemDir = proplists:get_value(data_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
                                              {failfun, fun ssh_test_lib:failfun/2},
+                                             ?ALIVE,
                                              {exec,{direct,fun(Cmnd) ->
                                                                    {ok,X} = io:read(Cmnd),
                                                                    {ok,{X,lists:reverse(atom_to_list(X))}}
@@ -242,6 +265,8 @@ exec_direct_with_io_in_sshc(Config) when is_list(Config) ->
                                                           [" -o UserKnownHostsFile=", "/dev/null",
                                                            " -o CheckHostIP=no"
                                                            " -o StrictHostKeyChecking=no"
+                                                           " -o ServerAliveCountMax=3"
+                                                           " -o ServerAliveInterval=100"
                                                            " -q"
                                                            " -x" % Disable X forwarding
                                                           ],
@@ -262,19 +287,15 @@ erlang_server_openssh_client_renegotiate(Config) ->
     eserver_oclient_renegotiate_helper2(
       eserver_oclient_renegotiate_helper1(Config)).
 
-eserver_oclient_kex_strict(Config) ->
-    case proplists:get_value(kex_strict, Config) of
+eserver_oclient_kex_strict(Config0) ->
+    case proplists:get_value(kex_strict, Config0) of
         true ->
-            {ok, TestRef} = ssh_test_lib:add_log_handler(),
-            Level = ssh_test_lib:get_log_level(),
-            ssh_test_lib:set_log_level(debug),
-
+            Config = ssh_test_lib:add_log_handler(?FUNCTION_NAME, Config0),
             HelperParams = eserver_oclient_renegotiate_helper1(Config),
-            {ok, Events} = ssh_test_lib:get_log_events(TestRef),
+            {ok, Events} = ssh_test_lib:get_log_events(Config),
             ct:log("Events = ~n~p", [Events]),
             true = ssh_test_lib:kex_strict_negotiated(server, Events),
-            ssh_test_lib:set_log_level(Level),
-            ssh_test_lib:rm_log_handler(),
+            ssh_test_lib:rm_log_handler(?FUNCTION_NAME),
             eserver_oclient_renegotiate_helper2(HelperParams);
         _ ->
             {skip, "KEX strict not support by local OpenSSH"}
@@ -285,8 +306,14 @@ eserver_oclient_renegotiate_helper1(Config) ->
     SystemDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
 
+    %% Having the erlang sending a banner is accepted by openssh
+    BannerFun = fun(_U) -> <<"Banner to the client">> end,
+
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-                                             {failfun, fun ssh_test_lib:failfun/2}]),
+                                             {failfun, fun ssh_test_lib:failfun/2},
+                                             ?ALIVE,
+                                             {bannerfun, BannerFun},
+                                             {shell, {shell, start, []}}]),
     ct:sleep(500),
 
     RenegLimitK = 3,
@@ -298,7 +325,8 @@ eserver_oclient_renegotiate_helper1(Config) ->
                                      [" -o UserKnownHostsFile=", "/dev/null",
                                       " -o CheckHostIP=no"
                                       " -o StrictHostKeyChecking=no"
-                                      " -q"
+                                      " -o ServerAliveCountMax=3"
+                                      " -o ServerAliveInterval=100"
                                       " -x",
                                       " -o RekeyLimit=",integer_to_list(RenegLimitK),"K"]),
 
@@ -307,7 +335,20 @@ eserver_oclient_renegotiate_helper1(Config) ->
     {Data, OpenSsh, Pid}.
 
 eserver_oclient_renegotiate_helper2({Data, OpenSsh, Pid}) ->
+    PQCAvailable = lists:member(mlkem768, crypto:supports(kems)),
     Expect = fun({data,R}) ->
+                     Warning =
+                         <<"WARNING: connection is not using a post-quantum key exchange algorithm">>,
+                     case binary:match(R, Warning) of
+                         nomatch -> ok;
+                         _ when PQCAvailable ->
+                             ?CT_PAL("~p", [R]),
+                             ct:fail(pqc_warning_detected);
+                         _ ->
+                             ?CT_LOG("PQC warning ignored: mlkem768 not available in crypto backend"),
+                             ct:comment("PQC kex unavailable (LibreSSL lacks ML-KEM support)"),
+                             ok
+                     end,
 		     try
 			 NonAlphaChars = [C || C<-lists:seq(1,255),
 					       not lists:member(C,lists:seq($a,$z)),
@@ -343,8 +384,10 @@ tunnel_out_non_erlclient_erlserver(Config) ->
     _PrivDir = proplists:get_value(priv_dir, Config),
 
     {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_out, true},
-                                             {system_dir, SystemDir},
-                                             {failfun, fun ssh_test_lib:failfun/2}]),
+                                              {system_dir, SystemDir},
+                                              ?ALIVE,
+                                              {failfun, fun ssh_test_lib:failfun/2},
+                                              {shell, {shell, start, []}}]),
     {ToSock, _ToHost, ToPort} = tunneling_listner(),
 
     ListenHost = {127,0,0,1},
@@ -354,6 +397,8 @@ tunnel_out_non_erlclient_erlserver(Config) ->
                                      [" -o UserKnownHostsFile=", "/dev/null",
                                       " -o CheckHostIP=no"
                                       " -o StrictHostKeyChecking=no"
+                                      " -o ServerAliveCountMax=3"
+                                      " -o ServerAliveInterval=100"
                                       " -q"
                                       " -x",
                                       " -R ",integer_to_list(ListenPort),":127.0.0.1:",integer_to_list(ToPort)]),
@@ -372,7 +417,9 @@ tunnel_in_non_erlclient_erlserver(Config) ->
     _UserDir = proplists:get_value(priv_dir, Config),
     {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_in, true},
                                               {system_dir, SystemDir},
-                                              {failfun, fun ssh_test_lib:failfun/2}]),
+                                              ?ALIVE,
+                                              {failfun, fun ssh_test_lib:failfun/2},
+                                              {shell, {shell, start, []}}]),
     {ToSock, _ToHost, ToPort} = tunneling_listner(),
     
     ListenHost = {127,0,0,1},
@@ -383,6 +430,8 @@ tunnel_in_non_erlclient_erlserver(Config) ->
                                    [" -o UserKnownHostsFile=", "/dev/null",
                                     " -o CheckHostIP=no"
                                     " -o StrictHostKeyChecking=no"
+                                    " -o ServerAliveCountMax=3"
+                                    " -o ServerAliveInterval=100"
                                     " -q"
                                     " -x",
                                     " -L ",integer_to_list(ListenPort),":127.0.0.1:",integer_to_list(ToPort)]),
@@ -401,10 +450,12 @@ tunnel_in_erlclient_erlserver(Config) ->
     {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_in, true},
                                               {system_dir, SystemDir},
                                               {user_dir, UserDir},
+                                              ?ALIVE,
                                               {user_passwords, [{"foo", "bar"}]},
                                               {failfun, fun ssh_test_lib:failfun/2}]),
     C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
                                           {user_dir, UserDir},
+                                          ?ALIVE,
                                           {user,"foo"},{password,"bar"},
                                           {user_interaction, false}]),
     {ToSock, ToHost, ToPort} = tunneling_listner(),
@@ -415,8 +466,65 @@ tunnel_in_erlclient_erlserver(Config) ->
     test_tunneling(ToSock, ListenHost, ListenPort).
 
 %%--------------------------------------------------------------------
+tunnel_in_erlclient_erlserver_allowed(Config) ->
+    SystemDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
+    {ToSock, ToHost, ToPort} = tunneling_listner(),
+    Self = self(),
+    AllowedFun = fun(HostToConnect, PortToConnect) ->
+                         Self ! {allowed, {HostToConnect, PortToConnect}},
+                         true
+                 end,
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_in, AllowedFun},
+                                              {system_dir, SystemDir},
+                                              {user_dir, UserDir},
+                                              ?ALIVE,
+                                              {user_passwords, [{"foo", "bar"}]},
+                                              {failfun, fun ssh_test_lib:failfun/2}]),
+    C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                          {user_dir, UserDir},
+                                          ?ALIVE,
+                                          {user,"foo"},{password,"bar"},
+                                          {user_interaction, false}]),
+
+    ListenHost = inet:ntoa({127,0,0,1}),
+    {ok,ListenPort} = ssh:tcpip_tunnel_to_server(C, ListenHost,0, ToHost, ToPort, 2000),
+    test_tunneling(ToSock, ListenHost, ListenPort),
+    {allowed, {ListenHost, ToPort}} = receive X -> X after 500 -> timeout end,
+    {allowed, {ListenHost, ToPort}} = receive Y -> Y after 500 -> timeout end.
+
+%%--------------------------------------------------------------------
+tunnel_in_erlclient_erlserver_denied(Config) ->
+    SystemDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
+    {ToSock, ToHost, ToPort} = tunneling_listner(),
+    Self = self(),
+    DeniedFun = fun(HostToConnect, PortToConnect) ->
+                        Self ! {denied, {HostToConnect, PortToConnect}},
+                        denied
+                end,
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_in, DeniedFun},
+                                              {system_dir, SystemDir},
+                                              {user_dir, UserDir},
+                                              {user_passwords, [{"foo", "bar"}]},
+                                              ?ALIVE,
+                                              {failfun, fun ssh_test_lib:failfun/2}]),
+    C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                          {user_dir, UserDir},
+                                          ?ALIVE,
+                                          {user,"foo"},{password,"bar"},
+                                          {user_interaction, false}]),
+
+    ListenHost = inet:ntoa({127,0,0,1}),
+    {ok,ListenPort} = ssh:tcpip_tunnel_to_server(C, ListenHost,0, ToHost, ToPort, 2000),
+    {ok, Sock} = gen_tcp:connect(ListenHost, ListenPort, [{active, false}]),
+    {denied, {ListenHost, ToPort}} = receive Y -> Y after 500 -> timeout end,
+    {error, timeout} = gen_tcp:accept(ToSock, 2000),
+    {error, closed} = gen_tcp:recv(Sock, 0, 5000).
+
+%%--------------------------------------------------------------------
 tunnel_in_erlclient_openssh_server(_Config) ->
-    C = ssh_test_lib:connect(?SSH_DEFAULT_PORT, []),
+    C = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [?ALIVE]),
     {ToSock, ToHost, ToPort} = tunneling_listner(),
     
     ListenHost = {127,0,0,1},
@@ -432,10 +540,12 @@ tunnel_out_erlclient_erlserver(Config) ->
                                               {system_dir, SystemDir},
                                               {user_dir, UserDir},
                                               {user_passwords, [{"foo", "bar"}]},
+                                              ?ALIVE,
                                               {failfun, fun ssh_test_lib:failfun/2}]),
     C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
                                           {user_dir, UserDir},
                                           {user,"foo"},{password,"bar"},
+                                              ?ALIVE,
                                           {user_interaction, false}]),
     {ToSock, ToHost, ToPort} = tunneling_listner(),
     
@@ -446,7 +556,7 @@ tunnel_out_erlclient_erlserver(Config) ->
 
 %%--------------------------------------------------------------------
 tunnel_out_erlclient_openssh_server(_Config) ->
-    C = ssh_test_lib:connect(?SSH_DEFAULT_PORT, []),
+    C = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [?ALIVE]),
     {ToSock, ToHost, ToPort} = tunneling_listner(),
     
     ListenHost = {127,0,0,1},
@@ -463,9 +573,9 @@ tunneling_listner() ->
     {LSock, LHost, LPort}.
 
 test_tunneling(ListenSocket, Host, Port) ->
-    {ok,Client1} = gen_tcp:connect(Host, Port, [{active,false}]),
+    {ok,Client1} = connect_with_retry(Host, Port, [{active,false}], 10),
     {ok,Server1} = gen_tcp:accept(ListenSocket),
-    {ok,Client2} = gen_tcp:connect(Host, Port, [{active,false}]),
+    {ok,Client2} = connect_with_retry(Host, Port, [{active,false}], 10),
     {ok,Server2} = gen_tcp:accept(ListenSocket),
     send_rcv("Hi!", Client1, Server1),
     send_rcv("Happy to see you!", Server1, Client1),
@@ -475,8 +585,20 @@ test_tunneling(ListenSocket, Host, Port) ->
     send_rcv("Still there?", Client2, Server2),
     send_rcv("Yes!", Server2, Client2),
     close_and_check(Server2, Client2).
-    
-    
+
+
+connect_with_retry(Host, Port, Opts, Retries) ->
+    case gen_tcp:connect(Host, Port, Opts) of
+        {ok, Sock} ->
+            {ok, Sock};
+        {error, econnrefused} when Retries > 0 ->
+            timer:sleep(100),
+            connect_with_retry(Host, Port, Opts, Retries - 1);
+        Other ->
+            Other
+    end.
+
+
 close_and_check(OneSide, OtherSide) ->
     ok = gen_tcp:close(OneSide),
     ok = chk_closed(OtherSide).
@@ -505,7 +627,7 @@ send_rcv(Txt, From, To) ->
 receive_data(Data, Conn) ->
     receive
 	Info when is_binary(Info) ->
-	    Lines = string:tokens(binary_to_list(Info), "\r\n "),
+	    Lines = string:tokens(strip_escape_sequences(Info), "\r\n "),
 	    case lists:member(Data, Lines) of
 		true ->
 		    ct:log("~p:~p  Expected result ~p found in lines: ~p~n", [?MODULE,?LINE,Data,Lines]),
@@ -525,7 +647,16 @@ receive_data(Data, Conn) ->
                           end,
             ct:log("timeout ~p:~p~nExpect ~p~nState = ~p",[?MODULE,?LINE,Data,State]),
             ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end.	
+    end.
+
+strip_escape_sequences(Bin) when is_binary(Bin) ->
+    strip_escape_sequences(binary_to_list(Bin));
+strip_escape_sequences(Str) ->
+    %% Remove OSC sequences (\e]...\e\\ or \e]...<BEL>) and
+    %% CSI sequences (\e[...X).
+    %% Handles shell integration (OSC 3008) on Ubuntu 26.04+
+    re:replace(Str, "\e(?:\\][^\e]*(?:\e\\\\|\007)|\\[[0-9;?]*[a-zA-Z])",
+               "", [global, {return, list}]).
 
 receive_logout() ->
     receive
@@ -624,14 +755,27 @@ no_forwarding(Config) ->
 check_kex_strict(Sock) ->
     %% Send some version, in order to receive KEXINIT from server
     ok = gen_tcp:send(Sock, "SSH-2.0-OpenSSH_9.5\r\n"),
-    ct:sleep(100),
-    {ok, Packet} = gen_tcp:recv(Sock, 0),
-    case string:find(Packet, ?kex_strict_s) of
+    Data = recv_kexinit_data(Sock, <<>>),
+    case string:find(Data, ?kex_strict_s) of
         nomatch ->
             ct:log("KEX strict NOT supported by local OpenSSH"),
             false;
         _ ->
             ct:log("KEX strict supported by local OpenSSH"),
             true
+    end.
+
+recv_kexinit_data(_Sock, Acc) when byte_size(Acc) > 4096 ->
+    Acc;
+recv_kexinit_data(Sock, Acc) ->
+    case gen_tcp:recv(Sock, 0, 2000) of
+        {ok, Packet} ->
+            Combined = iolist_to_binary([Acc, Packet]),
+            case string:find(Combined, "kex-strict") of
+                nomatch -> recv_kexinit_data(Sock, Combined);
+                _ -> Combined
+            end;
+        {error, _} ->
+            Acc
     end.
 

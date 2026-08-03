@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -309,6 +311,13 @@ store({re_write, {Re, Replacement}} = Conf, _)
     end;
 store({re_write, _} = Conf, _) ->
     {error, {wrong_type, Conf}};
+
+% When `script_alias` is used in conjunction with `m:mod_auth` for directory-based
+% access control, authentication rules are evaluated against the actual filesystem
+% path where scripts reside, not the aliased URL path. This ensures that CGI scripts
+% mapped outside the document root are properly protected by directory authentication
+% directives.
+
 store({script_alias, {Fake, Real}}, _)
   when is_list(Fake), is_list(Real) ->
     {ok, {script_alias,{"^"++Fake,Real}}};
@@ -339,7 +348,8 @@ is_directory_index_list(_) ->
 %% ---------------------------------------------------------------------
 
 which_alias(ConfigDB) ->
-    httpd_util:multi_lookup(ConfigDB, alias). 
+    httpd_util:multi_lookup(ConfigDB, alias) ++
+        httpd_util:multi_lookup(ConfigDB, script_alias).
 
 which_document_root(ConfigDB) ->
     Root = httpd_util:lookup(ConfigDB, document_root, ""),

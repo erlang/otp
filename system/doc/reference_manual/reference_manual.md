@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,7 +33,7 @@ implementation of it. The language constructs are described in text and with
 examples rather than formally specified. This is to make the manual more
 readable. The Erlang reference manual is not intended as a tutorial.
 
-Information about implementation of Erlang can, for example, be found, in the
+Information about implementation of Erlang can, for example, be found in the
 following:
 
 - [System Principles](`e:system:system_principles.md`)

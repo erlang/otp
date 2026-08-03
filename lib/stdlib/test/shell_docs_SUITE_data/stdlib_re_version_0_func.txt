@@ -1,7 +1,14 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec version() -> binary().[0m
+[1m  version()[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP 20.0
 
   The return of this function is a string with the PCRE version of

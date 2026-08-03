@@ -1,0 +1,129 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2024-2026. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
+name: Setup variables
+run-name: Setup variables
+
+on:
+  workflow_call:
+    outputs:
+      base_branch:
+        description: 'The base branch'
+        value: ${{ jobs.setup.outputs.base_branch }}
+      full_build_and_check:
+        description: 'Whether full build and check is enabled'
+        value: ${{ jobs.setup.outputs.full_build_and_check }}
+      otp_sbom_version:
+        description: 'OTP SBOM version (tag name or SHA)'
+        value: ${{ jobs.setup.outputs.otp_sbom_version }}
+      docs_base_url:
+        description: 'Base URL for documentation links'
+        value: ${{ jobs.setup.outputs.docs_base_url }}
+      tag:
+        description: 'Git tag (stripped of refs/tags/ prefix)'
+        value: ${{ jobs.setup.outputs.tag }}
+      vsn:
+        description: 'OTP version (stripped of OTP- prefix)'
+        value: ${{ jobs.setup.outputs.vsn }}
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    name: Setup variables
+    runs-on: ubuntu-latest
+    outputs:
+      base_branch:          ${{ steps.setup.outputs.base_branch }}
+      full_build_and_check: ${{ steps.setup.outputs.full_build_and_check }}
+      otp_sbom_version:     ${{ steps.setup.outputs.otp_sbom_version }}
+      docs_base_url:        ${{ steps.setup.outputs.docs_base_url }}
+      tag:                  ${{ steps.setup.outputs.tag }}
+      vsn:                  ${{ steps.setup.outputs.vsn }}
+    steps:
+      - id: setup
+        # github.event.pull_request.head.ref is potentially untrusted.
+        # We avoid using it directly in inline scripts; pass it through
+        # an environment variable instead.
+        env:
+          EVENT_NAME:    ${{ github.event_name }}
+          PR_REPO:       ${{ github.event.pull_request.head.repo.full_name }}
+          PR_HEAD_REF:   ${{ github.event.pull_request.head.ref }}
+          REPO:          ${{ github.repository }}
+          REF_NAME:      ${{ github.ref_name }}
+          GITHUB_REF:    ${{ github.ref }}
+          REF_TYPE:      ${{ github.ref_type }}
+          SHA:           ${{ github.sha }}
+          BASE_REF:      ${{ github.base_ref }}
+          PR_LABELS:     ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          ## base_branch
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            BASE_BRANCH="${BASE_REF}"
+          else
+            BASE_BRANCH="${REF_NAME}"
+          fi
+          echo "base_branch=${BASE_BRANCH}" >> "$GITHUB_OUTPUT"
+
+          ## full_build_and_check
+          FULL_BUILD_AND_CHECK="false"
+          if [[ "$EVENT_NAME" == "schedule" ]]; then
+            FULL_BUILD_AND_CHECK="true"
+          elif [[ "$EVENT_NAME" == "pull_request" ]]; then
+            IFS=',' read -ra LABELS <<< "$PR_LABELS"
+            for label in "${LABELS[@]}"; do
+              if [[ "$label" == "full-build-and-check" ]]; then
+                FULL_BUILD_AND_CHECK="true"
+                break
+              fi
+            done
+          fi
+          echo "full_build_and_check=${FULL_BUILD_AND_CHECK}" >> "$GITHUB_OUTPUT"
+
+          ## otp_sbom_version
+          if [[ "$REF_TYPE" == "tag" ]]; then
+            OTP_SBOM_VERSION="${REF_NAME}"
+          else
+            OTP_SBOM_VERSION="${SHA}"
+          fi
+          echo "otp_sbom_version=${OTP_SBOM_VERSION}" >> "$GITHUB_OUTPUT"
+
+          ## tag and vsn
+          TAG="${GITHUB_REF#refs/tags/}"
+          VSN="${TAG#OTP-}"
+          echo "tag=${TAG}"   >> "$GITHUB_OUTPUT"
+          echo "vsn=${VSN}"   >> "$GITHUB_OUTPUT"
+
+          ## is_tag_push
+          if [[ "${GITHUB_REF}" == refs/tags/OTP-* ]]; then
+            echo "is_tag_push=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "is_tag_push=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          ## repository
+          echo "repository=${REPO}" >> "$GITHUB_OUTPUT"
+
+          ## docs_base_url
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            echo "docs_base_url=${PR_REPO}/blob/${PR_HEAD_REF}/" >> "$GITHUB_OUTPUT"
+          else
+            echo "docs_base_url=${REPO}/blob/${REF_NAME}/"       >> "$GITHUB_OUTPUT"
+          fi
