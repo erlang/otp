@@ -306,14 +306,6 @@ void run(EpmdVars *g)
       char *tmp = NULL;
       char *token = NULL;
 
-      /* IPv4 and/or IPv6 loopback may not be present, for example if
-       * the protocol stack is explicitly disabled in the kernel.  If
-       * any sockets to this point fail, log the error but do not exit
-       * with failure.  If any socket after this (explicitly
-       * configured via addresses) fails, then consider the error
-       * fatal. */
-      nonfatal_sockets = num_sockets;
-
 	  if ((tmp = strdup(g->addresses)) == NULL)
 	{
 	  dbg_perror(g,"cannot allocate memory");
@@ -381,6 +373,13 @@ void run(EpmdVars *g)
          * INADDR_ANY if specified. */
         if (!(special_addresses & (EPMD_SPECIAL_ADDRESS_V4_LOOPBACK |
                                    EPMD_SPECIAL_ADDRESS_V4_ANY))) {
+          /* IPv4 and/or IPv6 loopback may not be present, for example if
+           * the protocol stack is explicitly disabled in the kernel. If
+           * any implicitly enabled sockets fail, log the error but do not exit
+           * with failure. */
+          ASSERT(MAX_LISTEN_SOCKETS <= 16);
+          nonfatal_sockets |= (1 << num_sockets);
+
           SET_ADDR(iserv_addr[num_sockets],htonl(INADDR_LOOPBACK),sport);
           num_sockets++;
         }
@@ -388,6 +387,9 @@ void run(EpmdVars *g)
 #if defined(EPMD6)
         if (!(special_addresses & (EPMD_SPECIAL_ADDRESS_V6_LOOPBACK |
                                    EPMD_SPECIAL_ADDRESS_V6_ANY))) {
+          ASSERT(MAX_LISTEN_SOCKETS <= 16);
+          nonfatal_sockets |= (1 << num_sockets);
+
           SET_ADDR6(iserv_addr[num_sockets],in6addr_loopback,sport);
           num_sockets++;
         }
@@ -510,10 +512,9 @@ void run(EpmdVars *g)
               dbg_perror(g,"failed to bind on ipaddr %s",
                          epmd_ntop(&iserv_addr[i],
                                    socknamebuf, sizeof(socknamebuf)));
-              if (i >= nonfatal_sockets)
+              if (!(nonfatal_sockets & (1 << i))) {
                   epmd_cleanup_exit(g,1);
-              else
-              {
+              } else {
                   close(listensock[i]);
                   continue;
               }
