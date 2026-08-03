@@ -19,6 +19,16 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 5.2.11.11
+
+### Fixed Bugs and Malfunctions
+
+- The SSH client and server now reject incoming packets not aligned to the cipher block size as required by RFC 4253 §6. For CBC ciphers, a timing-safe "packet discard" mechanism (CVE-2008-5161 mitigation) ensures structural errors are indistinguishable from MAC failures before disconnecting. AEAD and encrypt-then-MAC modes disconnect immediately.
+
+  Own Id: OTP-20137 Aux Id: [PR-11110]
+
+[PR-11110]: https://github.com/erlang/otp/pull/11110
+
 ## Ssh 5.2.11.10
 
 ### Fixed Bugs and Malfunctions
