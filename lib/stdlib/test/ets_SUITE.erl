@@ -1088,18 +1088,22 @@ t_delete_all_objects_trap(Config) when is_list(Config) ->
     EtsMem = etsmem(),
     repeat_for_opts_all_set_table_types(
       fun(Opts) ->
-              delete_all_objects_trap(Opts, unfix),
-              delete_all_objects_trap(Opts, exit),
-              delete_all_objects_trap(Opts, rename)
+              delete_all_objects_trap(Config, Opts, unfix),
+              delete_all_objects_trap(Config, Opts, exit),
+              delete_all_objects_trap(Config, Opts, rename)
       end),
     verify_etsmem(EtsMem),
     ok.
 
-delete_all_objects_trap(Opts, Mode) ->
+delete_all_objects_trap(Config, Opts, Mode) ->
     io:format("Opts = ~p\nMode = ~p\n", [Opts, Mode]),
     Tester = self(),
     KeyRange = 50_000,
     TableName = delete_all_objects_trap,
+    SkipTraps = case proplists:get_bool(ets_force_trap, Config) of
+                    true -> 1;
+                    false -> 0
+                end,
     {Tref,T} =
         case Mode of
             rename ->
@@ -1124,8 +1128,9 @@ delete_all_objects_trap(Opts, Mode) ->
                   fun(N) ->
                           case receive_any() of
                               {trace, Tester, out, {ets,internal_delete_all,2}} ->
-                                  %% Wait for second reschedule as on DEBUG we get a forced trap
-                                  {N =:= 1, N+1};
+                                  %% On DEBUG ignore the first forced trap
+                                  io:format("TRACE OUT N=~p\n", [N]),
+                                  {N =< SkipTraps, N+1};
                               "delete_all_objects done" ->
                                   ct:fail("No trap detected");
                               _M ->
