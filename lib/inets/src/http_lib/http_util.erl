@@ -265,12 +265,9 @@ char_to_html_entity(Char, Reserved) ->
 	    [Char]
     end.
 
-is_ipv6_address(Addr) when is_binary(Addr) ->
-    B = binary_to_list(Addr),
-    is_ipv6_address(B);
-is_ipv6_address(Addr) when is_list(Addr) ->
+is_ipv6_address(Addr) when is_binary(Addr); is_list(Addr) ->
     case inet:parse_ipv6strict_address(Addr) of
-        {ok, _ } ->
+        {ok, _} ->
             true;
         {error, _} ->
             false
