@@ -1240,7 +1240,17 @@ handle_info(Done = #loader_done{worker_pid=WPid, table_name=Tab}, State0) ->
 			DelState = State1#state{late_loader_queue=gb_trees:delete_any(Tab, LateQueue0)},
                         cast({disc_load, Tab, ram_only}),
                         DelState;
-                    {_, []} ->  %% Table deleted or not loaded anywhere
+                    {_, []} ->
+                        case val({Tab, load_by_force}) of
+                            true ->
+                                %% Network load could have failed, and user forced the load,
+                                %% retry loading again from disk
+                                %% TODO: Can this go into infinite loop?
+                                cast({disc_load, Tab, forced_by_user});
+                            _ ->
+                                ok
+                        end,
+                        %% Table deleted or not loaded anywhere
                         State1#state{late_loader_queue=gb_trees:delete_any(Tab, LateQueue0)}
 		end
 	end,
