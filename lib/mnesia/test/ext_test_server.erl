@@ -41,8 +41,8 @@ init(_) ->
 
 create_table(ext_ram_copies, Tab, Props, #state{tables = Tables} = State) when is_atom(Tab) ->
     case maps:get(Tab, Tables, undefined) of
-        #table{state = opened, tid = Tid} ->
-            ?DBG("create_table, Alias: ext_ram_copies, Tab: ~p(~p) is already opened~n", [tab_to_list(Tab), Tid]),
+        #table{state = opened, tid = _Tid} ->
+            ?DBG("create_table, Alias: ext_ram_copies, Tab: ~p(~p) is already opened~n", [tab_to_list(Tab), _Tid]),
             {ok, State};
         _ ->
             ?DBG("create_table, Alias: ext_ram_copies, Tab: ~p~n", [tab_to_list(Tab)]),
@@ -62,10 +62,10 @@ create_table(ext_disc_only_copies, Tab, Props, #state{tables = Tables} = State) 
             ?DBG("create_table Alias: ext_disc_only_copies after dets:open_file, Tab: ~p~n", [tab_to_list(Tab)]),
             {ok, State#state{tables = maps:put(Tab, #table{state = opened, tid = Tab}, Tables)}}
     end;
-create_table(ext_ram_copies, Tag={Tab, index, {_Where, Type}}, _Opts, #state{tables = Tables} = State) ->
+create_table(ext_ram_copies, Tag={_Tab, index, {_Where, Type}}, _Opts, #state{tables = Tables} = State) ->
     case maps:get(Tag, Tables, undefined) of
-        #table{state = opened, tid = Tid} ->
-            ?DBG("create_table, Alias: ext_ram_copies, Tab: ~p(~p) is already opened~n", [tab_to_list(Tag), Tid]),
+        #table{state = opened, tid = _Tid} ->
+            ?DBG("create_table, Alias: ext_ram_copies, Tab: ~p(~p) is already opened~n", [tab_to_list(Tag), _Tid]),
             {ok, State};
         _ ->
             ?DBG("create_table, Alias: ext_ram_copies, Tab: ~p~n", [tab_to_list(Tag)]),
@@ -73,7 +73,7 @@ create_table(ext_ram_copies, Tag={Tab, index, {_Where, Type}}, _Opts, #state{tab
             ?DBG("create_table, Alias, ext_ram_copies, Tab: ~p(~p)~n", [tab_to_list(Tag), Tid]),
             {ok, State#state{tables = maps:put(Tag, #table{state = opened, tid = Tid}, Tables)}}
     end;
-create_table(ext_disc_only_copies, Tag={Tab, index, {_Where, Type}}, _Opts, #state{tables = Tables} = State) ->
+create_table(ext_disc_only_copies, Tag={_Tab, index, {_Where, Type}}, _Opts, #state{tables = Tables} = State) ->
     case maps:get(Tag, Tables, undefined) of
         #table{state = opened, tid = Tag} ->
             ?DBG("create_table, Alias: ext_disc_only_copies, Tab: ~p(~p) is already opened~n", [tab_to_list(Tag), Tag]),
@@ -85,10 +85,10 @@ create_table(ext_disc_only_copies, Tag={Tab, index, {_Where, Type}}, _Opts, #sta
             ?DBG("create_table Alias: ext_disc_only_copies after dets:open_file, Tab: ~p~n", [tab_to_list(Tag)]),
             {ok, State#state{tables = maps:put(Tag, #table{state = opened, tid = Tag}, Tables)}}
     end;
-create_table(ext_ram_copies, Tag={_Tab, retainer, ChkPName}, _Opts, #state{tables = Tables} = State) ->
+create_table(ext_ram_copies, Tag={_Tab, retainer, _ChkPName}, _Opts, #state{tables = Tables} = State) ->
     case maps:get(Tag, Tables, undefined) of
-        #table{state = opened, tid = Tid} ->
-            ?DBG("create_table, Alias: ext_ram_copies, Tab: ~p(~p) is already opened~n", [tab_to_list(Tag), Tid]),
+        #table{state = opened, tid = _Tid} ->
+            ?DBG("create_table, Alias: ext_ram_copies, Tab: ~p(~p) is already opened~n", [tab_to_list(Tag), _Tid]),
             {ok, State};
         _ ->
             ?DBG("create_table, Alias: ext_ram_copies, Tab: ~p~n", [tab_to_list(Tag)]),
@@ -96,7 +96,7 @@ create_table(ext_ram_copies, Tag={_Tab, retainer, ChkPName}, _Opts, #state{table
             ?DBG("create_table, Alias, ext_ram_copies, Tab: ~p(~p)~n", [tab_to_list(Tag), Tid]),
             {ok, State#state{tables = maps:put(Tag, #table{state = opened, tid = Tid}, Tables)}}
     end;
-create_table(ext_disc_only_copies, Tag={_Tab, retainer, ChkPName}, _Opts, #state{tables = Tables} = State) ->
+create_table(ext_disc_only_copies, Tag={_Tab, retainer, _ChkPName}, _Opts, #state{tables = Tables} = State) ->
     case maps:get(Tag, Tables, undefined) of
         #table{state = opened, tid = Tag} ->
             ?DBG("create_table, Alias: ext_disc_only_copies, Tab: ~p(~p) is already opened~n", [tab_to_list(Tag), Tag]),
@@ -109,15 +109,15 @@ create_table(ext_disc_only_copies, Tag={_Tab, retainer, ChkPName}, _Opts, #state
             {ok, State#state{tables = maps:put(Tag, #table{state = opened, tid = Tag}, Tables)}}
     end.
 
-receive_data(Data, ext_ram_copies, Name, Sender, {Name, Tab, Sender} = MnesiaState, State) ->
+receive_data(Data, ext_ram_copies, Name, Sender, {Name, Tab, Sender} = _MnesiaState, State) ->
     ?DBG({Data, ext_ram_copies, Name, Sender, {Name, tab_to_list(Tab), Sender}}),
     true = ets:insert(tab_to_tid(Tab, State), Data),
     {more, State};
-receive_data(Data, ext_disc_only_copies, Name, Sender, {Name, Tab, Sender} = MnesiaState, State) ->
+receive_data(Data, ext_disc_only_copies, Name, Sender, {Name, Tab, Sender} = _MnesiaState, State) ->
     ?DBG({Data, ext_disc_only_copies, Name, Sender, {Name, tab_to_list(Tab), Sender}}),
     ok = dets:insert(tab_to_tid(Tab, State), Data),
     {more, State};
-receive_data(Data, Alias, Tab, Sender, {Name, Sender} = MnesiaState, State) ->
+receive_data(Data, Alias, Tab, Sender, {Name, Sender} = _MnesiaState, State) ->
     ?DBG({Data, Alias, tab_to_list(Tab), State}),
     receive_data(Data, Alias, Tab, Sender, {Name, Tab, Sender}, State).
 
@@ -162,7 +162,7 @@ handle_call({delete_table, ext_ram_copies, Tab}, _From, #state{tables = Tables} 
             case ?TRY(ets:delete(Tid)) of
                 #exception{} = Res ->
                     {reply, Res, State};
-                Res ->
+                _Res ->
                     NewState = State#state{tables = maps:remove(Tab, Tables)},
                     {reply, ok, NewState}
             end;
@@ -395,8 +395,8 @@ handle_call({repair_continuation, ext_ram_copies, Cont, Ms}, _From, State) ->
     Res = ?TRY(ets:repair_continuation(Cont, Ms)),
     {reply, Res, State}.
 
-terminate(Reason, _State) ->
-    ?DBG(Reason).
+terminate(_Reason, _State) ->
+    ?DBG(_Reason).
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.

@@ -51,6 +51,8 @@
 
 -export([info_check/8, index_size/1]).
 
+-compile({nowarn_deprecated_function, {mnesia_registry, create_table, 2}}).
+
 -define(cleanup(N, Config),
 	mnesia_test_lib:prepare_test_case([{reload_appls, [mnesia]}],
 					  N, Config, ?FILE, ?LINE)).

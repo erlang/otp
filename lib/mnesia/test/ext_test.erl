@@ -121,7 +121,7 @@ delete_table(Alias, Tab) ->
     try error_if_not_initialized() of
         ok ->
             call({?FUNCTION_NAME, Alias, Tab})
-    catch error : {backend_not_initialized, _} = Reason ->
+    catch error : {backend_not_initialized, _} = _Reason ->
         ok
     end.
 
@@ -253,7 +253,7 @@ repair_continuation(Cont, Ms) ->
 call(Req) ->
     error_if_not_initialized(),
     case gen_server:call({global, mnesia_test_lib:get_ext_test_server_name()}, Req) of
-        #exception{c = Class, r = Reason, st = ST} = Ex ->
+        #exception{c = Class, r = Reason, st = ST} = _Ex ->
             ?DBG("call ~p resulted in an exception: ~p~n", [Req, Ex]),
             erlang:raise(Class, Reason, ST);
         Res ->
