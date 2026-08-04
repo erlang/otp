@@ -68,6 +68,7 @@
 	 bad_binary_to_term_2/1,safe_binary_to_term2/1,
 	 bad_binary_to_term/1, bad_terms/1, more_bad_terms/1,
          big_binary_to_term/1,
+         binary_to_term_trap_crash/1,
 	 otp_5484/1,otp_5933/1,
 	 ordering/1,unaligned_order/1,gc_test/1,
 	 bit_sized_binary_sizes/1,
@@ -99,6 +100,7 @@ all() ->
      bad_binary_to_term_2, safe_binary_to_term2,
      bad_binary_to_term, bad_terms, t_hash, bad_size,
      big_binary_to_term,
+     binary_to_term_trap_crash,
      sub_bin_copy, bad_term_to_binary, t2b_system_limit,
      term_to_iovec, more_bad_terms,
      unsorted_map_in_map,
@@ -1950,6 +1952,23 @@ trapping_loop2(_,_,0) ->
 trapping_loop2(Bif,Args,N) ->
     apply(erlang,Bif,Args),
     trapping_loop2(Bif, Args, N-1).
+
+%% GH-11404: Bug caused SEGV or failed ASSERT.
+binary_to_term_trap_crash(Config) ->
+    Term = {0,"1234567890123456",0,0,0,0,0,0,
+            [1 bsl 47], [], {127,0,0,1},
+            0,[],[],[],[],[],[],[],[],[],[],0,[],"123456789",[],[],0,0,
+            0,[],0,[],[],[],[],[],1,[],[],[],[],[],[],0,0,"123",[],0,[],
+            1,[],[],[],0,0,{0,0},0,[],0,0,0,[],[],0,[],0,0,[]},
+    Bin = term_to_binary(Term),
+    CONTEXT_REDS = erlang:system_info(context_reductions),
+    [begin
+         erlang:yield(),
+         erlang:bump_reductions(I),
+         binary_to_term(Bin)
+     end
+     || I <- lists:seq(1,CONTEXT_REDS)],
+    ok.
 
 large(Config) when is_list(Config) ->
     List = lists:flatten(lists:map(fun (_) ->
