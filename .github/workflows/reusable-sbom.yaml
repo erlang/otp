@@ -42,7 +42,7 @@ on:
         value: ${{ jobs.create-sbom.outputs.ort_version }}
 
 env:
-  ORT_VERSION: 77.0.0
+  ORT_VERSION: 90.0.0
   OTP_SBOM_VERSION: ${{ inputs.otp_sbom_version }}
   SCAN_RESULT_CACHE_PATH: .ort/scan-result.json
 
