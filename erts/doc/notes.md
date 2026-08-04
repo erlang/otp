@@ -393,6 +393,17 @@ This document describes the changes made to the ERTS application.
 [PR-11004]: https://github.com/erlang/otp/pull/11004
 [PR-10929]: https://github.com/erlang/otp/pull/10929
 
+## Erts 16.4.0.5
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a regression in the previous patch release that prevented epmd from binding to localhost.
+
+  Own Id: OTP-20275 Aux Id: [PR-11409], [GH-11402]
+
+[PR-11409]: https://github.com/erlang/otp/pull/11409
+[GH-11402]: https://github.com/erlang/otp/issues/11402
+
 ## Erts 16.4.0.4
 
 ### Fixed Bugs and Malfunctions
