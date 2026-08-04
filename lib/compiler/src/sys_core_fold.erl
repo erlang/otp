@@ -2318,7 +2318,7 @@ is_simple_case_arg(_) -> false.
 %%
 
 is_bool_expr(#c_call{module=#c_literal{val=erlang},
-		     name=#c_literal{val=Name},args=Args}) ->
+		     name=#c_literal{val=Name},args=Args}) when is_atom(Name) ->
     NumArgs = length(Args),
     erl_internal:comp_op(Name, NumArgs) orelse
 	erl_internal:new_type_test(Name, NumArgs) orelse
