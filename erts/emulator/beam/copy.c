@@ -176,9 +176,16 @@ Uint size_object_x(Eterm obj, erts_literal_area_t *litopt)
                                 Uint n;
                                 flatmap_t *mp;
                                 mp  = (flatmap_t*)flatmap_val(obj);
+                                n   = flatmap_get_size(mp);
+                                ASSERT(n <= MAP_SMALL_MAP_LIMIT);
+                                if (n == 0) { /* Empty map -- global literal. */
+                                    ASSERT(!litopt &&
+                                           erts_is_literal(obj,ptr) &&
+                                           obj == ERTS_GLOBAL_LIT_EMPTY_MAP);
+                                    goto pop_next;
+                                }
                                 ptr = (Eterm *)mp;
-                                n   = flatmap_get_size(mp) + 1;
-                                ASSERT(flatmap_get_size(mp) <= MAP_SMALL_MAP_LIMIT);
+                                n  += 1;
                                 sum += n + 2;
                                 ptr += 2; /* hdr + size words */
                                 while (n--) {
@@ -443,8 +450,15 @@ Uint size_shared(Eterm obj)
                 switch (MAP_HEADER_TYPE(hdr)) {
                     case MAP_HEADER_TAG_FLATMAP_HEAD : {
                         flatmap_t *mp  = (flatmap_t*)flatmap_val(obj);
-                        Uint n = flatmap_get_size(mp) + 1;
-                        ASSERT(flatmap_get_size(mp) <= MAP_SMALL_MAP_LIMIT);
+                        Uint n = flatmap_get_size(mp);
+                        ASSERT(n <= MAP_SMALL_MAP_LIMIT);
+                        if (n == 0) { /* Empty map -- global literal. */
+                            ASSERT(COUNT_OFF_HEAP &&
+                                   erts_is_literal(obj,ptr) &&
+                                   obj == ERTS_GLOBAL_LIT_EMPTY_MAP);
+                            goto pop_next;
+                        }
+                        n  += 1;
                         ptr  = (Eterm *)mp;
                         sum += n + 2;
                         ptr += 2; /* hdr + size words */
@@ -589,8 +603,14 @@ cleanup:
                 switch (MAP_HEADER_TYPE(hdr)) {
                     case MAP_HEADER_TAG_FLATMAP_HEAD : {
                         flatmap_t *mp = (flatmap_t *) ptr;
-                        Uint n = flatmap_get_size(mp) + 1;
-                        ASSERT(flatmap_get_size(mp) <= MAP_SMALL_MAP_LIMIT);
+                        Uint n = flatmap_get_size(mp);
+                        ASSERT(n <= MAP_SMALL_MAP_LIMIT);
+                        if (n == 0) { /* Empty map -- global literal. */
+                            ASSERT(erts_is_literal(obj,ptr) &&
+                                   obj == ERTS_GLOBAL_LIT_EMPTY_MAP);
+                            goto cleanup_next;
+                        }
+                        n += 1;
                         ptr += 2; /* hdr + size words */
                         while (n--) {
                             obj = *ptr++;
@@ -911,8 +931,15 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
 		tp = htop;
 		switch (MAP_HEADER_TYPE(hdr)) {
 		    case MAP_HEADER_TAG_FLATMAP_HEAD :
-                        i = flatmap_get_size(objp) + 3;
-                        ASSERT(flatmap_get_size(objp) <= MAP_SMALL_MAP_LIMIT);
+                        i = flatmap_get_size(objp);
+                        ASSERT(i <= MAP_SMALL_MAP_LIMIT);
+                        if (i == 0) {
+                            ASSERT(erts_is_literal(obj,objp) &&
+                                   obj == ERTS_GLOBAL_LIT_EMPTY_MAP);
+                            *argp = ERTS_GLOBAL_LIT_EMPTY_MAP;
+                            break;
+                        }
+                        i += 3;
                         *argp = make_flatmap(htop);
                         while (i--) {
                             *htop++ = *objp++;
@@ -1121,6 +1148,8 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 #endif
     const Eterm empty_tuple_literal =
         ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+    const Eterm empty_map_literal =
+        ERTS_GLOBAL_LIT_EMPTY_MAP;
     
     DECLARE_EQUEUE_INIT_INFO(s, info);
     DECLARE_BITSTORE_INIT_INFO(b, info);
@@ -1212,10 +1241,11 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 	    Eterm hdr;
 	    ptr = boxed_val(obj);
 	    /* off heap pointers to boxes (except pointers to the
-               empty tuple) are copied verbatim */
+               empty tuple and empty map) are copied verbatim */
 	    if (erts_is_literal(obj,ptr)) {
 		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] bypassed copying %p is %T\n", mypid, ptr, obj));
                 if (obj != empty_tuple_literal &&
+                    obj != empty_map_literal &&
                     (copy_literals || in_literal_purge_area(ptr)))
                     info->literal_size += size_object(obj);
 		goto pop_next;
@@ -1307,8 +1337,10 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
                 switch (MAP_HEADER_TYPE(hdr)) {
                     case MAP_HEADER_TAG_FLATMAP_HEAD : {
                         flatmap_t *mp = (flatmap_t *) ptr;
-                        Uint n = flatmap_get_size(mp) + 1;
-                        ASSERT(flatmap_get_size(mp) <= MAP_SMALL_MAP_LIMIT);
+                        Uint n = flatmap_get_size(mp);
+                        ASSERT(n <= MAP_SMALL_MAP_LIMIT);
+                        ASSERT(n > 0); /* empty maps are global literals, caught earlier */
+                        n += 1;
                         sum += n + 2;
                         ptr += 2; /* hdr + size words */
                         while (n--) {
@@ -1404,6 +1436,8 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
 #endif
     const Eterm empty_tuple_literal =
         ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+    const Eterm empty_map_literal =
+        ERTS_GLOBAL_LIT_EMPTY_MAP;
     DECLARE_EQUEUE_FROM_INFO(s, info);
     DECLARE_BITSTORE_FROM_INFO(b, info);
     DECLARE_SHTABLE_FROM_INFO(t, info);
@@ -1521,6 +1555,7 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
 	    /* off heap pointers to boxes are copied verbatim */
 	    if (erts_is_literal(obj,ptr)) {
                 if (obj == empty_tuple_literal ||
+                    obj == empty_map_literal ||
                     !(copy_literals || in_literal_purge_area(ptr))) {
                     *resp = obj;
                 } else {
@@ -1617,6 +1652,7 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
                         flatmap_t *mp = (flatmap_t *) ptr;
                         Uint n = flatmap_get_size(mp) + 1;
                         ASSERT(flatmap_get_size(mp) <= MAP_SMALL_MAP_LIMIT);
+                        ASSERT(flatmap_get_size(mp) > 0); /* empty maps use ERTS_GLOBAL_LIT_EMPTY_MAP */
                         *hp++  = *++ptr; /* keys */
                         while (n--) {
                             obj = *++ptr;
@@ -1798,6 +1834,7 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
                                     flatmap_t *mp = (flatmap_t *) hscan;
                                     remaining = flatmap_get_size(mp) + 1;
                                     ASSERT(flatmap_get_size(mp) <= MAP_SMALL_MAP_LIMIT);
+                                    ASSERT(flatmap_get_size(mp) > 0); /* empty maps use ERTS_GLOBAL_LIT_EMPTY_MAP */
                                     hscan += 2;
                                     break;
                                 }
@@ -1946,6 +1983,8 @@ Eterm* copy_shallow_x(Eterm *ERTS_RESTRICT ptr, Uint sz, Eterm **hpp,
     const Sint offs = (hp - tp) * sizeof(Eterm);
     const Eterm empty_tuple_literal =
         ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+    const Eterm empty_map_literal =
+        ERTS_GLOBAL_LIT_EMPTY_MAP;
     while (sz--) {
 	Eterm val = *tp++;
 
@@ -1955,8 +1994,9 @@ Eterm* copy_shallow_x(Eterm *ERTS_RESTRICT ptr, Uint sz, Eterm **hpp,
 	    break;
 	case TAG_PRIMARY_LIST:
 	case TAG_PRIMARY_BOXED:
-            if (val == empty_tuple_literal) {
-                *hp++ = empty_tuple_literal;
+            if (val == empty_tuple_literal ||
+                val == empty_map_literal) {
+                *hp++ = val;
             } else {
                 *hp++ = byte_offset_ptr(val, offs);
             }
