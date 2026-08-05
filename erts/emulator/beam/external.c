@@ -5326,6 +5326,13 @@ dec_term_atom_common:
                     qsort(fields, num_fields, sizeof(struct erl_record_field),
                           (int (*)(const void *, const void *)) record_compare);
 
+                    for (Sint i = 1; i < num_fields; i++) {
+                        if (fields[i-1].key == fields[i].key) {
+                            erts_free(ERTS_ALC_T_TMP, fields);
+                            goto error;
+                        }
+                    }
+
                     order_tuple = make_boxed(order);
                     *order++ = make_arityval(num_fields);
                     for (int i = 0; i < num_fields; i++) {
