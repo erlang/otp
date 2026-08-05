@@ -374,9 +374,11 @@ parse_line([$n,$a,$m,$e,$ | Buf0]) ->
         {Name, Buf1}  ->
             case Buf1 of
                 [$a,$t,$ ,$p,$o,$r,$t,$ | Buf2] ->
-                    case catch list_to_integer(Buf2) of
-                        {'EXIT', _} -> error;
+                    try list_to_integer(Buf2) of
                         Port -> {ok, {Name, Port}}
+                    catch
+                        _:_ ->
+                            error
                     end;
                 _ -> error
             end;
