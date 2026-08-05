@@ -398,7 +398,13 @@ get_port_nr(Config) when is_list(Config) ->
 
 %% Register with slow write and ask about port nr
 slow_get_port_nr(Config) when is_list(Config) ->
-    port_request([?EPMD_PORT2_REQ,d,$f,d,$o,d,$o]).
+    %% Pause for 200ms. The packet timeout is 1 second as per ?EPMDARGS defined
+    %% above.
+    Pause = {pause, 200},
+    port_request([?EPMD_PORT2_REQ,
+                  Pause,$f,
+                  Pause,$o,
+                  Pause,$o]).
 
 
 % Internal function used above
@@ -1024,9 +1030,8 @@ recv(Sock, Len, Timeout) ->
             exit(1)
     end.
 
-%% Send data to socket. The list can be non flat and contain
-%% the atom 'd' or tuple {d,Seconds} where this is delay
-%% put in between the sent characters.
+%% Send data to socket. The list can be nested and contain {pause,Milliseconds}
+%% to pause that many milliseconds before sending the next character.
 
 send(Sock, SendSpec) ->
     case send(SendSpec, [], Sock) of
@@ -1055,12 +1060,10 @@ send([List | Spec], RevBytes, Sock) when is_list(List) ->
         Other ->
             Other
     end;
-send([d | Spec], RevBytes, Sock) ->
-    send([{d,1000} | Spec], RevBytes, Sock);
-send([{d,S} | Spec], RevBytes, Sock) ->
+send([{pause, Ms} | Spec], RevBytes, Sock) ->
     case send_direct(Sock, lists:reverse(RevBytes)) of
         ok ->
-            timer:sleep(S),
+            timer:sleep(Ms),
             send(Spec, [], Sock);
         Any ->
             Any
