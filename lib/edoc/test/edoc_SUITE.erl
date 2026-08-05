@@ -35,7 +35,7 @@
 
 %% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
+        init_per_group/2,end_per_group/2]).
 
 %% Test cases
 -export([app/1,appup/1,build_std/1,build_map_module/1,otp_12008/1,
@@ -205,24 +205,24 @@ otp_reference(Config) ->
     Source = filename:join(DataDir, "module_with_links.erl"),
     {module_with_links, Module} = edoc:get_doc(Source),
     Functions = lists:keyfind(functions,
-	    #xmlElement.name, Module#xmlElement.content),
+        #xmlElement.name, Module#xmlElement.content),
     [Start] = Functions#xmlElement.content,
     Description = lists:keyfind(description,
-	    #xmlElement.name, Start#xmlElement.content),
+        #xmlElement.name, Start#xmlElement.content),
     FullDescription = lists:keyfind(fullDescription,
-	    #xmlElement.name, Description#xmlElement.content),
+        #xmlElement.name, Description#xmlElement.content),
     A = lists:keyfind(a,
-	    #xmlElement.name, FullDescription#xmlElement.content),
+        #xmlElement.name, FullDescription#xmlElement.content),
     Href1 = lists:keyfind(href,
-	    #xmlAttribute.name, A#xmlElement.attributes),
+        #xmlAttribute.name, A#xmlElement.attributes),
     URI1 = uri_string:parse(Href1#xmlAttribute.value),
     "www.erlang.org" = maps:get(host, URI1),
     "/doc/apps/kernel/application.html" = maps:get(path, URI1),
     % "start/1" = maps:get(fragment, URI1),
     See = lists:keyfind(see,
-	    #xmlElement.name, Start#xmlElement.content),
+        #xmlElement.name, Start#xmlElement.content),
     Href2 = lists:keyfind(href,
-	    #xmlAttribute.name, See#xmlElement.attributes),
+        #xmlAttribute.name, See#xmlElement.attributes),
     URI2 = uri_string:parse(Href2#xmlAttribute.value),
     "www.erlang.org" = maps:get(host, URI2),
     "/doc/apps/kernel/application.html" = maps:get(path, URI2).

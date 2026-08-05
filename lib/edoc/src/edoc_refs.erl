@@ -187,8 +187,8 @@ module_absref(M, Env) ->
 
 app_ref(A, Env) ->
     case (Env#env.apps)(A) of
-	"" when Env#env.app_default == ?APP_DEFAULT ->
-	    join_uri(Env#env.app_default, escape_uri(atom_to_list(A)));
+        "" when Env#env.app_default == ?APP_DEFAULT ->
+            join_uri(Env#env.app_default, escape_uri(atom_to_list(A)));
 	"" ->
 	    join_uri(Env#env.app_default,
 		     join_uri(escape_uri(atom_to_list(A)), ?EDOC_DIR));
