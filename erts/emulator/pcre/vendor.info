@@ -21,6 +21,7 @@
                 "./erts/emulator/pcre/pcre.mk"],
     "sha": "f454e231fe5006dd7ff8f4693fd2b8eb94333429",
     "supplier": "Person: Nicholas Wilson",
-    "purl": "pkg:github/PCRE2Project/pcre2"
+    "purl": "pkg:github/PCRE2Project/pcre2",
+    "annotation": "Vendor package modified in Erlang/OTP"
   }
 ]

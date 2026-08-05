@@ -28,7 +28,8 @@
     "supplier": "Person: Ulf Adams",
     "purl": "pkg:github/ulfjack/ryu#ryu",
     "update": "./erts/emulator/ryu/update.sh",
-    "sha": "4c0618b0e44f7ef027ebae05d2cc7812048f7c8f"
+    "sha": "4c0618b0e44f7ef027ebae05d2cc7812048f7c8f",
+    "annotation": "Vendor package modified in Erlang/OTP"
   },
   {
     "ID": "ryu-to_chars",
@@ -45,6 +46,7 @@
     "supplier": "Organization: Microsoft Corporation",
     "purl": "pkg:github/microsoft/STL#stl/inc/xcharconv_ryu.h",
     "update": "./erts/emulator/ryu/update.sh",
-    "sha": "37d575ede5ade50ad95b857f22ed7f1be4b1f2df"
+    "sha": "37d575ede5ade50ad95b857f22ed7f1be4b1f2df",
+    "annotation": "Vendor package modified in Erlang/OTP"
   }
 ]
