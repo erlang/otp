@@ -31,6 +31,7 @@
 -module(edoc_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 
 %% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -39,13 +40,15 @@
 %% Test cases
 -export([app/1,appup/1,build_std/1,build_map_module/1,otp_12008/1,
          build_app/1, otp_14285/1, infer_module_app_test/1,
-         module_with_feature/1, module_with_maybe/1, module_with_nominal/1]).
+         module_with_feature/1, module_with_maybe/1, module_with_nominal/1,
+         otp_reference/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [app,appup,build_std,build_map_module,otp_12008, build_app, otp_14285,
-     infer_module_app_test, module_with_feature, module_with_nominal].
+     infer_module_app_test, module_with_feature, module_with_nominal,
+     otp_reference].
 
 groups() -> 
     [].
@@ -196,3 +199,32 @@ module_with_nominal(Config) ->
     PreprocessOpts = [{preprocess, true}, {dir, PrivDir}],
     ok = edoc:files([Source], PreprocessOpts),
     ok.
+
+otp_reference(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Source = filename:join(DataDir, "module_with_links.erl"),
+    {module_with_links, Module} = edoc:get_doc(Source),
+    Functions = lists:keyfind(functions,
+	    #xmlElement.name, Module#xmlElement.content),
+    [Start] = Functions#xmlElement.content,
+    Description = lists:keyfind(description,
+	    #xmlElement.name, Start#xmlElement.content),
+    FullDescription = lists:keyfind(fullDescription,
+	    #xmlElement.name, Description#xmlElement.content),
+    A = lists:keyfind(a,
+	    #xmlElement.name, FullDescription#xmlElement.content),
+    Href1 = lists:keyfind(href,
+	    #xmlAttribute.name, A#xmlElement.attributes),
+    URI1 = uri_string:parse(Href1#xmlAttribute.value),
+    "www.erlang.org" = maps:get(host, URI1),
+    "/doc/apps/kernel/application.html" = maps:get(path, URI1),
+    % "start/1" = maps:get(fragment, URI1),
+    See = lists:keyfind(see,
+	    #xmlElement.name, Start#xmlElement.content),
+    Href2 = lists:keyfind(href,
+	    #xmlAttribute.name, See#xmlElement.attributes),
+    URI2 = uri_string:parse(Href2#xmlAttribute.value),
+    "www.erlang.org" = maps:get(host, URI2),
+    "/doc/apps/kernel/application.html" = maps:get(path, URI2).
+    % "start/1" = maps:get(fragment, URI2).
+
