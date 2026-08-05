@@ -3521,6 +3521,18 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     else if (ERTS_IS_ATOM_STR("atom_count",BIF_ARG_1)) {
         BIF_RET(make_small(atom_table_size()));
     }
+    else if (ERTS_IS_ATOM_STR("module_limit",BIF_ARG_1)) {
+        BIF_RET(erts_make_integer(erts_module_table_limit(), BIF_P));
+    }
+    else if (ERTS_IS_ATOM_STR("module_count",BIF_ARG_1)) {
+        BIF_RET(erts_make_integer(module_code_size(erts_active_code_ix()), BIF_P));
+    }
+    else if (ERTS_IS_ATOM_STR("export_limit",BIF_ARG_1)) {
+        BIF_RET(erts_make_integer(erts_export_table_limit(), BIF_P));
+    }
+    else if (ERTS_IS_ATOM_STR("export_count",BIF_ARG_1)) {
+        BIF_RET(erts_make_integer(export_list_size(erts_active_code_ix()), BIF_P));
+    }
     else if (ERTS_IS_ATOM_STR("tolerant_timeofday",BIF_ARG_1)) {
 	if (erts_has_time_correction()
 	    && erts_time_offset_state() == ERTS_TIME_OFFSET_FINAL) {
