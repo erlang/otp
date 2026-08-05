@@ -60,11 +60,15 @@ IndexTable*
 erts_index_init(ErtsAlcType_t type, IndexTable* t, char* name,
 		int size, int limit, HashFunctions fun)
 {
-    Uint base_size = (((Uint)limit+INDEX_PAGE_SIZE-1)/INDEX_PAGE_SIZE)*sizeof(IndexSlot*);
+    /* Round up to a whole number of pages; the table only enforces its limit at
+     * a page boundary, so this is the effective limit reported to the user. */
+    Uint pages = ((Uint)limit+INDEX_PAGE_SIZE-1)/INDEX_PAGE_SIZE;
+    Uint effective_limit = pages*INDEX_PAGE_SIZE;
+    Uint base_size = pages*sizeof(IndexSlot*);
     hash_init(type, &t->htable, name, 3*size/4, fun);
 
     t->size = 0;
-    t->limit = limit;
+    t->limit = effective_limit <= INT_MAX ? (int)effective_limit : limit;
     t->entries = 0;
     t->type = type;
     t->seg_table = (IndexSlot***) erts_alloc(type, base_size);
