@@ -27,7 +27,8 @@
 	 init_per_group/2,end_per_group/2,
          create/1,explicit_module_name/1,
          term_order/1,gc/1,external_term_format/1,
-         messages/1,errors/1,records_module/1, dist/1]).
+         messages/1,errors/1,records_module/1, dist/1,
+         gh_11398/1]).
 
 -record #a{x=1, y=2}.
 -record #b{x=none, y=none, z=none}.
@@ -62,7 +63,8 @@ all() ->
      messages,
      errors,
      records_module,
-     dist].
+     dist,
+     gh_11398].
 
 groups() ->
     [].
@@ -568,6 +570,24 @@ dist(_Config) ->
 
     ok.
 
+gh_11398(_Config) ->
+    #native_record_SUITE:exp{a=1} = binary_to_term(y(1, 1)),
+    ?assertError(badarg, binary_to_term(y(1, 2))).
+
+y(A, N) when is_integer(A) ->
+    <<131, AValue/bytes>> = erlang:term_to_binary(A),
+    <<
+        131,
+        %% RECORD_EXT, N fields, exported flag set
+        $C,
+        N:32,
+        1:8,
+        $w, 19, "native_record_SUITE",
+        $w, 3, "exp",
+        %% N copies of field name 'a', followed by N copies of value A
+        (binary:copy(<<$w, 1, "a">>, N))/bytes,
+        (binary:copy(AValue, N))/bytes
+    >>.
 
 %%% Common utilities.
 
