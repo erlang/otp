@@ -382,15 +382,15 @@ big_float_3(Config) when is_list(Config) ->
          Nearest = correctly_rounded(I),
          Nearest = float(I)
      end
-     || Bits <- lists:seq(50, 300), _ <- lists:seq(1, 200)],
+     || Bits <- lists:seq(50, 300), _ <- lists:seq(1, 2000)],
 
-    %% Exact values, which must not be rounded at all.
+    %% 2-pows and neighbours
     [begin
-         I = 1 bsl E,
+         I = (1 bsl E) + Diff,
          Nearest = correctly_rounded(I),
          Nearest = float(I)
      end
-     || E <- lists:seq(0, 1023)],
+     || E <- lists:seq(0, 1023), Diff <- lists:seq(-2,2)],
 
     ok.
 

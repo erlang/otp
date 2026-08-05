@@ -2426,11 +2426,7 @@ big_to_double(Eterm x, double* resp)
     ASSERT(msd != 0);
 
     /* Bit length of the most significant digit, and of the whole value. */
-    msd_bits = 0;
-    while (msd != 0) {
-        msd_bits++;
-        msd >>= 1;
-    }
+    msd_bits = erts_fit_in_bits_uint(msd);
     bitlen = (Uint64)(xl-1) * D_EXP + msd_bits;
 
     if (bitlen <= 53) {
@@ -2473,7 +2469,7 @@ big_to_double(Eterm x, double* resp)
     mant = 0;
     sticky = 0;
 
-    for (i = 0; i < xl; i++) {
+    for (i = xl; i-- > 0 && !sticky; ) {
         ErtsDigit dig = v[i];
         Uint64 lsb = (Uint64)i * D_EXP;   /* bit position of this digit's LSB */
 
