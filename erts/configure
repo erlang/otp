@@ -659,6 +659,7 @@ EMU_CC
 ERTS_BUILD_FALLBACK_POLL
 FLAVORS
 PRIMARY_FLAVOR
+JIT_ARCH_BITS
 JIT_ARCH
 JIT_ENABLED
 EMU_LDFLAGS
@@ -8827,6 +8828,7 @@ printf %s "checking target hardware architecture... " >&6; }
     powerpc64)	ARCH=ppc64;;
     powerpc64le) ARCH=ppc64le;;
     "Power Macintosh")	ARCH=ppc;;
+    arm)	ARCH=arm;;
     arm64)	ARCH=arm64;;
     armv5b)	ARCH=arm;;
     armv5teb)	ARCH=arm;;
@@ -25498,6 +25500,7 @@ fi
 
 
 JIT_ARCH=
+JIT_ARCH_BITS=
 
 if test ${enable_jit} != no
 then :
@@ -25538,6 +25541,7 @@ printf "%s\n" "$as_me: WARNING: JIT disabled due to annoying popus on x86 Macs w
                 # instruction cache, and don't require us to manually issue
                 # instruction barriers on all threads.
                 JIT_ARCH=arm
+                JIT_ARCH_BITS=64
               ;;
               *)
                 # We need to use `DC CVAU`, `IC IVAU`, and `ISB SY` to clear
@@ -25546,11 +25550,28 @@ printf "%s\n" "$as_me: WARNING: JIT disabled due to annoying popus on x86 Macs w
 
                 if test "$ethr_arm_isb_sy_instr_val$ethr_arm_dc_cvau_instr_val$ethr_arm_ic_ivau_instr_val" = "111"; then
                   JIT_ARCH=arm
+                  JIT_ARCH_BITS=64
                 else
                   enable_jit=no
                   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: JIT disabled due to lack of cache-clearing instructions" >&5
 printf "%s\n" "$as_me: WARNING: JIT disabled due to lack of cache-clearing instructions" >&2;}
                 fi
+              ;;
+           esac
+           ;;
+        arm)
+           case "$OPSYS" in
+              linux)
+                # These platforms have dedicated system calls for clearing
+                # instruction cache, and don't require us to manually issue
+                # instruction barriers on all threads.
+                JIT_ARCH=arm
+                JIT_ARCH_BITS=32
+              ;;
+              *)
+                enable_jit=no
+                { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: JIT disabled due to lack of support on $ARCH-$OPSYS" >&5
+printf "%s\n" "$as_me: WARNING: JIT disabled due to lack of support on $ARCH-$OPSYS" >&2;}
               ;;
            esac
            ;;
@@ -25853,6 +25874,7 @@ if test X${enable_jit} = Xyes; then
 else
      PRIMARY_FLAVOR=emu
 fi
+
 
 
 
