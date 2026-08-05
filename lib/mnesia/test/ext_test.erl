@@ -254,7 +254,7 @@ call(Req) ->
     error_if_not_initialized(),
     case gen_server:call({global, mnesia_test_lib:get_ext_test_server_name()}, Req) of
         #exception{c = Class, r = Reason, st = ST} = _Ex ->
-            ?DBG("call ~p resulted in an exception: ~p~n", [Req, Ex]),
+            ?DBG("call ~p resulted in an exception: ~p~n", [Req, _Ex]),
             erlang:raise(Class, Reason, ST);
         Res ->
             Res
