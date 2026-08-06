@@ -96,7 +96,8 @@
          record_info_0/1,
          coverage/1,
          native_records/1,
-         cs_deprecated_attr/1]).
+         cs_deprecated_attr/1,
+         invalid_attribute/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -139,7 +140,8 @@ all() ->
      record_info_0,
      coverage,
      native_records,
-     cs_deprecated_attr].
+     cs_deprecated_attr,
+     invalid_attribute].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -6018,6 +6020,17 @@ native_records(Conf) ->
           }
          ],
     [] = run(Conf, Ts),
+    ok.
+
+invalid_attribute(Config) ->
+    Ts = [{invalid_fa,
+           <<"-compile({nowarn_unused_function,[{a/0,b/0,0}]}).
+            ">>,
+           {[]},
+           {errors,[{{1,22},erl_lint,{invalid_fa_attribute,{{a,0},{b,0},0}}}],[]}}
+           ],
+    [] = run(Config,Ts),
+
     ok.
 
 %%%

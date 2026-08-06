@@ -319,6 +319,8 @@ format_error_1({invalid_unsafe,D}) ->
 format_error_1({bad_unsafe,{F,A}}) ->
     {~"unsafe function ~tw/~w undefined or not exported",
      [F,A]};
+format_error_1({invalid_fa_attribute,D}) ->
+    {~"badly formed attribute ~tw", [D]};
 format_error_1({bad_nowarn_unused_function,{F,A}}) ->
     {~"function ~tw/~w undefined", [F,A]};
 format_error_1({bad_nowarn_unused_function,{F,A},GuessFA}) ->
@@ -1952,8 +1954,7 @@ nowarn_function(Tag, Opts) ->
 func_location_warning(Type, Fs, St) ->
     foldl(fun ({F,Anno}, St0) -> add_warning(Anno, {Type,F}, St0) end, St, Fs).
 
-func_location_error(Type, [{F,Anno}|Fs], St0, FAList) ->
-    {Name, Arity} = F,
+func_location_error(Type, [{{Name, Arity}=F,Anno}|Fs], St0, FAList) ->
     PossibleAs = lists:sort([A || {FName, A} <:- FAList, FName =:= Name]),
     case PossibleAs of
         [] ->
@@ -1970,6 +1971,9 @@ func_location_error(Type, [{F,Anno}|Fs], St0, FAList) ->
             St1 = add_error(Anno, {Type,F,{Name,PossibleAs}}, St0),
             func_location_error(Type, Fs, St1, FAList)
     end;
+func_location_error(Type, [{F,Anno}|Fs], St0, FAList) ->
+    St1 = add_error(Anno, {invalid_fa_attribute,F}, St0),
+    func_location_error(Type, Fs, St1, FAList);
 func_location_error(_, [], St, _) ->
     St.
 
