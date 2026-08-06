@@ -58,16 +58,15 @@ are proportional to the logarithm of the number of objects in the table.
 
 > #### Note {: .info }
 >
-> The number of tables stored at one Erlang node _used_ to be limited. This is
-> no longer the case (except by memory usage). The previous default limit was
-> about 1400 tables and could be increased by setting the environment variable
-> `ERL_MAX_ETS_TABLES` or the command line option
-> [`+e`](`e:erts:erl_cmd.md#%2Be`) before starting the Erlang runtime system.
-> This hard limit has been removed, but it is currently useful to set the
-> `ERL_MAX_ETS_TABLES` anyway. It should be set to an approximate of the maximum
-> amount of tables used since an internal table for named tables is sized using
-> this value. If large amounts of named tables are used and `ERL_MAX_ETS_TABLES`
-> hasn't been increased, the performance of named table lookup will degrade.
+> The number of ETS tables at one Erlang node is limited only by available
+> memory. The environment variable `ERL_MAX_ETS_TABLES` and the command line
+> option [`+e`](`e:erts:erl_cmd.md#%2Be`) do not limit this number. They set a
+> sizing hint for an internal index used to look up named ETS tables.
+>
+> Workloads that keep a large number of named tables concurrently can set the
+> hint to approximately the expected peak number of named tables. A value that
+> is too small can increase hash collisions and degrade named table lookup
+> performance, while an unnecessarily large value increases memory usage.
 
 Notice that there is no automatic garbage collection for tables. Even if there
 are no references to a table from any process, it is not automatically destroyed
