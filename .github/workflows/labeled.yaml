@@ -1,0 +1,16 @@
+name: PR labeled
+
+on:
+  pull_request:
+    types: [labeled,unlabeled]
+
+jobs:
+  sverker:
+    name: Dummy job
+    runs-on: ubuntu-latest
+    steps:
+      - id: step1
+        env:
+          PR_LABELS:    ${{ join(github.event.pull_request.labels.*.name, ', ') }}
+        run: |
+          echo "Labels changed: $PR_LABELS"
