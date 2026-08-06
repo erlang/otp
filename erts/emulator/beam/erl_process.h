@@ -1460,7 +1460,6 @@ void erts_check_for_holes(Process* p);
     (SEQ_TRACE_T_VALID_TAG(token) ||          \
      (is_tuple(token) &&                      \
       SEQ_TRACE_T_ARITY(token) >= 5 &&        \
-      is_small(SEQ_TRACE_T_LABEL(token)) &&   \
       is_small(SEQ_TRACE_T_SERIAL(token)) &&  \
       is_small(SEQ_TRACE_T_LASTCNT(token)) && \
       is_small(SEQ_TRACE_T_FLAGS(token)) &&   \
