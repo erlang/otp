@@ -723,6 +723,13 @@ not leaf nodes. Variables, on the other hand, are leaf nodes but not
 literals.
 
 _See also: _`is_literal/1`, `type/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:is_leaf(erl_syntax:atom(ok)).
+true
+```
 """.
 -spec is_leaf(syntaxTree()) -> boolean().
 
@@ -772,6 +779,18 @@ constitute an Erlang program. Current form types are:
 
 _See also: _`attribute/2`, `comment/2`, `eof_marker/0`, `error_marker/1`,
 `form_list/1`, `function/2`, `type/1`, `warning_marker/1`.
+
+## Examples
+
+A function `fun(X) -> X.` is a form.
+
+```erlang
+1> F = erl_syntax:function(erl_syntax:atom(identity), [erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")])]).
+2> erl_prettypr:format(F).
+"identity(X) -> X."
+3> erl_syntax:is_form(F).
+true
+```
 """.
 -spec is_form(syntaxTree()) -> boolean().
 
@@ -812,6 +831,13 @@ information set to the integer zero. Use
 [`//stdlib/erl_anno:line/1`](`erl_anno:line/1`) to get the position information.
 
 _See also: _`get_attrs/1`, `set_pos/2`.
+
+## Examples
+
+```erlang
+1> erl_anno:location(erl_syntax:get_pos(erl_syntax:atom(ok))).
+0
+```
 """.
 -spec get_pos(syntaxTree()) -> annotation_or_location().
 
@@ -833,6 +859,14 @@ get_pos(Node) ->
 Sets the position information of `Node` to `Pos`.
 
 _See also: _`copy_pos/2`, `get_pos/1`.
+
+## Examples
+
+```erlang
+1> Ok12 = erl_syntax:set_pos(erl_syntax:atom(ok), erl_anno:new(12)).
+2> erl_anno:location(erl_syntax:get_pos(Ok12)).
+12
+```
 """.
 -spec set_pos(syntaxTree(), annotation_or_location()) -> syntaxTree().
 
@@ -856,6 +890,15 @@ This is equivalent to [`set_pos(Target, get_pos(Source))`](`set_pos/2`), but
 potentially more efficient.
 
 _See also: _`get_pos/1`, `set_pos/2`.
+
+## Examples
+
+```erlang
+1> Int7 = erl_syntax:set_pos(erl_syntax:integer(42), erl_anno:new(7)).
+2> Ok7 = erl_syntax:copy_pos(Int7, erl_syntax:atom(ok)).
+3> erl_anno:location(erl_syntax:get_pos(Ok7)).
+7
+```
 """.
 -spec copy_pos(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -909,6 +952,13 @@ foo([X | Xs]) ->
 
 _See also: _`comment/2`, `get_attrs/1`, `get_postcomments/1`,
 `set_precomments/2`.
+
+## Examples
+
+```erlang
+1> erl_syntax:get_precomments(erl_syntax:atom(ok)).
+[]
+```
 """.
 -spec get_precomments(syntaxTree()) -> [syntaxTree()].
 
@@ -931,6 +981,18 @@ top-down textual order.
 _See also: _`add_precomments/2`, `comment/2`, `copy_comments/2`,
 `get_precomments/1`, `join_comments/2`, `remove_comments/1`,
 `set_postcomments/2`.
+
+## Examples
+
+```erlang
+1> PreC = erl_syntax:set_precomments(erl_syntax:atom(ok), [erl_syntax:comment(2, ["comment text"])]).
+2> erl_prettypr:format(PreC).
+"%comment text\nok"
+3> erl_syntax:get_precomments(PreC).
+[{tree,comment,
+       {attr,0,[],none},
+       {comment,2,["comment text"]}}]
+```
 """.
 -spec set_precomments(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -961,6 +1023,18 @@ but potentially more efficient.
 
 _See also: _`add_postcomments/2`, `comment/2`, `get_precomments/1`,
 `join_comments/2`, `set_precomments/2`.
+
+## Examples
+
+```erlang
+1> PreC = erl_syntax:add_precomments([erl_syntax:comment(2, ["comment text"])], erl_syntax:atom(ok)).
+2> erl_prettypr:format(PreC).
+"%comment text\nok"
+3> erl_syntax:get_precomments(PreC).
+[{tree,comment,
+       {attr,0,[],none},
+       {comment,2,["comment text"]}}]
+```
 """.
 -spec add_precomments([syntaxTree()], syntaxTree()) -> syntaxTree().
 
@@ -1007,6 +1081,25 @@ foo([X | Xs], Y) ->
 
 _See also: _`comment/2`, `get_attrs/1`, `get_precomments/1`,
 `set_postcomments/2`.
+
+## Examples
+
+```erlang
+1> PC = erl_syntax:add_postcomments([erl_syntax:comment(2, ["comment text"])], erl_syntax:atom(ok)).
+{tree,atom,
+      {attr,0,[],
+            {com,[],
+                 [{tree,comment,
+                        {attr,0,[],none},
+                        {comment,2,["comment text"]}}]}},
+      ok}
+2> erl_prettypr:format(PC).
+"ok  %comment text\n"
+3> erl_syntax:get_postcomments(PC).
+[{tree,comment,
+       {attr,0,[],none},
+       {comment,2,["comment text"]}}]
+```
 """.
 -spec get_postcomments(syntaxTree()) -> [syntaxTree()].
 
@@ -1029,6 +1122,18 @@ top-down textual order
 _See also: _`add_postcomments/2`, `comment/2`, `copy_comments/2`,
 `get_postcomments/1`, `join_comments/2`, `remove_comments/1`,
 `set_precomments/2`.
+
+## Examples
+
+```erlang
+1> PC = erl_syntax:set_postcomments(erl_syntax:atom(ok), [erl_syntax:comment(2, ["comment text"])]).
+2> erl_prettypr:format(PC).
+"ok  %comment text\n"
+3> erl_syntax:get_postcomments(PC).
+[{tree,comment,
+       {attr,0,[],none},
+       {comment,2,["comment text"]}}]
+```
 """.
 -spec set_postcomments(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -1059,6 +1164,18 @@ but potentially more efficient.
 
 _See also: _`add_precomments/2`, `comment/2`, `get_postcomments/1`,
 `join_comments/2`, `set_postcomments/2`.
+
+## Examples
+
+```erlang
+1> PC = erl_syntax:add_postcomments([erl_syntax:comment(2, ["comment text"])], erl_syntax:atom(ok)).
+2> erl_prettypr:format(PC).
+"ok  %comment text\n"
+3> erl_syntax:get_postcomments(PC).
+[{tree,comment,
+       {attr,0,[],none},
+       {comment,2,["comment text"]}}]
+```
 """.
 -spec add_postcomments([syntaxTree()], syntaxTree()) -> syntaxTree().
 
@@ -1088,6 +1205,16 @@ Note: This is equivalent to
 potentially more efficient.
 
 _See also: _`get_postcomments/1`, `get_precomments/1`, `remove_comments/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:add_precomments([erl_syntax:comment(2, ["comment text"])], erl_syntax:atom(ok)).
+2> erl_prettypr:format(C).
+"%comment text\nok"
+3> erl_syntax:has_comments(C).
+true
+```
 """.
 -spec has_comments(syntaxTree()) -> boolean().
 
@@ -1114,6 +1241,20 @@ Note: This is equivalent to
 potentially more efficient.
 
 _See also: _`set_postcomments/2`, `set_precomments/2`.
+
+## Examples
+
+```erlang
+1> PC = erl_syntax:add_precomments([erl_syntax:comment(2, ["comment text"])], erl_syntax:atom(ok)).
+2> erl_prettypr:format(PC).
+"%comment text\nok"
+3> NoC = erl_syntax:remove_comments(PC).
+{tree,atom,{attr,0,[],none},ok}
+4> erl_prettypr:format(NoC).
+"ok"
+5> erl_syntax:has_comments(NoC).
+false 
+```
 """.
 -spec remove_comments(syntaxTree()) -> syntaxTree().
 
@@ -1137,6 +1278,17 @@ but potentially more efficient.
 
 _See also: _`comment/2`, `get_postcomments/1`, `get_precomments/1`,
 `set_postcomments/2`, `set_precomments/2`.
+
+## Examples
+
+```erlang
+1> PC = erl_syntax:add_precomments([erl_syntax:comment(2, ["comment text"])], erl_syntax:integer(42)).
+2> erl_prettypr:format(PC).
+"%comment text\n42"
+3> C = erl_syntax:copy_comments(PC, erl_syntax:atom(ok)).
+4> erl_syntax:has_comments(C).
+true
+```
 """.
 -spec copy_comments(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -1153,6 +1305,19 @@ but potentially more efficient.
 
 _See also: _`add_postcomments/2`, `add_precomments/2`, `comment/2`,
 `get_postcomments/1`, `get_precomments/1`.
+
+## Examples
+
+```erlang
+1> C0 = erl_syntax:add_precomments([erl_syntax:comment(2, ["comment text"])], erl_syntax:integer(42)).
+2> C = erl_syntax:join_comments(C0, erl_syntax:atom(ok)).
+3> erl_prettypr:format(C).
+"%comment text\nok"
+4> erl_syntax:get_precomments(C).
+[{tree,comment,
+       {attr,0,[],none},
+       {comment,2,["comment text"]}}]
+```
 """.
 -spec join_comments(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -1171,6 +1336,13 @@ For a newly created node, this is the empty list. The annotations may
 be any terms.
 
 _See also: _`get_attrs/1`, `set_ann/2`.
+
+## Examples
+
+```erlang
+1> erl_syntax:get_ann(erl_syntax:atom(ok)).
+[]
+```
 """.
 -spec get_ann(syntaxTree()) -> [term()].
 
@@ -1185,6 +1357,13 @@ set_ann(Node, Annotations)
 Sets the list of user annotations of `Node` to `Annotations`.
 
 _See also: _`add_ann/2`, `copy_ann/2`, `get_ann/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:get_ann(erl_syntax:set_ann(erl_syntax:atom(ok), [tag])).
+[tag]
+```
 """.
 -spec set_ann(syntaxTree(), [term()]) -> syntaxTree().
 
@@ -1211,6 +1390,13 @@ Note: this is equivalent to
 more efficient.
 
 _See also: _`get_ann/1`, `set_ann/2`.
+
+## Examples
+
+```erlang
+1> erl_syntax:get_ann(erl_syntax:add_ann(tag, erl_syntax:atom(ok))).
+[tag]
+```
 """.
 -spec add_ann(term(), syntaxTree()) -> syntaxTree().
 
@@ -1234,6 +1420,13 @@ Note: this is equivalent to [`set_ann(Target, get_ann(Source))`](`set_ann/2`),
 but potentially more efficient.
 
 _See also: _`get_ann/1`, `set_ann/2`.
+
+## Examples
+
+```erlang
+1> erl_syntax:get_ann(erl_syntax:copy_ann(erl_syntax:add_ann(tag, erl_syntax:integer(42)), erl_syntax:atom(ok))).
+[tag]
+```
 """.
 -spec copy_ann(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -1256,6 +1449,13 @@ For accessing individual attributes, see `get_pos/1`, `get_ann/1`,
 
 _See also: _`get_ann/1`, `get_pos/1`, `get_postcomments/1`, `get_precomments/1`,
 `set_attrs/2`.
+
+## Examples
+
+```erlang
+1> erl_syntax:get_attrs(erl_syntax:atom(ok)).
+{attr,0,[],none}
+```
 """.
 -spec get_attrs(syntaxTree()) -> syntaxTreeAttributes().
 
@@ -1335,6 +1535,13 @@ integer less than 1, there should be no separating space. Comments are in
 themselves regarded as source program forms.
 
 _See also: _`comment/1`, `is_form/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:comment(2, ["comment text"]).
+{tree,comment,{attr,0,[],none},{comment,2,["comment text"]}}
+```
 """.
 -spec comment(padding(), [string()]) -> syntaxTree().
 
@@ -1346,6 +1553,13 @@ comment(Pad, Strings) ->
 Returns the lines of text of the abstract comment.
 
 _See also: _`comment/2`.
+
+## Examples
+
+```erlang
+1> erl_syntax:comment_text(erl_syntax:comment(2, ["comment text"])).
+["comment text"]
+```
 """.
 -spec comment_text(syntaxTree()) -> [string()].
 
@@ -1359,6 +1573,13 @@ Returns the amount of padding before the comment, or `none`.
 `none` means that a default padding may be used.
 
 _See also: _`comment/2`.
+
+## Examples
+
+```erlang
+1> erl_syntax:comment_padding(erl_syntax:comment(2, ["comment text"])).
+2
+```
 """.
 -spec comment_padding(syntaxTree()) -> padding().
 
@@ -1387,6 +1608,16 @@ where the `Fi` are separated by one or more line breaks. A node of type
 tree, usually to form an Erlang module definition.
 
 _See also: _`flatten_form_list/1`, `form_list_elements/1`, `is_form/1`.
+
+## Examples
+
+```erlang
+1> FL = erl_syntax:form_list([erl_syntax:attribute(erl_syntax:atom(module), [erl_syntax:atom(demo)])]).
+2> erl_prettypr:format(FL).
+"-module(demo)."
+3> erl_syntax:type(FL).
+form_list
+```
 """.
 -spec form_list([syntaxTree()]) -> syntaxTree().
 
@@ -1398,6 +1629,19 @@ form_list(Forms) ->
 Returns the list of subnodes of a `form_list` node.
 
 _See also: _`form_list/1`.
+
+## Examples
+
+```erlang
+1> FL = erl_syntax:form_list([erl_syntax:attribute(erl_syntax:atom(module), [erl_syntax:atom(demo)])]).
+2> erl_prettypr:format(FL).
+"-module(demo)."
+3> erl_syntax:form_list_elements(FL).
+[{tree,attribute,
+       {attr,0,[],none},
+       {attribute,{tree,atom,{attr,0,[],none},module},
+                  [{tree,atom,{attr,0,[],none},demo}]}}]
+```
 """.
 -spec form_list_elements(syntaxTree()) -> [syntaxTree()].
 
@@ -1412,6 +1656,22 @@ Returns `Node` with all subtrees of type `form_list` recursively
 expanded, yielding a single "flat" abstract form sequence.
 
 _See also: _`form_list/1`.
+
+## Examples
+
+Constructs a nested form list then makes it flat.
+
+```erlang
+1> FL = erl_syntax:form_list([erl_syntax:form_list([erl_syntax:attribute(erl_syntax:atom(module), [erl_syntax:atom(demo)])])]).
+2> erl_prettypr:format(FL).
+"-module(demo)."
+3> FFL = erl_syntax:flatten_form_list(FL).
+4> erl_syntax:form_list_elements(FFL).
+[{tree,attribute,
+       {attr,0,[],none},
+       {attribute,{tree,atom,{attr,0,[],none},module},
+                  [{tree,atom,{attr,0,[],none},demo}]}}]
+```
 """.
 -spec flatten_form_list(syntaxTree()) -> syntaxTree().
 
@@ -1441,6 +1701,15 @@ resulting output, such as the appearance of floating-point numbers or
 macro definitions.
 
 _See also: _`text_string/1`.
+
+## Examples
+
+```erlang
+1> T = erl_syntax:text("-compile(export_all).").
+{tree,text,{attr,0,[],none},"-compile(export_all)."}
+2> erl_syntax:type(T).
+text
+```
 """.
 -spec text(string()) -> syntaxTree().
 
@@ -1452,6 +1721,15 @@ text(String) ->
 Returns the character sequence represented by a `text` node.
 
 _See also: _`text/1`.
+
+## Examples
+
+```erlang
+1> T = erl_syntax:text("-compile(export_all).").
+{tree,text,{attr,0,[],none},"-compile(export_all)."}
+2> erl_syntax:text_string(T).
+"-compile(export_all)."
+```
 """.
 -spec text_string(syntaxTree()) -> string().
 
@@ -1476,6 +1754,17 @@ variable name, but _not_ a single underscore character; see
 > such as control characters or whitespace.
 
 _See also: _`underscore/0`, `variable_literal/1`, `variable_name/1`.
+
+## Examples
+
+```erlang
+1> V = erl_syntax:variable("Value").
+{tree,variable,{attr,0,[],none},'Value'}
+2> erl_prettypr:format(V).
+"Value"
+3> erl_syntax:type(V).
+variable
+```
 """.
 -spec variable(atom() | string()) -> syntaxTree().
 
@@ -1494,6 +1783,17 @@ revert_variable(Node) ->
 Returns the name of a `variable` node as an atom.
 
 _See also: _`variable/1`.
+
+## Examples
+
+```erlang
+1> V = erl_syntax:variable("Value").
+{tree,variable,{attr,0,[],none},'Value'}
+2> erl_prettypr:format(V).
+"Value"
+3> erl_syntax:variable_name(V).
+'Value'
+```
 """.
 -spec variable_name(syntaxTree()) -> atom().
 
@@ -1510,6 +1810,14 @@ variable_name(Node) ->
 Returns the name of a `variable` node as a string.
 
 _See also: _`variable/1`.
+
+## Examples
+
+```erlang
+1> V = erl_syntax:variable("Value").
+2> erl_syntax:variable_literal(V).
+"Value"
+```
 """.
 -spec variable_literal(syntaxTree()) -> string().
 
@@ -1529,6 +1837,17 @@ The lexical representation is a single underscore character. Note that
 this is _not_ a variable, lexically speaking.
 
 _See also: _`variable/1`.
+
+## Examples
+
+```erlang
+1> U = erl_syntax:underscore().
+{tree,underscore,{attr,0,[],none},[]}
+2> erl_prettypr:format(U).
+"_"
+3> erl_syntax:type(U).
+underscore
+```
 """.
 -spec underscore() -> syntaxTree().
 
@@ -1550,6 +1869,15 @@ Creates an abstract integer literal.
 The lexical representation is the canonical decimal numeral of `Value`.
 
 _See also: _`integer_literal/1`, `integer_value/1`, `is_integer/2`.
+
+## Examples
+
+```erlang
+1> Int = erl_syntax:integer(42).
+{tree,integer,{attr,0,[],none},42}
+2> erl_syntax:type(Int).
+integer
+```
 """.
 -spec integer(integer()) -> syntaxTree().
 
@@ -1572,6 +1900,13 @@ Returns `true` if `Node` has type `integer` and represents `Value`, otherwise
 `false`.
 
 _See also: _`integer/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:is_integer(erl_syntax:integer(42), 42).
+true
+```
 """.
 -spec is_integer(syntaxTree(), integer()) -> boolean().
 
@@ -1590,6 +1925,13 @@ is_integer(Node, Value) ->
 Returns the value represented by an `integer` node.
 
 _See also: _`integer/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:integer_value(erl_syntax:integer(42)).
+42
+```
 """.
 -spec integer_value(syntaxTree()) -> integer().
 
@@ -1606,6 +1948,13 @@ integer_value(Node) ->
 Returns the numeral string represented by an `integer` node.
 
 _See also: _`integer/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:integer_literal(erl_syntax:integer(42)).
+"42"
+```
 """.
 -spec integer_literal(syntaxTree()) -> string().
 
@@ -1625,6 +1974,16 @@ The lexical representation is the decimal floating-point numeral of
 `Value`.
 
 _See also: _`float_literal/1`, `float_value/1`.
+
+## Examples
+
+```erlang
+1> F = erl_syntax:float(3.5).
+2> erl_prettypr:format(F).
+"3.5"
+3> erl_syntax:type(F).
+float
+```
 """.
 -spec float(float()) -> syntaxTree().
 
@@ -1652,6 +2011,13 @@ Note that floating-point values should usually not be compared for
 equality.
 
 _See also: _`float/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:float_value(erl_syntax:float(3.5)).
+3.5
+```
 """.
 -spec float_value(syntaxTree()) -> float().
 
@@ -1668,6 +2034,13 @@ float_value(Node) ->
 Returns the numeral string represented by a `float` node.
 
 _See also: _`float/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:float_literal(erl_syntax:float(3.5)).
+"3.50000000000000000000e+00"
+```
 """.
 -spec float_literal(syntaxTree()) -> string().
 
@@ -1690,6 +2063,16 @@ as "`$a`" and "`$\141`", and a Tab character can be written as
 "`$\11`", "`$\011`", or "`$\t`".
 
 _See also: _`char_literal/1`, `char_literal/2`, `char_value/1`, `is_char/2`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:char($A).
+2> erl_prettypr:format(C).
+"$A"
+3> erl_syntax:type(C).
+char
+```
 """.
 -spec char(char()) -> syntaxTree().
 
@@ -1712,6 +2095,13 @@ Returns `true` if `Node` has type `char` and represents `Value`, otherwise
 `false`.
 
 _See also: _`char/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:is_char(erl_syntax:char($A), $A).
+true
+```
 """.
 -spec is_char(syntaxTree(), char()) -> boolean().
 
@@ -1730,6 +2120,13 @@ is_char(Node, Value) ->
 Returns the value represented by a `char` node.
 
 _See also: _`char/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:char_value(erl_syntax:char($A)).
+$A
+```
 """.
 -spec char_value(syntaxTree()) -> char().
 
@@ -1749,6 +2146,13 @@ This includes the leading "`$`" character. Characters beyond 255 will
 be escaped.
 
 _See also: _`char/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:char_literal(erl_syntax:char($A)).
+"$A"
+```
 """.
 -spec char_literal(syntaxTree()) -> nonempty_string().
 
@@ -1768,6 +2172,13 @@ character beyond 255 will be escaped (`latin1`) or copied as is
 (`utf8`).
 
 _See also: _`char/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:char_literal(erl_syntax:char($A), unicode).
+"$A"
+```
 """.
 -spec char_literal(syntaxTree(), encoding()) -> nonempty_string().
 
@@ -1791,6 +2202,16 @@ of `"x\ny"`, `"x\12y"`, `"x\012y"` and `"x\^Jy"`; see `char/1`.
 
 _See also: _`char/1`, `is_string/2`, `string_literal/1`, `string_literal/2`,
 `string_value/1`.
+
+## Examples
+
+```erlang
+1> S = erl_syntax:string("hello").
+2> erl_prettypr:format(S).
+"\"hello\""
+3> erl_syntax:type(S).
+string
+```
 """.
 -spec string(string()) -> syntaxTree().
 
@@ -1813,6 +2234,13 @@ Returns `true` if `Node` has type `string` and represents `Value`, otherwise
 `false`.
 
 _See also: _`string/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:is_string(erl_syntax:string("hello"), "hello").
+true
+```
 """.
 -spec is_string(syntaxTree(), string()) -> boolean().
 
@@ -1831,6 +2259,13 @@ is_string(Node, Value) ->
 Returns the value represented by a `string` node.
 
 _See also: _`string/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:string_value(erl_syntax:string("hello")).
+"hello"
+```
 """.
 -spec string_value(syntaxTree()) -> string().
 
@@ -1850,6 +2285,13 @@ This includes surrounding double-quote characters. Characters beyond
 255 will be escaped.
 
 _See also: _`string/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:string_literal(erl_syntax:string("hello")).
+"\"hello\""
+```
 """.
 -spec string_literal(syntaxTree()) -> nonempty_string().
 
@@ -1867,6 +2309,13 @@ encoding characters beyond 255 will be escaped (`latin1`) or copied as
 is (`utf8`).
 
 _See also: _`string/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:string_literal(erl_syntax:string("hello"), utf8).
+"\"hello\""
+```
 """.
 -spec string_literal(syntaxTree(), encoding()) -> nonempty_string().
 
@@ -1888,6 +2337,16 @@ The print name of the atom is the character sequence represented by
 
 _See also: _`atom_literal/1`, `atom_literal/2`, `atom_name/1`, `atom_value/1`,
 `is_atom/2`.
+
+## Examples
+
+```erlang
+1> A = erl_syntax:atom(ok).
+2> erl_prettypr:format(A).
+"ok"
+3> erl_syntax:type(A).
+atom
+```
 """.
 -spec atom(atom() | string()) -> syntaxTree().
 
@@ -1912,6 +2371,13 @@ Returns `true` if `Node` has type `atom` and represents `Value`, otherwise
 `false`.
 
 _See also: _`atom/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:is_atom(erl_syntax:atom(ok), ok).
+true
+```
 """.
 -spec is_atom(syntaxTree(), atom()) -> boolean().
 
@@ -1930,6 +2396,13 @@ is_atom(Node, Value) ->
 Returns the value represented by an `atom` node.
 
 _See also: _`atom/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:atom_value(erl_syntax:atom(ok)).
+ok
+```
 """.
 -spec atom_value(syntaxTree()) -> atom().
 
@@ -1946,6 +2419,13 @@ atom_value(Node) ->
 Returns the printname of an `atom` node.
 
 _See also: _`atom/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:atom_name(erl_syntax:atom(ok)).
+"ok"
+```
 """.
 -spec atom_name(syntaxTree()) -> string().
 
@@ -1964,6 +2444,13 @@ represents any and all of `'x\ny'`, `'x\12y'`, `'x\012y'`, and
 `'x\^Jy'`; see `string/1`.
 
 _See also: _`atom/1`, `string/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:atom_literal(erl_syntax:atom(ok)).
+"ok"
+```
 """.
 -spec atom_literal(syntaxTree()) -> string().
 
@@ -1980,6 +2467,13 @@ necessary. Depending on the encoding a character beyond 255 will be
 escaped (`latin1`) or copied as is (`utf8`).
 
 _See also: _`atom/1`, `atom_literal/1`, `string/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:atom_literal(erl_syntax:atom("hello world"), utf8).
+"'hello world'"
+```
 """.
 -spec atom_literal(syntaxTree(), utf8 | unicode | latin1) -> string().
 
@@ -2011,6 +2505,19 @@ result represents "`#{F1, ..., Fn}`", otherwise it represents
 
 _See also: _`map_expr/1`, `map_expr_argument/1`, `map_expr_fields/1`,
 `map_field_assoc/2`, `map_field_exact/2`.
+
+## Examples
+
+```erlang
+1> MFAssoc = erl_syntax:map_field_assoc(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(MFAssoc).
+"name => \"Alice\""
+3> M = erl_syntax:map_expr(none, [MFAssoc]).
+4> erl_prettypr:format(M).
+"#{name => \"Alice\"}"
+5> erl_syntax:type(M).
+map_expr
+```
 """.
 -spec map_expr('none' | syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -2041,6 +2548,19 @@ If `Node` represents "`#{...}`", `none` is returned. Otherwise, if
 `Node` represents "`Argument#{...}`", `Argument` is returned.
 
 _See also: _`map_expr/2`.
+
+## Examples
+
+```erlang
+1> MFAssoc = erl_syntax:map_field_assoc(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(MFAssoc).
+"name => \"Alice\""
+3> M = erl_syntax:map_expr(none, [MFAssoc]).
+4> erl_prettypr:format(M).
+"#{name => \"Alice\"}"
+5> MEA = erl_syntax:map_expr_argument(M).
+none
+```
 """.
 -spec map_expr_argument(syntaxTree()) -> 'none' | syntaxTree().
 
@@ -2059,6 +2579,22 @@ map_expr_argument(Node) ->
 Returns the list of field subtrees of a `map_expr` node.
 
 _See also: _`map_expr/2`.
+
+## Examples
+
+```erlang
+1> MFAssoc = erl_syntax:map_field_assoc(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(MFAssoc).
+"name => \"Alice\""
+3> M = erl_syntax:map_expr(none, [MFAssoc]).
+4> erl_prettypr:format(M).
+"#{name => \"Alice\"}"
+5> MEFs = erl_syntax:map_expr_fields(M).
+[{tree,map_field_assoc,
+       {attr,0,[],none},
+       {map_field_assoc,{tree,atom,{attr,0,[],none},name},
+                        {tree,string,{attr,0,[],none},"Alice"}}}]
+```
 """.
 -spec map_expr_fields(syntaxTree()) -> [syntaxTree()].
 
@@ -2081,6 +2617,16 @@ Creates an abstract map assoc field.
 The result represents "`Name => Value`".
 
 _See also: _`map_expr/2`, `map_field_assoc_name/1`, `map_field_assoc_value/1`.
+
+## Examples
+
+```erlang
+1> MF = erl_syntax:map_field_assoc(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(MF).
+"name => \"Alice\""                
+3> erl_syntax:type(MF).
+map_field_assoc
+```
 """.
 -spec map_field_assoc(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -2102,6 +2648,18 @@ revert_map_field_assoc(Node) ->
 Returns the name subtree of a `map_field_assoc` node.
 
 _See also: _`map_field_assoc/2`.
+
+## Examples
+
+```erlang
+1> MF = erl_syntax:map_field_assoc(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(MF).
+"name => \"Alice\"" 
+3> erl_syntax:map_field_assoc_name(MF).
+{tree,atom,{attr,0,[],none},name}
+4> erl_prettypr:format(erl_syntax:map_field_assoc_name(MF)).
+"name"
+```
 """.
 -spec map_field_assoc_name(syntaxTree()) -> syntaxTree().
 
@@ -2118,6 +2676,16 @@ map_field_assoc_name(Node) ->
 Returns the value subtree of a `map_field_assoc` node.
 
 _See also: _`map_field_assoc/2`.
+
+## Examples
+
+```erlang
+1> MF = erl_syntax:map_field_assoc(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(MF).
+"name => \"Alice\""
+3> erl_syntax:map_field_assoc_value(MF).
+{tree,string,{attr,0,[],none},"Alice"}
+```
 """.
 -spec map_field_assoc_value(syntaxTree()) -> syntaxTree().
 
@@ -2138,6 +2706,16 @@ Creates an abstract map exact field.
 The result represents "`Name := Value`".
 
 _See also: _`map_expr/2`, `map_field_exact_name/1`, `map_field_exact_value/1`.
+
+## Examples
+
+```erlang
+1> MFE = erl_syntax:map_field_exact(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(MFE).
+"name := \"Alice\""
+3> erl_syntax:type(MFE).
+map_field_exact
+```
 """.
 -spec map_field_exact(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -2159,6 +2737,16 @@ revert_map_field_exact(Node) ->
 Returns the name subtree of a `map_field_exact` node.
 
 _See also: _`map_field_exact/2`.
+
+## Examples
+
+```erlang
+1> MFE = erl_syntax:map_field_exact(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(MFE).
+"name := \"Alice\""
+3> erl_syntax:map_field_exact_name(MFE).
+{tree,atom,{attr,0,[],none},name}
+```
 """.
 -spec map_field_exact_name(syntaxTree()) -> syntaxTree().
 
@@ -2175,6 +2763,18 @@ map_field_exact_name(Node) ->
 Returns the value subtree of a `map_field_exact` node.
 
 _See also: _`map_field_exact/2`.
+
+## Examples
+
+```erlang
+1> MFE = erl_syntax:map_field_exact(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(MFE).
+"name := \"Alice\""
+3> MFEV = erl_syntax:map_field_exact_value(MFE).
+{tree,string,{attr,0,[],none},"Alice"}
+4> erl_syntax:type(MFEV).
+string
+```
 """.
 -spec map_field_exact_value(syntaxTree()) -> syntaxTree().
 
@@ -2199,6 +2799,14 @@ Xn}`".
 > from `X` itself.
 
 _See also: _`tuple_elements/1`, `tuple_size/1`.
+
+## Examples
+
+```erlang
+1> T = erl_syntax:tuple([erl_syntax:atom(ok), erl_syntax:integer(1)]).
+2> erl_prettypr:format(T).
+"{ok, 1}"
+```
 """.
 -spec tuple([syntaxTree()]) -> syntaxTree().
 
@@ -2220,6 +2828,17 @@ revert_tuple(Node) ->
 Returns the list of element subtrees of a `tuple` node.
 
 _See also: _`tuple/1`.
+
+## Examples
+
+```erlang
+1> T = erl_syntax:tuple([erl_syntax:atom(ok), erl_syntax:integer(1)]).
+2> erl_prettypr:format(T).
+"{ok, 1}"
+3> erl_syntax:tuple_elements(T).
+[{tree,atom,{attr,0,[],none},ok},
+ {tree,integer,{attr,0,[],none},1}]
+```
 """.
 -spec tuple_elements(syntaxTree()) -> [syntaxTree()].
 
@@ -2241,6 +2860,16 @@ Returns the number of elements of a `tuple` node.
 > but potentially more efficient.
 
 _See also: _`tuple/1`, `tuple_elements/1`.
+
+## Examples
+
+```erlang
+1> T = erl_syntax:tuple([erl_syntax:atom(ok), erl_syntax:integer(1)]).
+2> erl_prettypr:format(T).
+"{ok, 1}"
+3> erl_syntax:tuple_size(T).
+2
+```
 """.
 -spec tuple_size(syntaxTree()) -> non_neg_integer().
 
@@ -2288,6 +2917,14 @@ deconstruction in terms of cons and head/tail operations.
 _See also: _`compact_list/1`, `cons/2`, `get_attrs/1`, `is_list_skeleton/1`,
 `is_proper_list/1`, `list/1`, `list_elements/1`, `list_head/1`, `list_length/1`,
 `list_prefix/1`, `list_suffix/1`, `list_tail/1`, `nil/0`, `normalize_list/1`.
+
+## Examples
+
+```erlang
+1> L = erl_syntax:list([erl_syntax:integer(1), erl_syntax:integer(2)], none).
+2> erl_syntax:type(L).
+list
+```
 """.
 -spec list([syntaxTree()], 'none' | syntaxTree()) -> syntaxTree().
 
@@ -2351,6 +2988,16 @@ The result represents "`[]`". The empty list is traditionally called
 "nil".
 
 _See also: _`is_list_skeleton/1`, `list/2`.
+
+## Examples
+
+```erlang
+1> N = erl_syntax:nil().
+2> erl_prettypr:format(N).
+"[]"
+3> erl_syntax:type(N).
+nil
+```
 """.
 -spec nil() -> syntaxTree().
 
@@ -2373,6 +3020,15 @@ If `Node` represents "`[E1, ..., En]`" or "`[E1, ..., En |
 Tail]`", the returned value is `[E1, ..., En]`.
 
 _See also: _`list/2`.
+
+## Examples
+
+```erlang
+1> L = erl_syntax:list([erl_syntax:integer(1), erl_syntax:integer(2)], none).
+2> erl_syntax:list_prefix(L).
+[{tree,integer,{attr,0,[],none},1},
+ {tree,integer,{attr,0,[],none},2}]
+```
 """.
 -spec list_prefix(syntaxTree()) -> [syntaxTree()].
 
@@ -2405,6 +3061,14 @@ returned.
 > list skeleton has not been compacted (see `compact_list/1`).
 
 _See also: _`compact_list/1`, `list/2`, `nil/0`.
+
+## Examples
+
+```erlang
+1> L = erl_syntax:list([erl_syntax:integer(1), erl_syntax:integer(2)], none).
+2> erl_syntax:list_suffix(L).
+none
+```
 """.
 -spec list_suffix(syntaxTree()) -> 'none' | syntaxTree().
 
@@ -2443,6 +3107,14 @@ For example, if `Tail` represents `[X, Y]`, the result may represent
 comments on `Tail` are propagated to the result.
 
 _See also: _`list/2`, `list_head/1`, `list_tail/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:cons(erl_syntax:integer(1), erl_syntax:nil()).
+2> erl_prettypr:format(C).
+"[1]"
+```
 """.
 -spec cons(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -2464,6 +3136,16 @@ Returns the head element subtree of a `list` node.
 If `Node` represents "`[Head ...]`", the result will represent "`Head`".
 
 _See also: _`cons/2`, `list/2`, `list_tail/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:cons(erl_syntax:integer(1), erl_syntax:nil()).
+2> erl_prettypr:format(C).
+"[1]"
+3> erl_syntax:integer_value(erl_syntax:list_head(C)).
+1
+```
 """.
 -spec list_head(syntaxTree()) -> syntaxTree().
 
@@ -2481,6 +3163,18 @@ represents "`[Head | Tail]`", the result will represent
 "`Tail`".
 
 _See also: _`cons/2`, `list/2`, `list_head/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:cons(erl_syntax:integer(1), erl_syntax:nil()).
+2> erl_prettypr:format(C).
+"[1]"
+3> LT = erl_syntax:list_tail(C).
+{tree,nil,{attr,0,[],none},[]}
+4> erl_syntax:type(LT).
+nil
+```
 """.
 -spec list_tail(syntaxTree()) -> syntaxTree().
 
@@ -2502,6 +3196,16 @@ list_tail(Node) ->
 Returns `true` if `Node` has type `list` or `nil`, otherwise `false`.
 
 _See also: _`list/2`, `nil/0`.
+
+## Examples
+
+```erlang
+1> L = erl_syntax:list([erl_syntax:integer(1)], erl_syntax:integer(2)).
+2> erl_prettypr:format(L).
+"[1 | 2]"
+3> erl_syntax:is_list_skeleton(L).
+true
+```
 """.
 -spec is_list_skeleton(syntaxTree()) -> boolean().
 
@@ -2531,6 +3235,16 @@ represents a proper list.
 > "`[A | []]`", the function will return `true`.
 
 _See also: _`list/2`.
+
+## Examples
+
+```erlang
+1> L = erl_syntax:list([erl_syntax:integer(1), erl_syntax:integer(2)], none).
+2> erl_prettypr:format(L).
+"[1, 2]"
+3> erl_syntax:is_proper_list(L).
+true
+```
 """.
 -spec is_proper_list(syntaxTree()) -> boolean().
 
@@ -2559,6 +3273,17 @@ Returns the list of element subtrees of a list skeleton.
 X3, X4]`.
 
 _See also: _`is_proper_list/1`, `list/2`.
+
+## Examples
+
+```erlang
+1> L = erl_syntax:list([erl_syntax:integer(1), erl_syntax:integer(2)], none).
+2> erl_prettypr:format(L).
+"[1, 2]"
+3> erl_syntax:list_elements(L).
+[{tree,integer,{attr,0,[],none},1},
+ {tree,integer,{attr,0,[],none},2}]
+```
 """.
 -spec list_elements(syntaxTree()) -> [syntaxTree()].
 
@@ -2593,6 +3318,16 @@ Returns the number of element subtrees of a list skeleton.
 > potentially more efficient.
 
 _See also: _`is_proper_list/1`, `list/2`, `list_elements/1`.
+
+## Examples
+
+```erlang
+1> L = erl_syntax:list([erl_syntax:integer(1), erl_syntax:integer(2)], none).
+2> erl_prettypr:format(L).
+"[1, 2]"
+3> erl_syntax:list_length(L).
+2
+```
 """.
 -spec list_length(syntaxTree()) -> non_neg_integer().
 
@@ -2625,6 +3360,29 @@ represents "`[E1, ..., En]`", the result simply represents "`[E1
 skeleton, `Node` itself is returned.
 
 _See also: _`compact_list/1`, `list/2`.
+
+## Examples
+
+Makes a list `[1, 2 | 3]` and normalizes it into `[1 | [2 | 3]]`.
+
+```erlang
+1> L = erl_syntax:list([erl_syntax:integer(1), erl_syntax:integer(2)], erl_syntax:integer(3)).
+{tree,list,
+      {attr,0,[],none},
+      {list,[{tree,integer,{attr,0,[],none},1},
+             {tree,integer,{attr,0,[],none},2}],
+            {tree,integer,{attr,0,[],none},3}}}
+2> erl_prettypr:format(L).
+"[1, 2 | 3]"
+3> NL = erl_syntax:normalize_list(L).
+{tree,list,
+      {attr,0,[],none},
+      {list,[{tree,integer,{attr,0,[],none},1}],
+            {tree,list,
+                  {attr,0,[],none},
+                  {list,[{tree,integer,{attr,0,[],none},2}],
+                        {tree,integer,{attr,0,[],none},3}}}}}
+```
 """.
 -spec normalize_list(syntaxTree()) -> syntaxTree().
 
@@ -2661,6 +3419,28 @@ result. Returns `Node` itself if `Node` does not represent a list
 skeleton.
 
 _See also: _`list/2`, `normalize_list/1`.
+
+## Examples
+
+Create a list `[1, 2 | none]` and normalize it into `[1 | 2 | []]`. Compact back to `[1, 2 | none]`.
+
+```erlang
+1> L = erl_syntax:list([erl_syntax:integer(1), erl_syntax:integer(2)], none).
+2> NL = erl_syntax:normalize_list(L).
+{tree,list,
+      {attr,0,[],none},
+      {list,[{tree,integer,{attr,0,[],none},1}],
+            {tree,list,
+                  {attr,0,[],none},
+                  {list,[{tree,integer,{attr,0,[],none},2}],
+                        {tree,nil,{attr,0,[],none},[]}}}}}
+3> erl_syntax:compact_list(NL).
+{tree,list,
+      {attr,0,[],{com,[],[]}},
+      {list,[{tree,integer,{attr,0,[],none},1},
+             {tree,integer,{attr,0,[],none},2}],
+            none}}
+```
 """.
 -spec compact_list(syntaxTree()) -> syntaxTree().
 
@@ -2701,6 +3481,14 @@ If `Fields` is `[F1, ..., Fn]`, the result represents "`<<F1, ...,
 Fn>>`".
 
 _See also: _`binary_field/2`, `binary_fields/1`.
+
+## Examples
+
+```erlang
+1> B = erl_syntax:binary([erl_syntax:binary_field(erl_syntax:integer(65), [erl_syntax:atom(integer)])]).
+2> erl_prettypr:format(B).
+"<<65/integer>>"
+```
 """.
 -spec binary([syntaxTree()]) -> syntaxTree().
 
@@ -2726,6 +3514,19 @@ revert_binary(Node) ->
 Returns the list of field subtrees of a `binary` node.
 
 _See also: _`binary/1`, `binary_field/2`.
+
+## Examples
+
+```erlang
+1> B = erl_syntax:binary([erl_syntax:binary_field(erl_syntax:integer(65), [erl_syntax:atom(integer)])]).
+2> erl_prettypr:format(B).
+"<<65/integer>>"
+3> erl_syntax:binary_fields(B).
+[{tree,binary_field,
+       {attr,0,[],none},
+       {binary_field,{tree,integer,{attr,0,[],none},65},
+                     [{tree,atom,{attr,0,[],none},integer}]}}]
+```
 """.
 -spec binary_fields(syntaxTree()) -> [syntaxTree()].
 
@@ -2760,6 +3561,16 @@ Types)`](`binary_field/2`)".
 (This is a utility function.)
 
 _See also: _`binary/1`, `binary_field/2`, `size_qualifier/2`.
+
+## Examples
+
+```erlang
+1> BF = erl_syntax:binary_field(erl_syntax:integer(65), erl_syntax:integer(8), [erl_syntax:atom(integer)]).
+2> erl_prettypr:format(BF).
+"65:8/integer"
+3> erl_syntax:type(BF).
+binary_field
+```
 """.
 -spec binary_field(syntaxTree(), 'none' | syntaxTree(), [syntaxTree()]) ->
         syntaxTree().
@@ -2781,6 +3592,16 @@ represents "`Body/T1-...-Tn`".
 
 _See also: _`binary/1`, `binary_field/1`, `binary_field/3`,
 `binary_field_body/1`, `binary_field_size/1`, `binary_field_types/1`.
+
+## Examples
+
+```erlang
+1> BF = erl_syntax:binary_field(erl_syntax:integer(65), [erl_syntax:atom(integer)]).
+2> erl_prettypr:format(BF).
+"65/integer"
+3> erl_syntax:type(BF).
+binary_field
+```
 """.
 -spec binary_field(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -2821,6 +3642,21 @@ revert_binary_field(Node) ->
 Returns the body subtree of a `binary_field`.
 
 _See also: _`binary_field/2`.
+
+## Examples
+
+Extracts `65` from an example binary field `<<65/integer>>`.
+
+```erlang
+1> BF = erl_syntax:binary_field(erl_syntax:integer(65), [erl_syntax:atom(integer)]).
+2> erl_prettypr:format(BF).
+"65/integer"
+3> BFB = erl_syntax:binary_field_body(BF).
+4> erl_prettypr:format(BFB).
+"65"
+5> erl_syntax:type(BFB).
+integer
+```
 """.
 -spec binary_field_body(syntaxTree()) -> syntaxTree().
 
@@ -2844,6 +3680,16 @@ If `Node` represents "`.../T1, ..., Tn`", the result is `[T1,
 ..., Tn]`, otherwise the result is the empty list.
 
 _See also: _`binary_field/2`.
+
+## Examples
+
+```erlang
+1> BF = erl_syntax:binary_field(erl_syntax:integer(65), erl_syntax:integer(8), [erl_syntax:atom(integer)]).
+2> erl_prettypr:format(BF).
+"65:8/integer"
+3> erl_syntax:binary_field_types(BF).
+[{tree,atom,{attr,0,[],none},integer}]
+```
 """.
 -spec binary_field_types(syntaxTree()) -> [syntaxTree()].
 
@@ -2869,6 +3715,18 @@ Tn`", the result is `Size`, otherwise `none` is returned.
 (This is a utility function.)
 
 _See also: _`binary_field/2`, `binary_field/3`.
+
+## Examples
+
+Extracts `8` from an example binary `<<65:8/integer>>`.
+
+```erlang
+1> BF = erl_syntax:binary_field(erl_syntax:integer(65), erl_syntax:integer(8), [erl_syntax:atom(integer)]).
+2> erl_prettypr:format(BF).
+"65:8/integer"
+3> erl_syntax:type(erl_syntax:binary_field_size(BF)).
+integer
+```
 """.
 -spec binary_field_size(syntaxTree()) -> 'none' | syntaxTree().
 
@@ -2899,6 +3757,14 @@ Creates an abstract size qualifier.
 The result represents "`Body:Size`".
 
 _See also: _`size_qualifier_argument/1`, `size_qualifier_body/1`.
+
+## Examples
+
+```erlang
+1> SQ = erl_syntax:size_qualifier(erl_syntax:atom(integer), erl_syntax:integer(8)).
+2> erl_syntax:type(SQ).
+size_qualifier
+```
 """.
 -spec size_qualifier(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -2911,6 +3777,16 @@ size_qualifier(Body, Size) ->
 Returns the body subtree of a `size_qualifier` node.
 
 _See also: _`size_qualifier/2`.
+
+## Examples
+
+Size qualifier body of `:8/integer` is atom `'integer'`.
+
+```erlang
+1> SQ = erl_syntax:size_qualifier(erl_syntax:atom(integer), erl_syntax:integer(8)).
+2> erl_syntax:size_qualifier_body(SQ).
+{tree,atom,{attr,0,[],none},integer}
+```
 """.
 -spec size_qualifier_body(syntaxTree()) -> syntaxTree().
 
@@ -2922,6 +3798,14 @@ size_qualifier_body(Node) ->
 Returns the argument subtree (the size) of a `size_qualifier` node.
 
 _See also: _`size_qualifier/2`.
+
+## Examples
+
+```erlang
+1> SQ = erl_syntax:size_qualifier(erl_syntax:atom(integer), erl_syntax:integer(8)).
+2> erl_syntax:size_qualifier_argument(SQ).
+{tree,integer,{attr,0,[],none},8}
+```
 """.
 -spec size_qualifier_argument(syntaxTree()) -> syntaxTree().
 
@@ -2944,6 +3828,19 @@ regarded as source code forms, but have no defined lexical form.
 
 _See also: _`eof_marker/0`, `error_marker_info/1`, `is_form/1`,
 `warning_marker/1`.
+
+## Examples
+
+```erlang
+1> EM = erl_syntax:error_marker({1, erl_parse, ["bad syntax"]}).
+{tree,error_marker,
+      {attr,0,[],none},
+      {1,erl_parse,["bad syntax"]}}
+2> erl_prettypr:format(EM).
+"** 1: bad syntax **"
+3> erl_syntax:type(EM).
+error_marker
+```
 """.
 -spec error_marker(term()) -> syntaxTree().
 
@@ -2969,6 +3866,19 @@ revert_error_marker(Node) ->
 Returns the ErrorInfo structure of an `error_marker` node.
 
 _See also: _`error_marker/1`.
+
+## Examples
+
+```erlang
+1> EM = erl_syntax:error_marker({1, erl_parse, ["bad syntax"]}).
+{tree,error_marker,
+      {attr,0,[],none},
+      {1,erl_parse,["bad syntax"]}}
+2> erl_prettypr:format(EM).
+"** 1: bad syntax **"
+3> erl_syntax:error_marker_info(EM).
+{1,erl_parse,["bad syntax"]}
+```
 """.
 -spec error_marker_info(syntaxTree()) -> term().
 
@@ -2997,6 +3907,19 @@ form.
 
 _See also: _`eof_marker/0`, `error_marker/1`, `is_form/1`,
 `warning_marker_info/1`.
+
+## Examples
+
+```erlang
+1> WM = erl_syntax:warning_marker({1, erl_parse, ["deprecated"]}).
+{tree,warning_marker,
+      {attr,0,[],none},
+      {1,erl_parse,["deprecated"]}}
+2> erl_prettypr:format(WM).
+"%% WARNING: 1: deprecated"
+3> erl_syntax:type(WM).
+warning_marker
+```
 """.
 -spec warning_marker(term()) -> syntaxTree().
 
@@ -3022,6 +3945,19 @@ revert_warning_marker(Node) ->
 Returns the ErrorInfo structure of a `warning_marker` node.
 
 _See also: _`warning_marker/1`.
+
+## Examples
+
+```erlang
+1> WM = erl_syntax:warning_marker({1, erl_parse, ["deprecated"]}).
+{tree,warning_marker,
+      {attr,0,[],none},
+      {1,erl_parse,["deprecated"]}}
+2> erl_prettypr:format(WM).
+"%% WARNING: 1: deprecated"
+3> erl_syntax:warning_marker_info(WM).
+{1,erl_parse,["deprecated"]}
+```
 """.
 -spec warning_marker_info(syntaxTree()) -> term().
 
@@ -3048,6 +3984,16 @@ defined lexical form.
 > and tools.
 
 _See also: _`error_marker/1`, `is_form/1`, `warning_marker/1`.
+
+## Examples
+
+```erlang
+1> EM = erl_syntax:eof_marker().
+2> erl_prettypr:format(EM).
+[]
+3> erl_syntax:type(EM).
+eof_marker
+```
 """.
 -spec eof_marker() -> syntaxTree().
 
@@ -3091,6 +4037,16 @@ are source code forms.
 
 _See also: _`attribute/1`, `attribute_arguments/1`, `attribute_name/1`,
 `is_form/1`, `text/1`.
+
+## Examples
+
+```erlang
+1> A = erl_syntax:attribute(erl_syntax:atom(module), [erl_syntax:atom(demo)]).
+2> erl_prettypr:format(A).
+"-module(demo)."
+3> erl_syntax:type(A).
+attribute
+```
 """.
 -spec attribute(syntaxTree(), 'none' | [syntaxTree()]) -> syntaxTree().
 
@@ -3335,6 +4291,17 @@ revert_module_name(A) ->
 Returns the name subtree of an `attribute` node.
 
 _See also: _`attribute/1`.
+
+## Examples
+
+```erlang
+1> A = erl_syntax:attribute(erl_syntax:atom(module), [erl_syntax:atom(demo)]).
+2> erl_prettypr:format(A).
+"-module(demo)."
+3> AN = erl_syntax:attribute_name(A).
+4> erl_prettypr:format(AN).
+"module"
+```
 """.
 -spec attribute_name(syntaxTree()) -> syntaxTree().
 
@@ -3355,6 +4322,16 @@ If `Node` represents "`-Name.`", the result is `none`. Otherwise, if
 returned.
 
 _See also: _`attribute/1`.
+
+## Examples
+
+```erlang
+1> A = erl_syntax:attribute(erl_syntax:atom(module), [erl_syntax:atom(demo)]).
+2> erl_prettypr:format(A).
+"-module(demo)."
+3> erl_syntax:attribute_arguments(A).
+[{tree,atom,{attr,0,[],none},demo}]
+```
 """.
 -spec attribute_arguments(syntaxTree()) -> none | [syntaxTree()].
 
@@ -3423,6 +4400,16 @@ Creates an abstract arity qualifier.
 The result represents "`Body/Arity`".
 
 _See also: _`arity_qualifier_argument/1`, `arity_qualifier_body/1`.
+
+## Examples
+
+```erlang
+1> AQ = erl_syntax:arity_qualifier(erl_syntax:atom(size), erl_syntax:integer(1)).
+2> erl_prettypr:format(AQ).
+"size/1"
+3> erl_syntax:type(AQ).
+arity_qualifier
+```
 """.
 -spec arity_qualifier(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -3435,6 +4422,18 @@ arity_qualifier(Body, Arity) ->
 Returns the body subtree of an `arity_qualifier` node.
 
 _See also: _`arity_qualifier/2`.
+
+## Examples
+
+```erlang
+1> AQ = erl_syntax:arity_qualifier(erl_syntax:atom(size), erl_syntax:integer(1)).
+2> erl_prettypr:format(AQ).
+"size/1"
+3> erl_syntax:arity_qualifier_body(AQ).
+{tree,atom,{attr,0,[],none},size}
+4> erl_syntax:type(erl_syntax:arity_qualifier_body(AQ)).
+atom
+```
 """.
 -spec arity_qualifier_body(syntaxTree()) -> syntaxTree().
 
@@ -3446,6 +4445,18 @@ arity_qualifier_body(Node) ->
 Returns the argument (the arity) subtree of an `arity_qualifier` node.
 
 _See also: _`arity_qualifier/2`.
+
+## Examples
+
+```erlang
+1> AQ = erl_syntax:arity_qualifier(erl_syntax:atom(size), erl_syntax:integer(1)).
+2> erl_prettypr:format(AQ).
+"size/1"
+3> erl_syntax:arity_qualifier_argument(AQ).
+{tree,integer,{attr,0,[],none},1}
+4> erl_syntax:type(erl_syntax:arity_qualifier_argument(AQ)).
+integer
+```
 """.
 -spec arity_qualifier_argument(syntaxTree()) -> syntaxTree().
 
@@ -3461,6 +4472,16 @@ Creates an abstract module qualifier.
 The result represents "`Module:Body`".
 
 _See also: _`module_qualifier_argument/1`, `module_qualifier_body/1`.
+
+## Examples
+
+```erlang
+1> MQ = erl_syntax:module_qualifier(erl_syntax:atom(lists), erl_syntax:atom(reverse)).
+2> erl_prettypr:format(MQ).
+"lists:reverse"
+3> erl_syntax:type(MQ).
+module_qualifier
+```
 """.
 -spec module_qualifier(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -3485,6 +4506,18 @@ revert_module_qualifier(Node) ->
 Returns the argument (the module) subtree of a `module_qualifier` node.
 
 _See also: _`module_qualifier/2`.
+
+## Examples
+
+```erlang
+1> MQ = erl_syntax:module_qualifier(erl_syntax:atom(lists), erl_syntax:atom(reverse)).
+2> erl_prettypr:format(MQ).
+"lists:reverse"
+3> erl_syntax:module_qualifier_argument(MQ).
+{tree,atom,{attr,0,[],none},lists}
+4> erl_syntax:type(erl_syntax:module_qualifier_argument(MQ)).
+atom
+```
 """.
 -spec module_qualifier_argument(syntaxTree()) -> syntaxTree().
 
@@ -3501,6 +4534,18 @@ module_qualifier_argument(Node) ->
 Returns the body subtree of a `module_qualifier` node.
 
 _See also: _`module_qualifier/2`.
+
+## Examples
+
+```erlang
+1> MQ = erl_syntax:module_qualifier(erl_syntax:atom(lists), erl_syntax:atom(reverse)).
+2> erl_prettypr:format(MQ).
+"lists:reverse"
+3> erl_syntax:module_qualifier_body(MQ).
+{tree,atom,{attr,0,[],none},reverse}
+4> erl_syntax:type(erl_syntax:module_qualifier_body(MQ)).
+atom
+```
 """.
 -spec module_qualifier_body(syntaxTree()) -> syntaxTree().
 
@@ -3535,6 +4580,19 @@ Function definitions are source code forms.
 
 _See also: _`function_arity/1`, `function_clauses/1`, `function_name/1`,
 `is_form/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+3> F = erl_syntax:function(erl_syntax:atom(identity), [C]).
+4> erl_prettypr:format(F).
+"identity(X) -> X."
+5> erl_syntax:type(F).
+function
+```
 """.
 -spec function(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -3571,6 +4629,22 @@ revert_function(Node) ->
 Returns the name subtree of a `function` node.
 
 _See also: _`function/2`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+3> F = erl_syntax:function(erl_syntax:atom(identity), [C]).
+4> erl_prettypr:format(F).
+"identity(X) -> X."
+5> FN = erl_syntax:function_name(F).
+6> erl_prettypr:format(FN).
+"identity"
+7> erl_syntax:type(FN).
+atom
+```
 """.
 -spec function_name(syntaxTree()) -> syntaxTree().
 
@@ -3587,6 +4661,23 @@ function_name(Node) ->
 Returns the list of clause subtrees of a `function` node.
 
 _See also: _`function/2`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+3> F = erl_syntax:function(erl_syntax:atom(identity), [C]).
+4> erl_prettypr:format(F).
+"identity(X) -> X."
+5> FCs = erl_syntax:function_clauses(F).
+[{tree,clause,
+       {attr,0,[],none},
+       {clause,[{tree,variable,{attr,0,[],none},'X'}],
+               none,
+               [{tree,variable,{attr,0,[],none},'X'}]}}]
+```
 """.
 -spec function_clauses(syntaxTree()) -> [syntaxTree()].
 
@@ -3611,6 +4702,19 @@ returns an empty list, or if the first element of that list is not a syntax tree
 nonempty list.
 
 _See also: _`clause/3`, `clause_patterns/1`, `function/2`, `function_clauses/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+3> F = erl_syntax:function(erl_syntax:atom(identity), [C]).
+4> erl_prettypr:format(F).
+"identity(X) -> X."
+5> FA = erl_syntax:function_arity(F).
+1
+```
 """.
 -spec function_arity(syntaxTree()) -> arity().
 
@@ -3654,6 +4758,16 @@ For simplicity, the `Guard` argument may also be any of the following:
   `disjunction([conjunction([E1_1, ..., E1_k1]), ..., conjunction([Ej_1, ..., Ej_kj])])`.
 
 _See also: _`clause/2`, `clause_body/1`, `clause_guard/1`, `clause_patterns/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+3> erl_syntax:type(C).
+clause
+```
 """.
 -spec clause([syntaxTree()], guard(), [syntaxTree()]) -> syntaxTree().
 
@@ -3757,6 +4871,16 @@ unfold_try_clause({clause, Pos, [{tuple, _, [C, V, Stacktrace]}],
 Returns the list of pattern subtrees of a `clause` node.
 
 _See also: _`clause/3`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"            
+3> erl_syntax:clause_patterns(C).
+[{tree,variable,{attr,0,[],none},'X'}]
+```
 """.
 -spec clause_patterns(syntaxTree()) -> [syntaxTree()].
 
@@ -3776,6 +4900,16 @@ If `Node` represents "`(P1, ..., Pn) when Guard -> B1, ...,
 Bm`", `Guard` is returned.  Otherwise, the result is `none`.
 
 _See also: _`clause/3`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], erl_syntax:atom(true), [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) when true -> X"
+3> erl_syntax:clause_guard(C).
+{tree,atom,{attr,0,[],none},true}
+```
 """.
 -spec clause_guard(syntaxTree()) -> 'none' | syntaxTree().
 
@@ -3798,6 +4932,16 @@ clause_guard(Node) ->
 Return the list of body subtrees of a `clause` node.
 
 _See also: _`clause/3`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+3> erl_syntax:clause_body(C).
+[{tree,variable,{attr,0,[],none},'X'}]
+```
 """.
 -spec clause_body(syntaxTree()) -> [syntaxTree()].
 
@@ -3816,6 +4960,16 @@ Creates an abstract disjunction.
 If `List` is `[E1, ..., En]`, the result represents "`E1; ...; En`".
 
 _See also: _`conjunction/1`, `disjunction_body/1`.
+
+## Examples
+
+```erlang
+1> D = erl_syntax:disjunction([erl_syntax:atom(true), erl_syntax:atom(false)]).
+2> erl_prettypr:format(D).
+"true; false"
+3> erl_syntax:type(D).
+disjunction
+```
 """.
 -spec disjunction([syntaxTree()]) -> syntaxTree().
 
@@ -3827,6 +4981,17 @@ disjunction(Tests) ->
 Returns the list of body subtrees of a `disjunction` node.
 
 _See also: _`disjunction/1`.
+
+## Examples
+
+```erlang
+1> D = erl_syntax:disjunction([erl_syntax:atom(true), erl_syntax:atom(false)]).
+2> erl_prettypr:format(D).
+"true; false"
+3> erl_syntax:disjunction_body(D).
+[{tree,atom,{attr,0,[],none},true},
+ {tree,atom,{attr,0,[],none},false}]
+```
 """.
 -spec disjunction_body(syntaxTree()) -> [syntaxTree()].
 
@@ -3840,6 +5005,16 @@ Creates an abstract conjunction.
 If `List` is `[E1, ..., En]`, the result represents "`E1, ..., En`".
 
 _See also: _`conjunction_body/1`, `disjunction/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:conjunction([erl_syntax:atom(true), erl_syntax:atom(false)]).
+2> erl_prettypr:format(C).
+"true, false"
+3> erl_syntax:type(C).
+conjunction
+```
 """.
 -spec conjunction([syntaxTree()]) -> syntaxTree().
 
@@ -3851,6 +5026,17 @@ conjunction(Tests) ->
 Returns the list of body subtrees of a `conjunction` node.
 
 _See also: _`conjunction/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:conjunction([erl_syntax:atom(true), erl_syntax:atom(false)]).
+2> erl_prettypr:format(C).
+"true, false"
+3> erl_syntax:conjunction_body(C).
+[{tree,atom,{attr,0,[],none},true},
+ {tree,atom,{attr,0,[],none},false}]
+```
 """.
 -spec conjunction_body(syntaxTree()) -> [syntaxTree()].
 
@@ -3864,6 +5050,16 @@ Creates an abstract catch-expression.
 The result represents "`catch Expr`".
 
 _See also: _`catch_expr_body/1`.
+
+## Examples
+
+```erlang
+1> CE = erl_syntax:catch_expr(erl_syntax:application(erl_syntax:atom(fail), [])).
+2> erl_prettypr:format(CE).
+"catch fail()"
+3> erl_syntax:type(CE).
+catch_expr
+```
 """.
 -spec catch_expr(syntaxTree()) -> syntaxTree().
 
@@ -3886,6 +5082,17 @@ revert_catch_expr(Node) ->
 Returns the body subtree of a `catch_expr` node.
 
 _See also: _`catch_expr/1`.
+
+## Examples
+
+```erlang
+1> CE = erl_syntax:catch_expr(erl_syntax:application(erl_syntax:atom(fail), [])).
+2> erl_prettypr:format(CE).
+"catch fail()"
+3> CEB = erl_syntax:catch_expr_body(CE).
+4> erl_syntax:type(CEB).
+application
+```
 """.
 -spec catch_expr_body(syntaxTree()) -> syntaxTree().
 
@@ -3906,6 +5113,16 @@ Creates an abstract match-expression.
 The result represents "`Pattern = Body`".
 
 _See also: _`match_expr_body/1`, `match_expr_pattern/1`.
+
+## Examples
+
+```erlang
+1> ME = erl_syntax:match_expr(erl_syntax:variable("X"), erl_syntax:integer(1)).
+2> erl_prettypr:format(ME).
+"X = 1"
+3> erl_syntax:type(ME).
+match_expr
+```
 """.
 -spec match_expr(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -3929,6 +5146,18 @@ revert_match_expr(Node) ->
 Returns the pattern subtree of a `match_expr` node.
 
 _See also: _`match_expr/2`.
+
+## Examples
+
+```erlang
+1> ME = erl_syntax:match_expr(erl_syntax:variable("X"), erl_syntax:integer(1)).
+2> erl_prettypr:format(ME).
+"X = 1"
+3> erl_syntax:match_expr_pattern(ME).
+{tree,variable,{attr,0,[],none},'X'}
+4> erl_syntax:type(erl_syntax:match_expr_pattern(ME)).
+variable
+```
 """.
 -spec match_expr_pattern(syntaxTree()) -> syntaxTree().
 
@@ -3945,6 +5174,18 @@ match_expr_pattern(Node) ->
 Returns the body subtree of a `match_expr` node.
 
 _See also: _`match_expr/2`.
+
+## Examples
+
+```erlang
+1> ME = erl_syntax:match_expr(erl_syntax:variable("X"), erl_syntax:integer(1)).
+2> erl_prettypr:format(ME).
+"X = 1"
+3> erl_syntax:match_expr_body(ME).
+{tree,integer,{attr,0,[],none},1}
+4> erl_syntax:type(erl_syntax:match_expr_body(ME)).
+integer
+```
 """.
 -spec match_expr_body(syntaxTree()) -> syntaxTree().
 
@@ -3966,6 +5207,16 @@ The result represents "`Pattern ?= Body`".
 
 _See also: _`maybe_expr/2`, `maybe_match_expr_body/1`,
 `maybe_match_expr_pattern/1`.
+
+## Examples
+
+```erlang
+1> MME = erl_syntax:maybe_match_expr(erl_syntax:variable("X"), erl_syntax:atom(ok)).
+2> erl_prettypr:format(MME).
+"X ?= ok"
+3> erl_syntax:type(MME).
+maybe_match_expr
+```
 """.
 -spec maybe_match_expr(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -3989,6 +5240,18 @@ revert_maybe_match_expr(Node) ->
 Returns the pattern subtree of a `maybe_expr` node.
 
 _See also: _`maybe_match_expr/2`.
+
+## Examples
+
+```erlang
+1> MME = erl_syntax:maybe_match_expr(erl_syntax:variable("X"), erl_syntax:atom(ok)).
+2> erl_prettypr:format(MME).
+"X ?= ok"
+3> erl_syntax:maybe_match_expr_pattern(MME).
+{tree,variable,{attr,0,[],none},'X'}
+4> erl_syntax:type(erl_syntax:maybe_match_expr_pattern(MME)).
+variable
+```
 """.
 -spec maybe_match_expr_pattern(syntaxTree()) -> syntaxTree().
 
@@ -4005,6 +5268,18 @@ maybe_match_expr_pattern(Node) ->
 Returns the body subtree of a `maybe_expr` node.
 
 _See also: _`maybe_match_expr/2`.
+
+## Examples
+
+```erlang
+1> MME = erl_syntax:maybe_match_expr(erl_syntax:variable("X"), erl_syntax:atom(ok)).
+2> erl_prettypr:format(MME).
+"X ?= ok"
+3> erl_syntax:maybe_match_expr_body(MME).
+{tree,atom,{attr,0,[],none},ok}
+4> erl_syntax:type(erl_syntax:maybe_match_expr_body(MME)).
+atom
+```
 """.
 -spec maybe_match_expr_body(syntaxTree()) -> syntaxTree().
 
@@ -4028,6 +5303,16 @@ result of [`operator('++')`](`operator/1`) represents "`++`" rather
 than "`'++'`".
 
 _See also: _`atom/1`, `operator_literal/1`, `operator_name/1`.
+
+## Examples
+
+```erlang
+1> O = erl_syntax:operator("+").
+2> erl_prettypr:format(O).
+"+"
+3> erl_syntax:type(O).
+operator
+```
 """.
 -spec operator(atom() | string()) -> syntaxTree().
 
@@ -4043,6 +5328,13 @@ Returns the name of an `operator` node.
 Note that the name is returned as an atom.
 
 _See also: _`operator/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:operator_name(erl_syntax:operator("+")).
+'+'
+```
 """.
 -spec operator_name(syntaxTree()) -> atom().
 
@@ -4056,6 +5348,13 @@ Returns the literal string represented by an `operator` node.
 This is simply the operator name as a string.
 
 _See also: _`operator/1`.
+
+## Examples
+
+```erlang
+1> erl_syntax:operator_literal(erl_syntax:operator("+")).
+"+"
+```
 """.
 -spec operator_literal(syntaxTree()) -> string().
 
@@ -4074,6 +5373,16 @@ The result represents "`Left Operator Right`".
 
 _See also: _`infix_expr_left/1`, `infix_expr_operator/1`, `infix_expr_right/1`,
 `prefix_expr/2`.
+
+## Examples
+
+```erlang
+1> E = erl_syntax:infix_expr(erl_syntax:integer(1), erl_syntax:operator("+"), erl_syntax:integer(2)).
+2> erl_prettypr:format(E).
+"1 + 2"
+3> erl_syntax:type(E).
+infix_expr
+```
 """.
 -spec infix_expr(syntaxTree(), syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -4107,6 +5416,18 @@ revert_infix_expr(Node) ->
 Returns the left argument subtree of an `infix_expr` node.
 
 _See also: _`infix_expr/3`.
+
+## Examples
+
+```erlang
+1> IE = erl_syntax:infix_expr(erl_syntax:integer(1), erl_syntax:operator("+"), erl_syntax:integer(2)).
+2> erl_prettypr:format(IE).
+"1 + 2"
+3> erl_syntax:infix_expr_left(IE).
+{tree,integer,{attr,0,[],none},1}
+4> erl_syntax:type(erl_syntax:infix_expr_left(IE)).
+integer
+```
 """.
 -spec infix_expr_left(syntaxTree()) -> syntaxTree().
 
@@ -4123,6 +5444,18 @@ infix_expr_left(Node) ->
 Returns the operator subtree of an `infix_expr` node.
 
 _See also: _`infix_expr/3`.
+
+## Examples
+
+```erlang
+1> IE = erl_syntax:infix_expr(erl_syntax:integer(1), erl_syntax:operator("+"), erl_syntax:integer(2)).
+2> erl_prettypr:format(IE).
+"1 + 2"
+3> erl_syntax:infix_expr_operator(IE).
+{tree,operator,{attr,0,[],none},'+'}
+4> erl_syntax:type(erl_syntax:infix_expr_operator(IE)).
+operator
+```
 """.
 -spec infix_expr_operator(syntaxTree()) -> syntaxTree().
 
@@ -4139,6 +5472,18 @@ infix_expr_operator(Node) ->
 Returns the right argument subtree of an `infix_expr` node.
 
 _See also: _`infix_expr/3`.
+
+## Examples
+
+```erlang
+1> IE = erl_syntax:infix_expr(erl_syntax:integer(1), erl_syntax:operator("+"), erl_syntax:integer(2)).
+2> erl_prettypr:format(IE).
+"1 + 2"
+3> erl_syntax:infix_expr_right(IE).
+{tree,integer,{attr,0,[],none},2}
+4> erl_syntax:type(erl_syntax:infix_expr_right(IE)).
+integer
+```
 """.
 -spec infix_expr_right(syntaxTree()) -> syntaxTree().
 
@@ -4159,6 +5504,16 @@ Creates an abstract prefix operator expression.
 The result represents "`Operator Argument`".
 
 _See also: _`infix_expr/3`, `prefix_expr_argument/1`, `prefix_expr_operator/1`.
+
+## Examples
+
+```erlang
+1> PE = erl_syntax:prefix_expr(erl_syntax:operator("-"), erl_syntax:integer(1)).
+2> erl_prettypr:format(PE).
+"-1"
+3> erl_syntax:type(PE).
+prefix_expr
+```
 """.
 -spec prefix_expr(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -4191,6 +5546,18 @@ revert_prefix_expr(Node) ->
 Returns the operator subtree of a `prefix_expr` node.
 
 _See also: _`prefix_expr/2`.
+
+## Examples
+
+```erlang
+1> PE = erl_syntax:prefix_expr(erl_syntax:operator("-"), erl_syntax:integer(1)).
+2> erl_prettypr:format(PE).
+"-1"
+3> erl_syntax:prefix_expr_operator(PE).
+{tree,operator,{attr,0,[],none},'-'}
+4> erl_syntax:type(erl_syntax:prefix_expr_operator(PE)).
+operator
+```
 """.
 -spec prefix_expr_operator(syntaxTree()) -> syntaxTree().
 
@@ -4207,6 +5574,18 @@ prefix_expr_operator(Node) ->
 Returns the argument subtree of a `prefix_expr` node.
 
 _See also: _`prefix_expr/2`.
+
+## Examples
+
+```erlang
+1> PE = erl_syntax:prefix_expr(erl_syntax:operator("-"), erl_syntax:integer(1)).
+2> erl_prettypr:format(PE).
+"-1"
+3> erl_syntax:prefix_expr_argument(PE).
+{tree,integer,{attr,0,[],none},1}
+4> erl_syntax:type(erl_syntax:prefix_expr_argument(PE)).
+integer
+```
 """.
 -spec prefix_expr_argument(syntaxTree()) -> syntaxTree().
 
@@ -4237,6 +5616,16 @@ If `Value` is `none`, the result represents simply "`Name`",
 otherwise it represents "`Name = Value`".
 
 _See also: _`record_expr/3`, `record_field_name/1`, `record_field_value/1`.
+
+## Examples
+
+```erlang
+1> RF = erl_syntax:record_field(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(RF).
+"name = \"Alice\""
+3> erl_syntax:type(RF).
+record_field
+```
 """.
 -spec record_field(syntaxTree(), 'none' | syntaxTree()) -> syntaxTree().
 
@@ -4248,6 +5637,18 @@ record_field(Name, Value) ->
 Returns the name subtree of a `record_field` node.
 
 _See also: _`record_field/2`.
+
+## Examples
+
+```erlang
+1> RF = erl_syntax:record_field(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(RF).
+"name = \"Alice\""
+3> erl_syntax:record_field_name(RF).
+{tree,atom,{attr,0,[],none},name}
+4> erl_syntax:type(erl_syntax:record_field_name(RF)).
+atom
+```
 """.
 -spec record_field_name(syntaxTree()) -> syntaxTree().
 
@@ -4262,6 +5663,18 @@ If `Node` represents "`Name`", `none` is returned. Otherwise, if
 `Node` represents "`Name = Value`", `Value` is returned.
 
 _See also: _`record_field/2`.
+
+## Examples
+
+```erlang
+1> RF = erl_syntax:record_field(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(RF).
+"name = \"Alice\""
+3> erl_syntax:record_field_value(RF).
+{tree,string,{attr,0,[],none},"Alice"}
+4> erl_syntax:type(erl_syntax:record_field_value(RF)).
+string
+```
 """.
 -spec record_field_value(syntaxTree()) -> 'none' | syntaxTree().
 
@@ -4282,6 +5695,16 @@ Creates an abstract record field index expression. The result represents
 
 _See also: _`record_expr/3`, `record_index_expr_field/1`,
 `record_index_expr_type/1`.
+
+## Examples
+
+```erlang
+1> RIE = erl_syntax:record_index_expr(erl_syntax:atom(person), erl_syntax:atom(name)).
+2> erl_prettypr:format(RIE).
+"#person.name"
+3> erl_syntax:type(RIE).
+record_index_expr
+```
 """.
 -spec record_index_expr(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -4312,6 +5735,16 @@ revert_record_index_expr(Node) ->
 Returns the type subtree of a `record_index_expr` node.
 
 _See also: _`record_index_expr/2`.
+
+## Examples
+
+```erlang
+1> RIE = erl_syntax:record_index_expr(erl_syntax:atom(person), erl_syntax:atom(name)).
+2> erl_prettypr:format(RIE).
+"#person.name"
+3> erl_syntax:record_index_expr_type(RIE).
+{tree,atom,{attr,0,[],none},person}
+```
 """.
 -spec record_index_expr_type(syntaxTree()) -> syntaxTree().
 
@@ -4328,6 +5761,16 @@ record_index_expr_type(Node) ->
 Returns the field subtree of a `record_index_expr` node.
 
 _See also: _`record_index_expr/2`.
+
+## Examples
+
+```erlang
+1> RIE = erl_syntax:record_index_expr(erl_syntax:atom(person), erl_syntax:atom(name)).
+2> erl_prettypr:format(RIE).
+"#person.name"
+3> erl_syntax:record_index_expr_field(RIE).
+{tree,atom,{attr,0,[],none},name}
+```
 """.
 -spec record_index_expr_field(syntaxTree()) -> syntaxTree().
 
@@ -4351,6 +5794,16 @@ The result represents "`Argument#Type.Field`".
 
 _See also: _`record_access_argument/1`, `record_access_field/1`,
 `record_access_type/1`, `record_expr/3`.
+
+## Examples
+
+```erlang
+1> RA = erl_syntax:record_access(erl_syntax:variable("Person"), erl_syntax:atom(person), erl_syntax:atom(name)).
+2> erl_prettypr:format(RA).
+"Person#person.name"
+3> erl_syntax:type(RA).
+record_access
+```
 """.
 -spec record_access(syntaxTree(), syntaxTree(), syntaxTree()) ->
         syntaxTree().
@@ -4392,6 +5845,18 @@ revert_record_access(Node) ->
 Returns the argument subtree of a `record_access` node.
 
 _See also: _`record_access/3`.
+
+## Examples
+
+```erlang
+1> RA = erl_syntax:record_access(erl_syntax:variable("Person"), erl_syntax:atom(person), erl_syntax:atom(name)).
+2> erl_prettypr:format(RA).
+"Person#person.name"
+3> erl_syntax:record_access_argument(RA).
+{tree,variable,{attr,0,[],none},'Person'}
+4> erl_syntax:type(erl_syntax:record_access_argument(RA)).
+variable
+```
 """.
 -spec record_access_argument(syntaxTree()) -> syntaxTree().
 
@@ -4408,6 +5873,18 @@ record_access_argument(Node) ->
 Returns the type subtree of a `record_access` node.
 
 _See also: _`record_access/3`.
+
+## Examples
+
+```erlang
+1> RA = erl_syntax:record_access(erl_syntax:variable("Person"), erl_syntax:atom(person), erl_syntax:atom(name)).
+2> erl_prettypr:format(RA).
+"Person#person.name"
+3> erl_syntax:record_access_type(RA).
+{tree,atom,{attr,0,[],none},person}
+4> erl_syntax:type(erl_syntax:record_access_type(RA)).
+atom
+```
 """.
 -spec record_access_type(syntaxTree()) -> syntaxTree().
 
@@ -4428,6 +5905,18 @@ record_access_type(Node) ->
 Returns the field subtree of a `record_access` node.
 
 _See also: _`record_access/3`.
+
+## Examples
+
+```erlang
+1> RA = erl_syntax:record_access(erl_syntax:variable("Person"), erl_syntax:atom(person), erl_syntax:atom(name)).
+2> erl_prettypr:format(RA).
+"Person#person.name"
+3> erl_syntax:record_access_field(RA).
+{tree,atom,{attr,0,[],none},name}
+4> erl_syntax:type(erl_syntax:record_access_field(RA)).
+atom
+```
 """.
 -spec record_access_field(syntaxTree()) -> syntaxTree().
 
@@ -4463,6 +5952,16 @@ represents "`Argument#Type{F1, ..., Fn}`".
 _See also: _`record_access/3`, `record_expr/2`, `record_expr_argument/1`,
 `record_expr_fields/1`, `record_expr_type/1`, `record_field/2`,
 `record_index_expr/2`.
+
+## Examples
+
+```erlang
+1> RE = erl_syntax:record_expr(erl_syntax:variable("Person"), erl_syntax:atom(person), [erl_syntax:record_field(erl_syntax:atom(name), erl_syntax:string("Alice"))]).
+2> erl_prettypr:format(RE).
+"Person#person{name = \"Alice\"}"
+3> erl_syntax:type(RE).
+record_expr
+```
 """.
 -spec record_expr('none' | syntaxTree(),
                   syntaxTree() | [syntaxTree()], [syntaxTree()]) ->
@@ -4528,6 +6027,18 @@ if `Node` represents "`Argument#Type{...}`", `Argument` is
 returned.
 
 _See also: _`record_expr/3`.
+
+## Examples
+
+```erlang
+1> RE = erl_syntax:record_expr(erl_syntax:variable("Person"), erl_syntax:atom(person), [erl_syntax:record_field(erl_syntax:atom(name), erl_syntax:string("Alice"))]).
+2> erl_prettypr:format(RE).
+"Person#person{name = \"Alice\"}"
+3> erl_syntax:record_expr_argument(RE).
+{tree,variable,{attr,0,[],none},'Person'}
+4> erl_syntax:type(erl_syntax:record_expr_argument(RE)).
+variable
+```
 """.
 -spec record_expr_argument(syntaxTree()) -> 'none' | syntaxTree().
 
@@ -4546,6 +6057,18 @@ record_expr_argument(Node) ->
 Returns the type subtree of a `record_expr` node.
 
 _See also: _`record_expr/3`.
+
+## Examples
+
+```erlang
+1> RE = erl_syntax:record_expr(erl_syntax:atom(person), [erl_syntax:record_field(erl_syntax:atom(name), erl_syntax:string("Alice"))]).
+2> erl_prettypr:format(RE).
+"#person{name = \"Alice\"}"                                    
+3> erl_syntax:record_expr_type(RE).
+{tree,atom,{attr,0,[],none},person}
+4> erl_syntax:type(erl_syntax:record_expr_type(RE)).
+atom
+```
 """.
 -spec record_expr_type(syntaxTree()) -> syntaxTree().
 
@@ -4574,6 +6097,19 @@ record_expr_type(Node) ->
 Returns the list of field subtrees of a `record_expr` node.
 
 _See also: _`record_expr/3`.
+
+## Examples
+
+```erlang
+1> RE = erl_syntax:record_expr(erl_syntax:atom(person), [erl_syntax:record_field(erl_syntax:atom(name), erl_syntax:string("Alice"))]).
+2> erl_prettypr:format(RE).
+"#person{name = \"Alice\"}"                                                 
+3> erl_syntax:record_expr_fields(RE).
+[{tree,record_field,
+       {attr,0,[],none},
+       {record_field,{tree,atom,{attr,0,[],none},name},
+                     {tree,string,{attr,0,[],none},"Alice"}}}]
+```
 """.
 -spec record_expr_fields(syntaxTree()) -> [syntaxTree()].
 
@@ -4601,6 +6137,17 @@ Arguments)`](`application/2`).
 (This is a utility function.)
 
 _See also: _`application/2`, `module_qualifier/2`.
+
+## Examples
+
+```erlang
+1> Args = [erl_syntax:list([erl_syntax:integer(1), erl_syntax:integer(2)])].
+2> A = erl_syntax:application(erl_syntax:atom(lists), erl_syntax:atom(reverse), Args).
+3> erl_prettypr:format(A).
+"lists:reverse([1, 2])"
+4> erl_syntax:type(A).
+application
+```
 """.
 -spec application('none' | syntaxTree(), syntaxTree(), [syntaxTree()]) ->
         syntaxTree().
@@ -4621,6 +6168,16 @@ If `Arguments` is `[A1, ..., An]`, the result represents
 
 _See also: _`application/3`, `application_arguments/1`,
 `application_operator/1`.
+
+## Examples
+
+```erlang
+1> A = erl_syntax:application(erl_syntax:atom(length), [erl_syntax:string("abc")]).
+2> erl_prettypr:format(A).
+"length(\"abc\")"
+3> erl_syntax:type(A).
+application
+```
 """.
 -spec application(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -4649,6 +6206,18 @@ If `Node` represents "`M:F(...)`", then the result is the subtree
 representing "`M:F`".
 
 _See also: _`application/2`, `module_qualifier/2`.
+
+## Examples
+
+```erlang
+1> A = erl_syntax:application(erl_syntax:atom(length), [erl_syntax:string("abc")]).
+2> erl_prettypr:format(A).
+"length(\"abc\")"
+3> erl_syntax:application_operator(A).
+{tree,atom,{attr,0,[],none},length}
+4> erl_syntax:type(erl_syntax:application_operator(A)).
+atom
+```
 """.
 -spec application_operator(syntaxTree()) -> syntaxTree().
 
@@ -4665,6 +6234,14 @@ application_operator(Node) ->
 Returns the list of argument subtrees of an `application` node.
 
 _See also: _`application/2`.
+
+## Examples
+
+```erlang
+1> A = erl_syntax:application(erl_syntax:atom(length), [erl_syntax:string("abc")]).
+2> erl_syntax:application_arguments(A).
+[{tree,string,{attr,0,[],none},"abc"}]
+```
 """.
 -spec application_arguments(syntaxTree()) -> [syntaxTree()].
 
@@ -4684,6 +6261,16 @@ Creates an abstract annotated type expression.
 The result represents "`Name :: Type`".
 
 _See also: _`annotated_type_body/1`, `annotated_type_name/1`.
+
+## Examples
+
+```erlang
+1> AT = erl_syntax:annotated_type(erl_syntax:atom(age), erl_syntax:atom(integer)).
+2> erl_prettypr:format(AT).
+"age :: integer"
+3> erl_syntax:type(AT).
+annotated_type
+```
 """.
 -spec annotated_type(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -4708,6 +6295,18 @@ revert_annotated_type(Node) ->
 Returns the name subtree of an `annotated_type` node.
 
 _See also: _`annotated_type/2`.
+
+## Examples
+
+```erlang
+1> AT = erl_syntax:annotated_type(erl_syntax:atom(age), erl_syntax:atom(integer)).
+2> erl_prettypr:format(AT).
+"age :: integer"
+3> erl_syntax:annotated_type_name(AT).
+{tree,atom,{attr,0,[],none},age}
+4> erl_syntax:type(erl_syntax:annotated_type_name(AT)).
+atom
+```
 """.
 -spec annotated_type_name(syntaxTree()) -> syntaxTree().
 
@@ -4724,6 +6323,18 @@ annotated_type_name(Node) ->
 Returns the type subtrees of an `annotated_type` node.
 
 _See also: _`annotated_type/2`.
+
+## Examples
+
+```erlang
+1> AT = erl_syntax:annotated_type(erl_syntax:atom(age), erl_syntax:atom(integer)).
+2> erl_prettypr:format(AT).
+"age :: integer"
+3> erl_syntax:annotated_type_body(AT).
+{tree,atom,{attr,0,[],none},integer}
+4> erl_syntax:type(erl_syntax:annotated_type_body(AT)).
+atom
+```
 """.
 -spec annotated_type_body(syntaxTree()) -> syntaxTree().
 
@@ -4740,6 +6351,16 @@ annotated_type_body(Node) ->
 Creates an abstract fun of any type.
 
 The result represents "`fun()`".
+
+## Examples
+
+```erlang
+1> FT = erl_syntax:fun_type().
+2> erl_prettypr:format(FT).
+"fun()"
+3> erl_syntax:type(FT).
+fun_type
+```
 """.
 -spec fun_type() -> syntaxTree().
 
@@ -4769,6 +6390,16 @@ Arguments)`](`type_application/2`).
 (This is a utility function.)
 
 _See also: _`module_qualifier/2`, `type_application/2`.
+
+## Examples
+
+```erlang
+1> TA = erl_syntax:type_application(erl_syntax:atom(erlang), erl_syntax:atom(integer), []).
+2> erl_prettypr:format(TA).
+"erlang:integer()"
+3> erl_syntax:type(TA).
+type_application
+```
 """.
 -spec type_application('none' | syntaxTree(), syntaxTree(), [syntaxTree()]) ->
         syntaxTree().
@@ -4790,6 +6421,16 @@ If `Arguments` is `[T1, ..., Tn]`, the result represents
 
 _See also: _`type_application/3`, `type_application_arguments/1`,
 `type_application_name/1`, `user_type_application/2`.
+
+## Examples
+
+```erlang
+1> TA = erl_syntax:type_application(erl_syntax:atom(integer), []).
+2> erl_prettypr:format(TA).
+"integer()"
+3> erl_syntax:type(TA).
+type_application
+```
 """.
 -spec type_application(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -4824,6 +6465,16 @@ revert_type_application(Node) ->
 Returns the type name subtree of a `type_application` node.
 
 _See also: _`type_application/2`.
+
+## Examples
+
+```erlang
+1> TA = erl_syntax:type_application(erl_syntax:atom(integer), []).
+2> erl_prettypr:format(TA).
+"integer()"
+3> erl_syntax:type_application_name(TA).
+{tree,atom,{attr,0,[],none},integer}
+```
 """.
 -spec type_application_name(syntaxTree()) -> syntaxTree().
 
@@ -4842,6 +6493,16 @@ type_application_name(Node) ->
 Returns the arguments subtrees of a `type_application` node.
 
 _See also: _`type_application/2`.
+
+## Examples
+
+```erlang
+1> TA = erl_syntax:type_application(erl_syntax:atom(my_custom_type), [erl_syntax:integer(123)]).
+2> erl_prettypr:format(TA).                    
+"my_custom_type(123)"
+3> erl_syntax:type_application_arguments(TA).
+[{tree,integer,{attr,0,[],none},123}]
+```
 """.
 -spec type_application_arguments(syntaxTree()) -> [syntaxTree()].
 
@@ -4864,6 +6525,16 @@ Creates an abstract bitstring type.
 The result represents "`<<_:M, _:_N>>`".
 
 _See also: _`bitstring_type_m/1`, `bitstring_type_n/1`.
+
+## Examples
+
+```erlang
+1> BST = erl_syntax:bitstring_type(erl_syntax:integer(8), erl_syntax:integer(1)).
+2> erl_prettypr:format(BST).
+"<<_:8, _:_*1>>"
+3> erl_syntax:type(BST).
+bitstring_type
+```
 """.
 -spec bitstring_type(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -4880,6 +6551,16 @@ revert_bitstring_type(Node) ->
 Returns the number of start bits, `M`, of a `bitstring_type` node.
 
 _See also: _`bitstring_type/2`.
+
+## Examples
+
+```erlang
+1> BST = erl_syntax:bitstring_type(erl_syntax:integer(8), erl_syntax:integer(1)).
+2> erl_prettypr:format(BST).
+"<<_:8, _:_*1>>"                    
+3> erl_syntax:bitstring_type_m(BST).
+{tree,integer,{attr,0,[],none},8}
+```
 """.
 -spec bitstring_type_m(syntaxTree()) -> syntaxTree().
 
@@ -4895,6 +6576,16 @@ bitstring_type_m(Node) ->
 Returns the segment size, `N`, of a `bitstring_type` node.
 
 _See also: _`bitstring_type/2`.
+
+## Examples
+
+```erlang
+1> BST = erl_syntax:bitstring_type(erl_syntax:integer(8), erl_syntax:integer(1)).
+2> erl_prettypr:format(BST).
+"<<_:8, _:_*1>>"
+3> erl_syntax:bitstring_type_n(BST).
+{tree,integer,{attr,0,[],none},1}
+```
 """.
 -spec bitstring_type_n(syntaxTree()) -> syntaxTree().
 
@@ -4918,6 +6609,19 @@ If `FunctionConstraint` is `[C1, ..., Cn]`, the result represents
 
 _See also: _`constrained_function_type_argument/1`,
 `constrained_function_type_body/1`.
+
+## Examples
+
+```erlang
+1> FT = erl_syntax:function_type([erl_syntax:atom(integer)], erl_syntax:atom(integer)).
+2> erl_prettypr:format(FT).
+"fun((integer) -> integer)"
+3> CFT = erl_syntax:constrained_function_type(FT, [erl_syntax:constraint(erl_syntax:atom(is_subtype), [erl_syntax:atom(integer), erl_syntax:atom(term)])]).
+4> erl_prettypr:format(CFT).
+"fun((integer) -> integer) when is_subtype(integer, term)"
+5> erl_syntax:type(CFT).
+constrained_function_type
+```
 """.
 -spec constrained_function_type(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -4946,6 +6650,18 @@ revert_constrained_function_type(Node) ->
 Returns the function type subtree of a `constrained_function_type` node.
 
 _See also: _`constrained_function_type/2`.
+
+## Examples
+
+```erlang
+1> FT = erl_syntax:function_type([erl_syntax:atom(integer)], erl_syntax:atom(integer)).
+2> FC1 = erl_syntax:constraint(erl_syntax:atom(is_subtype), [erl_syntax:atom(integer), erl_syntax:atom(term)]).
+3> CFT = erl_syntax:constrained_function_type(FT, [FC1]).
+4> erl_prettypr:format(CFT).
+"fun((integer) -> integer) when is_subtype(integer, term)"
+5> erl_syntax:type(erl_syntax:constrained_function_type_body(CFT)).
+function_type
+```
 """.
 -spec constrained_function_type_body(syntaxTree()) -> syntaxTree().
 
@@ -4961,6 +6677,18 @@ constrained_function_type_body(Node) ->
 Returns the function constraint subtree of a `constrained_function_type` node.
 
 _See also: _`constrained_function_type/2`.
+
+## Examples
+
+```erlang
+1> FT = erl_syntax:function_type([erl_syntax:atom(integer)], erl_syntax:atom(integer)).
+2> FC1 = erl_syntax:constraint(erl_syntax:atom(is_subtype), [erl_syntax:atom(integer), erl_syntax:atom(term)]).
+3> CFT = erl_syntax:constrained_function_type(FT, [FC1]).
+4> erl_prettypr:format(CFT).
+"fun((integer) -> integer) when is_subtype(integer, term)"
+5> erl_syntax:type(erl_syntax:constrained_function_type_argument(CFT)).
+conjunction
+```
 """.
 -spec constrained_function_type_argument(syntaxTree()) -> syntaxTree().
 
@@ -4996,6 +6724,14 @@ Note that the `m:erl_parse` representation is identical for
 "`FunctionType`" and "`fun(FunctionType)`".
 
 _See also: _`function_type_arguments/1`, `function_type_return/1`.
+
+## Examples
+
+```erlang
+1> FT = erl_syntax:function_type([erl_syntax:atom(integer)], erl_syntax:atom(integer)).
+2> erl_prettypr:format(FT).
+"fun((integer) -> integer)"
+```
 """.
 -spec function_type('any_arity' | [syntaxTree()], syntaxTree()) -> syntaxTree().
 
@@ -5031,6 +6767,16 @@ Return`" or "`fun((T1, ...Tn) -> Return)`", `[T1, ..., Tn]` is
 returned.
 
 _See also: _`function_type/1`, `function_type/2`.
+
+## Examples
+
+```erlang
+1> FT = erl_syntax:function_type([erl_syntax:atom(integer)], erl_syntax:atom(integer)).
+2> erl_prettypr:format(FT).
+"fun((integer) -> integer)"
+3> erl_syntax:function_type_arguments(FT).
+[{tree,atom,{attr,0,[],none},integer}]
+```
 """.
 -spec function_type_arguments(syntaxTree()) -> any_arity | [syntaxTree()].
 
@@ -5048,6 +6794,16 @@ function_type_arguments(Node) ->
 Returns the return type subtrees of a `function_type` node.
 
 _See also: _`function_type/1`, `function_type/2`.
+
+## Examples
+
+```erlang
+1> FT = erl_syntax:function_type([erl_syntax:atom(integer)], erl_syntax:atom(integer)).
+2> erl_prettypr:format(FT).
+"fun((integer) -> integer)"
+3> erl_syntax:function_type_return(FT).
+{tree,atom,{attr,0,[],none},integer}
+```
 """.
 -spec function_type_return(syntaxTree()) -> syntaxTree().
 
@@ -5071,6 +6827,16 @@ Creates an abstract (subtype) constraint.
 The result represents "`Name :: Type`".
 
 _See also: _`constraint_argument/1`, `constraint_body/1`.
+
+## Examples
+
+```erlang
+1> Cnst = erl_syntax:constraint(erl_syntax:atom(is_subtype), [erl_syntax:atom(integer), erl_syntax:atom(term)]).
+2> erl_prettypr:format(Cnst).
+"is_subtype(integer, term)"
+3> erl_syntax:type(Cnst).
+constraint
+```
 """.
 -spec constraint(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -5097,6 +6863,16 @@ revert_constraint(Node) ->
 Returns the name subtree of a `constraint` node.
 
 _See also: _`constraint/2`.
+
+## Examples
+
+```erlang
+1> Cnst = erl_syntax:constraint(erl_syntax:atom(is_subtype), [erl_syntax:atom(integer), erl_syntax:atom(term)]).
+2> erl_prettypr:format(Cnst).
+"is_subtype(integer, term)"
+3> erl_syntax:type(erl_syntax:constraint_argument(Cnst)).
+atom
+```
 """.
 -spec constraint_argument(syntaxTree()) -> syntaxTree().
 
@@ -5112,6 +6888,17 @@ constraint_argument(Node) ->
 Returns the type subtree of a `constraint` node.
 
 _See also: _`constraint/2`.
+
+## Examples
+
+```erlang
+1> FC = erl_syntax:constraint(erl_syntax:atom(is_subtype), [erl_syntax:atom(integer), erl_syntax:atom(term)]).
+2> erl_prettypr:format(FC).
+"is_subtype(integer, term)"                
+3> erl_syntax:constraint_body(FC).
+[{tree,atom,{attr,0,[],none},integer},
+ {tree,atom,{attr,0,[],none},term}]
+```
 """.
 -spec constraint_body(syntaxTree()) -> [syntaxTree()].
 
@@ -5134,6 +6921,16 @@ Creates an abstract map type assoc field.
 The result represents "`Name => Value`".
 
 _See also: _`map_type/1`, `map_type_assoc_name/1`, `map_type_assoc_value/1`.
+
+## Examples
+
+```erlang
+1> MT = erl_syntax:map_type_assoc(erl_syntax:atom(atom), erl_syntax:atom(integer)).
+2> erl_prettypr:format(MT).
+"atom => integer"
+3> erl_syntax:type(MT).
+map_type_assoc
+```
 """.
 -spec map_type_assoc(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -5155,6 +6952,16 @@ revert_map_type_assoc(Node) ->
 Returns the name subtree of a `map_type_assoc` node.
 
 _See also: _`map_type_assoc/2`.
+
+## Examples
+
+```erlang
+1> MT = erl_syntax:map_type_assoc(erl_syntax:atom(atom), erl_syntax:atom(integer)).
+2> erl_prettypr:format(MT).
+"atom => integer"
+3> erl_syntax:map_type_assoc_name(MT).
+{tree,atom,{attr,0,[],none},atom}
+```
 """.
 -spec map_type_assoc_name(syntaxTree()) -> syntaxTree().
 
@@ -5171,6 +6978,16 @@ map_type_assoc_name(Node) ->
 Returns the value subtree of a `map_type_assoc` node.
 
 _See also: _`map_type_assoc/2`.
+
+## Examples
+
+```erlang
+1> MT = erl_syntax:map_type_assoc(erl_syntax:atom(atom), erl_syntax:atom(integer)).
+2> erl_prettypr:format(MT).
+"atom => integer"
+3> erl_syntax:map_type_assoc_value(MT).
+{tree,atom,{attr,0,[],none},integer}
+```
 """.
 -spec map_type_assoc_value(syntaxTree()) -> syntaxTree().
 
@@ -5193,6 +7010,16 @@ Creates an abstract map type exact field.
 The result represents "`Name := Value`".
 
 _See also: _`map_type/1`, `map_type_exact_name/1`, `map_type_exact_value/1`.
+
+## Examples
+
+```erlang
+1> MTE = erl_syntax:map_type_exact(erl_syntax:atom(name), erl_syntax:atom(string)).
+2> erl_prettypr:format(MTE).
+"name := string"
+3> erl_syntax:type(MTE).
+map_type_exact
+```
 """.
 -spec map_type_exact(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -5214,6 +7041,16 @@ revert_map_type_exact(Node) ->
 Returns the name subtree of a `map_type_exact` node.
 
 _See also: _`map_type_exact/2`.
+
+## Examples
+
+```erlang
+1> MTE = erl_syntax:map_type_exact(erl_syntax:atom(name), erl_syntax:atom(string)).
+2> erl_prettypr:format(MTE).
+"name := string"
+3> erl_syntax:map_type_exact_name(MTE).
+{tree,atom,{attr,0,[],none},name}
+```
 """.
 -spec map_type_exact_name(syntaxTree()) -> syntaxTree().
 
@@ -5230,6 +7067,16 @@ map_type_exact_name(Node) ->
 Returns the value subtree of a `map_type_exact` node.
 
 _See also: _`map_type_exact/2`.
+
+## Examples
+
+```erlang
+1> MTE = erl_syntax:map_type_exact(erl_syntax:atom(name), erl_syntax:atom(string)).
+2> erl_prettypr:format(MTE).
+"name := string"
+3> erl_syntax:map_type_exact_value(MTE).
+{tree,atom,{attr,0,[],none},string} 
+```
 """.
 -spec map_type_exact_value(syntaxTree()) -> syntaxTree().
 
@@ -5258,6 +7105,19 @@ Fn}`"; otherwise, if `Fields` is `any_size`, it represents
 "`t:map/0`".
 
 _See also: _`map_type_fields/1`.
+
+## Examples
+
+```erlang
+1> MTA = erl_syntax:map_type_assoc(erl_syntax:atom(atom), erl_syntax:atom(integer)).
+2> erl_prettypr:format(MTA).
+"atom => integer"
+3> MT = erl_syntax:map_type([MTA]).
+4> erl_prettypr:format(MT).
+"#{atom => integer}"
+5> erl_syntax:type(MT).
+map_type
+```
 """.
 -spec map_type('any_size' | [syntaxTree()]) -> syntaxTree().
 
@@ -5288,6 +7148,22 @@ if `Node` represents "`#{F1, ..., Fn}`", `[F1, ..., Fn]` is
 returned.
 
 _See also: _`map_type/0`, `map_type/1`.
+
+## Examples
+
+```erlang
+1> MTA = erl_syntax:map_type_assoc(erl_syntax:atom(atom), erl_syntax:atom(integer)).
+2> erl_prettypr:format(MTA).
+"atom => integer"                    
+3> MT = erl_syntax:map_type([MTA]).
+4> erl_prettypr:format(MT).
+"#{atom => integer}"                            
+5> erl_syntax:map_type_fields(MT).
+[{tree,map_type_assoc,
+       {attr,0,[],none},
+       {map_type_assoc,{tree,atom,{attr,0,[],none},atom},
+                       {tree,atom,{attr,0,[],none},integer}}}]
+```
 """.
 -spec map_type_fields(syntaxTree()) -> 'any_size' | [syntaxTree()].
 
@@ -5313,6 +7189,16 @@ Creates an abstract range type.
 The result represents "`Low .. High`".
 
 _See also: _`integer_range_type_high/1`, `integer_range_type_low/1`.
+
+## Examples
+
+```erlang
+1> IRT = erl_syntax:integer_range_type(erl_syntax:integer(1), erl_syntax:integer(10)).
+2> erl_prettypr:format(IRT).
+"1..10"
+3> erl_syntax:type(IRT).
+integer_range_type
+```
 """.
 -spec integer_range_type(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -5337,6 +7223,18 @@ revert_integer_range_type(Node) ->
 Returns the low limit of an `integer_range_type` node.
 
 _See also: _`integer_range_type/2`.
+
+## Examples
+
+```erlang
+1> IRT = erl_syntax:integer_range_type(erl_syntax:integer(1), erl_syntax:integer(10)).
+2> erl_prettypr:format(IRT).
+"1..10"
+3> IRTL = erl_syntax:integer_range_type_low(IRT).
+{tree,integer,{attr,0,[],none},1}
+4> erl_prettypr:format(IRTL).
+"1"
+```
 """.
 -spec integer_range_type_low(syntaxTree()) -> syntaxTree().
 
@@ -5352,6 +7250,18 @@ integer_range_type_low(Node) ->
 Returns the high limit of an `integer_range_type` node.
 
 _See also: _`integer_range_type/2`.
+
+## Examples
+
+```erlang
+1> IRT = erl_syntax:integer_range_type(erl_syntax:integer(1), erl_syntax:integer(10)).
+2> erl_prettypr:format(IRT).
+"1..10"
+3> IRTH = erl_syntax:integer_range_type_high(IRT).
+{tree,integer,{attr,0,[],none},10}
+4> erl_prettypr:format(IRTH).
+"10"
+```
 """.
 -spec integer_range_type_high(syntaxTree()) -> syntaxTree().
 
@@ -5376,6 +7286,19 @@ If `Fields` is `[F1, ..., Fn]`, the result represents "`#Name{F1,
 ..., Fn}`".
 
 _See also: _`record_type_fields/1`, `record_type_name/1`.
+
+## Examples
+
+```erlang
+1> RTF = erl_syntax:record_type_field(erl_syntax:atom(name), erl_syntax:atom(string)).
+2> erl_prettypr:format(RTF).
+"name :: string"
+3> RT = erl_syntax:record_type(erl_syntax:atom(person), [RTF]).
+4> erl_prettypr:format(RT).
+"#person{name :: string}"
+5> erl_syntax:type(RT).
+record_type
+```
 """.
 -spec record_type(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -5400,6 +7323,20 @@ revert_record_type(Node) ->
 Returns the name subtree of a `record_type` node.
 
 _See also: _`record_type/2`.
+
+## Examples
+
+```erlang
+1> RTF = erl_syntax:record_type_field(erl_syntax:atom(name), erl_syntax:atom(string)).
+2> erl_prettypr:format(RTF).
+"name :: string"
+3> RT = erl_syntax:record_type(erl_syntax:atom(person), [RTF]).
+4> erl_prettypr:format(RT).
+"#person{name :: string}"
+5> RTN = erl_syntax:record_type_name(RT).
+6> erl_prettypr:format(RTN).
+"person"
+```
 """.
 -spec record_type_name(syntaxTree()) -> syntaxTree().
 
@@ -5415,6 +7352,22 @@ record_type_name(Node) ->
 Returns the fields subtree of a `record_type` node.
 
 _See also: _`record_type/2`.
+
+## Examples
+
+```erlang
+1> RTF = erl_syntax:record_type_field(erl_syntax:atom(name), erl_syntax:atom(string)).
+2> erl_prettypr:format(RTF).
+"name :: string"
+3> RT = erl_syntax:record_type(erl_syntax:atom(person), [RTF]).
+4> erl_prettypr:format(RT).
+"#person{name :: string}"
+5> erl_syntax:record_type_fields(RT).
+[{tree,record_type_field,
+       {attr,0,[],none},
+       {record_type_field,{tree,atom,{attr,0,[],none},name},
+                          {tree,atom,{attr,0,[],none},string}}}]
+```
 """.
 -spec record_type_fields(syntaxTree()) -> [syntaxTree()].
 
@@ -5436,6 +7389,16 @@ Creates an abstract record type field.
 The result represents "`Name :: Type`".
 
 _See also: _`record_type_field_name/1`, `record_type_field_type/1`.
+
+## Examples
+
+```erlang
+1> RTF = erl_syntax:record_type_field(erl_syntax:atom(name), erl_syntax:atom(string)).
+2> erl_prettypr:format(RTF).
+"name :: string"
+3> erl_syntax:type(RTF).
+record_type_field
+```
 """.
 -spec record_type_field(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -5460,6 +7423,18 @@ revert_record_type_field(Node) ->
 Returns the name subtree of a `record_type_field` node.
 
 _See also: _`record_type_field/2`.
+
+## Examples
+
+```erlang
+1> RTF = erl_syntax:record_type_field(erl_syntax:atom(name), erl_syntax:atom(string)).
+2> erl_prettypr:format(RTF).
+"name :: string"
+3> RTFN = erl_syntax:record_type_field_name(RTF).
+{tree,atom,{attr,0,[],none},name}
+4> erl_prettypr:format(RTFN).
+"name"
+```
 """.
 -spec record_type_field_name(syntaxTree()) -> syntaxTree().
 
@@ -5475,6 +7450,18 @@ record_type_field_name(Node) ->
 Returns the type subtree of a `record_type_field` node.
 
 _See also: _`record_type_field/2`.
+
+## Examples
+
+```erlang
+1> RTF = erl_syntax:record_type_field(erl_syntax:atom(name), erl_syntax:atom(string)).
+2> erl_prettypr:format(RTF).
+"name :: string"
+3> RTFT = erl_syntax:record_type_field_type(RTF).
+{tree,atom,{attr,0,[],none},string}
+4> erl_prettypr:format(RTFT).
+"string"
+```
 """.
 -spec record_type_field_type(syntaxTree()) -> syntaxTree().
 
@@ -5503,6 +7490,16 @@ Tn}`"; otherwise, if `Elements` is `any_size`, it represents
 "`t:tuple/0`".
 
 _See also: _`tuple_type_elements/1`.
+
+## Examples
+
+```erlang
+1> TT = erl_syntax:tuple_type([erl_syntax:atom(integer), erl_syntax:atom(atom)]).
+2> erl_prettypr:format(TT).
+"{integer, atom}"
+3> erl_syntax:type(TT).
+tuple_type
+```
 """.
 -spec tuple_type(any_size | [syntaxTree()]) -> syntaxTree().
 
@@ -5533,6 +7530,17 @@ If `Node` represents "`t:tuple/0`", `any_size` is returned; otherwise,
 if `Node` represents "`{T1, ..., Tn}`", `[T1, ..., Tn]` is returned.
 
 _See also: _`tuple_type/0`, `tuple_type/1`.
+
+## Examples
+
+```erlang
+1> TT = erl_syntax:tuple_type([erl_syntax:atom(integer), erl_syntax:atom(atom)]).
+2> erl_prettypr:format(TT).
+"{integer, atom}"
+3> erl_syntax:tuple_type_elements(TT).
+[{tree,atom,{attr,0,[],none},integer},
+ {tree,atom,{attr,0,[],none},atom}]
+```
 """.
 -spec tuple_type_elements(syntaxTree()) -> 'any_size' | [syntaxTree()].
 
@@ -5556,6 +7564,16 @@ If `Types` is `[T1, ..., Tn]`, the result represents "`T1 | ... |
 Tn`".
 
 _See also: _`type_union_types/1`.
+
+## Examples
+
+```erlang
+1> TU = erl_syntax:type_union([erl_syntax:atom(integer), erl_syntax:atom(atom)]).
+2> erl_prettypr:format(TU).
+"integer | atom"
+3> erl_syntax:type(TU).
+type_union
+```
 """.
 -spec type_union([syntaxTree()]) -> syntaxTree().
 
@@ -5577,6 +7595,17 @@ revert_type_union(Node) ->
 Returns the list of type subtrees of a `type_union` node.
 
 _See also: _`type_union/1`.
+
+## Examples
+
+```erlang
+1> TU = erl_syntax:type_union([erl_syntax:atom(integer), erl_syntax:atom(atom)]).
+2> erl_prettypr:format(TU).
+"integer | atom"
+3> erl_syntax:type_union_types(TU).
+[{tree,atom,{attr,0,[],none},integer},
+ {tree,atom,{attr,0,[],none},atom}]
+```
 """.
 -spec type_union_types(syntaxTree()) -> [syntaxTree()].
 
@@ -5602,6 +7631,16 @@ If `Arguments` is `[T1, ..., Tn]`, the result represents
 
 _See also: _`type_application/2`, `user_type_application_arguments/1`,
 `user_type_application_name/1`.
+
+## Examples
+
+```erlang
+1> UTA = erl_syntax:user_type_application(erl_syntax:atom(custom), [erl_syntax:atom(integer)]).
+2> erl_prettypr:format(UTA).
+"custom(integer)"
+3> erl_syntax:type(UTA).
+user_type_application
+```
 """.
 -spec user_type_application(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -5628,6 +7667,18 @@ revert_user_type_application(Node) ->
 Returns the type name subtree of a `user_type_application` node.
 
 _See also: _`user_type_application/2`.
+
+## Examples
+
+```erlang
+1> UTA = erl_syntax:user_type_application(erl_syntax:atom(custom), [erl_syntax:atom(integer)]).
+2> erl_prettypr:format(UTA).
+"custom(integer)"
+3> UTAN = erl_syntax:user_type_application_name(UTA).
+{tree,atom,{attr,0,[],none},custom}
+4> erl_prettypr:format(UTAN).
+"custom"
+```
 """.
 -spec user_type_application_name(syntaxTree()) -> syntaxTree().
 
@@ -5644,6 +7695,16 @@ user_type_application_name(Node) ->
 Returns the arguments subtrees of a `user_type_application` node.
 
 _See also: _`user_type_application/2`.
+
+## Examples
+
+```erlang
+1> UTA = erl_syntax:user_type_application(erl_syntax:atom(custom), [erl_syntax:atom(integer)]).
+2> erl_prettypr:format(UTA).
+"custom(integer)"
+3> erl_syntax:user_type_application_arguments(UTA).
+[{tree,atom,{attr,0,[],none},integer}]
+```
 """.
 -spec user_type_application_arguments(syntaxTree()) -> [syntaxTree()].
 
@@ -5667,6 +7728,19 @@ Creates an abstract typed record field specification.
 The result represents "`Field :: Type`".
 
 _See also: _`typed_record_field_body/1`, `typed_record_field_type/1`.
+
+## Examples
+
+```erlang
+1> RF = erl_syntax:record_field(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(RF).
+"name = \"Alice\""
+3> TRF = erl_syntax:typed_record_field(RF, erl_syntax:atom(string)).
+4> erl_prettypr:format(TRF).
+"name = \"Alice\" :: string"
+5> erl_syntax:type(TRF).
+typed_record_field
+```
 """.
 -spec typed_record_field(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -5679,6 +7753,20 @@ typed_record_field(Field, Type) ->
 Returns the field subtree of a `typed_record_field` node.
 
 _See also: _`typed_record_field/2`.
+
+## Examples
+
+```erlang
+1> RF = erl_syntax:record_field(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(RF).
+"name = \"Alice\""
+3> TRF = erl_syntax:typed_record_field(RF, erl_syntax:atom(string)).
+4> TRFB = erl_syntax:typed_record_field_body(TRF).
+5> erl_prettypr:format(TRFB).
+"name = \"Alice\""
+6> erl_syntax:type(TRFB).
+record_field
+```
 """.
 -spec typed_record_field_body(syntaxTree()) -> syntaxTree().
 
@@ -5690,6 +7778,19 @@ typed_record_field_body(Node) ->
 Returns the type subtree of a `typed_record_field` node.
 
 _See also: _`typed_record_field/2`.
+
+## Examples
+
+```erlang
+1> RF = erl_syntax:record_field(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(RF).
+"name = \"Alice\""
+3> TRF = erl_syntax:typed_record_field(RF, erl_syntax:atom(string)).
+4> erl_prettypr:format(TRF).
+"name = \"Alice\" :: string"
+5> TRFT = erl_syntax:typed_record_field_type(TRF).
+{tree,atom,{attr,0,[],none},string}
+```
 """.
 -spec typed_record_field_type(syntaxTree()) -> syntaxTree().
 
@@ -5711,6 +7812,19 @@ Supports comprehensions with multiple emitted elements per iteration,
 from EEP 78 - in such cases, `Template` is a list of expressions.
 
 _See also: _`generator/2`, `list_comp_body/1`, `list_comp_template/1`.
+
+## Examples
+
+```erlang
+1> G = erl_syntax:generator(erl_syntax:variable("X"), erl_syntax:list([erl_syntax:integer(1)])).
+2> erl_prettypr:format(G).
+"X <- [1]"
+3> LC = erl_syntax:list_comp(erl_syntax:variable("X"), [G]).
+4> erl_prettypr:format(LC).
+"[X || X <- [1]]"
+5> erl_syntax:type(LC).
+list_comp
+```
 """.
 -spec list_comp(syntaxTree() | [syntaxTree()], [syntaxTree()]) -> syntaxTree().
 
@@ -5738,6 +7852,23 @@ Supports comprehensions with multiple emitted elements per iteration,
 from EEP 78 - in such cases, template will be a list of expressions.
 
 _See also: _`list_comp/2`.
+
+## Examples
+
+```erlang
+1> G = erl_syntax:generator(erl_syntax:variable("X"), erl_syntax:list([erl_syntax:integer(1)])).
+2> erl_prettypr:format(G).
+"X <- [1]"
+3> LC = erl_syntax:list_comp(erl_syntax:variable("X"), [G]).
+4> erl_prettypr:format(LC).
+"[X || X <- [1]]"
+5> LCT = erl_syntax:list_comp_template(LC).
+{tree,variable,{attr,0,[],none},'X'}
+6> erl_prettypr:format(LCT).
+"X"
+7> erl_syntax:type(LCT).
+variable
+```
 """.
 -spec list_comp_template(syntaxTree()) -> syntaxTree() | [syntaxTree()].
 
@@ -5754,6 +7885,24 @@ list_comp_template(Node) ->
 Returns the list of body subtrees of a `list_comp` node.
 
 _See also: _`list_comp/2`.
+
+## Examples
+
+```erlang
+1> G = erl_syntax:generator(erl_syntax:variable("X"), erl_syntax:list([erl_syntax:integer(1)])).
+2> erl_prettypr:format(G).
+"X <- [1]"
+3> LC = erl_syntax:list_comp(erl_syntax:variable("X"), [G]).
+4> erl_prettypr:format(LC).
+"[X || X <- [1]]"
+5> erl_syntax:list_comp_body(LC).
+[{tree,generator,
+       {attr,0,[],none},
+       {generator,{tree,variable,{attr,0,[],none},'X'},
+                  {tree,list,
+                        {attr,0,[],none},
+                        {list,[{tree,integer,{attr,0,[],none},1}],none}}}}]
+```
 """.
 -spec list_comp_body(syntaxTree()) -> [syntaxTree()].
 
@@ -5776,6 +7925,19 @@ If `Body` is `[E1, ..., En]`, the result represents "`<<Template ||
 E1, ..., En>>`".
 
 _See also: _`binary_comp_body/1`, `binary_comp_template/1`, `generator/2`.
+
+## Examples
+
+```erlang
+1> V = erl_syntax:variable("Byte").
+{tree,variable,{attr,0,[],none},'Byte'}
+2> BG = erl_syntax:binary_generator(V, erl_syntax:binary([erl_syntax:binary_field(erl_syntax:integer(65))])).
+3> erl_prettypr:format(BG).
+"Byte <= <<65>>"
+4> BC = erl_syntax:binary_comp(erl_syntax:binary_field(V), [BG]).
+5> erl_prettypr:format(BC).
+"<< Byte  || Byte <= <<65>> >>"
+```
 """.
 -spec binary_comp(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -5800,6 +7962,25 @@ revert_binary_comp(Node) ->
 Returns the template subtree of a `binary_comp` node.
 
 _See also: _`binary_comp/2`.
+
+## Examples
+
+```erlang
+1> BF = erl_syntax:binary_field(erl_syntax:integer(65), [erl_syntax:atom(integer)]).
+2> erl_prettypr:format(BF).
+"65/integer"
+3> BG = erl_syntax:binary_generator(erl_syntax:variable("X"), erl_syntax:binary([erl_syntax:binary_field(erl_syntax:integer(65))])).
+4> erl_prettypr:format(BG).
+"X <= <<65>>"
+5> BC = erl_syntax:binary_comp(BF, [BG]).
+6> erl_prettypr:format(BC).
+"<< 65/integer  || X <= <<65>> >>"
+7> BCT = erl_syntax:binary_comp_template(BC).
+8> erl_prettypr:format(BCT).
+"65/integer"
+9> erl_syntax:type(BCT).
+binary_field
+```
 """.
 -spec binary_comp_template(syntaxTree()) -> syntaxTree().
 
@@ -5816,6 +7997,21 @@ binary_comp_template(Node) ->
 Returns the list of body subtrees of a `binary_comp` node.
 
 _See also: _`binary_comp/2`.
+
+## Examples
+
+```erlang
+1> BF = erl_syntax:binary_field(erl_syntax:integer(65), [erl_syntax:atom(integer)]).
+2> erl_prettypr:format(BF).
+"65/integer"
+3> BG = erl_syntax:binary_generator(erl_syntax:variable("X"), erl_syntax:binary([erl_syntax:binary_field(erl_syntax:integer(65))])).
+4> erl_prettypr:format(BG).
+"X <= <<65>>"
+5> BC = erl_syntax:binary_comp(BF, [BG]).
+6> erl_prettypr:format(BC).
+"<< 65/integer  || X <= <<65>> >>"
+7> BCB = erl_syntax:binary_comp_body(BC).
+```
 """.
 -spec binary_comp_body(syntaxTree()) -> [syntaxTree()].
 
@@ -5841,6 +8037,20 @@ Supports comprehensions with multiple emitted elements per iteration,
 from EEP 78 - in such cases, `Template` is a list of key-value associations.
 
 _See also: _`generator/2`, `map_comp_body/1`, `map_comp_template/1`.
+
+## Examples
+
+```erlang
+1> MFAssoc = erl_syntax:map_field_assoc(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> MG = erl_syntax:map_generator(erl_syntax:variable("K"), erl_syntax:variable("Map")).
+3> erl_prettypr:format(MG).
+"K <- Map"
+4> MC = erl_syntax:map_comp(MFAssoc, [MG]).
+5> erl_prettypr:format(MC).
+"#{name => \"Alice\" || K <- Map}"
+6> erl_syntax:type(MC).
+map_comp
+```
 """.
 -spec map_comp(syntaxTree() | [syntaxTree()], [syntaxTree()]) -> syntaxTree().
 
@@ -5868,6 +8078,23 @@ Supports comprehensions with multiple emitted elements per iteration,
 from EEP 78 - in such cases, template will be list of key-value associations.
 
 _See also: _`map_comp/2`.
+
+## Examples
+
+```erlang
+1> MFAssoc = erl_syntax:map_field_assoc(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(MFAssoc).
+"name => \"Alice\""
+3> MG = erl_syntax:map_generator(erl_syntax:variable("K"), erl_syntax:variable("Map")).
+4> erl_prettypr:format(MG).
+"K <- Map"
+5> MC = erl_syntax:map_comp([MFAssoc], [MG]).
+6> MCT = erl_syntax:map_comp_template(MC).
+[{tree,map_field_assoc,
+       {attr,0,[],none},
+       {map_field_assoc,{tree,atom,{attr,0,[],none},name},
+                        {tree,string,{attr,0,[],none},"Alice"}}}]
+```
 """.
 -spec map_comp_template(syntaxTree()) -> syntaxTree() | [syntaxTree()].
 
@@ -5884,6 +8111,19 @@ map_comp_template(Node) ->
 Returns the list of body subtrees of a `map_comp` node.
 
 _See also: _`map_comp/2`.
+
+## Examples
+
+```erlang
+1> MFAssoc = erl_syntax:map_field_assoc(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(MFAssoc).
+"name => \"Alice\""
+3> MG = erl_syntax:map_generator(erl_syntax:variable("K"), erl_syntax:variable("Map")).
+4> erl_prettypr:format(MG).
+"K <- Map"
+5> MC = erl_syntax:map_comp([MFAssoc], [MG]).
+6> MCB = erl_syntax:map_comp_body(MC).
+```
 """.
 -spec map_comp_body(syntaxTree()) -> [syntaxTree()].
 
@@ -5906,6 +8146,16 @@ The result represents "`Pattern <- Body`".
 
 _See also: _`binary_comp/2`, `generator_body/1`, `generator_pattern/1`,
 `map_comp/2`, `list_comp/2`.
+
+## Examples
+
+```erlang
+1> G = erl_syntax:generator(erl_syntax:variable("X"), erl_syntax:list([erl_syntax:integer(1), erl_syntax:integer(2)])).
+2> erl_prettypr:format(G).
+"X <- [1, 2]"
+3> erl_syntax:type(G).
+generator
+```
 """.
 -spec generator(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -5929,6 +8179,19 @@ revert_generator(Node) ->
 Returns the pattern subtree of a `generator` node.
 
 _See also: _`generator/2`.
+
+## Examples
+
+```erlang
+1> G = erl_syntax:generator(erl_syntax:variable("X"), erl_syntax:list([erl_syntax:integer(1), erl_syntax:integer(2)])).
+2> erl_prettypr:format(G).
+"X <- [1, 2]"
+3> GP = erl_syntax:generator_pattern(G).
+4> erl_prettypr:format(GP).
+"X"
+5> erl_syntax:type(GP).
+variable
+```
 """.
 -spec generator_pattern(syntaxTree()) -> syntaxTree().
 
@@ -5945,6 +8208,19 @@ generator_pattern(Node) ->
 Returns the body subtree of a `generator` node.
 
 _See also: _`generator/2`.
+
+## Examples
+
+```erlang
+1> G = erl_syntax:generator(erl_syntax:variable("X"), erl_syntax:list([erl_syntax:integer(1), erl_syntax:integer(2)])).
+2> erl_prettypr:format(G).
+"X <- [1, 2]"
+3> GB = erl_syntax:generator_body(G).
+4> erl_prettypr:format(GB).
+"[1, 2]"
+5> erl_syntax:type(GB).
+list
+```
 """.
 -spec generator_body(syntaxTree()) -> syntaxTree().
 
@@ -5968,6 +8244,17 @@ The result represents "`*Pattern*<:- *Body*`".
 
 _See also: _`binary_comp/2`, `strict_generator_body/1`,
 `strict_generator_pattern/1`, `list_comp/2`.
+
+## Examples
+
+```erlang
+1> L = erl_syntax:list([erl_syntax:integer(1), erl_syntax:integer(2)]).
+2> SG = erl_syntax:strict_generator(erl_syntax:variable("X"), L).
+3> erl_prettypr:format(SG).
+"X <:- [1, 2]"
+4> erl_syntax:type(SG).
+strict_generator
+```
 """.
 -spec strict_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -5991,6 +8278,20 @@ revert_strict_generator(Node) ->
 Returns the pattern subtree of a `generator` node.
 
 _See also: _`strict_generator/2`.
+
+## Examples
+
+```erlang
+1> L = erl_syntax:list([erl_syntax:integer(1), erl_syntax:integer(2)]).
+2> SG = erl_syntax:strict_generator(erl_syntax:variable("X"), L).
+3> erl_prettypr:format(SG).
+"X <:- [1, 2]"
+4> SGP = erl_syntax:strict_generator_pattern(SG).
+5> erl_prettypr:format(SGP).
+"X"
+6> erl_syntax:type(SGP).
+variable
+```
 """.
 -spec strict_generator_pattern(syntaxTree()) -> syntaxTree().
 
@@ -6007,6 +8308,20 @@ strict_generator_pattern(Node) ->
 Returns the body subtree of a `generator` node.
 
 _See also: _`strict_generator/2`.
+
+## Examples
+
+```erlang
+1> L = erl_syntax:list([erl_syntax:integer(1), erl_syntax:integer(2)]).
+2> SG = erl_syntax:strict_generator(erl_syntax:variable("X"), L).
+3> erl_prettypr:format(SG).
+"X <:- [1, 2]"
+4> SGB = erl_syntax:strict_generator_body(SG).
+5> erl_prettypr:format(SGB).
+"[1, 2]"
+6> erl_syntax:type(SGB).
+list
+```
 """.
 -spec strict_generator_body(syntaxTree()) -> syntaxTree().
 
@@ -6030,6 +8345,19 @@ The result represents "`Pattern <= Body`".
 
 _See also: _`binary_comp/2`, `binary_generator_body/1`,
 `binary_generator_pattern/1`, `list_comp/2`, `map_comp/2`.
+
+## Examples
+
+```erlang
+1> B = erl_syntax:binary([erl_syntax:binary_field(erl_syntax:integer(65))]).
+2> erl_prettypr:format(B).
+"<<65>>"
+3> BG = erl_syntax:binary_generator(erl_syntax:variable("X"), B).
+4> erl_prettypr:format(BG).
+"X <= <<65>>"
+5> erl_syntax:type(BG).
+binary_generator
+```
 """.
 -spec binary_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -6053,6 +8381,22 @@ revert_binary_generator(Node) ->
 Returns the pattern subtree of a `generator` node.
 
 _See also: _`binary_generator/2`.
+
+## Examples
+
+```erlang
+1> B = erl_syntax:binary([erl_syntax:binary_field(erl_syntax:integer(65))]).
+2> erl_prettypr:format(B).
+"<<65>>"
+3> BG = erl_syntax:binary_generator(erl_syntax:variable("X"), B).
+4> erl_prettypr:format(BG).
+"X <= <<65>>"
+5> BGP = erl_syntax:binary_generator_pattern(BG).
+6> erl_prettypr:format(BGP).
+"X"
+7> erl_syntax:type(BGP).
+variable
+```
 """.
 -spec binary_generator_pattern(syntaxTree()) -> syntaxTree().
 
@@ -6069,6 +8413,22 @@ binary_generator_pattern(Node) ->
 Returns the body subtree of a `generator` node.
 
 _See also: _`binary_generator/2`.
+
+## Examples
+
+```erlang
+1> B = erl_syntax:binary([erl_syntax:binary_field(erl_syntax:integer(65))]).
+2> erl_prettypr:format(B).
+"<<65>>"
+3> BG = erl_syntax:binary_generator(erl_syntax:variable("X"), B).
+4> erl_prettypr:format(BG).
+"X <= <<65>>"
+5> BGB = erl_syntax:binary_generator_body(BG).
+6> erl_prettypr:format(BGB).
+"<<65>>"
+7> erl_syntax:type(BGB).
+binary
+```
 """.
 -spec binary_generator_body(syntaxTree()) -> syntaxTree().
 
@@ -6092,6 +8452,19 @@ The result represents "`*Pattern*<:- *Body*`".
 
 _See also: _`binary_comp/2`, `strict_binary_generator_body/1`,
 `strict_binary_generator_pattern/1`, `list_comp/2`.
+
+## Examples
+
+```erlang
+1> B = erl_syntax:binary([erl_syntax:binary_field(erl_syntax:integer(65))]).
+2> erl_prettypr:format(B).
+"<<65>>"
+3> SBG = erl_syntax:strict_binary_generator(erl_syntax:variable("X"), B).
+4> erl_prettypr:format(SBG).
+"X <:= <<65>>"
+5> erl_syntax:type(SBG).
+strict_binary_generator
+```
 """.
 -spec strict_binary_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -6115,6 +8488,22 @@ revert_strict_binary_generator(Node) ->
 Returns the pattern subtree of a `generator` node.
 
 _See also: _`strict_binary_generator/2`.
+
+## Examples
+
+```erlang
+1> B = erl_syntax:binary([erl_syntax:binary_field(erl_syntax:integer(65))]).
+2> erl_prettypr:format(B).
+"<<65>>"
+3> SBG = erl_syntax:strict_binary_generator(erl_syntax:variable("X"), B).
+4> erl_prettypr:format(SBG).
+"X <:= <<65>>"
+5> SBGP = erl_syntax:strict_binary_generator_pattern(SBG).
+6> erl_prettypr:format(SBGP).
+"X"
+7> erl_syntax:type(SBGP).
+variable
+```
 """.
 -spec strict_binary_generator_pattern(syntaxTree()) -> syntaxTree().
 
@@ -6131,6 +8520,22 @@ strict_binary_generator_pattern(Node) ->
 Returns the body subtree of a `generator` node.
 
 _See also: _`strict_binary_generator/2`.
+
+## Examples
+
+```erlang
+1> B = erl_syntax:binary([erl_syntax:binary_field(erl_syntax:integer(65))]).
+2> erl_prettypr:format(B).
+"<<65>>"
+3> SBG = erl_syntax:strict_binary_generator(erl_syntax:variable("X"), B).
+4> erl_prettypr:format(SBG).
+"X <:= <<65>>"
+5> SBGB = erl_syntax:strict_binary_generator_body(SBG).
+6> erl_prettypr:format(SBGB).
+"<<65>>"
+7> erl_syntax:type(SBGB).
+binary
+```
 """.
 -spec strict_binary_generator_body(syntaxTree()) -> syntaxTree().
 
@@ -6154,6 +8559,16 @@ The result represents "`Pattern <- Body`".
 
 _See also: _`binary_comp/2`, `list_comp/2`, `map_comp/2`, `map_generator_body/1`,
 `map_generator_pattern/1`.
+
+## Examples
+
+```erlang
+1> MG = erl_syntax:map_generator(erl_syntax:variable("K"), erl_syntax:variable("Map")).
+2> erl_prettypr:format(MG).
+"K <- Map"
+3> erl_syntax:type(MG).
+map_generator
+```
 """.
 -spec map_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -6177,6 +8592,19 @@ revert_map_generator(Node) ->
 Returns the pattern subtree of a `map_generator` node.
 
 _See also: _`map_generator/2`.
+
+## Examples
+
+```erlang
+1> MG = erl_syntax:map_generator(erl_syntax:variable("K"), erl_syntax:variable("Map")).
+2> erl_prettypr:format(MG).
+"K <- Map"
+3> MGP = erl_syntax:map_generator_pattern(MG).
+4> erl_prettypr:format(MGP).
+"K"
+5> erl_syntax:type(MGP).
+variable
+```
 """.
 -spec map_generator_pattern(syntaxTree()) -> syntaxTree().
 
@@ -6193,6 +8621,19 @@ map_generator_pattern(Node) ->
 Returns the body subtree of a `map_generator` node.
 
 _See also: _`map_generator/2`.
+
+## Examples
+
+```erlang
+1> MG = erl_syntax:map_generator(erl_syntax:variable("K"), erl_syntax:variable("Map")).
+2> erl_prettypr:format(MG).
+"K <- Map"
+3> MGB = erl_syntax:map_generator_body(MG).
+4> erl_prettypr:format(MGB).
+"Map"
+5> erl_syntax:type(MGB).
+variable
+```
 """.
 -spec map_generator_body(syntaxTree()) -> syntaxTree().
 
@@ -6216,6 +8657,16 @@ Creates an abstract strict map_generator. The result represents
 _See also: _`list_comp/2`, `map_comp/2`,
 `strict_map_generator_body/1`,
 `strict_map_generator_pattern/1`.
+
+## Examples
+
+```erlang
+1> SMG = erl_syntax:strict_map_generator(erl_syntax:variable("K"), erl_syntax:variable("Map")).
+2> erl_prettypr:format(SMG).
+"K <:- Map"
+3> erl_syntax:type(SMG).
+strict_map_generator
+```
 """.
 -spec strict_map_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -6239,6 +8690,19 @@ revert_strict_map_generator(Node) ->
 Returns the pattern subtree of a `generator` node.
 
 _See also: _`strict_map_generator/2`.
+
+## Examples
+
+```erlang
+1> SMG = erl_syntax:strict_map_generator(erl_syntax:variable("K"), erl_syntax:variable("Map")).
+2> erl_prettypr:format(SMG).
+"K <:- Map"
+3> SMGP = erl_syntax:strict_map_generator_pattern(SMG).
+4> erl_prettypr:format(SMGP).
+"K"
+5> erl_syntax:type(SMGP).
+variable
+```
 """.
 -spec strict_map_generator_pattern(syntaxTree()) -> syntaxTree().
 
@@ -6255,6 +8719,19 @@ strict_map_generator_pattern(Node) ->
 Returns the body subtree of a `generator` node.
 
 _See also: _`strict_map_generator/2`.
+
+## Examples
+
+```erlang
+1> SMG = erl_syntax:strict_map_generator(erl_syntax:variable("K"), erl_syntax:variable("Map")).
+2> erl_prettypr:format(SMG).
+"K <:- Map"
+3> SMGB = erl_syntax:strict_map_generator_body(SMG).
+4> erl_prettypr:format(SMGB).
+"Map"
+5> erl_syntax:type(SMGB).
+variable
+```
 """.
 -spec strict_map_generator_body(syntaxTree()) -> syntaxTree().
 
@@ -6276,6 +8753,22 @@ The result represents `G1 && ... Gn`, where each `G` is a generator.
 
 _See also: _`binary_comp/2`, `list_comp/2`, `map_comp/2`, `map_generator_body/1`,
 `map_generator_pattern/1`.
+
+## Examples
+
+```erlang
+1> G1 = erl_syntax:generator(erl_syntax:variable("A"), erl_syntax:list([erl_syntax:integer(1)])).
+2> erl_prettypr:format(G1).
+"A <- [1]"
+3> G2 = erl_syntax:generator(erl_syntax:variable("B"), erl_syntax:list([erl_syntax:integer(2)])).
+4> erl_prettypr:format(G2).
+"B <- [2]"
+5> ZG = erl_syntax:zip_generator([G1, G2]).
+6> erl_prettypr:format(ZG).
+"A <- [1]&& B <- [2]"
+7> erl_syntax:type(ZG).
+zip_generator
+```
 """.
 -spec zip_generator([syntaxTree()]) -> syntaxTree().
 
@@ -6298,6 +8791,21 @@ revert_zip_generator(Node) ->
 Returns the body subtree of a `zip_generator` node.
 
 _See also: _`zip_generator/1`.
+
+## Examples
+
+```erlang
+1> G1 = erl_syntax:generator(erl_syntax:variable("A"), erl_syntax:list([erl_syntax:integer(1)])).
+2> erl_prettypr:format(G1).
+"A <- [1]"
+3> G2 = erl_syntax:generator(erl_syntax:variable("B"), erl_syntax:list([erl_syntax:integer(2)])).
+4> erl_prettypr:format(G2).
+"B <- [2]"
+5> ZG = erl_syntax:zip_generator([G1, G2]).
+6> erl_prettypr:format(ZG).
+"A <- [1]&& B <- [2]"
+7> ZGB = erl_syntax:zip_generator_body(ZG).
+```
 """.
 -spec zip_generator_body(syntaxTree()) -> syntaxTree().
 
@@ -6318,6 +8826,16 @@ If `Body` is `[B1, ..., Bn]`, the result represents "`begin B1, ...,
 Bn end`".
 
 _See also: _`block_expr_body/1`.
+
+## Examples
+
+```erlang
+1> BE = erl_syntax:block_expr([erl_syntax:atom(ok)]).
+2> erl_prettypr:format(BE).
+"begin ok end"
+3> erl_syntax:type(BE).
+block_expr
+```
 """.
 -spec block_expr([syntaxTree()]) -> syntaxTree().
 
@@ -6340,6 +8858,15 @@ revert_block_expr(Node) ->
 Returns the list of body subtrees of a `block_expr` node.
 
 _See also: _`block_expr/1`.
+
+## Examples
+
+```erlang
+1> BE = erl_syntax:block_expr([erl_syntax:atom(ok)]).
+2> erl_prettypr:format(BE).
+"begin ok end"
+3> BEB = erl_syntax:block_expr_body(BE).
+```
 """.
 -spec block_expr_body(syntaxTree()) -> [syntaxTree()].
 
@@ -6362,6 +8889,16 @@ Cn end`". More exactly, if each `Ci` represents "`() Gi -> Bi`",
 then the result represents "`if G1 -> B1; ...; Gn -> Bn end`".
 
 _See also: _`case_expr/2`, `clause/3`, `if_expr_clauses/1`.
+
+## Examples
+
+```erlang
+1> IE = erl_syntax:if_expr([erl_syntax:clause([], erl_syntax:atom(true), [erl_syntax:atom(ok)])]).
+2> erl_prettypr:format(IE).
+"if true -> ok end"
+3> erl_syntax:type(IE).
+if_expr
+```
 """.
 -spec if_expr([syntaxTree()]) -> syntaxTree().
 
@@ -6387,6 +8924,18 @@ revert_if_expr(Node) ->
 Returns the list of clause subtrees of an `if_expr` node.
 
 _See also: _`if_expr/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([], erl_syntax:atom(true), [erl_syntax:atom(ok)]).
+2> erl_prettypr:format(C).
+"() when true -> ok"
+3> IE = erl_syntax:if_expr([C]).
+4> erl_prettypr:format(IE).
+"if true -> ok end"
+5> erl_syntax:if_expr_clauses(IE).
+```
 """.
 -spec if_expr_clauses(syntaxTree()) -> [syntaxTree()].
 
@@ -6413,6 +8962,19 @@ Argument of P1G1 -> B1; ...; PnGn -> Bn end`".
 
 _See also: _`case_expr_argument/1`, `case_expr_clauses/1`, `clause/3`,
 `if_expr/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+3> CE = erl_syntax:case_expr(erl_syntax:integer(1), [C]).
+4> erl_prettypr:format(CE).
+"case 1 of X -> X end"
+5> erl_syntax:type(CE).
+case_expr
+```
 """.
 -spec case_expr(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -6441,6 +9003,22 @@ revert_case_expr(Node) ->
 Returns the argument subtree of a `case_expr` node.
 
 _See also: _`case_expr/2`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+3> CE = erl_syntax:case_expr(erl_syntax:integer(1), [C]).
+4> erl_prettypr:format(CE).
+"case 1 of X -> X end"
+5> CEA = erl_syntax:case_expr_argument(CE).
+6> erl_prettypr:format(CEA).
+"1"
+7> erl_syntax:type(CEA).
+integer
+```
 """.
 -spec case_expr_argument(syntaxTree()) -> syntaxTree().
 
@@ -6457,6 +9035,18 @@ case_expr_argument(Node) ->
 Returns the list of clause subtrees of a `case_expr` node.
 
 _See also: _`case_expr/2`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+3> CE = erl_syntax:case_expr(erl_syntax:integer(1), [C]).
+4> erl_prettypr:format(CE).
+"case 1 of X -> X end"
+5> CEC = erl_syntax:case_expr_clauses(CE).
+```
 """.
 -spec case_expr_clauses(syntaxTree()) -> [syntaxTree()].
 
@@ -6479,6 +9069,20 @@ represents "`else C1; ...; Cn end`". More exactly, if each `Ci` represents
 "`else (P1) G1 -> B1; ...; (Pn) Gn -> Bn end`".
 
 _See also: _`clause/3`, `else_expr_clauses/1`, `maybe_expr/2`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+3> EE = erl_syntax:else_expr([C]).
+4> ME = erl_syntax:maybe_expr([erl_syntax:atom(ok)], EE).
+5> erl_prettypr:format(ME).
+"maybe ok else X -> X end"
+6> erl_syntax:type(EE).
+else_expr
+```
 """.
 -spec else_expr([syntaxTree()]) -> syntaxTree().
 
@@ -6503,6 +9107,16 @@ revert_else_expr(Node) ->
 Returns the list of clause subtrees of an `else_expr` node.
 
 _See also: _`else_expr/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+3> EE = erl_syntax:else_expr([C]).
+4> EEC = erl_syntax:else_expr_clauses(EE).
+```
 """.
 -spec else_expr_clauses(syntaxTree()) -> [syntaxTree()].
 
@@ -6547,6 +9161,19 @@ C1; ..., Cn end`".
 See `clause` for documentation on `m:erl_parse` clauses.
 
 _See also: _`maybe_expr_body/1`, `maybe_expr_else/1`.
+
+## Examples
+
+```erlang
+1> MME = erl_syntax:maybe_match_expr(erl_syntax:variable("X"), erl_syntax:atom(ok)).
+2> erl_prettypr:format(MME).
+"X ?= ok"
+3> ME = erl_syntax:maybe_expr([MME], none).
+4> erl_prettypr:format(ME).
+"maybe X ?= ok end"
+5> erl_syntax:type(ME).
+maybe_expr
+```
 """.
 -spec maybe_expr([syntaxTree()], 'none' | syntaxTree()) -> syntaxTree().
 
@@ -6576,6 +9203,18 @@ revert_maybe_expr(Node) ->
 Returns the list of body subtrees of a `maybe_expr` node.
 
 _See also: _`maybe_expr/2`.
+
+## Examples
+
+```erlang
+1> MME = erl_syntax:maybe_match_expr(erl_syntax:variable("X"), erl_syntax:atom(ok)).
+2> erl_prettypr:format(MME).
+"X ?= ok"
+3> ME = erl_syntax:maybe_expr([MME], none).
+4> erl_prettypr:format(ME).
+"maybe X ?= ok end"
+5> MEB = erl_syntax:maybe_expr_body(ME).
+```
 """.
 -spec maybe_expr_body(syntaxTree()) -> [syntaxTree()].
 
@@ -6593,6 +9232,19 @@ maybe_expr_body(Node) ->
 Returns the else subtree of a `maybe_expr` node.
 
 _See also: _`maybe_expr/2`.
+
+## Examples
+
+```erlang
+1> MME = erl_syntax:maybe_match_expr(erl_syntax:variable("X"), erl_syntax:atom(ok)).
+2> erl_prettypr:format(MME).
+"X ?= ok"
+3> ME = erl_syntax:maybe_expr([MME], none).
+4> erl_prettypr:format(ME).
+"maybe X ?= ok end"
+5> MEE = erl_syntax:maybe_expr_else(ME).
+none
+```
 """.
 -spec maybe_expr_else(syntaxTree()) -> 'none' | syntaxTree().
 
@@ -6635,6 +9287,19 @@ timeout part is specified.
 
 _See also: _`case_expr/2`, `clause/3`, `receive_expr/1`,
 `receive_expr_action/1`, `receive_expr_clauses/1`, `receive_expr_timeout/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+3> RE = erl_syntax:receive_expr([C], erl_syntax:integer(1000), [erl_syntax:atom(timeout)]).
+4> erl_prettypr:format(RE).
+"receive X -> X after 1000 -> timeout end"
+5> erl_syntax:type(RE).
+receive_expr
+```
 """.
 -spec receive_expr([syntaxTree()], 'none' | syntaxTree(), [syntaxTree()]) ->
         syntaxTree().
@@ -6681,6 +9346,18 @@ revert_receive_expr(Node) ->
 Returns the list of clause subtrees of a `receive_expr` node.
 
 _See also: _`receive_expr/3`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+3> RE = erl_syntax:receive_expr([C], erl_syntax:integer(1000), [erl_syntax:atom(timeout)]).
+4> erl_prettypr:format(RE).
+"receive X -> X after 1000 -> timeout end"
+5> REC = erl_syntax:receive_expr_clauses(RE).
+```
 """.
 -spec receive_expr_clauses(syntaxTree()) -> [syntaxTree()].
 
@@ -6703,6 +9380,22 @@ returned. Otherwise, if `Node` represents "`receive C1; ...; Cn
 after Timeout -> ... end`", `Timeout` is returned.
 
 _See also: _`receive_expr/3`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+3> RE = erl_syntax:receive_expr([C], erl_syntax:integer(1000), [erl_syntax:atom(timeout)]).
+4> erl_prettypr:format(RE).
+"receive X -> X after 1000 -> timeout end"
+5> RET = erl_syntax:receive_expr_timeout(RE).
+6> erl_prettypr:format(RET).
+"1000"
+7> erl_syntax:type(RET).
+integer
+```
 """.
 -spec receive_expr_timeout(syntaxTree()) -> 'none' | syntaxTree().
 
@@ -6724,6 +9417,18 @@ If `Node` represents "`receive C1; ...; Cn end`", this is the
 empty list.
 
 _See also: _`receive_expr/3`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+3> RE = erl_syntax:receive_expr([C], erl_syntax:integer(1000), [erl_syntax:atom(timeout)]).
+4> erl_prettypr:format(RE).
+"receive X -> X after 1000 -> timeout end"
+5> REA = erl_syntax:receive_expr_action(RE).
+```
 """.
 -spec receive_expr_action(syntaxTree()) -> [syntaxTree()].
 
@@ -6788,6 +9493,22 @@ nonempty, the `catch ...` section is left out.
 _See also: _`case_expr/2`, `class_qualifier/2`, `clause/3`, `try_after_expr/2`,
 `try_expr/2`, `try_expr/3`, `try_expr_after/1`, `try_expr_body/1`,
 `try_expr_clauses/1`, `try_expr_handlers/1`.
+
+## Examples
+
+```erlang
+1> CQ = erl_syntax:class_qualifier(erl_syntax:atom(error), erl_syntax:variable("Reason")).
+2> erl_prettypr:format(CQ).
+"error:Reason"
+3> C = erl_syntax:clause([CQ], none, [erl_syntax:variable("Reason")]).
+4> erl_prettypr:format(C).
+"(error:Reason) -> Reason"
+5> TE = erl_syntax:try_expr([erl_syntax:atom(ok)], [], [C], []).
+6> erl_prettypr:format(TE).
+"try ok catch error:Reason -> Reason end"
+7> erl_syntax:type(TE).
+try_expr
+```
 """.
 -spec try_expr([syntaxTree()], [syntaxTree()],
 	       [syntaxTree()], [syntaxTree()]) -> syntaxTree().
@@ -6821,6 +9542,21 @@ revert_try_expr(Node) ->
 Returns the list of body subtrees of a `try_expr` node.
 
 _See also: _`try_expr/4`.
+
+## Examples
+
+```erlang
+1> CQ = erl_syntax:class_qualifier(erl_syntax:atom(error), erl_syntax:variable("Reason")).
+2> erl_prettypr:format(CQ).
+"error:Reason"
+3> C = erl_syntax:clause([CQ], none, [erl_syntax:variable("Reason")]).
+4> erl_prettypr:format(C).
+"(error:Reason) -> Reason"
+5> TE = erl_syntax:try_expr([erl_syntax:atom(ok)], [], [C], []).
+6> erl_prettypr:format(TE).
+"try ok catch error:Reason -> Reason end"
+7> TEB = erl_syntax:try_expr_body(TE).
+```
 """.
 -spec try_expr_body(syntaxTree()) -> [syntaxTree()].
 
@@ -6839,6 +9575,21 @@ represents "`try Body catch H1; ...; Hn end`", the result is the empty
 list.
 
 _See also: _`try_expr/4`.
+
+## Examples
+
+```erlang
+1> CQ = erl_syntax:class_qualifier(erl_syntax:atom(error), erl_syntax:variable("Reason")).
+2> erl_prettypr:format(CQ).
+"error:Reason"
+3> C = erl_syntax:clause([CQ], none, [erl_syntax:variable("Reason")]).
+4> erl_prettypr:format(C).
+"(error:Reason) -> Reason"
+5> TE = erl_syntax:try_expr([erl_syntax:atom(ok)], [], [C], []).
+6> erl_prettypr:format(TE).
+"try ok catch error:Reason -> Reason end"
+7> TEC = erl_syntax:try_expr_clauses(TE).
+```
 """.
 -spec try_expr_clauses(syntaxTree()) -> [syntaxTree()].
 
@@ -6855,6 +9606,21 @@ try_expr_clauses(Node) ->
 Returns the list of handler-clause subtrees of a `try_expr` node.
 
 _See also: _`try_expr/4`.
+
+## Examples
+
+```erlang
+1> CQ = erl_syntax:class_qualifier(erl_syntax:atom(error), erl_syntax:variable("Reason")).
+2> erl_prettypr:format(CQ).
+"error:Reason"
+3> C = erl_syntax:clause([CQ], none, [erl_syntax:variable("Reason")]).
+4> erl_prettypr:format(C).
+"(error:Reason) -> Reason"
+5> TE = erl_syntax:try_expr([erl_syntax:atom(ok)], [], [C], []).
+6> erl_prettypr:format(TE).
+"try ok catch error:Reason -> Reason end"
+7> TEH = erl_syntax:try_expr_handlers(TE).
+```
 """.
 -spec try_expr_handlers(syntaxTree()) -> [syntaxTree()].
 
@@ -6871,6 +9637,21 @@ try_expr_handlers(Node) ->
 Returns the list of "after" subtrees of a `try_expr` node.
 
 _See also: _`try_expr/4`.
+
+## Examples
+
+```erlang
+1> CQ = erl_syntax:class_qualifier(erl_syntax:atom(error), erl_syntax:variable("Reason")).
+2> erl_prettypr:format(CQ).
+"error:Reason"
+3> C = erl_syntax:clause([CQ], none, [erl_syntax:variable("Reason")]).
+4> erl_prettypr:format(C).
+"(error:Reason) -> Reason"
+5> TE = erl_syntax:try_expr([erl_syntax:atom(ok)], [], [C], []).
+6> erl_prettypr:format(TE).
+"try ok catch error:Reason -> Reason end"
+7> TEA = erl_syntax:try_expr_after(TE).
+```
 """.
 -spec try_expr_after(syntaxTree()) -> [syntaxTree()].
 
@@ -6896,6 +9677,16 @@ The result represents "`Class:Body`".
 
 _See also: _`class_qualifier_argument/1`, `class_qualifier_body/1`,
 `class_qualifier_stacktrace/1`, `try_expr/4`.
+
+## Examples
+
+```erlang
+1> CQ = erl_syntax:class_qualifier(erl_syntax:atom(error), erl_syntax:variable("Reason")).
+2> erl_prettypr:format(CQ).
+"error:Reason"
+3> erl_syntax:type(CQ).
+class_qualifier
+```
 """.
 -spec class_qualifier(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -6912,6 +9703,16 @@ The result represents "`Class:Body:Stacktrace`".
 
 _See also: _`class_qualifier_argument/1`, `class_qualifier_body/1`,
 `try_expr/4`.
+
+## Examples
+
+```erlang
+1> CQ = erl_syntax:class_qualifier(erl_syntax:atom(error), erl_syntax:variable("Reason"), erl_syntax:variable("Stack")).
+2> erl_prettypr:format(CQ).
+"error:Reason:Stack"
+3> erl_syntax:type(CQ).
+class_qualifier
+```
 """.
 -spec class_qualifier(syntaxTree(), syntaxTree(), syntaxTree()) ->
                              syntaxTree().
@@ -6927,6 +9728,19 @@ class_qualifier(Class, Body, Stacktrace) ->
 Returns the argument (the class) subtree of a `class_qualifier` node.
 
 _See also: _`class_qualifier/2`.
+
+## Examples
+
+```erlang
+1> CQ = erl_syntax:class_qualifier(erl_syntax:atom(error), erl_syntax:variable("Reason"), erl_syntax:variable("Stack")).
+2> erl_prettypr:format(CQ).
+"error:Reason:Stack"
+3> CQA = erl_syntax:class_qualifier_argument(CQ).
+4> erl_prettypr:format(CQA).
+"error"
+5> erl_syntax:type(CQA).
+atom
+```
 """.
 -spec class_qualifier_argument(syntaxTree()) -> syntaxTree().
 
@@ -6938,6 +9752,19 @@ class_qualifier_argument(Node) ->
 Returns the body subtree of a `class_qualifier` node.
 
 _See also: _`class_qualifier/2`.
+
+## Examples
+
+```erlang
+1> CQ = erl_syntax:class_qualifier(erl_syntax:atom(error), erl_syntax:variable("Reason"), erl_syntax:variable("Stack")).
+2> erl_prettypr:format(CQ).
+"error:Reason:Stack"
+3> CQB = erl_syntax:class_qualifier_body(CQ).
+4> erl_prettypr:format(CQB).
+"Reason"
+5> erl_syntax:type(CQB).
+variable
+```
 """.
 -spec class_qualifier_body(syntaxTree()) -> syntaxTree().
 
@@ -6948,6 +9775,19 @@ class_qualifier_body(Node) ->
 Returns the stacktrace subtree of a `class_qualifier` node.
 
 _See also: _`class_qualifier/2`.
+
+## Examples
+
+```erlang
+1> CQ = erl_syntax:class_qualifier(erl_syntax:atom(error), erl_syntax:variable("Reason"), erl_syntax:variable("Stack")).
+2> erl_prettypr:format(CQ).
+"error:Reason:Stack"
+3> CQS = erl_syntax:class_qualifier_stacktrace(CQ).
+4> erl_prettypr:format(CQS).
+"Stack"
+5> erl_syntax:type(CQS).
+variable
+```
 """.
 -spec class_qualifier_stacktrace(syntaxTree()) -> syntaxTree().
 
@@ -6967,6 +9807,16 @@ to [`implicit_fun(arity_qualifier(Name, Arity))`](`implicit_fun/1`).
 (This is a utility function.)
 
 _See also: _`implicit_fun/1`, `implicit_fun/3`.
+
+## Examples
+
+```erlang
+1> IF = erl_syntax:implicit_fun(erl_syntax:atom(length), erl_syntax:integer(1)).
+2> erl_prettypr:format(IF).
+"fun length/1"
+3> erl_syntax:type(IF).
+implicit_fun
+```
 """.
 -spec implicit_fun(syntaxTree(), 'none' | syntaxTree()) -> syntaxTree().
 
@@ -6988,6 +9838,16 @@ Arity)`](`implicit_fun/2`), otherwise it is equivalent to
 (This is a utility function.)
 
 _See also: _`implicit_fun/1`, `implicit_fun/2`.
+
+## Examples
+
+```erlang
+1> IF = erl_syntax:implicit_fun(erl_syntax:atom(lists), erl_syntax:atom(reverse), erl_syntax:integer(1)).
+2> erl_prettypr:format(IF).
+"fun lists:reverse/1"
+3> erl_syntax:type(IF).
+implicit_fun
+```
 """.
 -spec implicit_fun('none' | syntaxTree(), syntaxTree(), syntaxTree()) ->
         syntaxTree().
@@ -7006,6 +9866,19 @@ The result represents "`fun Name`". `Name` should represent either
 
 _See also: _`arity_qualifier/2`, `implicit_fun/2`, `implicit_fun/3`,
 `implicit_fun_name/1`, `module_qualifier/2`.
+
+## Examples
+
+```erlang
+1> AQ = erl_syntax:arity_qualifier(erl_syntax:atom(length), erl_syntax:integer(1)).
+2> erl_prettypr:format(AQ).
+"length/1"
+3> IF = erl_syntax:implicit_fun(AQ).
+4> erl_prettypr:format(IF).
+"fun length/1"
+5> erl_syntax:type(IF).
+implicit_fun
+```
 """.
 -spec implicit_fun(syntaxTree()) -> syntaxTree().
 
@@ -7058,6 +9931,19 @@ If `Node` represents "`fun N/A`" or "`fun M:N/A`", then the
 result is the subtree representing "`N/A`" or "`M:N/A`", respectively.
 
 _See also: _`arity_qualifier/2`, `implicit_fun/1`, `module_qualifier/2`.
+
+## Examples
+
+```erlang
+1> IF = erl_syntax:implicit_fun(erl_syntax:atom(length), erl_syntax:integer(1)).
+2> erl_prettypr:format(IF).
+"fun length/1"
+3> IFN = erl_syntax:implicit_fun_name(IF).
+4> erl_prettypr:format(IFN).
+"length/1"
+5> erl_syntax:type(IFN).
+arity_qualifier
+```
 """.
 -spec implicit_fun_name(syntaxTree()) -> syntaxTree().
 
@@ -7083,6 +9969,19 @@ Pim) Gi -> Bi`", then the result represents "`fun (P11, ...,
 P1m) G1 -> B1; ...; (Pn1, ..., Pnm) Gn -> Bn end`".
 
 _See also: _`fun_expr_arity/1`, `fun_expr_clauses/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([], none, [erl_syntax:atom(ok)]).
+2> erl_prettypr:format(C).
+"() -> ok"
+3> FE = erl_syntax:fun_expr([C]).
+4> erl_prettypr:format(FE).
+"fun () -> ok end"
+5> erl_syntax:type(FE).
+fun_expr
+```
 """.
 -spec fun_expr([syntaxTree()]) -> syntaxTree().
 
@@ -7110,6 +10009,18 @@ revert_fun_expr(Node) ->
 Returns the list of clause subtrees of a `fun_expr` node.
 
 _See also: _`fun_expr/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([], none, [erl_syntax:atom(ok)]).
+2> erl_prettypr:format(C).
+"() -> ok"
+3> FE = erl_syntax:fun_expr([C]).
+4> erl_prettypr:format(FE).
+"fun () -> ok end"
+5> FEC = erl_syntax:fun_expr_clauses(FE).
+```
 """.
 -spec fun_expr_clauses(syntaxTree()) -> [syntaxTree()].
 
@@ -7134,6 +10045,19 @@ returns an empty list, or if the first element of that list is not a syntax tree
 nonempty list.
 
 _See also: _`clause/3`, `clause_patterns/1`, `fun_expr/1`, `fun_expr_clauses/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([], none, [erl_syntax:atom(ok)]).
+2> erl_prettypr:format(C).
+"() -> ok"
+3> FE = erl_syntax:fun_expr([C]).
+4> erl_prettypr:format(FE).
+"fun () -> ok end"
+5> FEA = erl_syntax:fun_expr_arity(FE).
+0
+```
 """.
 -spec fun_expr_arity(syntaxTree()) -> arity().
 
@@ -7154,6 +10078,19 @@ Name(Pn1, ..., Pnm) Gn -> Bn end`".
 
 _See also: _`named_fun_expr_arity/1`, `named_fun_expr_clauses/1`,
 `named_fun_expr_name/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([], none, [erl_syntax:atom(ok)]).
+2> erl_prettypr:format(C).
+"() -> ok"
+3> NFE = erl_syntax:named_fun_expr(erl_syntax:atom(loop), [C]).
+4> erl_prettypr:format(NFE).
+"fun loop() -> ok end"
+5> erl_syntax:type(NFE).
+named_fun_expr
+```
 """.
 -spec named_fun_expr(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -7185,6 +10122,22 @@ revert_named_fun_expr(Node) ->
 Returns the name subtree of a `named_fun_expr` node.
 
 _See also: _`named_fun_expr/2`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([], none, [erl_syntax:atom(ok)]).
+2> erl_prettypr:format(C).
+"() -> ok"
+3> NFE = erl_syntax:named_fun_expr(erl_syntax:atom(loop), [C]).
+4> erl_prettypr:format(NFE).
+"fun loop() -> ok end"
+5> NFEN = erl_syntax:named_fun_expr_name(NFE).
+6> erl_prettypr:format(NFEN).
+"loop"
+7> erl_syntax:type(NFEN).
+atom
+```
 """.
 -spec named_fun_expr_name(syntaxTree()) -> syntaxTree().
 
@@ -7201,6 +10154,18 @@ named_fun_expr_name(Node) ->
 Returns the list of clause subtrees of a `named_fun_expr` node.
 
 _See also: _`named_fun_expr/2`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([], none, [erl_syntax:atom(ok)]).
+2> erl_prettypr:format(C).
+"() -> ok"
+3> NFE = erl_syntax:named_fun_expr(erl_syntax:atom(loop), [C]).
+4> erl_prettypr:format(NFE).
+"fun loop() -> ok end"
+5> NFEC = erl_syntax:named_fun_expr_clauses(NFE).
+```
 """.
 -spec named_fun_expr_clauses(syntaxTree()) -> [syntaxTree()].
 
@@ -7227,6 +10192,19 @@ list.
 
 _See also: _`clause/3`, `clause_patterns/1`, `named_fun_expr/2`,
 `named_fun_expr_clauses/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([], none, [erl_syntax:atom(ok)]).
+2> erl_prettypr:format(C).
+"() -> ok"
+3> NFE = erl_syntax:named_fun_expr(erl_syntax:atom(loop), [C]).
+4> erl_prettypr:format(NFE).
+"fun loop() -> ok end"
+5> NFEA = erl_syntax:named_fun_expr_arity(NFE).
+0
+```
 """.
 -spec named_fun_expr_arity(syntaxTree()) -> arity().
 
@@ -7240,6 +10218,16 @@ Creates an abstract parenthesised expression.
 The result represents "`(Body)`", independently of the context.
 
 _See also: _`parentheses_body/1`.
+
+## Examples
+
+```erlang
+1> P = erl_syntax:parentheses(erl_syntax:integer(1)).
+2> erl_prettypr:format(P).
+"(1)"
+3> erl_syntax:type(P).
+parentheses
+```
 """.
 -spec parentheses(syntaxTree()) -> syntaxTree().
 
@@ -7254,6 +10242,19 @@ revert_parentheses(Node) ->
 Returns the body subtree of a `parentheses` node.
 
 _See also: _`parentheses/1`.
+
+## Examples
+
+```erlang
+1> P = erl_syntax:parentheses(erl_syntax:integer(1)).
+2> erl_prettypr:format(P).
+"(1)"
+3> PB = erl_syntax:parentheses_body(P).
+4> erl_prettypr:format(PB).
+"1"
+5> erl_syntax:type(PB).
+integer
+```
 """.
 -spec parentheses_body(syntaxTree()) -> syntaxTree().
 
@@ -7289,6 +10290,16 @@ and so on. The `text` node type can be used to represent arguments which are not
 regular Erlang constructs.
 
 _See also: _`macro/1`, `macro_arguments/1`, `macro_name/1`, `text/1`.
+
+## Examples
+
+```erlang
+1> M = erl_syntax:macro(erl_syntax:atom(line), [erl_syntax:integer(1)]).
+2> erl_prettypr:format(M).
+"?line(1)"
+3> erl_syntax:type(M).
+macro
+```
 """.
 -spec macro(syntaxTree(), 'none' | [syntaxTree()]) -> syntaxTree().
 
@@ -7300,6 +10311,19 @@ macro(Name, Arguments) ->
 Returns the name subtree of a `macro` node.
 
 _See also: _`macro/2`.
+
+## Examples
+
+```erlang
+1> M = erl_syntax:macro(erl_syntax:atom(line), [erl_syntax:integer(1)]).
+2> erl_prettypr:format(M).
+"?line(1)"
+3> MN = erl_syntax:macro_name(M).
+4> erl_prettypr:format(MN).
+"line"
+5> erl_syntax:type(MN).
+atom
+```
 """.
 -spec macro_name(syntaxTree()) -> syntaxTree().
 
@@ -7315,6 +10339,15 @@ If `Node` represents "`?Name`", `none` is returned. Otherwise, if
 returned.
 
 _See also: _`macro/2`.
+
+## Examples
+
+```erlang
+1> M = erl_syntax:macro(erl_syntax:atom(line), [erl_syntax:integer(1)]).
+2> erl_prettypr:format(M).
+"?line(1)"
+3> MA = erl_syntax:macro_arguments(M).
+```
 """.
 -spec macro_arguments(syntaxTree()) -> 'none' | [syntaxTree()].
 
@@ -7335,6 +10368,16 @@ representation. Evaluation fails with reason `badarg` if `Term` is not
 a literal term.
 
 _See also: _`concrete/1`, `is_literal/1`.
+
+## Examples
+
+```erlang
+1> A = erl_syntax:abstract({ok, 1}).
+2> erl_prettypr:format(A).
+"{ok, 1}"
+3> erl_syntax:type(A).
+tuple
+```
 """.
 -spec abstract(term()) -> syntaxTree().
 
@@ -7415,6 +10458,16 @@ literal term.
 > Compiler.
 
 _See also: _`abstract/1`, `char/1`, `is_literal/1`.
+
+## Examples
+
+```erlang
+1> A = erl_syntax:abstract({ok, 1}).
+2> erl_prettypr:format(A).
+"{ok, 1}"
+3> C = erl_syntax:concrete(A).
+{ok,1}
+```
 """.
 -spec concrete(syntaxTree()) -> term().
 
@@ -7497,6 +10550,16 @@ This function returns `true` if and only if the value of
 [`concrete(Node)`](`concrete/1`) is defined.
 
 _See also: _`abstract/1`, `concrete/1`.
+
+## Examples
+
+```erlang
+1> A = erl_syntax:abstract({ok, 1}).
+2> erl_prettypr:format(A).
+"{ok, 1}"
+3> IsLiteral = erl_syntax:is_literal(A).
+true
+```
 """.
 -spec is_literal(syntaxTree()) -> boolean().
 
@@ -7576,6 +10639,16 @@ non-reverted subtree of the result.  This can only happen if `Tree`
 does not actually represent legal Erlang code.
 
 _See also: _[//stdlib/erl_parse](`m:erl_parse`), `revert_forms/1`.
+
+## Examples
+
+```erlang
+1> A = erl_syntax:atom(ok).
+2> erl_prettypr:format(A).
+"ok"
+3> R = erl_syntax:revert(A).
+{atom,0,ok}
+```
 """.
 -spec revert(syntaxTree()) -> syntaxTree().
 
@@ -7775,6 +10848,19 @@ not be reverted, `{error, Form}` is thrown. Standalone comments in the
 form sequence are discarded.
 
 _See also: _`form_list/1`, `is_form/1`, `revert/1`.
+
+## Examples
+
+```erlang
+1> A = erl_syntax:attribute(erl_syntax:atom(module), [erl_syntax:atom(demo)]).
+2> erl_prettypr:format(A).
+"-module(demo)."
+3> FL = erl_syntax:form_list([A]).
+4> erl_prettypr:format(FL).
+"-module(demo)."
+5> RFs = erl_syntax:revert_forms(FL).
+[{attribute,0,module,demo}]
+```
 """.
 -spec revert_forms(forms()) -> [erl_parse()].
 
@@ -7871,6 +10957,18 @@ which all atom names have been extended with the prefix "a_", but nothing else
 (including comments, annotations, and line numbers) has been changed.
 
 _See also: _`copy_attrs/2`, `is_leaf/1`, `make_tree/2`, `type/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+3> F = erl_syntax:function(erl_syntax:atom(identity), [C]).
+4> erl_prettypr:format(F).
+"identity(X) -> X."
+5> ST = erl_syntax:subtrees(F).
+```
 """.
 -spec subtrees(syntaxTree()) -> [[syntaxTree()]].
 
@@ -8139,6 +11237,19 @@ This is equivalent to [`copy_attrs(Node, make_tree(type(Node),
 Groups))`](`copy_attrs/2`).
 
 _See also: _`copy_attrs/2`, `make_tree/2`, `type/1`.
+
+## Examples
+
+```erlang
+1> T = erl_syntax:tuple([]).
+2> erl_prettypr:format(T).
+"{}"
+3> UT = erl_syntax:update_tree(T, [[erl_syntax:atom(ok)]]).
+4> erl_prettypr:format(UT).
+"{ok}"
+5> erl_syntax:type(UT).
+tuple
+```
 """.
 -spec update_tree(syntaxTree(), [[syntaxTree()]]) -> syntaxTree().
 
@@ -8165,6 +11276,16 @@ it does not necessarily have the same data representation as `Node`.
 
 _See also: _`copy_attrs/2`, `is_leaf/1`, `subtrees/1`, `type/1`,
 `update_tree/2`.
+
+## Examples
+
+```erlang
+1> MT = erl_syntax:make_tree(tuple, [[erl_syntax:atom(ok)]]).
+2> erl_prettypr:format(MT).
+"{ok}"
+3> erl_syntax:type(MT).
+tuple
+```
 """.
 -spec make_tree(atom(), [[syntaxTree()]]) -> syntaxTree().
 
@@ -8287,6 +11408,19 @@ _representation independent_ syntax tree generating expression; in the
 above case, something like "`erl_syntax:variable("V")`".
 
 _See also: _`abstract/1`, `get_ann/1`, `type/1`.
+
+## Examples
+
+```erlang
+1> A = erl_syntax:atom(ok).
+2> erl_prettypr:format(A).
+"ok"
+3> M = erl_syntax:meta(A).
+4> erl_prettypr:format(M).
+"erl_syntax:atom(ok)"
+5> erl_syntax:type(M).
+application
+```
 """.
 -spec meta(syntaxTree()) -> syntaxTree().
 
@@ -8443,6 +11577,16 @@ format may depend on the type tag.
 >   `erl_syntax` and `erl_parse` nodes.
 
 _See also: _`data/1`, `is_tree/1`, `type/1`.
+
+## Examples
+
+```erlang
+1> T = erl_syntax:tree(example, [erl_syntax:atom(ok)]).
+2> erl_syntax:data(T).
+[{tree,atom,{attr,0,[],none},ok}]
+3> erl_syntax:type(T).
+example
+```
 """.
 -spec tree(atom(), term()) -> tree().
 
@@ -8462,6 +11606,14 @@ and `false` otherwise.
 > "parse trees".
 
 _See also: _`tree/2`.
+
+## Examples
+
+```erlang
+1> T = erl_syntax:tree(example, [erl_syntax:atom(ok)]).
+2> IsTree = erl_syntax:is_tree(T).
+true
+```
 """.
 -spec is_tree(syntaxTree()) -> boolean().
 
@@ -8480,6 +11632,13 @@ Evaluation fails with reason `badarg` if [`is_tree(Node)`](`is_tree/1`) does not
 yield `true`.
 
 _See also: _`tree/2`.
+
+## Examples
+
+```erlang
+1> T = erl_syntax:tree(example, [erl_syntax:atom(ok)]).
+2> D = erl_syntax:data(T).
+```
 """.
 -spec data(syntaxTree()) -> term().
 
