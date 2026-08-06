@@ -65,7 +65,7 @@ with.
 7. [Github Actions](#github-actions)
     1. [Debugging github actions failures](#debugging-github-actions-failures)
 8. [Using Docker](#using-docker)
-    1. [Gidpod.io or VSCode dev container](#gitpod-io-or-vscode-dev-container)
+    1. [VSCode dev container](#vscode-dev-container)
 
 ## Short version
 
@@ -554,8 +554,7 @@ you can do that like this:
 
 ```bash
 docker build -t ghcr.io/erlang/otp/ubuntu-base \
-  --build-arg BASE=ubuntu:20.04 --build-arg USER=otptest --build-arg uid=$(id -u) \
-  --build-arg GROUP=uucp --build-arg gid=$(id -g) \
+  --build-arg uid=$(id -u) --build-arg gid=$(id -g) \
   -f .github/dockerfiles/Dockerfile.ubuntu-base .github/
 ```
 
@@ -577,24 +576,21 @@ docker run --init -v $PWD/make_test_dir:/buildroot/otp/lib/stdlib/make_test_dir 
 
 The Common Test logs will be placed in `make_test_dir/ct_logs`.
 
-### Gidpod.io or VSCode dev container
+### VSCode dev container
 
-This git repository is also prepared to run using [Gitpod](https://gitpod.io/) or
+This git repository is also prepared to run using a
 [VSCode Devcontainer](https://code.visualstudio.com/docs/remote/containers).
 
-The support for these environments is very early so it will be a bit unstable.
-
-To access the gitpod for Erlang/OTP you just navigate to
-[https://gitpod.io/#https://github.com/erlang/otp](https://gitpod.io/#https://github.com/erlang/otp).
+The support for this environment is very early so it will be a bit unstable.
 
 When using a VSCode dev container, you only need to open [VSCode](https://code.visualstudio.com/)
 in the Erlang/OTP repository and you should get a popup that asks if you want to
 run in a dev container.
 
-The gitpod and dev container both use the base ubuntu image built in [Using Docker](#using-docker).
-So it should be possible to run all tests inside the containers with all test
+The dev container uses the base ubuntu image built in [Using Docker](#using-docker).
+So it should be possible to run all tests inside the container with all test
 dependencies available.
 
-*WARNING*: Using VSCode dev container on macOS can be very slow because of limitations
-in the filesystem. So I would recommend either using gitpod or just work locally without
+*WARNING*: Using a VSCode dev container on macOS can be very slow because of limitations
+in the filesystem. So I would recommend just working locally without
 the dev container on macOS.
