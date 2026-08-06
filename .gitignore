@@ -213,6 +213,7 @@ JAVADOC-GENERATED
 /erts/emulator/test/*_native_SUITE.erl
 /erts/emulator/test/*_SUITE_data/Makefile
 /erts/emulator/test/*_stripped_types_SUITE.erl
+/erts/emulator/test/nif_SUITE_data/*.so
 /erts/test/install_SUITE_data/install_bin
 /erts/test/autoimport_SUITE_data/erlang.xml
 /erts/emulator/make_test_dir/
