@@ -2712,7 +2712,13 @@ binary_io({file_info, B}, _) ->
 	    is_binary(B) -> {regular, byte_size(B)};
 	    B =:= directory -> {directory, 0}
 	end,
-    Now = calendar:local_time(),
+    Now = case os:getenv("SOURCE_DATE_EPOCH") of
+              false ->
+                  calendar:local_time();
+              Epoch ->
+                  calendar:system_time_to_local_time(
+                    list_to_integer(Epoch), second)
+          end,
     #file_info{size = Size, type = Type,
 	       access = read_write, atime = Now,
 	       mtime = Now, ctime = Now, mode =
