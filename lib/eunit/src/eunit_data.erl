@@ -839,7 +839,7 @@ ping(P) ->
 
 data_test_() ->
     Setup = fun () -> spawn(fun echo_proc/0) end,
-    Cleanup = fun (Pid) -> exit(Pid, kill) end,
+    Cleanup = fun (Pid) -> erlang:exit_signal(Pid, kill) end,
     Fail = ?_test(throw(eunit)),
     T = ?_test(ok),
     Tests = [T,T,T],
