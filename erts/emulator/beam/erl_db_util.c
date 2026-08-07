@@ -2810,10 +2810,7 @@ restart:
                 Eterm token;
                 Uint token_sz;
 
-                ASSERT(SEQ_TRACE_TOKEN_ARITY(c_p) == 5);
-                ASSERT(is_immed(SEQ_TRACE_TOKEN_FLAGS(c_p)));
-                ASSERT(is_immed(SEQ_TRACE_TOKEN_SERIAL(c_p)));
-                ASSERT(is_immed(SEQ_TRACE_TOKEN_LASTCNT(c_p)));
+                ASSERT(SEQ_TRACE_TOKEN_VALID(c_p));
 
                 token = SEQ_TRACE_TOKEN(c_p);
                 token_sz = size_object(token);

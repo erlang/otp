@@ -22,7 +22,7 @@
 -module(atomics_SUITE).
 -export([suite/0, all/0,
          signed/1, unsigned/1, bad/1, signed_limits/1, unsigned_limits/1,
-         error_info/1]).
+         new_limits/1, error_info/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -30,7 +30,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [signed, unsigned, bad, signed_limits, unsigned_limits,
-     error_info].
+     new_limits, error_info].
 
 signed(Config) when is_list(Config) ->
     Size = 10,
@@ -143,6 +143,18 @@ unsigned_limits(Config) when is_list(Config) ->
     ok = atomics:add(Ref, 1, IncrMin),
     0 = atomics:get(Ref, 1),
     {'EXIT',{badarg,_}} = (catch atomics:add(Ref, 1, IncrMin-1)),
+
+    ok.
+
+new_limits(Config) when is_list(Config) ->
+
+    %% This used to cause a segfault
+    case erlang:system_info(wordsize) of
+        4 ->
+            {'EXIT',{system_limit,_}} = (catch atomics:new(1 bsl 29 - 1, []));
+        8 ->
+            {'EXIT',{system_limit,_}} = (catch atomics:new(1 bsl 61 - 1, []))
+    end,
 
     ok.
 
