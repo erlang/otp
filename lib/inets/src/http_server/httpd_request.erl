@@ -341,7 +341,22 @@ validate_uri(RequestURI) ->
         {error, _, _} ->
             {error, {bad_request, {malformed_syntax, RequestURI}}};
         URI ->
-            {ok, URI}
+            {ok, collapse_uri_path_slashes(URI)}
+    end.
+
+%% Collapse consecutive slashes in the path component only.
+%% Uses uri_string:parse/1 to avoid mangling "://" in absolute URIs.
+collapse_uri_path_slashes([$/ | _] = Path) ->
+    %% Path-only form (the common case for httpd requests).
+    httpd_util:collapse_slashes(Path);
+collapse_uri_path_slashes(URI) ->
+    case uri_string:parse(URI) of
+        #{path := Path} = Parsed when map_size(Parsed) > 1 ->
+            %% Absolute URI — collapse only the path, recompose.
+            uri_string:recompose(Parsed#{path => httpd_util:collapse_slashes(Path)});
+        _ ->
+            %% Unparseable or path-only without leading slash.
+            httpd_util:collapse_slashes(URI)
     end.
    
 validate_version("HTTP/1.1") ->
