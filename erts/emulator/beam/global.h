@@ -225,7 +225,9 @@ struct erts_driver_t_ {
     DE_Handle *handle;
     erts_mtx_t *lock;
     ErlDrvEntry *entry;
-    ErlDrvData (*start)(ErlDrvPort port, char *command, SysDriverOpts* opts);
+    ErlDrvData (*start)(ErlDrvPort port, char *command);
+    ErlDrvData (*start_sys_drv)(ErlDrvPort port, char *command,
+                               SysDriverOpts* opts);
     void (*stop)(ErlDrvData drv_data);
     void (*finish)(void);
     void (*flush)(ErlDrvData drv_data);

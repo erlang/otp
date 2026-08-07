@@ -114,14 +114,8 @@ typedef struct erl_drv_entry {
     int (*init)(void);          /* Called at system startup for statically
                                    linked drivers, and after loading for
                                    dynamically loaded drivers */
-#ifndef ERL_SYS_DRV
     ErlDrvData (*start)(ErlDrvPort port, char *command);
-                                /* Called when open_port/2 is invoked,
-                                   return value -1 means failure */
-#else
-    ErlDrvData (*start)(ErlDrvPort port, char *command, SysDriverOpts* opts);
-                                /* Special options, only for system driver */
-#endif
+                                /* Called when open_port/2 is invoked */
     void (*stop)(ErlDrvData drv_data);
                                 /* Called when port is closed, and when the
                                    emulator is halted */
