@@ -27,7 +27,7 @@
 -export([t_div/1, eq_28/1, eq_32/1, eq_big/1, eq_math/1, eq_big_mul_div/1,
          eq_big_rem/1,
          big_literals/1, borders/1, negative/1, karatsuba/1,
-         big_float_1/1, big_float_2/1,
+         big_float_1/1, big_float_2/1, big_float_3/1,
          bxor_2pow/1, band_2pow/1,
          shift_limit_1/1, powmod/1, system_limit/1, toobig/1, otp_6692/1,
          properties/1, reductions/1]).
@@ -56,7 +56,7 @@ all() ->
      properties, reductions].
 
 groups() -> 
-    [{big_float, [], [big_float_1, big_float_2]}].
+    [{big_float, [], [big_float_1, big_float_2, big_float_3]}].
 
 %%
 %% Syntax of data files:
@@ -352,6 +352,52 @@ big_float_2(Config) when is_list(Config) ->
     _Ignore = 2/I,
     {'EXIT', _} = (catch 4/(2*I)),
     ok.
+
+%% Converting a bignum to a float must give the nearest representable
+%% double, ties to even. Accumulating digit by digit rounds once per digit
+%% and compounds the error, which lands on the wrong side of the true value
+%% for some values wider than one digit.
+big_float_3(Config) when is_list(Config) ->
+    %% Each of these converted to the second-nearest double when the
+    %% conversion rounded per digit.
+    [begin
+         Nearest = correctly_rounded(I),
+         Nearest = float(I),
+         Nearest = 1.0 * I,
+         NegNearest = -Nearest,
+         NegNearest = float(-I)
+     end
+     || I <- [428654966685883400000,
+              38409289721754710000,
+              34784104853086640000,
+              385269108828434300000,
+              96874578115970900000,
+              252558769001389900000,
+              26465126867694860000]],
+
+    %% Widths on both sides of the single-digit boundary, where the
+    %% per-digit accumulation starts to compound.
+    [begin
+         I = rand:uniform(1 bsl Bits),
+         Nearest = correctly_rounded(I),
+         Nearest = float(I)
+     end
+     || Bits <- lists:seq(50, 300), _ <- lists:seq(1, 2000)],
+
+    %% 2-pows and neighbours
+    [begin
+         I = (1 bsl E) + Diff,
+         Nearest = correctly_rounded(I),
+         Nearest = float(I)
+     end
+     || E <- lists:seq(0, 1023), Diff <- lists:seq(-2,2)],
+
+    ok.
+
+%% The platform's decimal parser is correctly rounded, so it serves as the
+%% oracle for what float/1 must return.
+correctly_rounded(I) ->
+    binary_to_float(iolist_to_binary([integer_to_list(I), ".0"])).
 
 %% OTP-3256
 shift_limit_1(Config) when is_list(Config) ->

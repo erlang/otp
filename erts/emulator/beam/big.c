@@ -2411,19 +2411,99 @@ erts_uint64_array_to_big(Uint **hpp, int neg, int len, Uint64 *array)
 int
 big_to_double(Eterm x, double* resp)
 {
-    double d = 0.0;
     Eterm* xp = big_val(x);
     dsize_t xl = BIG_SIZE(xp);
-    ErtsDigit* s = BIG_V(xp) + xl;
+    ErtsDigit* v = BIG_V(xp);
     short xsgn = BIG_SIGN(xp);
-    double dbase = ((double)(D_MASK)+1);
+    ErtsDigit msd;
+    Uint64 bitlen, guard, mant;
+    int msd_bits, sticky, round_bit, exp;
+    dsize_t i;
+    double d;
 
-    while (xl--) {
-        d = d * dbase + *--s;
+    ASSERT(xl > 0);
+    msd = v[xl-1];
+    ASSERT(msd != 0);
 
-        if (!erts_isfinite(d)) {
-            return -1;
+    /* Bit length of the most significant digit, and of the whole value. */
+    msd_bits = erts_fit_in_bits_uint(msd);
+    bitlen = (Uint64)(xl-1) * D_EXP + msd_bits;
+
+    if (bitlen <= 53) {
+        /*
+         * The value fits the double mantissa exactly, so accumulating
+         * digit by digit cannot round.
+         */
+        double dbase = ((double)(D_MASK)+1);
+
+        d = 0.0;
+        for (i = xl; i-- > 0; ) {
+            d = d * dbase + v[i];
         }
+        *resp = xsgn ? -d : d;
+        return 0;
+    }
+
+    /*
+     * More than 1024 bits is at least 2^1024, above the largest finite double
+     * (2^1024 - 2^971). Reject it here rather than in the loop below, which
+     * visits every digit to collect the sticky bit; bignums reach tens of
+     * thousands of digits. Exactly 1024 bits can still be finite, so it takes
+     * the rounding path, where the erts_isfinite() check catches a mantissa
+     * that carries up to 2^1024.
+     */
+    if (bitlen > 1024) {
+        return -1;
+    }
+
+    /*
+     * Wider than the mantissa, so the result must be rounded. Accumulating
+     * `d = d * base + digit` per digit rounds once per digit and compounds
+     * the error, which can land on the wrong side of the true value; IEEE 754
+     * requires the nearest representable double, ties to even.
+     *
+     * Take the top 54 bits (53 of mantissa plus one round bit) and record
+     * whether any bit below them is set, then round exactly once.
+     */
+    guard = bitlen - 54;
+    mant = 0;
+    sticky = 0;
+
+    for (i = xl; i-- > 0 && !sticky; ) {
+        ErtsDigit dig = v[i];
+        Uint64 lsb = (Uint64)i * D_EXP;   /* bit position of this digit's LSB */
+
+        if (lsb + D_EXP <= guard) {
+            /* Entirely below the cut. */
+            sticky |= (dig != 0);
+        } else if (lsb >= guard) {
+            /* Entirely above the cut; every set bit lands within 54 bits. */
+            mant |= (Uint64)dig << (lsb - guard);
+        } else {
+            /* Straddles the cut. */
+            Uint64 k = guard - lsb;
+
+            sticky |= (dig & (((ErtsDigit)1 << k) - 1)) != 0;
+            mant |= (Uint64)(dig >> k);
+        }
+    }
+
+    round_bit = (int)(mant & 1);
+    mant >>= 1;                      /* 53 significant bits remain */
+    exp = (int)(guard + 1);
+
+    /* Round to nearest, ties to even. */
+    if (round_bit && (sticky || (mant & 1))) {
+        mant++;
+        if (mant == ((Uint64)1 << 53)) {
+            mant >>= 1;              /* carried out of the mantissa */
+            exp++;
+        }
+    }
+
+    d = ldexp((double)mant, exp);
+    if (!erts_isfinite(d)) {
+        return -1;
     }
 
     *resp = xsgn ? -d : d;
