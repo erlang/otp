@@ -1389,8 +1389,16 @@ gettype(S) when is_port(S) ->
     end.
 
 getprotocol(S) when is_port(S) ->
-    {name,Drv} = erlang:port_info(S, name),
-    drv2protocol(Drv).
+    case erlang:port_info(S, name) of
+        {name,Drv} ->
+            drv2protocol(Drv);
+        undefined ->
+            %% The port has closed (e.g. the peer closed the socket in the
+            %% window after the sendfile/4 connected check); treat as an
+            %% unknown protocol rather than crashing the caller with a
+            %% {badmatch,undefined}.
+            undefined
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  IS_SCTP(insock()) -> true | false
