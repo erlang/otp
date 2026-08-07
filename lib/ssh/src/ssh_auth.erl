@@ -235,72 +235,68 @@ handle_userauth_request(#ssh_msg_service_request{name = Name = "ssh-userauth"},
 
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  service = "ssh-connection",
-						  method = "password",
+                                                  method = "password" = Method,
 						  data = <<?FALSE, ?UINT32(Sz), Password:Sz/binary>>}, _, 
-			#ssh{userauth_supported_methods = Methods} = Ssh) ->
+                        Ssh) ->
     case check_password(User, Password, Ssh) of
 	{true,Ssh1} ->
 	    {authorized, User,
 	     {#ssh_msg_userauth_success{}, Ssh1}
             };
 	{false,Ssh1}  ->
-	    {not_authorized, {User, {error,"Bad user or password"}}, 
-	     {#ssh_msg_userauth_failure{authentications = Methods,
-                                        partial_success = false}, Ssh1}
-            }
+            userauth_failure(User, Method, {error,"Bad user or password"}, Ssh1)
     end;
 
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  service = "ssh-connection",
-						  method = "password",
+                                                  method = "password" = Method,
 						  data = <<?TRUE,
 							   _/binary
 							   %% ?UINT32(Sz1), OldBinPwd:Sz1/binary,
 							   %% ?UINT32(Sz2), NewBinPwd:Sz2/binary
 							 >>
-						 }, _, 
-			#ssh{userauth_supported_methods = Methods} = Ssh) ->
+                                                 }, _, Ssh) ->
     %% Password change without us having sent SSH_MSG_USERAUTH_PASSWD_CHANGEREQ (because we never do)
     %% RFC 4252 says:
     %%   SSH_MSG_USERAUTH_FAILURE without partial success - The password
     %%   has not been changed.  Either password changing was not supported,
     %%   or the old password was bad. 
 
-    {not_authorized, {User, {error,"Password change not supported"}}, 
-     {#ssh_msg_userauth_failure{authentications = Methods,
-                                partial_success = false}, Ssh}
-    };
+    userauth_failure(User, Method, {error, "Password change not supported"}, Ssh);
 
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  service = "ssh-connection",
 						  method = "none"}, _,
 			#ssh{userauth_supported_methods = Methods,
+                             auth_attempts = Attempts,
                              opts = Opts} = Ssh) ->
     case ?GET_OPT(no_auth_needed, Opts) of
-        false ->
-            %% The normal case
-            {not_authorized, {User, undefined},
-             {#ssh_msg_userauth_failure{authentications = Methods,
-                                        partial_success = false}, Ssh}
-            };
         true ->
             %% RFC 4252  5.2
 	    {authorized, User,
              {#ssh_msg_userauth_success{}, Ssh}
-            }
+            };
+        false when Attempts =< 1 ->
+            %% RFC 4252 5.4: the client's first "none" request is used to query
+            %% the available methods; like OpenSSH this first attempt is free.
+            {not_authorized, {User, undefined},
+             {#ssh_msg_userauth_failure{authentications = Methods,
+                                        partial_success = false}, Ssh}
+            };
+        false ->
+            %% Any subsequent "none" counts as a failed attempt.
+            userauth_failure(User, "none", undefined, Ssh)
     end;
 
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  service = "ssh-connection",
-						  method = "publickey",
+                                                  method = "publickey" = Method,
 						  data = <<?BYTE(?FALSE),
 							   ?UINT32(ALen), BAlg:ALen/binary,
 							   ?UINT32(KLen), KeyBlob:KLen/binary,
 							   _/binary
 							 >>
-						 }, 
-			_SessionId, 
-			#ssh{userauth_supported_methods = Methods} = Ssh0) ->
+                                                 }, _SessionId, Ssh0) ->
     Ssh =
         case check_user(User, Ssh0) of
             {true,Ssh01} -> Ssh01#ssh{user=User};
@@ -313,26 +309,21 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 	true ->
 	    {not_authorized, {User, undefined},
              {#ssh_msg_userauth_pk_ok{algorithm_name = binary_to_list(BAlg),
-                                     key_blob = KeyBlob}, Ssh}
+                                      key_blob = KeyBlob}, Ssh}
             };
 	false ->
-	    {not_authorized, {User, undefined}, 
-	     {#ssh_msg_userauth_failure{authentications = Methods,
-                                        partial_success = false}, Ssh}
-            }
+            userauth_failure(User, Method, undefined, Ssh)
     end;
 
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  service = "ssh-connection",
-						  method = "publickey",
+                                                  method = "publickey" = Method,
 						  data = <<?BYTE(?TRUE),
 							   ?UINT32(ALen), BAlg:ALen/binary,
 							   ?UINT32(KLen), KeyBlob:KLen/binary,
 							   SigWLen/binary>>
 						 }, 
-			SessionId, 
-			#ssh{user = PreVerifyUser,
-                             userauth_supported_methods = Methods} = Ssh0) ->
+                        SessionId, #ssh{user = PreVerifyUser} = Ssh0) ->
     
     {UserOk,Ssh} = check_user(User, Ssh0),
     case
@@ -345,81 +336,63 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
              {#ssh_msg_userauth_success{}, Ssh}
             };
 	false ->
-	    {not_authorized, {User, undefined}, 
-	     {#ssh_msg_userauth_failure{authentications = Methods,
-                                        partial_success = false}, Ssh}
-            }
+            userauth_failure(User, Method, undefined, Ssh)
     end;
 
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  service = "ssh-connection",
 						  method = "keyboard-interactive",
 						  data = _},
-			_, #ssh{opts = Opts,
-				kb_tries_left = KbTriesLeft,
-				userauth_supported_methods = Methods} = Ssh) ->
-    case KbTriesLeft of
-	N when N<1 ->
-	    {not_authorized, {User, {authmethod, "keyboard-interactive"}}, 
-             {#ssh_msg_userauth_failure{authentications = Methods,
-                                        partial_success = false}, Ssh}
-            };
+                        _, #ssh{opts = Opts} = Ssh) ->
+    %% RFC4256
+    %% The data field contains:
+    %%   - language tag (deprecated). If =/=[] SHOULD use it however. We skip
+    %%                                it for simplicity.
+    %%   - submethods. "... the user can give a hint of which actual methods
+    %%                  he wants to use. ...".  It's a "MAY use" so we skip
+    %%                  it. It also needs an understanding between the client
+    %%                  and the server.
+    %%
+    %% "The server MUST reply with an SSH_MSG_USERAUTH_SUCCESS,
+    %%  SSH_MSG_USERAUTH_FAILURE, or SSH_MSG_USERAUTH_INFO_REQUEST message."
+    Default = {"SSH server",
+               "Enter password for \""++User++"\"",
+               "password: ",
+               false},
 
-	_ ->
-	    %% RFC4256
-	    %% The data field contains:
-	    %%   - language tag (deprecated). If =/=[] SHOULD use it however. We skip
-	    %%                                it for simplicity.
-	    %%   - submethods. "... the user can give a hint of which actual methods
-	    %%                  he wants to use. ...".  It's a "MAY use" so we skip
-	    %%                  it. It also needs an understanding between the client
-	    %%                  and the server.
-	    %%                  
-	    %% "The server MUST reply with an SSH_MSG_USERAUTH_SUCCESS,
-	    %%  SSH_MSG_USERAUTH_FAILURE, or SSH_MSG_USERAUTH_INFO_REQUEST message."
-	    Default = {"SSH server",
-		       "Enter password for \""++User++"\"",
-		       "password: ",
-		       false},
-
-	    {Name, Instruction, Prompt, Echo} =
-		case ?GET_OPT(auth_method_kb_interactive_data, Opts) of
-		    undefined -> 
-			Default;
-		    {_,_,_,_}=V -> 
-			V;
-                    F when is_function(F, 4) ->
-			{_,PeerName} = Ssh#ssh.peer,
-			F(PeerName, User, "ssh-connection", Ssh#ssh.pwdfun_user_state);
-		    F when is_function(F) ->
-			{_,PeerName} = Ssh#ssh.peer,
-			F(PeerName, User, "ssh-connection")
-		end,
-	    EchoEnc = case Echo of
-			  true -> <<?TRUE>>;
-			  false -> <<?FALSE>>
-		      end,
-	    Msg = #ssh_msg_userauth_info_request{name = unicode:characters_to_list(Name),
-						 instruction = unicode:characters_to_list(Instruction),
-						 language_tag = "",
-						 num_prompts = 1,
-						 data = <<?STRING(unicode:characters_to_binary(Prompt)),
-							  EchoEnc/binary
-							>>
-						},
-	    {not_authorized, {User, undefined}, 
-	     {Msg, Ssh#ssh{user = User}}
-            }
-    end;
+    {Name, Instruction, Prompt, Echo} =
+        case ?GET_OPT(auth_method_kb_interactive_data, Opts) of
+            undefined ->
+                Default;
+            {_,_,_,_}=V ->
+                V;
+            F when is_function(F, 4) ->
+                {_,PeerName} = Ssh#ssh.peer,
+                F(PeerName, User, "ssh-connection", Ssh#ssh.pwdfun_user_state);
+            F when is_function(F) ->
+                {_,PeerName} = Ssh#ssh.peer,
+                F(PeerName, User, "ssh-connection")
+        end,
+    EchoEnc = case Echo of
+                  true -> <<?TRUE>>;
+                  false -> <<?FALSE>>
+              end,
+    Msg = #ssh_msg_userauth_info_request{name = unicode:characters_to_list(Name),
+                                         instruction = unicode:characters_to_list(Instruction),
+                                         language_tag = "",
+                                         num_prompts = 1,
+                                         data = <<?STRING(unicode:characters_to_binary(Prompt)),
+                                                  EchoEnc/binary
+                                                >>
+                                        },
+    {not_authorized, {User, undefined},
+     {Msg, Ssh#ssh{user = User}}
+    };
 
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  service = "ssh-connection",
-						  method = Other}, _,
-			#ssh{userauth_supported_methods = Methods} = Ssh) ->
-    {not_authorized, {User, {authmethod, Other}}, 
-     {#ssh_msg_userauth_failure{authentications = Methods,
-                                partial_success = false}, Ssh}
-    }.
+                                                  method = Other}, _, Ssh) ->
+    userauth_failure(User, Other, {authmethod, Other}, Ssh).
 
 
 %%%----------------------------------------------------------------
@@ -445,9 +418,7 @@ handle_userauth_info_request(#ssh_msg_userauth_info_request{name = Name,
 handle_userauth_info_response(#ssh_msg_userauth_info_response{num_responses = 1,
 							      data = <<?UINT32(Sz), Password:Sz/binary>>},
 			      #ssh{opts = Opts,
-				   kb_tries_left = KbTriesLeft,
-				   user = User,
-				   userauth_supported_methods = Methods} = Ssh) ->
+                                   user = User} = Ssh) ->
     SendOneEmpty =
 	(?GET_OPT(tstflg,Opts) == one_empty)
 	orelse 
@@ -469,10 +440,8 @@ handle_userauth_info_response(#ssh_msg_userauth_info_response{num_responses = 1,
 	     {#ssh_msg_userauth_success{}, Ssh1}};
 
 	{false,Ssh1} ->
-	    {not_authorized, {User, {error,"Bad user or password"}}, 
-	     {#ssh_msg_userauth_failure{authentications = Methods,
-                                        partial_success = false}, 
-              Ssh1#ssh{kb_tries_left = max(KbTriesLeft-1, 0)}}}
+            Method = "keyboard-interactive",
+            userauth_failure(User, Method, {error,"Bad user or password"}, Ssh1)
     end;
 
 handle_userauth_info_response({extra,#ssh_msg_userauth_info_response{}},
@@ -668,6 +637,32 @@ write_if_nonempty(_, "") -> ok;
 write_if_nonempty(_, <<>>) -> ok;
 write_if_nonempty(IoCb, Text) -> IoCb:format("~s~n",[Text]).
 
+userauth_failure(User, Method, Error,
+                 #ssh{auth_tries_left = Tries, userauth_supported_methods = Methods} = Ssh)
+  when Tries =/= infinity, Tries =< 1 ->
+    Details = #{authmethod => Method,
+                methods => Methods,
+                auth_tries_left => Tries,
+                error => Error,
+                user => User},
+    {auth_tries_exceeded, Details, Ssh};
+userauth_failure(User, Method, Error,
+                 #ssh{auth_tries_left = Tries, userauth_supported_methods = Methods} = Ssh) ->
+    AuthTriesLeft = reduce_tries_count(Tries),
+    _Details = #{authmethod => Method,
+                 methods => Methods,
+                 auth_tries_left => AuthTriesLeft,
+                 error => Error,
+                 user => User},
+
+    {not_authorized, {User, Error},
+     {#ssh_msg_userauth_failure{authentications = Methods,
+                                partial_success = false},
+      Ssh#ssh{auth_tries_left = AuthTriesLeft}}}.
+
+reduce_tries_count(infinity) -> infinity;
+reduce_tries_count(N) -> N - 1.
+
 %%%----------------------------------------------------------------
 %%% Called just for the tracer ssh_dbg
 ssh_msg_userauth_result(_R) -> ok.
@@ -832,7 +827,7 @@ fmt_req(#ssh_msg_userauth_request{user = User,
                                   service = "ssh-connection",
                                   method = Method,
                                   data = Data}, 
-        #ssh{kb_tries_left = KbTriesLeft,
+        #ssh{auth_tries_left = AuthTriesLeft,
              userauth_supported_methods = Methods}) ->
     [io_lib:format("req user = ~p~n"
                    "req method = ~p~n"
@@ -841,7 +836,7 @@ fmt_req(#ssh_msg_userauth_request{user = User,
      case Method of
          "none" -> "";
          "password" -> fmt_bool(Data);
-         "keyboard-interactive" -> fmt_kb_tries_left(KbTriesLeft);
+         "keyboard-interactive" -> fmt_auth_tries_left(AuthTriesLeft);
          "publickey" -> [case Data of
                              <<?BYTE(_), ?UINT32(ALen), Alg:ALen/binary, _/binary>> ->
                                  io_lib:format("~nkey-type = ~p", [Alg]);
@@ -852,7 +847,7 @@ fmt_req(#ssh_msg_userauth_request{user = User,
      end].
 
 
-fmt_kb_tries_left(N) when is_integer(N)->
+fmt_auth_tries_left(N) when is_integer(N)->
     io_lib:format("~ntries left = ~p", [N-1]).
 
 
