@@ -2250,6 +2250,25 @@ cacerts_load(Config) ->
     Datadir = proplists:get_value(data_dir, Config),
     {error, enoent} = public_key:cacerts_load("/dummy.file"),
 
+    %% When no CA certificates can be found (missing bundle or one
+    %% without any CA certificates) this should surface as a
+    %% {failed_load_cacerts, no_cacerts_found} error through cacerts_get()
+    %% and be formattable, not crash the error conversion
+    _ = public_key:cacerts_clear(),
+    EmptyDir = filename:join(proplists:get_value(priv_dir, Config),
+                             "empty_cacerts_dir"),
+    ok = filelib:ensure_path(EmptyDir),
+    {error, no_cacerts_found} = pubkey_os_cacerts:load([EmptyDir]),
+    application:set_env(public_key, cacerts_path, EmptyDir),
+    try public_key:cacerts_get() of
+        _ -> ct:fail(no_cacerts_found_not_raised)
+    catch
+        error:{failed_load_cacerts, no_cacerts_found} = Error:ST ->
+            #{general := _, reason := _} =
+                pubkey_os_cacerts:format_error(Error, ST)
+    end,
+    application:unset_env(public_key, cacerts_path),
+
     %% White box testing of paths loading
     %% TestDirs
     ok = pubkey_os_cacerts:load([filename:join(Datadir, "non_existing_dir"),
