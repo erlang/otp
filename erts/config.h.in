@@ -707,6 +707,9 @@
 /* Define to 1 if you have a good `getaddrinfo' function. */
 #undef HAVE_GETADDRINFO
 
+/* Define to 1 if you have getauxval */
+#undef HAVE_GETAUXVAL
+
 /* Define to 1 if you have the 'gethostbyname2' function. */
 #undef HAVE_GETHOSTBYNAME2
 

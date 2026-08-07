@@ -18827,6 +18827,15 @@ then :
 fi
 
 
+ac_fn_check_decl "$LINENO" "getauxval" "ac_cv_have_decl_getauxval" "#include <sys/auxv.h>
+" "$ac_c_undeclared_builtin_options" "CFLAGS"
+if test "x$ac_cv_have_decl_getauxval" = xyes
+then :
+
+printf "%s\n" "#define HAVE_GETAUXVAL 1" >>confdefs.h
+
+fi
+
        for ac_header in netpacket/packet.h
 do :
   ac_fn_c_check_header_compile "$LINENO" "netpacket/packet.h" "ac_cv_header_netpacket_packet_h" "$ac_includes_default"
