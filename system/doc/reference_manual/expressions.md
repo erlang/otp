@@ -1683,6 +1683,10 @@ More examples are provided in [Programming Examples](`e:system:funs.md`).
 catch Expr
 ```
 
+> #### Warning {: .warning }
+>
+> The `catch` expression is deprecated. Use [`try`](expressions.md#try) instead.
+
 Returns the value of `Expr` unless an exception is raised during the evaluation. In
 that case, the exception is caught. The return value depends on the class of the
 exception:
