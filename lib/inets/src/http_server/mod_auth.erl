@@ -777,7 +777,7 @@ secret_path(_Path, [], to_be_found) ->
 secret_path(_Path, [], Directory) ->
     {yes, Directory};
 secret_path(Path, [[NewDirectory] | Rest], Directory) ->
-    case re:run(Path, NewDirectory, [{capture, first}]) of
+    case re:run(Path, NewDirectory, [{capture, first}, caseless]) of
 	{match, _} when Directory =:= to_be_found ->
 	    secret_path(Path, Rest, NewDirectory);
 	{match, [{_, Length}]} when Length > length(Directory)->
