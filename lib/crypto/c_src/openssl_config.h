@@ -240,6 +240,14 @@
 # define HAVE_BLAKE2
 #endif
 
+#ifdef HAS_3_0_API
+# define HAVE_KDF
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,2,0)
+# define HAVE_ARGON2
+#endif
+
 #ifndef OPENSSL_NO_BF
 # define HAVE_BF
 #endif

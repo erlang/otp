@@ -84,6 +84,18 @@ This module provides a set of cryptographic functions.
 
   - **SRP** - [The SRP Authentication and Key Exchange System (RFC 2945)](http://www.ietf.org/rfc/rfc2945.txt)
 
+- **KDFs - Key Derivation Functions** -
+
+  - **Argon2i**, **Argon2d**, and **Argon2id** - [Argon2 Memory-Hard Function for Password Hashing and Proof-of-Work Applications (RFC 9106)](https://www.rfc-editor.org/rfc/rfc9106)
+
+  - **HKDF** - [HMAC-based Extract-and-Expand Key Derivation Function (RFC 5869)](https://www.rfc-editor.org/rfc/rfc5869)
+
+  - **SSKDF** - [Single-Step Key Derivation Function (NIST SP 800-56C)](https://doi.org/10.6028/NIST.SP.800-56Cr2)
+
+  - **PBKDF2** - [Password-Based Key Derivation Function 2 (RFC 8018)](https://www.rfc-editor.org/rfc/rfc8018)
+
+  - **Scrypt** - [The scrypt Password-Based Key Derivation Function (RFC 7914)](https://www.rfc-editor.org/rfc/rfc7914)
+
 > #### Note {: .info }
 >
 > The actual supported algorithms and features depends on their availability in
@@ -177,6 +189,7 @@ end
 -export([rand_seed/1]).
 -export([format_error/2]).
 -export([pbkdf2_hmac/5]).
+-export([kdf/4]).
 
 %%%----------------------------------------------------------------
 %% Deprecated functions
@@ -288,6 +301,7 @@ end
        ng_crypto_get_data_nif/1, ng_crypto_one_time_nif/5,
        strong_rand_bytes_nif/1, strong_rand_range_nif/1, rand_uniform_nif/2,
        mod_exp_nif/4, do_exor/2, hash_equals_nif/2, pbkdf2_hmac_nif/5,
+       kdf_nif/4, kdf_algorithms/0,
        pkey_sign_nif/5, pkey_verify_nif/6, pkey_crypt_nif/6,
        pkey_sign_heavy_nif/5,
        encapsulate_key_nif/2, decapsulate_key_nif/3,
@@ -319,7 +333,14 @@ end
                sha3/0,
                mldsa/0,
                slh_dsa/0,
-               kem/0
+               kem/0,
+               kdf/0,
+               argon2_opts/0,
+               sskdf_opts/0,
+               hkdf_opts/0,
+               scrypt_opts/0,
+               pbkdf2_opts/0,
+               kdf_opts/0
              ]).
 
 -export_type([
@@ -365,6 +386,54 @@ end
 -doc "Key encapsulation mechanisms.".
 -doc(#{group => <<"Key Encapsulation Mechanism">>}).
 -type kem() :: mlkem512 | mlkem768 | mlkem1024.
+
+-doc "Key derivation functions.".
+-doc(#{group => <<"KDF API">>}).
+-type kdf() :: argon2d | argon2i | argon2id | sskdf | hkdf | pbkdf2 | scrypt.
+
+-doc "Options for the Argon2 (`argon2id`, `argon2i`, `argon2d`) functions, see `kdf/4`.".
+-doc(#{group => <<"KDF API">>}).
+-type argon2_opts() :: #{salt := binary(),
+                         memory := pos_integer(),
+                         iterations := pos_integer(),
+                         parallelism := pos_integer(),
+                         secret => binary(),
+                         ad => binary()}.
+
+-doc "Options for the single-step (`sskdf`) key derivation function, see `kdf/4`.".
+-doc(#{group => <<"KDF API">>}).
+-type sskdf_opts() :: #{digest := hmac_hash_algorithm(),
+                        info => binary()}
+                    | #{digest := hmac_hash_algorithm(),
+                        mac := hmac,
+                        salt => binary(),
+                        info => binary()}.
+
+-doc "Options for the `hkdf` key derivation function, see `kdf/4`.".
+-doc(#{group => <<"KDF API">>}).
+-type hkdf_opts() :: #{digest := hmac_hash_algorithm(),
+                       salt => binary(),
+                       info => binary(),
+                       mode => extract_and_expand | extract_only | expand_only}.
+
+-doc "Options for the `scrypt` key derivation function, see `kdf/4`.".
+-doc(#{group => <<"KDF API">>}).
+-type scrypt_opts() :: #{salt := binary(),
+                         n := pos_integer(),
+                         r := pos_integer(),
+                         p := pos_integer(),
+                         maxmem => pos_integer()}.
+
+-doc "Options for the `pbkdf2` key derivation function, see `kdf/4`.".
+-doc(#{group => <<"KDF API">>}).
+-type pbkdf2_opts() :: #{digest := sha1() | sha2(),
+                         salt := binary(),
+                         iterations := pos_integer()}.
+
+-doc "Options for `kdf/4`, determined by the chosen `t:kdf/0`.".
+-doc(#{group => <<"KDF API">>}).
+-type kdf_opts() :: argon2_opts() | sskdf_opts() | hkdf_opts()
+                  | scrypt_opts() | pbkdf2_opts().
 
 %%% Keys
 -doc(#{group => <<"Public/Private Keys">>,equiv => rsa_params()}).
@@ -835,10 +904,12 @@ stop() ->
                                       | {public_keys, PKs}
                                       | {macs,    Macs}
                                       | {curves,  Curves}
-                                      | {rsa_opts, RSAopts},
+                                      | {rsa_opts, RSAopts}
+                                      | {kdfs, KDFs},
                              Hashs :: [sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | sm3 | compatibility_only_hash()],
                              Ciphers :: [cipher()],
                              KEMs :: [kem()],
+                             KDFs :: [kdf()],
                              PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m | mldsa() | slh_dsa()],
                              Macs :: [hmac | cmac | poly1305 | siphash],
                              Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
@@ -850,7 +921,8 @@ supports() ->
       | [{T,supports(T)} || T <- [public_keys,
                                   macs,
                                   curves,
-                                  rsa_opts]
+                                  rsa_opts,
+                                  kdfs]
         ]
      ].
 
@@ -870,17 +942,20 @@ algorithms.
                                    | public_keys
                                    | macs
                                    | curves
-                                   | rsa_opts,
+                                   | rsa_opts
+                                   | kdfs,
 			     Support :: Hashs
                                       | Ciphers
                                       | KEMs
                                       | PKs
                                       | Macs
                                       | Curves
-                                      | RSAopts,
+                                      | RSAopts
+                                      | KDFs,
                              Hashs :: [sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | compatibility_only_hash()],
                              Ciphers :: [cipher()],
                              KEMs :: [kem()],
+                             KDFs :: [kdf()],
                              PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m],
                              Macs :: [hmac | cmac | poly1305 | siphash],
                              Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
@@ -895,7 +970,8 @@ supports(ciphers)     -> add_cipher_aliases(cipher_algorithms());
 supports(kems)        -> kem_algorithms_nif();
 supports(macs)        -> mac_algorithms();
 supports(curves)      -> curve_algorithms();
-supports(rsa_opts)    -> rsa_opts_algorithms().
+supports(rsa_opts)    -> rsa_opts_algorithms();
+supports(kdfs)        -> kdf_algorithms().
 
 -doc(#{group => <<"Utility Functions">>}).
 -doc """
@@ -1012,6 +1088,15 @@ HMAC.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
+See also `kdf/4`, which supports more key derivation functions.
+
+> #### Note {: .info }
+>
+> This function is deliberately expensive and runs on a dirty CPU scheduler,
+> which is shared with other work such as garbage collection of large heaps.
+> Since this functionality is typically network-facing (for example, password
+> logins), limit the number of concurrent invocations to avoid holding up
+> other important work.
 
 ## Examples
 
@@ -1020,7 +1105,7 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 <<18,15,182,207,252,248,179,44,67,231,34,82,86,196,248,55>>
 ```
 """.
--doc(#{group => <<"Engine API">>,since => <<"OTP 24.2">>}).
+-doc(#{group => <<"KDF API">>,since => <<"OTP 24.2">>}).
 -spec pbkdf2_hmac(Digest, Pass, Salt, Iter, KeyLen) -> Result
           when Digest :: sha | sha224 | sha256 | sha384 | sha512 | sha512_224 | sha512_256,
                Pass :: binary(),
@@ -1032,6 +1117,106 @@ pbkdf2_hmac(Digest, Pass, Salt, Iter, KeyLen) ->
     ?nif_call(pbkdf2_hmac_nif(Digest, Pass, Salt, Iter, KeyLen)).
 
 pbkdf2_hmac_nif(_, _, _, _, _) -> ?nif_stub.
+
+-doc """
+Derive a key of `KeyLen` bytes from the input keying material `KeyMaterial`
+using the key derivation function `Type`.
+
+`KeyMaterial` is the secret input of the KDF: the password for the
+password-based functions (`argon2*`, `scrypt`, `pbkdf2`), the input
+keying material (or pseudorandom key in `expand_only` mode) for `hkdf`,
+and the shared secret for `sskdf`.
+
+Requires OpenSSL 3.0 or later; the argon2 functions require OpenSSL 3.2 or
+later. Use [`supports(kdfs)`](`supports/1`) to check availability at runtime.
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling; an
+unavailable KDF raises a `notsup` exception.
+
+The options for each `Type` are:
+
+- **`argon2id`, `argon2i`, `argon2d`** - The Argon2 password hashing
+  functions of [RFC 9106](https://www.rfc-editor.org/rfc/rfc9106).
+  `argon2id` is the recommended variant.
+
+  Required: `salt` (a binary), `memory` (memory cost in KiB),
+  `iterations` (passes), `parallelism` (lanes) (positive integers).
+  Optional: `secret` (key/pepper), `ad` (associated data) (binaries).
+
+  RFC 9106 recommends `memory => 2097152, iterations => 1, parallelism => 4`
+  (2 GiB) as its first choice. For memory-constrained environments, its second
+  recommendation is `memory => 65536, iterations => 3, parallelism => 4`
+  (64 MiB).
+
+- **`hkdf`** - HMAC-based extract-and-expand key derivation of
+  [RFC 5869](https://www.rfc-editor.org/rfc/rfc5869).
+
+  Required: `digest` (a hash algorithm atom, for example `sha256`).
+  Optional: `salt`, `info` (binaries) and `mode`
+  (`extract_and_expand` (default), `extract_only` or `expand_only`).
+  With `extract_only`, `KeyLen` must equal the digest output size.
+
+- **`sskdf`** - The single-step (Concatenation) key derivation function of
+  [NIST SP 800-56C](https://doi.org/10.6028/NIST.SP.800-56Cr2).
+  `KeyMaterial` is the shared secret.
+
+  Required: `digest` (a hash algorithm atom, for example `sha256`).
+  Optional: `info` (the `FixedInfo`/`OtherInfo` binary) and `mac`, which
+  selects the auxiliary function. By default the digest is used directly as a
+  hash; with `mac => hmac` the auxiliary function is HMAC keyed by `salt`
+  (an optional binary), using `digest` as the underlying hash.
+
+- **`scrypt`** - The scrypt password-based key derivation function of
+  [RFC 7914](https://www.rfc-editor.org/rfc/rfc7914).
+
+  Required: `salt` (a binary), `n` (CPU/memory cost, a power
+  of two), `r` (block size), `p` (parallelization) (positive integers).
+  Optional: `maxmem` (memory limit in bytes; the cryptolib default is
+  `1074790400`, that is 1025 MiB).
+
+- **`pbkdf2`** - PKCS #5 password-based key derivation function 2 of
+  [RFC 8018](https://www.rfc-editor.org/rfc/rfc8018).
+
+  Required: `digest`, `salt`, `iterations`.
+  See also `pbkdf2_hmac/5`, which also works with cryptolibs older
+  than OpenSSL 3.0.
+
+> #### Note {: .info }
+>
+> The password-hashing functions (`argon2*`, `scrypt`, `pbkdf2`) are
+> deliberately expensive and run on a dirty CPU scheduler, which is shared
+> with other work such as garbage collection of large heaps. Since this
+> functionality is typically network-facing (for example, password logins),
+> limit the number of concurrent invocations to avoid holding up other
+> important work. The `hkdf` and `sskdf` functions are inexpensive and are
+> not affected.
+
+## Examples
+
+In production derive a fresh random `salt` per password with
+[`strong_rand_bytes/1`](`strong_rand_bytes/1`) and store it with the key:
+
+```erlang
+1> Key = crypto:kdf(scrypt, <<"pleaseletmein">>, 64,
+                    #{salt => <<"SodiumChloride">>, n => 16384, r => 8, p => 1}),
+   binary:encode_hex(Key, lowercase).
+<<"7023bdcb3afd7348461c06cd81fd38eb"
+  "fda8fbba904f8e3ea9b543f6545da1f2"
+  "d5432955613f0fcf62d49705242a9af9"
+  "e61e85dc0d651e40dfcf017b45575887">>
+```
+""".
+-doc(#{group => <<"KDF API">>,
+       since => <<"OTP 30.0">>}).
+-spec kdf(Type, KeyMaterial, KeyLen, Options) -> binary()
+              when Type        :: kdf(),
+                   KeyMaterial :: binary(),
+                   KeyLen      :: pos_integer(),
+                   Options     :: kdf_opts().
+kdf(Type, KeyMaterial, KeyLen, Options) ->
+    ?nif_call(kdf_nif(Type, KeyMaterial, KeyLen, Options)).
+
+kdf_nif(_, _, _, _) -> ?nif_stub.
 
 %%%================================================================
 %%%
@@ -4841,6 +5026,7 @@ hash_algorithms() -> ?nif_stub.
 pubkey_algorithms() -> ?nif_stub.
 cipher_algorithms() -> ?nif_stub.
 kem_algorithms_nif() -> ?nif_stub.
+kdf_algorithms() -> ?nif_stub.
 mac_algorithms() -> ?nif_stub.
 curve_algorithms() -> ?nif_stub.
 rsa_opts_algorithms() -> ?nif_stub.
