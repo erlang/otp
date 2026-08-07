@@ -230,7 +230,23 @@ The time unit used by the rfc3339 conversion functions.
 %% January 1st.
 %%
 %% df/2 catches the case Year<0
--doc(#{equiv => date_to_gregorian_days({Year, Month, Day})}).
+-doc """
+Computes the number of gregorian days starting with year 0 and ending at the
+specified date.
+
+This function accepts either three separate arguments (Year, Month, Day) or
+a single date tuple. The return value is the number of days since January 1,
+year 0.
+
+## Examples
+
+```erlang
+1> calendar:date_to_gregorian_days(2024, 1, 1).
+739251
+2> calendar:date_to_gregorian_days(0, 1, 1).
+0
+```
+""".
 -spec date_to_gregorian_days(Year, Month, Day) -> Days when
       Year :: year(),
       Month :: month(),
@@ -247,10 +263,7 @@ date_to_gregorian_days(Year, Month, Day) when is_integer(Day), Day > 0 ->
     DayOfEra = ?DAYS_PER_YEAR * YearOfEra + YearOfEra div 4 - YearOfEra div 100 + DayOfYear,
     Era * ?DAYS_PER_ERA + DayOfEra + ?MARCH_1_YEAR_0.
 
--doc """
-Computes the number of gregorian days starting with year 0 and ending at the
-specified date.
-""".
+-doc(#{equiv => date_to_gregorian_days(Year, Month, Day)}).
 -spec date_to_gregorian_days(Date) -> Days when
       Date :: date(),
       Days :: integer().
@@ -266,6 +279,13 @@ date_to_gregorian_days({Year, Month, Day}) ->
 -doc """
 Computes the number of gregorian seconds starting with year 0 and ending at the
 specified date and time.
+
+## Examples
+
+```erlang
+1> calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}}).
+62167219200
+```
 """.
 -spec datetime_to_gregorian_seconds(DateTime) -> Seconds when
       DateTime :: datetime(),
@@ -280,7 +300,26 @@ datetime_to_gregorian_seconds({Date, Time}) ->
 %%
 %% Returns: 1 | .. | 7. Monday = 1, Tuesday = 2, ..., Sunday = 7.
 %%
--doc(#{equiv => day_of_the_week({Year, Month, Day})}).
+-doc """
+Computes the day of the week from the specified `Year`, `Month`, and `Day`.
+
+This function accepts either three separate arguments (Year, Month, Day) or
+a single date tuple. Returns the day of the week as:
+- `1`: Monday
+- `2`: Tuesday
+- `3`: Wednesday
+- `4`: Thursday
+- `5`: Friday
+- `6`: Saturday
+- `7`: Sunday
+
+## Examples
+
+```erlang
+1> calendar:day_of_the_week(2024, 1, 1).
+1
+```
+""".
 -spec day_of_the_week(Year, Month, Day) -> daynum() when
       Year :: year(),
       Month :: month(),
@@ -288,10 +327,7 @@ datetime_to_gregorian_seconds({Date, Time}) ->
 day_of_the_week(Year, Month, Day) ->
     mod(date_to_gregorian_days(Year, Month, Day) + 5, 7) + 1.
 
--doc """
-Computes the day of the week from the specified `Year`, `Month`, and `Day`.
-Returns the day of the week as `1`: Monday, `2`: Tuesday, and so on.
-""".
+-doc(#{equiv => day_of_the_week(Year, Month, Day)}).
 -spec day_of_the_week(Date) -> daynum() when
       Date:: date().
 day_of_the_week({Year, Month, Day}) ->
@@ -300,7 +336,18 @@ day_of_the_week({Year, Month, Day}) ->
 
 %% gregorian_days_to_date(Days) = {Year, Month, Day}
 %%
--doc "Computes the date from the specified number of gregorian days.".
+-doc """
+Computes the date from the specified number of gregorian days.
+
+## Examples
+
+```erlang
+1> calendar:gregorian_days_to_date(739251).
+{2024,1,1}
+2> calendar:gregorian_days_to_date(0).
+{0,1,1}
+```
+""".
 -spec gregorian_days_to_date(Days) -> date() when
       Days :: integer().
 gregorian_days_to_date(Days) ->
@@ -322,7 +369,18 @@ gregorian_days_to_date(Days) ->
 
 %% gregorian_seconds_to_datetime(Secs)
 %%
--doc "Computes the date and time from the specified number of gregorian seconds.".
+-doc """
+Computes the date and time from the specified number of gregorian seconds.
+
+## Examples
+
+```erlang
+1> calendar:gregorian_seconds_to_datetime(62167219200).
+{{1970,1,1},{0,0,0}}
+2> calendar:gregorian_seconds_to_datetime(0).
+{{0,1,1},{0,0,0}}
+```
+""".
 -spec gregorian_seconds_to_datetime(Seconds) -> datetime() when
       Seconds :: integer().
 gregorian_seconds_to_datetime(Secs) ->
@@ -337,7 +395,18 @@ gregorian_seconds_to_datetime(Secs) ->
 
 %% is_leap_year(Year) = true | false
 %%
--doc "Checks if the specified year is a leap year.".
+-doc """
+Checks if the specified year is a leap year.
+
+## Examples
+
+```erlang
+1> calendar:is_leap_year(2024).
+true
+2> calendar:is_leap_year(2023).
+false
+```
+""".
 -spec is_leap_year(Year) -> boolean() when
       Year :: year().
 is_leap_year(Y) when is_integer(Y) ->
@@ -354,10 +423,7 @@ is_leap_year1(_) -> false.
 %%
 %% Calculates the iso week number for the current date.
 %%
--doc """
-Returns tuple `{Year, WeekNum}` representing the ISO week number for the actual
-date. To determine the actual date, use function `local_time/0`.
-""".
+-doc(#{equiv => iso_week_number(Date)}).
 -doc(#{since => <<"OTP R14B02">>}).
 -spec iso_week_number() -> yearweeknum().
 iso_week_number() ->
@@ -371,6 +437,18 @@ iso_week_number() ->
 -doc """
 Returns tuple `{Year, WeekNum}` representing the ISO week number for the
 specified date.
+
+According to ISO 8601, weeks start on Monday and the first week of a year
+is the week containing the first Thursday. This means a date's week number
+can belong to the previous or next year. This function accepts a date tuple,
+while `iso_week_number/0` uses the current local time.
+
+## Examples
+
+```erlang
+1> calendar:iso_week_number({2024, 1, 1}).
+{2024,1}
+```
 """.
 -doc(#{since => <<"OTP R14B02">>}).
 -spec iso_week_number(Date) -> yearweeknum() when
@@ -402,7 +480,18 @@ iso_week_number({Year, Month, Day}) ->
 %%
 %% Returns the number of days in a month.
 %%
--doc "Computes the number of days in a month.".
+-doc """
+Computes the number of days in a month.
+
+## Examples
+
+```erlang
+1> calendar:last_day_of_the_month(2024, 2).
+29
+2> calendar:last_day_of_the_month(2024, 4).
+30
+```
+""".
 -spec last_day_of_the_month(Year, Month) -> LastDay when
       Year :: year(),
       Month :: month(),
@@ -427,7 +516,15 @@ last_day_of_the_month1(_, M) when is_integer(M), M > 0, M < 13 ->
 %% local_time()
 %%
 %% Returns: {date(), time()}, date() = {Y, M, D}, time() = {H, M, S}.
--doc "Returns the local time reported by the underlying operating system.".
+-doc """
+Returns the local time reported by the underlying operating system.
+
+## Examples
+
+```erlang
+1> {{Year,Month,Day},{Hour,Min,Sec}} = calendar:local_time().
+```
+""".
 -spec local_time() -> datetime().
 local_time() ->
     erlang:localtime().
@@ -441,8 +538,21 @@ local_time_to_system_time(LocalTime) ->
 -doc(#{since => <<"OTP 28.0">>}).
 -doc """
 Converts local time into system time.
-Error will occur if the local time is non existing or ambiguous due to DST,
+
+This function converts a local datetime to system time (seconds since epoch).
+The `unit` option specifies the time unit for the returned value (default is `second`).
+
+Error will occur if the local time is non-existing or ambiguous due to DST,
 see [`calendar:local_time_to_universal_time_dst/1`](`local_time_to_universal_time_dst/1`).
+
+## Examples
+
+```erlang
+1> calendar:local_time_to_system_time({{1970, 1, 1}, {0, 0, 0}}).
+-3600
+2> calendar:local_time_to_system_time({{2024, 1, 1}, {0, 0, 0}}, [{unit, millisecond}]).
+1704063600000
+```
 """.
 -spec local_time_to_system_time(datetime1970(), Options) -> pos_integer() when
       Options :: [Option],
@@ -470,6 +580,13 @@ refer to a local date after Jan 1, 1970.
 > as it gives a more correct and complete result. Especially for the period that
 > does not exist, as it is skipped during the switch _to_ daylight saving time,
 > this function still returns a result.
+
+## Examples
+
+```erlang
+1> calendar:local_time_to_universal_time({{2024,3,15},{12,0,0}}).
+{{2024,3,15},{11,0,0}}
+```
 """.
 -spec local_time_to_universal_time(DateTime1) -> DateTime2 when
       DateTime1 :: datetime1970(),
@@ -501,6 +618,13 @@ The return value is a list of 0, 1, or 2 possible UTC times:
 
 - **`[DateTimeUTC]`** - For all other local times only one corresponding UTC
   exists.
+
+## Examples
+
+```erlang
+1> calendar:local_time_to_universal_time_dst({{2024,3,15},{12,0,0}}).
+[{{2024,3,15},{11,0,0}}]
+```
 """.
 -spec local_time_to_universal_time_dst(DateTime1) -> [DateTime] when
       DateTime1 :: datetime1970(),
@@ -535,6 +659,13 @@ local_time_to_universal_time_dst(DateTime) ->
 -doc """
 Returns Universal Coordinated Time (UTC) converted from the return value from
 `erlang:timestamp/0`.
+
+## Examples
+
+```erlang
+1> calendar:now_to_datetime({1517,498278,88000}).
+{{2018,2,1},{15,17,58}}
+```
 """.
 -spec now_to_datetime(Now) -> datetime1970() when
       Now :: erlang:timestamp().
@@ -544,6 +675,13 @@ now_to_datetime({MSec, Sec, _uSec}) ->
 -doc """
 Returns Universal Coordinated Time (UTC) converted from the return value from
 `erlang:timestamp/0`.
+
+## Examples
+
+```erlang
+1> calendar:now_to_universal_time({1517,498278,88000}).
+{{2018,2,1},{15,17,58}}
+```
 """.
 -spec now_to_universal_time(Now) -> datetime1970() when
       Now :: erlang:timestamp().
@@ -558,6 +696,13 @@ now_to_universal_time(Now) ->
 -doc """
 Returns local date and time converted from the return value from
 `erlang:timestamp/0`.
+
+## Examples
+
+```erlang
+1> calendar:now_to_local_time({1517,498278,88000}).
+{{2018,2,1},{16,17,58}}
+```
 """.
 -spec now_to_local_time(Now) -> datetime1970() when
       Now :: erlang:timestamp().
@@ -574,8 +719,10 @@ rfc3339_to_system_time(DateTimeString) ->
     rfc3339_to_system_time(DateTimeString, []).
 
 -doc """
-Converts an RFC 3339 timestamp into system time. The data format of RFC 3339
-timestamps is described by [RFC 3339](https://www.ietf.org/rfc/rfc3339.txt).
+Converts an RFC 3339 timestamp into system time.
+
+The data format of RFC 3339 timestamps is described by
+[RFC 3339](https://www.ietf.org/rfc/rfc3339.txt).
 Starting from OTP 25.1, the minutes part of the time zone is optional.
 
 Valid option:
@@ -583,15 +730,15 @@ Valid option:
 - **`{unit, Unit}`** - The time unit of the return value. The default is
   `second`.
 
+## Examples
+
 ```erlang
 1> calendar:rfc3339_to_system_time("2018-02-01T16:17:58+01:00").
 1517498278
-2> calendar:rfc3339_to_system_time("2018-02-01 15:18:02.088Z",
-   [{unit, nanosecond}]).
-1517498282088000000
-3> calendar:rfc3339_to_system_time(<<"2018-02-01 15:18:02.088Z">>,
-   [{unit, nanosecond}]).
-1517498282088000000
+2> calendar:rfc3339_to_system_time("2018-02-01T15:18:02Z", [{unit, millisecond}]).
+1517498282000
+3> calendar:rfc3339_to_system_time("invalid-format").
+** exception error: no function clause matching calendar:rfc3339_to_system_time_list("invalid-format",[])
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
@@ -672,6 +819,13 @@ rfc3339_to_system_time_1(DateTimeIn, Options, Year, Month, Day, Hour, Min, Sec, 
 -doc """
 Converts a specified number of seconds into days, hours, minutes, and seconds.
 `Time` is always non-negative, but `Days` is negative if argument `Seconds` is.
+
+## Examples
+
+```erlang
+1> calendar:seconds_to_daystime(100000).
+{1,{3,46,40}}
+```
 """.
 -spec seconds_to_daystime(Seconds) -> {Days, Time} when
       Seconds :: integer(),
@@ -697,6 +851,13 @@ seconds_to_daystime(Secs) ->
 -doc """
 Computes the time from the specified number of seconds. `Seconds` must be less
 than the number of seconds per day (86400).
+
+## Examples
+
+```erlang
+1> calendar:seconds_to_time(13600).
+{3,46,40}
+```
 """.
 -spec seconds_to_time(Seconds) -> time() when
       Seconds :: secs_per_day().
@@ -708,7 +869,18 @@ seconds_to_time(Secs) when Secs >= 0, Secs < ?SECONDS_PER_DAY ->
     Second =  Secs1 rem ?SECONDS_PER_MINUTE,
     {Hour, Minute, Second}.
 
--doc "Converts a specified system time into local date and time.".
+-doc """
+Converts a specified system time into local date and time.
+
+## Examples
+
+```erlang
+1> calendar:system_time_to_local_time(0, second).
+{{1970,1,1},{1,0,0}}
+2> calendar:system_time_to_local_time(1704067200, second).
+{{2024,1,1},{1,0,0}}
+```
+""".
 -doc(#{since => <<"OTP 21.0">>}).
 -spec system_time_to_local_time(Time, TimeUnit) -> datetime() when
       Time :: integer(),
@@ -718,7 +890,18 @@ system_time_to_local_time(Time, TimeUnit) ->
     UniversalDate = system_time_to_universal_time(Time, TimeUnit),
     erlang:universaltime_to_localtime(UniversalDate).
 
--doc "Converts a specified system time into universal date and time.".
+-doc """
+Converts a specified system time into universal date and time.
+
+## Examples
+
+```erlang
+1> calendar:system_time_to_universal_time(0, second).
+{{1970,1,1},{0,0,0}}
+2> calendar:system_time_to_universal_time(1704067200, second).
+{{2024,1,1},{0,0,0}}
+```
+""".
 -doc(#{since => <<"OTP 21.0">>}).
 -spec system_time_to_universal_time(Time, TimeUnit) -> datetime() when
       Time :: integer(),
@@ -764,22 +947,20 @@ Valid options:
 - **`{return, Return}`** - The desired encoding type for the output,
   whether a string or a binary is desired. Defaults to string.
 
+## Examples
+
 ```erlang
-1> calendar:system_time_to_rfc3339(erlang:system_time(second)).
-"2018-04-23T14:56:28+02:00"
-2> calendar:system_time_to_rfc3339(erlang:system_time(second),
-   [{offset, "-02:00"}]).
-"2018-04-23T10:56:52-02:00"
-3> calendar:system_time_to_rfc3339(erlang:system_time(second),
-   [{offset, -7200}]).
-"2018-04-23T10:57:05-02:00"
-4> calendar:system_time_to_rfc3339(erlang:system_time(millisecond),
+1> calendar:system_time_to_rfc3339(0).
+"1970-01-01T01:00:00+01:00"
+2> calendar:system_time_to_rfc3339(1517498278, [{offset, "Z"}]).
+"2018-02-01T15:17:58Z"
+3> calendar:system_time_to_rfc3339(1517498282088, [{unit, millisecond}, {offset, "Z"}]).
+"2018-02-01T15:18:02.088Z"
+4>  calendar:system_time_to_rfc3339(1517498282088,
    [{unit, millisecond}, {time_designator, $\s}, {offset, "Z"}]).
-"2018-04-23 12:57:20.482Z"
-5> calendar:system_time_to_rfc3339(erlang:system_time(millisecond),
-   [{unit, millisecond}, {time_designator, $\s}, {offset, "Z"}, {return, binary}]).
-<<"2018-04-23 12:57:20.482Z">>
+"2018-02-01 15:18:02.088Z"
 ```
+
 [RFC 3339]: https://www.ietf.org/rfc/rfc3339.txt
 """.
 -doc(#{since => <<"OTP 21.0">>}).
@@ -851,6 +1032,13 @@ epoch later than `T1`.
 >
 > This function is obsolete. Use the conversion functions for gregorian days and
 > seconds instead.
+
+## Examples
+
+```erlang
+1> calendar:time_difference({{2024,1,1},{0,0,0}}, {{2024,1,2},{12,30,45}}).
+{1,{12,30,45}}
+```
 """.
 -spec time_difference(T1, T2) -> {Days, Time} when
       T1 :: datetime(),
@@ -867,7 +1055,16 @@ time_difference({{Y1, Mo1, D1}, {H1, Mi1, S1}},
 %%
 %% time_to_seconds(Time)
 %%
--doc "Returns the number of seconds since midnight up to the specified time.".
+-doc """
+Returns the number of seconds since midnight up to the specified time.
+
+## Examples
+
+```erlang
+1> calendar:time_to_seconds({3,46,40}).
+13600
+```
+""".
 -spec time_to_seconds(Time) -> secs_per_day() when
       Time :: time().
 time_to_seconds({H, M, S}) when is_integer(H, 0, 23), is_integer(M, 0, 59), is_integer(S, 0, 59) ->
@@ -881,6 +1078,12 @@ time_to_seconds({H, M, S}) when is_integer(H, 0, 23), is_integer(M, 0, 59), is_i
 -doc """
 Returns the Universal Coordinated Time (UTC) reported by the underlying
 operating system. Returns local time if universal time is unavailable.
+
+## Examples
+
+```erlang
+1> {{Year,Month,Day},{Hour,Minutes,Second}} = calendar:universal_time().
+```
 """.
 -spec universal_time() -> datetime().
 universal_time() ->
@@ -892,8 +1095,24 @@ universal_time() ->
 universal_time_to_system_time(UniversalTime) ->
     universal_time_to_system_time(UniversalTime, []).
 
+-doc """
+Converts universal time into system time.
+
+This function accepts a universal time (UTC) datetime and converts it to
+system time. The optional `Options` parameter allows specifying the time unit
+for the return value. The default unit is `second`.
+
+## Examples
+
+```erlang
+1> calendar:universal_time_to_system_time({{2023, 3, 1}, {0, 0, 0}}).
+1677628800
+2> calendar:universal_time_to_system_time({{2024, 1, 1}, {0, 0, 0}}, [{unit, millisecond}]).
+1704067200000
+
+```
+""".
 -doc(#{since => <<"OTP 28.0">>}).
--doc "Converts universal time into system time.".
 -spec universal_time_to_system_time(datetime(), Options) -> integer() when
       Options :: [Option],
       Option :: {unit, erlang:time_unit()}.
@@ -908,6 +1127,13 @@ universal_time_to_system_time(DateTime, Options) ->
 -doc """
 Converts from Universal Coordinated Time (UTC) to local time. `DateTime` must
 refer to a date after Jan 1, 1970.
+
+## Examples
+
+```erlang
+1> calendar:universal_time_to_local_time({{2024,6,15},{14,30,45}}).
+{{2024,6,15},{16,30,45}}
+```
 """.
 -spec universal_time_to_local_time(DateTime) -> datetime() when
       DateTime :: datetime1970().
@@ -918,7 +1144,23 @@ universal_time_to_local_time(DateTime) ->
 %% valid_date(Year, Month, Day) = true | false
 %% valid_date({Year, Month, Day}) = true | false
 %%
--doc(#{equiv => valid_date({Year, Month, Day})}).
+-doc """
+Checks if a date is valid.
+
+This function validates that the given year, month, and day form a valid
+date according to the Gregorian calendar. It accepts either three separate
+arguments (Year, Month, Day) or a single date tuple. Returns `true` if the
+date is valid, `false` otherwise.
+
+## Examples
+
+```erlang
+1> calendar:valid_date(2024, 2, 29).
+true
+2> calendar:valid_date(2023, 2, 29).
+false
+```
+""".
 -spec valid_date(Year, Month, Day) -> boolean() when
       Year :: integer(),
       Month :: integer(),
@@ -932,7 +1174,7 @@ valid_date1(Y, M, D) when is_integer(Y), M > 0, M < 13, D > 0 ->
 valid_date1(_, _, _) ->
     false.
 
--doc "This function checks if a date is a valid.".
+-doc(#{equiv => valid_date(Year, Month, Day)}).
 -spec valid_date(Date) -> boolean() when
       Date :: date().
 valid_date({Y, M, D}) ->
