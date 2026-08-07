@@ -326,7 +326,7 @@ send_after4(Config) when is_list(Config) ->
 send_after5(Config) when is_list(Config) ->
     Msg = make_ref(),
     Name = register_name(self()),
-    {ok, {once, _}} = timer:send_after(500, Name, Msg),
+    {ok, {send_local, _}} = timer:send_after(500, Name, Msg),
     ok = get_mess(2000, Msg),
     unregister(Name).
 
@@ -335,7 +335,7 @@ send_after5(Config) when is_list(Config) ->
 send_after6(Config) when is_list(Config) ->
     Msg = make_ref(),
     Name = register_name(self()),
-    {ok, {once, _}} = timer:send_after(500, {Name, node()}, Msg),
+    {ok, {send_local, _}} = timer:send_after(500, {Name, node()}, Msg),
     ok = get_mess(2000, Msg),
     unregister(Name).
 
@@ -344,7 +344,7 @@ send_after6(Config) when is_list(Config) ->
 send_after7(Config) when is_list(Config) ->
     Msg = make_ref(),
     Name = make_name(),
-    {ok, {once, _}} = timer:send_after(500, Name, Msg),
+    {ok, {send_local, _}} = timer:send_after(500, Name, Msg),
     register(Name, self()),
     ok = get_mess(2000, Msg),
     unregister(Name).
