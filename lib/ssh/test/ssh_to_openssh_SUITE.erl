@@ -524,7 +524,7 @@ tunnel_in_erlclient_erlserver_denied(Config) ->
 
 %%--------------------------------------------------------------------
 tunnel_in_erlclient_openssh_server(_Config) ->
-    C = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [?ALIVE]),
+    C = ssh_test_lib:connect_with_retry(?SSH_DEFAULT_PORT, [?ALIVE]),
     {ToSock, ToHost, ToPort} = tunneling_listner(),
     
     ListenHost = {127,0,0,1},
@@ -556,7 +556,7 @@ tunnel_out_erlclient_erlserver(Config) ->
 
 %%--------------------------------------------------------------------
 tunnel_out_erlclient_openssh_server(_Config) ->
-    C = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [?ALIVE]),
+    C = ssh_test_lib:connect_with_retry(?SSH_DEFAULT_PORT, [?ALIVE]),
     {ToSock, ToHost, ToPort} = tunneling_listner(),
     
     ListenHost = {127,0,0,1},
