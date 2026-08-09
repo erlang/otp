@@ -772,6 +772,14 @@ constitute an Erlang program. Current form types are:
 
 _See also: _`attribute/2`, `comment/2`, `eof_marker/0`, `error_marker/1`,
 `form_list/1`, `function/2`, `type/1`, `warning_marker/1`.
+
+## Examples
+
+```erlang
+1> F = erl_syntax:function(erl_syntax:atom(identity), [erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")])]).
+2> erl_prettypr:format(F).
+"identity(X) -> X."
+```
 """.
 -spec is_form(syntaxTree()) -> boolean().
 
@@ -931,6 +939,14 @@ top-down textual order.
 _See also: _`add_precomments/2`, `comment/2`, `copy_comments/2`,
 `get_precomments/1`, `join_comments/2`, `remove_comments/1`,
 `set_postcomments/2`.
+
+## Examples
+
+```erlang
+1> PreC = erl_syntax:set_precomments(erl_syntax:atom(ok), [erl_syntax:comment(2, ["comment text"])]).
+2> erl_prettypr:format(PreC).
+"%comment text\nok"
+```
 """.
 -spec set_precomments(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -961,6 +977,14 @@ but potentially more efficient.
 
 _See also: _`add_postcomments/2`, `comment/2`, `get_precomments/1`,
 `join_comments/2`, `set_precomments/2`.
+
+## Examples
+
+```erlang
+1> PreC = erl_syntax:add_precomments([erl_syntax:comment(2, ["comment text"])], erl_syntax:atom(ok)).
+2> erl_prettypr:format(PreC).
+"%comment text\nok"
+```
 """.
 -spec add_precomments([syntaxTree()], syntaxTree()) -> syntaxTree().
 
@@ -1029,6 +1053,14 @@ top-down textual order
 _See also: _`add_postcomments/2`, `comment/2`, `copy_comments/2`,
 `get_postcomments/1`, `join_comments/2`, `remove_comments/1`,
 `set_precomments/2`.
+
+## Examples
+
+```erlang
+1> PC = erl_syntax:set_postcomments(erl_syntax:atom(ok), [erl_syntax:comment(2, ["comment text"])]).
+2> erl_prettypr:format(PC).
+"ok  %comment text\n"
+```
 """.
 -spec set_postcomments(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -1059,6 +1091,14 @@ but potentially more efficient.
 
 _See also: _`add_precomments/2`, `comment/2`, `get_postcomments/1`,
 `join_comments/2`, `set_postcomments/2`.
+
+## Examples
+
+```erlang
+1> PC = erl_syntax:add_postcomments([erl_syntax:comment(2, ["comment text"])], erl_syntax:atom(ok)).
+2> erl_prettypr:format(PC).
+"ok  %comment text\n"
+```
 """.
 -spec add_postcomments([syntaxTree()], syntaxTree()) -> syntaxTree().
 
@@ -1387,6 +1427,14 @@ where the `Fi` are separated by one or more line breaks. A node of type
 tree, usually to form an Erlang module definition.
 
 _See also: _`flatten_form_list/1`, `form_list_elements/1`, `is_form/1`.
+
+## Examples
+
+```erlang
+1> FL = erl_syntax:form_list([erl_syntax:attribute(erl_syntax:atom(module), [erl_syntax:atom(demo)])]).
+2> erl_prettypr:format(FL).
+"-module(demo)."
+```
 """.
 -spec form_list([syntaxTree()]) -> syntaxTree().
 
@@ -2011,6 +2059,17 @@ result represents "`#{F1, ..., Fn}`", otherwise it represents
 
 _See also: _`map_expr/1`, `map_expr_argument/1`, `map_expr_fields/1`,
 `map_field_assoc/2`, `map_field_exact/2`.
+
+## Examples
+
+```erlang
+1> MFAssoc = erl_syntax:map_field_assoc(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(MFAssoc).
+"name => \"Alice\""
+3> M = erl_syntax:map_expr(none, [MFAssoc]).
+4> erl_prettypr:format(M).
+"#{name => \"Alice\"}"
+```
 """.
 -spec map_expr('none' | syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -2081,6 +2140,14 @@ Creates an abstract map assoc field.
 The result represents "`Name => Value`".
 
 _See also: _`map_expr/2`, `map_field_assoc_name/1`, `map_field_assoc_value/1`.
+
+## Examples
+
+```erlang
+1> MF = erl_syntax:map_field_assoc(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(MF).
+"name => \"Alice\""                
+```
 """.
 -spec map_field_assoc(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -2138,6 +2205,14 @@ Creates an abstract map exact field.
 The result represents "`Name := Value`".
 
 _See also: _`map_expr/2`, `map_field_exact_name/1`, `map_field_exact_value/1`.
+
+## Examples
+
+```erlang
+1> MFE = erl_syntax:map_field_exact(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(MFE).
+"name := \"Alice\""
+```
 """.
 -spec map_field_exact(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -2199,6 +2274,14 @@ Xn}`".
 > from `X` itself.
 
 _See also: _`tuple_elements/1`, `tuple_size/1`.
+
+## Examples
+
+```erlang
+1> T = erl_syntax:tuple([erl_syntax:atom(ok), erl_syntax:integer(1)]).
+2> erl_prettypr:format(T).
+"{ok, 1}"
+```
 """.
 -spec tuple([syntaxTree()]) -> syntaxTree().
 
@@ -2288,6 +2371,14 @@ deconstruction in terms of cons and head/tail operations.
 _See also: _`compact_list/1`, `cons/2`, `get_attrs/1`, `is_list_skeleton/1`,
 `is_proper_list/1`, `list/1`, `list_elements/1`, `list_head/1`, `list_length/1`,
 `list_prefix/1`, `list_suffix/1`, `list_tail/1`, `nil/0`, `normalize_list/1`.
+
+## Examples
+
+```erlang
+1> L = erl_syntax:list([erl_syntax:integer(1), erl_syntax:integer(2)], none).
+2> erl_prettypr:format(L).
+"[1, 2]"
+```
 """.
 -spec list([syntaxTree()], 'none' | syntaxTree()) -> syntaxTree().
 
@@ -2443,6 +2534,14 @@ For example, if `Tail` represents `[X, Y]`, the result may represent
 comments on `Tail` are propagated to the result.
 
 _See also: _`list/2`, `list_head/1`, `list_tail/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:cons(erl_syntax:integer(1), erl_syntax:nil()).
+2> erl_prettypr:format(C).
+"[1]"
+```
 """.
 -spec cons(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -2701,6 +2800,14 @@ If `Fields` is `[F1, ..., Fn]`, the result represents "`<<F1, ...,
 Fn>>`".
 
 _See also: _`binary_field/2`, `binary_fields/1`.
+
+## Examples
+
+```erlang
+1> B = erl_syntax:binary([erl_syntax:binary_field(erl_syntax:integer(65), [erl_syntax:atom(integer)])]).
+2> erl_prettypr:format(B).
+"<<65/integer>>"
+```
 """.
 -spec binary([syntaxTree()]) -> syntaxTree().
 
@@ -2760,6 +2867,14 @@ Types)`](`binary_field/2`)".
 (This is a utility function.)
 
 _See also: _`binary/1`, `binary_field/2`, `size_qualifier/2`.
+
+## Examples
+
+```erlang
+1> BF = erl_syntax:binary_field(erl_syntax:integer(65), erl_syntax:integer(8), [erl_syntax:atom(integer)]).
+2> erl_prettypr:format(BF).
+"65:8/integer"
+```
 """.
 -spec binary_field(syntaxTree(), 'none' | syntaxTree(), [syntaxTree()]) ->
         syntaxTree().
@@ -2781,6 +2896,14 @@ represents "`Body/T1-...-Tn`".
 
 _See also: _`binary/1`, `binary_field/1`, `binary_field/3`,
 `binary_field_body/1`, `binary_field_size/1`, `binary_field_types/1`.
+
+## Examples
+
+```erlang
+1> BF = erl_syntax:binary_field(erl_syntax:integer(65), [erl_syntax:atom(integer)]).
+2> erl_prettypr:format(BF).
+"65/integer"
+```
 """.
 -spec binary_field(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -2899,6 +3022,14 @@ Creates an abstract size qualifier.
 The result represents "`Body:Size`".
 
 _See also: _`size_qualifier_argument/1`, `size_qualifier_body/1`.
+
+## Examples
+
+```erlang
+1> SQ = erl_syntax:size_qualifier(erl_syntax:atom(integer), erl_syntax:integer(8)).
+2> erl_prettypr:format(SQ).
+"integer:8"
+```
 """.
 -spec size_qualifier(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -2944,6 +3075,14 @@ regarded as source code forms, but have no defined lexical form.
 
 _See also: _`eof_marker/0`, `error_marker_info/1`, `is_form/1`,
 `warning_marker/1`.
+
+## Examples
+
+```erlang
+1> EM = erl_syntax:error_marker({1, erl_parse, ["bad syntax"]}).
+2> erl_prettypr:format(EM).
+"** 1: bad syntax **"
+```
 """.
 -spec error_marker(term()) -> syntaxTree().
 
@@ -2997,6 +3136,14 @@ form.
 
 _See also: _`eof_marker/0`, `error_marker/1`, `is_form/1`,
 `warning_marker_info/1`.
+
+## Examples
+
+```erlang
+1> WM = erl_syntax:warning_marker({1, erl_parse, ["deprecated"]}).
+2> erl_prettypr:format(WM).
+"%% WARNING: 1: deprecated"
+```
 """.
 -spec warning_marker(term()) -> syntaxTree().
 
@@ -3091,6 +3238,14 @@ are source code forms.
 
 _See also: _`attribute/1`, `attribute_arguments/1`, `attribute_name/1`,
 `is_form/1`, `text/1`.
+
+## Examples
+
+```erlang
+1> A = erl_syntax:attribute(erl_syntax:atom(module), [erl_syntax:atom(demo)]).
+2> erl_prettypr:format(A).
+"-module(demo)."
+```
 """.
 -spec attribute(syntaxTree(), 'none' | [syntaxTree()]) -> syntaxTree().
 
@@ -3423,6 +3578,14 @@ Creates an abstract arity qualifier.
 The result represents "`Body/Arity`".
 
 _See also: _`arity_qualifier_argument/1`, `arity_qualifier_body/1`.
+
+## Examples
+
+```erlang
+1> AQ = erl_syntax:arity_qualifier(erl_syntax:atom(size), erl_syntax:integer(1)).
+2> erl_prettypr:format(AQ).
+"size/1"
+```
 """.
 -spec arity_qualifier(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -3435,6 +3598,7 @@ arity_qualifier(Body, Arity) ->
 Returns the body subtree of an `arity_qualifier` node.
 
 _See also: _`arity_qualifier/2`.
+```
 """.
 -spec arity_qualifier_body(syntaxTree()) -> syntaxTree().
 
@@ -3461,6 +3625,14 @@ Creates an abstract module qualifier.
 The result represents "`Module:Body`".
 
 _See also: _`module_qualifier_argument/1`, `module_qualifier_body/1`.
+
+## Examples
+
+```erlang
+1> MQ = erl_syntax:module_qualifier(erl_syntax:atom(lists), erl_syntax:atom(reverse)).
+2> erl_prettypr:format(MQ).
+"lists:reverse"
+```
 """.
 -spec module_qualifier(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -3535,6 +3707,17 @@ Function definitions are source code forms.
 
 _See also: _`function_arity/1`, `function_clauses/1`, `function_name/1`,
 `is_form/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+3> F = erl_syntax:function(erl_syntax:atom(identity), [C]).
+4> erl_prettypr:format(F).
+"identity(X) -> X."
+```
 """.
 -spec function(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -3654,6 +3837,14 @@ For simplicity, the `Guard` argument may also be any of the following:
   `disjunction([conjunction([E1_1, ..., E1_k1]), ..., conjunction([Ej_1, ..., Ej_kj])])`.
 
 _See also: _`clause/2`, `clause_body/1`, `clause_guard/1`, `clause_patterns/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+```
 """.
 -spec clause([syntaxTree()], guard(), [syntaxTree()]) -> syntaxTree().
 
@@ -3816,6 +4007,14 @@ Creates an abstract disjunction.
 If `List` is `[E1, ..., En]`, the result represents "`E1; ...; En`".
 
 _See also: _`conjunction/1`, `disjunction_body/1`.
+
+## Examples
+
+```erlang
+1> D = erl_syntax:disjunction([erl_syntax:atom(true), erl_syntax:atom(false)]).
+2> erl_prettypr:format(D).
+"true; false"
+```
 """.
 -spec disjunction([syntaxTree()]) -> syntaxTree().
 
@@ -3840,6 +4039,14 @@ Creates an abstract conjunction.
 If `List` is `[E1, ..., En]`, the result represents "`E1, ..., En`".
 
 _See also: _`conjunction_body/1`, `disjunction/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:conjunction([erl_syntax:atom(true), erl_syntax:atom(false)]).
+2> erl_prettypr:format(C).
+"true, false"
+```
 """.
 -spec conjunction([syntaxTree()]) -> syntaxTree().
 
@@ -3864,6 +4071,14 @@ Creates an abstract catch-expression.
 The result represents "`catch Expr`".
 
 _See also: _`catch_expr_body/1`.
+
+## Examples
+
+```erlang
+1> CE = erl_syntax:catch_expr(erl_syntax:application(erl_syntax:atom(fail), [])).
+2> erl_prettypr:format(CE).
+"catch fail()"
+```
 """.
 -spec catch_expr(syntaxTree()) -> syntaxTree().
 
@@ -3906,6 +4121,14 @@ Creates an abstract match-expression.
 The result represents "`Pattern = Body`".
 
 _See also: _`match_expr_body/1`, `match_expr_pattern/1`.
+
+## Examples
+
+```erlang
+1> ME = erl_syntax:match_expr(erl_syntax:variable("X"), erl_syntax:integer(1)).
+2> erl_prettypr:format(ME).
+"X = 1"
+```
 """.
 -spec match_expr(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -3966,6 +4189,14 @@ The result represents "`Pattern ?= Body`".
 
 _See also: _`maybe_expr/2`, `maybe_match_expr_body/1`,
 `maybe_match_expr_pattern/1`.
+
+## Examples
+
+```erlang
+1> MME = erl_syntax:maybe_match_expr(erl_syntax:variable("X"), erl_syntax:atom(ok)).
+2> erl_prettypr:format(MME).
+"X ?= ok"
+```
 """.
 -spec maybe_match_expr(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -4074,6 +4305,14 @@ The result represents "`Left Operator Right`".
 
 _See also: _`infix_expr_left/1`, `infix_expr_operator/1`, `infix_expr_right/1`,
 `prefix_expr/2`.
+
+## Examples
+
+```erlang
+1> E = erl_syntax:infix_expr(erl_syntax:integer(1), erl_syntax:operator("+"), erl_syntax:integer(2)).
+2> erl_prettypr:format(E).
+"1 + 2"
+```
 """.
 -spec infix_expr(syntaxTree(), syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -4159,6 +4398,14 @@ Creates an abstract prefix operator expression.
 The result represents "`Operator Argument`".
 
 _See also: _`infix_expr/3`, `prefix_expr_argument/1`, `prefix_expr_operator/1`.
+
+## Examples
+
+```erlang
+1> PE = erl_syntax:prefix_expr(erl_syntax:operator("-"), erl_syntax:integer(1)).
+2> erl_prettypr:format(PE).
+"-1"
+```
 """.
 -spec prefix_expr(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -4237,6 +4484,14 @@ If `Value` is `none`, the result represents simply "`Name`",
 otherwise it represents "`Name = Value`".
 
 _See also: _`record_expr/3`, `record_field_name/1`, `record_field_value/1`.
+
+## Examples
+
+```erlang
+1> RF = erl_syntax:record_field(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(RF).
+"name = \"Alice\""
+```
 """.
 -spec record_field(syntaxTree(), 'none' | syntaxTree()) -> syntaxTree().
 
@@ -4282,6 +4537,14 @@ Creates an abstract record field index expression. The result represents
 
 _See also: _`record_expr/3`, `record_index_expr_field/1`,
 `record_index_expr_type/1`.
+
+## Examples
+
+```erlang
+1> RIE = erl_syntax:record_index_expr(erl_syntax:atom(person), erl_syntax:atom(name)).
+2> erl_prettypr:format(RIE).
+"#person.name"
+```
 """.
 -spec record_index_expr(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -4351,6 +4614,14 @@ The result represents "`Argument#Type.Field`".
 
 _See also: _`record_access_argument/1`, `record_access_field/1`,
 `record_access_type/1`, `record_expr/3`.
+
+## Examples
+
+```erlang
+1> RA = erl_syntax:record_access(erl_syntax:variable("Person"), erl_syntax:atom(person), erl_syntax:atom(name)).
+2> erl_prettypr:format(RA).
+"Person#person.name"
+```
 """.
 -spec record_access(syntaxTree(), syntaxTree(), syntaxTree()) ->
         syntaxTree().
@@ -4463,6 +4734,14 @@ represents "`Argument#Type{F1, ..., Fn}`".
 _See also: _`record_access/3`, `record_expr/2`, `record_expr_argument/1`,
 `record_expr_fields/1`, `record_expr_type/1`, `record_field/2`,
 `record_index_expr/2`.
+
+## Examples
+
+```erlang
+1> RE = erl_syntax:record_expr(erl_syntax:variable("Person"), erl_syntax:atom(person), [erl_syntax:record_field(erl_syntax:atom(name), erl_syntax:string("Alice"))]).
+2> erl_prettypr:format(RE).
+"Person#person{name = \"Alice\"}"
+```
 """.
 -spec record_expr('none' | syntaxTree(),
                   syntaxTree() | [syntaxTree()], [syntaxTree()]) ->
@@ -4601,6 +4880,15 @@ Arguments)`](`application/2`).
 (This is a utility function.)
 
 _See also: _`application/2`, `module_qualifier/2`.
+
+## Examples
+
+```erlang
+1> Arg1 = erl_syntax:list([erl_syntax:integer(1), erl_syntax:integer(2)]).
+2> A = erl_syntax:application(erl_syntax:atom(lists), erl_syntax:atom(reverse), [Arg1]).
+3> erl_prettypr:format(A).
+"lists:reverse([1, 2])"
+```
 """.
 -spec application('none' | syntaxTree(), syntaxTree(), [syntaxTree()]) ->
         syntaxTree().
@@ -4621,6 +4909,14 @@ If `Arguments` is `[A1, ..., An]`, the result represents
 
 _See also: _`application/3`, `application_arguments/1`,
 `application_operator/1`.
+
+## Examples
+
+```erlang
+1> A = erl_syntax:application(erl_syntax:atom(length), [erl_syntax:string("abc")]).
+2> erl_prettypr:format(A).
+"length(\"abc\")"
+```
 """.
 -spec application(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -4684,6 +4980,14 @@ Creates an abstract annotated type expression.
 The result represents "`Name :: Type`".
 
 _See also: _`annotated_type_body/1`, `annotated_type_name/1`.
+
+## Examples
+
+```erlang
+1> AT = erl_syntax:annotated_type(erl_syntax:atom(age), erl_syntax:atom(integer)).
+2> erl_prettypr:format(AT).
+"age :: integer"
+```
 """.
 -spec annotated_type(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -4740,6 +5044,14 @@ annotated_type_body(Node) ->
 Creates an abstract fun of any type.
 
 The result represents "`fun()`".
+
+## Examples
+
+```erlang
+1> FT = erl_syntax:fun_type().
+2> erl_prettypr:format(FT).
+"fun()"
+```
 """.
 -spec fun_type() -> syntaxTree().
 
@@ -4769,6 +5081,14 @@ Arguments)`](`type_application/2`).
 (This is a utility function.)
 
 _See also: _`module_qualifier/2`, `type_application/2`.
+
+## Examples
+
+```erlang
+1> TA = erl_syntax:type_application(erl_syntax:atom(erlang), erl_syntax:atom(integer), []).
+2> erl_prettypr:format(TA).
+"erlang:integer()"
+```
 """.
 -spec type_application('none' | syntaxTree(), syntaxTree(), [syntaxTree()]) ->
         syntaxTree().
@@ -4790,6 +5110,14 @@ If `Arguments` is `[T1, ..., Tn]`, the result represents
 
 _See also: _`type_application/3`, `type_application_arguments/1`,
 `type_application_name/1`, `user_type_application/2`.
+
+## Examples
+
+```erlang
+1> TA = erl_syntax:type_application(erl_syntax:atom(integer), []).
+2> erl_prettypr:format(TA).
+"integer()"
+```
 """.
 -spec type_application(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -4864,6 +5192,14 @@ Creates an abstract bitstring type.
 The result represents "`<<_:M, _:_N>>`".
 
 _See also: _`bitstring_type_m/1`, `bitstring_type_n/1`.
+
+## Examples
+
+```erlang
+1> BST = erl_syntax:bitstring_type(erl_syntax:integer(8), erl_syntax:integer(1)).
+2> erl_prettypr:format(BST).
+"<<_:8, _:_*1>>"
+```
 """.
 -spec bitstring_type(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -4918,6 +5254,17 @@ If `FunctionConstraint` is `[C1, ..., Cn]`, the result represents
 
 _See also: _`constrained_function_type_argument/1`,
 `constrained_function_type_body/1`.
+
+## Examples
+
+```erlang
+1> FT = erl_syntax:function_type([erl_syntax:atom(integer)], erl_syntax:atom(integer)).
+2> erl_prettypr:format(FT).
+"fun((integer) -> integer)"
+3> CFT = erl_syntax:constrained_function_type(FT, [erl_syntax:constraint(erl_syntax:atom(is_subtype), [erl_syntax:atom(integer), erl_syntax:atom(term)])]).
+4> erl_prettypr:format(CFT).
+"fun((integer) -> integer) when is_subtype(integer, term)"
+```
 """.
 -spec constrained_function_type(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -4996,6 +5343,14 @@ Note that the `m:erl_parse` representation is identical for
 "`FunctionType`" and "`fun(FunctionType)`".
 
 _See also: _`function_type_arguments/1`, `function_type_return/1`.
+
+## Examples
+
+```erlang
+1> FT = erl_syntax:function_type([erl_syntax:atom(integer)], erl_syntax:atom(integer)).
+2> erl_prettypr:format(FT).
+"fun((integer) -> integer)"
+```
 """.
 -spec function_type('any_arity' | [syntaxTree()], syntaxTree()) -> syntaxTree().
 
@@ -5071,6 +5426,14 @@ Creates an abstract (subtype) constraint.
 The result represents "`Name :: Type`".
 
 _See also: _`constraint_argument/1`, `constraint_body/1`.
+
+## Examples
+
+```erlang
+1> Cnst = erl_syntax:constraint(erl_syntax:atom(is_subtype), [erl_syntax:atom(integer), erl_syntax:atom(term)]).
+2> erl_prettypr:format(Cnst).
+"is_subtype(integer, term)"
+```
 """.
 -spec constraint(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -5134,6 +5497,14 @@ Creates an abstract map type assoc field.
 The result represents "`Name => Value`".
 
 _See also: _`map_type/1`, `map_type_assoc_name/1`, `map_type_assoc_value/1`.
+
+## Examples
+
+```erlang
+1> MT = erl_syntax:map_type_assoc(erl_syntax:atom(atom), erl_syntax:atom(integer)).
+2> erl_prettypr:format(MT).
+"atom => integer"
+```
 """.
 -spec map_type_assoc(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -5193,6 +5564,14 @@ Creates an abstract map type exact field.
 The result represents "`Name := Value`".
 
 _See also: _`map_type/1`, `map_type_exact_name/1`, `map_type_exact_value/1`.
+
+## Examples
+
+```erlang
+1> MTE = erl_syntax:map_type_exact(erl_syntax:atom(name), erl_syntax:atom(string)).
+2> erl_prettypr:format(MTE).
+"name := string"
+```
 """.
 -spec map_type_exact(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -5258,6 +5637,17 @@ Fn}`"; otherwise, if `Fields` is `any_size`, it represents
 "`t:map/0`".
 
 _See also: _`map_type_fields/1`.
+
+## Examples
+
+```erlang
+1> MTA = erl_syntax:map_type_assoc(erl_syntax:atom(atom), erl_syntax:atom(integer)).
+2> erl_prettypr:format(MTA).
+"atom => integer"
+3> MT = erl_syntax:map_type([MTA]).
+4> erl_prettypr:format(MT).
+"#{atom => integer}"
+```
 """.
 -spec map_type('any_size' | [syntaxTree()]) -> syntaxTree().
 
@@ -5313,6 +5703,14 @@ Creates an abstract range type.
 The result represents "`Low .. High`".
 
 _See also: _`integer_range_type_high/1`, `integer_range_type_low/1`.
+
+## Examples
+
+```erlang
+1> IRT = erl_syntax:integer_range_type(erl_syntax:integer(1), erl_syntax:integer(10)).
+2> erl_prettypr:format(IRT).
+"1..10"
+```
 """.
 -spec integer_range_type(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -5376,6 +5774,17 @@ If `Fields` is `[F1, ..., Fn]`, the result represents "`#Name{F1,
 ..., Fn}`".
 
 _See also: _`record_type_fields/1`, `record_type_name/1`.
+
+## Examples
+
+```erlang
+1> RTF = erl_syntax:record_type_field(erl_syntax:atom(name), erl_syntax:atom(string)).
+2> erl_prettypr:format(RTF).
+"name :: string"
+3> RT = erl_syntax:record_type(erl_syntax:atom(person), [RTF]).
+4> erl_prettypr:format(RT).
+"#person{name :: string}"
+```
 """.
 -spec record_type(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -5436,6 +5845,14 @@ Creates an abstract record type field.
 The result represents "`Name :: Type`".
 
 _See also: _`record_type_field_name/1`, `record_type_field_type/1`.
+
+## Examples
+
+```erlang
+1> RTF = erl_syntax:record_type_field(erl_syntax:atom(name), erl_syntax:atom(string)).
+2> erl_prettypr:format(RTF).
+"name :: string"
+```
 """.
 -spec record_type_field(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -5503,6 +5920,14 @@ Tn}`"; otherwise, if `Elements` is `any_size`, it represents
 "`t:tuple/0`".
 
 _See also: _`tuple_type_elements/1`.
+
+## Examples
+
+```erlang
+1> TT = erl_syntax:tuple_type([erl_syntax:atom(integer), erl_syntax:atom(atom)]).
+2> erl_prettypr:format(TT).
+"{integer, atom}"
+```
 """.
 -spec tuple_type(any_size | [syntaxTree()]) -> syntaxTree().
 
@@ -5556,6 +5981,14 @@ If `Types` is `[T1, ..., Tn]`, the result represents "`T1 | ... |
 Tn`".
 
 _See also: _`type_union_types/1`.
+
+## Examples
+
+```erlang
+1> TU = erl_syntax:type_union([erl_syntax:atom(integer), erl_syntax:atom(atom)]).
+2> erl_prettypr:format(TU).
+"integer | atom"
+```
 """.
 -spec type_union([syntaxTree()]) -> syntaxTree().
 
@@ -5602,6 +6035,14 @@ If `Arguments` is `[T1, ..., Tn]`, the result represents
 
 _See also: _`type_application/2`, `user_type_application_arguments/1`,
 `user_type_application_name/1`.
+
+## Examples
+
+```erlang
+1> UTA = erl_syntax:user_type_application(erl_syntax:atom(custom), [erl_syntax:atom(integer)]).
+2> erl_prettypr:format(UTA).
+"custom(integer)"
+```
 """.
 -spec user_type_application(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -5667,6 +6108,17 @@ Creates an abstract typed record field specification.
 The result represents "`Field :: Type`".
 
 _See also: _`typed_record_field_body/1`, `typed_record_field_type/1`.
+
+## Examples
+
+```erlang
+1> RF = erl_syntax:record_field(erl_syntax:atom(name), erl_syntax:string("Alice")).
+2> erl_prettypr:format(RF).
+"name = \"Alice\""
+3> TRF = erl_syntax:typed_record_field(RF, erl_syntax:atom(string)).
+4> erl_prettypr:format(TRF).
+"name = \"Alice\" :: string"
+```
 """.
 -spec typed_record_field(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -5711,6 +6163,17 @@ Supports comprehensions with multiple emitted elements per iteration,
 from EEP 78 - in such cases, `Template` is a list of expressions.
 
 _See also: _`generator/2`, `list_comp_body/1`, `list_comp_template/1`.
+
+## Examples
+
+```erlang
+1> G = erl_syntax:generator(erl_syntax:variable("X"), erl_syntax:list([erl_syntax:integer(1)])).
+2> erl_prettypr:format(G).
+"X <- [1]"
+3> LC = erl_syntax:list_comp(erl_syntax:variable("X"), [G]).
+4> erl_prettypr:format(LC).
+"[X || X <- [1]]"
+```
 """.
 -spec list_comp(syntaxTree() | [syntaxTree()], [syntaxTree()]) -> syntaxTree().
 
@@ -5776,6 +6239,19 @@ If `Body` is `[E1, ..., En]`, the result represents "`<<Template ||
 E1, ..., En>>`".
 
 _See also: _`binary_comp_body/1`, `binary_comp_template/1`, `generator/2`.
+
+## Examples
+
+```erlang
+1> V = erl_syntax:variable("Byte").
+{tree,variable,{attr,0,[],none},'Byte'}
+2> BG = erl_syntax:binary_generator(V, erl_syntax:binary([erl_syntax:binary_field(erl_syntax:integer(65))])).
+3> erl_prettypr:format(BG).
+"Byte <= <<65>>"
+4> BC = erl_syntax:binary_comp(erl_syntax:binary_field(V), [BG]).
+5> erl_prettypr:format(BC).
+"<< Byte  || Byte <= <<65>> >>"
+```
 """.
 -spec binary_comp(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -5841,6 +6317,20 @@ Supports comprehensions with multiple emitted elements per iteration,
 from EEP 78 - in such cases, `Template` is a list of key-value associations.
 
 _See also: _`generator/2`, `map_comp_body/1`, `map_comp_template/1`.
+
+## Examples
+
+```erlang
+1> MG = erl_syntax:map_generator(erl_syntax:variable("K"), erl_syntax:variable("Map")).
+2> erl_prettypr:format(MG).
+"K <- Map"
+3> MFAssoc = erl_syntax:map_field_assoc(erl_syntax:atom(name), erl_syntax:string("Alice")).
+4> erl_prettypr:format(MFAssoc).
+"name => \"Alice\""
+5> MC = erl_syntax:map_comp(MFAssoc, [MG]).
+6> erl_prettypr:format(MC).
+"#{name => \"Alice\" || K <- Map}"
+```
 """.
 -spec map_comp(syntaxTree() | [syntaxTree()], [syntaxTree()]) -> syntaxTree().
 
@@ -5906,6 +6396,14 @@ The result represents "`Pattern <- Body`".
 
 _See also: _`binary_comp/2`, `generator_body/1`, `generator_pattern/1`,
 `map_comp/2`, `list_comp/2`.
+
+## Examples
+
+```erlang
+1> G = erl_syntax:generator(erl_syntax:variable("X"), erl_syntax:list([erl_syntax:integer(1), erl_syntax:integer(2)])).
+2> erl_prettypr:format(G).
+"X <- [1, 2]"
+```
 """.
 -spec generator(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -5968,6 +6466,15 @@ The result represents "`*Pattern*<:- *Body*`".
 
 _See also: _`binary_comp/2`, `strict_generator_body/1`,
 `strict_generator_pattern/1`, `list_comp/2`.
+
+## Examples
+
+```erlang
+1> L = erl_syntax:list([erl_syntax:integer(1), erl_syntax:integer(2)]).
+2> SG = erl_syntax:strict_generator(erl_syntax:variable("X"), L).
+3> erl_prettypr:format(SG).
+"X <:- [1, 2]"
+```
 """.
 -spec strict_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -6030,6 +6537,15 @@ The result represents "`Pattern <= Body`".
 
 _See also: _`binary_comp/2`, `binary_generator_body/1`,
 `binary_generator_pattern/1`, `list_comp/2`, `map_comp/2`.
+
+## Examples
+
+```erlang
+1> B = erl_syntax:binary([erl_syntax:binary_field(erl_syntax:integer(65))]).
+2> BG = erl_syntax:binary_generator(erl_syntax:variable("X"), B).
+3> erl_prettypr:format(BG).
+"X <= <<65>>"
+```
 """.
 -spec binary_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -6092,6 +6608,15 @@ The result represents "`*Pattern*<:- *Body*`".
 
 _See also: _`binary_comp/2`, `strict_binary_generator_body/1`,
 `strict_binary_generator_pattern/1`, `list_comp/2`.
+
+## Examples
+
+```erlang
+1> B = erl_syntax:binary([erl_syntax:binary_field(erl_syntax:integer(65))]).
+2> SBG = erl_syntax:strict_binary_generator(erl_syntax:variable("X"), B).
+3> erl_prettypr:format(SBG).
+"X <:= <<65>>"
+```
 """.
 -spec strict_binary_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -6154,6 +6679,14 @@ The result represents "`Pattern <- Body`".
 
 _See also: _`binary_comp/2`, `list_comp/2`, `map_comp/2`, `map_generator_body/1`,
 `map_generator_pattern/1`.
+
+## Examples
+
+```erlang
+1> MG = erl_syntax:map_generator(erl_syntax:variable("K"), erl_syntax:variable("Map")).
+2> erl_prettypr:format(MG).
+"K <- Map"
+```
 """.
 -spec map_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -6216,6 +6749,14 @@ Creates an abstract strict map_generator. The result represents
 _See also: _`list_comp/2`, `map_comp/2`,
 `strict_map_generator_body/1`,
 `strict_map_generator_pattern/1`.
+
+## Examples
+
+```erlang
+1> SMG = erl_syntax:strict_map_generator(erl_syntax:variable("K"), erl_syntax:variable("Map")).
+2> erl_prettypr:format(SMG).
+"K <:- Map"
+```
 """.
 -spec strict_map_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -6276,6 +6817,20 @@ The result represents `G1 && ... Gn`, where each `G` is a generator.
 
 _See also: _`binary_comp/2`, `list_comp/2`, `map_comp/2`, `map_generator_body/1`,
 `map_generator_pattern/1`.
+
+## Examples
+
+```erlang
+1> G1 = erl_syntax:generator(erl_syntax:variable("A"), erl_syntax:list([erl_syntax:integer(1)])).
+2> erl_prettypr:format(G1).
+"A <- [1]"
+3> G2 = erl_syntax:generator(erl_syntax:variable("B"), erl_syntax:list([erl_syntax:integer(2)])).
+4> erl_prettypr:format(G2).
+"B <- [2]"
+5> ZG = erl_syntax:zip_generator([G1, G2]).
+6> erl_prettypr:format(ZG).
+"A <- [1]&& B <- [2]"
+```
 """.
 -spec zip_generator([syntaxTree()]) -> syntaxTree().
 
@@ -6318,6 +6873,14 @@ If `Body` is `[B1, ..., Bn]`, the result represents "`begin B1, ...,
 Bn end`".
 
 _See also: _`block_expr_body/1`.
+
+## Examples
+
+```erlang
+1> BE = erl_syntax:block_expr([erl_syntax:atom(ok)]).
+2> erl_prettypr:format(BE).
+"begin ok end"
+```
 """.
 -spec block_expr([syntaxTree()]) -> syntaxTree().
 
@@ -6362,6 +6925,14 @@ Cn end`". More exactly, if each `Ci` represents "`() Gi -> Bi`",
 then the result represents "`if G1 -> B1; ...; Gn -> Bn end`".
 
 _See also: _`case_expr/2`, `clause/3`, `if_expr_clauses/1`.
+
+## Examples
+
+```erlang
+1> IE = erl_syntax:if_expr([erl_syntax:clause([], erl_syntax:atom(true), [erl_syntax:atom(ok)])]).
+2> erl_prettypr:format(IE).
+"if true -> ok end"
+```
 """.
 -spec if_expr([syntaxTree()]) -> syntaxTree().
 
@@ -6413,6 +6984,17 @@ Argument of P1G1 -> B1; ...; PnGn -> Bn end`".
 
 _See also: _`case_expr_argument/1`, `case_expr_clauses/1`, `clause/3`,
 `if_expr/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+3> CE = erl_syntax:case_expr(erl_syntax:integer(1), [C]).
+4> erl_prettypr:format(CE).
+"case 1 of X -> X end"
+```
 """.
 -spec case_expr(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -6479,6 +7061,18 @@ represents "`else C1; ...; Cn end`". More exactly, if each `Ci` represents
 "`else (P1) G1 -> B1; ...; (Pn) Gn -> Bn end`".
 
 _See also: _`clause/3`, `else_expr_clauses/1`, `maybe_expr/2`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+3> EE = erl_syntax:else_expr([C]).
+4> ME = erl_syntax:maybe_expr([erl_syntax:atom(ok)], EE).
+5> erl_prettypr:format(ME).
+"maybe ok else X -> X end"
+```
 """.
 -spec else_expr([syntaxTree()]) -> syntaxTree().
 
@@ -6547,6 +7141,17 @@ C1; ..., Cn end`".
 See `clause` for documentation on `m:erl_parse` clauses.
 
 _See also: _`maybe_expr_body/1`, `maybe_expr_else/1`.
+
+## Examples
+
+```erlang
+1> MME = erl_syntax:maybe_match_expr(erl_syntax:variable("X"), erl_syntax:atom(ok)).
+2> erl_prettypr:format(MME).
+"X ?= ok"
+3> ME = erl_syntax:maybe_expr([MME], none).
+4> erl_prettypr:format(ME).
+"maybe X ?= ok end"
+```
 """.
 -spec maybe_expr([syntaxTree()], 'none' | syntaxTree()) -> syntaxTree().
 
@@ -6635,6 +7240,17 @@ timeout part is specified.
 
 _See also: _`case_expr/2`, `clause/3`, `receive_expr/1`,
 `receive_expr_action/1`, `receive_expr_clauses/1`, `receive_expr_timeout/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([erl_syntax:variable("X")], none, [erl_syntax:variable("X")]).
+2> erl_prettypr:format(C).
+"(X) -> X"
+3> RE = erl_syntax:receive_expr([C], erl_syntax:integer(1000), [erl_syntax:atom(timeout)]).
+4> erl_prettypr:format(RE).
+"receive X -> X after 1000 -> timeout end"
+```
 """.
 -spec receive_expr([syntaxTree()], 'none' | syntaxTree(), [syntaxTree()]) ->
         syntaxTree().
@@ -6788,6 +7404,20 @@ nonempty, the `catch ...` section is left out.
 _See also: _`case_expr/2`, `class_qualifier/2`, `clause/3`, `try_after_expr/2`,
 `try_expr/2`, `try_expr/3`, `try_expr_after/1`, `try_expr_body/1`,
 `try_expr_clauses/1`, `try_expr_handlers/1`.
+
+## Examples
+
+```erlang
+1> CQ = erl_syntax:class_qualifier(erl_syntax:atom(error), erl_syntax:variable("Reason")).
+2> erl_prettypr:format(CQ).
+"error:Reason"
+3> C = erl_syntax:clause([CQ], none, [erl_syntax:variable("Reason")]).
+4> erl_prettypr:format(C).
+"(error:Reason) -> Reason"
+5> TE = erl_syntax:try_expr([erl_syntax:atom(ok)], [], [C], []).
+6> erl_prettypr:format(TE).
+"try ok catch error:Reason -> Reason end"
+```
 """.
 -spec try_expr([syntaxTree()], [syntaxTree()],
 	       [syntaxTree()], [syntaxTree()]) -> syntaxTree().
@@ -6896,6 +7526,14 @@ The result represents "`Class:Body`".
 
 _See also: _`class_qualifier_argument/1`, `class_qualifier_body/1`,
 `class_qualifier_stacktrace/1`, `try_expr/4`.
+
+## Examples
+
+```erlang
+1> CQ = erl_syntax:class_qualifier(erl_syntax:atom(error), erl_syntax:variable("Reason")).
+2> erl_prettypr:format(CQ).
+"error:Reason"
+```
 """.
 -spec class_qualifier(syntaxTree(), syntaxTree()) -> syntaxTree().
 
@@ -6912,6 +7550,14 @@ The result represents "`Class:Body:Stacktrace`".
 
 _See also: _`class_qualifier_argument/1`, `class_qualifier_body/1`,
 `try_expr/4`.
+
+## Examples
+
+```erlang
+1> CQ = erl_syntax:class_qualifier(erl_syntax:atom(error), erl_syntax:variable("Reason"), erl_syntax:variable("Stack")).
+2> erl_prettypr:format(CQ).
+"error:Reason:Stack"
+```
 """.
 -spec class_qualifier(syntaxTree(), syntaxTree(), syntaxTree()) ->
                              syntaxTree().
@@ -6967,6 +7613,14 @@ to [`implicit_fun(arity_qualifier(Name, Arity))`](`implicit_fun/1`).
 (This is a utility function.)
 
 _See also: _`implicit_fun/1`, `implicit_fun/3`.
+
+## Examples
+
+```erlang
+1> IF = erl_syntax:implicit_fun(erl_syntax:atom(length), erl_syntax:integer(1)).
+2> erl_prettypr:format(IF).
+"fun length/1"
+```
 """.
 -spec implicit_fun(syntaxTree(), 'none' | syntaxTree()) -> syntaxTree().
 
@@ -6988,6 +7642,14 @@ Arity)`](`implicit_fun/2`), otherwise it is equivalent to
 (This is a utility function.)
 
 _See also: _`implicit_fun/1`, `implicit_fun/2`.
+
+## Examples
+
+```erlang
+1> IF = erl_syntax:implicit_fun(erl_syntax:atom(lists), erl_syntax:atom(reverse), erl_syntax:integer(1)).
+2> erl_prettypr:format(IF).
+"fun lists:reverse/1"
+```
 """.
 -spec implicit_fun('none' | syntaxTree(), syntaxTree(), syntaxTree()) ->
         syntaxTree().
@@ -7006,6 +7668,17 @@ The result represents "`fun Name`". `Name` should represent either
 
 _See also: _`arity_qualifier/2`, `implicit_fun/2`, `implicit_fun/3`,
 `implicit_fun_name/1`, `module_qualifier/2`.
+
+## Examples
+
+```erlang
+1> AQ = erl_syntax:arity_qualifier(erl_syntax:atom(length), erl_syntax:integer(1)).
+2> erl_prettypr:format(AQ).
+"length/1"
+3> IF = erl_syntax:implicit_fun(AQ).
+4> erl_prettypr:format(IF).
+"fun length/1"
+```
 """.
 -spec implicit_fun(syntaxTree()) -> syntaxTree().
 
@@ -7083,6 +7756,17 @@ Pim) Gi -> Bi`", then the result represents "`fun (P11, ...,
 P1m) G1 -> B1; ...; (Pn1, ..., Pnm) Gn -> Bn end`".
 
 _See also: _`fun_expr_arity/1`, `fun_expr_clauses/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([], none, [erl_syntax:atom(ok)]).
+2> erl_prettypr:format(C).
+"() -> ok"
+3> FE = erl_syntax:fun_expr([C]).
+4> erl_prettypr:format(FE).
+"fun () -> ok end"
+```
 """.
 -spec fun_expr([syntaxTree()]) -> syntaxTree().
 
@@ -7154,6 +7838,17 @@ Name(Pn1, ..., Pnm) Gn -> Bn end`".
 
 _See also: _`named_fun_expr_arity/1`, `named_fun_expr_clauses/1`,
 `named_fun_expr_name/1`.
+
+## Examples
+
+```erlang
+1> C = erl_syntax:clause([], none, [erl_syntax:atom(ok)]).
+2> erl_prettypr:format(C).
+"() -> ok"
+3> NFE = erl_syntax:named_fun_expr(erl_syntax:atom(loop), [C]).
+4> erl_prettypr:format(NFE).
+"fun loop() -> ok end"
+```
 """.
 -spec named_fun_expr(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
@@ -7240,6 +7935,14 @@ Creates an abstract parenthesised expression.
 The result represents "`(Body)`", independently of the context.
 
 _See also: _`parentheses_body/1`.
+
+## Examples
+
+```erlang
+1> P = erl_syntax:parentheses(erl_syntax:integer(1)).
+2> erl_prettypr:format(P).
+"(1)"
+```
 """.
 -spec parentheses(syntaxTree()) -> syntaxTree().
 
@@ -7289,6 +7992,14 @@ and so on. The `text` node type can be used to represent arguments which are not
 regular Erlang constructs.
 
 _See also: _`macro/1`, `macro_arguments/1`, `macro_name/1`, `text/1`.
+
+## Examples
+
+```erlang
+1> M = erl_syntax:macro(erl_syntax:atom(line), [erl_syntax:integer(1)]).
+2> erl_prettypr:format(M).
+"?line(1)"
+```
 """.
 -spec macro(syntaxTree(), 'none' | [syntaxTree()]) -> syntaxTree().
 
@@ -7335,6 +8046,14 @@ representation. Evaluation fails with reason `badarg` if `Term` is not
 a literal term.
 
 _See also: _`concrete/1`, `is_literal/1`.
+
+## Examples
+
+```erlang
+1> A = erl_syntax:abstract({ok, 1}).
+2> erl_prettypr:format(A).
+"{ok, 1}"
+```
 """.
 -spec abstract(term()) -> syntaxTree().
 
@@ -7415,6 +8134,16 @@ literal term.
 > Compiler.
 
 _See also: _`abstract/1`, `char/1`, `is_literal/1`.
+
+## Examples
+
+```erlang
+1> A = erl_syntax:abstract({ok, 1}).
+2> erl_prettypr:format(A).
+"{ok, 1}"
+3> C = erl_syntax:concrete(A).
+{ok,1}
+```
 """.
 -spec concrete(syntaxTree()) -> term().
 
@@ -7576,6 +8305,16 @@ non-reverted subtree of the result.  This can only happen if `Tree`
 does not actually represent legal Erlang code.
 
 _See also: _[//stdlib/erl_parse](`m:erl_parse`), `revert_forms/1`.
+
+## Examples
+
+```erlang
+1> A = erl_syntax:atom(ok).
+2> erl_prettypr:format(A).
+"ok"
+3> R = erl_syntax:revert(A).
+{atom,0,ok}
+```
 """.
 -spec revert(syntaxTree()) -> syntaxTree().
 
@@ -7775,6 +8514,19 @@ not be reverted, `{error, Form}` is thrown. Standalone comments in the
 form sequence are discarded.
 
 _See also: _`form_list/1`, `is_form/1`, `revert/1`.
+
+## Examples
+
+```erlang
+1> A = erl_syntax:attribute(erl_syntax:atom(module), [erl_syntax:atom(demo)]).
+2> erl_prettypr:format(A).
+"-module(demo)."
+3> FL = erl_syntax:form_list([A]).
+4> erl_prettypr:format(FL).
+"-module(demo)."
+5> RFs = erl_syntax:revert_forms(FL).
+[{attribute,0,module,demo}]
+```
 """.
 -spec revert_forms(forms()) -> [erl_parse()].
 
@@ -8165,6 +8917,7 @@ it does not necessarily have the same data representation as `Node`.
 
 _See also: _`copy_attrs/2`, `is_leaf/1`, `subtrees/1`, `type/1`,
 `update_tree/2`.
+```
 """.
 -spec make_tree(atom(), [[syntaxTree()]]) -> syntaxTree().
 
@@ -8287,6 +9040,17 @@ _representation independent_ syntax tree generating expression; in the
 above case, something like "`erl_syntax:variable("V")`".
 
 _See also: _`abstract/1`, `get_ann/1`, `type/1`.
+
+## Examples
+
+```erlang
+1> A = erl_syntax:atom(ok).
+2> erl_prettypr:format(A).
+"ok"
+3> M = erl_syntax:meta(A).
+4> erl_prettypr:format(M).
+"erl_syntax:atom(ok)"
+```
 """.
 -spec meta(syntaxTree()) -> syntaxTree().
 
@@ -8480,6 +9244,13 @@ Evaluation fails with reason `badarg` if [`is_tree(Node)`](`is_tree/1`) does not
 yield `true`.
 
 _See also: _`tree/2`.
+
+## Examples
+
+```erlang
+1> T = erl_syntax:tree(example, [erl_syntax:atom(ok)]).
+2> D = erl_syntax:data(T).
+```
 """.
 -spec data(syntaxTree()) -> term().
 
