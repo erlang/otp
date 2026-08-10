@@ -46,8 +46,13 @@
 -export([init_session_validator/1]).
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+-export([init/1,
+         handle_call/3,
+         handle_cast/2,
+         handle_info/2,
+         terminate/2,
+         format_status/1,
+         code_change/3]).
 
 -include("ssl_handshake.hrl").
 -include("ssl_internal.hrl").
@@ -63,16 +68,17 @@
 -type serialnumber()      :: pos_integer().
 
 -record(state, {
-	  session_cache_client    :: db_handle(),
-	  session_cache_client_cb :: atom(),
-	  session_lifetime        :: integer(),
-	  certificate_db          :: db_handle(),
-	  session_validation_timer :: reference(),
-	  session_cache_client_max   :: integer(),
-          session_client_invalidator :: undefined | pid(),
-          options                    :: list(),
-          client_session_order       :: gb_trees:tree()
-	 }).
+                session_cache_client,
+                session_cache_client_cb,
+                session_lifetime,
+                certificate_db,
+                session_validation_timer,
+                session_cache_client_max,
+                session_client_invalidator,
+                options,
+                client_session_order,
+                max_crl_cace_size
+               }).
 
 -define(GEN_UNIQUE_ID_MAX_TRIES, 10).
 -define(SESSION_VALIDATION_INTERVAL, 60000).
@@ -408,8 +414,17 @@ terminate(_Reason, #state{certificate_db = Db,
     catch CacheCb:terminate(ClientSessionCache),
     ok.
 
+-spec format_status(map()) -> map().
+format_status(Status) ->
+    maps:map(
+      fun(state, State) ->
+              State#state{client_session_order = ?SECRET_PRINTOUT};
+         (_,Value) ->
+              Value
+      end, Status).
+
 %%--------------------------------------------------------------------
--spec code_change(term(), #state{}, list()) -> {ok, #state{}}.			 
+-spec code_change(term(), #state{}, list()) -> {ok, #state{}}.
 %%
 %% Description: Convert process state when code is changed
 %%--------------------------------------------------------------------

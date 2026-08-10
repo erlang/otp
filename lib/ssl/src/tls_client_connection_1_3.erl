@@ -84,7 +84,7 @@
          callback_mode/0,
          terminate/3,
          code_change/4,
-         format_status/2]).
+         format_status/1]).
 
 %% gen_statem state functions
 -export([config_error/3,
@@ -135,8 +135,8 @@ init([?CLIENT_ROLE, Sender, Tab, Host, Port, Socket, Options,  User, CbInfo]) ->
 terminate(Reason, StateName, State) ->
     ssl_gen_statem:terminate(Reason, StateName, State).
 
-format_status(Type, Data) ->
-    ssl_gen_statem:format_status(Type, Data).
+format_status(Data) ->
+    ssl_gen_statem:format_status(Data).
 
 code_change(_OldVsn, StateName, State, _) ->
     {ok, StateName, State}.

@@ -54,6 +54,10 @@
          async_wait/3,
          handshake/3,
          death_row/3]).
+
+%% Log handling
+-export([format_status/1]).
+
 %% Tracing
 -export([handle_trace/3]).
 
@@ -475,6 +479,18 @@ death_row_shutdown(Reason, StateData) ->
 %%--------------------------------------------------------------------
 terminate(_Reason, _State, _Data) ->
     void.
+%%====================================================================
+%% Log handling
+%%====================================================================
+-spec format_status(map()) -> map().
+format_status(Status) ->
+    maps:map(
+      fun(data, StateData) ->
+              StateData#data{connection_states = ?SECRET_PRINTOUT,
+                             buff = ?SECRET_PRINTOUT};
+         (_,Value) ->
+              Value
+      end, Status).
 
 %%--------------------------------------------------------------------
 -spec code_change(
