@@ -1236,6 +1236,17 @@ There are two implementations available:
     extensions](`e:public_key:public_key_records.md`). Requires the
     [Inets](`e:inets:introduction.md`) application.
 
+- **`{allowed_hosts, [string()]}`**
+
+    If http fetching is allowed, a list of allowed hosts can be
+    specified as a hardening option. The entries should be
+    "Host:Port". If ":Port" is left out the default port is 80. If the
+    allowed_hosts is not specified only an external hosts using port
+    80 or 8080 will be allowed.
+
+   > #### Note {: .info }
+   Putting the local host on the allow list will of course make the local host allowed.
+
 - **`ssl_crl_hash_dir`** - Implementation 2
 
   This module makes use of a directory where CRLs are
@@ -4682,9 +4693,22 @@ opt_supported_groups(UserOpts, #{versions := TlsVsns} = Opts, _Env) ->
     Opts#{ciphers => CPHS, eccs => ECCS, supported_groups => SG}.
 
 opt_crl(UserOpts, Opts, _Env) ->
+    ManagerType = case maps:get(erl_dist, Opts, false) of
+                      false ->
+                          normal;
+                      true ->
+                          dist
+                  end,
     {_, Check} = get_opt_of(crl_check, [best_effort, peer, true, false], false, UserOpts, Opts),
-    Cache = case get_opt(crl_cache, {ssl_crl_cache, {internal, []}}, UserOpts, Opts) of
-                {_, {Cb, {_Handle, Options}} = Value} when is_atom(Cb), is_list(Options) ->
+    Cache = case get_opt(crl_cache, {ssl_crl_cache, {internal, [{owner, ManagerType}]}},
+                        UserOpts, Opts) of
+                {default, {ssl_crl_cache, {_Handle, _Options}} = Value} ->
+                    Value;
+                {old, {ssl_crl_cache, {_Handle, _Options}} = Value} ->
+                    Value;
+                {new, {ssl_crl_cache, {Handle, Options}}} when is_list(Options) ->
+                    {ssl_crl_cache, {Handle, [{owner, ManagerType} | Options]}};
+                {_, {Cb, {_Handle, Options}} = Value}  when is_atom(Cb), is_list(Options) ->
                     Value;
                 {_, Err} ->
                     option_error(crl_cache, Err)

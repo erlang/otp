@@ -28,6 +28,7 @@
 -include_lib("public_key/include/public_key.hrl"). 
 
 -define(DEFAULT_MAX_SESSION_CACHE, 1000).
+-define(DEFAULT_MAX_CRL_CACHE_SIZE, 100000).
 
 -export([init/2,
          pre_1_3_session_opts/1,
@@ -36,7 +37,8 @@
          get_ticket_store_size/0,
          get_internal_active_n/0,
          get_internal_active_n/1,
-         new_emulated/2
+         new_emulated/2,
+         get_max_crl_cache_size/0
         ]).
 
 %%====================================================================
@@ -235,6 +237,14 @@ new_emulated([], EmOpts) ->
     EmOpts;
 new_emulated(NewEmOpts, _) ->
     NewEmOpts.
+
+get_max_crl_cache_size() ->
+      case application:get_env(ssl, crl_cache_max_size) of
+        {ok, N} when is_integer(N) ->
+            N;
+         _  ->
+            ?DEFAULT_MAX_CRL_CACHE_SIZE
+    end.
 
 %%====================================================================
 %% Internal functions 

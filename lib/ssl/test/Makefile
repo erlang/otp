@@ -66,6 +66,7 @@ MODULES = \
 	openssl_server_cert_SUITE\
 	openssl_client_cert_SUITE\
 	ssl_crl_SUITE\
+	ssl_crl_white_box_SUITE\
 	ssl_dist_SUITE \
 	ssl_dist_bench_SUITE \
 	ssl_engine_SUITE\
