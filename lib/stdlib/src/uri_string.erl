@@ -241,21 +241,21 @@ The generic URI syntax consists of a hierarchical sequence of components
 referred to as the scheme, authority, path, query, and fragment:
 
 ```text
-    URI         = scheme ":" hier-part [ "?" query ] [ "#" fragment ]
-    hier-part   = "//" authority path-abempty
-                   / path-absolute
-                   / path-rootless
-                   / path-empty
-    scheme      = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
-    authority   = [ userinfo "@" ] host [ ":" port ]
-    userinfo    = *( unreserved / pct-encoded / sub-delims / ":" )
+URI         = scheme ":" hier-part [ "?" query ] [ "#" fragment ]
+hier-part   = "//" authority path-abempty
+               / path-absolute
+               / path-rootless
+               / path-empty
+scheme      = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
+authority   = [ userinfo "@" ] host [ ":" port ]
+userinfo    = *( unreserved / pct-encoded / sub-delims / ":" )
 
-    reserved    = gen-delims / sub-delims
-    gen-delims  = ":" / "/" / "?" / "#" / "[" / "]" / "@"
-    sub-delims  = "!" / "$" / "&" / "'" / "(" / ")"
-                / "*" / "+" / "," / ";" / "="
+reserved    = gen-delims / sub-delims
+gen-delims  = ":" / "/" / "?" / "#" / "[" / "]" / "@"
+sub-delims  = "!" / "$" / "&" / "'" / "(" / ")"
+            / "*" / "+" / "," / ";" / "="
 
-    unreserved  = ALPHA / DIGIT / "-" / "." / "_" / "~"
+unreserved  = ALPHA / DIGIT / "-" / "." / "_" / "~"
 ```
 
 The interpretation of a URI depends only on the characters used and not on how
@@ -444,7 +444,7 @@ _Example:_
 3> uri_string:normalize("http://localhost:80").
 "http://localhost/"
 4> uri_string:normalize(#{scheme => "http",port => 80,path => "/a/b/c/./../../g",
-4> host => "localhost-örebro"}).
+                          host => "localhost-örebro"}).
 "http://localhost-%C3%B6rebro/a/g"
 ```
 """.
@@ -474,7 +474,7 @@ _Example:_
 3> uri_string:normalize("http://localhost:80", [return_map]).
 #{scheme => "http",path => "/",host => "localhost"}
 4> uri_string:normalize(#{scheme => "http",port => 80,path => "/a/b/c/./../../g",
-4> host => "localhost-örebro"}, [return_map]).
+                          host => "localhost-örebro"}, [return_map]).
 #{scheme => "http",path => "/a/g",host => "localhost-örebro"}
 ```
 """.
@@ -532,7 +532,7 @@ _Example:_
 1> uri_string:parse("foo://user@example.com:8042/over/there?name=ferret#nose").
 #{fragment => "nose",host => "example.com",
   path => "/over/there",port => 8042,query => "name=ferret",
-  scheme => foo,userinfo => "user"}
+  scheme => "foo",userinfo => "user"}
 2> uri_string:parse(<<"foo://user@example.com:8042/over/there?name=ferret">>).
 #{host => <<"example.com">>,path => <<"/over/there">>,
   port => 8042,query => <<"name=ferret">>,scheme => <<"foo">>,
@@ -542,8 +542,7 @@ _Example:_
 -doc(#{since => <<"OTP 21.0">>}).
 -spec parse(URIString) -> URIMap when
       URIString :: uri_string(),
-      URIMap :: uri_map()
-              | error().
+      URIMap :: uri_map() | error().
 parse(URIString) when is_binary(URIString) ->
     try parse_uri_reference(URIString, #{})
     catch
@@ -573,13 +572,14 @@ _Example:_
 
 ```erlang
 1> URIMap = #{fragment => "nose", host => "example.com", path => "/over/there",
-1> port => 8042, query => "name=ferret", scheme => "foo", userinfo => "user"}.
+              port => 8042, query => "name=ferret", scheme => "foo",
+              userinfo => "user"}.
 #{fragment => "nose",host => "example.com",
   path => "/over/there",port => 8042,query => "name=ferret",
   scheme => "foo",userinfo => "user"}
 
 2> uri_string:recompose(URIMap).
-"foo://example.com:8042/over/there?name=ferret#nose"
+"foo://user@example.com:8042/over/there?name=ferret#nose"
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
@@ -648,7 +648,7 @@ _Example:_
 1> uri_string:resolve("/abs/ol/ute", "http://localhost/a/b/c?q", [return_map]).
 #{host => "localhost",path => "/abs/ol/ute",scheme => "http"}
 2> uri_string:resolve(#{path => "/abs/ol/ute"}, #{scheme => "http",
-2> host => "localhost", path => "/a/b/c?q"}, [return_map]).
+                        host => "localhost", path => "/a/b/c?q"}, [return_map]).
 #{host => "localhost",path => "/abs/ol/ute",scheme => "http"}
 ```
 """.
@@ -697,10 +697,10 @@ _Example:_
 
 ```erlang
 1> uri_string:transcode(<<"foo%00%00%00%F6bar"/utf32>>,
-1> [{in_encoding, utf32},{out_encoding, utf8}]).
+     [{in_encoding, utf32},{out_encoding, utf8}]).
 <<"foo%C3%B6bar"/utf8>>
 2> uri_string:transcode("foo%F6bar", [{in_encoding, latin1},
-2> {out_encoding, utf8}]).
+                                      {out_encoding, utf8}]).
 "foo%C3%B6bar"
 ```
 """.
@@ -785,8 +785,8 @@ _Example:_
 
 ```erlang
 1> uri_string:percent_decode(#{host => "localhost-%C3%B6rebro",path => [],
-1> scheme => "http"}).
-#{host => "localhost-örebro",path => [],scheme => "http"}
+                               scheme => "http"}).
+#{host => "localhost-örebro",path => [], scheme => "http"}
 2> uri_string:percent_decode(<<"%C3%B6rebro">>).
 <<"örebro"/utf8>>
 ```
@@ -798,9 +798,9 @@ _Example:_
 > resulting URI will be changed. None of these URIs refer to the same resource.
 >
 > ```erlang
-> 3> uri_string:percent_decode(<<"http://local%252Fhost/path">>).
+> 1> uri_string:percent_decode(<<"http://local%252Fhost/path">>).
 > <<"http://local%2Fhost/path">>
-> 4> uri_string:percent_decode(<<"http://local%2Fhost/path">>).
+> 2> uri_string:percent_decode(<<"http://local%2Fhost/path">>).
 > <<"http://local/host/path">>
 > ```
 """.
@@ -943,7 +943,7 @@ _Example:_
 1> uri_string:compose_query([{"foo bar","1"},{"city","örebro"}]).
 "foo+bar=1&city=%C3%B6rebro"
 2> uri_string:compose_query([{<<"foo bar">>,<<"1">>},
-2> {<<"city">>,<<"örebro"/utf8>>}]).
+                             {<<"city">>,<<"örebro"/utf8>>}]).
 <<"foo+bar=1&city=%C3%B6rebro">>
 ```
 """.
@@ -980,10 +980,10 @@ _Example:_
 
 ```erlang
 1> uri_string:compose_query([{"foo bar","1"},{"city","örebro"}],
-1> [{encoding, latin1}]).
+                            [{encoding, latin1}]).
 "foo+bar=1&city=%F6rebro"
 2> uri_string:compose_query([{<<"foo bar">>,<<"1">>},
-2> {<<"city">>,<<"東京"/utf8>>}], [{encoding, latin1}]).
+                             {<<"city">>,<<"東京"/utf8>>}], [{encoding, latin1}]).
 <<"foo+bar=1&city=%26%2326481%3B%26%2320140%3B">>
 ```
 """.
