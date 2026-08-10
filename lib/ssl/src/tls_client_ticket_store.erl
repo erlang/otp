@@ -43,7 +43,7 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-         terminate/2, code_change/3, format_status/2]).
+         terminate/2, code_change/3, format_status/1]).
 
 -define(SERVER, ?MODULE).
 
@@ -158,11 +158,15 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
+-spec format_status(map()) -> map().
+format_status(Status) ->
+    maps:map(
+      fun(state, State) ->
+              State#state{db = ?SECRET_PRINTOUT};
+         (_,Value) ->
+              Value
+      end, Status).
 
--spec format_status(Opt :: normal | terminate,
-                    Status :: list()) -> Status :: term().
-format_status(_Opt, Status) ->
-    Status.
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
