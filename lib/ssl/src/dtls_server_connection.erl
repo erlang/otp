@@ -119,6 +119,7 @@
 
 -include("dtls_connection.hrl").
 -include("dtls_handshake.hrl").
+-include("dtls_record.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_cipher.hrl").
 -include("ssl_internal.hrl").
