@@ -806,8 +806,9 @@ init_literal_areas(void)
     ErtsCodeIndex code_ix;
     ErtsLiteralArea** area_p;
 
+    ERTS_LC_ASSERT(ERTS_IS_CRASH_DUMPING);
+
     code_ix = erts_active_code_ix();
-    erts_rlock_old_code(code_ix);
 
     lit_areas = area_p = erts_dump_lit_areas;
     num_lit_areas = 0;
@@ -836,8 +837,6 @@ init_literal_areas(void)
 
     qsort(erts_persistent_areas, erts_num_persistent_areas,
           sizeof(ErtsLiteralArea *), compare_areas);
-
-    erts_runlock_old_code(code_ix);
 }
 
 static int search_areas(const void * a, const void * b) {
@@ -879,12 +878,10 @@ static void mark_literal(Eterm* ptr)
 static void
 dump_literals(fmtfn_t to, void *to_arg)
 {
-    ErtsCodeIndex code_ix;
     int i;
     Uint idx;
 
-    code_ix = erts_active_code_ix();
-    erts_rlock_old_code(code_ix);
+    ERTS_LC_ASSERT(ERTS_IS_CRASH_DUMPING);
 
     erts_print(to, to_arg, "=literals\n");
 
@@ -898,8 +895,6 @@ dump_literals(fmtfn_t to, void *to_arg)
             dump_module_literals(to, to_arg, lit_areas[i]);
         }
     }
-
-    erts_runlock_old_code(code_ix);
 
     for (idx = 0; idx < erts_num_persistent_areas; idx++) {
         dump_module_literals(to, to_arg, erts_persistent_areas[idx]);
