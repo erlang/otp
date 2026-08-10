@@ -354,8 +354,8 @@ _Example:_
 ```erlang
 1> Reverse = string:reverse(unicode:characters_to_nfd_binary("ÅÄÖ")).
 [[79,776],[65,776],[65,778]]
-2> io:format("~ts~n",[Reverse]).
-ÖÄÅ
+2> io:format("%% ~ts~n",[Reverse]).
+%% ÖÄÅ
 ```
 """.
 -doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
@@ -444,10 +444,10 @@ _Example:_
 ```erlang
 1> string:pad(<<"He̊llö"/utf8>>, 8).
 [<<72,101,204,138,108,108,195,182>>,32,32,32]
-2> io:format("'~ts'~n",[string:pad("He̊llö", 8, leading)]).
-'   He̊llö'
-3> io:format("'~ts'~n",[string:pad("He̊llö", 8, both)]).
-' He̊llö  '
+2> io:format("%% '~ts'~n",[string:pad("He̊llö", 8, leading)]).
+%% '   He̊llö'
+3> io:format("%% '~ts'~n",[string:pad("He̊llö", 8, both)]).
+%% ' He̊llö  '
 ```
 """.
 -doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
@@ -542,9 +542,9 @@ Returns a string where any trailing `\n` or `\r\n` have been removed from
 _Example:_
 
 ```erlang
-182> string:chomp(<<"\nHello\n\n">>).
+1> string:chomp(<<"\nHello\n\n">>).
 <<"\nHello">>
-183> string:chomp("\nHello\r\r\n").
+2> string:chomp("\nHello\r\r\n").
 "\nHello\r"
 ```
 """.
@@ -582,13 +582,13 @@ taken.
 _Example:_
 
 ```erlang
-5> string:take("abc0z123", lists:seq($a,$z)).
+1> string:take("abc0z123", lists:seq($a,$z)).
 {"abc","0z123"}
-6> string:take(<<"abc0z123">>, lists:seq($0,$9), true, leading).
+2> string:take(<<"abc0z123">>, lists:seq($0,$9), true, leading).
 {<<"abc">>,<<"0z123">>}
-7> string:take("abc0z123", lists:seq($0,$9), false, trailing).
+3> string:take("abc0z123", lists:seq($0,$9), false, trailing).
 {"abc0z","123"}
-8> string:take(<<"abc0z123">>, lists:seq($a,$z), true, trailing).
+4> string:take(<<"abc0z123">>, lists:seq($a,$z), true, trailing).
 {<<"abc0z">>,<<"123">>}
 ```
 """.
@@ -660,7 +660,7 @@ tested for equality.
 _Example:_
 
 ```erlang
-2> string:lowercase(string:uppercase("Michał")).
+1> string:lowercase(string:uppercase("Michał")).
 "michał"
 ```
 """.
@@ -745,8 +745,8 @@ _Example:_
 
 ```erlang
 1> {I1,Is} = string:to_integer("33+22"),
-1> {I2,[]} = string:to_integer(Is),
-1> I1-I2.
+   {I2,[]} = string:to_integer(Is),
+   I1-I2.
 11
 2> string:to_integer("0.5").
 {0,".5"}
@@ -786,8 +786,8 @@ _Example:_
 
 ```erlang
 1> {F1,Fs} = string:to_float("1.0-1.0e-1"),
-1> {F2,[]} = string:to_float(Fs),
-1> F1+F2.
+   {F2,[]} = string:to_float(Fs),
+   F1+F2.
 0.9
 2> string:to_float("3/2=1.5").
 {error,no_float}
@@ -870,11 +870,11 @@ parts. `Where`, default `leading`, indicates whether the `leading`, the
 _Example:_
 
 ```erlang
-0> string:split("ab..bc..cd", "..").
+1> string:split("ab..bc..cd", "..").
 ["ab","bc..cd"]
-1> string:split(<<"ab..bc..cd">>, "..", trailing).
+2> string:split(<<"ab..bc..cd">>, "..", trailing).
 [<<"ab..bc">>,<<"cd">>]
-2> string:split(<<"ab..bc....cd">>, "..", all).
+3> string:split(<<"ab..bc....cd">>, "..", all).
 [<<"ab">>,<<"bc">>,<<>>,<<"cd">>]
 ```
 """.
@@ -2506,13 +2506,6 @@ Returns the position where the first occurrence of `SubString` begins in
 `String`. Returns `0` if `SubString` does not exist in `String`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `find/2`.
-
-_Example:_
-
-```erlang
-1> string:str(" Hello Hello World World ", "Hello World").
-8
-```
 """.
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec str(String, SubString) -> Index when
@@ -2535,13 +2528,6 @@ Returns the position where the last occurrence of `SubString` begins in
 `String`. Returns `0` if `SubString` does not exist in `String`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `find/3`.
-
-_Example:_
-
-```erlang
-1> string:rstr(" Hello Hello World World ", "Hello World").
-8
-```
 """.
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec rstr(String, SubString) -> Index when
@@ -2571,13 +2557,6 @@ Returns the length of the maximum initial segment of `String`, which consists
 entirely of characters from `Chars`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `take/2`.
-
-_Example:_
-
-```erlang
-1> string:span("\t    abcdef", " \t").
-5
-```
 """.
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec span(String, Chars) -> Length when
@@ -2599,13 +2578,6 @@ Returns the length of the maximum initial segment of `String`, which consists
 entirely of characters not from `Chars`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `take/3`.
-
-_Example:_
-
-```erlang
-1> string:cspan("\t    abcdef", " \t").
-0
-```
 """.
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec cspan(String, Chars) -> Length when
@@ -2643,13 +2615,6 @@ Returns a substring of `String`, starting at position `Start`, and ending at the
 end of the string or at length `Length`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `slice/3`.
-
-_Example:_
-
-```erlang
-1> substr("Hello World", 4, 5).
-"lo Wo"
-```
 """.
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec substr(String, Start, Length) -> SubString when
@@ -2674,14 +2639,7 @@ substr2([_|String], S) -> substr2(String, S-1).
 Returns a list of tokens in `String`, separated by the characters in
 `SeparatorList`.
 
-_Example:_
-
-```erlang
-1> tokens("abc defxxghix jkl", "x ").
-["abc", "def", "ghi", "jkl"]
-```
-
-Notice that, as shown in this example, two or more adjacent separator characters
+Notice that two or more adjacent separator characters
 in `String` are treated as one. That is, there are no empty strings in the
 resulting list of tokens.
 
@@ -2802,13 +2760,6 @@ words(String) -> words(String, $\s).
 Returns the number of words in `String`, separated by blanks or `Character`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `lexemes/2`.
-
-_Example:_
-
-```erlang
-1> words(" Hello old boy!", $o).
-4
-```
 """.
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec words(String, Character) -> Count when
@@ -2840,13 +2791,6 @@ or `Character`s.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use
 `nth_lexeme/3`.
-
-_Example:_
-
-```erlang
-1> string:sub_word(" Hello old boy !",3,$o).
-"ld b"
-```
 """.
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec sub_word(String, Number, Character) -> Word when
@@ -2900,13 +2844,6 @@ Returns a string, where leading or trailing, or both, blanks or a number of
 [`strip/1`](`strip/1`) is equivalent to [`strip(String, both)`](`strip/2`).
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `trim/3`.
-
-_Example:_
-
-```erlang
-1> string:strip("...Hello.....", both, $.).
-"Hello"
-```
 """.
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec strip(String, Direction, Character) -> Stripped when
@@ -2953,13 +2890,6 @@ padded with blanks or `Character`s.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `pad/2` or
 `pad/3`.
-
-_Example:_
-
-```erlang
-1> string:left("Hello",10,$.).
-"Hello....."
-```
 """.
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec left(String, Number, Character) -> Left when
@@ -2995,13 +2925,6 @@ margin is fixed. If the length of `(String)` < `Number`, then `String` is padded
 with blanks or `Character`s.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `pad/3`.
-
-_Example:_
-
-```erlang
-1> string:right("Hello", 10, $.).
-".....Hello"
-```
 """.
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec right(String, Number, Character) -> Right when
@@ -3072,13 +2995,6 @@ Returns a substring of `String`, starting at position `Start` to the end of the
 string, or to and including position `Stop`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `slice/3`.
-
-_Example:_
-
-```erlang
-1> sub_string("Hello World", 4, 8).
-"lo Wo"
-```
 """.
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec sub_string(String, Start, Stop) -> SubString when
@@ -3160,13 +3076,6 @@ Returns a string with the elements of `StringList` separated by the string in
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use
 `lists:join/2`.
-
-_Example:_
-
-```erlang
-1> join(["one", "two", "three"], ", ").
-"one, two, three"
-```
 """.
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec join(StringList, Separator) -> String when
