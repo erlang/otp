@@ -49,7 +49,8 @@
          handle_cast/2,
          handle_info/2,
 	 terminate/2,
-         code_change/3]).
+         code_change/3,
+         format_status/1]).
 
 -record(state,
 	{active_n,
@@ -273,6 +274,17 @@ terminate(_Reason, _State) ->
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
+-spec format_status(map()) -> map().
+format_status(Status) ->
+    maps:map(
+      fun(state, #state{dtls_options = Options} = State) ->
+              State#state{dtls_options =
+                              ssl_gen_statem:format_options(Options),
+                          dtls_msq_queues = ?SECRET_PRINTOUT};
+         (_,Value) ->
+              Value
+      end, Status).
 
 %%%===================================================================
 %%% Internal functions
