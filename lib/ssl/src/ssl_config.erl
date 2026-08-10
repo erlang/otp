@@ -34,6 +34,7 @@
 -define(DEFAULT_MAX_SESSION_CACHE, 1000).
 -define(TWO_HOURS, 7200).
 -define(SEVEN_DAYS, 604800).
+-define(DEFAULT_MAX_CRL_CACHE_SIZE, 100000).
 
 %% Connection parameter configuration
 -export([init/2,
@@ -46,6 +47,7 @@
 %% Application configuration
 -export([pre_1_3_session_opts/1,
          get_max_early_data_size/0,
+         get_max_crl_cache_size/0,
          get_ticket_lifetime/0,
          get_ticket_store_size/0,
          get_internal_active_n/0,
@@ -145,6 +147,9 @@ get_internal_active_n(true) ->
     erlang:system_time() rem ?INTERNAL_ACTIVE_N + 1;
 get_internal_active_n(false) ->
     application_int(internal_active_n, ?INTERNAL_ACTIVE_N).
+
+get_max_crl_cache_size() ->
+    application_int(crl_cache_max_size, ?DEFAULT_MAX_CRL_CACHE_SIZE).
 
 %%====================================================================
 %% Certificate and  Key configuration
@@ -1497,9 +1502,22 @@ opt_psk_groups(#supported_groups{supported_groups = [First| _] = SupportedGroups
     end.
 
 opt_crl(UserOpts, Opts, _Env) ->
+    ManagerType = case maps:get(erl_dist, Opts, false) of
+                      false ->
+                          normal;
+                      true ->
+                          dist
+                  end,
     {_, Check} = get_opt_of(crl_check, [best_effort, peer, true, false], false, UserOpts, Opts),
-    Cache = case get_opt(crl_cache, {ssl_crl_cache, {internal, []}}, UserOpts, Opts) of
-                {_, {Cb, {_Handle, Options}} = Value} when is_atom(Cb), is_list(Options) ->
+    Cache = case get_opt(crl_cache, {ssl_crl_cache, {internal, [{owner, ManagerType}]}},
+                         UserOpts, Opts) of
+                {default, {ssl_crl_cache, {_Handle, _Options}} = Value} ->
+                    Value;
+                {old, {ssl_crl_cache, {_Handle, _Options}} = Value} ->
+                    Value;
+                {new, {ssl_crl_cache, {Handle, Options}}} when is_list(Options) ->
+                    {ssl_crl_cache, {Handle, [{owner, ManagerType} | Options]}};
+                {_, {Cb, {_Handle, Options}} = Value}  when is_atom(Cb), is_list(Options) ->
                     Value;
                 {_, Err} ->
                     option_error(crl_cache, Err)
