@@ -62,7 +62,7 @@
                 "actions/upload-artifact",
                 "actions/download-artifact"
             ]
-         }
+         },
         // This is used to match out the current version from vendor.info
         {
             "matchFileNames": ["**/vendor.info"],
