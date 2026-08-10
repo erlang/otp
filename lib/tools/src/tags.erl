@@ -391,6 +391,7 @@ word([$' | Rest]) ->
 word(Line) ->
     unquoted(Line, []).
 
+quoted([], Acc) -> {Acc, []};
 quoted([$' | Rest], Acc) -> {[$' | Acc], Rest};
 quoted([$\\ , C | Rest], Acc) ->
     quoted(Rest, [C, $\\ | Acc]);
