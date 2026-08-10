@@ -372,7 +372,12 @@ add_crls([_,_,_, {Cache, Mapping} | _], Path, CRLs) ->
     [add_crls(CRL, Mapping) || CRL <- CRLs].
 
 add_crls(CRL, Mapping) ->
-    insert(crl_issuer(CRL), CRL, Mapping).
+    case crl_issuer(CRL) of
+        bad_crl ->
+            ok;
+        Issuer ->
+            insert(Issuer, CRL, Mapping)
+    end.
 
 remove_crls([_,_,_, {_, Mapping} | _], {?NO_DIST_POINT, CRLs}) ->
     [rm_crls(CRL, Mapping) || CRL <- CRLs];
@@ -387,12 +392,21 @@ remove_crls([_,_,_, {Cache, Mapping} | _], Path) ->
     end.
 
 rm_crls(CRL, Mapping) ->
-   remove(crl_issuer(CRL), CRL, Mapping). 
+     case crl_issuer(CRL) of
+         bad_crl ->
+             ok;
+         Issuer ->
+             remove(Issuer, CRL, Mapping)
+     end.
 
 crl_issuer(DerCRL) ->
-    CRL = public_key:der_decode('CertificateList', DerCRL),
-    TBSCRL = CRL#'CertificateList'.tbsCertList,
-    TBSCRL#'TBSCertList'.issuer.
+    try public_key:der_decode('CertificateList', DerCRL) of
+        CRL ->
+            TBSCRL = CRL#'CertificateList'.tbsCertList,
+            TBSCRL#'TBSCertList'.issuer
+    catch _:_ ->
+            bad_crl
+    end.
 
 update_certs(Ref, CertList, KeyList, CertsDb) ->
     {Insert, Delete} = insert_delete_lists(Ref, CertList, CertsDb, [], KeyList),

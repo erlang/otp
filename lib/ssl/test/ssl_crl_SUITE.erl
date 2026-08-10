@@ -62,16 +62,14 @@
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
-all() -> 
-    [
-     {group, check_true},
+all() ->
+    [{group, check_true},
      {group, check_peer},
      {group, check_best_effort}
     ].
 
 groups() ->
-    [
-     {check_true, [],  [{group, v2_crl},
+    [{check_true, [],  [{group, v2_crl},
 			{group, v1_crl},
 			{group, idp_crl},
                         {group, crl_hash_dir},
@@ -81,7 +79,7 @@ groups() ->
 			 {group, idp_crl},
                          {group, crl_hash_dir}]},
      {check_best_effort, [], [{group, v2_crl},
-			       {group, v1_crl},
+                              {group, v1_crl},
 			      {group, idp_crl},
 			      {group, crl_hash_dir}]},
      {v2_crl,  [], basic_tests()},
@@ -105,34 +103,33 @@ crl_hash_dir_tests() ->
 
 init_per_suite(Config) ->
     case os:find_executable("openssl") of
-	false ->
-	    {skip, "Openssl not found"};
-	_ ->
-	    OpenSSL_version = (catch os:cmd("openssl version")),
-	    case ssl_test_lib:enough_openssl_crl_support(OpenSSL_version) of
-		false ->
-		    {skip, io_lib:format("Bad openssl version: ~p",[OpenSSL_version])};
-		_ ->
-		    end_per_suite(Config),
-		    case application:ensure_started(crypto) of
-			ok ->
-			    {ok, Hostname0} = inet:gethostname(),
-			    IPfamily =
-				case lists:member(list_to_atom(Hostname0), ct:get_config(ipv6_hosts,[])) of
-				    true -> inet6;
-				    false -> inet
-				end,
-			    [{ipfamily,IPfamily}, {openssl_version,OpenSSL_version} | Config];
+        false ->
+            {skip, "Openssl not found"};
+        _ ->
+            OpenSSL_version = (catch os:cmd("openssl version")),
+            case ssl_test_lib:enough_openssl_crl_support(OpenSSL_version) of
+                false ->
+                    {skip, io_lib:format("Bad openssl version: ~p",[OpenSSL_version])};
+                _ ->
+                    end_per_suite(Config),
+                    case application:ensure_started(crypto) of
+                        ok ->
+                            {ok, Hostname0} = inet:gethostname(),
+                            IPfamily =
+                                case lists:member(list_to_atom(Hostname0),
+                                                  ct:get_config(ipv6_hosts,[])) of
+                                    true -> inet6;
+                                    false -> inet
+                                end,
+                            [{ipfamily,IPfamily}, {openssl_version,OpenSSL_version} | Config];
                         _ ->
-			    {skip, "Crypto did not start"}
-		    end
-	    end
+                            {skip, "Crypto did not start"}
+                    end
+            end
     end.
-
 end_per_suite(_Config) ->
     ssl:stop(),
     application:stop(crypto).
-
 init_per_group(check_true, Config) ->
     [{crl_check, true} | Config];
 init_per_group(check_peer, Config) ->
@@ -140,66 +137,65 @@ init_per_group(check_peer, Config) ->
 init_per_group(check_best_effort, Config) ->
     [{crl_check, best_effort} | Config];
 init_per_group(Group, Config0) ->
-    try 
-	case is_idp(Group) of
-	    true ->
-		[{idp_crl, true} | Config0];
-	    false ->
-		DataDir = proplists:get_value(data_dir, Config0), 
-		CertDir = filename:join(proplists:get_value(priv_dir, Config0), Group),
-		{CertOpts, Config} = init_certs(CertDir, Group, Config0),
-		{ok, _} =  make_certs:all(DataDir, CertDir, CertOpts),
-		CrlCacheOpts = case need_hash_dir(Group) of
-				   true ->
-				       CrlDir = filename:join(CertDir, "crls"),
-				       %% Copy CRLs to their hashed filenames.
-				       %% Find the hashes with 'openssl crl -noout -hash -in crl.pem'.
-				       populate_crl_hash_dir(CertDir, CrlDir,
-							     [{"erlangCA", "d6134ed3"},
-							      {"otpCA", "d4c8d7e5"}],
+    try
+        case is_idp(Group) of
+            true ->
+                [{idp_crl, true} | Config0];
+            false ->
+                DataDir = proplists:get_value(data_dir, Config0),
+                CertDir = filename:join(proplists:get_value(priv_dir, Config0), Group),
+                {CertOpts, Config} = init_certs(CertDir, Group, Config0),
+                {ok, _} =  make_certs:all(DataDir, CertDir, CertOpts),
+                CrlCacheOpts = case need_hash_dir(Group) of
+                                   true ->
+                                       CrlDir = filename:join(CertDir, "crls"),
+                                       %% Copy CRLs to their hashed filenames.
+                                       %% Find the hashes with 'openssl crl -noout -hash -in crl.pem'.
+                                       populate_crl_hash_dir(CertDir, CrlDir,
+                                                             [{"erlangCA", "d6134ed3"},
+                                                              {"otpCA", "d4c8d7e5"}],
 							     replace),
-				       [{crl_cache,
-					 {ssl_crl_hash_dir,
-					  {internal, [{dir, CrlDir}]}}}];
-				   _ ->
-				       []
-			       end,
-		[{crl_cache_opts, CrlCacheOpts},
-		 {cert_dir, CertDir},
-		 {idp_crl, false} | Config]
-	end
+                                       [{crl_cache,
+                                         {ssl_crl_hash_dir,
+                                          {internal, [{dir, CrlDir}]}}}];
+                                   _ ->
+                                       []
+                               end,
+                [{crl_cache_opts, CrlCacheOpts},
+                 {cert_dir, CertDir},
+                 {idp_crl, false} | Config]
+        end
     catch
-	_:_ ->
-	    {skip, "Unable to create crls"}
+        _:_ ->
+            {skip, "Unable to create crls"}
     end.
-
 end_per_group(_GroupName, Config) ->
-    
     Config.
 
 init_per_testcase(Case, Config0) ->
     case proplists:get_value(idp_crl, Config0) of
-	true ->
-	    end_per_testcase(Case, Config0),
-	    inets:start(),
-	    ssl_test_lib:clean_start(),
-	    ServerRoot = make_dir_path([proplists:get_value(priv_dir, Config0), idp_crl, tmp]),
-	    %% start a HTTP server to serve the CRLs
-	    {ok, Httpd} = inets:start(httpd, [{ipfamily, proplists:get_value(ipfamily, Config0)},
-					      {server_name, "localhost"}, {port, 0},
-					      {server_root, ServerRoot},
-					      {document_root, 
-					       filename:join(proplists:get_value(priv_dir, Config0), idp_crl)}
-					     ]),
-	    [{port,Port}] = httpd:info(Httpd, [port]),
-	    Config = [{httpd_port, Port} | Config0],
-	    DataDir = proplists:get_value(data_dir, Config), 
-	    CertDir = filename:join(proplists:get_value(priv_dir, Config0), idp_crl),
-	    {CertOpts, Config} = init_certs(CertDir, idp_crl, Config),
-	    case make_certs:all(DataDir, CertDir, CertOpts) of
+        true ->
+            end_per_testcase(Case, Config0),
+            inets:start(),
+            ssl_test_lib:clean_start(),
+            ServerRoot = make_dir_path([proplists:get_value(priv_dir, Config0), idp_crl, tmp]),
+            %% start a HTTP server to serve the CRLs
+            {ok, Httpd} = inets:start(httpd, [{ipfamily, proplists:get_value(ipfamily, Config0)},
+                                              {server_name, "localhost"}, {port, 0},
+                                              {server_root, ServerRoot},
+                                              {document_root,
+                                               filename:join(proplists:get_value(priv_dir, Config0),
+                                                             idp_crl)}
+                                             ]),
+            [{port,Port}] = httpd:info(Httpd, [port]),
+            Config = [{httpd_port, Port} | Config0],
+            DataDir = proplists:get_value(data_dir, Config),
+            CertDir = filename:join(proplists:get_value(priv_dir, Config0), idp_crl),
+            {CertOpts, Config} = init_certs(CertDir, idp_crl, Config),
+            case make_certs:all(DataDir, CertDir, CertOpts) of
                 {ok, _} ->
                     ct:timetrap(?TIMEOUT),
-                    [{cert_dir, CertDir} | Config];
+                    [{cert_dir, CertDir}, {http_server, {"localhost", Port}} | Config];
                 _ ->
                     end_per_testcase(Case, Config0),
                     ssl_test_lib:clean_start(),
@@ -207,20 +203,18 @@ init_per_testcase(Case, Config0) ->
             end;
 	false ->
             ct:timetrap(?TIMEOUT),
-	    end_per_testcase(Case, Config0),
-	    ssl_test_lib:clean_start(),
-	    Config0
+            end_per_testcase(Case, Config0),
+            ssl_test_lib:clean_start(),
+            Config0
     end.
-
 end_per_testcase(_, Config) ->
-    case proplists:get_value(idp_crl, Config) of
+    case proplists:get_value(idp_crl, Config, false) of
 	true ->
 	    ssl:stop(),
 	    inets:stop();
 	false ->
 	    ssl:stop()
     end.
-
 %%%================================================================
 %%% Test cases
 %%%================================================================
@@ -237,37 +231,47 @@ crl_verify_valid(Config) when is_list(Config) ->
     [_, _, _, {CRLCache,_}]  = element(5, State),
 
     ServerOpts =  [{keyfile, filename:join([PrivDir, "server", "key.pem"])},
-      		  {certfile, filename:join([PrivDir, "server", "cert.pem"])},
+                   {certfile, filename:join([PrivDir, "server", "cert.pem"])},
 		   {cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])}],
-    ClientOpts =  case proplists:get_value(idp_crl, Config) of 
-		      true ->	       
-			  [{cacertfile, filename:join([PrivDir, "client", "cacerts.pem"])},
-			   {crl_check, Check},
-			   {crl_cache, {ssl_crl_cache, {internal, [{http, 5000}]}}},
-			   {verify, verify_peer}];
-		      false ->
-			  proplists:get_value(crl_cache_opts, Config) ++
-			      [{cacertfile, filename:join([PrivDir, "client", "cacerts.pem"])},
-			       {crl_check, Check},
-			       {verify, verify_peer}]
-		  end,			  
+    ClientOpts =  case  proplists:get_value(idp_crl, Config) of
+                      true ->
+                          {Host, Port} = proplists:get_value(http_server, Config),
+                          Allowed = Host ++ ":" ++ integer_to_list(Port),
+                          [{cacertfile, filename:join([PrivDir, "client", "cacerts.pem"])},
+                           {crl_check, Check},
+                           {crl_cache, {ssl_crl_cache,
+                                        {internal, [{http, 5000}, {allowed_hosts, [Allowed]}]}}},
+                           {verify, verify_peer}];
+                      false ->
+                          proplists:get_value(crl_cache_opts, Config) ++
+                              [{cacertfile, filename:join([PrivDir, "client", "cacerts.pem"])},
+                               {crl_check, Check},
+                               {verify, verify_peer}]
+                  end,
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
-    ssl_crl_cache:insert("http://localhost/erlangCA/crl.pem", {file, filename:join([PrivDir, "erlangCA", "crl.pem"])}),
-    ssl_crl_cache:insert("http://localhost/otpCA/crl.pem", {file, filename:join([PrivDir, "otpCA", "crl.pem"])}),
+    ssl_crl_cache:insert("http://localhost/erlangCA/crl.pem",
+                         {file, filename:join([PrivDir, "erlangCA", "crl.pem"])}),
+    ssl_crl_cache:insert("http://localhost/otpCA/crl.pem",
+                         {file, filename:join([PrivDir, "otpCA", "crl.pem"])}),
     ssl_crl_cache:insert({file, filename:join([PrivDir, "erlangCA", "crl.pem"])}),
     ssl_crl_cache:insert({file, filename:join([PrivDir, "otpCA", "crl.pem"])}),
 
     crl_verify_valid(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts),
 
-    ssl_crl_cache:insert("http://foobar/erlangCA/crl.pem", {file, filename:join([PrivDir, "otpCA", "crl.pem"])}),
+    ssl_crl_cache:insert("http://foobar/erlangCA/crl.pem",
+                         {file, filename:join([PrivDir, "otpCA", "crl.pem"])}),
 
-    R1 = ssl_crl_cache:lookup(#'DistributionPoint'{distributionPoint =
-                                                       {fullName, [{uniformResourceIdentifier, "http://foobar/erlangCA/crl.pem"}]}},
-                              undefined, {{CRLCache, internal_dummy}, internal_dummy}),
-    R2 = ssl_crl_cache:lookup(#'DistributionPoint'{distributionPoint =
-                                                       {fullName, [{uniformResourceIdentifier, "http://localhost/erlangCA/crl.pem"}]}},
-                              undefined, {{CRLCache, internal_dummy}, internal_dummy}),
+    R1 = ssl_crl_cache:lookup(
+           #'DistributionPoint'{distributionPoint =
+                                    {fullName, [{uniformResourceIdentifier,
+                                                 "http://foobar/erlangCA/crl.pem"}]}},
+           undefined, {{CRLCache, internal_dummy}, internal_dummy}),
+    R2 = ssl_crl_cache:lookup(
+           #'DistributionPoint'{distributionPoint =
+                                    {fullName, [{uniformResourceIdentifier,
+                                                 "http://localhost/erlangCA/crl.pem"}]}},
+           undefined, {{CRLCache, internal_dummy}, internal_dummy}),
     %% Check that same path in URI does not evaluate to same result
     true = R1 =/= R2,
 
@@ -287,22 +291,26 @@ crl_verify_revoked(Config)  when is_list(Config) ->
 
     ssl_crl_cache:insert({file, filename:join([PrivDir, "erlangCA", "crl.pem"])}),
     ssl_crl_cache:insert({file, filename:join([PrivDir, "otpCA", "crl.pem"])}),
-    
-    ClientOpts =  case proplists:get_value(idp_crl, Config) of 
-		      true ->	       
-			  [{cacertfile, filename:join([PrivDir, "revoked", "cacerts.pem"])},
-			   {crl_cache, {ssl_crl_cache, {internal, [{http, 5000}]}}},
-			   {crl_check, Check},
-			   {verify, verify_peer}];
-		      false ->
-			  proplists:get_value(crl_cache_opts, Config) ++
-			      [{cacertfile, filename:join([PrivDir, "revoked", "cacerts.pem"])},
-			       {crl_check, Check},
-			       {verify, verify_peer}]
-		  end,	
-    
+
+    ClientOpts =  case proplists:get_value(idp_crl, Config) of
+                      true ->
+                          {Host, Port} = proplists:get_value(http_server, Config),
+                          Allowed = Host ++ ":" ++ integer_to_list(Port),
+                          [{cacertfile, filename:join([PrivDir, "revoked", "cacerts.pem"])},
+                           {crl_cache, {ssl_crl_cache, {internal, [{http, 5000},
+                                                                   {allowed_hosts, [Allowed]}]}}},
+                           {crl_check, Check},
+                           {verify, verify_peer}];
+                      false ->
+                          proplists:get_value(crl_cache_opts, Config) ++
+                              [{cacertfile, filename:join([PrivDir, "revoked", "cacerts.pem"])},
+                               {crl_check, Check},
+                               {verify, verify_peer}]
+                  end,
+
     crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts,
                      certificate_revoked).
+
 crl_verify_valid_derCAs() ->
     [{doc,"Verify a simple valid CRL chain"}].
 crl_verify_valid_derCAs(Config) when is_list(Config) ->
@@ -317,16 +325,19 @@ crl_verify_valid_derCAs(Config) when is_list(Config) ->
                   ],
     ClientOpts =  case proplists:get_value(idp_crl, Config) of
 		      true ->
-			  [{cacerts, CaCerts},
-			   {crl_check, Check},
-			   {crl_cache, {ssl_crl_cache, {internal, [{http, 5000}]}}},
-			   {verify, verify_peer}];
-		      false ->
-			  proplists:get_value(crl_cache_opts, Config) ++
-			      [{cacerts, CaCerts},
-			       {crl_check, Check},
-			       {verify, verify_peer}]
-		  end,
+                          {Host, Port} = proplists:get_value(http_server, Config),
+                          Allowed = Host ++ ":" ++ integer_to_list(Port),
+                          [{cacerts, CaCerts},
+                           {crl_check, Check},
+                           {crl_cache, {ssl_crl_cache, {internal, [{http, 5000},
+                                                                   {allowed_hosts, [Allowed]}]}}},
+                           {verify, verify_peer}];
+                      false ->
+                          proplists:get_value(crl_cache_opts, Config) ++
+                              [{cacerts, CaCerts},
+                               {crl_check, Check},
+                               {verify, verify_peer}]
+                  end,
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     ssl_crl_cache:insert({file, filename:join([PrivDir, "erlangCA", "crl.pem"])}),
@@ -352,17 +363,20 @@ crl_verify_revoked_derCAs(Config)  when is_list(Config) ->
     ssl_crl_cache:insert({file, filename:join([PrivDir, "otpCA", "crl.pem"])}),
 
     ClientOpts =  case proplists:get_value(idp_crl, Config) of
-		      true ->
-			  [{cacerts, CaCerts},
-			   {crl_cache, {ssl_crl_cache, {internal, [{http, 5000}]}}},
-			   {crl_check, Check},
-			   {verify, verify_peer}];
-		      false ->
-			  proplists:get_value(crl_cache_opts, Config) ++
-			      [{cacerts, CaCerts},
-			       {crl_check, Check},
-			       {verify, verify_peer}]
-		  end,
+                      true ->
+                          {Host, Port} = proplists:get_value(http_server, Config),
+                          Allowed = Host ++ ":" ++ integer_to_list(Port),
+                          [{cacerts, CaCerts},
+                           {crl_cache, {ssl_crl_cache, {internal, [{http, 5000},
+                                                                   {allowed_hosts, [Allowed]}]}}},
+                           {crl_check, Check},
+                           {verify, verify_peer}];
+                      false ->
+                          proplists:get_value(crl_cache_opts, Config) ++
+                              [{cacerts, CaCerts},
+                               {crl_check, Check},
+                               {verify, verify_peer}]
+                  end,
 
     crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts,
                      certificate_revoked).
@@ -376,19 +390,21 @@ crl_verify_no_crl(Config) when is_list(Config) ->
     ServerOpts =  [{keyfile, filename:join([PrivDir, "server", "key.pem"])},
                    {certfile, filename:join([PrivDir, "server", "cert.pem"])},
 		   {cacertfile,  filename:join([PrivDir, "server", "cacerts.pem"])}],
-    ClientOpts =  case proplists:get_value(idp_crl, Config) of 
-		      true ->	       
-			  [{cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])},
-			   {crl_check, Check},
-			   {crl_cache, {ssl_crl_cache, {internal, [{http, 5000}]}}},
-			   {verify, verify_peer}];
-		      false ->
-			  [{cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])},
-			   {crl_check, Check},
-			   {verify, verify_peer}]
-		  end,			  
+    ClientOpts =  case proplists:get_value(idp_crl, Config) of
+                      true ->
+                          {Host, Port} = proplists:get_value(http_server, Config),
+                          Allowed = Host ++ ":" ++ integer_to_list(Port),
+                          [{cacertfile, filename:join([PrivDir, "client", "cacerts.pem"])},
+                           {crl_check, Check},
+                           {crl_cache, {ssl_crl_cache, {internal, [{http, 5000},
+                                                                   {allowed_hosts, [Allowed]}]}}},
+                           {verify, verify_peer}];
+                      false ->
+                          [{cacertfile, filename:join([PrivDir, "client", "cacerts.pem"])},
+                           {crl_check, Check},
+                           {verify, verify_peer}]
+                  end,
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
     %% In case we're running an HTTP server that serves CRLs, let's
     %% rename those files, so the CRL is absent when we try to verify
     %% it.
@@ -444,19 +460,19 @@ crl_hash_dir_collision(Config) when is_list(Config) ->
     populate_crl_hash_dir(PrivDir, CrlDir,
 			  [{CA1, "b68fc624"},
 			   {CA2, "b68fc624"}],
-			 replace),
+                          replace),
 
     NewCA = new_ca(filename:join([PrivDir, "new_ca"]),
 		   filename:join([PrivDir, "erlangCA", "cacerts.pem"]),
 		   filename:join([PrivDir, "server", "cacerts.pem"])),
-    
+
     ClientOpts = proplists:get_value(crl_cache_opts, Config) ++
 	[{cacertfile, NewCA},
 	 {crl_check, Check},
 	 {verify, verify_peer}],
-    
+
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     %% Neither certificate revoked; both succeed.
     crl_verify_valid(Hostname, ServerNode, ServerOpts1, ClientNode, ClientOpts),
     crl_verify_valid(Hostname, ServerNode, ServerOpts2, ClientNode, ClientOpts),
@@ -465,7 +481,7 @@ crl_hash_dir_collision(Config) when is_list(Config) ->
     populate_crl_hash_dir(PrivDir, CrlDir,
 			  [{CA1, "b68fc624"},
 			   {CA2, "b68fc624"}],
-			 replace),
+                          replace),
 
     %% First certificate revoked; first fails, second succeeds.
     crl_verify_error(Hostname, ServerNode, ServerOpts1, ClientNode, ClientOpts,
@@ -476,7 +492,7 @@ crl_hash_dir_collision(Config) when is_list(Config) ->
     populate_crl_hash_dir(PrivDir, CrlDir,
 			  [{CA1, "b68fc624"},
 			   {CA2, "b68fc624"}],
-			 replace),
+                          replace),
 
     %% Second certificate revoked; both fail.
     crl_verify_error(Hostname, ServerNode, ServerOpts1, ClientNode, ClientOpts,
@@ -551,19 +567,19 @@ crl_hash_dir_expired(Config) when is_list(Config) ->
     ok.
 
 crl_verify_valid(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts) ->
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
-					{from, self()}, 
-					{mfa, {ssl_test_lib, 
-					       send_recv_result_active, []}},				       
-					{options, ServerOpts}]),
-    Port = ssl_test_lib:inet_port(Server), 
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
-					{host, Hostname},
-					{from, self()}, 
-					{mfa, {ssl_test_lib, 
-					       send_recv_result_active, []}},
-					{options, ClientOpts}]),
-    
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib,
+                                               send_recv_result_active, []}},
+                                        {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                        {host, Hostname},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib,
+                                               send_recv_result_active, []}},
+                                        {options, ClientOpts}]),
+
     ssl_test_lib:check_result(Client, ok,  Server, ok),
 
     ssl_test_lib:close(Server),
@@ -626,16 +642,16 @@ need_hash_dir(crl_verify_crldp_crlissuer) ->
 need_hash_dir(_) ->
     false.
 
-init_certs(_,v1_crl, Config)  -> 
+init_certs(_,v1_crl, Config)  ->
     {[{v2_crls, false}], Config};
 init_certs(_,crl_verify_crldp_crlissuer , Config) ->
     {[{crldp_crlissuer, true}], Config};
-init_certs(_, idp_crl, Config) -> 
+init_certs(_, idp_crl, Config) ->
     Port = proplists:get_value(httpd_port, Config),
     {[{crl_port,Port},
       {issuing_distribution_point, true}], Config
     };
-init_certs(_,_,Config) -> 
+init_certs(_,_,Config) ->
     {[], Config}.
 
 make_dir_path(PathComponents) ->
