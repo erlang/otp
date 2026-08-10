@@ -301,7 +301,8 @@ encode_handshake(Package, Version) ->
 get_tls_handshakes(Version, Data, <<>>, Options) ->
     get_tls_handshakes_aux(Version, Data, Options, []);
 get_tls_handshakes(Version, Data, Buffer, Options) ->
-    get_tls_handshakes_aux(Version, list_to_binary([Buffer, Data]), Options, []).
+    get_tls_handshakes_aux(Version, <<Buffer/binary, Data/binary>>,
+                           Options, []).
 
 %%--------------------------------------------------------------------
 %%% Handshake helper
