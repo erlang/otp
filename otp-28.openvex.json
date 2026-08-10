@@ -3,8 +3,8 @@
   "@id": "https://erlang.org/download/vex/otp-28.openvex.json",
   "author": "vexctl",
   "timestamp": "2025-11-28T15:37:17Z",
-  "last_updated": "2026-08-03T07:40:15.476856747Z",
-  "version": 174,
+  "last_updated": "2026-08-10T11:17:29.109621721+02:00",
+  "version": 176,
   "statements": [
     {
       "vulnerability": {
@@ -9285,6 +9285,170 @@
         }
       ],
       "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-54876"
+      },
+      "timestamp": "2026-08-10T11:17:29.086111426+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.0"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.0.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.0.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.0.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.0.4"
+        },
+        {
+          "@id": "pkg:otp/erl_interface@5.6"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.1.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.2"
+        },
+        {
+          "@id": "pkg:otp/erl_interface@5.6.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.3.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.3.2"
+        },
+        {
+          "@id": "pkg:otp/erl_interface@5.6.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.3.3"
+        },
+        {
+          "@id": "pkg:otp/erl_interface@5.6.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.4"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.4.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.4.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.4.3"
+        },
+        {
+          "@id": "pkg:otp/erl_interface@5.6.4"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.5"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.5.0.1"
+        },
+        {
+          "@id": "pkg:otp/erl_interface@5.7"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.5.0.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.5.0.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.5.0.4"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.5.0.5"
+        },
+        {
+          "@id": "pkg:otp/erl_interface@5.7.0.1"
+        },
+        {
+          "@id": "pkg:otp/erts@16.0"
+        },
+        {
+          "@id": "pkg:otp/erts@16.0.1"
+        },
+        {
+          "@id": "pkg:otp/erts@16.0.2"
+        },
+        {
+          "@id": "pkg:otp/erts@16.0.3"
+        },
+        {
+          "@id": "pkg:otp/erts@16.1"
+        },
+        {
+          "@id": "pkg:otp/erts@16.1.1"
+        },
+        {
+          "@id": "pkg:otp/erts@16.1.2"
+        },
+        {
+          "@id": "pkg:otp/erts@16.2"
+        },
+        {
+          "@id": "pkg:otp/erts@16.2.1"
+        },
+        {
+          "@id": "pkg:otp/erts@16.2.2"
+        },
+        {
+          "@id": "pkg:otp/erts@16.3"
+        },
+        {
+          "@id": "pkg:otp/erts@16.3.1"
+        },
+        {
+          "@id": "pkg:otp/erts@16.4"
+        },
+        {
+          "@id": "pkg:otp/erts@16.4.0.1"
+        },
+        {
+          "@id": "pkg:otp/erts@16.4.0.2"
+        },
+        {
+          "@id": "pkg:otp/erts@16.4.0.3"
+        },
+        {
+          "@id": "pkg:otp/erts@16.4.0.4"
+        },
+        {
+          "@id": "pkg:otp/erts@16.4.0.5"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-54876"
+      },
+      "timestamp": "2026-08-10T11:17:29.109623076+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/openssl/openssl@c9a9e5b10105ad850b6e4d1122c645c67767c341"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
     }
   ]
 }
