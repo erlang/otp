@@ -1241,6 +1241,17 @@ There are two implementations available:
     extensions](`e:public_key:public_key_records.md`). Requires the
     [Inets](`e:inets:introduction.md`) application.
 
+- **`{allowed_hosts, [string()]}`**
+
+    If http fetching is allowed, a list of allowed hosts can be
+    specified as a hardening option. The entries should be
+    "Host:Port". If ":Port" is left out the default port is 80. If the
+    allowed_hosts is not specified only an external hosts using port
+    80 or 8080 will be allowed.
+
+   > #### Note {: .info }
+   Putting the local host on the allow list will of course make the local host allowed.
+
 - **`ssl_crl_hash_dir`** - Implementation 2
 
   This module makes use of a directory where CRLs are
