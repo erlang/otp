@@ -135,10 +135,16 @@ get_data_dir(Config) ->
                 "_no_type_opt_SUITE",
                 "_no_ssa_opt_SUITE",
                 "_cover_SUITE"],
-    lists:foldl(fun(Suffix, Acc) ->
-                        Opts = [{return,list}],
-                        re:replace(Acc, Suffix, "_SUITE", Opts)
-                end, Data, Suffixes).
+    case filelib:is_dir(Data) of
+        true ->
+            %% Build system already provides it
+            Data;
+        false ->
+            lists:foldl(fun(Suffix, Acc) ->
+                                Opts = [{return,list}],
+                                re:replace(Acc, Suffix, "_SUITE", Opts)
+                        end, Data, Suffixes)
+    end.
 
 %% Test whether the module is cloned. We don't consider modules
 %% compiled with compatibility for an older release cloned (that
