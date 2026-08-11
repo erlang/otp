@@ -593,11 +593,18 @@ write_typed_file([Ch|Chs] = Chars, File, Info, LineNo, Acc, Analysis) ->
               _ ->
                 {Info, [Ch|Acc]}
             end,
-          write_typed_file(Chs, File, NewInfo, NewLineNo, NewAcc, Analysis);
+          NewFuncs = flush_line(Line, RestFuncs, Info, File, [], Analysis),
+          write_typed_file(Chs, File, NewInfo#info{functions=NewFuncs}, NewLineNo, NewAcc, Analysis);
         _ ->
           write_typed_file(Chs, File, Info, LineNo, [Ch|Acc], Analysis)
       end
   end.
+
+flush_line(Line, [{Line,F,A}|RestFuncs], Info, File, Acc, Analysis) ->
+  ok = raw_write(F, A, Info, File, Acc, Analysis),
+  flush_line(Line, RestFuncs, Info, File, Acc, Analysis);
+flush_line(_Line, Rest, _Info, _File, _Acc, _Analysis) ->
+  Rest.
 
 raw_write(F, A, Info, File, Content, #analysis{mode = Mode} = Analysis) ->
   TypeInfo = get_type_string(F, A, Info, file, Analysis),
