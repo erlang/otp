@@ -45,12 +45,11 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3, format_status/1]).
 
--define(SERVER, ?MODULE).
-
 -record(state, {
                 db,
                 lifetime,
-                max
+                max,
+                user_monitors = #{}  %% #{Pid => MonitorRef}
                }).
 
 -record(data, {
@@ -143,6 +142,15 @@ handle_cast(_Request, State) ->
 handle_info(remove_invalid_tickets, State0) ->
     State = remove_invalid_tickets(State0),
     {noreply, State};
+handle_info({'DOWN', Ref, process, Pid, _Reason}, #state{user_monitors = Monitors} = State0) ->
+    case maps:get(Pid, Monitors, undefined) of
+        undefined ->
+            {noreply, State0};
+        Ref ->
+            %% Locker terminated without releasing its ticket locks
+            State = unlock_all_tickets(State0, Pid),
+            {noreply, State#state{user_monitors = maps:remove(Pid, Monitors)}}
+    end;
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -260,11 +268,11 @@ verify_ticket_sni(_, _) ->
 %% Get tickets that are not locked by another process
 get_tickets(State, Pid, Keys) ->
     get_tickets(State, Pid, Keys, []).
-%%
+
 get_tickets(_, _, [], []) ->
-    undefined; %% No tickets found
+    undefined; %% No tickets found, fallback on full handshake
 get_tickets(_, _, [], Acc) ->
-    Acc;
+    Acc; %% If empty will result in illegal parameter
 get_tickets(#state{db = Db} = State, Pid, [Key|T], Acc) ->
     try gb_trees:get(Key, Db) of
         #data{pos = Pos,
@@ -336,23 +344,22 @@ remove_invalid_tickets(#state{db = Db,
 
 collect_invalid_tickets(Iter, Lifetime) ->
     collect_invalid_tickets(Iter, Lifetime, []).
-%%
+
 collect_invalid_tickets(Iter0, Lifetime, Acc) ->
+    %% Tickets that have expired are invalid
+    %% regardless if a process has locked them
+    %% for potential usage or not.
     case gb_trees:next(Iter0) of
-        {Key, #data{timestamp = Timestamp,
-                    lock = undefined}, Iter} ->
+        {Key, #data{timestamp = Timestamp}, Iter} ->
             Age = erlang:monotonic_time(millisecond) - Timestamp,
             if Age < Lifetime * 1000 ->
                     collect_invalid_tickets(Iter, Lifetime, Acc);
                true ->
                     collect_invalid_tickets(Iter, Lifetime, [Key|Acc])
             end;
-        {_, _, Iter} ->  %% Skip locked tickets
-            collect_invalid_tickets(Iter, Lifetime, Acc);
         none ->
             Acc
     end.
-
 
 store_ticket(#state{db = Db0, max = Max} = State, Ticket, CipherSuite, SNI, PSK) ->
     Timestamp = erlang:monotonic_time(millisecond),
@@ -393,14 +400,41 @@ delete_oldest(Db0) ->
             Db0
     end.
 
+lock_tickets(State0, Pid, Keys) ->
+    State = #state{user_monitors = Monitors0} = set_lock(State0, Pid, Keys, lock),
+    %% There will only one monitor as ssl:connect will not return until
+    %% the handshake is finished and the process has released its locks upon
+    %% successful connect or process dies and monitor DOWN message is received.
+    Ref = erlang:monitor(process, Pid),
+    State#state{user_monitors = Monitors0#{Pid => Ref}}.
 
-lock_tickets(State, Pid, Keys) ->
-    set_lock(State, Pid, Keys, lock).
 
+unlock_tickets(State0, Pid, Keys) ->
+    State = #state{user_monitors = Monitors0} = set_lock(State0, Pid, Keys, unlock),
+    Ref = maps:get(Pid, Monitors0, undefined),
+    case Ref of
+        undefined ->
+            State;
+        _ ->
+            {Ref, Monitors} = maps:take(Pid, Monitors0),
+            erlang:demonitor(Ref, [flush]),
+            State#state{user_monitors = Monitors}
+    end.
 
-unlock_tickets(State, Pid, Keys) ->
-    set_lock(State, Pid, Keys, unlock).
+unlock_all_tickets(#state{db = Db0} = State, Pid) ->
+    Db = unlock_ticket(gb_trees:iterator(Db0), Pid, Db0),
+    State#state{db = Db}.
 
+unlock_ticket(Iter0, Pid, Db) ->
+    case gb_trees:next(Iter0) of
+        {Key, #data{lock = Pid} = Value, Iter} ->
+            unlock_ticket(Iter, Pid,
+                            gb_trees:update(Key, Value#data{lock = undefined}, Db));
+        {_, _, Iter} ->
+            unlock_ticket(Iter, Pid, Db);
+        none ->
+            Db
+    end.
 
 set_lock(State, _, [], _) ->
     State;
