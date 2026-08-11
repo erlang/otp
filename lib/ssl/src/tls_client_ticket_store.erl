@@ -305,7 +305,9 @@ get_tickets(#state{db = Db} = State, Pid, [Key|T], Acc) ->
 %% "ticket_age_add" value that was included with the ticket
 %% (see Section 4.6.1), modulo 2^32.
 obfuscate_ticket_age(TicketAge, AgeAdd) ->
-    (TicketAge + AgeAdd) rem round(math:pow(2,32)).
+    %% Optimization: band 16#ffffffff is the canonical way to do
+    %% unsigned modulo 2^32 in Erlang, also avoid floats.
+    (TicketAge + AgeAdd) band 16#ffffffff.
 
 
 remove_tickets(State, []) ->
