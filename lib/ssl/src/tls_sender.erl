@@ -370,8 +370,7 @@ connection(info, tick, #data{buff = Buff} = StateData) ->
     case Buff of
         undefined ->
             Data = [<<0:32>>], % encode_packet(4, <<>>)
-            From = {self(), undefined},
-            send_application_data(Data, From, connection, StateData);
+            send_application_data(Data, dist_data, connection, StateData);
         _ -> %% No need to send tick, have outgoing data in buffer
             {keep_state_and_data, []}
     end;
