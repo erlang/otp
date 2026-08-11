@@ -1025,6 +1025,13 @@ opt_tickets(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
     option_incompatible(STS =/= undefined andalso not Stateless,
                         [stateless_tickets_seed, {session_tickets, SessionTickets}]),
 
+    case EarlyData =:= enabled andalso Stateless andalso AntiReplay =:= undefined of
+        true ->
+            ?LOG_WARNING("early_data enabled without anti_replay; "
+                         "0-RTT data is replayable");
+        false ->
+            ok
+    end,
     assert_client_only(use_ticket, UserOpts),
     Opts#{session_tickets => SessionTickets, early_data => EarlyData,
           anti_replay => AntiReplay, stateless_tickets_seed => STS}.
