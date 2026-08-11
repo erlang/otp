@@ -102,16 +102,20 @@ listen_close(ListenSocket) ->
 
 %% ------------------------------------------------------------
 accept_open(NetAddress, ListenSocket) ->
-    maybe
-        {ok, Socket} ?=
-            socket:accept(ListenSocket),
-        {ok, #{ addr := Ip }} ?=
-            socket:sockname(Socket),
-        {ok, #{ addr := PeerIp, port := PeerPort }} ?=
-            socket:peername(Socket),
-        inet_epmd_socket:check_ip(Ip, PeerIp),
-        accept_handshake(NetAddress, Socket, PeerIp, PeerPort)
-    else
+    case socket:accept(ListenSocket) of
+        {ok, Socket} ->
+            maybe
+                {ok, #{ addr := Ip }} ?=
+                    socket:sockname(Socket),
+                {ok, #{ addr := PeerIp, port := PeerPort }} ?=
+                    socket:peername(Socket),
+                inet_epmd_socket:check_ip(Ip, PeerIp),
+                accept_handshake(NetAddress, Socket, PeerIp, PeerPort)
+            else
+                {error, Reason} ->
+                    _ = socket:close(Socket),
+                    exit({?FUNCTION_NAME, Reason})
+            end;
         {error, Reason} ->
             exit({?FUNCTION_NAME, Reason})
     end.
@@ -126,10 +130,18 @@ accept_handshake(#net_address{ family = Family }, Socket, PeerIp, PeerPort) ->
           net_kernel:connecttime())
     of
         {ok, SslSocket} ->
-            {SslSocket, {PeerIp, PeerPort}};
+            %% Verify peer cert matches host part of node names — mirrors
+            %% internal inet_tls_dist function allowed_nodes/2 which the classic path
+            %% runs post-handshake.  Without this, any cert chaining
+            %% to the trusted CA can claim any node name.
+            case check_allowed_nodes(SslSocket, PeerIp) of
+                ok ->
+                    {SslSocket, {PeerIp, PeerPort}};
+                {error, Reason} ->
+                    ssl:close(SslSocket),
+                    exit({?FUNCTION_NAME, Reason})
+            end;
         {error, {options, _} = Reason} = Error ->
-            %% Bad options: that's probably our fault.
-            %% Let's log that.
             ?LOG_ERROR(
               "Cannot accept TLS distribution connection: ~s~n",
               [ssl:format_error(Error)]),
@@ -140,6 +152,36 @@ accept_handshake(#net_address{ family = Family }, Socket, PeerIp, PeerPort) ->
             exit({?FUNCTION_NAME, Reason})
     end.
 
+check_allowed_nodes(SslSocket, PeerIp) ->
+    {ok, Allowed} = net_kernel:allowed(),
+    case Allowed of
+        [] ->
+            %% No restriction configured — allow all
+            ok;
+        _ ->
+            case ssl:peercert(SslSocket) of
+                {ok, PeerCertDER} ->
+                    PeerCert = public_key:pkix_decode_cert(PeerCertDER, otp),
+                    AllowedHosts = inet_tls_dist:allowed_hosts(Allowed),
+                    case
+                        public_key:pkix_verify_hostname(
+                          PeerCert,
+                          [{ip, PeerIp} | [{dns_id, Host} || Host <- AllowedHosts]])
+                    of
+                        true -> ok;
+                        false ->
+                            ?LOG_ERROR(
+                              "** Connection attempt from "
+                              "disallowed node ~p ** ~n", [PeerIp]),
+                            {error, cert_no_hostname_nor_ip_match}
+                    end;
+                {error, no_peercert} ->
+                    %% No peer cert — allow (same as classic path)
+                    ok;
+                {error, _} = Error ->
+                    Error
+            end
+    end.
 %% ------------------------------------------------------------
 accept_controller(_NetAddress, Controller, SslSocket) ->
     maybe
