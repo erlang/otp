@@ -80,37 +80,35 @@ rotate(#{m := M,
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
-bit_is_set(<<1:1,_/bitstring>>, 0) ->
-    true;
-bit_is_set(BitField, N) ->
-    case BitField of
-	<<_:N,1:1,_/bitstring>> ->
-	    true;
-	_ ->
-	    false
-    end.
 
+%% Kirsch-Mitzenmacher-Optimization
+%% Compute the two base hashes once, derive K positions arithmetically.
+hash(Elem, K, M) ->
+    H1 = erlang:phash2({Elem, 0}, M),
+    H2 = erlang:phash2({Elem, 1}, M),
+    hash(H1, H2, K, M, []).
+
+hash(_, _, 0, _, Acc) ->
+    Acc;
+hash(H1, H2, K, M, Acc) ->
+    H = (H1 + (K - 1) * H2) rem M,
+    hash(H1, H2, K - 1, M, [H | Acc]).
+
+%% Convert bit position to {ByteOffset, BitWithinByte} and operate on
+%% whole bytes — avoids bignum creation from bit-offset binary matching.
+bit_is_set(BitField, N) ->
+    ByteOffset = N bsr 3,          %% N div 8
+    BitOffset = 7 - (N band 7),    %% bit 0 = MSB of byte (matching original semantics)
+    <<_:ByteOffset/binary, Byte:8, _/binary>> = BitField,
+    (Byte bsr BitOffset) band 1 =:= 1.
 
 set_bits(BitField, []) ->
     BitField;
-set_bits(BitField, [H|T]) ->
+set_bits(BitField, [H | T]) ->
     set_bits(set_bit(BitField, H), T).
 
-
-set_bit(BitField, 0) ->
-    <<_:1,Rest/bitstring>> = BitField,
-    <<1:1,Rest/bitstring>>;
-set_bit(BitField, B) ->
-    <<Front:B,_:1,Rest/bitstring>>  = BitField,
-    <<Front:B,1:1,Rest/bitstring>>.
-
-
-%% Kirsch-Mitzenmacher-Optimization
-hash(Elem, K, M) ->
-    hash(Elem, K, M, []).
-%%
-hash(_, 0, _, Acc) ->
-    Acc;
-hash(Elem, K, M, Acc) ->
-    H = (erlang:phash2({Elem, 0}, M) + (K - 1) * erlang:phash2({Elem, 1}, M)) rem M,
-    hash(Elem, K - 1, M, [H|Acc]).
+set_bit(BitField, N) ->
+    ByteOffset = N bsr 3,
+    BitOffset = 7 - (N band 7),
+    <<Front:ByteOffset/binary, Byte:8, Rest/binary>> = BitField,
+    <<Front/binary, (Byte bor (1 bsl BitOffset)):8, Rest/binary>>.
