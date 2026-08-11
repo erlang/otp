@@ -364,15 +364,13 @@ connection(info, dist_data,
           [] ->
               hibernate_after(connection, StateData, []);
           Data ->
-              {keep_state_and_data,
-               [{next_event, internal,
-                 {application_packets, {self(),undefined}, Data}}]}
+              send_application_data(Data, dist_data, connection, StateData)
       end;
 connection(info, tick, StateData) ->  
     consume_ticks(),
     Data = [<<0:32>>], % encode_packet(4, <<>>)
-    From = {self(), undefined},
-    send_application_data(Data, From, connection, StateData);
+    send_application_data(Data, dist_data, connection, StateData);
+
 connection(info, {send, From, Ref, Data}, _StateData) -> 
     %% This is for testing only!
     %%
