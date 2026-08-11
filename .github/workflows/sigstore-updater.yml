@@ -151,6 +151,10 @@ jobs:
         with:
           app-id: ${{ vars.ERLANG_BOT_APP_ID }}
           private-key: ${{ secrets.ERLANG_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          permission-issues: write
+          permission-content: read
+          permission-actions: write
       - name: Authenticate gh
         if: steps.changed.outputs.found == 'true'
         env:

@@ -71,6 +71,11 @@ jobs:
           # required
           app-id: ${{ vars.ERLANG_BOT_APP_ID }}
           private-key: ${{ secrets.ERLANG_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          permission-security-events: read
+          permission-actions: write
+          permission-contents: write
+          permission-pull-requests: write
 
       - name: Authenticate gh
         env:
