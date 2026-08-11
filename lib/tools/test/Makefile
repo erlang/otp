@@ -35,6 +35,7 @@ MODULES =  \
 	xref_SUITE \
 	prof_bench_SUITE \
 	crashdump_SUITE \
+	tags_SUITE \
 	ignore_cores
 
 ERL_FILES= $(MODULES:%=%.erl)
