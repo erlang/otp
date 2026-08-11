@@ -1450,6 +1450,7 @@ Sint erts_re_set_loop_limit(Sint limit);
 /* erl_bif_binary.c */
 void erts_init_bif_binary(void);
 Sint erts_binary_set_loop_limit(Sint limit);
+int erts_binary_compile_pattern(Eterm argument, Eterm *tag, Binary **binp);
 
 /* erl_bif_persistent.c */
 Eterm erts_persistent_term_get(Eterm key);

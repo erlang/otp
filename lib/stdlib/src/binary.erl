@@ -214,6 +214,11 @@ a pattern is not significant.
 The list of binaries used for search alternatives must be flat, proper, and
 non-empty.
 
+When a valid `Pattern` is a literal in compiled code, the pattern can be
+compiled while its module is loaded. This applies both to calls to
+`compile_pattern/1` and to literal patterns passed directly to `match`,
+`matches`, or `split`, avoiding repeated compilation at runtime.
+
 If `Pattern` is not a binary or a flat proper non-empty list of binaries with
 length greater than 0, a `badarg` exception is raised.
 

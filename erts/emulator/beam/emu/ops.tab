@@ -904,6 +904,23 @@ call_ext_last u==0 u$func:os:perf_counter/0 D =>
 call_ext_only u==0 u$func:os:perf_counter/0 =>
     i_perf_counter | return
 
+# Compile literal binary search patterns while loading. Invalid patterns decline
+# these transforms and retain their original runtime error behavior.
+#
+
+move Pattern=q X0=x==0 |
+  call_ext _Ar=u _Func=u$bif:binary:compile_pattern/1 |
+  load_binary_pattern(Pattern) =>
+    loaded_binary_pattern(X0)
+move Pattern=q X0=x==0 |
+  call_ext_last _Ar=u _Func=u$bif:binary:compile_pattern/1 D |
+  load_binary_pattern(Pattern) =>
+    loaded_binary_pattern_last(X0, D)
+move Pattern=q X0=x==0 |
+  call_ext_only _Ar=u _Func=u$bif:binary:compile_pattern/1 |
+  load_binary_pattern(Pattern) =>
+    loaded_binary_pattern_only(X0)
+
 #
 # BIFs like process_info/1,2 require up-to-date information about the current
 # emulator state, which the ordinary call_light_bif instruction doesn't save.

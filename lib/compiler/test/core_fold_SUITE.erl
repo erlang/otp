@@ -32,12 +32,13 @@
          redundant_stack_frame/1,export_from_case/1,
          empty_values/1,cover_letrec_effect/1,
          receive_effect/1,nested_lets/1,
-         map_effect/1]).
+         map_effect/1,literal_binary_patterns/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
+-include_lib("syntax_tools/include/merl.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -55,7 +56,7 @@ groups() ->
        redundant_stack_frame,export_from_case,
        empty_values,cover_letrec_effect,
        receive_effect,nested_lets,
-       map_effect]}].
+       map_effect,literal_binary_patterns]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -874,6 +875,60 @@ map_effect_1() ->
 map_effect_2(Map) ->
     Map#{key := value},
     ok.
+
+literal_binary_patterns(_Config) ->
+    Mod = literal_binary_patterns,
+    Forms = ?Q(["-module('@Mod@').",
+                "-export([match2/1, match3/1, matches2/1, matches3/1,",
+                "         split2/1, split3/1, empty/1]).",
+                "match2(Binary) -> binary:match(Binary, <<\"needle\">>).",
+                "match3(Binary) -> binary:match(Binary, <<\"needle\">>, []).",
+                "matches2(Binary) -> binary:matches(Binary, [<<\"needle\">>, <<\"thread\">>]).",
+                "matches3(Binary) -> binary:matches(Binary, [<<\"needle\">>, <<\"thread\">>], []).",
+                "split2(Binary) -> binary:split(Binary, <<\"needle\">>).",
+                "split3(Binary) -> binary:split(Binary, <<\"needle\">>, []).",
+                "empty(Binary) -> binary:match(Binary, [])."]),
+    AbstractForms = [erl_syntax:revert(Form) || Form <- Forms],
+    {ok,Mod,{Mod,_Exports,_Attrs,_Anno,Funs,_},_Warnings} =
+        compile:forms(AbstractForms, [return,to_asm]),
+
+    assert_literal_pattern_wrapped(match2, 1, match, 2, Funs),
+    assert_literal_pattern_wrapped(match3, 1, match, 3, Funs),
+    assert_literal_pattern_wrapped(matches2, 1, matches, 2, Funs),
+    assert_literal_pattern_wrapped(matches3, 1, matches, 3, Funs),
+    assert_literal_pattern_wrapped(split2, 1, split, 2, Funs),
+    assert_literal_pattern_wrapped(split3, 1, split, 3, Funs),
+
+    Empty = function_instructions(empty, 1, Funs),
+    false = has_ext_call(binary, compile_pattern, 1, Empty),
+    true = has_ext_call(binary, match, 2, Empty),
+    ok.
+
+assert_literal_pattern_wrapped(Name, Arity, BinaryFunction, BinaryArity, Funs) ->
+    Instructions = function_instructions(Name, Arity, Funs),
+    true = has_ext_call(binary, compile_pattern, 1, Instructions),
+    true = has_ext_call(binary, BinaryFunction, BinaryArity, Instructions).
+
+function_instructions(Name, Arity, Funs) ->
+    {function,Name,Arity,_Label,Instructions} = lists:keyfind(Name, 2, Funs),
+    Instructions.
+
+has_ext_call(Module, Function, Arity, Instructions) ->
+    lists:any(fun(Instruction) ->
+                      is_ext_call(Instruction, Module, Function, Arity)
+              end, Instructions).
+
+is_ext_call({call_ext,Arity,{extfunc,Module,Function,Arity}},
+            Module, Function, Arity) ->
+    true;
+is_ext_call({call_ext_last,Arity,{extfunc,Module,Function,Arity},_Deallocate},
+            Module, Function, Arity) ->
+    true;
+is_ext_call({call_ext_only,Arity,{extfunc,Module,Function,Arity}},
+            Module, Function, Arity) ->
+    true;
+is_ext_call(_Instruction, _Module, _Function, _Arity) ->
+    false.
 
 %%% Common utility functions.
 

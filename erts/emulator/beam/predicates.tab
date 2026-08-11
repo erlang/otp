@@ -199,6 +199,13 @@ pred.map_key_sort(Size, Rest) {
     return beam_load_map_key_sort(S, Size, Rest);
 }
 
+// Compile a literal binary search pattern and retain its dynamic literal index
+// for loaded_binary_pattern(). A failed compilation declines the transform so
+// that the original call retains its runtime error behavior.
+pred.load_binary_pattern(Pattern) {
+    return beam_load_compile_binary_pattern(S, Pattern);
+}
+
 // Test that two operands are distinct.
 pred.distinct(Val1, Val2) {
     if (Val1.type != Val2.type) {

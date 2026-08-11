@@ -22,7 +22,7 @@
 -module(binary_module_SUITE).
 
 -export([all/0, suite/0,
-	 interesting/1,scope_return/1,random_ref_comp/1,random_ref_sr_comp/1,
+	 interesting/1,literal_patterns/1,scope_return/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
 	 copy/1, referenced/1,guard/1,encode_decode/1,badargs/1,longest_common_trap/1,
          check_no_invalid_read_bug/1,error_info/1, hex_encoding/1, join/1, doctests/1]).
@@ -36,7 +36,7 @@ suite() ->
      {timetrap,{minutes,10}}].
 
 all() ->
-    [scope_return,interesting, random_ref_fla_comp, random_ref_sr_comp,
+    [scope_return,interesting, literal_patterns, random_ref_fla_comp, random_ref_sr_comp,
      random_ref_comp, parts, bin_to_list, list_to_bin, copy,
      referenced, guard, encode_decode, badargs,
      longest_common_trap, check_no_invalid_read_bug,
@@ -382,6 +382,23 @@ scope_loop(Bin,N,M) ->
 interesting(Config) when is_list(Config) ->
     X = do_interesting(binary),
     X = do_interesting(binref).
+
+literal_patterns(Config) when is_list(Config) ->
+    %% A successful load-time compilation replaces the call with one module
+    %% literal, so repeated calls return the exact same magic reference.
+    BM = literal_compiled_bm_pattern(),
+    BM = literal_compiled_bm_pattern(),
+    {bm, _} = BM,
+    AC = literal_compiled_ac_pattern(),
+    AC = literal_compiled_ac_pattern(),
+    {ac, _} = AC,
+    ok.
+
+literal_compiled_bm_pattern() ->
+    binary:compile_pattern(<<"needle">>).
+
+literal_compiled_ac_pattern() ->
+    binary:compile_pattern([<<"needle">>, <<"thread">>]).
 
 do_interesting(Module) ->
     {0,4} = Module:match(<<"123456">>,

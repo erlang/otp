@@ -70,6 +70,47 @@ gen.get_float2(Fail, Ms, Live, Size, Unit, Flags, Dst) {
     return op;
 }
 
+LoadedBinaryPatternMove(Op, Dst) {
+    $BeamOpNameArity($Op, move, 2);
+    ($Op)->a[0].type = TAG_q;
+    ($Op)->a[0].val = S->loaded_binary_pattern;
+    ($Op)->a[1] = $Dst;
+}
+
+gen.loaded_binary_pattern(Dst) {
+    BeamOp *move;
+    $NewBeamOp(S, move);
+
+    $LoadedBinaryPatternMove(move, Dst);
+    return move;
+}
+
+gen.loaded_binary_pattern_last(Dst, Deallocate) {
+    BeamOp *move, *deallocate, *ret;
+    $NewBeamOp(S, move);
+    $NewBeamOp(S, deallocate);
+    $NewBeamOp(S, ret);
+
+    $LoadedBinaryPatternMove(move, Dst);
+    $BeamOpNameArity(deallocate, deallocate, 1);
+    deallocate->a[0] = Deallocate;
+    $BeamOpNameArity(ret, return, 0);
+    move->next = deallocate;
+    deallocate->next = ret;
+    return move;
+}
+
+gen.loaded_binary_pattern_only(Dst) {
+    BeamOp *move, *ret;
+    $NewBeamOp(S, move);
+    $NewBeamOp(S, ret);
+
+    $LoadedBinaryPatternMove(move, Dst);
+    $BeamOpNameArity(ret, return, 0);
+    move->next = ret;
+    return move;
+}
+
 gen.get_utf16(Fail, Ms, Flags, Dst) {
     BeamOp* op;
     $NewBeamOp(S, op);

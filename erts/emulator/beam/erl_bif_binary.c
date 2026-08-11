@@ -1100,18 +1100,23 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
     return -1;
 }
 
+int erts_binary_compile_pattern(Eterm argument, Eterm *tag, Binary **binp)
+{
+    return do_binary_match_compile(argument, tag, binp) == 0;
+}
+
 BIF_RETTYPE binary_compile_pattern_1(BIF_ALIST_1)
 {
     Binary *bin;
-    Eterm tag, ret;
+    Eterm magic_ref, ret, tag;
     Eterm *hp;
 
-    if (do_binary_match_compile(BIF_ARG_1,&tag,&bin)) {
-	BIF_ERROR(BIF_P,BADARG);
+    if (!erts_binary_compile_pattern(BIF_ARG_1, &tag, &bin)) {
+        BIF_ERROR(BIF_P, BADARG);
     }
-    hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE+3);
-    ret = erts_mk_magic_ref(&hp, &MSO(BIF_P), bin);
-    ret = TUPLE2(hp, tag, ret);
+    hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE + 3);
+    magic_ref = erts_mk_magic_ref(&hp, &MSO(BIF_P), bin);
+    ret = TUPLE2(hp, tag, magic_ref);
     BIF_RET(ret);
 }
 
