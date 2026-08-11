@@ -2078,9 +2078,17 @@ Options only relevant for TLS-1.3.
 
   Configures if the server accepts (`enabled`) or rejects (`disabled`) early data
   sent by a client. The default value is `disabled`.
+
+ > #### Warning {: .warning }
+ >  0-RTT data is inherently replay-vulnerable by TLS 1.3 design. The
+ > mitigation is application-level idempotency or server-side anti-replay.
+ > The server side mechanisms for anti-replay are stateful tickets or stateless
+ > tickets with a configured Bloom filter.
+
 """.
 -type server_option_tls13() :: {session_tickets, SessionTickets:: disabled | stateful | stateless |
-                                                                  stateful_with_cert | stateless_with_cert} |
+                                                                  stateful_with_cert |
+                                                                  stateless_with_cert} |
                                {stateless_tickets_seed, TicketSeed::binary()} |
                                {anti_replay, '10k' | '100k' |
                                 {BloomFilterWindowSize::pos_integer(),
