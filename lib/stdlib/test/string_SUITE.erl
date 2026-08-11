@@ -327,6 +327,7 @@ trim(_) ->
     ?TEST(["..h", ".e", <<"j..">>], [both, ". "], "h.ej"),
     ?TEST(["..h", <<".ejsa"/utf8>>, "n.."], [both, ". "], "h.ejsan"),
     %% Test that it behaves with graphemes (i.e. nfd tests are the hard part)
+    ?TEST([<<"\r \r">>, []], [trailing, [$\r, [$\r, $\n]]], "\r "),
     ?TEST([1013,101,778,101,101], [trailing, [101]], [1013,101,778]),
     ?TEST("aaåaa", [both, "a"], "å"),
     ?TEST(["aaa",778,"äöoo"], [both, "ao"], "åäö"),
