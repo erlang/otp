@@ -230,28 +230,29 @@ div_bounds({A,B}, _) when is_integer(A), is_integer(B) ->
 div_bounds(_, _) ->
     any.
 
-rem_bounds({A,_}, {C,D}) when is_integer(C), is_integer(D), C > 0 ->
-    Max = inf_add(D, -1),
-    Min = if
-              A =:= '-inf' -> -Max;
-              A >= 0 -> 0;
-              true -> -Max
-          end,
-    normalize({Min,Max});
-rem_bounds(_, {C,D}) when is_integer(C), is_integer(D),
-                     C =/= 0 orelse D =/= 0 ->
-    Max = max(abs(C), abs(D)) - 1,
-    Min = -Max,
-    normalize({Min,Max});
-rem_bounds({A,B}, _) ->
+rem_bounds({A,B}, {C,D}) ->
+    MaxC = inf_max(inf_add(inf_abs(C), -1), 0),
+    MaxD = inf_max(inf_add(inf_abs(D), -1), 0),
+    MaxCD = inf_max(MaxC, MaxD),
+    Min = inf_max(A, inf_neg(MaxCD)),
+    Max = inf_min(B, MaxCD),
+
     %% The sign of the remainder is the same as the sign of the
     %% left-hand side operand; it does not depend on the sign of the
-    %% right-hand side operand. Therefore, the range of the remainder
-    %% is the range of the left-hand side operand extended to always
-    %% include zero.
-    Min = inf_min(0, A),
-    Max = inf_max(0, B),
-    normalize({Min,Max}).
+    %% right-hand side operand.
+    case {inf_sign(A),inf_sign(B)} of
+        {'-','-'} ->
+            %% The LHS operand is always negative; cap maximum at
+            %% zero.
+            normalize({Min,0});
+        {'-','+'} ->
+            %% The LHS operand can be negative or positive.
+            normalize({Min,Max});
+        {'+','+'} ->
+            %% The LHS operand is always non-negative; cap minimum at
+            %% zero.
+            normalize({0,Max})
+    end.
 
 min_max_band(A, B, C, D) ->
     {Min,Max} = min_max_bor(inf_bnot(B), inf_bnot(A),
