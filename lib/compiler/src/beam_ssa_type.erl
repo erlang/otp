@@ -91,36 +91,85 @@
 opt_start(StMap, FuncDb0) when FuncDb0 =/= #{} ->
     {ArgDb, MetaCache, FuncDb} = signatures(StMap, FuncDb0),
 
-    opt_start_1(maps:keys(StMap), ArgDb, StMap, FuncDb, MetaCache);
+    %% After having completed the signature pass (see below), we start
+    %% optimization of each function at a time.
+    %%
+    %% Here, as opposed to the signature pass, the important invariant is
+    %% that types must only be monotonically narrowed, never widened.
+    %%
+    %% Here we also consolidate information kept in ArgDb and MetaCache
+    %% into the function database FuncDb. We only visit functions that
+    %% will actually be called. Functions never visited are unreachable
+    %% and will be discarded.
+    Wl = opt_init_wl(FuncDb),
+    Seen = sets:new(),
+    opt_start_1(Wl, ArgDb, StMap, FuncDb, MetaCache, Seen);
 opt_start(StMap, FuncDb) ->
     %% Module-level analysis is disabled, likely because of a call to
     %% load_nif/2 or similar. opt_continue/4 will assume that all arguments and
     %% return types are 'any'.
     {StMap, FuncDb}.
 
-opt_start_1([Id | Ids], ArgDb, StMap0, FuncDb0, MetaCache) ->
-    case ArgDb of
-        #{ Id := ArgTypes } ->
+opt_init_wl(FuncDb) ->
+    %% Initialize the worklist with the exported functions, since they
+    %% can always be called.
+    Roots = [Id || Id := FI <- FuncDb, FI#func_info.exported],
+    wl_defer_list(Roots, wl_new()).
+
+opt_start_1(Wl0, ArgDb, StMap0, FuncDb0, MetaCache, Seen0) ->
+    case wl_next(Wl0) of
+        empty ->
+            remove_unreachable(maps:keys(StMap0), Seen0, StMap0, FuncDb0);
+        {ok, Id} ->
+            Wl1 = wl_pop(Id, Wl0),
+            Seen = sets:add_element(Id, Seen0),
+            ArgTypes = map_get(Id, ArgDb),
             #opt_st{ssa=Linear0,args=Args} = St0 = map_get(Id, StMap0),
 
             Ts = #{Arg => Type || Arg <- Args && Type <- ArgTypes},
-            {Linear, FuncDb} = opt_function(Linear0, Args, Id, Ts, FuncDb0, MetaCache),
-
+            {Linear, FuncDb} = opt_function(Linear0, Args, Id, Ts,
+                                            FuncDb0, MetaCache),
             St = St0#opt_st{ssa=Linear},
             StMap = StMap0#{ Id := St },
 
-            opt_start_1(Ids, ArgDb, StMap, FuncDb, MetaCache);
-        #{} ->
-            %% Unreachable functions must be removed so that opt_continue/4
-            %% won't process them and potentially taint the argument types of
-            %% other functions.
+            %% Append to the worklist all called by this function and
+            %% not previously processed.
+            Wl = opt_update_wl(Linear, Seen, Wl1),
+
+            opt_start_1(Wl, ArgDb, StMap, FuncDb, MetaCache, Seen)
+    end.
+
+remove_unreachable([Id|Ids], Seen, StMap0, FuncDb0) ->
+    case sets:is_element(Id, Seen) of
+        true ->
+            remove_unreachable(Ids, Seen, StMap0, FuncDb0);
+        false ->
             StMap = maps:remove(Id, StMap0),
             FuncDb = maps:remove(Id, FuncDb0),
-
-            opt_start_1(Ids, ArgDb, StMap, FuncDb, MetaCache)
+            remove_unreachable(Ids, Seen, StMap, FuncDb)
     end;
-opt_start_1([], _CommittedArgs, StMap, FuncDb, _MetaCache) ->
+remove_unreachable([], _Seen, StMap, FuncDb) ->
     {StMap, FuncDb}.
+
+opt_update_wl([{_,#b_blk{is=Is}}|Bs], Seen, Wl0) ->
+    Wl = opt_update_wl_is(Is, Seen, Wl0),
+    opt_update_wl(Bs, Seen, Wl);
+opt_update_wl([], _Seen, Wl) ->
+    Wl.
+
+opt_update_wl_is([#b_set{op=Op,args=[#b_local{}=Id|_]}|Is], Seen, Wl0)
+  when Op =:= call; Op =:= make_fun ->
+    case sets:is_element(Id, Seen) of
+        true ->
+            opt_update_wl_is(Is, Seen, Wl0);
+        false ->
+            Wl = wl_defer_list([Id], Wl0),
+            opt_update_wl_is(Is, Seen, Wl)
+    end;
+opt_update_wl_is([_|Is], Seen, Wl) ->
+    opt_update_wl_is(Is, Seen, Wl);
+opt_update_wl_is([], _Seen, Wl) ->
+    Wl.
 
 %%
 %% The initial signature analysis is based on the paper "Practical Type
@@ -129,11 +178,15 @@ opt_start_1([], _CommittedArgs, StMap, FuncDb, _MetaCache) ->
 %%
 %% The general idea is to start out at the module's entry points and propagate
 %% types to the functions we call. The argument types of all exported functions
-%% start out a 'any', whereas local functions start at 'none'. Every time a
+%% start out as 'any', whereas local functions start at 'none'. Every time a
 %% function call widens the argument types, we analyze the callee again and
 %% propagate its return types to the callers, analyzing them again, and
 %% continuing this process until all arguments and return types have been
 %% widened as far as they can be.
+%%
+%% During the signature pass an important invariant must be
+%% maintained: the types of the function arguments must only be
+%% monotonically widened, not narrowed.
 %%
 %% Note that we do not "jump-start the analysis" by first determining success
 %% types as in the paper because we need to know all possible inputs including
@@ -442,6 +495,15 @@ sig_update_args_1(Callee, Types, #sig_st{updates=Us0,wl=Wl0}=State) ->
                  Us0#{ Callee => Types }
          end,
     State#sig_st{updates=Us,wl=wl_add(Callee, Wl0)}.
+
+%%
+%% Continue type-based optimization of a single function.
+%%
+%% The invariant that types must only be monotonically narrowed, never
+%% widened, must still be maintained. The caller, when doing optimizations,
+%% must take care not to remove type test that could cause types to be
+%% widened.
+%%
 
 -spec opt_continue(Linear, Args, Anno, FuncDb) -> {Linear, FuncDb} when
       Linear :: [{non_neg_integer(), beam_ssa:b_blk()}],
