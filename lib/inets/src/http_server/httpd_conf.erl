@@ -201,6 +201,12 @@ validate_config_params([{max_body_size, Value} | Rest])
 validate_config_params([{max_body_size, Value} | _]) -> 
     throw({max_body_size, Value});
 
+validate_config_params([{max_body_read_timeout, Value} | Rest]) 
+  when is_integer(Value) andalso (Value > 0) ->
+    validate_config_params(Rest);
+validate_config_params([{max_body_read_timeout, Value} | _]) -> 
+    throw({max_body_read_timeout, Value});
+
 validate_config_params([{max_content_length, Value} | Rest]) 
   when is_integer(Value) andalso (Value > 0) ->
     validate_config_params(Rest);

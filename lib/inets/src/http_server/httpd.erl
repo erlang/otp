@@ -167,10 +167,16 @@ property list.
 
 - [](){: #prop_keep_alive_timeout } **`{keep_alive_timeout, integer()}`**  
   The number of seconds the server waits for a subsequent request from the
-  client before closing the connection. Default is `150`.
+  client before closing the connection. This timer covers both the waiting time
+  for the next request to arrive and the parsing of the headers of that request.
+  Default is `150` seconds.
 
-- [](){: #prop_max_body_size } **`{max_body_size, integer()}`**  
+- [](){: #prop_max_body_size } **`{max_body_size, integer() | nolimit}`**  
   Limits the size of the message body of an HTTP request. Default is no limit.
+
+- [](){: #prop_max_body_read_timeout } **`{max_body_read_timeout, pos_integer()}`**  
+  Limits the time allowed for the server to be idle between message body reads
+  of an HTTP request. Default is `60` seconds.
 
 - [](){: #prop_max_clients } **`{max_clients, integer()}`**  
   Limits the number of simultaneous requests that can be supported. Default is
@@ -184,7 +190,7 @@ property list.
   larger than this are answered with status 413. Default is `100000000` (100
   MB).
 
-- [](){: #prop_max_uri } **`{max_uri_size, integer()}`**  
+- [](){: #prop_max_uri } **`{max_uri_size, integer() | nolimit}`**  
   Limits the size of the HTTP request URI. Default is no limit.
 
 - [](){: #prop_max_keep_alive_req } **`{max_keep_alive_request, integer()}`**  
@@ -981,6 +987,7 @@ reload_config(ConfigFile, Mode) ->
                    | {keep_alive, boolean()}
                    | {keep_alive_timeout, integer()}
                    | {max_body_size, integer()}
+                   | {max_body_read_timeout, pos_integer()}
                    | {max_clients, integer()}
                    | {max_header_size, integer()}
                    | {max_content_length, integer()}
@@ -1033,6 +1040,7 @@ server.
                    | {keep_alive, boolean()}
                    | {keep_alive_timeout, integer()}
                    | {max_body_size, integer()}
+                   | {max_body_read_timeout, pos_integer()}
                    | {max_clients, integer()}
                    | {max_header_size, integer()}
                    | {max_content_length, integer()}
@@ -1071,6 +1079,7 @@ server.
                    | {keep_alive, boolean()}
                    | {keep_alive_timeout, integer()}
                    | {max_body_size, integer()}
+                   | {max_body_read_timeout, pos_integer()}
                    | {max_clients, integer()}
                    | {max_header_size, integer()}
                    | {max_content_length, integer()}
@@ -1126,6 +1135,7 @@ info(Address, Port) when is_integer(Port) ->
                    | {keep_alive, boolean()}
                    | {keep_alive_timeout, integer()}
                    | {max_body_size, integer()}
+                   | {max_body_read_timeout, pos_integer()}
                    | {max_clients, integer()}
                    | {max_header_size, integer()}
                    | {max_content_length, integer()}
@@ -1165,6 +1175,7 @@ info(Address, Port) when is_integer(Port) ->
                    | {keep_alive, boolean()}
                    | {keep_alive_timeout, integer()}
                    | {max_body_size, integer()}
+                   | {max_body_read_timeout, pos_integer()}
                    | {max_clients, integer()}
                    | {max_header_size, integer()}
                    | {max_content_length, integer()}
@@ -1223,6 +1234,7 @@ options of the server.
                    | {keep_alive, boolean()}
                    | {keep_alive_timeout, integer()}
                    | {max_body_size, integer()}
+                   | {max_body_read_timeout, pos_integer()}
                    | {max_clients, integer()}
                    | {max_header_size, integer()}
                    | {max_content_length, integer()}

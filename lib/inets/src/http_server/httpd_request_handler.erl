@@ -45,8 +45,9 @@
 		mfa,     %% {Module, Function, Args} 
 		max_keep_alive_request = infinity, %% integer() | infinity
 		response_sent = false :: boolean(),
-		timeout,   %% infinity | integer() > 0
-		timer      :: 'undefined' | reference(), % Request timer
+               timeout  :: pos_integer(), %% ms
+               body_timeout :: pos_integer(), %% ms
+               timer    :: 'undefined' | {reference(), request_timeout | body_timeout}, %% Request/body timer
 		headers = #http_request_h{},
 		body,      %% binary()
 		data,      %% The total data received in bits, checked after 10s
@@ -157,6 +158,7 @@ continue_init(Manager, ConfigDB, SocketType, Socket, Peername, Sockname,
     MaxURISize    = max_uri_size(ConfigDB),
     NrOfRequest   = max_keep_alive_request(ConfigDB),
     MaxContentLen = max_content_length(ConfigDB),
+    MaxBodyTimeout = max_body_read_timeout(ConfigDB),
     Customize = customize(ConfigDB),
     MaxChunk = max_client_body_chunk(ConfigDB),
 
@@ -184,9 +186,10 @@ continue_init(Manager, ConfigDB, SocketType, Socket, Peername, Sockname,
                            manager                = Manager,
                            status                 = Status,
                            timeout                = TimeOut,
+                           body_timeout           = MaxBodyTimeout,
                            max_keep_alive_request = NrOfRequest,
                            mfa                    = MFA,
-                           chunk                   = chunk_start(MaxChunk)},
+                           chunk                  = chunk_start(MaxChunk)},
             setopts(Socket, SocketType, [binary, {packet, 0}, {active, once}]),
             NewState =
                 data_receive_counter(activate_keepalive_timeout(State),
@@ -240,23 +243,12 @@ handle_info({Proto, Socket, Data},
   when (((Proto =:= tcp) orelse 
 	 (Proto =:= ssl) orelse 
 	 (Proto =:= dummy)) andalso is_binary(Data)) ->
-    cancel_keepalive_timeout(State),
-    PROCESSED = (catch Module:Function([Data | Args])),
-    NewDataSize = case State#state.byte_limit of
-		      undefined ->
-			  undefined;
-		      _ ->
-			  State#state.data + byte_size(Data)
-		  end,
+    cancel_timeout(State),
 
-    case PROCESSED of       
+    case (catch Module:Function([Data | Args])) of
         {ok, Result} ->
-	    NewState = case NewDataSize of
-			   undefined ->
-			       State;
-			   _ ->
-			       set_new_data_size(State, NewDataSize)
-		       end,
+            BodyTimeoutState = activate_body_timeout(State),
+            NewState = update_data_size(BodyTimeoutState, Data),
             handle_msg(Result, NewState);
 	{error, {size_error, MaxSize, ErrCode, ErrStr}, Version} ->
 	    NewModData =  ModData#mod{http_version = Version},
@@ -270,17 +262,15 @@ handle_info({Proto, Socket, Data},
 	    {stop, normal, State#state{response_sent = true,
 				                   mod = NewModData}};
 
-    {http_chunk = Module, Function, Args} when ChunkState =/= undefined ->
-        NewState = handle_chunk(Module, Function, Args, State),
-        {noreply, NewState};
-	NewMFA ->
-        setopts(Socket, SockType, [{active, once}]),
-	    case NewDataSize of
-		undefined ->
-		    {noreply, State#state{mfa = NewMFA}};
-		_ ->
-		    {noreply, State#state{mfa = NewMFA, data = NewDataSize}}
-	    end
+        {http_chunk = Module, Function, Args} when ChunkState =/= undefined ->
+            NewState = handle_chunk(Module, Function, Args, State),
+            {noreply, NewState};
+
+        {_M, _F, _A} = NewMFA ->
+            setopts(Socket, SockType, [{active, once}]),
+            BodyTimeoutState = reset_body_timeout(State, Data),
+            NewState = update_data_size(BodyTimeoutState, Data),
+            {noreply, NewState#state{mfa = NewMFA}}
     end;
 
 %% Error cases
@@ -351,7 +341,7 @@ terminate(_Reason, State) ->
     do_terminate(State).
 
 do_terminate(#state{mod = ModData} = State) ->
-    cancel_keepalive_timeout(State),
+    cancel_timeout(State),
     httpd_socket:close(ModData#mod.socket_type, ModData#mod.socket).
 
 format_status(normal, [_, State]) ->
@@ -379,8 +369,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-set_new_data_size(State, NewData) ->
-    State#state{data = NewData}.
+update_data_size(State = #state{ byte_limit = undefined}, _) ->
+    State;
+update_data_size(State, Data) ->
+    State#state{data = State#state.data + byte_size(Data)}.
+
 await_socket_ownership_transfer(AcceptTimeout) ->
     receive
 	{socket_ownership_transfered, SocketType, Socket} ->
@@ -550,8 +543,7 @@ handle_body(#state{headers = Headers, body = Body,
                         %% Whole body delivered, if chunking mechanism is enabled the whole
                         %% body fits in one chunk.
                         {ok, NewBody} when is_binary(NewBody) ->
-                            handle_response(State#state{chunk = chunk_finish(ChunkState, 
-                                                                             CbState, MaxChunk),
+                            handle_response(State#state{chunk = chunk_finish(ChunkState,  CbState, MaxChunk),
                                                         headers = Headers,
                                                         body = NewBody})
 		    end;
@@ -648,6 +640,8 @@ handle_internal_chunk(#state{chunk = {ChunkState, CbState}, body = Chunk,
                                                            mfa = {Module, Function, Args}})
     end.
 
+handle_response(#state{timer = {_Ref, _}} = State) ->
+    handle_response(cancel_timeout(State));
 handle_response(#state{body    = Body, 
                        headers = Headers,
 		       mod     = ModData, 
@@ -716,10 +710,37 @@ handle_next_request(State, _) ->
 
 activate_keepalive_timeout(#state{timeout = infinity} = State) ->
     State;
+activate_keepalive_timeout(#state{timer = {_Ref, keep_alive_timeout}} = State) ->
+    activate_keepalive_timeout(cancel_timeout(State));
 activate_keepalive_timeout(#state{timeout = Time} = State) ->
-    NewState = cancel_keepalive_timeout(State),
     Ref = erlang:send_after(Time, self(), timeout),
-    NewState#state{timer = Ref}.
+    State#state{timer = {Ref, keep_alive_timeout}}.
+
+activate_body_timeout(#state{timer = {_Ref, body_timeout}} = State) ->
+    activate_body_timeout(cancel_timeout(State));
+activate_body_timeout(#state{timer = undefined, body_timeout = Time} = State) ->
+    Ref = erlang:send_after(Time, self(), timeout),
+    State#state{timer = {Ref, body_timeout}};
+activate_body_timeout(State) ->
+    State.
+
+reset_body_timeout(#state{timer = {_Ref, body_timeout}} = State, Data) when byte_size(Data) > 0 ->
+    activate_body_timeout(cancel_timeout(State));
+reset_body_timeout(State, _Data) -> 
+    State.
+
+cancel_timeout(#state{timer = undefined} = State) ->
+    State;
+cancel_timeout(#state{timer = {Timer, _}} = State) ->
+    erlang:cancel_timer(Timer),
+    receive 
+        timeout ->
+            ok
+    after 0 ->
+            ok
+    end,
+    State#state{timer = undefined}.
+
 data_receive_counter(State, Byte_limit) ->
     case Byte_limit of
 	false ->
@@ -728,17 +749,6 @@ data_receive_counter(State, Byte_limit) ->
 	    erlang:send_after(3000, self(), check_data_first),
 	    State#state{data = 0, byte_limit = Nr}
     end.
-cancel_keepalive_timeout(#state{timer = undefined} = State) ->
-    State;
-cancel_keepalive_timeout(#state{timer = Timer} = State) ->
-    erlang:cancel_timer(Timer),
-    receive 
-	timeout ->
-	    ok
-    after 0 ->
-	    ok
-    end,
-    State#state{timer = undefined}.
 
 decrease(N) when is_integer(N) ->
     N-1;
@@ -766,6 +776,9 @@ max_keep_alive_request(ConfigDB) ->
 
 max_content_length(ConfigDB) ->    
     httpd_util:lookup(ConfigDB, max_content_length, ?HTTP_MAX_CONTENT_LENGTH).
+
+max_body_read_timeout(ConfigDB) ->
+    1000 * httpd_util:lookup(ConfigDB, max_body_read_timeout, ?HTTP_MAX_BODY_READ_TIMEOUT).
 
 customize(ConfigDB) ->    
     httpd_util:lookup(ConfigDB, customize, httpd_custom).
