@@ -45,7 +45,7 @@
          gh11155/1,
          t_comment_scan/1,t_prettypr/1,test_named_fun_bind_ann/1,
          test_maybe_expr_ann/1,test_mc_ann/1,test_zip_ann/1,
-         is_literal/1]).
+         is_literal/1, test_erl_recomment/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -57,7 +57,7 @@ all() ->
      t_epp_dodger,t_epp_dodger_clever,gh11155,
      t_comment_scan,t_prettypr,test_named_fun_bind_ann,
      test_maybe_expr_ann,test_mc_ann,test_zip_ann,
-     is_literal].
+     is_literal, test_erl_recomment].
 
 groups() ->
     [].
@@ -572,6 +572,26 @@ test_comment_scan([File|Files],DataDir) ->
 					   {ribbon, 110}])),
     test_comment_scan(Files,DataDir).
 
+test_erl_recomment(_Config) ->
+    Name = erl_syntax:atom(foo),
+    Comment = erl_comment_scan:string("%% todo"),
+
+    ExpectedComment = {attr,0,[],{com,[],[{tree,comment,{attr,1,[],none},{comment,0,["% todo"]}}]}},
+    ExpectedResult = {tree,atom, ExpectedComment, foo},
+
+    %% tests erl_recomment does not crash on non-formlist
+    ExpectedResult = erl_recomment:recomment_forms(Name, Comment),
+
+    %% test recomment does works on format list
+    Args = [erl_syntax:abstract(X) || X <- [1, 2, 3]],
+    Attr = erl_syntax:attribute(Name, Args),
+
+    {tree,attribute,
+      ExpectedComment,
+      {attribute,{tree,atom,{attr,0,[],none},foo},
+                 [{tree,integer,{attr,0,[],none},1},
+                  {tree,integer,{attr,0,[],none},2},
+                  {tree,integer,{attr,0,[],none},3}]}} = erl_recomment:recomment_forms(Attr, Comment).
 
 test_prettypr([],_,_) -> ok;
 test_prettypr([File|Files],DataDir,PrivDir) ->
