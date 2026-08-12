@@ -480,7 +480,9 @@ loaded(fmtfn_t to, void *to_arg)
     ErtsCodeIndex code_ix;
 
     code_ix = erts_active_code_ix();
-    erts_rlock_old_code(code_ix);
+    if (!ERTS_IS_CRASH_DUMPING) {
+        erts_rlock_old_code(code_ix);
+    }
 
     /*
      * Calculate and print totals.
@@ -552,7 +554,9 @@ loaded(fmtfn_t to, void *to_arg)
 	    }
 	}
     }
-    erts_runlock_old_code(code_ix);
+    if (!ERTS_IS_CRASH_DUMPING) {
+        erts_runlock_old_code(code_ix);
+    }
 }
 
 
