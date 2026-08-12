@@ -806,9 +806,6 @@ steps(N) ->  ["\n", lists:duplicate(N, " ")].
 %% Decoding implementation
 %%
 
--define(ARRAY, array).
--define(OBJECT, object).
-
 -type from_binary_fun() :: fun((binary()) -> dynamic()).
 -type array_start_fun() :: fun((Acc :: dynamic()) -> ArrayAcc :: dynamic()).
 -type array_push_fun() :: fun((Value :: dynamic(), Acc :: dynamic()) -> NewAcc :: dynamic()).
@@ -844,7 +841,7 @@ steps(N) ->  ["\n", lists:duplicate(N, " ")].
 }).
 
 -type acc() :: dynamic().
--type stack() :: [?ARRAY | ?OBJECT | binary() | acc()].
+-type stack() :: [] | {acc(), stack()} | nonempty_improper_list(acc(), stack()).
 -type decode() :: #decode{}.
 
 -opaque continuation_state() :: tuple().
@@ -1359,8 +1356,8 @@ array_start(<<>>, Original, Skip, Acc, Stack, Decode, Len) ->
     unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, value);
 array_start(Rest, Original, Skip, OldAcc, Stack, Decode, Len) ->
     case Decode#decode.array_start of
-        undefined -> value(Rest, Original, Skip+Len, [], [?ARRAY, OldAcc | Stack], Decode);
-        Fun -> value(Rest, Original, Skip+Len, Fun(OldAcc), [?ARRAY, OldAcc | Stack], Decode)
+        undefined -> value(Rest, Original, Skip+Len, [], [OldAcc | Stack], Decode);
+        Fun -> value(Rest, Original, Skip+Len, Fun(OldAcc), [OldAcc | Stack], Decode)
     end.
 
 array_push(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Value) when ?is_ws(Byte) ->
@@ -1371,7 +1368,7 @@ array_push(<<"]", Rest/bits>>, Original, Skip, Acc0, Stack0, Decode, Value) ->
             undefined -> [Value | Acc0];
             Push -> Push(Value, Acc0)
         end,
-    [_, OldAcc | Stack] = Stack0,
+    [OldAcc | Stack] = Stack0,
     {ArrayValue, NewAcc} =
         case Decode#decode.array_finish of
             undefined -> {lists:reverse(Acc), OldAcc};
@@ -1387,7 +1384,6 @@ array_push(<<$,, Rest/bits>>, Original, Skip0, Acc, Stack, Decode, Value) ->
 array_push(_, Original, Skip, Acc, Stack, Decode, Value) ->
     unexpected(Original, Skip, Acc, Stack, Decode, 0, 0, {?FUNCTION_NAME, Value}).
 
-
 object_start(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when ?is_ws(Byte) ->
     object_start(Rest, Original, Skip, Acc, Stack, Decode, Len+1);
 object_start(<<"}", Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) ->
@@ -1400,7 +1396,7 @@ object_start(<<"}", Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) ->
         end,
     continue(Rest, Original, Skip+Len+1, NewAcc, Stack, Decode, Value);
 object_start(<<$", Rest/bits>>, Original, Skip0, OldAcc, Stack0, Decode, Len) ->
-    Stack = [?OBJECT, OldAcc | Stack0],
+    Stack = {OldAcc, Stack0},
     Skip = Skip0 + Len + 1,
     case Decode#decode.object_start of
         undefined ->
@@ -1427,7 +1423,7 @@ object_push(<<"}", Rest/bits>>, Original, Skip, Acc0, Stack0, Decode, Value, Key
             undefined -> [{Key, Value} | Acc0];
             Fun -> Fun(Key, Value, Acc0)
         end,
-    [_, OldAcc | Stack] = Stack0,
+    {OldAcc, Stack} = Stack0,
     {ObjectValue, NewAcc} =
         case Decode#decode.object_finish of
             undefined -> {maps:from_list(Acc), OldAcc};
@@ -1452,9 +1448,11 @@ object_key(_, Original, Skip, Acc, Stack, Decode) ->
 continue(<<Rest/bits>>, Original, Skip, Acc, Stack0, Decode, Value) ->
     case Stack0 of
         [] -> terminate(Rest, Original, Skip, Acc, Value);
-        [?ARRAY | _] -> array_push(Rest, Original, Skip, Acc, Stack0, Decode, Value);
-        [?OBJECT | _] -> object_value(Rest, Original, Skip, Acc, Stack0, Decode, Value);
-        [Key | Stack] -> object_push(Rest, Original, Skip, Acc, Stack, Decode, Value, Key)
+        [_ | Stack] when is_list(Stack) ->
+            array_push(Rest, Original, Skip, Acc, Stack0, Decode, Value);
+        [Key | Stack] ->
+            object_push(Rest, Original, Skip, Acc, Stack, Decode, Value, Key);
+        {_, _} -> object_value(Rest, Original, Skip, Acc, Stack0, Decode, Value)
     end.
 
 terminate(<<Byte, Rest/bits>>, Original, Skip, Acc, Value) when ?is_ws(Byte) ->
