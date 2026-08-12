@@ -147,6 +147,7 @@ atom blocked_normal
 atom bm
 atom bnot
 atom bor
+atom br
 atom bxor
 atom break_ignored
 atom breakpoint

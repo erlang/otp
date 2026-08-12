@@ -903,6 +903,10 @@ simplify_call(Call, _, _, Args) ->
 
 valid_binary_pattern(Pattern) when is_binary(Pattern) ->
     byte_size(Pattern) > 0;
+valid_binary_pattern([{Low,High}|Ranges]) ->
+    is_integer(Low) andalso is_integer(High) andalso
+        0 =< Low andalso Low =< High andalso High =< 255 andalso
+        valid_binary_range_list(Ranges);
 valid_binary_pattern([Pattern|Patterns]) ->
     is_binary(Pattern) andalso byte_size(Pattern) > 0 andalso
         valid_binary_pattern_list(Patterns);
@@ -915,6 +919,15 @@ valid_binary_pattern_list([Pattern|Patterns]) ->
 valid_binary_pattern_list([]) ->
     true;
 valid_binary_pattern_list(_) ->
+    false.
+
+valid_binary_range_list([{Low,High}|Ranges]) ->
+    is_integer(Low) andalso is_integer(High) andalso
+        0 =< Low andalso Low =< High andalso High =< 255 andalso
+        valid_binary_range_list(Ranges);
+valid_binary_range_list([]) ->
+    true;
+valid_binary_range_list(_) ->
     false.
 
 %% rewrite_call(Call0, Mod, Func, Args, Sub) -> Call

@@ -25,6 +25,7 @@
 -compile([export_all, nowarn_export_all]).
 -include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
+-include("../src/swar_ascii.hrl").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
@@ -46,7 +47,16 @@ groups() ->
       [match_single_pattern_no_match,
        matches_single_pattern_no_match,
        matches_single_pattern_eventual_match,
-       matches_single_pattern_frequent_match]},
+       matches_single_pattern_frequent_match,
+       byte_ranges_ascii_valid, byte_ranges_ascii_invalid_first,
+       byte_ranges_ascii_invalid_last,
+       byte_ranges_ascii_swar_valid, byte_ranges_ascii_swar_invalid_first,
+       byte_ranges_ascii_swar_invalid_last,
+       byte_ranges_ascii_unicode_valid,
+       byte_ranges_ascii_unicode_invalid_first,
+       byte_ranges_ascii_unicode_invalid_last,
+       byte_ranges_ascii_guard_valid, byte_ranges_ascii_guard_invalid_first,
+       byte_ranges_ascii_guard_invalid_last]},
      {base64,[{repeat,5}],
       [decode_binary, decode_binary_to_string,
        decode_list, decode_list_to_string,
@@ -183,6 +193,76 @@ matches_single_pattern_frequent_match(_Config) ->
     Binary = binary:copy(<<"abc\n">>, 1000000),
     comment(test(100, binary, matches, [Binary, <<"abc">>])).
 
+byte_ranges_ascii_valid(_Config) ->
+    byte_ranges_ascii_benchmark(valid, br).
+
+byte_ranges_ascii_invalid_first(_Config) ->
+    byte_ranges_ascii_benchmark(invalid_first, br).
+
+byte_ranges_ascii_invalid_last(_Config) ->
+    byte_ranges_ascii_benchmark(invalid_last, br).
+
+byte_ranges_ascii_swar_valid(_Config) ->
+    byte_ranges_ascii_benchmark(valid, swar).
+
+byte_ranges_ascii_swar_invalid_first(_Config) ->
+    byte_ranges_ascii_benchmark(invalid_first, swar).
+
+byte_ranges_ascii_swar_invalid_last(_Config) ->
+    byte_ranges_ascii_benchmark(invalid_last, swar).
+
+byte_ranges_ascii_unicode_valid(_Config) ->
+    byte_ranges_ascii_benchmark(valid, unicode).
+
+byte_ranges_ascii_unicode_invalid_first(_Config) ->
+    byte_ranges_ascii_benchmark(invalid_first, unicode).
+
+byte_ranges_ascii_unicode_invalid_last(_Config) ->
+    byte_ranges_ascii_benchmark(invalid_last, unicode).
+
+byte_ranges_ascii_guard_valid(_Config) ->
+    byte_ranges_ascii_benchmark(valid, guard).
+
+byte_ranges_ascii_guard_invalid_first(_Config) ->
+    byte_ranges_ascii_benchmark(invalid_first, guard).
+
+byte_ranges_ascii_guard_invalid_last(_Config) ->
+    byte_ranges_ascii_benchmark(invalid_last, guard).
+
+byte_ranges_ascii_benchmark(Scenario, Implementation) ->
+    Valid = binary:copy(<<"Az09-._~">>, 128),
+    Binary = case Scenario of
+                 valid -> Valid;
+                 invalid_first -> <<255, Valid/binary>>;
+                 invalid_last -> <<Valid/binary, 255>>
+             end,
+    Pattern = binary:compile_pattern([{128, 255}]),
+    Fun = case Implementation of
+              br -> fun() -> binary:match(Binary, Pattern) =:= nomatch end;
+              swar -> fun() -> all_ascii_swar(Binary) end;
+              unicode -> fun() -> unicode:bin_is_7bit(Binary) end;
+              guard -> fun() -> all_ascii_guard(Binary) end
+          end,
+    Suite = lists:concat(["stdlib_binary_ascii_", Implementation, "_", Scenario]),
+    comment(test_fun(100000, Suite, Fun)).
+
+all_ascii_swar(<<W:56, Rest/binary>>)
+  when W band ?SWAR_MASK80 =:= 0 ->
+    all_ascii_swar(Rest);
+all_ascii_swar(<<Byte, Rest/binary>>) when Byte < 128 ->
+    all_ascii_swar(Rest);
+all_ascii_swar(<<_, _/binary>>) ->
+    false;
+all_ascii_swar(<<>>) ->
+    true.
+
+all_ascii_guard(<<Byte, Rest/binary>>) when Byte < 128 ->
+    all_ascii_guard(Rest);
+all_ascii_guard(<<_, _/binary>>) ->
+    false;
+all_ascii_guard(<<>>) ->
+    true.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 decode_binary(_Config) ->
@@ -243,6 +323,19 @@ test(Iter, Mod, Fun, Args) ->
     F = fun() -> loop(Iter, Mod, Fun, Args) end,
     {Time, ok} = timer:tc(fun() -> lspawn(F) end),
     report_mfa(Iter, Time, Mod).
+
+test_fun(Iter, Suite, Fun) ->
+    F = fun() -> loop_fun(Iter, Fun) end,
+    {Time, ok} = timer:tc(fun() -> lspawn(F) end),
+    Tps = round((Iter*1000000)/Time),
+    ct_event:notify(#event{name = benchmark_data,
+                           data = [{suite, Suite}, {value, Tps}]}),
+    Tps.
+
+loop_fun(0, _Fun) -> garbage_collect(), ok;
+loop_fun(N, Fun) ->
+    _ = Fun(),
+    loop_fun(N - 1, Fun).
 
 loop(0, _M, _F, _A) -> garbage_collect(), ok;
 loop(N, M, F, A) ->
