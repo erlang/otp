@@ -22,7 +22,7 @@
 -module(binary_module_SUITE).
 
 -export([all/0, suite/0,
-	 interesting/1,literal_patterns/1,scope_return/1,random_ref_comp/1,random_ref_sr_comp/1,
+         interesting/1,literal_patterns/1,byte_ranges/1,scope_return/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
 	 copy/1, referenced/1,guard/1,encode_decode/1,badargs/1,longest_common_trap/1,
          check_no_invalid_read_bug/1,error_info/1, hex_encoding/1, join/1, doctests/1]).
@@ -36,7 +36,7 @@ suite() ->
      {timetrap,{minutes,10}}].
 
 all() ->
-    [scope_return,interesting, literal_patterns, random_ref_fla_comp, random_ref_sr_comp,
+    [scope_return,interesting, literal_patterns, byte_ranges, random_ref_fla_comp, random_ref_sr_comp,
      random_ref_comp, parts, bin_to_list, list_to_bin, copy,
      referenced, guard, encode_decode, badargs,
      longest_common_trap, check_no_invalid_read_bug,
@@ -51,6 +51,12 @@ badargs(Config) when is_list(Config) ->
     badarg = ?MASK_ERROR(binary:compile_pattern([<<1,2,3>>|<<1,2>>])),
     badarg = ?MASK_ERROR(binary:compile_pattern(<<1,2,3:3>>)),
     badarg = ?MASK_ERROR(binary:compile_pattern(<<>>)),
+    badarg = ?MASK_ERROR(binary:compile_pattern([{2,1}])),
+    badarg = ?MASK_ERROR(binary:compile_pattern([{-1,1}])),
+    badarg = ?MASK_ERROR(binary:compile_pattern([{0,256}])),
+    badarg = ?MASK_ERROR(binary:compile_pattern([{0,1.0}])),
+    badarg = ?MASK_ERROR(binary:compile_pattern([{0,1}|bad_tail])),
+    badarg = ?MASK_ERROR(binary:compile_pattern([{0,1},<<"mixed">>])),
     badarg = ?MASK_ERROR(binary:match(<<1,2,3:3>>,<<1>>)),
     badarg = ?MASK_ERROR(binary:matches(<<1,2,3:3>>,<<1>>)),
     badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,
@@ -399,6 +405,50 @@ literal_compiled_bm_pattern() ->
 
 literal_compiled_ac_pattern() ->
     binary:compile_pattern([<<"needle">>, <<"thread">>]).
+
+byte_ranges(Config) when is_list(Config) ->
+    Pattern = [{0, 31}, {$", $"}, {$\\, $\\}, {127, 255}],
+    {br, _} = Compiled = binary:compile_pattern(Pattern),
+
+    {1, 1} = binary:match(<<$a, 0, $b>>, Pattern),
+    {1, 1} = binary:match(<<$a, $", $b>>, Compiled),
+    [{1, 1}, {3, 1}] = binary:matches(<<$a, 0, $b, 255>>, Compiled),
+    [<<"a">>, <<"b">>, <<>>] = binary:split(<<$a, 0, $b, 255>>, Compiled,
+                                                  [global]),
+    <<"a_b_">> = binary:replace(<<$a, 0, $b, 255>>, Compiled, <<"_">>,
+                                    [global]),
+    nomatch = binary:match(<<0, $a>>, Pattern, [{scope, {1, 1}}]),
+
+    %% Overlapping and adjacent ranges are normalized into the same byte set.
+    {0, 1} = binary:match(<<15>>, [{10, 12}, {12, 14}, {15, 15}]),
+    {0, 1} = binary:match(<<42>>, [{0, 255}]),
+    {1, 1} = binary:match(<<32, 31>>, [{0, 31}]),
+    {1, 1} = binary:match(<<127, 128>>, [{128, 255}]),
+
+    %% Exercise SIMD block boundaries and the scalar tail on aligned and
+    %% unaligned subjects.
+    _ = [begin
+             Prefix = binary:copy(<<$a>>, Offset),
+             Subject = <<Prefix/binary, $">>,
+             {Offset, 1} = binary:match(Subject, Pattern),
+             {Offset, 1} = binary:match(make_unaligned(Subject), Pattern)
+         end || Offset <- lists:seq(0, 31)],
+
+    %% Exercise the SIMD range loop with 3 and 9 normalized ranges, and the
+    %% table-driven fallback with 17 normalized ranges.
+    _ = [begin
+             Ranges = [{Byte, Byte} || Byte <- lists:seq(0, 2 * (Count - 1), 2)],
+             Last = 2 * (Count - 1),
+             {1, 1} = binary:match(<<1, Last>>, Ranges)
+         end || Count <- [3, 9, 17]],
+
+    %% Exercise converting every lane in consecutive SIMD masks into match
+    %% positions, including an unaligned subject and the scalar tail.
+    Dense = list_to_binary(lists:seq(0, 32)),
+    DenseMatches = [{Position, 1} || Position <- lists:seq(0, 32)],
+    DenseMatches = binary:matches(Dense, [{0, 255}]),
+    DenseMatches = binary:matches(make_unaligned(Dense), [{0, 255}]),
+    ok.
 
 do_interesting(Module) ->
     {0,4} = Module:match(<<"123456">>,

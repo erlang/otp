@@ -880,14 +880,16 @@ literal_binary_patterns(_Config) ->
     Mod = literal_binary_patterns,
     Forms = ?Q(["-module('@Mod@').",
                 "-export([match2/1, match3/1, matches2/1, matches3/1,",
-                "         split2/1, split3/1, empty/1]).",
+                "         split2/1, split3/1, ranges/1, empty/1, bad_range/1]).",
                 "match2(Binary) -> binary:match(Binary, <<\"needle\">>).",
                 "match3(Binary) -> binary:match(Binary, <<\"needle\">>, []).",
                 "matches2(Binary) -> binary:matches(Binary, [<<\"needle\">>, <<\"thread\">>]).",
                 "matches3(Binary) -> binary:matches(Binary, [<<\"needle\">>, <<\"thread\">>], []).",
                 "split2(Binary) -> binary:split(Binary, <<\"needle\">>).",
                 "split3(Binary) -> binary:split(Binary, <<\"needle\">>, []).",
-                "empty(Binary) -> binary:match(Binary, [])."]),
+                "ranges(Binary) -> binary:match(Binary, [{0, 31}, {127, 255}]).",
+                "empty(Binary) -> binary:match(Binary, []).",
+                "bad_range(Binary) -> binary:match(Binary, [{2, 1}])."]),
     AbstractForms = [erl_syntax:revert(Form) || Form <- Forms],
     {ok,Mod,{Mod,_Exports,_Attrs,_Anno,Funs,_},_Warnings} =
         compile:forms(AbstractForms, [return,to_asm]),
@@ -898,10 +900,14 @@ literal_binary_patterns(_Config) ->
     assert_literal_pattern_wrapped(matches3, 1, matches, 3, Funs),
     assert_literal_pattern_wrapped(split2, 1, split, 2, Funs),
     assert_literal_pattern_wrapped(split3, 1, split, 3, Funs),
+    assert_literal_pattern_wrapped(ranges, 1, match, 2, Funs),
 
     Empty = function_instructions(empty, 1, Funs),
     false = has_ext_call(binary, compile_pattern, 1, Empty),
     true = has_ext_call(binary, match, 2, Empty),
+    BadRange = function_instructions(bad_range, 1, Funs),
+    false = has_ext_call(binary, compile_pattern, 1, BadRange),
+    true = has_ext_call(binary, match, 2, BadRange),
     ok.
 
 assert_literal_pattern_wrapped(Name, Arity, BinaryFunction, BinaryArity, Funs) ->

@@ -68,6 +68,9 @@ useful for referencing the last `N` bytes of a binary as
 -type part() :: {Start :: non_neg_integer(), Length :: integer()}.
 -export_type([part/0]).
 
+-type byte_range() :: {Low :: byte(), High :: byte()}.
+-export_type([byte_range/0]).
+
 %%% BIFs.
 
 -export([at/2, bin_to_list/1, bin_to_list/2, bin_to_list/3,
@@ -214,13 +217,19 @@ a pattern is not significant.
 The list of binaries used for search alternatives must be flat, proper, and
 non-empty.
 
+A non-empty list of `{Low, High}` tuples matches any byte in the inclusive
+range `Low..High`. Ranges are alternatives and can overlap; for example,
+`[{0, 31}, {127, 255}]` matches any non-printable ASCII byte. A tuple such as
+`{32, 32}` matches one byte value.
+
 When a valid `Pattern` is a literal in compiled code, the pattern can be
 compiled while its module is loaded. This applies both to calls to
 `compile_pattern/1` and to literal patterns passed directly to `match`,
 `matches`, or `split`, avoiding repeated compilation at runtime.
 
-If `Pattern` is not a binary or a flat proper non-empty list of binaries with
-length greater than 0, a `badarg` exception is raised.
+If `Pattern` is not a binary, a flat proper non-empty list of binaries with
+length greater than 0, or a proper non-empty list of valid byte ranges, a
+`badarg` exception is raised.
 
 ## Examples
 
@@ -232,7 +241,7 @@ length greater than 0, a `badarg` exception is raised.
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec compile_pattern(Pattern) -> cp() when
-      Pattern :: PatternBinary | [PatternBinary,...],
+      Pattern :: PatternBinary | [PatternBinary,...] | [byte_range(),...],
       PatternBinary :: nonempty_binary().
 
 compile_pattern(_) ->
@@ -482,7 +491,7 @@ longest_common_suffix(_) ->
 -doc(#{since => <<"OTP R14B">>}).
 -spec match(Subject, Pattern) -> Found | nomatch when
       Subject :: binary(),
-      Pattern :: PatternBinary | [PatternBinary,...] | cp(),
+      Pattern :: PatternBinary | [PatternBinary,...] | [byte_range(),...] | cp(),
       PatternBinary :: nonempty_binary(),
       Found :: part().
 
@@ -529,7 +538,7 @@ position, the longest is returned.
 -doc(#{since => <<"OTP R14B">>}).
 -spec match(Subject, Pattern, Options) -> Found | nomatch when
       Subject :: binary(),
-      Pattern :: PatternBinary | [PatternBinary,...] | cp(),
+      Pattern :: PatternBinary | [PatternBinary,...] | [byte_range(),...] | cp(),
       PatternBinary :: nonempty_binary(),
       Found :: part(),
       Options :: [Option],
@@ -542,7 +551,7 @@ match(_, _, _) ->
 -doc(#{since => <<"OTP R14B">>}).
 -spec matches(Subject, Pattern) -> Found when
       Subject :: binary(),
-      Pattern :: PatternBinary | [PatternBinary,...] | cp(),
+      Pattern :: PatternBinary | [PatternBinary,...] | [byte_range(),...] | cp(),
       PatternBinary :: nonempty_binary(),
       Found :: [part()].
 
@@ -588,7 +597,7 @@ size of `Subject`, `Start + Length` < 0 or `Start + Length` is > size of
 -doc(#{since => <<"OTP R14B">>}).
 -spec matches(Subject, Pattern, Options) -> Found when
       Subject :: binary(),
-      Pattern :: PatternBinary | [PatternBinary,...] | cp(),
+      Pattern :: PatternBinary | [PatternBinary,...] | [byte_range(),...] | cp(),
       PatternBinary :: nonempty_binary(),
       Found :: [part()],
       Options :: [Option],
@@ -709,7 +718,7 @@ referenced_byte_size(_) ->
 -doc(#{since => <<"OTP R14B">>}).
 -spec split(Subject, Pattern) -> Parts when
       Subject :: binary(),
-      Pattern :: PatternBinary | [PatternBinary,...] | cp(),
+      Pattern :: PatternBinary | [PatternBinary,...] | [byte_range(),...] | cp(),
       PatternBinary :: nonempty_binary(),
       Parts :: [binary()].
 
@@ -773,7 +782,7 @@ For a description of `Pattern`, see `compile_pattern/1`.
 -doc(#{since => <<"OTP R14B">>}).
 -spec split(Subject, Pattern, Options) -> Parts when
       Subject :: binary(),
-      Pattern :: PatternBinary | [PatternBinary,...] | cp(),
+      Pattern :: PatternBinary | [PatternBinary,...] | [byte_range(),...] | cp(),
       PatternBinary :: nonempty_binary(),
       Options :: [Option],
       Option :: {scope, part()} | trim | global | trim_all,
@@ -792,7 +801,7 @@ split(_, _, _) ->
 -doc(#{since => <<"OTP R14B">>}).
 -spec replace(Subject, Pattern, Replacement) -> Result when
       Subject :: binary(),
-      Pattern :: PatternBinary | [PatternBinary,...] | cp(),
+      Pattern :: PatternBinary | [PatternBinary,...] | [byte_range(),...] | cp(),
       PatternBinary :: nonempty_binary(),
       Replacement :: binary() | fun((binary()) -> binary()),
       Result :: binary().
@@ -856,7 +865,7 @@ For a description of `Pattern`, see `compile_pattern/1`.
 -doc(#{since => <<"OTP R14B">>}).
 -spec replace(Subject, Pattern, Replacement, Options) -> Result when
       Subject :: binary(),
-      Pattern :: PatternBinary | [PatternBinary,...] | cp(),
+      Pattern :: PatternBinary | [PatternBinary,...] | [byte_range(),...] | cp(),
       PatternBinary :: nonempty_binary(),
       Replacement :: binary() | fun((binary()) -> binary()),
       Options :: [Option],
