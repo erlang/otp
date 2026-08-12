@@ -35,8 +35,6 @@ jobs:
   run-scheduled-openvex-sync:
     runs-on: ubuntu-latest
     permissions:
-      security-events: read # use inside the otp-compliance.es as API call
-      actions: write        # use inside the otp-compliance.es
       contents: write       # use inside the otp-compliance.es
       pull-requests: write  # use inside the otp-compliance.es
     if: github.repository == 'erlang/otp'
@@ -61,8 +59,7 @@ jobs:
           app-id: ${{ vars.ERLANG_BOT_APP_ID }}
           private-key: ${{ secrets.ERLANG_BOT_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
-          permission-security-events: read
-          permission-actions: write
+          repositories: otp
           permission-contents: write
           permission-pull-requests: write
 
