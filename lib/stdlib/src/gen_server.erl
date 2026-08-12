@@ -1045,7 +1045,7 @@ to initialize.  To ensure a synchronized startup procedure,
 has returned or failed.
 
 [`ServerName`](`t:server_name/0`) specifies with what name
-and now to register the server name.  See type `t:server_name/0`
+and how to register the server name.  See type `t:server_name/0`
 for different name registrations.
 
 `Module` is the name of the callback module.
