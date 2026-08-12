@@ -75,7 +75,8 @@
          priority_messages_alias_enable_disable/1,
          priority_messages_order/1,
          priority_messages_hopefull_encoding/1,
-         priority_messages_old_nodes/1]).
+         priority_messages_old_nodes/1,
+         priority_messages_qmarkers/1]).
 
 -export([check_literal_conversion/1, spawn_spammers/3]).
 
@@ -142,7 +143,8 @@ groups() ->
        priority_messages_alias_enable_disable,
        priority_messages_order,
        priority_messages_hopefull_encoding,
-       priority_messages_old_nodes]}].
+       priority_messages_old_nodes,
+       priority_messages_qmarkers]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -2243,9 +2245,507 @@ priority_messages_old_nodes_test(Config, Node) ->
 
     ok.
 
+-define(VERIFY_PMSGS(BOOL),
+        {priority_messages, BOOL} = erlang:process_info(self(), priority_messages)).
+
+-define(PMSG_NAME,
+        list_to_atom("__priority_message_test_name_" ++ integer_to_list(?LINE) ++ "__")).
+
+priority_messages_qmarkers(Config) when is_list(Config) ->
+
+    priority_messages_qmarkers_aux(node()),
+
+    {ok, Peer, RNode} = ?CT_PEER(#{args => ["-kernel", "connect_all", "false"]}),
+    pong = net_adm:ping(RNode),
+    priority_messages_qmarkers_aux(RNode),
+    peer:stop(Peer),
+
+    ok.
+
+priority_messages_qmarkers_aux(Node) ->
+
+    Me = self(),
+
+    ?VERIFY_PMSGS(false),
+
+    priority_messages_qmarkers_aux2(Node),
+
+    P1 = spawn_link(Node, fun () -> receive after infinity -> ok end end),
+    Mon1 = monitor(process, P1, [priority]),
+    ?VERIFY_PMSGS(true),
+    demonitor(Mon1),
+    ?VERIFY_PMSGS(false),
+    kill(P1),
+
+    P2 = spawn_link(Node, fun () -> receive after infinity -> ok end end),
+    Name2 = ?PMSG_NAME,
+    true = erpc:call(Node, erlang, register, [Name2, P2]),
+    Mon2 = monitor(process, {Name2, Node}, [priority]),
+    ?VERIFY_PMSGS(true),
+    demonitor(Mon2),
+    ?VERIFY_PMSGS(false),
+    kill(P2),
+
+    P3 = spawn_link(Node, fun () -> receive after infinity -> ok end end),
+    Mon3 = monitor(process, P3, [priority]),
+    ?VERIFY_PMSGS(true),
+    kill(P3),
+    receive {'DOWN', Mon3, process, _, _} -> ok end,
+    ?VERIFY_PMSGS(false),
+
+    P4 = spawn_link(Node, fun () -> receive after infinity -> ok end end),
+    Name4 = ?PMSG_NAME,
+    true = erpc:call(Node, erlang, register, [Name4, P4]),
+    Mon4 = monitor(process, {Name4, Node}, [priority]),
+    ?VERIFY_PMSGS(true),
+    demonitor(Mon4),
+    ?VERIFY_PMSGS(false),
+    kill(P4),
+
+    P5 = spawn(Node, fun () -> receive after infinity -> ok end end),
+    link(P5, [priority]),
+    ?VERIFY_PMSGS(true),
+    try
+        link(make_ref()),
+        error(unexpected_link_success)
+    catch
+        error:badarg ->
+            ok
+    end,
+    ?VERIFY_PMSGS(true),
+    unlink(P5),
+    ?VERIFY_PMSGS(false),
+    try
+        link(make_ref(), [priority]),
+        error(unexpected_link_success)
+    catch
+        error:badarg ->
+            ok
+    end,
+    ?VERIFY_PMSGS(false),
+    link(P5, [priority]),
+    ?VERIFY_PMSGS(true),
+    link(P5),
+    ?VERIFY_PMSGS(false),
+    kill(P5),
+
+    P6 = spawn(Node, fun () ->
+                             receive {Me, unlink_please} -> ok end,
+                             unlink(Me),
+                             Me ! {self(), unlinked},
+                             receive after infinity -> ok end
+                     end),
+    link(P6, [priority]),
+    ?VERIFY_PMSGS(true),
+    P6 ! {self(), unlink_please},
+    receive {P6, unlinked} -> ok end,
+    ?VERIFY_PMSGS(false),
+
+    process_flag(trap_exit, true),
+    P7 = spawn(Node, fun () ->
+                             receive {Me, exit_please} -> ok end,
+                             exit(bye)
+                     end),
+    link(P7, [priority]),
+    ?VERIFY_PMSGS(true),
+    P7 ! {self(), exit_please},
+    receive {'EXIT', P7, _} -> ok end,
+    ?VERIFY_PMSGS(false),
+    process_flag(trap_exit, false),
+
+    {P8, Mon8} = spawn_opt(Node, fun () -> receive after infinity -> ok end end,
+                           [{monitor, [priority]}, link]),
+    ?VERIFY_PMSGS(true),
+    demonitor(Mon8),
+    ?VERIFY_PMSGS(false),
+    kill(P8),
+
+    {P9, Mon9} = spawn_opt(Node, fun () -> receive after infinity -> ok end end,
+                           [{monitor, [priority]}, link]),
+    ?VERIFY_PMSGS(true),
+    kill(P9),
+    receive {'DOWN', Mon9, process, _, _} -> ok end,
+    ?VERIFY_PMSGS(false),
+
+    P10 = spawn_opt(Node, fun () -> receive after infinity -> ok end end,
+                           [{link, [priority]}]),
+    ?VERIFY_PMSGS(true),
+    unlink(P10),
+    ?VERIFY_PMSGS(false),
+    kill(P10),
+
+    P11 = spawn_opt(Node, fun () -> receive after infinity -> ok end end,
+                    [{link, [priority]}]),
+    ?VERIFY_PMSGS(true),
+    process_flag(trap_exit, true),
+    exit(P11, bang),
+    receive {'EXIT', P11, _} -> ok end,
+    ?VERIFY_PMSGS(false),
+    process_flag(trap_exit, false),
+
+    P12 = spawn_opt(Node, fun () ->
+                                  receive {Me, unlink_please} -> ok end,
+                                  unlink(Me),
+                                  Me ! {self(), unlinked},
+                                  receive after infinity -> ok end
+                          end, [{link, [priority]}]),
+    ?VERIFY_PMSGS(true),
+    P12 ! {self(), unlink_please},
+    receive {P12, unlinked} -> ok end,
+    ?VERIFY_PMSGS(false),
+    kill(P12),
+
+    A1 = alias([explicit_unalias, priority]),
+    ?VERIFY_PMSGS(true),
+    unalias(A1),
+    ?VERIFY_PMSGS(false),
+
+    A2 = alias([reply, priority]),
+    ?VERIFY_PMSGS(true),
+    A2 ! {A2, hello},
+    receive {A2, hello} -> ok end,
+    ?VERIFY_PMSGS(false),
+
+    try
+        _ = alias([priority, blipp]),
+        error(blipp_alias_succeeded)
+    catch
+        error:badarg -> ok
+    end,
+
+    SpawnReqInvalidOptTest =
+        fun (Opts, ExpPreVal) ->
+                ?VERIFY_PMSGS(false),
+                erlang:yield(),
+                RID1 = spawn_request(Node,
+                                     fun () -> ok end,
+                                     Opts++[invalid_option]),
+                {priority_messages, PreVal1} =
+                    erlang:process_info(self(), priority_messages),
+                case got_spawn_reply(RID1) of
+                    false -> ExpPreVal = PreVal1;
+                    true -> ignore
+                end,
+                receive
+                    {spawn_reply, RID1, ResType1, Result1} ->
+                        error = ResType1,
+                        badopt = Result1
+                end,
+                ?VERIFY_PMSGS(false),
+                erlang:yield(),
+                RID2 = spawn_request(Node,
+                                     fun () -> ok end,
+                                     Opts++[invalid_option]),
+                {priority_messages, PreVal2} =
+                    erlang:process_info(self(), priority_messages),
+                case erlang:spawn_request_abandon(RID2) of
+                    true ->
+                        ExpPreVal = PreVal2;
+                    false ->
+                        receive
+                            {spawn_reply, RID2, ResType2, Result2} ->
+                                error = ResType2,
+                                badopt = Result2
+                        end
+                end,
+                ?VERIFY_PMSGS(false),
+                ok
+        end,
+
+    SpawnReqInvalidOptTest([{monitor, [priority]}], true),
+    SpawnReqInvalidOptTest([{link, [priority]}], false),
+    SpawnReqInvalidOptTest([{monitor, [priority]}, {link, [priority]}], true),
+
+    ok.
+
+priority_messages_qmarkers_aux2(Node) when Node == node() ->
+    %% Node is local...
+
+    ?VERIFY_PMSGS(false),
+
+    Name1 = ?PMSG_NAME,
+    true = register(Name1, self()),
+
+    _M0 = monitor(process, self(), [priority]),
+    ?VERIFY_PMSGS(false),
+
+    _M1 = monitor(process, Name1, [priority]),
+    ?VERIFY_PMSGS(false),
+
+    _M2 = monitor(process, {Name1, Node}, [priority]),
+    ?VERIFY_PMSGS(false),
+
+    {PO1, Prt1} = mk_1sec_port(Node),
+    Mon1 = monitor(port, Prt1, [priority]),
+    ?VERIFY_PMSGS(true),
+    demonitor(Mon1),
+    ?VERIFY_PMSGS(false),
+    kill(PO1),
+
+    {PO2, Prt2} = mk_1sec_port(Node),
+    Name2 = ?PMSG_NAME,
+    register(Name2, Prt2),
+    Mon2 = monitor(port, Name2, [priority]),
+    ?VERIFY_PMSGS(true),
+    demonitor(Mon2),
+    ?VERIFY_PMSGS(false),
+    kill(PO2),
+
+    {PO3, Prt3} = mk_1sec_port(Node),
+    Mon3 = monitor(port, Prt3, [priority]),
+    ?VERIFY_PMSGS(true),
+    kill(PO3),
+    receive {'DOWN', Mon3, port, _, _} -> ok end,
+    ?VERIFY_PMSGS(false),
+
+    {PO4, Prt4} = mk_1sec_port(Node),
+    Name4 = ?PMSG_NAME,
+    register(Name4, Prt4),
+    Mon4 = monitor(port, Name4, [priority]),
+    ?VERIFY_PMSGS(true),
+    kill(PO4),
+    receive {'DOWN', Mon4, port, _, _} -> ok end,
+    ?VERIFY_PMSGS(false),
+
+    {PO5, Prt5} = mk_1sec_port(Node),
+    Name5 = ?PMSG_NAME,
+    register(Name5, Prt5),
+    Mon5 = monitor(port, {Name5, Node}, [priority]),
+    ?VERIFY_PMSGS(true),
+    demonitor(Mon5),
+    ?VERIFY_PMSGS(false),
+    kill(PO5),
+
+    {PO6, Prt6} = mk_1sec_port(Node),
+    link(Prt6),
+    ?VERIFY_PMSGS(false),
+    link(Prt6, [priority]),
+    ?VERIFY_PMSGS(true),
+    try
+        link(make_ref()),
+        error(unexpected_link_success)
+    catch
+        error:badarg ->
+            ok
+    end,
+    ?VERIFY_PMSGS(true),
+    unlink(Prt6),
+    ?VERIFY_PMSGS(false),
+    try
+        link(make_ref(), [priority]),
+        error(unexpected_link_success)
+    catch
+        error:badarg ->
+            ok
+    end,
+    ?VERIFY_PMSGS(false),
+    link(Prt6, [priority]),
+    ?VERIFY_PMSGS(true),
+    link(Prt6),
+    ?VERIFY_PMSGS(false),
+    unlink(Prt6),
+    ?VERIFY_PMSGS(false),
+    kill(PO6),
+
+    Mon6 = monitor(time_offset, clock_service, [priority]),
+    ?VERIFY_PMSGS(true),
+    demonitor(Mon6),
+    ?VERIFY_PMSGS(false),
+
+    try
+        _ = monitor(time_offset, not_clock_service, [priority]),
+        error(was_able_to_monitor_not_clock_service)
+    catch
+        error:badarg -> ok
+    end,
+    ?VERIFY_PMSGS(false),
+
+    try
+        _ = monitor(time_offset, not_clock_service, [priority]),
+        error(was_able_to_monitor_time_offset_at_not_clock_service)
+    catch
+        error:badarg -> ok
+    end,
+    ?VERIFY_PMSGS(false),
+
+    try
+        _ = monitor(blipp, blapp, [priority]),
+        error(was_able_to_monitor_blipp_blapp)
+    catch
+        error:badarg -> ok
+    end,
+    ?VERIFY_PMSGS(false),
+
+    ok;
+priority_messages_qmarkers_aux2(Node) ->
+    %% Node is remote...
+
+    ?VERIFY_PMSGS(false),
+
+    {PO1, Prt1} = mk_1sec_port(Node),
+    try
+        _ = monitor(port, Prt1, [priority]),
+        error(remote_port_monitor_success)
+    catch
+        error:badarg -> ok
+    end,
+    ?VERIFY_PMSGS(false),
+    kill(PO1),
+
+    {PO2, Prt2} = mk_1sec_port(Node),
+    Name2 = ?PMSG_NAME,
+    true = erpc:call(Node, erlang, register, [Name2, Prt2]),
+    try
+        _ = monitor(port, {Name2, Node}, [priority]),
+        error(remote_named_port_monitor_success)
+    catch
+        error:badarg -> ok
+    end,
+    ?VERIFY_PMSGS(false),
+    kill(PO2),
+
+    try
+        _ = monitor(port, {"invalid_name", Node}, [priority]),
+        error(remote_invalid_named_port_monitor_success)
+    catch
+        error:badarg -> ok
+    end,
+    ?VERIFY_PMSGS(false),
+
+    {PO3, Prt3} = mk_1sec_port(Node),
+    try
+        link(Prt3),
+        error(unexpected_link_success)
+    catch
+        error:badarg ->
+            ok
+    end,
+    ?VERIFY_PMSGS(false),
+    kill(PO3),
+
+    {ok, Peer2, Node2} = ?CT_PEER(#{args => ["-kernel", "connect_all", "false"]}),
+
+    ThisNode = node(),
+    ok = erpc:call(Node2, net_kernel, allow, [[ThisNode]]),
+    {ok, [ThisNode]} = erpc:call(Node2, net_kernel, allowed, []),
+    ok = erpc:call(Node2,
+                   fun () ->
+                           lists:foreach(fun (N) ->
+                                                 case N == ThisNode of
+                                                     true ->
+                                                         ok;
+                                                     false ->
+                                                         node_disconnect(N)
+                                                 end
+                                         end, nodes()),
+                           ok
+                   end),
+
+    SpawnReqErrTest =
+        fun (Opts, ExpPreVal) ->
+                ok = erpc:call(Node,
+                               fun () ->
+                                       ?VERIFY_PMSGS(false),
+                                       erlang:yield(),
+                                       RID1 = spawn_request(Node2,
+                                                            fun () -> ok end,
+                                                            Opts),
+                                       {priority_messages, PreVal1} =
+                                           erlang:process_info(self(), priority_messages),
+                                       case got_spawn_reply(RID1) of
+                                           false -> ExpPreVal = PreVal1;
+                                           true -> ignore
+                                       end,
+                                       receive
+                                           {spawn_reply, RID1, ResType1, Result1} ->
+                                               error = ResType1,
+                                               noconnection = Result1
+                                       end,
+                                       ?VERIFY_PMSGS(false),
+                                       erlang:yield(),
+                                       RID2 = spawn_request(Node2,
+                                                            fun () -> ok end,
+                                                            Opts),
+                                       {priority_messages, PreVal2} =
+                                           erlang:process_info(self(), priority_messages),
+                                       case erlang:spawn_request_abandon(RID2) of
+                                           true ->
+                                               ExpPreVal = PreVal2;
+                                           false ->
+                                               receive
+                                                   {spawn_reply, RID2, ResType2, Result2} ->
+                                                       error = ResType2,
+                                                       noconnection = Result2
+                                               end
+                                       end,
+                                       ?VERIFY_PMSGS(false),
+                                       ok
+                               end)
+        end,
+
+    SpawnReqErrTest([{monitor, [priority]}], true),
+    SpawnReqErrTest([{link, [priority]}], false),
+    SpawnReqErrTest([{monitor, [priority]}, {link, [priority]}], true),
+
+    peer:stop(Peer2),
+    ok.
+
+got_spawn_reply(ReqId) ->
+    {messages, Msgs} = process_info(self(), messages),
+    try
+        lists:foreach(fun ({spawn_reply, RID, _, _}) when RID == ReqId ->
+                              throw(true);
+                          (_) ->
+                              no
+                      end,
+                      Msgs),
+        false
+    catch
+        throw:Res ->
+            Res
+    end.
+
+mk_1sec_port(Node) ->
+    Me = self(),
+    PrtOwner = spawn_link(Node,
+                          fun () ->
+                                  Prt = case os:type() of
+                                            {win32,_} ->
+                                                open_port({spawn_executable,
+                                                           os:find_executable("cmd.exe")},
+                                                          [{args, ["/c", "timeout 1 > NUL"]}]);
+                                            _ ->
+                                                open_port({spawn_executable,
+                                                           os:find_executable("sleep")},
+                                                          [{args, ["1"]}])
+                                        end,
+                                  Me ! {self(), port, Prt},
+                                  receive
+                                      {'EXIT', Prt, Reason} ->
+                                          exit(Reason)
+                                  end
+                          end),
+    receive
+        {PrtOwner, port, Prt} ->
+            {PrtOwner, Prt}
+    end.
+
 %%
 %% -- Internal utils --------------------------------------------------------
 %%
+
+kill(Pid) ->
+    unlink(Pid),
+    exit(Pid, kill),
+    if node() == node(Pid) ->
+            false = is_process_alive(Pid);
+       true ->
+            Mon = monitor(process, Pid),
+            receive
+                {'DOWN', Mon, _, _, _} -> ok
+            end
+    end,
+    ok.
 
 node_disconnect(Node) ->
     erlang:disconnect_node(Node),
