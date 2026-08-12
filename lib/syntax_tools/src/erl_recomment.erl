@@ -123,9 +123,7 @@ recomment_forms(Tree, Cs, Insert) ->
 					  [set_node_subtrees(Node1,
 							     List1)]));
 	_ ->
-	    %% Not a form list - just call `recomment_tree' and
-	    %% append any leftover comments.
-	    {Tree1, Cs1} = recomment_tree(Tree, Cs),
+        {Tree1, Cs1} = insert_comments(Cs, build_tree(Tree)),
 	    revert_tree(append_comments(Cs1, Tree1))
     end.
 
