@@ -3598,7 +3598,6 @@ arity_qualifier(Body, Arity) ->
 Returns the body subtree of an `arity_qualifier` node.
 
 _See also: _`arity_qualifier/2`.
-```
 """.
 -spec arity_qualifier_body(syntaxTree()) -> syntaxTree().
 
@@ -8917,7 +8916,6 @@ it does not necessarily have the same data representation as `Node`.
 
 _See also: _`copy_attrs/2`, `is_leaf/1`, `subtrees/1`, `type/1`,
 `update_tree/2`.
-```
 """.
 -spec make_tree(atom(), [[syntaxTree()]]) -> syntaxTree().
 
@@ -9248,8 +9246,10 @@ _See also: _`tree/2`.
 ## Examples
 
 ```erlang
-1> T = erl_syntax:tree(example, [erl_syntax:atom(ok)]).
-2> D = erl_syntax:data(T).
+1> Data = [erl_syntax:atom(ok)].
+2> Tree = erl_syntax:tree(example, Data).
+3> Data =:= erl_syntax:data(Tree).
+true
 ```
 """.
 -spec data(syntaxTree()) -> term().

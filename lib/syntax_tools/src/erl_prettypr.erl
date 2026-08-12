@@ -875,7 +875,7 @@ lay_2(Node, Ctxt) ->
 	zip_generator ->
 	    Ctxt1 = reset_prec(Ctxt),
 	    par(seq(erl_syntax:zip_generator_body(Node),
-			 floating(text("&&")), Ctxt1,
+			 floating(text(" &&")), Ctxt1,
 			 fun lay/2));
 
 	implicit_fun ->
