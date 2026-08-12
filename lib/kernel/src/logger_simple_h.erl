@@ -22,6 +22,8 @@
 -module(logger_simple_h).
 -moduledoc false.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -export([adding_handler/1, removing_handler/1, log/2]).
 
 -behaviour(logger_handler).
