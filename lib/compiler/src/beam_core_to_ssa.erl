@@ -170,6 +170,7 @@ get_anno(#cg_select{anno=Anno}) -> Anno.
 module(#c_module{name=#c_literal{val=Mod},exports=Es,attrs=As,defs=Fs}, Options) ->
     %% Load modules with exported native records.
     _ = beam_ssa:module_info(module),
+    _ = beam_ssa_opt:module_info(module),
     _ = beam_types:module_info(module),
 
     Records = records(As),

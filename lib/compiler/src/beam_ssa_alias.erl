@@ -32,9 +32,16 @@
 %% information.
 -define(MAX_REPETITIONS, 16).
 
--include("beam_ssa_opt.hrl").
+-include("beam_ssa.hrl").
+
 -include("beam_types.hrl").
 -include("beam_ssa_alias_debug.hrl").
+
+-type func_id() :: beam_ssa_opt:func_id().
+-type func_info_db() :: beam_ssa_opt:func_info_db().
+-type st_map() :: beam_ssa_opt:st_map().
+
+-import_record(beam_ssa_opt, [func_info, opt_st]).
 
 -ifdef(DEBUG_ALIAS).
 -define(DP(FMT, ARGS), io:format(FMT, ARGS)).
