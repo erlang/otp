@@ -1240,13 +1240,19 @@ The following options are available:
 
   - **`raw | 0`** - No packaging is done.
 
-  - **`1 | 2 | 4`** - Packets consist of a header specifying the number of bytes
-    in the packet, followed by that number of bytes. The header length can be
-    one, two, or four bytes, and containing an unsigned integer in big-endian
-    byte order. Each send operation generates the header, and the header is
-    stripped off on each receive operation.
+  - **`1 | 2 | 3 | 4`** - Packets consist of a header specifying the number of
+    bytes in the packet, followed by that number of bytes. The header length can
+    be one, two, three, or four bytes and contains an unsigned integer in
+    big-endian byte order. Each send operation generates the header, and the
+    header is stripped off on each receive operation.
 
-    The 4-byte header is limited to 2Gb.
+    On receive, a 4-byte header and body must fit in the parser's signed
+    length. Sending retains the legacy unsigned 32-bit header range.
+
+  - **`{N, Endian}`** - Uses the same framing with a two-, three-, or four-byte
+    header, in the byte order specified by `Endian`, which can be `big`,
+    `little`, or `native`. `{N, big}` is equivalent to `N`; `native` uses the
+    native byte order of the runtime system.
 
   - **`asn1 | cdr | sunrm | fcgi | tpkt | line`** - These packet types only have
     effect on receiving. When sending a packet, it is the responsibility of the
@@ -4381,7 +4387,8 @@ info({'$inet', GenSocketMod, _} = S, F, Proto) when is_atom(GenSocketMod) ->
 	    end;
 	packet ->
 	    case GenSocketMod:which_packet_type(S) of
-		{ok, Type} -> atom_to_list(Type);
+                {ok, Type} when is_atom(Type) -> atom_to_list(Type);
+                {ok, Type} -> lists:flatten(io_lib:format("~p", [Type]));
 		_ -> " "
 	    end;
 	type ->
@@ -4437,6 +4444,7 @@ info(S, F, Proto) ->
 	    case prim_inet:getopt(S, packet) of
 		{ok,Type} when is_atom(Type) -> atom_to_list(Type);
 		{ok,Type} when is_integer(Type) -> integer_to_list(Type);
+                {ok,Type} -> lists:flatten(io_lib:format("~p", [Type]));
 		_ -> " "
 	    end;
 	type ->
