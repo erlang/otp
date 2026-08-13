@@ -415,8 +415,7 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         ClientALPN0 = maps:get(alpn, Extensions, undefined),
         ClientALPN = ssl_handshake:decode_alpn(ClientALPN0),
 
-        ClientSignAlgs = tls_handshake_1_3:get_signature_scheme_list(
-                           maps:get(signature_algs, Extensions, undefined)),
+        ClientSignAlgs = Maybe(tls_handshake_1_3:get_client_signatures(Extensions)),
         ClientSignAlgsCert = tls_handshake_1_3:get_signature_scheme_list(
                                maps:get(signature_algs_cert, Extensions, undefined)),
                CertAuths = tls_handshake_1_3:get_certificate_authorities(maps:get(certificate_authorities,

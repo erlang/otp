@@ -80,6 +80,8 @@
          get_pre_shared_key/4,
          get_pre_shared_key_early_data/2,
          get_supported_groups/1,
+         get_client_signatures/1,
+         generate_kex_keys/1,
          calculate_client_early_traffic_secret/5,
          calculate_client_early_traffic_secret/2,
          calculate_read_traffic_secrets/1,
@@ -1158,6 +1160,27 @@ get_supported_groups(undefined = Groups) ->
 get_supported_groups(#supported_groups{supported_groups = Groups}) ->
     {ok, Groups}.
 
+get_client_signatures(Extensions) ->
+    case maps:get(signature_algs, Extensions, undefined) of
+        undefined ->
+            {error, ?ALERT_REC(?FATAL, ?MISSING_EXTENSION, {signature_algs, Extensions})};
+        Value ->
+            {ok, get_signature_scheme_list(Value)}
+    end.
+
+generate_kex_keys(secp256r1) ->
+    public_key:generate_key({namedCurve, secp256r1});
+generate_kex_keys(secp384r1) ->
+    public_key:generate_key({namedCurve, secp384r1});
+generate_kex_keys(secp521r1) ->
+    public_key:generate_key({namedCurve, secp521r1});
+generate_kex_keys(x25519) ->
+    crypto:generate_key(ecdh, x25519);
+generate_kex_keys(x448) ->
+    crypto:generate_key(ecdh, x448);
+generate_kex_keys(FFDHE) ->
+    public_key:generate_key(ssl_dh_groups:dh_params(FFDHE)).
+
 choose_psk(undefined, _) ->
     undefined;
 choose_psk([], _) ->
@@ -1473,15 +1496,17 @@ verify_signature_algorithm(#state{
         true ->
             {ok, maybe_update_selected_sign_alg(State, PeerSignAlg, Role)};
         false ->
-            {error, {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
+            {error, {?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
                                 "CertificateVerify uses unsupported signature algorithm"), State}}
     end.
 
-
-maybe_update_selected_sign_alg(#state{session = Session} = State, SignAlg, client) ->
-    State#state{session = Session#session{sign_alg = SignAlg}};
-maybe_update_selected_sign_alg(State, _, _) ->
-    State.
+maybe_update_selected_sign_alg(State, _, client) ->
+    %% Client verifies the server's scheme but doesn't record it —
+    %% session.sign_alg holds the client's own signature algorithm
+    %% for its CertificateVerify.
+    State;
+maybe_update_selected_sign_alg(#state{session = Session} = State, SignAlg, server) ->
+    State#state{session = Session#session{sign_alg = SignAlg}}.
 
 context_string(server) ->
     <<"TLS 1.3, server CertificateVerify">>;

@@ -282,8 +282,9 @@ wait_sh(internal, #server_hello{session_id = ?EMPTY_ID} = Hello,
         {State1, wait_ee} ->
              tls_gen_connection:next_event(wait_ee, no_record, State1)
     end;
-wait_sh(internal, #server_hello{} = Hello,
-        #state{protocol_specific = PS,
+wait_sh(internal, #server_hello{session_id = SessionId} = Hello,
+        #state{session = #session{session_id = SessionId},
+               protocol_specific = PS,
                ssl_options = SSLOpts} = State0)
   when not is_map_key(middlebox_comp_mode, SSLOpts) ->
     IsRetry = maps:get(hello_retry, PS, false),
@@ -299,6 +300,15 @@ wait_sh(internal, #server_hello{} = Hello,
             tls_gen_connection:next_event(hello_middlebox_assert,
                                           no_record, State1)
     end;
+wait_sh(internal, #server_hello{},
+        #state{ssl_options = SSLOpts} = State0)
+  when not is_map_key(middlebox_comp_mode, SSLOpts) ->
+    %% RFC 8446 §4.1.3: legacy_session_id_echo does not match — abort.
+    Alert = ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, session_id_echo_mismatch),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_sh), State0);
+wait_sh(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_sh), State);
 wait_sh(info, Msg, State) ->
     tls_gen_connection:gen_info(Msg, ?STATE(wait_sh), State);
 wait_sh(Type, Msg, State) ->
@@ -415,8 +425,10 @@ wait_cv(internal,
           #certificate_verify_1_3{} = CertificateVerify, State0) ->
     {Ref,Maybe} = tls_gen_connection_1_3:do_maybe(),
     try
+        State1 = Maybe(tls_handshake_1_3:verify_signature_algorithm(State0,
+                                                                    CertificateVerify)),
         {State, NextState}
-            = Maybe(tls_handshake_1_3:verify_certificate_verify(State0,
+            = Maybe(tls_handshake_1_3:verify_certificate_verify(State1,
                                                                 CertificateVerify)),
         tls_gen_connection:next_event(NextState, no_record, State)
     catch
@@ -667,7 +679,9 @@ do_handle_exlusive_1_3_hello_or_hello_retry_request(
         %% alert.
         case KeyShare of
             #key_share_hello_retry_request{} ->
-                Maybe(validate_selected_group(SelectedGroup, ClientGroups));
+                OfferedKeyShareGroups = maps:get(psk_groups, SslOpts, [hd(ClientGroups)]),
+                Maybe(validate_selected_group(SelectedGroup, ClientGroups,
+                                              OfferedKeyShareGroups));
             _ ->
                 ok
         end,
@@ -763,6 +777,10 @@ handle_server_hello(#server_hello{cipher_suite = SelectedCipherSuite,
         ServerKeyShare = server_share(maps:get(key_share, Extensions)),
         ServerPreSharedKey = maps:get(pre_shared_key, Extensions, undefined),
 
+        %% RFC 8446 §4.1.4: If the version in the second ServerHello
+        %% differs from the HRR, abort with illegal_parameter.
+        Maybe(validate_server_version(Extensions)),
+
         %% Go to state 'start' if server replies with 'HelloRetryRequest'.
         Maybe(tls_handshake_1_3:maybe_hello_retry_request(ServerHello, State0)),
 
@@ -816,7 +834,7 @@ handle_encrypted_extensions(Extensions, State0) ->
     {Ref, Maybe} = tls_gen_connection_1_3:do_maybe(),
     try
         ALPNProtocol0 = maps:get(alpn, Extensions, undefined),
-        ALPNProtocol = decode_alpn(ALPNProtocol0),
+        ALPNProtocol = Maybe(decode_alpn(ALPNProtocol0)),
         EarlyDataIndication = maps:get(early_data, Extensions, undefined),
 
         %% RFC 6066: handle received/expected maximum fragment length
@@ -1005,10 +1023,14 @@ maybe_queue_cert_verify(_Certificate,
     end.
 
 decode_alpn(undefined) ->
-    undefined;
+    {ok, undefined};
 decode_alpn(Encoded) ->
-    [Decoded] = ssl_handshake:decode_alpn(Encoded),
-    Decoded.
+    case ssl_handshake:decode_alpn(Encoded) of
+        [Decoded] ->
+            {ok, Decoded};
+        _  ->
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, invalid_alpn)}
+    end.
 
 %% Verify that selected group is offered by the client.
 validate_server_key_share([], _) ->
@@ -1019,14 +1041,38 @@ validate_server_key_share([_|ClientGroups], #key_share_entry{} = ServerKeyShare)
     validate_server_key_share(ClientGroups, ServerKeyShare).
 
 
-validate_selected_group(SelectedGroup, [SelectedGroup|_]) ->
-    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
-                       "Selected group sent by the server shall not correspond to a group"
-                       " which was provided in the key_share extension")};
-validate_selected_group(SelectedGroup, ClientGroups) ->
-    case lists:member(SelectedGroup, ClientGroups) of
-        true ->
+%% RFC 8446 §4.1.4: supported_versions in the ServerHello must be TLS 1.3.
+validate_server_version(Extensions) ->
+    case maps:get(server_hello_selected_version, Extensions, undefined) of
+        #server_hello_selected_version{selected_version = ?TLS_1_3} ->
             ok;
+        undefined ->
+            %% Missing supported_versions — not a valid TLS 1.3 ServerHello
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
+                               "ServerHello missing supported_versions extension")};
+        _ ->
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
+                               "ServerHello supported_versions changed after HelloRetryRequest")}
+    end.
+
+validate_selected_group(undefined, _, _) ->
+    %% HRR with no key_share and no cookie — RFC 8446 §4.1.4 violation
+    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
+                       "HelloRetryRequest contains neither key_share nor cookie")};
+validate_selected_group(SelectedGroup, SupportedGroups, OfferedKeyShareGroups) ->
+    %% RFC 8446 §4.2.8:
+    %% (1) selected_group MUST be in supported_groups
+    %% (2) selected_group MUST NOT already be in the offered key_share
+    case lists:member(SelectedGroup, SupportedGroups) of
+        true ->
+            case lists:member(SelectedGroup, OfferedKeyShareGroups) of
+                true ->
+                    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
+                                       "Selected group sent by the server shall not correspond to a group"
+                                       " which was provided in the key_share extension")};
+                false ->
+                    ok
+            end;
         false ->
             {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
                                "Selected group sent by the server shall correspond to a group"
