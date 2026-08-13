@@ -729,6 +729,11 @@ downgrade(Type, Event, State) ->
 %%====================================================================
 %%  Event/Msg handling
 %%====================================================================
+handle_common_event(internal, {handshake, {#hello_request{}, _Raw}}, StateName,
+                    #state{static_env = #static_env{role = client}})
+  when StateName =/= connection ->
+    %%  %% RFC 5246 §7.4.1.1: Ignore this message client is already in negotiation
+    keep_state_and_data;
 handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName,
 		    #state{handshake_env = #handshake_env{tls_handshake_history = Hist0} = HsEnv,
                            connection_env = #connection_env{negotiated_version = _Version}} = State0) ->
