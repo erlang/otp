@@ -256,6 +256,11 @@ parse_headers(<<?LF, Octet, Rest/binary>>, Header, Headers, Current, Max,
     %% If ?CR is is missing RFC2616 section-19.3 
     parse_headers(<<?CR,?LF, Octet, Rest/binary>>, Header, Headers, Current, Max,
 		  Options, Result); 
+parse_headers(<<?CR, ?LF, Obs:8, _/binary>>, _, _, _, _, _, Result) when
+          Obs =:= ?SP;
+          Obs =:= ?TAB ->
+        HttpVersion = lists:nth(3, lists:reverse(Result)),
+        {error, {bad_request, 400, "obs-fold not supported"}, HttpVersion};
 parse_headers(<<?CR,?LF, Octet, Rest/binary>>, Header, Headers, Current, Max,
 	      Options, Result) ->
     case http_request:key_value(lists:reverse(Header)) of
