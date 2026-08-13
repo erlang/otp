@@ -24,7 +24,7 @@
 	 init_per_testcase/2, end_per_testcase/2,
 	 init_per_group/2,end_per_group/2]).
 
--export([interval_1/1, seed0/1, seed/1]).
+-export([interval_1/1, seed0/1, seed/1, doctests/1]).
 
 
 -include_lib("common_test/include/ct.hrl").
@@ -39,8 +39,8 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
 
-all() -> 
-    [interval_1, seed0, seed].
+all() ->
+    [interval_1, seed0, seed, doctests].
 
 groups() -> 
     [].
@@ -116,3 +116,6 @@ check_interval(N, Top) ->
 	    ok
     end,
     check_interval(N-1, Top).
+
+doctests(_Config) ->
+    ct_doctest:module(random, [{skipped_blocks, 0}, {missing_tests, []}]).
