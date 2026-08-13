@@ -12900,8 +12900,12 @@ static int packet_header_length(tcp_descriptor *desc) {
      * Set hlen to the minimal header bytes, for starters.
      */
     case TCP_PB_1:          hlen = 1; break;
-    case TCP_PB_2:          hlen = 2; break;
-    case TCP_PB_4:          hlen = 4; break;
+    case TCP_PB_2_BIG:      hlen = 2; break;
+    case TCP_PB_2_LITTLE:   hlen = 2; break;
+    case TCP_PB_3_BIG:      hlen = 3; break;
+    case TCP_PB_3_LITTLE:   hlen = 3; break;
+    case TCP_PB_4_BIG:      hlen = 4; break;
+    case TCP_PB_4_LITTLE:   hlen = 4; break;
     case TCP_PB_RM:         hlen = 4; break;
     case TCP_PB_ASN1:       hlen = 2; break;
     case TCP_PB_SSL_TLS:    hlen = 5; break;
@@ -13738,18 +13742,39 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
          put_int8(len, buf);
          h_len = 1;
          break;
-     case TCP_PB_2:
+     case TCP_PB_2_BIG:
          put_int16(len, buf);
          h_len = 2;
          break;
-     case TCP_PB_4:
+     case TCP_PB_2_LITTLE:
+         put_little_int16(len, buf);
+         h_len = 2;
+         break;
+     case TCP_PB_3_BIG:
+         put_int24(len, buf);
+         h_len = 3;
+         break;
+     case TCP_PB_3_LITTLE:
+         put_little_int24(len, buf);
+         h_len = 3;
+         break;
+     case TCP_PB_4_BIG:
          put_int32(len, buf);
+         h_len = 4;
+         break;
+     case TCP_PB_4_LITTLE:
+         put_little_int32(len, buf);
          h_len = 4;
          break;
      default:
          h_len = 0;
          break;
      }
+
+    if (h_len > 0 && (Uint64) len >= ((Uint64) 1 << (h_len * 8))) {
+        inet_reply_error(INETP(desc), EMSGSIZE);
+        return 1;
+    }
 
     inet_output_count(INETP(desc), len+h_len);
 
@@ -13854,17 +13879,38 @@ static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len)
 	put_int8(len, buf);
 	h_len = 1;
 	break;
-    case TCP_PB_2: 
+    case TCP_PB_2_BIG:
 	put_int16(len, buf);
 	h_len = 2; 
 	break;
-    case TCP_PB_4: 
+    case TCP_PB_2_LITTLE:
+        put_little_int16(len, buf);
+        h_len = 2;
+        break;
+    case TCP_PB_3_BIG:
+        put_int24(len, buf);
+        h_len = 3;
+        break;
+    case TCP_PB_3_LITTLE:
+        put_little_int24(len, buf);
+        h_len = 3;
+        break;
+    case TCP_PB_4_BIG:
 	put_int32(len, buf);
 	h_len = 4; 
 	break;
+    case TCP_PB_4_LITTLE:
+        put_little_int32(len, buf);
+        h_len = 4;
+        break;
     default:
 	h_len = 0;
 	break;
+    }
+
+    if (h_len > 0 && (Uint64) len >= ((Uint64) 1 << (h_len * 8))) {
+        inet_reply_error(INETP(desc), EMSGSIZE);
+        return 1;
     }
 
     inet_output_count(INETP(desc), len+h_len);

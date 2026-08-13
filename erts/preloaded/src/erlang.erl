@@ -1814,10 +1814,15 @@ returned.
 - **`raw | 0`** - No packet handling is done. The entire binary is returned
   unless it is empty.
 
-- **`1 | 2 | 4`** - Packets consist of a header specifying the number of bytes
-  in the packet, followed by that number of bytes. The length of the header can
-  be one, two, or four bytes; the order of the bytes is big-endian. The header
-  is stripped off when the packet is returned.
+- **`1 | 2 | 3 | 4`** - Packets consist of a header specifying the number of
+  bytes in the packet, followed by that number of bytes. The length of the
+  header can be one, two, three, or four bytes; the order of the bytes is
+  big-endian. The header is stripped off when the packet is returned.
+
+- **`{N, Endian}`** - Uses the same framing with a two-, three-, or four-byte
+  header, in the byte order specified by `Endian`, which can be `big`, `little`,
+  or `native`. `{N, big}` is equivalent to `N`; `native` uses the native byte
+  order of the runtime system.
 
 - **`line`** - A packet is a line-terminated by a delimiter byte, default is the
   latin-1 newline character. The delimiter byte is included in the returned
@@ -1890,8 +1895,10 @@ Options:
                                   {ok, Packet, Rest} |
                                   {more, Length} |
                                   {error, Reason} when
-      Type :: 'raw' | 0 | 1 | 2 | 4 | 'asn1' | 'cdr' | 'sunrm' | 'fcgi'
-            | 'tpkt' | 'line' | 'http' | 'http_bin' | 'httph' | 'httph_bin',
+      Type :: 'raw' | 0 | 1 | 2 | 3 | 4
+            | {N :: 2 | 3 | 4, Endian :: big | little | native}
+            | 'asn1' | 'cdr' | 'sunrm' | 'fcgi' | 'tpkt' | 'line'
+            | 'http' | 'http_bin' | 'httph' | 'httph_bin',
       Bin :: binary(),
       Options :: [Opt],
       Opt :: {packet_size, non_neg_integer()}
