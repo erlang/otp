@@ -339,9 +339,19 @@ session_id_tracker(ListenSocket, _) ->
 get_emulated_opts(TrackerPid) ->
     call(TrackerPid, get_emulated_opts).
 set_emulated_opts(TrackerPid, InetValues) ->
+    validate_listener_packet_options(InetValues),
     call(TrackerPid, {set_emulated_opts, InetValues}).
 accept_options(TrackerPid) ->
     call(TrackerPid, accept_options).
+
+validate_listener_packet_options([{packet, Value} | Rest])
+  when is_tuple(Value) ->
+    validate_inet_option(packet, Value),
+    validate_listener_packet_options(Rest);
+validate_listener_packet_options([_ | Rest]) ->
+    validate_listener_packet_options(Rest);
+validate_listener_packet_options([]) ->
+    ok.
 
 %%====================================================================
 %% ssl_listen_tracker_sup API
@@ -570,6 +580,10 @@ emulated_options([], Inet,Emulated) ->
 validate_inet_option(mode, Value)
   when Value =/= list, Value =/= binary ->
     throw({error, {options, {mode,Value}}});
+validate_inet_option(packet, {N, Endian})
+  when (N =:= 2 orelse N =:= 3 orelse N =:= 4),
+       (Endian =:= big orelse Endian =:= little orelse Endian =:= native) ->
+    ok;
 validate_inet_option(packet, Value)
   when not (is_atom(Value) orelse is_integer(Value)) ->
     throw({error, {options, {packet,Value}}});
