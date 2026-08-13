@@ -12899,36 +12899,20 @@ static int packet_header_length(tcp_descriptor *desc) {
     if (! (desc->tcp_add_flags & TCP_ADDF_NO_READ_AHEAD))
         return 0;  /* Read ahead */
 
-    switch (desc->inet.htype) {
-    case TCP_PB_RAW:
-        return 0;
-
     /* Return how many more bytes we should read to make
      * packet_get_length() return the packet length.
      *
      * Set hlen to the minimal header bytes, for starters.
      */
-    case TCP_PB_1:          hlen = 1; break;
-    case TCP_PB_2:          hlen = 2; break;
-    case TCP_PB_4:          hlen = 4; break;
-    case TCP_PB_RM:         hlen = 4; break;
-    case TCP_PB_ASN1:       hlen = 2; break;
-    case TCP_PB_SSL_TLS:    hlen = 5; break;
-    case TCP_PB_CDR:        hlen = 12; break;
-    case TCP_PB_FCGI:       hlen = sizeof(struct fcgi_head); break;
-    case TCP_PB_TPKT:       hlen = 4; break;
-    default:
+    hlen = PACKET_PARSE_TYPE_HEADER_LEN(desc->inet.htype);
+    if (hlen == 0) {
+        if (desc->inet.htype == TCP_PB_RAW)
+            return 0;
         /* We should always be able to read another byte
          * to see if we then can deduce the packet length.
          * Note that for line mode packet formats,
          * not a length in a header, this is very inefficient,
          * but there is no other way to not read ahead.
-         * For TCP_PB_ASN1 it is also inefficient, but we
-         * would have to re-implement quite some decoding rules
-         * here to figure out a better value that probably isn't
-         * that much better since some field have to be read one byte
-         * at the time to find the end of the field.
-         *
          * Just don't combine TCP_ADDF_NO_READ_AHEAD
          * with non-suitable packet types.
          */
@@ -13730,6 +13714,47 @@ static int tcp_inet_delay_send(ErlDrvData data, ErlDrvTermData dummy)
     return tcp_inet_output(desc, (HANDLE) INETP(desc)->s);
 }
 
+static int
+tcp_packet_header(enum PacketParseType htype,
+                  char *buf,
+                  ErlDrvSizeT len,
+                  int *h_len)
+{
+    *h_len = PACKET_PARSE_TYPE_HEADER_LEN(htype);
+
+    switch (htype) {
+    case TCP_PB_1:
+        put_int8(len, buf);
+        break;
+    case TCP_PB_2_BIG:
+        put_int16(len, buf);
+        break;
+    case TCP_PB_2_LITTLE:
+        put_little_int16(len, buf);
+        break;
+    case TCP_PB_3_BIG:
+        put_int24(len, buf);
+        break;
+    case TCP_PB_3_LITTLE:
+        put_little_int24(len, buf);
+        break;
+    case TCP_PB_4_BIG:
+        put_int32(len, buf);
+        break;
+    case TCP_PB_4_LITTLE:
+        put_little_int32(len, buf);
+        break;
+    default:
+        *h_len = 0;
+        return 1;
+    }
+
+    if ((Uint64) len >= ((Uint64) 1 << (*h_len * 8)))
+        return 0;
+
+    return 1;
+}
+
 /*
 ** Send non-blocking vector data
 */
@@ -13738,27 +13763,17 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
     ErlDrvSizeT sz;
     char buf[4];
     ErlDrvSizeT h_len;
+    int packet_header_len;
     ssize_t n;
     ErlDrvPort ix = desc->inet.port;
     ErlDrvSizeT len = ev->size;
 
-     switch(desc->inet.htype) {
-     case TCP_PB_1:
-         put_int8(len, buf);
-         h_len = 1;
-         break;
-     case TCP_PB_2:
-         put_int16(len, buf);
-         h_len = 2;
-         break;
-     case TCP_PB_4:
-         put_int32(len, buf);
-         h_len = 4;
-         break;
-     default:
-         h_len = 0;
-         break;
-     }
+    if (!tcp_packet_header(desc->inet.htype, buf, len,
+                           &packet_header_len)) {
+        inet_reply_error(INETP(desc), EMSGSIZE);
+        return 1;
+    }
+    h_len = packet_header_len;
 
     inet_output_count(INETP(desc), len+h_len);
 
@@ -13858,22 +13873,9 @@ static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len)
     ErlDrvPort ix = desc->inet.port;
     SysIOVec iov[2];
 
-    switch(desc->inet.htype) {
-    case TCP_PB_1: 
-	put_int8(len, buf);
-	h_len = 1;
-	break;
-    case TCP_PB_2: 
-	put_int16(len, buf);
-	h_len = 2; 
-	break;
-    case TCP_PB_4: 
-	put_int32(len, buf);
-	h_len = 4; 
-	break;
-    default:
-	h_len = 0;
-	break;
+    if (!tcp_packet_header(desc->inet.htype, buf, len, &h_len)) {
+        inet_reply_error(INETP(desc), EMSGSIZE);
+        return 1;
     }
 
     inet_output_count(INETP(desc), len+h_len);

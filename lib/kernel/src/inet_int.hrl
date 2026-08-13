@@ -212,22 +212,28 @@
 -define(INET_IFOPT_FLAGS,     6).
 -define(INET_IFOPT_HWADDR,    7). %% where support (e.g linux)
 
-%% packet byte values, INET_LOPT_PACKET
--define(TCP_PB_RAW,     0).
--define(TCP_PB_1,       1).
--define(TCP_PB_2,       2).
--define(TCP_PB_4,       3).
--define(TCP_PB_ASN1,    4).
--define(TCP_PB_RM,      5).
--define(TCP_PB_CDR,     6).
--define(TCP_PB_FCGI,    7).
--define(TCP_PB_LINE_LF, 8).
--define(TCP_PB_TPKT,    9).
--define(TCP_PB_HTTP,    10).
--define(TCP_PB_HTTPH,   11).
--define(TCP_PB_SSL_TLS, 12).
--define(TCP_PB_HTTP_BIN,13).
--define(TCP_PB_HTTPH_BIN,14).
+%% Keep in sync with enum PacketParseType in packet_parser.h.
+-define(PACKET_PARSE_TYPE(Type, HeaderLen), (((Type) bsl 16) bor (HeaderLen))).
+
+-define(TCP_PB_RAW,         ?PACKET_PARSE_TYPE(0, 0)).
+-define(TCP_PB_1,           ?PACKET_PARSE_TYPE(1, 1)).
+-define(TCP_PB_2_BIG,       ?PACKET_PARSE_TYPE(2, 2)).
+-define(TCP_PB_4_BIG,       ?PACKET_PARSE_TYPE(3, 4)).
+-define(TCP_PB_ASN1,        ?PACKET_PARSE_TYPE(4, 2)).
+-define(TCP_PB_RM,          ?PACKET_PARSE_TYPE(5, 4)).
+-define(TCP_PB_CDR,         ?PACKET_PARSE_TYPE(6, 12)).
+-define(TCP_PB_FCGI,        ?PACKET_PARSE_TYPE(7, 8)).
+-define(TCP_PB_LINE_LF,     ?PACKET_PARSE_TYPE(8, 0)).
+-define(TCP_PB_TPKT,        ?PACKET_PARSE_TYPE(9, 4)).
+-define(TCP_PB_HTTP,        ?PACKET_PARSE_TYPE(10, 0)).
+-define(TCP_PB_HTTPH,       ?PACKET_PARSE_TYPE(11, 0)).
+-define(TCP_PB_SSL_TLS,     ?PACKET_PARSE_TYPE(12, 5)).
+-define(TCP_PB_HTTP_BIN,    ?PACKET_PARSE_TYPE(13, 0)).
+-define(TCP_PB_HTTPH_BIN,   ?PACKET_PARSE_TYPE(14, 0)).
+-define(TCP_PB_2_LITTLE,    ?PACKET_PARSE_TYPE(15, 2)).
+-define(TCP_PB_3_BIG,       ?PACKET_PARSE_TYPE(16, 3)).
+-define(TCP_PB_3_LITTLE,    ?PACKET_PARSE_TYPE(17, 3)).
+-define(TCP_PB_4_LITTLE,    ?PACKET_PARSE_TYPE(18, 4)).
 
 
 %% getstat, INET_REQ_GETSTAT

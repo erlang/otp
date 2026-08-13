@@ -252,7 +252,11 @@ int packet_get_length(enum PacketParseType htype,
                       char     delimiter,    /* Line delimiting character */
                       int*     statep)       /* Protocol specific state */
 {
-    unsigned hlen, plen;
+    unsigned hlen = PACKET_PARSE_TYPE_HEADER_LEN(htype);
+    unsigned plen;
+
+    if (n < hlen)
+        goto more;
 
     switch (htype) {
     case TCP_PB_RAW:
@@ -264,31 +268,43 @@ int packet_get_length(enum PacketParseType htype,
 
     case TCP_PB_1:
         /* TCP_PB_1:    [L0 | Data] */
-        hlen = 1;
-        if (n < hlen) goto more;
         plen = get_int8(ptr);
-        goto remain;
+        break;
 
-    case TCP_PB_2:
-        /* TCP_PB_2:    [L1,L0 | Data] */
-        hlen = 2;
-        if (n < hlen) goto more;
+    case TCP_PB_2_BIG:
+        /* TCP_PB_2_BIG: [L1,L0 | Data] */
         plen = get_int16(ptr);
-        goto remain;
+        break;
 
-    case TCP_PB_4:
-        /* TCP_PB_4:    [L3,L2,L1,L0 | Data] */
-        hlen = 4;
-        if (n < hlen) goto more;
+    case TCP_PB_2_LITTLE:
+        /* TCP_PB_2_LITTLE: [L0,L1 | Data] */
+        plen = get_little_int16(ptr);
+        break;
+
+    case TCP_PB_3_BIG:
+        /* TCP_PB_3_BIG: [L2,L1,L0 | Data] */
+        plen = get_int24(ptr);
+        break;
+
+    case TCP_PB_3_LITTLE:
+        /* TCP_PB_3_LITTLE: [L0,L1,L2 | Data] */
+        plen = get_little_int24(ptr);
+        break;
+
+    case TCP_PB_4_BIG:
+        /* TCP_PB_4_BIG: [L3,L2,L1,L0 | Data] */
         plen = get_int32(ptr);
-        goto remain;
+        break;
+
+    case TCP_PB_4_LITTLE:
+        /* TCP_PB_4_LITTLE: [L0,L1,L2,L3 | Data] */
+        plen = get_little_uint32(ptr);
+        break;
 
     case TCP_PB_RM:
         /* TCP_PB_RM:    [L3,L2,L1,L0 | Data] 
         ** where MSB (bit) is used to signal end of record
         */
-        hlen = 4;
-        if (n < hlen) goto more;
         plen = get_int32(ptr) & 0x7fffffff;
         goto remain;
 
@@ -327,7 +343,6 @@ int packet_get_length(enum PacketParseType htype,
         int length;
         int nn = n;
         
-        if (n < 2) goto more;
         nn--;
         if ((*tptr++ & 0x1f) == 0x1f) { /* Long tag format */
             while (nn && ((*tptr & 0x80) == 0x80)) {
@@ -364,8 +379,6 @@ int packet_get_length(enum PacketParseType htype,
     
     case TCP_PB_CDR: {
         const struct cdr_head* hp;
-        hlen = sizeof(struct cdr_head);
-        if (n < hlen) goto more;
         hp = (struct cdr_head*) ptr;
         if (sys_memcmp(hp->magic, CDR_MAGIC, 4) != 0)
             goto error;
@@ -378,8 +391,6 @@ int packet_get_length(enum PacketParseType htype,
     
     case TCP_PB_FCGI: {
         const struct fcgi_head* hp;
-        hlen = sizeof(struct fcgi_head);
-        if (n < hlen) goto more;
         hp = (struct fcgi_head*) ptr;
         if (hp->version != FCGI_VERSION_1)
                 goto error;
@@ -450,9 +461,6 @@ int packet_get_length(enum PacketParseType htype,
         }
     case TCP_PB_TPKT: {
         const struct tpkt_head* hp;
-        hlen = sizeof(struct tpkt_head);
-        if (n < hlen)
-            goto more;
         hp = (struct tpkt_head*) ptr;
         if (hp->vrsn == TPKT_VRSN) {
             plen = get_int16(hp->packet_length) - hlen;
@@ -463,8 +471,6 @@ int packet_get_length(enum PacketParseType htype,
     }
     
     case TCP_PB_SSL_TLS:
-        hlen = 5;
-        if (n < hlen) goto more;        
         if ((ptr[0] & 0x80) && ptr[2] == 1) {
             /* Ssl-v2 Client hello <<1:1, Len:15, 1:8, Version:16>>  */
             plen = (get_int16(&ptr[0]) & 0x7fff) - 3;
@@ -480,9 +486,6 @@ int packet_get_length(enum PacketParseType htype,
         return -1;
     }
 
-more:
-    return 0;
-
 remain:
     ASSERT(INT_MAX >= hlen);
     if (max_plen == 0) {
@@ -492,6 +495,9 @@ remain:
         return -1;
     }
     return hlen + plen;
+
+more:
+    return 0;
 
 done:
     return plen;
