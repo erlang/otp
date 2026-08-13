@@ -3160,12 +3160,15 @@ decode_extensions(<<?UINT16(?SUPPORTED_VERSIONS_EXT), ?UINT16(Len),
                                   versions = decode_versions(Versions)}});
 
 decode_extensions(<<?UINT16(?SUPPORTED_VERSIONS_EXT), ?UINT16(Len),
-                       ?UINT16(SelectedVersion), Rest/binary>>, Version, MessageType, Acc)
-  when Len =:= 2, SelectedVersion =:= 16#0304 ->
+                       ?BYTE(Major), ?BYTE(Minor), Rest/binary>>, Version, MessageType, Acc)
+  when Len =:= 2 ->
     assert_unique_extension(server_hello_selected_version, Acc),
+    %% Decode any version — RFC 8446 §4.2.1 requires the client to
+    %% abort with illegal_parameter if this is not TLS 1.3; that check
+    %% is performed downstream in validate_server_version/1.
     decode_extensions(Rest, Version, MessageType,
                       Acc#{server_hello_selected_version =>
-                               #server_hello_selected_version{selected_version = ?TLS_1_3}});
+                               #server_hello_selected_version{selected_version = {Major, Minor}}});
 
 decode_extensions(<<?UINT16(?KEY_SHARE_EXT), ?UINT16(Len),
                        ExtData:Len/binary, Rest/binary>>,
@@ -3214,6 +3217,15 @@ decode_extensions(<<?UINT16(?PRE_SHARED_KEY_EXT), ?UINT16(Len),
                   Version, MessageType = client_hello, Acc) ->
     <<?UINT16(IdLen),Identities:IdLen/binary,?UINT16(BLen),Binders:BLen/binary>> = ExtData,
     assert_unique_extension(pre_shared_key, Acc),
+    %% RFC 8446 §4.2.11: pre_shared_key MUST be the last extension in
+    %% the ClientHello.  Abort if trailing data follows.
+    case Rest of
+        <<>> ->
+            ok;
+        _ ->
+            throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
+                             pre_shared_key_not_last_extension))
+    end,
     decode_extensions(Rest, Version, MessageType,
                       Acc#{pre_shared_key =>
                                #pre_shared_key_client_hello{
