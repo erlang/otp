@@ -133,7 +133,9 @@ groups() ->
                  post_204,
                  chunked_invalid_chunk_size,
                  multiple_content_length_header]},
-     {basic_auth, [], [basic_auth_1_1, basic_auth_1_0, verify_href_1_1]},
+     {basic_auth, [], [basic_auth_1_1, basic_auth_1_0, verify_href_1_1,
+                      double_slash_auth_bypass, case_insensitive_auth_bypass,
+                      auth_path_canonicalization]},
      {auth_api, [], [auth_api_1_1, auth_api_1_0]},
      {auth_api_dets, [], [auth_api_1_1, auth_api_1_0]},
      {auth_api_mnesia, [], [auth_api_1_1, auth_api_1_0]},
@@ -611,6 +613,97 @@ verify_href(Config) when is_list(Config) ->
          end,
     {ok, Hrefs} = Go("/open/", "Aladdin", "AladdinPassword", [{statuscode, 200}, {fetch_hrefs, true}]),
     [ok = Go(H, "one", "onePassword", [{statuscode, 200}]) || H <- Hrefs],
+    ok.
+
+%%--------------------------------------------------------------------
+%% Test that double slashes in the request path do not bypass
+%% mod_auth directory protection (CVE-2026-28808 related).
+%%--------------------------------------------------------------------
+double_slash_auth_bypass() ->
+    [{doc, "Verify that // in request path does not bypass mod_auth"}].
+
+double_slash_auth_bypass(Config) when is_list(Config) ->
+    Version = proplists:get_value(http_version, Config),
+    Host = proplists:get_value(host, Config),
+    %% Without credentials, all these variants must return 401
+    %% (protected by mod_auth directory config for /open/).
+    Paths = [
+        "/open/dummy.html",        %% normal path (baseline)
+        "//open/dummy.html",       %% leading double slash
+        "/open//dummy.html",       %% double slash inside path
+        "///open///dummy.html",    %% triple slashes
+        "/open/./dummy.html"       %% dot segment (should still match)
+    ],
+    [ok = http_status("GET " ++ Path ++ " ", Config,
+                      [{statuscode, 401},
+                       {header, "WWW-Authenticate"}])
+     || Path <- Paths],
+    %% With valid credentials, the same paths must return 200.
+    [ok = auth_status(auth_request(Path, "one", "onePassword", Version, Host),
+                      Config, [{statuscode, 200}])
+     || Path <- Paths],
+    %% Also verify /secret/ with double-slash variants.
+    SecretPaths = [
+        "//secret/dummy.html",
+        "/secret//dummy.html",
+        "///secret/dummy.html"
+    ],
+    [ok = http_status("GET " ++ Path ++ " ", Config,
+                      [{statuscode, 401},
+                       {header, "WWW-Authenticate"}])
+     || Path <- SecretPaths],
+    ok.
+
+%%--------------------------------------------------------------------
+%% Test that case variations in the request path do not bypass
+%% mod_auth directory protection on case-insensitive filesystems.
+%% On Linux (case-sensitive FS) the file won't be found, but the
+%% auth check must still trigger (401) rather than being skipped.
+%%--------------------------------------------------------------------
+case_insensitive_auth_bypass() ->
+    [{doc, "Verify that case variations in path do not bypass mod_auth"}].
+
+case_insensitive_auth_bypass(Config) when is_list(Config) ->
+    %% Without credentials, case-varied paths to protected dirs must
+    %% return 401 (auth required), NOT 404 or 200.
+    %% The caseless flag in mod_auth ensures the directory regex matches
+    %% regardless of case.
+    Paths = [
+        "/Open/dummy.html",        %% capital O
+        "/OPEN/dummy.html",        %% all caps
+        "/Secret/dummy.html",      %% capital S
+        "/SECRET/dummy.html",      %% all caps
+        "/sEcReT/dummy.html"       %% mixed case
+    ],
+    [ok = http_status("GET " ++ Path ++ " ", Config,
+                      [{statuscode, 401},
+                       {header, "WWW-Authenticate"}])
+     || Path <- Paths],
+    ok.
+
+%%--------------------------------------------------------------------
+%% Unit test for httpd_util:collapse_slashes/1
+%%--------------------------------------------------------------------
+auth_path_canonicalization() ->
+    [{doc, "Unit test for httpd_util:collapse_slashes/1"}].
+
+auth_path_canonicalization(Config) when is_list(Config) ->
+    %% Basic collapse cases
+    "/" = httpd_util:collapse_slashes("/"),
+    "/a/b/c" = httpd_util:collapse_slashes("/a/b/c"),
+    "/a/b/c" = httpd_util:collapse_slashes("//a//b//c"),
+    "/a/b/c/" = httpd_util:collapse_slashes("///a///b///c/"),
+    "/open/dummy.html" = httpd_util:collapse_slashes("//open//dummy.html"),
+    "/secret/top_secret/" = httpd_util:collapse_slashes("/secret//top_secret//"),
+    %% Empty string
+    "" = httpd_util:collapse_slashes(""),
+    %% No slashes at all
+    "abc" = httpd_util:collapse_slashes("abc"),
+    %% Single slash preserved
+    "/" = httpd_util:collapse_slashes("//"),
+    "/" = httpd_util:collapse_slashes("///"),
+    %% Mixed content
+    "/foo/bar/baz" = httpd_util:collapse_slashes("/foo///bar//baz"),
     ok.
 
 auth_api_1_1(Config) when is_list(Config) -> 
