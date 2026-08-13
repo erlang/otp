@@ -34,7 +34,7 @@ suite() -> [{ct_hooks,[ts_install_cth]},
 	    {timetrap, {seconds, 30}}].
 
 all() -> 
-    [{group, httpd_basic}].
+    [{group, httpd_basic}, max_clients_default].
 
 groups() -> 
     [{httpd_basic, [parallel], [uri_too_long_414,
@@ -101,6 +101,7 @@ DUMMY
     {ok, Fd}  = file:open(DummyFile, [write]),
     ok        = file:write(Fd, Dummy),
     ok        = file:close(Fd), 
+    {ok,_}    = file:copy(DummyFile, filename:join([PrivDir,"index.html"])),
     HttpdConf = [{port,          0}, 
 		 {ipfamily,      inet}, 
 		 {server_name,   "httpd_test"}, 
@@ -403,6 +404,19 @@ invalid_rfc1123_date(Config) when is_list(Config) ->
     NonDSTDateTime = {{2017, 03, 26},{1, 0, 0}},
     Rfc1123FormattedDate =:= httpd_util:rfc1123_date(NonDSTDateTime).
 
+%%-------------------------------------------------------------------------
+
+max_clients_default(Config) when is_list(Config) -> 
+    HttpdConf = proplists:get_value(httpd_conf, Config),
+    {ok, Pid} = inets:start(httpd, [{port, 0} | HttpdConf]),
+    Port      = proplists:get_value(port, httpd:info(Pid)),
+    HttpdClient = [{host, "localhost"}, {type, ip_comm}, {port, Port} | Config],
+    try
+        httpd_SUITE:do_max_clients([{http_version, "HTTP/1.1"} | HttpdClient], 150),
+        httpd_SUITE:do_max_clients([{http_version, "HTTP/1.0"} | HttpdClient], 150)
+    after
+        inets:stop(httpd, Pid)
+    end.
 
 %%-------------------------------------------------------------------------
 
