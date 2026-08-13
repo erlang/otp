@@ -3905,7 +3905,8 @@ handle_renegotiation_info(_, _RecordCB, _, #renegotiation_info{renegotiated_conn
 			  ConnectionStates, false, _, _) ->
     {ok, ssl_record:set_renegotiation_flag(true, ConnectionStates)};
 
-handle_renegotiation_info(_, _RecordCB, server, undefined, ConnectionStates, _, _, CipherSuites) ->
+
+handle_renegotiation_info(_, _RecordCB, server, undefined, ConnectionStates, false, _,CipherSuites) ->
     case is_member(?TLS_EMPTY_RENEGOTIATION_INFO_SCSV, CipherSuites) of
 	true ->
 	    {ok, ssl_record:set_renegotiation_flag(true, ConnectionStates)};
