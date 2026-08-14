@@ -1077,8 +1077,9 @@ jaro_similarity(A0, B0) ->
 
 jaro_match([A|As], B0, Min, Max, AM, BM) ->
     case jaro_detect(maps:get(A, B0, []), Min, Max) of
-        false ->
-            jaro_match(As, B0, Min+1, Max+1, AM, BM);
+        {false, Remain} ->
+            B = B0#{A => Remain},
+            jaro_match(As, B, Min+1, Max+1, AM, BM);
         {J, Remain} ->
             B = B0#{A => Remain},
             jaro_match(As, B, Min+1, Max+1, [A|AM], add_rsorted({J,A},BM))
@@ -1090,8 +1091,8 @@ jaro_detect([Idx|Rest], Min, Max) when Min < Idx, Idx < Max ->
     {Idx, Rest};
 jaro_detect([Idx|Rest], Min, Max) when Idx < Max ->
     jaro_detect(Rest, Min, Max);
-jaro_detect(_, _, _) ->
-    false.
+jaro_detect(Remain, _, _) ->
+    {false, Remain}.
 
 jaro_calc_mt([CharA|AM], [{_, CharA}|BM], M, T) ->
     jaro_calc_mt(AM, BM, M+1, T);

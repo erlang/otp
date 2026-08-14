@@ -834,6 +834,13 @@ jaro_similarity(_Config) ->
     %% With one translation
     ?TEST("caabx", ["caba"], ((4/5+4/4+((4-2/2)/4))/3)),
 
+    %% Repeated graphemes (exercises index-map re-use and window trimming)
+    ?TEST("aaabbb", ["ababab"], 0.9444444444444445),
+    ?TEST("aaaa", ["aaaaaa"], 0.8888888888888888),
+    ?TEST("xxxaaa", ["aaa"], 0.6666666666666666),
+    ?TEST("xxxxxxxxaa", ["aaaaaa"], 0.5111111111111111),
+    ?TEST(lists:duplicate(20, $a), [lists:duplicate(10, $a)], 0.8333333333333334),
+
     InvalidUTF8 = <<192,192>>,
     ?assertError({badarg, _}, string:jaro_similarity("foo", InvalidUTF8)),
     ?assertError({badarg, _}, string:jaro_similarity("foo", <<$a, InvalidUTF8/binary, $z>>)),
