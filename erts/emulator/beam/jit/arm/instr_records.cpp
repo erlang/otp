@@ -169,30 +169,140 @@ void BeamModuleAssembler::emit_i_create_local_native_record(
         const ArgWord &Live,
         const ArgWord &size,
         const Span<const ArgVal> &args) {
-    Label next = a.new_label();
+    Eterm def;
+    ErtsRecordDefinition *defp;
+    int field_count;
+    Uint num_words_needed;
+    Eterm *loader_def_values;
+    Eterm cons = beamfile_get_literal(beam, Def.get());
+    int argp;
+    Variable<a64::Gp> regs[2] = {a64::xzr, a64::xzr};
+    bool any_literal_defaults = false;
+    bool otp_29 = beam->code.max_opcode <= genop_get_record_field_5;
 
-    a.mov(ARG1, c_p);
-    load_x_reg_array(ARG2);
-    mov_arg(ARG3, Def);
-    mov_arg(ARG4, Live);
-    mov_imm(ARG5, args.size());
-    embed_vararg_rodata(args, ARG6);
+    def = CAR(list_val(cons));
+    defp = (ErtsRecordDefinition *)tuple_val(def);
+    loader_def_values = tuple_val(CDR(list_val(cons))) + 1;
 
-    emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs |
-                       Update::eReductions>(Live.get());
+    field_count = RECORD_DEF_FIELD_COUNT(defp);
+    num_words_needed = RECORD_INST_SIZE(field_count);
 
-    runtime_call<
-            Eterm (*)(Process *, Eterm *, Eterm, Uint, Uint, const Eterm *),
-            erl_create_local_native_record>();
+    comment("name: %T", defp->name);
 
-    emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
-                       Update::eReductions>(Live.get());
+    /* Find out whether any non-immediate default value will
+     * be used for this construction. */
+    argp = 0;
+    for (int i = 0; i < field_count; i++) {
+        if (argp < args.size() &&
+            args[argp].as<ArgAtom>().get() == defp->keys[i]) {
+            argp += 2;
+        } else {
+            Eterm value = loader_def_values[i];
+            any_literal_defaults |= !is_immed(value);
+        }
+    }
 
-    emit_branch_if_value(ARG1, next);
-    emit_raise_exception();
+    if (otp_29) {
+        /* If compiled by OTP 29, we must do a GC test here.
+         * If compiled by OTP 30 or later, this instruction is
+         * preceded by a `test_heap` instruction that has already
+         * ensured sufficient heap space. */
+        emit_gc_test(ArgWord(0), ArgWord(num_words_needed), Live);
+    }
 
-    a.bind(next);
-    mov_arg(Dst, ARG1);
+    a64::Gp def_values = a64::xzr;
+    mov_arg(TMP3, Def);
+    if (any_literal_defaults) {
+        /* At least one default value is a literal. Literals are not
+         * yet at their final location. We must emit code that set up
+         * a pointer (ARG3) to the beginning of the default values. */
+        emit_untag_ptr(TMP3, TMP3);
+        a.ldp(TMP2, ARG3, a64::Mem(TMP3));
+        def_values = emit_ptr_val(ARG3, ARG3);
+        a.add(def_values, def_values, sizeof(Eterm) - TAG_PRIMARY_BOXED);
+    } else {
+        /* We will not need a pointer to the default values. */
+        a64::Gp cons_ptr = emit_ptr_val(TMP3, TMP3);
+        a.ldur(TMP2, getCARRef(cons_ptr));
+    }
+
+    /* Store header word and pointer to the definition. */
+    mov_imm(TMP1, MAKE_RECORD_HEADER(field_count));
+    a.stp(TMP1, TMP2, a64::Mem(HTOP).post(sizeof(Eterm[2])));
+
+    /* We'll keep a cache of loaded immediate values. */
+    static a64::Gp value_regs[] =
+            {ARG4, ARG5, ARG6, ARG7, ARG8, TMP1, TMP2, TMP3, TMP4, TMP5, TMP6};
+    ImmedRegCache values(*this,
+                         sizeof(value_regs) / sizeof(a64::Gp),
+                         value_regs);
+
+    argp = 0;
+    for (int i = 0; i < field_count; i += 2) {
+        if ((i % 128) == 0) {
+            check_pending_stubs();
+        }
+
+        regs[0] = a64::xzr;
+        regs[1] = a64::xzr;
+
+        /* We will always get the values for two consecutive fields. */
+        if (argp + 2 < args.size() &&
+            args[argp].as<ArgAtom>().get() == defp->keys[i] &&
+            args[argp + 2].as<ArgAtom>().get() == defp->keys[i + 1] &&
+            args[argp + 1].isRegister() && args[argp + 3].isRegister()) {
+            /* Load the values for two fields at once from two BEAM
+             * registers. */
+            auto [r0, r1] =
+                    load_sources(args[argp + 1], ARG1, args[argp + 3], ARG2);
+            regs[0] = r0;
+            regs[1] = r1;
+            argp += 4;
+        } else {
+            int limit = i + 1 < field_count ? 2 : 1;
+
+            /* In this inner loop, grab the values one at a time. */
+            for (int j = 0; j < limit; j++) {
+                static a64::Gp def_regs[] = {ARG1, ARG2};
+                auto default_reg = def_regs[j];
+                if (argp < args.size() &&
+                    args[argp].as<ArgAtom>().get() == defp->keys[i + j]) {
+                    if (args[argp + 1].isImmed()) {
+                        Eterm value = args[argp + 1].as<ArgImmed>().get();
+                        regs[j] = values.load_value(value);
+                    } else {
+                        regs[j] = load_source(args[argp + 1], default_reg);
+                    }
+                    argp += 2;
+                } else {
+                    Eterm value = loader_def_values[i + j];
+                    if (is_immed(value)) {
+                        regs[j] = values.load_value(value);
+                    } else {
+                        ASSERT(any_literal_defaults);
+                        regs[j] = default_reg;
+                        a.ldr(regs[j].reg,
+                              a64::Mem(def_values, (i + j) * sizeof(Eterm)));
+                    }
+                }
+            }
+        }
+
+        /* Now store the values we colleced. */
+        if (regs[1].reg != a64::xzr) {
+            /* Store two values. */
+            a.stp(regs[0].reg,
+                  regs[1].reg,
+                  a64::Mem(HTOP).post(sizeof(Eterm[2])));
+        } else {
+            /* At the end. There is only one value. */
+            a.str(regs[0].reg, a64::Mem(HTOP).post(sizeof(Eterm)));
+        }
+    }
+
+    auto ptr = init_destination(Dst, TMP1);
+    sub(ptr.reg, HTOP, num_words_needed * sizeof(Eterm) - TAG_PRIMARY_BOXED);
+    flush_var(ptr);
 }
 
 void BeamModuleAssembler::emit_i_create_native_record(

@@ -37,6 +37,7 @@
 -record #empty{}.
 -record #singleton{false}.
 -record #order{zzzz=0, true=1, aaaa=2, wwww=3}.
+-record #local{a=[1,2,3], b, c, d, e, def=1 bsl 40}.
 
 -export_record([exp]).
 -record #exp{a=1, b}.
@@ -101,6 +102,15 @@ do_create() ->
 
     3 = req(Pid, bump),
     done = req(Pid, done),
+
+    local_create(),
+
+    ok.
+
+local_create() ->
+    BigSmall = 1 bsl 40,
+    #local{a=[1,2,3], b=42, c=BigSmall, d={a,b,c}, def=BigSmall} =
+        id(#local{b=42, c=BigSmall, d={a,b,c}, e=id({a,b,c})}),
     ok.
 
 req(Pid, Request) ->
