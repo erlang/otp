@@ -811,6 +811,8 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 
     /* These are the defaults */
     opts.packet_bytes = 0;
+    opts.packet_header_endianness =
+        ERTS_SYS_DRIVER_PACKET_HEADER_ENDIAN_BIG;
     opts.use_stdio = 1;
     opts.redir_stderr = 0;
     opts.read_write = 0;
@@ -847,18 +849,49 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 		arity = *tp++;
 		option = *tp++;
 		if (option == am_packet) {
-		    if (is_not_small(*tp)) {
-			goto bad_settings;
-		    }
-		    opts.packet_bytes = signed_val(*tp);
-		    switch (opts.packet_bytes) {
-		    case 1:
-		    case 2:
-		    case 4:
-			break;
-		    default:
-			goto bad_settings;
-		   }
+                    if (is_tuple_arity(*tp, 2)) {
+                        Eterm *packet = tuple_val(*tp);
+                        Sint packet_bytes;
+
+                        if (is_not_small(packet[1]))
+                            goto bad_settings;
+
+                        packet_bytes = signed_val(packet[1]);
+                        if (packet_bytes < 2 || packet_bytes > 4)
+                            goto bad_settings;
+                        opts.packet_bytes = (int) packet_bytes;
+
+                        if (packet[2] == am_big) {
+                            opts.packet_header_endianness =
+                                ERTS_SYS_DRIVER_PACKET_HEADER_ENDIAN_BIG;
+                        } else if (packet[2] == am_little) {
+                            opts.packet_header_endianness =
+                                ERTS_SYS_DRIVER_PACKET_HEADER_ENDIAN_LITTLE;
+                        } else if (packet[2] == am_native) {
+#if defined(WORDS_BIGENDIAN)
+                            opts.packet_header_endianness =
+                                ERTS_SYS_DRIVER_PACKET_HEADER_ENDIAN_BIG;
+#else
+                            opts.packet_header_endianness =
+                                ERTS_SYS_DRIVER_PACKET_HEADER_ENDIAN_LITTLE;
+#endif
+                        } else {
+                            goto bad_settings;
+                        }
+                    } else {
+                        Sint packet_bytes;
+
+                        if (is_not_small(*tp))
+                            goto bad_settings;
+
+                        packet_bytes = signed_val(*tp);
+                        if (packet_bytes < 1 || packet_bytes > 4)
+                            goto bad_settings;
+                        opts.packet_bytes = (int) packet_bytes;
+
+                        opts.packet_header_endianness =
+                            ERTS_SYS_DRIVER_PACKET_HEADER_ENDIAN_BIG;
+                    }
 		} else if (option == am_line) {
 		    if (is_not_small(*tp)) {
 			goto bad_settings;
@@ -978,6 +1011,8 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 		}
 	    } else if (*nargs == am_stream) {
 		opts.packet_bytes = 0;
+                opts.packet_header_endianness =
+                    ERTS_SYS_DRIVER_PACKET_HEADER_ENDIAN_BIG;
 	    } else if (*nargs == am_use_stdio) {
 		opts.use_stdio = 1;
 	    } else if (*nargs == am_stderr_to_stdout) {

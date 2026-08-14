@@ -44,7 +44,10 @@
 %%   PortSettings can be
 %%
 %%       {packet, N}
-%%         N is 1, 2 or 4.
+%%         N is 1, 2, 3 or 4.
+%%
+%%       {packet, {N, Endian}}
+%%         N is 2, 3 or 4. Endian is big, little, or native.
 %%
 %%       stream (default)
 %%         Without packet length.
@@ -119,6 +122,7 @@
     otp_5119/1,
     otp_6224/1,
     output_only/1,
+    packet_options/1,
     parallelism_option/1,
     parallell/1,
     port_program_with_path/1,
@@ -170,7 +174,7 @@ suite() ->
      {timetrap, {minutes, 1}}].
 
 all() ->
-    [otp_6224, {group, stream}, basic_ping, slow_writes,
+    [otp_6224, {group, stream}, basic_ping, packet_options, slow_writes,
      bad_packet, bad_port_messages, {group, options},
      {group, multiple_packets}, parallell, dying_port, dropped_commands,
      port_program_with_path, name1, env, huge_env, bad_env, cd,
@@ -313,6 +317,30 @@ basic_ping(Config) when is_list(Config) ->
     ping(Config, sizes(1), 1, "", []),
     ping(Config, sizes(2), 2, "", []),
     ping(Config, sizes(4), 4, "", []),
+    ok.
+
+%% Check the public open_port/2 packet-option parser without relying on a
+%% system driver's framing implementation.
+packet_options(Config) when is_list(Config) ->
+    PortTest = port_test(Config),
+    lists:foreach(
+      fun(Packet) ->
+              Port = open_port({spawn, PortTest ++ " -n"},
+                               [exit_status, {packet, Packet}]),
+              receive
+                  {Port, {exit_status, 0}} -> ok
+              after 5000 ->
+                      ct:fail({packet_option_start_timeout, Packet})
+              end
+      end,
+      [2, 3, 4,
+       {2, big}, {2, little}, {2, native},
+       {3, big}, {3, little}, {3, native},
+       {4, big}, {4, little}, {4, native}]),
+    lists:foreach(
+      fun(Packet) -> bad_argument(Config, [{packet, Packet}]) end,
+      [{1, big}, {5, big}, {2, middle}, {2},
+       {2, little, extra}, {2.0, big}]),
     ok.
 
 %% Let the port program insert delays between characters sent back to
