@@ -32,9 +32,6 @@
 -moduledoc false.
 -export([opt_start/2, opt_continue/4, opt_finish/3]).
 
-%% FIXME: Workaround for bug.
--compile([no_ssa_opt]).
-
 -include("beam_ssa.hrl").
 -include("beam_types.hrl").
 
