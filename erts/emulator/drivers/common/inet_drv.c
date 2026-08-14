@@ -6863,6 +6863,7 @@ int inet_setopt(int fd,
 ** return -1 on error
 **         0 if ok
 **         1 if ok force deliver of queued data
+**         2 if ok continue receive processing with updated options
 */
 #ifdef HAVE_SCTP
 static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len);
@@ -7945,13 +7946,17 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
     if ( ((desc->stype == SOCK_STREAM) && IS_CONNECTED(desc)) ||
 	((desc->stype == SOCK_DGRAM) && IS_OPEN(desc))) {
         int trigger_recv;
+        int htype_changed;
+
+        htype_changed =
+            (desc->stype == SOCK_STREAM) && (desc->htype != old_htype);
 
         /* XXX: UDP sockets could also trigger immediate read here NIY */
         trigger_recv =
             (desc->stype==SOCK_STREAM) &&
             !old_active &&
             (desc->active == INET_ONCE || desc->active == INET_MULTI) &&
-            (desc->htype == old_htype);
+            !htype_changed;
 
         if (trigger_recv) {
             return 2;
@@ -7966,19 +7971,21 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
             sock_select(desc, (FD_READ|FD_CLOSE), (desc->active>0));
         }
 
-	/* XXX: UDP sockets could also trigger immediate read here NIY */
-	if ((desc->stype==SOCK_STREAM) && desc->active) {
-	    if (! old_active) {
+        /* A packet type change invalidates the cached remaining length.
+         * Active sockets can deliver buffered data immediately; passive
+         * sockets only continue when a receive is already pending. */
+        if ((desc->stype==SOCK_STREAM) && (desc->active || htype_changed)) {
+            if (! old_active && !htype_changed) {
 		/* passive => active change */
 		return 1;
 	    }
-	    if (desc->htype != old_htype) {
-                tcp_descriptor *tdesc = (tcp_descriptor *) desc;
-		/* Header type change in active mode.
-                 * Invalidate the calculated packet remaining length.
-                 */
-                tdesc->i_remain = 0;
+            if (htype_changed) {
+                ((tcp_descriptor *) desc)->i_remain = 0;
+                if (desc->active)
 		return 1;
+                if (desc->opt != NULL && !INET_IGNORED(desc))
+                    return 2;
+                return 0;
 	    }
 
 	    return 0;
@@ -11136,16 +11143,13 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	    /* fprintf(stderr,"Triggered tcp_deliver by setopt.\r\n"); */
 	    tcp_deliver((tcp_descriptor *) desc, 0);
 	    return ctl_reply_ok(rbuf, rsize);
-	default:  
-	    /* fprintf(stderr,"Triggered tcp_recv by setopt.\r\n"); */
-	    /*
-	     * Same as above, but active changed to once w/o header type
-	     * change, so try a read instead of just deliver. 
-	     */
+        case 2:
             if ((tcp_recv((tcp_descriptor *) desc, 0) >= 0) && desc->active) {
                 sock_select(desc, (FD_READ|FD_CLOSE), 1);
             }
 	    return ctl_reply_ok(rbuf, rsize);
+        default:
+            ERTS_UNREACHABLE;
 	}
     }
 

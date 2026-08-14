@@ -29,7 +29,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 init_per_testcase/2, end_per_testcase/2,
-         packet_endian/1,
+         packet_change_pending_recv/1, packet_endian/1,
 	 active_echo/1, passive_echo/1, active_once_echo/1,
 	 slow_active_echo/1, slow_passive_echo/1,
 	 limit_active_echo/1, limit_passive_echo/1,
@@ -57,11 +57,11 @@ all() ->
     end.
 
 groups() ->
-    [{inet_backend_default, [packet_endian,
+    [{inet_backend_default, [packet_change_pending_recv, packet_endian,
                              {group, read_ahead}, {group, no_read_ahead}]},
      {inet_backend_socket,  [packet_endian,
                              {group, read_ahead}, {group, no_read_ahead}]},
-     {inet_backend_inet,    [packet_endian,
+     {inet_backend_inet,    [packet_change_pending_recv, packet_endian,
                              {group, read_ahead}, {group, no_read_ahead}]},
      %%
      {read_ahead,       [{group, no_delay_send}, {group, delay_send}]},
@@ -240,6 +240,57 @@ large_limit_passive_echo(Config) when is_list(Config) ->
     echo_test(
       Config, [{packet_size, 10},{active, false}], fun passive_echo/4,
       [{packet_size, (1 bsl 32) -1}, {echo, fun echo_server/0}]).
+
+%% Test changing packet type while a passive receive is pending in the legacy
+%% inet driver.
+packet_change_pending_recv(Config) when is_list(Config) ->
+    {ok, Listen} =
+        kernel_test_lib:listen(
+          Config, 0, [binary, {active, false}, {packet, 2}]),
+    {ok, {_, Port}} = inet:sockname(Listen),
+    {ok, Socket} =
+        kernel_test_lib:connect(
+          Config, localhost, Port,
+          [binary, {active, false}, {packet, 2}]),
+    {ok, Peer} = gen_tcp:accept(Listen),
+    try
+        case is_port(Socket) of
+            true ->
+                %% <<3,"ABC">> is incomplete with a two-byte header
+                %% (16#0341), but complete with a one-byte header. Changing
+                %% the packet type must reparse the buffer and complete the
+                %% already-pending passive receive.
+                ok = gen_tcp:unrecv(Socket, <<3, $A, $B, $C>>),
+                {ok, Ref1} = prim_inet:async_recv(Socket, 0, -1),
+                ok = inet:setopts(Socket, [{packet, 1}]),
+                {ok, <<$A, $B, $C>>} =
+                    receive
+                        {inet_async, Socket, Ref1, Result1} -> Result1
+                    after 5000 ->
+                            ct:fail(packet_change_pending_recv_timeout)
+                    end,
+
+                %% Re-entering through tcp_recv() must also retain its normal
+                %% error path when the same bytes are invalid in the new mode.
+                ok = inet:setopts(
+                       Socket, [{packet, 2}, {packet_size, 3}]),
+                ok = gen_tcp:unrecv(Socket, <<0, 3, 255, 255>>),
+                {ok, Ref2} = prim_inet:async_recv(Socket, 0, -1),
+                ok = inet:setopts(Socket, [{packet, 4}]),
+                {error, emsgsize} =
+                    receive
+                        {inet_async, Socket, Ref2, Result2} -> Result2
+                    after 5000 ->
+                            ct:fail(packet_change_pending_recv_error_timeout)
+                    end;
+            false ->
+                {skip, "Legacy inet backend only"}
+        end
+    after
+        _ = gen_tcp:close(Peer),
+        _ = gen_tcp:close(Socket),
+        _ = gen_tcp:close(Listen)
+    end.
 
 %% Test endian-aware packet framing in both directions against a raw peer.
 packet_endian(Config) when is_list(Config) ->
