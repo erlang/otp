@@ -6863,6 +6863,7 @@ int inet_setopt(int fd,
 ** return -1 on error
 **         0 if ok
 **         1 if ok force deliver of queued data
+**         2 if ok continue receive processing with updated options
 */
 #ifdef HAVE_SCTP
 static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len);
@@ -7945,6 +7946,14 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
     if ( ((desc->stype == SOCK_STREAM) && IS_CONNECTED(desc)) ||
 	((desc->stype == SOCK_DGRAM) && IS_OPEN(desc))) {
         int trigger_recv;
+        int htype_changed;
+
+        htype_changed =
+            (desc->stype == SOCK_STREAM) && (desc->htype != old_htype);
+        if (htype_changed) {
+            tcp_descriptor *tdesc = (tcp_descriptor *) desc;
+            tdesc->i_remain = 0;
+        }
 
         /* XXX: UDP sockets could also trigger immediate read here NIY */
         trigger_recv =
@@ -7972,17 +7981,16 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 		/* passive => active change */
 		return 1;
 	    }
-	    if (desc->htype != old_htype) {
-                tcp_descriptor *tdesc = (tcp_descriptor *) desc;
-		/* Header type change in active mode.
-                 * Invalidate the calculated packet remaining length.
-                 */
-                tdesc->i_remain = 0;
+            if (htype_changed) {
 		return 1;
 	    }
 
 	    return 0;
 	}
+
+        if (htype_changed && desc->opt != NULL && !INET_IGNORED(desc)) {
+            return 2;
+        }
     }
     return 0;
 }
@@ -11136,16 +11144,13 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	    /* fprintf(stderr,"Triggered tcp_deliver by setopt.\r\n"); */
 	    tcp_deliver((tcp_descriptor *) desc, 0);
 	    return ctl_reply_ok(rbuf, rsize);
-	default:  
-	    /* fprintf(stderr,"Triggered tcp_recv by setopt.\r\n"); */
-	    /*
-	     * Same as above, but active changed to once w/o header type
-	     * change, so try a read instead of just deliver. 
-	     */
+        case 2:
             if ((tcp_recv((tcp_descriptor *) desc, 0) >= 0) && desc->active) {
                 sock_select(desc, (FD_READ|FD_CLOSE), 1);
             }
 	    return ctl_reply_ok(rbuf, rsize);
+        default:
+            ERTS_UNREACHABLE;
 	}
     }
 
