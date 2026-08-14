@@ -2148,15 +2148,16 @@ path_validation_options(Opts, ValidationFunAndState) ->
      {verify_fun, ValidationFunAndState} | PolicyOpts].
 
 apply_user_fun(Fun, OtpCert, DerCert, VerifyResult0, UserState0, SslState, CertPath, LogLevel) when
-      (VerifyResult0 == valid) or (VerifyResult0 == valid_peer) ->
-    VerifyResult = maybe_check_hostname(OtpCert, VerifyResult0, SslState, LogLevel),
+      VerifyResult0 == valid; VerifyResult0 == valid_peer ->
+    VerifyResult = tls_verify_fun(OtpCert, VerifyResult0, SslState, LogLevel),
     case apply_fun(Fun, OtpCert, DerCert, VerifyResult, UserState0) of
 	{Valid, UserState} when (Valid == valid) orelse (Valid == valid_peer) ->
 	    case cert_status_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel) of
 		valid ->
 		    {Valid, {SslState, UserState}};
 		Result ->
-		    apply_user_fun(Fun, OtpCert, DerCert, Result, UserState, SslState, CertPath, LogLevel)
+                    apply_user_fun(Fun, OtpCert, DerCert, Result, UserState,
+                                   SslState, CertPath, LogLevel)
 	    end;
 	{fail, _} = Fail ->
 	    Fail
@@ -2178,15 +2179,20 @@ apply_fun(Fun, OtpCert, DerCert, ExtensionOrError, UserState) ->
             Fun(OtpCert, ExtensionOrError, UserState)
     end.
 
-maybe_check_hostname(OtpCert, valid_peer, SslState, LogLevel) ->
+tls_verify_fun(OtpCert, valid_peer, SslState, LogLevel) ->
     case ssl_certificate:validate(OtpCert, valid_peer, SslState, LogLevel) of
         {valid, _} ->
             valid_peer;
         {fail, Reason} ->
             Reason
     end;
-maybe_check_hostname(_, valid, _, _) ->
-    valid.
+tls_verify_fun(OtpCert, valid, SslState, LogLevel) ->
+    case ssl_certificate:validate(OtpCert, valid, SslState, LogLevel) of
+        {valid, _} ->
+            valid;
+        {fail, Reason} ->
+            Reason
+    end.
 
 path_validation_alert({bad_cert, cert_expired}, _, _) ->
     ?ALERT_REC(?FATAL, ?CERTIFICATE_EXPIRED);
@@ -3141,6 +3147,7 @@ decode_extensions(<<?UINT16(?KEY_SHARE_EXT), ?UINT16(Len),
     <<?UINT16(EnumGroup),?UINT16(KeyLen),KeyExchange0:KeyLen/binary>> = ExtData,
     Group =  tls_v1:enum_to_group(EnumGroup),
     KeyExchange = maybe_dec_server_hybrid_share(Group, KeyExchange0),
+    assert_unique_extension(key_share, Acc),
     decode_extensions(Rest, Version, MessageType,
                       Acc#{key_share =>
                                #key_share_server_hello{
@@ -3153,6 +3160,7 @@ decode_extensions(<<?UINT16(?KEY_SHARE_EXT), ?UINT16(Len),
                     ExtData:Len/binary, Rest/binary>>,
                   Version, MessageType = hello_retry_request, Acc) ->
     <<?UINT16(Group)>> = ExtData,
+    assert_unique_extension(key_share, Acc),
     decode_extensions(Rest, Version, MessageType,
                       Acc#{key_share =>
                                #key_share_hello_retry_request{
