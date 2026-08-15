@@ -195,10 +195,11 @@
  * ======================================================================== *
  */
 
-#ifdef HAS_ACCEPT4
-// We have to figure out what the flags are...
+#if defined(HAVE_ACCEPT4) && defined(SOCK_CLOEXEC) && defined(SOCK_NONBLOCK)
 #define sock_accept(s, addr, len)       \
-    accept4((s), (addr), (len), (SOCK_CLOEXEC))
+    accept4((s), (addr), (len), (SOCK_CLOEXEC | SOCK_NONBLOCK))
+/* The accepted socket is already non-blocking */
+#define ESSIO_ACCEPTED_NONBLOCK 1
 #else
 #define sock_accept(s, addr, len)       accept((s), (addr), (len))
 #endif
@@ -2863,7 +2864,9 @@ BOOLEAN_T essio_accept_accepted(ErlNifEnv*       env,
                        &accDescP->ctrlPid,
                        &accDescP->ctrlMon) == 0 );
 
+#ifndef ESSIO_ACCEPTED_NONBLOCK
     SET_NONBLOCKING(accDescP->sock);
+#endif
 
     accDescP->writeState |= ESOCK_STATE_CONNECTED;
 
