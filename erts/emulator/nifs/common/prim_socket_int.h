@@ -504,6 +504,14 @@ typedef struct {
     ESockCounter       accFails;
     /* +++ Config stuff +++ */
     size_t             rBufSz;  // Read buffer size (when data length = 0)
+    /* While rcvbuf has not been set explicitly, rBufSz adapts to the
+     * traffic (grows when reads fill the buffer, shrinks back towards
+     * the default when they stop). An explicit rcvbuf pins the size,
+     * since it bounds the chunks a length 0 recv may return.
+     */
+    BOOLEAN_T          rBufAdapt;
+    size_t             rBufSzCfg;
+    unsigned int       rBufShrinkCnt;
     /* rNum and rNumCnt are used (together with rBufSz) when calling the recv 
      * function with the Length argument set to 0 (zero).
      * If rNum is 0 (zero), then rNumCnt is not used and only *one* read will

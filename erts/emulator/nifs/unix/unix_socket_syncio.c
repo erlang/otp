@@ -209,6 +209,13 @@
     if (ctrl.sctp.bindx == NULL)                             \
         return enif_raise_exception((e), MKA((e), "notsup"));
 #define sock_close(s)                   close((s))
+
+/* Adaptive read buffer: double on a filled buffer, halve back towards
+ * the configured size after this many consecutive reads that used
+ * less than a quarter of it.
+ */
+#define ESSIO_RECV_ADAPT_BUFFER_MAX     (1 << 20)
+#define ESSIO_RECV_ADAPT_SHRINK_COUNT   32
 // #define sock_close_event(e)             /* do nothing */
 #define sock_connect(s, addr, len)      connect((s), (addr), (len))
 #define sock_connectx(s, addrs, acnt, aidp) \
@@ -2841,6 +2848,9 @@ BOOLEAN_T essio_accept_accepted(ErlNifEnv*       env,
     MLOCK(descP->writeMtx);
 
     accDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
+    accDescP->rBufAdapt = descP->rBufAdapt;
+    accDescP->rBufSzCfg = descP->rBufSzCfg;
+    accDescP->rBufShrinkCnt = 0;
     accDescP->rNum     = descP->rNum;    // Inherit buffer uses
     accDescP->rNumCnt  = 0;
     accDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer size
@@ -2944,6 +2954,9 @@ ERL_NIF_TERM essio_peeloff(ErlNifEnv*       env,
             __FUNCTION__, descP->sock, sock) );
 
     poDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
+    poDescP->rBufAdapt = descP->rBufAdapt;
+    poDescP->rBufSzCfg = descP->rBufSzCfg;
+    poDescP->rBufShrinkCnt = 0;
     poDescP->rNum     = descP->rNum;    // Inherit buffer uses
     poDescP->rNumCnt  = 0;
     poDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer size
@@ -3846,6 +3859,24 @@ ERL_NIF_TERM essio_recv(ErlNifEnv*       env,
         return ret;
     }
     /* readResult >= 0 */
+
+    if ((len == 0) && descP->rBufAdapt) {
+        if ((size_t) readResult == bufP->size) {
+            if (descP->rBufSz < ESSIO_RECV_ADAPT_BUFFER_MAX)
+                descP->rBufSz <<= 1;
+            descP->rBufShrinkCnt = 0;
+        } else if ((descP->rBufSz > descP->rBufSzCfg) &&
+                   ((size_t) readResult < (descP->rBufSz >> 2))) {
+            if (++descP->rBufShrinkCnt >= ESSIO_RECV_ADAPT_SHRINK_COUNT) {
+                descP->rBufSz >>= 1;
+                if (descP->rBufSz < descP->rBufSzCfg)
+                    descP->rBufSz = descP->rBufSzCfg;
+                descP->rBufShrinkCnt = 0;
+            }
+        } else {
+            descP->rBufShrinkCnt = 0;
+        }
+    }
 
     ESOCK_ASSERT( recv_create_bin(bufP, readResult, &bin) );
 

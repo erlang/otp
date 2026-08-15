@@ -8224,6 +8224,9 @@ ERL_NIF_TERM esock_setopt_otp_rcvbuf(ErlNifEnv*       env,
         descP->rBufSz = ESOCK_RECV_BUFFER_SIZE_MIN;
     else
         descP->rBufSz = bufSz;
+    descP->rBufAdapt     = FALSE;
+    descP->rBufSzCfg     = descP->rBufSz;
+    descP->rBufShrinkCnt = 0;
 
     SSDBG( descP,
            ("SOCKET", "esock_setopt_otp_rcvbuf {%d} -> ok"
@@ -11833,14 +11836,15 @@ ERL_NIF_TERM esock_getopt_otp_rcvbuf(ErlNifEnv*       env,
     }
 
 #ifdef __WIN32__
-    eVal = MKUL(env, (unsigned long) descP->rBufSz);
+    eVal = MKUL(env, (unsigned long) descP->rBufSzCfg);
 #else
+    /* The current (adapted) size is internal; report the configured one */
     if (descP->rNum == 0) {
-        eVal = MKUL(env, (unsigned long) descP->rBufSz);
+        eVal = MKUL(env, (unsigned long) descP->rBufSzCfg);
     } else {
         eVal = MKT2(env,
                     MKI(env, descP->rNum),
-                    MKUL(env, (unsigned long) descP->rBufSz));
+                    MKUL(env, (unsigned long) descP->rBufSzCfg));
     }
 #endif
 
@@ -17059,6 +17063,9 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     /* *** Config section *** */
     // sprintf(buf, "esock.cfg[" SOCKET_FORMAT_STR "]", sock);
     descP->rBufSz           = ESOCK_RECV_BUFFER_SIZE_DEFAULT;
+    descP->rBufAdapt        = TRUE;
+    descP->rBufSzCfg        = ESOCK_RECV_BUFFER_SIZE_DEFAULT;
+    descP->rBufShrinkCnt    = 0;
 #ifndef __WIN32__
     descP->rNum             = ESOCK_RECV_BUFFER_COUNT_DEFAULT;
     descP->rNumCnt          = 0;
