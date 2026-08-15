@@ -4829,7 +4829,8 @@ ERL_NIF_TERM essio_fin_close(ErlNifEnv*       env,
      * for this ({true, integer() > 0}). For this to work we must
      * be blocking...
      */
-    SET_BLOCKING(descP->sock);
+    if (descP->closeMayBlock)
+        SET_BLOCKING(descP->sock);
     err = esock_close_socket(env, descP, TRUE);
 
 #ifdef HAVE_SENDFILE
