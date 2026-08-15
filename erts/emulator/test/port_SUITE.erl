@@ -353,14 +353,9 @@ packet_options(Config) when is_list(Config) ->
     ok.
 
 %% Test explicit packet byte order against an independent external program in
-%% both wire directions. Windows framing is wired in a later commit.
+%% both wire directions.
 packet_endian_spawn(Config) when is_list(Config) ->
-    case os:type() of
-        {unix, _} ->
-            packet_endian_spawn_test(Config);
-        _ ->
-            {skip, "Unix port-driver framing only"}
-    end.
+    packet_endian_spawn_test(Config).
 
 packet_endian_spawn_test(Config) ->
     ct:timetrap({minutes, 3}),
@@ -391,14 +386,9 @@ packet_option_replacement(Config) when is_list(Config) ->
     ok.
 
 %% `stream` must replace an earlier endian-aware packet option without making
-%% the retained byte-order field observable in either Unix output callback.
+%% the retained byte-order field observable in a port-driver callback.
 packet_stream_replacement(Config) when is_list(Config) ->
-    case os:type() of
-        {unix, _} ->
-            packet_stream_replacement_test(Config);
-        _ ->
-            {skip, "Unix stream replacement only"}
-    end.
+    packet_stream_replacement_test(Config).
 
 packet_stream_replacement_test(Config) ->
     PortTest = port_test(Config),
