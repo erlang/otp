@@ -7606,9 +7606,9 @@ ERL_NIF_TERM nif_close(ErlNifEnv*         env,
  * Socket (ref) - Points to the socket descriptor.
  */
 static
-ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
-                                int                argc,
-                                const ERL_NIF_TERM argv[])
+ERL_NIF_TERM nif_finalize_close_dirty(ErlNifEnv*         env,
+                                      int                argc,
+                                      const ERL_NIF_TERM argv[])
 {
     ESockDescriptor* descP;
     ERL_NIF_TERM result;
@@ -7641,6 +7641,59 @@ ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
     MUNLOCK(descP->readMtx);
 
     return result;
+}
+
+
+/* Only a lingering close - SO_LINGER {onoff = true, linger > 0} -
+ * can block in close(), so only then do we need the dirty scheduler.
+ * The check reads descP->sock without the socket locks; a racing
+ * close/down makes the getsockopt fail and we fall back to the dirty
+ * path, where the proper state checks run under the locks as before.
+ */
+static
+BOOLEAN_T finalize_close_may_block(ESockDescriptor* descP)
+{
+#if defined(SO_LINGER)
+    struct linger lval;
+    SOCKOPTLEN_T  lsz = sizeof(lval);
+
+    if (descP->sock == INVALID_SOCKET)
+        return FALSE;
+
+    if (sock_getopt(descP->sock, SOL_SOCKET, SO_LINGER,
+                    (void*) &lval, &lsz) != 0)
+        return TRUE;
+
+    return (lval.l_onoff != 0) && (lval.l_linger > 0);
+#else
+    /* Without SO_LINGER a close cannot linger, so it cannot block */
+    return FALSE;
+#endif
+}
+
+
+static
+ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
+                                int                argc,
+                                const ERL_NIF_TERM argv[])
+{
+    ESockDescriptor* descP;
+
+    ESOCK_ASSERT( argc == 1 );
+
+    if (! ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
+        return enif_make_badarg(env);
+    }
+
+    if (finalize_close_may_block(descP)) {
+        descP->closeMayBlock = TRUE;
+        return enif_schedule_nif(env, "nif_finalize_close",
+                                 ERL_NIF_DIRTY_JOB_IO_BOUND,
+                                 nif_finalize_close_dirty, argc, argv);
+    }
+
+    descP->closeMayBlock = FALSE;
+    return nif_finalize_close_dirty(env, argc, argv);
 }
 
 
@@ -17023,6 +17076,7 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     esock_requestor_init(&descP->currentReader);
     descP->currentReaderP = NULL; // currentReader not used
     descP->buf.data = NULL;
+    descP->closeMayBlock = TRUE; /* until the close path decides otherwise */
 #endif
     descP->readersQ.first = NULL;
     descP->readersQ.last  = NULL;
@@ -18744,7 +18798,7 @@ ErlNifFunc esock_funcs[] =
      * is called after the close *select* has "completed".
      */
     {"nif_cancel",              3, nif_cancel, 0},
-    {"nif_finalize_close",      1, nif_finalize_close, ERL_NIF_DIRTY_JOB_IO_BOUND}
+    {"nif_finalize_close",      1, nif_finalize_close, 0}
 };
 
 

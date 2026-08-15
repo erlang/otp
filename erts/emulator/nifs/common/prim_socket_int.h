@@ -536,6 +536,11 @@ typedef struct {
     SOCKET             sock;
     SOCKET             origFD; // A 'socket' created from this FD
     BOOLEAN_T          closeOnClose; // Have we dup'ed or not
+    /* Set by nif_finalize_close() from finalize_close_may_block(): TRUE only
+     * for a lingering close, SO_LINGER {true, > 0}. The close path needs
+     * blocking mode only in that case, and switching to it costs two more
+     * system calls (SET_BLOCKING is F_GETFL + F_SETFL). */
+    BOOLEAN_T          closeMayBlock;
     BOOLEAN_T          selectRead; // Try to have read select active
     /* +++ The dbg flag for SSDBG +++ */
     BOOLEAN_T          dbg;
