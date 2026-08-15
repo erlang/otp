@@ -195,10 +195,11 @@
  * ======================================================================== *
  */
 
-#ifdef HAS_ACCEPT4
-// We have to figure out what the flags are...
+#if defined(HAVE_ACCEPT4) && defined(SOCK_CLOEXEC) && defined(SOCK_NONBLOCK)
 #define sock_accept(s, addr, len)       \
-    accept4((s), (addr), (len), (SOCK_CLOEXEC))
+    accept4((s), (addr), (len), (SOCK_CLOEXEC | SOCK_NONBLOCK))
+/* The accepted socket is already non-blocking */
+#define ESSIO_ACCEPTED_NONBLOCK 1
 #else
 #define sock_accept(s, addr, len)       accept((s), (addr), (len))
 #endif
@@ -225,7 +226,14 @@
         return enif_raise_exception((e), MKA((e), "notsup"));
 #define sock_ntohs(x)                   ntohs((x))
 #define sock_htonl(x)                   htonl((x))
+#if defined(SOCK_NONBLOCK)
+#define sock_open(domain, type, proto)                                  \
+    socket((domain), (type) | SOCK_NONBLOCK, (proto))
+/* The opened socket is already non-blocking */
+#define ESSIO_OPENED_NONBLOCK 1
+#else
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
+#endif
 #define sock_peeloff(s, aid)            ctrl.sctp.peeloff((s), (aid))
 #define sock_ensure_peeloff(E)                                         \
     if (ctrl.sctp.peeloff == NULL)                                      \
@@ -1769,7 +1777,11 @@ ERL_NIF_TERM essio_open_plain(ErlNifEnv*       env,
     }
 #endif
 
+#ifndef ESSIO_OPENED_NONBLOCK
+    /* sock_open() could not ask for it, so do it the long way:
+     * SET_NONBLOCKING is F_GETFL + F_SETFL, two more system calls. */
     SET_NONBLOCKING(sock);
+#endif
 
 
     /* Create and initiate the socket "descriptor" */
@@ -2863,7 +2875,9 @@ BOOLEAN_T essio_accept_accepted(ErlNifEnv*       env,
                        &accDescP->ctrlPid,
                        &accDescP->ctrlMon) == 0 );
 
+#ifndef ESSIO_ACCEPTED_NONBLOCK
     SET_NONBLOCKING(accDescP->sock);
+#endif
 
     accDescP->writeState |= ESOCK_STATE_CONNECTED;
 
