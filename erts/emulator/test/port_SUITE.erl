@@ -353,14 +353,9 @@ packet_options(Config) when is_list(Config) ->
     ok.
 
 %% Test explicit packet byte order against an independent external program in
-%% both wire directions. Windows framing is wired in a later commit.
+%% both wire directions.
 packet_endian_spawn(Config) when is_list(Config) ->
-    case os:type() of
-        {unix, _} ->
-            packet_endian_spawn_test(Config);
-        _ ->
-            {skip, "Unix port-driver framing only"}
-    end.
+    packet_endian_spawn_test(Config).
 
 packet_endian_spawn_test(Config) ->
     ct:timetrap({minutes, 3}),
@@ -391,14 +386,9 @@ packet_option_replacement(Config) when is_list(Config) ->
     ok.
 
 %% `stream` must replace an earlier endian-aware packet option without making
-%% the retained byte-order field observable in either Unix output callback.
+%% the retained byte-order field observable in a port-driver callback.
 packet_stream_replacement(Config) when is_list(Config) ->
-    case os:type() of
-        {unix, _} ->
-            packet_stream_replacement_test(Config);
-        _ ->
-            {skip, "Unix stream replacement only"}
-    end.
+    packet_stream_replacement_test(Config).
 
 packet_stream_replacement_test(Config) ->
     PortTest = port_test(Config),
@@ -425,22 +415,17 @@ packet_stream_replacement_test(Config) ->
     end.
 %% Test endian-aware framing through the Unix fd driver's outputv callback.
 fd_packet_endian(Config) when is_list(Config) ->
-    case os:type() of
-        {unix, _} ->
-            Port = open_fd_child(fd_packet_endian_child, []),
-            try
-                stream_receive_all1(Port, <<1, 0, 0, $A>>),
-                true = port_command(Port, <<1, 0, 0, $B>>),
-                fd_packet_result(Port, <<1, 0, 0, $B>>, false)
-            after
-                try port_close(Port) of
-                    true -> ok
-                catch
-                    error:badarg -> ok
-                end
-            end;
-        _ ->
-            {skip, "Only Unix fd ports use the outputv callback."}
+    Port = open_fd_child(fd_packet_endian_child, []),
+    try
+        stream_receive_all1(Port, <<1, 0, 0, $A>>),
+        true = port_command(Port, <<1, 0, 0, $B>>),
+        fd_packet_result(Port, <<1, 0, 0, $B>>, false)
+    after
+        try port_close(Port) of
+            true -> ok
+        catch
+            error:badarg -> ok
+        end
     end.
 
 fd_packet_endian_child() ->
