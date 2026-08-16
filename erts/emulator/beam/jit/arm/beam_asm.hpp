@@ -842,6 +842,44 @@ protected:
             add(to, a64::Gp::make_x(mem.base_id()), offset);
         }
     }
+
+    class ImmedRegCache {
+    private:
+        std::unordered_map<Eterm, a64::Gp> values;
+        std::vector<Eterm> reg_values;
+        size_t num_regs;
+        size_t next_reg = 0;
+        const a64::Gp *regs;
+        BeamAssembler &ba;
+
+    public:
+        ImmedRegCache(BeamAssembler &ba, size_t n, const a64::Gp *value_regs)
+                : num_regs(n), regs(value_regs), ba(ba) {
+            ASSERT(num_regs != 0);
+            reg_values.assign(num_regs, THE_NON_VALUE);
+        }
+
+        a64::Gp load_value(Eterm value) {
+            auto search = values.find(value);
+            if (search != values.end()) {
+                return search->second;
+            }
+
+            auto new_reg = regs[next_reg];
+
+            if (is_value(reg_values[next_reg])) {
+                values.erase(reg_values[next_reg]);
+            }
+
+            values.emplace(value, new_reg);
+            reg_values[next_reg] = value;
+            ba.mov_imm(new_reg, value);
+
+            next_reg = (next_reg + 1) % num_regs;
+
+            return new_reg;
+        }
+    };
 };
 
 #include "beam_asm_global.hpp"
