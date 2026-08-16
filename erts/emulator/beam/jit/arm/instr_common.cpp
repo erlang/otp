@@ -802,37 +802,57 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
     data.insert(data.end(), std::begin(args), std::end(args));
 
     size_t size = data.size();
-    unsigned i;
-    ArgVal value = ArgWord(0);
-    for (i = 0; i < size - 1; i += 2) {
+    static a64::Gp value_regs[] = {ARG3,
+                                   ARG4,
+                                   ARG5,
+                                   ARG6,
+                                   ARG7,
+                                   ARG8,
+                                   TMP1,
+                                   TMP2,
+                                   TMP3,
+                                   TMP4,
+                                   TMP5,
+                                   TMP6};
+    ImmedRegCache values(*this,
+                         sizeof(value_regs) / sizeof(a64::Gp),
+                         value_regs);
+    Variable<a64::Gp> regs[2] = {a64::xzr, a64::xzr};
+
+    for (int i = 0; i < size; i++) {
         if ((i % 128) == 0) {
             check_pending_stubs();
         }
 
-        if (!data[i].isRegister() && data[i] == data[i + 1]) {
-            if (data[i] != value) {
-                value = data[i];
-                mov_arg(TMP1, value);
-            }
-            a.stp(TMP1, TMP1, a64::Mem(HTOP).post(sizeof(Eterm[2])));
-        } else if (data[i] == value) {
-            auto second = load_source(data[i + 1], TMP3);
-            a.stp(TMP1, second.reg, a64::Mem(HTOP).post(sizeof(Eterm[2])));
-        } else if (data[i + 1] == value) {
-            auto first = load_source(data[i], TMP2);
-            a.stp(first.reg, TMP1, a64::Mem(HTOP).post(sizeof(Eterm[2])));
-        } else {
-            auto [first, second] =
-                    load_sources(data[i], TMP2, data[i + 1], TMP3);
-            a.stp(first.reg, second.reg, a64::Mem(HTOP).post(sizeof(Eterm[2])));
-        }
-    }
+        regs[0] = a64::xzr;
+        regs[1] = a64::xzr;
 
-    if (i < size) {
-        if (data[i] == value) {
-            a.str(TMP1, a64::Mem(HTOP).post(sizeof(Eterm)));
+        if (i + 1 < size && data[i].isRegister() && data[i + 1].isRegister()) {
+            auto [r0, r1] = load_sources(data[i], ARG1, data[i + 1], ARG2);
+            regs[0] = r0;
+            regs[1] = r1;
+            i++;
         } else {
-            mov_arg(a64::Mem(HTOP).post(sizeof(Eterm)), data[i]);
+            int limit = i + 1 < size ? 2 : 1;
+            for (int j = 0; j < limit; j++) {
+                static a64::Gp def_regs[] = {ARG1, ARG2};
+                if (data[i + j].isImmed()) {
+                    Eterm value = data[i + j].as<ArgImmed>().get();
+                    regs[j] = values.load_value(value);
+                } else {
+                    auto default_reg = def_regs[j];
+                    regs[j] = load_source(data[i + j], default_reg);
+                }
+            }
+            i++;
+        }
+
+        if (regs[1].reg != a64::xzr) {
+            a.stp(regs[0].reg,
+                  regs[1].reg,
+                  a64::Mem(HTOP).post(sizeof(Eterm[2])));
+        } else {
+            a.str(regs[0].reg, a64::Mem(HTOP).post(sizeof(Eterm)));
         }
     }
 
