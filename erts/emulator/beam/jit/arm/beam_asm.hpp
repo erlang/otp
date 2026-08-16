@@ -842,6 +842,48 @@ protected:
             add(to, a64::Gp::make_x(mem.base_id()), offset);
         }
     }
+
+    template<size_t N>
+    class ImmedRegCache {
+        static_assert(N > 0, "ImmedRegCache requires at least one register");
+
+    private:
+        std::unordered_map<Eterm, a64::Gp> values;
+        std::array<Eterm, N> reg_values;
+        std::array<a64::Gp, N> regs;
+        size_t next_reg = 0;
+        BeamAssembler &ba;
+
+    public:
+        template<typename... Regs>
+        ImmedRegCache(BeamAssembler &ba, Regs... regs) : regs{regs...}, ba(ba) {
+            reg_values.fill(THE_NON_VALUE);
+        }
+
+        a64::Gp load_value(Eterm value) {
+            auto search = values.find(value);
+            if (search != values.end()) {
+                return search->second;
+            }
+
+            auto new_reg = regs[next_reg];
+
+            if (is_value(reg_values[next_reg])) {
+                values.erase(reg_values[next_reg]);
+            }
+
+            values.emplace(value, new_reg);
+            reg_values[next_reg] = value;
+            ba.mov_imm(new_reg, value);
+
+            next_reg = (next_reg + 1) % N;
+
+            return new_reg;
+        }
+    };
+
+    template<typename... Args>
+    ImmedRegCache(Args...) -> ImmedRegCache<sizeof...(Args) - 1>;
 };
 
 #include "beam_asm_global.hpp"
