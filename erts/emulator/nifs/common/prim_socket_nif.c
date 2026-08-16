@@ -11479,56 +11479,43 @@ int socket_setopt(int sock, int level, int opt,
     int res;
 
 #if  defined(IP_TOS) && defined(SOL_IP) && defined(SO_PRIORITY)
-    int          tmpIValPRIO = 0;
-    int          tmpIValTOS = 0;
-    int          resPRIO;
-    int          resTOS;
-    SOCKOPTLEN_T tmpArgSzPRIO = sizeof(tmpIValPRIO);
-    SOCKOPTLEN_T tmpArgSzTOS  = sizeof(tmpIValTOS);
+    /* Setting IP_TOS makes the kernel derive a new SO_PRIORITY from it,
+     * so that one option - and only that one - has to have the priority
+     * saved and put back to keep the two looking independent to the
+     * user. Setting anything else leaves both alone, and paying a
+     * getsockopt for each of them plus a setsockopt to restore on every
+     * option set was most of the system calls a connection made.
+     */
+    if ((level == SOL_IP) && (opt == IP_TOS)) {
+        int          savedPRIO;
+        int          resPRIO;
+        SOCKOPTLEN_T savedSzPRIO = sizeof(savedPRIO);
 
-    resPRIO = sock_getopt(sock, SOL_SOCKET, SO_PRIORITY,
-                           &tmpIValPRIO, &tmpArgSzPRIO);
-    resTOS  = sock_getopt(sock, SOL_IP, IP_TOS,
-                          &tmpIValTOS, &tmpArgSzTOS);
+        resPRIO = sock_getopt(sock, SOL_SOCKET, SO_PRIORITY,
+                              &savedPRIO, &savedSzPRIO);
 
-    res = sock_setopt(sock, level, opt, optVal, optLen);
-    if (res == 0) {
+        res = sock_setopt(sock, level, opt, optVal, optLen);
 
-        /* Ok, now we *maybe* need to "maybe" restore PRIO and TOS...
-         * maybe, possibly, ...
-         */
+        if ((res == 0) && (resPRIO == 0)) {
+            resPRIO = sock_setopt(sock, SOL_SOCKET, SO_PRIORITY,
+                                  &savedPRIO, savedSzPRIO);
 
-        if (opt != SO_PRIORITY) {
-	    if ((opt != IP_TOS) && (resTOS == 0)) {
-		resTOS = sock_setopt(sock, SOL_IP, IP_TOS,
-                                     (void *) &tmpIValTOS,
-                                     tmpArgSzTOS);
-                res = resTOS;
-            }
-	    if ((res == 0) && (resPRIO == 0)) {
-		resPRIO = sock_setopt(sock, SOL_SOCKET, SO_PRIORITY,
-                                      &tmpIValPRIO,
-                                      tmpArgSzPRIO);
+            /* Some kernels set a SO_PRIORITY by default
+             * that you are not permitted to reset,
+             * silently ignore this error condition.
+             */
 
-                /* Some kernels set a SO_PRIORITY by default
-                 * that you are not permitted to reset,
-                 * silently ignore this error condition.
-                 */
+            if ((resPRIO != 0) && (sock_errno() == EPERM))
+                res = 0;
+            else
+                res = resPRIO;
+        }
 
-                if ((resPRIO != 0) && (sock_errno() == EPERM)) {
-                    res = 0;
-                } else {
-                    res = resPRIO;
-		}
-	    }
-	}
+        return res;
     }
-
-#else
+#endif
 
     res = sock_setopt(sock, level, opt, optVal, optLen);
-
-#endif
 
     return res;
 }
