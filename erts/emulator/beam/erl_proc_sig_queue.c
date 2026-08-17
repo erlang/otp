@@ -5963,11 +5963,6 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                 ASSERT(erts_monitor_is_origin(mon));
                 handle_persistent_mon_msg(c_p, &tracing, type, mon, sig,
                                           msg, next_nm_sig);
-
-                if ((mon->flags & ERTS_ML_STATE_ALIAS_MASK)
-                    == ERTS_ML_STATE_ALIAS_ONCE) {
-                    mon->flags &= ~ERTS_ML_STATE_ALIAS_MASK;
-                }
             }
             else {
                 cnt++;
