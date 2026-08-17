@@ -50,7 +50,7 @@ jobs:
           distribution: Ubuntu-18.04
 
       - name: Install WSL dependencies
-        run: apt update && apt install -y make autoconf unzip
+        run: apt update && apt install -y g++-mingw-w64 gcc-mingw-w64 make autoconf unzip
 
       - name: Install NSIS
         shell: cmd
@@ -63,11 +63,17 @@ jobs:
           choco install openssl --version=3.1.1
           IF EXIST "c:\\Program Files\\OpenSSL-Win64" (move "c:\\Program Files\\OpenSSL-Win64" "c:\\OpenSSL-Win64") ELSE (move "c:\\Program Files\\OpenSSL" "c:\\OpenSSL-Win64")
 
+      - name: Identify the runner image
+        id: image
+        env:
+          WSLENV: GITHUB_OUTPUT/p:ImageOS
+        run: echo "os=${ImageOS:-unknown}" >> "$GITHUB_OUTPUT"
+
       - name: Cache wxWidgets
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # ratchet:actions/cache@v5.0.3
         with:
           path: wxWidgets
-          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}
+          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ steps.image.outputs.os }}
 
       # actions/cache on Windows sometimes does not set cache-hit even though there was one. Setting it manually.
       - name: Set wxWidgets cache
@@ -102,7 +108,11 @@ jobs:
         shell: cmd
         run: |
           cd wxWidgets\\build\\msw
-          call "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\VC\Auxiliary\\Build\\vcvars64.bat"
+          SET VSWHERE="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+          FOR /F "delims=" %%P IN ('%VSWHERE% -latest -property installationPath') DO (
+            SET "VCVARSALL=%%P\VC\Auxiliary\Build\vcvarsall.bat"
+          )
+          call "%VCVARSALL%" x64
           nmake TARGET_CPU=amd64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
 
       - name: Download source archive
@@ -132,7 +142,6 @@ jobs:
           ./otp_build boot -a
           ./otp_build release -a
           cp /mnt/c/opt/local64/pgm/wxWidgets-${{ env.WXWIDGETS_VERSION }}/3rdparty/webview2/runtimes/win-x64/native/WebView2Loader.dll $ERL_TOP/release/win32/erts-*/bin/
-          ./otp_build debuginfo_win32
           ./otp_build installer_win32
 
       - name: Upload installer
