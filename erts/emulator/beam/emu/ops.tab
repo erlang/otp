@@ -1625,8 +1625,11 @@ i_update_record_continue t s
 i_update_record_in_place_done
 
 #
-# Native records (OTP 29).
+# Native records (introduced in OTP 29).
 #
+
+%unused gen.get_local_record_elements
+%unused gen.update_local_record
 
 is_any_native_record f xy
 
@@ -1636,6 +1639,10 @@ is_native_record Fail Src Mod Name =>
 i_is_native_record f xy a a
 
 get_record_elements Fail Src Size Matches=* | map_key_sort(Size, Matches) =>
+    i_get_record_elements Fail Src Size Matches
+
+get_record_elements_id Fail _Id Src Size Matches=* |
+  map_key_sort(Size, Matches) =>
     i_get_record_elements Fail Src Size Matches
 
 put_record p Name=a n Dst Live Size New=* =>
@@ -1652,9 +1659,13 @@ create_local_native_record Def=q Dst Live Size New=* |
 
 create_local_native_record/4
 
+update_record_id _Hint _Id Src Dst Live Size Updates=* |
+  map_key_sort(Size, Updates) =>
+    i_update_native_record Src Dst Live Size Updates
+
 i_create_local_native_record q d t I *
 
-i_get_record_elements f xy I *
+i_get_record_elements j xy I *
 i_create_native_record c d t I *
 i_update_native_record s d t I *
 
