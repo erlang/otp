@@ -31,18 +31,17 @@
 key_value(KeyValueStr) ->
     case lists:splitwith(fun($:) -> false; (_) -> true end, KeyValueStr) of
 	{Key, [$: | Value]} when Key =/= [] ->
-            %% RFC 7230 - 3.2.4 ... No whitespace is allowed between the header field-name and colon. 
+            %% RFC 7230 - 3.2.4 ... No whitespace is allowed between the header field-name and colon.
             case string:strip(Key, right) of
                 Key ->
                     {http_util:to_lower(string:strip(Key, left)),  string:strip(Value)};
-                 _ ->
-                    %% Ignore invalid header
-                    undefined
+                _ ->
+                    {error, whitespace_before_colon}
             end;
-	{_, []} -> 
+	{_, []} ->
 	    undefined;
         _ ->
-            undefined 
+            undefined
     end.
 %%-------------------------------------------------------------------------
 %% headers(HeaderList, #http_request_h{}) -> #http_request_h{}
