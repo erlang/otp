@@ -434,3 +434,59 @@ Applicable)
 | [D.5. Security Restrictions Related to Backward Compatibility](https://tools.ietf.org/html/rfc8446#section-D.5) |                                                                                                                                                                                                                                                                                                           | C     | 22    |
 
 _Table: Standards Compliance_
+
+## Post-Quantum Cryptography (PQC)
+
+Post-quantum cryptography support was first introduced in OTP 28. PQC
+algorithms are only available with TLS 1.3.
+
+### Key Exchange (ML-KEM)
+
+Hybrid key exchange groups combining ML-KEM (FIPS 203) with classical
+ECDHE, as specified in [RFC 10024](https://www.rfc-editor.org/rfc/rfc10024.txt):
+
+| Group | Status | Since |
+|-------|--------|-------|
+| x25519mlkem768 | Default | 28.3 (default since 29.0) |
+| secp256r1mlkem768 | Supported | 28.3 |
+| secp384r1mlkem1024 | Supported | 28.3 |
+
+Plain ML-KEM groups (without classical hybrid):
+
+| Group | Status | Since |
+|-------|--------|-------|
+| mlkem768 | Supported | 28.0 |
+| mlkem1024 | Supported | 28.0 |
+| mlkem512 | Supported | 28.0 |
+
+### Signature Algorithms
+
+ML-DSA (FIPS 204) as specified in
+[draft-ietf-tls-mldsa](https://www.ietf.org/archive/id/draft-ietf-tls-mldsa-01.html):
+
+| Algorithm | Status | Since |
+|-----------|--------|-------|
+| mldsa44 | Supported | 28.0 |
+| mldsa65 | Supported | 28.0 |
+| mldsa87 | Supported | 28.0 |
+
+SLH-DSA (FIPS 205):
+
+| Algorithm | Status | Since |
+|-----------|--------|-------|
+| slh_dsa_sha2_128s | Supported | 28.3 |
+| slh_dsa_sha2_128f | Supported | 28.3 |
+| slh_dsa_sha2_192s | Supported | 28.3 |
+| slh_dsa_sha2_192f | Supported | 28.3 |
+| slh_dsa_sha2_256s | Supported | 28.3 |
+| slh_dsa_sha2_256f | Supported | 28.3 |
+| slh_dsa_shake_128s | Supported | 28.3 |
+| slh_dsa_shake_128f | Supported | 28.3 |
+| slh_dsa_shake_192s | Supported | 28.3 |
+| slh_dsa_shake_192f | Supported | 28.3 |
+| slh_dsa_shake_256s | Supported | 28.3 |
+| slh_dsa_shake_256f | Supported | 28.3 |
+
+### Not Yet Implemented
+
+- Composite ML-DSA signatures (ML-DSA + RSA/ECDSA in a single certificate)
