@@ -2430,7 +2430,18 @@ put_record_type(Args, Anno, Ts) ->
             #t_record{name=nil, type=Fs};
         #b_literal{val=Tag} when is_atom(Tag) ->
             Mod = map_get(record_module, Anno),
-            #t_record{name={Mod,Tag}, type=Fs}
+            LC = case Src of
+                     #b_literal{val=empty} ->
+                         true;
+                     _ ->
+                         case Ts of
+                             #{Src := #t_record{local_creation=LC0}} ->
+                                 LC0;
+                             _ ->
+                                 false
+                         end
+                 end,
+            #t_record{name={Mod,Tag}, type=Fs, local_creation=LC}
     end.
 
 record_field_types([#b_literal{val=Key}, Value0 | Fs], Ts, Acc) ->

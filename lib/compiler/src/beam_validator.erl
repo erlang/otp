@@ -1486,7 +1486,18 @@ put_record_type(Src, Id, Fs0, Vst) ->
             #t_record{name=nil,type=Fs};
         {atom,Tag} when is_atom(Tag) ->
             Mod = Vst#vst.module,
-            #t_record{name={Mod,Tag},type=Fs}
+            LC = case Src of
+                     nil ->
+                         true;
+                     _ ->
+                         case get_term_type(Src, Vst) of
+                             #t_record{local_creation=LC0} ->
+                                 LC0;
+                             _ ->
+                                 false
+                         end
+                 end,
+            #t_record{name={Mod,Tag},type=Fs,local_creation=LC}
     end.
 
 record_field_types([{atom,Key}, Value0 | Fs], Vst, Acc) ->
