@@ -39,7 +39,8 @@
          unscan_format_without_maps_order/1, build_text_without_maps_order/1,
          native_records/1, cover_fread/1,
          format_w_empty_map/1, format_w_limited/1,
-         write_record_maps_order/1, write_record_latin1_encoding/1]).
+         write_record_maps_order/1, write_record_latin1_encoding/1,
+         indentation_tab/1]).
 
 -export([pretty/2, trf/3, rfd/2]).
 
@@ -79,6 +80,7 @@ all() ->
      native_records,
      format_w_empty_map, format_w_limited,
      write_record_maps_order, write_record_latin1_encoding,
+     indentation_tab,
      cover_fread].
 
 %% Error cases for output.
@@ -3509,6 +3511,38 @@ fread_good(Format, String) ->
     {ok,Term,Remaining} = io_lib:fread(Format, String),
     fread_float_not_accepted(Format, String, []),
     {Term,Remaining}.
+
+%% Test that tabs are handled correctly in indentation calculation
+%% for both the format string and binary/list arguments (GH-XXXX).
+indentation_tab(_Config) ->
+    %% Tab in format string before ~p — indentation tracked by
+    %% build_limited_bin, ~p sees correct column.
+    "\tfoo" = fmt("\t~p", [foo]),
+    "a\tfoo" = fmt("a\t~p", [foo]),
+    "a\nb\tfoo" = fmt("a\nb\t~p", [foo]),
+
+    %% Tab in binary argument via ~ts before ~p — exercises
+    %% indentation_bin/5 (the buggy path).
+    "a\tbfoo" = fmt("~ts~p", [<<"a\tb">>, foo]),
+    "\tfoo" = fmt("~ts~p", [<<"\t">>, foo]),
+    "a\nb\tcfoo" = fmt("~ts~p", [<<"a\nb\tc">>, foo]),
+
+    %% Tab in list argument via ~ts before ~p — also goes through
+    %% indentation_bin when on the binary output path (bformat).
+    "a\tbfoo" = fmt("~ts~p", ["a\tb", foo]),
+    "\tfoo" = fmt("~ts~p", ["\t", foo]),
+    "a\nb\tcfoo" = fmt("~ts~p", ["a\nb\tc", foo]),
+
+    %% Verify indentation/2 directly for binary vs list equivalence.
+    8 = io_lib_format:indentation(<<"\t">>, 0),
+    8 = io_lib_format:indentation("\t", 0),
+    9 = io_lib_format:indentation(<<"a\tb">>, 0),
+    9 = io_lib_format:indentation("a\tb", 0),
+    9 = io_lib_format:indentation(<<"a\nb\tc">>, 0),
+    9 = io_lib_format:indentation("a\nb\tc", 0),
+    10 = io_lib_format:indentation(<<"ab\ncd\tef">>, 0),
+    10 = io_lib_format:indentation("ab\ncd\tef", 0),
+    ok.
 
 fread_bad(Format, String) ->
     {error,{fread,Hint}} = io_lib:fread(Format, String),

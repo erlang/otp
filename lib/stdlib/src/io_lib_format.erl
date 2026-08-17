@@ -465,12 +465,12 @@ indentation([], I) ->
 indentation_bin(Bin, I) ->
     indentation_bin(Bin, Bin, 0, 0, I).
 
-indentation_bin(<<$\n, Cs/binary>>, Orig, _Start, N,_I) ->
-    indentation_bin(Cs, Orig, N+1, 0, 0);
+indentation_bin(<<$\n, Cs/binary>>, Orig, Start, N, _I) ->
+    indentation_bin(Cs, Orig, Start+N+1, 0, 0);
 indentation_bin(<<$\t, Cs/binary>>, Orig, Start, N, I0) ->
     Part = binary:part(Orig, Start, N),
     PSz = string:length(Part),
-    indentation_bin(Cs, Orig, N+1, N+1, ((I0+PSz + 8) div 8) * 8);
+    indentation_bin(Cs, Orig, Start+N+1, 0, ((I0+PSz + 8) div 8) * 8);
 indentation_bin(<<_, Cs/binary>>, Orig, Start, N, I) ->
     indentation_bin(Cs, Orig, Start, N+1, I);
 indentation_bin(<<>>, Orig, Start, N, I) ->
