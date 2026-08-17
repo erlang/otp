@@ -12461,7 +12461,7 @@ static int tcp_inet_send_timeout(ErlDrvData e, ErlDrvTermData dummy)
 
     DDBG(INETP(desc),
          ("INET-DRV-DBG[%d][" SOCKET_FSTR "] "
-          "%s -> entry when"
+          "%s ->"
           "\r\n   Send Timeout Close: %s"
           "\r\n   Active:             %s"
           "\r\n",
@@ -12519,12 +12519,6 @@ static int tcp_inet_send_timeout(ErlDrvData e, ErlDrvTermData dummy)
 
     }
 
-    DDBG(INETP(desc),
-         ("INET-DRV-DBG[%d][" SOCKET_FSTR "] "
-          "%s -> done when result: %d\r\n",
-          __LINE__, sock, __FUNCTION__,
-          result) );
-
     return result;
 
     /* Q: Why not keep port busy as send queue may still be full (ERL-1390)?
@@ -12553,7 +12547,7 @@ static void tcp_inet_timeout(ErlDrvData e)
 
     DDBG(INETP(desc),
          ("INET-DRV-DBG[%d][" SOCKET_FSTR "] "
-          "%s -> entry with"
+          "%s ->"
           "\r\n   State: 0x%X"
           "\r\n",
           __LINE__, sock, __FUNCTION__, state));
@@ -12563,11 +12557,21 @@ static void tcp_inet_timeout(ErlDrvData e)
     } else if ((state & INET_STATE_CONNECTED) == INET_STATE_CONNECTED) {
         fire_multi_timers(desc, desc->inet.port, e);
     }
+    /* fire_multi_timers may call tcp_inet_send_timeout
+     * that may free the descriptor, so INETP(desc)
+     * shall not be touched afterwards.
+     */
     else if ((state & INET_STATE_CONNECTING) == INET_STATE_CONNECTING) {
 	/* assume connect timeout */
 	/* close the socket since it's not usable (see man pages) */
 	tcp_desc_close(desc);
 	async_error_am(INETP(desc), am_timeout);
+
+        DDBG(INETP(desc),
+             ("INET-DRV-DBG[%d][" SOCKET_FSTR "] "
+              "%s -> async timeout message when connecting"
+              "\r\n",
+              __LINE__, sock, __FUNCTION__));
     }
     else if ((state & INET_STATE_ACCEPTING) == INET_STATE_ACCEPTING) {
 	inet_async_op *this_op = desc->inet.opt;
@@ -12578,13 +12582,13 @@ static void tcp_inet_timeout(ErlDrvData e)
 	}
 	desc->inet.state = INET_STATE_LISTENING;
 	async_error_am(INETP(desc), am_timeout);
-    }
 
-    DDBG(INETP(desc),
-         ("INET-DRV-DBG[%d][" SOCKET_FSTR "] "
-          "%s -> done"
-          "\r\n",
-          __LINE__, sock, __FUNCTION__));
+        DDBG(INETP(desc),
+             ("INET-DRV-DBG[%d][" SOCKET_FSTR "] "
+              "%s -> async timeout message when accepting"
+              "\r\n",
+              __LINE__, sock, __FUNCTION__));
+    }
 
 }
 
