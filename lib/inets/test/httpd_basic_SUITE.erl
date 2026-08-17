@@ -438,7 +438,7 @@ chunk_probe(Port, Body) ->
            "Host: localhost\r\n",
            "Transfer-Encoding: chunked\r\n\r\n"],
     ok = inets_test_lib:send(ip_comm, S, iolist_to_binary(Req)),
-    [timer:sleep(50), inets_test_lib:send(ip_comm, S, iolist_to_binary(B)) || B <- Body],
+    [inets_test_lib:send(ip_comm, S, iolist_to_binary(B)) || B <- Body, is_atom(timer:sleep(50))],
     Verdict =
         receive
             {tcp, S, Data}  ->
