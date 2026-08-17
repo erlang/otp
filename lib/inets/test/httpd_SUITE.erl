@@ -145,7 +145,10 @@ groups() ->
      {security, [], [security_1_1, security_1_0]},
      {logging, [], [disk_log_internal, disk_log_exists,
              disk_log_bad_size, disk_log_bad_file]},
-     {http_1_1, [], [esi_propagate, esi_atom_leak, {group, http_1_1_parallel},
+     {http_1_1, [], [esi_propagate,
+                     esi_atom_leak,
+                     te_cl_smuggling_reject,
+                     {group, http_1_1_parallel},
                      cgi_bin_env] ++ load()},
      {http_1_1_parallel, [parallel],
       [host, chunked, expect, cgi, cgi_chunked_encoding_test,
@@ -1138,6 +1141,48 @@ expect() ->
 expect(Config) when is_list(Config) ->
     httpd_1_1:expect(proplists:get_value(type, Config), proplists:get_value(port, Config), 
 		     proplists:get_value(host, Config), proplists:get_value(node, Config)).
+%%-------------------------------------------------------------------------
+te_cl_smuggling_reject() ->
+    [{doc, "Verify that requests with both Transfer-Encoding and "
+      "Content-Length are rejected with 400 (RFC 9112 Section 6.3). "
+      "Prevents CL.TE request smuggling."}].
+
+te_cl_smuggling_reject(Config) when is_list(Config) ->
+    %% Target a resource that accepts POST. A static file answers 501
+    %% regardless of framing, which would hide the difference between an
+    %% accepted and a rejected request.
+    Request = "POST /cgi-bin/erl/httpd_example/post ",
+
+    %% Test 1: Transfer-Encoding before Content-Length
+    ok = http_status(Request,
+                     {"Transfer-Encoding:chunked\r\n"
+                      "Content-Length:10\r\n",
+                      ""},
+                     Config,
+                     [{statuscode, 400}]),
+
+    %% Test 2: Content-Length before Transfer-Encoding
+    ok = http_status(Request,
+                     {"Content-Length:10\r\n"
+                      "Transfer-Encoding:chunked\r\n",
+                      ""},
+                     Config,
+                     [{statuscode, 400}]),
+
+    %% Test 3: Transfer-Encoding alone is fine
+    ok = http_status(Request,
+                     {"Transfer-Encoding:chunked\r\n",
+                      "5\r\nhello\r\n0\r\n\r\n"},
+                     Config,
+                     [{statuscode, 200}]),
+
+    %% Test 4: Content-Length alone is fine
+    ok = http_status(Request,
+                     {"Content-Length:5\r\n",
+                      "hello"},
+                     Config,
+                     [{statuscode, 200}]),
+    ok.
 %%-------------------------------------------------------------------------
 max_clients_1_1() ->
     [{doc, "Test max clients limit"}].
