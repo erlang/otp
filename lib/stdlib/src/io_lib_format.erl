@@ -262,7 +262,12 @@ field_width(F, Fmt, Args) when F >= 0 ->
     {F,right,Fmt,Args}.
 
 precision([$.|Fmt], Args) ->
-    field_value(Fmt, Args);
+    case field_value(Fmt, Args) of
+        {P, _, _} when is_integer(P), P < 0 ->
+            error(badarg);
+        Result ->
+            Result
+    end;
 precision(Fmt, Args) ->
     {none,Fmt,Args}.
 

@@ -40,7 +40,7 @@
          native_records/1, cover_fread/1,
          format_w_empty_map/1, format_w_limited/1,
          write_record_maps_order/1, write_record_latin1_encoding/1,
-         indentation_tab/1]).
+         indentation_tab/1, badarg/1]).
 
 -export([pretty/2, trf/3, rfd/2]).
 
@@ -80,7 +80,7 @@ all() ->
      native_records,
      format_w_empty_map, format_w_limited,
      write_record_maps_order, write_record_latin1_encoding,
-     indentation_tab,
+     indentation_tab, badarg,
      cover_fread].
 
 %% Error cases for output.
@@ -3542,6 +3542,23 @@ indentation_tab(_Config) ->
     9 = io_lib_format:indentation("a\nb\tc", 0),
     10 = io_lib_format:indentation(<<"ab\ncd\tef">>, 0),
     10 = io_lib_format:indentation("ab\ncd\tef", 0),
+    ok.
+
+%% Test that negative precision via * raises badarg.
+badarg(_Config) ->
+    bad_io_lib_format("~.*c", [-1, $a]),
+    bad_io_lib_format("~.*s", [-1, "hello"]),
+    bad_io_lib_format("~.*f", [-1, 1.5]),
+    bad_io_lib_format("~.*e", [-1, 1.5]),
+    bad_io_lib_format("~.*g", [-1, 1.5]),
+    bad_io_lib_format("~.*b", [-1, 42]),
+    bad_io_lib_format("~.*B", [-1, 42]),
+    bad_io_lib_format("~.*x", [-1, 42, "0x"]),
+    bad_io_lib_format("~.*X", [-1, 42, "0x"]),
+    bad_io_lib_format("~.*+", [-1, 42]),
+    bad_io_lib_format("~.*#", [-1, 42]),
+    bad_io_lib_format("~.*w", [-1, foo]),
+    bad_io_lib_format("~.*p", [-1, foo]),
     ok.
 
 fread_bad(Format, String) ->
