@@ -451,11 +451,25 @@ default_version()->
     "HTTP/1.1".
 
 check_header({"content-length", Value}, Headers, MaxSizes) ->
-    case check_parsed_content_length_values(Value, Headers) of
+    case lists:keymember("transfer-encoding", 1, Headers) of
         true ->
-            check_content_length_value(Value, MaxSizes);
+            {error, {bad_request, 400, ?CL_TE_ERROR}};
         false ->
-            {error, {bad_request, 400, "Multiple Content-Length headers with different values"}}
+            case check_parsed_content_length_values(Value, Headers) of
+                true ->
+                    check_content_length_value(Value, MaxSizes);
+                false ->
+                    {error, {bad_request, 400,
+                             "Multiple Content-Length headers with different values"}}
+            end
+    end;
+
+check_header({"transfer-encoding", _Value}, Headers, _MaxSizes) ->
+    case lists:keymember("content-length", 1, Headers) of
+        true ->
+            {error, {bad_request, 400, ?CL_TE_ERROR}};
+        false ->
+            ok
     end;
 
 check_header(_, _, _) ->
