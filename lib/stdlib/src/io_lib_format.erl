@@ -1066,14 +1066,11 @@ adjust(Data, Pad, right) -> [Pad|Data].
 
 %% Flatten and truncate a deep list to at most N elements.
 
-flat_trunc(List, N, latin1) when is_list(List), is_integer(N), N >= 0 ->
-    {S, _} = lists:split(N, lists:flatten(List)),
-    S;
-flat_trunc(Str, N, unicode) when is_integer(N), N >= 0 ->
-    string:slice(Str, 0, N);
 flat_trunc(Bin, N, latin1) when is_binary(Bin), is_integer(N), N >= 0 ->
     {B, _} = split_binary(Bin, N),
-    B.
+    B;
+flat_trunc(Str, N, _) when is_integer(N), N >= 0 ->
+    string:slice(Str, 0, N).
 
 %% A deep version of lists:duplicate/2
 
