@@ -121,6 +121,25 @@ void BeamModuleAssembler::emit_is_record_accessible(const ArgLabel &Fail,
             TMP2);
 }
 
+void BeamModuleAssembler::emit_i_get_local_record_elements(
+        const ArgLiteral &Def,
+        const ArgRegister &Src,
+        const ArgWord &Size,
+        const Span<const ArgVal> &args) {
+    mov_arg(ARG3, Src);
+    a.mov(ARG1, c_p);
+    load_x_reg_array(ARG2);
+    mov_imm(ARG4, args.size());
+    embed_vararg_rodata(args, ARG5);
+
+    emit_enter_runtime<Update::eStack | Update::eXRegs>();
+
+    runtime_call<bool (*)(Process *, Eterm *, Eterm, Uint, const Eterm *),
+                 erl_get_record_elements>();
+
+    emit_leave_runtime<Update::eXRegs>();
+}
+
 void BeamModuleAssembler::emit_i_get_record_elements(
         const ArgLabel &Fail,
         const ArgRegister &Src,
@@ -139,7 +158,9 @@ void BeamModuleAssembler::emit_i_get_record_elements(
 
     emit_leave_runtime<Update::eXRegs>();
 
-    a.tbz(ARG1.w(), imm(0), resolve_beam_label(Fail, disp32K));
+    if (Fail.get() != 0) {
+        a.tbz(ARG1.w(), imm(0), resolve_beam_label(Fail, disp32K));
+    }
 }
 
 void BeamModuleAssembler::emit_i_create_local_native_record(
@@ -198,6 +219,40 @@ void BeamModuleAssembler::emit_i_create_native_record(
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>(Live.get());
+
+    emit_branch_if_value(ARG1, next);
+    emit_raise_exception();
+
+    a.bind(next);
+    mov_arg(Dst, ARG1);
+}
+
+void BeamModuleAssembler::emit_i_update_local_native_record(
+        const ArgAtom &Hint,
+        const ArgLiteral &Def,
+        const ArgSource &Src,
+        const ArgRegister &Dst,
+        const ArgWord &Live,
+        const ArgWord &size,
+        const Span<const ArgVal> &args) {
+    Label next = a.new_label();
+
+    mov_arg(ARG3, Src);
+    a.mov(ARG1, c_p);
+    load_x_reg_array(ARG2);
+    mov_arg(ARG4, Live);
+    mov_imm(ARG5, args.size());
+    embed_vararg_rodata(args, ARG6);
+
+    emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs |
+                       Update::eReductions>();
+
+    runtime_call<
+            Eterm (*)(Process *, Eterm *, Eterm, Uint, Uint, const Eterm *args),
+            erl_update_native_record>();
+
+    emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
+                       Update::eReductions>();
 
     emit_branch_if_value(ARG1, next);
     emit_raise_exception();
