@@ -996,8 +996,8 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
     };
     {
     Eterm tmp;
-    long max_iterations = 0;
-    long iterations_until_trap = 0;
+    SWord max_iterations = 0;
+    SWord iterations_until_trap = 0;
     Eterm state_mref = THE_NON_VALUE;
     ErtsMakeHash2Context* context = NULL;
     DECLARE_ESTACK(s);
@@ -1267,7 +1267,7 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                 ErtsMakeHash2Context_SUB_BINARY_SUBTAG ctx = {0};
                 Uint32 con = HCONST_13 + hash;
                 Uint offset, size;
-                Uint iters_for_bin;
+                SWord iters_for_bin;
 
                 ERTS_GET_BITSTRING(term, ctx.bptr, offset, size);
 

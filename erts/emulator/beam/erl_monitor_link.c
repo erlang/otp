@@ -221,7 +221,7 @@ ml_cmp_keys(Eterm key1, Eterm key2)
             }
 
             ndw1 = external_thing_data_words(et1);
-            ndw2 = external_thing_data_words(et1);
+            ndw2 = external_thing_data_words(et2);
             if (ndw1 != ndw2)
                 return ndw1 < ndw2 ? -1 : 1;
 
@@ -729,7 +729,7 @@ erts_debug_monitor_tree_destroying_foreach(ErtsMonitor *root,
     else {
         tmp_vysp = erts_alloc(ERTS_ALC_T_ML_YIELD_STATE,
                               sizeof(ErtsMonLnkYieldState));
-        sys_memcpy(tmp_vysp, tmp_vysp, sizeof(ErtsMonLnkYieldState));
+        sys_memcpy(tmp_vysp, vysp, sizeof(ErtsMonLnkYieldState));
     }
     do {
         reds = ml_rbt_foreach_yielding((ErtsMonLnkNode *) root,

@@ -4046,7 +4046,7 @@ ErlNifIOQueue *enif_ioq_create(ErlNifIOQueueOpts opts)
 
     q = enif_alloc(sizeof(ErlNifIOQueue));
     if (!q) return NULL;
-    erts_ioq_init(q, ERTS_ALC_T_NIF, 0);
+    erts_ioq_init(q, ERTS_ALC_T_NIF, false);
 
     return q;
 }
