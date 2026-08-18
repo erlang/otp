@@ -126,18 +126,46 @@ void BeamModuleAssembler::emit_i_get_local_record_elements(
         const ArgRegister &Src,
         const ArgWord &Size,
         const Span<const ArgVal> &args) {
-    mov_arg(ARG3, Src);
-    a.mov(ARG1, c_p);
-    load_x_reg_array(ARG2);
-    mov_imm(ARG4, args.size());
-    embed_vararg_rodata(args, ARG5);
+    Eterm def;
+    ErtsRecordDefinition *defp;
+    int field_count;
+    Eterm cons = beamfile_get_literal(beam, Def.get());
+    int argp;
 
-    emit_enter_runtime<Update::eStack | Update::eXRegs>();
+    def = CAR(list_val(cons));
+    defp = (ErtsRecordDefinition *)tuple_val(def);
 
-    runtime_call<bool (*)(Process *, Eterm *, Eterm, Uint, const Eterm *),
-                 erl_get_record_elements>();
+    field_count = RECORD_DEF_FIELD_COUNT(defp);
 
-    emit_leave_runtime<Update::eXRegs>();
+    comment("name: %T", defp->name);
+    auto src = load_source(Src, ARG1);
+    auto values = emit_ptr_val(ARG1, src.reg);
+    a.add(ARG1,
+          values,
+          imm(offsetof(ErtsRecordInstance, values) - TAG_PRIMARY_BOXED));
+
+    argp = 0;
+    for (int i = 0; i < field_count; i++) {
+        if ((i % 128) == 0) {
+            check_pending_stubs();
+        }
+
+        if (argp + 1 < args.size() &&
+            args[argp].as<ArgAtom>().get() == defp->keys[i]) {
+            auto dst1 = init_destination(args[argp + 1], TMP1);
+            if (argp + 3 < args.size() &&
+                args[argp + 2].as<ArgAtom>().get() == defp->keys[i + 1]) {
+                auto dst2 = init_destination(args[argp + 3], TMP2);
+                safe_ldp(dst1.reg, dst2.reg, a64::Mem(ARG1, i * sizeof(Eterm)));
+                flush_vars(dst1, dst2);
+                argp += 4;
+            } else {
+                safe_ldr(dst1.reg, a64::Mem(ARG1, i * sizeof(Eterm)));
+                flush_var(dst1);
+                argp += 2;
+            }
+        }
+    }
 }
 
 void BeamModuleAssembler::emit_i_get_record_elements(
