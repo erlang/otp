@@ -996,8 +996,10 @@ types(lists, zipwith, [Fun | [_,_]=Lists]) ->
 types(lists, keyfind, [KeyType,PosType,_]) ->
     %% Doesn't imply that the argument is a proper list; see lists:all/2
     TupleType = case meet(PosType, #t_integer{}) of
-                    #t_integer{elements={Index,Index}} when is_integer(Index),
-                                                            Index >= 1 ->
+                    #t_integer{elements={Index,Index}}
+                      when not is_integer(Index, 0, ?MAX_TUPLE_SIZE - 1) ->
+                        none;
+                    #t_integer{elements={Index,Index}} ->
                         Es = beam_types:set_tuple_element(Index, KeyType, #{}),
                         #t_tuple{size=Index,elements=Es};
                     #t_integer{} ->
