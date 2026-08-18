@@ -25,7 +25,9 @@
 #endif
 
 #include "sys.h"
+#include "global.h"
 #include "beam_load.h"
+#include "erl_bif_unique.h"
 #include "erl_map.h"
 #include "beam_transform_helpers.h"
 
@@ -136,6 +138,29 @@ beam_load_sort_select_vals(BeamOpArg* base, size_t n)
 {
     qsort(base, n, 2 * sizeof(BeamOpArg),
           (int (*)(const void *, const void *)) oparg_compare);
+}
+
+int
+beam_load_compile_binary_pattern(LoaderState *stp, BeamOpArg pattern)
+{
+    Eterm heap[ERTS_MAGIC_REF_THING_SIZE + 3];
+    Binary *bin;
+    Eterm compiled, magic_ref, source, tag;
+    Eterm *hp = heap;
+    ErlOffHeap off_heap;
+
+    source = beamfile_get_literal(&stp->beam, pattern.val);
+    if (!erts_binary_compile_pattern(source, &tag, &bin)) {
+        return 0;
+    }
+
+    ERTS_INIT_OFF_HEAP(&off_heap);
+    magic_ref = erts_mk_magic_ref(&hp, &off_heap, bin);
+    compiled = TUPLE2(hp, tag, magic_ref);
+
+    stp->loaded_binary_pattern = beamfile_add_literal(&stp->beam, compiled, 0);
+    erts_cleanup_offheap(&off_heap);
+    return 1;
 }
 
 static int

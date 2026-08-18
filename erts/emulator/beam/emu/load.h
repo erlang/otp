@@ -147,6 +147,9 @@ struct LoaderState_ {
     /* Translates lambda indexes to their canonical literal, if any. */
     SWord *lambda_literals;
 
+    /* Dynamic literal produced by the current binary pattern transform. */
+    SWord loaded_binary_pattern;
+
     int otp_20_or_higher;
 
     Uint last_func_start;

@@ -881,8 +881,54 @@ simplify_call(_Call, maps, new, []) ->
     #c_literal{val=#{}};
 simplify_call(Call, maps, size, [Map]) ->
     rewrite_call(Call, erlang, map_size, [Map]);
+%% Expose literal binary search patterns to the loader, which can replace the
+%% generated compile_pattern/1 call with a compiled-pattern literal. Leave
+%% invalid patterns alone to preserve the original exception and stacktrace.
+simplify_call(Call, binary, Name,
+              [Subject,#c_literal{val=Pattern}=PatternLiteral|Rest]=Args)
+  when Name =:= match; Name =:= matches; Name =:= split ->
+    case length(Rest) =< 1 andalso valid_binary_pattern(Pattern) of
+        true ->
+            Anno = [compiler_generated | Call#c_call.anno],
+            Compile = #c_call{anno=Anno,
+                              module=#c_literal{val=binary},
+                              name=#c_literal{val=compile_pattern},
+                              args=[PatternLiteral]},
+            Call#c_call{args=[Subject,Compile|Rest]};
+        false ->
+            Call#c_call{args=Args}
+    end;
 simplify_call(Call, _, _, Args) ->
     Call#c_call{args=Args}.
+
+valid_binary_pattern(Pattern) when is_binary(Pattern) ->
+    byte_size(Pattern) > 0;
+valid_binary_pattern([{Low,High}|Ranges]) ->
+    is_integer(Low) andalso is_integer(High) andalso
+        0 =< Low andalso Low =< High andalso High =< 255 andalso
+        valid_binary_range_list(Ranges);
+valid_binary_pattern([Pattern|Patterns]) ->
+    is_binary(Pattern) andalso byte_size(Pattern) > 0 andalso
+        valid_binary_pattern_list(Patterns);
+valid_binary_pattern(_) ->
+    false.
+
+valid_binary_pattern_list([Pattern|Patterns]) ->
+    is_binary(Pattern) andalso byte_size(Pattern) > 0 andalso
+        valid_binary_pattern_list(Patterns);
+valid_binary_pattern_list([]) ->
+    true;
+valid_binary_pattern_list(_) ->
+    false.
+
+valid_binary_range_list([{Low,High}|Ranges]) ->
+    is_integer(Low) andalso is_integer(High) andalso
+        0 =< Low andalso Low =< High andalso High =< 255 andalso
+        valid_binary_range_list(Ranges);
+valid_binary_range_list([]) ->
+    true;
+valid_binary_range_list(_) ->
+    false.
 
 %% rewrite_call(Call0, Mod, Func, Args, Sub) -> Call
 %%  Rewrites a call to the given MFA.

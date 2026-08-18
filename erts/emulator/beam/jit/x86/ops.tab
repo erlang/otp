@@ -82,6 +82,10 @@ move S X0=x==0 | line _Loc | call_last Ar Func D =>
 move S X0=x==0 | line _Loc | call_only Ar Func =>
      move S X0 | call_only Ar Func
 
+# Move literal call arguments past line instructions so they can participate
+# in load-time call transformations.
+move S=c X0=x==0 | line Loc => line Loc | move S X0
+
 # The line number in int_func_start/5 can be NIL.
 func_line n => empty_func_line
 
@@ -344,6 +348,24 @@ system_limit_body
 #
 # Optimize moves of consecutive memory addresses.
 #
+
+# Compile literal binary search patterns before constant moves are lowered to
+# i_move. Invalid patterns decline these transforms and retain their original
+# runtime error behavior.
+#
+
+move Pattern=q X0=x==0 |
+  call_ext _Ar=u _Func=u$bif:binary:compile_pattern/1 |
+  load_binary_pattern(Pattern) =>
+    loaded_binary_pattern(X0)
+move Pattern=q X0=x==0 |
+  call_ext_last _Ar=u _Func=u$bif:binary:compile_pattern/1 D |
+  load_binary_pattern(Pattern) =>
+    loaded_binary_pattern_last(X0, D)
+move Pattern=q X0=x==0 |
+  call_ext_only _Ar=u _Func=u$bif:binary:compile_pattern/1 |
+  load_binary_pattern(Pattern) =>
+    loaded_binary_pattern_only(X0)
 
 move Src=c Dst => i_move Src Dst
 
