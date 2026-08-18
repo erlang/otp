@@ -6935,6 +6935,46 @@ esac
 fi
 
 
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST to CXXFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST to CXXFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST $CXXFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CXXFLAGS="-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST $CXXFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
 fi
 
 
