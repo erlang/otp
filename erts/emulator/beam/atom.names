@@ -179,6 +179,7 @@ atom cause
 atom cd
 atom cdr
 atom cflags
+atom cxxflags
 atom CHANGE='CHANGE'
 atom characters_to_binary_int
 atom characters_to_list_int
