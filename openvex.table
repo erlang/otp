@@ -1689,6 +1689,16 @@
         ],
         "not_affected": "vulnerable_code_not_present"
       }
+    },
+    {
+      "pkg:github/openssl/openssl@c9a9e5b10105ad850b6e4d1122c645c67767c341": "CVE-2026-14456",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@16.0",
+          "pkg:otp/erl_interface@5.6"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
     }
   ],
   "otp-29": [
