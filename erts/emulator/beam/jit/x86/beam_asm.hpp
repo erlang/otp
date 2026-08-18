@@ -1373,6 +1373,11 @@ protected:
                        const ArgRegister &Hd,
                        const ArgRegister &Tl);
 
+    void emit_get_pair(const x86::Gp src,
+                       const Uint offset,
+                       const ArgRegister &First,
+                       const ArgRegister &Second);
+
     void emit_div_rem(const ArgLabel &Fail,
                       const ArgSource &LHS,
                       const ArgSource &RHS,

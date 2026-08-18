@@ -116,16 +116,41 @@ void BeamModuleAssembler::emit_i_get_local_record_elements(
         const ArgRegister &Src,
         const ArgWord &Size,
         const Span<const ArgVal> &args) {
-    mov_arg(ARG3, Src);
-    a.mov(ARG1, c_p);
-    load_x_reg_array(ARG2);
-    mov_imm(ARG4, args.size());
-    embed_vararg_rodata(args, ARG5, 0);
+    Eterm def;
+    ErtsRecordDefinition *defp;
+    int field_count;
+    Eterm cons = beamfile_get_literal(beam, Def.get());
+    Uint argp;
+    const Uint header_offset =
+            offsetof(ErtsRecordInstance, values) - TAG_PRIMARY_BOXED;
 
-    emit_enter_runtime<Update::eStack>();
-    runtime_call<bool (*)(Process *, Eterm *, Eterm, Uint, const Eterm *),
-                 erl_get_record_elements>();
-    emit_leave_runtime<Update::eStack>();
+    def = CAR(list_val(cons));
+    defp = (ErtsRecordDefinition *)tuple_val(def);
+
+    field_count = RECORD_DEF_FIELD_COUNT(defp);
+
+    comment("name: %T", defp->name);
+    mov_arg(ARG1, Src);
+    emit_ptr_val(ARG1, ARG1);
+    argp = 0;
+    for (int i = 0; i < field_count; i++) {
+        if (argp + 1 < args.size() &&
+            args[argp].as<ArgAtom>().get() == defp->keys[i]) {
+            if (argp + 3 < args.size() &&
+                args[argp + 2].as<ArgAtom>().get() == defp->keys[i + 1]) {
+                emit_get_pair(ARG1,
+                              header_offset + i * sizeof(Eterm),
+                              args[argp + 1],
+                              args[argp + 3]);
+                argp += 4;
+            } else {
+                a.mov(ARG2,
+                      x86::qword_ptr(ARG1, header_offset + i * sizeof(Eterm)));
+                mov_arg(args[argp + 1], ARG2);
+                argp += 2;
+            }
+        }
+    }
 }
 
 void BeamModuleAssembler::emit_i_get_record_elements(
