@@ -36,7 +36,7 @@
          cover_maps_functions/1,min_max_mixed_types/1,
          not_equal/1,infer_relops/1,binary_unit/1,premature_concretization/1,
          funs/1,will_succeed/1,float_confusion/1,
-         cover_convert_ext/1, catch_setelement/1,gh_11368/1,
+         cover_convert_ext/1, catch_setelement/1,gh_11368/1,gh_11413/1,
          rem_bounds/1]).
 
 %% Force id/1 to return 'any'.
@@ -88,6 +88,7 @@ groups() ->
        cover_convert_ext,
        catch_setelement,
        gh_11368,
+       gh_11413,
        rem_bounds
       ]}].
 
@@ -1692,6 +1693,12 @@ rem_bounds(_Config) ->
 %% GH-11400. beam_validator would reject the following code.
 rem_bounds_1(N) ->
     rem_bounds_1((1 rem N) - 2).
+
+gh_11413(_Config) ->
+    ?assertError(_, gh_11413_1()).
+
+gh_11413_1() ->
+    {_, _} = lists:keyfind(0, 16777216, lists:zip([], []) ).
 
 %%%
 %%% Common utilities.

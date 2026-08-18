@@ -101,11 +101,11 @@ meet(any, T) ->
 meet(T, any) ->
     verified_type(T);
 meet(#t_union{}=A, B) ->
-    meet_unions(A, B);
+    verified_type(meet_unions(A, B));
 meet(A, #t_union{}=B) ->
-    meet_unions(B, A);
+    verified_type(meet_unions(B, A));
 meet(A, B) ->
-    glb(A, B).
+    verified_type(glb(A, B)).
 
 meet_unions(#t_union{atom=AtomA,list=ListA,number=NumberA,
                      tuple_set=TSetA,native_record_set=NSetA,
