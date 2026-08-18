@@ -42,7 +42,7 @@ on:
         value: ${{ jobs.create-sbom.outputs.ort_version }}
 
 env:
-  ORT_VERSION: 90.0.0
+  ORT_VERSION: 92.2.0
   OTP_SBOM_VERSION: ${{ inputs.otp_sbom_version }}
   SCAN_RESULT_CACHE_PATH: .ort/scan-result.json
 
@@ -146,12 +146,14 @@ jobs:
 
       - name: Run OSS Review Toolkit (scanner)
         if: hashFiles(env.SCAN_RESULT_CACHE_PATH) == ''
-        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        uses: oss-review-toolkit/ort-ci-github-action@086d928d24ef1653dc0777296b312fda5faaaf52 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.2.0
         with:
-            image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
+            image: ghcr.io/oss-review-toolkit/ort:${{ env.ORT_VERSION }}
             run: >
               scanner
             sw-version: ${{ env.OTP_SBOM_VERSION }}
+            ort-cli-scan-args: >-
+              --scanners Provenant
 
       - name: Overwrite scan results using reuse
         run: |
@@ -175,7 +177,7 @@ jobs:
           ln -f -s scan-result.reuse.json $HOME/.ort/ort-results/current-result.json
 
       - name: Run OSS Review Toolkit (reporter)
-        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        uses: oss-review-toolkit/ort-ci-github-action@086d928d24ef1653dc0777296b312fda5faaaf52 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.2.0
         with:
             image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
             run: >
@@ -212,7 +214,7 @@ jobs:
           path: /home/runner/.ort/ort-results/bom.spdx.json
 
       - name: Run OSS Review Toolkit (upload)
-        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        uses: oss-review-toolkit/ort-ci-github-action@086d928d24ef1653dc0777296b312fda5faaaf52 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.2.0
         with:
             image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
             run: >
@@ -224,7 +226,7 @@ jobs:
         run: ln -f -s scan-result.reuse.json $HOME/.ort/ort-results/current-result.json
 
       - name: Run OSS Review Toolkit (evaluator)
-        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        uses: oss-review-toolkit/ort-ci-github-action@086d928d24ef1653dc0777296b312fda5faaaf52 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.2.0
         with:
             image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
             run: >
