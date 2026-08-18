@@ -88,7 +88,7 @@ sarif(Missing) ->
                  ~"artifacts" =>
                      [ #{
                          ~"location" => #{
-                                          ~"uri" => ~".github/docker/Dockerfile.64-bit"
+                                          ~"uri" => ~".github/dockerfiles/Dockerfile.64-bit"
                                          },
                          ~"length" => -1
                         }
@@ -102,7 +102,7 @@ sarif(Missing) ->
                          ~"locations" =>
                              [ #{ ~"physicalLocation" =>
                                       #{ ~"artifactLocation" =>
-                                             #{ ~"uri" => ~".github/docker/Dockerfile.64-bit" }
+                                             #{ ~"uri" => ~".github/dockerfiles/Dockerfile.64-bit" }
                                        }
                                 } ]
                         } || {Id, #{ ~"opt" := Opt }} <- Zip]
