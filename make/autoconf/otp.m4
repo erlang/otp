@@ -3200,6 +3200,7 @@ AC_DEFUN([ERL_OSSF_CXXFLAGS],
     AS_IF([test "$ossf_security_hardening" = "yes"],
       [
         LM_TRY_ENABLE_CFLAG([-D_GLIBCXX_ASSERTIONS],[$1])
+        LM_TRY_ENABLE_CFLAG([-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST],[$1])
       ])
 ])
 
