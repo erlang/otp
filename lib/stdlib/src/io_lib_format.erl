@@ -103,7 +103,7 @@ build(Cs) ->
 
 build(Cs, Options) ->
     CharsLimit = get_option(chars_limit, Options, -1),
-    Res1 = build_small(Cs),
+    Res1 = build_small(Cs, CharsLimit),
     {P, S, W, Other} = count_small(Res1),
     case P + S + W of
         0 ->
@@ -128,7 +128,7 @@ build_bin(Cs) ->
 
 build_bin(Cs, Options) ->
     CharsLimit = get_option(chars_limit, Options, -1),
-    Res1 = build_small_bin(Cs),
+    Res1 = build_small_bin(Cs, CharsLimit),
     {P, S, W, Other} = count_small(Res1),
     case P + S + W of
         0 ->
@@ -349,13 +349,13 @@ count_small([], #{p := P, s := S, w := W, other := Other}) ->
 %%  be smart when calculating indentation for characters in format.
 
 build_small([#{control_char := C, args := As, width := F, adjust := Ad,
-               precision := P, pad_char := Pad, encoding := Enc}=CC | Cs]) ->
-    case control_small(C, As, F, Ad, P, Pad, Enc) of
-        not_small -> [CC | build_small(Cs)];
-        S -> lists:flatten(S) ++ build_small(Cs)
+               precision := P, pad_char := Pad, encoding := Enc}=CC | Cs], CL) ->
+    case control_small(C, As, limit_field(F, CL), Ad, P, Pad, Enc) of
+        not_small -> [CC | build_small(Cs, CL)];
+        S -> lists:flatten(S) ++ build_small(Cs, CL)
     end;
-build_small([C|Cs]) -> [C|build_small(Cs)];
-build_small([]) -> [].
+build_small([C|Cs], CL) -> [C|build_small(Cs, CL)];
+build_small([], _CL) -> [].
 
 build_limited([#{control_char := C, args := As, width := F, adjust := Ad,
                  precision := P, pad_char := Pad, encoding := Enc,
@@ -395,22 +395,22 @@ decr_pc($P, Pc) -> Pc - 1;
 decr_pc(_, Pc) -> Pc.
 
 build_small_bin([#{control_char := C, args := As, width := F, adjust := Ad,
-                   precision := P, pad_char := Pad, encoding := Enc}=CC | Cs]) ->
-    case control_small(C, As, F, Ad, P, Pad, Enc) of
+                   precision := P, pad_char := Pad, encoding := Enc}=CC | Cs], CL) ->
+    case control_small(C, As, limit_field(F, CL), Ad, P, Pad, Enc) of
         not_small ->
-            [CC | build_small_bin(Cs)];
+            [CC | build_small_bin(Cs, CL)];
         [$\n|_] = NL ->
-            [NL | build_small_bin(Cs)];
+            [NL | build_small_bin(Cs, CL)];
         S ->
             SBin = unicode:characters_to_binary(S, Enc, unicode),
             true = is_binary(SBin),
-            [SBin | build_small_bin(Cs)]
+            [SBin | build_small_bin(Cs, CL)]
     end;
-build_small_bin([$\t|Cs]) ->
-    [$\t | build_small_bin(Cs)];
-build_small_bin([C|Cs]) ->
-    [C | build_small_bin(Cs)];
-build_small_bin([]) ->
+build_small_bin([$\t|Cs], CL) ->
+    [$\t | build_small_bin(Cs, CL)];
+build_small_bin([C|Cs], CL) ->
+    [C | build_small_bin(Cs, CL)];
+build_small_bin([], _CL) ->
     [].
 
 build_limited_bin([#{control_char := C, args := As, width := F, adjust := Ad,
@@ -544,13 +544,13 @@ control_limited($s, [L0], F, Adj, P, Pad, Enc, _Str, _Ord, CL, _I) ->
     end;
 control_limited($w, [A], F, Adj, P, Pad, Enc, _Str, Ord, CL, _I) ->
     Chars = io_lib:write(A, -1, Enc, Ord, CL),
-    term(Chars, F, Adj, P, Pad, Enc);
+    term(Chars, limit_field(F, CL), Adj, P, Pad, Enc);
 control_limited($p, [A], F, Adj, P, Pad, Enc, Str, Ord, CL, I) ->
     print(A, -1, F, Adj, P, Pad, Enc, list, Str, Ord, CL, I);
 control_limited($W, [A,Depth], F, Adj, P, Pad, Enc, _Str, Ord, CL, _I)
   when is_integer(Depth) ->
     Chars = io_lib:write(A, Depth, Enc, Ord, CL),
-    term(Chars, F, Adj, P, Pad, Enc);
+    term(Chars, limit_field(F, CL), Adj, P, Pad, Enc);
 control_limited($P, [A,Depth], F, Adj, P, Pad, Enc, Str, Ord, CL, I)
   when is_integer(Depth) ->
     print(A, Depth, F, Adj, P, Pad, Enc, list, Str, Ord, CL, I).
@@ -560,13 +560,13 @@ control_limited_bin($s, [L0], F, Adj, P, Pad, Enc, _Str, _Ord, CL, _I) ->
     string_bin(B, Sz, limit_field(F, CL), Adj, P, Pad, Enc);
 control_limited_bin($w, [A], F, Adj, P, Pad, Enc, _Str, Ord, CL, I) ->
     {Chars, Sz} = io_lib:write_bin(A, -1, Enc, Ord, CL),
-    term_bin(Chars, F, Adj, P, Pad, Enc, Sz, I);
+    term_bin(Chars, limit_field(F, CL), Adj, P, Pad, Enc, Sz, I);
 control_limited_bin($p, [A], F, Adj, P, Pad, Enc, Str, Ord, CL, I) ->
     print(A, -1, F, Adj, P, Pad, Enc, binary, Str, Ord, CL, I);
 control_limited_bin($W, [A,Depth], F, Adj, P, Pad, Enc, _Str, Ord, CL, I)
   when is_integer(Depth) ->
     {Chars, Sz} = io_lib:write_bin(A, Depth, Enc, Ord, CL),
-    term_bin(Chars, F, Adj, P, Pad, Enc, Sz, I);
+    term_bin(Chars, limit_field(F, CL), Adj, P, Pad, Enc, Sz, I);
 control_limited_bin($P, [A,Depth], F, Adj, P, Pad, Enc, Str, Ord, CL, I)
   when is_integer(Depth) ->
     print(A, Depth, F, Adj, P, Pad, Enc, binary, Str, Ord, CL, I).

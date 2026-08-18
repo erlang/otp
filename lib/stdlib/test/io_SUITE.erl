@@ -3178,6 +3178,17 @@ chars_limit(_Config) ->
             CL <- lists:seq(N, N*3),
             What <- [List, Tuple, Map, Record]
         ],
+
+    %% chars_limit caps field width for all controls, not just ~s.
+    10 = iolist_size(io_lib:format("~100n", [], [{chars_limit, 10}])),
+    10 = iolist_size(io_lib:format("~100c", [$x], [{chars_limit, 10}])),
+    10 = iolist_size(io_lib:format("~100c", [$x], [{chars_limit, 10}])),
+    10 = iolist_size(io_lib:format("~*c", [100, $x], [{chars_limit, 10}])),
+    10 = iolist_size(io_lib:format("~*c", [-100, $x], [{chars_limit, 10}])),
+    10 = iolist_size(io_lib:format("~100w", [foo], [{chars_limit, 10}])),
+    %% Without chars_limit, field width is not capped.
+    100 = iolist_size(io_lib:format("~100n", [])),
+    100 = iolist_size(io_lib:format("~100c", [$x])),
     ok.
 
 error_info(Config) ->
