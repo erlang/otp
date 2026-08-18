@@ -2905,7 +2905,7 @@ void() -> #c_literal{val=ok}.
 descend(_Core, #sub{top=false}=Sub) ->
     Sub;
 descend(Core, #sub{top=true}=Sub) ->
-    case should_suppress_warning(Core) of
+    case is_compiler_generated(Core) of
         true ->
             %% In a list comprehension being ignored such as:
             %%

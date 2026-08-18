@@ -47,7 +47,7 @@
 	 underscore/1,no_warnings/1,
 	 bit_syntax/1,inlining/1,tuple_calls/1,
          recv_opt_info/1,opportunistic_warnings/1,
-         eep49/1,inline_list_funcs/1]).
+         eep49/1,inline_list_funcs/1,gh_11472/1]).
 
 %% Import SSA records.
 -import_record(beam_ssa, [b_set, b_literal, b_remote, b_local]).
@@ -74,7 +74,7 @@ groups() ->
        redundant_boolean_clauses,
        underscore,no_warnings,bit_syntax,inlining,
        tuple_calls,recv_opt_info,opportunistic_warnings,
-       eep49,inline_list_funcs]}].
+       eep49,inline_list_funcs,gh_11472]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -1364,6 +1364,25 @@ inline_list_funcs(Config) ->
            []}
          ],
     run(Config, Ts),
+
+    ok.
+
+gh_11472(Config) ->
+    Ts = [{nowarn,
+           <<"-export([f/1]).
+              f(Acc) ->
+                X = 0,
+                {Y} =
+                    begin
+                    _Fresh1 = {[X | Acc]},
+                    _Fresh1
+                    end,
+                Y.
+            ">>,
+           [],
+           []}
+           ],
+    [] = run(Config,Ts),
 
     ok.
 
