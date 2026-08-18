@@ -2260,6 +2260,18 @@ otp_10302(Suite) when is_list(Suite) ->
                not is_latin1(S)],
     L2 = lists:seq(256, 512),
 
+    %% C1 controls (U+0080-U+009F) must be escaped in binary unicode path.
+    lists:foreach(
+      fun(C) ->
+              Bin = <<C/utf8>>,
+              Escaped = io_lib:bwrite_string(Bin, $", unicode),
+              %% Must not contain raw C1 bytes - should be octal-escaped.
+              nomatch = binary:match(Escaped, Bin),
+              %% Verify matches list path.
+              ListEsc = lists:flatten(io_lib:write_string([C])),
+              ListEsc = unicode:characters_to_list(Escaped)
+      end, lists:seq(16#80, 16#9F)),
+
     ok.
 
 pretty(Term, Depth) when is_integer(Depth) ->

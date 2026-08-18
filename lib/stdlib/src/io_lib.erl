@@ -1084,6 +1084,22 @@ string_bin_escape_latin1(_, Orig, _, Acc, Skip, Len) ->
         false -> [Acc | binary_part(Orig, Skip, Len)]
     end.
 
+string_bin_escape_unicode(<<16#C2, Byte, Rest/binary>>, Orig, Q, Acc, Skip0, Len)
+  when Byte >= 16#80, Byte =< 16#9F ->
+    %% C1 control characters (U+0080-U+009F) - octal escape to match list path.
+    C1 = (Byte bsr 6) + $0,
+    C2 = ((Byte bsr 3) band 7) + $0,
+    C3 = (Byte band 7) + $0,
+    Escape = [$\\,C1,C2,C3],
+    case Len =:= 0 of
+        true ->
+            Skip = Skip0 + 2,
+            string_bin_escape_unicode(Rest, Orig, Q, [Acc | Escape], Skip, 0);
+        false ->
+            Skip = Skip0 + Len + 2,
+            Part = binary_part(Orig, Skip0, Len),
+            string_bin_escape_unicode(Rest, Orig, Q, [Acc, Part | Escape], Skip, 0)
+    end;
 string_bin_escape_unicode(<<Byte, Rest/binary>>, Orig, Q, Acc, Skip0, Len) when Byte > 127 ->
     string_bin_escape_unicode(Rest, Orig, Q, Acc, Skip0, Len+1);
 string_bin_escape_unicode(<<Byte, Rest/binary>>, Orig, Q, Acc, Skip0, Len) ->
