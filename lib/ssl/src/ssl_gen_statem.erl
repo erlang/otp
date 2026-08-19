@@ -1931,13 +1931,22 @@ connection_info(#state{handshake_env = #handshake_env{sni_hostname = SNIHostname
                   _ ->
                       []
               end,
+    GroupInfo = case Version of
+                    ?TLS_1_3 when is_atom(ECCCurve), ECCCurve =/= undefined ->
+                        %% For TLS-1.3 the named group of the key exchange is
+                        %% negotiated via the supported_groups and key_share
+                        %% extensions and is kept in session.ecc
+                        [{selected_group, ECCCurve}];
+                    _ ->
+                        []
+                end,
     [{protocol, RecordCB:protocol_version(Version)},
      {session_id, SessionId},
      {session_data, term_to_binary(Session)},
      {session_resumption, Resumption},
      {selected_cipher_suite, CipherSuiteDef},
      {sni_hostname, SNIHostname},
-     {srp_username, SrpUsername} | CurveInfo] ++ MFLInfo ++ ssl_options_list(Opts).
+     {srp_username, SrpUsername} | CurveInfo] ++ GroupInfo ++ MFLInfo ++ ssl_options_list(Opts).
 
 security_info(#state{connection_states = #{current_read := Read,
                                            current_write := Write},

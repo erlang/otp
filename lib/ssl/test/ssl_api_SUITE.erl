@@ -4098,6 +4098,15 @@ secs_since_1970() ->
 
 connection_information_result(Socket) ->
     {ok, Info = [_ | _]} = ssl:connection_information(Socket),
+    case proplists:get_value(protocol, Info) of
+        'tlsv1.3' ->
+            %% For TLS-1.3 the negotiated key exchange group is exposed
+            {ok, [{selected_group, Group}]} =
+                ssl:connection_information(Socket, [selected_group]),
+            true = lists:member(Group, ssl:groups());
+        _ ->
+            false = proplists:is_defined(selected_group, Info)
+    end,
     case  length(Info) > 3 of
 	true -> 
 	    %% At least one ssl_option() is set
