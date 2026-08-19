@@ -1312,90 +1312,90 @@ text_fun(Config) when is_list(Config) ->
 
 triple_quoted_string(Config) when is_list(Config) ->
     {ok,[{string,1,""}],2} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\n"
           "\"\"\""),
 
     {ok,[{string,1,""}],3} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\n"
           "\n"
           "\"\"\""),
 
     {ok,[{string,1,""}],3} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\n"
           " \n"
           " \"\"\""),
 
     {ok,[{string,1,""}],3} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\n"
           "\n"
           " \"\"\""),
 
     {ok,[{string,1,""}],3} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\r\n"
           "  \r\n"
           "  \"\"\""),
 
     {error,{{2,2},erl_scan,indentation},{3,6}} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\n"
           " \n" % One space too little indentation
           "  \"\"\"", {1,1}, []),
 
     {ok,[{string,1,"\n"}],4} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\n"
           "\n"
           "\n"
           "\"\"\""),
 
     {ok,[{string,1,"\r\n"}],4} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\n"
           "  \r\n"
           "  \n"
           "  \"\"\""),
 
     {ok,[{string,1,"\n"}],4} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\n"
           "  \n"
           "\r\n"
           "  \"\"\""),
 
     {ok,[{string,1,"\r\n"}],4} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\n"
           "\r\n"
           "  \n"
           "  \"\"\""),
 
     {error,{{3,2},erl_scan,indentation},{4,6}} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\n"
           "  \n"
           " \r\n"
           "  \"\"\"", {1,1}, []),
 
     {error,{{2,3},erl_scan,indentation},{4,7}} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\n"
           "  \n" % One space too little indentation
           "   \r\n"
           "   \"\"\"", {1,1}, []),
 
     {ok,[{string,1,"CR LF"}],3} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\" \t\r\n"
           "CR LF\r\n"
           "\"\"\""),
 
     {ok,[{string,1,"this is a\nvery long\nstring"}],5} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\n"
           "this is a\n"
           "very long\n"
@@ -1403,7 +1403,7 @@ triple_quoted_string(Config) when is_list(Config) ->
           "\"\"\""),
 
     {ok,[{string,1,"this is a\r\nvery long\r\nstring"}],5} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\r\n"
           "  this is a\r\n"
           "  very long\r\n"
@@ -1418,7 +1418,7 @@ triple_quoted_string(Config) when is_list(Config) ->
        "with three empty lines\n"
        "\r\n"}],
      8} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\r\n"
           "  this is a string\r\n"
           "\n"
@@ -1429,7 +1429,7 @@ triple_quoted_string(Config) when is_list(Config) ->
           "  \"\"\""),
 
     {ok,[{string,1,"  this is a\n    very long\n  string"}],5} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\n"
           "\t  this is a\n"
           "\t    very long\n"
@@ -1437,7 +1437,7 @@ triple_quoted_string(Config) when is_list(Config) ->
           "\t\"\"\""),
 
     {ok,[{string,1,"this is a \\\\\nvery long \\\\\nstring\\\\"}],5} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\n"
           "this is a \\\\\n"
           "very long \\\\\n"
@@ -1449,7 +1449,7 @@ triple_quoted_string(Config) when is_list(Config) ->
           "and \"\"\"triple quotes\"\"\"\n"
           " \"\" \"\"\" and\n"
           "ends here"}],6} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\n"
           "this contains \"quotes\"\n"
           "and \"\"\"triple quotes\"\"\"\n"
@@ -1465,7 +1465,7 @@ triple_quoted_string(Config) when is_list(Config) ->
           "    bar\n"
           "    \"\"\".\n"
           "```"}],{9,5}} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\"\n"
           "```erlang\n"
           "foo() ->\n"
@@ -1477,37 +1477,37 @@ triple_quoted_string(Config) when is_list(Config) ->
           "\"\"\"\"", {1,1}, []),
 
     {ok,[{string,{1,1},"5-quoted"}],{3,8}} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\"\"\n"
           "  5-quoted\n"
           "  \"\"\"\"\"", {1,1}, []),
 
     {error,{{1,4},erl_scan,white_space},{2,4}} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"foo\n" % Only white-space allowed after opening quote seq
           "\"\"\"", {1,1}, []),
 
     {error,{{2,2},erl_scan,indentation},{3,6}} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\n"
           " foo\n" % One space too little indentation
           "  \"\"\"", {1,1}, []),
 
     {error,{{2,8},erl_scan,indentation},{3,12}} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\n"
           "       \tfoo\n" % The tab shoud be a space
           "        \"\"\"", {1,1}, []),
 
     {error,{{1,4},erl_scan,{unterminated,{string,3},"\n\tx\n\t\"\""}},{3,4}} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\n"
           "\tx\n"
           "\t\"\"", % Lacking one double-quote char in closing seq
           {1,1}, []),
 
     {error,{{3,4},erl_scan,string_concat},{3,4}} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\"\"\n"
           "x\n"
           "\"\"\"\"",
@@ -1515,7 +1515,7 @@ triple_quoted_string(Config) when is_list(Config) ->
           {1,1}, []),
 
     {error,{{3,2},erl_scan,string_concat},{3,2}} =
-        erl_scan:string(
+        erl_scan_string(
           "\"\n"
           "x\n"
           "\"\"\"",
@@ -1524,16 +1524,16 @@ triple_quoted_string(Config) when is_list(Config) ->
 
     {error,{{1,6},erl_scan,string_concat},{1,6}} =
         %% Adjacent string start without white space
-        erl_scan:string("\"abc\"\"def\"", {1,1}, []),
+        erl_scan_string("\"abc\"\"def\"", {1,1}, []),
 
     {ok,[{string,1,[16#D000]}],3} =
-        erl_scan:string(
+        erl_scan_string(
           [$",$",$",$\n,
            16#D000,$\n, % Unicode character
            $",$",$"]),
 
     {error,{2,erl_scan,{illegal,character}},2} =
-        erl_scan:string(
+        erl_scan_string(
           [$",$",$",$\n,
            16#FFFF,$\n, % Out of Unicode range
            $",$",$"]),
@@ -1576,11 +1576,54 @@ erl_scan_string(String, StartLocation) ->
 
 erl_scan_string(String, StartLocation, Options) ->
     case erl_scan:string(String, StartLocation, Options) of
-        {ok, Tokens, EndLocation} ->
-            {ok, unopaque_tokens(Tokens), EndLocation};
-        Else ->
-            Else
+        {ok, Tokens1, EndLocation1} = OK1 ->
+            case erl_scan_string_chop(String, StartLocation, Options) of
+                {ok, Tokens2, EndLocation2} ->
+                    Tokens1 =:= Tokens2 orelse
+                        error({scan_chop_mismatch, String,
+                               Tokens1, Tokens2}),
+                    EndLocation1 =:= EndLocation2 orelse
+                        error({scan_chop_mismatch, String,
+                               EndLocation1, EndLocation2}),
+                    {ok, unopaque_tokens(Tokens1), EndLocation1};
+                Other1 ->
+                    error({scan_chop_mismatch, String,
+                           OK1, Other1})
+            end;
+        Other2 ->
+            case erl_scan_string_chop(String, StartLocation, Options) of
+                Other2 ->
+                    Other2;
+                Other3 ->
+                error({scan_chop_mismatch, String,
+                           Other2, Other3})
+            end
     end.
+
+erl_scan_string_chop(String, StartLocation, Options) ->
+    erl_scan_string_chop(String, StartLocation, Options, [], []).
+
+erl_scan_string_chop([], StartLocation, Options, Cont, Tokens0) ->
+    case erl_scan:tokens(Cont, eof, StartLocation, Options) of
+        {done, {ok, Tokens, EndLocation}, eof} ->
+            {ok, lists:reverse(Tokens0, Tokens), EndLocation};
+        {done, {eof, EndLocation}, eof} ->
+            {ok, lists:reverse(Tokens0), EndLocation};
+        {done, {error, _, _} = Error, _LeftOverChars} ->
+            Error
+    end;
+erl_scan_string_chop([C|Cs], StartLocation, Options, Cont0, Tokens0) ->
+    case erl_scan:tokens(Cont0, [C], StartLocation, Options) of
+        {more, Cont1} ->
+            erl_scan_string_chop(Cs, StartLocation, Options, Cont1, Tokens0);
+        {done, {ok, Tokens, EndLocation}, LeftOverChars} ->
+            Tokens1 = lists:reverse(Tokens, Tokens0),
+            erl_scan_string_chop(
+              LeftOverChars++Cs, EndLocation, Options, [], Tokens1);
+        {done, {error, _, _} = Error, _LeftOverChars} ->
+            Error
+    end.
+
 
 erl_scan_tokens(C, S, L) ->
     erl_scan_tokens(C, S, L, []).
