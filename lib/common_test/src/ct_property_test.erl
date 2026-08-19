@@ -206,13 +206,23 @@ init_tool(Config) ->
             {skip, "No property testing tool found"}
     end.
 
-init_tool_extensions(ToolModule) when ToolModule =:= eqc; ToolModule =:= proper ->
-    ExtDir = filename:join(code:lib_dir(common_test), proper_ext),
-    true = code:add_patha(ExtDir),
-    ct:log("Added ~ts to code path~n", [ExtDir]),
-    ok;
+init_tool_extensions(eqc) ->
+    ensure_tool_extensions(ct_quickcheck_ext);
+init_tool_extensions(proper) ->
+    ensure_tool_extensions(ct_proper_ext);
 init_tool_extensions(_) ->
     ok.
+
+ensure_tool_extensions(ExtModule) ->
+    case module_exists(ExtModule) of
+        true ->
+            ok;
+        false ->
+            ExtDir = filename:join(code:lib_dir(common_test), proper_ext),
+            true = code:add_patha(ExtDir),
+            ct:log("Added ~ts to code path~n", [ExtDir]),
+            ok
+    end.
 
 %%%----------------------------------------------------------------
 %%%
