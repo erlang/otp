@@ -32,7 +32,7 @@
 -define(HTTP_MAX_VERSION_STRING, 8).
 -define(HTTP_MAX_METHOD_STRING, 20).
 -define(HTTP_MAX_CONTENT_LENGTH, 100000000). %% 100 MB
--define(HTTP_MAX_BODY_READ_TIMEOUT, 60). %% seconds
+-define(HTTP_REQUEST_READ_TIMEOUT, 60). %% seconds
 
 -define(DATA_20MB, <<0:16#A000000>>).
 
