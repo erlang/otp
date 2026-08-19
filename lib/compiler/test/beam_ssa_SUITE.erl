@@ -31,7 +31,7 @@
          mapfoldl/0,mapfoldl/1,
          grab_bag/1,redundant_br/1,
          coverage/1,normalize/1,
-         trycatch/1,gh_6599/1,cs_div/1]).
+         trycatch/1,gh_6599/1,cs_div/1,gh_11494/1]).
 
 -import_record(beam_ssa, [b_set, b_var, b_literal]).
 
@@ -58,7 +58,8 @@ groups() ->
        normalize,
        trycatch,
        gh_6599,
-       cs_div
+       cs_div,
+       gh_11494
       ]}].
 
 init_per_suite(Config) ->
@@ -1575,6 +1576,17 @@ cs_div_1(X) when is_number(X) ->
 cs_div_2(X) when is_integer(X) ->
     X div 1.
 
+gh_11494(_Config) ->
+    100 = inspect([100]),
+    <<>> = inspect(<<>>),
+    ok.
+
+inspect(Value) ->
+    case Value of
+        Res when is_integer(Res);
+                 is_bitstring(Res) -> Res;
+        [Num] -> inspect(Num)
+    end.
 
 %% The identity function.
 id(I) -> I.
