@@ -100,9 +100,22 @@ validate_properties(RawProperties) ->
 
 %% This function is used to validate inter-property dependencies.
 %% That is, if property A depends on property B.
-%% The only sunch preperty at this time is bind_address that depends 
-%% on ipfamily.
+%% The only such preperties at this time are:
+%%  - bind_address that depends on ipfamily
+%%  - keep_alive_timeout that depends on keep_alive
 validate_properties2(Properties0) ->
+    case proplists:get_value(keep_alive, Properties0) of
+        undefined -> ok; %% defaults to true
+        true -> ok;
+        false ->
+            KeepaliveTimeout = proplists:get_value(keep_alive_timeout, Properties0),
+            case KeepaliveTimeout of
+                infinity -> ok; %%% timeout disabled
+                undefined -> ok;
+                _ ->
+                    throw({error, invalid_keep_alive_timeout})
+            end
+    end,
     Properties = fix_ipfamily(Properties0),
     case proplists:get_value(bind_address, Properties) of
 	undefined ->
@@ -261,7 +274,8 @@ validate_config_params([{max_keep_alive_request, Value} | _]) ->
     throw({max_keep_alive_request, Value});
 
 validate_config_params([{keep_alive_timeout, Value} | Rest]) 
-  when is_integer(Value) andalso (Value >= 0) ->
+  when is_integer(Value) andalso (Value >= 0);
+       Value =:= infinity ->
     validate_config_params(Rest);
 validate_config_params([{keep_alive_timeout, Value} | _]) ->
     throw({keep_alive_timeout, Value});

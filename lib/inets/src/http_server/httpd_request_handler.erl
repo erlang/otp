@@ -115,9 +115,12 @@ init([Manager, ConfigDB, AcceptTimeout]) ->
     Peername = http_transport:peername(SocketType, Socket),
     Sockname = http_transport:sockname(SocketType, Socket),
  
+    Keepalive = httpd_util:lookup(ConfigDB, keep_alive, true),
     %%Timeout value is in seconds we want it in milliseconds
-    KeepAliveTimeOut = 1000 * httpd_util:lookup(ConfigDB, keep_alive_timeout, 150),
-    
+    KeepAliveTimeOut = case Keepalive of
+                           true -> 1000 * httpd_util:lookup(ConfigDB, keep_alive_timeout, 150);
+                           _ -> infinity
+                       end,
     case http_transport:negotiate(SocketType, Socket, ?HANDSHAKE_TIMEOUT) of
 	{error, {tls_alert, {_, AlertDesc}} = Error} ->
             ModData = #mod{config_db = ConfigDB, init_data = #init_data{peername = Peername,
@@ -186,7 +189,7 @@ continue_init(Manager, ConfigDB, SocketType, Socket, Peername, Sockname,
                            chunk                   = chunk_start(MaxChunk)},
             setopts(Socket, SocketType, [binary, {packet, 0}, {active, once}]),
             NewState =
-                data_receive_counter(activate_request_timeout(State),
+                data_receive_counter(activate_keepalive_timeout(State),
                                      httpd_util:lookup(ConfigDB, minimum_bytes_per_second, false)),
             gen_server:enter_loop(?MODULE, [], NewState)
     end.
@@ -237,7 +240,7 @@ handle_info({Proto, Socket, Data},
   when (((Proto =:= tcp) orelse 
 	 (Proto =:= ssl) orelse 
 	 (Proto =:= dummy)) andalso is_binary(Data)) ->
-
+    cancel_keepalive_timeout(State),
     PROCESSED = (catch Module:Function([Data | Args])),
     NewDataSize = case State#state.byte_limit of
 		      undefined ->
@@ -250,9 +253,9 @@ handle_info({Proto, Socket, Data},
         {ok, Result} ->
 	    NewState = case NewDataSize of
 			   undefined ->
-			       cancel_request_timeout(State);
+			       State;
 			   _ ->
-			       set_new_data_size(cancel_request_timeout(State), NewDataSize)
+			       set_new_data_size(State, NewDataSize)
 		       end,
             handle_msg(Result, NewState);
 	{error, {size_error, MaxSize, ErrCode, ErrStr}, Version} ->
@@ -348,7 +351,7 @@ terminate(_Reason, State) ->
     do_terminate(State).
 
 do_terminate(#state{mod = ModData} = State) ->
-    cancel_request_timeout(State),
+    cancel_keepalive_timeout(State),
     httpd_socket:close(ModData#mod.socket_type, ModData#mod.socket).
 
 format_status(normal, [_, State]) ->
@@ -698,7 +701,7 @@ handle_next_request(#state{mod = #mod{connection = true} = ModData,
                            chunk                  = chunk_start(MaxChunk),
 			   response_sent          = false},
     
-    NewState = activate_request_timeout(TmpState),
+    NewState = activate_keepalive_timeout(TmpState),
 
     case Data of
 	<<>> ->
@@ -711,9 +714,12 @@ handle_next_request(#state{mod = #mod{connection = true} = ModData,
 handle_next_request(State, _) ->
     {stop, normal, State}.
 
-activate_request_timeout(#state{timeout = Time} = State) ->
+activate_keepalive_timeout(#state{timeout = infinity} = State) ->
+    State;
+activate_keepalive_timeout(#state{timeout = Time} = State) ->
+    NewState = cancel_keepalive_timeout(State),
     Ref = erlang:send_after(Time, self(), timeout),
-    State#state{timer = Ref}.
+    NewState#state{timer = Ref}.
 data_receive_counter(State, Byte_limit) ->
     case Byte_limit of
 	false ->
@@ -722,9 +728,9 @@ data_receive_counter(State, Byte_limit) ->
 	    erlang:send_after(3000, self(), check_data_first),
 	    State#state{data = 0, byte_limit = Nr}
     end.
-cancel_request_timeout(#state{timer = undefined} = State) ->
+cancel_keepalive_timeout(#state{timer = undefined} = State) ->
     State;
-cancel_request_timeout(#state{timer = Timer} = State) ->
+cancel_keepalive_timeout(#state{timer = Timer} = State) ->
     erlang:cancel_timer(Timer),
     receive 
 	timeout ->

@@ -83,7 +83,9 @@ all() ->
      {group, https_alert},
      {group, https_not_sup},
      {group, esi},
-     mime_types_format
+     mime_types_format,
+     keepalive_timeout,
+     keepalive_timeout_disabled
     ].
 
 groups() ->
@@ -388,6 +390,9 @@ init_per_testcase(disk_log_bad_file, Config0) ->
 init_per_testcase(erl_script_timeout_default, Config) ->
     ct:timetrap({seconds, 60}),
     dbg(erl_script_timeout_default, Config, init);
+init_per_testcase(Case, Config) when Case == keepalive_timeout;
+                                    Case == keepalive_timeout_disabled ->
+    dbg(Case, Config, init);
 init_per_testcase(medium = Case, Config) ->
     ct:timetrap({seconds, 150}),
     dbg(Case, Config, init);
@@ -1896,6 +1901,145 @@ mime_types_format(Config) when is_list(Config) ->
      {"doc","application/msword"},
      {"cpt","application/mac-compactpro"},
      {"hqx","application/mac-binhex40"}]} = httpd_conf:load_mime_types(MimeTypes).
+
+%%-------------------------------------------------------------------------
+keepalive_timeout() ->
+    [{doc, "A client that stalls the connection must be timed out (Slowloris)."},
+     {timetrap, {seconds, 30}}].
+keepalive_timeout(Config) when is_list(Config) ->
+    inets_test_lib:start_apps([inets]),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    DocRoot = filename:join(PrivDir, "keepalive_timeout_htdocs"),
+    ok = file:make_dir(DocRoot),
+    ok = file:write_file(filename:join(DocRoot, "index.html"), <<"OK">>),
+    KeepAliveTimeout = 2,
+    {ok, Pid} = inets:start(httpd, [
+        {port, 0},
+        {server_name, "body_timeout_test"},
+        {server_root, PrivDir},
+        {document_root, DocRoot},
+        {bind_address, {127,0,0,1}},
+        {keep_alive_timeout, KeepAliveTimeout},
+        {minimum_bytes_per_second, false},
+        {modules, [mod_get]}
+    ]),
+    Info = httpd:info(Pid),
+    {port, Port} = lists:keyfind(port, 1, Info),
+    T1 = os:timestamp(),
+    %% Open the connection and stall
+    {ok, Sock1} = gen_tcp:connect("127.0.0.1", Port, [binary, {active, false}]),
+
+    %% Server should timeout and respond with 408 within ~2 seconds
+    {error, closed} = gen_tcp:recv(Sock1, 0, 5000),
+    T2 = os:timestamp(),
+    case timer:now_diff(T2, T1)/1_000_000 of
+        T when T < KeepAliveTimeout * 0.9 orelse T > KeepAliveTimeout * 1.1 ->
+            ct:fail("Timeout outside of allowed error");
+        _ -> ok
+    end,
+
+    %% Open the connection, send a valid request, then stall
+    {ok, Sock2} = gen_tcp:connect("127.0.0.1", Port, [binary, {active, true}]),
+    ok = gen_tcp:send(Sock2, <<"GET /index.html HTTP/1.1\r\nHost: localhost\r\n"
+                              "Content-Length: 1\r\n\r\nX">>),
+    %% receive the body first, then flush the rest
+    receive
+            {tcp, _, Bin1} when binary_part(Bin1, {byte_size(Bin1), -2}) =:= <<"OK">> -> ok
+    after KeepAliveTimeout * 1000 ->
+                ct:fail("Response body not received within the timeout")
+    end,
+    inets_test_lib:flush(),
+
+    timer:sleep(KeepAliveTimeout * 1000),
+    {error, closed} = gen_tcp:send(Sock2, <<"GET /index.html HTTP/1.1\r\nHost: localhost\r\n"
+                                            "Content-Length: 1\r\n\r\nX">>),
+
+    %% Connect, and send one byte, then stall over the timeout value, then continue.
+    %% First byte should cancel the timeout
+    %% Timeout should be reactivated afterwards
+    {ok, Sock3} = gen_tcp:connect("127.0.0.1", Port, [binary, {active, true}]),
+    ok = gen_tcp:send(Sock3, <<"G">>),
+    timer:sleep(KeepAliveTimeout*2),
+    ok = gen_tcp:send(Sock3, <<"ET /index.html HTTP/1.1\r\nHost: localhost\r\n"
+                               "Content-Length: 1\r\n\r\nX">>),
+    receive
+            {tcp, _, Bin2} when binary_part(Bin2, {byte_size(Bin2), -2}) =:= <<"OK">> -> ok
+    after KeepAliveTimeout * 1000 ->
+                ct:fail("Response body not received within the timeout")
+    end,
+    inets_test_lib:flush(),
+    timer:sleep(KeepAliveTimeout * 1000),
+    {error, closed} = gen_tcp:send(Sock3, <<"GET /index.html HTTP/1.1\r\nHost: localhost\r\n"
+                                       "Content-Length: 1\r\n\r\nX">>),
+    inets:stop(httpd, Pid),
+    inets_test_lib:stop_apps([inets]).
+
+%%-------------------------------------------------------------------------
+keepalive_timeout_disabled() ->
+    [{doc, "keep_alive_timeout must not be applied when {keep_alive, false} "
+           "is configured: a client that pauses between the headers and the "
+           "body for longer than keep_alive_timeout must still get its "
+           "request served, not a 408 response."},
+     {timetrap, {seconds, 180}}].
+keepalive_timeout_disabled(Config) when is_list(Config) ->
+    inets_test_lib:start_apps([inets]),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    DocRoot = filename:join(PrivDir, "keepalive_disabled_htdocs"),
+
+    ok = file:make_dir(DocRoot),
+    ok = file:write_file(filename:join(DocRoot, "index.html"), <<"OK">>),
+    %% First test interoptions dependency
+    {error, invalid_keep_alive_timeout} = inets:start(httpd, [
+        {port, 0},
+        {server_name, "keepalive_disabled_test"},
+        {server_root, PrivDir},
+        {document_root, DocRoot},
+        {bind_address, {127,0,0,1}},
+        {keep_alive, false},
+        {keep_alive_timeout, 2},
+        {minimum_bytes_per_second, false},
+        {modules, [mod_esi]},
+        {erl_script_alias, {"/erl", [httpd_example]}}
+    ]),
+    {ok, Pid0} = inets:start(httpd, [
+        {port, 0},
+        {server_name, "keepalive_disabled_test"},
+        {server_root, PrivDir},
+        {document_root, DocRoot},
+        {bind_address, {127,0,0,1}},
+        {keep_alive_timeout, 2}, %%% keep_alive is true by default
+        {minimum_bytes_per_second, false},
+        {modules, [mod_esi]},
+        {erl_script_alias, {"/erl", [httpd_example]}}
+    ]),
+    inets:stop(httpd, Pid0),
+
+    {ok, Pid} = inets:start(httpd, [
+        {port, 0},
+        {server_name, "keepalive_disabled_test"},
+        {server_root, PrivDir},
+        {document_root, DocRoot},
+        {bind_address, {127,0,0,1}},
+        {keep_alive, false},
+        {minimum_bytes_per_second, false},
+        {modules, [mod_get]}
+    ]),
+    Info = httpd:info(Pid),
+    {port, Port} = lists:keyfind(port, 1, Info),
+
+    {ok, Sock} = gen_tcp:connect("127.0.0.1", Port, [binary, {active, true}]),
+    %% Send the request after the default value of keep_alive_timeout
+    ct:sleep({seconds, 150}),
+
+    ok = gen_tcp:send(Sock, <<"GET /index.html HTTP/1.1\r\nHost: localhost\r\n\r\n">>),
+    % {ok, Response} = gen_tcp:recv(Sock, 0, 5000),
+    receive
+            {tcp, _, Bin2} when binary_part(Bin2, {byte_size(Bin2), -2}) =:= <<"OK">> -> ok
+    after 10_000 ->
+                ct:fail("Response body not received")
+    end.
+
+%%-------------------------------------------------------------------------
 
 erl_script_timeout_default(Config) when is_list(Config) ->
     ServerConfig = [
