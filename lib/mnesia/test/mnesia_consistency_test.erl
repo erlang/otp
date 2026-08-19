@@ -37,6 +37,8 @@
          consistency_after_restart_2_disc_only/1,
          consistency_after_isolated_restart_2_nodes/1,
          consistency_after_isolated_restart_3_nodes/1,
+         consistency_after_isolated_restart_local_master_3_nodes/1,
+         consistency_after_isolated_restart_remote_master_3_nodes/1,
          consistency_after_dump_tables_1_ram/1,
          consistency_after_dump_tables_2_ram/1,
          consistency_after_add_replica_2_ram/1,
@@ -129,7 +131,9 @@ groups() ->
        consistency_after_restart_2_disc_only]},
      {consistency_after_isolated_restart, [],
       [consistency_after_isolated_restart_2_nodes,
-       consistency_after_isolated_restart_3_nodes]},
+       consistency_after_isolated_restart_3_nodes,
+       consistency_after_isolated_restart_local_master_3_nodes,
+       consistency_after_isolated_restart_remote_master_3_nodes]},
      {consistency_after_dump_tables, [],
       [consistency_after_dump_tables_1_ram,
        consistency_after_dump_tables_2_ram]},
@@ -560,6 +564,180 @@ consistency_after_isolated_restart_3_nodes(Config) when is_list(Config) ->
         ?match(true, peer:call(P2, erlang, set_cookie, [OldCookie])),
         ?match(true, peer:call(P3, erlang, set_cookie, [OldCookie]))
     end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+consistency_after_isolated_restart_local_master_3_nodes(suite) -> [];
+consistency_after_isolated_restart_local_master_3_nodes(Config) when is_list(Config) ->
+    case mnesia_test_lib:diskless(Config) of
+        true ->
+            ?skip("Master node settings do not survive a diskless restart", []);
+        false ->
+            consistency_after_isolated_restart_local_master_3_nodes_do(Config)
+    end.
+
+consistency_after_isolated_restart_local_master_3_nodes_do(Config) ->
+    [Coordinator, Node2, Node3] = Nodes = ?acquire_nodes(3, Config),
+    TableNodes = [Node2, Node3],
+    LocalMaster = lists:min(TableNodes),
+    [RemoteNode] = TableNodes -- [LocalMaster],
+
+    %% GIVEN three tables replicated across two storage nodes, where one node
+    %% is configured as its own master and a third node coordinates the test.
+    Tabs = create_isolated_restart_tables(TableNodes),
+    [?match(ok, rpc:call(LocalMaster, mnesia, set_master_nodes,
+                         [Tab, [LocalMaster]])) || Tab <- Tabs],
+
+    %% WHEN the local master is stopped, isolated from the other storage node,
+    %% and restarted while remaining connected to the coordinator.
+    ?match([], mnesia_test_lib:kill_mnesia([LocalMaster])),
+    OldCookie = erlang:get_cookie(),
+    PLocalMaster = mnesia_test_lib:get_peer_ref(LocalMaster),
+    PRemote = mnesia_test_lib:get_peer_ref(RemoteNode),
+    ?match(true, peer:call(PLocalMaster, erlang, set_cookie, [invalid_cookie1])),
+    ?match(true, peer:call(PRemote, erlang, set_cookie, [invalid_cookie2])),
+    try
+        ?match(true, peer:call(PRemote, net_kernel, disconnect, [LocalMaster])),
+        %% Global could already have disconnected, ignore the return value.
+        peer:call(PRemote, net_kernel, disconnect, [Coordinator]),
+        ?match(true, peer:call(PLocalMaster, erlang, set_cookie, [OldCookie])),
+        ?match(pong, net_adm:ping(LocalMaster)),
+        ?match(ok, rpc:call(LocalMaster, mnesia, start, [])),
+
+        %% THEN it loads all local copies because it is the configured master:
+        %% RAM is empty after restart and disk-backed copies retain their data.
+        ?match(ok, rpc:call(LocalMaster, mnesia, wait_for_tables, [Tabs, 5000])),
+        [?match(local_master,
+                rpc:call(LocalMaster, mnesia, table_info,
+                         [Tab, load_reason])) || Tab <- Tabs],
+        assert_table_records(LocalMaster, ram, []),
+        assert_table_records(LocalMaster, disc, expected_table_records(disc)),
+        assert_table_records(LocalMaster, disc_only,
+                             expected_table_records(disc_only)),
+
+        %% WHEN the partition is healed.
+        ?match(true, peer:call(PRemote, erlang, set_cookie, [OldCookie])),
+        ?match(pong, peer:call(PRemote, net_adm, ping, [Coordinator])),
+        ?match(pong, peer:call(PRemote, net_adm, ping, [LocalMaster])),
+        ?match({ok, _}, mnesia_controller:connect_nodes(Nodes)),
+        ?match({[ok, ok], []},
+               rpc:multicall(TableNodes, mnesia, wait_for_tables,
+                             [Tabs, 5000])),
+
+        %% THEN both storage nodes converge. Clear RAM through the local master
+        %% so its empty restart state is replicated to the other storage node.
+        ?match({atomic, ok}, rpc:call(LocalMaster, mnesia, clear_table, [ram])),
+        [assert_table_records(Node, ram, []) || Node <- TableNodes],
+        [assert_table_records(Node, disc, expected_table_records(disc)) ||
+            Node <- TableNodes],
+        [assert_table_records(Node, disc_only,
+                              expected_table_records(disc_only)) ||
+            Node <- TableNodes],
+        ?verify_mnesia(Nodes, [])
+    after
+        ?match(true, peer:call(PLocalMaster, erlang, set_cookie, [OldCookie])),
+        ?match(true, peer:call(PRemote, erlang, set_cookie, [OldCookie]))
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+consistency_after_isolated_restart_remote_master_3_nodes(suite) -> [];
+consistency_after_isolated_restart_remote_master_3_nodes(Config) when is_list(Config) ->
+    case mnesia_test_lib:diskless(Config) of
+        true ->
+            ?skip("Master node settings do not survive a diskless restart", []);
+        false ->
+            consistency_after_isolated_restart_remote_master_3_nodes_do(Config)
+    end.
+
+consistency_after_isolated_restart_remote_master_3_nodes_do(Config) ->
+    [Coordinator, Node2, Node3] = Nodes = ?acquire_nodes(3, Config),
+    TableNodes = [Node2, Node3],
+    ElectionNode = lists:min(TableNodes),
+    [MasterNode] = TableNodes -- [ElectionNode],
+
+    %% GIVEN three tables replicated across two storage nodes, where only
+    %% ElectionNode has the other storage node configured as its master. A
+    %% third node coordinates the test without holding any table copies.
+    Tabs = create_isolated_restart_tables(TableNodes),
+    [?match(ok, rpc:call(ElectionNode, mnesia, set_master_nodes,
+                         [Tab, [MasterNode]])) || Tab <- Tabs],
+
+    %% Stopping MasterNode first prevents it from recording ElectionNode as
+    %% down, so each storage node will wait for the other after restart.
+    ?match([], mnesia_test_lib:kill_mnesia([MasterNode])),
+    ?match([], mnesia_test_lib:kill_mnesia([ElectionNode])),
+
+    OldCookie = erlang:get_cookie(),
+    PElection = mnesia_test_lib:get_peer_ref(ElectionNode),
+    PMaster = mnesia_test_lib:get_peer_ref(MasterNode),
+    ?match(true, peer:call(PElection, erlang, set_cookie, [invalid_cookie1])),
+    ?match(true, peer:call(PMaster, erlang, set_cookie, [invalid_cookie2])),
+    try
+        %% WHEN both storage nodes restart while isolated from each other.
+        ?match(true, peer:call(PMaster, net_kernel, disconnect,
+                               [ElectionNode])),
+        %% Global could already have disconnected, ignore the return value.
+        peer:call(PMaster, net_kernel, disconnect, [Coordinator]),
+        ?match(true, peer:call(PElection, erlang, set_cookie, [OldCookie])),
+        ?match(pong, net_adm:ping(ElectionNode)),
+        ?match(ok, rpc:call(ElectionNode, mnesia, start, [])),
+        ?match(ok, peer:call(PMaster, mnesia, start, [])),
+
+        %% THEN MasterNode waits for ElectionNode's better copy, while
+        %% ElectionNode waits for its configured remote master.
+        ?match({timeout, Tabs},
+               rpc:call(ElectionNode, mnesia, wait_for_tables,
+                        [Tabs, 1000])),
+        ?match({timeout, Tabs},
+               peer:call(PMaster, mnesia, wait_for_tables,
+                         [Tabs, 1000])),
+
+        %% WHEN the partition is healed.
+        ?match(true, peer:call(PMaster, erlang, set_cookie, [OldCookie])),
+        ?match(pong, peer:call(PMaster, net_adm, ping, [Coordinator])),
+        ?match(pong, peer:call(PMaster, net_adm, ping, [ElectionNode])),
+        ?match({ok, _}, mnesia_controller:connect_nodes(Nodes)),
+        ?match({[ok, ok], []},
+               rpc:multicall(TableNodes, mnesia, wait_for_tables,
+                             [Tabs, 5000])),
+
+        %% THEN ElectionNode asks its configured master to load the orphan
+        %% tables, and both storage nodes converge on the expected contents.
+        [?match({adopt_orphan, ElectionNode},
+                rpc:call(MasterNode, mnesia, table_info,
+                         [Tab, load_reason])) || Tab <- Tabs],
+        [assert_table_records(Node, ram, []) || Node <- TableNodes],
+        [assert_table_records(Node, disc, expected_table_records(disc)) ||
+            Node <- TableNodes],
+        [assert_table_records(Node, disc_only,
+                              expected_table_records(disc_only)) ||
+            Node <- TableNodes],
+        ?verify_mnesia(Nodes, [])
+    after
+        ?match(true, peer:call(PElection, erlang, set_cookie, [OldCookie])),
+        ?match(true, peer:call(PMaster, erlang, set_cookie, [OldCookie]))
+    end.
+
+create_isolated_restart_tables(Nodes) ->
+    Tabs = [{ram, ram_copies},
+            {disc, disc_copies},
+            {disc_only, disc_only_copies}],
+    [?match({atomic, ok}, mnesia:create_table(Tab, [{Storage, Nodes}])) ||
+        {Tab, Storage} <- Tabs],
+    [?match(ok, mnesia:sync_dirty(fun() ->
+        [mnesia:write(Record) || Record <- expected_table_records(Tab)], ok
+    end)) || {Tab, _} <- Tabs],
+    [Tab || {Tab, _} <- Tabs].
+
+expected_table_records(Tab) ->
+    [{Tab, K, K} || K <- lists:seq(1, 10)].
+
+assert_table_records(Node, Tab, Expected) ->
+    Pattern = [{{Tab, '_', '_'}, [], ['$_']}],
+    Actual = rpc:call(Node, mnesia, dirty_select, [Tab, Pattern]),
+    ExpectedSet = sets:from_list(Expected),
+    ?match(ExpectedSet, sets:from_list(Actual)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
