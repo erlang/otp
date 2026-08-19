@@ -1482,6 +1482,12 @@ triple_quoted_string(Config) when is_list(Config) ->
           "  5-quoted\n"
           "  \"\"\"\"\"", {1,1}, []),
 
+    {ok,[{sigil_prefix,1,s},{string,1,"@"},{sigil_suffix,3,""}],3} =
+        erl_scan_string(
+          "~s\"\"\"\n"
+          "\\x{40}\n"
+          "\"\"\""),
+
     {error,{{1,4},erl_scan,white_space},{2,4}} =
         erl_scan_string(
           "\"\"\"foo\n" % Only white-space allowed after opening quote seq
