@@ -31,7 +31,7 @@
          mapfoldl/0,mapfoldl/1,
          grab_bag/1,redundant_br/1,
          coverage/1,normalize/1,
-         trycatch/1,gh_6599/1]).
+         trycatch/1,gh_6599/1,gh_11494/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -55,7 +55,8 @@ groups() ->
        coverage,
        normalize,
        trycatch,
-       gh_6599
+       gh_6599,
+       gh_11494
       ]}].
 
 init_per_suite(Config) ->
@@ -1560,6 +1561,17 @@ gh_6599_7(X, Y) ->
         ok
     end.
 
+gh_11494(_Config) ->
+    100 = inspect([100]),
+    <<>> = inspect(<<>>),
+    ok.
+
+inspect(Value) ->
+    case Value of
+        Res when is_integer(Res);
+                 is_bitstring(Res) -> Res;
+        [Num] -> inspect(Num)
+    end.
 
 %% The identity function.
 id(I) -> I.
