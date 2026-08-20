@@ -432,7 +432,7 @@ get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
                                   SpecialCase = fun(LocalFunc) ->
                                                         FakeLine = begin
                                                                        case erl_parse:parse_form(Toks) of
-                                                                           {ok, Def} -> lists:flatten(escape_quotes(lists:flatten(erl_pp:form(Def))));
+                                                                           {ok, Def} -> lists:flatten(escape_quotes(lists:flatten(erl_pp:form(Def, enc()))));
                                                                            E ->
                                                                             exit(E)
                                                                        end
@@ -455,7 +455,7 @@ get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
                                           FunName1 = lists:flatten(io_lib:fwrite("~tw",[FunName])),
                                           case {edlin_expand:shell_default_or_bif(FunName1), shell:local_func(FunName1)} of
                                               {"user_defined", false} ->
-                                                FunDef1 = lists:flatten(escape_quotes(lists:flatten(erl_pp:form(FunDef)))),
+                                                FunDef1 = lists:flatten(escape_quotes(lists:flatten(erl_pp:form(FunDef, enc())))),
                                                 FakeLine = reconstruct(FunDef, FunName),
                                                   {done, {ok, FakeResult, _}, _} = erl_scan:tokens(
                                                                                      [], "fd("++ FunName1 ++ ", " ++ FakeLine ++ ", \"" ++ FunDef1 ++ "\").\n",
@@ -507,7 +507,7 @@ escape_quotes([Char | Rest], Acc) ->
     % In case of any other character, we keep it as is.
     escape_quotes(Rest, [Char | Acc]).
 reconstruct(Fun, Name) ->
-    lists:flatten(erl_pp:expr(reconstruct1(Fun, Name))).
+    lists:flatten(erl_pp:expr(reconstruct1(Fun, Name), enc())).
 reconstruct1({function, Anno, Name, Arity, Clauses}, Name) ->
     {named_fun, Anno, 'RecursiveFuncVar', reconstruct1(Clauses, Name, Arity)}.
 reconstruct1([{call, Anno, {atom, Anno1, Name}, Args}|Body], Name, Arity) when length(Args) =:= Arity ->
@@ -1466,7 +1466,7 @@ local_func(rd, [_], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
     erlang:raise(error, function_clause, [{shell, rd, 1}]);
 local_func(rd, [{atom,_,RecName0},RecDef0], Bs, _Shell, RT, FT, _Lf, _Ef) ->
     RecDef = expand_value(RecDef0),
-    RDs = lists:flatten(erl_pp:expr(RecDef)),
+    RDs = lists:flatten(erl_pp:expr(RecDef, enc())),
     RecName = io_lib:write_atom_as_latin1(RecName0),
     Attr = lists:concat(["-record(", RecName, ",", RDs, ")."]),
     {ok, Tokens, _} = erl_scan:string(Attr),
@@ -1578,7 +1578,7 @@ local_types(FT) ->
 local_records(FT) ->
         [list_to_binary(RecDef)||{{record_def, _},RecDef} <- ets:tab2list(FT)].
 all_records(RT) ->
-        [list_to_binary(erl_pp:attribute(RecDef) ++ "\n")||{ _,RecDef} <- ets:tab2list(RT)].
+        [list_to_binary(erl_pp:attribute(RecDef, enc()) ++ "\n")||{ _,RecDef} <- ets:tab2list(RT)].
 write_and_compile_module(PathToFile, Output) ->
     case file:write_file(PathToFile, unicode:characters_to_binary(Output)) of
         ok -> c:c(PathToFile);
@@ -2148,11 +2148,11 @@ erl_pp_format_func(String) ->
         {done, {ok, Toks, _}, _} ->
             try
                 case erl_parse:parse_form(Toks) of
-                    {ok, Def} -> lists:flatten(erl_pp:form(Def))
+                    {ok, Def} -> lists:flatten(erl_pp:form(Def, enc()))
                 end
             catch
                 _:_ -> case erl_parse:parse_exprs(Toks) of
-                          {ok, Def1} -> lists:flatten(erl_pp:exprs(Def1))++".";
+                          {ok, Def1} -> lists:flatten(erl_pp:exprs(Def1, enc()))++".";
                           _ -> String
                       end
             end;
