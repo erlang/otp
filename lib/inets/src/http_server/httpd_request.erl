@@ -205,25 +205,35 @@ parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], _, _,  _, Result) ->
 parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers, _, _,
 	      Options, Result) ->
     Customize = proplists:get_value(customize, Options),
+    HttpVersion = lists:nth(3, lists:reverse(Result)),
     case http_request:key_value(lists:reverse(Header)) of
 	undefined -> %% Skip headers with missing :
 	    FinalHeaders = lists:filtermap(fun(H) ->
 						   httpd_custom:customize_headers(Customize, request_header, H)
 					   end,
 					   Headers),
-	    {ok, list_to_tuple(lists:reverse([Body, {http_request:headers(FinalHeaders, #http_request_h{}), FinalHeaders} | Result]))};
+            case http_request:headers(FinalHeaders, #http_request_h{}) of
+                {error, withespace_before_colon} ->
+                    {error, {bad_request, 400, ?ERROR_WHITESPACE_BEFORE_COLON}, HttpVersion};
+                ParsedHeaders ->
+                    {ok, list_to_tuple(lists:reverse([Body, {ParsedHeaders, FinalHeaders} | Result]))}
+            end;
 	{error, whitespace_before_colon} ->
 	    HttpVersion = lists:nth(3, lists:reverse(Result)),
-	    {error, {bad_request, 400, "whitespace before colon in header"}, HttpVersion};
+	    {error, {bad_request, 400, ?ERROR_WHITESPACE_BEFORE_COLON}, HttpVersion};
 	NewHeader ->
 	    case check_header(NewHeader, Headers, Options) of
 		ok ->
 		    FinalHeaders = lists:filtermap(fun(H) ->
 							   httpd_custom:customize_headers(Customize, request_header, H)
 						   end, [NewHeader | Headers]),
-		    {ok, list_to_tuple(lists:reverse([Body, {http_request:headers(FinalHeaders, 
-										  #http_request_h{}),  
-							     FinalHeaders} | Result]))};
+
+                    case http_request:headers(FinalHeaders, #http_request_h{}) of
+                        {error, whitespace_before_colon} ->
+                            {error, {bad_request, 400, ?ERROR_WHITESPACE_BEFORE_COLON}, HttpVersion};
+                      ParsedHeaders ->
+                            {ok, list_to_tuple(lists:reverse([Body, {ParsedHeaders, FinalHeaders} | Result]))}
+                    end;
 		
 		{error, Reason} ->
 		    HttpVersion = lists:nth(3, lists:reverse(Result)),
