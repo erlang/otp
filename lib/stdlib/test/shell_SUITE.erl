@@ -777,6 +777,24 @@ local_definitions_save_to_module_and_forget(Config) when is_list(Config) ->
         "lf().\n"
         "lt().\n"
         "lr().\n">>),
+
+    %% Test that local functions handle " and \ correctly when using lf
+    "ok.\nmy_func(X) ->\n    \"\\\"\" ++ X ++ \"\\\"\".\n.\nok.\n" = t(
+      ~B"""
+        my_func(X) ->
+            "\"" ++ X ++ "\"".
+        lf().
+        """),
+
+    %% Test that local functions handle """ and \ correctly when using lf
+    "ok.\nmy_func(X) ->\n    <<\"ABC😊\"/utf8>>.\n.\nok.\n" = t({
+      ~B""""""
+        my_func(X) ->
+            ~B""""
+            ABC😊
+            """".
+        lf().
+        """""", unicode}),
     ok.
 
 %% Known bugs.
@@ -3465,8 +3483,14 @@ t(L) ->
 t0({Bin,Enc}, F) ->
     %% Spawn a process so that io_request messages do not interfer.
     P = self(),
-    C = spawn(fun() -> t1(P, {Bin, Enc}, F) end),
-    receive {C, R} -> R end.
+    {C,M} = spawn_monitor(fun() -> t1(P, {Bin, Enc}, F) end),
+    receive
+        {C, R} ->
+            erlang:demonitor(M, [flush]),
+            R;
+        {'DOWN', _, _, _, _} = D ->
+            ct:fail({crashed, D})
+    end.
 
 t1(Parent, {Bin,Enc}, F) ->
     io:format("*** Testing ~s~n", [binary_to_list(Bin)]),
