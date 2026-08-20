@@ -61,7 +61,7 @@ rev_list_to_binary([], Acc) ->
 This is not efficient for long lists because the `Acc` binary is copied every
 time. One way to make the function more efficient is like this:
 
-**DO NOT**
+**DO**
 
 ```erlang
 rev_list_to_binary(List) ->
