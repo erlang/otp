@@ -32,14 +32,19 @@
 -moduledoc false.
 -export([opt_start/2, opt_continue/4, opt_finish/3]).
 
-%% FIXME: Workaround for bug.
--compile([no_ssa_opt]).
-
--include("beam_ssa_opt.hrl").
+-include("beam_ssa.hrl").
 -include("beam_types.hrl").
 
 -import(lists, [duplicate/2,foldl/3,member/2,
                 keyfind/3,reverse/1,split/2,zip/2]).
+
+-type type() :: beam_types:type().
+-type normal_type() :: beam_types:normal_type().
+
+-type func_id() :: beam_ssa_opt:func_id().
+-type func_info_db() :: beam_ssa_opt:func_info_db().
+
+-import_record(beam_ssa_opt, [func_info, opt_st]).
 
 %% The maximum number of #b_ret{} terminators a function can have before
 %% collapsing success types into a single entry. Consider the following code:

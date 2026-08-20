@@ -44,6 +44,8 @@
 
 -import(lists, [dropwhile/2,foldl/3,member/2,reverse/2,zip/2]).
 
+-type type() :: beam_types:type().
+
 %% To be called by the compiler.
 
 -spec validate(Code, Level) -> Result when
@@ -53,6 +55,10 @@
 
 validate({Mod,Exp,Attr,Anno,Fs,Lc}, Level)
   when is_atom(Mod), is_list(Exp), is_list(Attr), is_map(Anno), is_integer(Lc) ->
+    %% Ensure that `beam_types` is loaded if compilation started from a
+    %% .S file.
+    _ = beam_types:module_info(module),
+
     RecDefaults = record_defaults(Anno),
     Ft = build_function_table(Fs, #{}),
     case validate_0(Fs, Mod, RecDefaults, Level, Ft) of

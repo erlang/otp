@@ -246,7 +246,7 @@ fname(Name, #asm{fnames=Fnames}=Dict) ->
 	    {Index,Dict#asm{fnames=Fnames#{Name=>Index}}}
     end.
 
--spec type(type(), bdict()) -> {non_neg_integer(), bdict()} | none.
+-spec type(beam_types:type(), bdict()) -> {non_neg_integer(), bdict()} | none.
 
 type(Type, #asm{types=Types0}=Dict) ->
     ExtType = beam_types:encode_ext(Type),

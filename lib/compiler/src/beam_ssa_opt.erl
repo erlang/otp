@@ -43,7 +43,60 @@
 
 -export([module/2]).
 
--include("beam_ssa_opt.hrl").
+-include("beam_ssa.hrl").
+
+-export_record([func_info, opt_st]).
+-export_type([func_id/0, func_info_db/0, st_map/0]).
+
+-record #func_info{
+   %% Local calls going in/out of this function.
+   in = [] :: ordsets:ordset(func_id()),
+   out = [] :: ordsets:ordset(func_id()),
+
+   %% Whether the function is exported or not; some optimizations may
+   %% need to be suppressed if it is.
+   exported = true :: boolean(),
+
+   %% The inferred types of each argument (as opposed to parameter),
+   %% indexed by call site.
+   %%
+   %% This is more effective than the naive approach of joining into a
+   %% "parameter_type" as we go as it lets us narrow parameter types
+   %% without having to visit all callers on each pass, which helps a lot
+   %% when dealing with co-recursive functions.
+   arg_types = [] :: list(arg_type_map()),
+
+   %% The success types of this function, grouping return values by their
+   %% argument types at the time of return.
+   %%
+   %% This gives us more precise types than a naive join of all returned
+   %% values, as we can rule out the cases where the arguments are
+   %% incompatible with the ones we're passing.
+   %%
+   %% Note that the argument types are those seen on successful return,
+   %% they do not cover all types that are provided to the function.
+   succ_types = [] :: success_type_set()}.
+
+-type arg_key() :: {CallerId :: func_id(),
+                    CallDst :: beam_ssa:b_var()}.
+-type arg_type_map() :: #{ arg_key() => term() }.
+
+-type call_self() :: {call_self, ArgTypes :: [term()]}.
+-type success_type_set() :: [{ArgTypes :: [term()],
+                              RetType :: call_self() | term()}].
+
+%% Per-function metadata used by various optimization passes to perform
+%% module-level optimization. If a function is absent it means that
+%% module-level optimization has been turned off for said function.
+-type func_id() :: beam_ssa:b_local().
+-type func_info_db() :: #{ func_id() => #func_info{} }.
+
+-record #opt_st{ssa :: [{beam_ssa:label(),beam_ssa:b_blk()}] |
+                       beam_ssa:block_map(),
+                args :: [beam_ssa:b_var()],
+                cnt :: beam_ssa:label(),
+                anno :: beam_ssa:anno()}.
+-type st_map() :: #{ func_id() => #opt_st{} }.
 
 -import(lists, [all/2,append/1,droplast/1,duplicate/2,flatten/1,foldl/3,
                 keyfind/3,last/1,mapfoldl/3,member/2,
@@ -172,11 +225,15 @@ changed_types([Id | Ids], Fdb0, Fdb, In0, Out0) ->
          #{ Id := #func_info{arg_types=ATs,succ_types=ST} }} ->
             In = case ST0 =:= ST of
                      true -> In0;
-                     false -> changed_types_1([Id], #func_info.in, Fdb, In0)
+                     false ->
+                         GetIn = fun(#func_info{in=In}) -> In end,
+                         changed_types_1([Id], GetIn, Fdb, In0)
                  end,
             Out = case ATs0 =:= ATs of
                       true -> Out0;
-                      false -> changed_types_1([Id], #func_info.out, Fdb, Out0)
+                      false ->
+                          GetOut = fun(#func_info{out=Out}) -> Out end,
+                          changed_types_1([Id], GetOut, Fdb, Out0)
                   end,
             changed_types(Ids, Fdb0, Fdb, In, Out);
         _ ->
@@ -194,7 +251,7 @@ changed_types_1([Id | Ids], Direction, Fdb, Seen0) ->
         false ->
             case Fdb of
                 #{ Id := FuncInfo } ->
-                    Next = element(Direction, FuncInfo),
+                    Next = Direction(FuncInfo),
 
                     Seen1 = sets:add_element(Id, Seen0),
                     Seen2 = changed_types_1(Next, Direction, Fdb, Seen1),

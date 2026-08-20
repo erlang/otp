@@ -42,8 +42,11 @@
 -export([opt/1]).
 
 -import(lists, [any/2,member/2,reverse/1,sort/1]).
+-import_record(beam_ssa_opt, [func_info, opt_st]).
 
--include("beam_ssa_opt.hrl").
+-include("beam_ssa.hrl").
+
+-type st_map() :: beam_ssa_opt:st_map().
 
 -spec opt(st_map()) -> st_map().
 

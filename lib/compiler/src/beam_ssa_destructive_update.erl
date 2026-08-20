@@ -96,7 +96,7 @@
 
 -import(lists, [foldl/3, foldr/3, keysort/2, splitwith/2, reverse/1]).
 
--include("beam_ssa_opt.hrl").
+-include("beam_ssa.hrl").
 -include("beam_types.hrl").
 
 %% -define(DEBUG, true).
@@ -114,6 +114,11 @@ ff(#b_local{name=#b_literal{val=N},arity=A}) ->
 %% The maximum depth to which find_initial_values/3 is allowed to
 %% build get_hd and get_tuple_element chains before giving up.
 -define(ELEMENT_DEPTH_LIMIT, 15).
+
+-import_record(beam_ssa_opt, [func_info, opt_st]).
+
+-type func_info_db() :: beam_ssa_opt:func_info_db().
+-type st_map() :: beam_ssa_opt:st_map().
 
 -spec opt(st_map(), func_info_db()) -> {st_map(), func_info_db()}.
 opt(StMap, FuncDb) ->

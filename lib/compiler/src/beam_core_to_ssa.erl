@@ -159,7 +159,7 @@ get_anno(#cg_select{anno=Anno}) -> Anno.
                ds :: sets:set(),       %Defined variables
                funs=[],                         %Fun functions
                free=#{},                        %Free variables
-               rec_defaults :: #{atom() => type()},  %Native records.
+               rec_defaults :: #{atom() => beam_types:type()},  %Native records.
                ws=[]   :: [warning()],          %Warnings.
                beam_debug_info=false :: boolean()
               }.
@@ -168,7 +168,10 @@ get_anno(#cg_select{anno=Anno}) -> Anno.
           {'ok', #b_module{}, [warning()]}.
 
 module(#c_module{name=#c_literal{val=Mod},exports=Es,attrs=As,defs=Fs}, Options) ->
-    _ = beam_ssa:module_info(module),           %Load modules with records.
+    %% Load modules with exported native records.
+    _ = beam_ssa:module_info(module),
+    _ = beam_ssa_opt:module_info(module),
+    _ = beam_types:module_info(module),
 
     Records = records(As),
     Anno = #{records => Records},
