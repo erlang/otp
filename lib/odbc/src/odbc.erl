@@ -253,10 +253,20 @@ bytes) for `SQL_LONGVARCHAR`, `SQL_LONGVARBINARY`, and `SQL_WLONGVARCHAR`
 columns when the driver reports display size 0 or a very large size (as with
 SQL Server `varchar(max)`). The default matches the historical fixed limit
 (8001 bytes). Larger values allow more data per cell but increase memory use
-per column. Values above 256 MiB are capped. Use `0` for the default. Environment
-variable `ERL_ODBC_MAX_LONG_COLUMN_SIZE` is read when the port receives the
-legacy open layout (six option bytes followed directly by the connection
-string), for example with older `odbc` BEAM clients and a newer port program.
+per column. Values above 256 MiB are capped. Use `0` for the default.
+Since OTP @OTP-20328@.
+
+> #### Warning {: .warning }
+>
+> Data in columns that exceed `max_long_column_size` will be **silently
+> truncated**. If your application stores values larger than the default
+> (8001 bytes) in `TEXT`, `NTEXT`, `VARCHAR(MAX)`, or similar columns, you
+> must increase this setting to avoid data loss.
+
+Environment variable `ERL_ODBC_MAX_LONG_COLUMN_SIZE` is read when the port
+receives the legacy open layout (six option bytes followed directly by the
+connection string), for example with older `odbc` BEAM clients and a newer
+port program.
 
 > #### Note {: .info }
 >
