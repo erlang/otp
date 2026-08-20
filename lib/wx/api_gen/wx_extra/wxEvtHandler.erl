@@ -99,8 +99,10 @@ connect(This=#wx_ref{type=ThisT}, EventType, Options) ->
     ?CLASS(ThisT,wxEvtHandler),
     case wxe_util:connect_cb(This, EvH) of
 	ok -> ok;
-	{badarg, event_type} ->
-	    erlang:error({badarg,EventType})
+        {badarg, event_type} ->
+            erlang:error({badarg,EventType});
+	Reason ->
+	    erlang:error({Reason, EventType})
     end.
 
 parse_opts([{callback,Fun}|R], Opts) when is_function(Fun) ->
