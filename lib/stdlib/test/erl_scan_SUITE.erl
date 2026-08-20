@@ -24,7 +24,7 @@
 
 -export([error_1/1, error_2/1, iso88591/1, otp_7810/1, otp_10302/1,
 	 otp_10990/1, otp_10992/1, otp_11807/1, otp_16480/1, otp_17024/1,
-         text_fun/1, triple_quoted_string/1]).
+         text_fun/1, sigil_string/1, triple_quoted_string/1]).
 
 -import(lists, [nth/2,flatten/1]).
 -import(io_lib, [print/1]).
@@ -57,11 +57,12 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,20}}].
 
-all() -> 
+all() ->
     [{group, error}, iso88591, otp_7810, otp_10302, otp_10990, otp_10992,
-     otp_11807, otp_16480, otp_17024, text_fun, triple_quoted_string].
+     otp_11807, otp_16480, otp_17024, text_fun,
+     sigil_string, triple_quoted_string].
 
-groups() -> 
+groups() ->
     [{error, [], [error_1, error_2]}].
 
 init_per_suite(Config) ->
@@ -1309,6 +1310,77 @@ text_fun(Config) when is_list(Config) ->
     {ok, Tokens5, 7} =
         erl_scan:string(String(All), 7, [{text_fun, KeepClass('{')}]),
     [Sep1] = lists:filter(fun(T) -> T /= undefined end, Texts(Tokens5)).
+
+
+sigil_string(Config) when is_list(Config) ->
+    {ok, [{string,1,"\e"}], 1} = erl_scan_string("\"\\e\""),
+
+    %% The sigil suffix sneaked in the last entry is allowed in the scanner
+    %% but rejected in the parser.
+    LRs =
+        ["()", "[]", "{}", "<>", "//", "||", "''", "\"\"", "``", "##",
+         "()suffix"],
+
+    [sigil_string_ok(Sigil, LR, "\\e","\e") ||
+        Sigil <- ['', 's', 'b'], LR <- LRs],
+
+    %% Note that 'Å' and 'ÖB' will probably never be used as valid sigils,
+    %% but the scanner lets it through to be rejected by the parser.
+    [sigil_string_ok(Sigil, LR, "\\e", "\\e") ||
+        Sigil <- ['S', 'B', 'Å', 'ÖB'], LR <- LRs],
+
+    sigil_string_error(
+      '',  "$$", "\\e",   1, {illegal,string}, 1),
+    sigil_string_error(
+      '*',  "{}", "\\e",  1, {illegal,string}, 1),
+    sigil_string_error(
+      's', "[>", "\\e",   3, {unterminated,{sigil,s,$[,$]},"\e>"}, 6),
+    sigil_string_error(
+      '', "''", "\\^",    2, {illegal,character}, 4),
+    sigil_string_error(
+      '', "''", "\\^Å",   2, {illegal,character}, 4),
+    sigil_string_error(
+      '', "//", "\\x",    2, {illegal,character}, 4),
+    sigil_string_error(
+      '', "//", "\\x{",   2, {illegal,character}, 5),
+    sigil_string_error(
+      'b', "<>", "\\x{0", 3, {illegal,character}, 7),
+    sigil_string_error(
+      's', "||", "\\x{x", 3, {illegal,character}, 6),
+
+    ok.
+
+sigil_string_ok(Sigil, [L|R] = LR, String, Result) ->
+    SigilPrefix     = "~"++atom_to_list(Sigil),
+    StringPos       = 1 + length(SigilPrefix),
+    SigilString     = SigilPrefix++[L]++String++R++".",
+    EndPos          = 1 + length(SigilString),
+    DotPos          = EndPos - 1,
+    SigilSuffix     = tl(R),
+    SuffixPos       = DotPos - length(SigilSuffix),
+    case erl_scan_string(SigilString, {1,1}) of
+        {ok,
+         [{sigil_prefix,{1,1},Sigil},
+          {string,{1,StringPos},Result},
+          {sigil_suffix,{1,SuffixPos},SigilSuffix},
+          {dot,{1,DotPos}}],
+         {1,EndPos}} ->
+            ok;
+        Other ->
+            error({Sigil, LR, Other})
+    end.
+
+sigil_string_error(Sigil, [L|R] = LR, String, ErrorPos, Error, EndPos) ->
+    SigilString     = "~"++atom_to_list(Sigil)++[L]++String++R,
+    SigilErrorPos   = 1 + ErrorPos,
+    SigilEndPos     = 1 + EndPos,
+    case erl_scan_string(SigilString, {1,1}) of
+        {error, {{1,SigilErrorPos}, erl_scan, Error}, {1,SigilEndPos}} ->
+            ok;
+        Other ->
+            error({Sigil, LR, Other})
+    end.
+
 
 triple_quoted_string(Config) when is_list(Config) ->
     %% The start column is offset 2 to give room for sigil
