@@ -31,7 +31,8 @@
 	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([silent_start/1, create_window/1, several_apps/1, wx_api/1, wx_misc/1,
-         data_types/1, enums/1, wx_object/1, undef_in_handle_info/1, undef_in_terminate/1,
+         data_types/1, enums/1, wx_object/1, memory/1, undef_in_handle_info/1,
+         undef_in_terminate/1,
          undef_handle_event/1, undef_handle_call/1, undef_handle_cast/1, undef_handle_info/1,
          undef_code_change/1, undef_terminate1/1, undef_terminate2/1
         ]).
@@ -55,7 +56,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}, {timetrap,{minutes,2}}].
 
 all() -> 
     [silent_start, create_window, several_apps, wx_api, wx_misc,
-     data_types, enums, wx_object, {group, undef_callbacks},
+     data_types, enums, memory, wx_object, {group, undef_callbacks},
      undef_in_handle_info, undef_in_terminate].
 
 groups() -> 
@@ -373,6 +374,23 @@ enums(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 enums(_Config) ->
     %% Test that all needed enums are available and have not changed value
     wx_test_enums:test().
+
+memory(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+memory(_Config) ->
+    wx:new(),
+    Mem = wx:create_memory(10),
+    ?m(true, is_binary(wx:get_memory_bin(Mem))),
+    %% Test retain/release
+    ?m(ok, wx:retain_memory(Mem)),
+    ?m(ok, wx:retain_memory(Mem)),   %% Second retain should not crash
+    ?m(ok, wx:retain_memory(Mem)),   %% Third retain
+    ?m(ok, wx:release_memory(Mem)),
+    ?m(ok, wx:release_memory(Mem)),
+    ?m(ok, wx:release_memory(Mem)),
+    %% Release of un-retained block should not crash
+    ?m(ok, wx:release_memory(Mem)),
+    wx:destroy(),
+    ok.
 
 wx_object(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 wx_object(Config) ->

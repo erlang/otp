@@ -485,7 +485,7 @@ create_memory(Size) ->
 -doc """
 Returns the memory area as a binary.
 """.
--spec get_memory_bin(Wx_mem :: wx_memory()) -> binary().
+-spec get_memory_bin(Wx_mem :: #wx_mem{}) -> binary().
 get_memory_bin(#wx_mem{bin=Bin, size=Size}) when Size > ?MIN_BIN_SIZE ->
     Bin;
 get_memory_bin(#wx_mem{bin=Bin, size=Size}) ->
@@ -501,7 +501,7 @@ Saves the memory from deletion until `release_memory/1` is called. If
 -spec retain_memory(Wx_mem :: wx_memory()) -> 'ok'.
 retain_memory(#wx_mem{}=Mem) ->
     case get(Mem) of
-        {Mem, N} -> put(Mem, N+1);
+        N when is_integer(N) -> put(Mem, N+1);
         undefined -> put(Mem, 1)
     end,
     ok;
@@ -516,6 +516,7 @@ retain_memory(Bin) when is_binary(Bin) ->
 -spec release_memory(Wx_mem :: wx_memory()) -> 'ok'.
 release_memory(#wx_mem{}=Mem) ->
     case erase(Mem) of
+        undefined -> ok;
         1 -> ok;
         N -> put(Mem, N-1),
              ok
