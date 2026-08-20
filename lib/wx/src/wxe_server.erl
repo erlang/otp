@@ -27,7 +27,6 @@
 %%% Created : 17 Jan 2007 by Dan Gudmundsson <dgud@erix.ericsson.se>
 %%%-------------------------------------------------------------------
 
-%% @hidden
 -module(wxe_server).
 -moduledoc false.
 -behaviour(gen_server).

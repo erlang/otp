@@ -26,89 +26,6 @@
 %%% Created : 25 Nov 2008 by Dan Gudmundsson <dan.gudmundsson@ericsson.com>
 %%%-------------------------------------------------------------------
 %%
-%% @doc wx_object - Generic wx object behaviour
-%%
-%% This is a behaviour module that can be used for "sub classing"
-%% wx objects. It works like a regular gen_server module and creates
-%% a server per object.
-%%
-%% NOTE: Currently no form of inheritance is implemented.
-%%
-%%
-%% The user module should export:
-%%
-%%   init(Args) should return <br/>
-%%     {wxWindow, State} | {wxWindow State, Timeout} |
-%%         ignore | {stop, Reason}
-%%
-%%   Asynchronous window event handling: <br/>
-%%   handle_event(#wx{}, State)  should return <br/>
-%%    {noreply, State} | {noreply, State, Timeout} | {stop, Reason, State}
-%%
-%% The user module can export the following callback functions:
-%%
-%%   handle_call(Msg, {From, Tag}, State) should return <br/>
-%%    {reply, Reply, State} | {reply, Reply, State, Timeout} |
-%%        {noreply, State} | {noreply, State, Timeout} |
-%%        {stop, Reason, Reply, State}
-%%
-%%   handle_cast(Msg, State) should return <br/>
-%%    {noreply, State} | {noreply, State, Timeout} |
-%%        {stop, Reason, State}
-%%
-%% If the above are not exported but called, the wx_object process will crash.
-%% The user module can also export:
-%%
-%%   Info is message e.g. {'EXIT', P, R}, {nodedown, N}, ...  <br/>
-%%   handle_info(Info, State)  should return , ...  <br/>
-%%    {noreply, State} | {noreply, State, Timeout} | {stop, Reason, State} 
-%%
-%% If a message is sent to the wx_object process when handle_info is not
-%% exported, the message will be dropped and ignored.
-%%
-%%   When stop is returned in one of the functions above with Reason =
-%% normal | shutdown | Term, terminate(State) is called. It lets the
-%% user module clean up, it is always called when server terminates or
-%% when wx_object() in the driver is deleted. If the Parent process
-%% terminates the Module:terminate/2 function is called. <br/>
-%% terminate(Reason, State)
-%%
-%%
-%% Example:  
-%% 
-%% ```
-%% -module(myDialog).
-%% -export([new/2, show/1, destroy/1]).  %% API 
-%% -export([init/1, handle_call/3, handle_event/2, 
-%%          handle_info/2, code_change/3, terminate/2]).
-%%          new/2, showModal/1, destroy/1]).  %% Callbacks
-%% 
-%% %% Client API
-%% new(Parent, Msg) ->
-%%    wx_object:start(?MODULE, [Parent,Id], []).
-%%
-%% show(Dialog) ->
-%%    wx_object:call(Dialog, show_modal).
-%%
-%% destroy(Dialog) -> 
-%%    wx_object:call(Dialog, destroy).
-%%
-%% %% Server Implementation ala gen_server
-%% init([Parent, Str]) ->
-%%    Dialog = wxDialog:new(Parent, 42, "Testing", []),
-%%    ... 
-%%    wxDialog:connect(Dialog, command_button_clicked), 
-%%    {Dialog, MyState}.
-%%
-%% handle_call(show, _From, State) ->
-%%    wxDialog:show(State#state.win),
-%%    {reply, ok, State};
-%% ...
-%% handle_event(#wx{}, State) ->
-%%    io:format("Users clicked button~n",[]),
-%%    {noreply, State};
-%% ...
-%% '''
 
 -module(wx_object).
 -moduledoc """
@@ -267,21 +184,7 @@ Example:
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-%% @hidden
-%% behaviour_info(callbacks) ->
-%%     [{init,1},
-%%      {handle_call,3},
-%%      {handle_info,2},
-%%      {handle_event,2},
-%%      {terminate,2},
-%%      {code_change,3}];
-%% behaviour_info(_Other) ->
-%%     undefined.
 
-
-%%  -----------------------------------------------------------------
-%% @doc Starts a generic wx_object server and invokes Mod:init(Args) in the
-%% new process.
 -doc false.
 -spec start(Mod, Args, Options) -> wxWindow:wxWindow() | {error, term()} when
       Mod::atom(),
@@ -294,8 +197,7 @@ start(Mod, Args, Options)
 start(Mod, Args, Options) ->
     error(badarg, [Mod, Args, Options]).
 
-%% @doc Starts a generic wx_object server and invokes Mod:init(Args) in the
-%% new process.
+
 -doc """
 Starts a generic wx_object server and invokes Mod:init(Args) in the new process.
 """.
@@ -311,8 +213,7 @@ start(Name, Mod, Args, Options)
 start(Name, Mod, Args, Options) ->
     error(badarg, [Name, Mod, Args, Options]).
 
-%% @doc Starts a generic wx_object server and invokes Mod:init(Args) in the
-%% new process.
+
 -doc """
 Starts a generic wx_object server and invokes Mod:init(Args) in the new process.
 """.
@@ -327,8 +228,7 @@ start_link(Mod, Args, Options)
 start_link(Mod, Args, Options) ->
     error(badarg, [Mod, Args, Options]).
 
-%% @doc Starts a generic wx_object server and invokes Mod:init(Args) in the
-%% new process.
+
 -doc """
 Starts a generic wx_object server and invokes Mod:init(Args) in the new process.
 """.
@@ -349,10 +249,6 @@ gen_response({ok, Pid}) ->
 gen_response(Reply) ->
     Reply.
 
-%% @doc Stops a generic wx_object server with reason 'normal'.
-%% Invokes terminate(Reason,State) in the server. The call waits until
-%% the process is terminated. If the process does not exist, an
-%% exception is raised.
 -doc """
 Stops a generic wx_object server with reason 'normal'. Invokes
 terminate(Reason,State) in the server. The call waits until the process is
@@ -373,10 +269,6 @@ stop(Name) when is_atom(Name) orelse is_pid(Name) ->
 	    erlang:error({ExitReason, {?MODULE, stop, [Name]}})
     end.
 
-%% @doc Stops a generic wx_object server with the given Reason.
-%% Invokes terminate(Reason,State) in the server. The call waits until
-%% the process is terminated. If the call times out, or if the process
-%% does not exist, an exception is raised.
 -doc """
 Stops a generic wx_object server with the given Reason. Invokes
 terminate(Reason,State) in the server. The call waits until the process is
@@ -400,9 +292,6 @@ stop(Name, Reason, Timeout) when is_atom(Name) orelse is_pid(Name) ->
 	    erlang:error({ExitReason, {?MODULE, stop, [Name, Reason, Timeout]}})
     end.
 
-%% @doc Make a call to a wx_object server.
-%% The call waits until it gets a result.
-%% Invokes handle_call(Request, From, State) in the server
 -doc """
 Make a call to a wx_object server. The call waits until it gets a result.
 Invokes handle_call(Request, From, State) in the server
@@ -425,8 +314,6 @@ call(Name, Request) when is_atom(Name)  orelse is_pid(Name) ->
             erlang:error({Reason, {?MODULE, call, [Name, Request]}})
     end.
 
-%% @doc Make a call to a wx_object server with a timeout.
-%% Invokes handle_call(Request, From, State) in server
 -doc """
 Make a call to a wx_object server with a timeout. Invokes handle_call(Request,
 From, State) in server
@@ -450,9 +337,6 @@ call(Name, Request, Timeout) when is_atom(Name) orelse is_pid(Name) ->
             erlang:error({Reason, {?MODULE, call, [Name, Request, Timeout]}})
     end.
 
-%% @doc Make an send_request to a generic server.
-%% and return a RequestId which can/should be used with wait_response/[1|2].
-%% Invokes handle_call(Request, From, State) in server.
 -doc """
 Make an send_request to a generic server. and return a RequestId which
 can/should be used with wait_response/\[1|2]. Invokes handle_call(Request, From,
@@ -465,7 +349,6 @@ send_request(#wx_ref{state=Pid}, Request) ->
 send_request(Pid, Request) when is_atom(Pid) orelse is_pid(Pid) ->
     gen:send_request(Pid, '$gen_call', Request).
 
-%% @doc Wait infinitely for a reply from a generic server.
 -doc """
 Wait infinitely for a reply from a generic server.
 """.
@@ -474,7 +357,6 @@ Wait infinitely for a reply from a generic server.
 wait_response(RequestId) ->
     gen:wait_response(RequestId, infinity).
 
-%% @doc Wait 'timeout' for a reply from a generic server.
 -doc """
 Wait 'timeout' for a reply from a generic server.
 """.
@@ -483,7 +365,6 @@ Wait 'timeout' for a reply from a generic server.
 wait_response(RequestId, Timeout) ->
     gen:wait_response(RequestId, Timeout).
 
-%% @doc Check if a received message was a reply to a RequestId
 -doc """
 Check if a received message was a reply to a RequestId
 """.
@@ -492,8 +373,7 @@ Check if a received message was a reply to a RequestId
 check_response(Msg, RequestId) ->
     gen:check_response(Msg, RequestId).
 
-%% @doc Make a cast to a wx_object server.
-%% Invokes handle_cast(Request, State) in the server
+
 -doc """
 Make a cast to a wx_object server. Invokes handle_cast(Request, State) in the
 server
@@ -508,7 +388,6 @@ cast(Name, Request) when is_atom(Name) orelse is_pid(Name) ->
     Name ! {'$gen_cast',Request},
     ok.
 
-%% @doc Get the pid of the object handle.
 -doc """
 Get the pid of the object handle.
 """.
@@ -517,7 +396,6 @@ Get the pid of the object handle.
 get_pid(#wx_ref{state=Pid}) when is_pid(Pid) ->
     Pid.
 
-%% @doc Sets the controlling process of the object handle.
 -doc """
 Sets the controlling process of the object handle.
 """.
@@ -529,7 +407,6 @@ set_pid(#wx_ref{}=R, Pid) when is_pid(Pid) ->
 %% -----------------------------------------------------------------
 %% Send a reply to the client.
 %% -----------------------------------------------------------------
-%% @doc Get the pid of the object handle.
 -doc """
 reply(PidTag, Reply)
 
@@ -574,7 +451,6 @@ init_it(Starter, Parent, Name, Mod, Args, [WxEnv|Options]) ->
 	Else ->
 	    exit({bad_return_value, Else})
     end.
-%% @hidden
 init_it2(Ref, Starter, Parent, Name, State, Mod, Timeout, Debug) ->
     ok = wxe_util:register_pid(Ref),
     case ?CLASS_T(Ref#wx_ref.type, wxWindow) of
@@ -592,7 +468,6 @@ init_it2(Ref, Starter, Parent, Name, State, Mod, Timeout, Debug) ->
 %%% ---------------------------------------------------
 %%% The MAIN loop.
 %%% ---------------------------------------------------
-%% @hidden
 loop(Parent, Name, State, Mod, Time, Debug) ->
     put('_wx_object_', {Mod,State}),
     Msg = receive
@@ -620,7 +495,6 @@ loop(Parent, Name, State, Mod, Time, Debug) ->
 %%% ---------------------------------------------------
 %%% Message handling functions
 %%% ---------------------------------------------------
-%% @hidden
 dispatch({'$gen_cast', Msg}, Mod, State) ->
     Mod:handle_cast(Msg, State);
 dispatch(Msg = #wx{}, Mod, State) ->
@@ -628,7 +502,6 @@ dispatch(Msg = #wx{}, Mod, State) ->
 dispatch(Info, Mod, State) ->
     Mod:handle_info(Info, State).
 
-%% @hidden
 handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod) ->
     case catch Mod:handle_call(Msg, From, State) of
 	{reply, Reply, NState} ->
@@ -656,7 +529,6 @@ handle_msg(Msg, Parent, Name, State, Mod) ->
             handle_no_reply(Reply, Parent, Name, Msg, Mod, State, [])
     end.
 
-%% @hidden
 handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, Debug) ->
     case catch Mod:handle_call(Msg, From, State) of
 	{reply, Reply, NState} ->
@@ -684,7 +556,6 @@ handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, Debug) ->
 handle_msg(Msg, Parent, Name, State, Mod, Debug) ->
     Reply = (catch dispatch(Msg, Mod, State)),
     handle_no_reply(Reply, Parent, Name, Msg, Mod, State, Debug).
-%% @hidden
 handle_no_reply({noreply, NState}, Parent, Name, _Msg, Mod, _State, []) ->
     loop(Parent, Name, NState, Mod, infinity, []);
 handle_no_reply({noreply, NState, Time1}, Parent, Name, _Msg, Mod, _State, []) ->
@@ -700,7 +571,6 @@ handle_no_reply({noreply, NState, Time1}, Parent, Name, _Msg, Mod, _State, Debug
 handle_no_reply(Reply, _Parent, Name, Msg, Mod, State, Debug) ->
     handle_common_reply(Reply, Name, Msg, Mod, State,Debug).
 
-%% @hidden
 -spec handle_common_reply(_, _, _, _, _, _) -> no_return().
 handle_common_reply(Reply, Name, Msg, Mod, State, Debug) ->
     case Reply of
@@ -712,7 +582,6 @@ handle_common_reply(Reply, Name, Msg, Mod, State, Debug) ->
 	    terminate({bad_return_value, Reply}, Name, Msg, Mod, State, Debug)
     end.
 
-%% @hidden
 reply(Name, {To, Tag}, Reply, State, Debug) ->
     reply({To, Tag}, Reply),
     sys:handle_debug(Debug, fun print_event/3,
@@ -722,18 +591,16 @@ reply(Name, {To, Tag}, Reply, State, Debug) ->
 %%-----------------------------------------------------------------
 %% Callback functions for system messages handling.
 %%-----------------------------------------------------------------
-%% @hidden
+
 -doc false.
 system_continue(Parent, Debug, [Name, State, Mod, Time]) ->
     loop(Parent, Name, State, Mod, Time, Debug).
 
-%% @hidden
 -doc false.
 -spec system_terminate(_, _, _, [_]) -> no_return().
 system_terminate(Reason, _Parent, Debug, [Name, State, Mod, _Time]) ->
     terminate(Reason, Name, [], Mod, State, Debug).
 
-%% @hidden
 -doc false.
 system_code_change([Name, State, Mod, Time], _Module, OldVsn, Extra) ->
     case catch Mod:code_change(OldVsn, State, Extra) of
@@ -767,7 +634,6 @@ print_event(Dev, Event, Name) ->
 %%% ---------------------------------------------------
 %%% Terminate the server.
 %%% ---------------------------------------------------
-%% @hidden
 terminate(Reason, Name, Msg, Mod, State, Debug) ->
     case try_terminate(Mod, Reason, State) of
 	{'EXIT', R} ->
@@ -795,7 +661,6 @@ try_terminate(Mod, Reason, State) ->
             ok
     end.
 
-%% @hidden
 error_info(_Reason, application_controller, _Msg, _State, _Debug) ->
     ok;
 error_info(Reason, Name, Msg, State, Debug) ->
@@ -827,20 +692,17 @@ error_info(Reason, Name, Msg, State, Debug) ->
 %%% ---------------------------------------------------
 %%% Misc. functions.
 %%% ---------------------------------------------------
-%% @hidden
 opt(Op, [{Op, Value}|_]) ->
     {ok, Value};
 opt(Op, [_|Options]) ->
     opt(Op, Options); 
 opt(_, []) ->
     false.
-%% @hidden
 debug_options(Name, Opts) ->
     case opt(debug, Opts) of
 	{ok, Options} -> dbg_opts(Name, Options);
 	_ -> []
     end.
-%% @hidden
 dbg_opts(Name, Opts) ->
     case catch sys:debug_options(Opts) of
 	{'EXIT',_} ->
@@ -851,7 +713,6 @@ dbg_opts(Name, Opts) ->
 	    Dbg
     end.
 
-%% @hidden
 %%-----------------------------------------------------------------
 %% Status information
 %%-----------------------------------------------------------------

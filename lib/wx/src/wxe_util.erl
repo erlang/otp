@@ -25,7 +25,6 @@
 %%%
 %%% Created :  9 Feb 2007 by Dan Gudmundsson <dgud@erix.ericsson.se>
 %%%-------------------------------------------------------------------
-%% @hidden
 -module(wxe_util).
 -moduledoc false.
 
