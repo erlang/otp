@@ -524,15 +524,12 @@ release_memory(#wx_mem{}=Mem) ->
 release_memory(Bin) when is_binary(Bin) ->
     release_memory(#wx_mem{bin=Bin, size=byte_size(Bin)}).
 
-%% @doc Sets debug level. If debug level is 'verbose' or 'trace'
-%% each call is printed on console. If Level is 'driver' each allocated
-%% object and deletion is printed on the console.
 -doc """
 debug(Level)
 
-Sets debug level. If debug level is 'verbose' or 'trace' each call is printed on
-console. If Level is 'driver' each allocated object and deletion is printed on
-the console.
+Sets debug level. If Level is 'driver' each call, allocated object
+and deletion is printed on the console. Other levels are currently
+no-ops but are accepted without error.
 """.
 -spec debug(Level | [Level]) -> 'ok'
      when Level :: 'none' | 'verbose' | 'trace' | 'driver' | integer().
@@ -541,21 +538,16 @@ debug(Debug) ->
     Level = calc_level(Debug),
     set_debug(Level).
 
-calc_level(none) -> calc_level(0);
-calc_level(verbose) -> calc_level(1);
-calc_level(trace) -> calc_level(2);
-calc_level(driver) -> calc_level(16);
-calc_level([]) -> calc_level(0);
+calc_level(none) -> 0;
+calc_level(verbose) -> 0;
+calc_level(trace) -> 0;
+calc_level(driver) -> 16;
+calc_level([]) -> 0;
 calc_level(List) when is_list(List) ->
-    {Drv,Erl} =
-	lists:foldl(fun(verbose, {Drv,_Erl}) ->
-			    {Drv,1};
-		       (trace, {Drv,_Erl}) ->
-			    {Drv,2};
-		       (driver, {_Drv,Erl}) ->
-			    {16, Erl}
-		    end, {0,0}, List),
-    Drv + Erl;
+    case lists:member(driver, List) of
+	true -> 16;
+	false -> 0
+    end;
 calc_level(Level) when is_integer(Level) ->
     Level.
 
@@ -564,7 +556,7 @@ set_debug(Level) when is_integer(Level) ->
 	#wx_env{debug=Old} when Old =:= Level -> ok;
 	Env = #wx_env{sv=Server, debug=Old} ->
 	    if
-		Old > 16, Level > 16 -> ok;
+		Old >= 16, Level >= 16 -> ok;
 		Old < 16, Level < 16 -> ok;
 		true -> wxe_util:debug_driver(Level bsr 4)
 	    end,

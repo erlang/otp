@@ -173,6 +173,7 @@ wx_api(Config) ->
     ?m(ok,wx:debug(verbose)),
     ?m(ok,wx:debug(trace)),
     ?m(ok,wx:debug(driver)),
+    ?m(ok,wx:debug(none)),
     
     Mem = ?mr(wx_mem, wx:create_memory(10)),
     ?m(true, is_binary(wx:get_memory_bin(Mem))),
