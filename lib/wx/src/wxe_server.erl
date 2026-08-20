@@ -362,12 +362,16 @@ cleanup_evt_listener(U=#user{events=Evs0}, EvtListener, Object) ->
 	     end,
     U#user{events=lists:filter(Filter, Evs0)}.
 
-handle_disconnect(Object, Evh = #evh{cb=Fun}, From, 
+handle_disconnect(Object, Evh = #evh{cb=Fun}, From,
 		  State0 = #state{users=Users0, cb=Callbacks}) ->
-    #user{events=Evs0} = gb_trees:get(From, Users0),
-    FunId = gb_trees:lookup(Fun, Callbacks),
-    Handlers = find_handler(Evs0, Object, Evh#evh{cb=FunId}),
-    {reply, {try_in_order, Handlers}, State0}.
+    case gb_trees:lookup(From, Users0) of
+	{value, #user{events=Evs0}} ->
+	    FunId = gb_trees:lookup(Fun, Callbacks),
+	    Handlers = find_handler(Evs0, Object, Evh#evh{cb=FunId}),
+	    {reply, {try_in_order, Handlers}, State0};
+	none ->
+	    {reply, {try_in_order, []}, State0}
+    end.
 
 find_handler([{Object,Evh}|Evs], Object, Match) ->
     case match_handler(Match, Evh) of
