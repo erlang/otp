@@ -43,7 +43,12 @@
 
 -define(m(ExpectedRes, Expr),
 	fun() ->
-		AcTuAlReS = (catch (Expr)),
+		AcTuAlReS = try (Expr)
+			    catch
+				throw:R_ -> R_;
+				exit:R_ -> {'EXIT',R_};
+				error:R_:S_ -> {'EXIT',{R_,S_}}
+			    end,
 		case AcTuAlReS of
 		    ExpectedRes ->
 			?verbose("ok: ~p~n",[AcTuAlReS]),
@@ -59,14 +64,19 @@
 -define(mt(Expected, Expr),
 	fun() ->
 		{TeStFILe, TeSTLiNe} = {?FILE, ?LINE},
-		AcTuAlReS = (catch (Expr)),
-		case catch element(3,AcTuAlReS) of
-		    Expected -> 
+		AcTuAlReS = try (Expr)
+			    catch
+				throw:R_ -> R_;
+				exit:R_ -> {'EXIT',R_};
+				error:R_:S_ -> {'EXIT',{R_,S_}}
+			    end,
+		case (try element(3,AcTuAlReS) catch _:_ -> '__mt_no_match__' end) of
+		    Expected ->
 			wx_test_lib:verbose("ok: ~s~n",[??Expected],TeStFILe,TeSTLiNe),
 			AcTuAlReS;
 		    _ ->
 			wx_test_lib:error("Not Matching Actual result was:~n ~p ~n Expected ~s~n",
-					  [AcTuAlReS, ??Expected], 
+					  [AcTuAlReS, ??Expected],
 					  TeStFILe,TeSTLiNe),
 			AcTuAlReS
 		end
@@ -75,14 +85,19 @@
 -define(mr(Expected, Expr),
 	fun() ->
 		{TeStFILe, TeSTLiNe} = {?FILE, ?LINE},
-		AcTuAlReS = (catch (Expr)),
-		case catch element(1,AcTuAlReS) of
-		    Expected -> 
+		AcTuAlReS = try (Expr)
+			    catch
+				throw:R_ -> R_;
+				exit:R_ -> {'EXIT',R_};
+				error:R_:S_ -> {'EXIT',{R_,S_}}
+			    end,
+		case (try element(1,AcTuAlReS) catch _:_ -> '__mr_no_match__' end) of
+		    Expected ->
 			wx_test_lib:verbose("ok: ~s~n",[??Expected],TeStFILe,TeSTLiNe),
 			AcTuAlReS;
 		    _ ->
 			wx_test_lib:error("Not Matching Actual result was:~n ~p ~n Expected ~s~n",
-					  [AcTuAlReS, ??Expected], 
+					  [AcTuAlReS, ??Expected],
 					  TeStFILe,TeSTLiNe),
 			AcTuAlReS
 		end

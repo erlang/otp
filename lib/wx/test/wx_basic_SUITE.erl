@@ -87,7 +87,7 @@ silent_start(_Config) ->
     ?mr(wx_ref, wx:new([{silent_start, false}])),
     wx:destroy(),
 
-    ?mr('EXIT', catch wx:new([{silent_start, foo}])),
+    ?mr('EXIT', wx:new([{silent_start, foo}])),
     
     ok.
 
@@ -449,7 +449,7 @@ wx_object(Config) ->
 		   Msgs = flush(),
 		   io:format("Error ~p Alive ~p~n",[Msgs, is_process_alive(FramePid)])
 	   end),
-    catch wx:destroy(),
+    try wx:destroy() catch _:_ -> ok end,
     ok.
 
 %% Test that the server crashes correctly if the handle_event callback is

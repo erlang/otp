@@ -548,11 +548,11 @@ toolbar(Config) ->
     BM2 = wxArtProvider:getBitmap("wxART_TICK_MARK", [{size, {16,16}}, {client, "wxART_TOOLBAR"}]),
     wxToolBar:addTool(TB, 747, "PressMe", BM1,
 		      [{shortHelp, "Press Me"}]),
-    catch wxToolBar:addStretchableSpace(TB),  %% wxWidgets 3.0 only
+    (try wxToolBar:addStretchableSpace(TB) catch _:_ -> ok end),  %% wxWidgets 3.0 only
     Add = fun(#wx{}, _) ->
 		  wxToolBar:addTool(TB, -1, "Added", BM2,
 				    [{shortHelp, "Test 2 popup text"}]),
-		  catch wxToolBar:addStretchableSpace(TB), %% wxWidgets 3.0 only
+		  (try wxToolBar:addStretchableSpace(TB) catch _:_ -> ok end), %% wxWidgets 3.0 only
 		  wxToolBar:realize(TB)
 	  end,
 
@@ -578,7 +578,8 @@ popup(Config) ->
 			  Panel = wxPanel:new(Pop),
 			  Sz = wxBoxSizer:new(?wxVERTICAL),
 			  wxSizer:add(Sz, wxButton:new(Panel, 42, [{label, "A button"}])),
-			  wxSizer:add(Sz, Txt = wxStaticText:new(Panel, 43, "Some static text")),
+			  Txt = wxStaticText:new(Panel, 43, "Some static text"),
+			  wxSizer:add(Sz, Txt),
 			  wxSizer:add(Sz, wxButton:new(Panel, 44, [{label, "B button"}])),
 			  wxPanel:setSizerAndFit(Panel, Sz),
 			  wxSizer:setSizeHints(Sz, Pop),

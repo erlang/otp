@@ -12,7 +12,7 @@ t(Name, {ignore, _Name}) ->
         io:format("Not found: ~p ~p~n", [Name, {ignore, _Name}]),
        fail
     end;
-t(Name, D1) -> t2(Name, D1, (catch wxe_util:get_const(Name))).
+t(Name, D1) -> t2(Name, D1, (try wxe_util:get_const(Name) catch _:_ -> {'EXIT', badarg} end)).
 
 t2(_Name, D1, D1) -> ok;
 t2(_Name, _D1, undefined) -> ok;  %% Not available in this version

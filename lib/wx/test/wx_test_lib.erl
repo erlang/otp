@@ -114,7 +114,7 @@ verbose(Format, Args, File, Line) ->
     end.
 
 error(Format, Args, File, Line) ->
-    catch global:send(wx_global_logger, {failed, File, Line}),
+    try global:send(wx_global_logger, {failed, File, Line}) catch _:_ -> ok end,
     Fail = {filename:basename(File),Line,Args},
     case global:whereis_name(wx_test_case_sup) of
 	undefined -> ignore;
@@ -151,7 +151,7 @@ wx_close(Frame, Config) ->
 	step -> %% Wait for user to close window
 	    ?m(ok, wxEvtHandler:connect(Frame, close_window, [{skip,true}])),
 	    wait_for_close(),
-	    catch wxEvtHandler:disconnect(Frame, close_window),
+	    try wxEvtHandler:disconnect(Frame, close_window) catch _:_ -> ok end,
 	    ok
     end.
 
