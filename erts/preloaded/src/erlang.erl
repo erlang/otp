@@ -5333,10 +5333,15 @@ convert_time_unit(Time, FromUnit, ToUnit) ->
 
 		 _ when ToUnit > 0 -> ToUnit
 	     end,
-	case Time < 0 of
-	    true -> TU*Time - (FU - 1);
-	    false -> TU*Time
-	end div FU
+    case (FU =:= TU) andalso erlang:is_integer(Time) of
+        true ->
+            Time;
+        false ->
+            case Time < 0 of
+                true -> TU*Time - (FU - 1);
+                false -> TU*Time
+            end div FU
+    end
     catch
 	_ : _ ->
 	    error_with_info(badarg, [Time, FromUnit, ToUnit])
