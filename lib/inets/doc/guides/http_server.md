@@ -342,6 +342,11 @@ Exports the following Erlang Web Server API interaction data, if possible:
 The `m:mod_auth` module provides for basic user authentication using textual
 files, Dets databases as well as Mnesia databases.
 
+Directory matching against the configured `directory` blocks is
+case-insensitive, so that a request path cannot bypass authentication on a
+case-insensitive filesystem (macOS, Windows) merely by varying the case of the
+protected path.
+
 Uses the following Erlang Web Server API interaction data:
 
 - `real_name` \- from `m:mod_alias`
@@ -520,6 +525,11 @@ handled in `m:mod_auth`. It provides a possibility to restrict users from access
 for a specified amount of time if they fail to authenticate several times. It
 logs failed authentication as well as blocking of users, and it calls a
 configurable callback module when the events occur.
+
+Like `m:mod_auth`, directory matching against the configured
+`security_directory` blocks is case-insensitive, so that failed-login tracking
+and blocking are applied consistently regardless of the case used in the
+request path on a case-insensitive filesystem (macOS, Windows).
 
 There is also an API to block or unblock users manually. This API can also list
 blocked users or users who have been authenticated within a configurable amount
