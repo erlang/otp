@@ -41,7 +41,8 @@
          prefix/1, split/1, replace/1, find/1,
          lexemes/1, nth_lexeme/1, cd_gc/1,
          jaro_similarity/1,
-         meas/1
+         meas/1,
+         doctests/1
         ]).
 
 -export([len/1,old_equal/1,old_concat/1,chr_rchr/1,str_rstr/1]).
@@ -60,7 +61,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() ->
-    [{group, chardata}, {group, list_string}].
+    [{group, chardata}, {group, list_string}, doctests].
 
 groups() ->
     [{chardata,
@@ -1667,3 +1668,11 @@ join(Config) when is_list(Config) ->
     %% invalid arg type
     ?assertError(_, string:join([apa], "")),
     ok.
+
+-include_lib("kernel/include/eep48.hrl").
+
+doctests(_Config) ->
+    {ok, #docs_v1{ docs = Docs }} = code:get_doc(string),
+    ObsoleteFunctions = [{F,A} || {{function,F,A},_,_,#{},#{group := ~"Obsolete API functions"}} <- Docs],
+    ok = ct_doctest:module(string, [{skipped_blocks, 1},
+                                        {missing_tests, [{trim, 2}] ++ ObsoleteFunctions}]).
