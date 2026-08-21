@@ -157,7 +157,7 @@ Example:
     {'noreply', NewState :: term(), timeout() | 'hibernate'} |
     {'stop', Reason :: term(), NewState :: term()}.
 -callback handle_sync_event(Request :: #wx{}, Ref :: #wx_ref{}, State :: term()) ->
-    ok.
+    ok | noreply.
 -callback terminate(Reason :: ('normal' | 'shutdown' | {'shutdown', term()} |
                                term()),
                     State :: term()) ->
@@ -177,7 +177,7 @@ Example:
 	 format_status/2]).
 
 %% Internal exports
--export([init_it/6]).
+-export([init_it/6, loop_wake/5]).
 
 -import(error_logger, [format/2]).
 
@@ -186,7 +186,7 @@ Example:
 %%%=========================================================================
 
 -doc false.
--spec start(Mod, Args, Options) -> wxWindow:wxWindow() | {error, term()} when
+-spec start(Mod, Args, Options) -> wxWindow:wxWindow() | 'ignore' | {error, term()} when
       Mod::atom(),
       Args::term(),
       Flag::trace | log | {logfile, string()} | statistics | debug,
@@ -201,7 +201,7 @@ start(Mod, Args, Options) ->
 -doc """
 Starts a generic wx_object server and invokes Mod:init(Args) in the new process.
 """.
--spec start(Name, Mod, Args, Options) -> wxWindow:wxWindow()  | {error, term()} when
+-spec start(Name, Mod, Args, Options) -> wxWindow:wxWindow() | 'ignore' | {error, term()} when
       Name::{local, atom()},
       Mod::atom(),
       Args::term(),
@@ -217,7 +217,7 @@ start(Name, Mod, Args, Options) ->
 -doc """
 Starts a generic wx_object server and invokes Mod:init(Args) in the new process.
 """.
--spec start_link(Mod, Args, Options) -> wxWindow:wxWindow()  | {error, term()} when
+-spec start_link(Mod, Args, Options) -> wxWindow:wxWindow() | 'ignore' | {error, term()} when
       Mod::atom(),
       Args::term(),
       Flag::trace | log | {logfile, string()} | statistics | debug,
@@ -232,7 +232,7 @@ start_link(Mod, Args, Options) ->
 -doc """
 Starts a generic wx_object server and invokes Mod:init(Args) in the new process.
 """.
--spec start_link(Name, Mod, Args, Options) -> wxWindow:wxWindow()  | {error, term()} when
+-spec start_link(Name, Mod, Args, Options) -> wxWindow:wxWindow() | 'ignore' | {error, term()} when
       Name::{local, atom()},
       Mod::atom(),
       Args::term(),
@@ -408,11 +408,15 @@ set_pid(#wx_ref{}=R, Pid) when is_pid(Pid) ->
 %% Send a reply to the client.
 %% -----------------------------------------------------------------
 -doc """
-reply(PidTag, Reply)
+Send `Reply` to a caller waiting in `call/[2,3]`.
 
-Get the pid of the object handle.
+This function can be used by a `wx_object` callback to explicitly send
+a reply to a client that called `call/[2,3]` when the reply cannot be
+defined in the return value of the callback.
+
+`From` must be the `From` argument provided to the callback function.
 """.
--spec reply({pid(), Tag::term()}, Reply::term()) -> pid().
+-spec reply(From :: {pid(), Tag::term()}, Reply::term()) -> Reply::term().
 reply({To, Tag}, Reply) ->
     catch To ! {Tag, Reply}.
 
@@ -457,10 +461,10 @@ init_it2(Ref, Starter, Parent, Name, State, Mod, Timeout, Debug) ->
 	false -> 
 	    exit({Ref, "not a wxWindow subclass"});
 	true ->
-	    proc_lib:init_ack(Starter, {ok, self()}),
 	    Starter ! {started, self(), Ref#wx_ref{state=self()}},
+	    proc_lib:init_ack(Starter, {ok, self()}),
 	    loop(Parent, Name, State, Mod, Timeout, Debug)
-    end.    
+    end.
 
 %%%========================================================================
 %%% Internal functions
@@ -468,6 +472,15 @@ init_it2(Ref, Starter, Parent, Name, State, Mod, Timeout, Debug) ->
 %%% ---------------------------------------------------
 %%% The MAIN loop.
 %%% ---------------------------------------------------
+loop(Parent, Name, State, Mod, hibernate, Debug) ->
+    put('_wx_object_', {Mod,State}),
+    receive
+	Msg ->
+	    erlang:garbage_collect(),
+	    loop_msg(Msg, Parent, Name, State, Mod, hibernate, Debug)
+    after 0 ->
+	    proc_lib:hibernate(?MODULE, loop_wake, [Parent, Name, State, Mod, Debug])
+    end;
 loop(Parent, Name, State, Mod, Time, Debug) ->
     put('_wx_object_', {Mod,State}),
     Msg = receive
@@ -476,6 +489,18 @@ loop(Parent, Name, State, Mod, Time, Debug) ->
 	  after Time ->
 		  timeout
 	  end,
+    loop_msg(Msg, Parent, Name, State, Mod, Time, Debug).
+
+%% @hidden
+-doc false.
+-spec loop_wake(_, _, _, _, _) -> no_return().
+loop_wake(Parent, Name, State, Mod, Debug) ->
+    receive
+	Msg ->
+	    loop_msg(Msg, Parent, Name, State, Mod, hibernate, Debug)
+    end.
+
+loop_msg(Msg, Parent, Name, State, Mod, Time, Debug) ->
     case Msg of
 	{system, From, Req} ->
 	    sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
@@ -645,6 +670,8 @@ terminate(Reason, Name, Msg, Mod, State, Debug) ->
 		    exit(normal);
 		shutdown ->
 		    exit(shutdown);
+		{shutdown, _} ->
+		    exit(Reason);
 		wx_deleted ->
 		    exit(normal);
 		_ ->
