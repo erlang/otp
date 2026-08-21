@@ -1814,10 +1814,15 @@ returned.
 - **`raw | 0`** - No packet handling is done. The entire binary is returned
   unless it is empty.
 
-- **`1 | 2 | 4`** - Packets consist of a header specifying the number of bytes
-  in the packet, followed by that number of bytes. The length of the header can
-  be one, two, or four bytes; the order of the bytes is big-endian. The header
-  is stripped off when the packet is returned.
+- **`1 | 2 | 3 | 4`** - Packets consist of a header specifying the number of
+  bytes in the packet, followed by that number of bytes. The length of the
+  header can be one, two, three, or four bytes; the order of the bytes is
+  big-endian. The header is stripped off when the packet is returned.
+
+- **`{N, Endian}`** - Uses the same framing with a two-, three-, or four-byte
+  header, in the byte order specified by `Endian`, which can be `big`, `little`,
+  or `native`. `{N, big}` is equivalent to `N`; `native` uses the native byte
+  order of the runtime system.
 
 - **`line`** - A packet is a line-terminated by a delimiter byte, default is the
   latin-1 newline character. The delimiter byte is included in the returned
@@ -1890,8 +1895,10 @@ Options:
                                   {ok, Packet, Rest} |
                                   {more, Length} |
                                   {error, Reason} when
-      Type :: 'raw' | 0 | 1 | 2 | 4 | 'asn1' | 'cdr' | 'sunrm' | 'fcgi'
-            | 'tpkt' | 'line' | 'http' | 'http_bin' | 'httph' | 'httph_bin',
+      Type :: 'raw' | 0 | 1 | 2 | 3 | 4
+            | {N :: 2 | 3 | 4, Endian :: big | little | native}
+            | 'asn1' | 'cdr' | 'sunrm' | 'fcgi' | 'tpkt' | 'line'
+            | 'http' | 'http_bin' | 'httph' | 'httph_bin',
       Bin :: binary(),
       Options :: [Opt],
       Opt :: {packet_size, non_neg_integer()}
@@ -7751,8 +7758,19 @@ encoding. For details, see the module `m:file`, the function
 follows:
 
 - **`{packet, N}`** - Messages are preceded by their length, sent in `N` bytes,
-  with the most significant byte first. The valid values for `N` are 1, 2,
+  with the most significant byte first. The valid values for `N` are 1, 2, 3,
   and 4.
+
+- **`{packet, {N, Endian}}`** - Uses the same framing with a two-, three-, or
+  four-byte header, in the byte order specified by `Endian`, which can be
+  `big`, `little`, or `native`. This setting applies to messages in both
+  directions. `{packet, {N, big}}` is equivalent to `{packet, N}`; `native`
+  uses the native byte order of the runtime system.
+
+  For a four-byte header, output retains the legacy unsigned 32-bit length
+  range. Input body length is limited to `2^31 - 1` bytes on Unix and
+  `2^31 - 5` bytes on Windows because the driver stores receive sizes as
+  signed integers.
 
 - **`stream`** - Output messages are sent without packet lengths. A user-defined
   protocol must be used between the Erlang process and the external object.
@@ -7768,7 +7786,8 @@ follows:
   following a newline sequence, the last line is also delivered with `Flag` set
   to `noeol`. Otherwise lines are delivered with `Flag` set to `eol`.
 
-  The `{packet, N}` and `{line, L}` settings are mutually exclusive.
+  The `{packet, N}` and `{packet, {N, Endian}}` settings are mutually exclusive
+  with `{line, L}`.
 
 - **`{cd, Dir}`** - Only valid for `{spawn, Command}` and
   `{spawn_executable, FileName}`. The external program starts using `Dir` as its
@@ -7966,7 +7985,9 @@ by passing command-line flag [`+Q`](erl_cmd.md#max_ports) to [erl](erl_cmd.md).
                   {spawn_executable, FileName :: file:name_all() } |
                   {fd, In :: non_neg_integer(), Out :: non_neg_integer()},
       PortSettings :: [Opt],
-      Opt :: {packet, N :: 1 | 2 | 4}
+      Opt :: {packet, N :: 1 | 2 | 3 | 4}
+           | {packet, {N :: 2 | 3 | 4,
+                       Endian :: big | little | native}}
            | stream
            | {line, L :: non_neg_integer()}
            | {cd, Dir :: string() | binary()}

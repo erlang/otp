@@ -269,18 +269,46 @@ int packet_get_length(enum PacketParseType htype,
         plen = get_int8(ptr);
         goto remain;
 
-    case TCP_PB_2:
-        /* TCP_PB_2:    [L1,L0 | Data] */
+    case TCP_PB_2_BIG:
+        /* TCP_PB_2_BIG: [L1,L0 | Data] */
         hlen = 2;
         if (n < hlen) goto more;
         plen = get_int16(ptr);
         goto remain;
 
-    case TCP_PB_4:
-        /* TCP_PB_4:    [L3,L2,L1,L0 | Data] */
+    case TCP_PB_2_LITTLE:
+        /* TCP_PB_2_LITTLE: [L0,L1 | Data] */
+        hlen = 2;
+        if (n < hlen) goto more;
+        plen = get_little_int16(ptr);
+        goto remain;
+
+    case TCP_PB_3_BIG:
+        /* TCP_PB_3_BIG: [L2,L1,L0 | Data] */
+        hlen = 3;
+        if (n < hlen) goto more;
+        plen = get_int24(ptr);
+        goto remain;
+
+    case TCP_PB_3_LITTLE:
+        /* TCP_PB_3_LITTLE: [L0,L1,L2 | Data] */
+        hlen = 3;
+        if (n < hlen) goto more;
+        plen = get_little_int24(ptr);
+        goto remain;
+
+    case TCP_PB_4_BIG:
+        /* TCP_PB_4_BIG: [L3,L2,L1,L0 | Data] */
         hlen = 4;
         if (n < hlen) goto more;
         plen = get_int32(ptr);
+        goto remain;
+
+    case TCP_PB_4_LITTLE:
+        /* TCP_PB_4_LITTLE: [L0,L1,L2,L3 | Data] */
+        hlen = 4;
+        if (n < hlen) goto more;
+        plen = get_little_uint32(ptr);
         goto remain;
 
     case TCP_PB_RM:
@@ -882,4 +910,3 @@ int packet_parse_ssl(const char* buf, int len,
         return pcb->ssl_tls(arg, type, major, minor, buf+5, len-5, NULL, 0);
     }
 }
-
