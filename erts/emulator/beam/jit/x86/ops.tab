@@ -1229,10 +1229,19 @@ gc_bif2 Fail _Live u$bif:erlang:bxor/2 S1 S2 Dst =>
 gc_bif1 Fail _Live u$bif:erlang:bnot/1 Src Dst =>
     i_bnot Fail Src Dst
 
+gc_bif1 Fail _Live u$bif:erlang:ctz/1 Src Dst =>
+    i_ctz Fail Src Dst
+
+gc_bif1 Fail _Live u$bif:erlang:popcount/1 Src Dst =>
+    i_popcount Fail Src Dst
+
 i_plus s s j d
 i_minus s s j d
 
 i_unary_minus s j d
+
+i_ctz s j d
+i_popcount s j d
 
 i_mul_add j s s s s d
 
