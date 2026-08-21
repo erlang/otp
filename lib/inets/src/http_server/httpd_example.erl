@@ -28,6 +28,7 @@
          get_reply_headers/3,
          put/3,
          patch/3,
+         options/3,
          post/3, 
          yahoo/3, 
          test1/3, 
@@ -116,6 +117,15 @@ do_patch(Env,{Input,_Body}) ->
     default(Env,Input);
 do_patch(Env,Input) ->
     default(Env,Input).
+
+%% ------------------------------------------------------
+options(SessionID, Env, Input) ->
+    mod_esi:deliver(SessionID, do_options(Env, Input)).
+
+do_options(Env, {Input, _Body}) ->
+    default(Env, Input);
+do_options(Env, Input) ->
+    default(Env, Input).
 
 %% ------------------------------------------------------
 get_bin(SessionID, Env, Input) ->
