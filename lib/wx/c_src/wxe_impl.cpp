@@ -91,7 +91,7 @@ void push_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[], int op, wxe_m
     int wakeup = wxe_needs_wakeup;
     wxe_needs_wakeup = 0;
     enif_mutex_unlock(wxe_batch_locker_m);
-    if(n < 2 || wakeup || WXE_DEBUG_PING) {
+    if(n < 2 || wakeup || op == WXE_DEBUG_PING) {
       wxWakeUpIdle();
     }
   }
