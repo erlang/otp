@@ -301,7 +301,8 @@ simple_sftp(Config) ->
                {kex,_} -> [{preferred_algorithms,AlgEntries}];
                _ -> [{modify_algorithms,[{append,AlgEntries}]}]
            end,
-    ssh_test_lib:std_simple_sftp(Host, Port, Config, Opts).
+    {true, ConnectionRef} = ssh_test_lib:std_simple_sftp(Host, Port, Config, Opts),
+    ssh:close(ConnectionRef).
 
 %%--------------------------------------------------------------------
 %% A simple exec call
