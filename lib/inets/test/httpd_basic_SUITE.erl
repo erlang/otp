@@ -47,10 +47,15 @@ groups() ->
                                 script_nocache,
                                 escaped_url_in_error_body,
                                 script_timeout,
+<<<<<<< HEAD
                                 chunked_body_size_unbounded,
                                 slowdose,
+=======
+                                {group, slowdose},
+>>>>>>> refs/rewritten/whaileee-inets-httpd-body-read-timeout-gap-OTP-20271
                                 keep_alive_timeout,
-                                invalid_rfc1123_date]}].
+                                invalid_rfc1123_date]},
+     {slowdose, [parallel], [slowdose_min_bytes, slowdose_slow_header, slowdose_slow_body, slowdose_trickle_body]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -387,9 +392,9 @@ verify_script_timeout(Config, ScriptTimeout, StatusCode) ->
 
 %%-------------------------------------------------------------------------
 
-slowdose() ->
+slowdose_min_bytes() ->
     [{doc, "Testing minimum bytes per second option"}].
-slowdose(Config) when is_list(Config) ->
+slowdose_min_bytes(Config) when is_list(Config) ->
     HttpdConf =   proplists:get_value(httpd_conf, Config),
     {ok, Pid} = inets:start(httpd, [{port, 0}, {minimum_bytes_per_second, 200}|HttpdConf]),
     Info = httpd:info(Pid),
@@ -399,6 +404,92 @@ slowdose(Config) when is_list(Config) ->
     after 6000 ->
 	    {error, closed} = gen_tcp:send(Socket, "Hey")
     end.
+
+slowdose_slow_header() ->
+    [{doc, "Testing timeout for slow headers"}].
+slowdose_slow_header(Config) when is_list(Config) ->
+    HttpdConf = proplists:get_value(httpd_conf, Config),
+    {ok, Pid} = inets:start(httpd, [{port, 0}, {request_timeout, 2} | HttpdConf]),
+    Info = httpd:info(Pid),
+    Port = proplists:get_value(port, Info),
+    {ok, Socket} = inets_test_lib:connect_bin(ip_comm, "localhost", Port, []),
+    ok = inets_test_lib:send(ip_comm, Socket, "GET /dummy.html HTTP/1.0\r\n"),
+    receive
+        {tcp, Socket, Data} ->
+            case binary:match(Data, <<"408">>) of
+                {_, _} ->
+                    ok;
+                nomatch ->
+                    ct:fail("Server did not reply with 408 timeout")
+            end;
+        Else ->
+            ct:fail({"Unexpected data: ", Else})
+    after 3000 ->
+            ct:fail("Server did not close connection after slow header")
+    end.
+
+slowdose_slow_body() ->
+    [{doc, "Testing timeout for slow body"}].
+slowdose_slow_body(Config) when is_list(Config) ->
+    HttpdConf =   proplists:get_value(httpd_conf, Config),
+    {ok, Pid} = inets:start(httpd, [{port, 0}, {request_timeout, 1} | HttpdConf]),
+    Info = httpd:info(Pid),
+    Port = proplists:get_value(port, Info),
+    {ok, Socket} = inets_test_lib:connect_bin(ip_comm, "localhost", Port, []),
+    ok = inets_test_lib:send(ip_comm, Socket, "POST /dummy.html HTTP/1.1\r\n" ++
+                             "Host: localhost\r\n" ++
+                             "Content-Length: 10\r\n\r\n" ++
+                             "12345"),
+    receive
+        {tcp, Socket, Data} ->
+            case binary:match(Data, <<"408">>) of
+                {_, _} ->
+                    ok;
+                nomatch ->
+                    ct:fail({"Server did not reply with 408 timeout", Data})
+            end;
+        Else ->
+            ct:fail({"Unexpected data: ", Else})
+    after 3000 ->
+            ct:fail("Server did not close connection after slow header")
+    end.
+
+slowdose_trickle_body() ->
+    [{doc, "Testing timeout for trickling body"}].
+slowdose_trickle_body(Config) when is_list(Config) ->
+
+    %% First we test that request_timeout does not trigger this
+    slowdose_trickle_body(Config, {request_timeout, 1}, <<"501">>),
+
+    % Then we test that minimum_bytes_per_second does trigger it
+    slowdose_trickle_body(Config, {minimum_bytes_per_second, 50}, <<"408">>).
+
+slowdose_trickle_body(Config, HttpdConfig, Status) ->
+    HttpdConf =   proplists:get_value(httpd_conf, Config),
+    {ok, Pid} = inets:start(httpd, [{port, 0}, HttpdConfig | HttpdConf]),
+    Info = httpd:info(Pid),
+    Port = proplists:get_value(port, Info),
+    {ok, Socket} = inets_test_lib:connect_bin(ip_comm, "localhost", Port, []),
+    ok = inets_test_lib:send(ip_comm, Socket, "POST /dummy.html HTTP/1.1\r\n" ++
+                             "Host: localhost\r\n" ++
+                             "Content-Length: 11\r\n\r\n"),
+    [inets_test_lib:send(ip_comm, Socket, integer_to_list(N)) || N <- lists:seq(1, 10), is_atom(timer:sleep(500))],
+    receive
+        {tcp, Socket, Data} ->
+            case binary:match(Data, Status) of
+                {_, _} ->
+                    %% Flush the 501 contents if that is what we got, to avoid it interfering with other tests
+                    inets_test_lib:flush();
+                nomatch ->
+                    ct:fail({"Server did not reply with 501 Not Implemented", Data})
+            end;
+        Else1 ->
+            ct:fail({"Unexpected data: ", Else1})
+    after 3000 ->
+            ct:fail("Server did not close connection after slow header")
+    end,
+    inets_test_lib:close(ip_comm, Socket),
+    ok = inets:stop(httpd, Pid).
 
 %%-------------------------------------------------------------------------
 
