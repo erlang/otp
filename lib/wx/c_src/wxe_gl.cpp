@@ -82,6 +82,7 @@ void setActiveGL(wxeMemEnv *memenv, ErlNifPid caller, wxGLCanvas *canvas, wxGLCo
   if(!entry) {
     if(canvas && context) {
       entry = (wxe_glc *) malloc(sizeof(wxe_glc));
+      if(!entry) return;
       entry->canvas = NULL;
       entry->context = NULL;
     }
