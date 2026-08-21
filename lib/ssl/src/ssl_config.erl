@@ -1388,7 +1388,16 @@ opt_reuse_sessions(UserOpts, #{versions := Versions} = Opts, #{role := client}) 
     assert_version_dep(Where2 =:= new, reuse_session, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
     Opts#{reuse_sessions => RUSS, reuse_session => RS};
 opt_reuse_sessions(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
-    {Where1, RUSS} = get_opt_bool(reuse_sessions, true, UserOpts, Opts),
+    %% Disable reuse_sessions when client cert verify_peer
+    %% verification is required, until Extended Master Secret is implemented.
+    ReuseDefault = case maps:get(verify, Opts) of
+                       verify_peer ->
+                           false;
+                       verify_none ->
+                           true
+                   end,
+
+    {Where1, RUSS} = get_opt_bool(reuse_sessions, ReuseDefault, UserOpts, Opts),
 
     DefRS = fun(_, _, _, _) -> true end,
     {Where2, RS} = get_opt_fun(reuse_session, 4, DefRS, UserOpts, Opts),
