@@ -8225,9 +8225,9 @@ ERL_NIF_TERM esock_setopt_otp_rcvbuf(ErlNifEnv*       env,
     else
         descP->rBufSz = bufSz;
 #ifndef __WIN32__
-    descP->rBufAdapt     = FALSE;
-    descP->rBufSzAdapt   = descP->rBufSz;
-    descP->rBufShrinkCnt = 0;
+    descP->rBufAdapt   = FALSE;
+    descP->rBufSzAdapt = descP->rBufSz;
+    descP->rBufSzAvg   = descP->rBufSz;
 #endif
 
     SSDBG( descP,
@@ -17069,7 +17069,7 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     descP->rNumCnt          = 0;
     descP->rBufAdapt        = TRUE;
     descP->rBufSzAdapt      = ESOCK_RECV_BUFFER_SIZE_DEFAULT;
-    descP->rBufShrinkCnt    = 0;
+    descP->rBufSzAvg        = ESOCK_RECV_BUFFER_SIZE_DEFAULT;
 #endif
     descP->rCtrlSz          = ESOCK_RECV_CTRL_BUFFER_SIZE_DEFAULT;
     descP->wCtrlSz          = ESOCK_SEND_CTRL_BUFFER_SIZE_DEFAULT;

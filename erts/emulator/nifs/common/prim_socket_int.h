@@ -522,7 +522,7 @@ typedef struct {
      * the size, since it bounds the chunks such a recv may return.
      */
     size_t             rBufSzAdapt; // Current adaptive read buffer size
-    unsigned int       rBufShrinkCnt;
+    size_t             rBufSzAvg;   // EWMA of the read sizes
     BOOLEAN_T          rBufAdapt;
 #endif
     size_t             rCtrlSz; // Read control buffer size

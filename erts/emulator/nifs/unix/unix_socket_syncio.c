@@ -211,11 +211,11 @@
 #define sock_close(s)                   close((s))
 
 /* Adaptive read buffer: double on a filled buffer, halve back towards
- * the configured size after this many consecutive reads that used
- * less than a quarter of it.
+ * the configured size once an EWMA of the read sizes falls below a
+ * quarter of it.
  */
 #define ESSIO_RECV_ADAPT_BUFFER_MAX     (1 << 20)
-#define ESSIO_RECV_ADAPT_SHRINK_COUNT   32
+#define ESSIO_RECV_ADAPT_EWMA_SHIFT     3
 // #define sock_close_event(e)             /* do nothing */
 #define sock_connect(s, addr, len)      connect((s), (addr), (len))
 #define sock_connectx(s, addrs, acnt, aidp) \
@@ -2850,7 +2850,7 @@ BOOLEAN_T essio_accept_accepted(ErlNifEnv*       env,
     accDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
     accDescP->rBufAdapt = descP->rBufAdapt;
     accDescP->rBufSzAdapt = descP->rBufSz;
-    accDescP->rBufShrinkCnt = 0;
+    accDescP->rBufSzAvg = descP->rBufSz;
     accDescP->rNum     = descP->rNum;    // Inherit buffer uses
     accDescP->rNumCnt  = 0;
     accDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer size
@@ -2956,7 +2956,7 @@ ERL_NIF_TERM essio_peeloff(ErlNifEnv*       env,
     poDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
     poDescP->rBufAdapt = descP->rBufAdapt;
     poDescP->rBufSzAdapt = descP->rBufSz;
-    poDescP->rBufShrinkCnt = 0;
+    poDescP->rBufSzAvg = descP->rBufSz;
     poDescP->rNum     = descP->rNum;    // Inherit buffer uses
     poDescP->rNumCnt  = 0;
     poDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer size
@@ -3863,20 +3863,16 @@ ERL_NIF_TERM essio_recv(ErlNifEnv*       env,
     /* readResult >= 0 */
 
     if ((len == 0) && descP->rBufAdapt && (descP->type == SOCK_STREAM)) {
+        descP->rBufSzAvg -= descP->rBufSzAvg >> ESSIO_RECV_ADAPT_EWMA_SHIFT;
+        descP->rBufSzAvg += ((size_t) readResult) >> ESSIO_RECV_ADAPT_EWMA_SHIFT;
         if ((size_t) readResult == bufP->size) {
             if (descP->rBufSzAdapt < ESSIO_RECV_ADAPT_BUFFER_MAX)
                 descP->rBufSzAdapt <<= 1;
-            descP->rBufShrinkCnt = 0;
         } else if ((descP->rBufSzAdapt > descP->rBufSz) &&
-                   ((size_t) readResult < (descP->rBufSzAdapt >> 2))) {
-            if (++descP->rBufShrinkCnt >= ESSIO_RECV_ADAPT_SHRINK_COUNT) {
-                descP->rBufSzAdapt >>= 1;
-                if (descP->rBufSzAdapt < descP->rBufSz)
-                    descP->rBufSzAdapt = descP->rBufSz;
-                descP->rBufShrinkCnt = 0;
-            }
-        } else {
-            descP->rBufShrinkCnt = 0;
+                   (descP->rBufSzAvg < (descP->rBufSzAdapt >> 2))) {
+            descP->rBufSzAdapt >>= 1;
+            if (descP->rBufSzAdapt < descP->rBufSz)
+                descP->rBufSzAdapt = descP->rBufSz;
         }
     }
 
