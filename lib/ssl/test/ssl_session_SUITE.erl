@@ -206,7 +206,7 @@ reuse_session_expired(Config) when is_list(Config) ->
 				   {from, self()},
 				   {mfa, {ssl_test_lib, no_result, []}},
 				   {tcp_options, [{active, false}]},
-				   {options, ServerOpts}]),
+                                   {options, [{reuse_sessions, true}| ServerOpts]}]),
     Port0 = ssl_test_lib:inet_port(Server0),
 
     Client0 = ssl_test_lib:start_client([{node, ClientNode},
@@ -338,7 +338,7 @@ explicit_session_reuse(Config) when is_list(Config) ->
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                    {from, self()},
                                    {mfa, {ssl_test_lib, no_result, []}},
-                                   {options, ServerOpts}]),
+                                   {options, [{reuse_sessions, true} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     {Client0, Client0Sock} =
 	ssl_test_lib:start_client([{node, ClientNode},
@@ -380,7 +380,7 @@ explicit_session_reuse_expired(Config) when is_list(Config) ->
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                    {from, self()},
                                    {mfa, {ssl_test_lib, no_result, []}},
-                                   {options, ServerOpts}]),
+                                   {options, [{reuse_sessions, true} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     {Client0, Client0Sock} =
 	ssl_test_lib:start_client([{node, ClientNode},
@@ -491,7 +491,8 @@ no_reuses_session_server_restart_new_cert() ->
     [{doc,"Check that a session is not reused if the server is restarted with a new cert."}].
 no_reuses_session_server_restart_new_cert(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_der_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_der_verify_opts, Config),
+    ServerOpts = [{reuse_sessions, true} |
+                  ssl_test_lib:ssl_options(server_rsa_der_verify_opts, Config)],
     POpts = proplists:get_value(group_opts, Config, []),
 
     #{client_config := NewCOpts,
@@ -504,16 +505,17 @@ no_reuses_session_server_restart_new_cert(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server0 =
-	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-				   {from, self()},
+        ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                   {from, self()},
                                    {mfa, {ssl_test_lib, session_info_result, []}},
-				   {options, ServerOpts}]),
+                                   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server0),
     Client0 =
 	ssl_test_lib:start_client([{node, ClientNode},
                                    {port, Port}, {host, Hostname},
                                    {mfa, {ssl_test_lib, session_info_result, []}},
-                                   {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),
+                                   {from, self()},
+                                   {options, [{reuse_sessions, save} | ClientOpts]}]),
     Info0 = receive {Server0, Info00} -> Info00 end,
     Info0 = receive {Client0, Info01} -> Info01 end,
 
@@ -620,7 +622,8 @@ client_max_session_table(Config) when is_list(Config)->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, HostName} = ssl_test_lib:run_where(Config),
-    test_max_session_limit(ClientOpts,ServerOpts,ClientNode, ServerNode, HostName),
+    test_max_session_limit(ClientOpts,[{reuse_sessions, true} | ServerOpts],
+                           ClientNode, ServerNode, HostName),
     %% Explicit check table size
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
@@ -635,7 +638,8 @@ server_max_session_table(Config) when is_list(Config)->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, HostName} = ssl_test_lib:run_where(Config),
-    test_max_session_limit(ClientOpts,ServerOpts,ClientNode, ServerNode, HostName),
+    test_max_session_limit(ClientOpts,[{reuse_sessions, true} | ServerOpts],
+                           ClientNode, ServerNode, HostName),
     %% Explicit check table size
     SupName = sup_name(ServerOpts),
     Sup = whereis(SupName),
@@ -684,7 +688,7 @@ session_server_restart(Config) when is_list(Config) ->
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                    {from, self()},
                                    {mfa, {?MODULE, accept_socket, [Test]}},
-                                   {options, ServerOpts}]),
+                                   {options, [{reuse_sessions, true} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     {Client0, Client0Sock} =
 	ssl_test_lib:start_client([{node, ClientNode},
