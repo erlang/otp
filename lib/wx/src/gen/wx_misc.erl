@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -98,6 +98,9 @@ mSWSetEmulationLevel(Level, Executable) ->
   ok = win32reg:set_value(Reg, Executable, Level),
   ok = win32reg:close(Reg),
   true.
+
+
+
 -doc """
 For normal keys, returns true if the specified key is currently down.
 

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -309,7 +309,7 @@ Event types emitted from this class:
   lower/1,move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,new/0,new/2,new/3,pageDown/1,pageUp/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,screenToClient/3,
   scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -2102,14 +2102,6 @@ reparent(#wx_ref{type=ThisT}=This,#wx_ref{type=NewParentT}=NewParent) ->
   wxe_util:rec(?wxWindow_Reparent).
 
 -doc "Converts from screen to client window coordinates.".
--spec screenToClient(This) -> {X::integer(), Y::integer()} when
-	This::wxWindow().
-screenToClient(#wx_ref{type=ThisT}=This) ->
-  ?CLASS(ThisT,wxWindow),
-  wxe_util:queue_cmd(This,?get_env(),?wxWindow_ScreenToClient_2),
-  wxe_util:rec(?wxWindow_ScreenToClient_2).
-
--doc "Converts from screen to client window coordinates.".
 -spec screenToClient(This, Pt) -> {X::integer(), Y::integer()} when
 	This::wxWindow(), Pt::{X::integer(), Y::integer()}.
 screenToClient(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
@@ -2117,6 +2109,15 @@ screenToClient(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,Pt,?get_env(),?wxWindow_ScreenToClient_1),
   wxe_util:rec(?wxWindow_ScreenToClient_1).
+
+-doc "Converts from screen to client window coordinates.".
+-spec screenToClient(This, X, Y) -> {X::integer(), Y::integer()} when
+	This::wxWindow(), X::integer(), Y::integer().
+screenToClient(#wx_ref{type=ThisT}=This,X,Y)
+ when is_integer(X),is_integer(Y) ->
+  ?CLASS(ThisT,wxWindow),
+  wxe_util:queue_cmd(This,X,Y,?get_env(),?wxWindow_ScreenToClient_2),
+  wxe_util:rec(?wxWindow_ScreenToClient_2).
 
 -doc """
 Scrolls the window by the given number of lines down (if `lines` is positive) or up.

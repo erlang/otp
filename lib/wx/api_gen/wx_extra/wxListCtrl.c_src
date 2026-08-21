@@ -25,7 +25,7 @@
 class EwxListCtrl : public wxListCtrl {
  public: ~EwxListCtrl();
  EwxListCtrl(wxWindow * parent,wxWindowID winid,const wxPoint& pos,const wxSize& size,long style,const wxValidator& validator) : wxListCtrl(parent,winid,pos,size,style,validator) {};
- EwxListCtrl() : wxListCtrl() {};
+ EwxListCtrl() : wxListCtrl() { me_ref = NULL; };
 
  int onGetItemText;
  int onGetItemAttr;

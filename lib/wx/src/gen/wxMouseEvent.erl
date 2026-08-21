@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ only when the mouse leaves the window entirely but also when it enters one of it
 
 The position associated with a mouse event is expressed in the window coordinates of the
 window which generated the event, you can use `wxWindow:clientToScreen/3` to convert it to screen coordinates and
-possibly call `wxWindow:screenToClient/2` next to convert it to window coordinates of another window.
+possibly call `wxWindow:screenToClient/3` next to convert it to window coordinates of another window.
 
 Note: Note the difference between methods like `leftDown/1` and the inherited `leftIsDown/1`: the former returns
 true when the event corresponds to the left mouse button click while the latter returns
