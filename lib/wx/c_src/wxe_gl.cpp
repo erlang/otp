@@ -120,6 +120,22 @@ void deleteActiveGL(wxGLCanvas *canvas)
   }
 }
 
+void deleteActiveGLContext(wxGLContext *context)
+{
+  wxeGLC::iterator it;
+  for(it = glc.begin(); it != glc.end(); ++it) {
+    wxe_glc * temp = it->second;
+    if(temp && temp->context == context) {
+      it->second = NULL;
+      free(temp);
+    }
+  }
+  if(gl_active_index && glc[gl_active_index] == NULL) {
+    gl_active_index = 0;
+    enif_set_pid_undefined(&gl_active_pid);
+  }
+}
+
 void no_context(wxeCommand *event) {
   enif_send(NULL, &event->caller, event->env,
             enif_make_tuple3(event->env,

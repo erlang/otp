@@ -707,7 +707,7 @@ class EwxGLCanvas : public wxGLCanvas {
 
 #if wxUSE_GLCANVAS
 class EwxGLContext : public wxGLContext {
- public: ~EwxGLContext() {((WxeApp *)wxTheApp)->clearPtr(this);};
+ public: ~EwxGLContext() {deleteActiveGLContext(this);((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxGLContext(wxGLCanvas * win,wxGLContext * other) : wxGLContext(win,other) {};
 };
 #endif // wxUSE_GLCANVAS
