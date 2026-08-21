@@ -99,11 +99,11 @@ init([SilentStart]) ->
 
 %% Register process
 handle_call(register_me, {From,_}, State=#state{users=Users}) ->
-    erlang:monitor(process, From),
     case gb_trees:is_defined(From, Users) of
 	true ->
 	    {reply, ok, State};
 	false ->
+	    erlang:monitor(process, From),
 	    New = gb_trees:insert(From, #user{}, Users),
 	    {reply, ok, State#state{users=New}}
     end;
@@ -272,10 +272,10 @@ invoke_callback(Env, Fun, Args, IsEvent) ->
 	  end),
     ok.
 
-invoke_callback_obj(Env, Pid, Ev, Ref) ->
+invoke_callback_obj(#wx_env{ref=EnvRef}=Env, Pid, Ev, Ref) ->
     CB = fun() ->
 		 wx:set_env(Env),
-                 wxe_util:queue_cmd(Env, ?WXE_CB_START),
+                 wxe_util:queue_cmd(EnvRef, ?WXE_CB_START),
 		 try
 		     case get_wx_object_state(Pid, 5) of
 			 ignore ->
@@ -293,7 +293,7 @@ invoke_callback_obj(Env, Pid, Ev, Ref) ->
 			 ?log("Callback fun crashed with {'EXIT, ~p, ~p}~n",
 			      [Reason, Stacktrace])
 		 end,
-                 wxe_util:queue_cmd(ok, Env, ?WXE_CB_RETURN)
+                 wxe_util:queue_cmd(ok, EnvRef, ?WXE_CB_RETURN)
 	 end,
     spawn(CB),
     ok.

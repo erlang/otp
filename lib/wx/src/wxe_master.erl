@@ -84,6 +84,7 @@ init_opengl() ->
         _ ->
             Opaque = gl:lookup_func(functions),
             Debug = gl:lookup_func(function_names),
+            put(wx_init_opengl, true),
             {ok, wxe_util:init_opengl(Opaque, Debug)}
     end.
 
@@ -183,7 +184,10 @@ handle_info({wxe_driver, Cmd, File}, State = #state{subscribers=Subs, msgs=Msgs}
   when Cmd =:= open_file; Cmd =:= new_file; Cmd =:= print_file; 
        Cmd =:= open_url; Cmd =:= reopen_app ->
     lists:foreach(fun(Pid) -> Pid ! {Cmd, File} end, Subs),
-    {noreply, State#state{msgs=[{Cmd, File}|Msgs]}};
+    case Subs of
+        [] -> {noreply, State#state{msgs=[{Cmd, File}|Msgs]}};
+        _  -> {noreply, State}
+    end;
 handle_info({'DOWN', _Ref, process, Pid, _Info}, State) ->
     Subs = State#state.subscribers -- [Pid],
     {noreply, State#state{subscribers=Subs}};
@@ -199,7 +203,6 @@ handle_info(Info, State) ->
 %% The return value is ignored.
 %%--------------------------------------------------------------------
 terminate(_Reason, _State) ->
-    erlang:display({?MODULE, killed, process_info(self(),trap_exit),_Reason}),
     ok.
 
 %%--------------------------------------------------------------------
