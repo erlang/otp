@@ -119,6 +119,8 @@ init([Manager, ConfigDB, AcceptTimeout]) ->
 
             Peername = http_transport:peername(SocketType, Socket),
             Sockname = http_transport:sockname(SocketType, Socket),
+
+            Keepalive = httpd_util:lookup(ConfigDB, keep_alive, true),
             %%Timeout value is in seconds we want it in milliseconds
             KeepAliveTimeOut = case Keepalive of
                            true -> get_keepalive_timeout(ConfigDB);
