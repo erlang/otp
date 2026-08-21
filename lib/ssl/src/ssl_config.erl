@@ -380,7 +380,7 @@ dh_file(DbHandle, DHParamFile) ->
         end
     catch
         _:Reason ->
-            file_error(DHParamFile, {dhfile, Reason}) 
+            file_error(DHParamFile, {dhfile, Reason})
     end.
 
 session_cb_init_args(client) ->
