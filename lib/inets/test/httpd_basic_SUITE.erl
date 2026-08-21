@@ -47,12 +47,8 @@ groups() ->
                                 script_nocache,
                                 escaped_url_in_error_body,
                                 script_timeout,
-<<<<<<< HEAD
                                 chunked_body_size_unbounded,
-                                slowdose,
-=======
                                 {group, slowdose},
->>>>>>> refs/rewritten/whaileee-inets-httpd-body-read-timeout-gap-OTP-20271
                                 keep_alive_timeout,
                                 invalid_rfc1123_date]},
      {slowdose, [parallel], [slowdose_min_bytes, slowdose_slow_header, slowdose_slow_body, slowdose_trickle_body]}].
