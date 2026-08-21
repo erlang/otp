@@ -7653,8 +7653,9 @@ ERL_NIF_TERM nif_finalize_close_dirty(ErlNifEnv*         env,
 static
 BOOLEAN_T finalize_close_may_block(ESockDescriptor* descP)
 {
+#if defined(SO_LINGER)
     struct linger lval;
-    SOCKLEN_T     lsz = sizeof(lval);
+    SOCKOPTLEN_T  lsz = sizeof(lval);
 
     if (descP->sock == INVALID_SOCKET)
         return FALSE;
@@ -7664,6 +7665,10 @@ BOOLEAN_T finalize_close_may_block(ESockDescriptor* descP)
         return TRUE;
 
     return (lval.l_onoff != 0) && (lval.l_linger > 0);
+#else
+    /* Without SO_LINGER a close cannot linger, so it cannot block */
+    return FALSE;
+#endif
 }
 
 
