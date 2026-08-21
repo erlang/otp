@@ -132,7 +132,7 @@ Notice: The callbacks may not call other processes.
                {onEndPrinting,     fun((wxPrintout()) -> ok)} |
                {onBeginDocument,   fun((wxPrintout(), StartPage::integer(), EndPage::integer()) -> boolean())} |
                {onEndDocument,     fun((wxPrintout()) -> ok)} |
-               {hasPage,           fun((wxPrintout(), Page::integer()) -> ok)} |
+               {hasPage,           fun((wxPrintout(), Page::integer()) -> boolean())} |
                {getPageInfo,       fun((wxPrintout()) ->
                                               {MinPage::integer(), MaxPage::integer(),
                                                PageFrom::integer(), PageTo::integer()})}.
