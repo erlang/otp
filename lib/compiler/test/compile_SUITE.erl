@@ -27,11 +27,11 @@
 -include_lib("stdlib/include/erl_compile.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 app_test/1,appup_test/1,bigE_roundtrip/1,
 	 debug_info/4, custom_debug_info/1, custom_compile_info/1,
-	 file_1/1, forms_2/1, module_mismatch/1, outdir/1,
+         file_1/1, forms_2/1, string_1/1, module_mismatch/1, outdir/1,
 	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
 	 other_output/1, encrypted_abstr/1,
 	 strict_record/1, utf8_atoms/1, utf8_functions/1, extra_chunks/1,
@@ -45,7 +45,7 @@
          compile_attribute/1, message_printing/1, other_options/1,
          transforms/1, erl_compile_api/1, types_pp/1, bs_init_writable/1,
          annotations_pp/1, option_order/1,
-         sys_coverage/1
+         sys_coverage/1, doctests/1
 	]).
 
 -import_record(v3_core, [c_case, c_clause, c_fun, c_literal,
@@ -60,7 +60,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [app_test, appup_test, bigE_roundtrip, file_1,
-     forms_2, module_mismatch, outdir,
+     forms_2, string_1, module_mismatch, outdir,
      binary, makedep, cond_and_ifdef, listings, listings_big,
      other_output, encrypted_abstr, tuple_calls,
      strict_record, utf8_atoms, utf8_functions, extra_chunks,
@@ -72,7 +72,7 @@ all() ->
      deterministic_docs,
      compile_attribute, message_printing, other_options, transforms,
      erl_compile_api, types_pp, bs_init_writable, annotations_pp,
-     option_order, sys_coverage].
+     option_order, sys_coverage, doctests].
 
 groups() -> 
     [].
@@ -324,6 +324,169 @@ forms_compile_and_load(Code, Opts) ->
     _ = Mod:module_info(),
     true = code:delete(simple),
     false = code:purge(simple),
+    ok.
+
+string_1(_Config) ->
+    %% Basic compilation from string.
+    {ok,foo,BinFoo} = compile:string("-module(foo). -export([bar/0]). bar() -> hello."),
+    {module,foo} = code:load_binary(foo, "foo.erl", BinFoo),
+    hello = foo:bar(),
+    true = code:delete(foo),
+    false = code:purge(foo),
+
+    %% Binary input.
+    {ok,binmod,BinMod} = compile:string(<<"-module(binmod). -export([g/0]). g() -> ok.">>),
+    {module,binmod} = code:load_binary(binmod, "binmod.erl", BinMod),
+    ok = binmod:g(),
+    true = code:delete(binmod),
+    false = code:purge(binmod),
+
+    %% Preprocessor: macros with -define.
+    {ok,macmod,BinMac} = compile:string(
+        "-module(macmod). -export([f/0]).\n"
+        "-define(X, 42).\n"
+        "f() -> ?X.\n"),
+    {module,macmod} = code:load_binary(macmod, "macmod.erl", BinMac),
+    42 = macmod:f(),
+    true = code:delete(macmod),
+    false = code:purge(macmod),
+
+    %% Preprocessor: records.
+    {ok,recmod,BinRec} = compile:string(
+        "-module(recmod). -export([new/0]).\n"
+        "-record(point, {x = 0, y = 0}).\n"
+        "new() -> #point{x = 1, y = 2}.\n"),
+    {module,recmod} = code:load_binary(recmod, "recmod.erl", BinRec),
+    {point,1,2} = recmod:new(),
+    true = code:delete(recmod),
+    false = code:purge(recmod),
+
+    %% Preprocessor: -ifdef/-endif.
+    {ok,ifmod,BinIf} = compile:string(
+        "-module(ifmod). -export([f/0]).\n"
+        "-ifdef(NOTDEFINED).\n"
+        "f() -> wrong.\n"
+        "-else.\n"
+        "f() -> right.\n"
+        "-endif.\n"),
+    {module,ifmod} = code:load_binary(ifmod, "ifmod.erl", BinIf),
+    right = ifmod:f(),
+    true = code:delete(ifmod),
+    false = code:purge(ifmod),
+
+    %% Preprocessor: predefined macros via options.
+    {ok,defmod,BinDef} = compile:string(
+        "-module(defmod). -export([f/0]).\n"
+        "f() -> ?MY_VALUE.\n",
+        [{d,'MY_VALUE',99}]),
+    {module,defmod} = code:load_binary(defmod, "defmod.erl", BinDef),
+    99 = defmod:f(),
+    true = code:delete(defmod),
+    false = code:purge(defmod),
+
+    %% Preprocessor: ?MODULE.
+    {ok,modmac,BinModMac} = compile:string(
+        "-module(modmac). -export([name/0]).\n"
+        "name() -> ?MODULE.\n"),
+    {module,modmac} = code:load_binary(modmac, "modmac.erl", BinModMac),
+    modmac = modmac:name(),
+    true = code:delete(modmac),
+    false = code:purge(modmac),
+
+    %% Source option.
+    {ok,srcmod,BinSrc} = compile:string(
+        "-module(srcmod). -export([f/0]). f() -> ok.",
+        [{source,"my_source.erl"}]),
+    {module,srcmod} = code:load_binary(srcmod, "srcmod.erl", BinSrc),
+    Info = srcmod:module_info(compile),
+    SrcInfo = proplists:get_value(source, Info),
+    true = lists:suffix("my_source.erl", SrcInfo),
+    true = code:delete(srcmod),
+    false = code:purge(srcmod),
+
+    %% Syntax error returns error.
+    error = compile:string("-module(bad). f( ->"),
+
+    %% Syntax error with return_errors option.
+    {error,[{"string",[{_,_,_}|_]}],_} =
+        compile:string("-module(bad). f( ->", [return_errors]),
+
+    %% Source option affects error filenames.
+    {error,[{"bad.erl",[{_,_,_}|_]}],_} =
+        compile:string("-module(bad). f( ->",
+                       [return_errors, {source, "bad.erl"}]),
+
+    %% Cover: option not in a list (undocumented feature).
+    {ok,smod,_} = compile:string("-module(smod). -export([f/0]). f() -> ok.", binary),
+
+    %% noenv_string/2.
+    {ok,nmod,_} = compile:noenv_string(
+        "-module(nmod). -export([f/0]). f() -> ok.", []),
+
+    %% include_path_open: include from in-memory files.
+    Headers = #{
+        "my_header.hrl" =>
+            <<"-record(point, {x, y}).\n"
+              "-define(ORIGIN, #point{x=0, y=0}).\n">>
+    },
+    PathOpen = fun(_Path, Name, _Modes) ->
+        case maps:find(Name, Headers) of
+            {ok, Content} ->
+                {ok, Fd} = file:open(Content, [ram, read, binary, cooked]),
+                {ok, Fd, Name};
+            error ->
+                {error, enoent}
+        end
+    end,
+    {ok,incmod,BinInc} = compile:string(
+        "-module(incmod).\n"
+        "-include(\"my_header.hrl\").\n"
+        "-export([f/0]).\n"
+        "f() -> ?ORIGIN.\n",
+        [{include_path_open, PathOpen}]),
+    {module,incmod} = code:load_binary(incmod, "incmod.erl", BinInc),
+    {point,0,0} = incmod:f(),
+    true = code:delete(incmod),
+    false = code:purge(incmod),
+
+    %% include_path_open: nested includes from in-memory files.
+    Headers2 = #{
+        "types.hrl" =>
+            <<"-type my_int() :: integer().\n">>,
+        "all.hrl" =>
+            <<"-include(\"types.hrl\").\n"
+              "-define(DEFAULT, 0).\n">>
+    },
+    PathOpen2 = fun(_Path, Name, _Modes) ->
+        case maps:find(Name, Headers2) of
+            {ok, Content} ->
+                {ok, Fd} = file:open(Content, [ram, read, binary, cooked]),
+                {ok, Fd, Name};
+            error ->
+                {error, enoent}
+        end
+    end,
+    {ok,nestmod,BinNest} = compile:string(
+        "-module(nestmod).\n"
+        "-include(\"all.hrl\").\n"
+        "-export([f/0]).\n"
+        "-spec f() -> my_int().\n"
+        "f() -> ?DEFAULT.\n",
+        [{include_path_open, PathOpen2}]),
+    {module,nestmod} = code:load_binary(nestmod, "nestmod.erl", BinNest),
+    0 = nestmod:f(),
+    true = code:delete(nestmod),
+    false = code:purge(nestmod),
+
+    %% include_path_open: missing include returns error.
+    PathOpenNone = fun(_Path, _Name, _Modes) -> {error, enoent} end,
+    {error, _, _} = compile:string(
+        "-module(missinc).\n"
+        "-include(\"nonexistent.hrl\").\n"
+        "-export([f/0]).\n"
+        "f() -> ok.\n",
+        [{include_path_open, PathOpenNone}, return_errors]),
+
     ok.
 
 module_mismatch(Config) when is_list(Config) ->
@@ -2390,6 +2553,17 @@ sys_coverage_2(DataDir) ->
     true = lists:keymember(executable_line, 1, Is),
 
     ok.
+
+doctests(_Config) ->
+    PathOpen = fun(Path, Filename, Modes) ->
+                       case file:path_open(Path, Filename, Modes) of
+                           {error, enoent} ->
+                               {ok, FD} = file:open(~"", [ram, cooked | Modes]),
+                               {ok, FD, filename:basename(Filename)};
+                           Else -> Else
+                       end
+               end,
+    ct_doctest:module(compile, [], [{compile_options, [{include_path_open, PathOpen}]}]).
 
 %%%
 %%% Utilities.
