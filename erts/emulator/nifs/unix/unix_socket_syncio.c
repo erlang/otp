@@ -214,7 +214,7 @@
  * the configured size once an EWMA of the read sizes falls below a
  * quarter of it.
  */
-#define ESSIO_RECV_ADAPT_BUFFER_MAX     (1 << 20)
+#define ESSIO_RECV_ADAPT_BUFFER_MAX     (1 << 18)
 #define ESSIO_RECV_ADAPT_EWMA_SHIFT     3
 // #define sock_close_event(e)             /* do nothing */
 #define sock_connect(s, addr, len)      connect((s), (addr), (len))
