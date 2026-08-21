@@ -192,6 +192,9 @@ as `Config` to all configuration functions and test cases in the suite.
 If `{skip, Reason}` is returned, all test cases in the suite are skipped and
 `Reason` is printed in the overview log for the suite.
 
+If `{fail, Reason}` is returned, suite initialization is marked as failed and
+all test cases in the suite are skipped.
+
 For information on `save_config` and `skip_and_save`, see section
 [Saving Configuration Data](dependencies_chapter.md#save_config) in the User's
 Guide.
@@ -201,6 +204,7 @@ If this function is defined, then
 """.
 -callback init_per_suite(Config :: ct_config()) ->
     NewConfig :: ct_config() |
+    {fail, Reason :: term()} |
     {skip, Reason :: term()} |
     {skip_and_save, Reason :: term(), SaveConfig :: ct_config()}.
 
@@ -270,6 +274,9 @@ all test cases and subgroups in the group.
 If `{skip, Reason}` is returned, all test cases in the group are skipped and
 `Reason` is printed in the overview log for the group.
 
+If `{fail, Reason}` is returned, group initialization is marked as failed and
+all test cases and subgroups in the group are skipped.
+
 For information about test case groups, see section
 [Test Case Groups](write_test_chapter.md#test_case_groups) in the User's Guide.
 
@@ -278,6 +285,7 @@ If this function is defined, then
 """.
 -callback init_per_group(GroupName :: ct_groupname(), Config :: ct_config()) ->
     NewConfig :: ct_config() |
+    {fail, Reason :: term()} |
     {skip, Reason :: term()}.
 
 -doc """
