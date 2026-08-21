@@ -41,6 +41,21 @@
 #include "erl_bits.h"
 #include "erl_bif_unique.h"
 
+#if !defined(ERTS_BINARY_NO_INTRINSICS)
+#  if defined(__SSE2__) || defined(_M_X64) || \
+      (defined(_M_IX86) && defined(_M_IX86_FP) && (_M_IX86_FP >= 2))
+#    define ERTS_BINARY_X86_SSE2
+#  endif
+#  if defined(__ARM_NEON) || defined(_M_ARM64)
+#    define ERTS_BINARY_ARM_NEON
+#  endif
+#  if defined(ERTS_BINARY_X86_SSE2)
+#    include <emmintrin.h>
+#  elif defined(ERTS_BINARY_ARM_NEON)
+#    include <arm_neon.h>
+#  endif
+#endif
+
 
 /*
  * The native implementation functions for the module binary.
@@ -211,6 +226,31 @@ typedef struct _bm_data {
     Sint *badshift;
     Sint *goodshift;
 } BMData;
+
+typedef struct _byte_range {
+    byte low;
+    byte high;
+} ByteRange;
+
+typedef struct _br_data {
+    Uint singleton_count;
+    Uint range_count;
+    Uint upper_bound;
+    Uint lower_bound;
+    byte member[ALPHABET_SIZE];
+    byte data[1];
+} BRData;
+
+typedef struct _br_match_mask {
+    Uint bits;
+#if defined(ERTS_BINARY_ARM_NEON)
+    byte lanes[16];
+#endif
+} BRMatchMask;
+
+#define BR_SINGLETONS(Brd) ((Brd)->data)
+#define BR_RANGES(Brd)                                                     \
+    ((ByteRange *)&(Brd)->data[(Brd)->singleton_count])
 
 typedef struct _ac_find_all_state {
     ACNode *q;
@@ -427,6 +467,103 @@ static int cleanup_my_data_ac(Binary *bp)
 }
 static int cleanup_my_data_bm(Binary *bp)
 {
+    return 1;
+}
+static int cleanup_my_data_br(Binary *bp)
+{
+    return 1;
+}
+
+static int create_brdata(Eterm ranges, Eterm *tag, Binary **the_bin)
+{
+    byte member[ALPHABET_SIZE] = {0};
+    Uint singleton_count = 0;
+    Uint range_count = 0;
+    Uint upper_bound = ALPHABET_SIZE;
+    Uint lower_bound = ALPHABET_SIZE;
+    Uint singleton_index = 0;
+    Uint range_index = 0;
+    Uint i;
+    Eterm list = ranges;
+    Binary *mb;
+    BRData *brd;
+
+    while (is_list(list)) {
+        Eterm range = CAR(list_val(list));
+        Eterm *tuple;
+        Sint low, high;
+
+        if (is_not_tuple(range)) {
+            return 0;
+        }
+        tuple = tuple_val(range);
+        if (arityval(tuple[0]) != 2 ||
+            !term_to_Sint(tuple[1], &low) ||
+            !term_to_Sint(tuple[2], &high) ||
+            low < 0 || high > 255 || low > high) {
+            return 0;
+        }
+        sys_memset(&member[low], 1, high - low + 1);
+        list = CDR(list_val(list));
+    }
+    if (is_not_nil(list)) {
+        return 0;
+    }
+
+    for (i = 0; i < ALPHABET_SIZE; i++) {
+        if (member[i] && (i == 0 || !member[i - 1])) {
+            Uint low = i;
+
+            while (i + 1 < ALPHABET_SIZE && member[i + 1]) {
+                i++;
+            }
+            if (low == i) {
+                singleton_count++;
+            } else if (low == 0) {
+                upper_bound = i;
+            } else if (i == ALPHABET_SIZE - 1) {
+                lower_bound = low;
+            } else {
+                range_count++;
+            }
+        }
+    }
+    if (singleton_count + range_count == 0 &&
+        upper_bound == ALPHABET_SIZE && lower_bound == ALPHABET_SIZE) {
+        return 0;
+    }
+
+    mb = erts_create_magic_binary(offsetof(BRData, data) +
+                                  singleton_count +
+                                  range_count * sizeof(ByteRange),
+                                  cleanup_my_data_br);
+    brd = ERTS_MAGIC_BIN_DATA(mb);
+    brd->singleton_count = singleton_count;
+    brd->range_count = range_count;
+    brd->upper_bound = upper_bound;
+    brd->lower_bound = lower_bound;
+    sys_memcpy(brd->member, member, sizeof(member));
+    for (i = 0; i < ALPHABET_SIZE; i++) {
+        if (member[i] && (i == 0 || !member[i - 1])) {
+            Uint low = i;
+
+            while (i + 1 < ALPHABET_SIZE && member[i + 1]) {
+                i++;
+            }
+            if (low == i) {
+                BR_SINGLETONS(brd)[singleton_index++] = i;
+            } else if (low == 0 || i == ALPHABET_SIZE - 1) {
+                continue;
+            } else {
+                ByteRange *range = &BR_RANGES(brd)[range_index++];
+                range->low = low;
+                range->high = i;
+            }
+        }
+    }
+
+    *tag = am_br;
+    *the_bin = mb;
     return 1;
 }
 
@@ -993,6 +1130,306 @@ static BFReturn bm_find_all_non_overlapping(BinaryFindContext *ctx,
     return (m == 0) ? BF_NOT_FOUND : BF_OK;
 }
 
+#define BR_LOOP_FACTOR 16
+#define BR_SIMD_RANGE_LIMIT 16
+
+#if defined(ERTS_BINARY_X86_SSE2) || defined(ERTS_BINARY_ARM_NEON)
+static ERTS_FORCE_INLINE int br_simd_eligible(const BRData *brd)
+{
+    return brd->singleton_count + brd->range_count +
+               (brd->upper_bound < ALPHABET_SIZE) +
+               (brd->lower_bound < ALPHABET_SIZE) <=
+           BR_SIMD_RANGE_LIMIT;
+}
+#endif
+
+static const byte *br_find_byte_scalar(const BRData *brd,
+                                       const byte *subject,
+                                       const byte *end)
+{
+    while (subject < end) {
+        if (brd->member[*subject]) {
+            return subject;
+        }
+        subject++;
+    }
+    return NULL;
+}
+
+static const byte *br_find_byte(const BRData *brd,
+                                const byte *subject,
+                                Uint length,
+                                BRMatchMask *match_mask)
+{
+    const byte *end = subject + length;
+
+    if (match_mask != NULL) {
+        match_mask->bits = 0;
+    }
+
+#if defined(ERTS_BINARY_X86_SSE2)
+    if (br_simd_eligible(brd)) {
+        while (subject + 16 <= end) {
+            __m128i bytes = _mm_loadu_si128((const __m128i *)subject);
+            __m128i matches = _mm_setzero_si128();
+            Uint singleton_index;
+            Uint range_index;
+            Uint mask;
+
+            for (singleton_index = 0;
+                 singleton_index < brd->singleton_count;
+                 singleton_index++) {
+                __m128i singleton =
+                    _mm_set1_epi8(BR_SINGLETONS(brd)[singleton_index]);
+                matches = _mm_or_si128(matches,
+                                       _mm_cmpeq_epi8(bytes, singleton));
+            }
+            if (brd->upper_bound < ALPHABET_SIZE) {
+                __m128i high = _mm_set1_epi8(brd->upper_bound);
+                matches = _mm_or_si128(
+                    matches,
+                    _mm_cmpeq_epi8(_mm_min_epu8(bytes, high), bytes));
+            }
+            if (brd->lower_bound < ALPHABET_SIZE) {
+                __m128i low = _mm_set1_epi8(brd->lower_bound);
+                matches = _mm_or_si128(
+                    matches,
+                    _mm_cmpeq_epi8(_mm_max_epu8(bytes, low), bytes));
+            }
+            for (range_index = 0;
+                 range_index < brd->range_count;
+                 range_index++) {
+                __m128i low = _mm_set1_epi8(BR_RANGES(brd)[range_index].low);
+                __m128i high = _mm_set1_epi8(BR_RANGES(brd)[range_index].high);
+                __m128i ge = _mm_cmpeq_epi8(_mm_max_epu8(bytes, low), bytes);
+                __m128i le = _mm_cmpeq_epi8(_mm_min_epu8(bytes, high), bytes);
+                matches = _mm_or_si128(matches, _mm_and_si128(ge, le));
+            }
+            mask = (Uint)_mm_movemask_epi8(matches);
+            if (mask != 0) {
+                Uint offset = 0;
+
+                if (match_mask != NULL) {
+                    match_mask->bits = mask;
+                    return subject;
+                }
+                while ((mask & 1) == 0) {
+                    mask >>= 1;
+                    offset++;
+                }
+                return subject + offset;
+            }
+            subject += 16;
+        }
+    }
+#elif defined(ERTS_BINARY_ARM_NEON)
+    if (br_simd_eligible(brd)) {
+        while (subject + 16 <= end) {
+            uint8x16_t bytes = vld1q_u8(subject);
+            uint8x16_t matches = vdupq_n_u8(0);
+            Uint singleton_index;
+            Uint range_index;
+
+            for (singleton_index = 0;
+                 singleton_index < brd->singleton_count;
+                 singleton_index++) {
+                uint8x16_t singleton =
+                    vdupq_n_u8(BR_SINGLETONS(brd)[singleton_index]);
+                matches = vorrq_u8(matches, vceqq_u8(bytes, singleton));
+            }
+            if (brd->upper_bound < ALPHABET_SIZE) {
+                uint8x16_t high = vdupq_n_u8(brd->upper_bound);
+                matches = vorrq_u8(matches, vcleq_u8(bytes, high));
+            }
+            if (brd->lower_bound < ALPHABET_SIZE) {
+                uint8x16_t low = vdupq_n_u8(brd->lower_bound);
+                matches = vorrq_u8(matches, vcgeq_u8(bytes, low));
+            }
+            for (range_index = 0;
+                 range_index < brd->range_count;
+                 range_index++) {
+                uint8x16_t low =
+                    vdupq_n_u8(BR_RANGES(brd)[range_index].low);
+                uint8x16_t high =
+                    vdupq_n_u8(BR_RANGES(brd)[range_index].high);
+                matches = vorrq_u8(matches,
+                                   vandq_u8(vcgeq_u8(bytes, low),
+                                            vcleq_u8(bytes, high)));
+            }
+            {
+                uint64x2_t match_words = vreinterpretq_u64_u8(matches);
+
+                if (vgetq_lane_u64(match_words, 0) != 0 ||
+                    vgetq_lane_u64(match_words, 1) != 0) {
+                    if (match_mask != NULL) {
+                        vst1q_u8(match_mask->lanes, matches);
+                        match_mask->bits = 1;
+                        return subject;
+                    } else {
+                        byte lanes[16];
+                        Uint offset;
+
+                        vst1q_u8(lanes, matches);
+                        for (offset = 0; offset < 16; offset++) {
+                            if (lanes[offset]) {
+                                return subject + offset;
+                            }
+                        }
+                    }
+                }
+            }
+            subject += 16;
+        }
+    }
+#endif
+
+    return br_find_byte_scalar(brd, subject, end);
+}
+
+static void br_init_find_first_match(BinaryFindContext *ctx)
+{
+    BMFindFirstState *state = &ctx->u.ff.d.bm;
+    state->pos = ctx->hsstart;
+    state->len = ctx->hsend;
+}
+
+static BFReturn br_find_first_match(BinaryFindContext *ctx,
+                                    const byte *haystack)
+{
+    BMFindFirstState *state = &ctx->u.ff.d.bm;
+    BRData *brd = ERTS_MAGIC_BIN_DATA(ctx->pat_bin);
+    Uint i = state->pos;
+    Uint len = state->len;
+    Uint scan_length = MIN(len - i, ctx->reds);
+    const byte *found = br_find_byte(brd, haystack + i, scan_length, NULL);
+
+    if (found != NULL) {
+        ctx->reds -= found - (haystack + i) + 1;
+        ctx->u.ff.pos = found - haystack;
+        ctx->u.ff.len = 1;
+        return BF_OK;
+    }
+
+    ctx->reds -= scan_length;
+    i += scan_length;
+    if (i < len) {
+        state->pos = i;
+        return BF_RESTART;
+    }
+    return BF_NOT_FOUND;
+}
+
+static void br_init_find_all(BinaryFindContext *ctx)
+{
+    BMFindAllState *state = &ctx->u.fa.d.bm;
+    state->pos = ctx->hsstart;
+    state->len = ctx->hsend;
+    state->m = 0;
+    state->allocated = 0;
+    state->out = NULL;
+}
+
+static ERTS_FORCE_INLINE void br_add_find_all_match(Uint pos,
+                                                    Uint *match_count,
+                                                    Uint *allocated,
+                                                    FindallData **matches)
+{
+    if (*match_count >= *allocated) {
+        if (*allocated == 0) {
+            *allocated = 10;
+            *matches = erts_alloc(ERTS_ALC_T_BINARY_FIND,
+                                  sizeof(FindallData) * *allocated);
+        } else {
+            *allocated *= 2;
+            *matches = erts_realloc(ERTS_ALC_T_BINARY_FIND,
+                                    *matches,
+                                    sizeof(FindallData) * *allocated);
+        }
+    }
+    (*matches)[*match_count].pos = pos;
+    (*matches)[*match_count].len = 1;
+    (*match_count)++;
+}
+
+static BFReturn br_find_all_non_overlapping(BinaryFindContext *ctx,
+                                            const byte *haystack)
+{
+    BMFindAllState *state = &ctx->u.fa.d.bm;
+    BRData *brd = ERTS_MAGIC_BIN_DATA(ctx->pat_bin);
+    Uint i = state->pos;
+    Uint len = state->len;
+    Uint m = state->m;
+    Uint allocated = state->allocated;
+    FindallData *out = state->out;
+    Uint reds = ctx->reds;
+
+    while (i < len && reds > 0) {
+        Uint scan_length = MIN(len - i, reds);
+        BRMatchMask match_mask;
+        const byte *found = br_find_byte(brd,
+                                         haystack + i,
+                                         scan_length,
+                                         &match_mask);
+
+        if (found == NULL) {
+            i += scan_length;
+            reds -= scan_length;
+            break;
+        }
+
+        if (match_mask.bits != 0) {
+            Uint block_pos = found - haystack;
+            Uint consumed = block_pos - i + 16;
+
+#if defined(ERTS_BINARY_ARM_NEON)
+            Uint offset;
+
+            for (offset = 0; offset < 16; offset++) {
+                if (match_mask.lanes[offset]) {
+                    br_add_find_all_match(block_pos + offset,
+                                          &m,
+                                          &allocated,
+                                          &out);
+                }
+            }
+#else
+            while (match_mask.bits != 0) {
+                Uint offset = 0;
+                Uint remaining = match_mask.bits;
+
+                while ((remaining & 1) == 0) {
+                    remaining >>= 1;
+                    offset++;
+                }
+                br_add_find_all_match(block_pos + offset,
+                                      &m,
+                                      &allocated,
+                                      &out);
+                match_mask.bits &= match_mask.bits - 1;
+            }
+#endif
+            i = block_pos + 16;
+            reds -= consumed;
+        } else {
+            Uint match_pos = found - haystack;
+
+            reds -= match_pos - i + 1;
+            br_add_find_all_match(match_pos, &m, &allocated, &out);
+            i = match_pos + 1;
+        }
+    }
+
+    state->pos = i;
+    state->m = m;
+    state->allocated = allocated;
+    state->out = out;
+    ctx->reds = reds;
+    if (i < len) {
+        return BF_RESTART;
+    }
+    return m == 0 ? BF_NOT_FOUND : BF_OK;
+}
+
 /*
  * Interface functions (i.e. "bif's")
  */
@@ -1012,6 +1449,12 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
     words = 0;
 
     if (is_list(argument)) {
+        Eterm head = CAR(list_val(argument));
+
+        if (is_tuple(head)) {
+            return create_brdata(argument, tag, binp) ? 0 : -1;
+        }
+
 	t = argument;
 	while (is_list(t)) {
 	    b = CAR(list_val(t));
@@ -1100,18 +1543,23 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
     return -1;
 }
 
+int erts_binary_compile_pattern(Eterm argument, Eterm *tag, Binary **binp)
+{
+    return do_binary_match_compile(argument, tag, binp) == 0;
+}
+
 BIF_RETTYPE binary_compile_pattern_1(BIF_ALIST_1)
 {
     Binary *bin;
-    Eterm tag, ret;
+    Eterm magic_ref, ret, tag;
     Eterm *hp;
 
-    if (do_binary_match_compile(BIF_ARG_1,&tag,&bin)) {
-	BIF_ERROR(BIF_P,BADARG);
+    if (!erts_binary_compile_pattern(BIF_ARG_1, &tag, &bin)) {
+        BIF_ERROR(BIF_P, BADARG);
     }
-    hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE+3);
-    ret = erts_mk_magic_ref(&hp, &MSO(BIF_P), bin);
-    ret = TUPLE2(hp, tag, ret);
+    hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE + 3);
+    magic_ref = erts_mk_magic_ref(&hp, &MSO(BIF_P), bin);
+    ret = TUPLE2(hp, tag, magic_ref);
     BIF_RET(ret);
 }
 
@@ -1152,6 +1600,18 @@ static BinaryFindSearch bf_search_bm_single = {
     NULL
 };
 
+static BinaryFindSearch bf_search_br_global = {
+    br_init_find_all,
+    br_find_all_non_overlapping,
+    bm_clean_find_all
+};
+
+static BinaryFindSearch bf_search_br_single = {
+    br_init_find_first_match,
+    br_find_first_match,
+    NULL
+};
+
 static void bf_context_init(BinaryFindContext *ctx, BinaryFindResult not_found,
 			    BinaryFindResult single, BinaryFindResult global,
 			    Binary *pat_bin)
@@ -1167,6 +1627,9 @@ static void bf_context_init(BinaryFindContext *ctx, BinaryFindResult not_found,
 	} else if (ctx->pat_type == am_ac) {
 	    ctx->search = &bf_search_ac_global;
 	    ctx->loop_factor = AC_LOOP_FACTOR;
+        } else if (ctx->pat_type == am_br) {
+            ctx->search = &bf_search_br_global;
+            ctx->loop_factor = BR_LOOP_FACTOR;
 	}
     } else {
 	ctx->found = single;
@@ -1176,6 +1639,9 @@ static void bf_context_init(BinaryFindContext *ctx, BinaryFindResult not_found,
 	} else if (ctx->pat_type == am_ac) {
 	    ctx->search = &bf_search_ac_single;
 	    ctx->loop_factor = AC_LOOP_FACTOR;
+        } else if (ctx->pat_type == am_br) {
+            ctx->search = &bf_search_br_single;
+            ctx->loop_factor = BR_LOOP_FACTOR;
 	}
     }
     ctx->trap_term = THE_NON_VALUE;
@@ -1226,7 +1692,7 @@ static void bf_context_dump(BinaryFindContext *ctx)
 	BMData *bm;
 	bm = ERTS_MAGIC_BIN_DATA(ctx->pat_bin);
 	dump_bm_data(bm);
-    } else {
+    } else if (ctx->pat_type == am_ac) {
 	ACTrie *act;
 	act = ERTS_MAGIC_BIN_DATA(ctx->pat_bin);
 	dump_ac_trie(act);
@@ -1250,7 +1716,7 @@ static BFReturn maybe_binary_match_compile(BinaryFindContext *ctx, Eterm arg, Bi
 	if (arityval(*tp) != 2 || is_not_atom(tp[1])) {
 	    return BF_BADARG;
 	}
-	if (((tp[1] != am_bm) && (tp[1] != am_ac)) ||
+        if (((tp[1] != am_bm) && (tp[1] != am_ac) && (tp[1] != am_br)) ||
 	    !is_internal_magic_ref(tp[2])) {
 	    return BF_BADARG;
 	}
@@ -1258,7 +1724,9 @@ static BFReturn maybe_binary_match_compile(BinaryFindContext *ctx, Eterm arg, Bi
 	if ((tp[1] == am_bm &&
 	     ERTS_MAGIC_BIN_DESTRUCTOR(*pat_bin) != cleanup_my_data_bm) ||
 	    (tp[1] == am_ac &&
-	     ERTS_MAGIC_BIN_DESTRUCTOR(*pat_bin) != cleanup_my_data_ac)) {
+             ERTS_MAGIC_BIN_DESTRUCTOR(*pat_bin) != cleanup_my_data_ac) ||
+            (tp[1] == am_br &&
+             ERTS_MAGIC_BIN_DESTRUCTOR(*pat_bin) != cleanup_my_data_br)) {
 	    *pat_bin = NULL;
 	    return BF_BADARG;
 	}
@@ -1470,6 +1938,8 @@ static BFReturn do_binary_find(Process *p, Eterm subject, BinaryFindContext **ct
 #ifdef HARDDEBUG
 	    if (ctx->pat_type == am_ac) {
 		erts_printf("Trap ac!\n");
+            } else if (ctx->pat_type == am_br) {
+                erts_printf("Trap br!\n");
 	    } else {
 		erts_printf("Trap bm!\n");
 	    }

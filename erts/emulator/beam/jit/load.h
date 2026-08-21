@@ -95,6 +95,9 @@ struct LoaderState_ {
     /* Translates lambda indexes to their canonical literal, if any. */
     SWord *lambda_literals;
 
+    /* Dynamic literal produced by the current binary pattern transform. */
+    SWord loaded_binary_pattern;
+
     void *ba; /* Assembler used to create x86/AArch64 assembly */
 
     const void *executable_region; /* Native module after codegen */
