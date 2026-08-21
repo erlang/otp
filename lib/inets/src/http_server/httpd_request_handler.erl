@@ -236,9 +236,8 @@ handle_cast(Msg, #state{mod = #mod{config_db = Db} = ModData} = State) ->
 %%--------------------------------------------------------------------
 handle_info({Proto, Socket, Data}, 
 	    #state{mfa = {Module, Function, Args},
-                   chunk = {ChunkState, _},
 		   mod = #mod{socket_type = SockType, 
-			      socket = Socket} = ModData} = State) 
+                              socket = Socket} = ModData} = State) 
   when (((Proto =:= tcp) orelse 
 	 (Proto =:= ssl) orelse 
 	 (Proto =:= dummy)) andalso is_binary(Data)) ->
@@ -266,7 +265,7 @@ handle_info({Proto, Socket, Data},
 	    {stop, normal, State#state{response_sent = true,
 				       mod = NewModData}};
         {error, {version_error, ErrCode, ErrStr}, Version} ->
-        NewModData =  ModData#mod{http_version = Version},
+            NewModData =  ModData#mod{http_version = Version},
 	    httpd_response:send_status(NewModData, ErrCode, ErrStr),
 	    {stop, normal, State#state{response_sent = true,
 				       mod = NewModData}};
@@ -275,18 +274,15 @@ handle_info({Proto, Socket, Data},
             httpd_response:send_status(NewModData, ErrCode, ErrStr),
             {stop, normal, State#state{response_sent = true,
                                        mod = NewModData}};
+        NewMFA ->
+           setopts(Socket, SockType, [{active, once}]),
+           case NewDataSize of
+               undefined ->
+                   {noreply, State#state{mfa = NewMFA}};
+               _ ->
+                   {noreply, State#state{mfa = NewMFA, data = NewDataSize}}
+           end
 
-    {http_chunk = Module, Function, Args} when ChunkState =/= undefined ->
-        NewState = handle_chunk(Module, Function, Args, State),
-        {noreply, NewState};
-	NewMFA ->
-        setopts(Socket, SockType, [{active, once}]),
-	    case NewDataSize of
-		undefined ->
-		    {noreply, State#state{mfa = NewMFA}};
-		_ ->
-		    {noreply, State#state{mfa = NewMFA, data = NewDataSize}}
-	    end
     end;
 
 %% Error cases
@@ -535,7 +531,6 @@ handle_body(#state{headers = Headers, body = Body,
 	    {stop, normal, State#state{response_sent = true}};
 	_ -> 
 	    Length = list_to_integer(Headers#http_request_h.'content-length'),
-	    MaxChunk = max_client_body_chunk(ConfigDB),
 	    case Length =< MaxBodySize orelse MaxBodySize == nolimit of
 		true ->
 		    case httpd_request:body_chunk_first(Body, Length, MaxChunk) of 
@@ -616,29 +611,6 @@ expect(Headers, _, ConfigDB) ->
 		    http_1_0_expect_header
 	    end
     end.
-
-handle_chunk(http_chunk = Module, decode_data = Function, 
-             [ChunkSize, TotalChunk, {MaxBodySize, BodySoFar, _AccLength, MaxHeaderSize}],
-             #state{chunk = {_, CbState},
-                    mod = #mod{socket_type = SockType,
-                               socket = Socket} = ModData} = State) ->
-    {continue, NewCbState} = httpd_response:handle_continuation(ModData#mod{entity_body = 
-                                                                                {continue, BodySoFar, CbState}}),
-    setopts(Socket, SockType, [{active, once}]),
-    State#state{chunk = {continue, NewCbState}, mfa = {Module, Function, [ChunkSize, TotalChunk, {MaxBodySize, <<>>, 0, MaxHeaderSize}]}};
-
-handle_chunk(http_chunk = Module, decode_size = Function, 
-             [Data, HexList, _AccSize, {MaxBodySize, BodySoFar, _AccLength, MaxHeaderSize}],
-             #state{chunk = {_, CbState},
-                    mod = #mod{socket_type = SockType,
-                               socket = Socket} = ModData} = State) ->
-    {continue, NewCbState} = httpd_response:handle_continuation(ModData#mod{entity_body = {continue, BodySoFar, CbState}}),
-    setopts(Socket, SockType, [{active, once}]),
-    State#state{chunk = {continue, NewCbState}, mfa = {Module, Function, [Data, HexList, 0, {MaxBodySize, <<>>, 0, MaxHeaderSize}]}};
-handle_chunk(Module, Function, Args, #state{mod = #mod{socket_type = SockType,
-                                                                      socket = Socket}} = State) ->
-    setopts(Socket, SockType, [{active, once}]),
-    State#state{mfa = {Module, Function, Args}}.
 
 handle_internal_chunk(#state{chunk = {ChunkState, CbState}, body = Chunk, 
                              mod = #mod{socket_type = SockType,
