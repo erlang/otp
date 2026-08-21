@@ -140,4 +140,5 @@ void wxeFifo::Append(wxeCommand *orig)
   curr->me_ref = orig->me_ref;
   orig->op = -1; // Assert: will crash if op is negative
   m_q.push_back(curr);
+  size++;
 }

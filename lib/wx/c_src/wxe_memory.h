@@ -70,6 +70,7 @@ class wxeMemEnv {
     };
     void create() {
         ref2ptr = (void **) enif_alloc(128*sizeof(void *));
+        if(!ref2ptr) { max = 0; next = 0; return; };
 	ref2ptr[0] = NULL;
 	next = 1;
 	max = 128;
