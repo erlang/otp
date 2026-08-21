@@ -44,6 +44,7 @@ ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (PrivKey|undefined, DHParams=[P,G], 0, Len|0) */
     ErlNifUInt64 len = 0;
+    uint64_t ossl_len = 0;
     int i = 0;
     OSSL_PARAM params[8];
     EVP_PKEY *pkey = NULL, *pkey_gen = NULL;
@@ -96,7 +97,8 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         if (len >= BN_num_bits(p_bn)) {
             len = BN_num_bits(p_bn) - 1;
         }
-        params[i++] = OSSL_PARAM_construct_uint64("priv_len", &len);
+        ossl_len = len;
+        params[i++] = OSSL_PARAM_construct_uint64("priv_len", &ossl_len);
     }
     
     /* End of parameter fetching */

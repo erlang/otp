@@ -2189,7 +2189,11 @@ do_generate_compute({dh, P, G}) ->
     {UserPub, UserPriv} = crypto:generate_key(dh, [P, G]),
     {HostPub, HostPriv} = crypto:generate_key(dh, [P, G]),
     SharedSecret = crypto:compute_key(dh, HostPub, UserPriv, [P, G]),
-    SharedSecret = crypto:compute_key(dh, UserPub, HostPriv, [P, G]).
+    SharedSecret = crypto:compute_key(dh, UserPub, HostPriv, [P, G]),
+    {UserPubWithLen, UserPrivWithLen} = crypto:generate_key(dh, [P, G, 224]),
+    {HostPubWithLen, HostPrivWithLen} = crypto:generate_key(dh, [P, G, 224]),
+    SharedSecretWithLen = crypto:compute_key(dh, HostPubWithLen, UserPrivWithLen, [P, G]),
+    SharedSecretWithLen = crypto:compute_key(dh, UserPubWithLen, HostPrivWithLen, [P, G]).
     
 do_compute({ecdh = Type, Pub, Priv, Curve, SharedSecret}) ->
     ct:log("~p ~p", [Type,Curve]),
