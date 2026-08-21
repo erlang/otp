@@ -66,10 +66,30 @@ handle_event(#event{name = tc_start,
                     data = {Suite, init_per_suite}},
              State0 = #{device := D,
                        test_stats := TestStats}) ->
-    print(D, "~n~p: ", [Suite]),
-    State1 = maps:put(suite, Suite, State0),
+    %% When Suite is ct_framework the real suite lacks init_per_suite;
+    %% defer header printing until the first real tc_start arrives.
+    SuiteName = case Suite of
+                    ct_framework -> pending;
+                    _ -> print(D, "~n~p: ", [Suite]), Suite
+                end,
+    State1 = maps:put(suite, SuiteName, State0),
     State = maps:put(suite_stats0, TestStats, State1),
     {ok, State};
+handle_event(#event{name = tc_start,
+                    data = {Suite, {init_per_group, GroupName, _}}},
+             State = #{device := D, suite := pending})
+  when Suite =/= ct_framework ->
+    %% Resolve deferred suite header from first init_per_group
+    print(D, "~n~p: ", [Suite]),
+    State1 = maps:put(suite, Suite, State),
+    {ok, maps:put(group, GroupName, State1)};
+handle_event(#event{name = tc_start,
+                    data = {Suite, Case}},
+             State = #{device := D, suite := pending})
+  when is_atom(Case), Case =/= end_per_suite ->
+    %% Resolve deferred suite header from first test case
+    print(D, "~n~p: ", [Suite]),
+    {ok, maps:put(suite, Suite, State)};
 handle_event(#event{name = tc_start,
                     data = {_Suite, {init_per_group, GroupName, _}}},
              State) ->
