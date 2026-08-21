@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -98,14 +100,15 @@ will_succeed(erlang, 'bsl'=Op, [LHS, RHS]=Args) ->
 will_succeed(erlang, '++', [LHS, _RHS]) ->
     succeeds_if_type(LHS, proper_list());
 will_succeed(erlang, '--', [_, _] = Args) ->
-    succeeds_if_types(Args, proper_list());
+    succeeds_if_types(Args, [proper_list(), proper_list()]);
 will_succeed(erlang, BoolOp, [_, _] = Args) when BoolOp =:= 'and';
                                                  BoolOp =:= 'or' ->
-    succeeds_if_types(Args, beam_types:make_boolean());
+    Bool = beam_types:make_boolean(),
+    succeeds_if_types(Args, [Bool, Bool]);
 will_succeed(erlang, Op, [_, _] = Args) when Op =:= 'band';
                                              Op =:= 'bor';
                                              Op =:= 'bxor' ->
-    succeeds_if_types(Args, #t_integer{});
+    succeeds_if_types(Args, [#t_integer{}, #t_integer{}]);
 will_succeed(erlang, bit_size, [Arg]) ->
     succeeds_if_type(Arg, #t_bs_matchable{});
 will_succeed(erlang, byte_size, [Arg]) ->
@@ -142,13 +145,18 @@ will_succeed(erlang, map_size, [Arg]) ->
 will_succeed(erlang, node, [Arg]) ->
     succeeds_if_type(Arg, identifier);
 will_succeed(erlang, 'and', [_, _]=Args) ->
-    succeeds_if_types(Args, beam_types:make_boolean());
+    Bool = beam_types:make_boolean(),
+    succeeds_if_types(Args, [Bool, Bool]);
 will_succeed(erlang, 'not', [Arg]) ->
     succeeds_if_type(Arg, beam_types:make_boolean());
 will_succeed(erlang, 'or', [_, _]=Args) ->
-    succeeds_if_types(Args, beam_types:make_boolean());
+    Bool = beam_types:make_boolean(),
+    succeeds_if_types(Args, [Bool, Bool]);
 will_succeed(erlang, 'xor', [_, _]=Args) ->
-    succeeds_if_types(Args, beam_types:make_boolean());
+    Bool = beam_types:make_boolean(),
+    succeeds_if_types(Args, [Bool, Bool]);
+will_succeed(erlang, 'is_integer', [_, _, _]=Args) ->
+    succeeds_if_types(Args, [any, #t_integer{}, #t_integer{}]);
 will_succeed(erlang, setelement, [Pos, Tuple0, _Value]=Args) ->
     PosRange = #t_integer{elements={1,?MAX_TUPLE_SIZE}},
     case {meet(Pos, PosRange), meet(Tuple0, #t_tuple{size=1})} of
@@ -157,12 +165,14 @@ will_succeed(erlang, setelement, [Pos, Tuple0, _Value]=Args) ->
         {_, none} ->
             no;
         {#t_integer{elements={Min,Max}}=Pos, Tuple} ->
-            MaxTupleSize = max_tuple_size(Tuple),
+            TupleSizes = tuple_sizes(Tuple),
+            MaxTupleSize = lists:max(TupleSizes),
+            MinTupleSize = lists:min(TupleSizes),
             if
                 MaxTupleSize < Min ->
                     %% Index is always out of range.
                     no;
-                Tuple0 =:= Tuple, Max =< MaxTupleSize ->
+                Tuple0 =:= Tuple, Max =< MinTupleSize ->
                     %% We always have a tuple, and the index is always in
                     %% range.
                     yes;
@@ -201,14 +211,14 @@ will_succeed(Mod, Func, Args) ->
             end
     end.
 
-max_tuple_size(#t_union{tuple_set=[_|_]=Set}=Union) ->
+tuple_sizes(#t_union{tuple_set=[_|_]=Set}=Union) ->
     Union = meet(Union, #t_tuple{}),            %Assertion.
-    Arities = [Arity || {{Arity, _Tag}, _Record} <- Set],
-    lists:max(Arities);
-max_tuple_size(#t_tuple{exact=true,size=Size}) ->
-    Size;
-max_tuple_size(#t_tuple{exact=false}) ->
-    ?MAX_TUPLE_SIZE.
+    Arities = [Arity || {{Arity, _Tag}, _Record} <:- Set],
+    Arities;
+tuple_sizes(#t_tuple{exact=true,size=Size}) ->
+    [Size];
+tuple_sizes(#t_tuple{exact=false,size=Size}) ->
+    [Size,?MAX_TUPLE_SIZE].
 
 %% While we can't infer success for functions outside the 'erlang'
 %% module, it's safe to infer failure when we know they return `none` or
@@ -229,14 +239,20 @@ fails_on_conflict_1([ArgType | Args], [Required | Types]) ->
 fails_on_conflict_1([], []) ->
     'maybe'.
 
-succeeds_if_types([LHS, RHS], Required) ->
-    case {succeeds_if_type(LHS, Required),
-          succeeds_if_type(RHS, Required)} of
-        {yes, yes} -> yes;
-        {no, _} -> no;
-        {_, no} -> no;
-        {_, _} -> 'maybe'
-    end.
+succeeds_if_types(Ts, Rs) ->
+    succeeds_if_types_1(Ts, Rs, yes).
+
+succeeds_if_types_1([T | Ts], [R | Rs], Acc) ->
+    case succeeds_if_type(T, R) of
+        yes when Acc =:= yes ->
+            succeeds_if_types_1(Ts, Rs, Acc);
+        no ->
+            no;
+        _ ->
+            succeeds_if_types_1(Ts, Rs, 'maybe')
+    end;
+succeeds_if_types_1([], [], Acc) ->
+    Acc.
 
 succeeds_if_type(ArgType, Required) ->
     case meet(ArgType, Required) of
@@ -394,6 +410,8 @@ types(erlang, is_function, [Type]) ->
     sub_unsafe_type_test(Type, #t_fun{});
 types(erlang, is_integer, [Type]) ->
     sub_unsafe_type_test(Type, #t_integer{});
+types(erlang, is_integer, [_Term, _LB, _UB]) ->
+    sub_unsafe(beam_types:make_boolean(), [any, #t_integer{}, #t_integer{}]);
 types(erlang, is_list, [Type]) ->
     sub_unsafe_type_test(Type, #t_list{});
 types(erlang, is_map, [Type]) ->
@@ -404,6 +422,43 @@ types(erlang, is_pid, [Type]) ->
     sub_unsafe_type_test(Type, pid);
 types(erlang, is_port, [Type]) ->
     sub_unsafe_type_test(Type, port);
+types(erlang, is_record, [Type]) ->
+    sub_unsafe_type_test(Type, #t_record{});
+types(erlang, is_record, [Type,Mod0,Name0]=Args) ->
+    case {Mod0,Name0} of
+        {#t_atom{elements=[Mod]},
+         #t_atom{elements=[Name]}} ->
+            %% We KNOW that this is_record/3 test is always preceeded
+            %% by an is_record/1 test. Therefore, `Type` is always a
+            %% record or a record set.
+            RetType =
+                case meet(Type, #t_record{}) of
+                    #t_record{name=Id} ->
+                        case Id of
+                            {Mod,Name} ->
+                                #t_atom{elements=[true]};
+                            {_,_} ->
+                                #t_atom{elements=[false]};
+                            nil ->
+                                beam_types:make_boolean()
+                        end;
+                    #t_union{native_record_set=Recs} ->
+                        case any(fun(#t_record{name=Id}) ->
+                                         case Id of
+                                             {Mod,Name} -> true;
+                                             {_,_} -> false
+                                         end
+                                 end, Recs) of
+                            false ->
+                                #t_atom{elements=[false]};
+                            true ->
+                                beam_types:make_boolean()
+                        end
+                end,
+            sub_unsafe(RetType, Args);
+        {_, _} ->
+            sub_unsafe(beam_types:make_boolean(), Args)
+    end;
 types(erlang, is_reference, [Type]) ->
     sub_unsafe_type_test(Type, reference);
 types(erlang, is_tuple, [Type]) ->
@@ -941,8 +996,10 @@ types(lists, zipwith, [Fun | [_,_]=Lists]) ->
 types(lists, keyfind, [KeyType,PosType,_]) ->
     %% Doesn't imply that the argument is a proper list; see lists:all/2
     TupleType = case meet(PosType, #t_integer{}) of
-                    #t_integer{elements={Index,Index}} when is_integer(Index),
-                                                            Index >= 1 ->
+                    #t_integer{elements={Index,Index}}
+                      when not is_integer(Index, 0, ?MAX_TUPLE_SIZE - 1) ->
+                        none;
+                    #t_integer{elements={Index,Index}} ->
                         Es = beam_types:set_tuple_element(Index, KeyType, #{}),
                         #t_tuple{size=Index,elements=Es};
                     #t_integer{} ->
@@ -1031,10 +1088,8 @@ types(maps, from_list, [Pairs]) ->
                       SKey = beam_types:get_tuple_element(1, Es),
                       SValue = beam_types:get_tuple_element(2, Es),
                       #t_map{super_key=SKey,super_value=SValue};
-                  none when PairType =:= none ->
-                      #t_map{super_key=none,super_value=none};
-                  none when PairType =/= none ->
-                      none
+                  none ->
+                      #t_map{super_key=none,super_value=none}
               end,
     sub_unsafe(RetType, [proper_list()]);
 types(maps, get, [_Key, _Map]=Args) ->
@@ -1292,18 +1347,22 @@ lists_map_type_1(_, ElementType) ->
 
 lists_mapfold_type(Fun, Init, List) ->
     case {meet(Fun, #t_fun{type=#t_tuple{size=2}}), meet(List, #t_list{})} of
-        {_, nil} ->
-            make_two_tuple(nil, Init);
-        {#t_fun{type=#t_tuple{elements=Es}}, ListType} ->
+        {#t_fun{type=T}, ListType} when T =/= none ->
+            #t_tuple{elements=Es} = normalize(T),
             ElementType = beam_types:get_tuple_element(1, Es),
             AccType = beam_types:get_tuple_element(2, Es),
             lists_mapfold_type_1(ListType, ElementType, Init, AccType);
-        {#t_fun{type=none}, #t_list{}} ->
-            %% The fun never returns, so the only way we could return normally
-            %% is if the list is empty, in which case we'll return [] and the
-            %% initial value.
+        {_, #t_list{}} ->
+            %% The fun never returns, or is not a fun. The only way this can
+            %% succeed is if the given list is empty, in which case we'll
+            %% return [] and the initial value.
             make_two_tuple(nil, Init);
-        _ ->
+        {_, nil} ->
+            make_two_tuple(nil, Init);
+        {_, _} ->
+            %% The fun never returns, or is not a fun, and the list is either
+            %% not a list or is guaranteed not to be empty. This will never
+            %% return.
             none
     end.
 

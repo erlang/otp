@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +21,7 @@
 %%
 
 %% Type version, must be bumped whenever the external type format changes.
--define(BEAM_TYPES_VERSION, 3).
+-define(BEAM_TYPES_VERSION, 4).
 
 %% Common term types for passes operating on beam SSA and assembly. Helper
 %% functions for wrangling these can be found in beam_types.erl
@@ -36,6 +38,7 @@
 %%       -- #t_cons{}        Cons (nonempty list).
 %%       -- nil              The empty list.
 %%    - #t_tuple{}           Tuple.
+%%    - #t_record{}          Native Record.
 %%    - other                Other types.
 %%       -- #t_fun{}          Fun.
 %%       -- #t_map{}          Map.
@@ -113,6 +116,14 @@
 -record(t_map, {super_key=any :: type(),
                 super_value=any :: type()}).
 
+-record(t_record, {name = nil :: nil | {atom(), atom()},
+                   type = #{} :: record_elements()}).
+
+-type native_records() :: ordsets:ordset(#t_record{}).
+-type native_record_set() :: #t_record{} | native_records().
+
+-type record_elements() :: #{Key :: atom() => Type :: missing | {present, type()}}.
+
 %% `type` is the join of all list elements, and `terminator` is the tail of the
 %% last cons cell ('nil' for proper lists).
 %%
@@ -157,7 +168,8 @@
                        'pid' |
                        'port' |
                        'reference' |
-                       #t_tuple{}.
+                       #t_tuple{} |
+                       #t_record{}.
 
 -type other_type() :: 'none' | #t_fun{} | #t_map{} |
                       'pid' | 'port' | 'reference' | 'identifier' |
@@ -174,6 +186,7 @@
                   list=none :: 'none' | #t_list{} | #t_cons{} | nil,
                   number=none :: 'none' | #t_number{} | #t_float{} | #t_integer{},
                   tuple_set=none :: 'none' | tuple_set(),
+                  native_record_set=none :: 'none' | native_record_set(),
                   other=none :: 'other' | other_type()}).
 
 -type type() :: #t_union{} | normal_type().

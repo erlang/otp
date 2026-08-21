@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,8 +28,9 @@ SSH File Transfer Protocol (SFTP) client and server.
 
 The `ssh` application is an implementation of the SSH protocol in Erlang. `ssh`
 offers API functions to write customized SSH clients and servers as well as
-making the Erlang shell available over SSH. An SFTP client, `ssh_sftp`, and
-server, `ssh_sftpd`, are also included.
+making the Erlang shell available over SSH. An SFTP client (`ssh_sftp`) and
+server (`ssh_sftpd`) are also included. The SFTP server can be enabled via
+the `subsystems` daemon option.
 
 ## Dependencies
 
@@ -138,6 +141,7 @@ Supported algorithms are (in the default order):
 
 **Key exchange algorithms**
 
+- mlkem768x25519-sha256
 - curve25519-sha256
 - curve25519-sha256@libssh.org
 - curve448-sha512
@@ -231,7 +235,14 @@ cipher aes256-gcm@openssh.com is negotiated.
 **Compression algorithms**
   - none
   - zlib@openssh.com
-  - zlib
+
+The following compression algorithm is deprecated in SSH and disabled by default:
+
+- (zlib)
+
+It can be enabled with the
+[preferred_algorithms](`t:ssh:preferred_algorithms_common_option/0`) or
+[modify_algorithms](`t:ssh:modify_algorithms_common_option/0`) options.
 
 ## Unicode support
 
@@ -384,6 +395,11 @@ The following RFCs are supported:
 - [Secure Shell (SSH) Key Exchange Method Using Curve25519 and Curve448](https://tools.ietf.org/html/rfc8731)
 - [RFC 8709](https://tools.ietf.org/html/rfc8709) Ed25519 and Ed448 public key
   algorithms for the Secure Shell (SSH) protocol
+- [draft-kampanakis-curdle-ssh-pq-ke](https://datatracker.ietf.org/doc/draft-kampanakis-curdle-ssh-pq-ke/),
+  Post-Quantum Traditional Hybrid Key Exchange for SSH.
+
+  Comment: Implements mlkem768x25519-sha256. The ML-KEM-768 component is
+  defined by [NIST FIPS 203](https://csrc.nist.gov/pubs/fips/203/final).
 
 ## See Also
 

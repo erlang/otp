@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2001-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -172,4 +174,12 @@ roundtrip_1(Mod, Type, In, Out) ->
     {ok,Out} = Mod:decode(Type, Encoded),
     %% Test that compact BIT STRINGs can be encoded.
     {ok,Encoded} = Mod:encode(Type, Out),
+    case Out of
+        {N,Bin} when is_binary(Bin) ->
+            %% Also test that modern bitstrings can be encoded.
+            <<Bits:(bit_size(Bin)-N)/bits,_/bits>> = Bin,
+            {ok,Encoded} = Mod:encode(Type, Bits);
+        _ ->
+            ok
+    end,
     ok.

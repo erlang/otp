@@ -1,21 +1,22 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include "../core/api-build_p.h"
+#include <asmjit/core/api-build_p.h>
 #if !defined(ASMJIT_NO_X86) && !defined(ASMJIT_NO_LOGGING)
 
-#include "../core/cpuinfo.h"
-#include "../core/misc_p.h"
-#include "../core/support.h"
-#include "../x86/x86formatter_p.h"
-#include "../x86/x86instapi_p.h"
-#include "../x86/x86instdb_p.h"
-#include "../x86/x86operand.h"
+#include <asmjit/core/cpuinfo.h>
+#include <asmjit/core/formatter_p.h>
+#include <asmjit/core/misc_p.h>
+#include <asmjit/support/support.h>
+#include <asmjit/x86/x86formatter_p.h>
+#include <asmjit/x86/x86instapi_p.h>
+#include <asmjit/x86/x86instdb_p.h>
+#include <asmjit/x86/x86operand.h>
 
 #ifndef ASMJIT_NO_COMPILER
-  #include "../core/compiler.h"
+  #include <asmjit/core/compiler.h>
 #endif
 
 ASMJIT_BEGIN_SUB_NAMESPACE(x86)
@@ -30,91 +31,94 @@ struct RegFormatInfo {
 
   struct NameEntry {
     uint8_t count;
-    uint8_t formatIndex;
-    uint8_t specialIndex;
-    uint8_t specialCount;
+    uint8_t format_index;
+    uint8_t special_index;
+    uint8_t special_count;
   };
 
-  TypeEntry typeEntries[uint32_t(RegType::kMaxValue) + 1];
-  char typeStrings[128 - 32];
+  TypeEntry type_entries[uint32_t(RegType::kMaxValue) + 1];
+  char type_strings[128 - 32];
 
-  NameEntry nameEntries[uint32_t(RegType::kMaxValue) + 1];
-  char nameStrings[280];
+  NameEntry name_entries[uint32_t(RegType::kMaxValue) + 1];
+  char name_strings[280];
 };
 
 template<uint32_t X>
 struct RegFormatInfo_T {
-  enum {
-    kTypeIndex    = X == uint32_t(RegType::kX86_GpbLo) ? 1   :
-                    X == uint32_t(RegType::kX86_GpbHi) ? 8   :
-                    X == uint32_t(RegType::kX86_Gpw  ) ? 15  :
-                    X == uint32_t(RegType::kX86_Gpd  ) ? 19  :
-                    X == uint32_t(RegType::kX86_Gpq  ) ? 23  :
-                    X == uint32_t(RegType::kX86_Xmm  ) ? 27  :
-                    X == uint32_t(RegType::kX86_Ymm  ) ? 31  :
-                    X == uint32_t(RegType::kX86_Zmm  ) ? 35  :
-                    X == uint32_t(RegType::kX86_Mm   ) ? 50  :
-                    X == uint32_t(RegType::kX86_KReg ) ? 53  :
-                    X == uint32_t(RegType::kX86_SReg ) ? 43  :
-                    X == uint32_t(RegType::kX86_CReg ) ? 59  :
-                    X == uint32_t(RegType::kX86_DReg ) ? 62  :
-                    X == uint32_t(RegType::kX86_St   ) ? 47  :
-                    X == uint32_t(RegType::kX86_Bnd  ) ? 55  :
-                    X == uint32_t(RegType::kX86_Tmm  ) ? 65  :
-                    X == uint32_t(RegType::kX86_Rip  ) ? 39  : 0,
+  static inline constexpr uint32_t kTypeIndex =
+    X == uint32_t(RegType::kPC       ) ? 39  :
+    X == uint32_t(RegType::kGp8Lo    ) ? 1   :
+    X == uint32_t(RegType::kGp8Hi    ) ? 8   :
+    X == uint32_t(RegType::kGp16     ) ? 15  :
+    X == uint32_t(RegType::kGp32     ) ? 19  :
+    X == uint32_t(RegType::kGp64     ) ? 23  :
+    X == uint32_t(RegType::kVec128   ) ? 27  :
+    X == uint32_t(RegType::kVec256   ) ? 31  :
+    X == uint32_t(RegType::kVec512   ) ? 35  :
+    X == uint32_t(RegType::kMask     ) ? 53  :
+    X == uint32_t(RegType::kX86_Mm   ) ? 50  :
+    X == uint32_t(RegType::kSegment  ) ? 43  :
+    X == uint32_t(RegType::kControl  ) ? 59  :
+    X == uint32_t(RegType::kDebug    ) ? 62  :
+    X == uint32_t(RegType::kX86_St   ) ? 47  :
+    X == uint32_t(RegType::kX86_Bnd  ) ? 55  :
+    X == uint32_t(RegType::kTile     ) ? 65  : 0;
 
-    kFormatIndex  = X == uint32_t(RegType::kX86_GpbLo) ? 1   :
-                    X == uint32_t(RegType::kX86_GpbHi) ? 6   :
-                    X == uint32_t(RegType::kX86_Gpw  ) ? 11  :
-                    X == uint32_t(RegType::kX86_Gpd  ) ? 16  :
-                    X == uint32_t(RegType::kX86_Gpq  ) ? 21  :
-                    X == uint32_t(RegType::kX86_Xmm  ) ? 25  :
-                    X == uint32_t(RegType::kX86_Ymm  ) ? 31  :
-                    X == uint32_t(RegType::kX86_Zmm  ) ? 37  :
-                    X == uint32_t(RegType::kX86_Mm   ) ? 60  :
-                    X == uint32_t(RegType::kX86_KReg ) ? 65  :
-                    X == uint32_t(RegType::kX86_SReg ) ? 49  :
-                    X == uint32_t(RegType::kX86_CReg ) ? 75  :
-                    X == uint32_t(RegType::kX86_DReg ) ? 80  :
-                    X == uint32_t(RegType::kX86_St   ) ? 55  :
-                    X == uint32_t(RegType::kX86_Bnd  ) ? 69  :
-                    X == uint32_t(RegType::kX86_Tmm  ) ? 89  :
-                    X == uint32_t(RegType::kX86_Rip  ) ? 43  : 0,
+  static inline constexpr uint32_t kFormatIndex =
+    X == uint32_t(RegType::kPC       ) ? 43  :
+    X == uint32_t(RegType::kGp8Lo    ) ? 1   :
+    X == uint32_t(RegType::kGp8Hi    ) ? 6   :
+    X == uint32_t(RegType::kGp16     ) ? 11  :
+    X == uint32_t(RegType::kGp32     ) ? 16  :
+    X == uint32_t(RegType::kGp64     ) ? 21  :
+    X == uint32_t(RegType::kVec128   ) ? 25  :
+    X == uint32_t(RegType::kVec256   ) ? 31  :
+    X == uint32_t(RegType::kVec512   ) ? 37  :
+    X == uint32_t(RegType::kMask     ) ? 65  :
+    X == uint32_t(RegType::kX86_Mm   ) ? 60  :
+    X == uint32_t(RegType::kSegment  ) ? 49  :
+    X == uint32_t(RegType::kControl  ) ? 75  :
+    X == uint32_t(RegType::kDebug    ) ? 80  :
+    X == uint32_t(RegType::kX86_St   ) ? 55  :
+    X == uint32_t(RegType::kX86_Bnd  ) ? 69  :
+    X == uint32_t(RegType::kTile     ) ? 89  : 0;
 
-    kSpecialIndex = X == uint32_t(RegType::kX86_GpbLo) ? 96  :
-                    X == uint32_t(RegType::kX86_GpbHi) ? 128 :
-                    X == uint32_t(RegType::kX86_Gpw  ) ? 161 :
-                    X == uint32_t(RegType::kX86_Gpd  ) ? 160 :
-                    X == uint32_t(RegType::kX86_Gpq  ) ? 192 :
-                    X == uint32_t(RegType::kX86_SReg ) ? 224 :
-                    X == uint32_t(RegType::kX86_Rip  ) ? 85  : 0,
+  static inline constexpr uint32_t kSpecialIndex =
+    X == uint32_t(RegType::kPC       ) ? 85  :
+    X == uint32_t(RegType::kGp8Lo    ) ? 96  :
+    X == uint32_t(RegType::kGp8Hi    ) ? 128 :
+    X == uint32_t(RegType::kGp16     ) ? 161 :
+    X == uint32_t(RegType::kGp32     ) ? 160 :
+    X == uint32_t(RegType::kGp64     ) ? 192 :
+    X == uint32_t(RegType::kSegment  ) ? 224 : 0;
 
-    kSpecialCount = X == uint32_t(RegType::kX86_GpbLo) ? 8   :
-                    X == uint32_t(RegType::kX86_GpbHi) ? 4   :
-                    X == uint32_t(RegType::kX86_Gpw  ) ? 8   :
-                    X == uint32_t(RegType::kX86_Gpd  ) ? 8   :
-                    X == uint32_t(RegType::kX86_Gpq  ) ? 8   :
-                    X == uint32_t(RegType::kX86_SReg ) ? 7   :
-                    X == uint32_t(RegType::kX86_Rip  ) ? 1   : 0,
+  static inline constexpr uint32_t kSpecialCount =
+    X == uint32_t(RegType::kPC       ) ? 1   :
+    X == uint32_t(RegType::kGp8Lo    ) ? 8   :
+    X == uint32_t(RegType::kGp8Hi    ) ? 4   :
+    X == uint32_t(RegType::kGp16     ) ? 8   :
+    X == uint32_t(RegType::kGp32     ) ? 8   :
+    X == uint32_t(RegType::kGp64     ) ? 8   :
+    X == uint32_t(RegType::kSegment  ) ? 7   : 0;
 
-    kRegCount =     X == uint32_t(RegType::kX86_GpbLo) ? 32  :
-                    X == uint32_t(RegType::kX86_GpbHi) ? 4   :
-                    X == uint32_t(RegType::kX86_Gpw  ) ? 32  :
-                    X == uint32_t(RegType::kX86_Gpd  ) ? 32  :
-                    X == uint32_t(RegType::kX86_Gpq  ) ? 32  :
-                    X == uint32_t(RegType::kX86_Xmm  ) ? 32  :
-                    X == uint32_t(RegType::kX86_Ymm  ) ? 32  :
-                    X == uint32_t(RegType::kX86_Zmm  ) ? 32  :
-                    X == uint32_t(RegType::kX86_Mm   ) ? 8   :
-                    X == uint32_t(RegType::kX86_KReg ) ? 8   :
-                    X == uint32_t(RegType::kX86_SReg ) ? 7   :
-                    X == uint32_t(RegType::kX86_CReg ) ? 16  :
-                    X == uint32_t(RegType::kX86_DReg ) ? 16  :
-                    X == uint32_t(RegType::kX86_St   ) ? 8   :
-                    X == uint32_t(RegType::kX86_Bnd  ) ? 4   :
-                    X == uint32_t(RegType::kX86_Tmm  ) ? 8   :
-                    X == uint32_t(RegType::kX86_Rip  ) ? 1   : 0
-  };
+  static inline constexpr uint32_t kRegCount =
+    X == uint32_t(RegType::kPC       ) ? 1   :
+    X == uint32_t(RegType::kGp8Lo    ) ? 32  :
+    X == uint32_t(RegType::kGp8Hi    ) ? 4   :
+    X == uint32_t(RegType::kGp16     ) ? 32  :
+    X == uint32_t(RegType::kGp32     ) ? 32  :
+    X == uint32_t(RegType::kGp64     ) ? 32  :
+    X == uint32_t(RegType::kVec128   ) ? 32  :
+    X == uint32_t(RegType::kVec256   ) ? 32  :
+    X == uint32_t(RegType::kVec512   ) ? 32  :
+    X == uint32_t(RegType::kMask     ) ? 8   :
+    X == uint32_t(RegType::kX86_Mm   ) ? 8   :
+    X == uint32_t(RegType::kSegment  ) ? 7   :
+    X == uint32_t(RegType::kControl  ) ? 16  :
+    X == uint32_t(RegType::kDebug    ) ? 16  :
+    X == uint32_t(RegType::kX86_St   ) ? 8   :
+    X == uint32_t(RegType::kX86_Bnd  ) ? 4   :
+    X == uint32_t(RegType::kTile     ) ? 8   : 0;
 };
 
 #define ASMJIT_REG_TYPE_ENTRY(TYPE) {   \
@@ -128,7 +132,7 @@ struct RegFormatInfo_T {
   RegFormatInfo_T<TYPE>::kSpecialCount  \
 }
 
-static const RegFormatInfo x86RegFormatInfo = {
+static const RegFormatInfo reg_format_info = {
   // Register type entries and strings.
   { ASMJIT_LOOKUP_TABLE_32(ASMJIT_REG_TYPE_ENTRY, 0) },
 
@@ -186,7 +190,7 @@ static const RegFormatInfo x86RegFormatInfo = {
 #undef ASMJIT_REG_NAME_ENTRY
 #undef ASMJIT_REG_TYPE_ENTRY
 
-static const char* x86GetAddressSizeString(uint32_t size) noexcept {
+static const char* get_address_size_string(uint32_t size) noexcept {
   switch (size) {
     case 1 : return "byte ptr ";
     case 2 : return "word ptr ";
@@ -204,48 +208,15 @@ static const char* x86GetAddressSizeString(uint32_t size) noexcept {
 // x86::FormatterInternal - Format FeatureId
 // =========================================
 
-Error FormatterInternal::formatFeature(String& sb, uint32_t featureId) noexcept {
-  // @EnumStringBegin{"enum": "CpuFeatures::X86", "output": "sFeature", "strip": "k"}@
-  static const char sFeatureString[] =
+Error FormatterInternal::format_feature(String& sb, uint32_t feature_id) noexcept {
+  // @EnumStringBegin{"enum": "CpuFeatures::X86", "output": "feature_string", "strip": "k"}@
+  static const char feature_string_data[] =
     "None\0"
     "MT\0"
     "NX\0"
-    "3DNOW\0"
-    "3DNOW2\0"
     "ADX\0"
-    "AESNI\0"
     "ALTMOVCR8\0"
-    "AMX_BF16\0"
-    "AMX_COMPLEX\0"
-    "AMX_FP16\0"
-    "AMX_INT8\0"
-    "AMX_TILE\0"
     "APX_F\0"
-    "AVX\0"
-    "AVX2\0"
-    "AVX512_4FMAPS\0"
-    "AVX512_4VNNIW\0"
-    "AVX512_BF16\0"
-    "AVX512_BITALG\0"
-    "AVX512_BW\0"
-    "AVX512_CD\0"
-    "AVX512_DQ\0"
-    "AVX512_ER\0"
-    "AVX512_F\0"
-    "AVX512_FP16\0"
-    "AVX512_IFMA\0"
-    "AVX512_PF\0"
-    "AVX512_VBMI\0"
-    "AVX512_VBMI2\0"
-    "AVX512_VL\0"
-    "AVX512_VNNI\0"
-    "AVX512_VP2INTERSECT\0"
-    "AVX512_VPOPCNTDQ\0"
-    "AVX_IFMA\0"
-    "AVX_NE_CONVERT\0"
-    "AVX_VNNI\0"
-    "AVX_VNNI_INT16\0"
-    "AVX_VNNI_INT8\0"
     "BMI\0"
     "BMI2\0"
     "CET_IBT\0"
@@ -263,10 +234,6 @@ Error FormatterInternal::formatFeature(String& sb, uint32_t featureId) noexcept 
     "ENCLV\0"
     "ENQCMD\0"
     "ERMS\0"
-    "F16C\0"
-    "FMA\0"
-    "FMA4\0"
-    "FPU\0"
     "FSGSBASE\0"
     "FSRM\0"
     "FSRC\0"
@@ -274,9 +241,6 @@ Error FormatterInternal::formatFeature(String& sb, uint32_t featureId) noexcept 
     "FXSR\0"
     "FXSROPT\0"
     "FZRM\0"
-    "GEODE\0"
-    "GFNI\0"
-    "HLE\0"
     "HRESET\0"
     "I486\0"
     "INVLPGB\0"
@@ -285,20 +249,19 @@ Error FormatterInternal::formatFeature(String& sb, uint32_t featureId) noexcept 
     "LWP\0"
     "LZCNT\0"
     "MCOMMIT\0"
-    "MMX\0"
-    "MMX2\0"
     "MONITOR\0"
     "MONITORX\0"
     "MOVBE\0"
     "MOVDIR64B\0"
     "MOVDIRI\0"
+    "MOVRS\0"
     "MPX\0"
     "MSR\0"
     "MSRLIST\0"
+    "MSR_IMM\0"
     "MSSE\0"
     "OSXSAVE\0"
     "OSPKE\0"
-    "PCLMULQDQ\0"
     "PCONFIG\0"
     "POPCNT\0"
     "PREFETCHI\0"
@@ -319,137 +282,186 @@ Error FormatterInternal::formatFeature(String& sb, uint32_t featureId) noexcept 
     "SEV\0"
     "SEV_ES\0"
     "SEV_SNP\0"
-    "SHA\0"
-    "SHA512\0"
     "SKINIT\0"
-    "SM3\0"
-    "SM4\0"
     "SMAP\0"
     "SME\0"
     "SMEP\0"
     "SMX\0"
-    "SSE\0"
-    "SSE2\0"
-    "SSE3\0"
-    "SSE4_1\0"
-    "SSE4_2\0"
-    "SSE4A\0"
-    "SSSE3\0"
     "SVM\0"
     "TBM\0"
     "TSE\0"
-    "TSX\0"
     "TSXLDTRK\0"
     "UINTR\0"
-    "VAES\0"
     "VMX\0"
-    "VPCLMULQDQ\0"
     "WAITPKG\0"
     "WBNOINVD\0"
     "WRMSRNS\0"
-    "XOP\0"
     "XSAVE\0"
     "XSAVEC\0"
     "XSAVEOPT\0"
     "XSAVES\0"
+    "FPU\0"
+    "MMX\0"
+    "MMX2\0"
+    "3DNOW\0"
+    "3DNOW2\0"
+    "GEODE\0"
+    "SSE\0"
+    "SSE2\0"
+    "SSE3\0"
+    "SSSE3\0"
+    "SSE4_1\0"
+    "SSE4_2\0"
+    "SSE4A\0"
+    "PCLMULQDQ\0"
+    "AVX\0"
+    "AVX2\0"
+    "AVX_IFMA\0"
+    "AVX_NE_CONVERT\0"
+    "AVX_VNNI\0"
+    "AVX_VNNI_INT16\0"
+    "AVX_VNNI_INT8\0"
+    "F16C\0"
+    "FMA\0"
+    "FMA4\0"
+    "XOP\0"
+    "AVX512_BF16\0"
+    "AVX512_BITALG\0"
+    "AVX512_BW\0"
+    "AVX512_CD\0"
+    "AVX512_DQ\0"
+    "AVX512_F\0"
+    "AVX512_FP16\0"
+    "AVX512_IFMA\0"
+    "AVX512_VBMI\0"
+    "AVX512_VBMI2\0"
+    "AVX512_VL\0"
+    "AVX512_VNNI\0"
+    "AVX512_VP2INTERSECT\0"
+    "AVX512_VPOPCNTDQ\0"
+    "AESNI\0"
+    "GFNI\0"
+    "SHA\0"
+    "SHA512\0"
+    "SM3\0"
+    "SM4\0"
+    "VAES\0"
+    "VPCLMULQDQ\0"
+    "KL\0"
+    "AESKLE\0"
+    "AESKLEWIDE_KL\0"
+    "AVX10_1\0"
+    "AVX10_2\0"
+    "AMX_AVX512\0"
+    "AMX_BF16\0"
+    "AMX_COMPLEX\0"
+    "AMX_FP16\0"
+    "AMX_FP8\0"
+    "AMX_INT8\0"
+    "AMX_MOVRS\0"
+    "AMX_TF32\0"
+    "AMX_TILE\0"
+    "AMX_TRANSPOSE\0"
     "<Unknown>\0";
 
-  static const uint16_t sFeatureIndex[] = {
-    0, 5, 8, 11, 17, 24, 28, 34, 44, 53, 65, 74, 83, 92, 98, 102, 107, 121, 135,
-    147, 161, 171, 181, 191, 201, 210, 222, 234, 244, 256, 269, 279, 291, 311,
-    328, 337, 352, 361, 376, 390, 394, 399, 407, 414, 422, 431, 439, 450, 455,
-    462, 467, 477, 488, 498, 504, 511, 516, 521, 525, 530, 534, 543, 548, 553,
-    558, 563, 571, 576, 582, 587, 591, 598, 603, 611, 620, 624, 628, 634, 642,
-    646, 651, 659, 668, 674, 684, 692, 696, 700, 708, 713, 721, 727, 737, 745,
-    752, 762, 772, 784, 792, 800, 809, 815, 821, 828, 835, 841, 848, 852, 857,
-    867, 871, 878, 886, 890, 897, 904, 908, 912, 917, 921, 926, 930, 934, 939,
-    944, 951, 958, 964, 970, 974, 978, 982, 986, 995, 1001, 1006, 1010, 1021,
-    1029, 1038, 1046, 1050, 1056, 1063, 1072, 1079
+  static const uint16_t feature_string_index[] = {
+    0, 5, 8, 11, 15, 25, 31, 35, 40, 48, 55, 63, 72, 80, 91, 96, 103, 108, 118,
+    129, 139, 145, 152, 157, 166, 171, 176, 181, 186, 194, 199, 206, 211, 219,
+    228, 232, 236, 242, 250, 258, 267, 273, 283, 291, 297, 301, 305, 313, 321,
+    326, 334, 340, 348, 355, 365, 375, 387, 395, 403, 412, 418, 424, 431, 438,
+    444, 451, 455, 460, 470, 474, 481, 489, 496, 501, 505, 510, 514, 518, 522,
+    526, 535, 541, 545, 553, 562, 570, 576, 583, 592, 599, 603, 607, 612, 618,
+    625, 631, 635, 640, 645, 651, 658, 665, 671, 681, 685, 690, 699, 714, 723,
+    738, 752, 757, 761, 766, 770, 782, 796, 806, 816, 826, 835, 847, 859, 871,
+    884, 894, 906, 926, 943, 949, 954, 958, 965, 969, 973, 978, 989, 992, 999,
+    1013, 1021, 1029, 1040, 1049, 1061, 1070, 1078, 1087, 1097, 1106, 1115, 1129
   };
   // @EnumStringEnd@
 
-  return sb.append(sFeatureString + sFeatureIndex[Support::min<uint32_t>(featureId, uint32_t(CpuFeatures::X86::kMaxValue) + 1)]);
+  return sb.append(feature_string_data + feature_string_index[Support::min(feature_id, uint32_t(CpuFeatures::X86::kMaxValue) + 1u)]);
 }
 
 // x86::FormatterInternal - Format Register
 // ========================================
 
-ASMJIT_FAVOR_SIZE Error FormatterInternal::formatRegister(String& sb, FormatFlags formatFlags, const BaseEmitter* emitter, Arch arch, RegType type, uint32_t id) noexcept {
-  DebugUtils::unused(arch);
-  const RegFormatInfo& info = x86RegFormatInfo;
+ASMJIT_FAVOR_SIZE Error FormatterInternal::format_register(String& sb, FormatFlags format_flags, const BaseEmitter* emitter, Arch arch, RegType type, uint32_t id) noexcept {
+  Support::maybe_unused(arch);
+  const RegFormatInfo& info = reg_format_info;
 
 #ifndef ASMJIT_NO_COMPILER
-  if (Operand::isVirtId(id)) {
-    if (emitter && emitter->emitterType() == EmitterType::kCompiler) {
+  if (Operand::is_virt_id(id)) {
+    if (emitter && emitter->emitter_type() == EmitterType::kCompiler) {
       const BaseCompiler* cc = static_cast<const BaseCompiler*>(emitter);
-      if (cc->isVirtIdValid(id)) {
-        VirtReg* vReg = cc->virtRegById(id);
-        ASMJIT_ASSERT(vReg != nullptr);
+      if (cc->is_virt_id_valid(id)) {
+        VirtReg* virt_reg = cc->virt_reg_by_id(id);
+        ASMJIT_ASSERT(virt_reg != nullptr);
 
-        const char* name = vReg->name();
-        if (name && name[0] != '\0')
-          ASMJIT_PROPAGATE(sb.append(name));
-        else
-          ASMJIT_PROPAGATE(sb.appendFormat("%%%u", unsigned(Operand::virtIdToIndex(id))));
+        ASMJIT_PROPAGATE(Formatter::format_virt_reg_name(sb, virt_reg));
 
-        bool formatType = (Support::test(formatFlags, FormatFlags::kRegType)) ||
-                          (Support::test(formatFlags, FormatFlags::kRegCasts) && vReg->type() != type);
+        bool format_type = (Support::test(format_flags, FormatFlags::kRegType)) ||
+                           (Support::test(format_flags, FormatFlags::kRegCasts) && virt_reg->reg_type() != type);
 
-        if (formatType && uint32_t(type) <= uint32_t(RegType::kMaxValue)) {
-          const RegFormatInfo::TypeEntry& typeEntry = info.typeEntries[size_t(type)];
-          if (typeEntry.index)
-            ASMJIT_PROPAGATE(sb.appendFormat("@%s", info.typeStrings + typeEntry.index));
+        if (format_type && uint32_t(type) <= uint32_t(RegType::kMaxValue)) {
+          const RegFormatInfo::TypeEntry& type_entry = info.type_entries[size_t(type)];
+          if (type_entry.index) {
+            ASMJIT_PROPAGATE(sb.append_format("@%s", info.type_strings + type_entry.index));
+          }
         }
 
-        return kErrorOk;
+        return Error::kOk;
       }
     }
   }
 #else
-  DebugUtils::unused(emitter, formatFlags);
+  Support::maybe_unused(emitter, format_flags);
 #endif
 
   if (uint32_t(type) <= uint32_t(RegType::kMaxValue)) {
-    const RegFormatInfo::NameEntry& nameEntry = info.nameEntries[size_t(type)];
+    const RegFormatInfo::NameEntry& name_entry = info.name_entries[size_t(type)];
 
-    if (id < nameEntry.specialCount)
-      return sb.append(info.nameStrings + nameEntry.specialIndex + id * 4);
+    if (id < name_entry.special_count) {
+      return sb.append(info.name_strings + name_entry.special_index + id * 4);
+    }
 
-    if (id < nameEntry.count)
-      return sb.appendFormat(info.nameStrings + nameEntry.formatIndex, unsigned(id));
+    if (id < name_entry.count) {
+      return sb.append_format(info.name_strings + name_entry.format_index, unsigned(id));
+    }
 
-    const RegFormatInfo::TypeEntry& typeEntry = info.typeEntries[size_t(type)];
-    if (typeEntry.index)
-      return sb.appendFormat("%s@%u", info.typeStrings + typeEntry.index, id);
+    const RegFormatInfo::TypeEntry& type_entry = info.type_entries[size_t(type)];
+    if (type_entry.index) {
+      return sb.append_format("%s@%u", info.type_strings + type_entry.index, id);
+    }
   }
 
-  return sb.appendFormat("<Reg-%u>?%u", uint32_t(type), id);
+  return sb.append_format("<Reg-%u>?%u", uint32_t(type), id);
 }
 
 // x86::FormatterInternal - Format Operand
 // =======================================
 
-ASMJIT_FAVOR_SIZE Error FormatterInternal::formatOperand(
+ASMJIT_FAVOR_SIZE Error FormatterInternal::format_operand(
   String& sb,
-  FormatFlags formatFlags,
+  FormatFlags format_flags,
   const BaseEmitter* emitter,
   Arch arch,
   const Operand_& op) noexcept {
 
-  if (op.isReg())
-    return formatRegister(sb, formatFlags, emitter, arch, op.as<BaseReg>().type(), op.as<BaseReg>().id());
+  if (op.is_reg()) {
+    return format_register(sb, format_flags, emitter, arch, op.as<Reg>().reg_type(), op.as<Reg>().id());
+  }
 
-  if (op.isMem()) {
+  if (op.is_mem()) {
     const Mem& m = op.as<Mem>();
-    ASMJIT_PROPAGATE(sb.append(x86GetAddressSizeString(m.size())));
+    ASMJIT_PROPAGATE(sb.append(get_address_size_string(m.size())));
 
     // Segment override prefix.
-    uint32_t seg = m.segmentId();
-    if (seg != SReg::kIdNone && seg < SReg::kIdCount)
-      ASMJIT_PROPAGATE(sb.appendFormat("%s:", x86RegFormatInfo.nameStrings + 224 + size_t(seg) * 4));
+    uint32_t seg = m.segment_id();
+    if (seg != SReg::kIdNone && seg < SReg::kIdCount) {
+      ASMJIT_PROPAGATE(sb.append_format("%s:", reg_format_info.name_strings + 224 + size_t(seg) * 4));
+    }
 
     ASMJIT_PROPAGATE(sb.append('['));
-    switch (m.addrType()) {
+    switch (m.addr_type()) {
       case Mem::AddrType::kDefault:
         break;
       case Mem::AddrType::kAbs:
@@ -460,69 +472,71 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatOperand(
         break;
     }
 
-    char opSign = '\0';
-    if (m.hasBase()) {
-      opSign = '+';
-      if (m.hasBaseLabel()) {
-        ASMJIT_PROPAGATE(Formatter::formatLabel(sb, formatFlags, emitter, m.baseId()));
+    char op_sign = '\0';
+    if (m.has_base()) {
+      op_sign = '+';
+      if (m.has_base_label()) {
+        ASMJIT_PROPAGATE(Formatter::format_label(sb, format_flags, emitter, m.base_id()));
       }
       else {
-        FormatFlags modifiedFlags = formatFlags;
-        if (m.isRegHome()) {
+        FormatFlags modified_flags = format_flags;
+        if (m.is_reg_home()) {
           ASMJIT_PROPAGATE(sb.append("&"));
-          modifiedFlags &= ~FormatFlags::kRegCasts;
+          modified_flags &= ~FormatFlags::kRegCasts;
         }
-        ASMJIT_PROPAGATE(formatRegister(sb, modifiedFlags, emitter, arch, m.baseType(), m.baseId()));
+        ASMJIT_PROPAGATE(format_register(sb, modified_flags, emitter, arch, m.base_type(), m.base_id()));
       }
     }
 
-    if (m.hasIndex()) {
-      if (opSign)
-        ASMJIT_PROPAGATE(sb.append(opSign));
+    if (m.has_index()) {
+      if (op_sign) {
+        ASMJIT_PROPAGATE(sb.append(op_sign));
+      }
 
-      opSign = '+';
-      ASMJIT_PROPAGATE(formatRegister(sb, formatFlags, emitter, arch, m.indexType(), m.indexId()));
-      if (m.hasShift())
-        ASMJIT_PROPAGATE(sb.appendFormat("*%u", 1 << m.shift()));
+      op_sign = '+';
+      ASMJIT_PROPAGATE(format_register(sb, format_flags, emitter, arch, m.index_type(), m.index_id()));
+      if (m.has_shift())
+        ASMJIT_PROPAGATE(sb.append_format("*%u", 1 << m.shift()));
     }
 
     uint64_t off = uint64_t(m.offset());
-    if (off || !m.hasBaseOrIndex()) {
+    if (off || !m.has_base_or_index()) {
       if (int64_t(off) < 0) {
-        opSign = '-';
+        op_sign = '-';
         off = ~off + 1;
       }
 
-      if (opSign)
-        ASMJIT_PROPAGATE(sb.append(opSign));
+      if (op_sign) {
+        ASMJIT_PROPAGATE(sb.append(op_sign));
+      }
 
       uint32_t base = 10;
-      if (Support::test(formatFlags, FormatFlags::kHexOffsets) && off > 9) {
+      if (Support::test(format_flags, FormatFlags::kHexOffsets) && off > 9) {
         ASMJIT_PROPAGATE(sb.append("0x", 2));
         base = 16;
       }
 
-      ASMJIT_PROPAGATE(sb.appendUInt(off, base));
+      ASMJIT_PROPAGATE(sb.append_uint(off, base));
     }
 
     return sb.append(']');
   }
 
-  if (op.isImm()) {
+  if (op.is_imm()) {
     const Imm& i = op.as<Imm>();
     int64_t val = i.value();
 
-    if (Support::test(formatFlags, FormatFlags::kHexImms) && uint64_t(val) > 9) {
+    if (Support::test(format_flags, FormatFlags::kHexImms) && uint64_t(val) > 9) {
       ASMJIT_PROPAGATE(sb.append("0x", 2));
-      return sb.appendUInt(uint64_t(val), 16);
+      return sb.append_uint(uint64_t(val), 16);
     }
     else {
-      return sb.appendInt(val, 10);
+      return sb.append_int(val, 10);
     }
   }
 
-  if (op.isLabel()) {
-    return Formatter::formatLabel(sb, formatFlags, emitter, op.id());
+  if (op.is_label()) {
+    return Formatter::format_label(sb, format_flags, emitter, op.id());
   }
 
   return sb.append("<None>");
@@ -547,22 +561,22 @@ struct ImmBits {
   char text[48 - 3];
 };
 
-ASMJIT_FAVOR_SIZE static Error FormatterInternal_formatImmShuf(String& sb, uint32_t imm8, uint32_t bits, uint32_t count) noexcept {
+ASMJIT_FAVOR_SIZE static Error FormatterInternal_format_imm_shuf(String& sb, uint32_t imm8, uint32_t bits, uint32_t count) noexcept {
   uint32_t mask = (1 << bits) - 1;
-  uint32_t lastPredicateShift = bits * (count - 1u);
+  uint32_t last_predicate_shift = bits * (count - 1u);
 
   for (uint32_t i = 0; i < count; i++, imm8 <<= bits) {
-    uint32_t index = (imm8 >> lastPredicateShift) & mask;
+    uint32_t index = (imm8 >> last_predicate_shift) & mask;
     ASMJIT_PROPAGATE(sb.append(i == 0 ? kImmCharStart : kImmCharOr));
-    ASMJIT_PROPAGATE(sb.appendUInt(index));
+    ASMJIT_PROPAGATE(sb.append_uint(index));
   }
 
   ASMJIT_PROPAGATE(sb.append(kImmCharEnd));
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
-ASMJIT_FAVOR_SIZE static Error FormatterInternal_formatImmBits(String& sb, uint32_t imm8, const ImmBits* bits, uint32_t count) noexcept {
+ASMJIT_FAVOR_SIZE static Error FormatterInternal_format_imm_bits(String& sb, uint32_t imm8, const ImmBits* bits, uint32_t count) noexcept {
   uint32_t n = 0;
   char buf[64];
 
@@ -574,7 +588,7 @@ ASMJIT_FAVOR_SIZE static Error FormatterInternal_formatImmBits(String& sb, uint3
 
     switch (spec.mode) {
       case ImmBits::kModeLookup:
-        str = Support::findPackedString(spec.text, value);
+        str = Support::find_packed_string(spec.text, value);
         break;
 
       case ImmBits::kModeFormat:
@@ -583,43 +597,45 @@ ASMJIT_FAVOR_SIZE static Error FormatterInternal_formatImmBits(String& sb, uint3
         break;
 
       default:
-        return DebugUtils::errored(kErrorInvalidState);
+        return make_error(Error::kInvalidState);
     }
 
-    if (!str[0])
+    if (!str[0]) {
       continue;
+    }
 
     ASMJIT_PROPAGATE(sb.append(++n == 1 ? kImmCharStart : kImmCharOr));
     ASMJIT_PROPAGATE(sb.append(str));
   }
 
-  if (n)
+  if (n) {
     ASMJIT_PROPAGATE(sb.append(kImmCharEnd));
+  }
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
-ASMJIT_FAVOR_SIZE static Error FormatterInternal_formatImmText(String& sb, uint32_t imm8, uint32_t bits, uint32_t advance, const char* text, uint32_t count = 1) noexcept {
+ASMJIT_FAVOR_SIZE static Error FormatterInternal_format_imm_text(String& sb, uint32_t imm8, uint32_t bits, uint32_t advance, const char* text, uint32_t count = 1) noexcept {
   uint32_t mask = (1u << bits) - 1;
   uint32_t pos = 0;
 
   for (uint32_t i = 0; i < count; i++, imm8 >>= bits, pos += advance) {
     uint32_t value = (imm8 & mask) + pos;
     ASMJIT_PROPAGATE(sb.append(i == 0 ? kImmCharStart : kImmCharOr));
-    ASMJIT_PROPAGATE(sb.append(Support::findPackedString(text, value)));
+    ASMJIT_PROPAGATE(sb.append(Support::find_packed_string(text, value)));
   }
 
   return sb.append(kImmCharEnd);
 }
 
-ASMJIT_FAVOR_SIZE static Error FormatterInternal_explainConst(
+ASMJIT_FAVOR_SIZE static Error FormatterInternal_explain_const(
   String& sb,
-  FormatFlags formatFlags,
-  InstId instId,
-  uint32_t vecSize,
-  const Imm& imm) noexcept {
-
-  DebugUtils::unused(formatFlags);
+  FormatFlags format_flags,
+  InstId inst_id,
+  uint32_t vec_size,
+  const Imm& imm
+) noexcept {
+  Support::maybe_unused(format_flags);
 
   static const char vcmpx[] =
     "EQ_OQ\0" "LT_OS\0"  "LE_OS\0"  "UNORD_Q\0"  "NEQ_UQ\0" "NLT_US\0" "NLE_US\0" "ORD_Q\0"
@@ -684,55 +700,55 @@ ASMJIT_FAVOR_SIZE static Error FormatterInternal_explainConst(
   };
 
   static const ImmBits vroundxx[] = {
-    { 0x07u, 0, ImmBits::kModeLookup, "ROUND\0" "FLOOR\0" "CEIL\0" "TRUNC\0" "\0" "\0" "\0" "\0" },
-    { 0x08u, 3, ImmBits::kModeLookup, "\0" "INEXACT\0" }
+    { 0x07u, 0, ImmBits::kModeLookup, "ROUND\0" "FLOOR\0" "CEIL\0" "TRUNC\0" "CURRENT\0" "\0" "\0" "\0" },
+    { 0x08u, 3, ImmBits::kModeLookup, "\0" "SUPPRESS\0" }
   };
 
-  uint32_t u8 = imm.valueAs<uint8_t>();
-  switch (instId) {
+  uint32_t u8 = imm.value_as<uint8_t>();
+  switch (inst_id) {
     case Inst::kIdVblendpd:
     case Inst::kIdBlendpd:
-      return FormatterInternal_formatImmShuf(sb, u8, 1, vecSize / 8);
+      return FormatterInternal_format_imm_shuf(sb, u8, 1, vec_size / 8);
 
     case Inst::kIdVblendps:
     case Inst::kIdBlendps:
-      return FormatterInternal_formatImmShuf(sb, u8, 1, vecSize / 4);
+      return FormatterInternal_format_imm_shuf(sb, u8, 1, vec_size / 4);
 
     case Inst::kIdVcmppd:
     case Inst::kIdVcmpps:
     case Inst::kIdVcmpsd:
     case Inst::kIdVcmpss:
-      return FormatterInternal_formatImmText(sb, u8, 5, 0, vcmpx);
+      return FormatterInternal_format_imm_text(sb, u8, 5, 0, vcmpx);
 
     case Inst::kIdCmppd:
     case Inst::kIdCmpps:
     case Inst::kIdCmpsd:
     case Inst::kIdCmpss:
-      return FormatterInternal_formatImmText(sb, u8, 3, 0, vcmpx);
+      return FormatterInternal_format_imm_text(sb, u8, 3, 0, vcmpx);
 
     case Inst::kIdVdbpsadbw:
-      return FormatterInternal_formatImmShuf(sb, u8, 2, 4);
+      return FormatterInternal_format_imm_shuf(sb, u8, 2, 4);
 
     case Inst::kIdVdppd:
     case Inst::kIdVdpps:
     case Inst::kIdDppd:
     case Inst::kIdDpps:
-      return FormatterInternal_formatImmShuf(sb, u8, 1, 8);
+      return FormatterInternal_format_imm_shuf(sb, u8, 1, 8);
 
     case Inst::kIdVmpsadbw:
     case Inst::kIdMpsadbw:
-      return FormatterInternal_formatImmBits(sb, u8, vmpsadbw, Support::min<uint32_t>(vecSize / 8, 4));
+      return FormatterInternal_format_imm_bits(sb, u8, vmpsadbw, Support::min<uint32_t>(vec_size / 8, 4));
 
     case Inst::kIdVpblendw:
     case Inst::kIdPblendw:
-      return FormatterInternal_formatImmShuf(sb, u8, 1, 8);
+      return FormatterInternal_format_imm_shuf(sb, u8, 1, 8);
 
     case Inst::kIdVpblendd:
-      return FormatterInternal_formatImmShuf(sb, u8, 1, Support::min<uint32_t>(vecSize / 4, 8));
+      return FormatterInternal_format_imm_shuf(sb, u8, 1, Support::min<uint32_t>(vec_size / 4, 8));
 
     case Inst::kIdVpclmulqdq:
     case Inst::kIdPclmulqdq:
-      return FormatterInternal_formatImmBits(sb, u8, vpclmulqdq, ASMJIT_ARRAY_SIZE(vpclmulqdq));
+      return FormatterInternal_format_imm_bits(sb, u8, vpclmulqdq, ASMJIT_ARRAY_SIZE(vpclmulqdq));
 
     case Inst::kIdVroundpd:
     case Inst::kIdVroundps:
@@ -742,57 +758,57 @@ ASMJIT_FAVOR_SIZE static Error FormatterInternal_explainConst(
     case Inst::kIdRoundps:
     case Inst::kIdRoundsd:
     case Inst::kIdRoundss:
-      return FormatterInternal_formatImmBits(sb, u8, vroundxx, ASMJIT_ARRAY_SIZE(vroundxx));
+      return FormatterInternal_format_imm_bits(sb, u8, vroundxx, ASMJIT_ARRAY_SIZE(vroundxx));
 
     case Inst::kIdVshufpd:
     case Inst::kIdShufpd:
-      return FormatterInternal_formatImmText(sb, u8, 1, 2, vshufpd, Support::min<uint32_t>(vecSize / 8, 8));
+      return FormatterInternal_format_imm_text(sb, u8, 1, 2, vshufpd, Support::min<uint32_t>(vec_size / 8, 8));
 
     case Inst::kIdVshufps:
     case Inst::kIdShufps:
-      return FormatterInternal_formatImmText(sb, u8, 2, 4, vshufps, 4);
+      return FormatterInternal_format_imm_text(sb, u8, 2, 4, vshufps, 4);
 
     case Inst::kIdVcvtps2ph:
-      return FormatterInternal_formatImmBits(sb, u8, vroundxx, 1);
+      return FormatterInternal_format_imm_bits(sb, u8, vroundxx, 1);
 
     case Inst::kIdVperm2f128:
     case Inst::kIdVperm2i128:
-      return FormatterInternal_formatImmBits(sb, u8, vperm2x128, ASMJIT_ARRAY_SIZE(vperm2x128));
+      return FormatterInternal_format_imm_bits(sb, u8, vperm2x128, ASMJIT_ARRAY_SIZE(vperm2x128));
 
     case Inst::kIdVpermilpd:
-      return FormatterInternal_formatImmShuf(sb, u8, 1, vecSize / 8);
+      return FormatterInternal_format_imm_shuf(sb, u8, 1, vec_size / 8);
 
     case Inst::kIdVpermilps:
-      return FormatterInternal_formatImmShuf(sb, u8, 2, 4);
+      return FormatterInternal_format_imm_shuf(sb, u8, 2, 4);
 
     case Inst::kIdVpshufd:
     case Inst::kIdPshufd:
-      return FormatterInternal_formatImmShuf(sb, u8, 2, 4);
+      return FormatterInternal_format_imm_shuf(sb, u8, 2, 4);
 
     case Inst::kIdVpshufhw:
     case Inst::kIdVpshuflw:
     case Inst::kIdPshufhw:
     case Inst::kIdPshuflw:
     case Inst::kIdPshufw:
-      return FormatterInternal_formatImmShuf(sb, u8, 2, 4);
+      return FormatterInternal_format_imm_shuf(sb, u8, 2, 4);
 
     case Inst::kIdVfixupimmpd:
     case Inst::kIdVfixupimmps:
     case Inst::kIdVfixupimmsd:
     case Inst::kIdVfixupimmss:
-      return FormatterInternal_formatImmBits(sb, u8, vfixupimmxx, ASMJIT_ARRAY_SIZE(vfixupimmxx));
+      return FormatterInternal_format_imm_bits(sb, u8, vfixupimmxx, ASMJIT_ARRAY_SIZE(vfixupimmxx));
 
     case Inst::kIdVfpclasspd:
     case Inst::kIdVfpclassps:
     case Inst::kIdVfpclasssd:
     case Inst::kIdVfpclassss:
-      return FormatterInternal_formatImmBits(sb, u8, vfpclassxx, ASMJIT_ARRAY_SIZE(vfpclassxx));
+      return FormatterInternal_format_imm_bits(sb, u8, vfpclassxx, ASMJIT_ARRAY_SIZE(vfpclassxx));
 
     case Inst::kIdVgetmantpd:
     case Inst::kIdVgetmantps:
     case Inst::kIdVgetmantsd:
     case Inst::kIdVgetmantss:
-      return FormatterInternal_formatImmBits(sb, u8, vgetmantxx, ASMJIT_ARRAY_SIZE(vgetmantxx));
+      return FormatterInternal_format_imm_bits(sb, u8, vgetmantxx, ASMJIT_ARRAY_SIZE(vgetmantxx));
 
     case Inst::kIdVpcmpb:
     case Inst::kIdVpcmpd:
@@ -802,7 +818,7 @@ ASMJIT_FAVOR_SIZE static Error FormatterInternal_explainConst(
     case Inst::kIdVpcmpud:
     case Inst::kIdVpcmpuq:
     case Inst::kIdVpcmpuw:
-      return FormatterInternal_formatImmText(sb, u8, 3, 0, vpcmpx);
+      return FormatterInternal_format_imm_text(sb, u8, 3, 0, vpcmpx);
 
     case Inst::kIdVpcomb:
     case Inst::kIdVpcomd:
@@ -812,21 +828,21 @@ ASMJIT_FAVOR_SIZE static Error FormatterInternal_explainConst(
     case Inst::kIdVpcomud:
     case Inst::kIdVpcomuq:
     case Inst::kIdVpcomuw:
-      return FormatterInternal_formatImmText(sb, u8, 3, 0, vpcomx);
+      return FormatterInternal_format_imm_text(sb, u8, 3, 0, vpcomx);
 
     case Inst::kIdVpermq:
     case Inst::kIdVpermpd:
-      return FormatterInternal_formatImmShuf(sb, u8, 2, 4);
+      return FormatterInternal_format_imm_shuf(sb, u8, 2, 4);
 
     case Inst::kIdVpternlogd:
     case Inst::kIdVpternlogq:
-      return FormatterInternal_formatImmShuf(sb, u8, 1, 8);
+      return FormatterInternal_format_imm_shuf(sb, u8, 1, 8);
 
     case Inst::kIdVrangepd:
     case Inst::kIdVrangeps:
     case Inst::kIdVrangesd:
     case Inst::kIdVrangess:
-      return FormatterInternal_formatImmBits(sb, u8, vrangexx, ASMJIT_ARRAY_SIZE(vrangexx));
+      return FormatterInternal_format_imm_bits(sb, u8, vrangexx, ASMJIT_ARRAY_SIZE(vrangexx));
 
     case Inst::kIdVreducepd:
     case Inst::kIdVreduceps:
@@ -836,129 +852,136 @@ ASMJIT_FAVOR_SIZE static Error FormatterInternal_explainConst(
     case Inst::kIdVrndscaleps:
     case Inst::kIdVrndscalesd:
     case Inst::kIdVrndscaless:
-      return FormatterInternal_formatImmBits(sb, u8, vreducexx_vrndscalexx, ASMJIT_ARRAY_SIZE(vreducexx_vrndscalexx));
+      return FormatterInternal_format_imm_bits(sb, u8, vreducexx_vrndscalexx, ASMJIT_ARRAY_SIZE(vreducexx_vrndscalexx));
 
     case Inst::kIdVshuff32x4:
     case Inst::kIdVshuff64x2:
     case Inst::kIdVshufi32x4:
     case Inst::kIdVshufi64x2: {
-      uint32_t count = Support::max<uint32_t>(vecSize / 16, 2u);
+      uint32_t count = Support::max<uint32_t>(vec_size / 16, 2u);
       uint32_t bits = count <= 2 ? 1u : 2u;
-      return FormatterInternal_formatImmShuf(sb, u8, bits, count);
+      return FormatterInternal_format_imm_shuf(sb, u8, bits, count);
     }
 
     default:
-      return kErrorOk;
+      return Error::kOk;
   }
 }
 
 // x86::FormatterInternal - Format Instruction
 // ===========================================
 
-ASMJIT_FAVOR_SIZE Error FormatterInternal::formatInstruction(
+ASMJIT_FAVOR_SIZE Error FormatterInternal::format_instruction(
   String& sb,
-  FormatFlags formatFlags,
+  FormatFlags format_flags,
   const BaseEmitter* emitter,
   Arch arch,
-  const BaseInst& inst, const Operand_* operands, size_t opCount) noexcept {
+  const BaseInst& inst, Span<const Operand_> operands) noexcept {
 
-  InstId instId = inst.id();
+  InstId inst_id = inst.inst_id();
   InstOptions options = inst.options();
 
   // Format instruction options and instruction mnemonic.
-  if (instId < Inst::_kIdCount) {
+  if (inst_id < Inst::_kIdCount) {
     // VEX|EVEX options.
-    if (Support::test(options, InstOptions::kX86_Vex))
+    if (Support::test(options, InstOptions::kX86_Vex)) {
       ASMJIT_PROPAGATE(sb.append("{vex} "));
+    }
 
-    if (Support::test(options, InstOptions::kX86_Vex3))
+    if (Support::test(options, InstOptions::kX86_Vex3)) {
       ASMJIT_PROPAGATE(sb.append("{vex3} "));
+    }
 
-    if (Support::test(options, InstOptions::kX86_Evex))
+    if (Support::test(options, InstOptions::kX86_Evex)) {
       ASMJIT_PROPAGATE(sb.append("{evex} "));
+    }
 
     // MOD/RM and MOD/MR options
-    if (Support::test(options, InstOptions::kX86_ModRM))
+    if (Support::test(options, InstOptions::kX86_ModRM)) {
       ASMJIT_PROPAGATE(sb.append("{modrm} "));
-    else if (Support::test(options, InstOptions::kX86_ModMR))
+    }
+    else if (Support::test(options, InstOptions::kX86_ModMR)) {
       ASMJIT_PROPAGATE(sb.append("{modmr} "));
+    }
 
     // SHORT|LONG options.
-    if (Support::test(options, InstOptions::kShortForm))
+    if (Support::test(options, InstOptions::kShortForm)) {
       ASMJIT_PROPAGATE(sb.append("short "));
+    }
 
-    if (Support::test(options, InstOptions::kLongForm))
+    if (Support::test(options, InstOptions::kLongForm)) {
       ASMJIT_PROPAGATE(sb.append("long "));
+    }
 
     // LOCK|XACQUIRE|XRELEASE options.
-    if (Support::test(options, InstOptions::kX86_XAcquire))
+    if (Support::test(options, InstOptions::kX86_XAcquire)) {
       ASMJIT_PROPAGATE(sb.append("xacquire "));
+    }
 
-    if (Support::test(options, InstOptions::kX86_XRelease))
+    if (Support::test(options, InstOptions::kX86_XRelease)) {
       ASMJIT_PROPAGATE(sb.append("xrelease "));
+    }
 
-    if (Support::test(options, InstOptions::kX86_Lock))
+    if (Support::test(options, InstOptions::kX86_Lock)) {
       ASMJIT_PROPAGATE(sb.append("lock "));
+    }
 
     // REP|REPNE options.
     if (Support::test(options, InstOptions::kX86_Rep | InstOptions::kX86_Repne)) {
-      sb.append(Support::test(options, InstOptions::kX86_Rep) ? "rep " : "repnz ");
-      if (inst.hasExtraReg()) {
+      ASMJIT_PROPAGATE(sb.append(Support::test(options, InstOptions::kX86_Rep) ? "rep " : "repnz "));
+      if (inst.has_extra_reg()) {
         ASMJIT_PROPAGATE(sb.append("{"));
-        ASMJIT_PROPAGATE(formatOperand(sb, formatFlags, emitter, arch, inst.extraReg().toReg<BaseReg>()));
+        ASMJIT_PROPAGATE(format_operand(sb, format_flags, emitter, arch, inst.extra_reg().to_reg<Reg>()));
         ASMJIT_PROPAGATE(sb.append("} "));
       }
     }
 
     // REX options.
     if (Support::test(options, InstOptions::kX86_Rex)) {
-      const InstOptions kRXBWMask = InstOptions::kX86_OpCodeR |
-                                    InstOptions::kX86_OpCodeX |
-                                    InstOptions::kX86_OpCodeB |
-                                    InstOptions::kX86_OpCodeW ;
-      if (Support::test(options, kRXBWMask)) {
-        ASMJIT_PROPAGATE(sb.append("rex."));
-        if (Support::test(options, InstOptions::kX86_OpCodeR)) sb.append('r');
-        if (Support::test(options, InstOptions::kX86_OpCodeX)) sb.append('x');
-        if (Support::test(options, InstOptions::kX86_OpCodeB)) sb.append('b');
-        if (Support::test(options, InstOptions::kX86_OpCodeW)) sb.append('w');
-        sb.append(' ');
-      }
-      else {
-        ASMJIT_PROPAGATE(sb.append("rex "));
-      }
+      ASMJIT_PROPAGATE(sb.append("rex "));
     }
 
-    ASMJIT_PROPAGATE(InstInternal::instIdToString(instId, sb));
+    InstStringifyOptions stringify_options =
+      Support::test(format_flags, FormatFlags::kShowAliases)
+        ? InstStringifyOptions::kAliases
+        : InstStringifyOptions::kNone;
+
+    ASMJIT_PROPAGATE(InstInternal::inst_id_to_string(inst_id, stringify_options, sb));
   }
   else {
-    ASMJIT_PROPAGATE(sb.appendFormat("[InstId=#%u]", unsigned(instId)));
+    ASMJIT_PROPAGATE(sb.append_format("[InstId=#%u]", unsigned(inst_id)));
   }
 
-  for (uint32_t i = 0; i < opCount; i++) {
+  for (size_t i = 0u; i < operands.size(); i++) {
     const Operand_& op = operands[i];
-    if (op.isNone()) break;
+
+    if (op.is_none()) {
+      break;
+    }
 
     ASMJIT_PROPAGATE(sb.append(i == 0 ? " " : ", "));
-    ASMJIT_PROPAGATE(formatOperand(sb, formatFlags, emitter, arch, op));
+    ASMJIT_PROPAGATE(format_operand(sb, format_flags, emitter, arch, op));
 
-    if (op.isImm() && uint32_t(formatFlags & FormatFlags::kExplainImms)) {
-      uint32_t vecSize = 16;
-      for (uint32_t j = 0; j < opCount; j++)
-        if (operands[j].isReg())
-          vecSize = Support::max<uint32_t>(vecSize, operands[j].as<Reg>().size());
-      ASMJIT_PROPAGATE(FormatterInternal_explainConst(sb, formatFlags, instId, vecSize, op.as<Imm>()));
+    if (op.is_imm() && uint32_t(format_flags & FormatFlags::kExplainImms)) {
+      uint32_t vec_size = 16;
+      for (size_t j = 0u; j < operands.size(); j++) {
+        if (operands[j].is_reg()) {
+          vec_size = Support::max<uint32_t>(vec_size, operands[j].as<Reg>().size());
+        }
+      }
+      ASMJIT_PROPAGATE(FormatterInternal_explain_const(sb, format_flags, inst_id, vec_size, op.as<Imm>()));
     }
 
     // Support AVX-512 masking - {k}{z}.
     if (i == 0) {
-      if (inst.extraReg().group() == RegGroup::kX86_K) {
+      if (inst.extra_reg().group() == RegGroup::kMask) {
         ASMJIT_PROPAGATE(sb.append(" {"));
-        ASMJIT_PROPAGATE(formatRegister(sb, formatFlags, emitter, arch, inst.extraReg().type(), inst.extraReg().id()));
+        ASMJIT_PROPAGATE(format_register(sb, format_flags, emitter, arch, inst.extra_reg().type(), inst.extra_reg().id()));
         ASMJIT_PROPAGATE(sb.append('}'));
 
-        if (Support::test(options, InstOptions::kX86_ZMask))
+        if (Support::test(options, InstOptions::kX86_ZMask)) {
           ASMJIT_PROPAGATE(sb.append("{z}"));
+        }
       }
       else if (Support::test(options, InstOptions::kX86_ZMask)) {
         ASMJIT_PROPAGATE(sb.append(" {z}"));
@@ -966,25 +989,25 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatInstruction(
     }
 
     // Support AVX-512 broadcast - {1tox}.
-    if (op.isMem() && op.as<Mem>().hasBroadcast()) {
-      ASMJIT_PROPAGATE(sb.appendFormat(" {1to%u}", Support::bitMask(uint32_t(op.as<Mem>().getBroadcast()))));
+    if (op.is_mem() && op.as<Mem>().has_broadcast()) {
+      ASMJIT_PROPAGATE(sb.append_format(" {1to%u}", Support::bit_mask<uint32_t>(uint32_t(op.as<Mem>().get_broadcast()))));
     }
   }
 
   // Support AVX-512 embedded rounding and suppress-all-exceptions {sae}.
-  if (inst.hasOption(InstOptions::kX86_ER | InstOptions::kX86_SAE)) {
-    if (inst.hasOption(InstOptions::kX86_ER)) {
-      uint32_t bits = uint32_t(inst.options() & InstOptions::kX86_ERMask) >> Support::ConstCTZ<uint32_t(InstOptions::kX86_ERMask)>::value;
+  if (inst.has_option(InstOptions::kX86_ER | InstOptions::kX86_SAE)) {
+    if (inst.has_option(InstOptions::kX86_ER)) {
+      uint32_t bits = uint32_t(inst.options() & InstOptions::kX86_ERMask) >> Support::ctz_const<InstOptions::kX86_ERMask>;
 
-      const char roundingModes[] = "rn\0rd\0ru\0rz";
-      ASMJIT_PROPAGATE(sb.appendFormat(", {%s-sae}", roundingModes + bits * 3));
+      const char rounding_modes[] = "rn\0rd\0ru\0rz";
+      ASMJIT_PROPAGATE(sb.append_format(", {%s-sae}", rounding_modes + bits * 3));
     }
     else {
       ASMJIT_PROPAGATE(sb.append(", {sae}"));
     }
   }
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
 ASMJIT_END_SUB_NAMESPACE

@@ -1,19 +1,25 @@
-%% ---------------------------------------------------------------------
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
-%%
+%% %CopyrightBegin%
+%% 
+%% SPDX-License-Identifier: Apache-2.0
+%% 
+%% Copyright 2012 Richard Carlsson. All Rights Reserved.
+%% 
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%% 
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%% 
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @copyright 2012 Richard Carlsson
-%% @doc Making it simple to build a module with merl
+%% 
+%% %CopyrightEnd%
 
 -module(merl_build).
+-moduledoc "Making it simple to build a module with merl."
 
 -export([init_module/1, module_forms/1, add_function/4, add_record/3,
          add_import/3, add_attribute/3, set_file/2]).
@@ -36,13 +42,13 @@
 
 %% TODO: init module from a list of forms (from various sources)
 
-%% @doc Create a new module representation, using the given module name.
+-doc "Create a new module representation, using the given module name.".
 init_module(Name) when is_atom(Name) ->
     %% use the module name as the default file name - better than nothing
     #module{name=Name, file=atom_to_list(Name)}.
 
-%% @doc Get the list of syntax tree forms for a module representation. This can
-%% be passed to compile/2.
+-doc "Get the list of syntax tree forms for a module representation. This can
+be passed to `compile/2`.".
 module_forms(#module{name=Name,
                      exports=Xs,
                      imports=Is,
@@ -71,12 +77,12 @@ module_forms(#module{name=Name,
                     F <- [erl_syntax:function(term(N), Cs)]],
     lists:flatten([Module, Export, Imports, Attrs, Records, Functions]).
 
-%% @doc Set the source file name for all subsequently added functions,
-%% records, and attributes.
+-doc "Set the source file name for all subsequently added functions,
+records, and attributes.".
 set_file(Filename, #module{}=M) ->
     M#module{file=filename:flatten(Filename)}.
 
-%% @doc Add a function to a module representation.
+-doc "Add a function to a module representation.".
 add_function(Exported, Name, Clauses,
              #module{file=File, exports=Xs, functions=Fs}=M)
   when is_boolean(Exported), is_atom(Name), Clauses =/= [] ->
@@ -87,18 +93,18 @@ add_function(Exported, Name, Clauses,
           end,
     M#module{exports=Xs1, functions=[{File, Name, Clauses} | Fs]}.
 
-%% @doc Add a record declaration to a module representation.
+-doc "Add a record declaration to a module representation.".
 add_record(Name, Fields, #module{file=File, records=Rs}=M)
   when is_atom(Name) ->
     M#module{records=[{File, Name, Fields} | Rs]}.
 
-%% @doc Add a "wild" attribute, such as `-compile(Opts)' to a module
-%% representation. Note that such attributes can only have a single argument.
+-doc "Add a 'wild' attribute, such as `-compile(Opts)` to a module
+representation. Note that such attributes can only have a single argument.".
 add_attribute(Name, Term, #module{file=File, attributes=As}=M)
   when is_atom(Name) ->
     M#module{attributes=[{File, Name, Term} | As]}.
 
-%% @doc Add an import declaration to a module representation.
+-doc "Add an import declaration to a module representation."
 add_import(From, Names, #module{imports=Is}=M)
   when is_atom(From), is_list(Names) ->
     M#module{imports=[{From, Names} | Is]}.

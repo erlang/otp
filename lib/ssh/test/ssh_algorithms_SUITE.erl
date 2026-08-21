@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,6 +42,7 @@
 
 -export([
          interpolate/1,
+         mlkem768x25519_hybrid_secret_encoding/1,
          simple_connect/1,
          simple_exec/1,
          simple_exec_groups/0,
@@ -59,17 +62,17 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{seconds,120}}].
 
-all() -> 
+all() ->
     %% [{group,kex},{group,cipher}... etc
-    [{group,C} || C <- tags()].
+    [mlkem768x25519_hybrid_secret_encoding | [{group,C} || C <- tags()]].
 
 
 groups() ->
     ErlAlgos = extract_algos(ssh_transport:supported_algorithms()),
     SshcAlgos = extract_algos(ssh_test_lib:default_algorithms(sshc)),
     SshdAlgos = extract_algos(ssh_test_lib:default_algorithms(sshd)),
-    
-    DoubleAlgos = 
+
+    DoubleAlgos =
 	[{Tag, double(Tag,Algs)} || {Tag,Algs} <- ErlAlgos,
                                     length(Algs) > 1,
                                     lists:member(Tag, two_way_tags())],
@@ -78,7 +81,7 @@ groups() ->
 	 || {Tag,Algs} <- ErlAlgos,
 	    lists:member(Tag,tags())
 	],
- 
+
     TypeSSH = ssh_test_lib:ssh_type(),
 
     AlgoTcSet =
@@ -108,7 +111,7 @@ groups() ->
 
 tags() -> [kex,cipher,mac,compression,public_key].
 two_way_tags() -> [cipher,mac,compression, public_key].
-    
+
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(
@@ -142,13 +145,21 @@ init_per_suite(Config) ->
 		  ]),
 	   ct:log("all() ->~n    ~p.~n~ngroups()->~n    ~p.~n",[all(),groups()]),
 	   ssh:start(),
+           %% Start a single shared daemon with all algorithms enabled.
+           %% Tests restrict algorithms on the client side.
+           Config1 = setup_all_keys(Config),
+           Config2 = start_shared_daemon(Config1),
 	   [{std_simple_sftp_size,25000} % Sftp transferred data size
-	    | Config]
+           | Config2]
        end
       ).
 
 
-end_per_suite(_Config) ->
+end_per_suite(Config) ->
+    case proplists:get_value(srvr_pid, Config) of
+        Pid when is_pid(Pid) -> ssh:stop_daemon(Pid);
+        _ -> ok
+    end,
     ssh:stop().
 
 
@@ -177,24 +188,20 @@ init_per_group(Group, Config) ->
                          {server2client,[A2]}]
                 end,
             case lists:foldl(fun({K,As}, Acc) ->
-                                     ct:log("~p:~p  K=~p, As=~p, SupportedAlgs=~p", [?MODULE,?LINE,K,As,SupportedAlgs]),
                                      SAs = proplists:get_value(K,SupportedAlgs),
-                                     lists:foldl(fun(A1, Acc1) -> 
+                                     lists:foldl(fun(A1, Acc1) ->
                                                          case lists:member(A1, SAs) of
                                                              true -> Acc1;
                                                              false -> [A1|Acc1]
                                                          end
                                                  end, Acc, As);
                                 (A, Acc) when is_atom(hd(SupportedAlgs)) ->
-                                     ct:log("~p:~p  A=~p, SupportedAlgs=~p", [?MODULE,?LINE,A,SupportedAlgs]),
                                      case lists:member(A, SupportedAlgs) of
                                          true -> Acc;
                                          false -> [A|Acc]
                                      end;
                                 (A, Acc) when is_tuple(hd(SupportedAlgs)) ->
-                                     ct:log("~p:~p  A=~p, SupportedAlgs=~p", [?MODULE,?LINE,A,SupportedAlgs]),
                                      [{_,S1},{_,S2}] = SupportedAlgs,
-
                                      case lists:member(A, S1) andalso
                                          lists:member(A, S2) of
                                          true -> Acc;
@@ -202,150 +209,129 @@ init_per_group(Group, Config) ->
                                      end
                              end, [], PA) of
                 [] ->
-                    init_per_group(Tag, Algs, Alg, PA, Config);
+                    %% Algorithm supported — set up client-side preferences
+                    OtherAlgs = [{T,L} || {T,L} <- ssh_transport:supported_algorithms(), T=/=Tag],
+                    PrefAlgs = {preferred_algorithms,[{Tag,PA}|OtherAlgs]},
+                    [{pref_algs,PrefAlgs},
+                     {tag_alg,{Tag,case Tag of
+                                       public_key -> PA;
+                                       _ -> [Alg]
+                                   end}}
+                     | Config];
                 L ->
-                    ct:log("~p:~p  Tag ~p, Alg ~p, Algs ~p, PA ~p,~nSupportedAlgs ~p", [?MODULE,?LINE, Tag, Alg, Algs, PA, SupportedAlgs]),
                     {skip,io_lib:format("Unsupported ~p: ~p", [Tag,L])}
             end
     end.
 
 
-init_per_group(Tag, Algs, Alg, PA, Config) ->
-    OtherAlgs = [{T,L} || {T,L} <- ssh_transport:supported_algorithms(), T=/=Tag],
-    ct:log("init_per_group Tag ~p, Alg ~p, Algs ~p ,PA ~p,~nOtherAlgs ~p", [Tag, Alg, Algs, PA, OtherAlgs]),
-    PrefAlgs = {preferred_algorithms,[{Tag,PA}|OtherAlgs]},
-    case Tag of
-        public_key ->
-            %% Daemon started later in init_per_testcase
-            try
-                setup_pubkey(PA,
-                             [{pref_algs,PrefAlgs},
-                              {tag_alg,{Tag,PA}}
-                              | Config])
-            catch
-                _C:_E:_S ->
-                    ct:log("Exception ~p:~p~n~p",[_C,_E,_S]),
-                    {skip, io_lib:format("Unsupported: ~p",[Alg])}
-            end;
-
-        _ ->
-            start_std_daemon([PrefAlgs],
-                             [{pref_algs,PrefAlgs},
-                              {tag_alg,{Tag,[Alg]}}
-                              | Config])
-    end.
-
-end_per_group(_Alg, Config) ->
-    case proplists:get_value(srvr_pid,Config) of
-	Pid when is_pid(Pid) ->
-	    ssh:stop_daemon(Pid),
-	    ct:log("stopped ~p",[proplists:get_value(srvr_addr,Config)]);
-	_ ->
-	    ok
-    end.
+end_per_group(_Alg, _Config) ->
+    ok.
 
 
-
-init_per_testcase(TC, Config) ->
-    init_per_testcase(TC, proplists:get_value(tag_alg,Config), Config).
-
-
-init_per_testcase(TC, {public_key,Alg}, Config) ->
-    ct:log("init_per_testcase TC=~p, Alg=~p",[TC,Alg]),
-    ExtraOpts = case TC of
-                    simple_connect ->
-                        [{user_dir, proplists:get_value(priv_dir,Config)}];
-                    _ ->
-                        []
-                end,
-    Opts = pubkey_opts(Config) ++ ExtraOpts,
-    {UserAlg,SrvrAlg} =
-        case Alg of
-            [A1,A2] -> {A1,A2};
-            [A0] -> {A0,A0}
-        end,
-    case {ssh_file:user_key(UserAlg,Opts), ssh_file:host_key(SrvrAlg,Opts)} of
-        {{ok,_}, {ok,_}} ->
-            start_pubkey_daemon([proplists:get_value(pref_algs,Config)
-                                | ExtraOpts],
-                                [{extra_daemon,true}|Config]);
-        {{ok,_}, {error,Err}} ->
-            ct:log("SrvrAlg = ~p~nOpts = ~p",[SrvrAlg,Opts]),
-            {skip, io_lib:format("No host key: ~p",[Err])};
-        
-        {{error,Err}, {ok,_}} ->
-            ct:log("UserAlg = ~p~nOpts = ~p",[UserAlg,Opts]),
-            {skip, io_lib:format("No user key: ~p",[Err])};
-        
-        _ ->
-            ct:log("UserAlg = ~p SrvrAlg = ~p~nOpts = ~p",[UserAlg,SrvrAlg,Opts]),
-            {skip, "Neither host nor user key"}
+init_per_testcase(mlkem768x25519_hybrid_secret_encoding, Config) ->
+    case lists:member(x25519, crypto:supports(curves))
+        andalso lists:member(mlkem768, crypto:supports(kems))
+    of
+        false -> {skip, "X25519 or ML-KEM768 not supported"};
+        true -> Config
     end;
-
-init_per_testcase(sshc_simple_exec_os_cmd, _, Config) ->
-     start_pubkey_daemon([proplists:get_value(pref_algs,Config)],
-                         [{extra_daemon,true}|Config]);
-
-init_per_testcase(_, _, Config) ->
-    Config.
-
-
-end_per_testcase(_TC, Config) ->
-    case proplists:get_value(extra_daemon, Config, false) of
-        true ->
-            case proplists:get_value(srvr_pid,Config) of
-                Pid when is_pid(Pid) ->
-                    ssh:stop_daemon(Pid),
-                    ct:log("stopped ~p",[proplists:get_value(srvr_addr,Config)]),
+init_per_testcase(sshd_simple_exec, Config) ->
+    case proplists:get_value(tag_alg, Config) of
+        {public_key, Algs} ->
+            KeyInfo = user_key_files_for(Algs),
+            case has_user_key_for(Algs) of
+                true ->
+                    ?CT_LOG("sshd_simple_exec: identity key check passed~n"
+                            "  Algs: ~p~n"
+                            "  Key files found: ~p", [Algs, KeyInfo]),
                     Config;
-                _ ->
-                    Config
+                false ->
+                    ?CT_LOG("sshd_simple_exec: no identity key~n"
+                            "  Algs: ~p~n"
+                            "  Key files checked: ~p", [Algs, KeyInfo]),
+                    {skip, {no_user_identity_key, Algs}}
             end;
         _ ->
             Config
-    end.
+    end;
+init_per_testcase(_TC, Config) ->
+    Config.
+
+
+end_per_testcase(_TC, _Config) ->
+    ok.
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
+%%--------------------------------------------------------------------
+%% Regression test for the mlkem768x25519-sha256 hybrid key exchange: the
+%% classical (X25519) shared secret must be hashed as a fixed-width 32-byte
+%% octet string. Encoding it as a trimmed mpint dropped a genuine leading 0x00
+%% byte ~1/512 of the time (when the secret's most significant byte is 0x00 and
+%% the next byte is < 0x80), so the two peers derived different exchange hashes
+%% and the handshake failed with "incorrect signature".
+%%
+%% The keys below produce a shared secret starting with <<0x00, 0x42, ...>>
+%% which triggers the edge case (0x42 < 0x80).
+mlkem768x25519_hybrid_secret_encoding(_Config) ->
+    PeerPublic = <<16#94,16#5E,16#6F,16#5A,16#CA,16#B1,16#AD,16#A6,
+                   16#31,16#CF,16#12,16#F5,16#47,16#A4,16#25,16#6B,
+                   16#6A,16#E5,16#3A,16#A2,16#48,16#6A,16#0D,16#08,
+                   16#C6,16#D6,16#73,16#2C,16#B3,16#E2,16#0E,16#5B>>,
+    MyPrivate  = <<16#58,16#EF,16#AB,16#DA,16#4C,16#C5,16#6B,16#8E,
+                   16#B2,16#43,16#8A,16#86,16#92,16#2C,16#5D,16#73,
+                   16#83,16#98,16#B4,16#38,16#0E,16#A3,16#91,16#37,
+                   16#F9,16#38,16#5B,16#E5,16#BA,16#B5,16#94,16#6D>>,
+    %% Verify the shared secret triggers the edge case
+    <<0, B1, _/binary>> = crypto:compute_key(ecdh, PeerPublic, MyPrivate, x25519),
+    true = B1 < 16#80,
+    %% A spec-conformant peer (e.g. OpenSSH) hashes K_pq concatenated with the
+    %% X25519 secret as a fixed-width 32-byte string, preserving the leading 0x00.
+    K_pq = crypto:strong_rand_bytes(32),
+    Raw = crypto:compute_key(ecdh, PeerPublic, MyPrivate, x25519),
+    Expected = crypto:hash(sha256, <<K_pq/binary, Raw/binary>>),
+    Expected = ssh_transport:hybrid_common(K_pq, x25519, PeerPublic, MyPrivate).
+
 %%--------------------------------------------------------------------
 %% A simple sftp transfer
 simple_sftp(Config) ->
     {Host,Port} = proplists:get_value(srvr_addr, Config),
     {preferred_algorithms,AlgEntries} = proplists:get_value(pref_algs, Config),
-    ssh_test_lib:std_simple_sftp(Host, Port, Config,
-                                 [{modify_algorithms,[{append,AlgEntries}]}]
-                                ).
+    Opts = case proplists:get_value(tag_alg, Config) of
+               {kex,_} -> [{preferred_algorithms,AlgEntries}];
+               _ -> [{modify_algorithms,[{append,AlgEntries}]}]
+           end,
+    ssh_test_lib:std_simple_sftp(Host, Port, Config, Opts).
 
 %%--------------------------------------------------------------------
 %% A simple exec call
 simple_exec(Config) ->
     {Host,Port} = proplists:get_value(srvr_addr, Config),
     {preferred_algorithms,AlgEntries} = proplists:get_value(pref_algs, Config),
-    ssh_test_lib:std_simple_exec(Host, Port, Config,
-                                 [{modify_algorithms,[{append,AlgEntries}]}]
-                                ).
+    Opts = case proplists:get_value(tag_alg, Config) of
+               {kex,_} -> [{preferred_algorithms,AlgEntries}];
+               _ -> [{modify_algorithms,[{append,AlgEntries}]}]
+           end,
+    ssh_test_lib:std_simple_exec(Host, Port, Config, Opts).
 
 %%--------------------------------------------------------------------
-%% A simple exec call
+%% A simple connect (public_key auth)
 simple_connect(Config) ->
-    ct:log("PrivDir ~p:~n~p~n~nPrivDir/system: ~p",[proplists:get_value(priv_dir,Config),
-                                                    file:list_dir(proplists:get_value(priv_dir,Config)),
-                                                    catch file:list_dir(
-                                                            filename:join(proplists:get_value(priv_dir,Config),
-                                                                          system))]),
     {Host,Port} = proplists:get_value(srvr_addr, Config),
     {preferred_algorithms,AlgEntries} = proplists:get_value(pref_algs, Config),
     Opts =
         case proplists:get_value(tag_alg, Config) of
             {public_key,Alg} -> [{pref_public_key_algs,Alg},
                                  {preferred_algorithms,AlgEntries}];
+            {kex,_} -> [{preferred_algorithms,AlgEntries}];
             _ -> [{modify_algorithms,[{append,AlgEntries}]}]
         end,
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, 
+    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port,
                                              [{silently_accept_hosts, true},
                                               {user_interaction, false} |
                                               Opts]),
-    ct:log("~p:~p connected! ~p",[?MODULE,?LINE,ConnectionRef]),
+    verify_negotiated_algorithm(ConnectionRef, Config),
+    ?CT_LOG("connected! ~p",[ConnectionRef]),
     ssh:close(ConnectionRef).
 
 %%--------------------------------------------------------------------
@@ -370,15 +356,15 @@ try_exec_simple_group(Group, Config) ->
 
 simple_exec_groups() ->
     [{timetrap,{seconds,240}}].
-    
+
 simple_exec_groups(Config) ->
     Sizes = interpolate( public_key:dh_gex_group_sizes() ),
     lists:foreach(
       fun(Sz) ->
-	      ct:log("Try size ~p",[Sz]),
-	      ct:comment(Sz),
-	      simple_exec_group(Sz, Config),
-	      ct:log("Size ~p ok",[Sz])
+              ?CT_LOG("Try size ~p",[Sz]),
+              ct:comment(Sz),
+              simple_exec_group(Sz, Config),
+              ?CT_LOG("Size ~p ok",[Sz])
       end, Sizes),
     ct:comment("~p",[lists:map(fun({_,I,_}) -> I;
 				  (I) -> I
@@ -438,9 +424,9 @@ sshd_simple_exec(Config) ->
             {public_key,Alg} -> [{pref_public_key_algs,Alg}];
             _ -> []
         end,
-    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT,
-                                         [proplists:get_value(pref_algs,Config)
-                                          | ClientPubKeyOpts]),
+    ConnectionRef = ssh_test_lib:connect_with_retry(?SSH_DEFAULT_PORT,
+                                                    [proplists:get_value(pref_algs,Config)
+                                                     | ClientPubKeyOpts]),
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId0,
 				  "echo testing", infinity),
@@ -450,13 +436,13 @@ sshd_simple_exec(Config) ->
 	    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId0);
 	{unexpected_msg,{ssh_cm, ConnectionRef, {exit_status, ChannelId0, 0}}
 	 = ExitStatus0} ->
-	    ct:log("0: Collected data ~p", [ExitStatus0]),
+            ?CT_LOG("0: Collected data ~p", [ExitStatus0]),
 	    ssh_test_lib:receive_exec_result(Data0,
 					     ConnectionRef, ChannelId0);
 	Other0 ->
 	    ct:fail(Other0)
     end,
-    
+
     {ok, ChannelId1} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId1,
 				  "echo testing1", infinity),
@@ -466,7 +452,7 @@ sshd_simple_exec(Config) ->
 	    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId1);
 	{unexpected_msg,{ssh_cm, ConnectionRef, {exit_status, ChannelId1, 0}}
 	 = ExitStatus1} ->
-	    ct:log("0: Collected data ~p", [ExitStatus1]),
+            ?CT_LOG("0: Collected data ~p", [ExitStatus1]),
 	    ssh_test_lib:receive_exec_result(Data1,
 					     ConnectionRef, ChannelId1);
 	Other1 ->
@@ -478,12 +464,12 @@ sshd_simple_exec(Config) ->
 %%%================================================================
 %%%
 %%% Lib functions
-%%% 
+%%%
 
 %%%----------------------------------------------------------------
 %%%
 %%% For construction of the result of all/0 and groups/0
-%%% 
+%%%
 group_members_for_tag(Tag, Algos, DoubleAlgos) ->
     [{group,Alg} || Alg <- Algos++proplists:get_value(Tag,DoubleAlgos,[])].
 
@@ -491,10 +477,10 @@ double(Tag, Algs) -> [concat(Tag,A1,A2) || A1 <- Algs,
                                            A2 <- Algs,
                                            A1 =/= A2].
 
-concat(Tag, A1, A2) -> 
+concat(Tag, A1, A2) ->
     list_to_atom(lists:concat(["D: ",Tag," ",A1," + ",A2])).
 
-split(TagA, Alg) -> 
+split(TagA, Alg) ->
     Tag = atom_to_list(TagA),
     ssh_test_lib:to_atoms(
       case string:tokens(atom_to_list(Alg), " ") of
@@ -502,11 +488,11 @@ split(TagA, Alg) ->
           Other -> Other
       end).
 
-specific_test_cases(Tag, Alg, SshcAlgos, SshdAlgos, TypeSSH) -> 
+specific_test_cases(Tag, Alg, SshcAlgos, SshdAlgos, TypeSSH) ->
     case Tag of
         public_key -> [simple_connect];
         _ -> [simple_connect, simple_exec, simple_sftp]
-    end 
+    end
     ++ case supports(Tag, Alg, SshcAlgos) of
            true when TypeSSH == openSSH ->
                [sshc_simple_exec_os_cmd];
@@ -535,7 +521,47 @@ supports(Tag, Alg, Algos) ->
 		      lists:member(A, proplists:get_value(Tag, Algos,[]))
 	      end,
 	      split(Tag, Alg)).
-		      
+
+
+%%%----------------------------------------------------------------
+%%% Check that the user has a local identity key matching the algorithm.
+%%% Used by init_per_testcase(sshd_simple_exec, ...) to skip early
+%%% instead of waiting 37s+ for auth failure against the OS sshd.
+
+has_user_key_for(Algs) when is_list(Algs) ->
+    lists:all(fun has_user_key_for_single/1, Algs);
+has_user_key_for(Alg) ->
+    has_user_key_for_single(Alg).
+
+user_key_files_for(Algs) when is_list(Algs) ->
+    lists:flatmap(fun user_key_files_for/1, Algs);
+user_key_files_for(Alg) ->
+    Home = os:getenv("HOME"),
+    KeyFiles = key_filenames(Alg),
+    [{Alg, F, filelib:is_regular(filename:join([Home, ".ssh", F]))}
+     || F <- KeyFiles].
+
+has_user_key_for_single(Alg) ->
+    case ssh_file:user_key(Alg, []) of
+        {ok, _Key} -> true;
+        _ -> false
+    end.
+
+key_filenames(Alg) ->
+    case Alg of
+        'ssh-rsa'             -> ["id_rsa"];
+        'rsa-sha2-256'        -> ["id_rsa"];
+        'rsa-sha2-512'        -> ["id_rsa"];
+        'ssh-dss'             -> ["id_dsa"];
+        'ssh-ed25519'         -> ["id_ed25519"];
+        'ssh-ed448'           -> ["id_ed448"];
+        'ecdsa-sha2-nistp256' -> ["id_ecdsa", "id_ecdsa_sk"];
+        'ecdsa-sha2-nistp384' -> ["id_ecdsa"];
+        'ecdsa-sha2-nistp521' -> ["id_ecdsa"];
+        _                     -> []
+    end.
+
+%%%----------------------------------------------------------------
 
 extract_algos(Spec) ->
     [{Tag,get_atoms(List)} || {Tag,List} <- Spec].
@@ -550,60 +576,68 @@ get_atoms(L) ->
 
 %%%----------------------------------------------------------------
 %%%
-%%% Test case related
+%%% Single shared daemon setup
 %%%
-start_std_daemon(Opts, Config) ->
-    ct:log("starting std_daemon",[]),
-    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config, Opts),
-    ct:log("started ~p:~p  ~p",[Host,Port,Opts]),
-    [{srvr_pid,Pid},{srvr_addr,{Host,Port}} | Config].
+%%% Instead of starting/stopping a daemon per algorithm group,
+%%% we start ONE daemon in init_per_suite with all algorithms enabled
+%%% and both password + publickey auth. Each test restricts algorithms
+%%% on the client side via preferred_algorithms/modify_algorithms.
+%%%
+%%% Host keys are loaded into memory and served via ssh_algorithms_key_cb,
+%%% bypassing the ssh_file filename collision (multiple ECDSA curves and
+%%% RSA variants all map to the same file).
+%%%
 
-
-start_pubkey_daemon(Opts0, Config) ->
-    ct:log("starting pubkey_daemon",[]),
-    Opts = pubkey_opts(Config) ++ Opts0,
-    {Pid, Host, Port} = ssh_test_lib:daemon([{failfun, fun ssh_test_lib:failfun/2}
-                                             | Opts]),
-    ct:log("started ~p:~p  ~p",[Host,Port,Opts]),
-    [{srvr_pid,Pid},{srvr_addr,{Host,Port}} | Config].
-
-
-pubkey_opts(Config) ->
-    SystemDir = filename:join(proplists:get_value(priv_dir,Config), "system"),
-    [{auth_methods,"publickey"},
-     {system_dir, SystemDir}].
-
-
-setup_pubkey([AlgClient, AlgServer], Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    UserDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:del_dir_contents(UserDir),
-    ok = ssh_test_lib:setup_user_key(AlgClient, DataDir, UserDir),
-    _SysDir = ssh_test_lib:setup_host_key_create_dir(AlgServer, DataDir, UserDir),
-try    ct:log("~p:~p AlgClient=~p, AlgServer=~p~nPrivDir ~p:~n~p~n~nSYsDir=~p~nPrivDir/system: ~p",
-           [?MODULE,?LINE,
-            AlgClient, AlgServer,
-            proplists:get_value(priv_dir,Config),
-            file:list_dir(proplists:get_value(priv_dir,Config)),
-            _SysDir,
-            catch file:list_dir(
-                    filename:join(proplists:get_value(priv_dir,Config),
-                                  system))
-           ])
-catch _C:_E:_S ->
-        ct:log("~p:~p  ~p:~p~n~p",[?MODULE,?LINE,_C,_E,_S])
-end,
-    Config;
-    
-setup_pubkey([Alg], Config) ->
+setup_all_keys(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
-    ct:log("Setup keys for ~p",[Alg]),
-    ssh_test_lib:setup_user_key(Alg, DataDir, PrivDir),
-    ssh_test_lib:setup_host_key_create_dir(Alg, DataDir, PrivDir),
-    Config.
+    AllPKAlgs = proplists:get_value(public_key, ssh_transport:supported_algorithms()),
+    %% Setup user keys — appends each pubkey to authorized_keys
+    lists:foreach(
+      fun(Alg) ->
+              try ssh_test_lib:setup_user_key(Alg, DataDir, PrivDir)
+              catch _:_ -> ok
+              end
+      end, AllPKAlgs),
+    %% Load all host private keys into a map for the in-memory key_cb
+    HostKeys = lists:foldl(
+      fun(Alg, Acc) ->
+              try
+                  File = filename:join(DataDir, ssh_test_lib:file_base_name(system_src, Alg)),
+                  {ok, KeyBin0} = file:read_file(File),
+                  KeyBin = ssh_test_lib:remove_comment(KeyBin0),
+                  {ok, [{Key,_}|_]} = ssh_file:decode_ssh_file(private, Alg, KeyBin, ignore),
+                  Acc#{Alg => Key}
+              catch _:_ -> Acc
+              end
+      end, #{}, AllPKAlgs),
+    ?CT_LOG("setup_all_keys: loaded host keys for ~p", [maps:keys(HostKeys)]),
+    [{host_keys, HostKeys} | Config].
 
+start_shared_daemon(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    HostKeys = proplists:get_value(host_keys, Config),
+    %% Use all supported algorithms (not just defaults) so deprecated
+    %% algorithms like ssh-rsa and ssh-dss are also tested.
+    AllAlgs = ssh_transport:supported_algorithms(),
+    {Pid, Host, Port} =
+        ssh_test_lib:daemon(
+          [{key_cb, {ssh_algorithms_key_cb, [{host_keys, HostKeys}]}},
+           {preferred_algorithms, AllAlgs},
+           {user_dir, PrivDir},
+           {user_passwords, [{"usr1","pwd1"}]},
+           {auth_methods, "publickey,password"},
+           {exec, erlang_eval},
+           {subsystems, [ssh_sftpd:subsystem_spec([])]},
+           {failfun, fun ssh_test_lib:failfun/2}]),
+    ?CT_LOG("Shared daemon started at ~p:~p (pid ~p)~n"
+           "Host keys: ~p", [Host, Port, Pid, maps:keys(HostKeys)]),
+    [{srvr_pid, Pid}, {srvr_addr, {Host, Port}} | Config].
 
+%%%----------------------------------------------------------------
+%%%
+%%% Test case related
+%%%
 simple_exec_group(I, Config) when is_integer(I) ->
     simple_exec_group({I,I,I}, Config);
 simple_exec_group({Min,I,Max}, Config) ->
@@ -612,3 +646,36 @@ simple_exec_group({Min,I,Max}, Config) ->
 				 [proplists:get_value(pref_algs,Config),
                                   {dh_gex_limits,{Min,I,Max}}]).
 
+%%%----------------------------------------------------------------
+%%%
+%%% Algorithm verification
+%%%
+%%% Asserts that the negotiated algorithm matches what the test
+%%% requested via preferred_algorithms. For kex and public_key the
+%%% mapping is 1:1. For cipher/mac/compression, AEAD name translation
+%%% and directional splits make exact matching complex — we log but
+%%% don't fail (the connection itself proves the algorithm works).
+%%%
+verify_negotiated_algorithm(ConnectionRef, Config) ->
+    {Tag, Expected} = proplists:get_value(tag_alg, Config),
+    {algorithms, NegAlgs} = ssh:connection_info(ConnectionRef, algorithms),
+    case Tag of
+        kex ->
+            Neg = proplists:get_value(kex, NegAlgs),
+            case lists:member(Neg, Expected) of
+                true -> ok;
+                false -> ct:fail("Negotiated kex ~p not in expected ~p",
+                                 [Neg, Expected])
+            end;
+        public_key ->
+            Neg = proplists:get_value(hkey, NegAlgs),
+            case lists:member(Neg, Expected) of
+                true -> ok;
+                false -> ct:fail("Negotiated hkey ~p not in expected ~p",
+                                 [Neg, Expected])
+            end;
+        _ ->
+            %% cipher, mac, compression — log for diagnostics
+            ?CT_LOG("Negotiated algorithms: ~p", [NegAlgs]),
+            ok
+    end.

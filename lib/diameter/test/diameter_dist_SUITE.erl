@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +39,9 @@
          end_per_suite/1,
 
          %% The test cases
-         traffic/1
+         traffic/1,
+         zero_length_avp_infinite_loop/1,
+         short_length_avp_crash/1
         ]).
 
 %% diameter callbacks
@@ -114,7 +118,7 @@ suite() ->
     [{timetrap, {seconds, 90}}].
 
 all() ->
-    [traffic].
+    [traffic, zero_length_avp_infinite_loop, short_length_avp_crash].
 
 init_per_suite(Config) ->
     ?DUTIL:init_per_suite(Config).
@@ -131,6 +135,35 @@ traffic(Config) ->
         "~n   Res: ~p", [Res]),
     Res.
 
+zero_length_avp_infinite_loop(_Config) ->
+    MalformedMsg = <<1, 0, 0, 28,  %% Version=1, Length=28
+                     128, 0, 0, 1, %% Flags=Request, Command=1
+                     0, 0, 0, 0,   %% Application-Id=0
+                     0, 0, 0, 1,   %% Hop-by-Hop=1
+                     0, 0, 0, 1,   %% End-to-End=1
+                     0, 0, 0, 1,   %% AVP Code=1
+                     0,            %% Flags=0
+                     0, 0, 0>>,    %% AVP Length=0
+    RecvData = {recvdata, undefined, name, undefined, undefined, undefined, undefined},
+    Pkt = #diameter_packet{bin = MalformedMsg},
+    Request = {Pkt, undefined, undefined, undefined, undefined, RecvData},
+
+    discard = diameter_dist:route_session(Request, #{default => discard}).
+
+short_length_avp_crash(_Config) ->
+    MalformedMsg = <<1, 0, 0, 28,  %% Version=1, Length=28
+                     128, 0, 0, 1, %% Flags=Request, Command=1
+                     0, 0, 0, 0,   %% Application-Id=0
+                     0, 0, 0, 1,   %% Hop-by-Hop=1
+                     0, 0, 0, 1,   %% End-to-End=1
+                     0, 0, 1, 7,   %% AVP Code=263 (Session-Id)
+                     0,            %% Flags=0 (V-bit=0)
+                     0, 0, 4>>,    %% AVP Length=4 (minimum is 8)
+    RecvData = {recvdata, undefined, name, undefined, undefined, undefined, undefined},
+    Pkt = #diameter_packet{bin = MalformedMsg},
+    Request = {Pkt, undefined, undefined, undefined, undefined, RecvData},
+
+    discard = diameter_dist:route_session(Request, #{default => discard}).
 
 %% ===========================================================================
 
@@ -146,7 +179,7 @@ do_traffic(Factor) ->
     ?DL("do_traffic -> check we have distribution"),
     true = is_alive(),  %% need distribution for peer nodes
     ?DL("do_traffic -> get nodes"),
-    Nodes = enslave(),
+    Nodes = get_nodes(),
     ?DL("do_traffic -> ping nodes (except client node)"),
     [] = ping(lists:droplast(Nodes)),  %% drop client node
     ?DL("do_traffic -> start nodes"),
@@ -158,12 +191,12 @@ do_traffic(Factor) ->
     ?DL("do_traffic -> done"),
     ok.
 
-%% enslave/1
+%% get_nodes/0
 %%
-%% Start four slave nodes, three to implement a Diameter server,
+%% Start four peer nodes, three to implement a Diameter server,
 %% one to implement a client.
 
-enslave() ->
+get_nodes() ->
     Here = filename:dirname(code:which(?MODULE)),
     Ebin = filename:join([Here, "..", "ebin"]),
     Args = ["-pa", Here, Ebin],

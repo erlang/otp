@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,13 +16,13 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 -module(tftp_SUITE).
 
--compile(export_all).
+-compile([export_all, nowarn_export_all]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Includes and defines
@@ -29,45 +31,27 @@
 -include_lib("common_test/include/ct.hrl").
 -include("tftp_test_lib.hrl").
 
--define(START_DAEMON(Port, Options),
+-define(START_DAEMON(Options),
         begin
-            {ok, Pid} = ?VERIFY({ok, _Pid}, tftp:start([{port, Port} | Options])),
-            if
-                Port == 0 ->
-                    {ok, ActualOptions} = ?IGNORE(tftp:info(Pid)),
-                    {value, {port, ActualPort}} =
-                        lists:keysearch(port, 1, ActualOptions),
-                    {ActualPort, Pid};
-                true ->
-                    {Port, Pid}
-            end
+            {{ok, Pid}} = ?TRY(tftp:start([{port, 0} | Options])),
+            {{ok, ActualOptions}} = ?TRY(tftp:info(Pid)),
+            {value, {port, ActualPort}} =
+                lists:keysearch(port, 1, ActualOptions),
+            {ActualPort, Pid}
         end).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% API
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-t() -> 
-    tftp_test_lib:t([{?MODULE, all}]).
-
-t(Cases) ->
-    tftp_test_lib:t(Cases, default_config()).
-
-t(Cases, Config) ->
-    tftp_test_lib:t(Cases, Config).
-
-default_config() ->
-    [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Test server callbacks
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_per_testcase(Case, Config) ->
-    tftp_test_lib:init_per_testcase(Case, Config).
+    io:format("\n ", []),
+    ?TRY(application:stop(tftp)),
+    Config.
 
 end_per_testcase(Case, Config) when is_list(Config) ->
-    tftp_test_lib:end_per_testcase(Case, Config).
+    ?TRY(application:stop(tftp)),
+    Config.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Top test case
@@ -78,6 +62,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() ->
     [
      simple,
+     root_dir,
      extra,
      reuse_connection,
      resend_client,
@@ -124,9 +109,9 @@ simple(doc) ->
 simple(suite) ->
     [];
 simple(Config) when is_list(Config) ->
-    ?VERIFY(ok, application:start(tftp)),
+    {ok} = ?TRY(application:start(tftp)),
 
-    {Port, DaemonPid} = ?IGNORE(?START_DAEMON(0, [{debug, brief}])),
+    {{Port, DaemonPid}} = ?TRY(?START_DAEMON([{debug, brief}])),
 
     %% Read fail
     RemoteFilename = "tftp_temporary_remote_test_file.txt",
@@ -134,23 +119,90 @@ simple(Config) when is_list(Config) ->
     Blob = list_to_binary(lists:duplicate(2000, $1)),
     %% Blob = <<"Some file contents\n">>,
     Size = size(Blob),
-    ?IGNORE(file:delete(RemoteFilename)),
-    ?VERIFY({error, {client_open, enoent, _}},
-            tftp:read_file(RemoteFilename, binary, [{port, Port}])),
-    
+    ?TRY(file:delete(RemoteFilename)),
+    {{error, {client_open, enoent, _}}} =
+            ?TRY(tftp:read_file(RemoteFilename, binary, [{port, Port}])),
+
     %% Write and read
-    ?VERIFY({ok, Size}, tftp:write_file(RemoteFilename, Blob, [{port, Port}])),
-    ?VERIFY({ok, Blob}, tftp:read_file(RemoteFilename, binary, [{port, Port}])),
-    ?IGNORE(file:delete(LocalFilename)),
-    ?VERIFY({ok, Size}, tftp:read_file(RemoteFilename, LocalFilename, [{port, Port}])),
+    {{ok, Size}} = ?TRY(tftp:write_file(RemoteFilename, Blob, [{port, Port}])),
+    {{ok, Blob}} = ?TRY(tftp:read_file(RemoteFilename, binary, [{port, Port}])),
+    ?TRY(file:delete(LocalFilename)),
+    {{ok, Size}} = ?TRY(tftp:read_file(RemoteFilename, LocalFilename, [{port, Port}])),
 
     %% Cleanup
     unlink(DaemonPid),
     exit(DaemonPid, kill),
-    ?VERIFY(ok, file:delete(LocalFilename)),
-    ?VERIFY(ok, file:delete(RemoteFilename)),
-    ?VERIFY(ok, application:stop(tftp)),
+    {ok} = ?TRY(file:delete(LocalFilename)),
+    {ok} = ?TRY(file:delete(RemoteFilename)),
+    {ok} = ?TRY(application:stop(tftp)),
     ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% root_dir
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+root_dir(doc) ->
+    ["Start the daemon and check the root_dir option."];
+root_dir(suite) ->
+    [];
+root_dir(Config) when is_list(Config) ->
+    {ok} = ?TRY(application:start(tftp)),
+    PrivDir = get_conf(priv_dir, Config),
+    Root    = hd(filename:split(PrivDir)),
+    Up      = "..",
+    Remote  = "remote.txt",
+    Local   = "tftp_temporary_local_test_file.txt",
+    SideDir = fn_jn(PrivDir,tftp_side),
+    RootDir = fn_jn(PrivDir,tftp_root),
+    ?TRY(file:del_dir_r(RootDir)),
+    ?TRY(file:del_dir_r(SideDir)),
+    ok = filelib:ensure_path(fn_jn(RootDir,sub)),
+    ok = filelib:ensure_path(SideDir),
+    Blob = binary:copy(<<$1>>, 2000),
+    Size = byte_size(Blob),
+    ok = file:write_file(fn_jn(SideDir,Remote), Blob),
+    {{Port, DaemonPid}} =
+        ?TRY(?START_DAEMON([{debug, brief},
+                            {callback,
+                             {"", tftp_file, [{root_dir, RootDir}]}}])),
+    try
+        %% Outside root_dir
+        {{error, {client_open, badop, _}}} =
+            ?TRY(tftp:read_file(
+                   fn_jn([Up,tftp_side,Remote]), binary, [{port, Port}])),
+        {{error, {client_open, badop, _}}} =
+            ?TRY(tftp:write_file(
+                   fn_jn([Up,tftp_side,Remote]), Blob, [{port, Port}])),
+        %% Nonexistent
+        {{error, {client_open, enoent, _}}} =
+            ?TRY(tftp:read_file(
+                   fn_jn(sub,Remote), binary, [{port, Port}])),
+        {{error, {client_open, enoent, _}}} =
+            ?TRY(tftp:write_file(
+                   fn_jn(nonexistent,Remote), Blob, [{port, Port}])),
+        %% Write and read
+        {{ok, Size}} =
+            ?TRY(tftp:write_file(
+                   fn_jn(sub,Remote), Blob, [{port, Port}])),
+        {{ok, Blob}} =
+            ?TRY(tftp:read_file(
+                   fn_jn([Root,sub,Remote]), binary, [{port, Port}])),
+        {{ok, Size}} =
+            ?TRY(tftp:read_file(
+                   fn_jn(sub,Remote), Local, [{port, Port}])),
+        {{ok, Blob}} = ?TRY(file:read_file(Local)),
+        {ok} = ?TRY(file:delete(Local)),
+        {ok} = ?TRY(application:stop(tftp))
+    after
+        %% Cleanup
+        unlink(DaemonPid),
+        exit(DaemonPid, kill),
+        ?TRY(file:del_dir_r(SideDir)),
+        ?TRY(file:del_dir_r(RootDir)),
+        ?TRY(application:stop(tftp))
+    end,
+    ok.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Extra
@@ -161,11 +213,11 @@ extra(doc) ->
 extra(suite) ->
     [];
 extra(Config) when is_list(Config) ->
-    ?VERIFY({'EXIT', {badarg,{fake_key, fake_flag}}},
-            tftp:start([{port, 0}, {fake_key, fake_flag}])),
+    {'EXIT', {badarg,{fake_key, fake_flag}}} =
+        ?TRY(tftp:start([{port, 0}, {fake_key, fake_flag}])),
 
-    {Port, DaemonPid} = ?IGNORE(?START_DAEMON(0, [{debug, brief}])),
-    
+    {{Port, DaemonPid}} = ?TRY(?START_DAEMON([{debug, brief}])),
+
     RemoteFilename = "tftp_extra_temporary_remote_test_file.txt",
     LocalFilename = "tftp_extra_temporary_local_test_file.txt",
     Blob = <<"Some file contents\n">>,
@@ -185,19 +237,19 @@ extra(Config) when is_list(Config) ->
                {port, Port},
                %%{ debug,all},
                {callback, {".*", tftp_test_lib, Generic}}],
-    ?VERIFY(ok, file:write_file(LocalFilename, Blob)),
-    ?VERIFY({ok, [{count, Size}, Peer]},
-            tftp:write_file(RemoteFilename, LocalFilename, Options)),
-    ?VERIFY(ok, file:delete(LocalFilename)),
-    
-    ?VERIFY({ok,[{bin, Blob}, Peer]}, 
-            tftp:read_file(RemoteFilename, LocalFilename, Options)),
+    {ok} = ?TRY(file:write_file(LocalFilename, Blob)),
+    {{ok, [{count, Size}, Peer]}} =
+        ?TRY(tftp:write_file(RemoteFilename, LocalFilename, Options)),
+    {ok} = ?TRY(file:delete(LocalFilename)),
+
+    {{ok,[{bin, Blob}, Peer]}} =
+        ?TRY(tftp:read_file(RemoteFilename, LocalFilename, Options)),
 
     %% Cleanup
     unlink(DaemonPid),
     exit(DaemonPid, kill),
-    ?VERIFY(ok, file:delete(LocalFilename)),
-    ?VERIFY(ok, file:delete(RemoteFilename)),
+    {ok} = ?TRY(file:delete(LocalFilename)),
+    {ok} = ?TRY(file:delete(RemoteFilename)),
     ok.
 
 -record(extra_state,  {file, blksize, count, acc, peer}).
@@ -240,7 +292,7 @@ extra_open(_Peer, Access, LocalFilename, _Mode, NegotiatedOptions, #extra_state{
                         {ok, Bin} = file:read_file(LocalFilename),
                         {LocalFilename, Bin}
             end;
-            write -> 
+            write ->
                 {LocalFilename, []}
         end,
     %% Both sides
@@ -298,19 +350,23 @@ resend_client(suite) ->
     [];
 resend_client(Config) when is_list(Config) ->
     Host = {127, 0, 0, 1},
-    {Port, DaemonPid} = ?IGNORE(?START_DAEMON(0, [{debug, all}])),
+    {{Port, DaemonPid}} = ?TRY(?START_DAEMON([{debug, all}])),
 
-    ?VERIFY(ok, resend_read_client(Host, Port, 10)),
-    ?VERIFY(ok, resend_read_client(Host, Port, 512)),
-    ?VERIFY(ok, resend_read_client(Host, Port, 1025)),
+    try
 
-    ?VERIFY(ok, resend_write_client(Host, Port, 10)),
-    ?VERIFY(ok, resend_write_client(Host, Port, 512)),
-    ?VERIFY(ok, resend_write_client(Host, Port, 1025)),
-    
-    %% Cleanup
-    unlink(DaemonPid),
-    exit(DaemonPid, kill),
+    ok = resend_read_client(Host, Port, 10),
+    ok = resend_read_client(Host, Port, 512),
+    ok = resend_read_client(Host, Port, 1025),
+
+    ok = resend_write_client(Host, Port, 10),
+    ok = resend_write_client(Host, Port, 512),
+    ok = resend_write_client(Host, Port, 1025)
+
+    after
+        %% Cleanup
+        unlink(DaemonPid),
+        exit(DaemonPid, kill)
+    end,
     ok.
 
 resend_read_client(Host, Port, BlkSize) ->
@@ -322,13 +378,13 @@ resend_read_client(Host, Port, BlkSize) ->
     Block5 = lists:duplicate(BlkSize, $5),
     Blocks = [Block1, Block2, Block3, Block4, Block5],
     Blob = list_to_binary(Blocks),
-    ?VERIFY(ok, file:write_file(RemoteFilename, Blob)),
+    {ok} = ?TRY(file:write_file(RemoteFilename, Blob)),
 
     Timeout = timer:seconds(3),
-    ?VERIFY(timeout, recv(0)),
+    {timeout} = ?TRY(recv(0)),
 
     %% Open socket
-    {ok, Socket} = ?VERIFY({ok, _}, gen_udp:open(0, [binary, {reuseaddr, true}, {active, true}])),
+    {{ok, Socket}} = ?TRY(gen_udp:open(0, [binary, {reuseaddr, true}, {active, true}])),
 
     ReadList = [0, 1, RemoteFilename, 0, "octet", 0],
     Data1Bin = list_to_binary([0, 3, 0, 1 | Block1]),
@@ -337,92 +393,96 @@ resend_read_client(Host, Port, BlkSize) ->
             BlkSize =:= 512 ->
                 %% Send READ
                 ReadBin = list_to_binary(ReadList),
-                ?VERIFY(ok, gen_udp:send(Socket, Host, Port, ReadBin)),
+                {ok} = ?TRY(gen_udp:send(Socket, Host, Port, ReadBin)),
 
                 %% Sleep a while in order to provoke the server to re-send the packet
                 timer:sleep(Timeout + timer:seconds(1)),
 
                 %% Recv DATA #1 (the packet that the server think that we have lost)
-                {udp, _, _, NewPort0, _} = ?VERIFY({udp, Socket, Host, _, Data1Bin}, recv(Timeout)),
+                {{udp, Socket, Host, NewPort0, Data1Bin}} = ?TRY(recv(Timeout)),
                 NewPort0;
             true ->
                 %% Send READ
                 BlkSizeList = integer_to_list(BlkSize),
                 Options = ["blksize", 0, BlkSizeList, 0],
                 ReadBin = list_to_binary([ReadList | Options]),
-                ?VERIFY(ok, gen_udp:send(Socket, Host, Port, ReadBin)),
+                {ok} = ?TRY(gen_udp:send(Socket, Host, Port, ReadBin)),
 
                 %% Recv OACK
                 OptionAckBin = list_to_binary([0, 6 | Options]),
-                {udp, _, _, NewPort0, _} = ?VERIFY({udp, Socket, Host, _, OptionAckBin}, recv(Timeout)),
+                {{udp, Socket, Host, NewPort0, OptionAckBin}} =
+                    ?TRY(recv(Timeout)),
 
                 %% Send ACK #0
                 Ack0Bin = <<0, 4, 0, 0>>,
-                ?VERIFY(ok, gen_udp:send(Socket, Host, NewPort0, Ack0Bin)),
+                {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort0, Ack0Bin)),
 
                 %% Send ACK #0 AGAIN (pretend that we timed out)
                 timer:sleep(timer:seconds(1)),
-                ?VERIFY(ok, gen_udp:send(Socket, Host, NewPort0, Ack0Bin)),
+                {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort0, Ack0Bin)),
 
                 %% Recv DATA #1 (the packet that the server think that we have lost)
-                ?VERIFY({udp, Socket, Host, NewPort0, Data1Bin}, recv(Timeout)),
+                {{udp, Socket, Host, NewPort0, Data1Bin}} = ?TRY(recv(Timeout)),
                 NewPort0
         end,
 
     %% Recv DATA #1 AGAIN (the re-sent package)
-    ?VERIFY({udp, Socket, Host, NewPort, Data1Bin}, recv(Timeout)),
+    {{udp, Socket, Host, NewPort, Data1Bin}} = ?TRY(recv(Timeout)),
 
     %% Send ACK #1
     Ack1Bin = <<0, 4, 0, 1>>,
-    ?VERIFY(ok, gen_udp:send(Socket, Host, NewPort, Ack1Bin)),
+    {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Ack1Bin)),
 
     %% Recv DATA #2
     Data2Bin = list_to_binary([0, 3, 0, 2 | Block2]),
-    ?VERIFY({udp, Socket, Host, NewPort, Data2Bin}, recv(Timeout)),
+    {{udp, Socket, Host, NewPort, Data2Bin}} = ?TRY(recv(Timeout)),
 
     %% Send ACK #2
     Ack2Bin = <<0, 4, 0, 2>>,
-    ?VERIFY(ok, gen_udp:send(Socket, Host, NewPort, Ack2Bin)),
+    {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Ack2Bin)),
 
     %% Recv DATA #3
     Data3Bin = list_to_binary([0, 3, 0, 3 | Block3]),
-    ?VERIFY({udp, Socket, Host, NewPort, Data3Bin}, recv(Timeout)),
+    {{udp, Socket, Host, NewPort, Data3Bin}} = ?TRY(recv(Timeout)),
 
     %% Send ACK #3
     Ack3Bin = <<0, 4, 0, 3>>,
-    ?VERIFY(ok, gen_udp:send(Socket, Host, NewPort, Ack3Bin)),
+    {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Ack3Bin)),
 
     %% Send ACK #3 AGAIN (pretend that we timed out)
     timer:sleep(timer:seconds(1)),
-    ?VERIFY(ok, gen_udp:send(Socket, Host, NewPort, Ack3Bin)),
+    {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Ack3Bin)),
 
     %% Recv DATA #4 (the packet that the server think that we have lost)
     Data4Bin = list_to_binary([0, 3, 0, 4 | Block4]),
-    ?VERIFY({udp, Socket, Host, NewPort, Data4Bin}, recv(Timeout)),
+    {{udp, Socket, Host, NewPort, Data4Bin}} = ?TRY(recv(Timeout)),
 
     %% Recv DATA #4 AGAIN (the re-sent package)
-    ?VERIFY({udp, Socket, Host, NewPort, Data4Bin}, recv(Timeout)),
+    {{udp, Socket, Host, NewPort, Data4Bin}} = ?TRY(recv(Timeout)),
 
     %% Send ACK #2 which is out of range
-    ?VERIFY(ok, gen_udp:send(Socket, Host, NewPort, Ack2Bin)),
+    {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Ack2Bin)),
 
     %% Send ACK #4
     Ack4Bin = <<0, 4, 0, 4>>,
-    ?VERIFY(ok, gen_udp:send(Socket, Host, NewPort, Ack4Bin)),
+    {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Ack4Bin)),
 
     %% Recv DATA #5
     Data5Bin = list_to_binary([0, 3, 0, 5 | Block5]),
-    ?VERIFY({udp, Socket, Host, NewPort, Data5Bin}, recv(Timeout)),
+    {{udp, Socket, Host, NewPort, Data5Bin}} = ?TRY(recv(Timeout)),
 
     %% Send ACK #5
     Ack5Bin = <<0, 4, 0, 5>>,
-    ?VERIFY(ok, gen_udp:send(Socket, Host, NewPort, Ack5Bin)),
+    {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Ack5Bin)),
+
+    %% Recv ACK #6
+    {{udp, Socket, Host, NewPort, <<0,3,0,6>>}} = ?TRY(recv(Timeout)),
 
     %% Close socket
-    ?VERIFY(ok, gen_udp:close(Socket)),
+    {ok} = ?TRY(gen_udp:close(Socket)),
 
-    ?VERIFY(timeout, recv(Timeout)),
-    ?VERIFY(ok, file:delete(RemoteFilename)),
+    {timeout} = ?TRY(recv(Timeout)),
+    {ok} = ?TRY(file:delete(RemoteFilename)),
     ok.
 
 resend_write_client(Host, Port, BlkSize) ->
@@ -434,14 +494,15 @@ resend_write_client(Host, Port, BlkSize) ->
     Block5 = lists:duplicate(BlkSize, $5),
     Blocks = [Block1, Block2, Block3, Block4, Block5],
     Blob = list_to_binary(Blocks),
-    ?IGNORE(file:delete(RemoteFilename)),
-    ?VERIFY({error, enoent}, file:read_file(RemoteFilename)),
+    ?TRY(file:delete(RemoteFilename)),
+    {{error, enoent}} = ?TRY(file:read_file(RemoteFilename)),
 
     Timeout = timer:seconds(3),
-    ?VERIFY(timeout, recv(0)),
+    {timeout} = ?TRY(recv(0)),
 
     %% Open socket
-    {ok, Socket} = ?VERIFY({ok, _}, gen_udp:open(0, [binary, {reuseaddr, true}, {active, true}])),
+    {{ok, Socket}} =
+        ?TRY(gen_udp:open(0, [binary, {reuseaddr, true}, {active, true}])),
 
     WriteList = [0, 2, RemoteFilename, 0, "octet", 0],
     NewPort =
@@ -449,92 +510,93 @@ resend_write_client(Host, Port, BlkSize) ->
             BlkSize =:= 512 ->
                 %% Send WRITE
                 WriteBin = list_to_binary(WriteList),
-                ?VERIFY(ok,  gen_udp:send(Socket, Host, Port, WriteBin)),
+                {ok} = ?TRY(gen_udp:send(Socket, Host, Port, WriteBin)),
 
                 %% Sleep a while in order to provoke the server to re-send the packet
                 timer:sleep(Timeout + timer:seconds(1)),
 
                 %% Recv ACK #0 (the packet that the server think that we have lost)
                 Ack0Bin = <<0, 4, 0, 0>>,
-                ?VERIFY({udp, Socket, Host, _, Ack0Bin}, recv(Timeout)),
+                {{udp, Socket, Host, _, Ack0Bin}} = ?TRY(recv(Timeout)),
 
                 %% Recv ACK #0  AGAIN (the re-sent package)
-                {udp, _, _, NewPort0, _} = ?VERIFY({udp, Socket, Host, _, Ack0Bin}, recv(Timeout)),
+                {{udp, Socket, Host, NewPort0, Ack0Bin}} = ?TRY(recv(Timeout)),
                 NewPort0;
             true ->
                 %% Send WRITE
                 BlkSizeList = integer_to_list(BlkSize),
                 WriteBin = list_to_binary([WriteList, "blksize", 0, BlkSizeList, 0]),
-                ?VERIFY(ok,  gen_udp:send(Socket, Host, Port, WriteBin)),
+                {ok} = ?TRY(gen_udp:send(Socket, Host, Port, WriteBin)),
 
                 %% Sleep a while in order to provoke the server to re-send the packet
                 timer:sleep(timer:seconds(1)),
 
                 %% Recv OACK (the packet that the server think that we have lost)
                 OptionAckBin = list_to_binary([0, 6, "blksize",0, BlkSizeList, 0]),
-                ?VERIFY({udp, Socket, Host, _, OptionAckBin}, recv(Timeout)),
-                
+                {{udp, Socket, Host, _, OptionAckBin}} = ?TRY(recv(Timeout)),
+
                 %% Recv OACK AGAIN (the re-sent package)
-                {udp, _, _, NewPort0, _} = ?VERIFY({udp, Socket, Host, _, OptionAckBin}, recv(Timeout)),
+                {{udp, Socket, Host, NewPort0, OptionAckBin}} =
+                    ?TRY(recv(Timeout)),
                 NewPort0
         end,
 
     %% Send DATA #1
     Data1Bin = list_to_binary([0, 3, 0, 1 | Block1]),
-    ?VERIFY(ok, gen_udp:send(Socket, Host, NewPort, Data1Bin)),
+    {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Data1Bin)),
 
-    %% Recv ACK #1 
+    %% Recv ACK #1
     Ack1Bin = <<0, 4, 0, 1>>,
-    ?VERIFY({udp, Socket, Host, NewPort, Ack1Bin}, recv(Timeout)),
+    {{udp, Socket, Host, NewPort, Ack1Bin}} = ?TRY(recv(Timeout)),
 
     %% Send DATA #2
     Data2Bin = list_to_binary([0, 3, 0, 2 | Block2]),
-    ?VERIFY(ok, gen_udp:send(Socket, Host, NewPort, Data2Bin)),
+    {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Data2Bin)),
 
     %% Recv ACK #2
     Ack2Bin = <<0, 4, 0, 2>>,
-    ?VERIFY({udp, Socket, Host, NewPort, Ack2Bin}, recv(Timeout)),
+    {{udp, Socket, Host, NewPort, Ack2Bin}} = ?TRY(recv(Timeout)),
 
     %% Send DATA #3
     Data3Bin = list_to_binary([0, 3, 0, 3 | Block3]),
-    ?VERIFY(ok, gen_udp:send(Socket, Host, NewPort, Data3Bin)),
+    {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Data3Bin)),
 
     %% Recv ACK #3
     Ack3Bin = <<0, 4, 0, 3>>,
-    ?VERIFY({udp, Socket, Host, NewPort, Ack3Bin}, recv(Timeout)),
+    {{udp, Socket, Host, NewPort, Ack3Bin}} = ?TRY(recv(Timeout)),
 
     %% Send DATA #3 AGAIN (pretend that we timed out)
     timer:sleep(timer:seconds(1)),
-    ?VERIFY(ok, gen_udp:send(Socket, Host, NewPort, Data3Bin)),
+    {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Data3Bin)),
 
     %% Recv ACK #3 AGAIN (the packet that the server think that we have lost)
-    ?VERIFY({udp, Socket, Host, NewPort, Ack3Bin}, recv(Timeout)),
+    {{udp, Socket, Host, NewPort, Ack3Bin}} = ?TRY(recv(Timeout)),
 
     %% Send DATA #2 which is out of range
-    ?VERIFY(ok, gen_udp:send(Socket, Host, NewPort, Data2Bin)),
+    {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Data2Bin)),
 
     %% Send DATA #4
     Data4Bin = list_to_binary([0, 3, 0, 4 | Block4]),
-    ?VERIFY(ok, gen_udp:send(Socket, Host, NewPort, Data4Bin)),
+    {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Data4Bin)),
 
     %% Recv ACK #4
     Ack4Bin = <<0, 4, 0, 4>>,
-    ?VERIFY({udp, Socket, Host, NewPort, Ack4Bin}, recv(Timeout)),
+    {{udp, Socket, Host, NewPort, Ack4Bin}} = ?TRY(recv(Timeout)),
 
     %% Send DATA #5
     Data5Bin = list_to_binary([0, 3, 0, 5 | Block5]),
-    ?VERIFY(ok, gen_udp:send(Socket, Host, NewPort, Data5Bin)),
+    {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Data5Bin)),
 
     %% Recv ACK #5
     Ack5Bin = <<0, 4, 0, 5>>,
-    ?VERIFY({udp, Socket, Host, NewPort, Ack5Bin}, recv(Timeout)),
+    {{udp, Socket, Host, NewPort, Ack5Bin}} = ?TRY(recv(Timeout)),
 
     %% Close socket
-    ?VERIFY(ok, gen_udp:close(Socket)),
+    {ok} = ?TRY(gen_udp:close(Socket)),
 
-    ?VERIFY(timeout, recv(Timeout)),
-    ?VERIFY({ok, Blob}, file:read_file(RemoteFilename)),
-    ?VERIFY(ok, file:delete(RemoteFilename)),
+    {timeout} = ?TRY(recv(Timeout)),
+    {{ok, Blob}} = ?TRY(file:read_file(RemoteFilename)),
+    {ok} = ?TRY(file:delete(RemoteFilename)),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -548,14 +610,13 @@ resend_server(suite) ->
 resend_server(Config) when is_list(Config) ->
     Host = {127, 0, 0, 1},
 
-    ?VERIFY(ok, resend_read_server(Host, 10)),
-    ?VERIFY(ok, resend_read_server(Host, 512)),
-    ?VERIFY(ok, resend_read_server(Host, 1025)),
-    
-    ?VERIFY(ok, resend_write_server(Host, 10)),
-    ?VERIFY(ok, resend_write_server(Host, 512)),
-    ?VERIFY(ok, resend_write_server(Host, 1025)),
-    ok.
+    ok = resend_read_server(Host, 10),
+    ok = resend_read_server(Host, 512),
+    ok = resend_read_server(Host, 1025),
+
+    ok = resend_write_server(Host, 10),
+    ok = resend_write_server(Host, 512),
+    ok = resend_write_server(Host, 1025).
 
 resend_read_server(Host, BlkSize) ->
     RemoteFilename = "tftp_resend_read_server.tmp",
@@ -569,22 +630,25 @@ resend_read_server(Host, BlkSize) ->
     Blob = list_to_binary(Blocks),
 
     Timeout = timer:seconds(3),
-    ?VERIFY(timeout, recv(0)),
+    {timeout} = ?TRY(recv(0)),
 
     %% Open daemon socket
-    {ok, DaemonSocket} = ?VERIFY({ok, _}, gen_udp:open(0, [binary, {reuseaddr, true}, {active, true}])),
-    {ok, DaemonPort} = ?IGNORE(inet:port(DaemonSocket)),
+    {{ok, DaemonSocket}} =
+        ?TRY(gen_udp:open(0, [binary, {reuseaddr, true}, {active, true}])),
+    {{ok, DaemonPort}} = ?TRY(inet:port(DaemonSocket)),
 
     %% Open server socket
-    {ok, ServerSocket} = ?VERIFY({ok, _}, gen_udp:open(0, [binary, {reuseaddr, true}, {active, true}])),
-    ?IGNORE(inet:port(ServerSocket)),
+    {{ok, ServerSocket}} =
+        ?TRY(gen_udp:open(0, [binary, {reuseaddr, true}, {active, true}])),
+    ?TRY(inet:port(ServerSocket)),
 
     %% Prepare client process
     ReplyTo = self(),
     ClientFun =
         fun(Extra) ->
                 Options = [{port, DaemonPort}, {debug, brief}] ++ Extra,
-                Res = ?VERIFY({ok, Blob}, tftp:read_file(RemoteFilename, binary, Options)),
+                {{ok, Blob} = Res} =
+                    ?TRY(tftp:read_file(RemoteFilename, binary, Options)),
                 ReplyTo ! {self(), {tftp_client_reply, Res}},
                 exit(normal)
         end,
@@ -600,106 +664,116 @@ resend_read_server(Host, BlkSize) ->
 
                 %% Recv READ
                 ReadBin = list_to_binary(ReadList),
-                {udp, _, _, ClientPort0, _} = ?VERIFY({udp, DaemonSocket, Host, _, ReadBin}, recv(Timeout)),
+                {{udp, DaemonSocket, Host, ClientPort0, ReadBin}} =
+                    ?TRY(recv(Timeout)),
 
                 %% Send DATA #1
-                ?VERIFY(ok,  gen_udp:send(ServerSocket, Host, ClientPort0, Data1Bin)),
+                {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort0, Data1Bin)),
 
                 %% Sleep a while in order to provoke the client to re-send the packet
                 timer:sleep(Timeout + timer:seconds(1)),
 
                 %% Recv ACK #1 (the packet that the server think that we have lost)
-                ?VERIFY({udp, ServerSocket, Host, ClientPort0, Ack1Bin}, recv(Timeout)),
+                {{udp, ServerSocket, Host, ClientPort0, Ack1Bin}} =
+                    ?TRY(recv(Timeout)),
 
                 %% Recv ACK #1 AGAIN (the re-sent package)
-                ?VERIFY({udp, ServerSocket, Host, _, Ack1Bin}, recv(Timeout)),
+                {{udp, ServerSocket, Host, _, Ack1Bin}} = ?TRY(recv(Timeout)),
                 {ClientPort0, ClientPid0};
             true ->
                 %% Start client process
                 BlkSizeList = integer_to_list(BlkSize),
                 ClientPid0 = spawn_link(fun() -> ClientFun([{"blksize", BlkSizeList}]) end),
-                
+
                 %% Recv READ
                 Options = ["blksize", 0, BlkSizeList, 0],
                 ReadBin = list_to_binary([ReadList | Options]),
-                {udp, _, _, ClientPort0, _} = ?VERIFY({udp, DaemonSocket, Host, _, ReadBin}, recv(Timeout)),
+                {{udp, DaemonSocket, Host, ClientPort0, ReadBin}} =
+                    ?TRY(recv(Timeout)),
 
                 %% Send OACK
                 BlkSizeList = integer_to_list(BlkSize),
                 OptionAckBin = list_to_binary([0, 6, "blksize",0, BlkSizeList, 0]),
-                ?VERIFY(ok, gen_udp:send(ServerSocket, Host, ClientPort0, OptionAckBin)),
+                {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort0, OptionAckBin)),
 
                 %% Sleep a while in order to provoke the client to re-send the packet
                 timer:sleep(Timeout + timer:seconds(1)),
 
                 %% Recv ACK #0 (the packet that the server think that we have lost)
                 Ack0Bin = <<0, 4, 0, 0>>,
-                ?VERIFY({udp, ServerSocket, Host, ClientPort0, Ack0Bin}, recv(Timeout)),
+                {{udp, ServerSocket, Host, ClientPort0, Ack0Bin}} =
+                    ?TRY(recv(Timeout)),
 
                 %% Recv ACK #0 AGAIN (the re-sent package)
-                ?VERIFY({udp, ServerSocket, Host, ClientPort0, Ack0Bin}, recv(Timeout)),
+                {{udp, ServerSocket, Host, ClientPort0, Ack0Bin}} =
+                    ?TRY(recv(Timeout)),
 
                 %% Send DATA #1
-                ?VERIFY(ok, gen_udp:send(ServerSocket, Host, ClientPort0, Data1Bin)),
+                {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort0, Data1Bin)),
 
                 %% Recv ACK #1
-                ?VERIFY({udp, ServerSocket, Host, _, Ack1Bin}, recv(Timeout)),
+                {{udp, ServerSocket, Host, _, Ack1Bin}} = ?TRY(recv(Timeout)),
                 {ClientPort0, ClientPid0}
         end,
 
     %% Send DATA #2
     Data2Bin = list_to_binary([0, 3, 0, 2 | Block2]),
-    ?VERIFY(ok, gen_udp:send(ServerSocket, Host, ClientPort, Data2Bin)),
+    {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort, Data2Bin)),
 
     %% Recv ACK #2
     Ack2Bin = <<0, 4, 0, 2>>,
-    ?VERIFY({udp, ServerSocket, Host, ClientPort, Ack2Bin}, recv(Timeout)),
+    {{udp, ServerSocket, Host, ClientPort, Ack2Bin}} = ?TRY(recv(Timeout)),
 
     %% Send DATA #3
     Data3Bin = list_to_binary([0, 3, 0, 3 | Block3]),
-    ?VERIFY(ok, gen_udp:send(ServerSocket, Host, ClientPort, Data3Bin)),
+    {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort, Data3Bin)),
 
     %% Recv ACK #3
     Ack3Bin = <<0, 4, 0, 3>>,
-    ?VERIFY({udp, ServerSocket, Host, ClientPort, Ack3Bin}, recv(Timeout)),
+    {{udp, ServerSocket, Host, ClientPort, Ack3Bin}} = ?TRY(recv(Timeout)),
 
     %% Send DATA #3 AGAIN (pretend that we timed out)
     timer:sleep(timer:seconds(1)),
-    ?VERIFY(ok, gen_udp:send(ServerSocket, Host, ClientPort, Data3Bin)),
+    {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort, Data3Bin)),
 
     %% Recv ACK #3 AGAIN (the packet that the server think that we have lost)
-    ?VERIFY({udp, ServerSocket, Host, ClientPort, Ack3Bin}, recv(Timeout)),
+    {{udp, ServerSocket, Host, ClientPort, Ack3Bin}} = ?TRY(recv(Timeout)),
 
     %% Send DATA #4
     Data4Bin = list_to_binary([0, 3, 0, 4 | Block4]),
-    ?VERIFY(ok, gen_udp:send(ServerSocket, Host, ClientPort, Data4Bin)),
+    {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort, Data4Bin)),
 
     %% Recv ACK #4
     Ack4Bin = <<0, 4, 0, 4>>,
-    ?VERIFY({udp, ServerSocket, Host, ClientPort, Ack4Bin}, recv(Timeout)),
+    {{udp, ServerSocket, Host, ClientPort, Ack4Bin}} = ?TRY(recv(Timeout)),
 
     %% Send DATA #3 which is out of range
-    ?VERIFY(ok, gen_udp:send(ServerSocket, Host, ClientPort, Data3Bin)),
+    {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort, Data3Bin)),
 
     %% Send DATA #5
     Data5Bin = list_to_binary([0, 3, 0, 5 | Block5]),
-    ?VERIFY(ok, gen_udp:send(ServerSocket, Host, ClientPort, Data5Bin)),
+    {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort, Data5Bin)),
 
     %% Recv ACK #5
     Ack5Bin = <<0, 4, 0, 5>>,
-    ?VERIFY({udp, ServerSocket, Host, ClientPort, Ack5Bin}, recv(Timeout)),
+    {{udp, ServerSocket, Host, ClientPort, Ack5Bin}} = ?TRY(recv(Timeout)),
 
     %% Send DATA #6
     Data6Bin = list_to_binary([0, 3, 0, 6 | Block6]),
-    ?VERIFY(ok, gen_udp:send(ServerSocket, Host, ClientPort, Data6Bin)),
+    {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort, Data6Bin)),
+
+    %% Recv ACK #6
+    Ack6Bin = <<0, 4, 0, 6>>,
+    {{udp, ServerSocket, Host, ClientPort, Ack6Bin}} = ?TRY(recv(Timeout)),
 
     %% Close daemon and server sockets
-    ?VERIFY(ok, gen_udp:close(ServerSocket)),
-    ?VERIFY(ok, gen_udp:close(DaemonSocket)),
+    {ok} = ?TRY(gen_udp:close(ServerSocket)),
+    {ok} = ?TRY(gen_udp:close(DaemonSocket)),
 
-    ?VERIFY({ClientPid, {tftp_client_reply, {ok, Blob}}}, recv(Timeout)),
+    {{ClientPid, {tftp_client_reply, {ok, Blob}}}} =
+        ?TRY(recv(2 * (Timeout + timer:seconds(1)))),
 
-    ?VERIFY(timeout, recv(Timeout)),
+    {timeout} = ?TRY(recv(Timeout)),
     ok.
 
 resend_write_server(Host, BlkSize) ->
@@ -715,22 +789,25 @@ resend_write_server(Host, BlkSize) ->
     Size = size(Blob),
 
     Timeout = timer:seconds(3),
-    ?VERIFY(timeout, recv(0)),
+    {timeout} = ?TRY(recv(0)),
 
     %% Open daemon socket
-    {ok, DaemonSocket} = ?VERIFY({ok, _}, gen_udp:open(0, [binary, {reuseaddr, true}, {active, true}])),
-    {ok, DaemonPort} = ?IGNORE(inet:port(DaemonSocket)),
+    {{ok, DaemonSocket}} =
+        ?TRY(gen_udp:open(0, [binary, {reuseaddr, true}, {active, true}])),
+    {{ok, DaemonPort}} = ?TRY(inet:port(DaemonSocket)),
 
     %% Open server socket
-    {ok, ServerSocket} = ?VERIFY({ok, _}, gen_udp:open(0, [binary, {reuseaddr, true}, {active, true}])),
-    ?IGNORE(inet:port(ServerSocket)),
+    {{ok, ServerSocket}} =
+        ?TRY(gen_udp:open(0, [binary, {reuseaddr, true}, {active, true}])),
+    ?TRY(inet:port(ServerSocket)),
 
     %% Prepare client process
     ReplyTo = self(),
     ClientFun =
         fun(Extra) ->
                 Options = [{port, DaemonPort}, {debug, brief}] ++ Extra,
-                Res = ?VERIFY({ok, Size}, tftp:write_file(RemoteFilename, Blob, Options)),
+                {{ok, Size} = Res} =
+                    ?TRY(tftp:write_file(RemoteFilename, Blob, Options)),
                 ReplyTo ! {self(), {tftp_client_reply, Res}},
                 exit(normal)
         end,
@@ -746,108 +823,113 @@ resend_write_server(Host, BlkSize) ->
                 %% Recv WRITE
                 WriteBin = list_to_binary(WriteList),
                 io:format("WriteBin ~p\n", [WriteBin]),
-                {udp, _, _, ClientPort0, _} = ?VERIFY({udp, DaemonSocket, Host, _, WriteBin}, recv(Timeout)),
+                {{udp, DaemonSocket, Host, ClientPort0, WriteBin}} =
+                    ?TRY(recv(Timeout)),
 
                 %% Send ACK #1
                 Ack0Bin = <<0, 4, 0, 0>>,
-                ?VERIFY(ok,  gen_udp:send(ServerSocket, Host, ClientPort0, Ack0Bin)),
+                {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort0, Ack0Bin)),
 
                 %% Sleep a while in order to provoke the client to re-send the packet
                 timer:sleep(Timeout + timer:seconds(1)),
 
                 %% Recv DATA #1 (the packet that the server think that we have lost)
-                ?VERIFY({udp, ServerSocket, Host, ClientPort0, Data1Bin}, recv(Timeout)),
+                {{udp, ServerSocket, Host, ClientPort0, Data1Bin}} =
+                    ?TRY(recv(Timeout)),
 
                 %% Recv DATA #1 AGAIN (the re-sent package)
-                ?VERIFY({udp, ServerSocket, Host, _, Data1Bin}, recv(Timeout)),
+                {{udp, ServerSocket, Host, _, Data1Bin}} = ?TRY(recv(Timeout)),
                 {ClientPort0, ClientPid0};
             true ->
                 %% Start client process
                 BlkSizeList = integer_to_list(BlkSize),
                 ClientPid0 = spawn_link(fun() -> ClientFun([{"blksize", BlkSizeList}]) end),
-                
+
                 %% Recv WRITE
                 Options = ["blksize", 0, BlkSizeList, 0],
                 WriteBin = list_to_binary([WriteList | Options]),
-                {udp, _, _, ClientPort0, _} = ?VERIFY({udp, DaemonSocket, Host, _, WriteBin}, recv(Timeout)),
+                {{udp, DaemonSocket, Host, ClientPort0, WriteBin}} =
+                    ?TRY(recv(Timeout)),
 
                 %% Send OACK
                 BlkSizeList = integer_to_list(BlkSize),
                 OptionAckBin = list_to_binary([0, 6, "blksize",0, BlkSizeList, 0]),
-                ?VERIFY(ok, gen_udp:send(ServerSocket, Host, ClientPort0, OptionAckBin)),
+                {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort0, OptionAckBin)),
 
                 %% Sleep a while in order to provoke the client to re-send the packet
                 timer:sleep(Timeout + timer:seconds(1)),
 
                 %% Recv DATA #1 (the packet that the server think that we have lost)
-                ?VERIFY({udp, ServerSocket, Host, ClientPort0, Data1Bin}, recv(Timeout)),
+                {{udp, ServerSocket, Host, ClientPort0, Data1Bin}} =
+                    ?TRY(recv(Timeout)),
 
                 %% Recv DATA #1 AGAIN (the re-sent package)
-                ?VERIFY({udp, ServerSocket, Host, ClientPort0, Data1Bin}, recv(Timeout)),
+                {{udp, ServerSocket, Host, ClientPort0, Data1Bin}} =
+                    ?TRY(recv(Timeout)),
                 {ClientPort0, ClientPid0}
         end,
 
     %% Send ACK #1
     Ack1Bin = <<0, 4, 0, 1>>,
-    ?VERIFY(ok, gen_udp:send(ServerSocket, Host, ClientPort, Ack1Bin)),
+    {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort, Ack1Bin)),
 
     %% Recv DATA #2
     Data2Bin = list_to_binary([0, 3, 0, 2 | Block2]),
-    ?VERIFY({udp, ServerSocket, Host, ClientPort, Data2Bin}, recv(Timeout)),
+    {{udp, ServerSocket, Host, ClientPort, Data2Bin}} = ?TRY(recv(Timeout)),
 
     %% Send ACK #2
     Ack2Bin = <<0, 4, 0, 2>>,
-    ?VERIFY(ok, gen_udp:send(ServerSocket, Host, ClientPort, Ack2Bin)),
+    {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort, Ack2Bin)),
 
     %% Recv DATA #3
     Data3Bin = list_to_binary([0, 3, 0, 3 | Block3]),
-    ?VERIFY({udp, ServerSocket, Host, ClientPort, Data3Bin}, recv(Timeout)),
+    {{udp, ServerSocket, Host, ClientPort, Data3Bin}} = ?TRY(recv(Timeout)),
 
     %% Send ACK #3
     Ack3Bin = <<0, 4, 0, 3>>,
-    ?VERIFY(ok, gen_udp:send(ServerSocket, Host, ClientPort, Ack3Bin)),
+    {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort, Ack3Bin)),
 
     %% Send ACK #3 AGAIN (pretend that we timed out)
     timer:sleep(timer:seconds(1)),
-    ?VERIFY(ok, gen_udp:send(ServerSocket, Host, ClientPort, Ack3Bin)),
+    {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort, Ack3Bin)),
 
     %% Recv DATA #4 (the packet that the server think that we have lost)
     Data4Bin = list_to_binary([0, 3, 0, 4 | Block4]),
-    ?VERIFY({udp, ServerSocket, Host, ClientPort, Data4Bin}, recv(Timeout)),
+    {{udp, ServerSocket, Host, ClientPort, Data4Bin}} = ?TRY(recv(Timeout)),
 
     %% Recv DATA #4 AGAIN (the re-sent package)
-    ?VERIFY({udp, ServerSocket, Host, ClientPort, Data4Bin}, recv(Timeout)),
+    {{udp, ServerSocket, Host, ClientPort, Data4Bin}} = ?TRY(recv(Timeout)),
 
     %% Send ACK #4
     Ack4Bin = <<0, 4, 0, 4>>,
-    ?VERIFY(ok, gen_udp:send(ServerSocket, Host, ClientPort, Ack4Bin)),
+    {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort, Ack4Bin)),
 
     %% Recv DATA #5
     Data5Bin = list_to_binary([0, 3, 0, 5 | Block5]),
-    ?VERIFY({udp, ServerSocket, Host, ClientPort, Data5Bin}, recv(Timeout)),
+    {{udp, ServerSocket, Host, ClientPort, Data5Bin}} = ?TRY(recv(Timeout)),
 
     %% Send ACK #3 which is out of range
-    ?VERIFY(ok, gen_udp:send(ServerSocket, Host, ClientPort, Ack3Bin)),
+    {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort, Ack3Bin)),
 
     %% Send ACK #5
     Ack5Bin = <<0, 4, 0, 5>>,
-    ?VERIFY(ok, gen_udp:send(ServerSocket, Host, ClientPort, Ack5Bin)),
+    {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort, Ack5Bin)),
 
     %% Recv DATA #6
     Data6Bin = list_to_binary([0, 3, 0, 6 | Block6]),
-    ?VERIFY({udp, ServerSocket, Host, ClientPort, Data6Bin}, recv(Timeout)),
+    {{udp, ServerSocket, Host, ClientPort, Data6Bin}} = ?TRY(recv(Timeout)),
 
     %% Send ACK #6
     Ack6Bin = <<0, 4, 0, 6>>,
-    ?VERIFY(ok, gen_udp:send(ServerSocket, Host, ClientPort, Ack6Bin)),
+    {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort, Ack6Bin)),
 
     %% Close daemon and server sockets
-    ?VERIFY(ok, gen_udp:close(ServerSocket)),
-    ?VERIFY(ok, gen_udp:close(DaemonSocket)),
+    {ok} = ?TRY(gen_udp:close(ServerSocket)),
+    {ok} = ?TRY(gen_udp:close(DaemonSocket)),
 
-    ?VERIFY({ClientPid, {tftp_client_reply, {ok, Size}}}, recv(Timeout)),
+    {{ClientPid, {tftp_client_reply, {ok, Size}}}} = ?TRY(recv(Timeout)),
 
-    ?VERIFY(timeout, recv(Timeout)),
+    {timeout} = ?TRY(recv(Timeout)),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -859,7 +941,7 @@ reuse_connection(suite) ->
     [];
 reuse_connection(Config) when is_list(Config) ->
     Host = {127, 0, 0, 1},
-    {Port, DaemonPid} = ?IGNORE(?START_DAEMON(0, [{debug, all}])),
+    {{Port, DaemonPid}} = ?TRY(?START_DAEMON([{debug, all}])),
 
     RemoteFilename = "reuse_connection.tmp",
     BlkSize = 512,
@@ -867,55 +949,56 @@ reuse_connection(Config) when is_list(Config) ->
     Block2 = lists:duplicate(BlkSize div 2, $2),
     Blocks = [Block1, Block2],
     Blob = list_to_binary(Blocks),
-    ?VERIFY(ok, file:write_file(RemoteFilename, Blob)),
-    
+    {ok} = ?TRY(file:write_file(RemoteFilename, Blob)),
+
     Seconds = 3,
     Timeout = timer:seconds(Seconds),
-    ?VERIFY(timeout, recv(0)),
-    
+    {timeout} = ?TRY(recv(0)),
+
     %% Open socket
-    {ok, Socket} = ?VERIFY({ok, _}, gen_udp:open(0, [binary, {reuseaddr, true}, {active, true}])),
-    
+    {{ok, Socket}} =
+        ?TRY(gen_udp:open(0, [binary, {reuseaddr, true}, {active, true}])),
+
     ReadList = [0, 1, RemoteFilename, 0, "octet", 0],
     Data1Bin = list_to_binary([0, 3, 0, 1 | Block1]),
-    
+
     %% Send READ
     TimeoutList = integer_to_list(Seconds),
     Options = ["timeout", 0, TimeoutList, 0],
     ReadBin = list_to_binary([ReadList | Options]),
-    ?VERIFY(ok, gen_udp:send(Socket, Host, Port, ReadBin)),
+    {ok} = ?TRY(gen_udp:send(Socket, Host, Port, ReadBin)),
 
     %% Send yet another READ for same file
-    ?VERIFY(ok, gen_udp:send(Socket, Host, Port, ReadBin)),
+    {ok} = ?TRY(gen_udp:send(Socket, Host, Port, ReadBin)),
 
     %% Recv OACK
     OptionAckBin = list_to_binary([0, 6 | Options]),
-    {udp, _, _, NewPort, _} = ?VERIFY({udp, Socket, Host, _, OptionAckBin}, recv(Timeout)),
+    {{udp, Socket, Host, NewPort, OptionAckBin}} = ?TRY(recv(Timeout)),
 
     %% Send ACK #0
     Ack0Bin = <<0, 4, 0, 0>>,
-    ?VERIFY(ok, gen_udp:send(Socket, Host, NewPort, Ack0Bin)),
+    {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Ack0Bin)),
 
     %% Recv DATA #1
-    ?VERIFY({udp, Socket, Host, NewPort, Data1Bin}, recv(Timeout)),
+    {{udp, Socket, Host, NewPort, Data1Bin}} = ?TRY(recv(Timeout)),
 
     %% Send ACK #1
     Ack1Bin = <<0, 4, 0, 1>>,
-    ?VERIFY(ok, gen_udp:send(Socket, Host, NewPort, Ack1Bin)),
+    {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Ack1Bin)),
 
     %% Recv DATA #2
     Data2Bin = list_to_binary([0, 3, 0, 2 | Block2]),
-    ?VERIFY({udp, Socket, Host, NewPort, Data2Bin}, recv(Timeout)),
+    {{udp, Socket, Host, NewPort, Data2Bin}} = ?TRY(recv(Timeout)),
 
     %% Send ACK #2
     Ack2Bin = <<0, 4, 0, 2>>,
-    ?VERIFY(ok, gen_udp:send(Socket, Host, NewPort, Ack2Bin)),
+    {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Ack2Bin)),
 
     %% Close socket
-    ?VERIFY(ok, gen_udp:close(Socket)),
+    {ok} = ?TRY(gen_udp:close(Socket)),
 
-    ?VERIFY(timeout, recv(Timeout)),
-    ?VERIFY(ok, file:delete(RemoteFilename)),
+    {timeout} = ?TRY(recv(Timeout)),
+    {ok} = ?TRY(file:delete(RemoteFilename)),
 
     %% Cleanup
     unlink(DaemonPid),
@@ -931,9 +1014,9 @@ large_file(doc) ->
 large_file(suite) ->
     [];
 large_file(Config) when is_list(Config) ->
-    ?VERIFY(ok, application:start(tftp)),
+    {ok} = ?TRY(application:start(tftp)),
 
-    {Port, DaemonPid} = ?IGNORE(?START_DAEMON(0, [{debug, brief}])),
+    {{Port, DaemonPid}} = ?TRY(?START_DAEMON([{debug, brief}])),
 
     %% Read fail
     RemoteFilename = "tftp_temporary_large_file_remote_test_file.txt",
@@ -942,19 +1025,20 @@ large_file(Config) when is_list(Config) ->
     {ok, FH} = file:open(LocalFilename, [write,exclusive]),
     {ok, Size} = file:position(FH, {eof, 2*512*65535}),
     ok = file:truncate(FH),
-    ?IGNORE(file:close(FH)),
+    ?TRY(file:close(FH)),
 
     %% Write and read
-    ?VERIFY({ok, Size}, tftp:write_file(RemoteFilename, LocalFilename, [{port, Port}])),
-    ?IGNORE(file:delete(LocalFilename)),
-    ?VERIFY({ok, Size}, tftp:read_file(RemoteFilename, LocalFilename, [{port, Port}])),
+    {{ok, Size}} =
+        ?TRY(tftp:write_file(RemoteFilename, LocalFilename, [{port, Port}])),
+    ?TRY(file:delete(LocalFilename)),
+    {{ok, Size}} = ?TRY(tftp:read_file(RemoteFilename, LocalFilename, [{port, Port}])),
 
     %% Cleanup
     unlink(DaemonPid),
     exit(DaemonPid, kill),
-    ?VERIFY(ok, file:delete(LocalFilename)),
-    ?VERIFY(ok, file:delete(RemoteFilename)),
-    ?VERIFY(ok, application:stop(tftp)),
+    {ok} = ?TRY(file:delete(LocalFilename)),
+    {ok} = ?TRY(file:delete(RemoteFilename)),
+    {ok} = ?TRY(application:stop(tftp)),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -968,3 +1052,15 @@ recv(Timeout) ->
     after Timeout ->
             timeout
     end.
+
+get_conf(Key, Config) ->
+    Default = make_ref(),
+    case proplists:get_value(Key, Config, Default) of
+        Default ->
+            erlang:error({no_key, Key});
+        Value ->
+            Value
+    end.
+
+fn_jn(A, B) -> filename:join(A, B).
+fn_jn(P) -> filename:join(P).

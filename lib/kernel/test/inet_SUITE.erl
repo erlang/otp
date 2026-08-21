@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1131,11 +1133,14 @@ spawn_gethosters(Hostname, N) ->
     [spawn(fun() ->
 		   receive 
 		       go ->
-			   case (catch inet:gethostbyname(Hostname)) of
+			   try inet:gethostbyname(Hostname) of
 			       {ok,_} ->
 				   Collector ! ok;
 			       Else ->
-				   Collector ! {error,Else}
+				   Collector ! {error, Else}
+			   catch
+			       C:E ->
+				   Collector ! {error, {catched, C, E}}
 			   end
 		   end 
 	   end) | 
@@ -1188,7 +1193,7 @@ wait_for_gethost(0) ->
     exit(gethost_not_found);
 wait_for_gethost(N) ->
     {ok,Hostname} = inet:gethostname(),
-    case (catch inet:gethostbyname(Hostname)) of
+    case ?CATCH_AND_RETURN( inet:gethostbyname(Hostname) ) of
 	{ok,_} ->
 	    ok;
 	Otherwise ->
@@ -1844,20 +1849,8 @@ do_getifaddrs2(Backend) ->
 is_supported_backend(inet = _Backend) ->
     true;
 is_supported_backend(socket = _Backend) ->
-    is_socket_supported().
+    ?IS_SOCKET_SUPPORTED().
 
-is_socket_supported() ->
-    try socket:info() of
-        #{} ->
-            true
-    catch
-        error : notsup ->
-            false;
-        error : undef ->
-            false
-    end.
-
-    
 do_getifaddrs3({ok, IfAddrs}) ->
     io:format("~w(ok) -> IfAddrs: "
               "~n   ~p"
@@ -2564,9 +2557,13 @@ do_socknames_tcp0(_Config, Addr) ->
 
     %% And *maybe* also check the 'new' shiny socket sockets
     try socket:info() of
-        #{} ->
+        #{load_nif_result := ok} ->
             ?P("Test socknames for 'new' socket (=socket nif)"),
-            do_socknames_tcp1([{inet_backend, socket}], Addr)
+            do_socknames_tcp1([{inet_backend, socket}], Addr);
+	_ ->
+	    ?P("Socket nif not loaded =>"
+	       "~n   skip test of socknames for 'new' socket (=socket nif)"),
+	    ok
     catch
         error:notsup ->
             ?P("Skip test of socknames for 'new' socket (=socket nif)"),
@@ -2633,9 +2630,9 @@ do_socknames_tcp1(Conf, Addr) ->
 	    exit({skip, {accepted_socket, Reason3}})
     end,
     ?P("close socket(s)"),
-    (catch gen_tcp:close(S3)),
-    (catch gen_tcp:close(S2)),
-    (catch gen_tcp:close(S1)),
+    ?CATCH_AND_IGNORE( gen_tcp:close(S3) ),
+    ?CATCH_AND_IGNORE( gen_tcp:close(S2) ),
+    ?CATCH_AND_IGNORE( gen_tcp:close(S1) ),
     ?P("done"),
     ok.
 
@@ -2660,9 +2657,13 @@ do_socknames_udp0(_Config, Addr) ->
 
     %% And *maybe* also check the 'new' shiny socket sockets
     try socket:info() of
-        #{} ->
+        #{load_nif_result := ok} ->
             ?P("Test socknames for 'new' socket (=socket nif)"),
-            do_socknames_udp1([{inet_backend, socket}], Addr)
+            do_socknames_udp1([{inet_backend, socket}], Addr);
+	_ ->
+	    ?P("Socket nif not loaded =>"
+	       "~n   skip test of socknames for 'new' socket (=socket nif)"),
+	    ok
     catch
         error : notsup ->
             ?P("Skip test of socknames for 'new' socket (=socket nif)"),
@@ -2699,7 +2700,7 @@ do_socknames_udp1(Conf, Addr) ->
     ?P("enable debug"),
     inet:setopts(S1, [{debug, true}]),
     ?P("close socket"),
-    (catch gen_udp:close(S1)),
+    ?CATCH_AND_IGNORE( gen_udp:close(S1) ),
     ?P("done"),
     ok.
 

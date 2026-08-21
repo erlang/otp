@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -28,29 +30,36 @@
 %% Public key records:
 -include_lib("public_key/include/public_key.hrl").
 
+%% ML-KEM size constants (duplicated from ssh.hrl to avoid LAZY macro
+%% conflict with PropEr's proper_common.hrl)
+-define(MLKEM768_PUBLICKEY_SIZE, 1184).
+-define(X25519_PUBLICKEY_SIZE, 32).
+-define(MLKEM768_INIT_SIZE, ?MLKEM768_PUBLICKEY_SIZE + ?X25519_PUBLICKEY_SIZE).   % 1216
+-define(MLKEM768_CIPHERTEXT_SIZE, 1088).
+-define(MLKEM768_REPLY_SIZE, ?MLKEM768_CIPHERTEXT_SIZE + ?X25519_PUBLICKEY_SIZE). % 1120
+
 %%% Properties:
 
 prop_ssh_decode() ->
     ?FORALL({Msg,KexFam}, ?LET(KF, kex_family(), {ssh_msg(KF),KF} ),
-	    try ssh_message:decode(decode_state(Msg,KexFam))
-	    of
-		_ -> true
-	    catch
+            collect(KexFam,
+                    try ssh_message:decode(decode_state(Msg,KexFam))
+                    of
+                        _ -> true
+                    catch
 
-		C:E -> io:format('~p:~p~n',[C,E]),
-		       false
-	    end
-	   ).
-
+                        C:E -> io:format('~p:~p~n',[C,E]),
+                               false
+                    end)).
 
 %%% This fails because ssh_message is not symmetric in encode and decode regarding data types
 prop_ssh_decode_encode() ->
     ?FORALL({Msg,KexFam}, ?LET(KF, kex_family(), {ssh_msg(KF),KF} ),
-	    Msg == ssh_message:encode(
-		     fix_asym(
-		       ssh_message:decode(decode_state(Msg,KexFam))))
-	   ).
-
+            collect(KexFam,
+                    Msg == ssh_message:encode(
+                             fix_asym(
+                               ssh_message:decode(decode_state(Msg,KexFam))))
+                   )).
 
 %%%================================================================
 %%%
@@ -82,6 +91,15 @@ ssh_msg(<<"dh_gex">>) ->
 	      [msg_code('SSH_MSG_KEX_ECDH_REPLY'),gen_pubkey_string(ecdsa),gen_mpint(),gen_signature_string(ecdsa)] % 31
 	      | rest_ssh_msgs()
  	     ]),
+          list_to_binary(M));
+
+ssh_msg(<<"mlkem">>) ->
+    ?LET(M,oneof(
+             [
+              [msg_code('SSH_MSG_KEX_HYBRID_INIT'),gen_mlkem_init_string()],  % 30
+              [msg_code('SSH_MSG_KEX_HYBRID_REPLY'),gen_pubkey_string(rsa),gen_mlkem_reply_string(),gen_signature_string(rsa)] % 31
+             | rest_ssh_msgs()
+             ]),
 	 list_to_binary(M)).
 
 
@@ -124,6 +142,7 @@ rest_ssh_msgs() ->
      [msg_code('SSH_MSG_GLOBAL_REQUEST'),gen_string("tcpip-forward"),gen_boolean(),gen_string( ),gen_uint32()],
      [msg_code('SSH_MSG_GLOBAL_REQUEST'),gen_string( ),gen_boolean()],
      [msg_code('SSH_MSG_IGNORE'),gen_string( )],
+     gen_ext_info(),
      [msg_code('SSH_MSG_KEXINIT'),gen_byte(16),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_boolean(),gen_uint32()],
      [msg_code('SSH_MSG_NEWKEYS')],
      [msg_code('SSH_MSG_REQUEST_FAILURE')],
@@ -139,7 +158,7 @@ rest_ssh_msgs() ->
      [msg_code('SSH_MSG_USERAUTH_SUCCESS')]
     ].
 
-kex_family() -> oneof([<<"dh">>, <<"dh_gex">>, <<"ecdh">>]).
+kex_family() -> oneof([<<"dh">>, <<"dh_gex">>, <<"ecdh">>, <<"mlkem">>]).
 
 gen_boolean() -> choose(0,1).
 
@@ -197,6 +216,22 @@ gen_signature_string(Type) ->
 	 end,
     gen_string(gen_string(Id) ++ gen_string(Signature)).
 
+%% ML-KEM generators: c_init is MLKEM768_PK (1184) + X25519_PK (32) = 1216 bytes
+gen_mlkem_init_string() ->
+    gen_string(binary_to_list(crypto:strong_rand_bytes(?MLKEM768_INIT_SIZE))).
+
+%% s_reply is MLKEM768_CT (1088) + X25519_PK (32) = 1120 bytes
+gen_mlkem_reply_string() ->
+    gen_string(binary_to_list(crypto:strong_rand_bytes(?MLKEM768_REPLY_SIZE))).
+
+%% SSH_MSG_EXT_INFO: uint32 N followed by N name-value string pairs
+gen_ext_info() ->
+    ?LET(N, choose(0,5),
+         ?LET(Pairs, vector(N, {gen_string(), gen_string()}),
+              [msg_code('SSH_MSG_EXT_INFO')] ++
+                  uint32_to_list(N) ++
+                  lists:append([[Name, Val] || {Name, Val} <- Pairs]))).
+
 -define(MSG_CODE(Name,Num),
 msg_code(Name) -> Num;
 msg_code(Num) -> Name
@@ -214,6 +249,7 @@ msg_code(Num) -> Name
 ?MSG_CODE('SSH_MSG_DEBUG',   4);
 ?MSG_CODE('SSH_MSG_SERVICE_REQUEST',   5);
 ?MSG_CODE('SSH_MSG_SERVICE_ACCEPT',   6);
+?MSG_CODE('SSH_MSG_EXT_INFO',   7);
 ?MSG_CODE('SSH_MSG_KEXINIT',   20);
 ?MSG_CODE('SSH_MSG_NEWKEYS',   21);
 ?MSG_CODE('SSH_MSG_GLOBAL_REQUEST',   80);
@@ -240,7 +276,9 @@ msg_code(Num) -> Name
 ?MSG_CODE('SSH_MSG_KEX_DH_GEX_INIT',   32);
 ?MSG_CODE('SSH_MSG_KEX_DH_GEX_REPLY', 33);
 ?MSG_CODE('SSH_MSG_KEX_ECDH_INIT', 30);
-?MSG_CODE('SSH_MSG_KEX_ECDH_REPLY', 31).
+?MSG_CODE('SSH_MSG_KEX_ECDH_REPLY', 31);
+?MSG_CODE('SSH_MSG_KEX_HYBRID_INIT', 30);
+?MSG_CODE('SSH_MSG_KEX_HYBRID_REPLY', 31).
 
 %%%====================================================
 %%%=== WARNING: Knowledge of the test object ahead! ===
@@ -264,6 +302,11 @@ fix_asym(#ssh_msg_kexinit{cookie=C} = M) -> M#ssh_msg_kexinit{cookie = <<C:128>>
 ?fix_asym_Xdh_reply(ssh_msg_kexdh_reply);
 ?fix_asym_Xdh_reply(ssh_msg_kex_dh_gex_reply);
 ?fix_asym_Xdh_reply(ssh_msg_kex_ecdh_reply);
+%% ML-KEM hybrid: decode returns single binary c_init, encode expects {C_pk2, C_pk1}
+fix_asym(#ssh_msg_kex_hybrid_init{c_init = C} = M) when is_binary(C) ->
+    <<C_pk2:?MLKEM768_PUBLICKEY_SIZE/binary, C_pk1:?X25519_PUBLICKEY_SIZE/binary>> = C,
+    M#ssh_msg_kex_hybrid_init{c_init = {C_pk2, C_pk1}};
+?fix_asym_Xdh_reply(ssh_msg_kex_hybrid_reply);
 fix_asym(M) -> M.
 
 

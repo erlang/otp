@@ -1,5 +1,14 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 [;1m  symmetric_partition(Set1, Set2)[0m
+
+  Returns the symmetric partition of [;;4mSet1[0m and [;;4mSet2[0m.
 
   Returns a triple of sets:
 
@@ -10,3 +19,11 @@
 
    • [;;4mSet5[0m contains the elements of [;;4mSet2[0m that do not belong to [;;4m[0m
      [;;4mSet1[0m.
+
+[;1mExamples[0m
+
+    1> S1 = sofs:set([a,b,c]).
+    2> S2 = sofs:set([c,d,e]).
+    3> {S3,S4,S5} = sofs:symmetric_partition(S1, S2).
+    4> {sofs:to_external(S3),sofs:to_external(S4),sofs:to_external(S5)}
+    {[a,b],[c],[d,e]}

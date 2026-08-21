@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,9 +31,10 @@
          format_address_port/2, format_address_port/1,
          format_address/1,
          format_time_ms/1,
-         comp/2,
          set_label/1,
-         set_label/2
+         set_label/2,
+         trim_reason/1,
+         max_log_len/1
         ]).
 
 -include("ssh.hrl").
@@ -69,27 +72,6 @@ format_time_ms(T) when is_integer(T) ->
             
 %%%----------------------------------------------------------------
 
-comp(X1, X2) ->
-    comp(X1, X2, true).
-
-%%% yes - very far from best implementation
-comp(<<B1,R1/binary>>, <<B2,R2/binary>>, Truth) ->
-    comp(R1, R2, Truth and (B1 == B2));
-comp(<<_,R1/binary>>, <<>>, Truth) ->
-    comp(R1, <<>>, Truth and false);
-comp(<<>>, <<>>, Truth) ->
-    Truth;
-
-comp([H1|T1], [H2|T2], Truth) ->
-    comp(T1, T2, Truth and (H1 == H2));
-comp([_|T1], [], Truth) ->
-    comp(T1, [], Truth and false);
-comp([], [], Truth) ->
-    Truth;
-
-comp(_, _, _) ->
-    false.
-
 set_label(Details) ->
     proc_lib:set_label({ssh, Details}).
 
@@ -97,3 +79,17 @@ set_label(client, Details) ->
     proc_lib:set_label({sshc, Details});
 set_label(server, Details) ->
     proc_lib:set_label({sshd, Details}).
+
+%% We don't want to process badmatch details, potentially containing
+%% malicious data of unknown size
+trim_reason({badmatch, V}) when is_binary(V) ->
+    badmatch;
+trim_reason(E) ->
+    E.
+
+max_log_len(#ssh{opts = Opts}) ->
+    ?GET_OPT(max_log_item_len, Opts);
+max_log_len(Opts) when is_map(Opts) ->
+    ?GET_OPT(max_log_item_len, Opts).
+
+

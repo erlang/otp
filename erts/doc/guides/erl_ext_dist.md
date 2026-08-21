@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -78,10 +80,8 @@ Atoms sent over node distribution are always encoded in UTF-8 using either
 [`ATOM_CACHE_REF`](erl_ext_dist.md#atom_cache_ref).
 
 Atoms encoded with [`erlang:term_to_binary/1,2`](`erlang:term_to_binary/1`) or
-[`erlang:term_to_iovec/1,2`](`erlang:term_to_iovec/1`) are by default still
-using the old deprecated Latin-1 format [`ATOM_EXT`](erl_ext_dist.md#atom_ext)
-for atoms that only contain Latin-1 characters (Unicode code points 0-255).
-Atoms with higher code points will be encoded in UTF-8 using either
+[`erlang:term_to_iovec/1,2`](`erlang:term_to_iovec/1`) are by default
+also always encoded in UTF-8 using either
 [`ATOM_UTF8_EXT`](erl_ext_dist.md#atom_utf8_ext) or
 [`SMALL_ATOM_UTF8_EXT`](erl_ext_dist.md#small_atom_utf8_ext).
 
@@ -774,3 +774,30 @@ guaranteed to, and is not intended to, prevent decoding of an intentionally
 forged encoding on the local external term format.
 
 `LOCAL_EXT` was introduced in OTP 26.0.
+
+## RECORD_EXT
+
+| 1     | 4         | 1       | N1       | N2     | N3            | N4       |
+| ----- | --------- | ------- | -------- | ------ | ------------- | -------- |
+| `67`  | `#Fields` | `Flags` | `Module` | `Name` | `Field Names` | `Values` |
+
+
+This is the encoding of a native record.
+
+- **`#Fields`** - Number of fields.
+
+- **`Flags`** - The least significant bit is 0 if this record is not
+    exported, and 1 if not exported. The other bits are reserved for
+    future use and must be set to zero.
+
+- **`Module`** - An atom. The module name of the module where the record is defined.
+
+- **`Name`** - An atom. The name of the record.
+
+- **`Field Names`** - All field names encoded as atoms in the same
+    order as in the record definition.
+
+- **`Values`** - The values of all fields; each one encoded according
+    to its type.
+
+`RECORD_EXT` was introduced in OTP 29.0.

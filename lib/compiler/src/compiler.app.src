@@ -1,7 +1,9 @@
 % This is an -*- erlang -*- file.
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +31,6 @@
 	     beam_clean,
 	     beam_core_to_ssa,
 	     beam_dict,
-	     beam_digraph,
 	     beam_disasm,
          beam_doc,
 	     beam_flatten,
@@ -85,5 +86,5 @@
   {registered, []},
   {applications, [kernel, stdlib]},
   {env, []},
-  {runtime_dependencies, ["stdlib-6.0","kernel-8.4","erts-13.0",
+  {runtime_dependencies, ["stdlib-8.0","kernel-8.4","erts-13.0",
 			  "crypto-5.1"]}]}.

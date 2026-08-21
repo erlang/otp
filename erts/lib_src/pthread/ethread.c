@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -502,6 +504,8 @@ ethr_setname(char *name)
     pthread_set_name_np(ethr_self(), name);
 #elif defined(ETHR_HAVE_PTHREAD_SETNAME_NP_1)
     pthread_setname_np(name);
+#elif defined(ETHR_HAVE_PTHREAD_SETNAME_NP_3)
+    pthread_setname_np(ethr_self(), "%s", name);
 #elif defined(__HAIKU__)
     thread_id haiku_tid;
     haiku_tid = get_pthread_thread_id(ethr_self());

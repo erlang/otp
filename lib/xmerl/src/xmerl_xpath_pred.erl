@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -22,6 +24,12 @@
 
 -module(xmerl_xpath_pred).
 -moduledoc false.
+
+-compile([{nowarn_unsafe_function, {xmerl_scan, accumulate_whitespace, 4}},
+          {nowarn_unsafe_function, {xmerl_scan, file, 1}},
+          {nowarn_unsafe_function, {xmerl_scan, file, 2}},
+          {nowarn_unsafe_function, {xmerl_scan, string, 1}},
+          {nowarn_unsafe_function, {xmerl_scan, string, 2}}]).
 
 %% API
 -export([eval/2]).
@@ -177,9 +185,9 @@ comp_expr('!=', E1, E2, C) ->
     ?boolean(compare_eq_format(N1,N2,C) /= compare_eq_format(N2,N1,C)).
 
 bool_expr('or', E1, E2, C) ->
-    ?boolean(mk_boolean(C, E1) or mk_boolean(C, E2));
+    ?boolean(mk_boolean(C, E1) orelse mk_boolean(C, E2));
 bool_expr('and', E1, E2, C) ->
-    ?boolean(mk_boolean(C, E1) and mk_boolean(C, E2)).
+    ?boolean(mk_boolean(C, E1) andalso mk_boolean(C, E2)).
 
 %% According to chapter 3.4 in XML Path Language ver 1.0 the format of
 %% the compared objects are depending on the type of the other

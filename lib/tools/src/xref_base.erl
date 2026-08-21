@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +22,8 @@
 
 -module(xref_base).
 -moduledoc false.
+
+-include_lib("kernel/include/eep48.hrl").
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
@@ -46,7 +50,7 @@
 	 do_remove_module/2]).
 
 -import(lists,
-	[filter/2, flatten/1, foldl/3, foreach/2, keysearch/3, map/2,
+        [filter/2, flatten/1, foldl/3, foreach/2, keyfind/3, map/2,
          mapfoldl/3, member/2, reverse/1, sort/1, usort/1]).
 
 -import(sofs,
@@ -387,6 +391,14 @@ analysis(Analysis) ->
     analysis(Analysis, functions).
 
 %% -> string() | Error
+analysis(private_function_calls, functions) ->
+    "((Fun) strict AE) || DC_2";
+analysis(undocumented_function_calls, functions) ->
+    "((Fun) strict AE) || (X - DC)";
+analysis(unsafe_function_calls, functions) ->
+    %% Cross-application calls to explicitly undocumented functions are
+    %% considered unsafe for the purposes of this analysis.
+    "(XC || US) + (((Fun) strict AE) || DC_2)";
 analysis(undefined_function_calls, functions) ->
     "(XC - UC) || (XU - X - B)";
 analysis(undefined_functions, modules) ->
@@ -666,9 +678,8 @@ do_add_application(S, XApp) ->
 %% -> {ok, Modules, NewState} | throw(Error)
 do_add_directory(Dir, AppName, Bui, Rec, Ver, War, State) ->
     ok = is_filename(Dir),
-    {FileNames, Errors, Jams, Unreadable} =
-	xref_utils:scan_directory(Dir, Rec, [?Suffix], [".jam"]),
-    warnings(War, jam, Jams),
+    {FileNames, Errors, _Watched, Unreadable} =
+	xref_utils:scan_directory(Dir, Rec, [?Suffix], []),
     warnings(War, unreadable, Unreadable),
     case Errors of
 	[] ->
@@ -742,13 +753,13 @@ read_module(SplitName, AppName, Builtins, Verbose, Warnings, State) ->
 read_a_module({Dir, BaseName}, AppName, Builtins, Verbose, Warnings, Mode) ->
     File = filename:join(Dir, BaseName),
     case abst(File, Builtins, Mode) of
-	{ok, _M, no_abstract_code} when Verbose ->
+        {ok, _M, _Attrs, no_abstract_code} when Verbose ->
 	    message(Verbose, no_debug_info, [File]),
 	    no;
-	{ok, _M, no_abstract_code} when not Verbose ->
+        {ok, _M, _Attrs, no_abstract_code} when not Verbose ->
 	    message(Warnings, no_debug_info, [File]),
 	    no;
-	{ok, M, Data, UnresCalls0}  ->
+        {ok, M, Attrs, Data, UnresCalls0}  ->
 	    message(Verbose, done_file, [File]),
             %% Remove duplicates. Identical unresolved calls on the
             %% same line are counted as _one_ unresolved call.
@@ -763,7 +774,7 @@ read_a_module({Dir, BaseName}, AppName, Builtins, Verbose, Warnings, Mode) ->
                 {ok, {_, _, _, Time}} ->
                     XMod = #xref_mod{name = M, app_name = AppName,
                                      dir = Dir, mtime = Time,
-                                     builtins = Builtins,
+                                     builtins = Builtins, attributes = Attrs,
                                      no_unresolved = NoUnresCalls},
                     {ok, PrepMod, Bad} =
                         prepare_module(Mode, XMod, UnresCalls, Data),
@@ -793,39 +804,48 @@ process_module(State) ->
     end.
 
 abst(File, Builtins, _Mode = functions) ->
-    case beam_lib:chunks(File, [abstract_code, exports, attributes]) of
-	{ok, {M,[{abstract_code,NoA},_X,_A]}} when NoA =:= no_abstract_code ->
-	    {ok, M, NoA};
-	{ok, {M, [{abstract_code, {abstract_v1, Forms}},
-                  {exports,X0}, {attributes,A}]}} ->
-	    %% R7.
-	    X = xref_utils:fa_to_mfa(X0, M),
-            D = deprecated(A, X, M),
-	    xref_reader:module(M, Forms, Builtins, X, D);
-	{ok, {M, [{abstract_code, {abstract_v2, Forms}},
-                  {exports,X0}, {attributes,A}]}} ->
-	    %% R8-R9B.
-	    X = xref_utils:fa_to_mfa(X0, M),
-            D = deprecated(A, X, M),
-	    xref_reader:module(M, Forms, Builtins, X, D);
+    case beam_lib:chunks(File,
+                         [abstract_code, exports, attributes, documentation],
+                         [allow_missing_chunks]) of
+        {ok, {M,[{abstract_code,no_abstract_code},
+                 _X,
+                 Attrs,
+                 {documentation,_Doc}]}} ->
+            {ok, M, Attrs, no_abstract_code};
 	{ok, {M, [{abstract_code, {raw_abstract_v1, Code}},
-                  {exports,X0}, {attributes,A}]}} ->
+                  {exports,X0}, {attributes,A},
+                  {documentation, Doc}]}} ->
 	    %% R9C-
             Forms0 = epp:interpret_file_attribute(Code),
 	    Forms1 = erl_expand_records:module(Forms0, []),
 	    Forms = erl_internal:add_predefined_functions(Forms1),
 	    X = mfa_exports(X0, A, M),
-            D = deprecated(A, X, M),
-	    xref_reader:module(M, Forms, Builtins, X, D);
+            Deprecated = deprecated(A, X, M),
+            Documented = documented(Doc, A, M),
+            Unsafe = unsafe(A, X, M),
+            {ok, M, Data, U} = xref_reader:module(M, Forms, Builtins, X,
+                                                  Deprecated,
+                                                  Documented,
+                                                  Unsafe),
+            {ok, M, A, Data, U};
 	Error when element(1, Error) =:= error ->
 	    Error
     end;
 abst(File, Builtins, _Mode = modules) ->
-    case beam_lib:chunks(File, [exports, imports, attributes]) of
-	{ok, {Mod, [{exports,X0}, {imports,I0}, {attributes,At}]}} ->
-	    X1 = mfa_exports(X0, At, Mod),
-	    X = filter(fun(MFA) -> not (predef_fun())(MFA) end, X1),
-            D = deprecated(At, X, Mod),
+    case beam_lib:chunks(File,
+                         [exports, imports, attributes, documentation],
+                         [allow_missing_chunks]) of
+        {ok, {Mod, [{exports,X0},
+                    {imports,I0},
+                    {attributes,At},
+                    {documentation, Doc}]}} ->
+            X1 = mfa_exports(X0, At, Mod),
+            X = filter(fun(MFA) -> not (predef_fun())(MFA) end, X1),
+
+            Deprecated = deprecated(At, X, Mod),
+            Documentation = documented(Doc, At, Mod),
+            Unsafe = unsafe(At, X, Mod),
+
 	    I = case Builtins of
 		    true ->
 			I0;
@@ -835,7 +855,8 @@ abst(File, Builtins, _Mode = modules) ->
 			      end,
 			filter(Fun, I0)
 		end,
-	    {ok, Mod, {X, I, D}, []};
+
+            {ok, Mod, At, {X, I, Deprecated, Documentation, Unsafe}, []};
 	Error when element(1, Error) =:= error ->
 	    Error
     end.
@@ -856,10 +877,46 @@ adjust_arity(F, A) ->
         false -> A - 1
     end.
 
+documented(#docs_v1{docs=Entries}, Attributes, Module) ->
+    AdjustArity = case xref_utils:is_abstract_module(Attributes) of
+                      true -> fun adjust_arity/2;
+                      false -> fun(_Name, Arity) -> Arity end
+                  end,
+    documented_v1(Entries, Module, AdjustArity, [], []);
+documented(_Doc, _Attributes, _Module) ->
+    {[], []}.
+
+documented_v1([Entry | Entries], Module, AdjustArity, Documented, Hidden) ->
+    case Entry of
+        {{function, Name, Arity0}, _Anno, _Signature, hidden, _Metadata} ->
+            Arity = AdjustArity(Name, Arity0),
+            documented_v1(Entries,
+                          Module,
+                          AdjustArity,
+                          Documented,
+                          [{Module, Name, Arity} | Hidden]);
+        {{function, Name, Arity0}, _Anno, _Signature, Doc, Metadata}
+          when is_map(Doc); is_map_key(equiv, Metadata) ->
+            Arity = AdjustArity(Name, Arity0),
+            documented_v1(Entries,
+                          Module,
+                          AdjustArity,
+                          [{Module, Name, Arity} | Documented],
+                          Hidden);
+        {_KindNameArity, _Anno, _Signature, _Doc, _Metadata} ->
+            documented_v1(Entries,
+                          Module,
+                          AdjustArity,
+                          Documented,
+                          Hidden)
+    end;
+documented_v1([], _Module, _AdjustArity, Documented, Hidden) ->
+    {Documented, Hidden}.
+
 deprecated(A, X, M) ->
     DF = {[],[],[],[]},
-    case keysearch(deprecated, 1, A) of
-        {value, {deprecated, D0}} ->
+    case keyfind(deprecated, 1, A) of
+        {deprecated, D0} ->
             depr(D0, M, DF, X, []);
         false ->
             {DF,[]}
@@ -913,11 +970,65 @@ depr_desc([Char | Str]) when is_integer(Char) -> depr_desc(Str);
 depr_desc([]) -> 4;
 depr_desc(_) -> undefined.
 
+unsafe(A, X, M) ->
+    Unsafe = {[], []},
+    case keyfind(unsafe, 1, A) of
+        {unsafe, Specs} ->
+            unsafe(Specs, M, Unsafe, X, []);
+        false ->
+            {Unsafe, []}
+    end.
+
+unsafe([Spec | Rest], M, US0, X, Bad) ->
+    case unsafe_cat(Spec, M, X) of
+        {I, Ut} ->
+            US = setelement(I, US0, Ut ++ element(I, US0)),
+            unsafe(Rest, M, US, X, Bad);
+        undefined ->
+            unsafe(Rest, M, US0, X, [Spec | Bad])
+    end;
+unsafe([], _M, US, _X, Bad) ->
+    {US, reverse(Bad)}.
+
+unsafe_cat({F, A, Flg}, M, X) ->
+    case unsafe_flag(Flg) of
+        undefined -> undefined;
+        I -> unsafe_fa(F, A, X, M, I)
+    end;
+unsafe_cat({F, A}, M, X) ->
+    unsafe_fa(F, A, X, M, 2);
+unsafe_cat(module, M, X) ->
+    unsafe_fa('_', '_', X, M, 2);
+unsafe_cat(_D, _M, _X) ->
+    undefined.
+
+unsafe_fa('_', '_', X, _M, I) ->
+    {I, X};
+unsafe_fa(F, '_', X, _M, I) when is_atom(F) ->
+    {I, filter(fun({_,F1,_}) -> F1 =:= F end, X)};
+unsafe_fa(F, A, _X, M, I) when is_atom(F), is_integer(A), A >= 0 ->
+    {I, [{M,F,A}]};
+unsafe_fa(_F, _A, _X, _M, _I) ->
+    undefined.
+
+%% unsafe_flag(Flag) -> integer() | undefined
+%%   Maps symbolic flags for unsafe functions to their category indexes
+%%   in the unsafe tuple.
+%%
+%%   {US_1, US}
+
+unsafe_flag(possibly) -> 1;
+unsafe_flag(String) -> unsafe_desc(String).
+
+%% Strings fall into the general category, index 2.
+unsafe_desc([Char | Str]) when is_integer(Char) -> unsafe_desc(Str);
+unsafe_desc([]) -> 2;
+unsafe_desc(_) -> undefined.
+
 %% -> {ok, Module, Bad, State} | throw(Error)
 %% Assumes:
 %% L U X is a subset of dom DefAt
 %% dom CallAt = LC U XC
-%% Attrs is collected from the attribute 'xref' (experimental).
 do_add_module(S, XMod, Unres, Data) ->
     #xref{mode = Mode} = S,
     Mode = S#xref.mode,
@@ -926,31 +1037,22 @@ do_add_module(S, XMod, Unres, Data) ->
     {ok, Ms, Bad, NS}.
 
 prepare_module(_Mode = functions, XMod, Unres0, Data) ->
-    {DefAt0, LPreCAt0, XPreCAt0, LC0, XC0, X0, Attrs, Depr, OL0} = Data,
-    %% Bad is a list of bad values of 'xref' attributes.
-    {ALC0,AXC0,Bad0} = Attrs,
+    {DefAt0, LPreCAt0, XPreCAt0, LC0, XC0, X0, Depr, OL0, Doc, US0} = Data,
     FT = [tspec(func)],
     FET = [tspec(fun_edge)],
     PCA = [tspec(pre_call_at)],
 
-    XPreCAt1 = xref_utils:xset(XPreCAt0, PCA),
-    LPreCAt1 = xref_utils:xset(LPreCAt0, PCA),
+    XPreCAt = xref_utils:xset(XPreCAt0, PCA),
+    LPreCAt = xref_utils:xset(LPreCAt0, PCA),
     DefAt = xref_utils:xset(DefAt0, [tspec(def_at)]),
     X1 = xref_utils:xset(X0, FT),
-    XC1 = xref_utils:xset(XC0, FET),
-    LC1 = xref_utils:xset(LC0, FET),
-    AXC1 = xref_utils:xset(AXC0, PCA),
-    ALC1 = xref_utils:xset(ALC0, PCA),
+    XC = xref_utils:xset(XC0, FET),
+    LC = xref_utils:xset(LC0, FET),
     UnresCalls = xref_utils:xset(Unres0, PCA),
     Unres = domain(UnresCalls),
     OL1 = xref_utils:xset(OL0, FT),
 
     DefinedFuns = domain(DefAt),
-    {AXC, ALC, Bad1, LPreCAt2, XPreCAt2} =
-	extra_edges(AXC1, ALC1, Bad0, DefinedFuns),
-    Bad = map(fun(B) -> {xref_attr, B} end, Bad1),
-    LPreCAt = union(LPreCAt1, LPreCAt2),
-    XPreCAt = union(XPreCAt1, XPreCAt2),
     NoCalls = no_elements(LPreCAt) + no_elements(XPreCAt),
     LCallAt = relation_to_family(LPreCAt),
     XCallAt = relation_to_family(XPreCAt),
@@ -958,25 +1060,36 @@ prepare_module(_Mode = functions, XMod, Unres0, Data) ->
     %% Local and exported functions with no definitions are removed.
     L = difference(DefinedFuns, X1),
     X = difference(DefinedFuns, L),
-    XC = union(XC1, AXC),
-    LC = union(LC1, ALC),
 
-    {DF1,DF_11,DF_21,DF_31,DBad} = depr_mod(Depr, X),
+    {DF1,DF_11,DF_21,DF_31,DFBad} = depr_mod(Depr, X),
+    {DC, DC_1, DC_2, DCBad} = doc_mod(Doc, X),
+    {US, US_1, US_2, USBad} = unsafe_mod(US0, X),
+
     {EE, ECallAt} = inter_graph(X, L, LC, XC, CallAt),
+
     {ok, {functions, XMod, [DefAt,L,X,LCallAt,XCallAt,CallAt,LC,XC,EE,ECallAt,
-                            OL1,DF1,DF_11,DF_21,DF_31], NoCalls, Unres},
-     DBad++Bad};
+                            OL1,DF1,DF_11,DF_21,DF_31,DC,DC_1,DC_2,US,US_1,US_2],
+                            NoCalls, Unres},
+     DFBad++DCBad++USBad};
 prepare_module(_Mode = modules, XMod, _Unres, Data) ->
-    {X0, I0, Depr} = Data,
+    {X0, I0, Depr, Doc, Unsafe} = Data,
+
     X1 = xref_utils:xset(X0, [tspec(func)]),
     I1 = xref_utils:xset(I0, [tspec(func)]),
-    {DF1,DF_11,DF_21,DF_31,DBad} = depr_mod(Depr, X1),
-    {ok, {modules, XMod, [X1,I1,DF1,DF_11,DF_21,DF_31]}, DBad}.
+
+    {DF1,DF_11,DF_21,DF_31,DFBad} = depr_mod(Depr, X1),
+    {DC, DC_1, DC_2, DCBad} = doc_mod(Doc, X1),
+    {US, US_1, US_2, USBad} = unsafe_mod(Unsafe, X1),
+
+    {ok, {modules, XMod, [X1,I1,DF1,DF_11,DF_21,DF_31,
+                          DC, DC_1, DC_2,
+                          US, US_1, US_2]},
+     DFBad ++ DCBad ++ USBad}.
 
 finish_module({functions, XMod, List, NoCalls, Unres}, S) ->
     ok  = check_module(XMod, S),
     [DefAt2,L2,X2,LCallAt2,XCallAt2,CallAt2,LC2,XC2,EE2,ECallAt2,
-     OL2,DF2,DF_12,DF_22,DF_32] = pack(List),
+     OL2,DF2,DF_12,DF_22,DF_32,DC,DC_1,DC_2,US,US_1,US_2] = pack(List),
 
     LU = range(LC2),
 
@@ -986,24 +1099,46 @@ finish_module({functions, XMod, List, NoCalls, Unres}, S) ->
     MS = xref_utils:xset(M, atom),
     T = from_sets({MS,DefAt2,L2,X2,LCallAt2,XCallAt2,CallAt2,
 		   LC2,XC2,LU,EE2,ECallAt2,Unres,LPredefined,OL2,
-                   DF2,DF_12,DF_22,DF_32}),
+                   DF2,DF_12,DF_22,DF_32,DC,DC_1,DC_2,US,US_1,US_2}),
 
     NoUnres = XMod#xref_mod.no_unresolved,
     Info = no_info(X2, L2, LC2, XC2, EE2, Unres, NoCalls, NoUnres),
 
     XMod1 = XMod#xref_mod{data = T, info = Info},
-    S1 = S#xref{modules = dict:store(M, XMod1, S#xref.modules)},
+    S1 = S#xref{modules = dict:store(M, XMod1, S#xref.modules),
+                ignores = ignores(M, XMod#xref_mod.attributes) ++ S#xref.ignores},
     {ok, [M], take_down(S1)};
 finish_module({modules, XMod, List}, S) ->
     ok = check_module(XMod, S),
-    [X2,I2,DF2,DF_12,DF_22,DF_32] = pack(List),
+    [X2,I2,DF2,DF_12,DF_22,DF_32,DC,DC_1,DC_2,US,US_1,US_2] = pack(List),
     M = XMod#xref_mod.name,
     MS = xref_utils:xset(M, atom),
-    T = from_sets({MS, X2, I2, DF2, DF_12, DF_22, DF_32}),
+    T = from_sets({MS, X2, I2,
+                   DF2, DF_12, DF_22, DF_32,
+                   DC, DC_1, DC_2,
+                   US, US_1, US_2}),
     Info = [],
     XMod1 = XMod#xref_mod{data = T, info = Info},
     S1 = S#xref{modules = dict:store(M, XMod1, S#xref.modules)},
     {ok, [M], take_down(S1)}.
+
+ignores(M, Attrs) ->
+    case lists:keyfind(ignore_xref, 1, Attrs) of
+        {ignore_xref, Xs} when is_list(Xs) -> normalize_ignores(M, Xs);
+        {ignore_xref, X} -> normalize_ignores(M, [X]);
+        _ -> []
+    end.
+
+normalize_ignores(M, [{F, A} | Xs]) ->
+    [{M, F, A} | normalize_ignores(M, Xs)];
+normalize_ignores(M, [{_M, _F, _A}=X | Xs]) ->
+    [X | normalize_ignores(M, Xs)];
+normalize_ignores(M, [X | Xs]) when is_atom(X) ->
+    [X | normalize_ignores(M, Xs)];
+normalize_ignores(M, [_ | Xs]) ->
+    normalize_ignores(M, Xs);
+normalize_ignores(_M, []) ->
+    [].
 
 check_module(XMod, State) ->
     M = XMod#xref_mod.name,
@@ -1038,19 +1173,48 @@ depr_mod({Depr,Bad0}, X) ->
     Bad1 = difference(All, XB),
     Bad2 = to_external(difference(Bad1, predefined_funs(Bad1))),
     Bad = map(fun(B) -> {depr_attr, B} end, usort(Bad2++Bad0)),
-    {DF,DF_1,DF_2,DF_3,Bad}.
 
-%% Extra edges gathered from the attribute 'xref' (experimental)
-extra_edges(CAX, CAL, Bad0, F) ->
-    AXC0 = domain(CAX),
-    ALC0 = domain(CAL),
-    AXC = restriction(AXC0, F),
-    ALC = restriction(2, restriction(ALC0, F), F),
-    LPreCAt2 = restriction(CAL, ALC),
-    XPreCAt2 = restriction(CAX, AXC),
-    Bad = Bad0 ++ to_external(difference(AXC0, AXC))
-	       ++ to_external(difference(ALC0, ALC)),
-    {AXC, ALC, Bad, LPreCAt2, XPreCAt2}.
+    {DF, DF_1, DF_2, DF_3, Bad}.
+
+doc_mod({Documented0, Hidden0}, X) ->
+    FT = [tspec(func)],
+
+    Documented = xref_utils:xset(Documented0, FT),
+    Hidden = xref_utils:xset(Hidden0, FT),
+
+    All = union(from_sets([Documented, Hidden])),
+    Fun = {external, fun({M,F,A}) -> xref_utils:is_builtin(M, F, A) end},
+    XB = union(X, specification(Fun, All)),
+
+    DC_1 = intersection(Documented, XB),
+    DC_2 = intersection(Hidden, XB),
+    DC = union(DC_1, DC_2),
+
+    Bad1 = difference(All, XB),
+    Bad2 = to_external(difference(Bad1, predefined_funs(Bad1))),
+    Bad = map(fun(B) -> {depr_attr, B} end, usort(Bad2)),
+
+    {DC, DC_1, DC_2, Bad}.
+
+unsafe_mod({{Potentially0, Always0}, Bad0}, X) ->
+    FT = [tspec(func)],
+
+    Potentially = xref_utils:xset(Potentially0, FT),
+    Always = xref_utils:xset(Always0, FT),
+
+    All = union(from_sets([Potentially, Always])),
+    Fun = {external, fun({M,F,A}) -> xref_utils:is_builtin(M, F, A) end},
+    XB = union(X, specification(Fun, All)),
+
+    US_1 = intersection(Always, XB),
+    US_2 = intersection(Potentially, XB),
+    US = union(US_1, US_2),
+
+    Bad1 = difference(All, XB),
+    Bad2 = to_external(difference(Bad1, predefined_funs(Bad1))),
+    Bad = map(fun(B) -> {depr_attr, B} end, usort(Bad2++Bad0)),
+
+    {US, US_1, US_2, Bad}.
 
 no_info(X, L, LC, XC, EE, Unres, NoCalls, NoUnresCalls) ->
     NoUnres = no_elements(Unres),
@@ -1243,7 +1407,10 @@ do_set_up(S) when S#xref.mode =:= functions ->
     ModDictList = dict:to_list(S#xref.modules),
     [DefAt0, L, X0, LCallAt, XCallAt, CallAt, LC, XC, LU,
      EE0, ECallAt, UC, LPredefined, OL,
-     Mod_DF,Mod_DF_1,Mod_DF_2,Mod_DF_3] = make_families(ModDictList, 19),
+     Mod_DF, Mod_DF_1, Mod_DF_2, Mod_DF_3,
+     Mod_DC, Mod_DC_1, Mod_DC_2,
+     Mod_US, Mod_US_1, Mod_US_2] =
+        make_families(ModDictList, 25),
 
     {XC_1, XU, XPredefined} = do_set_up_1(XC),
     LC_1 = user_family(union_of_family(LC)),
@@ -1274,8 +1441,10 @@ do_set_up(S) when S#xref.mode =:= functions ->
 
     AM = domain(F1),
     %% Undef is the union of U0 and Lib:
-    {Undef, U0, Lib, Lib_DF, Lib_DF_1, Lib_DF_2, Lib_DF_3} =
-	make_libs(XU, F1, AM, S#xref.library_path, S#xref.libraries),
+    {Undef, U0, Lib, Lib_DF, Lib_DF_1, Lib_DF_2, Lib_DF_3,
+     Lib_DC, Lib_DC_1, Lib_DC_2,
+     Lib_US, Lib_US_1, Lib_US_2} =
+        make_libs(XU, F1, AM, S#xref.library_path, S#xref.libraries),
     {B, U} = make_builtins(U0),
     X1_B = family_union(X1, B),
     F = family_union(F1, Lib),
@@ -1286,6 +1455,14 @@ do_set_up(S) when S#xref.mode =:= functions ->
     % If we have 'used' too, then there will be a set LU U XU...
     UU = family_difference(family_difference(F1, LU), XU),
     DefAt = make_defat(Undef, DefAt0),
+
+    US = family_union(family_intersection(Mod_US, X1_B), Lib_US),
+    US_1 = family_union(family_intersection(Mod_US_1, X1_B), Lib_US_1),
+    US_2 = family_union(family_intersection(Mod_US_2, X1_B), Lib_US_2),
+
+    DC = family_union(family_intersection(Mod_DC, X1_B), Lib_DC),
+    DC_1 = family_union(family_intersection(Mod_DC_1, X1_B), Lib_DC_1),
+    DC_2 = family_union(family_intersection(Mod_DC_2, X1_B), Lib_DC_2),
 
     LM = domain(Lib),
     UM = difference(difference(domain(U), AM), LM),
@@ -1337,14 +1514,19 @@ do_set_up(S) when S#xref.mode =:= functions ->
 	  {'AM',AM},{'UM',UM},{'LM',LM},
 	  {'ME',ME},{'AE',AE},{'RE',RE},
           {'DF',DF},{'DF_1',DF_1},{'DF_2',DF_2},{'DF_3',DF_3},
+          {'DC', DC}, {'DC_1', DC_1}, {'DC_2', DC_2},
+          {'US', US}, {'US_1', US_1}, {'US_2', US_2},
 	  {me2ae, ME2AE},{ae, AE2RE},{m2a, M2A},{a2r, A2R},
 	  {def_at, DefAt}, {call_at, CallAt}, {e_call_at, ECallAt},
 	  {l_call_at, LCallAt}, {x_call_at, XCallAt}],
     finish_set_up(S1, Vs);
 do_set_up(S) when S#xref.mode =:= modules ->
     ModDictList = dict:to_list(S#xref.modules),
-    [X0, I0, Mod_DF, Mod_DF_1, Mod_DF_2, Mod_DF_3] =
-        make_families(ModDictList, 7),
+    [X0, I0,
+     Mod_DF, Mod_DF_1, Mod_DF_2, Mod_DF_3,
+     Mod_DC, Mod_DC_1, Mod_DC_2,
+     Mod_US, Mod_US_1, Mod_US_2] =
+        make_families(ModDictList, 13),
     I = union_of_family(I0),
     AM = domain(X0),
 
@@ -1367,14 +1549,27 @@ do_set_up(S) when S#xref.mode =:= modules ->
     RE = range(AE2RE),
 
     %% Undef is the union of U0 and Lib:
-    {_Undef, U0, Lib, Lib_DF, Lib_DF_1, Lib_DF_2, Lib_DF_3} =
-	make_libs(XU, X1, AM, S#xref.library_path, S#xref.libraries),
+    {_Undef, U0, Lib,
+      Lib_DF, Lib_DF_1, Lib_DF_2, Lib_DF_3,
+      Lib_DC, Lib_DC_1, Lib_DC_2,
+      Lib_US, Lib_US_1, Lib_US_2} =
+        make_libs(XU, X1, AM, S#xref.library_path, S#xref.libraries),
+
     {B, U} = make_builtins(U0),
     X1_B = family_union(X1, B),
+
     DF = family_union(family_intersection(Mod_DF, X1_B), Lib_DF),
     DF_1 = family_union(family_intersection(Mod_DF_1, X1_B), Lib_DF_1),
     DF_2 = family_union(family_intersection(Mod_DF_2, X1_B), Lib_DF_2),
     DF_3 = family_union(family_intersection(Mod_DF_3, X1_B), Lib_DF_3),
+
+    DC = family_union(family_intersection(Mod_DC, X1_B), Lib_DC),
+    DC_1 = family_union(family_intersection(Mod_DC_1, X1_B), Lib_DC_1),
+    DC_2 = family_union(family_intersection(Mod_DC_2, X1_B), Lib_DC_2),
+
+    US = family_union(family_intersection(Mod_US, X1_B), Lib_US),
+    US_1 = family_union(family_intersection(Mod_US_1, X1_B), Lib_US_1),
+    US_2 = family_union(family_intersection(Mod_US_2, X1_B), Lib_US_2),
 
     LM = domain(Lib),
     UM = difference(difference(domain(U), AM), LM),
@@ -1387,6 +1582,8 @@ do_set_up(S) when S#xref.mode =:= modules ->
 	  {'AM',AM},{'UM',UM},{'LM',LM},
 	  {'ME',ME},{'AE',AE},{'RE',RE},
           {'DF',DF},{'DF_1',DF_1},{'DF_2',DF_2},{'DF_3',DF_3},
+          {'DC', DC}, {'DC_1', DC_1}, {'DC_2', DC_2},
+          {'US', US}, {'US_1', US_1}, {'US_2', US_2},
 	  {me2ae, ME2AE},{ae, AE2RE},{m2a, M2A},{a2r, A2R},
 	  {def_at, Empty}, {call_at, Empty}, {e_call_at, Empty},
 	  {l_call_at, Empty}, {x_call_at, Empty}],
@@ -1421,6 +1618,12 @@ var_type('DF')   -> {function, vertex};
 var_type('DF_1') -> {function, vertex};
 var_type('DF_2') -> {function, vertex};
 var_type('DF_3') -> {function, vertex};
+var_type('DC') ->   {function, vertex};
+var_type('DC_1') -> {function, vertex};
+var_type('DC_2') -> {function, vertex};
+var_type('US') ->   {function, vertex};
+var_type('US_1') -> {function, vertex};
+var_type('US_2') -> {function, vertex};
 var_type('A')    -> {application, vertex};
 var_type('AM')   -> {module, vertex};
 var_type('LM')   -> {module, vertex};
@@ -1521,30 +1724,55 @@ make_libs(XU, F, AM, LibPath, LibDict) ->
 			end,
 		 map(MFun, to_external(Lb))
 	     end,
-    Fun = fun(FileName, Deprs) ->
-		  case beam_lib:chunks(FileName, [exports, attributes]) of
-		      {ok, {M, [{exports,X}, {attributes,A}]}} ->
-			  Exports = mfa_exports(X, A, M),
-                          %% No warnings for bad attributes...
-                          {Deprecated,_Bad} = deprecated(A, Exports, M),
-                          {{M,Exports}, [{M,Deprecated} | Deprs]};
-		      Error ->
-			  throw(Error)
-		  end
-	  end,
-    {XL, DL} = mapfoldl(Fun, [], Fs),
+
+    {XL, DepL, DocL, UnsL} = collect_lib(Fs, [], [], [], []),
+
     LF = from_term(XL),
+
     %% Undef is the first argument to make sure that the whole of LF
     %% becomes garbage:
     Lib = family_intersection(Undef, LF),
+    U = family_difference(Undef, Lib),
     {B,_} = make_builtins(Undef),
+
     DLib = family_union(Lib, B),
-    [DF_1,DF_21,DF_31,DF1] = depr_lib(4, DL, DL, [], [], DLib),
+
+    [DC_1, DC_2] = depr_lib(2, DocL, DocL, [], [], DLib),
+    DC = family_union(DC_1, DC_2),
+
+    [US_1, US_2] = depr_lib(2, UnsL, UnsL, [], [], DLib),
+    US = family_union(US_1, US_2),
+
+    [DF_1, DF_21, DF_31, DF1] = depr_lib(4, DepL, DepL, [], [], DLib),
     DF_2 = family_union(DF_21, DF_1),
     DF_3 = family_union(DF_31, DF_2),
     DF = family_union(DF1, DF_3),
-    U = family_difference(Undef, Lib),
-    {Undef, U, Lib, DF, DF_1, DF_2, DF_3}.
+
+    {Undef, U, Lib,
+     DF, DF_1, DF_2, DF_3,
+     DC, DC_1, DC_2,
+     US, US_1, US_2}.
+
+collect_lib([Name | Names], Exports, Deprecated, Documented, Unsafe) ->
+    case beam_lib:chunks(Name,
+                         [exports, attributes, documentation],
+                         [allow_missing_chunks]) of
+        {ok, {M, [{exports,X}, {attributes,A}, {documentation, Doc}]}} ->
+            Es = mfa_exports(X, A, M),
+            %% No warnings for bad attributes...
+            {Ds, _} = deprecated(A, Es, M),
+            {Us, _} = unsafe(A, Es, M),
+            Docs = documented(Doc, A, M),
+            collect_lib(Names,
+                        [{M, Es} | Exports],
+                        [{M, Ds} | Deprecated],
+                        [{M, Docs} | Documented],
+                        [{M, Us} | Unsafe]);
+        Error ->
+            throw(Error)
+    end;
+collect_lib([], Exports, Deprecated, Documented, Unsafe) ->
+    {Exports, Deprecated, Documented, Unsafe}.
 
 depr_lib(0, _, _, LL, [], _Lib) ->
     LL;
@@ -1839,8 +2067,6 @@ message(true, What, Arg) ->
 	    io:format("~tp: 1 unresolved call~n", Arg);
 	unresolved_summary ->
 	    io:format("~tp: ~tp unresolved calls~n", Arg);
-	jam ->
-	    io:format("Skipping ~ts (probably JAM file)~n", [Arg]);
 	unreadable ->
 	    io:format("Skipping ~ts (unreadable)~n", [Arg]);
 	xref_attr ->

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -68,6 +70,7 @@
 	 bad_binary_to_term_2/1,safe_binary_to_term2/1,
 	 bad_binary_to_term/1, bad_terms/1, more_bad_terms/1,
          big_binary_to_term/1,
+         binary_to_term_trap_crash/1,
 	 otp_5484/1,otp_5933/1,
 	 ordering/1,unaligned_order/1,gc_test/1,
 	 bit_sized_binary_sizes/1,
@@ -99,6 +102,7 @@ all() ->
      bad_binary_to_term_2, safe_binary_to_term2,
      bad_binary_to_term, bad_terms, t_hash, bad_size,
      big_binary_to_term,
+     binary_to_term_trap_crash,
      sub_bin_copy, bad_term_to_binary, t2b_system_limit,
      term_to_iovec, more_bad_terms,
      unsorted_map_in_map,
@@ -1160,6 +1164,10 @@ bad_binary_to_term(Config) when is_list(Config) ->
 
     %% Truncated UTF8 character (ERL-474)
     bad_bin_to_term(<<131,119,1,194,163>>),
+
+    %% Overlong 0-bit bitstring (should be encoded as 0-byte binary)
+    bad_bin_to_term(<<131,77,0,0,0,0,0>>),
+
     ok.
 
 bad_bin_to_term(BadBin) ->
@@ -1608,7 +1616,10 @@ test_unaligned_order(I, J) ->
 
 test_unaligned_order_1(Op, A, B, {Aa,Ba}) ->
     erlang:Op(unaligned_sub_bin(A, Aa), unaligned_sub_bin(B, Ba)).
-    
+
+-record #empty{}.
+-record #order{zzzz=0, true=1, aaaa=2, wwww=3, z=4, a=5}.
+
 test_terms(Test_Func) ->
     Test_Func(atom),
     Test_Func(''),
@@ -1735,6 +1746,14 @@ test_terms(Test_Func) ->
     Test_Func(LargeMap1),
     Test_Func(LargeMap2),
     Test_Func(MapWithMap),
+
+    %% Native records.
+    Test_Func(#empty{}),
+    OrderRec = #order{zzzz=SmallMap, true=LargeMap1, aaaa=MapWithMap},
+    Test_Func(#order{}),
+    Test_Func(OrderRec),
+    Test_Func(#order{z=OrderRec}),
+    Test_Func({a, #order{z=#order{}}, b}),
 
     ok.
 
@@ -1954,6 +1973,23 @@ trapping_loop2(_,_,0) ->
 trapping_loop2(Bif,Args,N) ->
     apply(erlang,Bif,Args),
     trapping_loop2(Bif, Args, N-1).
+
+%% GH-11404: Bug caused SEGV or failed ASSERT.
+binary_to_term_trap_crash(Config) ->
+    Term = {0,"1234567890123456",0,0,0,0,0,0,
+            [1 bsl 47], [], {127,0,0,1},
+            0,[],[],[],[],[],[],[],[],[],[],0,[],"123456789",[],[],0,0,
+            0,[],0,[],[],[],[],[],1,[],[],[],[],[],[],0,0,"123",[],0,[],
+            1,[],[],[],0,0,{0,0},0,[],0,0,0,[],[],0,[],0,0,[]},
+    Bin = term_to_binary(Term),
+    CONTEXT_REDS = erlang:system_info(context_reductions),
+    [begin
+         erlang:yield(),
+         erlang:bump_reductions(I),
+         binary_to_term(Bin)
+     end
+     || I <- lists:seq(1,CONTEXT_REDS)],
+    ok.
 
 large(Config) when is_list(Config) ->
     List = lists:flatten(lists:map(fun (_) ->
@@ -2205,11 +2241,8 @@ make_sub_binary(Bin) when is_binary(Bin) ->
 make_sub_binary(List) ->
     make_sub_binary(list_to_binary(List)).
 
-make_unaligned_sub_binary(Bin0) when is_binary(Bin0) ->
-    Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = size(Bin0),
-    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
-    Bin;
+make_unaligned_sub_binary(Bin) when is_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3);
 make_unaligned_sub_binary(List) ->
     make_unaligned_sub_binary(list_to_binary(List)).
 

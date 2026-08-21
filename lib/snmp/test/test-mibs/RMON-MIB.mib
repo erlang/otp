@@ -1,3 +1,21 @@
+-- %CopyrightBegin%
+--
+-- SPDX-License-Identifier: LicenseRef-IETF-MIB
+--
+-- Copyright (C) The Internet Society (2000).  All Rights Reserved.
+-- Copyright Ericsson AB 2009-2025. All Rights Reserved.
+--
+-- MIB modules published in IETF RFCs prior to the adoption of BCP 78 (such as
+-- RFC 1158) are considered to be freely copyable and usable for implementation
+-- and interoperability purposes. No explicit license was provided, but the IETF
+-- intended for MIB code to be reusable and modifiable as necessary.
+--
+-- This interpretation is based on historical practice and later IETF
+-- clarification that such material was meant to be in the public domain or
+-- under permissive terms.
+--
+-- %CopyrightEnd%
+
 RMON-MIB DEFINITIONS ::= BEGIN
 
     IMPORTS

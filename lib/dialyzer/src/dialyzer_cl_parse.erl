@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
+%% Copyright 2004-2010 held by the authors. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -9,9 +16,13 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% %CopyrightEnd%
 
 -module(dialyzer_cl_parse).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 -export([start/0]).
 
@@ -140,7 +151,8 @@ cli() ->
                 no_behaviours, no_contracts, no_fail_call, no_fun_app, no_improper_lists,
                 no_match, no_missing_calls, no_opaque, no_return, no_undefined_callbacks,
                 no_underspecs, no_unknown, no_unused, underspecs, unknown, unmatched_returns,
-                overspecs, specdiffs, overlapping_contract, extra_return, no_extra_return, missing_return, no_missing_return]},
+                overspecs, specdiffs, overlapping_contract, extra_return, no_extra_return, missing_return,
+                no_missing_return, opaque_union]},
                 help => {<<"[-Wwarn]*">>, [<<"A family of options which selectively turn on/off warnings">>]}},
             #{name => version, short => $v, long => "-version", type => boolean,
                 help => <<"Print the Dialyzer version and some more information and exit.">>},
@@ -349,7 +361,10 @@ warning_options_msg() ->
      Warn about functions that return values that are not part
      of the specification.
   -Woverlapping_contract ***
-     Warn about overloaded functions whose specification include types that overlap.
+     Warn about overloaded functions whose specification include types that
+     overlap.
+  -Wopaque_union ***
+     Warn about potentially creating a union between opaques and non-opaques.
 
 The following options are also available but their use is not recommended:
 (they are mostly for Dialyzer developers and internal debugging)

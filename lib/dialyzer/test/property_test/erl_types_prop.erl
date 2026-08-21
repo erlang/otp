@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -82,7 +84,7 @@ associativity_check(A, B, C) ->
     LHS_Inf = inf(A, inf(B, C)),
     RHS_Inf = inf(inf(A, B), C),
     Test2 = equal(LHS_Inf, RHS_Inf),
-    Test1 and Test2.
+    Test1 andalso Test2.
 
 commutativity() ->
     numtests(?REPETITIONS, commutativity_1()).
@@ -110,7 +112,7 @@ commutativity_check(A, B) ->
     Inf_AB = inf(A, B),
     Inf_BA = inf(B, A),
     Test2 = equal(Inf_AB, Inf_BA),
-    Test1 and Test2.
+    Test1 andalso Test2.
 
 idempotence() ->
     numtests(?REPETITIONS, idempotence_1()).
@@ -132,7 +134,7 @@ idempotence_check(Type) ->
     %% a ∧ a = a
     Inf = inf(Type, Type),
     Test2 = equal(Inf, Type),
-    Test1 and Test2.
+    Test1 andalso Test2.
 
 identity() ->
     numtests(?REPETITIONS, identity_1()).
@@ -147,7 +149,7 @@ identity_check(Type) ->
     %% a ∧ [top element] = a
     Inf = inf(Type, any),
     Test2 = equal(Inf, Type),
-    Test1 and Test2.
+    Test1 andalso Test2.
 
 limit() ->
     numtests(?REPETITIONS, limit_1()).

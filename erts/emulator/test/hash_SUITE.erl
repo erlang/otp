@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -31,9 +33,12 @@
 %% Also tests that the limit can be between 0 and 16#FFFFFFFF.
 %%
 -module(hash_SUITE).
+-compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
+
 -export([basic_test/0,cmp_test/1,range_test/0,spread_test/1,
 	 phash2_test/0, otp_5292_test/0,
-         otp_7127_test/0, 
+         otp_7127_test/0,
+         test_native_record/1, md5_large/1,
          run_phash2_benchmarks/0,
          test_phash2_binary_aligned_and_unaligned_equal/1,
          test_phash2_4GB_plus_bin/1,
@@ -51,7 +56,8 @@
          test_phash2_with_small_unaligned_sub_binary/1,
          test_phash2_with_large_bin/1,
          test_phash2_with_large_unaligned_sub_binary/1,
-         test_phash2_with_super_large_unaligned_sub_binary/1]).
+         test_phash2_with_super_large_unaligned_sub_binary/1,
+         test_iovblockhash/1]).
 
 %%
 %% Define to run outside of test server
@@ -108,6 +114,9 @@ all() ->
      test_hash_zero, test_phash2_binary_aligned_and_unaligned_equal,
      test_phash2_4GB_plus_bin,
      test_phash2_10MB_plus_bin,
+     test_native_record,
+     md5_large,
+     test_iovblockhash,
      {group, phash2_benchmark_tests},
      {group, phash2_benchmark}].
 
@@ -319,8 +328,12 @@ do_cmp_hashes(N,Steps) ->
 	true ->
 	    do_cmp_hashes(N - 1, NSteps);
 	_ ->
-	    exit({missmatch_on_input, R, phash, X, make_hash, Y})
+	    exit({mismatch_on_input, R, phash, X, make_hash, Y})
     end.
+
+-record #empty{}.
+-record #a{x, y}.
+-record #order{zzzz=0, true=1, aaaa=2, wwww=3}.
 
 phash2_test() ->
     Max = 1 bsl 32,
@@ -504,7 +517,16 @@ phash2_test() ->
 	 {{c:pid(0,2,0)}, 686997880},
 	 {{F4}, 2279632930},
 	 {{a,<<>>}, 2724468891},
-	 {{b,<<>>}, 2702508511}
+         {{b,<<>>}, 2702508511},
+
+         %% native record
+         {#empty{}, 1272570834},
+         {#a{x=1,y=10}, 1020908739},
+         {#a{x=2,y=10}, 535979803},
+         {#a{x=1,y=11}, 4240758587},
+         {#order{}, 3170326674},
+         {#order{zzzz=100}, 2535759712},
+         {#order{wwww=999}, 438972933}
 	],
     SpecFun = fun(S) -> sofs:no_elements(S) > 1 end,
     F = sofs:relation_to_family(sofs:converse(sofs:relation(L))),
@@ -620,6 +642,22 @@ duplicate_iolist(IOList, 0) ->
 duplicate_iolist(IOList, NrOfTimes) ->
     duplicate_iolist([IOList, IOList], NrOfTimes - 1).
 
+%% This testcase needs >3 GB of free memory.
+test_iovblockhash(Config) when is_list(Config) ->
+    run_when_enough_resources(
+      fun() ->
+              {ok, Peer, N} = ?CT_PEER(),
+              erpc:call(N,
+                        fun() ->
+                                test_iovblockhash_1()
+                        end),
+              peer:stop(Peer)
+      end).
+
+test_iovblockhash_1() ->
+    BigBin = binary:copy(<<0>>, 3 bsl 30),
+    _ = term_to_iovec(BigBin, [local]),
+    ok.
 
 %% This functions is written very carefully so that the binaries
 %% created are released as quickly as possible. If they are not released
@@ -843,6 +881,60 @@ hash_zero_test([Z|Zs],Z0,V,F) ->
 hash_zero_test([],_,_,_) ->
     ok.
 
+test_native_record(_Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
+
+    Records = [#empty{}, #a{x={a,b,c},y=[x,y,z]}, #a{x=42,y=0.0},
+               #order{}, #order{wwww=abc}],
+    _ = [begin
+             %% Hash of the definition is calculated when loading a
+             %% module and when reconstructing a record definition
+             %% from the external term format. Those calculations
+             %% must give the same result.
+             ProcessedTerm = binary_to_term(term_to_binary(Term)),
+             CreatedTerm = create_record(Term),
+
+             Hash = erlang:phash(Term, 1 bsl 32),
+             Hash = erlang:phash(ProcessedTerm, 1 bsl 32),
+             Hash = erlang:phash(CreatedTerm, 1 bsl 32),
+
+             Hash2 = erlang:phash2(Term, 1 bsl 32),
+             Hash2 = erlang:phash2(ProcessedTerm, 1 bsl 32),
+             Hash2 = erlang:phash2(CreatedTerm, 1 bsl 32),
+
+             IntHash = make_internal_hash(Term),
+             IntHash = make_internal_hash(ProcessedTerm),
+             IntHash = make_internal_hash(CreatedTerm)
+         end || Term <- Records],
+
+    erts_debug:set_internal_state(available_internal_state, false),
+    ok.
+
+create_record(Rec) ->
+    Mod = records:get_module(Rec),
+    Name = records:get_name(Rec),
+    Exp = records:is_exported(Rec),
+    Fs = [{Key,records:get(Key, Rec)} ||
+             Key <- records:get_field_names(Rec)],
+    records:create(Mod, Name, Fs, #{is_exported => Exp}).
+
+make_internal_hash(Term) ->
+    erts_debug:get_internal_state({internal_hash, Term}).
+
+md5_large(_Config) when is_list(_Config) ->
+    %% A type conversion error in the md5 implementation on binaries
+    %% larger than 512 MB would cause the MD5 be incorrect on
+    %% 32-bit systems.
+
+    Chunk = <<0:(32*1024*1024)/unit:8>>,
+    L1 = [<<0>> | lists:duplicate(16, Chunk)],
+    <<16#EA3B62C6B93CB3625A1FD76777985F5A:128>> = erlang:md5(L1),
+
+    %% 4GB + 1 will not fit in a size_t on 32-bit systems.
+    L2 = [<<0>> | lists:duplicate(8*16, Chunk)],
+    <<16#F18C798FF5D450DFE4D3ACDC12B621FF:128>> = erlang:md5(L2),
+
+    ok.
 
 %%
 %% Reference implementation of integer hashing
@@ -1276,25 +1368,15 @@ get_map(Size) ->
 
 
 %% Copied from binary_SUITE
-make_unaligned_sub_binary(Bin0) when is_binary(Bin0) ->
-    Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = size(Bin0),
-    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
-    Bin.
+make_unaligned_sub_binary(Bin) when is_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3).
 
-%% This functions is written very carefully so that the bitstrings
-%% created are released as quickly as possible. If they are not released
-%% then the memory consumption going through the roof and systems will need
-%% lots of memory.
+%% This function is written very carefully so that the bitstrings
+%% created are released as quickly as possible. If they are not released,
+%% the memory consumption will go through the roof.
 make_unaligned_sub_bitstring(Bin0) ->
-    Sz = erlang:bit_size(Bin0),
-    Bin1 = <<0:3,Bin0/bitstring,31:5>>,
-    make_unaligned_sub_bitstring2(Sz, Bin1).
-
-make_unaligned_sub_bitstring2(Sz, Bin1) ->
-    %% Make sure to release Bin0 if possible
+    Bin = erts_debug:unaligned_bitstring(Bin0, 3),
     erlang:garbage_collect(),
-    <<0:3,Bin:Sz/bitstring,31:5>> = id(Bin1),
     Bin.
 
 make_random_bin(Size) ->

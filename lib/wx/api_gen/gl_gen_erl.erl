@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,8 +34,8 @@
 
 -import(lists, [foldl/3,foldr/3,reverse/1, keysearch/3, map/2, filter/2, max/1]).
 -import(gen_util, [lowercase/1, lowercase_all/1, uppercase/1, uppercase_all/1,
-		   open_write/1, open_write/2, close/0, erl_copyright/0, w/2,
-		   args/3, args/4, strip_name/2]).
+                   open_write/1, open_write/2, close/0, erl_gl_copyright/0, erl_copyright/0,
+                   w/2, args/3, args/4, strip_name/2]).
 
 
 -define(HTTP_TOP, "https://www.khronos.org/registry/OpenGL-Refpages/").
@@ -41,7 +43,7 @@
 
 gl_defines(Defs) ->
     open_write("../include/gl.hrl"),
-    erl_copyright(),
+    erl_gl_copyright(),
     w("~n%% OPENGL DEFINITIONS~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
     [gen_define(Def) || Def=#def{} <- Defs],
@@ -50,7 +52,7 @@ gl_defines(Defs) ->
 
 glu_defines(Defs) ->
     open_write("../include/glu.hrl"),
-    erl_copyright(),
+    erl_gl_copyright(),
     w("~n%% GLU DEFINITIONS~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
     [gen_define(Def) || Def=#def{} <- Defs],
@@ -70,7 +72,7 @@ gen_define(#def{name="GLEXT_64_TYPES"++_, val=undefined, type=undefined}) ->
 
 gl_api(Fs, _GluNifs) ->
     open_write("../src/gen/gl.erl", [{encoding,utf8}]),
-    erl_copyright(),
+    erl_gl_copyright(),
     w("~n%% OPENGL API~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
     w("%% @doc  Standard OpenGL api.~n", []),
@@ -86,7 +88,11 @@ gl_api(Fs, _GluNifs) ->
     Exp = fun(F) -> gen_export(F) end,
     ExportList = lists:map(Exp,Fs),
 
+    w("-ifdef(CAN_BUILD_DRIVER).~n",[]),
     w("-on_load(init_nif/0).~n",[]),
+    w("-else.~n",[]),
+    w("-export([init_nif/0]).~n",[]),
+    w("-endif.~n",[]),
     w("~n-export([~s]).~n~n", [args(fun(EF) -> EF end, ",", ExportList, 60)]),
     w("-export([get_interface/0, rec/1, lookup_func/1]).\n",[]),
     w("-nifs([lookup_func_nif/1]).\n",[]),
@@ -95,10 +101,16 @@ gl_api(Fs, _GluNifs) ->
     w("nif_stub_error(Line) ->~n"
       "    erlang:nif_error({nif_not_loaded,module,?MODULE,line,Line}).\n\n",[]),
     w("%% @hidden~n", []),
+    w("-doc false.~n", []),
     w("init_nif() ->~n", []),
     w("  Base = \"erl_gl\",\n"
       "  Priv = code:priv_dir(wx),\n"
-      "  SrcTree = filename:join(Priv,erlang:system_info(system_architecture)),\n"
+      "  Arch = case os:type() of\n"
+      "             {win32, _} -> win32;\n"
+      "             _ ->\n"
+      "                 erlang:system_info(system_architecture)\n"
+      "         end,\n"
+      "  SrcTree = filename:join(Priv,Arch),\n"
       "  NifFile = case filelib:is_dir(SrcTree) of\n"
       "                true -> filename:absname(filename:join(SrcTree, Base));\n"
       "                false -> filename:absname(filename:join(Priv, Base))\n"
@@ -131,7 +143,7 @@ gl_api(Fs, _GluNifs) ->
 
 glu_api(Fs) ->
     open_write("../src/gen/glu.erl", [{encoding,utf8}]),
-    erl_copyright(),
+    erl_gl_copyright(),
     w("~n%% OPENGL UTILITY API~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
     w("%% @doc  A part of the standard OpenGL Utility api.~n", []),

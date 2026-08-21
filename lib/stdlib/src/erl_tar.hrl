@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,12 +21,13 @@
 
 %% Options used when adding files to a tar archive.
 -record(add_opts, {
-	 read_info,          %% Fun to use for read file/link info.
-	 chunk_size = 0,     %% For file reading when sending to sftp. 0=do not chunk
+         read_info,          %% Fun to use for read file/link info.
+         chunk_size = 65536, %% Chunk size for reading files.
          verbose = false,    %% Verbose on/off.
          atime = undefined,
          mtime = undefined,
          ctime = undefined,
+         mode = 8#100644,
          uid = 0,
          gid = 0}).
 -type add_opts() :: #add_opts{}.
@@ -36,7 +39,9 @@
           files = all,                         %% Set of files to extract (or all)
           output = file :: 'file' | 'memory',
           open_mode = [],                      %% Open mode options.
-          verbose = false :: boolean()}).      %% Verbose on/off.
+          verbose = false :: boolean(),        %% Verbose on/off.
+          chunk_size = 65536,                  %% Chunk size for streaming to disk.
+          max_size = infinity :: pos_integer() | 'infinity'}).
 -type read_opts() :: #read_opts{}.
 
 -type add_opt() :: dereference |
@@ -45,6 +50,7 @@
                    {atime, non_neg_integer()} |
                    {mtime, non_neg_integer()} |
                    {ctime, non_neg_integer()} |
+                   {mode, non_neg_integer()} |
                    {uid, non_neg_integer()} |
                    {gid, non_neg_integer()}.
 
@@ -52,6 +58,8 @@
 
 -type extract_opt() :: {cwd, string()} |
                        {files, [name_in_archive()]} |
+                       {chunks, pos_integer()} |
+                       {max_size, pos_integer() | infinity} |
                        compressed |
                        cooked |
                        memory |
@@ -191,11 +199,10 @@
 -type user_data() :: term().
 
 %% Type for the I/O primitive wrapper function
--type file_op() :: fun((write | close | read2 | position,
-                       {user_data(), iodata()} | user_data() | {user_data(), non_neg_integer()}
-                        | {user_data(), non_neg_integer()}) ->
-                              ok | eof | {ok, string() | binary()} | {ok, non_neg_integer()}
-                                 | {error, term()}).
+-type file_op() :: fun((close, file:io_device()) -> ok | {error, term()})
+                 | fun((position, {file:io_device(), file:location()}) -> {ok, integer()} | {error, term()})
+                 | fun((read2, {file:io_device(), non_neg_integer()}) -> {ok, string() | binary()} | eof | {error, term()})
+                 | fun((write, {file:io_device(), iodata()}) -> ok | {error, term()}).
 
 %% These constants (except S_IFMT) are
 %% used to determine what type of device

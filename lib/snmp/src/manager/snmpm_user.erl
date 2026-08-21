@@ -1,8 +1,10 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 
@@ -85,6 +87,13 @@ the manager (that info was never retrieved before the message was discarded).
 
 For `SnmpInfo` see handle_agent below.
 
+When `Reason` is `{failed_processing_message, {securityError, SecurityError, Opts}}`,
+the `Opts` proplist may contain a `sec_data` entry with USM security parameters
+from the received message. In particular, when `SecurityError` is
+`usmStatsUnknownEngineIDs`, the `sec_data` proplist contains
+`msgAuthoritativeEngineID` and `msgUserName`, which can be used for
+SNMPv3 USM EngineID discovery (RFC 3414, Section 4).
+
 Note that there is a special case when the value of `ReqId` has the value of the
 atom `netif`. This means that the NetIF process has suffered a "fatal" error and
 been restarted. With possible loss of traffic\!
@@ -94,7 +103,11 @@ been restarted. With possible loss of traffic\!
 	    Reason :: {unexpected_pdu, SnmpInfo :: snmp_gen_info()} |
 		      {invalid_sec_info,
 		       SecInfo :: term(),
-		       SnmpInfo :: snmp_gen_info()} | 
+                       SnmpInfo :: snmp_gen_info()} |
+                      {failed_processing_message,
+                       {securityError,
+                        SecurityError :: atom(),
+                        Info :: proplists:proplist()}} |
 		      {empty_message,
 		       TransportDomain :: atom(),
 		       {Addr :: ip_address(), Port :: port_number()}} | 

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,6 +32,13 @@ Each front-end contains more elaborate settings of
 -vsn('0.19').
 -date('03-09-17').
 
+-compile([{nowarn_unsafe_function, {xmerl_scan, cont_state, 1}},
+          {nowarn_unsafe_function, {xmerl_scan, cont_state, 2}},
+          {nowarn_unsafe_function, {xmerl_scan, file, 2}},
+          {nowarn_unsafe_function, {xmerl_scan, string, 2}},
+          {nowarn_unsafe_function, {xmerl_scan, user_state, 1}},
+          {nowarn_unsafe_function, {xmerl_scan, user_state, 2}}]).
+
 -export([stream/2,stream_sax/4, file_sax/4, string_sax/4]).
 
 % -export([cont/3, rules_read/3,rules_write/4,fetch/2,close/1]).
@@ -43,89 +52,47 @@ Each front-end contains more elaborate settings of
 
 -doc """
 Options allow to customize the behaviour of the scanner.  See also the
-["Customization functions" tutorial](`e:xmerl:xmerl_examples.html"`).
+["Customization functions" tutorial](`e:xmerl:xmerl_examples.html`).
 
-<p>
 Possible options are:
-</p>
-<dl>
- <dt><code>{acc_fun, Fun}</code></dt>
-   <dd>Call back function to accumulate contents of entity.</dd>
- <dt><code>{continuation_fun, Fun} |
-           {continuation_fun, Fun, ContinuationState}</code></dt>
-   <dd>Call back function to decide what to do if the scanner runs into EOF
-    before the document is complete.</dd>
- <dt><code>{event_fun, Fun} |
-           {event_fun, Fun, EventState}</code></dt>
-   <dd>Call back function to handle scanner events.</dd>
- <dt><code>{fetch_fun, Fun} |
-           {fetch_fun, Fun, FetchState}</code></dt>
-   <dd>Call back function to fetch an external resource.</dd>
- <dt><code>{hook_fun, Fun} |
-           {hook_fun, Fun, HookState}</code></dt>
-   <dd>Call back function to process the document entities once
-    identified.</dd>
- <dt><code>{close_fun, Fun}</code></dt>
-   <dd>Called when document has been completely parsed.</dd>
- <dt><code>{rules, ReadFun, WriteFun, RulesState} |
-           {rules, Rules}</code></dt>
-   <dd>Handles storing of scanner information when parsing.</dd>
- <dt><code>{user_state, UserState}</code></dt>
-   <dd>Global state variable accessible from all customization functions</dd>
 
- <dt><code>{fetch_path, PathList}</code></dt>
-   <dd>PathList is a list of
-    directories to search when fetching files. If the file in question
-    is not in the fetch_path, the URI will be used as a file
-    name.</dd>
- <dt><code>{space, Flag}</code></dt>
-   <dd><code>preserve</code> (default) to preserve spaces,
-   <code>normalize</code> to accumulate consecutive whitespace
-   and replace it with one space.</dd>
- <dt><code>{line, Line}</code></dt>
-   <dd>To specify starting line for scanning in document which contains
-   fragments of XML.</dd>
- <dt><code>{namespace_conformant, Flag}</code></dt>
-   <dd>Controls whether to behave as a namespace conformant XML parser,
-   <code>false</code> (default) to not otherwise <code>true</code>.</dd>
- <dt><code>{validation, Flag}</code></dt>
-   <dd>Controls whether to process as a validating XML parser:
-   <code>off</code> (default) no validation, or validation <code>dtd</code>
-   by DTD or <code>schema</code> by XML Schema.
-   <code>false</code> and <code>true</code> options are obsolete
-   (i.e. they may be removed in a future release), if used <code>false</code>
-   equals <code>off</code> and <code>true</code> equals <code>dtd</code>.</dd>
- <dt><code>{schemaLocation, [{Namespace,Link}|...]}</code></dt>
-   <dd>Tells explicitly which XML Schema documents to use to validate
-   the XML document. Used together with the
-   <code>{validation,schema}</code> option.</dd>
- <dt><code>{quiet, Flag}</code></dt>
-   <dd>Set to <code>true</code> if Xmerl should behave quietly
-   and not output any information to standard output
-   (default <code>false</code>).</dd>
- <dt><code>{doctype_DTD, DTD}</code></dt>
-   <dd>Allows to specify DTD name when it isn't available in the XML
-   document. This option has effect only together with
-   <code>{validation,<code>dtd</code></code> option.</dd>
- <dt><code>{xmlbase, Dir}</code></dt>
-   <dd>XML Base directory. If using string/1 default is current directory.
-   If using file/1 default is directory of given file.</dd>
- <dt><code>{encoding, Enc}</code></dt>
-   <dd>Set default character set used (default UTF-8).
-   This character set is used only if not explicitly given by the XML
-   declaration. </dd>
- <dt><code>{document, Flag}</code></dt>
-   <dd>Set to <code>true</code> if Xmerl should return a complete XML document
-   as an xmlDocument record (default <code>false</code>).</dd>
- <dt><code>{comments, Flag}</code></dt>
-   <dd>Set to <code>false</code> if Xmerl should skip comments
-   otherwise they will be returned as xmlComment records
-   (default <code>true</code>).</dd>
- <dt><code>{default_attrs, Flag}</code></dt>
-   <dd>Set to <code>true</code> if Xmerl should add to elements
-   missing attributes with a defined default value
-   (default <code>false</code>).</dd>
-</dl>
+- **`{acc_fun, Fun}`** - Call back function to accumulate contents of entity.
+- **`{continuation_fun, Fun} | {continuation_fun, Fun, ContinuationState}`** - Call back function to decide what to do if the scanner runs into EOF
+   before the document is complete.
+- **`{event_fun, Fun} | {event_fun, Fun, EventState}`** - Call back function to handle scanner events.
+- **`{fetch_fun, Fun} |{fetch_fun, Fun, FetchState}`** - Call back function to fetch an external resource.
+- **`{hook_fun, Fun} | {hook_fun, Fun, HookState}`** - Call back function to process the document entities once
+   identified.
+- **`{close_fun, Fun}`** - Called when document has been completely parsed.
+- **`{rules, ReadFun, WriteFun, RulesState} | {rules, Rules}`** - Handles storing of scanner information when parsing.
+- **`{user_state, UserState}`** - Global state variable accessible from all customization functions
+- **`{fetch_path, PathList}`** - PathList is a list of directories to search when fetching files.
+  If the file in question is not in the fetch_path, the URI will be used as a file name.
+- **`{space, Flag}`** - `preserve` (default) to preserve spaces,
+  `normalize` to accumulate consecutive whitespace and replace it with one space.
+- **`{line, Line}`** - To specify starting line for scanning in document which contains fragments of XML.
+- **`{namespace_conformant, Flag}`** - Controls whether to behave as a namespace conformant XML parser,
+  `false` (default) to not otherwise `true`.
+- **`{validation, Flag}`** - Controls whether to process as a validating XML parser:
+  `off` (default) no validation, or validation `dtd` by DTD or `schema` by XML Schema.
+  `false` and `true` options are obsolete (i.e. they may be removed in a future release),
+  if used `false` equals `off` and `true` equals `dtd`.
+- **`{schemaLocation, [{Namespace,Link}|...]}`** - Tells explicitly which XML Schema documents to use to validate
+  the XML document. Used together with the `{validation,schema}` option.
+- **`{quiet, Flag}`** - Set to `true` if Xmerl should behave quietly
+  and not output any information to standard output (default `false`).
+- **`{doctype_DTD, DTD}`** - Allows to specify DTD name when it isn't available in the XML
+  document. This option has effect only together with `{validation,dtd}` option.
+- **`{xmlbase, Dir}`** - XML Base directory. If using string/1 default is current directory.
+  If using file/1 default is directory of given file.
+- **`{encoding, Enc}`** - Set default character set used (default UTF-8).
+  This character set is used only if not explicitly given by the XML declaration. 
+- **`{document, Flag}`** - Set to `true` if Xmerl should return a complete XML document
+  as an xmlDocument record (default `false`).
+- **`{comments, Flag}`** - Set to `false` if Xmerl should skip comments
+  otherwise they will be returned as xmlComment records (default `true`).
+- **`{default_attrs, Flag}`** - Set to `true` if Xmerl should add to elements
+  missing attributes with a defined default value (default `false`).
 """.
 -type option_list() ::
         [{atom(), term()} |

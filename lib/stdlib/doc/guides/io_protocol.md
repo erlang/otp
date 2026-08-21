@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -116,7 +118,7 @@ To output characters on an I/O device, the following `Request`s exist:
 The I/O server replies to the client with an `io_reply` tuple, where element
 `Reply` is one of:
 
-```text
+```erlang
 ok
 {error, Error}
 ```
@@ -215,7 +217,7 @@ To read characters from an I/O device, the following `Request`s exist:
 
 A fixed number of characters is requested using the following `Request`:
 
-```text
+```erlang
 {get_chars, Encoding, Prompt, N}
 ```
 
@@ -224,7 +226,7 @@ A fixed number of characters is requested using the following `Request`:
 
 A single line (as in former example) is requested with the following `Request`:
 
-```text
+```erlang
 {get_line, Encoding, Prompt}
 ```
 
@@ -237,7 +239,7 @@ these additions necessary.
 The I/O server replies to the client with an `io_reply` tuple, where element
 `Reply` is one of:
 
-```text
+```erlang
 Data
 eof
 {error, Error}
@@ -275,7 +277,7 @@ An I/O server in binary mode affects the data sent to the client, so that it
 must be able to handle binary data. For convenience, the modes of an I/O server
 can be set and retrieved using the following I/O requests:
 
-```text
+```erlang
 {setopts, Opts}
 ```
 
@@ -301,7 +303,7 @@ provided or returned data.
 
 The I/O server is to send one of the following as `Reply`:
 
-```text
+```erlang
 ok
 {error, Error}
 ```
@@ -312,7 +314,7 @@ plain file).
 
 To retrieve options, the following request is used:
 
-```text
+```erlang
 getopts
 ```
 
@@ -321,7 +323,7 @@ as well as their current values.
 
 The I/O server replies:
 
-```text
+```erlang
 OptList
 {error, Error}
 ```
@@ -334,7 +336,7 @@ OptList
 The `Request` element can in itself contain many `Request`s by using the
 following format:
 
-```text
+```erlang
 {requests, Requests}
 ```
 
@@ -358,7 +360,7 @@ ok
 The following I/O request is optional to implement and a client is to be
 prepared for an error return:
 
-```text
+```erlang
 {get_geometry, Geometry}
 ```
 
@@ -366,7 +368,7 @@ prepared for an error return:
 
 The I/O server is to send one of the following as `Reply`:
 
-```text
+```erlang
 N
 {error, Error}
 ```
@@ -381,7 +383,7 @@ If an I/O server encounters a request that it does not recognize (that is, the
 `io_request` tuple has the expected format, but the `Request` is unknown), the
 I/O server is to send a valid reply with the error tuple:
 
-```text
+```erlang
 {error, request}
 ```
 

@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -51,13 +53,13 @@ iv(Cipher) ->
     %% Can't be shrunk
     crypto:strong_rand_bytes( iv_length(Cipher) ).
 
-iolist() -> frequency([{5, list( oneof([list(byte()),
+iolist() -> frequency([{5, list( oneof([list(?CT_BYTE()),
                                         binary(),
                                         list(binary())]))},
                        {1, mybinary(50000)}
                       ]).
 
-mybinary(MaxSize) -> ?LET(Sz, integer(0,MaxSize), binary(Sz)).
+mybinary(MaxSize) -> ?LET(Sz, choose(0,MaxSize), binary(Sz)).
 
 padding() -> oneof([pkcs_padding, none,
                     zero, random,

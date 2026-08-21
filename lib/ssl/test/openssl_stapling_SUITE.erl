@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,7 +45,9 @@
          staple_with_nonce/0, staple_with_nonce/1,
          cert_status_revoked/0, cert_status_revoked/1,
          cert_status_undetermined/0, cert_status_undetermined/1,
-         staple_missing/0, staple_missing/1
+         staple_missing/0, staple_missing/1,
+         staple_missing_atom/0, staple_missing_atom/1,
+         staple_missing_verify_fun/0, staple_missing_verify_fun/1
         ]).
 
 %% spawn export
@@ -64,13 +68,17 @@ all() ->
 groups() ->
     [{'tlsv1.3', [], ocsp_tests()},
      {'tlsv1.3_issuer_nonce', [], [staple_by_issuer, staple_with_nonce]},
-     {no_next_update, [], [{group, 'tlsv1.3'}]},
+     {'tlsv1.3_no_next_update', [], no_next_update_tests()},
+     {no_next_update, [], [{group, 'tlsv1.3_no_next_update'}]},
      {no_resp_certs, [], [{group, 'tlsv1.3_issuer_nonce'}]},
      {'tlsv1.2', [], ocsp_tests()},
      {'dtlsv1.2', [], ocsp_tests()}].
 
 ocsp_tests() ->
     positive() ++ negative().
+
+no_next_update_tests() ->
+    positive() ++ [cert_status_revoked, cert_status_undetermined].
 
 positive() ->
     [staple_by_issuer,
@@ -83,7 +91,9 @@ negative() ->
      staple_wrong_issuer,
      cert_status_revoked,
      cert_status_undetermined,
-     staple_missing].
+     staple_missing,
+     staple_missing_atom,
+     staple_missing_verify_fun].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
@@ -107,11 +117,19 @@ end_per_suite(Config) ->
 %%--------------------------------------------------------------------
 init_per_group(no_next_update, Config) ->
     Config;
+init_per_group(GroupName, Config)
+  when GroupName =:= 'tlsv1.3_issuer_nonce';
+       GroupName =:= 'tlsv1.3_no_next_update' ->
+    ssl_test_lib:init_per_group_openssl('tlsv1.3', Config);
 init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group_openssl(GroupName, Config).
 
 end_per_group(no_next_update, Config) ->
     Config;
+end_per_group(GroupName, Config)
+  when GroupName =:= 'tlsv1.3_issuer_nonce';
+       GroupName =:= 'tlsv1.3_no_next_update' ->
+    ssl_test_lib:end_per_group('tlsv1.3', Config);
 end_per_group(GroupName, Config) ->
     ssl_test_lib:end_per_group(GroupName, Config).
 
@@ -125,15 +143,22 @@ init_per_testcase(Testcase, Config) ->
 
 init_per_testcase_helper(Testcase, Config0) ->
     ct:timetrap({seconds, 10}),
-    Default = "otpCA",
-    TestcaseMapping = #{staple_by_issuer => Default,
-                        staple_by_trusted => "erlangCA",
-                        staple_by_designated => "b.server",
-                        staple_not_designated => "a.server",
-                        staple_wrong_issuer => "localhost"},
-    ResponderFolder = maps:get(Testcase, TestcaseMapping, Default),
-    Config = start_ocsp_responder(
-               [{responder_folder, ResponderFolder} | Config0]) ++ Config0,
+    NeedsResponder = not lists:member(Testcase,
+        [staple_missing, staple_missing_atom, staple_missing_verify_fun]),
+    Config = case NeedsResponder of
+        true ->
+            Default = "otpCA",
+            TestcaseMapping = #{staple_by_issuer => Default,
+                                staple_by_trusted => "erlangCA",
+                                staple_by_designated => "b.server",
+                                staple_not_designated => "a.server",
+                                staple_wrong_issuer => "localhost"},
+            ResponderFolder = maps:get(Testcase, TestcaseMapping, Default),
+            start_ocsp_responder(
+                [{responder_folder, ResponderFolder} | Config0]) ++ Config0;
+        false ->
+            Config0
+    end,
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     Config.
 
@@ -144,10 +169,30 @@ end_per_testcase(_Testcase, Config) ->
     end_per_testcase_helper(Config).
 
 end_per_testcase_helper(Config) ->
-    ResponderPid = ?config(responder_pid, Config),
-    ssl_test_lib:close(ResponderPid),
+    case ?config(responder_pid, Config) of
+        undefined -> ok;
+        ResponderPid -> ssl_test_lib:close(ResponderPid)
+    end,
+    log_wsl_process_count(),
+    ssl_test_lib:kill_openssl(),
+    log_wsl_process_count(),
     [ssl_test_lib:ct_pal_file(?OCSP_RESPONDER_LOG) || ?config(debug, Config)],
     Config.
+
+log_wsl_process_count() ->
+    try
+        case os:type() of
+            {win32, _} ->
+                WslRes = os:cmd("tasklist | find /c \"wsl.exe\""),
+                CmdRes = os:cmd("tasklist | find /c \"cmd.exe\""),
+                ?CT_LOG("wsl.exe: ~s, cmd.exe: ~s",
+                        [string:trim(WslRes), string:trim(CmdRes)]);
+            _ ->
+                ok
+        end
+    catch C:E ->
+            ?CT_LOG("log_wsl_process_count failed: ~p:~p", [C, E])
+    end.
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -192,17 +237,13 @@ staple_with_nonce(Config)
   when is_list(Config) ->
     stapling_helper(Config, #{ocsp_nonce => true}).
 
-staple_missing() ->
-    [{doc, "Verify OCSP stapling works with a missing OCSP response."}].
-staple_missing(Config)
-  when is_list(Config) ->
-    %% Start a server that will not include an OCSP response.
-    stapling_helper(Config, openssl,  #{ocsp_nonce => true}).
-
 stapling_helper(Config, StaplingOpt) ->
     stapling_helper(Config, openssl_ocsp, StaplingOpt).
 
 stapling_helper(Config, ServerType, StaplingOpt) ->
+    stapling_helper(Config, ServerType, StaplingOpt, []).
+
+stapling_helper(Config, ServerType, StaplingOpt, ExtraClientOpts) ->
     %% ok = logger:set_application_level(ssl, debug),
     PrivDir = proplists:get_value(priv_dir, Config),
     CACertsFile = filename:join(PrivDir, "a.server/cacerts.pem"),
@@ -216,7 +257,7 @@ stapling_helper(Config, ServerType, StaplingOpt) ->
     ClientOpts = ssl_test_lib:ssl_options([{verify, verify_peer},
                                            {cacertfile, CACertsFile},
                                            {server_name_indication, disable},
-                                           {stapling, StaplingOpt}],
+                                           {stapling, StaplingOpt}] ++ ExtraClientOpts,
                                           Config),
     Client = ssl_test_lib:start_client(erlang,
                                        [{port, Port},
@@ -228,6 +269,49 @@ stapling_helper(Config, ServerType, StaplingOpt) ->
     ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
+staple_missing() ->
+    [{doc, "Verify that missing OCSP staple causes handshake failure."}].
+staple_missing(Config)
+  when is_list(Config) ->
+    %% Start a server (openssl) that will not include an OCSP response
+    stapling_negative_helper(Config, "a.server/cacerts.pem",
+                             openssl, handshake_failure).
+
+staple_missing_atom() ->
+    [{doc, "Verify that missing OCSP staple causes handshake failure "
+      "with {stapling, staple} atom shorthand."}].
+staple_missing_atom(Config)
+  when is_list(Config) ->
+    stapling_negative_helper(Config, "a.server/cacerts.pem",
+                             openssl, handshake_failure, staple).
+
+staple_missing_verify_fun() ->
+    [{doc, "Verify that a custom verify_fun can be used for accepting missing OCSP staple."}].
+staple_missing_verify_fun(Config)
+  when is_list(Config) ->
+    VerifyFun =
+        {fun(_, _, {bad_cert, missing_ocsp_staple}, UserState) ->
+                 ?CT_LOG("verify_fun: got missing_ocsp_staple, accepting", []),
+                 {valid, [staple_missing_seen | UserState]};
+            (_, _, {bad_cert, _} = Reason, _) ->
+                 ?CT_LOG("verify_fun: got ~p, rejecting", [Reason]),
+                 {fail, Reason};
+            (_, _, {extension, _} = Ext, UserState) ->
+                 ?CT_LOG("verify_fun: got extension ~p", [Ext]),
+                 {unknown, UserState};
+            (_, _, valid, UserState) ->
+                 ?CT_LOG("verify_fun: got valid", []),
+                 {valid, UserState};
+            (_, _, valid_peer, UserState) ->
+                 ?CT_LOG("verify_fun: got valid_peer, state=~p", [UserState]),
+                 case lists:member(staple_missing_seen, UserState) of
+                     true -> {valid, UserState};
+                     false -> {fail, {bad_cert, missing_staple_not_reported}}
+                 end
+         end, []},
+    stapling_helper(Config, openssl, #{ocsp_nonce => false},
+                    [{verify_fun, VerifyFun}]).
+
 staple_not_designated() ->
     [{doc,"Verify OCSP stapling works without nonce."
       "Response signed with certificate issued directly by issuer of server "
@@ -262,6 +346,9 @@ cert_status_undetermined(Config)
                                   openssl_ocsp_undetermined, bad_certificate).
 
 stapling_negative_helper(Config, CACertsPath, ServerVariant, ExpectedError) ->
+    stapling_negative_helper(Config, CACertsPath, ServerVariant, ExpectedError, #{ocsp_nonce => true}).
+
+stapling_negative_helper(Config, CACertsPath, ServerVariant, ExpectedError, StaplingOpt) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     CACertsFile = filename:join(PrivDir, CACertsPath),
     GroupName = undefined,
@@ -274,13 +361,14 @@ stapling_negative_helper(Config, CACertsPath, ServerVariant, ExpectedError) ->
     ClientOpts = ssl_test_lib:ssl_options([{verify, verify_peer},
                                            {server_name_indication, disable},
                                            {cacertfile, CACertsFile},
-                                           {stapling, #{ocsp_nonce => true}}],
+                                           {stapling, StaplingOpt}],
                                           Config),
     Client = ssl_test_lib:start_client_error([{node, ClientNode},{port, Port},
                                               {host, Hostname}, {from, self()},
                                               {options, ClientOpts}]),
     true = is_pid(Client),
-    ssl_test_lib:check_client_alert(Client, ExpectedError).
+    ssl_test_lib:check_client_alert(Client, ExpectedError),
+    ssl_test_lib:close(Server).
 
 %%--------------------------------------------------------------------
 %% Internal functions -----------------------------------------------
@@ -336,12 +424,14 @@ ocsp_responder_loop(Port, {Status, Starter} = State) ->
     receive
         close ->
             ?CT_LOG("OCSP responder: received close", []),
+            try erlang:port_close(Port) catch _:_ -> ok end,
             ok;
 	{Port, closed} ->
 	    ?CT_LOG("OCSP responder: Port = ~p Closed", [Port]),
 	    ok;
 	{'EXIT', Sender, _Reason} ->
 	    ?CT_LOG("OCSP responder: Sender = ~p Closed",[Sender]),
+            try erlang:port_close(Port) catch _:_ -> ok end,
 	    ok;
 	{Port, {data, Msg}} when Status == new ->
             ?CT_LOG("OCSP responder: Msg = ~p", [Msg]),

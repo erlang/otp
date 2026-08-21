@@ -1,4 +1,10 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright Ericsson AB 1999-2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,16 +16,24 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
+%%
+%% %CopyrightEnd%
 
 -module(syntax_tools_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 
 %% Test cases
@@ -28,21 +42,24 @@
          wrapped_subtrees/1,
          t_abstract_type/1,t_erl_parse_type/1,t_type/1,
          t_epp_dodger/1,t_epp_dodger_clever/1,
+         gh11155/1,
          t_comment_scan/1,t_prettypr/1,test_named_fun_bind_ann/1,
-         test_maybe_expr_ann/1]).
+         test_maybe_expr_ann/1,test_mc_ann/1,test_zip_ann/1,
+         is_literal/1, test_erl_recomment/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [app_test,appup_test,smoke_test,revert,revert_map,revert_map_type,
      revert_preserve_pos_changes,
      wrapped_subtrees,
      t_abstract_type,t_erl_parse_type,t_type,
-     t_epp_dodger,t_epp_dodger_clever,
+     t_epp_dodger,t_epp_dodger_clever,gh11155,
      t_comment_scan,t_prettypr,test_named_fun_bind_ann,
-     test_maybe_expr_ann].
+     test_maybe_expr_ann,test_mc_ann,test_zip_ann,
+     is_literal, test_erl_recomment].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -93,7 +110,7 @@ print_error_markers(F, File) ->
 	_ ->
 	    ok
     end.
-    
+
 
 %% Read with erl_parse, wrap and revert with erl_syntax and check for equality.
 revert(Config) when is_list(Config) ->
@@ -244,7 +261,9 @@ t_type(Config) when is_list(Config) ->
                     ,{"#{atom() => integer()}", map_type, false}
                     ,{"#{atom() := integer()}", map_type, false}
                     ,{"#r{}", record_type, false}
+                    ,{"#ext:r{}", record_type, false}
                     ,{"#r{a :: integer()}", record_type, false}
+                    ,{"#ext:r{a :: integer()}", record_type, false}
                     ,{"[]", type_application, false}
                     ,{"nil()", type_application, false}
                     ,{"[atom()]", type_application, false}
@@ -334,14 +353,32 @@ t_erl_parse_type(Config) when is_list(Config) ->
 		     {"#{ a:=1, b:=2 }", map_expr,false},
 		     {"M#{ a=>1, b=>2 }", map_expr,false},
 		     {"[V||V <- Vs]", list_comp,false},
+		     {"[V,V||V <- Vs]", list_comp,false},
+		     {"[V||V <:- Vs]", list_comp,false},
 		     {"[catch V||V <- Vs]", list_comp,false},
 		     {"<< <<B>> || <<B>> <= Bs>>", binary_comp,false},
+		     {"<< <<B>> || <<B>> <:= Bs>>", binary_comp,false},
 		     {"<< (catch <<B>>) || <<B>> <= Bs>>", binary_comp,false},
+		     {"#{K => V || {K,V} <- KVs}", map_comp,false},
+		     {"#{K => V, K => V || {K,V} <- KVs}", map_comp,false},
+		     {"#{K => V || {K,V} <:- KVs}", map_comp,false},
+		     {"#{K => (catch V) || {K,V} <- KVs}", map_comp,false},
+                     {"[V+W||V <- Vs && W <- Ws]", list_comp,false},
+                     {"[catch V+W||V <- Vs && W <- Ws]", list_comp,false},
+                     {"<< <<B>> || <<B>> <= Bs>>", binary_comp,false},
+                     {"<< (catch <<B>>) || <<B>> <= Bs>>", binary_comp,false},
+                     {"<< <<B:8,C:8>> || <<B>> <= Bs && <<C>> <= Cs>>", binary_comp,false},
+		     {"<< (catch <<B:8,C:8>>) || <<B>> <= Bs && <<C>> <= Cs>>", binary_comp,false},
 		     {"#state{ a = A, b = B}", record_expr,false},
+		     {"#ext:state{ a = A, b = B}", record_expr,false},
 		     {"#state{}", record_expr,false},
+		     {"#ext:state{}", record_expr,false},
 		     {"#s{ a = #def{ a=A }, b = B}", record_expr,false},
+		     {"#ext:s{ a = #ext:def{ a=A }, b = B}", record_expr,false},
 		     {"State#state{ a = A, b = B}", record_expr,false},
+		     {"State#ext:state{ a = A, b = B}", record_expr,false},
 		     {"State#state.a", record_access,false},
+		     {"State#ext:state.a", record_access,false},
 		     {"#state.a", record_index_expr,false},
 		     {"-X", prefix_expr,false},
 		     {"X1 + X2", infix_expr,false},
@@ -363,6 +400,16 @@ t_epp_dodger_clever(Config) when is_list(Config) ->
     PrivDir   = ?config(priv_dir, Config),
     Filenames = ["epp_dodger_clever.erl"],
     ok = test_epp_dodger_clever(Filenames,DataDir,PrivDir),
+    ok.
+
+%% Test that erl_syntax handles macro-named native records.
+gh11155(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    File = filename:join(DataDir, "macro_native_record.erl"),
+    {ok, AST} = epp_dodger:parse_file(File, [no_fail]),
+    FormList = erl_syntax:form_list(AST),
+    _ = erl_syntax_lib:fold(fun(_Node, Acc) -> Acc end, ok, FormList),
+    _ = erl_syntax_lib:map(fun(Node) -> Node end, FormList),
     ok.
 
 t_comment_scan(Config) when is_list(Config) ->
@@ -455,7 +502,43 @@ test_maybe_expr_ann(Config) when is_list(Config) ->
     [Env4, Bound4, Free4] = erl_syntax:get_ann(ElseAnn),
     {'env',[]} = Env4,
     {'bound',[]} = Bound4,
-    {'free',[]} = Free4.
+    {'free',[]} = Free4,
+
+    %% Test that it also works when there is no else clause
+    MaybeNoElse = erl_syntax:maybe_expr([MaybeMatch1, MaybeMatch2, Match1]),
+    MaybeNoElseAnn = erl_syntax_lib:annotate_bindings(MaybeNoElse, []),
+    [Env, Bound, Free] = erl_syntax:get_ann(MaybeNoElseAnn),
+    [MaybeMatchAnn1, MaybeMatchAnn2, MatchAnn1] = erl_syntax:maybe_expr_body(MaybeNoElseAnn),
+    NoElseAnn = erl_syntax:maybe_expr_else(MaybeNoElseAnn),
+    [] = erl_syntax:get_ann(NoElseAnn),
+
+    ok.
+
+test_mc_ann(Config) when is_list(Config) ->
+    Expr = {mc,1,
+            {map_field_assoc,1,{var,1,'X'},{var,1,'Y'}},
+            [{generate,1,
+                        {tuple,1,[{var,1,'X'},{var,1,'Y'}]},
+                        {var,1,'Pairs'}}]},
+    ZipAnn = erl_syntax_lib:annotate_bindings(Expr, []),
+    [Env, Bound, Free] = erl_syntax:get_ann(ZipAnn),
+    {'env',[]} = Env,
+    {'bound',[]} = Bound,
+    {'free',['Pairs']} = Free,
+    ok.
+
+test_zip_ann(Config) when is_list(Config) ->
+    Expr = {lc,1,
+            {tuple,1,[{var,1,'A'},{var,1,'B'}]},
+            [{zip,1,
+                [{generate,1,{var,1,'A'},{var,1,'X'}},
+                    {generate_strict,1,{var,1,'B'},{var,1,'Y'}}]}]},
+    ZipAnn = erl_syntax_lib:annotate_bindings(Expr, []),
+    [Env, Bound, Free] = erl_syntax:get_ann(ZipAnn),
+    {'env',[]} = Env,
+    {'bound',[]} = Bound,
+    {'free',['X','Y']} = Free,
+    ok.
 
 test_files(Config) ->
     DataDir = ?config(data_dir, Config),
@@ -489,6 +572,26 @@ test_comment_scan([File|Files],DataDir) ->
 					   {ribbon, 110}])),
     test_comment_scan(Files,DataDir).
 
+test_erl_recomment(_Config) ->
+    Name = erl_syntax:atom(foo),
+    Comment = erl_comment_scan:string("%% todo"),
+
+    ExpectedComment = {attr,0,[],{com,[],[{tree,comment,{attr,1,[],none},{comment,0,["% todo"]}}]}},
+    ExpectedResult = {tree,atom, ExpectedComment, foo},
+
+    %% tests erl_recomment does not crash on non-formlist
+    ExpectedResult = erl_recomment:recomment_forms(Name, Comment),
+
+    %% test recomment does works on format list
+    Args = [erl_syntax:abstract(X) || X <- [1, 2, 3]],
+    Attr = erl_syntax:attribute(Name, Args),
+
+    {tree,attribute,
+      ExpectedComment,
+      {attribute,{tree,atom,{attr,0,[],none},foo},
+                 [{tree,integer,{attr,0,[],none},1},
+                  {tree,integer,{attr,0,[],none},2},
+                  {tree,integer,{attr,0,[],none},3}]}} = erl_recomment:recomment_forms(Attr, Comment).
 
 test_prettypr([],_,_) -> ok;
 test_prettypr([File|Files],DataDir,PrivDir) ->
@@ -686,6 +789,16 @@ validate_special_type(list,Node) ->
 validate_special_type(_,_) ->
     ok.
 
+is_literal(_Config) ->
+    true = erl_syntax:is_literal(string_to_expr(~s'<<"abc">>')),
+    true = erl_syntax:is_literal(string_to_expr(~s'<<"abc"/utf8>>')),
+    true = erl_syntax:is_literal(string_to_expr(~s'~"abc"')),
+    true = erl_syntax:is_literal(string_to_expr(
+                                   ~s'~"""
+                                      abc
+                                      """')),
+    ok.
+
 %%% scan_and_parse
 
 string_to_expr(String) ->
@@ -725,5 +838,5 @@ p_run_loop(Test, List, N, Refs0, Errors0) ->
 res_word_option() ->
     Options = [{feature, maybe_expr, enable}],
     {ok, {_Ftrs, ResWordFun}} =
-        erl_features:keyword_fun(Options, fun erl_scan:f_reserved_word/1),
+        erl_features:init_parse_state(Options, fun erl_scan:f_reserved_word/1),
     {reserved_word_fun, ResWordFun}.

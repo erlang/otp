@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(big_SUITE).
@@ -23,11 +25,12 @@
 -export([all/0, suite/0, groups/0]).
 
 -export([t_div/1, eq_28/1, eq_32/1, eq_big/1, eq_math/1, eq_big_mul_div/1,
+         eq_big_rem/1,
          big_literals/1, borders/1, negative/1, karatsuba/1,
-         big_float_1/1, big_float_2/1,
+         big_float_1/1, big_float_2/1, big_float_3/1,
          bxor_2pow/1, band_2pow/1,
          shift_limit_1/1, powmod/1, system_limit/1, toobig/1, otp_6692/1,
-         properties/1]).
+         properties/1, reductions/1]).
 
 %% Internal exports.
 -export([eval/1]).
@@ -37,6 +40,7 @@
 
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -44,14 +48,15 @@ suite() ->
 
 all() -> 
     [t_div, eq_28, eq_32, eq_big, eq_math, eq_big_mul_div,
+     eq_big_rem,
      big_literals, borders, negative, karatsuba,
      {group, big_float}, shift_limit_1,
      bxor_2pow, band_2pow,
      powmod, system_limit, toobig, otp_6692,
-     properties].
+     properties, reductions].
 
 groups() -> 
-    [{big_float, [], [big_float_1, big_float_2]}].
+    [{big_float, [], [big_float_1, big_float_2, big_float_3]}].
 
 %%
 %% Syntax of data files:
@@ -81,6 +86,10 @@ eq_math(Config) when is_list(Config) ->
     test(TestFile).
 
 eq_big_mul_div(Config) when is_list(Config) ->
+    TestFile = test_file(Config, ?FUNCTION_NAME),
+    test(TestFile).
+
+eq_big_rem(Config) when is_list(Config) ->
     TestFile = test_file(Config, ?FUNCTION_NAME),
     test(TestFile).
 
@@ -206,7 +215,12 @@ eval_op('band', A, B) -> A band B;
 eval_op('bor', A, B) -> A bor B;
 eval_op('bxor', A, B) -> A bxor B;
 eval_op('bsl', A, B) -> A bsl B;
-eval_op('bsr', A, B) -> A bsr B.
+eval_op('bsr', A, B) -> A bsr B;
+eval_op(madd, A, B) -> A * B + 1.
+
+eval_op_guard('-', A, Res) when Res =:= -A -> ok;
+eval_op_guard('+', A, Res) when Res =:= +A -> ok;
+eval_op_guard('bnot', A, Res) when Res =:= bnot A -> ok.
 
 eval_op_guard('-', A, B, Res) when Res =:= A - B -> ok;
 eval_op_guard('+', A, B, Res) when Res =:= A + B -> ok;
@@ -218,6 +232,7 @@ eval_op_guard('bor', A, B, Res) when Res =:= A bor B -> ok;
 eval_op_guard('bxor', A, B, Res) when Res =:= A bxor B -> ok;
 eval_op_guard('bsl', A, B, Res) when Res =:= A bsl B -> ok;
 eval_op_guard('bsr', A, B, Res) when Res =:= A bsr B -> ok;
+eval_op_guard(madd, A, B, Res) when Res =:= A * B + 1-> ok;
 eval_op_guard(Op, A, B, Res) -> {error,{Op,A,B,Res}}.
 
 test_squaring(I) ->
@@ -338,6 +353,68 @@ big_float_2(Config) when is_list(Config) ->
     {'EXIT', _} = (catch 4/(2*I)),
     ok.
 
+%% Converting a bignum to a float must give the nearest representable
+%% double, ties to even. Accumulating digit by digit rounds once per digit
+%% and compounds the error, which lands on the wrong side of the true value
+%% for some values wider than one digit.
+big_float_3(Config) when is_list(Config) ->
+    rand_seed(),
+    %% Each of these converted to the second-nearest double when the
+    %% conversion rounded per digit.
+    [begin
+         Nearest = correctly_rounded(I),
+         Nearest = float(I),
+         Nearest = 1.0 * I,
+         NegNearest = -Nearest,
+         NegNearest = float(-I)
+     end
+     || I <- [428654966685883400000,
+              38409289721754710000,
+              34784104853086640000,
+              385269108828434300000,
+              96874578115970900000,
+              252558769001389900000,
+              26465126867694860000]],
+
+    %% Widths on both sides of the single-digit boundary, where the
+    %% per-digit accumulation starts to compound.
+    for(50, 300,
+        fun(Bits) ->
+                for(1, 200,
+                    fun(_) ->
+                            I = rand:uniform(1 bsl Bits),
+                            Nearest = correctly_rounded(I),
+                            Nearest = float(I)
+                    end)
+        end),
+
+    %% 2-pows and neighbours
+    [begin
+         I = (1 bsl E) + Diff,
+         Nearest = correctly_rounded(I),
+         Nearest = float(I)
+     end
+     || E <- lists:seq(0, 1023), Diff <- lists:seq(-2,2)],
+
+    %% Mantissa rounding edge cases
+    [begin
+         Mant = (1 bsl 52) + Odd,
+         I = (Mant bsl Exp) + (Half bsl (Exp-1)) + (1 bsl Low),
+         Nearest = correctly_rounded(I),
+         Nearest = float(I)
+     end
+     || Exp <- lists:seq(1, 1023-53),
+        Odd <- [0,1],
+        Half <- [1],
+        Low <- [-1 | lists:seq(0, Exp-2, 8)]],
+
+    ok.
+
+%% The platform's decimal parser is correctly rounded, so it serves as the
+%% oracle for what float/1 must return.
+correctly_rounded(I) ->
+    binary_to_float(iolist_to_binary([integer_to_list(I), ".0"])).
+
 %% OTP-3256
 shift_limit_1(Config) when is_list(Config) ->
     case catch (id(1) bsl 100000000) of
@@ -379,6 +456,23 @@ system_limit(Config) when is_list(Config) ->
     {'EXIT',{system_limit,_}} = (catch apply(erlang, id('bsl'), [Maxbig,2])),
     {'EXIT',{system_limit,_}} = (catch id(1) bsl (1 bsl 45)),
     {'EXIT',{system_limit,_}} = (catch id(1) bsl (1 bsl 69)),
+
+    ?assertError(system_limit, Maxbig bxor -1),
+    ?assertError(system_limit, apply(erlang, id('bxor'), [Maxbig,-1])),
+    if
+        is_integer(Maxbig bxor -1) -> error(should_fail);
+        true -> ok
+    end,
+
+    %% bnot -Maxbig should not raise an exception.
+    MaxMinusOne = Maxbig - 1,
+    MinusMaxbig = -Maxbig,
+    MaxMinusOne = bnot MinusMaxbig,
+    MaxMinusOne = apply(erlang, id('bnot'), [MinusMaxbig]),
+
+    %% -Maxbig bxor -1 should not raise an exception.
+    MaxMinusOne = MinusMaxbig bxor -1,
+    MaxMinusOne = apply(erlang, id('bxor'), [MinusMaxbig,-1]),
 
     %% There should be no system_limit exception when shifting a zero.
     0 = id(0) bsl (1 bsl 128),
@@ -588,6 +682,121 @@ rand_int() ->
     Sz = max(floor(rand:normal() * 512 + 256), 7),
     <<Int:Sz/signed-unit:8>> = rand:bytes(Sz),
     Int.
+
+reductions(_Config) ->
+    MaxInt = erlang:system_info(max_integer),
+
+    %% Ensure that each arithmetic operation increments
+    %% the reuduction count with a reasonable amount.
+    %%
+    %% Assumptions:
+    %%   * We have 4000 reductions after a context switch.
+    %%   * One reduction can handle 16 bignum words.
+    %%   * `*`, `div`, and `rem` are conservatively assumed
+    %%     to be quadratic.
+    %%   * All the others are linear.
+    %%
+    %%     {Op, Args, MinReds}
+    Ops = [{'*', [id(1) bsl 64, 7], 1},
+           {'*', [id(1) bsl (64*20), 7], 2},
+           {'*', [id(1) bsl (64*100), id(1) bsl (64*50)], 322},
+           {'*', [MaxInt div 8, 8], 3900},
+
+           {madd, [id(1) bsl 64, 7], 1},
+           {madd, [id(1) bsl (64*20), 7], 2},
+           {madd, [id(1) bsl (64*100), id(1) bsl (64*50)], 322},
+           {madd, [MaxInt div 8, 8], 3900},
+
+           {'div', [id(1) bsl 64, 7], 1},
+           {'div', [id(1) bsl (64*100), 7], 7},
+           {'div', [id(1) bsl (64*100), id(1) bsl (64*50)], 4},
+           {'div', [MaxInt, 7], 3900},
+
+           {'rem', [id(1) bsl 64, 7], 1},
+           {'rem', [id(1) bsl (64*100), 7], 7},
+           {'rem', [id(1) bsl (64*100), id(1) bsl (64*50)], 4},
+           {'rem', [MaxInt, 7], 3900},
+
+           {'+', [id(1) bsl (64*100), id(1) bsl (64*75)], 7},
+           {'+', [id(1) bsl (64*1000), id(1) bsl (64*75)], 63},
+
+           {'-', [id(1) bsl (64*100), id(1) bsl (64*75)], 7},
+           {'-', [id(1) bsl (64*1000), id(1) bsl (64*120)], 63},
+
+           {'-', [id(1) bsl (64*100)], 7},
+           {'-', [id(1) bsl (64*1000)], 63},
+
+           {'band', [id(1) bsl (64*100), id(1) bsl (64*75)], 7},
+           {'band', [id(1) bsl (64*1000), id(1) bsl (64*75)], 63},
+
+           {'bor', [id(1) bsl (64*100), id(1) bsl (64*75)], 7},
+           {'bor', [id(1) bsl (64*1000), id(1) bsl (64*75)], 63},
+
+           {'bxor', [id(1) bsl (64*100), id(1) bsl (64*75)], 7},
+           {'bxor', [id(1) bsl (64*1000), id(1) bsl (64*75)], 63},
+
+           {'bnot', [id(1) bsl (64*100)], 7},
+           {'bnot', [id(1) bsl (64*1000)], 63},
+
+           {'bsl', [id(1) bsl (64*100), 1], 7},
+           {'bsl', [id(1) bsl (64*1000), 1], 63},
+
+           {'bsr', [id(1) bsl (64*100), 1], 7},
+           {'bsr', [id(1) bsl (64*1000), 1], 63}
+          ],
+    lists:foreach(fun red_eval/1, Ops),
+    ok.
+
+red_eval({Op, Args, MinReds})
+  when is_atom(Op), is_list(Args), is_integer(MinReds) ->
+    erlang:yield(),
+    case Args of
+        [Arg1,Arg2] ->
+            {reductions,Reds0} = process_info(self(), reductions),
+            Res = eval_op(Op, Arg1, Arg2),
+            {reductions,Reds1} = process_info(self(), reductions),
+            check_reds(Op, Args, Reds0, Reds1, MinReds),
+
+            {reductions,Reds2} = process_info(self(), reductions),
+            eval_op_guard(Op, Arg1, Arg2, Res),
+            {reductions,Reds3} = process_info(self(), reductions),
+            check_reds(Op, Args, Reds2, Reds3, MinReds),
+
+            case Op of
+                madd -> ok;
+                _ ->
+                    {reductions,Reds4} = process_info(self(), reductions),
+                    _ = erlang:Op(Arg1, Arg2),
+                    {reductions,Reds5} = process_info(self(), reductions),
+                    check_reds(Op, Args, Reds4, Reds5, MinReds)
+            end;
+        [Arg1] ->
+            {reductions,Reds0} = process_info(self(), reductions),
+            Res = eval_op(Op, Arg1),
+            {reductions,Reds1} = process_info(self(), reductions),
+            check_reds(Op, Args, Reds0, Reds1, MinReds),
+
+            {reductions,Reds2} = process_info(self(), reductions),
+            eval_op_guard(Op, Arg1, Res),
+            {reductions,Reds3} = process_info(self(), reductions),
+            check_reds(Op, Args, Reds2, Reds3, MinReds),
+
+            {reductions,Reds4} = process_info(self(), reductions),
+            _ = erlang:Op(Arg1),
+            {reductions,Reds5} = process_info(self(), reductions),
+            check_reds(Op, Args, Reds4, Reds5, MinReds)
+    end.
+
+check_reds(Op, _Args, Reds0, Reds1, MinReds) ->
+    Reds = Reds1 - Reds0 - 1,
+    if
+        Reds >= MinReds ->
+            ok;
+        true ->
+            io:format("~p: expected at least ~p reductions; "
+                      "got only ~p", [Op, MinReds, Reds]),
+            error(failed)
+    end.
 
 %%%
 %%% Common utilities.

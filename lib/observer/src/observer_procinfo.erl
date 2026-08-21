@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -365,7 +367,7 @@ init_log_page(Parent, Pid, Table) ->
 
 create_menus(MenuBar) ->
     Menus = [{"File", [#create_menu{id=?wxID_CLOSE, text="Close"}]},
-	     {"View", [#create_menu{id=?REFRESH, text="Refresh\tCtrl-R"}]}],
+	     {"View", [#create_menu{id=?REFRESH, text="Refresh\tCtrl+R"}]}],
     observer_lib:create_menus(Menus, MenuBar, new_window).
 
 process_info_fields(Pid, WSz) ->

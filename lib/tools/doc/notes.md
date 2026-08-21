@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +22,145 @@ limitations under the License.
 # Tools Release Notes
 
 This document describes the changes made to the Tools application.
+
+## Tools 4.2.1
+
+### Fixed Bugs and Malfunctions
+
+- Xref could crash instead of returning an appropriate error tuple when asked to open a BEAM file without debug information but with a `moduledoc(false)` attribute.
+
+  Own Id: OTP-20163 Aux Id: [GH-11152], [PR-11168]
+
+[GH-11152]: https://github.com/erlang/otp/issues/11152
+[PR-11168]: https://github.com/erlang/otp/pull/11168
+
+## Tools 4.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed "unbalanced parenthesis" issue when pressing TAB in emacs erlang shell.
+
+  Own Id: OTP-19921 Aux Id: [PR-10642], [GH-8569]
+
+- The minimum supported Emacs version for `erlang-mode` has been raised
+  from 24.3 to 27.1. Compatibility shims for older Emacs versions have
+  been removed.
+  
+  The `erlang-mode` package version now tracks the Erlang/OTP release
+  version (29.0) for consistent version numbers across package managers.
+
+  Own Id: OTP-20059 Aux Id: [PR-10892]
+
+[PR-10642]: https://github.com/erlang/otp/pull/10642
+[GH-8569]: https://github.com/erlang/otp/issues/8569
+[PR-10892]: https://github.com/erlang/otp/pull/10892
+
+### Improvements and New Features
+
+- Tools such as the debugger, `m:beam_lib`, and `m:xref` no longer support BEAM files created before OTP 13B.
+
+  Own Id: OTP-19906 Aux Id: [PR-10519]
+
+- The `ignore_xref` attribute has been handled as a post-analysis filter by build tools such as Rebar3. In this release, `m:xref` itself does the filtering, ensuring that all tooling that calls `xref` for any purpose can rely on these declarations to just work.
+
+  Own Id: OTP-20032 Aux Id: [PR-10592]
+
+- Added support for `-unsafe` attributes, which is used to mark functions as unsafe to use. 
+  
+  This is similar to but separate from deprecation, and the compiler will by default now generate warnings for calls to functions in Erlang/OTP that are known to be always unsafe.
+  
+  Furthermore, `m:xref` can now be used to find calls to functions in another application that lack a `-doc` attribute (`undocumented_function_calls`), calls to functions in another application marked `-doc false.` (`private_function_calls`), as well as calls to unsafe functions (`unsafe_function_calls`).
+
+  Own Id: OTP-20066 Aux Id: [PR-10839]
+
+- The runtime system now supports generating encrypted crash dumps. See the description of `--enable-encrypted-crash-dumps` in [Building and Installing Erlang/OTP](https://www.erlang.org/doc/system/install.html).
+
+  Own Id: OTP-20085 Aux Id: [PR-10993]
+
+[PR-10519]: https://github.com/erlang/otp/pull/10519
+[PR-10592]: https://github.com/erlang/otp/pull/10592
+[PR-10839]: https://github.com/erlang/otp/pull/10839
+[PR-10993]: https://github.com/erlang/otp/pull/10993
+
+## Tools 4.1.4
+
+### Improvements and New Features
+
+- Release applications, tests, and documentation are now placed in their respective directories. Source SBOM with more packages.
+  
+  A `make release` application places only the necessary code in the release folder. The main change is that the documentation and examples are not part of the release folder anymore.
+  
+  `make release_docs` places the documentation in the released code under the `doc` folder.
+  
+  `make release_tests` places the tests in their own directory. It used to be the case that some source code was mixed with the tests, and this should not happen anymore.
+  
+  The Software Bill of Materials places the examples folders as if they are part of the `SPDX-otp-<app>-doc` packge, instead of placing examples as if they were running source code.
+  
+  Overall, this change cleans up many things that were not quite correct by definition, and everything should still continue to work as expected. To test a release, one can still run `./Install -minimal \`pwd\`` and add the release to the `PATH`. After that, one can run tests as usual, going into the released tests directory, entering `test_server` and running the emulator.
+  
+  Improves the source Software-Bill-of-Materials
+  
+  - The improvements adds new SPDX relations for `asmjit` and `zlib` to be `optional_components_of` the Erlang/OTP project.
+  - The `autoconf` scripts in `make` and `erts` have now been categorised as `build_tool_of` the Erlang/OTP project.
+  - All remaining `configure`, `configure.ac`, `config.h.in`, `Makefile.in`, `Makefile.src`, `EMakefile`, and `GNUMakefile` are now part of a specific SPDX package with relation `build_tool_of` the Erlang/OTP project.
+
+  Own Id: OTP-19886 Aux Id: [PR-10434]
+
+[PR-10434]: https://github.com/erlang/otp/pull/10434
+
+## Tools 4.1.3
+
+### Improvements and New Features
+
+- Fixed some deprecations for newer emacs versions.
+
+  Own Id: OTP-19726 Aux Id: [PR-10106]
+
+[PR-10106]: https://github.com/erlang/otp/pull/10106
+
+## Tools 4.1.2
+
+### Fixed Bugs and Malfunctions
+
+- A crash has been eliminated in `tprof:collect/0` when unloading a module while collecting traces.
+
+  Own Id: OTP-19135 Aux Id: [GH-8483], [PR-8547]
+
+- Improved the `indent-region` Emacs command, which could indent badly when inside multiline string.
+
+  Own Id: OTP-19396 Aux Id: [PR-9186]
+
+- `eprof:start_profiling/3` can now return information about which process it failed to trace.
+
+  Own Id: OTP-19419 Aux Id: [PR-9219]
+
+- Fixed a race condition when processes cause the Cover server to be started at the same time.
+
+  Own Id: OTP-19517 Aux Id: [PR-9124]
+
+- Fix bug in `m:tprof` where the session name could not be set.
+
+  Own Id: OTP-19580 Aux Id: [PR-9648]
+
+- Add `m:tprof` to the `.app` file.
+
+  Own Id: OTP-19628 Aux Id: [PR-9787]
+
+[GH-8483]: https://github.com/erlang/otp/issues/8483
+[PR-8547]: https://github.com/erlang/otp/pull/8547
+[PR-9186]: https://github.com/erlang/otp/pull/9186
+[PR-9219]: https://github.com/erlang/otp/pull/9219
+[PR-9124]: https://github.com/erlang/otp/pull/9124
+[PR-9648]: https://github.com/erlang/otp/pull/9648
+[PR-9787]: https://github.com/erlang/otp/pull/9787
+
+### Improvements and New Features
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-9670]: https://github.com/erlang/otp/pull/9670
 
 ## Tools 4.1.1
 

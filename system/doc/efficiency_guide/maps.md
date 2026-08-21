@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -43,7 +45,7 @@ The advantages of records compared to maps are:
 
 - If the name of a record field is misspelled, there will be a compilation
   error. If a map key is misspelled, the compiler will give no warning and
-  program will fail in some way when it is run.
+  the program will fail in some way when it is run.
 - Records will use slightly less memory than maps, and performance is expected
   to be _slightly_ better than maps in most circumstances.
 
@@ -65,7 +67,7 @@ module.
   it.
 - Always update the map using the `:=` operator (that is, requiring that an
   element with that key already exists). The `:=` operator is slightly more
-  efficient, and it helps catching mispellings of keys.
+  efficient, and it helps catch misspellings of keys.
 - Whenever possible, match multiple map elements at once.
 - Whenever possible, update multiple map elements at once.
 - Avoid default values and the `maps:get/3` function. If there are default
@@ -142,9 +144,9 @@ elements, or when it shrinks to 32 elements or less.
 
 A small map looks like this inside the runtime system:
 
-| 0           | 1   | 2      | 3        |         | N        |
-| :---------: | --- | :----: | :------: | :-----: | :------: |
-| **FLATMAP** | _N_ | _Keys_ | _Value1_ | _..._   | _ValueN_ |
+|      0      | 1   |   2   |   3    |       |   N    |
+| :---------: | --- | :---: | :----: | :---: | :----: |
+| **FLATMAP** | N   | Keys  | Value1 |  ...  | ValueN |
 
 _Table: The representation of a small map_
 
@@ -163,26 +165,26 @@ _Table: The representation of a small map_
 As an example, let us look at how the map `#{a => foo, z => bar}` is
 represented:
 
-| 0           | 1   | 2         | 3     | 4     |
-| :---------: | --- | :-------: | :---: | ----- |
-| **FLATMAP** | _2_ | `{a,z}`   | `foo` | `bar` |
+|      0      | 1   |    2    |   3   | 4     |
+| :---------: | --- | :-----: | :---: | ----- |
+| **FLATMAP** | 2   | `{a,z}` | `foo` | `bar` |
 
 _Table: \#\{a => foo, z => bar\}_
 
 Let us update the map: `M#{q => baz}`. The map now looks like this:
 
-| 0           | 1   | 2           | 3     | 4     | 5     |
-| :---------: | --- | :---------: | :---: | :---: | :---: |
-| **FLATMAP** | _3_ | `{a,q,z}`   | `foo` | `baz` | `bar` |
+|      0      | 1   |     2     |   3   |   4   |   5   |
+| :---------: | --- | :-------: | :---: | :---: | :---: |
+| **FLATMAP** | 3   | `{a,q,z}` | `foo` | `baz` | `bar` |
 
 _Table: \#\{a => foo, q => baz, z => bar\}_
 
 Finally, change the value of one element: `M#{z := bird}`. The map now looks
 like this:
 
-| 0           | 1   | 2           | 3     | 4     | 5      |
-| :---------: | --- | :---------: | :---: | :---: | :----: |
-| **FLATMAP** | _3_ | `{a,q,z}`   | `foo` | `baz` | `bird` |
+|      0      | 1   |     2     |   3   |   4   |   5    |
+| :---------: | --- | :-------: | :---: | :---: | :----: |
+| **FLATMAP** | 3   | `{a,q,z}` | `foo` | `baz` | `bird` |
 
 _Table: \#\{a => foo, q => baz, z => bird\}_
 
@@ -295,12 +297,12 @@ efficient than using the `=>` operator for a small map.
 
 Here follows some notes about most of the functions in the `maps` module. For
 each function, the implementation language (C or Erlang) is stated. The reason
-we mention the language is that it gives an hint about how efficient the
+we mention the language is that it gives a hint about how efficient the
 function is:
 
 - If a function is implemented in C, it is pretty much impossible to implement
   the same functionality more efficiently in Erlang.
-- However, it might be possible to beat the `maps` modules functions implemented
+- However, it might be possible to beat the `maps` module's functions implemented
   in Erlang, because they are generally implemented in a way that attempts to
   make the performance reasonable for all possible inputs.
 
@@ -319,7 +321,7 @@ function is:
 `maps:filter/2` is implemented in Erlang. It creates a new map using
 `maps:from_list/1`. If it is known that only a minority of the values will be
 removed, it can be more efficient to avoid `maps:filter/2` and write a function
-that will use [maps:remove/3](`maps:remove/2`) to remove the unwanted values.
+that will use [maps:remove/2](`maps:remove/2`) to remove the unwanted values.
 
 ### maps:filtermap/2
 
@@ -431,12 +433,12 @@ that will call `maps:update/3` to update only the values that have changed.
 
 `maps:merge/2` is implemented in C. For [small maps](maps.md#terminology), the
 key tuple may be shared with any of the argument maps if that argument map
-contains all the keys. Literal key tuples are prefered if possible.
+contains all the keys. Literal key tuples are preferred if possible.
 
 > #### Change {: .info }
 >
 > The sharing of key tuples by `maps:merge/2` was introduced in OTP 26.0. Older
-> versions always contructed a new key tuple on the callers heap.
+> versions always constructed a new key tuple on the caller's heap.
 
 ### maps:merge_with/3
 
@@ -459,9 +461,51 @@ constructing an empty map.
 If the key is known to already exist in the map, `maps:update/3` is slightly
 more efficient than `maps:put/3`.
 
-If the keys are constants known at compile-time, using the map update syntax
-with the `=>` operator is more efficient than multiple calls to `maps:put/3`,
-especially for small maps.
+If the compiler can determine that the third argument is always a map, it
+will rewrite the call to `maps:put/3` to use the map syntax for updating the map.
+
+For example, consider the following function:
+
+```erlang
+add_to_known_map(Map0, A, B, C) when is_map(Map0) ->
+    Map1 = maps:put(a, A, Map0),
+    Map2 = maps:put(b, B, Map1),
+    maps:put(c, C, Map2).
+```
+
+The compiler first rewrites each call to `maps:put/3` to use the map
+syntax, and subsequently combines the three update operations to a
+single update operation:
+
+```erlang
+add_to_known_map(Map0, A, B, C) when is_map(Map0) ->
+    Map0#{a => A, b => B, c => C}.
+```
+
+If the compiler cannot determine that the third argument is always a
+map, it retains the `maps:put/3` call. For example, given this
+function:
+
+```erlang
+add_to_map(Map0, A, B, C) ->
+    Map1 = maps:put(a, A, Map0),
+    Map2 = maps:put(b, B, Map1),
+    maps:put(c, C, Map2).
+```
+
+the compiler keeps the first call to `maps:put/3`, but rewrites
+and combines the other two calls:
+
+```erlang
+add_to_map(Map0, A, B, C) ->
+    Map1 = maps:put(a, A, Map0),
+    Map1#{b => B, c => C}.
+```
+
+> #### Change {: .info }
+>
+> The rewriting of `maps:put/3` to the map syntax was introduced in
+> Erlang/OTP 28.
 
 ### maps:remove/2
 

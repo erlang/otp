@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +28,7 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -58,6 +61,6 @@ end_per_group(_GroupName, Config) ->
 
 %% OTP-2400. Bad args can hang.
 hang_1(Config) when is_list(Config) ->
-    _ = (catch io:format(a, "", [])),
-    _ = (catch io:format({}, "", [])),
+    ?assertError(_, io:format(a, "", [])),
+    ?assertError(_, io:format({}, "", [])),
     ok.

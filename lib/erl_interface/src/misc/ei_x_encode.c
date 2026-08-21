@@ -1,8 +1,10 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2001-2020. All Rights Reserved.
- * 
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2001-2025. All Rights Reserved.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,7 +16,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  *
 
@@ -67,9 +69,13 @@ int x_fix_buff(ei_x_buff* x, int szneeded)
 {
     int sz = szneeded + ei_x_extra;
     if (sz > x->buffsz) {
-	sz += ei_x_extra;	/* to avoid reallocating each and every time */
-	x->buffsz = sz;
-	x->buff = ei_realloc(x->buff, sz);
+        char* newbuff;
+        sz += ei_x_extra;       /* to avoid reallocating each and every time */
+        newbuff = ei_realloc(x->buff, sz);
+        if (newbuff == NULL)
+            return 0;           /* leave x->buff and x->buffsz intact on failure */
+        x->buff = newbuff;
+        x->buffsz = sz;
     }
     return x->buff != NULL;
 }

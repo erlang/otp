@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -274,7 +276,7 @@ handle_http_body(Body, State = #state{headers = Headers,
 	 _ ->
 	     Length =
 		 list_to_integer(Headers#http_response_h.'content-length'),
-	     case ((Length =< MaxBodySize) or (MaxBodySize == nolimit)) of
+	     case Length =< MaxBodySize orelse MaxBodySize == nolimit of
 		 true ->
 		     case httpc_response:whole_body(Body, Length) of
 			 {ok, NewBody} ->

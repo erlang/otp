@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -852,9 +854,9 @@ report(Pid, Event) when is_pid(Pid) ->
 	$s                      -> sleep(1);  % 1 sec (1000 ms)
 	$L                      -> sleep(10); % 10 sec (10000 ms)
 	$l                      -> sleep(10); % 10 sec (10000 ms)
-        {long, I} when (I >= $0) and (I =< $9) -> cast(Pid, {long, I});
-        {long, A} when (A >= $a) and (A =< $k) -> cast(Pid, {long, A});
-        {long, A} when (A >= $A) and (A =< $K) -> cast(Pid, {long, A});
+        {long, I} when I >= $0, I =< $9 -> cast(Pid, {long, I});
+        {long, A} when A >= $a, A =< $k -> cast(Pid, {long, A});
+        {long, A} when A >= $A, A =< $K -> cast(Pid, {long, A});
 %%         {long, I} when (I >= $0) and (I =< $9) -> long(Pid, I);
 %%         {long, A} when (A >= $a) and (A =< $k) -> long(Pid, A);
 %%         {long, A} when (A >= $A) and (A =< $K) -> long(Pid, A);

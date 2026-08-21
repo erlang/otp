@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,16 +23,16 @@ limitations under the License.
 
 ## Character Set
 
-The syntax of Erlang tokens allow the use of the full ISO-8859-1 (Latin-1)
+The syntax of Erlang tokens allows the use of the full ISO-8859-1 (Latin-1)
 character set. This is noticeable in the following ways:
 
 - All the Latin-1 printable characters can be used and are shown without the
   escape backslash convention.
 - Unquoted atoms and variables can use all Latin-1 letters.
 
-| _Octal_   | _Decimal_ |       | _Class_                |
+| Octal     | Decimal   |       | Class                  |
 | --------- | --------- | ----- | ---------------------- |
-| 200 - 237 | 128 - 159 |       | Control characters     |
+| 200 - 237 | 128 - 159 |       | Control characters     |
 | 240 - 277 | 160 - 191 | \- ¿  | Punctuation characters |
 | 300 - 326 | 192 - 214 | À - Ö | Uppercase letters      |
 | 327       | 215       | ×     | Punctuation character  |

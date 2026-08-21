@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +22,8 @@
 %%
 -module(asn1ct_constructed_per).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 -export([gen_encode_sequence/3]).
 -export([gen_decode_sequence/3]).
@@ -455,8 +459,8 @@ dec_external(#gen{pack=map}, _Typename) ->
     Vars = asn1ct_name:all(term),
     Names = ['direct-reference','indirect-reference',
              'data-value-descriptor',encoding],
-    Zipped = lists:zip(Names, Vars),
-    MapInit = lists:join(",", [["'",N,"'=>",{var,V}] || {N,V} <- Zipped]),
+    MapInit = lists:join(",", [["'",N,"'=>",{var,V}] ||
+                                  N <- Names && V <- Vars]),
     emit(["OldFormat = #{",MapInit,"}",com,nl,
           "ASN11994Format =",nl,
           {call,ext,transform_to_EXTERNAL1994_maps,
@@ -1863,11 +1867,9 @@ gen_dec_choice1(Erule, TopType, CompList, noext=Ext) ->
 gen_dec_choice1(Erule, TopType, CompList, {ext,_,_}=Ext) ->
     emit_getchoice(Erule, CompList, Ext),
     Imm = asn1ct_imm:per_dec_open_type(is_aligned(Erule)),
-    emit(["begin",nl]),
     BytesVar = asn1ct_gen:mk_var(asn1ct_name:curr(bytes)),
     {Dst,DstBuf} = asn1ct_imm:dec_slim_cg(Imm, BytesVar),
-    emit([nl,
-	  "end,",nl,
+    emit([",",nl,
 	  "case Choice of",nl]),
     Pre = {safe,fun(St) ->
 			emit(["{TmpVal,_} = "]),

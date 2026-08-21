@@ -1,7 +1,27 @@
-Unicode 15.0.0 was updated from:
-- https://www.unicode.org/Public/15.0.0/ucd/
-- https://www.unicode.org/Public/15.0.0/ucd/auxiliary/
-- https://www.unicode.org/Public/15.0.0/ucd/emoji/
+%CopyrightBegin%
+
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2025. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+%CopyrightEnd%
+
+Unicode 17.0.0 was updated from:
+- https://www.unicode.org/Public/17.0.0/ucd/
+- https://www.unicode.org/Public/17.0.0/ucd/auxiliary/
+- https://www.unicode.org/Public/17.0.0/ucd/emoji/
 
 When updating the Unicode version please follow these steps:
 
@@ -18,6 +38,8 @@ No subfolder should be created.
   - auxiliary/GraphemeBreakProperty.txt
   - emoji/emoji-data.txt
   - EastAsianWidth.txt
+  - IndicSyllabicCategory.txt
+  - DerivedCoreProperties.txt
 
 2. Copy the following test files to lib/stdlib/test/unicode_util_SUITE_data/
 replacing existing ones. No subfolder should be created.
@@ -31,8 +53,9 @@ version in lib/stdlib/uc_spec/gen_unicode_mod.escript
 4. Read the release notes by visiting https://www.unicode.org/versions/latest/
 and assess if additional changes are necessary in the Erlang code.
 
-5. Replace all ocurrences of previous version of Unicode with the new one in
-this very same file (lib/stdlib/uc_spec/README-UPDATE.txt).
+5. Replace all occurrences of the previous version of Unicode with the new one in
+this very same file (lib/stdlib/uc_spec/README-UPDATE.txt) and in
+lib/stdlib/uc_spec/vendor.info.
 Remember to update these instructions if a new file is added or any other change
 is required for future version updates.
 

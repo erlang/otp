@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,7 +41,7 @@ init_per_testcase(Case, Config) ->
     ErlangEl = filename:join([code:lib_dir(tools),"emacs","erlang.el"]),
     case file:read_file_info(ErlangEl) of
         {ok, _} ->
-            case Case =:= bif_highlight orelse emacs_version_ok(24.3) of
+            case Case =:= bif_highlight orelse emacs_version_ok(27.1) of
                 false -> {skip, "Old or no emacs found"};
                 _ -> [{el, ErlangEl}|Config]
             end;
@@ -93,28 +95,12 @@ load_interpreted(_Config) ->
 
 compile_and_load(_Config) ->
     Dir = emacs_dir(),
-    Files0 = filelib:wildcard("*.el", Dir),
-    Files = case emacs_version_ok(24.3) of
-                %% erldoc.el depends on cl-lib which was introduced in 24.3.
-                false -> Files0 -- ["erldoc.el"];
-                _ -> Files0
-            end,
-    Unforgiving =
-        case emacs_version_ok(24) of
-            Ver when Ver < 25 ->
-                "";
-            Ver when Ver < 26 ->
-                %% Workaround byte-compile-error-on-warn which seem broken in
-                %% Emacs 25.
-                "\"(advice-add #'display-warning :after "
-                    "(lambda (_ f &optional _ _) (error \\\"%s\\\" f)))\"";
-            _ ->
-                "\"(setq byte-compile-error-on-warn t)\""
-        end,
+    Files = filelib:wildcard("*.el", Dir),
+    Unforgiving = "\"(setq byte-compile-error-on-warn t)\"",
     %% Add files here whenever they are cleaned of warnings.
     NoWarn = ["erlang.el", "erlang-test.el", "erlang-edoc.el", "erlang-start.el", "erldoc.el"],
     Compile = fun(File) ->
-                      Pedantic = case lists:member(File, NoWarn) andalso Unforgiving /= "" of
+                      Pedantic = case lists:member(File, NoWarn) of
                                      true -> ["--eval ", Unforgiving, " "];
                                      false -> " "
                                  end,
@@ -127,22 +113,14 @@ compile_and_load(_Config) ->
     ok.
 
 tests_interpreted(_Config) ->
-    case emacs_version_ok(25) of
-        false -> {skip, "Old or no emacs found"};
-        _ ->
-            emacs(["-l erlang.el ",
-                   "-l erlang-test.el -f ert-run-tests-batch-and-exit"]),
-            ok
-    end.
+    emacs(["-l erlang.el ",
+           "-l erlang-test.el -f ert-run-tests-batch-and-exit"]),
+    ok.
 
 tests_compiled(_Config) ->
-    case emacs_version_ok(25) of
-        false -> {skip, "Old or no emacs found"};
-        _ ->
-            emacs(["-l erlang.elc ",
-                   "-l erlang-test.elc -f ert-run-tests-batch-and-exit"]),
-            ok
-    end.
+    emacs(["-l erlang.elc ",
+           "-l erlang-test.elc -f ert-run-tests-batch-and-exit"]),
+    ok.
 
 
 dquote(Str) ->

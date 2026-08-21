@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2021-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2021-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +28,7 @@
  * ARG4 = fun thing
  * ARG5 = current PC */
 void BeamGlobalAssembler::emit_unloaded_fun() {
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     emit_enter_frame();
 
@@ -38,7 +40,11 @@ void BeamGlobalAssembler::emit_unloaded_fun() {
     load_x_reg_array(ARG2);
     a.shr(ARG3, imm(FUN_HEADER_ARITY_OFFS));
     /* ARG4 has already been set. */
-    runtime_call<4>(beam_jit_handle_unloaded_fun);
+    a.mov(ARG5, active_code_ix);
+
+    runtime_call<
+            const Export *(*)(Process *, Eterm *, int, Eterm, ErtsCodeIndex),
+            beam_jit_handle_unloaded_fun>();
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eReductions |
                        Update::eCodeIndex>();
@@ -65,12 +71,13 @@ void BeamGlobalAssembler::emit_unloaded_fun() {
  * ARG4 = fun thing
  * ARG5 = current PC */
 void BeamGlobalAssembler::emit_handle_call_fun_error() {
-    Label bad_arity = a.newLabel(), bad_fun = a.newLabel();
+    Label bad_arity = a.new_label(), bad_fun = a.new_label();
 
     emit_enter_frame();
     emit_is_boxed(bad_fun, ARG4);
 
     x86::Gp fun_thing = emit_ptr_val(RET, ARG4);
+    ERTS_CT_ASSERT(FUN_HEADER_ARITY_OFFS == 8);
     a.cmp(emit_boxed_val(fun_thing, 0, sizeof(byte)), imm(FUN_SUBTAG));
     a.short_().je(bad_arity);
 
@@ -98,7 +105,8 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
         a.shr(ARG3, imm(FUN_HEADER_ARITY_OFFS));
-        runtime_call<3>(beam_jit_build_argument_list);
+        runtime_call<Eterm (*)(Process *, const Eterm *, int),
+                     beam_jit_build_argument_list>();
 
         emit_leave_runtime<Update::eHeapAlloc>();
 
@@ -109,7 +117,7 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
         /* Create the {Fun, Args} tuple. */
         {
             const int32_t bytes_needed = (3 + S_RESERVED) * sizeof(Eterm);
-            Label after_gc = a.newLabel();
+            Label after_gc = a.new_label();
 
             a.lea(ARG3, x86::qword_ptr(HTOP, bytes_needed));
             a.cmp(ARG3, E);
@@ -188,8 +196,8 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
                                            const ArgRegister &Dst,
                                            const ArgWord &Arity,
                                            const ArgWord &NumFree,
-                                           const Span<ArgVal> &env) {
-    ASSERT((NumFree.get() + 1) == env.size() &&
+                                           const Span<const ArgVal> &env) {
+    ASSERT((NumFree.get()) == env.size() &&
            (NumFree.get() + Arity.get()) < MAX_ARG);
 
     mov_arg(RET, Lambda);
@@ -259,7 +267,7 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
 /* Unwraps `apply_fun` so we can share the rest of the implementation with
  * `call_fun`. */
 void BeamGlobalAssembler::emit_apply_fun_shared() {
-    Label finished = a.newLabel();
+    Label finished = a.new_label();
 
     emit_enter_frame();
 
@@ -271,14 +279,14 @@ void BeamGlobalAssembler::emit_apply_fun_shared() {
     a.mov(ARG5, getXRef(1));
 
     {
-        Label unpack_next = a.newLabel(), malformed_list = a.newLabel(),
-              raise_error = a.newLabel();
+        Label unpack_next = a.new_label(), malformed_list = a.new_label(),
+              raise_error = a.new_label();
 
         auto x_register = getXRef(0);
 
         ASSERT(x_register.shift() == 0);
-        x_register.setIndex(ARG3);
-        x_register.setShift(3);
+        x_register.set_index(ARG3);
+        x_register.set_shift(3);
 
         a.mov(ARG1, ARG5);
         a.bind(unpack_next);
@@ -361,7 +369,7 @@ void BeamModuleAssembler::emit_i_apply_fun_only() {
 x86::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
                                            bool skip_header_test) {
     const bool can_fail = !(skip_box_test && skip_header_test);
-    Label next = a.newLabel();
+    Label next = a.new_label();
 
     /* Speculatively strip the literal tag when needed. */
     x86::Gp fun_thing = emit_ptr_val(RET, ARG4);
@@ -390,6 +398,8 @@ x86::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
         comment("skipped fun/arity test since source is always a fun of the "
                 "right arity when boxed");
     } else {
+        ERTS_CT_ASSERT(FUN_HEADER_ARITY_OFFS == 8);
+        ERTS_CT_ASSERT(FUN_HEADER_ENV_SIZE_OFFS == 16);
         a.cmp(emit_boxed_val(fun_thing, 0, sizeof(Uint16)), ARG3.r16());
         a.short_().jne(next);
     }

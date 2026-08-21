@@ -1,3 +1,25 @@
+<!--
+%CopyrightBegin%
+
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2016-2025. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+%CopyrightEnd%
+-->
+
 # Contributing to Erlang/OTP
 
 1. [License](#license)
@@ -96,10 +118,27 @@ feature one or two releases beforehand.
 can be included in OTP. Major changes or new features in ERTS, Kernel, or STDLIB will need an EEP or at least
 a discussion on the mailing list.
 
+### License Compliance
+
+Contributions to Erlang/OTP must be under the Apache 2.0 license, and should
+have a SPDX license and copyright identifier. Only in specific cases were no
+other alternative exists, Erlang/OTP will consider accepting Pull Requests with
+`Apache-2.0` compatible licenses.
+
+Under no circumstances the Erlang/OTP project will accept non-compatible Apache 2.0 contributions.
+
+Erlang/OTP has automatic checks to enforce this policy:
+* License Scanner checks that contributions are Apache 2.0. Any non-Apache 2.0
+  contribution will be manually checked, and will trigger a non-passing test in
+  Github.
+
+See <HOWTO/FILE-HEADERS.md> for details on the layout of file headers.
+
 ### Before you submit your pull request
 
-* Make sure existing test cases don't fail. It is not necessary to run all tests (that would take many hours),
-but you should at least run the tests for the application you have changed.
+* Make sure existing test cases don't fail. It is not necessary to run all tests
+(that would take many hours), but you should at least run the tests for the
+application you have changed.
 * Make sure all static checks pass by calling `./otp_build check`. Call `./otp_build check --help` for details on what `./otp_build check` does.
 * Make sure that github actions passes, if you go to https://github.com/$YOUR_GITHUB_USER/otp/actions you can enable github actions builds for you otp fork.
 

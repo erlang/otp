@@ -1,9 +1,9 @@
 
 int_adt.erl:28:2: Invalid type specification for function int_adt:add_f/2.
- The success typing is int_adt:add_f(number() | int_adt:int(),float()) -> number() | int_adt:int()
+ The success typing is int_adt:add_f(number(),float()) -> number()
  But the spec is int_adt:add_f(int(),int()) -> int()
  They do not overlap in the 2nd argument
 int_adt.erl:32:2: Invalid type specification for function int_adt:div_f/2.
- The success typing is int_adt:div_f(number() | int_adt:int(),number() | int_adt:int()) -> float()
+ The success typing is int_adt:div_f(number(),number()) -> float()
  But the spec is int_adt:div_f(int(),int()) -> int()
  The return types do not overlap

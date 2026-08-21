@@ -1,5 +1,12 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
+%% Copyright 2004-2010 held by the authors. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -11,6 +18,8 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% %CopyrightEnd%
 
 %%%-------------------------------------------------------------------
 %%% File    : dialyzer_codeserver.erl
@@ -124,7 +133,7 @@ ets_set_insert_list(List, Table) ->
 
 ets_set_to_set(Table) ->
   Fold = fun({E}, Set) -> sets:add_element(E, Set) end,
-  ets:foldl(Fold, sets:new([{version, 2}]), Table).
+  ets:foldl(Fold, sets:new(), Table).
 
 %%--------------------------------------------------------------------
 
@@ -449,6 +458,12 @@ compress_file_anno({file, F}, Fs) when is_list(F) ->
 compress_file_anno(T, Fs) when is_tuple(T) ->
   {NFs, NL} = compress_file_anno(tuple_to_list(T), Fs),
   {NFs, list_to_tuple(NL)};
+compress_file_anno(T, Fs) when is_record(T) ->
+  {M, N} = {records:get_module(T), records:get_name(T)},
+  FNs = records:get_field_names(T),
+  Vs = [{FN, records:get(FN, T)} || FN <- FNs],
+  {NFs, NL} = compress_file_anno(Vs, Fs),
+  {NFs, records:update(T, M, N, maps:from_list(NL))};
 compress_file_anno([E|L], Fs) ->
   {Fs1, NE} = compress_file_anno(E, Fs),
   {NFs, NL} = compress_file_anno(L, Fs1),

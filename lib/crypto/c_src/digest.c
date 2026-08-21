@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,6 +79,22 @@ static struct digest_type_t digest_types[] =
     {"sha512", "SHA2-512", 0, PBKDF2_ELIGIBLE_DIGEST,
 #ifdef HAVE_SHA512
      {&EVP_sha512,NULL}
+#else
+     {NULL,NULL}
+#endif
+    },
+
+    {"sha512_224", "SHA2-512/224", 0, PBKDF2_ELIGIBLE_DIGEST,
+#ifdef HAVE_SHA512_224
+     {&EVP_sha512_224,NULL}
+#else
+     {NULL,NULL}
+#endif
+    },
+
+    {"sha512_256", "SHA2-512/256", 0, PBKDF2_ELIGIBLE_DIGEST,
+#ifdef HAVE_SHA512_256
+     {&EVP_sha512_256,NULL}
 #else
      {NULL,NULL}
 #endif

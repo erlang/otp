@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,12 +45,18 @@ handler.
 Such another callback module could be used by setting the option
 [`key_cb`](`t:ssh:key_cb_common_option/0`) when starting a client or a server
 (with for example [ssh:connect](`ssh:connect/3`), [ssh:daemon](`ssh:daemon/2`)
-of [ssh:shell](`ssh:shell/1`) ).
+or [ssh:shell](`ssh:shell/1`) ).
 
-> #### Note {: .info }
+> #### Callbacks {: .info }
 >
-> The functions are _Callbacks_ for the SSH app. They are not intended to be
-> called from the user's code\!
+> The callback functions (`host_key/2`, `is_auth_key/3`, `user_key/2`,
+> `is_host_key/5`, `add_host_key/4`) are called by the SSH application
+> internally. They are documented here to show which files and options
+> the default implementation uses. See `m:ssh_server_key_api` and
+> `m:ssh_client_key_api` for the callback specifications.
+>
+> The public API functions are `decode/2`, `encode/2`, and
+> `extract_public_key/1`.
 
 ## Files, directories and who uses them
 
@@ -168,9 +176,7 @@ Clients uses all files stored in the [USERDIR](`m:ssh_file#USERDIR`) directory.
 
   To change the USERDIR, see the [user_dir](`t:user_dir_common_option/0`) option
 """.
--moduledoc(#{since => "OTP 21.2",
-             titles =>
-                 [{type,<<"Options">>}]}).
+-moduledoc(#{since => "OTP 21.2"}).
 
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -186,7 +192,7 @@ Clients uses all files stored in the [USERDIR](`m:ssh_file#USERDIR`) directory.
 -export([host_key/2, is_auth_key/3]).
 -export_type([system_dir_daemon_option/0]).
 -doc "Sets the [system directory](`m:ssh_file#SYSDIR`).".
--doc(#{title => <<"Options">>}).
+-doc(#{group => <<"Options">>}).
 -type system_dir_daemon_option()   :: {system_dir, string()}.
 
 %%%--------------------- client exports ---------------------------
@@ -195,11 +201,11 @@ Clients uses all files stored in the [USERDIR](`m:ssh_file#USERDIR`) directory.
 -export_type([pubkey_passphrase_client_options/0]).
 -doc """
 If the user's DSA, RSA or ECDSA key is protected by a passphrase, it can be
-supplied with thoose options.
+supplied with those options.
 
 Note that EdDSA passhrases (Curves 25519 and 448) are not implemented.
 """.
--doc(#{title => <<"Options">>}).
+-doc(#{group => <<"Options">>}).
 -type pubkey_passphrase_client_options() ::   {dsa_pass_phrase,      string()}
                                             | {rsa_pass_phrase,      string()}
                                               %% Not yet implemented:                     | {ed25519_pass_phrase,  string()}
@@ -218,15 +224,15 @@ Note that EdDSA passhrases (Curves 25519 and 448) are not implemented.
              ]).
 
 -doc "Sets the [user directory](`m:ssh_file#USERDIR`).".
--doc(#{title => <<"Options">>}).
+-doc(#{group => <<"Options">>}).
 -type user_dir_common_option()     :: {user_dir,  string()}.
--doc(#{title => <<"Options">>}).
+-doc(#{group => <<"Options">>}).
 -type user_dir_fun_common_option() :: {user_dir_fun, user2dir()}.
 -doc """
 Sets the [user directory](`m:ssh_file#USERDIR`) dynamically by evaluating the
 `user2dir` function.
 """.
--doc(#{title => <<"Options">>}).
+-doc(#{group => <<"Options">>}).
 -type user2dir() :: fun((RemoteUserName::string()) -> UserDir :: string()) .
 
 -doc """
@@ -235,19 +241,25 @@ memory. The `space` variant shrinks the memory requirements, but with a higher
 time consumption.
 
 To set it, set the option `{key_cb, {ssh_file, [{optimize,TimeOrSpace}]}` in the
-call of ["ssh:connect/3](`ssh:connect/3`), `ssh:daemon/2` or similar function
+call of [ssh:connect/3](`ssh:connect/3`), `ssh:daemon/2` or similar function
 call that initiates an ssh connection.
 """.
--doc(#{title => <<"Options">>}).
+-doc(#{group => <<"Options">>}).
 -type optimize_key_lookup() :: {optimize, time|space} .
 
 -doc "The key representation".
--doc(#{title => <<"Options">>}).
+-doc(#{group => <<"Options">>}).
 -type key() :: public_key:public_key() | public_key:private_key() .
--doc(#{title => <<"Options">>}).
--type experimental_openssh_key_v1() :: [{key(), openssh_key_v1_attributes()}].
--doc "Types for the experimental implementaition of the `openssh_key_v1` format.".
--doc(#{title => <<"Options">>}).
+-doc(#{group => <<"Options">>}).
+-type experimental_openssh_key_v1_encode() ::
+        [{[{public_key:public_key(), public_key:private_key(), Comment::binary()} |
+           {public_key:private_key(), Comment::binary()}],
+          openssh_key_v1_attributes()}].
+-doc(#{group => <<"Options">>}).
+-type experimental_openssh_key_v1_decode() ::
+        [{key(), openssh_key_v1_attributes()}].
+-doc "Types for the experimental implementation of the `openssh_key_v1` format.".
+-doc(#{group => <<"Options">>}).
 -type openssh_key_v1_attributes() :: [{atom(),term()}].
 
 %%%================================================================
@@ -257,10 +269,7 @@ call that initiates an ssh connection.
 
 %%%---------------- SERVER API ------------------------------------
 -doc """
-**Types and description**
-
-See the api description in
-[ssh_server_key_api, Module:host_key/2](`c:ssh_server_key_api:host_key/2`).
+Implements `c:ssh_server_key_api:host_key/2`.
 
 **Options**
 
@@ -274,7 +283,7 @@ See the api description in
 - [`SYSDIR/ssh_host_ed25519_key`](`m:ssh_file#FILE-ssh_host_ed25519_key`)
 - [`SYSDIR/ssh_host_ed448_key`](`m:ssh_file#FILE-ssh_host_ed448_key`)
 """.
--doc(#{since => <<"OTP 21.2">>}).
+-doc(#{since => <<"OTP 21.2">>, group => <<"Callback Implementations">>}).
 -spec host_key(Algorithm, Options) -> Result when
       Algorithm :: ssh:pubkey_alg(),
       Result :: {ok, public_key:private_key()} | {error, term()},
@@ -285,10 +294,7 @@ host_key(Algorithm, Opts) ->
 
 %%%................................................................
 -doc """
-**Types and description**
-
-See the api description in
-[ssh_server_key_api: Module:is_auth_key/3](`c:ssh_server_key_api:is_auth_key/3`).
+Implements `c:ssh_server_key_api:is_auth_key/3`.
 
 **Options**
 
@@ -303,7 +309,7 @@ See the api description in
 This functions discards all options in the beginning of the lines of thoose
 files when reading them.
 """.
--doc(#{since => <<"OTP 21.2">>}).
+-doc(#{since => <<"OTP 21.2">>, group => <<"Callback Implementations">>}).
 -spec is_auth_key(Key, User, Options) -> boolean() when
       Key :: public_key:public_key(),
       User :: string(),
@@ -321,10 +327,7 @@ is_auth_key(Key0, User, Opts) ->
 
 %%%---------------- CLIENT API ------------------------------------
 -doc """
-**Types and description**
-
-See the api description in
-[ssh_client_key_api, Module:user_key/2](`c:ssh_client_key_api:user_key/2`).
+Implements `c:ssh_client_key_api:user_key/2`.
 
 **Options**
 
@@ -343,7 +346,7 @@ Note that EdDSA passhrases (Curves 25519 and 448) are not implemented.
 - [`USERDIR/id_ed25519`](`m:ssh_file#FILE-id_ed25519`)
 - [`USERDIR/id_ed448`](`m:ssh_file#FILE-id_ed448`)
 """.
--doc(#{since => <<"OTP 21.2">>}).
+-doc(#{since => <<"OTP 21.2">>, group => <<"Callback Implementations">>}).
 -spec user_key(Algorithm, Options) -> Result when
       Algorithm :: ssh:pubkey_alg(),
       Result :: {ok, public_key:private_key()} |
@@ -356,16 +359,9 @@ user_key(Algorithm, Opts) ->
 %%%................................................................
 %%% New style (with port number)
 -doc """
-**Types and description**
-
-See the api description in
-[ssh_client_key_api, Module:is_host_key/5](`c:ssh_client_key_api:is_host_key/5`).
+Implements `c:ssh_client_key_api:is_host_key/5`.
 
 [](){: #is_host_key-4 }
-
-Note that the alternative, the old
-[Module:is_host_key/4](`c:ssh_client_key_api:is_host_key/4`) is no longer
-supported by `ssh_file`.
 
 **Option**
 
@@ -375,7 +371,7 @@ supported by `ssh_file`.
 
 - [`USERDIR/known_hosts`](`m:ssh_file#FILE-known_hosts`)
 """.
--doc(#{since => <<"OTP 23.0">>}).
+-doc(#{since => <<"OTP 23.0">>, group => <<"Callback Implementations">>}).
 -spec is_host_key(Key, Host, Port, Algorithm, Options) -> Result when
       Key :: public_key:public_key(),
       Host :: inet:ip_address() | inet:hostname() | [inet:ip_address() | inet:hostname()],
@@ -395,16 +391,9 @@ is_host_key(Key0, Hosts0, Port, Algorithm, Opts) ->
 
 %%%----------------------------------------------------------------
 -doc """
-**Types and description**
-
-See the api description in
-[ssh_client_key_api, Module:add_host_key/4](`c:ssh_client_key_api:add_host_key/4`).
+Implements `c:ssh_client_key_api:add_host_key/4`.
 
 [](){: #add_host_key-3 }
-
-Note that the alternative, the old
-[Module:add_host_key/3](`c:ssh_client_key_api:add_host_key/3`) is no longer
-supported by `ssh_file`.
 
 **Option**
 
@@ -414,7 +403,7 @@ supported by `ssh_file`.
 
 - [`USERDIR/known_hosts`](`m:ssh_file#FILE-known_hosts`)
 """.
--doc(#{since => <<"OTP 23.0">>}).
+-doc(#{since => <<"OTP 23.0">>, group => <<"Callback Implementations">>}).
 -spec add_host_key(Host, Port, Key, Options) -> Result when 
       Host :: inet:ip_address() | inet:hostname()
             | [inet:ip_address() | inet:hostname()],
@@ -455,7 +444,7 @@ OpenSSH public key.
 >
 > The implementation of the `openssh_key_v1` format is still experimental.
 """.
--doc(#{since => <<"OTP 24.0">>}).
+-doc(#{since => <<"OTP 24.0">>, group => <<"API">>}).
 -spec decode(SshBin, Type) -> Decoded | {error,term()}
                                   when SshBin :: binary(),
                                        Type :: ssh2_pubkey
@@ -479,7 +468,7 @@ OpenSSH public key.
                                                        | Decoded_openssh,
                                        Decoded_openssh :: [{public_key:public_key(), [{comment,string()}]}],
                                        Decoded_rfc4716 :: [{key(), [{headers,Attrs}]}],
-                                       Decoded_openssh_key_v1 :: experimental_openssh_key_v1(),
+                                       Decoded_openssh_key_v1 :: experimental_openssh_key_v1_decode(),
                                        Decoded_known_hosts :: [{public_key:public_key(), [{comment,string()}
                                                                                           | {hostnames,[string()]}]}],
                                        Decoded_auth_keys :: [{public_key:public_key(), [{comment,string()}
@@ -490,11 +479,18 @@ decode(KeyBin, ssh2_pubkey) when is_binary(KeyBin) ->
     ssh_message:ssh2_pubkey_decode(KeyBin);
 
 decode(KeyBin, public_key) when is_binary(KeyBin) ->
-    Type = case KeyBin of
-               <<"-----BEGIN OPENSSH",_/binary>> -> openssh_key_v1;
-               <<"----",_/binary>> -> rfc4716_key;
-               _ -> openssh_key
-           end,
+    Matches = fun(Bin, Pattern, Type) ->
+                      case binary:match(Bin, Pattern) of
+                          nomatch -> false;
+                          _ -> Type
+                      end
+              end,
+    Type =
+        maybe
+            false ?= Matches(KeyBin, <<"\n-----BEGIN OPENSSH">>, openssh_key_v1),
+            false ?= Matches(KeyBin, <<"\n----">>, rfc4716_key),
+            openssh_key
+        end,
     decode(KeyBin, Type);
 
 decode(KeyBin, Type) when is_binary(KeyBin) andalso 
@@ -601,7 +597,7 @@ Encodes a list of SSH file entries (public keys and attributes) to a binary.
 >
 > The implementation of the `openssh_key_v1` format is still experimental.
 """.
--doc(#{since => <<"OTP 24.0">>}).
+-doc(#{since => <<"OTP 24.0">>, group => <<"API">>}).
 -spec encode(InData, Type) -> binary() | {error,term()}
                                   when Type :: ssh2_pubkey
                                              | openssh_key
@@ -619,7 +615,7 @@ Encodes a list of SSH file entries (public keys and attributes) to a binary.
                                        InData_ssh2_pubkey :: public_key:public_key(),
                                        InData_openssh :: [{public_key:public_key(), [{comment,string()}]}],
                                        InData_rfc4716 :: [{key(), [{headers,Attrs}]}],
-                                       InData_openssh_key_v1 :: experimental_openssh_key_v1(),
+                                       InData_openssh_key_v1 :: experimental_openssh_key_v1_encode(),
                                        InData_known_hosts :: [{public_key:public_key(), [{comment,string()}
                                                                                           | {hostnames,[string()]}]}],
                                        InData_auth_keys :: [{public_key:public_key(), [{comment,string()}
@@ -644,16 +640,12 @@ encode(KeyAttrs, Type) when Type==rfc4716_key ;
                  fun openssh_key_v1_encode/1}
         end,
     iolist_to_binary(
-      [
-       [Begin,
+      [[Begin,
         [rfc4716_encode_header(H) || H <- proplists:get_value(headers, Attrs, [])],
-        split_long_lines( base64:encode( F(Key) ) ),
+        split_long_lines(base64:encode(F(Key))),
         "\n",
-        End
-       ] ||
-          {Key,Attrs} <- KeyAttrs
-      ]
-     );
+        End] ||
+          {Key,Attrs} <- KeyAttrs]);
 
 encode(KeyAttrs, Type) when Type == known_hosts;
                             Type == auth_keys ;
@@ -691,7 +683,7 @@ encode(_KeyBin, _Type) ->
 %%%----------------------------------------------------------------
 
 -doc "Fetches the public key from a private key.".
--doc(#{since => <<"OTP 25.0">>}).
+-doc(#{since => <<"OTP 25.0">>, group => <<"API">>}).
 -spec extract_public_key(PrivKey) -> PubKey
                         when PrivKey :: public_key:private_key(),
                               PubKey :: public_key:public_key().
@@ -1170,16 +1162,14 @@ decode_ssh_file(PrivPub, Algorithm, Pem, Password) ->
             {error, key_decode_failed}
     end.
 
-
 decode_pem_keys(RawBin, Password) ->
-    PemLines = split_in_lines(
+    PemLines = split_in_nonempty_lines(
                  binary:replace(RawBin, [<<"\\\n">>,<<"\\\r\\\n">>],  <<"">>, [global])
                 ),
     decode_pem_keys(PemLines, Password, []).
+
 decode_pem_keys([], _, Acc) ->
     {ok,lists:reverse(Acc)};
-
-
 decode_pem_keys(PemLines, Password, Acc) ->
     %% Private Key
     try get_key_part(PemLines) of
@@ -1377,12 +1367,10 @@ openssh_key_v1_decode(<<"openssh-key-v1",0,
                       >>, Pwd) ->
     openssh_key_v1_decode(Rest, N, Pwd, CipherName, KdfName, KdfOptions, N, []).
 
-
 openssh_key_v1_decode(<<?DEC_BIN(BinKey,_L1), Rest/binary>>, I,
                       Pwd, CipherName, KdfName, KdfOptions, N, PubKeyAcc) when I>0 ->
     PublicKey = ssh_message:ssh2_pubkey_decode(BinKey),
     openssh_key_v1_decode(Rest, I-1, Pwd, CipherName, KdfName, KdfOptions, N, [PublicKey|PubKeyAcc]);
-
 openssh_key_v1_decode(<<?DEC_BIN(Encrypted,_L)>>,
                       0, Pwd, CipherName, KdfName, KdfOptions, N, PubKeyAccRev) ->
     PubKeys = lists:reverse(PubKeyAccRev),
@@ -1397,7 +1385,6 @@ openssh_key_v1_decode(<<?DEC_BIN(Encrypted,_L)>>,
         error:{decryption, DecryptError} ->
             error({decryption, DecryptError})
     end.
-
 
 openssh_key_v1_decode_priv_keys(Bin, I, N, KeyAcc, CmntAcc) when I>0 ->
     {PrivKey, <<?DEC_BIN(Comment,_Lc),Rest/binary>>} = ssh_message:ssh2_privkey_decode2(Bin),
@@ -1441,7 +1428,7 @@ check_padding(Bin, BlockSize) ->
     end.
 
 %%%----------------------------------------------------------------
-%% KeyPairs :: [ {Pub,Priv,Comment} ]
+%% KeyPairs :: [ {Pub,Priv,Comment} | {Priv,Comment} ]
 openssh_key_v1_encode(KeyPairs) ->
     CipherName = <<"none">>,
     BlockSize = ?NON_CRYPT_BLOCKSIZE, % Cipher dependent

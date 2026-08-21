@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,7 +43,8 @@
 %% Test groups
 %%----------------------------------------------------------------------
 all() ->
-    [{group, cpd_tests}, xpath_text1, xpath_main,
+    [doctests,
+     {group, cpd_tests}, xpath_text1, xpath_main,
      xpath_abbreviated_syntax, xpath_functions, xpath_namespaces,
      {group, misc}, {group, eventp_tests},
      {group, ticket_tests}, {group, app_test},
@@ -55,7 +58,7 @@ groups() ->
      {misc, [],
       [latin1_alias, syntax_bug1, syntax_bug2, syntax_bug3,
        pe_ref1, copyright, testXSEIF, export_simple1, export,
-       export_cdata,
+       export_cdata, export_comments,
        default_attrs_bug, xml_ns, scan_splits_string_bug,
        allow_entities_test]},
      {eventp_tests, [], [sax_parse_and_export]},
@@ -114,6 +117,12 @@ end_per_testcase(_Func,_Config) ->
 %%----------------------------------------------------------------------
 %% Test cases
 %%----------------------------------------------------------------------
+doctests(_Config) ->
+    Options = [{missing_tests, []}],
+    ok = ct_doctest:module(xmerl, Options),
+    ok = ct_doctest:module(xmerl_xpath, Options),
+    ok = ct_doctest:module(xmerl_xs, Options).
+
 cpd_invalid1(Config) ->
     file:set_cwd(datadir(Config)),
     case catch xmerl_scan:file(datadir_join(Config,[cpd,"cpd_test.xml"]),[]) of
@@ -309,7 +318,7 @@ export(Config) ->
     {ok, B} = file:read_file(TestFile),
     ok.
 
-export_cdata(Config) ->
+export_cdata(_Config) ->
     InData = <<"<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <doc>
    <a>Test...</a>
@@ -319,6 +328,17 @@ export_cdata(Config) ->
 </doc>">>,
     Prolog = ["<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"],
     {E,_} = xmerl_scan:string(binary:bin_to_list(InData)),
+    Exported = xmerl:export([E],xmerl_xml,[{prolog,Prolog}]),
+    InData = list_to_binary(Exported),
+    ok.
+
+export_comments(Config) ->
+    InData = <<"<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<doc>
+    <!-- top comment --><a>Test...</a>
+    <!-- bottom comment --></doc>">>,
+    Prolog = ["<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"],
+    {E, _} = xmerl_scan:string(binary:bin_to_list(InData)),
     Exported = xmerl:export([E],xmerl_xml,[{prolog,Prolog}]),
     InData = list_to_binary(Exported),
     ok.
@@ -653,7 +673,6 @@ allow_entities_test(Config) ->
         (catch xmerl_scan:file(File, [{allow_entities, false}])),
     ok.
 
-
 %%======================================================================
 %% Support Functions
 %%======================================================================
@@ -782,6 +801,7 @@ xml_namespace_indented() ->
   "\n  <title>Cheaper by the Dozen</title>"
   "\n  <isbn:number>1568491379</isbn:number>"
   "\n  <notes>"
+  "\n    <!-- make HTML the default namespace for some comments -->"
   "\n    <p xmlns=\"urn:w3-org-ns:HTML\">This is a <i>funny</i> book!</p>"
   "\n  </notes>"
   "\n</book>".

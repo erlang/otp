@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2024-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -177,13 +179,20 @@
     Byte =:= 127
 ).
 
--define(are_all_ascii_plain(B1, B2, B3, B4, B5, B6, B7, B8),
-    (?is_ascii_plain(B1)) andalso
-    (?is_ascii_plain(B2)) andalso
-    (?is_ascii_plain(B3)) andalso
-    (?is_ascii_plain(B4)) andalso
-    (?is_ascii_plain(B5)) andalso
-    (?is_ascii_plain(B6)) andalso
-    (?is_ascii_plain(B7)) andalso
-    (?is_ascii_plain(B8))
+-include("swar_ascii.hrl").
+
+%% SWAR check: all 7 bytes (in one 56-bit word) are "plain ASCII"
+%% i.e., in [32, 127] and not $" (0x22) or $\\ (0x5C).
+%%
+%% Four checks, each operating on all 7 bytes simultaneously:
+%%   1. band with 0x80..80 detects bytes >= 128
+%%   2. add 0x60..60 then band 0x80..80 detects bytes < 32
+%%      (byte + 0x60 sets the high bit iff byte >= 0x20, given byte < 0x80)
+%%   3. XOR with 0x22..22 maps $" to 0, then no_zero_byte detects it
+%%   4. XOR with 0x5C..5C maps $\\ to 0, then no_zero_byte detects it
+-define(are_all_ascii_plain_swar(W),
+    (W) band ?SWAR_MASK80 =:= 0 andalso
+    ((W) + 16#60606060606060) band ?SWAR_MASK80 =:= ?SWAR_MASK80 andalso
+    ?no_zero_byte((W) bxor 16#22222222222222) andalso
+    ?no_zero_byte((W) bxor 16#5C5C5C5C5C5C5C)
 ).

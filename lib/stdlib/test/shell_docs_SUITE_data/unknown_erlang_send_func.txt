@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 [;1m  send(Dest, Msg)[0m
 
@@ -36,6 +43,28 @@
    • [;;4mnoconnect[0m - If the destination node would have to be
      auto-connected to do the send, [;;4mnoconnect[0m is returned
      instead.
+
+   • [;;4mpriority[0m - Since OTP @OTP-19198@
+
+     Send this message as a priority message. In order for the
+     message to be handled as a priority message by the receiver,
+     this option must be passed, and [;;4mDest[0m must be an active 
+     priority alias.
+
+     If [;;4mDest[0m is an active priority alias, but this option is
+     not passed, the message will be handled as on ordinary
+     message. The same is true, if this option is passed, but [;;4m[0m
+     [;;4mDest[0m is not an active priority alias.
+
+  [;;4mWarning[0m
+
+       You very seldom need to resort to using priority
+       messages and you may cause issues instead of solving
+       issues if not used with care.
+
+     For more information see, the Adding Messages to the
+     Message Queue and the Enabling Priority Message Reception
+     sections of the Erlang Reference Manual.
 
   [;;4mNote[0m
 

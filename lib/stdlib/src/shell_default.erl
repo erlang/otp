@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,7 +59,7 @@ code:load_abs("$PATH/user_default").
 `$PATH` is the directory where your `user_default` module can be found.
 """.
 
--export([help/0,lc/1,c/1,c/2,c/3,nc/1,nl/1,l/1,i/0,pid/3,i/3,m/0,m/1,lm/0,mm/0,
+-export([help/0,lc/1,c/1,c/2,c/3,nc/1,nl/1,l/1,i/0,pid/3,i/3,pi/1,pi/3,m/0,m/1,lm/0,mm/0,
          memory/0,memory/1,uptime/0,
          erlangrc/1,bi/1, regs/0, flush/0,pwd/0,ls/0,ls/1,cd/1,
          y/1, y/2,
@@ -72,50 +74,10 @@ code:load_abs("$PATH/user_default").
 -export(['$handle_undefined_function'/2]).
 -import(io, [format/1]).
 
--doc "Print the help for all shell internal commands.".
+-doc "Print the help for all shell commands.".
 -spec help() -> true.
 help() ->
-    S = ~"""
-         ** shell internal commands **
-         b()        -- display all variable bindings
-         e(N)       -- repeat the expression in query <N>
-         f()        -- forget all variable bindings
-         f(X)       -- forget the binding of variable X
-         h()        -- history
-         h(Mod)     -- help about module
-         h(Mod,Func)-- help about function in module
-         h(Mod,Func,Arity) -- help about function with arity in module
-         ht(Mod)    -- help about a module's types
-         ht(Mod,Type) -- help about type in module
-         ht(Mod,Type,Arity) -- help about type with arity in module
-         hcb(Mod)    -- help about a module's callbacks
-         hcb(Mod,CB) -- help about callback in module
-         hcb(Mod,CB,Arity) -- help about callback with arity in module
-         history(N) -- set how many previous commands to keep
-         results(N) -- set how many previous command results to keep
-         catch_exception(B) -- how exceptions are handled
-         v(N)       -- use the value of query <N>
-         rd(R,D)    -- define a record
-         rf()       -- remove all record information
-         rf(R)      -- remove record information about R
-         rl()       -- display all record information
-         rl(R)      -- display record information about R
-         rp(Term)   -- display Term using the shell's record information
-         rr(File)   -- read record information from File (wildcards allowed)
-         rr(F,R)    -- read selected record information from file(s)
-         rr(F,R,O)  -- read selected record information with options
-         lf()       -- list locally defined functions
-         lt()       -- list locally defined types
-         lr()       -- list locally defined records
-         ff()       -- forget all locally defined functions
-         ff({F,A})  -- forget locally defined function named as atom F and arity A
-         tf()       -- forget all locally defined types
-         tf(T)      -- forget locally defined type named as atom T
-         fl()       -- forget all locally defined functions, types and records
-         save_module(FilePath) -- save all locally defined functions, types and records to a file
-         """,
-    io:put_chars(S),
-    io:nl(),
+    shell:help(),
     c:help(),
     format(~"** commands in module i (interpreter interface) **\n"),
     format(~"ih()       -- print help for the i module\n"),
@@ -164,6 +126,10 @@ hcb(M,F,A)      -> c:hcb(M,F,A).
 i()             -> c:i().
 -doc false.
 i(X,Y,Z)        -> c:i(X,Y,Z).
+-doc false.
+pi(X,Y,Z)        -> c:pi(X,Y,Z).
+-doc false.
+pi(Pid)          -> c:pi(Pid).
 -doc false.
 l(Mod)          -> c:l(Mod).
 -doc false.

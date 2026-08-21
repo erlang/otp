@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 [;1m  process_info(Pid)[0m
 
@@ -83,9 +90,10 @@
 
   Valid [;;4mInfoTuple[0ms with corresponding [;;4mItem[0ms:
 
-   • [;;4m{async_dist, Enabled}[0m - Since: OTP 25.3
+   • [;;4m{async_dist, Enabled}[0m - Current value of the [;;4masync_dist[0m
+     process flag.
 
-     Current value of the [;;4masync_dist[0m process flag.
+     Since: OTP 25.3
 
    • [;;4m{backtrace, Bin}[0m - Binary [;;4mBin[0m contains the same
      information as the output from [;;4merlang:process_display(Pid,[0m
@@ -221,9 +229,20 @@
      the initial process ([;;4minit[0m) on a node lacks a parent,
      though.
 
+     Since: OTP 25.0
+
    • [;;4m{priority, Level}[0m - [;;4mLevel[0m is the current priority level
      for the process. For more information on priorities, see [;;4m[0m
      [;;4mprocess_flag(priority, Level)[0m.
+
+   • [;;4m{priority_messages, Enabled}[0m - Since OTP @OTP-19198@
+
+     If [;;4mEnabled[0m equals [;;4mtrue[0m, the process has enabled priority
+     message reception enabled priority message reception for at
+     least one type of messages.
+
+     For more information see the Adding Messages to the Message
+     Queue section of the Erlang Reference Manual.
 
    • [;;4m{reductions, Number}[0m - [;;4mNumber[0m is the number of reductions
      executed by the process.

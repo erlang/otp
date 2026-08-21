@@ -1,7 +1,9 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,6 +33,8 @@ the _Simple API for XML_, originally a Java-only API. SAX was the first widely
 adopted API for XML in Java, and is a _de facto_ standard where there are
 versions for several programming language environments other than Java.
 """.
+
+-unsafe([{file, 2, possibly}, {stream, 2, possibly}]).
 
 %%----------------------------------------------------------------------
 %% Include files

@@ -1,8 +1,10 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1996-2024. All Rights Reserved.
-# 
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1996-2025. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 #
 include $(ERL_TOP)/make/target.mk
@@ -30,7 +32,6 @@ MODULES= \
 	mnesia_bench_SUITE \
 	mnesia_test_lib \
 	mnesia_install_test \
-	mnesia_registry_test \
 	mnesia_config_test \
 	mnesia_frag_test \
 	mnesia_inconsistent_database_test \
@@ -92,7 +93,7 @@ RELSYSDIR = $(RELEASE_PATH)/mnesia_test
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-#ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS += +nowarn_missing_spec_documented -Werror +nowarn_deprecated_catch
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .

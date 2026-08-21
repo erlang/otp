@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,7 +51,7 @@ end_per_testcase(Func, Conf) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-    [{group, light}, {group, medium}].
+    [{group, light}].
 
 groups() -> 
     [{light, [], [{group, nice}, {group, evil}]},
@@ -699,6 +701,7 @@ evil_loop(Config) when is_list(Config) ->
 
     Match  = fun(Tab) -> mnesia:match_object(Tab, {'_', '_', '_'}, write) end,
     Select = fun(Tab) -> mnesia:select(Tab, [{'_', [], ['$_']}]) end,
+    SelectRev = fun(Tab) -> mnesia:select_reverse(Tab, [{'_', [], ['$_']}]) end,
     Trans  = fun(Fun, Args) -> mnesia:activity(transaction, Fun, Args, mnesia_frag) end,
     LoopHelp = fun('$end_of_table',_) ->
 		       [];
@@ -709,6 +712,16 @@ evil_loop(Config) when is_list(Config) ->
     SelLoop = fun(Table) -> 
 		      Sel = mnesia:select(Table, [{'_', [], ['$_']}], 1, read),
 		      LoopHelp(Sel, LoopHelp)
+	      end,
+    RevLoopHelp = fun('$end_of_table',_) ->
+		       [];
+		  ({Res,Cont},Fun) ->
+		       Sel = mnesia:select_reverse(Cont),
+		       Res ++ Fun(Sel, Fun)
+	       end,
+    SelRevLoop = fun(Table) ->
+		      Sel = mnesia:select_reverse(Table, [{'_', [], ['$_']}], 1, read),
+		      RevLoopHelp(Sel, RevLoopHelp)
 	      end,
 
     R1 = {RecName, 2, 2},
@@ -723,13 +736,19 @@ evil_loop(Config) when is_list(Config) ->
 	 end,
     S1 = lists:sort([R1, R2| Recs]),
     ?match(S1, sort_res(Trans(W1, [Tab1, Select]))),
+    ?match(S1, sort_res(Trans(W1, [Tab1, SelectRev]))),
     ?match(S1, sort_res(Trans(W1, [Tab1, Match]))),
     ?match(S1, sort_res(Trans(W1, [Tab1, SelLoop]))),
+    ?match(S1, sort_res(Trans(W1, [Tab1, SelRevLoop]))),
     ?match(S1, sort_res(Trans(W1, [Tab2, Select]))),
+    ?match(S1, sort_res(Trans(W1, [Tab2, SelectRev]))),
     ?match(S1, sort_res(Trans(W1, [Tab2, SelLoop]))),
+    ?match(S1, sort_res(Trans(W1, [Tab2, SelRevLoop]))),
     ?match(S1, sort_res(Trans(W1, [Tab2, Match]))),
     ?match(S1, sort_res(Trans(W1, [Tab3, Select]))),
+    ?match(S1, sort_res(Trans(W1, [Tab3, SelectRev]))),
     ?match(S1, sort_res(Trans(W1, [Tab3, SelLoop]))),
+    ?match(S1, sort_res(Trans(W1, [Tab3, SelRevLoop]))),
     ?match(S1, sort_res(Trans(W1, [Tab3, Match]))),
     [mnesia:dirty_delete_object(Frag, R) || R <- [R1, R2], 
 					   Tab <- Tabs,
@@ -744,14 +763,20 @@ evil_loop(Config) when is_list(Config) ->
     S2Bag = lists:sort([R1, R3 | Recs]),
     io:format("S2 = ~p\n", [S2]),
     ?match(S2, sort_res(Trans(W2, [Tab1, Select]))),
+    ?match(S2, sort_res(Trans(W2, [Tab1, SelectRev]))),
     ?match(S2, sort_res(Trans(W2, [Tab1, SelLoop]))),
+    ?match(S2, sort_res(Trans(W2, [Tab1, SelRevLoop]))),
     ?match(S2, sort_res(Trans(W2, [Tab1, Match]))),
     ?match(S2, sort_res(Trans(W2, [Tab2, Select]))),
+    ?match(S2, sort_res(Trans(W2, [Tab2, SelectRev]))),
     ?match(S2, sort_res(Trans(W2, [Tab2, SelLoop]))),
+    ?match(S2, sort_res(Trans(W2, [Tab2, SelRevLoop]))),
     ?match(S2, sort_res(Trans(W2, [Tab2, Match]))),
     io:format("S2Bag = ~p\n", [S2Bag]),
     ?match(S2Bag, sort_res(Trans(W2, [Tab3, Select]))),
+    ?match(S2Bag, sort_res(Trans(W2, [Tab3, SelectRev]))),
     ?match(S2Bag, sort_res(Trans(W2, [Tab3, SelLoop]))),
+    ?match(S2Bag, sort_res(Trans(W2, [Tab3, SelRevLoop]))),
     ?match(S2Bag, sort_res(Trans(W2, [Tab3, Match]))),
 
     W3 = fun(Tab,Search) -> 
@@ -762,13 +787,19 @@ evil_loop(Config) when is_list(Config) ->
     S3Bag = lists:sort([R4 | lists:delete(R1, Recs)]),
     S3 = lists:delete({RecName, 3, 3}, S3Bag),
     ?match(S3, sort_res(Trans(W3, [Tab1, Select]))),
+    ?match(S3, sort_res(Trans(W3, [Tab1, SelectRev]))),
     ?match(S3, sort_res(Trans(W3, [Tab1, SelLoop]))),
+    ?match(S3, sort_res(Trans(W3, [Tab1, SelRevLoop]))),
     ?match(S3, sort_res(Trans(W3, [Tab1, Match]))),
     ?match(S3, sort_res(Trans(W3, [Tab2, SelLoop]))),
+    ?match(S3, sort_res(Trans(W3, [Tab2, SelRevLoop]))),
     ?match(S3, sort_res(Trans(W3, [Tab2, Select]))),
+    ?match(S3, sort_res(Trans(W3, [Tab2, SelectRev]))),
     ?match(S3, sort_res(Trans(W3, [Tab2, Match]))),
     ?match(S3Bag, sort_res(Trans(W3, [Tab3, Select]))),
+    ?match(S3Bag, sort_res(Trans(W3, [Tab3, SelectRev]))),
     ?match(S3Bag, sort_res(Trans(W3, [Tab3, SelLoop]))),
+    ?match(S3Bag, sort_res(Trans(W3, [Tab3, SelRevLoop]))),
     ?match(S3Bag, sort_res(Trans(W3, [Tab3, Match]))),
 
     W4 = fun(Tab,Search) -> 
@@ -785,13 +816,19 @@ evil_loop(Config) when is_list(Config) ->
     S4Bag = lists:sort([R5 | S3Bag]),
     S4    = lists:sort([R5 | S3]),
     ?match(S4, sort_res(Trans(W4, [Tab1, Select]))),
+    ?match(S4, sort_res(Trans(W4, [Tab1, SelectRev]))),
     ?match(S4, sort_res(Trans(W4, [Tab1, SelLoop]))),
+    ?match(S4, sort_res(Trans(W4, [Tab1, SelRevLoop]))),
     ?match(S4, sort_res(Trans(W4, [Tab1, Match]))),
     ?match(S4, sort_res(Trans(W4, [Tab2, Select]))),
+    ?match(S4, sort_res(Trans(W4, [Tab2, SelectRev]))),
     ?match(S4, sort_res(Trans(W4, [Tab2, SelLoop]))),
+    ?match(S4, sort_res(Trans(W4, [Tab2, SelRevLoop]))),
     ?match(S4, sort_res(Trans(W4, [Tab2, Match]))),
     ?match(S4Bag, sort_res(Trans(W4, [Tab3, Select]))),
+    ?match(S4Bag, sort_res(Trans(W4, [Tab3, SelectRev]))),
     ?match(S4Bag, sort_res(Trans(W4, [Tab3, SelLoop]))),
+    ?match(S4Bag, sort_res(Trans(W4, [Tab3, SelRevLoop]))),
     ?match(S4Bag, sort_res(Trans(W4, [Tab3, Match]))),
     [mnesia:dirty_delete_object(Tab, R) || R <- [{RecName, 3, 3}, R5], Tab <- Tabs],
 

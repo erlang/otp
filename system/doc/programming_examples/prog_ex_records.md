@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -55,8 +57,8 @@ following example, a record instead of a tuple is used to store the data:
 ```
 
 This enables references to the fields of the record by name. For example, if `P`
-is a variable whose value is a `person` record, the following code access the
-name and address fields of the records:
+is a variable whose value is a `person` record, the following code accesses the
+name and address fields of the record:
 
 ```erlang
 Name = P#person.name,
@@ -72,9 +74,9 @@ Internally, records are represented using tagged tuples:
 
 ## Defining a Record
 
-This following definition of a `person` is used in several examples in this
+The following definition of a `person` is used in several examples in this
 section. Three fields are included, `name`, `phone`, and `address`. The default
-values for `name` and `phone` is "" and [], respectively. The default value for
+values for `name` and `phone` are "" and [], respectively. The default value for
 `address` is the atom `undefined`, since no default value is supplied for this
 field:
 
@@ -143,7 +145,7 @@ The following example shows how to update a record:
 
 ## Type Testing
 
-The following example shows that the guard succeeds if `P` is record of type
+The following example shows that the guard succeeds if `P` is a record of type
 `person`:
 
 ```erlang

@@ -1,3 +1,0 @@
-group: basic
-short: Functionality necessary to run the Erlang System itself
-release: %RELEASE%

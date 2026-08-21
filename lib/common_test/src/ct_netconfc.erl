@@ -1,7 +1,9 @@
 %%----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2012-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -212,6 +214,7 @@ logging of all NETCONF connections in to the test case HTML log.
 """.
 -moduledoc(#{since => "OTP R15B02"}).
 
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 -dialyzer(no_improper_lists).
 
 -include("ct_netconfc.hrl").
@@ -2588,9 +2591,9 @@ ssh_channel(#connection{reference=CM}=Connection0,
                 failure ->
                     ssh_connection:close(CM,Ch),
                     {error,{ssh,could_not_execute_netconf_subsystem}};
-                {error,timeout} ->
+                {error,Reason} ->
                     ssh_connection:close(CM,Ch),
-                    {error,{ssh,could_not_execute_netconf_subsystem,timeout}}
+                    {error,{ssh,could_not_execute_netconf_subsystem,Reason}}
             end;
         {error, Reason} ->
             {error,{ssh,could_not_open_channel,Reason}}

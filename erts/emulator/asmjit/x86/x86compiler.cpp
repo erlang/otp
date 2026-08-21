@@ -1,15 +1,15 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include "../core/api-build_p.h"
+#include <asmjit/core/api-build_p.h>
 #if !defined(ASMJIT_NO_X86) && !defined(ASMJIT_NO_COMPILER)
 
-#include "../x86/x86assembler.h"
-#include "../x86/x86compiler.h"
-#include "../x86/x86instapi_p.h"
-#include "../x86/x86rapass_p.h"
+#include <asmjit/x86/x86assembler.h>
+#include <asmjit/x86/x86compiler.h>
+#include <asmjit/x86/x86instapi_p.h>
+#include <asmjit/x86/x86rapass_p.h>
 
 ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
@@ -17,44 +17,55 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 // ==========================================
 
 Compiler::Compiler(CodeHolder* code) noexcept : BaseCompiler() {
-  _archMask = (uint64_t(1) << uint32_t(Arch::kX86)) |
+  _arch_mask = (uint64_t(1) << uint32_t(Arch::kX86)) |
               (uint64_t(1) << uint32_t(Arch::kX64)) ;
-  if (code)
+  init_emitter_funcs(this);
+
+  if (code) {
     code->attach(this);
+  }
 }
 Compiler::~Compiler() noexcept {}
 
 // x86::Compiler - Events
 // ======================
 
-Error Compiler::onAttach(CodeHolder* code) noexcept {
-  ASMJIT_PROPAGATE(Base::onAttach(code));
-  Error err = addPassT<X86RAPass>();
+Error Compiler::on_attach(CodeHolder& code) noexcept {
+  ASMJIT_PROPAGATE(Base::on_attach(code));
+  Error err = add_pass<X86RAPass>();
 
-  if (ASMJIT_UNLIKELY(err)) {
-    onDetach(code);
+  if (ASMJIT_UNLIKELY(err != Error::kOk)) {
+    on_detach(code);
     return err;
   }
 
-  _instructionAlignment = uint8_t(1);
-  assignEmitterFuncs(this);
+  _instruction_alignment = uint8_t(1);
+  update_emitter_funcs(this);
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
-Error Compiler::onDetach(CodeHolder* code) noexcept {
-  return Base::onDetach(code);
+Error Compiler::on_detach(CodeHolder& code) noexcept {
+  return Base::on_detach(code);
+}
+
+Error Compiler::on_reinit(CodeHolder& code) noexcept {
+  Error err = Base::on_reinit(code);
+  if (err == Error::kOk) {
+    err = add_pass<X86RAPass>();
+  }
+  return err;
 }
 
 // x86::Compiler - Finalize
 // ========================
 
 Error Compiler::finalize() {
-  ASMJIT_PROPAGATE(runPasses());
+  ASMJIT_PROPAGATE(run_passes());
   Assembler a(_code);
-  a.addEncodingOptions(encodingOptions());
-  a.addDiagnosticOptions(diagnosticOptions());
-  return serializeTo(&a);
+  a.add_encoding_options(encoding_options());
+  a.add_diagnostic_options(diagnostic_options());
+  return serialize_to(&a);
 }
 
 ASMJIT_END_SUB_NAMESPACE

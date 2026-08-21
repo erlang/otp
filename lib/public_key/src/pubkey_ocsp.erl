@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,8 +22,8 @@
 
 -module(pubkey_ocsp).
 -moduledoc false.
--feature(maybe_expr,enable).
--include("public_key.hrl").
+
+-include("public_key_internal.hrl").
 
 -export([find_single_response/3,
          get_acceptable_response_types_extn/0,
@@ -31,6 +33,10 @@
          decode_response/1]).
 %% Tracing
 -export([handle_trace/3]).
+
+%% 100 KB — aligned with OpenSSL OSSL_HTTP_DEFAULT_MAX_RESP_LEN.
+%% Typical OCSP responses are 1–5 KB.
+-define(MAX_OCSP_RESPONSE_SIZE, 102400).
 
 -spec get_nonce_extn(undefined | binary()) -> undefined | #'Extension'{}.
 get_nonce_extn(undefined) ->
@@ -56,7 +62,7 @@ verify_response(#'BasicOCSPResponse'{
         ok ?= verify_past_timestamp(ProducedAt),
         ok ?= verify_signature(
                 public_key:der_encode('ResponseData', ResponseData),
-                SignatureAlgo#'AlgorithmIdentifier'.algorithm,
+                SignatureAlgo#'BasicOCSPResponse_signatureAlgorithm'.algorithm,
                 Signature, ResponderCerts,
                 ResponderID, IssuerCert, IsTrustedResponderFun),
         verify_nonce(ResponseData, Nonce)
@@ -90,7 +96,8 @@ status({unknown, Reason}, _) ->
 status({revoked, Reason}, _) ->
     {error, {bad_cert, {revoked, Reason}}}.
 
-decode_response(ResponseDer) ->
+decode_response(ResponseDer)
+  when byte_size(ResponseDer) =< ?MAX_OCSP_RESPONSE_SIZE ->
     Resp = public_key:der_decode('OCSPResponse', ResponseDer),
     case Resp#'OCSPResponse'.responseStatus of
         successful ->
@@ -99,7 +106,9 @@ decode_response(ResponseDer) ->
              );
         Error ->
             {error, Error}
-    end.
+    end;
+decode_response(ResponseDer) when is_binary(ResponseDer) ->
+    {error, {ocsp_response_too_large, byte_size(ResponseDer)}}.
 
 %%--------------------------------------------------------------------
 match_single_response(_IssuerName, _IssuerKey, _SerialNum, []) ->
@@ -110,10 +119,13 @@ match_single_response(IssuerName, IssuerKey, SerialNum,
                            SingleResponse | Tail]) ->
     #'SingleResponse'{thisUpdate = ThisUpdate,
                       nextUpdate = NextUpdate} = SingleResponse,
-    HashType = public_key:pkix_hash_type(Algo#'AlgorithmIdentifier'.algorithm),
-    case (SerialNum == CertID#'CertID'.serialNumber) andalso
-        (crypto:hash(HashType, IssuerName) == CertID#'CertID'.issuerNameHash) andalso
-        (crypto:hash(HashType, IssuerKey) == CertID#'CertID'.issuerKeyHash) andalso
+    HashType = public_key:pkix_hash_type(Algo#'CertID_hashAlgorithm'.algorithm),
+    SerialMatch = (SerialNum == CertID#'CertID'.serialNumber),
+    NameHashMatch = hash_equals(crypto:hash(HashType, IssuerName),
+                                     CertID#'CertID'.issuerNameHash),
+    KeyHashMatch = hash_equals(crypto:hash(HashType, IssuerKey),
+                                    CertID#'CertID'.issuerKeyHash),
+    case SerialMatch andalso NameHashMatch andalso KeyHashMatch andalso
         verify_past_timestamp(ThisUpdate) == ok andalso
         verify_next_update(NextUpdate) == ok of
         true ->
@@ -212,10 +224,21 @@ verify_next_update(NextUpdate) ->
 is_responder_cert({byName, Name}, #cert{otp = Cert}) ->
     public_key:der_encode('Name', Name) == get_subject_name(Cert);
 is_responder_cert({byKey, Key}, #cert{otp = Cert}) ->
-    Key == crypto:hash(sha, get_public_key(Cert)).
+    hash_equals(Key, crypto:hash(sha, get_public_key(Cert))).
 
 is_authorized_responder(CombinedResponderCert = #cert{otp = ResponderCert},
                         IssuerCert, IsTrustedResponderFun) ->
+    case pubkey_cert:parse_and_check_validity_dates(ResponderCert) of
+        ok ->
+            check_responder_authorization(CombinedResponderCert,
+                                          ResponderCert, IssuerCert,
+                                          IsTrustedResponderFun);
+        _ExpiredOrError ->
+            not_authorized_responder
+    end.
+
+check_responder_authorization(CombinedResponderCert, ResponderCert,
+                              IssuerCert, IsTrustedResponderFun) ->
     Case1 =
         %% the CA who issued the certificate in question signed the
         %% response
@@ -229,7 +252,9 @@ is_authorized_responder(CombinedResponderCert = #cert{otp = ResponderCert},
         %%      issue OCSP responses for that CA (id-kp-OCSPSigning)
         fun() ->
                 public_key:pkix_is_issuer(ResponderCert, IssuerCert) andalso
-                                 designated_for_ocsp_signing(ResponderCert)
+                    designated_for_ocsp_signing(ResponderCert) andalso
+                    public_key:pkix_verify(CombinedResponderCert#cert.der,
+                                           get_public_key_rec(IssuerCert))
         end,
     Case3 =
         %% a Trusted Responder whose public key is trusted by the requestor
@@ -290,6 +315,16 @@ designated_for_ocsp_signing(OtpCert) ->
 	#'Extension'{extnValue = KeyUses} ->
             lists:member(?'id-kp-OCSPSigning', KeyUses)
     end.
+
+%% Constant-time comparison that handles mismatched sizes gracefully.
+%% crypto:hash_equals/2 requires equal-length binaries. If sizes differ,
+%% the CertID cannot match (hash algorithm mismatch). No timing concern:
+%% the expected length is determined by the hashAlgorithm OID in the same
+%% CertID, which the sender chose — not a secret.
+hash_equals(A, B) when byte_size(A) =:= byte_size(B) ->
+    crypto:hash_equals(A, B);
+hash_equals(_, _) ->
+    false.
 
 %%%################################################################
 %%%#

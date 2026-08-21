@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2012-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,8 +51,8 @@ typedef struct ErtsTracee_ {
     ErtsTracerRef *first_ref;
 } ErtsTracee;
 
-#define ERTS_TRACER_MODULE(T) 	(CAR(list_val(T)))
-#define ERTS_TRACER_STATE(T) 	(CDR(list_val(T)))
+#define ERTS_TRACER_MODULE(T) 	(is_internal_pid(T) ? am_erl_tracer : CAR(list_val(T)))
+#define ERTS_TRACER_STATE(T) 	(is_internal_pid(T) ? T : CDR(list_val(T)))
 
 #define ERTS_P_LINKS(P)		((P)->common.u.alive.links)
 #define ERTS_P_MONITORS(P)	((P)->common.u.alive.monitors)
@@ -473,6 +475,9 @@ ERTS_GLB_INLINE int erts_lc_ptab_is_rwlocked(ErtsPTab *ptab)
 #include "bif.h"
 
 BIF_RETTYPE erts_ptab_list(struct process *c_p, ErtsPTab *ptab);
+
+BIF_RETTYPE erts_ptab_processes_next(struct process *c_p, ErtsPTab *ptab,
+                                     Uint first);
 
 #endif
 

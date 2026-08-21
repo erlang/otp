@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -59,7 +61,7 @@ The `{port,PortNum}` tuple is optional and if omitted, default Telnet port 23 is
 used. Also the `keep_alive` tuple is optional, and the value default to `true`
 (enabled).
 
-## See Also
+### See Also
 
 `m:ct`, `m:ct_telnet`
 """.

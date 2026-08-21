@@ -1,6 +1,8 @@
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,13 +24,14 @@
 
 -export([do0a/0, do0b/2, different_sizes/2, ambiguous_inits/1,
          update_record0/0, fc/0, track_update_record/1,
-         gh8124_a/0, gh8124_b/0,
-         failure_to_patch_list/0, erierl1208/0]).
-
+         gh8124_a/0, gh8124_b/0, tuple_set_a/1, tuple_set_b/0,
+         failure_to_patch_list/0, erierl1208/0, gh_9903/0,
+         gh10367/0]).
 -record(r, {a=0,b=0,c=0,tot=0}).
 -record(r1, {a}).
 -record(r2, {b}).
 -record(r3, {c}).
+-record(r4, {a=0,b= <<>>}).
 
 do0a() ->
     Ls = ex:f(),
@@ -250,6 +253,47 @@ erierl1208() ->
     R1 = #r1{a=A=#r2{b=B}} = erierl1208_inner(),
     R1#r1{a = A#r2{b= B#r3{c= <<"new value">>}}}.
 
+%% Check that the following code can't crash the compiler.
+gh_9903() ->
+    State = case lists:member(abc, []) of
+                true  -> #r4{a=1};
+                false -> #r4{}
+            end,
+    gh_9903_inner1(<<>>, State).
+
+gh_9903_inner1(<<B/binary>>, S) ->
+    gh_9903_inner2(B, size(B), S#r4{a=1}).
+
+gh_9903_inner2(<<B1/binary>>, _, #r4{b=B2}) ->
+    <<B2/binary, B1/binary>>.
+
+%% Example which provides a get_tuple_element instruction with a tuple
+%% typed as a tuple set.
+tuple_set_a(Something) ->
+    case ex:f() of
+	a ->
+	    {ok,
+	     {key_a, Something}};
+	b ->
+	    {error, {override_include}}
+    end.
+
+tuple_set_b() ->
+%ssa% () when post_ssa_opt ->
+%ssa% _ = update_record(copy, 2, _, ...).
+    case tuple_set_a(ex:f()) of
+	{ok, A} ->
+	    case e:f() of
+		{} ->
+		    case A of
+			{key_a, _} ->
+			    setelement(1, A, aa)
+		    end
+	    end;
+	{error,_} ->
+	    bad
+    end.
+
 %% Check that the list of tuples is built on the heap.
 
 failure_to_patch_list() ->
@@ -272,3 +316,21 @@ ftpl(Ts0) ->
 %ssa% _ = update_record(inplace, 5, X,...).
     A = erlang:timestamp(),
     Ts0#r{a=A}.
+
+gh10367_gen() ->
+    [#r4{a = a}, #r4{a = b, b = dict:new()}].
+
+gh10367_update([_, #r4{a = b} = P2]) ->
+%ssa% (X) when post_ssa_opt ->
+%ssa% _ = update_record(copy, 3, _, ...).
+    P2#r4{a = a};
+gh10367_update([_, #r4{a = a} = P2]) ->
+    P2#r4{a = b}.
+
+gh10367() ->
+%ssa% () when post_ssa_opt ->
+%ssa% _ = update_record(reuse, 3, _, ...).
+    [P1, P2] = gh10367_gen(),
+    Expected = P2#r4{a = a},
+    timer:sleep(0),
+    Expected = gh10367_update([P1, P2]).

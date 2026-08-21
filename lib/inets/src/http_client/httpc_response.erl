@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +22,8 @@
 
 -module(httpc_response).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 -include_lib("inets/src/http_lib/http_internal.hrl").
 -include("httpc_internal.hrl").
@@ -281,7 +285,7 @@ parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers,
     HTTPHeaders = [lists:reverse(Header) | Headers],
     Length = lists:foldl(fun(H, Acc) -> length(H) + Acc end,
 			   0, HTTPHeaders),
-    case ((Length =< MaxHeaderSize) or (MaxHeaderSize == nolimit)) of
+    case Length =< MaxHeaderSize orelse MaxHeaderSize == nolimit of
  	true ->   
 	    ResponseHeaderRcord = 
 		http_response:headers(HTTPHeaders, #http_response_h{}),
@@ -355,6 +359,26 @@ parse_headers(<<Octet, Rest/binary>>, Header, Headers,
 		  Result, Relaxed).
 
 
+get_ms_from_retry_after(undefined = _RetryAfterValue) ->
+    undefined;
+%% Parse as seconds
+get_ms_from_retry_after([C | _] = RetryAfterValue) when C >= $0
+                                                  andalso C =< $9 ->
+    list_to_integer(RetryAfterValue) * 1000; %% return milliseconds
+get_ms_from_retry_after(RetryAfterValue) ->
+    case httpd_util:convert_request_date(RetryAfterValue) of
+        {{Year, Month, Day}, {H,M,S}} ->
+                RetryAfterSeconds = calendar:datetime_to_gregorian_seconds({{Year, Month, Day}, {H, M, S}}),
+                TimeNow = calendar:datetime_to_gregorian_seconds(calendar:universal_time()),
+                calc_time_difference(RetryAfterSeconds, TimeNow); %% return milliseconds
+        _ -> undefined
+    end.
+
+calc_time_difference(T1, T2) when T1 >= T2 ->
+    (T1 - T2) * 1000;
+calc_time_difference(_, _) ->
+    undefined.
+
 %% RFC2616, Section 10.1.1
 %% Note:
 %% - Only act on the 100 status if the request included the
@@ -368,16 +392,25 @@ status_continue({_,_, Data}, _) ->
     %% response.
     {ignore, Data}.
 
-status_service_unavailable(Response = {_, Headers, _}, Request) ->
-    case Headers#http_response_h.'retry-after' of 
-	undefined ->
-	    status_server_error_50x(Response, Request);
-	Time when (length(Time) < 3) -> % Wait only 99 s or less 
-	    NewTime = list_to_integer(Time) * 1000, % time in ms
-	    {_, Data} =  format_response(Response),
-	    {retry, {NewTime, Request}, Data};
-	_ ->
-	    status_server_error_50x(Response, Request)
+status_service_unavailable(Response = {_, _, _},
+                           Request = #request{retried = true}) ->
+    status_server_error_50x(Response, Request);
+status_service_unavailable(Response = {_, Headers, _},
+                           Request = #request{settings =
+                                                  #http_options{autoretry = MaxSecondsBeforeRetry}}) ->
+    RetryAfter = get_ms_from_retry_after(Headers#http_response_h.'retry-after'),
+    case RetryAfter of
+        Undefined when
+              Undefined =:= undefined orelse
+              MaxSecondsBeforeRetry =:= 0 ->
+            status_server_error_50x(Response, Request);
+        Time when MaxSecondsBeforeRetry =:= infinity
+                  orelse (is_integer(MaxSecondsBeforeRetry)
+                          andalso Time =< MaxSecondsBeforeRetry) ->
+            {_, Data} = format_response(Response),
+            {retry, {Time, Request}, Data};
+        _ ->
+            status_server_error_50x(Response, Request)
     end.
 
 status_server_error_50x(Response, Request) ->
@@ -411,8 +444,28 @@ redirect(Response = {_, Headers, _}, Request) ->
                     NewURI = uri_string:normalize(
                                uri_string:recompose(URIMap)),
                     HostPort = http_request:normalize_host(TScheme, THost, TPort),
-                    NewHeaders =
+                    NewHeaders0 =
                         (Request#request.headers)#http_request_h{host = HostPort},
+                    %% RFC 9110 §15.4: strip Authorization, Proxy-Authorization,
+                    %% Cookie, Origin, and Referer on cross-origin redirects
+                    %% (different host or port).
+                    NewHeaders =
+                        case Request#request.address of
+                            {THost, TPort} ->
+                                NewHeaders0;
+                            _ ->
+                                CrossOriginOther = ["cookie", "origin"],
+                                OtherStripped = lists:filter(
+                                    fun({K, _}) ->
+                                        not lists:member(string:lowercase(K), CrossOriginOther)
+                                    end,
+                                    NewHeaders0#http_request_h.other),
+                                NewHeaders0#http_request_h{
+                                    authorization = undefined,
+                                    'proxy-authorization' = undefined,
+                                    referer = undefined,
+                                    other = OtherStripped}
+                        end,
                     NewRequest =
                         Request#request{redircount =
                                             Request#request.redircount+1,

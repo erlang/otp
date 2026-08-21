@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -42,3 +44,18 @@ file system.  TFTP is often installed with controls such that only
 files that have public read access are available via TFTP and writing
 files via TFTP is disallowed."
 
+This essentially means that any machine on the network
+that can reach the TFTP server is able to read and write,
+without authentication, any file on the machine that runs
+the TFTP server, that the user (or group) that runs the TFTP server
+(in this case the Erlang VM) is allowed to read or write.
+The machine configuration has to be prepared for that.
+
+> #### Warning {: .warning }
+>
+> The default behavior mentioned above is in general very risky,
+> and as a remedy, this TFTP application's default callback
+> `tftp_file` implements an initial state option
+> `{root_dir,Dir}` that restricts the callback's file accesses
+> to `Dir` and subdirectories.  It is recommended
+> to use that option when starting start this TFTP server.

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,9 +24,10 @@
 -export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
 	 init_per_group/2, end_per_group/2,
 	 app_test/1, appup_test/1, eunit_test/1, eunit_exact_test/1,
-         fixture_test/1, primitive_test/1, surefire_utf8_test/1,
+         fixture_test/1, node_test/1, primitive_test/1, surefire_utf8_test/1,
          surefire_latin_test/1, surefire_c0_test/1, surefire_ensure_dir_test/1,
-         stacktrace_at_timeout_test/1, scale_timeouts_test/1]).
+         stacktrace_at_timeout_test/1, scale_timeouts_test/1,
+         report_failed_setup_inparallel_test/1, parse_commandline_test/1]).
 
 %% Two eunit tests:
 -export([times_out_test_/0, times_out_default_test/0]).
@@ -39,9 +42,10 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [app_test, appup_test, eunit_test, eunit_exact_test, primitive_test,
-     fixture_test, surefire_utf8_test, surefire_latin_test, surefire_c0_test,
-     surefire_ensure_dir_test, stacktrace_at_timeout_test,
-     scale_timeouts_test].
+     fixture_test, node_test, surefire_utf8_test, surefire_latin_test,
+     surefire_c0_test, surefire_ensure_dir_test, stacktrace_at_timeout_test,
+     scale_timeouts_test, report_failed_setup_inparallel_test,
+     parse_commandline_test].
 
 groups() ->
     [].
@@ -70,7 +74,9 @@ eunit_test(Config) when is_list(Config) ->
 
 eunit_exact_test(Config) when is_list(Config) ->
     ok = file:set_cwd(code:lib_dir(eunit)),
-    {ok, fib} = compile:file("./examples/fib.erl", [{outdir,"./examples/"}]),
+    ModulePath = code:which(?MODULE),
+    Dir = filename:join([filename:dirname(ModulePath), "examples"]),
+    {ok, fib} = compile:file(filename:join([Dir, "fib.erl"]), [{outdir,Dir}]),
     TestPrimitive =
         fun(Primitive, Expected) ->
                 ok = eunit:test(Primitive,
@@ -88,7 +94,7 @@ eunit_exact_test(Config) when is_list(Config) ->
           #{pass => 0, fail => 0, skip => 0, cancel => 0}},
          {{file, "./ebin/eunit_tests.beam"},
           #{pass => 7, fail => 0, skip => 0, cancel => 0}},
-         {{dir, "./examples/"},
+         {{dir, Dir},
           #{pass => 8, fail => 0, skip => 0, cancel => 0}},
          {{generator, fun() -> fun () -> ok end end},
           #{pass => 1, fail => 0, skip => 0, cancel => 0}},
@@ -103,7 +109,9 @@ eunit_exact_test(Config) when is_list(Config) ->
 
 primitive_test(Config) when is_list(Config) ->
     ok = file:set_cwd(code:lib_dir(eunit)),
-    {ok, fib} = compile:file("./examples/fib.erl", [{outdir,"./examples/"}]),
+    ModulePath = code:which(?MODULE),
+    Dir = filename:join([filename:dirname(ModulePath), "examples"]),
+    {ok, fib} = compile:file(filename:join([Dir, "fib.erl"]), [{outdir,Dir}]),
     TestPrimitive =
         fun(Primitive, Expected) ->
                 ok = eunit:test(Primitive,
@@ -124,7 +132,7 @@ primitive_test(Config) when is_list(Config) ->
           #{pass => 7, fail => 0, skip => 0, cancel => 0}},
          {{file, "./ebin/eunit_tests.beam"},
           #{pass => 7, fail => 0, skip => 0, cancel => 0}},
-         {{dir, "./examples/"},
+         {{dir, Dir},
           #{pass => 8, fail => 0, skip => 0, cancel => 0}},
          {{generator, fun() -> fun () -> ok end end},
           #{pass => 1, fail => 0, skip => 0, cancel => 0}},
@@ -146,6 +154,64 @@ fixture_test(Config) when is_list(Config) ->
     eunit:test({foreachx, fun(_A) -> ok end,
                 [{1, fun(_A, _B) -> fun() -> a_test end end}]}),
     ok.
+
+node_test(Config) when is_list(Config) ->
+    T = fun() -> ok end,
+    %% Plain tests
+    ok = eunit:test({node, eunit_node_plain, [T, T, T]}),
+    %% Instantiator receives node name as atom
+    ok = eunit:test(
+        {node, eunit_node_inst, fun(Node) ->
+            true = is_atom(Node),
+            {spawn, Node, [
+                fun() -> Node = node() end
+            ]}
+        end}),
+    %% With extra args
+    ok = eunit:test(
+        {node, eunit_node_args, "+S 1", fun(Node) ->
+            true = is_atom(Node),
+            {spawn, Node, [T]}
+        end}),
+    %% Test {node, ...} during system initialization (non-distributed).
+    %% Verifies that auto-starting net_kernel is safe with -eval, -s,
+    %% -run, and -S flags as described in init(3).
+    PrivDir = proplists:get_value(priv_dir, Config, "."),
+    HelperMod = eunit_node_init_test,
+    HelperSrc = filename:join(PrivDir, atom_to_list(HelperMod) ++ ".erl"),
+    ok = file:write_file(HelperSrc,
+        "-module(" ++ atom_to_list(HelperMod) ++ ").\n"
+        "-export([start/0, start/1]).\n"
+        "start() -> start([]).\n"
+        "start(_) ->\n"
+        "    ok = eunit:test({node, init_test, fun() -> ok end}),\n"
+        "    halt(0).\n"),
+    {ok, HelperMod} = compile:file(HelperSrc, [{outdir, PrivDir}]),
+    [Exec | ExecArgs] = string:split(ct:get_progname(), " ", all),
+    Erl = os:find_executable(Exec),
+    BaseArgs = ExecArgs ++ ["-noshell"],
+    %% -eval
+    0 = run_erl_cmd(Erl, BaseArgs ++ ["-eval",
+        "ok = eunit:test({node, init_eval, fun() -> ok end}), halt(0)."]),
+    %% -s
+    0 = run_erl_cmd(Erl, BaseArgs ++ ["-pa", PrivDir,
+        "-s", atom_to_list(HelperMod), "start"]),
+    %% -run
+    0 = run_erl_cmd(Erl, BaseArgs ++ ["-pa", PrivDir,
+        "-run", atom_to_list(HelperMod), "start"]),
+    %% -S
+    0 = run_erl_cmd(Erl, BaseArgs ++ ["-pa", PrivDir,
+        "-S", atom_to_list(HelperMod), "start"]),
+    ok.
+
+run_erl_cmd(Erl, Args) ->
+    Port = open_port({spawn_executable, Erl},
+                     [{args, Args}, stderr_to_stdout, exit_status, hide]),
+    receive
+        {Port, {exit_status, Status}} -> Status
+    after 30_000 ->
+        ct:fail({erl_timeout, Args})
+    end.
 
 check_test_results(Primitive, Expected) ->
     receive
@@ -256,3 +322,66 @@ times_out_default_test() ->
     %% so this is long enough to cause a time out.
     timer:sleep(20_000).
 
+report_failed_setup_inparallel_test(_Config) ->
+    Test =
+        {
+         inparallel,
+         [
+          fun() -> test1 end,
+          {setup,
+           fun() -> exit(failing_setup) end,
+           fun(_) -> ok end,
+           [fun() -> test11 end]}
+         ]
+        },
+    eunit:test(Test,[verbose, {report, {eunit_test_listener, [self()]}}]),
+    check_test_results(Test, #{skip => 0,cancel => 1,fail => 0,pass => 1}),
+    ok.
+
+%% Eunit: Checks that eunit_data:parse_command_line correctly handles various command lines
+parse_commandline_test(_Config) ->
+    lists:foreach(
+        fun({Input, Expect}) ->
+            Output = eunit_data:parse_command_line(Input, []),
+            ?assertEqual(Expect, Output, lists:flatten(io_lib:format(
+                "Input=~0p expected=~0p output=~0p", [Input, Expect, Output])))
+        end,
+        [
+            %% Basic splitting and whitespace handling
+            {"", []},
+            {"ab", ["ab"]},
+            {"a", ["a"]},
+            {"a b   c", ["a", "b", "c"]},
+            {"  a  b c  ", ["a", "b", "c"]},
+            {"a\tb\nc", ["a", "b", "c"]},
+
+            %% Double-quoted sections (quotes removed)
+            {"a \"b c\" d", ["a", "b c", "d"]},
+            {"a \"b\tc\" d", ["a", "b\tc", "d"]},
+            {"a \"b\nc\" d", ["a", "b\nc", "d"]},
+            {"\"a b\" \"c d\"", ["a b", "c d"]},
+            {"\"\"", [""]}, % empty string in double quotes
+
+            %% Escapes inside double quotes
+            {"a \"b\\\"c\" d", ["a", "b\"c", "d"]},
+            {"a \"b\\\\c\" d", ["a", "b\\c", "d"]},
+
+            %% Single-quoted sections (quotes removed)
+            {"a 'b c' d", ["a", "b c", "d"]},
+            {"''", [""]},
+
+            %% Escapes inside single quotes (backslash escapes next char)
+            {"'it\\'s' ok", ["it's", "ok"]},
+            {"a 'b\\\\c' d", ["a", "b\\c", "d"]},
+
+            %% Unbalanced quotes: returned token keeps the dangling opening quote
+            {"a \"b c", ["a", "\"b c"]},
+            {"'b c", ["'b c"]},
+
+            %% Backslash outside quotes is literal + single quote test: parser
+            %% should return the following words separately
+            {"a\\ b", ["a\\", "b"]},
+            {"a ' b", ["a", "' b"]},
+            {"a ' b c", ["a", "' b c"]}
+        ]),
+    ok.

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,7 +36,10 @@
          erlang_trace/3,
          erlang_trace_info/2,
          erlang_trace_pattern/2,
-         erlang_trace_pattern/3
+         erlang_trace_pattern/3,
+         erlang_system_monitor/0,
+         erlang_system_monitor/1,
+         erlang_system_monitor/2
         ]).
 
 group_map() ->
@@ -42,7 +47,7 @@ group_map() ->
       %%legacy_pre_session => [pre_session],
       %%legacy_post_session => [post_session],
       legacy_pre_post => [pre_session, post_session],
-      %%dynamic_sesssion => [dynamic_session]
+      %%dynamic_session => [dynamic_session]
       dynamic_pre_post => [pre_session, post_session, dynamic_session]
      }.
 
@@ -208,6 +213,27 @@ erlang_trace_info(PidPortFuncEvent, Item) ->
             erlang:trace_info(PidPortFuncEvent, Item);
         [{dynamic_session, S}] ->
             trace:info(S, PidPortFuncEvent, Item)
+    end.
+
+erlang_system_monitor() ->
+    case ets:lookup(?MODULE, dynamic_session) of
+        [] ->
+            erlang:system_monitor();
+        [{dynamic_session, S}] ->
+            erts_internal:system_monitor(S)
+    end.
+
+erlang_system_monitor(undefined) ->
+    erlang_system_monitor(undefined, []);
+erlang_system_monitor({Pid, Opts}) ->
+    erlang_system_monitor(Pid, Opts).
+
+erlang_system_monitor(Pid, Opts) ->
+    case ets:lookup(?MODULE, dynamic_session) of
+        [] ->
+            erlang:system_monitor(Pid, Opts);
+        [{dynamic_session, S}] ->
+            erts_internal:system_monitor(S, Pid, Opts)
     end.
 
 init_per_group(Group, Config) ->

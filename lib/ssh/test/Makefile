@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2004-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,6 +28,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 
 MODULES= \
+	cth_events \
 	ssh_cth \
 	ssh_algorithms_SUITE \
 	ssh_options_SUITE \
@@ -54,6 +57,7 @@ MODULES= \
 	ssh_key_cb \
 	ssh_key_cb_options \
 	ssh_key_cb_engine_keys \
+	ssh_algorithms_key_cb \
 	ssh_trpt_test_lib \
 	ssh_chan_behaviours_client \
 	ssh_chan_behaviours_server \
@@ -81,6 +85,8 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 SPEC_FILES = \
 	ssh.spec \
 	ssh_bench.spec \
+	ssh_dev.spec \
+	ssh_gh.spec \
 	ssh_sup.spec
 
 COVER_FILE = ssh.cover
@@ -143,3 +149,7 @@ release_tests_spec: opt
 	@tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:
+
+# Dependencies
+
+$(TARGET_FILES):	$(HRL_FILES)

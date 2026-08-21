@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +22,8 @@
 %%
 -module(asn1ct_gen).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 -include("asn1_records.hrl").
 
@@ -936,7 +940,7 @@ gen_info_functions(Gen) ->
 	  "legacy_erlang_types() -> ",
 	  {asis,asn1ct:use_legacy_types()},".",nl,nl]).
 
-gen_decode_partial_incomplete(#gen{erule=ber}, NoOkWrapper) ->
+gen_decode_partial_incomplete(#gen{erule=ber, options=Options}, NoOkWrapper) ->
     case {asn1ct:read_config_data(partial_incomplete_decode),
 	  asn1ct:get_gen_state_field(inc_type_pattern)} of
 	{undefined,_} ->
@@ -944,16 +948,25 @@ gen_decode_partial_incomplete(#gen{erule=ber}, NoOkWrapper) ->
 	{_,undefined} ->
 	    ok;
 	_ ->
-            emit(["decode_partial_incomplete(Type, Data0, Pattern) ->",nl,
-                  "  {Data,_RestBin} =",nl,
-                  "    ",{call,ber,decode_primitive_incomplete,
-                          ["Pattern","Data0"]},com,nl]),
-            case NoOkWrapper of
-                true ->
-                    emit(["  decode_partial_inc_disp(Type, Data)",nl]);
-                false ->
-                    emit(["  try {ok,decode_partial_inc_disp(Type, Data)}",nl,
-                         try_catch()])
+            emit(["decode_partial_incomplete(Type, Data0, Pattern) ->",nl]),
+            case {NoOkWrapper, lists:member(undec_rest, Options)} of
+                {true, _} ->
+                    emit(["  {Data,_RestBin} =",nl,
+                          "    ",{call,ber,decode_primitive_incomplete,
+                                  ["Pattern","Data0"]},com,nl,
+                          "  decode_partial_inc_disp(Type, Data)",nl]);
+                {false, true} ->
+                    emit(["  {Data,RestBin} =",nl,
+                          "    ",{call,ber,decode_primitive_incomplete,
+                                  ["Pattern","Data0"]},com,nl,
+                          "  try {ok,decode_partial_inc_disp(Type, Data),RestBin}",
+                          nl,try_catch()]);
+                {false, false} ->
+                    emit(["  {Data,RestBin} =",nl,
+                          "    ",{call,ber,decode_primitive_incomplete,
+                                  ["Pattern","Data0"]},com,nl,
+                          "  try {ok,decode_partial_inc_disp(Type, Data)}",
+                          nl,try_catch()])
             end,
             emit([".",nl,nl]),
 

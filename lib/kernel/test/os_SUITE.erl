@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,9 +30,12 @@
 	 find_executable/1, unix_comment_in_command/1, deep_list_command/1,
          large_output_command/1, background_command/0, background_command/1,
          message_leak/1, close_stdin/0, close_stdin/1, max_size_command/1,
-         perf_counter_api/1, error_info/1, os_cmd_shell/1,os_cmd_shell_peer/1]).
+         cmd_exception/1, os_cmd_shell/1, os_cmd_shell_peer/1,
+         perf_counter_api/1, error_info/1,
+         os_version/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -43,7 +48,9 @@ all() ->
      find_executable, unix_comment_in_command, deep_list_command,
      large_output_command, background_command, message_leak,
      close_stdin, max_size_command, perf_counter_api,
-     error_info, os_cmd_shell, os_cmd_shell_peer].
+     error_info, os_cmd_shell, os_cmd_shell_peer,
+     cmd_exception,
+     os_version].
 
 groups() ->
     [].
@@ -193,16 +200,45 @@ space_in_name(Config) when is_list(Config) ->
     [] = receive_all(),
     ok.
 
-%% Check that a bad command doesn't crasch the server or the emulator (it used to).
+%% Check that a bad command doesn't crash the server or the emulator (it used to).
 bad_command(Config) when is_list(Config) ->
-    catch os:cmd([a|b]),
-    catch os:cmd({bad, thing}),
+    ok = ?assertError(badarg, os:cmd([a|b])),
+    ok = ?assertError(badarg, os:cmd({bad, thing})),
 
     %% This should at least not crash (on Unix it typically returns
     %% a message from the shell).
     os:cmd("xxxxx"),
 
     ok.
+
+cmd_exception(Config) when is_list(Config) ->
+
+    {Osfamily, Ostype} = os:type(),
+
+    %% command failed
+    {Res, 3} = cmd_exception_test("echo abc && exit 3"),
+    Osfamily =:= unix andalso ?assertEqual("abc\n", Res),
+    Osfamily =:= win32 andalso ?assertEqual("abc \r\n", Res),
+
+    %% Syntax error
+    {_, ExitCode} = cmd_exception_test("{)"),
+    Osfamily =:= unix andalso Ostype =/= sunos andalso ?assertEqual(2, ExitCode),
+    Osfamily =:= unix andalso Ostype =:= sunos andalso ?assertEqual(3, ExitCode),
+    Osfamily =:= win32 andalso ?assertEqual(1, ExitCode),
+
+    ok.
+
+cmd_exception_test(Cmd) ->
+    Out = os:cmd(Cmd), %% Check that no exception is generated when the option is not given
+    try
+        os:cmd(Cmd, #{ exception_on_failure => true}),
+        ct:fail("Should not succeed")
+    catch error:{command_failed, ErrorOut, Reason} ->
+            %% Check that the output is the same
+            ?assertEqual(Out, ErrorOut),
+            {ErrorOut, Reason}
+    end.
+
 
 find_executable(Config) when is_list(Config) ->
     case os:type() of
@@ -529,4 +565,38 @@ receive_all() ->
     receive
 	X -> [X|receive_all()]
     after 0 -> []
+    end.
+
+
+get_windows_version_from_cmd() ->
+    VerOutput = os:cmd("ver"),
+    %% Expected format: "Microsoft Windows [Version 10.0.19045.1234]" or similar
+    case re:run(VerOutput, "(\\d+)\\.(\\d+)\\.(\\d+)",
+        [{capture, all_but_first, list}]) of
+        {match, [Major, Minor, Build]} ->
+            {list_to_integer(Major), list_to_integer(Minor), list_to_integer(Build)};
+        nomatch ->
+            {0, 0, 0}
+    end.
+
+%% On Windows, make sure that appropriate Windows version is returned
+%% Example versions:
+%%   {5,0,_}=Windows 2000, {6,0,_}=Vista, {6,1,_}=Windows 7, {6,2,_}=Windows 8 and Server 2012,
+%%   {10,0,_}=Windows 10 and 11, Server 2016, 2019, 2022
+os_version_win32() ->
+    V = os:version(),
+    CmdV = get_windows_version_from_cmd(),
+
+    %% Verify that command line version matches os:version()
+    ct:log("os:version() returned: ~p~n", [V]),
+    ct:log("Command line version: ~p~n", [CmdV]),
+
+    %% This test will fail if Windows manifest.xml does not include the Windows OS where the test is run.
+    %% If a new version has been released, please update erts/etc/win32/manifest.xml
+    ?assertEqual(V, CmdV, "Windows versions from os:version and from 'ver' command are expected to match").
+
+os_version(_Config) ->
+    case os:type() of
+        {win32, nt} -> os_version_win32();
+        _ -> ok
     end.

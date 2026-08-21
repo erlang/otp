@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,13 +16,15 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 %%
 -module(mnesia_isolation_test).
 -author('hakan@erix.ericsson.se').
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 -export([init_per_testcase/2, end_per_testcase/2,
          init_per_group/2, end_per_group/2,
@@ -629,8 +633,8 @@ sticky_sync(Config) when is_list(Config) ->
         end,
 
     %% Fill 1000 dc records. At the end all dc records should have value 1.
-    {Time, ok} = timer:tc(fun() -> lists:foreach(TestFun, lists:seq(1,200)) end),
-    io:format("Written, check content~n",[]),
+    {_Time, ok} = timer:tc(fun() -> lists:foreach(TestFun, lists:seq(1,200)) end),
+    io:format("Written, check content ~w~n",[_Time]),
     All = fun() -> mnesia:select(dc, [ {{dc, '_', 0}, [] ,['$_']} ]) end,
     ?match({atomic, []}, rpc:call(N1, mnesia, sync_transaction, [All])),
     ?match({atomic, []}, rpc:call(N2, mnesia, sync_transaction, [All])),

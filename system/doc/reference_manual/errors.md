@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -37,7 +39,7 @@ Errors can roughly be divided into four different types:
   [`error(Reason)`](`erlang:error/1`). Run-time errors are exceptions of class
   `error`.
 
-- **[](){: #generated-errors } Generated errors**
+- **[](){: #generated-errors } Generated errors** -
   When the code itself calls [`exit/1`](`erlang:exit/1`) or
   [`throw/1`](`erlang:throw/1`). Generated errors are exceptions of class `exit`
   or `throw`.
@@ -45,7 +47,7 @@ Errors can roughly be divided into four different types:
 When an exception occurs in Erlang, execution of the process that evaluated the
 erroneous expression is stopped. This is referred to as a _failure_, that
 execution or evaluation _fails_, or that the process _fails_, _terminates_, or
-_exits_. Notice that a process can terminate/exit for other reasons than a
+_exits_. Notice that a process can terminate/exit for reasons other than a
 failure.
 
 A process that terminates emits an _exit signal_ with an _exit reason_ that
@@ -63,11 +65,11 @@ distinguish between the different classes, whereas the
 [catch](expressions.md#catch-and-throw) expression cannot. `try` and `catch` are described
 in [Expressions](expressions.md).
 
-| _Class_ | _Origin_                                                                           |
-| ------- | ---------------------------------------------------------------------------------- |
-| `error` | Run-time error, for example, `1+a`, or the process called [`error/1`](`error/1`)   |
-| `exit`  | The process called [`exit/1`](`exit/1`)                                            |
-| `throw` | The process called [`throw/1`](`throw/1`)                                          |
+| Class   | Origin                                                                           |
+| ------- | -------------------------------------------------------------------------------- |
+| `error` | Run-time error, for example, `1+a`, or the process called [`error/1`](`error/1`) |
+| `exit`  | The process called [`exit/1`](`exit/1`)                                          |
+| `throw` | The process called [`throw/1`](`throw/1`)                                        |
 
 _Table: Exception Classes._
 
@@ -94,9 +96,9 @@ caught by a `catch`. Example:
 
 [](){: #stacktrace }
 
-### The call-stack back trace (stacktrace)
+### The call-stack backtrace (stacktrace)
 
-The stack back-trace ([_stacktrace_](`t:erlang:stacktrace/0`)) is a list that
+The stack backtrace ([_stacktrace_](`t:erlang:stacktrace/0`)) is a list that
 contains `{Module, Function, Arity, ExtraInfo}` and/or `{Fun, Arity, ExtraInfo}`
 tuples. The field `Arity` in the tuple can be the argument list of that function
 call instead of an arity integer, depending on the exception.
@@ -129,7 +131,7 @@ items can occur:
 > certain order or contain specific items to fail.
 >
 > The only exception to this rule is the class `error` with the reason `undef`
-> which is guaranteed to include the `Module`, `Function` and `Arity` of the
+> which is guaranteed to include the `Module`, `Function`, and `Arity` of the
 > attempted function as the first stacktrace entry.
 
 ## Handling of Run-time Errors in Erlang
@@ -153,11 +155,11 @@ When a run-time error occurs, that is an exception of class `error`. The exit
 reason is a tuple `{Reason,Stack}`, where `Reason` is a term indicating the type
 of error:
 
-- **`badarg`** - Bad argument. The argument is of wrong data type, or
+- **`badarg`** - Bad argument. The argument is of a wrong data type, or
     is otherwise badly formed.
 
 - **`badarith`** - An argument for an arithmetic expression was not numeric,
-    or the expression does not evaluate to finite number.
+    or the expression does not evaluate to a finite number.
 
 - **`{badmatch,V}`** - Evaluation of a match expression failed. The
     value `V` did not match.
@@ -178,24 +180,24 @@ of error:
 - **`undef`** - The function cannot be found when evaluating a
     function call.
 
-- **`{badfun,F}`** - `F` was expected to a be a fun, but is not.
+- **`{badfun,F}`** - `F` was expected to be a fun, but is not.
 
 - **`{badarity,{Fun,Args}}`** - A fun is applied to the wrong number of
     arguments.
 
 - **`timeout_value`** - The timeout value in a `receive...after`
-    expression is evaluated to something else than an integer or
+    expression is evaluated to something other than an integer or
     `infinity`.
 
-- **`noproc`** - Trying to create [link](`link/1`) or
+- **`noproc`** - Trying to create a [link](`link/1`) or
     [monitor](`monitor/2`) to a non-existing process or port.
 
 - **`noconnection`** - A link or monitor to a remote process was
     broken because a connection between the nodes could not be
     established or was severed.
 
-- **`{nocatch,V}`** - Trying to evaluate a `throw `outside a
-    `catch`. `V` is the thrown term.
+- **`{nocatch,V}`** - Trying to evaluate a `throw` outside the scope of a
+`catch` or `try`/`catch`. `V` is the thrown term.
 
 - **`system_limit`** - A system limit has been reached. See
     [System Limits in the Efficiency Guide](`e:system:system_limits.md`)

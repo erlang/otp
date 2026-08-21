@@ -1,13 +1,13 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include "../core/api-build_p.h"
+#include <asmjit/core/api-build_p.h>
 #if !defined(ASMJIT_NO_X86)
 
-#include "../core/misc_p.h"
-#include "../x86/x86operand.h"
+#include <asmjit/core/misc_p.h>
+#include <asmjit/x86/x86operand.h>
 
 ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
@@ -69,49 +69,65 @@ UNIT(x86_operand) {
   EXPECT_EQ(zmm(5), zmm5);
 
   INFO("Checking x86::Gp register properties");
-  EXPECT_TRUE(Gp().isReg());
-  EXPECT_TRUE(eax.isReg());
+  EXPECT_TRUE(Gp::make_r32(0).is_reg());
+  EXPECT_TRUE(Gp::make_r32(0).is_gp());
+  EXPECT_TRUE(Gp::make_r32(0).is_gp32());
+  EXPECT_TRUE(eax.is_reg());
+  EXPECT_TRUE(eax.is_gp());
+  EXPECT_TRUE(eax.is_gp32());
   EXPECT_EQ(eax.id(), 0u);
   EXPECT_EQ(eax.size(), 4u);
-  EXPECT_EQ(eax.type(), RegType::kX86_Gpd);
-  EXPECT_EQ(eax.group(), RegGroup::kGp);
+  EXPECT_EQ(eax.reg_type(), RegType::kGp32);
+  EXPECT_EQ(eax.reg_group(), RegGroup::kGp);
 
-  INFO("Checking x86::Xmm register properties");
-  EXPECT_TRUE(Xmm().isReg());
-  EXPECT_TRUE(xmm4.isReg());
-  EXPECT_EQ(xmm4.id(), 4u);
-  EXPECT_EQ(xmm4.size(), 16u);
-  EXPECT_EQ(xmm4.type(), RegType::kX86_Xmm);
-  EXPECT_EQ(xmm4.group(), RegGroup::kVec);
-  EXPECT_TRUE(xmm4.isVec());
-
-  INFO("Checking x86::Ymm register properties");
-  EXPECT_TRUE(Ymm().isReg());
-  EXPECT_TRUE(ymm5.isReg());
-  EXPECT_EQ(ymm5.id(), 5u);
-  EXPECT_EQ(ymm5.size(), 32u);
-  EXPECT_EQ(ymm5.type(), RegType::kX86_Ymm);
-  EXPECT_EQ(ymm5.group(), RegGroup::kVec);
-  EXPECT_TRUE(ymm5.isVec());
-
-  INFO("Checking x86::Zmm register properties");
-  EXPECT_TRUE(Zmm().isReg());
-  EXPECT_TRUE(zmm6.isReg());
-  EXPECT_EQ(zmm6.id(), 6u);
-  EXPECT_EQ(zmm6.size(), 64u);
-  EXPECT_EQ(zmm6.type(), RegType::kX86_Zmm);
-  EXPECT_EQ(zmm6.group(), RegGroup::kVec);
-  EXPECT_TRUE(zmm6.isVec());
+  EXPECT_TRUE(Gp::make_r64(0).is_reg());
+  EXPECT_TRUE(Gp::make_r64(0).is_gp());
+  EXPECT_TRUE(Gp::make_r64(0).is_gp64());
+  EXPECT_TRUE(rax.is_reg());
+  EXPECT_TRUE(rax.is_gp());
+  EXPECT_TRUE(rax.is_gp64());
+  EXPECT_EQ(rax.id(), 0u);
+  EXPECT_EQ(rax.size(), 8u);
+  EXPECT_EQ(rax.reg_type(), RegType::kGp64);
+  EXPECT_EQ(rax.reg_group(), RegGroup::kGp);
 
   INFO("Checking x86::Vec register properties");
-  EXPECT_TRUE(Vec().isReg());
+  EXPECT_TRUE(Vec().is_reg());
+
+  EXPECT_TRUE(Vec::make_xmm(0).is_reg());
+  EXPECT_TRUE(Vec::make_xmm(0).is_vec128());
+  EXPECT_TRUE(xmm4.is_reg());
+  EXPECT_TRUE(xmm4.is_vec());
+  EXPECT_EQ(xmm4.id(), 4u);
+  EXPECT_EQ(xmm4.size(), 16u);
+  EXPECT_EQ(xmm4.reg_type(), RegType::kVec128);
+  EXPECT_EQ(xmm4.reg_group(), RegGroup::kVec);
+
+  EXPECT_TRUE(Vec::make_ymm(0).is_reg());
+  EXPECT_TRUE(Vec::make_ymm(0).is_vec256());
+  EXPECT_TRUE(ymm5.is_reg());
+  EXPECT_TRUE(ymm5.is_vec());
+  EXPECT_EQ(ymm5.id(), 5u);
+  EXPECT_EQ(ymm5.size(), 32u);
+  EXPECT_EQ(ymm5.reg_type(), RegType::kVec256);
+  EXPECT_EQ(ymm5.reg_group(), RegGroup::kVec);
+
+  EXPECT_TRUE(Vec::make_zmm(0).is_reg());
+  EXPECT_TRUE(Vec::make_zmm(0).is_vec512());
+  EXPECT_TRUE(zmm6.is_reg());
+  EXPECT_TRUE(zmm6.is_vec());
+  EXPECT_EQ(zmm6.id(), 6u);
+  EXPECT_EQ(zmm6.size(), 64u);
+  EXPECT_EQ(zmm6.reg_type(), RegType::kVec512);
+  EXPECT_EQ(zmm6.reg_group(), RegGroup::kVec);
+
   // Converts a VEC register to a type of the passed register, but keeps the ID.
-  EXPECT_EQ(xmm4.cloneAs(ymm10), ymm4);
-  EXPECT_EQ(xmm4.cloneAs(zmm11), zmm4);
-  EXPECT_EQ(ymm5.cloneAs(xmm12), xmm5);
-  EXPECT_EQ(ymm5.cloneAs(zmm13), zmm5);
-  EXPECT_EQ(zmm6.cloneAs(xmm14), xmm6);
-  EXPECT_EQ(zmm6.cloneAs(ymm15), ymm6);
+  EXPECT_EQ(xmm4.clone_as(ymm10), ymm4);
+  EXPECT_EQ(xmm4.clone_as(zmm11), zmm4);
+  EXPECT_EQ(ymm5.clone_as(xmm12), xmm5);
+  EXPECT_EQ(ymm5.clone_as(zmm13), zmm5);
+  EXPECT_EQ(zmm6.clone_as(xmm14), xmm6);
+  EXPECT_EQ(zmm6.clone_as(ymm15), ymm6);
 
   EXPECT_EQ(xmm7.xmm(), xmm7);
   EXPECT_EQ(xmm7.ymm(), ymm7);
@@ -125,104 +141,106 @@ UNIT(x86_operand) {
   EXPECT_EQ(zmm7.ymm(), ymm7);
   EXPECT_EQ(zmm7.zmm(), zmm7);
 
+  EXPECT_EQ(xmm4.half(), xmm4);
+  EXPECT_EQ(ymm4.half(), xmm4);
+  EXPECT_EQ(zmm4.half(), ymm4);
+
   INFO("Checking x86::Mm register properties");
-  EXPECT_TRUE(Mm().isReg());
-  EXPECT_TRUE(mm2.isReg());
+  EXPECT_TRUE(Mm().is_reg());
+  EXPECT_TRUE(mm2.is_reg());
   EXPECT_EQ(mm2.id(), 2u);
   EXPECT_EQ(mm2.size(), 8u);
-  EXPECT_EQ(mm2.type(), RegType::kX86_Mm);
-  EXPECT_EQ(mm2.group(), RegGroup::kX86_MM);
+  EXPECT_EQ(mm2.reg_type(), RegType::kX86_Mm);
+  EXPECT_EQ(mm2.reg_group(), RegGroup::kX86_MM);
 
   INFO("Checking x86::KReg register properties");
-  EXPECT_TRUE(KReg().isReg());
-  EXPECT_TRUE(k3.isReg());
+  EXPECT_TRUE(KReg().is_reg());
+  EXPECT_TRUE(k3.is_reg());
   EXPECT_EQ(k3.id(), 3u);
   EXPECT_EQ(k3.size(), 0u);
-  EXPECT_EQ(k3.type(), RegType::kX86_KReg);
-  EXPECT_EQ(k3.group(), RegGroup::kX86_K);
+  EXPECT_EQ(k3.reg_type(), RegType::kMask);
+  EXPECT_EQ(k3.reg_group(), RegGroup::kMask);
 
   INFO("Checking x86::St register properties");
-  EXPECT_TRUE(St().isReg());
-  EXPECT_TRUE(st1.isReg());
+  EXPECT_TRUE(St().is_reg());
+  EXPECT_TRUE(st1.is_reg());
   EXPECT_EQ(st1.id(), 1u);
   EXPECT_EQ(st1.size(), 10u);
-  EXPECT_EQ(st1.type(), RegType::kX86_St);
-  EXPECT_EQ(st1.group(), RegGroup::kX86_St);
+  EXPECT_EQ(st1.reg_type(), RegType::kX86_St);
+  EXPECT_EQ(st1.reg_group(), RegGroup::kX86_St);
 
   INFO("Checking if default constructed regs behave as expected");
-  EXPECT_FALSE(Reg().isValid());
-  EXPECT_FALSE(Gp().isValid());
-  EXPECT_FALSE(Xmm().isValid());
-  EXPECT_FALSE(Ymm().isValid());
-  EXPECT_FALSE(Zmm().isValid());
-  EXPECT_FALSE(Mm().isValid());
-  EXPECT_FALSE(KReg().isValid());
-  EXPECT_FALSE(SReg().isValid());
-  EXPECT_FALSE(CReg().isValid());
-  EXPECT_FALSE(DReg().isValid());
-  EXPECT_FALSE(St().isValid());
-  EXPECT_FALSE(Bnd().isValid());
+  EXPECT_FALSE(Reg().is_valid());
+  EXPECT_FALSE(Gp().is_valid());
+  EXPECT_FALSE(Vec().is_valid());
+  EXPECT_FALSE(Mm().is_valid());
+  EXPECT_FALSE(KReg().is_valid());
+  EXPECT_FALSE(SReg().is_valid());
+  EXPECT_FALSE(CReg().is_valid());
+  EXPECT_FALSE(DReg().is_valid());
+  EXPECT_FALSE(St().is_valid());
+  EXPECT_FALSE(Bnd().is_valid());
 
   INFO("Checking x86::Mem operand");
   Mem m;
   EXPECT_EQ(m, Mem());
 
   m = ptr(L);
-  EXPECT_TRUE(m.hasBase());
-  EXPECT_FALSE(m.hasBaseReg());
-  EXPECT_TRUE(m.hasBaseLabel());
-  EXPECT_FALSE(m.hasOffset());
-  EXPECT_FALSE(m.isOffset64Bit());
+  EXPECT_TRUE(m.has_base());
+  EXPECT_FALSE(m.has_base_reg());
+  EXPECT_TRUE(m.has_base_label());
+  EXPECT_FALSE(m.has_offset());
+  EXPECT_FALSE(m.is_offset_64bit());
   EXPECT_EQ(m.offset(), 0);
-  EXPECT_EQ(m.offsetLo32(), 0);
+  EXPECT_EQ(m.offset_lo32(), 0);
 
   m = ptr(0x0123456789ABCDEFu);
-  EXPECT_FALSE(m.hasBase());
-  EXPECT_FALSE(m.hasBaseReg());
-  EXPECT_FALSE(m.hasIndex());
-  EXPECT_FALSE(m.hasIndexReg());
-  EXPECT_TRUE(m.hasOffset());
-  EXPECT_TRUE(m.isOffset64Bit());
+  EXPECT_FALSE(m.has_base());
+  EXPECT_FALSE(m.has_base_reg());
+  EXPECT_FALSE(m.has_index());
+  EXPECT_FALSE(m.has_index_reg());
+  EXPECT_TRUE(m.has_offset());
+  EXPECT_TRUE(m.is_offset_64bit());
   EXPECT_EQ(m.offset(), int64_t(0x0123456789ABCDEFu));
-  EXPECT_EQ(m.offsetLo32(), int32_t(0x89ABCDEFu));
-  m.addOffset(1);
+  EXPECT_EQ(m.offset_lo32(), int32_t(0x89ABCDEFu));
+  m.add_offset(1);
   EXPECT_EQ(m.offset(), int64_t(0x0123456789ABCDF0u));
 
   m = ptr(0x0123456789ABCDEFu, rdi, 3);
-  EXPECT_FALSE(m.hasSegment());
-  EXPECT_FALSE(m.hasBase());
-  EXPECT_FALSE(m.hasBaseReg());
-  EXPECT_TRUE(m.hasIndex());
-  EXPECT_TRUE(m.hasIndexReg());
-  EXPECT_EQ(m.indexType(), rdi.type());
-  EXPECT_EQ(m.indexId(), rdi.id());
+  EXPECT_FALSE(m.has_segment());
+  EXPECT_FALSE(m.has_base());
+  EXPECT_FALSE(m.has_base_reg());
+  EXPECT_TRUE(m.has_index());
+  EXPECT_TRUE(m.has_index_reg());
+  EXPECT_EQ(m.index_type(), rdi.reg_type());
+  EXPECT_EQ(m.index_id(), rdi.id());
   EXPECT_EQ(m.shift(), 3u);
-  EXPECT_TRUE(m.hasOffset());
-  EXPECT_TRUE(m.isOffset64Bit());
+  EXPECT_TRUE(m.has_offset());
+  EXPECT_TRUE(m.is_offset_64bit());
   EXPECT_EQ(m.offset(), int64_t(0x0123456789ABCDEFu));
-  EXPECT_EQ(m.offsetLo32(), int32_t(0x89ABCDEFu));
-  m.resetIndex();
-  EXPECT_FALSE(m.hasIndex());
-  EXPECT_FALSE(m.hasIndexReg());
+  EXPECT_EQ(m.offset_lo32(), int32_t(0x89ABCDEFu));
+  m.reset_index();
+  EXPECT_FALSE(m.has_index());
+  EXPECT_FALSE(m.has_index_reg());
 
   m = ptr(rax);
-  EXPECT_TRUE(m.hasBase());
-  EXPECT_TRUE(m.hasBaseReg());
-  EXPECT_EQ(m.baseType(), rax.type());
-  EXPECT_EQ(m.baseId(), rax.id());
-  EXPECT_FALSE(m.hasIndex());
-  EXPECT_FALSE(m.hasIndexReg());
-  EXPECT_EQ(m.indexType(), RegType::kNone);
-  EXPECT_EQ(m.indexId(), 0u);
-  EXPECT_FALSE(m.hasOffset());
-  EXPECT_FALSE(m.isOffset64Bit());
+  EXPECT_TRUE(m.has_base());
+  EXPECT_TRUE(m.has_base_reg());
+  EXPECT_EQ(m.base_type(), rax.reg_type());
+  EXPECT_EQ(m.base_id(), rax.id());
+  EXPECT_FALSE(m.has_index());
+  EXPECT_FALSE(m.has_index_reg());
+  EXPECT_EQ(m.index_type(), RegType::kNone);
+  EXPECT_EQ(m.index_id(), 0u);
+  EXPECT_FALSE(m.has_offset());
+  EXPECT_FALSE(m.is_offset_64bit());
   EXPECT_EQ(m.offset(), 0);
-  EXPECT_EQ(m.offsetLo32(), 0);
-  m.setIndex(rsi);
-  EXPECT_TRUE(m.hasIndex());
-  EXPECT_TRUE(m.hasIndexReg());
-  EXPECT_EQ(m.indexType(), rsi.type());
-  EXPECT_EQ(m.indexId(), rsi.id());
+  EXPECT_EQ(m.offset_lo32(), 0);
+  m.set_index(rsi);
+  EXPECT_TRUE(m.has_index());
+  EXPECT_TRUE(m.has_index_reg());
+  EXPECT_EQ(m.index_type(), rsi.reg_type());
+  EXPECT_EQ(m.index_id(), rsi.id());
 }
 #endif
 

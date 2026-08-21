@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -131,7 +133,7 @@ We can now continue with further analyses, or we can delete the Xref server:
 The check for calls to undefined functions is an example of a predefined
 analysis, probably the most useful one. Other examples are the analyses that
 find unused local functions, or functions that call some given functions. See
-the [analyze/2,3](`m:xref#analyze`) functions for a complete list of predefined
+the [analyze/2,3](`xref:analyze/3`) functions for a complete list of predefined
 analyses.
 
 Each predefined analysis is a shorthand for a [query](`m:xref#query`), a
@@ -262,10 +264,8 @@ xref:add_release(s, code:root_dir()).
   All exported functions of the `digraph` module used (in)directly by some
   function in `digraph`.
 
-- **`xref:q(s, "L * yeccparser:Mod - range (closure (E |`**
-
-- **`yeccparser:Mod) | (X * yeccparser:Mod))").`** - The interpretation is left
-  as an exercise.
+- **`xref:q(s, "L * yeccparser:Mod - range (closure (E | yeccparser:Mod) | (X * yeccparser:Mod))").`** -
+  The interpretation is left as an exercise.
 
 ## Graph Analysis
 

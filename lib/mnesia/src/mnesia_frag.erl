@@ -1,8 +1,10 @@
 %%%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1998-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -29,12 +31,15 @@
 -module(mnesia_frag).
 -moduledoc false.
 
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %% Callback functions when accessed within an activity
 -export([
 	 lock/4,
 	 write/5, delete/5, delete_object/5,
 	 read/5, match_object/5, all_keys/4,
-	 select/5,select/6,select_cont/3,
+	 select/5, select/6, select_cont/3,
+	 select_reverse/5, select_reverse/6,
 	 index_match_object/6, index_read/6,
 	 foldl/6, foldr/6, table_info/4,
 	 first/3, next/4, prev/4, last/3,
@@ -116,6 +121,11 @@ select(ActivityId, Opaque, Tab, MatchSpec, LockKind) ->
 select(ActivityId, Opaque, Tab, MatchSpec, Limit, LockKind) ->
     init_select(ActivityId, Opaque, Tab, MatchSpec, Limit, LockKind).
 
+select_reverse(ActivityId, Opaque, Tab, MatchSpec, LockKind) ->
+    select(ActivityId, Opaque, Tab, MatchSpec, LockKind).
+
+select_reverse(ActivityId, Opaque, Tab, MatchSpec, Limit, LockKind) ->
+    select(ActivityId, Opaque, Tab, MatchSpec, Limit, LockKind).
 
 all_keys(ActivityId, Opaque, Tab, LockKind) ->
     Match = [mnesia:all_keys(ActivityId, Opaque, Frag, LockKind)
@@ -887,7 +897,7 @@ replace_frag_hash(Cs, FH) when is_record(FH, frag_state) ->
 			  true
 		  end
 	  end,
-    Props = lists:zf(Fun, Cs#cstruct.frag_properties),
+    Props = lists:filtermap(Fun, Cs#cstruct.frag_properties),
     Cs#cstruct{frag_properties = Props}.
 
 %% Adjust table info before split

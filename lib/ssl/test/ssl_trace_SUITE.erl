@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2022-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2022-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -60,8 +62,8 @@ all() -> [tc_basic, tc_no_trace, tc_api_profile, tc_rle_profile,
           tc_budget_option, tc_write, tc_file_option, tc_check_profiles].
 
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    ssl_test_lib:clean_start(),
             ssl_test_lib:make_rsa_cert(Config)
@@ -149,8 +151,6 @@ tc_api_profile(Config) ->
                 tls_server_connection, initial_hello},
                {"    (client) <- tls_client_connection:initial_hello/3 returned",
                 tls_client_connection, initial_hello},
-               {"    (client) <- ssl_gen_statem:connect/8 returned",
-                ssl_gen_statem, connect},
                {"    (client) <- ssl:connect/3 returned", ssl, connect},
                {"    (server) <- ssl:handshake/2 returned", ssl, handshake},
                {"    (client) <- tls_sender:init/3 returned", tls_sender, init},
@@ -161,8 +161,7 @@ tc_api_profile(Config) ->
                "rle ('?') -> ssl:listen/2 (*server) Args",
                "rle ('?') -> ssl:connect/3 (*client) Args",
                "rle ('?') -> tls_sender:init/3 (*server)",
-               "rle ('?') -> tls_sender:init/3 (*client)",
-               "api (client) -> ssl_gen_statem:connect/8"]},
+               "rle ('?') -> tls_sender:init/3 (*client)"]},
     TracesAfterDisconnect =
         #{
           call =>

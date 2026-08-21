@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,9 +27,11 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
          basic/1,duplicate_keys/1,mixed/1,
-         shadow/1,bad_generators/1]).
+         shadow/1,bad_generators/1,multi/1,from_keys_optimization/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
+-include("test_lib.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -40,7 +44,9 @@ groups() ->
        duplicate_keys,
        mixed,
        shadow,
-       bad_generators]}].
+       bad_generators,
+       multi,
+       from_keys_optimization]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -121,6 +127,21 @@ basic(_Config) ->
     Odd = lists:sort([V || {#foo{a=N}, V} <- maps:to_list(RecordMap),
                            N rem 2 =:= 1]),
     Odd = lists:sort([V || #foo{a=N} := V <- RecordMap, N rem 2 =:= 1]),
+
+    %% Strict generators (each generator type)
+    #{1 := 2, 2 := 3, 3 := 4} = #{X => X+1 || X <:- [1,2,3]},
+    #{1 := 2, 2 := 3, 3 := 4} = #{X => X+1 || <<X>> <:= <<1,2,3>>},
+    #{2 := 4, 4 := 8} = #{X+1 => Y*2 || X := Y <:- #{1 => 2, 3 => 4}},
+
+    %% A failing guard following a strict generator is ok
+    #{2 := 3, 3 := 4} = #{X => X+1 || X <:- [1,2,3], X > 1},
+    #{2 := 3, 3 := 4} = #{X => X+1 || <<X>> <:= <<1,2,3>>, X > 1},
+    #{4 := 8} = #{X+1 => Y*2 || X := Y <:- #{1 => 2, 3 => 4}, X > 1},
+
+    %% Non-matching elements cause a badmatch error for strict generators
+    ?assertError({badmatch,2}, #{X => X+1 || {ok, X} <:- [{ok,1},2,{ok,3}]}),
+    ?assertError({badmatch,<<128,2>>}, #{X => X+1 || <<0:1, X:7>> <:= <<1,128,2>>}),
+    ?assertError({badmatch,{2,error}}, #{X => X+1 || X := ok <:-#{1 => ok, 2 => error, 3 => ok}}),
 
     ok.
 
@@ -249,38 +270,98 @@ bad_generators(_Config) ->
         mc_inline_SUITE ->
             ok;
         _ ->
-            {'EXIT',{{bad_generator,a},
-                     [{?MODULE,_,_,
-                       [{file,"bad_mc.erl"},{line,4}]}|_]}} =
-                catch id(bad_generator(a)),
+            ?AssertErrorStack({bad_generator,a},
+                              [{?MODULE,_,_,
+                                [{file,"bad_mc.erl"},{line,4}]}|_],
+                              id(bad_generator(a))),
 
-            {'EXIT',{{bad_generator,a},
-                     [{?MODULE,_,_,
-                       [{file,"bad_mc.erl"},{line,7}]}|_]}} =
-                catch id(bad_generator_bc(a)),
+            ?AssertErrorStack({bad_generator,a},
+                              [{?MODULE,_,_,
+                                [{file,"bad_mc.erl"},{line,7}]}|_],
+                              id(bad_generator_bc(a))),
 
-            {'EXIT',{{bad_generator,a},
-                     [{?MODULE,_,_,
-                       [{file,"bad_mc.erl"},{line,10}]}|_]}} =
-                catch id(bad_generator_mc(a)),
+            ?AssertErrorStack({bad_generator,a},
+                              [{?MODULE,_,_,
+                                [{file,"bad_mc.erl"},{line,10}]}|_],
+                              id(bad_generator_mc(a))),
 
             BadIterator = [16#ffff|#{}],
 
-            {'EXIT',{{bad_generator,BadIterator},
-                     [{?MODULE,_,_,
-                       [{file,"bad_mc.erl"},{line,4}]}|_]}} =
-                catch id(bad_generator(BadIterator)),
+            ?AssertErrorStack({bad_generator,BadIterator},
+                              [{?MODULE,_,_,
+                                [{file,"bad_mc.erl"},{line,4}]}|_],
+                              id(bad_generator(BadIterator))),
 
-            {'EXIT',{{bad_generator,BadIterator},
-                     [{?MODULE,_,_,
-                       [{file,"bad_mc.erl"},{line,7}]}|_]}} =
-                catch id(bad_generator_bc(BadIterator)),
+            ?AssertErrorStack({bad_generator,BadIterator},
+                              [{?MODULE,_,_,
+                                [{file,"bad_mc.erl"},{line,7}]}|_],
+                              id(bad_generator_bc(BadIterator))),
 
-            {'EXIT',{{bad_generator,BadIterator},
+            ?AssertErrorStack({bad_generator,BadIterator},
                      [{?MODULE,_,_,
-                       [{file,"bad_mc.erl"},{line,10}]}|_]}} =
-                catch id(bad_generator_mc(BadIterator))
+                       [{file,"bad_mc.erl"},{line,10}]}|_],
+                              id(bad_generator_mc(BadIterator)))
     end,
+    ok.
+
+multi(_Config) ->
+    Exp = #{true => 1, false => 2},
+    Exp = #{true => 1, false => 2 || true},
+    Exp2 = #{1 => 1, 2 => 2, 5 => 5, 6 => 6},
+    Exp2 = #{X => X, X + 1 => X + 1 || X <- [1, 5]},
+    Exp3 = #{1 => 4, 5 => 8},
+    Exp3 = #{X => X+1, X => X+3 || X <- [1, 5]},
+    ok.
+
+from_keys_optimization(_Config) ->
+    %% Literal values - should use from_keys
+    #{a := 42, b := 42} = #{K => 42 || K <- [a, b]},
+    #{a := foo, b := foo} = #{K => foo || K <- [a, b]},
+
+    %% Outer variable - should use from_keys
+    Value = id(make_ref()),
+    #{a := Value, b := Value} = #{K => Value || K <- [a, b]},
+
+    %% Safe expression on outer vars (tuple) - should use from_keys
+    X = id(1), Y = id(2),
+    #{a := {1, 2}, b := {1, 2}} = #{K => {X, Y} || K <- [a, b]},
+
+    %% With filter - should still use from_keys
+    #{2 := ok, 4 := ok} = #{K => ok || K <- [1,2,3,4], K rem 2 =:= 0},
+
+    %% Multiple expressions with same value - should use from_keys
+    #{a := 42, b := 42, 1 := 42, 2 := 42} =
+        #{K => 42, K2 => 42 || K <- [a, b], K2 <- [1, 2]},
+
+    %% Multiple expressions with outer var as value - should use from_keys
+    Z = id(outer),
+    #{a := outer, 1 := outer} = #{K => Z, K2 => Z || K <- [a], K2 <- [1]},
+
+    %% Multiple expressions with DIFFERENT values - should NOT use from_keys
+    #{a := 1, b := 1, 1 := 2, 2 := 2} =
+        #{K => 1, K2 => 2 || K <- [a, b], K2 <- [1, 2]},
+    #{2 := [Value], 3 := [Value], 4 := [Value], 5 := [Value]} =
+        #{2*K => [Value], 2*K+1 => [Value] || K <- [1, 2]},
+    #{2 := {val, Value}, 3 := {val, Value},
+      4 := {val, Value}, 5 := {val, Value}} =
+        #{2*K => {val, Value}, 2*K+1 => {val, Value} || K <- [1, 2]},
+    #{2 := [Value], 3 := [42], 4 := [Value], 5 := [42]} =
+        #{2*K => [Value], 2*K+1 => [42] || K <- [1, 2]},
+
+    %% Value from generator - should NOT use from_keys
+    #{a := 1, b := 2} = #{K => V || {K, V} <- [{a, 1}, {b, 2}]},
+
+    %% Value depends on key - should NOT use from_keys
+    #{1 := 2, 2 := 4} = #{K => K * 2 || K <- [1, 2]},
+
+    %% Value depends on filter - should NOT use from_keys
+    #{1 := 2, 2 := 4} = #{K => V || K <- [1, 2], is_integer(V = K * 2)},
+
+    %% Failable expression on outer vars - should NOT use from_keys
+    %% (if list is empty, the division would never execute)
+    A = id(1), B = id(0),
+    #{} = #{K => A div B || K <- [], K > 0},
+
     ok.
 
 id(I) -> I.

@@ -1,7 +1,9 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -98,6 +100,9 @@
 	 simple_v3_exchange_sha384/0, simple_v3_exchange_sha384/1,
 	 simple_v3_exchange_sha512/0, simple_v3_exchange_sha512/1,
 
+         v3_usm_unknown_engine_id_error_info/0,
+         v3_usm_unknown_engine_id_error_info/1,
+
 	 discovery/1,
 	 
 	 trap1/1,
@@ -181,6 +186,7 @@ groups() ->
 
      {all,                  [], all_cases()},
      {start_and_stop_tests, [], start_and_stop_tests_cases()},
+     {notify,               [], notify_cases()},
      {misc_tests,           [], misc_tests_cases()},
      {usm_priv_aes_tests,   [], usm_priv_aes_tests_cases()},
      {user_tests,           [], user_tests_cases()},
@@ -236,6 +242,11 @@ start_and_stop_tests_cases() ->
      simple_start_and_stop3, 
      simple_start_and_monitor_crash1,
      simple_start_and_monitor_crash2, 
+     {group, notify}
+    ].
+
+notify_cases() ->
+    [
      notify_started01,
      notify_started02
     ].
@@ -343,7 +354,8 @@ v3_cases() ->
      simple_v3_exchange_sha224,
      simple_v3_exchange_sha256,
      simple_v3_exchange_sha384,
-     simple_v3_exchange_sha512
+     simple_v3_exchange_sha512,
+     v3_usm_unknown_engine_id_error_info
     ].
     
 
@@ -697,6 +709,8 @@ init_per_testcase3(simple_v3_exchange_sha384 = Case, Config) ->
     init_v3_testcase(Case, [{auth_alg, sha384} | Config]);
 init_per_testcase3(simple_v3_exchange_sha512 = Case, Config) ->
     init_v3_testcase(Case, [{auth_alg, sha512} | Config]);
+init_per_testcase3(v3_usm_unknown_engine_id_error_info = Case, Config) ->
+    init_v3_testcase(Case, [{auth_alg, md5} | Config]);
 init_per_testcase3(Case, Config) ->
     ApiCases02 = 
 	[
@@ -860,7 +874,8 @@ end_per_testcase2(Case, Config)
         (Case =:= simple_v3_exchange_sha224) orelse
         (Case =:= simple_v3_exchange_sha256) orelse
         (Case =:= simple_v3_exchange_sha384) orelse
-        (Case =:= simple_v3_exchange_sha512)) ->
+        (Case =:= simple_v3_exchange_sha512) orelse
+        (Case =:= v3_usm_unknown_engine_id_error_info)) ->
     Conf1 = fin_mgr_user_data2(Config),
     Conf2 = fin_mgr_user(Conf1),
     Conf3 = fin_v3_manager(Conf2),
@@ -1245,48 +1260,68 @@ do_notify_started01(Config) ->
 	    {config,     [{verbosity, log}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
     ?IPRINT("[tc] request start notification (1)"),
-    Pid1 = snmpm:notify_started(10000),
+    NotifyPid1 = snmpm:notify_started(#{verbose   => true,
+                                        tick_time => 1000,
+                                        timeout   => 10000}),
     receive
-	{snmpm_start_timeout, Pid1} ->
-	    ?IPRINT("[tc] received expected start timeout"),
+	{snmpm_start_timeout, NotifyPid1} ->
+	    ?IPRINT("[tc] received expected start timeout (~p)", [NotifyPid1]),
 	    ok;
 	Any1 ->
-	    ?FAIL({unexpected_message, Any1})
+            ?EPRINT("received unexpected message (1): "
+                    "~n   ~p"
+                    "~n   Notify Process (~p) Info: ~p",
+                    [Any1,
+                     NotifyPid1, (catch erlang:process_info(NotifyPid1))]),
+	    ?FAIL({unexpected_message, 1, Any1})
     after 15000 ->
-	    ?FAIL({unexpected_timeout, Pid1})
+            ?EPRINT("unexpected timeout: "
+                    "~n   Notify Process (~p) Info: ~p",
+                    [NotifyPid1, (catch erlang:process_info(NotifyPid1))]),
+	    ?FAIL({unexpected_timeout, 1, NotifyPid1})
     end,
 
     ?IPRINT("[tc] request start notification (2)"),
-    Pid2 = snmpm:notify_started(10000),
+    NotifyPid2 = snmpm:notify_started(#{verbose   => true,
+                                        tick_time => 1000,
+                                        timeout   => ?NS_TIMEOUT}),
 
     ?IPRINT("[tc] start the snmpm starter"),
-    StarterPid = snmpm_starter(Opts, 5000),
+    {StarterPid, _StarterMRef} = snmpm_starter(Opts, 5000),
 
-    ?IPRINT("[tc] await the start notification"),
+    ?IPRINT("[tc] await the start notification: "
+            "~n   Notify Process:  ~p"
+            "~n   Starter Process: ~p", [NotifyPid2, StarterPid]),
     Ref = 
 	receive
-	    {snmpm_started, Pid2} ->
+	    {snmpm_started, NotifyPid2} ->
 		?IPRINT("[tc] received start notification message -> "
                         "create the monitor"),
 		snmpm:monitor();
-            {snmpm_start_timeout, StarterPid} ->
-                ?EPRINT("[tc] Start Timeout: "
-                        "~n   Starter Process (~p) Info: ~p",
-                        [StarterPid, (catch erlang:process_info(StarterPid))]),
+            {snmpm_start_timeout, NotifyPid2} ->
+                ?EPRINT("[tc] received unexpected start timeout when"
+                        "~n   Starter Process (~p) info: ~s",
+                        [StarterPid,
+                         format_process_info(StarterPid, "      ")]),
+                exit(StarterPid, kill),
                 ?FAIL(start_timeout);
 	    Any2 ->
                 ?EPRINT("[tc] Unexpected Message: "
-                        "~n   Notify Process Info:  ~p"
-                        "~n   Starter Process info: ~p",
-                        [(catch erlang:process_info(Pid2)),
-                         (catch erlang:process_info(StarterPid))]),
+                        "~n   ~p"
+                        "~n   Notify Process (~p) Info:  ~s"
+                        "~n   Starter Process (~p) info: ~s",
+                        [Any2,
+                         NotifyPid2,
+                         format_process_info(NotifyPid2, "      "),
+                         StarterPid,
+                         format_process_info(StarterPid, "      ")]),
 		?FAIL({unexpected_message, Any2})
 	after 15000 ->
                 ?EPRINT("[tc] Unexpected Start Timeout: "
-                        "~n   Notify Process Info:  ~p"
-                        "~n   Starter Process info: ~p",
-                        [(catch erlang:process_info(Pid2)),
-                         (catch erlang:process_info(StarterPid))]),
+                        "~n   Notify Process (~p) Info:  ~p"
+                        "~n   Starter Process (~p) info: ~p",
+                        [NotifyPid2, (catch erlang:process_info(NotifyPid2)),
+                         StarterPid, (catch erlang:process_info(StarterPid))]),
 		?FAIL(unexpected_start_timeout)
 	end,
 
@@ -1317,10 +1352,51 @@ do_notify_started01(Config) ->
     ?IPRINT("[tc] end"),
     ok.
 
+format_process_info(P, Indent) when is_pid(P) andalso is_list(Indent) ->
+    try
+        begin
+            CurrentFunction   = pi(P, current_function),
+            CurrentStackTrace = pi(P, current_stacktrace),
+            Reductions        = pi(P, reductions),
+            Memory            = pi(P, memory),
+            HeapSize          = pi(P, heap_size),
+            MaxHeapSize       = pi(P, max_heap_size),
+            TotHeapSize       = pi(P, total_heap_size),
+            Status            = pi(P, status),
+            ?F("~n"
+               "~sCurrent Function:   ~p~n"
+               "~sCurrent StackTrace: ~p~n"
+               "~sReductions:         ~p~n"
+               "~sMemory:             ~p~n"
+               "~sHeapSize:           ~p~n"
+               "~sMax Heap Size:      ~p~n"
+               "~sTotal Heap Size:    ~p~n"
+               "~sStatus:             ~p~n",
+               [Indent, CurrentFunction,
+                Indent, CurrentStackTrace,
+                Indent, Reductions,
+                Indent, Memory,
+                Indent, HeapSize,
+                Indent, MaxHeapSize,
+                Indent, TotHeapSize,
+                Indent, Status])
+        end
+    catch
+        _:_:_ ->
+            "-"
+    end.
 
+pi(Pid, Key) ->
+    case ?PI(Pid, Key) of
+        undefined ->
+            throw(no_process);
+        Value ->
+            Value
+    end.
+    
 snmpm_starter(Opts, To) ->
     Parent = self(),
-    spawn(
+    spawn_monitor(
       fun() ->
               ?IPRINT("[snmpm-starter] wait ~w msec", [To]),
 	      ?SLEEP(To),
@@ -1471,7 +1547,10 @@ ns02_client(Parent, N) when is_pid(Parent) ->
     put(tname, ns02_client),
     ?IPRINT("starting"),
     ns02_client_loop(Parent, 
-                     dummy, snmpm:notify_started(?NS_TIMEOUT),
+                     dummy,
+                     snmpm:notify_started(#{verbose   => true,
+                                            tick_time => 1000,
+                                            timeout   => ?NS_TIMEOUT}),
                      snmp_misc:now(ms), undefined,
                      N).
 
@@ -1512,7 +1591,10 @@ ns02_client_loop(Parent, Ref, Pid, Begin, End, N) ->
                     "~n   Obj:    ~p"
                     "~n   Reason: ~p", [N, Obj, Reason]),
 	    ns02_client_loop(Parent,
-                             dummy, snmpm:notify_started(?NS_TIMEOUT),
+                             dummy,
+                             snmpm:notify_started(#{verbose   => true,
+                                                    tick_time => 1000,
+                                                    timeout   => ?NS_TIMEOUT}),
                              Begin, snmp_misc:now(ms),
                              N-1)
     end.
@@ -3788,6 +3870,76 @@ simple_v3_exchange(Config) when is_list(Config) ->
             {error, X}
     end.
 
+
+%%======================================================================
+%% GH-7156: Verify that usmStatsUnknownEngineIDs error propagates
+%% the authoritative EngineID and UserName to the handle_error callback
+%% as a proplist in sec_data.
+%%======================================================================
+
+v3_usm_unknown_engine_id_error_info() ->
+    [{doc, "GH-7156: Verify that usmStatsUnknownEngineIDs error "
+           "includes msgAuthoritativeEngineID and msgUserName "
+           "in the handle_error callback reason (sec_data proplist)"}].
+
+v3_usm_unknown_engine_id_error_info(Config) when is_list(Config) ->
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
+
+    Node       = ?config(manager_node, Config),
+    TargetName = ?config(manager_agent_target_name, Config),
+    AuthAlg    = ?config(auth_alg, Config),
+    SecName    = select_secname_from_authalg(AuthAlg),
+    AuthKey    = select_authkey_from_authalg(AuthAlg),
+
+    %% Remove the USM user for the real agent EngineID so that
+    %% when the agent's report comes back with "agentEngine",
+    %% the manager USM layer hits usmStatsUnknownEngineIDs.
+    ok = rcall(Node, snmpm, unregister_usm_user,
+               [?AGENT_ENGINE_ID, SecName]),
+
+    %% Register USM credentials under a wrong EngineID so the
+    %% manager can encode the outgoing message.
+    WrongEngineID = "wrongEngineID",
+    Credentials = [{auth, select_auth_proto(AuthAlg)},
+                   {auth_key, AuthKey}],
+    ok = mgr_register_usm_user(Node, WrongEngineID, SecName, Credentials),
+
+    %% Point the agent target at the wrong EngineID.
+    ok = mgr_user_update_agent_info(Node, TargetName,
+                                    engine_id, WrongEngineID),
+
+    Oids = [?sysDescr_instance],
+    ?IPRINT("send get with wrong engine id"),
+    _Result = mgr_user_sync_get2(Node, TargetName, Oids, []),
+    ?IPRINT("sync_get2 result: ~p", [_Result]),
+
+    ?IPRINT("check for handle_error with engine id in sec_data"),
+    receive
+        {async_event, _ErrReqId,
+         {error, {failed_processing_message,
+                  {securityError, usmStatsUnknownEngineIDs,
+                   Opts}}}} when is_list(Opts) ->
+            SecData = proplists:get_value(sec_data, Opts),
+            ?IPRINT("received expected error with sec_data: "
+                    "~n      ~p", [SecData]),
+
+            %% Verify the real EngineID is present
+            ?AGENT_ENGINE_ID =
+                proplists:get_value(msgAuthoritativeEngineID, SecData),
+
+            %% Verify the UserName is present
+            SecName =
+                proplists:get_value(msgUserName, SecData),
+
+            ?IPRINT("GH-7156 verified: EngineID and UserName "
+                    "propagated in handle_error"),
+            display_log(Config),
+            ok
+    after 15000 ->
+            ?EPRINT("no matching handle_error received"),
+            ?FAIL(missing_error_with_engine_id)
+    end.
 
 
 %%======================================================================
@@ -6188,11 +6340,9 @@ agent_info(Node) ->
 %% -- Misc node operation wrapper functions --
 
 start_node(Case) ->
-    Args = ["-s", "snmp_test_sys_monitor", "start", "-s", "global", "sync"],
     Name = peer:random_name(lists:concat([?MODULE, "-", Case])),
-    {ok, Peer, Node}  = ?CT_PEER(#{name => Name, args => Args}),
-    global:sync(),
-    {Peer, Node}.
+    ?START_NODE(Name, false).
+
 
 %% -- Misc config wrapper functions --
 

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,6 +33,7 @@
 -include("inets_test_lib.hrl").
 -include("http_internal.hrl").
 -include("httpc_internal.hrl").
+% -include("../../ssl/src/ssl_api.hrl").
 %% Note: This directive should only be used in test suites.
 -compile([export_all, nowarn_export_all]).
 
@@ -45,7 +48,6 @@
 %% (maximum length supported by erlang)
 -define(UNIX_SOCKET, "/tmp/inets_httpc_SUITE.sock").
 
--record(sslsocket, {fd = nil, pid = nil}).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -66,7 +68,9 @@ all() ->
      {group, https},
      {group, sim_https},
      {group, misc},
-     {group, sim_mixed} % HTTP and HTTPS sim servers
+     {group, sim_mixed}, % HTTP and HTTPS sim servers
+     {group, http_high_load},
+     {group, https_high_load}
     ].
 
 groups() ->
@@ -81,12 +85,13 @@ groups() ->
           -- [server_closing_connection_on_second_response]
           },
      {http_internal, [parallel], real_requests_esi()},
-     {http_internal_minimum_bytes, [parallel], [remote_socket_close_parallel]},
      {http_unix_socket, [parallel], simulated_unix_socket()},
      {https, [parallel], [def_ssl_opt | real_requests()]},
      {sim_https, [parallel], only_simulated()},
      {misc, [parallel], misc()},
-     {sim_mixed, [parallel], sim_mixed()}
+     {sim_mixed, [parallel], sim_mixed()},
+     {http_high_load, [remote_socket_close_high_load]},
+     {https_high_load, [remote_socket_close_high_load]}
     ].
 
 real_requests()->
@@ -193,14 +198,25 @@ only_simulated() ->
      redirect_temporary_redirect,
      redirect_permanent_redirect,
      redirect_relative_uri,
+     redirect_strips_sensitive_headers,
      port_in_host_header,
      redirect_port_in_host_header,
+     te_header_undefined_no_connection,
+     te_header_empty_string_adds_connection,
+     te_header_whitespace_adds_connection,
+     te_header_trailers_adds_connection,
+     te_header_with_existing_connection,
+     te_header_with_connection_close,
+     te_header_already_in_connection,
      relaxed,
      multipart_chunks,
      get_space,
      delete_no_body,
      post_with_content_type,
-     stream_fun_server_close
+     stream_fun_server_close,
+     no_content_length_for_bodyless_requests,
+     content_length_for_empty_body_requests,
+     content_length_via_headers_as_is
     ].
 
 server_closing_connection() ->
@@ -251,8 +267,8 @@ init_per_group(misc = Group, Config) ->
     [{httpc_options, [{ipfamily, Inet}]} | Config];
 init_per_group(Group, Config0) when Group =:= sim_https; Group =:= https;
                                     Group =:= sim_mixed ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
         ok ->
             start_apps(Group),
             HttpcOptions = [{keep_alive_timeout, 50000}, {max_keep_alive_length, 5}],
@@ -273,8 +289,18 @@ init_per_group(http_unix_socket = Group, Config0) ->
             lists:append([{dummy_server_pid, Pid}, {port, Port}, {httpc_options, HttpcOpts}],
                          Config)
     end;
-init_per_group(Group, Config0) when Group == http_ipv6;
-                                    Group == sim_http_ipv6 ->
+init_per_group(sim_http_ipv6 = Group, Config0) ->
+    case is_ipv6_supported() of
+        true ->
+            start_apps(Group),
+            Config = proplists:delete(port, Config0),
+            Port = server_start(Group, server_config(Group, Config)),
+            [{port, Port}, {httpc_options, [{ipfamily, inet6}]} | Config];
+        false ->
+            {skip, "Host does not support IPv6"}
+    end;
+
+init_per_group(http_ipv6 = Group, Config0) ->
     case is_ipv6_supported() of
         true ->
             start_apps(Group),
@@ -283,13 +309,42 @@ init_per_group(Group, Config0) when Group == http_ipv6;
             [{port, Port}, {request_opts, [{socket_opts, [{ipfamily, inet6}]}]} | Config];
         false ->
             {skip, "Host does not support IPv6"}
-     end;
+    end;
+init_per_group(Group, Config0) when
+      Group =:= http_high_load orelse
+      Group =:= https_high_load ->
+    Config = case Group of
+                 https_high_load ->
+                     start_apps(https_high_load),
+                     application:ensure_all_started([asn1, crypto, public_key, ssl]),
+                     Config1 = init_ssl(Config0),
+                     [{socket_type, ssl} | Config1];
+                 _ -> [{socket_type, gen_tcp} | Config0]
+             end,
+    SocketType = proplists:get_value(socket_type, Config),
+    Self = self(),
+    SslConfig = proplists:get_value(ssl_conf, Config, []),
+    ServerConfig = proplists:get_value(server_config, SslConfig, []),
+    ListenerPid = spawn(fun() -> http_test_lib:open_big_data_socket(SocketType, Self, ServerConfig) end),
+    ListenPort = receive
+                     {started_listen, Port} -> Port
+                 end,
+    FinalConfig = proplists:delete(port, Config),
+    [{port, ListenPort}, {listener, ListenerPid} | FinalConfig];
 init_per_group(Group, Config0) ->
     start_apps(Group),
     Config = proplists:delete(port, Config0),
     Port = server_start(Group, server_config(Group, Config)),
     [{port, Port} | Config].
 
+end_per_group(Group, Config) when
+      Group =:= http_high_load orelse
+      Group =:= https_high_load ->
+    ?config(listener, Config) ! {stop_listen, self()},
+    Request = {url(group_name(Config), "", Config), []},
+    httpc:request(get, Request, [{ssl, [{verify, verify_none}]}, {connect_timeout, infinity}], [], ?profile(Config)),
+    receive stopped_listen -> ok end,
+    ok;
 end_per_group(_, _Config) ->
     ok.
 
@@ -311,6 +366,7 @@ do_init_per_group(Group, Config0) ->
                 Config0
         end,
     Config = proplists:delete(port, Config1),
+    application:ensure_all_started([asn1, crypto, public_key, ssl]),
     Port = server_start(Group, server_config(Group, Config)),
     [{port, Port} | Config].
 
@@ -343,6 +399,19 @@ init_per_testcase(Name, Config) when Name == pipeline; Name == persistent_connec
                             {max_pipeline_length, 3} | GivenOptions], Name),
 
     [{profile, Name} | Config];
+init_per_testcase(remote_socket_close_high_load = Case, Config0) ->
+    case erlang:system_info(wordsize) of
+        8 -> %% Run only on 64 bit systems
+            Profile = Case,
+            {ok, _} = inets:start(httpc, [{profile, Profile}]),
+            MaxConnectionsOpen = 1,
+            Config = [{profile, Profile}, {max_connections_open, MaxConnectionsOpen} | Config0],
+            GivenOptions = proplists:get_value(httpc_options, Config, []),
+            ok = httpc:set_options([{max_connections_open, MaxConnectionsOpen} | GivenOptions], Profile),
+            Config;
+        _ ->
+            {skip, "Not a 64-bit system"}
+    end;
 init_per_testcase(Case, Config) ->
     {ok, _Pid} = inets:start(httpc, [{profile, Case}]),
     GivenOptions = proplists:get_value(httpc_options, Config, []),
@@ -887,6 +956,45 @@ redirect_relative_different_port(Config) when is_list(Config) ->
 	= httpc:request(post, {URL301, Headers, "text/plain", "foobar"},
 			[], RequestOpts, Profile).
 %%-------------------------------------------------------------------------
+redirect_strips_sensitive_headers() ->
+    [{doc, "RFC 9110 §15.4: Authorization, Proxy-Authorization, Cookie, "
+      "Referer, and Origin headers MUST NOT be forwarded on cross-origin "
+      "(different host/port) redirects (CVE / GHSA-m75x-4vwg-ggjh)."}].
+redirect_strips_sensitive_headers(Config) when is_list(Config) ->
+    %% Origin server issues a 301 to a second sim_http server (different port
+    %% = cross-origin).  The target echoes which sensitive headers it received
+    %% back as x-received-* response headers so the test can inspect them.
+    OriginUrl = url(group_name(Config), "/301_custom_url.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    Profile = ?profile(Config),
+    Group  = group_name(Config),
+    TargetPort = server_start(Group, server_config(Group, Config)),
+    {ok, Host} = inet:gethostname(),
+    TargetUrlStart =
+        case OriginUrl of
+            "http://" ++ _ -> "http://";
+            "https://" ++ _ -> "https://"
+        end,
+    TargetUrl = TargetUrlStart ++ Host ++ ":" ++ integer_to_list(TargetPort) ++
+                    "/capture_sensitive_redirect_target.html",
+
+    RedirectHeaders = [{"x-test-301-url",       TargetUrl},
+                       {"authorization",         "Basic dXNlcjpzM2NyM3Q="},
+                       {"proxy-authorization",   "Basic dXNlcjpzM2NyM3Q="},
+                       {"cookie",                "session=secret"},
+                       {"referer",               "http://example.com/secret"},
+                       {"origin",                "http://example.com"}],
+
+    {ok, {{_, 200, _}, RespHeaders, _}} =
+        httpc:request(get, {OriginUrl, RedirectHeaders}, [?SSL_NO_VERIFY], RequestOpts, Profile),
+
+    ?assertEqual("false", proplists:get_value("x-received-authorization",       RespHeaders)),
+    ?assertEqual("false", proplists:get_value("x-received-proxy-authorization", RespHeaders)),
+    ?assertEqual("false", proplists:get_value("x-received-cookie",              RespHeaders)),
+    ?assertEqual("false", proplists:get_value("x-received-referer",             RespHeaders)),
+    ?assertEqual("false", proplists:get_value("x-received-origin",              RespHeaders)).
+
+%%-------------------------------------------------------------------------
 cookie() ->
     [{doc, "Test cookies on the default profile."}].
 cookie(Config) when is_list(Config) ->
@@ -1128,9 +1236,9 @@ timeout_redirect(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 
 internal_server_error() ->
-    [{doc, "Test 50X codes"}].
+    [{doc, "Test 50X codes"},
+     {timetrap, timer:minutes(5)}].
 internal_server_error(Config) when is_list(Config) ->
-
     URL500 = url(group_name(Config), "/500.html", Config),
     RequestOpts = proplists:get_value(request_opts, Config, []),
     Profile = ?profile(Config),
@@ -1147,10 +1255,28 @@ internal_server_error(Config) when is_list(Config) ->
     {ok, {{_,200, _}, [_ | _], [_|_]}} =
 	httpc:request(get, {URL503, []}, [?SSL_NO_VERIFY], RequestOpts, Profile),
 
+    ets:insert(unavailable, {503, unavailable}),
+    {ok, {{_,503, _}, [_ | _], [_|_]}} =
+        httpc:request(get, {URL503, []}, [{autoretry, timer:seconds(0)}, ?SSL_NO_VERIFY], RequestOpts , Profile),
+
+    ets:insert(unavailable, {503, unavailable}),
+    %% 503.html returns Retry-After 5, test waiting time limit
+    {ok, {{_,503, _}, [_ | _], [_|_]}} =
+        httpc:request(get, {URL503, []}, [{autoretry, timer:seconds(4)}, ?SSL_NO_VERIFY], RequestOpts , Profile),
+
     ets:insert(unavailable, {503, long_unavailable}),
 
     {ok, {{_,503, _}, [_ | _], [_|_]}} =
-	httpc:request(get, {URL503, []}, [?SSL_NO_VERIFY], RequestOpts, Profile),
+        httpc:request(get, {URL503, []}, [{autoretry, timer:seconds(0)}, ?SSL_NO_VERIFY], RequestOpts, Profile),
+
+    ets:insert(unavailable, {503, long_unavailable}),
+
+    {ok, {{_,200, _}, [_ | _], [_|_]}} =
+        httpc:request(get, {URL503, []}, [?SSL_NO_VERIFY], RequestOpts, Profile),
+
+    ets:insert(unavailable, {503, always_unavailable}),
+    {ok, {{_,503, _}, [_ | _], [_|_]}} =
+        httpc:request(get, {URL503, []}, [?SSL_NO_VERIFY], RequestOpts, Profile),
 
     ets:delete(unavailable).
 
@@ -1688,6 +1814,55 @@ redirect_port_in_host_header(Config) when is_list(Config) ->
     inets_test_lib:check_body(Body).
 
 %%-------------------------------------------------------------------------
+te_header_undefined_no_connection(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/te_header_undefined_no_connection.html", Config), []},
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [?SSL_NO_VERIFY],
+                                                 [], ?profile(Config)),
+    inets_test_lib:check_body(Body).
+
+%%-------------------------------------------------------------------------
+te_header_empty_string_adds_connection(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/te_header_empty_string_adds_connection.html", Config), [{"te", ""}]},
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [?SSL_NO_VERIFY],
+                                                 [], ?profile(Config)),
+    inets_test_lib:check_body(Body).
+
+%%-------------------------------------------------------------------------
+te_header_whitespace_adds_connection(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/te_header_whitespace_adds_connection.html", Config), [{"te", " "}]},
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [?SSL_NO_VERIFY],
+                                                 [], ?profile(Config)),
+    inets_test_lib:check_body(Body).
+
+%%-------------------------------------------------------------------------
+te_header_trailers_adds_connection(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/te_header_trailers_adds_connection.html", Config), [{"te", "trailers"}]},
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [?SSL_NO_VERIFY],
+                                                 [], ?profile(Config)),
+    inets_test_lib:check_body(Body).
+
+%%-------------------------------------------------------------------------
+te_header_with_existing_connection(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/te_header_with_existing_connection.html", Config), [{"te", "trailers"}, {"connection", "keep-alive"}]},
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [?SSL_NO_VERIFY],
+                                                 [], ?profile(Config)),
+    inets_test_lib:check_body(Body).
+
+%%-------------------------------------------------------------------------
+te_header_with_connection_close(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/te_header_with_connection_close.html", Config), [{"te", "trailers"}, {"connection", "close"}]},
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [?SSL_NO_VERIFY],
+                                                 [], ?profile(Config)),
+    inets_test_lib:check_body(Body).
+
+%%-------------------------------------------------------------------------
+te_header_already_in_connection(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/te_header_already_in_connection.html", Config), [{"te", "trailers"}, {"connection", "keep-alive, TE"}]},
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [?SSL_NO_VERIFY],
+                                                 [], ?profile(Config)),
+    inets_test_lib:check_body(Body).
+
+%%-------------------------------------------------------------------------
 multipart_chunks(Config) when is_list(Config) ->
     Request = {url(group_name(Config), "/multipart_chunks.html", Config), []},
     RequestOpts = proplists:get_value(request_opts, Config, []),
@@ -2047,6 +2222,54 @@ post_with_content_type(Config) when is_list(Config) ->
                       [?SSL_NO_VERIFY], RequestOpts, ?profile(Config)).
 
 %%--------------------------------------------------------------------
+no_content_length_for_bodyless_requests() ->
+    [{doc, "Test that bodyless requests (GET, HEAD, OPTIONS, TRACE, DELETE) "
+           "do not send Content-Length header (RFC 9110)"}].
+no_content_length_for_bodyless_requests(Config) when is_list(Config) ->
+    URL = url(group_name(Config), "/check_no_content_length.html", Config),
+    Profile = ?profile(Config),
+    %% Simulated server replies 500 if Content-Length header is present
+    {ok, {{_,200,_}, _, _}} =
+        httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], [], Profile),
+    {ok, {{_,200,_}, _, _}} =
+        httpc:request(head, {URL, []}, [?SSL_NO_VERIFY], [], Profile),
+    {ok, {{_,200,_}, _, _}} =
+        httpc:request(options, {URL, []}, [?SSL_NO_VERIFY], [], Profile),
+    {ok, {{_,200,_}, _, _}} =
+        httpc:request(trace, {URL, []}, [?SSL_NO_VERIFY], [], Profile),
+    {ok, {{_,200,_}, _, _}} =
+        httpc:request(delete, {URL, []}, [?SSL_NO_VERIFY], [], Profile).
+
+%%--------------------------------------------------------------------
+content_length_for_empty_body_requests() ->
+    [{doc, "Test that POST/PUT with empty body DOES send Content-Length: 0 (RFC 9110)"}].
+content_length_for_empty_body_requests(Config) when is_list(Config) ->
+    URL = url(group_name(Config), "/check_has_content_length_zero.html", Config),
+    Profile = ?profile(Config),
+    %% Simulated server replies 500 if Content-Length header is NOT present or not "0"
+    {ok, {{_,200,_}, _, _}} =
+        httpc:request(post, {URL, [], "text/plain", ""}, [?SSL_NO_VERIFY], [], Profile),
+    {ok, {{_,200,_}, _, _}} =
+        httpc:request(put, {URL, [], "text/plain", ""}, [?SSL_NO_VERIFY], [], Profile).
+
+%%--------------------------------------------------------------------
+content_length_via_headers_as_is() ->
+    [{doc, "Test that explicit Content-Length via headers_as_is is respected "
+           "for bodyless requests"}].
+content_length_via_headers_as_is(Config) when is_list(Config) ->
+    URL = url(group_name(Config), "/check_has_content_length_zero.html", Config),
+    URLNoContentLength = url(group_name(Config), "/check_no_content_length.html", Config),
+    %% User explicitly sets Content-Length: 0 via headers_as_is - should be sent
+    {ok, {{_,200,_}, _, _}} =
+        httpc:request(get, {URL, [{"Host", "localhost"}, {"Content-Length", "0"}]},
+                      [?SSL_NO_VERIFY], [{headers_as_is, true}], ?profile(Config)),
+    %% User provides custom header but NOT Content-Length, without headers_as_is
+    %% - Content-Length should still be omitted
+    {ok, {{_,200,_}, _, _}} =
+        httpc:request(get, {URLNoContentLength, [{"X-Custom-Header", "value"}]},
+                      [?SSL_NO_VERIFY], [], ?profile(Config)).
+
+%%--------------------------------------------------------------------
 request_options() ->
     [{require, ipv6_hosts},
      {doc, "Test http get request with socket options against local server (IPv6)"}].
@@ -2070,18 +2293,25 @@ def_ssl_opt(_Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-remote_socket_close_parallel() ->
+remote_socket_close_high_load() ->
     [{doc,
       "Verify remote socket closure (related tickets: OTP-18509, OTP-18545,"
-      "ERIERL-937). Transferred data size needs to be significant, so that "
-      "socket is closed, in the middle of a transfer."
-      "Note: test case is require good network and CPU - due to that "
-      " it is not included in all()."}, {timetrap, timer:minutes(3)}].
-remote_socket_close_parallel(Config0) when is_list(Config0) ->
-    ClientNumber = 200,
-    Config = [{iterations, 10} | Config0],
+      "ERIERL-937, OTP-19587). Transferred data size needs to be significant,"
+      "so that socket would close, in the middle of a transfer,"
+      "if option max_connections_open is not set or isn't working as expected"},
+     {timetrap, timer:minutes(20)}].
+remote_socket_close_high_load(Config0) when is_list(Config0) ->
+    {ok, MaxConnectionsOpen} = httpc:get_option(max_connections_open, ?profile(Config0)),
+    case MaxConnectionsOpen =:= ?config(max_connections_open, Config0) of
+        true -> ok;
+        _ -> ct:fail("max_connections_open option not set")
+    end,
+    ClientNumber = 20,
+    Config = [{iterations, 2} | Config0],
+    ct:log("Executing a memory heavy test. This may take a while.
+            Number of simultaneous connections: ~p", [?config(max_connections_open, Config)]),
     ClientPids =
-        [spawn(?MODULE, connect, [self(), [{client_id, Id} | Config]]) ||
+        [spawn_link(?MODULE, connect, [self(), [{client_id, Id} | Config]]) ||
             Id <- lists:seq(1, ClientNumber)],
     ct:log("Started ~p clients: ~w", [ClientNumber, ClientPids]),
     Receive = fun(S) ->
@@ -2090,6 +2320,7 @@ remote_socket_close_parallel(Config0) when is_list(Config0) ->
                               ct:log("++ Client finished (~p)", [S]),
                               ok;
                           Other ->
+                              ct:log("failed with: ~p", [Other]),
                               ct:fail(Other)
                       end
               end,
@@ -2106,22 +2337,36 @@ loop(0, Acc, _Config) ->
     ok;
 loop(Cnt, Acc, Config) ->
     case request(Config) of
-        {ok, {{_,200,"OK"}, _, _}} ->
+        {ok, {{_,200,"OK"}, _, Body}} ->
             case process_info(self(), message_queue_len) of
                 {message_queue_len,0} ->
-                    loop(Cnt-1, Acc ++ ".", Config);
+                    case byte_size(Body) =:= byte_size(?DATA_20MB) of
+                        true ->
+                            Info = httpc_manager:info(httpc:profile_name(?profile(Config))),
+                            Handlers = proplists:get_value(handlers, Info),
+                            SetMax = ?config(max_connections_open, Config),
+                            case length(Handlers) of
+                                Length when Length > SetMax ->
+                                    {too_many_handlers_open, Length};
+                                _ ->
+                                    loop(Cnt-1, Acc ++ ".", Config)
+                            end;
+                        false ->
+                            ct:log("200 OK body invalid length (~p) ~n", [length(Body)]),
+                            invalid_body_length
+                        end;
                 _ ->
                     %% queue is expected to be empty
                     queue_check(),
                     ct:log("~n~s|", [Acc ++ "x"]),
-                    fail
+                    message_queue_not_empty
             end;
         {ok, NotOk} ->
             ct:log("200 OK was not received~n~p", [NotOk]),
-            fail;
+            NotOk;
         Error ->
             ct:log("Error: ~p",[Error]),
-            fail
+            Error
     end.
 
 queue_check() ->
@@ -2138,12 +2383,9 @@ queue_check() ->
     end.
 
 request(Config) ->
-    Request = {url(group_name(Config), "/httpc_SUITE/foo", Config), []},
-    httpc:request(get, Request, [],[{sync,true}, {body_format,binary}], ?profile(Config)).
-
-foo(SID, _Env, _Input) ->
-    EightyMillionBits = 80000000, %% ~10MB transferred
-    mod_esi:deliver(SID, [<<0:EightyMillionBits>>]).
+    Id = integer_to_list(?config(client_id, Config)),
+    Request = {url(group_name(Config), "", Config), [{"X-Request-Id", Id}]},
+    httpc:request(get, Request, [{ssl, [{verify, verify_none}]}], [{body_format, binary}], ?profile(Config)).
 
 %%--------------------------------------------------------------------
 %% Internal Functions ------------------------------------------------
@@ -2234,7 +2476,7 @@ url(Group, End, Config) when Group == http;
                              Group == sim_http;
                              Group == sim_http_process_leak;
                              Group == http_internal;
-                             Group == http_internal_minimum_bytes ->
+                             Group == http_high_load ->
     Port = proplists:get_value(port, Config),
     {ok,Host} = inet:gethostname(),
     ?URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End;
@@ -2243,7 +2485,8 @@ url(Group, End, Config) when Group == http_ipv6;
     Port = proplists:get_value(port, Config),
     ?URL_START ++ "[::1]" ++ ":" ++ integer_to_list(Port) ++ End;
 url(Group, End, Config) when Group == https;
-                             Group == sim_https ->
+                             Group == sim_https;
+                             Group == https_high_load ->
     Port = proplists:get_value(port, Config),
     {ok,Host} = inet:gethostname(),
     ?TLS_URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End.
@@ -2326,6 +2569,9 @@ server_config(base, Config) ->
     [{port, 0},
      {server_name,"httpc_test"},
      {server_root, ServerRoot},
+     {modules, [mod_alias, mod_auth, mod_esi,
+                mod_actions, mod_cgi, mod_dir,
+                mod_get, mod_head, mod_log, mod_disk_log]},
      {document_root, proplists:get_value(doc_root, Config)},
      {mime_type, "text/plain"}];
 server_config(base_http, Config) ->
@@ -2344,9 +2590,6 @@ server_config(http_ipv6, Config) ->
 server_config(http_internal, Config) ->
     server_config(http, Config) ++
         [{erl_script_alias, {"", [httpc_SUITE]}}];
-server_config(http_internal_minimum_bytes, Config) ->
-    server_config(http_internal, Config) ++
-        [{minimum_bytes_per_second, 100}];
 server_config(https, Config) ->
     [{socket_type, {ssl, ssl_config(Config)}} | server_config(http, Config)];
 server_config(sim_https, Config) ->
@@ -2365,6 +2608,8 @@ start_apps(https) ->
 start_apps(sim_https) ->
     inets_test_lib:start_apps([crypto, public_key, ssl]);
 start_apps(sim_mixed) ->
+    inets_test_lib:start_apps([crypto, public_key, ssl]);
+start_apps(https_high_load) ->
     inets_test_lib:start_apps([crypto, public_key, ssl]);
 start_apps(_) ->
     ok.
@@ -2556,6 +2801,13 @@ content_type_header([{"content-type", Value}|_]) ->
 content_type_header([_|T]) ->
     content_type_header(T).
 
+content_length_header([]) ->
+    not_found;
+content_length_header([{"content-length", Value}|_]) ->
+    {ok, string:strip(Value)};
+content_length_header([_|T]) ->
+    content_length_header(T).
+
 handle_auth("Basic " ++ UserInfo, Challenge, DefaultResponse) ->
     case string:tokens(base64:decode_to_string(UserInfo), ":") of
 	["alladin@example.com", "sesame"] = Auth ->
@@ -2579,6 +2831,22 @@ content_length([{"content-length", Value}|_]) ->
     list_to_integer(string:strip(Value));
 content_length([_Head | Tail]) ->
    content_length(Tail).
+
+header_matches(Headers, HeaderName, ExpectedValue) ->
+    MatchingHeaders = [Value || {Name, Value} <- Headers, Name =:= HeaderName],
+    case {MatchingHeaders, ExpectedValue} of
+        {[], undefined} ->
+            true;
+        {[], _} ->
+            io_lib:format("Expected ~s: \"~ts\" but header not found", [HeaderName, ExpectedValue]);
+        {[ActualValue], ActualValue} ->
+            true;
+        {[ActualValue], _} ->
+            io_lib:format("Expected ~s: \"~ts\" but got: \"~ts\"", [HeaderName, ExpectedValue, ActualValue]);
+        {Multiple, _} ->
+            io_lib:format("Expected single ~s header but found ~p instances: ~p",
+                         [HeaderName, length(Multiple), Multiple])
+    end.
 
 handle_uri("GET","/dummy.html?foo=bar",_,_,_,_) ->
     "HTTP/1.0 200 OK\r\n\r\nTEST";
@@ -2626,6 +2894,125 @@ handle_uri(_,"/redirect_ensure_host_header_with_port.html",Port,_,Socket,_) ->
     "HTTP/1.1 302 Found \r\n" ++
 	"Location:" ++ NewUri ++  "\r\n" ++
 	"Content-Length:0\r\n\r\n";
+
+handle_uri(_,"/te_header_undefined_no_connection.html",_,Headers,_,_) ->
+    case {header_matches(Headers, "te", undefined),
+          header_matches(Headers, "connection", "keep-alive")} of
+        {true, true} ->
+            B = "<HTML><BODY>TE header undefined - Connection not modified</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 200 OK\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B;
+        {TEResult, ConnResult} ->
+            Errors = [Error || Error <- [TEResult, ConnResult], Error =/= true],
+            ErrorMsg = string:join([lists:flatten(E) || E <- Errors], "; "),
+            B = "<HTML><BODY>ERROR: " ++ ErrorMsg ++ "</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 500 Internal Server Error\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B
+    end;
+
+handle_uri(_,"/te_header_empty_string_adds_connection.html",_,Headers,_,_) ->
+    case {header_matches(Headers, "te", ""),
+          header_matches(Headers, "connection", "keep-alive, TE")} of
+        {true, true} ->
+            B = "<HTML><BODY>TE empty string - Connection header contains TE</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 200 OK\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B;
+        {TEResult, ConnResult} ->
+            Errors = [Error || Error <- [TEResult, ConnResult], Error =/= true],
+            ErrorMsg = string:join([lists:flatten(E) || E <- Errors], "; "),
+            B = "<HTML><BODY>ERROR: " ++ ErrorMsg ++ "</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 500 Internal Server Error\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B
+    end;
+
+handle_uri(_,"/te_header_whitespace_adds_connection.html",_,Headers,_,_) ->
+    case {header_matches(Headers, "te", ""),
+          header_matches(Headers, "connection", "keep-alive, TE")} of
+        {true, true} ->
+            B = "<HTML><BODY>TE whitespace - Connection header contains TE</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 200 OK\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B;
+        {TEResult, ConnResult} ->
+            Errors = [Error || Error <- [TEResult, ConnResult], Error =/= true],
+            ErrorMsg = string:join([lists:flatten(E) || E <- Errors], "; "),
+            B = "<HTML><BODY>ERROR: " ++ ErrorMsg ++ "</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 500 Internal Server Error\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B
+    end;
+
+handle_uri(_,"/te_header_trailers_adds_connection.html",_,Headers,_,_) ->
+    case {header_matches(Headers, "te", "trailers"),
+          header_matches(Headers, "connection", "keep-alive, TE")} of
+        {true, true} ->
+            B = "<HTML><BODY>TE trailers - Connection header contains TE</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 200 OK\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B;
+        {TEResult, ConnResult} ->
+            Errors = [Error || Error <- [TEResult, ConnResult], Error =/= true],
+            ErrorMsg = string:join([lists:flatten(E) || E <- Errors], "; "),
+            B = "<HTML><BODY>ERROR: " ++ ErrorMsg ++ "</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 500 Internal Server Error\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B
+    end;
+
+handle_uri(_,"/te_header_with_existing_connection.html",_,Headers,_,_) ->
+    case {header_matches(Headers, "te", "trailers"),
+          header_matches(Headers, "connection", "keep-alive, TE")} of
+        {true, true} ->
+            B = "<HTML><BODY>TE with existing Connection - both keep-alive and TE present</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 200 OK\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B;
+        {TEResult, ConnResult} ->
+            Errors = [Error || Error <- [TEResult, ConnResult], Error =/= true],
+            ErrorMsg = string:join([lists:flatten(E) || E <- Errors], "; "),
+            B = "<HTML><BODY>ERROR: " ++ ErrorMsg ++ "</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 500 Internal Server Error\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B
+    end;
+
+handle_uri(_,"/te_header_with_connection_close.html",_,Headers,_,_) ->
+    case {header_matches(Headers, "te", "trailers"),
+          header_matches(Headers, "connection", "close, TE")} of
+        {true, true} ->
+            B = "<HTML><BODY>TE with Connection close - both close and TE present</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 200 OK\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B;
+        {TEResult, ConnResult} ->
+            Errors = [Error || Error <- [TEResult, ConnResult], Error =/= true],
+            ErrorMsg = string:join([lists:flatten(E) || E <- Errors], "; "),
+            B = "<HTML><BODY>ERROR: " ++ ErrorMsg ++ "</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 500 Internal Server Error\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B
+    end;
+
+handle_uri(_,"/te_header_already_in_connection.html",_,Headers,_,_) ->
+    case {header_matches(Headers, "te", "trailers"),
+          header_matches(Headers, "connection", "keep-alive, TE")} of
+        {true, true} ->
+            B = "<HTML><BODY>TE already in Connection - TE not duplicated</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 200 OK\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B;
+        {TEResult, ConnResult} ->
+            Errors = [Error || Error <- [TEResult, ConnResult], Error =/= true],
+            ErrorMsg = string:join([lists:flatten(E) || E <- Errors], "; "),
+            B = "<HTML><BODY>ERROR: " ++ ErrorMsg ++ "</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 500 Internal Server Error\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B
+    end;
 
 handle_uri(_,"/300.html",Port,_,Socket,_) ->
     NewUri = url_start(Socket) ++
@@ -2769,8 +3156,28 @@ handle_uri(_,"/503.html",_,_,_,DefaultResponse) ->
 	[{503, available}]   ->
 	    DefaultResponse;
 	[{503, long_unavailable}]  ->
+            %% Available after 120 seconds, in http-date format
+            {MS0, S0, NS0} = erlang:timestamp(),
+            ModifiedTimestamp = {MS0, S0 + 120, NS0},
+            {{Year, Month, Day}, {H, M, S}} = calendar:now_to_datetime(ModifiedTimestamp),
+            HttpYear = integer_to_list(Year),
+            DoW = calendar:day_of_the_week(Year, Month, Day),
+            HttpDay = lists:flatten(string:pad(integer_to_list(Day), 2, leading, $0)),
+            DayName = http_util:convert_day(DoW),
+            MonthName = http_util:convert_month(Month),
+            HttpHour = lists:flatten(string:pad(integer_to_list(H), 2, leading, $0)),
+            HttpMin = lists:flatten(string:pad(integer_to_list(M), 2, leading, $0)),
+            HttpSec = lists:flatten(string:pad(integer_to_list(S), 2, leading, $0)),
+            HttpDate = lists:flatten(io_lib:format("~ts, ~ts ~ts ~ts ~ts:~ts:~ts GMT",
+                                     [DayName, HttpDay, MonthName, HttpYear, HttpHour, HttpMin, HttpSec])),
+            ets:insert(unavailable, {503, available}),
 	    "HTTP/1.1 503 Service Unavailable\r\n" ++
-		"Retry-After:120\r\n" ++
+		"Retry-After:" ++ HttpDate ++ "\r\n" ++
+		"Content-Length:47\r\n\r\n" ++
+		"<HTML><BODY>Internal Server Error</BODY></HTML>";
+        [{503, always_unavailable}] ->
+            "HTTP/1.1 503 Service Unavailable\r\n" ++
+		"Retry-After:5\r\n" ++
 		"Content-Length:47\r\n\r\n" ++
 		"<HTML><BODY>Internal Server Error</BODY></HTML>"
     end;
@@ -3024,6 +3431,41 @@ handle_uri(_,"/delete_no_body.html", _,Headers,_, DefaultResponse) ->
 	not_found ->
 	    DefaultResponse
     end;
+handle_uri(_,"/check_no_content_length.html", _,Headers,_, DefaultResponse) ->
+    Error = "HTTP/1.1 500 Internal Server Error\r\n" ++
+        "Content-Length:0\r\n\r\n",
+    case content_length_header(Headers) of
+        {ok, _} ->
+            Error;
+        not_found ->
+            DefaultResponse
+    end;
+handle_uri(_,"/check_has_content_length_zero.html", _,Headers,_, DefaultResponse) ->
+    Error = "HTTP/1.1 500 Internal Server Error\r\n" ++
+        "Content-Length:0\r\n\r\n",
+    case content_length_header(Headers) of
+        {ok, "0"} ->
+            DefaultResponse;
+        _ ->
+            Error
+    end;
+%% Capture endpoint for redirect_strips_sensitive_headers.
+%% Echoes presence of each sensitive header as an x-received-* response header.
+handle_uri(_,"/capture_sensitive_redirect_target.html",_,Headers,_,_) ->
+    Present = fun(Name) ->
+        case proplists:is_defined(Name, Headers) of
+            true  -> "true";
+            false -> "false"
+        end
+    end,
+    "HTTP/1.1 200 OK\r\n" ++
+        "Content-Length:0\r\n" ++
+        "X-Received-Authorization:"       ++ Present("authorization")       ++ "\r\n" ++
+        "X-Received-Proxy-Authorization:" ++ Present("proxy-authorization") ++ "\r\n" ++
+        "X-Received-Cookie:"              ++ Present("cookie")              ++ "\r\n" ++
+        "X-Received-Referer:"             ++ Present("referer")             ++ "\r\n" ++
+        "X-Received-Origin:"              ++ Present("origin")              ++ "\r\n" ++
+        "\r\n";
 handle_uri(_,_,_,_,_,DefaultResponse) ->
     DefaultResponse.
 
@@ -3035,29 +3477,29 @@ get_stat(S, Opt) ->
             E
     end.
 
-getstat(#sslsocket{} = S, Opts) ->
+getstat(S, Opts) when element(1, S) =:= sslsocket ->
     ssl:getstat(S, Opts);
 getstat(S, Opts) ->
     inet:getstat(S, Opts).
 
-url_start(#sslsocket{}) ->
+url_start(S)  when element(1, S) =:= sslsocket ->
     {ok,Host} = inet:gethostname(),
     ?TLS_URL_START ++ Host ++ ":";
 url_start(_) ->
     {ok,Host} = inet:gethostname(),
     ?URL_START ++ Host ++ ":".
 
-send(#sslsocket{} = S, Msg) ->
+send(S, Msg) when element(1, S) =:= sslsocket ->
     ssl:send(S, Msg);
 send(S, Msg) ->
     gen_tcp:send(S, Msg).
 
-close(#sslsocket{} = S) ->
+close(S) when element(1, S) =:= sslsocket ->
     ssl:close(S);
 close(S) ->
     gen_tcp:close(S).
 
-sockname(#sslsocket{}= S) ->
+sockname(S) when element(1, S) == sslsocket ->
     ssl:sockname(S);
 sockname(S) ->
     inet:sockname(S).

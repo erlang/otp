@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +25,10 @@
 %%%-------------------------------------------------------------------
 -module(test_server_sup).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_possibly_unsafe_function, {file, consult, 1}}]).
+
 -export([timetrap/2, timetrap/3, timetrap/4,
 	 timetrap_cancel/1, capture_get/1, messages_get/1,
 	 timecall/3, call_crash/5, app_test/2, check_new_crash_dumps/0,

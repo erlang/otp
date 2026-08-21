@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -92,7 +94,7 @@ opt_start_1([Id | Ids], ArgDb, StMap0, FuncDb0, MetaCache) ->
         #{ Id := ArgTypes } ->
             #opt_st{ssa=Linear0,args=Args} = St0 = map_get(Id, StMap0),
 
-            Ts = maps:from_list(zip(Args, ArgTypes)),
+            Ts = #{Arg => Type || Arg <- Args && Type <- ArgTypes},
             {Linear, FuncDb} = opt_function(Linear0, Args, Id, Ts, FuncDb0, MetaCache),
 
             St = St0#opt_st{ssa=Linear},
@@ -202,7 +204,7 @@ sig_function_1(Id, StMap, State0, FuncDb) ->
     #opt_st{ssa=Linear,args=Args} = map_get(Id, StMap),
 
     {ArgTypes, State1} = sig_commit_args(Id, State0),
-    Ts = maps:from_list(zip(Args, ArgTypes)),
+    Ts = #{Arg => Type || Arg <- Args && Type <- ArgTypes},
 
     FakeCall = #b_set{op=call,args=[#b_remote{mod=#b_literal{val=unknown},
                                               name=#b_literal{val=unknown},
@@ -427,7 +429,7 @@ opt_continue(Linear0, Args, Anno, FuncDb) when FuncDb =/= #{} ->
             %% This is a local function and we're guaranteed to have visited
             %% every call site at least once, so we know that the parameter
             %% types are at least as narrow as the join of all argument types.
-            Ts = join_arg_types(Args, ArgTypes, #{}),
+            Ts = join_arg_types(Args, ArgTypes),
             opt_function(Linear0, Args, Id, Ts, FuncDb);
         #{ Id := #func_info{exported=true} } ->
             %% We can't infer the parameter types of exported functions, but
@@ -443,11 +445,9 @@ opt_continue(Linear0, Args, Anno, _FuncDb) ->
     {Linear, _} = opt_function(Linear0, Args, Id, Ts, #{}),
     {Linear, #{}}.
 
-join_arg_types([Arg | Args], [TypeMap | TMs], Ts) ->
-    Type = beam_types:join(maps:values(TypeMap)),
-    join_arg_types(Args, TMs, Ts#{ Arg => Type });
-join_arg_types([], [], Ts) ->
-    Ts.
+join_arg_types(Args, TypeMaps) ->
+    #{Arg => beam_types:join(maps:values(TypeMap)) ||
+        Arg <- Args && TypeMap <- TypeMaps}.
 
 %%
 %% Optimizes a function based on the type information inferred by signatures/2
@@ -589,10 +589,30 @@ opt_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, Meta, Acc) ->
 opt_is([], Ts, Ds, _Ls, Fdb, Sub, _Meta, Acc) ->
     {reverse(Acc), Ts, Ds, Fdb, Sub}.
 
-opt_anno_types(#b_set{op=Op,args=Args}=I, Ts) ->
+%% opt_anno_types(Instruction0, Types) -> Instruction.
+%%  Maintain the invariant that the `arg_types` annotation only
+%%  contains type annotations for variable arguments whose types are
+%%  more specific than `any`. Literal arguments must not have any type
+%%  annotation.
+%%
+%%  Also, ensure that the `arg_types` annotation is only present
+%%  in instructions that can benefit from it.
+opt_anno_types(#b_set{anno=Anno0,op=Op,args=Args}=I, Ts) ->
     case benefits_from_type_anno(Op, Args) of
-        true -> opt_anno_types_1(I, Args, Ts, 0, #{});
-        false -> I
+        true ->
+            opt_anno_types_1(I, Args, Ts, 0, #{});
+        false ->
+            case Anno0 of
+                #{arg_types := _} ->
+                    %% Remove `arg_types` from operations that don't
+                    %% need them. This can happen, for example, when
+                    %% the operation has been changed from
+                    %% `{bif,is_list}` to `is_nonempty_list`.
+                    Anno = maps:remove(arg_types, Anno0),
+                    I#b_set{anno=Anno};
+                _  ->
+                    I
+            end
     end;
 opt_anno_types(#b_switch{anno=Anno0,arg=Arg}=I, Ts) ->
     case concrete_type(Arg, Ts) of
@@ -621,10 +641,6 @@ opt_anno_types_1(#b_set{anno=Anno0}=I, [], _Ts, _Index, Acc) ->
     case Anno0 of
         #{ arg_types := Acc } ->
             I;
-        #{ arg_types := _ } when Acc =:= #{} ->
-            %% One or more arguments have been simplified to literal values.
-            Anno = maps:remove(arg_types, Anno0),
-            I#b_set{anno=Anno};
         #{} ->
             Anno = Anno0#{ arg_types => Acc },
             I#b_set{anno=Anno}
@@ -957,7 +973,7 @@ simplify_terminator(#b_switch{arg=Arg0,fail=Fail,list=List0}=Sw0,
     Arg = simplify_arg(Arg0, Ts, Sub),
     %% Ensure that no label in the switch list is the same as the
     %% failure label.
-    List = [{Val,Lbl} || {Val,Lbl} <- List0, Lbl =/= Fail],
+    List = [{Val,Lbl} || {Val,Lbl} <:- List0, Lbl =/= Fail],
     case beam_ssa:normalize(Sw0#b_switch{arg=Arg,list=List}) of
         #b_switch{}=Sw ->
             case beam_types:is_boolean_type(concrete_type(Arg, Ts)) of
@@ -1142,6 +1158,21 @@ simplify(#b_set{op={bif,element},args=[#b_literal{val=Index},Tuple]}=I0, Ts, Ds)
             simplify(I, Ts, Ds);
         _ ->
             eval_bif(I0, Ts, Ds)
+    end;
+simplify(#b_set{op={bif,get_record_field},
+                args=[Term,#b_literal{val=Name},#b_literal{val=F}=F0],
+                anno=Anno}=I0, Ts, Ds) when is_atom(Name) ->
+    case {map_get(record_module, Anno), normalized_type(Term, Ts)} of
+        {Mod, #t_record{name={Mod,Name},type=Es}} ->
+            case Es of
+                #{F := {present,_Type}} ->
+                    I = I0#b_set{anno=Anno,op=get_record_element,args=[Term,F0]},
+                    simplify(I, Ts, Ds);
+                #{} ->
+                    I0
+            end;
+        _ ->
+            I0
     end;
 simplify(#b_set{op={bif,hd},args=[List]}=I, Ts, Ds) ->
     case normalized_type(List, Ts) of
@@ -1497,6 +1528,8 @@ will_succeed_1(#b_set{op=has_map_field}, _Src, _Ts) ->
     yes;
 will_succeed_1(#b_set{op=get_tuple_element}, _Src, _Ts) ->
     yes;
+will_succeed_1(#b_set{op=put_map,args=[#b_literal{val=assoc}|_]}, _Src, _Ts) ->
+    yes;
 will_succeed_1(#b_set{op=put_tuple}, _Src, _Ts) ->
     yes;
 will_succeed_1(#b_set{op=update_tuple,args=[Tuple | Updates]}, _Src, Ts) ->
@@ -1543,12 +1576,26 @@ will_succeed_1(#b_set{op=wait_timeout}, _Src, _Ts) ->
 will_succeed_1(#b_set{}, _Src, _Ts) ->
     'maybe'.
 
+%% Take care to not produce a reuse hint when more than one update
+%% exists. There is no point in attempting the reuse optimization when
+%% more than one element is updated, as checking more than one element
+%% at runtime is known to be slower than just copying the tuple in
+%% most cases. Additionally, using a copy hint occasionally allows the
+%% alias analysis pass to do a better job.
 simplify_update_record(Src, Hint0, Updates, Ts) ->
     case sur_1(Updates, concrete_type(Src, Ts), Ts, Hint0, []) of
+        {#b_literal{val=reuse}, []} when length(Updates) > 2 ->
+            {changed, #b_literal{val=copy}, Updates};
         {Hint0, []} ->
             unchanged;
-        {Hint, Skipped} ->
-            {changed, Hint, sur_skip(Updates, Skipped)}
+        {Hint1, Skipped} ->
+            Updates1 = sur_skip(Updates, Skipped),
+            Hint = if length(Updates1) > 2 ->
+                           #b_literal{val=copy};
+                      true ->
+                           Hint1
+                   end,
+            {changed, Hint, Updates1}
     end.
 
 sur_1([Index, Arg | Updates], RecordType, Ts, Hint, Skipped) ->
@@ -1671,6 +1718,16 @@ simplify_remote_call(erlang, throw, [Term], Ts, I) ->
     beam_ssa:add_anno(thrown_type, Type, I);
 simplify_remote_call(erlang, '++', [#b_literal{val=[]},Tl], _Ts, _I) ->
     Tl;
+simplify_remote_call(maps=Mod, put=Name, [Key,Val,Map], Ts, I) ->
+    case concrete_type(Map, Ts) of
+        #t_map{} ->
+            %% This call to maps:put/3 cannot fail. Replace with the
+            %% slightly more efficient `put_map` instruction.
+            Args = [#b_literal{val=assoc},Map,Key,Val],
+            I#b_set{op=put_map,args=Args};
+        _ ->
+            simplify_pure_call(Mod, Name, [Key,Val,Map], I)
+    end;
 simplify_remote_call(Mod, Name, Args, _Ts, I) ->
     case erl_bifs:is_pure(Mod, Name, length(Args)) of
         true ->
@@ -1917,7 +1974,7 @@ st_filter_reachable([], CallArgs, Deferred, Acc) ->
             %% We have no reachable self calls, so we know our argument types
             %% can't expand any further. Filter out our reachable sites and
             %% return.
-            [ST || {SuccArgs, _}=ST <- Acc, st_is_reachable(SuccArgs, CallArgs)]
+            [ST || {SuccArgs, _}=ST <:- Acc, st_is_reachable(SuccArgs, CallArgs)]
     end.
 
 st_join_return_types([{_SuccArgs, SuccRet} | Rest], Acc0) ->
@@ -2045,7 +2102,11 @@ update_successors(#b_ret{}=Last, _Ts, _Ds, Ls, _UsedOnce) ->
 
 update_switch([{Val, Lbl}=Sw | List],
               V, FailType0, Ts, Ds, Ls0, IsTempVar, Acc) ->
-    FailType = beam_types:subtract(FailType0, concrete_type(Val, Ts)),
+    ValType = concrete_type(Val, Ts),
+    FailType = case beam_types:is_singleton_type(ValType) of
+                   true -> beam_types:subtract(FailType0, ValType);
+                   false -> FailType0
+               end,
     case infer_types_switch(V, Val, Ts, IsTempVar, Ds) of
         none ->
             update_switch(List, V, FailType, Ts, Ds, Ls0, IsTempVar, Acc);
@@ -2272,6 +2333,8 @@ type(put_list, [Head, Tail], _Anno, Ts, _Ds) ->
     HeadType = concrete_type(Head, Ts),
     TailType = concrete_type(Tail, Ts),
     beam_types:make_cons(HeadType, TailType);
+type(put_record, Args, Anno, Ts, _Ds) ->
+    put_record_type(Args, Anno, Ts);
 type(put_tuple, Args, _Anno, Ts, _Ds) ->
     {Es, _} = foldl(fun(Arg, {Es0, Index}) ->
                             Type = concrete_type(Arg, Ts),
@@ -2328,6 +2391,37 @@ join_tuple_elements(I, Tuple, Type0) ->
     Type1 = beam_types:make_type_from_value(element(I, Tuple)),
     Type = beam_types:join(Type0, Type1),
     join_tuple_elements(I - 1, Tuple, Type).
+
+put_record_type(Args, Anno, Ts) ->
+    [Src, Name | Fs0] = Args,
+
+    Defs = case Src of
+               #b_literal{val=empty} ->
+                   map_get(record_defaults, Anno);
+               #b_var{}=Var ->
+                   case Ts of
+                       #{Var := #t_record{type=Defs0}} -> Defs0;
+                       #{} -> #{}
+                   end
+           end,
+
+    Fs = record_field_types(Fs0, Ts, Defs),
+
+    case Name of
+        #b_literal{val={Mod,Tag}} when is_atom(Mod), is_atom(Tag) ->
+            #t_record{name={Mod,Tag}, type=Fs};
+        #b_literal{val='_'} ->
+            #t_record{name=nil, type=Fs};
+        #b_literal{val=Tag} when is_atom(Tag) ->
+            Mod = map_get(record_module, Anno),
+            #t_record{name={Mod,Tag}, type=Fs}
+    end.
+
+record_field_types([#b_literal{val=Key}, Value0 | Fs], Ts, Acc) ->
+    Value = concrete_type(Value0, Ts),
+    record_field_types(Fs, Ts, Acc#{Key => {present, Value}});
+record_field_types([], _Ts, Acc) ->
+    Acc.
 
 put_map_type(Map, Ss, Ts) ->
     pmt_1(Ss, Ts, concrete_type(Map, Ts)).
@@ -2602,7 +2696,7 @@ infer_relop('=/=', [LHS,RHS], [LType,RType], Ds) ->
     %% as it may be too specific. See beam_type_SUITE:type_subtraction/1
     %% for details.
     {[{V,beam_types:subtract(ThisType, OtherType)} ||
-         {V, ThisType, OtherType} <- [{RHS, RType, LType}, {LHS, LType, RType}],
+         {V, ThisType, OtherType} <:- [{RHS, RType, LType}, {LHS, LType, RType}],
          beam_types:is_singleton_type(OtherType)], NeTypes};
 infer_relop(Op, Args, Types, _Ds) ->
     {infer_relop(Op, Args, Types), []}.
@@ -2679,6 +2773,15 @@ make_number({'-inf','+inf'}) ->
 make_number({_,_}=R) ->
     #t_number{elements=R}.
 
+make_integer({'-inf','+inf'}) ->
+    #t_integer{};
+make_integer({'-inf',_}=R) ->
+    #t_integer{elements=R};
+make_integer({Min,Max}=R) when is_integer(Min), Min =< Max ->
+    #t_integer{elements=R};
+make_integer(_) ->
+    #t_integer{}.
+
 inv_relop({bif,Op}) -> inv_relop_1(Op);
 inv_relop(_) -> none.
 
@@ -2693,6 +2796,14 @@ inv_relop_1(_) -> none.
 infer_get_range(#t_integer{elements=R}) -> R;
 infer_get_range(#t_number{elements=R}) -> R;
 infer_get_range(_) -> unknown.
+
+infer_integer_get_range(Arg, Ts) ->
+    case concrete_type(Arg, Ts) of
+        #t_integer{elements={_,_}=R} ->
+            R;
+        _ ->
+            {'-inf','+inf'}
+    end.
 
 infer_br_value(_V, _Bool, none) ->
     none;
@@ -2772,6 +2883,18 @@ infer_type({bif,is_function}, [#b_var{}=Arg, Arity], _Ts, _Ds) ->
 infer_type({bif,is_integer}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_integer{}},
     {[T], [T]};
+infer_type({bif,is_integer}, [#b_var{}=Arg,
+                              #b_literal{val=Min},
+                              #b_literal{val=Max}], _Ts, _Ds) when Min =< Max ->
+    T = {Arg, beam_types:make_integer(Min, Max)},
+    {[T], [T]};
+infer_type({bif,is_integer}, [#b_var{}=Arg,Min0,Max0], Ts, _Ds) ->
+    {Min,_} = infer_integer_get_range(Min0, Ts),
+    {_,Max} = infer_integer_get_range(Max0, Ts),
+    T = {Arg, make_integer({Min,Max})},
+    %% Conservatively never attempt to subtract the type; subtraction
+    %% will most likely be incorrect or useless.
+    {[T], []};
 infer_type({bif,is_list}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_list{}},
     {[T], [T]};
@@ -2792,6 +2915,15 @@ infer_type({bif,is_reference}, [#b_var{}=Arg], _Ts, _Ds) ->
     {[T], [T]};
 infer_type({bif,is_tuple}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_tuple{}},
+    {[T], [T]};
+infer_type({bif,is_record}, [#b_var{}=Arg], _Ts, _Ds) ->
+    T = {Arg, #t_record{}},
+    {[T], [T]};
+infer_type({bif,is_record}, [#b_var{}=Arg,
+                             #b_literal{val=Mod},
+                             #b_literal{val=Name}],
+           _Ts, _Ds) ->
+    T = {Arg, #t_record{name={Mod,Name}}},
     {[T], [T]};
 infer_type({bif,'and'}, [#b_var{}=LHS,#b_var{}=RHS], Ts, Ds) ->
     %% When this BIF yields true, we know that both `LHS` and `RHS` are 'true'
@@ -2836,6 +2968,17 @@ infer_success_type(bs_match, [#b_literal{val=binary},
     %% position, so we know that Ctx has the same unit.
     T = {Ctx, #t_bs_context{tail_unit=OpUnit}},
     {[T], [T]};
+infer_success_type(get_record_element, [#b_var{}=Arg,
+                                        #b_literal{val=F}],
+                   Ts, _Ds) ->
+    case concrete_type(Arg, Ts) of
+        #t_record{type=#{F := {present,_}}} ->
+            {[], []};
+        _ ->
+            Es = #{F => {present,any}},
+            T = {Arg, #t_record{type=Es}},
+            {[T], []}
+    end;
 infer_success_type(_Op, _Args, _Ts, _Ds) ->
     {[], []}.
 
@@ -2890,17 +3033,18 @@ join_types(Ts, Ts) ->
 join_types(LHS, RHS) ->
     if
         map_size(LHS) < map_size(RHS) ->
-            join_types_1(maps:keys(LHS), RHS, LHS);
+            join_types_1(maps:next(maps:iterator(LHS)), RHS, LHS);
         true ->
-            join_types_1(maps:keys(RHS), LHS, RHS)
+            join_types_1(maps:next(maps:iterator(RHS)), LHS, RHS)
     end.
 
 %% Joins two type maps, keeping the variables that are common to both maps.
-join_types_1([V | Vs], Bigger, Smaller) ->
-    case {Bigger, Smaller} of
-        {#{ V := Same }, #{ V := Same }} ->
-            join_types_1(Vs, Bigger, Smaller);
-        {#{ V := LHS0 }, #{ V := RHS0 }} ->
+join_types_1({V, RHS0, Iter0}, Bigger, Smaller) ->
+    Iter = maps:next(Iter0),
+    case Bigger of
+        #{V := RHS0} ->
+            join_types_1(Iter, Bigger, Smaller);
+        #{V := LHS0} ->
             %% Inlined concrete_type/2 for performance.
             LHS = case is_function(LHS0) of
                       true -> LHS0(Bigger);
@@ -2911,11 +3055,11 @@ join_types_1([V | Vs], Bigger, Smaller) ->
                       false -> RHS0
                   end,
             T = beam_types:join(LHS, RHS),
-            join_types_1(Vs, Bigger, Smaller#{ V := T });
-        {#{}, #{ V := _ }} ->
-            join_types_1(Vs, Bigger, maps:remove(V, Smaller))
+            join_types_1(Iter, Bigger, Smaller#{V := T});
+        #{} ->
+            join_types_1(Iter, Bigger, maps:remove(V, Smaller))
     end;
-join_types_1([], _Bigger, Smaller) ->
+join_types_1(none, _Bigger, Smaller) ->
     Smaller.
 
 meet_types([{#b_literal{}=Lit, T0} | Vs], Ts) ->
@@ -2950,10 +3094,8 @@ subtract_types([{#b_var{}=V, T0}|Vs], Ts) ->
 subtract_types([], Ts) ->
     Ts.
 
-parallel_join([A | As], [B | Bs]) ->
-    [beam_types:join(A, B) | parallel_join(As, Bs)];
-parallel_join([], []) ->
-    [].
+parallel_join(As, Bs) ->
+    [beam_types:join(A, B) || A <- As && B <- Bs].
 
 gcd(A, B) ->
     case A rem B of

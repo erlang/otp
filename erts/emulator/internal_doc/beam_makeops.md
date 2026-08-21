@@ -1,4 +1,26 @@
-The beam\_makeops script
+<!--
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2017-2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
+
+The beam_makeops script
 =======================
 
 This document describes the **beam\_makeops** script.
@@ -27,8 +49,8 @@ They are created by transformation rules (described next).
 * Rules for transforming one or more generic instructions to other
 generic instructions.  The transformation rules allow combining,
 splitting, and removal of instructions, as well as shuffling operands.
-Because of the transformation rules, the runtime can have many
-internal generic instructions that are only known to runtime system.
+Because of the transformation rules, the runtime system can have many
+internal generic instructions not known by the compiler.
 
 * Specific BEAM instructions.  The specific instructions are the
 instructions that are actually executed by the runtime system.  They
@@ -388,7 +410,7 @@ used by `beam_load.c` but also by `beam_{hot,warm,cold}.h`.
 For the traditional BEAM interpreter, the following files are also
 generated:
 
-* `beam_hot.h`, `beam_warm.h`, `beam_cold.`h - Implementation of
+* `beam_hot.h`, `beam_warm.h`, `beam_cold.h` - Implementation of
 instructions.  Included inside the `process_main()` function in
 `beam_emu.c`.
 
@@ -762,7 +784,7 @@ other modules, such as `call_ext`.
 
 * `F` - Pointer to a fun entry. Used in `make_fun2` and friends.
 
-* `A` - A tagged arityvalue.  Used in instructions that test the arity
+* `A` - A tagged arity value.  Used in instructions that test the arity
 of a tuple.
 
 * `P` - A byte offset into a tuple.
@@ -876,8 +898,8 @@ the arrow is one or more instruction patterns, separated by `|`.  To
 the right of the arrow is zero or more instructions, separated by `|`.
 If the instructions from the BEAM code matches the instruction
 patterns on the left-hand side, they will be replaced with
-instructions on the right-hand side (or removed if there are no
-instructions on the right).
+instructions on the right-hand side (or removed if the right-hand
+side is the single symbol `_`).
 
 #### Defining instruction patterns ####
 
@@ -887,14 +909,20 @@ A pattern for an instruction consists of its name, followed by a pattern
 for each of its operands.  The operand patterns are separated by spaces.
 
 The simplest possible pattern is a variable.  Just like in Erlang,
-a variable must begin with an uppercase letter.  In constrast to Erlang,
+a variable must begin with an uppercase letter.  In contrast to Erlang,
 variables must **not** be repeated.
 
 Variables that have been bound on the left-hand side can be used on
-the right-hand side.  For example, this rule will rewrite all `move`
-instructions to `assign` instructions with the operands swapped:
+the right-hand side or in predicates.  For example, this rule will rewrite all
+`move` instructions to `assign` instructions with the operands swapped:
 
     move Src Dst => assign Dst Src
+
+To help catch issues caused by unused variables (such as GH-8875), they are
+considered errors. If you wish to give an operand a name for documentation
+purposes, prefix it with an underscore (`_Foobar`) to mark the variable as
+intentionally unused. Conversely, using a variable marked in this manner is
+also an error.
 
 If we only want to match operands of a certain type, we can
 use a type constraint.  A type constraint consists of one or more
@@ -1044,7 +1072,7 @@ the match will fail.  Such guard functions are hereafter called
 *predicates*.
 
 The most commonly used guard constraints is `equal()`. It can be used
-to remove a redundant `move` instructio like this:
+to remove a redundant `move` instruction like this:
 
     move R1 R2 | equal(R1, R2) => _
 
@@ -1053,11 +1081,19 @@ or remove a redundant `is_eq_exact` instruction like this:
     is_eq_exact Lbl Src1 Src2 | equal(Src1, Src2) => _
 
 At the time of writing, all predicates are defined in files named
-`predicates.tab` in several directories.  In `predicates.tab` directly
-in `$ERL_TOP/erts/emulator/beam`, predicates that are used by both the
-traditinal emulator and the JIT implementations are contained.
-Predicates only used by the emulator can be found in
-`emu/predicates.tab`.
+`predicates.tab` in several directories:
+
+* Predicates used by both the interpreter and the JIT implementations
+  are contained in `$ERL_TOP/erts/emulator/beam/predicates.tab`.
+
+* Predicates only used by x86_64 JIT can be found in
+  `$ERL_TOP/erts/emulator/beam/jit/x86/predicates.tab`.
+
+* Predicates only used by AArc64 (Arm64) JIT can be found in
+  `$ERL_TOP/erts/emulator/beam/jit/arm/predicates.tab`.
+
+* Predicates only used by the interpreter can be found in
+  `$ERL_TOP/erts/emulator/beam/emu/predicates.tab`.
 
 ### A very brief note on implementation of predicates ####
 
@@ -1068,7 +1104,7 @@ implementation of a simple predicate called `literal_is_map()`.
 
 Here is first an example how it is used:
 
-   is_map Fail Lit=q | literal_is_map(Lit) => _
+    is_map Fail Lit=q | literal_is_map(Lit) => _
 
 If the `Lit` operand is a literal, then the `literal_is_map()`
 predicate is called to determine whether it is a map literal.
@@ -1089,7 +1125,7 @@ predicate.  Without the prefix, it would have been interpreted as the
 implementation of an instruction (described in **Defining the
 implementation**).
 
-Predicate functions have a magic variabled called `S`, which is a
+Predicate functions have a magic variable called `S`, which is a
 pointer to a state struct. In the example,
 `beamfile_get_literal(&S->beam, Lit.val);` is used to retrieve the actual term
 for the literal.
@@ -1160,6 +1196,9 @@ by `=` and a value.  Most types take an integer value.  The value for
 an atom is written the same way as in the C source code.  For example,
 the atom `false` is written as `am_false`.  The atom must be listed in
 `atom.names`.
+
+As a special case, `a=$MODULE` will evaluate to the atom for the current
+module (the module being loaded).
 
 Here is an example showing how values can be specified:
 
@@ -1259,7 +1298,7 @@ generator.  Without the prefix, it would have been interpreted as the
 implementation of an instruction (described in **Defining the
 implementation**).
 
-Generator functions have a magic variabled called `S`, which is a
+Generator functions have a magic variable called `S`, which is a
 pointer to a state struct.  In the example, `S` is used in the invocation
 of the `NewBeamOp` macro.
 
@@ -1699,38 +1738,38 @@ operands.
 Here is the implementation:
 
     put_tuple2(Dst, Arity) {
-	Eterm* hp = HTOP;
-	Eterm arity = $Arity;
-	Eterm* dst_ptr = &($Dst);
+        Eterm* hp = HTOP;
+        Eterm arity = $Arity;
+        Eterm* dst_ptr = &($Dst);
 
-	//| -no_next
-	ASSERT(arity != 0);
-	*hp++ = make_arityval(arity);
+        //| -no_next
+        ASSERT(arity != 0);
+        *hp++ = make_arityval(arity);
 
-	/*
-	 * The $NEXT_INSTRUCTION macro points just beyond the fixed
-	 * operands. In this case it points to the descriptor of
-	 * the first element to be put into the tuple.
-	 */
-	I = $NEXT_INSTRUCTION;
-	do {
-	    Eterm term = *I++;
-	    switch (loader_tag(term)) {
-	    case LOADER_X_REG:
-		*hp++ = x(loader_x_reg_index(term));
-		break;
-	    case LOADER_Y_REG:
-		*hp++ = y(loader_y_reg_index(term));
-		break;
-	    default:
-		*hp++ = term;
-		break;
-	    }
-	} while (--arity != 0);
-	*dst_ptr = make_tuple(HTOP);
-	HTOP = hp;
-	ASSERT(VALID_INSTR(* (Eterm *)I));
-	Goto(*I);
+        /*
+         * The $NEXT_INSTRUCTION macro points just beyond the fixed
+         * operands. In this case it points to the descriptor of
+         * the first element to be put into the tuple.
+         */
+        I = $NEXT_INSTRUCTION;
+        do {
+            Eterm term = *I++;
+            switch (loader_tag(term)) {
+            case LOADER_X_REG:
+                *hp++ = x(loader_x_reg_index(term));
+                break;
+            case LOADER_Y_REG:
+                *hp++ = y(loader_y_reg_index(term));
+                break;
+            default:
+                *hp++ = term;
+                break;
+            }
+        } while (--arity != 0);
+        *dst_ptr = make_tuple(HTOP);
+        HTOP = hp;
+        ASSERT(VALID_INSTR(* (Eterm *)I));
+        Goto(*I);
     }
 
 
@@ -2012,16 +2051,27 @@ For the BeamAsm runtime system, the implementation of each instruction is define
 by emitter functions written in C++ that emit the assembly code for each instruction.
 There is one emitter function for each family of specific instructions.
 
-Take for example the `move` instruction. In `beam/asm/ops.tab` there is a
-single specific instruction for `move` defined like this:
+All source files containing the emitter functions for generating
+x86_64 native instructions are found in the `beam/jit/x86` directory,
+while the corresponding files for AArch64 (Arm64) are found in
+`beam/jit/arm`. Common source code and header files for both back-ends
+are located in the `beam/jit` directory.
+
+Take for example the `move` instruction. In `beam/jit/x86/ops.tab`
+there used to be a single specific instruction for `move` defined like
+this:
 
     move s d
 
-The implementation is found in `beam/asm/instr_common.cpp`:
+The implementation found in `beam/jit/x86/instr_common.cpp` used to
+look like this:
 
     void BeamModuleAssembler::emit_move(const ArgVal &Src, const ArgVal &Dst) {
         mov_arg(Dst, Src);
     }
+
+(The current implementation is slightly more complicated because of additional
+optimizations.)
 
 The `mov_arg()` helper function will handle all combinations of source and destination
 operands.  For example, the instruction `{move,{x,1},{y,1}}` will be translated like this:
@@ -2033,8 +2083,7 @@ while `{move,{integer,42},{x,0}}` will be translated like this:
 
     mov qword [rbx], 687
 
-It is possible to define more than one specific instruction, but there will still be
-only one emitter function. For example:
+It is possible to define more than one specific instruction. For example:
 
     fload S l
     fload q l
@@ -2088,7 +2137,7 @@ Here is the emitter function:
     void BeamModuleAssembler::emit_select_val(const ArgVal &Src,
                                               const ArgVal &Fail,
                                               const ArgVal &Size,
-                                              const Span<ArgVal> &args) {
+                                              const Span<const ArgVal> &args) {
         ASSERT(Size.getValue() == args.size());
            .
            .

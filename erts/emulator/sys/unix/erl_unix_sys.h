@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
+ *
+ * SPDX-License-Identifier: Apache-2.0
  * 
- * Copyright Ericsson AB 1997-2023. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2025. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -147,6 +149,12 @@ typedef struct tms SysTimes;
 #define SYS_CLK_TCK (erts_sys_time_data__.r.o.ticks_per_sec)
 
 #define sys_times(Arg) times(Arg)
+
+#if !HAVE_DECL_DAYLIGHT
+extern int sys_daylight;
+#else
+#define sys_daylight daylight
+#endif
 
 #if SIZEOF_LONG == 8
 typedef long ErtsMonotonicTime;

@@ -1,7 +1,9 @@
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2013. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2013-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -13,7 +15,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(map_galore).
@@ -1527,7 +1529,7 @@ float_int_compare() ->
 
 numeric_keys(N) ->
     lists:foldl(fun(_,Acc) ->
-			Int = random:uniform(N*4) - N*2,
+			Int = rand:uniform(N*4) - N*2,
 			Float = float(Int),
 			[Int, Float, Float * 0.99, Float * 1.01 | Acc]
 		end,
@@ -1558,7 +1560,7 @@ do_compare([Gen1, Gen2]) ->
 
     %% Change one key from int to float (or vice versa) and check compare
     ML1 = maps:to_list(M1),
-    {K1,V1} = lists:nth(random:uniform(length(ML1)), ML1),
+    {K1,V1} = lists:nth(rand:uniform(length(ML1)), ML1),
     case K1 of
 	I when is_integer(I) ->
 	    case maps:find(float(I),M1) of
@@ -1649,9 +1651,9 @@ cmp_others(T1, T2, _) ->
 
 map_gen(Pairs, Size) ->
     {_,L} = lists:foldl(fun(_, {Keys, Acc}) ->
-				KI = random:uniform(tuple_size(Keys)),
+				KI = rand:uniform(tuple_size(Keys)),
 				K = element(KI,Keys),
-				KV = element(random:uniform(tuple_size(K)), K),
+				KV = element(rand:uniform(tuple_size(K)), K),
 				{erlang:delete_element(KI,Keys), [KV | Acc]}
 			end,
 			{Pairs, []},
@@ -1691,15 +1693,15 @@ term_gen_recursive(Leafs, Flags, Depth) ->
     MaxDepth = 10,
     Rnd = case {Flags, Depth} of
 	      {_, MaxDepth} -> % Only leafs
-		  random:uniform(size(Leafs)) + 3;
+		  rand:uniform(size(Leafs)) + 3;
 	      {0, 0} ->        % Only containers
-		  random:uniform(3);
+		  rand:uniform(3);
 	      {0,_} ->         % Anything
-		  random:uniform(size(Leafs)+3)
+		  rand:uniform(size(Leafs)+3)
 	  end,
     case Rnd of
 	1 -> % Make map
-	    Size = random:uniform(size(Leafs)),
+	    Size = rand:uniform(size(Leafs)),
 	    lists:foldl(fun(_, {Acc1,Acc2}) ->
 				{K1,K2} = term_gen_recursive(Leafs, Flags,
 							     Depth+1),
@@ -1713,7 +1715,7 @@ term_gen_recursive(Leafs, Flags, Depth) ->
 	    {Cdr1,Cdr2} = term_gen_recursive(Leafs, Flags, Depth+1),
 	    {[Car1 | Cdr1], [Car2 | Cdr2]};
 	3 -> % Make tuple
-	    Size = random:uniform(size(Leafs)),
+	    Size = rand:uniform(size(Leafs)),
 	    L = lists:map(fun(_) -> term_gen_recursive(Leafs, Flags, Depth+1) end,
 			  lists:seq(1,Size)),
 	    {L1, L2} = lists:unzip(L),
@@ -1722,7 +1724,7 @@ term_gen_recursive(Leafs, Flags, Depth) ->
 	N -> % Make leaf
 	    case element(N-3, Leafs) of
 		I when is_integer(I) ->
-		    case random:uniform(4) of
+		    case rand:uniform(4) of
 			1 -> {I, float(I)};
 			2 -> {float(I), I};
 			_ -> {I,I}

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,7 +59,7 @@
 %% Per-module scan state
 -record(gst, {tlh_roots :: gb_trees:tree(#b_local{}, gb_sets:set(handler())),
               tlh_edges=#{} :: #{ #b_local{} => gb_sets:set(#b_local{}) },
-              throws=sets:new([{version, 2}]) :: sets:set(#b_local{})}).
+              throws=sets:new() :: sets:set(#b_local{})}).
 
 %% Per-function scan state
 -record(lst, {suitability=#{} :: #{ #b_var{} => suitability() },
@@ -382,26 +384,32 @@ opt_throw([], _ThrownType, #b_set{args=[_, Reason]}=I) ->
 %% cases.
 opt_is_suitable(Start, Blocks, Vars, ThrownType) ->
     Ts = ois_init_ts(Vars, ThrownType),
-    ois_1([Start], Blocks, Ts).
+    ois_1([Start], Blocks, Ts, sets:new()).
 
-ois_1([Lbl | Lbls], Blocks, Ts0) ->
-    case Blocks of
-        #{ Lbl := #b_blk{last=Last,is=Is} } ->
-            case ois_is(Is, Ts0) of
-                {ok, Ts} ->
-                    Next = ois_successors(Last, Ts),
-                    ois_1(Next ++ Lbls, Blocks, Ts);
-                error ->
-                    false
-            end;
-        #{} ->
-            ois_1(Lbls, Blocks, Ts0)
+ois_1([Lbl | Lbls], Blocks, Ts0, Seen0) ->
+    case sets:is_element(Lbl, Seen0) of
+        true ->
+            ois_1(Lbls, Blocks, Ts0, Seen0);
+        false ->
+            Seen1 = sets:add_element(Lbl, Seen0),
+            case Blocks of
+                #{ Lbl := #b_blk{last=Last,is=Is} } ->
+                    case ois_is(Is, Ts0) of
+                        {ok, Ts} ->
+                            Next = ois_successors(Last, Ts),
+                            ois_1(Next ++ Lbls, Blocks, Ts, Seen1);
+                        error ->
+                            false
+                    end;
+                #{} ->
+                    ois_1(Lbls, Blocks, Ts0, Seen1)
+        end
     end;
-ois_1([], _Blocks, _Ts) ->
+ois_1([], _Blocks, _Ts, _Seen) ->
     true.
 
 ois_successors(#b_switch{fail=Fail,list=List}, _Ts) ->
-    Lbls = [Lbl || {_, Lbl} <- List],
+    Lbls = [Lbl || {_, Lbl} <:- List],
     [Fail | Lbls];
 ois_successors(#b_br{bool=Bool,succ=Succ,fail=Fail}, Ts) ->
     case beam_types:get_singleton_value(ois_get_type(Bool, Ts)) of

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,10 +24,10 @@
 -moduledoc false.
 
 -export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
-   init_per_group/2, end_per_group/2]).
+   init_per_group/2, end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
--export([render/1, links/1, normalize/1, render_prop/1,render_non_native/1]).
--export([render_function/1, render_type/1, render_callback/1]).
+-export([render/1, links/1, normalize/1, render_prop/1,render_non_native/1, ansi/1, columns/1, render_man/1]).
+-export([render_function/1, render_type/1, render_callback/1, doctests/1]).
 
 -export([render_all/1, update_render/0, update_render/1]).
 
@@ -40,12 +42,15 @@ suite() ->
 all() ->
     [ {group, render},
       {group, prop},
-      {group, render_smoke}
+      {group, render_smoke},
+      ansi, columns,
+      doctests
     ].
+
 
 groups() ->
     [ {prop,[],[render_prop]},
-      {render, [], [render, render_non_native, links, normalize]},
+      {render, [], [render, render_non_native, links, normalize, render_man]},
       {render_smoke, [], [render_function, render_type, render_callback]}
     ].
 
@@ -66,8 +71,23 @@ init_per_group(prop, Config) ->
 init_per_group(_GroupName, Config) ->
     Config.
 
-end_per_group(_GroupName, Config) ->
-    Config.
+end_per_group(_GroupName, _Config) ->
+    ok.
+
+init_per_testcase(_TestCase, Config) ->
+    Env = [{App, Key, application:get_env(App, Key)}
+           || {App, Key} <- [{kernel, shell_docs_ansi},
+                             {stdlib, shell_docs_columns}]],
+    [{env, Env} | Config].
+
+end_per_testcase(_TestCase, Config) ->
+    lists:foreach(
+      fun({App, Key, undefined}) ->
+              application:unset_env(App, Key);
+         ({App, Key, {ok, Val}}) ->
+              application:set_env(App, Key, Val)
+      end,
+      proplists:get_value(env, Config)).
 
 %% We keep the docs of a couple of complex modules
 %% in the data_dir in order to compare then with the original
@@ -92,10 +112,11 @@ render(Config) ->
       fun(Module) ->
               maps:map(
                 fun(FName, Current) ->
-                        case file:read_file(filename:join(DataDir,FName)) of
+                        case read_file(filename:join(DataDir,FName)) of
                             {ok, Original} when Original =:= Current ->
                                 ok;
                             {ok, Original} ->
+                                ct:log("Filename: ~ts",[FName]),
                                 ct:log("Original: ~n~ts",[Original]),
                                 ct:log("Current : ~n~ts",[Current]),
                                 ct:fail(output_changed);
@@ -108,11 +129,27 @@ render(Config) ->
                 end, render_module(Module, DataDir))
       end, ?RENDER_MODULES).
 
+read_file(Filename) ->
+    case file:read_file(Filename) of
+        {ok, B} ->
+            strip_comment(B);
+        Else -> Else
+    end.
+
+strip_comment(Data) ->
+    case re:replace(Data, "^%.*\n", "", [{return, binary}]) of
+        Data -> {ok, fixup(Data)};
+        NewData -> strip_comment(NewData)
+    end.
+
 update_render() ->
     update_render(
       filename:join([os:getenv("ERL_TOP"),
                      "lib", "stdlib", "test", "shell_docs_SUITE_data"])).
 update_render(DataDir) ->
+    os:cmd("git rm " ++ filename:join(DataDir, "*.txt"), #{ exception_on_failure => true }),
+    os:cmd("git rm " ++ filename:join(DataDir, "*.docs_v1"), #{ exception_on_failure => true }),
+    ok = filelib:ensure_path(DataDir),
     lists:foreach(
       fun(Module) ->
               case code:get_doc(Module) of
@@ -141,17 +178,36 @@ update_render(DataDir) ->
                                   Docs#docs_v1.docs
                           end,
 
-                      ok = file:write_file(
-                             filename:join(DataDir, atom_to_list(Module) ++ ".docs_v1"),
-                             io_lib:format("~w.",[Docs#docs_v1{ docs = NewEntries }]));
+                      Name = filename:join(DataDir, atom_to_list(Module) ++ ".docs_v1"),
+
+                      ok = file:write_file(Name,
+                             io_lib:format("~ts\n~w.",[header(), Docs#docs_v1{ docs = NewEntries }])),
+                      os:cmd("git add " ++ Name, #{ exception_on_failure => true });
                   {error, _} ->
                       ok
               end,
               maps:map(
                 fun(FName, Output) ->
-                        ok = file:write_file(filename:join(DataDir, FName), Output)
+                        FullName = filename:join(DataDir, FName),
+                        ok = file:write_file(FullName, [header(), Output]),
+                        os:cmd("git add " ++ FullName, #{ exception_on_failure => true })
                 end, render_module(Module, DataDir))
       end, ?RENDER_MODULES).
+
+header() ->
+    {{YY, _, _}, _} = erlang:localtime(),
+
+    Format = """
+        %% %CopyrightBegin%
+        %%
+        %% SPDX-License-Identifier: Apache-2.0
+        %%
+        %% Copyright Ericsson AB 2021-~p. All Rights Reserved.
+        %%
+        %% %CopyrightEnd%
+        
+        """,
+    io_lib:format(Format, [YY]).
 
 find_path(Module) ->
     maybe
@@ -262,6 +318,27 @@ render_callback(_Config) ->
       end),
     ok.
 
+render_man(_Config) ->
+    docsmap(
+        fun(Mod, #docs_v1{metadata = Metadata} = D) ->
+            try
+                Path1 = case Metadata of
+                    #{source_path := Path} -> Path;
+                    #{} -> try
+                            proplists:get_value(source, proplists:get_value(compile, Mod:module_info()))
+                        catch _:_ ->
+                            throw({error, no_path_to_source})
+                        end
+                end,
+                man_docs:module_to_manpage(Mod, Path1, D, "3")
+            catch _E:R:ST ->
+                io:format("Failed to render man page for ~p~n~p:~p~n~p~n",
+                          [Mod,R,ST,D]),
+                exit(R)
+            end
+        end),
+    ok.
+
 docsmap(Fun) ->
   F = fun F({Mod,_,_}) ->
             F(Mod);
@@ -283,9 +360,11 @@ docsmap(Fun) ->
                 try
                   _ = Fun(Mod, Docs),
                   {ok, self(), Mod}
-                catch E:R:ST ->
-                    io:format("Failed to render ~p~n~p:~p:~p~n",[Mod,E,R,ST]),
-                    erlang:raise(E,R,ST)
+                catch throw:{error, no_path_to_source} ->
+                        ok;
+                    E:R:ST ->
+                        io:format("Failed to render ~p~n~p:~p:~p~n",[Mod,E,R,ST]),
+                        erlang:raise(E,R,ST)
                 end
             end
       end,
@@ -465,11 +544,11 @@ render_module(Mod, #docs_v1{ docs = Docs } = D) ->
     Files =
         #{
           SMod ++ ".txt" =>
-              unicode:characters_to_binary(shell_docs:render(Mod, D, Opts)),
+              fixup(unicode:characters_to_binary(shell_docs:render(Mod, D, Opts))),
           SMod ++ "_type.txt" =>
-              unicode:characters_to_binary(shell_docs:render_type(Mod, D, Opts)),
+              fixup(unicode:characters_to_binary(shell_docs:render_type(Mod, D, Opts))),
           SMod ++ "_cb.txt" =>
-                    unicode:characters_to_binary(shell_docs:render_callback(Mod, D, Opts))
+                    fixup(unicode:characters_to_binary(shell_docs:render_callback(Mod, D, Opts)))
          },
     lists:foldl(
       fun({_Type,_Anno,_Sig,none,_Meta}, Acc) ->
@@ -477,8 +556,8 @@ render_module(Mod, #docs_v1{ docs = Docs } = D) ->
          ({{function,Name,Arity},_Anno,_Sig,_Doc,_Meta}, Acc) ->
               FAName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_func.txt",
               FName = SMod ++ "_"++atom_to_list(Name)++"_func.txt",
-              FADocs = unicode:characters_to_binary(shell_docs:render(Mod, Name, Arity, D, Opts)),
-              FDocs = unicode:characters_to_binary(shell_docs:render(Mod, Name, D, Opts)),
+              FADocs = fixup(unicode:characters_to_binary(shell_docs:render(Mod, Name, Arity, D, Opts))),
+              FDocs = fixup(unicode:characters_to_binary(shell_docs:render(Mod, Name, D, Opts))),
               case string:equal(FADocs,FDocs) of
                   true -> 
                       Acc#{ sanitize(FAName) => FADocs };
@@ -489,11 +568,11 @@ render_module(Mod, #docs_v1{ docs = Docs } = D) ->
          ({{type,Name,Arity},_Anno,_Sig,_Doc,_Meta}, Acc) ->
               FName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_type.txt",
               Acc#{ sanitize(FName) =>
-                        unicode:characters_to_binary(shell_docs:render_type(Mod, Name, Arity, D, Opts))};
+                        fixup(unicode:characters_to_binary(shell_docs:render_type(Mod, Name, Arity, D, Opts)))};
          ({{callback,Name,Arity},_Anno,_Sig,_Doc,_Meta}, Acc) ->
               FName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_cb.txt",
               Acc#{ sanitize(FName) =>
-                        unicode:characters_to_binary(shell_docs:render_callback(Mod, Name, Arity, D, Opts))}
+                        fixup(unicode:characters_to_binary(shell_docs:render_callback(Mod, Name, Arity, D, Opts)))}
       end, Files, Docs);
 render_module(Mod, Datadir) ->
     {ok, [Docs]} = file:consult(filename:join(Datadir, atom_to_list(Mod) ++ ".docs_v1")),
@@ -505,6 +584,84 @@ sanitize(FName) ->
               re:replace(Txt,Re,Replace,[global,{return,list}])
       end, FName, [{"/","slash"},{":","colon"},
                    {"\\*","star"},{"<","lt"},{">","gt"},{"=","eq"}]).
+
+fixup(Data) ->
+    Replacements = [{"\\Q\e(B\e[m\\E", "\e[0m"},
+                    {"\e\\[;+", "\e["}],
+    lists:foldl(fun({Replace, With}, D) ->
+        re:replace(D, Replace, With, [{return, binary}, unicode, global])
+    end, Data, Replacements).
+
+ansi(_Config) ->
+    {ok, Docs} = code:get_doc(?MODULE),
+
+    HasESC =
+        fun(Config) ->
+                Doc = shell_docs:render(?MODULE, Docs, Config),
+                string:find(Doc, "\e") =/= nomatch
+        end,
+
+    application:set_env(kernel, shell_docs_ansi, true),
+    ?assert(HasESC(#{})),
+    ?assertNot(HasESC(#{ansi => false})),
+    ?assert(HasESC(#{ansi => true})),
+
+    application:set_env(kernel, shell_docs_ansi, false),
+    ?assertNot(HasESC(#{})),
+    ?assertNot(HasESC(#{ansi => false})),
+    ?assert(HasESC(#{ansi => true})),
+
+    ok.
+
+-doc """
+Doc doc doc doc doc doc doc doc doc doc doc doc doc doc doc.
+""".
+columns(_Config) ->
+    {ok, Docs} = code:get_doc(?MODULE),
+
+    MaxColumns =
+        fun(Config0) ->
+                Config = maps:merge(#{ansi => false}, Config0),
+                Doc = shell_docs:render(?MODULE, ?FUNCTION_NAME, Docs, Config),
+                Lines = string:split(Doc, "\n", all),
+                lists:max(lists:map(fun string:length/1, Lines))
+        end,
+
+    application:set_env(stdlib, shell_docs_columns, 30),
+    ?assert(MaxColumns(#{}) =< 30),
+    ?assert(MaxColumns(#{columns => 20}) =< 20),
+
+    application:set_env(stdlib, shell_docs_columns, not_an_integer),
+    ?assert(MaxColumns(#{}) > 30),
+
+    application:set_env(stdlib, shell_docs_columns, 0),
+    ?assert(MaxColumns(#{}) > 30),
+
+    application:set_env(stdlib, shell_docs_columns, -30),
+    ?assert(MaxColumns(#{}) > 30),
+
+    application:unset_env(stdlib, shell_docs_columns),
+    ?assert(MaxColumns(#{}) > 30),
+    ?assert(MaxColumns(#{columns => 20}) =< 20),
+
+    ok.
+
+doctests(_Config) ->
+    ct_doctest:module(shell_docs,
+                      [{skipped_blocks, 0},
+                       {missing_tests,
+                        [{normalize, 1},
+                         {render, 3},
+                         {render, 4},
+                         {render, 5},
+                         {render_callback, 3},
+                         {render_callback, 4},
+                         {render_callback, 5},
+                         {render_type, 3},
+                         {render_type, 4},
+                         {render_type, 5},
+                         {supported_tags, 0},
+                         {validate, 1}]}]).
 
 %%
 %% Parallel map function.

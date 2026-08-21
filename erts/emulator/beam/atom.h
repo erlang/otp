@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2021. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,7 +52,10 @@ typedef struct atom {
     Sint16 len;      /* length of atom name (UTF-8 encoded) */
     Sint16 latin1_chars; /* 0-255 if atom can be encoded in latin1; otherwise, -1 */
     int ord0;        /* ordinal value of first 3 bytes + 7 bits */
-    byte* name;      /* name of atom */
+    union{
+        byte* name;      /* name of atom, used by templates */
+        Eterm bin;       /* name of atom, used when atom is in table*/
+    } u;
 } Atom;
 
 extern IndexTable erts_atom_table;
@@ -58,6 +63,9 @@ extern IndexTable erts_atom_table;
 ERTS_GLB_INLINE Atom* atom_tab(Uint i);
 ERTS_GLB_INLINE int erts_is_atom_utf8_bytes(byte *text, size_t len, Eterm term);
 ERTS_GLB_INLINE int erts_is_atom_str(const char *str, Eterm term, int is_latin1);
+ERTS_GLB_INLINE int erts_is_atom_index_ok(Uint ix);
+
+const byte *erts_atom_get_name(const Atom *atom);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE Atom*
@@ -73,7 +81,7 @@ ERTS_GLB_INLINE int erts_is_atom_utf8_bytes(byte *text, size_t len, Eterm term)
 	return 0;
     a = atom_tab(atom_val(term));
     return (len == (size_t) a->len
-	    && sys_memcmp((void *) a->name, (void *) text, len) == 0);
+	    && sys_memcmp((void *) erts_atom_get_name(a), (void *) text, len) == 0);
 }
 
 ERTS_GLB_INLINE int erts_is_atom_str(const char *str, Eterm term, int is_latin1)
@@ -87,7 +95,7 @@ ERTS_GLB_INLINE int erts_is_atom_str(const char *str, Eterm term, int is_latin1)
 	return 0;
     a = atom_tab(atom_val(term));
     len = a->len;
-    aname = a->name;
+    aname = erts_atom_get_name(a);
     if (is_latin1) {
 	for (i = 0; i < len; s++) {
 	    if (aname[i] < 0x80) {
@@ -111,6 +119,21 @@ ERTS_GLB_INLINE int erts_is_atom_str(const char *str, Eterm term, int is_latin1)
     }
     return *s == '\0';
 }
+
+ERTS_GLB_INLINE int erts_is_atom_index_ok(Uint ix)
+{
+    /*
+     * This is technically a thread-unsafe read, but we assume
+     * + the hardware will get us a consistent integer value even during
+     *   concurrent writes.
+     * + the tested 'ix' (if ok) comes from an earlier read of 'entries'
+     *   and 'entries' is never decremented.
+     *
+     * So we don't care if we race and miss some unrelated increments.
+     */
+    return ix < (Uint)erts_atom_table.entries;
+}
+
 
 #endif
 

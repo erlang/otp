@@ -15,13 +15,14 @@ list() ->
                   #record{a=X} <- lists:seq(1, 10),
                   true = (X rem 2)
               ],
-    Result2 = [X || <<X:32,_:32>> <= <<0:512>>,
+    Result2 = [X || <<X:32,_:32>> <:= <<0:512>>,
                     true = (X rem 2)
               ],
     Res = [ func(X,
                  arg2)
             ||
-              #record{a=X} <- lists:seq(1, 10),
+              #record{a=X} <:- lists:seq(1, 10) &&
+                  {B,X} <:- lists:zip("asdas", "bewre"),
               true = (X rem 2)
           ],
     Result1.

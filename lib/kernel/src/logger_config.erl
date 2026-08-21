@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2017-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +25,7 @@
 -export([new/1,delete/2,
          exist/2,
          allow/1,allow/2,
-         get/2, get/3,
+         get/1, get/2, get/3,
          create/3, set/3,
          set_module_level/2,unset_module_level/1,
          get_module_level/0,
@@ -87,6 +89,10 @@ exist(Tid,What) ->
 
 get_primary_level() ->
     persistent_term:get({?MODULE,?PRIMARY_KEY},?NOTICE).
+
+get(Tid) ->
+    Configs = ets:match(Tid, {{?HANDLER_KEY, '_'}, '$1'}),
+    lists:flatten(Configs).
 
 get(Tid,What) ->
     case ets:lookup(Tid,table_key(What)) of

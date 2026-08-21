@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -386,6 +388,7 @@ gen_method(CName,  M=#method{name=N,params=Ps0,type=T,method_type=MT,id=MethodId
     Opts = [Opt || Opt = #param{def=Def,in=In,where=Where} <- Ps2,
 		   Def =/= none, In =/= false, Where =/= c],
     decode_options(Opts, Argc),
+
     case gen_util:get_hook(c, M#method.pre_hook) of
 	ignore -> skip;
 	Pre -> w(" ~s;~n", [Pre])
@@ -539,6 +542,23 @@ decode_opt(#param{name=Name,type=Type}) ->
 
 decode_arguments(Ps0) ->
     lists:mapfoldl(fun decode_arg/2,0,Ps0).
+
+%% Postpone alloc and memcpy until after all Badarg execeptions
+%% so we don't leak memory in case of later badarg
+copy_arguments([#param{where=Where, in=In, def=none, name=N, type=Type}|Rest])
+  when Where =/= erl, Where =/= c, In =/= false ->
+    case Type of
+        #type{base = binary, by_val=copy} ->
+            w("  ~s = (unsigned char *) malloc(~s_bin.size);\n", [N,N]),
+            w("  memcpy(~s,~s_bin.data,~s_bin.size);\n", [N,N,N]);
+        _ ->
+            ignore
+    end,
+    copy_arguments(Rest);
+copy_arguments([_|Rest]) ->
+    copy_arguments(Rest);
+copy_arguments([]) ->
+    ok.
 
 store_free(N) ->
     case get(free_args) of
@@ -708,9 +728,10 @@ decode_arg(N,#type{name=Type,base=binary,mod=Mod0,by_val=Copy},Arg,Argc) ->
     w("  ErlNifBinary ~s_bin;~n",[N]),
     w("  if(!enif_inspect_binary(env, ~s, &~s_bin)) ~s;~n",[Argc, N, badarg(N)]),
     case Copy of
-        copy ->
-            w("  ~s = (unsigned char *) malloc(~s_bin.size);\n", [N,N]),
-            w("  memcpy(~s,~s_bin.data,~s_bin.size);\n", [N,N,N]);
+        copy -> %% postpone see copy_arguments
+            %% w("  ~s = (unsigned char *) malloc(~s_bin.size);\n", [N,N]),
+            %% w("  memcpy(~s,~s_bin.data,~s_bin.size);\n", [N,N,N]);
+            ok;
         _ ->
             w("  ~s = (~s~s*) ~s_bin.data;~n", [N,Mod,Type,N])
     end;
@@ -795,6 +816,8 @@ call_wx(_N,{constructor,_},#type{base={class,RClass}},Ps) ->
 		false -> RClass
 	    end,
 
+    copy_arguments(Ps),
+
     case [P || #param{type={merged,_}}=P <- Ps] of
         [] ->
             w("  ~s * Result = new ~s(~s);~n",
@@ -836,6 +859,7 @@ call_wx(_N,{constructor,_},#type{base={class,RClass}},Ps) ->
 call_wx(N,{member,_},Type,Ps0) ->
     {Beg,End} = return_res(Type),
     w("  if(!This) throw wxe_badarg(\"This\");~n",[]),
+    copy_arguments(Ps0),
     Ps = filter(Ps0),
     case [P || #param{type={merged,_}}=P <- Ps] of
         [] ->
@@ -856,6 +880,7 @@ call_wx(N,{member,_},Type,Ps0) ->
 call_wx(N,{static,Class},Type,Ps) ->
     {Beg,End} = return_res(Type),
     #class{parent=Parent} = get({class,Class}),
+    copy_arguments(Ps),
     case [P || #param{type={merged,_}}=P <- Ps] of
         [] when Parent =:= "static" ->
 	    w("  ~s::~s(~s)~s;~n",[Beg,N,args(fun call_arg/1, ",",filter(Ps)),End]);
@@ -975,8 +1000,13 @@ return_res1(#type{name="wxCharBuffer", base={binary,_},single=true,by_val=true})
     {"char * Result = ", ".data()"};
 return_res1(#type{name=Type,single=array,ref=reference}) ->
     {Type ++ " Result = ", ""};
-return_res1(#type{name=Type,single=true,by_val=true}) ->
-    {Type ++ " Result = ", ""}.
+return_res1(#type{name=Type,single=true,by_val=true, mod=Mods}) ->
+    case lists:member(unsigned, Mods) of
+        true ->
+            {io_lib:format("unsigned ~s Result = ", [Type]), ""};
+        false ->
+            {Type ++ " Result = ", ""}
+    end.
 
 filter(Ps) ->
     lists:filter(fun filter_arg/1, Ps).
@@ -1456,9 +1486,11 @@ gen_macros() ->
     w("#include <wx/sysopt.h>~n"),
     w("#include <wx/overlay.h>~n"),
     w("#include <wx/notifmsg.h>~n"),
+    w("#if WXE_WEBVIEW~n"),
     w("#include <wx/webview.h>~n"),
     w("#if wxUSE_WEBVIEW && wxUSE_WEBVIEW_IE~n"),
     w("#include <wx/msw/webview_ie.h>~n"),
+    w("#endif~n"),
     w("#endif~n"),
     w("#if wxUSE_GLCANVAS_EGL && !wxCHECK_VERSION(3,2,3)~n"),
     w("#include <EGL/egl.h>~n"),

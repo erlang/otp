@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2015-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -83,12 +85,13 @@ maps(Config) when is_list(Config) ->
 run(Config, Tests) ->
     F = fun({N,P}) ->
                 io:format("Compiling test for: ~w~n", [N]),
-                case catch run_test(Config, P) of
-                    {'EXIT', Reason} ->
-                        io:format("~nTest ~p failed.~nReason: ~p~n",
-				  [N, Reason]),
-                        fail();
-                    _ -> ok
+                try
+                    run_test(Config, P)
+                catch
+                    error:Reason:Stack ->
+                        io:format("~nTest ~p failed.~nReason: ~p~nStack: ~p~n",
+                                  [N, Reason, Stack]),
+                        fail()
                 end
         end,
     lists:foreach(F, Tests).

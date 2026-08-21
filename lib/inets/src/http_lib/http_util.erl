@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,12 +26,14 @@
 -export([
 	 to_upper/1, to_lower/1, 
 	 convert_netscapecookie_date/1,
+         convert_day/1,
 	 hexlist_to_integer/1, integer_to_hexlist/1, 
 	 convert_month/1, 
 	 is_hostname/1,
 	 timestamp/0, timeout/2,
 	 html_encode/1,
-	 maybe_add_brackets/2
+	 maybe_add_brackets/2,
+	 connection_tokens/1
 	]).
 
 
@@ -171,7 +175,36 @@ convert_month("Aug") -> 8;
 convert_month("Sep") -> 9;
 convert_month("Oct") -> 10;
 convert_month("Nov") -> 11;
-convert_month("Dec") -> 12.
+convert_month("Dec") -> 12;
+convert_month(1) -> "Jan";
+convert_month(2) -> "Feb";
+convert_month(3) -> "Mar";
+convert_month(4) -> "Apr";
+convert_month(5) -> "May";
+convert_month(6) -> "Jun";
+convert_month(7) -> "Jul";
+convert_month(8) -> "Aug";
+convert_month(9) -> "Sep";
+convert_month(10) -> "Oct";
+convert_month(11) -> "Nov";
+convert_month(12) -> "Dec".
+
+convert_day(1) -> "Mon";
+convert_day(2) -> "Tue";
+convert_day(3) -> "Wed";
+convert_day(4) -> "Thu";
+convert_day(5) -> "Fri";
+convert_day(6) -> "Sat";
+convert_day(7) -> "Sun";
+convert_day("Mon") -> 1;
+convert_day("Tue") -> 2;
+convert_day("Wed") -> 3;
+convert_day("Thu") -> 4;
+convert_day("Fri") -> 5;
+convert_day("Sat") -> 6;
+convert_day("Sun") -> 7.
+
+
 
 is_hostname(Dest) ->
     inet_parse:domain(Dest).
@@ -212,6 +245,12 @@ maybe_add_brackets(Addr, true) when is_binary(Addr) ->
         false ->
             Addr
     end.
+
+connection_tokens(undefined) ->
+    [];
+connection_tokens(Connection) ->
+    ConnList = string:tokens(string:to_lower(Connection), ","),
+    [string:trim(Token) || Token <- ConnList].
 
 
 %%%========================================================================

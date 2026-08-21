@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -125,19 +127,19 @@ analyze_module(#b_module{body=Fs}) ->
           end, #{}, Fs).
 
 has_bsm_ops(#b_function{bs=Blocks}) ->
-    hbo_blocks(maps:to_list(Blocks)).
+    hbo_blocks(maps:to_list(Blocks), false).
 
-hbo_blocks([{_,#b_blk{is=Is}} | Blocks]) ->
+hbo_blocks([{_,#b_blk{is=Is}} | Blocks], Acc) ->
     case hbo_is(Is) of
-        no -> hbo_blocks(Blocks);
-        yes -> true;
+        no -> hbo_blocks(Blocks, Acc);
+        yes -> hbo_blocks(Blocks, true);
         nif_start ->
             %% Disable optimizations for declared -nifs()
             %% to avoid leaking match contexts as NIF arguments.
             false
     end;
-hbo_blocks([]) ->
-    false.
+hbo_blocks([], Acc) ->
+    Acc.
 
 hbo_is([#b_set{op=bs_start_match} | _]) -> yes;
 hbo_is([#b_set{op=nif_start} | _]) -> nif_start;
@@ -525,7 +527,7 @@ cm_handle_priors(Src, DstCtx, Bool, Acc, MatchSeq, Lbl, State0) ->
                         %% we can only consider the ones whose success path
                         %% dominate us.
                         Dominators = maps:get(Lbl, State0#cm.dominators, []),
-                        [Ctx || {ValidAfter, Ctx} <- Priors,
+                        [Ctx || {ValidAfter, Ctx} <:- Priors,
                                 member(ValidAfter, Dominators)];
                     error ->
                         []
@@ -776,7 +778,7 @@ aca_cs_is([], Counter, VRs, _BRs, Acc) ->
     {VRs, reverse(Acc), Counter}.
 
 aca_cs_last(#b_switch{arg=Arg0,list=Switch0,fail=Fail0}=Sw, VRs, BRs) ->
-    Switch = [{Literal, maps:get(Lbl, BRs)} || {Literal, Lbl} <- Switch0],
+    Switch = [{Literal, maps:get(Lbl, BRs)} || {Literal, Lbl} <:- Switch0],
     Sw#b_switch{arg=aca_cs_arg(Arg0, VRs),
                 fail=maps:get(Fail0, BRs),
                 list=Switch};
@@ -821,7 +823,7 @@ aca_cs_arg(Arg, VRs) ->
 %% contexts to us.
 
 allow_context_passthrough({Fs, ModInfo0}) ->
-    FsUses = [{F, beam_ssa:uses(beam_ssa:rpo(Bs), Bs)} || #b_function{bs=Bs}=F <- Fs],
+    FsUses = [{F, beam_ssa:uses(beam_ssa:rpo(Bs), Bs)} || #b_function{bs=Bs}=F <:- Fs],
     ModInfo = acp_forward_params(FsUses, ModInfo0),
     {Fs, ModInfo}.
 

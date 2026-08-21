@@ -1,38 +1,40 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include "../core/api-build_p.h"
+#include <asmjit/core/api-build_p.h>
 #ifndef ASMJIT_NO_COMPILER
 
-#include "../core/rastack_p.h"
-#include "../core/support.h"
+#include <asmjit/core/rastack_p.h>
+#include <asmjit/support/support.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
 // RAStackAllocator - Slots
 // ========================
 
-RAStackSlot* RAStackAllocator::newSlot(uint32_t baseRegId, uint32_t size, uint32_t alignment, uint32_t flags) noexcept {
-  if (ASMJIT_UNLIKELY(_slots.willGrow(allocator(), 1) != kErrorOk))
+RAStackSlot* RAStackAllocator::new_slot(uint32_t base_reg_id, uint32_t size, uint32_t alignment, uint32_t flags) noexcept {
+  if (ASMJIT_UNLIKELY(_slots.reserve_additional(*arena()) != Error::kOk)) {
     return nullptr;
+  }
 
-  RAStackSlot* slot = allocator()->allocT<RAStackSlot>();
-  if (ASMJIT_UNLIKELY(!slot))
+  RAStackSlot* slot = arena()->alloc_oneshot<RAStackSlot>();
+  if (ASMJIT_UNLIKELY(!slot)) {
     return nullptr;
+  }
 
-  slot->_baseRegId = uint8_t(baseRegId);
+  slot->_base_reg_id = uint8_t(base_reg_id);
   slot->_alignment = uint8_t(Support::max<uint32_t>(alignment, 1));
   slot->_flags = uint16_t(flags);
-  slot->_useCount = 0;
   slot->_size = size;
 
+  slot->_use_count = 0;
   slot->_weight = 0;
   slot->_offset = 0;
 
   _alignment = Support::max<uint32_t>(_alignment, alignment);
-  _slots.appendUnsafe(slot);
+  _slots.append_unchecked(slot);
   return slot;
 }
 
@@ -56,7 +58,7 @@ struct RAStackGap {
   uint32_t size;
 };
 
-Error RAStackAllocator::calculateStackFrame() noexcept {
+Error RAStackAllocator::calculate_stack_frame() noexcept {
   // Base weight added to all registers regardless of their size and alignment.
   uint32_t kBaseRegWeight = 16;
 
@@ -72,17 +74,20 @@ Error RAStackAllocator::calculateStackFrame() noexcept {
     uint32_t power = Support::min<uint32_t>(Support::ctz(alignment), 6);
     uint64_t weight;
 
-    if (slot->isRegHome())
-      weight = kBaseRegWeight + (uint64_t(slot->useCount()) * (7 - power));
-    else
+    if (slot->is_reg_home()) {
+      weight = kBaseRegWeight + (uint64_t(slot->use_count()) * (7 - power));
+    }
+    else {
       weight = power;
+    }
 
     // If overflown, which has less chance of winning a lottery, just use max possible weight. In such case it
     // probably doesn't matter at all.
-    if (weight > 0xFFFFFFFFu)
+    if (weight > 0xFFFFFFFFu) {
       weight = 0xFFFFFFFFu;
+    }
 
-    slot->setWeight(uint32_t(weight));
+    slot->set_weight(uint32_t(weight));
   }
 
   // STEP 2:
@@ -101,36 +106,37 @@ Error RAStackAllocator::calculateStackFrame() noexcept {
   // weight and not by size & alignment, so when we need to align some slot we distribute the gap caused by the
   // alignment to `gaps`.
   uint32_t offset = 0;
-  ZoneVector<RAStackGap> gaps[kSizeCount - 1];
+  ArenaVector<RAStackGap> gaps[kSizeCount - 1];
 
   for (RAStackSlot* slot : _slots) {
-    if (slot->isStackArg())
+    if (slot->is_stack_arg()) {
       continue;
+    }
 
-    uint32_t slotAlignment = slot->alignment();
-    uint32_t alignedOffset = Support::alignUp(offset, slotAlignment);
+    uint32_t slot_alignment = slot->alignment();
+    uint32_t aligned_offset = Support::align_up(offset, slot_alignment);
 
     // Try to find a slot within gaps first, before advancing the `offset`.
-    bool foundGap = false;
-    uint32_t gapSize = 0;
-    uint32_t gapOffset = 0;
+    bool found_gap = false;
+    uint32_t gap_size = 0;
+    uint32_t gap_offset = 0;
 
     {
-      uint32_t slotSize = slot->size();
-      if (slotSize < (1u << uint32_t(ASMJIT_ARRAY_SIZE(gaps)))) {
+      uint32_t slot_size = slot->size();
+      if (slot_size < (1u << uint32_t(ASMJIT_ARRAY_SIZE(gaps)))) {
         // Iterate from the lowest to the highest possible.
-        uint32_t index = Support::ctz(slotSize);
+        uint32_t index = Support::ctz(slot_size);
         do {
-          if (!gaps[index].empty()) {
+          if (!gaps[index].is_empty()) {
             RAStackGap gap = gaps[index].pop();
 
-            ASMJIT_ASSERT(Support::isAligned(gap.offset, slotAlignment));
-            slot->setOffset(int32_t(gap.offset));
+            ASMJIT_ASSERT(Support::is_aligned(gap.offset, slot_alignment));
+            slot->set_offset(int32_t(gap.offset));
 
-            gapSize = gap.size - slotSize;
-            gapOffset = gap.offset - slotSize;
+            gap_size = gap.size - slot_size;
+            gap_offset = gap.offset - slot_size;
 
-            foundGap = true;
+            found_gap = true;
             break;
           }
         } while (++index < uint32_t(ASMJIT_ARRAY_SIZE(gaps)));
@@ -138,45 +144,48 @@ Error RAStackAllocator::calculateStackFrame() noexcept {
     }
 
     // No gap found, we may create a new one(s) if the current offset is not aligned.
-    if (!foundGap && offset != alignedOffset) {
-      gapSize = alignedOffset - offset;
-      gapOffset = alignedOffset;
+    if (!found_gap && offset != aligned_offset) {
+      gap_size = aligned_offset - offset;
+      gap_offset = aligned_offset;
 
-      offset = alignedOffset;
+      offset = aligned_offset;
     }
 
     // True if we have found a gap and not filled all of it or we aligned the current offset.
-    if (gapSize) {
-      uint32_t gapEnd = gapSize + gapOffset;
-      while (gapOffset < gapEnd) {
-        uint32_t index = Support::ctz(gapOffset);
-        uint32_t slotSize = 1u << index;
+    if (gap_size) {
+      uint32_t gap_end = gap_size + gap_offset;
+      while (gap_offset < gap_end) {
+        uint32_t index = Support::ctz(gap_offset);
+        uint32_t slot_size = 1u << index;
 
         // Weird case, better to bail...
-        if (gapEnd - gapOffset < slotSize)
+        if (gap_end - gap_offset < slot_size) {
           break;
+        }
 
-        ASMJIT_PROPAGATE(gaps[index].append(allocator(), RAStackGap(gapOffset, slotSize)));
-        gapOffset += slotSize;
+        ASMJIT_PROPAGATE(gaps[index].append(*arena(), RAStackGap(gap_offset, slot_size)));
+        gap_offset += slot_size;
       }
     }
 
-    if (!foundGap) {
-      ASMJIT_ASSERT(Support::isAligned(offset, slotAlignment));
-      slot->setOffset(int32_t(offset));
+    if (!found_gap) {
+      ASMJIT_ASSERT(Support::is_aligned(offset, slot_alignment));
+      slot->set_offset(int32_t(offset));
       offset += slot->size();
     }
   }
 
-  _stackSize = Support::alignUp(offset, _alignment);
-  return kErrorOk;
+  _stack_size = Support::align_up(offset, _alignment);
+  return Error::kOk;
 }
 
-Error RAStackAllocator::adjustSlotOffsets(int32_t offset) noexcept {
-  for (RAStackSlot* slot : _slots)
-    if (!slot->isStackArg())
+Error RAStackAllocator::adjust_slot_offsets(int32_t offset) noexcept {
+  for (RAStackSlot* slot : _slots) {
+    if (!slot->is_stack_arg()) {
       slot->_offset += offset;
-  return kErrorOk;
+    }
+  }
+  return Error::kOk;
 }
 
 ASMJIT_END_NAMESPACE

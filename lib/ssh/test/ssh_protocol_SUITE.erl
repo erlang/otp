@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,8 +28,13 @@
 -include_lib("kernel/include/inet.hrl").
 -include("ssh.hrl").		% ?UINT32, ?BYTE, #ssh{} ...
 -include("ssh_transport.hrl").
+-include("ssh_connect.hrl").
 -include("ssh_auth.hrl").
 -include("ssh_test_lib.hrl").
+
+%% RFC 3526 Group 14 — 2048-bit MODP prime (generator = 2).
+-define(RFC3526_GROUP14_PRIME,
+        16#FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF).
 
 -export([
          suite/0,
@@ -35,36 +42,52 @@
          groups/0,
          init_per_suite/1,
          end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
          init_per_testcase/2,
          end_per_testcase/2
         ]).
 
 -export([
          bad_long_service_name/1,
-         bad_packet_length/2,
+         bad_packet_length/5,
          bad_service_name/1,
          bad_service_name/2,
          bad_service_name_length/2,
          bad_service_name_then_correct/1,
          bad_very_long_service_name/1,
+         banner_sent_to_client/1,
+         banner_not_sent_to_client/1,
          client_handles_keyboard_interactive_0_pwds/1,
          client_handles_banner_keyboard_interactive/1,
          client_info_line/1,
+         decompression_bomb_client/1,
+         decompression_bomb_client_after_auth/1,
+         decompression_bomb_server/1,
+         decompression_bomb_server_after_auth/1,
          do_gex_client_init/3,
          do_gex_client_init_old/3,
          empty_service_name/1,
          ext_info_c/1,
          ext_info_s/1,
+         alive_eserver_tclient/1,
+         alive_tserver_eclient/1,
+         alive_reneg_eserver_tclient/1,
+         alive_reneg_tserver_eclient/1,
          kex_strict_negotiated/1,
          kex_strict_violation_key_exchange/1,
          kex_strict_violation_new_keys/1,
          kex_strict_violation/1,
+         kex_strict_violation_2/1,
          kex_strict_msg_unknown/1,
+         dh_kexdh_init_e_out_of_bounds/1,
          gex_client_init_option_groups/1,
          gex_client_init_option_groups_file/1,
          gex_client_init_option_groups_moduli_file/1,
          gex_client_old_request_exact/1,
          gex_client_old_request_noexact/1,
+         gex_client_rejects_small_group/1,
+         gex_client_rejects_bad_generator/1,
          gex_server_gex_limit/1,
          lib_match/1,
          lib_no_match/1,
@@ -82,17 +105,33 @@
          no_ext_info_s2/1,
          packet_length_too_large/1,
          packet_length_too_short/1,
+         packet_length_longer_than_max/1,
+         bad_mac/1,
          preferred_algorithms/1,
          service_name_length_too_large/1,
          service_name_length_too_short/1,
-         client_close_after_hello/1
+         client_close_after_hello/1,
+         channel_close_timeout/1,
+         extra_ssh_msg_service_request/1,
+         client_guesses_correctly/1,
+         client_guesses_incorrectly/1
         ]).
-
--define(NEWLINE, <<"\r\n">>).
--define(REKEY_DATA_TMO, 65000).
 
 -define(DEFAULT_KEX, 'diffie-hellman-group14-sha256').
 -define(EXTRA_KEX, 'diffie-hellman-group1-sha1').
+
+-define(DH_KEX, ['diffie-hellman-group16-sha512',
+                 'diffie-hellman-group18-sha512',
+                 'diffie-hellman-group14-sha256',
+                 'diffie-hellman-group14-sha1',
+                 'diffie-hellman-group1-sha1']).
+-define(ECDH_KEX, ['curve25519-sha256',
+                   'curve25519-sha256@libssh.org',
+                   'curve448-sha512',
+                   'ecdh-sha2-nistp521',
+                   'ecdh-sha2-nistp384',
+                   'ecdh-sha2-nistp256']).
+-define(HYBRID_KEX, ['mlkem768x25519-sha256']).
 
 -define(CIPHERS, ['aes256-ctr','aes192-ctr','aes128-ctr','aes128-cbc','3des-cbc']).
 -define(DEFAULT_CIPHERS, (fun() -> Ciphs = filter_supported(cipher, ?CIPHERS),
@@ -100,17 +139,61 @@
                           end)()
         ).
 
+-define(COMMON_CIPHERS, ['aes256-ctr',
+                         'aes192-ctr',
+                         'aes128-ctr']).
+-define(COMMON_CBC_CIPHERS, ['aes256-cbc',
+                             'aes192-cbc',
+                             'aes128-cbc',
+                             '3des-cbc']).
+-define(ALL_COMMON_CIPHERS, ?COMMON_CBC_CIPHERS ++ ?COMMON_CIPHERS).
+-define(AEAD_CIPHERS, ['AEAD_AES_256_GCM',
+                       'AEAD_AES_128_GCM',
+                       'chacha20-poly1305@openssh.com']).
+-define(MACS, ['hmac-sha2-512',
+               'hmac-sha2-256',
+               'hmac-sha1',
+               'hmac-sha1-96'
+              ]).
+-define(ETM_MACS, ['hmac-sha2-512-etm@openssh.com',
+                   'hmac-sha2-256-etm@openssh.com',
+                   'hmac-sha1-etm@openssh.com']).
 
--define(v(Key, Config), proplists:get_value(Key, Config)).
--define(v(Key, Config, Default), proplists:get_value(Key, Config, Default)).
-
+-define(HARDCODED_KEXDH_REPLY,
+        #ssh_msg_kexdh_reply{
+           public_host_key = {{{'ECPoint',<<73,72,235,162,96,101,154,59,217,114,123,192,96,105,250,29,214,76,60,63,167,21,221,118,246,168,152,2,7,172,137,125>>},
+                               {namedCurve,{1,3,101,112}}},
+                              'ssh-ed25519'},
+           f = 18504393053016436370762156176197081926381112956345797067569792020930728564439992620494295053804030674742529174859108487694089045521619258420515443400605141150065440678508889060925968846155921972385560196703381004650914261218463420313738628465563288022895912907728767735629532940627575655703806353550720122093175255090704443612257683903495753071530605378193139909567971489952258218767352348904221407081210633467414579377014704081235998044497191940270966762124544755076128392259615566530695493013708460088312025006678879288856957348606386230195080105197251789635675011844976120745546472873505352732719507783227210178188,
+           h_sig = <<90,247,44,240,136,196,82,215,56,165,53,33,230,101,253,
+                     34,112,201,21,131,162,169,10,129,174,14,69,25,39,174,
+                     92,210,130,249,103,2,215,245,7,213,110,235,136,134,11,
+                     124,248,139,79,17,225,77,125,182,204,84,137,167,99,186,
+                     167,42,192,10>>}).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
-
 suite() ->
-    [{ct_hooks,[ts_install_cth]},
+    VerifyFun =
+        fun(_, 0) ->
+                ok;
+           (client_close_after_hello, 1) ->
+                ok;
+           (extra_ssh_msg_service_request, 1) ->
+                ok;
+           (_, EventNumber) ->
+                {fail, lists:flatten(
+                         io_lib:format("unexpected event cnt: ~s",
+                                       [integer_to_list(EventNumber)]))}
+        end,
+    SkipTc = [kex_strict_negotiated,
+              kex_strict_violation,
+              kex_strict_violation_2],
+    [{ct_hooks,[ts_install_cth,
+                {cth_events,
+                 [{verify_fun, VerifyFun},
+                  {skip_tc, SkipTc}]}]},
      {timetrap,{seconds,40}}].
 
 all() -> 
@@ -120,11 +203,16 @@ all() ->
      {group,kex},
      {group,service_requests},
      {group,authentication},
-     {group,packet_size_error},
+     {group,packet_error},
      {group,field_size_error},
      {group,ext_info},
      {group,preferred_algorithms},
-     {group,client_close_early}
+     {group,client_close_early},
+     {group,channel_close},
+     {group,alive},
+     {group,dh},
+     {group,ecdh},
+     {group,hybrid}
     ].
 
 groups() ->
@@ -133,8 +221,14 @@ groups() ->
 		       lib_match,
 		       lib_no_match
 		      ]},
-     {packet_size_error, [], [packet_length_too_large,
-			      packet_length_too_short]},
+     {packet_error, [], [decompression_bomb_client,
+                         decompression_bomb_client_after_auth,
+                         decompression_bomb_server,
+                         decompression_bomb_server_after_auth,
+                         {group, common},
+                         {group, common_cbc},
+                         {group, enc_then_mac},
+                         {group, aead}]},
      {field_size_error, [], [service_name_length_too_large,
 			     service_name_length_too_short]},
      {kex, [], [custom_kexinit,
@@ -146,19 +240,26 @@ groups() ->
 		gex_client_init_option_groups_file,
 		gex_client_old_request_exact,
 		gex_client_old_request_noexact,
+                gex_client_rejects_small_group,
+                gex_client_rejects_bad_generator,
                 kex_strict_negotiated,
                 kex_strict_violation_key_exchange,
                 kex_strict_violation_new_keys,
                 kex_strict_violation,
-                kex_strict_msg_unknown]},
+                kex_strict_violation_2,
+                kex_strict_msg_unknown,
+                dh_kexdh_init_e_out_of_bounds]},
      {service_requests, [], [bad_service_name,
 			     bad_long_service_name,
 			     bad_very_long_service_name,
 			     empty_service_name,
-			     bad_service_name_then_correct
+			     bad_service_name_then_correct,
+                             extra_ssh_msg_service_request
 			    ]},
      {authentication, [], [client_handles_keyboard_interactive_0_pwds,
-                           client_handles_banner_keyboard_interactive
+                           client_handles_banner_keyboard_interactive,
+                           banner_sent_to_client,
+                           banner_not_sent_to_client
 			  ]},
      {ext_info, [], [no_ext_info_s1,
                      no_ext_info_s2,
@@ -171,8 +272,33 @@ groups() ->
                                  modify_rm,
                                  modify_combo
                                 ]},
-     {client_close_early, [], [client_close_after_hello
-                               ]}
+     {client_close_early, [], [client_close_after_hello]},
+     {channel_close, [], [channel_close_timeout]},
+     {alive, [], [alive_eserver_tclient,
+                  alive_tserver_eclient,
+                  alive_reneg_eserver_tclient,
+                  alive_reneg_tserver_eclient]},
+     {guess, [], [client_guesses_correctly,
+                  client_guesses_incorrectly]},
+     {dh, [], [{group, guess}]},
+     {ecdh, [], [{group, guess}]},
+     {hybrid, [], [{group, guess}]},
+     {common, [], [packet_length_too_short,
+                   packet_length_too_large,
+                   packet_length_longer_than_max,
+                   bad_mac]},
+     {common_cbc, [], [packet_length_too_short,
+                       packet_length_too_large,
+                       packet_length_longer_than_max,
+                       bad_mac]},
+     {enc_then_mac, [], [packet_length_too_short,
+                         packet_length_too_large,
+                         packet_length_longer_than_max,
+                         bad_mac]},
+     {aead, [], [packet_length_too_short,
+                packet_length_too_large,
+                packet_length_longer_than_max,
+                bad_mac]}
     ].
 
 
@@ -182,12 +308,62 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     stop_apps(Config).
 
+init_per_group(guess, Config) ->
+    case ssh_test_lib:get_public_key_algorithms_with_valid_host_key(Config) of
+        PubKey when length(PubKey) >= 2 ->
+            ParentGroup = get_parent_group(Config),
+            KexInput =
+                case ParentGroup of
+                    dh -> ?DH_KEX;
+                    ecdh -> ?ECDH_KEX;
+                    hybrid -> ?HYBRID_KEX
+                end,
+            case {filter_supported(kex, KexInput), filter_supported(kex, ?ECDH_KEX)} of
+                {Kex, KexEcdh} when length(Kex) == 1, length(KexEcdh) >= 1, ParentGroup == hybrid ->
+                    %% There is only one hybrid kex supported, we have to fill algorithms with other
+                    [{kex, Kex ++ KexEcdh}, {public_key, PubKey} | Config];
+                {Kex, _} when length(Kex) >= 2 ->
+                    [{kex, Kex}, {public_key, PubKey} | Config];
+                _ ->
+                    {skip, "Not enough kex algorithms supported"}
+            end;
+        _ ->
+            {skip, "Not enough public key algorithms supported"}
+    end;
+init_per_group(common, Config0) ->
+    Config = [{discard, false} | Config0],
+    get_supported_alg_groups_or_skip([{cipher, ?COMMON_CIPHERS}, {mac, ?MACS}], Config);
+init_per_group(common_cbc, Config0) ->
+    Config = [{discard, true} | Config0],
+    get_supported_alg_groups_or_skip([{cipher, ?COMMON_CBC_CIPHERS}, {mac, ?MACS}], Config);
+init_per_group(enc_then_mac, Config0) ->
+    Config = [{discard, false} | Config0],
+    get_supported_alg_groups_or_skip([{cipher, ?ALL_COMMON_CIPHERS}, {mac, ?ETM_MACS}], Config);
+init_per_group(aead, Config0) ->
+    Config = [{discard, false} | Config0],
+    get_supported_alg_groups_or_skip([{cipher, ?AEAD_CIPHERS}], Config);
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 init_per_testcase(Tc, Config) when Tc == no_common_alg_server_disconnects;
                                    Tc == custom_kexinit ->
-    start_std_daemon(Config, [{preferred_algorithms,[{public_key,['ssh-rsa']},
+    start_std_daemon(Config, [{preferred_algorithms,[{public_key,['ssh-ed25519']},
                                                      {cipher,?DEFAULT_CIPHERS}
                                                     ]}]);
-init_per_testcase(kex_strict_negotiated, Config) ->
+init_per_testcase(TC, Config) when TC == kex_strict_negotiated;
+                                   TC == kex_strict_violation_key_exchange;
+                                   TC == kex_strict_violation_new_keys;
+                                   TC == kex_strict_violation;
+                                   TC == kex_strict_violation_2;
+                                   TC == kex_strict_msg_unknown ->
+    Level = ssh_test_lib:get_log_level(),
+    ssh_test_lib:set_log_level(debug),
+    [{saved_log_level, Level} | Config];
+init_per_testcase(TC, Config) when TC == gex_client_rejects_small_group;
+                                   TC == gex_client_rejects_bad_generator ->
     Config;
 init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				   TC == gex_client_init_option_groups_moduli_file ;
@@ -197,10 +373,8 @@ init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				   TC == gex_client_old_request_noexact ->
     Opts = case TC of
 	       gex_client_init_option_groups ->
-		   [{dh_gex_groups, 
-                     [{1023, 5, 
-                       16#D9277DAA27DB131C03B108D41A76B4DA8ACEECCCAE73D2E48CEDAAA70B09EF9F04FB020DCF36C51B8E485B26FABE0337E24232BE4F4E693548310244937433FB1A5758195DC73B84ADEF8237472C46747D79DC0A2CF8A57CE8DBD8F466A20F8551E7B1B824B2E4987A8816D9BC0741C2798F3EBAD3ADEBCC78FCE6A770E2EC9F
-                      }]}];
+                   [{dh_gex_groups,
+                     [{2048, 2, ?RFC3526_GROUP14_PRIME}]}];
 	       gex_client_init_option_groups_file ->
 		   DataDir = proplists:get_value(data_dir, Config),
 		   F = filename:join(DataDir, "dh_group_test"),
@@ -226,21 +400,39 @@ init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 		     [{preferred_algorithms,[{cipher,?DEFAULT_CIPHERS}
                                             ]}
 		      | Opts]);
+init_per_testcase(decompression_bomb_client, Config) ->
+    start_std_daemon(Config, [{preferred_algorithms, [{compression, ['zlib']}]}]);
+init_per_testcase(TC, Config) when TC == packet_length_too_short;
+                                   TC == packet_length_too_large;
+                                   TC == packet_length_longer_than_max;
+                                   TC == bad_mac ->
+    Algs = proplists:get_value(preferred_algorithms, Config),
+    start_std_daemon(Config, [{preferred_algorithms, [{kex, [?DEFAULT_KEX]} | Algs]}]);
 init_per_testcase(_TestCase, Config) ->
     check_std_daemon_works(Config, ?LINE).
 
-end_per_testcase(Tc, Config) when Tc == no_common_alg_server_disconnects;
-                                  Tc == custom_kexinit ->
+end_per_testcase(TC, Config) when TC == no_common_alg_server_disconnects;
+                                  TC == custom_kexinit;
+                                  TC == gex_client_init_option_groups;
+                                  TC == gex_client_init_option_groups_moduli_file;
+                                  TC == gex_client_init_option_groups_file;
+                                  TC == gex_server_gex_limit;
+                                  TC == gex_client_old_request_exact;
+                                  TC == gex_client_old_request_noexact;
+                                  TC == decompression_bomb_client;
+                                  TC == packet_length_too_short;
+                                  TC == packet_length_too_large;
+                                  TC == packet_length_longer_than_max;
+                                  TC == bad_mac ->
     stop_std_daemon(Config);
-end_per_testcase(kex_strict_negotiated, Config) ->
+end_per_testcase(TC, Config) when TC == kex_strict_negotiated;
+                                  TC == kex_strict_violation_key_exchange;
+                                  TC == kex_strict_violation_new_keys;
+                                  TC == kex_strict_violation;
+                                  TC == kex_strict_violation_2;
+                                  TC == kex_strict_msg_unknown ->
+    ssh_test_lib:set_log_level(proplists:get_value(saved_log_level, Config)),
     Config;
-end_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
-				  TC == gex_client_init_option_groups_moduli_file ;
-				  TC == gex_client_init_option_groups_file ;
-				  TC == gex_server_gex_limit ;
-				  TC == gex_client_old_request_exact ;
-				  TC == gex_client_old_request_noexact ->
-    stop_std_daemon(Config);
 end_per_testcase(_TestCase, Config) ->
     check_std_daemon_works(Config, ?LINE).
 
@@ -298,8 +490,8 @@ lib_works_as_server(Config) ->
 	      {ok,_} =
 		  ssh_trpt_test_lib:exec(
 		    [{set_options, [print_ops, print_messages]},
-		     {accept, [{system_dir, system_dir(Config)},
-			       {user_dir, user_dir(Config)}]},
+		     {accept, [{system_dir, ssh_test_lib:system_dir(Config)},
+			       {user_dir, ssh_test_lib:user_dir(Config)}]},
 		     receive_hello,
 		     {send, hello},
 
@@ -375,18 +567,18 @@ no_common_alg_server_disconnects(Config) ->
 	ssh_trpt_test_lib:exec(
 	  [{set_options, [print_ops, {print_messages,detail}]},
 	   {connect,
-	    server_host(Config),server_port(Config),
+	    ssh_test_lib:server_host(Config),ssh_test_lib:server_port(Config),
 	    [{silently_accept_hosts, true},
-	     {user_dir, user_dir(Config)},
+	     {user_dir, ssh_test_lib:user_dir(Config)},
 	     {user_interaction, false},
-	     {preferred_algorithms,[{public_key,['ssh-dss']},
+             {preferred_algorithms,[{public_key,['ecdsa-sha2-nistp256']},
                                     {cipher,?DEFAULT_CIPHERS}
                                    ]}
 	    ]},
 	   receive_hello,
 	   {send, hello},
 	   {match, #ssh_msg_kexinit{_='_'}, receive_msg},
-	   {send, ssh_msg_kexinit},  % with server unsupported 'ssh-dss' !
+           {send, ssh_msg_kexinit},  % with server unsupported 'ecdsa-sha2-nistp256' !
 	   {match, disconnect(), receive_msg}
 	  ]
 	 ).
@@ -407,16 +599,16 @@ early_rce(Config) ->
     DataReq = <<?STRING(<<"lists:seq(1,10).">>)>>,
     SshMsgChannelRequest =
         ssh_connection:channel_request_msg(Id, TypeReq, WantReply, DataReq),
-    {ok,AfterKexState} =
+    {ok, _AfterKexState} =
         ssh_trpt_test_lib:exec(
           [{connect,
-            server_host(Config),server_port(Config),
+            ssh_test_lib:server_host(Config),ssh_test_lib:server_port(Config),
             [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
                                     {cipher,?DEFAULT_CIPHERS}
                                    ]},
              {silently_accept_hosts, true},
              {recv_ext_info, false},
-             {user_dir, user_dir(Config)},
+             {user_dir, ssh_test_lib:user_dir(Config)},
              {user_interaction, false}
             | proplists:get_value(extra_options,Config,[])]},
            receive_hello,
@@ -459,9 +651,9 @@ custom_kexinit(Config) ->
 	ssh_trpt_test_lib:exec(
 	  [{set_options, [print_ops, {print_messages,detail}]},
 	   {connect,
-	    server_host(Config),server_port(Config),
+	    ssh_test_lib:server_host(Config), ssh_test_lib:server_port(Config),
 	    [{silently_accept_hosts, true},
-	     {user_dir, user_dir(Config)},
+	     {user_dir, ssh_test_lib:user_dir(Config)},
 	     {user_interaction, false},
 	     {preferred_algorithms,[{public_key,['ssh-rsa']},
                                     {cipher,?DEFAULT_CIPHERS}
@@ -492,8 +684,8 @@ no_common_alg_client_disconnects(Config) ->
 		      {result,self(),
 		       ssh_trpt_test_lib:exec(
 			 [{set_options, [print_ops, {print_messages,detail}]},
-			  {accept, [{system_dir, system_dir(Config)},
-				    {user_dir, user_dir(Config)}]},
+			  {accept, [{system_dir, ssh_test_lib:system_dir(Config)},
+				    {user_dir, ssh_test_lib:user_dir(Config)}]},
 			  receive_hello,
 			  {send, hello},
 			  {match, #ssh_msg_kexinit{_='_'}, receive_msg},
@@ -520,7 +712,7 @@ no_common_alg_client_disconnects(Config) ->
 
     %% and finally connect to it with a regular Erlang SSH client
     %% which of course does not support SOME-UNSUPPORTED as pub key algo:
-    Result = std_connect(HostPort, Config, [{preferred_algorithms,[{public_key,['ssh-dss']},
+    Result = std_connect(HostPort, Config, [{preferred_algorithms,[{public_key,['ecdsa-sha2-nistp256']},
                                                                    {cipher,?DEFAULT_CIPHERS}
                                                                   ]}]),
     ct:log("Result of connect is ~p",[Result]),
@@ -532,7 +724,7 @@ no_common_alg_client_disconnects(Config) ->
 	    ct:log("ERROR!~nOp = ~p~nExecResult = ~p~nState =~n~s",
 		   [Op,ExecResult,ssh_trpt_test_lib:format_msg(S)]),
 	    {fail, ExecResult};
-	X -> 
+	{result, Pid, X} ->
 	    ct:log("¤¤¤¤¤"),
 	    ct:fail(X)
     after 
@@ -541,9 +733,8 @@ no_common_alg_client_disconnects(Config) ->
 
 %%%--------------------------------------------------------------------
 gex_client_init_option_groups(Config) ->
-    do_gex_client_init(Config, {512, 2048, 4000},
-		       {5,16#D9277DAA27DB131C03B108D41A76B4DA8ACEECCCAE73D2E48CEDAAA70B09EF9F04FB020DCF36C51B8E485B26FABE0337E24232BE4F4E693548310244937433FB1A5758195DC73B84ADEF8237472C46747D79DC0A2CF8A57CE8DBD8F466A20F8551E7B1B824B2E4987A8816D9BC0741C2798F3EBAD3ADEBCC78FCE6A770E2EC9F}
-                      ).
+    do_gex_client_init(Config, {2048, 2048, 4000},
+                       {2, ?RFC3526_GROUP14_PRIME}).
 
 gex_client_init_option_groups_file(Config) ->
     do_gex_client_init(Config, {2000, 2048, 4000},
@@ -567,9 +758,10 @@ do_gex_client_init(Config, {Min,N,Max}, {G,P}) ->
 	ssh_trpt_test_lib:exec(
 	  [{set_options, [print_ops, print_seqnums, print_messages]},
 	   {connect,
-	    server_host(Config),server_port(Config),
+	    ssh_test_lib:server_host(Config),
+            ssh_test_lib:server_port(Config),
 	    [{silently_accept_hosts, true},
-	     {user_dir, user_dir(Config)},
+	     {user_dir, ssh_test_lib:user_dir(Config)},
 	     {user_interaction, false},
 	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha256']},
                                     {cipher,?DEFAULT_CIPHERS}
@@ -602,9 +794,9 @@ do_gex_client_init_old(Config, N, {G,P}) ->
 	ssh_trpt_test_lib:exec(
 	  [{set_options, [print_ops, print_seqnums, print_messages]},
 	   {connect,
-	    server_host(Config),server_port(Config),
+	    ssh_test_lib:server_host(Config),ssh_test_lib:server_port(Config),
 	    [{silently_accept_hosts, true},
-	     {user_dir, user_dir(Config)},
+	     {user_dir, ssh_test_lib:user_dir(Config)},
 	     {user_interaction, false},
 	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha256']},
                                     {cipher,?DEFAULT_CIPHERS}
@@ -618,6 +810,67 @@ do_gex_client_init_old(Config, N, {G,P}) ->
 	   {match, #ssh_msg_kex_dh_gex_group{p=P, g=G, _='_'},  receive_msg}
 	  ]
 	 ).
+
+%%%--------------------------------------------------------------------
+%%% Client rejects a DH GEX group with too-small prime (512 bits).
+%%% The test lib acts as server and sends a bad GEX_GROUP; the real
+%%% OTP client must disconnect with KEY_EXCHANGE_FAILED.
+gex_client_rejects_small_group(Config) ->
+    %% 512-bit number (not even prime — doesn't matter, size check rejects first)
+    SmallP = 16#D4BCD52406F2C926B7E8BE5FF5D2B2E3B956F79441CE5B2E35,
+    gex_client_rejects_group(Config, SmallP, 2).
+
+%%% Client rejects a DH GEX group with invalid generator (G=1).
+gex_client_rejects_bad_generator(Config) ->
+    %% Valid 2048-bit prime (RFC 3526 group 14), but generator = 1
+    gex_client_rejects_group(Config, ?RFC3526_GROUP14_PRIME, 1).
+
+gex_client_rejects_group(Config, P, G) ->
+    {ok, InitialState} = ssh_trpt_test_lib:exec(listen),
+    HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
+    Parent = self(),
+
+    %% Server side: accept, negotiate DH-GEX, send bad group
+    Pid =
+        spawn_link(
+          fun() ->
+                  Parent !
+                      {result, self(),
+                       ssh_trpt_test_lib:exec(
+                         [{set_options, [print_ops, print_seqnums, print_messages]},
+                          {accept, [{system_dir, ssh_test_lib:system_dir(Config)},
+                                    {user_dir, ssh_test_lib:user_dir(Config)}]},
+                          receive_hello,
+                          {send, hello},
+                          {send, ssh_msg_kexinit},
+                          {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+                          {match, #ssh_msg_kex_dh_gex_request{_='_'}, receive_msg},
+                          {send, #ssh_msg_kex_dh_gex_group{p = P, g = G}},
+                          {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED),
+                           receive_msg}
+                         ],
+                         InitialState)}
+          end),
+
+    %% Client side: connect forcing DH-GEX
+    Result = std_connect(HostPort, Config,
+                         [{preferred_algorithms,
+                           [{kex, ['diffie-hellman-group-exchange-sha256']},
+                            {cipher, ?DEFAULT_CIPHERS}]}]),
+    ct:log("Client connect result: ~p", [Result]),
+
+    receive
+        {result, Pid, {ok, _}} ->
+            ok;
+        {result, Pid, {error, {Op, ExecResult, S}}} ->
+            ct:log("ERROR!~nOp = ~p~nExecResult = ~p~nState =~n~s",
+                   [Op, ExecResult, ssh_trpt_test_lib:format_msg(S)]),
+            {fail, ExecResult};
+        {result, Pid, X} ->
+            ct:fail(X)
+    after
+        30000 -> ct:fail("timeout ~p:~p", [?MODULE, ?LINE])
+    end.
 
 %%%--------------------------------------------------------------------
 bad_service_name(Config) -> 
@@ -655,27 +908,210 @@ bad_service_name(Config, Name) ->
 	  ], InitialState).
 
 %%%--------------------------------------------------------------------
-packet_length_too_large(Config) -> bad_packet_length(Config, +4).
+%%% Both packet_length_too_large and packet_length_too_short check for misaligned block size
+packet_length_too_large(Config) -> bad_packet_length(Config, 50, +4, false, 0).
 
-packet_length_too_short(Config) -> bad_packet_length(Config, -4).
-    
-bad_packet_length(Config, LengthExcess) ->
-    PacketFun = 
-	fun(Msg, Ssh) ->
-		BinMsg = ssh_message:encode(Msg),
-		ssh_transport:pack(BinMsg, Ssh, LengthExcess)
-	end,
-    {ok,InitialState} = connect_and_kex(Config),
-    {ok,_} =
-	ssh_trpt_test_lib:exec(
-	  [{set_options, [print_ops, print_seqnums, print_messages]},
-	   {send, {special,
-		   #ssh_msg_service_request{name="ssh-userauth"},
-		   PacketFun}},
-	   %% Prohibit remote decoder starvation:	   
-	   {send, #ssh_msg_service_request{name="ssh-userauth"}},
-	   {match, disconnect(), receive_msg}
-	  ], InitialState).
+packet_length_too_short(Config) -> bad_packet_length(Config, 50, -4, false, 1).
+
+%%%--------------------------------------------------------------------
+packet_length_longer_than_max(Config) -> bad_packet_length(Config, ?SSH_MAX_PACKET_SIZE, 0, true, 0).
+
+bad_packet_length(Config, DataLength, LengthExcess, ImmediateDisconnect, OvershootAmount) ->
+    Parent = self(),
+    PacketFun =
+        fun(Msg, Ssh) ->
+                BinMsg = ssh_message:encode(Msg),
+                {Packet, _} = Result = ssh_transport:pack(BinMsg, Ssh, LengthExcess),
+                Parent ! {size, byte_size(Packet)},
+                Result
+        end,
+    test_packet_discard(Config, PacketFun, DataLength, ImmediateDisconnect, OvershootAmount).
+
+%%%--------------------------------------------------------------------
+bad_mac(Config) ->
+    Parent = self(),
+    PacketFun =
+        fun(Msg, #ssh{send_mac_size = MacSize} = Ssh0) ->
+                BinMsg = ssh_message:encode(Msg),
+                %% Replace mac in packet with invalid mac
+                {Packet0, Ssh} = ssh_transport:pack(BinMsg, Ssh0),
+                PacketSize = byte_size(Packet0),
+                PacketData = binary:part(Packet0, PacketSize, -MacSize),
+                FakeMac = binary:copy(<<"a">>, MacSize),
+                Packet = <<PacketData/binary, FakeMac/binary>>,
+                Parent ! {size, PacketSize},
+                {Packet, Ssh}
+        end,
+    test_packet_discard(Config, PacketFun, 50, false, 0).
+
+%%%--------------------------------------------------------------------
+test_packet_discard(Config, PacketFun, DataLength, ImmediateDisconnect, OvershootAmount) ->
+    {ok, InitialState} = ssh_trpt_test_lib:exec(
+                           [{set_options, [print_ops, {print_messages,detail}]}]),
+    Algs = proplists:get_value(preferred_algorithms, Config, []),
+    {ok, AfterKexState} = connect_and_kex(Config, InitialState, [{kex, [?DEFAULT_KEX]} | Algs]),
+    {ok, AfterSendState0} =
+        ssh_trpt_test_lib:exec(
+          [{set_options, [print_ops, print_seqnums, print_messages]},
+           {send, {special,
+                   #ssh_msg_ignore{data = binary:copy(<<"a">>, DataLength)},
+                   PacketFun}}
+          ], AfterKexState),
+
+    Size = receive {size, S} -> S end,
+    Missing = ?SSH_MAX_PACKET_SIZE - Size,
+    case proplists:get_value(discard, Config) == false orelse ImmediateDisconnect of
+        true ->
+            %% Packet discard is not needed or we already sent as much (or more)
+            %% than ?SSH_MAX_PACKET_SIZE, we get disconnect
+            {ok, _} =
+                ssh_trpt_test_lib:exec([{match, disconnect(), receive_msg}], AfterSendState0);
+        false ->
+            %% Packet is too short to cause disconnect immediately
+            {error, {_, receive_timeout, AfterSendState1}} =
+                ssh_trpt_test_lib:exec([{match, disconnect(), receive_msg}], AfterSendState0),
+            %% We send some data but not enough to reach ?SSH_MAX_PACKET_SIZE, still no disconnect
+            {error, {_, receive_timeout, AfterSendState}} =
+                ssh_trpt_test_lib:exec([{send, binary:copy(<<"a">>, Missing - 1)},
+                                        {match, disconnect(), receive_msg}], AfterSendState1),
+            %% We send exactly (or more) the amount to reach (or go past) ?SSH_MAX_PACKET_SIZE,
+            %% we get disconnect
+            {ok, _} =
+                ssh_trpt_test_lib:exec([{send, binary:copy(<<"a">>, 1 + OvershootAmount)},
+                                        {match, disconnect(), receive_msg}], AfterSendState)
+    end.
+
+%%%--------------------------------------------------------------------
+decompression_bomb_client(Config) ->
+    {ok, InitialState} = connect_and_kex(Config, ssh_trpt_test_lib:exec([]),
+                                         [{kex, [?DEFAULT_KEX]},
+                                          {cipher, ?DEFAULT_CIPHERS},
+                                          {compression, ['zlib']}]),
+    %% ?SSH_MAX_PACKET_SIZE - 9 is enough to trigger disconnect because Payload of ssh packet becomes:
+    %% 1 byte message identifier
+    %% 4 bytes length of data field
+    %% ?SSH_MAX_PACKET_SIZE - 9 bytes of data
+    %% This is longer than max decompressed Payload length which is ?SSH_MAX_PACKET_SIZE - 5
+    %% See more in ssh_transport:safe_zlib_inflate_loop
+    Data = binary:copy(<<0>>, ?SSH_MAX_PACKET_SIZE - 9),
+    {ok, _} =
+        ssh_trpt_test_lib:exec([
+                                {send, #ssh_msg_ignore{data = Data}},
+                                {match, disconnect(), receive_msg}
+                               ], InitialState).
+
+%%%--------------------------------------------------------------------
+decompression_bomb_client_after_auth(Config) ->
+    {ok, InitialState} = connect_and_kex(Config, ssh_trpt_test_lib:exec([]),
+                                         [{kex, [?DEFAULT_KEX]},
+                                          {cipher, ?DEFAULT_CIPHERS},
+                                          {compression, ['zlib@openssh.com']}]),
+    {User, Pwd} = server_user_password(Config),
+    {ok, AfterAuthState} =
+        ssh_trpt_test_lib:exec(
+          [{send, #ssh_msg_service_request{name = "ssh-userauth"}},
+           {match, #ssh_msg_service_accept{name = "ssh-userauth"}, receive_msg},
+           {send, #ssh_msg_userauth_request{user = User,
+                                            service = "ssh-connection",
+                                            method = "password",
+                                            data = <<?BOOLEAN(?FALSE),
+                                                     ?STRING(unicode:characters_to_binary(Pwd))>>
+                                           }},
+           {match, #ssh_msg_userauth_success{_='_'}, receive_msg}
+          ], InitialState),
+    %% See explanation in decompression_bomb_client
+    Data = binary:copy(<<0>>, ?SSH_MAX_PACKET_SIZE - 9),
+    {ok, _} =
+        ssh_trpt_test_lib:exec([
+                                {send, #ssh_msg_ignore{data = Data}},
+                                {match, disconnect(), receive_msg}
+                               ], AfterAuthState).
+
+%%%--------------------------------------------------------------------
+decompression_bomb_server(Config) ->
+    {ok, InitialState} = ssh_trpt_test_lib:exec(listen),
+    HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
+    %% See explanation in decompression_bomb_client
+    Data = binary:copy(<<0>>, ?SSH_MAX_PACKET_SIZE - 9),
+    ServerPid =
+        spawn_link(
+          fun() ->
+                  {ok, _} =
+                      ssh_trpt_test_lib:exec(
+                        [{set_options, [print_ops, print_messages]},
+                         {accept, [{system_dir, ssh_test_lib:system_dir(Config)},
+                                   {user_dir, ssh_test_lib:user_dir(Config)},
+                                   {preferred_algorithms,[{kex, [?DEFAULT_KEX]},
+                                                          {cipher, ?DEFAULT_CIPHERS},
+                                                          {compression, ['zlib']}]}]},
+                         receive_hello,
+                         {send, hello},
+                         {send, ssh_msg_kexinit},
+                         {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+                         {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
+                         {send, ssh_msg_kexdh_reply},
+                         {send, #ssh_msg_newkeys{}},
+                         {match, #ssh_msg_newkeys{_='_'}, receive_msg},
+                         {send, #ssh_msg_ignore{data = Data}},
+                         {match, disconnect(), receive_msg}
+                        ], InitialState)
+          end),
+    Ref = monitor(process, ServerPid),
+    {error, "Protocol error"} =
+        std_connect(HostPort, Config,
+                    [{silently_accept_hosts, true},
+                     {user_dir, ssh_test_lib:user_dir(Config)},
+                     {user_interaction, false},
+                     {preferred_algorithms, [{compression,['zlib']}]}]),
+    receive
+        {'DOWN', Ref, process, ServerPid, normal} -> ok
+    end.
+
+%%%--------------------------------------------------------------------
+decompression_bomb_server_after_auth(Config) ->
+    {ok, InitialState} = ssh_trpt_test_lib:exec(listen),
+    HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
+    %% See explanation in decompression_bomb_client
+    Data = binary:copy(<<0>>, ?SSH_MAX_PACKET_SIZE - 9),
+    ServerPid =
+        spawn_link(
+          fun() ->
+                  {ok ,_} =
+                      ssh_trpt_test_lib:exec(
+                        [{set_options, [print_ops, print_messages]},
+                         {accept, [{system_dir, ssh_test_lib:system_dir(Config)},
+                                   {user_dir, ssh_test_lib:user_dir(Config)},
+                                   {preferred_algorithms,[{kex, [?DEFAULT_KEX]},
+                                                          {cipher, ?DEFAULT_CIPHERS},
+                                                          {compression, ['zlib@openssh.com']}]}]},
+                         receive_hello,
+                         {send, hello},
+                         {send, ssh_msg_kexinit},
+                         {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+                         {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
+                         {send, ssh_msg_kexdh_reply},
+                         {send, #ssh_msg_newkeys{}},
+                         {match, #ssh_msg_newkeys{_='_'}, receive_msg},
+                         {match, #ssh_msg_service_request{name="ssh-userauth"}, receive_msg},
+                         {send, #ssh_msg_service_accept{name="ssh-userauth"}},
+                         {match, #ssh_msg_userauth_request{service="ssh-connection",
+                                                           method="none",
+                                                           _='_'}, receive_msg},
+                         {send, #ssh_msg_userauth_success{}},
+                         {send, #ssh_msg_ignore{data = Data}},
+                         {match, disconnect(), receive_msg}
+                        ], InitialState)
+          end),
+    Ref = monitor(process, ServerPid),
+    {ok, _} =
+        std_connect(HostPort, Config,
+                    [{silently_accept_hosts, true},
+                     {user_dir, ssh_test_lib:user_dir(Config)},
+                     {user_interaction, false},
+                     {preferred_algorithms, [{compression, ['zlib@openssh.com']}]}]),
+    receive
+        {'DOWN', Ref, process, ServerPid, normal} -> ok
+    end.
 
 %%%--------------------------------------------------------------------
 service_name_length_too_large(Config) -> bad_service_name_length(Config, +4).
@@ -721,8 +1157,8 @@ client_handles_keyboard_interactive_0_pwds(Config) ->
 	      {ok,_} =
 		  ssh_trpt_test_lib:exec(
 		    [{set_options, [print_ops, print_messages]},
-		     {accept, [{system_dir, system_dir(Config)},
-			       {user_dir, user_dir(Config)}]},
+		     {accept, [{system_dir, ssh_test_lib:system_dir(Config)},
+			       {user_dir, ssh_test_lib:user_dir(Config)}]},
 		     receive_hello,
 		     {send, hello},
 
@@ -800,8 +1236,8 @@ client_handles_banner_keyboard_interactive(Config) ->
 	      {ok,_} =
 		  ssh_trpt_test_lib:exec(
 		    [{set_options, [print_ops, print_messages]},
-		     {accept, [{system_dir, system_dir(Config)},
-			       {user_dir, user_dir(Config)}]},
+		     {accept, [{system_dir, ssh_test_lib:system_dir(Config)},
+			       {user_dir, ssh_test_lib:user_dir(Config)}]},
 		     receive_hello,
 		     {send, hello},
 
@@ -860,6 +1296,74 @@ client_handles_banner_keyboard_interactive(Config) ->
                                                 ]}]
 			).
 
+banner_sent_to_client(Config) ->
+    BannerFun = fun(U) -> list_to_binary(U) end,
+    User = "foo",
+    Pwd = "morot",
+    UserDir = ssh_test_lib:user_dir(Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, ssh_test_lib:system_dir(Config)},
+					     {user_dir, UserDir},
+					     {password, Pwd},
+					     {failfun, fun ssh_test_lib:failfun/2},
+					     {bannerfun, BannerFun}]),
+
+    {ok,AfterUserAuthReqState} = connect_and_userauth_request(Host, Port, User, Pwd, UserDir),
+    {ok,EndState} =
+	ssh_trpt_test_lib:exec(
+	  [{match, #ssh_msg_userauth_banner{message = BannerFun(User),
+                                            language = <<>>}, receive_msg},
+	   {match, #ssh_msg_userauth_success{_='_'}, receive_msg}
+	  ], AfterUserAuthReqState),
+
+    {ok,_} = trpt_test_lib_send_disconnect(EndState),
+
+    ssh:stop_daemon(Pid),
+    Config.
+
+banner_not_sent_to_client(Config) ->
+    %% Bad bannerfun
+    BBF = fun(_U) -> no_banner_is_sent_because_bannerfun_return_is_not_binary end,
+    User = "foo",
+    Pwd = "morot",
+    UserDir = ssh_test_lib:user_dir(Config),
+    {BBFPid, BBFHost, BBFPort} =
+        ssh_test_lib:daemon([{system_dir, ssh_test_lib:system_dir(Config)},
+                             {user_dir, UserDir},
+                             {password, Pwd},
+                             {failfun, fun ssh_test_lib:failfun/2},
+                             {bannerfun, BBF}]),
+
+    {ok,BBFAfterUserAuthReqState} = connect_and_userauth_request(BBFHost,
+                                                                 BBFPort,
+                                                                 User, Pwd, UserDir),
+    {ok,BBFEndState} =
+	ssh_trpt_test_lib:exec(
+	  [{match, #ssh_msg_userauth_success{_='_'}, receive_msg}
+	  ], BBFAfterUserAuthReqState),
+
+    {ok,_} = trpt_test_lib_send_disconnect(BBFEndState),
+    ssh:stop_daemon(BBFPid),
+
+    %% No bannerfun
+    {Pid, Host, Port} =
+        ssh_test_lib:daemon([{system_dir, ssh_test_lib:system_dir(Config)},
+                             {user_dir, UserDir},
+                             {password, Pwd},
+                             {failfun, fun ssh_test_lib:failfun/2}]),
+
+    {ok,AfterUserAuthReqState} = connect_and_userauth_request(Host,
+                                                              Port,
+                                                              User, Pwd, UserDir),
+    {ok,EndState} =
+	ssh_trpt_test_lib:exec(
+	  [{match, #ssh_msg_userauth_success{_='_'}, receive_msg}
+	  ], AfterUserAuthReqState),
+
+    {ok,_} = trpt_test_lib_send_disconnect(EndState),
+    ssh:stop_daemon(Pid),
+
+    Config.
+
 %%%--------------------------------------------------------------------
 client_info_line(Config) ->
     %% A client must not send an info-line. If it does, the server should handle
@@ -895,7 +1399,7 @@ client_info_line(Config) ->
 no_ext_info_s1(Config) ->
     %% Start the daemon
     Server = {Pid,_,_} = ssh_test_lib:daemon([{send_ext_info,true},
-                                              {system_dir, system_dir(Config)}]),
+                                              {system_dir, ssh_test_lib:system_dir(Config)}]),
     {ok,AfterKexState} = connect_and_kex([{server,Server}|Config]),
     {ok,_} = 
         ssh_trpt_test_lib:exec(
@@ -910,7 +1414,7 @@ no_ext_info_s1(Config) ->
 no_ext_info_s2(Config) ->    
     %% Start the daemon
     Server = {Pid,_,_} = ssh_test_lib:daemon([{send_ext_info,false},
-                                              {system_dir, system_dir(Config)}]),
+                                              {system_dir, ssh_test_lib:system_dir(Config)}]),
     {ok,AfterKexState} = connect_and_kex([{extra_options,[{recv_ext_info,true}]},
                                           {server,Server}
                                           | Config]),
@@ -926,7 +1430,7 @@ no_ext_info_s2(Config) ->
 ext_info_s(Config) ->    
     %% Start the daemon
     Server = {Pid,_,_} = ssh_test_lib:daemon([{send_ext_info,true},
-                                              {system_dir, system_dir(Config)}]),
+                                              {system_dir, ssh_test_lib:system_dir(Config)}]),
     {ok,AfterKexState} = connect_and_kex([{extra_options,[{recv_ext_info,true}]},
                                           {server,Server}
                                           | Config]),
@@ -952,8 +1456,8 @@ ext_info_c(Config) ->
                   Result =
                       ssh_trpt_test_lib:exec(
                         [{set_options, [print_ops, print_messages]},
-                         {accept, [{system_dir, system_dir(Config)},
-                                   {user_dir, user_dir(Config)},
+                         {accept, [{system_dir, ssh_test_lib:system_dir(Config)},
+                                   {user_dir, ssh_test_lib:user_dir(Config)},
                                    {recv_ext_info, true}
                                   ]},
                          receive_hello,
@@ -997,19 +1501,17 @@ ext_info_c(Config) ->
 %%%--------------------------------------------------------------------
 %%%
 kex_strict_negotiated(Config0) ->
-    {ok, TestRef} = ssh_test_lib:add_log_handler(),
-    Config = start_std_daemon(Config0, []),
+    Config =
+        ssh_test_lib:add_log_handler(?FUNCTION_NAME,
+                                     start_std_daemon(Config0, [])),
     {Server, Host, Port} = proplists:get_value(server, Config),
-    Level = ssh_test_lib:get_log_level(),
-    ssh_test_lib:set_log_level(debug),
     {ok, ConnRef} = std_connect({Host, Port}, Config, []),
     {algorithms, _A} = ssh:connection_info(ConnRef, algorithms),
     ssh:stop_daemon(Server),
-    {ok, Events} = ssh_test_lib:get_log_events(TestRef),
+    {ok, Events} = ssh_test_lib:get_log_events(Config),
     true = ssh_test_lib:kex_strict_negotiated(client, Events),
     true = ssh_test_lib:kex_strict_negotiated(server, Events),
-    ssh_test_lib:set_log_level(Level),
-    ssh_test_lib:rm_log_handler(),
+    ssh_test_lib:rm_log_handler(?FUNCTION_NAME),
     ok.
 
 %% Connect to an erlang server and inject unexpected SSH message
@@ -1061,20 +1563,8 @@ kex_strict_violation_new_keys(Config) ->
 %% Connect to an erlang server and inject unexpected SSH message
 %% duplicated KEXINIT
 kex_strict_violation(Config) ->
-    KexDhReply =
-        #ssh_msg_kexdh_reply{
-           public_host_key = {{{'ECPoint',<<73,72,235,162,96,101,154,59,217,114,123,192,96,105,250,29,214,76,60,63,167,21,221,118,246,168,152,2,7,172,137,125>>},
-                               {namedCurve,{1,3,101,112}}},
-                              'ssh-ed25519'},
-           f = 18504393053016436370762156176197081926381112956345797067569792020930728564439992620494295053804030674742529174859108487694089045521619258420515443400605141150065440678508889060925968846155921972385560196703381004650914261218463420313738628465563288022895912907728767735629532940627575655703806353550720122093175255090704443612257683903495753071530605378193139909567971489952258218767352348904221407081210633467414579377014704081235998044497191940270966762124544755076128392259615566530695493013708460088312025006678879288856957348606386230195080105197251789635675011844976120745546472873505352732719507783227210178188,
-           h_sig = <<90,247,44,240,136,196,82,215,56,165,53,33,230,101,253,
-                     34,112,201,21,131,162,169,10,129,174,14,69,25,39,174,
-                     92,210,130,249,103,2,215,245,7,213,110,235,136,134,11,
-                     124,248,139,79,17,225,77,125,182,204,84,137,167,99,186,
-                     167,42,192,10>>},
     TestFlows =
-        [
-         {kexinit, "KEX strict violation",
+        [{kexinit, "KEX strict violation",
           [receive_hello,
            {send, hello},
            {send, ssh_msg_kexinit},
@@ -1087,8 +1577,14 @@ kex_strict_violation(Config) ->
            {send, ssh_msg_kexinit},
            {match, #ssh_msg_kexinit{_='_'}, receive_msg},
            {send, ssh_msg_kexdh_init_dup},
-           {match,# ssh_msg_kexdh_reply{_='_'}, receive_msg},
-           {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}]},
+           {match, #ssh_msg_kexdh_reply{_='_'}, receive_msg},
+           %% Server processes first kexdh_init (sends newkeys), then
+           %% detects the duplicate and disconnects. Depending on timing
+           %% we may see newkeys, disconnect, or tcp_closed here.
+           %% The actual violation assertion is verified via event_logged.
+           {match, {'or', [#ssh_msg_newkeys{_='_'},
+                           #ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED},
+                           tcp_closed]}, receive_msg}]},
          {new_keys, "Message ssh_msg_newkeys in wrong state",
           [receive_hello,
            {send, hello},
@@ -1114,20 +1610,8 @@ kex_strict_violation(Config) ->
            {send, ssh_msg_kexinit},
            {match, #ssh_msg_kexinit{_='_'}, receive_msg},
            %% client should not send message below
-           {send, KexDhReply},
-           {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}]},
-         {wrong_role2, "KEX strict violation",
-          [receive_hello,
-           {send, hello},
-           {send, ssh_msg_kexinit},
-           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
-           {send, ssh_msg_kexdh_init},
-           {match,# ssh_msg_kexdh_reply{_='_'}, receive_msg},
-           %% client should not send message below
-           {send, KexDhReply},
-           {match, #ssh_msg_newkeys{_='_'}, receive_msg},
-           {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}]}
-        ],
+           {send, ?HARDCODED_KEXDH_REPLY},
+           {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}]}],
     TestProcedure =
         fun({Msg, _, P}) ->
                 ct:log(
@@ -1138,6 +1622,55 @@ kex_strict_violation(Config) ->
     [kex_strict_helper(Config, TestProcedure(Procedure), Reason) ||
         Procedure = {_, Reason, _} <- TestFlows],
     ct:log("==== END ====="),
+    ok.
+
+kex_strict_violation_2(Config0) ->
+    ExpectedReason = "KEX strict violation",
+    Config = ssh_test_lib:add_log_handler(?FUNCTION_NAME, Config0),
+    %% Connect and negotiate keys
+    {ok, InitialState} = ssh_trpt_test_lib:exec(
+                           [{set_options, [print_ops, print_seqnums, print_messages]}]),
+    {ok, UpToUnexpectedKexDHReply} =
+        ssh_trpt_test_lib:exec(
+          [{connect,
+            ssh_test_lib:server_host(Config),ssh_test_lib:server_port(Config),
+            [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                    {cipher,?DEFAULT_CIPHERS}
+                                   ]},
+             {silently_accept_hosts, true},
+             {recv_ext_info, false},
+             {user_dir, ssh_test_lib:user_dir(Config)},
+             {user_interaction, false}
+            | proplists:get_value(extra_options,Config,[])
+            ]}] ++
+              [receive_hello,
+               {send, hello},
+               {send, ssh_msg_kexinit},
+               {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+               {send, ssh_msg_kexdh_init},
+               {match, #ssh_msg_kexdh_reply{_='_'}, receive_msg},
+               %% client should not send message below
+               {send, ?HARDCODED_KEXDH_REPLY},
+               {match, {'or', [#ssh_msg_newkeys{_='_'},
+                               disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED)]},
+                receive_msg}],
+          InitialState),
+    case ssh_trpt_test_lib:return_value(UpToUnexpectedKexDHReply) of
+        {ssh_msg_newkeys} ->
+            ct:log("1st flow - extra match for disconnect needed"),
+            ssh_trpt_test_lib:exec(
+              [{match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}],
+              UpToUnexpectedKexDHReply);
+        _ ->
+            ct:log("2nd flow disconnect already received")
+    end,
+    ct:sleep(100),
+    {ok, Events} = ssh_test_lib:get_log_events(Config),
+    ssh_test_lib:rm_log_handler(?FUNCTION_NAME),
+    ct:log("Events = ~p", [Events]),
+    true = ssh_test_lib:kex_strict_negotiated(client, Events),
+    true = ssh_test_lib:kex_strict_negotiated(server, Events),
+    true = ssh_test_lib:event_logged(server, Events, ExpectedReason),
     ok.
 
 %% Connect to an erlang server and inject unexpected non-SSH binary
@@ -1155,37 +1688,68 @@ kex_strict_msg_unknown(Config) ->
          {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}],
     kex_strict_helper(Config, TestMessages, ExpectedReason).
 
-kex_strict_helper(Config, TestMessages, ExpectedReason) ->
-    {ok, TestRef} = ssh_test_lib:add_log_handler(),
-    Level = ssh_test_lib:get_log_level(),
-    ssh_test_lib:set_log_level(debug),
+%% RFC 4253 §8 / RFC 4419 §3: a peer's DH value must satisfy 1 < e < p-1.
+%% A peer driving e (or, on the client side, f) to one of {0, 1, p-1, p}
+%% must be rejected with SSH_DISCONNECT_KEY_EXCHANGE_FAILED. Verify this
+%% for the server, which receives e from the client.
+dh_kexdh_init_e_out_of_bounds(Config) ->
+    {_G, P} = ?dh_group14,
+    [verify_kexdh_init_rejected(Config, E) || E <- [0, 1, P-1, P]],
+    ok.
+
+verify_kexdh_init_rejected(Config, E) ->
+    ct:log("Trying kexdh_init with e=~p", [E]),
+    {ok, InitialState} = ssh_trpt_test_lib:exec(
+                          [{set_options, [print_ops, print_seqnums, print_messages]}]),
+    {ok, _} =
+        ssh_trpt_test_lib:exec(
+          [{connect,
+            ssh_test_lib:server_host(Config), ssh_test_lib:server_port(Config),
+            [{preferred_algorithms,
+              [{kex, ['diffie-hellman-group14-sha256']},
+               {cipher, ?DEFAULT_CIPHERS}]},
+             {silently_accept_hosts, true},
+             {recv_ext_info, false},
+             {user_dir, ssh_test_lib:user_dir(Config)},
+             {user_interaction, false}
+             | proplists:get_value(extra_options, Config, [])
+            ]},
+           receive_hello,
+           {send, hello},
+           {send, ssh_msg_kexinit},
+           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           {send, #ssh_msg_kexdh_init{e = E}},
+           {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}],
+          InitialState).
+
+kex_strict_helper(Config0, TestMessages, ExpectedReason) ->
+    Config = ssh_test_lib:add_log_handler(?FUNCTION_NAME, Config0),
     %% Connect and negotiate keys
     {ok, InitialState} = ssh_trpt_test_lib:exec(
-			  [{set_options, [print_ops, print_seqnums, print_messages]}]
-			 ),
+                           [{set_options, [print_ops, print_seqnums, print_messages]}]),
     {ok, _AfterKexState} =
         ssh_trpt_test_lib:exec(
           [{connect,
-            server_host(Config),server_port(Config),
+            ssh_test_lib:server_host(Config),ssh_test_lib:server_port(Config),
             [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
                                     {cipher,?DEFAULT_CIPHERS}
                                    ]},
              {silently_accept_hosts, true},
              {recv_ext_info, false},
-             {user_dir, user_dir(Config)},
+             {user_dir, ssh_test_lib:user_dir(Config)},
              {user_interaction, false}
             | proplists:get_value(extra_options,Config,[])
             ]}] ++
-              TestMessages,
+              TestMessages ++
+              [close_socket],
           InitialState),
     ct:sleep(100),
-    {ok, Events} = ssh_test_lib:get_log_events(TestRef),
-    ssh_test_lib:rm_log_handler(),
+    {ok, Events} = ssh_test_lib:get_log_events(Config),
+    ssh_test_lib:rm_log_handler(?FUNCTION_NAME),
     ct:log("Events = ~p", [Events]),
     true = ssh_test_lib:kex_strict_negotiated(client, Events),
     true = ssh_test_lib:kex_strict_negotiated(server, Events),
     true = ssh_test_lib:event_logged(server, Events, ExpectedReason),
-    ssh_test_lib:set_log_level(Level),
     ok.
 
 %%%----------------------------------------------------------------
@@ -1208,7 +1772,7 @@ modify_append(Config) ->
     Ciphers = filter_supported(cipher, ?CIPHERS),
     {ok,_} =
         chk_pref_algs(Config,
-                      [?DEFAULT_KEX, ?EXTRA_KEX, list_to_atom(?kex_strict_s)],
+                      [?DEFAULT_KEX, ?EXTRA_KEX, list_to_atom(?kex_strict_s), list_to_atom(?kex_strict_s_pre)],
                       Ciphers,
                       [{preferred_algorithms, [{kex,[?DEFAULT_KEX]},
                                                {cipher,Ciphers}
@@ -1222,7 +1786,7 @@ modify_prepend(Config) ->
     Ciphers = filter_supported(cipher, ?CIPHERS),
     {ok,_} =
         chk_pref_algs(Config,
-                      [?EXTRA_KEX, ?DEFAULT_KEX, list_to_atom(?kex_strict_s)],
+                      [?EXTRA_KEX, ?DEFAULT_KEX, list_to_atom(?kex_strict_s), list_to_atom(?kex_strict_s_pre)],
                       Ciphers,
                       [{preferred_algorithms, [{kex,[?DEFAULT_KEX]},
                                                {cipher,Ciphers}
@@ -1236,7 +1800,7 @@ modify_rm(Config) ->
     Ciphers = filter_supported(cipher, ?CIPHERS),
     {ok,_} =
         chk_pref_algs(Config,
-                      [?DEFAULT_KEX, list_to_atom(?kex_strict_s)],
+                      [?DEFAULT_KEX, list_to_atom(?kex_strict_s), list_to_atom(?kex_strict_s_pre)],
                       tl(Ciphers),
                       [{preferred_algorithms, [{kex,[?DEFAULT_KEX,?EXTRA_KEX]},
                                                {cipher,Ciphers}
@@ -1255,7 +1819,7 @@ modify_combo(Config) ->
     LastC = lists:last(Ciphers),
     {ok,_} =
         chk_pref_algs(Config,
-                      [?DEFAULT_KEX, list_to_atom(?kex_strict_s)],
+                      [?DEFAULT_KEX, list_to_atom(?kex_strict_s), list_to_atom(?kex_strict_s_pre)],
                       [LastC] ++ (tl(Ciphers)--[LastC]) ++ [hd(Ciphers)],
                       [{preferred_algorithms, [{kex,[?DEFAULT_KEX,?EXTRA_KEX]},
                                                {cipher,Ciphers}
@@ -1279,34 +1843,32 @@ client_close_after_hello(Config0) ->
                                         {max_sessions,MaxSessions},
                                         {negotiation_timeout,SleepSec*1000}
                                        ]),
-
-    {_Parents0, Conns0, []} = find_handshake_parent(server_port(Config)),
-
+    {_Parents0, Conns0, []} =
+        ssh_test_lib:find_handshake_parent(ssh_test_lib:server_port(Config)),
     Cs =
         [ssh_trpt_test_lib:exec(
            [{connect,
-             server_host(Config),server_port(Config),
+             ssh_test_lib:server_host(Config),ssh_test_lib:server_port(Config),
              [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
                                      {cipher,?DEFAULT_CIPHERS}
                                     ]},
               {silently_accept_hosts, true},
               {recv_ext_info, false},
-              {user_dir, user_dir(Config)},
+              {user_dir, ssh_test_lib:user_dir(Config)},
               {user_interaction, false}
               | proplists:get_value(extra_options,Config,[])
              ]},
             {send, hello}
            ]) || _ <- lists:seq(1,MaxSessions+100)],
-
     ct:log("=== Tried to start ~p sessions.", [length(Cs)]),
-
     ssh_info:print(fun ct:log/2),
-    {Parents, Conns, Handshakers} = find_handshake_parent(server_port(Config)),
+    {Parents, Conns, Handshakers} =
+        ssh_test_lib:find_handshake_parent(ssh_test_lib:server_port(Config)),
     ct:log("Found (Port=~p):~n"
            "  Connections  (length ~p): ~p~n"
            "  Handshakers  (length ~p): ~p~n"
            "  with parents (length ~p): ~p",
-           [server_port(Config),
+           [ssh_test_lib:server_port(Config),
             length(Conns), Conns,
             length(Handshakers), Handshakers,
             length(Parents), Parents]),
@@ -1317,12 +1879,13 @@ client_close_after_hello(Config0) ->
             timer:sleep((SleepSec+15)*1000),
             ct:log("After sleeping", []),
             ssh_info:print(fun ct:log/2),
-            {Parents2, Conns2, Handshakers2} = find_handshake_parent(server_port(Config)),
+            {Parents2, Conns2, Handshakers2} =
+                ssh_test_lib:find_handshake_parent(ssh_test_lib:server_port(Config)),
             ct:log("Found (Port=~p):~n"
                    "  Connections  (length ~p): ~p~n"
                    "  Handshakers  (length ~p): ~p~n"
                    "  with parents (length ~p): ~p",
-                   [server_port(Config),
+                   [ssh_test_lib:server_port(Config),
                     length(Conns2), Conns2,
                     length(Handshakers2), Handshakers2,
                     length(Parents2), Parents2]),
@@ -1342,6 +1905,305 @@ client_close_after_hello(Config0) ->
             {fail, no_handshakers}
     end.
 
+%%% Connect to an erlang server and pretend client sending extra
+%%% ssh_msg_service_request (Paramiko client behavior)
+extra_ssh_msg_service_request(Config) ->
+    %% Connect and negotiate keys
+    {ok,InitialState} = ssh_trpt_test_lib:exec(
+			  [{set_options, [print_ops, print_seqnums, print_messages]}]
+			 ),
+    {ok,AfterKexState} = connect_and_kex(Config, InitialState),
+    %% Do the authentcation
+    {User,Pwd} = server_user_password(Config),
+    UserAuthFlow =
+        fun(P) ->
+                [{send, #ssh_msg_service_request{name = "ssh-userauth"}},
+                 {match, #ssh_msg_service_accept{name = "ssh-userauth"}, receive_msg},
+                 {send, #ssh_msg_userauth_request{user = User,
+                                                  service = "ssh-connection",
+                                                  method = "password",
+                                                  data = <<?BOOLEAN(?FALSE),
+                                                           ?STRING(unicode:characters_to_binary(P))>>
+                                                 }}]
+        end,
+    {ok,EndState} =
+	ssh_trpt_test_lib:exec(
+          UserAuthFlow("WRONG") ++
+              [{match, #ssh_msg_userauth_failure{_='_'}, receive_msg}] ++
+              UserAuthFlow(Pwd) ++
+              [{match, #ssh_msg_userauth_success{_='_'}, receive_msg}],
+          AfterKexState),
+    %% Disconnect
+    {ok,_} =
+	ssh_trpt_test_lib:exec(
+	  [{send, #ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
+				      description = "End of the fun",
+				      language = ""
+				     }},
+	   close_socket
+	  ], EndState),
+    ok.
+
+alive_eserver_tclient(Config) ->
+    User = "foo",
+    Pwd = "morot",
+    UserDir = ssh_test_lib:user_dir(Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, ssh_test_lib:system_dir(Config)},
+					     {user_dir, UserDir},
+					     {password, Pwd},
+					     {failfun, fun ssh_test_lib:failfun/2},
+					     {alive, #{count_max => 3, interval => 1000}}]),
+    {ok,AfterUserAuthReqState} = connect_and_userauth_request(Host, Port, User, Pwd, UserDir),
+    {ok, AliveOkState} =
+	ssh_trpt_test_lib:exec(
+	  [{match, #ssh_msg_userauth_success{_='_'}, receive_msg},
+           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                           want_reply = true,
+                                           data = <<>>}, receive_msg},
+           {send, #ssh_msg_request_failure{}},
+           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                           want_reply = true,
+                                           data = <<>>}, receive_msg},
+           %% Send success just to check that it works as well
+           {send, #ssh_msg_request_success{data = <<>>}}
+	  ], AfterUserAuthReqState),
+    ?CT_LOG("[OK] Alive feature - normal conditions"),
+    {ok, _} =
+	ssh_trpt_test_lib:exec(
+	  [
+           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                           want_reply = true,
+                                           data = <<>>}, receive_msg},
+           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                           want_reply = true,
+                                           data = <<>>}, receive_msg},
+           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                           want_reply = true,
+                                           data = <<>>}, receive_msg},
+           {match, #ssh_msg_disconnect{_='_'}, receive_msg}
+	  ], AliveOkState),
+    ?CT_LOG("[OK] Alive feature - maxcount exceeded"),
+    ssh:stop_daemon(Pid),
+    ok.
+
+alive_tserver_eclient(Config) ->
+    %% Create a listening socket as server socket:
+    {ok, InitialState} = ssh_trpt_test_lib:exec(listen),
+    HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
+    Parent = self(),
+    %% Start a process handling one connection on the server side:
+    Pid = spawn_link(
+            fun() ->
+                    ConnectedState =
+                        ssh_trpt_test_lib:exec(
+                          connect_and_userauth_server(Config), InitialState),
+                    AliveOkState =
+                        ssh_trpt_test_lib:exec(
+                          [%% Keep-alive matching
+                           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                           want_reply = true,
+                                                           data = <<>>}, receive_msg},
+                           {send, #ssh_msg_request_failure{}},
+                           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                           want_reply = true,
+                                                           data = <<>>}, receive_msg},
+                           %% Send success just to check that it works as well
+                           {send, #ssh_msg_request_success{data = <<>>}}],
+                          ConnectedState),
+                    ?CT_LOG("[OK] Alive feature - normal conditions"),
+                    AliveNokState =
+                        ssh_trpt_test_lib:exec(
+                          [%% Keep-alive matching
+                           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                           want_reply = true,
+                                                           data = <<>>}, receive_msg},
+                           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                           want_reply = true,
+                                                           data = <<>>}, receive_msg},
+                           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                           want_reply = true,
+                                                           data = <<>>}, receive_msg},
+                           {match, #ssh_msg_disconnect{_='_'}, receive_msg}],
+                          AliveOkState),
+                    ?CT_LOG("[OK] Alive feature - max_count exceeded"),
+                    Parent ! {result, self(), AliveNokState}
+            end),
+    %% and finally connect to it with a regular Erlang SSH client:
+    {ok,_} = std_connect(HostPort, Config,
+			 [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                                 {cipher,?DEFAULT_CIPHERS}
+                                                ]},
+                          {alive, #{count_max => 3, interval => 1000}}
+                         ]
+			),
+    %% Check that the daemon got expected result:
+    receive
+        {result, Pid, {ok,_}} -> ok;
+        {result, Pid, Error} -> ct:fail("Error: ~p",[Error])
+    end.
+
+alive_reneg_eserver_tclient(Config) ->
+    User = "foo",
+    Pwd = "morot",
+    UserDir = ssh_test_lib:user_dir(Config),
+    {DaemonPid, Host, Port} = ssh_test_lib:daemon([{system_dir, ssh_test_lib:system_dir(Config)},
+                                                   {user_dir, UserDir},
+                                                   {password, Pwd},
+                                                   {max_log_item_len, 20000},
+                                                   {failfun, fun ssh_test_lib:failfun/2},
+                                                   {alive, #{count_max => 3, interval => 1000}}]),
+    ?CT_LOG("[starting] Alive feature - normal conditions"),
+    {ok, TrptState0} = connect_and_userauth_request(Host, Port, User, Pwd, UserDir),
+    CheckAlive =
+        fun(State) ->
+                ssh_trpt_test_lib:exec(
+                  [{match, #ssh_msg_userauth_success{_='_'}, receive_msg},
+                   {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                   want_reply = true,
+                                                   data = <<>>}, receive_msg}],
+                  State)
+        end,
+    {ok, TrptState1} = CheckAlive(TrptState0),
+    ?CT_LOG("[OK] Alive feature - normal conditions"),
+    ?CT_LOG("[starting] triggering incomplete, client triggered remotely key renegotiation"),
+    {ok, _} =
+        ssh_trpt_test_lib:exec(
+          [{send, start_incomplete_renegotiation},
+           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           {match, disconnect(), receive_msg}], TrptState1),
+    ?CT_LOG("[OK] triggering incomplete, client triggered remotely key renegotiation"),
+    ?CT_LOG("[starting] Alive feature - normal conditions 2"),
+    {ok, TrptState2} = connect_and_userauth_request(Host, Port, User, Pwd, UserDir),
+    {ok, TrptState3} = CheckAlive(TrptState2),
+    ?CT_LOG("[OK] Alive feature - normal conditions 2"),
+    ?CT_LOG("[starting] triggering incomplete, server triggered locally key renegotiation"),
+    ?CT_LOG("~n~s", [ssh_info:string()]),
+    CHandler =
+        fun F([], Acc) ->
+                lists:flatten(Acc);
+            F([{{_, CRefPid, worker, [ssh_connection_handler]}, _} | Tail], Acc) ->
+                F(Tail, [CRefPid | Acc]);
+            F([{{_, _, worker, _}, _} | Tail], Acc) ->
+                F(Tail, [Acc]);
+            F([{{_, _, supervisor, _}, _, SubTree} | Tail], Acc) ->
+                F(Tail, F(SubTree, Acc))
+        end,
+    [CHandlerPid] = CHandler(ssh_info:get_subs_tree(sshd_sup), []),
+    ?CT_LOG("Server side connection handler PID: ~p", [CHandlerPid]),
+    ssh_connection_handler:renegotiate(CHandlerPid),
+    %% The disconnect is received after the renegotiation_alive timeout since
+    %% the tclient already failed to reply to one of the probes from eserver.
+    %% Daemon uses interval=1000, count_max=3. Add margin for Windows scheduling.
+    DisconnectTimeout = 2000 + 2 * ssh_test_lib:alive_interval(),
+    {ok, _} =
+        ssh_trpt_test_lib:exec(
+          [{match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           {match, disconnect(), receive_msg}],
+          ssh_trpt_test_lib:set_timeout(TrptState3, DisconnectTimeout)),
+    ?CT_LOG("[OK] triggering incomplete, server triggered locally key renegotiation"),
+    ssh:stop_daemon(DaemonPid),
+    ?CT_LOG("[OK] test case finished"),
+    ok.
+
+alive_reneg_tserver_eclient(Config) ->
+    %% Create a listening socket as server socket:
+    {ok, TrptState0} = ssh_trpt_test_lib:exec(listen),
+    HostPort0 = ssh_trpt_test_lib:server_host_port(TrptState0),
+    Parent = self(),
+    %% Start a process handling one connection on the server side:
+    TDaemonPid0 = spawn_link(
+            fun() ->
+                    ?CT_LOG("[starting] Alive feature - normal conditions"),
+                    TrptState1 =
+                        ssh_trpt_test_lib:exec(
+                          connect_and_userauth_server(Config), TrptState0),
+                    TrptState2 =
+                        ssh_trpt_test_lib:exec(
+                          [{match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                           want_reply = true,
+                                                           data = <<>>}, receive_msg},
+                           {send, #ssh_msg_request_failure{}}],
+                          TrptState1),
+                    ?CT_LOG("[OK] Alive feature - normal conditions"),
+
+                    ?CT_LOG("[starting] triggering incomplete, server triggered remotely key renegotiation"),
+                    TrptState3 =
+                        ssh_trpt_test_lib:exec(
+                          [{send, start_incomplete_renegotiation},
+                           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+                           {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
+                           {match, disconnect(), receive_msg}], TrptState2),
+                    ?CT_LOG("[OK] triggering incomplete, server triggered remotely key renegotiation"),
+                    Parent ! {result, self(), TrptState3}
+            end),
+    %% and finally connect to it with a regular Erlang SSH client:
+    {ok,_} = std_connect(HostPort0, Config,
+			 [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                                 {cipher,?DEFAULT_CIPHERS}
+                                                ]},
+                          {alive, #{count_max => 3, interval => 1000}}
+                         ]
+			),
+    %% Check that the daemon got expected result:
+    receive
+        {result, TDaemonPid0, {ok,_}} -> ok;
+        {result, TDaemonPid0, Error0} -> ct:fail("Error: ~p",[Error0])
+    end,
+
+    %% Create a listening socket as server socket:
+    {ok, TrptState4} = ssh_trpt_test_lib:exec(listen),
+    HostPort1 = ssh_trpt_test_lib:server_host_port(TrptState4),
+    %% Start a process handling one connection on the server side:
+    TDaemonPid1 = spawn_link(
+            fun() ->
+                    ?CT_LOG("[starting] Alive feature - normal conditions 2"),
+                    TrptState5 =
+                        ssh_trpt_test_lib:exec(
+                          connect_and_userauth_server(Config), TrptState4),
+                    ?CT_LOG("[OK] Alive feature - normal conditions 2"),
+                    ?CT_LOG("[starting] triggering incomplete, client triggered locally key renegotiation"),
+                    TrptState6 =
+                        ssh_trpt_test_lib:exec(
+                          [{match, #ssh_msg_kexinit{_='_'}, receive_msg},
+                           {match, disconnect(), receive_msg}
+                          ], TrptState5),
+                    ?CT_LOG("[OK] triggering incomplete, client triggered locally key renegotiation"),
+                    Parent ! {result, self(), TrptState6}
+            end),
+    %% and finally connect to it with a regular Erlang SSH client:
+    {ok, CHandlerPid} = std_connect(HostPort1, Config,
+			 [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                                 {cipher,?DEFAULT_CIPHERS}
+                                                ]},
+                          {alive, #{count_max => 3, interval => 1000}}]),
+    ?CT_LOG("~n~s", [ssh_info:string()]),
+    ?CT_LOG("Client side connection handler PID: ~p", [CHandlerPid]),
+    ssh_connection_handler:renegotiate(CHandlerPid),
+    %% Check that the daemon got expected result:
+    receive
+        {result, TDaemonPid1, {ok,_}} -> ok;
+        {result, TDaemonPid1, Error1} -> ct:fail("Error: ~p",[Error1])
+    end,
+    ?CT_LOG("[OK] test case finished"),
+    ok.
+
+%%% RFC 4253 section 7, client guesses correctly
+client_guesses_correctly(Config) ->
+    Algs = [proplists:lookup(kex, Config), proplists:lookup(public_key, Config)],
+    Helpers = [fun client_guess_test/4, fun client_guess_test_renegotiation/4],
+    [Helper(true, Config, Algs, Algs) || Helper <- Helpers].
+
+%%% RFC 4253 section 7, client guesses incorrectly
+client_guesses_incorrectly(Config) ->
+    {kex, KexAlgs} = Kex = proplists:lookup(kex, Config),
+    {public_key, PubKeyAlgs} = PubKey = proplists:lookup(public_key, Config),
+    ClientAlgs = [Kex, PubKey],
+    Helpers = [fun client_guess_test/4, fun client_guess_test_renegotiation/4],
+    ServerKexAlgs = [KexAlgs, lists:reverse(KexAlgs)],
+    ServerPubKeyAlgs = [PubKeyAlgs, lists:reverse(PubKeyAlgs)],
+    [Helper(false, Config, ClientAlgs, [{kex, K}, {public_key, P}])
+     || Helper <- Helpers, K <- ServerKexAlgs, P <- ServerPubKeyAlgs,
+        K /= KexAlgs orelse P /= PubKeyAlgs].
 
 %%%================================================================
 %%%==== Internal functions ========================================
@@ -1355,7 +2217,7 @@ chk_pref_algs(Config,
     case ssh_test_lib:daemon(
                       [{send_ext_info,false},
                        {recv_ext_info,false},
-                       {system_dir, system_dir(Config)}
+                       {system_dir, ssh_test_lib:system_dir(Config)}
                        | ServerPrefOpts])
     of
         {_,Host,Port} ->
@@ -1364,7 +2226,7 @@ chk_pref_algs(Config,
               [{set_options, [print_ops, {print_messages,detail}]},
                {connect, Host, Port,
                 [{silently_accept_hosts, true},
-                 {user_dir, user_dir(Config)},
+                 {user_dir, ssh_test_lib:user_dir(Config)},
                  {user_interaction, false}
                 ]},
                {send, hello},
@@ -1383,9 +2245,12 @@ chk_pref_algs(Config,
 
 filter_supported(K, Algs) -> Algs -- (Algs--supported(K)).
 
-supported(_K) -> proplists:get_value(
-                   server2client,
-                   ssh_transport:supported_algorithms(cipher)).
+supported(Key) when Key =:= cipher; Key =:= mac; Key =:= compression ->
+    proplists:get_value(
+      server2client,
+      ssh_transport:supported_algorithms(Key));
+supported(Key) ->
+    ssh_transport:supported_algorithms(Key).
 
 to_lists(L) -> lists:map(fun erlang:atom_to_list/1, L).
     
@@ -1405,10 +2270,6 @@ setup_dirs(Config) ->
            [ssh_test_lib:setup_all_user_host_keys(Config)]),
     Config.
 
-system_dir(Config) -> filename:join(proplists:get_value(priv_dir, Config), system).
-
-user_dir(Config) -> proplists:get_value(priv_dir, Config).
-
 %%%----------------------------------------------------------------
 start_std_daemon(Config) ->	
     start_std_daemon(Config, []).
@@ -1419,7 +2280,7 @@ start_std_daemon(Config, ExtraOpts) ->
     file:make_dir(UserDir),
     UserPasswords = [{"user1","pwd1"}],
     Options = [%%{preferred_algorithms,[{public_key,['ssh-rsa']}]}, %% For some test cases
-	       {system_dir, system_dir(Config)},
+	       {system_dir, ssh_test_lib:system_dir(Config)},
 	       {user_dir, UserDir},
 	       {user_passwords, UserPasswords},
 	       {failfun, fun ssh_test_lib:failfun/2}
@@ -1430,8 +2291,10 @@ start_std_daemon(Config, ExtraOpts) ->
 
 
 stop_std_daemon(Config) ->
-    ssh:stop_daemon(server_pid(Config)),
-    ct:log("Std server ~p at ~p:~p stopped", [server_pid(Config), server_host(Config), server_port(Config)]),
+    ssh:stop_daemon(ssh_test_lib:server_pid(Config)),
+    ct:log("Std server ~p at ~p:~p stopped",
+           [ssh_test_lib:server_pid(Config), ssh_test_lib:server_host(Config),
+            ssh_test_lib:server_port(Config)]),
     lists:keydelete(server, 1, Config).
 
 
@@ -1439,28 +2302,24 @@ check_std_daemon_works(Config, Line) ->
     case std_connect(Config) of
 	{ok,C} ->
 	    ct:log("Server ~p:~p ~p is ok at line ~p",
-		   [server_host(Config), server_port(Config), 
-		    server_pid(Config), Line]),
+		   [ssh_test_lib:server_host(Config), ssh_test_lib:server_port(Config),
+		    ssh_test_lib:server_pid(Config), Line]),
 	    ok = ssh:close(C),
 	    Config;
 	Error = {error,_} ->
 	    ct:fail("Standard server ~p:~p ~p is ill at line ~p: ~p",
-		    [server_host(Config), server_port(Config), 
-		     server_pid(Config), Line, Error])
+		    [ssh_test_lib:server_host(Config), ssh_test_lib:server_port(Config),
+		     ssh_test_lib:server_pid(Config), Line, Error])
     end.
-
-server_pid(Config)  -> element(1,?v(server,Config)).
-server_host(Config) -> element(2,?v(server,Config)).
-server_port(Config) -> element(3,?v(server,Config)).
 
 server_user_password(Config) -> server_user_password(1, Config).
 
 server_user_password(N, Config) -> lists:nth(N, ?v(user_passwords,Config)).
-    
 
-std_connect(Config) -> 
-    std_connect({server_host(Config), server_port(Config)}, Config).
-    
+std_connect(Config) ->
+    std_connect({ssh_test_lib:server_host(Config),
+                 ssh_test_lib:server_port(Config)}, Config).
+
 std_connect({Host,Port}, Config) ->
     std_connect({Host,Port}, Config, []).
 
@@ -1474,7 +2333,7 @@ std_connect(Host, Port, Config, Opts) ->
 		[O || O = {Tag,_} <- [{user,User},{password,Pwd},
 				      {silently_accept_hosts, true},
                                       {save_accepted_host, false},
-				      {user_dir, user_dir(Config)},
+				      {user_dir, ssh_test_lib:user_dir(Config)},
 				      {user_interaction, false}],
 		      not lists:keymember(Tag, 1, Opts)
 		] ++ Opts,
@@ -1485,29 +2344,121 @@ connect_and_kex(Config) ->
     connect_and_kex(Config, ssh_trpt_test_lib:exec([]) ).
 
 connect_and_kex(Config, InitialState) ->
+    ClientAlgs = [{kex,[?DEFAULT_KEX]}, {cipher,?DEFAULT_CIPHERS}],
+    connect_and_kex(Config, InitialState, ClientAlgs).
+
+connect_and_kex(Config, InitialState, ClientAlgs) ->
+    connect_and_kex(Config, InitialState, ClientAlgs, dh).
+
+connect_and_kex(Config, InitialState, ClientAlgs, Variant) ->
     ssh_trpt_test_lib:exec(
       [{connect,
-	server_host(Config),server_port(Config),
-	[{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
-                                {cipher,?DEFAULT_CIPHERS}
-                               ]},
+        ssh_test_lib:server_host(Config),ssh_test_lib:server_port(Config),
+        [{preferred_algorithms, ClientAlgs},
          {silently_accept_hosts, true},
          {recv_ext_info, false},
-	 {user_dir, user_dir(Config)},
-	 {user_interaction, false}
-         | proplists:get_value(extra_options,Config,[])
+         {user_dir, ssh_test_lib:user_dir(Config)},
+         {user_interaction, false}
+        | proplists:get_value(extra_options,Config,[])
         ]},
        receive_hello,
        {send, hello},
        {send, ssh_msg_kexinit},
-       {match, #ssh_msg_kexinit{_='_'}, receive_msg},
-       {send, ssh_msg_kexdh_init},
-       {match,# ssh_msg_kexdh_reply{_='_'}, receive_msg},
-       {send, #ssh_msg_newkeys{}},
-       {match, #ssh_msg_newkeys{_='_'}, receive_msg}
-      ],
+       {match, #ssh_msg_kexinit{_='_'}, receive_msg}] ++
+          get_kex_variant_ops(Variant) ++
+          [{send, #ssh_msg_newkeys{}},
+           {match, #ssh_msg_newkeys{_='_'}, receive_msg}
+          ],
       InitialState).
 
+get_kex_variant_ops(dh) ->
+    [{send, ssh_msg_kexdh_init},
+     {match, #ssh_msg_kexdh_reply{_='_'}, receive_msg}];
+get_kex_variant_ops(ecdh) ->
+    [{send, ssh_msg_kex_ecdh_init},
+     {match, #ssh_msg_kex_ecdh_reply{_='_'}, receive_msg}];
+get_kex_variant_ops(hybrid) ->
+    [{send, ssh_msg_kex_hybrid_init},
+     {match, #ssh_msg_kex_hybrid_reply{_='_'}, receive_msg}].
+
+channel_close_timeout(Config) ->
+    {User,_Pwd} = server_user_password(Config),
+    %% Create a listening socket as server socket:
+    {ok,InitialState} = ssh_trpt_test_lib:exec(listen),
+    HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
+    %% Start a process handling one connection on the server side:
+    spawn_link(
+      fun() ->
+	      {ok,_} =
+		  ssh_trpt_test_lib:exec(
+		    [{set_options, [print_ops, print_messages]},
+		     {accept, [{system_dir, ssh_test_lib:system_dir(Config)},
+			       {user_dir, ssh_test_lib:user_dir(Config)},
+                               {idle_time, 50000}]},
+		     receive_hello,
+		     {send, hello},
+		     {send, ssh_msg_kexinit},
+		     {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+		     {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
+		     {send, ssh_msg_kexdh_reply},
+		     {send, #ssh_msg_newkeys{}},
+		     {match,  #ssh_msg_newkeys{_='_'}, receive_msg},
+		     {match, #ssh_msg_service_request{name="ssh-userauth"}, receive_msg},
+		     {send, #ssh_msg_service_accept{name="ssh-userauth"}},
+		     {match, #ssh_msg_userauth_request{service="ssh-connection",
+						       method="none",
+						       user=User,
+						       _='_'}, receive_msg},
+		     {send, #ssh_msg_userauth_failure{authentications = "password",
+						      partial_success = false}},
+		     {match, #ssh_msg_userauth_request{service="ssh-connection",
+						       method="password",
+						       user=User,
+						       _='_'}, receive_msg},
+		     {send, #ssh_msg_userauth_success{}},
+                     {match, #ssh_msg_channel_open{channel_type="session",
+                                                   sender_channel=0,
+                                                   _='_'}, receive_msg},
+		     {send, #ssh_msg_channel_open_confirmation{recipient_channel= 0,
+                                                               sender_channel = 0,
+                                                               initial_window_size = 64*1024,
+                                                               maximum_packet_size = 32*1024
+                                                               }},
+                     {match, #ssh_msg_channel_open{channel_type="session",
+                                                   sender_channel=1,
+                                                   _='_'}, receive_msg},
+		     {send, #ssh_msg_channel_open_confirmation{recipient_channel= 1,
+                                                               sender_channel = 1,
+                                                               initial_window_size = 64*1024,
+                                                               maximum_packet_size = 32*1024}},
+                     {match, #ssh_msg_channel_close{recipient_channel = 0}, receive_msg},
+                     {match, disconnect(), receive_msg},
+		     print_state],
+		    InitialState)
+      end),
+    %% connect to it with a regular Erlang SSH client:
+    ChannelCloseTimeout = 3000,
+    {ok, ConnRef} = std_connect(HostPort, Config,
+				[{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                                        {cipher,?DEFAULT_CIPHERS}
+                                                       ]},
+                                 {channel_close_timeout, ChannelCloseTimeout},
+                                 {idle_time, 50000}
+                                ]
+			       ),
+    {ok,  Channel0} = ssh_connection:session_channel(ConnRef, 50000),
+    {ok, _Channel1} = ssh_connection:session_channel(ConnRef, 50000),
+    %% Close the channel from client side, the server does not reply with 'channel-close'
+    %% After the timeout, the client should drop the cache entry
+    _ = ssh_connection:close(ConnRef, Channel0),
+    receive
+    after ChannelCloseTimeout + 1000 ->
+        {channels, Channels} = ssh:connection_info(ConnRef, channels),
+        ct:log("Channel entries ~p", [Channels]),
+        %% Only one channel entry should be present, the other one should be dropped
+        1 = length(Channels),
+        ssh:close(ConnRef)
+    end.
 %%%----------------------------------------------------------------
 
 %%% For matching peer disconnection
@@ -1522,42 +2473,186 @@ disconnect(Code) ->
 	  ]}.
 
 %%%----------------------------------------------------------------
-find_handshake_parent(Port) ->
-    Acc = {_Parents=[], _Connections=[], _Handshakers=[]},
-    find_handshake_parent(supervisor:which_children(sshd_sup), Port, Acc).
+connect_and_userauth_request(Host, Port, User, Pwd, UserDir) ->
+    ssh_trpt_test_lib:exec(
+          [{set_options, [print_ops, print_messages]},
+           {connect,Host,Port,
+            [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                    {cipher,?DEFAULT_CIPHERS}
+                                   ]},
+             {silently_accept_hosts, true},
+             {recv_ext_info, false},
+             {user_dir, UserDir},
+             {user_interaction, false}
+            ]},
+           receive_hello,
+           {send, hello},
+           {send, ssh_msg_kexinit},
+           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           {send, ssh_msg_kexdh_init},
+           {match,# ssh_msg_kexdh_reply{_='_'}, receive_msg},
+           {send, #ssh_msg_newkeys{}},
+           {match, #ssh_msg_newkeys{_='_'}, receive_msg},
+           {send, #ssh_msg_service_request{name = "ssh-userauth"}},
+	   {match, #ssh_msg_service_accept{name = "ssh-userauth"}, receive_msg},
+	   {send, #ssh_msg_userauth_request{user = User,
+					    service = "ssh-connection",
+					    method = "password",
+					    data = <<?BOOLEAN(?FALSE),
+						     ?STRING(unicode:characters_to_binary(Pwd))>>
+					   }}
+          ]).
 
+trpt_test_lib_send_disconnect(State) ->
+    ssh_trpt_test_lib:exec(
+      [{send, #ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
+                                  description = "End of the fun",
+                                  language = ""
+                                 }},
+       close_socket
+      ], State).
 
-find_handshake_parent([{{ssh_system_sup,{address,_,Port,_}},
-                        Pid,supervisor, [ssh_system_sup]}|_],
-                      Port, Acc) ->
-    find_handshake_parent(supervisor:which_children(Pid), Port, Acc);
+connect_and_userauth_server(Config) ->
+    {User,_Pwd} = server_user_password(Config),
+    [{set_options, [print_ops, print_messages]},
+     {accept, [{system_dir, ssh_test_lib:system_dir(Config)},
+               {user_dir, ssh_test_lib:user_dir(Config)}]},
+     receive_hello,
+     {send, hello},
+     {send, ssh_msg_kexinit},
+     {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+     {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
+     {send, ssh_msg_kexdh_reply},
+     {send, #ssh_msg_newkeys{}},
+     {match,  #ssh_msg_newkeys{_='_'}, receive_msg},
+     {match, #ssh_msg_service_request{name="ssh-userauth"}, receive_msg},
+     {send, #ssh_msg_service_accept{name="ssh-userauth"}},
+     {match, #ssh_msg_userauth_request{service="ssh-connection",
+                                       method="none",
+                                       user=User,
+                                       _='_'}, receive_msg},
+     {send, #ssh_msg_userauth_failure{authentications = "password",
+                                      partial_success = false}},
+     {match, #ssh_msg_userauth_request{service="ssh-connection",
+                                       method="password",
+                                       user=User,
+                                       _='_'}, receive_msg},
+     {send, #ssh_msg_userauth_success{}}].
 
-find_handshake_parent([{{ssh_acceptor_sup,{address,_,Port,_}},
-                        PidS,supervisor,[ssh_acceptor_sup]}|T],
-                       Port, {AccP,AccC,AccH}) ->
-    ParentHandshakers =
-        [{PidW,PidH} ||
-            {{ssh_acceptor_sup,{address,_,Port1,_}}, PidW, worker,
-             [ssh_acceptor]} <- supervisor:which_children(PidS),
-            Port1 == Port,
-            PidH <- element(2, process_info(PidW,links)),
-            is_pid(PidH),
-            process_info(PidH,current_function) ==
-                {current_function,
-                 {ssh_connection_handler,handshake,4}}],
-    {Parents,Handshakers} = lists:unzip(ParentHandshakers),
-    find_handshake_parent(T, Port, {AccP++Parents, AccC, AccH++Handshakers});
+%%%----------------------------------------------------------------
 
-find_handshake_parent([{_Ref,PidS,supervisor,[ssh_connection_sup]}|T],
-                      Port, {AccP,AccC,AccH}) ->
-    Connections =
-        [Pid ||
-            {connection,Pid,worker,[ssh_connection_handler]} <-
-                supervisor:which_children(PidS)],
-    find_handshake_parent(T, Port, {AccP, AccC++Connections, AccH});
+%%% Common part of test case for guessing functionality
+client_guess_test(GuessCorrect, Config0, ClientAlgs, ServerAlgs) ->
+    Variant = get_parent_group(Config0),
+    ?CT_LOG("~nGuessCorrect: ~p~nVariant: ~p~nClientAlgs: ~p~nServerAlgs: ~p~n",
+            [GuessCorrect, Variant, ClientAlgs, ServerAlgs]),
+    Config = start_std_daemon(Config0, [{preferred_algorithms, ServerAlgs}]),
+    try
+        {ok, _} =
+            ssh_trpt_test_lib:exec(
+              [{set_options, [print_ops, {print_messages,detail}]},
+               {connect,
+                ssh_test_lib:server_host(Config), ssh_test_lib:server_port(Config),
+                [{silently_accept_hosts, true},
+                 {user_dir, ssh_test_lib:user_dir(Config)},
+                 {user_interaction, false},
+                 {preferred_algorithms, ClientAlgs}
+                ]},
+               receive_hello,
+               {send, hello},
+               {send, ssh_msg_kexinit_guess},
+               {match, #ssh_msg_kexinit{_='_'}, receive_msg}] ++
+                  get_specific_ops(GuessCorrect, Variant) ++
+                  [{send, #ssh_msg_newkeys{}},
+                   {match, #ssh_msg_newkeys{_='_'}, receive_msg}]),
+        ?CT_LOG("Finished~n")
+    after
+        stop_std_daemon(Config)
+    end.
 
-find_handshake_parent([_|T], Port, Acc) ->
-    find_handshake_parent(T, Port, Acc);
+%%% Common part of test case for guessing in renegotiation
+client_guess_test_renegotiation(GuessCorrect, Config0, ClientAlgs, ServerAlgs) ->
+    Variant = get_parent_group(Config0),
+    ?CT_LOG("~nGuessCorrect: ~p~nVariant: ~p~nClientAlgs: ~p~nServerAlgs: ~p~n",
+            [GuessCorrect, Variant, ClientAlgs, ServerAlgs]),
+    Config = start_std_daemon(Config0, [{preferred_algorithms, ServerAlgs}]),
+    try
+        {ok, InitialState} = ssh_trpt_test_lib:exec(
+                               [{set_options, [print_ops, {print_messages,detail}]}]
+                              ),
+        {ok, AfterKexState} = connect_and_kex(Config, InitialState, ClientAlgs, Variant),
+        {User, Pwd} = server_user_password(Config),
+        {ok, AfterAuthState} =
+            ssh_trpt_test_lib:exec(
+              [{send, #ssh_msg_service_request{name = "ssh-userauth"}},
+               {match, #ssh_msg_service_accept{name = "ssh-userauth"}, receive_msg},
+               {send, #ssh_msg_userauth_request{user = User,
+                                                service = "ssh-connection",
+                                                method = "password",
+                                                data = <<?BOOLEAN(?FALSE),
+                                                         ?STRING(unicode:characters_to_binary(Pwd))>>
+                                               }},
+               {match, #ssh_msg_userauth_success{_='_'}, receive_msg}
+              ], AfterKexState),
+        {ok, _} =
+            ssh_trpt_test_lib:exec([{send, ssh_msg_kexinit_guess},
+                                    {match, #ssh_msg_kexinit{_='_'}, receive_msg}] ++
+                                       get_specific_ops(GuessCorrect, Variant) ++
+                                       [{send, #ssh_msg_newkeys{}},
+                                        {match, #ssh_msg_newkeys{_='_'}, receive_msg}],
+                                   AfterAuthState),
+        ?CT_LOG("Finished~n")
+    after
+        stop_std_daemon(Config)
+    end.
 
-find_handshake_parent(_, _,  {AccP,AccC,AccH}) ->
-    {lists:usort(AccP), lists:usort(AccC), lists:usort(AccH)}.
+%%%----------------------------------------------------------------
+get_parent_group(Config) ->
+    [[{name, Group}]] = proplists:get_value(tc_group_path, Config),
+    Group.
+
+%%%----------------------------------------------------------------
+
+%%% Specific operations for the guess and variant (dh, ecdh, ...)
+get_specific_ops(GuessCorrect, Variant) ->
+    {InitGuess, Init, Reply} = get_specific_ops(Variant),
+    [{send, InitGuess}] ++
+        [{send, Init} || GuessCorrect =:= false] ++
+        [{match, Reply, receive_msg}].
+
+%%% RFC 4253 section 7, each side may guess
+get_specific_ops(dh) ->
+    {ssh_msg_kexdh_init_guess, ssh_msg_kexdh_init, #ssh_msg_kexdh_reply{_='_'}};
+get_specific_ops(ecdh) ->
+    {ssh_msg_kex_ecdh_init_guess, ssh_msg_kex_ecdh_init, #ssh_msg_kex_ecdh_reply{_='_'}};
+get_specific_ops(hybrid) ->
+    {ssh_msg_kex_hybrid_init_guess, ssh_msg_kex_hybrid_init, #ssh_msg_kex_hybrid_reply{_='_'}}.
+
+%%%----------------------------------------------------------------
+get_supported_alg_groups_or_skip(Groups, Config) ->
+    try
+        SupportedGroups =
+            lists:filtermap(fun({Key, Group}) ->
+                                    case get_supported_alg_group_or_skip(Key, Group) of
+                                        [] ->
+                                            false;
+                                        {Key, SupportedGroup} ->
+                                            {true, {Key, SupportedGroup}}
+                                    end
+                            end, Groups),
+        [{preferred_algorithms, SupportedGroups} | Config]
+    catch
+        throw : Other ->
+            Other
+    end.
+
+%%%----------------------------------------------------------------
+get_supported_alg_group_or_skip(_, []) ->
+    [];
+get_supported_alg_group_or_skip(Key, Algorithms) ->
+    case filter_supported(Key, Algorithms) of
+        [] ->
+            throw({skip, "Required algorithms not supported."});
+        Supported ->
+            {Key, Supported}
+    end.

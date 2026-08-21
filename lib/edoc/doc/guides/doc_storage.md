@@ -1,3 +1,24 @@
+<!--
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2024-2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
 # EEP-48: Implementation in Erlang/OTP
 
 ## EEP-48: Documentation storage and format
@@ -16,7 +37,7 @@ When generating documentation for EEP-48 edoc uses the format mime type
 <<"application/erlang+html">>. The documentation content is an Erlang term that
 represents an HTML like structure.
 
-```text
+```erlang
 -type chunk_elements() :: [chunk_element()].
 -type chunk_element() :: {chunk_element_type(),chunk_element_attrs(),
                           chunk_elements()} | unicode:unicode_binary().

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +24,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
 
@@ -44,7 +47,7 @@
          test_length/1,
          fixed_apply_badarg/1,
          external_fun_apply3/1,
-         node_1/1]).
+         node_1/1,doctests/1,is_integer_3_test/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -62,7 +65,7 @@ all() ->
      is_process_alive, is_process_alive_signal_from,
      process_info_blast, os_env_case_sensitivity,
      verify_middle_queue_save, test_length,fixed_apply_badarg,
-     external_fun_apply3, node_1].
+     external_fun_apply3, node_1, doctests, is_integer_3_test].
 
 init_per_testcase(guard_bifs_in_erl_bif_types, Config) when is_list(Config) ->
     skip_missing_erl_bif_types(Config);
@@ -199,18 +202,17 @@ shadow_comments(_Config) ->
     List1 = [MFA || {M,_,_}=MFA <- List0, M =/= erlang],
     List = List1 ++ ErlangList,
     HasTypes = [MFA || {M,F,A}=MFA <- List,
-		       erl_bif_types:is_known(M, F, A)],
-    Path = get_code_path(),
-    BifRel = sofs:relation(HasTypes, [{m,f,a}]),
-    BifModules = sofs:to_external(sofs:projection(1, BifRel)),
-    AbstrByModule = [extract_abstract(Mod, Path) || Mod <- BifModules],
+                       erl_bif_types:is_known(M, F, A)],
+    BifModules = bif_modules(HasTypes),
+    AbstrByModule = [extract_abstract(Mod) || Mod <- BifModules],
     Specs0 = [extract_specs(Mod, Abstr) ||
 		 {Mod,Abstr} <- AbstrByModule],
     Specs = lists:append(Specs0),
     SpecFuns0 = [F || {F,_} <- Specs],
     SpecFuns = sofs:relation(SpecFuns0, [{m,f,a}]),
+    BifRel = sofs:relation(HasTypes, [{m,f,a}]),
     HasTypesAndSpecs = sofs:intersection(BifRel, SpecFuns),
-    Commented0 = lists:append([extract_comments(Mod, Path) ||
+    Commented0 = lists:append([extract_comments(Mod) ||
 				  Mod <- BifModules]),
     Commented = sofs:relation(Commented0, [{m,f,a}]),
     {NoComments0,_,NoBifSpecs0} =
@@ -246,9 +248,18 @@ shadow_comments(_Config) ->
 	    ct:fail(erl_bif_types)
     end.
 
-extract_comments(Mod, Path) ->
-    Beam = which(Mod, Path),
-    SrcDir = filename:join(filename:dirname(filename:dirname(Beam)), "src"),
+extract_comments(Mod) ->
+    Beam = which(Mod),
+    AppDir = filename:dirname(filename:dirname(Beam)),
+    SrcDir = case code:root_dir() =:= filename:dirname(AppDir) of
+                 true ->
+                     %% Running in an uninstalled system.
+                     filename:join(AppDir, "preloaded/src");
+                 false ->
+                     %% Running in an installed system.
+                     filename:join(AppDir, "src")
+             end,
+    io:format("~p\n", [SrcDir]),
     Src = filename:join(SrcDir, atom_to_list(Mod) ++ ".erl"),
     {ok,Bin} = file:read_file(Src),
     Lines0 = binary:split(Bin, <<"\n">>, [global]),
@@ -267,13 +278,12 @@ specs(_) ->
     List0 = erlang:system_info(snifs),
 
     %% Ignore all operators.
-    List = [MFA || MFA <- List0, not is_operator(MFA)],
+    List1 = [MFA || MFA <- List0, not is_operator(MFA)],
 
     %% Extract specs from the abstract code for all BIFs.
-    Path = get_code_path(),
-    BifRel = sofs:relation(List, [{m,f,a}]),
-    BifModules = sofs:to_external(sofs:projection(1, BifRel)),
-    AbstrByModule = [extract_abstract(Mod, Path) || Mod <- BifModules],
+    BifModules = bif_modules(List1),
+    List = [MFA || {M,_,_}=MFA <- List1, lists:member(M, BifModules)],
+    AbstrByModule = [extract_abstract(Mod) || Mod <- BifModules],
     Specs0 = [extract_specs(Mod, Abstr) ||
 		 {Mod,Abstr} <- AbstrByModule],
     Specs = lists:append(Specs0),
@@ -312,10 +322,8 @@ make_mfa(M, {M,_,_}=MFA) -> MFA.
 
 improper_bif_stubs(_) ->
     Bifs = erlang:system_info(snifs),
-    Path = get_code_path(),
-    BifRel = sofs:relation(Bifs, [{m,f,a}]),
-    BifModules = sofs:to_external(sofs:projection(1, BifRel)),
-    AbstrByModule = [extract_abstract(Mod, Path) || Mod <- BifModules],
+    BifModules = bif_modules(Bifs),
+    AbstrByModule = [extract_abstract(Mod) || Mod <- BifModules],
     Funcs0 = [extract_functions(Mod, Abstr) ||
 		 {Mod,Abstr} <- AbstrByModule],
     Funcs = lists:append(Funcs0),
@@ -657,6 +665,12 @@ t_atom_to_binary(Config) when is_list(Config) ->
     <<>> = atom_to_binary('', unicode),
     <<127>> = atom_to_binary('\177', utf8),
     <<"abcdef">> = atom_to_binary(abcdef, utf8),
+    <<"qwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwe">> = 
+        atom_to_binary(qwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwe, utf8),
+    <<"qwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwer">> = 
+        atom_to_binary(qwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwer, utf8),
+    <<"qwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerq">> = 
+        atom_to_binary(qwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerq, utf8),
     HalfLongBin = atom_to_binary(HalfLongAtom, utf8),
     HalfLongBin = atom_to_binary(HalfLongAtom),
     LongAtomBin = atom_to_binary(LongAtom, utf8),
@@ -1104,13 +1118,21 @@ wait_until_stable_size(File,PrevSz) ->
 
 % Test erlang:halt with ERL_CRASH_DUMP_BYTES
 erl_crash_dump_bytes(Config) when is_list(Config) ->
-    Bytes = 1000,
+    %% When encryption is enabled, a crash dump will not be produced at all if
+    %% the limit is smaller than the encryption header size. Bump the size a
+    %% bit to account for that.
+    Bytes = case os:getenv("ERL_CRASH_DUMP_PUBLIC_KEY") of
+                [_|_] -> 4000;
+                false -> 1000
+            end,
+
     CrashDump = do_limited_crash_dump(Config, Bytes),
     {ok,ActualBytes} = wait_until_stable_size(CrashDump,-1),
     true = ActualBytes < (Bytes + 100),
 
     NoDump = do_limited_crash_dump(Config,0),
     {error,enoent} = wait_until_stable_size(NoDump,-8),
+
     ok.
 
 do_limited_crash_dump(Config, Bytes) ->
@@ -1764,6 +1786,239 @@ node_error(E0) ->
             ok
     end.
 
+doctests(_Config) ->
+    Dict = erase(),
+    try
+        ct_doctest:module(erlang, [],
+                          [{skipped_blocks, 6},
+                           {missing_tests,
+                            [{alias, 1},
+                             {apply, 2},
+                             {bump_reductions, 1},
+                             {cancel_timer, 2},
+                             {check_old_code, 1},
+                             {check_process_code, 3},
+                             {convert_time_unit, 3},
+                             {date, 0},
+                             {delete_module, 1},
+                             {demonitor, 1},
+                             {demonitor, 2},
+                             {disconnect_node, 1},
+                             {display, 1},
+                             {dist_ctrl_get_data, 1},
+                             {dist_ctrl_get_data_notification, 1},
+                             {dist_ctrl_get_opt, 2},
+                             {dist_ctrl_input_handler, 2},
+                             {dist_ctrl_put_data, 2},
+                             {dist_ctrl_set_opt, 3},
+                             {error, 3},
+                             {exit, 2},
+                             {exit_signal, 2},
+                             {exit, 3},
+                             {exit_signal, 3},
+                             {fun_info, 1},
+                             {function_exported, 3},
+                             {garbage_collect, 0},
+                             {garbage_collect, 2},
+                             {get_cookie, 0},
+                             {get_cookie, 1},
+                             {group_leader, 0},
+                             {group_leader, 2},
+                             {halt, 0},
+                             {halt, 1},
+                             {halt, 2},
+                             {hibernate, 0},
+                             {hibernate, 3},
+                             {is_alive, 0},
+                             {is_record, 2},
+                             {is_record, 3},
+                             {link, 1},
+                             {link, 2},
+                             {load_module, 2},
+                             {load_nif, 2},
+                             {loaded, 0},
+                             {localtime, 0},
+                             {localtime_to_universaltime, 1},
+                             {localtime_to_universaltime, 2},
+                             {md5, 1},
+                             {md5_final, 1},
+                             {md5_init, 0},
+                             {md5_update, 2},
+                             {memory, 0},
+                             {memory, 1},
+                             {module_loaded, 1},
+                             {monitor, 2},
+                             {monitor, 3},
+                             {monitor_node, 2},
+                             {monitor_node, 3},
+                             {monotonic_time, 0},
+                             {monotonic_time, 1},
+                             {nif_error, 1},
+                             {nif_error, 2},
+                             {node, 0},
+                             {nodes, 0},
+                             {nodes, 1},
+                             {nodes, 2},
+                             {now, 0},
+                             {open_port, 2},
+                             {phash, 2},
+                             {port_call, 3},
+                             {port_close, 1},
+                             {port_command, 2},
+                             {port_command, 3},
+                             {port_connect, 2},
+                             {port_control, 3},
+                             {port_info, 1},
+                             {port_info, 2},
+                             {ports, 0},
+                             {pre_loaded, 0},
+                             {process_display, 2},
+                             {process_flag, 2},
+                             {process_flag, 3},
+                             {process_info, 1},
+                             {process_info, 2},
+                             {processes, 0},
+                             {processes_iterator, 0},
+                             {processes_next, 1},
+                             {purge_module, 1},
+                             {raise, 3},
+                             {read_timer, 2},
+                             {registered, 0},
+                             {resume_process, 1},
+                             {self, 0},
+                             {send, 2},
+                             {send, 3},
+                             {send_after, 4},
+                             {send_nosuspend, 2},
+                             {send_nosuspend, 3},
+                             {set_cookie, 1},
+                             {set_cookie, 2},
+                             {spawn, 1},
+                             {spawn, 2},
+                             {spawn, 3},
+                             {spawn, 4},
+                             {spawn_link, 1},
+                             {spawn_link, 2},
+                             {spawn_link, 3},
+                             {spawn_link, 4},
+                             {spawn_monitor, 1},
+                             {spawn_monitor, 2},
+                             {spawn_monitor, 3},
+                             {spawn_monitor, 4},
+                             {spawn_opt, 2},
+                             {spawn_opt, 3},
+                             {spawn_opt, 4},
+                             {spawn_opt, 5},
+                             {spawn_request, 1},
+                             {spawn_request, 2},
+                             {spawn_request, 3},
+                             {spawn_request, 4},
+                             {spawn_request, 5},
+                             {spawn_request_abandon, 1},
+                             {start_timer, 4},
+                             {statistics, 1},
+                             {suspend_process, 1},
+                             {suspend_process, 2},
+                             {system_flag, 2},
+                             {system_info, 1},
+                             {system_monitor, 0},
+                             {system_monitor, 1},
+                             {system_monitor, 2},
+                             {system_profile, 0},
+                             {system_time, 0},
+                             {system_time, 1},
+                             {system_profile, 2},
+                             {time, 0},
+                             {time_offset, 0},
+                             {time_offset, 1},
+                             {timestamp, 0},
+                             {trace, 3},
+                             {trace_delivered, 1},
+                             {trace_info, 2},
+                             {trace_pattern, 2},
+                             {trace_pattern, 3},
+                             {unalias, 1},
+                             {unique_integer, 0},
+                             {unique_integer, 1},
+                             {universaltime, 0},
+                             {universaltime_to_localtime, 1},
+                             {unlink, 1},
+                             {unregister, 1},
+                             {whereis, 1},
+                             {yield, 0}]}])
+    after
+        code:purge(test),
+        code:delete(test),
+        code:purge(test),
+        [put(Key, Val) || {Key, Val} <- Dict]
+    end.
+
+is_integer_3_test(_Config) ->
+    _ = [is_between_ten(X) || X <- lists:seq(-2, 12)],
+
+    false = is_between_ten(0),
+    true = is_between_ten(1),
+    true = is_between_ten(10),
+    false = is_between_ten(11),
+
+    false = is_between_ten(a),
+    false = is_between_ten(5.0),
+    false = is_between_ten(-7.0),
+    false = is_between_ten([1]),
+
+    _ = [begin
+             is_between_negative(X),
+             false = is_between_negative(-X)
+         end || X <- lists:seq(-100, -70)],
+
+    _ = [is_between_mixed(X) || X <- lists:seq(-10, 10)],
+
+    _ = [begin
+             is_between_bignum(X),
+             false = is_between_bignum(-X),
+             false = is_between_bignum(X - (1 bsl 64))
+         end || X <- lists:seq((1 bsl 64) - 3, (1 bsl 64) + 10)],
+
+    is_between_badarg(2, 1.5, 10.0),
+    is_between_badarg(2, 10.0, 1.5),
+    is_between_badarg(2, 1.5, 10),
+    is_between_badarg(2, 1, 10.0),
+    is_between_badarg(2, lower, upper),
+
+    ok.
+
+-define(IS_BETWEEN_TEST(Name, LB, UB),
+Name(X0) ->
+    F = id(is_integer),
+    Lower0 = LB,
+    Upper0 = UB,
+    Lower = id(Lower0),
+    Upper = id(Upper0),
+
+    X1 = id(X0),
+    Result = is_integer(X1, Lower0, Upper0),
+    Result = is_integer(X1, Lower, Upper),
+    Result = apply(erlang, F, id([X1, Lower, Upper])),
+    Result = erlang:F(X1, Lower, Upper),
+
+    false = is_integer(id(X1), Upper, Lower),
+
+    X = id(X1),
+    Result = is_integer(X) andalso Lower =< X andalso X =< Upper,
+    Result).
+
+?IS_BETWEEN_TEST(is_between_ten, 1, 10).
+?IS_BETWEEN_TEST(is_between_negative, -89, -77).
+?IS_BETWEEN_TEST(is_between_mixed, -7, 7).
+?IS_BETWEEN_TEST(is_between_bignum, 1 bsl 64, (1 bsl 64) + 7).
+
+is_between_badarg(X, A, B) ->
+    F = id(is_integer),
+
+    ?assertError(badarg, is_integer(id(X), id(A), id(B))),
+    ?assertError(badarg, erlang:F(X, A, B)),
+    ?assertError(badarg, apply(erlang, F, id([X, A, B]))).
+
 %% helpers
 
 wait_until(Fun) ->
@@ -1786,34 +2041,26 @@ busy_wait_go() ->
 
 id(I) -> I.
 
-%% Get code path, including the path for the erts application.
-get_code_path() ->
-    Erts = filename:join([code:root_dir(),"erts","preloaded","ebin"]),
-    case filelib:is_dir(Erts) of
-	true->
-	    [Erts|code:get_path()];
-	_ ->
-	    code:get_path()
-    end.
+bif_modules(MFAs) ->
+    BifRel = sofs:relation(MFAs, [{m,f,a}]),
+    sofs:to_external(sofs:projection(1, BifRel)).
 
-which(Mod, Path) ->
-    which_1(atom_to_list(Mod) ++ ".beam", Path).
-
-which_1(Base, [D|Ds]) ->
-    Path = filename:join(D, Base),
-    case filelib:is_regular(Path) of
-	true -> Path;
-	false -> which_1(Base, Ds)
-    end.
 print_mfa({M,F,A}) ->
     io:format("~p:~p/~p", [M,F,A]).
 
-extract_abstract(Mod, Path) ->
-    Beam = which(Mod, Path),
+which(Mod) ->
+    case code:which(Mod) of
+        preloaded ->
+            filename:join([code:lib_dir(erts), "ebin", atom_to_list(Mod) ++ ".beam"]);
+        Beam when is_list(Beam) ->
+            Beam
+    end.
+
+extract_abstract(Mod) ->
+    Beam = which(Mod),
     {ok,{Mod,[{abstract_code,{raw_abstract_v1,Abstr}}]}} =
 	beam_lib:chunks(Beam, [abstract_code]),
     {Mod,Abstr}.
-
 
 tok_loop() ->
     tok_loop(hej).

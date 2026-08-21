@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -192,7 +194,7 @@ dbg_connections(Config) ->
                                                           end},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
     
-    ?DBG_RECEIVE("Starting LISTENER on ", Ref, _, Pid),
+    ?DBG_RECEIVE("ssh_acceptor:acceptor_init/4> Starting LISTENER on ", Ref, _, Pid),
 
     C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_dir, UserDir},
@@ -221,8 +223,8 @@ dbg_authentication(Config) ->
     {ok,[authentication]} = ssh_dbg:on([authentication]),
     
     Parent = self(),
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, system_dir(Config)},
-					     {user_dir, user_dir(Config)},
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, ssh_test_lib:system_dir(Config)},
+					     {user_dir, ssh_test_lib:user_dir(Config)},
                                              {user_passwords, [{?USR,?PWD}]},
                                              {connectfun, fun(_,_,_) ->
                                                                   Parent ! {daemon_c,Ref,self()}
@@ -231,7 +233,7 @@ dbg_authentication(Config) ->
     
     %% ---- Check password ----
     Cpwd = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-                                             {user_dir, user_dir(Config)},
+                                             {user_dir, ssh_test_lib:user_dir(Config)},
                                              {user,?USR},
                                              {password,?PWD},
                                              {auth_methods,"password"},
@@ -250,7 +252,7 @@ dbg_authentication(Config) ->
 
     %% ---- Check keyboard-interactive ----
     Ckbi = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-                                             {user_dir, user_dir(Config)},
+                                             {user_dir, ssh_test_lib:user_dir(Config)},
                                              {user,?USR},
                                              {password,?PWD},
                                              {auth_methods,"keyboard-interactive"},
@@ -269,7 +271,7 @@ dbg_authentication(Config) ->
 
     %% ---- Check publickey ----
     Cpkey = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-                                             {user_dir, user_dir(Config)},
+                                             {user_dir, ssh_test_lib:user_dir(Config)},
                                              {auth_methods,"publickey"},
                                              {user_interaction, false}]),
     Cpkey_d = daemon_connection_ref(Ref, Cpkey),
@@ -336,6 +338,11 @@ dbg_ssh_messages(Config) ->
     ?DBG_RECEIVE("Received SSH_MSG_KEXINIT:",      Ref, C, Pid),
 
     case atom_to_list( (ssh_connection_handler:alg(C))#alg.kex ) of
+        "mlkem"++_ ->
+            ?DBG_RECEIVE("Going to send SSH_MSG_KEX_HYBRID_INIT:",  Ref, C, Pid),
+            ?DBG_RECEIVE("Received SSH_MSG_KEX_HYBRID_INIT:",       Ref, D, Pid),
+            ?DBG_RECEIVE("Going to send SSH_MSG_KEX_HYBRID_REPLY:", Ref, D, Pid),
+            ?DBG_RECEIVE("Received SSH_MSG_KEX_HYBRID_REPLY:",      Ref, C, Pid);
         "curve"++_ ->
             ?DBG_RECEIVE("Going to send SSH_MSG_KEX_ECDH_INIT:",  Ref, C, Pid),
             ?DBG_RECEIVE("Received SSH_MSG_KEX_ECDH_INIT:",       Ref, D, Pid),
@@ -435,7 +442,7 @@ dbg_channels(Config) ->
                                              },
 					     {failfun, fun ssh_test_lib:failfun/2}]),
     
-    ?DBG_RECEIVE("Starting LISTENER on ", Ref, _, Pid),
+    ?DBG_RECEIVE("ssh_acceptor:acceptor_init/4> Starting LISTENER on ", Ref, _, Pid),
 
     C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
                                           {user_dir, UserDir},
@@ -474,8 +481,9 @@ all_dbg(Config) ->
 
     {_, Host, Port} =
 	ssh_test_lib:daemon([{system_dir, SystemDir},
-			     {user_dir,   UserDir},
-			     {user_passwords, [{?USR,?PWD}]}
+                             {user_dir,   UserDir},
+                             {user_passwords, [{?USR,?PWD}]},
+                             {subsystems, [ssh_sftpd:subsystem_spec([])]}
                             ]),
 
     {ok, ChPid, _C} =
@@ -556,10 +564,6 @@ setup_dirs(Config) ->
     ct:log("Pub keys setup for: ~p",
            [ssh_test_lib:setup_all_user_host_keys(Config)]),
     Config.
-
-system_dir(Config) -> filename:join(proplists:get_value(priv_dir, Config), system).
-
-user_dir(Config) -> proplists:get_value(priv_dir, Config).
 
 %%--------------------------------------------------------------------
 queued_msgs(Ref, Conns) ->

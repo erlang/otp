@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2022. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2004-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,7 +45,9 @@ INSTALL_PROGRAM=@INSTALL_PROGRAM@
 ERLANG_OSTYPE=@ERLANG_OSTYPE@
 
 OMIT_FP=false
-CFLAGS=$(subst O2,O3, @CFLAGS@)
+empty:=
+space:=$(empty) $(empty)
+CFLAGS:=$(subst $(space)-O2$(space), -O3 , @CFLAGS@)
 LDFLAGS=@LDFLAGS@
 
 ifeq ($(TYPE),debug)
@@ -455,6 +459,9 @@ INTERNAL_RELEASE_LIBS= \
 .PHONY: release_spec
 release_spec: all
 	$(INSTALL_PROGRAM) $(YCF_EXECUTABLE) "$(RELSYSDIR)/bin"
+ifeq ($(TARGET),win32)
+	$(INSTALL_DATA) $(YCF_EXECUTABLE:.exe=.pdb) "$(RELEASE_PATH)/erts-$(VSN)/bin"
+endif
 ifneq ($(strip $(RELEASE_INCLUDES)),)
 	$(INSTALL_DIR) "$(RELSYSDIR)/include"
 	$(INSTALL_DIR) "$(RELEASE_PATH)/usr/include"

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,6 +31,8 @@ Main API of the Megaco application
 
 Interface module for the Megaco application
 """.
+
+-compile([{nowarn_possibly_unsafe_function, {file, consult, 1}}]).
 
 %%-----------------------------------------------------------------
 %% Public interface
@@ -153,17 +157,15 @@ Interface module for the Megaco application
 -type action_reps()    :: [action_reply()].
 -doc """
 This type is a basic (atom) lookup key (for info on an active connection). The
-corresponding value can be of any type.[](){: #ci_control_pid }
+corresponding value can be of any type.
 
-- **`control_pid`** - The process identifier of the controlling process for a
-  connection.
+- **`control_pid`**{: #ci_control_pid } - The process identifier of the
+  controlling process for a connection.
 
   Value type: [pid()](`t:erlang:pid/0`)
 
-  [](){: #ci_send_handle }
-
-- **`send_handle`** - Opaque send handle whose contents is internal for the send
-  module.
+- **`send_handle`**{: #ci_send_handle } - Opaque send handle whose contents is
+  internal for the send module.
 
   Value type: `t:send_handle/0`
 
@@ -1164,9 +1166,9 @@ to file or to stdout after formating).
 -type counter_value()  :: non_neg_integer().
 
 -doc """
-[](){: #si_text_config }
+System info items.
 
-- **`text_config`** - The text encoding config.
+- **`text_config`**{: #si_text_config } - The text encoding config.
 
   Value type: [term()](`t:erlang:term/0`)
 
@@ -2201,7 +2203,7 @@ token_tag2string(Tag, pretty) ->
     token_tag2string(Tag, megaco_pretty_text_encoder);
 token_tag2string(Tag, compact) ->
     token_tag2string(Tag, megaco_compact_text_encoder);
-token_tag2string(Tag, Mod) when is_atom(Tag) and is_atom(Mod) ->
+token_tag2string(Tag, Mod) when is_atom(Tag), is_atom(Mod) ->
     Mod:token_tag2string(Tag).
 
 -doc """

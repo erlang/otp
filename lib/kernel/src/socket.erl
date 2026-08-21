@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,8 +29,10 @@ create, delete and manipulate the sockets as well as sending and receiving data
 on them.
 
 The intent is that it shall be as "close as possible" to the OS level socket
-interface. The only significant addition is that some of the functions, e.g.
-`recv/3`, have a time-out argument.
+interface. The only significant additions are that some of the functions, e.g.
+`recv/3`, have a time-out argument, and that [`recv/*`](`recv/1`) for a
+[`stream`](`t:type/0`) socket iterates until the requested amount of data
+has been received.
 
 [](){: #asynchronous-calls }
 
@@ -50,29 +54,48 @@ interface. The only significant addition is that some of the functions, e.g.
 >
 > #### The `completion` and `select` Return Values
 >
-> For instance, if calling `recv/3` like this;
-> [`recv(Socket, 0, nowait)`](#recv-nowait), when there is
-> no data available for reading, it will return one of:
+> For instance, the call [`recv(Socket, 0, nowait)`](#recv-nowait),
+> when there is no data available for reading, will,
+> depending on the operating system, return one of:
 >
 > - `{completion, `[`CompletionInfo`](`t:completion_info/0`)`}`
 > - `{select, `[`SelectInfo`](`t:select_info/0`)`}`
 >
-> `CompletionInfo` contains a [CompletionHandle](`t:completion_handle/0`) and
-> `SelectInfo` contains a [SelectHandle](`t:select_handle/0`).
-> Both are types are aliases to `t:reference/0`.
+> Where `CompletionInfo` is
+> `{completion_info, _, `[`CompletionHandle`](`t:completion_handle/0`)`}`
+> and `SelectInfo` is
+> `{select_info, _, `[`SelectHandle`](`t:select_handle/0`)`}`.
+> Both the `CompletionHandle` and the `SelectHandle`
+> are of type `t:reference/0`.
+>
 > When the operation can continue, a `completion` message containing
 > the `CompletionHandle` or a `select` message containing
 > the `SelectHandle` is sent to the calling process.
 >
-> On `select` systems some functions may also return:
+> On `select` systems, [`recv/2,3,4`](`recv/2`) may also return:
 >
-> - `{select, {`[`SelectInfo`](`t:select_info/0`)`, _}`
+> - `{select, {`[`SelectInfo`](`t:select_info/0`)`, Data}`
 >
-> This may happen for sockets of type [`stream`](`t:type/0`) where
-> the stream handling can split the data stream at any point.
-> See the respective function's type specification's return type.
+> This may happen for sockets of type [`stream`](`t:type/0`)
+> when `Length > 1` since the OS may split a data stream at any point
+> and deliver just the first part of the requested data.
+> For the next [`recv/2,3,4`](`recv/2`) call; the `Length` to receive
+> will probably have to be adjusted due to the already delivered data
+> in this return value.
 >
-> #### The `completion` and `select` Messages
+> On `select` systems, when the `{otp, select_read}` option is `true`,
+> the asynchronous [`recv/3,4`](#recv-nowait),
+> [`recvfrom/3,4`](#recvfrom-nowait), and
+> [`recvmsg/3,4,5`](#recvmsg-nowait) functions may also return:
+>
+> - `{select_read, {`[`SelectInfo`](`t:select_info/0`)`, Data}`
+>
+> This indicates that the receive operation was completed;
+> all requested data has been delivered,  and that the calling process
+> will get a `select` message when there is data available
+> for the next receive operation.
+>
+> #### The `completion` and `select` Messages [](){: #async-messages }
 >
 > The `completion` message has the format:
 >
@@ -85,11 +108,11 @@ interface. The only significant addition is that some of the functions, e.g.
 >   `[`SelectHandle`](`t:select_handle/0`)`}`
 >
 > When a `completion` message is received (which contains the _result_
-> of the operation), it means that the operation has been _completed_ with
-> `CompletionStatus :: ok | {error, Reason}`.
-> See the respective function's documentation for possible values
-> of `Reason`, which are the same `{error, Reason}` values
-> that can be returned by the function itself.
+> of the operation), it means that the operation has been _completed_ and
+> `CompletionStatus` is the return value for the operation,
+> which is what the function that initiated the operation
+> could have returned, with the `nowait` argument,
+> except for the `completion` and `select` return values.
 >
 > When a `select` message is received, it only means that the operation
 > _may now continue_, by retrying the operation (which may return
@@ -102,15 +125,19 @@ interface. The only significant addition is that some of the functions, e.g.
 > On `select` systems, all other processes are _locked out_ until the
 > current process has completed the operation as in a continuation
 > call has returned a value indicating success or failure
-> (not a `select` return).  Other processes are queued and get
-> a `select` return which makes them wait for their turn.
+> (not a `select` or `select_read` return).  Other processes are queued
+> and get a `select` return which makes them wait for their turn.
 >
-> #### Canceling an operation
+> Note that receiving data from parallel processes is only suitable
+> for some protocols.  For a [`stream`](`t:type/0`) socket
+> it is in general a recipe for disaster.
+>
+> #### Cancelling an operation
 >
 > An operation that is in progress (not completed) may be canceled
 > using `cancel/2` both on `completion` and `select` systems.
 >
-> Canceling an operation ensures that there is no `completion`,
+> Cancelling an operation ensures that there is no `completion`,
 > `select`, nor `abort` message in the inbox after the `cancel/2` call.
 >
 > #### Using a `Handle`
@@ -126,22 +153,23 @@ interface. The only significant addition is that some of the functions, e.g.
 > to only scan the messages that arrive after the `t:reference/0`
 > is created.  If the message queue is large this is a big optimization.
 >
-> The `t:reference/0` has to be unique for the call.
+> It is not possible to have more than one operation in progress
+> with the same `t:reference/0`.
 >
 > #### Repeating an Operation on a `select` Systems
 >
 > On`select` systems, if a call would be repeated _before_ the `select`
-> message has been received it replaces the call in progress:
+> message has been received it replaces the operation in progress:
 >
 > ```erlang
->     {select, {select_info, Handle}} = socket:accept(LSock, nowait),
->     {error, timeout} = socket:accept(LSock, 500),
+>     {select, {select_info, Handle}} = socket:accept(LSock, nowait),
+>     {ok, Socket} = socket:accept(LSock, 1000),
 >     :
 > ```
 > Above, `Handle` is _no longer_ valid once the second `accept/2`, call
 > has been made (the first call is automatically canceled).
-> After the second `accept/2` call returns `{error, timeout}`,
-> the accept operation has completed.
+> After the second `accept/2` call returns, the accept operation
+> has completed.
 >
 > Note that there is a race here; there is no way to know if the call
 > is repeated _before_ the `select` message is sent since it _may_
@@ -162,8 +190,6 @@ interface. The only significant addition is that some of the functions, e.g.
 > #### Note {: .info }
 >
 > Support for IPv6 has been implemented but not _fully_ tested.
->
-> SCTP has only been partly implemented (and not tested).
 
 This module was introduced in OTP 22.0, as experimental code.
 * In OTP 22.1, the `nowait` argument was added for many functions,
@@ -192,6 +218,9 @@ This module was introduced in OTP 22.0, as experimental code.
 * In OTP 27.0, the Windows flavored
   ([completion handle](`t:completion_handle/0`))
   API features could be considered no longer experimental.
+* In OTP 29.0, (experimental) complete support for SCTP was added
+  (functionally feature compatible with inet).
+  Not (yet) supported for FreeBSD.
 
 ## Examples
 
@@ -221,6 +250,8 @@ server(Addr, Port) ->
 ```
 """.
 -moduledoc(#{since => "OTP 22.0"}).
+
+-unsafe([{open, '_', possibly}]).
 
 -compile({no_auto_import, [error/1, monitor/1]}).
 
@@ -252,26 +283,29 @@ server(Addr, Port) ->
          connect/1, connect/2, connect/3,
          listen/1, listen/2,
          accept/1, accept/2,
+         peeloff/2, peeloff/3,
 
          send/2, send/3, send/4,
          sendto/3, sendto/4, sendto/5,
          sendmsg/2, sendmsg/3, sendmsg/4,
-         sendv/2, sendv/3, sendv/4,
+         sendmmsg/4,
+         sendv/2, sendv/3, sendv/4, rest_iov/2,
 
          sendfile/2, sendfile/3, sendfile/4, sendfile/5,
 
          recv/1, recv/2, recv/3, recv/4,
          recvfrom/1, recvfrom/2, recvfrom/3, recvfrom/4,
          recvmsg/1, recvmsg/2, recvmsg/3, recvmsg/4, recvmsg/5,
+         recvmmsg/6,
 
          close/1,
          shutdown/2,
 
          setopt/3, setopt_native/3, setopt/4,
-         getopt/2, getopt_native/3, getopt/3,
+         getopt/2, getopt/3, getopt_native/3,
 
-         sockname/1,
-         peername/1,
+         sockname/1, socknames/2,
+         peername/1, peernames/2,
 
          ioctl/2, ioctl/3, ioctl/4,
 
@@ -282,7 +316,8 @@ server(Addr, Port) ->
 -export([
 	 which_socket_kind/1,
          options/0, options/1, options/2, option/1, option/2,
-         protocols/0, protocol/1
+         protocols/0, protocol/1,
+	 mk_sockaddr/2, mk_sockaddr/3
 	]).
 
 -export_type([
@@ -329,11 +364,16 @@ server(Addr, Port) ->
               %% Option values' types
               linger/0,
               timeval/0,
+              timespec/0,
               ip_mreq/0,
               ip_mreq_source/0,
               ip_msfilter/0,
               ip_pmtudisc/0,
               ip_tos/0,
+              iptos_value/0,
+              iptos_tos/0,
+              iptos_dscp/0,
+              iptos_native/0,
               ip_pktinfo/0,
 
               ipv6_mreq/0,
@@ -341,10 +381,22 @@ server(Addr, Port) ->
               ipv6_hops/0,
               ipv6_pktinfo/0,
 
+              sctp_assoc_id/0,
+              sctp_setadaption/0,
               sctp_assocparams/0,
               sctp_event_subscribe/0,
               sctp_initmsg/0,
               sctp_rtoinfo/0,
+              sctp_snd_rcv_info/0,
+              sctp_set_peer_primary_address/0,
+              sctp_set_primary_address/0,
+              sctp_set_adaptation_layer_ind/0,
+              sctp_peer_address_parameters/0,
+              sctp_pap_flags/0, sctp_pap_flag/0, 
+              sctp_assoc_stats/0,
+              sctp_status/0,
+              sctp_peer_address_info/0,
+              sctp_peer_address_state/0,
 
               msg/0, msg_send/0, msg_recv/0,
               cmsg/0, cmsg_send/0, cmsg_recv/0,
@@ -363,8 +415,9 @@ server(Addr, Port) ->
 %% We need #file_descriptor{} for sendfile/2,3,4,5
 -include("file_int.hrl").
 
+
 %% -define(DBG(T),
-%%         erlang:display({'DBG', {self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+%%         erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
 %% -define(P(F),   ?P(F, [])).
 %% -define(P(F,A), p("~w:~w(~w) -> " ++ F, [?MODULE, ?FUNCTION_NAME, ?LINE | A])).
@@ -372,6 +425,11 @@ server(Addr, Port) ->
 
 %% Also in prim_socket
 -define(REGISTRY, socket_registry).
+
+-type uint8()  :: 0..16#FF.
+-type uint16() :: 0..16#FFFF.
+-type uint32() :: 0..16#FFFFFFFF.
+-type uint64() :: 0..16#FFFFFFFFFFFFFFFF.
 
 -type invalid() :: {invalid, What :: term()}.
 
@@ -399,10 +457,11 @@ About the `use_registry` key, see `use_registry/1`
 and the `t:otp_socket_option/0` with the same name.
 """.
 -type info() ::
-        #{counters     := #{atom() := non_neg_integer()},
-          iov_max      := non_neg_integer(),
-          use_registry := boolean(),
-          io_backend   := #{name := atom()}}.
+        #{counters        := #{atom() := non_neg_integer()},
+          iov_max         := non_neg_integer(),
+          use_registry    := boolean(),
+          io_backend      := #{name := atom()},
+	  load_nif_result := undefined | ok | {error, term()}}.
 
 -doc "A `t:map/0` of `Name := Counter` associations.".
 -type socket_counters() :: #{read_byte        := non_neg_integer(),
@@ -492,6 +551,9 @@ They have the following names in the OS header files:
 
 - **`tcp`** - `IPPROTO_TCP` with options named `TCP_`\*.
 
+- **`mptcp`** - `IPPROTO_MPTCP` with a few options named `MPTCP_`\*.
+  Most `TCP_`\* options apply which is the purpose of Multi-Path TCP.
+
 - **`udp`** - `IPPROTO_UDP` with options named `UDP_`\*.
 
 - **`sctp`** - `IPPROTO_SCTP` with options named `SCTP_`\*.
@@ -504,10 +566,11 @@ through the `C` library call `getprotoent()`. See the OS man page for
 protocols(5). Those in the list above are valid if supported by the platform,
 even if they aren't enumerated.
 
-The calls [`is_supported(ipv6)` ](`is_supported/1`)
-and [`is_supported(sctp)` ](`is_supported/1`) can be used to find out
-if the protocols `ipv6` and `sctp` are supported on the platform
-as in appropriate header file and library exists.
+The calls [`is_supported(ipv6)` ](`is_supported/1`),
+[`is_supported(sctp)` ](`is_supported/1`) and
+[`is_supported(mptcp)` ](`is_supported/1`) can be used to find out
+if the protocols `ipv6`, `sctp` and `mptcp` are supported on the platform
+as in; appropriate header file and libraries exist.
 
 The call [`is_supported(protocols, Protocol)` ](`is_supported/2`)
 can only be used to find out if the platform knows the protocol number
@@ -555,6 +618,17 @@ microseconds.
           usec := integer()}.
 
 -doc """
+C: `struct timespec`
+
+Corresponds to the C `struct timespec`. The field `sec` holds seconds, and `nsec`
+nanoseconds.
+""".
+-type timespec() ::
+        #{sec  := integer(),
+          nsec := integer()}.
+
+
+-doc """
 C: `struct ip_mreq`
 
 Corresponds to the C `struct ip_mreq` for managing multicast groups.
@@ -587,7 +661,7 @@ multicast source filtering (RFC 3376).
 
 -doc """
 C: `IP_PMTUDISC_*` values.
-
+=>
 Lowercase `t:atom/0` values corresponding to the C library constants
 `IP_PMTUDISC_*`. Some constant(s) may be unsupported by the platform.
 """.
@@ -598,13 +672,63 @@ Lowercase `t:atom/0` values corresponding to the C library constants
 -doc """
 C: `IPTOS_*` values.
 
-Lowercase `t:atom/0` values corresponding to the C library constants `IPTOS_*`.
-Some constant(s) may be unsupported by the platform.
+Note that since there are two different representations of TOS;
+according to RFC 1349 ("classic TOS") and RFC 2474 (DSCP),
+we have three different value representations for tos:
+`native` (the raw unencoded value of the TOS octet), `tos` (classic),
+and `dscp`.
+
+When sending or setting (the ip tos option), the user can choose
+between the three different (value) representations.
+When reading, the value is represented as a map with all three
+representations, since 'socket' does not know which one is expected.
+Its then up to the user pick the one they want.
+
+An integer `dscp` value is a DSCP field value that is not known
+from the IANA registry (see `t:iptos_dscp/0`).
 """.
--type ip_tos() :: lowdelay |
-                  throughput |
-                  reliability |
-                  mincost.
+-type ip_tos() :: #{native := iptos_native(),
+                    tos    := iptos_tos(),
+                    dscp   := iptos_dscp() | non_neg_integer()}.
+
+-type iptos_value() :: iptos_tos() | iptos_dscp() | iptos_native().
+%% According to RFC 1349
+-doc """
+Lowercase `t:atom/0` values corresponding to the C library constants `IPTOS_*`.
+The atoms are named like The C library names, but to avoid platform depencendy,
+the set of names and values follow RFC 1349, not the C library header files.
+
+An integer value is a field value that is not named in the RFC.
+""".
+-type iptos_tos()   :: #{precedence := iptos_tos_prec()  | non_neg_integer(),
+                         tos        := iptos_tos_value() | non_neg_integer()}.
+-type iptos_tos_prec() :: netcontrol | internetcontrol | critical_ecp |
+                          flashoverride | flash | immediate | priority |
+                          routine.
+-type iptos_tos_value() :: default |
+                           lowdelay |  throughput | reliability | mincost.
+
+-doc """
+These symbolic DSCP values are according to IANA's
+[Differentiated Services Field Codepoints registry]
+(https://www.iana.org/assignments/dscp-registry/dscp-registry.xhtml).
+""".
+-type iptos_dscp() ::
+        cs0 |
+        le |
+        cs1 |
+        af11 | af12 | af13 |
+        cs2 |
+        af21 | af22 | af23 |
+        cs3 |
+        af31 | af32 | af33 |
+        cs4 |
+        af41 | af42 | af43 |
+        cs5 |
+        voice_admit | nqb | ef |
+        cs6 |
+        cs7.
+-type iptos_native() :: non_neg_integer().
 
 -doc "C: `struct ip_pktinfo`".
 -type ip_pktinfo() ::
@@ -648,14 +772,21 @@ The value `default` is only valid to _set_ and is translated to the C value
           ifindex := integer()
          }.
 
+-doc "C: `sctp_assoc_t`".
+-type sctp_assoc_id() :: integer().
+
+-doc "C: `struct sctp_setadaption`".
+-type sctp_setadaption() ::
+        #{adaption_ind := uint32()}.
+
 -doc "C: `struct sctp_assocparams`".
 -type sctp_assocparams() ::
-        #{assoc_id                := integer(),
-          asocmaxrxt              := 0..16#ffff,
-          numbe_peer_destinations := 0..16#ffff,
-          peer_rwnd               := 0..16#ffffffff,
-          local_rwnd              := 0..16#ffffffff,
-          cookie_life             := 0..16#ffffffff}.
+        #{assoc_id                 := sctp_assoc_id(),
+          asocmaxrxt               := uint16(),
+          number_peer_destinations := uint16(),
+          peer_rwnd                := uint32(),
+          local_rwnd               := uint32(),
+          cookie_life              := uint32()}.
 
 -doc """
 C: `struct sctp_event_subscribe`.
@@ -673,21 +804,114 @@ have been stripped from the C struct field names, for convenience.
           shutdown         := boolean(),
           partial_delivery := boolean(),
           adaptation_layer => boolean(),
-          sender_dry       => boolean()}.
+          sender_dry       => boolean(),
+          stream_reset     => boolean(),
+          assoc_reset      => boolean(),
+          stream_change    => boolean()}.
 
 -doc "C: `struct sctp_initmsg`.".
 -type sctp_initmsg() ::
-        #{num_ostreams   := 0..16#ffff,
-          max_instreams  := 0..16#ffff,
-          max_attempts   := 0..16#ffff,
-          max_init_timeo := 0..16#ffff}.
+        #{num_ostreams   := uint16(),
+          max_instreams  := uint16(),
+          max_attempts   := uint16(),
+          max_init_timeo := uint16()}.
 
 -doc "C: `struct sctp_rtoinfo`.".
 -type sctp_rtoinfo() ::
-        #{assoc_id := integer(),
-          initial  := 0..16#ffffffff,
-          max      := 0..16#ffffffff,
-          min      := 0..16#ffffffff}.
+        #{assoc_id := sctp_assoc_id(),
+          initial  := uint32(),
+          max      := uint32(),
+          min      := uint32()}.
+
+-doc "C: `struct sctp_setpeerprim`.".
+-type sctp_set_peer_primary_address() ::
+        #{assoc_id := sctp_assoc_id(),
+          addr     := sockaddr()}.
+
+-doc "C: `struct sctp_prim`.".
+-type sctp_set_primary_address() ::
+        #{assoc_id := sctp_assoc_id(),
+          addr     := sockaddr()}.
+
+-doc "C: `struct sctp_setadaptation`.".
+-type sctp_set_adaptation_layer_ind() ::
+        #{ind := uint32()}.
+
+-doc "C: `struct sctp_paddrparams`.".
+-type sctp_peer_address_parameters() ::
+        #{assoc_id          := sctp_assoc_id(),
+          addr              := sockaddr(),
+          heatbeat_interval := uint32(),
+          path_max_rxt      := uint16(),
+          path_mtu          => uint32(),
+          sack_delay        => uint32(),
+          flags             => sctp_pap_flags(),
+          ipv6_flowlabel    => uint32(),
+          dscp              => uint8()}.
+
+-doc """
+There are three pairs of flags that cannot be both be set (maybe obviously) 
+at the same time:
+- `enable_heartbeats` and `disable_heartbeats`
+- `enable_pmtu_discovery` and `disable_pmtu_discovery`
+- `enable_sack` and `disable_sack`
+""".
+-type sctp_pap_flags() :: integer() | [sctp_pap_flag()].
+-doc "C: `enum  sctp_spp_flags`.".
+-type sctp_pap_flag()  :: enable_heartbeats | disable_heartbeats |
+                          send_heartbeat_immediately |
+                          enable_pmtu_discovery | disable_pmtu_discovery |
+                          enable_sack | disable_sack |
+                          set_heartbeat_delay_to_zero |
+                          ipv6_flowlabel |
+                          dscp.
+
+
+-doc "C: `struct sctp_status`.".
+-type sctp_status() ::
+        #{assoc_id            := sctp_assoc_id(),
+          state               := sctp_peer_address_state(),
+          rwnd                := uint32(),
+          unacked_data        := uint16(),
+          pending_data        := uint16(),
+          in_streams          := uint16(),
+          out_streams         := uint16(),
+          fragmentation_point := uint32(),
+          primary             := sctp_peer_address_info()}.
+
+-doc "C: `struct sctp_assoc_stats`.".
+-type sctp_assoc_stats() ::
+        #{assoc_id             := sctp_assoc_id(),
+          max_rto_addr         := sockaddr(),
+          max_rto              := uint64(),
+          in_sacks             := uint64(),
+          out_sacks            := uint64(),
+          in_packets           := uint64(),
+          out_packets          := uint64(),
+          rtx_chunks           := uint64(),
+          out_of_seq_tsns      := uint64(),
+          in_dup_chunks        := uint64(),
+          gap_ack_recv         := uint64(),
+          in_unordered_chunks  := uint64(),
+          out_unordered_chunks := uint64(),
+          in_ordered_chunks    := uint64(),
+          out_ordered_chunks   := uint64(),
+          in_ctrl_chunks       := uint64(),
+          out_ctrl_chunks      := uint64()}.
+
+-doc "C: `struct sctp_paddrinfo`.".
+-type sctp_peer_address_info() ::
+        #{assoc_id := sctp_assoc_id(),
+          address  := sockaddr(),
+          state    := sctp_peer_address_state(),
+          cwnd     := uint32(),
+          srtt     := uint32(),
+          rto      := uint32(),
+          mtu      := uint32()}.
+
+-doc "C: `enum sctp_spinfo_state`.".
+-type sctp_peer_address_state() :: inactive | potentially_failed |
+                                   active | unconfirmed | unknown.
 
 -type packet_type() :: host | broadcast | multicast | otherhost |
                        outgoing | loopback | user | kernel | fastroute |
@@ -891,6 +1115,19 @@ hence above all OS protocol levels.
   See [sendmsg](`sendmsg/2`) and also the `ctrl` field of the `t:msg_send/0`
   type.
 
+- **`select_read`** - `t:boolean/0` \-
+  On `select` implementations, see [Asynchronous Calls](#asynchronous-calls),
+  automatically activate select after a completed read.
+
+  Instead of `{ok, Data}` the receive operation returns
+  [`{select_read, {SelectInfo, Data}}`](`t:select_info/0`),
+  and the calling process can wait for a [`select` message](#async-messages)
+  containing `SelectInfo` when there is data available again.
+
+  Setting this option locks out other processes from receiving any data
+  since the current process continues its operation, so it effectively
+  disables receive operation queuing.
+
 - **`fd`** - `t:integer/0` \- Only valid to _get_. The OS protocol levels'
   socket descriptor. Functions [`open/1,2`](`open/1`) can be used to create a
   socket according to this module from an existing OS socket descriptor.
@@ -908,6 +1145,7 @@ internal use only.
         rcvbuf | % sndbuf |
         rcvctrlbuf |
         sndctrlbuf |
+        select_read |
         meta |
         use_registry |
         fd |
@@ -916,7 +1154,7 @@ internal use only.
 -doc """
 Socket option.
 
-Socket options on the form `{Level, Opt}` where the OS protocol `Level` =
+Socket options of the form `{Level, Opt}` where the OS protocol `Level` =
 `t:level/0` and `Opt` is a socket option on that protocol level.
 
 The OS name for an options is, except where otherwise noted, the `Opt` atom, in
@@ -1023,6 +1261,15 @@ _Options for protocol level_ [_`socket`_:](`t:level/0`)
 
 - **`{socket, timestamp}`** - `Value = boolean()`
 
+  Enable or disable the `SO_TIMESTAMP` socket option. When enabled, the socket
+  will receive timestamps in control messages for received packets.
+
+- **`{socket, timestampns}`** - `Value = boolean()`
+
+  Enable or disable the `SO_TIMESTAMPNS` socket option. When enabled, the socket
+  will receive nanosecond-precision timestamps in control messages for received
+  packets.
+
 - **`{socket, type}`** - `Value =` `t:type/0`
 
   Only valid to _get_.
@@ -1097,14 +1344,14 @@ _Options for protocol level_ [_`ip`_:](`t:level/0`)
   [control message](`t:cmsg_recv/0`) `#{level := ip, type := recverr}`.
 
   A working strategy should be to first poll the error queue using
-  [`recvmsg/2,3,4` ](`m:socket#recvmsg-timeout`)with `Timeout =:= 0` and `Flags`
+  [`recvmsg/2,3,4` ](#recvmsg-timeout)with `Timeout =:= 0` and `Flags`
   containing `errqueue` (ignore the return value `{error, timeout}`) before
   reading the actual data to ensure that the error queue gets cleared. And read
   the data using one of the `nowait |`
   [`select_handle()` ](`t:select_handle/0`)recv functions:
-  [`recv/3,4`](`m:socket#recv-nowait`),
-  [`recvfrom/3,4`](`m:socket#recvfrom-nowait`) or
-  [`recvmsg/3,4,5`](`m:socket#recvmsg-nowait`). Otherwise you might accidentally
+  [`recv/3,4`](#recv-nowait),
+  [`recvfrom/3,4`](#recvfrom-nowait) or
+  [`recvmsg/3,4,5`](#recvmsg-nowait). Otherwise you might accidentally
   cause a busy loop in and out of 'select' for the socket.
 
 - **`{ip, recvif}`** - `Value = boolean()`
@@ -1123,9 +1370,10 @@ _Options for protocol level_ [_`ip`_:](`t:level/0`)
 
 - **`{ip, sendsrcaddr}`** - `Value = boolean()`
 
-- **`{ip, tos}`** - `Value =` [`ip_tos()` ](`t:ip_tos/0`)`| integer()`
+- **`{ip, tos}`** - `Value =` [`iptos_value()` ](`t:iptos_value/0`) | [`ip_tos()` ](`t:ip_tos/0`)
 
-  An `t:integer/0` value is according to the platform's header files.
+  When sending/setting the value is according to `t:iptos_value/0`.
+  When reading/getting the value is according to `t:ip_tos/0`.
 
 - **`{ip, transparent}`** - `Value = boolean()`
 
@@ -1214,15 +1462,38 @@ _Options for protocol level_ [_`sctp`_](`t:level/0`). See also RFC 6458.
 
 - **`{sctp, rtoinfo}`** - `Value =` `t:sctp_rtoinfo/0`
 
+- **`{sctp, get_peer_addr_info}`** - `Value =` `t:sctp_peer_address_info/0`
+
+  Only valid for _get_.
+  Also, requires an OptValue (containing `t:sctp_assoc_id/0` and
+  `t:sockaddr/0`) specifying the peer. See [`getopt/3`](`getopt/3`)
+  for more info.
+
+- **`{sctp, status}`** - `Value =` `t:sctp_status/0`
+
+  Only valid for _get_.
+  Also, requires an OptValue (containing `t:sctp_assoc_id/0`)
+  specifying the association. See [`getopt/3`](`getopt/3`) for more info.
+
 _Options for protocol level_ [_`tcp`:_](`t:level/0`)
 
 - **`{tcp, congestion}`** - `Value = string()`
 
 - **`{tcp, cork}`** - `Value = boolean()`
 
+- **`{tcp, keepcnt}`** - `Value = integer()`
+
+- **`{tcp, keepidle}`** - `Value = integer()`
+
+- **`{tcp, keepintvl}`** - `Value = integer()`
+
 - **`{tcp, maxseg}`** - `Value = integer()`
 
 - **`{tcp, nodelay}`** - `Value = boolean()`
+
+- **`{tcp, nopush}`** - `Value = boolean()`
+
+- **`{tcp, user_timeout}`** - `Value = non_neg_integer()`
 
 _Options for protocol level_ [_`udp`:_](`t:level/0`)
 
@@ -1266,6 +1537,7 @@ _Options for protocol level_ [_`udp`:_](`t:level/0`)
            sndlowat |
            sndtimeo |
            timestamp |
+           timestampns |
            type} |
         {Level :: ip,
          Opt ::
@@ -1363,7 +1635,7 @@ _Options for protocol level_ [_`udp`:_](`t:level/0`)
            auth_delete_key |
            autoclose |
            context |
-           default_send_params |
+           default_send_param |
            delayed_ack_time |
            disable_fragments |
            hmac_ident |
@@ -1501,29 +1773,322 @@ Corresponds to a C `struct msghdr`, see your platform documentation for
   `struct msghdr`. Unknown flags, if any, are returned in one `t:integer/0`,
   last in the containing list.
 """.
--type msg_recv() ::
+-type msg_data_recv() ::
         #{
-           %% *Optional* target address
-           %% Used on an unconnected socket to return the
-           %% source address for a message.
-           addr => sockaddr_recv(),
+          %% *Optional* target address
+          %% Used on an unconnected socket to return the
+          %% source address for a message.
+          addr => sockaddr_recv(),
 
-           iov := erlang:iovec(),
+          iov := erlang:iovec(),
 
-           %% Control messages (ancillary data).
-           %% The maximum size of the control buffer is platform
-           %% specific. It is the users responsibility to ensure
-           %% that its not exceeded.
-           %%
-           ctrl :=
-               ([cmsg_recv() |
-                 #{level := level() | integer(),
-                   type  := integer(),
-                   data  := binary()}]),
+          %% Control messages (ancillary data).
+          %% The maximum size of the control buffer is platform
+          %% specific. It is the users responsibility to ensure
+          %% that its not exceeded.
+          %%
+          ctrl :=
+              ([cmsg_recv() |
+                #{level := level() | integer(),
+                  type  := integer(),
+                  data  := binary()}]),
 
-           %% Received message flags
-           flags := [msg_flag() | integer()]
+          %% Received message flags
+          flags := [msg_flag() | integer()]
          }.
+
+-doc(#{since => ~"OTP 29.0"}).
+-doc """
+Notifications can be received on a SCTP socket (type = seqpacket and
+protocol = sctp).
+
+""".
+-type msg_notification_recv() ::
+        #{
+          %% *Optional* target address
+          %% Used on an unconnected socket to return the
+          %% source address for a message.
+          addr => sockaddr_recv(),
+
+          notification := sctp_notification(),
+
+          ctrl := [#{level := level() | integer(),
+                     type  := integer(),
+                     data  := binary()}],
+
+          %% Received message flags
+          %% Will contain the 'notification' flag
+          flags := [notification | [msg_flag() | integer()]]
+         }.
+
+-doc """
+Message returned by [`recvmsg/1,2,3,5`](`recvmsg/1`).
+""".
+-type msg_recv() :: msg_data_recv() | msg_notification_recv().
+
+
+-doc """
+All possible notification types. All of them has *at least* two fields:
+'type' and 'flags' ('flags' are not allways used).
+
+C: `union sctp_notification`
+""".
+-type sctp_notification() :: sctp_assoc_change()        |
+                             sctp_paddr_change()        |
+                             sctp_send_failed()         |
+                             sctp_remote_error()        |
+                             sctp_shutdown_event()      |
+                             sctp_adapt_event()         |
+                             sctp_pdapi_event()         |
+                             sctp_authkey()             |
+                             sctp_sender_dry()          |
+                             sctp_stream_reset_event()  |
+                             sctp_assoc_reset_event()   |
+                             sctp_stream_change_event() |
+                             sctp_send_failed_event()   |
+                             sctp_notification_generic().
+
+-doc """
+An SCTP association has either begun or ended.
+
+C: `struct sctp_assoc_change`
+""".
+-type sctp_assoc_change() ::
+        #{type             := assoc_change,
+          flags            := integer(),
+          state            := sctp_assoc_change_state(),
+          error            := sctp_operation_error(),
+          outbound_streams := integer(),
+          inbound_streams  := integer(),
+          assoc_id         := sctp_assoc_id()}.
+
+-type sctp_assoc_change_state() :: comm_up        |
+                                   comm_lost      |
+                                   restart        |
+                                   shutdown_comp  |
+                                   cant_str_assoc |
+                                   integer().
+
+-doc """
+These error codes are (currently) defined in RFC 4960,
+and named as *Operation Errors*.
+""".
+-type sctp_operation_error() :: unknown           |
+                                bad_sid           |
+                                missing_parm      |
+                                stale_cookie      |
+                                no_resources      |
+                                bad_addr          |
+                                unrec_chunk       |
+                                bad_mandparm      |
+                                unrec_parm        |
+                                no_usr_data       |
+                                cookie_shut       |
+                                restart_new_addrs |
+                                user_abort        |
+                                delete_lastaddr   |
+                                resource_shortage |
+                                delete_srcaddr    |
+                                auth_err          |
+                                pos_integer().
+
+-doc """
+A destination address on a multi-homed peer has encountered a change.
+
+C: `struct sctp_paddr_change`
+""".
+-type sctp_paddr_change() ::
+        #{type     := peer_addr_change,
+          flags    := pos_integer(),
+          addr     := socket:sockaddr(),
+          state    := sctp_peer_addr_change_state(),
+          error    := pos_integer(),
+          assoc_id := sctp_assoc_id()}.
+
+-type sctp_peer_addr_change_state() ::
+        addr_available          |
+        addr_unreachable        |
+        addr_removed            |
+        addr_added              |
+        addr_made_prim          |
+        addr_confirmed          |
+        addr_potentially_failed |
+        integer().
+
+%% DEPRECATED
+-doc """
+SCTP cannot deliver a message.
+
+C: `struct sctp_send_failed`
+
+Deprecated.
+""".
+-type sctp_send_failed() ::
+        #{type     := send_failed,
+          flags    := uint16(),
+          error    := uint32(),
+          info     := sctp_snd_rcv_info(),
+          assoc_id := sctp_assoc_id(),
+          data     := binary()}.
+
+-doc """
+A remote peer may send an operational error message to its peer.
+
+C: `struct sctp_remote_error`
+""".
+-type sctp_remote_error() ::
+        #{type          := remote_error,
+          flags         := uint16(), % Should be [flag()]
+          error         := sctp_operation_error(),
+          assoc_id      := sctp_assoc_id(),
+          remote_causes := [integer()]}.
+
+-doc """
+A peer has sent a SHUTDOWN.
+
+C: `struct sctp_shutdown_event`
+""".
+-type sctp_shutdown_event() ::
+        #{type     := shutdown_event,
+          flags    := uint16(), % Should be [flag()]
+          assoc_id := sctp_assoc_id()}.
+
+-doc """
+A peer has sent a Adaptation Layer Indication parameter.
+
+C: `struct sctp_adaptation_event`
+""".
+-type sctp_adapt_event() ::
+        #{type         := adaptation_event,
+          flags        := uint16(),
+          adaption_ind := uint32(),
+          assoc_id     := sctp_assoc_id()}.
+
+-doc """
+A receiver is engaged in a partial delivery.
+
+Note that not all fields are available on all platforms.
+The *stream* and/or *seq* fields may not be present.
+
+C: `struct sctp_pdapi_event`
+""".
+-type sctp_pdapi_event() ::
+        #{type       := partial_delivery_event,
+          flags      := uint16(), % Should be [flag()]
+          indication := uint16(),
+          assoc_id   := sctp_assoc_id(),
+          stream     => uint32(),
+          seq        => uint32()}.
+
+-doc """
+When a receiver is using authentication, info about new keys and errors are
+provided in this notification.
+
+C: `struct sctp_authkey_event`
+""".
+-type sctp_authkey() ::
+        #{type         := authkey,
+          flags        := uint16(), % Should be [flag()]
+          keynumber    := uint16(),
+          altkeynumber := uint16(),
+          indication   := uint32(),
+          assoc_id     := sctp_assoc_id()}.
+
+-doc """
+The SCTP stack has no more user data to send or retransmit.
+
+C: `struct sctp_sender_dry_event`
+""".
+-type sctp_sender_dry() ::
+        #{type     := sender_dry,
+          flags    := uint16(), % Should be [flag()]
+          assoc_id := sctp_assoc_id()}.
+
+-doc """
+C: `struct sctp_stream_reset_event`
+""".
+-type sctp_stream_reset_event() ::
+        #{type        := stream_reset,
+          flags       := [incoming_ssn | outgoing_ssn | denied | failed],
+          assoc_id    := sctp_assoc_id(),
+          stream_list := [uint16()]}.
+
+-doc """
+C: `struct sctp_assoc_reset_event`
+""".
+-type sctp_assoc_reset_event() ::
+        #{type       := assoc_reset,
+          flags      := [denied | failed],
+          assoc_id   := sctp_assoc_id(),
+          local_tsn  := uint32(),
+          remote_tsn := uint32()}.
+
+-doc """
+C: `struct sctp_stream_change_event`
+""".
+-type sctp_stream_change_event() ::
+        #{type             := stream_change,
+          flags            := [denied | failed],
+          assoc_id         := sctp_assoc_id(),
+          inbound_streams  := uint16(),
+          outbound_streams := uint16()}.
+
+-doc """
+SCTP cannot deliver a message.
+
+C: `struct sctp_send_failed_event`
+""".
+-type sctp_send_failed_event() ::
+        #{type     := send_failed_event,
+          flags    := [data_unsent | data_sent],
+          error    := uint32(),
+          info     := sctp_snd_info(),
+          assoc_id := sctp_assoc_id(),
+          data     := binary()}.
+
+-doc """
+C: `union sctp_notification`
+
+This is intended as a fallback type for any notification
+we have not yet implemented.
+""".
+-type sctp_notification_generic() ::
+        #{type  := uint16(),
+          flags := uint16()}.
+
+-doc """
+C: `struct sctp_sndinfo`
+""".
+-type sctp_snd_info() ::
+        #{sid      := uint16(),
+          flags    := uint16(), % Should be [flag()]
+          ppid     := uint16(),
+          context  := uint32(),
+          assic_id := sctp_assoc_id()}.
+
+-doc """
+SCTP options for 
+[`sendmsg()`](`socket:sendmsg/4`) and
+SCTP header information about a received message through
+[`recvmsg()`](`socket:recvmsg/5`).
+
+When sending, only the *stream* and *assoc_id* fields needs to be
+assigned. When receiving all values will be assigned.
+
+C: `struct sctp_sndrcvinfo`
+""".
+-type sctp_snd_rcv_info() ::
+        #{stream       := uint16(),
+          ssn          => uint16(),
+          flags        => sctp_snd_rcv_info_flags(),
+          ppid         => uint32(),
+          context      => uint32(),
+          time_to_live => uint32(),
+          tsn          => uint32(),
+          cum_tsn      => uint32(),
+          assoc_id     := sctp_assoc_id()}.
+
+-type sctp_snd_rcv_info_flags() :: [unordered | addr_over | abort | eof].
 
 
 %% We are able to (completely) decode *some* control message headers.
@@ -1546,12 +2111,14 @@ successfully decoded the data.
 -type cmsg_recv() ::
         #{level := socket,  type := timestamp,    data := binary(),
           value => timeval()}                                       |
+        #{level := socket,  type := timestampns,  data := binary(),
+          value => timespec()}                                      |
         #{level := socket,  type := rights,       data := binary()} |
         #{level := socket,  type := credentials,  data := binary()} |
         #{level := ip,      type := tos,          data := binary(),
-          value => ip_tos() | integer()}                            |
+          value => ip_tos()}                                        |
         #{level := ip,      type := recvtos,      data := binary(),
-          value := ip_tos() | integer()}                            |
+          value := ip_tos()}                                        |
         #{level := ip,      type := ttl,          data := binary(),
           value => integer()}                                       |
         #{level := ip,      type := recvttl,      data := binary(),
@@ -1583,12 +2150,14 @@ symbolic value, or a `data` field with a native value, that has to be binary
 compatible what is defined in the platform's header files.
 """.
 -type cmsg_send() ::
+        #{level := sctp,    type := sndrcv,
+          value := sctp_snd_rcv_info()}                                   |
         #{level := socket,  type := timestamp,    data => native_value(),
           value => timeval()}                                             |
         #{level := socket,  type := rights,       data := native_value()} |
         #{level := socket,  type := credentials,  data := native_value()} |
         #{level := ip,      type := tos,          data => native_value(),
-          value => ip_tos() | integer()}                                  |
+          value => iptos_value()}                                         |
         #{level := ip,      type := ttl,          data => native_value(),
           value => integer()}                                             |
         #{level := ip,      type := hoplimit,     data => native_value(),
@@ -1689,8 +2258,8 @@ Information element designators for the  `i/1` and `i/2` functions.
 %% Interface term formats
 %%
 
--define(ASYNCH_DATA_TAG, (recv | recvfrom | recvmsg |
-                          send | sendv | sendto | sendmsg | sendfile)).
+-define(ASYNCH_DATA_TAG, (recv | recvfrom | recvmsg | recvmmsg |
+                          send | sendv | sendto | sendmsg | sendmmsg | sendfile)).
 -define(ASYNCH_TAG,      ((accept | connect) | ?ASYNCH_DATA_TAG)).
 
 %% -type asynch_data_tag() :: send | sendv | sendto | sendmsg |
@@ -1741,7 +2310,16 @@ contained in the returned `t:completion_info/0`.
 [Select operation](#asynchronous-calls) info.
 
 Returned by an operation that requires the caller to wait for a
-[select message](`m:socket#asynchronous-calls`) containing the
+[`select` message](#async-messages) containing the
+[`SelectHandle`](`t:select_handle/0`).
+
+On `select` systems, if the option
+[`{otp, select_read}`](`t:otp_socket_option/0`) is set,
+[`{select_read, {select_info(), _}}`](`t:select_info/0`)
+is returned instead of `{ok, _}` to indicate that a new
+asynchronous receive operation has been initiated
+and the caller should wait for a
+[`select` message](#async-messages) containing the
 [`SelectHandle`](`t:select_handle/0`).
 """.
 -type select_info() ::
@@ -1754,7 +2332,7 @@ Returned by an operation that requires the caller to wait for a
 [Completion operation](#asynchronous-calls) info.
 
 Returned by an operation that requires the caller to wait for a
-[completion message](`m:socket#asynchronous-calls`) containing the
+[`completion` message](#async-messages) containing the
 [`CompletionHandle`](`t:completion_handle/0`) _and_ the result of the operation;
 the `CompletionStatus`.
 """.
@@ -2205,7 +2783,7 @@ i_socket_info(Proto, _Socket, #{type := Type} = _Info, protocol) ->
                                          Proto
                                  end));
 i_socket_info(_Proto, Socket, _Info, fd) ->
-    try socket:getopt(Socket, otp, fd) of
+    try socket:getopt(Socket, {otp, fd}) of
 	{ok,   FD} -> integer_to_list(FD);
 	{error, _} -> " "
     catch
@@ -2319,8 +2897,6 @@ fmt_service(#{port := Port} = SockAddr) ->
 %% info - Get miscellaneous information about a socket
 %% or about the socket library.
 %%
-%% Generates a list of various info about the socket, such as counter values.
-%%
 %% Do *not* call this function often.
 %%
 %% ===========================================================================
@@ -2339,25 +2915,36 @@ The function returns a map with each information item as a key-value pair.
 -spec info() -> info().
 %%
 info() ->
-    try
-        prim_socket:info()
+    try prim_socket:info() of
+	Info ->
+	    Info#{load_nif_result => load_nif_result()}
     catch error:undef:ST ->
             case ST of
                 %% We rewrite errors coming from prim_socket not existing
-                %% to enotsup.
+                %% to notsup.
                 [{prim_socket,info,[],_}|_] ->
                     erlang:raise(error,notsup,ST);
                 _ ->
                     erlang:raise(error,undef,ST)
-            end
+            end;
+	  _:_ ->
+	    #{load_nif_result => load_nif_result()}
     end.
+
+load_nif_result() ->
+    try prim_socket:p_get(load_nif_result)
+    catch
+	_:_ ->
+	    undefined
+    end.
+
 
 -doc(#{since => <<"OTP 22.1">>}).
 -doc """
 Get miscellaneous info about a socket.
 
 The function returns a map with each information item as a key-value pair
-reflecting the "current" state of the socket.
+reflecting the "current" state of the socket (such as counter values).
 
 > #### Note {: .info }
 >
@@ -2919,18 +3506,30 @@ bind(Socket, Addr) ->
 %% If the domain is inet6, the addresses can be either IPv4 or IPv6.
 %%
 
--doc false.
+-doc(#{since => <<"OTP 29.0">>}).
+-doc """
+Bind a list of socket addreses to a socket.
+
+When a socket is created (with [`open`](`open/2`)), it has no address assigned
+to it. This `bind` assigns the address specified by the `Addr` argument.
+
+Calling this function is only valid if the socket is
+`type`  = `seqpacket` and `protocol` = `sctp`.
+
+If the domain is inet, then all addresses *must* be IPv4.
+If the domain is inet6, the addresses can be *either* IPv4 or IPv6.
+
+""".
 -spec bind(Socket, Addrs, Action) -> 'ok' | {'error', Reason} when
       Socket :: socket(),
-      Addrs  :: [sockaddr()],
+      Addrs  :: [sockaddr_in()] | [sockaddr_in() | sockaddr_in6()],
       Action :: 'add' | 'remove',
       Reason :: posix() | 'closed'.
 
 bind(?socket(SockRef), Addrs, Action)
   when is_reference(SockRef)
        andalso is_list(Addrs)
-       andalso (Action =:= add
-                orelse Action =:= remove) ->
+       andalso ((Action =:= add) orelse (Action =:= remove)) ->
     prim_socket:bind(SockRef, Addrs, Action);
 bind(Socket, Addrs, Action) ->
     erlang:error(badarg, [Socket, Addrs, Action]).
@@ -2949,7 +3548,7 @@ See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
 
 On `select` systems this function finalizes a connection setup
-on a socket, after receiving a `select` message
+on a socket, after receiving a [`select` message](#async-messages)
 `{'$socket',` [`Socket`](`t:socket/0`)`, select,
 `[`SelectHandle`](`t:select_handle/0`)`}`,
 and returns whether the connection setup was successful or not.
@@ -2978,20 +3577,23 @@ connect(Socket) ->
 -doc(#{since => <<"OTP 22.0">>}).
 -doc """
 Equivalent to
-[`connect(Socket, SockAddr, infinity)`](#connect-infinity).
+[`connect(Socket, SockAddr, infinity)`](#connect-infinity) or
+[`connect(Socket, SockAddrs, undefined, infinity)`](#connect-infinity).
 """.
--spec connect(Socket :: socket(), SockAddr :: sockaddr()) -> 'ok' | {'error', Reason :: dynamic()}.
+-spec connect(Socket :: socket(), SockAddr :: sockaddr() | [SockAddr :: term()]) -> 'ok' | {'error', Reason :: dynamic()}.
 
+connect(Socket, SockAddrs) when is_list(SockAddrs) ->
+    connect(Socket, SockAddrs, infinity);
 connect(Socket, SockAddr) ->
     connect(Socket, SockAddr, infinity).
 
 
 -doc(#{since => <<"OTP 22.0">>}).
 -doc """
-Connect the socket to the given address.
+Connect the socket to the given address(s).
 
-This function connects the socket to the address specified
-by the `SockAddr` argument.
+This function connects the socket to the address(s) specified
+by the `SockAddr`|`SockAddrs` argument.
 
 If a connection attempt is already in progress (by another process),
 `{error, already}` is returned.
@@ -3025,7 +3627,7 @@ if the connection hasn't been established within `Timeout` milliseconds.
 >
 > The safe play is to close the socket and start over.
 >
-> Also note that this applies to canceling a `nowait` connect call
+> Also note that this applies to cancelling a `nowait` connect call
 > described below.
 
 [](){: #connect-nowait }
@@ -3042,13 +3644,38 @@ start an [asynchronous call](#asynchronous-calls) like for `nowait`.
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
 
-After receiving a `select` message call `connect/1`
+After receiving a [`select` message](#async-messages); call `connect/1`
 to complete the operation.
 
-If canceling the operation with `cancel/2` see the note above
+If cancelling the operation with `cancel/2` see the note above
 about [connection time-out](#connect-timeout).
+
+[](){: #connect-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`ok`** - Complete success; A connection has been established.
+- **`{error, Reason}`** - An error occured and no connection was
+  established.
+
+> #### Note {: .info }
+>
+> Note that calling with a list of socket addresses only works for
+> SCTP sockets (type = `seqpacket`). And that the family of *all*
+> addresses in the list is either IPv4 (`inet`) or IPv6 (`inet6`).
+
 """.
--spec connect(Socket, SockAddr, Timeout :: 'infinity') ->
+-spec connect(Socket, SockAddrs, TimeoutOrHandle) ->
+          {'ok', AssocId} |
+          {'error', Reason} when
+      Socket          :: socket(),
+      SockAddrs       :: [sockaddr_in()] | [sockaddr_in6()],
+      TimeoutOrHandle :: infinity | Timeout | 'nowait' | Handle,
+      Timeout         :: non_neg_integer(),
+      Handle          :: select_handle(),
+      AssocId         :: sctp_assoc_id(),
+      Reason          :: posix() | 'closed' | invalid() | 'already';
+
+             (Socket, SockAddr, Timeout :: 'infinity') ->
           'ok' |
           {'error', Reason} when
       Socket   :: socket(),
@@ -3086,25 +3713,26 @@ about [connection time-out](#connect-timeout).
 %% <KOLLA>
 %% Is it possible to connect with family = local for the (dest) sockaddr?
 %% </KOLLA>
-connect(?socket(SockRef), SockAddr, TimeoutOrHandle)
+connect(?socket(SockRef), SockAddrOrAddrs, TimeoutOrHandle)
   when is_reference(SockRef) ->
     case deadline(TimeoutOrHandle) of
         invalid ->
             erlang:error({invalid, {timeout, TimeoutOrHandle}});
         nowait ->
             Handle = make_ref(),
-            connect_nowait(SockRef, SockAddr, Handle);
+            connect_nowait(SockRef, SockAddrOrAddrs, Handle);
         handle ->
             Handle = TimeoutOrHandle,
-            connect_nowait(SockRef, SockAddr, Handle);
+            connect_nowait(SockRef, SockAddrOrAddrs, Handle);
         Deadline ->
-            connect_deadline(SockRef, SockAddr, Deadline)
+            connect_deadline(SockRef, SockAddrOrAddrs, Deadline)
     end;
-connect(Socket, SockAddr, Timeout) ->
-    erlang:error(badarg, [Socket, SockAddr, Timeout]).
+connect(Socket, SockAddrOrAddrs, Timeout) ->
+    erlang:error(badarg, [Socket, SockAddrOrAddrs, Timeout]).
 
-connect_nowait(SockRef, SockAddr, Handle) ->
-    case prim_socket:connect(SockRef, Handle, SockAddr) of
+
+connect_nowait(SockRef, SockAddrOrAddrs, Handle) ->
+    case prim_socket:connect(SockRef, Handle, SockAddrOrAddrs) of
         select ->
             {select, ?SELECT_INFO(connect, Handle)};
         completion ->
@@ -3113,36 +3741,37 @@ connect_nowait(SockRef, SockAddr, Handle) ->
             Result
     end.
 
-connect_deadline(SockRef, SockAddr, Deadline) ->
-    Ref = make_ref(),
-    case prim_socket:connect(SockRef, Ref, SockAddr) of
+connect_deadline(SockRef, SockAddrOrAddrs, Deadline) ->
+    Handle = make_ref(),
+    case prim_socket:connect(SockRef, Handle, SockAddrOrAddrs) of
         select ->
             %% Connecting...
             Timeout = timeout(Deadline),
             receive
-                ?socket_msg(_Socket, select, Ref) ->
+                ?socket_msg(_Socket, select, Handle) ->
                     prim_socket:connect(SockRef);
-                ?socket_msg(_Socket, abort, {Ref, Reason}) ->
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
                     {error, Reason}
             after Timeout ->
-                    _ = cancel(SockRef, connect, Ref),
+                    _ = cancel(SockRef, connect, Handle),
                     {error, timeout}
             end;
         completion ->
             %% Connecting...
             Timeout = timeout(Deadline),
             receive
-                ?socket_msg(_Socket, completion, {Ref, CompletionStatus}) ->
+                ?socket_msg(_Socket, completion, {Handle, CompletionStatus}) ->
                     CompletionStatus;
-                ?socket_msg(_Socket, abort, {Ref, Reason}) ->
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
                     {error, Reason}
             after Timeout ->
-                    _ = cancel(SockRef, connect, Ref),
+                    _ = cancel(SockRef, connect, Handle),
                     {error, timeout}
             end;
         Result ->
             Result
     end.
+
 
 
 %% ===========================================================================
@@ -3166,6 +3795,7 @@ listen(Socket) ->
 -doc """
 Make a socket listen for connections.
 
+The `IsServer` clauses are intended to be used for SCTP sockets.
 The `Backlog` argument states the length of the queue for
 incoming not yet accepted connections.
 Exactly how that number is interpreted is up to the OS'
@@ -3176,8 +3806,21 @@ will most probably be perceived as at least that long.
 >
 > On _Windows_ the socket has to be _bound_.
 """.
--spec listen(Socket :: socket(), Backlog :: integer()) -> 'ok' | {'error', Reason  :: posix() | 'closed'}.
+-spec listen(Socket, IsServer) -> ok | {error, Reason} when
+      Socket   :: socket(),
+      IsServer :: boolean(),
+      Reason   :: posix() | 'closed';
+            (Socket, Backlog) -> 'ok' | {'error', Reason} when
+      Socket  :: socket(),
+      Backlog :: pos_integer(),
+      Reason  :: posix() | 'closed'.
 
+listen(?socket(SockRef), true = _IsServer)
+  when is_reference(SockRef) ->
+    prim_socket:listen(SockRef, ?ESOCK_LISTEN_BACKLOG_DEFAULT);
+listen(?socket(SockRef), false = _IsServer)
+  when is_reference(SockRef) ->
+    prim_socket:listen(SockRef, 0);
 listen(?socket(SockRef), Backlog)
   when is_reference(SockRef), is_integer(Backlog) ->
     prim_socket:listen(SockRef, Backlog);
@@ -3220,8 +3863,8 @@ and return the new connection socket.
 [](){: #accept-timeout }
 
 If the `Timeout` argument is a time-out value (`t:non_neg_integer/0`);
-returns `{error, timeout}` if no connection has arrived
-after `Timeout` milliseconds.
+returns `{error, timeout}` if no connection has arrived after `Timeout`
+milliseconds.
 
 [](){: #accept-nowait }
 
@@ -3229,10 +3872,16 @@ If the `Handle` argument `nowait` *(since OTP 22.1)*,
 starts an [asynchronous call](#asynchronous-calls) if the operation
 couldn't be completed immediately.
 
-If the `Handle` argument is a `t:select_handle/0`,
-*(since OTP 24.0)*, or on _Windows_, the equivalent
-`t:completion_handle/0` *(since OTP 26.0)*, starts
-an [asynchronous call](#asynchronous-calls) like for `nowait`.
+If the `Handle` argument is a `t:select_handle/0`, *(since OTP 24.0)*,
+or on _Windows_, the equivalent `t:completion_handle/0` *(since OTP 26.0)*,
+starts an [asynchronous call](#asynchronous-calls) like for `nowait`.
+
+[](){: #accept-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`{ok, NewSocket}`** - Success; A connection has been accepted.
+- **`{error, Reason}`** - An error occured and no connection was
+  established.
 
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
@@ -3338,6 +3987,8 @@ accept_deadline(LSockRef, Deadline) ->
 
 accept_result(LSockRef, AccRef, Result) ->
     case Result of
+        select_sent ->
+            {error, {invalid, Result}};
         {ok, SockRef} ->
             Socket = ?socket(SockRef),
             {ok, Socket};
@@ -3347,6 +3998,104 @@ accept_result(LSockRef, AccRef, Result) ->
             ERROR
     end.
 
+
+%% ===========================================================================
+%%
+%% peeloff - Branch off an association into a separate socket
+%%
+
+-doc(#{since => <<"OTP 29.0">>}).
+-doc """
+Branch off an association into a separate socket.
+
+Equivalent to [`peeloff(Socket, AssocId, [])`](`peeloff/3`)
+
+""".
+-spec peeloff(Socket, AssocId) ->
+          {'ok', NewSock} |
+          {'ok', NewSock, InheritErrs} |
+          {'error', Reason} when
+      Socket  :: socket(),
+      AssocId :: sctp_assoc_id(),
+      NewSock :: socket(),
+      InheritErrs :: [{SockOpt, get | set, Reason}],
+      SockOpt :: socket_option(),
+      Reason  :: posix() | 'closed'.
+
+peeloff(Sock, AssocId) ->
+    peeloff(Sock, AssocId, []).
+
+-doc(#{since => <<"OTP 29.0">>}).
+-doc """
+Branch off an association into a separate socket.
+
+Create a new one-to-one socket from an existing one-to-many socket.
+The specified `InheritOpts` will be inherited by the new socket (get from
+existing socket and then set on the new socket).
+
+If the peeloff operation is successful but some (or all) of the `InheritOpts`
+failed to transfer to the new socket, `{'ok', NewSock, InheritErrs}` is
+returned. It is then up to the caller to decide if this is acceptable.
+
+""".
+-spec peeloff(Socket, AssocId, InheritOpts) ->
+          {'ok', NewSock} |
+          {'ok', NewSock, InheritErrs} |
+          {'error', Reason} when
+      Socket  :: socket(),
+      AssocId :: sctp_assoc_id(),
+      InheritOpts :: [socket_option()],
+      NewSock :: socket(),
+      InheritErrs :: [{SockOpt, get | set, Reason}],
+      SockOpt :: socket_option(),
+      Reason  :: posix() | 'closed'.
+
+peeloff(?socket(SockRef) = Sock, AssocId, InheritOpts)
+  when is_reference(SockRef) andalso
+       is_integer(AssocId) andalso
+       is_list(InheritOpts) ->
+    case prim_socket:peeloff(SockRef, AssocId) of
+        {ok, NewSockRef} ->
+            NewSock = ?socket(NewSockRef),
+            inherit_opts(Sock, NewSock, InheritOpts);
+        {error, _} = ERROR ->
+            ERROR
+    end;
+peeloff(Socket, AssocId, InheritOpts) ->
+    erlang:error(badarg, [Socket, AssocId, InheritOpts]).
+
+inherit_opts(FromSock, ToSock, InheritOpts) ->
+    inherit_opts(FromSock, ToSock, InheritOpts, []).
+
+inherit_opts(_FromSock, ToSock, [], []) ->
+    {ok, ToSock};
+inherit_opts(_FromSock, ToSock, [], Errs) ->
+    {ok, ToSock, Errs};
+inherit_opts(FromSock, ToSock, [SockOpt | SockOpts], Errs) ->
+    case socket:getopt(FromSock, SockOpt) of
+        {ok, Value} ->
+            case socket:setopt(ToSock, SockOpt, Value) of
+                ok ->
+                    inherit_opts(FromSock, ToSock, SockOpts, Errs);
+                {error, Reason} ->
+                    inherit_opts(FromSock, ToSock, SockOpts,
+                                 [{SockOpt, set, Reason}|Errs])
+            end;
+        {error, Reason} ->
+            inherit_opts(FromSock, ToSock, SockOpts,
+                         [{SockOpt, get, Reason}|Errs])
+    end.
+
+%% peeloff_inherit_opts() ->
+%%     [{socket, priority},
+%%      {sctp,   nodelay},
+%%      {socket, linger},
+%%      {socket, reuseaddr},
+%%      {ip,     tos},
+%%      {ip,     ttl},
+%%      {ip,     recvtos},
+%%      {ip,     recvttl}].
+%% 
 
 %% ===========================================================================
 %%
@@ -3468,6 +4217,14 @@ an [asynchronous call](#asynchronous-calls) like for `nowait`.
 
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
+
+[](){: #send-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`ok`** - Complete success; The data was written in its entirety.
+- **`{ok, Written}`** - Partial success; Some but not all data was written,
+  but no error was reported. `Written` is the number of bytes that was written.
+- **`{error, Reason}`** - An error occured and no data was sent.
 
 [](){: #send-cont }
 
@@ -3610,6 +4367,10 @@ send_common_nowait_result(Handle, Op, Result) ->
     case Result of
         completion ->
             {completion, ?COMPLETION_INFO(Op, Handle)};
+        {completion, _} -> % Only sendv
+            {completion, ?COMPLETION_INFO(Op, Handle)};
+        {completion, Data, _} -> % Only sendv
+            {completion, {?COMPLETION_INFO(Op, Handle), Data}};
         {select, ContData} ->
             {select, ?SELECT_INFO({Op, ContData}, Handle)};
         {select, Data, ContData} ->
@@ -3624,45 +4385,6 @@ send_common_deadline_result(
   SockRef, Data, Handle, Deadline, HasWritten,
   Op, Fun, SendResult) ->
     case SendResult of
-        select ->
-            %% Would block, wait for continuation
-            Timeout = timeout(Deadline),
-            receive
-                ?socket_msg(_Socket, select, Handle) ->
-                    Fun(SockRef, Data, undefined, Deadline, HasWritten);
-                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
-                    send_common_error(Reason, Data, HasWritten)
-            after Timeout ->
-                    _ = cancel(SockRef, Op, Handle),
-                    send_common_error(timeout, Data, HasWritten)
-            end;
-
-        {select, Cont} ->
-            %% Would block, wait for continuation
-            Timeout = timeout(Deadline),
-            receive
-                ?socket_msg(_Socket, select, Handle) ->
-                    Fun(SockRef, Data, Cont, Deadline, HasWritten);
-                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
-                    send_common_error(Reason, Data, HasWritten)
-            after Timeout ->
-                    _ = cancel(SockRef, Op, Handle),
-                    send_common_error(timeout, Data, HasWritten)
-            end;
-        {select, Data_1, Cont} ->
-            %% Partial send success, wait for continuation
-            Timeout = timeout(Deadline),
-            receive
-                ?socket_msg(_Socket, select, Handle) ->
-                    Fun(SockRef, Data_1, Cont, Deadline, true);
-                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
-                    send_common_error(Reason, Data_1, true)
-            after Timeout ->
-                    _ = cancel(SockRef, Op, Handle),
-                    send_common_error(timeout, Data_1, true)
-            end;
-
-	%%
         completion ->
             %% Would block, wait for continuation
             Timeout = timeout(Deadline),
@@ -3717,6 +4439,32 @@ send_common_deadline_result(
 		    %% ?DBG(['completion send timeout - cancel']),
                     _ = cancel(SockRef, Op, Handle),
                     send_common_error(timeout, RestData, false)
+            end;
+
+	%%
+        {select, Cont} ->
+            %% Would block, wait for continuation
+            Timeout = timeout(Deadline),
+            receive
+                ?socket_msg(_Socket, select, Handle) ->
+                    Fun(SockRef, Data, Cont, Deadline, HasWritten);
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                    send_common_error(Reason, Data, HasWritten)
+            after Timeout ->
+                    _ = cancel(SockRef, Op, Handle),
+                    send_common_error(timeout, Data, HasWritten)
+            end;
+        {select, Data_1, Cont} ->
+            %% Partial send success, wait for continuation
+            Timeout = timeout(Deadline),
+            receive
+                ?socket_msg(_Socket, select, Handle) ->
+                    Fun(SockRef, Data_1, Cont, Deadline, true);
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                    send_common_error(Reason, Data_1, true)
+            after Timeout ->
+                    _ = cancel(SockRef, Op, Handle),
+                    send_common_error(timeout, Data_1, true)
             end;
 
         %%
@@ -3883,8 +4631,17 @@ an [asynchronous call](#asynchronous-calls) like for `nowait`.
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
 
-After receiving a `select` message call [`sendto/3,4`](`sendto/3`)
-with `SelectInfo` as the `Cont` argument, to complete the operation.
+[](){: #sendto-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`ok`** - Complete success; The data was written in its entirety.
+- **`{ok, Written}`** - Partial success; Some but not all data was written,
+  but no error was reported. `Written` is the number of bytes that was written.
+- **`{error, Reason}`** - An error occured and no data was sent.
+
+After receiving a [`select` message](#async-messages);
+call [`sendto/3,4`](`sendto/3`) with `SelectInfo` as the `Cont` argument,
+to complete the operation.
 """.
 -spec sendto(Socket, Data, Dest, Flags, Timeout :: 'infinity') ->
                   'ok' |
@@ -4110,8 +4867,17 @@ an [asynchronous call](#asynchronous-calls) like for `nowait`.
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
 
-After receiving a `select` message call [`sendmsg/3,4`](`sendmsg/3`)
-with `SelectInfo` as the `Cont` argument, to complete the operation.
+[](){: #sendmsg-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`ok`** - Complete success; The data was written in its entirety.
+- **`{ok, Written}`** - Partial success; Some but not all data was written,
+  but no error was reported. `Written` is the number of bytes that was written.
+- **`{error, Reason}`** - An error occured and no data was sent.
+
+After receiving a [`select` message](#async-messages);
+call [`sendmsg/3,4`](`sendmsg/3`) with `SelectInfo` as the `Cont` argument,
+to complete the operation.
 
 [](){: #sendmsg-cont }
 
@@ -4275,6 +5041,156 @@ sendmsg_deadline(SockRef, Msg, Flags, Deadline, HasWritten, IOV) ->
       sendmsg, fun sendmsg_deadline_cont/5,
       prim_socket:sendmsg(SockRef, Msg, Flags, Handle, IOV)).
 
+-doc(#{since => <<"OTP 29.0">>}).
+-doc """
+Send multiple messages on a socket.
+
+This function is equivalent to calling [`sendmsg/4`](`sendmsg/4`) multiple times,
+but uses the platform's `sendmmsg` syscall for better performance when sending
+multiple datagrams.
+
+> #### Note {: .info }
+>
+> This function is only available on Linux and BSD systems (not macOS/Darwin or Windows).
+> On unsupported platforms, it will return `{error, notsup}`.
+
+On success, returns either:
+- **`ok`** – when all messages were sent in full (or there were zero messages).
+- **`{ok, Rest}`** – when one or more messages had a partial write. `Rest` is a list with one
+  element per message that was not fully sent, in message order. Each element is the
+  remaining data for that message in the same form as [`sendmsg/4`](`sendmsg/4`)'s rest data
+  (`t:erlang:iovec/0`), so you can retry with `sendmsg` for each.
+
+On error returns `{error, Reason}`.
+""".
+-spec sendmmsg(Socket, Msgs, Flags, Timeout :: 'infinity') ->
+          'ok' |
+          {'ok', Rest} |
+          {'error', Reason}
+              when
+      Socket  :: socket(),
+      Msgs    :: [msg_send()],
+      Flags   :: [msg_flag() | integer()],
+      Rest    :: [erlang:iovec()],
+      Reason  :: posix() | 'closed' | invalid();
+
+             (Socket, Msgs, Flags, Timeout :: non_neg_integer()) ->
+          'ok' |
+          {'ok', Rest} |
+          {'error', Reason | 'timeout'}
+              when
+      Socket  :: socket(),
+      Msgs    :: [msg_send()],
+      Flags   :: [msg_flag() | integer()],
+      Rest    :: [erlang:iovec()],
+      Reason  :: posix() | 'closed' | invalid();
+
+             (Socket, Msgs, Flags, 'nowait' | Handle) ->
+                  'ok' |
+                  {'ok', Rest} |
+                  {'select_write', {SelectInfo, SentCount}} |
+                  {'select', SelectInfo} |
+                  {'completion', CompletionInfo} |
+                  {'error', Reason}
+                      when
+      Socket         :: socket(),
+      Msgs           :: [msg_send()],
+      Flags          :: [msg_flag() | integer()],
+      Handle         :: select_handle() | completion_handle(),
+      Rest           :: [erlang:iovec()],
+      SentCount      :: non_neg_integer(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid().
+
+sendmmsg(?socket(SockRef), Msgs, Flags, Timeout)
+  when is_reference(SockRef), is_list(Msgs), is_list(Flags) ->
+    try
+        case deadline(Timeout) of
+            invalid ->
+                erlang:error({invalid, {timeout, Timeout}});
+            nowait ->
+                Handle = make_ref(),
+                sendmmsg_nowait(SockRef, Msgs, Flags, Handle);
+            handle ->
+                Handle = Timeout,
+                sendmmsg_nowait(SockRef, Msgs, Flags, Handle);
+            Deadline ->
+                sendmmsg_deadline(SockRef, Msgs, Flags, Deadline)
+        end
+    catch
+        error:undef:ST ->
+            case ST of
+                [{prim_socket,sendmmsg,_,_}|_] ->
+                    {error, notsup};
+                _ ->
+                    erlang:raise(error, undef, ST)
+            end
+    end;
+sendmmsg(Socket, Msgs, Flags, Timeout) ->
+    error(badarg, [Socket, Msgs, Flags, Timeout]).
+
+%% Build rest iovecs from partials-only result list.
+%% C returns [{Index, Written}, ...] in message order; we slice the Index-th message's iov.
+sendmmsg_rest_from_result(Msgs, ResultList) ->
+    [iovec_rest(maps:get(iov, lists:nth(Index + 1, Msgs)), Written) ||
+        {Index, Written} <- ResultList].
+
+%% Skip first Written bytes from IOV; return rest as iovec (same as sendmsg rest).
+iovec_rest(IOV, Written) when Written =< 0 ->
+    IOV;
+iovec_rest([], _) ->
+    [];
+iovec_rest([Bin | Rest], Written) when byte_size(Bin) =< Written ->
+    iovec_rest(Rest, Written - byte_size(Bin));
+iovec_rest([Bin | Rest], Written) when byte_size(Bin) > Written ->
+    [binary:part(Bin, Written, byte_size(Bin) - Written) | Rest].
+
+sendmmsg_nowait(SockRef, Msgs, Flags, Handle) ->
+    case prim_socket:sendmmsg(SockRef, Msgs, Flags, Handle) of
+        {select_write = Tag, SentCount} ->
+            {Tag, {?SELECT_INFO(sendmmsg, Handle), SentCount}};
+        select = Tag ->
+            {Tag, ?SELECT_INFO(sendmmsg, Handle)};
+        completion = Tag ->
+            {Tag, ?COMPLETION_INFO(sendmmsg, Handle)};
+        ok ->
+            ok;
+        {ok, ResultList} ->
+            {ok, sendmmsg_rest_from_result(Msgs, ResultList)};
+        {error, _} = Error ->
+            Error
+    end.
+
+sendmmsg_deadline(SockRef, Msgs, Flags, Deadline) ->
+    Handle = make_ref(),
+    case prim_socket:sendmmsg(SockRef, Msgs, Flags, Handle) of
+        {select_write, _SentCount} ->
+            Now = erlang:monotonic_time(millisecond),
+            case Deadline - Now of
+                TimeLeft when TimeLeft > 0 ->
+                    receive
+                        ?socket_msg(_Socket, select, Handle) ->
+                            sendmmsg_deadline(SockRef, Msgs, Flags, Deadline);
+                        ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                            _ = cancel(SockRef, sendmmsg, Handle),
+                            {error, Reason}
+                    after TimeLeft ->
+                            _ = cancel(SockRef, sendmmsg, Handle),
+                            {error, timeout}
+                    end;
+                _ ->
+                    _ = cancel(SockRef, sendmmsg, Handle),
+                    {error, timeout}
+            end;
+        ok ->
+            ok;
+        {ok, ResultList} ->
+            {ok, sendmmsg_rest_from_result(Msgs, ResultList)};
+        {error, _} = Error ->
+            Error
+    end.
+
 sendmsg_deadline_cont(SockRef, Data, Cont, Deadline, HasWritten) ->
     SelectHandle = make_ref(),
     send_common_deadline_result(
@@ -4357,6 +5273,16 @@ an [asynchronous call](#asynchronous-calls) like for `nowait`.
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
 
+[](){: #sendv-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`ok`** - Complete success; The I/O vector was written in its entirety.
+- **`{ok, Written}`** - Partial success; Some but not all data was written,
+  but no error was reported. `Written` is the number of bytes that was written.
+  [`rest_iov(Written, IOV)`](`rest_iov/2`) can be used to calculate the rest
+  I/O vector (from the original IOV).
+- **`{error, Reason}`** - An error occured and no data was sent.
+
 [](){: #sendv-cont }
 
 With the argument [`Cont`](`t:select_info/0`), equivalent to
@@ -4391,6 +5317,7 @@ With the argument [`Cont`](`t:select_info/0`), equivalent to
           {'select', SelectInfo} |
           {'select', {SelectInfo, RestIOV}} |
           {'completion', CompletionInfo} |
+          {'completion', {CompletionInfo, RestIOV}} |
           {'error', Reason} |
           {'error', {Reason, RestIOV}}
               when
@@ -4543,12 +5470,31 @@ sendv_deadline(SockRef, IOV, Deadline) ->
       sendv, fun sendv_deadline_cont/5,
       prim_socket:sendv(SockRef, IOV, Handle)).
 
-sendv_deadline_cont(SockRef, IOV, _, Deadline, HasWritten) ->
+sendv_deadline_cont(SockRef, IOV, _undefined, Deadline, HasWritten) ->
     SelectHandle = make_ref(),
     send_common_deadline_result(
       SockRef, IOV, SelectHandle, Deadline, HasWritten,
       sendv, fun sendv_deadline_cont/5,
       prim_socket:sendv(SockRef, IOV, SelectHandle)).
+
+
+%% ===========================================================================
+%%
+%% rest_iov - Utility function for sendv usage
+%%
+
+-doc(#{since => "OTP 28.0.2"}).
+-doc """
+Calculate the rest I/O vector after a partially successful sendv
+(CompletionStatus was {ok, Written}).
+""".
+-spec rest_iov(Written, IOV) -> RestIOV when
+      Written :: non_neg_integer(),
+      IOV     :: erlang:iovec(),
+      RestIOV :: erlang:iovec().
+
+rest_iov(Written, IOV) ->
+    prim_socket:rest_iov(Written, IOV).
 
 
 %% ===========================================================================
@@ -4667,8 +5613,10 @@ an [asynchronous call](#asynchronous-calls) like for `nowait`.
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
 
-After receiving a `select` message call [`sendfile/2,3,4,5`](`sendfile/2`)
-with `SelectInfo` as the `Continuation` argument, to complete the operation.
+After receiving a [`select` message](#async-messages);
+call [`sendfile/2,3,4,5`](`sendfile/2`)
+with `SelectInfo` as the `Continuation` argument,
+to complete the operation.
 
 [](){: #sendfile-cont }
 
@@ -4959,11 +5907,22 @@ recv(Socket, Length, TimeoutOrHandle) ->
 -doc """
 Receive data on a connected socket.
 
-The argument `Length` specifies how many bytes to receive,
-with the special case `0` meaning "all available".
+The argument `Length` specifies the size of the receive buffer.
+Packet oriented sockets truncate the packet if the size is too small.
 
-When `Length` is `0`, a default buffer size is used, which can be set by
+If `Length == 0`; a default buffer size is used, which can be set by
 [`socket:setopt(Socket, {otp,recvbuf}, BufSz)`](`setopt/3`).
+
+For a socket of [type `stream`](`t:type/0`), when a `Timeout` argument
+is used, the operation iterates until `Length` bytes has been received,
+or the operation times out.  If `Length == 0` all readily available
+data is returned.
+
+On a `select` system, when the default receive buffer size option
+[`{otp,recvbuf}`](`t:otp_socket_option/0`) special value `{N,BufSize}`
+is used, `N` limits how many `BufSize` buffers that may be received
+in a tight loop before the receive operation returns.  The option value
+`{1,BufSize}` is equivalent to just specifying a size value `BufSize`.
 
 The message `Flags` may be symbolic `t:msg_flag/0`s and/or
 `t:integer/0`s as in the platform's appropriate header files.
@@ -4984,42 +5943,11 @@ or if the OS reports an error for the operation.
 [](){: #recv-timeout }
 
 If the `Timeout` argument is a time-out value
-(`t:non_neg_integer/0`); on Windows return `{error, timeout}`
+(`t:non_neg_integer/0`); return `{error, timeout}`
 if no data has arrived after `Timeout` milliseconds,
 or `{error, {timeout, Data}}` if some but not enough data
-has been received on a socket of [type `stream`](`t:type/0`).
+has been received on a socket of [type `stream`](`t:type/0`) with Length > 0.
 It *can* also return directly with `{ok, Data}` ([type `dgram`](`t:type/0`)).
-On Unix, if will return `{error, timeout}` either if no data
-has arrived or if not enough data (Length > 0) has arrived.
-It is then up to the caller to make another all to see if 
-some data has arrived (and was stored internally):
-
-
-```erlang
-    case socket:recv(Socket, 10, 5000) of
-        {ok, Data} -> % 10 bytes of data
-            "Do something with this data..."
-            ok;
-
-        {error, timeout} ->
-            %% We *may* have gotten *some* data, just less then 10,
-            %% so try read again.
-            case socket:recv(Socket, 0, 0) of
-                {ok, Data} -> % We *did* get some data
-                    "Do something with this data..."
-                    ok;
-                {error, timeout} -> % Actually nothing to read
-                    :
-                {error, _} -> % Proper error
-                    :
-            end;                    
-
-        {error, {timeout, Data}} -> % Only on Windows
-            "Do something with this data..."
-            ok;
-        :
-```
-
 
 `Timeout = 0` only polls the OS receive call and doesn't
 engage the Asynchronous Calls mechanisms.  If no data
@@ -5041,11 +5969,26 @@ an [asynchronous call](#asynchronous-calls) like for `nowait`.
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
 
+[](){: #recv-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`{ok, Data}`** - Complete success; All requested data was read.
+- **`{more, Data}`** - Partial success; Some, but not all, data was read.
+- **`{error, Reason}`** - An error occured and no data was read.
+
 On `select` systems, for a socket of type [`stream`](`t:type/0`),
-if `Length > 0` and there isn't enough data available, this function
-will return [`{select, {SelectInfo, Data}}`](`t:select_info/0`)
-with partial `Data`. A repeated call to complete the operation
-mey need an updated `Length` argument.
+if `Length > 0` and there is some but not enough data available,
+this function will return [`{select, {SelectInfo, Data}}`](`t:select_info/0`)
+with partial `Data`.  A repeated call to complete the operation
+may need an updated `Length` argument.
+
+On `select` systems, if the option
+[`{otp, select_read}`](`t:otp_socket_option/0`) is set,
+[`{select_read, {SelectInfo, Data}}`](`t:select_info/0`)
+is returned instead of `{ok, Data}` and a new asynchronous
+receive operation has been initiated, which can be seen
+as an automatic [nowait](#recv-nowait) call whenever
+a receive operation is completed.
 """.
 -spec recv(Socket, Length, Flags, Timeout :: 'infinity') ->
           {'ok', Data} |
@@ -5071,9 +6014,9 @@ mey need an updated `Length` argument.
           {'ok', Data} |
           {'select', SelectInfo} |
           {'select', {SelectInfo, Data}} |
+          {'select_read', {SelectInfo, Data}} |
           {'completion', CompletionInfo} |
-          {'error', Reason} |
-          {'error', {Reason, Data}} when
+          {'error', Reason} when
       Socket         :: socket(),
       Length         :: non_neg_integer(),
       Flags          :: [msg_flag() | integer()],
@@ -5147,6 +6090,10 @@ recv_zero(SockRef, Length, Flags, Buf) ->
     case prim_socket:recv(SockRef, Length, Flags, zero) of
         {more, Bin} -> % Type == stream, Length == 0, default buffer filled
             recv_zero(SockRef, Length, Flags, [Bin | Buf]);
+        {ok, Bin} -> % All requested data
+            {ok, condense_buffer(Bin, Buf)};
+        {error, Reason} ->
+            recv_error(Reason, Buf);
         timeout when Buf =:= [] ->
             {error, timeout};
         timeout ->
@@ -5155,43 +6102,30 @@ recv_zero(SockRef, Length, Flags, Buf) ->
             {ok, condense_buffer(Buf)};
         {timeout, Bin} ->
             %% Stream socket with Length > 0 and not all data
-            {error, {timeout, condense_buffer([Bin | Buf])}};
-        {ok, Bin} -> % All requested data
-            {ok, condense_buffer([Bin | Buf])};
-        {error, _} = Error when Buf =:= [] ->
-            Error;
-        {error, Reason} ->
-            {error, {Reason, condense_buffer(Buf)}}
+            recv_error(timeout, [Bin | Buf])
     end.
-
-%% Condense buffer into a Binary
--compile({inline, [condense_buffer/1]}).
-condense_buffer([]) -> <<>>;
-condense_buffer([Bin]) when is_binary(Bin) -> Bin;
-condense_buffer(Buffer) ->
-    iolist_to_binary(lists:reverse(Buffer)).
 
 recv_nowait(SockRef, Length, Flags, Handle) ->
     case prim_socket:recv(SockRef, Length, Flags, Handle) of
         {more, Bin} -> % Type = stream, Length = 0, default buffer filled
             recv_zero(SockRef, Length, Flags, [Bin]);
-        {select, Bin} ->
-            %% We got less than requested so the caller will
-            %% get a select message when there might be more to read
-            {select, {?SELECT_INFO(recv, Handle), Bin}};
-        select ->
-            %% The caller will get a select message when there
-            %% might be data to read
-            {select, ?SELECT_INFO(recv, Handle)};
+        {ok, _} = OK -> % All requested data
+            OK;
+        {error, _} = Error ->
+            Error;
         completion ->
             %% The caller will get a completion message (with the
             %% result) when the data arrives. *No* further action
             %% is required.
             {completion, ?COMPLETION_INFO(recv, Handle)};
-        {ok, _} = OK -> % All requested data
-            OK;
-        {error, _} = Error ->
-            Error
+        {Select, Bin} % New recv operation in progress
+          when Select =:= select;        % Incomplete data
+               Select =:= select_read -> % Final data
+            {Select, {?SELECT_INFO(recv, Handle), Bin}};
+        select -> %% No data
+            %% The caller will get a select message when there
+            %% might be data to read
+            {select, ?SELECT_INFO(recv, Handle)}
     end.
 
 %% prim_socket:recv(_, AskedFor, _, zero|Handle)
@@ -5199,12 +6133,10 @@ recv_nowait(SockRef, Length, Flags, Handle) ->
 %% if got 0, type == STREAM                             -> {error, closed}
 %% if got full buffer ->
 %%     if asked for 0, type == STREAM ->
-%%         if OS /= Windows ->
-%%             if rNum =< rNumCnt                       -> {ok, Bin}
-%%             else rNumCnt < rNum                      -> {more, Bin}
-%%             end
-%%         else                                         -> {ok, Bin}
-%%     else                                             -> {ok, Bin}
+%%         if rNum =< rNumCnt                           -> {ok, Bin}
+%%         else rNumCnt < rNum                          -> {more, Bin}
+%%         end
+%%     else asked for N; type != STREAM                 -> {ok, Bin}
 %%     end
 %% else got less than buffer ->
 %%     if asked for N, type == STREAM ->
@@ -5218,9 +6150,6 @@ recv_nowait(SockRef, Length, Flags, Handle) ->
 %%     end
 %% else read error                                      -> {error, _}
 %% end
-
-%% We will only recurse with Length == 0 if Length is 0,
-%% so Length == 0 means to return all available data also when recursing
 
 recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
     Handle = make_ref(),
@@ -5260,69 +6189,19 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
             end;
 
         %%
-        {select, Bin} ->
-            %% We got less than requested on a stream socket
-	    Timeout = timeout(Deadline),
-            receive
-                ?socket_msg(?socket(SockRef), select, Handle) ->
-                    if
-                        0 < Timeout ->
-                            %% Recv more
-                            recv_deadline(
-                              SockRef, Length - byte_size(Bin), Flags,
-                              Deadline, [Bin | Buf]);
-                        true ->
-                            {error, {timeout, condense_buffer([Bin | Buf])}}
-                    end;
-                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
-                    {error, {Reason, condense_buffer([Bin | Buf])}}
-            after Timeout ->
-                    _ = cancel(SockRef, recv, Handle),
-                    recv_error(Buf, timeout)
-            end;
+        {ok, _Bin} = OK when Buf =:= [] -> %% All data
+            OK;
+        {ok, Bin} ->
+            {ok, condense_buffer(Bin, Buf)};
+
         %%
-        select
-          when 0 < Length;   % Requested a specific amount of data
-               Buf =:= [] -> % or Buf empty (and requested any amount of data)
-            %% There is nothing just now, but we will be notified when there
-            %% is something to read (a select message).
-            Timeout = timeout(Deadline),
-            receive
-                ?socket_msg(?socket(SockRef), select, Handle) ->
-                    if
-                        0 < Timeout ->
-                            %% Retry
-                            recv_deadline(
-                              SockRef, Length, Flags, Deadline, Buf);
-                        true ->
-                            recv_error(Buf, timeout)
-                    end;
-                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
-                    recv_error(Buf, Reason)
-            after Timeout ->
-                    _ = cancel(SockRef, recv, Handle),
-                    recv_error(Buf, timeout)
-            end;
-        %%
-        select -> % Length is 0 (request any amount of data), Buf not empty
-            %% We first got some data and are then asked to wait,
-            %% but what we already got will do just fine;
-            %% - cancel and return what we have
-            _ = cancel(SockRef, recv, Handle),
-            {ok, condense_buffer(Buf)};
+        {error, Reason} ->
+            recv_error(Reason, Buf);
 
         %%
         completion ->
-            %% There is nothing just now, but we will be notified
-	    %% when the data has been read (with a completion message).
-	    %%
-	    %% Since these (completion-) messages can also be received
-	    %% directly by the user (nowait), the I/O completion threads
-	    %% do not use the more-construct.
-	    %% But since there is no conflict with how the sync I/O backend
-	    %% (essio = unix) here, they can instead safely send {ok, Bin}
-	    %% and let us handle possible loop'ing...
-	    %%
+            %% There is nothing just now, but we will be notified when the
+            %% data has been read (with a completion message).
             Timeout = timeout(Deadline),
             receive
                 %% On Windows we are *always* done when we get {ok, Bin}
@@ -5367,29 +6246,89 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
 
                 ?socket_msg(?socket(SockRef), completion,
                             {Handle, {error, Reason}}) ->
-                    recv_error(Buf, Reason);
+                    recv_error(Reason, Buf);
 
                 ?socket_msg(_Socket, abort, {Handle, Reason}) ->
-                    recv_error(Buf, Reason)
+                    recv_error(Reason, Buf)
 
             after Timeout ->
                     _ = cancel(SockRef, recv, Handle),
-                    recv_error(Buf, timeout)
+                    recv_error(timeout, Buf)
             end;
 
-        {ok, Bin} ->
-            {ok, condense_buffer([Bin | Buf])};
-
         %%
-        {error, Reason} ->
-            recv_error(Buf, Reason)
+        {select_read, Bin} -> %% All data, new recv operation in progress
+            %% The combination of select_read and recv with time-out
+            %% is contradictive since the return values has no place
+            %% for a continuation because neither a ref nor 'nowait'
+            %% was given, so we handle this as if there was no select_read
+            %% by cancelling the new recv operation
+            %%
+            _ = cancel(SockRef, recv, Handle),
+            {ok, condense_buffer(Bin, Buf)};
+        %%
+        select ->
+            %%
+            %% There is nothing just now, but we will be notified
+            %% with a select message when there is something to recv
+            Timeout = timeout(Deadline),
+            receive
+                ?socket_msg(?socket(SockRef), select, Handle) ->
+                    if
+                        0 < Timeout ->
+                            %% Retry
+                            recv_deadline(
+                              SockRef, Length, Flags, Deadline, Buf);
+                        true ->
+                            recv_error(timeout, Buf)
+                    end;
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                    recv_error(Reason, Buf)
+            after Timeout ->
+                    _ = cancel(SockRef, recv, Handle),
+                    recv_error(timeout, Buf)
+            end;
+        {select, Bin} ->
+            Buf_1 = [Bin | Buf],
+            %%
+            %% There is nothing just now, but we will be notified
+            %% with a select message when there is something to recv
+            Timeout = timeout(Deadline),
+            receive
+                ?socket_msg(?socket(SockRef), select, Handle) ->
+                    if
+                        0 < Timeout ->
+                            %% Retry
+                            recv_deadline(
+                              SockRef, Length - byte_size(Bin),
+                              Flags, Deadline, Buf_1);
+                        true ->
+                            recv_error(timeout, Buf_1)
+                    end;
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                    recv_error(Reason, Buf_1)
+            after Timeout ->
+                    _ = cancel(SockRef, recv, Handle),
+                    recv_error(timeout, Buf_1)
+            end
     end.
 
-recv_error([], Reason) ->
+recv_error(Reason, []) ->
     {error, Reason};
-recv_error(Buf, Reason) when is_list(Buf) ->
+recv_error(Reason, Buf) when is_list(Buf) ->
     {error, {Reason, condense_buffer(Buf)}}.
 
+%% Condense buffer into a Binary
+%%
+-compile({inline, [condense_buffer/1, condense_buffer/2]}).
+condense_buffer([]) -> <<>>;
+condense_buffer([Bin]) when is_binary(Bin) -> Bin;
+condense_buffer(Buffer) ->
+    iolist_to_binary(lists:reverse(Buffer)).
+
+condense_buffer(Bin, []) -> Bin;
+condense_buffer(Bin, Buffer) when is_binary(Bin) ->
+    iolist_to_binary(lists:reverse(Buffer, [Bin])).
 
 %% ---------------------------------------------------------------------------
 %%
@@ -5443,10 +6382,10 @@ With arguments `BufSz` and `Flags`; equivalent to
 [`recvfrom(Socket, BufSz, Flags, infinity)`](`recvfrom/4`).
 
 With arguments `BufSz` and `TimeoutOrHandle`; equivalent to
-[`recv(Socket, BufSz, [], TimeoutOrHandle)`](`recvfrom/4`).
+[`recvfrom(Socket, BufSz, [], TimeoutOrHandle)`](`recvfrom/4`).
 
 With arguments `Flags` and `TimeoutOrHandle`; equivalent to
-[`recv(Socket, 0, Flags, TimeoutOrHandle)`](`recvfrom/4`)
+[`recvfrom(Socket, 0, Flags, TimeoutOrHandle)`](`recvfrom/4`)
 
 `TimeoutOrHandle :: 'nowait'` has been allowed *since OTP 22.1*.
 
@@ -5471,9 +6410,9 @@ recvfrom(Socket, BufSz, TimeoutOrHandle) ->
 -doc """
 Receive a message on a socket.
 
-This function is intended for sockets that are not connection
+This function is intended primarily for sockets that are not connection
 oriented such as type [`dgram`](`t:type/0`) or [`seqpacket`](`t:type/0`)
-where it may arrive messages from different source addresses.
+where messages may arrive from different source addresses.
 
 Argument `BufSz` specifies the number of bytes for the receive buffer.
 If the buffer size is too small, the message will be truncated.
@@ -5519,7 +6458,14 @@ starts an [asynchronous call](#asynchronous-calls) like for `nowait`.
 
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
+
+[](){: #recvfrom-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`{ok, {Source, Data}}`** - Success.
+- **`{error, Reason}`** - An error occured and no data was read.
 """.
+
 -spec recvfrom(Socket, BufSz, Flags, Timeout :: 'infinity') ->
           {'ok', {Source, Data}} |
           {'error', Reason} when
@@ -5543,6 +6489,7 @@ at the start of this module reference manual page.
               (Socket, BufSz, Flags, 'nowait' | Handle) ->
           {'ok', {Source, Data}} |
           {'select', SelectInfo} |
+          {'select_read', {SelectInfo, {Source, Data}}} |
           {'completion', CompletionInfo} |
           {'error', Reason} when
       Socket         :: socket(),
@@ -5583,6 +6530,8 @@ recvfrom(Socket, BufSz, Flags, Timeout) ->
 
 recvfrom_nowait(SockRef, BufSz, Handle, Flags) ->
     case prim_socket:recvfrom(SockRef, BufSz, Flags, Handle) of
+        {select_read = Tag,  Source_Data} ->
+            {Tag, {?SELECT_INFO(recvfrom, Handle), Source_Data}};
         select = Tag ->
             {Tag, ?SELECT_INFO(recvfrom, Handle)};
         completion = Tag ->
@@ -5594,6 +6543,10 @@ recvfrom_nowait(SockRef, BufSz, Handle, Flags) ->
 recvfrom_deadline(SockRef, BufSz, Flags, Deadline) ->
     Handle = make_ref(),
     case prim_socket:recvfrom(SockRef, BufSz, Flags, Handle) of
+        {select_read, Source_Data} ->
+            _ = cancel(SockRef, recvfrom, Handle),
+            {ok, Source_Data};
+
         select ->
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
@@ -5719,7 +6672,8 @@ recvmsg(Socket, BufSz, CtrlSz, TimeoutOrHandle) ->
 -doc """
 Receive a message on a socket.
 
-This function receives both data and control messages.
+This function receives a data message with control messages
+as well as its source address.
 
 Arguments `BufSz` and `CtrlSz` specifies the number of bytes for the
 receive buffer and the control message buffer. If the buffer size(s)
@@ -5768,6 +6722,12 @@ starts an [asynchronous call](#asynchronous-calls) like for `nowait`.
 
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
+
+[](){: #recvmsg-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`{ok, Msg}`** - Success.
+- **`{error, Reason}`** - An error occured and no data was read.
 """.
 -spec recvmsg(Socket, BufSz, CtrlSz, Flags, Timeout :: 'infinity') ->
           {'ok', Msg} |
@@ -5792,6 +6752,7 @@ at the start of this module reference manual page.
              (Socket, BufSz, CtrlSz, Flags, 'nowait' | Handle) ->
           {'ok', Msg} |
           {'select', SelectInfo} |
+          {'select_read', {SelectInfo, Msg}} |
           {'completion', CompletionInfo} |
           {'error', Reason} when
       Socket        :: socket(),
@@ -5833,6 +6794,8 @@ recvmsg(Socket, BufSz, CtrlSz, Flags, Timeout) ->
 
 recvmsg_nowait(SockRef, BufSz, CtrlSz, Flags, Handle)  ->
     case prim_socket:recvmsg(SockRef, BufSz, CtrlSz, Flags, Handle) of
+        {select_read = Tag, Msg} ->
+            {Tag, {?SELECT_INFO(recvmsg, Handle), Msg}};
         select = Tag ->
             {Tag, ?SELECT_INFO(recvmsg, Handle)};
         completion = Tag ->
@@ -5844,6 +6807,10 @@ recvmsg_nowait(SockRef, BufSz, CtrlSz, Flags, Handle)  ->
 recvmsg_deadline(SockRef, BufSz, CtrlSz, Flags, Deadline)  ->
     Handle = make_ref(),
     case prim_socket:recvmsg(SockRef, BufSz, CtrlSz, Flags, Handle) of
+        {select_read, Msg} ->
+            _ = cancel(SockRef, recvmsg, Handle),
+            {ok, Msg};
+
         select = Tag ->
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
@@ -5876,6 +6843,166 @@ recvmsg_deadline(SockRef, BufSz, CtrlSz, Flags, Deadline)  ->
 
         Result ->
             recvmsg_result(Result)
+    end.
+
+-doc(#{since => <<"OTP 29.0">>}).
+-doc """
+Receive multiple messages on a socket.
+
+This function is equivalent to calling [`recvmsg/5`](`recvmsg/5`) multiple times,
+but uses the platform's `recvmmsg` syscall for better performance when receiving
+multiple datagrams.
+
+> #### Note {: .info }
+>
+> This function is only available on Linux and BSD systems (not macOS/Darwin or Windows).
+> On unsupported platforms, it will return `{error, notsup}`.
+
+Arguments:
+- `VLen` - Maximum number of messages to receive (must be >= 1).
+- `BufSz` - Buffer size for each message (0 uses default).
+- `CtrlSz` - Control message buffer size for each message (0 uses default).
+- `Flags` - Receive flags (same as `recvmsg/5`).
+- `Timeout` - Timeout or `nowait` or `infinity`.
+
+Returns a list of message maps, one per received message. The list length
+indicates how many messages were actually received.
+""".
+-spec recvmmsg(Socket, VLen, BufSz, CtrlSz, Flags, Timeout :: 'infinity') ->
+          {'ok', Msgs} |
+          {'error', Reason} when
+      Socket  :: socket(),
+      VLen    :: non_neg_integer(),
+      BufSz   :: non_neg_integer(),
+      CtrlSz  :: non_neg_integer(),
+      Flags   :: [msg_flag() | integer()],
+      Msgs    :: [msg_recv()],
+      Reason  :: posix() | 'closed' | invalid();
+
+             (Socket, VLen, BufSz, CtrlSz, Flags, Timeout :: non_neg_integer()) ->
+          {'ok', Msgs} |
+          {'error', Reason} when
+      Socket  :: socket(),
+      VLen    :: non_neg_integer(),
+      BufSz   :: non_neg_integer(),
+      CtrlSz  :: non_neg_integer(),
+      Flags   :: [msg_flag() | integer()],
+      Msgs    :: [msg_recv()],
+      Reason  :: posix() | 'closed' | invalid() | 'timeout';
+
+             (Socket, VLen, BufSz, CtrlSz, Flags, 'nowait' | Handle) ->
+          {'ok', Msgs} |
+          {'select', SelectInfo} |
+          {'select_read', {SelectInfo, Msgs}} |
+          {'completion', CompletionInfo} |
+          {'error', Reason} when
+      Socket         :: socket(),
+      VLen           :: non_neg_integer(),
+      BufSz          :: non_neg_integer(),
+      CtrlSz         :: non_neg_integer(),
+      Handle         :: select_handle() | completion_handle(),
+      Flags          :: [msg_flag() | integer()],
+      Msgs           :: [msg_recv()],
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid().
+
+recvmmsg(?socket(SockRef), VLen, BufSz, CtrlSz, Flags, Timeout)
+  when is_reference(SockRef),
+       is_integer(VLen), VLen >= 1,
+       is_integer(BufSz), BufSz >= 0,
+       is_integer(CtrlSz), CtrlSz >= 0,
+       is_list(Flags) ->
+    try
+        case deadline(Timeout) of
+            invalid ->
+                erlang:error({invalid, {timeout, Timeout}});
+            nowait ->
+                Handle = make_ref(),
+                recvmmsg_nowait(SockRef, VLen, BufSz, CtrlSz, Flags, Handle);
+            handle ->
+                Handle = Timeout,
+                recvmmsg_nowait(SockRef, VLen, BufSz, CtrlSz, Flags, Handle);
+            zero ->
+                case prim_socket:recvmmsg(SockRef, VLen, BufSz, CtrlSz, Flags, zero) of
+                    timeout ->
+                        {error, timeout};
+                    {ok, _} = Result ->
+                        Result;
+                    {error, _} = Result ->
+                        Result
+                end;
+            Deadline ->
+                recvmmsg_deadline(SockRef, VLen, BufSz, CtrlSz, Flags, Deadline)
+        end
+    catch
+        error:undef:ST ->
+            case ST of
+                [{prim_socket,recvmmsg,_,_}|_] ->
+                    {error, notsup};
+                _ ->
+                    erlang:raise(error, undef, ST)
+            end
+    end;
+recvmmsg(Socket, VLen, BufSz, CtrlSz, Flags, Timeout) ->
+    error(badarg, [Socket, VLen, BufSz, CtrlSz, Flags, Timeout]).
+
+recvmmsg_nowait(SockRef, VLen, BufSz, CtrlSz, Flags, Handle) ->
+    case prim_socket:recvmmsg(SockRef, VLen, BufSz, CtrlSz, Flags, Handle) of
+        {select_read = Tag, Msgs} ->
+            {Tag, {?SELECT_INFO(recvmmsg, Handle), Msgs}};
+        select = Tag ->
+            {Tag, ?SELECT_INFO(recvmmsg, Handle)};
+        completion = Tag ->
+            {Tag, ?COMPLETION_INFO(recvmmsg, Handle)};
+        {ok, Msgs} ->
+            {ok, Msgs};
+        {error, _} = Error ->
+            Error
+    end.
+
+recvmmsg_deadline(SockRef, VLen, BufSz, CtrlSz, Flags, Deadline) ->
+    Handle = make_ref(),
+    case prim_socket:recvmmsg(SockRef, VLen, BufSz, CtrlSz, Flags, Handle) of
+        {select_read, _Msgs} ->
+            _ = cancel(SockRef, recvmmsg, Handle),
+            Now = erlang:monotonic_time(millisecond),
+            case Deadline - Now of
+                TimeLeft when TimeLeft > 0 ->
+                    receive
+                        ?socket_msg(_Socket, select, Handle) ->
+                            recvmmsg_deadline(SockRef, VLen, BufSz, CtrlSz, Flags, Deadline);
+                        ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                            _ = cancel(SockRef, recvmmsg, Handle),
+                            {error, Reason}
+                    after TimeLeft ->
+                            _ = cancel(SockRef, recvmmsg, Handle),
+                            {error, timeout}
+                    end;
+                _ ->
+                    _ = cancel(SockRef, recvmmsg, Handle),
+                    {error, timeout}
+            end;
+
+        select = Tag ->
+            %% There is nothing just now, but we will be notified when there
+            %% is something to read (a select message).
+            Timeout = timeout(Deadline),
+            receive
+                ?socket_msg(?socket(SockRef), Tag, Handle) ->
+                    recvmmsg_deadline(
+                      SockRef, VLen, BufSz, CtrlSz, Flags, Deadline);
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                    {error, Reason}
+            after Timeout ->
+                    _ = cancel(SockRef, recvmmsg, Handle),
+                    {error, timeout}
+            end;
+
+        {ok, Msgs} ->
+            {ok, Msgs};
+        {error, _} = Error ->
+            Error
     end.
 
 recvmsg_result(Result) ->
@@ -6142,23 +7269,29 @@ in the User's Guide for more info.
              SocketOption ::
                {Level :: 'otp',
                 Opt :: otp_socket_option()}) ->
-                    {'ok', Value :: term()} |
-                    {'error', invalid() | 'closed'};
+          {'ok', Value :: term()} |
+          {'error', invalid() | 'closed'};
             (socket(),
              SocketOption :: socket_option()) ->
-                    {'ok', Value :: term()} |
-                    {'error', posix() | invalid() | 'closed'}.
+          {'ok', Value :: term()} |
+          {'error', posix() | invalid() | 'closed'}.
 
 getopt(?socket(SockRef), SocketOption)
   when is_reference(SockRef) ->
     prim_socket:getopt(SockRef, SocketOption).
 
-%% Backwards compatibility
 -doc(#{since => <<"OTP 22.0">>}).
 -doc """
-Get a socket option _(backwards compatibility function)_.
+Get a socket option, with a specifier (extra input) `OptValue`.
 
-Equivalent to [`getopt(Socket, {Level, Opt})`](`getopt/2`),
+This function is used when the option takes an input 'value' argument.
+We only support this for a limited set of options:
+`{sctp, get_peer_addr_info}` and `{sctp, status}`.
+
+Some uses of this function is for _backwards compatibility reasons_.
+
+For instance, `getopt(Socket, Level, Opt)` is 
+equivalent to [`getopt(Socket, {Level, Opt})`](`getopt/2`),
 or as a special case if
 `Opt = {NativeOpt :: `[`integer/0`](`t:integer/0`)`, ValueSpec}`
 equivalent to
@@ -6168,12 +7301,43 @@ Use `getopt/2` or `getopt_native/3` instead to handle
 the option level and name as a single term, and to make the
 difference between known options and native options clear.
 """.
--spec getopt(Socket :: term(), Level :: term(), Opt :: term()) -> _.
+
+-spec getopt(Socket       :: socket(),
+             SocketOption :: {sctp, get_peer_addr_info},
+             OptValue     :: #{assoc_id := sctp_assoc_id(),
+                               addr     := sockaddr()}) ->
+          {'ok', Value :: sctp_peer_address_info()} |
+          {'error', posix() | invalid() | 'closed'};
+
+            (Socket       :: socket(),
+             SocketOption :: {sctp, status},
+             OptValue     :: #{assoc_id := sctp_assoc_id()}) ->
+          {'ok', Value :: sctp_status()} |
+          {'error', posix() | invalid() | 'closed'};
+
+            (Socket :: socket(),
+             Level  :: level(),
+             Opt    :: term()) ->
+          {'ok', Value :: term()} |
+          {'error', posix() | invalid() | 'closed'}.
+
+getopt(?socket(SockRef),
+       {sctp, get_peer_addr_info} = SocketOption,
+       #{assoc_id := _, addr := SA} = OptValue) % Sparse peer-addr-info
+  when is_reference(SockRef) ->
+    prim_socket:getopt(SockRef, SocketOption,
+		       OptValue#{addr => prim_socket:enc_sockaddr(SA)});
+getopt(?socket(SockRef),
+       {sctp, status} = SocketOption,
+       #{assoc_id := _} = OptValue) % Sparse status
+  when is_reference(SockRef) ->
+    prim_socket:getopt(SockRef, SocketOption, OptValue);
 getopt(Socket, Level, {NativeOpt, ValueSpec})
   when is_integer(NativeOpt) ->
     getopt_native(Socket, {Level,NativeOpt}, ValueSpec);
 getopt(Socket, Level, Opt) ->
     getopt(Socket, {Level,Opt}).
+
 
 -doc(#{since => <<"OTP 24.0">>}).
 -doc """
@@ -6271,6 +7435,41 @@ sockname(Socket) ->
 
 %% ===========================================================================
 %%
+%% socknames - Return all the current (locally bound) address(s) of the socket.
+%%
+%%
+
+-doc(#{since => <<"OTP 29.0">>}).
+-doc """
+Get the socket's address.
+
+Returns all the locally bound addresses to which the socket is currently bound.
+
+If the socket is IPv4 then all returned addresess will be IPv4.
+If the socket is IPv6, then the returned addresess can be a mix of
+IPv4 and IPv6.
+
+For a one-to-many socket, AssocId specifies the association.
+For a one-to-one socket, AssocId is ignored.
+
+If AssocId is 0 (zero), then the returned addresses are without any
+particular association.
+""".
+-spec socknames(Socket :: socket(), AssocId :: sctp_assoc_id()) ->
+          {'ok', [SockAddr]} | {'error', Reason} when
+      SockAddr :: sockaddr_recv(),
+      Reason   :: posix() | 'closed'.
+
+socknames(?socket(SockRef), AssocId)
+  when is_reference(SockRef) andalso is_integer(AssocId) ->
+    prim_socket:socknames(SockRef, AssocId);
+socknames(Socket, AssocId) ->
+    erlang:error(badarg, [Socket, AssocId]).
+
+
+
+%% ===========================================================================
+%%
 %% peername - return the address of the peer *connected* to the socket.
 %%
 %%
@@ -6292,6 +7491,38 @@ peername(?socket(SockRef))
     prim_socket:peername(SockRef);
 peername(Socket) ->
     erlang:error(badarg, [Socket]).
+
+
+
+%% ===========================================================================
+%%
+%% peernames - Return the address(s) of the peer *connected* to the socket.
+%%
+%%
+
+-doc(#{since => <<"OTP 29.0">>}).
+-doc """
+Return the remote (peer) address(s) of an association of a socket.
+
+If the socket is IPv4 then all returned addresess will be IPv4.
+If the socket is IPv6, then the returned addresess can be a mix of
+IPv4 and IPv6.
+
+For a one-to-many socket, AssocId specifies the association.
+For a one-to-one socket, AssocId is ignored.
+
+The behaviour if AssocId is 0 (zero), is undefined for one-to-many sockets.
+""".
+-spec peernames(Socket :: socket(), AssocId :: sctp_assoc_id()) ->
+          {'ok', [SockAddr]} | {'error', Reason} when
+      SockAddr :: sockaddr_recv(),
+      Reason   :: posix() | 'closed'.
+
+peernames(?socket(SockRef), AssocId)
+  when is_reference(SockRef) andalso is_integer(AssocId) ->
+    prim_socket:peernames(SockRef, AssocId);
+peernames(Socket, AssocId) ->
+    erlang:error(badarg, [Socket, AssocId]).
 
 
 
@@ -6752,10 +7983,10 @@ at the start of this module reference manual page.
 
 If another process tries an operation of the same basic type
 (`accept/1` | `send/2` | `recv/2`) it will be enqueued and notified
-through a `select` or `completion` message when the current operation
-and all enqueued before it has been completed. If the current operation
-is canceled by this function it is treated as a completed operation;
-the process first in queue is notified.
+through a [`select` or `completion` message](#async-messages)
+when the current operation and all enqueued before it has been completed.
+If the current operation is canceled by this function it is treated
+as a completed operation; the process first in queue is notified.
 
 If [`SelectInfo`](`t:select_info/0`) `|`
 [`CompletionInfo`](`t:completion_info/0`) does not match
@@ -6857,11 +8088,16 @@ flush_abort_msg(SockRef, Ref) ->
 %%
 %% ===========================================================================
 
-%% sz(B) when is_binary(B) ->
-%%     byte_size(B);
-%% sz(L) when is_list(L) ->
-%%     iolist_size(L).
+-doc false.
+mk_sockaddr(Fam, Addr) when (Fam =:= inet) orelse (Fam =:= inet6) ->
+    mk_sockaddr(Fam, Addr, 0);
+mk_sockaddr(Fam, Path) when (Fam =:= local) ->
+    prim_socket:enc_sockaddr(#{family => Fam, path => Path}).
 
+-doc false.
+mk_sockaddr(Fam, Addr, Port) when (Fam =:= inet) orelse (Fam =:= inet6) ->
+    prim_socket:enc_sockaddr(#{family => Fam, addr => Addr, port => Port}).
+    
 deadline(Timeout) ->
     case Timeout of
         nowait ->
@@ -6935,20 +8171,6 @@ f(F, A) ->
 %%                       [YYYY, MM, DD, Hour, Min, Sec] ++ ArgsExtra),
 %%     lists:flatten(FormatDate).
 
-
-%% d(F) ->
-%%     %% d(get(debug), F, []).
-%%     d(true, F, []).
-
-%% d(F, A) ->
-%%     %% d(get(debug), F, A).
-%%     d(true, F, A).
-
-%% d(true, F, A) ->
-%%     p(F, A);
-%% d(_, _, _) ->
-%%     ok.
-
 %% %% p(F) ->
 %% %%     p(F, []).
 
@@ -6961,5 +8183,3 @@ f(F, A) ->
 %%     TS = formatted_timestamp(),
 %%     io:format(user,"[~s][~s,~p] " ++ F ++ "~n", [TS, SName, self()|A]),
 %%     io:format("[~s][~s,~p] " ++ F ++ "~n", [TS, SName, self()|A]).
-
-

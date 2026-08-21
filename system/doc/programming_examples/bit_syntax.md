@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -75,7 +77,7 @@ This gives two binaries of size 3, with the following evaluations:
 - [`binary_to_list(Bin11)`](`binary_to_list/1`) evaluates to `[1, 17, 42]`.
 - [`binary_to_list(Bin12)`](`binary_to_list/1`) evaluates to `[97, 98, 99]`.
 
-*Example 2:*Similarly, a binary can be constructed from a set of bound
+*Example 2:* Similarly, a binary can be constructed from a set of bound
 variables:
 
 ```erlang
@@ -84,7 +86,7 @@ Bin2 = <<A, B, C:16>>
 ```
 
 This gives a binary of size 4. Here, a _size expression_ is used for the
-variable `C` to specify a 16-bits segment of `Bin2`.
+variable `C` to specify a 16-bit segment of `Bin2`.
 
 [`binary_to_list(Bin2)`](`binary_to_list/1`) evaluates to `[1, 17, 00, 42]`.
 
@@ -133,7 +135,7 @@ variables do. Both can bind to empty binaries.
 
 The match of `Dgram` fails if one of the following occurs:
 
-- The first 4-bits segment of `Dgram` is not equal to 4.
+- The first 4-bit segment of `Dgram` is not equal to 4.
 - `HLen` is less than 5.
 - The size of `Dgram` is less than `4*HLen`.
 
@@ -148,7 +150,7 @@ Each segment has the following general syntax:
 
 `Value:Size/TypeSpecifierList`
 
-The `Size` or the `TypeSpecifier`, or both, can be omitted. Thus, the following
+The `Size` or the `TypeSpecifierList`, or both, can be omitted. Thus, the following
 variants are allowed:
 
 - `Value`
@@ -238,7 +240,7 @@ _Example:_
 ```
 
 The variable `Bin` must contain a whole number of bytes, because the `binary`
-type defaults to `unit:8`. A `badarg` exception is generated if `Bin` consist
+type defaults to `unit:8`. A `badarg` exception is generated if `Bin` consists
 of, for example, 17 bits.
 
 The `Bitstring` variable can consist of any number of bits, for example, 0, 1,
@@ -262,7 +264,7 @@ As mentioned earlier, segments have the following general syntax:
 
 When constructing binaries, `Value` and `Size` can be any Erlang expression.
 However, for syntactical reasons, both `Value` and `Size` must be enclosed in
-parenthesis if the expression consists of anything more than a single literal or
+parentheses if the expression consists of anything more than a single literal or
 a variable. The following gives a compiler syntax error:
 
 ```erlang
@@ -307,7 +309,7 @@ As mentioned earlier, segments have the following general syntax:
 
 `Value:Size/TypeSpecifierList`
 
-When matching `Value`, value must be either a variable or an integer, or a
+When matching `Value`, `Value` must be either a variable or an integer, or a
 floating point literal. Expressions are not allowed.
 
 `Size` must be a
@@ -347,7 +349,7 @@ bar(<<Sz:8,Payload:Sz/binary-unit:8,Rest/binary>>) ->
 ```
 
 Here `Sz` is bound to the value in the first byte of the binary. `Sz` is then
-used at the number of bytes to match out as a binary.
+used as the number of bytes to match out as a binary.
 
 Starting in OTP 23, the size can be a guard expression:
 

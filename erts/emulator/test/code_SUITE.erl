@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,12 +16,13 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 -module(code_SUITE).
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1, 
+         init_per_testcase/2, end_per_testcase/2,
          versions/1,new_binary_types/1,
          bad_beam_file/1,
          literal_leak/1,
@@ -29,6 +32,8 @@
          call_purged_fun_code_altered/1,
          multi_proc_purge/1, t_check_old_code/1,
          many_purges/1,
+         code_permission/1,
+         code_permission_gc/1,
          external_fun/1,get_chunk/1,module_md5/1,
          constant_pools/1,constant_refc_binaries/1,
          fake_literals/1,
@@ -42,6 +47,8 @@
 -define(line_trace, 1).
 -include_lib("common_test/include/ct.hrl").
 
+-compile([nowarn_deprecated_catch]).
+
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
@@ -52,6 +59,8 @@ all() ->
      call_purged_fun_code_altered,
      multi_proc_purge, t_check_old_code, external_fun, get_chunk,
      module_md5, many_purges,
+     code_permission,
+     code_permission_gc,
      constant_pools, constant_refc_binaries, fake_literals,
      false_dependency,
      coverage, fun_confusion, t_copy_literals, t_copy_literals_frags,
@@ -65,6 +74,44 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     catch erts_debug:set_internal_state(available_internal_state, false),
     ok.
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+
+end_per_testcase(TestCase, Config) ->
+    case proplists:get_value(tc_status, Config) of
+        {failed, timetrap_timeout} ->
+            %%
+            %% Try to catch hanging calls to erlang:purge_module/1.
+            %% Seen to happen on 32-bit with single scheduler (on apollo)
+            %%
+            io:format("end_per_testcase: Failed with timetrap_timeout.\n", []),
+            io:format("process_info for erts_code_purger:\n~p\n",
+                      [process_info_more(erts_code_purger)]),
+            io:format("Printing system_info(thread_progress) to standard_error\n",[]),
+            io:format(standard_error, "end_per_testcase(~p):\n", [TestCase]),
+            erlang:system_info(thread_progress),
+            timer:sleep(1000),
+            erlang:system_info(thread_progress),
+            io:format("CALLING erlang:halt(abort) ...."),
+            io:format(standard_error, "CALLING erlang:halt(abort)....",[]),
+            erlang:halt(abort),
+            void;
+        _ ->
+            void
+    end.
+
+process_info_more(undefined) ->
+    undefined;
+process_info_more(Name) when is_atom(Name) ->
+    process_info_more(whereis(Name));
+process_info_more(Pid) ->
+    process_info(Pid, [status, catchlevel, current_function, current_location,
+                       links, dictionary, trap_exit, error_handler, priority,
+                       group_leader, total_heap_size, heap_size, stack_size,
+                       garbage_collection, suspending,
+                       current_stacktrace, message_queue_len, messages, trace]).
+
 
 %% Make sure that only two versions of a module can be loaded.
 versions(Config) when is_list(Config) ->
@@ -147,14 +194,30 @@ new_binary_types(Config) when is_list(Config) ->
 
 %% Ensure that the loader doesn't crash or leak memory when attempting
 %% to load bad BEAM files. We depend on valgrind to notice leaks.
-bad_beam_file(_Config) ->
+bad_beam_file(Config) ->
     Mod = ?FUNCTION_NAME,
 
+    PrivDir = proplists:get_value(priv_dir, Config),
+    SrcName = filename:join(PrivDir, atom_to_list(Mod) ++ ".erl"),
+    ModList = atom_to_list(Mod),
+
     BadBeam1 = bad_beam_file_1(Mod),
-    {error,badfile} = code:load_binary(Mod, atom_to_list(Mod), BadBeam1),
+    {error,badfile} = code:load_binary(Mod, ModList, BadBeam1),
 
     BadBeam2 = bad_beam_file_2(Mod),
-    {error,badfile} = code:load_binary(Mod, atom_to_list(Mod), BadBeam2),
+    {error,badfile} = code:load_binary(Mod, ModList, BadBeam2),
+
+    BadBeam3 = bad_beam_file_3(Mod, SrcName),
+    {ok, Peer, Node} = ?CT_PEER(["+D"]),
+    {error,badfile} =
+        erpc:call(Node,
+                  fun() ->
+                          code:load_binary(Mod, ModList, BadBeam3)
+                  end),
+    peer:stop(Peer),
+
+    BadBeam4 = bad_beam_file_4(Mod, SrcName),
+    {error,badfile} = code:load_binary(Mod, ModList, BadBeam4),
 
     ok.
 
@@ -162,6 +225,7 @@ bad_beam_file(_Config) ->
 bad_beam_file_1(Mod) ->
     Exp = [{term,0}],
     Attr = [],
+    Anno = #{},
     Fs = [{function,term,0,3,
            [{label,1},
             {line,[]},
@@ -169,7 +233,7 @@ bad_beam_file_1(Mod) ->
             {label,2},
             {move,nil,nil},                     %Illegal destination.
             return]}],
-    Asm = {Mod,Exp,Attr,Fs,3},
+    Asm = {Mod,Exp,Attr,Anno,Fs,3},
 
     %% Bypass beam_validator.
     {ok,BadBeam} = beam_asm:module(Asm, [], [], []),
@@ -177,13 +241,45 @@ bad_beam_file_1(Mod) ->
 
 %% Build a BEAM file with an invalid attributes chunk.
 bad_beam_file_2(Mod) ->
-    Asm = {Mod,[],[],[],1},
+    Asm = {Mod,[],[],#{},[],1},
     {ok,BadBeam0} = beam_asm:module(Asm, [], [], []),
     {ok, Mod, Chunks0} = beam_lib:all_chunks(BadBeam0),
     Chunks1 = lists:keydelete("Attr", 1, Chunks0),
     Chunks = [{"Attr",<<"bad_attribute_chunk">>} | Chunks1],
     {ok,BadBeam} = beam_lib:build_module(Chunks),
     BadBeam.
+
+%% Build a BEAM file with the beam_debug_info option but without a
+%% "DbgB" chunk.
+bad_beam_file_3(Mod, SrcName) ->
+    S = ~"""
+         -module(bad_beam_file).
+          -export([go/0]).
+          go() -> ok.
+         """,
+    compile_remove_chunk(Mod, SrcName, S, "DbgB", [beam_debug_info]).
+
+%% Build a BEAM file that creates a native record but with the "Recs" chunk
+%% missing.
+bad_beam_file_4(Mod, SrcName) ->
+    S = ~"""
+         -module(bad_beam_file).
+          -export([go/0]).
+          -record #empty{}.
+          go() -> #empty{}.
+         """,
+    compile_remove_chunk(Mod, SrcName, S, "Recs", []).
+
+compile_remove_chunk(Mod, SrcName, Src, Tag, Opts) ->
+    ok = file:write_file(SrcName, Src),
+    {ok,Mod,Beam0} = compile:file(SrcName, [report,binary|Opts]),
+    ok = file:delete(SrcName),
+
+    %% Remove the chunk from the BEAM file.
+    {ok,Mod,Chunks0} = beam_lib:all_chunks(Beam0),
+    Chunks = lists:keydelete(Tag, 1, Chunks0),
+    {ok,Beam} = beam_lib:build_module(Chunks),
+    Beam.
 
 %% Ensure that literal areas don't leak when erlang:prepare_loading/2
 %% is not followed by erlang:finish_loading/1.
@@ -192,6 +288,7 @@ literal_leak(_Config) ->
     HugeLiteral = binary_to_list(<<0:(1024*1024)/unit:8>>),
     Exp = [{term,0}],
     Attr = [],
+    Anno = #{},
     Fs = [{function,term,0,3,
            [{label,1},
             {line,[]},
@@ -199,7 +296,7 @@ literal_leak(_Config) ->
             {label,2},
             {move,{literal,HugeLiteral},{x,0}},
             return]}],
-    Asm = {Mod,Exp,Attr,Fs,3},
+    Asm = {Mod,Exp,Attr,Anno,Fs,3},
     {ok,Beam} = beam_asm:module(Asm, [], [], []),
 
     %% valgrind cannot help us find leak of literals because literal
@@ -371,7 +468,13 @@ many_purges(Config) when is_list(Config) ->
 
     ct:log("Process count: ~p~n", [erlang:system_info(process_count)]),
 
-    many_purges_test(File, Code, 1000),
+    Rounds1 = case erlang:system_info(emu_type) of
+                 debug -> 100;
+                 valgrind -> 100;
+                 _ -> 1000
+             end,
+
+    many_purges_test(File, Code, Rounds1),
 
     Rand = fun Rand() ->
                    _ = lists:seq(1, rand:uniform(100)),
@@ -382,13 +485,17 @@ many_purges(Config) when is_list(Config) ->
 
     ct:log("Process count: ~p~n", [erlang:system_info(process_count)]),
 
-    many_purges_test(File, Code, 1000),
+    many_purges_test(File, Code, Rounds1),
 
+    Rounds2 = case erlang:system_info(schedulers_online) of
+                  1 ->
+                      Rounds1 div 50;
+                  _ ->
+                      Rounds1
+              end,
     Ps1 = lists:map(fun (_) -> spawn(Rand) end, lists:seq(1, 1000)),
-
     ct:log("Process count: ~p~n", [erlang:system_info(process_count)]),
-
-    many_purges_test(File, Code, 1000),
+    many_purges_test(File, Code, Rounds2),
 
     Ps = Ps0 ++ Ps1,
 
@@ -397,13 +504,185 @@ many_purges(Config) when is_list(Config) ->
 
     ok.
 
-many_purges_test(_File, _Code, 0) ->
-    ok;
 many_purges_test(File, Code, N) ->
+    many_purges_test(File, Code, N, 1).
+
+many_purges_test(_File, _Code, N, I) when I > N ->
+    ok;
+many_purges_test(File, Code, N, I) ->
+    T0 = erlang:monotonic_time(microsecond),
     {module,my_code_test} = code:load_binary(my_code_test, File, Code),
+    T1 = erlang:monotonic_time(microsecond),
     true = erlang:delete_module(my_code_test),
+    T2 = erlang:monotonic_time(microsecond),
     true = erlang:purge_module(my_code_test),
-    many_purges_test(File, Code, N-1).
+    T3 = erlang:monotonic_time(microsecond),
+    io:format("Purge #~p. Load=~p Delete=~p Purge=~p",
+              [I, T1-T0, T2-T1, T3-T2]),
+    many_purges_test(File, Code, N, I+1).
+
+%% Whitebox unit test for the code_mod_permission lock
+code_permission(_Config) ->
+    Tester = self(),
+    LockerFun = fun() ->
+                        receive lock -> ok end,
+                        true = erts_debug:set_internal_state(code_mod_permission, true),
+                        Tester ! {self(), locked},
+                        receive unlock -> ok end,
+                        true = erts_debug:set_internal_state(code_mod_permission, false),
+                        Tester ! {self(), unlocked}
+                end,
+    Locker1 = spawn_link(LockerFun),
+    {Locker2, MRef2} = spawn_opt(LockerFun,[link,monitor]),
+    {Locker3, MRef3} = spawn_opt(LockerFun,[link,monitor]),
+    Locker4 = spawn_link(LockerFun),
+    Locker5 = spawn_link(LockerFun),
+
+    AllLockers = [Locker1, Locker2, Locker3, Locker4, Locker5],
+    try
+        Locker1 ! lock,
+        {Locker1, locked} = receive_any(),
+
+        Locker2 ! lock,
+        wait_suspended(Locker2),
+        %% Second suspend to prevent it from seizing the permission
+        erlang:suspend_process(Locker2),
+
+        Locker3 ! lock,
+        wait_suspended(Locker3),
+
+        Locker4 ! lock,
+        wait_suspended(Locker4),
+        %% Second suspend to prevent it from seizing the permission
+        erlang:suspend_process(Locker4),
+
+        Locker5 ! lock,
+        wait_suspended(Locker5),
+
+        %% Test killing process waiting in queue
+        unlink(Locker3),
+        exit_signal(Locker3, kill),
+        {'DOWN', MRef3, process, Locker3, killed} = receive_any(),
+
+        Locker1 ! unlock,
+        {Locker1, unlocked} = receive_any(),
+
+        %% Test killing process after lock handover but before getting scheduled
+        unlink(Locker2),
+        exit_signal(Locker2, kill),
+        receive {'DOWN', MRef2, process, Locker2, killed} -> ok end,
+
+        %% Test garbing process after lock handover but before getting scheduled
+        %% It should release its lock and try again after GC.
+        true = erlang:garbage_collect(Locker4),
+        erlang:resume_process(Locker4),
+        {Locker5, locked} = receive_any(),
+        Locker5 ! unlock,
+        {Locker5, unlocked} = receive_any(),
+
+        {Locker4, locked} = receive_any(),
+        Locker4 ! unlock,
+        {Locker4, unlocked} = receive_any(),
+        ok
+    after
+        %% Spam 'unlock' to make sure we don't leave it locked
+        %% before returning back to common_test.
+        [Locker ! unlock || Locker <- AllLockers]
+    end.
+
+wait_suspended(Pid) ->
+    wait_suspended(Pid, 10_000).
+
+wait_suspended(Pid, Timeout) when Timeout > 0 ->
+    Sleep = 10,
+    timer:sleep(Sleep),
+    case process_info(Pid, status) of
+        {status,suspended} ->
+            suspended;
+        {status,_} ->
+            wait_suspended(Pid, Timeout - Sleep)
+    end.
+
+%% Whitebox unit test for the code_mod_permission lock and GC
+code_permission_gc(Config) ->
+    erts_test_sync_tracer:init(Config),
+    Tester = self(),
+    LockerFun = fun() ->
+                         receive lock -> ok end,
+                         true = erts_debug:set_internal_state(code_mod_permission, true),
+                         Tester ! {self(), locked},
+                         receive unlock -> ok end,
+                         true = erts_debug:set_internal_state(code_mod_permission, false),
+                         Tester ! {self(), unlocked}
+                 end,
+    GC_LockerFun = fun() ->
+                           %% Grow heap to make it do dirty GC when asked to
+                           DirtyGCWords = erts_debug:get_internal_state(dirty_gc_limit),
+                           put(data, lists:seq(1,DirtyGCWords div 2)),
+                           erlang:garbage_collect(),
+
+                           Tester ! {self(), ~"heap inflated"},
+                           LockerFun()
+                   end,
+
+    Locker1 = spawn_link(LockerFun),
+    Locker2 = spawn_link(GC_LockerFun),
+    Locker3 = spawn_link(LockerFun),
+
+    %% We want to unlock the code permission while the first in wait queue
+    %% is garbing and verify that it does NOT get the permission but is instead
+    %% given to the next waiter.
+    %% To make this scenario happen we make use of a NIF tracer module
+    %% that blocks inside the GC trace point and waits for a sync
+    %% from another thread.
+    Tracer = {erts_test_sync_tracer, self()},
+    TS = trace:session_create(code_permission_gc, Tracer, []),
+    {Locker2, ~"heap inflated"} = receive_any(),
+    trace:process(TS, Locker2, true, [garbage_collection]),
+
+    AllLockers = [Locker1, Locker2, Locker3],
+    try
+        Locker1 ! lock,
+        {Locker1, locked} = receive_any(),
+
+        Locker2 ! lock,
+        wait_suspended(Locker2),
+
+        Locker3 ! lock,
+        wait_suspended(Locker3),
+
+        erts_test_sync_tracer:set_sync(false),
+        erts_test_sync_tracer:enable_trace(true),
+        async = erlang:garbage_collect(Locker2, [{async, {Locker2, ~"done garbing"}},
+                                                 {type, major}]),
+
+        ok = erts_test_sync_tracer:wait_sync(true, 10_000),
+        erts_test_sync_tracer:enable_trace(false),
+
+        %% Now release lock and verify second in queue Locker3 get it
+        %% and not the garbing Locker2
+
+        Locker1 ! unlock,
+        receive {Locker1, unlocked} -> ok end,
+        receive {Locker3, locked} -> ok end,
+
+        %% Release Locker2 from blocking in GC
+        erts_test_sync_tracer:set_sync(false),
+        {garbage_collect, {Locker2, ~"done garbing"}, true} = receive_any(),
+
+        Locker3 ! unlock,
+        receive {Locker3, unlocked} -> ok end,
+        receive {Locker2, locked} -> ok end,
+        Locker2 ! unlock,
+        {Locker2, unlocked} = receive_any(),
+
+        ok
+    after
+        %% Spam 'unlock' to make sure we don't leave it locked
+        %% before returning back to common_test.
+        [Locker ! unlock || Locker <- AllLockers],
+        trace:session_destroy(TS)
+    end.
 
 external_fun(Config) when is_list(Config) ->
     false = erlang:function_exported(another_code_test, x, 1),
@@ -482,6 +761,7 @@ constant_pools_test(Config) when is_list(Config) ->
     B = literals:b(),
     C = literals:huge_bignum(),
     D = literals:funs(),
+    E = literals:records(),
     process_flag(trap_exit, true),
     Self = self(),
 
@@ -495,7 +775,7 @@ constant_pools_test(Config) when is_list(Config) ->
     true = erlang:purge_module(literals),
     NoOldHeap ! done,
     receive
-        {'EXIT',NoOldHeap,{A,B,C,D}} ->
+        {'EXIT',NoOldHeap,{A,B,C,D,E}} ->
             ok;
         Other_NoOldHeap ->
             ct:fail({unexpected,Other_NoOldHeap})
@@ -529,7 +809,8 @@ constant_pools_test(Config) when is_list(Config) ->
     erlang:purge_module(literals),
     OldHeap ! done,
     receive
-	{'EXIT',OldHeap,{A,B,C,D,[1,2,3|_]=Seq}} when length(Seq) =:= 16 ->
+	{'EXIT',OldHeap,{A,B,C,D,E,[1,2,3|_]=Seq}}
+          when length(Seq) =:= 16 ->
 	    ok
     end,
 
@@ -569,7 +850,8 @@ no_old_heap(Parent) ->
     B = literals:b(),
     C = literals:huge_bignum(),
     D = literals:funs(),
-    Res = {A,B,C,D},
+    E = literals:records(),
+    Res = {A,B,C,D,E},
     Parent ! go,
     receive
         done ->
@@ -581,7 +863,8 @@ old_heap(Parent) ->
     B = literals:b(),
     C = literals:huge_bignum(),
     D = literals:funs(),
-    Res = {A,B,C,D,lists:seq(1, 16)},
+    E = literals:records(),
+    Res = {A,B,C,D,E,lists:seq(1, 16)},
     create_old_heap(),
     Parent ! go,
     receive
@@ -784,6 +1067,7 @@ do_fake_literals(Mod) ->
 make_literal_module(Mod, Term) ->
     Exp = [{term,0}],
     Attr = [],
+    Anno = #{},
     Fs = [{function,term,0,2,
            [{label,1},
             {line,[]},
@@ -791,7 +1075,7 @@ make_literal_module(Mod, Term) ->
             {label,2},
             {move,{literal,Term},{x,0}},
             return]}],
-    Asm = {Mod,Exp,Attr,Fs,3},
+    Asm = {Mod,Exp,Attr,Anno,Fs,3},
     {ok,Mod,Beam} = compile:forms(Asm, [from_asm,binary,report]),
     code:load_binary(Mod, atom_to_list(Mod), Beam).
 
@@ -1276,11 +1560,8 @@ make_sub_binary(Bin) when is_binary(Bin) ->
 make_sub_binary(List) ->
     make_sub_binary(list_to_binary(List)).
 
-make_unaligned_sub_binary(Bin0) ->
-    Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = size(Bin0),
-    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
-    Bin.
+make_unaligned_sub_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3).
 
 %% Add 1 bit to the size of the binary.
 bit_sized_binary(Bin0) ->
@@ -1329,4 +1610,10 @@ run_sys_proc_test(Test, Config) ->
         {Res1, Res2}
     after
         TestLowOSRL = erlang:system_flag(outstanding_system_requests_limit, OSRL)
+    end.
+
+receive_any() ->
+    receive M -> M
+    after 10_000 ->
+            ct:fail({timeout, receive_any})
     end.

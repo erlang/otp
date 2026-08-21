@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(calendar).
@@ -42,10 +44,16 @@ Protestant parts of Germany and the Netherlands adopted it in 1698, England
 followed in 1752, and Russia in 1918 (the October revolution of 1917 took place
 in November according to the Gregorian calendar).
 
-The Gregorian calendar in this module is extended back to year 0. For a given
-date, the _gregorian days_ is the number of days up to and including the date
-specified. Similarly, the _gregorian seconds_ for a specified date and time is
-the number of seconds up to and including the specified date and time.
+The Gregorian calendar in this module is extended back (proleptic
+Gregorian calendar) beyond year 0 to negative years. For a given date,
+the _gregorian days_ is the number of days from Jan 1 year 0 up to
+the date specified. Similarly, the _gregorian seconds_ for a specified
+date and time is the number of seconds from 0:00 Jan 1 year 0 up to
+the specified date and time.
+
+Non-positive years use astronomical year numbering where year 0 = 1 BCE/BC,
+year -1 = 2 BCE/BC, and so on, because in the CE+BCE and AD+BC year numberings
+there is no year 0. Instead 1 CE (AD 1) is preceded by 1 BCE (1 BC).
 
 For computing differences between epochs in time, use the functions counting
 gregorian days or seconds. If epochs are specified as local time, they must be
@@ -88,7 +96,7 @@ The following apply:
 
 %% local and universal time, time conversions
 
--export([date_to_gregorian_days/1, 
+-export([date_to_gregorian_days/1,
 	 date_to_gregorian_days/3,
 	 datetime_to_gregorian_seconds/1,
 	 day_of_the_week/1,
@@ -99,10 +107,12 @@ The following apply:
 	 iso_week_number/0,
 	 iso_week_number/1,
 	 last_day_of_the_month/2,
-	 local_time/0, 
-	 local_time_to_universal_time/1, 
-	 local_time_to_universal_time/2, 
-	 local_time_to_universal_time_dst/1, 
+	 local_time/0,
+         local_time_to_system_time/1,
+         local_time_to_system_time/2,
+	 local_time_to_universal_time/1,
+	 local_time_to_universal_time/2,
+	 local_time_to_universal_time_dst/1,
 	 now_to_datetime/1,			% = now_to_universal_time/1
 	 now_to_local_time/1,
 	 now_to_universal_time/1,
@@ -118,6 +128,8 @@ The following apply:
 	 time_to_seconds/1,
 	 universal_time/0,
 	 universal_time_to_local_time/1,
+         universal_time_to_system_time/1,
+         universal_time_to_system_time/2,
 	 valid_date/1,
 	 valid_date/3]).
 
@@ -129,10 +141,16 @@ The following apply:
 -define(SECONDS_PER_DAY, 86400).
 -define(DAYS_PER_YEAR, 365).
 -define(DAYS_PER_LEAP_YEAR, 366).
-%% -define(DAYS_PER_4YEARS, 1461).
-%% -define(DAYS_PER_100YEARS, 36524).
-%% -define(DAYS_PER_400YEARS, 146097).
 -define(DAYS_FROM_0_TO_1970, 719528).
+
+%% Neri-Schneider algorithm constants.
+-define(MARCH_1_YEAR_0, 60).               % Gregorian days from Jan 1 year 0 to Mar 1 year 0
+-define(DAYS_PER_ERA, 146097).             % Days in 400 years
+-define(DAYS_PER_4_YEARS, 1460).           % 365 * 4 (without leap adjustment)
+-define(DAYS_PER_100_YEARS, 36524).        % Days in 100 years
+-define(YEARS_PER_ERA, 400).
+-define(DAYS_PER_5_MONTHS, 153).           % Days in Mar-Apr-May-Jun-Jul
+-define(MONTHS_PER_CYCLE, 5).
 -define(DAYS_FROM_0_TO_10000, 2932897).
 -define(SECONDS_FROM_0_TO_1970, (?DAYS_FROM_0_TO_1970*?SECONDS_PER_DAY)).
 -define(SECONDS_FROM_0_TO_10000, (?DAYS_FROM_0_TO_10000*?SECONDS_PER_DAY)).
@@ -149,7 +167,7 @@ The year using the Gregorian calendar.
 Year cannot be abbreviated. For example, 93 denotes year 93, not 1993. The valid
 range depends on the underlying operating system.
 """.
--type year()     :: non_neg_integer().
+-type year()     :: integer().
 -type year1970() :: 1970..10000.	% should probably be 1970..
 -type month()    :: 1..12.
 -type day()      :: 1..31.
@@ -165,7 +183,7 @@ range depends on the underlying operating system.
 A date using the Gregorian calendar.
 
 All APIs expect this to be a valid date. If the source of the date
-is unknown, then verify that is it valid by calling `valid_date/1`
+is unknown, then verify that it is valid by calling `valid_date/1`
 before using it.
 """.
 -type date()           :: {year(),month(),day()}.
@@ -174,7 +192,7 @@ before using it.
 -type datetime1970()   :: {{year1970(),month(),day()},time()}.
 -type yearweeknum()    :: {year(),weeknum()}.
 
--type rfc3339_string() :: [byte(), ...].
+-type rfc3339_string() :: [byte(), ...] | binary().
 -doc """
 The time unit used by the rfc3339 conversion functions.
 
@@ -217,13 +235,17 @@ The time unit used by the rfc3339 conversion functions.
       Year :: year(),
       Month :: month(),
       Day :: day(),
-      Days :: non_neg_integer().
+      Days :: integer().
 date_to_gregorian_days(Year, Month, Day) when is_integer(Day), Day > 0 ->
-    Last = last_day_of_the_month(Year, Month),
-    if
-	Day =< Last ->
-	    dy(Year) + dm(Month) + df(Year, Month) + Day - 1
-    end.
+    %% Neri-Schneider algorithm.
+    %% Shift year so March is first month (simplifies leap year handling).
+    Y = if Month =< 2 -> Year - 1; true -> Year end,
+    Era = if Y >= 0 -> Y div ?YEARS_PER_ERA; true -> (Y - 399) div ?YEARS_PER_ERA end,
+    YearOfEra = Y - Era * ?YEARS_PER_ERA,
+    MonthPrime = if Month > 2 -> Month - 3; true -> Month + 9 end,
+    DayOfYear = (?DAYS_PER_5_MONTHS * MonthPrime + 2) div ?MONTHS_PER_CYCLE + Day - 1,
+    DayOfEra = ?DAYS_PER_YEAR * YearOfEra + YearOfEra div 4 - YearOfEra div 100 + DayOfYear,
+    Era * ?DAYS_PER_ERA + DayOfEra + ?MARCH_1_YEAR_0.
 
 -doc """
 Computes the number of gregorian days starting with year 0 and ending at the
@@ -231,7 +253,7 @@ specified date.
 """.
 -spec date_to_gregorian_days(Date) -> Days when
       Date :: date(),
-      Days :: non_neg_integer().
+      Days :: integer().
 date_to_gregorian_days({Year, Month, Day}) ->
     date_to_gregorian_days(Year, Month, Day).
 
@@ -247,7 +269,7 @@ specified date and time.
 """.
 -spec datetime_to_gregorian_seconds(DateTime) -> Seconds when
       DateTime :: datetime(),
-      Seconds :: non_neg_integer().
+      Seconds :: integer().
 datetime_to_gregorian_seconds({Date, Time}) ->
     ?SECONDS_PER_DAY*date_to_gregorian_days(Date) +
 	time_to_seconds(Time).
@@ -264,7 +286,7 @@ datetime_to_gregorian_seconds({Date, Time}) ->
       Month :: month(),
       Day :: day().
 day_of_the_week(Year, Month, Day) ->
-    (date_to_gregorian_days(Year, Month, Day) + 5) rem 7 + 1.
+    mod(date_to_gregorian_days(Year, Month, Day) + 5, 7) + 1.
 
 -doc """
 Computes the day of the week from the specified `Year`, `Month`, and `Day`.
@@ -280,21 +302,36 @@ day_of_the_week({Year, Month, Day}) ->
 %%
 -doc "Computes the date from the specified number of gregorian days.".
 -spec gregorian_days_to_date(Days) -> date() when
-      Days :: non_neg_integer().
+      Days :: integer().
 gregorian_days_to_date(Days) ->
-    {Year, DayOfYear} = day_to_year(Days),
-    {Month, DayOfMonth} = year_day_to_date(Year, DayOfYear),
-    {Year, Month, DayOfMonth}.
+    %% Neri-Schneider algorithm.
+    %% Shift to March 1, year 0 epoch.
+    Z = Days - ?MARCH_1_YEAR_0,
+    Era = if Z >= 0 -> Z div ?DAYS_PER_ERA; true -> (Z - ?DAYS_PER_ERA + 1) div ?DAYS_PER_ERA end,
+    DayOfEra = Z - Era * ?DAYS_PER_ERA,
+    YearOfEra = (DayOfEra - DayOfEra div ?DAYS_PER_4_YEARS + DayOfEra div ?DAYS_PER_100_YEARS
+                 - DayOfEra div (?DAYS_PER_ERA - 1)) div ?DAYS_PER_YEAR,
+    DayOfYear = DayOfEra - (?DAYS_PER_YEAR * YearOfEra + YearOfEra div 4 - YearOfEra div 100),
+    MonthPrime = (?MONTHS_PER_CYCLE * DayOfYear + 2) div ?DAYS_PER_5_MONTHS,
+    Day = DayOfYear - (?DAYS_PER_5_MONTHS * MonthPrime + 2) div ?MONTHS_PER_CYCLE + 1,
+    Month = if MonthPrime < 10 -> MonthPrime + 3; true -> MonthPrime - 9 end,
+    Y = YearOfEra + Era * ?YEARS_PER_ERA,
+    Year = if Month =< 2 -> Y + 1; true -> Y end,
+    {Year, Month, Day}.
 
 
 %% gregorian_seconds_to_datetime(Secs)
 %%
 -doc "Computes the date and time from the specified number of gregorian seconds.".
 -spec gregorian_seconds_to_datetime(Seconds) -> datetime() when
-      Seconds :: non_neg_integer().
-gregorian_seconds_to_datetime(Secs) when Secs >= 0 ->
-    Days = Secs div ?SECONDS_PER_DAY,
-    Rest = Secs rem ?SECONDS_PER_DAY,
+      Seconds :: integer().
+gregorian_seconds_to_datetime(Secs) ->
+    Days0 = Secs div ?SECONDS_PER_DAY,
+    Rest0 = Secs rem ?SECONDS_PER_DAY,
+    {Days, Rest} = case Rest0 < 0 of
+        true -> {Days0 - 1, Rest0 + ?SECONDS_PER_DAY};
+        false -> {Days0, Rest0}
+    end,
     {gregorian_days_to_date(Days), seconds_to_time(Rest)}.
 
 
@@ -303,11 +340,11 @@ gregorian_seconds_to_datetime(Secs) when Secs >= 0 ->
 -doc "Checks if the specified year is a leap year.".
 -spec is_leap_year(Year) -> boolean() when
       Year :: year().
-is_leap_year(Y) when is_integer(Y), Y >= 0 ->
+is_leap_year(Y) when is_integer(Y) ->
     is_leap_year1(Y).
 
 -spec is_leap_year1(year()) -> boolean().
-is_leap_year1(Year) when Year rem 4 =:= 0, Year rem 100 > 0 ->
+is_leap_year1(Year) when Year rem 4 =:= 0, Year rem 100 =/= 0 ->
     true;
 is_leap_year1(Year) when Year rem 400 =:= 0 ->
     true;
@@ -370,7 +407,7 @@ iso_week_number({Year, Month, Day}) ->
       Year :: year(),
       Month :: month(),
       LastDay :: ldom().
-last_day_of_the_month(Y, M) when is_integer(Y), Y >= 0 ->
+last_day_of_the_month(Y, M) when is_integer(Y) ->
     last_day_of_the_month1(Y, M).
 
 -spec last_day_of_the_month1(year(),month()) -> ldom().
@@ -394,6 +431,31 @@ last_day_of_the_month1(_, M) when is_integer(M), M > 0, M < 13 ->
 -spec local_time() -> datetime().
 local_time() ->
     erlang:localtime().
+
+-doc(#{equiv => local_time_to_system_time(LocalTime, [])}).
+-doc(#{since => <<"OTP 28.0">>}).
+-spec local_time_to_system_time(datetime1970()) -> pos_integer().
+local_time_to_system_time(LocalTime) ->
+    local_time_to_system_time(LocalTime, []).
+
+-doc(#{since => <<"OTP 28.0">>}).
+-doc """
+Converts local time into system time.
+Error will occur if the local time is non existing or ambiguous due to DST,
+see [`calendar:local_time_to_universal_time_dst/1`](`local_time_to_universal_time_dst/1`).
+""".
+-spec local_time_to_system_time(datetime1970(), Options) -> pos_integer() when
+      Options :: [Option],
+      Option :: {unit, erlang:time_unit()}.
+local_time_to_system_time(LocalTime, Options) ->
+    case local_time_to_universal_time_dst(LocalTime) of
+        [UniversalTime] ->
+            universal_time_to_system_time(UniversalTime, Options);
+        [] ->
+            error({non_existing_local_time, LocalTime});
+        [_, _] ->
+            error({ambiguous_local_time, LocalTime})
+    end.
 
 
 %% local_time_to_universal_time(DateTime)
@@ -467,9 +529,9 @@ local_time_to_universal_time_dst(DateTime) ->
 %% Convert from erlang:timestamp() to UTC.
 %%
 %% Args: Now = now(); now() = {MegaSec, Sec, MilliSec}, MegaSec = Sec
-%% = MilliSec = integer() 
+%% = MilliSec = integer()
 %% Returns: {date(), time()}, date() = {Y, M, D}, time() = {H, M, S}.
-%% 
+%%
 -doc """
 Returns Universal Coordinated Time (UTC) converted from the return value from
 `erlang:timestamp/0`.
@@ -527,6 +589,9 @@ Valid option:
 2> calendar:rfc3339_to_system_time("2018-02-01 15:18:02.088Z",
    [{unit, nanosecond}]).
 1517498282088000000
+3> calendar:rfc3339_to_system_time(<<"2018-02-01 15:18:02.088Z">>,
+   [{unit, nanosecond}]).
+1517498282088000000
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
@@ -535,25 +600,70 @@ Valid option:
       Options :: [Option],
       Option :: {'unit', rfc3339_time_unit()}.
 
-rfc3339_to_system_time(DateTimeString, Options) ->
-    Unit = proplists:get_value(unit, Options, second),
-    %% _T is the character separating the date and the time:
+rfc3339_to_system_time(Bin, Options) when is_binary(Bin) ->
+    rfc3339_to_system_time_bin(Bin, Options);
+rfc3339_to_system_time(List, Options) when is_list(List) ->
+    rfc3339_to_system_time_list(List, Options).
+
+%% _T is the character separating the date and the time:
+%% Handle negative years (ISO 8601 extended format: -YYYY-MM-DD)
+rfc3339_to_system_time_bin(
+    <<$-, Year0:4/binary, $-, Month0:2/binary, $-, Day0:2/binary, _T,
+      Hour0:2/binary, $:, Min0:2/binary, $:, Sec0:2/binary, TimeStr/binary>> = DateTimeBin, Options) ->
+    Hour = binary_to_integer(Hour0),
+    Min = binary_to_integer(Min0),
+    Sec = binary_to_integer(Sec0),
+    Year = -binary_to_integer(Year0),
+    Month = binary_to_integer(Month0),
+    Day = binary_to_integer(Day0),
+    rfc3339_to_system_time_1(DateTimeBin, Options, Year, Month, Day, Hour, Min, Sec, 0, binary_to_list(TimeStr));
+rfc3339_to_system_time_bin(
+    <<Year0:4/binary, $-, Month0:2/binary, $-, Day0:2/binary, _T,
+      Hour0:2/binary, $:, Min0:2/binary, $:, Sec0:2/binary, TimeStr/binary>> = DateTimeBin, Options) ->
+    Hour = binary_to_integer(Hour0),
+    Min = binary_to_integer(Min0),
+    Sec = binary_to_integer(Sec0),
+    Year = binary_to_integer(Year0),
+    Month = binary_to_integer(Month0),
+    Day = binary_to_integer(Day0),
+    rfc3339_to_system_time_1(DateTimeBin, Options, Year, Month, Day, Hour, Min, Sec, 0, binary_to_list(TimeStr)).
+
+%% _T is the character separating the date and the time:
+%% Handle negative years (ISO 8601 extended format: -YYYY-MM-DD)
+rfc3339_to_system_time_list(
+    [$-, Y1, Y2, Y3, Y4, $-, Mon1, Mon2, $-, D1, D2, _T,
+     H1, H2, $:, Min1, Min2, $:, S1, S2 | TimeStr] = DateTimeString, Options) ->
+    Hour = list_to_integer([H1, H2]),
+    Min = list_to_integer([Min1, Min2]),
+    Sec = list_to_integer([S1, S2]),
+    Year = -list_to_integer([Y1, Y2, Y3, Y4]),
+    Month = list_to_integer([Mon1, Mon2]),
+    Day = list_to_integer([D1, D2]),
+    rfc3339_to_system_time_1(DateTimeString, Options, Year, Month, Day, Hour, Min, Sec, 0, TimeStr);
+rfc3339_to_system_time_list(
     [Y1, Y2, Y3, Y4, $-, Mon1, Mon2, $-, D1, D2, _T,
-     H1, H2, $:, Min1, Min2, $:, S1, S2 | TimeStr] = DateTimeString,
+     H1, H2, $:, Min1, Min2, $:, S1, S2 | TimeStr] = DateTimeString, Options) ->
     Hour = list_to_integer([H1, H2]),
     Min = list_to_integer([Min1, Min2]),
     Sec = list_to_integer([S1, S2]),
     Year = list_to_integer([Y1, Y2, Y3, Y4]),
     Month = list_to_integer([Mon1, Mon2]),
     Day = list_to_integer([D1, D2]),
+    rfc3339_to_system_time_1(DateTimeString, Options, Year, Month, Day, Hour, Min, Sec, 0, TimeStr).
+
+rfc3339_to_system_time_1(DateTimeIn, Options, Year, Month, Day, 23, 59, 60, 0, TimeStr) ->
+    rfc3339_to_system_time_1(DateTimeIn, Options, Year, Month, Day, 23, 59, 59, 1, TimeStr);
+rfc3339_to_system_time_1(DateTimeIn, Options, Year, Month, Day, Hour, Min, Sec, LeapSec, TimeStr) ->
+    Unit = proplists:get_value(unit, Options, second),
     DateTime = {{Year, Month, Day}, {Hour, Min, Sec}},
     IsFractionChar = fun(C) -> C >= $0 andalso C =< $9 orelse C =:= $. end,
     {FractionStr, UtcOffset} = lists:splitwith(IsFractionChar, TimeStr),
-    Time = datetime_to_system_time(DateTime),
+
+    Time = datetime_to_system_time(DateTime) + LeapSec,
     Secs = Time - offset_string_adjustment(Time, second, UtcOffset),
-    check(DateTimeString, Options, Secs),
+    check(DateTimeIn, Options, Secs),
     ScaledEpoch = erlang:convert_time_unit(Secs, second, Unit),
-    ScaledEpoch + copy_sign(fraction(Unit, FractionStr), ScaledEpoch).
+    ScaledEpoch + fraction(Unit, FractionStr).
 
 
 
@@ -570,7 +680,7 @@ Converts a specified number of seconds into days, hours, minutes, and seconds.
 seconds_to_daystime(Secs) ->
     Days0 = Secs div ?SECONDS_PER_DAY,
     Secs0 = Secs rem ?SECONDS_PER_DAY,
-    if 
+    if
 	Secs0 < 0 ->
 	    {Days0 - 1, seconds_to_time(Secs0 + ?SECONDS_PER_DAY)};
 	true ->
@@ -651,6 +761,9 @@ Valid options:
   For `native` three fractional digits are included. Notice that trailing zeros
   are not removed from the fraction.
 
+- **`{return, Return}`** - The desired encoding type for the output,
+  whether a string or a binary is desired. Defaults to string.
+
 ```erlang
 1> calendar:system_time_to_rfc3339(erlang:system_time(second)).
 "2018-04-23T14:56:28+02:00"
@@ -663,6 +776,9 @@ Valid options:
 4> calendar:system_time_to_rfc3339(erlang:system_time(millisecond),
    [{unit, millisecond}, {time_designator, $\s}, {offset, "Z"}]).
 "2018-04-23 12:57:20.482Z"
+5> calendar:system_time_to_rfc3339(erlang:system_time(millisecond),
+   [{unit, millisecond}, {time_designator, $\s}, {offset, "Z"}, {return, binary}]).
+<<"2018-04-23 12:57:20.482Z">>
 ```
 [RFC 3339]: https://www.ietf.org/rfc/rfc3339.txt
 """.
@@ -672,7 +788,8 @@ Valid options:
       Options :: [Option],
       Option :: {'offset', offset()}
               | {'time_designator', byte()}
-              | {'unit', rfc3339_time_unit()},
+              | {'unit', rfc3339_time_unit()}
+              | {'return', 'string' | 'binary'},
       DateTimeString :: rfc3339_string().
 
 system_time_to_rfc3339(Time, Options) ->
@@ -682,10 +799,10 @@ system_time_to_rfc3339(Time, Options) ->
         native ->
             TimeMS = erlang:convert_time_unit(Time, native, millisecond),
             OffsetOpt1 =
-                if is_integer(OffsetOpt0) ->
-                        erlang:convert_time_unit(OffsetOpt0, native,
-                                                 millisecond);
-                   true ->
+                case is_integer(OffsetOpt0) of
+                    true ->
+                        erlang:convert_time_unit(OffsetOpt0, native, millisecond);
+                    false ->
                         OffsetOpt0
                 end,
             system_time_to_rfc3339_do(TimeMS, Options, millisecond, OffsetOpt1);
@@ -700,20 +817,29 @@ system_time_to_rfc3339_do(Time, Options, Unit, OffsetOption) ->
     Adjustment = erlang:convert_time_unit(AdjustmentSecs, second, Unit),
     AdjustedTime = Time + Adjustment,
     Factor = factor(Unit),
-    Secs = AdjustedTime div Factor,
+    Secs0 = AdjustedTime div Factor,
+    Secs = if
+	       AdjustedTime rem Factor < 0 -> Secs0 - 1;
+	       true -> Secs0
+	   end,
     check(Time, Options, Secs),
     DateTime = system_time_to_datetime(Secs),
     {{Year, Month, Day}, {Hour, Min, Sec}} = DateTime,
     FractionStr = fraction_str(Factor, AdjustedTime),
     L = [pad4(Year), "-", pad2(Month), "-", pad2(Day), [T],
          pad2(Hour), ":", pad2(Min), ":", pad2(Sec), FractionStr, Offset],
-    lists:append(L).
+    case proplists:get_value(return, Options, string) of
+        string ->
+            lists:append(L);
+        binary ->
+            iolist_to_binary(L)
+    end.
 
 %% time_difference(T1, T2) = Tdiff
 %%
 %% Returns the difference between two {Date, Time} structures.
 %%
-%% T1 = T2 = {Date, Time}, Tdiff = {Day, {Hour, Min, Sec}}, 
+%% T1 = T2 = {Date, Time}, Tdiff = {Day, {Hour, Min, Sec}},
 %% Date = {Year, Month, Day}, Time = {Hour, Minute, Sec},
 %% Year = Month = Day = Hour = Minute = Sec = integer()
 %%
@@ -731,7 +857,7 @@ epoch later than `T1`.
       T2 :: datetime(),
       Days :: integer(),
       Time :: time().
-time_difference({{Y1, Mo1, D1}, {H1, Mi1, S1}}, 
+time_difference({{Y1, Mo1, D1}, {H1, Mi1, S1}},
 		{{Y2, Mo2, D2}, {H2, Mi2, S2}}) ->
     Secs = datetime_to_gregorian_seconds({{Y2, Mo2, D2}, {H2, Mi2, S2}}) -
 	datetime_to_gregorian_seconds({{Y1, Mo1, D1}, {H1, Mi1, S1}}),
@@ -744,10 +870,10 @@ time_difference({{Y1, Mo1, D1}, {H1, Mi1, S1}},
 -doc "Returns the number of seconds since midnight up to the specified time.".
 -spec time_to_seconds(Time) -> secs_per_day() when
       Time :: time().
-time_to_seconds({H, M, S}) when is_integer(H), is_integer(M), is_integer(S) ->
+time_to_seconds({H, M, S}) when is_integer(H, 0, 23), is_integer(M, 0, 59), is_integer(S, 0, 59) ->
     H * ?SECONDS_PER_HOUR +
 	M * ?SECONDS_PER_MINUTE + S.
-      
+
 
 %% universal_time()
 %%
@@ -759,7 +885,23 @@ operating system. Returns local time if universal time is unavailable.
 -spec universal_time() -> datetime().
 universal_time() ->
     erlang:universaltime().
- 
+
+-doc(#{equiv => universal_time_to_system_time(LocalTime, [])}).
+-doc(#{since => <<"OTP 28.0">>}).
+-spec universal_time_to_system_time(datetime()) -> integer().
+universal_time_to_system_time(UniversalTime) ->
+    universal_time_to_system_time(UniversalTime, []).
+
+-doc(#{since => <<"OTP 28.0">>}).
+-doc "Converts universal time into system time.".
+-spec universal_time_to_system_time(datetime(), Options) -> integer() when
+      Options :: [Option],
+      Option :: {unit, erlang:time_unit()}.
+universal_time_to_system_time(DateTime, Options) ->
+    Unit = proplists:get_value(unit, Options, second),
+    Factor = factor(Unit),
+    Time = datetime_to_system_time(DateTime),
+    Time * Factor.
 
 %% universal_time_to_local_time(DateTime)
 %%
@@ -785,7 +927,7 @@ valid_date(Y, M, D) when is_integer(Y), is_integer(M), is_integer(D) ->
     valid_date1(Y, M, D).
 
 -spec valid_date1(integer(), integer(), integer()) -> boolean().
-valid_date1(Y, M, D) when Y >= 0, M > 0, M < 13, D > 0 ->
+valid_date1(Y, M, D) when is_integer(Y), M > 0, M < 13, D > 0 ->
     D =< last_day_of_the_month(Y, M);
 valid_date1(_, _, _) ->
     false.
@@ -800,45 +942,6 @@ valid_date({Y, M, D}) ->
 %%
 %%  LOCAL FUNCTIONS
 %%
--type day_of_year() :: 0..365.
-
-%% day_to_year(DayOfEpoch) = {Year, DayOfYear}
-%%
-%% The idea here is to first set the upper and lower bounds for a year,
-%% and then adjust a range by interpolation search. Although complexity
-%% of the algorithm is log(log(n)), at most 1 or 2 recursive steps
-%% are taken.
-%%
--spec day_to_year(non_neg_integer()) -> {year(), day_of_year()}.
-day_to_year(DayOfEpoch) when DayOfEpoch >= 0 ->
-    YMax = DayOfEpoch div ?DAYS_PER_YEAR,
-    YMin = DayOfEpoch div ?DAYS_PER_LEAP_YEAR,
-    {Y1, D1} = dty(YMin, YMax, DayOfEpoch, dy(YMin), dy(YMax)),
-    {Y1, DayOfEpoch - D1}.
-
--spec dty(year(), year(), non_neg_integer(), non_neg_integer(),
-    non_neg_integer()) ->
-		{year(), non_neg_integer()}.
-dty(Min, Max, _D1, DMin, _DMax) when Min == Max ->
-    {Min, DMin};
-dty(Min, Max, D1, DMin, DMax) ->
-    Diff = Max - Min,
-    Mid = Min + (Diff * (D1 - DMin)) div (DMax - DMin),
-    MidLength =
-        case is_leap_year(Mid) of
-            true -> ?DAYS_PER_LEAP_YEAR;
-            false -> ?DAYS_PER_YEAR
-        end,
-    case dy(Mid) of
-        D2 when D1 < D2 ->
-            NewMax = Mid - 1,
-            dty(Min, NewMax, D1, DMin, dy(NewMax));
-        D2 when D1 - D2 >= MidLength ->
-            NewMin = Mid + 1,
-            dty(NewMin, Max, D1, dy(NewMin), DMax);
-        D2 ->
-            {Mid, D2}
-    end.
 
 %%
 %% The Gregorian days of the iso week 01 day 1 for a given year.
@@ -853,88 +956,10 @@ gregorian_days_of_iso_w01_1(Year) ->
 	D0101 + 7 - DOW + 1
     end.
 
-%% year_day_to_date(Year, DayOfYear)  = {Month,  DayOfMonth}
-%%
-%% Note: 1 is the first day of the month. 
-%%
--spec year_day_to_date(year(), day_of_year()) -> {month(), day()}.
-year_day_to_date(Year, DayOfYear) ->
-    ExtraDay = case is_leap_year(Year) of
-		   true ->
-		       1;
-		   false ->
-		       0
-	       end,
-    {Month, Day} = year_day_to_date2(ExtraDay, DayOfYear),
-    {Month, Day + 1}.
-  
+%% Restrict RFC3339 to years -9999..9999 (4-digit format)
+-define(SECONDS_FROM_MINUS_9999_TO_1970, 377705116800).
 
-%% Note: 0 is the first day of the month 
-%% 
--spec year_day_to_date2(0 | 1, day_of_year()) -> {month(), 0..30}.
-year_day_to_date2(_, Day) when Day < 31 ->
-    {1, Day}; 
-year_day_to_date2(E, Day) when 31 =< Day, Day < 59 + E ->
-    {2, Day - 31}; 
-year_day_to_date2(E, Day) when 59 + E =< Day, Day < 90 + E -> 
-    {3, Day - (59 + E)}; 
-year_day_to_date2(E, Day) when 90 + E =< Day, Day < 120 + E -> 
-    {4, Day - (90 + E)};
-year_day_to_date2(E, Day) when 120 + E =< Day, Day < 151 + E -> 
-    {5, Day - (120 + E)}; 
-year_day_to_date2(E, Day) when 151 + E =< Day, Day < 181 + E ->
-    {6, Day - (151 + E)};
-year_day_to_date2(E, Day) when 181 + E =< Day, Day < 212 + E -> 
-    {7, Day - (181 + E)}; 
-year_day_to_date2(E, Day) when 212 + E =< Day, Day < 243 + E ->
-    {8, Day - (212 + E)};
-year_day_to_date2(E, Day) when 243 + E =< Day, Day < 273 + E ->
-    {9, Day - (243 + E)};
-year_day_to_date2(E, Day) when 273 + E =< Day, Day < 304 + E ->
-    {10, Day - (273 + E)};
-year_day_to_date2(E, Day) when 304 + E =< Day, Day < 334 + E ->
-    {11, Day - (304 + E)};
-year_day_to_date2(E, Day) when 334 + E =< Day -> 
-    {12, Day - (334 + E)}.
-
-%% dy(Year)
-%%
-%% Days in previous years.
-%%
--spec dy(integer()) -> non_neg_integer().
-dy(Y) when Y =< 0 -> 
-    0; 
-dy(Y) -> 
-    X = Y - 1, 
-    (X div 4) - (X div 100) + (X div 400) + 
-	X*?DAYS_PER_YEAR + ?DAYS_PER_LEAP_YEAR.
-
-%%  dm(Month)
-%%
-%%  Returns the total number of days in all months
-%%  preceeding Month, for an ordinary year.
-%%
--spec dm(month()) ->
-	     0 | 31 | 59 | 90 | 120 | 151 | 181 | 212 | 243 | 273 | 304 | 334.
-dm(1) -> 0;    dm(2) ->  31;   dm(3) ->   59;   dm(4) ->  90;
-dm(5) -> 120;  dm(6) ->  151;  dm(7) ->  181;   dm(8) -> 212;
-dm(9) -> 243;  dm(10) -> 273;  dm(11) -> 304;  dm(12) -> 334.
- 
-%%  df(Year, Month)
-%%
-%%  Accounts for an extra day in February if Year is
-%%  a leap year, and if Month > 2.
-%%
--spec df(year(), month()) -> 0 | 1.
-df(_, Month) when Month < 3 ->
-    0;
-df(Year, _) ->
-    case is_leap_year(Year) of
-	true -> 1;
-	false  -> 0
-    end.
-
-check(_Arg, _Options, Secs) when Secs >= - ?SECONDS_FROM_0_TO_1970,
+check(_Arg, _Options, Secs) when Secs >= -?SECONDS_FROM_MINUS_9999_TO_1970,
                                  Secs < ?SECONDS_FROM_0_TO_10000 ->
     ok;
 check(Arg, Options, _Secs) ->
@@ -993,11 +1018,17 @@ local_offset(SystemTime, Unit) ->
     UniversalSecs = datetime_to_gregorian_seconds(UniversalTime),
     LocalSecs - UniversalSecs.
 
+mod(N, D) ->
+    case N rem D of
+	R when R < 0 -> mod(R + D, D);
+	R -> R
+    end.
+
 fraction_str(1, _Time) ->
     "";
 fraction_str(Factor, Time) ->
-    Fraction = Time rem Factor,
-    S = integer_to_list(abs(Fraction)),
+    Fraction = mod(Time, Factor),
+    S = integer_to_list(Fraction),
     [$. | pad(log10(Factor) - length(S), S)].
 
 fraction(second, _) ->
@@ -1006,9 +1037,6 @@ fraction(_, "") ->
     0;
 fraction(Unit, FractionStr) ->
     round(factor(Unit) * list_to_float([$0|FractionStr])).
-
-copy_sign(N1, N2) when N2 < 0 -> -N1;
-copy_sign(N1, _N2) -> N1.
 
 factor(second)      -> 1;
 factor(millisecond) -> 1000;
@@ -1030,6 +1058,9 @@ pad2(N) when N < 10 ->
 pad2(N) ->
     integer_to_list(N).
 
+pad4(N) when N < 0 ->
+    %% Negative years: format as -YYYY (ISO 8601 extended format)
+    [$- | pad4(-N)];
 pad4(N) when N < 10 ->
     [$0, $0, $0 | integer_to_list(N)];
 pad4(N) when N < 100 ->

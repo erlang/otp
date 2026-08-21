@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -206,7 +208,7 @@ A generic finite state machine process (`gen_fsm`) implemented
 using this module has a standard set of interface functions
 and includes functionality for tracing and error reporting.
 It also fits into an OTP supervision tree.  For more information,
-see [OTP Design Principles](`e:system:design_principles`).
+see [OTP Design Principles](`e:system:design_principles.md`).
 
 A `gen_fsm` process assumes all specific parts to be located
 in a callback module exporting a predefined set of functions.
@@ -260,7 +262,7 @@ to a busy state machine.
 
 ### Callback Functions
 
-See the [Callback Functions](#callbacks-deprecated) section
+See the [Callback Functions](#callbacks) section
 for the functions to be exported from a `gen_fsm` callback module.
 
 []() {: #state-name }
@@ -270,8 +272,6 @@ for the functions to be exported from a `gen_fsm` callback module.
 **State data** denotes the internal state of the Erlang process
 that implements the state machine.
 """.
--moduledoc #{titles =>
-                 [{callback, ~"deprecated"}]}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -359,6 +359,8 @@ that implements the state machine.
 %%%
 %%% ---------------------------------------------------
 
+-compile(nowarn_deprecated_catch).
+
 -include("logger.hrl").
 
 -export([start/3, start/4,
@@ -393,7 +395,6 @@ that implements the state machine.
 -doc "Reply destination. See `reply/2`".
 -type from() :: {To :: pid(), Tag :: term()}.
 
--doc #{ title => ~"deprecated" }.
 -doc """
 Initialize process and internal [*state name*](#state-name)
 and [*state data*](#state-data).
@@ -436,7 +437,6 @@ where `Reason` is any term, or `ignore`.
       Timeout   :: timeout(),
       Reason    :: term().
 
--doc #{ title => ~"deprecated" }.
 -doc """
 Handle an asynchronous event.
 
@@ -478,7 +478,6 @@ and terminates.
       Timeout       :: timeout(),
       Reason        :: term().
 
--doc #{ title => ~"deprecated" }.
 -doc """
 Handle a synchronous event.
 
@@ -542,7 +541,6 @@ of the process that called [`sync_send_event/2,3`](`sync_send_event/3`),
       Timeout       :: timeout(),
       Reason        :: 'normal' | term().
 
--doc #{ title => ~"deprecated" }.
 -doc """
 Handle an asynchronous event.
 
@@ -568,7 +566,6 @@ see [`Module:StateName/2`](`c:'StateName'/2`).
       Timeout       :: timeout(),
       Reason        :: term().
 
--doc #{ title => ~"deprecated" }.
 -doc """
 Handle a synchronous event.
 
@@ -600,7 +597,6 @@ see [`Module:StateName/3`](`c:'StateName'/3`).
       NewStateData  :: term(),
       Timeout       :: timeout(),
       Reason        :: term().
--doc #{ title => ~"deprecated" }.
 -doc """
 Handle an incoming message
 
@@ -625,7 +621,6 @@ see [`Module:StateName/2`](`c:'StateName'/2`).
       NewStateData  :: term(),
       Timeout       :: timeout(),
       Reason        :: normal | term().
--doc #{ title => ~"deprecated" }.
 -doc """
 Clean up before termination.
 
@@ -670,7 +665,6 @@ using `error_logger:format/2`.
       StateName :: atom(),
       StateData :: term().
 
--doc #{ title => ~"deprecated" }.
 -doc """
 Update the internal [*state data*](#state-data) during upgrade/downgrade.
 
@@ -679,8 +673,7 @@ its internal [*state data*](#state-data)
 during a release upgrade/downgrade, that is,
 when instruction `{update, Module, Change, ...}`,
 where `Change = {advanced, Extra}`, is given in the appup file;
-see section Release Handling Instructions in OTP Design Principles.
-[OTP Design Principles](`e:system:release_handling.md#instr`).
+see [Release Handling Instructions in OTP Design Principles](`e:system:release_handling.md#instr`).
 
 For an upgrade, `OldVsn` is `Vsn`, and for a downgrade,
 `OldVsn` is `{down, Vsn}`. `Vsn` is defined by the vsn attribute(s)
@@ -707,7 +700,6 @@ and updated internal data.
       NewStateData  :: term(),
       Extra         :: term().
 
--doc #{ title => ~"deprecated" }.
 -doc """
 Optional function for providing a term describing
 the current `gen_fsm` process status.
@@ -745,7 +737,7 @@ of the `gen_fsm` process.
 
 The function is to return `Status`, a term that change the details
 of the current state and status of the `gen_fsm` process.
-There are no restrictions on the form `Status` can take,
+There are no restrictions of the form `Status` can take,
 but for the [`sys:get_status/1,2`](`sys:get_status/1`) case
 (when `Opt` is `normal`), the recommended form for the `Status` value
 is `[{data, [{"StateData", Term}]}]`, where `Term` provides
@@ -1113,7 +1105,7 @@ send_all_state_event(Name, Event) ->
 -doc #{ equiv => sync_send_all_state_event(FsmRef, Event, 5000) }.
 -spec sync_send_all_state_event(FsmRef, Event) -> Reply when
       FsmRef :: fsm_ref(),
-      Event  :: term,
+      Event  :: term(),
       Reply  :: term().
 sync_send_all_state_event(Name, Event) ->
     case catch gen:call(Name, '$gen_sync_all_state_event', Event) of

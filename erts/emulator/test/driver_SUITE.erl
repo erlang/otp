@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -84,11 +86,13 @@
          env/1,
          poll_pipe/1,
          lots_of_used_fds_on_boot/1,
+         erl_errno_id/1,
          z_test/1]).
 
 -export([bin_prefix/2]).
 
 -export([get_check_io_total/1]).   % for z_SUITE.erl
+-export([check_io_debug/0]). %% For nif_SUITE.erl
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -149,6 +153,7 @@ all() -> %% Keep a_test first and z_test last...
      consume_timeslice,
      env,
      poll_pipe,
+     erl_errno_id,
      z_test].
 
 groups() -> 
@@ -1904,6 +1909,23 @@ lots_of_used_fds_on_boot_test(Config) ->
         exit:{boot_failed, {exit_status, 17}} ->
             {skip, "Cannot open enough fds to test this"}
     end.
+
+erl_errno_id(Config) when is_list(Config) ->
+    DrvName = 'erl_errno_id_drv',
+    Path = proplists:get_value(data_dir, Config),
+    erl_ddll:start(),
+    ok = load_driver(Path, DrvName),
+    Port = open_port({spawn, DrvName}, []),
+    true = port_command(Port, ""),
+    {ok, Port} = receive
+                     Msg -> Msg
+                 after
+                     10000 -> timeout
+                 end,
+    true = erlang:port_close(Port),
+    ok = erl_ddll:unload_driver(DrvName),
+    ok = erl_ddll:stop(),
+    ok.
 
 thread_mseg_alloc_cache_clean(Config) when is_list(Config) ->
     case {erlang:system_info(threads),

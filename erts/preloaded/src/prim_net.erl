@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,6 +48,8 @@
          if_index2name/1,
          if_names/0
         ]).
+
+-export([p_get/1]).
 
 -export_type([
               getifaddrs_args/0,
@@ -107,7 +111,8 @@
 -type interface_info_args() :: #{debug => boolean()}.
 -type if_entry_args() :: #{index := non_neg_integer(),
                            debug => boolean()}.
--type ip_address_table_args() :: #{debug => boolean()}.
+-type ip_address_table_args() :: #{sort  => boolean(),
+				   debug => boolean()}.
 
 -type if_type()       :: other | ethernet_csmacd | iso88025_tokenring |
                          fddi | ppp | software_loopback | atm | ieee80211 |
@@ -362,7 +367,8 @@ on_load() ->
 on_load(Extra) ->
     %% This will fail if the user has disabled esock support, making all NIFs
     %% fall back to their Erlang implementation which throws `notsup`.
-    _ = erlang:load_nif(atom_to_list(net), Extra),
+    LoadRes = erlang:load_nif(atom_to_list(net), Extra),
+    p_put(load_nif_result, LoadRes),
     ok.
 
 
@@ -662,6 +668,18 @@ if_names() ->
 %%         io_lib:format("~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w" ++ FormatExtra,
 %%                       [YYYY, MM, DD, Hour, Min, Sec] ++ ArgsExtra),
 %%     lists:flatten(FormatDate).
+
+
+%% ===========================================================================
+%% Persistent term functions
+%%
+
+p_put(Name, Value) ->
+    persistent_term:put({?MODULE, Name}, Value).
+
+%% Also called from prim_net
+p_get(Name) ->
+    persistent_term:get({?MODULE, Name}).
 
 
 %% ===========================================================================

@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%%----------------------------------------------------------------
@@ -23,6 +25,7 @@
 
 -module(lists_SUITE).
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 %% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -39,8 +42,8 @@
 	 sublist_2/1, sublist_3/1, sublist_2_e/1, sublist_3_e/1,
 	 flatten_1/1, flatten_2/1, flatten_1_e/1, flatten_2_e/1,
 	 dropwhile/1, takewhile/1,
-	 sort_1/1, merge/1, rmerge/1, sort_rand/1,
-	 usort_1/1, umerge/1, rumerge/1,usort_rand/1,
+	 sort_1/1, sort_2/1, merge/1, rmerge/1, sort_rand/1,
+	 usort_1/1, usort_2/1, umerge/1, rumerge/1,usort_rand/1,
 	 keymerge/1, rkeymerge/1,
 	 keysort_1/1, keysort_i/1,
 	 keysort_rand/1, keysort_error/1,
@@ -57,7 +60,8 @@
 	 join/1,
 	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
 	 suffix/1, subtract/1, droplast/1, search/1, hof/1,
-	 enumerate/1, error_info/1]).
+	 enumerate/1, error_info/1,
+         doctests/1]).
 
 %% Sort randomized lists until stopped.
 %%
@@ -92,13 +96,13 @@ all() ->
 groups() -> 
     [{append, [parallel], [append_1, append_2]},
      {usort, [parallel],
-      [umerge, rumerge, usort_1, usort_rand]},
+      [umerge, rumerge, usort_1, usort_2, usort_rand]},
      {keysort, [parallel],
       [keymerge, rkeymerge, keysort_1, keysort_rand,
        keysort_i, keysort_error]},
      {key, [parallel], [keymember, keysearch_keyfind, keystore,
 			keytake, keyreplace]},
-     {sort,[parallel],[merge, rmerge, sort_1, sort_rand]},
+     {sort,[parallel],[merge, rmerge, sort_1, sort_2, sort_rand]},
      {ukeysort, [parallel],
       [ukeymerge, rukeymerge, ukeysort_1, ukeysort_rand,
        ukeysort_i, ukeysort_error]},
@@ -116,9 +120,9 @@ groups() ->
      {uniq, [parallel], [uniq_1, uniq_2]},
      {misc, [parallel], [reverse, member, dropwhile, takewhile,
 			 filter_partition, suffix, subtract, join,
-			 hof, droplast, search, enumerate, error_info]}
+			 hof, droplast, search, enumerate, error_info,
+                         doctests]}
     ].
-
 init_per_suite(Config) ->
     Config.
 
@@ -163,7 +167,7 @@ append_trapping_1(N) ->
     List = lists:duplicate(N + (1 bsl N), gurka),
     ImproperList = List ++ crash,
 
-    {'EXIT',_} = (catch (ImproperList ++ [])),
+    ?assertError(_, ImproperList ++ []),
 
     [3, 2, 1 | List] = lists:reverse(List ++ [1, 2, 3]),
 
@@ -209,8 +213,8 @@ reverse_test(Num) ->
 %% Test the lists:member() implementation.  This test case depends on
 %% lists:reverse() to work, wich is tested in a separate test case.
 member(Config) when is_list(Config) ->
-    {'EXIT',{badarg,_}} = (catch lists:member(45, {a,b,c})),
-    {'EXIT',{badarg,_}} = (catch lists:member(45, [0|non_list_tail])),
+    ?assertError(badarg, lists:member(45, {a,b,c})),
+    ?assertError(badarg, lists:member(45, [0|non_list_tail])),
     false = lists:member(4233, []),
     member_test(1),
     member_test(100),
@@ -241,9 +245,9 @@ member_test(Num) ->
 
 keymember(Config) when is_list(Config) ->
     false = lists:keymember(anything_goes, 1, []),
-    {'EXIT',{badarg,_}} = (catch lists:keymember(anything_goes, -1, [])),
-    {'EXIT',{badarg,_}} = (catch lists:keymember(anything_goes, 0, [])),
-    {'EXIT',{badarg,_}} = (catch lists:keymember(anything_goes, 1, {1,2,3})),
+    ?assertError(badarg, lists:keymember(anything_goes, -1, [])),
+    ?assertError(badarg, lists:keymember(anything_goes, 0, [])),
+    ?assertError(badarg, lists:keymember(anything_goes, 1, {1,2,3})),
     List = [{52.0,a},{-19,b,c},{37.5,d},an_atom,42.0,{39},{45,{x,y,z}}],
 
     false = lists:keymember(333, 5, List),
@@ -278,9 +282,9 @@ keymember(Config) when is_list(Config) ->
 
 keysearch_keyfind(Config) when is_list(Config) ->
     false = key_search_find(anything_goes, 1, []),
-    {'EXIT',{badarg,_}} = (catch key_search_find(anything_goes, -1, [])),
-    {'EXIT',{badarg,_}} = (catch key_search_find(anything_goes, 0, [])),
-    {'EXIT',{badarg,_}} = (catch key_search_find(anything_goes, 1, {1,2,3})),
+    ?assertError(badarg, key_search_find(anything_goes, -1, [])),
+    ?assertError(badarg, key_search_find(anything_goes, 0, [])),
+    ?assertError(badarg, key_search_find(anything_goes, 1, {1,2,3})),
 
     First = {x,42.0},
     Second = {y,-77},
@@ -381,10 +385,10 @@ takewhile(Config) when is_list(Config) ->
     ok.
 
 keystore(Config) when is_list(Config) ->
-    {'EXIT',_} = (catch lists:keystore(key, 0, [], {1})),
-    {'EXIT',_} = (catch lists:keystore(key, 1, {}, {})),
-    {'EXIT',_} = (catch lists:keystore(key, 1, {a,b}, {})),
-    {'EXIT', _} = (catch lists:keystore(a, 2, [{1,a}], b)),
+    ?assertError(_, lists:keystore(key, 0, [], {1})),
+    ?assertError(_, lists:keystore(key, 1, {}, {})),
+    ?assertError(_, lists:keystore(key, 1, {a,b}, {})),
+    ?assertError(_, lists:keystore(a, 2, [{1,a}], b)),
     T = {k,17},
     [T] = lists:keystore(a, 2, [], T),
     [{1,a},{2,b},{k,17}] = lists:keystore(c, 2, [{1,a},{2,b}],T),
@@ -397,9 +401,9 @@ keystore(Config) when is_list(Config) ->
     ok.
 
 keytake(Config) when is_list(Config) ->
-    {'EXIT',_} = (catch lists:keytake(key, 0, [])),
-    {'EXIT',_} = (catch lists:keytake(key, 1, {})),
-    {'EXIT',_} = (catch lists:keytake(key, 1, {a,b})),
+    ?assertError(_, lists:keytake(key, 0, [])),
+    ?assertError(_, lists:keytake(key, 1, {})),
+    ?assertError(_, lists:keytake(key, 1, {a,b})),
     false = lists:keytake(key, 2, [{a}]),
     false = lists:keytake(key, 1, [a]),
     false = lists:keytake(k, 1, []),
@@ -418,8 +422,8 @@ keyreplace(Config) when is_list(Config) ->
     [a,{x,y,z}] = lists:keyreplace(a, 5, [a,{x,y,z}], {no,use}),
 
     %% Error cases.
-    {'EXIT',_} = (catch lists:keyreplace(k, 1, [], not_tuple)),
-    {'EXIT',_} = (catch lists:keyreplace(k, 0, [], {a,b})),
+    ?assertError(_, lists:keyreplace(k, 1, [], not_tuple)),
+    ?assertError(_, lists:keyreplace(k, 0, [], {a,b})),
     ok.
 
 merge(Config) when is_list(Config) ->
@@ -455,25 +459,25 @@ merge(Config) when is_list(Config) ->
     true = erts_debug:same(Singleton, lists:merge([[], Singleton, []])),
     true = erts_debug:same(Singleton, lists:merge([[], [], Singleton])),
 
-    {'EXIT', _} = (catch lists:merge([a])),
-    {'EXIT', _} = (catch lists:merge([a, b])),
-    {'EXIT', _} = (catch lists:merge([a, []])),
-    {'EXIT', _} = (catch lists:merge([[], b])),
-    {'EXIT', _} = (catch lists:merge([a, [1, 2, 3]])),
-    {'EXIT', _} = (catch lists:merge([[1, 2, 3], b])),
-    {'EXIT', _} = (catch lists:merge([a, b, c])),
-    {'EXIT', _} = (catch lists:merge([a, b, []])),
-    {'EXIT', _} = (catch lists:merge([a, [], c])),
-    {'EXIT', _} = (catch lists:merge([a, [], []])),
-    {'EXIT', _} = (catch lists:merge([[], b, c])),
-    {'EXIT', _} = (catch lists:merge([[], b, []])),
-    {'EXIT', _} = (catch lists:merge([[], [], c])),
-    {'EXIT', _} = (catch lists:merge([a, b, [1, 2, 3]])),
-    {'EXIT', _} = (catch lists:merge([a, [1, 2, 3], c])),
-    {'EXIT', _} = (catch lists:merge([a, [1, 2, 3], [4, 5, 6]])),
-    {'EXIT', _} = (catch lists:merge([[1, 2, 3], b, c])),
-    {'EXIT', _} = (catch lists:merge([[1, 2, 3], b, [4, 5, 6]])),
-    {'EXIT', _} = (catch lists:merge([[1, 2, 3], [4, 5, 6], c])),
+    ?assertError(_, lists:merge([a])),
+    ?assertError(_, lists:merge([a, b])),
+    ?assertError(_, lists:merge([a, []])),
+    ?assertError(_, lists:merge([[], b])),
+    ?assertError(_, lists:merge([a, [1, 2, 3]])),
+    ?assertError(_, lists:merge([[1, 2, 3], b])),
+    ?assertError(_, lists:merge([a, b, c])),
+    ?assertError(_, lists:merge([a, b, []])),
+    ?assertError(_, lists:merge([a, [], c])),
+    ?assertError(_, lists:merge([a, [], []])),
+    ?assertError(_, lists:merge([[], b, c])),
+    ?assertError(_, lists:merge([[], b, []])),
+    ?assertError(_, lists:merge([[], [], c])),
+    ?assertError(_, lists:merge([a, b, [1, 2, 3]])),
+    ?assertError(_, lists:merge([a, [1, 2, 3], c])),
+    ?assertError(_, lists:merge([a, [1, 2, 3], [4, 5, 6]])),
+    ?assertError(_, lists:merge([[1, 2, 3], b, c])),
+    ?assertError(_, lists:merge([[1, 2, 3], b, [4, 5, 6]])),
+    ?assertError(_, lists:merge([[1, 2, 3], [4, 5, 6], c])),
 
     Two = [1,2],
     Six = [1,2,3,4,5,6],
@@ -497,11 +501,11 @@ merge(Config) when is_list(Config) ->
     true = erts_debug:same(Singleton, lists:merge([], Singleton)),
     true = erts_debug:same(Singleton, lists:merge(Singleton, [])),
 
-    {'EXIT', _} = (catch lists:merge(a, b)),
-    {'EXIT', _} = (catch lists:merge(a, [])),
-    {'EXIT', _} = (catch lists:merge([], b)),
-    {'EXIT', _} = (catch lists:merge(a, [1, 2, 3])),
-    {'EXIT', _} = (catch lists:merge([1, 2, 3], b)),
+    ?assertError(_, lists:merge(a, b)),
+    ?assertError(_, lists:merge(a, [])),
+    ?assertError(_, lists:merge([], b)),
+    ?assertError(_, lists:merge(a, [1, 2, 3])),
+    ?assertError(_, lists:merge([1, 2, 3], b)),
 
     %% 3-way merge
     [] = lists:merge3([], [], []),
@@ -523,17 +527,17 @@ merge(Config) when is_list(Config) ->
     true = erts_debug:same(Singleton, lists:merge3([], Singleton, [])),
     true = erts_debug:same(Singleton, lists:merge3(Singleton, [], [])),
 
-    {'EXIT', _} = (catch lists:merge3(a, b, c)),
-    {'EXIT', _} = (catch lists:merge3(a, b, [])),
-    {'EXIT', _} = (catch lists:merge3(a, [], c)),
-    {'EXIT', _} = (catch lists:merge3(a, [], [])),
-    {'EXIT', _} = (catch lists:merge3([], b, [])),
-    {'EXIT', _} = (catch lists:merge3([], [], c)),
-    {'EXIT', _} = (catch lists:merge3(a, b, [1, 2, 3])),
-    {'EXIT', _} = (catch lists:merge3(a, [1, 2, 3], c)),
-    {'EXIT', _} = (catch lists:merge3(a, [1, 2, 3], [4, 5, 6])),
-    {'EXIT', _} = (catch lists:merge3([1, 2, 3], b, [4, 5, 6])),
-    {'EXIT', _} = (catch lists:merge3([1, 2, 3], [4, 5, 6], c)),
+    ?assertError(_, lists:merge3(a, b, c)),
+    ?assertError(_, lists:merge3(a, b, [])),
+    ?assertError(_, lists:merge3(a, [], c)),
+    ?assertError(_, lists:merge3(a, [], [])),
+    ?assertError(_, lists:merge3([], b, [])),
+    ?assertError(_, lists:merge3([], [], c)),
+    ?assertError(_, lists:merge3(a, b, [1, 2, 3])),
+    ?assertError(_, lists:merge3(a, [1, 2, 3], c)),
+    ?assertError(_, lists:merge3(a, [1, 2, 3], [4, 5, 6])),
+    ?assertError(_, lists:merge3([1, 2, 3], b, [4, 5, 6])),
+    ?assertError(_, lists:merge3([1, 2, 3], [4, 5, 6], c)),
 
     ok.
 
@@ -563,11 +567,11 @@ rmerge(Config) when is_list(Config) ->
     true = erts_debug:same(Singleton, lists:rmerge([], Singleton)),
     true = erts_debug:same(Singleton, lists:rmerge(Singleton, [])),
 
-    {'EXIT', _} = (catch lists:rmerge(a, b)),
-    {'EXIT', _} = (catch lists:rmerge(a, [])),
-    {'EXIT', _} = (catch lists:rmerge([], b)),
-    {'EXIT', _} = (catch lists:rmerge(a, [1, 2, 3])),
-    {'EXIT', _} = (catch lists:rmerge([1, 2, 3], b)),
+    ?assertError(_, lists:rmerge(a, b)),
+    ?assertError(_, lists:rmerge(a, [])),
+    ?assertError(_, lists:rmerge([], b)),
+    ?assertError(_, lists:rmerge(a, [1, 2, 3])),
+    ?assertError(_, lists:rmerge([1, 2, 3], b)),
 
     Nine = [9,8,7,6,5,4,3,2,1],
 
@@ -591,35 +595,47 @@ rmerge(Config) when is_list(Config) ->
     true = erts_debug:same(Singleton, lists:rmerge3([], Singleton, [])),
     true = erts_debug:same(Singleton, lists:rmerge3(Singleton, [], [])),
 
-    {'EXIT', _} = (catch lists:rmerge3(a, b, c)),
-    {'EXIT', _} = (catch lists:rmerge3(a, b, [])),
-    {'EXIT', _} = (catch lists:rmerge3(a, [], c)),
-    {'EXIT', _} = (catch lists:rmerge3(a, [], [])),
-    {'EXIT', _} = (catch lists:rmerge3([], b, [])),
-    {'EXIT', _} = (catch lists:rmerge3([], [], c)),
-    {'EXIT', _} = (catch lists:rmerge3(a, b, [1, 2, 3])),
-    {'EXIT', _} = (catch lists:rmerge3(a, [1, 2, 3], c)),
-    {'EXIT', _} = (catch lists:rmerge3(a, [1, 2, 3], [4, 5, 6])),
-    {'EXIT', _} = (catch lists:rmerge3([1, 2, 3], b, [4, 5, 6])),
-    {'EXIT', _} = (catch lists:rmerge3([1, 2, 3], [4, 5, 6], c)),
+    ?assertError(_, lists:rmerge3(a, b, c)),
+    ?assertError(_, lists:rmerge3(a, b, [])),
+    ?assertError(_, lists:rmerge3(a, [], c)),
+    ?assertError(_, lists:rmerge3(a, [], [])),
+    ?assertError(_, lists:rmerge3([], b, [])),
+    ?assertError(_, lists:rmerge3([], [], c)),
+    ?assertError(_, lists:rmerge3(a, b, [1, 2, 3])),
+    ?assertError(_, lists:rmerge3(a, [1, 2, 3], c)),
+    ?assertError(_, lists:rmerge3(a, [1, 2, 3], [4, 5, 6])),
+    ?assertError(_, lists:rmerge3([1, 2, 3], b, [4, 5, 6])),
+    ?assertError(_, lists:rmerge3([1, 2, 3], [4, 5, 6], c)),
 
     ok.
 
 sort_1(Config) when is_list(Config) ->
-    [] = lists:sort([]),
-    [a] = lists:sort([a]),
-    [a,a] = lists:sort([a,a]),
-    [a,b] = lists:sort([a,b]),
-    [a,b] = lists:sort([b,a]),
-    [1,1] = lists:sort([1,1]),
-    [1,1,2,3] = lists:sort([1,1,3,2]),
-    [1,2,3,3] = lists:sort([3,3,1,2]),
-    [1,1,1,1] = lists:sort([1,1,1,1]),
-    [1,1,1,2,2,2,3,3,3] = lists:sort([3,3,3,2,2,2,1,1,1]),
-    [1,1,1,2,2,2,3,3,3] = lists:sort([1,1,1,2,2,2,3,3,3]),
+    sort(fun lists:sort/1).
 
-    lists:foreach(fun check/1, perms([1,2,3])),
-    lists:foreach(fun check/1, perms([1,2,3,4,5,6,7,8])),
+sort_2(Config) when is_list(Config) ->
+    sort(fun (L) -> lists:sort(fun erlang:'=<'/2, L) end).
+
+sort(ListsSort) when is_function(ListsSort, 1) ->
+    [] = ListsSort([]),
+    [a] = ListsSort([a]),
+    [a,a] = ListsSort([a,a]),
+    [a,b] = ListsSort([a,b]),
+    [a,b] = ListsSort([b,a]),
+    [1,1] = ListsSort([1,1]),
+    [1,1,2,3] = ListsSort([1,1,3,2]),
+    [1,2,3,3] = ListsSort([3,3,1,2]),
+    [1,1,1,1] = ListsSort([1,1,1,1]),
+    [0,+0.0,-0.0,1,2,3] = ListsSort([0,+0.0,-0.0,3,2,1]),
+    [-3,-2,-1,0,+0.0,-0.0] = ListsSort([0,+0.0,-0.0,-1,-2,-3]),
+    [1,1,1,2,2,2,3,3,3] = ListsSort([3,3,3,2,2,2,1,1,1]),
+    [1,1,1,2,2,2,3,3,3] = ListsSort([1,1,1,2,2,2,3,3,3]),
+
+    [test_stable_sort(ListsSort, StableList, Xs) ||
+        {StableList, Xs} <- stable_lists_spec()],
+
+    Check = fun (L) -> check(ListsSort, L) end,
+    lists:foreach(Check, perms([1,2,3])),
+    lists:foreach(Check, perms([1,2,3,4,5,6,7,8])),
     ok.
 
 %% sort/1 on big randomized lists
@@ -630,11 +646,58 @@ sort_rand(Config) when is_list(Config) ->
     ok = check(biglist(10000)),
     ok.
 
-check([]) ->
+stable_lists_spec() ->
+    %% [{SortedList, KeysThatHaveEquals}]
+    [{[0.0, 0], [0]},
+     {[+0.0, -0.0, 0], [0]},
+     {[1, 2, 2.0, 2.0], [2]},
+     {[-1, 0, +0.0, 0.0, 1], [0]},
+     {[-1, 0, +0.0, 0.0, 1, 2], [0]},
+     {[-2, -1, 0, -0.0, +0.0, 1, 2], [0]},
+     {[-1, 0, -0.0, +0.0, 1, 2.0, 2.0, 2], [0,2]}].
+
+%% Test that all permutations of StableList that have
+%% the elements specified by Xs in the same order as StableList,
+%% are sorted to StableList
+%%
+test_stable_sort(ListsSort, StableList, Xs) ->
+    StableElements =
+        [{X, lists_eq(X, StableList)} || X <- Xs],
+    [begin
+         {StableList, _, _} =
+             {ListsSort(Unsorted), StableList, Unsorted}
+     end ||
+        Unsorted <- perms(StableList),
+        elements_are_stable(Unsorted, StableElements)],
+    ok.
+
+%% Check that Unsorted elements equal to X matches Ys,
+%% for all {X,Ys}
+%%
+elements_are_stable(Unsorted, [{X, Ys} | StableElements]) ->
+    lists_eq(X, Unsorted) =:= Ys andalso
+        elements_are_stable(Unsorted, StableElements);
+elements_are_stable(_Unsorted, []) -> true.
+
+%% Filter elements that compare equal to X
+%%
+lists_eq(X, [Y | L]) ->
+    if
+        X == Y ->
+            [Y | lists_eq(X, L)];
+        (X /= Y) ->
+            lists_eq(X, L)
+    end;
+lists_eq(_X, []) -> [].
+
+
+check(L) -> check(fun lists:sort/1, L).
+%%
+check(_ListsSort, []) ->
     ok;
-check(L) ->
-    S = lists:sort(L),
-    case {length(L) == length(S), check(hd(S), tl(S))} of
+check(ListsSort, L) ->
+    S = ListsSort(L),
+    case {length(L) == length(S), check_order(hd(S), tl(S))} of
 	{true,ok} ->
 	    ok;
 	_ ->
@@ -642,31 +705,41 @@ check(L) ->
 	    erlang:error(check)
     end.
 
-check(_A, []) ->
+check_order(_A, []) ->
     ok;
-check(A, [B | L]) when A =< B ->
-    check(B, L);
-check(_A, _L) ->
+check_order(A, [B | L]) when A =< B ->
+    check_order(B, L);
+check_order(_A, _L) ->
     no.
 
 usort_1(Conf) when is_list(Conf) ->
-    [] = lists:usort([]),
-    [1] = lists:usort([1]),
-    [1] = lists:usort([1,1]),
-    [1] = lists:usort([1,1,1,1,1]),
-    [1,2] = lists:usort([1,2]),
-    [1,2] = lists:usort([1,2,1]),
-    [1,2] = lists:usort([1,2,2]),
-    [1,2,3] = lists:usort([1,3,2]),
-    [1,3] = lists:usort([3,1,3]),
-    [0,1,3] = lists:usort([3,1,0]),
-    [1,2,3] = lists:usort([3,1,2]),
-    [1,2] = lists:usort([2,1,1]),
-    [1,2] = lists:usort([2,1]),
-    [0,3,4,8,9] = lists:usort([3,8,9,0,9,4]),
+    usort(fun lists:usort/1).
 
-    lists:foreach(fun ucheck/1, perms([1,2,3])),
-    lists:foreach(fun ucheck/1, perms([1,2,3,4,5,6,2,1])),
+usort_2(Conf) when is_list(Conf) ->
+    usort(fun (L) -> lists:usort(fun erlang:'=<'/2, L) end).
+
+usort(ListsUSort) when is_function(ListsUSort, 1) ->
+    [] = ListsUSort([]),
+    [1] = ListsUSort([1]),
+    [1] = ListsUSort([1,1]),
+    [1] = ListsUSort([1,1,1,1,1]),
+    [1,2] = ListsUSort([1,2]),
+    [1,2] = ListsUSort([1,2,1]),
+    [1,2] = ListsUSort([1,2,2]),
+    [1,2,3] = ListsUSort([1,3,2]),
+    [1,3] = ListsUSort([3,1,3]),
+    [0,1,3] = ListsUSort([3,1,0]),
+    [1,2,3] = ListsUSort([3,1,2]),
+    [1,2] = ListsUSort([2,1,1]),
+    [1,2] = ListsUSort([2,1]),
+    [0,3,4,8,9] = ListsUSort([3,8,9,0,9,4]),
+
+    [test_stable_usort(ListsUSort, StableList, Xs) ||
+        {StableList, Xs} <- stable_lists_spec()],
+
+    UCheck = fun (L) -> ucheck(ListsUSort, L) end,
+    lists:foreach(UCheck, perms([1,2,3])),
+    lists:foreach(UCheck, perms([1,2,3,4,5,6,2,1])),
 
     ok.
 
@@ -703,25 +776,25 @@ umerge(Conf) when is_list(Conf) ->
     true = erts_debug:same(Singleton, lists:umerge([[], Singleton, []])),
     true = erts_debug:same(Singleton, lists:umerge([[], [], Singleton])),
 
-    {'EXIT', _} = (catch lists:umerge([a])),
-    {'EXIT', _} = (catch lists:umerge([a, b])),
-    {'EXIT', _} = (catch lists:umerge([a, []])),
-    {'EXIT', _} = (catch lists:umerge([[], b])),
-    {'EXIT', _} = (catch lists:umerge([a, [1, 2, 3]])),
-    {'EXIT', _} = (catch lists:umerge([[1, 2, 3], b])),
-    {'EXIT', _} = (catch lists:umerge([a, b, c])),
-    {'EXIT', _} = (catch lists:umerge([a, b, []])),
-    {'EXIT', _} = (catch lists:umerge([a, [], c])),
-    {'EXIT', _} = (catch lists:umerge([a, [], []])),
-    {'EXIT', _} = (catch lists:umerge([[], b, c])),
-    {'EXIT', _} = (catch lists:umerge([[], b, []])),
-    {'EXIT', _} = (catch lists:umerge([[], [], c])),
-    {'EXIT', _} = (catch lists:umerge([a, b, [1, 2, 3]])),
-    {'EXIT', _} = (catch lists:umerge([a, [1, 2, 3], c])),
-    {'EXIT', _} = (catch lists:umerge([a, [1, 2, 3], [4, 5, 6]])),
-    {'EXIT', _} = (catch lists:umerge([[1, 2, 3], b, c])),
-    {'EXIT', _} = (catch lists:umerge([[1, 2, 3], b, [4, 5, 6]])),
-    {'EXIT', _} = (catch lists:umerge([[1, 2, 3], [4, 5, 6], c])),
+    ?assertError(_, lists:umerge([a])),
+    ?assertError(_, lists:umerge([a, b])),
+    ?assertError(_, lists:umerge([a, []])),
+    ?assertError(_, lists:umerge([[], b])),
+    ?assertError(_, lists:umerge([a, [1, 2, 3]])),
+    ?assertError(_, lists:umerge([[1, 2, 3], b])),
+    ?assertError(_, lists:umerge([a, b, c])),
+    ?assertError(_, lists:umerge([a, b, []])),
+    ?assertError(_, lists:umerge([a, [], c])),
+    ?assertError(_, lists:umerge([a, [], []])),
+    ?assertError(_, lists:umerge([[], b, c])),
+    ?assertError(_, lists:umerge([[], b, []])),
+    ?assertError(_, lists:umerge([[], [], c])),
+    ?assertError(_, lists:umerge([a, b, [1, 2, 3]])),
+    ?assertError(_, lists:umerge([a, [1, 2, 3], c])),
+    ?assertError(_, lists:umerge([a, [1, 2, 3], [4, 5, 6]])),
+    ?assertError(_, lists:umerge([[1, 2, 3], b, c])),
+    ?assertError(_, lists:umerge([[1, 2, 3], b, [4, 5, 6]])),
+    ?assertError(_, lists:umerge([[1, 2, 3], [4, 5, 6], c])),
 
     Two = [1,2],
     Six = [1,2,3,4,5,6],
@@ -752,11 +825,11 @@ umerge(Conf) when is_list(Conf) ->
     true = erts_debug:same(Singleton, lists:umerge([], Singleton)),
     true = erts_debug:same(Singleton, lists:umerge(Singleton, [])),
 
-    {'EXIT', _} = (catch lists:umerge(a, b)),
-    {'EXIT', _} = (catch lists:umerge(a, [])),
-    {'EXIT', _} = (catch lists:umerge([], b)),
-    {'EXIT', _} = (catch lists:umerge(a, [1, 2, 3])),
-    {'EXIT', _} = (catch lists:umerge([1, 2, 3], b)),
+    ?assertError(_, lists:umerge(a, b)),
+    ?assertError(_, lists:umerge(a, [])),
+    ?assertError(_, lists:umerge([], b)),
+    ?assertError(_, lists:umerge(a, [1, 2, 3])),
+    ?assertError(_, lists:umerge([1, 2, 3], b)),
 
     %% 3-way unique merge
     [] = lists:umerge3([], [], []),
@@ -783,17 +856,17 @@ umerge(Conf) when is_list(Conf) ->
     true = erts_debug:same(Singleton, lists:umerge3([], Singleton, [])),
     true = erts_debug:same(Singleton, lists:umerge3(Singleton, [], [])),
 
-    {'EXIT', _} = (catch lists:umerge3(a, b, c)),
-    {'EXIT', _} = (catch lists:umerge3(a, b, [])),
-    {'EXIT', _} = (catch lists:umerge3(a, [], c)),
-    {'EXIT', _} = (catch lists:umerge3(a, [], [])),
-    {'EXIT', _} = (catch lists:umerge3([], b, [])),
-    {'EXIT', _} = (catch lists:umerge3([], [], c)),
-    {'EXIT', _} = (catch lists:umerge3(a, b, [1, 2, 3])),
-    {'EXIT', _} = (catch lists:umerge3(a, [1, 2, 3], c)),
-    {'EXIT', _} = (catch lists:umerge3(a, [1, 2, 3], [4, 5, 6])),
-    {'EXIT', _} = (catch lists:umerge3([1, 2, 3], b, [4, 5, 6])),
-    {'EXIT', _} = (catch lists:umerge3([1, 2, 3], [4, 5, 6], c)),
+    ?assertError(_, lists:umerge3(a, b, c)),
+    ?assertError(_, lists:umerge3(a, b, [])),
+    ?assertError(_, lists:umerge3(a, [], c)),
+    ?assertError(_, lists:umerge3(a, [], [])),
+    ?assertError(_, lists:umerge3([], b, [])),
+    ?assertError(_, lists:umerge3([], [], c)),
+    ?assertError(_, lists:umerge3(a, b, [1, 2, 3])),
+    ?assertError(_, lists:umerge3(a, [1, 2, 3], c)),
+    ?assertError(_, lists:umerge3(a, [1, 2, 3], [4, 5, 6])),
+    ?assertError(_, lists:umerge3([1, 2, 3], b, [4, 5, 6])),
+    ?assertError(_, lists:umerge3([1, 2, 3], [4, 5, 6], c)),
 
     ok.
 
@@ -829,11 +902,11 @@ rumerge(Conf) when is_list(Conf) ->
     true = erts_debug:same(Singleton, lists:rumerge([], Singleton)),
     true = erts_debug:same(Singleton, lists:rumerge(Singleton, [])),
 
-    {'EXIT', _} = (catch lists:rumerge(a, b)),
-    {'EXIT', _} = (catch lists:rumerge(a, [])),
-    {'EXIT', _} = (catch lists:rumerge([], b)),
-    {'EXIT', _} = (catch lists:rumerge(a, [1, 2, 3])),
-    {'EXIT', _} = (catch lists:rumerge([1, 2, 3], b)),
+    ?assertError(_, lists:rumerge(a, b)),
+    ?assertError(_, lists:rumerge(a, [])),
+    ?assertError(_, lists:rumerge([], b)),
+    ?assertError(_, lists:rumerge(a, [1, 2, 3])),
+    ?assertError(_, lists:rumerge([1, 2, 3], b)),
 
     Nine = [9,8,7,6,5,4,3,2,1],
 
@@ -868,17 +941,17 @@ rumerge(Conf) when is_list(Conf) ->
     true = erts_debug:same(Singleton, lists:rumerge3([], Singleton, [])),
     true = erts_debug:same(Singleton, lists:rumerge3(Singleton, [], [])),
 
-    {'EXIT', _} = (catch lists:rumerge3(a, b, c)),
-    {'EXIT', _} = (catch lists:rumerge3(a, b, [])),
-    {'EXIT', _} = (catch lists:rumerge3(a, [], c)),
-    {'EXIT', _} = (catch lists:rumerge3(a, [], [])),
-    {'EXIT', _} = (catch lists:rumerge3([], b, [])),
-    {'EXIT', _} = (catch lists:rumerge3([], [], c)),
-    {'EXIT', _} = (catch lists:rumerge3(a, b, [1, 2, 3])),
-    {'EXIT', _} = (catch lists:rumerge3(a, [1, 2, 3], c)),
-    {'EXIT', _} = (catch lists:rumerge3(a, [1, 2, 3], [4, 5, 6])),
-    {'EXIT', _} = (catch lists:rumerge3([1, 2, 3], b, [4, 5, 6])),
-    {'EXIT', _} = (catch lists:rumerge3([1, 2, 3], [4, 5, 6], c)),
+    ?assertError(_, lists:rumerge3(a, b, c)),
+    ?assertError(_, lists:rumerge3(a, b, [])),
+    ?assertError(_, lists:rumerge3(a, [], c)),
+    ?assertError(_, lists:rumerge3(a, [], [])),
+    ?assertError(_, lists:rumerge3([], b, [])),
+    ?assertError(_, lists:rumerge3([], [], c)),
+    ?assertError(_, lists:rumerge3(a, b, [1, 2, 3])),
+    ?assertError(_, lists:rumerge3(a, [1, 2, 3], c)),
+    ?assertError(_, lists:rumerge3(a, [1, 2, 3], [4, 5, 6])),
+    ?assertError(_, lists:rumerge3([1, 2, 3], b, [4, 5, 6])),
+    ?assertError(_, lists:rumerge3([1, 2, 3], [4, 5, 6], c)),
 
     ok.
 
@@ -895,11 +968,36 @@ usort_rand(Config) when is_list(Config) ->
     ok = ucheck(ubiglist(10000)),
     ok.
 
-ucheck([]) ->
+test_stable_usort(ListsUSort, StableList, Xs) ->
+    StableUList = ulist(StableList),
+    StableElements =
+        [{X, lists_eq(X, StableList)} || X <- Xs],
+    [begin
+         {StableUList, _, _} =
+             {ListsUSort(Unsorted), StableUList, Unsorted}
+     end ||
+        Unsorted <- perms(StableList),
+        elements_are_stable(Unsorted, StableElements)],
+    ok.
+
+%% Make a sort/1:ed list usort/1:ed
+ulist([]) -> [];
+ulist([X | L]) -> ulist(X, L).
+%%
+ulist(X, [Y | L]) ->
+    if  X == Y    ->      ulist(X, L);
+        (X =/= Y) -> [X | ulist(Y, L)]
+    end;
+ulist(X, []) -> [X].
+
+
+ucheck(L) -> ucheck(fun lists:usort/1, L).
+%%
+ucheck(_ListsUSort, []) ->
     ok;
-ucheck(L) ->
-    S = lists:usort(L),
-    case ucheck(hd(S), tl(S)) of
+ucheck(ListsUSort, L) ->
+    S = ListsUSort(L),
+    case ucheck_order(hd(S), tl(S)) of
 	ok ->
 	    ok;
 	_ ->
@@ -907,11 +1005,11 @@ ucheck(L) ->
 	    erlang:error(ucheck)
     end.
 
-ucheck(_A, []) ->
+ucheck_order(_A, []) ->
     ok;
-ucheck(A, [B | L]) when A < B ->
-    ucheck(B, L);
-ucheck(_A, _L) ->
+ucheck_order(A, [B | L]) when A < B ->
+    ucheck_order( B, L);
+ucheck_order(_A, _L) ->
     no.
 
 %% Key merge two lists.
@@ -949,11 +1047,11 @@ keymerge(Config) when is_list(Config) ->
     true = erts_debug:same(Singleton, lists:keymerge(1, Singleton, [])),
     true = erts_debug:same(Singleton, lists:keymerge(1, [], Singleton)),
 
-    {'EXIT', _} = (catch lists:keymerge(1, a, b)),
-    {'EXIT', _} = (catch lists:keymerge(1, a, [])),
-    {'EXIT', _} = (catch lists:keymerge(1, [], b)),
-    {'EXIT', _} = (catch lists:keymerge(1, a, [{1, a}, {2, b}, {3, c}])),
-    {'EXIT', _} = (catch lists:keymerge(1, [{1, a}, {2, b}, {3, c}], b)),
+    ?assertError(_, lists:keymerge(1, a, b)),
+    ?assertError(_, lists:keymerge(1, a, [])),
+    ?assertError(_, lists:keymerge(1, [], b)),
+    ?assertError(_, lists:keymerge(1, a, [{1, a}, {2, b}, {3, c}])),
+    ?assertError(_, lists:keymerge(1, [{1, a}, {2, b}, {3, c}], b)),
 
     ok.
 
@@ -996,11 +1094,11 @@ rkeymerge(Config) when is_list(Config) ->
     true = erts_debug:same(Singleton, lists:rkeymerge(1, Singleton, [])),
     true = erts_debug:same(Singleton, lists:rkeymerge(1, [], Singleton)),
 
-    {'EXIT', _} = (catch lists:rkeymerge(1, a, b)),
-    {'EXIT', _} = (catch lists:rkeymerge(1, a, [])),
-    {'EXIT', _} = (catch lists:rkeymerge(1, [], b)),
-    {'EXIT', _} = (catch lists:rkeymerge(1, a, [{1, a}, {2, b}, {3, c}])),
-    {'EXIT', _} = (catch lists:rkeymerge(1, [{1, a}, {2, b}, {3, c}], b)),
+    ?assertError(_, lists:rkeymerge(1, a, b)),
+    ?assertError(_, lists:rkeymerge(1, a, [])),
+    ?assertError(_, lists:rkeymerge(1, [], b)),
+    ?assertError(_, lists:rkeymerge(1, a, [{1, a}, {2, b}, {3, c}])),
+    ?assertError(_, lists:rkeymerge(1, [{1, a}, {2, b}, {3, c}], b)),
 
     ok.
 
@@ -1035,18 +1133,72 @@ keysort_1(Config) when is_list(Config) ->
     L4 = [{a,1},{a,1},{b,2},{b,2},{c,3},{d,4},{e,5},{f,6}],
     lists:foreach(SFun(L4), perms(L4)),
 
+    [test_stable_keysort(StableList, Xs) ||
+        {StableList, Xs} <- stable_lists_spec()],
+
     ok.
+
+%% Create two variants of tuple lists with keys from StableKeys.
+%% The variants are {Key}, and {Key,N++}.
+%%
+%% Test that all permutations of the stable list that have
+%% the elements specified by Ks in the same order as the stable list,
+%% are sorted to the stable list
+%%
+test_stable_keysort(StableKeys, Ks) ->
+    StableList_1 = [{K} || K <- StableKeys],
+    StableElements_1 =
+        [{K, lists_keyeq(1, K, StableList_1)} || K <- Ks],
+    [begin
+         {StableList_1, _, _} =
+             {lists:keysort(1, Unsorted), StableList_1, Unsorted}
+     end ||
+        Unsorted <- perms(StableList_1),
+        elements_are_keystable(1, Unsorted, StableElements_1)],
+    %%
+    StableList_2 = lists:enumerate(StableKeys),
+    StableElements_2 =
+        [{K, lists_keyeq(2, K, StableList_2)} || K <- Ks],
+    %%
+    [begin
+         {StableList_2, _, _} =
+             {lists:keysort(2, Unsorted), StableList_2, Unsorted}
+     end ||
+        Unsorted <- perms(StableList_2),
+        elements_are_keystable(2, Unsorted, StableElements_2)],
+    ok.
+
+
+%% Check that Unsorted elements with key comparing equal to K matches Ys,
+%% for all {K,Ys}
+%%
+elements_are_keystable(I, Unsorted, [{K, Ys} | StableElements]) ->
+    lists_keyeq(I, K, Unsorted) =:= Ys andalso
+        elements_are_keystable(I, Unsorted, StableElements);
+elements_are_keystable(_I, _Unsorted, []) -> true.
+
+%% Filter elements with key that compare equal to K
+%%
+lists_keyeq(I, K, [Y | L]) ->
+    if
+        K == element(I, Y) ->
+            [Y | lists_keyeq(I, K, L)];
+        true ->
+            lists_keyeq(I, K, L)
+    end;
+lists_keyeq(_I, _X, []) -> [].
+
 
 %% keysort should exit when given bad arguments
 keysort_error(Config) when is_list(Config) ->
-    {'EXIT', _} = (catch lists:keysort(0, [{1,b},{1,c}])),
-    {'EXIT', _} = (catch lists:keysort(3, [{1,b},{1,c}])),
-    {'EXIT', _} = (catch lists:keysort(1.5, [{1,b},{1,c}])),
-    {'EXIT', _} = (catch lists:keysort(x, [{1,b},{1,c}])),
-    {'EXIT', _} = (catch lists:keysort(x, [])),
-    {'EXIT', _} = (catch lists:keysort(x, [{1,b}])),
-    {'EXIT', _} = (catch lists:keysort(1, [a,b])),
-    {'EXIT', _} = (catch lists:keysort(1, [{1,b} | {1,c}])),
+    ?assertError(_, lists:keysort(0, [{1,b},{1,c}])),
+    ?assertError(_, lists:keysort(3, [{1,b},{1,c}])),
+    ?assertError(_, lists:keysort(1.5, [{1,b},{1,c}])),
+    ?assertError(_, lists:keysort(x, [{1,b},{1,c}])),
+    ?assertError(_, lists:keysort(x, [])),
+    ?assertError(_, lists:keysort(x, [{1,b}])),
+    ?assertError(_, lists:keysort(1, [a,b])),
+    ?assertError(_, lists:keysort(1, [{1,b} | {1,c}])),
     ok.
 
 %% keysort with other key than first element
@@ -1084,12 +1236,10 @@ check_sorted(I, Input, L) ->
 check_sorted(_I, _J, _Input, []) ->
     ok;
 check_sorted(I, J, Input, [A | Rest]) ->
-    case catch check_sorted1(I, J, A, Rest) of
-	{'EXIT', _} ->
+    try check_sorted1(I, J, A, Rest)
+    catch _:_ ->
 	    io:format("~w~n", [Input]),
-	    erlang:error(check_sorted);
-	Reply ->
-	    Reply
+            erlang:error(check_sorted)
     end.
 
 check_sorted1(_I, _J, _A, []) ->
@@ -1161,11 +1311,11 @@ ukeymerge(Conf) when is_list(Conf) ->
     true = erts_debug:same(Singleton, lists:ukeymerge(1, Singleton, [])),
     true = erts_debug:same(Singleton, lists:ukeymerge(1, [], Singleton)),
 
-    {'EXIT', _} = (catch lists:ukeymerge(1, a, b)),
-    {'EXIT', _} = (catch lists:ukeymerge(1, a, [])),
-    {'EXIT', _} = (catch lists:ukeymerge(1, [], b)),
-    {'EXIT', _} = (catch lists:ukeymerge(1, a, [{1, a}, {2, b}, {3, c}])),
-    {'EXIT', _} = (catch lists:ukeymerge(1, [{1, a}, {2, b}, {3, c}], b)),
+    ?assertError(_, lists:ukeymerge(1, a, b)),
+    ?assertError(_, lists:ukeymerge(1, a, [])),
+    ?assertError(_, lists:ukeymerge(1, [], b)),
+    ?assertError(_, lists:ukeymerge(1, a, [{1, a}, {2, b}, {3, c}])),
+    ?assertError(_, lists:ukeymerge(1, [{1, a}, {2, b}, {3, c}], b)),
 
     ok.
 
@@ -1225,11 +1375,11 @@ rukeymerge(Conf) when is_list(Conf) ->
     true = erts_debug:same(Singleton, lists:rukeymerge(1, Singleton, [])),
     true = erts_debug:same(Singleton, lists:rukeymerge(1, [], Singleton)),
 
-    {'EXIT', _} = (catch lists:rukeymerge(1, a, b)),
-    {'EXIT', _} = (catch lists:rukeymerge(1, a, [])),
-    {'EXIT', _} = (catch lists:rukeymerge(1, [], b)),
-    {'EXIT', _} = (catch lists:rukeymerge(1, a, [{1, a}, {2, b}, {3, c}])),
-    {'EXIT', _} = (catch lists:rukeymerge(1, [{1, a}, {2, b}, {3, c}], b)),
+    ?assertError(_, lists:rukeymerge(1, a, b)),
+    ?assertError(_, lists:rukeymerge(1, a, [])),
+    ?assertError(_, lists:rukeymerge(1, [], b)),
+    ?assertError(_, lists:rukeymerge(1, a, [{1, a}, {2, b}, {3, c}])),
+    ?assertError(_, lists:rukeymerge(1, [{1, a}, {2, b}, {3, c}], b)),
 
     ok.
 
@@ -1291,18 +1441,21 @@ ukeysort_1(Config) when is_list(Config) ->
     M3 = [{1,a},{2,b},{3,c}],
     lists:foreach(SFun(M3), perms(M3)),
 
+    [test_stable_ukeysort(StableList, Xs) ||
+        {StableList, Xs} <- stable_lists_spec()],
+
     ok.
 
 %% ukeysort should exit when given bad arguments.
 ukeysort_error(Config) when is_list(Config) ->
-    {'EXIT', _} = (catch lists:ukeysort(0, [{1,b},{1,c}])),
-    {'EXIT', _} = (catch lists:ukeysort(3, [{1,b},{1,c}])),
-    {'EXIT', _} = (catch lists:ukeysort(1.5, [{1,b},{1,c}])),
-    {'EXIT', _} = (catch lists:ukeysort(x, [{1,b},{1,c}])),
-    {'EXIT', _} = (catch lists:ukeysort(x, [])),
-    {'EXIT', _} = (catch lists:ukeysort(x, [{1,b}])),
-    {'EXIT', _} = (catch lists:ukeysort(1, [a,b])),
-    {'EXIT', _} = (catch lists:ukeysort(1, [{1,b} | {1,c}])),
+    ?assertError(_, lists:ukeysort(0, [{1,b},{1,c}])),
+    ?assertError(_, lists:ukeysort(3, [{1,b},{1,c}])),
+    ?assertError(_, lists:ukeysort(1.5, [{1,b},{1,c}])),
+    ?assertError(_, lists:ukeysort(x, [{1,b},{1,c}])),
+    ?assertError(_, lists:ukeysort(x, [])),
+    ?assertError(_, lists:ukeysort(x, [{1,b}])),
+    ?assertError(_, lists:ukeysort(1, [a,b])),
+    ?assertError(_, lists:ukeysort(1, [{1,b} | {1,c}])),
     ok.
 
 %% ukeysort with other key than first element.
@@ -1354,12 +1507,10 @@ ucheck_sorted(I, Input, L) ->
 ucheck_sorted(_I, _J, _Input, []) ->
     ok;
 ucheck_sorted(I, J, Input, [A | Rest]) ->
-    case catch ucheck_sorted1(I, J, A, Rest) of
-	{'EXIT', _} ->
+    try ucheck_sorted1(I, J, A, Rest)
+    catch _:_ ->
 	    io:format("~w~n", [Input]),
-	    erlang:error(ucheck_sorted);
-	Reply ->
-	    Reply
+            erlang:error(ucheck_sorted)
     end.
 
 ucheck_sorted1(_I, _J, _A, []) ->
@@ -1374,6 +1525,41 @@ ukeycompare(I, J, A, B) when A =/= B,
 			     element(I, A) == element(I, B), 
 			     element(J, A) =< element(J, B) ->
     ok.
+
+test_stable_ukeysort(StableKeys, Ks) ->
+    StableList_1 = [{K} || K <- StableKeys],
+    StableUList_1 = ukeylist(1, StableList_1),
+    StableElements_1 =
+        [{K, lists_keyeq(1, K, StableList_1)} || K <- Ks],
+    [begin
+         {StableUList_1, _, _} =
+             {lists:ukeysort(1, Unsorted), StableUList_1, Unsorted}
+     end ||
+        Unsorted <- perms(StableList_1),
+        elements_are_keystable(1, Unsorted, StableElements_1)],
+    %%
+    StableList_2 = lists:enumerate(StableKeys),
+    StableUList_2 = ukeylist(2, StableList_2),
+    StableElements_2 =
+        [{K, lists_keyeq(2, K, StableList_2)} || K <- Ks],
+    %%
+    [begin
+         {StableUList_2, _, _} =
+             {lists:ukeysort(2, Unsorted), StableUList_2, Unsorted}
+     end ||
+        Unsorted <- perms(StableList_2),
+        elements_are_keystable(2, Unsorted, StableElements_2)],
+    ok.
+
+ukeylist(_I, []) -> [];
+ukeylist(I, [X | L]) -> ukeylist(I, X, element(I, X), L).
+%%
+ukeylist(I, X, EX, [Y | L]) ->
+    EY = element(I, Y),
+    if  EX == EY    ->      ukeylist(I, X, EX, L);
+        (EX =/= EY) -> [X | ukeylist(I, Y, EY, L)]
+    end;
+ukeylist(_I, X, _EX, []) -> [X].
 
 %%%------------------------------------------------------------
 %%% Generate lists of given length, containing 3-tuples with
@@ -1502,7 +1688,7 @@ display_state(S) ->
 
 %% Test for infinite loop (OTP-2404).
 seq_loop(Config) when is_list(Config) ->
-    _ = (catch lists:seq(1, 5, -1)),
+    ?assertError(_, lists:seq(1, 5, -1)),
     ok.
 
 %% Non-error cases for seq/2.
@@ -1523,7 +1709,7 @@ seq_2_e(Config) when is_list(Config) ->
     ok.
 
 seq_error(Args) ->
-    {'EXIT', _} = (catch apply(lists, seq, Args)).
+    ?assertError(_, apply(lists, seq, Args)).
 
 %% Non-error cases for seq/3.
 seq_3(Config) when is_list(Config) ->
@@ -1572,15 +1758,15 @@ otp_7230(Config) when is_list(Config) ->
     [] =
 	[{F, T, S} ||
 	    F <- L, T <- L, S <- SL,
-	    not check_seq(F, T, S, catch lists:seq(F, T, S))
+            not check_seq(F, T, S, try lists:seq(F, T, S) catch error:_ -> error end)
 		orelse
-		S =:= 1 andalso not check_seq(F, T, S, catch lists:seq(F, T))
+                S =:= 1 andalso not check_seq(F, T, S, try lists:seq(F, T) catch error:_ -> error end)
         ].
 
 check_seq(From, To, 0, R) ->
     From =:= To andalso R =:= [From]
 	orelse
-	From =/= To andalso is_tuple(R) andalso element(1, R) =:= 'EXIT';
+        From =/= To andalso R =:= error;
 check_seq(From, To, Step, []) when Step =/= 0 ->
     0 =:= property(From, To, Step)
 	andalso
@@ -1590,9 +1776,9 @@ check_seq(From, To, Step, []) when Step =/= 0 ->
 	  Step < 0 andalso To > From andalso To-From =< -Step
 	 );
 check_seq(From, To, Step, R) when R =/= [], To < From, Step > 0 ->
-    is_tuple(R) andalso element(1, R) =:= 'EXIT';
+    R =:= error;
 check_seq(From, To, Step, R) when R =/= [], To > From, Step < 0 ->
-    is_tuple(R) andalso element(1, R) =:= 'EXIT';
+    R =:= error;
 check_seq(From, To, Step, L) when is_list(L), L =/= [], Step =/= 0 ->
     First = hd(L),
     Last = lists:last(L),
@@ -1629,8 +1815,8 @@ property(From, To, Step) ->
 %%%------------------------------------------------------------
 
 
--define(sublist_error2(X,Y), {'EXIT', _} = (catch lists:sublist(X,Y))).
--define(sublist_error3(X,Y,Z), {'EXIT', _} = (catch lists:sublist(X,Y,Z))).
+-define(sublist_error2(X,Y), ?assertError(_, lists:sublist(X,Y))).
+-define(sublist_error3(X,Y,Z), ?assertError(_, lists:sublist(X,Y,Z))).
 
 sublist_2(Config) when is_list(Config) ->
     [] = lists:sublist([], 0),
@@ -1718,7 +1904,7 @@ sublist_3_e(Config) when is_list(Config) ->
 %%%------------------------------------------------------------
 
 
--define(flatten_error1(X), {'EXIT', _} = (catch lists:flatten(X))).
+-define(flatten_error1(X), ?assertError(_, lists:flatten(X))).
 
 %% Test lists:flatten/1,2 and lists:flatlength/1.
 flatten_1(Config) when is_list(Config) ->
@@ -1781,20 +1967,20 @@ zip_unzip(Config) when is_list(Config) ->
     {[a,c],[b,d]} = lists:unzip([{a,b},{c,d}]),
 
     %% Error cases.
-    {'EXIT',{function_clause,_}} = (catch lists:zip([], [b])),
-    {'EXIT',{function_clause,_}} = (catch lists:zip([a], [])),
-    {'EXIT',{function_clause,_}} = (catch lists:zip([a], [b,c])),
-    {'EXIT',{function_clause,_}} = (catch lists:zip([a], [b,c])),
+    ?assertError(function_clause, lists:zip([], [b])),
+    ?assertError(function_clause, lists:zip([a], [])),
+    ?assertError(function_clause, lists:zip([a], [b,c])),
+    ?assertError(function_clause, lists:zip([a], [b,c])),
     ok.
 
 zip_fail(Config) when is_list(Config) ->
     [] = lists:zip([], [], fail),
-    {'EXIT', {function_clause, _}} = (catch lists:zip([a], [], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zip([], [c], fail)),
+    ?assertError(function_clause, lists:zip([a], [], fail)),
+    ?assertError(function_clause, lists:zip([], [c], fail)),
 
     [{a, c}] = lists:zip([a], [c], fail),
-    {'EXIT', {function_clause, _}} = (catch lists:zip([a, b], [c], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zip([a], [c, d], fail)),
+    ?assertError(function_clause, lists:zip([a, b], [c], fail)),
+    ?assertError(function_clause, lists:zip([a], [c, d], fail)),
 
     ok.
 
@@ -1842,28 +2028,28 @@ zip_unzip3(Config) when is_list(Config) ->
     {[a],[b],[c]} = lists:unzip3([{a,b,c}]),
 
     %% Error cases.
-    {'EXIT',{function_clause,_}} = (catch lists:zip3([], [], [c])),
-    {'EXIT',{function_clause,_}} = (catch lists:zip3([], [b], [])),
-    {'EXIT',{function_clause,_}} = (catch lists:zip3([a], [], [])),
+    ?assertError(function_clause, lists:zip3([], [], [c])),
+    ?assertError(function_clause, lists:zip3([], [b], [])),
+    ?assertError(function_clause, lists:zip3([a], [], [])),
 
     ok.
 
 zip3_fail(Config) when is_list(Config) ->
     [] = lists:zip3([], [], [], fail),
-    {'EXIT', {function_clause, _}} = (catch lists:zip3([a], [], [], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zip3([], [c], [], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zip3([a], [c], [], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zip3([], [], [e], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zip3([a], [], [e], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zip3([], [c], [e], fail)),
+    ?assertError(function_clause, lists:zip3([a], [], [], fail)),
+    ?assertError(function_clause, lists:zip3([], [c], [], fail)),
+    ?assertError(function_clause, lists:zip3([a], [c], [], fail)),
+    ?assertError(function_clause, lists:zip3([], [], [e], fail)),
+    ?assertError(function_clause, lists:zip3([a], [], [e], fail)),
+    ?assertError(function_clause, lists:zip3([], [c], [e], fail)),
 
     [{a, c, e}] = lists:zip3([a], [c], [e], fail),
-    {'EXIT', {function_clause, _}} = (catch lists:zip3([a, b], [c], [e], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zip3([a], [c, d], [e], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zip3([a, b], [c, d], [e], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zip3([a], [c], [e, f], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zip3([a, b], [c], [e, f], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zip3([a], [c, d], [e, f], fail)),
+    ?assertError(function_clause, lists:zip3([a, b], [c], [e], fail)),
+    ?assertError(function_clause, lists:zip3([a], [c, d], [e], fail)),
+    ?assertError(function_clause, lists:zip3([a, b], [c, d], [e], fail)),
+    ?assertError(function_clause, lists:zip3([a], [c], [e, f], fail)),
+    ?assertError(function_clause, lists:zip3([a, b], [c], [e, f], fail)),
+    ?assertError(function_clause, lists:zip3([a], [c, d], [e, f], fail)),
 
     ok.
 
@@ -1922,23 +2108,23 @@ zipwith(Config) when is_list(Config) ->
     SeqB = [B || [_|B] <- AB],
 
     %% Error cases.
-    {'EXIT',{function_clause,_}} = (catch lists:zipwith(badfun, [], [])),
-    {'EXIT',{function_clause,_}} = (catch lists:zipwith(Zip, [], [b])),
-    {'EXIT',{function_clause,_}} = (catch lists:zipwith(Zip, [a], [])),
-    {'EXIT',{function_clause,_}} = (catch lists:zipwith(Zip, [a], [b,c])),
-    {'EXIT',{function_clause,_}} = (catch lists:zipwith(Zip, [a], [b,c])),
+    ?assertError(function_clause, lists:zipwith(badfun, [], [])),
+    ?assertError(function_clause, lists:zipwith(Zip, [], [b])),
+    ?assertError(function_clause, lists:zipwith(Zip, [a], [])),
+    ?assertError(function_clause, lists:zipwith(Zip, [a], [b,c])),
+    ?assertError(function_clause, lists:zipwith(Zip, [a], [b,c])),
     ok.
 
 zipwith_fail(Config) when is_list(Config) ->
     Zip = fun(A, B) -> A * B end,
 
     [] = lists:zipwith(Zip, [], [], fail),
-    {'EXIT', {function_clause, _}} = (catch lists:zipwith(Zip, [2], [], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zipwith(Zip, [], [5], fail)),
+    ?assertError(function_clause, lists:zipwith(Zip, [2], [], fail)),
+    ?assertError(function_clause, lists:zipwith(Zip, [], [5], fail)),
 
     [2 * 5] = lists:zipwith(Zip, [2], [5], fail),
-    {'EXIT', {function_clause, _}} = (catch lists:zipwith(Zip, [2, 3], [5], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zipwith(Zip, [2], [5, 7], fail)),
+    ?assertError(function_clause, lists:zipwith(Zip, [2, 3], [5], fail)),
+    ?assertError(function_clause, lists:zipwith(Zip, [2], [5, 7], fail)),
 
     ok.
 
@@ -1987,10 +2173,10 @@ zipwith3(Config) when is_list(Config) ->
     SeqC = [C || [_,_,C] <- ABC],
 
     %% Error cases.
-    {'EXIT',{function_clause,_}} = (catch lists:zipwith3(badfun, [], [], [])),
-    {'EXIT',{function_clause,_}} = (catch lists:zipwith3(Zip, [], [], [c])),
-    {'EXIT',{function_clause,_}} = (catch lists:zipwith3(Zip, [], [b], [])),
-    {'EXIT',{function_clause,_}} = (catch lists:zipwith3(Zip, [a], [], [])),
+    ?assertError(function_clause, lists:zipwith3(badfun, [], [], [])),
+    ?assertError(function_clause, lists:zipwith3(Zip, [], [], [c])),
+    ?assertError(function_clause, lists:zipwith3(Zip, [], [b], [])),
+    ?assertError(function_clause, lists:zipwith3(Zip, [a], [], [])),
 
     ok.
 
@@ -1998,20 +2184,20 @@ zipwith3_fail(Config) when is_list(Config) ->
     Zip = fun(A, B, C) -> A * B * C end,
 
     [] = lists:zipwith3(Zip, [], [], [], fail),
-    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2], [], [], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [], [5], [], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2], [5], [], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [], [], [11], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2], [], [11], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [], [5], [11], fail)),
+    ?assertError(function_clause, lists:zipwith3(Zip, [2], [], [], fail)),
+    ?assertError(function_clause, lists:zipwith3(Zip, [], [5], [], fail)),
+    ?assertError(function_clause, lists:zipwith3(Zip, [2], [5], [], fail)),
+    ?assertError(function_clause, lists:zipwith3(Zip, [], [], [11], fail)),
+    ?assertError(function_clause, lists:zipwith3(Zip, [2], [], [11], fail)),
+    ?assertError(function_clause, lists:zipwith3(Zip, [], [5], [11], fail)),
 
     [2 * 5 * 11] = lists:zipwith3(Zip, [2], [5], [11], fail),
-    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2, 3], [5], [11], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2], [5, 7], [11], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2, 3], [5, 7], [11], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2], [5], [11, 13], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2, 3], [5], [11, 13], fail)),
-    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2], [5, 7], [11, 13], fail)),
+    ?assertError(function_clause, lists:zipwith3(Zip, [2, 3], [5], [11], fail)),
+    ?assertError(function_clause, lists:zipwith3(Zip, [2], [5, 7], [11], fail)),
+    ?assertError(function_clause, lists:zipwith3(Zip, [2, 3], [5, 7], [11], fail)),
+    ?assertError(function_clause, lists:zipwith3(Zip, [2], [5], [11, 13], fail)),
+    ?assertError(function_clause, lists:zipwith3(Zip, [2, 3], [5], [11, 13], fail)),
+    ?assertError(function_clause, lists:zipwith3(Zip, [2], [5, 7], [11, 13], fail)),
 
     ok.
 
@@ -2081,8 +2267,8 @@ filter_partition(Config) when is_list(Config) ->
     filpart(F, [6,8,1,2,42,3,17], [6,8,2,42]),
 
     %% Error cases.
-    {'EXIT',{function_clause,_}} = (catch lists:filter(badfun, [])),
-    {'EXIT',{function_clause,_}} = (catch lists:partition(badfun, [])),
+    ?assertError(function_clause, lists:filter(badfun, [])),
+    ?assertError(function_clause, lists:partition(badfun, [])),
     ok.
 
 filpart(F, All, Exp) ->
@@ -2100,67 +2286,67 @@ otp_5939(Config) when is_list(Config) ->
     Fold = fun(_E, A) -> A end,
     MapFold = fun(E, A) -> {E,A} end,
 
-    {'EXIT', _} = (catch lists:usort( [asd], [qwe])),
+    ?assertError(_, lists:usort( [asd], [qwe])),
 
-    {'EXIT', _} = (catch lists:zipwith(func, [], [])),
+    ?assertError(_, lists:zipwith(func, [], [])),
     [] = lists:zipwith(Fun2, [], []),
-    {'EXIT', _} = (catch lists:zipwith3(func, [], [], [])),
+    ?assertError(_, lists:zipwith3(func, [], [], [])),
     [] = lists:zipwith3(Fun3, [], [], []),
-    {'EXIT', _} = (catch lists:keymap(func, 1, [])),
-    {'EXIT', _} = (catch lists:keymap(Fun1, 0, [])),
+    ?assertError(_, lists:keymap(func, 1, [])),
+    ?assertError(_, lists:keymap(Fun1, 0, [])),
     [] = lists:keymap(Fun1, 1, []),
-    {'EXIT', _} = (catch lists:merge(func, [], [1])),
-    {'EXIT', _} = (catch lists:merge(func, [1], [])),
+    ?assertError(_, lists:merge(func, [], [1])),
+    ?assertError(_, lists:merge(func, [1], [])),
     [] = lists:merge(Fun2, [], []),
-    {'EXIT', _} = (catch lists:rmerge(func, [], [1])),
-    {'EXIT', _} = (catch lists:rmerge(func, [1], [])),
+    ?assertError(_, lists:rmerge(func, [], [1])),
+    ?assertError(_, lists:rmerge(func, [1], [])),
     [] = lists:rmerge(Fun2, [], []),
-    {'EXIT', _} = (catch lists:usort(func, [])),
-    {'EXIT', _} = (catch lists:usort(func, [a])),
-    {'EXIT', _} = (catch lists:usort(func, [a, b])),
+    ?assertError(_, lists:usort(func, [])),
+    ?assertError(_, lists:usort(func, [a])),
+    ?assertError(_, lists:usort(func, [a, b])),
     [] = lists:usort(Fun2, []),
-    {'EXIT', _} = (catch lists:umerge(func, [], [1])),
-    {'EXIT', _} = (catch lists:merge(func, [1], [])),
+    ?assertError(_, lists:umerge(func, [], [1])),
+    ?assertError(_, lists:merge(func, [1], [])),
     [] = lists:umerge(Fun2, [], []),
-    {'EXIT', _} = (catch lists:rumerge(func, [], [1])),
-    {'EXIT', _} = (catch lists:rumerge(func, [1], [])),
+    ?assertError(_, lists:rumerge(func, [], [1])),
+    ?assertError(_, lists:rumerge(func, [1], [])),
     [] = lists:rumerge(Fun2, [], []),
-    {'EXIT', _} = (catch lists:all(func, [])),
+    ?assertError(_, lists:all(func, [])),
     true = lists:all(Pred, []),
-    {'EXIT', _} = (catch lists:any(func, [])),
+    ?assertError(_, lists:any(func, [])),
     false = lists:any(Pred, []),
-    {'EXIT', _} = (catch lists:map(func, [])),
+    ?assertError(_, lists:map(func, [])),
     [] = lists:map(Fun1, []),
-    {'EXIT', _} = (catch lists:flatmap(func, [])),
+    ?assertError(_, lists:flatmap(func, [])),
     [] = lists:flatmap(Fun1, []),
-    {'EXIT', _} = (catch lists:foldl(func, [], [])),
+    ?assertError(_, lists:foldl(func, [], [])),
     [] = lists:foldl(Fold, [], []),
-    {'EXIT', _} = (catch lists:foldr(func, [], [])),
+    ?assertError(_, lists:foldr(func, [], [])),
     [] = lists:foldr(Fold, [], []),
-    {'EXIT', _} = (catch lists:filter(func, [])),
+    ?assertError(_, lists:filter(func, [])),
     [] = lists:filter(Pred, []),
-    {'EXIT', _} = (catch lists:partition(func, [])),
+    ?assertError(_, lists:partition(func, [])),
     {[],[]} = lists:partition(Pred, []),
-    {'EXIT', _} = (catch lists:filtermap(func, [])),
+    ?assertError(_, lists:filtermap(func, [])),
     [] = lists:filtermap(Fun1, []),
-    {'EXIT', _} = (catch lists:foreach(func, [])),
+    ?assertError(_, lists:foreach(func, [])),
     ok = lists:foreach(Fun1, []),
-    {'EXIT', _} = (catch lists:mapfoldl(func, [], [])),
+    ?assertError(_, lists:mapfoldl(func, [], [])),
     {[],[]} = lists:mapfoldl(MapFold, [], []),
-    {'EXIT', _} = (catch lists:mapfoldr(func, [], [])),
+    ?assertError(_, lists:mapfoldr(func, [], [])),
     {[],[]} = lists:mapfoldr(MapFold, [], []),
-    {'EXIT', _} = (catch lists:takewhile(func, [])),
+    ?assertError(_, lists:takewhile(func, [])),
     [] = lists:takewhile(Pred, []),
-    {'EXIT', _} = (catch lists:dropwhile(func, [])),
+    ?assertError(_, lists:dropwhile(func, [])),
     [] = lists:dropwhile(Pred, []),
-    {'EXIT', _} = (catch lists:splitwith(func, [])),
+    ?assertError(_, lists:splitwith(func, [])),
     {[],[]} = lists:splitwith(Pred, []),
 
     ok.
 
 %% OTP-6023. lists:keyreplace/4, a typecheck.
 otp_6023(Config) when is_list(Config) ->
-    {'EXIT', _} = (catch lists:keyreplace(a, 2, [{1,a}], b)),
+    ?assertError(_, lists:keyreplace(a, 2, [{1,a}], b)),
     [{2,b}] = lists:keyreplace(a, 2, [{1,a}], {2,b}),
 
     ok.
@@ -2200,12 +2386,12 @@ suffix(Config) when is_list(Config) ->
     false = lists:suffix([2.0,3.0], [1,2,3]),
 
     %% Error cases.
-    {'EXIT',_} = (catch lists:suffix({a,b,c}, [])),
-    {'EXIT',_} = (catch lists:suffix([], {a,b})),
-    {'EXIT',_} = (catch lists:suffix([a|b], [])),
-    {'EXIT',_} = (catch lists:suffix([a,b|c], [a|b])),
-    {'EXIT',_} = (catch lists:suffix([a|b], [a,b|c])),
-    {'EXIT',_} = (catch lists:suffix([a|b], [a|b])),
+    ?assertError(_, lists:suffix({a,b,c}, [])),
+    ?assertError(_, lists:suffix([], {a,b})),
+    ?assertError(_, lists:suffix([a|b], [])),
+    ?assertError(_, lists:suffix([a,b|c], [a|b])),
+    ?assertError(_, lists:suffix([a|b], [a,b|c])),
+    ?assertError(_, lists:suffix([a|b], [a|b])),
 
     ok.
 
@@ -2243,11 +2429,11 @@ subtract(Config) when is_list(Config) ->
     [1,2,3,4,43.0] = sub([1,2,3,4,5,42.0,43.0], [42.0,5]),
 
     %% Crashing subtracts.
-    {'EXIT',_} = (catch sub([], [a|b])),
-    {'EXIT',_} = (catch sub([a], [a|b])),
-    {'EXIT',_} = (catch sub([a|b], [])),
-    {'EXIT',_} = (catch sub([a|b], [])),
-    {'EXIT',_} = (catch sub([a|b], [a])),
+    ?assertError(_, sub([], [a|b])),
+    ?assertError(_, sub([a], [a|b])),
+    ?assertError(_, sub([a|b], [])),
+    ?assertError(_, sub([a|b], [])),
+    ?assertError(_, sub([a|b], [a])),
 
     %% Trapping, both crashing and otherwise.
     [sub_trapping(N) || N <- lists:seq(0, 18)],
@@ -2278,8 +2464,8 @@ sub_trapping(N) ->
     List = lists:duplicate(N + (1 bsl N), gurka),
     ImproperList = List ++ crash,
 
-    {'EXIT',_} = (catch sub_trapping_1(ImproperList, [])),
-    {'EXIT',_} = (catch sub_trapping_1(List, ImproperList)),
+    ?assertError(_, sub_trapping_1(ImproperList, [])),
+    ?assertError(_, sub_trapping_1(List, ImproperList)),
 
     List = List -- lists:duplicate(N + (1 bsl N), gaffel),
     ok = sub_trapping_1(List, []).
@@ -2313,8 +2499,8 @@ sub_thresholds(N) ->
 droplast(Config) when is_list(Config) ->
     [] = lists:droplast([x]),
     [x] = lists:droplast([x, y]),
-    {'EXIT', {function_clause, _}} = (catch lists:droplast([])),
-    {'EXIT', {function_clause, _}} = (catch lists:droplast(x)),
+    ?assertError(function_clause, lists:droplast([])),
+    ?assertError(function_clause, lists:droplast(x)),
 
     ok.
 
@@ -2328,8 +2514,8 @@ search(Config) when is_list(Config) ->
     false = lists:search(F, []),
 
     %% Error cases.
-    {'EXIT',{function_clause,_}} = (catch lists:search(badfun, [])),
-    {'EXIT',{function_clause,_}} = (catch lists:search(F2, [])),
+    ?assertError(function_clause, lists:search(badfun, [])),
+    ?assertError(function_clause, lists:search(F2, [])),
     ok.
 
 %% Briefly test the common high-order functions to ensure they
@@ -2384,28 +2570,28 @@ enumerate(Config) when is_list(Config) ->
     [{10,a},{12,b},{14,c}] = lists:enumerate(10, 2, [a,b,c]),
     [{10,a},{8,b},{6,c}] = lists:enumerate(10, -2, [a,b,c]),
     [{-10,a},{-12,b},{-14,c}] = lists:enumerate(-10, -2, [a,b,c]),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(0),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(0, 10),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(0, 10, 20),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(1.0, []),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(1.0, [a,b,c]),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(1.0, 2, []),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(1.0, 2, [a,b,c]),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(1, 2.0, []),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(1, 2.0, [a,b,c]),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(1.0, 2.0, []),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(1.0, 2.0, [a,b,c]),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(<<1>>, []),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(<<1>>, [a,b,c]),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(<<1>>, 2, []),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(<<1>>, 2, [a,b,c]),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(1, <<2>>, []),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(1, <<2>>, [a,b,c]),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(<<1>>, <<2>>, []),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(<<1>>, <<2>>, [a,b,c]),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(<<1,2,3>>),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(1, <<1,2,3>>),
-    {'EXIT', {function_clause, _}} = catch lists:enumerate(1, 2, <<1,2,3>>),
+    ?assertError(function_clause, lists:enumerate(0)),
+    ?assertError(function_clause, lists:enumerate(0, 10)),
+    ?assertError(function_clause, lists:enumerate(0, 10, 20)),
+    ?assertError(function_clause, lists:enumerate(1.0, [])),
+    ?assertError(function_clause, lists:enumerate(1.0, [a,b,c])),
+    ?assertError(function_clause, lists:enumerate(1.0, 2, [])),
+    ?assertError(function_clause, lists:enumerate(1.0, 2, [a,b,c])),
+    ?assertError(function_clause, lists:enumerate(1, 2.0, [])),
+    ?assertError(function_clause, lists:enumerate(1, 2.0, [a,b,c])),
+    ?assertError(function_clause, lists:enumerate(1.0, 2.0, [])),
+    ?assertError(function_clause, lists:enumerate(1.0, 2.0, [a,b,c])),
+    ?assertError(function_clause, lists:enumerate(<<1>>, [])),
+    ?assertError(function_clause, lists:enumerate(<<1>>, [a,b,c])),
+    ?assertError(function_clause, lists:enumerate(<<1>>, 2, [])),
+    ?assertError(function_clause, lists:enumerate(<<1>>, 2, [a,b,c])),
+    ?assertError(function_clause, lists:enumerate(1, <<2>>, [])),
+    ?assertError(function_clause, lists:enumerate(1, <<2>>, [a,b,c])),
+    ?assertError(function_clause, lists:enumerate(<<1>>, <<2>>, [])),
+    ?assertError(function_clause, lists:enumerate(<<1>>, <<2>>, [a,b,c])),
+    ?assertError(function_clause, lists:enumerate(<<1,2,3>>)),
+    ?assertError(function_clause, lists:enumerate(1, <<1,2,3>>)),
+    ?assertError(function_clause, lists:enumerate(1, 2, <<1,2,3>>)),
 
     ok.
 
@@ -2452,3 +2638,9 @@ uniq_2(_Config) ->
                    [{42, 1}, {42.0, 99}, {a, 99}, {a, 1}, {42, 100}]),
     [1] = lists:uniq(fun(_) -> whatever end, lists:seq(1, 10)),
     ok.
+
+doctests(_Config) ->
+    ct_doctest:module(lists, [{skipped_blocks, 5},
+                               {missing_tests,
+                                [{foreach, 2},
+                                 {keysearch, 3}]}]).

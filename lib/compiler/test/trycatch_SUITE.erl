@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(trycatch_SUITE).
@@ -35,6 +37,7 @@
          throw_opt_funs/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -961,7 +964,7 @@ bool(Config) when is_list(Config) ->
     error = do_bool(true, false),
     error = do_bool(true, true),
     error = do_bool(true, blurf),
-    {'EXIT',_} = (catch do_bool(blurf, false)),
+    ?assertError(_, do_bool(blurf, false)),
     ok.
 
 %% The following function used to cause a crash in beam_bool.
@@ -1124,7 +1127,7 @@ grab_bag(_Config) ->
 
     <<>> = grab_bag_2(whatever),
 
-    {'EXIT',_} = (catch grab_bag_3()),
+    ?assertError(_, grab_bag_3()),
 
     true = grab_bag_4(),
 
@@ -1173,7 +1176,7 @@ grab_bag_3() ->
     try 2 of
         true ->
             <<
-              "" || [V0] = door
+              "" || true =:= ([V0] = door)
             >>
     catch
         error:true:V0 ->
@@ -1556,7 +1559,7 @@ throw_opt_crash_1(false, _Term) ->
     ok.
 
 coverage(Config) ->
-    {'EXIT',{{badfun,true},[_|_]}} = (catch coverage_1()),
+    ?assertError({badfun,true}, coverage_1()),
     ok = coverage_ssa_throw(),
     error = coverage_pre_codegen(),
     {a,[42]} = do_plain_catch_list(42),
@@ -1582,9 +1585,10 @@ coverage_1() ->
 %% Cover some code in beam_ssa_throw.
 coverage_ssa_throw() ->
     cst_trivial(),
-    cst_raw(),
-    cst_stacktrace(),
     cst_types(),
+    cst_stacktrace(),
+    cst_raw(),
+    cst_hang(),
 
     ok.
 
@@ -1651,6 +1655,20 @@ cst_raw() ->
     end.
 
 cst_raw_1() -> throw(id(gurka)).
+
+cst_hang() ->
+    try cst_hang_1()
+    catch throw:gurka ->
+            ok;
+        _C:_R:Stack ->
+            %% Receive creates a label loop which used to cause
+            %% an infinite loop in the throw optimization.
+            Y = receive a -> 1; b -> 2 end,
+            id(Stack),
+            Y
+    end.
+
+cst_hang_1() -> throw(id(gurka)).
 
 %% Cover some code in beam_ssa_pre_codegen.
 coverage_pre_codegen() ->

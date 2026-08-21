@@ -1,7 +1,29 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 [;1m  relation(Tuples)[0m
 
-  Equivalent to [;;4mrelation(Tuples, Type)[0m where [;;4mType[0m is the size of
-  the first tuple of [;;4mTuples[0m is used if there is such a tuple.
+  Equivalent to [;;4mrelation(Tuples, Type)[0m, where [;;4mType[0m is the size
+  of the first tuple of [;;4mTuples[0m, if such a tuple exists.
 
   If tuples is [;;4m[][0m, then [;;4mType[0m is [;;4m2[0m.
+
+[;1mExamples[0m
+
+    1> S1 = sofs:relation([{1,a},{1,b},{1,a}]).
+    2> sofs:to_external(S1).
+    [{1,a},{1,b}]
+    3> sofs:type(S1).
+    [{atom,atom}]
+    4> sofs:type(sofs:relation([])).
+    [{atom,atom}]
+    5> sofs:type(sofs:relation([], 3)).
+    [{atom,atom,atom}]
+    6> sofs:relation([a,b,c]).
+    ** exception error: bad argument
+         in function  sofs:relation/1

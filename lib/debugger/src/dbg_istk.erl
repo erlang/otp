@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,9 @@
 %%
 -module(dbg_istk).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, binary_to_term, 1}}]).
+
 -export([init/0,delayed_to_external/0,from_external/1,
 	 push/3,pop/0,pop/1,stack_level/0,
 	 delayed_stacktrace/0,delayed_stacktrace/2,

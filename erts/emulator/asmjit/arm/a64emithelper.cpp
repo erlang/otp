@@ -1,42 +1,42 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include "../core/api-build_p.h"
+#include <asmjit/core/api-build_p.h>
 #if !defined(ASMJIT_NO_AARCH64)
 
-#include "../core/formatter.h"
-#include "../core/funcargscontext_p.h"
-#include "../core/string.h"
-#include "../core/support.h"
-#include "../core/type.h"
-#include "../arm/a64emithelper_p.h"
-#include "../arm/a64formatter_p.h"
-#include "../arm/a64instapi_p.h"
-#include "../arm/a64operand.h"
+#include <asmjit/core/formatter.h>
+#include <asmjit/core/funcargscontext_p.h>
+#include <asmjit/core/string.h>
+#include <asmjit/core/type.h>
+#include <asmjit/support/support.h>
+#include <asmjit/arm/a64emithelper_p.h>
+#include <asmjit/arm/a64formatter_p.h>
+#include <asmjit/arm/a64instapi_p.h>
+#include <asmjit/arm/a64operand.h>
 
 ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 
 // a64::EmitHelper - Emit Operations
 // =================================
 
-ASMJIT_FAVOR_SIZE Error EmitHelper::emitRegMove(
+ASMJIT_FAVOR_SIZE Error EmitHelper::emit_reg_move(
   const Operand_& dst_,
-  const Operand_& src_, TypeId typeId, const char* comment) {
+  const Operand_& src_, TypeId type_id, const char* comment) {
 
   Emitter* emitter = _emitter->as<Emitter>();
 
   // Invalid or abstract TypeIds are not allowed.
-  ASMJIT_ASSERT(TypeUtils::isValid(typeId) && !TypeUtils::isAbstract(typeId));
+  ASMJIT_ASSERT(TypeUtils::is_valid(type_id) && !TypeUtils::is_abstract(type_id));
 
-  emitter->setInlineComment(comment);
+  emitter->set_inline_comment(comment);
 
-  if (dst_.isReg() && src_.isMem()) {
+  if (dst_.is_reg() && src_.is_mem()) {
     Reg dst(dst_.as<Reg>());
     Mem src(src_.as<Mem>());
 
-    switch (typeId) {
+    switch (type_id) {
       case TypeId::kInt8:
       case TypeId::kUInt8:
         return emitter->ldrb(dst.as<Gp>(), src);
@@ -54,25 +54,28 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitRegMove(
         return emitter->ldr(dst.as<Gp>().x(), src);
 
       default: {
-        if (TypeUtils::isFloat32(typeId) || TypeUtils::isVec32(typeId))
+        if (TypeUtils::is_float32(type_id) || TypeUtils::is_vec32(type_id)) {
           return emitter->ldr(dst.as<Vec>().s(), src);
+        }
 
-        if (TypeUtils::isFloat64(typeId) || TypeUtils::isVec64(typeId))
+        if (TypeUtils::is_float64(type_id) || TypeUtils::is_vec64(type_id)) {
           return emitter->ldr(dst.as<Vec>().d(), src);
+        }
 
-        if (TypeUtils::isVec128(typeId))
+        if (TypeUtils::is_vec128(type_id)) {
           return emitter->ldr(dst.as<Vec>().q(), src);
+        }
 
         break;
       }
     }
   }
 
-  if (dst_.isMem() && src_.isReg()) {
+  if (dst_.is_mem() && src_.is_reg()) {
     Mem dst(dst_.as<Mem>());
     Reg src(src_.as<Reg>());
 
-    switch (typeId) {
+    switch (type_id) {
       case TypeId::kInt8:
       case TypeId::kUInt8:
         return emitter->strb(src.as<Gp>(), dst);
@@ -90,25 +93,28 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitRegMove(
         return emitter->str(src.as<Gp>().x(), dst);
 
       default: {
-        if (TypeUtils::isFloat32(typeId) || TypeUtils::isVec32(typeId))
+        if (TypeUtils::is_float32(type_id) || TypeUtils::is_vec32(type_id)) {
           return emitter->str(src.as<Vec>().s(), dst);
+        }
 
-        if (TypeUtils::isFloat64(typeId) || TypeUtils::isVec64(typeId))
+        if (TypeUtils::is_float64(type_id) || TypeUtils::is_vec64(type_id)) {
           return emitter->str(src.as<Vec>().d(), dst);
+        }
 
-        if (TypeUtils::isVec128(typeId))
+        if (TypeUtils::is_vec128(type_id)) {
           return emitter->str(src.as<Vec>().q(), dst);
+        }
 
         break;
       }
     }
   }
 
-  if (dst_.isReg() && src_.isReg()) {
+  if (dst_.is_reg() && src_.is_reg()) {
     Reg dst(dst_.as<Reg>());
     Reg src(src_.as<Reg>());
 
-    switch (typeId) {
+    switch (type_id) {
       case TypeId::kInt8:
       case TypeId::kUInt8:
       case TypeId::kInt16:
@@ -120,116 +126,118 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitRegMove(
         return emitter->mov(dst.as<Gp>().x(), src.as<Gp>().x());
 
       default: {
-        if (TypeUtils::isFloat32(typeId) || TypeUtils::isVec32(typeId))
+        if (TypeUtils::is_float32(type_id) || TypeUtils::is_vec32(type_id)) {
           return emitter->fmov(dst.as<Vec>().s(), src.as<Vec>().s());
+        }
 
-        if (TypeUtils::isFloat64(typeId) || TypeUtils::isVec64(typeId))
+        if (TypeUtils::is_float64(type_id) || TypeUtils::is_vec64(type_id)) {
           return emitter->mov(dst.as<Vec>().b8(), src.as<Vec>().b8());
+        }
 
-        if (TypeUtils::isVec128(typeId))
+        if (TypeUtils::is_vec128(type_id)) {
           return emitter->mov(dst.as<Vec>().b16(), src.as<Vec>().b16());
+        }
 
         break;
       }
     }
   }
 
-  emitter->setInlineComment(nullptr);
-  return DebugUtils::errored(kErrorInvalidState);
+  emitter->set_inline_comment(nullptr);
+  return make_error(Error::kInvalidState);
 }
 
-Error EmitHelper::emitRegSwap(
-  const BaseReg& a,
-  const BaseReg& b, const char* comment) {
+Error EmitHelper::emit_reg_swap(
+  const Reg& a,
+  const Reg& b, const char* comment) {
 
-  DebugUtils::unused(a, b, comment);
-  return DebugUtils::errored(kErrorInvalidState);
+  Support::maybe_unused(a, b, comment);
+  return make_error(Error::kInvalidState);
 }
 
 // TODO: [ARM] EmitArgMove is unfinished.
-Error EmitHelper::emitArgMove(
-  const BaseReg& dst_, TypeId dstTypeId,
-  const Operand_& src_, TypeId srcTypeId, const char* comment) {
+Error EmitHelper::emit_arg_move(
+  const Reg& dst_, TypeId dst_type_id,
+  const Operand_& src_, TypeId src_type_id, const char* comment) {
 
-  // Deduce optional `dstTypeId`, which may be `TypeId::kVoid` in some cases.
-  if (dstTypeId == TypeId::kVoid) {
-    const ArchTraits& archTraits = ArchTraits::byArch(_emitter->arch());
-    dstTypeId = archTraits.regTypeToTypeId(dst_.type());
+  // Deduce optional `dst_type_id`, which may be `TypeId::kVoid` in some cases.
+  if (dst_type_id == TypeId::kVoid) {
+    dst_type_id = RegUtils::type_id_of(dst_.reg_type());
   }
 
   // Invalid or abstract TypeIds are not allowed.
-  ASMJIT_ASSERT(TypeUtils::isValid(dstTypeId) && !TypeUtils::isAbstract(dstTypeId));
-  ASMJIT_ASSERT(TypeUtils::isValid(srcTypeId) && !TypeUtils::isAbstract(srcTypeId));
+  ASMJIT_ASSERT(TypeUtils::is_valid(dst_type_id) && !TypeUtils::is_abstract(dst_type_id));
+  ASMJIT_ASSERT(TypeUtils::is_valid(src_type_id) && !TypeUtils::is_abstract(src_type_id));
 
   Reg dst(dst_.as<Reg>());
   Operand src(src_);
 
-  uint32_t dstSize = TypeUtils::sizeOf(dstTypeId);
-  uint32_t srcSize = TypeUtils::sizeOf(srcTypeId);
+  uint32_t dst_size = TypeUtils::size_of(dst_type_id);
+  uint32_t src_size = TypeUtils::size_of(src_type_id);
 
-  if (TypeUtils::isInt(dstTypeId)) {
-    if (TypeUtils::isInt(srcTypeId)) {
-      uint32_t x = uint32_t(dstSize == 8);
+  if (TypeUtils::is_int(dst_type_id)) {
+    if (TypeUtils::is_int(src_type_id)) {
+      uint32_t x = uint32_t(dst_size == 8);
 
-      dst.setSignature(OperandSignature{x ? uint32_t(GpX::kSignature) : uint32_t(GpW::kSignature)});
-      _emitter->setInlineComment(comment);
+      dst.set_signature(OperandSignature{x ? RegTraits<RegType::kGp64>::kSignature : RegTraits<RegType::kGp32>::kSignature});
+      _emitter->set_inline_comment(comment);
 
-      if (src.isReg()) {
-        src.setSignature(dst.signature());
+      if (src.is_reg()) {
+        src.set_signature(dst.signature());
         return _emitter->emit(Inst::kIdMov, dst, src);
       }
-      else if (src.isMem()) {
-        InstId instId = Inst::kIdNone;
-          switch (srcTypeId) {
-          case TypeId::kInt8: instId = Inst::kIdLdrsb; break;
-          case TypeId::kUInt8: instId = Inst::kIdLdrb; break;
-          case TypeId::kInt16: instId = Inst::kIdLdrsh; break;
-          case TypeId::kUInt16: instId = Inst::kIdLdrh; break;
-          case TypeId::kInt32: instId = x ? Inst::kIdLdrsw : Inst::kIdLdr; break;
-          case TypeId::kUInt32: instId = Inst::kIdLdr; break;
-          case TypeId::kInt64: instId = Inst::kIdLdr; break;
-          case TypeId::kUInt64: instId = Inst::kIdLdr; break;
+      else if (src.is_mem()) {
+        InstId inst_id = Inst::kIdNone;
+          switch (src_type_id) {
+          case TypeId::kInt8: inst_id = Inst::kIdLdrsb; break;
+          case TypeId::kUInt8: inst_id = Inst::kIdLdrb; break;
+          case TypeId::kInt16: inst_id = Inst::kIdLdrsh; break;
+          case TypeId::kUInt16: inst_id = Inst::kIdLdrh; break;
+          case TypeId::kInt32: inst_id = x ? Inst::kIdLdrsw : Inst::kIdLdr; break;
+          case TypeId::kUInt32: inst_id = Inst::kIdLdr; break;
+          case TypeId::kInt64: inst_id = Inst::kIdLdr; break;
+          case TypeId::kUInt64: inst_id = Inst::kIdLdr; break;
           default:
-            return DebugUtils::errored(kErrorInvalidState);
+            return make_error(Error::kInvalidState);
         }
-        return _emitter->emit(instId, dst, src);
+        return _emitter->emit(inst_id, dst, src);
       }
     }
   }
 
-  if (TypeUtils::isFloat(dstTypeId) || TypeUtils::isVec(dstTypeId)) {
-    if (TypeUtils::isFloat(srcTypeId) || TypeUtils::isVec(srcTypeId)) {
-      switch (srcSize) {
-        case 2: dst.as<Vec>().setSignature(OperandSignature{VecH::kSignature}); break;
-        case 4: dst.as<Vec>().setSignature(OperandSignature{VecS::kSignature}); break;
-        case 8: dst.as<Vec>().setSignature(OperandSignature{VecD::kSignature}); break;
-        case 16: dst.as<Vec>().setSignature(OperandSignature{VecV::kSignature}); break;
+  if (TypeUtils::is_float(dst_type_id) || TypeUtils::is_vec(dst_type_id)) {
+    if (TypeUtils::is_float(src_type_id) || TypeUtils::is_vec(src_type_id)) {
+      switch (src_size) {
+        case 2: dst.as<Vec>().set_signature(RegTraits<RegType::kVec16>::kSignature); break;
+        case 4: dst.as<Vec>().set_signature(RegTraits<RegType::kVec32>::kSignature); break;
+        case 8: dst.as<Vec>().set_signature(RegTraits<RegType::kVec64>::kSignature); break;
+        case 16: dst.as<Vec>().set_signature(RegTraits<RegType::kVec128>::kSignature); break;
         default:
-          return DebugUtils::errored(kErrorInvalidState);
+          return make_error(Error::kInvalidState);
       }
 
-      _emitter->setInlineComment(comment);
+      _emitter->set_inline_comment(comment);
 
-      if (src.isReg()) {
-        InstId instId = srcSize <= 4 ? Inst::kIdFmov_v : Inst::kIdMov_v;
-        src.setSignature(dst.signature());
-        return _emitter->emit(instId, dst, src);
+      if (src.is_reg()) {
+        InstId inst_id = src_size <= 4 ? Inst::kIdFmov_v : Inst::kIdMov_v;
+        src.set_signature(dst.signature());
+        return _emitter->emit(inst_id, dst, src);
       }
-      else if (src.isMem()) {
+      else if (src.is_mem()) {
         return _emitter->emit(Inst::kIdLdr_v, dst, src);
       }
     }
   }
 
-  return DebugUtils::errored(kErrorInvalidState);
+  return make_error(Error::kInvalidState);
 }
 
 // a64::EmitHelper - Emit Prolog & Epilog
 // ======================================
 
 struct LoadStoreInstructions {
-  InstId singleInstId;
-  InstId pairInstId;
+  InstId single_inst_id;
+  InstId pair_inst_id;
 };
 
 struct PrologEpilogInfo {
@@ -240,121 +248,122 @@ struct PrologEpilogInfo {
 
   struct GroupData {
     RegPair pairs[16];
-    uint32_t pairCount;
+    uint32_t pair_count;
   };
 
   Support::Array<GroupData, 2> groups;
-  uint32_t sizeTotal;
+  uint32_t size_total;
 
   Error init(const FuncFrame& frame) noexcept {
     uint32_t offset = 0;
 
-    for (RegGroup group : Support::EnumValues<RegGroup, RegGroup::kGp, RegGroup::kVec>{}) {
+    for (RegGroup group : Support::enumerate(RegGroup::kGp, RegGroup::kVec)) {
       GroupData& data = groups[group];
 
       uint32_t n = 0;
-      uint32_t pairCount = 0;
+      uint32_t pair_count = 0;
       RegPair* pairs = data.pairs;
 
-      uint32_t slotSize = frame.saveRestoreRegSize(group);
-      uint32_t savedRegs = frame.savedRegs(group);
+      uint32_t slot_size = frame.save_restore_reg_size(group);
+      RegMask saved_regs = frame.saved_regs(group);
 
-      if (group == RegGroup::kGp && frame.hasPreservedFP()) {
+      if (group == RegGroup::kGp && frame.has_preserved_fp()) {
         // Must be at the beginning of the push/pop sequence.
-        ASMJIT_ASSERT(pairCount == 0);
+        ASMJIT_ASSERT(pair_count == 0);
 
         pairs[0].offset = uint16_t(offset);
         pairs[0].ids[0] = Gp::kIdFp;
         pairs[0].ids[1] = Gp::kIdLr;
-        offset += slotSize * 2;
-        pairCount++;
+        offset += slot_size * 2;
+        pair_count++;
 
-        savedRegs &= ~Support::bitMask(Gp::kIdFp, Gp::kIdLr);
+        saved_regs &= ~Support::bit_mask<RegMask>(Gp::kIdFp, Gp::kIdLr);
       }
 
-      Support::BitWordIterator<uint32_t> it(savedRegs);
-      while (it.hasNext()) {
-        pairs[pairCount].ids[n] = uint8_t(it.next());
+      Support::BitWordIterator<uint32_t> it(saved_regs);
+      while (it.has_next()) {
+        pairs[pair_count].ids[n] = uint8_t(it.next());
 
         if (++n == 2) {
-          pairs[pairCount].offset = uint16_t(offset);
-          offset += slotSize * 2;
+          pairs[pair_count].offset = uint16_t(offset);
+          offset += slot_size * 2;
 
           n = 0;
-          pairCount++;
+          pair_count++;
         }
       }
 
       if (n == 1) {
-        pairs[pairCount].ids[1] = uint8_t(BaseReg::kIdBad);
-        pairs[pairCount].offset = uint16_t(offset);
-        offset += slotSize * 2;
-        pairCount++;
+        pairs[pair_count].ids[1] = uint8_t(Reg::kIdBad);
+        pairs[pair_count].offset = uint16_t(offset);
+        offset += slot_size * 2;
+        pair_count++;
       }
 
-      data.pairCount = pairCount;
+      data.pair_count = pair_count;
     }
 
-    sizeTotal = offset;
-    return kErrorOk;
+    size_total = offset;
+    return Error::kOk;
   }
 };
 
-ASMJIT_FAVOR_SIZE Error EmitHelper::emitProlog(const FuncFrame& frame) {
+ASMJIT_FAVOR_SIZE Error EmitHelper::emit_prolog(const FuncFrame& frame) {
   Emitter* emitter = _emitter->as<Emitter>();
 
   PrologEpilogInfo pei;
   ASMJIT_PROPAGATE(pei.init(frame));
 
-  static const Support::Array<Reg, 2> groupRegs = {{ x0, d0 }};
-  static const Support::Array<LoadStoreInstructions, 2> groupInsts = {{
+  static const Support::Array<Reg, 2> group_regs = {{ x0, d0 }};
+  static const Support::Array<LoadStoreInstructions, 2> group_insts = {{
     { Inst::kIdStr  , Inst::kIdStp   },
     { Inst::kIdStr_v, Inst::kIdStp_v }
   }};
 
-  // Emit: 'bti' (indirect branch protection).
-  if (frame.hasIndirectBranchProtection()) {
-    // TODO: The instruction is not available at the moment (would be ABI break).
-    // ASMJIT_PROPAGATE(emitter->bti());
+  // Emit: 'bti {jc}' (indirect branch protection).
+  if (frame.has_indirect_branch_protection()) {
+    ASMJIT_PROPAGATE(emitter->bti(Predicate::BTI::kJC));
   }
 
-  uint32_t adjustInitialOffset = pei.sizeTotal;
+  uint32_t adjust_initial_offset = pei.size_total;
 
-  for (RegGroup group : Support::EnumValues<RegGroup, RegGroup::kGp, RegGroup::kVec>{}) {
+  for (RegGroup group : Support::enumerate(RegGroup::kGp, RegGroup::kVec)) {
     const PrologEpilogInfo::GroupData& data = pei.groups[group];
-    uint32_t pairCount = data.pairCount;
+    uint32_t pair_count = data.pair_count;
 
-    Reg regs[2] = { groupRegs[group], groupRegs[group] };
+    Reg regs[2] = { group_regs[group], group_regs[group] };
     Mem mem = ptr(sp);
 
-    const LoadStoreInstructions& insts = groupInsts[group];
-    for (uint32_t i = 0; i < pairCount; i++) {
+    const LoadStoreInstructions& insts = group_insts[group];
+    for (uint32_t i = 0; i < pair_count; i++) {
       const PrologEpilogInfo::RegPair& pair = data.pairs[i];
 
-      regs[0].setId(pair.ids[0]);
-      regs[1].setId(pair.ids[1]);
-      mem.setOffsetLo32(pair.offset);
+      regs[0].set_id(pair.ids[0]);
+      regs[1].set_id(pair.ids[1]);
+      mem.set_offset_lo32(pair.offset);
 
-      if (pair.offset == 0 && adjustInitialOffset) {
-        mem.setOffset(-int(adjustInitialOffset));
-        mem.makePreIndex();
+      if (pair.offset == 0 && adjust_initial_offset) {
+        mem.set_offset(-int(adjust_initial_offset));
+        mem.make_pre_index();
       }
 
-      if (pair.ids[1] == BaseReg::kIdBad)
-        ASMJIT_PROPAGATE(emitter->emit(insts.singleInstId, regs[0], mem));
-      else
-        ASMJIT_PROPAGATE(emitter->emit(insts.pairInstId, regs[0], regs[1], mem));
+      if (pair.ids[1] == Reg::kIdBad) {
+        ASMJIT_PROPAGATE(emitter->emit(insts.single_inst_id, regs[0], mem));
+      }
+      else {
+        ASMJIT_PROPAGATE(emitter->emit(insts.pair_inst_id, regs[0], regs[1], mem));
+      }
 
-      mem.resetOffsetMode();
+      mem.reset_offset_mode();
 
-      if (i == 0 && frame.hasPreservedFP()) {
+      if (i == 0 && frame.has_preserved_fp()) {
         ASMJIT_PROPAGATE(emitter->mov(x29, sp));
       }
     }
   }
 
-  if (frame.hasStackAdjustment()) {
-    uint32_t adj = frame.stackAdjustment();
+  if (frame.has_stack_adjustment()) {
+    uint32_t adj = frame.stack_adjustment();
     if (adj <= 0xFFFu) {
       ASMJIT_PROPAGATE(emitter->sub(sp, sp, adj));
     }
@@ -364,30 +373,30 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitProlog(const FuncFrame& frame) {
       ASMJIT_PROPAGATE(emitter->sub(sp, sp, adj & 0xFFF000u));
     }
     else {
-      return DebugUtils::errored(kErrorInvalidState);
+      return make_error(Error::kInvalidState);
     }
   }
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
 // TODO: [ARM] Emit epilog.
-ASMJIT_FAVOR_SIZE Error EmitHelper::emitEpilog(const FuncFrame& frame) {
+ASMJIT_FAVOR_SIZE Error EmitHelper::emit_epilog(const FuncFrame& frame) {
   Emitter* emitter = _emitter->as<Emitter>();
 
   PrologEpilogInfo pei;
   ASMJIT_PROPAGATE(pei.init(frame));
 
-  static const Support::Array<Reg, 2> groupRegs = {{ x0, d0 }};
-  static const Support::Array<LoadStoreInstructions, 2> groupInsts = {{
+  static const Support::Array<Reg, 2> group_regs = {{ x0, d0 }};
+  static const Support::Array<LoadStoreInstructions, 2> group_insts = {{
     { Inst::kIdLdr  , Inst::kIdLdp   },
     { Inst::kIdLdr_v, Inst::kIdLdp_v }
   }};
 
-  uint32_t adjustInitialOffset = pei.sizeTotal;
+  uint32_t adjust_initial_offset = pei.size_total;
 
-  if (frame.hasStackAdjustment()) {
-    uint32_t adj = frame.stackAdjustment();
+  if (frame.has_stack_adjustment()) {
+    uint32_t adj = frame.stack_adjustment();
     if (adj <= 0xFFFu) {
       ASMJIT_PROPAGATE(emitter->add(sp, sp, adj));
     }
@@ -396,71 +405,73 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitEpilog(const FuncFrame& frame) {
       ASMJIT_PROPAGATE(emitter->add(sp, sp, adj & 0xFFF000u));
     }
     else {
-      return DebugUtils::errored(kErrorInvalidState);
+      return make_error(Error::kInvalidState);
     }
   }
 
   for (int g = 1; g >= 0; g--) {
     RegGroup group = RegGroup(g);
     const PrologEpilogInfo::GroupData& data = pei.groups[group];
-    uint32_t pairCount = data.pairCount;
+    uint32_t pair_count = data.pair_count;
 
-    Reg regs[2] = { groupRegs[group], groupRegs[group] };
+    Reg regs[2] = { group_regs[group], group_regs[group] };
     Mem mem = ptr(sp);
 
-    const LoadStoreInstructions& insts = groupInsts[group];
+    const LoadStoreInstructions& insts = group_insts[group];
 
-    for (int i = int(pairCount) - 1; i >= 0; i--) {
+    for (int i = int(pair_count) - 1; i >= 0; i--) {
       const PrologEpilogInfo::RegPair& pair = data.pairs[i];
 
-      regs[0].setId(pair.ids[0]);
-      regs[1].setId(pair.ids[1]);
-      mem.setOffsetLo32(pair.offset);
+      regs[0].set_id(pair.ids[0]);
+      regs[1].set_id(pair.ids[1]);
+      mem.set_offset_lo32(pair.offset);
 
-      if (pair.offset == 0 && adjustInitialOffset) {
-        mem.setOffset(int(adjustInitialOffset));
-        mem.makePostIndex();
+      if (pair.offset == 0 && adjust_initial_offset) {
+        mem.set_offset(int(adjust_initial_offset));
+        mem.make_post_index();
       }
 
-      if (pair.ids[1] == BaseReg::kIdBad)
-        ASMJIT_PROPAGATE(emitter->emit(insts.singleInstId, regs[0], mem));
-      else
-        ASMJIT_PROPAGATE(emitter->emit(insts.pairInstId, regs[0], regs[1], mem));
+      if (pair.ids[1] == Reg::kIdBad) {
+        ASMJIT_PROPAGATE(emitter->emit(insts.single_inst_id, regs[0], mem));
+      }
+      else {
+        ASMJIT_PROPAGATE(emitter->emit(insts.pair_inst_id, regs[0], regs[1], mem));
+      }
 
-      mem.resetOffsetMode();
+      mem.reset_offset_mode();
     }
   }
 
   ASMJIT_PROPAGATE(emitter->ret(x30));
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
 static Error ASMJIT_CDECL Emitter_emitProlog(BaseEmitter* emitter, const FuncFrame& frame) {
-  EmitHelper emitHelper(emitter);
-  return emitHelper.emitProlog(frame);
+  EmitHelper emit_helper(emitter);
+  return emit_helper.emit_prolog(frame);
 }
 
 static Error ASMJIT_CDECL Emitter_emitEpilog(BaseEmitter* emitter, const FuncFrame& frame) {
-  EmitHelper emitHelper(emitter);
-  return emitHelper.emitEpilog(frame);
+  EmitHelper emit_helper(emitter);
+  return emit_helper.emit_epilog(frame);
 }
 
 static Error ASMJIT_CDECL Emitter_emitArgsAssignment(BaseEmitter* emitter, const FuncFrame& frame, const FuncArgsAssignment& args) {
-  EmitHelper emitHelper(emitter);
-  return emitHelper.emitArgsAssignment(frame, args);
+  EmitHelper emit_helper(emitter);
+  return emit_helper.emit_args_assignment(frame, args);
 }
 
-void assignEmitterFuncs(BaseEmitter* emitter) {
-  emitter->_funcs.emitProlog = Emitter_emitProlog;
-  emitter->_funcs.emitEpilog = Emitter_emitEpilog;
-  emitter->_funcs.emitArgsAssignment = Emitter_emitArgsAssignment;
+void init_emitter_funcs(BaseEmitter* emitter) {
+  emitter->_funcs.emit_prolog = Emitter_emitProlog;
+  emitter->_funcs.emit_epilog = Emitter_emitEpilog;
+  emitter->_funcs.emit_args_assignment = Emitter_emitArgsAssignment;
 
 #ifndef ASMJIT_NO_LOGGING
-  emitter->_funcs.formatInstruction = FormatterInternal::formatInstruction;
+  emitter->_funcs.format_instruction = FormatterInternal::format_instruction;
 #endif
 
-#ifndef ASMJIT_NO_VALIDATION
+#ifndef ASMJIT_NO_INTROSPECTION
   emitter->_funcs.validate = InstInternal::validate;
 #endif
 }

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -54,13 +56,17 @@ Erlang ODBC [User's Guide.](error_handling.md)
 \[1]: Microsoft ODBC 3.0, Programmer's Reference and SDK Guide  
 See also http://msdn.microsoft.com/
 """.
--moduledoc(#{titles => [{type,<<"Types used in ODBC application">>}]}).
 
 -behaviour(gen_server).
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, binary_to_term, 1}}]).
 
 -include("odbc_internal.hrl").
 
 -define(ODBC_PORT_TIMEOUT, 5000).
+
+-deprecated([{'_','_',"Legacy protocol support will be dropped in OTP-30, does not really provide "
+              "backend transparency and known usage is low."}]).
 
 %% API --------------------------------------------------------------------
 
@@ -80,38 +86,35 @@ See also http://msdn.microsoft.com/
 	 terminate/2, code_change/3]).
 
 -doc "Opaque reference to an ODBC connection as returnded by connect/2.".
--doc(#{title => <<"Types used in ODBC application">>}).
 -opaque connection_reference() :: pid().
 -doc "Name of column in the result set.".
--doc(#{title => <<"Types used in ODBC application">>}).
 -type col_name()             :: string().
 -doc """
-A tuple, with the number of elements selected form columns in a database row,
-containg the values of the columns such as `{value(), value() ... value()} `.
+A tuple, with the number of elements selected from columns in a database row,
+containg the values of the columns such as `{value(), value() ... value()}`.
+
+When the `tuple_row` option is set to `off` this is a list containing the values
+of the columns in a database row such as `[value(), value() ... value()]`.
+
+Please see `connect/2`.
 """.
--doc(#{title => <<"Types used in ODBC application">>}).
--type row()                  :: tuple().
+-type row()                  :: tuple() | list().
 -doc "Erlang data type that corresponds to the ODBC data type being handled.".
--doc(#{title => <<"Types used in ODBC application">>}).
 -type value()                :: null | term().
 -doc "Return value for queries that select data from database tabels.".
--doc(#{title => <<"Types used in ODBC application">>}).
 -type selected()             :: {selected, [col_name()], [row()]}.
 -doc "Return value for queries that update database tables.".
--doc(#{title => <<"Types used in ODBC application">>}).
 -type updated()              :: {updated, n_rows()}.
 -doc """
 The number of affected rows for UPDATE, INSERT, or DELETE queries. For other
 query types the value is driver defined, and hence should be ignored.
 """.
--doc(#{title => <<"Types used in ODBC application">>}).
 -type n_rows()               :: integer().
 -doc """
 Data type used by ODBC, to learn which Erlang data type corresponds to an ODBC
 data type see the Erlang to ODBC data type [mapping](databases.md#type) in the
 User's Guide.
 """.
--doc(#{title => <<"Types used in ODBC application">>}).
 -type odbc_data_type()       ::  sql_integer | sql_smallint | sql_tinyint |
                                  {sql_decimal, Precision::integer(), Scale::integer()} |
                                  {sql_numeric, Precision::integer(), Scale::integer()} |
@@ -127,13 +130,11 @@ User's Guide.
 An explanation of what went wrong. For common errors there will be atom
 decriptions.
 """.
--doc(#{title => <<"Types used in ODBC application">>}).
 -type common_reason()        :: connection_closed | extended_error() | term().
 -doc """
 extended error type with ODBC and native database error codes, as well as the
 base reason that would have been returned had extended_errors not been enabled.
 """.
--doc(#{title => <<"Types used in ODBC application">>}).
 -type extended_error()       :: {string(), integer(), term()}.
 
 -export_type([connection_reference/0,
@@ -247,6 +248,26 @@ This information may be useful if you suspect there might be a bug in the erlang
 ODBC application, and it might be relevant for you to send this file to our
 support. Otherwise you will probably not have much use of this.
 
+The `max_long_column_size` option sets the maximum ODBC bind buffer size (in
+bytes) for `SQL_LONGVARCHAR`, `SQL_LONGVARBINARY`, and `SQL_WLONGVARCHAR`
+columns when the driver reports display size 0 or a very large size (as with
+SQL Server `varchar(max)`). The default matches the historical fixed limit
+(8001 bytes). Larger values allow more data per cell but increase memory use
+per column. Values above 256 MiB are capped. Use `0` for the default.
+Since OTP @OTP-20328@.
+
+> #### Warning {: .warning }
+>
+> Data in columns that exceed `max_long_column_size` will be **silently
+> truncated**. If your application stores values larger than the default
+> (8001 bytes) in `TEXT`, `NTEXT`, `VARCHAR(MAX)`, or similar columns, you
+> must increase this setting to avoid data loss.
+
+Environment variable `ERL_ODBC_MAX_LONG_COLUMN_SIZE` is read when the port
+receives the legacy open layout (six option bytes followed directly by the
+connection string), for example with older `odbc` BEAM clients and a newer
+port program.
+
 > #### Note {: .info }
 >
 > For more information about the `ConnectStr` see description of the function
@@ -278,12 +299,13 @@ dealing with a known underlying database.
           {error, Reason} when
       ConnectionStr :: string(),
       Options :: [{auto_commit, on | off} |
-                  {timeout, erlang:timeout()} |
+                  {timeout, timeout()} |
                   {binary_strings, on | off} |
                   {tuple_row, on | off} |
                   {scrollable_cursors, on | off} |
                   {trace_driver, on | off} |
-                  {extended_errors, on | off}],
+                  {extended_errors, on | off} |
+                  {max_long_column_size, 0..4294967295}],
       ConnectionReferense :: connection_reference(),
       Reason :: port_program_executable_not_found | common_reason().
 
@@ -310,7 +332,7 @@ Closes a connection to a database. This will also terminate all processes that
 may have been spawned when the connection was opened. This call will always
 succeed. If the connection cannot be disconnected gracefully it will be brutally
 killed. However you may receive an error message as result if you try to
-disconnect a connection started by another process.[](){: #describe_table }
+disconnect a connection started by another process.
 """.
 -spec disconnect(ConnectionReferense) -> ok | {error, Reason} when
       ConnectionReferense :: connection_reference(),
@@ -550,7 +572,7 @@ Returns the next row of the result set relative the current cursor position and
 positions the cursor at this row. If the cursor is positioned at the last row of
 the result set when this function is called the returned value will be
 `{selected, ColNames,[]}` e.i. the list of row values is empty indicating that
-there is no more data to fetch.[](){: #param_query }
+there is no more data to fetch.
 """.
 -spec next(ConnectionReference, TimeOut) -> Result | {error, Reason} when
      ConnectionReference :: connection_reference(),
@@ -1190,29 +1212,36 @@ code_change(_Vsn, State, _Extra) ->
 %%%========================================================================
 
 connect(ConnectionReferense, ConnectionStr, Options) ->
-    {C_AutoCommitMode, ERL_AutoCommitMode} = 
-	connection_config(auto_commit, Options),
+    {C_AutoCommitMode, ERL_AutoCommitMode} =
+        connection_config(auto_commit, Options),
     TimeOut = connection_config(timeout, Options),
     {C_TraceDriver, _} = connection_config(trace_driver, Options),
-    {C_SrollableCursors, ERL_SrollableCursors} = 
-	connection_config(scrollable_cursors, Options),
-    {C_TupleRow, _} = 
-	connection_config(tuple_row, Options),
+    {C_SrollableCursors, ERL_SrollableCursors} =
+        connection_config(scrollable_cursors, Options),
+    {C_TupleRow, _} =
+        connection_config(tuple_row, Options),
     {BinaryStrings, _} = connection_config(binary_strings, Options),
     {ExtendedErrors, _} = connection_config(extended_errors, Options),
+    MaxLongCol = connection_config(max_long_column_size, Options),
 
-    ODBCCmd = 
-	[?OPEN_CONNECTION, C_AutoCommitMode, C_TraceDriver, 
-	 C_SrollableCursors, C_TupleRow, BinaryStrings, ExtendedErrors, ConnectionStr],
-    
+    ODBCCmd =
+        [?OPEN_CONNECTION, C_AutoCommitMode, C_TraceDriver,
+         C_SrollableCursors, C_TupleRow, BinaryStrings, ExtendedErrors,
+         16#FF, 1,
+         (MaxLongCol bsr 24) band 16#ff,
+         (MaxLongCol bsr 16) band 16#ff,
+         (MaxLongCol bsr 8) band 16#ff,
+         MaxLongCol band 16#ff,
+         ConnectionStr],
+
     %% Send request, to open a database connection, to the control process.
-    case call(ConnectionReferense, 
-	      {connect, ODBCCmd, ERL_AutoCommitMode, ERL_SrollableCursors},
-	      TimeOut) of
-	ok ->
-	    {ok, ConnectionReferense};
-	Error ->
-	    Error
+    case call(ConnectionReferense,
+              {connect, ODBCCmd, ERL_AutoCommitMode, ERL_SrollableCursors},
+              TimeOut) of
+        ok ->
+            {ok, ConnectionReferense};
+        Error ->
+            Error
     end.
 
 %%-------------------------------------------------------------------------
@@ -1222,6 +1251,16 @@ odbc_send(Socket, Msg) -> %% Note currently all allowed messages are lists
     ok = inet:setopts(Socket, [{active, once}]).
 
 %%--------------------------------------------------------------------------
+connection_config(max_long_column_size, Options) ->
+    case lists:keysearch(max_long_column_size, 1, Options) of
+        {value,{max_long_column_size, V}}
+          when is_integer(V), V >= 0, V =< 16#FFFFFFFF ->
+            V;
+        {value,{max_long_column_size, V}} ->
+            erlang:error({bad_option, {max_long_column_size, V}});
+        false ->
+            connection_default(max_long_column_size)
+    end;
 connection_config(Key, Options) ->
     case lists:keysearch(Key, 1, Options) of
 	{value,{Key, on}} ->
@@ -1252,7 +1291,9 @@ connection_default(scrollable_cursors) ->
 connection_default(binary_strings) ->
     {?OFF, off};
 connection_default(extended_errors) ->
-    {?OFF, off}.
+    {?OFF, off};
+connection_default(max_long_column_size) ->
+    0.
 
 %%-------------------------------------------------------------------------
 call(ConnectionReference, Msg, Timeout) ->

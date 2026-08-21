@@ -1,3 +1,26 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2013-2026. All Rights Reserved.
+%% Copyright Bartłomiej Puzoń 1996-2025 <bartlomiej.puzon@erlang-solutions.com>.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
+
 %%%-------------------------------------------------------------------
 %%% File    : ttb_autostart.erl
 %%% Author  : Bartłomiej Puzoń <bartlomiej.puzon@erlang-solutions.com>
@@ -9,6 +32,8 @@
 %%%-------------------------------------------------------------------
 -module(ttb_autostart).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, binary_to_term, 1}}]).
 
 -behaviour(gen_server).
 

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -272,6 +274,9 @@ error_info(_Config) ->
          {get_coverage, [line,?MODULE]},
          {get_coverage, [cover_line_id,NotLoaded]},
          {get_coverage, [whatever,?MODULE]},
+
+         {get_debug_info, [42]},
+         {get_debug_info, [NotLoaded]},
 
          {reset_coverage, [42]},
          {reset_coverage, [NotLoaded]},

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +34,9 @@
 	 test_if/1,source_name/1,otp_16978/1,otp_16824/1,scan_file/1,file_macro/1,
          deterministic_include/1, nondeterministic_include/1,
          gh_8268/1,
-         moduledoc_include/1
+         moduledoc_include/1,
+         stringify/1,
+         fun_type_arg/1
         ]).
 
 -export([epp_parse_erl_form/2]).
@@ -78,7 +82,9 @@ all() ->
      otp_14285, test_if, source_name, otp_16978, otp_16824, scan_file, file_macro,
      deterministic_include, nondeterministic_include,
      gh_8268,
-     moduledoc_include].
+     moduledoc_include,
+     stringify,
+     fun_type_arg].
 
 groups() ->
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -1848,7 +1854,15 @@ function_macro(Config) ->
 	     "b(?FUNCTION_ARITY, ?__) -> ok.\n"
 	     "c(?FF) -> ok.\n"
 	     "t() -> a(1, 2), b(3, 1, 2), c(c, 2), ok.\n">>,
-	   ok}
+	   ok},
+
+          {f_5,
+           <<"a([]) -> 1 = ?FUNCTION_ARITY.\n"
+             "b({}) -> 1 = ?FUNCTION_ARITY.\n"
+             "c([], []) -> 2 = ?FUNCTION_ARITY.\n"
+             "d([], _) -> 2 = ?FUNCTION_ARITY.\n"
+             "t() -> a([]), b({}), c([], []), d([], 42), ok.\n">>,
+           ok}
 	 ],
     [] = run(Config, Ts),
 
@@ -2117,6 +2131,62 @@ gh_8268(Config) ->
                      end).
              ">>,
            [{feature,maybe_expr,enable}],
+           ok}],
+    [] = run(Config, Ts),
+    ok.
+
+stringify(Config) ->
+    Ts = [{stringify_1,
+           ~"""
+            -define(S(S), ??S).
+            t() ->
+                ~S('атом') = ?S('атом'),
+                ~S("атом") = ?S("атом"),
+                ok.
+            """,
+           [],
+           ok}],
+    [] = run(Config, Ts),
+    ok.
+
+%% GH-10280. A fun type could not be used as a macro argument.
+fun_type_arg(Config) ->
+    Ts = [{fun_type_1,
+           ~"""
+            -define(FOO(X), X).
+            -define(BAR(X, Y), {X,Y}).
+
+            -type foo() :: ?FOO(fun(() -> 'ok')).
+            -type bar() :: ?BAR(fun((integer()) -> integer()), integer()).
+            -type frotz() :: ?FOO(fun((integer()) -> {atom(),integer()})).
+
+            -define(mk_fun_var(Fun, Vars), mk_fun_var(Fun, Vars)).
+
+            t() ->
+                ok = f(fun() -> ok end),
+                42 = g({fun(I) -> 2 * I end, 21}),
+                {ok,7} = h(fun(I) -> {ok,I} end),
+                #{a := 1, b := 2} =
+                    ?mk_fun_var(fun(Map0) ->
+                       Map1 = Map0#{a => 1},
+                       Map1#{b => 2}
+                    end, #{}),
+                42 = ?FOO(fun(((I))) -> I + 1 end)(41),
+                true = (?FOO(fun (_) when true, true -> true end))(0),
+                ok.
+
+            -spec f(foo()) -> 'ok'.
+            f(F) -> F().
+
+            -spec g(bar()) -> integer().
+            g({F,I}) -> F(I).
+
+            -spec h(frotz()) -> {atom(),integer()}.
+            h(H) -> H(7).
+
+            mk_fun_var(Fun, Vars) -> Fun(Vars).
+            """,
+           [],
            ok}],
     [] = run(Config, Ts),
     ok.

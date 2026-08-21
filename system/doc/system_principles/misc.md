@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -43,7 +45,7 @@ Pull requests are only accepted on the `maint` and the `master`
 branches in our [git repository](https://github.com/erlang/otp). The
 `maint` branch contains changes planned for the next [maintenance
 patch package](versions.md#releases_and_patches) on the latest OTP
-release and the `master` branch contain changes planned for the
+release and the `master` branch contains changes planned for the
 upcoming OTP release.
 
 ## Compatibility
@@ -59,7 +61,7 @@ are handled.
   preceding and two subsequent releases.
 
 - **Compiled BEAM Code, NIF Libraries, and Drivers** - Compiled code
-  can be loaded on at least two subsequent releases. To achive the
+  can be loaded on at least two subsequent releases. To achieve the
   highest possible performance for Erlang code, ensure it is compiled
   using the same release as the one it will be deployed on.
 
@@ -109,7 +111,7 @@ functionality unless an upcoming removal is explicitly stated in the
 deprecation notice.
 
 Deprecated functionality will be documented as deprecated and highlighted
-in a release note as early possible. If appropriate, the compiler will
+in a release note as early as possible. If appropriate, the compiler will
 issue warnings when the deprecated functionality is used.
 
 There is a page in the documentation regarding deprecations:
@@ -131,7 +133,7 @@ functionality in the language itself and core libraries used during operation.
 There are two pages in the documentation regarding removal:
 
 * [Scheduled for Removal](`e:general_info:scheduled_for_removal.md`) - lists
-  all functionality that is schedule for removal in upcoming releases.
+  all functionality that is scheduled for removal in upcoming releases.
 
 * [Removed Functionality](`e:general_info:removed.md`) - lists
   functionality that has been removed.

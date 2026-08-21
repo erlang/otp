@@ -1,7 +1,16 @@
 %% =====================================================================
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright Ericsson AB 2023-2026. All Rights Reserved.
+%% Copyright 2019-2021 Radek Szymczyszyn
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +28,8 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
-%% @copyright 2019-2021 Radek Szymczyszyn
+%% %CopyrightEnd%
+%%
 %% @author Radek Szymczyszyn <lavrin@gmail.com>
 %% @end
 %% =====================================================================
@@ -39,6 +49,9 @@
 %% @see edoc_doclet_chunks
 %% @end
 -module(edoc_layout_chunks).
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, binary_to_atom, 2}},
+          nowarn_deprecated_catch]).
 
 % -behaviour(edoc_layout).
 -export([module/2, overview/2]).
@@ -222,7 +235,7 @@ select_tag(#tag{name = type, line = Line, origin = code} = T,
     TypeAttr = erl_syntax:revert(TypeTree),
     case TypeAttr of
 	{attribute, _, Type, {Name, _, Args}}
-	  when (type =:= Type orelse opaque =:= Type),
+	  when (type =:= Type orelse opaque =:= Type orelse nominal =:= Type),
 	       length(Args) == Arity ->
 	    {true, TypeAttr};
 	_ ->

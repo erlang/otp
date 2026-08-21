@@ -2,7 +2,9 @@
 
 ## %CopyrightBegin%
 ##
-## Copyright Ericsson AB 2024. All Rights Reserved.
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2024-2025. All Rights Reserved.
 ##
 ## Licensed under the Apache License, Version 2.0 (the "License");
 ## you may not use this file except in compliance with the License.
@@ -26,5 +28,7 @@ mkdir ${DIR}
 tar -xzf otp_src.tar.gz
 mv otp otp_src_${VSN}
 tar -czf ${DIR}/otp_src_${VSN}.tar.gz otp_src_${VSN}
-mv otp_doc_man.tar.gz ${DIR}/otp_doc_man_${VSN}.tar.gz
+if [ -f otp_doc_man.tar.gz ]; then
+    mv otp_doc_man.tar.gz ${DIR}/otp_doc_man_${VSN}.tar.gz
+fi
 mv otp_doc_html.tar.gz ${DIR}/otp_doc_html_${VSN}.tar.gz

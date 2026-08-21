@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,7 +29,7 @@ Erlang/OTP with references to relevant parts of the documentation.
 
 Erlang programs must be _compiled_ to object code. The compiler can generate a
 new file that contains the object code. The current abstract machine, which runs
-the object code, is called BEAM, therefore the object files get the suffix
+the object code, is called BEAM and therefore the object files get the suffix
 `.beam`. The compiler can also generate a binary which can be loaded directly.
 
 The compiler is located in the module `m:compile` in Compiler.
@@ -51,7 +53,7 @@ The compiler can also be accessed from the OS prompt using the
 % erl -make
 ```
 
-The `erlc` program provides way to compile modules from the OS
+The `erlc` program provides a way to compile modules from the OS
 shell, see the [erlc](`e:erts:erlc_cmd.md`) executable in ERTS. It
 understands a number of flags that can be used to define macros, add search
 paths for include files, and more.
@@ -71,7 +73,7 @@ The code server loads code according to a code loading strategy, which is either
 _interactive_ (default) or _embedded_. In interactive mode, code is searched for
 in a _code path_ and loaded when first referenced. In embedded mode, code is
 loaded at start-up according to a _boot script_. This is described in
-[System Principles ](`e:system:system_principles.md#code_loading`).
+[System Principles](`e:system:system_principles.md#code_loading`).
 
 ## Code Replacement
 
@@ -83,12 +85,12 @@ When a module is loaded into the system for the first time, the code becomes
 'current'. If then a new instance of the module is loaded, the code of the
 previous instance becomes 'old' and the new instance becomes 'current'.
 
-Both old and current code is valid, and can be evaluated concurrently. Fully
+Both old and current code are valid, and can be evaluated concurrently. Fully
 qualified function calls always refer to current code. Old code can still be
 evaluated because of processes lingering in the old code.
 
 If a third instance of the module is loaded, the code server removes (purges)
-the old code and any processes lingering in it is terminated. Then the third
+the old code and any processes lingering in it are terminated. Then the third
 instance becomes 'current' and the previously current code becomes 'old'.
 
 To change from old code to current code, a process must make a fully qualified
@@ -145,7 +147,7 @@ and can be called until the `on_load` function has returned. If the `on_load`
 function fails, the current code (if any) will remain current. If there is no
 current code for a module, any process that makes an external call to the module
 before the `on_load` function has finished will be suspended until the `on_load`
-function have finished.
+function has finished.
 
 > #### Change {: .info }
 >
@@ -170,4 +172,4 @@ load_my_nifs() ->
 ```
 
 If the call to `erlang:load_nif/2` fails, the module is unloaded and a warning
-report is sent to the error loader.
+report is sent to the error logger.

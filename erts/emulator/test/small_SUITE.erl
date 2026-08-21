@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +29,8 @@
          multiplication/1, mul_add/1, division/1,
          test_bitwise/1, test_bsl/1, test_bsr/1,
          element/1,
-         range_optimization/1]).
+         range_optimization/1,
+         confused_squaring/1]).
 -export([mul_add/0, division/0]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -45,7 +48,8 @@ groups() ->
        addition, subtraction, negation, multiplication, mul_add, division,
        test_bitwise, test_bsl, test_bsr,
        element,
-       range_optimization]}].
+       range_optimization,
+       confused_squaring]}].
 
 edge_cases(Config) when is_list(Config) ->
     {MinSmall, MaxSmall} = Limits = determine_small_limits(0),
@@ -423,7 +427,7 @@ mul_gen_pairs() ->
 
     %% Generate pairs of numbers whose product is small.
     SmallPairs = [{N, MaxSmall div N} ||
-                     N <- [1,2,3,4,5,8,16,17,32,63,64,1111,22222]],
+                     N <- [1,2,3,4,5,6,7,8,9,16,17,32,63,64,1111,22222]],
     Pairs1 = [{N,M-1} || {N,M} <- SmallPairs] ++ SmallPairs ++ Pairs0,
 
     %% Add prime factors of 2^59 - 1 (MAX_SMALL for 64-bit architecture
@@ -595,6 +599,17 @@ gen_mul_add_function({Name,{A,B,C}}) ->
            Res = id(Z + X * Y),
            Res = id(Z + Y * X),
            Res;
+        '@Name@'(int_vii_plus_z, X, fixed, fixed)
+          when is_integer(X), -_@APlusOne@ < X, X < _@APlusOne@ ->
+           Y = _@B@,
+           Z = _@C@,
+           Res = id(X * Y + Z),
+           Res = id(Y * X + Z),
+           Res = id(Z + X * Y),
+           Res = id(Z + Y * X),
+           Res = '@Name@'(any_vvi_plus_z, X, id(Y), fixed),
+           Res = '@Name@'(any_vvv_minus_z, X, id(Y), id(-Z)),
+           Res;
         '@Name@'(any_vvv_plus_z, X, Y, Z) ->
            Res = id(X * Y + Z),
            Res = id(Y * X + Z),
@@ -656,6 +671,7 @@ test_mul_add([{Name,{A,B,C}}|T], Mod) ->
         Res0 = A * B + C,
         Res0 = F(any_vii_plus_z, A, fixed, fixed),
         Res0 = F(pos_int_vvv_plus_z, A, B, C),
+        Res0 = F(int_vii_plus_z, A, fixed, fixed),
         ok = F({guard_plus_z,Res0}, A, B, C),
         ok = F({guard_plus_z,Res0}, -A, -B, C),
 
@@ -1523,6 +1539,16 @@ any_integer(I) ->
     case id(I) of
         N when is_integer(N) -> N
     end.
+
+%%
+%% GH-10454: `X * X + X * X` was mishandled by the JIT.
+%%
+confused_squaring(_Config) ->
+  X = id(2),
+  [1, 2, 8] =
+    lists:append(lists:map(fun(Y) -> Y end, [1, 2]), [X * X + X * X]),
+
+  ok.
 
 %%%
 %%% Helpers.

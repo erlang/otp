@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,17 +22,17 @@ limitations under the License.
 # Features
 
 [](){: #features } Introduced in OTP 25, Erlang has the concept of selectable
-features. A feature can change, add or remove behaviour of the language and/or
+features. A feature can change, add, or remove behaviour of the language and/or
 runtime system. Examples can include:
 
 - Adding new syntactical constructs to the language
-- Change the semantics of an existing construct
-- Change the behaviour of some runtime aspect
+- Changing the semantics of an existing construct
+- Changing the behaviour of some runtime aspect
 
-A feature will start out with a status of experimental part of OTP, making it
-possible to try out for users and give feedback. The possibility to try out
-features is enabled by options to the compiler, directives in a module and
-options to the runtime system. Even when a feature is not experimental it will
+A feature will start out as an experimental part of OTP, making it
+possible for users to try it out and give feedback. The possibility to try out
+features is enabled by options to the compiler, directives in a module, and
+options to the runtime system. Even when a feature is not experimental, it will
 still be possible to enable or disable it. This makes it possible to adapt a
 code base at a suitable pace instead of being forced when changing to a new
 release.
@@ -42,11 +44,11 @@ of OTP or rejected, being removed and no longer selectable.
 
 A feature is in one of four possible states:
 
-- **Experimental** - The initial state, is meant for trying out and collecting
+- **Experimental** - The initial state is meant for trying out and collecting
   feedback. The feature can be enabled but is disabled by default.
 
 - **Approved** - The feature has been finalised and is now part of OTP. By
-  default it is enabled, but can be disabled.
+  default, it is enabled, but can be disabled.
 
 - **Permanent** - The feature is now a permanent part of OTP. It can no longer
   be disabled.
@@ -82,7 +84,7 @@ compilation. This can be done in a number of different ways:
 - **Options to `erlc`** - Options
   [`-enable-feature`](`e:erts:erlc_cmd.md#enable-feature`) and
   [`-disable-feature`](`e:erts:erlc_cmd.md#disable-feature`) can be used to
-  enable or disable individal features.
+  enable or disable individual features.
 
 - **Compiler options** - The compiler option
   [`{feature, <feature>, enable|disable}`](`m:compile#feature-option`) can be
@@ -99,18 +101,18 @@ compilation. This can be done in a number of different ways:
 > necessary to also enable the feature in the runtime. This was done using
 > option [`-enable-feature`](`e:erts:erl_cmd.md#enable-feature`) to `erl`. This
 > requirement was removed in Erlang/OTP 26. However, if you want to use features
-> directly in shell, you still need to enable them in the runtime.
+> directly in the shell, you still need to enable them in the runtime.
 
 ## Preprocessor Additions
 
 To allow for conditional compilation during transitioning of a code base and/or
 trying out experimental features
-[feature](`e:system:macros.md#predefined-macros`) `predefined macros`
+[feature predefined macros](`e:system:macros.md#predefined-macros`)
 `?FEATURE_AVAILABLE(Feature)` and `?FEATURE_ENABLED(Feature)` are available.
 
 ## Information about Existing Features
 
-The module `erl_features` `m:erl_features` exports a number of functions that
+The module `m:erl_features` exports a number of functions that
 can be used to obtain information about current features as well as the features
 used when compiling a module.
 
@@ -131,3 +133,6 @@ The following configurable features exist:
   [`maybe`](expressions.md#maybe) expression proposed in
   [EEP 49](https://www.erlang.org/eeps/eep-0049).
   It was approved in Erlang/OTP 27.
+- **`compr_assign` (experimental)** - Implementation of `Pattern = Expr`
+  assignments in [comprehensions](expressions.md#comprehensions)
+  proposed in [EEP 77](https://www.erlang.org/eeps/eep-0077).

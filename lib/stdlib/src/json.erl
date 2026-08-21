@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2024-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2024-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -325,7 +327,7 @@ key(Key, _Encode) when is_integer(Key) -> [$", encode_integer(Key), $"];
 key(Key, _Encode) when is_float(Key) -> [$", encode_float(Key), $"].
 
 encode_object([]) -> <<"{}">>;
-encode_object([[_Comma | Entry] | Rest]) -> ["{", Entry, Rest, "}"].
+encode_object([[_Comma | Entry] | Rest]) -> [${, Entry, Rest, $}].
 
 -doc """
 Default encoder for binaries as JSON strings used by `json:encode/1`.
@@ -359,15 +361,15 @@ escape_binary(Bin) -> escape_binary_ascii(Bin, [$"], Bin, 0, 0).
 
 escape_binary_ascii(Binary, Acc, Orig, Skip, Len) ->
     case Binary of
-        <<B1, B2, B3, B4, B5, B6, B7, B8, Rest/binary>> when ?are_all_ascii_plain(B1, B2, B3, B4, B5, B6, B7, B8) ->
-            escape_binary_ascii(Rest, Acc, Orig, Skip, Len + 8);
+        <<W:56, Rest/binary>> when ?are_all_ascii_plain_swar(W) ->
+            escape_binary_ascii(Rest, Acc, Orig, Skip, Len + 7);
         Other ->
             escape_binary(Other, Acc, Orig, Skip, Len)
     end.
 
 escape_binary(<<Byte, Rest/binary>>, Acc, Orig, Skip, Len) when ?is_ascii_plain(Byte) ->
-    %% we got here because there were either less than 8 bytes left
-    %% or we have an escape in the next 8 bytes,
+    %% we got here because there were either less than 7 bytes left
+    %% or we have an escape in the next 7 bytes,
     %% escape_binary_ascii would fail and dispatch here anyway
     escape_binary(Rest, Acc, Orig, Skip, Len + 1);
 escape_binary(<<Byte, Rest/binary>>, Acc, Orig, Skip0, Len) when ?is_ascii_escape(Byte) ->
@@ -408,8 +410,8 @@ escape_all(Bin) -> escape_all_ascii(Bin, [$"], Bin, 0, 0).
 
 escape_all_ascii(Binary, Acc, Orig, Skip, Len) ->
     case Binary of
-        <<B1, B2, B3, B4, B5, B6, B7, B8, Rest/binary>> when ?are_all_ascii_plain(B1, B2, B3, B4, B5, B6, B7, B8) ->
-            escape_all_ascii(Rest, Acc, Orig, Skip, Len + 8);
+        <<W:56, Rest/binary>> when ?are_all_ascii_plain_swar(W) ->
+            escape_all_ascii(Rest, Acc, Orig, Skip, Len + 7);
         Other ->
             escape_all(Other, Acc, Orig, Skip, Len)
     end.
@@ -541,7 +543,8 @@ invalid_byte(Bin, Skip) ->
     error({invalid_byte, Byte}, none, error_info(Skip)).
 
 error_info(Skip) ->
-    [{error_info, #{cause => #{position => Skip}}}].
+    [{error_info, #{cause => #{position => Skip},
+                    module => erl_stdlib_errors}}].
 
 %%
 %% Format implementation
@@ -764,14 +767,14 @@ format_object([[_Comma,KeyIndent|Entry]], Indent) ->
     {_, Rest} = string:take(Value, [$\s,$\n]),
     [CP|_] = string:next_codepoint(Rest),
     if CP =:= ${ ->
-            ["{", KeyIndent, Entry, Indent, "}"];
+            [${, KeyIndent, Entry, Indent, $}];
        CP =:= $[ ->
-            ["{", KeyIndent, Entry, Indent, "}"];
+            [${, KeyIndent, Entry, Indent, $}];
        true ->
             ["{ ", Entry, " }"]
     end;
 format_object([[_Comma,KeyIndent|Entry] | Rest], Indent) ->
-    ["{", KeyIndent, Entry, Rest, Indent, "}"].
+    [${, KeyIndent, Entry, Rest, Indent, $}].
 
 indent(#{level := Level, indent := Indent}) ->
     Steps = Level * Indent,
@@ -857,6 +860,7 @@ Supports basic data mapping:
 | Boolean  | `true \| false`        |
 | Null     | `null`                 |
 | String   | `binary()`             |
+| Array    | `list()`               |
 | Object   | `#{binary() => _}`     |
 
 ## Errors
@@ -978,7 +982,7 @@ there is no more data, use `end_of_input` instead of a binary.
 ```
 """.
 -doc(#{since => <<"OTP 27.0">>}).
--spec decode_continue(binary() | end_of_input, Opaque::term()) ->
+-spec decode_continue(binary() | end_of_input, State :: continuation_state()) ->
           {Result :: dynamic(), Acc :: dynamic(), binary()} | {continue, continuation_state()}.
 decode_continue(end_of_input, State) ->
     case State of
@@ -1172,8 +1176,8 @@ string(Binary, Original, Skip, Acc, Stack, Decode) ->
 
 string_ascii(Binary, Original, Skip, Acc, Stack, Decode, Len) ->
     case Binary of
-        <<B1, B2, B3, B4, B5, B6, B7, B8, Rest/binary>> when ?are_all_ascii_plain(B1, B2, B3, B4, B5, B6, B7, B8) ->
-            string_ascii(Rest, Original, Skip, Acc, Stack, Decode, Len + 8);
+        <<W:56, Rest/binary>> when ?are_all_ascii_plain_swar(W) ->
+            string_ascii(Rest, Original, Skip, Acc, Stack, Decode, Len + 7);
         Other ->
             string(Other, Original, Skip, Acc, Stack, Decode, Len)
     end.
@@ -1215,8 +1219,8 @@ string_utf8(_, Orig, Skip, Acc, Stack, Decode, Len, _State0) ->
 
 string_ascii(Binary, Original, Skip, Acc, Stack, Decode, Start, Len, SAcc) ->
     case Binary of
-        <<B1, B2, B3, B4, B5, B6, B7, B8, Rest/binary>> when ?are_all_ascii_plain(B1, B2, B3, B4, B5, B6, B7, B8) ->
-            string_ascii(Rest, Original, Skip, Acc, Stack, Decode, Start, Len + 8, SAcc);
+        <<W:56, Rest/binary>> when ?are_all_ascii_plain_swar(W) ->
+            string_ascii(Rest, Original, Skip, Acc, Stack, Decode, Start, Len + 7, SAcc);
         Other ->
             string(Other, Original, Skip, Acc, Stack, Decode, Start, Len, SAcc)
     end.

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,6 +29,10 @@
 
 -module(ct_logs).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, binary_to_term, 1}},
+          {nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_possibly_unsafe_function, {file, consult, 1}}]).
 
 -export([init/3, close/3, init_tc/1, end_tc/1]).
 -export([register_groupleader/2, unregister_groupleader/1]).
@@ -551,7 +557,12 @@ tc_print(Category,Importance,Format,Args,Opts) ->
                     undefined -> atom_to_list(Category);
                     Hd        -> Hd
                 end,
-            Str = lists:flatten([get_header(Heading),Format,"\n\n"]),
+            Parts =
+                case Heading of
+                    "" -> [Format, "\n"];
+                    _ -> [get_header(Heading),Format,"\n\n"]
+                end,
+            Str = lists:flatten(Parts),
             try
                 io:format(?def_gl, Str, Args)
             catch
@@ -700,7 +711,7 @@ logger(Parent, Mode, Verbosity, CustomStylesheet) ->
 	    %% dir) so logs are independent of Common Test installation
 	    {ok,Cwd} = file:get_cwd(),
 	    CTPath = code:lib_dir(common_test),
-	    PrivFiles = [?css_default,?jquery_script,?tablesorter_script],
+	    PrivFiles = [?css_default,?jquery_script,?jquery_migrate_script,?tablesorter_script],
 	    PrivFilesSrc = [filename:join(filename:join(CTPath, "priv"), F) ||
 			       F <- PrivFiles],
 	    PrivFilesDestTop = [filename:join(Cwd, F) || F <- PrivFiles],
@@ -824,7 +835,7 @@ logger_loop(State) ->
 		end,
 	    if Importance >= (100-VLvl) ->
 		    CtLogFd = State#logger_state.ct_log_fd,
-		    DoEscChars = State#logger_state.tc_esc_chars and EscChars,
+		    DoEscChars = State#logger_state.tc_esc_chars andalso EscChars,
 		    case get_groupleader(Pid, GL, State) of
 			{tc_log,TCGL,TCGLs} ->
 			    case erlang:is_process_alive(TCGL) of
@@ -1496,8 +1507,8 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 		 integer_to_list(NotBuilt),"</a></td>\n"]
 	end,
     FailStr =
-	if (Fail > 0) or (NotBuilt > 0) or
-	   ((Success+Fail+UserSkip+AutoSkip) == 0) ->  
+	if Fail > 0; NotBuilt > 0;
+	   Success+Fail+UserSkip+AutoSkip == 0 ->  
 		["<font color=\"red\">",
 		 integer_to_list(Fail),"</font>"];
 	   true ->
@@ -1751,6 +1762,9 @@ header(Title, SubTitle, TableCols, CustomStylesheet) ->
     JQueryFile =
 	xhtml(fun() -> "" end, 
 	      fun() -> make_relative(locate_priv_file(?jquery_script)) end),
+    JQueryMigrateFile =
+	xhtml(fun() -> "" end, 
+	      fun() -> make_relative(locate_priv_file(?jquery_migrate_script)) end),
     TableSorterFile =
 	xhtml(fun() -> "" end, 
 	      fun() -> make_relative(locate_priv_file(?tablesorter_script)) end),
@@ -1772,6 +1786,9 @@ header(Title, SubTitle, TableCols, CustomStylesheet) ->
      CustomCSSFileHtml,
      xhtml("",
 	   ["<script type=\"text/javascript\" src=\"",JQueryFile,
+	    "\"></script>\n"]),
+     xhtml("",
+	   ["<script type=\"text/javascript\" src=\"",JQueryMigrateFile,
 	    "\"></script>\n"]),
      xhtml("",
 	   ["<script type=\"text/javascript\" src=\"",TableSorterFile,
@@ -2281,8 +2298,8 @@ runentry(Dir, undefined, _) ->
 runentry(Dir, Totals={Node,Label,Logs,
 		      {TotSucc,TotFail,UserSkip,AutoSkip,NotBuilt}}, Index) ->
     TotFailStr =
-	if (TotFail > 0) or (NotBuilt > 0) or
-	   ((TotSucc+TotFail+UserSkip+AutoSkip) == 0) ->
+	if TotFail > 0; NotBuilt > 0;
+	   TotSucc+TotFail+UserSkip+AutoSkip == 0 ->
 		["<font color=\"red\">",
 		 integer_to_list(TotFail),"</font>"];
 	   true ->
@@ -3346,6 +3363,11 @@ get_ts_html_wrapper(TestName, Logdir, PrintLabel, Cwd, TableCols, Encoding, Cust
 		      fun() -> make_relative(locate_priv_file(?jquery_script),
 					     Cwd)
 		      end),
+	    JQueryMigrateFile =
+		xhtml(fun() -> "" end, 
+		      fun() -> make_relative(locate_priv_file(?jquery_migrate_script),
+					     Cwd)
+		      end),
 	    TableSorterFile =
 		xhtml(fun() -> "" end, 
 		      fun() -> make_relative(locate_priv_file(?tablesorter_script),
@@ -3368,6 +3390,7 @@ get_ts_html_wrapper(TestName, Logdir, PrintLabel, Cwd, TableCols, Encoding, Cust
 	      "\" type=\"text/css\"></link>\n",
               CustomCSSFileHtml,
 	      "<script type=\"text/javascript\" src=\"", JQueryFile, "\"></script>\n",
+	      "<script type=\"text/javascript\" src=\"", JQueryMigrateFile, "\"></script>\n",
 	      "<script type=\"text/javascript\" src=\"", TableSorterFile, "\"></script>\n"] ++
 	      TableSorterScript ++ ["</head>\n","<body>\n", LabelStr, "\n"],
 	     ["<center>\n<br /><hr /><p>\n",

@@ -1,4 +1,5 @@
 // Copyright 2018 Ulf Adams
+// Copyright 2021 Thomas Depierre
 //
 // The contents of this file may be used under the terms of the Apache License,
 // Version 2.0.

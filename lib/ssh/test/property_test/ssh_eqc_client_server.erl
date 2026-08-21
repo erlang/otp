@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -22,19 +24,13 @@
 -module(ssh_eqc_client_server).
 
 -compile(export_all).
- 
--ifndef(PROPER).
--else.
-%% Only use proper
-%% 
-%% Previously only EQC was supported, but the changes to support PROPER is not
-%% just a wrapper. Since we do not have access to eqc we can't test the changes
-%% so therefore eqc is disabeled.
-%% However, with access to eqc it ought to be quite easy to re-enable eqc by
-%% studying the diff.
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_property_test.hrl").
+
+-ifdef(EQC).
+-include_lib("eqc/include/eqc_statem.hrl").
+-endif.
 
 
 %% Limit the testing time on CI server... this needs to be improved in % from total budget.
@@ -499,5 +495,3 @@ erase_dir(Dir) ->
 	_ -> ok
     end,
     file:del_dir(Dir).
-
--endif.

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,10 +41,12 @@ to the abstract code.
 It is not possible to have hook functions for unknown forms at other places than
 expressions.
 
-## See Also
+### See Also
 
 `m:erl_eval`, `m:erl_parse`, `m:io`
 """.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 %%% Pretty printer for Erlang code in the same format as returned from
 %%% the parser. It does not always produce pretty code.
@@ -61,7 +65,7 @@ expressions.
 -define(DEFAULT_INDENT, 4).
 
 -doc """
-Optional argument `HookFunction`{: #hook_function }, shown in the functions
+Optional argument `HookFunction`, shown in the functions
 described in this module, defines a function that is called when an unknown form
 occurs where there is to be a valid expression. If `HookFunction` is equal to
 `none`, there is no hook function.
@@ -402,6 +406,8 @@ lattribute({attribute,_Anno,type,Type}, Opts) ->
     [typeattr(type, Type, Opts),leaf(".\n")];
 lattribute({attribute,_Anno,opaque,Type}, Opts) ->
     [typeattr(opaque, Type, Opts),leaf(".\n")];
+lattribute({attribute,_Anno,nominal,Type}, Opts) ->
+    [typeattr(nominal, Type, Opts),leaf(".\n")];
 lattribute({attribute,_Anno,spec,Arg}, _Opts) ->
     [specattr(spec, Arg),leaf(".\n")];
 lattribute({attribute,_Anno,callback,Arg}, _Opts) ->
@@ -433,6 +439,9 @@ lattribute(file, {Name,Anno}, _Opts) ->
 lattribute(record, {Name,Is}, Opts) ->
     Nl = [leaf("-record("),{atom,Name},$,],
     [{first,Nl,record_fields(Is, Opts)},$)];
+lattribute(native_record, {Name,Is}, Opts) ->
+    Nl = [leaf("-record #"),{atom,Name}],
+    [{first,Nl,record_fields(Is, Opts)}];
 lattribute(Name, Arg, Options) ->
     attr(Name, [abstract(Arg, Options)]).
 
@@ -687,11 +696,12 @@ lexpr({record, _, Name, Fs}, Prec, Opts) ->
     Nl = record_name(Name),
     El = {first,Nl,record_fields(Fs, Opts)},
     maybe_paren(P, Prec, El);
-lexpr({record_field, _, Rec, Name, F}, Prec, Opts) ->
+lexpr({record_field, _, Rec, Name0, F}, Prec, Opts) ->
     {L,P,R} = inop_prec('#'),
     Rl = lexpr(Rec, L, Opts),
     Sep = hash_after_integer(Rec, [$#]),
-    Nl = [Sep,{atom,Name},$.],
+    [$#|Name] = record_name(Name0),
+    Nl = [Sep,Name,$.],
     El = [Rl,Nl,lexpr(F, R, Opts)],
     maybe_paren(P, Prec, El);
 lexpr({record, _, Rec, Name, Fs}, Prec, Opts) ->
@@ -843,6 +853,8 @@ lexpr({remote,_,M,F}, Prec, Opts) ->
 %% BIT SYNTAX:
 lexpr({bin,_,Fs}, _, Opts) ->
     bit_grp(Fs, Opts);
+lexpr({debug_line,Line,Index}, _Prec, _Opts) ->
+    leaf(format("beam_instruction:debug_line(~p, ~p)", [Line,Index]));
 lexpr({executable_line,Line,Index}, _Prec, _Opts) ->
     leaf(format("beam_instruction:executable_line(~p, ~p)", [Line,Index]));
 %% Special case for straight values.
@@ -916,8 +928,12 @@ bit_elem_type(T) ->
 
 %% end of BITS
 
-record_name(Name) ->
-    [$#,{atom,Name}].
+record_name({M, N}) when is_atom(M), is_atom(N) ->
+    [$#,{atom,M},$:,{atom,N}];
+record_name([]) ->
+    [$#, $_];
+record_name(M) when is_atom(M) ->
+    [$#,{atom,M}].
 
 record_fields(Fs, Opts) ->
     tuple(Fs, fun record_field/2, Opts).
@@ -1047,15 +1063,26 @@ clauses(Type, Opts, Cs) ->
 lc_quals(Qs, Opts) ->
     {prefer_nl,[$,],lexprs(Qs, fun lc_qual/2, Opts)}.
 
+lc_qual({zip,_,Qs}, Opts) ->
+    {prefer_nl,["&&"],lexprs(Qs, fun lc_qual/2, Opts)};
 lc_qual({m_generate,_,Pat,E}, Opts) ->
     Pl = map_field(Pat, Opts),
     {list,[{step,[Pl,leaf(" <-")],lexpr(E, 0, Opts)}]};
+lc_qual({m_generate_strict,_,Pat,E}, Opts) ->
+    Pl = map_field(Pat, Opts),
+    {list,[{step,[Pl,leaf(" <:-")],lexpr(E, 0, Opts)}]};
 lc_qual({b_generate,_,Pat,E}, Opts) ->
     Pl = lexpr(Pat, 0, Opts),
     {list,[{step,[Pl,leaf(" <=")],lexpr(E, 0, Opts)}]};
+lc_qual({b_generate_strict,_,Pat,E}, Opts) ->
+    Pl = lexpr(Pat, 0, Opts),
+    {list,[{step,[Pl,leaf(" <:=")],lexpr(E, 0, Opts)}]};
 lc_qual({generate,_,Pat,E}, Opts) ->
     Pl = lexpr(Pat, 0, Opts),
     {list,[{step,[Pl,leaf(" <-")],lexpr(E, 0, Opts)}]};
+lc_qual({generate_strict,_,Pat,E}, Opts) ->
+    Pl = lexpr(Pat, 0, Opts),
+    {list,[{step,[Pl,leaf(" <:-")],lexpr(E, 0, Opts)}]};
 lc_qual(Q, Opts) ->
     lexpr(Q, 0, Opts).
 
@@ -1411,7 +1438,7 @@ write_a_string([], _N, _Len, _PP) ->
 write_a_string(S, N, Len, PP) ->
     SS = string:slice(S, 0, N),
     Sl = write_string(SS, PP),
-    case (string:length(Sl) > Len) and (N > ?MIN_SUBSTRING) of
+    case string:length(Sl) > Len andalso N > ?MIN_SUBSTRING of
         true ->
             write_a_string(S, N-1, Len, PP);
         false ->

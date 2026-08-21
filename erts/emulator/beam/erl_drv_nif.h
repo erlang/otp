@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -220,6 +222,16 @@ typedef struct {
        ERL_NAPI_ATTR_MALLOC_US(SZPOS)                                      \
        ERL_NAPI_ATTR_MALLOC_D(DTOR, PTRPOS)
 #  endif
+#endif
+
+#if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
+#  define ERL_NAPI_EXPORT __declspec(dllexport)
+#elif defined(__GNUC__) && __GNUC__ >= 4
+#  define ERL_NAPI_EXPORT __attribute__ ((visibility("default")))
+#elif defined (__SUNPRO_C) && (__SUNPRO_C >= 0x550)
+#  define ERL_NAPI_EXPORT __global
+#else
+#  define ERL_NAPI_EXPORT
 #endif
 
 #endif  /* __ERL_DRV_NIF_H__ */

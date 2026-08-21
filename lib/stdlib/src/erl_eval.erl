@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(erl_eval).
@@ -96,7 +98,7 @@ called for such calls. The argument can have the following formats:
   ```
 
   `Anno` is the [`erl_anno:anno()`](`t:erl_anno:anno/0`) of the node, `FuncSpec`
-  is the name of the function on the form `{Module,Function}` or a fun, and
+  is the name of the function of the form `{Module,Function}` or a fun, and
   `Arguments` is a list of the _evaluated_ arguments. The function handler
   returns the value of the function. To signal an error, the function handler
   calls [`exit/1`](`exit/1`) with a suitable exit value.
@@ -125,11 +127,14 @@ the local function handler argument. A possible use is to call
 to be called.
 """.
 
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %% An evaluator for Erlang abstract syntax.
 
 -export([exprs/2,exprs/3,exprs/4,expr/2,expr/3,expr/4,expr/5,
          expr_list/2,expr_list/3,expr_list/4]).
--export([new_bindings/0,bindings/1,binding/2,add_binding/3,del_binding/2]).
+-export([new_bindings/0,new_bindings/1,bindings/1,binding/2,
+         add_binding/3,del_binding/2]).
 -export([extended_parse_exprs/1, extended_parse_term/1]).
 -export([is_constant_expr/1, partial_eval/1, eval_str/1]).
 
@@ -139,7 +144,7 @@ to be called.
 
 -export([check_command/2, fun_data/1]).
 
--import(lists, [reverse/1,foldl/3,member/2]).
+-import(lists, [all/2,any/2,foldl/3,member/2,reverse/1]).
 
 -export_type([binding_struct/0]).
 
@@ -349,7 +354,7 @@ expr(E, Bs, Lf, Ef) ->
 
 -doc false.
 check_command(Es, Bs) ->
-    Opts = [bitlevel_binaries,binary_comprehension],
+    Opts = [{features,erl_features:enabled()}],
     case erl_lint:exprs_opt(Es, bindings(Bs), Opts) of
         {ok,_Ws} ->
             ok;
@@ -445,14 +450,138 @@ expr({mc,_,E,Qs}, Bs, Lf, Ef, RBs, FUVs) ->
 expr({tuple,_,Es}, Bs0, Lf, Ef, RBs, FUVs) ->
     {Vs,Bs} = expr_list(Es, Bs0, Lf, Ef, FUVs),
     ret_expr(list_to_tuple(Vs), Bs, RBs);
-expr({record_field,Anno,_,Name,_}, Bs, _Lf, Ef, RBs, _FUVs) ->
+expr({record_field,_Anno,{atom,_,N},V0}, Bs0, Lf, Ef, RBs, FUVs) ->
+    {value,V1,Bs1} = expr(V0, Bs0, Lf, Ef, RBs, FUVs),
+    ret_expr({N,V1}, Bs1, RBs);
+expr({record_field,Anno,Name,_}, Bs, _Lf, Ef, RBs, _FUVs) ->
     apply_error({undef_record,Name}, ?STACKTRACE, Anno, Bs, Ef, RBs);
+expr({record_field,Anno,{var,_,Src0},{M,N},{atom,_,K}}, Bs, _Lf, Ef, RBs, _FUVs) ->
+    case binding(Src0, Bs) of
+        {value, Src1} ->
+            case is_record(Src1, M, N) of
+                true ->
+                    Val = records:get(K, Src1),
+                    ret_expr(Val, Bs, RBs);
+                false ->
+                    apply_error({badarg,Src1}, ?STACKTRACE, Anno, Bs, Ef, RBs)
+            end;
+        _ -> apply_error({unbound,Src0}, ?STACKTRACE, Anno, Bs, Ef, RBs)
+    end;
+expr({record_field,Anno,{var,_,Src0},[],{atom,_,K}}, Bs, _Lf, Ef, RBs, _FUVs) ->
+    case binding(Src0, Bs) of
+        {value, Src1} ->
+            case is_record(Src1) of
+                true ->
+                    Val = records:get(K, Src1),
+                    ret_expr(Val, Bs, RBs);
+                false ->
+                    apply_error({badarg,Src1}, ?STACKTRACE, Anno, Bs, Ef, RBs)
+            end;
+        _ -> apply_error({unbound,Src0}, ?STACKTRACE, Anno, Bs, Ef, RBs)
+    end;
+expr({record_field,Anno,{var,_,Src0},N,{atom,_,K}}, Bs, _Lf, Ef, RBs, _FUVs) ->
+    case binding(Src0, Bs) of
+        {value, Src1} ->
+            case is_record(Src1, N) of
+                true ->
+                    Val = records:get(K, Src1),
+                    ret_expr(Val, Bs, RBs);
+                false ->
+                    apply_error({badarg,Src1}, ?STACKTRACE, Anno, Bs, Ef, RBs)
+            end;
+        _ -> apply_error({unbound,Src0}, ?STACKTRACE, Anno, Bs, Ef, RBs)
+    end;
+expr({record_field,Anno,Src,Name,K}, Bs, _Lf, Ef, RBs, _FUVs) ->
+    case Src of
+        {var,_,_V} -> ok;
+        _ -> apply_error({badarg,Src}, ?STACKTRACE, Anno, Bs, Ef, RBs)
+    end,
+    case K of
+        {atom,_,_Key} -> ok;
+        _ -> apply_error({badarg,K}, ?STACKTRACE, Anno, Bs, Ef, RBs)
+    end,
+    apply_error({badarg,Name}, ?STACKTRACE, Anno, Bs, Ef, RBs);
 expr({record_index,Anno,Name,_}, Bs, _Lf, Ef, RBs, _FUVs) ->
     apply_error({undef_record,Name}, ?STACKTRACE, Anno, Bs, Ef, RBs);
-expr({record,Anno,Name,_}, Bs, _Lf, Ef, RBs, _FUVs) ->
+expr({record,Anno,{M=shell_default,N},Es}, Bs0, Lf, Ef, RBs, FUVs) ->
+    Error = [{Err,{{M,N},F}} || {record_field,_,{atom,_,F},{nil,Err}} <- Es,
+                    Err =:= novalue orelse Err =:= badfield],
+    case Error of
+        [] ->
+            {Vs,Bs} = expr_list(Es, Bs0, Lf, Ef, FUVs),
+            R = records:create(M, N, Vs, #{is_exported=>false}),
+            ret_expr(R, Bs, RBs);
+        [E|_] -> apply_error(E, ?STACKTRACE, Anno, Bs0, Ef, RBs)
+    end;
+expr({record,Anno,{M,N}, Es}, Bs0, Lf, Ef, RBs, FUVs) ->
+    try records:get_definition(M, N) of
+        {Ops, Defs} ->
+            {Vs, Bs} = expr_list(Es, Bs0, Lf, Ef, FUVs),
+            case native_record_init(Defs, Vs, []) of
+                {novalue, K} ->
+                    apply_error({novalue,{{M,N},K}}, ?STACKTRACE, Anno, Bs0, Ef, RBs);
+                {badfield, F} ->
+                    apply_error({badfield,{{M,N},F}}, ?STACKTRACE, Anno, Bs0, Ef, RBs);
+                Acc ->
+                    R = records:create(M, N, Acc, Ops),
+                    ret_expr(R, Bs, RBs)
+            end
+    catch
+        _:_ ->
+            apply_error({undef_record,{M, N}}, ?STACKTRACE, Anno, Bs0, Ef, RBs)
+    end;
+expr({record,Anno,Name,_Es}, Bs, _Lf, Ef, RBs, _FUVs) ->
     apply_error({undef_record,Name}, ?STACKTRACE, Anno, Bs, Ef, RBs);
-expr({record,Anno,_,Name,_}, Bs, _Lf, Ef, RBs, _FUVs) ->
-    apply_error({undef_record,Name}, ?STACKTRACE, Anno, Bs, Ef, RBs);
+expr({record,Anno,{var,_,Src0},{M,N},Es}, Bs0, Lf, Ef, RBs, FUVs) ->
+    case binding(Src0, Bs0) of
+        {value, Src1} ->
+            case is_record(Src1, M, N) of
+                true ->
+                    {Vs,Bs} = expr_list(Es, Bs0, Lf, Ef, FUVs),
+                    Updates = #{K => V || {K, V} <:- Vs},
+                    R = records:update(Src1, M, N, Updates),
+                    ret_expr(R, Bs, RBs);
+                false ->
+                    apply_error({badarg,Src1}, ?STACKTRACE, Anno, Bs0, Ef, RBs)
+            end;
+        _ -> apply_error({unbound,Src0}, ?STACKTRACE, Anno, Bs0, Ef, RBs)
+    end;
+expr({record,Anno,{var,_,Src0},[],Es}, Bs0, Lf, Ef, RBs, FUVs) ->
+    case binding(Src0, Bs0) of
+        {value, Src1} ->
+            case is_record(Src1) of
+                true ->
+                    M = records:get_module(Src1),
+                    N = records:get_name(Src1),
+                    {Vs,Bs} = expr_list(Es, Bs0, Lf, Ef, FUVs),
+                    Updates = #{K => V || {K, V} <:- Vs},
+                    R = records:update(Src1, M, N, Updates),
+                    ret_expr(R, Bs, RBs);
+                false ->
+                    apply_error({badarg,Src1}, ?STACKTRACE, Anno, Bs0, Ef, RBs)
+            end;
+        _ -> apply_error({unbound,Src0}, ?STACKTRACE, Anno, Bs0, Ef, RBs)
+    end;
+expr({record,Anno,{var,_,Src0},N,Es}, Bs0, Lf, Ef, RBs, FUVs) ->
+    case binding(Src0, Bs0) of
+        {value, Src1} ->
+            case is_record(Src1, N) of
+                true ->
+                    {Vs,Bs} = expr_list(Es, Bs0, Lf, Ef, FUVs),
+                    Updates = #{K => V || {K, V} <:- Vs},
+                    R = records:update(Src1, shell_default, N, Updates),
+                    ret_expr(R, Bs, RBs);
+                false ->
+                    apply_error({badarg,Src1}, ?STACKTRACE, Anno, Bs0, Ef, RBs)
+            end;
+        _ -> apply_error({unbound,Src0}, ?STACKTRACE, Anno, Bs0, Ef, RBs)
+    end;
+expr({record,Anno,Src,Name,_Es}, Bs, _Lf, Ef, RBs, _FUVs) ->
+    case Src of
+        {var,_,_V} -> ok;
+        _ -> apply_error({badarg,Src}, ?STACKTRACE, Anno, Bs, Ef, RBs)
+    end,
+    apply_error({badarg,Name}, ?STACKTRACE, Anno, Bs, Ef, RBs);
 
 %% map
 expr({map,Anno,Binding,Es}, Bs0, Lf, Ef, RBs, FUVs) ->
@@ -726,7 +855,7 @@ find_maxline(LC) ->
                     true ->
                         L = erl_anno:line(A),
                         case
-                            is_integer(L) and (L > get('$erl_eval_max_line'))
+                            is_integer(L) andalso L > get('$erl_eval_max_line')
                         of
                             true -> put('$erl_eval_max_line', L);
                             false -> ok
@@ -924,75 +1053,42 @@ do_apply(F, Anno, FunOrModFun, Args) when is_function(F, 3) ->
 do_apply(F, _Anno, FunOrModFun, Args) when is_function(F, 2) ->
     F(FunOrModFun, Args).
 
-%% eval_lc(Expr, [Qualifier], Bindings, LocalFunctionHandler,
+%% eval_lc(ExprOrExprs, [Qualifier], Bindings, LocalFunctionHandler,
 %%         ExternalFuncHandler, RetBindings) ->
 %%	{value,Value,Bindings} | Value
 
+eval_lc(Es, Qs, Bs, Lf, Ef, RBs, FUVs) when is_list(Es) ->
+    ret_expr(lists:reverse(eval_lc1(Es, Qs, Bs, Lf, Ef, FUVs, [])), Bs, RBs);
 eval_lc(E, Qs, Bs, Lf, Ef, RBs, FUVs) ->
-    ret_expr(lists:reverse(eval_lc1(E, Qs, Bs, Lf, Ef, FUVs, [])), Bs, RBs).
+    eval_lc([E], Qs, Bs, Lf, Ef, RBs, FUVs).
 
-eval_lc1(E, [Q|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
+eval_lc1(Es, [{zip, Anno, Gens}|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
+    {VarList, Bs1} = convert_gen_values(Gens, [], Bs0, Lf, Ef, FUVs),
+    eval_zip(Es, [{zip, Anno, VarList}|Qs], Bs1, Lf, Ef, FUVs, Acc0, fun eval_lc1/7);
+eval_lc1(Es, [Q|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
     case is_generator(Q) of
         true ->
-            CF = fun(Bs, Acc) -> eval_lc1(E, Qs, Bs, Lf, Ef, FUVs, Acc) end,
+            CF = fun(Bs, Acc) -> eval_lc1(Es, Qs, Bs, Lf, Ef, FUVs, Acc) end,
             eval_generator(Q, Bs0, Lf, Ef, FUVs, Acc0, CF);
         false ->
-            CF = fun(Bs) -> eval_lc1(E, Qs, Bs, Lf, Ef, FUVs, Acc0) end,
+            CF = fun(Bs) -> eval_lc1(Es, Qs, Bs, Lf, Ef, FUVs, Acc0) end,
             eval_filter(Q, Bs0, Lf, Ef, CF, FUVs, Acc0)
     end;
-eval_lc1(E, [], Bs, Lf, Ef, FUVs, Acc) ->
-    {value,V,_} = expr(E, Bs, Lf, Ef, none, FUVs),
-    [V|Acc].
+eval_lc1(Es, [], Bs, Lf, Ef, FUVs, Acc) ->
+    {Vs, _} = expr_list(Es, Acc, Bs, Bs, Lf, Ef, FUVs),
+    Vs.
 
-%% eval_bc(Expr, [Qualifier], Bindings, LocalFunctionHandler,
-%%         ExternalFuncHandler, RetBindings) ->
-%%	{value,Value,Bindings} | Value
-
-eval_bc(E, Qs, Bs, Lf, Ef, RBs, FUVs) ->
-    ret_expr(eval_bc1(E, Qs, Bs, Lf, Ef, FUVs, <<>>), Bs, RBs).
-
-eval_bc1(E, [Q|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
-    case is_generator(Q) of
-        true ->
-            CF = fun(Bs, Acc) -> eval_bc1(E, Qs, Bs, Lf, Ef, FUVs, Acc) end,
-            eval_generator(Q, Bs0, Lf, Ef, FUVs, Acc0, CF);
-        false ->
-            CF = fun(Bs) -> eval_bc1(E, Qs, Bs, Lf, Ef, FUVs, Acc0) end,
-            eval_filter(Q, Bs0, Lf, Ef, CF, FUVs, Acc0)
-    end;
-eval_bc1(E, [], Bs, Lf, Ef, FUVs, Acc) ->
-    {value,V,_} = expr(E, Bs, Lf, Ef, none, FUVs),
-    <<Acc/bitstring,V/bitstring>>.
-
-%% eval_mc(Expr, [Qualifier], Bindings, LocalFunctionHandler,
-%%         ExternalFuncHandler, RetBindings) ->
-%%	{value,Value,Bindings} | Value
-
-eval_mc(E, Qs, Bs, Lf, Ef, RBs, FUVs) ->
-    L = eval_mc1(E, Qs, Bs, Lf, Ef, FUVs, []),
-    Map = maps:from_list(reverse(L)),
-    ret_expr(Map, Bs, RBs).
-
-eval_mc1(E, [Q|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
-    case is_generator(Q) of
-        true ->
-            CF = fun(Bs, Acc) -> eval_mc1(E, Qs, Bs, Lf, Ef, FUVs, Acc) end,
-            eval_generator(Q, Bs0, Lf, Ef, FUVs, Acc0, CF);
-        false ->
-            CF = fun(Bs) -> eval_mc1(E, Qs, Bs, Lf, Ef, FUVs, Acc0) end,
-            eval_filter(Q, Bs0, Lf, Ef, CF, FUVs, Acc0)
-    end;
-eval_mc1({map_field_assoc,Lfa,K0,V0}, [], Bs, Lf, Ef, FUVs, Acc) ->
-    {value,KV,_} = expr({tuple,Lfa,[K0,V0]}, Bs, Lf, Ef, none, FUVs),
-    [KV|Acc].
-
-eval_generator({generate,Anno,P,L0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun) ->
+%% convert values for generator vars from abstract form to flattened lists
+convert_gen_values([{Generate, Anno, P, L0}|Qs], Acc, Bs0, Lf, Ef,FUVs)
+    when Generate =:= generate;
+         Generate =:= generate_strict;
+         Generate =:= b_generate;
+         Generate =:= b_generate_strict ->
     {value,L1,_Bs1} = expr(L0, Bs0, Lf, Ef, none, FUVs),
-    eval_generate(L1, P, Anno, Bs0, Lf, Ef, CompFun, Acc0);
-eval_generator({b_generate,Anno,P,Bin0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun) ->
-    {value,Bin,_Bs1} = expr(Bin0, Bs0, Lf, Ef, none, FUVs),
-    eval_b_generate(Bin, P, Anno, Bs0, Lf, Ef, CompFun, Acc0);
-eval_generator({m_generate,Anno,P,Map0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun) ->
+    convert_gen_values(Qs, [{Generate, Anno, P, L1}|Acc], Bs0, Lf, Ef, FUVs);
+convert_gen_values([{Generate, Anno, P, Map0}|Qs], Acc, Bs0, Lf, Ef,FUVs)
+    when Generate =:= m_generate;
+         Generate =:= m_generate_strict ->
     {map_field_exact,_,K,V} = P,
     {value,Map,_Bs1} = expr(Map0, Bs0, Lf, Ef, none, FUVs),
     Iter = case is_map(Map) of
@@ -1009,49 +1105,405 @@ eval_generator({m_generate,Anno,P,Map0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun) ->
                                        Anno, Bs0, Ef, none)
                    end
            end,
-    eval_m_generate(Iter, {tuple,Anno,[K,V]}, Anno, Bs0, Lf, Ef, CompFun, Acc0).
+    convert_gen_values(Qs, [{Generate, Anno, {tuple, Anno, [K, V]}, Iter}|Acc],
+                       Bs0, Lf, Ef, FUVs);
+convert_gen_values([], Acc, Bs0, _Lf, _Ef, _FUVs) ->
+    {reverse(Acc), Bs0}.
 
-eval_generate([V|Rest], P, Anno, Bs0, Lf, Ef, CompFun, Acc) ->
-    case match(P, V, Anno, new_bindings(Bs0), Bs0, Ef) of
-	{match,Bsn} ->
-	    Bs2 = add_bindings(Bsn, Bs0),
-	    NewAcc = CompFun(Bs2, Acc),
-	    eval_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, NewAcc);
-	nomatch ->
-	    eval_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, Acc)
-	end;
-eval_generate([], _P, _Anno, _Bs0, _Lf, _Ef, _CompFun, Acc) ->
-    Acc;
-eval_generate(Term, _P, Anno, Bs0, _Lf, Ef, _CompFun, _Acc) ->
-    apply_error({bad_generator,Term}, ?STACKTRACE, Anno, Bs0, Ef, none).
+bind_all_generators(Gens, Bs0, Lf, Ef, FUVs, StrictPats) ->
+    Bs1 = new_bindings(Bs0),
+    Bs2 = case is_map(Bs1) of
+              true -> Bs1#{strict_pats => StrictPats};
+              false -> orddict:store(strict_pats, StrictPats, Bs1)
+    end,
+    bind_all_generators1(Gens, [], Bs2, Lf, Ef, FUVs, continue).
 
-eval_b_generate(<<_/bitstring>>=Bin, P, Anno, Bs0, Lf, Ef, CompFun, Acc) ->
+bind_all_generators1([{Generate, Anno, P, <<_/bitstring>>=Bin}|Qs],
+                     Acc, Bs0, Lf, Ef, FUVs, ContinueSkip)
+  when Generate =:= b_generate;
+       Generate =:= b_generate_strict ->
+    Mfun = match_fun(Bs0, Ef),
+    Efun = fun(Exp, Bs) -> expr(Exp, Bs, Lf, Ef, none) end,
+    ErrorFun = fun(A, R, S) -> apply_error(R, S, A, Bs0, Ef, none) end,
+    case {eval_bits:bin_gen(P, Bin, new_bindings(Bs0), Bs0, Mfun,
+                            Efun, ErrorFun),
+          Generate} of
+        {{match, Rest, Bs1}, _} ->
+            Bs2 = zip_add_bindings(Bs1, Bs0),
+            case {Bs2, Generate, ContinueSkip} of
+                {nomatch, b_generate, _} ->
+                    bind_all_generators1(Qs,[{Generate, Anno, P, Rest}|Acc],
+                                         Bs0, Lf, Ef, FUVs, skip);
+                {nomatch_strict, _, _} ->
+                    {Acc, error};
+                {nomatch, b_generate_strict, _} ->
+                    {Acc, error};
+                {_, b_generate, skip} ->
+                    bind_all_generators1(Qs,[{Generate, Anno, P, Rest}|Acc],
+                                         Bs0, Lf, Ef, FUVs, ContinueSkip);
+                _ ->
+                    bind_all_generators1(Qs,[{Generate, Anno, P, Rest}|Acc],
+                                         Bs2, Lf, Ef, FUVs, ContinueSkip)
+            end;
+        {{nomatch, Rest}, b_generate} ->
+            bind_all_generators1(Qs, [{b_generate, Anno, P, Rest}|Acc],
+                                 Bs0, Lf, Ef, FUVs, skip);
+        {{nomatch, _Rest}, b_generate_strict} ->
+            {Acc, error};
+        {done, b_generate} when Bin =/= <<>> ->
+            {[], done};
+        {done, b_generate_strict} when Bin =/= <<>> ->
+            {Acc, error};
+        {done, b_generate} ->
+            case ContinueSkip of
+                continue -> {[], done};
+                skip -> {[], skip}
+            end
+    end;
+bind_all_generators1([{Generate, Anno, P, [H|T]}|Qs],
+                     Acc, Bs0, Lf, Ef, FUVs, ContinueSkip)
+  when Generate =:= generate;
+       Generate =:= generate_strict ->
+    case {match(P, H, Anno, new_bindings(Bs0), Bs0, Ef), Generate} of
+        {{match,Bsn}, _} ->
+            Bs2 = zip_add_bindings(Bsn, Bs0),
+            case {Bs2, Generate, ContinueSkip} of
+                {nomatch, generate, _} ->
+                    bind_all_generators1(Qs,[{Generate, Anno, P, T}|Acc],
+                                         Bs0, Lf, Ef, FUVs, skip);
+                {nomatch_strict, _, _} ->
+                    {Acc, error};
+                {nomatch, generate_strict, _} ->
+                    {Acc, error};
+                {_, generate, skip} ->
+                    bind_all_generators1(Qs,[{Generate, Anno, P, T}|Acc],
+                                         Bs0, Lf, Ef, FUVs, skip);
+                _ ->
+                    bind_all_generators1(Qs,[{Generate, Anno, P, T}|Acc],
+                                         Bs2, Lf, Ef, FUVs, ContinueSkip)
+            end;
+        {nomatch, generate} ->
+            %% match/6 returns nomatch. Skip this value
+            bind_all_generators1(Qs, [{generate, Anno, P, T}|Acc],
+                                 Bs0, Lf, Ef, FUVs, skip);
+        {nomatch, generate_strict} ->
+            {Acc, error}
+    end;
+bind_all_generators1([{Generate, Anno, P, Iter0}|Qs],
+                     Acc, Bs0, Lf, Ef, FUVs, ContinueSkip)
+  when Generate =:= m_generate;
+       Generate =:= m_generate_strict->
+    case maps:next(Iter0) of
+        {K,V,Iter} ->
+            case {match(P, {K,V}, Anno, new_bindings(Bs0), Bs0, Ef), Generate} of
+                {{match,Bsn}, _} ->
+                    Bs2 = zip_add_bindings(Bsn, Bs0),
+                    case {Bs2, Generate, ContinueSkip} of
+                        {nomatch, m_generate, _} ->
+                            bind_all_generators1(Qs,[{Generate, Anno, P, Iter}|Acc],
+                                                 Bs0, Lf, Ef, FUVs, skip);
+                        {nomatch_strict, _, _} ->
+                            {Acc, error};
+                        {nomatch, m_generate_strict, _} ->
+                            {Acc, error};
+                        {_, m_generate, skip} ->
+                            bind_all_generators1(Qs, [{Generate, Anno, P, Iter}|Acc],
+                                                 Bs0, Lf, Ef, FUVs, skip);
+                        _ -> bind_all_generators1(Qs,[{Generate, Anno, P, Iter}|Acc],
+                                                  Bs2, Lf, Ef, FUVs, ContinueSkip)
+                    end;
+                {nomatch, m_generate} ->
+                    bind_all_generators1(Qs, [{m_generate, Anno, P, Iter}|Acc],
+                                         Bs0, Lf, Ef, FUVs, skip);
+                {nomatch, m_generate_strict} ->
+                    {Acc, error}
+            end;
+        none ->
+            case ContinueSkip of
+                continue -> {[], done};
+                skip -> {[], skip}
+            end
+    end;
+bind_all_generators1([{generate,_,_,[]}|_], _, _, _, _, _,_) ->
+    %% no more values left for a var, time to return
+    {[],done};
+bind_all_generators1([{generate_strict,_,_,[]}|_], _, _, _, _, _,_) ->
+    %% no more values left for a var, time to return
+    {[],done};
+bind_all_generators1([{generate, _Anno, _P, _Term}|_Qs], Acc, _Bs0,_Lf, _Ef, _FUVs,_) ->
+    {Acc, error};
+bind_all_generators1([{generate_strict, _Anno, _P, _Term}|_Qs], Acc, _Bs0,_Lf, _Ef, _FUVs,_) ->
+    {Acc, error};
+bind_all_generators1([{b_generate, _Anno, _P, _Term}|_Qs], Acc, _Bs0,_Lf, _Ef, _FUVs,_) ->
+    {Acc, error};
+bind_all_generators1([{b_generate_strict, _Anno, _P, _Term}|_Qs], Acc, _Bs0,_Lf, _Ef, _FUVs,_) ->
+    {Acc, error};
+bind_all_generators1([], [_H|_T] = Acc, Bs0, _Lf, _Ef, _FUVs, continue) ->
+    %% all vars are bind for this round
+    {Acc, Bs0};
+bind_all_generators1([], [_H|_T] = Acc, _Bs0,_Lf, _Ef, _FUVs, skip) ->
+    {Acc, skip}.
+
+check_bad_generators([{Generate,_,_,V}|T], Env, Acc)
+    when Generate =:= generate;
+         Generate =:= generate_strict ->
+    check_bad_generators(T, Env, [V|Acc]);
+check_bad_generators([{Generate,_,_,Iter0}|T], Env, Acc)
+    when Generate =:= m_generate;
+         Generate =:= m_generate_strict ->
+    case maps:next(Iter0) of
+        none -> check_bad_generators(T, Env, [#{}|Acc]);
+        _ -> check_bad_generators(T, Env, [#{K => V || K := V <- Iter0}|Acc])
+    end;
+check_bad_generators([{Generate,_,P,<<_/bitstring>>=Bin}|T], {Bs0, Lf, Ef}, Acc)
+    when Generate =:= b_generate;
+         Generate =:= b_generate_strict ->
     Mfun = match_fun(Bs0, Ef),
     Efun = fun(Exp, Bs) -> expr(Exp, Bs, Lf, Ef, none) end,
     ErrorFun = fun(A, R, S) -> apply_error(R, S, A, Bs0, Ef, none) end,
     case eval_bits:bin_gen(P, Bin, new_bindings(Bs0), Bs0, Mfun, Efun, ErrorFun) of
-	{match, Rest, Bs1} ->
-	    Bs2 = add_bindings(Bs1, Bs0),
-	    NewAcc = CompFun(Bs2, Acc),
-	    eval_b_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, NewAcc);
-	{nomatch, Rest} ->
-	    eval_b_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, Acc);
-	done ->
-	    Acc
+        done ->
+            check_bad_generators(T, {Bs0, Lf, Ef}, [<<>>|Acc]);
+        _ ->
+            check_bad_generators(T, {Bs0, Lf, Ef}, [Bin|Acc])
     end;
-eval_b_generate(Term, _P, Anno, Bs0, _Lf, Ef, _CompFun, _Acc) ->
+check_bad_generators([{b_generate,_,_,Term}|T], Env, Acc) ->
+    check_bad_generators(T, Env, [Term|Acc]);
+check_bad_generators([{b_generate_strict,_,_,Term}|T], Env, Acc) ->
+    check_bad_generators(T, Env, [Term|Acc]);
+check_bad_generators([], _, Acc)->
+    case any(fun is_generator_end/1, Acc) of
+        false ->
+            %% None of the generators has reached its end.
+            {ok, list_to_tuple(reverse(Acc))};
+        true ->
+            case all(fun(V) -> is_generator_end(V) end, Acc) of
+                true ->
+                    %% All generators have reached their end.
+                    {ok, list_to_tuple(reverse(Acc))};
+                false ->
+                    {error, {bad_generators,list_to_tuple(reverse(Acc))}}
+            end
+    end.
+
+is_generator_end([]) -> true;
+is_generator_end(<<>>) -> true;
+is_generator_end(Other) -> Other =:= #{}.
+
+native_record_init([{K, V}|Defs], Vs, Acc) ->
+    %% Fill in fields that have default values.
+    case lists:keyfind(K, 1, Vs) of
+        false ->
+            native_record_init(Defs, Vs, [{K, V}|Acc]);
+        Res ->
+            native_record_init(Defs, Vs, [Res|Acc])
+    end;
+native_record_init([K|Defs], Vs, Acc) ->
+    %% Fill in fields with no default values.
+    case lists:keyfind(K, 1, Vs) of
+        false ->
+            {novalue, K};
+        Res ->
+            native_record_init(Defs, Vs, [Res|Acc])
+    end;
+native_record_init([], Vs, Acc) ->
+    %% Report error for fields that don't exist in the definition.
+    case lists:partition(fun({K, _}) -> lists:keyfind(K, 1, Acc) =:= false end, Vs) of
+        {[], _} -> lists:reverse(Acc);
+        {[{F,_}|_], _} ->{badfield, F}
+    end.
+
+get_vars(Lit) ->
+    get_vars(Lit, []).
+
+get_vars({tuple,_,Es}, Vs) -> get_list_vars(Es, Vs);
+get_vars({var,_,V}, Vs) -> ordsets:add_element(V, Vs);
+get_vars([{bin_element,_,V,_,_}|BinElements], Vs0) ->
+    Vs1 = get_vars(V, Vs0),
+    get_list_vars(BinElements, Vs1);
+get_vars([_|_]=Ls, Vs) -> get_list_vars(Ls, Vs);
+get_vars(_, Vs) -> Vs.
+
+get_list_vars(Ls, Vs) ->
+    foldl(fun (L, Vs0) -> get_vars(L, Vs0) end, Vs, Ls).
+
+get_strict_patterns([{Generate,_,P,_}|Qs], Acc)
+  when Generate =:= generate_strict;
+       Generate =:= m_generate_strict ->
+    Vars = get_vars(P),
+    get_strict_patterns(Qs, Vars ++ Acc);
+get_strict_patterns([{b_generate_strict,_,P,_}|Qs], Acc) ->
+    Vars = case P of
+        {bin,_,BinElements} ->
+            get_vars(BinElements, Acc);
+        _ -> []
+    end,
+    get_strict_patterns(Qs, Vars ++ Acc);
+get_strict_patterns([_|Qs], Acc) ->
+    get_strict_patterns(Qs, Acc);
+get_strict_patterns([], Acc) ->
+    sets:to_list(sets:from_list(Acc)).
+
+%% eval_bc(Expr, [Qualifier], Bindings, LocalFunctionHandler,
+%%         ExternalFuncHandler, RetBindings) ->
+%%	{value,Value,Bindings} | Value
+
+eval_bc(E, Qs, Bs, Lf, Ef, RBs, FUVs) ->
+    ret_expr(eval_bc1(E, Qs, Bs, Lf, Ef, FUVs, <<>>), Bs, RBs).
+
+eval_bc1(E, [{zip, Anno, Gens}|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
+    {VarList, Bs1} = convert_gen_values(Gens, [], Bs0, Lf, Ef, FUVs),
+    eval_zip(E, [{zip, Anno, VarList}|Qs], Bs1, Lf, Ef, FUVs, Acc0, fun eval_bc1/7);
+eval_bc1(E, [Q|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
+    case is_generator(Q) of
+        true ->
+            CF = fun(Bs, Acc) -> eval_bc1(E, Qs, Bs, Lf, Ef, FUVs, Acc) end,
+            eval_generator(Q, Bs0, Lf, Ef, FUVs, Acc0, CF);
+        false ->
+            CF = fun(Bs) -> eval_bc1(E, Qs, Bs, Lf, Ef, FUVs, Acc0) end,
+            eval_filter(Q, Bs0, Lf, Ef, CF, FUVs, Acc0)
+    end;
+eval_bc1(E, [], Bs, Lf, Ef, FUVs, Acc) ->
+    {value,V,_} = expr(E, Bs, Lf, Ef, none, FUVs),
+    <<Acc/bitstring,V/bitstring>>.
+
+%% eval_mc(ExprOrExprs, [Qualifier], Bindings, LocalFunctionHandler,
+%%         ExternalFuncHandler, RetBindings) ->
+%%	{value,Value,Bindings} | Value
+
+eval_mc(Es, Qs, Bs, Lf, Ef, RBs, FUVs) when is_list(Es) ->
+    L = eval_mc1(Es, Qs, Bs, Lf, Ef, FUVs, []),
+    Map = maps:from_list(reverse(L)),
+    ret_expr(Map, Bs, RBs);
+eval_mc(E, Qs, Bs, Lf, Ef, RBs, FUVs) ->
+    eval_mc([E], Qs, Bs, Lf, Ef, RBs, FUVs).
+
+eval_mc1(Es, [{zip, Anno, Gens}|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
+    {VarList, Bs1} = convert_gen_values(Gens, [], Bs0, Lf, Ef, FUVs),
+    eval_zip(Es, [{zip, Anno, VarList}|Qs], Bs1, Lf, Ef, FUVs, Acc0, fun eval_mc1/7);
+eval_mc1(Es, [Q|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
+    case is_generator(Q) of
+        true ->
+            CF = fun(Bs, Acc) -> eval_mc1(Es, Qs, Bs, Lf, Ef, FUVs, Acc) end,
+            eval_generator(Q, Bs0, Lf, Ef, FUVs, Acc0, CF);
+        false ->
+            CF = fun(Bs) -> eval_mc1(Es, Qs, Bs, Lf, Ef, FUVs, Acc0) end,
+            eval_filter(Q, Bs0, Lf, Ef, CF, FUVs, Acc0)
+    end;
+eval_mc1(Es, [], Bs, Lf, Ef, FUVs, Acc) ->
+    eval_mc2(Es, Bs, Lf, Ef, FUVs, Acc).
+
+eval_mc2([{map_field_assoc,_,K0,V0}|Es], Bs, Lf, Ef, FUVs, Acc) ->
+    {[K,V],_} = expr_list([K0,V0], Bs, Lf, Ef, FUVs),
+    eval_mc2(Es, Bs, Lf, Ef, FUVs, [{K,V}|Acc]);
+eval_mc2([], _Bs, _Lf, _Ef, _FUVs, Acc) ->
+    Acc.
+
+eval_zip(E, [{zip, Anno, VarList}|Qs], Bs0, Lf, Ef, FUVs, Acc0, Fun) ->
+    Gens = case check_bad_generators(VarList, {Bs0, Lf, Ef}, []) of
+               {ok, Acc} -> Acc;
+               {error, Reason} ->
+                   apply_error(Reason, ?STACKTRACE, Anno, Bs0, Ef, none)
+           end,
+    StrictPats = get_strict_patterns(VarList, []),
+    {Rest, Bs1} = bind_all_generators(VarList, Bs0, Lf, Ef, FUVs, StrictPats),
+    case {Rest, Qs, Bs1} of
+        {_, _, error} -> apply_error({bad_generators,Gens}, ?STACKTRACE, Anno, Bs0, Ef, none);
+        {[], [], _} -> Acc0;
+        {[], _, _} -> Acc0;
+        {_,_,done} -> Acc0;
+        {_, _, skip} ->
+            eval_zip(E, [{zip, Anno, reverse(Rest)}|Qs], Bs0, Lf, Ef, FUVs, Acc0, Fun);
+        {_, _, _} ->
+            Acc1 = Fun(E, Qs, add_bindings(Bs1, Bs0), Lf, Ef, FUVs, Acc0),
+            eval_zip(E, [{zip, Anno, reverse(Rest)}|Qs], Bs0, Lf, Ef, FUVs, Acc1, Fun)
+    end.
+
+eval_generator({match,Anno,P,E}, Bs0, Lf, Ef, FUVs, Acc0, CompFun) ->
+    eval_generator({generate_strict,Anno,P,{cons,Anno,E,{nil,Anno}}}, Bs0, Lf, Ef, FUVs, Acc0, CompFun);
+eval_generator({Generate,Anno,P,L0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun)
+  when Generate =:= generate;
+       Generate =:= generate_strict ->
+    {value,L1,_Bs1} = expr(L0, Bs0, Lf, Ef, none, FUVs),
+    eval_generate(L1, P, Anno, Bs0, Lf, Ef, CompFun,
+                  Generate =:= generate, Acc0);
+eval_generator({Generate,Anno,P,Bin0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun)
+  when Generate =:= b_generate;
+       Generate =:= b_generate_strict ->
+    {value,Bin,_Bs1} = expr(Bin0, Bs0, Lf, Ef, none, FUVs),
+    eval_b_generate(Bin, P, Anno, Bs0, Lf, Ef, CompFun,
+                    Generate =:= b_generate, Acc0);
+eval_generator({Generate,Anno,P,Map0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun)
+  when Generate =:= m_generate;
+       Generate =:= m_generate_strict ->
+    {map_field_exact,_,K,V} = P,
+    {value,Map,_Bs1} = expr(Map0, Bs0, Lf, Ef, none, FUVs),
+    Iter = case is_map(Map) of
+               true ->
+                   maps:iterator(Map);
+               false ->
+                   %% Validate iterator.
+                   try maps:foreach(fun(_, _) -> ok end, Map) of
+                       _ ->
+                           Map
+                   catch
+                       _:_ ->
+                           apply_error({bad_generator,Map}, ?STACKTRACE,
+                                       Anno, Bs0, Ef, none)
+                   end
+           end,
+    eval_m_generate(Iter, {tuple,Anno,[K,V]}, Anno, Bs0, Lf, Ef, CompFun,
+                    Generate =:= m_generate, Acc0).
+
+eval_generate([V|Rest], P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc) ->
+    case match(P, V, Anno, new_bindings(Bs0), Bs0, Ef) of
+	{match,Bsn} ->
+            Bs2 = add_bindings(Bsn, Bs0),
+            NewAcc = CompFun(Bs2, Acc),
+            eval_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, NewAcc);
+        nomatch when Relaxed ->
+            eval_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc);
+        nomatch ->
+            apply_error({badmatch, V}, ?STACKTRACE, Anno, Bs0, Ef, none)
+    end;
+eval_generate([], _P, _Anno, _Bs0, _Lf, _Ef, _CompFun, _Relaxed, Acc) ->
+    Acc;
+eval_generate(Term, _P, Anno, Bs0, _Lf, Ef, _CompFun, _Relaxed, _Acc) ->
     apply_error({bad_generator,Term}, ?STACKTRACE, Anno, Bs0, Ef, none).
 
-eval_m_generate(Iter0, P, Anno, Bs0, Lf, Ef, CompFun, Acc0) ->
+eval_b_generate(<<_/bitstring>>=Bin, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc) ->
+    Mfun = match_fun(Bs0, Ef),
+    Efun = fun(Exp, Bs) -> expr(Exp, Bs, Lf, Ef, none) end,
+    ErrorFun = fun(A, R, S) -> apply_error(R, S, A, Bs0, Ef, none) end,
+    case eval_bits:bin_gen(P, Bin, new_bindings(Bs0), Bs0, Mfun, Efun, ErrorFun) of
+        {match, Rest, Bs1} ->
+            Bs2 = add_bindings(Bs1, Bs0),
+            NewAcc = CompFun(Bs2, Acc),
+            eval_b_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, NewAcc);
+        {nomatch, Rest} when Relaxed ->
+            eval_b_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc);
+        {nomatch, _Rest} ->
+            apply_error({badmatch, Bin}, ?STACKTRACE, Anno, Bs0, Ef, none);
+        done when not Relaxed, Bin =/= <<>> ->
+            apply_error({badmatch, Bin}, ?STACKTRACE, Anno, Bs0, Ef, none);
+        done ->
+            Acc
+    end;
+eval_b_generate(Term, _P, Anno, Bs0, _Lf, Ef, _CompFun, _Relaxed, _Acc) ->
+    apply_error({bad_generator,Term}, ?STACKTRACE, Anno, Bs0, Ef, none).
+
+eval_m_generate(Iter0, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc0) ->
     case maps:next(Iter0) of
         {K,V,Iter} ->
             case match(P, {K,V}, Anno, new_bindings(Bs0), Bs0, Ef) of
                 {match,Bsn} ->
                     Bs2 = add_bindings(Bsn, Bs0),
                     Acc = CompFun(Bs2, Acc0),
-                    eval_m_generate(Iter, P, Anno, Bs0, Lf, Ef, CompFun, Acc);
+                    eval_m_generate(Iter, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc);
+                nomatch when Relaxed ->
+                    eval_m_generate(Iter, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc0);
                 nomatch ->
-                    eval_m_generate(Iter, P, Anno, Bs0, Lf, Ef, CompFun, Acc0)
+                    apply_error({badmatch, {K,V}}, ?STACKTRACE, Anno, Bs0, Ef, none)
             end;
         none ->
             Acc0
@@ -1073,9 +1525,13 @@ eval_filter(F, Bs0, Lf, Ef, CompFun, FUVs, Acc) ->
 	    end
     end.
 
+is_generator({match,_,_,_}) -> true;
 is_generator({generate,_,_,_}) -> true;
+is_generator({generate_strict,_,_,_}) -> true;
 is_generator({b_generate,_,_,_}) -> true;
+is_generator({b_generate_strict,_,_,_}) -> true;
 is_generator({m_generate,_,_,_}) -> true;
+is_generator({m_generate_strict,_,_,_}) -> true;
 is_generator(_) -> false.
 
 %% eval_map_fields([Field], Bindings, LocalFunctionHandler,
@@ -1201,13 +1657,14 @@ expr_list(Es, Bs, Lf, Ef) ->
     expr_list(Es, Bs, Lf, Ef, empty_fun_used_vars()).
 
 expr_list(Es, Bs, Lf, Ef, FUVs) ->
-    expr_list(Es, [], Bs, Bs, Lf, Ef, FUVs).
+    {Vs, Bs1} = expr_list(Es, [], Bs, Bs, Lf, Ef, FUVs),
+    {reverse(Vs), Bs1}.
 
 expr_list([E|Es], Vs, BsOrig, Bs0, Lf, Ef, FUVs) ->
     {value,V,Bs1} = expr(E, BsOrig, Lf, Ef, none, FUVs),
     expr_list(Es, [V|Vs], BsOrig, merge_bindings(Bs1, Bs0, element(2, E), Ef), Lf, Ef, FUVs);
 expr_list([], Vs, _, Bs, _Lf, _Ef, _FUVs) ->
-    {reverse(Vs),Bs}.
+    {Vs,Bs}.
 
 eval_op(Op, Arg1, Arg2, Anno, Bs, Ef, RBs) ->
     do_apply(erlang, Op, [Arg1,Arg2], Anno, Bs, Ef, RBs).
@@ -1409,11 +1866,14 @@ type_test(Test) -> Test.
 %% binsize variable).
 
 match(Pat, Term, Anno, Bs, BBs, Ef) ->
-    case catch match1(Pat, Term, Bs, BBs, Ef) of
-	invalid ->
-            apply_error({illegal_pattern,to_term(Pat)}, ?STACKTRACE, Anno, Bs, Ef, none);
-	Other ->
-	    Other
+    try match1(Pat, Term, Bs, BBs, Ef) of
+        Result -> Result
+    catch
+        throw:nomatch ->
+            nomatch;
+        throw:invalid ->
+            apply_error({illegal_pattern,to_term(Pat)}, ?STACKTRACE, Anno,
+                        Bs, Ef, none)
     end.
 
 string_to_conses([], _, Tail) -> Tail;
@@ -1477,6 +1937,10 @@ match1({tuple,_,_}, _, _Bs, _BBs, _Ef) ->
 match1({map,_,Fs}, #{}=Map, Bs, BBs, Ef) ->
     match_map(Fs, Map, Bs, BBs, Ef);
 match1({map,_,_}, _, _Bs, _BBs, _Ef) ->
+    throw(nomatch);
+match1({record,_,_,_}=R, Record, Bs, BBs, Ef) when is_record(Record) ->
+    match_record(R, Record, Bs, BBs, Ef);
+match1({record,_,_,_}, _, _Bs, _BBs, _Ef) ->
     throw(nomatch);
 match1({bin, _, Fs}, <<_/bitstring>>=B, Bs0, BBs, Ef) ->
     EvalFun = fun(E, Bs) ->
@@ -1542,6 +2006,26 @@ match_map([{map_field_exact, _, K, V}|Fs], Map, Bs0, BBs, Ef) ->
     {match, Bs} = match1(V, Vm, Bs0, BBs, Ef),
     match_map(Fs, Map, Bs, BBs, Ef);
 match_map([], _, Bs, _, _) ->
+    {match, Bs}.
+
+match_record({record, _, N, Fs}, R, Bs, BBs, Ef) ->
+    case {N, records:get_module(R), records:get_name(R)} of
+        {{Mod, Name}, Mod, Name} -> ok;
+        {N, _, N} -> ok;
+        _ -> throw(nomatch)
+    end,
+    KVs = [{K, V} || {record_field, _, {atom, _, K}, V} <- Fs],
+    match_record_field(KVs, R, Bs, BBs, Ef).
+
+match_record_field([{K, V}|KVs], R, Bs0, BBs, Ef) ->
+    RV = try
+        records:get(K, R)
+    catch error:_ ->
+        throw(nomatch)
+    end,
+    {match, Bs} = match1(V, RV, Bs0, BBs, Ef),
+    match_record_field(KVs, R, Bs, BBs, Ef);
+match_record_field([], _, Bs, _, _) ->
     {match, Bs}.
 
 %% match_list(PatternList, TermList, Anno, NewBindings, Bindings, ExternalFunHnd) ->
@@ -1610,6 +2094,41 @@ structure.
 del_binding(Name, Bs) when is_map(Bs) -> maps:remove(Name, Bs);
 del_binding(Name, Bs) when is_list(Bs) -> orddict:erase(Name, Bs).
 
+zip_add_bindings(Bs1, Bs2) when is_map(Bs1), is_map(Bs2) ->
+    zip_add_bindings_map(maps:keys(Bs1), Bs1, Bs2);
+zip_add_bindings(Bs1, Bs2) when is_list(Bs1), is_list(Bs2) ->
+    zip_add_bindings1(orddict:to_list(Bs1), Bs2).
+
+zip_add_bindings_map([Key | Keys], Bs1, Bs2) ->
+    case {Bs1, Bs2} of
+        {#{Key := Same}, #{Key := Same}} -> zip_add_bindings_map(Keys, Bs1, Bs2);
+        {_, #{Key := _}} ->
+            #{strict_pats := StrictPats} = Bs2,
+            case lists:member(Key, StrictPats) of
+                true -> nomatch_strict;
+                false -> nomatch
+            end;
+        {#{Key := Value},_} -> zip_add_bindings_map(Keys, Bs1, Bs2#{Key => Value})
+    end;
+zip_add_bindings_map([], _, Bs2) ->
+    Bs2.
+
+zip_add_bindings1([{Name,Val}|Bs1], Bs2) ->
+    case orddict:find(Name, Bs2) of
+        {ok, Val} ->
+            zip_add_bindings1(Bs1, Bs2);
+        {ok, _Value} ->
+            {ok, StrictPats} = orddict:find(strict_pats, Bs2),
+            case lists:member(Name, StrictPats) of
+                true -> nomatch_strict;
+                false -> nomatch
+            end;
+        error ->
+            zip_add_bindings1(Bs1, orddict:store(Name, Val, Bs2))
+    end;
+zip_add_bindings1([], Bs2) ->
+    Bs2.
+
 add_bindings(Bs1, Bs2) when is_map(Bs1), is_map(Bs2) ->
     maps:merge(Bs2, Bs1);
 add_bindings(Bs1, Bs2) ->
@@ -1631,6 +2150,8 @@ merge_bindings(Bs1, Bs2, Anno, Ef) ->
 		  end end,
 	  Bs2, orddict:to_list(Bs1)).
 
+-doc false.
+-spec(new_bindings(binding_struct()) -> binding_struct()).
 new_bindings(Bs) when is_map(Bs) -> maps:new();
 new_bindings(Bs) when is_list(Bs) -> orddict:new().
 
@@ -1678,11 +2199,15 @@ tokens_fixup([T|Ts]=Ts0) ->
     end.
 
 token_fixup(Ts) ->
-    {AnnoL, NewTs, FixupTag} = unscannable(Ts),
-    String = lists:append([erl_anno:text(A) || A <- AnnoL]),
-    _ = validate_tag(FixupTag, String),
-    NewAnno = erl_anno:set_text(fixup_text(FixupTag), hd(AnnoL)),
-    {{string, NewAnno, String}, NewTs}.
+    case unscannable(Ts) of
+        {AnnoL, NewTs, FixupTag} ->
+            String = lists:append([erl_anno:text(A) || A <- AnnoL]),
+            _ = validate_tag(FixupTag, String),
+            NewAnno = erl_anno:set_text(fixup_text(FixupTag), hd(AnnoL)),
+            {{string, NewAnno, String}, NewTs};
+        false ->
+            {hd(Ts), tl(Ts)}
+    end.
 
 unscannable([{'#', A1}, {var, A2, 'Fun'}, {'<', A3}, {atom, A4, _},
              {'.', A5}, {float, A6, _}, {'>', A7}|Ts]) ->
@@ -1699,7 +2224,9 @@ unscannable([{'#', A1}, {var, A2, 'Port'}, {'<', A3}, {float, A4, _},
     {[A1, A2, A3, A4, A5], Ts, port};
 unscannable([{'#', A1}, {var, A2, 'Ref'}, {'<', A3}, {float, A4, _},
              {'.', A5}, {float, A6, _}, {'>', A7}|Ts]) ->
-    {[A1, A2, A3, A4, A5, A6, A7], Ts, reference}.
+    {[A1, A2, A3, A4, A5, A6, A7], Ts, reference};
+unscannable(_) ->
+    false.
 
 expr_fixup({string,A,S}=T) ->
     try string_fixup(A, S, T) of
@@ -1843,7 +2370,7 @@ normalise_list([]) ->
 %%----------------------------------------------------------------------------
 %%
 %% Evaluate expressions:
-%% constants and 
+%% constants and
 %% op A
 %% L op R
 %% Things that evaluate to constants are accepted
@@ -1858,23 +2385,25 @@ is_constant_expr(Expr) ->
     end.
 
 eval_expr(Expr) ->
-    case catch ev_expr(Expr) of
-        X when is_integer(X) -> {ok, X};
-        X when is_float(X) -> {ok, X};
+    try ev_expr(Expr) of
+        X when is_number(X) -> {ok, X};
         X when is_atom(X) -> {ok,X};
-        {'EXIT',Reason} -> {error, Reason};
         _ -> {error, badarg}
+    catch
+        error:Reason ->
+            Reason
     end.
 
 -doc false.
 partial_eval(Expr) ->
     Anno = anno(Expr),
-    case catch ev_expr(Expr) of
+    try ev_expr(Expr) of
 	X when is_integer(X) -> ret_expr(Expr,{integer,Anno,X});
-	X when is_float(X) -> ret_expr(Expr,{float,Anno,X});
+	X when is_float(X) -> ret_expr(Expr, {float,Anno,X});
 	X when is_atom(X) -> ret_expr(Expr,{atom,Anno,X});
-	_ ->
-	    Expr
+	_ -> Expr
+    catch
+        error:_ -> Expr
     end.
 
 ev_expr({op,_,Op,L,R}) -> erlang:Op(ev_expr(L), ev_expr(R));
@@ -1887,12 +2416,6 @@ ev_expr({tuple,_,Es}) ->
     list_to_tuple([ev_expr(X) || X <- Es]);
 ev_expr({nil,_}) -> [];
 ev_expr({cons,_,H,T}) -> [ev_expr(H) | ev_expr(T)].
-%%ev_expr({call,Anno,{atom,_,F},As}) ->
-%%    true = erl_internal:guard_bif(F, length(As)),
-%%    apply(erlang, F, [ev_expr(X) || X <- As]);
-%%ev_expr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,F}},As}) ->
-%%    true = erl_internal:guard_bif(F, length(As)),
-%%    apply(erlang, F, [ev_expr(X) || X <- As]);
 
 %% eval_str(InStr) -> {ok, OutStr} | {error, ErrStr'}
 %%   InStr must represent a body
@@ -1907,37 +2430,55 @@ ev_expr({cons,_,H,T}) -> [ev_expr(H) | ev_expr(T)].
                       {'ok', string()} | {'error', string()}.
 
 eval_str(Str) when is_list(Str) ->
-    case erl_scan:tokens([], Str, 0) of
-	{more, _} ->
-	    {error, "Incomplete form (missing .<cr>)??"};
-	{done, {ok, Toks, _}, Rest} ->
-	    case all_white(Rest) of
-		true ->
-		    case erl_parse:parse_exprs(Toks) of
-			{ok, Exprs} ->
-			    case catch erl_eval:exprs(Exprs, erl_eval:new_bindings()) of
-				{value, Val, _} ->
-				    {ok, Val};
-				Other ->
-				    {error, ?result("*** eval: ~p", [Other])}
-			    end;
-			{error, {_Location, Mod, Args}} ->
-                            Msg = ?result("*** ~ts",[Mod:format_error(Args)]),
-                            {error, Msg}
-		    end;
-		false ->
-		    {error, ?result("Non-white space found after "
-				    "end-of-form :~ts", [Rest])}
-		end
+    maybe
+        {ok, Toks} ?= do_scan_str(Str),
+        {ok, Exprs} ?= erl_parse:parse_exprs(Toks),
+        do_eval_str(Exprs)
+    else
+        {error, {_Location, Mod, Args}} ->
+            Msg = ?result(~"*** ~ts", [Mod:format_error(Args)]),
+            {error, Msg};
+        {error, Error} when is_list(Error) ->
+            {error, Error}
     end;
 eval_str(Bin) when is_binary(Bin) ->
     eval_str(binary_to_list(Bin)).
 
+do_scan_str(Str) ->
+    case erl_scan:tokens([], Str, 0) of
+        {done, {ok, Toks, _}, Rest} ->
+            case all_white(Rest) of
+                true ->
+                    {ok, Toks};
+                false ->
+                    Fmt = ~"*** Non-white space found after end-of-form: ~ts",
+                    {error, ?result(Fmt, [Rest])}
+            end;
+        {more, _} ->
+            {error, ?result(~"*** Incomplete form (missing .<cr>?)", [])}
+    end.
+
+do_eval_str(Exprs) ->
+    try exprs(Exprs, erl_eval:new_bindings()) of
+        {value, Val, _} ->
+            {ok, Val}
+    catch
+        error:Reason ->
+            {error, ?result(~"*** eval failed: ~p",
+                            [Reason])};
+        throw:Reason ->
+            {error, ?result(~"*** eval failed with thrown exception: ~p",
+                            [Reason])};
+        exit:Reason ->
+            {error, ?result(~"*** eval failed with exit exception: ~p",
+                            [Reason])}
+    end.
+
 all_white([$\s|T]) -> all_white(T);
 all_white([$\n|T]) -> all_white(T);
 all_white([$\t|T]) -> all_white(T);
-all_white([])      -> true;
-all_white(_)       -> false.
+all_white([_|_])   -> false;
+all_white([])      -> true.
 
 ret_expr(_Old, New) ->
     %%    io:format("~w: reduced ~s => ~s~n",

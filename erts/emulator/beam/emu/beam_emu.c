@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2025. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +44,7 @@
 #include "dtrace-wrapper.h"
 #include "erl_proc_sig_queue.h"
 #include "beam_common.h"
+#include "erl_record.h"
 
 /* #define HARDDEBUG 1 */
 
@@ -84,14 +87,20 @@
 #define ADD_BYTE_OFFSET(ptr, offset) \
    ((Eterm *) (((unsigned char *)ptr) + (offset)))
 
+#if defined(__clang__)
+#  define BROKEN_VALID_INSTR_CHECK
+#endif
+
 /* We don't check the range if an ordinary switch is used */
 #ifdef NO_JUMP_TABLE
 #  define VALID_INSTR(IP) (BeamCodeAddr(IP) < (NUMBER_OF_OPCODES*2+10))
+#elif defined(BROKEN_VALID_INSTR_CHECK)
+#  define VALID_INSTR(IP) (true)
 #else
 #  define VALID_INSTR(IP) \
     ((BeamInstr)LabelAddr(emulator_loop) <= BeamCodeAddr(IP) && \
      BeamCodeAddr(IP) < (BeamInstr)LabelAddr(end_emulator_loop))
-#endif /* NO_JUMP_TABLE */
+#endif
 
 #define SET_I(ip) \
    ASSERT(VALID_INSTR(* (Eterm *)(ip))); \
@@ -119,6 +128,8 @@ ErtsCodePtr beam_exit;
 static BeamInstr beam_continue_exit_[1];
 ErtsCodePtr beam_continue_exit;
 
+static BeamInstr beam_i_line_breakpoint_cleanup_[1];
+ErtsCodePtr beam_i_line_breakpoint_cleanup;
 
 /* NOTE These should be the only variables containing trace instructions.
 **      Sometimes tests are for the instruction value, and sometimes
@@ -320,8 +331,6 @@ void process_main(ErtsSchedulerData *esdp)
 
     ERTS_MSACC_DECLARE_CACHE_X() /* a cached value of the tsd pointer for msacc */
 
-    ERL_BITS_DECLARE_STATEP; /* Has to be last declaration */
-
     /*
      * Note: In this function, we attempt to place rarely executed code towards
      * the end of the function, in the hope that the cache hit rate will be better.
@@ -379,7 +388,6 @@ void process_main(ErtsSchedulerData *esdp)
 	start_time_i = c_p->i;
     }
 
-    ERL_BITS_RELOAD_STATEP(c_p);
     {
 	int reds;
 	BeamInstr next;
@@ -438,7 +446,7 @@ void process_main(ErtsSchedulerData *esdp)
 	Goto(next);
     }
 
-#if defined(DEBUG) || defined(NO_JUMP_TABLE)
+#if defined(NO_JUMP_TABLE) || (defined(DEBUG) && !defined(BROKEN_VALID_INSTR_CHECK))
  emulator_loop:
 #endif
 
@@ -531,8 +539,8 @@ void process_main(ErtsSchedulerData *esdp)
          * code[3]: &&call_error_handler
          * code[4]: Not used
          */
+        const Export *error_handler;
         const ErtsCodeMFA *mfa;
-        Export *error_handler;
 
         HEAVY_SWAPOUT;
         mfa = erts_code_to_codemfa(I);
@@ -577,16 +585,15 @@ void process_main(ErtsSchedulerData *esdp)
     DEFINE_COUNTING_LABELS;
 #endif
 
-#ifndef NO_JUMP_TABLE
-#ifdef DEBUG
+#if defined(DEBUG) && !defined(BROKEN_VALID_INSTR_CHECK)
  end_emulator_loop:
-#endif
 #endif
 
  OpCase(int_code_end):
  OpCase(label_L):
  OpCase(on_load):
  OpCase(line_I):
+ OpCase(i_debug_line_IIt):
  OpCase(i_nif_padding):
     erts_exit(ERTS_ERROR_EXIT, "meta op\n");
 
@@ -694,6 +701,9 @@ init_emulator_finish(void)
 
     beam_continue_exit_[0]     = BeamOpCodeAddr(op_continue_exit);
     beam_continue_exit = (ErtsCodePtr)&beam_continue_exit_[0];
+
+    beam_i_line_breakpoint_cleanup_[0] = BeamOpCodeAddr(op_i_line_breakpoint_cleanup);
+    beam_i_line_breakpoint_cleanup = (ErtsCodePtr)&beam_i_line_breakpoint_cleanup_[0];
 
     beam_return_to_trace_[0]   = BeamOpCodeAddr(op_i_return_to_trace);
     beam_return_to_trace = (ErtsCodePtr)&beam_return_to_trace_[0];

@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(filename_SUITE).
@@ -31,6 +33,7 @@
 -export([t_basedir_api/1, t_basedir_xdg/1, t_basedir_windows/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -443,19 +446,19 @@ pathtype(Config) when is_list(Config) ->
     end.
 
 rootname(Config) when is_list(Config) ->
-    "/jam.src/kalle" = filename:rootname("/jam.src/kalle"),
-    "/jam.src/foo" = filename:rootname("/jam.src/foo.erl"),
-    "/jam.src/.gitignore" = filename:rootname("/jam.src/.gitignore"),
-    "/jam.src/.git" = filename:rootname("/jam.src/.git.ignore"),
-    "/jam.src/." = filename:rootname("/jam.src/..gitignore"),
-    "/jam.src/foo" = filename:rootname(["/ja",'m.sr',"c/foo.erl"]),
-    "/jam.src/foo" = filename:rootname("/jam.src/foo.erl", ".erl"),
-    "/jam.src/.gitignore" = filename:rootname("/jam.src/.gitignore", ".gitignore"),
-    "/jam.src/.git" = filename:rootname("/jam.src/.git.ignore", ".ignore"),
-    "/jam.src/." = filename:rootname("/jam.src/..gitignore", ".gitignore"),
-    "/jam.src/foo.jam" = filename:rootname("/jam.src/foo.jam", ".erl"),
-    "/jam.src/foo.jam" = filename:rootname(["/jam.sr",'c/foo.j',"am"],".erl"),
-    "/jam.src/foo.jam" = filename:rootname(["/jam.sr",'c/foo.j'|am],".erl"),
+    "/bork.src/kalle" = filename:rootname("/bork.src/kalle"),
+    "/bork.src/foo" = filename:rootname("/bork.src/foo.erl"),
+    "/bork.src/.gitignore" = filename:rootname("/bork.src/.gitignore"),
+    "/bork.src/.git" = filename:rootname("/bork.src/.git.ignore"),
+    "/bork.src/." = filename:rootname("/bork.src/..gitignore"),
+    "/bork.src/foo" = filename:rootname(["/bo",'rk.sr',"c/foo.erl"]),
+    "/bork.src/foo" = filename:rootname("/bork.src/foo.erl", ".erl"),
+    "/bork.src/.gitignore" = filename:rootname("/bork.src/.gitignore", ".gitignore"),
+    "/bork.src/.git" = filename:rootname("/bork.src/.git.ignore", ".ignore"),
+    "/bork.src/." = filename:rootname("/bork.src/..gitignore", ".gitignore"),
+    "/bork.src/foo.beam" = filename:rootname("/bork.src/foo.beam", ".erl"),
+    "/bork.src/foo.beam" = filename:rootname(["/bork.sr",'c/foo.b',"eam"],".erl"),
+    "/bork.src/foo.beam" = filename:rootname(["/bork.sr",'c/foo.b'|eam],".erl"),
     ok.
 
 split(Config) when is_list(Config) ->
@@ -822,12 +825,12 @@ pathtype_bin(Config) when is_list(Config) ->
     end.
 
 rootname_bin(Config) when is_list(Config) ->
-    <<"/jam.src/kalle">> = filename:rootname(<<"/jam.src/kalle">>),
-    <<"/jam.src/foo">> = filename:rootname(<<"/jam.src/foo.erl">>),
-    <<"/jam.src/foo">> = filename:rootname(<<"/jam.src/foo.erl">>, <<".erl">>),
-    <<"/jam.src/foo.jam">> = filename:rootname(<<"/jam.src/foo.jam">>, <<".erl">>),
-    <<"/jam.src/foo.jam">> = filename:rootname(["/jam.sr",'c/foo.j',"am"],<<".erl">>),
-    <<"/jam.src/foo.jam">> = filename:rootname(["/jam.sr",'c/foo.j'|am],<<".erl">>),
+    <<"/bork.src/kalle">> = filename:rootname(<<"/bork.src/kalle">>),
+    <<"/bork.src/foo">> = filename:rootname(<<"/bork.src/foo.erl">>),
+    <<"/bork.src/foo">> = filename:rootname(<<"/bork.src/foo.erl">>, <<".erl">>),
+    <<"/bork.src/foo.beam">> = filename:rootname(<<"/bork.src/foo.beam">>, <<".erl">>),
+    <<"/bork.src/foo.beam">> = filename:rootname(["/bork.sr",'c/foo.b',"eam"],<<".erl">>),
+    <<"/bork.src/foo.beam">> = filename:rootname(["/bork.sr",'c/foo.b'|eam],<<".erl">>),
     ok.
 
 split_bin(Config) when is_list(Config) ->
@@ -933,10 +936,10 @@ t_basedir_api(Config) when is_list(Config) ->
         _ -> os:unsetenv("APPDATA")
     end,
 
-    {'EXIT', _} = (catch filename:basedir(wrong_config, "My App")),
-    {'EXIT', _} = (catch filename:basedir(user_cache, {bad,name})),
-    {'EXIT', _} = (catch filename:basedir(user_cache, "My App", badopts)),
-    {'EXIT', _} = (catch filename:basedir(user_cache, "My App", [])),
+    ?assertError(_, filename:basedir(wrong_config, "My App")),
+    ?assertError(_, filename:basedir(user_cache, {bad,name})),
+    ?assertError(_, filename:basedir(user_cache, "My App", badopts)),
+    ?assertError(_, filename:basedir(user_cache, "My App", [])),
     ok.
 
 t_basedir_windows(Config) when is_list(Config) ->

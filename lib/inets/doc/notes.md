@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +20,345 @@ limitations under the License.
 %CopyrightEnd%
 -->
 # Inets Release Notes
+
+## Inets 9.7.1
+
+### Fixed Bugs and Malfunctions
+
+- The HTTP client (httpc) now removes Authorization, Proxy-Authorization, Cookie, Referer, and Origin headers when following a redirect to a different host or port. Previously these headers were forwarded verbatim, potentially leaking credentials to
+  unintended targets.
+  
+  This follows the requirements of RFC 9110 §15.4.
+
+  Own Id: OTP-20155 Aux Id: [CVE-2026-48856], GHSA-m75x-4vwg-ggjh, [PR-11212]
+
+[CVE-2026-48856]: https://nvd.nist.gov/vuln/detail/2026-48856
+[PR-11212]: https://github.com/erlang/otp/pull/11212
+
+## Inets 9.7
+
+### Fixed Bugs and Malfunctions
+
+- A call to httpd:reload_config/2 now validates the new configuration before removing the old one, leaving the server running in case of faulty config, instead of putting it in an unrecoverable state.
+
+  Own Id: OTP-20128 Aux Id: [PR-11079], ERIERL-1314
+
+[PR-11079]: https://github.com/erlang/otp/pull/11079
+
+### Improvements and New Features
+
+- A new option `max_connections_open` has been added to the `m:httpc` HTTP client profile configuration. It limits the maximum number of concurrent HTTP handler processes that can be open simultaneously.
+  
+  When the limit is reached, new requests are queued internally and started automatically as existing handlers complete. This prevents bandwidth exhaustion in high-load scenarios where too many parallel connections cause remote servers to close sockets
+  before transfers finish (the socket_closed_remotely error).
+  
+  The option can be set via
+  `httpc:set_options([{max_connections_open, 10}], Profile).`
+  
+  The default value is `infinity` (unlimited), preserving backward compatibility. The value must be a positive integer or `infinity` and must be greater than or equal to `max_sessions`.
+
+  Own Id: OTP-19587 Aux Id: [GH-8841], [PR-9712]
+
+- The legacy `and` and `or` operators have been replaced with other language constructs.
+
+  Own Id: OTP-19744 Aux Id: [PR-10114], [PR-10554], [PR-10568], [PR-10579], [PR-10585], [PR-10598], [PR-10710], [PR-10718], [PR-10580], [PR-10730]
+
+- Added support for `-unsafe` attributes, which is used to mark functions as unsafe to use. 
+  
+  This is similar to but separate from deprecation, and the compiler will by default now generate warnings for calls to functions in Erlang/OTP that are known to be always unsafe.
+  
+  Furthermore, `m:xref` can now be used to find calls to functions in another application that lack a `-doc` attribute (`undocumented_function_calls`), calls to functions in another application marked `-doc false.` (`private_function_calls`), as well as calls to unsafe functions (`unsafe_function_calls`).
+
+  Own Id: OTP-20066 Aux Id: [PR-10839]
+
+- The `mod_cgi` and `mod_actions` modules are now deprecated and are scheduled to be removed in OTP 30.
+
+  Own Id: OTP-20071 Aux Id: [PR-10950]
+
+- There is a new Hardening guide with advice for configuring Inets to be more secure.
+
+  Own Id: OTP-20133 Aux Id: [PR-11073]
+
+[GH-8841]: https://github.com/erlang/otp/issues/8841
+[PR-9712]: https://github.com/erlang/otp/pull/9712
+[PR-10114]: https://github.com/erlang/otp/pull/10114
+[PR-10554]: https://github.com/erlang/otp/pull/10554
+[PR-10568]: https://github.com/erlang/otp/pull/10568
+[PR-10579]: https://github.com/erlang/otp/pull/10579
+[PR-10585]: https://github.com/erlang/otp/pull/10585
+[PR-10598]: https://github.com/erlang/otp/pull/10598
+[PR-10710]: https://github.com/erlang/otp/pull/10710
+[PR-10718]: https://github.com/erlang/otp/pull/10718
+[PR-10580]: https://github.com/erlang/otp/pull/10580
+[PR-10730]: https://github.com/erlang/otp/pull/10730
+[PR-10839]: https://github.com/erlang/otp/pull/10839
+[PR-10950]: https://github.com/erlang/otp/pull/10950
+[PR-11073]: https://github.com/erlang/otp/pull/11073
+
+## Inets 9.6.2.2
+
+### Fixed Bugs and Malfunctions
+
+- The HTTP client (httpc) now removes Authorization, Proxy-Authorization, Cookie, Referer, and Origin headers when following a redirect to a different host or port. Previously these headers were forwarded verbatim, potentially leaking credentials to
+  unintended targets.
+  
+  This follows the requirements of RFC 9110 §15.4.
+
+  Own Id: OTP-20155 Aux Id: [CVE-2026-48856], GHSA-m75x-4vwg-ggjh, [PR-11212]
+
+[CVE-2026-48856]: https://nvd.nist.gov/vuln/detail/2026-48856
+[PR-11212]: https://github.com/erlang/otp/pull/11212
+
+## Inets 9.6.2.1
+
+### Fixed Bugs and Malfunctions
+
+- A call to httpd:reload_config/2 now validates the new configuration before removing the old one, leaving the server running in case of faulty config, instead of putting it in an unrecoverable state.
+
+  Own Id: OTP-20128 Aux Id: [PR-11079], ERIERL-1314
+
+[PR-11079]: https://github.com/erlang/otp/pull/11079
+
+## Inets 9.6.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed authentication bypass in `httpd` when `script_alias` maps a URL to a directory outside `document_root` with `mod_auth` directory-based access controls. The `mod_alias:which_alias/1` function now includes `script_alias` entries so authorization is evaluated against the correct path before CGI execution. CVE-2026-28808.
+
+  Own Id: OTP-20068
+
+### Improvements and New Features
+
+- Fixed typo in `http_server.md` guide
+
+  Own Id: OTP-20044 Aux Id: [GH-10785], [PR-10867]
+
+- Expected error `accept_socket_timeout` in httpd_request_handler now exits gracefully, without generating a crash and supervisor reports.
+
+  Own Id: OTP-20052 Aux Id: ERIERL-1310, [PR-10893]
+
+[GH-10785]: https://github.com/erlang/otp/issues/10785
+[PR-10867]: https://github.com/erlang/otp/pull/10867
+[PR-10893]: https://github.com/erlang/otp/pull/10893
+
+## Inets 9.6.1
+
+### Fixed Bugs and Malfunctions
+
+- The httpd server now rejects HTTP requests containing multiple Content-Length headers with different values, returning a 400 Bad Request response. This prevents potential HTTP request smuggling attacks. Thanks Luigino Camastra at Aisle Research for responsibly disclosing this vulnerability
+
+  Own Id: OTP-20007 Aux Id: [PR-10833], [CVE-2026-23941]
+
+[PR-10833]: https://github.com/erlang/otp/pull/10833
+[CVE-2026-23941]: https://nvd.nist.gov/vuln/detail/2026-23941
+
+## Inets 9.6
+
+### Improvements and New Features
+
+- Release applications, tests, and documentation are now placed in their respective directories. Source SBOM with more packages.
+  
+  A `make release` application places only the necessary code in the release folder. The main change is that the documentation and examples are not part of the release folder anymore.
+  
+  `make release_docs` places the documentation in the released code under the `doc` folder.
+  
+  `make release_tests` places the tests in their own directory. It used to be the case that some source code was mixed with the tests, and this should not happen anymore.
+  
+  The Software Bill of Materials places the examples folders as if they are part of the `SPDX-otp-<app>-doc` packge, instead of placing examples as if they were running source code.
+  
+  Overall, this change cleans up many things that were not quite correct by definition, and everything should still continue to work as expected. To test a release, one can still run `./Install -minimal \`pwd\`` and add the release to the `PATH`. After that, one can run tests as usual, going into the released tests directory, entering `test_server` and running the emulator.
+  
+  Improves the source Software-Bill-of-Materials
+  
+  - The improvements adds new SPDX relations for `asmjit` and `zlib` to be `optional_components_of` the Erlang/OTP project.
+  - The `autoconf` scripts in `make` and `erts` have now been categorised as `build_tool_of` the Erlang/OTP project.
+  - All remaining `configure`, `configure.ac`, `config.h.in`, `Makefile.in`, `Makefile.src`, `EMakefile`, and `GNUMakefile` are now part of a specific SPDX package with relation `build_tool_of` the Erlang/OTP project.
+
+  Own Id: OTP-19886 Aux Id: [PR-10434]
+
+- Added a new HttpOption `{autoretry, timeout()}` to `httpc:request/4,5`.
+  This option allows the client to decide how to act upon receiving a Retry-After response header. The default behavior changes, as now only one retry is made before returning the error code, instead of retrying infinitely.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19892 Aux Id: ERIERL-1283, [PR-10469]
+
+- Httpc will not add a Content-Length header for requests, that do not have defined semantics for request content in [RFC9110](https://datatracker.ietf.org/doc/html/rfc9110) and do not include content. The list includes methods: `[GET, HEAD, OPTIONS, TRACE, DELETE]`.
+  The behavior for `headers_as_is` option remains unchanged.
+
+  Own Id: OTP-19928 Aux Id: [PR-10521], [GH-10513]
+
+- Improved documentation and specs for `do/1` callback in httpd module.
+
+  Own Id: OTP-19952 Aux Id: [PR-10602], [GH-10501]
+
+[PR-10434]: https://github.com/erlang/otp/pull/10434
+[PR-10469]: https://github.com/erlang/otp/pull/10469
+[PR-10521]: https://github.com/erlang/otp/pull/10521
+[GH-10513]: https://github.com/erlang/otp/issues/10513
+[PR-10602]: https://github.com/erlang/otp/pull/10602
+[GH-10501]: https://github.com/erlang/otp/issues/10501
+
+## Inets 9.5
+
+### Fixed Bugs and Malfunctions
+
+- Fixed uri_string:uri_string() to string() type specs inside httpc.erl module.
+
+  Own Id: OTP-19835 Aux Id: [PR-10242]
+
+- Fixed a bug where request options were not applied to a https proxy connection.
+
+  Own Id: OTP-19875 Aux Id: [PR-10369], [GH-10368]
+
+[PR-10242]: https://github.com/erlang/otp/pull/10242
+[PR-10369]: https://github.com/erlang/otp/pull/10369
+[GH-10368]: https://github.com/erlang/otp/issues/10368
+
+### Improvements and New Features
+
+- The usages of slave module in inets were removed. The httpd_bench_suite has been updated for SSL testing and is not skipped anymore. The httpd_load_test example has been removed completely as outdated.
+
+  Own Id: OTP-19717 Aux Id: [PR-10064]
+
+- Replace a call to application:which_applications() in httpc:set_options/2 with try...catch to reduce bottleneck.
+
+  Own Id: OTP-19884 Aux Id: [GH-10282], [PR-10307]
+
+[PR-10064]: https://github.com/erlang/otp/pull/10064
+[GH-10282]: https://github.com/erlang/otp/issues/10282
+[PR-10307]: https://github.com/erlang/otp/pull/10307
+
+## Inets 9.4.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a RFC 2616 violation, where a http request, made by httpc, without providing any options, would be sent with an empty TE header, without also having a TE value in the connection header. Now the default request doesn't send a TE header at all.
+
+  Own Id: OTP-19760 Aux Id: [PR-10120], [GH-10065]
+
+[PR-10120]: https://github.com/erlang/otp/pull/10120
+[GH-10065]: https://github.com/erlang/otp/issues/10065
+
+## Inets 9.4.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug where a request sent to httpd server which is using CGI script to generate a response, would pollute server's environment variable - `HTTP_PROXY` for that request. This bug is also known as httpoxy. More information: CVE-2016-1000107
+
+  Own Id: OTP-19729 Aux Id: [PR-6223], [GH-3392], [CVE-2016-1000107]
+
+[PR-6223]: https://github.com/erlang/otp/pull/6223
+[GH-3392]: https://github.com/erlang/otp/issues/3392
+[CVE-2016-1000107]: https://nvd.nist.gov/vuln/detail/2016-1000107
+
+## Inets 9.4
+
+### Fixed Bugs and Malfunctions
+
+- Replaced calls to deprecated `crypto:start()` with `application:start(crypto)`.
+
+  Own Id: OTP-19485 Aux Id: [PR-8592]
+
+- Enhance specs of timeout for improving documentation and dialyzer analysis.
+
+  Own Id: OTP-19604 Aux Id: [PR-9574]
+
+[PR-8592]: https://github.com/erlang/otp/pull/8592
+[PR-9574]: https://github.com/erlang/otp/pull/9574
+
+### Improvements and New Features
+
+- Enhanced http client documentation.
+
+  Own Id: OTP-19520 Aux Id: [PR-9516]
+
+- Enhance made to mod_esi documentation
+
+  Own Id: OTP-19521 Aux Id: [PR-9472]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+- Inets Makefiles now create and use dependencies files for .erl files
+
+  Own Id: OTP-19624 Aux Id: [PR-9101]
+
+[PR-9516]: https://github.com/erlang/otp/pull/9516
+[PR-9472]: https://github.com/erlang/otp/pull/9472
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+[PR-9101]: https://github.com/erlang/otp/pull/9101
+
+## Inets 9.3.2.6
+
+### Fixed Bugs and Malfunctions
+
+- The HTTP client (httpc) now removes Authorization, Proxy-Authorization, Cookie, Referer, and Origin headers when following a redirect to a different host or port. Previously these headers were forwarded verbatim, potentially leaking credentials to
+  unintended targets.
+  
+  This follows the requirements of RFC 9110 §15.4.
+
+  Own Id: OTP-20155 Aux Id: [CVE-2026-48856], GHSA-m75x-4vwg-ggjh, [PR-11212]
+
+[CVE-2026-48856]: https://nvd.nist.gov/vuln/detail/2026-48856
+[PR-11212]: https://github.com/erlang/otp/pull/11212
+
+## Inets 9.3.2.5
+
+### Fixed Bugs and Malfunctions
+
+- A call to httpd:reload_config/2 now validates the new configuration before removing the old one, leaving the server running in case of faulty config, instead of putting it in an unrecoverable state.
+
+  Own Id: OTP-20128 Aux Id: [PR-11079], ERIERL-1314
+
+[PR-11079]: https://github.com/erlang/otp/pull/11079
+
+## Inets 9.3.2.4
+
+### Fixed Bugs and Malfunctions
+
+- Fixed authentication bypass in `httpd` when `script_alias` maps a URL to a directory outside `document_root` with `mod_auth` directory-based access controls. The `mod_alias:which_alias/1` function now includes `script_alias` entries so authorization is evaluated against the correct path before CGI execution. CVE-2026-28808.
+
+  Own Id: OTP-20068
+
+## Inets 9.3.2.3
+
+### Fixed Bugs and Malfunctions
+
+- The httpd server now rejects HTTP requests containing multiple Content-Length headers with different values, returning a 400 Bad Request response. This prevents potential HTTP request smuggling attacks. Thanks Luigino Camastra at Aisle Research for responsibly disclosing this vulnerability
+
+  Own Id: OTP-20007 Aux Id: [PR-10833], [CVE-2026-23941]
+
+[PR-10833]: https://github.com/erlang/otp/pull/10833
+[CVE-2026-23941]: https://nvd.nist.gov/vuln/detail/2026-23941
+
+## Inets 9.3.2.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed uri_string:uri_string() to string() type specs inside httpc.erl module.
+
+  Own Id: OTP-19835 Aux Id: [PR-10242]
+
+[PR-10242]: https://github.com/erlang/otp/pull/10242
+
+## Inets 9.3.2.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug where a request sent to httpd server which is using CGI script to generate a response, would pollute server's environment variable - `HTTP_PROXY` for that request. This bug is also known as httpoxy. More information: CVE-2016-1000107
+
+  Own Id: OTP-19729 Aux Id: [PR-6223], [GH-3392]
+
+- Fixed a RFC 2616 violation, where a http request, made by httpc, without providing any options, would be sent with an empty TE header, without also having a TE value in the connection header. Now the default request doesn't send a TE header at all.
+
+  Own Id: OTP-19760 Aux Id: [PR-10120], [GH-10065]
+
+[PR-6223]: https://github.com/erlang/otp/pull/6223
+[GH-3392]: https://github.com/erlang/otp/issues/3392
+[PR-10120]: https://github.com/erlang/otp/pull/10120
+[GH-10065]: https://github.com/erlang/otp/issues/10065
 
 ## Inets 9.3.2
 
@@ -132,6 +473,49 @@ limitations under the License.
 [PR-7678]: https://github.com/erlang/otp/pull/7678
 [PR-8029]: https://github.com/erlang/otp/pull/8029
 [PR-8026]: https://github.com/erlang/otp/pull/8026
+
+## Inets 9.1.0.7
+
+### Fixed Bugs and Malfunctions
+
+* A call to httpd:reload_config/2 now validates the new configuration before removing the old one, leaving the server running in case of faulty config, instead of putting it in an unrecoverable state.
+
+  Own Id: OTP-20128 Aux Id: PR-11079, ERIERL-1314
+
+## Inets 9.1.0.6
+
+### Fixed Bugs and Malfunctions
+
+* Fixed authentication bypass in `httpd` when `script_alias` maps a URL to a directory outside `document_root` with `mod_auth` directory-based access controls. The `mod_alias:which_alias/1` function now includes `script_alias` entries so authorization is evaluated against the correct path before CGI execution. CVE-2026-28808.
+
+  Own Id: OTP-20068
+
+## Inets 9.1.0.5
+
+### Fixed Bugs and Malfunctions
+
+* The httpd server now rejects HTTP requests containing multiple Content-Length headers with different values, returning a 400 Bad Request response. This prevents potential HTTP request smuggling attacks. Thanks Luigino Camastra at Aisle Research for responsibly disclosing this vulnerability
+
+  Own Id: OTP-20007 Aux Id: PR-10833, CVE-2026-23941
+
+## Inets 9.1.0.4
+
+### Fixed Bugs and Malfunctions
+
+* Fixed uri_string:uri_string() to string() type specs inside httpc.erl module.
+
+  Own Id: OTP-19835 Aux Id: PR-10242
+
+## Inets 9.1.0.3
+
+### Fixed Bugs and Malfunctions
+
+* Fixed a bug where a request sent to httpd server which is using CGI script to generate a response, would pollute server's environment variable - `HTTP_PROXY` for that request. This bug is also known as httpoxy. More information: CVE-2016-1000107
+
+  Own Id: OTP-19729 Aux Id: PR-6223, GH-3392
+* Fixed a RFC 2616 violation, where a http request, made by httpc, without providing any options, would be sent with an empty TE header, without also having a TE value in the connection header. Now the default request doesn't send a TE header at all.
+
+  Own Id: OTP-19760 Aux Id: PR-10120, GH-10065
 
 ## Inets 9.1.0.2
 

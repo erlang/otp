@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -39,8 +41,9 @@
 -export([attributes/1, expr/1, guard/1,
          init/1, pattern/1, strict/1, update/1,
 	 otp_5915/1, otp_7931/1, otp_5990/1,
-	 otp_7078/1, maps/1,
-         side_effects/1]).
+	 otp_7078/1, maps/1, zlc/1,
+         side_effects/1,
+         update_anon_native_record/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -55,7 +58,8 @@ suite() ->
 all() -> 
     [attributes, expr, guard, init,
      pattern, strict, update, maps,
-     side_effects, {group, tickets}].
+     side_effects, zlc, {group, tickets},
+     update_anon_native_record].
 
 groups() -> 
     [{tickets, [],
@@ -459,6 +463,15 @@ maps(Config) when is_list(Config) ->
     run(Config, Ts, [strict_record_tests]),
     ok.
 
+zlc(Config) when is_list(Config) ->
+    Ts = [<<"-record(rr, {a,b,c}).
+             t() -> R0 = id(#rr{a=[{X,Y}||X <- [1,2] && Y <- [a,b]]}),
+             ok.
+             id(X) -> X.
+            ">>],
+    run(Config, Ts, [strict_record_tests]),
+    ok.
+
 %% Strict record tests in guards.
 otp_5915(Config) when is_list(Config) ->
     %% These tests are also run by the compiler's record_SUITE.
@@ -757,6 +770,23 @@ otp_7078(Config) when is_list(Config) ->
       ],
     run(Config, Ts, [strict_record_tests]),
     ok.
+
+update_anon_native_record(Config) when is_list(Config) ->
+
+    Ts = [
+          ~"""
+           -record #nr{x = 0, y = 0}.
+           -record(tup, {a,b}).
+
+           t() ->
+             R0 = #nr{},
+             T0 = #tup{},
+             R0#_{x = (T0#tup.a)},
+             ok.
+           """],
+    run(Config, Ts),
+    ok.
+
 
 id(I) -> I.
 

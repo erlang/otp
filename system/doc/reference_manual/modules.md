@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -63,17 +65,17 @@ but user-defined module attributes must have arity one.
 
 ### Pre-Defined Module Attributes
 
-Pre-defined module attributes is to be placed before any function declaration.
+Pre-defined module attributes are to be placed before any function declaration.
 
 - **`-module(Module).`** - Module declaration, defining the name of the module.
-  The name `Module`, an atom, is to be same as the file name minus the extension
+  The name `Module`, an atom, is to be the same as the file name minus the extension
   `.erl`. Otherwise [code loading](code_loading.md#loading) does not work as
   intended.
 
   This attribute is to be specified first and is the only mandatory attribute.
 
 - **`-export(Functions).`** - Exported functions. Specifies which of the
-  functions, defined within the module, that are visible from outside the
+  functions, defined within the module, are visible from outside the
   module.
 
   `Functions` is a list `[Name1/Arity1, ..., NameN/ArityN]`, where each `NameI`
@@ -83,7 +85,7 @@ Pre-defined module attributes is to be placed before any function declaration.
   way as local functions, that is, without any module prefix.
 
   `Module`, an atom, specifies which module to import functions from.
-  `Functions` is a list similar as for `export`.
+  `Functions` is a list similar to that for `export`.
 
 - **`-moduledoc(Documentation).` or `-moduledoc Documentation.`** - The user
   documentation for this module. The allowed values for `Documentation` are the
@@ -107,14 +109,14 @@ Pre-defined module attributes is to be placed before any function declaration.
   [Running a Function When a Module is Loaded](code_loading.md#on_load).
 
 - **`-nifs(Functions).`{: #nifs_attribute }** - Specifies which of the
-  functions, defined within the module, that may be loaded as NIFs with
+  functions, defined within the module, may be loaded as NIFs with
   `erlang:load_nif/2`.
 
   `Functions` is a list `[Name1/Arity1, ..., NameN/ArityN]`, where each `NameI`
   is an atom and `ArityI` an integer.
 
-  While not strictly necessary, it is recommended to use `-nifs()` attribute in
-  any module that load NIFs, to allow the compiler to make better decisions
+  While not strictly necessary, it is recommended to use the `-nifs()` attribute in
+  any module that loads NIFs, to allow the compiler to make better decisions
   regarding optimizations.
 
   There is no need to add `-nifs([])` in modules that do not load NIFs. The lack
@@ -164,11 +166,12 @@ is to be preferred since the extra type information can be used by tools to
 produce documentation or find discrepancies.
 
 Read more about behaviours and callback modules in
-[OTP Design Principles](`e:system:spec_proc.md#behaviours`).
+[OTP Design Principles](`e:system:design_principles.md#behaviours`).
 
 ### Record Definitions
 
-The same syntax as for module attributes is used for record definitions:
+A syntax similar to that for module attributes is used for defining
+records:
 
 ```erlang
 -record(Record, Fields).
@@ -176,6 +179,18 @@ The same syntax as for module attributes is used for record definitions:
 
 Record definitions are allowed anywhere in a module, also among the function
 declarations. Read more in [Records](ref_man_records.md).
+
+### Native Record Definitions
+
+A syntax similar to that for module attributes is used for defining
+native records:
+
+```erlang
+-record #Record{Field1, Field2, ..., FieldN}.
+```
+
+Record definitions are allowed anywhere in a module, also among the function
+declarations. Read more in [Native Records](ref_man_native_records.md).
 
 ### Preprocessor
 
@@ -205,7 +220,7 @@ which the source program is produced.
 
 ### Types and function specifications
 
-A similar syntax as for module attributes is used for specifying types and
+A syntax similar to that for module attributes is used for specifying types and
 function specifications:
 
 ```erlang
@@ -229,8 +244,8 @@ for a function/type/callback:
 example() -> ok.
 ```
 
-The attribute should be placed just before the entity it documents.The
-parenthesis are optional around `Documentation`. The allowed values for
+The attribute should be placed just before the entity it documents. The
+parentheses are optional around `Documentation`. The allowed values for
 `Documentation` are:
 
 - **[literal string](data_types.md#string) or
@@ -305,8 +320,8 @@ When called, these functions retrieve information about the module.
 ### module_info/0
 
 The `module_info/0` function in each module returns a list of
-`{Key,Value}` tuples with information about the module. At the time
-writing, the list contain tuples having the following `Key`s:
+`{Key,Value}` tuples with information about the module. At the time of this
+writing, the list contains tuples having the following `Key`s:
 `module`, `attributes`, `compile`, `exports`, and `md5`.  The order
 and number of tuples may change without prior notice.
 

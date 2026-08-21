@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +22,7 @@
 
 -module(line_number_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0, groups/0,
 	 init_per_testcase/2,end_per_testcase/2,
 	 init_per_suite/1,end_per_suite/1,
 	 line_numbers/1]).
@@ -33,19 +35,10 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() ->
-    cases().
+    [line_numbers].
 
 groups() ->
     [].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-cases() ->
-    [line_numbers].
 
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
@@ -61,6 +54,13 @@ init_per_suite(Config) when is_list(Config) ->
 
 end_per_suite(Config) when is_list(Config) ->
     ok.
+
+
+
+
+
+
+
 
 
 

@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -131,7 +133,7 @@ and the body is evaluated:
 1
 ```
 
-Evaluation has succeed and `mod:fact(1)` returns 1.
+Evaluation has succeeded and `mod:fact(1)` returns 1.
 
 If `mod:fact/1` is called with a negative number as argument, no clause head
 matches. A `function_clause` runtime error occurs.
@@ -165,7 +167,7 @@ are also BIFs belonging to a few other modules, for example `m:lists`
 and `m:ets`.
 
 The most commonly used BIFs belonging to `m:erlang` are _auto-imported_. They do
-not need to be prefixed with the module name. Which BIFs that are auto-imported
+not need to be prefixed with the module name. Which BIFs are auto-imported
 is specified in the `m:erlang` module in ERTS. For example, standard-type
 conversion BIFs like `atom_to_list` and BIFs allowed in guards can be called
 without specifying the module name.

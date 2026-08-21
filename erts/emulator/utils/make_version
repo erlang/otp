@@ -2,7 +2,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2022. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1999-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,6 +53,16 @@ defined $version or die "No version name specified";
 my $architecture = shift;
 defined $architecture or die "No architecture specified";
 $architecture =~ s&^.*[/\\]&&;	# Remove directory part if any
+
+if ($architecture eq "win32") {
+  if ($ENV{"CONFIG_SUBTYPE"} eq "arm64" || $ENV{"CONFIG_SUBTYPE"} eq "x64_arm64") {
+    $architecture = "aarch64-pc-windows";
+  } elsif ($ENV{"CONFIG_SUBTYPE"} eq "win64") {
+    $architecture = "x86_64-pc-windows";
+  } elsif ($ENV{"CONFIG_SUBTYPE"} eq "win32") {
+    $architecture = "i686-pc-windows";
+  }
+}
 
 open(FILE, ">$outputfile") or die "Can't create $outputfile: $!";
 

@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% A string library that works on grapheme clusters, with the exception
@@ -115,15 +117,12 @@ and operate on grapheme clusters. The
 lists as input are still available but should not be used, they will be
 deprecated in a future release.
 
-## Notes
+## Overlapping Functions
 
 Some of the general string functions can seem to overlap each other. The reason
 is that this string package is the combination of two earlier packages and all
 functions of both packages have been retained.
 """.
--moduledoc(#{titles =>
-                 [{function,<<"Functions">>},
-                  {function,<<"Obsolete API functions">>}]}).
 
 -export([is_empty/1, length/1, to_graphemes/1,
          reverse/1,
@@ -155,6 +154,7 @@ functions of both packages have been retained.
 -import(lists,[member/2]).
 -compile({no_auto_import,[length/1]}).
 -compile({inline, [btoken/2, rev/1, append/2, stack/2, search_compile/1]}).
+-include("swar_ascii.hrl").
 -define(ASCII_LIST(CP1,CP2),
         is_integer(CP1), 0 =< CP1, CP1 < 256,
         is_integer(CP2), 0 =< CP2, CP2 < 256, CP1 =/= $\r).
@@ -231,7 +231,7 @@ false
 true
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec is_empty(String::unicode:chardata()) -> boolean().
 is_empty([]) -> true;
 is_empty(<<>>) -> true;
@@ -251,7 +251,7 @@ _Example:_
 3
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec length(String::unicode:chardata()) -> non_neg_integer().
 length(<<CP1/utf8, Bin/binary>>) ->
     length_b(Bin, CP1, 0);
@@ -271,7 +271,7 @@ _Example:_
 [223,8593,[101,778]]
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec to_graphemes(String::unicode:chardata()) -> [grapheme_cluster()].
 to_graphemes(CD0) ->
     case unicode_util:gc(CD0) of
@@ -283,7 +283,7 @@ to_graphemes(CD0) ->
 %% Compare two strings return boolean, assumes that the input are
 %% normalized to same form, see unicode:characters_to_nfX_xxx(..)
 -doc(#{equiv => equal(A, B, true)}).
--doc(#{title => <<"Functions">>}).
+-doc(#{group => <<"Functions">>}).
 -spec equal(A, B) -> boolean() when
       A::unicode:chardata(),
       B::unicode:chardata().
@@ -296,7 +296,7 @@ equal(A,B) ->
 %% normalized to same form, see unicode:characters_to_nfX_xxx(..)
 %% does casefold on the fly
 -doc(#{equiv => equal(A, B, IgnoreCase, none)}).
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec equal(A, B, IgnoreCase) -> boolean() when
       A::unicode:chardata(),
       B::unicode:chardata(),
@@ -332,7 +332,7 @@ false
 true
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec equal(A, B, IgnoreCase, Norm) -> boolean() when
       A :: unicode:chardata(),
       B :: unicode:chardata(),
@@ -354,11 +354,11 @@ _Example:_
 ```erlang
 1> Reverse = string:reverse(unicode:characters_to_nfd_binary("ÅÄÖ")).
 [[79,776],[65,776],[65,778]]
-2> io:format("~ts~n",[Reverse]).
-ÖÄÅ
+2> io:format("%% ~ts~n",[Reverse]).
+%% ÖÄÅ
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec reverse(String::unicode:chardata()) -> [grapheme_cluster()].
 reverse(<<CP1/utf8, Rest/binary>>) ->
     reverse_b(Rest, CP1, []);
@@ -367,8 +367,8 @@ reverse(CD) ->
 
 %% Slice a string and return rest of string
 %% Note: counts grapheme_clusters
--doc(#{equiv => slice(String, Length, infinity)}).
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{equiv => slice(String, Start, infinity)}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec slice(String, Start) -> Slice when
       String::unicode:chardata(),
       Start :: non_neg_integer(),
@@ -394,7 +394,7 @@ _Example:_
 "ö Wörld"
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec slice(String, Start, Length) -> Slice when
       String::unicode:chardata(),
       Start :: non_neg_integer(),
@@ -419,7 +419,7 @@ slice(CD, _, 0) ->
 
 %% Pad a string to desired length
 -doc(#{equiv => pad(String, Length, trailing)}).
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec pad(String, Length) -> unicode:charlist() when
       String ::unicode:chardata(),
       Length :: integer().
@@ -427,7 +427,7 @@ pad(CD, Length) ->
     pad(CD, Length, trailing, $\s).
 
 -doc(#{equiv => pad(String, Length, Dir, $\s)}).
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec pad(String, Length, Dir) -> unicode:charlist() when
       String ::unicode:chardata(),
       Length :: integer(),
@@ -444,13 +444,13 @@ _Example:_
 ```erlang
 1> string:pad(<<"He̊llö"/utf8>>, 8).
 [<<72,101,204,138,108,108,195,182>>,32,32,32]
-2> io:format("'~ts'~n",[string:pad("He̊llö", 8, leading)]).
-'   He̊llö'
-3> io:format("'~ts'~n",[string:pad("He̊llö", 8, both)]).
-' He̊llö  '
+2> io:format("%% '~ts'~n",[string:pad("He̊llö", 8, leading)]).
+%% '   He̊llö'
+3> io:format("%% '~ts'~n",[string:pad("He̊llö", 8, both)]).
+%% ' He̊llö  '
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec pad(String, Length, Dir, Char) -> unicode:charlist() when
       String ::unicode:chardata(),
       Length :: integer(),
@@ -474,11 +474,11 @@ pad(CD, Length, both, Char) when is_integer(Length) ->
 
 %%  Strip characters from whitespace or Separator in Direction
 -doc(#{equiv => trim(String, both)}).
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec trim(String) -> unicode:chardata() when
       String :: unicode:chardata().
 trim(Str) ->
-    trim(Str, both, unicode_util:whitespace()).
+    trim(Str, both, unicode_util:pattern_whitespace()).
 
 -doc """
 Equivalent to [`trim(String, Dir, Whitespace})`](`trim/3`) where 
@@ -486,12 +486,12 @@ Equivalent to [`trim(String, Dir, Whitespace})`](`trim/3`) where
 as Pattern_White_Space in
 [Unicode Standard Annex #31](http://unicode.org/reports/tr31/).
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec trim(String, Dir) -> unicode:chardata() when
       String :: unicode:chardata(),
       Dir :: direction() | 'both'.
 trim(Str, Dir) ->
-    trim(Str, Dir, unicode_util:whitespace()).
+    trim(Str, Dir, unicode_util:pattern_whitespace()).
 
 -doc """
 Returns a string, where leading or trailing, or both, `Characters` have been
@@ -514,7 +514,7 @@ _Example:_
 <<".Hello">>
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec trim(String, Dir, Characters) -> unicode:chardata() when
       String :: unicode:chardata(),
       Dir :: direction() | 'both',
@@ -542,20 +542,20 @@ Returns a string where any trailing `\n` or `\r\n` have been removed from
 _Example:_
 
 ```erlang
-182> string:chomp(<<"\nHello\n\n">>).
+1> string:chomp(<<"\nHello\n\n">>).
 <<"\nHello">>
-183> string:chomp("\nHello\r\r\n").
+2> string:chomp("\nHello\r\r\n").
 "\nHello\r"
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec chomp(String::unicode:chardata()) -> unicode:chardata().
 chomp(Str) ->
     trim(Str, trailing, [[$\r,$\n],$\n]).
 
 %% Split String into two parts where the leading part consists of Characters
 -doc(#{equiv => take(String, Characters, false)}).
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec take(String, Characters) -> {Leading, Trailing} when
       String::unicode:chardata(),
       Characters::[grapheme_cluster()],
@@ -564,7 +564,7 @@ chomp(Str) ->
 take(Str, Sep) ->
     take(Str, Sep, false, leading).
 -doc(#{equiv => take(String, Characters, Complement, leading)}).
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec take(String, Characters, Complement) -> {Leading, Trailing} when
       String::unicode:chardata(),
       Characters::[grapheme_cluster()],
@@ -582,17 +582,17 @@ taken.
 _Example:_
 
 ```erlang
-5> string:take("abc0z123", lists:seq($a,$z)).
+1> string:take("abc0z123", lists:seq($a,$z)).
 {"abc","0z123"}
-6> string:take(<<"abc0z123">>, lists:seq($0,$9), true, leading).
+2> string:take(<<"abc0z123">>, lists:seq($0,$9), true, leading).
 {<<"abc">>,<<"0z123">>}
-7> string:take("abc0z123", lists:seq($0,$9), false, trailing).
+3> string:take("abc0z123", lists:seq($0,$9), false, trailing).
 {"abc0z","123"}
-8> string:take(<<"abc0z123">>, lists:seq($a,$z), true, trailing).
+4> string:take(<<"abc0z123">>, lists:seq($a,$z), true, trailing).
 {<<"abc0z">>,<<"123">>}
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec take(String, Characters, Complement, Dir) -> {Leading, Trailing} when
       String::unicode:chardata(),
       Characters::[grapheme_cluster()],
@@ -633,7 +633,7 @@ _Example:_
 "MICHAŁ"
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec uppercase(String::unicode:chardata()) -> unicode:chardata().
 uppercase(CD) when is_list(CD) ->
     try uppercase_list(CD, false)
@@ -660,11 +660,11 @@ tested for equality.
 _Example:_
 
 ```erlang
-2> string:lowercase(string:uppercase("Michał")).
+1> string:lowercase(string:uppercase("Michał")).
 "michał"
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec lowercase(String::unicode:chardata()) -> unicode:chardata().
 lowercase(CD) when is_list(CD) ->
     try lowercase_list(CD, false)
@@ -692,7 +692,7 @@ _Example:_
 "Ss is a SHARP s"
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec titlecase(String::unicode:chardata()) -> unicode:chardata().
 titlecase(CD) when is_list(CD) ->
     case unicode_util:titlecase(CD) of
@@ -720,7 +720,7 @@ _Example:_
 "ω and ss sharp s"
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec casefold(String::unicode:chardata()) -> unicode:chardata().
 casefold(CD) when is_list(CD) ->
     try casefold_list(CD, false)
@@ -745,8 +745,8 @@ _Example:_
 
 ```erlang
 1> {I1,Is} = string:to_integer("33+22"),
-1> {I2,[]} = string:to_integer(Is),
-1> I1-I2.
+   {I2,[]} = string:to_integer(Is),
+   I1-I2.
 11
 2> string:to_integer("0.5").
 {0,".5"}
@@ -754,7 +754,7 @@ _Example:_
 {error,no_integer}
 ```
 """.
--doc(#{title => <<"Functions">>}).
+-doc(#{group => <<"Functions">>}).
 -spec to_integer(String) -> {Int, Rest} | {'error', Reason} when
       String :: unicode:chardata(),
       Int :: integer(),
@@ -786,8 +786,8 @@ _Example:_
 
 ```erlang
 1> {F1,Fs} = string:to_float("1.0-1.0e-1"),
-1> {F2,[]} = string:to_float(Fs),
-1> F1+F2.
+   {F2,[]} = string:to_float(Fs),
+   F1+F2.
 0.9
 2> string:to_float("3/2=1.5").
 {error,no_float}
@@ -795,7 +795,7 @@ _Example:_
 {-1.5,"eX"}
 ```
 """.
--doc(#{title => <<"Functions">>}).
+-doc(#{group => <<"Functions">>}).
 -spec to_float(String) -> {Float, Rest} | {'error', Reason} when
       String :: unicode:chardata(),
       Float :: float(),
@@ -839,7 +839,7 @@ _Example:_
 nomatch
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec prefix(String::unicode:chardata(), Prefix::unicode:chardata()) ->
                     'nomatch' | unicode:chardata().
 prefix(Str, Prefix0) ->
@@ -854,7 +854,7 @@ prefix(Str, Prefix0) ->
 
 %% split String with the first occurrence of SearchPattern, return list of splits
 -doc(#{equiv => split(String, SearchPattern, leading)}).
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec split(String, SearchPattern) -> [unicode:chardata()] when
       String :: unicode:chardata(),
       SearchPattern :: unicode:chardata().
@@ -870,15 +870,15 @@ parts. `Where`, default `leading`, indicates whether the `leading`, the
 _Example:_
 
 ```erlang
-0> string:split("ab..bc..cd", "..").
+1> string:split("ab..bc..cd", "..").
 ["ab","bc..cd"]
-1> string:split(<<"ab..bc..cd">>, "..", trailing).
+2> string:split(<<"ab..bc..cd">>, "..", trailing).
 [<<"ab..bc">>,<<"cd">>]
-2> string:split(<<"ab..bc....cd">>, "..", all).
+3> string:split(<<"ab..bc....cd">>, "..", all).
 [<<"ab">>,<<"bc">>,<<>>,<<"cd">>]
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec split(String, SearchPattern, Where) -> [unicode:chardata()] when
       String :: unicode:chardata(),
       SearchPattern :: unicode:chardata(),
@@ -898,7 +898,7 @@ split(String, SearchPattern, Where) ->
 
 %% Replace the first SearchPattern in String with Replacement
 -doc(#{equiv => replace(String, SearchPattern, Replacement, leading)}).
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec replace(String, SearchPattern, Replacement) ->
                      [unicode:chardata()] when
       String :: unicode:chardata(),
@@ -927,7 +927,7 @@ _Example:_
 [<<"ab">>,"*",<<"cd">>,"*",<<"ef">>]
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec replace(String, SearchPattern, Replacement, Where) ->
                      [unicode:chardata()] when
       String :: unicode:chardata(),
@@ -958,7 +958,7 @@ _Example:_
 [<<"abc">>,<<"de̊f"/utf8>>,<<"ghi">>,<<"jkl\r\nfoo">>]
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec lexemes(String::unicode:chardata(),
               SeparatorList::[grapheme_cluster()]) ->
                      [unicode:chardata()].
@@ -979,7 +979,7 @@ _Example:_
 "ghi"
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec nth_lexeme(String, N, SeparatorList) -> unicode:chardata() when
       String::unicode:chardata(),
       N::non_neg_integer(),
@@ -992,7 +992,7 @@ nth_lexeme(Str, N, Seps0) when is_list(Seps0), is_integer(N), N > 0 ->
 
 %% find first SearchPattern in String return rest of string
 -doc(#{equiv => find(String, SearchPattern, leading)}).
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec find(String, SearchPattern) -> unicode:chardata() | 'nomatch' when
       String::unicode:chardata(),
       SearchPattern::unicode:chardata().
@@ -1019,7 +1019,7 @@ nomatch
 nomatch
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec find(String, SearchPattern, Dir) -> unicode:chardata() | 'nomatch' when
       String::unicode:chardata(),
       SearchPattern::unicode:chardata(),
@@ -1053,7 +1053,7 @@ _Example:_
 The Jaro distance between two strings can be calculated with
 `JaroDistance = 1.0 - JaroSimilarity`.
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 27.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 27.0">>}).
 -spec jaro_similarity(String1, String2) -> Similarity when
       String1 :: unicode:chardata(),
       String2 :: unicode:chardata(),
@@ -1113,7 +1113,7 @@ _Example:_
 ["e̊"|<<"fg">>]
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec next_grapheme(String::unicode:chardata()) ->
                            maybe_improper_list(grapheme_cluster(),unicode:chardata()) |
                            {error,unicode:chardata()}.
@@ -1132,7 +1132,7 @@ _Example:_
 [101|<<"̊fg"/utf8>>]
 ```
 """.
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec next_codepoint(String::unicode:chardata()) ->
                             maybe_improper_list(char(),unicode:chardata()) |
                             {error,unicode:chardata()}.
@@ -1149,6 +1149,12 @@ length_1(Str, N) ->
         {error, Err} -> error({badarg, Err})
     end.
 
+%% Binary fast path: 8 single-byte UTF-8 units per step.
+length_b(<<W:56, B, Rest/binary>>, CP1, N)
+  when CP1 =/= $\r, B =/= $\r,
+       CP1 < 128, B < 128,
+       ?are_all_ascii_len_swar(W) ->
+    length_b(Rest, B, N+8);
 length_b(<<CP2/utf8, Rest/binary>>, CP1, N)
   when ?ASCII_LIST(CP1,CP2) ->
     length_b(Rest, CP2, N+1);
@@ -1217,7 +1223,7 @@ reverse_b(Bin0, CP1, Acc) ->
         {error, Err} -> error({badarg, Err})
     end.
 
-slice_l0(<<CP1/utf8, Bin/binary>>, N) when N > 0 ->
+slice_l0(<<CP1/utf8, Bin/binary>>, N) when is_integer(N), N > 0 ->
     slice_lb(Bin, CP1, N);
 slice_l0(L, N) ->
     slice_l(L, N).
@@ -1234,8 +1240,12 @@ slice_l(CD, N) when is_integer(N), N > 0 ->
 slice_l(Cont, 0) ->
     Cont.
 
+slice_lb(<<W:56, B, Bin/binary>>, CP1, N)
+  when CP1 < 128, CP1 =/= $\r, B < 128, B =/= $\r, N > 8,
+       ?are_all_ascii_len_swar(W) ->
+    slice_lb(Bin, B, N-8);
 slice_lb(<<CP2/utf8, Bin/binary>>, CP1, N)
-  when ?ASCII_LIST(CP1,CP2), is_integer(N), N > 1 ->
+  when ?ASCII_LIST(CP1,CP2), N > 1 ->
     slice_lb(Bin, CP2, N-1);
 slice_lb(Bin, CP1, N) ->
     [_|Rest] = unicode_util:gc([CP1|Bin]),
@@ -1275,6 +1285,10 @@ slice_list(CD, N) when N > 0 ->
 slice_list(_, 0) ->
     [].
 
+slice_bin(<<W:56, B, Bin/binary>>, CP1, N)
+  when CP1 < 128, CP1 =/= $\r, B < 128, B =/= $\r, N > 8,
+       ?are_all_ascii_len_swar(W) ->
+    slice_bin(Bin, B, N-8);
 slice_bin(<<CP2/utf8, Bin/binary>>, CP1, N) when ?ASCII_LIST(CP1,CP2), N > 0 ->
     slice_bin(Bin, CP2, N-1);
 slice_bin(CD, CP1, N) when N > 0 ->
@@ -2403,7 +2417,7 @@ Returns the number of characters in `String`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `length/1`.
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec len(String) -> Length when
       String :: string(),
       Length :: non_neg_integer().
@@ -2431,7 +2445,7 @@ This function is [obsolete](`m:string#obsolete-api-functions`). Use
 `[String1, String2]` as `Data` argument, and call `unicode:characters_to_list/2`
 or `unicode:characters_to_binary/2` to flatten the output.
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec concat(String1, String2) -> String3 when
       String1 :: string(),
       String2 :: string(),
@@ -2449,7 +2463,7 @@ Returns the index of the first occurrence of `Character` in `String`. Returns
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `find/2`.
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec chr(String, Character) -> Index when
       String :: string(),
       Character :: char(),
@@ -2467,7 +2481,7 @@ if `Character` does not occur.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `find/3`.
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec rchr(String, Character) -> Index when
       String :: string(),
       Character :: char(),
@@ -2492,15 +2506,8 @@ Returns the position where the first occurrence of `SubString` begins in
 `String`. Returns `0` if `SubString` does not exist in `String`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `find/2`.
-
-_Example:_
-
-```erlang
-1> string:str(" Hello Hello World World ", "Hello World").
-8
-```
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec str(String, SubString) -> Index when
       String :: string(),
       SubString :: string(),
@@ -2521,15 +2528,8 @@ Returns the position where the last occurrence of `SubString` begins in
 `String`. Returns `0` if `SubString` does not exist in `String`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `find/3`.
-
-_Example:_
-
-```erlang
-1> string:rstr(" Hello Hello World World ", "Hello World").
-8
-```
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec rstr(String, SubString) -> Index when
       String :: string(),
       SubString :: string(),
@@ -2557,15 +2557,8 @@ Returns the length of the maximum initial segment of `String`, which consists
 entirely of characters from `Chars`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `take/2`.
-
-_Example:_
-
-```erlang
-1> string:span("\t    abcdef", " \t").
-5
-```
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec span(String, Chars) -> Length when
       String :: string(),
       Chars :: string(),
@@ -2585,15 +2578,8 @@ Returns the length of the maximum initial segment of `String`, which consists
 entirely of characters not from `Chars`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `take/3`.
-
-_Example:_
-
-```erlang
-1> string:cspan("\t    abcdef", " \t").
-0
-```
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec cspan(String, Chars) -> Length when
       String :: string(),
       Chars :: string(),
@@ -2613,7 +2599,7 @@ cspan([], _Cs, I) -> I.
 %%  Extract a sub-string from String.
 
 -doc(#{equiv => substr(String, Start, string:length(String) - Start)}).
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec substr(String, Start) -> SubString when
       String :: string(),
       SubString :: string(),
@@ -2629,15 +2615,8 @@ Returns a substring of `String`, starting at position `Start`, and ending at the
 end of the string or at length `Length`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `slice/3`.
-
-_Example:_
-
-```erlang
-1> substr("Hello World", 4, 5).
-"lo Wo"
-```
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec substr(String, Start, Length) -> SubString when
       String :: string(),
       SubString :: string(),
@@ -2660,20 +2639,13 @@ substr2([_|String], S) -> substr2(String, S-1).
 Returns a list of tokens in `String`, separated by the characters in
 `SeparatorList`.
 
-_Example:_
-
-```erlang
-1> tokens("abc defxxghix jkl", "x ").
-["abc", "def", "ghi", "jkl"]
-```
-
-Notice that, as shown in this example, two or more adjacent separator characters
+Notice that two or more adjacent separator characters
 in `String` are treated as one. That is, there are no empty strings in the
 resulting list of tokens.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `lexemes/2`.
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec tokens(String, SeparatorList) -> Tokens when
       String :: string(),
       SeparatorList :: string(),
@@ -2723,7 +2695,7 @@ tokens_multiple_2([], _Seps, Toks, Tok) ->
     [Tok|Toks].
 
 -doc(#{equiv => chars(Character, Number, [])}).
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec chars(Character, Number) -> String when
       Character :: char(),
       Number :: non_neg_integer(),
@@ -2738,7 +2710,7 @@ string can end with string `Tail`.
 This function is [obsolete](`m:string#obsolete-api-functions`). Use
 `lists:duplicate/2`.
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec chars(Character, Number, Tail) -> String when
       Character :: char(),
       Number :: non_neg_integer(),
@@ -2760,7 +2732,7 @@ Returns a string containing `String` repeated `Number` times.
 This function is [obsolete](`m:string#obsolete-api-functions`). Use
 `lists:duplicate/2`.
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec copies(String, Number) -> Copies when
       String :: string(),
       Copies :: string(),
@@ -2777,7 +2749,7 @@ copies(CharList, Num, R) ->
 %%% WORDS %%%
 
 -doc(#{equiv => words(String, $\s)}).
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec words(String) -> Count when
       String :: string(),
       Count :: pos_integer().
@@ -2788,15 +2760,8 @@ words(String) -> words(String, $\s).
 Returns the number of words in `String`, separated by blanks or `Character`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `lexemes/2`.
-
-_Example:_
-
-```erlang
-1> words(" Hello old boy!", $o).
-4
-```
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec words(String, Character) -> Count when
       String :: string(),
       Character :: char(),
@@ -2812,7 +2777,7 @@ w_count([_H|T], Char, Num) -> w_count(T, Char, Num).
 %%% SUB_WORDS %%%
 
 -doc(#{equiv => sub_word(String, Number, $\s)}).
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec sub_word(String, Number) -> Word when
       String :: string(),
       Word :: string(),
@@ -2826,15 +2791,8 @@ or `Character`s.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use
 `nth_lexeme/3`.
-
-_Example:_
-
-```erlang
-1> string:sub_word(" Hello old boy !",3,$o).
-"ld b"
-```
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec sub_word(String, Number, Character) -> Word when
       String :: string(),
       Word :: string(),
@@ -2860,13 +2818,13 @@ s_word([_|T],Stop,Char,Index,Res) when Index < Stop ->
 %%% STRIP %%%
 
 -doc(#{equiv => strip(String, both)}).
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec strip(string()) -> string().
 
 strip(String) -> strip(String, both).
 
 -doc(#{equiv => strip(String, Direction, $\s)}).
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec strip(String, Direction) -> Stripped when
       String :: string(),
       Stripped :: string(),
@@ -2886,15 +2844,8 @@ Returns a string, where leading or trailing, or both, blanks or a number of
 [`strip/1`](`strip/1`) is equivalent to [`strip(String, both)`](`strip/2`).
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `trim/3`.
-
-_Example:_
-
-```erlang
-1> string:strip("...Hello.....", both, $.).
-"Hello"
-```
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec strip(String, Direction, Character) -> Stripped when
       String :: string(),
       Stripped :: string(),
@@ -2924,7 +2875,7 @@ strip_right([], Sc) when is_integer(Sc) ->
 %%% LEFT %%%
 
 -doc(#{equiv => left(String, Number, $\s)}).
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec left(String, Number) -> Left when
       String :: string(),
       Left :: string(),
@@ -2939,15 +2890,8 @@ padded with blanks or `Character`s.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `pad/2` or
 `pad/3`.
-
-_Example:_
-
-```erlang
-1> string:left("Hello",10,$.).
-"Hello....."
-```
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec left(String, Number, Character) -> Left when
       String :: string(),
       Left :: string(),
@@ -2967,7 +2911,7 @@ l_pad(String, Num, Char) -> String ++ chars(Char, Num).
 %%% RIGHT %%%
 
 -doc(#{equiv => right(String, Number, $\s)}).
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec right(String, Number) -> Right when
       String :: string(),
       Right :: string(),
@@ -2981,15 +2925,8 @@ margin is fixed. If the length of `(String)` < `Number`, then `String` is padded
 with blanks or `Character`s.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `pad/3`.
-
-_Example:_
-
-```erlang
-1> string:right("Hello", 10, $.).
-".....Hello"
-```
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec right(String, Number, Character) -> Right when
       String :: string(),
       Right :: string(),
@@ -3009,7 +2946,7 @@ r_pad(String, Num, Char) -> chars(Char, Num, String).
 %%% CENTRE %%%
 
 -doc(#{equiv => centre(String, Number, $\s)}).
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec centre(String, Number) -> Centered when
       String :: string(),
       Centered :: string(),
@@ -3023,7 +2960,7 @@ blanks or `Character`. The resulting string has length `Number`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `pad/3`.
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec centre(String, Number, Character) -> Centered when
       String :: string(),
       Centered :: string(),
@@ -3045,7 +2982,7 @@ centre(String, Len, Char) when is_integer(Len), is_integer(Char) ->
 %%% SUB_STRING %%%
 
 -doc(#{equiv => sub_string(String, Start, string:length(String))}).
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec sub_string(String, Start) -> SubString when
       String :: string(),
       SubString :: string(),
@@ -3058,15 +2995,8 @@ Returns a substring of `String`, starting at position `Start` to the end of the
 string, or to and including position `Stop`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `slice/3`.
-
-_Example:_
-
-```erlang
-1> sub_string("Hello World", 4, 8).
-"lo Wo"
-```
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec sub_string(String, Start, Stop) -> SubString when
       String :: string(),
       SubString :: string(),
@@ -3106,7 +3036,7 @@ This function is [obsolete](`m:string#obsolete-api-functions`) use
 `lowercase/1`, `titlecase/1` or `casefold/1`.
 """.
 
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec to_lower(String) -> Result when
                   String :: io_lib:latin1_string(),
                   Result :: io_lib:latin1_string()
@@ -3127,7 +3057,7 @@ set are unchanged.
 This function is [obsolete](`m:string#obsolete-api-functions`) use
 `uppercase/1`, `titlecase/1` or `casefold/1`.
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec to_upper(String) -> Result when
                   String :: io_lib:latin1_string(),
                   Result :: io_lib:latin1_string()
@@ -3146,15 +3076,8 @@ Returns a string with the elements of `StringList` separated by the string in
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use
 `lists:join/2`.
-
-_Example:_
-
-```erlang
-1> join(["one", "two", "three"], ", ").
-"one, two, three"
-```
 """.
--doc(#{title => <<"Obsolete API functions">>}).
+-doc(#{group => <<"Obsolete API functions">>}).
 -spec join(StringList, Separator) -> String when
       StringList :: [string()],
       Separator :: string(),

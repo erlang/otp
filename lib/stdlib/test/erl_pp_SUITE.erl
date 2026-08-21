@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,6 +52,7 @@
 	  format_options/1,
           form_vars/1,
 	  quoted_atom_types/1,
+          native_records/1,
 
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
@@ -80,7 +83,7 @@ groups() ->
       [func, call, recs, try_catch, if_then, receive_after,
        bits, head_tail, cond1, block, case1, ops,
        messages, maps_syntax, quoted_atom_types,
-       format_options, form_vars
+       format_options, form_vars, native_records
     ]},
      {attributes, [], [misc_attrs, import_export, dialyzer_attrs]},
      {tickets, [],
@@ -773,6 +776,20 @@ neg_indent(Config) when is_list(Config) ->
 
     ok.
 
+native_records(Config) ->
+    Ts = [{?FUNCTION_NAME,
+           ~"""
+           -record #a{x, y}.
+           m1(#a{x=X, y=Y}) -> X + Y.
+           m2(R) ->
+               #a{x=X, y=Y} = R,
+               X + Y.
+           c() -> #a{x=1, y=2}.
+           u(R) -> R#a{x=10}.
+           a(R) -> R#a.x.
+           """}],
+    compile(Config, Ts).
+
 
 %% OTP_6321. Bug fix of exprs().
 otp_6321(Config) when is_list(Config) ->
@@ -1339,11 +1356,14 @@ otp_16435(_Config) ->
     CheckF("f() ->\n    << \n      (catch <<1:4>>) ||\n"
            "          A <- []\n    >>.\n"),
     CheckF("f() ->\n    [ \n     catch foo ||\n         A <- []\n    ].\n"),
-    CheckF("f() ->\n    1 = catch 1.\n"),
-    CheckF("f() ->\n    catch 1 = catch 1.\n"),
-    CheckF("f() ->\n    A = catch 1 / 0.\n"),
+    CheckF("f() ->\n    1 = (catch 1).\n"),
+    CheckF("f() ->\n    catch 1 = (catch 1).\n"),
+    CheckF("f() ->\n    A = (catch 1 / 0).\n"),
     CheckF("f() when erlang:float(3.0) ->\n    true.\n"),
     CheckF("f() ->\n    (catch 16)#{}.\n"),
+    CheckF("f() ->\n    (catch throw(false)) =/= true.\n"),
+    CheckF("f() ->\n    (catch throw(2)) + 1.\n"),
+    CheckF("f() ->\n    (catch throw(Pid)) ! stop.\n"),
 
     Check = fun(S) -> S = flat_parse_and_pp_expr(S, 0, []) end,
     Check("5 #r4.f1"),
@@ -1468,9 +1488,11 @@ compile_file(Config, Test, Opts0) ->
     case compile:file(FileName, Opts) of
         {ok, _M, _Ws} ->
             {ok, filename:rootname(FileName)};
-        Error -> Error
+        Error ->
+            io:format("~ts\n", [Test]),
+            _ = compile:file(FileName, [report|Opts]),
+            Error
     end.
-
 flat_expr1(Expr0) ->
     Expr = erl_parse:new_anno(Expr0),
     lists:flatten(erl_pp:expr(Expr)).
@@ -1542,7 +1564,7 @@ pp_expr(List, Options) when is_list(List) ->
     if
         PP1 =:= PP2 -> % same line numbers
             case
-                (test_max_line(PP1) =:= ok) and (test_new_line(PPneg) =:= ok)
+                test_max_line(PP1) =:= ok andalso test_new_line(PPneg) =:= ok
             of
                 true ->
                     ok;

@@ -1,7 +1,16 @@
 %% =====================================================================
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright Ericsson AB 2025-2026. All Rights Reserved.
+%% Copyright 2019-2021 Radek Szymczyszyn
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +28,8 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
-%% @copyright 2019-2021 Radek Szymczyszyn
+%% %CopyrightEnd%
+%%
 %% @author Radek Szymczyszyn <lavrin@gmail.com>
 %% @end
 %% =====================================================================
@@ -43,7 +53,7 @@
 -import(edoc_report, [report/2]).
 
 %% @headerfile "../include/edoc_doclet.hrl"
--include("../include/edoc_doclet.hrl").
+-include_lib("edoc/include/edoc_doclet.hrl").
 
 -define(DEFAULT_FILE_SUFFIX, ".chunk").
 -define(CHUNKS_DIR, "chunks").
@@ -106,8 +116,7 @@ source({_M, Name, Path}, Dir, Suffix, Env, OkSet, ErrorFlag, Options0) ->
     try
 	%% Without these opts the entries returned by EDoc core (`edoc_extract:source1/5') won't have
 	%% all the necessary data to generate chunks.
-	RequiredChunkOpts = [return_entries, private, hidden],
-	%% But we also want to have the real user-defined `private' accessible.
+	RequiredChunkOpts = [return_entries],
 	Options = ([{show_private, proplists:get_bool(private, Options0)}]
 		   ++ RequiredChunkOpts
 		   ++ Options0),

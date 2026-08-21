@@ -1,6 +1,25 @@
-;; erlang-start.el --- Load this file to initialize the Erlang package.
+;;; erlang-start.el --- Load this file to initialize the Erlang package. -*- lexical-binding: t; -*-
 
-;; Copyright (C) 1998  Ericsson Telecom AB
+;; %CopyrightBegin%
+;;
+;; SPDX-License-Identifier: Apache-2.0
+;;
+;; Copyright Ericsson AB 1996-2025. All Rights Reserved.
+;;
+;; Licensed under the Apache License, Version 2.0 (the "License");
+;; you may not use this file except in compliance with the License.
+;; You may obtain a copy of the License at
+;;
+;;     http://www.apache.org/licenses/LICENSE-2.0
+;;
+;; Unless required by applicable law or agreed to in writing, software
+;; distributed under the License is distributed on an "AS IS" BASIS,
+;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;; See the License for the specific language governing permissions and
+;; limitations under the License.
+;;
+;; %CopyrightEnd%
+
 
 ;; Author:   Anders Lindgren
 ;; Version:  2.3
@@ -73,11 +92,6 @@
 (autoload 'erlang-man-function "erlang"
   "Find manual page for NAME, where NAME is module:function." t)
 
-(autoload 'erlang-find-tag "erlang"
-  "Like `find-tag'.  Capable of retrieving Erlang modules.")
-(autoload 'erlang-find-tag-other-window "erlang"
-  "Like `find-tag-other-window'.  Capable of retrieving Erlang modules.")
-
 ;;
 ;; Declare functions in "erlang-edoc.el".
 ;;
@@ -99,12 +113,9 @@ A function suitable for `eldoc-documentation-function'.\n\n(fn)" nil nil)
 ;;
 
 ;;;###autoload
-(let ((a '("\\.erl\\'" . erlang-mode))
-      (b '("\\.hrl\\'" . erlang-mode)))
-  (or (assoc (car a) auto-mode-alist)
-      (setq auto-mode-alist (cons a auto-mode-alist)))
-  (or (assoc (car b) auto-mode-alist)
-      (setq auto-mode-alist (cons b auto-mode-alist))))
+(add-to-list 'auto-mode-alist '("\\.erl\\'" . erlang-mode))
+;;;###autoload
+(add-to-list 'auto-mode-alist '("\\.hrl\\'" . erlang-mode))
 
 ;;
 ;; Associate files using interpreter "escript" with Erlang mode.
@@ -114,17 +125,12 @@ A function suitable for `eldoc-documentation-function'.\n\n(fn)" nil nil)
 (add-to-list 'interpreter-mode-alist (cons "escript" 'erlang-mode))
 
 ;;
-;; Ignore files ending in ".jam", ".vee", and ".beam" when performing
+;; Ignore files ending in ".beam" when performing
 ;; file completion and in dired omit mode.
 ;;
 
 ;;;###autoload
-(let ((erl-ext '(".jam" ".vee" ".beam")))
-  (while erl-ext
-    (add-to-list 'completion-ignored-extensions (car erl-ext))
-    (when (boundp 'dired-omit-extensions)
-      (add-to-list 'dired-omit-extensions (car erl-ext)))
-    (setq erl-ext (cdr erl-ext))))
+(add-to-list 'completion-ignored-extensions ".beam")
 
 
 ;;

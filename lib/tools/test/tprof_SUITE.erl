@@ -1,5 +1,8 @@
+%% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
 %%
+%% Copyright Ericsson AB 2024-2026. All Rights Reserved.
 %% Copyright WhatsApp Inc. and its affiliates. All rights reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,6 +16,8 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% %CopyrightEnd%
 %%
 %%-------------------------------------------------------------------
 %% @author Maxim Fedorov <maximfca@gmail.com>
@@ -33,6 +38,7 @@
     sort/0, sort/1,
     rootset/0, rootset/1,
     set_on_spawn/0, set_on_spawn/1, seq/1,
+    separate_sessions/0, separate_sessions/1,
     live_trace/0, live_trace/1,
     patterns/0, patterns/1, pattern_fun/1, pattern_fun/2, pattern_fun/3,
     processes/0, processes/1,
@@ -40,7 +46,8 @@
     server_all/0, server_all/1,
     hierarchy/0, hierarchy/1,
     code_reload/0, code_reload/1,
-    code_load/0, code_load/1
+    code_load/0, code_load/1,
+    disable_trace/0, disable_trace/1
 ]).
 
 -include_lib("stdlib/include/assert.hrl").
@@ -53,13 +60,14 @@ suite() ->
 
 all() ->
     [call_count_ad_hoc, %% Cannot be run in parallel
+     disable_trace,     %% Cannot be run in parallel
      {group, all}].
 
 groups() ->
     [{all, parallel(),
       [call_time_ad_hoc, call_memory_ad_hoc,
        call_memory_total, sort, rootset, set_on_spawn,
-       code_load, code_reload,
+       code_load, code_reload, separate_sessions,
        {group, default_session},
        {group, custom_session}]},
      {default_session,[],session()},
@@ -116,9 +124,14 @@ call_count_ad_hoc(Config) when is_list(Config) ->
     {{'EXIT', timeout}, {call_count, Profile2}} = tprof:profile(
         fun () -> Delay = hd(lists:seq(5001, 5032)), receive after Delay -> ok end end,
         #{timeout => 1000, report => return, type => call_count }),
-    ?assertMatch([{lists, seq, 2, [{_, 1, _}]},
-                  {lists, seq_loop, 3, [{_, 9, _}]},
-                  {?MODULE, _, _, _}], lists:sort(Profile2)),
+    {_,111} = {Profile2,
+               lists:foldl(fun({lists, seq, 2, [{_, 1, _}]}, Acc) -> Acc+1;
+                              ({lists, seq_loop, 3, [{_, 9, _}]}, Acc) -> Acc+10;
+                              ({?MODULE, _, _, _}, Acc) -> Acc+100;
+                              ({_,_,_,_}, Acc) -> Acc % ignore background call noise
+                           end,
+                           0, Profile2)
+              },
 
     %% timer with patterns
     {{'EXIT', timeout}, Profile3} = tprof:profile(
@@ -209,6 +222,48 @@ int_to_bin_twice(M) ->
     B = integer_to_binary(M),
     <<B/binary, B/binary>>.
 
+disable_trace() ->
+    [{doc, "Test `disable_trace` does not continue tracing"}].
+
+disable_trace(_Config) when is_list(_Config) ->
+    ok = disable_trace(new),
+    ok = disable_trace(existing),
+    true;
+disable_trace(new=Trace) ->
+    {ok, TracePid} = tprof:start(#{type => call_memory, session => Trace}),
+    tprof:set_pattern(TracePid, lists, '_', '_'),
+    tprof:enable_trace(TracePid, Trace, #{set_on_spawn => true}),
+
+    Pid = spawn(fun () -> lists:sum(lists:seq(1, 5000)) end),
+    timer:sleep(100),
+
+    tprof:disable_trace(TracePid, Trace, #{set_on_spawn => true}),
+    _ = spawn(fun () -> lists:sum(lists:seq(1, 5000)) end),
+    timer:sleep(100),
+
+    Result = tprof:collect(TracePid),
+    tprof:stop(TracePid),
+
+    Expected = tprof:inspect(Result, process, percent),
+    ?assertMatch([Pid], maps:keys(Expected));
+disable_trace(existing=Trace) ->
+    {ok, TracePid} = tprof:start(#{type => call_memory, session => Trace}),
+    tprof:set_pattern(TracePid, lists, '_', '_'),
+    tprof:enable_trace(TracePid, Trace, #{set_on_spawn => false}),
+
+    Pid = spawn(fun () -> lists:sum(lists:seq(1, 5000)) end),
+    timer:sleep(100),
+
+    tprof:disable_trace(TracePid, Trace, #{set_on_spawn => false}),
+
+    {call_memory, Result} = tprof:collect(TracePid),
+    tprof:stop(TracePid),
+
+    MatchingPids = lists:flatmap(fun ({_, _, _, L}) -> [P || {P, _, _} <- L, P == Pid] end, Result),
+    ?assertMatch(0, length(Result)),
+    ?assertMatch([], MatchingPids).
+
+
 %% Ensure total is not truncated,
 %% as per https://github.com/erlang/otp/issues/8139
 call_memory_total(_Config) ->
@@ -288,9 +343,10 @@ set_on_spawn(Config) when is_list(Config) ->
     %% check per-process stats
     ?assertMatch({?MODULE, {_, 0}, 1, DownMsgSz, DownMsgSzFl, _}, lists:keyfind(?MODULE, 1, TotalProfile)),
 
-    %% MFA takes 4 more words. The memory of the 'DOWN' message is a bit racy,
-    %% so sometimes it will be there or not.
-    MfaSz = 4,
+    %% MFA version takes 3 more words (fun + one environment variable). The
+    %% memory of the 'DOWN' message is a bit racy, so sometimes it will be
+    %% there or not.
+    MfaSz = 3,
     ?assertMatch({?MODULE, {seq, 1}, 1, Sz, SzAvg, _}
                  when Sz =:= (DownMsgSz + MfaSz) andalso SzAvg == (DownMsgSz + MfaSz);
                       Sz =:= MfaSz andalso SzAvg == MfaSz,
@@ -299,6 +355,33 @@ set_on_spawn(Config) when is_list(Config) ->
 seq(Max) ->
     {Pid, MRef} = spawn_monitor(fun () -> lists:seq(1, Max) end),
     receive {'DOWN', MRef, process, Pid, normal} -> done end.
+
+separate_sessions() ->
+    [{doc, "Tests separate tprof sessions"}].
+
+separate_sessions(Config) when is_list(Config) ->
+    %% Trace lists:reverse/1
+    {ok, Srv1} = tprof:start_link(#{session => tprof_SUITE_separate_sessions_1, type => call_memory}),
+    tprof:set_pattern(Srv1, lists, reverse, 1),
+    tprof:enable_trace(Srv1, self(), #{}),
+
+    %% Trace lists:map/2
+    {ok, Srv2} = tprof:start_link(#{session => tprof_SUITE_separate_sessions_2, type => call_memory}),
+    tprof:set_pattern(Srv2, lists, map, 2),
+    tprof:enable_trace(Srv2, self(), #{}),
+
+    lists:reverse([1, 2, 3, 4, 5]),
+    lists:map(fun(X) -> X * 2 end, [1, 2, 3, 4, 5]),
+
+    {call_memory, Profile1} = tprof:collect(Srv1),
+    {call_memory, Profile2} = tprof:collect(Srv2),
+
+    tprof:stop(Srv1),
+    tprof:stop(Srv2),
+
+    ?assertNotEqual(Profile1, Profile2),
+    ?assert(lists:all(fun({lists, reverse, 1, _}) -> true; (_) -> false end, Profile1)),
+    ?assert(lists:all(fun({lists, map, 2, _}) -> true; (_) -> false end, Profile2)).
 
 live_trace() ->
     [{doc, "Tests memory tracing for pre-existing processes"}].
@@ -404,6 +487,7 @@ server(Config) when is_list(Config) ->
     %% test live trace
     1 = tprof:set_pattern(?MODULE, dispatch, '_'),
     _ = tprof:set_pattern(pg, '_', '_'),
+    _ = tprof:set_pattern(data_publisher, '_', '_'),
     %% watch for pg traces and for our process
     2 = tprof:enable_trace([Pid, Name]),
     %% run the traced operation
@@ -414,7 +498,7 @@ server(Config) when is_list(Config) ->
     %%  and at least something from pg in two processes
     ?assertNotEqual([], FirstProfile),
     ?assertEqual({?MODULE, dispatch, 2, [{Pid, 1, 3}]}, lists:keyfind(?MODULE, 1, FirstProfile)),
-    ?assertMatch({pg, handle_call, 3, [{Scope, _, _}]}, lists:keyfind(handle_call, 2, FirstProfile)),
+    ?assertMatch({data_publisher, handle_call, 3, [{Scope, _, _}]}, lists:keyfind(handle_call, 2, FirstProfile)),
     ?assertMatch({pg, join, 3, [{Pid, _, _}]}, lists:keyfind(join, 2, FirstProfile)),
     %% pause tracing
     ok = tprof:pause(),

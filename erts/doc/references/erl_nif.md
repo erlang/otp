@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -513,6 +515,14 @@ calling NIF API functions. Functions exist for the following functionality:
   instead used, then the name of the archive file must match the name of the
   module.
 
+  Multiple static NIF libraries can be included in a single archive file by
+  specifying the respective `STATIC_ERLANG_NIF_LIBNAME` values in the configure
+  call separated by colons after the archive file name:
+
+  ```sh
+  ./confgure --enable-static-nifs=/path/to/archive.a:nif_lib1:nif_lib2
+  ```
+
 - __`int (*load)(ErlNifEnv* caller_env, void** priv_data, ERL_NIF_TERM load_info)`__ - 
   `load`{: #load } is called when the NIF library is loaded and no previously
   loaded library exists for this module.
@@ -617,13 +627,8 @@ calling NIF API functions. Functions exist for the following functionality:
     scheduler thread.
 
     If the dirty NIF is expected to be CPU-bound, its `flags` field is to be set
-    to `ERL_NIF_DIRTY_JOB_CPU_BOUND` or `ERL_NIF_DIRTY_JOB_IO_BOUND`.
-
-    > #### Note {: .info }
-    >
-    > If one of the `ERL_NIF_DIRTY_JOB_*_BOUND` flags is set, and the runtime
-    > system has no support for dirty schedulers, the runtime system refuses to
-    > load the NIF library.
+    to `ERL_NIF_DIRTY_JOB_CPU_BOUND`. If it's expected to be I/O-bound set
+    `flags` to `ERL_NIF_DIRTY_JOB_IO_BOUND`.
 
 - **`ErlNifBinary`**{: #ErlNifBinary }
 
@@ -727,7 +732,7 @@ calling NIF API functions. Functions exist for the following functionality:
   ```
 
   Initialization structure read by
-  [enif_open_resource_type_x](erl_nif.md#enif_open_resource_type_x)
+  [enif_open_resource_type_x](erl_nif.md#enif_open_resource_type_x) and
   [enif_init_resource_type](erl_nif.md#enif_init_resource_type).
 
 - **`ErlNifResourceDtor`{: #ErlNifResourceDtor }**
@@ -1299,11 +1304,11 @@ int enif_get_atom(
         ErlNifCharEncoding encoding);
 ```
 
-Writes a `NULL`\-terminated string in the buffer pointed to by `buf` of size
+Writes a NUL\-terminated string in the buffer pointed to by `buf` of size
 `size` bytes, consisting of the string representation of the atom `term` with
 [encoding](erl_nif.md#ErlNifCharEncoding).
 
-Returns the number of bytes written (including terminating `NULL` character) or
+Returns the number of bytes written (including terminating NUL byte), or
 `0` if `term` is not an atom with maximum length of `size-1` bytes in
 `encoding`.
 
@@ -1319,8 +1324,8 @@ int enif_get_atom_length(
         ErlNifCharEncoding encoding);
 ```
 
-Sets `*len` to the length (number of bytes excluding terminating `NULL`
-character) of the atom `term` with [encoding](erl_nif.md#ErlNifCharEncoding).
+Sets `*len` to the length (number of bytes excluding terminating NUL
+byte) of the atom `term` with [encoding](erl_nif.md#ErlNifCharEncoding).
 
 Returns `true` on success, or `false` if `term` is not an atom or if the atom
 cannot be encoded using `encoding`.
@@ -1516,18 +1521,18 @@ int enif_get_string(
         ErlNifCharEncoding encoding);
 ```
 
-Writes a `NULL`\-terminated string in the buffer pointed to by `buf` with size
+Writes a NUL\-terminated string in the buffer pointed to by `buf` with size
 `size`, consisting of the characters in the string `list`. The characters are
 written using [encoding](erl_nif.md#ErlNifCharEncoding).
 
 Returns one of the following:
 
-- The number of bytes written (including terminating `NULL` character)
+- The number of bytes written (including the terminating NUL byte)
 - `-size` if the string was truncated because of buffer space
 - `0` if `list` is not a string that can be encoded with `encoding` or if `size`
-  was < `1`.
+  was `0`.
 
-The written string is always `NULL`\-terminated, unless buffer `size` is < `1`.
+The written string is always NUL\-terminated, unless buffer `size` is `0`.
 
 Available since OTP R13B04
 
@@ -1541,8 +1546,8 @@ int enif_get_string_length(
         ErlNifCharEncoding encoding);
 ```
 
-Sets `*len` to the length (number of bytes excluding terminating `NULL`
-character) of the string `list` with [encoding](erl_nif.md#ErlNifCharEncoding).
+Sets `*len` to the length (number of bytes excluding terminating NUL
+byte) of the string `list` with [encoding](erl_nif.md#ErlNifCharEncoding).
 
 Returns `true` on success, or `false` if `list` is not a string that can be
 encoded with `encoding`.
@@ -1674,7 +1679,9 @@ int enif_inspect_binary(
 ```
 
 Initializes the structure pointed to by `bin` with information about binary term
-`bin_term`.
+`bin_term`. The data pointed to by `bin` is transient and does not need to be
+released unless it has been later reallocated with [`enif_realloc_binary`
+](erl_nif.md#enif_realloc_binary).
 
 Returns `true` on success, or `false` if `bin_term` is not a binary.
 
@@ -1689,7 +1696,8 @@ int enif_inspect_iolist_as_binary(
 
 Initializes the structure pointed to by `bin` with a continuous buffer with the
 same byte content as `iolist`. As with `inspect_binary`, the data pointed to by
-`bin` is transient and does not need to be released.
+`bin` is transient and does not need to be released unless it has been later
+reallocated with [`enif_realloc_binary` ](erl_nif.md#enif_realloc_binary).
 
 Returns `true` on success, or `false` if `iolist` is not an iolist.
 
@@ -2093,7 +2101,7 @@ ERL_NIF_TERM enif_make_atom(
         const char *name);
 ```
 
-Creates an atom term from the `NULL`\-terminated C-string `name` with ISO
+Creates an atom term from the NUL\-terminated C-string `name` with ISO
 Latin-1 encoding. If the length of `name` exceeds the maximum length allowed for
 an atom (255 characters), `enif_make_atom` invokes
 [`enif_make_badarg`](erl_nif.md#enif_make_badarg).
@@ -2108,7 +2116,7 @@ ERL_NIF_TERM enif_make_atom_len(
 ```
 
 Create an atom term from the string `name` with length `len` and ISO Latin-1
-encoding. `NULL` characters are treated as any other characters. If `len`
+encoding. `NUL` bytes are treated as any other characters. If `len`
 exceeds the maximum length allowed for an atom (255 characters),
 `enif_make_atom` invokes [`enif_make_badarg` ](erl_nif.md#enif_make_badarg).
 
@@ -2190,7 +2198,7 @@ int enif_make_existing_atom(
         ErlNifCharEncoding encoding);
 ```
 
-Tries to create the term of an already existing atom from the `NULL`\-terminated
+Tries to create the term of an already existing atom from the NUL\-terminated
 C-string `name` with [encoding](erl_nif.md#ErlNifCharEncoding).
 
 If the atom already exists, this function stores the term in `*atom` and returns
@@ -2212,8 +2220,8 @@ int enif_make_existing_atom_len(
 ```
 
 Tries to create the term of an already existing atom from the string `name` with
-length `len` bytes and [encoding](erl_nif.md#ErlNifCharEncoding). `NULL`
-characters are treated as any other characters.
+length `len` bytes and [encoding](erl_nif.md#ErlNifCharEncoding). `NUL`
+bytes are treated as any other characters.
 
 If the atom already exists, this function stores the term in `*atom` and returns
 `true`, otherwise returns `false`. It also returns `false` if the string `name`
@@ -2481,7 +2489,7 @@ int enif_make_new_atom(
         ErlNifCharEncoding encoding);
 ```
 
-Creates an atom term from the `NULL`\-terminated C-string `name` with
+Creates an atom term from the NUL\-terminated C-string `name` with
 [encoding](erl_nif.md#ErlNifCharEncoding).
 
 If successful, `true` is returned and the atom term is stored in `*atom`.
@@ -2666,7 +2674,7 @@ ERL_NIF_TERM enif_make_string(
         ErlNifCharEncoding encoding);
 ```
 
-Creates a list containing the characters of the `NULL`\-terminated string
+Creates a list containing the characters of the NUL\-terminated string
 `string` with [encoding](erl_nif.md#ErlNifCharEncoding).
 
 ## enif_make_string_len()
@@ -2680,7 +2688,7 @@ ERL_NIF_TERM enif_make_string_len(
 ```
 
 Creates a list containing the characters of the string `string` with length
-`len` and [encoding](erl_nif.md#ErlNifCharEncoding). `NULL` characters are
+`len` and [encoding](erl_nif.md#ErlNifCharEncoding). NUL bytes are
 treated as any other characters.
 
 Available since OTP R14B
@@ -3484,12 +3492,9 @@ long-running work into multiple regular NIF calls or to schedule a
   If it cannot be converted to an atom, `enif_schedule_nif` returns a `badarg`
   exception.
 
-- **`flags`** - Must be set to `0` for a regular NIF. If the emulator was built
-  with dirty scheduler support enabled, `flags` can be set to either
+- **`flags`** - Must be set to `0` for a regular NIF,
   `ERL_NIF_DIRTY_JOB_CPU_BOUND` if the job is expected to be CPU-bound, or
-  `ERL_NIF_DIRTY_JOB_IO_BOUND` for jobs that will be I/O-bound. If dirty
-  scheduler threads are not available in the emulator, an attempt to schedule
-  such a job results in a `notsup` exception.
+  `ERL_NIF_DIRTY_JOB_IO_BOUND` for jobs that will be I/O-bound.
 
 - **`argc` and `argv`** - Can either be the originals passed into the calling
   NIF, or can be values created by the calling NIF.
@@ -3904,6 +3909,18 @@ Sets an [`ErlNifPid`](erl_nif.md#ErlNifPid) variable as undefined. See
 [`enif_is_pid_undefined`](erl_nif.md#enif_is_pid_undefined).
 
 Available since OTP 22.0
+
+## enif_term_size()
+
+```c
+unsigned enif_term_size(
+        ERL_NIF_TERM term);
+```
+
+Gets the number of bytes used to store term. The size does not include
+ERL_NIF_TERM itself or binary data held by the term.
+
+Available since OTP 29.0
 
 ## enif_sizeof_resource()
 

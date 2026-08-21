@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +27,7 @@
 %% a common conversion from markdown to Erlang+HTML.
 %% the end goal is that the output can be pretty printed correctly.
 
--export([parse_md/1]).
+-export([parse_md/1, parse_md/2]).
 
 %% Valid inline prefixes, e.g., t:my_type()
 -define(INLINE_PREFIX(X), (X =:= $t orelse X =:= $m orelse X =:= $e orelse X =:= $c)).
@@ -53,13 +55,19 @@
          Symb =:= $( orelse Symb =:= $) orelse
          Symb =:= $: orelse Symb =:= $;)).
 
+-type options() :: #{ allow_html => boolean() }.
+
 -spec parse_md(Doc0 :: binary()) -> Doc1 :: shell_docs:chunk_elements().
 parse_md(Doc) when is_binary(Doc) ->
+    parse_md(Doc, #{}).
+-spec parse_md(Doc0 :: binary(), Opts :: options()) ->
+    Doc1 :: shell_docs:chunk_elements().
+parse_md(Doc, Opts) ->
     %% remove links from [this form][1] to [this form].
     Doc1 = re:replace(Doc, ~b"\\[([^\\]]*?)\\]\\[(.*?)\\]", "\\1", [{return, binary}, global]),
 
     Lines = binary:split(Doc1, [<<"\r\n">>, <<"\n">>], [global]),
-    AST = parse_md(Lines, []),
+    AST = parse_md_lines(Lines, [], Opts),
     format_line(AST).
 
 %% Formats a line
@@ -100,20 +108,21 @@ format_line([Bin | Rest], BlockSet0) when is_binary(Bin) ->
     end.
 
 
--spec parse_md(Markdown, HtmlErlang) -> HtmlErlang when
+-spec parse_md_lines(Markdown, HtmlErlang, Opts) -> HtmlErlang when
       Markdown :: [binary()],
-      HtmlErlang :: shell_docs:chunk_elements().
-parse_md([], Block) ->
+      HtmlErlang :: shell_docs:chunk_elements(),
+      Opts :: options().
+parse_md_lines([], Block, _) ->
     Block;
 
-parse_md([<<"    ", Line/binary>> | Rest], Block) ->
-   Block ++ process_code([<<"    ", Line/binary>> | Rest], []);
+parse_md_lines([<<"    ", Line/binary>> | Rest], Block, Opts) ->
+   Block ++ process_code([<<"    ", Line/binary>> | Rest], [], Opts);
 
 %%
 %% Lists and paragraphs
 %%
-parse_md(Rest, Block) when is_list(Rest) ->
-    process_rest(Rest, Block).
+parse_md_lines(Rest, Block, Opts) when is_list(Rest) ->
+    process_rest(Rest, Block, Opts).
 
 process_table([<<$|, _Data/binary>>=Header, Delimiter | Rest]) ->
     maybe
@@ -178,8 +187,8 @@ check_start_closing_table(Line) ->
             false
     end.
 
-process_rest([P | Rest], Block) ->
-    process_list_or_p(P, Rest, Block).
+process_rest([P | Rest], Block, Opts) ->
+    process_list_or_p(P, Rest, Block, Opts).
 
 detect_rest(<<BulletList, $\s, _Line/binary>>) when ?IS_BULLET(BulletList) ->
     ul;
@@ -188,23 +197,23 @@ detect_rest(<<NumberedList, $., $\s, _Line/binary>>) when ?IS_NUMBERED(NumberedL
 detect_rest(_) ->
     p.
 
-process_list_or_p(P, Rest, Block) ->
+process_list_or_p(P, Rest, Block, Opts) ->
     {StrippedP, SpaceCount} = strip_spaces(P, 0, infinity),
     case detect_rest(StrippedP) of
         List when List =:= ul;
                   List =:= ol ->
-            {Content, Rest1} = process_list(List, P, Rest, SpaceCount, Block),
-            Content ++ parse_md(Rest1, []);
+            {Content, Rest1} = process_list(List, P, Rest, SpaceCount, Block, Opts),
+            Content ++ parse_md_lines(Rest1, [], Opts);
         _ ->
             %% Note: It could be that some text has been indented
             %% further than normal. If there is some rendering issue,
             %% maybe here we need to strip P from spaces and re-run parse_md(P).
             %% Not an issue, so far.
-            process_kind_block([StrippedP | Rest], Block)
+            process_kind_block([StrippedP | Rest], Block, Opts)
     end.
 
-process_list(Format, LineContent, Rest, SpaceCount, Block) ->
-    {Content, Rest1} = create_list(Format, [LineContent | Rest], SpaceCount, Block),
+process_list(Format, LineContent, Rest, SpaceCount, Block, Opts) ->
+    {Content, Rest1} = create_list(Format, [LineContent | Rest], SpaceCount, Block, Opts),
     {Block ++ [create_item_list(Format, lists:reverse(Content))], Rest1}.
 
 create_item_list(ul, Items) when is_list(Items) ->
@@ -221,24 +230,24 @@ ol(Items) when is_list(Items) ->
 li(Items) when is_list(Items)->
     {li, [], Items}.
 
-create_list(Format, [Line | Rest], SpaceCount, Acc) ->
-    process_block(Format, [Line | Rest], SpaceCount, Acc).
+create_list(Format, [Line | Rest], SpaceCount, Acc, Opts) ->
+    process_block(Format, [Line | Rest], SpaceCount, Acc, Opts).
 
-process_block(_Format, [], _SpaceCount, Acc) ->
+process_block(_Format, [], _SpaceCount, Acc, _Opts) ->
     {lists:reverse(Acc), []};
-process_block(Format, [Line | Rest], SpaceCount, Acc) ->
+process_block(Format, [Line | Rest], SpaceCount, Acc, Opts) ->
     {Content, RemainingRest, Done} = get_next_block(Format, [Line | Rest], SpaceCount, Acc),
     Items = case Content of
                 L when L =:= []; L =:= Acc ->
                     [];
                 _ ->
-                    [li(parse_md(lists:reverse(Content), [])) | Acc]
+                    [li(parse_md_lines(lists:reverse(Content), [], Opts)) | Acc]
             end,
     case Done of
         true ->
             {Items, RemainingRest};
         false ->
-            {Items2, Rest2} = process_block(Format, RemainingRest, SpaceCount, []),
+            {Items2, Rest2} = process_block(Format, RemainingRest, SpaceCount, [], Opts),
             {Items2 ++ Items, Rest2}
     end.
 
@@ -335,91 +344,123 @@ strip_list_line(Line) ->
 %%
 %% Headings
 %%
-process_kind_block([<<" ", Line/binary>> | Rest], Block) ->
-    process_kind_block([Line | Rest], Block);
-process_kind_block([<<"# ", Heading/binary>> | Rest], Block) ->
+process_kind_block([<<" ", Line/binary>> | Rest], Block, Opts) ->
+    process_kind_block([Line | Rest], Block, Opts);
+process_kind_block([<<"# ", Heading/binary>> | Rest], Block, Opts) ->
     HeadingLevel = 1,
-    Block ++ process_heading(HeadingLevel, Heading, Rest);
-process_kind_block([<<"## ", Heading/binary>> | Rest], Block) ->
+    Block ++ process_heading(HeadingLevel, Heading, Rest, Opts);
+process_kind_block([<<"## ", Heading/binary>> | Rest], Block, Opts) ->
     HeadingLevel = 2,
-    Block ++ process_heading(HeadingLevel, Heading, Rest);
-process_kind_block([<<"### ", Heading/binary>> | Rest], Block) ->
+    Block ++ process_heading(HeadingLevel, Heading, Rest, Opts);
+process_kind_block([<<"### ", Heading/binary>> | Rest], Block, Opts) ->
     HeadingLevel = 3,
-    Block ++ process_heading(HeadingLevel, Heading, Rest);
-process_kind_block([<<"#### ", Heading/binary>> | Rest], Block) ->
+    Block ++ process_heading(HeadingLevel, Heading, Rest, Opts);
+process_kind_block([<<"#### ", Heading/binary>> | Rest], Block, Opts) ->
     HeadingLevel = 4,
-    Block ++ process_heading(HeadingLevel, Heading, Rest);
-process_kind_block([<<"##### ", Heading/binary>> | Rest], Block) ->
+    Block ++ process_heading(HeadingLevel, Heading, Rest, Opts);
+process_kind_block([<<"##### ", Heading/binary>> | Rest], Block, Opts) ->
     HeadingLevel = 5,
-    Block ++ process_heading(HeadingLevel, Heading, Rest);
-process_kind_block([<<"###### ", Heading/binary>> | Rest], Block) ->
+    Block ++ process_heading(HeadingLevel, Heading, Rest, Opts);
+process_kind_block([<<"###### ", Heading/binary>> | Rest], Block, Opts) ->
     HeadingLevel = 6,
-    Block ++ process_heading(HeadingLevel, Heading, Rest);
+    Block ++ process_heading(HeadingLevel, Heading, Rest, Opts);
 
 %%
 %% Quotes where
 %%
-process_kind_block([<<">", _/binary>>=Line | Rest], Block) ->
-    Block ++ process_quote([Line | Rest], []);
+process_kind_block([<<">", _/binary>>=Line | Rest], Block, Opts) ->
+    Block ++ process_quote([Line | Rest], [], Opts);
 
 %%
 %% process block code
 %%
-process_kind_block([<<"```", Line/binary>> | Rest], Block) ->
-    Block ++ process_fence_code(Rest, [], Line);
+process_kind_block([<<"```", Line/binary>> | Rest], Block, Opts) ->
+    Block ++ process_fence_code(Rest, [], Line, Opts);
 %%
 %% New line
 %%
-process_kind_block([<<"">> | Rest], Block) ->
-    Block ++ parse_md(Rest, []);
+process_kind_block([<<"">> | Rest], Block, Opts) ->
+    Block ++ parse_md_lines(Rest, [], Opts);
 %%
 %% Comments
 %%
-process_kind_block([<<"<!--", Line/binary>> | Rest], Block) ->
-    Block ++ parse_md(process_comment([Line | Rest]), []);
+process_kind_block([<<"<!--", Line/binary>> | Rest], Block, Opts) ->
+    Block ++ parse_md_lines(process_comment([Line | Rest]), [], Opts);
+
 %%
 %% Tables
 %%
-process_kind_block([<<$|, _/binary>> | _]=Lines, Block) ->
+process_kind_block([<<$|, _/binary>> | _]=Lines, Block, Opts) ->
     maybe
         {Table, Rest1} ?= process_table(Lines),
-        Block ++ Table ++ parse_md(Rest1, [])
+        Block ++ Table ++ parse_md_lines(Rest1, [], Opts)
     else
         error ->
             %% looked like a table but it was not
             %% process as per the remaining option: paragraph
-            process_paragraph(Lines, Block)
+            process_paragraph(Lines, Block, Opts)
     end;
 
-process_kind_block([P | Rest], Block) ->
-    process_paragraph([P | Rest], Block).
 
-process_paragraph([P | Rest], Block) ->
-    case process_p([P | Rest], Block) of
-        {[_ | _]=Rest1, Block1} ->
-            process_setext_header({Rest1, Block1});
-        {Rest2, Block2} ->
-            parse_md(Rest2, Block2)
+%%
+%% Inline HTML
+%%
+process_kind_block([Line | Rest], Block, Opts) ->
+    case not maps:get(allow_html, Opts, false) andalso is_html(Line) of
+        true ->
+            exit({html_not_supported, {"Inline HTML is not supported in shell_docs markdown parsing", Line}});
+        false ->
+            process_paragraph([Line | Rest], Block, Opts)
     end.
 
-process_setext_header({[Line | Remaining]=Rest1, [H]=Block1}) ->
+is_html(Line) ->
+    case re:run(Line, "^</?([^>]+)>", [{capture, all_but_first, list}]) of
+        {match, [TagName]} ->
+            %% A subset of the html5 tags that we are most likely to encounter in the shell docs.
+            HtmlTags = ["header","footer","main","section","article","nav","aside",
+                        "h1","h2","h3","h4","h5","h6",
+                        "p","hr","pre","blockquote",
+                        "ol","ul","li","dl","dt","dd",
+                        "figure","figcaption","div",
+                        "a","em","strong","small","cite","code",
+                        "sub","sup","i","b","u","mark","span","br",
+                        "img","iframe","video","audio","source","canvas","svg",
+                        "table","thead","tbody","tr","td","th",
+                        "form","label","input","button","select","option","textarea","fieldset","legend",
+                        "progress",
+                        "details","summary",
+                        "script","noscript"],
+            lists:member(TagName, HtmlTags);
+        nomatch ->
+            false
+    end.
+
+process_paragraph([P | Rest], Block, Opts) ->
+    case process_p([P | Rest], Block) of
+        {[_ | _]=Rest1, Block1} ->
+            process_setext_header({Rest1, Block1}, Opts);
+        {Rest2, Block2} ->
+            parse_md_lines(Rest2, Block2, Opts)
+    end.
+
+process_setext_header({[Line | Remaining]=Rest1, [H]=Block1}, Opts) ->
     case strip_spaces(Line, 0, infinity) of
         {Stripped, SpaceCount} when SpaceCount =:= 4; Stripped == <<>> ->
             %% new code block, example:
             %%
             %%     foo() -> ok.
             %%
-            parse_md(Rest1, Block1);
+            parse_md_lines(Rest1, Block1, Opts);
         {Stripped, _} ->
             HeaderSymbol = binary:first(Stripped),
             maybe
                 true ?= repeated_bin_char(Stripped, HeaderSymbol),
                 <<$#, _/binary>>=Header ?= header_bin_level(HeaderSymbol),
-                HeaderBlock = parse_md([<<Header/binary, H/binary>>], []),
-                HeaderBlock ++ parse_md(Remaining, [])
+                HeaderBlock = parse_md_lines([<<Header/binary, H/binary>>], [], Opts),
+                HeaderBlock ++ parse_md_lines(Remaining, [], Opts)
             else
                 _ ->
-                    parse_md(Rest1, Block1)
+                    parse_md_lines(Rest1, Block1, Opts)
             end
     end.
 
@@ -468,14 +509,16 @@ strip_spaces(Rest, Acc, _) ->
 -type code_inline() :: {code, chunk_element_attrs(), shell_docs:chunk_elements()}.
 -type header() :: {h1 | h2 | h3 | h4 | h5 | h6, chunk_element_attrs(), shell_docs:chunk_elements() | [binary()]}.
 
--spec process_heading(Level, Heading, Rest) -> HtmlErlang when
+
+-spec process_heading(Level, Heading, Rest, Opts) -> HtmlErlang when
       Level         :: 1..6,
       Heading       :: binary(),
       Rest          :: [binary()],
+      Opts          :: options(),
       HtmlErlang    :: shell_docs:chunk_elements().
-process_heading(Level, Text, Rest) ->
+process_heading(Level, Text, Rest, Opts) ->
     Header = create_header(Level, Text),
-    [format_inline(Header) | parse_md(Rest, [])].
+    [format_inline(Header) | parse_md_lines(Rest, [], Opts)].
 
 -spec create_header(Level, Header) -> header() when
       Level  :: 1..6,
@@ -492,20 +535,21 @@ header_level(4) -> h4;
 header_level(5) -> h5;
 header_level(6) -> h6.
 
--spec process_quote(Line, PrevLines) -> HtmlErlang when
+-spec process_quote(Line, PrevLines, Opts) -> HtmlErlang when
       Line       :: [binary()],  %% Represents current parsing line.
       PrevLines  :: [binary()],  %% Represent unprocessed lines.
+      Opts       :: options(),
       HtmlErlang :: shell_docs:chunk_elements().
-process_quote([<<">">> | Rest], PrevLines) ->
-    process_quote(Rest, PrevLines);
-process_quote([<<"> ", Line/binary>> | Rest], PrevLines) ->
-    process_quote(Rest, [Line | PrevLines]);
-process_quote([<<">> ", Line/binary>> | Rest], PrevLines) ->
-    process_quote([<<"> ", Line/binary>> | Rest], PrevLines);
-process_quote([<<">", Line/binary>> | Rest], PrevLines) ->
-    process_quote([<<"> ", Line/binary>> | Rest], PrevLines);
-process_quote(Rest, PrevLines) ->
-    [quote(parse_md(lists:reverse(PrevLines), []))] ++ parse_md(Rest, []).
+process_quote([<<">">> | Rest], PrevLines, Opts) ->
+    process_quote(Rest, PrevLines, Opts);
+process_quote([<<"> ", Line/binary>> | Rest], PrevLines, Opts) ->
+    process_quote(Rest, [Line | PrevLines], Opts);
+process_quote([<<">> ", Line/binary>> | Rest], PrevLines, Opts) ->
+    process_quote([<<"> ", Line/binary>> | Rest], PrevLines, Opts);
+process_quote([<<">", Line/binary>> | Rest], PrevLines, Opts) ->
+    process_quote([<<"> ", Line/binary>> | Rest], PrevLines, Opts);
+process_quote(Rest, PrevLines, Opts) ->
+    [quote(parse_md_lines(lists:reverse(PrevLines), [], Opts))] ++ parse_md_lines(Rest, [], Opts).
 
 -spec format_inline(Inline) -> Inline :: {chunk_element_type(), [], shell_docs:chunk_elements()} when
       Inline :: {chunk_element_type(), [], [binary()]}.
@@ -801,35 +845,36 @@ format(Format, Line0) when is_list(Line0)->
                 end,
     [Formatted].
 
--spec process_code(Line, PrevLines) -> HtmlErlang when
+-spec process_code(Line, PrevLines, Opts) -> HtmlErlang when
       Line       :: [binary()],  %% Represents current parsing line.
       PrevLines  :: [binary()],  %% Represent unprocessed lines.
-      HtmlErlang :: shell_docs:chunk_elements().
-process_code([], Block) ->
+      HtmlErlang :: shell_docs:chunk_elements(),
+      Opts       :: options().
+process_code([], Block, _Opts) ->
     [create_code(Block, [])];
-process_code([<<"    ", Line/binary>> | Rest], Block) ->
+process_code([<<"    ", Line/binary>> | Rest], Block, Opts) ->
     %% process blank line followed by code
-    process_code(Rest, [Line | Block]);
-process_code(Rest, Block) ->
-    process_code([], Block) ++ parse_md(Rest, []).
+    process_code(Rest, [Line | Block], Opts);
+process_code(Rest, Block, Opts) ->
+    process_code([], Block, Opts) ++ parse_md_lines(Rest, [], Opts).
 
-process_fence_code([], Block, Leading) ->
+process_fence_code([], Block, Leading, _Opts) ->
     case string:trim(hd(binary:split(Leading, [~"\t", ~" "]))) of
         <<>> -> [create_code(Block, [])];
         Trimmed -> [create_code(Block, [{class, <<"language-", Trimmed/binary>>}])]
     end;
-process_fence_code([<<"```">> | Rest], Block, Leading) ->
+process_fence_code([<<"```">> | Rest], Block, Leading, Opts) ->
     %% close block
-    process_fence_code([], Block, Leading) ++ parse_md(Rest, []);
-process_fence_code([Line | Rest], Block, Leading) ->
+    process_fence_code([], Block, Leading, Opts) ++ parse_md_lines(Rest, [], Opts);
+process_fence_code([Line | Rest], Block, Leading, Opts) ->
     {Stripped, _} = strip_spaces(Line, 0, infinity),
     maybe
         <<"```", RestLine/binary>> ?= Stripped,
         {<<>>, _} ?= strip_spaces(RestLine, 0, infinity),
-        process_fence_code([<<"```">> | Rest], Block, Leading)
+        process_fence_code([<<"```">> | Rest], Block, Leading, Opts)
     else
         _ ->
-            process_fence_code(Rest, [Line | Block], Leading)
+            process_fence_code(Rest, [Line | Block], Leading, Opts)
     end.
 
 -spec process_comment(Line :: [binary()]) -> [binary()].

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,12 +48,13 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     case odbc_test_lib:odbc_check() of
 	ok ->
-	    [not_exist_db, commit, rollback, not_explicit_commit,
-	     no_c_executable, port_dies, control_process_dies,
-	     {group, client_dies}, connect_timeout, timeout,
-	     many_timeouts, timeout_reset, disconnect_on_timeout,
-	     connection_closed, disable_scrollable_cursors,
-	     return_rows_as_lists, api_missuse, extended_errors];
+            [not_exist_db, commit, rollback, not_explicit_commit,
+             no_c_executable, port_dies, control_process_dies,
+             {group, client_dies}, connect_timeout, timeout,
+             many_timeouts, timeout_reset, disconnect_on_timeout,
+             connection_closed, disable_scrollable_cursors,
+             return_rows_as_lists, api_missuse, extended_errors,
+             max_long_column_size];
 	Other -> {skip, Other}
     end.
 
@@ -889,6 +892,54 @@ extended_errors(Config) when is_list(Config)->
 
     ok = odbc:disconnect(Ref),
     ok = odbc:disconnect(RefExtended).
+
+%%--------------------------------------------------------------------
+max_long_column_size() ->
+    [{doc,
+      "Test the max_long_column_size connect option: verify that the "
+      "option is accepted and that invalid values are rejected. When "
+      "a database is available, verify that long column data up to the "
+      "configured size is returned without crashing the port."}].
+max_long_column_size(Config) when is_list(Config) ->
+    %% Valid option values are accepted
+    {ok, Ref1} = odbc:connect(?RDBMS:connection_string(),
+                              odbc_test_lib:platform_options() ++
+                                  [{max_long_column_size, 16000}]),
+    ok = odbc:disconnect(Ref1),
+
+    %% Default (0) is accepted
+    {ok, Ref2} = odbc:connect(?RDBMS:connection_string(),
+                              odbc_test_lib:platform_options() ++
+                                  [{max_long_column_size, 0}]),
+    ok = odbc:disconnect(Ref2),
+
+    %% Invalid values are rejected
+    {'EXIT', {bad_option, {max_long_column_size, -1}}} =
+        (catch odbc:connect(?RDBMS:connection_string(),
+                            odbc_test_lib:platform_options() ++
+                                [{max_long_column_size, -1}])),
+    {'EXIT', {bad_option, {max_long_column_size, foo}}} =
+        (catch odbc:connect(?RDBMS:connection_string(),
+                            odbc_test_lib:platform_options() ++
+                                [{max_long_column_size, foo}])),
+
+    %% Verify large data does not crash the port
+    Table = proplists:get_value(tableName, Config),
+    {ok, Ref3} = odbc:connect(?RDBMS:connection_string(),
+                              odbc_test_lib:platform_options() ++
+                                  [{max_long_column_size, 32000}]),
+    {updated, _} = odbc:sql_query(Ref3,
+                                  "CREATE TABLE " ++ Table ++
+                                      " (id INTEGER, data TEXT)"),
+    LargeData = lists:duplicate(10000, $x),
+    {updated, _} = odbc:sql_query(Ref3,
+                                  "INSERT INTO " ++ Table ++
+                                      " VALUES (1, '" ++ LargeData ++ "')"),
+    {selected, _, [{1, ReturnedData}]} =
+        odbc:sql_query(Ref3, "SELECT * FROM " ++ Table),
+    true = length(ReturnedData) > 0,
+    {updated, _} = odbc:sql_query(Ref3, "DROP TABLE " ++ Table),
+    ok = odbc:disconnect(Ref3).
 
 
 is_odbcserver(Name) ->

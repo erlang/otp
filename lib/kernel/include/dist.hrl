@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -55,6 +57,9 @@
 -define(DFLAG_NAME_ME,      (16#02 bsl 32)).
 -define(DFLAG_V4_NC,        (16#04 bsl 32)).
 -define(DFLAG_ALIAS,        (16#08 bsl 32)).
+-define(DFLAG_LOCAL_EXT,    (16#10 bsl 32)). %% only used internally
+-define(DFLAG_ALTACT_SIG,   (16#20 bsl 32)).
+-define(DFLAG_NATIVE_RECORDS, (16#40 bsl 32)).
 
 %% The following flags are mandatory in OTP 25. OTP 25 and higher
 %% will accept ?DFLAG_MANDATORY_25_DIGEST as a shorthand for all those

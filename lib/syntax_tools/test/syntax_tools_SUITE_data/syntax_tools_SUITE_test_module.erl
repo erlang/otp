@@ -1,3 +1,24 @@
+%% =====================================================================
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2014-2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+
 -module(syntax_tools_SUITE_test_module).
 
 -export([foo1/1,foo2/3,start_child/2]).
@@ -9,8 +30,12 @@
 	 sub_string/2,sub_string/3,centre/2,centre/3, join/2]).
 -export([to_upper/1, to_lower/1]).
 -export([eep49/0, eep58/0]).
+-export([strict_generators/0]).
+-export([eep73/0, eep78/0]).
 
 -import(lists,[reverse/1,member/2]).
+
+-import_record(test, [c, d]).
 
 
 %% @type some_type() = map()
@@ -18,6 +43,10 @@
 
 -type some_type() :: map().
 -type some_other_type() :: {'a', #{ list() => term()} }.
+
+-export_record([a, b]).
+-record #a{x, y}.
+-record #b{x=none, y=none, z=none}.
 
 -spec foo1(Map :: #{ 'a' => integer(), 'b' => term()}) -> term().
 
@@ -216,7 +245,7 @@ cspan([], _Cs, I) -> I.
       SubString :: string(),
       Start :: pos_integer().
 
-substr(String, 1) when is_list(String) -> 
+substr(String, 1) when is_list(String) ->
     String;
 substr(String, S) when is_integer(S), S > 1 ->
     substr2(String, S).
@@ -344,9 +373,9 @@ sub_word(String, Index, Char) when is_integer(Index), is_integer(Char) ->
 s_word([], _, _, _,Res) -> reverse(Res);
 s_word([Char|_],Index,Char,Index,Res) -> reverse(Res);
 s_word([H|T],Index,Char,Index,Res) -> s_word(T,Index,Char,Index,[H|Res]);
-s_word([Char|T],Stop,Char,Index,Res) when Index < Stop -> 
+s_word([Char|T],Stop,Char,Index,Res) when Index < Stop ->
     s_word(strip(T,left,Char),Stop,Char,Index+1,Res);
-s_word([_|T],Stop,Char,Index,Res) when Index < Stop -> 
+s_word([_|T],Stop,Char,Index,Res) when Index < Stop ->
     s_word(T,Stop,Char,Index,Res).
 
 %%% STRIP %%%
@@ -590,3 +619,51 @@ eep58() ->
     MapDouble = maps:from_list([{{key,I}, 2 * I} || I <- Seq]),
 
     ok.
+
+strict_generators() ->
+    [X+1 || X <:- [1,2,3]],
+    [X+1 || <<X>> <:= <<1,2,3>>],
+    [X*Y || X := Y <:- #{1 => 2, 3 => 4}],
+
+    ok.
+
+%% EEP-73: Zip generators.
+eep73() ->
+    [{X,Y}||X <- [1,2,3] && Y <- [2,2,2]],
+    [{X,Y}||X <- [1,2,3] && <<Y>> <= <<2,2,2>>],
+    [{K1,K2,V1,V2}|| K1 := V1 <- #{a=>1} && K2 := V2 <- #{b=>3}],
+    ok.
+
+%% EEP-78: Multi-comprehensions.
+eep78() ->
+    Seq = lists:seq(1, 10),
+
+    List = lists:flatten([[X, X + 100] || X <- Seq]),
+    List = [X, X + 100 || X <- Seq],
+
+    Map = maps:from_list([{X, X} || X <- List]),
+    Map = #{X => X, X + 100 => X + 100 || X <- Seq},
+    ok.
+
+native_record() ->
+    %% Creation.
+    ARec = #a{x=1, y=2},
+    ARec = #?MODULE:a{x=1, y=2},
+
+    %% Update.
+    R0 = #b{},
+    R0 = R0#b{},
+    R1 = R0#b{x=foo},
+    R1 = R0#?MODULE:b{x=foo},
+    R1 = R0#_{x=foo},
+
+    %% Pattern matching.
+    #a{x=1} = ARec,
+    #?MODULE:a{x=1, y=2} = ARec,
+    #_{x=1, y=2} = ARec,
+
+    %% Field access.
+    #b{x=foo, y=none, z=none} = R1,
+    foo = R1#b.x,
+    foo = R1#?MODULE:b.x,
+    foo = R1#_.x.

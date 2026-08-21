@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +22,8 @@
 %%
 -module(asn1ct_gen_per).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 %% Generate erlang module which handles (PER) encode and decode for
 %% all types in an ASN.1 module
@@ -60,7 +64,7 @@ suppress({M,F,A}=MFA) ->
 	    Args =
                 [lists:concat(["element(",I,", Arg)"])
                  || I <- lists:seq(1, A)],
-	    emit(["    ",{call,M,F,Args},com,nl])
+	    emit(["    _ = ",{call,M,F,Args},com,nl])
     end.
 
 gen_encode(Erules,Type) when is_record(Type,typedef) ->

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,8 +29,9 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/ssl_api.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
+-include_lib("ssl/src/ssl_handshake.hrl").
 -include_lib("public_key/include/public_key.hrl").
--include("ssl_record.hrl").
+-include_lib("ssl/src/ssl_record.hrl").
 
 %% Common test
 -export([all/0,
@@ -58,6 +61,8 @@
          select_best_cert/1,
          select_sha1_cert/0,
          select_sha1_cert/1,
+         inet_backend_option_order/0,
+         inet_backend_option_order/1,
          root_any_sign/0,
          root_any_sign/1,
          connection_information/0,
@@ -72,12 +77,12 @@
          versions_option_based_on_sni/1,
          ciphers_option_based_on_sni/0,
          ciphers_option_based_on_sni/1,
+         cert_option_based_on_sni/0,
+         cert_option_based_on_sni/1,
          active_n/0,
          active_n/1,
          dh_params/0,
          dh_params/1,
-         invalid_dhfile/0,
-         invalid_dhfile/1,
          hibernate_client/0,
          hibernate_client/1,
          hibernate_server/0,
@@ -106,10 +111,6 @@
          controlling_process_transport_accept_socket/1,
          close_with_timeout/0,
          close_with_timeout/1,
-         close_in_error_state/0,
-         close_in_error_state/1,
-         call_in_error_state/0,
-         call_in_error_state/1,
          close_transport_accept/0,
          close_transport_accept/1,
          abuse_transport_accept_socket/0,
@@ -134,12 +135,6 @@
          new_options_in_handshake/1,
          max_handshake_size/0,
          max_handshake_size/1,
-         invalid_certfile/0,
-         invalid_certfile/1,
-         invalid_cacertfile/0,
-         invalid_cacertfile/1,
-         invalid_keyfile/0,
-         invalid_keyfile/1,
          options_not_proplist/0,
          options_not_proplist/1,
          options_whitebox/0, options_whitebox/1,
@@ -206,7 +201,10 @@
          exporter_master_secret_consumed/0,
          exporter_master_secret_consumed/1,
          legacy_prf/0,
-         legacy_prf/1
+         legacy_prf/1,
+         listen_pem_file_failure/1,
+         same_file_for_key_and_cert/0,
+         same_file_for_key_and_cert/1
         ]).
 
 %% Apply export
@@ -230,10 +228,10 @@
          get_connection_information/3,
          protocol_version_check/2,
          suite_check/2,
+         ecdsa_cert_check/1,
          check_peercert/2,
          %%TODO Keep?
          run_error_server/1,
-         run_error_server_close/1,
          run_client_error/1
         ]).
 
@@ -252,25 +250,28 @@ all() ->
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
      {group, 'dtlsv1.2'},
-     {group, 'dtlsv1'}
+     {group, 'dtlsv1'},
+     {group, transport_socket}
     ] ++ simple_api_tests().
 
 groups() ->
     [
-     {'tlsv1.3', [], ((gen_api_tests() ++ tls13_group() ++
-                           handshake_paus_tests()) --
-                          [dh_params,
-                           new_options_in_handshake,
-                           handshake_continue_tls13_client])
+     {'tlsv1.3', [parallel], ((gen_api_tests() ++ tls13_group() ++
+                                   handshake_paus_tests()) --
+                                  [dh_params,
+                                   new_options_in_handshake,
+                                   handshake_continue_tls13_client])
       ++ (since_1_2() -- [conf_signature_algs])},
-     {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3() ++ [honor_client_cipher_order_tls12,
-                                                                                                honor_server_cipher_order_tls12]},
-     {'tlsv1.1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2()},
-     {'tlsv1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2() ++ beast_mitigation_test()},
-     {'dtlsv1.2', [], gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
+     {'tlsv1.2', [parallel],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3() ++
+          [honor_client_cipher_order_tls12,honor_server_cipher_order_tls12]},
+     {'tlsv1.1', [parallel],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2()},
+     {'tlsv1', [parallel],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2() ++
+          beast_mitigation_test()},
+     {'dtlsv1.2', [parallel], gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
           handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3()},
-     {'dtlsv1', [],  gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
-          handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3() ++ pre_1_2()}
+     {'dtlsv1', [parallel],  gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
+          handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3() ++ pre_1_2()},
+     {transport_socket,  [parallel], gen_api_tests() -- [ssl_not_started, dh_params]}
     ].
 
 since_1_2() ->
@@ -279,6 +280,8 @@ since_1_2() ->
      no_common_signature_algs,
      versions_option_based_on_sni,
      ciphers_option_based_on_sni,
+     cert_option_based_on_sni,
+     select_best_cert,
      root_any_sign
     ].
 
@@ -294,21 +297,18 @@ pre_1_2() ->
 
 simple_api_tests() ->
     [
-     invalid_keyfile,
-     invalid_certfile,
-     invalid_cacertfile,
-     invalid_dhfile,
      options_not_proplist,
      options_whitebox,
-     format_error
+     format_error,
+     ssl_not_started
     ].
 
 gen_api_tests() ->
     [
      peercert,
      peercert_with_client_cert,
-     select_best_cert,
      select_sha1_cert,
+     inet_backend_option_order,
      connection_information,
      secret_connection_info,
      keylog_connection_info,
@@ -330,20 +330,19 @@ gen_api_tests() ->
      controller_dies,
      controlling_process_transport_accept_socket,
      close_with_timeout,
-     close_in_error_state,
-     call_in_error_state,
      close_transport_accept,
      ipv6,
      der_input,
      max_handshake_size,
      cb_info,
-     ssl_not_started,
      log_alert,
      getstat,
      check_random_nonce,
      cipher_listing,
      export_key_materials,
-     legacy_prf
+     legacy_prf,
+     listen_pem_file_failure,
+     same_file_for_key_and_cert
     ].
 
 handshake_paus_tests() ->
@@ -387,8 +386,8 @@ tls13_group() ->
     ].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    ssl_test_lib:clean_start(),
 	    ssl_test_lib:make_rsa_cert(Config0)
@@ -401,6 +400,11 @@ end_per_suite(_Config) ->
     application:unload(ssl),
     application:stop(crypto).
 
+init_per_group(transport_socket, Config) ->
+    ssl_test_lib:init_per_group(transport_socket,
+                                [{client_type, erlang},
+                                 {server_type, erlang}
+                                | Config]);
 init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_protocol_version(GroupName) of
         true  ->
@@ -409,7 +413,7 @@ init_per_group(GroupName, Config) ->
                                          {server_type, erlang},
                                          {version, GroupName}
                                         | Config]);
-        false -> 
+        false ->
             Config
     end.
 
@@ -426,7 +430,7 @@ init_per_testcase(handshake_continue_tls13_client, Config) ->
             {skip, "Missing crypto support: TLS 1.3 not supported"}
     end;
 init_per_testcase(connection_information_with_srp, Config) ->
-    PKAlg = proplists:get_value(public_keys, crypto:supports()),
+    PKAlg = crypto:supports(public_keys),
     case lists:member(srp, PKAlg) of
         true ->
             Config;
@@ -434,7 +438,7 @@ init_per_testcase(connection_information_with_srp, Config) ->
             {skip, "Missing SRP crypto support"}
     end;
 init_per_testcase(conf_signature_algs, Config) ->
-    case ssl_test_lib:appropriate_sha(crypto:supports()) of
+    case ssl_test_lib:appropriate_sha(crypto:supports(hashs)) of
         sha256 ->
             ssl_test_lib:ct_log_supported_protocol_versions(Config),
             ct:timetrap({seconds, 10}),
@@ -454,12 +458,12 @@ init_per_testcase(select_best_cert, Config) ->
     %% be chosen
     case Version of
         'tlsv1.2' ->
-              case ssl_test_lib:sufficient_crypto_support('tlsv1.3') of
-                  true ->
-                      Config;
-                  false ->
-                      {skip, "Crypto does not support EDDSA"}
-              end;
+            case ssl_test_lib:sufficient_crypto_support('tlsv1.3') of
+                true ->
+                    Config;
+                false ->
+                    {skip, "Crypto does not support EDDSA"}
+            end;
         _ ->
             Config
     end;
@@ -468,8 +472,6 @@ init_per_testcase(_TestCase, Config) ->
     ct:timetrap({seconds, 10}),
     Config.
 
-end_per_testcase(internal_active_n, _Config) ->
-    application:unset_env(ssl, internal_active_n);
 end_per_testcase(_TestCase, Config) ->     
     Config.
 
@@ -485,14 +487,14 @@ peercert(Config) when is_list(Config) ->
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()},
-			   {mfa, {ssl, peercert, []}},
-			   {options, ServerOpts}]),
+                                        {mfa, {ssl, peercert, []}},
+                                        {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
 					{host, Hostname},
-			   {from, self()},
-			   {mfa, {ssl, peercert, []}},
-			   {options, ClientOpts}]),
+                                        {from, self()},
+                                        {mfa, {ssl, peercert, []}},
+                                        {options, ClientOpts}]),
 
     CertFile = proplists:get_value(certfile, ServerOpts),
     [{'Certificate', BinCert, _}]= ssl_test_lib:pem_to_der(CertFile),
@@ -518,18 +520,18 @@ peercert_with_client_cert(Config) when is_list(Config) ->
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()},
-			   {mfa, {ssl, peercert, []}},
-			   {options, [{verify, verify_peer} | ServerOpts]}]),
+                                        {mfa, {ssl, peercert, []}},
+                                        {options, [{verify, verify_peer} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
 					{host, Hostname},
-			   {from, self()},
-			   {mfa, {ssl, peercert, []}},
-			   {options, ClientOpts}]),
+                                        {from, self()},
+                                        {mfa, {ssl, peercert, []}},
+                                        {options, ClientOpts}]),
 
     ServerCertFile = proplists:get_value(certfile, ServerOpts),
     [{'Certificate', ServerBinCert, _}]= ssl_test_lib:pem_to_der(ServerCertFile),
-     ClientCertFile = proplists:get_value(certfile, ClientOpts),
+    ClientCertFile = proplists:get_value(certfile, ClientOpts),
     [{'Certificate', ClientBinCert, _}]= ssl_test_lib:pem_to_der(ClientCertFile),
 
     ServerMsg = {ok, ClientBinCert},
@@ -612,19 +614,19 @@ root_any_sign(Config) when is_list(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
     #{client_config := CSucess, server_config := SSucess} =
         public_key:pkix_test_data(#{server_chain =>
-                                         #{root => [{digest, sha},
-                                                    {key, ssl_test_lib:hardcode_rsa_key(1)}],
-                                           intermediates => [[{digest, sha256},
-                                                              {key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                           peer =>  [{digest, sha256}, {key, ssl_test_lib:hardcode_rsa_key(3)}]
-                                          },
-                                     client_chain =>
-                                         #{root => [{digest, sha},
+                                        #{root => [{digest, sha},
+                                                   {key, ssl_test_lib:hardcode_rsa_key(1)}],
+                                          intermediates => [[{digest, sha256},
+                                                             {key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                          peer =>  [{digest, sha256}, {key, ssl_test_lib:hardcode_rsa_key(3)}]
+                                         },
+                                    client_chain =>
+                                        #{root => [{digest, sha},
                                                    {key, ssl_test_lib:hardcode_rsa_key(3)}],
-                                           intermediates => [[{digest, sha256},
-                                                              {key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                           peer => [{digest, sha256},
-                                                    {key, ssl_test_lib:hardcode_rsa_key(1)}]}}),
+                                          intermediates => [[{digest, sha256},
+                                                             {key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                          peer => [{digest, sha256},
+                                                   {key, ssl_test_lib:hardcode_rsa_key(1)}]}}),
 
     #{client_config := CFail, server_config := SFail} =
         public_key:pkix_test_data(#{server_chain =>
@@ -652,6 +654,30 @@ root_any_sign(Config) when is_list(Config) ->
                              Config, unsupported_certificate).
 
 %%--------------------------------------------------------------------
+inet_backend_option_order() ->
+    [{doc,"Test that inet_backend option is preserved as first option "
+      "when passed to gen_tcp:connect"}].
+inet_backend_option_order(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, [{inet_backend, socket} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                        {host, Hostname},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, [{inet_backend, socket} | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
 connection_information() ->
     [{doc,"Test the API function ssl:connection_information/1"}].
 connection_information(Config) when is_list(Config) ->
@@ -666,9 +692,9 @@ connection_information(Config) when is_list(Config) ->
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
-			   {from, self()},
-			   {mfa, {?MODULE, connection_information_result, []}},
-			   {options, ClientOpts}]),
+                                        {from, self()},
+                                        {mfa, {?MODULE, connection_information_result, []}},
+                                        {options, ClientOpts}]),
 
     ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
@@ -680,7 +706,7 @@ connection_information(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 connection_information_with_srp() ->
     [{doc,"Test the result of API function ssl:connection_information/1"
-          "includes srp_username."}].
+      "includes srp_username."}].
 connection_information_with_srp(Config) when is_list(Config) ->
     run_conn_info_srp_test(srp_anon, 'aes_128_cbc', Config).
 
@@ -741,7 +767,7 @@ secret_connection_info(Config) when is_list(Config) ->
                                    {from, self()},
                                    {mfa, {?MODULE, secret_connection_info_result, []}},
                                    {options, [{verify, verify_peer} | ServerOpts]}]),
-    
+
     Port = ssl_test_lib:inet_port(Server),
     Client =
         ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
@@ -749,11 +775,11 @@ secret_connection_info(Config) when is_list(Config) ->
                                    {from, self()},
                                    {mfa, {?MODULE, secret_connection_info_result, []}},
                                    {options,  [{verify, verify_peer} |ClientOpts]}]),
-    
+
     ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
-			   
+
     ssl_test_lib:check_result(Server, true, Client, true),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 %%--------------------------------------------------------------------
@@ -808,13 +834,14 @@ keylog_connection_info(Config, KeepSecrets) ->
 
 %%--------------------------------------------------------------------
 dh_params() ->
-    [{doc,"Test to specify DH-params file in server."}].
+    [{doc,"Test to specify DH-params in server (2048-bit)."}].
 
-dh_params(Config) when is_list(Config) -> 
+dh_params(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    DataDir = proplists:get_value(data_dir, Config),
-    DHParamFile = filename:join(DataDir, "dHParam.pem"),
+    %% Use built-in 2048-bit group (meets minimum prime size requirement)
+    DHParams = #'DHParameter'{prime = ssl_dh_groups:modp2048_prime(),
+                              base = ssl_dh_groups:modp2048_generator()},
     Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, 'tlsv1.2'),
                                        [{key_exchange, fun(srp_rsa)  -> false;
                                                           (srp_anon) -> false;
@@ -822,67 +849,26 @@ dh_params(Config) when is_list(Config) ->
                                                           (_) -> true end}]),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
-					{from, self()}, 
-			   {mfa, {ssl_test_lib, send_recv_result_active, []}},
-			   {options, [{dhfile, DHParamFile}, {ciphers, Ciphers} | ServerOpts]}]),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options,
+                                         [{dh, public_key:der_encode('DHParameter', DHParams)},
+                                                   {ciphers, Ciphers} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
-			   {from, self()}, 
-			   {mfa, {ssl_test_lib, send_recv_result_active, []}},
-			   {options,
-			    [{ciphers,[{dhe_rsa,aes_256_cbc,sha}]} | 
-				       ClientOpts]}]),
-    
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options,
+                                         [{ciphers,[{dhe_rsa,aes_256_cbc,sha}]} |
+                                          ClientOpts]}]),
+
     ssl_test_lib:check_result(Server, ok, Client, ok),
-    
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
-
-
-%%--------------------------------------------------------------------
-invalid_dhfile() ->
-    [{doc,"Test to check invalid DH-params file in server."}].
-invalid_dhfile(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    DataDir = proplists:get_value(data_dir, Config),
-    DHParamFile = filename:join(DataDir, "dHParam-invalid.pem"),
-
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
-                                              {from, self()},
-                                              {mfa, {ssl_test_lib,
-                                                     send_recv_result_active,
-                                                     []}},
-                                               {options, [{dhfile, DHParamFile}
-                                                          | ServerOpts]}]),
-    Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
-                                              {host, Hostname}, {from, self()},
-                                              {mfa, {ssl_test_lib,
-                                                     send_recv_result_active,
-                                                     []}},
-                                              {options, [{ciphers,
-                                                          [{dhe_rsa,
-                                                            aes_256_cbc, sha}]}
-                                                         | ClientOpts]}]),
-
-    %% assert server error
-    [{Server, {error, {options, {dhfile, DHParamFile,
-                                 {error, {asn1,
-                                          {{invalid_value, 0}, _Stack}}}}}}}] =
-        ssl_test_lib:get_result([Server]),
-
-    %% assert client error
-    ssl_test_lib:check_result(Client, {error, closed}),
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
-
 
 %%--------------------------------------------------------------------
 conf_signature_algs() ->
@@ -905,11 +891,11 @@ conf_signature_algs(Config) when is_list(Config) ->
 				   {mfa, {ssl_test_lib, send_recv_result, []}},
 				   {options, [{active, false}, {signature_algs, [{sha256, rsa}]},
                                               {versions, ['tlsv1.2']} | ClientOpts]}]),
-    
+
     ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
-    
+
     ssl_test_lib:check_result(Server, ok, Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -918,7 +904,7 @@ conf_signature_algs(Config) when is_list(Config) ->
 no_common_signature_algs()  ->
     [{doc,"Set the signature_algs option so that there client and server does not share any hash sign algorithms"}].
 no_common_signature_algs(Config) when is_list(Config) ->
-    
+
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
 
@@ -928,14 +914,14 @@ no_common_signature_algs(Config) when is_list(Config) ->
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
 					      {from, self()},
 					      {options, [{signature_algs, [{sha256, rsa}]}
-							 | ServerOpts]}]),
+                                                        | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
                                               {host, Hostname},
                                               {from, self()},
                                               {options, [{signature_algs, [{sha384, rsa}]}
-                                                         | ClientOpts]}]),
-    
+                                                        | ClientOpts]}]),
+
     ssl_test_lib:check_server_alert(Server, Client, insufficient_security).
 
 %%--------------------------------------------------------------------
@@ -952,13 +938,13 @@ handshake_continue(Config) when is_list(Config) ->
                                    {from, self()},
                                    {mfa, {ssl_test_lib, send_recv_result_active, []}},
                                    {options, ssl_test_lib:ssl_options([{reuseaddr, true},
-                                                                            {verify, verify_peer},
+                                                                       {verify, verify_peer},
                                                                        {handshake, hello} | ServerOpts
                                                                       ],
                                                                       Config)},
                                    {continue_options, proplists:delete(reuseaddr, ServerOpts)}
                                   ]),
-    
+
     Port = ssl_test_lib:inet_port(Server),
 
     Client =
@@ -971,9 +957,9 @@ handshake_continue(Config) when is_list(Config) ->
                                                                       ],
                                                                       Config)},
                                    {continue_options,  [{verify, verify_peer} | ClientOpts]}]),
-     
+
     ssl_test_lib:check_result(Server, ok, Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -996,9 +982,9 @@ handshake_continue_tls13_client(Config) when is_list(Config) ->
                                    {options, ssl_test_lib:ssl_options([{reuseaddr, true},
                                                                        {verify, verify_peer},
                                                                        {ciphers, SCiphers},
-                                                                      {handshake, hello} | ServerOpts
+                                                                       {handshake, hello} | ServerOpts
                                                                       ],
-                                                                     Config)},
+                                                                      Config)},
                                    {continue_options, proplists:delete(reuseaddr, ServerOpts)}
                                   ]),
 
@@ -1026,23 +1012,26 @@ handshake_continue_tls13_client(Config) when is_list(Config) ->
     %% Send dummy session ticket to trigger sending of pre_shared_key and
     %% psk_key_exchange_modes extensions.
     Client =
-        ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-                                   {host, Hostname},
-                                   {from, self()},
-                                   {mfa, {ssl_test_lib, send_recv_result_active, []}},
-                                   {options, ssl_test_lib:ssl_options([{handshake, hello},
-                                                                       {session_tickets, manual},
-                                                                       {use_ticket, [DummyTicket]},
-                                                                       {versions, ['tlsv1.3',
-                                                                                   'tlsv1.2',
-                                                                                   'tlsv1.1',
-                                                                                   'tlsv1'
-                                                                                  ]},
-                                                                       {ciphers, ssl:cipher_suites(all, 'tlsv1.3')},
-                                                                       {verify, verify_peer} | ClientOpts
-                                                                      ],
-                                                                      Config)},
-                                   {continue_options,  proplists:delete(reuseaddr, ClientOpts)}]),
+        ssl_test_lib:start_client(
+          [{node, ClientNode}, {port, Port},
+           {host, Hostname},
+           {from, self()},
+           {mfa, {ssl_test_lib, send_recv_result_active, []}},
+           {options, ssl_test_lib:ssl_options([{handshake, hello},
+                                               {session_tickets, manual},
+                                               {use_ticket, [#{sni => net_adm:localhost(),
+                                                               ticket => DummyTicket}]},
+                                               {versions, ['tlsv1.3',
+                                                           'tlsv1.2',
+                                                           'tlsv1.1',
+                                                           'tlsv1'
+                                                          ]},
+                                               {ciphers, ssl:cipher_suites(all, 'tlsv1.3')},
+                                               {verify, verify_peer} |
+                                               proplists:delete(versions, ClientOpts)
+                                              ],
+                                              Config)},
+           {continue_options, proplists:delete(versions, proplists:delete(reuseaddr, ClientOpts))}]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
 
@@ -1073,7 +1062,7 @@ handshake_continue_timeout(Config) when is_list(Config) ->
                                      {host, Hostname},
                                      {from, self()},
                                      {options, [{verify, verify_peer} | ClientOpts]}]),
-    
+
     ssl_test_lib:check_result(Server, {error,timeout}),
     ssl_test_lib:close(Server).
 %%------------------------------------------------------------------
@@ -1105,11 +1094,11 @@ handshake_continue_change_verify(Config) when is_list(Config) ->
                              {verify, verify_none}
                             | ClientOpts], Config)},
                 {continue_options, [{verify, verify_peer} | ClientOpts]}]),
-    ssl_test_lib:check_client_alert(Client,  handshake_failure).
+    ssl_test_lib:check_client_alert(Client,  bad_certificate).
 
 %%------------------------------------------------------------------
 handshake_hello_postpone_opts_verify() ->
-   [{doc, "Test that cert key option validation is postponed until full handshake is performed"}].
+    [{doc, "Test that cert key option validation is postponed until full handshake is performed"}].
 handshake_hello_postpone_opts_verify(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
@@ -1151,7 +1140,7 @@ hello_client_cancel(Config) when is_list(Config) ->
                                    {options, ssl_test_lib:ssl_options([{handshake, hello},
                                                                        {verify, verify_none} | ServerOpts], Config)},
                                    {continue_options, [{verify, verify_peer} | ServerOpts]}]),
-    
+
     Port = ssl_test_lib:inet_port(Server),
 
     %% That is ssl:handshake_cancel returns ok
@@ -1178,7 +1167,7 @@ hello_server_cancel(Config) when is_list(Config) ->
                                                                        {verify, verify_peer} | ServerOpts
                                                                       ], Config)},
                                    {continue_options, cancel}]),
-    
+
     Port = ssl_test_lib:inet_port(Server),
 
     ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
@@ -1188,7 +1177,7 @@ hello_server_cancel(Config) when is_list(Config) ->
                                                                          {verify, verify_peer} | ClientOpts
                                                                         ], Config)},
                                      {continue_options, proplists:delete(reuseaddr, ClientOpts)}]),
-    
+
     ssl_test_lib:check_result(Server, ok).
 
 %%--------------------------------------------------------------------
@@ -1218,19 +1207,21 @@ versions_option_based_on_sni(Config) when is_list(Config) ->
 
     SNI = net_adm:localhost(),
     Fun = fun(ServerName) ->
-              case ServerName of
-                  SNI ->
-                      [{versions, [Version]}, {ciphers, Ciphers} | ServerOpts];
-                  _ ->
-                      ServerOpts
-              end
+                  case ServerName of
+                      SNI ->
+                          [{versions, [Version]}, {ciphers, Ciphers} |
+                           proplists:delete(versions, ServerOpts)];
+                      _ ->
+                          ServerOpts
+                  end
           end,
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 					{from, self()},
 					{mfa, {?MODULE, protocol_version_check, [Version]}},
 					{options, [{sni_fun, Fun},
-                                                   {versions, Versions} | ServerOpts]}]),
+                                                   {versions, Versions} |
+                                                   proplists:delete(versions, ServerOpts)]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
@@ -1238,15 +1229,17 @@ versions_option_based_on_sni(Config) when is_list(Config) ->
 					{mfa, {ssl_test_lib, no_result, []}},
 					{options, [{server_name_indication, SNI}, {versions, Versions},
                                                    {ciphers, Ciphers}
-                                                  | ClientOpts]}]),
+                                                  | proplists:delete(versions, ClientOpts)]}]),
 
     ssl_test_lib:check_result(Server, ok),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+
 %%--------------------------------------------------------------------
 
 ciphers_option_based_on_sni() ->
-    [{doc,"Test that SNI versions option is selected over default ciphers option"}].
+    [{doc,"Test that SNI ciphers option is selected over default ciphers option"}].
 
 ciphers_option_based_on_sni(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
@@ -1257,12 +1250,12 @@ ciphers_option_based_on_sni(Config) when is_list(Config) ->
 
     SNI = net_adm:localhost(),
     Fun = fun(ServerName) ->
-              case ServerName of
-                  SNI ->
-                      [{ciphers, Suites} | ServerOpts];
-                  _ ->
-                      ServerOpts
-              end
+                  case ServerName of
+                      SNI ->
+                          [{ciphers, Suites} | ServerOpts];
+                      _ ->
+                          ServerOpts
+                  end
           end,
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -1277,6 +1270,51 @@ ciphers_option_based_on_sni(Config) when is_list(Config) ->
 					{options, [{server_name_indication, SNI} | ClientOpts]}]),
 
     ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+
+cert_option_based_on_sni() ->
+    [{doc,"Test that SNI cert_keys option is selected over default cert_keys option"}].
+
+cert_option_based_on_sni(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    TestVersion = ssl_test_lib:protocol_version(Config),
+
+    #{client_config := ClientSNIOpts, server_config := ServerSNIOpts} = ecdsa_cert_chains(),
+    SNI = net_adm:localhost(),
+    Fun = fun(ServerName) ->
+              case ServerName of
+                  SNI ->
+                      [{signature_algs,  ssl:signature_algs(all, TestVersion)} | ServerSNIOpts];
+                  _ ->
+                      ServerOpts
+              end
+          end,
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, no_result, []}},
+                                        {options, [{sni_fun, Fun}, {versions, [TestVersion]}|
+                                                   [{signature_algs,
+                                                     [rsa_pss_pss_sha512,
+                                                      rsa_pss_pss_sha384,
+                                                      rsa_pss_pss_sha256,
+                                                      rsa_pss_rsae_sha512,
+                                                      rsa_pss_rsae_sha384,
+                                                      rsa_pss_rsae_sha256]} | ServerOpts]]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                        {host, Hostname},
+                                        {from, self()},
+                                        {mfa, {?MODULE, ecdsa_cert_check, []}},
+                                        {options, [{server_name_indication, SNI},
+                                                   {versions, [TestVersion]} |
+                                                   ClientSNIOpts]}]),
+
+    ssl_test_lib:check_result(Client, ok),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -1296,48 +1334,48 @@ active_n(Config) when is_list(Config) ->
     active_n_common(LS, N),
     Self = self(),
     spawn_link(fun() ->
-        S0 = ok(ssl:transport_accept(LS)),
-        {ok, S} = ssl:handshake(S0),
-        ok = ssl:setopts(S, [{active,N}]),
-        [{active,N}] = ok(ssl:getopts(S, [active])),
-        ssl:controlling_process(S, Self),
-        Self ! {server, S}
-    end),
+                       S0 = ok(ssl:transport_accept(LS)),
+                       {ok, S} = ssl:handshake(S0),
+                       ok = ssl:setopts(S, [{active,N}]),
+                       [{active,N}] = ok(ssl:getopts(S, [active])),
+                       ssl:controlling_process(S, Self),
+                       Self ! {server, S}
+               end),
     C = ok(ssl:connect(Host, Port, [{active,N}|ClientOpts])),
     [{active,N}] = ok(ssl:getopts(C, [active])),
     S = receive
-        {server, S0} -> S0
-    after
-        1000 ->
-            exit({error, connect})
-    end,
+            {server, S0} -> S0
+        after
+            1000 ->
+                exit({error, connect})
+        end,
     active_n_common(C, N),
     active_n_common(S, N),
     ok = ssl:setopts(C, [{active,N}]),
     ok = ssl:setopts(S, [{active,N}]),
     ReceiveMsg = fun(Socket, Msg) ->
-        receive
-            {ssl,Socket,Msg} ->
-                ok;
-            {ssl,Socket,Begin} ->
-                receive
-                    {ssl,Socket,End} ->
-                        Msg = Begin ++ End,
-                        ok
-                after 1000 ->
-                    exit(timeout)
-                end
-        after 1000 ->
-            exit(timeout)
-        end
-    end,
+                         receive
+                             {ssl,Socket,Msg} ->
+                                 ok;
+                             {ssl,Socket,Begin} ->
+                                 receive
+                                     {ssl,Socket,End} ->
+                                         Msg = Begin ++ End,
+                                         ok
+                                 after 1000 ->
+                                         exit(timeout)
+                                 end
+                         after 1000 ->
+                                 exit(timeout)
+                         end
+                 end,
     repeat(3, fun(I) ->
-        Msg = "message "++integer_to_list(I),
-        ok = ssl:send(C, Msg),
-        ReceiveMsg(S, Msg),
-        ok = ssl:send(S, Msg),
-        ReceiveMsg(C, Msg)
-    end),
+                      Msg = "message "++integer_to_list(I),
+                      ok = ssl:send(C, Msg),
+                      ReceiveMsg(S, Msg),
+                      ok = ssl:send(S, Msg),
+                      ReceiveMsg(C, Msg)
+              end),
     receive
         {ssl_passive,S} ->
             [{active,false}] = ok(ssl:getopts(S, [active]))
@@ -1416,12 +1454,14 @@ hibernate_helper(Version, CheckServer, StartServerOpts, StartClientOpts,
     AllClientOpts = StartClientOpts ++
         [{port, Port},
          {options, [{hibernate_after, ClientHibernateAfter} | ClientOpts0]}],
-    {Client, #sslsocket{pid = [ClientReceiverPid | ClientPotentialSenderPid]}} =
+    {Client, #sslsocket{connection_handler = ClientReceiverPid,
+                        payload_sender = ClientPotentialSenderPid}} =
         ssl_test_lib:start_client(AllClientOpts),
     Results = ssl_test_lib:get_result([Client, Server]),
     {ok, ServerAcceptSocket} = proplists:get_value(Server, Results),
     ok = proplists:get_value(Client, Results),
-    #sslsocket{pid = [ServerReceiverPid | ServerPotentialSenderPid]} =
+    #sslsocket{connection_handler = ServerReceiverPid,
+               payload_sender = ServerPotentialSenderPid} =
         ServerAcceptSocket,
     {ReceiverPid, PotentialSenderPid, HibernateAfter} =
         case CheckServer of
@@ -1433,13 +1473,13 @@ hibernate_helper(Version, CheckServer, StartServerOpts, StartClientOpts,
     SleepAmount = max(1.5*HibernateAfter, 500),
     ?CT_LOG("HibernateAfter = ~w SleepAmount = ~w", [HibernateAfter, SleepAmount]),
     ct:sleep(SleepAmount), %% Schedule out
-    {current_function, {erlang, hibernate, 3}} =
-	process_info(ReceiverPid, current_function),
+    {current_function, {gen_statem, loop_hibernate, 3}} =
+        process_info(ReceiverPid, current_function),
     IsTls = ssl_test_lib:is_tls_version(Version),
     case IsTls of
         true ->
-            [SenderPid] = PotentialSenderPid,
-            {current_function, {erlang, hibernate, 3}} =
+            SenderPid = PotentialSenderPid,
+            {current_function, {gen_statem, loop_hibernate, 3}} =
                 process_info(SenderPid, current_function);
         _ -> %% DTLS (no sender process)
             ok
@@ -1462,19 +1502,24 @@ listen_socket(Config) ->
 
     {ok, _} = ssl:sockname(ListenSocket),
 
-    {error, enotconn} = ssl:send(ListenSocket, <<"data">>),
-    {error, enotconn} = ssl:recv(ListenSocket, 0),
-    {error, enotconn} = ssl:connection_information(ListenSocket),
-    {error, enotconn} = ssl:peername(ListenSocket),
-    {error, enotconn} = ssl:peercert(ListenSocket),
-    {error, enotconn} = ssl:renegotiate(ListenSocket),
-    {error, enotconn} = ssl:export_key_materials(ListenSocket, [<<"Label">>], [<<"Context">>], 256),
+    Check = fun({error, enotconn}) -> ok;
+               ({error, epipe}) -> ok;
+               ({error, #{info := enotconn}}) -> ok  %% socket error msgs
+            end,
+
+    Check(ssl:send(ListenSocket, <<"data">>)),
+    Check(ssl:recv(ListenSocket, 0)),
+    Check(ssl:connection_information(ListenSocket)),
+    Check(ssl:peername(ListenSocket)),
+    Check(ssl:peercert(ListenSocket)),
+    Check(ssl:renegotiate(ListenSocket)),
+    Check(ssl:export_key_materials(ListenSocket, [<<"Label">>], [<<"Context">>], 256)),
     %% Legacy test
-    {error, enotconn} = ssl:prf(ListenSocket, master_secret,
-                                <<"Label">>, [client_random, server_random], 256),
+    Check(ssl:prf(ListenSocket, master_secret,
+                  <<"Label">>, [client_random, server_random], 256)),
     case Protocol of
         tls ->
-            {error, enotconn} = ssl:shutdown(ListenSocket, read_write);
+            Check(ssl:shutdown(ListenSocket, read_write));
         dtls ->
             {error, notsup} = ssl:shutdown(ListenSocket, read_write)
     end,
@@ -1540,9 +1585,9 @@ recv_active(Config) when is_list(Config) ->
 				   {from, self()}, 
 				   {mfa, {?MODULE, try_recv_active, []}},
 				   {options, [{active, true} | ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Server, ok, Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -1566,9 +1611,9 @@ recv_active_once(Config) when is_list(Config) ->
 				   {from, self()}, 
 				   {mfa, {?MODULE, try_recv_active_once, []}},
 				   {options, [{active, once} | ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Server, ok, Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -1634,16 +1679,16 @@ recv_close(Config) when is_list(Config) ->
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server  = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-					  {from, self()},
-					  {mfa, {?MODULE, do_recv_close, []}},
+                                         {from, self()},
+                                         {mfa, {?MODULE, do_recv_close, []}},
 					 {options, [{active, false} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     {_Client, #sslsocket{} = SslSocket} = ssl_test_lib:start_client([return_socket,
-									   {node, ClientNode}, {port, Port},
-									   {host, Hostname},
-									   {from, self()},
-									   {mfa, {ssl_test_lib, no_result, []}},
-									   {options, ClientOpts}]),
+                                                                     {node, ClientNode}, {port, Port},
+                                                                     {host, Hostname},
+                                                                     {from, self()},
+                                                                     {mfa, {ssl_test_lib, no_result, []}},
+                                                                     {options, ClientOpts}]),
     ssl:close(SslSocket),
     ssl_test_lib:check_result(Server, ok).
 
@@ -1658,8 +1703,8 @@ recv_no_active_msg(Config) when is_list(Config) ->
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server  = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-					  {from, self()},
-					  {mfa, {?MODULE, no_recv_no_active, []}},
+                                         {from, self()},
+                                         {mfa, {?MODULE, no_recv_no_active, []}},
 					 {options, [{active, false} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
@@ -1680,7 +1725,7 @@ controlling_process(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     ClientMsg = "Server hello",
     ServerMsg = "Client hello",
-   
+
     Server = ssl_test_lib:start_server([
                                         {node, ServerNode}, {port, 0}, 
                                         {from, self()}, 
@@ -1692,14 +1737,14 @@ controlling_process(Config) when is_list(Config) ->
     {Client, CSocket} = ssl_test_lib:start_client([return_socket,
                                                    {node, ClientNode}, {port, Port}, 
                                                    {host, Hostname},
-                                        {from, self()}, 
-			   {mfa, {?MODULE, 
-				  controlling_process_result, [self(),
-							       ClientMsg]}},
-			   {options, ClientOpts}]),
-    
+                                                   {from, self()}, 
+                                                   {mfa, {?MODULE, 
+                                                          controlling_process_result, [self(),
+                                                                                       ClientMsg]}},
+                                                   {options, ClientOpts}]),
+
     ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
-    
+
     ServerMsg = ssl_test_lib:active_recv(CSocket, length(ServerMsg)),
     %% We do not have the TLS server socket but all messages form the client
     %% socket are now read, so ramining are form the server socket
@@ -1729,12 +1774,12 @@ controller_dies(Config) when is_list(Config) ->
 					{from, self()}, 
 					{mfa, {?MODULE, 
 					       controller_dies_result, [self(),
-									    ClientMsg]}},
+                                                                        ClientMsg]}},
 					{options, ClientOpts}]),
 
     ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
     ct:sleep(?SLEEP), %% so that they are connected
-    
+
     process_flag(trap_exit, true),
 
     %% Test that clients die
@@ -1755,9 +1800,9 @@ controller_dies(Config) when is_list(Config) ->
 	      end,
     Client2 = spawn_link(fun() -> Connect(Tester) end),
     receive {Client2, connected, _Socket} ->  Client2 ! die_nice end,
-    
+
     get_close(Client2, ?LINE),
-    
+
     %% Test that clients die when the controlling process have changed 
     Server ! listen, 
 
@@ -1771,7 +1816,7 @@ controller_dies(Config) when is_list(Config) ->
 
     ?CT_LOG("Waiting on exit ~p~n",[Client3]),
     receive {'EXIT', Client3, normal} -> ok end,
-    
+
     receive   %% Client3 is dead but that doesn't matter, socket should not be closed.
 	Unexpected ->
 	    ?CT_LOG("Unexpected ~p~n",[Unexpected]),
@@ -1781,7 +1826,7 @@ controller_dies(Config) when is_list(Config) ->
     end,
     Controller ! die_nice,
     get_close(Controller, ?LINE),
-    
+
     %% Test that servers die
     Server ! listen, 
     LastClient = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
@@ -1792,7 +1837,7 @@ controller_dies(Config) when is_list(Config) ->
 									    ClientMsg]}},
 					    {options, ClientOpts}]),
     ct:sleep(?SLEEP), %% so that they are connected
-    
+
     exit(Server, killed),
     get_close(Server, ?LINE),
     process_flag(trap_exit, false),
@@ -1810,21 +1855,21 @@ controlling_process_transport_accept_socket(Config) when is_list(Config) ->
                                                           {from, self()},
                                                           {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
-    
+
     _Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
-                                              {host, Hostname},
-                                              {from, self()},
-                                              {options, ClientOpts}]),
+                                               {host, Hostname},
+                                               {from, self()},
+                                               {options, ClientOpts}]),
     ssl_test_lib:check_result(Server, ok),
     ssl_test_lib:close(Server).
 
 %%--------------------------------------------------------------------
 close_with_timeout() ->
-      [{doc,"Test normal (not downgrade) ssl:close/2"}].
+    [{doc,"Test normal (not downgrade) ssl:close/2"}].
 close_with_timeout(Config) when is_list(Config) -> 
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    
+
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -1841,44 +1886,6 @@ close_with_timeout(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server, ok, Client, ok).
 
 %%--------------------------------------------------------------------
-close_in_error_state() ->
-    [{doc,"Special case of closing socket in error state"}].
-close_in_error_state(Config) when is_list(Config) ->
-    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ServerOpts = [{cacertfile, "foo.pem"} | proplists:delete(cacertfile, ServerOpts0)],
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-
-    _ = spawn(?MODULE, run_error_server_close, [[self() | ServerOpts]]),
-    receive
-        {_Pid, Port} ->
-            spawn_link(?MODULE, run_client_error, [[Port, [{verify, verify_none} | ClientOpts]]])
-    end,
-    receive
-        ok ->
-            ok;
-        Other ->
-            ct:fail(Other)
-    end.
-
-%%--------------------------------------------------------------------
-call_in_error_state() ->
-    [{doc,"Special case of call error handling"}].
-call_in_error_state(Config) when is_list(Config) ->
-    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = [{cacertfile, "foo.pem"} | proplists:delete(cacertfile, ServerOpts0)],
-    Pid = spawn(?MODULE, run_error_server, [[self() | ServerOpts]]),
-    receive
-        {Pid, Port} ->
-            spawn_link(?MODULE, run_client_error, [[Port, [{verify, verify_none} | ClientOpts]]])
-    end,
-    receive
-        {error, closed} ->
-            ok;
-        Other ->
-            ct:fail(Other)
-    end.
-%%--------------------------------------------------------------------
 close_transport_accept() ->
     [{doc,"Tests closing ssl socket when waiting on ssl:transport_accept/1"}].
 
@@ -1890,8 +1897,8 @@ close_transport_accept(Config) when is_list(Config) ->
     Opts = [{active, false} | ServerOpts],
     {ok, ListenSocket} = rpc:call(ServerNode, ssl, listen, [Port, Opts]),
     spawn_link(fun() ->
-			ct:sleep(?SLEEP),
-			rpc:call(ServerNode, ssl, close, [ListenSocket])
+                       ct:sleep(?SLEEP),
+                       rpc:call(ServerNode, ssl, close, [ListenSocket])
 	       end),
     case rpc:call(ServerNode, ssl, transport_accept, [ListenSocket]) of
 	{error, closed} ->
@@ -1921,34 +1928,6 @@ abuse_transport_accept_socket(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
-%%--------------------------------------------------------------------
-
-invalid_keyfile() ->
-    [{doc,"Test what happens with an invalid key file"}].
-invalid_keyfile(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    BadKeyFile = filename:join([proplists:get_value(priv_dir, Config), 
-			      "badkey.pem"]),
-    BadOpts = [{keyfile, BadKeyFile}| proplists:delete(keyfile, ServerOpts)],
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-    Server = 
-	ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
-					 {from, self()},
-			    {options, BadOpts}]),
-
-    Port = ssl_test_lib:inet_port(Server),
-
-    Client =
-	ssl_test_lib:start_client_error([{node, ClientNode}, 
-			    {port, Port}, {host, Hostname},
-			    {from, self()},  {options, ClientOpts}]),
-
-    File = proplists:get_value(keyfile,BadOpts),    
-    ssl_test_lib:check_result(Server,
-                              {error,{options, {keyfile, File, {error,enoent}}}}, Client,
-                              {error, closed}).
 
 %%--------------------------------------------------------------------
 honor_server_cipher_order_tls12() ->
@@ -1981,7 +1960,7 @@ honor_server_cipher_order_tls12(Config) when is_list(Config) ->
 honor_client_cipher_order_tls12() ->
     [{doc,"Test API honor server cipher order."}].
 honor_client_cipher_order_tls12(Config) when is_list(Config) ->
-     ClientCiphers = [#{key_exchange => ecdhe_rsa,
+    ClientCiphers = [#{key_exchange => ecdhe_rsa,
                        cipher => aes_128_gcm,
                        mac => aead,
                        prf => sha256},
@@ -2034,7 +2013,7 @@ honor_server_cipher_order(Config) when is_list(Config) ->
 honor_client_cipher_order() ->
     [{doc,"Test API honor server cipher order."}].
 honor_client_cipher_order(Config) when is_list(Config) ->
-     ClientCiphers = [#{key_exchange => dhe_rsa,
+    ClientCiphers = [#{key_exchange => dhe_rsa,
                        cipher => aes_128_cbc,
                        mac => sha,
                        prf => default_prf},
@@ -2063,7 +2042,7 @@ ipv6() ->
      {doc,"Test ipv6."}].
 ipv6(Config) when is_list(Config) ->
     {ok, Hostname0} = inet:gethostname(),
-    
+
     case lists:member(list_to_atom(Hostname0), ct:get_config(ipv6_hosts)) of
 	true ->
 	    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
@@ -2071,22 +2050,22 @@ ipv6(Config) when is_list(Config) ->
 	    {ClientNode, ServerNode, Hostname} = 
 		ssl_test_lib:run_where(Config, ipv6),
 	    Server = ssl_test_lib:start_server([{node, ServerNode}, 
-				   {port, 0}, {from, self()}, 
-				   {mfa, {ssl_test_lib, send_recv_result, []}},
-				   {options,  
-				    [inet6, {active, false} | ServerOpts]}]),
+                                                {port, 0}, {from, self()}, 
+                                                {mfa, {ssl_test_lib, send_recv_result, []}},
+                                                {options,  
+                                                 [inet6, {active, false} | ServerOpts]}]),
 	    Port = ssl_test_lib:inet_port(Server), 
 	    Client = ssl_test_lib:start_client([{node, ClientNode}, 
-				   {port, Port}, {host, Hostname},
-				   {from, self()}, 
-				   {mfa, {ssl_test_lib, send_recv_result, []}},
-				   {options, 
-				    [inet6, {active, false} | ClientOpts]}]),
-	    
+                                                {port, Port}, {host, Hostname},
+                                                {from, self()}, 
+                                                {mfa, {ssl_test_lib, send_recv_result, []}},
+                                                {options, 
+                                                 [inet6, {active, false} | ClientOpts]}]),
+
 	    ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
-	    
+
 	    ssl_test_lib:check_result(Server, ok, Client, ok),
-	    
+
 	    ssl_test_lib:close(Server),
 	    ssl_test_lib:close(Client);
 	false ->
@@ -2167,91 +2146,6 @@ der_input(Config) when is_list(Config) ->
     ok.
 
 %%--------------------------------------------------------------------
-invalid_certfile() ->
-    [{doc,"Test what happens with an invalid cert file"}].
-
-invalid_certfile(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    BadCertFile = filename:join([proplists:get_value(priv_dir, Config), 
-                                 "badcert.pem"]),
-    ServerBadOpts = [{certfile, BadCertFile}| proplists:delete(certfile, ServerOpts)],
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
-    Server = 
-	ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
-					 {from, self()},
-					 {options, ServerBadOpts}]),
-
-    Port = ssl_test_lib:inet_port(Server),
-
-    Client =
-	ssl_test_lib:start_client_error([{node, ClientNode}, 
-					 {port, Port}, {host, Hostname},
-					 {from, self()}, 
-					 {options, ClientOpts}]),
-    File = proplists:get_value(certfile, ServerBadOpts),
-    ssl_test_lib:check_result(Server, {error,{options, {certfile, File, {error,enoent}}}}, 
-			      Client, {error, closed}).
-    
-
-%%--------------------------------------------------------------------
-invalid_cacertfile() ->
-    [{doc,"Test what happens with an invalid cacert file"}].
-
-invalid_cacertfile(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    BadCACertFile = filename:join([proplists:get_value(priv_dir, Config), 
-                                 "badcacert.pem"]),
-    ServerBadOpts = [{cacertfile, BadCACertFile}| proplists:delete(cacertfile, ServerOpts)],
-    
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-    Server0  = 
-	ssl_test_lib:start_server_error([{node, ServerNode}, 
-					 {port, 0}, {from, self()},
-					 {options, ServerBadOpts}]),
-
-    Port0 = ssl_test_lib:inet_port(Server0),
-    
-
-    Client0 =
-	ssl_test_lib:start_client_error([{node, ClientNode}, 
-					 {port, Port0}, {host, Hostname},
-					 {from, self()}, 
-					 {options, ClientOpts}]),
-
-    File0 = proplists:get_value(cacertfile, ServerBadOpts),
-    
-    ssl_test_lib:check_result(Server0, {error, {options, {cacertfile, File0,{error,enoent}}}},
-			      Client0, {error, closed}),
-    
-    File = File0 ++ "do_not_exit.pem",
-    ServerBadOpts1 = [{cacertfile, File}|proplists:delete(cacertfile, ServerBadOpts)],
-            
-    Server1  = 
-	ssl_test_lib:start_server_error([{node, ServerNode}, 
-					 {port, 0}, {from, self()},
-					 {options, ServerBadOpts1}]),
-
-    Port1 = ssl_test_lib:inet_port(Server1),
-    
-    Client1 =
-	ssl_test_lib:start_client_error([{node, ClientNode}, 
-					 {port, Port1}, {host, Hostname},
-					 {from, self()}, 
-					 {options, ClientOpts}]),
-
-
-    ssl_test_lib:check_result(Server1, {error, {options, {cacertfile, File,{error,enoent}}}},
-			      Client1, {error, closed}),
-    ok.
-
-%%--------------------------------------------------------------------
 new_options_in_handshake() ->
     [{doc,"Test that you can set ssl options in handshake/3 and not only in tcp upgrade"}].
 new_options_in_handshake(Config) when is_list(Config) -> 
@@ -2260,39 +2154,43 @@ new_options_in_handshake(Config) when is_list(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
+    Filter = fun(any) when Version =:= 'tlsv1.3' ->
+                     true;
+                (_) when Version =:= 'tlsv1.3' ->
+                     false;
+                (dhe_rsa) ->
+                     true;
+                (ecdhe_rsa) ->
+                     true;
+                (rsa) ->
+                     false;
+                (_) ->
+                     false
+             end,
+
     Ciphers = [_, Cipher | _] = ssl:filter_cipher_suites(ssl:cipher_suites(all, Version), 
-                                                         [{key_exchange,
-                                                 fun(dhe_rsa) ->
-                                                         true;
-                                                    (ecdhe_rsa) ->
-                                                         true;
-                                                    (rsa) ->
-                                                         false;
-                                                    (_) ->
-                                                         false
-                                                 end
-                                                }]),
-    
+                                                         [{key_exchange, Filter}]),
+
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
 					{ssl_extra_opts, [{versions, [Version]},
 							  {ciphers,[Cipher]}]}, %% To be set in handshake/3
 					{mfa, {?MODULE, connection_info_result, []}},
 					{options, ServerOpts}]),
-    
+
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
 					{from, self()}, 
 					{mfa, {?MODULE, connection_info_result, []}},
 					{options, [{ciphers, Ciphers} | ClientOpts]}]),
-    
+
     ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
     ServerMsg = ClientMsg = {ok, {Version, Cipher}},
-   
+
     ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -2310,15 +2208,15 @@ max_handshake_size(Config) when is_list(Config) ->
 					{mfa, {ssl_test_lib, send_recv_result_active, []}},
 					{options,  [{max_handshake_size, 8388607} |ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
-    
+
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
 					{from, self()}, 
 					{mfa, {ssl_test_lib, send_recv_result_active, []}},
 					{options, [{max_handshake_size, 8388607} | ClientOpts]}]),
- 
+
     ssl_test_lib:check_result(Server, ok, Client, ok).
-  
+
 
 %%-------------------------------------------------------------------
 
@@ -2382,10 +2280,11 @@ customize_defaults(Opts, Role, Host) ->
                end,
     case proplists:get_value(protocol, Opts, tls) of
         dtls ->
-            {ok, #config{ssl=DOpts}} = ssl:handle_options([{protocol, dtls}|NoVerify], Role, Host),
+            {ok, #config{ssl=DOpts}} =
+                ssl_config:handle_options([{protocol, dtls}|NoVerify], Role, Host),
             {DOpts, DefOpts ++ Opts};
         tls ->
-            {ok, #config{ssl=DOpts}} = ssl:handle_options(NoVerify, Role, Host),
+            {ok, #config{ssl=DOpts}} = ssl_config:handle_options(NoVerify, Role, Host),
             case proplists:get_value(versions, Opts) of
                 undefined ->
                     {DOpts, DefOpts ++ [{versions, ['tlsv1.2','tlsv1.3']}|Opts]};
@@ -2393,113 +2292,159 @@ customize_defaults(Opts, Role, Host) ->
                     {DOpts, DefOpts ++ Opts}
             end;
         _ ->
-            {ok, #config{ssl=DOpts}} = ssl:handle_options(NoVerify, Role, Host),
+            {ok, #config{ssl=DOpts}} = ssl_config:handle_options(NoVerify, Role, Host),
             {DOpts, DefOpts ++ Opts}
     end.
 
 -define(OK(EXP, Opts, Role), ?OK(EXP,Opts, Role, [])).
--define(OK(EXP, Opts, Role, ShouldBeMissing),
-        fun() ->
-                Host = "dummy.host.org",
-                {__DefOpts, __Opts} = customize_defaults(Opts, Role, Host),
-                try ssl:handle_options(__Opts, Role, Host) of
-                    {ok, #config{ssl=EXP = __ALL}} ->
-                        check_expected(ShouldBeMissing, ShouldBeMissing -- maps:keys(__ALL)),
-                        check_expected(__ALL, ssl:update_options([], Role, __ALL));
-                    Other ->
-                        ?CT_PAL("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
-                        error({unexpected, Other})
-                catch
-                    throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
-                    C:Other:ST ->
-                        ?CT_PAL("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
-                        error({unexpected, C, Other,ST})
-                end,
-                try ssl:update_options(__Opts, Role, __DefOpts) of
-                    EXP = __ALL2 ->
-                        check_expected(ShouldBeMissing, ShouldBeMissing -- maps:keys(__ALL2));
-                    Other2 ->
-                        ?CT_PAL("{ok,Cfg} = ssl:handle_options([],~p,~p),"
-                               "ssl:update_options(~w,~w, element(2,Cfg)).",
-                               [Role,Host,__Opts,Role]),
-                        error({unexpected2, Other2})
-                catch
-                    throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
-                    C2:Other2:ST2 ->
-                        ?CT_PAL("{ok,Cfg} = ssl:handle_options([],~p,~p),"
-                               "ssl:update_options(~p,~p, element(2,Cfg)).",
-                               [Role,Host,__Opts,Role]),
-                        error({unexpected, C2, Other2, ST2})
-                end
-        end()).
+-define(OK(ExpectedPattern, Opts, Role, ShouldBeMissing),
+        check_ok(fun(__Expression) ->
+                         case __Expression of
+                             ExpectedPattern -> true;
+                             _ -> false
+                         end
+                 end, Opts, Role, ShouldBeMissing)).
 
--define(ERR(EXP, Opts, Role),
-        fun() ->
-                Host = "dummy.host.org",
-                {__DefOpts, __Opts} = customize_defaults(Opts, Role, Host),
-                try ssl:handle_options(__Opts, Role, Host) of
-                    Other ->
-                        ?CT_PAL("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
-                        error({unexpected, Other})
-                catch
-                    throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
-                    throw:{error, {options, EXP}} -> ok;
-                    throw:{error, EXP} -> ok;
-                    C:Other:ST ->
-                        ?CT_PAL("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
-                        error({unexpected, C, Other,ST})
-                end,
-                try ssl:update_options(__Opts, Role, __DefOpts) of
-                    Other2 ->
-                        ?CT_PAL("{ok,Cfg} = ssl:handle_options([],~p,~p),"
-                               "ssl:update_options(~p,~p, element(2,Cfg)).",
-                               [Role,Host,__Opts,Role]),
-                        error({unexpected, Other2})
-                catch
-                    throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
-                    throw:{error, {options, EXP}} -> ok;
-                    throw:{error, EXP} -> ok;
-                    C2:Other2:ST2 ->
-                        ?CT_PAL("{ok,Cfg} = ssl:handle_options([],~p,~p),"
-                               "ssl:update_options(~p,~p, element(2,Cfg)).",
-                               [Role,Host,__Opts,Role]),
-                        error({unexpected, C2, Other2,ST2})
-                end
-        end()).
+-define(ERR(ExpectedPattern, Opts, Role),
+        check_error(fun(__Expression) ->
+                            case __Expression of
+                                ExpectedPattern -> true;
+                                {options, ExpectedPattern} -> true;
+                                _ -> false
+                            end
+                    end, Opts, Role)).
+-define(ERR_UPD(ExpectedPattern, Opts, Role),
+        check_error_update(
+          fun(__Expression) ->
+                  case __Expression of
+                      ExpectedPattern -> true;
+                      {options, ExpectedPattern} -> true;
+                      _ -> false
+                  end
+          end, Opts, Role)).
 
--define(ERR_UPD(EXP, Opts, Role),
-        fun() ->
-                Host = "dummy.host.org",
-                {__DefOpts, __Opts} = customize_defaults(Opts, Role, Host),
-                try ssl:handle_options(__Opts, Role, Host) of
-                    {ok, #config{}} ->
-                        ok;
-                    Other ->
-                        ?CT_PAL("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
-                        error({unexpected, Other})
-                catch
-                    throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
-                    C:Other:ST ->
-                        ?CT_PAL("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
-                        error({unexpected, C, Other,ST})
-                end,
-                try ssl:update_options(__Opts, Role, __DefOpts) of
-                    Other2 ->
-                        ?CT_PAL("{ok,Cfg} = ssl:handle_options([],~p,~p),"
-                                "ssl:update_options(~p,~p, element(2,Cfg)).",
-                                [Role,Host,__Opts,Role]),
-                        error({unexpected, Other2})
-                catch
-                    throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
-                    throw:{error, {options, EXP}} -> ok;
-                    throw:{error, EXP} -> ok;
-                    C2:Other2:ST2 ->
-                        ?CT_PAL("{ok,Cfg} = ssl:handle_options([],~p,~p),"
-                                "ssl:update_options(~p,~p, element(2,Cfg)).",
-                                [Role,Host,__Opts,Role]),
-                        error({unexpected, C2, Other2,ST2})
-                end
-        end()).
+check_ok(Match, Opts, Role, ShouldBeMissing) ->
+    Host = net_adm:localhost(),
+    {__DefOpts, __Opts} = customize_defaults(Opts, Role, Host),
+    try ssl_config:handle_options(__Opts, Role, Host) of
+        {ok, #config{ssl=Config}} ->
+            case Match(Config) of
+                true ->
+                    check_expected(ShouldBeMissing, ShouldBeMissing -- maps:keys(Config)),
+                    check_expected(Config, ssl_config:update_options([], Role, Config));
+                false ->
+                    ?CT_PAL("ssl_config:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+                    error({unexpected, Config})
+            end;
+        Other ->
+            ?CT_PAL("ssl_config:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+            error({unexpected, Other})
+    catch
+        throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
+        C:Other:ST ->
+            ?CT_PAL("ssl_config:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+            error({unexpected, C, Other,ST})
+    end,
+    try ssl_config:update_options(__Opts, Role, __DefOpts) of
+        Res ->
+            case Match(Res) of
+                true ->
+                    check_expected(ShouldBeMissing, ShouldBeMissing -- maps:keys(Res));
+                false ->
+                    ?CT_PAL("{ok,Cfg} = ssl_config:handle_options([],~p,~p),"
+                            "ssl_config:update_options(~w,~w, element(2,Cfg)).",
+                            [Role,Host,__Opts,Role]),
+                    error({unexpected2, Res})
+            end
+    catch
+        throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
+        C2:Other2:ST2 ->
+            ?CT_PAL("{ok,Cfg} = ssl_config:handle_options([],~p,~p),"
+                    "ssl_config:update_options(~p,~p, element(2,Cfg)).",
+                    [Role,Host,__Opts,Role]),
+            error({unexpected, C2, Other2, ST2})
+    end.
+
+check_error(Match, Opts, Role) ->
+    Host = net_adm:localhost(),
+    {__DefOpts, __Opts} = customize_defaults(Opts, Role, Host),
+    try ssl_config:handle_options(__Opts, Role, Host) of
+        Other ->
+            ?CT_PAL("ssl_config:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+            error({unexpected, Other})
+    catch
+        throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
+        throw:{error, EXP} = Other:ST ->
+            case Match(EXP) of
+                true -> ok;
+                false ->
+                    ?CT_PAL("ssl_config:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+                    error({unexpected, throw, Other,ST})
+            end;
+        C:Other:ST ->
+            ?CT_PAL("ssl_config:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+            error({unexpected, C, Other,ST})
+    end,
+    try ssl_config:update_options(__Opts, Role, __DefOpts) of
+        Other2 ->
+            ?CT_PAL("{ok,Cfg} = ssl_config:handle_options([],~p,~p),"
+                    "ssl_config:update_options(~p,~p, element(2,Cfg)).",
+                    [Role,Host,__Opts,Role]),
+            error({unexpected, Other2})
+    catch
+        throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
+        throw:{error, EXP2} = Other2:ST2 ->
+            case Match(EXP2) of
+                true -> ok;
+                false ->
+                    ?CT_PAL("{ok,Cfg} = ssl_config:handle_options([],~p,~p),"
+                            "ssl_config:update_options(~p,~p, element(2,Cfg)).",
+                            [Role,Host,__Opts,Role]),
+                    error({unexpected, throw, Other2,ST2})
+            end;
+        C2:Other2:ST2 ->
+            ?CT_PAL("{ok,Cfg} = ssl_config:handle_options([],~p,~p),"
+                    "ssl_config:update_options(~p,~p, element(2,Cfg)).",
+                    [Role,Host,__Opts,Role]),
+            error({unexpected, C2, Other2,ST2})
+    end.
+
+check_error_update(Match, Opts, Role) ->
+    Host = net_adm:localhost(),
+    {__DefOpts, __Opts} = customize_defaults(Opts, Role, Host),
+    try ssl_config:handle_options(__Opts, Role, Host) of
+        {ok, #config{}} ->
+            ok;
+        Other ->
+            ?CT_PAL("ssl_config:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+            error({unexpected, Other})
+    catch
+        throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
+        C:Other:ST ->
+            ?CT_PAL("ssl_config:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+            error({unexpected, C, Other,ST})
+    end,
+    try ssl_config:update_options(__Opts, Role, __DefOpts) of
+        Other2 ->
+            ?CT_PAL("{ok,Cfg} = ssl_config:handle_options([],~p,~p),"
+                    "ssl_config:update_options(~p,~p, element(2,Cfg)).",
+                    [Role,Host,__Opts,Role]),
+            error({unexpected, Other2})
+    catch
+        throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
+        throw:{error, EXP2} = Other2:ST2 ->
+            case Match(EXP2) of
+                true -> ok;
+                false ->
+                    ?CT_PAL("ssl_config:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+                    error({unexpected, throw, Other2,ST2})
+            end;
+        C2:Other2:ST2 ->
+            ?CT_PAL("{ok,Cfg} = ssl_config:handle_options([],~p,~p),"
+                    "ssl_config:update_options(~p,~p, element(2,Cfg)).",
+                    [Role,Host,__Opts,Role]),
+            error({unexpected, C2, Other2,ST2})
+    end.
 
 check_expected(A, A) ->
     ok;
@@ -2765,7 +2710,7 @@ options_cert(Config) -> %% cert[file] cert_keys keys password
         client, Old),
     ?OK(#{certs_keys := [#{key := #{}}]},
         [{key, #{algorithm => rsa,
-                  sign_fun => fun(_,_,_,_) -> << "dummy signature">> end,
+                 sign_fun => fun(_,_,_,_) -> << "dummy signature">> end,
                  encrypt_fun => fun(_,_,_) -> << "dummy encrypt">> end}},
          {versions, ['tlsv1.3', 'tlsv1.2', 'tlsv1.1']}], client, Old),
     ?OK(#{certs_keys := [#{password := _}]}, [{password, "foobar"}], client, Old),
@@ -2876,17 +2821,24 @@ options_hostname_check(_Config) ->
     ?ERR({customize_hostname_check, _}, [{customize_hostname_check, {match_fun, pb_fun}}], client),
     ok.
 
-options_dh(_Config) -> %% dh dhfile
+options_dh(Config) -> %% dh dhfile
+    DataDir = proplists:get_value(data_dir, Config),
+    DHFile = filename:join(DataDir, "dHParam.pem"),
+    BinFile = list_to_binary(DHFile),
+    {ok, DHPem} = file:read_file(DHFile),
+    [{_, DH, _}] = public_key:pem_decode(DHPem),
     ?OK(#{}, [], server, [dh, dhfile]),
-    ?OK(#{dh := <<>>}, [{dh, <<>>}], server, [dhfile]),
-    ?OK(#{dhfile := <<"/tmp/foo">>}, [{dhfile, <<"/tmp/foo">>}], server, [dh]),
-    ?OK(#{dh := <<>>}, [{dh, <<>>}, {dhfile, <<"/tmp/foo">>}], server, [dhfile]),
-
-    %% Should be an error
-    ?OK(#{dhfile := <<"/tmp/foo">>},  %% Not available in 1.3
-        [{dhfile, <<"/tmp/foo">>}, {versions, ['tlsv1.3']}], server, [dh]),
+    ?OK(#{dh := DH}, [{dh, DH}], server, [dhfile]),
+    ?OK(#{dhfile := BinFile}, [{dhfile, DHFile}], server, [dh]),
+    ?OK(#{dh := DH}, [{dh, DH}, {dhfile, DHFile}], server, [dhfile]),
 
     %% Error
+    ?ERR({options, incompatible,
+          [dh_file,{versions,['tlsv1.3']}]},
+         [{dhfile, DHFile}, {versions, ['tlsv1.3']}], server),
+    ?ERR({options, incompatible,
+          [dh, {versions,['tlsv1.3']}]},
+         [{dh, <<>>}, {versions, ['tlsv1.3']}], server),
     ?ERR({dh, not_a_bin}, [{dh, not_a_bin}], server),
     ?ERR({dhfile, not_a_filename}, [{dhfile, not_a_filename}], server),
     ?ERR({option, server_only, dhfile}, [{dhfile, "file"}], client),
@@ -2894,6 +2846,7 @@ options_dh(_Config) -> %% dh dhfile
     ok.
 
 options_early_data(_Config) -> %% early_data, session_tickets and use_ticket
+    SNI = net_adm:localhost(),
     ?OK(#{early_data := undefined, session_tickets := disabled},
         [], client),
     ?OK(#{early_data := disabled, session_tickets := disabled, stateless_tickets_seed := undefined},
@@ -2901,8 +2854,11 @@ options_early_data(_Config) -> %% early_data, session_tickets and use_ticket
 
     ?OK(#{early_data := <<>>, session_tickets := auto},
         [{early_data, <<>>}, {session_tickets, auto}], client),
-    ?OK(#{early_data := <<>>, session_tickets := manual, use_ticket := [<<1>>]},
-        [{early_data, <<>>}, {session_tickets, manual}, {use_ticket, [<<1>>]}],
+    ?OK(#{early_data := <<>>, session_tickets := manual,
+          use_ticket := [#{sni := SNI,
+                           ticket := <<1>>}]},
+        [{early_data, <<>>}, {session_tickets, manual},
+         {use_ticket, [#{sni => SNI, ticket => <<1>>}]}],
         client),
 
     ?OK(#{early_data := enabled, stateless_tickets_seed := <<"foo">>},
@@ -2971,15 +2927,16 @@ options_eccs(_Config) ->
 
 options_verify(Config) ->  %% fail_if_no_peer_cert, verify, verify_fun, partial_chain
     Cert = proplists:get_value(cert, ssl_test_lib:ssl_options(server_rsa_der_opts, Config)),
-    {ok, #config{ssl = DefOpts = #{verify_fun := {DefVerify,_}}}} = ssl:handle_options([{verify, verify_none}], client, "dummy.host.org"),
+    {ok, #config{ssl = DefOpts = #{verify_fun := {DefVerify,_}}}} =
+        ssl_config:handle_options([{verify, verify_none}], client, net_adm:localhost()),
 
     ?OK(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {DefVerify, []}, partial_chain := _},
         [], server),
     ?OK(#{fail_if_no_peer_cert := true, verify := verify_peer, verify_fun := undefined, partial_chain := _},
         [{fail_if_no_peer_cert, true}, {verify, verify_peer}, {cacerts, [Cert]}],
         server),
-     ?OK(#{fail_if_no_peer_cert := true, verify := verify_peer, verify_fun := undefined, partial_chain := _},
-         [{verify, verify_peer}, {cacerts, [Cert]}], server),
+    ?OK(#{fail_if_no_peer_cert := true, verify := verify_peer, verify_fun := undefined, partial_chain := _},
+        [{verify, verify_peer}, {cacerts, [Cert]}], server),
 
     %% Test ssl option handling. Option values are verified by public_key tests
     CertPolicyOpts = [{policy_set, [?anyPolicy]}, {explicit_policy, false}],
@@ -3001,10 +2958,10 @@ options_verify(Config) ->  %% fail_if_no_peer_cert, verify, verify_fun, partial_
 
 
     %% check verify_fun in update_options case
-    #{verify_fun := undefined} = ssl:update_options([{verify, verify_peer}, {cacerts, [Cert]}], client, DefOpts),
-    #{verify_fun := {NewF3, bar}} = ssl:update_options([{verify, verify_peer}, {cacerts, [Cert]},
-                                                        {verify_fun, {NewF3, bar}}],
-                                                       client, DefOpts),
+    #{verify_fun := undefined} = ssl_config:update_options([{verify, verify_peer}, {cacerts, [Cert]}], client, DefOpts),
+    #{verify_fun := {NewF3, bar}} = ssl_config:update_options([{verify, verify_peer}, {cacerts, [Cert]},
+                                                               {verify_fun, {NewF3, bar}}],
+                                                              client, DefOpts),
 
     ?OK(#{allow_any_ca_purpose := true},
         [{allow_any_ca_purpose, true}, {verify, verify_peer}, {cacerts, [Cert]}],
@@ -3026,7 +2983,7 @@ options_verify(Config) ->  %% fail_if_no_peer_cert, verify, verify_fun, partial_
     ?ERR({partial_chain, not_a_fun}, [{partial_chain, not_a_fun}], client),
     ?ERR({verify_fun, not_a_fun}, [{verify_fun, not_a_fun}], client),
     ?ERR({cert_policy_opts, {foo, bar}}, [{verify, verify_peer}, {cacerts, [Cert]}, {cert_policy_opts, [{foo,bar}]}],
-        client),
+         client),
     ?ERR({cert_policy_opts, {explicit_policy, bar}}, [{verify, verify_peer}, {cacerts, [Cert]}, {cert_policy_opts, [{explicit_policy,bar}]}],
          client),
     ?ERR({cert_policy_opts, {inhibit_policy_mapping, bar}}, [{verify, verify_peer}, {cacerts, [Cert]}, {cert_policy_opts, [{explicit_policy, true},
@@ -3050,7 +3007,7 @@ options_fallback(_Config) ->
     ok.
 
 options_handshake(_Config) -> %% handshake
-    ?OK(#{handshake := full, max_handshake_size := 131072},
+    ?OK(#{handshake := full, max_handshake_size := 262144},
         [], client),
     ?OK(#{handshake := hello, max_handshake_size := 123800},
         [{handshake, hello}, {max_handshake_size, 123800}], client),
@@ -3109,17 +3066,23 @@ options_debug(_Config) -> %% debug  log_level keep_secrets
     ok.
 
 options_renegotiate(_Config) -> %% key_update_at   renegotiate_at  secure_renegotiate
-    ?OK(#{key_update_at := ?KEY_USAGE_LIMIT_AES_GCM, renegotiate_at := 268435456, secure_renegotiate := true},
+    ?OK(#{key_update_at := ?KEY_USAGE_LIMIT_AES_GCM, renegotiate_at := 268435456},
         [], server),
-    ?OK(#{key_update_at := 123456, renegotiate_at := 64000, secure_renegotiate := false},
-        [{key_update_at, 123456}, {renegotiate_at, 64000}, {secure_renegotiate, false}],
+    ?OK(#{key_update_at := 123456, renegotiate_at := 64000},
+        [{key_update_at, 123456}, {renegotiate_at, 64000}, {secure_renegotiate, true}],
         server),
 
     %% Errors
     ?ERR({options, incompatible, [key_update_at, {versions, _}]},
          [{key_update_at, 123456}, {versions, ['tlsv1.2']}], server),
-    ?ERR({options, incompatible, [secure_renegotiate, {versions, _}]},
-         [{secure_renegotiate, true}, {versions, ['tlsv1.3']}], server),
+    ?ERR({options,
+          {secure_renegotiate,
+           {false,
+            fallback_to_insecure_renegotiation_no_longer_supported}
+          }},
+         [{secure_renegotiate, false}], client),
+     ?ERR({options, {no_supported_algorithms, {signature_algs,[]}}},
+          [{signature_algs, []}], client),
 
     ?ERR({key_update_at, -1}, [{key_update_at, -1}], server),
     ?ERR({renegotiate_at, not_a_int}, [{renegotiate_at, not_a_int}], server),
@@ -3182,6 +3145,8 @@ options_identity(_Config) ->  %% psk_identity  srp_identity and user_lookup_fun
         [], client),
     ?OK(#{psk_identity := <<"foobar">>, srp_identity := undefined, user_lookup_fun := undefined},
         [{psk_identity, "foobar"}], server),
+    ?OK(#{psk_identity := <<"">>, srp_identity := undefined, user_lookup_fun := undefined},
+        [{psk_identity, ""}], server),
     ?OK(#{psk_identity := undefined, srp_identity := {<<"user">>, <<"pwd">>}, user_lookup_fun := undefined},
         [{srp_identity, {"user", "pwd"}}], client),
     ?OK(#{psk_identity := undefined, srp_identity := undefined, user_lookup_fun := {_, args}},
@@ -3244,10 +3209,11 @@ options_reuse_session(_Config) ->
     ok.
 
 options_sni(_Config) -> %% server_name_indication
-    ?OK(#{server_name_indication := "dummy.host.org"}, [], client),
+    SNI = net_adm:localhost(),
+    ?OK(#{server_name_indication := SNI}, [], client),
     ?OK(#{}, [], server, [server_name_indication]),
     ?OK(#{server_name_indication := disable}, [{server_name_indication, disable}], client),
-    ?OK(#{server_name_indication := "dummy.org"}, [{server_name_indication, "dummy.org"}], client),
+    ?OK(#{server_name_indication := SNI}, [{server_name_indication, SNI}], client),
 
     ?OK(#{sni_fun := _}, [], server, [sni_hosts]),
 
@@ -3297,11 +3263,18 @@ options_sign_alg(_Config) ->  %% signature_algs[_cert]
     ok.
 
 options_supported_groups(_Config) ->
-    Default = ssl:groups(default),
-    ?OK(#{supported_groups := {supported_groups, Default}},
+    DefaultGroups = ssl:groups(default),
+    First = hd(DefaultGroups),
+    ?OK(#{supported_groups := #supported_groups{supported_groups = DefaultGroups}},
         [], client),
-    ?OK(#{supported_groups := {supported_groups, [secp521r1, ffdhe2048]}},
+    ?OK(#{supported_groups := #supported_groups{supported_groups = [secp521r1, ffdhe2048]}},
         [{supported_groups, [secp521r1, ffdhe2048]}], client),
+
+    ?OK(#{psk_groups := [First]},
+        [], client),
+    ?OK(#{psk_groups := [secp521r1, secp256r1],
+          supported_groups := #supported_groups{supported_groups = [secp521r1, secp256r1, ffdhe2048]}},
+        [{supported_groups, [secp521r1, secp256r1, ffdhe2048]}, {psk_groups, [secp521r1, secp384r1, secp256r1]}], client),
 
     %% ERRORs
     ?ERR({{'tlvs1.2'},{versions,[{'tlvs1.2'}]}},
@@ -3356,9 +3329,9 @@ default_reject_anonymous(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     Version = ssl_test_lib:protocol_version(Config),
     TLSVersion = ssl_test_lib:tls_version(Version),
-    
-   [CipherSuite | _] = ssl_test_lib:ecdh_dh_anonymous_suites(TLSVersion),
-    
+
+    [CipherSuite | _] = ssl_test_lib:ecdh_dh_anonymous_suites(TLSVersion),
+
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
 					      {from, self()},
 					      {options, ServerOpts}]),
@@ -3423,9 +3396,9 @@ log_alert(Config) when is_list(Config) ->
                                                  {from, self()},
                                                  {mfa, {ssl_test_lib, send_recv_result_active, []}},
                                                  {options, [{log_alert, false} | ClientOpts]}]),
-    
+
     {ok, [{log_level, none}]} = ssl:connection_information(CSock, [log_level]),
-    
+
     ssl_test_lib:check_result(Server, ok, Client, ok).
 
 
@@ -3434,32 +3407,32 @@ log_alert(Config) when is_list(Config) ->
 %% is a stream you can not test that the send acctually splits it up as when it arrives
 %% again at the user layer it may be concatenated. But COVER can show that the split up
 %% code has been run.
-   
+
 rizzo_disabled() ->
-     [{doc, "Test original beast mitigation disable option for SSL 3.0 and TLS 1.0"}].
+    [{doc, "Test original beast mitigation disable option for SSL 3.0 and TLS 1.0"}].
 
 rizzo_disabled(Config) ->
     ClientOpts = [{beast_mitigation, disabled} | ssl_test_lib:ssl_options(client_rsa_opts, Config)],
     ServerOpts =  [{beast_mitigation, disabled} | ssl_test_lib:ssl_options(server_rsa_opts, Config)],
-    
+
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 %%-------------------------------------------------------------------
 rizzo_zero_n() ->
-     [{doc, "Test zero_n beast mitigation option (same affect as original disable option) for SSL 3.0 and TLS 1.0"}].
+    [{doc, "Test zero_n beast mitigation option (same affect as original disable option) for SSL 3.0 and TLS 1.0"}].
 
 rizzo_zero_n(Config) ->
     ClientOpts = [{beast_mitigation, zero_n} | ssl_test_lib:ssl_options(client_rsa_opts, Config)],
     ServerOpts =  [{beast_mitigation, zero_n} | ssl_test_lib:ssl_options(server_rsa_opts, Config)],
-    
+
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 %%-------------------------------------------------------------------
 rizzo_one_n_minus_one () ->
-     [{doc, "Test beast_mitigation option one_n_minus_one (same affect as default) for SSL 3.0 and TLS 1.0"}].
+    [{doc, "Test beast_mitigation option one_n_minus_one (same affect as default) for SSL 3.0 and TLS 1.0"}].
 
 rizzo_one_n_minus_one (Config) ->
     ClientOpts = [{beast_mitigation, one_n_minus_one } | ssl_test_lib:ssl_options(client_rsa_opts, Config)],
     ServerOpts =  [{beast_mitigation, one_n_minus_one} | ssl_test_lib:ssl_options(server_rsa_opts, Config)],
-    
+
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 %%-------------------------------------------------------------------
@@ -3575,13 +3548,15 @@ client_options_negative_early_data(Config) when is_list(Config) ->
                            [early_data, {session_tickets, manual}, {use_ticket, undefined}]}),
     start_client_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
                                    {session_tickets, manual},
-                                   {use_ticket, [<<"ticket">>]},
+                                   {use_ticket, [#{sni=> net_adm:localhost(),
+                                                   ticket => <<"ticket">>}]},
                                    {early_data, "test"}],
                           {options, {early_data, "test"}}),
     %% All options are ok but there is no server
     start_client_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
                                    {session_tickets, manual},
-                                   {use_ticket, [<<"ticket">>]},
+                                   {use_ticket, [#{sni=> net_adm:localhost(),
+                                                   ticket => <<"ticket">>}]},
                                    {early_data, <<"test">>}],
                           econnrefused),
 
@@ -3694,7 +3669,7 @@ getstat(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Port0 = ssl_test_lib:inet_port(ServerNode),
     {ok, ListenSocket} = ssl:listen(Port0, [ServerOpts]),
     {ok, _} = ssl:getstat(ListenSocket),
@@ -3768,7 +3743,7 @@ invalid_options_tls13(Config) when is_list(Config) ->
           {options, incompatible, [reuse_sessions, {versions,['tlsv1.3']}]},
           common},
 
-         {{secure_renegotiate, false},
+         {{secure_renegotiate, true},
           {options, incompatible, [secure_renegotiate, {versions,['tlsv1.3']}]},
           common},
 
@@ -3803,17 +3778,22 @@ ssl_not_started() ->
     [{doc, "Test that an error is returned if ssl is not started"}].
 ssl_not_started(Config) when is_list(Config) ->
     application:stop(ssl),
-    Protocol = proplists:get_value(protocol, Config, tls),
-    Version = proplists:get_value(version, Config),
-    Opts = [{verify, verify_none},
-            {versions, [Version]},
-            {protocol, Protocol}],
-    try
-        {error, ssl_not_started} = ssl:connect("localhost", 22, Opts)
-    after
-        ssl:start()
-    end,
-    ok.
+    R1 = try
+             {error, ssl_not_started} = ssl:connect("localhost", 22, [{verify, verify_none},
+                                                                      {protocol, tls}]),
+             ok
+         catch _:Reason ->
+                 Reason
+         end,
+    R2 = try
+             {error, ssl_not_started} = ssl:connect("localhost", 22, [{verify, verify_none},
+                                                                      {protocol, dtls}]),
+             ok
+         catch _:Reason2 ->
+                 Reason2
+         end,
+    ssl:start(),
+    ok = R1 = R2.
 
 cookie() ->
     [{doc, "Test cookie extension in TLS 1.3"}].
@@ -3842,11 +3822,12 @@ check_random_nonce(Config) when is_list(Config) ->
                   {_Id, {_, <<FourBytes:32, _/binary>>}, SecsSince}} <- Randoms],
     MeanDelta = lists:sum(Deltas) div N,
     case ?config(version, Config) of
-        'tlsv1.3' ->
+        Vsn when Vsn =:= 'tlsv1.3'; Vsn =:= undefined ->
             %% 4B "random" expected since TLS1.3
             RndThreshold   = 10000,
             true = MeanDelta > RndThreshold;
-        _ ->
+        _Vsn ->
+            ?CT_LOG("Using Version: ~p", [_Vsn]),
             %% 4 epoch based bytes expected pre TLS1.3
             EpochThreshold = 10,
             true = MeanDelta < EpochThreshold
@@ -3901,8 +3882,8 @@ export_key_materials(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Version = ssl_test_lib:protocol_version(Config, atom),
     BaseOpts = [{active, true}, {versions, [Version]}, {protocol, tls_or_dtls(Version)}],
-    ServerOpts = BaseOpts ++ proplists:get_value(server_rsa_opts, Config, []),
-    ClientOpts = BaseOpts ++ proplists:get_value(client_rsa_opts, Config, []),
+    ServerOpts = BaseOpts ++ ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = BaseOpts ++ ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
     Label = <<"EXPERIMENTAL-otp">>,
 
@@ -3910,8 +3891,8 @@ export_key_materials(Config) when is_list(Config) ->
                                         {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     {_, ClientS} = ssl_test_lib:start_client([return_socket, {node, ClientNode}, {port, Port},
-                                             {host, Hostname}, {from, self()},
-                                             {options, ClientOpts}]),
+                                              {host, Hostname}, {from, self()},
+                                              {options, ClientOpts}]),
     Server ! get_socket,
     ServerS = receive
                   {Server, {socket, S}} -> S
@@ -3938,8 +3919,8 @@ exporter_master_secret_consumed(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Version = ssl_test_lib:protocol_version(Config, atom),
     BaseOpts = [{active, true}, {versions, [Version]}, {protocol, tls_or_dtls(Version)}],
-    ServerOpts = BaseOpts ++ proplists:get_value(server_rsa_opts, Config, []),
-    ClientOpts = BaseOpts ++ proplists:get_value(client_rsa_opts, Config, []),
+    ServerOpts = BaseOpts ++ ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = BaseOpts ++ ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
     Label1 = <<"EXPERIMENTAL-otp1">>,
     Label2 = <<"EXPERIMENTAL-otp2">>,
@@ -3950,8 +3931,8 @@ exporter_master_secret_consumed(Config) when is_list(Config) ->
                                         {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     {_, ClientS} = ssl_test_lib:start_client([return_socket, {node, ClientNode}, {port, Port},
-                                             {host, Hostname}, {from, self()},
-                                             {options, ClientOpts}]),
+                                              {host, Hostname}, {from, self()},
+                                              {options, ClientOpts}]),
     Server ! get_socket,
     ServerS = receive
                   {Server, {socket, S}} -> S
@@ -3971,25 +3952,25 @@ legacy_prf(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Version = ssl_test_lib:protocol_version(Config, atom),
     BaseOpts = [{active, true}, {versions, [Version]}, {protocol, tls_or_dtls(Version)}],
-    ServerOpts = BaseOpts ++ proplists:get_value(server_rsa_opts, Config, []),
-    ClientOpts = BaseOpts ++ proplists:get_value(client_rsa_opts, Config, []),
+    ServerOpts = BaseOpts ++ ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = BaseOpts ++ ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
-   {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Version = ssl_test_lib:protocol_version(Config, atom),
     BaseOpts = [{active, true}, {versions, [Version]}, {protocol, tls_or_dtls(Version)}],
-    ServerOpts = BaseOpts ++ proplists:get_value(server_rsa_opts, Config, []),
-    ClientOpts = BaseOpts ++ proplists:get_value(client_rsa_opts, Config, []),
+    ServerOpts = BaseOpts ++ ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = BaseOpts ++ ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
     Label = <<"EXPERIMENTAL-otp">>,
 
     Server = ssl_test_lib:start_server(
-                    [return_socket,
-                     {node, ServerNode}, {port, 0}, {from, self()},
-                     {options, ServerOpts}]),
+               [return_socket,
+                {node, ServerNode}, {port, 0}, {from, self()},
+                {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     {_, ClientS} = ssl_test_lib:start_client([return_socket, {node, ClientNode}, {port, Port},
-                                             {host, Hostname}, {from, self()},
-                                             {options, ClientOpts}]),
+                                              {host, Hostname}, {from, self()},
+                                              {options, ClientOpts}]),
 
     Server ! get_socket,
     ServerS = receive
@@ -4009,6 +3990,83 @@ legacy_prf(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
+
+listen_pem_file_failure(Config) when is_list(Config) ->
+    Version = ssl_test_lib:protocol_version(Config, atom),
+    DataDir = proplists:get_value(data_dir, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    Cert = filename:join(DataDir, "cert.pem"),
+    NoCert = filename:join(DataDir, "nocert.pem"),
+    Key = filename:join(DataDir, "enc_key.pem"),
+    NoKey = filename:join(DataDir, "nokey.pem"),
+    BadDH = filename:join(DataDir, "dHParam-invalid.pem"),
+    BaseOpts = [{versions, [Version]}, {protocol, tls_or_dtls(Version)}],
+    NoCACerts = filename:join(DataDir, "nocacerts.pem"),
+    CertAndKey = filename:join(DataDir, "cert_and_key.pem"),
+    {error, {options, {keyfile, {Key, wrong_password}}}} =
+        ssl:listen(0, [{certfile, Cert}, {keyfile, Key}] ++ BaseOpts),
+    {error, {options, {certfile, {Key, no_certs}}}} =
+        ssl:listen(0, [{certfile, Key}, {keyfile, Key}] ++ BaseOpts),
+    {error, {options, {certfile, {NoCert, enoent}}}} =
+        ssl:listen(0, [{certfile, NoCert}, {keyfile, Key}] ++ BaseOpts),
+    {error, {options, {keyfile, {NoKey, enoent}}}} =
+        ssl:listen(0, [{certfile, Cert}, {keyfile, NoKey}] ++ BaseOpts),
+    {error, {options, {keyfile, {Cert, {unexpected_content, _}}}}} =
+        ssl:listen(0, [{certfile, Cert}, {keyfile, Cert}] ++ BaseOpts),
+    {error, {options, {cacertfile, {NoCACerts, enoent}}}} =
+        ssl:listen(0, [{cacertfile, NoCACerts}, lists:keydelete(cacertfile, 1, ServerOpts)] ++ BaseOpts),
+    %% all atom version except for tlsv1.3 version, inclding dtlsv1.2 will compare less than
+    case Version < 'tlsv1.3' of
+        true ->
+            {error,
+             {options,
+              {dhfile,_ }}} =
+                ssl:listen(0, ServerOpts ++ BaseOpts ++ [{dhfile, BadDH}]);
+        _ ->
+            ok
+    end,
+    %% Shall not fail to have both cert and key in same file
+    {ok, L} = ssl:listen(0, [{certfile, CertAndKey}, {keyfile, CertAndKey}] ++ BaseOpts),
+    ssl:close(L).
+
+%%--------------------------------------------------------------------
+same_file_for_key_and_cert() ->
+    ["Test that it works to put entity cert (can be entity cert chain also) and key in same file"].
+
+same_file_for_key_and_cert(Config) when is_list(Config) ->
+    SHA = sha256,
+    #{client_config := ClientOpts0, 
+      server_config := ServerOpts0} = ssl_test_lib:make_cert_chains_der(rsa, [{server_chain,
+                                                                               [[{digest, SHA}],
+                                                                                [{digest, SHA}],
+                                                                                [{digest, SHA}]]},
+                                                                              {client_chain,
+                                                                               [[{digest, SHA}],
+                                                                                [{digest, SHA}],
+                                                                                [{digest, SHA}]]}
+                                                                             ]),
+    ServerCert = proplists:get_value(cert, ServerOpts0),
+    {SKeyType, SKey} = proplists:get_value(key, ServerOpts0),
+    ClientCert = proplists:get_value(cert, ClientOpts0),
+    {CKeyType, CKey} = proplists:get_value(key, ClientOpts0),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    SCertAndKeyFile = filename:join(PrivDir, "server_cert_and_key.pem"),
+    CCertAndKeyFile = filename:join(PrivDir, "client_cert_and_key.pem"),
+    SPemE = [{'Certificate', ServerCert, not_encrypted}, {SKeyType, SKey, not_encrypted}],
+    CPemE = [{'Certificate', ClientCert, not_encrypted}, {CKeyType, CKey, not_encrypted}],
+    ok = file:write_file(SCertAndKeyFile, public_key:pem_encode(SPemE)),
+    ok = file:write_file(CCertAndKeyFile, public_key:pem_encode(CPemE)),
+    ssl_test_lib:basic_test(replace_cerkey_der_with_file(CCertAndKeyFile, ClientOpts0),
+                            replace_cerkey_der_with_file(SCertAndKeyFile, ServerOpts0), Config).
+
+%%--------------------------------------------------------------------
+%% Internal functions
+%%--------------------------------------------------------------------
+
+replace_cerkey_der_with_file(File, Opts0) ->
+    Opts = proplists:delete(key, proplists:delete(cert, Opts0)),
+    [{certfile, File}, {keyfile, File} | Opts].
+
 
 establish_connection(Id, ServerNode, ServerOpts, ClientNode, ClientOpts, Hostname) ->
     Server =
@@ -4036,10 +4094,19 @@ get_connection_information(Socket, ConnectionId, InfoType) ->
     {ConnectionId, ConnectionInfo, secs_since_1970()}.
 secs_since_1970() ->
     calendar:datetime_to_gregorian_seconds(
-        calendar:universal_time()) - 62167219200.
+      calendar:universal_time()) - 62167219200.
 
 connection_information_result(Socket) ->
     {ok, Info = [_ | _]} = ssl:connection_information(Socket),
+    case proplists:get_value(protocol, Info) of
+        'tlsv1.3' ->
+            %% For TLS-1.3 the negotiated key exchange group is exposed
+            {ok, [{selected_group, Group}]} =
+                ssl:connection_information(Socket, [selected_group]),
+            true = lists:member(Group, ssl:groups());
+        _ ->
+            false = proplists:is_defined(selected_group, Info)
+    end,
     case  length(Info) > 3 of
 	true -> 
 	    %% At least one ssl_option() is set
@@ -4075,7 +4142,7 @@ check_srp_in_connection_information(Socket, Username, server) ->
     ?CT_LOG("Info ~p~n", [Info]),
     case proplists:get_value(srp_username, Info, not_found) of
         Username ->
-	        ok;
+            ok;
         not_found ->
             ct:fail(srp_username_not_found)
     end.
@@ -4155,13 +4222,6 @@ tls_close(Socket) ->
             ct:fail(Other)
     end.
 
-run_error_server_close([Pid | Opts]) ->
-    {ok, Listen} = ssl:listen(0, Opts),
-    {ok,{_, Port}} = ssl:sockname(Listen),
-    Pid ! {self(), Port},
-    {ok, Socket} = ssl:transport_accept(Listen),
-    Pid ! ssl:close(Socket).
-
 run_error_server([ Pid | Opts]) ->
     {ok, Listen} = ssl:listen(0, Opts),
     {ok,{_, Port}} = ssl:sockname(Listen),
@@ -4176,7 +4236,7 @@ no_recv_no_active(Socket) ->
     receive
         {ssl_closed, Socket} ->
             ct:fail(received_active_msg)
-    after 5000 ->
+    after 500 ->
             ok
     end.
 
@@ -4201,7 +4261,7 @@ active_n_common(S, N) ->
         {ssl_passive, S} -> ok
     after
         1000 ->
-            error({error,ssl_passive_failure})
+            error({error,ssl_passive_failure, flush()})
     end,
     [{active,false}] = ok(ssl:getopts(S, [active])),
     ok = ssl:setopts(S, [{active,0}]),
@@ -4209,7 +4269,7 @@ active_n_common(S, N) ->
         {ssl_passive, S} -> ok
     after
         1000 ->
-            error({error,ssl_passive_failure})
+            error({error,ssl_passive_failure, flush()})
     end,
     ok = ssl:setopts(S, [{active,32767}]),
     {error,{options,_}} = ssl:setopts(S, [{active,1}]),
@@ -4219,25 +4279,25 @@ active_n_common(S, N) ->
         {ssl_passive, S} -> ok
     after
         1000 ->
-            error({error,ssl_passive_failure})
+            error({error,ssl_passive_failure, flush()})
     end,
     [{active,false}] = ok(ssl:getopts(S, [active])),
     ok = ssl:setopts(S, [{active,N}]),
     ok = ssl:setopts(S, [{active,true}]),
     [{active,true}] = ok(ssl:getopts(S, [active])),
     receive
-        _ -> error({error,active_n})
+        _Msg -> error({error,active_n, _Msg})
     after
-        0 ->
+        100 ->
             ok
     end,
     ok = ssl:setopts(S, [{active,N}]),
     ok = ssl:setopts(S, [{active,once}]),
     [{active,once}] = ok(ssl:getopts(S, [active])),
     receive
-        _ -> error({error,active_n})
+        _Msg2 -> error({error,active_n, _Msg2})
     after
-        0 ->
+        100 ->
             ok
     end,
     {error,{options,_}} = ssl:setopts(S, [{active,32768}]),
@@ -4245,11 +4305,19 @@ active_n_common(S, N) ->
     [{active,false}] = ok(ssl:getopts(S, [active])),
     ok.
 
+flush() ->
+    receive Msg ->
+            [Msg|flush()]
+    after 0 ->
+            []
+    end.
+
+
 ok({ok,V}) -> V.
 
 repeat(N, Fun) ->
     Repeat = fun F(Arg) when is_integer(Arg), Arg > 0 -> Fun(N - Arg), F(Arg - 1);
-                        F(_) -> ok end,
+                 F(_) -> ok end,
     Repeat(N).
 
 
@@ -4295,14 +4363,14 @@ honor_cipher_order(Config, Honor, ServerCiphers, ClientCiphers, Expected) ->
 					{from, self()},
 					{mfa, {?MODULE, connection_info_result, []}},
 					{options, [{ciphers, ServerCiphers}, {honor_cipher_order, Honor}
-						   | ServerOpts]}]),
+                                                  | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
 					{from, self()},
 					{mfa, {?MODULE, connection_info_result, []}},
 					{options, [{ciphers, ClientCiphers}
-						   | ClientOpts]}]),
+                                                  | ClientOpts]}]),
 
     Version = ssl_test_lib:protocol_version(Config),
 
@@ -4340,7 +4408,7 @@ cookie_extension(Config, Cookie) ->
     ssl_test_lib:close(Client).
 
 start_client_negative(Config, Options, Error) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = proplists:delete(versions, ssl_test_lib:ssl_options(client_rsa_opts, Config)),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Port = ssl_test_lib:inet_port(ServerNode),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
@@ -4353,7 +4421,7 @@ start_client_negative(Config, Options, Error) ->
     {connect_failed, Error} = Client.
 
 start_server_negative(Config, Options, Error) ->
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ServerOpts = proplists:delete(versions, ssl_test_lib:ssl_options(server_rsa_opts, Config)),
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 					{from, self()},
@@ -4492,8 +4560,8 @@ selected_peer(ExpectedClient,
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
     %% Make sure to start next test fresh
-    ssl:stop(),
-    ssl:start().
+    ssl:clear_pem_cache(),
+    ok.
 
 test_config('tlsv1.3', _) ->
     #{server_config := SEDDSAOpts,
@@ -4606,12 +4674,12 @@ test_config('dtlsv1.2', Config) ->
     ];
 test_config(_, Config) ->
     RSAConf1 = ssl_test_lib:make_rsa_cert(Config),
-    SRSA1Opts = proplists:get_value(server_rsa_opts, RSAConf1),
-    CRSA1Opts = proplists:get_value(client_rsa_opts, RSAConf1),
+    SRSA1Opts = ssl_test_lib:ssl_options(server_rsa_opts, RSAConf1),
+    CRSA1Opts = ssl_test_lib:ssl_options(client_rsa_opts, RSAConf1),
 
     RSAConf2 = ssl_test_lib:make_rsa_1024_cert(Config),
-    SRSA2Opts = proplists:get_value(server_rsa_1024_opts, RSAConf2),
-    CRSA2Opts = proplists:get_value(client_rsa_1024_opts, RSAConf2),
+    SRSA2Opts = ssl_test_lib:ssl_options(server_rsa_1024_opts, RSAConf2),
+    CRSA2Opts = ssl_test_lib:ssl_options(client_rsa_1024_opts, RSAConf2),
 
     {SRSA1Cert, SRSA1Key, _SRSA1CACerts} = get_single_options(certfile, keyfile, cacertfile, SRSA1Opts),
     {CRSA1Cert, CRSA1Key, _CRSA1CACerts} = get_single_options(certfile, keyfile, cacertfile, CRSA1Opts),
@@ -4699,10 +4767,14 @@ run_sha1_cert_conf('tlsv1.3', #{client_config := ClientOpts, server_config := Se
                eddsa_ed448
               ],
     IncludeLegacyAlg =  SigAlgs ++ [LegacyAlg],
-    ssl_test_lib:basic_alert([{verify, verify_peer}, {signature_algs,  SigAlgs} | ClientOpts],
-                             [{signature_algs,  IncludeLegacyAlg} | ServerOpts], Config, handshake_failure),
-    ssl_test_lib:basic_test([{verify, verify_peer}, {signature_algs,  IncludeLegacyAlg} | ClientOpts],
-                                    [{signature_algs,  IncludeLegacyAlg} | ServerOpts], Config);
+    Extra = case proplists:get_value(transport, Config) of
+                socket -> [{cb_info, tls_socket_tcp:cb_info()}];
+                _ -> []
+            end,
+    ssl_test_lib:basic_alert([{verify, verify_peer}, {signature_algs,  SigAlgs} | ClientOpts ++ Extra],
+                             [{signature_algs,  IncludeLegacyAlg} | ServerOpts ++ Extra], Config, handshake_failure),
+    ssl_test_lib:basic_test([{verify, verify_peer}, {signature_algs,  IncludeLegacyAlg} | ClientOpts ++ Extra],
+                            [{signature_algs,  IncludeLegacyAlg} | ServerOpts ++ Extra], Config);
 
 run_sha1_cert_conf(Version, #{client_config := ClientOpts, server_config := ServerOpts}, Config, LegacyAlg) when Version == 'tlsv1.2';
                                                                                                                  Version == 'dtlsv1.2' ->
@@ -4745,4 +4817,16 @@ suite_check(Socket, Version) ->
             ok;
         Other ->
             ct:fail({expected, Suite, got, Other})
+    end.
+
+ecdsa_cert_check(Socket) ->
+    {ok, Cert} = ssl:peercert(Socket),
+    #'OTPCertificate'{signatureAlgorithm =
+                          #'SignatureAlgorithm'{algorithm = Oid}}
+        = public_key:pkix_decode_cert(Cert, otp),
+    case public_key:pkix_sign_types(Oid) of
+        {_, ecdsa} ->
+            ok;
+        {_, Other} ->
+            ct:fail({expected, ecdsa, got, Other})
     end.

@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2009-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,9 +61,11 @@
 ** 2.16: 24.0 enif_init_resource_type, enif_dynamic_resource_call
 ** 2.17: 26.0 enif_set_option, enif_get_string_length, enif_make_new_atom,
 **            enif_make_new_atom_len, ERL_NIF_UTF8
+** 2.18: 29.0 enif_term_size, enif_get_atom_cache_index,
+**            enif_max_atom_cache_index
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 17
+#define ERL_NIF_MINOR_VERSION 18
 
 /*
  * WHEN CHANGING INTERFACE VERSION, also replace erts version below with
@@ -343,6 +347,7 @@ typedef enum {
 typedef struct {
 #  include "erl_nif_api_funcs.h"
    void* erts_alc_test;
+   const void* erts_internal_test_ptr;
 } TWinDynNifCallbacks;
 extern TWinDynNifCallbacks WinDynNifCallbacks;
 #  undef ERL_NIF_API_FUNC_DECL
@@ -369,27 +374,22 @@ extern void enif_rwlock_destroy(ErlNifRWLock *rwlck);
 extern void enif_thread_opts_destroy(ErlNifThreadOpts *opts);
 extern void enif_ioq_destroy(ErlNifIOQueue *q);
 
-#  define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) extern RET_TYPE NAME ARGS
+#  if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
+#    define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) extern RET_TYPE NAME ARGS
+#  else
+#    define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) ERL_NAPI_EXPORT extern RET_TYPE NAME ARGS
+#  endif
 #  include "erl_nif_api_funcs.h"
-#  undef ERL_NIF_API_FUNC_DECL
 #endif
 
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
 #  define ERL_NIF_INIT_GLOB TWinDynNifCallbacks WinDynNifCallbacks;
 #  define ERL_NIF_INIT_ARGS TWinDynNifCallbacks* callbacks
 #  define ERL_NIF_INIT_BODY memcpy(&WinDynNifCallbacks,callbacks,sizeof(TWinDynNifCallbacks))
-#  define ERL_NIF_INIT_EXPORT __declspec(dllexport)
 #else 
 #  define ERL_NIF_INIT_GLOB
 #  define ERL_NIF_INIT_ARGS void
 #  define ERL_NIF_INIT_BODY
-#  if defined(__GNUC__) && __GNUC__ >= 4
-#    define ERL_NIF_INIT_EXPORT __attribute__ ((visibility("default")))
-#  elif defined (__SUNPRO_C) && (__SUNPRO_C >= 0x550)
-#    define ERL_NIF_INIT_EXPORT __global
-#  else
-#    define ERL_NIF_INIT_EXPORT
-#  endif
 #endif
 
 
@@ -405,7 +405,7 @@ extern void enif_ioq_destroy(ErlNifIOQueue *q);
           ErlNifEntry* ERL_NIF_INIT_NAME(MODNAME)(ERL_NIF_INIT_ARGS)
 #else
 #  define ERL_NIF_INIT_DECL(MODNAME) \
-          ERL_NIF_INIT_EXPORT ErlNifEntry* nif_init(ERL_NIF_INIT_ARGS)
+          ERL_NAPI_EXPORT ErlNifEntry* nif_init(ERL_NIF_INIT_ARGS)
 #endif
 
 
@@ -448,10 +448,11 @@ ERL_NIF_INIT_EPILOGUE
 #endif
 
 #ifdef HAVE_USE_DTRACE
-ERL_NIF_TERM erl_nif_user_trace_s1(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-ERL_NIF_TERM erl_nif_user_trace_i4s4(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-ERL_NIF_TERM erl_nif_user_trace_n(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,erl_nif_user_trace_s1,(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]));
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,erl_nif_user_trace_i4s4,(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]));
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,erl_nif_user_trace_n,(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]));
 #endif
 
-#endif /* __ERL_NIF_H__ */
+#undef ERL_NIF_API_FUNC_DECL
 
+#endif /* __ERL_NIF_H__ */

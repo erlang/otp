@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2013-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,7 +48,7 @@
          is_anonymous/1]).
 
 %% Help functions for tls|dtls*_connection.erl
--export([initial_state/8,
+-export([initial_state/9,
          negotiated_hashsign/4,
          finalize_handshake/3,
          make_premaster_secret/2,
@@ -135,19 +137,28 @@ handle_peer_cert_key(_, _, _, State) ->
 %% Help functions for tls|dtls_connection.erl
 %%====================================================================
 
-initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trackers}, User,
+
+%% Only called by TLS tls_gen_server and tls_gen_client (no dtls)
+initial_state(Role, Sender, Tab, Host, Port, Socket, {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     put(log_level, maps:get(log_level, SSLOptions)),
     %% Use highest supported version for client/server random nonce generation
     #{versions := [Version|_]} = SSLOptions,
     BeastMitigation = maps:get(beast_mitigation, SSLOptions, disabled),
-    ConnectionStates = tls_record:init_connection_states(Role,
-                                                         Version,
-                                                         BeastMitigation),
+    MaxEarlyData =
+        tls_gen_connection_1_3:init_max_early_data_size(Role),
+    ConnectionStates = tls_record:init_connection_states(Role, Version,
+                                                         BeastMitigation, MaxEarlyData),
     #{session_cb := SessionCacheCb} = ssl_config:pre_1_3_session_opts(Role),
     UserMonitor = erlang:monitor(process, User),
+
+    SslSocket = tls_socket:socket([self(),Sender], CbModule, Socket, tls_gen_connection, Tab, Trackers),
+
+    true = ets:insert(Tab, {{socket_options, packet}, SocketOptions#socket_options.packet}),
+
     InitStatEnv = #static_env{
                      role = Role,
+                     user_socket = SslSocket,
                      transport_cb = CbModule,
                      protocol_cb = tls_gen_connection,
                      data_tag = DataTag,
@@ -161,6 +172,7 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
                      trackers = Trackers
                     },
     #state{
+       tab = Tab,
        static_env = InitStatEnv,
        handshake_env = #handshake_env{
                           tls_handshake_history = ssl_handshake:init_handshake_history(),
@@ -179,7 +191,8 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
        protocol_specific = #{sender => Sender,
                              active_n => ssl_config:get_internal_active_n(
                                            maps:get(erl_dist, SSLOptions, false)),
-                             active_n_toggle => true
+                             active_n_toggle => true,
+                             socket_active => 0
                             }
       }.
 
@@ -257,11 +270,11 @@ user_hello({call, From}, cancel, _State) ->
     throw(?ALERT_REC(?FATAL, ?USER_CANCELED, user_canceled));
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{static_env = #static_env{role = Role},
-                  handshake_env = HSEnv,
                   ssl_options = Options0} = State0) ->
-    try ssl:update_options(NewOptions, Role, Options0) of
+    try ssl_config:update_options(NewOptions, Role, Options0) of
         Options ->
-            State = ssl_gen_statem:ssl_config(Options, Role, State0),
+            State = #state{handshake_env = HSEnv} =
+                ssl_gen_statem:ssl_config(Options, Role, State0),
             {next_state, hello,
              State#state{recv = State#state.recv#recv{from = From},
                          handshake_env =
@@ -289,9 +302,9 @@ abbreviated({call, From}, Msg, State) ->
     handle_call(Msg, From, ?STATE(abbreviated), State);
 abbreviated(internal,
 	    #change_cipher_spec{type = <<1>>},
-            #state{static_env = #static_env{protocol_cb = Connection},
-                   connection_states = ConnectionStates0,
-                   handshake_env = HsEnv} = State) ->
+            #state{handshake_env = #handshake_env{expecting_finished = false} = HsEnv,
+                   static_env = #static_env{protocol_cb = Connection},
+                   connection_states = ConnectionStates0} = State) ->
     ConnectionStates1 =
 	ssl_record:activate_pending_connection_state(ConnectionStates0, read, Connection),
     Connection:next_event(?STATE(abbreviated), no_record,
@@ -323,7 +336,7 @@ certify(Type, Event, State) ->
 cipher({call, From}, Msg, State) ->
     handle_call(Msg, From, ?STATE(cipher), State);
 cipher(internal, #change_cipher_spec{type = <<1>>},
-       #state{handshake_env = HsEnv,
+       #state{handshake_env = #handshake_env{expecting_finished = false} = HsEnv,
               static_env = #static_env{protocol_cb = Connection},
               connection_states = ConnectionStates0} = State) ->
     ConnectionStates =

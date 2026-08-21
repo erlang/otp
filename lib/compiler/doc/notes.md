@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +22,800 @@ limitations under the License.
 # Compiler Release Notes
 
 This document describes the changes made to the Compiler application.
+
+## Compiler 10.0.3
+
+### Fixed Bugs and Malfunctions
+
+- compiler: Fix an internal consistency check failure with `setelement`
+
+  Own Id: OTP-20261 Aux Id: [GH-11368], [PR-11374]
+
+[GH-11368]: https://github.com/erlang/otp/issues/11368
+[PR-11374]: https://github.com/erlang/otp/pull/11374
+
+## Compiler 10.0.2
+
+### Fixed Bugs and Malfunctions
+
+- Several compiler bugs that could crash the compiler or generate incorrect code in rare circumstances have been fixed.
+
+  Own Id: OTP-20222 Aux Id: [PR-11219]
+
+[PR-11219]: https://github.com/erlang/otp/pull/11219
+
+## Compiler 10.0.1
+
+### Fixed Bugs and Malfunctions
+
+- In rare circumstances, optimization of boolean expressions could invert the boolean value.
+
+  Own Id: OTP-20140 Aux Id: [GH-11088], [PR-11089]
+
+- The compiler could crash when compiling code using native records in certain ways.
+
+  Own Id: OTP-20146 Aux Id: [PR-11135]
+
+[GH-11088]: https://github.com/erlang/otp/issues/11088
+[PR-11089]: https://github.com/erlang/otp/pull/11089
+[PR-11135]: https://github.com/erlang/otp/pull/11135
+
+## Compiler 10.0
+
+### Fixed Bugs and Malfunctions
+
+- For a function such as the following:
+  
+  ```
+  bar(S0) ->
+      S1 = setelement(8, S0, a),
+      S2 = setelement(7, S1, b),
+      setelement(5, S2, c).
+  ```
+  
+  the compiler would keep all of the calls to `setelement/3` and emit extra unnecessary `set_tuple_element` instructions.
+  
+  This has been corrected so that the compiler will never emit code that uses the `set_tuple_element` instruction. In a future release, support for the `set_tuple_element` will be removed from the runtime system.
+
+  Own Id: OTP-19751 Aux Id: [GH-10125], [PR-10144]
+
+- `beam_lib:strip/1` will now retain the Beam debug information chunk produced by the `beam_debug_info` option. The chunk will also be retained when combing the `beam_debug_info` option with the undocumented `slim` option.
+  
+  The runtime system will no longer crash when attempting to load modules that have been compiled with `beam_debug_info` but lack the actual Beam debug info chunk.
+
+  Own Id: OTP-19991 Aux Id: [GH-10557], [PR-10735]
+
+[GH-10125]: https://github.com/erlang/otp/issues/10125
+[PR-10144]: https://github.com/erlang/otp/pull/10144
+[GH-10557]: https://github.com/erlang/otp/issues/10557
+[PR-10735]: https://github.com/erlang/otp/pull/10735
+
+### Improvements and New Features
+
+- In comprehensions, a generator that builds a list with a single element will now be optimized to avoid building and matching the list. Example:
+  
+  ```
+  [H || E <- List, H <- [erlang:phash2(E)], H rem 10 =:= 0]
+  ```
+
+  Own Id: OTP-19672 Aux Id: [PR-9934]
+
+- In the documentation for the `m:compile` module, a section has been added with recommendations for implementors of languages running on the BEAM. Documentation has also been added for the `to_abstr`, `to_exp`, and `from_abstr` options.
+  
+  The documentation for [erlc](`e:erts:erlc_cmd.md`) now lists `.abstr` as one of the supported options.
+  
+  When compiling with the `to_abstr` option, the resulting `.abstr` file now retains any `-doc` attributes present in the source code.
+
+  Own Id: OTP-19784 Aux Id: [PR-10230], [PR-10234]
+
+- Native records as described in [EEP-79](https://www.erlang.org/eeps/eep-0079) has been implemented.
+  
+  A native record is a data structure similar to the traditional tuple-based records, except that is a true data type.
+  
+  Native records are considered experimental in Erlang/OTP 29 and possibly also in Erlang/OTP 30, meaning that their behavior may change, potentially requiring updates to applications that use them.
+
+  Own Id: OTP-19785 Aux Id: [PR-10617]
+
+- The guard BIF `is_integer/3` has been added. It follows the design of the original EEP-16, only changing the name from `is_between` to `is_integer`. This BIF takes in 3 parameters, `Term`, `LowerBound`, and `UpperBound`.
+  
+  It returns `true` if `Term`, `LowerBound`, and `UpperBound` are all integers, and `LowerBound =< Term =< UpperBound`; otherwise, it returns false.
+  
+  Example:
+  
+  ```erlang
+  1> I = 42.
+  2> is_integer(I, 0, 100).
+  true
+  ```
+
+  Own Id: OTP-19809 Aux Id: [PR-10276]
+
+- Function application is now left associative. That means one can now write:
+  
+  ```
+  f(X)(Y)
+  ```
+  
+  instead of:
+  
+  ```
+  (f(X))(Y)
+  ```
+
+  Own Id: OTP-19866 Aux Id: [PR-9223]
+
+- There will now be a warning when exporting variables out of a subexpression. For example:
+  
+  ```
+  case file:open(File, AllOpts = [write,{encoding,utf8}]) of
+      {ok,Fd} ->
+          {Fd,AllOpts}
+  end
+  ```
+  
+  To avoid the warning, this can be rewritten to:
+  
+  ```
+  AllOpts = [write,{encoding,utf8}],
+  case file:open(File, AllOpts) of
+      {ok,Fd} ->
+          {Fd,AllOpts}
+  end
+  ```
+  
+  The warning can be suppressed by giving option `nowarn_export_var_subexpr` to the compiler.
+
+  Own Id: OTP-19898 Aux Id: [PR-9134]
+
+- There is a new option `warn_obsolete_bool_op` that instruct the compiler to emit warnings for the `and` and `or` operators. It is recommended to instead use the modern `andalso` and `orelse` operators, or `,` and `;` in guards.
+
+  Own Id: OTP-19918 Aux Id: [PR-9115]
+
+- Before Erlang/OTP 29, attempting to bind variables in a comprehension would compile successfully but fail at runtime. Example:
+  
+  ```
+  1> fh(List) -> [H || E <- List, H = erlang:phash2(E), H rem 10 =:= 0].
+  ok
+  2> fh(lists:seq(1, 10)).
+  * exception error: bad filter 2614250
+  ```
+  
+  In Erlang/OTP 29, attempting to bind a variable in a comprehension will fail by default:
+  
+  ```
+  1> fh(List) -> [H || E <- List, H = erlang:phash2(E), H rem 10 =:= 0].
+  * 5:14: matches using '=' are not allowed in comprehension qualifiers
+  unless the experimental 'compr_assign' language feature is enabled.
+  With 'compr_assign' enabled, a match 'P = E' will behave as a
+  strict generator 'P <-:- [E]'."
+  ```
+  
+  However, this example will work as expected if the `compr_assign` feature is enabled when starting the runtime system:
+  
+  ```
+  $ erl -enable-feature compr_assign
+  . . .
+  1> fh(List) -> [H || E <- List, H = erlang:phash2(E), H rem 10 =:= 0].
+  ok
+  2> fh(lists:seq(1, 10)).
+  [2614250]
+  ```
+  Here is another example how `compr_assign` can be used:
+  
+  ```
+  -module(example).
+  -feature(compr_assign, enable).
+  -export([cat/1]).
+  
+  cat(Files) ->
+      [Char || F <- Files,
+               {ok, Bin} = file:read_file(F),
+               Char <- unicode:characters_to_list(Bin)].
+  ```
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19927 Aux Id: [PR-9153]
+
+- There will now be a warning when using the `catch` operator, which has been deprecated for a long time.
+  
+  It is recommended to instead use `try`...`catch`...`end` but is also possible to disable the warning by using the `nowarn_deprecated_catch` option.
+
+  Own Id: OTP-19938 Aux Id: [PR-10421]
+
+- Multi-valued comprehensions according to [EEP 78](https://www.erlang.org/eeps/eep-0078) has been implemented.
+  
+  Example:
+  
+  ```erlang
+  > [I, -I || I <- lists:seq(1, 5)].
+  [1,-1,2,-2,3,-3,4,-4,5,-5]
+  ```
+
+  Own Id: OTP-19942 Aux Id: [PR-9374]
+
+- There will now be a warning for matches that unify constructors, such as the following:
+  
+  ```
+  m({a,B} = {Y,Z}) -> . . .
+  ```
+  
+  Such a match can be rewritten to:
+  
+  ```
+  m({a=Y,B=Y}) -> . . .
+  ```
+  
+  The compiler option `nowarn_match_alias_pats` can be used to disable the warning.
+
+  Own Id: OTP-19943 Aux Id: [PR-10433]
+
+- The compiler now generates more efficient code for map comprehensions with constant values that don't depend on the generator, such as the following:
+  
+  ```
+  #{K => 42} || K <- List}.
+  #{K => X || K <- List}.
+  #{K => {X, Y} || K <- List}.
+  ```
+
+  Own Id: OTP-19968 Aux Id: [PR-10646]
+
+- Compilation times of modules with a huge number of calls to `element/2` has been improved.
+
+  Own Id: OTP-20020 Aux Id: [GH-10807], [PR-10819]
+
+- The format of the debug information stored by the `beam_debug_info` option (used by the [edb debugger](https://github.com/WhatsApp/edb)) has been updated to more easily extendible and to contain more information about call targets. (See the linked PR for more details.)
+
+  Own Id: OTP-20048 Aux Id: [PR-9814]
+
+- Added support for `-unsafe` attributes, which is used to mark functions as unsafe to use. 
+  
+  This is similar to but separate from deprecation, and the compiler will by default now generate warnings for calls to functions in Erlang/OTP that are known to be always unsafe.
+  
+  Furthermore, `m:xref` can now be used to find calls to functions in another application that lack a `-doc` attribute (`undocumented_function_calls`), calls to functions in another application marked `-doc false.` (`private_function_calls`), as well as calls to unsafe functions (`unsafe_function_calls`).
+
+  Own Id: OTP-20066 Aux Id: [PR-10839]
+
+[PR-9934]: https://github.com/erlang/otp/pull/9934
+[PR-10230]: https://github.com/erlang/otp/pull/10230
+[PR-10234]: https://github.com/erlang/otp/pull/10234
+[PR-10617]: https://github.com/erlang/otp/pull/10617
+[PR-10276]: https://github.com/erlang/otp/pull/10276
+[PR-9223]: https://github.com/erlang/otp/pull/9223
+[PR-9134]: https://github.com/erlang/otp/pull/9134
+[PR-9115]: https://github.com/erlang/otp/pull/9115
+[PR-9153]: https://github.com/erlang/otp/pull/9153
+[PR-10421]: https://github.com/erlang/otp/pull/10421
+[PR-9374]: https://github.com/erlang/otp/pull/9374
+[PR-10433]: https://github.com/erlang/otp/pull/10433
+[PR-10646]: https://github.com/erlang/otp/pull/10646
+[GH-10807]: https://github.com/erlang/otp/issues/10807
+[PR-10819]: https://github.com/erlang/otp/pull/10819
+[PR-9814]: https://github.com/erlang/otp/pull/9814
+[PR-10839]: https://github.com/erlang/otp/pull/10839
+
+## Compiler 9.0.6.1
+
+### Fixed Bugs and Malfunctions
+
+- In rare circumstances, optimization of boolean expressions could invert the boolean value.
+
+  Own Id: OTP-20140 Aux Id: [GH-11088], [PR-11089]
+
+[GH-11088]: https://github.com/erlang/otp/issues/11088
+[PR-11089]: https://github.com/erlang/otp/pull/11089
+
+## Compiler 9.0.6
+
+### Fixed Bugs and Malfunctions
+
+- The type inference for `maps:from_list/1` was incorrect: when the provided list was statically known to be bogus when non-empty (e.g. a list of atoms), the compiler assumed it would also fail when the list was empty.
+
+  Own Id: OTP-19506 Aux Id: [GH-9476], [PR-9481]
+
+- Fixed a bug in the type analysis pass that could erroneously eliminate code blocks.
+
+  Own Id: OTP-19931 Aux Id: [GH-10562], [PR-10569]
+
+- A binary as the value of a `-moduledoc()` attribute would be silently ignored.
+
+  Own Id: OTP-20065 Aux Id: [GH-10901], [PR-10904]
+
+[GH-9476]: https://github.com/erlang/otp/issues/9476
+[PR-9481]: https://github.com/erlang/otp/pull/9481
+[GH-10562]: https://github.com/erlang/otp/issues/10562
+[PR-10569]: https://github.com/erlang/otp/pull/10569
+[GH-10901]: https://github.com/erlang/otp/issues/10901
+[PR-10904]: https://github.com/erlang/otp/pull/10904
+
+## Compiler 9.0.5
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a compiler alias analysis bug that could generate unsafe code for repeated binary segments.
+
+  Own Id: OTP-19951 Aux Id: [PR-10588]
+
+[PR-10588]: https://github.com/erlang/otp/pull/10588
+
+## Compiler 9.0.4
+
+### Fixed Bugs and Malfunctions
+
+- For some function heads or `case` expressions with a huge number of clauses, the compiler could spend an inordinate amount of time compiling the code.
+
+  Own Id: OTP-19797 Aux Id: [PR-10252]
+
+- Passing a type for a fun as a macro argument would result in a "badly formed argument" error message from the compiler. Example:
+  
+  ```
+  -module(test).
+  -define(FOO(X), X).
+  -type foo() :: ?FOO(fun(() -> ok)).
+  ```
+  
+  Compiling this module would result in the following error message:
+  
+  ```
+  test.erl:3:17: badly formed argument for macro 'FOO'
+  %    5| -type foo() :: ?FOO(fun(() -> ok)).
+  %
+  ```
+
+  Own Id: OTP-19821 Aux Id: [GH-10280], [PR-10309]
+
+- In certain edge cases, the compiler could emit code that would do an unsafe destructive update of a tuple. This has been corrected.
+
+  Own Id: OTP-19879 Aux Id: [GH-10367], [PR-10435]
+
+[PR-10252]: https://github.com/erlang/otp/pull/10252
+[GH-10280]: https://github.com/erlang/otp/issues/10280
+[PR-10309]: https://github.com/erlang/otp/pull/10309
+[GH-10367]: https://github.com/erlang/otp/issues/10367
+[PR-10435]: https://github.com/erlang/otp/pull/10435
+
+### Improvements and New Features
+
+- The compiler option `beam_debug_stack` combined with `beam_debug_info` will attempt to make as many variables as possible visible in the debugger. The option has no effect if given without `beam_debug_info`.
+
+  Own Id: OTP-19854 Aux Id: [PR-10374]
+
+[PR-10374]: https://github.com/erlang/otp/pull/10374
+
+## Compiler 9.0.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed broken type inference for lists:mapfoldl/r.
+
+  Own Id: OTP-19845 Aux Id: [GH-10354], [PR-10358]
+
+[GH-10354]: https://github.com/erlang/otp/issues/10354
+[PR-10358]: https://github.com/erlang/otp/pull/10358
+
+## Compiler 9.0.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a compiler crash caused by patch order in destructive update.
+
+  Own Id: OTP-19660 Aux Id: [GH-9903], [PR-9909]
+
+- Fixed a compiler crash in `beam_ssa_pre_codegen` caused by wrong handling of multiple phi patches in the destructive update pass.
+
+  Own Id: OTP-19689 Aux Id: [GH-9987], [PR-9990]
+
+- Fixed a crash when a zip generator contains a map pattern.
+
+  Own Id: OTP-19693 Aux Id: [PR-10009], [GH-10002]
+
+- In rare circumstances, the compiler could crash when compiling code using bit syntax construction.
+
+  Own Id: OTP-19722 Aux Id: [GH-10077], [PR-10090]
+
+- A few minor bugs that could affect the `beam_debug_info` option were fixed.
+
+  Own Id: OTP-19758 Aux Id: [PR-10153]
+
+[GH-9903]: https://github.com/erlang/otp/issues/9903
+[PR-9909]: https://github.com/erlang/otp/pull/9909
+[GH-9987]: https://github.com/erlang/otp/issues/9987
+[PR-9990]: https://github.com/erlang/otp/pull/9990
+[PR-10009]: https://github.com/erlang/otp/pull/10009
+[GH-10002]: https://github.com/erlang/otp/issues/10002
+[GH-10077]: https://github.com/erlang/otp/issues/10077
+[PR-10090]: https://github.com/erlang/otp/pull/10090
+[PR-10153]: https://github.com/erlang/otp/pull/10153
+
+## Compiler 9.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug that could cause empty bitstring matches to always succeed, even when they should not.
+
+  Own Id: OTP-19711 Aux Id: [GH-10047], [PR-10048]
+
+[GH-10047]: https://github.com/erlang/otp/issues/10047
+[PR-10048]: https://github.com/erlang/otp/pull/10048
+
+## Compiler 9.0
+
+### Fixed Bugs and Malfunctions
+
+- The compiler will now emit warnings when some map patterns cannot possibly match because a previous clauses matches the same pattern. For example:
+  
+  ```erlang
+  mm_1(#{}) -> a;
+  mm_1(#{b := B}) -> {b,B}.
+  
+  mm_2(#{a := A}) -> {a,A};
+  mm_2(#{a := A, b := B}) -> {b,A,B}.
+  ```
+  
+  The second clause of these function can never match and the compiler will now emit a warning for both of them.
+  
+  Note that the compiler is not guaranteed to emit warnings for every possible map pattern that cannot match.
+
+  Own Id: OTP-19141 Aux Id: [GH-8558], [PR-8600]
+
+- The size of an atom in the Erlang source code was limited to 255 bytes in previous releases, meaning that an atom containing only emojis could contain only 63 emojis.
+  
+  While atoms are still only allowed to contain 255 characters, the number of bytes is no longer limited.
+  
+  External tools that parse the `AtU8` chunk of a BEAM file directly need to be updated. Tools that use [`beam_lib:chunks(Beam, [atoms])`](`beam_lib:chunks/2`) to read the atom table will continue to work.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19285 Aux Id: [PR-8913]
+
+- The literals chunk in BEAM is no longer compressed, resulting in slightly smaller BEAM files when a BEAM file is stripped using `beam_lib:strip_files/1`.
+  
+  This is a potential incompatibility for tools that read and interpret the contents of the literal chunk. One way to update such tools to work with the new format is to retrieve the chunk using [`beam_lib:chunks(Beam, [literals])`](`beam_lib:chunks/2`).
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19323 Aux Id: [GH-8967], [PR-8988]
+
+- The final validation step in the compiler will now reject modules containing functions with more than 255 arguments. No impact is expected as the emulator has always refused to load these modules.
+
+  Own Id: OTP-19376 Aux Id: [GH-9113], [PR-9121]
+
+- Replaced calls to deprecated `crypto:start()` with `application:start(crypto)`.
+
+  Own Id: OTP-19485 Aux Id: [PR-8592]
+
+- Refactor code to not rely on `+nowarn_shadow_vars`.
+
+  Own Id: OTP-19574 Aux Id: [PR-9678]
+
+[GH-8558]: https://github.com/erlang/otp/issues/8558
+[PR-8600]: https://github.com/erlang/otp/pull/8600
+[PR-8913]: https://github.com/erlang/otp/pull/8913
+[GH-8967]: https://github.com/erlang/otp/issues/8967
+[PR-8988]: https://github.com/erlang/otp/pull/8988
+[GH-9113]: https://github.com/erlang/otp/issues/9113
+[PR-9121]: https://github.com/erlang/otp/pull/9121
+[PR-8592]: https://github.com/erlang/otp/pull/8592
+[PR-9678]: https://github.com/erlang/otp/pull/9678
+
+### Improvements and New Features
+
+- The EEP-48 doc chunk embedded into `.beam` files by the compiler is now `compressed` and `deterministic`.
+
+  Own Id: OTP-19096 Aux Id: [PR-8494]
+
+- Provided that the map argument for a `maps:put/3` call is known to the compiler to be a map, the compiler will replace such calls with the corresponding update using the map syntax.
+
+  Own Id: OTP-19115 Aux Id: [PR-8540]
+
+- For various error types, the compiler now tries to suggest potential fixes by adding "did you mean ...?" at the end of error messages.
+  
+  When a function is used with wrong arity, the compiler will try to suggest a defined function with the same name but a different arity. For example, given the following module:
+  
+  ````
+  -module(typos).
+  -export([t/0]).
+  bar(A) -> A.
+  bar(A,A,A) -> A.
+  bar(A,A,A,A) -> A.
+  t() -> bar(0, 0).
+  ````
+  
+  The compiler will emit the following message:
+  
+  ````
+  typo.erl:6:12: function bar/2 undefined, did you mean bar/1,3,4?
+  %   6|     t() -> bar(0, 0).
+  %    |            ^
+  ````
+  
+  For compiler errors that can easily be caused by typos, the compiler will try to suggest what the correct variable or function name, could be. For example, given the following module:
+  
+  ```
+  -module(typos).
+  -export([bar/2]).
+  
+  bar(A0, B0) ->
+      A + B.
+  ```
+  the compiler will emit the following error messages:
+  
+  ```
+  typos.erl:5:5: variable 'A' is unbound, did you mean 'A0'?
+  %    5|     A + B.
+  %     |     ^
+  
+  typos.erl:5:9: variable 'B' is unbound, did you mean 'B0'?
+  %    5|     A + B.
+  %     |         ^
+  ```
+  
+  Error types that now suggest correct arities: `bad_inline`, `undefined_nif`, `bad_nowarn_unused_function`, `bad_nowarn_bif_clash`, `undefined_function`.
+  
+  Error types that now suggest correct names: `bad_inline`, `undefined_nif`, `bad_nowarn_unused_function`, `undefined_on_load`, `undefined_function`, `undefined_record`, `undefined_field`, `unbound_var`.
+  
+  Using a function with wrong arity has higher precedence than having a typo in the function name. If the compiler can find a defined function with the same name but a different arity, it will not suggest a defined function with a close-enough name, regardless of arity.
+
+  Own Id: OTP-19180 Aux Id: [PR-8699], [PR-9094]
+
+- Comprehensions have been extended with zip generators  according to [EEP 73](https://www.erlang.org/eeps/eep-0073). 
+  
+  Example:
+  
+  ```
+  1> [A+B || A <- [1,2,3] && B <- [4,5,6]].
+  [5,7,9]
+  ```
+
+  Own Id: OTP-19184 Aux Id: [PR-8926]
+
+- Documentation chunks (EEP-48) has been updated to include the following reserved metadata fields: `behaviours`, `group`, `source_path`, and `source_annos`. The compiler has also been updated to emit this metadata. See the [EEP-48 documentation](`e:kernel:eep48_chapter.md`) for more details.
+
+  Own Id: OTP-19306 Aux Id: [PR-8945], [PR-8975]
+
+- New strict generators have been added for comprehensions.
+  
+  The currently existing generators are "relaxed": they ignore terms in the
+  right-hand side expression that do not match the left-hand side pattern.
+  
+  The new strict generators fail with exception `badmatch` if a pattern doesn't match.
+  
+  Examples:
+  
+  Using the current relaxed generator operator `<-`, any element not matching
+  the pattern `{_,_}` will be silently discarded:
+  
+  ```
+  1> [T || {_,_}=T <- [{ok,1},ok,{error,2}]].
+  [{ok,1},{error,2}]
+  ```
+  If the intention is that all lists processed by a list comprehension must only
+  contain tuples of size two, using the new strict version of the operator ensures
+  that term not matching will cause a crash:
+  
+  ```
+  2> [T || {_,_}=T <:- [{ok,1},ok,{error,2}]].
+  ** exception error: no match of right hand side value ok
+  ```
+  Using the strict generator operator to mark the intention that all list elements must match the pattern could help finding mistakes quicker if something unpexected is added to the list processed by the generator.
+  
+  The strict version for bitstring generators is `<:=`.
+
+  Own Id: OTP-19317 Aux Id: [PR-8625]
+
+- New options for suppressing behaviour warnings have been added:
+  
+  * `nowarn_conflicting_behaviours`
+  * `nowarn_undefined_behaviour_func`
+  * `nowarn_undefined_behaviour`
+  * `nowarn_undefined_behaviour_callbacks`
+  * `nowarn_ill_defined_behaviour_callbacks`
+  * `nowarn_ill_defined_optional_callbacks`
+
+  Own Id: OTP-19334 Aux Id: [GH-8985], [PR-9020]
+
+- Some BIFs with side-effects are optimized in `try`/`catch` in the same way as guard BIFs in order to gain performance.
+  
+  The following BIFs that are optimized in this way: `binary_to_atom/1`,
+  `binary_to_atom/2`, `binary_to_existing_atom/1`, `list_to_atom/1`, and
+  `list_to_existing_atom/1`.
+
+  Own Id: OTP-19339 Aux Id: [PR-9042], [PR-9122]
+
+- The compiler now converts known documentation attribute metadata entries from `t:unicode:chardata/0` to `t:unicode:unicode_binary/0`.
+
+  Own Id: OTP-19394 Aux Id: [PR-9192]
+
+- The `warn_deprecated_catch` option enables warnings for use of old-style catch expressions on the form `catch Expr` instead of the modern `try ... catch ... end`. To prevent new uses of uses of old catches to be added, this compiler option can be enabled on the project level and `-compile(nowarn_deprecated_catch).` added to individual files that still contain old catches.
+
+  Own Id: OTP-19425 Aux Id: [PR-9154]
+
+- Defining a fun in terms of an imported function is not allowed. Before this release, the compiler would not catch this kind of error if the name of the imported function happened to be a BIF.  Consider this example:
+  
+  ```
+  -module(fun_example).
+  -export([foo/0, bar/0]).
+  -import(m, [max/2, not_a_bif/0]).
+  
+  foo() ->
+      fun max/2.
+  
+  bar() ->
+      fun not_a_bif/0.
+  ```
+  
+  The compiler in Erlang/OTP 27 would generate the following messages:
+  
+  ```text
+  fun_example.erl:9:5: function not_a_bif/0 undefined
+  %    9|     fun not_a_bif/0.
+  %     |     ^
+  
+  fun_example.erl:3:2: Warning: import directive overrides auto-imported BIF max/2 --
+  use "-compile({no_auto_import,[max/2]})." to resolve name clash
+  %    3| -import(m, [max/2, not_a_bif/0]).
+  %     |  ^
+  ```
+  
+  That is, there would be a (cryptic) error for `fun not_a_bif/0`, but only a warning for `fun max/2`.
+  
+  When compiling with this release, both attempts to create a fun will result in error messages (as well as a warning):
+  
+  ```text
+  fun_example.erl:6:5: creating a fun from imported name max/2 is not allowed
+  %    6|     fun max/2.
+  %     |     ^
+  
+  fun_example.erl:9:5: creating a fun from imported name not_a_bif/0 is not allowed
+  %    9|     fun not_a_bif/0.
+  %     |     ^
+  
+  fun_example.erl:3:2: Warning: import directive overrides auto-imported BIF max/2 --
+  use "-compile({no_auto_import,[max/2]})." to resolve name clash
+  %    3| -import(m, [max/2, not_a_bif/0]).
+  %     |  ^
+  ```
+  
+  Also, attempting to call a local function having the same name as auto-imported BIF would result in an error if the BIF was added to Erlang/OTP before R14, and a warning for newer BIFs. This has been changed to always emit a warning. For example:
+  
+  ```
+  -module(bif_example).
+  -export([bar/1]).
+  
+  bar(B) ->
+      is_boolean(B).
+  
+  is_boolean(B) ->
+          B =:= true orelse B =:= false.
+  ```
+  will now result in the following warning instead of an error:
+  
+  ```text
+  if_example.erl:5:5: Warning: ambiguous call of overridden auto-imported BIF is_boolean/1 --
+  use erlang:is_boolean/1 or "-compile({no_auto_import,[is_boolean/1]})." to resolve name clash
+  %    5|     is_boolean(B).
+  %     |     ^
+  ```
+
+  Own Id: OTP-19432 Aux Id: [PR-9246]
+
+- The compiler’s alias analysis pass is now both faster and less conservative, allowing optimizations of records and binary construction to be applied in more cases.
+
+  Own Id: OTP-19502 Aux Id: [PR-8695]
+
+- BEAM files no longer include a `Meta` chunk if there are no features used. That slightly decreases the size of BEAM files, and it also ensures that `m(Module)` and `beam_lib:md5(Beam)` will match for preloaded modules.
+
+  Own Id: OTP-19524 Aux Id: [PR-9517]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+- An  **experimental** API for a native debugger has been added. The main components are the following:
+  
+  * A new compiler option `beam_debug_info` for the Erlang compiler. When given, most optimizations are disabled and debug information suitable for the native debugger are added to generated BEAM files.
+  
+  * A new `+D` emulator flag. When given, the VM becomes "debuggable", which means that when modules that been compiled with the `beam_debug_info` option are loaded, the code is instrumented so that one can enable and disable breakpoints on executable lines.
+  
+  * An experimental `erl_debugger` module with a new debugging API. Essentially, it allows a single, local, process to be registered as the "debugger" process for the node. This process is the one that will receive messages notifying that a process hit a breakpoint. This way, the front-end implementation of a debugger (such as [edb from WhatApp](https://github.com/WhatsApp/edb)) can be decoupled from OTP.
+  
+  * The `erl_debugger` module also exposes new BIFs to inspect `X` and `Y` registers of a suspended process. Together with new code-information BIFs, this let's a debugger show the values of variables in scope for a suspended process.
+
+  Own Id: OTP-19609 Aux Id: [PR-8670], [PR-9334], [PR-9604]
+
+[PR-8494]: https://github.com/erlang/otp/pull/8494
+[PR-8540]: https://github.com/erlang/otp/pull/8540
+[PR-8699]: https://github.com/erlang/otp/pull/8699
+[PR-9094]: https://github.com/erlang/otp/pull/9094
+[PR-8926]: https://github.com/erlang/otp/pull/8926
+[PR-8945]: https://github.com/erlang/otp/pull/8945
+[PR-8975]: https://github.com/erlang/otp/pull/8975
+[PR-8625]: https://github.com/erlang/otp/pull/8625
+[GH-8985]: https://github.com/erlang/otp/issues/8985
+[PR-9020]: https://github.com/erlang/otp/pull/9020
+[PR-9042]: https://github.com/erlang/otp/pull/9042
+[PR-9122]: https://github.com/erlang/otp/pull/9122
+[PR-9192]: https://github.com/erlang/otp/pull/9192
+[PR-9154]: https://github.com/erlang/otp/pull/9154
+[PR-9246]: https://github.com/erlang/otp/pull/9246
+[PR-8695]: https://github.com/erlang/otp/pull/8695
+[PR-9517]: https://github.com/erlang/otp/pull/9517
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+[PR-8670]: https://github.com/erlang/otp/pull/8670
+[PR-9334]: https://github.com/erlang/otp/pull/9334
+[PR-9604]: https://github.com/erlang/otp/pull/9604
+
+## Compiler 8.6.1.5
+
+### Fixed Bugs and Malfunctions
+
+- In rare circumstances, optimization of boolean expressions could invert the boolean value.
+
+  Own Id: OTP-20140 Aux Id: [GH-11088], [PR-11089]
+
+[GH-11088]: https://github.com/erlang/otp/issues/11088
+[PR-11089]: https://github.com/erlang/otp/pull/11089
+
+## Compiler 8.6.1.4
+
+### Fixed Bugs and Malfunctions
+
+- The type inference for `maps:from_list/1` was incorrect: when the provided list was statically known to be bogus when non-empty (e.g. a list of atoms), the compiler assumed it would also fail when the list was empty.
+
+  Own Id: OTP-19506 Aux Id: [GH-9476], [PR-9481]
+
+- Fixed a bug in the type analysis pass that could erroneously eliminate code blocks.
+
+  Own Id: OTP-19931 Aux Id: [GH-10562], [PR-10569]
+
+- A binary as the value of a `-moduledoc()` attribute would be silently ignored.
+
+  Own Id: OTP-20065 Aux Id: [GH-10901], [PR-10904]
+
+[GH-9476]: https://github.com/erlang/otp/issues/9476
+[PR-9481]: https://github.com/erlang/otp/pull/9481
+[GH-10562]: https://github.com/erlang/otp/issues/10562
+[PR-10569]: https://github.com/erlang/otp/pull/10569
+[GH-10901]: https://github.com/erlang/otp/issues/10901
+[PR-10904]: https://github.com/erlang/otp/pull/10904
+
+## Compiler 8.6.1.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed broken type inference for lists:mapfoldl/r.
+
+  Own Id: OTP-19845 Aux Id: [GH-10354], [PR-10358]
+
+- Fix a compiler alias analysis bug that can generate unsafe code for repeated binary segments.
+
+  Own Id: OTP-19951 Aux Id: [PR-10588]
+
+[GH-10354]: https://github.com/erlang/otp/issues/10354
+[PR-10358]: https://github.com/erlang/otp/pull/10358
+[PR-10588]: https://github.com/erlang/otp/pull/10588
+
+## Compiler 8.6.1.2
+
+### Fixed Bugs and Malfunctions
+
+- In rare circumstances, the compiler could crash when compiling code using bit syntax construction.
+
+  Own Id: OTP-19722 Aux Id: [GH-10077], [PR-10090]
+
+[GH-10077]: https://github.com/erlang/otp/issues/10077
+[PR-10090]: https://github.com/erlang/otp/pull/10090
+
+## Compiler 8.6.1.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug that could cause empty bitstring matches to always succeed, even when they should not.
+
+  Own Id: OTP-19711 Aux Id: [GH-10047], [PR-10048]
+
+[GH-10047]: https://github.com/erlang/otp/issues/10047
+[PR-10048]: https://github.com/erlang/otp/pull/10048
 
 ## Compiler 8.6.1
 
@@ -384,6 +1180,22 @@ This document describes the changes made to the Compiler application.
 [PR-8093]: https://github.com/erlang/otp/pull/8093
 [PR-8090]: https://github.com/erlang/otp/pull/8090
 [PR-8205]: https://github.com/erlang/otp/pull/8205
+
+## Compiler 8.4.3.4
+
+### Fixed Bugs and Malfunctions
+
+* Fixed broken type inference for lists:mapfoldl/r.
+
+  Own Id: OTP-19845 Aux Id: GH-10354, PR-10358
+
+## Compiler 8.4.3.3
+
+### Fixed Bugs and Malfunctions
+
+* Fix a bug where unloaded nifs can crash the compiler.
+
+  Own Id: OTP-19600 Aux Id: PR-9737, GH-9715
 
 ## Compiler 8.4.3.2
 

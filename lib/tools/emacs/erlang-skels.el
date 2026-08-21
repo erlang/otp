@@ -1,7 +1,10 @@
-;;
+;;; erlang-skels.el   -*- lexical-binding: t; -*-
+
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 2010-2024. All Rights Reserved.
+;; SPDX-License-Identifier: Apache-2.0
+;;
+;; Copyright Ericsson AB 2010-2025. All Rights Reserved.
 ;;
 ;; Licensed under the Apache License, Version 2.0 (the "License");
 ;; you may not use this file except in compliance with the License.
@@ -16,9 +19,14 @@
 ;; limitations under the License.
 ;;
 ;; %CopyrightEnd%
+
 ;;;
 ;;; Purpose: Provide Erlang code skeletons.
 ;;; See 'erlang-skel-file' variable.
+
+;; (eval-when-compile
+;;   (let ((erlang-skels-loading-for-compilation t))
+;;     (load "erlang")))
 
 (defvar erlang-tempo-tags nil
   "Tempo tags for erlang mode")
@@ -48,14 +56,10 @@
      erlang-skel-application erlang-skel-header)
     ("Supervisor" "supervisor"
      erlang-skel-supervisor erlang-skel-header)
-    ("supervisor_bridge" "supervisor-bridge"
-     erlang-skel-supervisor-bridge erlang-skel-header)
     ("gen_server" "generic-server"
      erlang-skel-generic-server erlang-skel-header)
     ("gen_event" "gen-event"
      erlang-skel-gen-event erlang-skel-header)
-    ("gen_fsm" "gen-fsm"
-     erlang-skel-gen-fsm erlang-skel-header)
     ("gen_statem (StateName/3)" "gen-statem-StateName"
      erlang-skel-gen-statem-StateName erlang-skel-header)
     ("gen_statem (handle_event/4)" "gen-statem-handle-event"
@@ -64,16 +68,12 @@
      erlang-skel-wx-object erlang-skel-header)
     ("Library module" "gen-lib"
      erlang-skel-lib erlang-skel-header)
-    ("Corba callback" "gen-corba-cb"
-     erlang-skel-corba-callback erlang-skel-header)
     ("Small Common Test suite" "ct-test-suite-s"
      erlang-skel-ct-test-suite-s erlang-skel-header)
     ("Large Common Test suite" "ct-test-suite-l"
      erlang-skel-ct-test-suite-l erlang-skel-header)
     ("Common Test Hook" "ct-hook"
      erlang-skel-ct-hook erlang-skel-header)
-    ("Erlang TS test suite" "ts-test-suite"
-     erlang-skel-ts-test-suite erlang-skel-header)
   )
   "*Description of all skeleton templates.
 Both functions and menu entries will be created.
@@ -430,76 +430,6 @@ Please see the function `tempo-define-template'.")
   "*The template of a supervisor behaviour.
 Please see the function `tempo-define-template'.")
 
-(defvar erlang-skel-supervisor-bridge
-  '((erlang-skel-include erlang-skel-large-header)
-    "-behaviour(supervisor_bridge)." n n
-
-    "%% API" n
-    "-export([start_link/0])." n n
-
-    "%% supervisor_bridge callbacks" n
-    "-export([init/1, terminate/2])." n n
-
-    "-define(SERVER, ?MODULE)." n n
-
-    "-record(state, {})." n n
-
-    (erlang-skel-double-separator-start 3)
-    "%%% API" n
-    (erlang-skel-double-separator-end 3) n
-    (erlang-skel-separator-start 2)
-    "%% @doc" n
-    "%% Starts the supervisor bridge" n
-    (erlang-skel-separator-end 2)
-    "-spec start_link() -> {ok, Pid :: pid()} |" n>
-    "{error, {already_started, Pid :: pid()}} |" n>
-    "{error, term()} |" n>
-    "ignore." n
-    "start_link() ->" n>
-    "supervisor_bridge:start_link({local, ?SERVER}, ?MODULE, [])." n
-    n
-    (erlang-skel-double-separator-start 3)
-    "%%% supervisor_bridge callbacks" n
-    (erlang-skel-double-separator-end 3) n
-    (erlang-skel-separator-start 2)
-    "%% @private" n
-    "%% @doc" n
-    "%% Creates a supervisor_bridge process, linked to the calling process," n
-    "%% which calls Module:init/1 to start the subsystem. To ensure a" n
-    "%% synchronized start-up procedure, this function does not return" n
-    "%% until Module:init/1 has returned." n
-    (erlang-skel-separator-end 2)
-    "-spec init(Args :: term()) -> {ok, Pid :: pid(), State :: term()} |" n>
-    "{error, Error :: term()} |" n>
-    "ignore." n
-    "init([]) ->" n>
-    "case 'AModule':start_link() of" n>
-    "{ok, Pid} ->" n>
-    "{ok, Pid, #state{}};" n>
-    "Error ->" n>
-    "Error" n
-    "end." > n
-    n
-    (erlang-skel-separator-start 2)
-    "%% @private" n
-    "%% @doc" n
-    "%% This function is called by the supervisor_bridge when it is about" n
-    "%% to terminate. It should be the opposite of Module:init/1 and stop" n
-    "%% the subsystem and do any necessary cleaning up.The return value is" n
-    "%% ignored." n
-    (erlang-skel-separator-end 2)
-    "-spec terminate(Reason :: shutdown | term(), State :: term()) -> any()." n
-    "terminate(_Reason, _State) ->" n>
-    "'AModule':stop()," n>
-    "ok." n
-    n
-    (erlang-skel-double-separator-start 3)
-    "%%% Internal functions" n
-    (erlang-skel-double-separator-end 3)
-    )
-  "*The template of a supervisor_bridge behaviour.
-Please see the function `tempo-define-template'.")
-
 (defvar erlang-skel-generic-server
   '((erlang-skel-include erlang-skel-large-header)
     "-behaviour(gen_server)." n n
@@ -780,172 +710,6 @@ Please see the function `tempo-define-template'.")
     (erlang-skel-double-separator-end 3)
     )
   "*The template of a gen_event.
-Please see the function `tempo-define-template'.")
-
-(defvar erlang-skel-gen-fsm
-  '((erlang-skel-include erlang-skel-large-header)
-    "-behaviour(gen_fsm)." n n
-
-    "%% API" n
-    "-export([start_link/0])." n n
-
-    "%% gen_fsm callbacks" n
-    "-export([init/1, state_name/2, state_name/3, handle_event/3," n>
-    "handle_sync_event/4, handle_info/3, terminate/3, code_change/4])." n n
-
-    "-define(SERVER, ?MODULE)." n n
-
-    "-record(state, {})." n n
-
-    (erlang-skel-double-separator-start 3)
-    "%%% API" n
-    (erlang-skel-double-separator-end 3) n
-    (erlang-skel-separator-start 2)
-    "%% @doc" n
-    "%% Creates a gen_fsm process which calls Module:init/1 to" n
-    "%% initialize. To ensure a synchronized start-up procedure, this" n
-    "%% function does not return until Module:init/1 has returned." n
-    "%%" n
-    "%% @spec start_link() -> {ok, Pid} | ignore | {error, Error}" n
-    (erlang-skel-separator-end 2)
-    "start_link() ->" n>
-    "gen_fsm:start_link({local, ?SERVER}, ?MODULE, [], [])." n
-    n
-    (erlang-skel-double-separator-start 3)
-    "%%% gen_fsm callbacks" n
-    (erlang-skel-double-separator-end 3) n
-    (erlang-skel-separator-start 2)
-    "%% @private" n
-    "%% @doc" n
-    "%% Whenever a gen_fsm is started using gen_fsm:start/[3,4] or" n
-    "%% gen_fsm:start_link/[3,4], this function is called by the new" n
-    "%% process to initialize." n
-    "%%" n
-    "%% @spec init(Args) -> {ok, StateName, State} |" n
-    "%%                     {ok, StateName, State, Timeout} |" n
-    "%%                     ignore |" n
-    "%%                     {stop, StopReason}" n
-    (erlang-skel-separator-end 2)
-    "init([]) ->" n>
-    "process_flag(trap_exit, true)," n>
-    "{ok, state_name, #state{}}." n
-    n
-    (erlang-skel-separator-start 2)
-    "%% @private" n
-    "%% @doc" n
-    "%% There should be one instance of this function for each possible" n
-    "%% state name. Whenever a gen_fsm receives an event sent using" n
-    "%% gen_fsm:send_event/2, the instance of this function with the same" n
-    "%% name as the current state name StateName is called to handle" n
-    "%% the event. It is also called if a timeout occurs." n
-    "%%" n
-    "%% @spec state_name(Event, State) ->" n
-    "%%                   {next_state, NextStateName, NextState} |" n
-    "%%                   {next_state, NextStateName, NextState, Timeout} |" n
-    "%%                   {stop, Reason, NewState}" n
-    (erlang-skel-separator-end 2)
-    "state_name(_Event, State) ->" n>
-    "{next_state, state_name, State}." n
-    n
-    (erlang-skel-separator-start 2)
-    "%% @private" n
-    "%% @doc" n
-    "%% There should be one instance of this function for each possible" n
-    "%% state name. Whenever a gen_fsm receives an event sent using" n
-    "%% gen_fsm:sync_send_event/[2,3], the instance of this function with" n
-    "%% the same name as the current state name StateName is called to" n
-    "%% handle the event." n
-    "%%" n
-    "%% @spec state_name(Event, From, State) ->" n
-    "%%                   {next_state, NextStateName, NextState} |"n
-    "%%                   {next_state, NextStateName, NextState, Timeout} |" n
-    "%%                   {reply, Reply, NextStateName, NextState} |" n
-    "%%                   {reply, Reply, NextStateName, NextState, Timeout} |" n
-    "%%                   {stop, Reason, NewState} |" n
-    "%%                   {stop, Reason, Reply, NewState}" n
-    (erlang-skel-separator-end 2)
-    "state_name(_Event, _From, State) ->" n>
-    "Reply = ok," n>
-    "{reply, Reply, state_name, State}." n
-    n
-    (erlang-skel-separator-start 2)
-    "%% @private" n
-    "%% @doc" n
-    "%% Whenever a gen_fsm receives an event sent using" n
-    "%% gen_fsm:send_all_state_event/2, this function is called to handle" n
-    "%% the event." n
-    "%%" n
-    "%% @spec handle_event(Event, StateName, State) ->" n
-    "%%                   {next_state, NextStateName, NextState} |" n
-    "%%                   {next_state, NextStateName, NextState, Timeout} |" n
-    "%%                   {stop, Reason, NewState}" n
-    (erlang-skel-separator-end 2)
-    "handle_event(_Event, StateName, State) ->" n>
-    "{next_state, StateName, State}." n
-    n
-    (erlang-skel-separator-start 2)
-    "%% @private" n
-    "%% @doc" n
-    "%% Whenever a gen_fsm receives an event sent using" n
-    "%% gen_fsm:sync_send_all_state_event/[2,3], this function is called" n
-    "%% to handle the event." n
-    "%%" n
-    "%% @spec handle_sync_event(Event, From, StateName, State) ->" n
-    "%%                   {next_state, NextStateName, NextState} |" n
-    "%%                   {next_state, NextStateName, NextState, Timeout} |" n
-    "%%                   {reply, Reply, NextStateName, NextState} |" n
-    "%%                   {reply, Reply, NextStateName, NextState, Timeout} |" n
-    "%%                   {stop, Reason, NewState} |" n
-    "%%                   {stop, Reason, Reply, NewState}" n
-    (erlang-skel-separator-end 2)
-    "handle_sync_event(_Event, _From, StateName, State) ->" n>
-    "Reply = ok," n>
-    "{reply, Reply, StateName, State}." n
-    n
-    (erlang-skel-separator-start 2)
-    "%% @private" n
-    "%% @doc" n
-    "%% This function is called by a gen_fsm when it receives any" n
-    "%% message other than a synchronous or asynchronous event" n
-    "%% (or a system message)." n
-    "%%" n
-    "%% @spec handle_info(Info,StateName,State)->" n
-    "%%                   {next_state, NextStateName, NextState} |" n
-    "%%                   {next_state, NextStateName, NextState, Timeout} |" n
-    "%%                   {stop, Reason, NewState}" n
-    (erlang-skel-separator-end 2)
-    "handle_info(_Info, StateName, State) ->" n>
-    "{next_state, StateName, State}." n
-    n
-    (erlang-skel-separator-start 2)
-    "%% @private" n
-    "%% @doc" n
-    "%% This function is called by a gen_fsm when it is about to" n
-    "%% terminate. It should be the opposite of Module:init/1 and do any" n
-    "%% necessary cleaning up. When it returns, the gen_fsm terminates with" n
-    "%% Reason. The return value is ignored." n
-    "%%" n
-    "%% @spec terminate(Reason, StateName, State) -> void()" n
-    (erlang-skel-separator-end 2)
-    "terminate(_Reason, _StateName, _State) ->" n>
-    "ok." n
-    n
-    (erlang-skel-separator-start 2)
-    "%% @private" n
-    "%% @doc" n
-    "%% Convert process state when code is changed" n
-    "%%" n
-    "%% @spec code_change(OldVsn, StateName, State, Extra) ->" n
-    "%%                   {ok, StateName, NewState}" n
-    (erlang-skel-separator-end 2)
-    "code_change(_OldVsn, StateName, State, _Extra) ->" n>
-    "{ok, StateName, State}." n
-    n
-    (erlang-skel-double-separator-start 3)
-    "%%% Internal functions" n
-    (erlang-skel-double-separator-end 3)
-    )
-  "*The template of a gen_fsm.
 Please see the function `tempo-define-template'.")
 
 (defvar erlang-skel-gen-statem-StateName
@@ -1315,208 +1079,6 @@ Please see the function `tempo-define-template'.")
     (erlang-skel-double-separator-end 3)
     )
   "*The template of a library module.
-Please see the function `tempo-define-template'.")
-
-(defvar erlang-skel-corba-callback
-  '((erlang-skel-include erlang-skel-large-header)
-    "%% Include files" n n
-
-    "%% API" n
-    "-export([])." n n
-
-    "%% Corba callbacks" n
-    "-export([init/1, terminate/2, code_change/3])." n n
-
-    "-record(state, {})." n n
-
-    (erlang-skel-double-separator-start 3)
-    "%%% Corba callbacks" n
-    (erlang-skel-double-separator-end 3) n
-    (erlang-skel-separator-start 2)
-    "%% @private" n
-    "%% @doc" n
-    "%% Initializes the server" n
-    "%%" n
-    "%% @spec init(Args) -> {ok, State} |" n
-    "%%                     {ok, State, Timeout} |" n
-    "%%                     ignore |" n
-    "%%                     {stop, Reason}" n
-    (erlang-skel-separator-end 2)
-    "init([]) ->" n>
-    "{ok, #state{}}." n
-    n
-    (erlang-skel-separator-start 2)
-    "%% @private" n
-    "%% @doc" n
-    "%% Shutdown the server" n
-    "%%" n
-    "%% @spec terminate(Reason, State) -> void()" n
-    (erlang-skel-separator-end 2)
-    "terminate(_Reason, _State) ->" n>
-    "ok." n
-    n
-    (erlang-skel-separator-start 2)
-    "%% @private" n
-    "%% @doc" n
-    "%% Convert process state when code is changed" n
-    "%%" n
-    "%% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}" n
-    (erlang-skel-separator-end 2)
-    "code_change(_OldVsn, State, _Extra) ->" n>
-    "{ok, State}." n
-    n
-    (erlang-skel-double-separator-start 3)
-    "%%% Internal functions" n
-    (erlang-skel-double-separator-end 3)
-    )
-  "*The template of a library module.
-Please see the function `tempo-define-template'.")
-
-(defvar erlang-skel-ts-test-suite
- '((erlang-skel-include erlang-skel-large-header)
-   "%% Note: This directive should only be used in test suites." n
-    "-compile(export_all)." n n
-
-    "-include_lib(\"common_test/include/ct.hrl\")." n n
-
-    (erlang-skel-separator-start 2)
-    "%% TEST SERVER CALLBACK FUNCTIONS" n
-    (erlang-skel-separator 2)
-    n
-    (erlang-skel-separator-start 2)
-    "%%" n
-    "%% @doc" n
-    "%% Initialization before the suite." n
-    "%%" n
-    "%% Config0 = Config1 = [tuple()]" n
-    "%%   A list of key/value pairs, holding the test case configuration." n
-    "%% Reason = term()" n
-    "%%   The reason for skipping the suite." n
-    "%%" n
-    "%% Note: This function is free to add any key/value pairs to the Config" n
-    "%% variable, but should NOT alter/remove any existing entries." n
-    "%%" n
-    "%% @spec init_per_suite(Config) -> Config" n
-    (erlang-skel-separator-end 2)
-    "init_per_suite(Config) ->" n >
-    "Config." n n
-
-    (erlang-skel-separator-start 2)
-    "%% @doc" n
-    "%% Cleanup after the suite." n
-    "%% Config - [tuple()]" n
-    "%%   A list of key/value pairs, holding the test case configuration." n
-    "%%" n
-    "%% @spec end_per_suite(Config) -> _" n
-    (erlang-skel-separator-end 2)
-    "end_per_suite(_Config) ->" n >
-    "ok." n n
-
-    (erlang-skel-separator-start 2)
-    "%% @doc" n
-    "%% Initialization before each test case" n
-    "%%" n
-    "%% TestCase - atom()" n
-    "%%   Name of the test case that is about to be run." n
-    "%% Config - [tuple()]" n
-    "%%   A list of key/value pairs, holding the test case configuration." n
-    "%% Reason = term()" n
-    "%%   The reason for skipping the test case." n
-    "%%" n
-    "%% Note: This function is free to add any key/value pairs to the Config" n
-    "%% variable, but should NOT alter/remove any existing entries." n
-    "%%" n
-    "%% @spec init_per_testcase(TestCase, Config) -> Config" n
-    (erlang-skel-separator-end 2)
-    "init_per_testcase(_TestCase, Config) ->" n >
-    "Config." n n
-
-    (erlang-skel-separator-start 2)
-    "%% @doc" n
-    "%% Cleanup after each test case" n
-    "%%" n
-    "%% TestCase = atom()" n
-    "%%   Name of the test case that is finished." n
-    "%% Config = [tuple()]" n
-    "%%   A list of key/value pairs, holding the test case configuration." n
-    "%%" n
-    "%% @spec end_per_testcase(TestCase, Config) -> _" n
-    (erlang-skel-separator-end 2)
-    "end_per_testcase(_TestCase, _Config) ->" n >
-    "ok."n n
-
-    (erlang-skel-separator-start 2)
-    "%% @doc" n
-    "%% Returns a description of the test suite when" n
-    "%% Clause == doc, and a test specification (list" n
-    "%% of the conf and test cases in the suite) when" n
-    "%% Clause == suite." n   
-    "%% Returns a list of all test cases in this test suite" n
-    "%%" n
-    "%% Clause = doc | suite" n
-    "%%   Indicates expected return value." n
-    "%% Descr = [string()] | []" n
-    "%%   String that describes the test suite." n
-    "%% Spec = [TestCase]" n
-    "%%   A test specification." n
-    "%% TestCase = ConfCase | atom()" n
-    "%%   Configuration case, or the name of a test case function." n
-    "%% ConfCase = {conf,Init,Spec,End} |" n
-    "%%            {conf,Properties,Init,Spec,End}" n
-    "%% Init = End = {Mod,Func} | Func" n
-    "%%   Initialization and cleanup function." n
-    "%% Mod = Func = atom()" n
-    "%% Properties = [parallel | sequence | Shuffle | {RepeatType,N}]" n
-    "%%   Execution properties of the test cases (may be combined)." n
-    "%% Shuffle = shuffle | {shuffle,Seed}" n
-    "%%   To get cases executed in random order." n
-    "%% Seed = {integer(),integer(),integer()}" n
-    "%% RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail |" n
-    "%%              repeat_until_any_ok | repeat_until_any_fail" n
-    "%%   To get execution of cases repeated." n
-    "%% N = integer() | forever" n
-    "%% Reason = term()" n
-    "%%   The reason for skipping the test suite." n
-    "%%" n
-    "%% @spec all(Clause) -> TestCases" n
-    (erlang-skel-separator-end 2)
-    "all(doc) ->" n >
-    "[\"Describe the main purpose of this suite\"];" n n
-    "all(suite) -> " n >
-    "[a_test_case]." n n
-    n
-    (erlang-skel-separator-start 2)
-    "%% TEST CASES" n
-    (erlang-skel-separator 2)
-    n
-    (erlang-skel-separator-start 2)
-    "%% @doc" n
-    "%%  Test case function. Returns a description of the test" n
-    "%%  case (doc), then returns a test specification (suite)," n
-    "%%  or performs the actual test (Config)." n
-    "%%" n
-    "%% Arg = doc | suite | Config" n
-    "%%   Indicates expected behaviour and return value." n
-    "%% Config = [tuple()]" n
-    "%%   A list of key/value pairs, holding the test case configuration." n
-    "%% Descr = [string()] | []" n
-    "%%   String that describes the test case." n
-    "%% Spec = [tuple()] | []" n
-    "%%   A test specification, see all/1." n
-    "%% Reason = term()" n
-    "%%   The reason for skipping the test case." n
-    "%%" n
-    "%% @spec TestCase(Arg) -> Descr | Spec | ok | exit() | {skip,Reason}" n
-
-    (erlang-skel-separator-end 2)
-    "a_test_case(doc) -> " n >
-    "[\"Describe the main purpose of this test case\"];" n n
-    "a_test_case(suite) -> " n >
-    "[];" n n
-    "a_test_case(Config) when is_list(Config) -> " n >
-    "ok." n
-   )
- "*The template of a library module.
 Please see the function `tempo-define-template'.")
 
 (defvar erlang-skel-ct-test-suite-s
@@ -1952,6 +1514,16 @@ Please see the function `tempo-define-template'.")
 
 ;; This code is based on the package `tempo' which is part of modern
 ;; Emacsen.  (GNU Emacs 19.25 (?) and XEmacs 19.14.)
+
+(declare-function erlang-menu-init "erlang")
+(declare-function erlang-menu-add-above "erlang")
+(declare-function erlang-beginning-of-function "erlang")
+(declare-function erlang-get-function-name "erlang")
+(declare-function erlang-get-function-arguments "erlang")
+
+;; Forward declarations
+(defvar erlang-menu-items)
+(defvar erlang-menu-skel-items)
 
 (defun erlang-skel-init ()
   "Generate the skeleton functions and menu items.

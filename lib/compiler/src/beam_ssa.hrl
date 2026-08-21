@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +27,7 @@
                    body :: [beam_ssa:b_function()]}).
 -record(b_function, {anno=#{} :: beam_ssa:anno(),
                      args :: [beam_ssa:b_var()],
-                     bs :: #{beam_ssa:label():=beam_ssa:b_blk()},
+                     bs :: #{beam_ssa:label()=>beam_ssa:b_blk()},
                      cnt :: beam_ssa:label()}).
 
 -record(b_blk, {anno=#{} :: beam_ssa:anno(),

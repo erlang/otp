@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2022-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2022-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,12 +67,25 @@ typedef ERL_NIF_TERM (*ESockIOBind)(ErlNifEnv*       env,
                                     ESockAddress*    sockAddrP,
                                     SOCKLEN_T        addrLen);
 
+typedef ERL_NIF_TERM (*ESockIOBindx)(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ESockAddress*    sockAddrs,
+                                     int              addrCnt,
+                                     int              action);
+
 typedef ERL_NIF_TERM (*ESockIOConnect)(ErlNifEnv*       env,
                                        ESockDescriptor* descP,
                                        ERL_NIF_TERM     sockRef,
                                        ERL_NIF_TERM     connRef,
                                        ESockAddress*    addrP,
                                        SOCKLEN_T        addrLen);
+
+typedef ERL_NIF_TERM (*ESockIOConnectx)(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     sockRef,
+                                        ERL_NIF_TERM     connRef,
+                                        ESockAddress*    sockAddrs,
+                                        int              addrsCnt);
 
 typedef ERL_NIF_TERM (*ESockIOListen)(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
@@ -80,6 +95,11 @@ typedef ERL_NIF_TERM (*ESockIOAccept)(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
                                       ERL_NIF_TERM     sockRef,
                                       ERL_NIF_TERM     accRef);
+
+typedef ERL_NIF_TERM (*ESockIOPeelOff)(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     sockRef,
+                                       ESockAssocId     assocId);
 
 typedef ERL_NIF_TERM (*ESockIOSend)(ErlNifEnv*       env,
                                     ESockDescriptor* descP,
@@ -105,6 +125,14 @@ typedef ERL_NIF_TERM (*ESockIOSendMsg)(ErlNifEnv*       env,
                                        int              flags,
                                        ERL_NIF_TERM     eIOV,
                                        const ESockData* dataP);
+
+typedef ERL_NIF_TERM (*ESockIOSendMMsg)(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     sockRef,
+                                        ERL_NIF_TERM     sendRef,
+                                        ERL_NIF_TERM     eMsgs,
+                                        int              flags,
+                                        const ESockData* dataP);
 
 typedef ERL_NIF_TERM (*ESockIOSendv)(ErlNifEnv*       env,
                                      ESockDescriptor* descP,
@@ -151,6 +179,15 @@ typedef ERL_NIF_TERM (*ESockIORecvMsg)(ErlNifEnv*       env,
                                        ssize_t          ctrlLen,
                                        int              flags);
 
+typedef ERL_NIF_TERM (*ESockIORecvMMsg)(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     sockRef,
+                                        ERL_NIF_TERM     recvRef,
+                                        unsigned int     vlen,
+                                        ssize_t          bufLen,
+                                        ssize_t          ctrlLen,
+                                        int              flags);
+
 typedef ERL_NIF_TERM (*ESockIOClose)(ErlNifEnv*       env,
                                      ESockDescriptor* descP);
 
@@ -163,9 +200,15 @@ typedef ERL_NIF_TERM (*ESockIOShutdown)(ErlNifEnv*       env,
 
 typedef ERL_NIF_TERM (*ESockIOSockName)(ErlNifEnv*       env,
                                         ESockDescriptor* descP);
+typedef ERL_NIF_TERM (*ESockIOSockNames)(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ESockAssocId     assocId);
 
 typedef ERL_NIF_TERM (*ESockIOPeerName)(ErlNifEnv*       env,
                                         ESockDescriptor* descP);
+typedef ERL_NIF_TERM (*ESockIOPeerNames)(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ESockAssocId     assocId);
 
 typedef ERL_NIF_TERM (*ESockIOCancelConnect)(ErlNifEnv*       env,
                                              ESockDescriptor* descP,
@@ -204,7 +247,8 @@ typedef ERL_NIF_TERM (*ESockIOSetoptOtp)(ErlNifEnv*       env,
 typedef ERL_NIF_TERM (*ESockIOGetopt)(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
                                       int              level,
-                                      int              opt);
+                                      int              opt,
+                                      ERL_NIF_TERM     value);
 typedef ERL_NIF_TERM (*ESockIOGetoptNative)(ErlNifEnv*       env,
                                             ESockDescriptor* descP,
                                             int              level,

@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2016. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2005-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +32,10 @@
 #define ETHR_HAVE_NATIVE_RWSPINLOCKS 1
 #define ETHR_NATIVE_RWSPINLOCK_IMPL "ethread"
 
-/* XXX: describe the algorithm */
+/* Unlocked if zero, read-locked if positive, write-locked if negative.
+ * - Taking a read lock atomically increments it by 1.
+ * - Taking a write lock atomically decrements it by 1<<24.
+ */
 typedef struct {
     volatile int lock;
 } ethr_native_rwlock_t;

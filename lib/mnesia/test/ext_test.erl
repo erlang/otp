@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,7 +49,8 @@
 	 insert/3, update_counter/4,
 	 lookup/3,
 	 delete/3, match_delete/3,
-	 select/1, select/3, select/4, repair_continuation/2
+	 select/1, select/3, select/4,
+	 select_reverse/3, select_reverse/4, repair_continuation/2
 	]).
 
 semantics(ext_ram_copies, storage) -> ram_copies;
@@ -121,7 +124,7 @@ delete_table(Alias, Tab) ->
     try error_if_not_initialized() of
         ok ->
             call({?FUNCTION_NAME, Alias, Tab})
-    catch error : {backend_not_initialized, _} = Reason ->
+    catch error : {backend_not_initialized, _} ->
         ok
     end.
 
@@ -246,6 +249,14 @@ select(Alias, Tab, Ms, Limit) ->
     ?DBG({Alias, ext_test_server:tab_to_list(Tab), Ms, Limit}),
     call({?FUNCTION_NAME, Alias, Tab, Ms, Limit}).
 
+select_reverse(Alias, Tab, Ms) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), Ms}),
+    call({?FUNCTION_NAME, Alias, Tab, Ms}).
+
+select_reverse(Alias, Tab, Ms, Limit) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), Ms, Limit}),
+    call({?FUNCTION_NAME, Alias, Tab, Ms, Limit}).
+
 repair_continuation(Cont, Ms) ->
     ?DBG({Cont, Ms}),
     call({?FUNCTION_NAME, Cont, Ms}).
@@ -253,8 +264,8 @@ repair_continuation(Cont, Ms) ->
 call(Req) ->
     error_if_not_initialized(),
     case gen_server:call({global, mnesia_test_lib:get_ext_test_server_name()}, Req) of
-        #exception{c = Class, r = Reason, st = ST} = Ex ->
-            ?DBG("call ~p resulted in an exception: ~p~n", [Req, Ex]),
+        #exception{c = Class, r = Reason, st = ST} = _Ex ->
+            ?DBG("call ~p resulted in an exception: ~p~n", [Req, _Ex]),
             erlang:raise(Class, Reason, ST);
         Res ->
             Res

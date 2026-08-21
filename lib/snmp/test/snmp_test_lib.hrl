@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15,7 +17,6 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson AB.
 %% %CopyrightEnd%
 %%
 
@@ -57,6 +58,7 @@
         ?LIB:non_pc_tc_maybe_skip(Config, Condition, ?MODULE, ?LINE)).
 
 -define(SKIP(Reason),        ?LIB:skip(Reason, ?MODULE, ?LINE)).
+-define(SKIPT(Reason),       throw({skip, Reason})).
 -define(FAIL(Reason),        ?LIB:fail(Reason, ?MODULE, ?LINE)).
 -define(HAS_SUPPORT_IPV6(),  ?LIB:has_support_ipv6()).
 
@@ -97,13 +99,16 @@
                         catch _:_:_ ->
                                 {not_running, __P__}
                         end).
+-define(PI(K),          ?PI(self(), K)).
+-define(PI(P, K),       ?LIB:pi((P), (K))).
 
 
 %% - Node utility macros - 
 
--define(PING(N),            ?LIB:ping(N)).
--define(LNODES(),           ?LIB:local_nodes()).
--define(NODES(H),           ?LIB:nodes_on(H)).
+-define(START_NODE(N, U), ?LIB:start_node((N), (U))).
+-define(PING(N),          ?LIB:ping(N)).
+-define(LNODES(),         ?LIB:local_nodes()).
+-define(NODES(H),         ?LIB:nodes_on(H)).
 
 %% - Application and Crypto utility macros - 
 

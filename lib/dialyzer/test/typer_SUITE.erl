@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2017-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +25,8 @@
          smoke/1,
          smoke_incremental_plt/1,
          gh_6296_no_spec_flag_does_not_break_records/1,
-         contract_violation/1]).
+         contract_violation/1,
+         typer_multiple_fun_in_same_line/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -33,7 +36,8 @@ all() ->
     [smoke,
      smoke_incremental_plt,
      gh_6296_no_spec_flag_does_not_break_records,
-     contract_violation].
+     contract_violation,
+     typer_multiple_fun_in_same_line].
 
 smoke(Config) ->
     OutDir = proplists:get_value(priv_dir, Config),
@@ -87,6 +91,31 @@ gh_6296_no_spec_flag_does_not_break_records(Config) ->
            "^-spec record_pattern",
            "^-spec some_other_function_to_trigger_the_issue",
            "^_OK_"],
+    run(Config, Args, Src, Res),
+    ok.
+
+typer_multiple_fun_in_same_line(Config) ->
+    Code = <<"-module(typer_multiple_fun).
+              f() -> ok. g() -> ok.">>,
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Src = filename:join(PrivDir, "typer_multiple_fun.erl"),
+    ok = file:write_file(Src, Code),
+    {ok, Beam} = compile(Config, Code, typer_multiple_fun, []),
+    Plt = PrivDir ++ "dialyzer_iplt",
+    _ = dialyzer:run([{analysis_type, incremental},
+                      {files, [Beam]},
+                      {apps, [stdlib, kernel, erts]},
+                      {from, byte_code},
+                      {init_plt, Plt},
+                      {output_plt, Plt}]),
+    Args = io_lib:format("--no_spec --show --plt ~ts", [Plt]),
+    Res = ["^$",
+           "^%% File:",
+           "^%% ----",
+           "^-spec f",
+           "^-spec g",
+           "^_OK_"],
+
     run(Config, Args, Src, Res),
     ok.
 

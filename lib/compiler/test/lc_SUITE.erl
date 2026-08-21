@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,14 +21,19 @@
 %%
 -module(lc_SUITE).
 
+-feature(compr_assign, enable).
+
 -export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 basic/1,deeply_nested/1,no_generator/1,
 	 empty_generator/1,no_export/1,shadow/1,
-	 effect/1]).
+	 effect/1,singleton_generator/1,assignment_generator/1,gh10020/1,
+         multi/1]).
 
+-include_lib("stdlib/include/assert.hrl").
 -include_lib("common_test/include/ct.hrl").
+-include("test_lib.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -43,7 +50,11 @@ groups() ->
        empty_generator,
        no_export,
        shadow,
-       effect
+       effect,
+       singleton_generator,
+       assignment_generator,
+       gh10020,
+       multi
       ]}].
 
 init_per_suite(Config) ->
@@ -101,39 +112,54 @@ basic(Config) when is_list(Config) ->
     %% Not matching.
     [] = [3 || {3=4} <- []],
 
+    %% Strict generators (each generator type)
+    [2,3,4] = [X+1 || X <:- [1,2,3]],
+    [2,3,4] = [X+1 || <<X>> <:= <<1,2,3>>],
+    [2,12] = [X*Y || X := Y <:- #{1 => 2, 3 => 4}],
+
+    %% A failing guard following a strict generator is ok
+    [3,4] = [X+1 || X <:- [1,2,3], X > 1],
+    [3,4] = [X+1 || <<X>> <:= <<1,2,3>>, X > 1],
+    [12] = [X*Y || X := Y <:- #{1 => 2, 3 => 4}, X > 1],
+
     %% Error cases.
     [] = [{xx,X} || X <- L0, element(2, X) == no_no_no],
-    {'EXIT',_} = (catch [X || X <- L1, list_to_atom(X) == dum]),
+    ?assertError(_, [X || X <- L1, list_to_atom(X) == dum]),
     [] = [X || X <- L1, X+1 < 2],
-    {'EXIT',_} = (catch [X || X <- L1, odd(X)]),
-    {'EXIT',{{bad_generator,x},_}} = (catch [E || E <- id(x)]),
-    {'EXIT',{{bad_filter,not_bool},_}} = (catch [E || E <- [1,2], id(not_bool)]),
+    ?assertError(_, [X || X <- L1, odd(X)]),
+    ?assertError({bad_generator,x}, [E || E <- id(x)]),
+    ?assertError({bad_filter,not_bool}, [E || E <- [1,2], id(not_bool)]),
+
+    %% Non-matching elements cause a badmatch error for strict generators
+    ?assertError({badmatch,2}, [X || {ok, X} <:- [{ok,1},2,{ok,3}]]),
+    ?assertError({badmatch,<<128,2>>}, [X || <<0:1, X:7>> <:= <<1,128,2>>]),
+    ?assertError({badmatch,{2,error}}, [X || X := ok <:- #{1 => ok, 2 => error, 3 => ok}]),
 
     %% Make sure that line numbers point out the generator.
     case ?MODULE of
         lc_inline_SUITE ->
             ok;
         _ ->
-            {'EXIT',{{bad_generator,a},
-                     [{?MODULE,_,_,
-                       [{file,"bad_lc.erl"},{line,4}]}|_]}} =
-                (catch id(bad_generator(a))),
+            ?AssertErrorStack({bad_generator,a},
+                              [{?MODULE,_,_,
+                                [{file,"bad_lc.erl"},{line,4}]}|_],
+                              id(bad_generator(a))),
 
-            {'EXIT',{{bad_generator,a},
-                     [{?MODULE,_,_,
-                       [{file,"bad_lc.erl"},{line,7}]}|_]}} =
-                (catch id(bad_generator_bc(a))),
+            ?AssertErrorStack({bad_generator,a},
+                              [{?MODULE,_,_,
+                                [{file,"bad_lc.erl"},{line,7}]}|_],
+                              id(bad_generator_bc(a))),
 
-            {'EXIT',{{bad_generator,a},
-                     [{?MODULE,_,_,
-                       [{file,"bad_lc.erl"},{line,10}]}|_]}} =
-                (catch id(bad_generator_mc(a))),
+            ?AssertErrorStack({bad_generator,a},
+                              [{?MODULE,_,_,
+                                [{file,"bad_lc.erl"},{line,10}]}|_],
+                              id(bad_generator_mc(a))),
 
             %% List comprehensions with improper lists.
-            {'EXIT',{{bad_generator,d},
-                     [{?MODULE,_,_,
-                       [{file,"bad_lc.erl"},{line,4}]}|_]}} =
-                (catch bad_generator(id([a,b,c|d])))
+            ?AssertErrorStack({bad_generator,d},
+                              [{?MODULE,_,_,
+                                [{file,"bad_lc.erl"},{line,4}]}|_],
+                              bad_generator(id([a,b,c|d])))
     end,
 
     ok.
@@ -173,7 +199,7 @@ no_generator(Config) when is_list(Config) ->
     [a,b,c] = [a || true] ++ [b,c],
     ok.
 
-no_gen(A, B) ->    
+no_gen(A, B) ->
     [{A,B} || A+B =:= 0] ++
 	[{A,B} || A*B =:= 0] ++
 	[{A,B} || A rem B =:= 3] ++
@@ -268,6 +294,135 @@ do_effect(Lc, L) ->
     F = fun(V) -> put(?MODULE, [V|get(?MODULE)]) end,
     ok = Lc(F, L),
     lists:reverse(erase(?MODULE)).
+
+singleton_generator(_Config) ->
+    Seq = lists:seq(1, 100),
+    Mixed = [<<I:32>> || I <- Seq] ++ Seq,
+    Bin = << <<E:16>> || E <- Seq >>,
+
+    ?assertEqual(singleton_generator_1a(Seq), singleton_generator_1b(Seq)),
+    ?assertEqual(singleton_generator_2a(Seq), singleton_generator_2b(Seq)),
+    ?assertEqual(singleton_generator_3a(Seq), singleton_generator_3b(Seq)),
+    ?assertEqual(singleton_generator_4a(Seq), singleton_generator_4b(Seq)),
+
+    ?assertEqual(singleton_generator_5a(Mixed),
+                 singleton_generator_5b(Mixed)),
+
+    ?assertEqual(singleton_generator_bin_1a(Bin),
+                 singleton_generator_bin_1b(Bin)),
+
+    ok.
+
+%% requires compr_assign feature for now
+assignment_generator(_Config) ->
+    Seq = lists:seq(1, 100),
+    Mixed = [<<I:32>> || I <- Seq] ++ Seq,
+    Bin = << <<E:16>> || E <- Seq >>,
+
+    ?assertEqual(singleton_generator_1a(Seq), assignment_generator_1(Seq)),
+    ?assertEqual(singleton_generator_2a(Seq), assignment_generator_2(Seq)),
+    ?assertEqual(singleton_generator_3a(Seq), assignment_generator_3(Seq)),
+    ?assertEqual(singleton_generator_4a(Seq), assignment_generator_4(Seq)),
+
+    ?assertEqual(singleton_generator_5a(Mixed),
+                 assignment_generator_5(Mixed)),
+
+    ?assertEqual(singleton_generator_bin_1a(Bin),
+                 assignment_generator_bin_1(Bin)),
+
+    ?assertEqual(singleton_generator_6(Seq),
+                 assignment_generator_6(Seq)),
+
+    [ok] = [ok || X = V = true, V, X],
+    ok.
+
+assignment_generator_1(L) ->
+    [{H,E} || E <- L,
+              H = erlang:phash2(E),
+              H rem 10 =:= 0].
+
+singleton_generator_1a(L) ->
+    [{H,E} || E <- L,
+              H <- [erlang:phash2(E)],
+              H rem 10 =:= 0].
+
+singleton_generator_1b(L) ->
+    [{erlang:phash2(E),E} ||
+        E <- L,
+        erlang:phash2(E) rem 10 =:= 0].
+
+assignment_generator_2(L) ->
+    [true = B || E <- L,
+                 B = is_integer(E)].
+
+singleton_generator_2a(L) ->
+    [true = B || E <- L,
+                 B <- [is_integer(E)]].
+
+singleton_generator_2b(L) ->
+    lists:duplicate(length(L), true).
+
+assignment_generator_3(L) ->
+    [if
+         Sqr > 500 -> Sqr;
+         true -> 500
+     end || E <- L, Sqr = E*E].
+
+singleton_generator_3a(L) ->
+    [if
+         Sqr > 500 -> Sqr;
+         true -> 500
+     end || E <- L, Sqr <- [E*E]].
+
+singleton_generator_3b(L) ->
+    [if
+         E*E > 500 -> E*E;
+         true -> 500
+     end || E <- L].
+
+assignment_generator_4(L) ->
+    [Res1 + Res2 || E <- L, EE <- L, Res1 = 3*EE, Res2 = 7*E].
+
+singleton_generator_4a(L) ->
+    [Res1 + Res2 || E <- L, EE <- L, Res1 <- [3*EE], Res2 <- [7*E]].
+
+singleton_generator_4b(L) ->
+    [7*E + 3*EE || E <- L, EE <- L].
+
+assignment_generator_5(L) ->
+    [Sqr || E <- L, is_integer(E), Sqr = E*E, Sqr < 100].
+
+singleton_generator_6(L) ->
+    #{E => true || E <- L, is_integer(E), Sqr <- [E*E], Sqr < 100}.
+
+assignment_generator_6(L) ->
+    #{E => true || E <- L, is_integer(E), Sqr = E*E, Sqr < 100}.
+
+singleton_generator_5a(L) ->
+    [Sqr || E <- L, is_integer(E), Sqr <- [E*E], Sqr < 100].
+
+singleton_generator_5b(L) ->
+    [E*E || E <- L, is_integer(E), E*E < 100].
+
+assignment_generator_bin_1(Bin) ->
+    << <<N:8>> || <<B:16>> <= Bin, N = B * 7, N < 256 >>.
+
+singleton_generator_bin_1a(Bin) ->
+    << <<N:8>> || <<B:16>> <= Bin, N <- [B * 7], N < 256 >>.
+
+singleton_generator_bin_1b(Bin) ->
+    << <<(B*7):8>> || <<B:16>> <= Bin, B * 7 < 256 >>.
+
+gh10020(Config) when is_list(Config) ->
+    L = lists:seq(1, 10),
+    do_gh10020(L).
+
+do_gh10020(L) ->
+    [] = [Rec || {_, Rec} <- L, is_record(L, L)].
+
+multi(Config) when is_list(Config) ->
+    [true, false] = [true, false || true],
+    [1, 2, 5, 6] = [X, X + 1 || X <- [1, 5]].
 
 id(I) -> I.
 

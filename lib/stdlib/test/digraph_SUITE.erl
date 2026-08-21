@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(digraph_SUITE).
@@ -486,9 +488,6 @@ sane1(G) ->
               end
       end, EVs),
 
-    %% sink_vertices and source_vertices were introduced in 2001. They
-    %% are not documented.
-
     %% sink: a vertex with no outgoing edges
     SinkVs = [V || V <- Vs, digraph:out_edges(G, V) =:= [] ],
     case lists:sort(SinkVs) =:=  lists:sort(digraph:sink_vertices(G)) of
@@ -496,7 +495,7 @@ sane1(G) ->
         false -> 
             io:format("Bad sinks~n"), put(sane, no)
     end,
-    %% sink: a vertex with no incoming edges
+    %% source: a vertex with no incoming edges
     SourceVs = [V || V <- Vs, digraph:in_edges(G, V) =:= [] ],
     case lists:sort(SourceVs) =:=  lists:sort(digraph:source_vertices(G)) of
         true -> ok;

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -119,6 +121,7 @@
 
 -include("dtls_connection.hrl").
 -include("dtls_handshake.hrl").
+-include("dtls_record.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_cipher.hrl").
 -include("ssl_internal.hrl").
@@ -156,13 +159,15 @@
 %%====================================================================
 %% Setup
 %%====================================================================
-init([Role, Host, Port, Socket, Options,  User, CbInfo]) ->
+init([Role, Tab, Host, Port, Socket, Options,  User, CbInfo]) ->
     process_flag(trap_exit, true),
-    State0 = dtls_gen_connection:initial_state(Role, Host, Port, Socket,
+    State0 = dtls_gen_connection:initial_state(Role, Tab, Host, Port, Socket,
                                                Options, User, CbInfo),
+    #state{static_env = #static_env{user_socket = UserSocket}} = State0,
+    User ! {self(), user_socket, UserSocket},
     try
 	State = ssl_gen_statem:init_ssl_config(State0#state.ssl_options,
-                                          Role, State0),
+                                               Role, State0),
 	gen_statem:enter_loop(?MODULE, [], initial_hello, State)
     catch
 	throw:Error ->
@@ -183,7 +188,7 @@ initial_hello(enter, _, State) ->
 initial_hello({call, From}, {start, Timeout},
               #state{protocol_specific = PS0, recv = Recv} = State) ->
     PS = PS0#{current_cookie_secret => dtls_v1:cookie_secret(),
-              previous_cookie_secret => <<>>},
+              previous_cookie_secret => dtls_v1:cookie_secret()},
     erlang:send_after(dtls_v1:cookie_timeout(), self(), new_cookie_secret),
     dtls_gen_connection:next_event(hello, no_record,
                                    State#state{recv = Recv#recv{from = From},
@@ -194,15 +199,18 @@ initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
                      ssl_options = OrigSSLOptions,
                      socket_options = SockOpts} = State0) ->
     try
-        SslOpts = ssl:update_options(Opts, Role, OrigSSLOptions),
+        SslOpts = ssl_config:update_options(Opts, Role, OrigSSLOptions),
 	State = ssl_gen_statem:ssl_config(SslOpts, Role, State0),
 	initial_hello({call, From}, {start, Timeout},
-	     State#state{ssl_options = SslOpts,
-                         socket_options =
-                             ssl_config:new_emulated(EmOpts, SockOpts)})
+                      State#state{socket_options =
+                                      ssl_config:new_emulated(EmOpts, SockOpts)})
     catch throw:Error ->
             {stop_and_reply, {shutdown, normal}, {reply, From, {error, Error}}, State0}
     end;
+initial_hello(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+              #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(initial_hello), State);
 initial_hello(Type, Event, State) ->
     tls_dtls_server_connection:initial_hello(Type, Event, State).
 
@@ -292,14 +300,17 @@ hello(internal,  #change_cipher_spec{type = <<1>>}, State0) ->
         dtls_gen_connection:send_handshake_flight(State0, Epoch),
     %% This will reset the retransmission timer by repeating the enter state event
     case dtls_gen_connection:next_event(?STATE(hello), no_record, State1, Actions0) of
-        {next_state, ?STATE(hello), State, Actions} ->
+        {next_state, ?FUNCTION_NAME, State, Actions} ->
             {repeat_state, State, Actions};
-        {next_state, ?STATE(hello), State} ->
+        {next_state, ?FUNCTION_NAME, State} ->
             {repeat_state, State};
         {stop, _, _} = Stop ->
             Stop
     end;
-
+hello(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+              #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(hello), State);
 hello(info, Event, State) ->
     dtls_gen_connection:gen_info(Event, ?STATE(hello), State);
 hello(state_timeout, Event, State) ->
@@ -335,6 +346,10 @@ abbreviated(internal = Type, #change_cipher_spec{} = Event,
     ConnectionStates = dtls_record:next_epoch(ConnectionStates1, read),
     gen_state(?STATE(abbreviated), Type, Event,
               State#state{connection_states = ConnectionStates});
+abbreviated(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+              #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(abbreviated), State);
 abbreviated(Type, Event, State) ->
     gen_state(?STATE(abbreviated), Type, Event, State).
 
@@ -350,16 +365,19 @@ certify(internal,  #change_cipher_spec{type = <<1>>}, State0) ->
     {State1, Actions0} = dtls_gen_connection:send_handshake_flight(State0, Epoch),
     %% This will reset the retransmission timer by repeating the enter state event
     case dtls_gen_connection:next_event(?STATE(certify), no_record, State1, Actions0) of
-        {next_state, ?STATE(certify), State, Actions} ->
-            dtls_gen_connection:next_event(?STATE(certify), no_record, State1, Actions0),
+        {next_state, ?FUNCTION_NAME, State, Actions} ->
             {repeat_state, State, Actions};
-        {next_state, ?STATE(certify), State} ->
+        {next_state, ?FUNCTION_NAME, State} ->
             {repeat_state, State, Actions0};
         {stop, _, _} = Stop ->
             Stop
     end;
 certify(state_timeout, Event, State) ->
     dtls_gen_connection:handle_state_timeout(Event, ?STATE(certify), State);
+certify(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+              #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(certify), State);
 certify(info, Event, State) ->
     dtls_gen_connection:gen_info(Event, ?STATE(certify), State);
 certify(Type, Event, State) ->
@@ -376,6 +394,10 @@ wait_cert_verify(state_timeout, Event, State) ->
     dtls_gen_connection:handle_state_timeout(Event, ?STATE(wait_cert_verify), State);
 wait_cert_verify(info, Event, State) ->
     dtls_gen_connection:gen_info(Event, ?STATE(wait_cert_verify), State);
+wait_cert_verify(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+              #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_cert_verify), State);
 wait_cert_verify(Type, Event, State) ->
     gen_state(?STATE(wait_cert_verify), Type, Event, State).
 
@@ -402,6 +424,10 @@ cipher(internal = Type, #finished{} = Event, #state{connection_states = Connecti
                 State#state{connection_states = ConnectionStates,
                             protocol_specific =
                                 PS#{flight_state => connection}}));
+cipher(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+       #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(cipher), State);
 cipher(Type, Event, State) ->
     gen_state(?STATE(cipher), Type, Event, State).
 

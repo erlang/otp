@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -146,7 +148,7 @@ certify(internal, #certificate{asn1_certificates = []},
 certify(internal, #certificate{asn1_certificates = []},
 	#state{static_env = #static_env{role = server,
                                         protocol_cb = Connection},
-               handshake_env = HsEnv0,
+               handshake_env = #handshake_env{client_certificate_status = requested} = HsEnv0,
 	       ssl_options = #{verify := verify_peer,
                                fail_if_no_peer_cert := false}} =
 	State0) ->
@@ -163,7 +165,8 @@ certify(internal, #certificate{asn1_certificates = DerCerts},
                                cert_db = CertDbHandle,
                                cert_db_ref = CertDbRef,
                                crl_db = CRLDbInfo},
-               handshake_env = #handshake_env{stapling_state = StaplingState} = HsEnv0,
+               handshake_env = #handshake_env{client_certificate_status = requested,
+                                              stapling_state = StaplingState} = HsEnv0,
                connection_env = #connection_env{
                                    negotiated_version = Version},
                ssl_options = Opts} = State0) ->
@@ -361,7 +364,8 @@ do_server_hello(Type, #{next_protocol_negotiation := NextProtocols} =
 
     State = server_hello(ServerHello,
 			 State1#state{handshake_env =
-                                          HsEnv#handshake_env{expecting_next_protocol_negotiation =
+                                          HsEnv#handshake_env{resumption = (Type == resumed),
+                                                              expecting_next_protocol_negotiation =
                                                                   NextProtocols =/= undefined}},
                          Connection),
     case Type of
@@ -678,25 +682,7 @@ certify_client_key_exchange(#encrypted_premaster_secret{premaster_secret= EncPMS
                                                       client_certificate_status = CCStatus
                                                      }
                                   } = State, Connection) ->
-    {Major, Minor} = Version,
-    FakeSecret = tls_dtls_gen_connection:make_premaster_secret(Version, rsa),
-    %% Countermeasure for Bleichenbacher attack always provide some kind of premaster secret
-    %% and fail handshake later.RFC 5246 section 7.4.7.1.
-    PremasterSecret =
-        try ssl_handshake:premaster_secret(EncPMS, PrivateKey) of
-            Secret when erlang:byte_size(Secret) == ?NUM_OF_PREMASTERSECRET_BYTES ->
-                case Secret of
-                    <<?BYTE(Major), ?BYTE(Minor), Rest/binary>> -> %% Correct
-                        <<?BYTE(Major), ?BYTE(Minor), Rest/binary>>;
-                    <<?BYTE(_), ?BYTE(_), Rest/binary>> -> %% Version mismatch
-                        <<?BYTE(Major), ?BYTE(Minor), Rest/binary>>
-                end;
-            _ -> %% erlang:byte_size(Secret) =/= ?NUM_OF_PREMASTERSECRET_BYTES
-                FakeSecret
-        catch
-            #alert{description = ?DECRYPT_ERROR} ->
-                FakeSecret
-        end,
+    PremasterSecret = rsa_premaster_secret(Version, EncPMS, PrivateKey),
     tls_dtls_gen_connection:calculate_master_secret(PremasterSecret, State, Connection,
                                                     certify, client_kex_next_state(CCStatus));
 certify_client_key_exchange(#client_diffie_hellman_public{dh_public = ClientPublicDhKey},
@@ -762,15 +748,20 @@ certify_client_key_exchange(#client_ecdhe_psk_identity{} = ClientKey,
     tls_dtls_gen_connection:calculate_master_secret(PremasterSecret, State,
                                                     Connection, certify,
                                                     client_kex_next_state(CCStatus));
-certify_client_key_exchange(#client_rsa_psk_identity{} = ClientKey,
+certify_client_key_exchange(#client_rsa_psk_identity{
+                               identity = PSKIdentity,
+                               exchange_keys =
+                                   #encrypted_premaster_secret{premaster_secret = EncPMS}},
 			    #state{session = #session{private_key = PrivateKey},
 				   ssl_options =
 				       #{user_lookup_fun := PSKLookup},
                                    handshake_env =
-                                       #handshake_env{client_certificate_status = CCStatus}
+                                       #handshake_env{client_certificate_status = CCStatus,
+                                                      client_hello_version = Version}
                                   } = State0,
 			    Connection) ->
-    PremasterSecret = ssl_handshake:premaster_secret(ClientKey, PrivateKey, PSKLookup),
+    PremasterSecret0 = rsa_premaster_secret(Version, EncPMS, PrivateKey),
+    PremasterSecret = ssl_handshake:psk_secret(PSKIdentity, PSKLookup, PremasterSecret0),
     tls_dtls_gen_connection:calculate_master_secret(PremasterSecret, State0,
                                                     Connection, certify,
                                                     client_kex_next_state(CCStatus));
@@ -837,4 +828,24 @@ assert_curve(ECCCurve) ->
             throw(?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_elliptic_curve));
         _ ->
             ok
+    end.
+
+rsa_premaster_secret(Version, EncPMS, PrivateKey) ->
+    {Major, Minor} = Version,
+    FakeSecret = tls_dtls_gen_connection:make_premaster_secret(Version, rsa),
+    %% Countermeasure for Bleichenbacher attack always provide some kind of premaster secret
+    %% and fail handshake later.RFC 5246 section 7.4.7.1.
+    try ssl_handshake:premaster_secret(EncPMS, PrivateKey) of
+        Secret when erlang:byte_size(Secret) == ?NUM_OF_PREMASTERSECRET_BYTES ->
+            case Secret of
+                <<?BYTE(Major), ?BYTE(Minor), Rest/binary>> -> %% Correct
+                    <<?BYTE(Major), ?BYTE(Minor), Rest/binary>>;
+                <<?BYTE(_), ?BYTE(_), Rest/binary>> -> %% Version mismatch
+                    <<?BYTE(Major), ?BYTE(Minor), Rest/binary>>
+            end;
+        _ -> %% erlang:byte_size(Secret) =/= ?NUM_OF_PREMASTERSECRET_BYTES
+            FakeSecret
+    catch
+        #alert{description = ?DECRYPT_ERROR} ->
+            FakeSecret
     end.

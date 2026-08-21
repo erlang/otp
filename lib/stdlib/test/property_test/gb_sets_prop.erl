@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(gb_sets_prop).
+-compile([export_all, nowarn_export_all]).
 
 -include_lib("common_test/include/ct_property_test.hrl").
 
@@ -35,8 +38,8 @@ prop_add() ->
         {S, L},
         ?LET(
             {L1, L2},
-            {ct_proper_ext:safe_list(),
-             non_empty(ct_proper_ext:safe_list())},
+            {?CT_SAFE_LIST(),
+             non_empty(?CT_SAFE_LIST())},
             {gb_sets:from_list(L1), L1 ++ L2}
         ),
         lists:all(fun(E) -> gb_sets:add(E, S) =:= gb_sets:add_element(E, S) end, L)
@@ -48,8 +51,8 @@ prop_balance() ->
         S,
         ?LET(
             {L1, L2},
-            {ct_proper_ext:safe_list(),
-             ct_proper_ext:safe_list()},
+            {?CT_SAFE_LIST(),
+             ?CT_SAFE_LIST()},
             lists:foldl(
                 fun gb_sets:del_element/2,
                 gb_sets:from_list(L1 ++ L2),
@@ -65,8 +68,8 @@ prop_ceiling() ->
         {S, O, L},
         ?LET(
             {L1, L2},
-            {ct_proper_ext:safe_list(),
-             non_empty(ct_proper_ext:safe_list())},
+            {?CT_SAFE_LIST(),
+             non_empty(?CT_SAFE_LIST())},
             {gb_sets:from_list(L1), lists:usort(L1), L1 ++ L2}
         ),
         lists:all(
@@ -90,8 +93,8 @@ prop_delete() ->
         {S, L},
         ?LET(
             {L1, L2},
-            {ct_proper_ext:safe_list(),
-             non_empty(ct_proper_ext:safe_list())},
+            {?CT_SAFE_LIST(),
+             non_empty(?CT_SAFE_LIST())},
             {gb_sets:from_list(L1), L1 ++ L2}
         ),
         lists:all(
@@ -118,8 +121,8 @@ prop_delete_any() ->
         {S, L},
         ?LET(
             {L1, L2},
-            {ct_proper_ext:safe_list(),
-             non_empty(ct_proper_ext:safe_list())},
+            {?CT_SAFE_LIST(),
+             non_empty(?CT_SAFE_LIST())},
             {gb_sets:from_list(L1), L1 ++ L2}
         ),
         lists:all(fun(E) -> gb_sets:delete_any(E, S) =:= gb_sets:del_element(E, S) end, L)
@@ -135,9 +138,9 @@ prop_difference() ->
         {S1, S2},
         ?LET(
             {L1, L2, Both},
-            {ct_proper_ext:safe_list(),
-             ct_proper_ext:safe_list(),
-             ct_proper_ext:safe_list()},
+            {?CT_SAFE_LIST(),
+             ?CT_SAFE_LIST(),
+             ?CT_SAFE_LIST()},
             {gb_sets:from_list(L1 ++ Both), gb_sets:from_list(L2 ++ Both)}
         ),
         gb_sets:difference(S1, S2) =:= gb_sets:subtract(S1, S2)
@@ -149,8 +152,8 @@ prop_floor() ->
         {S, O, L},
         ?LET(
             {L1, L2},
-            {ct_proper_ext:safe_list(),
-             non_empty(ct_proper_ext:safe_list())},
+            {?CT_SAFE_LIST(),
+             non_empty(?CT_SAFE_LIST())},
             {gb_sets:from_list(L1), lists:reverse(lists:usort(L1)), L1 ++ L2}
         ),
         lists:all(
@@ -172,10 +175,28 @@ do_floor(E, [X | R]) when X > E ->
 prop_from_ordset() ->
     ?FORALL(
         L,
-        ct_proper_ext:safe_list(),
+        ?CT_SAFE_LIST(),
         gb_sets:is_equal(gb_sets:from_list(L),
                          gb_sets:from_ordset(ordsets:from_list(L)))
     ).
+
+prop_from_ordset_invalid() ->
+    ?FORALL(
+        L,
+        ?CT_SAFE_LIST(),
+        try
+            gb_sets:from_ordset(L)
+        of
+            _ -> is_usorted(L)
+        catch
+            error:{badarg, not_ordset} -> not is_usorted(L)
+        end
+    ).
+
+is_usorted([E1 | [E2 | _] = More]) ->
+    E1 < E2 andalso is_usorted(More);
+is_usorted([_]) -> true;
+is_usorted([]) -> true.
 
 %% --- insert/2 -------------------------------------------------------
 prop_insert() ->
@@ -183,8 +204,8 @@ prop_insert() ->
         {S, L},
         ?LET(
             {L1, L2},
-            {ct_proper_ext:safe_list(),
-             non_empty(ct_proper_ext:safe_list())},
+            {?CT_SAFE_LIST(),
+             non_empty(?CT_SAFE_LIST())},
             {gb_sets:from_list(L1), L1 ++ L2}
         ),
         lists:all(
@@ -211,8 +232,8 @@ prop_is_member() ->
         {S, L},
         ?LET(
             {L1, L2},
-            {ct_proper_ext:safe_list(),
-             non_empty(ct_proper_ext:safe_list())},
+            {?CT_SAFE_LIST(),
+             non_empty(?CT_SAFE_LIST())},
             {gb_sets:from_list(L1), L1 ++ L2}
         ),
         lists:all(fun(E) -> gb_sets:is_member(E, S) =:= gb_sets:is_element(E, S) end, L)
@@ -226,7 +247,7 @@ prop_iterator() ->
         {S, L},
         ?LET(
             L,
-            ct_proper_ext:safe_list(),
+            ?CT_SAFE_LIST(),
             begin
                 L1 = lists:usort(L),
                 {gb_sets:from_list(L1), L1}
@@ -238,7 +259,7 @@ prop_iterator() ->
         {S, L},
         ?LET(
             L,
-            ct_proper_ext:safe_list(),
+            ?CT_SAFE_LIST(),
             begin
                 L1 = lists:usort(L),
                 {gb_sets:from_list(L1), lists:reverse(L1)}
@@ -264,7 +285,7 @@ prop_iterator_from() ->
         {S, L, From},
         ?LET(
             {L, E},
-            {ct_proper_ext:safe_list(), ct_proper_ext:safe_any()},
+            {?CT_SAFE_LIST(), ?CT_SAFE_ANY()},
             begin
                 L1 = lists:usort(L),
                 L2 = lists:dropwhile(fun(X) -> X < E end, L1),
@@ -281,7 +302,7 @@ prop_iterator_from() ->
         {S, L, From},
         ?LET(
             {L, E},
-            {ct_proper_ext:safe_list(), ct_proper_ext:safe_any()},
+            {?CT_SAFE_LIST(), ?CT_SAFE_ANY()},
             begin
                 L1 = lists:usort(L),
                 L2 = lists:dropwhile(fun(X) -> X > E end, lists:reverse(L1)),
@@ -316,8 +337,8 @@ prop_larger() ->
         {S, O, L},
         ?LET(
             {L1, L2},
-            {ct_proper_ext:safe_list(),
-             non_empty(ct_proper_ext:safe_list())},
+            {?CT_SAFE_LIST(),
+             non_empty(?CT_SAFE_LIST())},
             {gb_sets:from_list(L1), lists:usort(L1), L1 ++ L2}
         ),
         lists:all(
@@ -341,7 +362,7 @@ prop_largest() ->
         {Set, Largest},
         ?LET(
             L,
-            non_empty(ct_proper_ext:safe_list()),
+            non_empty(?CT_SAFE_LIST()),
             begin
                 L1 = lists:usort(L),
                 {gb_sets:from_list(L1), lists:last(L1)}
@@ -354,7 +375,7 @@ prop_largest() ->
 prop_singleton() ->
     ?FORALL(
         E,
-        ct_proper_ext:safe_any(),
+        ?CT_SAFE_ANY(),
         [E] =:= gb_sets:to_list(gb_sets:singleton(E))
     ).
 
@@ -364,8 +385,8 @@ prop_smaller() ->
         {S, O, L},
         ?LET(
             {L1, L2},
-            {ct_proper_ext:safe_list(),
-             non_empty(ct_proper_ext:safe_list())},
+            {?CT_SAFE_LIST(),
+             non_empty(?CT_SAFE_LIST())},
             {gb_sets:from_list(L1), lists:reverse(lists:usort(L1)), L1 ++ L2}
         ),
         lists:all(
@@ -389,7 +410,7 @@ prop_smallest() ->
         {Set, Smallest},
         ?LET(
             L,
-            non_empty(ct_proper_ext:safe_list()),
+            non_empty(?CT_SAFE_LIST()),
             begin
                 L1 = lists:usort(L),
                 {gb_sets:from_list(L1), hd(L1)}
@@ -404,7 +425,7 @@ prop_take_largest() ->
         {S, Largest},
         ?LET(
             L,
-            non_empty(ct_proper_ext:safe_list()),
+            non_empty(?CT_SAFE_LIST()),
             begin
                 L1 = lists:usort(L),
                 {gb_sets:from_list(L1), lists:last(L1)}
@@ -423,7 +444,7 @@ prop_take_smallest() ->
         {S, Smallest},
         ?LET(
             L,
-            non_empty(ct_proper_ext:safe_list()),
+            non_empty(?CT_SAFE_LIST()),
             begin
                 L1 = lists:usort(L),
                 {gb_sets:from_list(L1), hd(L1)}

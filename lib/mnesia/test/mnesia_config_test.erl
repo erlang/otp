@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,8 +24,10 @@
 -module(mnesia_config_test).
 -author('hakan@erix.ericsson.se').
 
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -include("mnesia_test_lib.hrl").
- 
+
 -record(test_table,{i,a1,a2,a3}).
 -record(test_table2,{i, b}).
 
@@ -209,6 +213,9 @@ do_access(Kind, Tab, RecName, Attr, Nodes) ->
 
     Twos = [{RecName, 2, 20}, {RecName, 2, 21}, {RecName, 2, 22}],
     ?match(Twos, lists:sort(mnesia:read(Tab, 2, read))),
+
+    TwosPat = [{{RecName, 2, '_'}, [], ['$_']}],
+    ?match(Twos, lists:sort(mnesia:select_reverse(Tab, TwosPat, read))),
     
     ?match(ok, mnesia:delete_object(Tab, {RecName, 2, 21}, sticky_write)),
 

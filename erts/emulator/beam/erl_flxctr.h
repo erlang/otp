@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2019-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2019-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,6 +50,7 @@
 #include "erl_binary.h"
 #include "bif.h"
 #include <stddef.h>
+#include <stdbool.h>
 
 /* Public Interface */
 
@@ -56,7 +59,7 @@
 
 typedef struct {
     int nr_of_counters;
-    int is_decentralized;
+    bool is_decentralized;
     union {
         erts_atomic_t counters_ptr;
         erts_atomic_t counters[1];
@@ -82,13 +85,13 @@ void erts_flxctr_setup(int decentralized_counter_groups);
  * ErtsFlxCtr that should be operated on.
  *
  * @param c The counter to initialize
- * @param is_decentralized Non-zero value to make c decentralized
+ * @param is_decentralized true to make c decentralized
  * @param nr_of_counters The number of counters included in c
  *                       (max ERTS_FLXCTR_ATOMICS_PER_CACHE_LINE)
  * @param alloc_type 
  */
 void erts_flxctr_init(ErtsFlxCtr* c,
-                      int is_decentralized,
+                      bool is_decentralized,
                       Uint nr_of_counters,
                       ErtsAlcType_t alloc_type);
 
@@ -243,9 +246,9 @@ erts_flxctr_snapshot(ErtsFlxCtr* c,
  *
  * @param term The term to check 
  *
- * @return A nonzero value iff the term is a snapshot result
+ * @return true iff the term is a snapshot result
  */
-int erts_flxctr_is_snapshot_result(Eterm term);
+bool erts_flxctr_is_snapshot_result(Eterm term);
 
 /**
  * @brief Returns the result of a snapshot for a counter given a
@@ -269,10 +272,10 @@ void erts_flxctr_reset(ErtsFlxCtr* c,
  * @brief Checks if a snapshot operation is active (snapshots are
  * initiated with the erts_flxctr_snapshot function).
  *
- * @return nonzero value iff a snapshot was active at some point
+ * @return true iff a snapshot was active at some point
  * between the invocation and return of the function
  */
-int erts_flxctr_is_snapshot_ongoing(ErtsFlxCtr* c);
+bool erts_flxctr_is_snapshot_ongoing(ErtsFlxCtr* c);
 
 /**
  * @brief This function checks if a snapshot operation is ongoing

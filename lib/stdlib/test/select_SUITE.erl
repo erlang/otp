@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -624,9 +626,9 @@ multi_mixed_key(Tabs,Type) ->
 					    [ {A,F} | 
 					      Acc];
 					Else ->
-					    case FunE(Else) or 
-						FunG(Else) or
-						FunJ(Else) of
+                                            case FunE(Else) orelse
+                                                FunG(Else) orelse
+                                                FunJ(Else) of
 						true ->
 						    [ {A,F} | 
 						      Acc]; 

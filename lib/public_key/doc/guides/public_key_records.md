@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -164,16 +166,17 @@ where parameters in the private key will be
 
 ```erlang
 #'ECPrivateKey'{
-   version,       % pos_integer()
+   version,       % pos_integer() |  ecPrivkeyVer1 (enumeration value, decode returns atom, encode accepts both)
    privateKey,    % binary()
-   parameters,    % {ecParameters, #'ECParameters'{}} |
+   parameters,    % {ecParameters, #'ECParameters'{}} | - Legacy
                   % {namedCurve, Oid::tuple()} |
                   % {implicitlyCA, 'NULL'}
    publicKey      % bitstring()
   }.
 
+%% Legacy no longer defined in current PKIX standard
 #'ECParameters'{
-   version,    % pos_integer()
+   version,    % pos_integer() | v1 (enumeration value)
    fieldID,    % #'FieldID'{}
    curve,      % #'Curve'{}
    base,       % binary()
@@ -262,7 +265,7 @@ type
 
 The available OID names are as follows:
 
-| _OID Name_                                   |
+| OID Name                                     |
 | -------------------------------------------- |
 | id-dsa-with-sha1                             |
 | id-dsaWithSHA1 (ISO or OID to above)         |
@@ -289,7 +292,7 @@ record:
 
 The attribute OID name atoms and their corresponding value types are as follows:
 
-| _OID Name_                | _Value Type_                  |
+| OID Name                  | Value Type                    |
 | ------------------------- | ----------------------------- |
 | id-at-name                | special_string()              |
 | id-at-surname             | special_string()              |
@@ -331,7 +334,7 @@ records:
 
 The public-key algorithm OID name atoms are as follows:
 
-| _OID Name_              |
+| OID Name                |
 | ----------------------- |
 | rsaEncryption           |
 | id-dsa                  |
@@ -355,6 +358,38 @@ _Table: Public-Key Algorithm OIDs_
 [CRL Extensions](public_key_records.md#CRLCertExt) and
 [CRL Entry Extensions](public_key_records.md#CRLEntryExt).
 
+### PKIXCMP Certificate Management Protocol
+
+Erlang representation of PKIXCMP see `PKIXCMP.hrl`,
+some of the records defined.
+
+```erlang
+-record('PKIMessage', {
+   header,     % #'PKIHeader'{}
+   body,       % #'PKIBody'{}
+   protection, % Optional #'PKIProtection'{}
+   extraCerts  % Optional [#'CMPCertificate'{}]
+  }).
+```
+
+### PKIXCRMF Certificate Request Message Format
+Erlang representation of PKIXCRMF see `PKIXCRMF.hrl`,
+some of the records defined.
+
+```erlang
+-record('CertReqMsg', {
+    certReq,     % #'CertRequest'{}
+    popo,        % Optional choice
+    regInfo      % [#'CertReqMsg_reginfo_SEQOF'{}]
+   }).
+
+-record('CertRequest', {
+    certReqId    % integer,
+    certTemplate % #'CertTemplate'{}
+    controls     % #'Controls_SEQOF'{}
+   }).
+```
+
 [](){: #StdCertExt }
 
 ## Standard Certificate Extensions
@@ -362,7 +397,7 @@ _Table: Public-Key Algorithm OIDs_
 The standard certificate extensions OID name atoms and their corresponding value
 types are as follows:
 
-| _OID Name_                       | _Value Type_                   |
+| OID Name                         | Value Type                     |
 | -------------------------------- | ------------------------------ |
 | id-ce-authorityKeyIdentifier     | \#'AuthorityKeyIdentifier'\{\} |
 | id-ce-subjectKeyIdentifier       | oid()                          |
@@ -378,7 +413,7 @@ types are as follows:
 | id-ce-policyConstraints          | \#'PolicyConstraints'\{\}      |
 | id-ce-extKeyUsage                | \[id_key_purpose()]            |
 | id-ce-cRLDistributionPoints      | \[#'DistributionPoint'\{\}]    |
-| id-ce-inhibitAnyPolicy           | pos_integer()                      |
+| id-ce-inhibitAnyPolicy           | pos_integer()                  |
 | id-ce-freshestCRL                | \[#'DistributionPoint'\{\}]    |
 
 _Table: Standard Certificate Extensions_
@@ -392,7 +427,7 @@ key_usage() = digitalSignature | nonRepudiation | keyEncipherment
 ```
 And for `id_key_purpose()`:
 
-| _OID Name_            |
+| OID Name              |
 | --------------------- |
 | id-kp-serverAuth      |
 | id-kp-clientAuth      |
@@ -480,7 +515,7 @@ _Table: Key Purpose OIDs_
 The private internet extensions OID name atoms and their corresponding value
 types are as follows:
 
-| _OID Name_                | _Value Type_                |
+| OID Name                  | Value Type                  |
 | ------------------------- | --------------------------- |
 | id-pe-authorityInfoAccess | \[#'AccessDescription'\{\}] |
 | id-pe-subjectInfoAccess   | \[#'AccessDescription'\{\}] |
@@ -530,12 +565,12 @@ specifications and RFC 5280 are as follows:
 The CRL extensions OID name atoms and their corresponding value types are as
 follows:
 
-| _OID Name_                     | _Value Type_                                    |
+| OID Name                       | Value Type                                      |
 | ------------------------------ | ----------------------------------------------- |
 | id-ce-authorityKeyIdentifier   | \#'AuthorityKeyIdentifier\{\}                   |
 | id-ce-issuerAltName            | \{rdnSequence, \[#AttributeTypeAndValue'\{\}]\} |
-| id-ce-cRLNumber                | pos_integer()                                       |
-| id-ce-deltaCRLIndicator        | pos_integer()                                       |
+| id-ce-cRLNumber                | pos_integer()                                   |
+| id-ce-deltaCRLIndicator        | pos_integer()                                   |
 | id-ce-issuingDistributionPoint | \#'IssuingDistributionPoint'\{\}                |
 | id-ce-freshestCRL              | \[#'Distributionpoint'\{\}]                     |
 
@@ -562,7 +597,7 @@ Erlang record:
 The CRL entry extensions OID name atoms and their corresponding value types are
 as follows:
 
-| _OID Name_                | _Value Type_   |
+| OID Name                  | Value Type     |
 | ------------------------- | -------------- |
 | id-ce-cRLReason           | crl_reason()   |
 | id-ce-holdInstructionCode | oid()          |
@@ -596,7 +631,7 @@ specifications and RFC 5280 are as follows:
    version,       % atom(),
    subject,       % {rdnSequence, [#AttributeTypeAndValue'{}]} ,
    subjectPKInfo, % #'CertificationRequestInfo_subjectPKInfo'{},
-   attributes     % [#'AttributePKCS-10' {}]
+   attributes     % [#'Attribute' {}]
   }.
 
 #'CertificationRequestInfo_subjectPKInfo'{
@@ -614,7 +649,7 @@ specifications and RFC 5280 are as follows:
    parameters  % der_encoded()
   }.
 
-#'AttributePKCS-10'{
+#'Attribute'{
    type,   % oid(),
    values  % [der_encoded()]
   }.

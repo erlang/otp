@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -170,7 +172,7 @@ The other keys are ignored by `systools`.
 
   This implies that for an included application, the set of start phases must be
   a subset of the set of phases defined for the primary application. For more
-  information, see [OTP Design Principles](`e:system:applications.md`).
+  information, see [_Applications_ in _OTP Design Principles_](`e:system:applications.md`).
 
 - **`runtime_dependencies`{: #runtime_dependencies }** - A list of application
   versions that the application depends on. An example of such an application

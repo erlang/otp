@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% File    : bench_trans.hrl
@@ -81,7 +83,7 @@ read_session_details(Wlock, SubscrId, ServerBit, ServerId) ->
 
     IsAllowed     = ((Group#group.allow_read band ServerBit) == ServerBit),
     IsActive      = ((Subscr#subscriber.active_sessions band ServerBit) == ServerBit),    
-    ExecuteBranch = (IsAllowed and IsActive),
+    ExecuteBranch = IsAllowed andalso IsActive,
 
     case ExecuteBranch of
         true ->
@@ -109,7 +111,7 @@ create_session_to_server(Wlock, SubscrId, ServerBit, ServerId, Details, DoRollba
 
     IsAllowed     = ((Group#group.allow_insert band ServerBit) == ServerBit),
     IsInactive    = ((Subscr#subscriber.active_sessions band ServerBit) == 0),
-    ExecuteBranch = (IsAllowed and IsInactive),
+    ExecuteBranch = IsAllowed andalso IsInactive,
     case ExecuteBranch of
         true ->
             SessionKey = {SubscrId, ServerId},
@@ -147,7 +149,7 @@ delete_session_from_server(Wlock, SubscrId, ServerBit, ServerId, DoRollback) ->
 
     IsAllowed     = ((Group#group.allow_delete band ServerBit) == ServerBit),
     IsActive      = ((Subscr#subscriber.active_sessions band ServerBit) == ServerBit),    
-    ExecuteBranch = (IsAllowed and IsActive),
+    ExecuteBranch = IsAllowed andalso IsActive,
     case ExecuteBranch of
         true ->
             SessionKey = {SubscrId, ServerId},

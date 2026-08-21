@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -66,6 +68,9 @@ application.
 [](){: #export_messages }
 """.
 
+
+-compile([{nowarn_possibly_unsafe_function, {file, consult, 1}}]).
+
 -include_lib("kernel/include/file.hrl").
 
 -export([
@@ -96,8 +101,7 @@ messages(MessagePackage) when is_atom(MessagePackage) ->
     %% Try the CWD first, and if that does not work try the installation directory
     case load_messages(".", MessagePackage) of
 	{error, _Reason} ->
-	    AppLibDir = code:lib_dir(megaco),
-	    Dir = filename:join([AppLibDir, examples, meas]),
+        Dir = filename:dirname(code:which(?MODULE)),
 	    load_messages(Dir, MessagePackage);
 	Else ->
 	    Else
@@ -153,6 +157,11 @@ structure:
                   erlang/<message-files>
 ```
 """.
+
+-spec export_messages(MessagePackage) -> ok | {error, Reason} when
+      MessagePackage :: atom(),
+      Reason         :: term().
+
 export_messages(MessagePackage) when is_atom(MessagePackage) ->
     case messages(MessagePackage) of
 	TMsgs when is_list(TMsgs) ->

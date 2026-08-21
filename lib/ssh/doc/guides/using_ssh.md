@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -60,8 +62,8 @@ see Section Configuration in [ssh](ssh_app.md).
 The option [`user_dir`](`t:ssh_file:user_dir_common_option/0`) defaults to
 directory `~/.ssh`.
 
-_Step 1._ To run the example without root privileges, generate new keys and host
-keys:
+_Step 1._ To run the example without root privileges, generate new host keys
+and user keys:
 
 ```text
 $bash> ssh-keygen -t rsa -f /tmp/ssh_daemon/ssh_host_rsa_key
@@ -81,7 +83,9 @@ _Step 3._ Start the Erlang `ssh` daemon:
 1> ssh:start().
 ok
 2> {ok, Sshd} = ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
-                                  {user_dir, "/tmp/otptest_user/.ssh"}]).
+                                  {user_dir, "/tmp/otptest_user/.ssh"},
+                                  {shell, {shell, start, []}},
+                                  {exec, erlang_eval}]).
 {ok,<0.54.0>}
 3>
 ```
@@ -125,7 +129,7 @@ ok
 
 [](){: #simple-client-example }
 
-### Erlang client contacting OS standard ssh server
+### Erlang Client Contacting OpenSSH Server
 
 In the following example, the Erlang shell is the client process that receives
 the channel replies as Erlang messages.
@@ -161,7 +165,7 @@ To collect the channel messages in a program, use `receive...end` instead of
 ```erlang
 5> receive
 5>     {ssh_cm, ConnectionRef, {data, ChannelId, Type, Result}} when Type == 0 ->
-5>         {ok,Result}
+5>         {ok,Result};
 5>     {ssh_cm, ConnectionRef, {data, ChannelId, Type, Result}} when Type == 1 ->
 5>         {error,Result}
 5> end.
@@ -169,9 +173,11 @@ To collect the channel messages in a program, use `receive...end` instead of
 6>
 ```
 
-Note that only the exec channel is closed after the one-time execution. The
-connection is still up and can handle previously opened channels. It is also
-possible to open a new channel:
+> #### Note {: .info }
+>
+> Only the exec channel is closed after the one-time execution. The
+> connection is still up and can handle previously opened channels.
+> It is also possible to open a new channel:
 
 ```erlang
 % try to open a new channel to check if the ConnectionRef is still open
@@ -186,7 +192,7 @@ To close the connection, call the function
 connection. This will cause the connection to be closed automatically when there
 are no channels open for the specified time period, in this case 1 ms.
 
-### OS standard client and Erlang daemon (server)
+### OpenSSH and Erlang Clients to Erlang Daemon
 
 An Erlang SSH daemon could be called for one-time execution of a "command". The
 "command" must be as if entered into the erlang shell, that is a sequence of
@@ -230,8 +236,10 @@ ok
 5>
 ```
 
-Note that Erlang shell specific functions and control sequences like for example
-`h().` are not supported.
+> #### Note {: .info }
+>
+> Erlang shell specific functions and control sequences like for example
+> `h().` are not supported.
 
 ### I/O from a function called in an Erlang ssh daemon
 
@@ -298,67 +306,17 @@ ok
 
 ### Configuring the server's (daemon's) command execution
 
-Every time a daemon [is started](using_ssh.md#running-an-erlang-ssh-daemon), it
-enables one-time execution of commands as described in the
-[previous section](using_ssh.md#simple-client-example) unless explicitly
-disabled.
+By default, one-time execution of commands is disabled — clients receive
+`"Prohibited."` on stderr with exit status 255. The daemon started in
+[Step 3](using_ssh.md#start-daemon-step3) above explicitly enables the built-in
+Erlang term evaluator with `{exec, erlang_eval}`.
 
-There is often a need to configure some other exec evaluator to tailor the input
-language or restrict the possible functions to call. There are two ways of doing
-this which will be shown with examples below. See
+To tailor the input language or restrict the possible functions to call, install
+an alternative evaluator with `{exec, {direct, Fun}}`. See
 [ssh:daemon/2,3](`ssh:daemon/2`) and
 [exec_daemon_option()](`t:ssh:exec_daemon_option/0`) for details.
 
-Examples of the two ways to configure the exec evaluator:
-
-1. Disable one-time execution.  
-   To modify the daemon start example above to reject one-time execution
-   requests, we change [Step 3](using_ssh.md#start-daemon-step3) by adding the
-   option `{exec, disabled}` to:
-
-```erlang
-1> ssh:start().
-ok
-2> {ok, Sshd} = ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
-                                  {user_dir, "/tmp/otptest_user/.ssh"},
-                                  {exec, disabled}
-                                 ]).
-{ok,<0.54.0>}
-3>
-```
-
-A call to that daemon will return the text "Prohibited." on stderr (depending on
-the client and OS), and the exit status 255:
-
-```text
-$bash> ssh ssh.example.com -p 8989 "test."
-Prohibited.
-$bash> echo $?
-255
-$bash>
-```
-
-And the Erlang client library also returns the text "Prohibited." on data type 1
-instead of the normal 0 and exit status 255:
-
-```erlang
-2> {ok, ConnectionRef} = ssh:connect(loopback, 8989, []).
-{ok,<0.92.0>}
-3> {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity).
-{ok,0}
-4> success = ssh_connection:exec(ConnectionRef, ChannelId, "test."
-success
-5> flush().
-Shell got {ssh_cm,<0.106.0>,{data,0,1,<<"Prohibited.">>}}
-Shell got {ssh_cm,<0.106.0>,{exit_status,0,255}}
-Shell got {ssh_cm,<0.106.0>,{eof,0}}
-Shell got {ssh_cm,<0.106.0>,{closed,0}}
-ok
-6>
-```
-
-1. Install an alternative evaluator.  
-   Start the damon with a reference to a `fun()` that handles the evaluation:
+Start the daemon with a reference to a `fun()` that handles the evaluation:
 
 ```erlang
 1> ssh:start().
@@ -377,7 +335,11 @@ ok
 4>
 ```
 
-and call it:
+The `fun()` in the exec option could take up to three arguments (`Cmd`, `User`
+and `ClientAddress`). See the
+[exec_daemon_option()](`t:ssh:exec_daemon_option/0`) for the details.
+
+And call it:
 
 ```text
 $bash> ssh localhost -p 1234 1
@@ -394,8 +356,10 @@ $bash> ssh localhost -p 1234 1+ 2.
 $bash>
 ```
 
-Note that spaces are preserved and that no point (.) is needed at the end - that
-was required by the default evaluator.
+> #### Note {: .info }
+>
+> Spaces are preserved and no `.` is needed at the end — that
+> was required by the default evaluator.
 
 The error return in the Erlang client (The text as data type 1 and exit_status
 255):
@@ -405,7 +369,7 @@ The error return in the Erlang client (The text as data type 1 and exit_status
 {ok,<0.92.0>}
 3> {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity).
 {ok,0}
-4> success = ssh_connection:exec(ConnectionRef, ChannelId, "1+ 2.").
+4> success = ssh_connection:exec(ConnectionRef, ChannelId, "1+ 2.", infinity).
 success
 5> flush().
 Shell got {ssh_cm,<0.106.0>,{data,0,1,<<"**Error** {bad_input,\"1+ 2.\"}">>}}
@@ -416,29 +380,27 @@ ok
 6>
 ```
 
-The `fun()` in the exec option could take up to three arguments (`Cmd`, `User`
-and `ClientAddress`). See the
-[exec_daemon_option()](`t:ssh:exec_daemon_option/0`) for the details.
-
 > #### Note {: .info }
 >
-> An old, discouraged and undocumented way of installing an alternative
-> evaluator exists.
->
-> It still works, but lacks for example I/O possibility. It is because of that
-> compatibility we need the `{direct,...}` construction.
+> The `{direct, ...}` wrapper is required to distinguish from a legacy
+> evaluator interface that lacks I/O support. The legacy form is
+> undocumented and discouraged.
 
 ## SFTP Server
 
-Start the Erlang `ssh` daemon with the SFTP subsystem:
+The SFTP subsystem is not enabled by default. To start an SSH daemon with
+SFTP, configure the `subsystems` option explicitly:
 
 ```erlang
 1> ssh:start().
 ok
 2> ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
                      {user_dir, "/tmp/otptest_user/.ssh"},
-                     {subsystems, [ssh_sftpd:subsystem_spec(
-                                            [{cwd, "/tmp/sftp/example"}])
+                     {subsystems, [ssh_sftpd:subsystem_spec([
+                                            {cwd, "/tmp/sftp/example"},
+                                            {max_handles, 1000},  % default
+                                            {max_path, 4096}      % default
+                                           ])
                                   ]}]).
 {ok,<0.54.0>}
 3>
@@ -456,6 +418,11 @@ sftp>
 ```
 
 ## SFTP Client
+
+> #### Note {: .info }
+>
+> This assumes the remote SSH server has the SFTP subsystem enabled.
+> OpenSSH enables it by default.
 
 Fetch a file with the Erlang SFTP client:
 
@@ -535,7 +502,7 @@ DecryptFun =
     end,
 
 Cr = {InitFun,DecryptFun},
-{ok,HandleRead} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [read,{crypto,Cw}]),
+{ok,HandleRead} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [read,{crypto,Cr}]),
 {ok,NameValueList} = erl_tar:extract(HandleRead,[memory]),
 ok = erl_tar:close(HandleRead),
 ```
@@ -549,12 +516,12 @@ following example:
 
 ```erlang
 -module(ssh_echo_server).
--behaviour(ssh_server_channel). % replaces ssh_daemon_channel
+-behaviour(ssh_server_channel).
 -record(state, {
-	  n,
-	  id,
-	  cm
-	 }).
+    n,
+    id,
+    cm
+}).
 -export([init/1, handle_msg/2, handle_ssh_msg/2, terminate/2]).
 
 init([N]) ->
@@ -562,23 +529,23 @@ init([N]) ->
 
 handle_msg({ssh_channel_up, ChannelId, ConnectionManager}, State) ->
     {ok, State#state{id = ChannelId,
-		     cm = ConnectionManager}}.
+                     cm = ConnectionManager}}.
 
 handle_ssh_msg({ssh_cm, CM, {data, ChannelId, 0, Data}}, #state{n = N} = State) ->
-    M = N - size(Data),
+    M = N - byte_size(Data),
     case M > 0 of
-	true ->
-	   ssh_connection:send(CM, ChannelId, Data),
-	   {ok, State#state{n = M}};
-	false ->
-	   <<SendData:N/binary, _/binary>> = Data,
-           ssh_connection:send(CM, ChannelId, SendData),
-           ssh_connection:send_eof(CM, ChannelId),
-	   {stop, ChannelId, State}
+        true ->
+            ssh_connection:send(CM, ChannelId, Data),
+            {ok, State#state{n = M}};
+        false ->
+            <<SendData:N/binary, _/binary>> = Data,
+            ssh_connection:send(CM, ChannelId, SendData),
+            ssh_connection:send_eof(CM, ChannelId),
+            {stop, ChannelId, State}
     end;
 handle_ssh_msg({ssh_cm, _ConnectionManager,
-		{data, _ChannelId, 1, Data}}, State) ->
-    error_logger:format(standard_error, " ~p~n", [binary_to_list(Data)]),
+                {data, _ChannelId, 1, Data}}, State) ->
+    logger:notice(" ~p~n", [binary_to_list(Data)]),
     {ok, State};
 
 handle_ssh_msg({ssh_cm, _ConnectionManager, {eof, _ChannelId}}, State) ->
@@ -589,8 +556,8 @@ handle_ssh_msg({ssh_cm, _, {signal, _, _}}, State) ->
     {ok, State};
 
 handle_ssh_msg({ssh_cm, _, {exit_signal, ChannelId, _, _Error, _}},
-	       State) ->
-    {stop, ChannelId,  State};
+               State) ->
+    {stop, ChannelId, State};
 
 handle_ssh_msg({ssh_cm, _, {exit_status, ChannelId, _Status}}, State) ->
     {stop, ChannelId, State}.
@@ -607,11 +574,13 @@ described in Section
 1> ssh:start().
 ok
 2> ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
-                     {user_dir, "/tmp/otptest_user/.ssh"}
+                     {user_dir, "/tmp/otptest_user/.ssh"},
                      {subsystems, [{"echo_n", {ssh_echo_server, [10]}}]}]).
 {ok,<0.54.0>}
 3>
 ```
+
+Then connect from an Erlang client:
 
 ```erlang
 1> ssh:start().
@@ -623,10 +592,10 @@ ok
 4> success = ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", infinity).
 5> ok = ssh_connection:send(ConnectionRef, ChannelId, "0123456789", infinity).
 6> flush().
-{ssh_msg, <0.57.0>, {data, 0, 1, "0123456789"}}
-{ssh_msg, <0.57.0>, {eof, 0}}
-{ssh_msg, <0.57.0>, {closed, 0}}
+{ssh_cm, <0.57.0>, {data, 0, 0, <<"0123456789">>}}
+{ssh_cm, <0.57.0>, {eof, 0}}
+{ssh_cm, <0.57.0>, {closed, 0}}
 7> {error, closed} = ssh_connection:send(ConnectionRef, ChannelId, "10", infinity).
 ```
 
-See also `m:ssh_client_channel` (replaces ssh_channel(3)).
+See also `m:ssh_client_channel`.

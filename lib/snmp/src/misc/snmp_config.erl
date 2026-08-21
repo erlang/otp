@@ -1,7 +1,9 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +27,9 @@
 -include("snmp_types.hrl").
 -include("snmp_usm.hrl").
 -include("snmp_internal.hrl").
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_unsafe_function, {os, cmd, 1}}]).
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
@@ -582,7 +587,7 @@ config_agent_snmp(Dir, Vsns) ->
 		     "minimum", 
 		    fun verify_sec_type/1),
     Passwd = 
-	case lists:member(v3, Vsns) and (SecType /= none) of
+	case lists:member(v3, Vsns) andalso (SecType /= none) of
 	    true ->
 		ensure_crypto_started(),
 		ask("8b. Give a password of at least length 8. It is used to "
@@ -636,7 +641,7 @@ config_agent_snmp(Dir, Vsns) ->
 	     "read/write~n"
 	     "         access to the \"internet\" subtree."),
 	   i("      3. Standard traps are sent to the manager."),
-	   case lists:member(v1, Vsns) or lists:member(v2, Vsns) of
+	   case lists:member(v1, Vsns) orelse lists:member(v2, Vsns) of
 	       true ->
 		   i("      4. Community \"public\" is mapped to security name"
 		     " \"initial\"."),
@@ -1012,7 +1017,7 @@ default_dir(Component, DefDir) ->
 	    IsManagerDir = is_members(ManagerConfs, Files),
 	    Warning = 
 		if
-		    IsAgentDir and IsManagerDir ->
+		    IsAgentDir, IsManagerDir ->
 			"Note that the default directory contains both agent and manager config files";
 		    IsAgentDir ->
 			"Note that the default directory contains agent config files";
@@ -1676,7 +1681,7 @@ print_q(Q, Default) when is_list(Default) ->
 %% Defval = string() | mandatory
 ask(Q, Default, Verify) when is_list(Q) andalso is_function(Verify) ->
     print_q(Q, Default),
-    PrelAnsw = io:get_line(''),
+    PrelAnsw = conv_bin_to_list(io:get_line('')),
     Answer = 
 	case remove_newline(PrelAnsw) of
 	    "" when Default =/= mandatory -> Default;
@@ -1739,7 +1744,12 @@ guess_engine_name() ->
 % 	{_,_} -> "user_id"
 %     end.
 
-    
+% This is neccessary as in Elixir io:get_line returns a binary
+conv_bin_to_list(Bin) when is_binary(Bin) ->
+	binary:bin_to_list(Bin);
+conv_bin_to_list(Str) ->
+	Str.
+
 remove_newline(Str) -> 
     lists:delete($\n, Str).
 

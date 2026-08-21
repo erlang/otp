@@ -1,0 +1,17 @@
+Intellectual Property Considerations
+
+RSA Security makes no patent claims on the general constructions
+described in this document, although specific underlying techniques
+may be covered. Among the underlying techniques, the RC5 encryption
+algorithm (Appendix B.2.4) is protected by U.S. Patents 5,724,428
+[22] and 5,835,600 [23].
+
+RC2 and RC5 are trademarks of RSA Security.
+
+License to copy this document is granted provided that it is
+identified as RSA Security Inc. Public-Key Cryptography Standards
+(PKCS) in all material mentioning or referencing this document.
+
+RSA Security makes no representations regarding intellectual property
+claims by other parties. Such determination is the responsibility of
+the user.

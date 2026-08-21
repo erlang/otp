@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -115,7 +117,7 @@ end_per_suite(Config) ->
 -define(TESTMODOBJ, ?TESTMODSTR ".beam").
 
 init_per_testcase(big_boot_embedded, Config) ->
-    case catch crypto:start() of
+    case catch application:start(crypto) of
 	ok ->
 	    init_per_testcase(do_big_boot_embedded, Config);
 	_Else ->
@@ -963,7 +965,7 @@ analyse([], [This={M,F,A}|Path], Visited, ErrCnt0) ->
 	  gb_sets, gb_trees, erts_code_purger, erts_internal, code,
 	  prim_zip, zlib],
     ErrCnt1 =
-	case lists:member(M, OK) or erlang:is_builtin(M,F,A) of
+        case lists:member(M, OK) orelse erlang:is_builtin(M,F,A) of
 	    true ->
 		0;
 	    false ->
@@ -1148,7 +1150,7 @@ mult_lib_roots(Config) when is_list(Config) ->
     Path0 = rpc:call(Node, code, get_path, []),
     %% ?CT_PEER adds extra path to this module folder
     PathToSelf = filename:dirname(code:which(?MODULE)),
-    [PathToSelf, "."|Path1] = Path0,
+    [PathToSelf|Path1] = Path0,
     [Kernel|Path2] = Path1,
     [Stdlib|Path3] = Path2,
     mult_lib_verify_lib(Kernel, "kernel"),
@@ -1987,7 +1989,7 @@ on_load_deadlock(Config) ->
 
     spawn(fun() -> code:ensure_loaded(Mod) end),
     {error,Reason} = code:ensure_loaded(Mod),
-    true = (Reason =:= deadlock) or (Reason =:= on_load_failure),
+    true = Reason =:= deadlock orelse Reason =:= on_load_failure,
 
     code:del_path(Dir),
     ok.

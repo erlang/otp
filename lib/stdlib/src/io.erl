@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -390,9 +392,33 @@ The function returns:
 get_line(Io, Prompt) ->
     request(Io, {get_line,unicode,Prompt}).
 
--doc false.
+-doc """
+Reads a password from `t:user/0`. Works just as `get_line/2` except that
+the typed characters are not printed to the terminal.
+
+In order for this function to work, the `m:shell` must be in `{noshell, raw}`
+mode. See `shell:start_interactive/1` for details on what that means.
+
+*Example*:
+
+```
+#!/usr/bin/env escript
+%%! -noshell
+
+main(_) ->
+    ok = shell:start_interactive({noshell, raw}),
+    try
+        io:get_password()
+    after
+        shell:start_interactive({noshell, cooked})
+    end.
+```
+""".
+-doc #{ since => ~"OTP 28.0" }.
+-spec get_password() -> Data | server_no_data() when
+    Data :: string() | unicode:unicode_binary().
 get_password() ->
-    get_password(default_input()).
+    get_password(user).
 
 -doc false.
 get_password(Io) ->
@@ -453,7 +479,7 @@ to control what the terminal inputs or outputs.
 
 `terminal` is an alias for `stdout`.
 
-See `setopts/1` for a description of the other options.
+See `setopts/2` for a description of the other options.
 """.
 -spec getopts(IoDevice) -> [getopt()] | {'error', Reason} when
       IoDevice :: device(),
@@ -521,6 +547,11 @@ The options and values supported by the OTP I/O devices are as follows:
   fun("") -> {yes, "quit", []};
      (_) -> {no, "", ["quit"]} end
   ```
+
+  This option is only supported by the standard shell (`group.erl`).
+
+- **`{line_history, true | false}`** - Specifies if `get_line` and `get_until`
+  I/O requests should be saved in the `m:shell` history buffer.
 
   This option is only supported by the standard shell (`group.erl`).
 
@@ -1728,10 +1759,13 @@ io_request(Pid, {put_chars,Enc,Chars}=Request0)
   when is_list(Chars), node(Pid) =:= node() ->
     %% Convert to binary data if the I/O server is guaranteed to be new
     Request =
-	case catch unicode:characters_to_binary(Chars,Enc) of
+	try unicode:characters_to_binary(Chars,Enc) of
 	    Binary when is_binary(Binary) ->
 		{put_chars,Enc,Binary};
 	    _ ->
+		Request0
+        catch
+            _:_ ->
 		Request0
 	end,
     {false,Request};
@@ -1739,18 +1773,24 @@ io_request(Pid, {put_chars,Enc,Chars}=Request0)
   when is_list(Chars) ->
     case net_kernel:dflag_unicode_io(Pid) of
 	true ->
-	    case catch unicode:characters_to_binary(Chars,Enc,unicode) of
+	    try unicode:characters_to_binary(Chars,Enc,unicode) of
 		Binary when is_binary(Binary) ->
 		    {false,{put_chars,unicode,Binary}};
 		_ ->
 		    {false,Request0}
+            catch
+                _:_ ->
+		    {false,Request0}
 	    end;
 	false ->
 	    %% Convert back to old style put_chars message...
-	    case catch unicode:characters_to_binary(Chars,Enc,latin1) of
+	    try unicode:characters_to_binary(Chars,Enc,latin1) of
 		Binary when is_binary(Binary) ->
 		    {false,{put_chars,Binary}};
 		_ ->
+		    {false,{put_chars,Chars}}
+            catch
+                _:_ ->
 		    {false,{put_chars,Chars}}
 	    end
     end;

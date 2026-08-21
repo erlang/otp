@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +23,8 @@
 -module(gen_udp_socket).
 -moduledoc false.
 -behaviour(gen_statem).
+
+-compile(nowarn_deprecated_catch).
 
 -compile({no_auto_import, [monitor/1]}).
 
@@ -175,23 +179,23 @@ open(Service, Opts) ->
 
 open_lookup(Service, Opts0) ->
     %% ?DBG(['open lookup', {service, Service}, {opts, Opts0}]),
-    {EinvalOpts, Opts_1} = setopts_split(einval, Opts0),
+    {EinvalOpts, Opts1} = setopts_split(einval, Opts0),
     EinvalOpts =:= [] orelse exit(badarg),
-    {Mod, Opts_2} = inet:udp_module(Opts_1),
+    {Mod, Opts2} = inet:udp_module(Opts1),
     Domain = domain(Mod),
-    {StartOpts, Opts_3} = setopts_split(start, Opts_2),
+    {StartOpts, Opts3} = setopts_split(start, Opts2),
     ErrRef = make_ref(),
     try
 	begin
 	    %% IPs    = val(ErrRef, Mod:getaddrs(Address, Domain)),
 	    Port   = val(ErrRef, Mod:getserv(Service)),
-	    %% Opts_4 = [{port, Port}, {buffer, ?RECBUF} | Opts_3],
-	    Opts_4 = [{port, Port} | Opts_3],
+	    %% Opts_4 = [{port, Port}, {buffer, ?RECBUF} | Opts3],
+	    Opts4 = [{port, Port} | Opts3],
 	    #udp_opts{fd     = Fd,
 		      ifaddr = BindIP,
 		      port   = BindPort,
 		      opts   = OpenOpts} =
-		val(ErrRef, inet:udp_options(Opts_4, Mod)),
+		val(ErrRef, inet:udp_options(Opts4, Mod)),
             %% ?DBG([{fd, Fd}, {bind_ip, BindIP}, {bind_port, BindPort},
             %%       {opts, OpenOpts}]),
             BindAddr  = bind_addr(Domain, BindIP, BindPort, Fd),
@@ -203,21 +207,27 @@ open_lookup(Service, Opts0) ->
             ?badarg_exit({error, Reason})
     end.
 
-do_open(Mod, BindAddr, Domain, OpenOpts, Opts, ExtraOpts) ->
+do_open(Mod, BindAddr, Domain, OpenOpts, Opts, ExtraOpts0) ->
 
     %% ?DBG([{mod, Mod}, {bind_addr, BindAddr}, {domain, Domain},
-    %%       {open_opts, OpenOpts}, {opts, Opts}, {extra_opts, ExtraOpts}]),
+    %%       {open_opts, OpenOpts}, {opts, Opts}, {extra_opts0, ExtraOpts0}]),
 
     %%
     %% The {netns, File} option is passed in Fd by inet:connect_options/2,
     %% and then over to ExtraOpts.
-    %% The {debug, Bool} option is passed in Opts since it is
-    %% subversively classified as both start and socket option.
+    %% The {debug, Bool} option is passed in Opts (and also into ExtraOpts)
+    %% since it is subversively classified as both start and socket option
+    %% (and also open_opts).
     %%
 
-    {SocketOpts, StartOpts} = setopts_split(socket, Opts),
-    %% ?DBG(['try start server', {socket, SocketOpts}, {start, StartOpts}]),
-    case start_server(Mod, Domain, start_opts(StartOpts), ExtraOpts) of
+    {OOpts, Opts2}           = setopts_split(open_opts, Opts),
+    ExtraOpts                = extra_opts(OOpts, ExtraOpts0),
+    {SocketOpts, StartOpts0} = setopts_split(socket,    Opts2),
+    StartOpts                = start_opts(StartOpts0),
+    %% ?DBG(['try start server',
+    %%       {start_opts, StartOpts},
+    %%       {extra_opts, ExtraOpts}]),
+    case start_server(Mod, Domain, StartOpts, ExtraOpts) of
         {ok, Server} ->
             {PreBindSetOpts, OpenOpts2} = setopts_split(pre_bind, OpenOpts),
             %% ?DBG([{pre_bind_open_opts, PreBindSetOpts},
@@ -275,6 +285,16 @@ extra_opts(OpenOpts) when is_list(OpenOpts) ->
     %% inet:{connect,listen,udp,sctp}_options/2 has the bad taste
     %% to use this for [{netns,BinNS}] if that option is used...
    maps:from_list(OpenOpts).
+
+%% Should we verify the options or just accept them?
+%% The *opt_categories functions *should* filter, so...
+extra_opts([], ExtraOpts)
+  when is_map(ExtraOpts) ->
+    ExtraOpts;
+extra_opts([{Opt, Val}|Opts], ExtraOpts)
+  when is_list(Opts) andalso is_map(ExtraOpts) ->
+    extra_opts(Opts, ExtraOpts#{Opt => Val}).
+
 
 
 default_any(_Domain, #{fd := _}, _BindAddr) ->
@@ -347,15 +367,14 @@ which_default_bind_address2(Domain) ->
     case net_getifaddrs(Domain) of
         {ok, Addrs} ->
             %% ?DBG([{addrs, Addrs}]),
-            %% Pick first *non-loopback* interface that is 'up' and 'running'
+            %% Pick first *non-loopback* interface that is 'up'
             UpNonLoopbackAddrs =
                 [Addr ||
                     #{flags := Flags, addr := #{addr := _A}} = Addr <-
                         Addrs,
 		    %% (element(1, A) =/= 169) andalso
                     (not lists:member(loopback, Flags)) andalso
-                        lists:member(up, Flags) andalso
-                        lists:member(running, Flags)],
+                        lists:member(up, Flags)],
             %% ?DBG([{up_non_loopback_addrs, UpNonLoopbackAddrs}]),
             case UpNonLoopbackAddrs of
                 [#{addr := #{addr := Addr}} | _] ->
@@ -897,7 +916,7 @@ socket_setopt_opts([{_Level, _OptKey} = Opt|Opts], Socket, Tag, Value) ->
 %% We need to lookup the domain of the socket,
 %% so we can select which one to use.
 socket_setopt_opts(Opts, Socket, Tag, Value) ->
-    case socket:getopt(Socket, otp, domain) of
+    case socket:getopt(Socket, {otp, domain}) of
         {ok, Domain} ->
             case lists:keysearch(Domain, 1, Opts) of
                 {value, {Domain, Level, OptKey}} ->
@@ -975,7 +994,7 @@ socket_getopt_opts([{_Domain, _} = Opt|_], Socket, Tag) ->
     socket_getopt_opt(Socket, Opt, Tag);
 
 socket_getopt_opts(Opts, Socket, Tag) ->
-    case socket:getopt(Socket, otp, domain) of
+    case socket:getopt(Socket, {otp, domain}) of
         {ok, Domain} ->
             %% ?DBG([{'domain', Domain}]),
             case lists:keysearch(Domain, 1, Opts) of
@@ -1001,6 +1020,8 @@ socket_getopt_opts(Opts, Socket, Tag) ->
 %% socket_getopt_value(pktoptions, {ok, PktOpts0}) when is_list(PktOpts0) ->
 %%     PktOpts = [{Type, Value} || #{type := Type, value := Value} <- PktOpts0],
 %%     {ok, PktOpts};
+socket_getopt_value(tos, {ok, #{native := NativeValue}}) ->
+    {ok, NativeValue};
 socket_getopt_value(_Tag, {ok, _Value} = Ok) -> Ok;
 socket_getopt_value(_Tag, {error, _} = Error) -> Error.
 
@@ -1033,8 +1054,11 @@ getopt_categories(Opt) ->
 opt_categories(Tag) when is_atom(Tag) ->
     case Tag of
         sys_debug   -> #{start => []};
-        debug       -> #{socket => [], start    => []};
+        %% open_opts is for the 'Opts' argument of the socket:open call
+        debug       -> #{socket => [], start    => [], open_opts => []};
         ipv6_v6only -> #{socket => [], pre_bind => []};
+        reuseport   -> #{socket => [], pre_bind => []};
+        reuseport_lb-> #{socket => [], pre_bind => []};
 
         %% Some options may trigger us to choose recvmsg (instead of recvfrom)
         %% Or trigger us to choose recvfrom *if* was previously selected
@@ -1117,6 +1141,8 @@ socket_opt() ->
       %% The second can be seen as a side effect...
       recbuf           => [{socket, rcvbuf}, {otp, rcvbuf}],
       reuseaddr        => {socket, reuseaddr},
+      reuseport        => {socket, reuseport},
+      reuseport_lb     => {socket, reuseport_lb},
       sndbuf           => {socket, sndbuf},
 
       %%
@@ -1845,7 +1871,7 @@ handle_recv(#params{socket = Socket, recv_method = []} = P,
 
         {error, Reason} ->
             %% ?DBG(['recvfrom error', {reason, Reason}]),
-            handle_recv_error(P, D, ActionsR, curate_error_reason(Reason))
+            handle_recv_error(P, D, ActionsR, Reason)
     end;
 handle_recv(#params{recv_method = []} = P,
             D,
@@ -1859,9 +1885,38 @@ handle_recv(#params{recv_method = []} = P,
             handle_recv_deliver(P, D, ActionsR, {Source, Data});
 
         {error, Reason0} ->
-            Reason = curate_error_reason(Reason0),
+            Reason =
+                case Reason0 of
+                    {completion_status, #{info := more_data = _INFO}} ->
+                        %% ?DBG(['completion status',
+                        %%       {timestamp, formated_timestamp()},
+                        %%       {info, INFO},
+                        %%       {p, P}, {d, D}]),
+                        emsgsize;
+                    {completion_status, more_data = _INFO} ->
+                        %% ?DBG(['completion status',
+                        %%       {timestamp, formated_timestamp()},
+                        %%       {info, INFO},
+                        %%       {p, P}, {d, D}]),
+                        emsgsize;
+
+                    {completion_status, #{info := INFO}} ->
+                        %% ?DBG(['completion status',
+                        %%       {timestamp, formated_timestamp()},
+                        %%       {info, INFO},
+                        %%       {p, P}, {d, D}]),
+                        INFO;
+                    {completion_status, INFO} ->
+                        %% ?DBG(['completion status',
+                        %%       {timestamp, formated_timestamp()},
+                        %%       {info, INFO},
+                        %%       {p, P}, {d, D}]),
+                        INFO;
+                    _ ->
+                       Reason0 
+                end,
             %% ?DBG(['recvfrom error', {reason, Reason}]),
-            handle_recv_error(P, D, ActionsR, curate_error_reason(Reason))
+            handle_recv_error(P, D, ActionsR, Reason)
     end;
 handle_recv(#params{socket = Socket} = P,
             #{recv_length := Length} = D, ActionsR, CS) when (CS =:= recv) ->
@@ -1885,7 +1940,7 @@ handle_recv(#params{socket = Socket} = P,
 
         {error, Reason} ->
             %% ?DBG(['recvmsg error', {reason, Reason}]),
-            handle_recv_error(P, D, ActionsR, curate_error_reason(Reason))
+            handle_recv_error(P, D, ActionsR, Reason)
     end;
 handle_recv(P, D, ActionsR, CS) ->
     %% ?DBG(['recvmsg completion status']),
@@ -1896,7 +1951,7 @@ handle_recv(P, D, ActionsR, CS) ->
 
         {error, Reason} ->
             %% ?DBG(['recvmsg error', {reason, Reason}]),
-            handle_recv_error(P, D, ActionsR, curate_error_reason(Reason))
+            handle_recv_error(P, D, ActionsR, Reason)
     end.
 
 
@@ -1908,7 +1963,7 @@ handle_recv_error(P, D, ActionsR, Reason) ->
     {D_1, ActionsR_1} = cleanup_recv_reply(P, D, ActionsR, Reason),
     %% ?DBG([{d1, D_1}]),
     case Reason of
-        closed -> %% What about econnreset?
+        closed ->
             {next_state, 'closed_read', {P, D_1}, reverse(ActionsR_1)};
         emsgsize ->
             {next_state, 'open',
@@ -1942,20 +1997,19 @@ cleanup_recv_reply(P, D, ActionsR, Reason0) ->
     Reason =
         case D of
             #{active := false} ->
-                curate_error_reason(Reason0);
+                Reason0;
             #{active := _} ->
                 ModuleSocket = module_socket(P),
                 Owner        = P#params.owner,
-                Reason1      = curate_error_reason(Reason0),
-                case Reason1 of
+                case Reason0 of
                     timeout ->
                         %% ?DBG(['error - timeout',
                         %%       {owner, Owner},
                         %%       {timestamp, formated_timestamp()},
                         %%       {module_socket, ModuleSocket},
                         %%       {p, P}, {d, D}]),
-                        Owner ! {udp_error, ModuleSocket, Reason1},
-                        Reason1;
+                        Owner ! {udp_error, ModuleSocket, Reason0},
+                        Reason0;
                     closed ->
                         %% ?DBG(['closed',
                         %%       {owner, Owner},
@@ -1963,26 +2017,71 @@ cleanup_recv_reply(P, D, ActionsR, Reason0) ->
                         %%       {module_socket, ModuleSocket},
                         %%       {p, P}, {d, D}]),
                         Owner ! {udp_closed, ModuleSocket},
-                        Reason1;
+                        Reason0;
                     emsgsize ->
                         %% ?DBG(['error - emsgsize',
                         %%       {owner, Owner},
                         %%       {timestamp, formated_timestamp()},
                         %%       {module_socket, ModuleSocket},
                         %%       {p, P}, {d, D}]),
-                        Owner ! {udp_error, ModuleSocket, Reason1},
-                        Reason1;
+                        Owner ! {udp_error, ModuleSocket, Reason0},
+                        Reason0;
+
+                    %% None of these errors (completion_status) should
+                    %% be cause to close the socket.
+                    {completion_status, #{info := more_data = _INFO}} ->
+                        %% ?DBG(['completion status',
+                        %%       {owner, Owner},
+                        %%       {timestamp, formated_timestamp()},
+                        %%       {module_socket, ModuleSocket},
+                        %%       {info, INFO}, {p, P}, {d, D},
+                        %%       {mq, mq(Owner)}]),
+                        R = emsgsize,
+                        Owner ! {udp_error, ModuleSocket, R},
+                        %% ?DBG(['udp error sent',
+                        %%       {timestamp, formated_timestamp()},
+                        %%       {mq, mq(Owner)}]),
+                        R;
+                    {completion_status, more_data = _INFO} ->
+                        %% ?DBG(['completion status',
+                        %%       {owner, Owner},
+                        %%       {timestamp, formated_timestamp()},
+                        %%       {module_socket, ModuleSocket},
+                        %%       {info, INFO}, {p, P}, {d, D},
+                        %%       {mq, mq(Owner)}]),
+                        R = emsgsize,
+                        Owner ! {udp_error, ModuleSocket, R},
+                        %% ?DBG(['udp error sent',
+                        %%       {timestamp, formated_timestamp()},
+                        %%       {mq, mq(Owner)}]),
+                        R;
+
+                    {completion_status, #{info := INFO}} ->
+                        %% ?DBG(['completion status',
+                        %%       {owner, Owner},
+                        %%       {timestamp, formated_timestamp()},
+                        %%       {module_socket, ModuleSocket},
+                        %%       {info, INFO}, {p, P}, {d, D}]),
+                        Owner ! {udp_error, ModuleSocket, INFO},
+                        INFO;
+                    {completion_status, INFO} ->
+                        %% ?DBG(['completion status',
+                        %%       {owner, Owner},
+                        %%       {timestamp, formated_timestamp()},
+                        %%       {module_socket, ModuleSocket},
+                        %%       {info, INFO}, {p, P}, {d, D}]),
+                        Owner ! {udp_error, ModuleSocket, INFO},
+                        INFO;
 
                     _ ->
                         %% ?DBG(['error and closed',
                         %%       {owner, Owner},
                         %%       {timestamp, formated_timestamp()},
                         %%       {module_socket, ModuleSocket},
-                        %%       {reason0, Reason0}, {reason1, Reason1}]),
-                        %%       {p, P}, {d, D}]),
-                        Owner ! {udp_error, ModuleSocket, Reason1},
+                        %%       {reason, Reason0}, {p, P}, {d, D}]),
+                        Owner ! {udp_error, ModuleSocket, Reason0},
                         Owner ! {udp_closed, ModuleSocket},
-                        Reason1
+                        Reason0
                 end
         end,
     {recv_stop(D#{active := false}),
@@ -1993,22 +2092,6 @@ cleanup_recv_reply(P, D, ActionsR, Reason0) ->
          #{} ->
              ActionsR
      end}.
-
-
-curate_error_reason({completion_status, CS}) ->
-    curate_error_reason(CS);
-curate_error_reason(#{info := Info}) ->
-    curate_error_reason(Info);
-curate_error_reason(more_data) ->
-    emsgsize;
-curate_error_reason(netname_deleted) ->
-    econnreset;
-curate_error_reason(too_many_cmds) ->
-    closed;
-curate_error_reason(Reason) ->
-    Reason.
-
-
 
 %% send_udp_error_msg(Dest, Sock, Error) ->
 %%     send_udp_msg(Dest, {udp_error, Sock, Error}).
@@ -2148,27 +2231,31 @@ ctrl2ancdata(CTRL) ->
     ctrl2ancdata(CTRL, []).
 
 ctrl2ancdata([], AncData) ->
-   lists:reverse(AncData);
+    lists:reverse(AncData);
 ctrl2ancdata([#{level := ip,
                 type  := TOS,
-                value := Value,
-                data  := _Data}| CTRL],
+                %% This is an atom: lowdelay | thoughput | reliability | mincost
+                value := #{native := NativeValue} = _Value,
+                data  := <<_DataValue:8/integer>> = _Data} = _CTRL| CTRLs],
              AncData) when (TOS =:= tos) orelse (TOS =:= recvtos) ->
-    ctrl2ancdata(CTRL, [{tos, Value}|AncData]);
+    %% 'inet' does not provide any "translation" (unlike 'socket').
+    %% Instead, it returns the data value as is (the 'native' value).
+    %% So we have to do the same, and therefor choose the 'native' value.
+    ctrl2ancdata(CTRLs, [{tos, NativeValue}|AncData]);
 ctrl2ancdata([#{level := ip,
                 type  := TTL,
                 value := Value,
-                data  := _Data}| CTRL],
+                data  := _Data} = _CTRL| CTRLs],
              AncData) when (TTL =:= ttl) orelse (TTL =:= recvttl) ->
-    ctrl2ancdata(CTRL, [{ttl, Value}|AncData]);
+    ctrl2ancdata(CTRLs, [{ttl, Value}|AncData]);
 ctrl2ancdata([#{level := ipv6,
                 type  := tclass,
                 value := TClass,
-                data  := _Data}| CTRL],
+                data  := _Data} = _CTRL| CTRLs],
              AncData) ->
-    ctrl2ancdata(CTRL, [{tclass, TClass}|AncData]);
-ctrl2ancdata([_|CTRL], AncData) ->
-    ctrl2ancdata(CTRL, AncData).
+    ctrl2ancdata(CTRLs, [{tclass, TClass}|AncData]);
+ctrl2ancdata([_CTRL|CTRLs], AncData) ->
+    ctrl2ancdata(CTRLs, AncData).
 
 
 %% -> {ok, NewD} | {{error, Reason}, D}

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -79,6 +81,7 @@
 	 log/2,
 	 log/4,
 	 verbose/4,
+         match/4,
 	 default_config/0,
 	 diskless/1,
 	 eval_test_case/3,
@@ -137,6 +140,8 @@
 
 -include("mnesia_test_lib.hrl").
 
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% included for test server compatibility
@@ -153,6 +158,44 @@ end_per_testcase(_Func, Config) ->
     %% Nodes = select_nodes(all, Config, ?FILE, ?LINE),
     %% rpc:multicall(Nodes, mnesia, lkill, []),
     Config.
+
+
+match(Expr, Match, File, Line) ->
+    try
+        AR_0 = Expr(),
+        case Match(AR_0) of
+            true ->
+                verbose("ok, ~n Result as expected:~p~n",[AR_0], File, Line),
+                {success, AR_0};
+            {false, Pattern} ->
+                error("Expected ~ts Not Matching Actual result was:~n ~p~n",
+                      [Pattern, AR_0], File, Line),
+                {fail, AR_0}
+        end
+    catch
+        exit:{aborted, _ER_1}:Stacktrace when
+              element(1, _ER_1) =:= node_not_running;
+              element(1, _ER_1) =:= bad_commit;
+              element(1, _ER_1) =:= cyclic ->
+            %% Need to re-raise these to restart transaction
+            erlang:raise(exit, {aborted, _ER_1}, Stacktrace);
+        exit:AR_1:Stacktrace ->
+            AR_2 = {'EXIT', AR_1},
+            case Match(AR_2) of
+                true ->
+                    verbose("ok, ~n Result as expected:~p~n",[AR_2], File, Line),
+                    {success, AR_2};
+                {false, Pattern2} ->
+                    error("Expected ~ts Not Matching Actual result was:~n ~p~n ~p~n",
+                          [Pattern2, AR_2, Stacktrace], File, Line),
+                    {fail, AR_2}
+            end;
+        T1:AR_1:Stacktrace ->
+            error("Not Matching Actual result was:~n ~p~n  ~p~n",
+                  [{T1,AR_1}, Stacktrace], File, Line),
+            {fail,{T1,AR_1}}
+    end.
+
 
 %% Use ?log(Format, Args) as wrapper
 log(Format, Args, LongFile, Line) ->
@@ -432,7 +475,7 @@ default_module(DefaultModule, TestCases) when is_list(TestCases) ->
 		      T -> {true, {DefaultModule, T}}
 		  end
 	  end,
-    lists:zf(Fun, TestCases).
+    lists:filtermap(Fun, TestCases).
 
 get_suite(Module, TestCase, Config) ->
     case get_suite(Module, TestCase) of
@@ -1067,7 +1110,7 @@ verify_replica_location(Tab, DiscOnly0, Ram0, Disc0, AliveNodes0) ->
 
 ignore_dead(Nodes, AliveNodes) ->
     Filter = fun(Node) -> lists:member(Node, AliveNodes) end,
-    lists:sort(lists:zf(Filter, Nodes)).
+    lists:sort(lists:filtermap(Filter, Nodes)).
 
 
 remote_activate_debug_fun(N, I, F, C, File, Line) ->

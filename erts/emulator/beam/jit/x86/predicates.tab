@@ -2,7 +2,9 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2020-2023. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2020-2025. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +22,7 @@
 //
 
 pred.is_mfa_bif(M, F, A) {
-    Export *e;
+    const Export *e;
 
     ASSERT(M.type == TAG_a && F.type == TAG_a && A.type == TAG_u);
     e = erts_active_export_entry(M.val, F.val, A.val);
@@ -154,4 +156,10 @@ pred.is_exit_bif(Bif) {
             return 0;
         }
     }
+}
+
+// Test whether we are loading a module with line-breakpoint support
+pred.instrumenting_line_breakpoints() {
+    return ERTS_DEBUGGER_IS_ENABLED_IN(S->load_hdr->debugger_flags,
+                                       ERTS_DEBUGGER_LINE_BREAKPOINTS);
 }

@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(beam_listing).
@@ -44,22 +46,26 @@ module(File, #b_module{name=Mod,exports=Exp,attributes=Attr,body=Fs}) ->
     io:format(File, "attributes ~kp.\n\n", [Attr]),
     PP = [beam_ssa_pp:format_function(F) || F <- Fs],
     io:put_chars(File, lists:join($\n, PP));
-module(Stream, {Mod,Exp,Attr,Code,NumLabels}) ->
+module(Stream, {Mod,Exp,Attr,Anno,Code,NumLabels}) ->
     %% This is BEAM code.
     io:format(Stream, "{module, ~kp}.  %% version = ~w\n",
 	      [Mod, beam_opcodes:format_number()]),
     io:format(Stream, "\n{exports, ~p}.\n", [Exp]),
     io:format(Stream, "\n{attributes, ~kp}.\n", [Attr]),
+    foreach(fun ({_AnnoKey,[_|_]}=Tuple) ->
+                    io:format(Stream, "\n~p.\n", [Tuple]);
+                ({_,[]}) ->
+                    ok
+            end, lists:sort(maps:to_list(Anno))),
     io:format(Stream, "\n{labels, ~p}.\n", [NumLabels]),
     Lbl2Fun = foldl(fun({function,Name,Arity,Entry,_}, Map) ->
                             Map#{ Entry => {Name,Arity} }
                     end, #{}, Code),
-    foreach(
-      fun ({function,Name,Arity,Entry,Asm}) ->
-	      io:format(Stream, "\n\n{function, ~w, ~w, ~w}.\n",
-			[Name, Arity, Entry]),
-	      io:put_chars(Stream, format_asm(Asm, Lbl2Fun))
-      end, Code);
+    foreach(fun ({function,Name,Arity,Entry,Asm}) ->
+                    io:format(Stream, "\n\n{function, ~w, ~w, ~w}.\n",
+                              [Name, Arity, Entry]),
+                    io:put_chars(Stream, format_asm(Asm, Lbl2Fun))
+            end, Code);
 module(Stream, [_|_]=Fs) ->
     %% Form-based abstract format.
     foreach(fun (F) -> io:format(Stream, "~kp.\n", [F]) end, Fs).

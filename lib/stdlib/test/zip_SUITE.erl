@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +27,7 @@
 
 -export([borderline/1, atomic/1,
          bad_zip/1, unzip_from_binary/1, unzip_to_binary/1,
-         zip_to_binary/1,
+         zip_to_binary/1, sanitize_filenames/1,
          unzip_options/1, zip_options/1, list_dir_options/1, aliases/1,
          zip_api/1, open_leak/1, unzip_jar/1,
 	 unzip_traversal_exploit/1,
@@ -35,8 +37,8 @@
          zip64_central_headers/0, unzip64_central_headers/0,
          zip64_central_headers/1, unzip64_central_headers/1,
          zip64_central_directory/1,
-         basic_timestamp/1, extended_timestamp/1,
-         uid_gid/1]).
+         basic_timestamp/1, extended_timestamp/1, capped_timestamp/1,
+         uid_gid/1, zip_get_2_to_cwd/1]).
 
 -export([zip/5, unzip/3]).
 
@@ -55,7 +57,8 @@ all() ->
      zip_options, list_dir_options, aliases,
      zip_api, open_leak, unzip_jar, compress_control, foldl,
      unzip_traversal_exploit, fd_leak, unicode, test_zip_dir,
-     explicit_file_info, {group, zip_group}, {group, zip64_group}].
+     explicit_file_info, zip_get_2_to_cwd,
+     {group, zip_group}, {group, zip64_group}].
 
 groups() -> 
     zip_groups().
@@ -97,7 +100,8 @@ un_z64(Mode) ->
     end.
 
 zip_testcases() ->
-    [mode, basic_timestamp, extended_timestamp, uid_gid].
+    [mode, basic_timestamp, extended_timestamp,
+     capped_timestamp, uid_gid, sanitize_filenames].
 
 zip64_testcases() ->
     [unzip64_central_headers,
@@ -231,22 +235,27 @@ borderline_test(Size, TempDir) ->
     {ok, Archive} = zip:zip(Archive, [Name]),
     ok = file:delete(Name),
 
+    RelName = filename:join(tl(filename:split(Name))),
+
     %% Verify listing and extracting.
     {ok, [#zip_comment{comment = []},
-          #zip_file{name = Name,
+          #zip_file{name = RelName,
                     info = Info,
                     offset = 0,
                     comp_size = _}]} = zip:list_dir(Archive),
     Size = Info#file_info.size,
-    {ok, [Name]} = zip:extract(Archive, [verbose]),
+    TempRelName = filename:join(TempDir, RelName),
+    {ok, [TempRelName]} = zip:extract(Archive, [verbose, {cwd, TempDir}]),
 
-    %% Verify contents of extracted file.
-    {ok, Bin} = file:read_file(Name),
+    %% Verify that absolute file was not created
+    {error, enoent} = file:read_file(Name),
+
+    %% Verify that relative contents of extracted file.
+    {ok, Bin} = file:read_file(TempRelName),
     true = match_byte_list(X0, binary_to_list(Bin)),
 
-
     %% Verify that Unix zip can read it. (if we have a unix zip that is!)
-    zipinfo_match(Archive, Name),
+    zipinfo_match(Archive, RelName),
 
     ok.
 
@@ -510,14 +519,28 @@ unzip_options(Config) when is_list(Config) ->
 
 %% Test that unzip handles directory traversal exploit (OTP-13633)
 unzip_traversal_exploit(Config) ->
-    DataDir = get_value(data_dir, Config),
     PrivDir = get_value(priv_dir, Config),
-    ZipName = filename:join(DataDir, "exploit.zip"),
+    ZipName = filename:join(PrivDir, "exploit.zip"),
 
-    %% $ zipinfo -1 test/zip_SUITE_data/exploit.zip 
+    {ok, {_Name, Bin}} =
+        zip:create("exploit.zip",
+                   [{"clash.txt",
+                     <<"This is the original file.\n">>},
+                    {"../clash.txt",
+                     <<"This file will overwrite the original file.\n">>},
+                    {"../above.txt",
+                     <<"This is above the root directory.\n">>},
+                    {"../above/variant.txt",
+                     <<"This is also above the root directory.\n">>},
+                    {"subdir/../in_root_dir.txt",
+                     <<"This is in the root directory.\n">>}], [memory]),
+    ok = file:write_file(ZipName, Bin),
+
+    %% $ zipinfo -1 exploit.zip
     %% clash.txt
     %% ../clash.txt
     %% ../above.txt
+    %% ../above/variant.txt
     %% subdir/../in_root_dir.txt
 
     %% create a temp directory
@@ -526,15 +549,17 @@ unzip_traversal_exploit(Config) ->
     
     ClashFile = filename:join(SubDir,"clash.txt"),
     AboveFile = filename:join(SubDir,"above.txt"),
+    VariantFile = filename:join(SubDir,"variant.txt"),
     RelativePathFile = filename:join(SubDir,"subdir/../in_root_dir.txt"),
 
     %% unzip in SubDir
-    {ok, [ClashFile, ClashFile, AboveFile, RelativePathFile]} =
+    {ok, [ClashFile, ClashFile, AboveFile, VariantFile, RelativePathFile]} =
 	zip:unzip(ZipName, [{cwd,SubDir}]),
 
-    {ok,<<"This file will overwrite other file.\n">>} =
+    {ok,<<"This file will overwrite the original file.\n">>} =
 	file:read_file(ClashFile),
     {ok,_} = file:read_file(AboveFile),
+    {ok,_} = file:read_file(VariantFile),
     {ok,_} = file:read_file(RelativePathFile),
 
     %% clean up
@@ -544,7 +569,7 @@ unzip_traversal_exploit(Config) ->
     ok = file:make_dir(SubDir),
 
     %% unzip in SubDir
-    {ok, [ClashFile, AboveFile, RelativePathFile]} =
+    {ok, [ClashFile, AboveFile, VariantFile, RelativePathFile]} =
 	zip:unzip(ZipName, [{cwd,SubDir},keep_old_files]),
 
     {ok,<<"This is the original file.\n">>} =
@@ -558,20 +583,26 @@ unzip_traversal_exploit(Config) ->
 unzip_jar(Config) when is_list(Config) ->
     DataDir = get_value(data_dir, Config),
     PrivDir = get_value(priv_dir, Config),
+
     JarFile = filename:join(DataDir, "test.jar"),
+
+    %% Create a jar file programatically
+    _ = os:cmd("jar -cvfm " ++ JarFile ++ " " ++ filename:join(DataDir, "META-INF/MANIFEST.MF")
+                ++ " " ++ filename:join(DataDir, "test.txt")),
 
     %% create a temp directory
     Subdir = filename:join(PrivDir, "jartest"),
     ok = file:make_dir(Subdir),
 
-    FList = ["META-INF/MANIFEST.MF","test.txt"],
-
+    %% tests unzip
     {ok, RetList} = zip:unzip(JarFile, [{cwd, Subdir}]),
 
     %% Verify.
-    lists:foreach(fun(F)-> {ok,B} = file:read_file(filename:join(DataDir, F)),
-			   {ok,B} = file:read_file(filename:join(Subdir, F)) end,
-		  FList),
+    FList = [filename:join(DataDir, X) || X <- ["META-INF/MANIFEST.MF","test.txt"]],
+    lists:foreach(fun(F)->
+                          {ok,B} = file:read_file(filename:join(DataDir, F)),
+                          {ok,B} = file:read_file(filename:join(Subdir, F)) end,
+                  FList),
     lists:foreach(fun(F)->
                           case lists:last(F) =:= $/ of
                               true -> ok = file:del_dir(F);
@@ -690,7 +721,7 @@ create_files([]) ->
 %% Try zip:unzip/1 on some corrupted zip files.
 bad_zip(Config) when is_list(Config) ->
     ok = file:set_cwd(get_value(priv_dir, Config)),
-    try_bad("bad_crc",    {bad_crc, "abc.txt"}, Config),
+    try_bad("bad_crc",    {"abc.txt", bad_crc}, Config),
     try_bad("bad_central_directory", bad_central_directory, Config),
     try_bad("bad_file_header",    bad_file_header, Config),
     try_bad("bad_eocd",    bad_eocd, Config),
@@ -1075,8 +1106,8 @@ fd_leak(Config) ->
     do_fd_leak(BadExtract, 1),
 
     BadCreate = fun() ->
-                        {error,enoent} = zip:zip("failed.zip",
-                                                 ["none"]),
+                        {error,{"none", {_, enoent}}} = zip:zip("failed.zip",
+                                                      ["none"]),
                         ok
                 end,
     do_fd_leak(BadCreate, 1),
@@ -1262,6 +1293,25 @@ explicit_file_info(_Config) ->
     {ok, _} = zip:zip("", Files, [memory]),
     ok.
 
+zip_get_2_to_cwd(Config) ->
+    Files = [{"file.txt", binary:copy(<<"txt">>, 100)},
+             {"file.zip", binary:copy(<<"zip">>, 100)}],
+    CreateOpts = [memory, {uncompress, [".zip"]}],
+    {ok, {_, ZipBin}} = zip:zip("", Files, CreateOpts),
+
+    PrivDir = get_value(priv_dir, Config),
+    {ok, ZipSrv} = zip:zip_open(ZipBin, [{cwd, PrivDir}]),
+
+    {ok, TxtFile} = zip:zip_get("file.txt", ZipSrv),
+    {ok, <<"txt", _/binary>>} = file:read_file(TxtFile),
+
+    {ok, ZipFile} = zip:zip_get("file.zip", ZipSrv),
+    {ok, <<"zip", _/binary>>} = file:read_file(ZipFile),
+
+    ok = zip:zip_close(ZipSrv),
+
+    ok.
+
 mode(Config) ->
 
     PrivDir = get_value(pdir, Config),
@@ -1301,8 +1351,11 @@ mode(Config) ->
        zip:list_dir(Archive)),
 
     ok = file:make_dir(ExtractDir),
-    ?assertMatch(
-       {ok, ["dir/","dir/nested","exec"]}, unzip(Config, Archive, [{cwd,ExtractDir}])),
+    case unzip(Config, Archive, [{cwd,ExtractDir}]) of
+        {ok, ["dir/","dir/nested","exec"]} -> ok;
+        {ok, ["dir","dir/nested","exec"]} -> ok; %macOS, old unzip
+        UnzipError -> error({unexpected,UnzipError})
+    end,
 
     case un_z64(get_value(unzip, Config)) =/= unemzip of
         true ->
@@ -1558,6 +1611,39 @@ extended_timestamp(Config) ->
 
     ok.
 
+% checks that the timestamps in the zip file are wrapped if > 59
+capped_timestamp(Config) ->
+
+    DataDir = get_value(data_dir, Config),
+    Archive = filename:join(DataDir, "bad_seconds.zip"),
+    PrivDir =  get_value(pdir, Config),
+    ExtractDir = filename:join(PrivDir, "extract"),
+
+    {ok, [#zip_comment{},
+          #zip_file{ info = ZipFI = #file_info{ mtime = ZMtime }} ]} =
+        zip:list_dir(Archive),
+
+    ct:log("in zip : ~p",[ZipFI]),
+
+    %% zipinfo shows something different from what unzip
+    ct:log("zipinfo:~n~ts",[os:cmd("zipinfo -v "++Archive)]),
+
+    % and not {{2024, 12, 31}, {23, 59, 60}}
+    ?assertEqual({{2025, 1, 1}, {0, 0, 0}}, ZMtime),
+
+    ok = file:make_dir(ExtractDir),
+    ?assertMatch(
+       {ok, ["testfile.txt"]},
+       unzip(Config, Archive, [{cwd,ExtractDir}])),
+
+    {ok, UnzipFI } =
+        file:read_file_info(filename:join(ExtractDir, "testfile.txt"),[raw]),
+
+    ct:log("extract: ~p",[UnzipFI]),
+    UnzipMode = un_z64(get_value(unzip, Config)),
+    assert_timestamp(UnzipMode, UnzipFI, ZMtime),
+    ok.
+
 assert_timestamp(unemzip, _FI, _ZMtime) ->
     %% emzip does not support timestamps
     ok;
@@ -1616,6 +1702,50 @@ uid_gid(Config) ->
             %% emzip does not support uid_gid
             ok
     end,
+
+    ok.
+
+sanitize_filenames(Config) ->
+    RootDir = get_value(pdir, Config),
+    TempDir = filename:join(RootDir, "sanitize_filenames"),
+    ok = file:make_dir(TempDir),
+
+    %% Check that /tmp/absolute does not exist
+    {error, enoent} = file:read_file("/tmp/absolute"),
+
+    %% Create a zip archive /tmp/absolute in it
+    %%   This file was created using the command below on Erlang/OTP 28.0
+    %%   1> rr(file), {ok, {_, Bin}} = zip:zip("absolute.zip", [{"/tmp/absolute",<<>>,#file_info{ type=regular, mtime={{2000,1,1},{0,0,0}}, size=0 }}], [memory]), rp(base64:encode(Bin)).
+    AbsZip = base64:decode(<<"UEsDBAoAAAAAAAAAISgAAAAAAAAAAAAAAAANAAkAL3RtcC9hYnNvbHV0ZVVUBQABcDVtOFBLAQI9AwoAAAAAAAAAISgAAAAAAAAAAAAAAAANAAkAAAAAAAAAAACkAQAAAAAvdG1wL2Fic29sdXRlVVQFAAFwNW04UEsFBgAAAAABAAEARAAAADQAAAAAAA==">>),
+    AbsArchive = filename:join(TempDir, "absolute.zip"),
+    ok = file:write_file(AbsArchive, AbsZip),
+
+    {ok, ["tmp/absolute"]} = unzip(Config, AbsArchive, [verbose, {cwd, TempDir}]),
+
+    zipinfo_match(AbsArchive, "/tmp/absolute"),
+
+    case un_z64(get_value(unzip, Config)) =/= unemzip of
+        true ->
+            {error, enoent} = file:read_file("/tmp/absolute"),
+            {ok, <<>>} = file:read_file(filename:join([TempDir, "tmp", "absolute"]));
+        false ->
+            ok
+    end,
+
+    RelArchive = filename:join(TempDir, "relative.zip"),
+    Relative = filename:join(TempDir, "relative"),
+    ok = file:write_file(Relative, <<>>),
+    ?assertMatch({ok, RelArchive},zip(Config, RelArchive, "", [Relative], [{cwd, TempDir}])),
+
+    SanitizedRelative = filename:join(tl(filename:split(Relative))),
+    case un_z64(get_value(unzip, Config)) =:= unemzip of
+        true ->
+            {ok, [SanitizedRelative]} = unzip(Config, RelArchive, [{cwd, TempDir}]);
+        false ->
+            ok
+    end,
+
+    zipinfo_match(RelArchive, SanitizedRelative),
 
     ok.
 

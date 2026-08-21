@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -63,7 +65,7 @@ The following flags are supported:
   containing tuples and lists must be quoted. Terms containing spaces must be
   quoted on all platforms.
 
-- **`-WError`** - Makes all warnings into errors.
+- **`-Werror`** - Makes all warnings into errors.
 
 - **`-W<Number>`** - Sets warning level to `Number`. Defaults to `1`. To turn
   off warnings, use `-W0`.
@@ -164,7 +166,12 @@ The following compilers are supported:
 
   Supported options: same as for `.erl`.
 
-- **`.core`** - Erlang core source code. It generates a `.beam` file.
+- **`.core`** - Core Erlang source code. It generates a `.beam` file.
+
+  Supported options: same as for `.erl`.
+
+- **`.abstr`** - Erlang abstract format as produced by `to_abstr`.
+  It generates a `.beam` file.
 
   Supported options: same as for `.erl`.
 
@@ -241,7 +248,8 @@ of situations that force a restart:
 
 ## Environment Variables
 
-- **`ERLC_EMULATOR`** - The command for starting the emulator. Defaults to `erl`
+- **`ERLC_EMULATOR`** - The command for starting the emulator, which must be
+  just the path for the emulator without any parameters. Defaults to `erl`
   in the same directory as the `erlc` program itself, or, if it does not exist,
   `erl` in any of the directories specified in environment variable `PATH`.
 

@@ -1,7 +1,9 @@
 %
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -228,7 +230,8 @@ init_per_group(erlang_server, Config) ->
 	ssh_test_lib:daemon([{system_dir, SysDir},
 			     {user_dir, PrivDir},
 			     {user_passwords,
-			      [{User, Passwd}]}]),
+                              [{User, Passwd}]},
+                             {subsystems, [ssh_sftpd:subsystem_spec([])]}]),
     [{peer, {fmt_host(HostX),PortX}}, {group, erlang_server}, {sftpd, Sftpd} | Config];
 
 init_per_group(openssh_server, Config) ->
@@ -1299,19 +1302,33 @@ w2l(Config, P) ->
 verify_openssh(Config) ->
     ct:comment("Begin ~p",[grps(Config)]),
     Host = ssh_test_lib:hostname(),
+    verify_openssh_loop(Host, Config, 3, 2000).
+
+verify_openssh_loop(_Host, _Config, 0, _Delay) ->
+    ?CT_LOG("verify_openssh: all retries exhausted"),
+    {skip, "No openssh daemon (retries exhausted)"};
+verify_openssh_loop(Host, Config, Retries, Delay) ->
     case (catch ssh_sftp:start_channel(Host,
-				       [{user_interaction, false},
-					{silently_accept_hosts, true},
-                                        {save_accepted_host, false}
+                                       [{user_interaction, false},
+                                        {silently_accept_hosts, true},
+                                        {save_accepted_host, false},
+                                        {connect_timeout, 10000},
+                                        {timeout, 10000}
                                        ])) of
-	{ok, _ChannelPid, Connection} ->
-	    [{peer, {_HostName,{IPx,Portx}}}] = ssh:connection_info(Connection,[peer]),
-	    ssh:close(Connection),
-	    [{w2l, fun w2l/1},
+        {ok, _ChannelPid, Connection} ->
+            [{peer, {_HostName,{IPx,Portx}}}] =
+                ssh:connection_info(Connection,[peer]),
+            ssh:close(Connection),
+            [{w2l, fun w2l/1},
              {peer, {fmt_host(IPx),Portx}}, {group, openssh_server} | Config];
-	{error,"Key exchange failed"} ->
-	    {skip, "openssh server doesn't support the tested kex algorithm"};
-	Other ->
-            ct:log("No openssh server. Cause:~n~p~n",[Other]),
-	    {skip, "No openssh daemon (see log in testcase)"}
+        {error,"Key exchange failed"} ->
+            {skip, "openssh server doesn't support the tested kex algorithm"};
+        Other when Retries > 0 ->
+            ?CT_LOG("verify_openssh: attempt failed (~p retries left): ~p",
+                    [Retries - 1, Other]),
+            timer:sleep(Delay),
+            verify_openssh_loop(Host, Config, Retries - 1, Delay * 2);
+        Other ->
+            ?CT_LOG("No openssh server. Cause:~n~p~n",[Other]),
+            {skip, "No openssh daemon (see log in testcase)"}
     end.

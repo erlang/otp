@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,11 +25,11 @@ Erlang provides a number of data types, which are listed in this section.
 
 [](){: #no_user_types }
 
-Note that Erlang has no user defined types, only composite types (data
+Note that Erlang has no user-defined types, only composite types (data
 structures) made of Erlang terms. This means that any function testing for a
 composite type, typically named `is_type/1`, might return `true` for a term that
-coincides with the chosen representation. The corresponding functions for built
-in types do not suffer from this.
+coincides with the chosen representation. The corresponding functions for built-in
+types do not suffer from this.
 
 ## Terms
 
@@ -36,16 +38,28 @@ A piece of data of any data type is called a _term_.
 ## Number
 
 There are two types of numeric literals, _integers_ and _floats_. Besides the
-conventional notation, there are two Erlang-specific notations:
+conventional notation, there are three Erlang-specific notations:
 
 - `$`_`char`_  
-  ASCII value or unicode code-point of the character _`char`_.
-- _`base`_`#`_`value`_  
+  ASCII value or Unicode code-point of the character _`char`_.
+- _`base`_`#`_`digits`_  
   Integer with the base _`base`_, which must be an integer in the range 2
-  through 36.
+  through 36. _`digits`_ are `0`-`9` plus letters `A`-`Z` (upper- or lowercase).
+  This notation can also be found in the Ada programming
+  language. Erlang does _not_ support prefixes such as `0x` for hexadecimal
+  or `077` for octal.
+- _`base`_`#`_`digits`_`.`_`digits`_`#e`_`exponent`_  
+  Based floating-point number, for example `16#ff.fe#e+6`. Using a base
+  like 16 or 2 allows for an exact text representation of a floating-point
+  number. Like the base, the exponent is always a decimal number.
+
 
 Leading zeroes are ignored. Single underscore characters (`_`) can be
 inserted between digits as a visual separator.
+
+Also note that floating-point numbers must start with a digit, and must
+contain a `.`. In other words, literals such as `.01` and `1e6` are not
+allowed, and must be written `0.01` and `1.0e6`, respectively.
 
 _Examples:_
 
@@ -85,7 +99,7 @@ than `2.4`, `3` compares greater than `2.99999`, and `5` is equal to `5.0`.
 
 When wanting to compare an integer with another integer or a float with another
 float, it may be tempting to use the term equivalence operators (`=:=`, `=/=`)
-or pattern matching. This works for integers which has a distinct representation
+or pattern matching. This works for integers, which have a distinct representation
 for every number, but there's a surprising edge case for floating-point as the
 latter has two representations for zero which are considered different by the
 term equivalence operators and pattern matching.
@@ -123,9 +137,9 @@ false
 true
 ```
 
-### Representation of Floating Point Numbers
+### Representation of Floating-Point Numbers
 
-When working with floats you may not see what you expect when printing or doing
+When working with floats, you may not see what you expect when printing or doing
 arithmetic operations. This is because floats are represented by a fixed number
 of bits in a base-2 system while printed floats are represented with a base-10
 system. Erlang uses 64-bit floats. Here are examples of this phenomenon:
@@ -150,7 +164,7 @@ Erlang's pretty printer rounds `36028797018963968.0` to `3.602879701896397e16`
 `[36028797018963966.0, 36028797018963972.0]` are represented by
 `36028797018963968.0`.
 
-For more information about floats and issues with them see:
+For more information about floats and issues with them, see:
 
 - [What Every Programmer Should Know About Floating-Point Arithmetic](https://floating-point-gui.de/)
 - [0\.30000000000000004.com/](https://0.30000000000000004.com/)
@@ -180,9 +194,9 @@ _Examples_:
 
 ## Atom
 
-An atom is a literal, a constant with name. An atom is to be enclosed in single
-quotes (`'`) if it does not begin with a lower-case letter or if it contains other
-characters than alphanumeric characters, underscore (`_`), or `@`.
+An atom is a literal, a constant with a name. An atom is to be enclosed in single
+quotes (`'`) if it does not begin with a lowercase letter or if it contains
+characters other than alphanumeric characters, underscore (`_`), or `@`.
 
 _Examples:_
 
@@ -252,7 +266,7 @@ true
 ## Fun
 
 A fun is a functional object. Funs make it possible to create an anonymous
-function and pass the function itself — not its name — as argument to other
+function and pass the function itself — not its name — as an argument to other
 functions.
 
 _Examples:_
@@ -265,7 +279,7 @@ _Examples:_
 ```
 
 The [`is_function/1`](`erlang:is_function/1`) and [`is_function/2`](`erlang:is_function/2`)
-BIFs tests whether a term is a fun.
+BIFs test whether a term is a fun.
 
 _Examples_:
 
@@ -305,7 +319,7 @@ The BIF [`self/0`](`erlang:self/0`) returns the Pid of the calling process. When
 process will be able to get the Pid of the child process either via the return
 value, as is the case when calling the [`spawn/3`](`erlang:spawn/3`) BIF, or via
 a message, which is the case when calling the
-[`spawn_request/5`](`erlang:spawn_request/5`) BIF. A Pid is typically used when
+[`spawn_request/5`](`erlang:spawn_request/5`) BIF. A Pid is typically used
 when sending a process a [signal](ref_man_processes.md#signals). The
 [`is_pid/1`](`erlang:is_pid/1`) BIF tests whether a term is a Pid.
 
@@ -342,7 +356,7 @@ A tuple is a compound data type with a fixed number of terms:
 Each term `Term` in the tuple is called an _element_. The number of elements is
 said to be the _size_ of the tuple.
 
-There exists a number of BIFs to manipulate tuples.
+There are a number of BIFs to manipulate tuples.
 
 _Examples:_
 
@@ -375,7 +389,7 @@ Each key-value association in the map is called an _association pair_. The key
 and value parts of the pair are called _elements_. The number of association
 pairs is said to be the _size_ of the map.
 
-There exists a number of BIFs to manipulate maps.
+There are a number of BIFs to manipulate maps.
 
 _Examples:_
 
@@ -388,13 +402,13 @@ adam
 {july,29}
 4> M2 = maps:update(age, 25, M1).
 #{age => 25,date => {july,29},name => adam}
-5> map_size(M).
+5> map_size(M2).
 3
 6> map_size(#{}).
 0
 ```
 
-A collection of maps processing functions are found in module `m:maps`
+A collection of map-processing functions can be found in the module `m:maps`
 in STDLIB.
 
 Read more about maps in [Map Expressions](expressions.md#map-expressions).
@@ -418,7 +432,7 @@ said to be the _length_ of the list.
 Formally, a list is either the empty list `[]` or consists of a _head_ (first
 element) and a _tail_ (remainder of the list). The _tail_ is also a list. The
 latter can be expressed as `[H|T]`. The notation `[Term1,...,TermN]` above is
-equivalent with the list `[Term1|[...|[TermN|[]]]]`.
+equivalent to the list `[Term1|[...|[TermN|[]]]]`.
 
 _Example:_
 
@@ -450,16 +464,16 @@ a
 0
 ```
 
-A collection of list processing functions are found in module
+A collection of list-processing functions can be found in the module
 `m:lists` in STDLIB.
 
 ## String
 
-Strings are enclosed in double quotes ("), but is not a data type in Erlang.
+Strings are enclosed in double quotes ("), but are not a data type in Erlang.
 Instead, a string `"hello"` is shorthand for the list `[$h,$e,$l,$l,$o]`, that
 is, `[104,101,108,108,111]`.
 
-Two adjacent string literals are concatenated into one. This is done in the
+Two adjacent string literals are concatenated into one. This is done during
 compilation.
 
 _Example:_
@@ -476,7 +490,7 @@ is equivalent to
 
 > #### Change {: .info }
 >
-> Starting with Erlang/OTP 27 two adjacent string literals have to be separated
+> Starting with Erlang/OTP 27, two adjacent string literals have to be separated
 > by white space, or otherwise it is a syntax error. This avoids possible confusion
 > with _triple-quoted strings_.
 
@@ -487,11 +501,11 @@ sequences, and thereby do not need double quote characters to be escaped.
 
 > #### Change {: .info }
 >
-> Triple-quoted strings were added in Erlang/OTP 27. Before that 3 consecutive
-> double quote characters had a different meaning. There were absolutely no good
+> Triple-quoted strings were added in Erlang/OTP 27. Before that, 3 consecutive
+> double quote characters had a different meaning. There was absolutely no good
 > reason to write such a character sequence before triple-quoted strings
 > existed, but there _are_ some gotchas; see the
-> [Warning ](data_types.md#triple-quoted-strings-warning) at the end of this
+> [Warning](data_types.md#triple-quoted-strings-warning) at the end of this
 > description of triple-quoted strings.
 
 Example, with verbatim double quote characters:
@@ -503,7 +517,7 @@ Example, with verbatim double quote characters:
   """
 ```
 
-That is equivalent to the normal single quoted string (which also allows
+That is equivalent to a normal single-quoted string (which also allows
 newlines):
 
 ```text
@@ -511,7 +525,7 @@ newlines):
 Line \"2\""
 ```
 
-The opening and the closing line has got the delimiters: the `"""` characters.
+The opening and closing lines contain the delimiters, the `"""` characters.
 The lines between them are the content lines. The newline on the opening line is
 not regarded as string content, nor is the newline on the last content line.
 
@@ -522,7 +536,7 @@ line, or else it is regarded as a content line.
 
 The opening line is not allowed to have any characters other than white space
 after the delimiter, and all content lines must start with the defined
-indentation character sequence, otherwise the string has a syntax error.
+indentation character sequence; otherwise, the string has a syntax error.
 
 Here is a larger example:
 
@@ -542,7 +556,7 @@ Not escaped: \"\\t \\r \\xFF\" and \"\"\"
 "
 ```
 
-It is possible to write consecutive double quote characters on the
+It is possible to write consecutive double quote characters at the
 beginning of a content line by using more double quote characters as
 delimiters. This is a string that contains exactly four double quote
 characters, using a delimiter with five double quote characters:
@@ -587,7 +601,7 @@ These strings are all the empty string:
 > strings.
 >
 > The compiler preprocessor was patched in Erlang/OTP 26.1 to warn about 3 or
-> more sequential double quote characters. In Erlang/OTP 26.2 this was improved
+> more sequential double quote characters. In Erlang/OTP 26.2, this was improved
 > to warn about adjacent string literals without intervening white space, which
 > also covers the same problem at a string end.
 >
@@ -604,7 +618,7 @@ offer mainly two things: a compact way to create UTF-8 encoded binary strings,
 and a way to write verbatim strings (not having to escape `\` characters),
 useful for regular expressions, for example.
 
-A sigil starts with the Tilde character (`~`) followed by a name defining the
+A sigil starts with the tilde character (`~`) followed by a name defining the
 sigil type.
 
 Immediately after follows the sigil content; a character sequence between
@@ -613,19 +627,19 @@ content delimiters. The allowed delimiters are these start-end delimiter pairs:
 ``/ | ' " ` #``. [Triple-quote](data_types.md#tqstring) string delimiters may
 also be used.
 
-The [character escaping rules ](data_types.md#escape-sequences)for the sigil
-content depends on the sigil type. When the sigil content is _verbatim_, there
+The [character escaping rules](data_types.md#escape-sequences) for the sigil
+content depend on the sigil type. When the sigil content is _verbatim_, there
 is no escape character. The sigil content simply ends when the end delimiter is
 found, so it is impossible to have the end delimiter character in the string
 content. The set of delimiters is fairly generous, and in most cases it is
 possible to choose an end delimiter that's not in the literal string content.
 
 [Triple-quote](data_types.md#tqstring) string delimiters allow choosing a larger
-number of quote characters in the end delimiter, than whatever is in the string
+number of quote characters in the end delimiter than whatever is in the string
 content, which thereby facilitates any content also with a sequence of `"`
 characters at the start of a line even for a _verbatim_ string.
 
-The Sigils are:
+The sigils are:
 
 - **`~`** - The Vanilla (default) Sigil. Shorthand for a UTF-8 encoded
   `t:binary/0`. This sigil does not affect the character escaping rules, so with
@@ -634,7 +648,7 @@ The Sigils are:
 
 - **`~b`** - The Binary Sigil. Shorthand for a
   [UTF-8 encoded `binary()`](`t:unicode:unicode_binary/0`), as if calling
-  [`unicode:characters_to_binary/1` ](`unicode:characters_to_binary/1`)on the
+  [`unicode:characters_to_binary/1`](`unicode:characters_to_binary/1`) on the
   sigil content. Character escaping rules are the same as for `~s`.
 
 - **`~B`** - The Verbatim Binary Sigil. As `~b`, but the sigil content is
@@ -643,14 +657,14 @@ The Sigils are:
 - **`~s`** - The String Sigil. Shorthand for a
   [`string()`](`t:erlang:string/0`), that is, a `[char()]` which is a list of
   Unicode codepoints.
-  [Character escaping rules ](data_types.md#escape-sequences)are the same as for
+  [Character escaping rules](data_types.md#escape-sequences) are the same as for
   a normal `t:string/0`. Using this sigil on a regular string does effectively
   nothing.
 
 - **`~S`** - The Verbatim String Sigil. As `~s`, but the sigil content is
   verbatim. Using this sigil on a triple-quoted string does effectively nothing.
 
-Examples
+_Examples:_
 
 ```text
 <<"\"\\µA\""/utf8>> = <<$",$\\,194,181,$A,$">> =
@@ -678,7 +692,7 @@ Examples
         """ = "\"\\µA\""
 ```
 
-Adjacent strings are concatenated in the compilation, but that is not possible
+Adjacent strings are concatenated during compilation, but that is not possible
 with sigils, since they are transformed into terms that in general may not be
 concatenated. So, `"a" "b"` is equivalent to `"ab"`, but `~s"a" "b"` or
 `~s"a" ~s"b"` is a syntax error. `~s"a" ++ "b"`, however, evaluates to `"ab"`
@@ -686,7 +700,7 @@ since both operands to the `++` operator are strings.
 
 > #### Change {: .info }
 >
-> Sigils were introduced in Erlang/OTP 27
+> Sigils were introduced in Erlang/OTP 27.
 
 ## Record
 
@@ -715,9 +729,50 @@ new(Name, Age) ->
 Read more about records in [Records](ref_man_records.md). More examples are
 found in [Programming Examples](`e:system:prog_ex_records.md`).
 
+## Native Record
+
+A native record is a data structure for storing a fixed number
+of elements. It is similar to the traditional [tuple-based records](#record),
+except that it is a true data type.
+
+_Examples:_
+
+```erlang
+-module(person).
+-export([new/2]).
+
+-record #person{name, age}.
+
+new(Name, Age) ->
+    #person{name=Name, age=Age}.
+```
+
+```erlang
+1> P = person:new(ernie, 44).
+#person:person{name = ernie,age = 44}
+2> is_record(P).
+true
+3> is_tuple(P).
+false
+4> is_map(P).
+false
+```
+
+> #### Warning {: .warning }
+>
+> Native records are considered experimental in Erlang/OTP 29. This
+> means that their behavior may change, potentially requiring updates
+> to applications that use them.
+
+> #### Change {: .info }
+>
+> Native records were introduced in Erlang/OTP 29.
+
+Read more about native records in [Native Records](ref_man_native_records.md).
+
 ## Boolean
 
-There is no Boolean data type in Erlang. Instead the atoms `true` and `false`
+There is no Boolean data type in Erlang. Instead, the atoms `true` and `false`
 are used to denote Boolean values. The [`is_boolean/1`](`erlang:is_boolean/1`)
 BIF tests whether a term is a boolean.
 
@@ -742,7 +797,7 @@ Within strings (`"`\-delimited), quoted atoms, and the content of
 [`~b` and `~s` sigils](data_types.md#sigil), the following escape sequences are
 recognized:
 
-| _Sequence_                  | _Description_                                                                         |
+| Sequence                    | Description                                                                           |
 | --------------------------- | ------------------------------------------------------------------------------------- |
 | `\b`                        | Backspace (ASCII code 8)                                                              |
 | `\d`                        | Delete (ASCII code 127)                                                               |
@@ -781,12 +836,12 @@ recognized. The only text that cannot be written in a triple-quoted string is
 three consecutive double quote characters at the beginning of a line (preceded
 only by whitespace). This limitation can be worked around by using more double
 quote characters for the string delimiters than in the string. Any number three
-or above is allowed for the start delimiter and the end delimiter is the same as
+or above is allowed for the start delimiter, and the end delimiter is the same as
 the start delimiter.
 
 When triple-quote string delimiters are used with the
-[`~`, `~B` or `~S` sigils ](data_types.md#sigil)the same applies, but for the
-[`~b` or `~s` sigils ](data_types.md#sigil)the escape sequences for normal
+[`~`, `~B` or `~S` sigils](data_types.md#sigil), the same applies, but for the
+[`~b` or `~s` sigils](data_types.md#sigil) the escape sequences for normal
 strings, above, are used.
 
 > #### Change {: .info }

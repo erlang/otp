@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,6 +29,9 @@ functions that might be useful when writing tools.
 """.
 -moduledoc(#{since => "OTP 25.0"}).
 
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_possibly_unsafe_function, {erlang, binary_to_term, 1}}]).
+
 -export([all/0,
          configurable/0,
          info/1,
@@ -35,11 +40,14 @@ functions that might be useful when writing tools.
          enabled/0,
          keywords/0,
          keywords/1,
-         keyword_fun/2,
-         keyword_fun/4,
+         init_parse_state/2,
+         update_parse_state/4,
          used/1,
          format_error/1,
          format_error/2]).
+
+%% temporary export for bootstrapping build
+-export([keyword_fun/2, keyword_fun/4]).
 
 -type type() :: 'extension' | 'backwards_incompatible_change'.
 -type status() :: 'experimental'
@@ -74,6 +82,14 @@ feature_specs() ->
             experimental => 25,
             approved => 27,
             keywords => ['maybe', 'else'],
+            type => extension},
+      compr_assign =>
+          #{short => "Assignment in comprehensions (EEP77)",
+            description =>
+                "Implementation of '=' assignments in comprehensions proposed in EEP77.",
+            status => experimental,
+            experimental => 29,
+            keywords => [],
             type => extension}}.
 
 %% Return all currently known features.
@@ -90,6 +106,10 @@ all() ->
               M -> M
           end,
     lists:sort(maps:keys(Map)).
+
+approved() ->
+    [Ftr || Ftr <- all(),
+            maps:get(status, info(Ftr)) =:= approved].
 
 -doc """
 Return a list of all configurable features, that is, features with status
@@ -214,20 +234,41 @@ keywords(Ftr, Map) ->
     maps:get(keywords, maps:get(Ftr, Map)).
 
 %% Utilities
-%% Returns list of enabled features and a new keywords function
+
+%% temporary aliases for bootstrapping build
+
 -doc false.
 -spec keyword_fun([term()], fun((atom()) -> boolean())) ->
           {'ok', {[feature()], fun((atom()) -> boolean())}}
               | {'error', error()}.
 keyword_fun(Opts, KeywordFun) ->
+    init_parse_state(Opts, KeywordFun).
+
+-doc false.
+-spec keyword_fun('enable' | 'disable', feature(), [feature()],
+                  fun((atom()) -> boolean())) ->
+          {'ok', {[feature()], fun((atom()) -> boolean())}}
+              | {'error', error()}.
+keyword_fun(Ind, Feature, Ftrs, KeywordFun) ->
+    update_parse_state(Ind, Feature, Ftrs, KeywordFun).
+
+%% Handles `{feature, F, State}` options and returns the list of enabled
+%% features together with a keywords function, as the initial state for
+%% parsing, starting from the set of statically enabled features. This
+%% is then modified (in epp) using `update_parse_state/4` when a
+%% declaration `-feature(...)` is encountered.
+-doc false.
+-spec init_parse_state([term()], fun((atom()) -> boolean())) ->
+          {'ok', {[feature()], fun((atom()) -> boolean())}}
+              | {'error', error()}.
+init_parse_state(Opts, KeywordFun) ->
     %% Get items enabling or disabling features, preserving order.
     IsFtr = fun({feature, _, enable}) -> true;
                ({feature, _, disable}) -> true;
                (_) -> false
             end,
     FeatureOps = lists:filter(IsFtr, Opts),
-    {AddFeatures, DelFeatures, RawFtrs} = collect_features(FeatureOps),
-
+    {AddFeatures, DelFeatures, RawFtrs} = collect_features(FeatureOps, enabled()),
     case configurable_features(RawFtrs) of
         ok ->
             {ok, Fun} = add_features_fun(AddFeatures, KeywordFun),
@@ -237,12 +278,14 @@ keyword_fun(Opts, KeywordFun) ->
             Error
     end.
 
+%% Modifies the given keyword fun to accept/deny keywords when a feature
+%% is turned on or off. Used by epp when scanning feature declarations.
 -doc false.
--spec keyword_fun('enable' | 'disable', feature(), [feature()],
+-spec update_parse_state('enable' | 'disable', feature(), [feature()],
                   fun((atom()) -> boolean())) ->
           {'ok', {[feature()], fun((atom()) -> boolean())}}
               | {'error', error()}.
-keyword_fun(Ind, Feature, Ftrs, KeywordFun) ->
+update_parse_state(Ind, Feature, Ftrs, KeywordFun) ->
     case is_configurable(Feature) of
         true ->
             case Ind of
@@ -399,7 +442,7 @@ init_features() ->
                 end
         end,
     FOps = lists:filtermap(F, FeatureOps),
-    {Features, _, _} = collect_features(FOps),
+    {Features, _, _} = collect_features(FOps, approved()),
     {Enabled0, Keywords} =
         lists:foldl(fun(Ftr, {Ftrs, Keys}) ->
                             case lists:member(Ftr, Ftrs) of
@@ -490,13 +533,10 @@ features_in(NameOrBin) ->
     end.
 
 %% Interpret feature ops (enable or disable) to build the full set of
-%% features.  The meta feature 'all' is expanded to all known
-%% features.
-collect_features(FOps) ->
-    %% Features enabled by default
-    Enabled = [Ftr || Ftr <- all(),
-            maps:get(status, info(Ftr)) == approved],
-    collect_features(FOps, Enabled, [], []).
+%% features, starting from the given set. The meta feature 'all' is
+%% expanded to all known features.
+collect_features(FOps, Inital) ->
+    collect_features(FOps, Inital, [], []).
 
 collect_features([], Add, Del, Raw) ->
     {Add, Del, Raw};

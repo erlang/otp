@@ -1,7 +1,10 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+
+Copyright Ericsson AB 2024-2026. All Rights Reserved.
+Copyright 2001-2025 Richard Carlsson. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,6 +17,16 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+Alternatively, you may use this file under the terms of the GNU Lesser
+General Public License (the "LGPL") as published by the Free Software
+Foundation; either version 2.1, or (at your option) any later version.
+If you wish to allow use of your version of this file only under the
+terms of the LGPL, you should delete the provisions above and replace
+them with the notice and other provisions required by the LGPL; see
+<http://www.gnu.org/licenses/>. If you do not delete the provisions
+above, a recipient may use your version of this file under the terms of
+either the Apache License or the LGPL.
 
 %CopyrightEnd%
 -->
@@ -48,7 +61,7 @@ documentation for other tools like `m:shell_docs`.
 ## Introduction
 
 EDoc lets you write the documentation of an Erlang program as comments in the
-source code itself, using _tags_ on the form "`@Name ...`". A source file does
+source code itself, using _tags_ of the form "`@Name ...`". A source file does
 not have to contain tags for EDoc to generate its documentation, but without
 tags the result will only contain the basic available information that can be
 extracted from the module.
@@ -63,20 +76,20 @@ Tags are associated with the nearest following program construct "of
 significance" (the module name declaration and function definitions). Other
 constructs are ignored; e.g., in:
 
-```text
-   %% @doc Prints the value X.
+```erlang
+%% @doc Prints the value X.
 
-   -record(foo, {x, y, z}).
+-record(foo, {x, y, z}).
 
-   print(X) -> ...
+print(X) -> ...
 ```
 
 the `@doc` tag is associated with the function `print/1`.
 
 Note that in a comment such as:
 
-```text
-   % % @doc ...
+```erlang
+% % @doc ...
 ```
 
 the tag is ignored, because only the first '`%`' character is considered
@@ -149,15 +162,15 @@ The following tags can be used anywhere within a module:
   useful in code containing conditional compilation, when preprocessing is
   turned on._ (Preprocessing is turned off by default.) E.g., in
 
-  ```text
-     -ifdef(DEBUG).
-     %% @doc ...
-     foo(...) -> ...
-     -endif.
-     %% @clear
+  ```erlang
+  -ifdef(DEBUG).
+  %% @doc ...
+  foo(...) -> ...
+  -endif.
+  %% @clear
 
-     %% @doc ...
-     bar(...) -> ...
+  %% @doc ...
+  bar(...) -> ...
   ```
 
   the `@clear` tag makes sure that EDoc does not see two `@doc` tags before the
@@ -175,13 +188,13 @@ The following tags can be used anywhere within a module:
 - **`@end`** - [](){: #gtag-end } The text following this tag is always ignored.
   Use this to mark the end of the previous tag, when necessary, as e.g. in:
 
-  ```text
-     %% ----------------------------------
-     %% ...
-     %% @doc ...
-     %% ...
-     %% @end
-     %% ----------------------------------
+  ```erlang
+  %% ----------------------------------
+  %% ...
+  %% @doc ...
+  %% ...
+  %% @end
+  %% ----------------------------------
   ```
 
   to avoid including the last "ruler" line in the `@doc` tag.
@@ -205,20 +218,20 @@ The following tags can be used anywhere within a module:
   function, module or overview-page. The content can be any XHTML text
   describing the issue, e.g.:
 
-  ```text
-     %% @TODO Finish writing the documentation.
+  ```erlang
+  %% @TODO Finish writing the documentation.
   ```
 
   or
 
-  ```text
-     %% @todo Implement <a href="http://www.ietf.org/rfc/rfc2549.txt">RFC 2549</a>.
+  ```erlang
+  %% @todo Implement <a href="http://www.ietf.org/rfc/rfc2549.txt">RFC 2549</a>.
   ```
 
   These tags can also be written as "`TODO:`", e.g.:
 
-  ```text
-     %% TODO: call your mother
+  ```erlang
+  %% TODO: call your mother
   ```
 
   see [Wiki notation](chapter.md#Wiki_notation) for more information. To-Do
@@ -291,28 +304,28 @@ The following tags can be used before a module declaration:
 
   Examples:
 
-  ```text
-     %% @author Richard Carlsson
+  ```erlang
+  %% @author Richard Carlsson
   ```
 
-  ```text
-     %% @author Richard Carlsson <carlsson.richard@gmail.com>
-     %%   [http://example.net/richardc/]
+  ```erlang
+  %% @author Richard Carlsson <carlsson.richard@gmail.com>
+  %%   [http://example.net/richardc/]
   ```
 
-  ```text
-     %% @author <carlsson.richard@gmail.com>
+  ```erlang
+  %% @author <carlsson.richard@gmail.com>
   ```
 
-  ```text
-     %% @author carlsson.richard@gmail.com [http://example.net/richardc/]
+  ```erlang
+  %% @author carlsson.richard@gmail.com [http://example.net/richardc/]
   ```
 
 - **`@copyright`** - [](){: #mtag-copyright } Specifies the module copyrights.
   The content can be arbitrary text; for example:
 
-  ```text
-     %% @copyright 2001-2003 Richard Carlsson
+  ```erlang
+  %% @copyright 2001-2003 Richard Carlsson
   ```
 
 - **`@deprecated`** - [](){: #mtag-deprecated } Mark the module as deprecated,
@@ -320,16 +333,16 @@ The following tags can be used before a module declaration:
   XHTML, and should preferably include a `{@link}` reference to a replacement;
   as in:
 
-  ```text
-     %% @deprecated Please use the module {@link foo} instead.
+  ```erlang
+  %% @deprecated Please use the module {@link foo} instead.
   ```
 
 - **`@doc`** - [](){: #mtag-doc } Describes the module, using well-formed XHTML
   text. The first sentence is used as a summary (see the
   [@doc function tag](chapter.md#ftag-doc) for details). For example.:
 
-  ```text
-     %% @doc This is a <em>very</em> useful module. It is ...
+  ```erlang
+  %% @doc This is a <em>very</em> useful module. It is ...
   ```
 
 - **`@hidden`** - [](){: #mtag-hidden } Marks the module so that it will not
@@ -346,14 +359,14 @@ The following tags can be used before a module declaration:
   arbitrary external resource, such as an article, book, or web site. The
   content must be well-formed XHTML text. Examples:
 
-  ```text
-     %% @reference Pratchett, T., <em>Interesting Times</em>,
-     %% Victor Gollancz Ltd, 1994.
+  ```erlang
+  %% @reference Pratchett, T., <em>Interesting Times</em>,
+  %% Victor Gollancz Ltd, 1994.
   ```
 
-  ```text
-     %% @reference See <a href="www.google.com">Google</a> for
-     %% more information.
+  ```erlang
+  %% @reference See <a href="www.google.com">Google</a> for
+  %% more information.
   ```
 
 - **`@see`** - [](){: #mtag-see } See the
@@ -452,17 +465,17 @@ In several contexts (`@see` tags, `@link` macros, etc.), EDoc lets you refer to
 the generated documentation for modules, functions, datatypes, and applications,
 using a simple and compact syntax. The possible formats for references are:
 
-| _Reference syntax_                    | _Example_                                       | _Scope_       |
-| ------------------------------------- | ----------------------------------------------- | ------------- |
-| `Module`                              | `m:edoc_run`, `erl.lang.list`                   | Global        |
-| `Function/Arity`                      | `file/2`                                        | Within module |
-| `Module:Function/Arity`               | `edoc:application/2`                            | Global        |
-| `Type()`                              | `filename()`                                    | Within module |
-| `Module:Type()`                       | [edoc:edoc_module()](`t:edoc:edoc_module/0`)    | Global        |
-| `//Application`                       | [edoc](index.html)                              | Global        |
-| `//Application/Module`                | `m:edoc_doclet`                                 | Global        |
-| `//Application/Module:Function/Arity` | `edoc_run:file/1`                               | Global        |
-| `//Application/Module:Type()`         | [edoc:edoc_module()](`t:edoc:edoc_module/0`)    | Global        |
+| Reference syntax                      | Example                                      | Scope         |
+| ------------------------------------- | -------------------------------------------- | ------------- |
+| `Module`                              | `m:edoc_run`, `erl.lang.list`                | Global        |
+| `Function/Arity`                      | `file/2`                                     | Within module |
+| `Module:Function/Arity`               | `edoc:application/2`                         | Global        |
+| `Type()`                              | `filename()`                                 | Within module |
+| `Module:Type()`                       | [edoc:edoc_module()](`t:edoc:edoc_module/0`) | Global        |
+| `//Application`                       | [edoc](index.html)                           | Global        |
+| `//Application/Module`                | `m:edoc_doclet`                              | Global        |
+| `//Application/Module:Function/Arity` | `edoc_run:file/1`                            | Global        |
+| `//Application/Module:Type()`         | [edoc:edoc_module()](`t:edoc:edoc_module/0`) | Global        |
 
 _Table: reference syntax_
 
@@ -538,14 +551,14 @@ start-of-comment '`%`' characters contains only whitespace), will make EDoc
 split the text before and after the empty line into separate paragraphs. For
 example:
 
-```text
-   %% @doc This will all be part of the first paragraph.
-   %% It can stretch over several lines and contain <em>any
-   %% XHTML markup</em>.
-   %%
-   %% This is the second paragraph. The above line is
-   %% regarded as "empty" by EDoc, even though it ends with
-   %% a space.
+```erlang
+%% @doc This will all be part of the first paragraph.
+%% It can stretch over several lines and contain <em>any
+%% XHTML markup</em>.
+%%
+%% This is the second paragraph. The above line is
+%% regarded as "empty" by EDoc, even though it ends with
+%% a space.
 ```
 
 will generate the following text:
@@ -657,32 +670,32 @@ place before XML parsing.
 
 Examples:
 
-```text
-     %% @doc ...where the variable `Foo' refers to...
+```erlang
+%% @doc ...where the variable `Foo' refers to...
 ```
 
-```text
-     %% @doc ...returns the atom `` 'foo@erlang.org' ''...
+```erlang
+%% @doc ...returns the atom `` 'foo@erlang.org' ''...
 ```
 
-````text
-     %% @doc ...use the command ```erl -name foo''' to...
+````erlang
+%% @doc ...use the command ```erl -name foo''' to...
 ````
 
-````text
-     %% @doc ...as in the following code:
-     %% ```f(X) ->
-     %%       case X of
-     %%          ...
-     %%       end'''
+````erlang
+%% @doc ...as in the following code:
+%% ```f(X) ->
+%%       case X of
+%%          ...
+%%       end'''
 ````
 
-````text
-     %% @doc ...or in the following:
-     %% ```
-     %%     g(X) ->
-     %%       fun () -> ... end
-     %% '''
+````erlang
+%% @doc ...or in the following:
+%% ```
+%%     g(X) ->
+%%       fun () -> ... end
+%% '''
 ````
 
 [](){: #Macro_expansion }
@@ -765,29 +778,29 @@ argument text of a macro call, the following escape sequences may be used:
 
 - **`@{`** - Expands to "`{`". Example:
 
-  ```text
-     %% @doc A macro call starts with the sequence "@{@".
+  ```erlang
+  %% @doc A macro call starts with the sequence "@{@".
   ```
 
 - **`@}`** - Expands to "`}`". Example:
 
-  ```text
-     %% @doc ...{@foo ...{Key, Value@}...}...
+  ```erlang
+  %% @doc ...{@foo ...{Key, Value@}...}...
   ```
 
 - **`@@`** - Expands to "`@`". Example:
 
-  ```text
-     %% @doc Contact us at support@@{@hostname}
+  ```erlang
+  %% @doc Contact us at support@@{@hostname}
   ```
 
   Will generate the text "Contact us at support@vaporware.acme.com" if the macro
   `hostname` is bound to "`vaporware.acme.com`". Also:
 
-  ```text
-     %% @doc You might want to write something like
-     %% @@foo that will expand to @foo and does not start
-     %% a new tag even if it appears first in a line.
+  ```erlang
+  %% @doc You might want to write something like
+  %% @@foo that will expand to @foo and does not start
+  %% a new tag even if it appears first in a line.
   ```
 
 [](){: #Type_specifications }
@@ -817,73 +830,97 @@ have higher precedence than union types; e.g.,
 "`(atom()) -> atom() | integer()`" is parsed as
 `((atom()) -> atom()) | integer()`, not as `(atom()) -> (atom() | integer())`.
 
-| `Spec`          | ::= | `FunType "where"? DefList?           | FunctionName FunType "where"? DefList?`        |
-| --------------- | --- | ------------------------------------ | ---------------------------------------------- | ------------------ | -------------------------------- | -------------------- | ------- | ------------------ | ---------- | ------------------- | ------------------------ | ------- | ----------------- | --------------------------- | ----------------- | ------- | ---------------------------- | ------------------------------------------- | ------------------------------------------------------------- |
-| `FunctionName`  | ::= | `Atom`                               |
-| `FunType`       | ::= | `"(" UnionTypes? ")" "->" UnionType` |
-| `UnionTypes`    | ::= | `UnionType                           | UnionType "," UnionTypes`                      |
-| `UnionType`     | ::= | `UnionList                           | Name "::" UnionList`                           |
-| `Name`          | ::= | `Variable`                           |
-| `UnionList`     | ::= | `Type                                | Type "+" UnionList                             | Type "             | " UnionList`                     |
-| `Type`          | ::= | `TypeVariable                        | Atom                                           | Integer            | Float                            | Integer ".." Integer | FunType | "fun(" FunType ")" | "fun(...)" | "{" UnionTypes? "}" | "#" Atom "{" Fields? "}" | "[" "]" | "[" UnionType "]" | "[" UnionType "," "..." "]" | "(" UnionType ")" | BinType | TypeName "(" UnionTypes? ")" | ModuleName ":" TypeName "(" UnionTypes? ")" | "//" AppName "/" ModuleName ":" TypeName "(" UnionTypes? ")"` |
-| `Fields`        | ::= | `Field                               | Fields "," Fields`                             |
-| `Field`         | ::= | `Atom "=" UnionList`                 |
-| `BinType`       | ::= | `"<<>>"                              | "<<" BaseType ">>"                             | "<<" UnitType ">>" | "<<" BaseType "," UnitType ">>"` |
-| `BaseType`      | ::= | `"_" ":" Integer`                    |
-| `UnitType`      | ::= | `"_" ":" "_" "*" Integer`            |
-| `TypeVariable`  | ::= | `Variable`                           |
-| `TypeName`      | ::= | `Atom`                               |
-| `ModuleName`    | ::= | `Atom                                | ModuleName "." Atom`                           |
-| `AppName`       | ::= | `Atom`                               |
-| `DefList`       | ::= | `Def                                 | DefList Def                                    | DefList "," Def`   |
-| `Def`           | ::= | `TypeVariable "=" UnionList          | TypeName "(" TypeVariables? ")" "=" UnionType` |
-| `TypeVariables` | ::= | `TypeVariable                        | TypeVariable "," TypeVariables`                |
+|                 |     |                                                                         |
+| --------------- | --- | ----------------------------------------------------------------------- |
+| `Spec`          | ::= | `FunType "where"? DefList?` \|                                          |
+|                 |     | `FunctionName FunType "where"? DefList?`                                |
+| `FunctionName`  | ::= | `Atom`                                                                  |
+| `FunType`       | ::= | `"(" UnionTypes? ")" "->" UnionType`                                    |
+| `UnionTypes`    | ::= | `UnionType` \| `UnionType "," UnionTypes`                               |
+| `UnionType`     | ::= | `UnionList` \| `Name "::" UnionList`                                    |
+| `Name`          | ::= | `Variable`                                                              |
+| `UnionList`     | ::= | `Type` \| `Type "+" UnionList` \| `Type "\|" UnionList`                 |
+| `Type`          | ::= | `TypeVariable` \|                                                       |
+|                 |     | `Atom` \|                                                               |
+|                 |     | `Integer` \|                                                            |
+|                 |     | `Float` \|                                                              |
+|                 |     | `Integer ".." Integer` \|                                               |
+|                 |     | `FunType` \|                                                            |
+|                 |     | `"fun(" FunType ")"` \|                                                 |
+|                 |     | `"fun(...)"` \|                                                         |
+|                 |     | `"{" UnionTypes? "}"` \|                                                |
+|                 |     | `"#" Atom "{" Fields? "}"` \|                                           |
+|                 |     | `"[" "]"` \|                                                            |
+|                 |     | `"[" UnionType "]"` \|                                                  |
+|                 |     | `"[" UnionType "," "..." "]"` \|                                        |
+|                 |     | `"(" UnionType ")"` \|                                                  |
+|                 |     | `BinType` \|                                                            |
+|                 |     | `TypeName "(" UnionTypes? ")"` \|                                       |
+|                 |     | `ModuleName ":" TypeName "(" UnionTypes? ")"` \|                        |
+|                 |     | `"//" AppName "/" ModuleName ":" TypeName "(" UnionTypes? ")"`          |
+| `Fields`        | ::= | `Field` \| `Fields "," Fields`                                          |
+| `Field`         | ::= | `Atom "=" UnionList`                                                    |
+| `BinType`       | ::= | `"<<>>"` \|                                                             |
+|                 |     | `"<<" BaseType ">>"` \|                                                 |
+|                 |     | `"<<" UnitType ">>"` \|                                                 |
+|                 |     | `"<<" BaseType "," UnitType ">>"`                                       |
+| `BaseType`      | ::= | `"_" ":" Integer`                                                       |
+| `UnitType`      | ::= | `"_" ":" "_" "*" Integer`                                               |
+| `TypeVariable`  | ::= | `Variable`                                                              |
+| `TypeName`      | ::= | `Atom`                                                                  |
+| `ModuleName`    | ::= | `Atom` \| `ModuleName "." Atom`                                         |
+| `AppName`       | ::= | `Atom`                                                                  |
+| `DefList`       | ::= | `Def` \| `DefList Def` \| `DefList "," Def`                             |
+| `Def`           | ::= | `TypeVariable "=" UnionList` \|                                         |
+|                 |     | `TypeName "(" TypeVariables? ")" "=" UnionType`                         |
+| `TypeVariables` | ::= | `TypeVariable` \|                                                       |
+|                 |     | `TypeVariable "," TypeVariables`                                        |
 
 _Table: specification syntax grammar_
 
 Examples:
 
-```text
-    -spec my_function(X :: integer()) -> integer().
-    %% @doc Creates ...
+```erlang
+-spec my_function(X :: integer()) -> integer().
+%% @doc Creates ...
 ```
 
-```text
-    %% @spec my_function(X::integer()) -> integer()
+```erlang
+%% @spec my_function(X::integer()) -> integer()
 ```
 
-```text
-    %% @spec (X::integer()) -> integer()
+```erlang
+%% @spec (X::integer()) -> integer()
 ```
 
-```text
-    %% @spec sqrt(float()) -> float()
+```erlang
+%% @spec sqrt(float()) -> float()
 ```
 
-```text
-    %% @spec pair(S, T) -> {S, T}
+```erlang
+%% @spec pair(S, T) -> {S, T}
 ```
 
-```text
-    %% @spec append(List, List) -> List
-    %%       List = [term()]
+```erlang
+%% @spec append(List, List) -> List
+%%       List = [term()]
 ```
 
-```text
-    %% @spec append(A::List, B::List) -> List
-    %%       List = [Item]
-    %%       Item = term()
+```erlang
+%% @spec append(A::List, B::List) -> List
+%%       List = [Item]
+%%       Item = term()
 ```
 
-```text
-    %% @spec open(File::filename()) -> FileDescriptor
-    %% where
-    %%       filename() = string() + atom(),
-    %%       FileDescriptor = term()
+```erlang
+%% @spec open(File::filename()) -> FileDescriptor
+%% where
+%%       filename() = string() + atom(),
+%%       FileDescriptor = term()
 ```
 
-```text
-    %% @spec close(graphics:window()) -> ok
+```erlang
+%% @spec close(graphics:window()) -> ok
 ```
 
 The first example shows the recommended way of specifying functions.
@@ -931,35 +968,38 @@ used unless there is a type alias with the same name.
 The following grammar (see above for auxiliary definitions) describes the form
 of the definitions that may follow a `@type` tag:
 
-| `Typedef` | ::= | `TypeName "(" TypeVariables? ")" DefList? | TypeName "(" TypeVariables? ")" "=" UnionList DefList?` |
-| --------- | --- | ----------------------------------------- | ------------------------------------------------------- |
+|           |     |                                                          |
+| --------- | --- | -------------------------------------------------------- |
+| `Typedef` | ::= | `TypeName "(" TypeVariables? ")" DefList?` \|            |
+|           |     | `TypeName "(" TypeVariables? ")" "=" UnionList DefList?` |
+
 
 _Table: type definition grammar_
 
 (For a truly abstract data type, no equivalence is specified.) The main
 definition may be followed by additional local definitions. Examples:
 
-```text
-    -type my_list(X) :: [X]. %% A special kind of lists ...
+```erlang
+-type my_list(X) :: [X]. %% A special kind of lists ...
 ```
 
-```text
-    -opaque another_list(X) :: [X].
-    %% another_list() is a kind of list...
+```erlang
+-opaque another_list(X) :: [X].
+%% another_list() is a kind of list...
 ```
 
-```text
-    %% @type myList(X). A special kind of lists ...
+```erlang
+%% @type myList(X). A special kind of lists ...
 ```
 
-```text
-    %% @type filename() = string(). Atoms not allowed!
+```erlang
+%% @type filename() = string(). Atoms not allowed!
 ```
 
-```text
-    %% @type thing(A) = {thong, A}
-    %%           A = term().
-    %%   A kind of wrapper type thingy.
+```erlang
+%% @type thing(A) = {thong, A}
+%%           A = term().
+%%   A kind of wrapper type thingy.
 ```
 
 The first two examples show the recommended way of specifying types.
@@ -1144,7 +1184,7 @@ EDoc comes with two sets of doclet/layout pairs:
 In order to generate doc chunks using `edoc:application/2` or `edoc:files/2` we
 have to specify which doclet and layout we want to use:
 
-```text
+```erlang
 Opts = [{doclet, edoc_doclet_chunks},
         {layout, edoc_layout_chunks}].
 ```
@@ -1153,7 +1193,7 @@ Then, it's just a matter of deciding whether we want to generate documentation
 for the whole application (`edoc:application/2`) or only selected source files
 (`edoc:files/2`):
 
-```text
+```erlang
 App = my_app.
 edoc:application(App, Opts).
 %% or

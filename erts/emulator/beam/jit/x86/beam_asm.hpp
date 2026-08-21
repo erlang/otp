@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,9 +28,7 @@
 #include <algorithm>
 #include <cmath>
 
-#ifndef ASMJIT_ASMJIT_H_INCLUDED
-#    include <asmjit/asmjit.hpp>
-#endif
+#include <asmjit/x86.h>
 
 extern "C"
 {
@@ -53,10 +53,40 @@ extern "C"
 
 using namespace asmjit;
 
+/* The ERTS_JIT_ABI_XYZ macro lets us simulate a different calling convention
+ * than the one we are running on, which is useful for debugging
+ * Windows-specific JIT problems where we lack `rr`.
+ *
+ * If the problem is in the JIT alone, we can thus reproduce it on Linux by
+ * generating code as if we're on Windows. The `runtime_call` template
+ * seamlessly switches conventions as required so that we don't have to update
+ * any calls. */
+#if defined(WIN32)
+#    define ERTS_JIT_ABI_WIN32
+#elif !defined(ERTS_JIT_ABI_WIN32)
+#    undef ERTS_JIT_ABI_SYSV
+#    define ERTS_JIT_ABI_SYSV
+#endif
+
+#if defined(ERTS_JIT_ABI_WIN32) && !defined(WIN32)
+#    if defined(__GNUC__) || defined(__clang__)
+#        define ERTS_CCONV_ERTS
+#        define ERTS_CCONV_JIT __attribute__((ms_abi))
+#        define ERTS_CCONV_DEBUG
+#    else
+#        error "Unsupported JIT debug configuration"
+#    endif
+#else
+#    define ERTS_CCONV_ERTS
+#    define ERTS_CCONV_JIT
+#endif
+
 struct BeamAssembler : public BeamAssemblerCommon {
     BeamAssembler() : BeamAssemblerCommon(a) {
         Error err = code.attach(&a);
-        ERTS_ASSERT(!err && "Failed to attach codeHolder");
+        ERTS_ASSERT(err == Error::kOk && "Failed to attach codeHolder");
+
+        lateInit();
     }
 
     BeamAssembler(const std::string &log) : BeamAssembler() {
@@ -110,7 +140,7 @@ protected:
 #endif
 
     /* * * * * * * * * */
-#ifdef WIN32
+#if defined(ERTS_JIT_ABI_WIN32)
     const x86::Gp ARG1 = x86::rcx;
     const x86::Gp ARG2 = x86::rdx;
     const x86::Gp ARG3 = x86::r8;
@@ -127,7 +157,7 @@ protected:
     const x86::Gp ARG4d = x86::r9d;
     const x86::Gp ARG5d = x86::r10d;
     const x86::Gp ARG6d = x86::r11d;
-#else
+#elif defined(ERTS_JIT_ABI_SYSV)
     const x86::Gp ARG1 = x86::rdi;
     const x86::Gp ARG2 = x86::rsi;
     const x86::Gp ARG3 = x86::rdx;
@@ -272,7 +302,7 @@ protected:
     void emit_assert_redzone_unused() {
 #ifdef JIT_HARD_DEBUG
         const int REDZONE_BYTES = S_REDZONE * sizeof(Eterm);
-        Label ok = a.newLabel(), crash = a.newLabel();
+        Label ok = a.new_label(), crash = a.new_label();
 
         /* We modify the stack pointer to avoid spilling into a register,
          * TMP_MEM, or using the stack. */
@@ -302,7 +332,7 @@ protected:
         emit_assert_redzone_unused();
         aligned_call(Target);
 #else
-        Label next = a.newLabel();
+        Label next = a.new_label();
 
         /* Save the return CP on the stack. */
         a.lea(spill, x86::qword_ptr(next));
@@ -328,7 +358,7 @@ protected:
 
 #if defined(JIT_HARD_DEBUG) && !defined(NATIVE_ERLANG_STACK)
         /* Verify that the stack has not grown. */
-        Label next = a.newLabel();
+        Label next = a.new_label();
         a.cmp(x86::rsp, getInitialSPRef());
         a.short_().je(next);
         comment("The stack has grown");
@@ -379,7 +409,7 @@ protected:
         a.call(target);
 
         call_size = a.offset() - call_offset;
-        a.setOffset(call_offset);
+        a.set_offset(call_offset);
 
         aligned_call(target, call_size);
     }
@@ -414,35 +444,59 @@ protected:
     static const uint8_t nop2[2];
     static const uint8_t nop3[3];
 
-    void runtime_call(x86::Gp func, unsigned args) {
-        ASSERT(args < 5);
+    template<typename T>
+    struct function_traits;
 
-        emit_assert_runtime_stack();
+    template<typename Range, typename... Domain>
+    struct function_traits<Range(ERTS_CCONV_ERTS *)(Domain...)> {
+        static constexpr bool Emulator = true;
+        static constexpr bool Jit = std::is_same_v<void(ERTS_CCONV_ERTS *)(),
+                                                   void(ERTS_CCONV_JIT *)()>;
+        static constexpr size_t Arity = sizeof...(Domain);
 
-#ifdef WIN32
-        a.sub(x86::rsp, imm(4 * sizeof(UWord)));
-        a.call(func);
-        a.add(x86::rsp, imm(4 * sizeof(UWord)));
-#else
-        a.call(func);
+#ifdef ERTS_CCONV_DEBUG
+        /* If the emulator and JIT conventions differ, this acts as a seamless
+         * bridge between the two conventions. */
+        template<Range(ERTS_CCONV_ERTS *Func)(Domain...)>
+        struct trampoline {
+            using type = Range(ERTS_CCONV_JIT *)(Domain...);
+
+            static Range ERTS_CCONV_JIT marshal(Domain... args) {
+                ERTS_CT_ASSERT(Emulator != Jit);
+
+                return Func(args...);
+            }
+        };
 #endif
+    };
+
+#ifdef ERTS_CCONV_DEBUG
+    template<typename Range, typename... Domain>
+    struct function_traits<Range(ERTS_CCONV_JIT *)(Domain...)> {
+        static constexpr bool Emulator = false;
+        static constexpr bool Jit = true;
+        static constexpr size_t Arity = sizeof...(Domain);
+    };
+#endif
+
+    template<typename T,
+             T Func,
+             std::enable_if_t<!function_traits<T>::Jit, bool> = true>
+    void runtime_call() {
+        using trampoline =
+                typename function_traits<T>::template trampoline<Func>;
+        runtime_call<typename trampoline::type, trampoline::marshal>();
     }
 
-    template<typename T>
-    struct function_arity;
-    template<typename T, typename... Args>
-    struct function_arity<T(Args...)>
-            : std::integral_constant<int, sizeof...(Args)> {};
-
-    template<int expected_arity, typename T>
-    void runtime_call(T(*func)) {
-        static_assert(expected_arity == function_arity<T>());
-
+    template<typename T,
+             T Func,
+             std::enable_if_t<function_traits<T>::Jit, bool> = true>
+    void runtime_call() {
         emit_assert_runtime_stack();
 
-#ifdef WIN32
-        unsigned pushed;
-        switch (expected_arity) {
+#if defined(ERTS_JIT_ABI_WIN32)
+        unsigned pushed = 4;
+        switch (function_traits<T>::Arity) {
         case 6:
         case 5:
             /* We push ARG6 to keep the stack aligned even when we only have 5
@@ -450,20 +504,44 @@ protected:
              * sub/push/sub. */
             a.push(ARG6);
             a.push(ARG5);
-            a.sub(x86::rsp, imm(4 * sizeof(UWord)));
-            pushed = 6;
+            pushed += 2;
             break;
-        default:
-            a.sub(x86::rsp, imm(4 * sizeof(UWord)));
-            pushed = 4;
         }
-
+        a.sub(x86::rsp, imm(4 * sizeof(UWord)));
 #endif
 
-        a.call(imm(func));
+        a.call(imm(Func));
 
-#ifdef WIN32
+#if defined(ERTS_CCONV_DEBUG) && defined(DEBUG)
+        /* Explicitly clobber all temporary registers to provoke ABI errors. */
+        a.xor_(ARG1d, ARG1d);
+        a.mov(ARG2d, ARG1d);
+        a.mov(ARG3d, ARG1d);
+        a.mov(ARG4d, ARG1d);
+        a.mov(ARG5d, ARG1d);
+        a.mov(ARG6d, ARG1d);
+        a.mov(TMP1, ARG1);
+        a.mov(TMP2, ARG1);
+#endif
+
+#if defined(ERTS_JIT_ABI_WIN32)
         a.add(x86::rsp, imm(pushed * sizeof(UWord)));
+#endif
+    }
+
+    template<int Arity>
+    void dynamic_runtime_call(x86::Gp func) {
+        emit_assert_runtime_stack();
+        ERTS_CT_ASSERT(Arity <= 4);
+
+#ifdef ERTS_JIT_ABI_WIN32
+        a.sub(x86::rsp, imm(4 * sizeof(UWord)));
+#endif
+
+        a.call(func);
+
+#ifdef ERTS_JIT_ABI_WIN32
+        a.add(x86::rsp, imm(4 * sizeof(UWord)));
 #endif
     }
 
@@ -518,7 +596,7 @@ protected:
 
     void emit_assert_runtime_stack() {
 #ifdef JIT_HARD_DEBUG
-        Label crash = a.newLabel(), next = a.newLabel();
+        Label crash = a.new_label(), next = a.new_label();
 
 #    ifdef NATIVE_ERLANG_STACK
         /* Ensure that we are using the runtime stack. */
@@ -547,7 +625,7 @@ protected:
 
     void emit_assert_erlang_stack() {
 #ifdef JIT_HARD_DEBUG
-        Label crash = a.newLabel(), next = a.newLabel();
+        Label crash = a.new_label(), next = a.new_label();
 
         /* Are we term-aligned? */
         a.test(E, imm(sizeof(Eterm) - 1));
@@ -895,7 +973,7 @@ protected:
              *   49 c7 c0 2a 00 00 00    mov    r8, 42
              *   41 b8 2a 00 00 00       mov    r8d, 42
              */
-            if (Support::isUInt32((Uint)value)) {
+            if (Support::is_uint_n<32>((Uint)value)) {
                 a.mov(to.r32(), imm(value));
             } else {
                 a.mov(to, imm(value));
@@ -955,15 +1033,15 @@ protected:
                          x86::Mem to,
                          Sint32 count,
                          x86::Gp spill) {
-        ASSERT(!from.hasIndex() && !to.hasIndex());
+        ASSERT(!from.has_index() && !to.has_index());
         ASSERT(count >= 0 && count < (ERTS_SINT32_MAX / (Sint32)sizeof(UWord)));
         ASSERT(from.offset() < ERTS_SINT32_MAX - count * (Sint32)sizeof(UWord));
         ASSERT(to.offset() < ERTS_SINT32_MAX - count * (Sint32)sizeof(UWord));
 
         /* We're going to mix sizes pretty wildly below, so it's easiest to
          * turn off size validation. */
-        from.setSize(0);
-        to.setSize(0);
+        from.set_size(0);
+        to.set_size(0);
 
         using vectors = std::initializer_list<std::tuple<x86::Vec,
                                                          Sint32,
@@ -1002,21 +1080,21 @@ protected:
                     a.emit(vector_inst, vector_reg, from);
                     a.emit(vector_inst, to, vector_reg);
 
-                    from.addOffset(sizeof(UWord) * vector_size);
-                    to.addOffset(sizeof(UWord) * vector_size);
+                    from.add_offset(sizeof(UWord) * vector_size);
+                    to.add_offset(sizeof(UWord) * vector_size);
                     count -= vector_size;
                 }
             } else {
                 Sint32 loop_iterations, loop_size;
-                Label copy_next = a.newLabel();
+                Label copy_next = a.new_label();
 
                 loop_iterations = count / vector_size;
                 loop_size = loop_iterations * vector_size * sizeof(UWord);
 
-                from.addOffset(loop_size);
-                to.addOffset(loop_size);
-                from.setIndex(spill);
-                to.setIndex(spill);
+                from.add_offset(loop_size);
+                to.add_offset(loop_size);
+                from.set_index(spill);
+                to.set_index(spill);
 
                 mov_imm(spill, -loop_size);
                 a.bind(copy_next);
@@ -1028,8 +1106,8 @@ protected:
                     a.short_().jne(copy_next);
                 }
 
-                from.resetIndex();
-                to.resetIndex();
+                from.reset_index();
+                to.reset_index();
 
                 count %= vector_size;
             }
@@ -1078,7 +1156,7 @@ class BeamModuleAssembler : public BeamAssembler,
     void load_cached(x86::Gp dst, x86::Mem mem) {
         x86::Gp cached_reg = find_cache(mem);
 
-        if (cached_reg.isValid()) {
+        if (cached_reg.is_valid()) {
             /* This memory location is cached. */
             if (cached_reg == dst) {
                 comment("skipped fetching of BEAM register");
@@ -1180,7 +1258,7 @@ public:
                         int num_functions,
                         const BeamFile *file = NULL);
 
-    bool emit(unsigned op, const Span<ArgVal> &args);
+    bool emit(unsigned op, const Span<const ArgVal> &args);
 
     void emit_coverage(void *coverage, Uint index, Uint size);
 
@@ -1209,11 +1287,13 @@ public:
         return BeamAssembler::getCode(labelName);
     }
 
-    Label embed_vararg_rodata(const Span<ArgVal> &args, int y_offset);
+    void embed_vararg_rodata(const Span<const ArgVal> &args,
+                             x86::Gp reg,
+                             int y_offset);
 
     unsigned getCodeSize() {
-        ASSERT(code.hasBaseAddress());
-        return code.codeSize();
+        ASSERT(code.has_base_address());
+        return code.code_size();
     }
 
     void copyCodeHeader(BeamCodeHeader *hdr);
@@ -1312,6 +1392,28 @@ protected:
                                const x86::Gp &out,
                                unsigned max_size = 0);
 
+    void emit_bs_get_small(const Label &fail,
+                           const ArgRegister &Ctx,
+                           const ArgWord &Live,
+                           const ArgSource &Sz,
+                           Uint unit,
+                           Uint flags);
+
+    void emit_bs_get_any_int(const Label &fail,
+                             const ArgRegister &Ctx,
+                             const ArgWord &Live,
+                             const ArgSource &Sz,
+                             Uint unit,
+                             Uint flags);
+
+    void emit_bs_get_binary(const ArgWord heap_need,
+                            const ArgRegister &Ctx,
+                            const ArgLabel &Fail,
+                            const ArgWord &Live,
+                            const ArgSource &Size,
+                            const ArgWord &Unit,
+                            const ArgRegister &Dst);
+
     void emit_bs_get_utf8(const ArgRegister &Ctx, const ArgLabel &Fail);
     void emit_bs_get_utf16(const ArgRegister &Ctx,
                            const ArgLabel &Fail,
@@ -1323,6 +1425,12 @@ protected:
                           x86::Gp size_reg);
     bool need_mask(const ArgVal Val, Sint size);
     void set_zero(Sint effectiveSize);
+    void emit_accumulate(ArgVal src,
+                         Sint effectiveSize,
+                         x86::Gp bin_data,
+                         x86::Gp tmp,
+                         x86::Gp value,
+                         bool isFirst);
     bool bs_maybe_enter_runtime(bool entered);
     void bs_maybe_leave_runtime(bool entered);
     void emit_construct_utf8_shared();
@@ -1361,7 +1469,7 @@ protected:
 
     void emit_linear_search(x86::Gp val,
                             const ArgVal &Fail,
-                            const Span<ArgVal> &args);
+                            const Span<const ArgVal> &args);
 
     void emit_float_instr(uint32_t instIdSSE,
                           uint32_t instIdAVX,
@@ -1403,7 +1511,7 @@ protected:
     void emit_binsearch_nodes(size_t Left,
                               size_t Right,
                               const ArgVal &Fail,
-                              const Span<ArgVal> &args);
+                              const Span<const ArgVal> &args);
 
     bool emit_optimized_two_way_select(bool destructive,
                                        const ArgVal &value1,
@@ -1413,6 +1521,8 @@ protected:
 #ifdef DEBUG
     void emit_tuple_assertion(const ArgSource &Src, x86::Gp tuple_reg);
 #endif
+
+    void emit_return_do(bool set_I);
 
 #include "beamasm_protos.h"
 
@@ -1446,7 +1556,7 @@ protected:
                          std::vector<struct patch> &patches,
                          size_t offset = 0) {
         const int MOV_IMM64_PAYLOAD_OFFSET = 2;
-        Label lbl = a.newLabel();
+        Label lbl = a.new_label();
 
         a.bind(lbl);
         a.long_().mov(to, imm(LLONG_MAX));
@@ -1455,11 +1565,10 @@ protected:
     }
 
     void make_word_patch(std::vector<struct patch> &patches) {
-        Label lbl = a.newLabel();
-        UWord word = LLONG_MAX;
+        Label lbl = a.new_label();
 
         a.bind(lbl);
-        a.embed(reinterpret_cast<char *>(&word), sizeof(word));
+        a.embed_uint64(LLONG_MAX);
 
         patches.push_back({lbl, 0, 0});
     }
@@ -1482,11 +1591,11 @@ protected:
     void cmp_arg(x86::Mem mem, const ArgVal &val, const x86::Gp &spill) {
         x86::Gp reg = find_cache(mem);
 
-        if (reg.isValid()) {
+        if (reg.is_valid()) {
             /* Note that the cast to Sint is necessary to handle
              * negative numbers such as NIL. */
             if (val.isImmed() &&
-                Support::isInt32((Sint)val.as<ArgImmed>().get())) {
+                Support::is_int_n<32>((Sint)val.as<ArgImmed>().get())) {
                 comment("simplified compare of BEAM register");
                 preserve_cache([&]() {
                     a.cmp(reg, imm(val.as<ArgImmed>().get()));
@@ -1503,7 +1612,7 @@ protected:
             /* Note that the cast to Sint is necessary to handle
              * negative numbers such as NIL. */
             if (val.isImmed() &&
-                Support::isInt32((Sint)val.as<ArgImmed>().get())) {
+                Support::is_int_n<32>((Sint)val.as<ArgImmed>().get())) {
                 preserve_cache([&]() {
                     a.cmp(mem, imm(val.as<ArgImmed>().get()));
                 });
@@ -1515,7 +1624,8 @@ protected:
     }
 
     void cmp_arg(x86::Gp gp, const ArgVal &val, const x86::Gp &spill) {
-        if (val.isImmed() && Support::isInt32((Sint)val.as<ArgImmed>().get())) {
+        if (val.isImmed() &&
+            Support::is_int_n<32>((Sint)val.as<ArgImmed>().get())) {
             preserve_cache([&]() {
                 a.cmp(gp, imm(val.as<ArgImmed>().get()));
             });
@@ -1526,11 +1636,11 @@ protected:
     }
 
     void cmp(x86::Gp gp, int64_t val, const x86::Gp &spill) {
-        if (Support::isInt32(val)) {
+        if (Support::is_int_n<32>(val)) {
             preserve_cache([&]() {
                 a.cmp(gp, imm(val));
             });
-        } else if (gp.isGpd()) {
+        } else if (gp.is_gp32()) {
             mov_imm(spill, val);
             preserve_cache([&]() {
                 a.cmp(gp, spill.r32());
@@ -1542,7 +1652,7 @@ protected:
     }
 
     void sub(x86::Gp gp, int64_t val, const x86::Gp &spill) {
-        if (Support::isInt32(val)) {
+        if (Support::is_int_n<32>(val)) {
             preserve_cache(
                     [&]() {
                         a.sub(gp, imm(val));
@@ -1612,7 +1722,7 @@ protected:
         if (from.isImmed()) {
             auto val = from.as<ArgImmed>().get();
 
-            if (Support::isInt32((Sint)val)) {
+            if (Support::is_int_n<32>((Sint)val)) {
                 preserve_cache(
                         [&]() {
                             a.mov(to, imm(val));
@@ -1630,7 +1740,7 @@ protected:
         } else if (from.isWord()) {
             auto val = from.as<ArgWord>().get();
 
-            if (Support::isInt32((Sint)val)) {
+            if (Support::is_int_n<32>((Sint)val)) {
                 preserve_cache(
                         [&]() {
                             a.mov(to, imm(val));
@@ -1666,7 +1776,7 @@ protected:
     void mov_arg(const ArgRegister &to, BeamInstr from, const x86::Gp &spill) {
         preserve_cache(
                 [&]() {
-                    if (Support::isInt32((Sint)from)) {
+                    if (Support::is_int_n<32>((Sint)from)) {
                         a.mov(getArgRef(to), imm(from));
                     } else {
                         a.mov(spill, imm(from));
@@ -1685,7 +1795,7 @@ protected:
         } else {
             x86::Gp from_reg = find_cache(getArgRef(from));
 
-            if (from_reg.isValid()) {
+            if (from_reg.is_valid()) {
                 comment("skipped fetching of BEAM register");
             } else {
                 from_reg = spill;

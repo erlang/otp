@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -25,11 +27,11 @@
 -export([all/0, suite/0,
 	 basic/1,dynamic_call/1,min_heap_size/1,bad_args/1,
 	 messages_in_queue/1,undefined_mfa/1,no_heap/1,
-         wake_up_and_bif_trap/1]).
+         wake_up_and_bif_trap/1,in_place/1,stuck_dirty_hibernate/1]).
 
 %% Used by test cases.
 -export([basic_hibernator/1,dynamic_call_hibernator/2,messages_in_queue_restart/2,
-         no_heap_loop/0,characters_to_list_trap/1]).
+         no_heap_loop/0,characters_to_list_trap/1, dirty_hibernate_proc/2]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -37,7 +39,8 @@ suite() ->
 
 all() -> 
     [basic, dynamic_call, min_heap_size, bad_args, messages_in_queue,
-     undefined_mfa, no_heap, wake_up_and_bif_trap].
+     undefined_mfa, no_heap, wake_up_and_bif_trap, in_place,
+     stuck_dirty_hibernate].
 
 %%%
 %%% Testing the basic functionality of erlang:hibernate/3.
@@ -54,8 +57,9 @@ basic(Config) when is_list(Config) ->
 
 maximum_hibernate_heap_size(Term) ->
     %% When hibernating, a few extra words will be allocated to hold the
-    %% continuation pointer as well as scratch space for the interpreter/jit.
-    erts_debug:size(Term) + 8.
+    %% continuation pointer, optional frame pointer, as well as scratch space
+    %% for the interpreter/jit.
+    erts_debug:size(Term) + 12.
 
 hibernate_wake_up(0, _, _) -> ok;
 hibernate_wake_up(N, MaxHeapSz, Child) ->
@@ -365,12 +369,145 @@ wake_up_and_bif_trap(Config) when is_list(Config) ->
     unlink(Pid),
     exit(Pid, bye).
 
+stuck_dirty_hibernate(Config) when is_list(Config) ->
+    process_flag(scheduler, 1),
+    HibSched = case erlang:system_info(schedulers_online) of
+                   1 -> 1;
+                   _ -> 2
+               end,
+    Me = self(),
+    HibProc = spawn_opt(fun () ->
+                                %% Want lots of live data, so we trigger a
+                                %% dirty GC when hibernating...
+                                Data = lists:seq(1, 1000000),
+                                dirty_hibernate_proc(Me, Data)
+                        end, [link, {scheduler, HibSched}]),
+    receive {awaiting_go_hibernate_message, HibProc} -> ok end,
+    request_dirty_hibernate(100, HibProc),
+    unlink(HibProc),
+    exit(HibProc, kill),
+    false = is_process_alive(HibProc),
+    ok.
+
+request_dirty_hibernate(0, _HibProc) ->
+    ok;
+request_dirty_hibernate(N, HibProc) ->
+    GoTime = erlang:monotonic_time(microsecond) + 10000,
+    HibProc ! {go_hibernate, GoTime},
+    dirty_hib_wait(GoTime - rand:uniform(1000)),
+    Mon = erlang:monitor(process, HibProc),
+    HibProc ! disrupt_hibernation,
+    receive
+        {awaiting_go_hibernate_message, HibProc} ->
+            erlang:demonitor(Mon)
+    after
+        2000 ->
+            ct:fail(hibernate_stuck)
+    end,
+    request_dirty_hibernate(N-1, HibProc).
+
+dirty_hibernate_proc(Tester, Data) ->
+    flush(),
+    Tester ! {awaiting_go_hibernate_message, self()},
+    receive {go_hibernate, WaitUntil} -> ok end,
+    dirty_hib_wait(WaitUntil),
+    erlang:hibernate(?MODULE, dirty_hibernate_proc, [Tester, Data]).
+
+dirty_hib_wait(Time) ->
+    case Time =< erlang:monotonic_time(microsecond) of
+        true -> ok;
+        false -> dirty_hib_wait(Time)
+    end.
+
 %% Lengthy computation that traps (in characters_to_list_trap_3).
 characters_to_list_trap(Parent) ->
     Bin0 = <<"abcdefghijklmnopqrstuvwxz0123456789">>,
     Bin = binary:copy(Bin0, 1500),
     unicode:characters_to_list(Bin),
     Parent ! {ok, self()}.
+
+%% Tests the in-place variant, hibernate/0
+in_place(_Config) ->
+    in_place_helper("Minimal test",
+                    fun(F) -> F() end, 16),
+
+    in_place_helper("Deep stack test",
+                    fun(F) ->
+                        (fun S(0) -> F(); S(N) -> S(N - 1), ok end)(512)
+                    end, 1100),
+
+    in_place_helper("Heavy data test",
+                    fun(F) ->
+                        Data = lists:seq(1, 1024),
+                        F(),
+                        lists:foreach(fun(_) -> ok end, Data)
+                    end, 2100),
+
+    in_place_helper("Heavy data and stack test",
+                    fun(F) ->
+                        Data = lists:seq(1, 1024),
+                        (fun S(0) -> F(); S(N) -> S(N - 1), ok end)(512),
+                        lists:foreach(fun(_) -> ok end, Data)
+                    end, 3100),
+ 
+    ok.
+
+in_place_helper(Description, Fun, Limit) ->
+    Parent = self(),
+    Token = make_ref(),
+
+    {Reference, RefMon} =
+        spawn_opt(fun() ->
+                          Fun(fun() ->
+                                  Parent ! {ready, Token},
+                                  receive {done, Token} -> ok end
+                              end)
+                  end, [link, monitor]),
+    {Hibernator, HibMon} =
+        spawn_opt(fun() ->
+                          Fun(fun() ->
+                                      Parent ! {ready, Token},
+                                      erlang:hibernate(),
+                                      Parent ! {awoken, Token},
+                                      receive {done, Token} -> ok end
+                              end)
+                  end, [link, monitor]),
+
+    receive {ready, Token} -> ok end,
+    [{status, waiting}, {_, RefSize}] =
+        process_info(Reference, [status, total_heap_size]),
+    Reference ! {done, Token},
+    receive {'DOWN', RefMon, _, _, _} -> ok end,
+
+    receive {ready, Token} -> ok end,
+    [{status, waiting}, {_, HiberSize}] =
+        process_info(Hibernator, [status, total_heap_size]),
+
+    %% Sleep a while, we have a small race between the ready message and
+    %% hibernation.
+    ct:sleep(1000),
+
+    %% If we did not succeed in hibernating, the hibernator will have sent a
+    %% message saying it has awoken before we poke it with a done message.
+    receive
+        {awoken, Token} ->
+            ct:fail("Failed to sleep on hibernate/0")
+    after
+        0 -> ok
+    end,
+
+    Hibernator ! {done, Token},
+    receive {awoken, Token} -> ok end,
+
+    receive {'DOWN', HibMon, _, _, _} -> ok end,
+
+    ct:log("~ts~n\tReference size ~p~n\tHibernated size ~p~n",
+           [Description, RefSize, HiberSize]),
+
+    true = HiberSize < Limit,                   %Assertion, whitebox.
+    true = HiberSize =< RefSize,                %Assertion.
+
+    ok.
 
 %%
 %% Misc

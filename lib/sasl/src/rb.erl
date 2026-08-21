@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +28,8 @@ by the error logger handler `m:log_mf_h` in STDLIB.
 """.
 
 -behaviour(gen_server).
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, binary_to_term, 1}}]).
 
 %% External exports
 -export([start/0, start/1, stop/0, rescan/0, rescan/1]).
@@ -553,7 +557,7 @@ scan_files(RptDir, Max, Type) ->
 make_file_list(Dir, FirstFileNo) ->
     case file:list_dir(Dir) of
 	{ok, FileNames} ->
-	    FileNumbers = lists:zf(fun(Name) ->
+	    FileNumbers = lists:filtermap(fun(Name) ->
 					   case catch list_to_integer(Name) of
 					       Int when is_integer(Int) ->
 						   {true, Int};

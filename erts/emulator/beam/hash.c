@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
+ *
+ * SPDX-License-Identifier: Apache-2.0
  * 
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -98,10 +100,8 @@ void hash_info(fmtfn_t to, void *arg, Hash* h)
 int
 hash_table_sz(Hash *h)
 {
-  int i;
-  for(i=0;h->name[i];i++);
-  i++;
-  return sizeof(Hash) + hash_get_slots(h)*sizeof(HashBucket*) + i;
+  const int name_len = strlen(h->name) + 1;
+  return sizeof(Hash) + hash_get_slots(h)*sizeof(HashBucket*) + name_len;
 }
 
 

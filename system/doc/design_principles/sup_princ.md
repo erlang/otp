@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -466,12 +468,12 @@ child_spec() = #{id => child_id(),             % mandatory
 - [](){: #shutdown } `shutdown` defines how a child process is to be terminated.
 
   - `brutal_kill` means that the child process is unconditionally terminated
-    using [`exit(Child, kill)`](`exit/2`).
+    using [`exit_signal(Child, kill)`](`exit_signal/2`).
   - An integer time-out value means that the supervisor tells the child process
-    to terminate by calling [`exit(Child, shutdown)`](`exit/2`) and then waits
+    to terminate by calling [`exit_signal(Child, shutdown)`](`exit_signal/2`) and then waits
     for an exit signal back. If no exit signal is received within the specified
     time, the child process is unconditionally terminated using
-    [`exit(Child, kill)`](`exit/2`).
+    [`exit_signal(Child, kill)`](`exit_signal/2`).
   - If the child process is another supervisor, it should be set to `infinity`
     to give the subtree enough time to shut down. It is also allowed to set it
     to `infinity` if the child process is a worker.
@@ -511,7 +513,7 @@ child_spec() = #{id => child_id(),             % mandatory
   `M` comes from the child's start `{M,F,A}`.
 
 _Example:_ The child specification to start the server `ch3` in the previous
-example look as follows:
+example looks as follows:
 
 ```erlang
 #{id => ch3,

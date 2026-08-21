@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1340,7 +1342,7 @@ init(KeyOrName, {ConnType,Addr,Port}, AllOpts) ->
 		    end, [], AllOpts1),
     FinalOptions = [{silently_accept_hosts,true},
 		    {user_interaction,false} | Options],
-    _ = crypto:start(),
+    _ = application:start(crypto),
     _ = ssh:start(),
     Result = case ConnType of
 		 ssh ->
@@ -1362,6 +1364,7 @@ init(KeyOrName, {ConnType,Addr,Port}, AllOpts) ->
 			      target=KeyOrName}}
     end.
 
+-dialyzer({no_opaque_union, [handle_msg/2]}).
 -doc false.
 handle_msg(sftp_connect, State) ->
     #state{ssh_ref=SSHRef, target=Target} = State,

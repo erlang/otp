@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,14 +22,19 @@
 -module(qlc).
 -moduledoc({file, "../doc/src/qlc.md"}).
 
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_possibly_unsafe_function, {erlang, binary_to_term, 1}},
+          nowarn_deprecated_catch,
+          %% Avoid warning for local function error/1 clashing with
+          %% autoimported BIF.
+          {no_auto_import, [error/1]}]).
+
 %%% Purpose: Main API module qlc. Functions for evaluation.
 %%% Other files:
 %%% qlc_pt. Implements the parse transform.
 
 %% External exports 
 
-%% Avoid warning for local function error/1 clashing with autoimported BIF.
--compile({no_auto_import,[error/1]}).
 -export([parse_transform/2,
          parse_transform_info/0,
          transform_from_evaluator/2]).
@@ -462,7 +469,7 @@ the functions of the `qlc` module or the parse transform. This function is
 mainly used by the compiler invoking the parse transform.
 """.
 -spec(format_error(Error) -> Chars when
-      Error :: {error, module(), term()},
+      Error :: {error, module(), term()} | atom() | {atom(), term()} | {atom(), term(), term()},
       Chars :: io_lib:chars()).
 format_error(not_a_query_list_comprehension) ->
     io_lib:format("argument is not a query list comprehension", []);
@@ -1275,8 +1282,9 @@ For the various options recognized by `table/1,2` in respective module, see
       Args :: [term()],
       QH :: query_handle().
 table(TraverseFun, Options) when is_function(TraverseFun) ->
-    case {is_function(TraverseFun, 0), 
-          IsFun1 = is_function(TraverseFun, 1)} of
+    IsFun0 = is_function(TraverseFun, 0),
+    IsFun1 = is_function(TraverseFun, 1),
+    case {IsFun0, IsFun1} of
         {false, false} ->
             erlang:error(badarg, [TraverseFun, Options]);
         _ ->
@@ -2233,7 +2241,7 @@ prep_le(#qlc_lc{lc = LC_fun, opt = #qlc_opt{} = Opt0}=H, GOpt) ->
     #qlc_opt{unique = GUnique, cache = GCache, 
              tmpdir = TmpDir, max_list = MaxList, 
              tmpdir_usage = TmpUsage} = GOpt,
-    Unique = Opt0#qlc_opt.unique or GUnique,
+    Unique = Opt0#qlc_opt.unique orelse GUnique,
     Cache = if
                 not GCache -> Opt0#qlc_opt.cache;
                 true -> GCache
@@ -2248,7 +2256,7 @@ prep_le(#qlc_table{info_fun = IF}=T, GOpt) ->
     Prep = #prepared{qh = T, sort_info = SortInfo, sorted = Sorted,
                      is_unique_objects = IsUnique},
     Opt = if 
-              IsUnique or not GOpt#qlc_opt.unique,
+              IsUnique orelse not GOpt#qlc_opt.unique,
               T#qlc_table.ms =:= no_match_spec -> 
                   GOpt#qlc_opt{cache = false};
               true ->
@@ -2418,8 +2426,8 @@ may_create_simple(#qlc_opt{unique = Unique, cache = Cache} = Opt,
                   #prepared{is_cached = IsCached, 
                             is_unique_objects = IsUnique} = Prep) ->
     if 
-        Unique and not IsUnique; 
-        (Cache =/= false) and not IsCached ->
+        Unique andalso not IsUnique; 
+        Cache =/= false andalso not IsCached ->
             prep_simple_qlc(?SIMPLE_QVAR, anno(1), Prep, Opt);
         true ->
             Prep
@@ -2436,14 +2444,14 @@ prep_simple_qlc(PVar, Anno, LE, Opt) ->
                  not IsCached -> Cache;
                  true -> false
              end,
-    Optz = #optz{unique = Unique and not IsUnique, 
+    Optz = #optz{unique = Unique andalso not IsUnique, 
                  cache = Cachez, opt = Opt},
     QLC = #simple_qlc{p = PVar, le = LE, anno = Anno,
                       init_value = not_a_list, optz = Optz},
     %% LE#prepared.join is not copied
-    #prepared{qh = QLC, is_unique_objects = IsUnique or Unique, 
+    #prepared{qh = QLC, is_unique_objects = IsUnique orelse Unique, 
               sort_info = SortInfo, sorted = Sorted,
-              is_cached = IsCached or (Cachez =/= false)}.
+              is_cached = IsCached orelse Cachez =/= false}.
 
 prep_sort(#qlc_sort{h = #prepared{sorted = yes}=Prep}, _GOpt) ->
     Prep;
@@ -2455,7 +2463,7 @@ prep_sort(#qlc_sort{h = #prepared{is_unique_objects = IsUniqueObjs}}=Q,
     {SortInfo, Sorted} = sort_sort_info(S),
     #prepared{qh = S, is_cached = true, sort_info = SortInfo,
               sorted = Sorted,
-              is_unique_objects = S#qlc_sort.unique or IsUniqueObjs}.
+              is_unique_objects = S#qlc_sort.unique orelse IsUniqueObjs}.
 
 prep_qlc(QFun, CodeF, Qdata0, QOpt, Opt) ->
     #qlc_opt{unique = Unique, cache = Cache, join = Join} = Opt,
@@ -2503,10 +2511,12 @@ qlc_sort_info(Qdata0, QOpt) ->
 
 sort_info(#prepared{sort_info = SI, sorted = S} = Prep, QNum, QOpt) ->
     SI1 = [{{C,Ord},[]} || 
-              S =/= no, 
-              is_integer(Sz = size_of_qualifier(QOpt, QNum)), 
+              S =/= no,
+              Sz <- [size_of_qualifier(QOpt, QNum)],
+              is_integer(Sz), 
               Sz > 0, % the size of the pattern
-              (NConstCols = size_of_constant_prefix(QOpt, QNum)) < Sz, 
+              NConstCols <- [size_of_constant_prefix(QOpt, QNum)],
+              NConstCols < Sz, 
               C <- [NConstCols+1],
               Ord <- orders(S)]
        ++ [{{Pos,Ord},[]} || Pos <- constant_columns(QOpt, QNum),
@@ -2588,7 +2598,8 @@ pos_vals(_Pos, _KeyEquality, _T, _Max) ->
 nub([]) ->
     [];
 nub([E | L]) ->
-    case lists:member(E, Es=nub(L)) of
+    Es=nub(L),
+    case lists:member(E, Es) of
         true ->
             Es;
         false ->
@@ -2798,7 +2809,7 @@ opt_le(#prepared{qh = #simple_qlc{le = LE0, optz = Optz0}=QLC}=Prep0,
                          Cache2 -> Cache2
                      end,
             Optz = Optz0#optz{cache = Cachez,
-                              unique = Optz0#optz.unique or Optz2#optz.unique},
+                              unique = Optz0#optz.unique orelse Optz2#optz.unique},
             PVar = if 
                        LE_Pvar =:= ?SIMPLE_QVAR -> QLC#simple_qlc.p;
                        true -> LE_Pvar

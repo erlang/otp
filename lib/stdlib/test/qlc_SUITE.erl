@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2335,13 +2337,20 @@ filter(Config) when is_list(Config) ->
           \"[]\" = qlc:info(Q),
           [] = qlc:e(Q)">>,
 
-       <<"%% match spec
+       {cres,<<"%% match spec
           [] = qlc:e(qlc:q([X || {X} <- [{1},{2}], 
                                  (false orelse (X/0 > 3))])),
           %% generated code
           {'EXIT', {badarith, _}} = 
             (catch qlc:e(qlc:q([X || {X} <- [{1}], 
+                                     begin (false orelse (X/0 > 3)) end]))),
+          {'EXIT', {badarith, _}} = 
+            (catch qlc:e(qlc:q([X || {X} <- [{1},{2}], 
                                      begin (false orelse (X/0 > 3)) end])))">>,
+        [], {warnings,
+             [{{7,60},
+               sys_core_fold,
+               {failed,{eval_failure,{erlang,'/',2},badarith}}}]}},
 
        <<"%% Partial evaluation in filter.
           etsc(fun(E) ->
@@ -2362,7 +2371,7 @@ filter(Config) when is_list(Config) ->
 
        <<"%% One more of the same kind.
           etsc(fun(E) ->
-                      QH = qlc:q([{X,Y} || {X,_} <- ets:table(E), 
+                      QH = qlc:q([{X,Y} || {X=Y,_} <- ets:table(E), 
                                            (Y=X) =:= (Y=1+1)]),
                       {'EXIT', {{badmatch,2},_}} = (catch qlc:e(QH)),
                       false = lookup_keys(QH)
@@ -2968,14 +2977,14 @@ lookup2(Config) when is_list(Config) ->
        <<"%% Only guards are inspected. No lookup.
           etsc(fun(E) ->
                  Q = qlc:q([{X,Y} || {X,Y} <- ets:table(E),
-                                     Y = (X =:= 3)]),
+                                     true =:= (Y = (X =:= 3))]),
                  {'EXIT', {{badmatch,false},_}} = (catch qlc:e(Q))
          end, [{false,3},{true,3}])">>,
 
        <<"%% Only guards are inspected. No lookup.
           etsc(fun(E) ->
                  Q = qlc:q([{X,Y} || {X,Y} <- ets:table(E),
-                                     Y = (X =:= 3)]),
+                                     true =:= (Y = (X =:= 3))]),
                  {'EXIT', {{badmatch,false},_}} = (catch qlc:e(Q))
          end, [{3,true},{4,true}])">>,
 
@@ -2986,7 +2995,7 @@ lookup2(Config) when is_list(Config) ->
           true = ets:insert(E2, [{true,1},{false,2}]),
           Q = qlc:q([{X,Z} || {_,X} <- ets:table(E1),
                               {Y,Z} <- ets:table(E2),
-                              Y = (X =:= 3)]),
+                              true =:= (Y = (X =:= 3))]),
           {'EXIT', {{badmatch,false},_}} = (catch qlc:e(Q)),
           ets:delete(E1),
           ets:delete(E2)">>,
@@ -4243,7 +4252,8 @@ skip_filters(Config) when is_list(Config) ->
                       {generate,_,{table,{ets,table,_}}},_,_,_,_],[]} = i(Q),
               {'EXIT', _} = (catch qlc:e(Q))
          end, [{1,1},{2,0}])">>,
-      <<"%% There are objects in the ETS table, but none passes the filter.
+      {cres,
+       <<"%% There are objects in the ETS table, but none passes the filter.
          %% F() would not be run if it did not \"invalidate\" the following
          %% guards. 
          etsc(fun(E) ->
@@ -4253,14 +4263,23 @@ skip_filters(Config) when is_list(Config) ->
                                        X =:= 17]),
                       {'EXIT', _} = (catch qlc:e(Q1))
               end, [{1},{2},{3}])">>,
-       <<"%% The last example works just like this one:
+       [], {warnings,
+           [{{5,55},
+             sys_core_fold,
+             {failed,{eval_failure,{erlang,'/',2},badarith}}}]}},
+       {cres,
+        <<"%% The last example works just like this one:
           etsc(fun(E) ->
                       F = fun() -> [foo || A <- [0], 1/A] end,
                       Q1 = qlc:q([X || {X} <- ets:table(E),
                                        F(),
                                        begin X =:= 17 end]),
                       {'EXIT', _} = (catch qlc:e(Q1))
-              end, [{1},{2},{3}])">>
+              end, [{1},{2},{3}])">>,
+        [], {warnings,
+             [{{3,55},
+               sys_core_fold,
+               {failed,{eval_failure,{erlang,'/',2},badarith}}}]}}
 
           ],
     run(Config, Ts),
@@ -4620,7 +4639,8 @@ join_filter(Config) when is_list(Config) ->
          X =:= Z]),
          {'EXIT', _} = (catch qlc:e(Q))">>,
 
-      <<"etsc(fun(E1) ->
+      {cres,
+       <<"etsc(fun(E1) ->
                    etsc(fun(E2) ->
                              F = fun() -> [foo || A <- [0], 1/A] end,
                              Q1 = qlc:q([X || {X} <- ets:table(E1),
@@ -4632,8 +4652,11 @@ join_filter(Config) when is_list(Config) ->
                               []} = i(Q1),
                              {'EXIT', _} = (catch qlc:e(Q1))
                         end, [{1},{2},{3}])
-              end, [{a},{b},{c}])">>
-
+              end, [{a},{b},{c}])">>,
+       [], {warnings,
+            [{{3,62},
+              sys_core_fold,
+              {failed,{eval_failure,{erlang,'/',2},badarith}}}]}}
     ],
     run(Config, Ts),
     ok.
@@ -4866,7 +4889,7 @@ join_merge(Config) when is_list(Config) ->
           R = lists:sort(qlc:e(Q)),
           ets:delete(E1),
           ets:delete(E2),
-          true = [{Y,Y} || X <- lists:seq(5, 10), {} =/= (Y = {X,X})] =:= R
+          true = [{Y,Y} || X <- lists:seq(5, 10), Y <- [{X,X}]] =:= R
        ">>,
 
        <<"E1 = create_ets(1, 10),
@@ -4879,7 +4902,7 @@ join_merge(Config) when is_list(Config) ->
           R = lists:sort(qlc:e(Q)),
           ets:delete(E1),
           ets:delete(E2),
-          true = [{Y,Y} || X <- lists:seq(5, 10), {} =/= (Y = {X,X})] =:= R
+          true = [{Y,Y} || X <- lists:seq(5, 10), Y <- [{X,X}]] =:= R
        ">>,
 
        <<"E1 = create_ets(1, 10),
@@ -4902,7 +4925,7 @@ join_merge(Config) when is_list(Config) ->
           R = lists:sort(qlc:e(Q)),
           ets:delete(E1),
           ets:delete(E2),
-          true = [{Y,Y} || X <- lists:seq(5, 10), {} =/= (Y = {{X,X}})] =:= R
+          true = [{Y,Y} || X <- lists:seq(5, 10), Y <- [{{X,X}}]] =:= R
        ">>,
 
        <<"L1 = [{1,a},{2,a},{1,b},{2,b},{1,c},{2,c}],
@@ -6199,7 +6222,7 @@ otp_7238(Config) when is_list(Config) ->
         <<"nomatch_5() ->
                qlc:q([X || X = <<X>> <- [3]]).">>,
         [],
-        []},
+        {warnings,[{{2,38},sys_core_fold,{nomatch,no_clause}}]}},
 
        {nomatch_6,
         <<"nomatch_6() ->
@@ -6278,8 +6301,7 @@ otp_7238(Config) when is_list(Config) ->
                               1 > 0,
                               1 > X]).">>,
         [],
-        %% {warnings,[{{2,32},qlc,nomatch_pattern}]}},
-        []},
+        {warnings,[{{2,37},sys_core_fold,{nomatch,no_clause}}]}},
 
        %% Template warning.
        {nomatch_template1,
@@ -6813,7 +6835,7 @@ otp_6674(Config) when is_list(Config) ->
                 false = lookup_keys(Q)
          end, [{{1}}, {{2}}])">>,
 
-    <<"T = gb_trees:from_orddict([{foo,{1}}, {bar,{2}}]),
+    <<"T = gb_trees:from_orddict([{bar,{2}}, {foo,{1}}]),
        Q = qlc:q([{X,Y} || {_,X} <- gb_table:table(T), 
                        {Y} <- [{{1}},{{2}},{{1.0}},{{2.0}}],
                          (X =:= {1}) or (X == {2}), 
@@ -7257,13 +7279,14 @@ manpage(Config) when is_list(Config) ->
     [2,3,4] = qlc:eval(QH),
 
     %% ets(3)
-    MS = ets:fun2ms(fun({X,Y}) when (X > 1) or (X < 5) -> {Y} end),
+    MS = ets:fun2ms(fun({X,Y}) when X > 1 andalso X < 5 -> {Y} end),
     ETs = [
-        [<<"true = ets:insert(Tab = ets:new(t, []),[{1,a},{2,b},{3,c},{4,d}]),
+        [<<"Tab = ets:new(t, []),
+            true = ets:insert(Tab,[{1,a},{2,b},{3,c},{4,d}]),
             MS = ">>, io_lib:format("~w", [MS]), <<",
             QH1 = ets:table(Tab, [{traverse, {select, MS}}]),
 
-            QH2 = qlc:q([{Y} || {X,Y} <- ets:table(Tab), (X > 1) or (X < 5)]),
+            QH2 = qlc:q([{Y} || {X,Y} <- ets:table(Tab), X > 1 andalso X < 5]),
 
             true = qlc:info(QH1) =:= qlc:info(QH2),
             true = ets:delete(Tab)">>]],
@@ -7276,7 +7299,7 @@ manpage(Config) when is_list(Config) ->
             MS = ">>, io_lib:format("~w", [MS]), <<",
             QH1 = dets:table(T, [{traverse, {select, MS}}]),
 
-            QH2 = qlc:q([{Y} || {X,Y} <- dets:table(t), (X > 1) or (X < 5)]),
+            QH2 = qlc:q([{Y} || {X,Y} <- dets:table(t), X > 1 andalso X < 5]),
 
             true = qlc:info(QH1) =:= qlc:info(QH2),
             ok = dets:close(T)">>]],
@@ -7677,7 +7700,7 @@ i(H, Option) ->
 has_format({format,_}) ->
     true;
 has_format([E | Es]) ->
-    has_format(E) or has_format(Es);
+    has_format(E) orelse has_format(Es);
 has_format(_) ->
     false.
 
@@ -7847,7 +7870,9 @@ run(Config, Tests) ->
     run(Config, [], Tests).
 
 run(Config, Extra, Tests) ->
-    lists:foreach(fun(Body) -> run_test(Config, Extra, Body) end, Tests).
+    lists:foreach(fun(Body) ->
+                          io:format("~p\n", [Body]),
+                          run_test(Config, Extra, Body) end, Tests).
 
 run_test(Config, Extra, {cres, Body, ExpectedCompileReturn}) ->
     run_test(Config, Extra, {cres, Body, _Opts = [], ExpectedCompileReturn});
@@ -7989,7 +8014,7 @@ compile_file(Config, Test0, Opts0) ->
                            "-import(qlc_SUITE, [lookup_keys/1]). "
                            "-include_lib(\"stdlib/include/qlc.hrl\"). ",
                            Test0]),
-    Opts = [export_all,nowarn_export_all,return,nowarn_unused_record,{outdir,?privdir}|Opts0],
+    Opts = [export_all,nowarn_export_all,return,nowarn_unused_record,nowarn_deprecated_catch,nowarn_match_alias_pats,{outdir,?privdir}|Opts0],
     ok = file:write_file(File, Test),
     case compile:file(File, Opts) of
         {ok, _M, Ws} -> warnings(File, Ws);

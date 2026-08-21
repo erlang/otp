@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2026. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -132,6 +134,12 @@ loop(ID, [#{desc := Desc,
             ?SEV_IPRINT("command ~w skip: "
                         "~n   ~p", [ID, Reason]),
             exit({skip, Reason});
+        {error, Reason} when (Reason =:= enetdown) ->
+            %% ENETDOWN:
+            %% The local network interface used to reach the destination is down
+            %% This could be temporary, but no point in waiting, just give up.
+            wprint("command ~w failed: ~w => SKIP", [ID, Reason]),
+            exit({skip, Reason});
         {error, Reason} ->
             ?SEV_EPRINT("command ~w failed: "
                         "~n   ~p", [ID, Reason]),
@@ -174,6 +182,16 @@ await_finish([], _OK, Fails) ->
     Fails;
 await_finish(Evs, OK, Fails) ->
     receive
+        {'EXIT', _Pid, {timetrap_timeout, _Timeout, _Stack}} ->
+            %% The test timeout is up.
+            ?SEV_EPRINT("timetrap timeout when: "
+                        "~n   Num Remaining Evs: ~w"
+                        "~n   OK Evs:            ~p"
+                        "~n   Failed Evs:        ~p",
+                        [length(Evs), OK, Fails]),
+            force_evs_kill(Evs),
+            exit(timetrap_timeout);
+
         %% Successful termination of evaluator
         {'DOWN', _MRef, process, Pid, normal} ->
             {Evs2, OK2, Fails2} = await_finish_normal(Pid, Evs, OK, Fails),
@@ -202,14 +220,6 @@ await_finish(Evs, OK, Fails) ->
             {Evs2, OK2, Fails2} =
                 await_finish_fail(Pid, Reason, Evs, OK, Fails),
             await_finish(Evs2, OK2, Fails2);
-
-	%% Special case: TimeTrap
-        {'EXIT', Pid, {timetrap_timeout, _TO, CallStack} = Reason} ->
-            ?SEV_IPRINT("await_finish -> timetrap (from ~p): "
-                         "~n   ~p", [Pid, CallStack]),
-	    %% force_evc_termination(Evs),
-	    {error, Reason};
-
         {'EXIT', Pid, Reason} ->
             %% ?SEV_IPRINT("await_finish -> fail (exit) received: "
             %%             "~n   Pid:    ~p"
@@ -262,15 +272,6 @@ await_finish_skip(Pid, Reason, Evs, OK) ->
     await_evs_terminated(Evs2),
     ?SEV_IPRINT("issue skip"),
     ?LIB:skip(Reason).
-
-%% force_evc_termination(Evs) ->
-%%     Kill = fun(#ev{name = Name, pid = Pid}) ->
-%% 		  ?SEV_EPRINT("kill evaluator ~p (~p) - timetrap",
-%% 			      [Name, Pid]),
-%% 		   exit(Pid, kill)
-%% 	   end,
-%%     lists:foreach(Kill, Evs).
-
 
 await_evs_terminated(Evs) ->
     Instructions =
@@ -604,6 +605,13 @@ await(ExpPid, Name, Announcement, Slogan, OtherPids)
             iprint("Unexpected SKIP from ~w (~p): "
                    "~n   ~p", [Name, Pid, SkipReason]),
             ?LIB:skip(SkipReason);
+        {'DOWN', _, process, Pid, Reason}
+          when (Pid =:= ExpPid) andalso
+               (Reason =:= enetdown) ->
+            %% This should really have been caught earlier, but...
+            wprint("Unexpected DOWN (~w) from ~w (~p): SKIP",
+                   [Reason, Name, Pid]),
+            ?LIB:skip(Reason);
         {'DOWN', _, process, Pid, Reason} when (Pid =:= ExpPid) ->
             eprint("Unexpected DOWN from ~w (~p): "
                    "~n   ~p", [Name, Pid, Reason]),
@@ -661,12 +669,31 @@ check_down(Pid, DownReason, Pids) ->
 
 %% ============================================================================
 
+force_evs_kill(Evs) when is_list(Evs) ->
+    force_evs_exit(Evs, kill).
+
+force_evs_exit([], _) ->
+    ok;
+force_evs_exit([#ev{name = Name,
+                    pid  = Pid,
+                    mref = MRef} | Evs], Reason) ->
+    ?SEV_IPRINT("Force terminate evaluator ~p (~p)", [Name, Pid]),
+    try erlang:demonitor(MRef, [flush]) catch _:_ -> ignore end,
+    exit(Pid, Reason),
+    force_evs_exit(Evs, Reason).
+
+
+%% ============================================================================
+
 f(F, A) ->
     lists:flatten(io_lib:format(F, A)).
 
 
 iprint(F, A) ->
     print("", F, A).
+
+wprint(F, A) ->
+    print("<WARNING> ", F, A).
 
 eprint(F, A) ->
     print("<ERROR> ", F, A).
@@ -681,7 +708,7 @@ print(Prefix, F, A) ->
                 %% or a named process. Instead its 
                 %% most likely the test case itself, 
                 %% so skip the name and the pid.
-                f("[~p]", [self()]);
+                "";
             SName ->
                 f("[~s][~p]", [SName, self()])
         end,

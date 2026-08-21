@@ -1,7 +1,9 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +22,6 @@
 
 -module(snmp_log).
 -moduledoc false.
-
 
 -export([
 	 create/4, create/5, create/6, open/1, open/2, 
@@ -955,7 +956,7 @@ dat2str({{Y,M,D},{H,Min,S}}) ->
 
 
 timestamp_filter({Local,Universal},Start,Stop) ->
-    tsf_ge(Local,Universal,Start) and tsf_le(Local,Universal,Stop);
+    tsf_ge(Local,Universal,Start) andalso tsf_le(Local,Universal,Stop);
 timestamp_filter(_,_Start,_Stop) -> 
     true.
 

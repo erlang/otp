@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,11 +34,12 @@
          t_fold_3/1,t_map_2/1,t_size_1/1, t_foreach_2/1,
          t_iterator_1/1, t_iterator_2/1,
          t_iterator_valid/1,
+         t_order_consistency/1,
          t_put_opt/1, t_merge_opt/1,
          t_with_2/1,t_without_2/1,
          t_intersect/1, t_intersect_with/1,
          t_merge_with/1, t_from_keys/1,
-         error_info/1,
+         error_info/1, doctests/1,
          t_from_list_kill_process/1,
          t_from_keys_kill_process/1,
          t_values_kill_process/1,
@@ -61,11 +64,12 @@ all() ->
      t_fold_3,t_map_2,t_size_1,t_foreach_2,
      t_iterator_1,t_iterator_2,
      t_iterator_valid,
+     t_order_consistency,
      t_put_opt,t_merge_opt,
      t_with_2,t_without_2,
      t_intersect, t_intersect_with,
      t_merge_with, t_from_keys,
-     error_info,
+     error_info, doctests,
      t_from_list_kill_process,
      t_from_keys_kill_process,
      t_values_kill_process,
@@ -653,6 +657,47 @@ t_iterator_valid(Config) when is_list(Config) ->
 
     ok.
 
+%% Test that maps:keys/1, maps:values/1, maps:to_list/1, iterators,
+%% and map comprehensions all return elements in the same order.
+t_order_consistency(Config) when is_list(Config) ->
+    %% Test small map (flatmap)
+    SmallMap = #{a => 1, b => 2, c => 3, z => 26, m => 13},
+    verify_order_consistency(SmallMap),
+
+    %% Test large map (hashmap)
+    LargeMap = maps:from_list([{I, I} || I <- lists:seq(1, 100)]),
+    verify_order_consistency(LargeMap),
+
+    %% Test very large map (hashmap with yielding)
+    VeryLargeMap = maps:from_list([{I, I * 10} || I <- lists:seq(1, 10000)]),
+    verify_order_consistency(VeryLargeMap),
+
+    %% Test with mixed key types
+    MixedMap = maps:from_list([{I, I} || I <- lists:seq(1, 50)] ++
+                              [{list_to_atom("k" ++ integer_to_list(I)), I}
+                               || I <- lists:seq(1, 50)]),
+    verify_order_consistency(MixedMap),
+
+    ok.
+
+verify_order_consistency(M) ->
+    Keys = maps:keys(M),
+    Values = maps:values(M),
+    ToList = maps:to_list(M),
+
+    %% to_list should match zip of keys and values
+    ToList = lists:zip(Keys, Values),
+
+    %% Iterator should produce same list
+    IterList = maps:to_list(maps:iterator(M)),
+    ToList = IterList,
+
+    %% Map comprehension should produce same list
+    CompList = [{K, V} || K := V <- M],
+    ToList = CompList,
+
+    ok.
+
 t_put_opt(Config) when is_list(Config) ->
     Value = id(#{complex => map}),
     Small = id(#{a => Value}),
@@ -1063,5 +1108,9 @@ error_info(_Config) ->
          {without, [[1,2,3], {no,map}]}
         ],
     error_info_lib:test_error_info(maps, L).
+
+doctests(_Config) ->
+    ct_doctest:module(maps, [{skipped_blocks, 0},
+                              {missing_tests, [{new, 0}]}]).
 
 id(I) -> I.

@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2021. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2002-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +24,21 @@
 
 /* ----------------------------- CONSTANTS ------------------------------*/
 
-#define MAXCOLSIZE 8001
+/* Default ODBC bind buffer size (bytes) for SQL_LONGVARCHAR,
+ * SQL_LONGVARBINARY, and SQL_WLONGVARCHAR when the driver reports size 0 or an
+ * oversized display size (e.g. SQL Server varchar(max)). Override per
+ * connection from Erlang (see max_long_column_size) or with environment
+ * variable ERL_ODBC_MAX_LONG_COLUMN_SIZE for legacy clients. Larger values
+ * use more memory per column per bound row. */
+#define DEFAULT_MAX_LONG_COL_SIZE 8001
+/* Hard upper bound to avoid runaway allocation (256 MiB per column). */
+#define HARD_MAX_LONG_COL_SIZE (256U * 1024U * 1024U)
+/* Extended OPEN_CONNECTION layout: these two bytes follow the six option
+ * bytes, then four big-endian size octets, then the connection string.
+ * (Single-byte 0xFF alone could match a rare first character of a legacy
+ * connection string.) */
+#define OPEN_CONNECTION_PROTO_V1_A 0xFFU
+#define OPEN_CONNECTION_PROTO_V1_B 0x01U
 #define MAX_ERR_MSG 1024
 #define ERRMSG_HEADR_SIZE 20
 #define MAX_CONN_STR_OUT 1024
@@ -182,6 +198,7 @@ typedef struct {
     Boolean param_query;
     Boolean out_params;
     Boolean extended_errors;
+    SQLULEN max_long_column_size;
 } db_state;
 
 typedef enum {
@@ -203,3 +220,4 @@ typedef enum {
 #define out_params(db_state) (db_state -> out_params)
 #define extended_errors(db_state) (db_state -> extended_errors)
 #define extended_error(db_state, errorcode) ( extended_errors(state) ? ((char *)errorcode) : NULL )
+#define max_long_column_size(db_state) ((db_state)->max_long_column_size)

@@ -1,5 +1,12 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 2004-2010 held by the authors. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -11,6 +18,8 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% %CopyrightEnd%
 
 -module(dialyzer_clean_core).
 -moduledoc false.
@@ -77,6 +86,11 @@ clean(Tree) ->
       Arg = clean(cerl:seq_arg(Tree)),
       Body = clean(cerl:seq_body(Tree)),
       cerl:update_c_seq(Tree, Arg, Body);
+    record ->
+      Arg = clean(cerl:record_arg(Tree)),
+      Id = clean(cerl:record_id(Tree)),
+      Entries = clean_native_record_pairs(cerl:record_es(Tree)),
+      cerl:update_c_record(Tree, Arg, Id, Entries);
     'try' ->
       Arg = clean(cerl:try_arg(Tree)),
       Body = clean(cerl:try_body(Tree)),
@@ -218,6 +232,15 @@ clean_map_pairs([Pair|Pairs]) ->
   Pair1 = cerl:update_c_map_pair(Pair, Op, Key, Val),
   [Pair1|Pairs1];
 clean_map_pairs([]) ->
+  [].
+
+clean_native_record_pairs([Pair|Pairs]) ->
+  Key = clean(cerl:record_pair_key(Pair)),
+  Val = clean(cerl:record_pair_val(Pair)),
+  Pairs1 = clean_native_record_pairs(Pairs),
+  Pair1 = cerl:update_c_record_pair(Pair, Key, Val),
+  [Pair1|Pairs1];
+clean_native_record_pairs([]) ->
   [].
 
 dialyzer_ignore(Tree) ->

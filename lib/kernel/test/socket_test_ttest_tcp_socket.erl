@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -37,9 +39,12 @@
 	 recv/2, recv/3,
 	 send/2,
 	 shutdown/2,
-	 sockname/1
+	 sockname/1,
+         info/1
 	]).
 
+
+-include("socket_test_ttest.hrl").
 
 -define(LIB, socket_test_lib).
 
@@ -205,7 +210,7 @@ do_connect(LocalSA, ServerSA, Cleanup, #{domain := Domain,
 		ok ->
 		    ok;
 		{error, BReason} ->
-		    (catch socket:close(Sock)),
+		    ?CATCH_AND_IGNORE( socket:close(Sock) ),
                     Cleanup(),
 		    throw({error, {bind, BReason}})
 	    end,
@@ -213,7 +218,7 @@ do_connect(LocalSA, ServerSA, Cleanup, #{domain := Domain,
 		ok ->
 		    ok;
 		{error, CReason} ->
-		    (catch socket:close(Sock)),
+		    ?CATCH_AND_IGNORE( socket:close(Sock) ),
                     Cleanup(),
 		    throw({error, {connect, CReason}})
 	    end,
@@ -303,7 +308,7 @@ do_listen(SA,
 		ok ->
 		    ok;
 		{error, BReason} ->
-		    (catch socket:close(Sock)),
+		    ?CATCH_AND_IGNORE( socket:close(Sock) ),
                     Cleanup(),
 		    throw({error, {bind, BReason}})
 	    end,
@@ -311,7 +316,7 @@ do_listen(SA,
 		ok ->
                     ok;
                 {error, LReason} ->
-		    (catch socket:close(Sock)),
+		    ?CATCH_AND_IGNORE( socket:close(Sock) ),
                     Cleanup(),
                     throw({error, {listen, LReason}})
             end,
@@ -383,6 +388,10 @@ sockname(#{sock := Sock}) ->
 	{error, _} = ERROR ->
 	    ERROR
     end.
+
+
+info(#{sock := Sock}) ->
+    socket:info(Sock).
 
 
 %% ==========================================================================
@@ -619,9 +628,24 @@ reader_loop(#{active      := once,
                     Pid ! ?CLOSED_MSG(Sock, Method),
                     reader_exit(State, E1);
 
-                {error, Reason} = E2 ->
+                {error, {Reason, _}} ->
+                    E2 = {error, Reason},
                     Pid ! ?ERROR_MSG(Sock, Method, Reason),
-                    reader_exit(State, E2)
+                    reader_exit(State, E2);
+
+                {error, Reason} = E3 ->
+                    Pid ! ?ERROR_MSG(Sock, Method, Reason),
+                    reader_exit(State, E3);
+
+                {select, SelectInfo} ->
+                    %% Why would this happen?
+                    %% We get a select message telling us that
+                    %% something happened on the socket (data or maybe
+                    %% an error) but then when we try to read
+                    %% we get nothing...
+                    reader_loop(State#{asynch_info => SelectInfo,
+                                       asynch_num  => ANum+1})
+
             end;
 
         ?COMPLETION_MSG(Sock, Ref, Result) ->

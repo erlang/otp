@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -86,7 +88,7 @@ The default initial heap size of 233 words is quite conservative to support
 Erlang systems with hundreds of thousands or even millions of processes. The
 garbage collector grows and shrinks the heap as needed.
 
-In a system that use comparatively few processes, performance _might_ be
+In a system that uses comparatively few processes, performance _might_ be
 improved by increasing the minimum heap size using either the `+h` option for
 [erl](`e:erts:erl_cmd.md`) or on a process-per-process basis using the
 `min_heap_size` option for [spawn_opt/4](`erlang:spawn_opt/4`).
@@ -123,11 +125,13 @@ first encoded to the [Erlang External Format](`e:erts:erl_ext_dist.md`)
 before being sent through a TCP/IP socket. The receiving Erlang node
 decodes the message and distributes it to the correct process.
 
-## Receiving messages
+[](){: #receiving-messages }
+## Fetching Received Messages
 
-The cost of receiving messages depends on how complicated the `receive`
-expression is. A simple expression that matches any message is very cheap
-because it retrieves the first message in the message queue:
+The cost of fetching a received message from the message queue depends on how
+complicated the `receive` expression is. A simple expression that matches any
+message is very cheap because it retrieves the first message in the message
+queue:
 
 **DO**
 
@@ -172,7 +176,7 @@ unique identifier), and that the `receive` only matches messages that contain
 said reference, it will tell the emulator to search only the messages that
 arrived after the call to [`monitor/2`](`monitor/2`).
 
-The above is a simple example where one is but guaranteed that the optimization
+The above is a simple example where one is guaranteed that the optimization
 will take, but what about more complicated code?
 
 [](){: #recv_opt_info }
@@ -287,7 +291,7 @@ BEAM code and persistent terms). The amount of virtual address space reserved
 for literals can be changed by using the
 [`+MIscs option`](`e:erts:erts_alloc.md#MIscs`) when starting the emulator.
 
-Here is an example how the reserved virtual address space for literals can be
+Here is an example of how the reserved virtual address space for literals can be
 raised to 2 GB (2048 MB):
 
 ```text
@@ -377,7 +381,7 @@ multi-CPU computer by running several Erlang scheduler threads
 
 To gain performance from a multi-core computer, your application _must have more
 than one runnable Erlang process_ most of the time. Otherwise, the Erlang
-emulator can still only run one Erlang process at the time.
+emulator can still only run one Erlang process at a time.
 
 Benchmarks that appear to be concurrent are often sequential.  For
 example, the [EStone

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -105,7 +107,8 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 all() ->
-    [ocsp_test].
+    [ocsp_test, designated_responder,
+     ocsp_responder_cert_expired, ocsp_responder_cert_not_yet_valid].
 
 groups() ->
     [].
@@ -154,8 +157,8 @@ ocsp_test(Config) when is_list(Config) ->
                                     IsTrustedReponderFun),
     {'SingleResponse',
      {'CertID',
-      {'AlgorithmIdentifier',
-       {1,3,14,3,2,26},<<5,0>>},
+      {'CertID_hashAlgorithm',
+       {1,3,14,3,2,26},{asn1_OPENTYPE, <<5,0>>}},
       <<227,147,252,182,155,101,129,45,194,162,22,93,127,46,112,193,196,28,241,232>>,
       <<34,25,129,87,115,255,155,246,200,97,92,7,51,110,152,61,97,155,164,171>>,9},
      {good,'NULL'},"20230720122949Z",asn1_NOVALUE,asn1_NOVALUE} =
@@ -211,3 +214,191 @@ ocsp_test(Config) when is_list(Config) ->
                                     ?ISSUER_CERT,
                                     IsTrustedReponderFun),
     ok.
+
+%%--------------------------------------------------------------------
+designated_responder() ->
+    [{doc, "Test Case2 (designated responder) in is_authorized_responder/3. "
+      "Verifies that a legitimate designated responder cert signed by the CA "
+      "is accepted, and a forged self-signed cert with the same subject DN "
+      "is rejected (GHSA-gxrm-pf64-99xm)."}].
+designated_responder(Config) when is_list(Config) ->
+    %% Generate self-signed root CA (issuer = subject). A single CA is
+    %% sufficient because is_authorized_responder/3 Case 2 only checks
+    %% DN match, OCSPSigning EKU, and pkix_verify — no chain validation.
+    CAKey = public_key:generate_key({namedCurve, ?'secp256r1'}),
+    CAPubKey = ec_public_key(CAKey),
+    CASubject = cn_subject(<<"Test CA">>),
+    CACertDer = public_key:pkix_sign(ca_tbs(CASubject, CAPubKey), CAKey),
+    CACert = public_key:pkix_decode_cert(CACertDer, otp),
+
+    %% Legitimate designated responder cert (signed by CA)
+    ResponderKey = public_key:generate_key({namedCurve, ?'secp256r1'}),
+    {ResponderCertDer, ResponderCert} =
+        sign_responder_cert(2, CASubject, ec_public_key(ResponderKey), CAKey),
+
+    %% Forged designated responder (self-signed, same subject DN)
+    ForgedKey = public_key:generate_key({namedCurve, ?'secp256r1'}),
+    {ForgedCertDer, ForgedCert} =
+        sign_responder_cert(9999, CASubject, ec_public_key(ForgedKey), ForgedKey),
+
+    %% Build OCSP responses and verify
+    Nonce = crypto:strong_rand_bytes(8),
+    NonceExt = <<4, 8, Nonce/binary>>,
+    IsNotTrustedFun = fun(_) -> false end,
+
+    %% Positive: legitimate designated responder accepted
+    LegitResponse = build_ocsp_response(CASubject, CAKey, NonceExt, ResponderKey),
+    {ok, [_], _} =
+        pubkey_ocsp:verify_response(
+            LegitResponse,
+            [#cert{otp = ResponderCert, der = ResponderCertDer}],
+            NonceExt, CACert, IsNotTrustedFun),
+
+    %% Negative: forged responder (same DN, not signed by CA) rejected
+    ForgedResponse = build_ocsp_response(CASubject, CAKey, NonceExt, ForgedKey),
+    {error, ocsp_responder_cert_not_found} =
+        pubkey_ocsp:verify_response(
+            ForgedResponse,
+            [#cert{otp = ForgedCert, der = ForgedCertDer}],
+            NonceExt, CACert, IsNotTrustedFun),
+    ok.
+
+%%--------------------------------------------------------------------
+ocsp_responder_cert_expired() ->
+    [{doc, "Verify that an expired responder certificate is rejected. "
+      "RFC 5280 Section 4.1.2.5 requires validity period checking."}].
+ocsp_responder_cert_expired(Config) when is_list(Config) ->
+    {ok, OcspResponse} =
+        pubkey_ocsp:decode_response(?OCSP_RESPONSE_DER),
+    ExpiredCert = set_cert_validity(?ISSUER_CERT,
+                                    {generalTime, "20180101000000Z"},
+                                    {generalTime, "20200101000000Z"}),
+    IsTrustedFun = fun(_) -> true end,
+    {error, ocsp_responder_cert_not_found} =
+        pubkey_ocsp:verify_response(OcspResponse,
+                                    [#cert{otp = ExpiredCert}],
+                                    ?NONCE,
+                                    ?ISSUER_CERT,
+                                    IsTrustedFun),
+    ok.
+
+%%--------------------------------------------------------------------
+ocsp_responder_cert_not_yet_valid() ->
+    [{doc, "Verify that a not-yet-valid responder certificate is rejected. "
+      "RFC 5280 Section 4.1.2.5 requires validity period checking."}].
+ocsp_responder_cert_not_yet_valid(Config) when is_list(Config) ->
+    {ok, OcspResponse} =
+        pubkey_ocsp:decode_response(?OCSP_RESPONSE_DER),
+    FutureCert = set_cert_validity(?ISSUER_CERT,
+                                   {generalTime, "21000101000000Z"},
+                                   {generalTime, "21100101000000Z"}),
+    IsTrustedFun = fun(_) -> true end,
+    {error, ocsp_responder_cert_not_found} =
+        pubkey_ocsp:verify_response(OcspResponse,
+                                    [#cert{otp = FutureCert}],
+                                    ?NONCE,
+                                    ?ISSUER_CERT,
+                                    IsTrustedFun),
+    ok.
+
+%%--------------------------------------------------------------------
+%% Helpers -----------------------------------------------------------
+%%--------------------------------------------------------------------
+
+ec_public_key(#'ECPrivateKey'{publicKey = PubKey}) ->
+    #'ECPoint'{point = PubKey}.
+
+cn_subject(CN) ->
+    {rdnSequence,
+     [[#'AttributeTypeAndValue'{
+          type = ?'id-at-commonName',
+          value = {utf8String, CN}}]]}.
+
+ec_subject_pubkey_info(PubKey) ->
+    #'OTPSubjectPublicKeyInfo'{
+       algorithm = #'PublicKeyAlgorithm'{
+                      algorithm = ?'id-ecPublicKey',
+                      parameters = {namedCurve, ?'secp256r1'}},
+       subjectPublicKey = PubKey}.
+
+ca_tbs(Subject, PubKey) ->
+    make_tbs(1, Subject, PubKey,
+             [#'Extension'{extnID = ?'id-ce-basicConstraints',
+                           critical = true,
+                           extnValue = #'BasicConstraints'{cA = true}},
+              #'Extension'{extnID = ?'id-ce-keyUsage',
+                           critical = false,
+                           extnValue = [keyCertSign, cRLSign]}]).
+
+ocsp_responder_tbs(Serial, Issuer, PubKey) ->
+    make_tbs(Serial, Issuer, PubKey,
+             [#'Extension'{extnID = ?'id-ce-basicConstraints',
+                           critical = false,
+                           extnValue = #'BasicConstraints'{cA = false}},
+              #'Extension'{extnID = ?'id-ce-keyUsage',
+                           critical = false,
+                           extnValue = [digitalSignature]},
+              #'Extension'{extnID = ?'id-ce-extKeyUsage',
+                           critical = false,
+                           extnValue = [?'id-kp-OCSPSigning']}]).
+
+sign_responder_cert(Serial, Issuer, PubKey, SigningKey) ->
+    Der = public_key:pkix_sign(ocsp_responder_tbs(Serial, Issuer, PubKey), SigningKey),
+    {Der, public_key:pkix_decode_cert(Der, otp)}.
+
+make_tbs(Serial, Subject, PubKey, Extensions) ->
+    #'OTPTBSCertificate'{
+       version = v3,
+       serialNumber = Serial,
+       signature = #'SignatureAlgorithm'{
+                      algorithm = ?'ecdsa-with-SHA256',
+                      parameters = asn1_NOVALUE},
+       issuer = Subject,
+       validity = #'Validity'{
+                     notBefore = {utcTime, "240101000000Z"},
+                     notAfter = {utcTime, "340101000000Z"}},
+       subject = Subject,
+       subjectPublicKeyInfo = ec_subject_pubkey_info(PubKey),
+       extensions = Extensions}.
+
+build_ocsp_response(IssuerName, IssuerKey, NonceExt, SignKey) ->
+    IssuerNameHash = crypto:hash(sha, public_key:der_encode('Name', IssuerName)),
+    IssuerKeyHash = crypto:hash(sha, IssuerKey#'ECPrivateKey'.publicKey),
+    ResponseData = #'ResponseData'{
+        version = v1,
+        responderID = {byName, IssuerName},
+        producedAt = "20250101000000Z",
+        responses =
+            [#'SingleResponse'{
+                certID = #'CertID'{
+                    hashAlgorithm = #'CertID_hashAlgorithm'{
+                        algorithm = ?'id-sha1',
+                        parameters = {asn1_OPENTYPE, <<5,0>>}},
+                    issuerNameHash = IssuerNameHash,
+                    issuerKeyHash = IssuerKeyHash,
+                    serialNumber = 100},
+                certStatus = {good, 'NULL'},
+                thisUpdate = "20250101000000Z",
+                nextUpdate = asn1_NOVALUE,
+                singleExtensions = asn1_NOVALUE}],
+        responseExtensions =
+            [#'Extension'{
+                extnID = ?'id-pkix-ocsp-nonce',
+                critical = false,
+                extnValue = NonceExt}]},
+    ResponseDataDer = public_key:der_encode('ResponseData', ResponseData),
+    Signature = public_key:sign(ResponseDataDer, sha256, SignKey),
+    #'BasicOCSPResponse'{
+        tbsResponseData = ResponseData,
+        signatureAlgorithm =
+            #'BasicOCSPResponse_signatureAlgorithm'{
+                algorithm = ?'ecdsa-with-SHA256',
+                parameters = asn1_NOVALUE},
+        signature = Signature,
+        certs = asn1_NOVALUE}.
+
+set_cert_validity(OtpCert, NotBefore, NotAfter) ->
+    TBS = OtpCert#'OTPCertificate'.tbsCertificate,
+    NewValidity = #'Validity'{notBefore = NotBefore, notAfter = NotAfter},
+    NewTBS = TBS#'OTPTBSCertificate'{validity = NewValidity},
+    OtpCert#'OTPCertificate'{tbsCertificate = NewTBS}.

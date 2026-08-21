@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -65,14 +67,14 @@ arguments_:
 _Examples:_
 
 ```erlang
-% erl +W w -sname arnie +R 9 -s my_init -extra +bertie
+% erl +W w -sname arnie +S 2 -s my_init -extra +bertie
 (arnie@host)1> init:get_argument(sname).
 {ok,[["arnie"]]}
 (arnie@host)2> init:get_plain_arguments().
 ["+bertie"]
 ```
 
-Here `+W w` and `+R 9` are emulator flags. `-s my_init` is an init flag,
+Here `+W w` and `+S 2` are emulator flags. `-s my_init` is an init flag,
 interpreted by `init`. `-sname arnie` is a user flag, stored by `init`. It is
 read by Kernel and causes the Erlang runtime system to become distributed.
 Finally, everything after `-extra` (that is, `+bertie`) is considered as plain
@@ -347,6 +349,18 @@ described in the corresponding application documentation.
   > extension the cluster. When using un-secure distributed nodes, make sure
   > that the network is configured to keep potential attackers out.
 
+- **`-nocookie`** - Prevents the node from creating or using the magic
+  cookie.
+
+  When this flag is used, the node will not read the `~/.erlang.cookie` file on startup.
+
+  The node's own cookie will remain "undefined" unless explicitly set later via
+  `erlang:set_cookie/1` or `erlang:set_cookie/2`.
+
+  This effectively prevents the node from participating in a distributed Erlang
+  cluster with nodes that require cookie authentication. It is primarily used
+  for nodes that are intended to be isolated.
+
 - **`-no_epmd`** - Specifies that the distributed node does not need
   [epmd](epmd_cmd.md) at all.
 
@@ -541,13 +555,13 @@ behavior of earlier flags.
   [time warp mode](time_correction.md#time-warp-modes):
 
   - **`no_time_warp`** -
-    [No time warp mode](time_correction.md#no-time-warp-mode) (the default)
+    [No time warp mode](time_correction.md#no-time-warp-mode)
 
   - **`single_time_warp`** -
     [Single time warp mode](time_correction.md#single-time-warp-mode)
 
   - **`multi_time_warp`** -
-    [Multi-time warp mode](time_correction.md#multi-time-warp-mode)
+    [Multi-time warp mode](time_correction.md#multi-time-warp-mode) (the default since Erlang/OTP 26.0)
 
 - **`+d`** - If the emulator detects an internal error (or runs out of memory),
   it, by default, generates both a crash dump and a core dump. The core dump is,
@@ -581,8 +595,10 @@ behavior of earlier flags.
   keeping track of the memory consumption and the number of terms in ETS tables
   of type ordered_set with the write_concurrency option activated.
 
-- **`+e Number`{: #+e }** - Sets the maximum number of ETS tables. This limit is
-  [partially obsolete](`m:ets#max_ets_tables`).
+- **`+e Number`{: #+e }** - Sets a sizing hint for the internal index used to
+  look up named ETS tables. It does not limit the number of ETS tables. Values
+  below 8192 are treated as 8192, and the number of lookup buckets is rounded up
+  to a power of two. See [ETS table sizing](`m:ets#max_ets_tables`).
 
 - **`+ec`** - Forces option `compressed` on all ETS tables. Only intended for
   test and evaluation.
@@ -705,7 +721,7 @@ behavior of earlier flags.
   scheduling latency for individual file descriptor input events.
 
 - **`+JPcover true|false|function|function_counters|line|line_counters`{:
-  #+JPcover }** - Since: OTP 27.0
+  #+JPcover }**
 
   Enables or disables support for coverage when running with the JIT. Defaults
   to false.
@@ -742,6 +758,8 @@ behavior of earlier flags.
 
   - **`false`** - Disables coverage.
 
+  Since: OTP 27.0
+
 - **`+JPperf true|false|dump|map|fp|no_fp`{: #+JPperf }** - Enables or disables
   support for the `perf` profiler when running with the JIT on Linux. Defaults
   to false.
@@ -768,14 +786,20 @@ behavior of earlier flags.
   [perf support](BeamAsm.md#linux-perf-support) section in the BeamAsm internal
   documentation.
 
-- **`+JMsingle true|false`{: #+JMsingle }** - Since: OTP-26.0
+- **`+JPperfdirectory <directory>`{: #+JPperfdirectory }** - Set the directory
+  used to store `perf` dump and map files when running with the JIT on Linux.
+  Defaults to `/tmp`.
 
-  Enables or disables the use of single-mapped RWX memory for JIT code. The
-  default is to map JIT:ed machine code into two regions sharing the same
+- **`+JMsingle true|false`{: #+JMsingle }** - Enables or disables the use of
+  single-mapped RWX memory for JIT code.
+
+  The default is to map JIT:ed machine code into two regions sharing the same
   physical pages, where one region is executable but not writable, and the other
   writable but not executable. As some tools, such as QEMU user mode emulation,
   cannot deal with the dual mapping, this flags allows it to be disabled. This
   flag is automatically enabled by the [`+JPperf`](#%2BJPperf) flag.
+
+  Since: OTP 26.0
 
 - **`+L`** - Prevents loading information about source filenames and line
   numbers. This saves some memory, but exceptions do not contain information
@@ -784,15 +808,16 @@ behavior of earlier flags.
 - **`+MFlag Value`{: #erts_alloc }** - Memory allocator-specific flags. For more
   information, see [`erts_alloc(3)`](erts_alloc.md).
 
-- **`+pad true|false`{: #+pad }** - Since: OTP 25.3
+- **`+pad true|false`{: #+pad }** - The boolean value used with the `+pad`
+  parameter determines the default value of the [`async_dist`](`m:erlang#process_flag_async_dist`) process flag of newly spawned processes.
 
-  The boolean value used with the `+pad` parameter determines the default value
-  of the [`async_dist`](`m:erlang#process_flag_async_dist`) process flag of
-  newly spawned processes. By default, if no `+pad` command line option is
+  By default, if no `+pad` command line option is
   passed, the `async_dist` flag will be set to `false`.
 
   The value used in runtime can be inspected by calling
   [`erlang:system_info(async_dist)`](`m:erlang#system_info_async_dist`).
+
+  Since: OTP 25.3
 
 - **[](){: #%2Bpc } `+pc Range`{: #printable_character_range }** -
   Sets the range of characters that the system considers printable in heuristic
@@ -850,21 +875,6 @@ behavior of earlier flags.
 
   On Windows the default value is set to `8196` because the normal OS
   limitations are set higher than most machines can handle.
-
-- **`+R ReleaseNumber`{: #compat_rel }** - Sets the compatibility mode.
-
-  The distribution mechanism is not backward compatible by default. This flag
-  sets the emulator in compatibility mode with an earlier Erlang/OTP release
-  `ReleaseNumber`. The release number must be in the range
-  `<current release>-2` through `<current release>`. This limits the emulator,
-  making it possible for it to communicate with Erlang nodes (as well as C
-  and Java nodes) running that earlier release.
-
-  > #### Note {: .info }
-  >
-  > Ensure that all nodes (Erlang-, C-, and Java nodes) of a distributed Erlang
-  > system is of the same Erlang/OTP release, or from two different Erlang/OTP
-  > releases X and Y, where _all_ Y nodes have compatibility mode X.
 
 - **`+r`** - Forces ETS memory blocks to be moved on reallocation.
 
@@ -1371,7 +1381,20 @@ behavior of earlier flags.
   >
   > This flag can be removed or changed at any time without prior notice.
 
-- **`+v`** - Verbose.
+- **`+v`** - Verbose logging. Only works if Erlang is compiled with debug enabled.
+  Can optionally take an additional character to specify the types of debugging
+  messages logged:
+
+  - **`+vs`** - `DEBUG_SYSTEM`, same as `+v`
+  - **`+vg`** - `DEBUG_PRIVATE_GC`
+  - **`+vM`** - `DEBUG_MEMORY`
+  - **`+va`** - `DEBUG_ALLOCATION`
+  - **`+vt`** - `DEBUG_THREADS`
+  - **`+vp`** - `DEBUG_PROCESSES`
+  - **`+vm`** - `DEBUG_MESSAGES`
+  - **`+vc`** - `DEBUG_SHCOPY`
+  
+  This is erts debugging functionality and can change at any time without prior notice.
 
 - **`+V`** - Makes the emulator print its version number.
 
@@ -1474,6 +1497,25 @@ behavior of earlier flags.
   a crash dump file.
 
   Introduced in ERTS 8.1.2 (Erlang/OTP 19.2).
+
+- **`ERL_CRASH_DUMP_PUBLIC_KEY`{: #ERL_CRASH_DUMP_PUBLIC_KEY }** - If the
+  emulator has been built to emit encrypted crash dumps, this variable **must**
+  be set to a file containing the public key to be used for encryption
+  (in x509 format, usually known as ".pem" files).
+
+  When built to emit encrypted crash dumps, the emulator will refuse to start
+  if this is not properly configured, as it would be too late to handle any
+  potential issues when the emulator is crashing.
+
+  Under this encryption scheme, the emulator only knows how to _encrypt_ the
+  crash dump. To decrypt a crash dump, the `m:crashdump` module should be used
+  with the _private key_, and care should be taken not to store the
+  _private key_ on the target system.
+
+  Supported key types are RSA of 2048 bits or higher, as well as ML-KEM if
+  your OpenSSL installation supports it.
+
+  Introduced in ERTS 16.3 (Erlang/OTP 29).
 
 - **`ERL_AFLAGS`{: #ERL_AFLAGS }** - The content of this variable is added to
   the beginning of the command line for `erl`.

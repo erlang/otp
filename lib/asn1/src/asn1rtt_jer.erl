@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2012-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,13 +21,15 @@
 %%
 
 -module(asn1rtt_jer).
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, binary_to_atom, 2}}]).
+
 %% encoding / decoding of BER
 -ifdef(DEBUG).
 -compile(export_all).
 -endif.
 %% For typeinfo JER
 -export([encode_jer/3, decode_jer/3]).
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Common code for all JER encoding/decoding
@@ -42,23 +46,23 @@ encode_jer(Module, Type, Val) ->
     iolist_to_binary(json:encode(Enc, EncFun)).
 
 %% {sequence,
-%%    Name::atom() % The record name used for the sequence 
+%%    Name::atom() % The record name used for the sequence
 %%    Arity::integer() % number of components
 %%    CompInfos::[CompInfo()] % list of components with name, type etc
 %%    Value::record matching name and arity
 
-encode_jer({sequence_tab,Simple,Sname,Arity,CompInfos},Value) 
+encode_jer({sequence_tab,Simple,Sname,Arity,CompInfos},Value)
   when tuple_size(Value) == Arity+1 ->
     [Sname|Clist] = tuple_to_list(Value),
     encode_jer_component_tab(CompInfos,Clist,Simple,#{});
 %% {sequence,
-%%    Name::atom() % The record name used for the sequence 
+%%    Name::atom() % The record name used for the sequence
 %%    Arity::integer() % number of components
 %%    CompInfos::[CompInfo()] % list of components with name, type etc
 %%    Value::record matching name and arity
 encode_jer({sequence_map,_Sname,_Arity,CompInfos},Value) when is_map(Value) ->
     encode_jer_component_map(CompInfos,Value,[]);
-encode_jer({sequence,Sname,Arity,CompInfos},Value) 
+encode_jer({sequence,Sname,Arity,CompInfos},Value)
   when tuple_size(Value) == Arity+1 ->
     [Sname|Clist] = tuple_to_list(Value),
     encode_jer_component(CompInfos,Clist,[]);
@@ -120,14 +124,15 @@ encode_jer({typeinfo,{Module,Type}},Val) ->
 encode_jer({sof,Type},Vals) when is_list(Vals) ->
     [encode_jer(Type,Val)||Val <- Vals];
 encode_jer({choice,Choices},{Alt,Value}) ->
-    case is_map_key(AltBin = atom_to_binary(Alt,utf8),Choices) of
+    AltBin = atom_to_binary(Alt,utf8),
+    case is_map_key(AltBin,Choices) of
         true ->
             EncodedVal = encode_jer(maps:get(AltBin,Choices),Value),
             #{AltBin => EncodedVal};
         false ->
             exit({error,{asn1,{invalid_choice,Alt,Choices}}})
     end;
-    
+
 encode_jer(bit_string,Value) ->
     Str = bitstring2json(Value),
     #{value => Str, length => bit_size(Value)};
@@ -143,13 +148,10 @@ encode_jer(compact_bit_string,Compact) ->
 encode_jer({compact_bit_string,{_,_}},Compact) ->
     BitStr = jer_compact2bitstr(Compact),
     encode_jer(bit_string,BitStr);
-encode_jer({compact_bit_string,FixedLength}, {_,Binary}=Compact) when is_binary(Binary) ->
+encode_jer({compact_bit_string,FixedLength}, Compact) ->
     BitStr = jer_compact2bitstr(Compact),
     encode_jer({bit_string,FixedLength},BitStr);
-encode_jer({compact_bit_string,FixedLength}, Compact) when is_integer(Compact) ->
-    BitStr = jer_compact2bitstr(Compact),
-    encode_jer({bit_string,FixedLength},BitStr);
-encode_jer({bit_string_nnl,NNL},Value) -> 
+encode_jer({bit_string_nnl,NNL},Value) ->
     Value1 = jer_bit_str2bitstr(Value,NNL),
     encode_jer(bit_string,Value1);
 encode_jer({{bit_string_nnl,NNL},FixedLength},Value) ->
@@ -239,15 +241,15 @@ decode_jer({Type = {'ENUMERATED_EXT',_EnumList},_Constr}, Val) ->
 decode_jer({typeinfo,{Module,Type}}, Val) ->
     TypeInfo = Module:typeinfo(Type),
     decode_jer(TypeInfo, Val);
-decode_jer({sequence,Sname,_Arity,CompInfos},Value) 
-  when is_map(Value) ->    
+decode_jer({sequence,Sname,_Arity,CompInfos},Value)
+  when is_map(Value) ->
     DecodedComps = decode_jer_component(CompInfos,Value,[]),
     list_to_tuple([Sname|DecodedComps]);
-decode_jer({sequence_map,_Sname,_Arity,CompInfos},Value) 
-  when is_map(Value) ->    
+decode_jer({sequence_map,_Sname,_Arity,CompInfos},Value)
+  when is_map(Value) ->
     decode_jer_component_map(CompInfos,Value,[]);
 
-%% Unfortunately we have to represent strings as lists to be compatible 
+%% Unfortunately we have to represent strings as lists to be compatible
 %% with the other backends. Should add an option to the compiler in the future
 %% which makes it possible to represent all strings as erlang binaries
 decode_jer(string,Str) when is_binary(Str) ->
@@ -296,10 +298,13 @@ decode_jer(bit_string,#{<<"value">> := Str, <<"length">> := Length}) ->
     json2bitstring(binary_to_list(Str),Length);
 decode_jer({bit_string,FixedLength},Str) when is_binary(Str) ->
     json2bitstring(binary_to_list(Str),FixedLength);
+decode_jer({bit_string, {_, _}},
+          #{<<"value">> := Str, <<"length">> := Length}) ->
+    json2bitstring(binary_to_list(Str), Length);
 decode_jer({{bit_string_nnl,NNL},{_,_}},#{<<"value">> := Str, <<"length">> := Length}) ->
     BitStr = json2bitstring(binary_to_list(Str),Length),
     jer_bitstr2names(BitStr,NNL);
-decode_jer({bit_string_nnl,NNL},#{<<"value">> := Str, <<"length">> := Length}) -> 
+decode_jer({bit_string_nnl,NNL},#{<<"value">> := Str, <<"length">> := Length}) ->
     BitStr = json2bitstring(binary_to_list(Str),Length),
     jer_bitstr2names(BitStr,NNL);
 decode_jer({{bit_string_nnl,NNL},FixedLength},Str) when is_binary(Str)->
@@ -397,10 +402,10 @@ bitstring2json(BitStr) ->
     octetstring2json(binary_to_list(NewStr)).
 
 octetstring2json(List) when is_list(List) ->
-    list_to_binary([begin Num = integer_to_list(X,16), 
+    list_to_binary([begin Num = integer_to_list(X,16),
            if length(Num) == 1 -> "0"++Num;
               true -> Num
-           end 
+           end
      end|| X<-List]).
 
 oid2json(Oid) when is_tuple(Oid) ->
@@ -438,7 +443,10 @@ jer_bit_str2bitstr([], _NamedBitList) ->
 jer_bit_str2bitstr(BitStr,_NamedBitList) when is_bitstring(BitStr) ->
     BitStr.
 
-jer_compact2bitstr({Unused,Binary}) ->
+jer_compact2bitstr(Bitstring) when is_bitstring(Bitstring) ->
+    Bitstring;
+jer_compact2bitstr({Unused,Binary})
+    when is_integer(Unused), is_binary(Binary) ->
     Size = bit_size(Binary) - Unused,
     <<BitStr:Size/bitstring,_/bitstring >> = Binary,
     BitStr;
@@ -460,7 +468,7 @@ jer_skip_trailing_zeroes([],Acc) ->
     lists:reverse(Acc).
 
 
-    
+
 
 jer_padbitstr(BitStr,FixedLength) when bit_size(BitStr) == FixedLength ->
     BitStr;
@@ -477,7 +485,7 @@ jer_int2bitstr(0,Acc) ->
 jer_int2bitstr(Int,Acc) ->
     Bit = Int band 1,
     jer_int2bitstr(Int bsr 1,<<Acc/bitstring,Bit:1>>).
-    
+
 jer_bitstr2compact(BitStr) ->
     Size = bit_size(BitStr),
     Unused = (8 - Size rem 8) band 7,
@@ -560,9 +568,3 @@ jer_bitstr2names(<<0:1,BitStr/bitstring>>,NNL,Num,Acc) ->
     jer_bitstr2names(BitStr,NNL,Num+1,Acc);
 jer_bitstr2names(<<>>,_,_,Acc) ->
     lists:reverse(Acc).
-
-
-    
-
-    
-    

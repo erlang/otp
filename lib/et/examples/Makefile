@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2002-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2002-2026. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,7 +57,7 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -pa ../../et/ebin +nowarn_missing_doc +nowarn_missing_spec_documented
+ERL_COMPILE_FLAGS += -pa ../../et/ebin +nowarn_missing_doc +nowarn_missing_spec_documented +nowarn_deprecated_catch
 EBIN = .
 
 # ----------------------------------------------------
@@ -74,8 +76,7 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) "$(RELSYSDIR)/examples"
-	$(INSTALL_DATA) $(ERL_FILES) $(DATA_FILES) $(HRL_FILES) "$(RELSYSDIR)/examples"
 
 release_docs_spec:
-
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples"
+	$(INSTALL_DATA) $(ERL_FILES) $(DATA_FILES) $(HRL_FILES) "$(RELSYSDIR)/doc/examples"

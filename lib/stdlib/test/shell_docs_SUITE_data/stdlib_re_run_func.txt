@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 [;1m  run(Subject, RE)[0m
 
@@ -30,8 +37,6 @@
 
    • [;;4m{match_limit_recursion, integer() >= 0}[0m
 
-   • [;;4m{newline, NLSpec}[0m
-
    • [;;4mnotbol[0m
 
    • [;;4mnotempty[0m
@@ -46,9 +51,18 @@
 
   Otherwise all options valid for function [;;4mcompile/2[0m are also
   allowed. Options allowed both for compilation and execution of a
-  match, namely [;;4manchored[0m and [;;4m{newline, NLSpec}[0m, affect both the
-  compilation and execution if present together with a
-  non-precompiled regular expression.
+  match, namely [;;4manchored[0m, affect both the compilation and
+  execution if present together with a non-precompiled regular
+  expression.
+
+  [;;4mChange[0m
+
+    As from Erlang/OTP 28, options [;;4m{newline, _}[0m, [;;4mbsr_anycrlf[0m
+    and [;;4mbsr_unicode[0m can only be used to control the compilation
+    of a regular expression. They will no longer be accepted by [;;4m[0m
+    [;;4mrun/3[0m, [;;4mreplace/4[0m and [;;4msplit/3[0m if the regular expression
+    was previously compiled and the options do not comply with
+    what was given at compile time.
 
   If the regular expression was previously compiled with option [;;4m[0m
   [;;4municode[0m, [;;4mSubject[0m is to be provided as a valid Unicode [;;4m[0m
@@ -218,9 +232,8 @@
         before that (each recursive call is also a call, but
         not conversely). Both limits can however be changed,
         either by setting limits directly in the regular
-        expression string (see section PCRE Regular
-        Eexpression Details) or by specifying options to [;;4m[0m
-        [;;4mrun/3[0m.
+        expression string (see section PCRE Regular Expression
+        Details) or by specifying options to [;;4mrun/3[0m.
 
      It is important to understand that what is referred to as
      "recursion" when limiting matches is not recursion on the C
@@ -298,36 +311,6 @@
      (position) specified in the subject string. The offset is
      zero-based, so that the default is [;;4m{offset,0}[0m (all of the
      subject string).
-
-   • [;;4m{newline, NLSpec}[0m - Overrides the default definition of a
-     newline in the subject string, which is LF (ASCII 10) in
-     Erlang.
-
-      ￮ [;;4mcr[0m - Newline is indicated by a single character CR
-        (ASCII 13).
-
-      ￮ [;;4mlf[0m - Newline is indicated by a single character LF
-        (ASCII 10), the default.
-
-      ￮ [;;4mcrlf[0m - Newline is indicated by the two-character CRLF
-        (ASCII 13 followed by ASCII 10) sequence.
-
-      ￮ [;;4manycrlf[0m - Any of the three preceding sequences is be
-        recognized.
-
-      ￮ [;;4many[0m - Any of the newline sequences above, and the
-        Unicode sequences VT (vertical tab, U+000B), FF
-        (formfeed, U+000C), NEL (next line, U+0085), LS (line
-        separator, U+2028), and PS (paragraph separator,
-        U+2029).
-
-   • [;;4mbsr_anycrlf[0m - Specifies specifically that \R is to match
-     only the CR LF, or CRLF sequences, not the Unicode-specific
-     newline characters. (Overrides the compilation option.)
-
-   • [;;4mbsr_unicode[0m - Specifies specifically that \R is to match
-     all the Unicode newline characters (including CRLF, and so
-     on, the default). (Overrides the compilation option.)
 
    • [;;4m{capture, ValueSpec}[0m/[;;4m{capture, ValueSpec, Type}[0m -
      Specifies which captured substrings are returned and in what

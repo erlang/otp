@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2025. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1996-2026. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -197,7 +199,6 @@ INSTALL_EMBEDDED_PROGS += \
 	$(BINDIR)/ct_run@EXEEXT@ \
 	$(BINDIR)/run_erl@EXEEXT@ \
 	$(BINDIR)/to_erl@EXEEXT@ \
-	$(BINDIR)/dyn_erl@EXEEXT@ \
 	$(BINDIR)/erl_call@EXEEXT@
 INSTALL_EMBEDDED_DATA = $(UXETC)/start.src $(UXETC)/start_erl.src
 INSTALL_TOP = Install
@@ -270,7 +271,6 @@ endif
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/run_erl.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/to_erl.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/typer.o
-	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/dyn_erl.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/safe_string.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/run_erl.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/to_erl.o
@@ -456,17 +456,13 @@ $(BINDIR)/to_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/to_erl.o
 $(OBJDIR)/to_erl.o: $(ETC)/to_erl.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c $(ETC)/to_erl.c
 
-# dyn_erl
-$(BINDIR)/dyn_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/dyn_erl.o
-	$(V_LD) $(LDFLAGS) -o $@  $(OBJDIR)/safe_string.o $(OBJDIR)/dyn_erl.o
-$(OBJDIR)/dyn_erl.o: $(UXETC)/dyn_erl.c $(RC_GENERATED)
-	$(V_CC) $(CFLAGS) -o $@ -c $(UXETC)/dyn_erl.c
 $(OBJDIR)/safe_string.o: $(ETC)/safe_string.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c $(ETC)/safe_string.c
 
 # erl_call
 $(BINDIR)/erl_call@EXEEXT@: $(ERL_TOP)/lib/erl_interface/bin/$(TARGET)/erl_call@EXEEXT@
 	$(ld_verbose)cp $< $@
+	$(ld_verbose)cp $(<:.exe=.pdb) $(@:.exe=.pdb)
 
 ifneq ($(TARGET),win32)
 $(BINDIR)/$(ERLEXEC): $(OBJDIR)/$(ERLEXEC).o $(ERTS_LIB)
@@ -517,8 +513,6 @@ erl.src: $(UXETC)/erl.src.src ../../vsn.mk $(TARGET)/Makefile
 	$(vsn_verbose)sed -e 's;%EMULATOR%;$(EMULATOR);' \
             -e 's;%EMULATOR_NUMBER%;$(EMULATOR_NUMBER);' \
             -e 's;%VSN%;$(VSN);' \
-            -e 's;%DYN_ERL_PATH%;../erts-$(VSN)/bin/dyn_erl;' \
-            -e 's;%DYN_ROOTDIR_BASE_EXT%;;' \
                   $(UXETC)/erl.src.src > erl.src
 
 # ----------------------------------------------------
@@ -545,6 +539,10 @@ ifneq ($(TARGET), win32)
 endif
 ifneq ($(INSTALL_PROGS),)
 	$(INSTALL_PROGRAM) $(INSTALL_PROGS) "$(RELEASE_PATH)/erts-$(VSN)/bin"
+ifeq ($(TARGET),win32)
+	$(INSTALL_DATA) $(INSTALL_PROGS:.exe=.pdb) "$(RELEASE_PATH)/erts-$(VSN)/bin"
+	$(INSTALL_DATA) $(INSTALL_PROGS:.dll=.pdb) "$(RELEASE_PATH)/erts-$(VSN)/bin"
+endif
 endif
 ifneq ($(INSTALL_TOP),)
 	$(INSTALL_SCRIPT) $(INSTALL_TOP) "$(RELEASE_PATH)"

@@ -1,12 +1,12 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_X86_X86FUNC_P_H_INCLUDED
 #define ASMJIT_X86_X86FUNC_P_H_INCLUDED
 
-#include "../core/func.h"
+#include <asmjit/core/func.h>
 
 ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
@@ -18,10 +18,10 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 namespace FuncInternal {
 
 //! Initialize `CallConv` structure (X86 specific).
-Error initCallConv(CallConv& cc, CallConvId ccId, const Environment& environment) noexcept;
+Error init_call_conv(CallConv& cc, CallConvId call_conv_id, const Environment& environment) noexcept;
 
 //! Initialize `FuncDetail` (X86 specific).
-Error initFuncDetail(FuncDetail& func, const FuncSignature& signature, uint32_t registerSize) noexcept;
+Error init_func_detail(FuncDetail& func, const FuncSignature& signature, uint32_t register_size) noexcept;
 
 } // {FuncInternal}
 

@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -51,6 +53,7 @@ The following configuration parameters are defined for the crypto application.
 See [`app(3)`](`e:kernel:app.md`) for more information about configuration
 parameters.
 
+[](){: #fips_mode }
 - **`fips_mode = boolean()`** - Specifies whether to run crypto in FIPS mode.
   This setting will take effect when the nif module is loaded. If FIPS mode is
   requested but not available at run time the nif module and thus the crypto
@@ -65,6 +68,21 @@ parameters.
   random bytes about once per hundred calls for a random value. The set value is
   rounded up to an integral number of words of the size these seed functions
   use.
+
+> #### Change {: .info }
+>
+> From Erlang/OTP 29, in [interactive mode](`e:system:system_principles.md#code_loading`),
+> application `crypto` will be automatically loaded if needed when module
+> `crypto` is loaded. In [embedded mode](`e:system:system_principles.md#code_loading`),
+> module `crypto` will fail to load if application `crypto` has not been
+> loaded by the boot script. This is all done to make sure `crypto` is not
+> initialized with incorrect configuration parameters.
+>
+> In Erlang/OTP 28 and earlier, no automatic loading of the application is done.
+> If module `crypto` is then loaded (by a first call for example) before the
+> application has been loaded, it will initialize with possibly incorrect
+> configuration parameters. In particular, `fips_mode` will then default to
+> `false` even if configured to be `true`.
 
 ## SEE ALSO
 

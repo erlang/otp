@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -36,11 +38,11 @@ an alternative carrier is described in the
 >
 > Starting a distributed node without also specifying
 > [`-proto_dist inet_tls`](`e:erts:erl_cmd.md#proto_dist`) will expose the node
-> to attacks that may give the attacker complete access to the node and in
-> extension the cluster. When using un-secure distributed nodes, make sure that
+> to attacks that may give the attacker complete access to the node and by
+> extension the cluster. When using insecure distributed nodes, make sure that
 > the network is configured to keep potential attackers out. See the
 > [Using SSL for Erlang Distribution](`e:ssl:ssl_distribution.md`) User's Guide
-> for details on how to setup a secure distributed node.
+> for details on how to set up a secure distributed node.
 
 ## Nodes
 
@@ -49,7 +51,8 @@ the command-line flag [`-name`](`e:erts:erl_cmd.md#name`) (long names) or
 [`-sname`](`e:erts:erl_cmd.md#sname`) (short names).
 
 The format of the node name is an atom `name@host`. `name` is the name given by
-the user. `host` is the full host name if long names are used, or the first part
+the user, and consists of alphanumerics, `-`, `_`, and `\`.
+`host` is the full host name if long names are used, or the first part
 of the host name if short names are used. Function [`node()`](`erlang:node/0`)
 returns the name of the node.
 
@@ -65,7 +68,7 @@ _Example:_
 dilbert@uab
 ```
 
-The node name can also be given in runtime by calling `net_kernel:start/1`.
+The node name can also be given at runtime by calling `net_kernel:start/1`.
 
 _Example:_
 
@@ -106,7 +109,7 @@ The list of (visible) nodes currently connected to is returned by `nodes/0`.
 
 The Erlang Port Mapper Daemon _epmd_ is automatically started at every host
 where an Erlang node is started. It is responsible for mapping the symbolic node
-names to machine addresses. See the [epmd](`e:erts:epmd_cmd.md`) in ERTS.
+names to machine addresses. See [epmd](`e:erts:epmd_cmd.md`) in ERTS.
 
 ## Hidden Nodes
 
@@ -117,8 +120,8 @@ status of a system, without disturbing it. For this purpose, a _hidden
 node_ can be used.
 
 A hidden node is a node started with the command-line flag `-hidden`.
-Connections between hidden nodes and other nodes are not transitive, they must
-be set up explicitly. Also, hidden nodes does not show up in the list of nodes
+Connections between hidden nodes and other nodes are not transitive; they must
+be set up explicitly. Also, hidden nodes do not show up in the list of nodes
 returned by `nodes/0`. Instead, [`nodes(hidden)`](`nodes/1`) or
 [`nodes(connected)`](`nodes/1`) must be used. This means, for example, that the
 hidden node is not added to the set of nodes that `m:global` is keeping track of.
@@ -127,9 +130,9 @@ hidden node is not added to the set of nodes that `m:global` is keeping track of
 
 ## Dynamic Node Name
 
-If the node name is set to _`undefined`_ the node will be started in a special
+If the node name is set to _`undefined`_, the node will be started in a special
 mode to be the temporary client of another node. The node will then request a
-dynamic node name from the first node it connects to. In addition these
+dynamic node name from the first node it connects to. In addition, these
 distribution settings will be set:
 
 ```text
@@ -137,7 +140,7 @@ distribution settings will be set:
 ```
 
 As `-dist_auto_connect` is set to `never`, `net_kernel:connect_node/1` must be
-called in order to setup connections. If the first established connection is
+called in order to set up connections. If the first established connection is
 closed (which gave the node its dynamic name), then any other connections will
 also be closed and the node will lose its dynamic node name. A new call to
 `net_kernel:connect_node/1` can be made to get a new dynamic node name. The node
@@ -155,7 +158,7 @@ A _C node_ is a C program written to act as a hidden node in a distributed
 Erlang system. The library _Erl_Interface_ contains functions for this purpose.
 For more information about C nodes, see the
 [Erl_Interface](`e:erl_interface:ei_users_guide.md`) application and
-[Interoperability Tutorial.](`e:system:tutorial.md`).
+[Interoperability Tutorial](`e:system:tutorial.md`).
 
 ## Security
 
@@ -165,9 +168,9 @@ For more information about C nodes, see the
 > against accidental misuse, such as preventing a node from connecting to a
 > cluster with which it is not intended to communicate.
 >
-> Furthermore, the communication between nodes is per default in clear text. If
+> Furthermore, the communication between nodes is by default in clear text. If
 > you need strong security, please see
-> [Using TLS for Erlang Distribution ](`e:ssl:ssl_distribution.md`)in the SSL
+> [Using TLS for Erlang Distribution](`e:ssl:ssl_distribution.md`) in the SSL
 > application's User's Guide.
 >
 > Also, the default random cookie mentioned in the following text is not very
@@ -178,11 +181,11 @@ For more information about C nodes, see the
 Authentication determines which nodes are allowed to communicate with each
 other. In a network of different Erlang nodes, it is built into the system at
 the lowest possible level. All nodes use a _magic cookie_, which is an Erlang
-atom, when connecting another node.
+atom, when connecting to another node.
 
 During the connection setup, after node names have been exchanged, the magic
 cookies the nodes present to each other are compared. If they do not match, the
-connection is rejected. The cookies themselves are never transferred, instead
+connection is rejected. The cookies themselves are never transferred; instead,
 they are compared using hashed challenges, although not in a cryptographically
 secure manner.
 
@@ -217,17 +220,17 @@ cookie files) can be handled in this way.
 >
 > You can also use a `DiffCookie` that neither `Node1` nor `Node2` has as its
 > default cookie, if you also call `erlang:set_cookie(Node1, DiffCookie)` in
-> `Node2` before establishing connection
+> `Node2` before establishing a connection.
 >
 > Because node names are exchanged during connection setup before cookies are
-> selected, connection setup works regardless of which node that initiates it.
+> selected, connection setup works regardless of which node initiates it.
 >
 > Note that to configure `Node1` to use `Node2`'s default cookie when
 > communicating with `Node2`, _and vice versa_ results in a broken configuration
 > (if the cookies are different) because then both nodes use the other node's
 > (differing) cookie.
 
-The default when a connection is established between two nodes, is to
+The default when a connection is established between two nodes is to
 immediately connect all other visible nodes as well. This way, there is always a
 fully connected network. If there are nodes with different cookies, this method
 can be inappropriate (since it may not be feasible to configure different
@@ -254,7 +257,7 @@ Here are some BIFs that are useful for distributed programming:
   can connect to other nodes, `false` otherwise.
 
 - [`monitor_node(Node, Bool)`](`erlang:monitor_node/2`) - Monitors the
-  status of `Node`. A message`{nodedown, Node}` is received if the
+  status of `Node`. A `{nodedown, Node}` message is received if the
   connection to it is lost.
 
 - `node/0` - Returns the name of the current node. Allowed in guards.
@@ -295,7 +298,7 @@ _Table: Distribution BIFs_
 Examples of command-line flags used for distributed programming (for more
 information, see the [erl](`e:erts:erl_cmd.md`) executable in ERTS):
 
-| _Command-Line Flag_      | _Description_                                               |
+| Command-Line Flag        | Description                                                 |
 | ------------------------ | ----------------------------------------------------------- |
 | `-connect_all false`     | Only explicit connection setups are used.                   |
 | `-hidden`                | Makes a node into a hidden node.                            |
@@ -310,7 +313,7 @@ _Table: Distribution Command-Line Flags_
 
 Examples of modules useful for distributed programming in the Kernel application:
 
-| _Module_         | _Description_                                      |
+| Module           | Description                                        |
 | ---------------- | -------------------------------------------------- |
 | `m:global`       | A global name registration facility.               |
 | `m:global_group` | Grouping nodes to global name registration groups. |
@@ -321,8 +324,8 @@ _Table: Kernel Modules Useful For Distribution._
 
 In the STDLIB application:
 
-| _Module_ | _Description_                     |
-| -------- | --------------------------------- |
-| `m:peer`  | Start and control of peer nodes. |
+| Module   | Description                      |
+| -------- | -------------------------------- |
+| `m:peer` | Start and control of peer nodes. |
 
 _Table: STDLIB Modules Useful For Distribution._

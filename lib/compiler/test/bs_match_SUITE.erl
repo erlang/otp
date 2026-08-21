@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +29,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-         verify_highest_opcode/1, expand_and_squeeze/1,
+         expand_and_squeeze/1,
 	 size_shadow/1,int_float/1,otp_5269/1,null_fields/1,wiger/1,
 	 bin_tail/1,save_restore/1,
 	 partitioned_bs_match/1,function_clause/1,
@@ -56,13 +58,17 @@
          gh_6410/1,bs_match/1,
          binary_aliases/1,gh_6923/1,
          bs_test_tail/1,
-         otp_19019/1]).
+         otp_19019/1,
+         gh_10878/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 -include_lib("syntax_tools/include/merl.hrl").
 
+-define(FC1(Expr), do_fc(fun() -> Expr end)).
+-define(FC3(Name, Args, Call), do_fc(Name, Args, fun() -> Call end)).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -73,8 +79,7 @@ all() ->
 
 groups() -> 
     [{p,test_lib:parallel(),
-      [verify_highest_opcode,
-       size_shadow,int_float,otp_5269,null_fields,wiger,
+      [size_shadow,int_float,otp_5269,null_fields,wiger,
        bin_tail,save_restore,expand_and_squeeze,
        partitioned_bs_match,function_clause,unit,
        shared_sub_bins,bin_and_float,dec_subidentifiers,
@@ -100,7 +105,8 @@ groups() ->
        gh_6410,bs_match,binary_aliases,
        gh_6923,
        bs_test_tail,
-       otp_19019]}].
+       otp_19019,
+       gh_10878]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -122,24 +128,6 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     ok.
 
-verify_highest_opcode(_Config) ->
-    case ?MODULE of
-        bs_match_r25_SUITE ->
-            {ok,Beam} = file:read_file(code:which(?MODULE)),
-            case test_lib:highest_opcode(Beam) of
-                Highest when Highest =< 180 ->
-                    ok;
-                TooHigh ->
-                    ct:fail({too_high_opcode_for_21,TooHigh})
-            end,
-
-            %% Cover min/max for OTP 25.
-            10 = max(0, min(10, id(42))),
-            ok;
-        _ ->
-            ok
-    end.
-
 size_shadow(Config) when is_list(Config) ->
     %% Originally OTP-5270.
     7 = size_shadow_1(),
@@ -152,8 +140,7 @@ size_shadow(Config) when is_list(Config) ->
     {7777,Any,42,whatever} =
 	(size_shadow_6(Any, 13))(42, <<7777:13>>, whatever),
     {<<45>>,<<>>} = size_shadow_7({int,1}, <<1:16,45>>),
-    {'EXIT',{function_clause,_}} =
-	(catch size_shadow_7({int,42}, <<1:16,45>>)),
+    ?assertError(function_clause, size_shadow_7({int,42}, <<1:16,45>>)),
     ok.
 
 size_shadow_1() ->
@@ -333,16 +320,16 @@ bin_tail(Config) when is_list(Config) ->
     $a = bin_tail_c(S, 0),
     $c = bin_tail_c(S, 2),
     $e = bin_tail_c(S, 4),
-    {'EXIT',_} = (catch bin_tail_c(S, 5)),
-    {'EXIT',_} = (catch bin_tail_c_var(S, 5)),
+    ?assertError(_, bin_tail_c(S, 5)),
+    ?assertError(_, bin_tail_c_var(S, 5)),
 
     $a = bin_tail_d(S, 0),
     $b = bin_tail_d(S, 8),
     $d = bin_tail_d(S, 3*8),
-    {'EXIT',_} = (catch bin_tail_d_dead(S, 1)),
-    {'EXIT',_} = (catch bin_tail_d_dead(S, 9)),
-    {'EXIT',_} = (catch bin_tail_d_dead(S, 5*8)),
-    {'EXIT',_} = (catch bin_tail_d_var(S, 1)),
+    ?assertError(_, bin_tail_d_dead(S, 1)),
+    ?assertError(_, bin_tail_d_dead(S, 9)),
+    ?assertError(_, bin_tail_d_dead(S, 5*8)),
+    ?assertError(_, bin_tail_d_var(S, 1)),
 
     ok = bin_tail_e(<<2:2,0:1,1:5>>),
     ok = bin_tail_e(<<2:2,1:1,1:5,42:64>>),
@@ -352,7 +339,7 @@ bin_tail(Config) when is_list(Config) ->
     MD5 = erlang:md5(<<42>>),
     <<"abc">> = bin_tail_f(<<MD5/binary,"abc">>, MD5, 3),
     error = bin_tail_f(<<MD5/binary,"abc">>, MD5, 999),
-    {'EXIT',{_,_}} = (catch bin_tail_f(<<0:16/unit:8>>, MD5, 0)),
+    ?assertError(_, bin_tail_f(<<0:16/unit:8>>, MD5, 0)),
 
     ok.
 
@@ -484,21 +471,23 @@ multiple_matches(<<_:8>>, <<_:16>>) -> d.
 bad_float_unpack_match(<<F:64/float>>) -> F;
 bad_float_unpack_match(<<I:64/integer-signed>>) -> I.
 
-
 partitioned_bs_match(Config) when is_list(Config) ->
     <<1,2,3>> = partitioned_bs_match(blurf, <<42,1,2,3>>),
     error = partitioned_bs_match(10, <<7,8,15,13>>),
     error = partitioned_bs_match(100, {a,tuple,is,'not',a,binary}),
     ok = partitioned_bs_match(0, <<>>),
-    fc(partitioned_bs_match, [-1,blurf],
-	     catch partitioned_bs_match(-1, blurf)),
-    fc(partitioned_bs_match, [-1,<<1,2,3>>],
-	     catch partitioned_bs_match(-1, <<1,2,3>>)),
+    ?FC3(partitioned_bs_match,
+        [-1,blurf],
+        partitioned_bs_match(-1, blurf)),
+    ?FC3(partitioned_bs_match,
+        [-1,<<1,2,3>>],
+        partitioned_bs_match(-1, <<1,2,3>>)),
     {17,<<1,2,3>>} = partitioned_bs_match_2(1, <<17,1,2,3>>),
     {7,<<1,2,3>>} = partitioned_bs_match_2(7, <<17,1,2,3>>),
 
-    fc(partitioned_bs_match_2, [4,<<0:17>>],
-	     catch partitioned_bs_match_2(4, <<0:17>>)),
+    ?FC3(partitioned_bs_match_2,
+        [4,<<0:17>>],
+        partitioned_bs_match_2(4, <<0:17>>)),
 
     anything = partitioned_bs_match_3(anything, <<42>>),
     ok = partitioned_bs_match_3(1, 2),
@@ -522,18 +511,18 @@ partitioned_bs_match_3(1, 2) -> ok.
 
 function_clause(Config) when is_list(Config)  ->
     ok = function_clause_1(<<0,7,0,7,42>>),
-    fc(function_clause_1, [<<0,1,2,3>>],
-       catch function_clause_1(<<0,1,2,3>>)),
-    fc(function_clause_1, [<<0,1,2,3>>],
-       catch function_clause_1(<<0,7,0,1,2,3>>)),
+    ?FC3(function_clause_1, [<<0,1,2,3>>],
+        function_clause_1(<<0,1,2,3>>)),
+    ?FC3(function_clause_1, [<<0,1,2,3>>],
+        function_clause_1(<<0,7,0,1,2,3>>)),
 
     ok = function_clause_2(<<0,7,0,7,42>>),
     ok = function_clause_2(<<255>>),
     ok = function_clause_2(<<13:4>>),
-    fc(function_clause_2, [<<0,1,2,3>>],
-       catch function_clause_2(<<0,1,2,3>>)),
-    fc(function_clause_2, [<<0,1,2,3>>],
-       catch function_clause_2(<<0,7,0,1,2,3>>)),
+    ?FC3(function_clause_2, [<<0,1,2,3>>],
+        function_clause_2(<<0,1,2,3>>)),
+    ?FC3(function_clause_2, [<<0,1,2,3>>],
+        function_clause_2(<<0,7,0,1,2,3>>)),
 
     ok.
 
@@ -558,25 +547,25 @@ unit(Config) when is_list(Config) ->
 
     99 = peek8(<<99>>),
     100 = peek8(<<100,101>>),
-    fc(peek8, [<<100,101,0:1>>], catch peek8(<<100,101,0:1>>)),
+    ?FC3(peek8, [<<100,101,0:1>>], peek8(<<100,101,0:1>>)),
 
     37484 = peek16(<<37484:16>>),
     37489 = peek16(<<37489:16,5566:16>>),
-    fc(peek16, [<<8>>], catch peek16(<<8>>)),
-    fc(peek16, [<<42:15>>], catch peek16(<<42:15>>)),
-    fc(peek16, [<<1,2,3,4,5>>], catch peek16(<<1,2,3,4,5>>)),
+    ?FC3(peek16, [<<8>>], peek16(<<8>>)),
+    ?FC3(peek16, [<<42:15>>], peek16(<<42:15>>)),
+    ?FC3(peek16, [<<1,2,3,4,5>>], peek16(<<1,2,3,4,5>>)),
 
     127 = peek7(<<127:7>>),
     100 = peek7(<<100:7,19:7>>),
-    fc(peek7, [<<1,2>>], catch peek7(<<1,2>>)),
+    ?FC3(peek7, [<<1,2>>], peek7(<<1,2>>)),
 
     1 = unit_opt(1, -1),
     8 = unit_opt(8, -1),
 
     <<1:32,"abc">> = unit_opt_2(<<1:32,"abc">>),
     <<"def">> = unit_opt_2(<<2:32,"def">>),
-    {'EXIT',_} = (catch unit_opt_2(<<1:32,33:7>>)),
-    {'EXIT',_} = (catch unit_opt_2(<<2:32,55:7>>)),
+    ?assertError(_, unit_opt_2(<<1:32,33:7>>)),
+    ?assertError(_, unit_opt_2(<<2:32,55:7>>)),
 
     <<0:64>> = unit_opt_3(<<1:128>>),
     <<1:64>> = unit_opt_3(<<1:64>>),
@@ -729,8 +718,8 @@ wfbm(Config) when is_list(Config) ->
     {ok,<<"2007/10/23/blurf">>} = get_tail(<<"200x/2007/10/23/blurf ">>),
     {skip,?DATELEN+5} = get_tail(<<"200x/2007/10/23/blurf.">>),
     nomatch = get_tail(<<"200y.2007.10.23.blurf ">>),
-    {'EXIT',_} = (catch get_tail({no,binary,at,all})),
-    {'EXIT',_} = (catch get_tail(no_binary)),
+    ?assertError(_, get_tail({no,binary,at,all})),
+    ?assertError(_, get_tail(no_binary)),
     ok.
 
 check_for_dot_or_space(Bin) ->
@@ -798,13 +787,13 @@ bs_sum(Config) when is_list(Config) ->
     6 = bs_sum_1([1,2,3|0]),
     7 = bs_sum_1([1,2,3|one]),
 
-    fc(catch bs_sum_1({too,big,tuple})),
-    fc(catch bs_sum_1([1,2,3|{too,big,tuple}])),
+    ?FC1(bs_sum_1({too,big,tuple})),
+    ?FC1(bs_sum_1([1,2,3|{too,big,tuple}])),
 
     [] = sneaky_alias(<<>>),
     [559,387655] = sneaky_alias(id(<<559:32,387655:32>>)),
-    fc(sneaky_alias, [<<1>>], catch sneaky_alias(id(<<1>>))),
-    fc(sneaky_alias, [[1,2,3,4]], catch sneaky_alias(lists:seq(1, 4))),
+    ?FC3(sneaky_alias, [<<1>>], sneaky_alias(id(<<1>>))),
+    ?FC3(sneaky_alias, [[1,2,3,4]], sneaky_alias(lists:seq(1, 4))),
     ok.
 
 bs_sum_1(<<H,T/binary>>) -> H+bs_sum_1(T);
@@ -822,9 +811,9 @@ sneaky_alias(<<From:32,L/binary>>) -> [From|sneaky_alias(L)].
 coverage(Config) when is_list(Config) ->
     0 = coverage_fold(fun(B, A) -> A+B end, 0, <<>>),
     6 = coverage_fold(fun(B, A) -> A+B end, 0, <<1,2,3>>),
-    fc(catch coverage_fold(fun(B, A) ->
-					 A+B
-				 end, 0, [a,b,c])),
+    ?FC1(coverage_fold(fun(B, A) ->
+                               A+B
+                       end, 0, [a,b,c])),
 
     {<<42.0:64/float>>,float} = coverage_build(<<>>, <<42>>, float),
     {<<>>,not_a_tuple} = coverage_build(<<>>, <<>>, not_a_tuple),
@@ -840,8 +829,8 @@ coverage(Config) when is_list(Config) ->
 
     do_coverage_bin_to_term_list([]),
     do_coverage_bin_to_term_list([lists:seq(0, 10),{a,b,c},<<23:42>>]),
-    fc(coverage_bin_to_term_list, [<<0,0,0,7>>],
-	     catch do_coverage_bin_to_term_list_1(<<7:32>>)),
+    ?FC3(coverage_bin_to_term_list, [<<0,0,0,7>>],
+        do_coverage_bin_to_term_list_1(<<7:32>>)),
 
     <<>> = coverage_per_key(<<4:32>>),
     <<$a,$b,$c>> = coverage_per_key(<<7:32,"abc">>),
@@ -872,10 +861,10 @@ coverage(Config) when is_list(Config) ->
     ok = coverage_beam_ssa_codegen(<<2>>),
 
     %% Cover code in beam_ssa_pre_codegen.
-    {'EXIT',{function_clause,_}} = catch coverage_beam_ssa_pre_codegen(<<>>),
+    ?assertError(function_clause, coverage_beam_ssa_pre_codegen(<<>>)),
 
     %% Cover code in beam_ssa_bsm.
-    {'EXIT',{{badarg,<<>>},_}} = catch coverage_beam_ssa_bsm_error(id(<<>>)),
+    ?assertError({badarg,<<>>}, coverage_beam_ssa_bsm_error(id(<<>>))),
 
     %% Cover code for merging registers in beam_validator.
     42 = coverage_beam_validator(id(fun() -> 42 end)),
@@ -1131,8 +1120,8 @@ matching_meets_construction(Config) when is_list(Config) ->
     <<_:Len/binary,Tail/binary>> = Tail0,
     Res = <<Tail/binary,Bin/binary>>,
     <<3,4,5,"abc">> = Res,
-    {'EXIT',{badarg,_}} = (catch matching_meets_construction_1(<<"Abc">>)),
-    {'EXIT',{badarg,_}} = (catch matching_meets_construction_2(<<"Abc">>)),
+    ?assertError(badarg, matching_meets_construction_1(<<"Abc">>)),
+    ?assertError(badarg, matching_meets_construction_2(<<"Abc">>)),
     <<"Bbc">> = matching_meets_construction_3(<<"Abc">>),
 
     <<1,2>> = encode_octet_string(<<1,2,3>>, 2),
@@ -1150,12 +1139,12 @@ encode_octet_string(<<OctetString/binary>>, Len) ->
 simon(Config) when is_list(Config) ->
     one = simon(blurf, <<>>),
     two = simon(0, <<42>>),
-    fc(simon, [17,<<1>>], catch simon(17, <<1>>)),
-    fc(simon, [0,<<1,2,3>>], catch simon(0, <<1,2,3>>)),
+    ?FC3(simon, [17,<<1>>], simon(17, <<1>>)),
+    ?FC3(simon, [0,<<1,2,3>>], simon(0, <<1,2,3>>)),
 
     one = simon2(blurf, <<9>>),
     two = simon2(0, <<9,1>>),
-    fc(simon2, [0,<<9,10,11>>], catch simon2(0, <<9,10,11>>)),
+    ?FC3(simon2, [0,<<9,10,11>>], simon2(0, <<9,10,11>>)),
     ok.
 
 simon(_, <<>>) -> one;
@@ -1168,9 +1157,9 @@ simon2(0, <<_:16>>) -> two.
 %% OTP-7113: Crash in v3_codegen.
 matching_and_andalso(Config) when is_list(Config) ->
     ok = matching_and_andalso_1(<<1,2,3>>, 3),
-    {'EXIT',{function_clause,_}} = (catch matching_and_andalso_1(<<1,2,3>>, -8)),
-    {'EXIT',{function_clause,_}} = (catch matching_and_andalso_1(<<1,2,3>>, blurf)),
-    {'EXIT',{function_clause,_}} = (catch matching_and_andalso_1(<<1,2,3>>, 19)),
+    ?assertError(function_clause, matching_and_andalso_1(<<1,2,3>>, -8)),
+    ?assertError(function_clause, matching_and_andalso_1(<<1,2,3>>, blurf)),
+    ?assertError(function_clause, matching_and_andalso_1(<<1,2,3>>, 19)),
 
     {"abc",<<"xyz">>} = matching_and_andalso_23("abc", <<"-xyz">>),
     {"abc",<<"">>} = matching_and_andalso_23("abc", <<($a-1)>>),
@@ -1436,27 +1425,27 @@ bad_size(Config) when is_list(Config) ->
     Atom = an_atom,
     NaN = <<(-1):32>>,
 
-    {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:Tuple>> = id(<<>>)),
-    {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:Binary>> = id(<<>>)),
-    {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:Atom>> = id(<<>>)),
-    {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:3.14>> = id(<<>>)),
-    {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:"ZJV">> = id(<<>>)),
-    {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:(-1)>> = id(<<>>)),
+    ?assertError({badmatch,<<>>}, <<32:Tuple>> = id(<<>>)),
+    ?assertError({badmatch,<<>>}, <<32:Binary>> = id(<<>>)),
+    ?assertError({badmatch,<<>>}, <<32:Atom>> = id(<<>>)),
+    ?assertError({badmatch,<<>>}, <<32:3.14>> = id(<<>>)),
+    ?assertError({badmatch,<<>>}, <<32:"ZJV">> = id(<<>>)),
+    ?assertError({badmatch,<<>>}, <<32:(-1)>> = id(<<>>)),
 
-    {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:Tuple/float>> = id(<<>>)),
-    {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:Binary/float>> = id(<<>>)),
-    {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:Atom/float>> = id(<<>>)),
-    {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:2.5/float>> = id(<<>>)),
-    {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:1/float>> = id(<<>>)),
-    {'EXIT',{{badmatch,NaN},_}} = (catch <<42.0:32/float>> = id(NaN)),
+    ?assertError({badmatch,<<>>}, <<42.0:Tuple/float>> = id(<<>>)),
+    ?assertError({badmatch,<<>>}, <<42.0:Binary/float>> = id(<<>>)),
+    ?assertError({badmatch,<<>>}, <<42.0:Atom/float>> = id(<<>>)),
+    ?assertError({badmatch,<<>>}, <<42.0:2.5/float>> = id(<<>>)),
+    ?assertError({badmatch,<<>>}, <<42.0:1/float>> = id(<<>>)),
+    ?assertError({badmatch,NaN}, <<42.0:32/float>> = id(NaN)),
 
     %% Matched out value is ignored.
-    {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:Binary>> = id(<<>>)),
-    {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:Tuple>> = id(<<>>)),
-    {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:Atom>> = id(<<>>)),
-    {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:2.5>> = id(<<>>)),
-    {'EXIT',{{badmatch,<<1:1>>},_}} = (catch <<_:1/float>> = id(<<1:1>>)),
-    {'EXIT',{{badmatch,NaN},_}} = (catch <<_:32/float>> = id(NaN)),
+    ?assertError({badmatch,<<>>}, <<_:Binary>> = id(<<>>)),
+    ?assertError({badmatch,<<>>}, <<_:Tuple>> = id(<<>>)),
+    ?assertError({badmatch,<<>>}, <<_:Atom>> = id(<<>>)),
+    ?assertError({badmatch,<<>>}, <<_:2.5>> = id(<<>>)),
+    ?assertError({badmatch,<<1:1>>}, <<_:1/float>> = id(<<1:1>>)),
+    ?assertError({badmatch,NaN}, <<_:32/float>> = id(NaN)),
 
     no_match = bad_all_size(<<>>),
     no_match = bad_all_size(<<1,2,3>>),
@@ -1466,7 +1455,7 @@ bad_size(Config) when is_list(Config) ->
 
     [] = bad_size_2([a]),
     [] = bad_size_2([<<1,2,3>>]),
-    {'EXIT',{{bad_generator,no_list},_}} = catch bad_size_2(no_list),
+    ?assertError({bad_generator,no_list}, bad_size_2(no_list)),
 
     error = bad_size_3(<<>>),
     error = bad_size_3(<<0>>),
@@ -1567,15 +1556,6 @@ haystack_2(Haystack) ->
 	 <<_:X/binary,B:Y/binary,_/binary>> = Haystack,
 	 B
      end || {X,Y} <- Subs ].
-
-fc({'EXIT',{function_clause,_}}) -> ok;
-fc({'EXIT',{{case_clause,_},_}}) when ?MODULE =:= bs_match_inline_SUITE -> ok.
-
-fc(Name, Args, {'EXIT',{function_clause,[{?MODULE,Name,Args,_}|_]}}) ->
-    ok;
-fc(Name, Args, {'EXIT',{function_clause,[{?MODULE,_,Args,_}|_]}})
-  when ?MODULE =:= bs_match_inline_SUITE ->
-    ok.
 
 %% Cover the clause handling bs_context to binary in
 %% beam_block:initialized_regs/2.
@@ -1852,8 +1832,8 @@ no_partition_2(42.0, a6) ->
 
 calling_a_binary(Config) when is_list(Config) ->
     [] = call_binary(<<>>, []),
-    {'EXIT',{badarg,_}} = (catch call_binary(<<1>>, [])),
-    {'EXIT',{badarg,_}} = (catch call_binary(<<1,2,3>>, [])),
+    ?assertError(badarg, call_binary(<<1>>, [])),
+    ?assertError(badarg, call_binary(<<1,2,3>>, [])),
     ok.
 
 call_binary(<<>>, Acc) ->
@@ -1863,14 +1843,14 @@ call_binary(<<H,T/bits>>, Acc) ->
 
 binary_in_map(Config) when is_list(Config) ->
     ok = match_binary_in_map(#{key => <<42:8>>}),
-    {'EXIT',{{badmatch,#{key := 1}},_}} =
-	(catch match_binary_in_map(#{key => 1})),
-    {'EXIT',{{badmatch,#{key := <<1023:16>>}},_}} =
-	(catch match_binary_in_map(#{key => <<1023:16>>})),
-    {'EXIT',{{badmatch,#{key := <<1:8>>}},_}} =
-	(catch match_binary_in_map(#{key => <<1:8>>})),
-    {'EXIT',{{badmatch,not_a_map},_}} =
-	(catch match_binary_in_map(not_a_map)),
+    ?assertError({badmatch,#{key := 1}},
+                 match_binary_in_map(#{key => 1})),
+    ?assertError({badmatch,#{key := <<1023:16>>}},
+                 match_binary_in_map(#{key => <<1023:16>>})),
+    ?assertError({badmatch,#{key := <<1:8>>}},
+                 match_binary_in_map(#{key => <<1:8>>})),
+    ?assertError({badmatch,not_a_map},
+                 match_binary_in_map(not_a_map)),
     ok.
 
 match_binary_in_map(Map) ->
@@ -1892,9 +1872,9 @@ select_on_integer(Config) when is_list(Config) ->
     42 = do_select_on_integer(<<42>>),
     <<"abc">> = do_select_on_integer(<<128,"abc">>),
 
-    {'EXIT',_} = (catch do_select_on_integer(<<0:1>>)),
-    {'EXIT',_} = (catch do_select_on_integer(<<1:1>>)),
-    {'EXIT',_} = (catch do_select_on_integer(<<0:1,0:15>>)),
+    ?assertError(_, do_select_on_integer(<<0:1>>)),
+    ?assertError(_, do_select_on_integer(<<1:1>>)),
+    ?assertError(_, do_select_on_integer(<<0:1,0:15>>)),
     ok.
 
 %% The ASN.1 compiler frequently generates code like this.
@@ -1970,7 +1950,7 @@ bad_literals(_Config) ->
     no_match = bad_literals_2(<<"abc">>),
 
     Sz = id(8),
-    {'EXIT',{{badmatch,_},_}} = (catch <<-1:Sz>> = <<-1>>),
+    ?assertError({badmatch,_}, <<-1:Sz>> = <<-1>>),
     ok.
 
 bad_literals_1() ->
@@ -2047,7 +2027,7 @@ good_literals(_Config) ->
 
 constant_propagation(_Config) ->
     <<5>> = constant_propagation_a(a, <<5>>),
-    {'EXIT',{{case_clause,b},_}} = (catch constant_propagation_a(b, <<5>>)),
+    ?assertError({case_clause,b}, constant_propagation_a(b, <<5>>)),
     258 = constant_propagation_b(<<1,2>>),
     F = constant_propagation_c(),
     259 = F(<<1,3>>),
@@ -2097,7 +2077,7 @@ is_next_char_whitespace(<<C/utf8,_/binary>>) ->
 
 get_payload(_Config) ->
     <<3445:48>> = do_get_payload(#ext_header{ext_hdr_opts = <<3445:48>>}),
-    {'EXIT',_} = (catch do_get_payload(#ext_header{})),
+    ?assertError(_, do_get_payload(#ext_header{})),
     ok.
 
 do_get_payload(ExtHdr) ->
@@ -2132,10 +2112,10 @@ num_slots_different(_Config) ->
           {<<"de">>, <<"navigation">>, <<"Resources">>, <<"Ressourcen">>}],
     _ = [{ok,Res} = lgettext(A, B, C) || {A,B,C,Res} <- Ts],
 
-    {'EXIT',_} = (catch lgettext(<<"d">>, <<"default">>, <<"Remove">>)),
-    {'EXIT',_} = (catch lgettext("", <<"default">>, <<"Remove">>)),
-    {'EXIT',_} = (catch lgettext(<<"de">>, <<"def">>, <<"Remove">>)),
-    {'EXIT',_} = (catch lgettext(<<"de">>, <<"default">>, <<"Res">>)),
+    ?assertError(_, lgettext(<<"d">>, <<"default">>, <<"Remove">>)),
+    ?assertError(_, lgettext("", <<"default">>, <<"Remove">>)),
+    ?assertError(_, lgettext(<<"de">>, <<"def">>, <<"Remove">>)),
+    ?assertError(_, lgettext(<<"de">>, <<"default">>, <<"Res">>)),
     ok.
 
 
@@ -2221,8 +2201,8 @@ is_ascii(_Config) ->
     true = do_is_ascii(<<>>),
     true = do_is_ascii(<<"string">>),
     false = do_is_ascii(<<1024/utf8>>),
-    {'EXIT',{function_clause,_}} = (catch do_is_ascii(<<$A,0:3>>)),
-    {'EXIT',{function_clause,_}} = (catch do_is_ascii(<<16#80,0:3>>)),
+    ?assertError(function_clause, do_is_ascii(<<$A,0:3>>)),
+    ?assertError(function_clause, do_is_ascii(<<16#80,0:3>>)),
     ok.
 
 do_is_ascii(<<>>) ->
@@ -2394,7 +2374,9 @@ throw_after_byte(<<_,_/binary>>) ->
 matches_on_parameter(Config) when is_list(Config) ->
     %% This improves coverage for matching on "naked" parameters.
     {<<"urka">>, <<"a">>} = matches_on_parameter_1(<<"gurka">>),
-    ok = (catch matches_on_parameter_2(<<"10001110101">>, 0)).
+    ?assertThrow(ok, matches_on_parameter_2(<<"10001110101">>, 0)),
+    <<"urka">> = matches_on_parameter_3(<<"gurka">>),
+    ok.
 
 matches_on_parameter_1(Bin) ->
     <<"g", A/binary>> = Bin,
@@ -2407,6 +2389,11 @@ matches_on_parameter_2(Bin, Offset) ->
         0 -> throw(ok);
         _ -> [Bit | matches_on_parameter_2(Bin, Offset + 1)]
     end.
+
+matches_on_parameter_3(Bin) ->
+    <<"g", A/binary>> = Bin,
+    <<_,_,"rk", _/binary>> = Bin,
+    A.
 
 big_positions(Config) when is_list(Config) ->
     %% This provides coverage for when match context positions no longer fit
@@ -2459,7 +2446,7 @@ do_matching_meets_apply(_Bin, {Handler, State}) ->
 %% Exception handling was broken on the failure path of bs_start_match as
 %% beam_ssa_bsm accidentally cloned and renamed the ?BADARG_BLOCK.
 exceptions_after_match_failure(_Config) ->
-    {'EXIT', {badarith, _}} = (catch do_exceptions_after_match_failure(atom)),
+    ?assertError(badarith, do_exceptions_after_match_failure(atom)),
     ok = do_exceptions_after_match_failure(<<0, 1, "gurka">>),
     ok = do_exceptions_after_match_failure(2.0).
 
@@ -2529,9 +2516,11 @@ empty_matches(Config) when is_list(Config) ->
     0 = id(Zero),
 
     ok = em_4(<<>>, <<>>),
-    {'EXIT',{function_clause,[_|_]}} = catch em_4(<<>>, <<0:1>>),
-    {'EXIT',{function_clause,[_|_]}} = catch em_4(<<0:1>>, <<>>),
-    {'EXIT',{function_clause,[_|_]}} = catch em_4(<<0:1>>, <<0:1>>),
+    ?assertError(function_clause, em_4(<<>>, <<0:1>>)),
+    ?assertError(function_clause, em_4(<<0:1>>, <<>>)),
+    ?assertError(function_clause, em_4(<<0:1>>, <<0:1>>)),
+
+    ok = em_5(),
 
     ok.
 
@@ -2559,6 +2548,75 @@ em_3_1(I) -> I.
 %% GH-6426/OTP-xxxxx
 em_4(<<X:0, _:X>>, <<Y:0, _:Y>>) ->
     ok.
+
+%% GH-10047
+
+em_5() ->
+    A = id(<<1>>),
+    Empty = id(<<>>),
+    <<Zero>> = id(<<0>>),
+
+    true = is_bitstring(A),
+    true = is_bitstring(Empty),
+
+    <<1,128>> = em_5_1(A),
+    <<0>> = em_5_1(id(Empty)),
+
+    true = is_binary(A),
+    true = is_binary(Empty),
+
+    ok = em_5_coverage_1(A),
+    ok = em_5_coverage_1(Empty),
+
+    ok = em_5_coverage_2(A),
+    ok = em_5_coverage_2(Empty),
+
+    ok = em_5_coverage_3(A),
+    ok = em_5_coverage_3(Empty),
+
+    ok = em_5_coverage_4(A, Zero),
+    ok = em_5_coverage_4(Empty, Zero),
+
+    ok.
+
+em_5_1(<<Chunk:7/bits>>) ->
+    <<Chunk:7/bits, 0:1>>;
+em_5_1(<<Chunk:1/bits>>) ->
+    <<Chunk:1/bits, 0:7>>;
+em_5_1(<<>>) ->
+    <<0:8>>;
+em_5_1(<<Chunk:7/bits, Rest/bits>>) ->
+    <<Chunk:7/bits, 1:1, (em_5_1(Rest))/bits>>.
+
+%% Improves coverage.
+em_5_coverage_1(<<_:8/bits, Rest/binary>>) ->
+    em_5_coverage_1(Rest);
+em_5_coverage_1(<<_:8/integer, _/binary>>) ->
+    unreachable;
+em_5_coverage_1(<<>>) ->
+    ok.
+
+em_5_coverage_2(<<_:8/bits, Rest/binary>>) ->
+    em_5_coverage_2(Rest);
+em_5_coverage_2(<<_:8/integer, _/binary>>) ->
+    unreachable;
+em_5_coverage_2(<<>>) ->
+    ok.
+
+em_5_coverage_3(<<_:8/bits, Rest/binary>>) ->
+    em_5_coverage_3(Rest);
+em_5_coverage_3(<<_>>) ->
+    unreachable;
+em_5_coverage_3(<<>>) ->
+    ok.
+
+em_5_coverage_4(<<_:8/bits, Rest/binary>>, TailBits) ->
+    em_5_coverage_4(Rest, TailBits);
+em_5_coverage_4(Rest, TailBits) ->
+    case Rest of
+        <<_:TailBits/bits>> -> ok;
+        <<>> -> error
+    end.
 
 %% beam_trim would sometimes crash when bs_start_match4 had {atom,resume} as
 %% its fail label.
@@ -2675,7 +2733,7 @@ binary_match_to_asm(Matches) ->
 	{function,erl_anno:new(3),example,1,Clauses}
     ],
 
-    {ok,match_to_asm,{match_to_asm,_Exports,_Attrs,Funs,_},_} =
+    {ok,match_to_asm,{match_to_asm,_Exports,_Attrs,_Anno,Funs,_},_} =
 	compile:forms(Module, [return, to_asm]),
 
     [{function,example,1,2,AllInstructions}|_] = Funs,
@@ -2712,9 +2770,9 @@ one_clause(I) ->
 %% GH-6410: Fix crash in beam_ssa_bsm.
 gh_6410(_Config) ->
     0 = do_gh_6410(<<42>>),
-    {'EXIT',{{case_clause,<<>>},[_|_]}} = catch do_gh_6410(<<>>),
-    {'EXIT',{{case_clause,a},[_|_]}} = catch do_gh_6410(a),
-    {'EXIT',{badarith,[_|_]}} = catch do_gh_6410([]),
+    ?assertError({case_clause,<<>>}, do_gh_6410(<<>>)),
+    ?assertError({case_clause,a}, do_gh_6410(a)),
+    ?assertError(badarith, do_gh_6410([])),
 
     ok.
 
@@ -2733,7 +2791,7 @@ bs_match(_Config) ->
     <<1,1>> = do_bs_match_1(whatever, <<1,1>>),
     {a,b,c} = do_bs_match_1(whatever, {a,b,c}),
 
-    {'EXIT',{badarg,_}} = catch do_bs_match_gh_6551a(<<>>),
+    ?assertError(badarg, do_bs_match_gh_6551a(<<>>)),
     false = do_bs_match_gh_6551a(<<42>>),
 
     {0,0} = do_bs_match_gh_6551b(0),
@@ -2743,13 +2801,20 @@ bs_match(_Config) ->
     <<0,0>> = do_bs_match_gh_6613(<<0,0>>),
 
     <<"abc">> = do_bs_match_gh_6660(id(<<"abc">>)),
-    {'EXIT', {{try_clause,abc},_}} = catch do_bs_match_gh_6660(id(abc)),
+    ?assertError({try_clause,abc}, do_bs_match_gh_6660(id(abc))),
 
-    {'EXIT',{{case_clause,_},_}} = catch do_bs_match_gh_6755(id(<<"1000">>)),
+    ?assertError({case_clause,_}, do_bs_match_gh_6755(id(<<"1000">>))),
 
-    {'EXIT',{{badmatch,<<>>},_}} = catch do_bs_match_gh_7467(<<>>),
+    ?assertError({badmatch,<<>>}, do_bs_match_gh_7467(<<>>)),
 
     {0,<<1,2,3>>} = do_bs_match_gh_8280(),
+
+    not_empty = do_bs_match_gh_9304(id(<<0,0:32>>)),
+    empty = do_bs_match_gh_9304(id(<<>>)),
+    ?assertError({case_clause,_}, do_bs_match_gh_9304(id(<<0:1>>))),
+    ?assertError({case_clause,_}, do_bs_match_gh_9304(id(<<0>>))),
+    ?assertError({case_clause,_}, do_bs_match_gh_9304(id(<<0,0:64>>))),
+    ?assertError({case_clause,_}, do_bs_match_gh_9304(id(<<1,0:32>>))),
 
     ok.
 
@@ -2831,6 +2896,19 @@ do_bs_match_gh_8280() ->
     <<A, B:(byte_size(B))/binary>> = id(<<0, 1, 2, 3>>),
     {A, B}.
 
+do_bs_match_gh_9304(Data) ->
+    <<Rest/bits>> = Data,
+    {_, Bits} = do_bs_match_gh_9304_1(Rest),
+    case Rest of
+        %% The compiler emitted a bs_match instruction without any
+        %% ensure command.
+        <<0, _:Bits>> -> not_empty;
+        <<>> -> empty
+    end.
+
+do_bs_match_gh_9304_1(Data) ->
+    id({dummy, 32}).
+
 %% GH-6348/OTP-18297: Allow aliases for binaries.
 -record(ba_foo, {a,b,c}).
 
@@ -2872,7 +2950,7 @@ binary_aliases(_Config) ->
                  {A,B,X}
          end,
     {0,0,<<0>>} = F7(id(<<0>>)),
-    {'EXIT',{{badmatch,<<1>>},_}} = catch F7(<<1>>),
+    ?assertError({badmatch,<<1>>}, F7(<<1>>)),
 
     F8 = fun(Val) ->
                   (<<A:8>> = X) = (Y = <<B:8>>) = Val,
@@ -2890,7 +2968,7 @@ binary_aliases(_Config) ->
                   <<>> = (<<>> = X)
           end,
     <<>> = F10(id(<<>>)),
-    {'EXIT',{{badmatch,42},_}} = catch F10(id(42)),
+    ?assertError({badmatch,42}, F10(id(42))),
 
     F11 = fun(Bin) ->
                   <<A:8/bits,B:24/bits>> = <<C:16,D:16>> = <<E:8,F:8,G:8,H:8>> = Bin,
@@ -2918,8 +2996,8 @@ binary_aliases(_Config) ->
           end,
     ok = F14([<<>>|0]),
     ok = F14([<<-1:32>>|32]),
-    {'EXIT',{{badmatch,[<<0:16>>|0]},_}} = catch F14([<<0:16>>|0]),
-    {'EXIT',{{badmatch,[<<0:16>>|atom]},_}} = catch F14([<<0:16>>|atom]),
+    ?assertError({badmatch,[<<0:16>>|0]}, F14([<<0:16>>|0])),
+    ?assertError({badmatch,[<<0:16>>|atom]}, F14([<<0:16>>|atom])),
 
     F15 = fun(Bin) ->
                   {<<_:Y>>, _} = {_, Y} = id(Bin),
@@ -2927,8 +3005,8 @@ binary_aliases(_Config) ->
           end,
     0 = F15({<<>>, 0}),
     32 = F15({<<-1:32>>, 32}),
-    {'EXIT',{{badmatch,{<<0:16>>,0}},_}} = catch F15({<<0:16>>, 0}),
-    {'EXIT',{{badmatch,{<<0:16>>,atom}},_}} = catch F15({<<0:16>>, atom}),
+    ?assertError({badmatch,{<<0:16>>,0}}, F15({<<0:16>>, 0})),
+    ?assertError({badmatch,{<<0:16>>,atom}}, F15({<<0:16>>, atom})),
 
     F16 = fun(Bin) ->
                   [{<<_:Y>>, _}] = [{_, Y}] = id(Bin),
@@ -2936,13 +3014,13 @@ binary_aliases(_Config) ->
           end,
     0 = F16([{<<>>, 0}]),
     32 = F16([{<<-1:32>>, 32}]),
-    {'EXIT',{{badmatch,[{<<0:16>>,0}]},_}} = catch F16([{<<0:16>>, 0}]),
-    {'EXIT',{{badmatch,[{<<0:16>>,atom}]},_}} = catch F16([{<<0:16>>, atom}]),
+    ?assertError({badmatch,[{<<0:16>>,0}]}, F16([{<<0:16>>, 0}])),
+    ?assertError({badmatch,[{<<0:16>>,atom}]}, F16([{<<0:16>>, atom}])),
 
     F17 = fun(#{[] := <<_>>, [] := <<_>>}) -> ok end,
     ok = F17(id(#{[] => <<42>>})),
-    {'EXIT',{function_clause,_}} = catch F17(id(#{[] => <<>>})),
-    {'EXIT',{function_clause,_}} = catch F17(id(atom)),
+    ?assertError(function_clause, F17(id(#{[] => <<>>}))),
+    ?assertError(function_clause, F17(id(atom))),
 
     F18 = fun(<<_>> = Bin) ->
                   case Bin of
@@ -2959,16 +3037,16 @@ binary_aliases(_Config) ->
     F19 = fun(B) ->
                   <<42:Sz>> = Sz = <<_>> = B
           end,
-    {'EXIT',{{badmatch,<<0>>},_}} = catch F19(<<0>>),
-    {'EXIT',{{badmatch,<<>>},_}} = catch F19(<<>>),
-    {'EXIT',{{badmatch,0},_}} = catch F19(0),
+    ?assertError({badmatch,<<0>>}, F19(<<0>>)),
+    ?assertError({badmatch,<<>>}, F19(<<>>)),
+    ?assertError({badmatch,0}, F19(0)),
 
     F20 = fun([<<>>] = [<<>>]) -> ok end,
     ok = F20([<<>>]),
 
     a = gh_6467(id(0), id(<<0>>), id(0)),
-    {'EXIT',{{badmatch,0},_}} = catch gh_6467(id(0), id(<<0>>), id([])),
-    {'EXIT',{{badmatch,<<7>>},_}} = catch gh_6467(id(<<7>>), id(<<33>>), id([])),
+    ?assertError({badmatch,0}, gh_6467(id(0), id(<<0>>), id([]))),
+    ?assertError({badmatch,<<7>>}, gh_6467(id(<<7>>), id(<<33>>), id([]))),
 
     F21 = fun(<<_:(true andalso 0)>> = <<>>) -> ok;
              (_) -> error
@@ -3009,26 +3087,26 @@ binary_aliases(_Config) ->
     error = gh6415_nomatch(an_atom),
 
     42 = gh6415_match_a(id(<<42>>)),
-    {'EXIT',{function_clause,_}} = catch gh6415_match_a(id(<<>>)),
-    {'EXIT',{function_clause,_}} = catch gh6415_match_a(id(a)),
+    ?assertError(function_clause, gh6415_match_a(id(<<>>))),
+    ?assertError(function_clause, gh6415_match_a(id(a))),
 
     {42,<<>>} = gh6415_match_b(id(<<42>>)),
-    {'EXIT',{function_clause,_}} = catch gh6415_match_b(id(<<1,2>>)),
-    {'EXIT',{function_clause,_}} = catch gh6415_match_b(id(<<>>)),
-    {'EXIT',{function_clause,_}} = catch gh6415_match_b(id(a)),
+    ?assertError(function_clause, gh6415_match_b(id(<<1,2>>))),
+    ?assertError(function_clause, gh6415_match_b(id(<<>>))),
+    ?assertError(function_clause, gh6415_match_b(id(a))),
 
-    {'EXIT',{_,_}} = catch gh6415_match_c(),
+    ?assertError(_, gh6415_match_c()),
 
     ok = gh6415_match_d(id(<<163>>)),
-    {'EXIT',{function_clause,_}} = catch gh6415_match_d(id(<<>>)),
-    {'EXIT',{function_clause,_}} = catch gh6415_match_d(id(a)),
+    ?assertError(function_clause, gh6415_match_d(id(<<>>))),
+    ?assertError(function_clause, gh6415_match_d(id(a))),
 
     ok = gh6415_match_e(id(<<163,0>>)),
     ok = gh6415_match_e(id(<<99,8,42>>)),
     ok = gh6415_match_e(id(<<99,17,-1:17>>)),
-    {'EXIT',{function_clause,_}} = catch gh6415_match_e(id(<<163>>)),
-    {'EXIT',{function_clause,_}} = catch gh6415_match_e(id(<<>>)),
-    {'EXIT',{function_clause,_}} = catch gh6415_match_e(id(a)),
+    ?assertError(function_clause, gh6415_match_e(id(<<163>>))),
+    ?assertError(function_clause, gh6415_match_e(id(<<>>))),
+    ?assertError(function_clause, gh6415_match_e(id(a))),
 
     7777 = gh6415_match_f(id(<<17,7777:17>>)),
     1234 = gh6415_match_f(id(<<17,1234:17>>)),
@@ -3061,10 +3139,10 @@ gh6415_c(_, _) ->
     error.
 
 gh6415_case_clause(X) ->
-    {'EXIT',{{case_clause,0},_}} = catch gh6415_case_clause_a(X),
-    {'EXIT',{{case_clause,0},_}} = catch gh6415_case_clause_b(X),
-    {'EXIT',{{case_clause,0},_}} = catch gh6415_case_clause_c(X),
-    {'EXIT',{{case_clause,0},_}} = catch gh6415_case_clause_d(X),
+    ?assertError({case_clause,0}, gh6415_case_clause_a(X)),
+    ?assertError({case_clause,0}, gh6415_case_clause_b(X)),
+    ?assertError({case_clause,0}, gh6415_case_clause_c(X)),
+    ?assertError({case_clause,0}, gh6415_case_clause_d(X)),
     ok.
 
 gh6415_case_clause_a(X) ->
@@ -3240,10 +3318,10 @@ bs_test_tail(Config) ->
     "abc" = bs_test_tail_int(<<(id(<<"abc">>))/binary>>),
 
     [2.0,3.0] = bs_test_tail_float(<<(id(2.0)):64/float,(id(3.0)):64/float>>),
-    {'EXIT',{function_clause,_}} = catch bs_test_tail_float(<<(id(-1)):128>>),
+    ?assertError(function_clause, bs_test_tail_float(<<(id(-1)):128>>)),
 
     ok = bs_test_partial_tail(<<(id(0))>>),
-    {'EXIT',{function_clause,_}} = catch bs_test_partial_tail(<<(id(1))>>),
+    ?assertError(function_clause, bs_test_partial_tail(<<(id(1))>>)),
 
     ok.
 
@@ -3285,7 +3363,63 @@ do_otp_19019(A) ->
         ok
     end.
 
+gh_10878(_Config) ->
+    {~"M", ~"Z"} = gh_10878_decode(id(~"MZ")),
+    ~"X" = gh_10878_decode(id(~"X=")),
+
+    0 = count_newlines(~""),
+    1 = count_newlines(~"\n"),
+    1 = count_newlines(~"abc\n"),
+    2 = count_newlines(~"abc\n\n"),
+    2 = count_newlines(~"abc\nxyz\n"),
+
+    ok.
+
+gh_10878_decode(Encoded) ->
+    case Encoded of
+        <<A:1/binary, "=">> -> A;
+        <<A:1/binary, B:1/binary>> -> {A,B}
+    end.
+
+count_newlines(Bin) ->
+    count_newlines(id(Bin), 0).
+
+count_newlines(<<$\n,B/binary>>, Count) ->
+    count_newlines(B, Count + 1);
+count_newlines(<<_:1/unit:8,B/binary>>, Count) ->
+    %% The pattern in this clause is supposed to be combined with the
+    %% pattern in the previous clause.
+    count_newlines(B, Count);
+count_newlines(<<>>, Count) ->
+    Count.
 
 %%% Utilities.
 
 id(I) -> I.
+
+do_fc(ExprFun) ->
+    try
+        ExprFun()
+    of
+        Result ->
+            error({unexpected,success})
+    catch
+        error:function_clause -> ok;
+        error:{case_clause,_} when ?MODULE =:= bs_match_inline_SUITE -> ok
+    end.
+
+do_fc(Name, Args, CallFun) ->
+    try
+        CallFun()
+    of
+        Result ->
+            error({unexpected,success})
+    catch
+        error:function_clause:Stack ->
+            case Stack of
+                [{?MODULE,Name,Args,_}|_] ->
+                    ok;
+                [{?MODULE,_,Args,_}|_] when ?MODULE =:= bs_match_inline_SUITE ->
+                    ok
+            end
+    end.

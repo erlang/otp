@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2022. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2018-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -260,6 +262,7 @@ BIF_RETTYPE atomics_info_1(BIF_ALIST_1)
     values[3] = erts_bld_uword(&hp, NULL, memory);
 
     res = erts_map_from_ks_and_vs(&factory, keys, values, 4);
+    ASSERT(is_map(res));
     erts_factory_close(&factory);
     return res;
 }

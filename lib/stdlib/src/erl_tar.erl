@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -94,7 +96,7 @@ opens a tar file on a remote machine using an SFTP channel.
   of `erl_tar` or `tar` which does not support PAX. In this case, the PAX
   headers will be extracted as regular files, and you will need to apply them
   manually.
-- Like the above, if you must remain USTAR compatible, you must also ensure than
+- Like the above, if you must remain USTAR compatible, you must also ensure that
   paths for symbolic/hard links are no more than 100 bytes, otherwise PAX
   headers will be used.
 """.
@@ -108,7 +110,7 @@ opens a tar file on a remote machine using an SFTP channel.
          format_error/1]).
 
 -include_lib("kernel/include/file.hrl").
--include_lib("erl_tar.hrl").
+-include("erl_tar.hrl").
 
 %% Converts the short error reason to a descriptive string.
 -doc "Converts an error reason term to a human-readable error message string.".
@@ -142,6 +144,8 @@ format_error({invalid_gnu_0_1_sparsemap, Format}) ->
     lists:flatten(io_lib:format("Invalid GNU sparse map (version ~s)", [Format]));
 format_error(unsafe_path) ->
     "The path points above the current working directory";
+format_error(too_big) ->
+    "Extraction size exceeds the configured max_size limit";
 format_error({Name,Reason}) ->
     lists:flatten(io_lib:format("~ts: ~ts", [Name,format_error(Reason)]));
 format_error(Atom) when is_atom(Atom) ->
@@ -197,7 +201,7 @@ Here `Fd` was specified to function [`init/3`](`init/3`) as:
 
 ```erlang
 {ok,Fd} = file:open(Name, ...).
-{ok,TarDesc} = erl_tar:init(Fd, [write], ExampleFun),
+{ok,TarDesc} = erl_tar:init(Fd, write, ExampleFun),
 ```
 
 `TarDesc` is then used:
@@ -309,16 +313,25 @@ The following options modify the defaults for the extraction as follows:
 
 - **`verbose`** - Prints an informational message for each extracted file.
 
+- **`{chunks,ChunkSize}`** - Sets the chunk size, in bytes, for writing extracted
+  file data to disk. Defaults to 65536 bytes.
+
+- **`{max_size,Size}`** - Sets a limit on the total size of extracted data. If
+  the cumulative size of all extracted files exceeds `Size` bytes, extraction
+  fails with `{error, too_big}`. When extracting a compressed binary archive,
+  the decompressed binary is also subject to this limit. Defaults to `infinity`
+  (no limit).
+
 > #### Warning {: .warning }
 >
 > The `compressed` and `cooked` flags are invalid when passing a file descriptor
 > with `{file,Fd}`. The file is assumed to have been opened with the appropriate
 > flags.
 """.
--spec extract(Open :: open_type(), [extract_opt()]) ->
-                     {ok, [{string(), binary()}]} |
-                     {error, term()} |
-                     ok.
+-spec extract(Open :: open_type(), []) ->
+                     ok | {error, term()};
+             (Open :: open_type(), [extract_opt(), ...]) ->
+                     ok | {ok, [{string(), binary()}]} | {error, term()}.
 extract({binary, Bin}, Opts) when is_list(Opts) ->
     do_extract({binary, Bin}, Opts);
 extract({file, Fd}, Opts) when is_list(Opts) ->
@@ -330,9 +343,80 @@ extract(Name, Opts) when is_list(Name); is_binary(Name), is_list(Opts) ->
 
 do_extract(Handle, Opts) when is_list(Opts) ->
     Opts2 = extract_opts(Opts),
-    Acc = if Opts2#read_opts.output =:= memory -> []; true -> ok end,
-    foldl_read(Handle, fun extract1/4, Acc, Opts2).
+    case maybe_inflate_with_limit(Handle, Opts2) of
+        {error, _} = Err ->
+            Err;
+        {ok, Handle2, Opts3} ->
+            Acc0 = if Opts3#read_opts.output =:= memory -> []; true -> ok end,
+            Acc = case Opts3#read_opts.max_size of
+                      infinity -> Acc0;
+                      _ -> {size_tracked, 0, Acc0}
+                  end,
+            foldl_read(Handle2, fun extract1/4, Acc, Opts3)
+    end.
 
+maybe_inflate_with_limit({binary, Bin}, #read_opts{max_size=MaxSize}=Opts)
+  when is_integer(MaxSize), is_binary(Bin) ->
+    case lists:member(compressed, Opts#read_opts.open_mode) of
+        true ->
+            case inflate_with_limit(Bin, MaxSize) of
+                {ok, Inflated} ->
+                    OpenMode = Opts#read_opts.open_mode -- [compressed],
+                    {ok, {binary, Inflated}, Opts#read_opts{open_mode=OpenMode}};
+                {error, too_big} ->
+                    {error, too_big}
+            end;
+        false ->
+            {ok, {binary, Bin}, Opts}
+    end;
+maybe_inflate_with_limit(Handle, Opts) ->
+    {ok, Handle, Opts}.
+
+inflate_with_limit(Bin, MaxSize) ->
+    Z = zlib:open(),
+    try
+        zlib:inflateInit(Z, 31, cut),
+        inflate_with_limit_loop(Z, Bin, MaxSize, 0, [])
+    catch
+        _:_ -> {ok, Bin}
+    after
+        zlib:close(Z)
+    end.
+
+inflate_with_limit_loop(Z, Bin, MaxSize, Total, Acc) ->
+    case zlib:safeInflate(Z, Bin) of
+        {finished, Chunks} ->
+            Size = iolist_size(Chunks),
+            NewTotal = Total + Size,
+            if NewTotal > MaxSize -> {error, too_big};
+               true -> {ok, iolist_to_binary(lists:reverse(Acc, Chunks))}
+            end;
+        {continue, Chunks} ->
+            Size = iolist_size(Chunks),
+            NewTotal = Total + Size,
+            if NewTotal > MaxSize -> {error, too_big};
+               true -> inflate_with_limit_loop(Z, <<>>, MaxSize, NewTotal, [Chunks|Acc])
+            end
+    end.
+
+extract1(eof, Reader, _, {size_tracked, _, Acc}) when is_list(Acc) ->
+    {ok, {ok, lists:reverse(Acc)}, Reader};
+extract1(eof, Reader, _, {size_tracked, _, leading_slash}) ->
+    error_logger:info_msg("erl_tar: removed leading '/' from member names\n"),
+    {ok, ok, Reader};
+extract1(eof, Reader, _, {size_tracked, _, Acc}) ->
+    {ok, Acc, Reader};
+extract1(#tar_header{size=Size}=Header, Reader0, Opts,
+         {size_tracked, Total, InnerAcc}) ->
+    NewTotal = Total + Size,
+    case NewTotal > Opts#read_opts.max_size of
+        true -> throw({error, too_big});
+        false -> ok
+    end,
+    case extract1(Header, Reader0, Opts, InnerAcc) of
+        {ok, NewInnerAcc, Reader1} ->
+            {ok, {size_tracked, NewTotal, NewInnerAcc}, Reader1}
+    end;
 extract1(eof, Reader, _, Acc) when is_list(Acc) ->
     {ok, {ok, lists:reverse(Acc)}, Reader};
 extract1(eof, Reader, _, leading_slash) ->
@@ -343,12 +427,18 @@ extract1(eof, Reader, _, Acc) ->
 extract1(#tar_header{name=Name,size=Size}=Header, Reader0, Opts, Acc0) ->
     case check_extract(Name, Opts) of
         true ->
-            case do_read(Reader0, Size) of
-                {ok, Bin, Reader1} ->
-                    Acc = extract2(Header, Bin, Opts, Acc0),
-                    {ok, Acc, Reader1};
-                {error, _} = Err ->
-                    throw(Err)
+            case Opts#read_opts.output of
+                memory ->
+                    case do_read(Reader0, Size) of
+                        {ok, Bin, Reader1} ->
+                            Acc = extract2(Header, Bin, Opts, Acc0),
+                            {ok, Acc, Reader1};
+                        {error, _} = Err ->
+                            throw(Err)
+                    end;
+                file ->
+                    Reader1 = extract_to_file(Header, Reader0, Opts),
+                    {ok, Acc0, Reader1}
             end;
         false ->
             {ok, Acc0, skip_file(Reader0)}
@@ -367,6 +457,79 @@ extract2(Header, Bin, Opts, Acc) ->
             [NameBin | Acc];
         {error, _} = Err ->
             throw(Err)
+    end.
+
+extract_to_file(#tar_header{name=Name0}=Header, Reader0, Opts) ->
+    case typeflag(Header#tar_header.typeflag) of
+        regular ->
+            Name1 = make_safe_path(Name0, Opts),
+            case stream_to_file(Name1, Reader0, Opts) of
+                {ok, Reader1} ->
+                    read_verbose(Opts, "x ~ts~n", [Name0]),
+                    _ = set_extracted_file_info(Name1, Header),
+                    Reader1;
+                {error, _} = Err ->
+                    throw(Err)
+            end;
+        _ ->
+            Reader1 = skip_file(Reader0),
+            _ = write_extracted_element(Header, <<>>, Opts),
+            Reader1
+    end.
+
+stream_to_file(Name, Reader0, Opts) ->
+    Write =
+        case Opts#read_opts.keep_old_files of
+            true ->
+                case file:read_file_info(Name) of
+                    {ok, _} -> false;
+                    _ -> true
+                end;
+            false -> true
+        end,
+    case Write of
+        true ->
+            ChunkSize = Opts#read_opts.chunk_size,
+            case open_output_file(Name) of
+                {ok, Fd} ->
+                    try
+                        stream_to_file_loop(Fd, Reader0, ChunkSize)
+                    after
+                        file:close(Fd)
+                    end;
+                {error, _} = Err ->
+                    Err
+            end;
+        false ->
+            {ok, skip_file(Reader0)}
+    end.
+
+open_output_file(Name) ->
+    case file:open(Name, [write, raw, binary]) of
+        {ok, _} = Ok ->
+            Ok;
+        {error, enoent} ->
+            ok = make_dirs(Name, file),
+            file:open(Name, [write, raw, binary]);
+        {error, _} = Err ->
+            Err
+    end.
+
+stream_to_file_loop(_Fd, #reg_file_reader{num_bytes=0}=Reader, _ChunkSize) ->
+    {ok, Reader};
+stream_to_file_loop(_Fd, #sparse_file_reader{num_bytes=0}=Reader, _ChunkSize) ->
+    {ok, Reader};
+stream_to_file_loop(Fd, Reader, ChunkSize) ->
+    case do_read(Reader, ChunkSize) of
+        {ok, Bin, Reader1} ->
+            case file:write(Fd, Bin) of
+                ok ->
+                    stream_to_file_loop(Fd, Reader1, ChunkSize);
+                {error, _} = Err ->
+                    Err
+            end;
+        {error, _} = Err ->
+            Err
     end.
 
 %% Checks if the file Name should be extracted.
@@ -718,7 +881,7 @@ The options in `OptionList` modify the defaults as follows:
 -spec create(file:filename_all(), filelist(), [create_opt()]) ->
                     ok | {error, term()} | {error, {string(), term()}}.
 create(Name, FileList, Options) when is_list(Name); is_binary(Name) ->
-    Mode = lists:filter(fun(X) -> (X=:=compressed) or (X=:=cooked)
+    Mode = lists:filter(fun(X) -> X =:= compressed orelse X =:= cooked
                         end, Options),
     case open(Name, [write|Mode]) of
         {ok, TarFile} ->
@@ -782,10 +945,8 @@ Options:
 
 - **`verbose`** - Prints an informational message about the added file.
 
-- **`{chunks,ChunkSize}`** - Reads data in parts from the file. This is intended
-  for memory-limited machines that, for example, builds a tar file on a remote
-  machine over SFTP, see `ssh_sftp:open_tar/3`.
-
+- **`{chunks,ChunkSize}`** - Sets the chunk size, in bytes, for reading data
+  from the file. Defaults to 65536 bytes.
 - **`{atime,non_neg_integer()}`** - Sets the last time, as
   [POSIX time](`e:erts:time_correction.md#posix-time`), when the file was read.
   See also `file:read_file_info/1`.
@@ -802,6 +963,9 @@ Options:
 
 - **`{gid,non_neg_integer()}`** - Sets the group that the file owner belongs to.
   `file:read_file_info/1`.
+
+- **`{mode,non_neg_integer()}`** - Sets the file permissions.
+  See also `file:read_file_info/1`.
 """.
 -spec add(TarDescriptor, Filename, NameInArchive, Options) ->
         ok | {error, term()} when
@@ -837,6 +1001,8 @@ add_opts([{mtime,Value}|T], AllOptions, Opts) ->
     add_opts(T, AllOptions, Opts#add_opts{mtime=Value});
 add_opts([{ctime,Value}|T], AllOptions, Opts) ->
     add_opts(T, AllOptions, Opts#add_opts{ctime=Value});
+add_opts([{mode,Value}|T], AllOptions, Opts) ->
+    add_opts(T, AllOptions, Opts#add_opts{mode=Value});
 add_opts([{uid,Value}|T], AllOptions, Opts) ->
     add_opts(T, AllOptions, Opts#add_opts{uid=Value});
 add_opts([{gid,Value}|T], AllOptions, Opts) ->
@@ -857,6 +1023,8 @@ do_apply_file_info_opts([{mtime,Value}|T], FileInfo) ->
     do_apply_file_info_opts(T, FileInfo#file_info{mtime=Value});
 do_apply_file_info_opts([{ctime,Value}|T], FileInfo) ->
     do_apply_file_info_opts(T, FileInfo#file_info{ctime=Value});
+do_apply_file_info_opts([{mode,Value}|T], FileInfo) ->
+    do_apply_file_info_opts(T, FileInfo#file_info{mode=Value});
 do_apply_file_info_opts([{uid,Value}|T], FileInfo) ->
     do_apply_file_info_opts(T, FileInfo#file_info{uid=Value});
 do_apply_file_info_opts([{gid,Value}|T], FileInfo) ->
@@ -914,7 +1082,7 @@ add1(Reader, Bin, NameInArchive, Opts) when is_binary(Bin) ->
                 ctime = add_opts_time(Opts#add_opts.ctime, Now),
                 uid = Opts#add_opts.uid,
                 gid = Opts#add_opts.gid,
-                mode = 8#100644},
+                mode = Opts#add_opts.mode},
     {ok, Reader2} = add_header(Reader, Header, Opts),
     Padding = skip_padding(byte_size(Bin)),
     Data = [Bin, <<0:Padding/unit:8>>],
@@ -1149,7 +1317,7 @@ split_ustar_path(Path) ->
             false;
        true ->
             PathBin = binary:list_to_bin(Path),
-            case binary:split(PathBin, [<<$/>>], [global, trim_all]) of
+            case filename:split(PathBin) of
                 [Part] when byte_size(Part) >= ?V7_NAME_LEN ->
                     false;
                 Parts ->
@@ -2004,10 +2172,12 @@ make_safe_path(Path0, #read_opts{cwd=Cwd}) ->
         Path -> filename:absname(Path, Cwd)
     end.
 
-safe_link_name(#tar_header{linkname=Path0},#read_opts{cwd=Cwd} ) ->
-    case filelib:safe_relative_path(Path0, Cwd) of
+safe_link_name(#tar_header{name=Name,linkname=Path0},#read_opts{cwd=Cwd} ) ->
+    ParentDir = filename:dirname(Name),
+    ResolvedTarget = filename:join(ParentDir, Path0),
+    case filelib:safe_relative_path(ResolvedTarget, Cwd) of
         unsafe -> throw({error,{Path0,unsafe_symlink}});
-        Path -> Path
+        _Path -> Path0
     end.
 
 create_regular(Name, NameInArchive, Bin, Opts) ->
@@ -2127,9 +2297,6 @@ do_write(#reader{handle=Handle,func=Fun}=Reader0, Data)
             Err
     end.
 
-do_copy(#reader{func=Fun}=Reader, Source, #add_opts{chunk_size=0}=Opts)
-  when is_function(Fun, 2) ->
-    do_copy(Reader, Source, Opts#add_opts{chunk_size=65536});
 do_copy(#reader{func=Fun}=Reader, Source, #add_opts{chunk_size=ChunkSize})
     when is_function(Fun, 2) ->
     case file:open(Source, [read, binary]) of
@@ -2303,6 +2470,10 @@ extract_opts([cooked|Rest], Opts=#read_opts{open_mode=OpenMode}) ->
     extract_opts(Rest, Opts#read_opts{open_mode=[cooked|OpenMode]});
 extract_opts([verbose|Rest], Opts) ->
     extract_opts(Rest, Opts#read_opts{verbose=true});
+extract_opts([{chunks,N}|Rest], Opts) ->
+    extract_opts(Rest, Opts#read_opts{chunk_size=N});
+extract_opts([{max_size,N}|Rest], Opts) ->
+    extract_opts(Rest, Opts#read_opts{max_size=N});
 extract_opts([Other|Rest], Opts) ->
     extract_opts(Rest, read_opts([Other], Opts));
 extract_opts([], Opts) ->

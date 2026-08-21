@@ -1,7 +1,9 @@
 % This is an -*- erlang -*- file.
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +21,7 @@
 
 {application, compiler,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "8.3.2"},
+  {vsn, "9.0.5"},
   {modules, [
 	     beam_a,
 	     beam_asm,
@@ -29,8 +31,8 @@
 	     beam_clean,
 	     beam_core_to_ssa,
 	     beam_dict,
-	     beam_digraph,
 	     beam_disasm,
+         beam_doc,
 	     beam_flatten,
 	     beam_jump,
 	     beam_listing,
@@ -43,11 +45,11 @@
              beam_ssa_check,
              beam_ssa_codegen,
              beam_ssa_dead,
+             beam_ssa_destructive_update,
              beam_ssa_lint,
              beam_ssa_opt,
              beam_ssa_pp,
              beam_ssa_pre_codegen,
-             beam_ssa_private_append,
              beam_ssa_recv,
              beam_ssa_share,
              beam_ssa_ss,
@@ -76,6 +78,7 @@
 	     sys_core_fold_lists,
 	     sys_core_inline,
 	     sys_core_prepare,
+             sys_coverage,
 	     sys_messages,
 	     sys_pre_attributes,
 	     v3_core
@@ -83,5 +86,5 @@
   {registered, []},
   {applications, [kernel, stdlib]},
   {env, []},
-  {runtime_dependencies, ["stdlib-5.0","kernel-8.4","erts-13.0",
+  {runtime_dependencies, ["stdlib-@OTP-19922@","kernel-8.4","erts-13.0",
 			  "crypto-5.1"]}]}.

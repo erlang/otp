@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -82,6 +84,7 @@ all() ->
      multiple_handlers,
      add_remove_filter,
      change_config,
+     get_config_error,
      set_formatter,
      log_no_levels,
      log_all_levels_api,
@@ -294,6 +297,30 @@ change_config(cleanup,Config) ->
     logger:remove_handler(h1),
     PC = ?config(logger_config,Config),
     logger:set_primary_config(PC),
+    ok.
+
+get_config_error(_Config) ->
+    Self = self(),
+    register(callback_receiver,Self),
+    HandlerCnt = 2000,
+    HandlerIds = [list_to_atom("handler-"++integer_to_list(Idx)) || Idx <- lists:seq(1,HandlerCnt)],
+    [ok = logger:add_handler(HId,?MODULE,#{}) || HId <- HandlerIds],
+    RemoveFun = fun () ->
+                    Self ! started,
+                    [ok = logger:remove_handler(HId) || HId <- HandlerIds],
+                    Self ! removed
+                end,
+    Remove = spawn(RemoveFun),
+    receive
+        started -> ok
+    end,
+    ?assertNotException(_, _, logger:get_handler_config()),
+    %% Just to make sure RemoveFun did not die before.
+    %% If line below fails please raise HandlerCnt by factor of 2
+    ?assert(erlang:is_process_alive(Remove)),
+    receive
+        removed -> ok
+    end,
     ok.
 
 set_formatter(_Config) ->
@@ -1047,19 +1074,31 @@ app_config(Config) ->
 
     ok = peer:stop(Peer2),
 
-    %% Start a silent node, then add an own default handler
-    {ok,#{handlers:=[]}, Peer3, Node3} =
-        logger_test_lib:setup(Config,[{error_logger,silent}]),
+    %% Start a node with no default handler, then add an own default handler,
+    %% but via logger:add_handler/3
+    {ok, #{handlers := [#{id := simple}]}, Peer3, Node3} =
+        logger_test_lib:setup(Config, [{logger, [{handler, default, undefined}]}]),
 
-    {error,{bad_config,{handler,[{some,bad,config}]}}} =
-        rpc:call(Node3,logger,add_handlers,[[{some,bad,config}]]),
-    ok = rpc:call(Node3,logger,add_handlers,
-                  [[{handler,default,logger_std_h,#{}}]]),
+    ok = rpc:call(Node3,logger,add_handler,[default, logger_std_h, #{}]),
 
     #{handlers:=[#{id:=default,filters:=DF}]} =
         rpc:call(Node3,logger,get_config,[]),
 
-    ok = peer:stop(Peer3).
+    ok = peer:stop(Peer3),
+
+    %% Start a silent node, then add an own default handler
+    {ok,#{handlers:=[]}, Peer4, Node4} =
+        logger_test_lib:setup(Config,[{error_logger,silent}]),
+
+    {error,{bad_config,{handler,[{some,bad,config}]}}} =
+        rpc:call(Node4,logger,add_handlers,[[{some,bad,config}]]),
+    ok = rpc:call(Node4,logger,add_handlers,
+                  [[{handler,default,logger_std_h,#{}}]]),
+
+    #{handlers:=[#{id:=default,filters:=DF}]} =
+        rpc:call(Node4,logger,get_config,[]),
+
+    ok = peer:stop(Peer4).
 
 %% This test case is mainly to see code coverage. Note that
 %% logger_env_var_SUITE tests a lot of the same, and checks the

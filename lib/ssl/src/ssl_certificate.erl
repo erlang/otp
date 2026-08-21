@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2024 All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -87,6 +89,8 @@
 
 %% Tracing
 -export([handle_trace/3]).
+
+-define(MAX_CHAIN, 12). %% In depth a little longer than default MAX_DEPTH
 
 %%====================================================================
 %% Internal application API
@@ -184,18 +188,24 @@ certificate_chain(#cert{} = Cert, CertDbHandle, CertsDbRef, Candidates, Type) ->
 %% Description: Return list of DER encoded certificates.
 %%--------------------------------------------------------------------
 file_to_certificats(File, DbHandle) ->
-    {ok, List} = ssl_manager:cache_pem_file(File, DbHandle),
-    [Bin || {'Certificate', Bin, not_encrypted} <- List].
-
+    case ssl_manager:cache_pem_file(File, DbHandle) of
+        {ok, List} ->
+            [Bin || {'Certificate', Bin, not_encrypted} <- List];
+        _ ->
+            [] % If file no longer exists return empty content
+    end.
 %%--------------------------------------------------------------------
 -spec file_to_crls(binary(), term()) -> [public_key:der_encoded()].
 %%
 %% Description: Return list of DER encoded certificates.
 %%--------------------------------------------------------------------
 file_to_crls(File, DbHandle) ->
-    {ok, List} = ssl_manager:cache_pem_file(File, DbHandle),
-    [Bin || {'CertificateList', Bin, not_encrypted} <- List].
-
+    case ssl_manager:cache_pem_file(File, DbHandle) of
+        {ok, List} ->
+            [Bin || {'CertificateList', Bin, not_encrypted} <- List];
+        _ ->
+            [] % If file no longer exists return empty content
+    end.
 %%--------------------------------------------------------------------
 -spec validate(term(), {extension, #'Extension'{}} | {bad_cert, atom()} | valid | valid_peer,
 	       term(), logger:level() | none | all) -> {valid, term()} | {fail, tuple()} | {unknown, term()}.
@@ -353,7 +363,7 @@ available_cert_key_pairs(CertKeyGroups) ->
 %% Create the prioritized list of cert key pairs that
 %% are availble for use in the negotiated version
 available_cert_key_pairs(CertKeyGroups, ?TLS_1_3) ->
-    RevAlgos = [rsa, rsa_pss_pss, ecdsa, eddsa],
+    RevAlgos = [rsa, rsa_pss_pss, ecdsa, eddsa, slhdsa, mldsa],
     cert_key_group_to_list(RevAlgos, CertKeyGroups, []);
 available_cert_key_pairs(CertKeyGroups, ?TLS_1_2) ->
      RevAlgos = [dsa, rsa, rsa_pss_pss, ecdsa],
@@ -398,8 +408,11 @@ chain_result(Root0, Chain0, both) ->
     {DRoot, DChain} = decoded_chain(Root0, Chain0),
     {ok, {ERoot, EChain}, {DRoot, DChain}}.
 
-build_certificate_chain(#cert{otp=OtpCert}=Cert, CertDbHandle, CertsDbRef, Chain, ListDb) ->
-    IssuerAndSelfSigned = 
+
+build_certificate_chain(_,_,_,Chain,_) when length(Chain) >= ?MAX_CHAIN->
+    {ok, undefined, lists:reverse(Chain)};
+build_certificate_chain(#cert{otp = OtpCert} = Cert, CertDbHandle, CertsDbRef, Chain, ListDb) ->
+    IssuerAndSelfSigned =
 	case public_key:pkix_is_self_signed(OtpCert) of
 	    true ->
 		{public_key:pkix_issuer_id(OtpCert, self), true};
@@ -421,7 +434,7 @@ build_certificate_chain(#cert{otp=OtpCert}=Cert, CertDbHandle, CertsDbRef, Chain
 		    %% incorrect.
 		    {ok, undefined, lists:reverse(Chain)}
 	    end;
-	{{ok, {SerialNr, Issuer}}, SelfSigned} -> 
+	{{ok, {SerialNr, Issuer}}, SelfSigned} ->
 	    do_certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, SelfSigned, ListDb)
     end.
 
@@ -431,8 +444,13 @@ do_certificate_chain(_, _, [RootCert | _] = Chain, _, _, true, _) ->
 do_certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, _, ListDb) ->
     case ssl_manager:lookup_trusted_cert(CertDbHandle, CertsDbRef,
                                          SerialNr, Issuer) of
-	{ok, Cert} ->
-	    build_certificate_chain(Cert, CertDbHandle, CertsDbRef, [Cert | Chain], ListDb);
+	{ok, #cert{der = Der} = Cert} ->
+            case lists:any(fun(#cert{der = D}) -> D =:= Der end, Chain) of
+                true ->
+                    {ok, undefined, lists:reverse(Chain)};
+                false ->
+                    build_certificate_chain(Cert, CertDbHandle, CertsDbRef, [Cert | Chain], ListDb)
+	    end;
 	_ ->
 	    %% The trusted cert may be obmitted from the chain as the
 	    %% counter part needs to have it anyway to be able to
@@ -481,7 +499,7 @@ find_issuer(#cert{der=DerCert, otp=OtpCert}, CertDbHandle, CertsDbRef, ListDb, I
     Result = case is_reference(CertsDbRef) of
 		 true when ListDb == [] ->
                      CertEntryList = ssl_pkix_db:select_certentries_by_ref(CertsDbRef, CertDbHandle),
-		     do_find_issuer(IsIssuerFun, CertDbHandle, CertEntryList); 
+		     do_find_issuer(IsIssuerFun, CertDbHandle, CertEntryList);
 		 false when ListDb == [] ->
 		     {extracted, CertsData} = CertsDbRef,
 		     CertEntryList = [Entry || {decoded, Entry} <- CertsData],
@@ -498,7 +516,7 @@ find_issuer(#cert{der=DerCert, otp=OtpCert}, CertDbHandle, CertsDbRef, ListDb, I
 
 
 do_find_issuer(IssuerFun, CertDbHandle, CertDb) ->
-    try 
+    try
 	foldl_db(IssuerFun, CertDbHandle, CertDb)
     catch
 	throw:{ok, _} = Return ->
@@ -558,7 +576,9 @@ public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorith
 public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorithm = ?'id-dsa',
 									parameters = {params, Params}},
 				      subjectPublicKey = Key}) ->
-    {Key, Params}.
+    {Key, Params};
+public_key(#'OTPSubjectPublicKeyInfo'{subjectPublicKey = Key}) ->
+    Key.
 
 other_issuer(#cert{otp=OtpCert}=Cert, CertDbHandle, CertDbRef) ->
     case public_key:pkix_issuer_id(OtpCert, other) of
@@ -591,32 +611,19 @@ verify_hostname(Hostname, Customize, Cert, UserState) ->
 verify_cert_extensions(Cert, #{cert_ext := CertExts} =  UserState, LogLevel) ->
     Id = public_key:pkix_subject_id(Cert),
     Extensions = maps:get(Id, CertExts, []),
-    verify_cert_extensions(Cert, UserState, Extensions,
-                           #{certificate_valid => false}, LogLevel).
+    verify_cert_extensions(Cert, UserState, Extensions, LogLevel).
 
-verify_cert_extensions(_Cert, UserState = #{stapling_state := #{configured := true},
-                                            path_len := 0}, [],
-                       _Context = #{certificate_valid := false}, LogLevel) ->
-    %% RFC6066 section 8
-    %% Servers that receive a client hello containing the "status_request"
-    %% extension MAY return a suitable certificate status response to the
-    %% client along with their certificate.
-    Desc = "Certificate Status - stapling response not provided by the server",
-    ssl_logger:log(notice, LogLevel, #{description => Desc,
-                                     reason => [{missing, stapling_response}]},
-                   ?LOCATION),
-    {valid, UserState};
-verify_cert_extensions(Cert, UserState, [], _, _) ->
+verify_cert_extensions(Cert, UserState, [], _) ->
     {valid, UserState#{issuer => Cert}};
 verify_cert_extensions(_, #{stapling_state := #{configured := false}},
-                       [#certificate_status{} | _], _, _) ->
+                       [#certificate_status{} | _], _) ->
     {fail, unexpected_certificate_status};
 verify_cert_extensions(Cert, #{stapling_state := StaplingState,
                                issuer := Issuer,
                                certdb := CertDbHandle,
                                certdb_ref := CertDbRef} = UserState,
                        [#certificate_status{response = OcspResponseDer} | Exts],
-                       Context, LogLevel) ->
+                       LogLevel) ->
     #{ocsp_nonce := Nonce} = StaplingState,
     IsTrustedResponderFun =
         fun(#cert{der = DerResponderCert, otp = OtpCert}) ->
@@ -648,14 +655,13 @@ verify_cert_extensions(Cert, #{stapling_state := StaplingState,
                         H(Rest);
                     H([]) -> ok end,
             HandleOcspDetails(Details),
-            verify_cert_extensions(Cert, UserState, Exts,
-                                   Context#{certificate_valid => true}, LogLevel);
+            verify_cert_extensions(Cert, UserState, Exts, LogLevel);
         {error, {bad_cert, _} = Reason} ->
             {fail, Reason}
     end;
-verify_cert_extensions(Cert, UserState, [_|Exts], Context, LogLevel) ->
+verify_cert_extensions(Cert, UserState, [_|Exts], LogLevel) ->
     %% Skip unknown extensions!
-    verify_cert_extensions(Cert, UserState, Exts, Context, LogLevel).
+    verify_cert_extensions(Cert, UserState, Exts, LogLevel).
 
 verify_sign_support(_, #{version := Version})
             when ?TLS_LT(Version, ?TLS_1_2) ->
@@ -708,26 +714,63 @@ paths([#cert{otp=C1}=Cert1, #cert{otp=C2}=Cert2 | Rest], Chain, CertDbHandle, Pa
             %% Chain ordered so far
             paths([Cert2 | Rest], Chain, CertDbHandle, [Cert1 | Path]);
         false ->
-            %% Chain is unorded and/or contains extraneous certificates
-            unorded_or_extraneous(Chain, CertDbHandle)
+            %% Chain is unordered and/or contains extraneous certificates
+            unorded_or_extraneous(Chain)
     end.
 
-unorded_or_extraneous([Peer | UnorderedChain], CertDbHandle) ->
-    ChainCandidates = extraneous_chains(UnorderedChain),
-    lists:map(fun(Candidate) ->
-                      path_candidate(Peer, Candidate, CertDbHandle)
+unorded_or_extraneous([Peer | ChainCerts]) ->
+    G = digraph:new([acyclic]),
+    try
+        Certs = [Peer | ChainCerts],
+        lists:foreach(fun(Cert) ->
+            digraph:add_vertex(G, cert_id(Cert), Cert)
+        end, Certs),
+
+        Add = fun(#cert{otp = C1, der = C1Der} = Cert1, #cert{otp = C2} = Cert2) ->
+                      case Cert1 =/= Cert2 andalso public_key:pkix_is_issuer(C1, C2) of
+                          true ->
+                              %% Claim: C2 issued C1 so verify C1's signature with C2's key
+                              Signer = C2#'OTPCertificate'.tbsCertificate,
+                              case verify_cert_signer(C1Der, Signer) of
+                                  true ->
+                                      digraph:add_edge(G, cert_id(Cert1), cert_id(Cert2));
+                                  false ->
+                                      false
+                              end;
+                          _ ->
+                              false
+                      end
               end,
-              ChainCandidates).
 
-path_candidate(Cert, ChainCandidateCAs, CertDbHandle) ->
-    {ok,  ExtractedCerts} = ssl_pkix_db:extract_trusted_certs({der_otp, ChainCandidateCAs}),
-    %% certificate_chain/4 will make sure the chain is ordered
-    case build_certificate_chain(Cert, CertDbHandle, ExtractedCerts, [Cert], []) of
-        {ok, undefined, Chain} ->
-            lists:reverse(Chain);
-        {ok, Root, Chain} ->
-            [Root | lists:reverse(Chain)]
+        _ = [Add(C1, C2) || C1 <- Certs, C2 <- Certs],
+
+        %% Valid path endpoints: self-signed certs OR certs whose
+        %% Path endpoints: certs with no issuer in the sent chain
+        %% (either self-signed or issuer in trust store — handle_partial_chain
+        %% resolves which case applies downstream)
+        Endpoints = [V || V <- digraph:vertices(G),
+                          digraph:out_degree(G, V) =:= 0],
+        PeerId = cert_id(Peer),
+        Paths = lists:filtermap(
+                  fun(RootId) ->
+                          case digraph:get_path(G, PeerId, RootId) of
+                              false ->
+                                  false;
+                              VPath ->
+                                  RevPath = [element(2, digraph:vertex(G, V)) || V <- VPath],
+                                  {true, lists:reverse(RevPath)}
+                          end
+                  end, Endpoints),
+
+        %% Return candidate paths
+        Paths
+    after
+        digraph:delete(G)
     end.
+
+cert_id(#cert{der = Der}) ->
+    %% Use a hash as vertex ID for efficient comparison
+    crypto:hash(sha256, Der).
 
 handle_partial_chain([#cert{der=DERIssuerCert, otp=OtpIssuerCert}=Cert| Rest] = Path, PartialChainHandler,
                      CertDbHandle, CertDbRef) ->
@@ -804,59 +847,6 @@ handle_incomplete_chain([#cert{}=Peer| _] = Chain0, PartialChainHandler, Default
             Default
     end.
 
-extraneous_chains(Certs) ->
-    %% If some certs claim to be the same cert that is have the same
-    %% subject field we should create a list of possible chain certs
-    %% for each such cert. Only one chain, if any, should be
-    %% verifiable using available ROOT certs.
-    Subjects = [{subject(OTP), Cert} || #cert{otp=OTP} = Cert <- Certs],
-    Duplicates = find_duplicates(Subjects),
-    %% Number of certs with duplicates (same subject) has been limited
-    %% to 4 and the maximum number of combinations is limited to 16.
-    build_candidates(Duplicates, 4, 16).
-
-build_candidates(Map, Duplicates, Combinations) ->
-    Subjects = maps:keys(Map),
-    build_candidates(Subjects, Map, Duplicates, 1, Combinations, []).
-%%
-build_candidates([], _, _, _, _, Acc) ->
-    Acc;
-build_candidates([H|T], Map, Duplicates, Combinations, Max, Acc0) ->
-    case maps:get(H, Map) of
-	{Certs, Counter} when Counter > 1 andalso
-                              Duplicates > 0 andalso
-                              Counter * Combinations =< Max ->
-	    case Acc0 of
-		[] ->
-		    Acc = [[Cert] || Cert <- Certs],
-		    build_candidates(T, Map, Duplicates - 1, Combinations * Counter, Max, Acc);
-		_Else ->
-		    Acc = [[Cert|L] || Cert <- Certs, L <- Acc0],
-		    build_candidates(T, Map, Duplicates - 1, Combinations * Counter, Max, Acc)
-            end;
-	{[Cert|_Throw], _Counter} ->
-	    case Acc0 of
-		[] ->
-		    Acc = [[Cert]],
-		    build_candidates(T, Map, Duplicates, Combinations, Max, Acc);
-		_Else ->
-		    Acc = [[Cert|L] || L <- Acc0],
-		    build_candidates(T, Map, Duplicates, Combinations, Max, Acc)
-	    end
-    end.
-
-find_duplicates(Chain) ->
-    find_duplicates(Chain, #{}).
-%%
-find_duplicates([], Acc) ->
-    Acc;
-find_duplicates([{Subject, Cert}|T], Acc) ->
-    case maps:get(Subject, Acc, none) of
-	none ->
-	    find_duplicates(T, Acc#{Subject => {[Cert], 1}});
-	{Certs, Counter} ->
-	    find_duplicates(T, Acc#{Subject => {[Cert|Certs], Counter + 1}})
-    end.
 
 subject(Cert) ->
     {_Serial,Subject} = public_key:pkix_subject_id(Cert),

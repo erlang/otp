@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +28,9 @@
 -module(dist_util).
 -moduledoc false.
 
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_possibly_unsafe_function, {erlang, binary_to_atom, 2}}]).
+
 %%-compile(export_all).
 -export([handshake_we_started/1, handshake_other_started/1,
          strict_order_flags/0, rejectable_flags/0,
@@ -35,7 +40,7 @@
 	 shutdown/3, shutdown/4,
          net_ticker_spawn_options/0]).
 
--import(error_logger,[error_msg/2]).
+-import(error_logger,[error_msg/2, warning_msg/2]).
 
 -include("dist_util.hrl").
 -include("dist.hrl").
@@ -127,6 +132,12 @@ dflag2str(?DFLAG_V4_NC) ->
     "V4_NC";
 dflag2str(?DFLAG_ALIAS) ->
     "ALIAS";
+dflag2str(?DFLAG_LOCAL_EXT) ->
+    "LOCAL_EXT";
+dflag2str(?DFLAG_ALTACT_SIG) ->
+    "ALTACT_SIG";
+dflag2str(?DFLAG_NATIVE_RECORDS) ->
+    "NATIVE_RECORDS";
 dflag2str(Other) ->
     lists:flatten(io_lib:format("UNKNOWN<~.16.0B>", [Other])).
 
@@ -488,6 +499,8 @@ convert_flags(_Undefined) ->
                 f_getopts       :: function() | 'undefined'}).
 
 connection(#hs_data{other_node = Node,
+                    other_creation = Creation,
+                    other_flags = Flags,
 		    socket = Socket,
 		    f_address = FAddress,
 		    f_setopts_pre_nodeup = FPreNodeup,
@@ -503,7 +516,11 @@ connection(#hs_data{other_node = Node,
 		ok ->
                     case HSData#hs_data.f_handshake_complete of
                         undefined -> ok;
-                        HsComplete -> HsComplete(Socket, Node, DHandle)
+                        HsComplete when is_function(HsComplete, 3) ->
+                            HsComplete(Socket, Node, DHandle);
+                        HsComplete when is_function(HsComplete, 4) ->
+                            Context = #{creation => Creation, flags => Flags},
+                            HsComplete(Socket, Node, DHandle, Context)
                     end,
 		    con_loop(#state{kernel = HSData#hs_data.kernel_pid,
                                     node = Node,
@@ -1157,6 +1174,7 @@ to_port(FSend, Socket, Data) ->
 send_tick(#state{handle = DHandle, socket = Socket,
                  tick_intensity = TickIntensity,
                  publish_type = Type, f_tick = MFTick,
+                 node = Node,
                  f_getstat = MFGetstat}, Tick) ->
     #tick{tick = T0,
 	  read = Read,
@@ -1164,12 +1182,30 @@ send_tick(#state{handle = DHandle, socket = Socket,
 	  ticked = Ticked0} = Tick,
     T = T0 + 1,
     T1 = T rem TickIntensity,
+    LogMissed = application:get_env(kernel, log_missed_net_ticks, false),
     case getstat(DHandle, Socket, MFGetstat) of
 	{ok, Read, _, _} when Ticked0 =:= T ->
+        LogMissed andalso
+            warning_msg("** Node ~p: ~w consecutive net ticks missed "
+                        "(tick ~w/~w) — net_tick_timeout **~n",
+                        [Node, TickIntensity, T, TickIntensity]),
 	    {error, not_responding};
 
         {ok, R, W1, Pend} ->
             RDiff = R - Read,
+            case RDiff of
+                0 when LogMissed ->
+                    MissedCount = case T - Ticked0 of
+                                      D when D > 0 -> D;
+                                      D -> TickIntensity + D
+                                  end,
+                    warning_msg("** Node ~p: net tick ~w/~w missed "
+                                "(~w consecutive, ~w until timeout) **~n",
+                                [Node, T, TickIntensity,
+                                 MissedCount, TickIntensity - MissedCount]);
+                _ ->
+                    ok
+            end,
             W2 = case need_to_tick(Type, RDiff, W1-Write, Pend) of
                      true ->
                          MFTick(Socket),

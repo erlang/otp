@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -57,7 +59,7 @@ introduced:
 %%% Configure the location of the server node,
 -define(server_node, messenger@super).
 
-%%%----END FILE----
+%%%----END FILE-----
 ```
 
 ```erlang
@@ -87,7 +89,7 @@ introduced:
 -record(message_to,{to_name, message}).
 %%% logoff
 
-%%%----END FILE----
+%%%----END FILE-----
 ```
 
 ```erlang
@@ -133,7 +135,7 @@ message(ToName, Message) ->
              ok
 end.
 
-%%%----END FILE----
+%%%----END FILE-----
 ```
 
 ```erlang
@@ -176,7 +178,7 @@ await_result() ->
             exit(timeout)
     end.
 
-%%%----END FILE---
+%%%----END FILE----
 ```
 
 ```erlang
@@ -192,7 +194,7 @@ server() ->
     process_flag(trap_exit, true),
     server([]).
 
-%%% the user list has the format [{ClientPid1, Name1},{ClientPid22, Name2},...]
+%%% the user list has the format [{ClientPid1, Name1},{ClientPid2, Name2},...]
 server(User_List) ->
     io:format("User list = ~p~n", [User_List]),
     receive
@@ -228,27 +230,27 @@ server_logon(From, Name, User_List) ->
 server_logoff(From, User_List) ->
     lists:keydelete(From, 1, User_List).
 
-%%% Server transfers a message between user
+%%% Server transfers a message between users
 server_transfer(From, To, Message, User_List) ->
     %% check that the user is logged on and who he is
-    case lists:keysearch(From, 1, User_List) of
+    case lists:keyfind(From, 1, User_List) of
         false ->
             From ! #abort_client{message=you_are_not_logged_on};
-        {value, {_, Name}} ->
+        {_, Name} ->
             server_transfer(From, Name, To, Message, User_List)
     end.
 %%% If the user exists, send the message
 server_transfer(From, Name, To, Message, User_List) ->
     %% Find the receiver and send the message
-    case lists:keysearch(To, 2, User_List) of
+    case lists:keyfind(To, 2, User_List) of
         false ->
             From ! #server_reply{message=receiver_not_found};
-        {value, {ToPid, To}} ->
+        {ToPid, To} ->
             ToPid ! #message_from{from_name=Name, message=Message},
             From !  #server_reply{message=sent}
     end.
 
-%%%----END FILE---
+%%%----END FILE----
 ```
 
 ## Header Files
@@ -267,7 +269,7 @@ for example:
 ```
 
 In the case above the file is fetched from the same directory as all the other
-files in the messenger example. (_manual_).
+files in the messenger example. (_manual_)
 
 .hrl files can contain any valid Erlang code but are most often used for record
 and macro definitions.
@@ -295,7 +297,7 @@ This is equivalent to:
 Creating a record is best illustrated by an example:
 
 ```erlang
-#message_to{message="hello", to_name=fred)
+#message_to{message="hello", to_name=fred}
 ```
 
 This creates:
@@ -304,8 +306,8 @@ This creates:
 {message_to, fred, "hello"}
 ```
 
-Notice that you do not have to worry about the order you assign values to the
-various parts of the records when you create it. The advantage of using records
+Notice that you do not have to worry about the order in which you assign values to the
+various parts of a record when you create it. The advantage of using records
 is that by placing their definitions in header files you can conveniently define
 interfaces that are easy to change. For example, if you want to add a new field
 to the record, you only have to change the code where the new field is used and
@@ -356,7 +358,7 @@ This is a standard macro (that is, defined by the system, not by the user).
 of using macros with, for example, [parameters](macros.md#defining-and-using-macros).
 
 The three Erlang (`.erl`) files in the messenger example are individually
-compiled into object code file (`.beam`). The Erlang system loads and links
+compiled into object code files (`.beam`). The Erlang system loads and links
 these files into the system when they are referred to during execution of the
 code. In this case, they are simply put in our current working directory (that
 is, the place you have done "cd" to). There are ways of putting the `.beam`

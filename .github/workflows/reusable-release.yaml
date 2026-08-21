@@ -1,0 +1,210 @@
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2024-2026. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+
+name: Release Erlang/OTP
+
+on:
+  workflow_call:
+    inputs:
+      otp_sbom_version:
+        required: true
+        type: string
+      vsn:
+        required: true
+        type: string
+      tag:
+        required: true
+        type: string
+    secrets:
+      TRIGGER_ERLANG_ORG_BUILD:
+        required: true
+
+env:
+  OTP_SBOM_VERSION: ${{ inputs.otp_sbom_version }}
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Release Erlang/OTP
+    runs-on: ubuntu-latest
+    ## Needed to create releases
+    permissions:
+      contents:     write   # actions/checkout + gh release create + gh api (read otp_versions.table)
+      attestations: write   # actions/attest-sbom (generate signed attestation bundles)
+      id-token:     write   # actions/attest-sbom (OIDC token for Sigstore signing)
+      actions:      write   # actions/download-artifact (otp_prebuilt, otp_doc_html, otp_doc_man, ort-results-*)
+                            # actions/upload-artifact (Attestations)
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+        with:
+          persist-credentials: false
+
+      ## Publish the pre-built archive and docs
+      - name: Download source archive
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # ratchet:actions/download-artifact@v6.0.0
+        with:
+          name: otp_prebuilt
+      - name: Download html docs
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # ratchet:actions/download-artifact@v6.0.0
+        with:
+          name: otp_doc_html
+      - name: Download man docs
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # ratchet:actions/download-artifact@v6.0.0
+        with:
+          name: otp_doc_man
+
+      ## We add the correct version name into the file names
+      ## and create the hash files for all assets
+      - name: Create pre-build and doc archives
+        env:
+          STEPS_TAG_OUTPUTS_TAG: ${{ inputs.tag }}
+        run: .github/scripts/create-artifacts.sh artifacts "${STEPS_TAG_OUTPUTS_TAG}"
+
+      ## Create hash files
+      - name: Create hash files
+        run: |
+          shopt -s nullglob
+          cd artifacts
+          FILES=$(ls {*.tar.gz,*.txt})
+          md5sum $FILES > MD5.txt
+          sha256sum $FILES > SHA256.txt
+
+      - name: Download SBoM
+        if: inputs.otp_sbom_version != '' # needed to not account for OTP-26 and 27
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # ratchet:actions/download-artifact@v6.0.0
+        with:
+            name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}
+
+      - name: Download ORT Scan Results
+        if: inputs.otp_sbom_version != '' # needed to not account for OTP-26 and 27
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # ratchet:actions/download-artifact@v6.0.0
+        with:
+            name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}-scan-result.json.zip
+
+      - name: Attest Distribution Assets with SBoM
+        id: attest-sbom
+        if: inputs.otp_sbom_version != '' # needed to not account for OTP-26 and 27
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # ratchet:actions/attest-sbom@v3
+        with:
+          subject-path: |
+            artifacts/*.tar.gz
+            bom.*.json
+            bom.*.yml
+            bom.*.xml
+          sbom-path: bom.spdx.json
+
+      - name: "Copy SBoM provenance"
+        id: sbom-provenance
+        if: inputs.otp_sbom_version != '' # needed to not account for OTP-26 and 27
+        shell: bash
+        run: |
+          shopt -s nullglob
+          mkdir attestations
+          for FILE in artifacts/*.tar.gz bom.*.xml bom.*.json bom.*.yml; do
+            cp "$ATTESTATION" "attestations/$(basename "$FILE").sigstore"
+          done
+        env:
+          ATTESTATION: "${{ steps.attest-sbom.outputs.bundle-path }}"
+
+      - name: "Assemble Distribution Attestations"
+        if: inputs.otp_sbom_version != '' # needed to not account for OTP-26 and 27
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # ratchet:actions/upload-artifact@v6
+        with:
+          name: "Attestations"
+          path: "attestations/*.sigstore"
+
+      - name: Mark as latest
+        id: latest-release
+        env:
+          TAG:          ${{ inputs.tag }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY:   ${{ github.repository }}
+        run: |
+          gh api \
+          repos/${REPOSITORY}/contents/otp_versions.table?ref=master \
+          --header "Accept: application/vnd.github.raw+json" > otp_versions.table
+
+          OTP_TAG=$(head -n1 otp_versions.table | awk '{print $1}')
+
+          echo "OTP tag in table: $OTP_TAG"
+          echo "Current release tag:    ${TAG}"
+
+          if [ "$OTP_TAG" = "${TAG}" ]; then
+            echo "latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "latest=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create a release
+        if: inputs.otp_sbom_version != '' # needed for OTP-28 onwards
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG:      ${{ inputs.tag }}
+          VSN:      ${{ inputs.vsn }}
+          LATEST:   ${{ steps.latest-release.outputs.latest }}
+        run: |
+          if gh release view "${TAG}" &>/dev/null; then
+            echo "Release exists, editing..."
+            gh release edit "${TAG}" --latest=${LATEST}
+            gh release upload "${TAG}" --clobber \
+            artifacts/*.tar.gz \
+            artifacts/*.txt \
+            attestations/*.sigstore \
+            bom.*
+          else
+            echo "Release does not exist, creating..."
+            gh release create "${TAG}" --title "OTP ${VSN}" --latest=${LATEST} \
+            artifacts/*.tar.gz \
+            artifacts/*.txt \
+            attestations/*.sigstore \
+            bom.*
+          fi
+
+      # Create a release for 26 and 27
+      - name: Create Release for 26 and 27
+        if: inputs.otp_sbom_version == '' # needed to for OTP-26 and -27
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG:      ${{ inputs.tag }}
+          VSN:      ${{ inputs.vsn }}
+          LATEST:   ${{ steps.latest-release.outputs.latest }}
+        run: |
+          if gh release view "${TAG}" &>/dev/null; then
+            echo "Release exists, editing..."
+            gh release edit "${TAG}" --latest=false
+            gh release upload "${TAG}" --clobber \
+                artifacts/*.tar.gz \
+                artifacts/*.txt
+          else
+            echo "Release does not exist, creating..."
+            gh release create "${TAG}" --title "OTP ${VSN}" --latest=false \
+            gh release upload "${TAG}" --clobber \
+               artifacts/*.tar.gz \
+               artifacts/*.txt
+          fi
+
+      - name: Deploy on erlang.org
+        if: github.repository == 'erlang/otp'
+        env:
+          GITHUB_TOKEN: ${{ secrets.TRIGGER_ERLANG_ORG_BUILD }}
+        run: |
+          curl -H "Authorization: token ${GITHUB_TOKEN}" -X POST -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/erlang/erlang-org/actions/workflows/update-gh-cache.yaml/dispatches" -d '{"ref":"master"}'

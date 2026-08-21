@@ -1,5 +1,12 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2022-2026. All Rights Reserved.
+%% Copyright 2004-2010 held by the authors. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -11,6 +18,8 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% %CopyrightEnd%
 
 %%-----------------------------------------------------------------------
 %% File        : typer_core.erl
@@ -28,6 +37,8 @@
 
 -module(typer_core).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 -export([run/1]).
 
@@ -433,7 +444,7 @@ get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, Records, Analysis) ->
       {{F, A}, {Range, Arg}};
     {ok, {_FileLine, Contract, _Xtra}} ->
       Sig = erl_types:t_fun(Arg, Range),
-      case dialyzer_contracts:check_contract(Contract, Sig) of
+      case dialyzer_contracts:check_contract(Contract, Sig, M) of
         ok -> {{F, A}, {contract, Contract}};
         {range_warnings, _} ->
           {{F, A}, {contract, Contract}};
@@ -582,11 +593,18 @@ write_typed_file([Ch|Chs] = Chars, File, Info, LineNo, Acc, Analysis) ->
               _ ->
                 {Info, [Ch|Acc]}
             end,
-          write_typed_file(Chs, File, NewInfo, NewLineNo, NewAcc, Analysis);
+          NewFuncs = flush_line(Line, RestFuncs, Info, File, [], Analysis),
+          write_typed_file(Chs, File, NewInfo#info{functions=NewFuncs}, NewLineNo, NewAcc, Analysis);
         _ ->
           write_typed_file(Chs, File, Info, LineNo, [Ch|Acc], Analysis)
       end
   end.
+
+flush_line(Line, [{Line,F,A}|RestFuncs], Info, File, Acc, Analysis) ->
+  ok = raw_write(F, A, Info, File, Acc, Analysis),
+  flush_line(Line, RestFuncs, Info, File, Acc, Analysis);
+flush_line(_Line, Rest, _Info, _File, _Acc, _Analysis) ->
+  Rest.
 
 raw_write(F, A, Info, File, Content, #analysis{mode = Mode} = Analysis) ->
   TypeInfo = get_type_string(F, A, Info, file, Analysis),
@@ -900,7 +918,7 @@ analyze_core_tree(Core, Records, SpecInfo, CbInfo, ExpTypes, Analysis, File) ->
   OldExpTypes = dialyzer_codeserver:get_temp_exported_types(CS5),
   MergedExpTypes = sets:union(ExpTypes, OldExpTypes),
   CS6 = dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes, CS5),
-  ExFuncs = [{0,F,A} || {_,_,{F,A}} <- cerl:module_exports(Tree)],
+  ExFuncs = [{0,cerl:fname_id(Es),cerl:fname_arity(Es)} || Es <- cerl:module_exports(Tree)],
   CG = Analysis#analysis.callgraph,
   {V, E} = dialyzer_callgraph:scan_core_tree(Tree, CG),
   dialyzer_callgraph:add_edges(E, V, CG),

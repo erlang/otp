@@ -1,3 +1,10 @@
+%%%
+%%% %CopyrightBegin%
+%%%
+%%% SPDX-License-Identifier: Apache-2.0
+%%%
+%%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
+%%%
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
 %%% You may obtain a copy of the License at
@@ -10,13 +17,7 @@
 %%% See the License for the specific language governing permissions and
 %%% limitations under the License.
 %%%
-%%% The Original Code is xmerl-0.19
-%%%
-%%% The Initial Developer of the Original Code is Ericsson Telecom
-%%% AB. Portions created by Ericsson are Copyright (C), 1998, Ericsson
-%%% Telecom AB. All Rights Reserved.
-%%%
-%%% Contributor(s):
+%%% %CopyrightEnd%
 %%%
 %%%----------------------------------------------------------------------
 %%% #0.    BASIC INFORMATION

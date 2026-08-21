@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -26,7 +28,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-	 create/1,store/1,iterate/1,remove/1]).
+	 create/1,store/1,iterate/1,remove/1,
+         doctests_dict/1,doctests_gb_trees/1,doctests_orddict/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -36,11 +39,14 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,5}}].
 
-all() -> 
-    [create, store, remove, iterate].
+all() ->
+    [{group,p}].
 
-groups() -> 
-    [].
+groups() ->
+    [{p,[parallel],
+      [create, store, remove, iterate,
+       doctests_dict, doctests_gb_trees, doctests_orddict
+      ]}].
 
 init_per_suite(Config) ->
     Config.
@@ -112,6 +118,18 @@ remove_2([{Key,Val}|T], D0, M) ->
 remove_2([], D, M) ->
     true = M(is_empty, D),
     D.
+
+doctests_dict(_Config) ->
+    ct_doctest:module(dict, [{skipped_blocks, 0},
+                              {missing_tests, []}]).
+
+doctests_gb_trees(_Config) ->
+    ct_doctest:module(gb_trees, [{skipped_blocks, 0},
+                                  {missing_tests, []}]).
+
+doctests_orddict(_Config) ->
+    ct_doctest:module(orddict, [{skipped_blocks, 2},
+                                {missing_tests, []}]).
 
 %%%
 %%% Test specifics for gb_trees.

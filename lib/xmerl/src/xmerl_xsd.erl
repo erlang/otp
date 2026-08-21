@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,6 +30,12 @@ XML Schema please study [part 0](http://www.w3.org/TR/xmlschema-0/).
 
 An XML structure is validated by [`xmerl_xsd:validate/[2,3]`](`validate/2`).
 """.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_unsafe_function, {xmerl_scan, file, 1}},
+          {nowarn_unsafe_function, {xmerl_scan, file, 2}},
+          {nowarn_unsafe_function, {xmerl_scan, string, 1}},
+          {nowarn_unsafe_function, {xmerl_scan, string, 2}}]).
 
 %%----------------------------------------------------------------------
 %% Include files
@@ -80,22 +88,13 @@ Options that allow to customize the behaviour of the validation.
 
 Possible options are :
 
-<dl>
-  <dt><code>{tab2file,boolean()}</code></dt>
-     <dd>Enables saving of abstract structure on file for debugging
-        purpose.</dd>
-  <dt><code>{xsdbase,filename()}</code></dt>
-     <dd>XSD Base directory.</dd>
-  <dt><code>{fetch_fun,FetchFun}</code></dt>
-     <dd>Call back function to fetch an external resource.</dd>
-  <dt><code>{fetch_path,PathList}</code></dt>
-     <dd>PathList is a list of directories to search when fetching files.
-         If the file in question is not in the fetch_path, the URI will
-         be used as a file name.</dd>
-  <dt><code>{state,State}</code></dt>
-     <dd>It is possible by this option to provide a state with process
-         information from an earlier validation.</dd>
-</dl>
+- **`{tab2file,boolean()}`** - Enables saving of abstract structure on file for debugging purpose.
+- **`{xsdbase,filename()}`** - XSD Base directory.
+- **`{fetch_fun,FetchFun}`** - Call back function to fetch an external resource.
+- **`{fetch_path,PathList}`** - PathList is a list of directories to search when fetching files.
+  If the file in question is not in the fetch_path, the URI will be used as a file name.
+- **`{state,State}`** - It is possible by this option to provide a state with process
+  information from an earlier validation.
 """.
 -type option_list() :: [{xsdbase,filename()} |
                         {atom(),term()}].
@@ -2620,6 +2619,9 @@ check_element_type(XML=[#xmlText{}|_],
     {ResolvedType,_} = resolve({simple_or_complex_Type,BT},S),
     check_element_type(XML,ResolvedType,Env,Block,S,Checked);
 
+check_element_type(_C, optional_text, _Env, _Block, S, _Checked) ->
+    {[], [], S};
+
 %% single schema object
 check_element_type(XML=[_H|_],
 		   #schema_complex_type{name=Name,block=Bl,content=C},
@@ -3055,12 +3057,16 @@ allow_empty_content([{extension,{_BT,_CM=[]}}]) ->
     true;
 allow_empty_content([{_,{_,{0,_}}}|Rest]) ->
     allow_empty_content(Rest);
+allow_empty_content([{any,{_,{0,_},_}}|Rest]) ->
+    allow_empty_content(Rest);
 allow_empty_content([{_,{Content,_}}|Rest]) ->
      case allow_empty_content(Content) of
 	 true ->
 	     allow_empty_content(Rest);
 	 _ -> false
      end;
+allow_empty_content([optional_text|Rest]) ->
+    allow_empty_content(Rest);
 allow_empty_content(_) ->
     false.
 
@@ -3913,6 +3919,8 @@ is_optional(G={group,_},S) ->
 	{#schema_group{content=[CM]},_} ->
 	    is_optional(CM,S)
     end;
+is_optional(optional_text,_) ->
+    true;
 is_optional(_,_) ->
     false.
 

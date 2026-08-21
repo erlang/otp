@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -209,7 +211,7 @@ format(Local, Remote, SFun, CFun)
 %%% ----------------------------------------------------------
 
 format(Tables, SFun)
-  when is_list(Tables), (is_function(SFun, 2) or is_function(SFun, 3)) ->
+  when is_list(Tables), is_function(SFun, 2) orelse is_function(SFun, 3) ->
     format(Tables, SFun, fun tab2list/1);
 
 format(Tables, CFun)

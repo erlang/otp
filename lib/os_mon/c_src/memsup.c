@@ -1,8 +1,10 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2024. All Rights Reserved.
- * 
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,7 +16,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -288,7 +290,6 @@ get_mem_procfs(memory_ext *me){
     int fd, nread;
     char buffer[4097];
     char *bp;
-    unsigned long value;
     
     me->flag = 0;
     
@@ -494,7 +495,7 @@ get_extended_mem(memory_ext *me) {
 static void 
 get_basic_mem(unsigned long *tot, unsigned long *used, unsigned long *pagesize){
 #if defined(_SC_AVPHYS_PAGES)	/* Does this exist on others than Solaris2? */
-    unsigned long avPhys, phys, pgSz;
+    unsigned long avPhys, phys;
     
     phys = sysconf(_SC_PHYS_PAGES);
     avPhys = sysconf(_SC_AVPHYS_PAGES);

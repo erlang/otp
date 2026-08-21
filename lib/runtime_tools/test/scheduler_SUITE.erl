@@ -1,6 +1,8 @@
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -91,7 +93,7 @@ check([{total, Tf, Ts} | List]=U) ->
                        List
                end,
 
-    lists:foreach(fun({Type, Id, F, S}) when ((Type =:= normal) or (Type =:= cpu) or (Type =:= io)),
+    lists:foreach(fun({Type, Id, F, S}) when Type =:= normal orelse Type =:= cpu orelse Type =:= io,
                                              is_integer(Id) ->
                           check_values(F, S, true)
                   end,

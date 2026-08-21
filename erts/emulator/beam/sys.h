@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -177,6 +179,25 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 #  define ERTS_UNLIKELY(BOOL) (BOOL)
 #endif
 
+#if (ERTS_AT_LEAST_GCC_VSN__(5, 1, 0) || __has_builtin(__builtin_unreachable))
+#  define ERTS_UNREACHABLE __builtin_unreachable()
+#elif defined(_MSC_VER)
+#  define ERTS_UNREACHABLE __assume(0)
+#else
+/* Unsupported compiler, just ignore it. */
+#  define ERTS_UNREACHABLE ((void)0)
+#endif
+
+/* Tells the compiler to assume that a certain fact always holds, suppressing
+ * bogus warnings and/or enabling better optimizations. */
+#if !defined(DEBUG)
+#  define ERTS_ASSUME(Expr) ((Expr) ?                                          \
+                             (void)0 :                                         \
+                             (void)ERTS_UNREACHABLE)
+#else
+#  define ERTS_ASSUME(Expr) ASSERT((Expr))
+#endif
+
 /* AIX doesn't like this and claims section conflicts */
 #if ERTS_AT_LEAST_GCC_VSN__(2, 96, 0) && !defined(_AIX)
 #if (defined(__APPLE__) && defined(__MACH__)) || defined(__DARWIN__)
@@ -308,6 +329,19 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
         enum { compile_time_assert__ = 1/((int)(e)) };  \
     } while (0)
 #endif
+
+/* Taken from https://best.openssf.org/Compiler-Hardening-Guides/Compiler-Options-Hardening-Guide-for-C-and-C++.html#warn-about-implicit-fallthrough-in-switch-statements */
+#ifdef __has_attribute
+#  if __has_attribute(__fallthrough__)
+#    define ERTS_FALLTHROUGH()                    __attribute__((__fallthrough__))
+#  endif
+#endif
+#ifndef ERTS_FALLTHROUGH
+# define ERTS_FALLTHROUGH()                    do {} while (0)  /* fallthrough */
+#endif
+
+/* C99: bool, true and false */
+#include <stdbool.h>
 
 /*
  * Microsoft C/C++: We certainly want to use stdarg.h and prototypes.
@@ -654,6 +688,12 @@ UWord erts_sys_get_large_page_size(void);
 /* Size of misc memory allocated from system dependent code */
 Uint erts_sys_misc_mem_sz(void);
 
+/* erl_errno_str.c */
+
+/* char *erl_errno_id(int eno); */ /* Prototype in erl_driver.h */
+void erts_errno_init(void);
+void erts_errno_late_init(void);
+
 /* print stuff is declared here instead of in global.h, so sys stuff won't
    have to include global.h */
 #include "erl_printf.h"
@@ -672,7 +712,7 @@ typedef struct {
     size_t size;
 } erts_print_sn_buf;
 
-int erts_print(fmtfn_t to, void *arg, char *format, ...);	/* in utils.c */
+int erts_print(fmtfn_t to, void *arg, const char *format, ...);	/* in utils.c */
 int erts_putc(fmtfn_t to, void *arg, char);			/* in utils.c */
 
 /* logger stuff is declared here instead of in global.h, so sys files
@@ -701,12 +741,13 @@ typedef struct preload {
 } Preload;
 
 /*
- * ErtsTracer is either NIL, 'true' or [Mod | State]
+ * ErtsTracer is either NIL, 'true', LocalPid or [Mod | State]
  *
  * If set to NIL, it means no tracer.
  * If set to 'true' it means the current process' tracer.
  * If set to [Mod | State], there is a tracer.
- *  See erts_tracer_update for more details
+ * LocalPid is the optimized form of the common case [erl_tracer | LocalPid].
+ *  See erts_tracer_update_impl for more details
  */
 typedef Eterm ErtsTracer;
 
@@ -852,6 +893,7 @@ int sys_chars_to_double(char*, double*);
 int sys_double_to_chars(double, char*, size_t);
 int sys_double_to_chars_ext(double, char*, size_t, size_t);
 int sys_double_to_chars_fast(double, char*, int, int, int);
+int sys_double_to_chars_short(double, char*, int);
 void sys_get_pid(char *, size_t);
 int sys_get_hostname(char *buf, size_t size);
 
@@ -1216,6 +1258,18 @@ ERTS_GLB_INLINE size_t sys_strlen(const char *s)
                             ((byte*)(s))[7] = (byte)((Sint64)(i))       & 0xff;\
                            } while (0) 
 
+#define put_little_int64(i, s) \
+    do {\
+        ((byte*)(s))[7] = (byte)((Sint64)(i) >> 56); \
+        ((byte*)(s))[6] = (byte)((Sint64)(i) >> 48); \
+        ((byte*)(s))[5] = (byte)((Sint64)(i) >> 40); \
+        ((byte*)(s))[4] = (byte)((Sint64)(i) >> 32); \
+        ((byte*)(s))[3] = (byte)((Sint64)(i) >> 24); \
+        ((byte*)(s))[2] = (byte)((Sint64)(i) >> 16); \
+        ((byte*)(s))[1] = (byte)((Sint64)(i) >> 8);  \
+        ((byte*)(s))[0] = (byte)((Sint64)(i));       \
+      } while (0)
+
 /* Returns a signed int */
 #define get_int32(s) ((((byte*) (s))[0] << 24) | \
                       (((byte*) (s))[1] << 16) | \
@@ -1234,6 +1288,14 @@ ERTS_GLB_INLINE size_t sys_strlen(const char *s)
                             ((byte*)(s))[2] = (byte)((i) >> 8)  & 0xff;  \
                             ((byte*)(s))[3] = (byte)(i)         & 0xff;} \
                         while (0)
+
+#define put_little_int32(i, s) \
+    do {\
+        ((byte*)(s))[3] = (byte)((i) >> 24); \
+        ((byte*)(s))[2] = (byte)((i) >> 16); \
+        ((byte*)(s))[1] = (byte)((i) >> 8);  \
+        ((byte*)(s))[0] = (byte)(i);         \
+      } while (0)
 
 #define get_int24(s) ((((byte*) (s))[0] << 16) | \
                       (((byte*) (s))[1] << 8)  | \

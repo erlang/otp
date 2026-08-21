@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +26,9 @@
 -compile([nowarn_obsolete_guard]).
 
 -include_lib("syntax_tools/include/merl.hrl").
+-include_lib("stdlib/include/assert.hrl").
+
+-define(AssertFunctionClause(E), ?assertError(function_clause, (E))).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
@@ -41,7 +46,8 @@
 	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1,
 	 bad_constants/1,bad_guards/1,
          guard_in_catch/1,beam_bool_SUITE/1,
-         repeated_type_tests/1,use_after_branch/1]).
+         repeated_type_tests/1,use_after_branch/1,
+         body_in_guard/1,is_integer_3_guard/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -60,12 +66,13 @@ groups() ->
        basic_andalso_orelse,traverse_dcd,
        check_qlc_hrl,andalso_semi,t_tuple_size,binary_part,
        bad_constants,bad_guards,guard_in_catch,beam_bool_SUITE,
-       repeated_type_tests,use_after_branch]},
+       repeated_type_tests,use_after_branch,body_in_guard,
+       is_integer_3_guard]},
      {slow,[],[literal_type_tests,generated_combinations]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
-    Config.
+    id(Config).
 
 end_per_suite(_Config) ->
     ok.
@@ -129,7 +136,7 @@ misc(Config) when is_list(Config) ->
     error = if abs(Zero > One) -> ok; true -> error end,
     ok = if is_integer(Zero) >= is_integer(One) -> ok end,
 
-    {'EXIT',{function_clause,_}} = catch misc_4(),
+    ?AssertFunctionClause(misc_4()),
 
     ok.
 
@@ -229,6 +236,26 @@ basic_not(Config) when is_list(Config) ->
     check(fun() -> if not (True =:= true) -> ok; true -> error end end, error),
     check(fun() -> if not (False =:= true) -> ok; true -> error end end, ok),
     check(fun() -> if not (Glurf =:= true) -> ok; true -> error end end, ok),
+
+    check(fun() -> if
+                       not is_integer(7, Glurf, Glurf) -> ok;
+                       true -> error
+                   end
+          end, error),
+
+    check(fun() -> if
+                       not is_integer(10, C, D) -> ok;
+                       true -> error
+                   end
+          end, ok),
+
+    check(fun() ->
+                  X = id(20),
+                  if
+                       not is_integer(X, 1, 10) -> ok;
+                       true -> error
+                   end
+          end, ok),
 
     ok.
 
@@ -780,6 +807,24 @@ more_or_guards(Config) when is_list(Config) ->
 		      element(19, ATuple) -> ok;
 		      true -> error end
 	  end, error),
+
+    check(fun() ->
+                  Lower = id(a),
+                  Upper = id(b),
+                  if
+                      true or is_integer(1, Lower, Upper) -> ok;
+                      true -> error
+                  end
+          end, error),
+
+    check(fun() ->
+                  Lower = id(1),
+                  Upper = id(10),
+                  if
+                      false or is_integer(1, Lower, Upper) -> ok;
+                      true -> error
+                  end
+          end, ok),
     ok.
 
 complex_or_guards(Config) when is_list(Config) ->
@@ -977,7 +1022,7 @@ and_guard(Config) when is_list(Config) ->
     ok = relprod({'Set',a,b}, {'Set',a,b}),
     
     ok = and_same_var(42),
-    {'EXIT',{if_clause,_}} = (catch and_same_var(x)),
+    ?assertError(if_clause, and_same_var(x)),
     ok.
 
 and_same_var(V) ->
@@ -1264,10 +1309,8 @@ is_function_2(Config) when is_list(Config) ->
     true = is_function(id(fun() -> ok end), 0),
     false = is_function(id(fun ?MODULE:all/1), 0),
     false = is_function(id(fun() -> ok end), 1),
-    {'EXIT',{badarg,_}} =
-        (catch is_function(id(fun() -> ok end), -1) orelse error),
-    {'EXIT',{badarg,_}} =
-        (catch is_function(id(fun() -> ok end), '') orelse error),
+    ?assertError(badarg, is_function(id(fun() -> ok end), -1) orelse error),
+    ?assertError(badarg, is_function(id(fun() -> ok end), '') orelse error),
 
     F = fun(_) -> ok end,
     if
@@ -1316,9 +1359,9 @@ tricky(Config) when is_list(Config) ->
     error = tricky_3(#{}),
     error = tricky_3({a,b}),
 
-    {'EXIT',_} = (catch tricky_4(x)),
-    {'EXIT',_} = (catch tricky_4(42)),
-    {'EXIT',_} = (catch tricky_4(true)),
+    ?assertError(_, tricky_4(x)),
+    ?assertError(_, tricky_4(42)),
+    ?assertError(_, tricky_4(true)),
 
     ok.
 
@@ -1558,7 +1601,8 @@ is_digit(N) ->
     Bool = is_digit_8(N),
     Bool = is_digit_9(42, N),
     Bool = is_digit_10(N, 0),
-    Bool = is_digit_11(N, 0).
+    Bool = is_digit_11(N, 0),
+    Bool = is_digit_12(N).
 
 is_digit_1(X) when 16#0660 =< X, X =< 16#0669 -> true;
 is_digit_1(X) when 16#0030 =< X, X =< 16#0039 -> true;
@@ -1619,6 +1663,12 @@ is_digit_11(X, _) when 16#0030 =< X, X =< 16#0039 -> true;
 is_digit_11(X, _) when 16#06F0 =< X, X =< 16#06F9 -> true;
 is_digit_11(_, _) -> false.
 
+is_digit_12(X) when is_integer(X, 16#0030, 16#0039);
+                    is_integer(X, 16#06F0,  16#06F9);
+                    is_integer(X, 16#0660, 16#0669) -> true;
+is_digit_12(16#0670) -> false;
+is_digit_12(_) -> false.
+
 rel_op_combinations_2(0, _) ->
     ok;
 rel_op_combinations_2(N, Range) ->
@@ -1639,7 +1689,8 @@ broken_range(N) ->
     Bool = broken_range_10(N),
     Bool = broken_range_11(N),
     Bool = broken_range_12(N),
-    Bool = broken_range_13(N).
+    Bool = broken_range_13(N),
+    Bool = broken_range_14(N).
 
 broken_range_1(X) when X >= 10, X =< 20, X =/= 13 -> true;
 broken_range_1(X) when X >= 3, X =< 5 -> true;
@@ -1703,6 +1754,10 @@ broken_range_12(_) -> false.
 broken_range_13(X) when X >= 10, X =< 20, 13 =/= X -> true;
 broken_range_13(X) when X >= 3, X =< 5 -> true;
 broken_range_13(_) -> false.
+
+broken_range_14(X) when is_integer(X, 10, 20), 13 =/= X -> true;
+broken_range_14(X) when is_integer(X, 3, 5) -> true;
+broken_range_14(_) -> false.
 
 rel_op_combinations_3(0, _) ->
     ok;
@@ -2273,19 +2328,19 @@ cqlc(M, F, As, St) ->
 andalso_semi(Config) when is_list(Config) ->
     ok = andalso_semi_foo(0),
     ok = andalso_semi_foo(1),
-    fc(catch andalso_semi_foo(2)),
+    ?AssertFunctionClause(andalso_semi_foo(2)),
 
     ok = andalso_semi_bar([a,b,c]),
     ok = andalso_semi_bar(1),
-    fc(catch andalso_semi_bar([a,b])),
+    ?AssertFunctionClause(andalso_semi_bar([a,b])),
 
     ok = andalso_semi_dispatch(name, fun andalso_semi/1),
     ok = andalso_semi_dispatch(name, fun ?MODULE:andalso_semi/1),
     ok = andalso_semi_dispatch(name, {?MODULE,andalso_semi,1}),
-    fc(catch andalso_semi_dispatch(42, fun andalso_semi/1)),
-    fc(catch andalso_semi_dispatch(name, not_fun)),
-    fc(catch andalso_semi_dispatch(name, fun andalso_semi_dispatch/2)),
-    fc(catch andalso_semi_dispatch(42, {a,b})),
+    ?AssertFunctionClause(andalso_semi_dispatch(42, fun andalso_semi/1)),
+    ?AssertFunctionClause(andalso_semi_dispatch(name, not_fun)),
+    ?AssertFunctionClause(andalso_semi_dispatch(name, fun andalso_semi_dispatch/2)),
+    ?AssertFunctionClause(andalso_semi_dispatch(42, {a,b})),
 
     ok.
 
@@ -2302,8 +2357,8 @@ andalso_semi_dispatch(Registry, MFAOrFun) when
 
 t_tuple_size(Config) when is_list(Config) ->
     10 = do_tuple_size({1,2,3,4}),
-    fc(catch do_tuple_size({1,2,3})),
-    fc(catch do_tuple_size(42)),
+    ?AssertFunctionClause(do_tuple_size({1,2,3})),
+    ?AssertFunctionClause(do_tuple_size(42)),
 
     error = ludicrous_tuple_size({a,b,c}),
     error = ludicrous_tuple_size([a,b,c]),
@@ -2342,11 +2397,15 @@ validate_ip(_) ->
 %%
 %% The binary_part/2,3 guard BIFs
 %%
--define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
-mask_error({'EXIT',{Err,_}}) ->
-    Err;
-mask_error(Else) ->
-    Else.
+-define(MASK_ERROR(EXPR), mask_error(fun() -> EXPR end)).
+mask_error(ExprFun) ->
+    try ExprFun() of
+        Result ->
+            Result
+    catch
+        error:Error ->
+            Error
+    end.
 
 %% Test the binary_part/2,3 guard (GC) BIFs.
 binary_part(Config) when is_list(Config) ->
@@ -2508,21 +2567,21 @@ bad_constants(Config) when is_list(Config) ->
 bad_guards(Config) when is_list(Config) ->
     if erlang:float(self()); true -> ok end,
 
-    fc(catch bad_guards_1(1, [])),
-    fc(catch bad_guards_1(1, [2])),
-    fc(catch bad_guards_1(atom, [2])),
+    ?AssertFunctionClause(bad_guards_1(1, [])),
+    ?AssertFunctionClause(bad_guards_1(1, [2])),
+    ?AssertFunctionClause(bad_guards_1(atom, [2])),
 
-    fc(catch bad_guards_2(#{a=>0,b=>0}, [])),
-    fc(catch bad_guards_2(#{a=>0,b=>0}, [x])),
-    fc(catch bad_guards_2(not_a_map, [x])),
-    fc(catch bad_guards_2(42, [x])),
+    ?AssertFunctionClause(bad_guards_2(#{a=>0,b=>0}, [])),
+    ?AssertFunctionClause(bad_guards_2(#{a=>0,b=>0}, [x])),
+    ?AssertFunctionClause(bad_guards_2(not_a_map, [x])),
+    ?AssertFunctionClause(bad_guards_2(42, [x])),
 
-    fc(catch bad_guards_3(#{a=>0,b=>0}, [])),
-    fc(catch bad_guards_3(#{a=>0,b=>0}, [x])),
-    fc(catch bad_guards_3(not_a_map, [x])),
-    fc(catch bad_guards_3(42, [x])),
+    ?AssertFunctionClause(bad_guards_3(#{a=>0,b=>0}, [])),
+    ?AssertFunctionClause(bad_guards_3(#{a=>0,b=>0}, [x])),
+    ?AssertFunctionClause(bad_guards_3(not_a_map, [x])),
+    ?AssertFunctionClause(bad_guards_3(42, [x])),
 
-    fc(catch bad_guards_4()),
+    ?AssertFunctionClause(bad_guards_4()),
 
     {0,undefined} = bad_guards_5(id(<<>>), id(undefined)),
 
@@ -2569,7 +2628,7 @@ guard_in_catch(_Config) ->
     {'EXIT',{if_clause,_}} = do_guard_in_catch_map_2(#{a=>b}),
     {'EXIT',{if_clause,_}} = do_guard_in_catch_map_2(atom),
 
-    {'EXIT',{if_clause,_}} = (catch do_guard_in_catch_map_3()),
+    ?assertError(if_clause, do_guard_in_catch_map_3()),
 
     {'EXIT',{if_clause,_}} = do_guard_in_catch_bin(42),
     {'EXIT',{if_clause,_}} = do_guard_in_catch_bin(<<1,2,3>>),
@@ -2707,9 +2766,9 @@ before_and_inside_if_2(XDo1, XDo2, Do3) ->
 
 scotland() ->
     million = do_scotland(placed),
-    {'EXIT',{{badmatch,placed},_}} = (catch do_scotland(false)),
-    {'EXIT',{{badmatch,placed},_}} = (catch do_scotland(true)),
-    {'EXIT',{{badmatch,placed},_}} = (catch do_scotland(echo)),
+    ?assertError({badmatch,placed}, do_scotland(false)),
+    ?assertError({badmatch,placed}, do_scotland(true)),
+    ?assertError({badmatch,placed}, do_scotland(echo)),
     ok.
 
 do_scotland(Echo) ->
@@ -2726,8 +2785,8 @@ found(_, _) -> million.
 
 %% ERL-143: beam_bool could not handle Y registers as a destination.
 y_registers() ->
-    {'EXIT',{badarith,[_|_]}} = (catch baker(valentine)),
-    {'EXIT',{badarith,[_|_]}} = (catch baker(clementine)),
+    ?assertError(badarith, baker(valentine)),
+    ?assertError(badarith, baker(clementine)),
 
     {not_ok,true} = potter([]),
     {ok,false} = potter([{encoding,any}]),
@@ -2754,10 +2813,10 @@ potter(Modes) ->
     {Final,Raw}.
 
 protected() ->
-    {'EXIT',{if_clause,_}} = (catch photographs({1, surprise, true}, opinions)),
+    ?assertError(if_clause, photographs({1, surprise, true}, opinions)),
 
     {{true}} = welcome({perfect, true}),
-    {'EXIT',{if_clause,_}} = (catch welcome({perfect, false})),
+    ?assertError(if_clause, welcome({perfect, false})),
     ok.
 
 photographs({_Violation, surprise, Deep}, opinions) ->
@@ -3123,7 +3182,7 @@ gh4788() ->
     ok = do_gh4788(id(0)),
     ok = do_gh4788(id(1)),
     ok = do_gh4788(id(undefined)),
-    lt_0_or_undefined = catch do_gh4788(id(-1)),
+    ?assertThrow(lt_0_or_undefined, do_gh4788(id(-1))),
     ok.
 
 do_gh4788(N) ->
@@ -3215,7 +3274,7 @@ beam_ssa_bool_coverage_6(_) ->
 
 gh_6164() ->
     true = do_gh_6164(id([])),
-    {'EXIT',{{case_clause,42},_}} = catch do_gh_6164(id(0)),
+    ?assertError({case_clause,42}, do_gh_6164(id(0))),
 
     ok.
 
@@ -3231,9 +3290,9 @@ do_gh_6164(V1) ->
     end.
 
 gh_6184() ->
-    {'EXIT',{function_clause,_}} = catch do_gh_6184(id(true), id({a,b,c})),
-    {'EXIT',{function_clause,_}} = catch do_gh_6184(true, true),
-    {'EXIT',{function_clause,_}} = catch do_gh_6184({a,b,c}, {x,y,z}),
+    ?AssertFunctionClause(do_gh_6184(id(true), id({a,b,c}))),
+    ?AssertFunctionClause(do_gh_6184(true, true)),
+    ?AssertFunctionClause(do_gh_6184({a,b,c}, {x,y,z})),
 
     ok.
 
@@ -3298,10 +3357,10 @@ gh_7370(_) ->
     b.
 
 gh_7517() ->
-    ok = catch do_gh_7517([]),
-    ok = catch do_gh_7517([a,b,c]),
-    {'EXIT',{function_clause,_}} = catch do_gh_7517(ok),
-    {'EXIT',{function_clause,_}} = catch do_gh_7517(<<>>),
+    ok = do_gh_7517([]),
+    ok = do_gh_7517([a,b,c]),
+    ?AssertFunctionClause(do_gh_7517(ok)),
+    ?AssertFunctionClause(do_gh_7517(<<>>)),
     ok.
 
 do_gh_7517(A) when (ok /= A) or is_float(is_list(A) orelse ok andalso ok) ->
@@ -3348,6 +3407,111 @@ use_after_branch_1(A) ->
         false -> {id(Boolean), gaffel}
     end.
 
+%% GH-8733: Benign bug where {succeeded,body} was emitted in a guard context,
+%% crashing the compiler when +no_bool_opt was specified.
+body_in_guard(_Config) ->
+    Pid = self(),
+    Mon = monitor(process, Pid),
+    receive
+        {'DOWN', Mon, process, Pid, _} ->
+            ok
+    after 0 ->
+        demonitor(Mon)
+    end.
+
+is_integer_3_guard(_Config) ->
+    Lower = id(1),
+    Upper = id(10),
+    _ = [begin
+             Expected = Lower =< X andalso X =< Upper,
+             Expected = is_integer_3_guard_1(X, Lower, Upper),
+             false = is_integer_3_guard_1(float(X), Lower, Upper)
+         end || X <- lists:seq(-7, 17)],
+
+    ?assertError(badarg, is_integer_3_guard_1(2, 1.5, 10)),
+    ?assertError(badarg, is_integer_3_guard_1(2, true, 10)),
+    ?assertError(badarg, is_integer_3_guard_1(2, 10, b)),
+
+    false = is_integer_3_guard_2(id(0)),
+    true = is_integer_3_guard_2(id(1)),
+    true = is_integer_3_guard_2(id(32)),
+    true = is_integer_3_guard_2(id(1024)),
+    false = is_integer_3_guard_2(id(1025)),
+
+    true = is_integer_3_guard_3(id(0)),
+    false = is_integer_3_guard_3(id(1)),
+    false = is_integer_3_guard_3(id(32)),
+    false = is_integer_3_guard_3(id(1024)),
+    true = is_integer_3_guard_3(id(1025)),
+
+    1 = is_integer_3_guard_4(id(1), id(0), id(5)),
+    false = is_integer_3_guard_4(id(1), id(-1), id(0)),
+
+    2 = is_integer_3_guard_5(id(2), id(0), id(9)),
+    false = is_integer_3_guard_5(id(1024), id(0), id(9)),
+
+    false = is_integer_3_guard_6(id(0), id(1), id(-1)),
+    true = is_integer_3_guard_6(id(0), id(0), id(1)),
+
+    false = is_integer_3_guard_7(id(0), id(1), id(9)),
+    true = is_integer_3_guard_7(id(1), id(1), id(9)),
+
+    true = is_integer_3_guard_8(id(17), id(12), id(20)),
+    false = is_integer_3_guard_8(id(0), id(12), id(20)),
+    true = is_integer_3_guard_8(id(5), id(1), id(20)),
+
+    ok.
+
+is_integer_3_guard_1(X, LB, UB) when is_integer(X, LB, UB) ->
+    true = is_integer(X, LB, UB);
+is_integer_3_guard_1(X, LB, UB) ->
+    is_integer(X, LB, UB).
+
+is_integer_3_guard_2(X) when is_integer(X, 1, 1024) ->
+    true = is_integer(X, 1, 1024);
+is_integer_3_guard_2(X) ->
+    is_integer(X, 1, 1024).
+
+is_integer_3_guard_3(X) when not is_integer(X, 1, 1024) ->
+    true = not is_integer(X, 1, 1024);
+is_integer_3_guard_3(X) ->
+    not is_integer(X, 1, 1024).
+
+is_integer_3_guard_4(X, LB, UB) when 0 =< LB, UB < 10,
+                                     is_integer(X, LB, UB) ->
+    is_integer_3_guard_4_id(X);
+is_integer_3_guard_4(X, LB, UB) ->
+    is_integer(X, LB, UB).
+
+is_integer_3_guard_4_id(I) -> I.
+
+is_integer_3_guard_5(X, LB, UB) when 0 =< LB, is_integer(UB),
+                                     UB < 10, is_integer(X, LB, UB) ->
+    is_integer_3_guard_5_id(X);
+is_integer_3_guard_5(X, LB, UB) ->
+    is_integer(X, LB, UB).
+
+is_integer_3_guard_5_id(I) -> I.
+
+%% Test incorrect order of bounds.
+is_integer_3_guard_6(X, LB, UB) when 10 =< LB, UB < 0, is_integer(X, LB, UB) ->
+    is_integer(X, LB, UB);
+is_integer_3_guard_6(X, LB, UB) ->
+    is_integer(X, LB, UB).
+
+is_integer_3_guard_7(X, LB, UB) when is_number(UB), UB < 10, is_integer(X, LB, UB) ->
+    is_integer(X, LB, UB);
+is_integer_3_guard_7(X, LB, UB) ->
+    is_integer(X, LB, UB).
+
+is_integer_3_guard_8(X, LB, UB) when is_number(LB), LB > 10, is_integer(X, LB, UB) ->
+    is_integer_3_guard_8_id(X),
+    is_integer(X, LB, UB);
+is_integer_3_guard_8(X, LB, UB) ->
+    is_integer(X, LB, UB).
+
+is_integer_3_guard_8_id(I) -> I.
+
 %% Call this function to turn off constant propagation.
 id(I) -> I.
 
@@ -3359,5 +3523,3 @@ check(F, Result) ->
 	    io:format("     Got: ~p\n", [Other]),
 	    ct:fail(check_failed)
     end.
-
-fc({'EXIT',{function_clause,_}}) -> ok.

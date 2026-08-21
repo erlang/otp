@@ -1,20 +1,21 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_X86_X86RAPASS_P_H_INCLUDED
 #define ASMJIT_X86_X86RAPASS_P_H_INCLUDED
 
-#include "../core/api-config.h"
+#include <asmjit/core/api-config.h>
 #ifndef ASMJIT_NO_COMPILER
 
-#include "../core/compiler.h"
-#include "../core/rabuilders_p.h"
-#include "../core/rapass_p.h"
-#include "../x86/x86assembler.h"
-#include "../x86/x86compiler.h"
-#include "../x86/x86emithelper_p.h"
+#include <asmjit/core/compiler.h>
+#include <asmjit/core/racfgblock_p.h>
+#include <asmjit/core/racfgbuilder_p.h>
+#include <asmjit/core/rapass_p.h>
+#include <asmjit/x86/x86assembler.h>
+#include <asmjit/x86/x86compiler.h>
+#include <asmjit/x86/x86emithelper_p.h>
 
 ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
@@ -28,14 +29,19 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 class X86RAPass : public BaseRAPass {
 public:
   ASMJIT_NONCOPYABLE(X86RAPass)
-  typedef BaseRAPass Base;
+  using Base = BaseRAPass;
 
-  EmitHelper _emitHelper;
+  //! \name Members
+  //! \{
+
+  EmitHelper _emit_helper;
+
+  //! \}
 
   //! \name Construction & Destruction
   //! \{
 
-  X86RAPass() noexcept;
+  X86RAPass(BaseCompiler& cc) noexcept;
   ~X86RAPass() noexcept override;
 
   //! \}
@@ -44,43 +50,39 @@ public:
   //! \{
 
   //! Returns the compiler casted to `x86::Compiler`.
-  ASMJIT_INLINE_NODEBUG Compiler* cc() const noexcept { return static_cast<Compiler*>(_cb); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG Compiler& cc() const noexcept { return static_cast<Compiler&>(_cb); }
 
   //! Returns emit helper.
-  ASMJIT_INLINE_NODEBUG EmitHelper* emitHelper() noexcept { return &_emitHelper; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG EmitHelper* emit_helper() noexcept { return &_emit_helper; }
 
-  ASMJIT_INLINE_NODEBUG bool avxEnabled() const noexcept { return _emitHelper._avxEnabled; }
-  ASMJIT_INLINE_NODEBUG bool avx512Enabled() const noexcept { return _emitHelper._avx512Enabled; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_avx_enabled() const noexcept { return _emit_helper.is_avx_enabled(); }
 
-  //! \}
-
-  //! \name Utilities
-  //! \{
-
-  ASMJIT_INLINE_NODEBUG InstId choose(InstId sseInstId, InstId avxInstId) noexcept {
-    return avxEnabled() ? avxInstId : sseInstId;
-  }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_avx512_enabled() const noexcept { return _emit_helper.is_avx512_enabled(); }
 
   //! \}
 
   //! \name Interface
   //! \{
 
-  void onInit() noexcept override;
-  void onDone() noexcept override;
+  void on_init() noexcept override;
+  void on_done() noexcept override;
 
-  Error buildCFG() noexcept override;
+  Error build_cfg_nodes() noexcept override;
 
-  Error _rewrite(BaseNode* first, BaseNode* stop) noexcept override;
+  Error rewrite() noexcept override;
 
-  Error emitMove(uint32_t workId, uint32_t dstPhysId, uint32_t srcPhysId) noexcept override;
-  Error emitSwap(uint32_t aWorkId, uint32_t aPhysId, uint32_t bWorkId, uint32_t bPhysId) noexcept override;
+  Error emit_move(RAWorkReg* work_reg, uint32_t dst_phys_id, uint32_t src_phys_id) noexcept override;
+  Error emit_swap(RAWorkReg* a_reg, uint32_t a_phys_id, RAWorkReg* b_reg, uint32_t b_phys_id) noexcept override;
 
-  Error emitLoad(uint32_t workId, uint32_t dstPhysId) noexcept override;
-  Error emitSave(uint32_t workId, uint32_t srcPhysId) noexcept override;
+  Error emit_load(RAWorkReg* work_reg, uint32_t dst_phys_id) noexcept override;
+  Error emit_save(RAWorkReg* work_reg, uint32_t src_phys_id) noexcept override;
 
-  Error emitJump(const Label& label) noexcept override;
-  Error emitPreCall(InvokeNode* invokeNode) noexcept override;
+  Error emit_jump(const Label& label) noexcept override;
+  Error emit_pre_call(InvokeNode* invoke_node) noexcept override;
 
   //! \}
 };

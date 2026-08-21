@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +22,7 @@
 -module(gen_event_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2, init_per_testcase/2,
@@ -832,7 +835,7 @@ call(Config) when is_list(Config) ->
     ok = gen_event:add_handler(my_dummy_handler, dummy_h, [self()]),
     ok = gen_event:add_handler(my_dummy_handler, {dummy_h, 1}, [self()]),
     [{dummy_h, 1}, dummy_h] = gen_event:which_handlers(my_dummy_handler),
-    {'EXIT',_} = (catch gen_event:call(non_exist, dummy_h, hejsan)),
+    ?assertExit(_, gen_event:call(non_exist, dummy_h, hejsan)),
     {error, _} = Async(non_exist, dummy_h, hejsan),
     {error, bad_module} = gen_event:call(my_dummy_handler, bad_h, hejsan),
     {error, bad_module} = Async(my_dummy_handler, bad_h, hejsan),
@@ -844,8 +847,7 @@ call(Config) when is_list(Config) ->
     {ok, hejhopp} = gen_event:call(my_dummy_handler, {dummy_h, 1}, hejsan),
     {reply, {ok, hejhopp}} = Async(my_dummy_handler, {dummy_h, 1}, hejsan),
     {ok, hejhopp} = gen_event:call(my_dummy_handler, dummy_h, hejsan, 10000),
-    {'EXIT', {timeout, _}} =
-	(catch gen_event:call(my_dummy_handler, dummy_h, hejsan, 0)),
+    ?assertExit({timeout, _}, gen_event:call(my_dummy_handler, dummy_h, hejsan, 0)),
     flush(),
     P1 = gen_event:send_request(my_dummy_handler, dummy_h, hejsan),
     timeout = gen_event:wait_response(P1, 0),

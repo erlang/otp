@@ -1,6 +1,8 @@
 /*
  * %CopyrightBegin%
  *
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -146,6 +148,14 @@ extern ERL_NIF_TERM atom_engine_method_ec;
 extern ERL_NIF_TERM atom_engine;
 extern ERL_NIF_TERM atom_key_id;
 extern ERL_NIF_TERM atom_password;
+#endif
+
+extern ERL_NIF_TERM atom_seed;
+extern ERL_NIF_TERM atom_expandedkey;
+#ifdef HAVE_ML_KEM
+extern ERL_NIF_TERM atom_mlkem512;
+extern ERL_NIF_TERM atom_mlkem768;
+extern ERL_NIF_TERM atom_mlkem1024;
 #endif
 
 int init_atoms(ErlNifEnv *env);

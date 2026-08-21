@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1661,7 +1663,7 @@ upgrade_supervisor(Conf) when is_list(Conf) ->
     %% Check that the restart strategy and child spec is updated
     {status, _, {module, _}, [_, _, _, _, [_,_,{data,[{"State",State}]}|_]]} =
 	rpc:call(Node,sys,get_status,[a_sup]),
-    {state,_,RestartStrategy,{[a],Db},_,_,_,_,_,_,_,_} = State,
+    {state,_,RestartStrategy,{[a],Db},_,_,_,_,_,_,_,_,_,_,_,_} = State,
     one_for_all = RestartStrategy, % changed from one_for_one
     {child,_,_,_,_,_,brutal_kill,_,_} = maps:get(a,Db), % changed from timeout 2000
 

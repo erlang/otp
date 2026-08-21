@@ -1,6 +1,8 @@
 /*
  * %CopyrightBegin%
  *
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Copyright Ericsson AB 2018-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -66,6 +68,11 @@ extern
 ErlNifMutex* esock_mutex_create(const char* pre, char* buf, SOCKET sock);
 
 extern
+int esock_get_list_length(ErlNifEnv*   env,
+                          ERL_NIF_TERM list,
+                          int          def);
+
+extern
 ERL_NIF_TERM esock_make_extra_error_info_term(ErlNifEnv*   env,
                                               const char*  file,
                                               const char*  function,
@@ -84,6 +91,13 @@ BOOLEAN_T esock_get_bool_from_map(ErlNifEnv*   env,
                                   ERL_NIF_TERM map,
                                   ERL_NIF_TERM key,
                                   BOOLEAN_T    def);
+
+extern
+BOOLEAN_T esock_get_string_from_map(ErlNifEnv*         env,
+                                    ERL_NIF_TERM       map,
+                                    ERL_NIF_TERM       key,
+                                    ErlNifCharEncoding encoding,
+                                    char**             str);
 
 extern
 BOOLEAN_T esock_decode_iov(ErlNifEnv*    env,
@@ -105,6 +119,15 @@ BOOLEAN_T esock_decode_sockaddr(ErlNifEnv*    env,
                                 ERL_NIF_TERM  eSockAddr,
                                 ESockAddress* sockAddrP,
                                 SOCKLEN_T*    addrLen);
+#if defined(HAVE_SCTP_H)
+extern
+BOOLEAN_T esock_decode_sockaddrs(ErlNifEnv*     env,
+                                 BOOLEAN_T      dbg,
+                                 int            family,
+                                 ERL_NIF_TERM   eSockAddrs,
+                                 ESockAddress** sockAddrs,
+                                 int*           addrCnt);
+#endif
 extern
 void esock_encode_sockaddr(ErlNifEnv*    env,
                            ESockAddress* sockAddrP,
@@ -157,6 +180,13 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
                               ERL_NIF_TERM*       eSockAddr);
 #endif
 
+extern
+void esock_encode_sockaddr_native(ErlNifEnv*       env,
+                                  struct sockaddr* addr,
+                                  SOCKLEN_T        len,
+                                  ERL_NIF_TERM     eFamily,
+                                  ERL_NIF_TERM*    eSockAddr);
+
 #ifdef HAVE_NETPACKET_PACKET_H
 extern
 void esock_encode_sockaddr_ll(ErlNifEnv*          env,
@@ -191,6 +221,15 @@ extern void esock_encode_timeval(ErlNifEnv*      env,
 extern BOOLEAN_T esock_decode_timeval(ErlNifEnv*      env,
                                       ERL_NIF_TERM    eTime,
                                       struct timeval* timeP);
+extern void esock_encode_timespec(ErlNifEnv*       env,
+                                  struct timespec* timeP,
+                                  ERL_NIF_TERM*    eTime);
+extern BOOLEAN_T esock_decode_timespec(ErlNifEnv*       env,
+                                       ERL_NIF_TERM     eTime,
+                                       struct timespec* timeP);
+
+extern
+char* esock_domain_to_string(int domain);
 
 extern
 void esock_encode_domain(ErlNifEnv*    env,
@@ -200,6 +239,9 @@ extern
 int esock_decode_domain(ErlNifEnv*   env,
                         ERL_NIF_TERM eDomain,
                         int*         domain);
+
+extern
+char* esock_protocol_to_string(int domain);
 
 extern
 BOOLEAN_T esock_decode_type(ErlNifEnv*   env,
@@ -312,7 +354,15 @@ BOOLEAN_T esock_timestamp_str(char *buf, unsigned int len);
 extern
 BOOLEAN_T esock_format_timestamp(ErlNifTime timestamp, char *buf, unsigned int len);
 
+/*
+ * esock_debug_msg
+ * esock_info_msg
+ * esock_warning_msg
+ * esock_error_msg
+ */
+
 #define MSG_FUNCS                               \
+    MSG_FUNC_DEF(debug)                         \
     MSG_FUNC_DEF(info)                          \
     MSG_FUNC_DEF(warning)                       \
     MSG_FUNC_DEF(error)
@@ -327,5 +377,11 @@ MSG_FUNCS
 
 extern
 BOOLEAN_T esock_is_integer(ErlNifEnv *env, ERL_NIF_TERM term);
+
+extern
+void* esock_dlopen(char* name);
+
+extern
+void* esock_dlsym(void* handle, const char* symbolName);
 
 #endif // SOCKET_UTIL_H__

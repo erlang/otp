@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -165,7 +167,7 @@ emake_opts(Config) when is_list(Config) ->
     ok.
 
 %% Moves to the data directory of this suite, clean it from any object
-%% files (*.jam for a JAM emulator).  Returns the previous directory.
+%% files. Returns the previous directory.
 prepare_data_dir(Config) ->
     {ok, Current} = file:get_cwd(),
     {value, {data_dir, Dir}} = lists:keysearch(data_dir, 1, Config),

@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%%-------------------------------------------------------------------
 %%% File    : sudoku_gui.erl
@@ -24,6 +26,8 @@
 %%% Created :  9 Jan 2008 by  <dgud@erix.ericsson.se>
 %%%-------------------------------------------------------------------
 -module(sudoku_gui).
+
+-compile([{nowarn_possibly_unsafe_function, {file, consult, 1}}]).
 
 -export([init/1, handle_info/2, handle_call/3, handle_cast/2, handle_event/2,
 	 terminate/2, code_change/3]).

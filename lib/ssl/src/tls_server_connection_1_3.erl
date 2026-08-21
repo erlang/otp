@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2022-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2022-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -105,10 +107,13 @@
 callback_mode() ->
     [state_functions, state_enter].
 
-init([?SERVER_ROLE, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
+init([?SERVER_ROLE, Sender, Tab, Host, Port, Socket, Options,  User, CbInfo]) ->
     State0 = #state{protocol_specific = Map} =
-        tls_gen_connection_1_3:initial_state(?SERVER_ROLE, Sender,
+        tls_gen_connection_1_3:initial_state(?SERVER_ROLE, Sender, Tab,
                                              Host, Port, Socket, Options, User, CbInfo),
+    #state{static_env = #static_env{user_socket = UserSocket}} = State0,
+    User ! {self(), user_socket, UserSocket},
+    put(tls_role, server),
     try
 	State = ssl_gen_statem:init_ssl_config(State0#state.ssl_options, ?SERVER_ROLE, State0),
         tls_gen_connection:initialize_tls_sender(State),
@@ -165,7 +170,7 @@ user_hello({call, From}, cancel, State) ->
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{handshake_env = #handshake_env{continue_status = {pause, ClientVersions}},
                   ssl_options = Options0} = State0) ->
-    try ssl:update_options(NewOptions, ?SERVER_ROLE, Options0) of
+    try ssl_config:update_options(NewOptions, ?SERVER_ROLE, Options0) of
         Options = #{versions := Versions} ->
             State1 = ssl_gen_statem:ssl_config(Options, ?SERVER_ROLE, State0),
             #state{handshake_env = HsEnv0} = State1,
@@ -235,6 +240,9 @@ start(internal, #client_hello{} = Hello,
 start(internal, #client_hello{}, State0) -> %% Missing mandantory TLS-1.3 extensions,
     %% so it is a previous version hello.
     ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?STATE(start), State0);
+start(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA, early_data = false}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, none_early_application_data_before_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(start), State);
 start(info, Msg, State) ->
     tls_gen_connection:gen_info(Msg, ?STATE(start), State);
 start(Type, Msg, State) ->
@@ -255,9 +263,15 @@ negotiated(internal, {start_handshake, _} = Message, State0) ->
     case send_hello_flight(Message, State0) of
         #alert{} = Alert ->
             ssl_gen_statem:handle_own_alert(Alert, ?STATE(negotiated), State0);
-        {State, NextState} ->
+        {State1, NextState} ->
+            State2 = tls_handshake_1_3:calculate_write_traffic_secrets(State1),
+            State = ssl_record:step_encryption_state_write(State2),
             {next_state, NextState, State, []}
     end;
+negotiated(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA, early_data = false}},
+           State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, none_early_application_data_before_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(negotiated), State);
 negotiated(info, Msg, State) ->
     tls_gen_connection:gen_info(Msg, ?STATE(negotiated), State);
 negotiated(Type, Msg, State) ->
@@ -268,6 +282,10 @@ negotiated(Type, Msg, State) ->
                 {start, timeout()} | term(), #state{}) ->
           gen_statem:state_function_result().
 %%--------------------------------------------------------------------
+wait_cert(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE,
+                       application_data_before_handshake_or_intervened_in_post_handshake_auth),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_cert), State);
 wait_cert(Type, Msg, State) ->
     tls_gen_connection_1_3:wait_cert(Type, Msg, State).
 
@@ -289,6 +307,10 @@ wait_cv(internal,
         {Ref, {#alert{} = Alert, AState}} ->
             ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_cv), AState)
     end;
+wait_cv(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE,
+                       application_data_before_handshake_or_intervened_in_post_handshake_auth),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_cv), State);
 wait_cv(Type, Msg, State) ->
     tls_gen_connection_1_3:wait_cv(Type, Msg, State).
 
@@ -308,14 +330,12 @@ wait_finished(internal,
     {Ref,Maybe} = tls_gen_connection_1_3:do_maybe(),
     try
         Maybe(tls_handshake_1_3:validate_finished(State0, VerifyData)),
-
-        State1 = tls_handshake_1_3:handle_secrets(State0),
-        %% Configure traffic keys
-        State2 = ssl_record:step_encryption_state(State1),
-
-        State3 = maybe_send_session_ticket(State2),
-
-        {Record, State} = ssl_gen_statem:prepare_connection(State3, tls_gen_connection),
+        State1 = tls_handshake_1_3:calculate_read_traffic_secrets(State0),
+        State2 = tls_handshake_1_3:maybe_calculate_resumption_master_secret(State1),
+        State3 = ssl_record:step_encryption_state_read(State2),
+        State4 = tls_handshake_1_3:prepare_connection(State3),
+        State5 = maybe_send_session_ticket(State4),
+        {Record, State} = ssl_gen_statem:prepare_connection(State5, tls_gen_connection),
         KeepSecrets = maps:get(keep_secrets, SSLOpts, false),
         tls_gen_connection_1_3:maybe_traffic_keylog_1_3(KeepSecrets, Role,
                                                         State#state.connection_states, 0),
@@ -326,6 +346,10 @@ wait_finished(internal,
         {Ref, #alert{} = Alert} ->
             ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_finished), State0)
     end;
+wait_finished(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE,
+                       application_data_before_handshake_or_intervened_in_post_handshake_auth),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_finished), State);
 wait_finished(info, Msg, State) ->
     tls_gen_connection:gen_info(Msg, ?STATE(wait_finished), State);
 wait_finished(Type, Msg, State) ->
@@ -352,6 +376,9 @@ wait_eoed(internal, #end_of_early_data{}, #state{handshake_env = HsEnv0} = State
             ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason),
                                             wait_eoed, State0)
     end;
+wait_eoed(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA, early_data = false}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, none_early_application_data_before_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_eoed), State);
 wait_eoed(info, Msg, State) ->
     tls_gen_connection:gen_info(Msg, ?STATE(wait_eoed), State);
 wait_eoed(Type, Msg, State) ->
@@ -362,6 +389,8 @@ wait_eoed(Type, Msg, State) ->
                  term(), #state{}) ->
           gen_statem:state_function_result().
 %%--------------------------------------------------------------------
+connection(info, Msg, State) ->
+    tls_gen_connection:gen_info(Msg, connection, State);
 connection(Type, Msg, State) ->
     tls_gen_connection_1_3:connection(Type, Msg, State).
 
@@ -397,7 +426,6 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         #state{connection_states = ConnectionStates0,
                session = Session0,
                ssl_options = #{ciphers := ServerCiphers,
-                               signature_algs := ServerSignAlgs,
                                supported_groups := ServerGroups0,
                                alpn_preferred_protocols := ALPNPreferredProtocols,
                                honor_cipher_order := HonorCipherOrder},
@@ -437,16 +465,10 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         Maybe(validate_client_key_share(ClientGroups,
                                         ClientShares#key_share_client_hello.client_shares)),
         CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts, ?TLS_1_3),
-        #session{own_certificates = [Cert|_]} = Session =
+        #session{sign_alg = ProtocolSignAlg} = Session =
             Maybe(select_server_cert_key_pair(Session0, CertKeyPairs, ClientSignAlgs,
-                                              ClientSignAlgsCert, CertAuths, State0,
+                                              ClientSignAlgsCert, CertAuths, State1,
                                               undefined)),
-        {PublicKeyAlgo, _, _, RSAKeySize, Curve} = tls_handshake_1_3:get_certificate_params(Cert),
-
-        %% Select signature algorithm (used in CertificateVerify message).
-        SelectedSignAlg = Maybe(tls_handshake_1_3:select_sign_algo(PublicKeyAlgo,
-                                                                   RSAKeySize, ClientSignAlgs,
-                                                                   ServerSignAlgs, Curve)),
 
         %% Select client public key. If no public key found in ClientShares or
         %% ClientShares is empty, trigger HelloRetryRequest as we were able
@@ -455,16 +477,13 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         {Group, ClientPubKey} = select_client_public_key(Groups, ClientShares),
 
         %% Generate server_share
-        KeyShare = ssl_cipher:generate_server_share(Group),
+        KeyShare = generate_server_share(Group, ClientPubKey),
 
         State2 = case maps:get(max_frag_enum, Extensions, undefined) of
                       MaxFragEnum when is_record(MaxFragEnum, max_frag_enum) ->
                          ConnectionStates1 =
-                             ssl_record:set_max_fragment_length(MaxFragEnum, ConnectionStates0),
-                         HsEnv1 = (State1#state.handshake_env)#handshake_env{max_frag_enum =
-                                                                                 MaxFragEnum},
-                         State1#state{handshake_env = HsEnv1,
-                                      session = Session,
+                             ssl_record:maybe_set_max_fragment_length(MaxFragEnum, ConnectionStates0),
+                         State1#state{session = Session#session{max_frag_enum = MaxFragEnum},
                                       connection_states = ConnectionStates1};
                      _ ->
                          State1#state{session = Session}
@@ -483,7 +502,7 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
                                                         key_share => KeyShare,
                                                         session_id => SessionId,
                                                         group => Group,
-                                                        sign_alg => SelectedSignAlg,
+                                                        sign_alg => ProtocolSignAlg,
                                                         peer_public_key => ClientPubKey,
                                                         alpn => ALPNProtocol,
                                                         random => Random}),
@@ -551,14 +570,7 @@ send_hello_flight({start_handshake, PSK0},
                 true ->
                     ssl_record:step_encryption_state_write(State3);
                 false ->
-                    %% Read state is overwritten when handshake secrets are set.
-                    %% Trial_decryption and early_data_accepted must be set here!
-                    update_current_read(
-                      ssl_record:step_encryption_state(State3),
-                      true,   %% trial_decryption
-                      false   %% early_data_accepted
-                    )
-
+                    ssl_record:step_encryption_state(State3)
             end,
 
         %% Create EncryptedExtensions
@@ -584,7 +596,6 @@ send_hello_flight({start_handshake, PSK0},
 
         %% Send first flight
         {State, _} = Connection:send_handshake_flight(State9),
-
         {State, NextState}
 
     catch
@@ -597,7 +608,12 @@ send_hello_flight({start_handshake, PSK0},
 
 validate_cookie(_Cookie, #state{ssl_options = #{cookie := false}}) ->
     ok;
+validate_cookie(undefined, #state{ssl_options = #{cookie := true},
+                                  protocol_specific = #{hello_retry := true}}) ->
+    %% Post-HRR: client MUST include cookie (RFC 8446 Section 4.2.2)
+    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, missing_cookie)};
 validate_cookie(undefined, #state{ssl_options = #{cookie := true}}) ->
+    %% First ClientHello: no cookie expected yet
     ok;
 validate_cookie(#cookie{cookie = Cookie0}, #state{ssl_options = #{cookie := true},
                                                   handshake_env =
@@ -629,8 +645,11 @@ session_resumption({#state{ssl_options = #{session_tickets := Tickets},
   when Tickets =/= disabled -> % Resumption but early data prohibited
     State1 = tls_gen_connection_1_3:handle_resumption(State0, ok),
     {Index, PSK, PeerCert} = PSKInfo,
-    State = maybe_store_peer_cert(State1, PeerCert),
-    {ok, {State, negotiated, {Index, PSK}}};
+    State = #state{connection_states = #{pending_read := Read0} = CS} =
+        maybe_store_peer_cert(State1, PeerCert),
+     #{early_data := EarlyData0} = Read0,
+    Read = Read0#{early_data => EarlyData0#{trial_decryption => true}},
+    {ok, {State#state{connection_states = CS#{pending_read => Read}}, negotiated, {Index, PSK}}};
 session_resumption({#state{ssl_options = #{session_tickets := Tickets},
                            handshake_env = #handshake_env{
                                               early_data_accepted = true}} = State0,
@@ -639,11 +658,16 @@ session_resumption({#state{ssl_options = #{session_tickets := Tickets},
     State1 = tls_gen_connection_1_3:handle_resumption(State0, ok),
     %% TODO Refactor PSK-tuple {Index, PSK}, index might not be needed.
     {Index, PSK, PeerCert} = PSKInfo,
-    State2 = tls_handshake_1_3:calculate_client_early_traffic_secret(State1, PSK),
+    State2 = maybe_store_peer_cert(State1, PeerCert),
+    State3 =
+        tls_handshake_1_3:calculate_client_early_traffic_secret(State2, PSK),
     %% Set 0-RTT traffic keys for reading early_data
-    State3 = ssl_record:step_encryption_state_read(State2),
-    State4 = maybe_store_peer_cert(State3, PeerCert),
-    State = update_current_read(State4, true, true),
+    State4 = #state{connection_states = #{current_read := Read0} = CS}
+        = ssl_record:step_encryption_state_read(State3),
+    #{early_data := EarlyData0} = Read0,
+    Read = Read0#{early_data => EarlyData0#{trial_decryption => true,
+                                            early_data_accepted => true}},
+    State = State4#state{connection_states = CS#{current_read => Read}},
     {ok, {State, negotiated, {Index, PSK}}}.
 
 maybe_store_peer_cert(State, undefined) ->
@@ -668,16 +692,20 @@ maybe_send_session_ticket(State, 0) ->
     State;
 maybe_send_session_ticket(#state{connection_states = ConnectionStates,
                                  static_env = #static_env{trackers = Trackers,
-                                                          protocol_cb = Connection}
-                                } = State0, N) ->
+                                                          protocol_cb = Connection}}
+                          = State0, N) ->
     Tracker = proplists:get_value(session_tickets_tracker, Trackers),
     #{security_parameters := SecParamsR} =
         ssl_record:current_connection_state(ConnectionStates, read),
     #security_parameters{prf_algorithm = HKDF,
                          resumption_master_secret = RMS} = SecParamsR,
-    Ticket = new_session_ticket(Tracker, HKDF, RMS, State0),
-    {State, _} = Connection:send_handshake(Ticket, State0),
-    maybe_send_session_ticket(State, N - 1).
+    case new_session_ticket(Tracker, HKDF, RMS, State0) of
+        no_ticket -> %% Continuous restarts of ticket handler (unlikely scenario)
+            State0;
+        Ticket ->
+            {State, _} = Connection:send_handshake(Ticket, State0),
+            maybe_send_session_ticket(State, N - 1)
+    end.
 
 new_session_ticket(Tracker, HKDF, RMS,
                    #state{ssl_options = #{session_tickets := stateful_with_cert},
@@ -694,10 +722,25 @@ select_server_cert_key_pair(_,[], _,_,_,_, #session{}=Session) ->
     %% Conformant Cert-Key pair with advertised signature algorithm is
     %% selected.
     {ok, Session};
-select_server_cert_key_pair(_,[], _,_,_,_, {fallback, #session{}=Session}) ->
+select_server_cert_key_pair(_,[], _,_,_,_,
+                            {fallback, #session{sign_alg = Alg} = Session}) when Alg =/= undefined->
     %% Use fallback Cert-Key pair as no conformant pair to the advertised
     %% signature algorithms was found.
     {ok, Session};
+select_server_cert_key_pair(_,[], ClientSignAlgs,_,_,
+                            #state{ssl_options = #{signature_algs := ServerSignAlgs}},
+                            {fallback, #session{own_certificates = [Cert|_]}=Session}) ->
+    {PublicKeyAlgo, _, _, RSAKeySize, Curve} =
+        tls_handshake_1_3:get_certificate_params(Cert),
+    case tls_handshake_1_3:select_sign_algo(PublicKeyAlgo, RSAKeySize,
+                                                    ClientSignAlgs, ServerSignAlgs, Curve) of
+        {ok, ProtocolSignAlg} ->
+            %% Use fallback Cert-Key pair as no conformant pair to the advertised
+            %% signature algorithms was found.
+            {ok, Session#session{sign_alg = ProtocolSignAlg}};
+        {error, _} = Error ->
+            Error
+    end;
 select_server_cert_key_pair(_,[], _,_,_,_, undefined) ->
     {error, ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, unable_to_supply_acceptable_cert)};
 select_server_cert_key_pair(Session, [#{private_key := Key, certs := [Cert| _] = Certs} | Rest],
@@ -705,25 +748,39 @@ select_server_cert_key_pair(Session, [#{private_key := Key, certs := [Cert| _] =
                             #state{static_env = #static_env{cert_db = CertDbHandle,
                                                             cert_db_ref = CertDbRef}} = State,
                             Default0) ->
-    {_, SignAlgo, SignHash, _, _} = tls_handshake_1_3:get_certificate_params(Cert),
-    %% TODO: We do validate the signature algorithm and signature hash
-    %% but we could also check if the signing cert has a key on a
-    %% curve supported by the client for ECDSA/EDDSA certs
+    #{signature_algs := ServerSignAlgs} = State#state.ssl_options,
+    {PublicKeyAlgo, SignAlgo, SignHash, RSAKeySize, Curve} =
+        tls_handshake_1_3:get_certificate_params(Cert),
     case tls_handshake_1_3:check_cert_sign_algo(SignAlgo, SignHash,
                                                 ClientSignAlgs, ClientSignAlgsCert) of
         ok ->
-            case ssl_certificate:handle_cert_auths(Certs, CertAuths, CertDbHandle, CertDbRef) of
-                {ok, EncodeChain} -> %% Chain fullfills certificate_authorities extension
-                    {ok, Session#session{own_certificates = EncodeChain, private_key = Key}};
-                {error, EncodeChain, not_in_auth_domain} ->
-                    %% If this is the first chain to fulfill the
-                    %% signing requirement, use it as default, if not
-                    %% later alternative also fulfills
-                    %% certificate_authorities extension
-                    Default = Session#session{own_certificates = EncodeChain, private_key = Key},
+            case tls_handshake_1_3:select_sign_algo(PublicKeyAlgo, RSAKeySize,
+                                                    ClientSignAlgs, ServerSignAlgs, Curve) of
+                {ok, ProtocolSignAlg} ->
+                    case ssl_certificate:handle_cert_auths(Certs, CertAuths, CertDbHandle, CertDbRef) of
+                        {ok, EncodeChain} -> %% Chain fullfills certificate_authorities extension
+                            {ok, Session#session{own_certificates = EncodeChain,
+                                                 sign_alg = ProtocolSignAlg,
+                                                 private_key = Key}};
+                        {error, EncodeChain, not_in_auth_domain} ->
+                            %% If this is the first chain to fulfill the
+                            %% signing requirement, use it as default, if not
+                            %% later alternative also fulfills
+                            %% certificate_authorities extension
+                            Default = Session#session{own_certificates = EncodeChain,
+                                                      sign_alg = ProtocolSignAlg,
+                                                      private_key = Key},
+                            select_server_cert_key_pair(Session, Rest, ClientSignAlgs,
+                                                        ClientSignAlgsCert,
+                                                        CertAuths, State,
+                                                        default_or_fallback(Default0, Default))
+                    end;
+                {error, _} ->
+                    Fallback = {fallback,
+                                Session#session{own_certificates = Certs, private_key = Key}},
                     select_server_cert_key_pair(Session, Rest, ClientSignAlgs, ClientSignAlgsCert,
                                                 CertAuths, State,
-                                                default_or_fallback(Default0, Default))
+                                                default_or_fallback(Default0, Fallback))
             end;
         _ ->
             %% If the server cannot produce a certificate chain that
@@ -756,12 +813,55 @@ default_or_fallback({fallback, _}, #session{} = Default) ->
 default_or_fallback(Default, _) ->
     Default.
 
+generate_server_share(Group, OtherPubKey) when Group == mlkem512;
+                                               Group == mlkem768;
+                                               Group == mlkem1024 -> 
+    {Secret, CipherText} = crypto:encapsulate_key(Group, OtherPubKey),
+    #key_share_server_hello{server_share = #key_share_entry{
+                                              group = Group,
+                                              key_exchange = {CipherText, Secret}
+                                             }};
+generate_server_share(x25519mlkem768 = Group, {OtherPubKey, _}) ->
+    %% Note exception algorithm should be in reveres order of name due to legacy reason
+    {Curve, MlKem} = tls_handshake_1_3:hybrid_algs(Group),
+    {Secret, CipherText} = crypto:encapsulate_key(MlKem, OtherPubKey),
+    Keys = tls_handshake_1_3:generate_kex_keys(Curve),
+    #key_share_server_hello{server_share = #key_share_entry{
+                                              group = Group,
+                                              key_exchange = {{CipherText, Secret}, Keys}
+                                             }};
+generate_server_share(Group, {_, OtherPubKey}) when Group == secp256r1mlkem768;
+                                                    Group == secp384r1mlkem1024 ->
+    {Curve, MlKem} = tls_handshake_1_3:hybrid_algs(Group),
+    {Secret, CipherText} = crypto:encapsulate_key(MlKem, OtherPubKey),
+    Keys = tls_handshake_1_3:generate_kex_keys(Curve),
+    #key_share_server_hello{server_share = #key_share_entry{
+                                              group = Group,
+                                              key_exchange = {Keys, {CipherText, Secret}}
+                                             }};
+generate_server_share(Group, _) ->
+    Keys = tls_handshake_1_3:generate_kex_keys(Group),
+    #key_share_server_hello{
+       server_share = #key_share_entry{
+                         group = Group,
+                         key_exchange = Keys
+                        }}.
+
 select_server_private_key(#key_share_server_hello{server_share = ServerShare}) ->
     select_private_key(ServerShare).
 
 select_private_key(#key_share_entry{
                    key_exchange = #'ECPrivateKey'{} = PrivateKey}) ->
     PrivateKey;
+select_private_key(#key_share_entry{
+                      key_exchange =
+                          {#'ECPrivateKey'{} = PrivateKey1, {_, PrivateKey2}}}) ->
+    {PrivateKey1, PrivateKey2};
+
+select_private_key(#key_share_entry{
+                      key_exchange =
+                          {{_, PrivateKey1}, {_, PrivateKey2}}}) ->
+    {PrivateKey1, PrivateKey2};
 select_private_key(#key_share_entry{
                       key_exchange =
                           {_, PrivateKey}}) ->
@@ -798,17 +898,15 @@ send_hello_retry_request(#state{connection_states = ConnectionStates0,
     %% Update handshake history
     State5 = tls_handshake_1_3:replace_ch1_with_message_hash(State4),
 
-    {ok, {State5, start}};
+    %% Mark that HRR was sent so validate_cookie/2 can enforce
+    %% mandatory cookie in the second ClientHello (RFC 8446 Section 4.2.2)
+    PS = State5#state.protocol_specific,
+    State6 = State5#state{protocol_specific = PS#{hello_retry => true}},
+
+    {ok, {State6, start}};
 send_hello_retry_request(State0, _, _, _) ->
     %% Suitable key found.
     {ok, {State0, negotiated}}.
-
-update_current_read(#state{connection_states = CS} = State, TrialDecryption, EarlyDataExpected) ->
-    #{early_data := EarlyData0} = Read0 = ssl_record:current_connection_state(CS, read),
-    EarlyData = EarlyData0#{trial_decryption => TrialDecryption,
-                            early_data_accepted => EarlyDataExpected},
-    Read = Read0#{early_data := EarlyData},
-    State#state{connection_states = CS#{current_read => Read}}.
 
 handle_early_data(State, enabled, #early_data_indication{}) ->
     %% Accept early data

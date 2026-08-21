@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,8 @@
 %%
 
 -module(maybe_SUITE).
+-include_lib("stdlib/include/assert.hrl").
+
 -export([all/0, groups/0, init_per_suite/1, end_per_suite/1]).
 -export([basic/1, nested/1]).
 
@@ -45,7 +49,7 @@ basic(_Config) ->
     error = basic_1(0, #{0 => error}),
     error = basic_1(0, #{0 => {error,whatever}}),
     some_value = basic_1(0, #{0 => #value{v=some_value}}),
-    {'EXIT',{{else_clause,something_wrong},[_|_]}} = catch basic_1(0, #{0 => something_wrong}),
+    ?assertError({else_clause,something_wrong}, basic_1(0, #{0 => something_wrong})),
 
     {ok,life,"universe",everything} = basic_2(0, #{0 => {ok,life},
                                                    life => "universe",
@@ -53,12 +57,12 @@ basic(_Config) ->
     error = basic_2(0, #{0 => {ok,life},
                          life => "universe",
                          "universe" => error}),
-    {'EXIT',{{badmatch,not_a_list},[_|_]}} = catch basic_2(0, #{0 => {ok,life},
-                                                                life => not_a_list}),
-    {'EXIT',{{else_clause,not_ok},[_|_]}} = catch basic_2(0, #{0 => {ok,life},
-                                                               life => "universe",
-                                                               "universe" => not_ok}),
-    {'EXIT',{{else_clause,not_ok},[_|_]}} = catch basic_2(0, #{0 => not_ok}),
+    ?assertError({badmatch,not_a_list}, basic_2(0, #{0 => {ok,life},
+                                                     life => not_a_list})),
+    ?assertError({else_clause,not_ok}, basic_2(0, #{0 => {ok,life},
+                                                    life => "universe",
+                                                    "universe" => not_ok})),
+    ?assertError({else_clause,not_ok}, basic_2(0, #{0 => not_ok})),
 
     {ok,42,fish,dolphins} = basic_3(0, #{0 => {ok,42}, 42 => {ok,fish},
                                          fish => {ok,#value{v=dolphins}}}),

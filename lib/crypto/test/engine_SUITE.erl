@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2017-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -154,7 +156,7 @@ init_per_suite(Config) ->
 
         {_,OS, Res} ->
             ct:log("crypto:info_lib() -> ~p\nos:type() -> ~p", [Res,OS]),
-            try crypto:start() of
+            try application:start(crypto) of
                 ok ->
                     Config;
                 {error,{already_started,crypto}} ->
@@ -457,6 +459,7 @@ bad_arguments(Config) when is_list(Config) ->
                     error:badarg ->
                        ok
                 end
+
           catch
               error:notsup ->
                   {skip, "Engine not supported on this SSL version"};
@@ -513,6 +516,8 @@ pre_command_fail_bad_key(Config) when is_list(Config) ->
             {ok, Engine} ->
                 case crypto:engine_load(<<"dynamic">>,
                                         [{<<"SO_WRONG_PATH">>, Engine},
+                                         %% OTP-20014: Provoke memory leak
+                                         <<"key without value in middle of list">>,
                                          {<<"ID">>, <<"MD5">>},
                                          <<"LOAD">>],
                                         []) of

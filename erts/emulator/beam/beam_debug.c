@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2025. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1998-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,6 +95,75 @@ erts_debug_size_shared_1(BIF_ALIST_1)
 	Eterm* hp = HAlloc(p, BIG_UINT_HEAP_SIZE);
 	BIF_RET(uint_to_big(size, hp));
     }
+}
+
+BIF_RETTYPE
+erts_debug_unaligned_bitstring_2(BIF_ALIST_2)
+{
+    Eterm bitstring;
+    Uint offset;
+
+    byte *source_bytes;
+    Uint source_offset;
+    Uint source_size;
+
+    byte *target_bytes;
+    Eterm target_size;
+
+    Eterm *hp;
+    Eterm refc_binary;
+    ErlSubBits *sb;
+
+    Uint inner_offset, inner_size;
+    Eterm br_flags;
+    BinRef *br;
+    const byte *base;
+
+    bitstring = BIF_ARG_1;
+    if (is_not_bitstring(bitstring)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (is_not_small(BIF_ARG_2)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    offset = unsigned_val(BIF_ARG_2);
+    if (!(0 < offset && offset < 8)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    ERTS_GET_BITSTRING(bitstring,
+                       source_bytes,
+                       source_offset,
+                       source_size);
+
+    target_size = MAX(source_size + offset, ERL_ONHEAP_BITS_LIMIT + 1);
+    refc_binary = erts_new_bitstring(BIF_P, target_size, &target_bytes);
+
+    copy_binary_to_buffer(target_bytes, offset,
+                          source_bytes, source_offset,
+                          source_size);
+
+    hp = HAlloc(BIF_P, ERL_SUB_BITS_SIZE);
+    sb = (ErlSubBits*)hp;
+
+    ERTS_GET_BITSTRING_REF(refc_binary,
+                           br_flags,
+                           br,
+                           base,
+                           inner_offset,
+                           inner_size);
+    (void)inner_offset;
+    (void)inner_size;
+
+    erl_sub_bits_init(sb,
+                      br_flags,
+                      ((Eterm)br) | br_flags,
+                      base,
+                      offset,
+                      source_size);
+
+    BIF_RET(make_bitstring(sb));
 }
 
 BIF_RETTYPE
@@ -246,7 +317,8 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
     ASSERT(erts_staging_trace_session == NULL);
     erts_staging_trace_session = &erts_trace_session_0;
 
-    erts_bp_match_functions(&finish_debug_bp.f, &mfa, specified);
+    erts_bp_match_functions(&finish_debug_bp.f, &mfa, specified,
+                            1); // ignore bifs
 
     ASSERT(finish_debug_bp.f.matched >= 0);
     ASSERT(finish_debug_bp.process == NULL);
@@ -346,10 +418,10 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 	}
     } else if (is_tuple(addr)) {
 	ErtsCodeIndex code_ix;
+	const Export *ep;
 	Module* modp;
 	Eterm mod;
 	Eterm name;
-	Export* ep;
 	Sint arity;
 	int n;
 
@@ -690,15 +762,6 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
                     print_byte_string(to, to_arg, str, bytes);
                 }
                 break;
-	    case op_bs_put_string_WW:
-                if (ap - first_arg == 0) {
-                    erts_print(to, to_arg, "%d", *ap);
-                } else {
-                    Uint bytes = ap[-1];
-                    byte* str = (byte *) ap[0];
-                    print_byte_string(to, to_arg, str, bytes);
-                }
-                break;
 	    default:
 #ifdef ARCH_64
 		erts_print(to, to_arg, "%ld", *ap);
@@ -901,6 +964,11 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
     case op_update_map_assoc_cdtI:
     case op_update_map_exact_xjdtI:
     case op_update_map_exact_yjdtI:
+    case op_i_create_native_record_cdtI:
+    case op_i_create_local_native_record_qdtI:
+    case op_i_update_native_record_sdtI:
+    case op_i_get_record_elements_fxI:
+    case op_i_get_record_elements_fyI:
 	{
 	    int n = unpacked[-1];
 

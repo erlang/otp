@@ -1,10 +1,31 @@
+%%
+%% %CopyrightBegin%
+%% 
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
+
 -module(ct_suite).
 -moduledoc """
 The following section describes the mandatory and optional test suite functions
 that `Common Test` calls during test execution. For more details, see section
 [Writing Test Suites](write_test_chapter.md) in the User's Guide.
 """.
--moduledoc(#{titles => [{callback,<<"Callback Functions">>}]}).
 %%------------------------------------------------------------------
 %% Test Suite Behaviour
 %% ------------------------------------------------------------------
@@ -71,7 +92,7 @@ The test suite information, as returned by [`Module:suite/0`](`c:suite/0`),
             {silent_connections, Conns :: [atom()]} |
             {stylesheet, CSSFile :: string()} |
             {ct_hooks, CTHs :: ct_hooks()}.
--type ct_info_timetrap() :: MilliSec :: integer() |
+-type ct_info_timetrap() :: timeout() |
             {seconds, integer()} |
             {minutes, integer()} |
             {hours, integer()} |
@@ -113,7 +134,6 @@ If `{skip, Reason}` is returned, all test cases in the module are skipped and
 For details on groups, see section
 [Test Case Groups](write_test_chapter.md#test_case_groups) in the User's Guide.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback all() ->
     [TestDef :: ct_test_def()] |
     {skip, Reason :: term()}.
@@ -122,7 +142,6 @@ For details on groups, see section
 Defines test case groups. For details, see section
 [Test Case Groups](write_test_chapter.md#test_case_groups) in the User's Guide.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback groups() ->
     [GroupDef :: ct_group_def()].
 
@@ -158,7 +177,6 @@ For details about the test suite information function, see section
 [Test Suite Information Function](write_test_chapter.md#suite) in the User's
 Guide.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback suite() ->
     [Info :: ct_info()].
 
@@ -181,7 +199,6 @@ Guide.
 If this function is defined, then
 [`Module:end_per_suite/1`](`c:end_per_suite/1`) must also be defined.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback init_per_suite(Config :: ct_config()) ->
     NewConfig :: ct_config() |
     {skip, Reason :: term()} |
@@ -198,7 +215,6 @@ Guide.
 If this function is defined, then
 [`Module:init_per_suite/1`](`c:init_per_suite/1`) must also be defined.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback end_per_suite(Config :: ct_config()) ->
     term() |
     {save_config, SaveConfig :: ct_config()}.
@@ -237,7 +253,7 @@ For details about the test case group information function, see section
 [Group Information Function](write_test_chapter.md#group_info) in the User's
 Guide.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP R15B">>}).
+-doc(#{since => <<"OTP R15B">>}).
 -callback group(GroupName :: ct_groupname()) ->
     [Info :: ct_info()].
 
@@ -260,7 +276,6 @@ For information about test case groups, see section
 If this function is defined, then
 [`Module:end_per_group/2`](`c:end_per_group/2`) must also be defined.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback init_per_group(GroupName :: ct_groupname(), Config :: ct_config()) ->
     NewConfig :: ct_config() |
     {skip, Reason :: term()}.
@@ -281,7 +296,6 @@ For details about test case groups, see section
 If this function is defined, then
 [`Module:init_per_group/2`](`c:init_per_group/2`) must also be defined.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback end_per_group(GroupName :: ct_groupname(), Config :: ct_config()) ->
     term() |
     {return_group_result, Status :: ct_status()}.
@@ -301,7 +315,6 @@ printed in the overview log for the suite.
 If this function is defined, then
 [`Module:end_per_testcase/2`](`c:end_per_testcase/2`) must also be defined.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback init_per_testcase(TestCase :: ct_testname(), Config :: ct_config()) ->
     NewConfig :: ct_config() |
     {fail, Reason :: term()} |
@@ -323,7 +336,6 @@ Guide.
 If this function is defined, then
 [`Module:init_per_testcase/2`](`c:init_per_testcase/2`) must also be defined.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback end_per_testcase(TestCase :: ct_testname(), Config :: ct_config()) ->
     term() |
     {fail, Reason :: term()} |
@@ -367,7 +379,7 @@ If the test case function crashes, it is considered failed.
 For details about test case implementation, see section
 [Test Cases](write_test_chapter.md#test_cases) in the User's Guide.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP R14B">>}).
+-doc(#{since => <<"OTP R14B">>}).
 -callback 'Testcase'(Config) ->
                         term() |
                         {skip, Reason} |
@@ -416,7 +428,7 @@ For details about the test case information function, see section
 [Test Case Information Function](write_test_chapter.md#info_function) in the
 User's Guide.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP R14B">>}).
+-doc(#{since => <<"OTP R14B">>}).
 -callback 'Testcase'() -> [ct_info()].
 
 %% only all/0 is mandatory

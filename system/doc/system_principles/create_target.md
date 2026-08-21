@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -43,7 +45,7 @@ functionality:
   script.
 - A _simple target system_ that also supports code replacement in runtime.
 - An _embedded target system_ that also supports starting automatically
-  at boot time, and logging output from the system files for later inspection.
+  at boot time, and logging output from the system to files for later inspection.
 
 Here is only considered the case when Erlang/OTP is running on a UNIX system.
 
@@ -120,7 +122,7 @@ lib/sasl-2.3.4/
 lib/pea-1.0/
 ```
 
-The file `releases/FIRST/start.boot` is a copy of our `mysystem.boot`
+The file `releases/FIRST/start.boot` is a copy of our `mysystem.boot`.
 
 The release resource file `mysystem.rel` is duplicated in the tar file.
 Originally, this file was only stored in the `releases` directory to make it
@@ -202,7 +204,7 @@ script calls `bin/run_erl`, which in turn calls `bin/start_erl` (roughly,
 `start_erl` is an embedded variant of `erl`).
 
 The shell script `start`, which is generated from `erts-5.10.4/bin/start.src`
-during installation, is merely an example. Edit it to suite your needs. Typically
+during installation, is merely an example. Edit it to suit your needs. Typically
 it is executed when the UNIX system boots.
 
 `run_erl` is a wrapper that provides logging of output from the runtime system
@@ -212,7 +214,7 @@ to file. It also provides a simple mechanism for attaching to the Erlang shell
 `start_erl` requires:
 
 1. The root directory (`"/usr/local/erl-target"`)
-1. The releases directory (`"/usr/local/erl-target/releases"`
+1. The releases directory (`"/usr/local/erl-target/releases"`)
 1. The location of the file `start_erl.data`
 
 It performs the following:
@@ -223,7 +225,7 @@ It performs the following:
 1. Provides the flag `-boot` specifying the boot file of the release version
    found (`"releases/FIRST/start.boot"`).
 
-`start_erl` also assumes that there is `sys.config` in the release version
+`start_erl` also assumes that there is a `sys.config` in the release version
 directory (`"releases/FIRST/sys.config"`). That is the topic of the next
 section.
 
@@ -242,7 +244,7 @@ In fact, if you in the current directory create not only the file
 `mysystem.rel`, but also file `sys.config`, the latter file is tacitly put in
 the appropriate directory.
 
-However, it can also be convenient to replace variables in within a `sys.config`
+However, it can also be convenient to replace variables within a `sys.config`
 on the target after unpacking but before running the release. If you have a
 `sys.config.src` it will be included and is not required to be a valid Erlang
 term file like `sys.config`. Before running the release you must have a valid
@@ -254,12 +256,12 @@ booting the release.
 
 The previous `install/2` procedure differs somewhat from that of the ordinary
 `Install` shell script. In fact, `create/1` makes the release package as
-complete as possible, and leave to the `install/2` procedure to finish by only
+complete as possible, and leaves it to the `install/2` procedure to finish by only
 considering location-dependent files.
 
 ## Creating the Next Version
 
-In this example the Pea application has been changed, and so are the
+In this example the Pea application has been changed, and so have the
 applications ERTS, Kernel, STDLIB and SASL.
 
 _Step 1._ Create the file `.rel`:
@@ -369,7 +371,7 @@ It can be accessed as follows:
 ```
 
 Logs can be found in `/usr/local/erl-target/log`. This directory is specified as
-an argument to `run_erl`in the start script listed above.
+an argument to `run_erl` in the start script listed above.
 
 _Step 1._ Unpack the release:
 
@@ -423,7 +425,7 @@ _Step 3._ Make the new release permanent:
 
 Check the releases again:
 
-```c
+```erlang
 3> release_handler:which_releases().
 [{"MYSYSTEM","SECOND",
   ["kernel-3.0","stdlib-2.0","sasl-2.4","pea-2.0"],

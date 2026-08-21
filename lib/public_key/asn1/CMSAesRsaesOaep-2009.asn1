@@ -1,0 +1,123 @@
+-- %CopyrightBegin%
+--
+-- SPDX-License-Identifier: BSD-3-Clause
+--
+-- Copyright (c) 2010 IETF Trust and the persons identified as the document authors.  All rights reserved.
+-- Copyright Ericsson AB 2025. All Rights Reserved.
+--
+-- Redistribution and use in source and binary forms, with or without
+-- modification, are permitted provided that the following conditions are met:
+--
+-- 1. Redistributions of source code must retain the above copyright notice,
+--    this list of conditions and the following disclaimer.
+--
+-- 2. Redistributions in binary form must reproduce the above copyright notice,
+--    this list of conditions and the following disclaimer in the documentation
+--    and/or other materials provided with the distribution.
+--
+-- 3. Neither the name of the copyright holder nor the names of its contributors
+--    may be used to endorse or promote products derived from this software
+--    without specific prior written permission.
+--
+-- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS IS”
+-- AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+-- IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+-- ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+-- LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+-- CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+-- SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+-- INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+-- CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+-- ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+-- POSSIBILITY OF SUCH DAMAGE.
+--
+-- %CopyrightEnd%
+--
+-- RFC5911
+
+CMSAesRsaesOaep-2009 {iso(1) member-body(2) us(840) rsadsi(113549)
+       pkcs(1) pkcs-9(9) smime(16) modules(0) id-mod-cms-aes-02(38)}
+   DEFINITIONS IMPLICIT TAGS ::=
+   BEGIN
+   IMPORTS
+
+   CONTENT-ENCRYPTION, KEY-WRAP, SMIME-CAPS
+   FROM AlgorithmInformation-2009
+       {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+       mechanisms(5) pkix(7) id-mod(0)
+       id-mod-algorithmInformation-02(58)};
+
+   AES-ContentEncryption CONTENT-ENCRYPTION ::= {
+       cea-aes128-cbc | cea-aes192-cbc | cea-aes256-cbc, ...
+   }
+
+   AES-KeyWrap KEY-WRAP ::= {
+       kwa-aes128-wrap | kwa-aes192-wrap | kwa-aes256-wrap, ...
+   }
+
+   SMimeCaps SMIME-CAPS ::= {
+      cea-aes128-cbc.&smimeCaps |
+      cea-aes192-cbc.&smimeCaps |
+      cea-aes256-cbc.&smimeCaps |
+      kwa-aes128-wrap.&smimeCaps |
+      kwa-aes192-wrap.&smimeCaps |
+      kwa-aes256-wrap.&smimeCaps, ...
+   }
+
+   -- AES information object identifiers --
+
+   aes OBJECT IDENTIFIER ::=
+       { joint-iso-itu-t(2) country(16) us(840) organization(1) gov(101)
+       csor(3) nistAlgorithms(4)  1 }
+
+   -- AES using CBC mode for key sizes of 128, 192, 256
+
+   cea-aes128-cbc CONTENT-ENCRYPTION ::= {
+       IDENTIFIER id-aes128-CBC
+       PARAMS TYPE AES-IV ARE required
+       SMIME-CAPS { IDENTIFIED BY id-aes128-CBC }
+   }
+   id-aes128-CBC OBJECT IDENTIFIER ::= { aes 2 }
+
+   cea-aes192-cbc CONTENT-ENCRYPTION ::= {
+       IDENTIFIER id-aes192-CBC
+PARAMS TYPE AES-IV ARE required
+       SMIME-CAPS { IDENTIFIED BY id-aes192-CBC }
+   }
+   id-aes192-CBC OBJECT IDENTIFIER ::= { aes 22 }
+
+   cea-aes256-cbc CONTENT-ENCRYPTION ::= {
+       IDENTIFIER id-aes256-CBC
+       PARAMS TYPE AES-IV ARE required
+       SMIME-CAPS { IDENTIFIED BY id-aes256-CBC }
+   }
+   id-aes256-CBC OBJECT IDENTIFIER ::= { aes 42 }
+
+   -- AES-IV is the parameter for all the above object identifiers.
+
+   AES-IV ::= OCTET STRING (SIZE(16))
+
+   -- AES Key Wrap Algorithm Identifiers  - Parameter is absent
+
+   kwa-aes128-wrap KEY-WRAP ::= {
+       IDENTIFIER id-aes128-wrap
+       PARAMS ARE absent
+       SMIME-CAPS { IDENTIFIED BY id-aes128-wrap }
+   }
+   id-aes128-wrap OBJECT IDENTIFIER ::= { aes 5 }
+
+   kwa-aes192-wrap KEY-WRAP ::= {
+       IDENTIFIER id-aes192-wrap
+       PARAMS ARE absent
+       SMIME-CAPS { IDENTIFIED BY id-aes192-wrap }
+   }
+   id-aes192-wrap OBJECT IDENTIFIER ::= { aes 25 }
+
+   kwa-aes256-wrap KEY-WRAP ::= {
+       IDENTIFIER id-aes256-wrap
+       PARAMS ARE absent
+       SMIME-CAPS { IDENTIFIED BY id-aes256-wrap }
+   }
+   id-aes256-wrap OBJECT IDENTIFIER ::= { aes 45 }
+
+   END

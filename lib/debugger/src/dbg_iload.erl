@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,9 @@
 %%
 -module(dbg_iload).
 -moduledoc false.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_possibly_unsafe_function, {erlang, binary_to_term, 1}}]).
 
 -export([load_mod/4]).
 
@@ -67,10 +72,6 @@ load_mod1(Mod, File, Binary, Db) ->
 store_module(Mod, File, Binary, Db) ->
     {interpreter_module, Exp, Abst, Src, MD5} = binary_to_term(Binary),
     Forms0 = case abstr(Abst) of
-                 {abstract_v1,_} ->
-                     exit({Mod,too_old_beam_file});
-                 {abstract_v2,_} ->
-                     exit({Mod,too_old_beam_file});
                  {raw_abstract_v1,Code} ->
                      Code
              end,
@@ -83,8 +84,8 @@ store_module(Mod, File, Binary, Db) ->
     put(mod_md5, MD5),
 
     Forms1 = interpret_file_attribute(Forms0),
-    {Forms,Ctype}  = standard_transforms(Forms1),
-    store_forms(Forms, Mod, Db, #{exp=>Exp, ctype => Ctype}),
+    {Forms,Ctype,RecMod}  = standard_transforms(Forms1),
+    store_forms(Forms, Mod, Db, #{exp=>Exp, ctype => Ctype, native_recs => RecMod, mod => Mod}),
 
     erase(mod_md5),
     erase(current_function),
@@ -92,7 +93,7 @@ store_module(Mod, File, Binary, Db) ->
     erase(vcount),
     erase(funs),
     erase(fun_count),
-    
+
     NewBinary = store_mod_line_no(Mod, Db, binary_to_list(Src)),
     dbg_idb:insert(Db, mod_bin, NewBinary),
     dbg_idb:insert(Db, mod_raw, <<Src/binary,0:8>>). %% Add eos
@@ -100,7 +101,8 @@ store_module(Mod, File, Binary, Db) ->
 standard_transforms(Forms0) ->
     Forms = erl_internal:add_predefined_functions(Forms0),
     Ctype = init_calltype(Forms),
-    {Forms, Ctype}.
+    RecMod = init_rec_mod(Forms),
+    {Forms, Ctype, RecMod}.
 
 init_calltype(Forms) ->
     Locals = [{{Name,Arity},local} || {function,_,Name,Arity,_} <- Forms],
@@ -117,7 +119,22 @@ init_calltype_imports([_|T], Ctype) ->
     init_calltype_imports(T, Ctype);
 init_calltype_imports([], Ctype) -> Ctype.
 
-%% Adjust line numbers using the file/2 attribute. 
+init_rec_mod(Forms) ->
+    SMod = #{Name => {local,Inits} || {attribute, _, native_record, {Name,Inits}} <- Forms},
+    init_rec_mod_imports(Forms, SMod).
+
+init_rec_mod_imports([{attribute,_,import_record,{Mod,Ss}}|T], SMod0) ->
+    true = is_atom(Mod),
+    SMod = lists:foldl(fun(S, Acc) ->
+                               Acc#{S => {imported_record,Mod}}
+                        end, SMod0, Ss),
+    io:format("SMod = ~p~n", [SMod]),
+    init_rec_mod_imports(T, SMod);
+init_rec_mod_imports([_|T], SMod) ->
+    init_rec_mod_imports(T, SMod);
+init_rec_mod_imports([], SMod) -> SMod.
+
+%% Adjust line numbers using the file/2 attribute.
 %% Also take the absolute value of line numbers.
 %% This simple fix will make the marker point at the correct line
 %% (assuming the file attributes are correct) in the source; it will
@@ -242,13 +259,35 @@ pattern({cons,Anno,H0,T0}, St) ->
 pattern({tuple,Anno,Ps0}, St) ->
     Ps1 = pattern_list(Ps0, St),
     {tuple,ln(Anno),Ps1};
+pattern({record_field, Anno, F, V0}, St0) ->
+    V = pattern(V0, St0),
+    {record_field, Anno, F, V};
 pattern({record_index,Anno,Name,Field} = _DBG, St) ->
     Expr = index_expr(Anno, Field, Name, record_fields(Name, Anno, St)),
     pattern(Expr, St);
-pattern({record,Anno,Name,Pfs}, St0) ->
-    Fs = record_fields(Name, Anno, St0),
-    TMs = pattern_list(pattern_fields(Fs, Pfs), St0),
-    {tuple,ln(Anno),[{value,ln(Anno),Name} | TMs]};
+pattern({record,Anno,Name,Pfs}, St0=#{native_recs:=Recs}) when is_atom(Name) ->
+    case Recs of
+        #{Name := {imported_record, M}} ->
+            pattern({record,Anno,{M,Name},Pfs}, St0);
+        #{Name := {local, _}} ->
+            TPs = pattern_list(Pfs, St0),
+            KVs = [{K, V} || {record_field, _, {atom, _, K}, V} <- TPs],
+            {record,Anno,Name,KVs};
+        #{} ->
+            Fs = record_fields(Name, Anno, St0),
+            TMs = pattern_list(pattern_fields(Fs, Pfs), St0),
+            {tuple,ln(Anno),[{value,ln(Anno),Name} | TMs]}
+    end;
+pattern({record,Anno,[],Ps}, St0=#{mod:=Mod}) ->
+    %% Native record.
+    TPs = pattern_list(Ps, St0),
+    KVs = [{K, V} || {record_field, _, {atom, _, K}, V} <- TPs],
+    {record_wildcard,Anno,Mod,KVs};
+pattern({record,Anno,{_,_}=Id,Ps}, St0) ->
+    %% Native record with explicit module name.
+    TPs = pattern_list(Ps, St0),
+    KVs = [{K, V} || {record_field, _, {atom, _, K}, V} <- TPs],
+    {record,Anno,Id,KVs};
 pattern({map,Anno,Fs0}, St) ->
     Fs1 = lists:map(fun ({map_field_exact,L,K,V}) ->
                             {map_field_exact,L,gexpr(K, St),pattern(V, St)}
@@ -406,7 +445,13 @@ gexpr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,is_record}}, [A,{atom,_,Name}
 gexpr({call,Anno,{tuple,_,[{atom,_,erlang},{atom,_,is_record}]},
        [A,{atom,_,Name}]}, St) ->
     record_test_in_guard(Anno, A, Name, St);
-gexpr({record_field,_A,R,Name,F}, St) ->
+gexpr({record_field,_A,R,{_,_}=Name,{atom,_,F}}, St) ->
+    ExpR = expr(R, false, St),
+    {record_guard_field,Name,F,ExpR};
+gexpr({record_field,_A,R,[],{atom,_,F}}, St) ->
+    ExpR = expr(R, false, St),
+    {record_guard_wildcard_field,F,ExpR};
+gexpr({record_field,_A,R,Name,F}, St) when is_atom(Name) ->
     Anno = erl_parse:first_anno(R),
     get_record_field_guard(Anno, R, F, Name, St);
 gexpr({record_index,Anno,Name,F}, St) ->
@@ -474,16 +519,68 @@ expr({tuple,Anno,Es0}, _Lc, St) ->
 expr({record_index,Anno,Name,F}, Lc, St) ->
     I = index_expr(Anno, F, Name, record_fields(Name, Anno, St)),
     expr(I, Lc, St);
-expr({record_field,_A,R,Name,F}, _Lc, St) ->
-    Anno = erl_parse:first_anno(R),
-    get_record_field_body(Anno, R, F, Name, St);
-expr({record,Anno,R,Name,Us}, Lc, St) ->
-    Ue = record_update(R, Name, record_fields(Name, Anno, St), Us, St),
-    expr(Ue, Lc, St);
-expr({record,Anno,Name,Is}, Lc, St) ->
-    expr({tuple,Anno,[{atom,Anno,Name} |
-                      record_inits(record_fields(Name, Anno, St), Is)]},
-         Lc, St);
+expr({record,Anno,{M,N},Inits}, _Lc, St0) ->
+    Es1 = expr_list(Inits, St0),
+    {record,Anno,{M,N},Es1};
+expr({record,Anno,Name,Is}, Lc, St0=#{native_recs:=Recs}) when is_atom(Name) ->
+    case Recs of
+        #{Name := {local, Inits}} ->
+            {yes,Fs0} = maybe_expand_inits(Anno, Name, Inits, Is, St0),
+            Fs1 = expr_list(Fs0, St0),
+            {record,Anno,Name,Fs1};
+        #{Name := {imported_record, M}} ->
+            expr({record,Anno,{M,Name},Is}, Lc, St0);
+        #{} ->
+            expr({tuple,Anno,[{atom,Anno,Name} |
+                      record_inits(record_fields(Name, Anno, St0), Is)]},
+         Lc, St0)
+    end;
+expr({record,A,Arg0,{_,_}=Id,Updates}, Lc, St0) ->
+    Arg1 = expr(Arg0, Lc, St0),
+    Es1 = expr_list(Updates, St0),
+    {record,A,Arg1,Id,Es1};
+expr({record,A,Arg0,[]=Id,Updates}, Lc, St0) ->
+    Arg1 = expr(Arg0, Lc, St0),
+    Es1 = expr_list(Updates, St0),
+    {record,A,Arg1,Id,Es1};
+expr({record,Anno0,Arg0,Name,Updates}, Lc, St0=#{native_recs:=Recs}) when is_atom(Name) ->
+    case Recs of
+        #{Name := {local, _}} ->
+            %% Locally defined native record.
+            Arg1 = expr(Arg0, Lc, St0),
+            Es1 = expr_list(Updates, St0),
+            {record,Anno0,Arg1,Name,Es1};
+        #{Name := {imported_record, M}} ->
+            %% Imported native record.
+            expr({record,Anno0,Arg0,{M,Name},Updates}, Lc, St0);
+        #{} ->
+            %% Tuple record.
+            Ue = record_update(Arg0, Name,
+                               record_fields(Name, Anno0, St0),
+                               Updates, St0),
+            expr(Ue, Lc, St0)
+    end;
+expr({record_field,A,Rec0,Name,F}, Lc, St0=#{native_recs:=Recs}) when is_atom(Name) ->
+    case Recs of
+        #{Name := {local, _}} ->
+            %% Locally defined native record.
+            Rec = expr(Rec0, Lc, St0),
+            {record_field,A,Rec,Name,F};
+        #{Name := {imported_record, M}} ->
+            io:format("M = ~p, Name = ~p~n", [M, Name]),
+            %% Imported native record.
+            expr({record_field,A,Rec0,{M,Name},F}, Lc, St0);
+        #{} ->
+            %% Tuple record.
+            Anno = erl_parse:first_anno(Rec0),
+            get_record_field_body(Anno, Rec0, F, Name, St0)
+    end;
+expr({record_field,Anno,Rec0,Id,F}, Lc, St0) ->
+    Rec = expr(Rec0, Lc, St0),
+    {record_field,Anno,Rec,Id,F};
+expr({record_field,Anno,K,E0}, Lc, St0) ->
+    E1 = expr(E0, Lc, St0),
+    {record_field,Anno,K,E1};
 expr({record_update, Anno, Es0}, Lc, St) ->
     %% Unfold block into a sequence.
     Es1 = exprs(Es0, Lc, St),
@@ -521,12 +618,12 @@ expr({'maybe',Anno,Es0,{'else',_ElseAnno,Cs0}}, Lc, St) ->
     Cs1 = icr_clauses(Cs0, Lc, St),
     {'maybe',ln(Anno),Es1,Cs1};
 expr({'fun',Anno,{clauses,Cs0}}, _Lc, St) ->
-    %% New R10B-2 format (abstract_v2).
+    %% New R10B-2 format
     Cs = fun_clauses(Cs0, St),
     Name = new_fun_name(),
     {make_fun,ln(Anno),Name,Cs};
 expr({'fun',Anno,{function,F,A}}, _Lc, _St) ->
-    %% New R8 format (abstract_v2).
+    %% New R8 format
     Line = ln(Anno),
     case erl_internal:bif(F, A) of
         true ->
@@ -587,7 +684,7 @@ expr({call,Anno,{remote,_,{atom,_,Mod},{atom,_,Func}},As0}, Lc, St) ->
 	    end
     end;
 expr({call,Anno,{remote,_,Mod0,Func0},As0}, Lc, St) ->
-    %% New R8 format (abstract_v2).
+    %% New R8 format
     Mod = expr(Mod0, false, St),
     Func = expr(Func0, false, St),
     As = consify(expr_list(As0, St)),
@@ -676,7 +773,7 @@ expr({map_field_assoc,L,K0,V0}, _Lc, St) ->
     V = expr(V0, false, St),
     {map_field_assoc,L,K,V}.
 
-consify([A|As]) -> 
+consify([A|As]) ->
     {cons,0,A,consify(As)};
 consify([]) -> {value,0,[]}.
 
@@ -690,21 +787,56 @@ make_bit_type(_Line, Size, Type0) ->            %Integer or 'all'
     {ok,Size,Bt} = erl_bits:set_bit_type(Size, Type0),
     {Size,erl_bits:as_list(Bt)}.
 
+maybe_expand_inits(Anno0, _Name, Inits, Is, _St) ->
+    Fs0 = native_record_inits(Anno0, Inits, Is),
+    Fs1 = [F|| {record_field, _, _, V} =F <- Fs0,
+                V =/= {nil,novalue} andalso V =/= {nil,badfield}],
+    {yes, Fs1}.
+
 expr_comprehension({Tag,Anno,E0,Gs0}, St) ->
     Gs = [case G of
               ({generate,L,P0,Qs}) ->
                   {generator,{generate,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({generate_strict,L,P0,Qs}) ->
+                  {generator,{generate_strict,L,pattern(P0, St),expr(Qs, false, St)}};
               ({b_generate,L,P0,Qs}) -> %R12.
                   {generator,{b_generate,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({b_generate_strict,L,P0,Qs}) -> %R12.
+                  {generator,{b_generate_strict,L,pattern(P0, St),expr(Qs, false, St)}};
               ({m_generate,L,P0,Qs}) -> %OTP 26
                   {generator,{m_generate,L,mc_pattern(P0, St),expr(Qs, false, St)}};
+              ({m_generate_strict,L,P0,Qs}) -> %OTP 26
+                  {generator,{m_generate_strict,L,mc_pattern(P0, St),expr(Qs, false, St)}};
+              ({zip,L,Gens}) ->
+                  expr_comprehension({zip,L,Gens}, St);
               (Expr) ->
                   case is_guard_test(Expr, St) of
                       true -> {guard,guard([[Expr]], St)};
                       false -> expr(Expr, false, St)
                   end
           end || G <- Gs0],
-    {Tag,ln(Anno),expr(E0, false, St),Gs}.
+    {Tag,ln(Anno),expr_or_exprs(E0, false, St),Gs};
+expr_comprehension({zip,Anno,Gens}, St) ->
+    Gs = [case G of
+              ({generate,L,P0,Qs}) ->
+                  {generator,{generate,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({generate_strict,L,P0,Qs}) ->
+                  {generator,{generate_strict,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({b_generate,L,P0,Qs}) -> %R12.
+                  {generator,{b_generate,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({b_generate_strict,L,P0,Qs}) -> %R12.
+                  {generator,{b_generate_strict,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({m_generate,L,P0,Qs}) -> %OTP 26
+                  {generator,{m_generate,L,mc_pattern(P0, St),expr(Qs, false, St)}};
+              ({m_generate_strict,L,P0,Qs}) -> %OTP 26
+                  {generator,{m_generate_strict,L,mc_pattern(P0, St),expr(Qs, false, St)}}
+          end || G <- Gens],
+    {zip,ln(Anno),Gs}.
+
+expr_or_exprs(Es, Lc, St) when is_list(Es) ->
+    exprs(Es, Lc, St);
+expr_or_exprs(E, Lc, St) ->
+    expr(E, Lc, St).
 
 mc_pattern({map_field_exact,L,KeyP0,ValP0}, St) ->
     KeyP1 = pattern(KeyP0, St),
@@ -740,19 +872,37 @@ normalise_test(Name, _) -> Name.
 %% We must use also handle the case that Expr does not
 %% evaluate to a tuple properly.
 
-record_test_in_body(Anno, Expr, Name, Lc, St) ->
-    Fs = record_fields(Name, Anno, St),
-    Var = {var, Anno, new_var_name()},
-    expr({block,Anno,
-          [{match,Anno,Var,Expr},
-           {call,Anno,{remote,Anno,{atom,Anno,erlang},
-                       {atom,Anno,is_record}},
-            [Var,{atom,Anno,Name},{integer,Anno,length(Fs)+1}]}]}, Lc, St).
+record_test_in_body(Anno, Expr, Name, Lc, St=#{mod:=Mod,native_recs:=Recs}) ->
+    case Recs of
+        #{Name := {local, _}} ->
+            expr({call,Anno,{remote,Anno,{atom,Anno,erlang},{atom,Anno,is_record}},
+                [Expr,{atom,Anno,Mod},{atom,Anno,Name}]}, Lc, St);
+        #{Name := {imported_record, M}} ->
+            expr({call,Anno,{remote,Anno,{atom,Anno,erlang},{atom,Anno,is_record}},
+                [Expr,{atom,Anno,M},{atom,Anno,Name}]}, Lc, St);
+        #{} ->
+            Fs = record_fields(Name, Anno, St),
+            Var = {var, Anno, new_var_name()},
+            expr({block,Anno,
+                [{match,Anno,Var,Expr},
+                {call,Anno,{remote,Anno,{atom,Anno,erlang},
+                            {atom,Anno,is_record}},
+                    [Var,{atom,Anno,Name},{integer,Anno,length(Fs)+1}]}]}, Lc, St)
+    end.
 
-record_test_in_guard(Anno, Term, Name, St) ->
-    Fs = record_fields(Name, Anno, St),
-    expr({call,Anno,{remote,Anno,{atom,Anno,erlang},{atom,Anno,is_record}},
-          [Term,{atom,Anno,Name},{integer,Anno,length(Fs)+1}]}, false, St).
+record_test_in_guard(Anno, Term, Name, St=#{mod:=Mod,native_recs:=Recs}) ->
+    case Recs of
+        #{Name := {local, _}} ->
+            expr({call,Anno,{remote,Anno,{atom,Anno,erlang},{atom,Anno,is_record}},
+                [Term,{atom,Anno,Mod},{atom,Anno,Name}]}, false, St);
+        #{Name := {imported_record, M}} ->
+            expr({call,Anno,{remote,Anno,{atom,Anno,erlang},{atom,Anno,is_record}},
+                [Term,{atom,Anno,M},{atom,Anno,Name}]}, false, St);
+        #{} ->
+            Fs = record_fields(Name, Anno, St),
+            expr({call,Anno,{remote,Anno,{atom,Anno,erlang},{atom,Anno,is_record}},
+                [Term,{atom,Anno,Name},{integer,Anno,length(Fs)+1}]}, false, St)
+    end.
 
 %% Expand a call to record_info/2. We have checked that it is not
 %% shadowed by an import.
@@ -767,6 +917,7 @@ record_info_call(Anno, [{value,_AnnoI,Info},{value,_AnnoN,Name}], St) ->
             lists:foldr(fun (H, T) -> {cons,Anno,H,T} end, {nil,Anno}, Fs)
     end.
 
+%% This function can only be called when R is a tuple record.
 record_fields(R, Anno, #{recs := Recs}) ->
     Fields = maps:get(R, Recs),
     [{record_field,Anno,{atom,Anno,F},copy_expr(Di, Anno)} ||
@@ -791,6 +942,44 @@ record_inits(Fs, Is) ->
 record_wildcard_init([{record_field,_,{var,_,'_'},D} | _]) -> D;
 record_wildcard_init([_ | Is]) -> record_wildcard_init(Is);
 record_wildcard_init([]) -> none.
+
+native_record_inits(Anno0, Inits0, Is) ->
+    Inits1 = native_record_no_type(Inits0, []),
+    Inits2 = native_record_inits_1(Anno0, Inits1, []),
+    IsKeys = [F || {record_field,_,{atom,_,F},_} <- Is],
+    InitKeys = [F || {record_field,_,{atom,_,F},_} <- Inits1] ++
+        [F || {record_field,_,{atom,_,F}} <- Inits1],
+    NoDef = ordsets:subtract(ordsets:from_list(IsKeys),
+                             ordsets:from_list(InitKeys)),
+    [{record_field,Anno0,{atom,Anno0,F},{nil,badfield}} || F <- NoDef] ++
+        lists:map(fun ({record_field,A1,{atom,A2,F},D}) ->
+                          case find_field(F, Is) of
+                              {ok,Init} -> {record_field,A1,{atom,A2,F},Init};
+                              error ->
+                                  {record_field,A1,{atom,A2,F},D}
+                          end;
+                      ({record_field,A1,{atom,A2,F}}) ->
+                          {ok,Init} = find_field(F, Is),
+                          {record_field,A1,{atom,A2,F},Init}
+                  end, Inits2).
+
+native_record_no_type([{typed_record_field,Field,_Type} | Fs], Acc) ->
+    native_record_no_type([Field | Fs], Acc);
+native_record_no_type([{record_field,_,_,_}=F|Fs], Acc) ->
+    native_record_no_type(Fs, [F|Acc]);
+native_record_no_type([{record_field,_,_}=F|Fs], Acc) ->
+    native_record_no_type(Fs, [F|Acc]);
+native_record_no_type([], Acc) ->
+    lists:reverse(Acc).
+
+native_record_inits_1(Anno0, [{record_field,_,{atom,_,F},Di}|Fs], Acc) ->
+    native_record_inits_1(Anno0, Fs,
+                          [{record_field,Anno0,{atom,Anno0,F},
+                            copy_expr(Di, Anno0)}|Acc]);
+native_record_inits_1(Anno0, [{record_field,_,{atom,_,_F}}=I|Fs], Acc) ->
+    native_record_inits_1(Anno0, Fs, [I|Acc]);
+native_record_inits_1(_, [], Acc) ->
+    lists:reverse(Acc).
 
 %% copy_expr(Expr, Anno) -> Expr.
 %%  Make a copy of Expr converting all annotations to Anno.
@@ -915,16 +1104,22 @@ get_record_field_body(Anno, R, {atom,_,F}, Name, St) ->
              [{tuple,Anno,[{atom,Anno,badrecord},{atom,Anno,Name}]}]}]}]},
     expr(E, false, St).
 
-get_record_field_guard(Anno, R, {atom,_,F}, Name, St) ->
-    Fs = record_fields(Name, Anno, St),
-    I = index_expr(F, Fs, 2),
+get_record_field_guard(Anno, R, {atom,_,F}, Name, #{native_recs:=Recs,
+                                                    mod:=Mod}=St) ->
     ExpR = expr(R, false, St),
-    %% Just to make comparison simple:
-    %% A0 = erl_anno:new(0),
-    %% ExpRp = erl_parse:map_anno(fun(_A) -> A0 end, ExpR),
-    %% RA = {{Name,ExpRp},Anno,ExpR,length(Fs)+1},
-    %% St2 = St1#exprec{strict_ra = [RA | St1#exprec.strict_ra]},
-    {safe_bif,ln(Anno),erlang,element,[{value,ln(Anno),I},ExpR]}.
+    case Recs of
+        #{Name := {local,_}} ->
+            %% Native record.
+            {record_guard_field,{Mod,Name},F,ExpR};
+        #{Name := {imported_record,Module}} ->
+            %% Native record.
+            {record_guard_field,{Module,Name},F,ExpR};
+        #{} ->
+            %% Tuple record.
+            Fs = record_fields(Name, Anno, St),
+            I = index_expr(F, Fs, 2),
+            {safe_bif,ln(Anno),erlang,element,[{value,ln(Anno),I},ExpR]}
+    end.
 
 record_pattern(I, I, Var, Sz, Anno, Acc) ->
     record_pattern(I+1, I, Var, Sz, Anno, [Var | Acc]);

@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(inet_sockopt_SUITE).
@@ -364,14 +366,19 @@ loop_all(Config) when is_list(Config) ->
     ?TC_TRY(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
 do_loop_all(Config, _) ->
+    ?P("~s -> try all (TCP) listen options", [?FUNCTION_NAME]),
     ListenFailures =
 	lists:foldr(make_check_fun(Config, listen),[],all_listen_options()),
+    ?P("~s -> try all (TCP) accept options", [?FUNCTION_NAME]),
     AcceptFailures =
 	lists:foldr(make_check_fun(Config, accept),[],all_accept_options()),
+    ?P("~s -> try all (TCP) connect options", [?FUNCTION_NAME]),
     ConnectFailures =
 	lists:foldr(make_check_fun(Config, connect),[],all_connect_options()),
+    ?P("~s -> try all UDP options", [?FUNCTION_NAME]),
     UdpFailures =
 	lists:foldr(make_check_fun(Config),[],all_udp_options()),
+    ?P("~s -> done - check results", [?FUNCTION_NAME]),
     case ListenFailures++AcceptFailures++ConnectFailures++UdpFailures of
 	[] ->
 	    ok;
@@ -1026,21 +1033,25 @@ type_errors(Config) when is_list(Config) ->
 	 {linger,banan}
 	],
     lists:foreach(fun(Option) ->
-			  case
-			      catch create_socketpair(Config, [Option], []) of
-			      {'EXIT',badarg} ->
-				  ok;
+			  try create_socketpair(Config, [Option], []) of
 			      Unexpected1 ->
 				  exit({unexpected,
 					Unexpected1})
+			  catch
+			      exit:badarg ->
+				  ?P("~s -> catched expected (exit) badarg",
+				     [?FUNCTION_NAME]),
+				  ok
 			  end,
-			  case
-			      catch create_socketpair(Config, [], [Option]) of
-			      {'EXIT', badarg} ->
-				  ok;
+			  try create_socketpair(Config, [], [Option]) of
 			      Unexpected2 ->
 				  exit({unexpected,
 					Unexpected2})
+			  catch
+			      exit:badarg ->
+				  ?P("~s -> catched expected (exit) badarg",
+				     [?FUNCTION_NAME]),
+				  ok
 			  end,
 			  {Sock1,Sock2} = create_socketpair(Config, [], []),
 			  case inet:setopts(Sock1, [Option]) of
@@ -1132,6 +1143,13 @@ all_ok(_) ->
 
 make_check_fun(Config, Type) ->
     fun({Name,V1,V2,Mand,Chang},Acc) ->
+            ?P("~s:fun -> entry with"
+               "~n   Name:  ~p"
+               "~n   V1:    ~p"
+               "~n   V2:    ~p"
+               "~n   Mand:  ~p"
+               "~n   Chang: ~p",
+               [?FUNCTION_NAME, Name, V1, V2, Mand, Chang]),
             {LO1,CO1} = case Type of
                             connect -> {[],[{Name,V1}]};
                             _ -> {[{Name,V1}],[]}
@@ -1235,7 +1253,8 @@ make_check_fun(_Config) ->
                     gen_udp:close(S1),
                     gen_udp:close(S2)
                 end
-            catch Class : Reason : Stacktrace ->
+            catch
+		Class : Reason : Stacktrace ->
                     erlang:raise(Class, {fail,Reason,Spec}, Stacktrace)
             end
     end.
@@ -1382,9 +1401,41 @@ mandatory_exclusiveaddruse(_OsType, _OsVersion) ->
     false.
 
 create_socketpair_init(Config, ListenOptions, ConnectOptions) ->
-    {ok,LS}   = ?LISTEN(Config, 0, ListenOptions),
+    LS = case ?LISTEN(Config, 0, ListenOptions) of
+	     {ok, S1} ->
+		 S1;
+	     {error, enotsup = R1} ->
+		 ?P("~s -> failed create listen socket:"
+		    "~n   Opts:   ~p"
+		    "~n   Reason: ~p",
+		    [?FUNCTION_NAME, ListenOptions, R1]),
+		 exit({skip, {listen, R1}});
+	     {error, Reason1} ->
+		 ?P("~s -> failed create listen socket:"
+		    "~n   Opts:   ~p"
+		    "~n   Reason: ~p",
+		    [?FUNCTION_NAME, ListenOptions, Reason1]),
+		 exit({listen, Reason1})
+	 end,
     {ok,Port} = inet:port(LS),
-    {ok,CS}   = ?CONNECT(Config, localhost, Port, ConnectOptions),
+    CS = case ?CONNECT(Config, localhost, Port, ConnectOptions) of
+	     {ok, S2} ->
+		 S2;
+	     {error, enotsup = R2} ->
+		 ?P("~s -> failed connecting:"
+		    "~n   Port:   ~p"
+		    "~n   Opts:   ~p"
+		    "~n   Reason: ~p",
+		    [?FUNCTION_NAME, Port, ConnectOptions, R2]),
+		 exit({skip, {connect, R2}});
+	     {error, Reason2} ->
+		 ?P("~s -> failed connecting:"
+		    "~n   Port:   ~p"
+		    "~n   Opts:   ~p"
+		    "~n   Reason: ~p",
+		    [?FUNCTION_NAME, Port, ConnectOptions, Reason2]),
+		 exit({connect, Reason2})
+	 end,
     {ok,AS}   = gen_tcp:accept(LS),
     {LS,AS,CS}.
 
@@ -1412,7 +1463,7 @@ ask_helper(Port,Code) ->
     end.
 
 stop_helper(Port) ->
-    catch ask_helper(Port,?C_QUIT),
+    ?CATCH_AND_IGNORE( ask_helper(Port,?C_QUIT) ),
     receive
 	{Port,eof} ->
 	    Port ! {self(), close},

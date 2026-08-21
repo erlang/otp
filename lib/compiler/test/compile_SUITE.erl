@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +25,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/erl_compile.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
@@ -236,10 +239,10 @@ forms_2(Config) when is_list(Config) ->
 
     Src = Simple,
     AbsSrc = filename:absname(Src),
-    {ok,[],SimpleCode} = compile:file(Simple, [dabstr,binary]),
+    {ok,[],SimpleCode} = compile:file(Simple, [to_abstr,binary]),
 
-    {ok,simple,Bin1} = compile:forms(SimpleCode, [binary,{source,Src}]),
-    {ok,simple,_} = compile:forms(SimpleCode,
+    {ok,simple,Bin1} = compile_forms(SimpleCode, [binary,{source,Src}]),
+    {ok,simple,_} = compile_forms(SimpleCode,
                                   [binary,{error_location,line},{source,Src}]),
 
     %% Cover option not in a list (undocumented feature).
@@ -248,7 +251,18 @@ forms_2(Config) when is_list(Config) ->
     %% Load and test that the proper source is returned.
     AbsSrc = forms_load_code(simple, Src, Bin1),
 
-    %% Work in a deleted directory.
+    %% For the rest of this function, compiling will be done in a
+    %% deleted directory (on Unix). See GH-3136. We will need to strip
+    %% the doc chunks because building documentation requires
+    %% determining the absolute path of the module (and that will not
+    %% work in deleted directory).
+
+    SimpleCodeNoDoc = [F || F <- SimpleCode,
+                            element(1, F) =/= attribute orelse element(3, F) =/= doc],
+
+    %% Test that the `to_abstr` option retains the doc attributes.
+    true = SimpleCodeNoDoc =/= SimpleCode,
+
     PrivDir = proplists:get_value(priv_dir, Config),
     WorkDir = filename:join(PrivDir, ?FUNCTION_NAME),
     ok = file:make_dir(WorkDir),
@@ -257,10 +271,10 @@ forms_2(Config) when is_list(Config) ->
 	{unix,_} -> os:cmd("rm -rf " ++ WorkDir);
 	_ -> ok
     end,
-    {ok,simple,Bin2} = compile:forms(SimpleCode),
+    {ok,simple,Bin2} = compile_forms(SimpleCodeNoDoc, []),
     undefined = forms_load_code(simple, "ignore", Bin2),
 
-    {ok,simple,Bin3} = compile:forms(SimpleCode, [{source,Src},report]),
+    {ok,simple,Bin3} = compile_forms(SimpleCodeNoDoc, [{source,Src},report]),
     case forms_load_code(simple, "ignore", Bin3) of
 	Src ->					%Unix.
 	    ok;
@@ -268,19 +282,19 @@ forms_2(Config) when is_list(Config) ->
 	    ok
     end,
 
-    {ok,simple,Core} = compile:forms(SimpleCode, [to_core0,binary]),
+    {ok,simple,Core} = compile_forms(SimpleCodeNoDoc, [to_core0,binary]),
     forms_compile_and_load(Core, [from_core]),
 
-    {ok,simple,Asm} = compile:forms(SimpleCode, [to_asm,binary]),
+    {ok,simple,Asm} = compile_forms(SimpleCodeNoDoc, [to_asm,binary]),
     forms_compile_and_load(Asm, [from_asm]),
 
     %% The `from_abstr` option is redundant when compiling from forms,
     %% but it should work.
-    forms_compile_and_load(SimpleCode, [from_abstr]),
+    forms_compile_and_load(SimpleCodeNoDoc, [from_abstr]),
 
     %% Cover the error handling code.
-    error = compile:forms(bad_core, [from_core,report]),
-    error = compile:forms(bad_asm, [from_asm,report]),
+    error = compile_forms(bad_core, [from_core,report]),
+    error = compile_forms(bad_asm, [from_asm,report]),
 
     ok.
 
@@ -291,7 +305,7 @@ forms_load_code(Mod, Src, Bin) ->
     SourceOption = proplists:get_value(source, Info),
 
     %% Ensure that the options are not polluted with 'source'.
-    [] = proplists:get_value(options, Info),
+    false = proplists:is_defined(source, proplists:get_value(options, Info, [])),
 
     %% Cleanup.
     true = code:delete(simple),
@@ -301,7 +315,7 @@ forms_load_code(Mod, Src, Bin) ->
 
 forms_compile_and_load(Code, Opts) ->
     Mod = simple,
-    {ok,Mod,Bin} = compile:forms(Code, Opts),
+    {ok,Mod,Bin} = compile_forms(Code, Opts),
     {module,Mod} = code:load_binary(Mod, "ignore", Bin),
     _ = Mod:module_info(),
     true = code:delete(simple),
@@ -479,8 +493,8 @@ no_core_prepare(_Config) ->
                              {c_literal,[],true},
                              {c_receive,[],[],{c_literal,[],0},{c_literal,[],ok}}}]}}}]},
 
-    {ok,sample_receive,_,_} = compile:forms(Mod, [from_core,binary,return]),
-    {error,_,_} = compile:forms(Mod, [from_core,binary,return,no_core_prepare]),
+    {ok,sample_receive,_,_} = compile_forms(Mod, [from_core,binary,return]),
+    {error,_,_} = compile_forms(Mod, [from_core,binary,return,no_core_prepare]),
     ok.
 
 cond_and_ifdef(Config) when is_list(Config) ->
@@ -550,7 +564,8 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
 
     %% Test options that produce a listing file if 'binary' is not given.
     do_listing(Simple, TargetDir, to_pp, ".P"),
-    do_listing(Simple, TargetDir, to_exp, ".E"),
+    do_listing(Simple, TargetDir, to_abstr, ".abstr"),
+    do_listing(Simple, TargetDir, to_exp, ".abstr"),
     do_listing(Simple, TargetDir, to_core0, ".core"),
     ok = file:delete(filename:join(TargetDir, File ++ ".core")),
     do_listing(Simple, TargetDir, to_core, ".core"),
@@ -614,20 +629,20 @@ other_output(Config) when is_list(Config) ->
     true = is_list(Expand),
     {attribute,_,module,simple} = lists:keyfind(module, 3, Expand),
     io:put_chars("to_exp (forms)"),
-    {ok,[],Expand} = compile:forms(PP, [to_exp,binary,time]),
+    {ok,[],Expand} = compile_forms(PP, [to_exp,binary,time]),
 
     io:put_chars("to_core (file)"),
     {ok,simple,Core} = compile:file(Simple, [to_core,binary,time]),
     c_module = element(1, Core),
     {ok,_} = core_lint:module(Core),
     io:put_chars("to_core (forms)"),
-    {ok,simple,Core} = compile:forms(PP, [to_core,binary,time]),
+    {ok,simple,Core} = compile_forms(PP, [to_core,binary,time]),
 
     io:put_chars("to_asm (file)"),
     {ok,simple,Asm} = compile:file(Simple, [to_asm,binary,time]),
-    {simple,_,_,_,_} = Asm,
+    {simple,_,_,_,_,_} = Asm,
     io:put_chars("to_asm (forms)"),
-    {ok,simple,Asm} = compile:forms(PP, [to_asm,binary,time]),
+    {ok,simple,Asm} = compile_forms(PP, [to_asm,binary,time]),
 
     ok.
 
@@ -645,7 +660,10 @@ encrypted_abstr(Config) when is_list(Config) ->
 		  OldPath = code:get_path(),
 		  try
 		      NewPath = OldPath -- [filename:dirname(code:which(crypto))],
-		      (catch crypto:stop()),
+                      try
+                          application:stop(crypto)
+                      catch _:_ -> ok
+                      end,
 		      code:delete(crypto),
 		      code:purge(crypto),
 		      code:set_path(NewPath),
@@ -805,8 +823,8 @@ verify_abstract(Beam, Backend) ->
 
 has_crypto() ->
     try
-	crypto:start(),
-	crypto:stop(),
+	application:start(crypto),
+	application:stop(crypto),
 	true
     catch
 	error:_ -> false
@@ -845,14 +863,14 @@ custom_compile_info(Config) when is_list(Config) ->
     Forms = [{attribute,Anno,module,custom_compile_info}],
     Opts = [binary,{compile_info,[{another,version}]}],
 
-    {ok,custom_compile_info,Bin} = compile:forms(Forms, Opts),
+    {ok,custom_compile_info,Bin} = compile_forms(Forms, Opts),
     {ok,{custom_compile_info,[{compile_info,CompileInfo}]}} =
 	beam_lib:chunks(Bin, [compile_info]),
     version = proplists:get_value(another, CompileInfo),
     CompileOpts = proplists:get_value(options, CompileInfo),
     undefined = proplists:get_value(compile_info, CompileOpts),
 
-    {ok,custom_compile_info,DetBin} = compile:forms(Forms, [deterministic|Opts]),
+    {ok,custom_compile_info,DetBin} = compile_forms(Forms, [deterministic|Opts]),
     {ok,{custom_compile_info,[{compile_info,DetInfo}]}} =
 	beam_lib:chunks(DetBin, [compile_info]),
     version = proplists:get_value(another, DetInfo).
@@ -888,10 +906,12 @@ get_files(Config, Module, OutputName) ->
 run(Target, Func, Args) ->
     Module = list_to_atom(filename:rootname(filename:basename(Target))),
     {module, Module} = code:load_abs(filename:rootname(Target)),
-    Result = (catch apply(Module, Func, Args)),
-    true = code:delete(Module),
-    false = code:purge(Module),
-    Result.
+    try
+        apply(Module, Func, Args)
+    after
+        true = code:delete(Module),
+        false = code:purge(Module)
+    end.
 
 exists(Name) ->
     case file:read_file_info(Name) of
@@ -944,19 +964,31 @@ test_sloppy() ->
     Turtle.
 
 utf8_atoms(Config) when is_list(Config) ->
+    do_utf8_atom(binary_to_atom(<<"こんにちは"/utf8>>, utf8)),
+
+    LongAtom = binary_to_atom(binary:copy(<<240,159,159,166>>, 255)),
+    do_utf8_atom(LongAtom),
+
+    ok.
+
+do_utf8_atom(Atom) ->
+    Mod = ?FUNCTION_NAME,
     Anno = erl_anno:new(1),
-    Atom = binary_to_atom(<<"こんにちは"/utf8>>, utf8),
-    Forms = [{attribute,Anno,compile,[export_all]},
+    Forms = [{attribute,Anno,module,Mod},
+             {attribute,Anno,compile,[export_all]},
 	     {function,Anno,atom,0,[{clause,Anno,[],[],[{atom,Anno,Atom}]}]}],
 
-    Utf8AtomForms = [{attribute,Anno,module,utf8_atom}|Forms],
-    {ok,utf8_atom,Utf8AtomBin} =
-	compile:forms(Utf8AtomForms, [binary]),
-    {ok,{utf8_atom,[{atoms,_}]}} =
-	beam_lib:chunks(Utf8AtomBin, [atoms]),
-    code:load_binary(utf8_atom, "compile_SUITE", Utf8AtomBin),
-    Atom = utf8_atom:atom(),
+    {ok,Mod,Utf8AtomBin} = compile_forms(Forms, [binary,report]),
+    {ok,{Mod,[{atoms,_}]}} = beam_lib:chunks(Utf8AtomBin, [atoms]),
+
+    code:load_binary(Mod, "compile_SUITE", Utf8AtomBin),
+
+    Atom = Mod:atom(),
     true = is_atom(Atom),
+
+    true = code:delete(Mod),
+    false = code:purge(Mod),
+
     ok.
 
 utf8_functions(Config) when is_list(Config) ->
@@ -967,21 +999,21 @@ utf8_functions(Config) when is_list(Config) ->
 
     Utf8FunctionForms = [{attribute,Anno,module,utf8_function}|Forms],
     {ok,utf8_function,Utf8FunctionBin} =
-	compile:forms(Utf8FunctionForms, [binary]),
+	compile_forms(Utf8FunctionForms, [binary]),
     {ok,{utf8_function,[{atoms,_}]}} =
 	beam_lib:chunks(Utf8FunctionBin, [atoms]),
     code:load_binary(utf8_function, "compile_SUITE", Utf8FunctionBin),
     world = utf8_function:Atom(),
 
     NoUtf8FunctionForms = [{attribute,Anno,module,no_utf8_function}|Forms],
-    error = compile:forms(NoUtf8FunctionForms, [binary, r19]).
+    error = compile_forms(NoUtf8FunctionForms, [binary, r19]).
 
 extra_chunks(Config) when is_list(Config) ->
     Anno = erl_anno:new(1),
     Forms = [{attribute,Anno,module,extra_chunks}],
 
     {ok,extra_chunks,ExtraChunksBinary} =
-	compile:forms(Forms, [binary, {extra_chunks, [{<<"ExCh">>, <<"Contents">>}]}]),
+	compile_forms(Forms, [binary, {extra_chunks, [{<<"ExCh">>, <<"Contents">>}]}]),
     {ok,{extra_chunks,[{"ExCh",<<"Contents">>}]}} =
 	beam_lib:chunks(ExtraChunksBinary, ["ExCh"]).
 
@@ -998,18 +1030,18 @@ tuple_calls(Config) when is_list(Config) ->
                  [{atom,Anno,key},{atom,Anno,value}]}]}]}],
 
     TupleCallsFalse = [{attribute,Anno,module,tuple_calls_false}|Forms],
-    {ok,_,TupleCallsFalseBinary} = compile:forms(TupleCallsFalse, [binary]),
+    {ok,_,TupleCallsFalseBinary} = compile_forms(TupleCallsFalse, [binary]),
     code:load_binary(tuple_calls_false, "compile_SUITE.erl", TupleCallsFalseBinary),
-    {'EXIT',{badarg,_}} = (catch tuple_calls_false:store(dict())),
-    {'EXIT',{badarg,_}} = (catch tuple_calls_false:size(dict())),
-    {'EXIT',{badarg,_}} = (catch tuple_calls_false:size(empty_tuple())),
+    ?assertError(badarg, tuple_calls_false:store(dict())),
+    ?assertError(badarg, tuple_calls_false:size(dict())),
+    ?assertError(badarg, tuple_calls_false:size(empty_tuple())),
 
     TupleCallsTrue = [{attribute,Anno,module,tuple_calls_true}|Forms],
-    {ok,_,TupleCallsTrueBinary} = compile:forms(TupleCallsTrue, [binary,tuple_calls]),
+    {ok,_,TupleCallsTrueBinary} = compile_forms(TupleCallsTrue, [binary,tuple_calls]),
     code:load_binary(tuple_calls_true, "compile_SUITE.erl", TupleCallsTrueBinary),
     Dict = tuple_calls_true:store(dict()),
     1 = tuple_calls_true:size(Dict),
-    {'EXIT',{badarg,_}} = (catch tuple_calls_true:size(empty_tuple())),
+    ?assertError(badarg, tuple_calls_true:size(empty_tuple())),
 
     ok.
 
@@ -1058,9 +1090,9 @@ env_1(Simple, Target) ->
 
     %% Cover error handling.
     true = os:putenv("ERL_COMPILER_OPTIONS", "'unterminated_atom"),
-    {ok,[]} = compile:forms(Forms, [basic_validation]),
+    {ok,[]} = compile_forms(Forms, [basic_validation]),
     true = os:putenv("ERL_COMPILER_OPTIONS", ",,,"),
-    {ok,[]} = compile:forms(Forms, [basic_validation]),
+    {ok,[]} = compile_forms(Forms, [basic_validation]),
     {ok,simple,<<"FOR1",_/binary>>} = compile:noenv_forms(Forms, no_postopt),
 
     ok.
@@ -1094,7 +1126,7 @@ do_core_pp({M,A}, Outdir) ->
     end.
 
 do_core_pp_1(M, A, Outdir) ->
-    {ok,M,Core0} = compile:forms(A, [to_core]),
+    {ok,M,Core0} = compile_forms(A, [to_core]),
     CoreFile = filename:join(Outdir, atom_to_list(M)++".core"),
     CorePP = core_pp:format(Core0),
     ok = file:write_file(CoreFile, unicode:characters_to_binary(CorePP)),
@@ -1107,7 +1139,7 @@ do_core_pp_1(M, A, Outdir) ->
     ok = file:delete(CoreFile),
 
     %% Compile as usual (including optimizations).
-    compile_forms(M, Core, [clint,ssalint,from_core,binary]),
+    {ok,M,_} = compile_forms(Core, [clint,ssalint,from_core,binary]),
 
     %% Don't optimize to test that we are not dependent
     %% on the Core Erlang optimization passes.
@@ -1116,15 +1148,13 @@ do_core_pp_1(M, A, Outdir) ->
     %% records; if sys_core_fold was run it would fix
     %% that; if sys_core_fold was not run v3_kernel would
     %% crash.)
-    compile_forms(M, Core, [clint,ssalint,from_core,no_copt,binary]),
+    {ok,M,_} = compile_forms(Core, [clint,ssalint,from_core,no_copt,binary]),
 
     ok.
 
-compile_forms(Mod, Forms, Opts) ->
-    case compile:forms(Forms, [report_errors|Opts]) of
-	{ok,Mod,_} ->  ok;
-	Other -> throw({error,Other})
-    end.
+compile_forms(Forms, Opts) ->
+    Feat = erl_features:configurable(),
+    compile:forms(Forms, [report_errors,{features,Feat}|Opts]).
 
 %% Pretty-print core and read it back. Should be identical.
 
@@ -1136,14 +1166,7 @@ core_roundtrip(Config) ->
     TestBeams = get_unique_beam_files(),
 
     Test = fun(F) -> do_core_roundtrip(F, Outdir) end,
-    case erlang:system_info(wordsize) of
-        4 ->
-            %% This test case is very memory intensive. Only
-            %% use a single process.
-            test_lib:p_run(Test, TestBeams, 1);
-        8 ->
-            test_lib:p_run(Test, TestBeams)
-    end.
+    test_lib:p_run(Test, TestBeams).
 
 do_core_roundtrip(Beam, Outdir) ->
     try
@@ -1161,7 +1184,7 @@ do_core_roundtrip(Beam, Outdir) ->
     end.
 
 do_core_roundtrip_1(Mod, Abstr, Outdir) ->
-    {ok,Mod,Core0} = compile:forms(Abstr, [to_core0]),
+    {ok,Mod,Core0} = compile_forms(Abstr, [to_core0]),
     do_core_roundtrip_2(Mod, Core0, Outdir),
 
     %% Primarily, test that annotations are accepted for all
@@ -1171,7 +1194,7 @@ do_core_roundtrip_1(Mod, Abstr, Outdir) ->
 
     %% Run the inliner to force generation of variables
     %% with numeric names.
-    {ok,Mod,Core2} = compile:forms(Abstr, [inline,to_core]),
+    {ok,Mod,Core2} = compile_forms(Abstr, [inline,to_core]),
     do_core_roundtrip_2(Mod, Core2, Outdir).
 
 do_core_roundtrip_2(M, Core0, Outdir) ->
@@ -1349,7 +1372,7 @@ do_asm(Beam, Outdir) ->
 	beam_lib:chunks(Beam, [abstract_code]),
     try
         Opts = test_lib:opt_opts(M),
-	{ok,M,Asm} = compile:forms(A, ['S'|Opts]),
+	{ok,M,Asm} = compile_forms(A, ['S'|Opts]),
 	AsmFile = filename:join(Outdir, atom_to_list(M)++".S"),
 	{ok,Fd} = file:open(AsmFile, [write,{encoding,utf8}]),
 	beam_listing:module(Fd, Asm),
@@ -1456,7 +1479,7 @@ beam_ssa_pp(Beam, Outdir) ->
 
 beam_ssa_pp_1(Mod, Abstr, Outdir) ->
     Opts = test_lib:opt_opts(Mod),
-    {ok,Mod,SSA} = compile:forms(Abstr, [dssaopt|Opts]),
+    {ok,Mod,SSA} = compile_forms(Abstr, [dssaopt|Opts]),
     ListFile = filename:join(Outdir, atom_to_list(Mod) ++ ".ssaopt"),
     {ok,Fd} = file:open(ListFile, [write,{encoding,utf8}]),
     beam_listing:module(Fd, SSA),
@@ -1464,7 +1487,7 @@ beam_ssa_pp_1(Mod, Abstr, Outdir) ->
 
 %% Test that warnings contain filenames and line numbers.
 warnings(_Config) ->
-    Files = get_unique_files(".erl"),
+    Files = test_lib:get_unique_files(".erl"),
     test_lib:p_run(fun do_warnings/1, Files).
 
 do_warnings(F) ->
@@ -1708,43 +1731,35 @@ bc_options(Config) ->
 
     DataDir = proplists:get_value(data_dir, Config),
 
-    L = [{171, small_float, [no_line_info,
-                             no_ssa_opt_float,
-                             no_type_opt]},
-         {171, small_float, [no_line_info]},
-         {171, small_float, []},
-         {171, small_float, [r24]},
-         {171, small_float, [r25]},
+    L = [{181, small_float, []},
 
-         {172, small, [no_ssa_opt_record,
-                       no_ssa_opt_float,
-                       no_line_info,
-                       no_type_opt,
-                       no_bs_match]},
-         {172, small, [r24]},
-
-         {172, funs, [no_ssa_opt_record,
-                      no_ssa_opt_float,no_line_info,
-                      no_type_opt]},
-         {172, funs, [no_ssa_opt_record,
+         {181, funs, [no_ssa_opt_record,
+                      no_ssa_opt_float,
                       no_line_info,
                       no_stack_trimming,
                       no_type_opt]},
-         {172, funs, [r24]},
 
-         {172, small_maps, [r24]},
-         {172, small_maps, [no_type_opt]},
+         {181, small_maps, [no_type_opt]},
 
-         {172, big, [no_ssa_opt_record,
+         {181, big, [no_ssa_opt_record,
                      no_ssa_opt_float,
                      no_line_info,
                      no_type_opt]},
-         {172, big, [r24]},
 
-         {178, small, [r25]},
-         {178, big, [r25]},
-         {178, funs, []},
-         {178, big, []}
+         {181, funs, []},
+         {181, big, []},
+
+         {182, small, [r26]},
+         {182, small, []},
+         {182, small, [no_ssa_opt_record,
+                       no_ssa_opt_float,
+                       no_line_info,
+                       no_type_opt]},
+
+         {183, small, [line_coverage]},
+
+         {184, small, [beam_debug_info]},
+         {184, big, [beam_debug_info]}
         ],
 
     Test = fun({Expected,Mod,Options}) ->
@@ -1810,7 +1825,6 @@ deterministic_paths_1(DataDir, Name, Opts) ->
 deterministic_docs(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     Filepath = filename:join(DataDir, "ssh"),
-    false = deterministic_docs_1(Filepath, [binary], 25),
     true = deterministic_docs_1(Filepath, [binary, deterministic], 25),
     ok.
 
@@ -2348,7 +2362,7 @@ sys_coverage_2(DataDir) ->
     Source = filename:join(DataDir, "embedded_line_coverage"),
     {ok,Mod,Asm} = compile:file(Source, ['S',binary,report]),
 
-    {Mod,_,_,Fs,_} = Asm,
+    {Mod,_,_,_,Fs,_} = Asm,
     [{function,add,2,_,Is}|_] = Fs,
     true = lists:keymember(executable_line, 1, Is),
 
@@ -2367,44 +2381,30 @@ compile_and_verify(Name, Target, Opts) ->
     Opts = BeamOpts.
 
 get_unique_beam_files() ->
-    get_unique_files(".beam").
-
-get_unique_files(Ext) ->
-    Wc = filename:join(filename:dirname(code:which(?MODULE)), "*"++Ext),
-    [F || F <- filelib:wildcard(Wc),
-	  not is_cloned(F, Ext), not is_lfe_module(F, Ext)].
-
-is_cloned(File, Ext) ->
-    Mod = list_to_atom(filename:basename(File, Ext)),
-    test_lib:is_cloned_mod(Mod).
-
-is_lfe_module(File, Ext) ->
-    case filename:basename(File, Ext) of
-	"lfe_" ++ _ -> true;
-	_ -> false
-    end.
+    test_lib:get_unique_files(".beam").
 
 %% Compiles a test module and returns the list of errors and warnings.
 
 run(Config, Tests) ->
     F = fun({N,P,Env,Ws,Run}, _BadL) when is_function(Run, 1) ->
-                case catch run_test(Config, P, Env, Ws, Run) of
+                try run_test(Config, P, Env, Ws, Run) of
                     ok ->
-                        ok;
-                    Bad ->
+                        ok
+                catch
+                    error:Bad:Stack ->
                         io:format("~nTest ~p failed. Expected~n  ~p~n"
-                                  "but got~n  ~p~n", [N, ok, Bad]),
+                                  "but got~n  ~p ~p~n", [N, ok, Bad, Stack]),
                         fail()
                 end;
            ({N,P,Env,Ws,Expected}, BadL)
               when is_list(Expected); is_tuple(Expected) ->
                 io:format("### ~s\n", [N]),
-                case catch run_test(Config, P, Env, Ws, none) of
+                try run_test(Config, P, Env, Ws, none) of
                     Expected ->
-                        BadL;
-                    Bad ->
+                        BadL
+                catch errore:Bad:Stack ->
                         io:format("~nTest ~p failed. Expected~n  ~p~n"
-                                  "but got~n  ~p~n", [N, Expected, Bad]),
+                                  "but got~n  ~p ~p~n", [N, Expected, Bad, Stack]),
 			fail()
                 end
         end,

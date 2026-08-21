@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,6 +49,7 @@
          srp_suites/1,
          srp_suites_anon/1,
          srp_exclusive/1,
+         aes_ccm_8_suites/1,
          rc4_suites/1,
          rc4_exclusive/1,
          des_suites/1,
@@ -62,9 +65,12 @@
          legacy_signature_algs_pre_13/0,
          signature_algs/2,
          signature_schemes/2,
+         slh_dsa_schemes/0,
          rsa_schemes/0,
          groups/0,
          groups/1,
+         pqc_groups/0,
+         ec_groups/0,
          group_to_enum/1,
          enum_to_group/1,
          default_groups/0,
@@ -515,13 +521,12 @@ suites_in_version(?TLS_1_3) -> [?TLS_1_3, ?TLS_1_2].
 -spec exclusive_suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
 
 default_suites(?TLS_1_3 = Version) ->
-    exclusive_suites(Version);
+    exclusive_suites(Version) -- aes_ccm_8_suites(Version);
 default_suites(?TLS_1_2) ->
     [?TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
      ?TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
 
      ?TLS_ECDHE_ECDSA_WITH_AES_256_CCM,
-     ?TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8,
 
      ?TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
      ?TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
@@ -530,7 +535,6 @@ default_suites(?TLS_1_2) ->
      ?TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 
      ?TLS_ECDHE_ECDSA_WITH_AES_128_CCM,
-     ?TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8,
 
      ?TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384,
      ?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384,
@@ -555,7 +559,6 @@ exclusive_suites(?TLS_1_3) ->
      ?TLS_AES_128_GCM_SHA256,
 
      ?TLS_CHACHA20_POLY1305_SHA256,
-
      ?TLS_AES_128_CCM_SHA256,
      ?TLS_AES_128_CCM_8_SHA256
     ];
@@ -719,13 +722,12 @@ psk_anon_exclusive(?TLS_1_2) ->
      ?TLS_PSK_DHE_WITH_AES_256_CCM_8,
      ?TLS_PSK_WITH_AES_256_CCM,
      ?TLS_PSK_WITH_AES_256_CCM_8,
+     ?TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256,
      ?TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256,
      ?TLS_ECDHE_PSK_WITH_AES_128_CCM_SHA256,
      ?TLS_ECDHE_PSK_WITH_AES_128_CCM_8_SHA256,
      ?TLS_DHE_PSK_WITH_AES_128_GCM_SHA256,
      ?TLS_PSK_WITH_AES_128_GCM_SHA256,
-     ?TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256,
-     ?TLS_ECDHE_PSK_WITH_AES_128_CCM_8_SHA256,
      ?TLS_DHE_PSK_WITH_AES_128_CCM,
      ?TLS_PSK_DHE_WITH_AES_128_CCM_8,
      ?TLS_PSK_WITH_AES_128_CCM,
@@ -801,6 +803,21 @@ srp_exclusive_anon(?TLS_1_0) ->
      ?TLS_SRP_SHA_WITH_AES_256_CBC_SHA,
      ?TLS_SRP_SHA_WITH_3DES_EDE_CBC_SHA
     ].
+
+%%--------------------------------------------------------------------
+-spec aes_ccm_8_suites(Version::ssl_record:ssl_version()) ->
+          [ssl_cipher_format:cipher_suite()].
+%%
+%% Description: Returns a list of embedded system trade off suites
+%% for AES using an 8 bit tag instead of 16
+%%--------------------------------------------------------------------
+aes_ccm_8_suites(?TLS_1_3) ->
+    [?TLS_AES_128_CCM_8_SHA256];
+aes_ccm_8_suites(?TLS_1_2) ->
+    [?TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8,
+     ?TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8];
+aes_ccm_8_suites(_) ->
+    [].
 
 %%--------------------------------------------------------------------
 -spec rc4_suites(Version::ssl_record:ssl_version()) ->
@@ -881,46 +898,28 @@ rsa_exclusive(_) ->
 signature_algs(?TLS_1_3, HashSigns) ->
     signature_algs(?TLS_1_2, HashSigns);
 signature_algs(?TLS_1_2, HashSigns) ->
-    CryptoSupports =  crypto:supports(),
-    Hashes = proplists:get_value(hashs, CryptoSupports),
-    PubKeys = proplists:get_value(public_keys, CryptoSupports),
+    Hashes = crypto:supports(hashs),
+    PubKeys = crypto:supports(public_keys),
     Schemes =  rsa_schemes(),
-    Supported = lists:foldl(fun({Hash, dsa = Sign} = Alg, Acc) ->
-				    case proplists:get_bool(dss, PubKeys)
-					andalso proplists:get_bool(Hash, Hashes)
-					andalso is_pair(Hash, Sign, Hashes)
-				    of
-					true ->
-					    [Alg | Acc];
-					false ->
-					    Acc
-				    end;
-			       ({Hash, Sign} = Alg, Acc) ->
-				    case proplists:get_bool(Sign, PubKeys)
-					andalso proplists:get_bool(Hash, Hashes)
-					andalso is_pair(Hash, Sign, Hashes)
-				    of
-					true ->
-					    [Alg | Acc];
-					false ->
-					    Acc
-				    end;
-                               (Alg, Acc) when is_atom(Alg) ->
-                                    case lists:member(Alg, Schemes) of
-                                        true ->
-                                            [NewAlg] = signature_schemes(?TLS_1_3, [Alg]),
-                                            [NewAlg| Acc];
-					false ->
-					    Acc
-				    end
-			    end, [], HashSigns),
-    lists:reverse(Supported).
+    lists:filtermap(fun({Hash, Sign0}) ->
+                            Sign = if Sign0 =:= dsa -> dss;
+                                      true -> Sign0
+                                   end,
+                            proplists:get_bool(Sign, PubKeys)
+                                andalso proplists:get_bool(Hash, Hashes)
+                                andalso is_pair(Hash, Sign0, Hashes);
+                       (Alg) when is_atom(Alg) ->
+                            case lists:member(Alg, Schemes) of
+                                true ->
+                                    [NewAlg] = signature_schemes(?TLS_1_3, [Alg]),
+                                    {true, NewAlg};
+                                false ->
+                                    false
+                            end
+                    end, HashSigns).
 
-default_signature_algs([?TLS_1_3]) ->
+default_signature_algs([?TLS_1_3|_]) ->
     default_signature_schemes(?TLS_1_3) ++ legacy_signature_schemes(?TLS_1_3);
-default_signature_algs([?TLS_1_3, ?TLS_1_2 | _]) ->
-    default_signature_schemes(?TLS_1_3) ++ legacy_signature_schemes(?TLS_1_3) 
-        ++ default_pre_1_3_signature_algs_only();
 default_signature_algs([?TLS_1_2 = Version |_]) ->
     Default = [%% SHA2 ++ PSS
                {sha512, ecdsa},
@@ -940,95 +939,72 @@ default_signature_algs([?TLS_1_2 = Version |_]) ->
 default_signature_algs(_) ->
     undefined.
 
-default_pre_1_3_signature_algs_only() ->
-    Default = [%% SHA2
-               {sha512, ecdsa},
-               {sha384, ecdsa},
-               {sha256, ecdsa}
-              ],
-    signature_algs(?TLS_1_2, Default).
-
 legacy_signature_algs_pre_13() ->
     [{sha224, ecdsa}, {sha224, rsa}, {sha, ecdsa}, {sha, rsa}, {sha, dsa}].
 
-signature_schemes(Version, [_|_] =SignatureSchemes) when is_tuple(Version)
-                                                         andalso ?TLS_GTE(Version, ?TLS_1_2) ->
-    CryptoSupports =  crypto:supports(),
-    Hashes = proplists:get_value(hashs, CryptoSupports),
-    PubKeys = proplists:get_value(public_keys, CryptoSupports),
-    Curves = proplists:get_value(curves, CryptoSupports),
-    RSAPSSSupported = lists:member(rsa_pkcs1_pss_padding,
-                                   proplists:get_value(rsa_opts, CryptoSupports)),
-    Fun = fun (Scheme, Acc) when is_atom(Scheme) ->
-                  {Hash, Sign0, Curve} =
-                      ssl_cipher:scheme_to_components(Scheme),
-                  Sign = case Sign0 of
-                             rsa_pkcs1 ->
-                                 rsa;
-                             rsa_pss_rsae when RSAPSSSupported ->
-                                 rsa;
-                             rsa_pss_pss when RSAPSSSupported ->
-                                 rsa;
-                             S -> S
-                         end,
-                  case proplists:get_bool(Sign, PubKeys)
-                      andalso
-                      (proplists:get_bool(Hash, Hashes)
-                       andalso (Curve =:= undefined orelse
-                                proplists:get_bool(Curve, Curves))
-                       andalso is_pair(Hash, Sign, Hashes)) orelse
-                      ((Sign == eddsa) andalso ((Curve == ed448)
-                                                orelse
-                                                (Curve == ed25519)))
-                  of
-                      true ->
-                          [Scheme | Acc];
-                      false ->
-                          Acc
-                  end;
-              %% Special clause for filtering out the legacy hash-sign tuples.
-              ({Hash, dsa = Sign} = Alg, Acc) ->
-                  case proplists:get_bool(dss, PubKeys)
-                      andalso proplists:get_bool(Hash, Hashes)
-                      andalso is_pair(Hash, Sign, Hashes)
-                  of
-                      true ->
-                          [Alg | Acc];
-                      false ->
-                          Acc
-                  end;
-              ({Hash, Sign} = Alg, Acc) ->
-                  case proplists:get_bool(Sign, PubKeys)
-                      andalso proplists:get_bool(Hash, Hashes)
-                      andalso is_pair(Hash, Sign, Hashes)
-                  of
-                      true ->
-                          [Alg | Acc];
-                      false ->
-                          Acc
-                  end
-          end,
-    Supported = lists:foldl(Fun, [], SignatureSchemes),
-    lists:reverse(Supported);
+signature_schemes(Version, [_|_] = SignatureSchemes)
+  when is_tuple(Version) andalso ?TLS_GTE(Version, ?TLS_1_2) ->
+    Hashes  = crypto:supports(hashs),
+    PubKeys = sets:from_list(crypto:supports(public_keys)),
+    Curves  = crypto:supports(curves),
+    RSAOpts = crypto:supports(rsa_opts),
+    RSAPSSSupported = lists:member(rsa_pkcs1_pss_padding, RSAOpts),
+
+    CheckComponents =
+        fun(Scheme) ->
+                {Hash, Sign0, Curve} = ssl_cipher:scheme_to_components(Scheme),
+                Sign = case Sign0 of
+                           rsa_pkcs1 ->
+                               rsa;
+                           rsa_pss_rsae when RSAPSSSupported ->
+                               rsa;
+                           rsa_pss_pss when RSAPSSSupported ->
+                               rsa;
+                           S -> S
+                       end,
+                sets:is_element(Sign, PubKeys)
+                    andalso (proplists:get_bool(Hash, Hashes)
+                             andalso (Curve =:= undefined
+                                      orelse proplists:get_bool(Curve, Curves))
+                             andalso is_pair(Hash, Sign, Hashes))
+                    orelse ((Sign == eddsa)
+                            andalso ((Curve == ed448)
+                                     orelse (Curve == ed25519)))
+        end,
+
+    Filter = fun(Scheme) when is_atom(Scheme) ->
+                     sets:is_element(Scheme, PubKeys) orelse CheckComponents(Scheme);
+                ({Hash, Sign0}) ->
+                     Sign = if Sign0 =:= dsa -> dss;
+                               true -> Sign0
+                            end,
+                     sets:is_element(Sign, PubKeys)
+                         andalso proplists:get_bool(Hash, Hashes)
+                         andalso is_pair(Hash, Sign0, Hashes)
+             end,
+    lists:filter(Filter, SignatureSchemes);
 signature_schemes(_, _) ->
     [].
 
 default_signature_schemes(Version) ->
-    Default = [eddsa_ed25519,
-               eddsa_ed448,
-               ecdsa_secp521r1_sha512,
-               ecdsa_secp384r1_sha384,
-               ecdsa_secp256r1_sha256,
-               ecdsa_brainpoolP512r1tls13_sha512,
-               ecdsa_brainpoolP384r1tls13_sha384,
-               ecdsa_brainpoolP256r1tls13_sha256,
-               rsa_pss_pss_sha512,
-               rsa_pss_pss_sha384,
-               rsa_pss_pss_sha256,
-               rsa_pss_rsae_sha512,
-               rsa_pss_rsae_sha384,
-               rsa_pss_rsae_sha256
-              ],
+    [GoodSLH|SLH_DSA] = slh_dsa_schemes(),
+    Default =
+        [mldsa87, mldsa65, mldsa44,
+         GoodSLH,
+         eddsa_ed25519, eddsa_ed448,
+         ecdsa_secp521r1_sha512,
+         ecdsa_secp384r1_sha384,
+         ecdsa_secp256r1_sha256,
+         ecdsa_brainpoolP512r1tls13_sha512,
+         ecdsa_brainpoolP384r1tls13_sha384,
+         ecdsa_brainpoolP256r1tls13_sha256,
+         rsa_pss_pss_sha512,
+         rsa_pss_pss_sha384,
+         rsa_pss_pss_sha256,
+         rsa_pss_rsae_sha512,
+         rsa_pss_rsae_sha384,
+         rsa_pss_rsae_sha256
+        | SLH_DSA ],
     signature_schemes(Version, Default).
 
 legacy_signature_schemes(Version) ->
@@ -1045,9 +1021,7 @@ legacy_signature_schemes(Version) ->
     signature_schemes(Version, LegacySchemes).
 
 rsa_schemes() ->
-    Supports = crypto:supports(),
-    RSAOpts = proplists:get_value(rsa_opts, Supports),
-
+    RSAOpts = crypto:supports(rsa_opts),
     case lists:member(rsa_pkcs1_pss_padding, RSAOpts)
         andalso lists:member(rsa_pss_saltlen, RSAOpts)
         andalso lists:member(rsa_mgf1_md, RSAOpts) of
@@ -1062,6 +1036,20 @@ rsa_schemes() ->
             []
     end.
 
+slh_dsa_schemes() ->
+    [slh_dsa_sha2_256f,  %% Fastest
+     slh_dsa_sha2_256s,
+     slh_dsa_shake_256f,
+     slh_dsa_shake_256s,
+     slh_dsa_shake_192f,
+     slh_dsa_shake_192s,
+     slh_dsa_sha2_192f,
+     slh_dsa_sha2_192s,
+     slh_dsa_shake_128f,
+     slh_dsa_shake_128s,
+     slh_dsa_sha2_128f,
+     slh_dsa_sha2_128s].
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -1070,7 +1058,8 @@ hkdf_expand(Algo, PseudoRandKey, ContextInfo, Length, N, N, Prev, Acc) ->
     binary:part(<<Acc/binary, Keyingmaterial/binary>>, {0, Length});
 hkdf_expand(Algo, PseudoRandKey, ContextInfo, Length, M, N, Prev, Acc) ->
     Keyingmaterial = hmac_hash(Algo, PseudoRandKey, <<Prev/binary, ContextInfo/binary, ?BYTE(M)>>),
-    hkdf_expand(Algo, PseudoRandKey, ContextInfo, Length, M + 1, N, Keyingmaterial, <<Acc/binary, Keyingmaterial/binary>>).
+    hkdf_expand(Algo, PseudoRandKey, ContextInfo, Length, M + 1, N,
+                Keyingmaterial, <<Acc/binary, Keyingmaterial/binary>>).
 
 %%%% HMAC and the Pseudorandom Functions RFC 2246 & 4346 - 5.%%%%
 hmac_hash(?NULL, _, _) ->
@@ -1201,46 +1190,76 @@ ecc_curves(Version) when is_tuple(Version) ->
     ecc_curves(TLSCurves);
 ecc_curves(TLSCurves) ->
     [pubkey_cert_records:namedCurves(Curve) || Curve <- TLSCurves].
-    
+
 groups() ->
     TLSGroups = groups(all),
     groups(TLSGroups).
 
 -spec groups(all | default | TLSGroups :: list()) -> [ssl:group()].
 groups(all) ->
-    [x25519,
-     x448,
-     secp521r1,
-     secp384r1,
-     secp256r1,
-     brainpoolP256r1tls13,
-     brainpoolP384r1tls13,
-     brainpoolP512r1tls13,
-     ffdhe2048,
+    default_pqc_hybrid_groups() ++
+        ec_groups() ++
+        other_pqc_hybrid_groups() ++
+        pqc_plain_groups() ++
+        dhe_groups();
+groups(default) ->
+    default_pqc_hybrid_groups() ++
+        ec_groups();
+groups(TLSGroups) when is_list(TLSGroups) ->
+    CryptoGroups = crypto_supported_groups(),
+    lists:filter(fun(x25519mlkem768) ->
+                         proplists:get_bool(mlkem768, CryptoGroups)
+                             andalso proplists:get_bool(x25519, CryptoGroups);
+                     (secp256r1mlkem768) ->
+                         proplists:get_bool(mlkem768, CryptoGroups)
+                             andalso proplists:get_bool(secp256r1, CryptoGroups);
+                    (secp384r1mlkem1024) ->
+                         proplists:get_bool(mlkem1024, CryptoGroups)
+                             andalso proplists:get_bool(secp384r1, CryptoGroups);
+                    (Group) ->
+                         proplists:get_bool(maybe_group_to_curve(Group), CryptoGroups)
+                 end, TLSGroups).
+ec_groups() ->
+     [x25519,
+      x448,
+      secp521r1,
+      secp384r1,
+      secp256r1,
+      brainpoolP512r1tls13,
+      brainpoolP384r1tls13,
+      brainpoolP256r1tls13
+     ].
+
+pqc_groups() ->
+    default_pqc_hybrid_groups() ++
+        other_pqc_hybrid_groups() ++
+        pqc_plain_groups().
+
+default_pqc_hybrid_groups() ->
+    [x25519mlkem768].
+
+other_pqc_hybrid_groups()->
+    [secp384r1mlkem1024,
+     secp256r1mlkem768].
+
+pqc_plain_groups() ->
+    [mlkem1024,
+     mlkem768,
+     mlkem512].
+
+dhe_groups() ->
+    [ffdhe2048,
      ffdhe3072,
      ffdhe4096,
      ffdhe6144,
-     ffdhe8192];
-groups(default) ->
-    [x25519,
-     x448,
-     secp521r1,
-     secp384r1,
-     secp256r1,
-     brainpoolP512r1tls13,
-     brainpoolP384r1tls13,
-     brainpoolP256r1tls13
-    ];
-groups(TLSGroups) when is_list(TLSGroups) ->
-    CryptoGroups = crypto_supported_groups(),
-    lists:filter(fun(Group) -> proplists:get_bool(maybe_group_to_curve(Group), CryptoGroups) end, TLSGroups).
+     ffdhe8192].
 
 default_groups() ->
     TLSGroups = groups(default),
     groups(TLSGroups).
 
 crypto_supported_groups() ->
-    crypto:supports(curves) ++
+    crypto:supports(curves) ++ crypto:supports(kems) ++
         [ffdhe2048,ffdhe3072,ffdhe4096,ffdhe6144,ffdhe8192].
 
 group_to_enum(secp256r1) -> ?SECP256R1;
@@ -1251,6 +1270,12 @@ group_to_enum(x448)      -> ?X448;
 group_to_enum(brainpoolP256r1tls13) -> ?BRAINPOOLP256R1TLS13;
 group_to_enum(brainpoolP384r1tls13) -> ?BRAINPOOLP384R1TLS13;
 group_to_enum(brainpoolP512r1tls13) -> ?BRAINPOOLP512R1TLS13;
+group_to_enum(mlkem512)  -> ?MLKEM512;
+group_to_enum(mlkem768)  -> ?MLKEM768;
+group_to_enum(mlkem1024) -> ?MLKEM1024;
+group_to_enum(x25519mlkem768)  -> ?X25519MLKEM768;
+group_to_enum(secp256r1mlkem768) -> ?SECP256R1MLKEM768;
+group_to_enum(secp384r1mlkem1024)  -> ?SECP384R1MLKEM1024;
 group_to_enum(ffdhe2048) -> ?FFDHE2048;
 group_to_enum(ffdhe3072) -> ?FFDHE3072;
 group_to_enum(ffdhe4096) -> ?FFDHE4096;
@@ -1265,13 +1290,18 @@ enum_to_group(?X448) -> x448;
 enum_to_group(?BRAINPOOLP256R1TLS13) -> brainpoolP256r1tls13;
 enum_to_group(?BRAINPOOLP384R1TLS13) -> brainpoolP384r1tls13;
 enum_to_group(?BRAINPOOLP512R1TLS13) -> brainpoolP512r1tls13;
+enum_to_group(?MLKEM512)  -> mlkem512;
+enum_to_group(?MLKEM768)  -> mlkem768;
+enum_to_group(?MLKEM1024) -> mlkem1024;
+enum_to_group(?X25519MLKEM768)     -> x25519mlkem768;
+enum_to_group(?SECP256R1MLKEM768)  -> secp256r1mlkem768;
+enum_to_group(?SECP384R1MLKEM1024) -> secp384r1mlkem1024;
 enum_to_group(?FFDHE2048) -> ffdhe2048;
 enum_to_group(?FFDHE3072) -> ffdhe3072;
 enum_to_group(?FFDHE4096) -> ffdhe4096;
 enum_to_group(?FFDHE6144) -> ffdhe6144;
 enum_to_group(?FFDHE8192) -> ffdhe8192;
 enum_to_group(_) -> undefined.
-
 
 %% 1-22 Deprecated in RFC 8422
 oid_to_enum(?sect163k1) -> 1;

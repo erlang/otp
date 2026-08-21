@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -195,15 +197,15 @@ do_simple_init() ->
     Init = 
 	fun(Tmr) ->
 		case (catch megaco_timer:init(Tmr)) of
-		    {WaitFor, {NewTmr, _}} when 
-		        (((WaitFor == infinity) or is_integer(WaitFor)) andalso 
-			 is_record(NewTmr, megaco_incr_timer) andalso
-			 (is_record(Tmr, megaco_incr_timer) andalso 
-			  (Tmr#megaco_incr_timer.max_retries == infinity_restartable))) ->
+                    {WaitFor, {NewTmr, _}} when
+                          WaitFor == infinity orelse is_integer(WaitFor),
+                          is_record(NewTmr, megaco_incr_timer),
+                          is_record(Tmr, megaco_incr_timer),
+                          Tmr#megaco_incr_timer.max_retries == infinity_restartable ->
 			ok;
-		    {WaitFor, NewTmr} when 
-			 (((WaitFor == infinity) or is_integer(WaitFor)) andalso 
-			  ((NewTmr == timeout) or is_record(NewTmr, megaco_incr_timer))) ->
+                    {WaitFor, NewTmr} when
+                          WaitFor == infinity orelse is_integer(WaitFor),
+                          NewTmr == timeout orelse is_record(NewTmr, megaco_incr_timer) ->
 			ok;
 		    X ->
 			d("initiation of timer failed: "

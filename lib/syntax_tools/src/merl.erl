@@ -1,7 +1,16 @@
 %% ---------------------------------------------------------------------
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright Ericsson AB 2015-2026. All Rights Reserved.
+%% Copyright 2010-2015 Richard Carlsson
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,9 +28,7 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @copyright 2010-2015 Richard Carlsson
-%%
+%% %CopyrightEnd%
 
 -module(merl).
 -moduledoc """
@@ -361,6 +368,8 @@ Thus, the following pattern matches all possible clauses:
 ```
 """.
 
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([term/1, var/1, print/1, show/1]).
 
 -export([quote/1, quote/2, qquote/2, qquote/3]).
@@ -395,8 +404,6 @@ Thus, the following pattern matches all possible clauses:
 %% ------------------------------------------------------------------------
 %% Compiling and loading code directly to memory
 
-%% @equiv compile(Code, [])
-
 -doc #{equiv => compile(Code, [])}.
 -spec compile(tree_or_trees()) -> compile:comp_ret().
 
@@ -419,7 +426,7 @@ compile(Code, Options) when not is_list(Code)->
         _ -> compile([Code], Options)
     end;
 compile(Code, Options0) when is_list(Options0) ->
-    Forms = [erl_syntax:revert(F) || F <- Code],
+    Forms = erl_syntax:revert_forms(Code),
     Options = [verbose, report_errors, report_warnings, binary | Options0],
     compile:noenv_forms(Forms, Options).
 

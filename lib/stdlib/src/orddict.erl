@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -32,33 +34,9 @@ defined representation. One difference is that while `dict` considers two keys
 as different if they do not match (`=:=`), this module considers two keys as
 different if and only if they do not compare equal (`==`).
 
-## Notes
+### See Also
 
-[](){: #notes }
-
-Functions [`append/3`](`append/3`) and [`append_list/3`](`append_list/3`) are
-included so that keyed values can be stored in a list _accumulator_, for
-example:
-
-```erlang
-> D0 = orddict:new(),
-  D1 = orddict:store(files, [], D0),
-  D2 = orddict:append(files, f1, D1),
-  D3 = orddict:append(files, f2, D2),
-  D4 = orddict:append(files, f3, D3),
-  orddict:fetch(files, D4).
-[f1,f2,f3]
-```
-
-This saves the trouble of first fetching a keyed value, appending a new value to
-the list of stored values, and storing the result.
-
-Function [`fetch/2`](`fetch/2`) is to be used if the key is known to be in the
-dictionary, otherwise function [`find/2`](`find/2`).
-
-## See Also
-
-`m:dict`, `m:gb_trees`
+`m:dict`, `m:gb_trees`, `m:maps`
 """.
 
 %% Standard interface.
@@ -78,12 +56,35 @@ dictionary, otherwise function [`find/2`](`find/2`).
 
 %%---------------------------------------------------------------------------
 
--doc "Creates a new dictionary.".
+-doc """
+Creates a new dictionary.
+
+## Examples
+
+```erlang
+1> orddict:new().
+[]
+```
+""".
 -spec new() -> orddict(none(), none()).
 
 new() -> [].
 
--doc "Tests if `Key` is contained in dictionary `Orddict`.".
+-doc """
+Returns `true` if `Key` is contained in dictionary `Orddict`;
+otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> OrdDict = orddict:from_list([{1,a},{2,b},{3,c}]).
+[{1,a},{2,b},{3,c}]
+2> orddict:is_key(2, OrdDict).
+true
+3> orddict:is_key(aa, OrdDict).
+false
+```
+""".
 -spec is_key(Key, Orddict) -> boolean() when
       Orddict :: orddict(Key, Value :: term()).
 
@@ -92,14 +93,34 @@ is_key(Key, [{K,_}|Dict]) when Key > K -> is_key(Key, Dict);
 is_key(_Key, [{_K,_Val}|_]) -> true;		%Key == K
 is_key(_, []) -> false.
 
--doc "Converts a dictionary to a list representation.".
+-doc """
+Converts a dictionary to a list representation.
+
+## Examples
+
+```erlang
+1> OrdDict = orddict:from_list([{2,b},{1,a}]).
+[{1,a},{2,b}]
+2> orddict:to_list(OrdDict).
+[{1,a},{2,b}]
+```
+""".
 -spec to_list(Orddict) -> List when
       Orddict :: orddict(Key, Value),
       List :: [{Key, Value}].
 
 to_list(Dict) -> Dict.
 
--doc "Converts the `Key`-`Value` list `List` to a dictionary.".
+-doc """
+Converts the `Key`-`Value` list `List` to a dictionary.
+
+## Examples
+
+```erlang
+1> OrdDict = orddict:from_list([{2,b},{1,a},{3,c}]).
+[{1,a},{2,b},{3,c}]
+```
+""".
 -spec from_list(List) -> Orddict when
       List :: [{Key, Value}],
       Orddict :: orddict(Key, Value).
@@ -109,13 +130,35 @@ from_list([{_,_}]=Pair) -> Pair;
 from_list(Pairs) ->
     lists:ukeysort(1, reverse_pairs(Pairs, [])).
 
--doc "Returns the number of elements in an `Orddict`.".
+-doc """
+Returns the number of elements in an `Orddict`.
+
+## Examples
+
+```erlang
+1> orddict:size(orddict:new()).
+0
+2> orddict:size(orddict:from_list([{a,1},{b,2},{c,3}])).
+3
+```
+""".
 -spec size(Orddict) -> non_neg_integer() when
       Orddict :: orddict().
 
 size(D) -> length(D).
 
--doc "Returns `true` if `Orddict` has no elements, otherwise `false`.".
+-doc """
+Returns `true` if `Orddict` has no elements; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> orddict:is_empty(orddict:new()).
+true
+2> orddict:is_empty(orddict:from_list([{a,1}])).
+false
+```
+""".
 -doc(#{since => <<"OTP 17.0">>}).
 -spec is_empty(Orddict) -> boolean() when
       Orddict :: orddict().
@@ -124,13 +167,12 @@ is_empty([]) -> true;
 is_empty([_|_]) -> false.
 
 -doc """
-Returns the value associated with `Key` in dictionary `Orddict`. This function
-assumes that the `Key` is present in the dictionary. An exception is generated
-if `Key` is not in the dictionary.
+Returns the value associated with `Key` in dictionary `Orddict`.
 
-See also section [Notes](`m:orddict#module-notes`).
+This function assumes that the `Key` is present in the dictionary. An
+exception is generated if `Key` is not in the dictionary.
 
-_Example:_
+## Examples
 
 ```erlang
 1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).
@@ -148,13 +190,12 @@ fetch(Key, [{K,_}|D]) when Key > K -> fetch(Key, D);
 fetch(Key, [{K,Value}|_]) when Key == K -> Value.
 
 -doc """
-Searches for a key in a dictionary. Returns `{ok, Value}`, where `Value` is the
-value associated with `Key`, or `error` if the key is not present in the
-dictionary.
+Searches for a key in a dictionary.
 
-See also section [Notes](`m:orddict#module-notes`).
+Returns `{ok, Value}`, where `Value` is the value associated with
+`Key`, or `error` if the key is not present in the dictionary.
 
-_Example:_
+## Examples
 
 ```erlang
 1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).
@@ -176,7 +217,7 @@ find(_, []) -> error.
 -doc """
 Returns a list of all keys in a dictionary.
 
-_Example:_
+## Examples
 
 ```erlang
 1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).
@@ -194,15 +235,17 @@ fetch_keys([{Key,_}|Dict]) ->
 fetch_keys([]) -> [].
 
 -doc """
-Erases all items with a specified key from a dictionary.
+Removes the item with key `Key` from dictionary `OrdDict1`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).
 [{a,1},{b,2}]
 2> orddict:erase(a, OrdDict1).
 [{b,2}]
+3> orddict:erase(z, OrdDict1).
+[{a,1},{b,2}]
 ```
 """.
 -spec erase(Key, Orddict1) -> Orddict2 when
@@ -216,10 +259,12 @@ erase(_Key, [{_K,_Val}|Dict]) -> Dict;		%Key == K
 erase(_, []) -> [].
 
 -doc """
-This function returns value from dictionary and new dictionary without this
-value. Returns `error` if the key is not present in the dictionary.
+This function returns a value from a dictionary and a new dictionary without
+this value.
 
-_Example:_
+Returns `error` if the key is not present in the dictionary.
+
+## Examples
 
 ```erlang
 1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).
@@ -249,10 +294,12 @@ take_1(_Key, [{_K,Value}|D], Acc) ->
 take_1(_, [], _) -> error.
 
 -doc """
-Stores a `Key`-`Value` pair in a dictionary. If the `Key` already exists in
-`Orddict1`, the associated value is replaced by `Value`.
+Stores a `Key`-`Value` pair in a dictionary.
 
-_Example:_
+If the `Key` already exists in `Orddict1`, the associated value is
+replaced by `Value`.
+
+## Examples
 
 ```erlang
 1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).
@@ -276,13 +323,12 @@ store(Key, New, [{_K,_Old}|Dict]) ->		%Key == K
 store(Key, New, []) -> [{Key,New}].
 
 -doc """
-Appends a new `Value` to the current list of values associated with `Key`. An
-exception is generated if the initial value associated with `Key` is not a list
-of values.
+Appends a new `Value` to the current list of values associated with `Key`.
 
-See also section [Notes](`m:orddict#module-notes`).
+An exception is generated if the initial value associated with `Key`
+is not a list of values.
 
-_Example 1:_
+## Examples
 
 ```erlang
 1> OrdDict1 = orddict:from_list([{x, []}]).
@@ -295,8 +341,6 @@ _Example 1:_
 [{x,[1,2]},{y,[3]}]
 ```
 
-_Example 2:_
-
 ```erlang
 1> OrdDict1 = orddict:from_list([{a, no_list}]).
 [{a,no_list}]
@@ -304,6 +348,7 @@ _Example 2:_
 ** exception error: bad argument
      in operator  ++/2
         called as no_list ++ [1]
+     in call from orddict:append/3
 ```
 """.
 -spec append(Key, Value, Orddict1) -> Orddict2 when
@@ -320,12 +365,12 @@ append(Key, New, []) -> [{Key,[New]}].
 
 -doc """
 Appends a list of values `ValList` to the current list of values associated with
-`Key`. An exception is generated if the initial value associated with `Key` is
-not a list of values.
+`Key`.
 
-See also section [Notes](`m:orddict#module-notes`).
+An exception is generated if the initial value associated with `Key`
+is not a list of values.
 
-_Example:_
+## Examples
 
 ```erlang
 1> OrdDict1 = orddict:from_list([{x, []}]).
@@ -352,9 +397,11 @@ append_list(Key, NewList, []) ->
 
 -doc """
 Updates a value in a dictionary by calling `Fun` on the value to get a new
-value. An exception is generated if `Key` is not present in the dictionary.
+value.
 
-_Example:_
+An exception is generated if `Key` is not present in the dictionary.
+
+## Examples
 
 ```erlang
 1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).
@@ -375,7 +422,9 @@ update(Key, Fun, [{K,Val}|Dict]) when Key == K ->
 
 -doc """
 Updates a value in a dictionary by calling `Fun` on the value to get a new
-value. If `Key` is not present in the dictionary, `Initial` is stored as the
+value.
+
+If `Key` is not present in the dictionary, `Initial` is stored as the
 first value.
 
 For example, [`append/3`](`append/3`) can be defined as follows:
@@ -385,22 +434,15 @@ append(Key, Val, D) ->
     update(Key, fun (Old) -> Old ++ [Val] end, [Val], D).
 ```
 
-_Example 1:_
+## Examples
 
 ```erlang
 1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).
 [{a,1},{b,2}]
-2> orddict:update(c, fun (V) -> V + 100 end, 99, OrdDict1).
+2> OrdDict2 = orddict:update(c, fun (V) -> V + 100 end, 99, OrdDict1).
 [{a,1},{b,2},{c,99}]
-```
-
-_Example 2:_
-
-```erlang
-1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).
-[{a,1},{b,2}]
-2> orddict:update(a, fun (V) -> V + 100 end, 99, OrdDict1).
-[{a,101},{b,2}]
+3> orddict:update(a, fun (V) -> V + 100 end, 99, OrdDict2).
+[{a,101},{b,2},{c,99}]
 ```
 """.
 -spec update(Key, Fun, Initial, Orddict1) -> Orddict2 when
@@ -418,15 +460,22 @@ update(Key, Fun, _Init, [{_K,Val}|Dict]) ->		%Key == K
 update(Key, _, Init, []) -> [{Key,Init}].
 
 -doc """
-Adds `Increment` to the value associated with `Key` and store this value. If
-`Key` is not present in the dictionary, `Increment` is stored as the first
-value.
+Adds `Increment` to the value associated with `Key` and stores this value.
 
-This can be defined as follows, but is faster:
+If `Key` is not present in the dictionary, `Increment` is stored as
+the first value.
+
+## Examples
 
 ```erlang
-update_counter(Key, Incr, D) ->
-    update(Key, fun (Old) -> Old + Incr end, Incr, D).
+1> OrdDict1 = orddict:from_list([{a,0},{b,0}]).
+[{a,0},{b,0}]
+2> OrdDict2 = orddict:update_counter(a, 1, OrdDict1).
+[{a,1},{b,0}]
+3> OrdDict3 = orddict:update_counter(b, 2, OrdDict2).
+[{a,1},{b,2}]
+4> orddict:update_counter(z, 7, OrdDict3).
+[{a,1},{b,2},{z,7}]
 ```
 """.
 -spec update_counter(Key, Increment, Orddict1) -> Orddict2 when
@@ -444,10 +493,12 @@ update_counter(Key, Incr, []) -> [{Key,Incr}].
 
 -doc """
 Calls `Fun` on successive keys and values of `Orddict` together with an extra
-argument `Acc` (short for accumulator). `Fun` must return a new accumulator that
-is passed to the next call. `Acc0` is returned if the list is empty.
+argument `Acc` (short for accumulator).
 
-_Example:_
+`Fun` must return a new accumulator that is passed to the next
+call. `Acc0` is returned if the dictionary is empty.
+
+## Examples
 
 ```erlang
 1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).
@@ -472,7 +523,7 @@ fold(F, Acc, []) when is_function(F, 3) -> Acc.
 Calls `Fun` on successive keys and values of `Orddict1` to return a new value
 for each key.
 
-_Example:_
+## Examples
 
 ```erlang
 1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).
@@ -491,10 +542,9 @@ map(F, [{Key,Val}|D]) ->
 map(F, []) when is_function(F, 2) -> [].
 
 -doc """
-`Orddict2` is a dictionary of all keys and values in `Orddict1` for which
-`Pred(Key, Value)` is `true`.
+Filters keys and values in `Orddict1` using predicate function `Pred`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).
@@ -517,6 +567,7 @@ filter(F, []) when is_function(F, 2) -> [].
 
 -doc """
 Merges two dictionaries, `Orddict1` and `Orddict2`, to create a new dictionary.
+
 All the `Key`-`Value` pairs from both dictionaries are included in the new
 dictionary.
 
@@ -532,7 +583,7 @@ merge(Fun, D1, D2) ->
          end, D2, D1).
 ```
 
-_Example:_
+## Examples
 
 ```erlang
 1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).

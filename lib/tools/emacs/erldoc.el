@@ -2,7 +2,9 @@
 
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 2016-2021. All Rights Reserved.
+;; SPDX-License-Identifier: Apache-2.0
+;;
+;; Copyright Ericsson AB 2016-2025. All Rights Reserved.
 ;;
 ;; Licensed under the Apache License, Version 2.0 (the "License");
 ;; you may not use this file except in compliance with the License.
@@ -21,11 +23,6 @@
 ;;; Commentary:
 
 ;; Crawl Erlang/OTP HTML documentation and generate lookup tables.
-;;
-;; This package depends on `cl-lib', `pcase' and
-;; `libxml-parse-html-region'.  Emacs 24+ compiled with libxml2 should
-;; work.  On Emacs 24.1 and 24.2 do `M-x package-install RET cl-lib
-;; RET' to install `cl-lib'.
 ;;
 ;; Please customise `erldoc-man-index' to point to your local OTP
 ;; documentation.
@@ -61,12 +58,10 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'dom)
 (require 'json)
 (require 'erlang)
 (eval-when-compile (require 'url-parse))
-
-(eval-and-compile                       ;for emacs < 24.3
-  (or (fboundp 'user-error) (defalias 'user-error 'error)))
 
 (defgroup erldoc nil
   "Browse Erlang document."
@@ -118,48 +113,31 @@ up the indexing."
     (url-insert-file-contents url)
     (libxml-parse-html-region (point-min) (point-max))))
 
-(defalias 'erldoc-dom-text-node-p #'stringp)
+(defun erldoc-dom-last-text (dom)
+  "Return the last text child of DOM, or nil."
+  (let ((text (car (last (dom-children dom)))))
+    (and (stringp text) text)))
 
-(defun erldoc-dom-attributes (dom)
-  (and (not (erldoc-dom-text-node-p dom)) (cadr dom)))
-
-(defun erldoc-dom-get-attribute (dom attrib-name)
-  (cdr (assq attrib-name (erldoc-dom-attributes dom))))
-
-(defun erldoc-dom-children (dom)
-  (and (not (erldoc-dom-text-node-p dom)) (cddr dom)))
-
-(defun erldoc-dom-get-text (dom)
-  (let ((text (car (last (erldoc-dom-children dom)))))
-    (and (erldoc-dom-text-node-p text) text)))
-
-(defvar erldoc-dom-walk-parent nil)
-(defvar erldoc-dom-walk-siblings nil)
+(defvar erldoc-dom-walk-parent nil
+  "Parent node during `erldoc-dom-walk' traversal.")
+(defvar erldoc-dom-walk-siblings nil
+  "Sibling nodes during `erldoc-dom-walk' traversal.")
 
 (defun erldoc-dom-walk (dom k)
+  "Recursively walk DOM, calling K on each node.
+During the walk, `erldoc-dom-walk-parent' and
+`erldoc-dom-walk-siblings' are dynamically bound."
   (funcall k dom)
   (let ((erldoc-dom-walk-parent dom)
-        (erldoc-dom-walk-siblings (unless (erldoc-dom-text-node-p dom)
-                                    (cddr dom))))
+        (erldoc-dom-walk-siblings (dom-children dom)))
     (dolist (child erldoc-dom-walk-siblings)
       (erldoc-dom-walk child k))))
 
-(defun erldoc-dom-get-element (dom element-name)
-  (catch 'return
-    (erldoc-dom-walk dom (lambda (d)
-                           (when (eq (car-safe d) element-name)
-                             (throw 'return d))))))
-
-(defun erldoc-dom-get-element-by-id (dom id)
-  (catch 'return
-    (erldoc-dom-walk dom (lambda (d)
-                           (when (equal (erldoc-dom-get-attribute d 'id) id)
-                             (throw 'return d))))))
-
 (defun erldoc-dom-get-elements-by-id (dom id)
+  "Return all elements in DOM with the given ID."
   (let (result)
     (erldoc-dom-walk dom (lambda (d)
-                           (when (equal (erldoc-dom-get-attribute d 'id) id)
+                           (when (equal (dom-attr d 'id) id)
                              (push d result))))
     (nreverse result)))
 
@@ -178,16 +156,16 @@ up the indexing."
     url))
 
 (defun erldoc-parse-man-index (url)
-  (let ((table (erldoc-dom-get-element (erldoc-parse-html url) 'table))
+  (let ((table (car (dom-by-tag (erldoc-parse-html url) 'table)))
         (mans))
     (erldoc-dom-walk
      table
      (lambda (d)
        (when (eq (car-safe d) 'a)
-         (let ((href (erldoc-dom-get-attribute d 'href)))
+         (let ((href (dom-attr d 'href)))
            (when (and href (not (string-match-p "index\\.html\\'" href)))
              (with-demoted-errors "erldoc-parse-man-index: %S"
-               (push (cons (erldoc-dom-get-text d)
+               (push (cons (erldoc-dom-last-text d)
                            (erldoc-fix-path (erldoc-expand-url href url)))
                      mans)))))))
     (nreverse mans)))
@@ -196,13 +174,13 @@ up the indexing."
   (let ((dom (erldoc-parse-html (cdr man)))
         (table (make-hash-table :test #'equal)))
     (erldoc-dom-walk
-     (erldoc-dom-get-element-by-id dom "loadscrollpos")
+     (dom-by-id dom "loadscrollpos")
      (lambda (d)
-       (let ((href (erldoc-dom-get-attribute d 'href)))
+       (let ((href (dom-attr d 'href)))
          (when (and href (string-match "#" href))
            (puthash (substring href (match-end 0))
                     (list (concat (car man) ":" (erldoc-strip-string
-                                                 (erldoc-dom-get-text d)))
+                                                 (erldoc-dom-last-text d)))
                           (erldoc-expand-url href (cdr man)))
                     table)))))
     (let ((span-content
@@ -210,7 +188,7 @@ up the indexing."
              (let ((texts))
                (erldoc-dom-walk span
                                 (lambda (d)
-                                  (and (erldoc-dom-text-node-p d)
+                                  (and (stringp d)
                                        (push (erldoc-strip-string d) texts))))
                (and texts (mapconcat 'identity (nreverse texts) " ")))))
           entries)
@@ -219,13 +197,13 @@ up the indexing."
        (lambda (d)
          ;; Get the full function signature.
          (when (and (eq (car-safe d) 'a)
-                    (gethash (erldoc-dom-get-attribute d 'name) table))
-           (let* ((name (erldoc-dom-get-attribute d 'name))
+                    (gethash (dom-attr d 'name) table))
+           (let* ((name (dom-attr d 'name))
                   (mfa-url (gethash name table))
                   (mfa (car mfa-url))
                   (sig (or (funcall span-content d)
                            (funcall span-content
-                                    (or (erldoc-dom-get-element d 'span)
+                                    (or (car (dom-by-tag d 'span))
                                         (cadr
                                          (memq d erldoc-dom-walk-siblings))))
                            (progn
@@ -238,9 +216,9 @@ up the indexing."
          ;; Get data types
          (when (and (eq (car-safe d) 'a)
                     (string-prefix-p "type-"
-                                     (or (erldoc-dom-get-attribute d 'name) "")))
+                                     (or (dom-attr d 'name) "")))
            (push (list (concat (car man) ":" (funcall span-content d))
-                       (concat (cdr man) "#" (erldoc-dom-get-attribute d 'name))
+                       (concat (cdr man) "#" (dom-attr d 'name))
                        (funcall span-content erldoc-dom-walk-parent))
                  entries))))
       entries)))
@@ -277,11 +255,11 @@ up the indexing."
 
 (defun erldoc-otp-release ()
   "Get the otp release version (as string) or nil if not found."
-  (let ((otp (erldoc-dom-get-text
-              (erldoc-dom-get-element
-               (erldoc-parse-html
-                (erldoc-expand-url "index.html" erldoc-man-index))
-               'title))))
+  (let ((otp (erldoc-dom-last-text
+              (car (dom-by-tag
+                    (erldoc-parse-html
+                     (erldoc-expand-url "index.html" erldoc-man-index))
+                    'title)))))
     (and (string-match "[0-9.]+\\'" otp) (match-string 0 otp))))
 
 (defvar erldoc-browse-history nil)
@@ -407,7 +385,7 @@ up the indexing."
                   (erldoc-dom-walk (erldoc-parse-html url)
                                    (lambda (d)
                                      (and (eq (car-safe d) 'table)
-                                          (equal (erldoc-dom-get-attribute d 'summary)
+                                          (equal (dom-attr d 'summary)
                                                  "Numerical Index of EEPs")
                                           (throw 'return d))))))
          (fix-title (lambda (title)
@@ -417,9 +395,9 @@ up the indexing."
     (erldoc-dom-walk
      table (lambda (d)
              (when (eq (car-safe d) 'a)
-               (push (cons (funcall fix-title (erldoc-dom-get-attribute d 'title))
+               (push (cons (funcall fix-title (dom-attr d 'title))
                            (erldoc-expand-url
-                            (erldoc-dom-get-attribute d 'href)
+                            (dom-attr d 'href)
                             url))
                      result))))
     (nreverse result)))
@@ -435,7 +413,7 @@ up the indexing."
 (defvar erldoc-app-manuals '("crypto" "diameter" "erl_docgen"
                              "kernel" "observer" "os_mon"
                              "runtime_tools" "sasl" "snmp"
-                             "ssl" "test_server"
+                             "ssl"
                              ("ssh" . "SSH") ("stdlib" . "STDLIB"))
   "List of applications that come with a manual.")
 
@@ -443,14 +421,14 @@ up the indexing."
   (pcase-let ((`(,name . ,url) user-guide))
     (unless (member name erldoc-missing-user-guides)
       (let ((chaps (erldoc-dom-get-elements-by-id
-                    (erldoc-dom-get-element-by-id (erldoc-parse-html url) "leftnav")
+                    (dom-by-id (erldoc-parse-html url) "leftnav")
                     "no")))
         (or chaps (warn "erldoc-user-guide-chapters no chapters found for `%s'"
                         (cdr user-guide)))
         (mapcar (lambda (li)
-                  (cons (concat name "#" (erldoc-dom-get-attribute li 'title))
-                        (erldoc-expand-url (erldoc-dom-get-attribute
-                                            (erldoc-dom-get-element li 'a) 'href)
+                  (cons (concat name "#" (dom-attr li 'title))
+                        (erldoc-expand-url (dom-attr
+                                            (car (dom-by-tag li 'a)) 'href)
                                            url)))
                 chaps)))))
 
@@ -461,11 +439,11 @@ up the indexing."
      (erldoc-parse-html url)
      (lambda (d)
        (when (and (eq (car-safe d) 'a)
-                  (not (string-match-p "\\`[0-9.]+\\'" (erldoc-dom-get-text d))))
+                  (not (string-match-p "\\`[0-9.]+\\'" (erldoc-dom-last-text d))))
          (with-demoted-errors "erldoc-user-guides-1: %S"
-           (let ((name (erldoc-strip-string (erldoc-dom-get-text d)))
+           (let ((name (erldoc-strip-string (erldoc-dom-last-text d)))
                  (index-page (erldoc-fix-path (erldoc-expand-url
-                                               (erldoc-dom-get-attribute d 'href) url))))
+                                               (dom-attr d 'href) url))))
              (push (cons name (if (member name erldoc-missing-user-guides)
                                   index-page
                                 (erldoc-expand-url "users_guide.html" index-page)))

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -103,7 +105,6 @@ reuse_session(Pid, SessionId) ->
 %%--------------------------------------------------------------------
 register_session(Pid, Session) ->
     gen_server:cast(Pid, {register_session, Session}).
-
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -258,4 +259,4 @@ monitor_listener(ssl_unknown_listener) ->
     %% global process.
     undefined;
 monitor_listener(Listen) ->
-    inet:monitor(Listen).
+    tls_socket:monitor_socket(Listen).

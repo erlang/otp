@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -102,7 +104,7 @@ static ERL_NIF_TERM foo_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     int x, ret;
     if (!enif_get_int(env, argv[0], &x)) {
-	return enif_make_badarg(env);
+        return enif_make_badarg(env);
     }
     ret = foo(x);
     return enif_make_int(env, ret);
@@ -112,7 +114,7 @@ static ERL_NIF_TERM bar_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     int y, ret;
     if (!enif_get_int(env, argv[0], &y)) {
-	return enif_make_badarg(env);
+        return enif_make_badarg(env);
     }
     ret = bar(y);
     return enif_make_int(env, ret);

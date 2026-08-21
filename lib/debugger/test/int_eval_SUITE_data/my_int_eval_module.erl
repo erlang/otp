@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -230,10 +232,10 @@ otp_8310() ->
     a = if (false orelse a) =:= a -> a; true -> b end,
     F1 = fun() -> a end,
     {'EXIT',{{bad_filter,a},_}} =
-        (catch {a, [X || X <- [1,2,3], _ = F1()]}),
+        (catch {a, [X || X <- [1,2,3], F1()]}),
     F2 = fun() -> << 3:8 >> end,
     {'EXIT',{{bad_filter,<<3>>},_}} =
-        (catch {a, << << X >> || << X >> <= << 7:8 >>,_ = F2() >>}),
+        (catch {a, << << X >> || << X >> <= << 7:8 >>, F2() >>}),
     {'EXIT',{{bad_generator,a},_}} =
         (catch {a, [X || X <- a]}),
     {'EXIT',{{bad_generator,b},_}} =

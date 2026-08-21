@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,10 +66,12 @@ used for retrieving CPU utilization values.
 When run on Linux, `cpu_sup` assumes that the `/proc` file system is present and
 accessible by `cpu_sup`. If it is not, `cpu_sup` will terminate.
 
-## See Also
+### See Also
 
 [os_mon(3)](os_mon_app.md)
 """.
+
+-compile([{nowarn_unsafe_function, {os, cmd, 1}}]).
 
 %% API
 -export([start_link/0, start/0, stop/0]).

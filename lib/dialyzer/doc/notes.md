@@ -1,6 +1,8 @@
 <!--
 %CopyrightBegin%
 
+SPDX-License-Identifier: Apache-2.0
+
 Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +22,133 @@ limitations under the License.
 # Dialyzer Release Notes
 
 This document describes the changes made to the Dialyzer application.
+
+## Dialyzer 6.0.2
+
+### Fixed Bugs and Malfunctions
+
+- Fix a bug with native record sets in `erl_types.erl`
+
+  Own Id: OTP-20201
+
+## Dialyzer 6.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix native record bugs in Dialyzer
+
+  Own Id: OTP-20178 Aux Id: [PR-11199]
+
+[PR-11199]: https://github.com/erlang/otp/pull/11199
+
+## Dialyzer 6.0
+
+### Improvements and New Features
+
+- Native records as described in [EEP-79](https://www.erlang.org/eeps/eep-0079) has been implemented.
+  
+  A native record is a data structure similar to the traditional tuple-based records, except that is a true data type.
+  
+  Native records are considered experimental in Erlang/OTP 29 and possibly also in Erlang/OTP 30, meaning that their behavior may change, potentially requiring updates to applications that use them.
+
+  Own Id: OTP-19785 Aux Id: [PR-10617]
+
+- The guard BIF `is_integer/3` has been added. It follows the design of the original EEP-16, only changing the name from `is_between` to `is_integer`. This BIF takes in 3 parameters, `Term`, `LowerBound`, and `UpperBound`.
+  
+  It returns `true` if `Term`, `LowerBound`, and `UpperBound` are all integers, and `LowerBound =< Term =< UpperBound`; otherwise, it returns false.
+  
+  Example:
+  
+  ```erlang
+  1> I = 42.
+  2> is_integer(I, 0, 100).
+  true
+  ```
+
+  Own Id: OTP-19809 Aux Id: [PR-10276]
+
+- Added support for `-unsafe` attributes, which is used to mark functions as unsafe to use. 
+  
+  This is similar to but separate from deprecation, and the compiler will by default now generate warnings for calls to functions in Erlang/OTP that are known to be always unsafe.
+  
+  Furthermore, `m:xref` can now be used to find calls to functions in another application that lack a `-doc` attribute (`undocumented_function_calls`), calls to functions in another application marked `-doc false.` (`private_function_calls`), as well as calls to unsafe functions (`unsafe_function_calls`).
+
+  Own Id: OTP-20066 Aux Id: [PR-10839]
+
+[PR-10617]: https://github.com/erlang/otp/pull/10617
+[PR-10276]: https://github.com/erlang/otp/pull/10276
+[PR-10839]: https://github.com/erlang/otp/pull/10839
+
+## Dialyzer 5.4.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix Dialyzer crash with overriding built-in types
+
+  Own Id: OTP-19631 Aux Id: [GH-11093], [PR-11096]
+
+[GH-11093]: https://github.com/erlang/otp/issues/11093
+[PR-11096]: https://github.com/erlang/otp/pull/11096
+
+## Dialyzer 5.4
+
+### Fixed Bugs and Malfunctions
+
+- The `-Wno_unknown` option will now prevent a warning being printed to standard output when the command line interface is used.
+
+  Own Id: OTP-19262 Aux Id: [GH-8822], [PR-8885]
+
+[GH-8822]: https://github.com/erlang/otp/issues/8822
+[PR-8885]: https://github.com/erlang/otp/pull/8885
+
+### Improvements and New Features
+
+- [EEP-69: Nominal Types](https://www.erlang.org/eeps/eep-0069) has been implemented. As a side effect, nominal types can encode opaque types. We changed all opaque-handling logic and improved opaque warnings in Dialyzer.
+  
+  All existing Erlang type systems are structural: two types are seen as equivalent if their structures are the same. Type comparisons are based on the structures of the types, not on how the user explicitly defines them. For example, in the following example, `meter()` and `foot()` are equivalent. The two types can be used interchangeably. Neither of them differ from the basic type `integer()`.
+  
+  ````
+  -type meter() :: integer().
+  -type foot() :: integer().
+  ````
+  
+  Nominal typing is an alternative type system, where two types are equivalent if and only if they are declared with the same type name. The EEP proposes one new syntax -nominal for declaring nominal types. Under nominal typing, `meter()` and `foot()` are no longer compatible. Whenever a function expects type `meter()`, passing in type `foot()` would result in a Dialyzer error.
+  
+  ````
+  -nominal meter() :: integer().
+  -nominal foot() :: integer().
+  ````
+  
+  More nominal type-checking rules can be found in the EEP. It is worth noting that most work for adding nominal types and type-checking is in `erl_types.erl`. The rest are changes that removed the previous opaque type-checking, and added an improved version of it using nominal type-checking with reworked warnings.
+  
+  Backwards compatibility for opaque type-checking is not preserved by this PR. Previous opaque warnings can appear with slightly different wordings. A new kind of opaque warning `opaque_union` is added, together with a Dialyzer option `no_opaque_union` to turn this kind of warnings off.
+
+  Own Id: OTP-19364 Aux Id: [PR-9079]
+
+- Fixed licenses in files and added ORT curations to the following apps: otp, eldap, erl_interface, eunit, parsetools, stdlib, syntax_tools, and ERTS.
+
+  Own Id: OTP-19478 Aux Id: [PR-9376], [PR-9402], [PR-9819]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-9079]: https://github.com/erlang/otp/pull/9079
+[PR-9376]: https://github.com/erlang/otp/pull/9376
+[PR-9402]: https://github.com/erlang/otp/pull/9402
+[PR-9819]: https://github.com/erlang/otp/pull/9819
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+
+## Dialyzer 5.3.1.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix Dialyzer crash with overriding built-in types
+
+  Own Id: OTP-19631 Aux Id: [GH-11093], [PR-11096]
+
+[GH-11093]: https://github.com/erlang/otp/issues/11093
+[PR-11096]: https://github.com/erlang/otp/pull/11096
 
 ## Dialyzer 5.3.1
 

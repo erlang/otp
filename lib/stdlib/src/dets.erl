@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -81,10 +83,13 @@ All Dets functions return `{error, Reason}` if an error occurs (`first/1` and
 formed arguments are specified, all functions exit the process with a `badarg`
 message.
 
-## See Also
+### See Also
 
 `m:ets`, `m:mnesia`, `m:qlc`
 """.
+
+-compile([{nowarn_possibly_unsafe_function, {erlang, binary_to_term, 1}},
+          nowarn_deprecated_catch]).
 
 %% Disk based linear hashing lookup dictionary.
 
@@ -163,7 +168,7 @@ message.
                    {badarg_exit,2},{lookup_reply,2},
                    {pidof,1},{resp,2}]}).
 
--include_lib("kernel/include/file.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -include("dets.hrl").
 
@@ -478,7 +483,12 @@ calling process.
       EtsTab :: ets:table(),
       Reason :: term().
 
-from_ets(DTab, ETab) ->
+from_ets(DTab, ETabArg) ->
+    ETab = case ensure_ets_tid(ETabArg) of
+                undefined ->
+                    error(badarg, [DTab, ETabArg]);
+                ERef -> ERef
+           end,
     ets:safe_fixtable(ETab, true),
     Spec = ?PATTERN_TO_OBJECT_MATCH_SPEC('_'),
     LC = ets:select(ETab, Spec, 100),
@@ -1389,23 +1399,23 @@ The following example uses an explicit match specification to traverse the
 table:
 
 ```erlang
-1> dets:open_file(t, []),
-ok = dets:insert(t, [{1,a},{2,b},{3,c},{4,d}]),
-MS = ets:fun2ms(fun({X,Y}) when (X > 1) or (X < 5) -> {Y} end),
-QH1 = dets:table(t, [{traverse, {select, MS}}]).
+1> {ok, t} = dets:open_file(t, []).
+2> ok = dets:insert(t, [{1, a}, {2, b}, {3, c}, {4, d}, {5, e}]).
+3> MS = ets:fun2ms(fun({X, Y}) when X > 1 andalso X < 5 -> {Y} end).
+4> QH1 = dets:table(t, [{traverse, {select, MS}}]).
 ```
 
 An example with implicit match specification:
 
 ```erlang
-2> QH2 = qlc:q([{Y} || {X,Y} <- dets:table(t), (X > 1) or (X < 5)]).
+5> QH2 = qlc:q([{Y} || {X, Y} <- dets:table(t), X > 1 andalso X < 5]).
 ```
 
 The latter example is equivalent to the former, which can be verified using
 function `qlc:info/1`:
 
 ```erlang
-3> qlc:info(QH1) =:= qlc:info(QH2).
+6> qlc:info(QH1) =:= qlc:info(QH2).
 true
 ```
 
@@ -1508,14 +1518,23 @@ of the ETS table are kept unless overwritten.
       EtsTab :: ets:table(),
       Reason :: term().
 
-to_ets(DTab, ETab) ->
-    case ets:info(ETab, protection) of
+to_ets(DTab, ETabArg) ->
+    case ensure_ets_tid(ETabArg) of
 	undefined ->
-	    erlang:error(badarg, [DTab, ETab]);
-        _ ->
-	    Fun = fun(X, T) -> true = ets:insert(T, X), T end,
-	    foldl(Fun, ETab, DTab)
+	    erlang:error(badarg, [DTab, ETabArg]);
+        ETab ->
+	    Fun = fun(X, _) -> true = ets:insert(ETab, X), ETabArg end,
+            foldl(Fun, ETabArg, DTab)
     end.
+
+%% This dialyzer suppression can be removed when/if type ets:tid()
+%% is changed from opaque to nominal.
+-dialyzer({no_opaque_union, ensure_ets_tid/1}).
+
+ensure_ets_tid(EtsTabName) when is_atom(EtsTabName) ->
+    ets:whereis(EtsTabName);
+ensure_ets_tid(EtsTid) ->
+    EtsTid.
 
 -doc """
 Applies `Fun` to each object stored in table `Name` in some unspecified order.
@@ -2049,8 +2068,7 @@ open_file_loop2(Head, N) ->
             sys:handle_system_msg(Req, From, Head#head.parent, 
                                   ?MODULE, [], Head);
         Message ->
-            error_logger:format("** dets: unexpected message"
-                                "(ignored): ~tw~n", [Message]),
+            ?LOG_ERROR("** dets: unexpected message (ignored): ~tw~n", [Message]),
             open_file_loop(Head, N)
     end.
 
@@ -2282,15 +2300,15 @@ bug_found(Name, Op, Bad, Stacktrace, From) ->
         true ->
             %% If stream_op/5 found more requests, this is not
             %% the last operation.
-            error_logger:format
-              ("** dets: Bug was found when accessing table ~tw,~n"
+            ?LOG_ERROR(
+                "** dets: Bug was found when accessing table ~tw,~n"
                "** dets: operation was ~tp and reply was ~tw.~n"
                "** dets: Stacktrace: ~tw~n",
                [Name, Op, Bad, Stacktrace]);
         false ->
-            error_logger:format
-              ("** dets: Bug was found when accessing table ~tw~n",
-               [Name])
+            ?LOG_ERROR(
+                "** dets: Bug was found when accessing table ~tw~n",
+                [Name])
     end,
     if
         From =/= self() ->
@@ -2815,8 +2833,8 @@ do_open_file([Fname, Verbose], Parent, Server, Ref) ->
 	{'EXIT', _Reason} = Error ->
 	    Error;
 	Bad ->
-	    error_logger:format
-	      ("** dets: Bug was found in open_file/1, reply was ~tw.~n",
+	    ?LOG_ERROR(
+	       "** dets: Bug was found in open_file/1, reply was ~tw.~n",
 	       [Bad]),
 	    {error, {dets_bug, Fname, Bad}}
     end;
@@ -2832,8 +2850,8 @@ do_open_file([Tab, OpenArgs, Verb], Parent, Server, _Ref) ->
 	{'EXIT', _Reason} = Error ->
 	    Error;
 	Bad ->
-	    error_logger:format
-	      ("** dets: Bug was found in open_file/2, arguments were~n"
+	    ?LOG_ERROR(
+	       "** dets: Bug was found in open_file/2, arguments were~n"
 	       "** dets: ~tw and reply was ~tw.~n",
 	       [OpenArgs, Bad]),
 	    {error, {dets_bug, Tab, {open_file, OpenArgs}, Bad}}
@@ -3188,7 +3206,7 @@ fopen2(Fname, Tab) ->
                  end,
             case Do of
 		{repair, Mess} ->
-                    io:format(user, "dets: file ~tp~s~n", [Fname, Mess]),
+                    ?LOG_INFO("dets: file ~tp~s~n", [Fname, Mess]),
                     case fsck(Fd, Tab, Fname, FH, default, default) of
                         ok ->
                             fopen2(Fname, Tab);
@@ -3225,8 +3243,8 @@ fopen_existing_file(Tab, OpenArgs) ->
                Auto, access = Acc, debug = Debug} =
         OpenArgs,
     {ok, Fd, FH} = read_file_header(Fname, Acc, Ram),
-    MinF = (MinSlots =:= default) or (MinSlots =:= FH#fileheader.min_no_slots),
-    MaxF = (MaxSlots =:= default) or (MaxSlots =:= FH#fileheader.max_no_slots),
+    MinF = MinSlots =:= default orelse MinSlots =:= FH#fileheader.min_no_slots,
+    MaxF = MaxSlots =:= default orelse MaxSlots =:= FH#fileheader.max_no_slots,
     Wh = case dets_v9:check_file_header(FH, Fd) of
 	     {ok, Head} when Rep =:= force, Acc =:= read_write,
                              FH#fileheader.no_colls =/= undefined,
@@ -3267,7 +3285,7 @@ fopen_existing_file(Tab, OpenArgs) ->
 	_ when FH#fileheader.keypos =/= Kp ->
 	    throw({error, {keypos_mismatch, Fname}});
 	{compact, SourceHead} ->
-	    io:format(user, "dets: file ~tp is now compacted ...~n", [Fname]),
+            ?LOG_DEBUG("dets: file ~tp is now compacted ...~n", [Fname]),
 	    {ok, NewSourceHead} = open_final(SourceHead, Fname, read, false,
 					     ?DEFAULT_CACHE, Tab, Debug),
 	    case catch compact(NewSourceHead) of
@@ -3277,14 +3295,14 @@ fopen_existing_file(Tab, OpenArgs) ->
 		_Err ->
                     _ = file:close(Fd),
                     dets_utils:stop_disk_map(),
-		    io:format(user, "dets: compaction of file ~tp failed, "
-			      "now repairing ...~n", [Fname]),
+                    ?LOG_INFO("dets: compaction of file ~tp failed, "
+                              "now repairing ...~n", [Fname]),
                     {ok, Fd2, _FH} = read_file_header(Fname, Acc, Ram),
                     do_repair(Fd2, Tab, Fname, FH, MinSlots, MaxSlots, 
 			      OpenArgs)
 	    end;
 	{repair, Mess} ->
-	    io:format(user, "dets: file ~tp~s~n", [Fname, Mess]),
+            ?LOG_INFO("dets: file ~tp~s~n", [Fname, Mess]),
             do_repair(Fd, Tab, Fname, FH, MinSlots, MaxSlots, 
 		      OpenArgs);
 	{final, H} ->
@@ -3821,8 +3839,8 @@ check_safe_fixtable(Head) ->
     case (Head#head.fixed =:= false) andalso 
          ((get(verbose) =:= yes) orelse dets_utils:debug_mode()) of
         true ->
-            error_logger:format
-              ("** dets: traversal of ~tp needs safe_fixtable~n",
+            ?LOG_DEBUG(
+               "** dets: traversal of ~tp needs safe_fixtable~n",
                [Head#head.name]);
         false ->
             ok
@@ -3888,7 +3906,7 @@ scan_read(H, From, _To, Min, _L, Ts, R, C) ->
 err(Error) ->
     case get(verbose) of
 	yes -> 
-	    error_logger:format("** dets: failed with ~tw~n", [Error]),
+	    ?LOG_INFO("** dets: failed with ~tw~n", [Error]),
 	    Error;
 	undefined  ->
 	    Error

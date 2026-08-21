@@ -1,6 +1,6 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_ARCHCOMMONS_H_INCLUDED
@@ -10,7 +10,7 @@
 // allows to be created from arm::Shift in a const-expr way, so the arm::Shift must be provided. So this header file
 // provides everything architecture-specific that is used by the Core API.
 
-#include "../core/globals.h"
+#include <asmjit/core/globals.h>
 
 ASMJIT_BEGIN_SUB_NAMESPACE(arm)
 
@@ -42,20 +42,23 @@ enum class CondCode : uint8_t {
   kGT             = 0x0Eu,      //!<        Z==0 & N==V  (signed   > )
   kLE             = 0x0Fu,      //!<        Z==1 | N!=V  (signed   <=)
 
-  kSign           = kMI,        //!< Sign.
-  kNotSign        = kPL,        //!< Not sign.
-
-  kOverflow       = kVS,        //!< Signed overflow.
-  kNotOverflow    = kVC,        //!< Not signed overflow.
+  kZero           = kEQ,        //!< Zero flag (alias to equal).
+  kNotZero        = kNE,        //!< Not zero (alias to Not Equal).
 
   kEqual          = kEQ,        //!< Equal     `a == b`.
   kNotEqual       = kNE,        //!< Not Equal `a != b`.
 
-  kZero           = kEQ,        //!< Zero (alias to equal).
-  kNotZero        = kNE,        //!< Not Zero (alias to Not Equal).
+  kCarry          = kCS,        //!< Carry flag.
+  kNotCarry       = kCC,        //!< Not carry.
+
+  kSign           = kMI,        //!< Sign flag.
+  kNotSign        = kPL,        //!< Not sign.
 
   kNegative       = kMI,        //!< Negative.
   kPositive       = kPL,        //!< Positive or zero.
+
+  kOverflow       = kVS,        //!< Signed overflow.
+  kNotOverflow    = kVC,        //!< Not signed overflow.
 
   kSignedLT       = kLT,        //!< Signed    `a <  b`.
   kSignedLE       = kLE,        //!< Signed    `a <= b`.
@@ -67,13 +70,43 @@ enum class CondCode : uint8_t {
   kUnsignedGT     = kHI,        //!< Unsigned  `a >  b`.
   kUnsignedGE     = kHS,        //!< Unsigned  `a >= b`.
 
+  kBTZero         = kZero,      //!< Tested bit is zero.
+  kBTNotZero      = kNotZero,   //!< Tested bit is not zero.
+
   kAlways         = kAL,        //!< No condition code (always).
 
   kMaxValue       = 0x0Fu       //!< Maximum value of `CondCode`.
 };
 
+
+//! \cond
+static constexpr CondCode _reverse_cond_table[] = {
+  CondCode::kAL, // AL <- AL
+  CondCode::kNA, // NA <- NA
+  CondCode::kEQ, // EQ <- EQ
+  CondCode::kNE, // NE <- NE
+  CondCode::kLS, // LS <- CS
+  CondCode::kHI, // HI <- LO
+  CondCode::kMI, // MI <- MI
+  CondCode::kPL, // PL <- PL
+  CondCode::kVS, // VS <- VS
+  CondCode::kVC, // VC <- VC
+  CondCode::kLO, // LO <- HI
+  CondCode::kCS, // CS <- LS
+  CondCode::kLE, // LE <- GE
+  CondCode::kGT, // GT <- LT
+  CondCode::kLT, // LT <- GT
+  CondCode::kGE  // GE <- LE
+};
+//! \endcond
+
+//! Reverses a condition code (reverses the corresponding operands of a comparison).
+[[nodiscard]]
+static ASMJIT_INLINE_CONSTEXPR CondCode reverse_cond(CondCode cond) noexcept { return _reverse_cond_table[uint8_t(cond)]; }
+
 //! Negates a condition code.
-static ASMJIT_INLINE_NODEBUG constexpr CondCode negateCond(CondCode cond) noexcept { return CondCode(uint8_t(cond) ^ uint8_t(1)); }
+[[nodiscard]]
+static ASMJIT_INLINE_CONSTEXPR CondCode negate_cond(CondCode cond) noexcept { return CondCode(uint8_t(cond) ^ uint8_t(1)); }
 
 //! Memory offset mode.
 //!
@@ -150,22 +183,26 @@ public:
   ASMJIT_INLINE_NODEBUG Shift() noexcept = default;
 
   //! Copy constructor (default)
-  ASMJIT_INLINE_NODEBUG constexpr Shift(const Shift& other) noexcept = default;
+  ASMJIT_INLINE_CONSTEXPR Shift(const Shift& other) noexcept = default;
 
   //! Constructs Shift from operation `op` and shift `value`.
-  ASMJIT_INLINE_NODEBUG constexpr Shift(ShiftOp op, uint32_t value) noexcept
+  ASMJIT_INLINE_CONSTEXPR Shift(ShiftOp op, uint32_t value) noexcept
     : _op(op),
       _value(value) {}
 
   //! Returns the shift operation.
-  ASMJIT_INLINE_NODEBUG constexpr ShiftOp op() const noexcept { return _op; }
+  [[nodiscard]]
+  ASMJIT_INLINE_CONSTEXPR ShiftOp op() const noexcept { return _op; }
+
   //! Sets shift operation to `op`.
-  ASMJIT_INLINE_NODEBUG void setOp(ShiftOp op) noexcept { _op = op; }
+  ASMJIT_INLINE_NODEBUG void set_pp(ShiftOp op) noexcept { _op = op; }
 
   //! Returns the shift amount.
-  ASMJIT_INLINE_NODEBUG constexpr uint32_t value() const noexcept { return _value; }
+  [[nodiscard]]
+  ASMJIT_INLINE_CONSTEXPR uint32_t value() const noexcept { return _value; }
+
   //! Sets shift amount to `value`.
-  ASMJIT_INLINE_NODEBUG void setValue(uint32_t value) noexcept { _value = value; }
+  ASMJIT_INLINE_NODEBUG void set_value(uint32_t value) noexcept { _value = value; }
 };
 
 //! \}
@@ -217,7 +254,7 @@ enum class DataType : uint32_t {
   kMaxValue = 15
 };
 
-static ASMJIT_INLINE_NODEBUG uint32_t dataTypeSize(DataType dt) noexcept {
+static ASMJIT_INLINE_NODEBUG uint32_t data_type_size(DataType dt) noexcept {
   static constexpr uint8_t table[] = { 0, 1, 2, 4, 8, 1, 2, 4, 8, 2, 4, 8, 1, 2, 8 };
   return table[size_t(dt)];
 }

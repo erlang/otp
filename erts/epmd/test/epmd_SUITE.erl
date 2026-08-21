@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -94,7 +96,7 @@
 % Message codes in epmd protocol
 -define(EPMD_ALIVE2_REQ,	$x).
 -define(EPMD_ALIVE2_RESP,	$y).
--define(EPMD_PORT_PLEASE2_REQ,	$z).
+-define(EPMD_PORT2_REQ,	$z).
 -define(EPMD_PORT2_RESP,	$w).
 -define(EPMD_NAMES_REQ,	$n).
 -define(EPMD_DUMP_REQ,	$d).
@@ -247,7 +249,7 @@ register_node_v2(Addr, Port, NodeType, Prot, HVsn, LVsn, Name, Extra) ->
 % Internal function to fetch information about a node
 
 port_please_v2(Name) ->
-    case send_req([?EPMD_PORT_PLEASE2_REQ,
+    case send_req([?EPMD_PORT2_REQ,
                    binary_to_list(unicode:characters_to_binary(Name))]) of
         {ok,Sock} ->
             case recv_until_sock_closes(Sock) of
@@ -372,9 +374,11 @@ parse_line([$n,$a,$m,$e,$ | Buf0]) ->
         {Name, Buf1}  ->
             case Buf1 of
                 [$a,$t,$ ,$p,$o,$r,$t,$ | Buf2] ->
-                    case catch list_to_integer(Buf2) of
-                        {'EXIT', _} -> error;
+                    try list_to_integer(Buf2) of
                         Port -> {ok, {Name, Port}}
+                    catch
+                        _:_ ->
+                            error
                     end;
                 _ -> error
             end;
@@ -392,11 +396,17 @@ parse_name([], _Name) -> error.
 
 %% Register a name on a port and ask about port nr
 get_port_nr(Config) when is_list(Config) ->
-    port_request([?EPMD_PORT_PLEASE2_REQ,"foo"]).
+    port_request([?EPMD_PORT2_REQ,"foo"]).
 
 %% Register with slow write and ask about port nr
 slow_get_port_nr(Config) when is_list(Config) ->
-    port_request([?EPMD_PORT_PLEASE2_REQ,d,$f,d,$o,d,$o]).
+    %% Pause for 200ms. The packet timeout is 1 second as per ?EPMDARGS defined
+    %% above.
+    Pause = {pause, 200},
+    port_request([?EPMD_PORT2_REQ,
+                  Pause,$f,
+                  Pause,$o,
+                  Pause,$o]).
 
 
 % Internal function used above
@@ -1022,9 +1032,8 @@ recv(Sock, Len, Timeout) ->
             exit(1)
     end.
 
-%% Send data to socket. The list can be non flat and contain
-%% the atom 'd' or tuple {d,Seconds} where this is delay
-%% put in between the sent characters.
+%% Send data to socket. The list can be nested and contain {pause,Milliseconds}
+%% to pause that many milliseconds before sending the next character.
 
 send(Sock, SendSpec) ->
     case send(SendSpec, [], Sock) of
@@ -1053,12 +1062,10 @@ send([List | Spec], RevBytes, Sock) when is_list(List) ->
         Other ->
             Other
     end;
-send([d | Spec], RevBytes, Sock) ->
-    send([{d,1000} | Spec], RevBytes, Sock);
-send([{d,S} | Spec], RevBytes, Sock) ->
+send([{pause, Ms} | Spec], RevBytes, Sock) ->
     case send_direct(Sock, lists:reverse(RevBytes)) of
         ok ->
-            timer:sleep(S),
+            timer:sleep(Ms),
             send(Spec, [], Sock);
         Any ->
             Any

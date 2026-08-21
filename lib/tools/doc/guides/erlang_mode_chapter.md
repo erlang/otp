@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -165,14 +167,8 @@ the Erlang module `tags`.
 `etags` is a program that is part of the Emacs distribution. It is normally
 executed from a command line, like a Unix shell or a DOS box.
 
-The `etags` program of fairly modern versions of Emacs and XEmacs has native
-support for Erlang. To check if your version does include this support, issue
-the command `etags --help` at a the command line prompt. At the end of the help
-text there is a list of supported languages. Unless Erlang is a member of this
-list I suggest that you should upgrade to a newer version of Emacs.
-
-As seen in the help text — unless you have not upgraded your Emacs yet — `etags`
-associate the file extensions `.erl` and `.hrl` with Erlang.
+The `etags` program has native support for Erlang and associates the file
+extensions `.erl` and `.hrl` with Erlang.
 
 Basically, the `etags` utility is run using the following form:
 

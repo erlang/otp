@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -78,7 +80,7 @@ into one test case. The resulting suite can look as follows:
 ```erlang
 -module(my_server_SUITE).
 -compile(export_all).
--include_lib("ct.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %%% init and end functions...
 
@@ -182,7 +184,7 @@ _Example:_
 ```erlang
 -module(server_b_SUITE).
 -compile(export_all).
--include_lib("ct.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %%% init and end functions...
 

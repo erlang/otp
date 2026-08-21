@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +26,7 @@
 %% 	exit/1
 %%	exit/2
 %%	process_info/1,2
+%%      suspend_process/2 (partially)
 %%	register/2 (partially)
 
 -include_lib("stdlib/include/assert.hrl").
@@ -56,6 +59,12 @@
          process_info_msgq_len_no_very_long_delay/1,
          process_info_dict_lookup/1,
          process_info_label/1,
+         suspend_process_pausing_proc_timer/1,
+         suspend_process_pausing_proc_timer_multi_suspend/1,
+         suspend_process_pausing_bif_timer/1,
+         suspend_process_pausing_bif_timer_multi_suspend/1,
+         suspend_process_pausing_bif_timer_mass/1,
+         suspend_process_bif_timer_on_suspended/1,
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
 	 otp_4725/1, dist_unlink_ack_exit_leak/1, bad_register/1,
          garbage_collect/1, otp_6237/1,
@@ -103,7 +112,8 @@
          demonitor_aliasmonitor/1,
          down_aliasmonitor/1,
          monitor_tag/1,
-         no_pid_wrap/1]).
+         no_pid_wrap/1,
+         processes_iter/1]).
 
 -export([prio_server/2, prio_client/2, init/1, handle_event/2]).
 
@@ -131,6 +141,7 @@ all() ->
      otp_6237,
      {group, spawn_request},
      {group, process_info_bif},
+     {group, suspend_process_bif},
      {group, processes_bif},
      {group, otp_7738}, garb_other_running,
      {group, system_task},
@@ -163,7 +174,8 @@ groups() ->
        processes_small_tab, processes_this_tab,
        processes_last_call_trap, processes_apply_trap,
        processes_gc_trap, processes_term_proc_list,
-       processes_send_infant]},
+       processes_send_infant,
+       processes_iter]},
      {process_info_bif, [],
       [t_process_info, process_info_messages,
        process_info_other, process_info_other_msg,
@@ -185,6 +197,13 @@ groups() ->
        process_info_msgq_len_no_very_long_delay,
        process_info_dict_lookup,
        process_info_label]},
+     {suspend_process_bif, [],
+      [suspend_process_pausing_proc_timer,
+       suspend_process_pausing_proc_timer_multi_suspend,
+       suspend_process_pausing_bif_timer,
+       suspend_process_pausing_bif_timer_multi_suspend,
+       suspend_process_pausing_bif_timer_mass,
+       suspend_process_bif_timer_on_suspended]},
      {otp_7738, [],
       [otp_7738_waiting, otp_7738_suspended,
        otp_7738_resume]},
@@ -1775,6 +1794,312 @@ proc_dict_helper() ->
     end,
     proc_dict_helper().
 
+suspend_process_pausing_proc_timer(_Config) ->
+    BeforeSuspend = fun(_Pid) -> ok end,
+    AfterResume = fun(_Pid) -> ok end,
+    suspend_process_pausing_proc_timer_aux(BeforeSuspend, AfterResume),
+    ok.
+
+suspend_process_pausing_proc_timer_aux(BeforeSuspend, AfterResume) ->
+    TcProc = self(),
+    Pid = erlang:spawn_link(
+        fun() ->
+            TcProc ! {sync, self()},
+            receive go -> ok
+            after 2_000 -> exit(timer_not_paused)
+            end,
+            TcProc ! {sync, self()},
+            receive _ -> error(unexpected)
+            after 2_000 -> ok
+            end,
+            TcProc ! {sync, self()}
+        end
+    ),
+
+    WaitForSync = fun () ->
+        receive {sync, Pid} -> ok
+        after 10_000 -> error(timeout)
+        end
+    end,
+    EnsureWaiting = fun() ->
+        wait_until(fun () -> process_info(Pid, status) == {status, waiting} end)
+    end,
+
+    WaitForSync(),
+    EnsureWaiting(),
+
+    BeforeSuspend(Pid),
+    true = erlang:suspend_process(Pid),
+    timer:sleep(5_000),
+    true = erlang:resume_process(Pid),
+    AfterResume(Pid),
+    timer:sleep(1_000),
+    Pid ! go,
+
+    WaitForSync(),
+    EnsureWaiting(),
+
+    BeforeSuspend(Pid),
+    true = erlang:suspend_process(Pid),
+    true = erlang:resume_process(Pid),
+    AfterResume(Pid),
+    WaitForSync(),
+    ok.
+
+suspend_process_pausing_bif_timer(Config) ->
+    TcProc = self(),
+    Pid = erlang:spawn_link(
+        fun() ->
+        TcProc ! {sync, self(), start},
+        receive
+            {timeout, _, timer_msg_1} -> TcProc ! {sync, self(), received_message_1};
+            {timeout, _, timer_msg_2} -> exit(timer_2_before_1_receiver)
+            after 2_000 -> exit(timer_not_resumed_receiver)
+        end,
+        receive
+            {timeout, _, timer_msg_1} -> exit(timer_1_before_2_receiver);
+            {timeout, _, timer_msg_2} -> TcProc ! {sync, self(), received_message_2}
+            after 2_000 -> exit(timer_not_resumed_receiver_2)
+        end
+    end),
+
+    % Wait for the process to start
+    receive
+        {sync, Pid, start} -> ok
+        after 10_000 -> error(timeout)
+    end,
+
+    % Start the timers, but immediately suspend the process
+    _TimerRef = erlang:start_timer(1_000, Pid, timer_msg_1),
+    _TimerRef2 = erlang:start_timer(2_000, Pid, timer_msg_2),
+    true = erlang:suspend_process(Pid),
+    timer:sleep(5_000),
+    receive
+        {sync, Pid, received_message_1} -> exit(timer_1_not_paused);
+        {sync, Pid, received_message_2} -> exit(timer_2_not_paused)
+        after 2_000 -> ok
+    end,
+
+    % Resume the process and wait for the timer to fire
+    true = erlang:resume_process(Pid),
+    receive
+        {sync, Pid, received_message_1} -> ok;
+        {sync, Pid, received_message_2} -> exit(timer_2_before_1_spawner)
+        after 2_000 -> exit(timer_not_resumed_spawner)
+    end,
+    receive
+        {sync, Pid, received_message_2} -> ok;
+        {sync, Pid, received_message_1} -> exit(timer_1_before_2_spawner)
+        after 2_000 -> exit(timer_not_resumed_spawner_2)
+    end,
+    ok.
+
+% Same idea as the previous test, but with thousand of processes and timers
+% The goal is to check that race conditions do not cause timers to be unpaused
+bif_timer_receiver_aux(OwnerPid) ->
+    receive
+        {timeout, _, _} -> bif_timer_receiver_aux(OwnerPid);
+        no_more_timeouts -> receive
+            {timeout, _, N} -> OwnerPid ! {timeout, self(), N};
+            exit -> OwnerPid ! {success, self()}
+        end
+    end.
+
+bif_timer_sender_aux(ReceiverPid, N) ->
+    % This time should be long enough to for all the receivers to be awoken and then receive the exit signal before they receive it
+    _TimerRef = erlang:start_timer(3_000, ReceiverPid, N),
+    receive
+            exit -> ok
+    after 10 -> bif_timer_sender_aux(ReceiverPid, N + 1)
+    end.
+
+suspend_process_pausing_bif_timer_mass(Config) ->
+    NumProcesses = 1000,
+    Self = self(),
+    ReceiverPids = [erlang:spawn_link(fun() -> bif_timer_receiver_aux(Self) end) || _ <- lists:seq(1, NumProcesses)],
+    SenderPids = [erlang:spawn_link(fun () -> bif_timer_sender_aux(ReceiverPid, 0) end) || ReceiverPid <- ReceiverPids],
+    % Wait for all the spawned processes to get scheduled and do stuff
+    timer:sleep(2_000),
+    [erlang:suspend_process(Pid) || Pid <- ReceiverPids],
+    [Pid ! exit || Pid <- SenderPids],
+    [Pid ! no_more_timeouts || Pid <- ReceiverPids],
+    timer:sleep(5_000),
+    % Significantly less than the length of the timers created by sender_aux - initial sleep.
+    % The goal is to detect if the iteration of all receiver processes to wake them up takes so long that the timers can fire.
+    erlang:start_timer(900, Self, slow_wakeup),
+    [erlang:resume_process(Pid) || Pid <- ReceiverPids],
+    [Pid ! exit || Pid <- ReceiverPids],
+    [receive
+        {timeout, _, slow_wakeup} -> exit({slow_wakeup, Pid});
+        {success, Pid} -> ok;
+        {timeout, Pid, N} -> exit({timeout, Pid, N})
+    end || Pid <- ReceiverPids],
+    ok.
+
+suspend_process_pausing_proc_timer_multi_suspend(_Config) ->
+    TcProc = self(),
+    Child = erlang:spawn_link(
+        fun() ->
+            TcProc ! {sync, self()},
+            receive go -> ok
+            after 2_000 -> exit(timer_not_paused)
+            end,
+            TcProc ! {sync, self()},
+            receive _ -> error(unexpected)
+            after 2_000 -> ok
+            end,
+            TcProc ! {sync, self()}
+        end
+    ),
+
+    WaitForSync = fun () ->
+        receive {sync, Child} -> ok
+        after 10_000 -> error(timeout)
+        end
+    end,
+    EnsureWaiting = fun() ->
+        wait_until(fun () -> process_info(Child, status) == {status, waiting} end)
+    end,
+
+    WaitForSync(),
+    EnsureWaiting(),
+
+    Suspender = erlang:spawn_link(fun() ->
+        true = erlang:suspend_process(Child),
+        TcProc ! {suspended, self()},
+        receive do_resume -> true = erlang:resume_process(Child) end
+    end),
+    receive {suspended, Suspender} -> ok after 10_000 -> error(timeout) end,
+
+    true = erlang:suspend_process(Child),
+    timer:sleep(5_000),
+    true = erlang:resume_process(Child),
+    timer:sleep(1_000),
+    Child ! go,
+    Suspender ! do_resume,
+
+    WaitForSync(),
+    EnsureWaiting(),
+
+    Suspender2 = erlang:spawn_link(fun() ->
+        true = erlang:suspend_process(Child),
+        TcProc ! {suspended, self()},
+        receive do_resume -> true = erlang:resume_process(Child) end
+    end),
+    receive {suspended, Suspender2} -> ok after 10_000 -> error(timeout) end,
+
+    true = erlang:suspend_process(Child),
+    true = erlang:resume_process(Child),
+    Suspender2 ! do_resume,
+    WaitForSync(),
+    ok.
+
+suspend_process_pausing_bif_timer_multi_suspend(_Config) ->
+    TcProc = self(),
+    Pid = erlang:spawn_link(
+        fun() ->
+        TcProc ! {sync, self(), start},
+        receive
+            {timeout, _, timer_msg_1} -> TcProc ! {sync, self(), received_message_1};
+            {timeout, _, timer_msg_2} -> exit(timer_2_before_1_receiver)
+            after 4_000 -> exit(timer_not_resumed_receiver)
+        end,
+        receive
+            {timeout, _, timer_msg_1} -> exit(timer_1_before_2_receiver);
+            {timeout, _, timer_msg_2} -> TcProc ! {sync, self(), received_message_2}
+            after 4_000 -> exit(timer_not_resumed_receiver_2)
+        end
+    end),
+
+    receive
+        {sync, Pid, start} -> ok
+        after 10_000 -> error(timeout)
+    end,
+
+    _TimerRef = erlang:start_timer(1_000, Pid, timer_msg_1),
+    _TimerRef2 = erlang:start_timer(2_000, Pid, timer_msg_2),
+
+    Suspender = erlang:spawn_link(fun() ->
+        true = erlang:suspend_process(Pid),
+        TcProc ! {suspended, self()},
+        receive do_resume -> true = erlang:resume_process(Pid) end
+    end),
+    receive {suspended, Suspender} -> ok after 10_000 -> error(timeout) end,
+
+    true = erlang:suspend_process(Pid),
+    timer:sleep(5_000),
+    receive
+        {sync, Pid, received_message_1} -> exit(timer_1_not_paused);
+        {sync, Pid, received_message_2} -> exit(timer_2_not_paused)
+        after 2_000 -> ok
+    end,
+
+    true = erlang:resume_process(Pid),
+    timer:sleep(3_000),
+    receive
+        {sync, Pid, received_message_1} -> exit(timer_1_not_paused_after_first_resume);
+        {sync, Pid, received_message_2} -> exit(timer_2_not_paused_after_first_resume)
+        after 2_000 -> ok
+    end,
+
+    Suspender ! do_resume,
+    receive
+        {sync, Pid, received_message_1} -> ok;
+        {sync, Pid, received_message_2} -> exit(timer_2_before_1_spawner)
+        after 4_000 -> exit(timer_not_resumed_spawner)
+    end,
+    receive
+        {sync, Pid, received_message_2} -> ok;
+        {sync, Pid, received_message_1} -> exit(timer_1_before_2_spawner)
+        after 4_000 -> exit(timer_not_resumed_spawner_2)
+    end,
+    ok.
+
+suspend_process_bif_timer_on_suspended(_Config) ->
+    TcProc = self(),
+    Pid = erlang:spawn_link(
+        fun() ->
+        TcProc ! {sync, self(), start},
+        receive
+            msg_before -> TcProc ! {sync, self(), received_before}
+            after 4_000 -> exit(timer_not_resumed_receiver)
+        end,
+        receive
+            msg_during -> TcProc ! {sync, self(), received_during}
+            after 4_000 -> exit(timer_not_resumed_receiver_2)
+        end
+    end),
+
+    receive
+        {sync, Pid, start} -> ok
+        after 10_000 -> error(timeout)
+    end,
+    wait_until(fun () -> process_info(Pid, status) == {status, waiting} end),
+
+    _Ref1 = erlang:send_after(1_000, Pid, msg_before),
+    true = erlang:suspend_process(Pid),
+    _Ref2 = erlang:send_after(2_000, Pid, msg_during),
+
+    timer:sleep(5_000),
+    receive
+        {sync, Pid, received_before} -> exit(timer_before_not_paused);
+        {sync, Pid, received_during} -> exit(timer_during_not_paused)
+        after 2_000 -> ok
+    end,
+
+    true = erlang:resume_process(Pid),
+    receive
+        {sync, Pid, received_before} -> ok;
+        {sync, Pid, received_during} -> exit(during_before_before)
+        after 4_000 -> exit(timer_not_resumed_spawner)
+    end,
+    receive
+        {sync, Pid, received_during} -> ok;
+        {sync, Pid, received_before} -> exit(before_before_during)
+        after 4_000 -> exit(timer_not_resumed_spawner_2)
+    end,
+    ok.
+
 %% Tests erlang:bump_reductions/1.
 bump_reductions(Config) when is_list(Config) ->
     erlang:garbage_collect(),
@@ -1881,11 +2206,8 @@ make_sub_binary(Bin) when is_binary(Bin) ->
 make_sub_binary(List) ->
     make_sub_binary(list_to_binary(List)).
 
-make_unaligned_sub_binary(Bin0) ->
-    Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = size(Bin0),
-    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
-    Bin.
+make_unaligned_sub_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3).
 
 %% Tests erlang:yield/1
 yield(Config) when is_list(Config) ->
@@ -2513,7 +2835,14 @@ processes_bif_test() ->
 	    processes()
     end,
 
+    IterProcesses =
+        fun () ->
+                erts_debug:set_internal_state(reds_left, WantReds),
+                iter_all_processes()
+        end,
+
     ok = do_processes_bif_test(WantReds, WillTrap, Processes),
+    ok = do_processes_bif_test(WantReds, false, IterProcesses()),
 
     case WillTrap of
 	false ->
@@ -2550,7 +2879,19 @@ processes_bif_test() ->
 	undefined -> ok;
 	Comment -> {comment, Comment}
     end.
-    
+
+iter_all_processes() ->
+    Iter = erlang:processes_iterator(),
+    iter_all_processes(Iter).
+
+iter_all_processes(Iter0) ->
+    case erlang:processes_next(Iter0) of
+        {Pid, Iter} ->
+            [Pid|iter_all_processes(Iter)];
+        none ->
+            none
+    end.
+
 do_processes_bif_test(WantReds, DieTest, Processes) ->
     Tester = self(),
     SpawnProcesses = fun (Prio) ->
@@ -4198,6 +4539,19 @@ processes_term_proc_list(Config) when is_list(Config) ->
     Run(["+MSe", "true", "+Muatags", "true", "+S1"]),
 
     ok.
+
+processes_iter(Config) when is_list(Config) ->
+    ProcessLimit = erlang:system_info(process_limit),
+    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(ProcessLimit + 1),
+    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(-1),
+    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(1 bsl 32),
+    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(1 bsl 64),
+    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(abc),
+
+    none = erts_internal:processes_next(ProcessLimit),
+
+    ok.
+
 
 %% OTP-18322: Send msg to spawning process pid returned from processes/0
 processes_send_infant(_Config) ->

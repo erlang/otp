@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1997-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -169,14 +171,6 @@ erts_cleanup_offheap_list(struct erl_off_heap_header* first)
 	switch (thing_subtag(u.hdr->thing_word)) {
 	case BIN_REF_SUBTAG:
             erts_bin_release(u.br->val);
-	    break;
-	case FUN_REF_SUBTAG:
-            /* The pointer to the fun entry can be NULL if loading
-             * was aborted because of an invalid BEAM file. */
-            if (u.fref->entry &&
-                erts_refc_dectest(&(u.fref->entry)->refc, 0) == 0) {
-                erts_erase_fun_entry(u.fref->entry);
-            }
 	    break;
 	case REF_SUBTAG:
 	    ASSERT(is_magic_ref_thing(u.hdr));
@@ -1383,6 +1377,8 @@ void erts_reserve_heap__(ErtsHeapFactory* factory, Uint need, Uint xtra)
 {
     /* internal... */
     ErlHeapFragment* bp;
+    int replace_oh;
+    int replace_msg_hfrag;
 
     switch (factory->mode) {
     case FACTORY_HALLOC:
@@ -1391,65 +1387,61 @@ void erts_reserve_heap__(ErtsHeapFactory* factory, Uint need, Uint xtra)
 	factory->hp_end = factory->hp + need;
 	return;
 
-    case FACTORY_MESSAGE: {
-        int replace_oh;
-        int replace_msg_hfrag;
-	if (!factory->heap_frags) {
+    case FACTORY_MESSAGE:
+        if (!factory->heap_frags) {
 	    ASSERT(factory->message->data.attached == ERTS_MSG_COMBINED_HFRAG);
 	    bp = &factory->message->hfrag;
+            break;
 	}
-	else {
-	    /* Fall through */
-	case FACTORY_HEAP_FRAGS:
-	case FACTORY_TMP:
-	    bp = factory->heap_frags;
-	}
-
-        replace_oh = 0;
-        replace_msg_hfrag = 0;
-
-        if (bp) {
-	    ASSERT(factory->hp >= bp->mem);
-	    ASSERT(factory->hp <= factory->hp_end);
-	    ASSERT(factory->hp_end == bp->mem + bp->alloc_size);
-
-	    bp->used_size = factory->hp - bp->mem;
-            if (!bp->used_size && factory->heap_frags) {
-                factory->heap_frags = bp->next;
-                bp->next = NULL;
-                ASSERT(!bp->off_heap.first);
-                if (factory->off_heap == &bp->off_heap)
-                    replace_oh = !0;
-                if (factory->message && factory->message->data.heap_frag == bp)
-                    replace_msg_hfrag = !0;
-                free_message_buffer(bp);
-            }
-        }
-	bp = (ErlHeapFragment*) ERTS_HEAP_ALLOC(factory->alloc_type,
-						ERTS_HEAP_FRAG_SIZE(need+xtra));
-	bp->next = factory->heap_frags;
-	factory->heap_frags = bp;
-	bp->alloc_size = need + xtra;
-	bp->used_size = need + xtra;
-	bp->off_heap.first = NULL;
-	bp->off_heap.overhead = 0;
-        if (replace_oh) {
-            factory->off_heap = &bp->off_heap;
-            factory->off_heap_saved.first = factory->off_heap->first;
-            factory->off_heap_saved.overhead = factory->off_heap->overhead;
-        }
-        if (replace_msg_hfrag)
-            factory->message->data.heap_frag = bp;
-	factory->hp     = bp->mem;
-	factory->hp_end = bp->mem + bp->alloc_size;
-	return;
-    }
+        ERTS_FALLTHROUGH();
+    case FACTORY_HEAP_FRAGS:
+    case FACTORY_TMP:
+        bp = factory->heap_frags;
+        break;
 
     case FACTORY_STATIC:
     case FACTORY_CLOSED:
     default:
-	ASSERT(!"Invalid factory mode");
+        erts_exit(ERTS_ABORT_EXIT, "Invalid factory mode %d\n", factory->mode);
     }
+
+    replace_oh = 0;
+    replace_msg_hfrag = 0;
+
+    if (bp) {
+        ASSERT(factory->hp >= bp->mem);
+        ASSERT(factory->hp <= factory->hp_end);
+        ASSERT(factory->hp_end == bp->mem + bp->alloc_size);
+
+        bp->used_size = factory->hp - bp->mem;
+        if (!bp->used_size && factory->heap_frags) {
+            factory->heap_frags = bp->next;
+            bp->next = NULL;
+            ASSERT(!bp->off_heap.first);
+            if (factory->off_heap == &bp->off_heap)
+                replace_oh = !0;
+            if (factory->message && factory->message->data.heap_frag == bp)
+                replace_msg_hfrag = !0;
+            free_message_buffer(bp);
+        }
+    }
+    bp = (ErlHeapFragment*) ERTS_HEAP_ALLOC(factory->alloc_type,
+                                            ERTS_HEAP_FRAG_SIZE(need+xtra));
+    bp->next = factory->heap_frags;
+    factory->heap_frags = bp;
+    bp->alloc_size = need + xtra;
+    bp->used_size = need + xtra;
+    bp->off_heap.first = NULL;
+    bp->off_heap.overhead = 0;
+    if (replace_oh) {
+        factory->off_heap = &bp->off_heap;
+        factory->off_heap_saved.first = factory->off_heap->first;
+        factory->off_heap_saved.overhead = factory->off_heap->overhead;
+    }
+    if (replace_msg_hfrag)
+        factory->message->data.heap_frag = bp;
+    factory->hp     = bp->mem;
+    factory->hp_end = bp->mem + bp->alloc_size;
 }
 
 void erts_factory_close(ErtsHeapFactory* factory)
@@ -1474,7 +1466,7 @@ void erts_factory_close(ErtsHeapFactory* factory)
 	    else
 		factory->message->data.heap_frag = factory->heap_frags;
 
-    /* Fall through */
+            ERTS_FALLTHROUGH();
     case FACTORY_HEAP_FRAGS:
 	    bp = factory->heap_frags;
 	}
@@ -1517,7 +1509,7 @@ void erts_factory_trim_and_close(ErtsHeapFactory* factory,
 	    /*else we don't trim multi fragmented messages for now (off_heap...) */
 	    break;
 	}
-	/* Fall through... */
+	ERTS_FALLTHROUGH();
     }
     case FACTORY_HEAP_FRAGS:
 	bp = factory->heap_frags;

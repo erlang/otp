@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -243,6 +245,8 @@ way, option `send_timeout` comes in handy.
 """.
 
 
+-compile(nowarn_deprecated_catch).
+
 -export([connect/2, connect/3, connect/4,
          listen/2,
          accept/1, accept/2,
@@ -270,6 +274,9 @@ way, option `send_timeout` comes in handy.
         {high_msgq_watermark, pos_integer()} |
         {high_watermark,  non_neg_integer()} |
         {keepalive,       boolean()} |
+        {keepcnt,         integer()} |
+        {keepidle,        integer()} |
+        {keepintvl,       integer()} |
         {linger,          {boolean(), non_neg_integer()}} |
         {low_msgq_watermark, pos_integer()} |
         {low_watermark,   non_neg_integer()} |
@@ -288,7 +295,7 @@ way, option `send_timeout` comes in handy.
         {reuseaddr,       boolean()} |
         {reuseport,       boolean()} |
         {reuseport_lb,    boolean()} |
-        {send_timeout,    non_neg_integer() | infinity} |
+        {send_timeout,    timeout()} |
         {send_timeout_close, boolean()} |
         {show_econnreset, boolean()} |
         {sndbuf,          non_neg_integer()} |
@@ -298,6 +305,7 @@ way, option `send_timeout` comes in handy.
 	{recvtos,         boolean()} |
 	{recvtclass,      boolean()} |
 	{recvttl,         boolean()} |
+        {user_timeout,    non_neg_integer()} |
 	{ipv6_v6only,     boolean()}.
 
 -doc """
@@ -333,6 +341,9 @@ this value is returned from `inet:getopts/2` when called with the option name
         high_msgq_watermark |
         high_watermark |
         keepalive |
+        keepcnt |
+        keepidle |
+        keepintvl |
         linger |
         low_msgq_watermark |
         low_watermark |
@@ -361,6 +372,7 @@ this value is returned from `inet:getopts/2` when called with the option name
         recvtclass |
         recvttl |
         pktoptions |
+        user_timeout |
 	ipv6_v6only.
 -type connect_option() ::
         {fd, Fd :: non_neg_integer()} |
@@ -510,6 +522,12 @@ on the host with IP address `Address`, that may also be a hostname.
 - **`{tcp_module, module()}`** - Overrides which callback module is used.
   Defaults to `inet_tcp` for IPv4 and `inet6_tcp` for IPv6.
 
+- **`{protocol, tcp|mptcp}`** - With `mptcp` creates the socket
+  with protocol IPPROTO_MPTCP, if that is defined on the system.
+  Other than that the socket is regarded as a `tcp` socket.
+  If IPPROTO_MPTCP is not defined, `{error, eprotonosupport}`
+  is returned. `tcp` is the default value.
+
 - **`t:option/0`** - See `inet:setopts/2`.
 
 ### Socket Data
@@ -657,6 +675,12 @@ The following options are available:
 - **`{tcp_module, module()}`** - Overrides which callback module is used.
   Defaults to `inet_tcp` for IPv4 and `inet6_tcp` for IPv6.
 
+- **`{protocol, tcp|mptcp}`** - With `mptcp` creates the socket
+  with protocol IPPROTO_MPTCP, if that is defined on the system.
+  Other than that the socket is regarded as a `tcp` socket.
+  If IPPROTO_MPTCP is not defined, `{error, eprotonosupport}`
+  is returned. `tcp` is the default value.
+
 - **`t:option/0`** - See `inet:setopts/2`.
 
 The returned socket `ListenSocket` should be used when calling
@@ -717,7 +741,7 @@ accept(S) when is_port(S) ->
 -doc """
 Accept an incoming connection request on a listen socket.
 
-`Socket` must be a socket returned from `listen/2`. `Timeout` specifies
+`ListenSocket` must be a socket returned from `listen/2`. `Timeout` specifies
 a time-out value in milliseconds. Defaults to `infinity`.
 
 Returns:
@@ -780,7 +804,7 @@ on the socket until that buffered data has been written to the OS
 protocol stack.  If any errors are encountered, the socket is closed
 and `{error, closed}` is returned by the next `recv/2` or `send/2` call.
 
-Option `{exit_on_close, false}` is useful if the peer performs a shurdown
+Option `{exit_on_close, false}` is useful if the peer performs a shutdown
 of its write side.  Then the socket stays open for writing after
 receive has indicated that the socket was closed.
 

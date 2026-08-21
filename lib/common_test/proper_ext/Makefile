@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2023. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2023-2026. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,7 +39,8 @@ PROPEREXTDIR = $(RELEASE_PATH)/lib/common_test-$(VSN)/proper_ext
 EBIN=.
 
 MODULES= \
-	ct_proper_ext
+	ct_proper_ext \
+	ct_quickcheck_ext
 
 TARGET_MODULES= $(MODULES:%=$(EBIN)/%)
 TARGET_MODULES= $(MODULES:%=$(EBIN)/%)

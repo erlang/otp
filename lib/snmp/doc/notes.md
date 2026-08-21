@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +20,181 @@ limitations under the License.
 %CopyrightEnd%
 -->
 # SNMP Release Notes
+
+## SNMP 5.20.4
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug in snmpm_usm:generate_outgoing_msg/5 that caused a badmatch crash when constructing an error response for an unknown user/engineID combination.
+
+  Own Id: OTP-20138 Aux Id: ERIERL-1321, [PR-11100]
+
+[PR-11100]: https://github.com/erlang/otp/pull/11100
+
+## SNMP 5.20.3
+
+### Improvements and New Features
+
+- The legacy `and` and `or` operators have been replaced with other language constructs.
+
+  Own Id: OTP-19744 Aux Id: [PR-10114], [PR-10554], [PR-10568], [PR-10579], [PR-10585], [PR-10598], [PR-10710], [PR-10718], [PR-10580], [PR-10730]
+
+[PR-10114]: https://github.com/erlang/otp/pull/10114
+[PR-10554]: https://github.com/erlang/otp/pull/10554
+[PR-10568]: https://github.com/erlang/otp/pull/10568
+[PR-10579]: https://github.com/erlang/otp/pull/10579
+[PR-10585]: https://github.com/erlang/otp/pull/10585
+[PR-10598]: https://github.com/erlang/otp/pull/10598
+[PR-10710]: https://github.com/erlang/otp/pull/10710
+[PR-10718]: https://github.com/erlang/otp/pull/10718
+[PR-10580]: https://github.com/erlang/otp/pull/10580
+[PR-10730]: https://github.com/erlang/otp/pull/10730
+
+## SNMP 5.20.2.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug in snmpm_usm:generate_outgoing_msg/5 that caused a badmatch crash when constructing an error response for an unknown user/engineID combination.
+
+  Own Id: OTP-20138 Aux Id: ERIERL-1321, [PR-11100]
+
+[PR-11100]: https://github.com/erlang/otp/pull/11100
+
+## SNMP 5.20.2
+
+### Improvements and New Features
+
+- The SNMP manager now propagates `msgAuthoritativeEngineID` and
+    `msgUserName` from USM security parameters through to the
+    `snmpm_user:handle_error/3` callback when an incoming message is
+    discarded due to an unknown EngineID (`usmStatsUnknownEngineIDs`).
+  
+    This enables users to programmatically discover the correct
+    authoritative EngineID from the error callback and re-register
+    USM credentials, supporting SNMPv3 USM EngineID discovery as
+    described in RFC 3414, Section 4.
+  The failed_processing_message variant has been added to the
+    `snmpm:user:handle_error/3` callback type specification.
+
+  Own Id: OTP-20056 Aux Id: [GH-7156], ERIERL-1312, [PR-10911]
+
+[GH-7156]: https://github.com/erlang/otp/issues/7156
+[PR-10911]: https://github.com/erlang/otp/pull/10911
+
+## SNMP 5.20.1
+
+### Improvements and New Features
+
+- Release applications, tests, and documentation are now placed in their respective directories. Source SBOM with more packages.
+  
+  A `make release` application places only the necessary code in the release folder. The main change is that the documentation and examples are not part of the release folder anymore.
+  
+  `make release_docs` places the documentation in the released code under the `doc` folder.
+  
+  `make release_tests` places the tests in their own directory. It used to be the case that some source code was mixed with the tests, and this should not happen anymore.
+  
+  The Software Bill of Materials places the examples folders as if they are part of the `SPDX-otp-<app>-doc` packge, instead of placing examples as if they were running source code.
+  
+  Overall, this change cleans up many things that were not quite correct by definition, and everything should still continue to work as expected. To test a release, one can still run `./Install -minimal \`pwd\`` and add the release to the `PATH`. After that, one can run tests as usual, going into the released tests directory, entering `test_server` and running the emulator.
+  
+  Improves the source Software-Bill-of-Materials
+  
+  - The improvements adds new SPDX relations for `asmjit` and `zlib` to be `optional_components_of` the Erlang/OTP project.
+  - The `autoconf` scripts in `make` and `erts` have now been categorised as `build_tool_of` the Erlang/OTP project.
+  - All remaining `configure`, `configure.ac`, `config.h.in`, `Makefile.in`, `Makefile.src`, `EMakefile`, and `GNUMakefile` are now part of a specific SPDX package with relation `build_tool_of` the Erlang/OTP project.
+
+  Own Id: OTP-19886 Aux Id: [PR-10434]
+
+[PR-10434]: https://github.com/erlang/otp/pull/10434
+
+## SNMP 5.20
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug where running snmp:config() from Elixir would crash due to io:get_line/1 returning unexpected datatype.
+
+  Own Id: OTP-19883 Aux Id: [PR-10326]
+
+[PR-10326]: https://github.com/erlang/otp/pull/10326
+
+### Improvements and New Features
+
+- Inherit ERL_DETERMINISTIC variable for compiling snmp_pdus_basic.beam.
+
+  Own Id: OTP-19885 Aux Id: [PR-10288]
+
+[PR-10288]: https://github.com/erlang/otp/pull/10288
+
+## SNMP 5.19.1
+
+### Fixed Bugs and Malfunctions
+
+- Using ASN.1 generated code for decode/encode of basic types, starting with Counter64.
+
+  Own Id: OTP-19619 Aux Id: [GH-5756], [PR-9869]
+
+[GH-5756]: https://github.com/erlang/otp/issues/5756
+[PR-9869]: https://github.com/erlang/otp/pull/9869
+
+### Improvements and New Features
+
+- Reworked the timer handling of the (SNMP) manager start notification feature.
+
+  Own Id: OTP-19696 Aux Id: [PR-10014]
+
+- Added missing specs to already documented functions.
+
+  Own Id: OTP-19723 Aux Id: [PR-10087]
+
+[PR-10014]: https://github.com/erlang/otp/pull/10014
+[PR-10087]: https://github.com/erlang/otp/pull/10087
+
+## SNMP 5.19
+
+### Improvements and New Features
+
+- [EEP-69: Nominal Types](https://www.erlang.org/eeps/eep-0069) has been implemented. As a side effect, nominal types can encode opaque types. We changed all opaque-handling logic and improved opaque warnings in Dialyzer.
+  
+  All existing Erlang type systems are structural: two types are seen as equivalent if their structures are the same. Type comparisons are based on the structures of the types, not on how the user explicitly defines them. For example, in the following example, `meter()` and `foot()` are equivalent. The two types can be used interchangeably. Neither of them differ from the basic type `integer()`.
+  
+  ````
+  -type meter() :: integer().
+  -type foot() :: integer().
+  ````
+  
+  Nominal typing is an alternative type system, where two types are equivalent if and only if they are declared with the same type name. The EEP proposes one new syntax -nominal for declaring nominal types. Under nominal typing, `meter()` and `foot()` are no longer compatible. Whenever a function expects type `meter()`, passing in type `foot()` would result in a Dialyzer error.
+  
+  ````
+  -nominal meter() :: integer().
+  -nominal foot() :: integer().
+  ````
+  
+  More nominal type-checking rules can be found in the EEP. It is worth noting that most work for adding nominal types and type-checking is in `erl_types.erl`. The rest are changes that removed the previous opaque type-checking, and added an improved version of it using nominal type-checking with reworked warnings.
+  
+  Backwards compatibility for opaque type-checking is not preserved by this PR. Previous opaque warnings can appear with slightly different wordings. A new kind of opaque warning `opaque_union` is added, together with a Dialyzer option `no_opaque_union` to turn this kind of warnings off.
+
+  Own Id: OTP-19364 Aux Id: [PR-9079]
+
+- Added support for compiling Erlang/OTP for Windows on ARM64.
+
+  Own Id: OTP-19480 Aux Id: [PR-8734]
+
+- When compiling C/C++ code on Unix systems, the compiler hardening flags suggested by the [Open Source Security Foundation](https://github.com/ossf/wg-best-practices-os-developers/blob/main/docs/Compiler-Hardening-Guides/Compiler-Options-Hardening-Guide-for-C-and-C%2B%2B.md) are now enabled by default. To disable them, pass `--disable-security-hardening-flags` to `configure`.
+
+  Own Id: OTP-19519 Aux Id: [PR-9441]
+
+- Add copyright notice to files that still had none.
+
+  Own Id: OTP-19572
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-9079]: https://github.com/erlang/otp/pull/9079
+[PR-8734]: https://github.com/erlang/otp/pull/8734
+[PR-9441]: https://github.com/erlang/otp/pull/9441
+[PR-9670]: https://github.com/erlang/otp/pull/9670
 
 ## SNMP 5.18.2
 

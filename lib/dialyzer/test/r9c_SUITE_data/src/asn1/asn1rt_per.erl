@@ -1346,7 +1346,7 @@ create_char_tab(_Min,[],_V) ->
 create_char_tab(Min,L,V) ->
     [false|create_char_tab(Min+1,L,V)].
 
-%% This very inefficient and should be moved to compiletime
+%% This is very inefficient and should be moved to compile time
 charbits(NumOfChars,aligned) ->
     case charbits(NumOfChars) of
 	1 -> 1;

@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,11 +42,11 @@
 #include "erl_thr_progress.h"
 #include "erl_proc_sig_queue.h"
 #include "dist.h"
+#include "erl_crash_dump.h"
 
 /* Forward declarations -- should really appear somewhere else */
 static void process_killer(void);
 void do_break(void);
-void erl_crash_dump_v(char *file, int line, const char* fmt, va_list args);
 
 #ifdef DEBUG
 static void bin_check(void);
@@ -58,8 +60,6 @@ static void dump_frequencies(void);
 static void dump_attributes(fmtfn_t to, void *to_arg, const byte* ptr, int size);
 
 extern char* erts_system_version[];
-
-#define WRITE_BUFFER_SIZE (64*1024)
 
 static void
 port_info(fmtfn_t to, void *to_arg)
@@ -127,32 +127,28 @@ process_killer(void)
     for (i = max-1; i >= 0; i--) {
 	rp = erts_pix2proc(i);
 	if (rp && rp->i != ENULL) {
-	    int br;
 	    print_process_info(ERTS_PRINT_STDOUT, NULL, rp, 0);
 	    erts_printf("(k)ill (n)ext (r)eturn:\n");
-	    while(1) {
-		if ((j = sys_get_key(0)) <= 0)
-		    erts_exit(0, "");
-		switch(j) {
-                case 'k':
-                {
-                    Process *init_proc;
+            if ((j = sys_get_key(0)) <= 0)
+                erts_exit(0, "");
+            switch(j) {
+            case 'k':
+            {
+                Process *init_proc;
 
-                    ASSERT(erts_init_process_id != ERTS_INVALID_PID);
-                    init_proc = erts_proc_lookup_raw(erts_init_process_id);
+                ASSERT(erts_init_process_id != ERTS_INVALID_PID);
+                init_proc = erts_proc_lookup_raw(erts_init_process_id);
 
-                    /* Send a 'kill' exit signal from init process */
-                    erts_proc_sig_send_exit(&init_proc->common,
-                                            erts_init_process_id,
-                                            rp->common.id,
-                                            am_kill, NIL, 0);
-                }
-		case 'n': br = 1; break;
-		case 'r': return;
-		default: return;
-		}
-		if (br == 1) break;
-	    }
+                /* Send a 'kill' exit signal from init process */
+                erts_proc_sig_send_exit(&init_proc->common,
+                                        erts_init_process_id,
+                                        rp->common.id,
+                                        am_kill, NIL, 0, 0);
+                break;
+            }
+            case 'n': break;
+            default: return;
+            }
 	}
     }
 }
@@ -188,7 +184,7 @@ static int doit_print_monitor(ErtsMonitor *mon, void *vpcontext, Sint reds)
     char *prefix = ", ";
  
     mdp = erts_monitor_to_data(mon);
-    switch (mon->type) {
+    switch (ERTS_ML_GET_TYPE(mon)) {
     case ERTS_MON_TYPE_PROC:
     case ERTS_MON_TYPE_PORT:
     case ERTS_MON_TYPE_TIME_OFFSET:
@@ -203,7 +199,7 @@ static int doit_print_monitor(ErtsMonitor *mon, void *vpcontext, Sint reds)
         }
 
         if (erts_monitor_is_target(mon)) {
-            if (mon->type != ERTS_MON_TYPE_RESOURCE)
+            if (ERTS_ML_GET_TYPE(mon) != ERTS_MON_TYPE_RESOURCE)
                 erts_print(to, to_arg, "%s{from,%T,%T}", prefix, mon->other.item, mdp->ref);
             else {
                 ErtsResource* rsrc = mon->other.ptr;
@@ -484,7 +480,9 @@ loaded(fmtfn_t to, void *to_arg)
     ErtsCodeIndex code_ix;
 
     code_ix = erts_active_code_ix();
-    erts_rlock_old_code(code_ix);
+    if (!ERTS_IS_CRASH_DUMPING) {
+        erts_rlock_old_code(code_ix);
+    }
 
     /*
      * Calculate and print totals.
@@ -556,7 +554,9 @@ loaded(fmtfn_t to, void *to_arg)
 	    }
 	}
     }
-    erts_runlock_old_code(code_ix);
+    if (!ERTS_IS_CRASH_DUMPING) {
+        erts_runlock_old_code(code_ix);
+    }
 }
 
 
@@ -608,12 +608,12 @@ do_break(void)
 	case '*': /* 
 		   * The asterisk is an read error on windows, 
 		   * where sys_get_key isn't that great in console mode.
-		   * The usual reason for a read error is Ctrl-C. Treat this as
+		   * The usual reason for a read error is Ctrl+C. Treat this as
 		   * 'a' to avoid infinite loop.
 		   */
 	    erts_exit(0, "");
 	case 'A':		/* Halt generating crash dump */
-	    erts_exit(ERTS_ERROR_EXIT, "Crash dump requested by user");
+	    erts_exit(ERTS_ERROR_EXIT, "Crash dump requested by user\n");
 	case 'c':
 	    return;
 	case 'p':
@@ -639,7 +639,7 @@ do_break(void)
 	    distribution_info(ERTS_PRINT_STDOUT, NULL);
 	    return;
 	case 'D':
-	    db_info(ERTS_PRINT_STDOUT, NULL, 1);
+	    db_info(ERTS_PRINT_STDOUT, NULL, true);
 	    return; 
 	case 'k':
 	    process_killer();
@@ -762,294 +762,6 @@ bin_check(void)
 }
 
 #endif
-
-static Sint64 crash_dump_limit = ERTS_SINT64_MAX;
-static Sint64 crash_dump_written = 0;
-
-typedef struct LimitedWriterInfo_ {
-    fmtfn_t to;
-    void* to_arg;
-} LimitedWriterInfo;
-
-static int
-crash_dump_limited_writer(void* vfdp, char* buf, size_t len)
-{
-    const char stop_msg[] = "\n=abort:CRASH DUMP SIZE LIMIT REACHED\n";
-    LimitedWriterInfo* lwi = (LimitedWriterInfo *) vfdp;
-
-    crash_dump_written += len;
-    if (crash_dump_written <= crash_dump_limit) {
-        return lwi->to(lwi->to_arg, buf, len);
-    }
-
-    len -= (crash_dump_written - crash_dump_limit);
-    lwi->to(lwi->to_arg, buf, len);
-    lwi->to(lwi->to_arg, (char*)stop_msg, sizeof(stop_msg)-1);
-    if (lwi->to == &erts_write_fp) {
-        fclose((FILE *) lwi->to_arg);
-    }
-
-    /* We assume that crash dump was called from erts_exit_vv() */
-    erts_exit_epilogue(0);
-}
-
-/* XXX THIS SHOULD BE IN SYSTEM !!!! */
-void
-erl_crash_dump_v(char *file, int line, const char* fmt, va_list args)
-{
-    ErtsThrPrgrData tpd_buf; /* in case we aren't a managed thread... */
-    int fd;
-    size_t envsz;
-    time_t now;
-    char env[21]; /* enough to hold any 64-bit integer */
-    size_t dumpnamebufsize = MAXPATHLEN;
-    char dumpnamebuf[MAXPATHLEN];
-    char* dumpname;
-    int secs;
-    int env_erl_crash_dump_seconds_set = 1;
-    int i;
-    fmtfn_t to = &erts_write_fd;
-    void*   to_arg;
-    FILE* fp = 0;
-    LimitedWriterInfo lwi;
-    static char* write_buffer;  /* 'static' to avoid a leak warning in valgrind */
-
-    /* Order all managed threads to block, this has to be done
-       first to guarantee that this is the only thread to generate
-       crash dump. */
-    erts_thr_progress_fatal_error_block(&tpd_buf);
-
-    /* Allow us to pass certain places without locking... */
-    erts_atomic32_set_mb(&erts_writing_erl_crash_dump, 1);
-    erts_tsd_set(erts_is_crash_dumping_key, (void *) 1);
-
-    envsz = sizeof(env);
-    /* ERL_CRASH_DUMP_SECONDS not set
-     * if we have a heart port, break immediately
-     * otherwise dump crash indefinitely (until crash is complete)
-     * same as ERL_CRASH_DUMP_SECONDS = 0
-     * - do not write dump
-     * - do not set an alarm
-     * - break immediately
-     *
-     * ERL_CRASH_DUMP_SECONDS = 0
-     * - do not write dump
-     * - do not set an alarm
-     * - break immediately
-     *
-     * ERL_CRASH_DUMP_SECONDS < 0
-     * - do not set alarm
-     * - write dump until done
-     *
-     * ERL_CRASH_DUMP_SECONDS = S (and S positive)
-     * - Don't dump file forever
-     * - set alarm (set in sys)
-     * - write dump until alarm or file is written completely
-     */
-	
-    if (erts_sys_explicit_8bit_getenv("ERL_CRASH_DUMP_SECONDS", env, &envsz) == 1) {
-        env_erl_crash_dump_seconds_set = 1;
-        secs = atoi(env);
-    } else {
-        env_erl_crash_dump_seconds_set = 0;
-        secs = -1;
-    }
-
-    if (secs == 0) {
-        return;
-    }
-
-    /* erts_sys_prepare_crash_dump returns 1 if heart port is found, otherwise 0
-     * If we don't find heart (0) and we don't have ERL_CRASH_DUMP_SECONDS set
-     * we should continue writing a dump
-     *
-     * beware: secs -1 means no alarm
-     */
-
-    if (erts_sys_prepare_crash_dump(secs) && !env_erl_crash_dump_seconds_set ) {
-	return;
-    }
-
-    crash_dump_limit = ERTS_SINT64_MAX;
-    envsz = sizeof(env);
-    if (erts_sys_explicit_8bit_getenv("ERL_CRASH_DUMP_BYTES", env, &envsz) == 1) {
-        Sint64 limit;
-        char* endptr;
-        errno = 0;
-        limit = ErtsStrToSint64(env, &endptr, 10);
-        if (errno == 0 && limit >= 0 && endptr != env && *endptr == 0) {
-            if (limit == 0)
-                return;
-            crash_dump_limit = limit;
-            to = &crash_dump_limited_writer;
-        }
-    }
-
-    if (erts_sys_explicit_8bit_getenv("ERL_CRASH_DUMP",&dumpnamebuf[0],&dumpnamebufsize) != 1)
-	dumpname = "erl_crash.dump";
-    else
-	dumpname = &dumpnamebuf[0];
-    
-    erts_fprintf(stderr,"\nCrash dump is being written to: %s...", dumpname);
-
-    fd = open(dumpname,O_WRONLY | O_CREAT | O_TRUNC,0640);
-    if (fd < 0)
-	return; /* Can't create the crash dump, skip it */
-
-    /*
-     * Wrap into a FILE* so that we can use buffered output. Set an
-     * explicit buffer to make sure the first write does not fail because
-     * of a failure to allocate a buffer.
-     */
-    write_buffer = (char *) erts_alloc_fnf(ERTS_ALC_T_TMP, WRITE_BUFFER_SIZE);
-    if (write_buffer && (fp = fdopen(fd, "w")) != NULL) {
-        setvbuf(fp, write_buffer, _IOFBF, WRITE_BUFFER_SIZE);
-        lwi.to = &erts_write_fp;
-        lwi.to_arg = (void*)fp;
-    } else {
-        lwi.to = &erts_write_fd;
-        lwi.to_arg = (void*)&fd;
-    }
-    if (to == &crash_dump_limited_writer) {
-        to_arg = (void *) &lwi;
-    } else {
-        to = lwi.to;
-        to_arg = lwi.to_arg;
-    }
-
-    time(&now);
-    erts_cbprintf(to, to_arg, "=erl_crash_dump:0.5\n%s", ctime(&now));
-
-#ifdef ERTS_SYS_SUSPEND_SIGNAL
-    /*
-     * We suspend all scheduler threads so that we can dump some
-     * data about the currently running processes and scheduler data.
-     * We have to be very very careful when doing this as the schedulers
-     * could be anywhere.
-     * It may happen that scheduler thread is suspended while holding
-     * malloc lock. Therefore code running in this thread must not use
-     * it, or it will deadlock. ctime and fdopen calls both use malloc
-     * internally and must be executed prior to.
-     */
-    sys_init_suspend_handler();
-
-    for (i = 0; i < erts_no_schedulers; i++) {
-        erts_tid_t tid = ERTS_SCHEDULER_IX(i)->tid;
-        if (!erts_equal_tids(tid,erts_thr_self()))
-            sys_thr_suspend(tid);
-    }
-
-#endif
-
-    if (file != NULL)
-       erts_cbprintf(to, to_arg, "The error occurred in file %s, line %d\n", file, line);
-
-    if (fmt != NULL && *fmt != '\0') {
-	erts_cbprintf(to, to_arg, "Slogan: ");
-	erts_vcbprintf(to, to_arg, fmt, args);
-    }
-    erts_cbprintf(to, to_arg, "System version: ");
-    erts_print_system_version(to, to_arg, NULL);
-
-    erts_cbprintf(to, to_arg, "Taints: ");
-    erts_print_nif_taints(to, to_arg);
-    erts_cbprintf(to, to_arg, "Atoms: %d\n", atom_table_size());
-
-    /* We want to note which thread it was that called erts_exit */
-    if (erts_get_scheduler_data()) {
-        erts_cbprintf(to, to_arg, "Calling Thread: scheduler:%d\n",
-                      erts_get_scheduler_data()->no);
-    } else {
-        if (!erts_thr_getname(erts_thr_self(), dumpnamebuf, MAXPATHLEN))
-            erts_cbprintf(to, to_arg, "Calling Thread: %s\n", dumpnamebuf);
-        else
-            erts_cbprintf(to, to_arg, "Calling Thread: %p\n", erts_thr_self());
-    }
-
-#if defined(ERTS_HAVE_TRY_CATCH)
-
-    /*
-     * erts_print_scheduler_info is not guaranteed to be safe to call
-     * here for all schedulers as we may have suspended a scheduler
-     * in the middle of updating the STACK_TOP and STACK_START
-     * variables and thus when scanning the stack we could get
-     * segmentation faults. We protect against this very unlikely
-     * scenario by using the ERTS_SYS_TRY_CATCH.
-     */
-    for (i = 0; i < erts_no_schedulers; i++) {
-        ERTS_SYS_TRY_CATCH(
-            erts_print_scheduler_info(to, to_arg, ERTS_SCHEDULER_IX(i)),
-            erts_cbprintf(to, to_arg, "** crashed **\n"));
-    }
-    for (i = 0; i < erts_no_dirty_cpu_schedulers; i++) {
-        ERTS_SYS_TRY_CATCH(
-            erts_print_scheduler_info(to, to_arg, ERTS_DIRTY_CPU_SCHEDULER_IX(i)),
-            erts_cbprintf(to, to_arg, "** crashed **\n"));
-    }
-    erts_cbprintf(to, to_arg, "=dirty_cpu_run_queue\n");
-    erts_print_run_queue_info(to, to_arg, ERTS_DIRTY_CPU_RUNQ);
-
-    for (i = 0; i < erts_no_dirty_io_schedulers; i++) {
-        ERTS_SYS_TRY_CATCH(
-            erts_print_scheduler_info(to, to_arg, ERTS_DIRTY_IO_SCHEDULER_IX(i)),
-            erts_cbprintf(to, to_arg, "** crashed **\n"));
-    }
-    erts_cbprintf(to, to_arg, "=dirty_io_run_queue\n");
-    erts_print_run_queue_info(to, to_arg, ERTS_DIRTY_IO_RUNQ);
-#endif
-
-
-#ifdef ERTS_SYS_SUSPEND_SIGNAL
-
-    /* We resume all schedulers so that we are in a known safe state
-       when we write the rest of the crash dump */
-    for (i = 0; i < erts_no_schedulers; i++) {
-        erts_tid_t tid = ERTS_SCHEDULER_IX(i)->tid;
-        if (!erts_equal_tids(tid,erts_thr_self()))
-	    sys_thr_resume(tid);
-    }
-#endif
-
-    /*
-     * Wait for all managed threads to block. If all threads haven't blocked
-     * after a minute, we go anyway and hope for the best...
-     *
-     * We do not release system again. We expect an exit() or abort() after
-     * dump has been written.
-     */
-    erts_thr_progress_fatal_error_wait(60000);
-    /* Either worked or not... */
-
-#ifndef ERTS_HAVE_TRY_CATCH
-    /* This is safe to call here, as all schedulers are blocked */
-    for (i = 0; i < erts_no_schedulers; i++) {
-        erts_print_scheduler_info(to, to_arg, ERTS_SCHEDULER_IX(i));
-    }
-#endif
-    
-    info(to, to_arg); /* General system info */
-    if (erts_ptab_initialized(&erts_proc))
-	process_info(to, to_arg); /* Info about each process and port */
-    db_info(to, to_arg, 0);
-    erts_print_bif_timer_info(to, to_arg);
-    distribution_info(to, to_arg);
-    erts_cbprintf(to, to_arg, "=loaded_modules\n");
-    loaded(to, to_arg);
-    erts_dump_fun_entries(to, to_arg);
-    erts_deep_process_dump(to, to_arg);
-    erts_cbprintf(to, to_arg, "=atoms\n");
-    dump_atoms(to, to_arg);
-
-    erts_cbprintf(to, to_arg, "=end\n");
-
-    if (fp) {
-        fclose(fp);
-    } else {
-        close(fd);
-    }
-
-    erts_fprintf(stderr,"done\n");
-}
 
 void
 erts_print_base64(fmtfn_t to, void *to_arg, const byte* src, Uint size)
