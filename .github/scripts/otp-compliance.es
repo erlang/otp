@@ -817,7 +817,7 @@ path_to_license(Input) ->
 
 -spec path_to_copyright(Input :: map()) -> #{Path :: binary() => License :: binary()}.
 path_to_copyright(Input) ->
-    match_path_to(Input, fun group_by_copyrights/3).
+    group_by_copyrights(Input).
 
 -spec match_path_to(Input :: map(), GroupFun :: fun()) -> #{ Path :: binary() => Result :: binary() }.
 match_path_to(Json, GroupFun) ->
@@ -877,12 +877,18 @@ group_by_licenses(Json, ApplyExclude, ApplyCuration) ->
                             group_by_license(Excludes, Curations, License, Acc)
                     end, #{}, Licenses).
 
-group_by_copyrights(Json, ApplyExclude, _ApplyCuration) ->
-    Excludes = apply_excludes(Json, ApplyExclude),
+group_by_copyrights(Json) ->
     Copyrights = copyrights(scan_results(Json)),
-    lists:foldl(fun (Copyright, Acc) ->
-                            group_by_copyright(Excludes, Copyright, Acc)
-                    end, #{}, Copyrights).
+    R = lists:foldl(fun (#{~"statement" := St,
+                           ~"location" := #{~"path" := Path}}, Acc) ->
+                            case maps:get(Path, Acc, none) of
+                                none ->
+                                    Acc#{Path => [St]};
+                                Ls ->
+                                    Acc#{Path => [St | Ls]}
+                            end
+                    end, #{}, Copyrights),
+    maps:map(fun (_K, Ls) -> iolist_to_binary(lists:join(~"\n", lists:reverse(Ls))) end, R).
 
 
 apply_excludes(Json, ApplyExclude) ->
@@ -1033,26 +1039,6 @@ group_by_license(ExcludeRegexes, Curations, License, Acc) ->
                           _ -> Ls
                       end,
                 Acc#{LicenseName1 => Ls1}
-        end
-    else
-        _ ->
-            Acc
-    end.
-
-group_by_copyright(ExcludeRegexes, Copyright, Acc) ->
-    #{<<"statement">> := CopyrightSt, <<"location">> := Location} = Copyright,
-    #{<<"path">> := Path, <<"start_line">> := _StartLine, <<"end_line">> := _EndLine} = Location,
-    maybe
-        false ?= exclude_path(Path, ExcludeRegexes),
-        case maps:get(CopyrightSt, Acc, []) of
-            [] ->
-                Acc#{CopyrightSt => [Path]};
-            Ls ->
-                Ls1 = case lists:search(fun(X) -> X == Path end, Ls) of
-                          false -> [Path | Ls];
-                          _ -> Ls
-                      end,
-                Acc#{CopyrightSt => Ls1}
         end
     else
         _ ->
