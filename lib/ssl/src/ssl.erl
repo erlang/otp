@@ -2036,6 +2036,13 @@ Options only relevant for TLS-1.3.
 
   Configures if the server accepts (`enabled`) or rejects (`disabled`) early data
   sent by a client. The default value is `disabled`.
+
+ > #### Warning {: .warning }
+ >  0-RTT data is inherently replay-vulnerable by TLS 1.3 design. The
+ > mitigation is application-level idempotency or server-side anti-replay.
+ > The server side mechanisms for anti-replay are stateful tickets or stateless
+ > tickets with a configured Bloom filter.
+
 """.
 -type server_option_tls13() :: {session_tickets, SessionTickets:: disabled | stateful | stateless |
                                                                   stateful_with_cert | stateless_with_cert} |
@@ -4281,7 +4288,6 @@ opt_tickets(UserOpts, #{versions := Versions} = Opts, #{role := client}) ->
                         [early_data, {session_tickets, disabled}]),
     option_incompatible(is_binary(EarlyData) andalso SessionTickets =:= manual andalso UseTicket =:= undefined,
                         [early_data, {session_tickets, manual}, {use_ticket, undefined}]),
-
     assert_server_only(anti_replay, UserOpts),
     assert_server_only(stateless_tickets_seed, UserOpts),
     Opts#{session_tickets => SessionTickets, use_ticket => UseTicket, early_data => EarlyData};
@@ -4310,6 +4316,15 @@ opt_tickets(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
             {_, {_,_,_} = AR} -> AR;
             {_, AR} -> option_error(anti_replay, AR)
         end,
+
+    case EarlyData =:= enabled andalso Stateless andalso
+         AntiReplay =:= undefined of
+        true ->
+            ?LOG_WARNING("early_data enabled without anti_replay; "
+                         "0-RTT data is replayable");
+        false ->
+            ok
+    end,
 
     {_, STS} = get_opt_bin(stateless_tickets_seed, undefined, UserOpts, Opts),
     option_incompatible(STS =/= undefined andalso not Stateless,
