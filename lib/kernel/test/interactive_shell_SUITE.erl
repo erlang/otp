@@ -43,7 +43,7 @@
          init_per_testcase/2, end_per_testcase/2,
 	 get_columns_and_rows/1, exit_initial/1, job_control_local/1,
 	 job_control_remote/1,stop_during_init/1,wrap/1,
-         noshell_raw/1,
+         noshell_raw/1, raw_signals/1,
          shell_history/1, shell_history_resize/1, shell_history_eaccess/1,
          shell_history_repair/1, shell_history_repair_corrupt/1,
          shell_history_corrupt/1,
@@ -101,6 +101,7 @@ groups() ->
        shell_invalid_ansi,
        shell_get_password,
        noshell_raw,
+       raw_signals,
        {group, shell_history},
        {group, remsh}]},
      {shell_history, [],
@@ -2135,6 +2136,87 @@ noshell_raw(Config) ->
         _ -> ok
     end,
     ok.
+
+%% Verify that the signals option of shell:start_interactive can be
+%% switched on and off at runtime. ctrl+s is XOFF flow control: while
+%% IXON is enabled the terminal driver swallows the byte, so with
+%% signals => true the application never sees it. Uses a noshell peer
+%% on the run_erl pty so that the line discipline is the only place
+%% where the byte can be consumed.
+raw_signals(Config) ->
+    case proplists:get_value(default_shell, Config) of
+        new ->
+            TCGl = group_leader(),
+            TC = self(),
+
+            TestcaseFun = fun() ->
+                link(TC),
+                group_leader(whereis(user), self()),
+
+                try
+                    %% "\el" is an artifact from attaching to_erl and
+                    %% is consumed while the terminal is still cooked.
+                    "\el" ++ "hello\n" = io:get_line("1> "),
+
+                    %% Raw mode with signals disabled: ctrl+s is
+                    %% delivered to the application.
+                    ok = shell:start_interactive(
+                           {noshell, #{mode => raw, signals => false}}),
+                    [$\^s] = io:get_chars("2> ", 1),
+
+                    %% Switch signals back on: ctrl+s is now consumed
+                    %% by the terminal driver as XOFF flow control
+                    %% (ctrl+q restarts the output), so the next byte
+                    %% typed is the first one the application sees.
+                    ok = shell:start_interactive(
+                           {noshell, #{mode => raw, signals => true}}),
+                    Parent = self(),
+                    spawn(fun() ->
+                        Parent ! {res, io:get_chars("3> ", 1)}
+                    end),
+                    {res, "x"} =
+                        receive {res, Res} -> {res, Res}
+                        after 5000 -> timeout
+                        end,
+
+                    %% Switch signals off again: ctrl+s reaches the
+                    %% application once more.
+                    ok = shell:start_interactive(
+                           {noshell, #{mode => raw, signals => false}}),
+                    [$\^s] = io:get_chars("4> ", 1),
+
+                    io:format("exit")
+                catch E:R:ST ->
+                    io:format(TCGl, "~p", [{E, R, ST}])
+                end
+            end,
+
+            rtnode:run(
+              [{eval, fun() -> spawn(TestcaseFun), ok end},
+
+               %% Cooked mode: the to_erl attach artifact is drained
+               {expect, "1> $"},
+               {putline, "hello"},
+
+               %% Raw mode with signals disabled
+               {expect, "2> $"},
+               {putdata, [$\^s]},
+
+               %% Signals enabled: ctrl+s and ctrl+q are swallowed, "x" arrives
+               {expect, "3> $"},
+               {putdata, [$\^s]},
+               {putdata, [$\^q]},
+               {putdata, "x"},
+
+               %% Signals disabled again
+               {expect, "4> $"},
+               {putdata, [$\^s]},
+
+               {expect, "exit$"}
+              ], [], [],
+              ["-noshell","-pz",filename:dirname(code:which(?MODULE))]);
+        _ -> ok
+    end.
 
 get_until(start, NewChars) ->
     get_until([], NewChars);
