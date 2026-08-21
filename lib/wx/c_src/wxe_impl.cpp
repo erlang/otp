@@ -415,11 +415,11 @@ int WxeApp::dispatch(wxeFifo * batch)
         enif_mutex_lock(wxe_batch_locker_m);
 	break;
       }
+      batch->DeleteCmd(event);
       if(wait > CHECK_EVENTS) {
         enif_mutex_unlock(wxe_batch_locker_m);
         return 1; // Let wx check for events
       }
-      batch->DeleteCmd(event);
     }
     if(blevel <= 0) {
       enif_mutex_unlock(wxe_batch_locker_m);
@@ -571,7 +571,6 @@ void * newMemEnv(ErlNifEnv* env, wxe_me_ref *mr)
   WxeApp * app = (WxeApp *) wxTheApp;
   wxeMemEnv* global_me = app->global_me;
   wxeMemEnv* memenv = new wxeMemEnv();
-  memenv->create();
 
   for(int i = 0; i < global_me->next; i++) {
     memenv->ref2ptr[i] = global_me->ref2ptr[i];
@@ -710,8 +709,9 @@ void WxeApp::destroyMemEnv(wxeMetaCommand &Ecmd)
 //  fflush(stderr);
   enif_free(memenv->ref2ptr);
   enif_free_env(memenv->tmp_env);
-  if(wxe_debug) enif_fprintf(stderr, "Deleting memenv %d\r\n", memenv);
+  if(wxe_debug) enif_fprintf(stderr, "Deleting memenv %p\r\n", memenv);
   Ecmd.me_ref->memenv = NULL;
+  delete memenv;
   enif_release_resource(Ecmd.me_ref);
 }
 
@@ -732,7 +732,7 @@ wxeRefData * WxeApp::getRefData(void *ptr) {
 
 int WxeApp::newPtr(void * ptr, int type, wxeMemEnv *memenv) {
   int ref;
-  intList free = memenv->free;
+  intList &free = memenv->free;
 
   if(free.IsEmpty()) {
     ref = memenv->next++;
@@ -770,11 +770,16 @@ int WxeApp::getRef(void * ptr, wxeMemEnv *memenv, int type) {
       // Found it return
       return refd->ref;
     } // else
-    // Old reference to deleted object, release old and recreate in current memenv.
+    // The pointer is currently referenced from another memenv. Clear that
+    // memenv's ref2ptr slot before recreating the reference here, otherwise
+    // the old memenv still points at this object and will delete it again
+    // when it is torn down (double free / use-after-free).
+    refd->memenv->ref2ptr[refd->ref] = NULL;
+    delete refd;
     ptr2ref.erase(it);
   }
   int ref;
-  intList free = memenv->free;
+  intList &free = memenv->free;
 
   if(free.IsEmpty()) {
     ref = memenv->next++;
@@ -798,7 +803,7 @@ void WxeApp::clearPtr(void * ptr) {
 
   if(it != ptr2ref.end()) {
     wxeRefData *refd = it->second;
-    intList free = refd->memenv->free;
+    intList &free = refd->memenv->free;
     int ref = refd->ref;
     refd->memenv->ref2ptr[ref] = NULL;
     free.Append(ref);
