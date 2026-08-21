@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,7 +43,8 @@
          addresses/1,
          get_options/2,
          get_acceptor_options/1,
-         restart_acceptor/2
+         restart_acceptor/2,
+         start_restart_guard/0
         ]).
 
 %% Supervisor callback
@@ -167,20 +168,28 @@ get_acceptor_options(SysPid) ->
 restart_acceptor(SysPid, Options0) ->
     case get_daemon_listen_address(SysPid) of
         {ok,Address} ->
-            try
-                stop_listener(SysPid)
-            of
-                ok ->
-                    Options = refresh_lsocket(Options0),
-                    start_acceptor(SysPid, Address, Options)
-            catch
-                error:_Error ->
-                    Options = refresh_lsocket(Options0),
-                    start_acceptor(SysPid, Address, Options)
+            GuardId = {?MODULE, restart_acceptor, make_ref()},
+            GuardSpec =
+                #{id          => GuardId,
+                  start       => {?MODULE, start_restart_guard, []},
+                  restart     => temporary,
+                  significant => true,
+                  type        => worker},
+            case supervisor:start_child(SysPid, GuardSpec) of
+                {ok,_GuardPid} ->
+                    try restart_acceptor(SysPid, Address, Options0)
+                    after
+                        remove_restart_guard(SysPid, GuardId)
+                    end;
+                {error,Error} ->
+                    {error,Error}
             end;
         {error,Error} ->
             {error,Error}
     end.
+
+start_restart_guard() ->
+    {ok,spawn_link(fun restart_guard/0)}.
 
 %%%=========================================================================
 %%%  Supervisor callback
@@ -223,6 +232,33 @@ get_options(Sup, Address = #address{}) ->
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
+
+restart_acceptor(SysPid, Address, Options0) ->
+    try
+        stop_listener(SysPid)
+    of
+        ok ->
+            Options = refresh_lsocket(Options0),
+            start_acceptor(SysPid, Address, Options)
+    catch
+        error:_Error ->
+            Options = refresh_lsocket(Options0),
+            start_acceptor(SysPid, Address, Options)
+    end.
+
+remove_restart_guard(SysPid, GuardId) ->
+    try
+        _ = supervisor:terminate_child(SysPid, GuardId),
+        _ = supervisor:delete_child(SysPid, GuardId),
+        ok
+    catch
+        exit:{noproc,_} -> ok
+    end.
+
+restart_guard() ->
+    receive
+        _ -> restart_guard()
+    end.
 
 %% A separate function because this spec is need in >1 places
 acceptor_sup_child_spec(SysSup, Address, Options) ->

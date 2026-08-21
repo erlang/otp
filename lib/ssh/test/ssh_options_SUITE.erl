@@ -91,6 +91,7 @@
          config_file/0,
          config_file/1,
          config_file_modify_algorithms_order/1,
+         daemon_replace_options_last_connection_race/1,
          daemon_replace_options_simple/1,
          daemon_replace_options_algs/1,
          daemon_replace_options_algs_connect/1,
@@ -168,6 +169,7 @@ all() ->
      raw_option,
      config_file,
      config_file_modify_algorithms_order,
+     daemon_replace_options_last_connection_race,
      daemon_replace_options_simple,
      daemon_replace_options_algs,
      daemon_replace_options_algs_connect,
@@ -1927,6 +1929,66 @@ config_file_modify_algorithms_order(Config) ->
     end.
 
     
+%%--------------------------------------------------------------------
+daemon_replace_options_last_connection_race(Config) ->
+    {DaemonRef, Host, Port} = ssh_test_lib:std_daemon(Config, []),
+    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, []),
+    ConnectionSup = connection_sup(DaemonRef),
+    TestPid = self(),
+    PauseRef = make_ref(),
+    DebugFun =
+        fun(armed,
+            {in, {'$gen_call', _,
+                  {delete_child, {ssh_acceptor_sup, _}}}}, _) ->
+                TestPid ! {listener_stopped, PauseRef},
+                receive
+                    {continue_restart, PauseRef} -> triggered
+                end;
+           (State, _, _) ->
+                State
+        end,
+    ok = sys:install(DaemonRef, {DebugFun, armed}),
+    spawn_link(
+      fun() ->
+              Result =
+                  try ssh:daemon_replace_options(DaemonRef, []) of
+                      Reply -> Reply
+                  catch
+                      exit:Reason -> {exit, Reason}
+                  end,
+              TestPid ! {replace_result, PauseRef, Result}
+      end),
+    receive
+        {listener_stopped, PauseRef} -> ok
+    end,
+    ok = ssh:close(ConnectionRef),
+    ok = wait_for_exit_message(DaemonRef, ConnectionSup, 100),
+    DaemonRef ! {continue_restart, PauseRef},
+    receive
+        {replace_result, PauseRef, Result} ->
+            {ok, DaemonRef} = Result
+    end,
+    true = is_process_alive(DaemonRef),
+    {ok, _} = ssh:daemon_info(DaemonRef).
+
+connection_sup(DaemonRef) ->
+    [{_, ConnectionSup, supervisor, [ssh_connection_sup]}] =
+        [Child || Child = {_, _, supervisor, [ssh_connection_sup]} <-
+                      supervisor:which_children(DaemonRef)],
+    ConnectionSup.
+
+wait_for_exit_message(_, _, 0) ->
+    {error, timeout};
+wait_for_exit_message(DaemonRef, ConnectionSup, Attempts) ->
+    {messages, Messages} = process_info(DaemonRef, messages),
+    case lists:keyfind(ConnectionSup, 2, Messages) of
+        {'EXIT', ConnectionSup, _} ->
+            ok;
+        false ->
+            timer:sleep(10),
+            wait_for_exit_message(DaemonRef, ConnectionSup, Attempts - 1)
+    end.
+
 %%--------------------------------------------------------------------
 daemon_replace_options_simple(Config) ->
     SysDir = proplists:get_value(data_dir, Config),
