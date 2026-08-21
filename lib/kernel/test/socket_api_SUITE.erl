@@ -200,6 +200,7 @@
          api_opt_simple_otp_options/1,
          api_opt_simple_otp_meta_option/1,
          api_opt_simple_otp_rcvbuf_option/1,
+         api_opt_adaptive_otp_rcvbuf_option/1,
          api_opt_simple_otp_controlling_process/1,
          api_opt_sock_acceptconn_udp/1,
          api_opt_sock_acceptconn_tcp/1,
@@ -510,6 +511,7 @@ api_options_otp_cases() ->
      api_opt_simple_otp_options,
      api_opt_simple_otp_meta_option,
      api_opt_simple_otp_rcvbuf_option,
+     api_opt_adaptive_otp_rcvbuf_option,
      api_opt_simple_otp_controlling_process
     ].
 
@@ -12021,6 +12023,137 @@ api_opt_simple_otp_rcvbuf_option() ->
 
     i("await evaluator(s)"),
     ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% The buffer used by a recv with Length = 0 on a stream socket adapts
+%% to the traffic, unless the (otp) rcvbuf option has been set, in
+%% which case that size is used (and bounds the returned chunks) as
+%% before. Dgram sockets read into the configured size as before.
+%% Adaptation is not implemented on Windows.
+api_opt_adaptive_otp_rcvbuf_option(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ipv4(),
+                   is_not_windows()
+           end,
+           fun() ->
+                   api_opt_adaptive_otp_rcvbuf_option()
+           end).
+
+api_opt_adaptive_otp_rcvbuf_option() ->
+    LSA = which_local_socket_addr(inet),
+
+    {ok, L} = socket:open(inet, stream, tcp),
+    ok = socket:bind(L, LSA#{port => 0}),
+    ok = socket:listen(L),
+    {ok, SSA}     = socket:sockname(L),
+    {ok, Default} = socket:getopt(L, otp, rcvbuf),
+
+    i("verify the buffer adapts to bulk traffic (default rcvbuf ~w)",
+      [Default]),
+    Bulk    = 64 * 1024 * 1024,
+    Client1 = aor_stream_client(SSA, Bulk),
+    {ok, S1} = socket:accept(L),
+    MaxChunk1 = aor_drain(S1, Bulk, 0),
+    i("max chunk: ~w", [MaxChunk1]),
+    if
+        MaxChunk1 > Default ->
+            ok;
+        true ->
+            exit({no_adaptation, MaxChunk1, Default})
+    end,
+    %% The adapted size is internal; getopt reports the configured size
+    {ok, Default} = socket:getopt(S1, otp, rcvbuf),
+    aor_stop_client(Client1),
+    _ = socket:close(S1),
+
+    i("verify an explicitly set rcvbuf bounds the chunks"),
+    Pinned  = 2048,
+    Bulk2   = 8 * 1024 * 1024,
+    Client2 = aor_stream_client(SSA, Bulk2),
+    {ok, S2} = socket:accept(L),
+    ok = socket:setopt(S2, otp, rcvbuf, Pinned),
+    MaxChunk2 = aor_drain(S2, Bulk2, 0),
+    i("max chunk: ~w", [MaxChunk2]),
+    if
+        MaxChunk2 =< Pinned ->
+            ok;
+        true ->
+            exit({not_pinned, MaxChunk2, Pinned})
+    end,
+    aor_stop_client(Client2),
+    _ = socket:close(S2),
+    _ = socket:close(L),
+
+    i("verify a dgram socket does not adapt"),
+    {ok, U} = socket:open(inet, dgram, udp),
+    ok = socket:bind(U, LSA#{port => 0}),
+    {ok, USA} = socket:sockname(U),
+    {ok, C}   = socket:open(inet, dgram, udp),
+    ok = socket:setopt(C, socket, sndbuf, 64 * 1024),
+    %% Datagrams that exactly fill the buffer would grow it if
+    %% adaptation was (wrongly) applied to dgram sockets
+    Fill = binary:copy(<<$x>>, Default),
+    Send = fun(Data) ->
+                   case socket:sendto(C, Data, USA) of
+                       ok                -> ok;
+                       {error, emsgsize} -> skip("dgram size not supported")
+                   end
+           end,
+    [begin
+         ok = Send(Fill),
+         {ok, D} = socket:recv(U, 0, ?SECS(5)),
+         Default = byte_size(D)
+     end || _ <- lists:seq(1, 8)],
+    %% An oversized datagram is still truncated at the configured size
+    ok = Send(binary:copy(<<$y>>, Default + 4096)),
+    {ok, T} = socket:recv(U, 0, ?SECS(5)),
+    i("oversized dgram read back as ~w bytes", [byte_size(T)]),
+    Default = byte_size(T),
+    _ = socket:close(C),
+    _ = socket:close(U),
+    ok.
+
+aor_stream_client(SSA, Bytes) ->
+    Self = self(),
+    spawn_monitor(
+      fun() ->
+              {ok, S} = socket:open(inet, stream, tcp),
+              ok = socket:connect(S, SSA),
+              Chunk = binary:copy(<<$x>>, 1024 * 1024),
+              aor_send(S, Chunk, Bytes),
+              receive
+                  {Self, stop} ->
+                      _ = socket:close(S),
+                      exit(normal)
+              end
+      end).
+
+aor_send(_S, _Chunk, Bytes) when Bytes =< 0 ->
+    ok;
+aor_send(S, Chunk, Bytes) ->
+    ok = socket:send(S, Chunk),
+    aor_send(S, Chunk, Bytes - byte_size(Chunk)).
+
+aor_drain(_S, Bytes, MaxChunk) when Bytes =< 0 ->
+    MaxChunk;
+aor_drain(S, Bytes, MaxChunk) ->
+    {ok, Data} = socket:recv(S, 0, ?SECS(10)),
+    Sz = byte_size(Data),
+    aor_drain(S, Bytes - Sz, max(Sz, MaxChunk)).
+
+aor_stop_client({Pid, MRef}) ->
+    Pid ! {self(), stop},
+    receive
+        {'DOWN', MRef, process, Pid, normal} ->
+            ok;
+        {'DOWN', MRef, process, Pid, Reason} ->
+            exit({client, Reason})
+    end.
 
 
 

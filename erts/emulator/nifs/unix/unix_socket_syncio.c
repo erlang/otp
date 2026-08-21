@@ -209,6 +209,13 @@
     if (ctrl.sctp.bindx == NULL)                             \
         return enif_raise_exception((e), MKA((e), "notsup"));
 #define sock_close(s)                   close((s))
+
+/* Adaptive read buffer: double on a filled buffer, halve back towards
+ * the configured size once an EWMA of the read sizes falls below a
+ * quarter of it.
+ */
+#define ESSIO_RECV_ADAPT_BUFFER_MAX     (1 << 18)
+#define ESSIO_RECV_ADAPT_EWMA_SHIFT     3
 // #define sock_close_event(e)             /* do nothing */
 #define sock_connect(s, addr, len)      connect((s), (addr), (len))
 #define sock_connectx(s, addrs, acnt, aidp) \
@@ -2841,6 +2848,9 @@ BOOLEAN_T essio_accept_accepted(ErlNifEnv*       env,
     MLOCK(descP->writeMtx);
 
     accDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
+    accDescP->rBufAdapt = descP->rBufAdapt;
+    accDescP->rBufSzAdapt = descP->rBufSz;
+    accDescP->rBufSzAvg = descP->rBufSz;
     accDescP->rNum     = descP->rNum;    // Inherit buffer uses
     accDescP->rNumCnt  = 0;
     accDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer size
@@ -2944,6 +2954,9 @@ ERL_NIF_TERM essio_peeloff(ErlNifEnv*       env,
             __FUNCTION__, descP->sock, sock) );
 
     poDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
+    poDescP->rBufAdapt = descP->rBufAdapt;
+    poDescP->rBufSzAdapt = descP->rBufSz;
+    poDescP->rBufSzAvg = descP->rBufSz;
     poDescP->rNum     = descP->rNum;    // Inherit buffer uses
     poDescP->rNumCnt  = 0;
     poDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer size
@@ -3803,7 +3816,9 @@ ERL_NIF_TERM essio_recv(ErlNifEnv*       env,
     int          saveErrno;
     ErlNifBinary bin, *bufP;
     ssize_t      readResult;
-    size_t       bufSz = (len != 0 ? len : descP->rBufSz); // 0 means default
+    size_t       bufSz = (len != 0 ? (size_t) len : // 0 means default
+                          (descP->type == SOCK_STREAM ?
+                           descP->rBufSzAdapt : descP->rBufSz));
     ERL_NIF_TERM ret;
 
     SSDBG( descP, ("UNIX-ESSIO", "essio_recv {%d} -> entry with"
@@ -3846,6 +3861,20 @@ ERL_NIF_TERM essio_recv(ErlNifEnv*       env,
         return ret;
     }
     /* readResult >= 0 */
+
+    if ((len == 0) && descP->rBufAdapt && (descP->type == SOCK_STREAM)) {
+        descP->rBufSzAvg -= descP->rBufSzAvg >> ESSIO_RECV_ADAPT_EWMA_SHIFT;
+        descP->rBufSzAvg += ((size_t) readResult) >> ESSIO_RECV_ADAPT_EWMA_SHIFT;
+        if ((size_t) readResult == bufP->size) {
+            if (descP->rBufSzAdapt < ESSIO_RECV_ADAPT_BUFFER_MAX)
+                descP->rBufSzAdapt <<= 1;
+        } else if ((descP->rBufSzAdapt > descP->rBufSz) &&
+                   (descP->rBufSzAvg < (descP->rBufSzAdapt >> 2))) {
+            descP->rBufSzAdapt >>= 1;
+            if (descP->rBufSzAdapt < descP->rBufSz)
+                descP->rBufSzAdapt = descP->rBufSz;
+        }
+    }
 
     ESOCK_ASSERT( recv_create_bin(bufP, readResult, &bin) );
 
