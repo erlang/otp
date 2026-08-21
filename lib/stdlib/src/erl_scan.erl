@@ -1251,7 +1251,7 @@ scan_tqstring_lines(Cs0, Tqs, Line, Col, Str, Qn, ContentR, Acc) ->
                 C =:= $\\, not Tqs#tqs.verbatim ->
                     case scan_escape(Cs, Col) of
                         more ->
-                            {more,Cs,Line,Col,Str,Qn,ContentR,Acc};
+                            {more,Cs0,Line,Col,Str,Qn,ContentR,Acc};
                         {error,Ncs,Error,Ncol} ->
                             {error,Ncs,Line,Ncol,Line,Ncol+1,Error};
                         {eof,Ncol} ->
