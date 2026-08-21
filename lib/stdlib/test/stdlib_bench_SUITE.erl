@@ -44,6 +44,32 @@ groups() ->
      %% The results seem to be stable enough anyway
      {binary, [{repeat, 1}],
       [match_single_pattern_no_match,
+       match_ac_root_skip_single_root_no_match,
+       match_ac_root_skip_2_no_match,
+       match_ac_root_skip_3_no_match,
+       match_ac_root_skip_4_no_match,
+       match_ac_root_skip_8_no_match,
+       match_ac_root_skip_9_no_match,
+       match_ac_root_skip_16_no_match,
+       match_ac_root_skip_32_no_match,
+       match_ac_root_skip_single_root_eventual_match,
+       match_ac_root_skip_2_eventual_match,
+       match_ac_root_skip_3_eventual_match,
+       match_ac_root_skip_4_eventual_match,
+       match_ac_root_skip_8_eventual_match,
+       match_ac_root_skip_9_eventual_match,
+       match_ac_root_skip_16_eventual_match,
+       match_ac_root_skip_32_eventual_match,
+       match_ac_root_skip_single_root_immediate_match,
+       match_ac_root_skip_4_immediate_match,
+       match_byte_set_4_uncompiled_no_match,
+       compile_byte_set_2,
+       compile_byte_set_3,
+       compile_byte_set_4,
+       compile_byte_set_8,
+       compile_byte_set_9,
+       compile_byte_set_16,
+       compile_byte_set_32,
        matches_single_pattern_no_match,
        matches_single_pattern_eventual_match,
        matches_single_pattern_frequent_match]},
@@ -170,6 +196,117 @@ norm_data(Config) ->
 match_single_pattern_no_match(_Config) ->
     Binary = binary:copy(<<"ugbcfuysabfuqyfikgfsdalpaskfhgjsdgfjwsalp">>, 1000000),
     comment(test(100, binary, match, [Binary, <<"o">>])).
+
+%% These benchmarks exercise the shared Aho-Corasick root-skip loop. Root
+%% sets up to 16 use its SIMD implementation and 32 uses its scalar one.
+%% Keep pattern compilation outside the measured loop so the result primarily
+%% reflects root-skip throughput.
+match_ac_root_skip_single_root_no_match(_Config) ->
+    Binary = binary:copy(<<0>>, 4 * 1024 * 1024),
+    Pattern = binary:compile_pattern(single_root_patterns()),
+    comment(test(100, binary, match, [Binary, Pattern])).
+
+match_ac_root_skip_2_no_match(_Config) ->
+    match_ac_root_skip_no_match(2).
+
+match_ac_root_skip_3_no_match(_Config) ->
+    match_ac_root_skip_no_match(3).
+
+match_ac_root_skip_4_no_match(_Config) ->
+    match_ac_root_skip_no_match(4).
+
+match_ac_root_skip_8_no_match(_Config) ->
+    match_ac_root_skip_no_match(8).
+
+match_ac_root_skip_9_no_match(_Config) ->
+    match_ac_root_skip_no_match(9).
+
+match_ac_root_skip_16_no_match(_Config) ->
+    match_ac_root_skip_no_match(16).
+
+match_ac_root_skip_32_no_match(_Config) ->
+    match_ac_root_skip_no_match(32).
+
+match_ac_root_skip_single_root_eventual_match(_Config) ->
+    Prefix = binary:copy(<<0>>, 4 * 1024 * 1024),
+    Pattern = binary:compile_pattern(single_root_patterns()),
+    comment(test(100, binary, match,
+                 [<<Prefix/binary, "abc">>, Pattern])).
+
+match_ac_root_skip_2_eventual_match(_Config) ->
+    match_ac_root_skip_eventual_match(2).
+
+match_ac_root_skip_3_eventual_match(_Config) ->
+    match_ac_root_skip_eventual_match(3).
+
+match_ac_root_skip_4_eventual_match(_Config) ->
+    match_ac_root_skip_eventual_match(4).
+
+match_ac_root_skip_8_eventual_match(_Config) ->
+    match_ac_root_skip_eventual_match(8).
+
+match_ac_root_skip_9_eventual_match(_Config) ->
+    match_ac_root_skip_eventual_match(9).
+
+match_ac_root_skip_16_eventual_match(_Config) ->
+    match_ac_root_skip_eventual_match(16).
+
+match_ac_root_skip_32_eventual_match(_Config) ->
+    match_ac_root_skip_eventual_match(32).
+
+match_ac_root_skip_single_root_immediate_match(_Config) ->
+    Pattern = binary:compile_pattern(single_root_patterns()),
+    comment(test(100000, binary, match, [<<"abc">>, Pattern])).
+
+match_ac_root_skip_4_immediate_match(_Config) ->
+    Binary = binary:copy(<<1>>, 4 * 1024 * 1024),
+    Pattern = binary:compile_pattern(byte_patterns(4)),
+    comment(test(100000, binary, match, [Binary, Pattern])).
+
+match_byte_set_4_uncompiled_no_match(_Config) ->
+    Binary = binary:copy(<<0>>, 4 * 1024 * 1024),
+    comment(test(100, binary, match, [Binary, byte_patterns(4)])).
+
+compile_byte_set_2(_Config) ->
+    compile_byte_set(2).
+
+compile_byte_set_3(_Config) ->
+    compile_byte_set(3).
+
+compile_byte_set_4(_Config) ->
+    compile_byte_set(4).
+
+compile_byte_set_8(_Config) ->
+    compile_byte_set(8).
+
+compile_byte_set_9(_Config) ->
+    compile_byte_set(9).
+
+compile_byte_set_16(_Config) ->
+    compile_byte_set(16).
+
+compile_byte_set_32(_Config) ->
+    compile_byte_set(32).
+
+compile_byte_set(Count) ->
+    comment(test(100000, binary, compile_pattern, [byte_patterns(Count)])).
+
+match_ac_root_skip_no_match(Count) ->
+    Binary = binary:copy(<<0>>, 4 * 1024 * 1024),
+    Pattern = binary:compile_pattern(byte_patterns(Count)),
+    comment(test(100, binary, match, [Binary, Pattern])).
+
+match_ac_root_skip_eventual_match(Count) ->
+    Prefix = binary:copy(<<0>>, 4 * 1024 * 1024),
+    Binary = <<Prefix/binary, Count>>,
+    Pattern = binary:compile_pattern(byte_patterns(Count)),
+    comment(test(100, binary, match, [Binary, Pattern])).
+
+byte_patterns(Count) ->
+    [<<Byte>> || Byte <- lists:seq(1, Count)].
+
+single_root_patterns() ->
+    [<<"ab">>, <<"abc">>, <<"ad">>].
 
 matches_single_pattern_no_match(_Config) ->
     Binary = binary:copy(<<"ugbcfuysabfuqyfikgfsdalpaskfhgjsdgfjwsalp">>, 1000000),
