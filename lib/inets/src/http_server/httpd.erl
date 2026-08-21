@@ -172,7 +172,8 @@ property list.
   client before closing the connection. Default is `150`.
 
 - [](){: #prop_max_body_size } **`{max_body_size, integer()}`**  
-  Limits the size of the message body of an HTTP request. Default is no limit.
+  Limits the size of the message body of an HTTP request. Default is `100000000` (100
+  MB).
 
 - [](){: #prop_max_clients } **`{max_clients, integer()}`**  
   Limits the number of simultaneous requests that can be supported. Default is
@@ -187,7 +188,7 @@ property list.
   MB).
 
 - [](){: #prop_max_uri } **`{max_uri_size, integer()}`**  
-  Limits the size of the HTTP request URI. Default is no limit.
+  Limits the size of the HTTP request URI. Default is `8192` (8 KB).
 
 - [](){: #prop_max_keep_alive_req } **`{max_keep_alive_request, integer()}`**  
   The number of requests that a client can do on one connection. When the server

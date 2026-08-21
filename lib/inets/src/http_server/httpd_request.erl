@@ -148,8 +148,7 @@ parse_method(_, _, _, Max, _, _) ->
     %% will be able to handle it.
     {error, {size_error, Max, 413, "Method unreasonably long"}, default_version()}.
 
-parse_uri(_, _, Current, MaxURI, _, _)
-  when (Current > MaxURI) andalso (MaxURI =/= nolimit) -> 
+parse_uri(_, _, Current, MaxURI, _, _) when Current > MaxURI -> 
     %% We do not know the version of the client as it comes after the
     %% uri send the lowest version in the response so that the client
     %% will be able to handle it.
@@ -180,8 +179,7 @@ parse_version(<<Octet, Rest/binary>>, Version, Current, Max, Options, Result)  w
 parse_version(_, _, _, Max,_,_) ->
     {error, {size_error, Max, 413, "Version string unreasonably long"}, default_version()}.
 
-parse_headers(_, _, _, Current, Max, _, Result) 
-  when Max =/= nolimit andalso Current > Max -> 
+parse_headers(_, _, _, Current, Max, _, Result) when Current > Max -> 
     HttpVersion = lists:nth(3, lists:reverse(Result)),
     {error, {size_error, Max, 413, "Headers unreasonably long"}, HttpVersion};
 
