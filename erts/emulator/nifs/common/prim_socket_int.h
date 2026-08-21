@@ -504,19 +504,11 @@ typedef struct {
     ESockCounter       accFails;
     /* +++ Config stuff +++ */
     size_t             rBufSz;  // Read buffer size (when data length = 0)
-    /* While rcvbuf has not been set explicitly, rBufSz adapts to the
-     * traffic (grows when reads fill the buffer, shrinks back towards
-     * the default when they stop). An explicit rcvbuf pins the size,
-     * since it bounds the chunks a length 0 recv may return.
-     */
-    BOOLEAN_T          rBufAdapt;
-    size_t             rBufSzCfg;
-    unsigned int       rBufShrinkCnt;
-    /* rNum and rNumCnt are used (together with rBufSz) when calling the recv 
+    /* rNum and rNumCnt are used (together with rBufSz) when calling the recv
      * function with the Length argument set to 0 (zero).
      * If rNum is 0 (zero), then rNumCnt is not used and only *one* read will
-     * be done. Also, when get'ing the value of the option (rcvbuf) with 
-     * getopt, the value will be reported as an integer. If the rNum has a 
+     * be done. Also, when get'ing the value of the option (rcvbuf) with
+     * getopt, the value will be reported as an integer. If the rNum has a
      * value greater then 0 (zero), then it will instead be reported as
      * {N, BufSz}.
      * On Windows, rNum and rNumCnt is *not* used!
@@ -524,6 +516,14 @@ typedef struct {
 #ifndef __WIN32__
     unsigned int       rNum;    // recv: Number of reads using rBufSz
     unsigned int       rNumCnt; // recv: Current number of reads (so far)
+    /* While rcvbuf has not been set explicitly, a length 0 recv on a
+     * stream socket reads into a buffer that adapts to the traffic
+     * (rBufSzAdapt, only used by essio_recv). An explicit rcvbuf pins
+     * the size, since it bounds the chunks such a recv may return.
+     */
+    size_t             rBufSzAdapt; // Current adaptive read buffer size
+    unsigned int       rBufShrinkCnt;
+    BOOLEAN_T          rBufAdapt;
 #endif
     size_t             rCtrlSz; // Read control buffer size
 
