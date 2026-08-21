@@ -1391,9 +1391,33 @@ generate_spdx_mappings(AppSrcPath) ->
 generate_vendor_info_package(VendorSrcPath) ->
     lists:flatmap(fun decode_without_spdx_license/1, VendorSrcPath).
 
+create_annotation(Package) ->
+    Date = format_spdx_annotation_date(),
+    Ann =
+        case Package of
+            #{~"annotation" := Comment} ->
+                #{~"annotator" => ~"Person: Kiko Fernandez-Reyes (kiko@erlang.org)",
+                  ~"annotationType" => ~"REVIEW",
+                  ~"annotationDate" => iolist_to_binary(Date),
+                  ~"comment" => Comment
+                 };
+            _ ->
+                #{~"annotator" => ~"Person: Kiko Fernandez-Reyes (kiko@erlang.org)",
+                  ~"annotationType" => ~"REVIEW",
+                  ~"annotationDate" => iolist_to_binary(Date),
+                  ~"comment" => ~"Non-modified vendor package in Erlang/OTP"
+                 }
+        end,
+    #{~"annotations" => [Ann]}.
+
+format_spdx_annotation_date() ->
+    {{Y, Mo, D}, {H, Mi, S}} = calendar:universal_time(),
+    io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B:~2..0B:~2..0BZ",
+                  [Y, Mo, D, H, Mi, S]).
+
 -spec generate_spdx_vendor_packages(VendorInfoPackage :: map(), map()) -> map().
 generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX) ->
-    RemoveVendorInfoFields = [~"purl", ~"ID", ~"path", ~"update", ~"exclude", ~"sha"],
+    RemoveVendorInfoFields = [~"purl", ~"ID", ~"path", ~"update", ~"exclude", ~"sha", ~"annotation"],
     lists:map(fun
                   (#{~"ID" := Id, ~"path" := [_ | _]=ExplicitFiles}=Package) when is_list(ExplicitFiles) ->
                       %% Deals with the cases of creating a package out of specific files
@@ -1413,19 +1437,22 @@ generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX
                         lists:foldl(fun(#{~"licenseInfoInFiles" := Licenses}, Acc) ->
                                             Licenses ++ Acc
                                     end, [], Files)),
+                      AnnotationMap = create_annotation(Package),
 
                       PackageVerificationCodeValue = generate_verification_code_value(Files),
                       ExternalRefs = generate_vendor_purl(Package),
-                      Package1#{
-                                ~"SPDXID" => generate_spdxid_name(Id),
-                                ~"filesAnalyzed" => true,
-                                ~"hasFiles" => lists:map(fun (#{~"SPDXID":=Id0}) -> Id0 end, Files),
-                                ~"licenseConcluded" => ~"NOASSERTION",
-                                ~"licenseInfoFromFiles" => lists:uniq(LicenseInfoInFiles),
-                                ~"packageVerificationCode" => #{~"packageVerificationCodeValue" => PackageVerificationCodeValue},
-                                ~"comment" => ~"vendor package",
-                                ~"externalRefs" => ExternalRefs
-                       };
+                      Package2 =
+                          Package1#{
+                                    ~"SPDXID" => generate_spdxid_name(Id),
+                                    ~"filesAnalyzed" => true,
+                                    ~"hasFiles" => lists:map(fun (#{~"SPDXID":=Id0}) -> Id0 end, Files),
+                                    ~"licenseConcluded" => ~"NOASSERTION",
+                                    ~"licenseInfoFromFiles" => lists:uniq(LicenseInfoInFiles),
+                                    ~"packageVerificationCode" => #{~"packageVerificationCodeValue" => PackageVerificationCodeValue},
+                                    ~"comment" => ~"vendor package",
+                                    ~"externalRefs" => ExternalRefs
+                                   },
+                      maps:merge(Package2, AnnotationMap);
                   (#{~"ID" := Id, ~"path" := DirtyPath}=Package) when is_binary(DirtyPath) ->
                       %% Deals with the case of creating a package out of a path
                       Path = ensure_trailing_slash(cleanup_path(DirtyPath)),
@@ -1444,19 +1471,22 @@ generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX
                         lists:foldl(fun(#{~"licenseInfoInFiles" := Licenses}, Acc) ->
                                             Licenses ++ Acc
                                     end, [], Files)),
+                      AnnotationMap = create_annotation(Package),
 
                       PackageVerificationCodeValue = generate_verification_code_value(Files),
                       ExternalRefs = generate_vendor_purl(Package),
-                      Package1#{
-                                ~"SPDXID" => generate_spdxid_name(Id),
-                                ~"filesAnalyzed" => true,
-                                ~"hasFiles" => lists:map(fun (#{~"SPDXID":=Id0}) -> Id0 end, Files),
-                                ~"licenseConcluded" => ~"NOASSERTION",
-                                ~"licenseInfoFromFiles" => lists:uniq(LicenseInfoInFiles),
-                                ~"packageVerificationCode" => #{~"packageVerificationCodeValue" => PackageVerificationCodeValue},
-                                ~"comment" => ~"vendor package",
-                                ~"externalRefs" => ExternalRefs
-                       }
+                      Package2 =
+                          Package1#{
+                                    ~"SPDXID" => generate_spdxid_name(Id),
+                                    ~"filesAnalyzed" => true,
+                                    ~"hasFiles" => lists:map(fun (#{~"SPDXID":=Id0}) -> Id0 end, Files),
+                                    ~"licenseConcluded" => ~"NOASSERTION",
+                                    ~"licenseInfoFromFiles" => lists:uniq(LicenseInfoInFiles),
+                                    ~"packageVerificationCode" => #{~"packageVerificationCodeValue" => PackageVerificationCodeValue},
+                                    ~"comment" => ~"vendor package",
+                                    ~"externalRefs" => ExternalRefs
+                                   },
+                      maps:merge(Package2, AnnotationMap)
               end, VendorInfoPackages).
 
 get_vendor_excludes(Package) ->
