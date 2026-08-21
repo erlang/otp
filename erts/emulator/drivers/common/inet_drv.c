@@ -11465,7 +11465,12 @@ static int tcp_expand_buffer(tcp_descriptor* desc, int len)
     int offs1;
     int offs2;
     int used = desc->i_ptr_start - desc->i_buf->orig_bytes;
-    int ulen = used + len;
+    int ulen;
+
+    if (len > INT_MAX - used) {
+        return -1;
+    }
+    ulen = used + len;
 
     if (desc->i_bufsz >= ulen) /* packet will fit */
 	return 0;
