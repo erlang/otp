@@ -135,10 +135,20 @@
 	 init_per_testcase/2,
 	 end_per_testcase/2,
 	 kill_tc/2,
-	 get_ext_test_server_name/0
+         get_ext_test_server_name/0,
+         set_peer_ref/2,
+         get_peer_ref/1,
+         get_peer_ref/2,
+         has_network_blocker/0,
+         skip_if_no_network_blocker/1,
+         block_peer/2,
+         unblock_peer/2,
+         block_pair/2,
+         unblock_pair/2
 	]).
 
 -include("mnesia_test_lib.hrl").
+-include("gen_tcp_blocking_dist.hrl").
 
 -compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
@@ -284,9 +294,15 @@ node_start_link(Host, Name) ->
 
 node_start_link(Host, Name, Retries) ->
     Debug = atom_to_list(mnesia:system_info(debug)),
-    Args = ["-mnesia", "debug", Debug,
-            "-pa", filename:dirname(code:which(?MODULE)),
-            "-pa", filename:dirname(code:which(mnesia))],
+    Args0 = ["-mnesia", "debug", Debug,
+             "-pa", filename:dirname(code:which(?MODULE)),
+             "-pa", filename:dirname(code:which(mnesia))],
+    Args = case has_network_blocker() of
+               true ->
+                   Args0 ++ ?NETWORK_BLOCKER_DIST_OPTS;
+               false ->
+                   Args0
+           end,
     case starter(Host, Name, Args) of
 	{ok, NewNode} ->
 	    ?match(pong, net_adm:ping(NewNode)),
@@ -308,7 +324,8 @@ node_start_link(Host, Name, Retries) ->
     end.
 
 starter(Host, Name, Args) ->
-    {ok, _, Node} = peer:start(#{host => Host, name => Name, args => Args}),
+    {ok, Peer, Node} = peer:start(#{host => Host, name => Name, args => Args, connection => 0}),
+    ok = set_peer_ref(Node, Peer),
     {ok, Node}.
 
 node_sup() ->
@@ -666,6 +683,18 @@ prepare_test_case(Actions, N, Config, File, Line) ->
     NodeList3 = append_unique(NodeList1, NodeList2),
     This = node(),
     All = [This | lists:delete(This, NodeList3)],
+    case has_network_blocker() of
+        true ->
+            Pairs0 = [{A, B} || A <- All, B <- All, A < B],
+            {Local, Remote} = lists:partition(fun({A, B}) ->
+                A =:= node() orelse B =:= node()
+            end, Pairs0),
+            Pairs = Local ++ Remote,
+            %% Unlock local pairs first, so it works if we don't have peer refs
+            [gen_tcp_blocking_dist:unblock_pair_ignore_node_down(Node1, Node2) || {Node1, Node2} <- Pairs];
+        false ->
+            ok
+    end,
     Selected = pick_nodes(N, All, File, Line),
     case diskless(Config) of
 	true ->
@@ -1137,3 +1166,36 @@ sort(W) ->
 
 get_ext_test_server_name() ->
     list_to_atom("ext_test_server_" ++ atom_to_list(node())).
+
+set_peer_ref(Node, Ref) ->
+    gen_tcp_blocking_dist:set_peer_ref(Node, Ref).
+
+get_peer_ref(Node) ->
+    gen_tcp_blocking_dist:get_peer_ref(Node).
+
+get_peer_ref(Node, Default) ->
+    gen_tcp_blocking_dist:get_peer_ref(Node, Default).
+
+%% Simulate network outage, use this to block/unblock communication between 2 nodes
+has_network_blocker() ->
+    gen_tcp_blocking_dist:has_network_blocker().
+
+skip_if_no_network_blocker(Config) ->
+    case has_network_blocker() of
+        true ->
+            Config;
+        false ->
+            {skip, "Network blocker required"}
+    end.
+
+block_peer(From, To) ->
+    gen_tcp_blocking_dist:block_peer(From, To).
+
+unblock_peer(From, To) ->
+    gen_tcp_blocking_dist:unblock_peer(From, To).
+
+block_pair(Node1, Node2) ->
+    gen_tcp_blocking_dist:block_pair(Node1, Node2).
+
+unblock_pair(Node1, Node2) ->
+    gen_tcp_blocking_dist:unblock_pair(Node1, Node2).
