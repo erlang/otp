@@ -509,14 +509,18 @@ resume(Pids) ->
     lists:foreach(fun(Pid) -> catch sys:resume(Pid) end, Pids).
 
 change_code(Pids, Mod, Vsn, Extra, Timeout) ->
-    Fun = fun(Pid) -> 
-		  case sys_change_code(Pid, Mod, Vsn, Extra, Timeout) of
-		      ok ->
-			  ok;
-		      {error,Reason} ->
-			  throw({code_change_failed,Pid,Mod,Vsn,Reason})
-		  end
-	  end,
+    Fun = fun(Pid) ->
+                  case catch sys_change_code(Pid, Mod, Vsn, Extra, Timeout) of
+                      ok ->
+                          ok;
+                      {error,Reason} ->
+                          throw({code_change_failed,Pid,Mod,Vsn,Reason});
+                      _ ->
+                          %% The process has terminated; a dead process
+                          %% is not running old code.
+                          ok
+                  end
+          end,
     lists:foreach(Fun, Pids).
 
 sys_change_code(Pid, Mod, Vsn, Extra, default) ->
