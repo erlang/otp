@@ -2148,7 +2148,18 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, bool needs_th
                         state->driver.nif->err.mp = NULL;
                     }
                 }
-                state->events &= ~revents;
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+                /* An FD migrated to the scheduler pollset stays
+                 * registered for IN across triggers; keeping the event
+                 * in state->events lets the re-arming enif_select
+                 * become a no-op instead of a pollset update. Repeat
+                 * messages are already prevented by in.pid being
+                 * cleared above. */
+                if (state->flags & ERTS_EV_FLAG_IN_SCHEDULER)
+                    state->events &= ~(revents & ~ERTS_POLL_EV_IN);
+                else
+#endif
+                    state->events &= ~revents;
             }
             else if (revents & ERTS_POLL_EV_NVAL) {
                 bad_fd_in_pollset(state, NIL, NIL);
