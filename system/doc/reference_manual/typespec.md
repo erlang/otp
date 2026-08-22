@@ -52,8 +52,9 @@ Predefined types represent a typically infinite set of Erlang terms that belong
 to this type. For example, the type `t:atom/0` denotes the set of all Erlang
 atoms.
 
-For integers and atoms, it is allowed for singleton types; for example, the
-integers `-1` and `42`, or the atoms `'foo'` and `'bar'`. All other types are
+For integers, atoms, and binaries, it is allowed for singleton types; for
+example, the integers `-1` and `42`, the atoms `'foo'` and `'bar'`, or the
+binaries `<<"hello">>` and `<<"ok">>`. All other types are
 built using unions of either predefined types or singleton types. In a type
 union between a type and one of its subtypes, the subtype is absorbed by the
 supertype. Thus, the union is then treated as if the subtype was not a
@@ -115,6 +116,13 @@ Bitstring :: <<>>
            | <<_:M>>          %% M is an Integer_Value that evaluates to a positive integer
            | <<_:_*N>>        %% N is an Integer_Value that evaluates to a positive integer
            | <<_:M, _:_*N>>
+           | <<Erlang_Binary_String>>                %% <<"foo">>, <<"bar">>, ...
+           | <<Erlang_Binary_String / Encoding>>     %% <<"café"/utf8>>, ...
+           | Sigil                                   %% ~"hello", ~b"hello", ~B"hello"
+
+Encoding :: utf8 | utf16 | utf32 | latin1
+
+Sigil :: ~"Erlang_String" | ~b"Erlang_String" | ~B"Erlang_String"
 
 Fun :: fun()                  %% any function
      | fun((...) -> Type)     %% any arity, returning Type
@@ -168,6 +176,16 @@ long (that is, a bit string that starts with `M` bits and continues with `k`
 segments of `N` bits each, where `k` is also a positive integer). The notations
 `<<_:_*N>>`, `<<_:M>>`, and `<<>>` are convenient shorthands for the cases that
 `M` or `N`, or both, are zero.
+
+Singleton binary types denote a specific binary value. The bare form
+`<<"hello">>` requires all characters to be in the range 0-255 (Latin-1).
+The `<<"café"/utf8>>` form converts the string using the named encoding
+(`utf8`, `utf16`, `utf32`, or `latin1`) at parse time. The sigil forms
+`~"hello"`, `~b"hello"`, and `~B"hello"` encode the string as UTF-8.
+All forms produce the same AST node; encoding is applied at parse time
+and not preserved. Only string literals are accepted — binary
+construction syntax such as `<<$h, $i>>` is not valid in type
+specifications.
 
 Because lists are commonly used, they have shorthand type notations. The types
 [`list(T)`](`t:list/1`) and [`nonempty_list(T)`](`t:nonempty_list/1`) have the
