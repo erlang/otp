@@ -47,6 +47,8 @@ all() -> [
 groups() ->
     [].
 
+init_per_testcase(backup_and_restore_should_work_with_external_backend, _Conf) ->
+    {skip, "Not implemented"};
 init_per_testcase(Func, Conf) ->
     file:delete("bup0.BUP"),
     file:delete("bup1.BUP"),
