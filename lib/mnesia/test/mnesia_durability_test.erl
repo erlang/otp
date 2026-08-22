@@ -49,6 +49,12 @@
          master_on_non_local_tables/1,
          remote_force_load_with_local_master_node/1,
          master_node_with_ram_copy_2/1, master_node_with_ram_copy_3/1,
+         force_load_table_when_loader_aborts_ram/1,
+         force_load_table_when_loader_aborts_disc/1,
+         force_load_table_when_loader_aborts_disc_only/1,
+         force_load_table_when_loader_aborts_ext_ram/1,
+         force_load_table_when_loader_aborts_ext_disc_only/1,
+         force_load_table_when_loader_on_different_pid/1,
          dump_ram_copies/1, dump_disc_copies/1, dump_disc_only/1]).
 
 -include("mnesia_test_lib.hrl").
@@ -71,7 +77,7 @@ all() ->
      durability_of_disc_copies,
      durability_of_disc_only_copies].
 
-groups() -> 
+groups() ->
     [{load_tables, [],
       [load_latest_data, load_local_contents_directly,
        load_directly_when_all_are_ram_copiesA,
@@ -87,7 +93,8 @@ groups() ->
        force_load_when_we_has_loaded,
        force_load_on_a_non_local_table,
        force_load_when_the_table_does_not_exist,
-       {group, load_tables_with_master_tables}]},
+       {group, load_tables_with_master_tables},
+       {group, load_tables_with_network_down}]},
      {late_load_when_all_are_ram_copies_on_ram_nodes, [],
       [late_load_all_ram_cs_ram_nodes1,
        late_load_all_ram_cs_ram_nodes2]},
@@ -97,8 +104,18 @@ groups() ->
        remote_force_load_with_local_master_node,
        master_node_with_ram_copy_2, master_node_with_ram_copy_3]},
      {durability_of_dump_tables, [],
-      [dump_ram_copies, dump_disc_copies, dump_disc_only]}].
+      [dump_ram_copies, dump_disc_copies, dump_disc_only]},
+     {load_tables_with_network_down, [],
+      [force_load_table_when_loader_aborts_ram,
+       force_load_table_when_loader_aborts_disc,
+       force_load_table_when_loader_aborts_disc_only,
+       force_load_table_when_loader_aborts_ext_ram,
+       force_load_table_when_loader_aborts_ext_disc_only,
+       force_load_table_when_loader_on_different_pid]
+     }].
 
+init_per_group(load_tables_with_network_down, Config) ->
+    mnesia_test_lib:skip_if_no_network_blocker(Config);
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -1269,6 +1286,75 @@ master_node_with_ram_copy_3(Config) when is_list(Config) ->
     ?match([{Tab, 1, update}], rpc:call(C, mnesia, dirty_read, [{Tab, 1}])),
 
     ?verify_mnesia(Nodes, []).
+
+force_load_table_when_loader_aborts_ram(Config) ->
+    force_load_table_when_loader_aborts(Config, ram_copies).
+
+force_load_table_when_loader_aborts_disc(Config) ->
+    force_load_table_when_loader_aborts(Config, disc_copies).
+
+force_load_table_when_loader_aborts_disc_only(Config) ->
+    force_load_table_when_loader_aborts(Config, disc_only_copies).
+
+force_load_table_when_loader_aborts_ext_ram(Config) ->
+    force_load_table_when_loader_aborts(Config, ext_ram_copies).
+
+force_load_table_when_loader_aborts_ext_disc_only(Config) ->
+    force_load_table_when_loader_aborts(Config, ext_disc_only_copies).
+
+force_load_table_when_loader_aborts(Config, Storage) ->
+    [Node1, Node2] = Nodes = ?acquire_nodes(2, Config),
+    Table = ?FUNCTION_NAME,
+    Populate = fun(F, N) when N > 0 ->
+                       mnesia:write({Table, N, []}),
+                       F(F, N - 1);
+                  (_F, _N) ->
+                       ok
+               end,
+    ?match({atomic, ok}, mnesia:create_table(Table, [{Storage, Nodes}])),
+    ?match({atomic, ok}, mnesia:transaction(fun() -> Populate(Populate, 1_000_000) end)),
+    ?match(ok, mnesia:set_master_nodes([Node2])),
+    ?match(stopped, mnesia:stop()),
+    ?match(ok, mnesia:start()),
+    ?match(ok, mnesia_test_lib:block_peer(Node1, Node2)),
+    ?match({timeout, [Table]}, mnesia:wait_for_tables([Table], 0)),
+    ?match(pang, net_adm:ping(Node2)),
+    {Pid, Ref} = spawn_monitor(fun() -> yes = mnesia:force_load_table(Table) end),
+    receive
+        {'DOWN', Ref, process, Pid, _} ->
+            ok
+    after timer:seconds(15) ->
+            ct:fail("Pid: ~p stuck in:~n~p~n",
+                    [Pid, process_info(Pid, current_stacktrace)])
+    end.
+
+force_load_table_when_loader_on_different_pid(Config) ->
+    [Node1, Node2] = Nodes = ?acquire_nodes(2, Config),
+    Table = ?FUNCTION_NAME,
+    Populate = fun(F, N) when N > 0 ->
+                       mnesia:write({Table, N, []}),
+                       F(F, N - 1);
+                  (_F, _N) ->
+                       ok
+               end,
+    ?match({atomic, ok}, mnesia:create_table(Table, [{disc_only_copies, Nodes}])),
+    ?match({atomic, ok}, mnesia:transaction(fun() -> Populate(Populate, 500_000) end)),
+    ?match(ok, mnesia:set_master_nodes([Node2])),
+    ?match(stopped, mnesia:stop()),
+    ?match(ok, mnesia:start()),
+    ?match(ok, mnesia_test_lib:block_peer(Node1, Node2)),
+    ?match({timeout, [Table]}, mnesia:wait_for_tables([Table], 0)),
+    ?match(pang, net_adm:ping(Node2)),
+    ?match(ok, timer:sleep(timer:seconds(1))),
+    {Pid, Ref} = spawn_monitor(fun() -> yes = mnesia:force_load_table(Table) end),
+    receive
+        {'DOWN', Ref, process, Pid, _} ->
+            ok
+    after timer:seconds(15) ->
+            ct:fail("Pid: ~p stuck in:~n~p~n",
+                    [Pid, [process_info(dets_server:get_pid(Table), K) ||
+                              K <- [monitored_by, current_stacktrace]]])
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
