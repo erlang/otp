@@ -44,7 +44,7 @@ jobs:
         with:
           name: otp_prebuilt
       - name: Build on FreeBSD
-        uses: vmactions/freebsd-vm@c9f815bc7aa0d34c9fdd0619b034a32d6ca7b57e # v1.4.2
+        uses: vmactions/freebsd-vm@d0518f912576ae759075aa00fb9fe27037940271 # v1.5.4
         with:
             usesh: true
             copyback: false
