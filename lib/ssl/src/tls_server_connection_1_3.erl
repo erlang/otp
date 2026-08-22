@@ -85,7 +85,7 @@
          callback_mode/0,
          terminate/3,
          code_change/4,
-         format_status/2]).
+         format_status/1]).
 
 %% gen_statem state functions
 -export([config_error/3,
@@ -126,8 +126,8 @@ init([?SERVER_ROLE, Sender, Tab, Host, Port, Socket, Options,  User, CbInfo]) ->
 terminate(Reason, StateName, State) ->
     ssl_gen_statem:terminate(Reason, StateName, State).
 
-format_status(Type, Data) ->
-    ssl_gen_statem:format_status(Type, Data).
+format_status(Data) ->
+    ssl_gen_statem:format_status(Data).
 
 code_change(_OldVsn, StateName, State, _) ->
     {ok, StateName, State}.
@@ -443,8 +443,7 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         ClientALPN0 = maps:get(alpn, Extensions, undefined),
         ClientALPN = ssl_handshake:decode_alpn(ClientALPN0),
 
-        ClientSignAlgs = tls_handshake_1_3:get_signature_scheme_list(
-                           maps:get(signature_algs, Extensions, undefined)),
+        ClientSignAlgs = Maybe(tls_handshake_1_3:get_client_signatures(Extensions)),
         ClientSignAlgsCert = tls_handshake_1_3:get_signature_scheme_list(
                                maps:get(signature_algs_cert, Extensions, undefined)),
                CertAuths = tls_handshake_1_3:get_certificate_authorities(maps:get(certificate_authorities,
