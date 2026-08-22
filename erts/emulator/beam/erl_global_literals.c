@@ -27,6 +27,7 @@
 #include "sys.h"
 #include "global.h"
 #include "erl_global_literals.h"
+#include "erl_map.h"
 #include "erl_mmap.h"
 
 
@@ -42,6 +43,7 @@ Eterm ERTS_WRITE_UNLIKELY(ERTS_GLOBAL_LIT_OS_VERSION);
 Eterm ERTS_WRITE_UNLIKELY(ERTS_GLOBAL_LIT_DFLAGS_RECORD);
 Eterm ERTS_WRITE_UNLIKELY(ERTS_GLOBAL_LIT_ERL_FILE_SUFFIX);
 Eterm ERTS_WRITE_UNLIKELY(ERTS_GLOBAL_LIT_EMPTY_TUPLE);
+Eterm ERTS_WRITE_UNLIKELY(ERTS_GLOBAL_LIT_EMPTY_MAP);
 
 /* This lock is taken in the beginning of erts_global_literal_allocate,
  * released at the end of erts_global_literal_register. It protects the 
@@ -182,12 +184,28 @@ static void init_empty_tuple(void) {
     ERTS_GLOBAL_LIT_EMPTY_TUPLE = tuple;
 }
 
+static void init_empty_map(void) {
+    struct erl_off_heap_header **ohp;
+    Eterm* hp = erts_global_literal_allocate(MAP_HEADER_FLATMAP_SZ, &ohp);
+    flatmap_t *mp = (flatmap_t *)hp;
+    Eterm map;
+
+    mp->thing_word = MAP_HEADER_FLATMAP;
+    mp->size = 0;
+    mp->keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+
+    map = make_flatmap(mp);
+    erts_global_literal_register(&map);
+    ERTS_GLOBAL_LIT_EMPTY_MAP = map;
+}
+
 void
 init_global_literals(void)
 {
     erts_mtx_init(&global_literal_lock, "global_literals", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
-    
+
     expand_shared_global_literal_area(GLOBAL_LITERAL_INITIAL_SIZE);
     init_empty_tuple();
+    init_empty_map();
 }

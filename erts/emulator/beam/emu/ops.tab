@@ -447,6 +447,7 @@ move3 x x x x x x
 move xy xy
 move c xy
 move n x
+move W d
 
 # The following move instructions using x(0) are frequently used.
 
