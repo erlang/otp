@@ -2115,30 +2115,27 @@ validate_scheme(<<H, Rest/binary>>) ->
 %% other - address shall be percent-encoded
 %%-------------------------------------------------------------------------
 classify_host([]) -> other;
-classify_host(Addr) when is_binary(Addr) ->
-    A = unicode:characters_to_list(Addr),
-    classify_host_ipv6(A);
 classify_host(Addr) ->
-    classify_host_ipv6(Addr).
-
-classify_host_ipv6(Addr) ->
     case is_ipv6_address(Addr) of
         true -> ipv6;
-        false -> classify_host_ipv4(Addr)
+        false ->
+            case is_ipv4_address(Addr) of
+                true -> ipv4;
+                false when is_binary(Addr) ->
+                    classify_host_regname(
+                      unicode:characters_to_list(Addr));
+                false ->
+                    classify_host_regname(Addr)
+            end
     end.
 
-classify_host_ipv4(Addr) ->
-    case is_ipv4_address(Addr) of
-        true -> ipv4;
-        false -> classify_host_regname(Addr)
-    end.
-
-classify_host_regname([]) -> regname;
 classify_host_regname([H|T]) ->
     case is_reg_name(H) of
         true -> classify_host_regname(T);
         false -> other
-    end.
+    end;
+classify_host_regname([]) ->
+    regname.
 
 is_ipv4_address(Addr) ->
     case inet:parse_ipv4strict_address(Addr) of
