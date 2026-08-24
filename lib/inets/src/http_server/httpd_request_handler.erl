@@ -45,9 +45,9 @@
 		mfa,     %% {Module, Function, Args} 
 		max_keep_alive_request = infinity, %% integer() | infinity
 		response_sent = false :: boolean(),
-               keepalive_timeout  :: pos_integer(), %% ms
-               request_timeout :: pos_integer(), %% ms
-               timer    :: 'undefined' | {reference(), keep_alive_timeout | request_timeout}, %% keepalive/request timer
+               keepalive_timeout  :: pos_integer() | infinity, %% ms
+               request_timeout :: pos_integer() | infinity, %% ms
+               timer = undefined :: {reference(), keep_alive_timeout | request_timeout} | undefined, %% keepalive/request timer
 		headers = #http_request_h{},
 		body,      %% binary()
 		data,      %% The total data received in bits, checked after 10s
@@ -243,7 +243,8 @@ handle_info({Proto, Socket, Data},
   when (((Proto =:= tcp) orelse 
 	 (Proto =:= ssl) orelse 
 	 (Proto =:= dummy)) andalso is_binary(Data)) ->
-    RequestTimeoutState = activate_request_timeout(cancel_timeout(State)),
+
+    RequestTimeoutState = activate_request_timeout(State),
 
     try Module:Function([Data | Args]) of
         {ok, Result} ->
@@ -732,21 +733,17 @@ handle_next_request(State, _) ->
 
 activate_keepalive_timeout(#state{keepalive_timeout = infinity} = State) ->
     State;
-activate_keepalive_timeout(#state{timer = {_Ref, keep_alive_timeout}} = State) ->
-    activate_keepalive_timeout(cancel_timeout(State));
 activate_keepalive_timeout(#state{timer = undefined, keepalive_timeout = Time} = State) ->
     Ref = erlang:send_after(Time, self(), timeout),
     State#state{timer = {Ref, keep_alive_timeout}}.
 
 activate_request_timeout(#state{request_timeout = infinity} = State) ->
     State;
-activate_request_timeout(#state{timer = {_Ref, request_timeout}} = State) ->
+activate_request_timeout(#state{timer = {_Ref, _}} = State) ->
     activate_request_timeout(cancel_timeout(State));
 activate_request_timeout(#state{timer = undefined, request_timeout = Time} = State) ->
     Ref = erlang:send_after(Time, self(), timeout),
-    State#state{timer = {Ref, request_timeout}};
-activate_request_timeout(State) ->
-    State.
+    State#state{timer = {Ref, request_timeout}}.
 
 cancel_timeout(#state{timer = undefined} = State) ->
     State;
@@ -805,7 +802,7 @@ get_request_timeout(ConfigDB) ->
 get_keepalive_timeout(ConfigDB) ->
     case httpd_util:lookup(ConfigDB, keep_alive_timeout, 150) of
         infinity -> infinity;
-        Val when is_integer(Val) -> 1000* Val
+        Val when is_integer(Val) -> 1000 * Val
     end.
 
 customize(ConfigDB) ->    
