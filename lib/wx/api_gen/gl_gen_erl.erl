@@ -75,12 +75,12 @@ gl_api(Fs, _GluNifs) ->
     erl_gl_copyright(),
     w("~n%% OPENGL API~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
-    w("%% @doc  Standard OpenGL api.~n", []),
-    w("%% See <a href=\""++ ?HTTP_TOP ++ "\">www.khronos.org</a>~n",[]),
-    w("%%~n", []),
     w("%% Booleans are represented by integers 0 and 1.~n~n", []),
 
-    w("-module(gl).~n~n",[]),
+    w("-module(gl).~n",[]),
+    put(current_module, "gl"),
+    gl_gen_doc:module_doc("gl"),
+    w("~n",[]),
     w("-compile([{inline, get_interface/0}]).~n", []),
 
     gen_types(gl),
@@ -97,10 +97,9 @@ gl_api(Fs, _GluNifs) ->
     w("-export([get_interface/0, rec/1, lookup_func/1]).\n",[]),
     w("-nifs([lookup_func_nif/1]).\n",[]),
     w("-define(nif_stub,nif_stub_error(?LINE)).~n", []),
-    w("%% @hidden~n", []),
+    w("-doc false.~n", []),
     w("nif_stub_error(Line) ->~n"
       "    erlang:nif_error({nif_not_loaded,module,?MODULE,line,Line}).\n\n",[]),
-    w("%% @hidden~n", []),
     w("-doc false.~n", []),
     w("init_nif() ->~n", []),
     w("  Base = \"erl_gl\",\n"
@@ -117,10 +116,10 @@ gl_api(Fs, _GluNifs) ->
       "            end,\n"
       "  erlang:load_nif(NifFile, 0).\n\n", []),
 
-    w("%% @hidden~n", []),
+    w("-doc false.~n", []),
     w("get_interface() ->~n", []),
     w("    wxe_util.  %% temporary~n~n", []),
-    w("%% @hidden~n", []),
+    w("-doc false.~n", []),
     w("rec(Op) ->~n", []),
     w("    receive~n", []),
     w("        {'_egl_result_', Res} -> Res;~n", []),
@@ -130,6 +129,7 @@ gl_api(Fs, _GluNifs) ->
     w("            error_logger:error_report([{gl, error}, {message, lists:flatten(Err)}]),~n", []),
     w("            rec(Op)~n", []),
     w("    end.~n~n", []),
+    w("-doc false.~n", []),
     w("lookup_func(functions) -> lookup_func_nif(1);\n",[]),
     w("lookup_func(function_names) -> lookup_func_nif(2).\n\n",[]),
     w("lookup_func_nif(_Func) -> ?nif_stub.\n\n",[]),
@@ -146,12 +146,11 @@ glu_api(Fs) ->
     erl_gl_copyright(),
     w("~n%% OPENGL UTILITY API~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
-    w("%% @doc  A part of the standard OpenGL Utility api.~n", []),
-    w("%% See <a href=\""++ ?HTTP_TOP ++ "\">www.khronos.org</a>~n",[]),
-    w("%%~n", []),
     w("%% Booleans are represented by integers 0 and 1.~n~n", []),
 
     w("-module(glu).~n",[]),
+    put(current_module, "glu"),
+    gl_gen_doc:module_doc("glu"),
     w("-compile(inline).~n", []),
 
     gen_types(glu),
@@ -162,12 +161,7 @@ glu_api(Fs) ->
     w("-import(gl, [get_interface/0, rec/1]).\n", []),
     w("~n%% API~n~n", []),
 
-    w("%% @doc General purpose polygon triangulation.~n",[]),
-    w("%% The first argument is the normal and the second a list of~n"
-      "%% vertex positions. Returned is a list of indices of the vertices~n"
-      "%% and a binary (64bit native float) containing an array of~n"
-      "%% vertex positions, it starts with the vertices in Vs and~n"
-      "%% may contain newly created vertices in the end.~n", []),
+    gl_gen_doc:func_doc("gluTesselate", undefined),
 
     w("-spec tesselate(Normal, [Vs]) -> {Triangles, VertexPos}~n", []),
     w("                  when Normal :: vertex(), Vs :: vertex(),~n", []),
@@ -183,16 +177,34 @@ glu_api(Fs) ->
 
 gen_funcs(All=[F|_Fs]) when is_list(F) ->
     put(current_func,F),
+    gen_func_doc(F),
     gen_spec([get(A) || A <- All]),
     R = gen_func(get(F)),
     erase(current_func),
     R;
 gen_funcs(F) ->
     put(current_func,F),
+    gen_func_doc(F),
     gen_spec([get(F)]),
     R = gen_func(get(F)),
     erase(current_func),
     R.
+
+gen_func_doc(Name) ->
+    Func = get(Name),
+    DocName = doc_name(Name, Func#func.alt),
+    %% Get this function's own export string
+    MyExport = get({export_doc, Name}),
+    %% Get the canonical doc_ref for this doc_name
+    DocRef = get({doc_ref, DocName}),
+    case MyExport of
+        {Export, _} when DocRef =/= undefined, DocRef =/= Export ->
+            %% Another function holds the doc for this doc_name — emit equiv
+            gl_gen_doc:func_doc(Name, DocRef);
+        _ ->
+            %% We are the canonical holder — emit full doc
+            gl_gen_doc:func_doc(DocName, undefined)
+    end.
 
 gen_types(Where) ->
     case Where of
@@ -235,7 +247,8 @@ gen_export2(#func{name=Name,alt=Alt={vector,VecPos,Vec}}) ->
     Args = lists:filter(fun(Arg) -> func_arg(Arg) =/= skip end, As1),
     Export = erl_func_name(Name) ++ "/" ++ integer_to_list(length(Args) +1),
     DocN = doc_name(Name,Alt),
-    (get({doc_ref,DocN}) == undefined) andalso put({doc_ref, DocN}, Export),
+    %% Vector variants are the doc holders — always overwrite
+    put({doc_ref, DocN}, Export),
     Export;
 gen_export2(#func{name=Name,params=As0, alt=Alt}) ->
     Args = lists:filter(fun(Arg) -> func_arg(Arg) =/= skip end, As0),
@@ -454,6 +467,7 @@ check_name("begin") -> "'begin'";
 check_name("end") -> "'end'";
 check_name(Other) -> Other.
 
+doc_name(N="gluUnProject4", _) -> N;
 doc_name(N="glGetBufferParameteriv", _) -> N;
 doc_name("glEnableVertexArrayAttrib", _) -> "glEnableVertexAttribArray";
 doc_name("glDisableVertexArrayAttrib", _) -> "glEnableVertexAttribArray";

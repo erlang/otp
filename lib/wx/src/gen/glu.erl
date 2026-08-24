@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND SGI-B-2.0
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,9 +23,6 @@
 
 %% This file is generated DO NOT EDIT
 
-%% @doc  A part of the standard OpenGL Utility api.
-%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">www.khronos.org</a>
-%%
 %% Booleans are represented by integers 0 and 1.
 
 -module(glu).
@@ -63,12 +60,6 @@ This documents the functions as a brief version of the complete
 
 %% API
 
-%% @doc General purpose polygon triangulation.
-%% The first argument is the normal and the second a list of
-%% vertex positions. Returned is a list of indices of the vertices
-%% and a binary (64bit native float) containing an array of
-%% vertex positions, it starts with the vertices in Vs and
-%% may contain newly created vertices in the end.
 -doc """
 Triangulates a polygon, the polygon is specified by a `Normal` and `Vs` a list
 of vertex positions.
@@ -281,7 +272,8 @@ newQuadric()  ->
 
 -doc """
 [`glu:ortho2D/4`](`ortho2D/4`) sets up a two-dimensional orthographic viewing
-region. This is equivalent to calling `gl:ortho/6` with near=-1 and far=1.
+region. This is equivalent to calling [`gl:ortho/6`](`gl:ortho/6`) with near=-1
+and far=1.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/gluOrtho2D.xml)
 """.
@@ -294,7 +286,7 @@ ortho2D(Left,Right,Bottom,Top) when is_float(Left),is_float(Right),is_float(Bott
 -doc """
 [`glu:partialDisk/7`](`partialDisk/7`) renders a partial disk on the z=0 plane.
 A partial disk is similar to a full disk, except that only the subset of the
-disk from `Start` through `Start` \+ `Sweep` is included (where 0 degrees is
+disk from `Start` through `Start` + `Sweep` is included (where 0 degrees is
 along the +f2yf axis, 90 degrees along the +`x` axis, 180 degrees along the -`y`
 axis, and 270 degrees along the -`x` axis).
 
@@ -328,9 +320,10 @@ perspective(Fovy,Aspect,ZNear,ZFar) when is_float(Fovy),is_float(Aspect),is_floa
 used to restrict drawing to a small region of the viewport. This is typically
 useful to determine what objects are being drawn near the cursor. Use
 [`glu:pickMatrix/5`](`pickMatrix/5`) to restrict drawing to a small region
-around the cursor. Then, enter selection mode (with `gl:renderMode/1`) and
-rerender the scene. All primitives that would have been drawn near the cursor
-are identified and stored in the selection buffer.
+around the cursor. Then, enter selection mode (with
+[`gl:renderMode/1`](`gl:renderMode/1`)) and rerender the scene. All primitives
+that would have been drawn near the cursor are identified and stored in the
+selection buffer.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/gluPickMatrix.xml)
 """.
@@ -433,7 +426,14 @@ sphere(Quad,Radius,Slices,Stacks) when is_integer(Quad),is_float(Radius),is_inte
   IF:queue_cmd(Quad,Radius,Slices,Stacks,5034),
   ok.
 
--doc(#{equiv => unProject4/9}).
+-doc """
+[`glu:unProject/6`](`unProject/6`) maps the specified window coordinates into
+object coordinates using `Model`, `Proj`, and `View`. The result is stored in
+`ObjX`, `ObjY`, and `ObjZ`. A return value of `?GLU_TRUE` indicates success; a
+return value of `?GLU_FALSE` indicates failure.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/gluUnProject.xml)
+""".
 -spec unProject(WinX, WinY, WinZ, Model, Proj, View) -> {i(),ObjX::f(),ObjY::f(),ObjZ::f()}
     when WinX::f(), WinY::f(), WinZ::f(), Model::matrix(), Proj::matrix(), View::{i(),i(),i(),i()}.
 unProject(WinX,WinY,WinZ,Model,Proj,View) when is_float(WinX),is_float(WinY),is_float(WinZ),tuple_size(Model) =:= 16; tuple_size(Model) =:= 12,tuple_size(Proj) =:= 16; tuple_size(Proj) =:= 12,tuple_size(View) =:= 4 ->
@@ -442,12 +442,17 @@ unProject(WinX,WinY,WinZ,Model,Proj,View) when is_float(WinX),is_float(WinY),is_
   rec(5035).
 
 -doc """
-[`glu:unProject/6`](`unProject/6`) maps the specified window coordinates into
-object coordinates using `Model`, `Proj`, and `View`. The result is stored in
-`ObjX`, `ObjY`, and `ObjZ`. A return value of `?GLU_TRUE` indicates success; a
-return value of `?GLU_FALSE` indicates failure.
+[`glu:unProject4/9`](`unProject4/9`) maps the specified window coordinatesi:
+`WinX`, `WinY`, and `WinZ` and its clip w coordinate `ClipW` into object
+coordinates (objX objY objZ objW) using `Model`, `Proj`, and `View`. `ClipW` can
+be other than 1 as for vertices in
+[`gl:feedbackBuffer/3`](`gl:feedbackBuffer/3`) when data type
+`?GLU_4D_COLOR_TEXTURE` is returned. This also handles the case where the
+`NearVal` and `FarVal` planes are different from the default, 0 and 1,
+respectively. A return value of `?GLU_TRUE` indicates success; a return value of
+`?GLU_FALSE` indicates failure.
 
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/gluUnProject.xml)
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/gluUnProject4.xml)
 """.
 -spec unProject4(WinX, WinY, WinZ, ClipW, Model, Proj, View, NearVal, FarVal) -> {i(),ObjX::f(),ObjY::f(),ObjZ::f(),ObjW::f()}
     when WinX::f(), WinY::f(), WinZ::f(), ClipW::f(), Model::matrix(), Proj::matrix(), View::{i(),i(),i(),i()}, NearVal::f(), FarVal::f().
