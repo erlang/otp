@@ -19,7 +19,7 @@
 %%
 %% %CopyrightEnd%
 
-%----------------------------------------------------------------------
+%%----------------------------------------------------------------------
 %% Purpose: Simple default CRL cache
 %%----------------------------------------------------------------------
 
@@ -46,6 +46,9 @@ A source to input CRLs
 
 -export([lookup/3, select/2, fresh_crl/2]).
 -export([insert/1, insert/2, delete/1]).
+
+%% Exported for testing (ssl_crl_SUITE)
+-export([is_internal_ip/1, validate_host/4, is_allowed/3]).
 
 %%====================================================================
 %% Cache callback API
@@ -75,13 +78,19 @@ select(Issuer, {{_Cache, Mapping},_}) ->
     end.
 
 -doc false.
+%% Might want to add possibility to provide <CRLDbInfo> argument
+%% Future improvement, needs public_key feature too.
 fresh_crl(#'DistributionPoint'{distributionPoint = {fullName, Names}}, CRL) ->
-    case get_crls(Names, undefined) of
+    case get_crls(Names, {undefined, [{http, 1000}]}) of
 	not_available ->
 	    CRL;
 	NewCRL ->
 	    NewCRL
-    end.
+    end;
+fresh_crl(#'DistributionPoint'{}, CRL) ->
+    %% nameRelativeToCRLIssuer or asn1_NOVALUE — cannot fetch via HTTP,
+    %% return the current CRL unchanged.
+    CRL.
 
 %%====================================================================
 %% API
@@ -174,9 +183,12 @@ get_crls([], _) ->
     not_available;
 get_crls([{uniformResourceIdentifier, "http"++_ = URL} | Rest],
 	 CRLDbInfo) ->
-    case cache_lookup(URL, CRLDbInfo) of
-	[] ->
-	   handle_http(URL, Rest, CRLDbInfo);
+    URI = #{scheme := Scheme} = uri_string:normalize(URL, [return_map]),
+    case cache_lookup(URI, CRLDbInfo) of
+        [] when Scheme == "http" ->
+            handle_http(URL, URI, Rest, CRLDbInfo);
+        [] ->
+            get_crls(Rest, CRLDbInfo);
 	CRLs ->
 	    CRLs
     end;
@@ -184,31 +196,112 @@ get_crls([ _| Rest], CRLDbInfo) ->
     %% unsupported CRL location
     get_crls(Rest, CRLDbInfo).
 
-http_lookup(URL, Rest, CRLDbInfo, Timeout) ->
+http_lookup(URL, #{host := Host} = URI, Rest,  {_, Args} = CRLDbInfo, Timeout) ->
     case application:ensure_started(inets) of
 	ok ->
-            http_get(URL, Rest, CRLDbInfo, Timeout);
+            Allowed = proplists:get_value(allowed_hosts, Args, []),
+            {IP, Family} = host_family(Host),
+            case validate_host(URI, Allowed, IP, Family) of
+                ok ->
+                    http_get(URL, IP, Family, Rest, CRLDbInfo, Timeout);
+                {disallowed, Reason} ->
+                    ?LOG_WARNING("CRL fetch ignored, host disallowed: ~p ~n", [Reason]),
+                    get_crls(Rest, CRLDbInfo)
+            end;
 	_ ->
             get_crls(Rest, CRLDbInfo)
     end.
 
-http_get(URL, Rest, CRLDbInfo, Timeout) ->
+-doc false.
+-spec validate_host(map(), [string()], inet:ip_address(), inet | inet6| unknown) ->
+          ok | {disallowed, term()}.
+validate_host(_, _, _, unknown) ->
+    {disallowed, host_not_found};
+validate_host(#{host := Host} = URI, Allowed, IP, _) ->
+    Port = maps:get(port, URI, 80),
+    case Allowed of
+        [] when Port == 80;
+                Port == 8080 ->
+            allow_external_ip(IP);
+        [_ | _] ->
+            case is_allowed(Host, Port, Allowed) of
+                true ->
+                    ok;
+                false ->
+                    {disallowed, not_in_allowed_list}
+            end;
+        _ ->
+            {disallowed, not_standard_port}
+    end.
+
+-doc false.
+-spec is_allowed(string(), non_neg_integer(), [string()]) -> boolean().
+
+is_allowed(_, _, []) ->
+    false;
+is_allowed(Host, Port, [Allowed| Rest] = List) ->
+    try string:tokens(Allowed, [$:]) of
+        [Host] when Port == 80 ->
+            true;
+        [Host, StrPort]->
+            case length(StrPort) of
+                N when N =< 5 ->
+                    try Port == list_to_integer(StrPort) of
+                        true = Result->
+                            Result;
+                        false ->
+                            is_allowed(Host, Port, Rest)
+                    catch _:_ ->
+                            false
+                    end;
+                _ ->
+                    false
+            end;
+        _ ->
+            is_allowed(Host, Port, Rest)
+    catch _:_ ->
+            ?LOG_WARNING("CRL fetch ignored, invalid host allow list ~p ~n", [List]),
+            false
+    end.
+
+host_family(Host) ->
+    case inet:getaddr(Host, inet) of
+        {ok, IP}  ->
+            {IP, inet};
+        {error, _} ->
+            case inet:getaddr(Host, inet6) of
+                {ok, IP} ->
+                    {IP, inet6};
+                {error, _} ->
+                    unknown
+            end
+    end.
+
+allow_external_ip(IP) ->
+    case is_external_ip(IP) of
+        true ->
+            ok;
+        false ->
+            {disallowed, {local_ip_for_host, IP}}
+    end.
+
+is_external_ip(IP) ->
+    not is_internal_ip(IP).
+
+http_get(URL, IP, Family, Rest, CRLDbInfo, Timeout) ->
     case httpc:request(get, {URL, [{"connection", "close"}]},
-		       [{timeout, Timeout}], [{body_format, binary}]) of
-        {ok, {_Status, _Headers, Body}} ->
+                       [{autoredirect, false},{timeout, Timeout}],
+                       [{socket_opts, [Family, {ip, IP}]},{body_format, binary}]) of
+        {ok, {{_,200,_}, _Headers, Body}} when byte_size(Body) =< (?MAX_CRL_SIZE)->
             case Body of
                 <<"-----BEGIN", _/binary>> ->
-                    try
-                        Pem = public_key:pem_decode(Body),
-                        lists:filtermap(fun({'CertificateList',
-                                             CRL, not_encrypted}) ->
-                                                {true, CRL};
-                                           (_) ->
-                                                false
-                                        end, Pem)
-                    catch _:_  ->
-                            get_crls(Rest, CRLDbInfo)
-                    end;
+                    Pem = public_key:pem_decode(Body),
+                    lists:filtermap(fun({'CertificateList',
+                                         CRL, not_encrypted}) ->
+                                            {true, CRL};
+                                       (_) ->
+                                            false
+                                    end, Pem);
                 _ ->
 		    try public_key:der_decode('CertificateList', Body) of
 			_ ->
@@ -217,17 +310,23 @@ http_get(URL, Rest, CRLDbInfo, Timeout) ->
 			_:_ ->
 			    get_crls(Rest, CRLDbInfo)
                     end
-	    end;
+            end;
+        {ok, {Status, Headers, Body}} ->
+            ?LOG_WARNING("CRL fetch ignored: ~n"
+                         "HTTP status: ~p ~n"
+                         "HTTP headers: ~p ~n"
+                         "HTTP Body size ~p ~n",
+                         [Status, Headers, byte_size(Body)]),
+            get_crls(Rest, CRLDbInfo);
         {error, _Reason} ->
             get_crls(Rest, CRLDbInfo)
     end.
 
 cache_lookup(_, undefined) ->
     [];
-cache_lookup(URL, {{Cache, _}, _}) ->
-    #{path :=  Path,
-      host := Host} = Map = uri_string:normalize(URL, [return_map]),
-    Port = maps:get(port, Map, 80),
+cache_lookup(#{path :=  Path,
+               host := Host} = URI, {{Cache, _}, _}) ->
+    Port = maps:get(port, URI, 80),
     Key = make_key(Host, Port, Path),
     case ssl_pkix_db:lookup(Key, Cache) of
 	undefined ->
@@ -236,16 +335,44 @@ cache_lookup(URL, {{Cache, _}, _}) ->
 	    CRLs
     end.
 
-handle_http(URI, Rest, {_,  [{http, Timeout}]} = CRLDbInfo) ->
-    CRLs = http_lookup(URI, Rest, CRLDbInfo, Timeout),
-    %% Uncomment to improve performance, but need to
-    %% implement cache limit and or cleaning to prevent
-    %% DoS attack possibilities
-    %%insert(URI, {der, CRLs}),
-    CRLs;
-handle_http(_, Rest, CRLDbInfo) ->
-    get_crls(Rest, CRLDbInfo).
-
+handle_http(URL, #{path :=  Path,
+                   host := Host} = URI, Rest, {_,  Args} = CRLDbInfo) ->
+    case proplists:get_value(http, Args, undefined) of
+        undefined ->
+            get_crls(Rest, CRLDbInfo);
+        Timeout ->
+            case http_lookup(URL, URI, Rest, CRLDbInfo, Timeout)  of
+                not_available ->
+                    not_available;
+                CRLs ->
+                    case proplists:get_value(owner, Args, undefined) of
+                        undefined ->
+                            CRLs;
+                        CacheOwner ->
+                            Port = maps:get(port, URI, 80),
+                            Key = make_key(Host, Port, Path),
+                            ssl_manager:async_insert_crls(Key, CRLs, CacheOwner),
+                            CRLs
+                    end
+            end
+    end.
 
 make_key(Host, Port, Path) ->
     Host ++ ":" ++ integer_to_list(Port) ++ Path.
+
+-doc false.
+-spec is_internal_ip(inet:ip_address()) -> boolean().
+
+%% IPv4
+is_internal_ip({127, _, _, _}) -> true;           %% loopback
+is_internal_ip({10, _, _, _}) -> true;            %% RFC 1918
+is_internal_ip({172, B, _, _}) when B >= 16, B =< 31 -> true; %% RFC 1918
+is_internal_ip({192, 168, _, _}) -> true;         %% RFC 1918
+is_internal_ip({169, 254, _, _}) -> true;         %% link-local
+is_internal_ip({0, 0, 0, 0}) -> true;             %% unspecified
+%% IPv6
+is_internal_ip({0,0,0,0,0,0,0,1}) -> true;       %% ::1 loopback
+is_internal_ip({0,0,0,0,0,0,0,0}) -> true;       %% :: unspecified
+is_internal_ip({16#fe80,_,_,_,_,_,_,_}) -> true;  %% link-local fe80::/10
+is_internal_ip({W,_,_,_,_,_,_,_}) when W >= 16#fc00, W =< 16#fdff -> true; %% unique-local
+is_internal_ip(_) -> false.
