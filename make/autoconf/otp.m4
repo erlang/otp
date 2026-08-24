@@ -3179,6 +3179,17 @@ AC_DEFUN([ERL_OSSF_CFLAGS],
           ]
         )
         LM_TRY_ENABLE_CFLAG([-fcf-protection=full], [$1])
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
+#if defined(__clang_major__) && __clang_major__ >= 17
+    /* clang 17.x or later is fine, clang 16 has a bug win this feature */
+#elif defined(__llvm__)
+#error "this version of llvm does not have or has a bug in the fzero-call-used-regs implementation"
+#endif
+        ]])],
+          LM_TRY_ENABLE_CFLAG([-fzero-call-used-regs=used], [$1]),
+          [AC_MSG_CHECKING([if we can add -fzero-call-used-regs=used to $1])
+           AC_MSG_RESULT([no, too old clang])
+          ])
         LM_TRY_ENABLE_CFLAG([-mbranch-protection=standard], [$1])
         LM_TRY_ENABLE_CFLAG([-fexceptions],[$1])
 
