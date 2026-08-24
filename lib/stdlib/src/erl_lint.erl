@@ -5282,7 +5282,7 @@ check_record_info_call(_Anno,_Aa,[{atom,Ai,Info},{atom,_An,Name}], St) ->
         true ->
             case St#lint.records of
                 #{Name := {_,tuple,_}} ->
-                    St;
+                    used_record(Name, St);
                 #{} ->
                     add_error(Ai, native_record_illegal_record_info, St)
             end;
