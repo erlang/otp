@@ -5650,9 +5650,10 @@ illegal_zip_generator(Config) ->
 
     ok.
 
-%% GH-9694. Only record_info/2 should be checked for illegal_record_info
 record_info_0(Config) ->
-    Ts = [{record_info_0,
+    Ts = [%% GH-9694. Only record_info/2 should be checked for
+          %% illegal_record_info
+          {record_info_0,
            <<"-export([f/0]).
               record_info() -> ok.
               f() -> record_info().
@@ -5663,6 +5664,14 @@ record_info_0(Config) ->
            <<"-export([g/0]).
               record_info(X) -> X.
               g() -> record_info(ok).
+            ">>,
+           [],
+           []},
+          %% ERIERL-1345: record_info/2 should mark tuple records as used
+          {record_info_2,
+           <<"-export([h/0]).
+              -record(rec,{a,b,c}).
+               h() -> record_info(fields, rec).
             ">>,
            [],
            []}
