@@ -918,6 +918,17 @@ void BeamModuleAssembler::emit_update_record(
         const ArgWord &UpdateCount,
         const Span<const ArgVal> &updates) {
     const size_t size_on_heap = TupleSize.get() + 1;
+    emit_update_any_record(Hint, size_on_heap, Src, Dst, UpdateCount, updates);
+}
+
+/* Update a tuple, a tuple record, or a native record. */
+void BeamModuleAssembler::emit_update_any_record(
+        const ArgAtom &Hint,
+        const size_t size_on_heap,
+        const ArgSource &Src,
+        const ArgRegister &Dst,
+        const ArgWord &UpdateCount,
+        const Span<const ArgVal> &updates) {
     Label next = a.new_label();
 
     ASSERT(UpdateCount.get() == updates.size());

@@ -1246,6 +1246,13 @@ protected:
      * Clobbers v30 and v31. */
     void emit_copy_words_increment(a64::Gp from, a64::Gp to, size_t count);
 
+    void emit_update_any_record(const ArgAtom &Hint,
+                                const size_t size_on_heap,
+                                const ArgSource &Src,
+                                const ArgRegister &Dst,
+                                const ArgWord &UpdateCount,
+                                const Span<const ArgVal> &updates);
+
     void emit_get_list(const a64::Gp boxed_ptr,
                        const ArgRegister &Hd,
                        const ArgRegister &Tl);
