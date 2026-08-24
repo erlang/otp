@@ -285,7 +285,8 @@ init_per_testcase(read_6GB, Config) ->
             case {os:type(), erlang:system_info(system_architecture)} of
                 {{win32, _}, _} ->
                     {skip, "/dev/zero not available on Windows"};
-                {_, "aarch64"} ->
+                %% Raspberry Pi (frodo) — too slow for 6GB SFTP read
+                {_, "aarch64-unknown-linux-gnu"} ->
                     {skip, "machine too slow for test"};
                 _ ->
                     init_per_testcase(read_6GB_prepare_openssh_server, Config)
