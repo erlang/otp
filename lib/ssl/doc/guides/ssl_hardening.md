@@ -174,6 +174,35 @@ avoid possible [DoS-attacks](https://en.wikipedia.org/wiki/Denial-of-service_att
 By default, the server mitigates renegotiation abuse by enforcing a
 12-second delay between client initiated renegotiations.
 
+### TLS 1.2 Session Resumption and Client Certificates
+
+> #### Warning {: .warning }
+> TLS 1.2 session resumption (session ID and RFC 5077 tickets) does
+> not bind the master secret to the handshake transcript. When client
+> certificate authentication is required, this leaves the connection
+> vulnerable to the Triple Handshake attack (see RFC 7627). This
+> concern does not apply to TLS 1.3, which binds all session keys to
+> the full transcript.
+
+If your TLS 1.2 server uses {verify, verify_peer} to require client
+certificates make sure session resumption is disabled:
+
+```erlang
+{reuse_sessions, false}
+```
+This eliminates the Triple Handshake attack surface at the cost of a
+full handshake for every connection. For deployments that need both
+mutual authentication and session resumption over TLS 1.2, upgrading
+to TLS 1.3 is the recommended solution — TLS 1.3 session tickets are
+inherently safe.
+
+Note that this concern only applies to the server role. A client
+setting `verify_peer` to verify the server is not affected.
+
+The default value for `reuse_sessions` in above described configuration
+is false since OTP @OTP-20289@
+
+
 ### Key Exchange Groups
 TLS-1.3 decouples key exchange algorithms from cipher suites. The key
 exchange algorithms are configured using the

@@ -43,14 +43,13 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-         terminate/2, code_change/3, format_status/2]).
-
--define(SERVER, ?MODULE).
+         terminate/2, code_change/3, format_status/1]).
 
 -record(state, {
                 db,
                 lifetime,
-                max
+                max,
+                user_monitors = #{}  %% #{Pid => MonitorRef}
                }).
 
 -record(data, {
@@ -143,6 +142,15 @@ handle_cast(_Request, State) ->
 handle_info(remove_invalid_tickets, State0) ->
     State = remove_invalid_tickets(State0),
     {noreply, State};
+handle_info({'DOWN', Ref, process, Pid, _Reason}, #state{user_monitors = Monitors} = State0) ->
+    case maps:get(Pid, Monitors, undefined) of
+        undefined ->
+            {noreply, State0};
+        Ref ->
+            %% Locker terminated without releasing its ticket locks
+            State = unlock_all_tickets(State0, Pid),
+            {noreply, State#state{user_monitors = maps:remove(Pid, Monitors)}}
+    end;
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -158,11 +166,15 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
+-spec format_status(map()) -> map().
+format_status(Status) ->
+    maps:map(
+      fun(state, State) ->
+              State#state{db = ?SECRET_PRINTOUT};
+         (_,Value) ->
+              Value
+      end, Status).
 
--spec format_status(Opt :: normal | terminate,
-                    Status :: list()) -> Status :: term().
-format_status(_Opt, Status) ->
-    Status.
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
@@ -194,51 +206,61 @@ do_find_ticket(#state{db = Db,
 
 iterate_tickets(Iter0, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize) ->
     iterate_tickets(Iter0, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize, []).
-%%
+
 iterate_tickets(Iter0, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize, Acc) ->
     case gb_trees:next(Iter0) of
-        {Key, #data{cipher_suite = {Cipher, Hash},
-                    sni = TicketSNI,
-                    ticket = #new_session_ticket{
-                                extensions = Extensions},
-                    timestamp = Timestamp,
-                    lock = Lock}, Iter} when Lock =:= undefined orelse
-                                             Lock =:= Pid ->
-            MaxEarlyData = tls_handshake_1_3:get_max_early_data(Extensions),
-            Age = erlang:monotonic_time(millisecond) - Timestamp,
-            if Age < Lifetime * 1000 ->
-                    case verify_ticket_sni(SNI, TicketSNI) of
-                        match ->
-                            case lists:member(Cipher, Ciphers) of
-                                true ->
-                                    Front = last_elem(Acc),
-                                    %% 'Key' can be used with early_data as both
-                                    %% block cipher and hash algorithm matches.
-                                    %% 'Front' can only be used for session
-                                    %% resumption.
-                                    case EarlyDataSize =:= undefined orelse
-                                        EarlyDataSize =< MaxEarlyData of
-                                        true ->
-                                            {Key, Front};
-                                        false ->
-                                            %% 'Key' cannot be used for early_data as the data
-                                            %% to be sent exceeds the max limit for this ticket.
-                                            iterate_tickets(Iter, Pid, Ciphers, Hash, SNI,
-                                                            Lifetime, EarlyDataSize,[Key|Acc])
-                                    end;
-                                false ->
-                                    iterate_tickets(Iter, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize, [Key|Acc])
-                            end;
-                        nomatch ->
-                            iterate_tickets(Iter, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize, Acc)
-                    end;
-               true ->
-                    iterate_tickets(Iter, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize, Acc)
-            end;
+        {Key, #data{cipher_suite = {_,Hash},
+                    lock = Lock} = Data, Iter} when Lock =:= undefined orelse
+                                                    Lock =:= Pid ->
+            handle_available_ticket(Key, Data, Iter, Pid, Ciphers, SNI, Lifetime, EarlyDataSize, Acc);
         {_, _, Iter} ->
             iterate_tickets(Iter, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize, Acc);
         none ->
             {undefined, last_elem(Acc)}
+    end.
+
+handle_available_ticket(Key, #data{timestamp = Timestamp,
+                                   cipher_suite = {_, Hash}} = Data, Iter, Pid,
+                                   Ciphers, SNI, Lifetime, EarlyDataSize, Acc) ->
+    Age = erlang:monotonic_time(millisecond) - Timestamp,
+    if Age < Lifetime * 1000 ->
+            maybe_use_ticket(Key, Data, Iter, Pid, Ciphers, SNI, Lifetime,
+                             EarlyDataSize, Acc);
+       true ->
+            iterate_tickets(Iter, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize, Acc)
+    end.
+
+maybe_use_ticket(Key, #data{cipher_suite = {Cipher, Hash},
+                       sni = TicketSNI,
+                       ticket = #new_session_ticket{
+                                   extensions = Extensions}}, Iter, Pid, Ciphers, SNI, Lifetime,
+                 EarlyDataSize, Acc) ->
+    MaxEarlyData = tls_handshake_1_3:get_max_early_data(Extensions),
+    case verify_ticket_sni(SNI, TicketSNI) of
+        match ->
+            case lists:member(Cipher, Ciphers) of
+                true ->
+                    Front = last_elem(Acc),
+                    %% 'Key' can be used with early_data as both
+                    %% block cipher and hash algorithm matches.
+                    %% 'Front' can only be used for session
+                    %% resumption.
+                    case EarlyDataSize =:= undefined orelse
+                        EarlyDataSize =< MaxEarlyData of
+                        true ->
+                            {Key, Front};
+                        false ->
+                            %% 'Key' cannot be used for early_data as the data
+                            %% to be sent exceeds the max limit for this ticket.
+                            iterate_tickets(Iter, Pid, Ciphers, Hash, SNI,
+                                            Lifetime, EarlyDataSize,[Key|Acc])
+                    end;
+                false ->
+                    iterate_tickets(Iter, Pid, Ciphers, Hash, SNI, Lifetime,
+                                    EarlyDataSize, [Key|Acc])
+            end;
+        nomatch ->
+            iterate_tickets(Iter, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize, Acc)
     end.
 
 last_elem([_|_] = L) ->
@@ -256,11 +278,11 @@ verify_ticket_sni(_, _) ->
 %% Get tickets that are not locked by another process
 get_tickets(State, Pid, Keys) ->
     get_tickets(State, Pid, Keys, []).
-%%
+
 get_tickets(_, _, [], []) ->
-    undefined; %% No tickets found
+    undefined; %% No tickets found, fallback on full handshake
 get_tickets(_, _, [], Acc) ->
-    Acc;
+    Acc; %% If empty will result in illegal parameter
 get_tickets(#state{db = Db} = State, Pid, [Key|T], Acc) ->
     try gb_trees:get(Key, Db) of
         #data{pos = Pos,
@@ -306,7 +328,9 @@ get_tickets(#state{db = Db} = State, Pid, [Key|T], Acc) ->
 %% "ticket_age_add" value that was included with the ticket
 %% (see Section 4.6.1), modulo 2^32.
 obfuscate_ticket_age(TicketAge, AgeAdd) ->
-    (TicketAge + AgeAdd) rem round(math:pow(2,32)).
+    %% Optimization: band 16#ffffffff is the canonical way to do
+    %% unsigned modulo 2^32 in Erlang, also avoid floats.
+    (TicketAge + AgeAdd) band 16#ffffffff.
 
 
 remove_tickets(State, []) ->
@@ -330,23 +354,22 @@ remove_invalid_tickets(#state{db = Db,
 
 collect_invalid_tickets(Iter, Lifetime) ->
     collect_invalid_tickets(Iter, Lifetime, []).
-%%
+
 collect_invalid_tickets(Iter0, Lifetime, Acc) ->
+    %% Tickets that have expired are invalid
+    %% regardless if a process has locked them
+    %% for potential usage or not.
     case gb_trees:next(Iter0) of
-        {Key, #data{timestamp = Timestamp,
-                    lock = undefined}, Iter} ->
+        {Key, #data{timestamp = Timestamp}, Iter} ->
             Age = erlang:monotonic_time(millisecond) - Timestamp,
             if Age < Lifetime * 1000 ->
                     collect_invalid_tickets(Iter, Lifetime, Acc);
                true ->
                     collect_invalid_tickets(Iter, Lifetime, [Key|Acc])
             end;
-        {_, _, Iter} ->  %% Skip locked tickets
-            collect_invalid_tickets(Iter, Lifetime, Acc);
         none ->
             Acc
     end.
-
 
 store_ticket(#state{db = Db0, max = Max} = State, Ticket, CipherSuite, SNI, PSK) ->
     Timestamp = erlang:monotonic_time(millisecond),
@@ -387,14 +410,41 @@ delete_oldest(Db0) ->
             Db0
     end.
 
+lock_tickets(State0, Pid, Keys) ->
+    State = #state{user_monitors = Monitors0} = set_lock(State0, Pid, Keys, lock),
+    %% There will only one monitor as ssl:connect will not return until
+    %% the handshake is finished and the process has released its locks upon
+    %% successful connect or process dies and monitor DOWN message is received.
+    Ref = erlang:monitor(process, Pid),
+    State#state{user_monitors = Monitors0#{Pid => Ref}}.
 
-lock_tickets(State, Pid, Keys) ->
-    set_lock(State, Pid, Keys, lock).
 
+unlock_tickets(State0, Pid, Keys) ->
+    State = #state{user_monitors = Monitors0} = set_lock(State0, Pid, Keys, unlock),
+    Ref = maps:get(Pid, Monitors0, undefined),
+    case Ref of
+        undefined ->
+            State;
+        _ ->
+            {Ref, Monitors} = maps:take(Pid, Monitors0),
+            erlang:demonitor(Ref, [flush]),
+            State#state{user_monitors = Monitors}
+    end.
 
-unlock_tickets(State, Pid, Keys) ->
-    set_lock(State, Pid, Keys, unlock).
+unlock_all_tickets(#state{db = Db0} = State, Pid) ->
+    Db = unlock_ticket(gb_trees:iterator(Db0), Pid, Db0),
+    State#state{db = Db}.
 
+unlock_ticket(Iter0, Pid, Db) ->
+    case gb_trees:next(Iter0) of
+        {Key, #data{lock = Pid} = Value, Iter} ->
+            unlock_ticket(Iter, Pid,
+                            gb_trees:update(Key, Value#data{lock = undefined}, Db));
+        {_, _, Iter} ->
+            unlock_ticket(Iter, Pid, Db);
+        none ->
+            Db
+    end.
 
 set_lock(State, _, [], _) ->
     State;

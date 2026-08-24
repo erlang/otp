@@ -129,7 +129,7 @@
 -export([callback_mode/0,
          terminate/3,
          code_change/4,
-         format_status/2]).
+         format_status/1]).
 
 %% Tracing
 -export([handle_trace/3]).
@@ -417,8 +417,8 @@ callback_mode() ->
 terminate(Reason, StateName, State) ->
     ssl_gen_statem:terminate(Reason, StateName, State).
 
-format_status(Type, Data) ->
-    ssl_gen_statem:format_status(Type, Data).
+format_status(Data) ->
+    ssl_gen_statem:format_status(Data).
 
 code_change(_OldVsn, StateName, State, _) ->
     {ok, StateName, State}.
