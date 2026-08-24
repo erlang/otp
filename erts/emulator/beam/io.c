@@ -2118,6 +2118,8 @@ erts_port_output(Process *c_p,
 	    ASSERT(esdp);
 	    ns_pthp = &esdp->nosuspend_port_task_handle;
 	    sigdp->flags &= ~ERTS_P2P_SIG_DATA_FLG_NOSUSPEND;
+            sigdp->flags |= ERTS_P2P_SIG_DATA_FLG_ASYNC_NOSUSPEND;
+            task_flags = ERTS_PT_FLG_WAIT_BUSY|ERTS_PT_FLG_ASYNC_NOSUSPEND;
 	}
 	else if (flags & ERTS_P2P_SIG_DATA_FLG_NOSUSPEND)
 	    task_flags = ERTS_PT_FLG_NOSUSPEND;
@@ -2149,7 +2151,7 @@ erts_port_output(Process *c_p,
 	    if (!async_nosuspend)
 		return ERTS_PORT_OP_BUSY_SCHEDULED;
 	    else {
-		if (erts_port_task_abort(ns_pthp) == 0)
+                if (erts_port_task_abort(prt, ns_pthp) == 0)
 		    return ERTS_PORT_OP_BUSY;
 		else
 		    erts_port_task_tmp_handle_detach(ns_pthp);
