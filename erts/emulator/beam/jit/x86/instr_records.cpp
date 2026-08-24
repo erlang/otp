@@ -293,32 +293,38 @@ void BeamModuleAssembler::emit_i_update_local_native_record(
         const ArgSource &Src,
         const ArgRegister &Dst,
         const ArgWord &Live,
-        const ArgWord &size,
+        const ArgWord &Size,
         const Span<const ArgVal> &args) {
-    Label next = a.new_label();
+    Eterm cons = beamfile_get_literal(beam, Def.get());
+    Eterm def = CAR(list_val(cons));
+    ErtsRecordDefinition *defp = (ErtsRecordDefinition *)tuple_val(def);
+    int field_count = RECORD_DEF_FIELD_COUNT(defp);
 
-    mov_arg(ARG3, Src);
-    a.mov(ARG1, c_p);
-    load_x_reg_array(ARG2);
-    mov_arg(ARG4, Live);
-    mov_imm(ARG5, args.size());
-    embed_vararg_rodata(args, ARG6, 0);
+    comment("name: %T", defp->name);
 
-    emit_enter_runtime<Update::eHeapAlloc | Update::eReductions>();
+    /* Create the `updates` vector, mapping from positions to
+     * values. */
+    size_t argp = 0;
+    std::vector<ArgVal> updates;
+    updates.reserve(args.size());
+    const Uint header_offset = RECORD_INST_SIZE(0);
+    for (int i = 0; i < field_count; i++) {
+        if (argp < args.size() &&
+            args[argp].as<ArgAtom>().get() == defp->keys[i]) {
+            updates.emplace(updates.end(), ArgWord(header_offset + i));
+            updates.emplace(updates.end(), args[argp + 1]);
+            argp += 2;
+        }
+    }
 
-    runtime_call<
-            Eterm (*)(Process *, Eterm *, Eterm, Uint, Uint, const Eterm *args),
-            erl_update_native_record>();
-
-    emit_leave_runtime<Update::eHeapAlloc | Update::eReductions>();
-
-    emit_test_the_non_value(RET);
-    a.short_().jne(next);
-
-    emit_raise_exception();
-
-    a.bind(next);
-    mov_arg(Dst, RET);
+    /* Reuse the code for updating a tuple record. */
+    Span<const ArgVal> Updates(updates.data(), updates.size());
+    emit_update_any_record(Hint,
+                           RECORD_INST_SIZE(field_count),
+                           Src,
+                           Dst,
+                           Size,
+                           Updates);
 }
 
 void BeamModuleAssembler::emit_i_update_native_record(

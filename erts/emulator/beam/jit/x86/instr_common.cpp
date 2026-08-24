@@ -935,7 +935,19 @@ void BeamModuleAssembler::emit_update_record(
         const ArgRegister &Dst,
         const ArgWord &UpdateCount,
         const Span<const ArgVal> &updates) {
-    size_t copy_index = 0, size_on_heap = TupleSize.get() + 1;
+    size_t size_on_heap = TupleSize.get() + 1;
+    emit_update_any_record(Hint, size_on_heap, Src, Dst, UpdateCount, updates);
+}
+
+/* Update a tuple, a tuple record, or a native record. */
+void BeamModuleAssembler::emit_update_any_record(
+        const ArgAtom &Hint,
+        const size_t size_on_heap,
+        const ArgSource &Src,
+        const ArgRegister &Dst,
+        const ArgWord &UpdateCount,
+        const Span<const ArgVal> &updates) {
+    size_t copy_index = 0;
     Label next = a.new_label();
 
     x86::Gp ptr_val;

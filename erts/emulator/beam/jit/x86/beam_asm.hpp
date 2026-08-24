@@ -1378,6 +1378,13 @@ protected:
                        const ArgRegister &First,
                        const ArgRegister &Second);
 
+    void emit_update_any_record(const ArgAtom &Hint,
+                                const size_t size_on_heap,
+                                const ArgSource &Src,
+                                const ArgRegister &Dst,
+                                const ArgWord &UpdateCount,
+                                const Span<const ArgVal> &updates);
+
     void emit_div_rem(const ArgLabel &Fail,
                       const ArgSource &LHS,
                       const ArgSource &RHS,
