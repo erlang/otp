@@ -280,6 +280,18 @@ Eterm erl_create_local_native_record(Process* p, Eterm* reg,
     hp = p->htop;
     E = p->stop;
 
+#if defined(BEAMASM)
+#  if defined(NATIVE_ERLANG_STACK) || defined(__aarch64__)
+    E++;
+#  endif
+
+#  if defined(ERLANG_FRAME_POINTERS)
+    if (ERTS_UNLIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA)) {
+        E++;
+    }
+#  endif
+#endif
+
     instance = (ErtsRecordInstance*)hp;
     res = make_record(hp);
 
@@ -341,35 +353,54 @@ Eterm erl_create_local_native_record(Process* p, Eterm* reg,
     return res;
 }
 
-Eterm erl_create_native_record(Process* p, Eterm* reg, Eterm id, Uint live,
-                               Uint size, const Eterm* new_p) {
+static Eterm erl_create_native_record(Process* p, Eterm* reg,
+                                      ErtsCodeIndex current_code_index,
+                                      Eterm id,
+                                      Uint live, Uint size,
+                                      const Eterm* new_p,
+                                      bool indicate_unloaded) {
     /* Module, Name */
     Eterm module, name;
     const ErtsRecordEntry *entry;
-    Uint code_ix;
     Eterm* tuple_ptr = boxed_val(id);
+    Eterm cons = THE_NON_VALUE;
+    ErtsCodeIndex code_ix = current_code_index;
+
+#if defined(BEAMASM)
+    code_ix = code_ix == ERTS_SAVE_CALLS_CODE_IX ? erts_active_code_ix() : code_ix;
+#endif
 
     module = tuple_ptr[1];
     name = tuple_ptr[2];
 
-    code_ix = erts_active_code_ix();
     entry = erts_record_find_entry(module,
                                    name,
                                    code_ix);
 
     if (entry != NULL) {
-        Eterm cons = entry->definitions[code_ix];
+        cons = entry->definitions[code_ix];
+    }
 
-        if (is_value(cons)) {
-            Eterm def;
-            ErtsRecordDefinition *defp;
-
-            def = CAR(list_val(cons));
-            defp = (ErtsRecordDefinition*)tuple_val(def);
-            if (defp->is_exported == am_true) {
-                return erl_create_local_native_record(p, reg, cons,
-                                                      live, size, new_p);
+    if (is_non_value(cons)) {
+        if (indicate_unloaded) {
+            if (!erts_find_function(module, am_module_info, 0, code_ix)) {
+                /* This module is not loaded. */
+                return NIL;
             }
+
+            /* Since the module is loaded, the record is not
+             * defined in the module. Fall through and generate
+             * a `badrecord` error. */
+        }
+    } else {
+        Eterm def;
+        ErtsRecordDefinition *defp;
+
+        def = CAR(list_val(cons));
+        defp = (ErtsRecordDefinition*)tuple_val(def);
+        if (defp->is_exported == am_true) {
+            return erl_create_local_native_record(p, reg, cons,
+                                                  live, size, new_p);
         }
     }
 
@@ -377,6 +408,287 @@ Eterm erl_create_native_record(Process* p, Eterm* reg, Eterm id, Uint live,
     p->freason = EXC_BADRECORD;
     return THE_NON_VALUE;
 }
+
+#if defined(BEAMASM)
+
+/* Create an external native record value. */
+Eterm erl_create_native_record_jit(Process* p, Eterm* reg,
+                                   ErtsCodeIndex current_code_index,
+                                   Eterm id, Uint size_live,
+                                   const Eterm* new_p) {
+    Eterm res;
+    Eterm module, name;
+    Eterm* tuple_ptr;
+    Eterm* E;
+    Eterm* HTOP;
+    const Export* ep;
+    Uint needed;
+    Uint size;
+    Uint live;
+
+    size = size_live >> 10;
+    live = size_live & ((1 << 10) - 1);
+
+    /* Try to create the record value. */
+    res = erl_create_native_record(p, reg, current_code_index,
+                                   id, live, size, new_p, true);
+    if (res != NIL) {
+        return res;
+    }
+
+    /* Creation failed because the module defining the record is not
+     * loaded. We will attempt to load it. */
+
+    tuple_ptr = boxed_val(id);
+    module = tuple_ptr[1];
+    name = tuple_ptr[2];
+
+    needed = live + 5 + 2 + CP_SIZE;
+#if !defined(NATIVE_ERLANG_STACK) && !defined(__aarch64__)
+    needed += 1;
+#endif
+
+    if (HeapWordsLeft(p) < needed) {
+        erts_garbage_collect(p, needed, reg, live);
+    }
+
+    /* Before we can start loading, we will need to save the state
+     * that will be destroyed. */
+    E = p->stop;
+
+    /* Save live X registers. */
+    E -= live;
+    for (Uint i = 0; i < live; i++) {
+        E[i] = reg[i];
+    }
+
+    /* Reserve place for the rest of the state and a continuation
+     * pointer. */
+    E -= 5;
+
+    /* Storing pointers (not pointing to code) on the stack is not
+     * always safe. Package it in a bignum. */
+    HTOP = p->htop;
+    E[4] = make_big(HTOP);
+    *HTOP++ = make_pos_bignum_header(1);
+    *HTOP++ = (Eterm) new_p;
+
+    E[3] = id;
+    E[2] = make_small(live);
+    E[1] = make_small(size);
+
+#if !defined(NATIVE_ERLANG_STACK) && !defined(__aarch64__)
+    E[0] = NIL;                 /* Reserved for CP pointing to the
+                                 * next instruction. */
+    E--;
+#endif
+
+    E[0] = NIL;             /* &erl_finish_create_record_jit */
+    p->stop = E;
+    p->htop = HTOP;
+
+    /* Now set up a TRAP to call `code:ensured_loaded(Module)` to
+     * load the module containing the record. When that call
+     * has returned, `erl_finish_create_record_jit()` will be
+     * called.
+     */
+    ep = erts_active_export_entry(am_code,
+                                  am_ensure_loaded,
+                                  1);
+    if (ep == NULL) {
+        /* This should not really happen, but it could if
+         * native records are introduced in some modules that
+         * are loaded early during the boot process. */
+        erts_exit(ERTS_ABORT_EXIT, "Failed to lookup code:ensure_loaded/1 "
+                  " when attempting to create #%T:%T{}", module, name);
+    }
+
+    BIF_TRAP1(ep, p, module);
+}
+
+Eterm erl_finish_create_record_jit(Process* p,
+                                   Eterm* reg,
+                                   ErtsCodeIndex current_code_index) {
+    Eterm *E = p->stop;
+    Eterm id;
+    Uint live;
+    Uint size;
+    Eterm big;
+    const Eterm* new_p = 0;
+#if !defined(NATIVE_ERLANG_STACK) && !defined(__aarch64__)
+    Eterm cp;
+#endif
+    Eterm res;
+
+    /* We get here after having attempted to load the module defining
+     * the record. Now we can attempt to create the record value. */
+
+#if !defined(NATIVE_ERLANG_STACK) && !defined(__aarch64__)
+    /* Restore the continuation pointer to our caller.
+     * Discard the extra continuation pointers to restore
+     * the Erlang stack to its prior state. This is necessary
+     * to ensure correct addressing of Y registers. */
+    cp = E[1];
+    E += 2;
+#endif
+
+    /* Pick up the saved state from the stack. */
+    big = E[3];
+    new_p = (const Eterm*) big_val(big)[1];
+    id = E[2];
+    live = unsigned_val(E[1]);
+    size = unsigned_val(E[0]);
+    E += 4;
+
+    /* Restore saved X registers. */
+    for (Uint i = 0; i < live; i++) {
+        reg[i] = E[i];
+    }
+
+    /* Restore stack. */
+    E += live;
+    p->stop = E;
+
+    /* The state is now completely restored. Again attempt to create
+     * the record. */
+
+    res = erl_create_native_record(p, reg, current_code_index,
+                                   id, live, size, new_p, false);
+
+#if !defined(NATIVE_ERLANG_STACK) && !defined(__aarch64__)
+    /* Stash the continuation pointer where the caller (end of
+     * `finish_create`) can easily find it.*/
+    erts_proc_sched_data(p)->registers->aux_regs.d.TMP_MEM[0] = (UWord)cp;
+#endif
+
+    return res;
+}
+
+#else
+
+/* Create an external native record value. */
+Eterm erl_create_native_record_emu(Process* p, Eterm* reg,
+                                   Eterm id, Uint live,
+                                   Uint size, const Eterm* new_p) {
+    Eterm res;
+    Eterm module, name;
+    Eterm* tuple_ptr;
+    Eterm* E;
+    const Eterm* cp;
+    const Export* ep;
+    Uint needed;
+    ErtsCodeIndex code_ix = erts_active_code_ix();
+
+    /* Try to create the record value. */
+    res = erl_create_native_record(p, reg, code_ix, id,
+                                   live, size, new_p, true);
+    if (res != NIL) {
+        return res;
+    }
+
+    /* Creation failed because the module defining the record is not
+     * loaded. We will attempt to load it. */
+
+    tuple_ptr = boxed_val(id);
+    module = tuple_ptr[1];
+    name = tuple_ptr[2];
+    cp = new_p + size;
+
+    needed = live + 6;
+    if (HeapWordsLeft(p) < needed) {
+        erts_garbage_collect(p, needed, reg, live);
+    }
+
+    /* Before we can start loading, we will need to save the state
+     * that will be destroyed. */
+    E = p->stop;
+
+    /* Save live X registers. */
+    E -= live;
+    for (Uint i = 0; i < live; i++) {
+        E[i] = reg[i];
+    }
+
+    /* Save the rest of the state and reserve place for two
+     * continuation pointers. */
+    E -= 5;
+    E[4] = id;
+    E[3] = make_small(live);
+    E[2] = make_small(size);
+    E[1] = (Eterm) cp;
+    E[0] = NIL;                  /* &erl_finish_create_record_emu */
+    p->stop = E;
+
+    /* Now set up a TRAP to call `code:ensured_loaded(Module)` to load
+     * the module containing the record. When that call has returned,
+     * `erl_finish_create_record_emu()` will be called.
+     */
+    ep = erts_active_export_entry(am_code,
+                                  am_ensure_loaded,
+                                  1);
+    if (ep == NULL) {
+        /* This should not really happen, but it could if native
+         * records are introduced in some modules that are loaded
+         * early during the boot process. */
+        erts_exit(ERTS_ABORT_EXIT, "Failed to lookup code:ensure_loaded/1 "
+                  " when attempting to create #%T:%T{}", module, name);
+    }
+
+    BIF_TRAP1(ep, p, module);
+}
+
+Eterm erl_finish_create_record_emu(Process* p, Eterm* reg) {
+    Eterm *E = p->stop;
+    Eterm id;
+    Uint live;
+    Uint size;
+    const Eterm* new_p;
+    Eterm res;
+    Eterm cp;
+    ErtsCodeIndex code_ix = erts_active_code_ix();
+
+    /* We get here after having attempted to load the module
+     * defining the record. */
+
+    /* Pick up the saved state from the stack. */
+    id = E[4];
+    live = unsigned_val(E[3]);
+    size = unsigned_val(E[2]);
+    cp = E[1];
+    E += 5;
+
+    /* Figure out the beginning of the `new_p` array given
+     * continuation pointer pointing to next instruction. */
+    new_p = ((Eterm *)cp) - size;
+
+    /* Restore saved X registers. */
+    for (Uint i = 0; i < live; i++) {
+        reg[i] = E[i];
+    }
+
+    /* Restore stack. */
+    E += live;
+    p->stop = E;
+
+    /* The state is now completely restored. Again attempt to create
+     * the record. */
+    res = erl_create_native_record(p, reg, code_ix, id,
+                                   live, size, new_p, false);
+    if (is_value(res)) {
+        reg[1023] = res;
+        return cp;
+    } else {
+        /* Either the loading failed, the record with the given name
+         * does not exist in the module, some field name was invalid,
+         * or no value was given to a field without a default. Raise
+         * an error according to the stored reason in the process
+         * structure. */
+        p->current = NULL;
+        return (Eterm) beam_exit;
+    }
+}
+
+#endif
 
 Eterm erl_update_native_record(Process* p, Eterm* reg, Eterm src,
                                Uint live, Uint size, const Eterm* new_p) {

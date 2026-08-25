@@ -50,6 +50,7 @@ my @beam_global_funcs = qw(
     call_nif_shared
     check_float_error
     construct_utf8_shared
+    create_native_record_shared
     debug_bp
     dispatch_bif
     dispatch_nif
