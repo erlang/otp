@@ -364,6 +364,7 @@ typedef struct {
   int listenfd[MAX_LISTEN_SOCKETS];
   char *cert_path;
   char *key_path;
+  char *ca_path;
   SSL_CTX *ctx;       /* Global SSL Context */
   char *addresses;
   char **argv;

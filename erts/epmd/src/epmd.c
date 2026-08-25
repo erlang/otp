@@ -174,14 +174,17 @@ int main(int argc, char** argv)
 	    g->is_daemon = 1;
 	    argv++; argc--;
     } else if (strcmp(argv[0], "-tls") == 0) {
-        if((argc < 3) || 
+        if((argc < 4) || 
         (access(argv[1], R_OK) != 0) || 
-        (access(argv[2], R_OK) != 0))
-        usage(g);
-	    g->tls = 1;
+        (access(argv[2], R_OK) != 0) ||
+        (access(argv[3], R_OK) != 0))
+            usage(g);
+        
+        g->tls = 1;
         g->cert_path = argv[1];
         g->key_path = argv[2];
-	    argv += 3; argc -= 3;
+        g->ca_path = argv[3];
+	    argv += 4; argc -= 4;
 	} else if (strcmp(argv[0], "-relaxed_command_check") == 0) {
 	    g->brutal_kill = 1;
 	    argv++; argc--;
@@ -383,7 +386,7 @@ static void usage(EpmdVars *g)
 {
     fprintf(stderr, "usage: epmd [-d|-debug] [DbgExtra...] [-address List]\n");
     fprintf(stderr, "            [-port No] [-daemon] [-relaxed_command_check]\n");
-    fprintf(stderr, "            [-tls certPath keyPath]\n");
+    fprintf(stderr, "            [-tls certPath keyPath caPath]\n");
     fprintf(stderr, "       epmd [-d|-debug] [-port No] [-names|-kill|-stop name]\n\n");
     fprintf(stderr, "See the Erlang epmd manual page for info about the usage.\n\n");
     fprintf(stderr, "Regular options\n");
@@ -407,11 +410,11 @@ static void usage(EpmdVars *g)
     fprintf(stderr, "        epmd -kill even if there "
 	    "are registered nodes.\n");
     fprintf(stderr, "        Also allows forced unregister (epmd -stop).\n");
-    fprintf(stderr, "    -tls certPath keyPath\n");
-    fprintf(stderr, "        Enable communication using TLS. This requires\n");
-    fprintf(stderr, "        certificate file and private key both with .pem\n");
-    fprintf(stderr, "        extensions. Provide paths to them as certPath and\n");
-    fprintf(stderr, "        and keyPath. Only nodes using erlang distribution\n");
+    fprintf(stderr, "    -tls certPath keyPath caPath\n"); /* Updated */
+    fprintf(stderr, "        Enable communication using mutual TLS. This requires\n");
+    fprintf(stderr, "        a certificate file, a private key, and a CA certificate,\n");
+    fprintf(stderr, "        all with .pem extensions. Provide paths to them as certPath,\n");
+    fprintf(stderr, "        keyPath, and caPath. Only nodes using erlang distribution\n");
     fprintf(stderr, "        over TLS will be able to register and list names.\n");
 #ifdef HAVE_SYSTEMD_DAEMON
     fprintf(stderr, "    -systemd\n");
@@ -615,4 +618,11 @@ static void init_ssl(EpmdVars *g) {
         dbg_perror(g, "Failed to load private key");
         epmd_cleanup_exit(g, 1);
     }
+
+    if (SSL_CTX_load_verify_locations(g->ctx, g->ca_path, NULL) <= 0) {
+        dbg_perror(g, "Failed to load CA certificate");
+        epmd_cleanup_exit(g, 1);
+    }
+
+    SSL_CTX_set_verify(g->ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
 }
