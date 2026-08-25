@@ -287,15 +287,18 @@ the developer to take care of such processes.
 9> tprof:profile(timer, sleep, [100000], #{timeout => 1000}).
 ```
 
-By default, only one ad-hoc or server-aided profiling session is
-allowed at any point in time. It is possible to force multiple ad-hoc
-sessions concurrently, but it is the responsibility of the developer
-to ensure that trace patterns do not overlap:
+Each ad-hoc profile runs in an isolated trace session, so multiple ad-hoc
+profiles can run concurrently without changing one another's trace settings.
+Ad-hoc profiles can also run alongside server-aided profilers. To run multiple
+server-aided profilers, start them with the `session` option described in
+[`start/1`](`start/1`).
 
-```erlang
-1> tprof:profile(fun() -> lists:seq(1, 32) end,
-    #{registered => false, pattern => [{lists, '_', '_'}]}).
-```
+> #### Note {: .info }
+>
+> Trace patterns and `call_count` counters are isolated between sessions.
+> However, each counter includes matching calls from every process on the node.
+> Concurrent profiles with overlapping patterns can therefore count calls made
+> by each other's workloads.
 
 ## Server-aided profiling
 
