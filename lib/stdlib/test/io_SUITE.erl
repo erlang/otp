@@ -39,7 +39,8 @@
          unscan_format_without_maps_order/1, build_text_without_maps_order/1,
          native_records/1, cover_fread/1,
          format_w_empty_map/1, format_w_limited/1,
-         write_record_maps_order/1, write_record_latin1_encoding/1]).
+         write_record_maps_order/1, write_record_latin1_encoding/1,
+         indentation_tab/1, badarg/1]).
 
 -export([pretty/2, trf/3, rfd/2]).
 
@@ -79,6 +80,7 @@ all() ->
      native_records,
      format_w_empty_map, format_w_limited,
      write_record_maps_order, write_record_latin1_encoding,
+     indentation_tab, badarg,
      cover_fread].
 
 %% Error cases for output.
@@ -2258,6 +2260,18 @@ otp_10302(Suite) when is_list(Suite) ->
                not is_latin1(S)],
     L2 = lists:seq(256, 512),
 
+    %% C1 controls (U+0080-U+009F) must be escaped in binary unicode path.
+    lists:foreach(
+      fun(C) ->
+              Bin = <<C/utf8>>,
+              Escaped = io_lib:bwrite_string(Bin, $", unicode),
+              %% Must not contain raw C1 bytes - should be octal-escaped.
+              nomatch = binary:match(Escaped, Bin),
+              %% Verify matches list path.
+              ListEsc = lists:flatten(io_lib:write_string([C])),
+              ListEsc = unicode:characters_to_list(Escaped)
+      end, lists:seq(16#80, 16#9F)),
+
     ok.
 
 pretty(Term, Depth) when is_integer(Depth) ->
@@ -3164,6 +3178,17 @@ chars_limit(_Config) ->
             CL <- lists:seq(N, N*3),
             What <- [List, Tuple, Map, Record]
         ],
+
+    %% chars_limit caps field width for all controls, not just ~s.
+    10 = iolist_size(io_lib:format("~100n", [], [{chars_limit, 10}])),
+    10 = iolist_size(io_lib:format("~100c", [$x], [{chars_limit, 10}])),
+    10 = iolist_size(io_lib:format("~100c", [$x], [{chars_limit, 10}])),
+    10 = iolist_size(io_lib:format("~*c", [100, $x], [{chars_limit, 10}])),
+    10 = iolist_size(io_lib:format("~*c", [-100, $x], [{chars_limit, 10}])),
+    10 = iolist_size(io_lib:format("~100w", [foo], [{chars_limit, 10}])),
+    %% Without chars_limit, field width is not capped.
+    100 = iolist_size(io_lib:format("~100n", [])),
+    100 = iolist_size(io_lib:format("~100c", [$x])),
     ok.
 
 error_info(Config) ->
@@ -3509,6 +3534,55 @@ fread_good(Format, String) ->
     {ok,Term,Remaining} = io_lib:fread(Format, String),
     fread_float_not_accepted(Format, String, []),
     {Term,Remaining}.
+
+%% Test that tabs are handled correctly in indentation calculation
+%% for both the format string and binary/list arguments (GH-XXXX).
+indentation_tab(_Config) ->
+    %% Tab in format string before ~p — indentation tracked by
+    %% build_limited_bin, ~p sees correct column.
+    "\tfoo" = fmt("\t~p", [foo]),
+    "a\tfoo" = fmt("a\t~p", [foo]),
+    "a\nb\tfoo" = fmt("a\nb\t~p", [foo]),
+
+    %% Tab in binary argument via ~ts before ~p — exercises
+    %% indentation_bin/5 (the buggy path).
+    "a\tbfoo" = fmt("~ts~p", [<<"a\tb">>, foo]),
+    "\tfoo" = fmt("~ts~p", [<<"\t">>, foo]),
+    "a\nb\tcfoo" = fmt("~ts~p", [<<"a\nb\tc">>, foo]),
+
+    %% Tab in list argument via ~ts before ~p — also goes through
+    %% indentation_bin when on the binary output path (bformat).
+    "a\tbfoo" = fmt("~ts~p", ["a\tb", foo]),
+    "\tfoo" = fmt("~ts~p", ["\t", foo]),
+    "a\nb\tcfoo" = fmt("~ts~p", ["a\nb\tc", foo]),
+
+    %% Verify indentation/2 directly for binary vs list equivalence.
+    8 = io_lib_format:indentation(<<"\t">>, 0),
+    8 = io_lib_format:indentation("\t", 0),
+    9 = io_lib_format:indentation(<<"a\tb">>, 0),
+    9 = io_lib_format:indentation("a\tb", 0),
+    9 = io_lib_format:indentation(<<"a\nb\tc">>, 0),
+    9 = io_lib_format:indentation("a\nb\tc", 0),
+    10 = io_lib_format:indentation(<<"ab\ncd\tef">>, 0),
+    10 = io_lib_format:indentation("ab\ncd\tef", 0),
+    ok.
+
+%% Test that negative precision via * raises badarg.
+badarg(_Config) ->
+    bad_io_lib_format("~.*c", [-1, $a]),
+    bad_io_lib_format("~.*s", [-1, "hello"]),
+    bad_io_lib_format("~.*f", [-1, 1.5]),
+    bad_io_lib_format("~.*e", [-1, 1.5]),
+    bad_io_lib_format("~.*g", [-1, 1.5]),
+    bad_io_lib_format("~.*b", [-1, 42]),
+    bad_io_lib_format("~.*B", [-1, 42]),
+    bad_io_lib_format("~.*x", [-1, 42, "0x"]),
+    bad_io_lib_format("~.*X", [-1, 42, "0x"]),
+    bad_io_lib_format("~.*+", [-1, 42]),
+    bad_io_lib_format("~.*#", [-1, 42]),
+    bad_io_lib_format("~.*w", [-1, foo]),
+    bad_io_lib_format("~.*p", [-1, foo]),
+    ok.
 
 fread_bad(Format, String) ->
     {error,{fread,Hint}} = io_lib:fread(Format, String),
