@@ -685,10 +685,14 @@ do_async_send(Transport, Socket, Handle, Nextstate, Result,
             {keep_state_and_data, []};
         {completion, _} ->
             BuffSz = iolist_size(MsgQ),
+            #async{low = OldLow} = Async0,
             #async{high = High} = Async1 = new_async(StateData),
             Sent  = sent_data(completion, BuffSz),
-            Async = Async1#async{q_rev = [MsgQ], size = BuffSz, sent = Sent},
-            case BuffSz < High of
+            %% Low = 0 is used as a marker for (renegotiate, alert, post_handshake_data) events
+            %% to keep the sender in async_wait until the buffer fully drains,
+            %% thus preserve old 'OldLow'
+            Async = Async1#async{q_rev = [MsgQ], size = BuffSz, sent = Sent, low = OldLow},
+            case OldLow > 0 andalso BuffSz < High of
                 true ->
                     send_reply(From, ok),
                     {next_state, Nextstate, StateData#data{buff = Async}};
