@@ -118,6 +118,7 @@ mk_dir_path/1,
 setup_all_user_host_keys/1,
 setup_all_user_host_keys/2,
 setup_all_user_host_keys/3,
+clean_all_user_host_keys/1,
 setup_all_host_keys/1,
 setup_all_host_keys/2,
 setup_all_user_keys/2,
@@ -1236,6 +1237,19 @@ setup_all_user_host_keys(DataDir, UserDir, SysDir) ->
                         end
                 end, [], ssh_transport:supported_algorithms(public_key)).
 
+clean_all_user_host_keys(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    clean_all_user_host_keys(PrivDir, filename:join(PrivDir, "system")).
+
+clean_all_user_host_keys(UserDir, SysDir) ->
+    lists:foreach(
+      fun(Alg) ->
+              file:delete(filename:join(UserDir, file_base_name(user, Alg))),
+              file:delete(filename:join(SysDir, file_base_name(system, Alg)))
+      end, ssh_transport:supported_algorithms(public_key)),
+    file:delete(filename:join(UserDir, "authorized_keys")),
+    file:del_dir(SysDir),
+    ok.
 
 setup_all_host_keys(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
