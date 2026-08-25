@@ -195,7 +195,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxNotebook() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -231,7 +231,7 @@ See:
 * `setImageList/2`
 """.
 -spec assignImageList(This, ImageList) -> 'ok' when
-	This::wxNotebook(), ImageList::wxImageList:wxImageList().
+        This::wxNotebook(), ImageList::wxImageList:wxImageList().
 assignImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
   ?CLASS(ThisT,wxNotebook),
   ?CLASS(ImageListT,wxImageList),
@@ -239,7 +239,7 @@ assignImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
 
 -doc(#{equiv => create(This,Parent,Id, [])}).
 -spec create(This, Parent, Id) -> boolean() when
-	This::wxNotebook(), Parent::wxWindow:wxWindow(), Id::integer().
+        This::wxNotebook(), Parent::wxWindow:wxWindow(), Id::integer().
 
 create(This,Parent,Id)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
@@ -276,7 +276,7 @@ See:
 * `setImageList/2`
 """.
 -spec getImageList(This) -> wxImageList:wxImageList() when
-	This::wxNotebook().
+        This::wxNotebook().
 getImageList(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxNotebook),
   wxe_util:queue_cmd(This,?get_env(),?wxNotebook_GetImageList),
@@ -284,7 +284,7 @@ getImageList(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the image index for the given page.".
 -spec getPageImage(This, NPage) -> integer() when
-	This::wxNotebook(), NPage::integer().
+        This::wxNotebook(), NPage::integer().
 getPageImage(#wx_ref{type=ThisT}=This,NPage)
  when is_integer(NPage) ->
   ?CLASS(ThisT,wxNotebook),
@@ -293,7 +293,7 @@ getPageImage(#wx_ref{type=ThisT}=This,NPage)
 
 -doc "Returns the number of rows in the notebook control.".
 -spec getRowCount(This) -> integer() when
-	This::wxNotebook().
+        This::wxNotebook().
 getRowCount(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxNotebook),
   wxe_util:queue_cmd(This,?get_env(),?wxNotebook_GetRowCount),
@@ -307,7 +307,7 @@ passed to `wxWindow:setBackgroundColour/2`.
 Otherwise, an uninitialised colour will be returned.
 """.
 -spec getThemeBackgroundColour(This) -> wx:wx_colour4() when
-	This::wxNotebook().
+        This::wxNotebook().
 getThemeBackgroundColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxNotebook),
   wxe_util:queue_cmd(This,?get_env(),?wxNotebook_GetThemeBackgroundColour),
@@ -324,7 +324,7 @@ See:
 * `assignImageList/2`
 """.
 -spec setImageList(This, ImageList) -> 'ok' when
-	This::wxNotebook(), ImageList::wxImageList:wxImageList().
+        This::wxNotebook(), ImageList::wxImageList:wxImageList().
 setImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
   ?CLASS(ThisT,wxNotebook),
   ?CLASS(ImageListT,wxImageList),
@@ -336,7 +336,7 @@ Sets the amount of space around each page's icon and label, in pixels.
 Note: The vertical padding cannot be changed in wxGTK.
 """.
 -spec setPadding(This, Padding) -> 'ok' when
-	This::wxNotebook(), Padding::{W::integer(), H::integer()}.
+        This::wxNotebook(), Padding::{W::integer(), H::integer()}.
 setPadding(#wx_ref{type=ThisT}=This,{PaddingW,PaddingH} = Padding)
  when is_integer(PaddingW),is_integer(PaddingH) ->
   ?CLASS(ThisT,wxNotebook),
@@ -348,7 +348,7 @@ Sets the width and height of the pages.
 Note: This method is currently not implemented for wxGTK.
 """.
 -spec setPageSize(This, Size) -> 'ok' when
-	This::wxNotebook(), Size::{W::integer(), H::integer()}.
+        This::wxNotebook(), Size::{W::integer(), H::integer()}.
 setPageSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxNotebook),
@@ -360,7 +360,7 @@ Sets the image index for the given page.
 `image` is an index into the image list which was set with `setImageList/2`.
 """.
 -spec setPageImage(This, Page, Image) -> boolean() when
-	This::wxNotebook(), Page::integer(), Image::integer().
+        This::wxNotebook(), Page::integer(), Image::integer().
 setPageImage(#wx_ref{type=ThisT}=This,Page,Image)
  when is_integer(Page),is_integer(Image) ->
   ?CLASS(ThisT,wxNotebook),

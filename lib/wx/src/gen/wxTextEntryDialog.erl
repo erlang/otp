@@ -146,7 +146,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Message, [])}).
 -spec new(Parent, Message) -> wxTextEntryDialog() when
-	Parent::wxWindow:wxWindow(), Message::unicode:chardata().
+        Parent::wxWindow:wxWindow(), Message::unicode:chardata().
 
 new(Parent,Message)
  when is_record(Parent, wx_ref),?is_chardata(Message) ->
@@ -183,7 +183,7 @@ Returns the text that the user has entered if the user has pressed OK, or the or
 value if the user has pressed Cancel.
 """.
 -spec getValue(This) -> unicode:charlist() when
-	This::wxTextEntryDialog().
+        This::wxTextEntryDialog().
 getValue(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextEntryDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxTextEntryDialog_GetValue),
@@ -191,7 +191,7 @@ getValue(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the default text value.".
 -spec setValue(This, Value) -> 'ok' when
-	This::wxTextEntryDialog(), Value::unicode:chardata().
+        This::wxTextEntryDialog(), Value::unicode:chardata().
 setValue(#wx_ref{type=ThisT}=This,Value)
  when ?is_chardata(Value) ->
   ?CLASS(ThisT,wxTextEntryDialog),

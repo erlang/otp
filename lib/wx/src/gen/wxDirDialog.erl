@@ -169,7 +169,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxDirDialog() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -207,7 +207,7 @@ Note: This function can't be used with dialogs which have the `wxDD_MULTIPLE` st
 (not implemented in wx) instead.
 """.
 -spec getPath(This) -> unicode:charlist() when
-	This::wxDirDialog().
+        This::wxDirDialog().
 getPath(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDirDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxDirDialog_GetPath),
@@ -215,7 +215,7 @@ getPath(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the message that will be displayed on the dialog.".
 -spec getMessage(This) -> unicode:charlist() when
-	This::wxDirDialog().
+        This::wxDirDialog().
 getMessage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDirDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxDirDialog_GetMessage),
@@ -223,7 +223,7 @@ getMessage(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the message that will be displayed on the dialog.".
 -spec setMessage(This, Message) -> 'ok' when
-	This::wxDirDialog(), Message::unicode:chardata().
+        This::wxDirDialog(), Message::unicode:chardata().
 setMessage(#wx_ref{type=ThisT}=This,Message)
  when ?is_chardata(Message) ->
   ?CLASS(ThisT,wxDirDialog),
@@ -232,7 +232,7 @@ setMessage(#wx_ref{type=ThisT}=This,Message)
 
 -doc "Sets the default path.".
 -spec setPath(This, Path) -> 'ok' when
-	This::wxDirDialog(), Path::unicode:chardata().
+        This::wxDirDialog(), Path::unicode:chardata().
 setPath(#wx_ref{type=ThisT}=This,Path)
  when ?is_chardata(Path) ->
   ?CLASS(ThisT,wxDirDialog),

@@ -145,7 +145,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id,Label, [])}).
 -spec new(Parent, Id, Label) -> wxToggleButton() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
+        Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
 new(Parent,Id,Label)
  when is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Label) ->
@@ -177,7 +177,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Label, Options)
 
 -doc(#{equiv => create(This,Parent,Id,Label, [])}).
 -spec create(This, Parent, Id, Label) -> boolean() when
-	This::wxToggleButton(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
+        This::wxToggleButton(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
 create(This,Parent,Id,Label)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Label) ->
@@ -214,7 +214,7 @@ Gets the state of the toggle button.
 Return: Returns true if it is pressed, false otherwise.
 """.
 -spec getValue(This) -> boolean() when
-	This::wxToggleButton().
+        This::wxToggleButton().
 getValue(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxToggleButton),
   wxe_util:queue_cmd(This,?get_env(),?wxToggleButton_GetValue),
@@ -226,7 +226,7 @@ Sets the toggle button to the given state.
 This does not cause a `EVT_TOGGLEBUTTON` event to be emitted.
 """.
 -spec setValue(This, State) -> 'ok' when
-	This::wxToggleButton(), State::boolean().
+        This::wxToggleButton(), State::boolean().
 setValue(#wx_ref{type=ThisT}=This,State)
  when is_boolean(State) ->
   ?CLASS(ThisT,wxToggleButton),

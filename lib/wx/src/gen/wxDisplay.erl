@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -91,9 +91,9 @@ See: `getFromWindow/1`
 Since: 3.1.2
 """.
 -spec new(Index) -> wxDisplay() when
-	Index::integer();
+        Index::integer();
       (Window) -> wxDisplay() when
-	Window::wxWindow:wxWindow().
+        Window::wxWindow:wxWindow().
 new(Index)
  when is_integer(Index) ->
   wxe_util:queue_cmd(Index,?get_env(),?wxDisplay_new_1_0),
@@ -105,7 +105,7 @@ new(#wx_ref{type=WindowT}=Window) ->
 
 -doc "Returns true if the object was initialized successfully.".
 -spec isOk(This) -> boolean() when
-	This::wxDisplay().
+        This::wxDisplay().
 isOk(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDisplay),
   wxe_util:queue_cmd(This,?get_env(),?wxDisplay_IsOk),
@@ -119,7 +119,7 @@ windows, usually it is the same as `getGeometry/1` but it could be less if there
 equivalent) on this display.
 """.
 -spec getClientArea(This) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
-	This::wxDisplay().
+        This::wxDisplay().
 getClientArea(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDisplay),
   wxe_util:queue_cmd(This,?get_env(),?wxDisplay_GetClientArea),
@@ -134,7 +134,7 @@ See:
 * `wx_misc:displaySize/0`
 """.
 -spec getGeometry(This) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
-	This::wxDisplay().
+        This::wxDisplay().
 getGeometry(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDisplay),
   wxe_util:queue_cmd(This,?get_env(),?wxDisplay_GetGeometry),
@@ -146,7 +146,7 @@ Returns the display's name.
 The returned value is currently an empty string under all platforms except MSW.
 """.
 -spec getName(This) -> unicode:charlist() when
-	This::wxDisplay().
+        This::wxDisplay().
 getName(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDisplay),
   wxe_util:queue_cmd(This,?get_env(),?wxDisplay_GetName),
@@ -158,7 +158,7 @@ Returns true if the display is the primary display.
 The primary display is the one whose index is 0.
 """.
 -spec isPrimary(This) -> boolean() when
-	This::wxDisplay().
+        This::wxDisplay().
 isPrimary(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDisplay),
   wxe_util:queue_cmd(This,?get_env(),?wxDisplay_IsPrimary),
@@ -175,7 +175,7 @@ Returns the index of the display on which the given point lies, or `wxNOT\_FOUND
 point is not on any connected display.
 """.
 -spec getFromPoint(Pt) -> integer() when
-	Pt::{X::integer(), Y::integer()}.
+        Pt::{X::integer(), Y::integer()}.
 getFromPoint({PtX,PtY} = Pt)
  when is_integer(PtX),is_integer(PtY) ->
   wxe_util:queue_cmd(Pt,?get_env(),?wxDisplay_GetFromPoint),
@@ -190,7 +190,7 @@ the most.
 Returns `wxNOT_FOUND` if the window is not on any connected display.
 """.
 -spec getFromWindow(Win) -> integer() when
-	Win::wxWindow:wxWindow().
+        Win::wxWindow:wxWindow().
 getFromWindow(#wx_ref{type=WinT}=Win) ->
   ?CLASS(WinT,wxWindow),
   wxe_util:queue_cmd(Win,?get_env(),?wxDisplay_GetFromWindow),
@@ -207,7 +207,7 @@ If the resolution information is not available, returns.
 Since: 3.1.2
 """.
 -spec getPPI(This) -> {W::integer(), H::integer()} when
-	This::wxDisplay().
+        This::wxDisplay().
 getPPI(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDisplay),
   wxe_util:queue_cmd(This,?get_env(),?wxDisplay_GetPPI),

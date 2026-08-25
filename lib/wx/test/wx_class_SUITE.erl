@@ -550,11 +550,11 @@ toolbar(Config) ->
 		      [{shortHelp, "Press Me"}]),
     (try wxToolBar:addStretchableSpace(TB) catch _:_ -> ok end),  %% wxWidgets 3.0 only
     Add = fun(#wx{}, _) ->
-		  wxToolBar:addTool(TB, -1, "Added", BM2,
-				    [{shortHelp, "Test 2 popup text"}]),
-		  (try wxToolBar:addStretchableSpace(TB) catch _:_ -> ok end), %% wxWidgets 3.0 only
-		  wxToolBar:realize(TB)
-	  end,
+                  wxToolBar:addTool(TB, -1, "Added", BM2,
+                                    [{shortHelp, "Test 2 popup text"}]),
+                  (try wxToolBar:addStretchableSpace(TB) catch _:_ -> ok end), %% wxWidgets 3.0 only
+                  wxToolBar:realize(TB)
+          end,
 
     wxToolBar:realize(TB),
     wxFrame:connect(Frame, command_menu_selected, [{callback, Add}, {id, 747}]),
@@ -574,25 +574,25 @@ popup(Config) ->
 		  wxEvent:skip(Obj)
 	  end,
     CreatePopup = fun() ->
-			  Pop = wxPopupTransientWindow:new(Frame),
-			  Panel = wxPanel:new(Pop),
-			  Sz = wxBoxSizer:new(?wxVERTICAL),
-			  wxSizer:add(Sz, wxButton:new(Panel, 42, [{label, "A button"}])),
-			  Txt = wxStaticText:new(Panel, 43, "Some static text"),
-			  wxSizer:add(Sz, Txt),
-			  wxSizer:add(Sz, wxButton:new(Panel, 44, [{label, "B button"}])),
-			  wxPanel:setSizerAndFit(Panel, Sz),
-			  wxSizer:setSizeHints(Sz, Pop),
-			  wxWindow:connect(Pop, command_button_clicked, [{callback, Log}]),
-			  wxWindow:connect(Txt, left_up, [{callback, Log}]),
-			  wxWindow:connect(Txt, middle_up, [{callback, Log}]),
-			  wxWindow:connect(Txt, right_up, [{callback, Log}]),
-			  wxWindow:connect(Pop, show, [{callback, Log}]),
-			  Pos = wx_misc:getMousePosition(),
-			  wxPopupTransientWindow:position(Pop, Pos, {-1, -1}),
-			  wxPopupTransientWindow:popup(Pop),
-			  Pop
-		  end,
+                          Pop = wxPopupTransientWindow:new(Frame),
+                          Panel = wxPanel:new(Pop),
+                          Sz = wxBoxSizer:new(?wxVERTICAL),
+                          wxSizer:add(Sz, wxButton:new(Panel, 42, [{label, "A button"}])),
+                          Txt = wxStaticText:new(Panel, 43, "Some static text"),
+                          wxSizer:add(Sz, Txt),
+                          wxSizer:add(Sz, wxButton:new(Panel, 44, [{label, "B button"}])),
+                          wxPanel:setSizerAndFit(Panel, Sz),
+                          wxSizer:setSizeHints(Sz, Pop),
+                          wxWindow:connect(Pop, command_button_clicked, [{callback, Log}]),
+                          wxWindow:connect(Txt, left_up, [{callback, Log}]),
+                          wxWindow:connect(Txt, middle_up, [{callback, Log}]),
+                          wxWindow:connect(Txt, right_up, [{callback, Log}]),
+                          wxWindow:connect(Pop, show, [{callback, Log}]),
+                          Pos = wx_misc:getMousePosition(),
+                          wxPopupTransientWindow:position(Pop, Pos, {-1, -1}),
+                          wxPopupTransientWindow:popup(Pop),
+                          Pop
+                  end,
     wxFrame:connect(Frame, command_menu_selected, [{id, 747}]),
     wxFrame:connect(Frame, show),
     wxFrame:show(Frame),

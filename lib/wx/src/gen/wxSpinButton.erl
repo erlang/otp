@@ -164,7 +164,7 @@ new() ->
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxSpinButton() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -195,7 +195,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
 
 -doc(#{equiv => create(This,Parent, [])}).
 -spec create(This, Parent) -> boolean() when
-	This::wxSpinButton(), Parent::wxWindow:wxWindow().
+        This::wxSpinButton(), Parent::wxWindow:wxWindow().
 
 create(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
@@ -231,7 +231,7 @@ Returns the maximum permissible value.
 See: `setRange/3`
 """.
 -spec getMax(This) -> integer() when
-	This::wxSpinButton().
+        This::wxSpinButton().
 getMax(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSpinButton),
   wxe_util:queue_cmd(This,?get_env(),?wxSpinButton_GetMax),
@@ -243,7 +243,7 @@ Returns the minimum permissible value.
 See: `setRange/3`
 """.
 -spec getMin(This) -> integer() when
-	This::wxSpinButton().
+        This::wxSpinButton().
 getMin(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSpinButton),
   wxe_util:queue_cmd(This,?get_env(),?wxSpinButton_GetMin),
@@ -255,7 +255,7 @@ Returns the current spin button value.
 See: `setValue/2`
 """.
 -spec getValue(This) -> integer() when
-	This::wxSpinButton().
+        This::wxSpinButton().
 getValue(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSpinButton),
   wxe_util:queue_cmd(This,?get_env(),?wxSpinButton_GetValue),
@@ -275,7 +275,7 @@ See:
 * `getMax/1`
 """.
 -spec setRange(This, Min, Max) -> 'ok' when
-	This::wxSpinButton(), Min::integer(), Max::integer().
+        This::wxSpinButton(), Min::integer(), Max::integer().
 setRange(#wx_ref{type=ThisT}=This,Min,Max)
  when is_integer(Min),is_integer(Max) ->
   ?CLASS(ThisT,wxSpinButton),
@@ -283,7 +283,7 @@ setRange(#wx_ref{type=ThisT}=This,Min,Max)
 
 -doc "Sets the value of the spin button.".
 -spec setValue(This, Value) -> 'ok' when
-	This::wxSpinButton(), Value::integer().
+        This::wxSpinButton(), Value::integer().
 setValue(#wx_ref{type=ThisT}=This,Value)
  when is_integer(Value) ->
   ?CLASS(ThisT,wxSpinButton),

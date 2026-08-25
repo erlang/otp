@@ -131,7 +131,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Title,Message, [])}).
 -spec new(Title, Message) -> wxProgressDialog() when
-	Title::unicode:chardata(), Message::unicode:chardata().
+        Title::unicode:chardata(), Message::unicode:chardata().
 
 new(Title,Message)
  when ?is_chardata(Title),?is_chardata(Message) ->
@@ -159,14 +159,14 @@ new(Title,Message, Options)
 Can be used to continue with the dialog, after the user had clicked the "Abort" button.
 """.
 -spec resume(This) -> 'ok' when
-	This::wxProgressDialog().
+        This::wxProgressDialog().
 resume(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxProgressDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxProgressDialog_Resume).
 
 -doc(#{equiv => update(This,Value, [])}).
 -spec update(This, Value) -> boolean() when
-	This::wxProgressDialog(), Value::integer().
+        This::wxProgressDialog(), Value::integer().
 
 update(This,Value)
  when is_record(This, wx_ref),is_integer(Value) ->

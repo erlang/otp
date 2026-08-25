@@ -135,7 +135,7 @@ different from the last one if the control is sorted (e.g. has `wxLB_SORT` or `w
 style).
 """.
 -spec append(This, Item) -> integer() when
-	This::wxControlWithItems(), Item::unicode:chardata().
+        This::wxControlWithItems(), Item::unicode:chardata().
 append(#wx_ref{type=ThisT}=This,Item)
  when ?is_chardata(Item) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -151,7 +151,7 @@ different from the last one if the control is sorted (e.g. has `wxLB_SORT` or `w
 style).
 """.
 -spec append(This, Item, ClientData) -> integer() when
-	This::wxControlWithItems(), Item::unicode:chardata(), ClientData::term().
+        This::wxControlWithItems(), Item::unicode:chardata(), ClientData::term().
 append(#wx_ref{type=ThisT}=This,Item,ClientData)
  when ?is_chardata(Item) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -166,7 +166,7 @@ Notice that calling this method is usually much faster than appending them one b
 you need to add a lot of items.
 """.
 -spec appendStrings(This, Items) -> integer() when
-	This::wxControlWithItems(), Items::[unicode:chardata()].
+        This::wxControlWithItems(), Items::[unicode:chardata()].
 appendStrings(#wx_ref{type=ThisT}=This,Items)
  when is_list(Items) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -182,7 +182,7 @@ Notice that calling this method is usually much faster than appending them one b
 you need to add a lot of items.
 """.
 -spec appendStrings(This, Items, ClientsData) -> integer() when
-	This::wxControlWithItems(), Items::[unicode:chardata()], ClientsData::[term()].
+        This::wxControlWithItems(), Items::[unicode:chardata()], ClientsData::[term()].
 appendStrings(#wx_ref{type=ThisT}=This,Items,ClientsData)
  when is_list(Items),is_list(ClientsData) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -197,7 +197,7 @@ Removes all items from the control.
 `clear/1` also deletes the client data of the existing items if it is owned by the control.
 """.
 -spec clear(This) -> 'ok' when
-	This::wxControlWithItems().
+        This::wxControlWithItems().
 clear(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxControlWithItems),
   wxe_util:queue_cmd(This,?get_env(),?wxControlWithItems_Clear).
@@ -217,7 +217,7 @@ selection is preserved unchanged.
 See: `clear/1`
 """.
 -spec delete(This, N) -> 'ok' when
-	This::wxControlWithItems(), N::integer().
+        This::wxControlWithItems(), N::integer().
 delete(#wx_ref{type=ThisT}=This,N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -225,7 +225,7 @@ delete(#wx_ref{type=ThisT}=This,N)
 
 -doc(#{equiv => findString(This,String, [])}).
 -spec findString(This, String) -> integer() when
-	This::wxControlWithItems(), String::unicode:chardata().
+        This::wxControlWithItems(), String::unicode:chardata().
 
 findString(This,String)
  when is_record(This, wx_ref),?is_chardata(String) ->
@@ -263,7 +263,7 @@ the control.
 Return: A pointer to the client data, or NULL if not present.
 """.
 -spec getClientData(This, N) -> term() when
-	This::wxControlWithItems(), N::integer().
+        This::wxControlWithItems(), N::integer().
 getClientData(#wx_ref{type=ThisT}=This,N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -279,7 +279,7 @@ Note that it is an error to call this function if any untyped client data pointe
 been associated with the control items before.
 """.
 -spec setClientData(This, N, Data) -> 'ok' when
-	This::wxControlWithItems(), N::integer(), Data::term().
+        This::wxControlWithItems(), N::integer(), Data::term().
 setClientData(#wx_ref{type=ThisT}=This,N,Data)
  when is_integer(N) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -291,7 +291,7 @@ Returns the number of items in the control.
 See: `isEmpty/1`
 """.
 -spec getCount(This) -> integer() when
-	This::wxControlWithItems().
+        This::wxControlWithItems().
 getCount(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxControlWithItems),
   wxe_util:queue_cmd(This,?get_env(),?wxControlWithItems_GetCount),
@@ -311,7 +311,7 @@ See:
 * `getStringSelection/1`
 """.
 -spec getSelection(This) -> integer() when
-	This::wxControlWithItems().
+        This::wxControlWithItems().
 getSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxControlWithItems),
   wxe_util:queue_cmd(This,?get_env(),?wxControlWithItems_GetSelection),
@@ -323,7 +323,7 @@ Returns the label of the item with the given index.
 Return: The label of the item or an empty string if the position was invalid.
 """.
 -spec getString(This, N) -> unicode:charlist() when
-	This::wxControlWithItems(), N::integer().
+        This::wxControlWithItems(), N::integer().
 getString(#wx_ref{type=ThisT}=This,N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -336,7 +336,7 @@ Returns the label of the selected item or an empty string if no item is selected
 See: `getSelection/1`
 """.
 -spec getStringSelection(This) -> unicode:charlist() when
-	This::wxControlWithItems().
+        This::wxControlWithItems().
 getStringSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxControlWithItems),
   wxe_util:queue_cmd(This,?get_env(),?wxControlWithItems_GetStringSelection),
@@ -349,7 +349,7 @@ Return: The return value is the index of the newly inserted item. If the inserti
 for some reason, -1 is returned.
 """.
 -spec insert(This, Item, Pos) -> integer() when
-	This::wxControlWithItems(), Item::unicode:chardata(), Pos::integer().
+        This::wxControlWithItems(), Item::unicode:chardata(), Pos::integer().
 insert(#wx_ref{type=ThisT}=This,Item,Pos)
  when ?is_chardata(Item),is_integer(Pos) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -364,7 +364,7 @@ Return: The return value is the index of the newly inserted item. If the inserti
 for some reason, -1 is returned.
 """.
 -spec insert(This, Item, Pos, ClientData) -> integer() when
-	This::wxControlWithItems(), Item::unicode:chardata(), Pos::integer(), ClientData::term().
+        This::wxControlWithItems(), Item::unicode:chardata(), Pos::integer(), ClientData::term().
 insert(#wx_ref{type=ThisT}=This,Item,Pos,ClientData)
  when ?is_chardata(Item),is_integer(Pos) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -382,7 +382,7 @@ Return: The return value is the index of the last inserted item. If the insertio
 for some reason, -1 is returned.
 """.
 -spec insertStrings(This, Items, Pos) -> integer() when
-	This::wxControlWithItems(), Items::[unicode:chardata()], Pos::integer().
+        This::wxControlWithItems(), Items::[unicode:chardata()], Pos::integer().
 insertStrings(#wx_ref{type=ThisT}=This,Items,Pos)
  when is_list(Items),is_integer(Pos) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -401,7 +401,7 @@ Return: The return value is the index of the last inserted item. If the insertio
 for some reason, -1 is returned.
 """.
 -spec insertStrings(This, Items, Pos, ClientsData) -> integer() when
-	This::wxControlWithItems(), Items::[unicode:chardata()], Pos::integer(), ClientsData::[term()].
+        This::wxControlWithItems(), Items::[unicode:chardata()], Pos::integer(), ClientsData::[term()].
 insertStrings(#wx_ref{type=ThisT}=This,Items,Pos,ClientsData)
  when is_list(Items),is_integer(Pos),is_list(ClientsData) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -416,7 +416,7 @@ Returns true if the control is empty or false if it has some items.
 See: `getCount/1`
 """.
 -spec isEmpty(This) -> boolean() when
-	This::wxControlWithItems().
+        This::wxControlWithItems().
 isEmpty(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxControlWithItems),
   wxe_util:queue_cmd(This,?get_env(),?wxControlWithItems_IsEmpty),
@@ -427,7 +427,7 @@ This is the same as `setSelection/2` and exists only because it is slightly more
 for controls which support multiple selection.
 """.
 -spec select(This, N) -> 'ok' when
-	This::wxControlWithItems(), N::integer().
+        This::wxControlWithItems(), N::integer().
 select(#wx_ref{type=ThisT}=This,N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -445,7 +445,7 @@ See:
 * `setStringSelection/2`
 """.
 -spec setSelection(This, N) -> 'ok' when
-	This::wxControlWithItems(), N::integer().
+        This::wxControlWithItems(), N::integer().
 setSelection(#wx_ref{type=ThisT}=This,N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -453,7 +453,7 @@ setSelection(#wx_ref{type=ThisT}=This,N)
 
 -doc "Sets the label for the given item.".
 -spec setString(This, N, String) -> 'ok' when
-	This::wxControlWithItems(), N::integer(), String::unicode:chardata().
+        This::wxControlWithItems(), N::integer(), String::unicode:chardata().
 setString(#wx_ref{type=ThisT}=This,N,String)
  when is_integer(N),?is_chardata(String) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -473,7 +473,7 @@ Return: true if the specified string has been selected, false if it wasn't found
 control.
 """.
 -spec setStringSelection(This, String) -> boolean() when
-	This::wxControlWithItems(), String::unicode:chardata().
+        This::wxControlWithItems(), String::unicode:chardata().
 setStringSelection(#wx_ref{type=ThisT}=This,String)
  when ?is_chardata(String) ->
   ?CLASS(ThisT,wxControlWithItems),

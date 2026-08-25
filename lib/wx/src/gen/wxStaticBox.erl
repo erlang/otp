@@ -147,7 +147,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id,Label, [])}).
 -spec new(Parent, Id, Label) -> wxStaticBox() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
+        Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
 new(Parent,Id,Label)
  when is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Label) ->
@@ -177,7 +177,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Label, Options)
 
 -doc(#{equiv => create(This,Parent,Id,Label, [])}).
 -spec create(This, Parent, Id, Label) -> boolean() when
-	This::wxStaticBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
+        This::wxStaticBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
 create(This,Parent,Id,Label)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Label) ->

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -98,7 +98,7 @@ new() ->
 
 -doc "Copy constructor, uses overview\_refcount.".
 -spec new(Palette) -> wxPalette() when
-	Palette::wxPalette().
+        Palette::wxPalette().
 new(#wx_ref{type=PaletteT}=Palette) ->
   ?CLASS(PaletteT,wxPalette),
   wxe_util:queue_cmd(Palette,?get_env(),?wxPalette_new_1),
@@ -110,7 +110,7 @@ Creates a palette from arrays of size `n`, one for each red, blue or green compo
 See: `create/4`
 """.
 -spec new(Red, Green, Blue) -> wxPalette() when
-	Red::binary(), Green::binary(), Blue::binary().
+        Red::binary(), Green::binary(), Blue::binary().
 new(Red,Green,Blue)
  when is_binary(Red),is_binary(Green),is_binary(Blue) ->
   wxe_util:queue_cmd(Red,Green,Blue,?get_env(),?wxPalette_new_4),
@@ -124,7 +124,7 @@ Return: true if the creation was successful, false otherwise.
 See: `new/3`
 """.
 -spec create(This, Red, Green, Blue) -> boolean() when
-	This::wxPalette(), Red::binary(), Green::binary(), Blue::binary().
+        This::wxPalette(), Red::binary(), Green::binary(), Blue::binary().
 create(#wx_ref{type=ThisT}=This,Red,Green,Blue)
  when is_binary(Red),is_binary(Green),is_binary(Blue) ->
   ?CLASS(ThisT,wxPalette),
@@ -133,7 +133,7 @@ create(#wx_ref{type=ThisT}=This,Red,Green,Blue)
 
 -doc "Returns number of entries in palette.".
 -spec getColoursCount(This) -> integer() when
-	This::wxPalette().
+        This::wxPalette().
 getColoursCount(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPalette),
   wxe_util:queue_cmd(This,?get_env(),?wxPalette_GetColoursCount),
@@ -147,7 +147,7 @@ Return: The nearest palette index or `wxNOT_FOUND` for unexpected errors.
 See: `getRGB/2`
 """.
 -spec getPixel(This, Red, Green, Blue) -> integer() when
-	This::wxPalette(), Red::integer(), Green::integer(), Blue::integer().
+        This::wxPalette(), Red::integer(), Green::integer(), Blue::integer().
 getPixel(#wx_ref{type=ThisT}=This,Red,Green,Blue)
  when is_integer(Red),is_integer(Green),is_integer(Blue) ->
   ?CLASS(ThisT,wxPalette),
@@ -172,7 +172,7 @@ getRGB(#wx_ref{type=ThisT}=This,Pixel)
 
 -doc "Equivalent to: `isOk/1`".
 -spec ok(This) -> boolean() when
-	This::wxPalette().
+        This::wxPalette().
 
 ok(This)
  when is_record(This, wx_ref) ->
@@ -180,7 +180,7 @@ ok(This)
 
 -doc "Returns true if palette data is present.".
 -spec isOk(This) -> boolean() when
-	This::wxPalette().
+        This::wxPalette().
 isOk(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPalette),
   wxe_util:queue_cmd(This,?get_env(),?wxPalette_IsOk),

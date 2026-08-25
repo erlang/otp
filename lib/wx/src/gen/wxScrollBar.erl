@@ -213,7 +213,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxScrollBar() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -244,7 +244,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc(#{equiv => create(This,Parent,Id, [])}).
 -spec create(This, Parent, Id) -> boolean() when
-	This::wxScrollBar(), Parent::wxWindow:wxWindow(), Id::integer().
+        This::wxScrollBar(), Parent::wxWindow:wxWindow(), Id::integer().
 
 create(This,Parent,Id)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
@@ -280,7 +280,7 @@ Returns the length of the scrollbar.
 See: `setScrollbar/6`
 """.
 -spec getRange(This) -> integer() when
-	This::wxScrollBar().
+        This::wxScrollBar().
 getRange(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxScrollBar),
   wxe_util:queue_cmd(This,?get_env(),?wxScrollBar_GetRange),
@@ -295,7 +295,7 @@ Often it is the same as the thumb size.
 See: `setScrollbar/6`
 """.
 -spec getPageSize(This) -> integer() when
-	This::wxScrollBar().
+        This::wxScrollBar().
 getPageSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxScrollBar),
   wxe_util:queue_cmd(This,?get_env(),?wxScrollBar_GetPageSize),
@@ -307,7 +307,7 @@ Returns the current position of the scrollbar thumb.
 See: `setThumbPosition/2`
 """.
 -spec getThumbPosition(This) -> integer() when
-	This::wxScrollBar().
+        This::wxScrollBar().
 getThumbPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxScrollBar),
   wxe_util:queue_cmd(This,?get_env(),?wxScrollBar_GetThumbPosition),
@@ -319,7 +319,7 @@ Returns the thumb or 'view' size.
 See: `setScrollbar/6`
 """.
 -spec getThumbSize(This) -> integer() when
-	This::wxScrollBar().
+        This::wxScrollBar().
 getThumbSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxScrollBar),
   wxe_util:queue_cmd(This,?get_env(),?wxScrollBar_GetThumbSize),
@@ -331,7 +331,7 @@ Sets the position of the scrollbar.
 See: `getThumbPosition/1`
 """.
 -spec setThumbPosition(This, ViewStart) -> 'ok' when
-	This::wxScrollBar(), ViewStart::integer().
+        This::wxScrollBar(), ViewStart::integer().
 setThumbPosition(#wx_ref{type=ThisT}=This,ViewStart)
  when is_integer(ViewStart) ->
   ?CLASS(ThisT,wxScrollBar),
@@ -339,7 +339,7 @@ setThumbPosition(#wx_ref{type=ThisT}=This,ViewStart)
 
 -doc(#{equiv => setScrollbar(This,Position,ThumbSize,Range,PageSize, [])}).
 -spec setScrollbar(This, Position, ThumbSize, Range, PageSize) -> 'ok' when
-	This::wxScrollBar(), Position::integer(), ThumbSize::integer(), Range::integer(), PageSize::integer().
+        This::wxScrollBar(), Position::integer(), ThumbSize::integer(), Range::integer(), PageSize::integer().
 
 setScrollbar(This,Position,ThumbSize,Range,PageSize)
  when is_record(This, wx_ref),is_integer(Position),is_integer(ThumbSize),is_integer(Range),is_integer(PageSize) ->

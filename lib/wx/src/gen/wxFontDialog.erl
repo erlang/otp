@@ -152,7 +152,7 @@ Pass a parent window, and the `m:wxFontData` object to be used to initialize the
 controls.
 """.
 -spec new(Parent, Data) -> wxFontDialog() when
-	Parent::wxWindow:wxWindow(), Data::wxFontData:wxFontData().
+        Parent::wxWindow:wxWindow(), Data::wxFontData:wxFontData().
 new(#wx_ref{type=ParentT}=Parent,#wx_ref{type=DataT}=Data) ->
   ?CLASS(ParentT,wxWindow),
   ?CLASS(DataT,wxFontData),
@@ -166,7 +166,7 @@ constructor.
 Return: true on success and false if an error occurred.
 """.
 -spec create(This, Parent, Data) -> boolean() when
-	This::wxFontDialog(), Parent::wxWindow:wxWindow(), Data::wxFontData:wxFontData().
+        This::wxFontDialog(), Parent::wxWindow:wxWindow(), Data::wxFontData:wxFontData().
 create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,#wx_ref{type=DataT}=Data) ->
   ?CLASS(ThisT,wxFontDialog),
   ?CLASS(ParentT,wxWindow),
@@ -176,7 +176,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,#wx_ref{type=DataT}
 
 -doc "Returns the `m:wxFontData` associated with the font dialog.".
 -spec getFontData(This) -> wxFontData:wxFontData() when
-	This::wxFontDialog().
+        This::wxFontDialog().
 getFontData(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFontDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxFontDialog_GetFontData),

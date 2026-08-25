@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -138,9 +138,9 @@ new() ->
 -doc "Copy constructor, uses reference counting.".
 %%  Style = ?wxBRUSHSTYLE_INVALID | ?wxBRUSHSTYLE_SOLID | ?wxBRUSHSTYLE_TRANSPARENT | ?wxBRUSHSTYLE_STIPPLE_MASK_OPAQUE | ?wxBRUSHSTYLE_STIPPLE_MASK | ?wxBRUSHSTYLE_STIPPLE | ?wxBRUSHSTYLE_BDIAGONAL_HATCH | ?wxBRUSHSTYLE_CROSSDIAG_HATCH | ?wxBRUSHSTYLE_FDIAGONAL_HATCH | ?wxBRUSHSTYLE_CROSS_HATCH | ?wxBRUSHSTYLE_HORIZONTAL_HATCH | ?wxBRUSHSTYLE_VERTICAL_HATCH | ?wxBRUSHSTYLE_FIRST_HATCH | ?wxBRUSHSTYLE_LAST_HATCH
 -spec new(Colour) -> wxBrush() when
-	Colour::wx:wx_colour();
+        Colour::wx:wx_colour();
       (Brush) -> wxBrush() when
-	Brush::wxBrush:wxBrush() | wxBitmap:wxBitmap().
+        Brush::wxBrush:wxBrush() | wxBitmap:wxBitmap().
 
 new(Colour)
  when ?is_colordata(Colour) ->
@@ -175,7 +175,7 @@ Returns a reference to the brush colour.
 See: `setColour/4`
 """.
 -spec getColour(This) -> wx:wx_colour4() when
-	This::wxBrush().
+        This::wxBrush().
 getColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxBrush),
   wxe_util:queue_cmd(This,?get_env(),?wxBrush_GetColour),
@@ -190,7 +190,7 @@ but uninitialised (i.e. `m:wxBitmap`:`isOk/1` returns false).
 See: `setStipple/2`
 """.
 -spec getStipple(This) -> wxBitmap:wxBitmap() when
-	This::wxBrush().
+        This::wxBrush().
 getStipple(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxBrush),
   wxe_util:queue_cmd(This,?get_env(),?wxBrush_GetStipple),
@@ -208,7 +208,7 @@ See:
 """.
 %%  Res = ?wxBRUSHSTYLE_INVALID | ?wxBRUSHSTYLE_SOLID | ?wxBRUSHSTYLE_TRANSPARENT | ?wxBRUSHSTYLE_STIPPLE_MASK_OPAQUE | ?wxBRUSHSTYLE_STIPPLE_MASK | ?wxBRUSHSTYLE_STIPPLE | ?wxBRUSHSTYLE_BDIAGONAL_HATCH | ?wxBRUSHSTYLE_CROSSDIAG_HATCH | ?wxBRUSHSTYLE_FDIAGONAL_HATCH | ?wxBRUSHSTYLE_CROSS_HATCH | ?wxBRUSHSTYLE_HORIZONTAL_HATCH | ?wxBRUSHSTYLE_VERTICAL_HATCH | ?wxBRUSHSTYLE_FIRST_HATCH | ?wxBRUSHSTYLE_LAST_HATCH
 -spec getStyle(This) -> wx:wx_enum() when
-	This::wxBrush().
+        This::wxBrush().
 getStyle(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxBrush),
   wxe_util:queue_cmd(This,?get_env(),?wxBrush_GetStyle),
@@ -220,7 +220,7 @@ Returns true if the style of the brush is any of hatched fills.
 See: `getStyle/1`
 """.
 -spec isHatch(This) -> boolean() when
-	This::wxBrush().
+        This::wxBrush().
 isHatch(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxBrush),
   wxe_util:queue_cmd(This,?get_env(),?wxBrush_IsHatch),
@@ -233,7 +233,7 @@ Notice that an uninitialized brush object can't be queried for any brush propert
 all calls to the accessor methods on it will result in an assert failure.
 """.
 -spec isOk(This) -> boolean() when
-	This::wxBrush().
+        This::wxBrush().
 isOk(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxBrush),
   wxe_util:queue_cmd(This,?get_env(),?wxBrush_IsOk),
@@ -245,7 +245,7 @@ Sets the brush colour using red, green and blue values.
 See: `getColour/1`
 """.
 -spec setColour(This, Colour) -> 'ok' when
-	This::wxBrush(), Colour::wx:wx_colour().
+        This::wxBrush(), Colour::wx:wx_colour().
 setColour(#wx_ref{type=ThisT}=This,Colour)
  when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxBrush),
@@ -253,7 +253,7 @@ setColour(#wx_ref{type=ThisT}=This,Colour)
 
 -doc "".
 -spec setColour(This, Red, Green, Blue) -> 'ok' when
-	This::wxBrush(), Red::integer(), Green::integer(), Blue::integer().
+        This::wxBrush(), Red::integer(), Green::integer(), Blue::integer().
 setColour(#wx_ref{type=ThisT}=This,Red,Green,Blue)
  when is_integer(Red),is_integer(Green),is_integer(Blue) ->
   ?CLASS(ThisT,wxBrush),
@@ -268,7 +268,7 @@ associated to it, in which case the style will be set to `wxBRUSHSTYLE_STIPPLE_M
 See: `m:wxBitmap`
 """.
 -spec setStipple(This, Bitmap) -> 'ok' when
-	This::wxBrush(), Bitmap::wxBitmap:wxBitmap().
+        This::wxBrush(), Bitmap::wxBitmap:wxBitmap().
 setStipple(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
   ?CLASS(ThisT,wxBrush),
   ?CLASS(BitmapT,wxBitmap),
@@ -281,7 +281,7 @@ See: `getStyle/1`
 """.
 %%  Style = ?wxBRUSHSTYLE_INVALID | ?wxBRUSHSTYLE_SOLID | ?wxBRUSHSTYLE_TRANSPARENT | ?wxBRUSHSTYLE_STIPPLE_MASK_OPAQUE | ?wxBRUSHSTYLE_STIPPLE_MASK | ?wxBRUSHSTYLE_STIPPLE | ?wxBRUSHSTYLE_BDIAGONAL_HATCH | ?wxBRUSHSTYLE_CROSSDIAG_HATCH | ?wxBRUSHSTYLE_FDIAGONAL_HATCH | ?wxBRUSHSTYLE_CROSS_HATCH | ?wxBRUSHSTYLE_HORIZONTAL_HATCH | ?wxBRUSHSTYLE_VERTICAL_HATCH | ?wxBRUSHSTYLE_FIRST_HATCH | ?wxBRUSHSTYLE_LAST_HATCH
 -spec setStyle(This, Style) -> 'ok' when
-	This::wxBrush(), Style::wx:wx_enum().
+        This::wxBrush(), Style::wx:wx_enum().
 setStyle(#wx_ref{type=ThisT}=This,Style)
  when is_integer(Style) ->
   ?CLASS(ThisT,wxBrush),

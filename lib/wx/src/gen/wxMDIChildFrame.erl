@@ -163,7 +163,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id,Title, [])}).
 -spec new(Parent, Id, Title) -> wxMDIChildFrame() when
-	Parent::wxMDIParentFrame:wxMDIParentFrame(), Id::integer(), Title::unicode:chardata().
+        Parent::wxMDIParentFrame:wxMDIParentFrame(), Id::integer(), Title::unicode:chardata().
 
 new(Parent,Id,Title)
  when is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Title) ->
@@ -200,14 +200,14 @@ See:
 * `restore/1`
 """.
 -spec activate(This) -> 'ok' when
-	This::wxMDIChildFrame().
+        This::wxMDIChildFrame().
 activate(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMDIChildFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxMDIChildFrame_Activate).
 
 -doc(#{equiv => create(This,Parent,Id,Title, [])}).
 -spec create(This, Parent, Id, Title) -> boolean() when
-	This::wxMDIChildFrame(), Parent::wxMDIParentFrame:wxMDIParentFrame(), Id::integer(), Title::unicode:chardata().
+        This::wxMDIChildFrame(), Parent::wxMDIParentFrame:wxMDIParentFrame(), Id::integer(), Title::unicode:chardata().
 
 create(This,Parent,Id,Title)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Title) ->
@@ -238,7 +238,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,Title, Options)
 
 -doc(#{equiv => maximize(This, [])}).
 -spec maximize(This) -> 'ok' when
-	This::wxMDIChildFrame().
+        This::wxMDIChildFrame().
 
 maximize(This)
  when is_record(This, wx_ref) ->
@@ -278,7 +278,7 @@ See:
 * `maximize/2`
 """.
 -spec restore(This) -> 'ok' when
-	This::wxMDIChildFrame().
+        This::wxMDIChildFrame().
 restore(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMDIChildFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxMDIChildFrame_Restore).

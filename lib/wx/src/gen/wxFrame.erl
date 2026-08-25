@@ -250,7 +250,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id,Title, [])}).
 -spec new(Parent, Id, Title) -> wxFrame() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
+        Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
 new(Parent,Id,Title)
  when is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Title) ->
@@ -283,7 +283,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Title, Options)
 
 -doc(#{equiv => create(This,Parent,Id,Title, [])}).
 -spec create(This, Parent, Id, Title) -> boolean() when
-	This::wxFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
+        This::wxFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
 create(This,Parent,Id,Title)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Title) ->
@@ -314,7 +314,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,Title, Options)
 
 -doc(#{equiv => createStatusBar(This, [])}).
 -spec createStatusBar(This) -> wxStatusBar:wxStatusBar() when
-	This::wxFrame().
+        This::wxFrame().
 
 createStatusBar(This)
  when is_record(This, wx_ref) ->
@@ -352,7 +352,7 @@ createStatusBar(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => createToolBar(This, [])}).
 -spec createToolBar(This) -> wxToolBar:wxToolBar() when
-	This::wxFrame().
+        This::wxFrame().
 
 createToolBar(This)
  when is_record(This, wx_ref) ->
@@ -398,7 +398,7 @@ Returns the origin of the frame client area (in client coordinates).
 It may be different from (0, 0) if the frame has a toolbar.
 """.
 -spec getClientAreaOrigin(This) -> {X::integer(), Y::integer()} when
-	This::wxFrame().
+        This::wxFrame().
 getClientAreaOrigin(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxFrame_GetClientAreaOrigin),
@@ -415,7 +415,7 @@ See:
 * `m:wxMenu`
 """.
 -spec getMenuBar(This) -> wxMenuBar:wxMenuBar() when
-	This::wxFrame().
+        This::wxFrame().
 getMenuBar(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxFrame_GetMenuBar),
@@ -430,7 +430,7 @@ See:
 * `m:wxStatusBar`
 """.
 -spec getStatusBar(This) -> wxStatusBar:wxStatusBar() when
-	This::wxFrame().
+        This::wxFrame().
 getStatusBar(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxFrame_GetStatusBar),
@@ -442,7 +442,7 @@ Returns the status bar pane used to display menu and toolbar help.
 See: `setStatusBarPane/2`
 """.
 -spec getStatusBarPane(This) -> integer() when
-	This::wxFrame().
+        This::wxFrame().
 getStatusBarPane(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxFrame_GetStatusBarPane),
@@ -459,7 +459,7 @@ See:
 * `setToolBar/2`
 """.
 -spec getToolBar(This) -> wxToolBar:wxToolBar() when
-	This::wxFrame().
+        This::wxFrame().
 getToolBar(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxFrame_GetToolBar),
@@ -467,7 +467,7 @@ getToolBar(#wx_ref{type=ThisT}=This) ->
 
 -doc "Simulate a menu command.".
 -spec processCommand(This, Id) -> boolean() when
-	This::wxFrame(), Id::integer().
+        This::wxFrame(), Id::integer().
 processCommand(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxFrame),
@@ -476,7 +476,7 @@ processCommand(#wx_ref{type=ThisT}=This,Id)
 
 -doc(#{equiv => sendSizeEvent(This, [])}).
 -spec sendSizeEvent(This) -> 'ok' when
-	This::wxFrame().
+        This::wxFrame().
 
 sendSizeEvent(This)
  when is_record(This, wx_ref) ->
@@ -523,7 +523,7 @@ See:
 * `m:wxMenu`
 """.
 -spec setMenuBar(This, MenuBar) -> 'ok' when
-	This::wxFrame(), MenuBar::wxMenuBar:wxMenuBar().
+        This::wxFrame(), MenuBar::wxMenuBar:wxMenuBar().
 setMenuBar(#wx_ref{type=ThisT}=This,#wx_ref{type=MenuBarT}=MenuBar) ->
   ?CLASS(ThisT,wxFrame),
   ?CLASS(MenuBarT,wxMenuBar),
@@ -543,7 +543,7 @@ See:
 * `getStatusBar/1`
 """.
 -spec setStatusBar(This, StatusBar) -> 'ok' when
-	This::wxFrame(), StatusBar::wxStatusBar:wxStatusBar().
+        This::wxFrame(), StatusBar::wxStatusBar:wxStatusBar().
 setStatusBar(#wx_ref{type=ThisT}=This,#wx_ref{type=StatusBarT}=StatusBar) ->
   ?CLASS(ThisT,wxFrame),
   ?CLASS(StatusBarT,wxStatusBar),
@@ -555,7 +555,7 @@ Set the status bar pane used to display menu and toolbar help.
 Using -1 disables help display.
 """.
 -spec setStatusBarPane(This, N) -> 'ok' when
-	This::wxFrame(), N::integer().
+        This::wxFrame(), N::integer().
 setStatusBarPane(#wx_ref{type=ThisT}=This,N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxFrame),
@@ -563,7 +563,7 @@ setStatusBarPane(#wx_ref{type=ThisT}=This,N)
 
 -doc(#{equiv => setStatusText(This,Text, [])}).
 -spec setStatusText(This, Text) -> 'ok' when
-	This::wxFrame(), Text::unicode:chardata().
+        This::wxFrame(), Text::unicode:chardata().
 
 setStatusText(This,Text)
  when is_record(This, wx_ref),?is_chardata(Text) ->
@@ -602,7 +602,7 @@ fields, minus the sum of widths of the non-variable fields, divided by the numbe
 variable fields.
 """.
 -spec setStatusWidths(This, Widths_field) -> 'ok' when
-	This::wxFrame(), Widths_field::[integer()].
+        This::wxFrame(), Widths_field::[integer()].
 setStatusWidths(#wx_ref{type=ThisT}=This,Widths_field)
  when is_list(Widths_field) ->
   ?CLASS(ThisT,wxFrame),
@@ -610,7 +610,7 @@ setStatusWidths(#wx_ref{type=ThisT}=This,Widths_field)
 
 -doc "Associates a toolbar with the frame.".
 -spec setToolBar(This, ToolBar) -> 'ok' when
-	This::wxFrame(), ToolBar::wxToolBar:wxToolBar().
+        This::wxFrame(), ToolBar::wxToolBar:wxToolBar().
 setToolBar(#wx_ref{type=ThisT}=This,#wx_ref{type=ToolBarT}=ToolBar) ->
   ?CLASS(ThisT,wxFrame),
   ?CLASS(ToolBarT,wxToolBar),

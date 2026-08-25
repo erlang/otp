@@ -190,7 +190,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxListBox() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -225,7 +225,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc(#{equiv => create(This,Parent,Id,Pos,Size,Choices, [])}).
 -spec create(This, Parent, Id, Pos, Size, Choices) -> boolean() when
-	This::wxListBox(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
+        This::wxListBox(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
 
 create(This,Parent,Id,{PosX,PosY} = Pos,{SizeW,SizeH} = Size,Choices)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
@@ -255,7 +255,7 @@ Deselects an item in the list box.
 Remark: This applies to multiple selection listboxes only.
 """.
 -spec deselect(This, N) -> 'ok' when
-	This::wxListBox(), N::integer().
+        This::wxListBox(), N::integer().
 deselect(#wx_ref{type=ThisT}=This,N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxListBox),
@@ -285,7 +285,7 @@ getSelections(#wx_ref{type=ThisT}=This) ->
 
 -doc "Insert the given number of strings before the specified position.".
 -spec insertItems(This, Items, Pos) -> 'ok' when
-	This::wxListBox(), Items::[unicode:chardata()], Pos::integer().
+        This::wxListBox(), Items::[unicode:chardata()], Pos::integer().
 insertItems(#wx_ref{type=ThisT}=This,Items,Pos)
  when is_list(Items),is_integer(Pos) ->
   ?CLASS(ThisT,wxListBox),
@@ -299,7 +299,7 @@ Determines whether an item is selected.
 Return: true if the given item is selected, false otherwise.
 """.
 -spec isSelected(This, N) -> boolean() when
-	This::wxListBox(), N::integer().
+        This::wxListBox(), N::integer().
 isSelected(#wx_ref{type=ThisT}=This,N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxListBox),
@@ -313,7 +313,7 @@ Notice that calling this method is usually much faster than appending them one b
 you need to add a lot of items.
 """.
 -spec set(This, Items) -> 'ok' when
-	This::wxListBox(), Items::[unicode:chardata()].
+        This::wxListBox(), Items::[unicode:chardata()].
 set(#wx_ref{type=ThisT}=This,Items)
  when is_list(Items) ->
   ?CLASS(ThisT,wxListBox),
@@ -331,7 +331,7 @@ Return: Item located at point, or wxNOT_FOUND if unimplemented or the item does 
 Since: 2.7.0
 """.
 -spec hitTest(This, Point) -> integer() when
-	This::wxListBox(), Point::{X::integer(), Y::integer()}.
+        This::wxListBox(), Point::{X::integer(), Y::integer()}.
 hitTest(#wx_ref{type=ThisT}=This,{PointX,PointY} = Point)
  when is_integer(PointX),is_integer(PointY) ->
   ?CLASS(ThisT,wxListBox),
@@ -343,7 +343,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec hitTest(This, X, Y) -> integer() when
-	This::wxListBox(), X::integer(), Y::integer().
+        This::wxListBox(), X::integer(), Y::integer().
 hitTest(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxListBox),
@@ -352,9 +352,9 @@ hitTest(#wx_ref{type=ThisT}=This,X,Y)
 
 -doc "Set the specified item to be the first visible item.".
 -spec setFirstItem(This, N) -> 'ok' when
-	This::wxListBox(), N::integer();
+        This::wxListBox(), N::integer();
       (This, String) -> 'ok' when
-	This::wxListBox(), String::unicode:chardata().
+        This::wxListBox(), String::unicode:chardata().
 setFirstItem(#wx_ref{type=ThisT}=This,N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxListBox),

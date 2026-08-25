@@ -161,7 +161,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxChoice() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -194,7 +194,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc(#{equiv => create(This,Parent,Id,Pos,Size,Choices, [])}).
 -spec create(This, Parent, Id, Pos, Size, Choices) -> boolean() when
-	This::wxChoice(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
+        This::wxChoice(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
 
 create(This,Parent,Id,{PosX,PosY} = Pos,{SizeW,SizeH} = Size,Choices)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
@@ -233,7 +233,7 @@ selection is preserved unchanged.
 See: `wxControlWithItems:clear/1`
 """.
 -spec delete(This, N) -> 'ok' when
-	This::wxChoice(), N::integer().
+        This::wxChoice(), N::integer().
 delete(#wx_ref{type=ThisT}=This,N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxChoice),
@@ -246,7 +246,7 @@ Remark: This is implemented for GTK and Motif only and always returns 1 for the 
 platforms.
 """.
 -spec getColumns(This) -> integer() when
-	This::wxChoice().
+        This::wxChoice().
 getColumns(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxChoice),
   wxe_util:queue_cmd(This,?get_env(),?wxChoice_GetColumns),
@@ -254,7 +254,7 @@ getColumns(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => setColumns(This, [])}).
 -spec setColumns(This) -> 'ok' when
-	This::wxChoice().
+        This::wxChoice().
 
 setColumns(This)
  when is_record(This, wx_ref) ->

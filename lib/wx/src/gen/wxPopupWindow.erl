@@ -142,7 +142,7 @@ new() ->
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxPopupWindow() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -163,7 +163,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
 
 -doc(#{equiv => create(This,Parent, [])}).
 -spec create(This, Parent) -> boolean() when
-	This::wxPopupWindow(), Parent::wxWindow:wxWindow().
+        This::wxPopupWindow(), Parent::wxWindow:wxWindow().
 
 create(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
@@ -190,7 +190,7 @@ The popup is positioned at ptOrigin + size if it opens below and to the right (d
 at ptOrigin - sizePopup if it opens above and to the left etc.
 """.
 -spec position(This, PtOrigin, SizePopup) -> 'ok' when
-	This::wxPopupWindow(), PtOrigin::{X::integer(), Y::integer()}, SizePopup::{W::integer(), H::integer()}.
+        This::wxPopupWindow(), PtOrigin::{X::integer(), Y::integer()}, SizePopup::{W::integer(), H::integer()}.
 position(#wx_ref{type=ThisT}=This,{PtOriginX,PtOriginY} = PtOrigin,{SizePopupW,SizePopupH} = SizePopup)
  when is_integer(PtOriginX),is_integer(PtOriginY),is_integer(SizePopupW),is_integer(SizePopupH) ->
   ?CLASS(ThisT,wxPopupWindow),

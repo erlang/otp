@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ Returns the `wx_wxHtmlLinkInfo()` which contains info about the cell clicked and
 hyperlink it contains.
 """.
 -spec getLinkInfo(This) -> wx:wx_wxHtmlLinkInfo() when
-	This::wxHtmlLinkEvent().
+        This::wxHtmlLinkEvent().
 getLinkInfo(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxHtmlLinkEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlLinkEvent_GetLinkInfo),

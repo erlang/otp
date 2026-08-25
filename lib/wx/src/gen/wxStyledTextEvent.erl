@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -135,7 +135,7 @@ This method is valid for the following event types:
 * `wxEVT_STC_MARGIN_RIGHT_CLICK`
 """.
 -spec getPosition(This) -> integer() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetPosition),
@@ -155,7 +155,7 @@ This method is valid for the following event types:
 * `wxEVT_STC_AUTOCOMP_COMPLETED`
 """.
 -spec getKey(This) -> integer() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getKey(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetKey),
@@ -198,7 +198,7 @@ This method is valid for the following event types:
 * `wxEVT_STC_MARGIN_RIGHT_CLICK`
 """.
 -spec getModifiers(This) -> integer() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getModifiers(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetModifiers),
@@ -257,7 +257,7 @@ It may contain one or more of the following values:
 This method is valid for `wxEVT_STC_MODIFIED` events.
 """.
 -spec getModificationType(This) -> integer() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getModificationType(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetModificationType),
@@ -269,7 +269,7 @@ Deprecated:
 Use `wxCommandEvent:getString/1` instead.
 """.
 -spec getText(This) -> unicode:charlist() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getText(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetText),
@@ -281,7 +281,7 @@ Returns the length (number of characters) of this event.
 This method is valid for `wxEVT_STC_MODIFIED` and `wxEVT_STC_NEEDSHOWN` events.
 """.
 -spec getLength(This) -> integer() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getLength(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetLength),
@@ -294,7 +294,7 @@ This method is valid for `wxEVT_STC_MODIFIED` events when the result of `getModi
 ?wxSTC\_MOD\_INSERTTEXT or ?wxSTC\_MOD\_DELETETEXT.
 """.
 -spec getLinesAdded(This) -> integer() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getLinesAdded(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetLinesAdded),
@@ -306,7 +306,7 @@ Returns zero-based line number for this event.
 This method is valid for `wxEVT_STC_DOUBLECLICK` and `wxEVT_STC_MODIFIED` events.
 """.
 -spec getLine(This) -> integer() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getLine(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetLine),
@@ -319,7 +319,7 @@ This method is valid for `wxEVT_STC_MODIFIED` events when the result of `getModi
 ?wxSTC\_MOD\_CHANGEFOLD.
 """.
 -spec getFoldLevelNow(This) -> integer() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getFoldLevelNow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetFoldLevelNow),
@@ -332,7 +332,7 @@ This method is valid for `wxEVT_STC_MODIFIED` events when the result of `getModi
 ?wxSTC\_MOD\_CHANGEFOLD.
 """.
 -spec getFoldLevelPrev(This) -> integer() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getFoldLevelPrev(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetFoldLevelPrev),
@@ -345,7 +345,7 @@ This method is valid for `wxEVT_STC_MARGINCLICK` and `wxEVT_STC_MARGIN_RIGHT_CLI
 events.
 """.
 -spec getMargin(This) -> integer() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getMargin(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetMargin),
@@ -361,7 +361,7 @@ macro can be played back later.
 This method is valid for `wxEVT_STC_MACRORECORD` events.
 """.
 -spec getMessage(This) -> integer() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getMessage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetMessage),
@@ -373,7 +373,7 @@ Returns value of the WParam field for this event.
 This method is valid for `wxEVT_STC_MACRORECORD` events.
 """.
 -spec getWParam(This) -> integer() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getWParam(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetWParam),
@@ -385,7 +385,7 @@ Returns the value of the LParam field for this event.
 This method is valid for `wxEVT_STC_MACRORECORD` events.
 """.
 -spec getLParam(This) -> integer() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getLParam(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetLParam),
@@ -401,7 +401,7 @@ This method is valid for `wxEVT_STC_AUTOCOMP_SELECTION_CHANGE` and `wxEVT_STC_US
 events.
 """.
 -spec getListType(This) -> integer() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getListType(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetListType),
@@ -423,7 +423,7 @@ This method is valid for the following event types:
 * `wxEVT_STC_DO_DROP`
 """.
 -spec getX(This) -> integer() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getX(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetX),
@@ -445,7 +445,7 @@ This method is valid for the following event types:
 * `wxEVT_STC_DO_DROP`
 """.
 -spec getY(This) -> integer() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getY(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetY),
@@ -457,7 +457,7 @@ Deprecated:
 Use `wxCommandEvent:getString/1` instead.
 """.
 -spec getDragText(This) -> unicode:charlist() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getDragText(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetDragText),
@@ -465,7 +465,7 @@ getDragText(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec getDragAllowMove(This) -> boolean() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getDragAllowMove(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetDragAllowMove),
@@ -478,7 +478,7 @@ This method is valid for `wxEVT_STC_DRAG_OVER` and `wxEVT_STC_DO_DROP` events.
 """.
 %%  Res = ?wxDragError | ?wxDragNone | ?wxDragCopy | ?wxDragMove | ?wxDragLink | ?wxDragCancel
 -spec getDragResult(This) -> wx:wx_enum() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getDragResult(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetDragResult),
@@ -506,7 +506,7 @@ This method is valid for the following event types:
 * `wxEVT_STC_MARGIN_RIGHT_CLICK`
 """.
 -spec getShift(This) -> boolean() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getShift(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetShift),
@@ -534,7 +534,7 @@ This method is valid for the following event types:
 * `wxEVT_STC_MARGIN_RIGHT_CLICK`
 """.
 -spec getControl(This) -> boolean() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getControl(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetControl),
@@ -562,7 +562,7 @@ This method is valid for the following event types:
 * `wxEVT_STC_MARGIN_RIGHT_CLICK`
 """.
 -spec getAlt(This) -> boolean() when
-	This::wxStyledTextEvent().
+        This::wxStyledTextEvent().
 getAlt(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextEvent_GetAlt),

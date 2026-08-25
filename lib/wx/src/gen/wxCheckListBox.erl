@@ -159,7 +159,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxCheckListBox() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -188,7 +188,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc(#{equiv => check(This,Item, [])}).
 -spec check(This, Item) -> 'ok' when
-	This::wxCheckListBox(), Item::integer().
+        This::wxCheckListBox(), Item::integer().
 
 check(This,Item)
  when is_record(This, wx_ref),is_integer(Item) ->
@@ -212,7 +212,7 @@ check(#wx_ref{type=ThisT}=This,Item, Options)
 
 -doc "Returns true if the given item is checked, false otherwise.".
 -spec isChecked(This, Item) -> boolean() when
-	This::wxCheckListBox(), Item::integer().
+        This::wxCheckListBox(), Item::integer().
 isChecked(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxCheckListBox),

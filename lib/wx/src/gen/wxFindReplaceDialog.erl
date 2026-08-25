@@ -144,7 +144,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Data,Title, [])}).
 -spec new(Parent, Data, Title) -> wxFindReplaceDialog() when
-	Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::unicode:chardata().
+        Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::unicode:chardata().
 
 new(Parent,Data,Title)
  when is_record(Parent, wx_ref),is_record(Data, wx_ref),?is_chardata(Title) ->
@@ -171,7 +171,7 @@ new(#wx_ref{type=ParentT}=Parent,#wx_ref{type=DataT}=Data,Title, Options)
 
 -doc(#{equiv => create(This,Parent,Data,Title, [])}).
 -spec create(This, Parent, Data, Title) -> boolean() when
-	This::wxFindReplaceDialog(), Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::unicode:chardata().
+        This::wxFindReplaceDialog(), Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::unicode:chardata().
 
 create(This,Parent,Data,Title)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_record(Data, wx_ref),?is_chardata(Title) ->
@@ -199,7 +199,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,#wx_ref{type=DataT}
 
 -doc "Get the `m:wxFindReplaceData` object used by this dialog.".
 -spec getData(This) -> wxFindReplaceData:wxFindReplaceData() when
-	This::wxFindReplaceDialog().
+        This::wxFindReplaceDialog().
 getData(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFindReplaceDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxFindReplaceDialog_GetData),

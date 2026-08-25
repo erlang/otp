@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -101,9 +101,9 @@ Constructs a region using a bitmap.
 See `union/5` for more details.
 """.
 -spec new(Rect) -> wxRegion() when
-	Rect::{X::integer(), Y::integer(), W::integer(), H::integer()};
+        Rect::{X::integer(), Y::integer(), W::integer(), H::integer()};
       (Bmp) -> wxRegion() when
-	Bmp::wxBitmap:wxBitmap().
+        Bmp::wxBitmap:wxBitmap().
 new({RectX,RectY,RectW,RectH} = Rect)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
   wxe_util:queue_cmd(Rect,?get_env(),?wxRegion_new_1_0),
@@ -115,7 +115,7 @@ new(#wx_ref{type=BmpT}=Bmp) ->
 
 -doc "Constructs a rectangular region from the top left point and the bottom right point.".
 -spec new(TopLeft, BottomRight) -> wxRegion() when
-	TopLeft::{X::integer(), Y::integer()}, BottomRight::{X::integer(), Y::integer()}.
+        TopLeft::{X::integer(), Y::integer()}, BottomRight::{X::integer(), Y::integer()}.
 new({TopLeftX,TopLeftY} = TopLeft,{BottomRightX,BottomRightY} = BottomRight)
  when is_integer(TopLeftX),is_integer(TopLeftY),is_integer(BottomRightX),is_integer(BottomRightY) ->
   wxe_util:queue_cmd(TopLeft,BottomRight,?get_env(),?wxRegion_new_2),
@@ -123,7 +123,7 @@ new({TopLeftX,TopLeftY} = TopLeft,{BottomRightX,BottomRightY} = BottomRight)
 
 -doc "Constructs a rectangular region with the given position and size.".
 -spec new(X, Y, Width, Height) -> wxRegion() when
-	X::integer(), Y::integer(), Width::integer(), Height::integer().
+        X::integer(), Y::integer(), Width::integer(), Height::integer().
 new(X,Y,Width,Height)
  when is_integer(X),is_integer(Y),is_integer(Width),is_integer(Height) ->
   wxe_util:queue_cmd(X,Y,Width,Height,?get_env(),?wxRegion_new_4),
@@ -135,7 +135,7 @@ Clears the current region.
 The object becomes invalid, or null, after being cleared.
 """.
 -spec clear(This) -> 'ok' when
-	This::wxRegion().
+        This::wxRegion().
 clear(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxRegion),
   wxe_util:queue_cmd(This,?get_env(),?wxRegion_Clear).
@@ -153,9 +153,9 @@ then indicates that all or some part of the region is contained in this region.
 """.
 %%  Res = ?wxOutRegion | ?wxPartRegion | ?wxInRegion
 -spec contains(This, Pt) -> wx:wx_enum() when
-	This::wxRegion(), Pt::{X::integer(), Y::integer()};
+        This::wxRegion(), Pt::{X::integer(), Y::integer()};
       (This, Rect) -> wx:wx_enum() when
-	This::wxRegion(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
+        This::wxRegion(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
 contains(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
  when is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxRegion),
@@ -177,7 +177,7 @@ Return: The return value is one of `wxOutRegion` and `wxInRegion`.
 """.
 %%  Res = ?wxOutRegion | ?wxPartRegion | ?wxInRegion
 -spec contains(This, X, Y) -> wx:wx_enum() when
-	This::wxRegion(), X::integer(), Y::integer().
+        This::wxRegion(), X::integer(), Y::integer().
 contains(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxRegion),
@@ -197,7 +197,7 @@ then indicates that all or some part of the region is contained in this region.
 """.
 %%  Res = ?wxOutRegion | ?wxPartRegion | ?wxInRegion
 -spec contains(This, X, Y, Width, Height) -> wx:wx_enum() when
-	This::wxRegion(), X::integer(), Y::integer(), Width::integer(), Height::integer().
+        This::wxRegion(), X::integer(), Y::integer(), Width::integer(), Height::integer().
 contains(#wx_ref{type=ThisT}=This,X,Y,Width,Height)
  when is_integer(X),is_integer(Y),is_integer(Width),is_integer(Height) ->
   ?CLASS(ThisT,wxRegion),
@@ -211,7 +211,7 @@ region.
 This method can't be used for invalid region.
 """.
 -spec convertToBitmap(This) -> wxBitmap:wxBitmap() when
-	This::wxRegion().
+        This::wxRegion().
 convertToBitmap(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxRegion),
   wxe_util:queue_cmd(This,?get_env(),?wxRegion_ConvertToBitmap),
@@ -219,7 +219,7 @@ convertToBitmap(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec getBox(This) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
-	This::wxRegion().
+        This::wxRegion().
 getBox(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxRegion),
   wxe_util:queue_cmd(This,?get_env(),?wxRegion_GetBox),
@@ -237,9 +237,9 @@ Remark: Creates the intersection of the two regions, that is, the parts which ar
 regions. The result is stored in this region.
 """.
 -spec intersect(This, Rect) -> boolean() when
-	This::wxRegion(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()};
+        This::wxRegion(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()};
       (This, Region) -> boolean() when
-	This::wxRegion(), Region::wxRegion().
+        This::wxRegion(), Region::wxRegion().
 intersect(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
   ?CLASS(ThisT,wxRegion),
@@ -264,7 +264,7 @@ Remark: Creates the intersection of the two regions, that is, the parts which ar
 regions. The result is stored in this region.
 """.
 -spec intersect(This, X, Y, Width, Height) -> boolean() when
-	This::wxRegion(), X::integer(), Y::integer(), Width::integer(), Height::integer().
+        This::wxRegion(), X::integer(), Y::integer(), Width::integer(), Height::integer().
 intersect(#wx_ref{type=ThisT}=This,X,Y,Width,Height)
  when is_integer(X),is_integer(Y),is_integer(Width),is_integer(Height) ->
   ?CLASS(ThisT,wxRegion),
@@ -277,7 +277,7 @@ Returns true if the region is empty, false otherwise.
 Always returns true if the region is invalid.
 """.
 -spec isEmpty(This) -> boolean() when
-	This::wxRegion().
+        This::wxRegion().
 isEmpty(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxRegion),
   wxe_util:queue_cmd(This,?get_env(),?wxRegion_IsEmpty),
@@ -295,9 +295,9 @@ Remark: This operation combines the parts of 'this' region that are not part of 
 second region. The result is stored in this region.
 """.
 -spec subtract(This, Rect) -> boolean() when
-	This::wxRegion(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()};
+        This::wxRegion(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()};
       (This, Region) -> boolean() when
-	This::wxRegion(), Region::wxRegion().
+        This::wxRegion(), Region::wxRegion().
 subtract(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
   ?CLASS(ThisT,wxRegion),
@@ -311,7 +311,7 @@ subtract(#wx_ref{type=ThisT}=This,#wx_ref{type=RegionT}=Region) ->
 
 -doc "".
 -spec offset(This, Pt) -> boolean() when
-	This::wxRegion(), Pt::{X::integer(), Y::integer()}.
+        This::wxRegion(), Pt::{X::integer(), Y::integer()}.
 offset(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
  when is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxRegion),
@@ -327,7 +327,7 @@ it then. Attempts to do it will result in assert failure.
 Return: true if successful, false otherwise (the region is unchanged then).
 """.
 -spec offset(This, X, Y) -> boolean() when
-	This::wxRegion(), X::integer(), Y::integer().
+        This::wxRegion(), X::integer(), Y::integer().
 offset(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxRegion),
@@ -346,9 +346,9 @@ Remark: This operation creates a region that combines all of this region and the
 region. The result is stored in this region.
 """.
 -spec union(This, Region) -> boolean() when
-	This::wxRegion(), Region::wxRegion:wxRegion() | wxBitmap:wxBitmap();
+        This::wxRegion(), Region::wxRegion:wxRegion() | wxBitmap:wxBitmap();
       (This, Rect) -> boolean() when
-	This::wxRegion(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
+        This::wxRegion(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
 union(#wx_ref{type=ThisT}=This,#wx_ref{type=RegionT}=Region) ->
   ?CLASS(ThisT,wxRegion),
   IswxRegion = ?CLASS_T(RegionT,wxRegion),
@@ -368,7 +368,7 @@ union(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect)
 
 -doc(#{equiv => union(This,Bmp,TransColour, [])}).
 -spec union(This, Bmp, TransColour) -> boolean() when
-	This::wxRegion(), Bmp::wxBitmap:wxBitmap(), TransColour::wx:wx_colour().
+        This::wxRegion(), Bmp::wxBitmap:wxBitmap(), TransColour::wx:wx_colour().
 
 union(This,Bmp,TransColour)
  when is_record(This, wx_ref),is_record(Bmp, wx_ref),?is_colordata(TransColour) ->
@@ -411,7 +411,7 @@ Remark: This operation creates a region that combines all of this region and the
 region. The result is stored in this region.
 """.
 -spec union(This, X, Y, Width, Height) -> boolean() when
-	This::wxRegion(), X::integer(), Y::integer(), Width::integer(), Height::integer().
+        This::wxRegion(), X::integer(), Y::integer(), Width::integer(), Height::integer().
 union(#wx_ref{type=ThisT}=This,X,Y,Width,Height)
  when is_integer(X),is_integer(Y),is_integer(Width),is_integer(Height) ->
   ?CLASS(ThisT,wxRegion),
@@ -430,9 +430,9 @@ Remark: This operation creates a region that combines all of this region and the
 region, except for any overlapping areas. The result is stored in this region.
 """.
 -spec 'Xor'(This, Rect) -> boolean() when
-	This::wxRegion(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()};
+        This::wxRegion(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()};
       (This, Region) -> boolean() when
-	This::wxRegion(), Region::wxRegion().
+        This::wxRegion(), Region::wxRegion().
 'Xor'(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
   ?CLASS(ThisT,wxRegion),
@@ -457,7 +457,7 @@ Remark: This operation creates a region that combines all of this region and the
 region, except for any overlapping areas. The result is stored in this region.
 """.
 -spec 'Xor'(This, X, Y, Width, Height) -> boolean() when
-	This::wxRegion(), X::integer(), Y::integer(), Width::integer(), Height::integer().
+        This::wxRegion(), X::integer(), Y::integer(), Width::integer(), Height::integer().
 'Xor'(#wx_ref{type=ThisT}=This,X,Y,Width,Height)
  when is_integer(X),is_integer(Y),is_integer(Width),is_integer(Height) ->
   ?CLASS(ThisT,wxRegion),

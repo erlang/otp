@@ -159,7 +159,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id,Bitmap, [])}).
 -spec new(Parent, Id, Bitmap) -> wxBitmapButton() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Bitmap::wxBitmap:wxBitmap().
+        Parent::wxWindow:wxWindow(), Id::integer(), Bitmap::wxBitmap:wxBitmap().
 
 new(Parent,Id,Bitmap)
  when is_record(Parent, wx_ref),is_integer(Id),is_record(Bitmap, wx_ref) ->
@@ -195,7 +195,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,#wx_ref{type=BitmapT}=Bitmap, Options)
 
 -doc(#{equiv => create(This,Parent,Id,Bitmap, [])}).
 -spec create(This, Parent, Id, Bitmap) -> boolean() when
-	This::wxBitmapButton(), Parent::wxWindow:wxWindow(), Id::integer(), Bitmap::wxBitmap:wxBitmap().
+        This::wxBitmapButton(), Parent::wxWindow:wxWindow(), Id::integer(), Bitmap::wxBitmap:wxBitmap().
 
 create(This,Parent,Id,Bitmap)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_record(Bitmap, wx_ref) ->
@@ -238,7 +238,7 @@ Return: The new button.
 Since: 2.9.5
 """.
 -spec newCloseButton(Parent, Winid) -> wxBitmapButton() when
-	Parent::wxWindow:wxWindow(), Winid::integer().
+        Parent::wxWindow:wxWindow(), Winid::integer().
 newCloseButton(#wx_ref{type=ParentT}=Parent,Winid)
  when is_integer(Winid) ->
   ?CLASS(ParentT,wxWindow),

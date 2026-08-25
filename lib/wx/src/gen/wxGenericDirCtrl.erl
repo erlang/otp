@@ -160,7 +160,7 @@ new() ->
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxGenericDirCtrl() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -193,7 +193,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
 
 -doc(#{equiv => create(This,Parent, [])}).
 -spec create(This, Parent) -> boolean() when
-	This::wxGenericDirCtrl(), Parent::wxWindow:wxWindow().
+        This::wxGenericDirCtrl(), Parent::wxWindow:wxWindow().
 
 create(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
@@ -231,14 +231,14 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent, Options)
 
 -doc "Initializes variables.".
 -spec init(This) -> 'ok' when
-	This::wxGenericDirCtrl().
+        This::wxGenericDirCtrl().
 init(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxGenericDirCtrl_Init).
 
 -doc "Collapses the entire tree.".
 -spec collapseTree(This) -> 'ok' when
-	This::wxGenericDirCtrl().
+        This::wxGenericDirCtrl().
 collapseTree(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxGenericDirCtrl_CollapseTree).
@@ -248,7 +248,7 @@ Tries to expand as much of the given `path` as possible, so that the filename or
 directory is visible in the tree control.
 """.
 -spec expandPath(This, Path) -> boolean() when
-	This::wxGenericDirCtrl(), Path::unicode:chardata().
+        This::wxGenericDirCtrl(), Path::unicode:chardata().
 expandPath(#wx_ref{type=ThisT}=This,Path)
  when ?is_chardata(Path) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
@@ -258,7 +258,7 @@ expandPath(#wx_ref{type=ThisT}=This,Path)
 
 -doc "Gets the default path.".
 -spec getDefaultPath(This) -> unicode:charlist() when
-	This::wxGenericDirCtrl().
+        This::wxGenericDirCtrl().
 getDefaultPath(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxGenericDirCtrl_GetDefaultPath),
@@ -266,7 +266,7 @@ getDefaultPath(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the currently-selected directory or filename.".
 -spec getPath(This) -> unicode:charlist() when
-	This::wxGenericDirCtrl().
+        This::wxGenericDirCtrl().
 getPath(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxGenericDirCtrl_GetPath_0),
@@ -278,7 +278,7 @@ Gets the path corresponding to the given tree control item.
 Since: 2.9.5
 """.
 -spec getPath(This, ItemId) -> unicode:charlist() when
-	This::wxGenericDirCtrl(), ItemId::integer().
+        This::wxGenericDirCtrl(), ItemId::integer().
 getPath(#wx_ref{type=ThisT}=This,ItemId)
  when is_integer(ItemId) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
@@ -291,7 +291,7 @@ Gets selected filename path only (else empty string).
 This function doesn't count a directory as a selection.
 """.
 -spec getFilePath(This) -> unicode:charlist() when
-	This::wxGenericDirCtrl().
+        This::wxGenericDirCtrl().
 getFilePath(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxGenericDirCtrl_GetFilePath),
@@ -299,7 +299,7 @@ getFilePath(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the filter string.".
 -spec getFilter(This) -> unicode:charlist() when
-	This::wxGenericDirCtrl().
+        This::wxGenericDirCtrl().
 getFilter(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxGenericDirCtrl_GetFilter),
@@ -307,7 +307,7 @@ getFilter(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the current filter index (zero-based).".
 -spec getFilterIndex(This) -> integer() when
-	This::wxGenericDirCtrl().
+        This::wxGenericDirCtrl().
 getFilterIndex(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxGenericDirCtrl_GetFilterIndex),
@@ -315,7 +315,7 @@ getFilterIndex(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the root id for the tree control.".
 -spec getRootId(This) -> integer() when
-	This::wxGenericDirCtrl().
+        This::wxGenericDirCtrl().
 getRootId(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxGenericDirCtrl_GetRootId),
@@ -323,7 +323,7 @@ getRootId(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns a pointer to the tree control.".
 -spec getTreeCtrl(This) -> wxTreeCtrl:wxTreeCtrl() when
-	This::wxGenericDirCtrl().
+        This::wxGenericDirCtrl().
 getTreeCtrl(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxGenericDirCtrl_GetTreeCtrl),
@@ -335,14 +335,14 @@ Collapse and expand the tree, thus re-creating it from scratch.
 May be used to update the displayed directory content.
 """.
 -spec reCreateTree(This) -> 'ok' when
-	This::wxGenericDirCtrl().
+        This::wxGenericDirCtrl().
 reCreateTree(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxGenericDirCtrl_ReCreateTree).
 
 -doc "Sets the default path.".
 -spec setDefaultPath(This, Path) -> 'ok' when
-	This::wxGenericDirCtrl(), Path::unicode:chardata().
+        This::wxGenericDirCtrl(), Path::unicode:chardata().
 setDefaultPath(#wx_ref{type=ThisT}=This,Path)
  when ?is_chardata(Path) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
@@ -351,7 +351,7 @@ setDefaultPath(#wx_ref{type=ThisT}=This,Path)
 
 -doc "Sets the filter string.".
 -spec setFilter(This, Filter) -> 'ok' when
-	This::wxGenericDirCtrl(), Filter::unicode:chardata().
+        This::wxGenericDirCtrl(), Filter::unicode:chardata().
 setFilter(#wx_ref{type=ThisT}=This,Filter)
  when ?is_chardata(Filter) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
@@ -360,7 +360,7 @@ setFilter(#wx_ref{type=ThisT}=This,Filter)
 
 -doc "Sets the current filter index (zero-based).".
 -spec setFilterIndex(This, N) -> 'ok' when
-	This::wxGenericDirCtrl(), N::integer().
+        This::wxGenericDirCtrl(), N::integer().
 setFilterIndex(#wx_ref{type=ThisT}=This,N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
@@ -368,7 +368,7 @@ setFilterIndex(#wx_ref{type=ThisT}=This,N)
 
 -doc "Sets the current path.".
 -spec setPath(This, Path) -> 'ok' when
-	This::wxGenericDirCtrl(), Path::unicode:chardata().
+        This::wxGenericDirCtrl(), Path::unicode:chardata().
 setPath(#wx_ref{type=ThisT}=This,Path)
  when ?is_chardata(Path) ->
   ?CLASS(ThisT,wxGenericDirCtrl),

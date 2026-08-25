@@ -144,7 +144,7 @@ new() ->
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxStaticLine() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -175,7 +175,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
 
 -doc(#{equiv => create(This,Parent, [])}).
 -spec create(This, Parent) -> boolean() when
-	This::wxStaticLine(), Parent::wxWindow:wxWindow().
+        This::wxStaticLine(), Parent::wxWindow:wxWindow().
 
 create(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
@@ -207,7 +207,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent, Options)
 
 -doc "Returns true if the line is vertical, false if horizontal.".
 -spec isVertical(This) -> boolean() when
-	This::wxStaticLine().
+        This::wxStaticLine().
 isVertical(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStaticLine),
   wxe_util:queue_cmd(This,?get_env(),?wxStaticLine_IsVertical),

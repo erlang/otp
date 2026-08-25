@@ -170,7 +170,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxFontPickerCtrl() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -199,7 +199,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc(#{equiv => create(This,Parent,Id, [])}).
 -spec create(This, Parent, Id) -> boolean() when
-	This::wxFontPickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer().
+        This::wxFontPickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer().
 
 create(This,Parent,Id)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
@@ -237,7 +237,7 @@ Returns the currently selected font.
 Note that this function is completely different from `wxWindow:getFont/1`.
 """.
 -spec getSelectedFont(This) -> wxFont:wxFont() when
-	This::wxFontPickerCtrl().
+        This::wxFontPickerCtrl().
 getSelectedFont(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFontPickerCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxFontPickerCtrl_GetSelectedFont),
@@ -249,7 +249,7 @@ Sets the currently selected font.
 Note that this function is completely different from `wxWindow:setFont/2`.
 """.
 -spec setSelectedFont(This, Font) -> 'ok' when
-	This::wxFontPickerCtrl(), Font::wxFont:wxFont().
+        This::wxFontPickerCtrl(), Font::wxFont:wxFont().
 setSelectedFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   ?CLASS(ThisT,wxFontPickerCtrl),
   ?CLASS(FontT,wxFont),
@@ -257,7 +257,7 @@ setSelectedFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
 
 -doc "Returns the maximum point size value allowed for the user-chosen font.".
 -spec getMaxPointSize(This) -> integer() when
-	This::wxFontPickerCtrl().
+        This::wxFontPickerCtrl().
 getMaxPointSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFontPickerCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxFontPickerCtrl_GetMaxPointSize),
@@ -272,7 +272,7 @@ specify the fontsize through a text control (see wxFNTP_USE_TEXTCTRL), it's a go
 put a limit to the maximum font size when huge fonts do not make much sense.
 """.
 -spec setMaxPointSize(This, Max) -> 'ok' when
-	This::wxFontPickerCtrl(), Max::integer().
+        This::wxFontPickerCtrl(), Max::integer().
 setMaxPointSize(#wx_ref{type=ThisT}=This,Max)
  when is_integer(Max) ->
   ?CLASS(ThisT,wxFontPickerCtrl),

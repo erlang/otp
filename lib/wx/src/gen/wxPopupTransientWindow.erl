@@ -133,7 +133,7 @@ new() ->
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxPopupTransientWindow() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -154,7 +154,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
 
 -doc(#{equiv => popup(This, [])}).
 -spec popup(This) -> 'ok' when
-	This::wxPopupTransientWindow().
+        This::wxPopupTransientWindow().
 
 popup(This)
  when is_record(This, wx_ref) ->
@@ -182,7 +182,7 @@ popup(#wx_ref{type=ThisT}=This, Options)
 
 -doc "Hide the window.".
 -spec dismiss(This) -> 'ok' when
-	This::wxPopupTransientWindow().
+        This::wxPopupTransientWindow().
 dismiss(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPopupTransientWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxPopupTransientWindow_Dismiss).

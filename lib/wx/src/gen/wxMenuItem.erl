@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -147,7 +147,7 @@ new(Options)
 
 -doc(#{equiv => check(This, [])}).
 -spec check(This) -> 'ok' when
-	This::wxMenuItem().
+        This::wxMenuItem().
 
 check(This)
  when is_record(This, wx_ref) ->
@@ -171,7 +171,7 @@ check(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => enable(This, [])}).
 -spec enable(This) -> 'ok' when
-	This::wxMenuItem().
+        This::wxMenuItem().
 
 enable(This)
  when is_record(This, wx_ref) ->
@@ -195,7 +195,7 @@ Returns the checked or unchecked bitmap.
 Only for:wxmsw
 """.
 -spec getBitmap(This) -> wxBitmap:wxBitmap() when
-	This::wxMenuItem().
+        This::wxMenuItem().
 getBitmap(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenuItem),
   wxe_util:queue_cmd(This,?get_env(),?wxMenuItem_GetBitmap),
@@ -203,7 +203,7 @@ getBitmap(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the help string associated with the menu item.".
 -spec getHelp(This) -> unicode:charlist() when
-	This::wxMenuItem().
+        This::wxMenuItem().
 getHelp(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenuItem),
   wxe_util:queue_cmd(This,?get_env(),?wxMenuItem_GetHelp),
@@ -211,7 +211,7 @@ getHelp(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the menu item identifier.".
 -spec getId(This) -> integer() when
-	This::wxMenuItem().
+        This::wxMenuItem().
 getId(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenuItem),
   wxe_util:queue_cmd(This,?get_env(),?wxMenuItem_GetId),
@@ -220,7 +220,7 @@ getId(#wx_ref{type=ThisT}=This) ->
 -doc "Returns the item kind, one of `wxITEM\_SEPARATOR`, `wxITEM\_NORMAL`, `wxITEM\_CHECK` or `wxITEM\_RADIO`.".
 %%  Res = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_DROPDOWN | ?wxITEM_MAX
 -spec getKind(This) -> wx:wx_enum() when
-	This::wxMenuItem().
+        This::wxMenuItem().
 getKind(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenuItem),
   wxe_util:queue_cmd(This,?get_env(),?wxMenuItem_GetKind),
@@ -228,7 +228,7 @@ getKind(#wx_ref{type=ThisT}=This) ->
 
 -doc "Equivalent to: `getLabelText/1`".
 -spec getLabelFromText(Text) -> unicode:charlist() when
-	Text::unicode:chardata().
+        Text::unicode:chardata().
 
 getLabelFromText(Text)
  when ?is_chardata(Text) ->
@@ -247,7 +247,7 @@ See:
 * `getItemLabel/1`
 """.
 -spec getLabelText(Text) -> unicode:charlist() when
-	Text::unicode:chardata().
+        Text::unicode:chardata().
 getLabelText(Text)
  when ?is_chardata(Text) ->
   Text_UC = unicode:characters_to_binary(Text),
@@ -256,7 +256,7 @@ getLabelText(Text)
 
 -doc "Equivalent to: `getItemLabel/1`".
 -spec getText(This) -> unicode:charlist() when
-	This::wxMenuItem().
+        This::wxMenuItem().
 
 getText(This)
  when is_record(This, wx_ref) ->
@@ -272,7 +272,7 @@ See:
 * `getLabelText/1`
 """.
 -spec getItemLabel(This) -> unicode:charlist() when
-	This::wxMenuItem().
+        This::wxMenuItem().
 getItemLabel(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenuItem),
   wxe_util:queue_cmd(This,?get_env(),?wxMenuItem_GetItemLabel),
@@ -280,7 +280,7 @@ getItemLabel(#wx_ref{type=ThisT}=This) ->
 
 -doc "Equivalent to: `getItemLabelText/1`".
 -spec getLabel(This) -> unicode:charlist() when
-	This::wxMenuItem().
+        This::wxMenuItem().
 
 getLabel(This)
  when is_record(This, wx_ref) ->
@@ -295,7 +295,7 @@ See:
 * `getLabelText/1`
 """.
 -spec getItemLabelText(This) -> unicode:charlist() when
-	This::wxMenuItem().
+        This::wxMenuItem().
 getItemLabelText(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenuItem),
   wxe_util:queue_cmd(This,?get_env(),?wxMenuItem_GetItemLabelText),
@@ -303,7 +303,7 @@ getItemLabelText(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the menu this menu item is in, or NULL if this menu item is not attached.".
 -spec getMenu(This) -> wxMenu:wxMenu() when
-	This::wxMenuItem().
+        This::wxMenuItem().
 getMenu(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenuItem),
   wxe_util:queue_cmd(This,?get_env(),?wxMenuItem_GetMenu),
@@ -311,7 +311,7 @@ getMenu(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the submenu associated with the menu item, or NULL if there isn't one.".
 -spec getSubMenu(This) -> wxMenu:wxMenu() when
-	This::wxMenuItem().
+        This::wxMenuItem().
 getSubMenu(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenuItem),
   wxe_util:queue_cmd(This,?get_env(),?wxMenuItem_GetSubMenu),
@@ -325,7 +325,7 @@ returns true for them too. Use `IsCheck()` (not implemented in wx) if you want t
 the check items only.
 """.
 -spec isCheckable(This) -> boolean() when
-	This::wxMenuItem().
+        This::wxMenuItem().
 isCheckable(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenuItem),
   wxe_util:queue_cmd(This,?get_env(),?wxMenuItem_IsCheckable),
@@ -333,7 +333,7 @@ isCheckable(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the item is checked.".
 -spec isChecked(This) -> boolean() when
-	This::wxMenuItem().
+        This::wxMenuItem().
 isChecked(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenuItem),
   wxe_util:queue_cmd(This,?get_env(),?wxMenuItem_IsChecked),
@@ -341,7 +341,7 @@ isChecked(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the item is enabled.".
 -spec isEnabled(This) -> boolean() when
-	This::wxMenuItem().
+        This::wxMenuItem().
 isEnabled(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenuItem),
   wxe_util:queue_cmd(This,?get_env(),?wxMenuItem_IsEnabled),
@@ -349,7 +349,7 @@ isEnabled(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the item is a separator.".
 -spec isSeparator(This) -> boolean() when
-	This::wxMenuItem().
+        This::wxMenuItem().
 isSeparator(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenuItem),
   wxe_util:queue_cmd(This,?get_env(),?wxMenuItem_IsSeparator),
@@ -357,7 +357,7 @@ isSeparator(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the item is a submenu.".
 -spec isSubMenu(This) -> boolean() when
-	This::wxMenuItem().
+        This::wxMenuItem().
 isSubMenu(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenuItem),
   wxe_util:queue_cmd(This,?get_env(),?wxMenuItem_IsSubMenu),
@@ -380,7 +380,7 @@ images should be shown in the menus at all. If it is off (which is the case in e
 Only for:wxmsw,wxosx,wxgtk
 """.
 -spec setBitmap(This, Bmp) -> 'ok' when
-	This::wxMenuItem(), Bmp::wxBitmap:wxBitmap().
+        This::wxMenuItem(), Bmp::wxBitmap:wxBitmap().
 setBitmap(#wx_ref{type=ThisT}=This,#wx_ref{type=BmpT}=Bmp) ->
   ?CLASS(ThisT,wxMenuItem),
   ?CLASS(BmpT,wxBitmap),
@@ -388,7 +388,7 @@ setBitmap(#wx_ref{type=ThisT}=This,#wx_ref{type=BmpT}=Bmp) ->
 
 -doc "Sets the help string.".
 -spec setHelp(This, HelpString) -> 'ok' when
-	This::wxMenuItem(), HelpString::unicode:chardata().
+        This::wxMenuItem(), HelpString::unicode:chardata().
 setHelp(#wx_ref{type=ThisT}=This,HelpString)
  when ?is_chardata(HelpString) ->
   ?CLASS(ThisT,wxMenuItem),
@@ -397,7 +397,7 @@ setHelp(#wx_ref{type=ThisT}=This,HelpString)
 
 -doc "Sets the parent menu which will contain this menu item.".
 -spec setMenu(This, Menu) -> 'ok' when
-	This::wxMenuItem(), Menu::wxMenu:wxMenu().
+        This::wxMenuItem(), Menu::wxMenu:wxMenu().
 setMenu(#wx_ref{type=ThisT}=This,#wx_ref{type=MenuT}=Menu) ->
   ?CLASS(ThisT,wxMenuItem),
   ?CLASS(MenuT,wxMenu),
@@ -405,7 +405,7 @@ setMenu(#wx_ref{type=ThisT}=This,#wx_ref{type=MenuT}=Menu) ->
 
 -doc "Sets the submenu of this menu item.".
 -spec setSubMenu(This, Menu) -> 'ok' when
-	This::wxMenuItem(), Menu::wxMenu:wxMenu().
+        This::wxMenuItem(), Menu::wxMenu:wxMenu().
 setSubMenu(#wx_ref{type=ThisT}=This,#wx_ref{type=MenuT}=Menu) ->
   ?CLASS(ThisT,wxMenuItem),
   ?CLASS(MenuT,wxMenu),
@@ -413,7 +413,7 @@ setSubMenu(#wx_ref{type=ThisT}=This,#wx_ref{type=MenuT}=Menu) ->
 
 -doc "Equivalent to: `setItemLabel/2`".
 -spec setText(This, Label) -> 'ok' when
-	This::wxMenuItem(), Label::unicode:chardata().
+        This::wxMenuItem(), Label::unicode:chardata().
 
 setText(This,Label)
  when is_record(This, wx_ref),?is_chardata(Label) ->
@@ -612,7 +612,7 @@ See:
 * `getItemLabelText/1`
 """.
 -spec setItemLabel(This, Label) -> 'ok' when
-	This::wxMenuItem(), Label::unicode:chardata().
+        This::wxMenuItem(), Label::unicode:chardata().
 setItemLabel(#wx_ref{type=ThisT}=This,Label)
  when ?is_chardata(Label) ->
   ?CLASS(ThisT,wxMenuItem),

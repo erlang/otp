@@ -138,7 +138,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Parent,Message, [])}).
 -spec new(Parent, Message) -> wxPasswordEntryDialog() when
-	Parent::wxWindow:wxWindow(), Message::unicode:chardata().
+        Parent::wxWindow:wxWindow(), Message::unicode:chardata().
 
 new(Parent,Message)
  when is_record(Parent, wx_ref),?is_chardata(Message) ->

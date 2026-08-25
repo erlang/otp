@@ -458,12 +458,12 @@ init_it(Starter, Parent, Name, Mod, Args, [WxEnv|Options]) ->
 init_it2(Ref, Starter, Parent, Name, State, Mod, Timeout, Debug) ->
     ok = wxe_util:register_pid(Ref),
     case ?CLASS_T(Ref#wx_ref.type, wxWindow) of
-	false -> 
-	    exit({Ref, "not a wxWindow subclass"});
-	true ->
-	    Starter ! {started, self(), Ref#wx_ref{state=self()}},
-	    proc_lib:init_ack(Starter, {ok, self()}),
-	    loop(Parent, Name, State, Mod, Timeout, Debug)
+        false ->
+            exit({Ref, "not a wxWindow subclass"});
+        true ->
+            Starter ! {started, self(), Ref#wx_ref{state=self()}},
+            proc_lib:init_ack(Starter, {ok, self()}),
+            loop(Parent, Name, State, Mod, Timeout, Debug)
     end.
 
 %%%========================================================================
@@ -475,20 +475,20 @@ init_it2(Ref, Starter, Parent, Name, State, Mod, Timeout, Debug) ->
 loop(Parent, Name, State, Mod, hibernate, Debug) ->
     put('_wx_object_', {Mod,State}),
     receive
-	Msg ->
-	    erlang:garbage_collect(),
-	    loop_msg(Msg, Parent, Name, State, Mod, hibernate, Debug)
+        Msg ->
+            erlang:garbage_collect(),
+            loop_msg(Msg, Parent, Name, State, Mod, hibernate, Debug)
     after 0 ->
-	    proc_lib:hibernate(?MODULE, loop_wake, [Parent, Name, State, Mod, Debug])
+            proc_lib:hibernate(?MODULE, loop_wake, [Parent, Name, State, Mod, Debug])
     end;
 loop(Parent, Name, State, Mod, Time, Debug) ->
     put('_wx_object_', {Mod,State}),
     Msg = receive
-	      Input ->
-		  Input
-	  after Time ->
-		  timeout
-	  end,
+              Input ->
+                  Input
+          after Time ->
+                  timeout
+          end,
     loop_msg(Msg, Parent, Name, State, Mod, Time, Debug).
 
 %% @hidden
@@ -496,25 +496,25 @@ loop(Parent, Name, State, Mod, Time, Debug) ->
 -spec loop_wake(_, _, _, _, _) -> no_return().
 loop_wake(Parent, Name, State, Mod, Debug) ->
     receive
-	Msg ->
-	    loop_msg(Msg, Parent, Name, State, Mod, hibernate, Debug)
+        Msg ->
+            loop_msg(Msg, Parent, Name, State, Mod, hibernate, Debug)
     end.
 
 loop_msg(Msg, Parent, Name, State, Mod, Time, Debug) ->
     case Msg of
-	{system, From, Req} ->
-	    sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
-				  [Name, State, Mod, Time]);
-	{'EXIT', Parent, Reason} ->
-	    terminate(Reason, Name, Msg, Mod, State, Debug);
-	{'_wxe_destroy_', _Me} ->
-	    terminate(wx_deleted, Name, Msg, Mod, State, Debug);
-	_Msg when Debug =:= [] ->
-	    handle_msg(Msg, Parent, Name, State, Mod);
-	_Msg ->
-	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
-				      Name, {in, Msg}),
-	    handle_msg(Msg, Parent, Name, State, Mod, Debug1)
+        {system, From, Req} ->
+            sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
+                                  [Name, State, Mod, Time]);
+        {'EXIT', Parent, Reason} ->
+            terminate(Reason, Name, Msg, Mod, State, Debug);
+        {'_wxe_destroy_', _Me} ->
+            terminate(wx_deleted, Name, Msg, Mod, State, Debug);
+        _Msg when Debug =:= [] ->
+            handle_msg(Msg, Parent, Name, State, Mod);
+        _Msg ->
+            Debug1 = sys:handle_debug(Debug, fun print_event/3,
+                                      Name, {in, Msg}),
+            handle_msg(Msg, Parent, Name, State, Mod, Debug1)
     end.
 
 %%% ---------------------------------------------------
@@ -665,19 +665,19 @@ terminate(Reason, Name, Msg, Mod, State, Debug) ->
 	    error_info(R, Name, Msg, State, Debug),
 	    exit(R);
 	_ ->
-	    case Reason of
-		normal ->
-		    exit(normal);
-		shutdown ->
-		    exit(shutdown);
-		{shutdown, _} ->
-		    exit(Reason);
-		wx_deleted ->
-		    exit(normal);
-		_ ->
-		    error_info(Reason, Name, Msg, State, Debug),
-		    exit(Reason)
-	    end
+            case Reason of
+                normal ->
+                    exit(normal);
+                shutdown ->
+                    exit(shutdown);
+                {shutdown, _} ->
+                    exit(Reason);
+                wx_deleted ->
+                    exit(normal);
+                _ ->
+                    error_info(Reason, Name, Msg, State, Debug),
+                    exit(Reason)
+            end
     end.
 
 try_terminate(Mod, Reason, State) ->

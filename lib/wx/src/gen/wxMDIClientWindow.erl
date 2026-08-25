@@ -151,7 +151,7 @@ new() ->
 
 -doc(#{equiv => createClient(This,Parent, [])}).
 -spec createClient(This, Parent) -> boolean() when
-	This::wxMDIClientWindow(), Parent::wxMDIParentFrame:wxMDIParentFrame().
+        This::wxMDIClientWindow(), Parent::wxMDIParentFrame:wxMDIParentFrame().
 
 createClient(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->

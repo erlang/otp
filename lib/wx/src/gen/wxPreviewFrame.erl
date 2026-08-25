@@ -144,7 +144,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Preview,Parent, [])}).
 -spec new(Preview, Parent) -> wxPreviewFrame() when
-	Preview::wxPrintPreview:wxPrintPreview(), Parent::wxWindow:wxWindow().
+        Preview::wxPrintPreview:wxPrintPreview(), Parent::wxWindow:wxWindow().
 
 new(Preview,Parent)
  when is_record(Preview, wx_ref),is_record(Parent, wx_ref) ->
@@ -181,7 +181,7 @@ Creates a `m:wxPreviewControlBar`.
 Override this function to allow a user-defined preview control bar object to be created.
 """.
 -spec createControlBar(This) -> 'ok' when
-	This::wxPreviewFrame().
+        This::wxPreviewFrame().
 createControlBar(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPreviewFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxPreviewFrame_CreateControlBar).
@@ -192,7 +192,7 @@ Creates a `m:wxPreviewCanvas`.
 Override this function to allow a user-defined preview canvas object to be created.
 """.
 -spec createCanvas(This) -> 'ok' when
-	This::wxPreviewFrame().
+        This::wxPreviewFrame().
 createCanvas(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPreviewFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxPreviewFrame_CreateCanvas).
@@ -207,7 +207,7 @@ Please notice that this function is virtual mostly for backwards compatibility o
 there is no real need to override it as it's never called by wxWidgets itself.
 """.
 -spec initialize(This) -> 'ok' when
-	This::wxPreviewFrame().
+        This::wxPreviewFrame().
 initialize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPreviewFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxPreviewFrame_Initialize).
@@ -217,7 +217,7 @@ Enables any disabled frames in the application, and deletes the print preview ob
 implicitly deleting any printout objects associated with the print preview object.
 """.
 -spec onCloseWindow(This, Event) -> 'ok' when
-	This::wxPreviewFrame(), Event::wxCloseEvent:wxCloseEvent().
+        This::wxPreviewFrame(), Event::wxCloseEvent:wxCloseEvent().
 onCloseWindow(#wx_ref{type=ThisT}=This,#wx_ref{type=EventT}=Event) ->
   ?CLASS(ThisT,wxPreviewFrame),
   ?CLASS(EventT,wxCloseEvent),

@@ -181,7 +181,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id,Title, [])}).
 -spec new(Parent, Id, Title) -> wxMiniFrame() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
+        Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
 new(Parent,Id,Title)
  when is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Title) ->
@@ -213,7 +213,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Title, Options)
 
 -doc(#{equiv => create(This,Parent,Id,Title, [])}).
 -spec create(This, Parent, Id, Title) -> boolean() when
-	This::wxMiniFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
+        This::wxMiniFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
 create(This,Parent,Id,Title)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Title) ->

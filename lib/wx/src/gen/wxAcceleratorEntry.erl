@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -90,7 +90,7 @@ new() ->
 		 | {'cmd', integer()}
 		 | {'item', wxMenuItem:wxMenuItem()};
       (Entry) -> wxAcceleratorEntry() when
-	Entry::wxAcceleratorEntry().
+        Entry::wxAcceleratorEntry().
 new(Options)
  when is_list(Options) ->
   MOpts = fun({flags, _flags} = Arg) -> Arg;
@@ -108,7 +108,7 @@ new(#wx_ref{type=EntryT}=Entry) ->
 
 -doc "Returns the command identifier for the accelerator table entry.".
 -spec getCommand(This) -> integer() when
-	This::wxAcceleratorEntry().
+        This::wxAcceleratorEntry().
 getCommand(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAcceleratorEntry),
   wxe_util:queue_cmd(This,?get_env(),?wxAcceleratorEntry_GetCommand),
@@ -116,7 +116,7 @@ getCommand(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the flags for the accelerator table entry.".
 -spec getFlags(This) -> integer() when
-	This::wxAcceleratorEntry().
+        This::wxAcceleratorEntry().
 getFlags(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAcceleratorEntry),
   wxe_util:queue_cmd(This,?get_env(),?wxAcceleratorEntry_GetFlags),
@@ -124,7 +124,7 @@ getFlags(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the keycode for the accelerator table entry.".
 -spec getKeyCode(This) -> integer() when
-	This::wxAcceleratorEntry().
+        This::wxAcceleratorEntry().
 getKeyCode(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAcceleratorEntry),
   wxe_util:queue_cmd(This,?get_env(),?wxAcceleratorEntry_GetKeyCode),
@@ -132,7 +132,7 @@ getKeyCode(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => set(This,Flags,KeyCode,Cmd, [])}).
 -spec set(This, Flags, KeyCode, Cmd) -> 'ok' when
-	This::wxAcceleratorEntry(), Flags::integer(), KeyCode::integer(), Cmd::integer().
+        This::wxAcceleratorEntry(), Flags::integer(), KeyCode::integer(), Cmd::integer().
 
 set(This,Flags,KeyCode,Cmd)
  when is_record(This, wx_ref),is_integer(Flags),is_integer(KeyCode),is_integer(Cmd) ->

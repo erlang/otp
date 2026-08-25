@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -104,7 +104,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc "Returns true if the Alt key was down at the time of the event.".
 -spec altDown(This) -> boolean() when
-	This::wxGridEvent().
+        This::wxGridEvent().
 altDown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxGridEvent_AltDown),
@@ -112,7 +112,7 @@ altDown(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the Control key was down at the time of the event.".
 -spec controlDown(This) -> boolean() when
-	This::wxGridEvent().
+        This::wxGridEvent().
 controlDown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxGridEvent_ControlDown),
@@ -125,7 +125,7 @@ Notice that for a `wxEVT_GRID_SELECT_CELL` event this column is the column of th
 selected cell while the previously selected cell can be retrieved using `wxGrid:getGridCursorCol/1`.
 """.
 -spec getCol(This) -> integer() when
-	This::wxGridEvent().
+        This::wxGridEvent().
 getCol(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxGridEvent_GetCol),
@@ -133,7 +133,7 @@ getCol(#wx_ref{type=ThisT}=This) ->
 
 -doc "Position in pixels at which the event occurred.".
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
-	This::wxGridEvent().
+        This::wxGridEvent().
 getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxGridEvent_GetPosition),
@@ -146,7 +146,7 @@ Notice that for a `wxEVT_GRID_SELECT_CELL` event this row is the row of the newl
 selected cell while the previously selected cell can be retrieved using `wxGrid:getGridCursorRow/1`.
 """.
 -spec getRow(This) -> integer() when
-	This::wxGridEvent().
+        This::wxGridEvent().
 getRow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxGridEvent_GetRow),
@@ -154,7 +154,7 @@ getRow(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the Meta key was down at the time of the event.".
 -spec metaDown(This) -> boolean() when
-	This::wxGridEvent().
+        This::wxGridEvent().
 metaDown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxGridEvent_MetaDown),
@@ -162,7 +162,7 @@ metaDown(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the user is selecting grid cells, or false if deselecting.".
 -spec selecting(This) -> boolean() when
-	This::wxGridEvent().
+        This::wxGridEvent().
 selecting(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxGridEvent_Selecting),
@@ -170,7 +170,7 @@ selecting(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the Shift key was down at the time of the event.".
 -spec shiftDown(This) -> boolean() when
-	This::wxGridEvent().
+        This::wxGridEvent().
 shiftDown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxGridEvent_ShiftDown),

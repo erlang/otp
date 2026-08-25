@@ -163,7 +163,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id,Label, [])}).
 -spec new(Parent, Id, Label) -> wxRadioButton() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
+        Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
 new(Parent,Id,Label)
  when is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Label) ->
@@ -195,7 +195,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Label, Options)
 
 -doc(#{equiv => create(This,Parent,Id,Label, [])}).
 -spec create(This, Parent, Id, Label) -> boolean() when
-	This::wxRadioButton(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
+        This::wxRadioButton(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
 create(This,Parent,Id,Label)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Label) ->
@@ -228,7 +228,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,Label, Options)
 
 -doc "Returns true if the radio button is checked, false otherwise.".
 -spec getValue(This) -> boolean() when
-	This::wxRadioButton().
+        This::wxRadioButton().
 getValue(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxRadioButton),
   wxe_util:queue_cmd(This,?get_env(),?wxRadioButton_GetValue),
@@ -249,7 +249,7 @@ focus had previously been on another radio button in the same group - as otherwi
 it on wouldn't work.
 """.
 -spec setValue(This, Value) -> 'ok' when
-	This::wxRadioButton(), Value::boolean().
+        This::wxRadioButton(), Value::boolean().
 setValue(#wx_ref{type=ThisT}=This,Value)
  when is_boolean(Value) ->
   ?CLASS(ThisT,wxRadioButton),

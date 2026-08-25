@@ -171,7 +171,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxTreebook() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -196,7 +196,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc(#{equiv => addPage(This,Page,Text, [])}).
 -spec addPage(This, Page, Text) -> boolean() when
-	This::wxTreebook(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
+        This::wxTreebook(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
 addPage(This,Page,Text)
  when is_record(This, wx_ref),is_record(Page, wx_ref),?is_chardata(Text) ->
@@ -226,7 +226,7 @@ addPage(#wx_ref{type=ThisT}=This,#wx_ref{type=PageT}=Page,Text, Options)
 
 -doc(#{equiv => advanceSelection(This, [])}).
 -spec advanceSelection(This) -> 'ok' when
-	This::wxTreebook().
+        This::wxTreebook().
 
 advanceSelection(This)
  when is_record(This, wx_ref) ->
@@ -257,7 +257,7 @@ See:
 * `setImageList/2`
 """.
 -spec assignImageList(This, ImageList) -> 'ok' when
-	This::wxTreebook(), ImageList::wxImageList:wxImageList().
+        This::wxTreebook(), ImageList::wxImageList:wxImageList().
 assignImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
   ?CLASS(ThisT,wxTreebook),
   ?CLASS(ImageListT,wxImageList),
@@ -265,7 +265,7 @@ assignImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
 
 -doc(#{equiv => create(This,Parent,Id, [])}).
 -spec create(This, Parent, Id) -> boolean() when
-	This::wxTreebook(), Parent::wxWindow:wxWindow(), Id::integer().
+        This::wxTreebook(), Parent::wxWindow:wxWindow(), Id::integer().
 
 create(This,Parent,Id)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
@@ -295,7 +295,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc "Deletes all pages.".
 -spec deleteAllPages(This) -> boolean() when
-	This::wxTreebook().
+        This::wxTreebook().
 deleteAllPages(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreebook),
   wxe_util:queue_cmd(This,?get_env(),?wxTreebook_DeleteAllPages),
@@ -303,7 +303,7 @@ deleteAllPages(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the currently selected page or NULL.".
 -spec getCurrentPage(This) -> wxWindow:wxWindow() when
-	This::wxTreebook().
+        This::wxTreebook().
 getCurrentPage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreebook),
   wxe_util:queue_cmd(This,?get_env(),?wxTreebook_GetCurrentPage),
@@ -318,7 +318,7 @@ See:
 * `setImageList/2`
 """.
 -spec getImageList(This) -> wxImageList:wxImageList() when
-	This::wxTreebook().
+        This::wxTreebook().
 getImageList(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreebook),
   wxe_util:queue_cmd(This,?get_env(),?wxTreebook_GetImageList),
@@ -326,7 +326,7 @@ getImageList(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the window at the given page position.".
 -spec getPage(This, Page) -> wxWindow:wxWindow() when
-	This::wxTreebook(), Page::integer().
+        This::wxTreebook(), Page::integer().
 getPage(#wx_ref{type=ThisT}=This,Page)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxTreebook),
@@ -335,7 +335,7 @@ getPage(#wx_ref{type=ThisT}=This,Page)
 
 -doc "Returns the number of pages in the control.".
 -spec getPageCount(This) -> integer() when
-	This::wxTreebook().
+        This::wxTreebook().
 getPageCount(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreebook),
   wxe_util:queue_cmd(This,?get_env(),?wxTreebook_GetPageCount),
@@ -343,7 +343,7 @@ getPageCount(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the image index for the given page.".
 -spec getPageImage(This, NPage) -> integer() when
-	This::wxTreebook(), NPage::integer().
+        This::wxTreebook(), NPage::integer().
 getPageImage(#wx_ref{type=ThisT}=This,NPage)
  when is_integer(NPage) ->
   ?CLASS(ThisT,wxTreebook),
@@ -352,7 +352,7 @@ getPageImage(#wx_ref{type=ThisT}=This,NPage)
 
 -doc "Returns the string for the given page.".
 -spec getPageText(This, NPage) -> unicode:charlist() when
-	This::wxTreebook(), NPage::integer().
+        This::wxTreebook(), NPage::integer().
 getPageText(#wx_ref{type=ThisT}=This,NPage)
  when is_integer(NPage) ->
   ?CLASS(ThisT,wxTreebook),
@@ -367,7 +367,7 @@ from the EVT_TREEBOOK_PAGE_CHANGED() handler depending on the platform and so `w
 used instead in this case.
 """.
 -spec getSelection(This) -> integer() when
-	This::wxTreebook().
+        This::wxTreebook().
 getSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreebook),
   wxe_util:queue_cmd(This,?get_env(),?wxTreebook_GetSelection),
@@ -375,7 +375,7 @@ getSelection(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => expandNode(This,PageId, [])}).
 -spec expandNode(This, PageId) -> boolean() when
-	This::wxTreebook(), PageId::integer().
+        This::wxTreebook(), PageId::integer().
 
 expandNode(This,PageId)
  when is_record(This, wx_ref),is_integer(PageId) ->
@@ -401,7 +401,7 @@ expandNode(#wx_ref{type=ThisT}=This,PageId, Options)
 
 -doc "Returns true if the page represented by `pageId` is expanded.".
 -spec isNodeExpanded(This, PageId) -> boolean() when
-	This::wxTreebook(), PageId::integer().
+        This::wxTreebook(), PageId::integer().
 isNodeExpanded(#wx_ref{type=ThisT}=This,PageId)
  when is_integer(PageId) ->
   ?CLASS(ThisT,wxTreebook),
@@ -427,7 +427,7 @@ hitTest(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
 
 -doc(#{equiv => insertPage(This,PagePos,Page,Text, [])}).
 -spec insertPage(This, PagePos, Page, Text) -> boolean() when
-	This::wxTreebook(), PagePos::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
+        This::wxTreebook(), PagePos::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
 insertPage(This,PagePos,Page,Text)
  when is_record(This, wx_ref),is_integer(PagePos),is_record(Page, wx_ref),?is_chardata(Text) ->
@@ -457,7 +457,7 @@ insertPage(#wx_ref{type=ThisT}=This,PagePos,#wx_ref{type=PageT}=Page,Text, Optio
 
 -doc(#{equiv => insertSubPage(This,PagePos,Page,Text, [])}).
 -spec insertSubPage(This, PagePos, Page, Text) -> boolean() when
-	This::wxTreebook(), PagePos::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
+        This::wxTreebook(), PagePos::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
 insertSubPage(This,PagePos,Page,Text)
  when is_record(This, wx_ref),is_integer(PagePos),is_record(Page, wx_ref),?is_chardata(Text) ->
@@ -495,7 +495,7 @@ See:
 * `assignImageList/2`
 """.
 -spec setImageList(This, ImageList) -> 'ok' when
-	This::wxTreebook(), ImageList::wxImageList:wxImageList().
+        This::wxTreebook(), ImageList::wxImageList:wxImageList().
 setImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
   ?CLASS(ThisT,wxTreebook),
   ?CLASS(ImageListT,wxImageList),
@@ -507,7 +507,7 @@ Sets the width and height of the pages.
 Note: This method is currently not implemented for wxGTK.
 """.
 -spec setPageSize(This, Size) -> 'ok' when
-	This::wxTreebook(), Size::{W::integer(), H::integer()}.
+        This::wxTreebook(), Size::{W::integer(), H::integer()}.
 setPageSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxTreebook),
@@ -519,7 +519,7 @@ Sets the image index for the given page.
 `image` is an index into the image list which was set with `setImageList/2`.
 """.
 -spec setPageImage(This, Page, Image) -> boolean() when
-	This::wxTreebook(), Page::integer(), Image::integer().
+        This::wxTreebook(), Page::integer(), Image::integer().
 setPageImage(#wx_ref{type=ThisT}=This,Page,Image)
  when is_integer(Page),is_integer(Image) ->
   ?CLASS(ThisT,wxTreebook),
@@ -528,7 +528,7 @@ setPageImage(#wx_ref{type=ThisT}=This,Page,Image)
 
 -doc "Sets the text for the given page.".
 -spec setPageText(This, Page, Text) -> boolean() when
-	This::wxTreebook(), Page::integer(), Text::unicode:chardata().
+        This::wxTreebook(), Page::integer(), Text::unicode:chardata().
 setPageText(#wx_ref{type=ThisT}=This,Page,Text)
  when is_integer(Page),?is_chardata(Text) ->
   ?CLASS(ThisT,wxTreebook),
@@ -545,7 +545,7 @@ function if you don't want these events to be generated.
 See: `wxBookCtrlBase:getSelection/1`
 """.
 -spec setSelection(This, Page) -> integer() when
-	This::wxTreebook(), Page::integer().
+        This::wxTreebook(), Page::integer().
 setSelection(#wx_ref{type=ThisT}=This,Page)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxTreebook),
@@ -560,7 +560,7 @@ This function behaves as `setSelection/2` but does `not` generate the page chang
 See overview_events_prog for more information.
 """.
 -spec changeSelection(This, Page) -> integer() when
-	This::wxTreebook(), Page::integer().
+        This::wxTreebook(), Page::integer().
 changeSelection(#wx_ref{type=ThisT}=This,Page)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxTreebook),

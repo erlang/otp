@@ -157,7 +157,7 @@ new() ->
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxSashWindow() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -192,7 +192,7 @@ See: `setSashVisible/3`
 """.
 %%  Edge = ?wxSASH_TOP | ?wxSASH_RIGHT | ?wxSASH_BOTTOM | ?wxSASH_LEFT | ?wxSASH_NONE
 -spec getSashVisible(This, Edge) -> boolean() when
-	This::wxSashWindow(), Edge::wx:wx_enum().
+        This::wxSashWindow(), Edge::wx:wx_enum().
 getSashVisible(#wx_ref{type=ThisT}=This,Edge)
  when is_integer(Edge) ->
   ?CLASS(ThisT,wxSashWindow),
@@ -201,7 +201,7 @@ getSashVisible(#wx_ref{type=ThisT}=This,Edge)
 
 -doc "Gets the maximum window size in the x direction.".
 -spec getMaximumSizeX(This) -> integer() when
-	This::wxSashWindow().
+        This::wxSashWindow().
 getMaximumSizeX(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSashWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxSashWindow_GetMaximumSizeX),
@@ -209,7 +209,7 @@ getMaximumSizeX(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the maximum window size in the y direction.".
 -spec getMaximumSizeY(This) -> integer() when
-	This::wxSashWindow().
+        This::wxSashWindow().
 getMaximumSizeY(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSashWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxSashWindow_GetMaximumSizeY),
@@ -217,7 +217,7 @@ getMaximumSizeY(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the minimum window size in the x direction.".
 -spec getMinimumSizeX(This) -> integer() when
-	This::wxSashWindow().
+        This::wxSashWindow().
 getMinimumSizeX(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSashWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxSashWindow_GetMinimumSizeX),
@@ -225,7 +225,7 @@ getMinimumSizeX(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the minimum window size in the y direction.".
 -spec getMinimumSizeY(This) -> integer() when
-	This::wxSashWindow().
+        This::wxSashWindow().
 getMinimumSizeY(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSashWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxSashWindow_GetMinimumSizeY),
@@ -233,7 +233,7 @@ getMinimumSizeY(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the maximum window size in the x direction.".
 -spec setMaximumSizeX(This, Min) -> 'ok' when
-	This::wxSashWindow(), Min::integer().
+        This::wxSashWindow(), Min::integer().
 setMaximumSizeX(#wx_ref{type=ThisT}=This,Min)
  when is_integer(Min) ->
   ?CLASS(ThisT,wxSashWindow),
@@ -241,7 +241,7 @@ setMaximumSizeX(#wx_ref{type=ThisT}=This,Min)
 
 -doc "Sets the maximum window size in the y direction.".
 -spec setMaximumSizeY(This, Min) -> 'ok' when
-	This::wxSashWindow(), Min::integer().
+        This::wxSashWindow(), Min::integer().
 setMaximumSizeY(#wx_ref{type=ThisT}=This,Min)
  when is_integer(Min) ->
   ?CLASS(ThisT,wxSashWindow),
@@ -249,7 +249,7 @@ setMaximumSizeY(#wx_ref{type=ThisT}=This,Min)
 
 -doc "Sets the minimum window size in the x direction.".
 -spec setMinimumSizeX(This, Min) -> 'ok' when
-	This::wxSashWindow(), Min::integer().
+        This::wxSashWindow(), Min::integer().
 setMinimumSizeX(#wx_ref{type=ThisT}=This,Min)
  when is_integer(Min) ->
   ?CLASS(ThisT,wxSashWindow),
@@ -257,7 +257,7 @@ setMinimumSizeX(#wx_ref{type=ThisT}=This,Min)
 
 -doc "Sets the minimum window size in the y direction.".
 -spec setMinimumSizeY(This, Min) -> 'ok' when
-	This::wxSashWindow(), Min::integer().
+        This::wxSashWindow(), Min::integer().
 setMinimumSizeY(#wx_ref{type=ThisT}=This,Min)
  when is_integer(Min) ->
   ?CLASS(ThisT,wxSashWindow),
@@ -270,7 +270,7 @@ See: `getSashVisible/2`
 """.
 %%  Edge = ?wxSASH_TOP | ?wxSASH_RIGHT | ?wxSASH_BOTTOM | ?wxSASH_LEFT | ?wxSASH_NONE
 -spec setSashVisible(This, Edge, Visible) -> 'ok' when
-	This::wxSashWindow(), Edge::wx:wx_enum(), Visible::boolean().
+        This::wxSashWindow(), Edge::wx:wx_enum(), Visible::boolean().
 setSashVisible(#wx_ref{type=ThisT}=This,Edge,Visible)
  when is_integer(Edge),is_boolean(Visible) ->
   ?CLASS(ThisT,wxSashWindow),

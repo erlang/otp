@@ -114,9 +114,9 @@ queue_cmd(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_) -> ?NIF_ERROR.
 
 rec(Op) ->
     receive
-	{'_wxe_result_', Res} -> Res;
-	{'_wxe_error_', Op, MFA, Error} ->
-	    erlang:error({Error, MFA})
+        {'_wxe_result_', Res} -> Res;
+        {'_wxe_error_', Op, MFA, Error} ->
+            erlang:error({Error, MFA})
     end.
 
 register_pid(#wx_ref{ref=Index}) ->

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -115,7 +115,7 @@ The parameters string format is "width[,precision[,format]]" where `format` shou
 chosen between f|e|g|E|G (f is used by default)
 """.
 -spec setParameters(This, Params) -> 'ok' when
-	This::wxGridCellFloatEditor(), Params::unicode:chardata().
+        This::wxGridCellFloatEditor(), Params::unicode:chardata().
 setParameters(#wx_ref{type=ThisT}=This,Params)
  when ?is_chardata(Params) ->
   ?CLASS(ThisT,wxGridCellFloatEditor),

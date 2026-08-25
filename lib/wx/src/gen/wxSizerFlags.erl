@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -117,7 +117,7 @@ See:
 * `centre/1`
 """.
 -spec align(This, Alignment) -> wxSizerFlags() when
-	This::wxSizerFlags(), Alignment::integer().
+        This::wxSizerFlags(), Alignment::integer().
 align(#wx_ref{type=ThisT}=This,Alignment)
  when is_integer(Alignment) ->
   ?CLASS(ThisT,wxSizerFlags),
@@ -126,7 +126,7 @@ align(#wx_ref{type=ThisT}=This,Alignment)
 
 -doc(#{equiv => border(This, [])}).
 -spec border(This) -> wxSizerFlags() when
-	This::wxSizerFlags().
+        This::wxSizerFlags().
 
 border(This)
  when is_record(This, wx_ref) ->
@@ -157,7 +157,7 @@ Prefer to use the overload below or `DoubleBorder()` (not implemented in wx) or 
 avoid too small borders on devices with high DPI displays.
 """.
 -spec border(This, Direction, Borderinpixels) -> wxSizerFlags() when
-	This::wxSizerFlags(), Direction::integer(), Borderinpixels::integer().
+        This::wxSizerFlags(), Direction::integer(), Borderinpixels::integer().
 border(#wx_ref{type=ThisT}=This,Direction,Borderinpixels)
  when is_integer(Direction),is_integer(Borderinpixels) ->
   ?CLASS(ThisT,wxSizerFlags),
@@ -166,7 +166,7 @@ border(#wx_ref{type=ThisT}=This,Direction,Borderinpixels)
 
 -doc "Equivalent to: `center/1`".
 -spec centre(This) -> wxSizerFlags() when
-	This::wxSizerFlags().
+        This::wxSizerFlags().
 
 centre(This)
  when is_record(This, wx_ref) ->
@@ -174,7 +174,7 @@ centre(This)
 
 -doc "Sets the object of the `m:wxSizerFlags` to center itself in the area it is given.".
 -spec center(This) -> wxSizerFlags() when
-	This::wxSizerFlags().
+        This::wxSizerFlags().
 center(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerFlags),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerFlags_Center),
@@ -182,7 +182,7 @@ center(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the object of the `m:wxSizerFlags` to expand to fill as much area as it can.".
 -spec expand(This) -> wxSizerFlags() when
-	This::wxSizerFlags().
+        This::wxSizerFlags().
 expand(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerFlags),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerFlags_Expand),
@@ -194,7 +194,7 @@ Aligns the object to the left, similar for `Align(wxALIGN\_LEFT)`.
 Unlike `align/2`, this method doesn't change the vertical alignment of the item.
 """.
 -spec left(This) -> wxSizerFlags() when
-	This::wxSizerFlags().
+        This::wxSizerFlags().
 left(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerFlags),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerFlags_Left),
@@ -202,7 +202,7 @@ left(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the proportion of this `m:wxSizerFlags` to `proportion`.".
 -spec proportion(This, Proportion) -> wxSizerFlags() when
-	This::wxSizerFlags(), Proportion::integer().
+        This::wxSizerFlags(), Proportion::integer().
 proportion(#wx_ref{type=ThisT}=This,Proportion)
  when is_integer(Proportion) ->
   ?CLASS(ThisT,wxSizerFlags),
@@ -215,7 +215,7 @@ Aligns the object to the right, similar for `Align(wxALIGN\_RIGHT)`.
 Unlike `align/2`, this method doesn't change the vertical alignment of the item.
 """.
 -spec right(This) -> wxSizerFlags() when
-	This::wxSizerFlags().
+        This::wxSizerFlags().
 right(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerFlags),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerFlags_Right),

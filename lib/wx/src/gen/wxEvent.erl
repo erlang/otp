@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc "Returns the identifier associated with this event, such as a button command id.".
 -spec getId(This) -> integer() when
-	This::wxEvent().
+        This::wxEvent().
 getId(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxEvent_GetId),
@@ -94,7 +94,7 @@ getId(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the event handler should be skipped, false otherwise.".
 -spec getSkipped(This) -> boolean() when
-	This::wxEvent().
+        This::wxEvent().
 getSkipped(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxEvent_GetSkipped),
@@ -113,7 +113,7 @@ wxWidgets returns a non-NULL timestamp only for mouse and key events (see `m:wxM
 and `m:wxKeyEvent`).
 """.
 -spec getTimestamp(This) -> integer() when
-	This::wxEvent().
+        This::wxEvent().
 getTimestamp(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxEvent_GetTimestamp),
@@ -125,7 +125,7 @@ Returns true if the event is or is derived from `m:wxCommandEvent` else it retur
 Note: exists only for optimization purposes.
 """.
 -spec isCommandEvent(This) -> boolean() when
-	This::wxEvent().
+        This::wxEvent().
 isCommandEvent(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxEvent_IsCommandEvent),
@@ -136,7 +136,7 @@ Sets the propagation level to the given value (for example returned from an earl
 to `stopPropagation/1`).
 """.
 -spec resumePropagation(This, PropagationLevel) -> 'ok' when
-	This::wxEvent(), PropagationLevel::integer().
+        This::wxEvent(), PropagationLevel::integer().
 resumePropagation(#wx_ref{type=ThisT}=This,PropagationLevel)
  when is_integer(PropagationLevel) ->
   ?CLASS(ThisT,wxEvent),
@@ -147,7 +147,7 @@ Test if this event should be propagated or not, i.e. if the propagation level is
 currently greater than 0.
 """.
 -spec shouldPropagate(This) -> boolean() when
-	This::wxEvent().
+        This::wxEvent().
 shouldPropagate(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxEvent_ShouldPropagate),
@@ -155,7 +155,7 @@ shouldPropagate(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => skip(This, [])}).
 -spec skip(This) -> 'ok' when
-	This::wxEvent().
+        This::wxEvent().
 
 skip(This)
  when is_record(This, wx_ref) ->
@@ -193,7 +193,7 @@ Returns the old propagation level value which may be later passed to `resumeProp
 propagating the event again.
 """.
 -spec stopPropagation(This) -> integer() when
-	This::wxEvent().
+        This::wxEvent().
 stopPropagation(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxEvent_StopPropagation),

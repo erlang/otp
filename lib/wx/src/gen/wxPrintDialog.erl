@@ -138,7 +138,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxPrintDialog() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -149,7 +149,7 @@ new(Parent)
 	Parent::wxWindow:wxWindow(),
 	Option :: {'data', wxPrintDialogData:wxPrintDialogData()};
       (Parent, Data) -> wxPrintDialog() when
-	Parent::wxWindow:wxWindow(), Data::wxPrintData:wxPrintData().
+        Parent::wxWindow:wxWindow(), Data::wxPrintData:wxPrintData().
 new(#wx_ref{type=ParentT}=Parent, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -166,7 +166,7 @@ new(#wx_ref{type=ParentT}=Parent,#wx_ref{type=DataT}=Data) ->
 
 -doc "Returns the print dialog data associated with the print dialog.".
 -spec getPrintDialogData(This) -> wxPrintDialogData:wxPrintDialogData() when
-	This::wxPrintDialog().
+        This::wxPrintDialog().
 getPrintDialogData(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintDialog_GetPrintDialogData),
@@ -179,7 +179,7 @@ When this function has been called, the ownership of the device context is trans
 the application, so it must then be deleted explicitly.
 """.
 -spec getPrintDC(This) -> wxDC:wxDC() when
-	This::wxPrintDialog().
+        This::wxPrintDialog().
 getPrintDC(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintDialog_GetPrintDC),

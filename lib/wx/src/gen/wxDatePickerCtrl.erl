@@ -178,7 +178,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxDatePickerCtrl() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -221,7 +221,7 @@ dates later than year 1601.
 Return: false if no range limits are currently set, true if at least one bound is set.
 """.
 -spec getRange(This, Dt1, Dt2) -> boolean() when
-	This::wxDatePickerCtrl(), Dt1::wx:wx_datetime(), Dt2::wx:wx_datetime().
+        This::wxDatePickerCtrl(), Dt1::wx:wx_datetime(), Dt2::wx:wx_datetime().
 getRange(#wx_ref{type=ThisT}=This,{{Dt1Y,Dt1Mo,Dt1D},{Dt1H,Dt1Mi,Dt1S}},{{Dt2Y,Dt2Mo,Dt2D},{Dt2H,Dt2Mi,Dt2S}})
  when is_integer(Dt1D),is_integer(Dt1Mo),is_integer(Dt1Y),is_integer(Dt1H),is_integer(Dt1Mi),is_integer(Dt1S),is_integer(Dt2D),is_integer(Dt2Mo),is_integer(Dt2Y),is_integer(Dt2H),is_integer(Dt2Mi),is_integer(Dt2S) ->
   ?CLASS(ThisT,wxDatePickerCtrl),
@@ -235,7 +235,7 @@ For a control with `wxDP_ALLOWNONE` style the returned value may be invalid if n
 entered, otherwise it is always valid.
 """.
 -spec getValue(This) -> wx:wx_datetime() when
-	This::wxDatePickerCtrl().
+        This::wxDatePickerCtrl().
 getValue(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDatePickerCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxDatePickerCtrl_GetValue),
@@ -255,7 +255,7 @@ Remark: If the current value of the control is outside of the newly set range bo
 behaviour is undefined.
 """.
 -spec setRange(This, Dt1, Dt2) -> 'ok' when
-	This::wxDatePickerCtrl(), Dt1::wx:wx_datetime(), Dt2::wx:wx_datetime().
+        This::wxDatePickerCtrl(), Dt1::wx:wx_datetime(), Dt2::wx:wx_datetime().
 setRange(#wx_ref{type=ThisT}=This,{{Dt1Y,Dt1Mo,Dt1D},{Dt1H,Dt1Mi,Dt1S}},{{Dt2Y,Dt2Mo,Dt2D},{Dt2H,Dt2Mi,Dt2S}})
  when is_integer(Dt1D),is_integer(Dt1Mo),is_integer(Dt1Y),is_integer(Dt1H),is_integer(Dt1Mi),is_integer(Dt1S),is_integer(Dt2D),is_integer(Dt2Mo),is_integer(Dt2Y),is_integer(Dt2H),is_integer(Dt2Mi),is_integer(Dt2S) ->
   ?CLASS(ThisT,wxDatePickerCtrl),
@@ -270,7 +270,7 @@ included in the currently selected range, if any.
 Calling this method does not result in a date change event.
 """.
 -spec setValue(This, Dt) -> 'ok' when
-	This::wxDatePickerCtrl(), Dt::wx:wx_datetime().
+        This::wxDatePickerCtrl(), Dt::wx:wx_datetime().
 setValue(#wx_ref{type=ThisT}=This,{{DtY,DtMo,DtD},{DtH,DtMi,DtS}})
  when is_integer(DtD),is_integer(DtMo),is_integer(DtY),is_integer(DtH),is_integer(DtMi),is_integer(DtS) ->
   ?CLASS(ThisT,wxDatePickerCtrl),

@@ -159,7 +159,7 @@ new() ->
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxSpinCtrl() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -204,7 +204,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
 
 -doc(#{equiv => create(This,Parent, [])}).
 -spec create(This, Parent) -> boolean() when
-	This::wxSpinCtrl(), Parent::wxWindow:wxWindow().
+        This::wxSpinCtrl(), Parent::wxWindow:wxWindow().
 
 create(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
@@ -252,9 +252,9 @@ this method does not generate any events as events are only generated for the us
 actions.
 """.
 -spec setValue(This, Value) -> 'ok' when
-	This::wxSpinCtrl(), Value::integer();
+        This::wxSpinCtrl(), Value::integer();
       (This, Text) -> 'ok' when
-	This::wxSpinCtrl(), Text::unicode:chardata().
+        This::wxSpinCtrl(), Text::unicode:chardata().
 setValue(#wx_ref{type=ThisT}=This,Value)
  when is_integer(Value) ->
   ?CLASS(ThisT,wxSpinCtrl),
@@ -267,7 +267,7 @@ setValue(#wx_ref{type=ThisT}=This,Text)
 
 -doc "Gets the value of the spin control.".
 -spec getValue(This) -> integer() when
-	This::wxSpinCtrl().
+        This::wxSpinCtrl().
 getValue(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSpinCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxSpinCtrl_GetValue),
@@ -284,7 +284,7 @@ Note: Setting a range including negative values is silently ignored if current b
 set to 16.
 """.
 -spec setRange(This, MinVal, MaxVal) -> 'ok' when
-	This::wxSpinCtrl(), MinVal::integer(), MaxVal::integer().
+        This::wxSpinCtrl(), MinVal::integer(), MaxVal::integer().
 setRange(#wx_ref{type=ThisT}=This,MinVal,MaxVal)
  when is_integer(MinVal),is_integer(MaxVal) ->
   ?CLASS(ThisT,wxSpinCtrl),
@@ -299,7 +299,7 @@ This is similar to `wxTextCtrl:setSelection/3`.
 Note: this is currently only implemented for Windows and generic versions of the control.
 """.
 -spec setSelection(This, From, To) -> 'ok' when
-	This::wxSpinCtrl(), From::integer(), To::integer().
+        This::wxSpinCtrl(), From::integer(), To::integer().
 setSelection(#wx_ref{type=ThisT}=This,From,To)
  when is_integer(From),is_integer(To) ->
   ?CLASS(ThisT,wxSpinCtrl),
@@ -307,7 +307,7 @@ setSelection(#wx_ref{type=ThisT}=This,From,To)
 
 -doc "Gets minimal allowable value.".
 -spec getMin(This) -> integer() when
-	This::wxSpinCtrl().
+        This::wxSpinCtrl().
 getMin(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSpinCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxSpinCtrl_GetMin),
@@ -315,7 +315,7 @@ getMin(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets maximal allowable value.".
 -spec getMax(This) -> integer() when
-	This::wxSpinCtrl().
+        This::wxSpinCtrl().
 getMax(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSpinCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxSpinCtrl_GetMax),

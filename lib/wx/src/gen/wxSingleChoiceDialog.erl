@@ -148,7 +148,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Parent,Message,Caption,Choices, [])}).
 -spec new(Parent, Message, Caption, Choices) -> wxSingleChoiceDialog() when
-	Parent::wxWindow:wxWindow(), Message::unicode:chardata(), Caption::unicode:chardata(), Choices::[unicode:chardata()].
+        Parent::wxWindow:wxWindow(), Message::unicode:chardata(), Caption::unicode:chardata(), Choices::[unicode:chardata()].
 
 new(Parent,Message,Caption,Choices)
  when is_record(Parent, wx_ref),?is_chardata(Message),?is_chardata(Caption),is_list(Choices) ->
@@ -180,7 +180,7 @@ new(#wx_ref{type=ParentT}=Parent,Message,Caption,Choices, Options)
 
 -doc "Returns the index of selected item.".
 -spec getSelection(This) -> integer() when
-	This::wxSingleChoiceDialog().
+        This::wxSingleChoiceDialog().
 getSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSingleChoiceDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxSingleChoiceDialog_GetSelection),
@@ -188,7 +188,7 @@ getSelection(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the selected string.".
 -spec getStringSelection(This) -> unicode:charlist() when
-	This::wxSingleChoiceDialog().
+        This::wxSingleChoiceDialog().
 getStringSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSingleChoiceDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxSingleChoiceDialog_GetStringSelection),
@@ -196,7 +196,7 @@ getStringSelection(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the index of the initially selected item.".
 -spec setSelection(This, Selection) -> 'ok' when
-	This::wxSingleChoiceDialog(), Selection::integer().
+        This::wxSingleChoiceDialog(), Selection::integer().
 setSelection(#wx_ref{type=ThisT}=This,Selection)
  when is_integer(Selection) ->
   ?CLASS(ThisT,wxSingleChoiceDialog),

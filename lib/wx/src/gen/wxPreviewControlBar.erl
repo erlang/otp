@@ -134,7 +134,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Preview,Buttons,Parent, [])}).
 -spec new(Preview, Buttons, Parent) -> wxPreviewControlBar() when
-	Preview::wxPrintPreview:wxPrintPreview(), Buttons::integer(), Parent::wxWindow:wxWindow().
+        Preview::wxPrintPreview:wxPrintPreview(), Buttons::integer(), Parent::wxWindow:wxWindow().
 
 new(Preview,Buttons,Parent)
  when is_record(Preview, wx_ref),is_integer(Buttons),is_record(Parent, wx_ref) ->
@@ -175,14 +175,14 @@ new(#wx_ref{type=PreviewT}=Preview,Buttons,#wx_ref{type=ParentT}=Parent, Options
 
 -doc "Creates buttons, according to value of the button style flags.".
 -spec createButtons(This) -> 'ok' when
-	This::wxPreviewControlBar().
+        This::wxPreviewControlBar().
 createButtons(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPreviewControlBar),
   wxe_util:queue_cmd(This,?get_env(),?wxPreviewControlBar_CreateButtons).
 
 -doc "Gets the print preview object associated with the control bar.".
 -spec getPrintPreview(This) -> wxPrintPreview:wxPrintPreview() when
-	This::wxPreviewControlBar().
+        This::wxPreviewControlBar().
 getPrintPreview(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPreviewControlBar),
   wxe_util:queue_cmd(This,?get_env(),?wxPreviewControlBar_GetPrintPreview),
@@ -190,7 +190,7 @@ getPrintPreview(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the current zoom setting in percent.".
 -spec getZoomControl(This) -> integer() when
-	This::wxPreviewControlBar().
+        This::wxPreviewControlBar().
 getZoomControl(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPreviewControlBar),
   wxe_util:queue_cmd(This,?get_env(),?wxPreviewControlBar_GetZoomControl),
@@ -198,7 +198,7 @@ getZoomControl(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the zoom control.".
 -spec setZoomControl(This, Percent) -> 'ok' when
-	This::wxPreviewControlBar(), Percent::integer().
+        This::wxPreviewControlBar(), Percent::integer().
 setZoomControl(#wx_ref{type=ThisT}=This,Percent)
  when is_integer(Percent) ->
   ?CLASS(ThisT,wxPreviewControlBar),

@@ -136,7 +136,7 @@ Resets the column image -- after calling this function, no image will be shown.
 See: `setColumnImage/3`
 """.
 -spec clearColumnImage(This, Col) -> 'ok' when
-	This::wxListView(), Col::integer().
+        This::wxListView(), Col::integer().
 clearColumnImage(#wx_ref{type=ThisT}=This,Col)
  when is_integer(Col) ->
   ?CLASS(ThisT,wxListView),
@@ -144,7 +144,7 @@ clearColumnImage(#wx_ref{type=ThisT}=This,Col)
 
 -doc "Sets focus to the item with the given `index`.".
 -spec focus(This, Index) -> 'ok' when
-	This::wxListView(), Index::integer().
+        This::wxListView(), Index::integer().
 focus(#wx_ref{type=ThisT}=This,Index)
  when is_integer(Index) ->
   ?CLASS(ThisT,wxListView),
@@ -158,7 +158,7 @@ Together with `getNextSelected/2` it can be used to iterate over all selected it
 Return: The first selected item, if any, -1 otherwise.
 """.
 -spec getFirstSelected(This) -> integer() when
-	This::wxListView().
+        This::wxListView().
 getFirstSelected(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListView),
   wxe_util:queue_cmd(This,?get_env(),?wxListView_GetFirstSelected),
@@ -173,7 +173,7 @@ See:
 * `focus/2`
 """.
 -spec getFocusedItem(This) -> integer() when
-	This::wxListView().
+        This::wxListView().
 getFocusedItem(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListView),
   wxe_util:queue_cmd(This,?get_env(),?wxListView_GetFocusedItem),
@@ -186,7 +186,7 @@ control.
 Return: Returns the next selected item or -1 if there are no more of them.
 """.
 -spec getNextSelected(This, Item) -> integer() when
-	This::wxListView(), Item::integer().
+        This::wxListView(), Item::integer().
 getNextSelected(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxListView),
@@ -202,7 +202,7 @@ See:
 * `getNextSelected/2`
 """.
 -spec isSelected(This, Index) -> boolean() when
-	This::wxListView(), Index::integer().
+        This::wxListView(), Index::integer().
 isSelected(#wx_ref{type=ThisT}=This,Index)
  when is_integer(Index) ->
   ?CLASS(ThisT,wxListView),
@@ -211,7 +211,7 @@ isSelected(#wx_ref{type=ThisT}=This,Index)
 
 -doc(#{equiv => select(This,N, [])}).
 -spec select(This, N) -> 'ok' when
-	This::wxListView(), N::integer().
+        This::wxListView(), N::integer().
 
 select(This,N)
  when is_record(This, wx_ref),is_integer(N) ->
@@ -241,7 +241,7 @@ Sets the column image for the specified column.
 To use the column images, the control must have a valid image list with at least one image.
 """.
 -spec setColumnImage(This, Col, Image) -> 'ok' when
-	This::wxListView(), Col::integer(), Image::integer().
+        This::wxListView(), Col::integer(), Image::integer().
 setColumnImage(#wx_ref{type=ThisT}=This,Col,Image)
  when is_integer(Col),is_integer(Image) ->
   ?CLASS(ThisT,wxListView),

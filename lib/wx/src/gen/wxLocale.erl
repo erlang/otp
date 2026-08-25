@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -100,9 +100,9 @@ new() ->
 
 -doc "Equivalent to: `new/2`".
 -spec new(Language) -> wxLocale() when
-	Language::integer();
+        Language::integer();
       (Name) -> wxLocale() when
-	Name::unicode:chardata().
+        Name::unicode:chardata().
 
 new(Language)
  when is_integer(Language) ->
@@ -150,7 +150,7 @@ new(Name, Options)
 
 -doc(#{equiv => init(This, [])}).
 -spec init(This) -> boolean() when
-	This::wxLocale().
+        This::wxLocale().
 
 init(This)
  when is_record(This, wx_ref) ->
@@ -206,7 +206,7 @@ init(#wx_ref{type=ThisT}=This,Name, Options)
 
 -doc "Calls wxTranslations::AddCatalog(const wxString&).".
 -spec addCatalog(This, Domain) -> boolean() when
-	This::wxLocale(), Domain::unicode:chardata().
+        This::wxLocale(), Domain::unicode:chardata().
 addCatalog(#wx_ref{type=ThisT}=This,Domain)
  when ?is_chardata(Domain) ->
   ?CLASS(ThisT,wxLocale),
@@ -217,7 +217,7 @@ addCatalog(#wx_ref{type=ThisT}=This,Domain)
 -doc "Calls `wxTranslations::AddCatalog(const wxString&, wxLanguage)` (not implemented in wx).".
 %%  MsgIdLanguage = integer
 -spec addCatalog(This, Domain, MsgIdLanguage) -> boolean() when
-	This::wxLocale(), Domain::unicode:chardata(), MsgIdLanguage::wx:wx_enum().
+        This::wxLocale(), Domain::unicode:chardata(), MsgIdLanguage::wx:wx_enum().
 addCatalog(#wx_ref{type=ThisT}=This,Domain,MsgIdLanguage)
  when ?is_chardata(Domain),is_integer(MsgIdLanguage) ->
   ?CLASS(ThisT,wxLocale),
@@ -231,7 +231,7 @@ implemented in wx).
 """.
 %%  MsgIdLanguage = integer
 -spec addCatalog(This, Domain, MsgIdLanguage, MsgIdCharset) -> boolean() when
-	This::wxLocale(), Domain::unicode:chardata(), MsgIdLanguage::wx:wx_enum(), MsgIdCharset::unicode:chardata().
+        This::wxLocale(), Domain::unicode:chardata(), MsgIdLanguage::wx:wx_enum(), MsgIdCharset::unicode:chardata().
 addCatalog(#wx_ref{type=ThisT}=This,Domain,MsgIdLanguage,MsgIdCharset)
  when ?is_chardata(Domain),is_integer(MsgIdLanguage),?is_chardata(MsgIdCharset) ->
   ?CLASS(ThisT,wxLocale),
@@ -242,7 +242,7 @@ addCatalog(#wx_ref{type=ThisT}=This,Domain,MsgIdLanguage,MsgIdCharset)
 
 -doc "Calls `wxFileTranslationsLoader::AddCatalogLookupPathPrefix()` (not implemented in wx).".
 -spec addCatalogLookupPathPrefix(Prefix) -> 'ok' when
-	Prefix::unicode:chardata().
+        Prefix::unicode:chardata().
 addCatalogLookupPathPrefix(Prefix)
  when ?is_chardata(Prefix) ->
   Prefix_UC = unicode:characters_to_binary(Prefix),
@@ -257,7 +257,7 @@ of the country. Examples are "en", "en_GB", "en_US" or "fr_FR". This form is int
 used when looking up message catalogs. Compare `getSysName/1`.
 """.
 -spec getCanonicalName(This) -> unicode:charlist() when
-	This::wxLocale().
+        This::wxLocale().
 getCanonicalName(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxLocale),
   wxe_util:queue_cmd(This,?get_env(),?wxLocale_GetCanonicalName),
@@ -270,7 +270,7 @@ Note that you can call this function only if you used the form of `init/3` that 
 argument.
 """.
 -spec getLanguage(This) -> integer() when
-	This::wxLocale().
+        This::wxLocale().
 getLanguage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxLocale),
   wxe_util:queue_cmd(This,?get_env(),?wxLocale_GetLanguage),
@@ -282,7 +282,7 @@ Returns English name of the given language or empty string if this language is u
 See `GetLanguageInfo()` (not implemented in wx) for a remark about special meaning of `wxLANGUAGE_DEFAULT`.
 """.
 -spec getLanguageName(Lang) -> unicode:charlist() when
-	Lang::integer().
+        Lang::integer().
 getLanguageName(Lang)
  when is_integer(Lang) ->
   wxe_util:queue_cmd(Lang,?get_env(),?wxLocale_GetLanguageName),
@@ -294,7 +294,7 @@ Returns the locale name as passed to the constructor or `init/3`.
 This is a full, human-readable name, e.g. "English" or "French".
 """.
 -spec getLocale(This) -> unicode:charlist() when
-	This::wxLocale().
+        This::wxLocale().
 getLocale(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxLocale),
   wxe_util:queue_cmd(This,?get_env(),?wxLocale_GetLocale),
@@ -305,7 +305,7 @@ Returns the current short name for the locale (as given to the constructor or th
 function).
 """.
 -spec getName(This) -> unicode:charlist() when
-	This::wxLocale().
+        This::wxLocale().
 getName(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxLocale),
   wxe_util:queue_cmd(This,?get_env(),?wxLocale_GetName),
@@ -313,7 +313,7 @@ getName(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => getString(This,OrigString, [])}).
 -spec getString(This, OrigString) -> unicode:charlist() when
-	This::wxLocale(), OrigString::unicode:chardata().
+        This::wxLocale(), OrigString::unicode:chardata().
 
 getString(This,OrigString)
  when is_record(This, wx_ref),?is_chardata(OrigString) ->
@@ -335,7 +335,7 @@ getString(#wx_ref{type=ThisT}=This,OrigString, Options)
 
 -doc(#{equiv => getString(This,OrigString,OrigString2,N, [])}).
 -spec getString(This, OrigString, OrigString2, N) -> unicode:charlist() when
-	This::wxLocale(), OrigString::unicode:chardata(), OrigString2::unicode:chardata(), N::integer().
+        This::wxLocale(), OrigString::unicode:chardata(), OrigString2::unicode:chardata(), N::integer().
 
 getString(This,OrigString,OrigString2,N)
  when is_record(This, wx_ref),?is_chardata(OrigString),?is_chardata(OrigString2),is_integer(N) ->
@@ -358,7 +358,7 @@ getString(#wx_ref{type=ThisT}=This,OrigString,OrigString2,N, Options)
 
 -doc(#{equiv => getHeaderValue(This,Header, [])}).
 -spec getHeaderValue(This, Header) -> unicode:charlist() when
-	This::wxLocale(), Header::unicode:chardata().
+        This::wxLocale(), Header::unicode:chardata().
 
 getHeaderValue(This,Header)
  when is_record(This, wx_ref),?is_chardata(Header) ->
@@ -384,7 +384,7 @@ Returns current platform-specific locale name as passed to setlocale().
 Compare `getCanonicalName/1`.
 """.
 -spec getSysName(This) -> unicode:charlist() when
-	This::wxLocale().
+        This::wxLocale().
 getSysName(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxLocale),
   wxe_util:queue_cmd(This,?get_env(),?wxLocale_GetSysName),
@@ -430,7 +430,7 @@ getSystemLanguage() ->
 
 -doc "Calls `wxTranslations::IsLoaded()` (not implemented in wx).".
 -spec isLoaded(This, Domain) -> boolean() when
-	This::wxLocale(), Domain::unicode:chardata().
+        This::wxLocale(), Domain::unicode:chardata().
 isLoaded(#wx_ref{type=ThisT}=This,Domain)
  when ?is_chardata(Domain) ->
   ?CLASS(ThisT,wxLocale),
@@ -440,7 +440,7 @@ isLoaded(#wx_ref{type=ThisT}=This,Domain)
 
 -doc "Returns true if the locale could be set successfully.".
 -spec isOk(This) -> boolean() when
-	This::wxLocale().
+        This::wxLocale().
 isOk(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxLocale),
   wxe_util:queue_cmd(This,?get_env(),?wxLocale_IsOk),

@@ -201,7 +201,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxCalendarCtrl() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -228,7 +228,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc(#{equiv => create(This,Parent,Id, [])}).
 -spec create(This, Parent, Id) -> boolean() when
-	This::wxCalendarCtrl(), Parent::wxWindow:wxWindow(), Id::integer().
+        This::wxCalendarCtrl(), Parent::wxWindow:wxWindow(), Id::integer().
 
 create(This,Parent,Id)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
@@ -266,7 +266,7 @@ The `date` parameter must be valid and in the currently valid range as set by `S
 returns false and, additionally, triggers an assertion failure if the date is invalid.
 """.
 -spec setDate(This, Date) -> boolean() when
-	This::wxCalendarCtrl(), Date::wx:wx_datetime().
+        This::wxCalendarCtrl(), Date::wx:wx_datetime().
 setDate(#wx_ref{type=ThisT}=This,{{DateY,DateMo,DateD},{DateH,DateMi,DateS}})
  when is_integer(DateD),is_integer(DateMo),is_integer(DateY),is_integer(DateH),is_integer(DateMi),is_integer(DateS) ->
   ?CLASS(ThisT,wxCalendarCtrl),
@@ -275,7 +275,7 @@ setDate(#wx_ref{type=ThisT}=This,{{DateY,DateMo,DateD},{DateH,DateMi,DateS}})
 
 -doc "Gets the currently selected date.".
 -spec getDate(This) -> wx:wx_datetime() when
-	This::wxCalendarCtrl().
+        This::wxCalendarCtrl().
 getDate(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCalendarCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxCalendarCtrl_GetDate),
@@ -283,7 +283,7 @@ getDate(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => enableYearChange(This, [])}).
 -spec enableYearChange(This) -> 'ok' when
-	This::wxCalendarCtrl().
+        This::wxCalendarCtrl().
 
 enableYearChange(This)
  when is_record(This, wx_ref) ->
@@ -309,7 +309,7 @@ enableYearChange(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => enableMonthChange(This, [])}).
 -spec enableMonthChange(This) -> boolean() when
-	This::wxCalendarCtrl().
+        This::wxCalendarCtrl().
 
 enableMonthChange(This)
  when is_record(This, wx_ref) ->
@@ -338,7 +338,7 @@ enableMonthChange(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => enableHolidayDisplay(This, [])}).
 -spec enableHolidayDisplay(This) -> 'ok' when
-	This::wxCalendarCtrl().
+        This::wxCalendarCtrl().
 
 enableHolidayDisplay(This)
  when is_record(This, wx_ref) ->
@@ -368,7 +368,7 @@ This method is currently only implemented in generic `m:wxCalendarCtrl` and does
 in the native versions.
 """.
 -spec setHeaderColours(This, ColFg, ColBg) -> 'ok' when
-	This::wxCalendarCtrl(), ColFg::wx:wx_colour(), ColBg::wx:wx_colour().
+        This::wxCalendarCtrl(), ColFg::wx:wx_colour(), ColBg::wx:wx_colour().
 setHeaderColours(#wx_ref{type=ThisT}=This,ColFg,ColBg)
  when ?is_colordata(ColFg),?is_colordata(ColBg) ->
   ?CLASS(ThisT,wxCalendarCtrl),
@@ -383,7 +383,7 @@ returns `wxNullColour` in the native versions.
 See: `setHeaderColours/3`
 """.
 -spec getHeaderColourFg(This) -> wx:wx_colour4() when
-	This::wxCalendarCtrl().
+        This::wxCalendarCtrl().
 getHeaderColourFg(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCalendarCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxCalendarCtrl_GetHeaderColourFg),
@@ -398,7 +398,7 @@ returns `wxNullColour` in the native versions.
 See: `setHeaderColours/3`
 """.
 -spec getHeaderColourBg(This) -> wx:wx_colour4() when
-	This::wxCalendarCtrl().
+        This::wxCalendarCtrl().
 getHeaderColourBg(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCalendarCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxCalendarCtrl_GetHeaderColourBg),
@@ -411,7 +411,7 @@ This method is currently only implemented in generic `m:wxCalendarCtrl` and does
 in the native versions.
 """.
 -spec setHighlightColours(This, ColFg, ColBg) -> 'ok' when
-	This::wxCalendarCtrl(), ColFg::wx:wx_colour(), ColBg::wx:wx_colour().
+        This::wxCalendarCtrl(), ColFg::wx:wx_colour(), ColBg::wx:wx_colour().
 setHighlightColours(#wx_ref{type=ThisT}=This,ColFg,ColBg)
  when ?is_colordata(ColFg),?is_colordata(ColBg) ->
   ?CLASS(ThisT,wxCalendarCtrl),
@@ -428,7 +428,7 @@ returns `wxNullColour` in the native versions.
 See: `setHighlightColours/3`
 """.
 -spec getHighlightColourFg(This) -> wx:wx_colour4() when
-	This::wxCalendarCtrl().
+        This::wxCalendarCtrl().
 getHighlightColourFg(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCalendarCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxCalendarCtrl_GetHighlightColourFg),
@@ -445,7 +445,7 @@ returns `wxNullColour` in the native versions.
 See: `setHighlightColours/3`
 """.
 -spec getHighlightColourBg(This) -> wx:wx_colour4() when
-	This::wxCalendarCtrl().
+        This::wxCalendarCtrl().
 getHighlightColourBg(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCalendarCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxCalendarCtrl_GetHighlightColourBg),
@@ -459,7 +459,7 @@ the native ones. It should also only be called if the window style includes `wxC
 flag or `enableHolidayDisplay/2` had been called.
 """.
 -spec setHolidayColours(This, ColFg, ColBg) -> 'ok' when
-	This::wxCalendarCtrl(), ColFg::wx:wx_colour(), ColBg::wx:wx_colour().
+        This::wxCalendarCtrl(), ColFg::wx:wx_colour(), ColBg::wx:wx_colour().
 setHolidayColours(#wx_ref{type=ThisT}=This,ColFg,ColBg)
  when ?is_colordata(ColFg),?is_colordata(ColBg) ->
   ?CLASS(ThisT,wxCalendarCtrl),
@@ -474,7 +474,7 @@ holidays display at all and always return `wxNullColour`.
 See: `setHolidayColours/3`
 """.
 -spec getHolidayColourFg(This) -> wx:wx_colour4() when
-	This::wxCalendarCtrl().
+        This::wxCalendarCtrl().
 getHolidayColourFg(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCalendarCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxCalendarCtrl_GetHolidayColourFg),
@@ -489,7 +489,7 @@ holidays display at all and always return `wxNullColour`.
 See: `setHolidayColours/3`
 """.
 -spec getHolidayColourBg(This) -> wx:wx_colour4() when
-	This::wxCalendarCtrl().
+        This::wxCalendarCtrl().
 getHolidayColourBg(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCalendarCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxCalendarCtrl_GetHolidayColourBg),
@@ -501,7 +501,7 @@ Returns the attribute for the given date (should be in the range 1...31).
 The returned pointer may be NULL. Only in generic `m:wxCalendarCtrl`.
 """.
 -spec getAttr(This, Day) -> wxCalendarDateAttr:wxCalendarDateAttr() when
-	This::wxCalendarCtrl(), Day::integer().
+        This::wxCalendarCtrl(), Day::integer().
 getAttr(#wx_ref{type=ThisT}=This,Day)
  when is_integer(Day) ->
   ?CLASS(ThisT,wxCalendarCtrl),
@@ -514,7 +514,7 @@ Associates the attribute with the specified date (in the range 1...31).
 If the pointer is NULL, the items attribute is cleared. Only in generic `m:wxCalendarCtrl`.
 """.
 -spec setAttr(This, Day, Attr) -> 'ok' when
-	This::wxCalendarCtrl(), Day::integer(), Attr::wxCalendarDateAttr:wxCalendarDateAttr().
+        This::wxCalendarCtrl(), Day::integer(), Attr::wxCalendarDateAttr:wxCalendarDateAttr().
 setAttr(#wx_ref{type=ThisT}=This,Day,#wx_ref{type=AttrT}=Attr)
  when is_integer(Day) ->
   ?CLASS(ThisT,wxCalendarCtrl),
@@ -528,7 +528,7 @@ This method is only implemented in the generic version of the control and does n
 the native ones.
 """.
 -spec setHoliday(This, Day) -> 'ok' when
-	This::wxCalendarCtrl(), Day::integer().
+        This::wxCalendarCtrl(), Day::integer().
 setHoliday(#wx_ref{type=ThisT}=This,Day)
  when is_integer(Day) ->
   ?CLASS(ThisT,wxCalendarCtrl),
@@ -540,7 +540,7 @@ Clears any attributes associated with the given day (in the range 1...31).
 Only in generic `m:wxCalendarCtrl`.
 """.
 -spec resetAttr(This, Day) -> 'ok' when
-	This::wxCalendarCtrl(), Day::integer().
+        This::wxCalendarCtrl(), Day::integer().
 resetAttr(#wx_ref{type=ThisT}=This,Day)
  when is_integer(Day) ->
   ?CLASS(ThisT,wxCalendarCtrl),

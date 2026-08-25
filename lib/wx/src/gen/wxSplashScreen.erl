@@ -138,7 +138,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Bitmap,SplashStyle,Milliseconds,Parent,Id, [])}).
 -spec new(Bitmap, SplashStyle, Milliseconds, Parent, Id) -> wxSplashScreen() when
-	Bitmap::wxBitmap:wxBitmap(), SplashStyle::integer(), Milliseconds::integer(), Parent::wxWindow:wxWindow(), Id::integer().
+        Bitmap::wxBitmap:wxBitmap(), SplashStyle::integer(), Milliseconds::integer(), Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Bitmap,SplashStyle,Milliseconds,Parent,Id)
  when is_record(Bitmap, wx_ref),is_integer(SplashStyle),is_integer(Milliseconds),is_record(Parent, wx_ref),is_integer(Id) ->
@@ -181,7 +181,7 @@ new(#wx_ref{type=BitmapT}=Bitmap,SplashStyle,Milliseconds,#wx_ref{type=ParentT}=
 
 -doc "Returns the splash style (see `new/6` for details).".
 -spec getSplashStyle(This) -> integer() when
-	This::wxSplashScreen().
+        This::wxSplashScreen().
 getSplashStyle(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSplashScreen),
   wxe_util:queue_cmd(This,?get_env(),?wxSplashScreen_GetSplashStyle),
@@ -189,7 +189,7 @@ getSplashStyle(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the timeout in milliseconds.".
 -spec getTimeout(This) -> integer() when
-	This::wxSplashScreen().
+        This::wxSplashScreen().
 getTimeout(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSplashScreen),
   wxe_util:queue_cmd(This,?get_env(),?wxSplashScreen_GetTimeout),

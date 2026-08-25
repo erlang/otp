@@ -236,7 +236,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id,Value,MinValue,MaxValue, [])}).
 -spec new(Parent, Id, Value, MinValue, MaxValue) -> wxSlider() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Value::integer(), MinValue::integer(), MaxValue::integer().
+        Parent::wxWindow:wxWindow(), Id::integer(), Value::integer(), MinValue::integer(), MaxValue::integer().
 
 new(Parent,Id,Value,MinValue,MaxValue)
  when is_record(Parent, wx_ref),is_integer(Id),is_integer(Value),is_integer(MinValue),is_integer(MaxValue) ->
@@ -267,7 +267,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Value,MinValue,MaxValue, Options)
 
 -doc(#{equiv => create(This,Parent,Id,Value,MinValue,MaxValue, [])}).
 -spec create(This, Parent, Id, Value, MinValue, MaxValue) -> boolean() when
-	This::wxSlider(), Parent::wxWindow:wxWindow(), Id::integer(), Value::integer(), MinValue::integer(), MaxValue::integer().
+        This::wxSlider(), Parent::wxWindow:wxWindow(), Id::integer(), Value::integer(), MinValue::integer(), MaxValue::integer().
 
 create(This,Parent,Id,Value,MinValue,MaxValue)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_integer(Value),is_integer(MinValue),is_integer(MaxValue) ->
@@ -303,7 +303,7 @@ Returns the line size.
 See: `setLineSize/2`
 """.
 -spec getLineSize(This) -> integer() when
-	This::wxSlider().
+        This::wxSlider().
 getLineSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSlider),
   wxe_util:queue_cmd(This,?get_env(),?wxSlider_GetLineSize),
@@ -318,7 +318,7 @@ See:
 * `setRange/3`
 """.
 -spec getMax(This) -> integer() when
-	This::wxSlider().
+        This::wxSlider().
 getMax(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSlider),
   wxe_util:queue_cmd(This,?get_env(),?wxSlider_GetMax),
@@ -333,7 +333,7 @@ See:
 * `setRange/3`
 """.
 -spec getMin(This) -> integer() when
-	This::wxSlider().
+        This::wxSlider().
 getMin(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSlider),
   wxe_util:queue_cmd(This,?get_env(),?wxSlider_GetMin),
@@ -345,7 +345,7 @@ Returns the page size.
 See: `setPageSize/2`
 """.
 -spec getPageSize(This) -> integer() when
-	This::wxSlider().
+        This::wxSlider().
 getPageSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSlider),
   wxe_util:queue_cmd(This,?get_env(),?wxSlider_GetPageSize),
@@ -359,7 +359,7 @@ Only for:wxmsw
 See: `setThumbLength/2`
 """.
 -spec getThumbLength(This) -> integer() when
-	This::wxSlider().
+        This::wxSlider().
 getThumbLength(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSlider),
   wxe_util:queue_cmd(This,?get_env(),?wxSlider_GetThumbLength),
@@ -376,7 +376,7 @@ See:
 * `setValue/2`
 """.
 -spec getValue(This) -> integer() when
-	This::wxSlider().
+        This::wxSlider().
 getValue(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSlider),
   wxe_util:queue_cmd(This,?get_env(),?wxSlider_GetValue),
@@ -388,7 +388,7 @@ Sets the line size for the slider.
 See: `getLineSize/1`
 """.
 -spec setLineSize(This, LineSize) -> 'ok' when
-	This::wxSlider(), LineSize::integer().
+        This::wxSlider(), LineSize::integer().
 setLineSize(#wx_ref{type=ThisT}=This,LineSize)
  when is_integer(LineSize) ->
   ?CLASS(ThisT,wxSlider),
@@ -400,7 +400,7 @@ Sets the page size for the slider.
 See: `getPageSize/1`
 """.
 -spec setPageSize(This, PageSize) -> 'ok' when
-	This::wxSlider(), PageSize::integer().
+        This::wxSlider(), PageSize::integer().
 setPageSize(#wx_ref{type=ThisT}=This,PageSize)
  when is_integer(PageSize) ->
   ?CLASS(ThisT,wxSlider),
@@ -415,7 +415,7 @@ See:
 * `getMax/1`
 """.
 -spec setRange(This, MinValue, MaxValue) -> 'ok' when
-	This::wxSlider(), MinValue::integer(), MaxValue::integer().
+        This::wxSlider(), MinValue::integer(), MaxValue::integer().
 setRange(#wx_ref{type=ThisT}=This,MinValue,MaxValue)
  when is_integer(MinValue),is_integer(MaxValue) ->
   ?CLASS(ThisT,wxSlider),
@@ -429,7 +429,7 @@ Only for:wxmsw
 See: `getThumbLength/1`
 """.
 -spec setThumbLength(This, Len) -> 'ok' when
-	This::wxSlider(), Len::integer().
+        This::wxSlider(), Len::integer().
 setThumbLength(#wx_ref{type=ThisT}=This,Len)
  when is_integer(Len) ->
   ?CLASS(ThisT,wxSlider),
@@ -437,7 +437,7 @@ setThumbLength(#wx_ref{type=ThisT}=This,Len)
 
 -doc "Sets the slider position.".
 -spec setValue(This, Value) -> 'ok' when
-	This::wxSlider(), Value::integer().
+        This::wxSlider(), Value::integer().
 setValue(#wx_ref{type=ThisT}=This,Value)
  when is_integer(Value) ->
   ?CLASS(ThisT,wxSlider),

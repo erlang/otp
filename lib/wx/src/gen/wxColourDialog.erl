@@ -154,7 +154,7 @@ new() ->
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxColourDialog() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -186,7 +186,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
 
 -doc(#{equiv => create(This,Parent, [])}).
 -spec create(This, Parent) -> boolean() when
-	This::wxColourDialog(), Parent::wxWindow:wxWindow().
+        This::wxColourDialog(), Parent::wxWindow:wxWindow().
 
 create(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
@@ -208,7 +208,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent, Options)
 
 -doc "Returns the colour data associated with the colour dialog.".
 -spec getColourData(This) -> wxColourData:wxColourData() when
-	This::wxColourDialog().
+        This::wxColourDialog().
 getColourData(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxColourDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxColourDialog_GetColourData),

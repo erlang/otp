@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -106,7 +106,7 @@ for the `wxEVT\_KILL\_FOCUS` one.
 Warning: the window pointer may be NULL!
 """.
 -spec getWindow(This) -> wxWindow:wxWindow() when
-	This::wxFocusEvent().
+        This::wxFocusEvent().
 getWindow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFocusEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxFocusEvent_GetWindow),

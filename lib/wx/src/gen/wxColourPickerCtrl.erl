@@ -167,7 +167,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxColourPickerCtrl() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -196,7 +196,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc(#{equiv => create(This,Parent,Id, [])}).
 -spec create(This, Parent, Id) -> boolean() when
-	This::wxColourPickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer().
+        This::wxColourPickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer().
 
 create(This,Parent,Id)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
@@ -230,7 +230,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc "Returns the currently selected colour.".
 -spec getColour(This) -> wx:wx_colour4() when
-	This::wxColourPickerCtrl().
+        This::wxColourPickerCtrl().
 getColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxColourPickerCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxColourPickerCtrl_GetColour),
@@ -242,9 +242,9 @@ Sets the currently selected colour.
 See `wxColour::Set()` (not implemented in wx).
 """.
 -spec setColour(This, Colname) -> 'ok' when
-	This::wxColourPickerCtrl(), Colname::unicode:chardata();
+        This::wxColourPickerCtrl(), Colname::unicode:chardata();
       (This, Col) -> 'ok' when
-	This::wxColourPickerCtrl(), Col::wx:wx_colour().
+        This::wxColourPickerCtrl(), Col::wx:wx_colour().
 setColour(#wx_ref{type=ThisT}=This,Colname)
  when ?is_chardata(Colname) ->
   ?CLASS(ThisT,wxColourPickerCtrl),

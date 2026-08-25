@@ -163,7 +163,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id,Label, [])}).
 -spec new(Parent, Id, Label) -> wxStaticText() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
+        Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
 new(Parent,Id,Label)
  when is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Label) ->
@@ -193,7 +193,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Label, Options)
 
 -doc(#{equiv => create(This,Parent,Id,Label, [])}).
 -spec create(This, Parent, Id, Label) -> boolean() when
-	This::wxStaticText(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
+        This::wxStaticText(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
 create(This,Parent,Id,Label)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Label) ->
@@ -233,7 +233,7 @@ different from the string passed to `SetLabelText()` (not implemented in wx) (si
 last one escapes mnemonic characters).
 """.
 -spec getLabel(This) -> unicode:charlist() when
-	This::wxStaticText().
+        This::wxStaticText().
 getLabel(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStaticText),
   wxe_util:queue_cmd(This,?get_env(),?wxStaticText_GetLabel),
@@ -249,7 +249,7 @@ different from the current one in the application code.
 See: `wxControl:setLabel/2`
 """.
 -spec setLabel(This, Label) -> 'ok' when
-	This::wxStaticText(), Label::unicode:chardata().
+        This::wxStaticText(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT}=This,Label)
  when ?is_chardata(Label) ->
   ?CLASS(ThisT,wxStaticText),
@@ -268,7 +268,7 @@ border style) may be added.
 Since: 2.6.2
 """.
 -spec wrap(This, Width) -> 'ok' when
-	This::wxStaticText(), Width::integer().
+        This::wxStaticText(), Width::integer().
 wrap(#wx_ref{type=ThisT}=This,Width)
  when is_integer(Width) ->
   ?CLASS(ThisT,wxStaticText),

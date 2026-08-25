@@ -118,7 +118,7 @@ If the event originated from a keyboard event, the value returned from this func
 be wxDefaultPosition.
 """.
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
-	This::wxContextMenuEvent().
+        This::wxContextMenuEvent().
 getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxContextMenuEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxContextMenuEvent_GetPosition),
@@ -126,7 +126,7 @@ getPosition(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the position at which the menu should be shown.".
 -spec setPosition(This, Point) -> 'ok' when
-	This::wxContextMenuEvent(), Point::{X::integer(), Y::integer()}.
+        This::wxContextMenuEvent(), Point::{X::integer(), Y::integer()}.
 setPosition(#wx_ref{type=ThisT}=This,{PointX,PointY} = Point)
  when is_integer(PointX),is_integer(PointY) ->
   ?CLASS(ThisT,wxContextMenuEvent),

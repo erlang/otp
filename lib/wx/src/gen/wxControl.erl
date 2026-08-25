@@ -140,7 +140,7 @@ different from the string passed to `SetLabelText()` (not implemented in wx) (si
 last one escapes mnemonic characters).
 """.
 -spec getLabel(This) -> unicode:charlist() when
-	This::wxControl().
+        This::wxControl().
 getLabel(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxControl),
   wxe_util:queue_cmd(This,?get_env(),?wxControl_GetLabel),
@@ -156,7 +156,7 @@ character, you need to double it, i.e. use "&&". If this behaviour is undesirabl
 (not implemented in wx) instead.
 """.
 -spec setLabel(This, Label) -> 'ok' when
-	This::wxControl(), Label::unicode:chardata().
+        This::wxControl(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT}=This,Label)
  when ?is_chardata(Label) ->
   ?CLASS(ThisT,wxControl),

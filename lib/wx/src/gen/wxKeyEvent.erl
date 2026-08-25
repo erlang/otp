@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -185,7 +185,7 @@ Returns true if the Alt key is pressed.
 Notice that `getModifiers/1` should usually be used instead of this one.
 """.
 -spec altDown(This) -> boolean() when
-	This::wxKeyEvent().
+        This::wxKeyEvent().
 altDown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxKeyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxKeyEvent_AltDown),
@@ -199,7 +199,7 @@ Same as `controlDown/1`. Deprecated.
 Notice that `getModifiers/1` should usually be used instead of this one.
 """.
 -spec cmdDown(This) -> boolean() when
-	This::wxKeyEvent().
+        This::wxKeyEvent().
 cmdDown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxKeyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxKeyEvent_CmdDown),
@@ -213,7 +213,7 @@ This function doesn't distinguish between right and left control keys.
 Notice that `getModifiers/1` should usually be used instead of this one.
 """.
 -spec controlDown(This) -> boolean() when
-	This::wxKeyEvent().
+        This::wxKeyEvent().
 controlDown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxKeyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxKeyEvent_ControlDown),
@@ -237,7 +237,7 @@ by the user, `getKeyCode/1` should be only used for special keys (for which `get
 handle both kinds of keys you might write:
 """.
 -spec getKeyCode(This) -> integer() when
-	This::wxKeyEvent().
+        This::wxKeyEvent().
 getKeyCode(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxKeyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxKeyEvent_GetKeyCode),
@@ -261,7 +261,7 @@ CTRL and ALT is used). On the other hand, you can simply write:
 with this function.
 """.
 -spec getModifiers(This) -> integer() when
-	This::wxKeyEvent().
+        This::wxKeyEvent().
 getModifiers(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxKeyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxKeyEvent_GetModifiers),
@@ -276,7 +276,7 @@ position and has no special relationship to the key event itself.
 `x` and `y` may be NULL if the corresponding coordinate is not needed.
 """.
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
-	This::wxKeyEvent().
+        This::wxKeyEvent().
 getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxKeyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxKeyEvent_GetPosition),
@@ -298,7 +298,7 @@ Note: Currently the raw key codes are not supported by all ports, use #ifdef
 wxHAS_RAW_KEY_CODES to determine if this feature is available.
 """.
 -spec getRawKeyCode(This) -> integer() when
-	This::wxKeyEvent().
+        This::wxKeyEvent().
 getRawKeyCode(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxKeyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxKeyEvent_GetRawKeyCode),
@@ -320,7 +320,7 @@ Note: Currently the raw key flags are not supported by all ports, use #ifdef
 wxHAS_RAW_KEY_CODES to determine if this feature is available.
 """.
 -spec getRawKeyFlags(This) -> integer() when
-	This::wxKeyEvent().
+        This::wxKeyEvent().
 getRawKeyFlags(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxKeyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxKeyEvent_GetRawKeyFlags),
@@ -335,7 +335,7 @@ return `WXK_NONE`. In this case you should use `getKeyCode/1` to retrieve the va
 This function is only available in Unicode build, i.e. when `wxUSE_UNICODE` is 1.
 """.
 -spec getUnicodeKey(This) -> integer() when
-	This::wxKeyEvent().
+        This::wxKeyEvent().
 getUnicodeKey(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxKeyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxKeyEvent_GetUnicodeKey),
@@ -347,7 +347,7 @@ Returns the X position (in client coordinates) of the event.
 See: `getPosition/1`
 """.
 -spec getX(This) -> integer() when
-	This::wxKeyEvent().
+        This::wxKeyEvent().
 getX(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxKeyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxKeyEvent_GetX),
@@ -359,7 +359,7 @@ Returns the Y position (in client coordinates) of the event.
 See: `getPosition/1`
 """.
 -spec getY(This) -> integer() when
-	This::wxKeyEvent().
+        This::wxKeyEvent().
 getY(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxKeyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxKeyEvent_GetY),
@@ -376,7 +376,7 @@ because pressing Shift usually doesn't change the interpretation of key events, 
 (not implemented in wx) if you want to take Shift into account as well.
 """.
 -spec hasModifiers(This) -> boolean() when
-	This::wxKeyEvent().
+        This::wxKeyEvent().
 hasModifiers(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxKeyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxKeyEvent_HasModifiers),
@@ -391,7 +391,7 @@ Windows keys under MSW Notice that `getModifiers/1` should usually be used inste
 See: `cmdDown/1`
 """.
 -spec metaDown(This) -> boolean() when
-	This::wxKeyEvent().
+        This::wxKeyEvent().
 metaDown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxKeyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxKeyEvent_MetaDown),
@@ -405,7 +405,7 @@ This function doesn't distinguish between right and left shift keys.
 Notice that `getModifiers/1` should usually be used instead of this one.
 """.
 -spec shiftDown(This) -> boolean() when
-	This::wxKeyEvent().
+        This::wxKeyEvent().
 shiftDown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxKeyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxKeyEvent_ShiftDown),

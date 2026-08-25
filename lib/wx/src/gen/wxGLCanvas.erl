@@ -156,7 +156,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxGLCanvas() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -209,7 +209,7 @@ it can't usually be called from the constructor as the window isn't yet shown at
 Return: false if an error occurred.
 """.
 -spec setCurrent(This, Context) -> boolean() when
-	This::wxGLCanvas(), Context::wxGLContext:wxGLContext().
+        This::wxGLCanvas(), Context::wxGLContext:wxGLContext().
 setCurrent(#wx_ref{type=ThisT}=This,#wx_ref{type=ContextT}=Context) ->
   ?CLASS(ThisT,wxGLCanvas),
   ?CLASS(ContextT,wxGLContext),
@@ -218,7 +218,7 @@ setCurrent(#wx_ref{type=ThisT}=This,#wx_ref{type=ContextT}=Context) ->
 
 -doc "".
 -spec createSurface(This) -> boolean() when
-	This::wxGLCanvas().
+        This::wxGLCanvas().
 createSurface(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGLCanvas),
   wxe_util:queue_cmd(This,?get_env(),?wxGLCanvas_CreateSurface),
@@ -233,7 +233,7 @@ the new form of this method, using `wxGLAttributes` (not implemented in wx).
 Return: true if attributes are supported.
 """.
 -spec isDisplaySupported(AttribList) -> boolean() when
-	AttribList::[integer()].
+        AttribList::[integer()].
 isDisplaySupported(AttribList)
  when is_list(AttribList) ->
   wxe_util:queue_cmd(AttribList,?get_env(),?wxGLCanvas_IsDisplaySupported),
@@ -246,7 +246,7 @@ versa, so that the output of the previous OpenGL commands is displayed on the wi
 Return: false if an error occurred.
 """.
 -spec swapBuffers(This) -> boolean() when
-	This::wxGLCanvas().
+        This::wxGLCanvas().
 swapBuffers(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGLCanvas),
   wxe_util:queue_cmd(This,?get_env(),?wxGLCanvas_SwapBuffers),

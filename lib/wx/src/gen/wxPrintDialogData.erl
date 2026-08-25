@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ new() ->
 
 -doc "Copy constructor.".
 -spec new(DialogData) -> wxPrintDialogData() when
-	DialogData::wxPrintDialogData:wxPrintDialogData() | wxPrintData:wxPrintData().
+        DialogData::wxPrintDialogData:wxPrintDialogData() | wxPrintData:wxPrintData().
 new(#wx_ref{type=DialogDataT}=DialogData) ->
   IswxPrintDialogData = ?CLASS_T(DialogDataT,wxPrintDialogData),
   IswxPrintData = ?CLASS_T(DialogDataT,wxPrintData),
@@ -109,7 +109,7 @@ new(#wx_ref{type=DialogDataT}=DialogData) ->
 Enables or disables the "Help" button.
 """.
 -spec enableHelp(This, Flag) -> 'ok' when
-	This::wxPrintDialogData(), Flag::boolean().
+        This::wxPrintDialogData(), Flag::boolean().
 enableHelp(#wx_ref{type=ThisT}=This,Flag)
  when is_boolean(Flag) ->
   ?CLASS(ThisT,wxPrintDialogData),
@@ -119,7 +119,7 @@ enableHelp(#wx_ref{type=ThisT}=This,Flag)
 Enables or disables the "Page numbers" controls.
 """.
 -spec enablePageNumbers(This, Flag) -> 'ok' when
-	This::wxPrintDialogData(), Flag::boolean().
+        This::wxPrintDialogData(), Flag::boolean().
 enablePageNumbers(#wx_ref{type=ThisT}=This,Flag)
  when is_boolean(Flag) ->
   ?CLASS(ThisT,wxPrintDialogData),
@@ -129,7 +129,7 @@ enablePageNumbers(#wx_ref{type=ThisT}=This,Flag)
 Enables or disables the "Print to file" checkbox.
 """.
 -spec enablePrintToFile(This, Flag) -> 'ok' when
-	This::wxPrintDialogData(), Flag::boolean().
+        This::wxPrintDialogData(), Flag::boolean().
 enablePrintToFile(#wx_ref{type=ThisT}=This,Flag)
  when is_boolean(Flag) ->
   ?CLASS(ThisT,wxPrintDialogData),
@@ -139,7 +139,7 @@ enablePrintToFile(#wx_ref{type=ThisT}=This,Flag)
 Enables or disables the "Selection" radio button.
 """.
 -spec enableSelection(This, Flag) -> 'ok' when
-	This::wxPrintDialogData(), Flag::boolean().
+        This::wxPrintDialogData(), Flag::boolean().
 enableSelection(#wx_ref{type=ThisT}=This,Flag)
  when is_boolean(Flag) ->
   ?CLASS(ThisT,wxPrintDialogData),
@@ -147,7 +147,7 @@ enableSelection(#wx_ref{type=ThisT}=This,Flag)
 
 -doc "Returns true if the user requested that all pages be printed.".
 -spec getAllPages(This) -> boolean() when
-	This::wxPrintDialogData().
+        This::wxPrintDialogData().
 getAllPages(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintDialogData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintDialogData_GetAllPages),
@@ -155,7 +155,7 @@ getAllPages(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the user requested that the document(s) be collated.".
 -spec getCollate(This) -> boolean() when
-	This::wxPrintDialogData().
+        This::wxPrintDialogData().
 getCollate(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintDialogData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintDialogData_GetCollate),
@@ -163,7 +163,7 @@ getCollate(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the `from` page number, as entered by the user.".
 -spec getFromPage(This) -> integer() when
-	This::wxPrintDialogData().
+        This::wxPrintDialogData().
 getFromPage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintDialogData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintDialogData_GetFromPage),
@@ -171,7 +171,7 @@ getFromPage(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the `maximum` page number.".
 -spec getMaxPage(This) -> integer() when
-	This::wxPrintDialogData().
+        This::wxPrintDialogData().
 getMaxPage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintDialogData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintDialogData_GetMaxPage),
@@ -179,7 +179,7 @@ getMaxPage(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the `minimum` page number.".
 -spec getMinPage(This) -> integer() when
-	This::wxPrintDialogData().
+        This::wxPrintDialogData().
 getMinPage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintDialogData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintDialogData_GetMinPage),
@@ -187,7 +187,7 @@ getMinPage(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the number of copies requested by the user.".
 -spec getNoCopies(This) -> integer() when
-	This::wxPrintDialogData().
+        This::wxPrintDialogData().
 getNoCopies(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintDialogData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintDialogData_GetNoCopies),
@@ -195,7 +195,7 @@ getNoCopies(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns a reference to the internal `m:wxPrintData` object.".
 -spec getPrintData(This) -> wxPrintData:wxPrintData() when
-	This::wxPrintDialogData().
+        This::wxPrintDialogData().
 getPrintData(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintDialogData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintDialogData_GetPrintData),
@@ -203,7 +203,7 @@ getPrintData(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the user has selected printing to a file.".
 -spec getPrintToFile(This) -> boolean() when
-	This::wxPrintDialogData().
+        This::wxPrintDialogData().
 getPrintToFile(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintDialogData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintDialogData_GetPrintToFile),
@@ -214,7 +214,7 @@ Returns true if the user requested that the selection be printed (where "selecti
 concept specific to the application).
 """.
 -spec getSelection(This) -> boolean() when
-	This::wxPrintDialogData().
+        This::wxPrintDialogData().
 getSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintDialogData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintDialogData_GetSelection),
@@ -224,7 +224,7 @@ getSelection(#wx_ref{type=ThisT}=This) ->
 Returns the `"print to"` page number, as entered by the user.
 """.
 -spec getToPage(This) -> integer() when
-	This::wxPrintDialogData().
+        This::wxPrintDialogData().
 getToPage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintDialogData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintDialogData_GetToPage),
@@ -237,7 +237,7 @@ This can return false on Windows if the current printer is not set, for example.
 other platforms, it returns true.
 """.
 -spec isOk(This) -> boolean() when
-	This::wxPrintDialogData().
+        This::wxPrintDialogData().
 isOk(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintDialogData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintDialogData_IsOk),
@@ -247,7 +247,7 @@ isOk(#wx_ref{type=ThisT}=This) ->
 Sets the "Collate" checkbox to true or false.
 """.
 -spec setCollate(This, Flag) -> 'ok' when
-	This::wxPrintDialogData(), Flag::boolean().
+        This::wxPrintDialogData(), Flag::boolean().
 setCollate(#wx_ref{type=ThisT}=This,Flag)
  when is_boolean(Flag) ->
   ?CLASS(ThisT,wxPrintDialogData),
@@ -255,7 +255,7 @@ setCollate(#wx_ref{type=ThisT}=This,Flag)
 
 -doc "Sets the `from` page number.".
 -spec setFromPage(This, Page) -> 'ok' when
-	This::wxPrintDialogData(), Page::integer().
+        This::wxPrintDialogData(), Page::integer().
 setFromPage(#wx_ref{type=ThisT}=This,Page)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxPrintDialogData),
@@ -263,7 +263,7 @@ setFromPage(#wx_ref{type=ThisT}=This,Page)
 
 -doc "Sets the `maximum` page number.".
 -spec setMaxPage(This, Page) -> 'ok' when
-	This::wxPrintDialogData(), Page::integer().
+        This::wxPrintDialogData(), Page::integer().
 setMaxPage(#wx_ref{type=ThisT}=This,Page)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxPrintDialogData),
@@ -271,7 +271,7 @@ setMaxPage(#wx_ref{type=ThisT}=This,Page)
 
 -doc "Sets the `minimum` page number.".
 -spec setMinPage(This, Page) -> 'ok' when
-	This::wxPrintDialogData(), Page::integer().
+        This::wxPrintDialogData(), Page::integer().
 setMinPage(#wx_ref{type=ThisT}=This,Page)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxPrintDialogData),
@@ -279,7 +279,7 @@ setMinPage(#wx_ref{type=ThisT}=This,Page)
 
 -doc "Sets the default number of copies the user has requested to be printed out.".
 -spec setNoCopies(This, N) -> 'ok' when
-	This::wxPrintDialogData(), N::integer().
+        This::wxPrintDialogData(), N::integer().
 setNoCopies(#wx_ref{type=ThisT}=This,N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxPrintDialogData),
@@ -287,7 +287,7 @@ setNoCopies(#wx_ref{type=ThisT}=This,N)
 
 -doc "Sets the internal `m:wxPrintData`.".
 -spec setPrintData(This, PrintData) -> 'ok' when
-	This::wxPrintDialogData(), PrintData::wxPrintData:wxPrintData().
+        This::wxPrintDialogData(), PrintData::wxPrintData:wxPrintData().
 setPrintData(#wx_ref{type=ThisT}=This,#wx_ref{type=PrintDataT}=PrintData) ->
   ?CLASS(ThisT,wxPrintDialogData),
   ?CLASS(PrintDataT,wxPrintData),
@@ -297,7 +297,7 @@ setPrintData(#wx_ref{type=ThisT}=This,#wx_ref{type=PrintDataT}=PrintData) ->
 Sets the "Print to file" checkbox to true or false.
 """.
 -spec setPrintToFile(This, Flag) -> 'ok' when
-	This::wxPrintDialogData(), Flag::boolean().
+        This::wxPrintDialogData(), Flag::boolean().
 setPrintToFile(#wx_ref{type=ThisT}=This,Flag)
  when is_boolean(Flag) ->
   ?CLASS(ThisT,wxPrintDialogData),
@@ -310,7 +310,7 @@ The effect of printing the selection depends on how the application implements t
 command, if at all.
 """.
 -spec setSelection(This, Flag) -> 'ok' when
-	This::wxPrintDialogData(), Flag::boolean().
+        This::wxPrintDialogData(), Flag::boolean().
 setSelection(#wx_ref{type=ThisT}=This,Flag)
  when is_boolean(Flag) ->
   ?CLASS(ThisT,wxPrintDialogData),
@@ -320,7 +320,7 @@ setSelection(#wx_ref{type=ThisT}=This,Flag)
 Sets the `"print to"` page number.
 """.
 -spec setToPage(This, Page) -> 'ok' when
-	This::wxPrintDialogData(), Page::integer().
+        This::wxPrintDialogData(), Page::integer().
 setToPage(#wx_ref{type=ThisT}=This,Page)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxPrintDialogData),

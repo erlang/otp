@@ -146,7 +146,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Parent,Id,Label,Pos,Size,Choices, [])}).
 -spec new(Parent, Id, Label, Pos, Size, Choices) -> wxRadioBox() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
+        Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
 
 new(Parent,Id,Label,{PosX,PosY} = Pos,{SizeW,SizeH} = Size,Choices)
  when is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Label),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
@@ -178,7 +178,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Label,{PosX,PosY} = Pos,{SizeW,SizeH} = Size
 
 -doc(#{equiv => create(This,Parent,Id,Label,Pos,Size,Choices, [])}).
 -spec create(This, Parent, Id, Label, Pos, Size, Choices) -> boolean() when
-	This::wxRadioBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
+        This::wxRadioBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
 
 create(This,Parent,Id,Label,{PosX,PosY} = Pos,{SizeW,SizeH} = Size,Choices)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Label),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
@@ -211,7 +211,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,Label,{PosX,PosY
 
 -doc(#{equiv => enable(This, [])}).
 -spec enable(This) -> boolean() when
-	This::wxRadioBox().
+        This::wxRadioBox().
 
 enable(This)
  when is_record(This, wx_ref) ->
@@ -223,7 +223,7 @@ Enables or disables the radiobox.
 See: `wxWindow:enable/2`
 """.
 -spec enable(This, N) -> boolean() when
-	This::wxRadioBox(), N::integer();
+        This::wxRadioBox(), N::integer();
       (This, [Option]) -> boolean() when
 	This::wxRadioBox(),
 	Option :: {'enable', boolean()}.
@@ -271,7 +271,7 @@ See:
 * `wxControlWithItems:getStringSelection/1`
 """.
 -spec getSelection(This) -> integer() when
-	This::wxRadioBox().
+        This::wxRadioBox().
 getSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxRadioBox),
   wxe_util:queue_cmd(This,?get_env(),?wxRadioBox_GetSelection),
@@ -283,7 +283,7 @@ Returns the label of the item with the given index.
 Return: The label of the item or an empty string if the position was invalid.
 """.
 -spec getString(This, N) -> unicode:charlist() when
-	This::wxRadioBox(), N::integer().
+        This::wxRadioBox(), N::integer().
 getString(#wx_ref{type=ThisT}=This,N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxRadioBox),
@@ -297,7 +297,7 @@ Notice that a radio box always has selection, so `n` must be valid here and pass
 is not allowed.
 """.
 -spec setSelection(This, N) -> 'ok' when
-	This::wxRadioBox(), N::integer().
+        This::wxRadioBox(), N::integer().
 setSelection(#wx_ref{type=ThisT}=This,N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxRadioBox),
@@ -305,7 +305,7 @@ setSelection(#wx_ref{type=ThisT}=This,N)
 
 -doc(#{equiv => show(This,Item, [])}).
 -spec show(This, Item) -> boolean() when
-	This::wxRadioBox(), Item::integer().
+        This::wxRadioBox(), Item::integer().
 
 show(This,Item)
  when is_record(This, wx_ref),is_integer(Item) ->
@@ -333,7 +333,7 @@ show(#wx_ref{type=ThisT}=This,Item, Options)
 
 -doc "Returns the number of columns in the radiobox.".
 -spec getColumnCount(This) -> integer() when
-	This::wxRadioBox().
+        This::wxRadioBox().
 getColumnCount(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxRadioBox),
   wxe_util:queue_cmd(This,?get_env(),?wxRadioBox_GetColumnCount),
@@ -345,7 +345,7 @@ Returns the helptext associated with the specified `item` if any or `wxEmptyStri
 See: `setItemHelpText/3`
 """.
 -spec getItemHelpText(This, Item) -> unicode:charlist() when
-	This::wxRadioBox(), Item::integer().
+        This::wxRadioBox(), Item::integer().
 getItemHelpText(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxRadioBox),
@@ -361,7 +361,7 @@ See:
 * `wxWindow:getToolTip/1`
 """.
 -spec getItemToolTip(This, Item) -> wxToolTip:wxToolTip() when
-	This::wxRadioBox(), Item::integer().
+        This::wxRadioBox(), Item::integer().
 getItemToolTip(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxRadioBox),
@@ -373,7 +373,7 @@ Returns a radio box item under the point, a zero-based item index, or `wxNOT\_FO
 no item is under the point.
 """.
 -spec getItemFromPoint(This, Pt) -> integer() when
-	This::wxRadioBox(), Pt::{X::integer(), Y::integer()}.
+        This::wxRadioBox(), Pt::{X::integer(), Y::integer()}.
 getItemFromPoint(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
  when is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxRadioBox),
@@ -382,7 +382,7 @@ getItemFromPoint(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
 
 -doc "Returns the number of rows in the radiobox.".
 -spec getRowCount(This) -> integer() when
-	This::wxRadioBox().
+        This::wxRadioBox().
 getRowCount(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxRadioBox),
   wxe_util:queue_cmd(This,?get_env(),?wxRadioBox_GetRowCount),
@@ -395,7 +395,7 @@ This function is currently only implemented in wxMSW, wxGTK, wxQT and wxUniversa
 always returns true in the other ports.
 """.
 -spec isItemEnabled(This, N) -> boolean() when
-	This::wxRadioBox(), N::integer().
+        This::wxRadioBox(), N::integer().
 isItemEnabled(#wx_ref{type=ThisT}=This,N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxRadioBox),
@@ -412,7 +412,7 @@ This function is currently only implemented in wxMSW, wxGTK, wxQT and wxUniversa
 always returns true in the other ports.
 """.
 -spec isItemShown(This, N) -> boolean() when
-	This::wxRadioBox(), N::integer().
+        This::wxRadioBox(), N::integer().
 isItemShown(#wx_ref{type=ThisT}=This,N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxRadioBox),
@@ -427,7 +427,7 @@ Empty string erases any existing helptext.
 See: `getItemHelpText/2`
 """.
 -spec setItemHelpText(This, Item, Helptext) -> 'ok' when
-	This::wxRadioBox(), Item::integer(), Helptext::unicode:chardata().
+        This::wxRadioBox(), Item::integer(), Helptext::unicode:chardata().
 setItemHelpText(#wx_ref{type=ThisT}=This,Item,Helptext)
  when is_integer(Item),?is_chardata(Helptext) ->
   ?CLASS(ThisT,wxRadioBox),
@@ -446,7 +446,7 @@ See:
 * `wxWindow:setToolTip/2`
 """.
 -spec setItemToolTip(This, Item, Text) -> 'ok' when
-	This::wxRadioBox(), Item::integer(), Text::unicode:chardata().
+        This::wxRadioBox(), Item::integer(), Text::unicode:chardata().
 setItemToolTip(#wx_ref{type=ThisT}=This,Item,Text)
  when is_integer(Item),?is_chardata(Text) ->
   ?CLASS(ThisT,wxRadioBox),

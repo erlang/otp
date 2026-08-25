@@ -150,7 +150,7 @@ canvas(Config) ->
         	       wxGLCanvas:swapBuffers(Canvas),
         	       Tester ! works,
         	       %% This may fail when window is deleted
-        	       try draw_loop(2.0,Data,Canvas) catch _:_ -> ok end
+                       try draw_loop(2.0,Data,Canvas) catch _:_ -> ok end
                end),
     %% Needed on mac with wx-2.9
     wxGLCanvas:connect(Canvas, paint,

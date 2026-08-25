@@ -453,24 +453,24 @@ calc_level(driver) -> 16;
 calc_level([]) -> 0;
 calc_level(List) when is_list(List) ->
     case lists:member(driver, List) of
-	true -> 16;
-	false -> 0
+        true -> 16;
+        false -> 0
     end;
 calc_level(Level) when is_integer(Level) ->
     Level.
 
 set_debug(Level) when is_integer(Level) ->
     case get_env() of
-	#wx_env{debug=Old} when Old =:= Level -> ok;
-	Env = #wx_env{sv=Server, debug=Old} ->
-	    if
-		Old >= 16, Level >= 16 -> ok;
-		Old < 16, Level < 16 -> ok;
-		true -> wxe_util:debug_driver(Level bsr 4)
-	    end,
-	    put(?WXE_IDENTIFIER, Env#wx_env{debug=Level}),
-	    wxe_server:set_debug(Server,Level),
-	    ok
+        #wx_env{debug=Old} when Old =:= Level -> ok;
+        Env = #wx_env{sv=Server, debug=Old} ->
+            if
+                Old >= 16, Level >= 16 -> ok;
+                Old < 16, Level < 16 -> ok;
+                true -> wxe_util:debug_driver(Level bsr 4)
+            end,
+            put(?WXE_IDENTIFIER, Env#wx_env{debug=Level}),
+            wxe_server:set_debug(Server,Level),
+            ok
     end.
 
 -doc """

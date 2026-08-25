@@ -186,7 +186,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id,Title, [])}).
 -spec new(Parent, Id, Title) -> wxMDIParentFrame() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
+        Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
 new(Parent,Id,Title)
  when is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Title) ->
@@ -232,7 +232,7 @@ last one.
 See: `activatePrevious/1`
 """.
 -spec activateNext(This) -> 'ok' when
-	This::wxMDIParentFrame().
+        This::wxMDIParentFrame().
 activateNext(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMDIParentFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxMDIParentFrame_ActivateNext).
@@ -243,7 +243,7 @@ Activates the MDI child preceding the currently active one.
 See: `activateNext/1`
 """.
 -spec activatePrevious(This) -> 'ok' when
-	This::wxMDIParentFrame().
+        This::wxMDIParentFrame().
 activatePrevious(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMDIParentFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxMDIParentFrame_ActivatePrevious).
@@ -260,7 +260,7 @@ See:
 * `tile/2`
 """.
 -spec arrangeIcons(This) -> 'ok' when
-	This::wxMDIParentFrame().
+        This::wxMDIParentFrame().
 arrangeIcons(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMDIParentFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxMDIParentFrame_ArrangeIcons).
@@ -277,14 +277,14 @@ See:
 * `arrangeIcons/1`
 """.
 -spec cascade(This) -> 'ok' when
-	This::wxMDIParentFrame().
+        This::wxMDIParentFrame().
 cascade(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMDIParentFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxMDIParentFrame_Cascade).
 
 -doc(#{equiv => create(This,Parent,Id,Title, [])}).
 -spec create(This, Parent, Id, Title) -> boolean() when
-	This::wxMDIParentFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
+        This::wxMDIParentFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
 create(This,Parent,Id,Title)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Title) ->
@@ -319,7 +319,7 @@ Returns a pointer to the active MDI child, if there is one.
 If there are any children at all this function returns a non-NULL pointer.
 """.
 -spec getActiveChild(This) -> wxMDIChildFrame:wxMDIChildFrame() when
-	This::wxMDIParentFrame().
+        This::wxMDIParentFrame().
 getActiveChild(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMDIParentFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxMDIParentFrame_GetActiveChild),
@@ -327,7 +327,7 @@ getActiveChild(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns a pointer to the client window.".
 -spec getClientWindow(This) -> wxMDIClientWindow:wxMDIClientWindow() when
-	This::wxMDIParentFrame().
+        This::wxMDIParentFrame().
 getClientWindow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMDIParentFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxMDIParentFrame_GetClientWindow),
@@ -335,7 +335,7 @@ getClientWindow(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => tile(This, [])}).
 -spec tile(This) -> 'ok' when
-	This::wxMDIParentFrame().
+        This::wxMDIParentFrame().
 
 tile(This)
  when is_record(This, wx_ref) ->

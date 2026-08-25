@@ -163,7 +163,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id,Label, [])}).
 -spec new(Parent, Id, Label) -> wxCheckBox() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
+        Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
 new(Parent,Id,Label)
  when is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Label) ->
@@ -195,7 +195,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Label, Options)
 
 -doc(#{equiv => create(This,Parent,Id,Label, [])}).
 -spec create(This, Parent, Id, Label) -> boolean() when
-	This::wxCheckBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
+        This::wxCheckBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
 create(This,Parent,Id,Label)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Label) ->
@@ -232,7 +232,7 @@ Gets the state of a 2-state checkbox.
 Return: Returns true if it is checked, false otherwise.
 """.
 -spec getValue(This) -> boolean() when
-	This::wxCheckBox().
+        This::wxCheckBox().
 getValue(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCheckBox),
   wxe_util:queue_cmd(This,?get_env(),?wxCheckBox_GetValue),
@@ -245,7 +245,7 @@ Asserts when the function is used with a 2-state checkbox.
 """.
 %%  Res = ?wxCHK_UNCHECKED | ?wxCHK_CHECKED | ?wxCHK_UNDETERMINED
 -spec get3StateValue(This) -> wx:wx_enum() when
-	This::wxCheckBox().
+        This::wxCheckBox().
 get3StateValue(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCheckBox),
   wxe_util:queue_cmd(This,?get_env(),?wxCheckBox_Get3StateValue),
@@ -258,7 +258,7 @@ Return: true if the user can set the third state of this checkbox, false if it c
 be set programmatically or if it's a 2-state checkbox.
 """.
 -spec is3rdStateAllowedForUser(This) -> boolean() when
-	This::wxCheckBox().
+        This::wxCheckBox().
 is3rdStateAllowedForUser(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCheckBox),
   wxe_util:queue_cmd(This,?get_env(),?wxCheckBox_Is3rdStateAllowedForUser),
@@ -270,7 +270,7 @@ Returns whether or not the checkbox is a 3-state checkbox.
 Return: true if this checkbox is a 3-state checkbox, false if it's a 2-state checkbox.
 """.
 -spec is3State(This) -> boolean() when
-	This::wxCheckBox().
+        This::wxCheckBox().
 is3State(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCheckBox),
   wxe_util:queue_cmd(This,?get_env(),?wxCheckBox_Is3State),
@@ -281,7 +281,7 @@ This is just a maybe more readable synonym for `getValue/1`: just as the latter,
 returns true if the checkbox is checked and false otherwise.
 """.
 -spec isChecked(This) -> boolean() when
-	This::wxCheckBox().
+        This::wxCheckBox().
 isChecked(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCheckBox),
   wxe_util:queue_cmd(This,?get_env(),?wxCheckBox_IsChecked),
@@ -293,7 +293,7 @@ Sets the checkbox to the given state.
 This does not cause a `wxEVT_CHECKBOX` event to get emitted.
 """.
 -spec setValue(This, State) -> 'ok' when
-	This::wxCheckBox(), State::boolean().
+        This::wxCheckBox(), State::boolean().
 setValue(#wx_ref{type=ThisT}=This,State)
  when is_boolean(State) ->
   ?CLASS(ThisT,wxCheckBox),
@@ -309,7 +309,7 @@ wxCHK_UNDETERMINED.
 """.
 %%  State = ?wxCHK_UNCHECKED | ?wxCHK_CHECKED | ?wxCHK_UNDETERMINED
 -spec set3StateValue(This, State) -> 'ok' when
-	This::wxCheckBox(), State::wx:wx_enum().
+        This::wxCheckBox(), State::wx:wx_enum().
 set3StateValue(#wx_ref{type=ThisT}=This,State)
  when is_integer(State) ->
   ?CLASS(ThisT,wxCheckBox),

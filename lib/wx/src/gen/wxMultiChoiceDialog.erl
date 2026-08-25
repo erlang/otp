@@ -146,7 +146,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Parent,Message,Caption,Choices, [])}).
 -spec new(Parent, Message, Caption, Choices) -> wxMultiChoiceDialog() when
-	Parent::wxWindow:wxWindow(), Message::unicode:chardata(), Caption::unicode:chardata(), Choices::[unicode:chardata()].
+        Parent::wxWindow:wxWindow(), Message::unicode:chardata(), Caption::unicode:chardata(), Choices::[unicode:chardata()].
 
 new(Parent,Message,Caption,Choices)
  when is_record(Parent, wx_ref),?is_chardata(Message),?is_chardata(Caption),is_list(Choices) ->
@@ -177,7 +177,7 @@ new(#wx_ref{type=ParentT}=Parent,Message,Caption,Choices, Options)
 
 -doc "Returns array with indexes of selected items.".
 -spec getSelections(This) -> [integer()] when
-	This::wxMultiChoiceDialog().
+        This::wxMultiChoiceDialog().
 getSelections(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMultiChoiceDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxMultiChoiceDialog_GetSelections),
@@ -185,7 +185,7 @@ getSelections(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets selected items from the array of selected items' indexes.".
 -spec setSelections(This, Selections) -> 'ok' when
-	This::wxMultiChoiceDialog(), Selections::[integer()].
+        This::wxMultiChoiceDialog(), Selections::[integer()].
 setSelections(#wx_ref{type=ThisT}=This,Selections)
  when is_list(Selections) ->
   ?CLASS(ThisT,wxMultiChoiceDialog),

@@ -102,10 +102,10 @@ handle_call(register_me, {From,_}, State=#state{users=Users}) ->
     case gb_trees:is_defined(From, Users) of
 	true ->
 	    {reply, ok, State};
-	false ->
-	    erlang:monitor(process, From),
-	    New = gb_trees:insert(From, #user{}, Users),
-	    {reply, ok, State#state{users=New}}
+        false ->
+            erlang:monitor(process, From),
+            New = gb_trees:insert(From, #user{}, Users),
+            {reply, ok, State#state{users=New}}
     end;
 %% Port request
 handle_call(get_env, _, State=#state{env=Env}) ->
@@ -364,12 +364,12 @@ cleanup_evt_listener(U=#user{events=Evs0}, EvtListener, Object) ->
 handle_disconnect(Object, Evh = #evh{cb=Fun}, From,
 		  State0 = #state{users=Users0, cb=Callbacks}) ->
     case gb_trees:lookup(From, Users0) of
-	{value, #user{events=Evs0}} ->
-	    FunId = gb_trees:lookup(Fun, Callbacks),
-	    Handlers = find_handler(Evs0, Object, Evh#evh{cb=FunId}),
-	    {reply, {try_in_order, Handlers}, State0};
-	none ->
-	    {reply, {try_in_order, []}, State0}
+        {value, #user{events=Evs0}} ->
+            FunId = gb_trees:lookup(Fun, Callbacks),
+            Handlers = find_handler(Evs0, Object, Evh#evh{cb=FunId}),
+            {reply, {try_in_order, Handlers}, State0};
+        none ->
+            {reply, {try_in_order, []}, State0}
     end.
 
 find_handler([{Object,Evh}|Evs], Object, Match) ->

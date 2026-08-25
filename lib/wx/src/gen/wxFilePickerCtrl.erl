@@ -179,7 +179,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxFilePickerCtrl() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -212,7 +212,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc(#{equiv => create(This,Parent,Id, [])}).
 -spec create(This, Parent, Id) -> boolean() when
-	This::wxFilePickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer().
+        This::wxFilePickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer().
 
 create(This,Parent,Id)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
@@ -250,7 +250,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc "Returns the absolute path of the currently selected file.".
 -spec getPath(This) -> unicode:charlist() when
-	This::wxFilePickerCtrl().
+        This::wxFilePickerCtrl().
 getPath(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFilePickerCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxFilePickerCtrl_GetPath),
@@ -266,7 +266,7 @@ other platforms accepts even invalid file names currently, but this is subject t
 in the future, don't rely on being able to use non-existent paths with it).
 """.
 -spec setPath(This, Filename) -> 'ok' when
-	This::wxFilePickerCtrl(), Filename::unicode:chardata().
+        This::wxFilePickerCtrl(), Filename::unicode:chardata().
 setPath(#wx_ref{type=ThisT}=This,Filename)
  when ?is_chardata(Filename) ->
   ?CLASS(ThisT,wxFilePickerCtrl),

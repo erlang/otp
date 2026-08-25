@@ -152,7 +152,7 @@ new() ->
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxSashLayoutWindow() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -182,7 +182,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
 
 -doc(#{equiv => create(This,Parent, [])}).
 -spec create(This, Parent) -> boolean() when
-	This::wxSashLayoutWindow(), Parent::wxWindow:wxWindow().
+        This::wxSashLayoutWindow(), Parent::wxWindow:wxWindow().
 
 create(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
@@ -217,7 +217,7 @@ wxLAYOUT\_RIGHT, wxLAYOUT\_BOTTOM.
 """.
 %%  Res = ?wxLAYOUT_NONE | ?wxLAYOUT_TOP | ?wxLAYOUT_LEFT | ?wxLAYOUT_RIGHT | ?wxLAYOUT_BOTTOM
 -spec getAlignment(This) -> wx:wx_enum() when
-	This::wxSashLayoutWindow().
+        This::wxSashLayoutWindow().
 getAlignment(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSashLayoutWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxSashLayoutWindow_GetAlignment),
@@ -226,7 +226,7 @@ getAlignment(#wx_ref{type=ThisT}=This) ->
 -doc "Returns the orientation of the window: one of wxLAYOUT\_HORIZONTAL, wxLAYOUT\_VERTICAL.".
 %%  Res = ?wxLAYOUT_HORIZONTAL | ?wxLAYOUT_VERTICAL
 -spec getOrientation(This) -> wx:wx_enum() when
-	This::wxSashLayoutWindow().
+        This::wxSashLayoutWindow().
 getOrientation(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSashLayoutWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxSashLayoutWindow_GetOrientation),
@@ -240,7 +240,7 @@ window is attached to).
 """.
 %%  Alignment = ?wxLAYOUT_NONE | ?wxLAYOUT_TOP | ?wxLAYOUT_LEFT | ?wxLAYOUT_RIGHT | ?wxLAYOUT_BOTTOM
 -spec setAlignment(This, Alignment) -> 'ok' when
-	This::wxSashLayoutWindow(), Alignment::wx:wx_enum().
+        This::wxSashLayoutWindow(), Alignment::wx:wx_enum().
 setAlignment(#wx_ref{type=ThisT}=This,Alignment)
  when is_integer(Alignment) ->
   ?CLASS(ThisT,wxSashLayoutWindow),
@@ -253,7 +253,7 @@ The dimension other than the orientation will be fixed to this value, and the or
 dimension will be ignored and the window stretched to fit the available space.
 """.
 -spec setDefaultSize(This, Size) -> 'ok' when
-	This::wxSashLayoutWindow(), Size::{W::integer(), H::integer()}.
+        This::wxSashLayoutWindow(), Size::{W::integer(), H::integer()}.
 setDefaultSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxSashLayoutWindow),
@@ -267,7 +267,7 @@ available parent client area).
 """.
 %%  Orientation = ?wxLAYOUT_HORIZONTAL | ?wxLAYOUT_VERTICAL
 -spec setOrientation(This, Orientation) -> 'ok' when
-	This::wxSashLayoutWindow(), Orientation::wx:wx_enum().
+        This::wxSashLayoutWindow(), Orientation::wx:wx_enum().
 setOrientation(#wx_ref{type=ThisT}=This,Orientation)
  when is_integer(Orientation) ->
   ?CLASS(ThisT,wxSashLayoutWindow),

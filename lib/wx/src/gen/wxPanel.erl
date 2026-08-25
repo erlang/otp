@@ -146,7 +146,7 @@ new() ->
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxPanel() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -177,7 +177,7 @@ Sends a `m:wxInitDialogEvent`, which in turn transfers data to the dialog via va
 See: `m:wxInitDialogEvent`
 """.
 -spec initDialog(This) -> 'ok' when
-	This::wxPanel().
+        This::wxPanel().
 initDialog(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPanel),
   wxe_util:queue_cmd(This,?get_env(),?wxPanel_InitDialog).
@@ -189,7 +189,7 @@ even if there are child windows in the panel.
 This is only rarely needed.
 """.
 -spec setFocusIgnoringChildren(This) -> 'ok' when
-	This::wxPanel().
+        This::wxPanel().
 setFocusIgnoringChildren(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPanel),
   wxe_util:queue_cmd(This,?get_env(),?wxPanel_SetFocusIgnoringChildren).

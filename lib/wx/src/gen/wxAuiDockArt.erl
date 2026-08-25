@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ Get the colour of a certain setting.
 `id` can be one of the colour values of `wxAuiPaneDockArtSetting`.
 """.
 -spec getColour(This, Id) -> wx:wx_colour4() when
-	This::wxAuiDockArt(), Id::integer().
+        This::wxAuiDockArt(), Id::integer().
 getColour(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxAuiDockArt),
@@ -102,7 +102,7 @@ getColour(#wx_ref{type=ThisT}=This,Id)
 
 -doc "Get a font setting.".
 -spec getFont(This, Id) -> wxFont:wxFont() when
-	This::wxAuiDockArt(), Id::integer().
+        This::wxAuiDockArt(), Id::integer().
 getFont(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxAuiDockArt),
@@ -115,7 +115,7 @@ Get the value of a certain setting.
 `id` can be one of the size values of `wxAuiPaneDockArtSetting`.
 """.
 -spec getMetric(This, Id) -> integer() when
-	This::wxAuiDockArt(), Id::integer().
+        This::wxAuiDockArt(), Id::integer().
 getMetric(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxAuiDockArt),
@@ -128,7 +128,7 @@ Set a certain setting with the value `colour`.
 `id` can be one of the colour values of `wxAuiPaneDockArtSetting`.
 """.
 -spec setColour(This, Id, Colour) -> 'ok' when
-	This::wxAuiDockArt(), Id::integer(), Colour::wx:wx_colour().
+        This::wxAuiDockArt(), Id::integer(), Colour::wx:wx_colour().
 setColour(#wx_ref{type=ThisT}=This,Id,Colour)
  when is_integer(Id),?is_colordata(Colour) ->
   ?CLASS(ThisT,wxAuiDockArt),
@@ -136,7 +136,7 @@ setColour(#wx_ref{type=ThisT}=This,Id,Colour)
 
 -doc "Set a font setting.".
 -spec setFont(This, Id, Font) -> 'ok' when
-	This::wxAuiDockArt(), Id::integer(), Font::wxFont:wxFont().
+        This::wxAuiDockArt(), Id::integer(), Font::wxFont:wxFont().
 setFont(#wx_ref{type=ThisT}=This,Id,#wx_ref{type=FontT}=Font)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxAuiDockArt),
@@ -149,7 +149,7 @@ Set a certain setting with the value `new\_val`.
 `id` can be one of the size values of `wxAuiPaneDockArtSetting`.
 """.
 -spec setMetric(This, Id, New_val) -> 'ok' when
-	This::wxAuiDockArt(), Id::integer(), New_val::integer().
+        This::wxAuiDockArt(), Id::integer(), New_val::integer().
 setMetric(#wx_ref{type=ThisT}=This,Id,New_val)
  when is_integer(Id),is_integer(New_val) ->
   ?CLASS(ThisT,wxAuiDockArt),

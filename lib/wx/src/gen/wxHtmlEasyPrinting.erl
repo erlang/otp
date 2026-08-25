@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -106,7 +106,7 @@ Returns pointer to `m:wxPrintData` instance used by this class.
 You can set its parameters (via SetXXXX methods).
 """.
 -spec getPrintData(This) -> wxPrintData:wxPrintData() when
-	This::wxHtmlEasyPrinting().
+        This::wxHtmlEasyPrinting().
 getPrintData(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxHtmlEasyPrinting),
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlEasyPrinting_GetPrintData),
@@ -118,7 +118,7 @@ Returns a pointer to `m:wxPageSetupDialogData` instance used by this class.
 You can set its parameters (via SetXXXX methods).
 """.
 -spec getPageSetupData(This) -> wxPageSetupDialogData:wxPageSetupDialogData() when
-	This::wxHtmlEasyPrinting().
+        This::wxHtmlEasyPrinting().
 getPageSetupData(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxHtmlEasyPrinting),
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlEasyPrinting_GetPageSetupData),
@@ -131,7 +131,7 @@ Returns false in case of error - call `wxPrinter:getLastError/0` to get detailed
 error.
 """.
 -spec previewFile(This, Htmlfile) -> boolean() when
-	This::wxHtmlEasyPrinting(), Htmlfile::unicode:chardata().
+        This::wxHtmlEasyPrinting(), Htmlfile::unicode:chardata().
 previewFile(#wx_ref{type=ThisT}=This,Htmlfile)
  when ?is_chardata(Htmlfile) ->
   ?CLASS(ThisT,wxHtmlEasyPrinting),
@@ -141,7 +141,7 @@ previewFile(#wx_ref{type=ThisT}=This,Htmlfile)
 
 -doc(#{equiv => previewText(This,Htmltext, [])}).
 -spec previewText(This, Htmltext) -> boolean() when
-	This::wxHtmlEasyPrinting(), Htmltext::unicode:chardata().
+        This::wxHtmlEasyPrinting(), Htmltext::unicode:chardata().
 
 previewText(This,Htmltext)
  when is_record(This, wx_ref),?is_chardata(Htmltext) ->
@@ -172,7 +172,7 @@ Returns false in case of error - call `wxPrinter:getLastError/0` to get detailed
 error.
 """.
 -spec printFile(This, Htmlfile) -> boolean() when
-	This::wxHtmlEasyPrinting(), Htmlfile::unicode:chardata().
+        This::wxHtmlEasyPrinting(), Htmlfile::unicode:chardata().
 printFile(#wx_ref{type=ThisT}=This,Htmlfile)
  when ?is_chardata(Htmlfile) ->
   ?CLASS(ThisT,wxHtmlEasyPrinting),
@@ -182,7 +182,7 @@ printFile(#wx_ref{type=ThisT}=This,Htmlfile)
 
 -doc(#{equiv => printText(This,Htmltext, [])}).
 -spec printText(This, Htmltext) -> boolean() when
-	This::wxHtmlEasyPrinting(), Htmltext::unicode:chardata().
+        This::wxHtmlEasyPrinting(), Htmltext::unicode:chardata().
 
 printText(This,Htmltext)
  when is_record(This, wx_ref),?is_chardata(Htmltext) ->
@@ -208,14 +208,14 @@ printText(#wx_ref{type=ThisT}=This,Htmltext, Options)
 
 -doc "Display page setup dialog and allows the user to modify settings.".
 -spec pageSetup(This) -> 'ok' when
-	This::wxHtmlEasyPrinting().
+        This::wxHtmlEasyPrinting().
 pageSetup(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxHtmlEasyPrinting),
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlEasyPrinting_PageSetup).
 
 -doc(#{equiv => setFonts(This,Normal_face,Fixed_face, [])}).
 -spec setFonts(This, Normal_face, Fixed_face) -> 'ok' when
-	This::wxHtmlEasyPrinting(), Normal_face::unicode:chardata(), Fixed_face::unicode:chardata().
+        This::wxHtmlEasyPrinting(), Normal_face::unicode:chardata(), Fixed_face::unicode:chardata().
 
 setFonts(This,Normal_face,Fixed_face)
  when is_record(This, wx_ref),?is_chardata(Normal_face),?is_chardata(Fixed_face) ->
@@ -241,7 +241,7 @@ setFonts(#wx_ref{type=ThisT}=This,Normal_face,Fixed_face, Options)
 
 -doc(#{equiv => setHeader(This,Header, [])}).
 -spec setHeader(This, Header) -> 'ok' when
-	This::wxHtmlEasyPrinting(), Header::unicode:chardata().
+        This::wxHtmlEasyPrinting(), Header::unicode:chardata().
 
 setHeader(This,Header)
  when is_record(This, wx_ref),?is_chardata(Header) ->
@@ -276,7 +276,7 @@ setHeader(#wx_ref{type=ThisT}=This,Header, Options)
 
 -doc(#{equiv => setFooter(This,Footer, [])}).
 -spec setFooter(This, Footer) -> 'ok' when
-	This::wxHtmlEasyPrinting(), Footer::unicode:chardata().
+        This::wxHtmlEasyPrinting(), Footer::unicode:chardata().
 
 setFooter(This,Footer)
  when is_record(This, wx_ref),?is_chardata(Footer) ->

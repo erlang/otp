@@ -123,16 +123,16 @@ gen_derived_dest_2(C=#class{name=Class, options=Opts}) ->
 		_ -> ok
 	    end,
 	    w("class E~s : public ~s {~n",[Class,Class]),
-	    case Class of
-		"wxGLCanvas" ->  %% Special for cleaning up gl context
-		    w(" public: ~~E~s() {deleteActiveGL(this);"
-		      "((WxeApp *)wxTheApp)->clearPtr(this);};~n", [Class]);
-		"wxGLContext" ->  %% Special for cleaning up glc entries
-		    w(" public: ~~E~s() {deleteActiveGLContext(this);"
-		      "((WxeApp *)wxTheApp)->clearPtr(this);};~n", [Class]);
-		_ ->
-		    w(" public: ~~E~s() {((WxeApp *)wxTheApp)->clearPtr(this);};~n", [Class])
-	    end,
+            case Class of
+                "wxGLCanvas" ->  %% Special for cleaning up gl context
+                    w(" public: ~~E~s() {deleteActiveGL(this);"
+                      "((WxeApp *)wxTheApp)->clearPtr(this);};~n", [Class]);
+                "wxGLContext" ->  %% Special for cleaning up glc entries
+                    w(" public: ~~E~s() {deleteActiveGLContext(this);"
+                      "((WxeApp *)wxTheApp)->clearPtr(this);};~n", [Class]);
+                _ ->
+                    w(" public: ~~E~s() {((WxeApp *)wxTheApp)->clearPtr(this);};~n", [Class])
+            end,
 	    gen_constructors(C),
 	    case lists:keysearch(ifdef,1,Opts) of
 		{value, {ifdef, Endif}} ->

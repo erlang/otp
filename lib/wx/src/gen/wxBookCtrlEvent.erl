@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -117,7 +117,7 @@ Returns the page that was selected before the change, `wxNOT\_FOUND` if none was
 selected.
 """.
 -spec getOldSelection(This) -> integer() when
-	This::wxBookCtrlEvent().
+        This::wxBookCtrlEvent().
 getOldSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxBookCtrlEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxBookCtrlEvent_GetOldSelection),
@@ -130,7 +130,7 @@ Note: under Windows, `getSelection/1` will return the same value as `getOldSelec
 handler and not the page which is going to be selected.
 """.
 -spec getSelection(This) -> integer() when
-	This::wxBookCtrlEvent().
+        This::wxBookCtrlEvent().
 getSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxBookCtrlEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxBookCtrlEvent_GetSelection),
@@ -138,7 +138,7 @@ getSelection(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the id of the page selected before the change.".
 -spec setOldSelection(This, Page) -> 'ok' when
-	This::wxBookCtrlEvent(), Page::integer().
+        This::wxBookCtrlEvent(), Page::integer().
 setOldSelection(#wx_ref{type=ThisT}=This,Page)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxBookCtrlEvent),
@@ -146,7 +146,7 @@ setOldSelection(#wx_ref{type=ThisT}=This,Page)
 
 -doc "Sets the selection member variable.".
 -spec setSelection(This, Page) -> 'ok' when
-	This::wxBookCtrlEvent(), Page::integer().
+        This::wxBookCtrlEvent(), Page::integer().
 setSelection(#wx_ref{type=ThisT}=This,Page)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxBookCtrlEvent),

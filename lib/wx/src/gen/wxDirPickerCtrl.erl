@@ -174,7 +174,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxDirPickerCtrl() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -205,7 +205,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc(#{equiv => create(This,Parent,Id, [])}).
 -spec create(This, Parent, Id) -> boolean() when
-	This::wxDirPickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer().
+        This::wxDirPickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer().
 
 create(This,Parent,Id)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
@@ -241,7 +241,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc "Returns the absolute path of the currently selected directory.".
 -spec getPath(This) -> unicode:charlist() when
-	This::wxDirPickerCtrl().
+        This::wxDirPickerCtrl().
 getPath(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDirPickerCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxDirPickerCtrl_GetPath),
@@ -255,7 +255,7 @@ the `dirname` must be a name of an existing directory and will be simply ignored
 native wxGTK implementation if this is not the case.
 """.
 -spec setPath(This, Dirname) -> 'ok' when
-	This::wxDirPickerCtrl(), Dirname::unicode:chardata().
+        This::wxDirPickerCtrl(), Dirname::unicode:chardata().
 setPath(#wx_ref{type=ThisT}=This,Dirname)
  when ?is_chardata(Dirname) ->
   ?CLASS(ThisT,wxDirPickerCtrl),

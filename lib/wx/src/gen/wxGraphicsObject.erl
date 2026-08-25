@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -88,7 +88,7 @@ Returns the renderer that was used to create this instance, or NULL if it has no
 initialized yet.
 """.
 -spec getRenderer(This) -> wxGraphicsRenderer:wxGraphicsRenderer() when
-	This::wxGraphicsObject().
+        This::wxGraphicsObject().
 getRenderer(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGraphicsObject),
   wxe_util:queue_cmd(This,?get_env(),?wxGraphicsObject_GetRenderer),
@@ -96,7 +96,7 @@ getRenderer(#wx_ref{type=ThisT}=This) ->
 
 -doc "Return: false if this object is valid, otherwise returns true.".
 -spec isNull(This) -> boolean() when
-	This::wxGraphicsObject().
+        This::wxGraphicsObject().
 isNull(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGraphicsObject),
   wxe_util:queue_cmd(This,?get_env(),?wxGraphicsObject_IsNull),

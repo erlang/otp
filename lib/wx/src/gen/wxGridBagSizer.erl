@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -122,7 +122,7 @@ new(Options)
 
 -doc "".
 -spec add(This, Item) -> wxSizerItem:wxSizerItem() when
-	This::wxGridBagSizer(), Item::wxGBSizerItem:wxGBSizerItem().
+        This::wxGridBagSizer(), Item::wxGBSizerItem:wxGBSizerItem().
 add(#wx_ref{type=ThisT}=This,#wx_ref{type=ItemT}=Item) ->
   ?CLASS(ThisT,wxGridBagSizer),
   ?CLASS(ItemT,wxGBSizerItem),
@@ -131,7 +131,7 @@ add(#wx_ref{type=ThisT}=This,#wx_ref{type=ItemT}=Item) ->
 
 -doc(#{equiv => add(This,Window,Pos, [])}).
 -spec add(This, Window, Pos) -> wxSizerItem:wxSizerItem() when
-	This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Pos::{R::integer(), C::integer()}.
+        This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Pos::{R::integer(), C::integer()}.
 
 add(This,Window,{PosR,PosC} = Pos)
  when is_record(This, wx_ref),is_record(Window, wx_ref),is_integer(PosR),is_integer(PosC) ->
@@ -144,7 +144,7 @@ Return: A valid pointer if the item was successfully placed at the given positio
 NULL if something was already there.
 """.
 -spec add(This, Width, Height, Pos) -> wxSizerItem:wxSizerItem() when
-	This::wxGridBagSizer(), Width::integer(), Height::integer(), Pos::{R::integer(), C::integer()};
+        This::wxGridBagSizer(), Width::integer(), Height::integer(), Pos::{R::integer(), C::integer()};
       (This, Window, Pos, [Option]) -> wxSizerItem:wxSizerItem() when
 	This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Pos::{R::integer(), C::integer()},
 	Option :: {'span', {RS::integer(), CS::integer()}}
@@ -202,7 +202,7 @@ add(#wx_ref{type=ThisT}=This,Width,Height,{PosR,PosC} = Pos, Options)
 
 -doc "Called when the managed size of the sizer is needed or when layout needs done.".
 -spec calcMin(This) -> {W::integer(), H::integer()} when
-	This::wxGridBagSizer().
+        This::wxGridBagSizer().
 calcMin(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridBagSizer),
   wxe_util:queue_cmd(This,?get_env(),?wxGridBagSizer_CalcMin),
@@ -210,7 +210,7 @@ calcMin(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => checkForIntersection(This,Item, [])}).
 -spec checkForIntersection(This, Item) -> boolean() when
-	This::wxGridBagSizer(), Item::wxGBSizerItem:wxGBSizerItem().
+        This::wxGridBagSizer(), Item::wxGBSizerItem:wxGBSizerItem().
 
 checkForIntersection(This,Item)
  when is_record(This, wx_ref),is_record(Item, wx_ref) ->
@@ -224,7 +224,7 @@ it will not be checked for intersection, for example it may be the item we are c
 the position of.
 """.
 -spec checkForIntersection(This, Pos, Span) -> boolean() when
-	This::wxGridBagSizer(), Pos::{R::integer(), C::integer()}, Span::{RS::integer(), CS::integer()};
+        This::wxGridBagSizer(), Pos::{R::integer(), C::integer()}, Span::{RS::integer(), CS::integer()};
       (This, Item, [Option]) -> boolean() when
 	This::wxGridBagSizer(), Item::wxGBSizerItem:wxGBSizerItem(),
 	Option :: {'excludeItem', wxGBSizerItem:wxGBSizerItem()}.
@@ -261,7 +261,7 @@ Find the sizer item for the given window or subsizer, returns NULL if not found.
 (non-recursive)
 """.
 -spec findItem(This, Window) -> wxGBSizerItem:wxGBSizerItem() when
-	This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer().
+        This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer().
 findItem(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
   ?CLASS(ThisT,wxGridBagSizer),
   IswxWindow = ?CLASS_T(WindowT,wxWindow),
@@ -282,7 +282,7 @@ The (x,y) coordinates in `pt` correspond to the client coordinates of the window
 the sizer for layout. (non-recursive)
 """.
 -spec findItemAtPoint(This, Pt) -> wxGBSizerItem:wxGBSizerItem() when
-	This::wxGridBagSizer(), Pt::{X::integer(), Y::integer()}.
+        This::wxGridBagSizer(), Pt::{X::integer(), Y::integer()}.
 findItemAtPoint(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
  when is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxGridBagSizer),
@@ -296,7 +296,7 @@ position.
 (non-recursive)
 """.
 -spec findItemAtPosition(This, Pos) -> wxGBSizerItem:wxGBSizerItem() when
-	This::wxGridBagSizer(), Pos::{R::integer(), C::integer()}.
+        This::wxGridBagSizer(), Pos::{R::integer(), C::integer()}.
 findItemAtPosition(#wx_ref{type=ThisT}=This,{PosR,PosC} = Pos)
  when is_integer(PosR),is_integer(PosC) ->
   ?CLASS(ThisT,wxGridBagSizer),
@@ -310,7 +310,7 @@ NULL if not found.
 (non-recursive)
 """.
 -spec findItemWithData(This, UserData) -> wxGBSizerItem:wxGBSizerItem() when
-	This::wxGridBagSizer(), UserData::wx:wx_object().
+        This::wxGridBagSizer(), UserData::wx:wx_object().
 findItemWithData(#wx_ref{type=ThisT}=This,#wx_ref{type=UserDataT}=UserData) ->
   ?CLASS(ThisT,wxGridBagSizer),
   ?CLASS(UserDataT,wx),
@@ -323,7 +323,7 @@ Get the size of the specified cell, including hgap and vgap.
 Only valid after window layout has been performed.
 """.
 -spec getCellSize(This, Row, Col) -> {W::integer(), H::integer()} when
-	This::wxGridBagSizer(), Row::integer(), Col::integer().
+        This::wxGridBagSizer(), Row::integer(), Col::integer().
 getCellSize(#wx_ref{type=ThisT}=This,Row,Col)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGridBagSizer),
@@ -332,7 +332,7 @@ getCellSize(#wx_ref{type=ThisT}=This,Row,Col)
 
 -doc "Get the size used for cells in the grid with no item.".
 -spec getEmptyCellSize(This) -> {W::integer(), H::integer()} when
-	This::wxGridBagSizer().
+        This::wxGridBagSizer().
 getEmptyCellSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridBagSizer),
   wxe_util:queue_cmd(This,?get_env(),?wxGridBagSizer_GetEmptyCellSize),
@@ -340,9 +340,9 @@ getEmptyCellSize(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec getItemPosition(This, Window) -> {R::integer(), C::integer()} when
-	This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer();
+        This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer();
       (This, Index) -> {R::integer(), C::integer()} when
-	This::wxGridBagSizer(), Index::integer().
+        This::wxGridBagSizer(), Index::integer().
 getItemPosition(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
   ?CLASS(ThisT,wxGridBagSizer),
   IswxWindow = ?CLASS_T(WindowT,wxWindow),
@@ -362,9 +362,9 @@ getItemPosition(#wx_ref{type=ThisT}=This,Index)
 
 -doc "".
 -spec getItemSpan(This, Window) -> {RS::integer(), CS::integer()} when
-	This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer();
+        This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer();
       (This, Index) -> {RS::integer(), CS::integer()} when
-	This::wxGridBagSizer(), Index::integer().
+        This::wxGridBagSizer(), Index::integer().
 getItemSpan(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
   ?CLASS(ThisT,wxGridBagSizer),
   IswxWindow = ?CLASS_T(WindowT,wxWindow),
@@ -384,7 +384,7 @@ getItemSpan(#wx_ref{type=ThisT}=This,Index)
 
 -doc "Set the size used for cells in the grid with no item.".
 -spec setEmptyCellSize(This, Sz) -> 'ok' when
-	This::wxGridBagSizer(), Sz::{W::integer(), H::integer()}.
+        This::wxGridBagSizer(), Sz::{W::integer(), H::integer()}.
 setEmptyCellSize(#wx_ref{type=ThisT}=This,{SzW,SzH} = Sz)
  when is_integer(SzW),is_integer(SzH) ->
   ?CLASS(ThisT,wxGridBagSizer),
@@ -392,9 +392,9 @@ setEmptyCellSize(#wx_ref{type=ThisT}=This,{SzW,SzH} = Sz)
 
 -doc "".
 -spec setItemPosition(This, Window, Pos) -> boolean() when
-	This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Pos::{R::integer(), C::integer()};
+        This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Pos::{R::integer(), C::integer()};
       (This, Index, Pos) -> boolean() when
-	This::wxGridBagSizer(), Index::integer(), Pos::{R::integer(), C::integer()}.
+        This::wxGridBagSizer(), Index::integer(), Pos::{R::integer(), C::integer()}.
 setItemPosition(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window,{PosR,PosC} = Pos)
  when is_integer(PosR),is_integer(PosC) ->
   ?CLASS(ThisT,wxGridBagSizer),
@@ -415,9 +415,9 @@ setItemPosition(#wx_ref{type=ThisT}=This,Index,{PosR,PosC} = Pos)
 
 -doc "".
 -spec setItemSpan(This, Window, Span) -> boolean() when
-	This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Span::{RS::integer(), CS::integer()};
+        This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Span::{RS::integer(), CS::integer()};
       (This, Index, Span) -> boolean() when
-	This::wxGridBagSizer(), Index::integer(), Span::{RS::integer(), CS::integer()}.
+        This::wxGridBagSizer(), Index::integer(), Span::{RS::integer(), CS::integer()}.
 setItemSpan(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window,{SpanRS,SpanCS} = Span)
  when is_integer(SpanRS),is_integer(SpanCS) ->
   ?CLASS(ThisT,wxGridBagSizer),

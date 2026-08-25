@@ -215,7 +215,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxButton() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -258,7 +258,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc(#{equiv => create(This,Parent,Id, [])}).
 -spec create(This, Parent, Id) -> boolean() when
-	This::wxButton(), Parent::wxWindow:wxWindow(), Id::integer().
+        This::wxButton(), Parent::wxWindow:wxWindow(), Id::integer().
 
 create(This,Parent,Id)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
@@ -307,7 +307,7 @@ getDefaultSize() ->
 
 -doc "".
 -spec getDefaultSize(Win) -> {W::integer(), H::integer()} when
-	Win::wxWindow:wxWindow().
+        Win::wxWindow:wxWindow().
 getDefaultSize(#wx_ref{type=WinT}=Win) ->
   ?CLASS(WinT,wxWindow),
   wxe_util:queue_cmd(Win,?get_env(),?wxButton_GetDefaultSize_STAT_1),
@@ -329,7 +329,7 @@ Remark: Under Windows, only dialog box buttons respond to this function.
 Return: the old default item (possibly NULL)
 """.
 -spec setDefault(This) -> wxWindow:wxWindow() when
-	This::wxButton().
+        This::wxButton().
 setDefault(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxButton),
   wxe_util:queue_cmd(This,?get_env(),?wxButton_SetDefault),
@@ -337,7 +337,7 @@ setDefault(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the string label for the button.".
 -spec setLabel(This, Label) -> 'ok' when
-	This::wxButton(), Label::unicode:chardata().
+        This::wxButton(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT}=This,Label)
  when ?is_chardata(Label) ->
   ?CLASS(ThisT,wxButton),
@@ -352,7 +352,7 @@ See: `setBitmapDisabled/2`
 Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
 """.
 -spec getBitmapDisabled(This) -> wxBitmap:wxBitmap() when
-	This::wxButton().
+        This::wxButton().
 getBitmapDisabled(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxButton),
   wxe_util:queue_cmd(This,?get_env(),?wxButton_GetBitmapDisabled),
@@ -366,7 +366,7 @@ See: `setBitmapFocus/2`
 Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
 """.
 -spec getBitmapFocus(This) -> wxBitmap:wxBitmap() when
-	This::wxButton().
+        This::wxButton().
 getBitmapFocus(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxButton),
   wxe_util:queue_cmd(This,?get_env(),?wxButton_GetBitmapFocus),
@@ -383,7 +383,7 @@ See: `setBitmapLabel/2`
 Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
 """.
 -spec getBitmapLabel(This) -> wxBitmap:wxBitmap() when
-	This::wxButton().
+        This::wxButton().
 getBitmapLabel(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxButton),
   wxe_util:queue_cmd(This,?get_env(),?wxButton_GetBitmapLabel),
@@ -407,7 +407,7 @@ See:
 Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
 """.
 -spec setBitmapDisabled(This, Bitmap) -> 'ok' when
-	This::wxButton(), Bitmap::wxBitmap:wxBitmap().
+        This::wxButton(), Bitmap::wxBitmap:wxBitmap().
 setBitmapDisabled(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
   ?CLASS(ThisT,wxButton),
   ?CLASS(BitmapT,wxBitmap),
@@ -428,7 +428,7 @@ See:
 Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
 """.
 -spec setBitmapFocus(This, Bitmap) -> 'ok' when
-	This::wxButton(), Bitmap::wxBitmap:wxBitmap().
+        This::wxButton(), Bitmap::wxBitmap:wxBitmap().
 setBitmapFocus(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
   ?CLASS(ThisT,wxButton),
   ?CLASS(BitmapT,wxBitmap),
@@ -445,7 +445,7 @@ See: `getBitmapLabel/1`
 Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
 """.
 -spec setBitmapLabel(This, Bitmap) -> 'ok' when
-	This::wxButton(), Bitmap::wxBitmap:wxBitmap().
+        This::wxButton(), Bitmap::wxBitmap:wxBitmap().
 setBitmapLabel(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
   ?CLASS(ThisT,wxButton),
   ?CLASS(BitmapT,wxBitmap),
