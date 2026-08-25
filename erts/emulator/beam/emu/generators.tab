@@ -786,14 +786,14 @@ gen.is_function2(Fail, Fun, Arity) {
         $BeamOpNameArity(move_arity, move, 2);
         move_arity->a[0] = Arity;
         move_arity->a[1].type = TAG_x;
-        move_arity->a[1].val = 1023;
+        move_arity->a[1].val = MAX_REG-1;
 
         $BeamOpNameArity(op, cold_is_function2, 3);
         op->a[0] = Fail;
         op->a[1].type = TAG_x;
         op->a[1].val = 1022;
         op->a[2].type = TAG_x;
-        op->a[2].val = 1023;
+        op->a[2].val = MAX_REG-1;
         return move_fun;
     }
 }

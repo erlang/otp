@@ -76,7 +76,6 @@ groups() ->
 init_per_suite(Config) ->
     id(Config),
     test_lib:recompile(?MODULE),
-    {module,ext_records} = code:ensure_loaded(ext_records),
     Config.
 
 end_per_suite(_Config) ->

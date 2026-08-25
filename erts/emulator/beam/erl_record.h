@@ -120,8 +120,22 @@ Eterm erl_create_local_native_record(Process* p, Eterm* reg,
                                      Eterm cons, Uint live,
                                      Uint size,
                                      const Eterm* new_p);
-Eterm erl_create_native_record(Process* p, Eterm* reg, Eterm id,
-                               Uint live, Uint size, const Eterm* new_p);
+
+#if defined(BEAMASM)
+Eterm erl_create_native_record_jit(Process* p, Eterm* reg,
+                                   ErtsCodeIndex current_code_index,
+                                   Eterm id,
+                                   Uint size_live,
+                                   const Eterm* new_p);
+Eterm erl_finish_create_record_jit(Process* p,
+                                   Eterm* reg,
+                                   ErtsCodeIndex current_code_index);
+#else
+Eterm erl_create_native_record_emu(Process* p, Eterm* reg, Eterm id,
+                                   Uint live, Uint size, const Eterm* new_p);
+Eterm erl_finish_create_record_emu(Process* p, Eterm* reg);
+#endif
+
 Eterm erl_update_native_record(Process* c_p, Eterm* reg, Eterm src,
                                Uint live, Uint size, const Eterm* new_p);
 

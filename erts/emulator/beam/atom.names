@@ -270,6 +270,7 @@ atom endian
 atom entry
 atom env
 atom ensure_at_least ensure_exactly
+atom ensure_loaded
 atom eof
 atom eol
 atom Eq='=:='
