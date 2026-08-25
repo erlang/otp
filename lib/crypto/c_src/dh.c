@@ -43,8 +43,10 @@ ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 /* Has 3_0 */
 ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (PrivKey|undefined, DHParams=[P,G], 0, Len|0) */
-    ErlNifUInt64 len = 0;
-    uint64_t ossl_len = 0;
+    union {
+        ErlNifUInt64 erl;
+        uint64_t ossl;
+    } len;
     int i = 0;
     OSSL_PARAM params[8];
     EVP_PKEY *pkey = NULL, *pkey_gen = NULL;
@@ -88,17 +90,16 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     */
 
     /* argv[3] is the length of the private key that is to be generated */
-    if (!enif_get_uint64(env, argv[3], &len) ||
-        (len > LONG_MAX) ) {
+    if (!enif_get_uint64(env, argv[3], &len.erl) ||
+        (len.erl > LONG_MAX) ) {
         ret = EXCP_BADARG_N(env, 3, "Bad value of length element");
         goto done;
     }
-    else if (len) {
-        if (len >= BN_num_bits(p_bn)) {
-            len = BN_num_bits(p_bn) - 1;
+    else if (len.erl) {
+        if (len.erl >= BN_num_bits(p_bn)) {
+            len.erl = BN_num_bits(p_bn) - 1;
         }
-        ossl_len = len;
-        params[i++] = OSSL_PARAM_construct_uint64("priv_len", &ossl_len);
+        params[i++] = OSSL_PARAM_construct_uint64("priv_len", &len.ossl);
     }
     
     /* End of parameter fetching */
