@@ -47,7 +47,8 @@ groups() ->
                                 script_timeout,
                                 slowdose,
                                 keep_alive_timeout,
-                                invalid_rfc1123_date]}].
+                                invalid_rfc1123_date,
+                                ip_comm_options_fixed_port]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -402,6 +403,33 @@ invalid_rfc1123_date(Config) when is_list(Config) ->
     NonDSTDateTime = {{2017, 03, 26},{1, 0, 0}},
     Rfc1123FormattedDate =:= httpd_util:rfc1123_date(NonDSTDateTime).
 
+%%-------------------------------------------------------------------------
+
+ip_comm_options_fixed_port() ->
+    [{doc, "GH-11312: httpd starts with {ip_comm, SockOpts} on a fixed "
+           "(non-zero) port"}].
+ip_comm_options_fixed_port(Config) when is_list(Config) ->
+    HttpdConf = proplists:get_value(httpd_conf, Config),
+    %% Reserve a free port up front, then close it, so that we can
+    %% configure httpd with a fixed (non-zero) port. A fixed port
+    %% together with {ip_comm, SockOpts} exercises http_transport:listen/4
+    %% (as opposed to port 0, which exercises listen/5).
+    {ok, LSock} = gen_tcp:listen(0, [{reuseaddr, true}]),
+    {ok, Port} = inet:port(LSock),
+    ok = gen_tcp:close(LSock),
+    Conf = [{port, Port},
+            {socket_type, {ip_comm, [{nodelay, true}]}}
+            | proplists:delete(port, HttpdConf)],
+    {ok, Pid} = inets:start(httpd, Conf),
+    Info = httpd:info(Pid),
+    Port = proplists:get_value(port, Info),
+    Address = proplists:get_value(bind_address, Info),
+    ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(),
+				       "GET / HTTP/1.1\r\n"
+				       "Host: localhost\r\n\r\n",
+				       [{statuscode, 200},
+					{version, "HTTP/1.1"}]),
+    inets:stop(httpd, Pid).
 
 %%-------------------------------------------------------------------------
 %% Internal functions
