@@ -31,7 +31,7 @@
 	 net_load_table/4,
 	 send_table/4]).
 
--export([spawned_receiver/8]).    %% Spawned lock taking process
+-export([spawned_receiver/7]).    %% Spawned lock taking process
 
 -import(mnesia_lib, [set/2, fatal/2, verbose/2, dbg_out/2]).
 
@@ -279,9 +279,8 @@ init_receiver(Node, Tab,Storage,Cs,Reason) ->
 			true = lists:member(Node, Active),
 			{SenderPid, TabSize, DetsData} =
 			    start_remote_sender(Node,Tab,Storage,load),
-			Init = table_init_fun(SenderPid, Storage),
-			Args = [self(),Tab,Storage,Cs,SenderPid,
-				TabSize,DetsData,Init],
+                Args = [self(),Tab,Storage,Cs,SenderPid,
+                        TabSize,DetsData],
 			Pid = spawn_link(?MODULE, spawned_receiver, Args),
 			put(mnesia_real_loader, Pid),
 			wait_on_load_complete(Pid)
@@ -337,7 +336,18 @@ start_remote_sender(Node,Tab,Storage, Why) ->
     end.
 
 table_init_fun(SenderPid, Storage) ->
+    Parent = self(),
     fun(read) ->
+            case Storage of
+                disc_only_copies ->
+                    %% For disc_only_copies this is running inside dets_server process,
+                    %% Parent is the process which is registered as receiver, and must
+                    %% have our pid in order to forward us any {copier_done, Node} sent to it.
+                    put(mnesia_table_dets_receiver, {Parent, SenderPid}),
+                    Parent ! {dets_receiver_pid, self()};
+                _ ->
+                    ok
+            end,
 	    % We want to store subscribed mnesia table events received during
 	    % table copying for later processing to not let receiver message queue
 	    % to grow too much (which in consequence would slow down the whole copying process)
@@ -362,7 +372,8 @@ start_receiver(Tab,Storage,Cs,SenderPid,TabSize,DetsData,{dumper,{add_table_copy
 	    Else
     end.
 
-spawned_receiver(ReplyTo,Tab,Storage,Cs, SenderPid,TabSize,DetsData, Init) ->
+spawned_receiver(ReplyTo,Tab,Storage,Cs, SenderPid,TabSize,DetsData) ->
+    Init = table_init_fun(SenderPid, Storage),
     process_flag(trap_exit, true),
     Done = do_init_table(Tab,Storage,Cs,
 			 SenderPid,TabSize,DetsData,
@@ -544,26 +555,43 @@ init_table(Tab, {ext,Alias,Mod}, Fun, State, Sender) ->
     ext_init_table(Alias, Mod, Tab, Fun, State, Sender);
 init_table(Tab, disc_only_copies, Fun, DetsInfo,Sender) ->
     ErtsVer = erlang:system_info(version),
-    case DetsInfo of
-	{ErtsVer, DetsData}  ->
-	    try dets:is_compatible_bchunk_format(Tab, DetsData) of
-		false ->
-		    Sender ! {self(), {old_protocol, Tab}},
-		    dets:init_table(Tab, Fun);  %% Old dets version
-		true ->
-		    dets:init_table(Tab, Fun, [{format, bchunk}])
-	    catch
-		error:{undef,[{dets,_,_,_}|_]} ->
-		    Sender ! {self(), {old_protocol, Tab}},
-		    dets:init_table(Tab, Fun);  %% Old dets version
-		error:What ->
-		    What
-	    end;
-	Old when Old /= false ->
-	    Sender ! {self(), {old_protocol, Tab}},
-	    dets:init_table(Tab, Fun);  %% Old dets version
-	_ ->
-	    dets:init_table(Tab, Fun)
+    Parent = self(),
+    DetsInit = fun(Opts) ->
+                       fun() ->
+                               put(mnesia_dets_worker, {Tab, node(Sender), Sender}),
+                               Res = dets:init_table(Tab, Fun, Opts),
+                               Parent ! {self(), Res},
+                               unlink(Parent),
+                               exit(normal)
+                       end
+               end,
+    Worker =
+        case DetsInfo of
+            {ErtsVer, DetsData}  ->
+                try dets:is_compatible_bchunk_format(Tab, DetsData) of
+                    false ->
+                        Sender ! {self(), {old_protocol, Tab}},
+                        spawn_link(DetsInit([]));  %% Old dets version
+                    true ->
+                        spawn_link(DetsInit([{format, bchunk}]))
+                catch
+                    error:{undef,[{dets,_,_,_}|_]} ->
+                        Sender ! {self(), {old_protocol, Tab}},
+                        spawn_link(DetsInit([]));  %% Old dets version
+                    error:What ->
+                        What
+                end;
+            Old when Old /= false ->
+                Sender ! {self(), {old_protocol, Tab}},
+                spawn_link(DetsInit([]));  %% Old dets version
+            _ ->
+                spawn_link(DetsInit([]))
+        end,
+    case is_pid(Worker) of
+        true ->
+            init_dets_receiver(Worker);
+        _ ->
+            Worker
     end;
 init_table(Tab, _, Fun, _DetsInfo,_) ->
     try
@@ -572,6 +600,36 @@ init_table(Tab, _, Fun, _DetsInfo,_) ->
     catch _:Else:Stacktrace -> {Else, Stacktrace}
     end.
 
+init_dets_receiver(Worker) ->
+    receive
+        {dets_receiver_pid, Receiver} ->
+            %% We got the pid of the dets receiver, we can start forwarding {copier_done, Node}
+            handle_dets_receiver(Worker, Receiver);
+        {Worker, Result} ->
+            %% Dets worker has finished with ok | {error, Reason} before we got receiver pid
+            Result;
+        {'EXIT', Pid, Reason} ->
+            %% If some local pid crashes we also crash
+            handle_exit(Pid, Reason),
+            init_dets_receiver(Worker)
+    end.
+
+handle_dets_receiver(Worker, Receiver) ->
+    receive
+        {Worker, Result} ->
+            %% Dets worker has finished with ok | {error, Reason}
+            Result;
+        {copier_done, Node} ->
+            %% Forward any {copier_done, Node} blindly
+            %% they will either be ignored, or cause Worker
+            %% to finish with ok | {error, Reason}
+            Receiver ! {copier_done, Node},
+            handle_dets_receiver(Worker, Receiver);
+        {'EXIT', Pid, Reason} ->
+            %% If some local pid crashes we also crash
+            handle_exit(Pid, Reason),
+            handle_dets_receiver(Worker, Receiver)
+    end.
 
 finish_copy(Storage,Tab,Cs,SenderPid,DatBin,OrigTabRec) ->
     TabRef = {Storage, Tab},
