@@ -1598,11 +1598,11 @@ erts_port_output_async(Port *prt, Eterm from, Eterm list)
 	SysIOVec* ivp;
 	ErtsIOQBinary**  bvp;
         int vsize;
-	Uint csize;
-	Uint pvsize;
-	Uint pcsize;
+        size_t csize;
+        size_t pvsize;
+        size_t pcsize;
         size_t iov_offset, binv_offset, alloc_size;
-        Uint blimit = 0;
+        size_t blimit = 0;
         char *ptr;
         int i;
 
@@ -1786,10 +1786,10 @@ erts_port_output(Process *c_p,
 	SysIOVec* ivp;
 	ErtsIOQBinary**  bvp;
 	int vsize;
-	Uint csize;
-	Uint pvsize;
-	Uint pcsize;
-	Uint blimit;
+        size_t csize;
+        size_t pvsize;
+        size_t pcsize;
+        size_t blimit;
 	size_t iov_offset, binv_offset, alloc_size;
 
 	if (erts_ioq_iodata_vec_len(list, &vsize, &csize, &pvsize, &pcsize,

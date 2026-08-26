@@ -33,7 +33,7 @@
 #include "erl_io_queue.h"
 
 static void free_binary(ErtsIOQBinary *b, bool driver);
-static ErtsIOQBinary *alloc_binary(Uint size, char *source, void **iov_base, bool driver);
+static ErtsIOQBinary *alloc_binary(size_t size, char *source, void **iov_base, bool driver);
 
 void erts_ioq_init(ErtsIOQueue *q, ErtsAlcType_t alct, bool driver)
 {
@@ -41,7 +41,6 @@ void erts_ioq_init(ErtsIOQueue *q, ErtsAlcType_t alct, bool driver)
     ERTS_CT_ASSERT(offsetof(ErlNifIOVec,flags) == sizeof(ErtsIOVecCommon));
     ERTS_CT_ASSERT(sizeof(ErlIOVec) == sizeof(ErtsIOVecCommon));
     ERTS_CT_ASSERT(sizeof(size_t) == sizeof(ErlDrvSizeT));
-    ERTS_CT_ASSERT(sizeof(size_t) == sizeof(Uint));
 
     q->alct = alct;
     q->driver = driver;
@@ -80,7 +79,7 @@ static void free_binary(ErtsIOQBinary *b, bool driver)
         erts_bin_free(&b->nif);
 }
 
-static ErtsIOQBinary *alloc_binary(Uint size, char *source, void **iov_base, bool driver)
+static ErtsIOQBinary *alloc_binary(size_t size, char *source, void **iov_base, bool driver)
 {
     if (driver) {
         ErlDrvBinary *bin = driver_alloc_binary(size);
@@ -99,7 +98,7 @@ static ErtsIOQBinary *alloc_binary(Uint size, char *source, void **iov_base, boo
     }
 }
 
-Uint erts_ioq_size(const ErtsIOQueue *q)
+size_t erts_ioq_size(const ErtsIOQueue *q)
 {
     return q->size;
 }
@@ -191,12 +190,12 @@ static int expandq(ErtsIOQueue *q, int n, int tail)
 }
 
 static
-int skip(ErtsIOVec* vec, Uint skipbytes,
+int skip(ErtsIOVec* vec, size_t skipbytes,
          SysIOVec **iovp, ErtsIOQBinary ***binvp,
-         Uint *lenp)
+         size_t *lenp)
 {
     int n;
-    Uint len;
+    size_t len;
     SysIOVec* iov;
     ErtsIOQBinary** binv;
 
@@ -230,11 +229,11 @@ int skip(ErtsIOVec* vec, Uint skipbytes,
 }
 
 /* Put elements from vec at q tail */
-int erts_ioq_enqv(ErtsIOQueue *q, ErtsIOVec *eiov, Uint skipbytes)
+int erts_ioq_enqv(ErtsIOQueue *q, ErtsIOVec *eiov, size_t skipbytes)
 {
     int n;
-    Uint len;
-    Uint size = eiov->common.size - skipbytes;
+    size_t len;
+    size_t size = eiov->common.size - skipbytes;
     SysIOVec *iov;
     ErtsIOQBinary** binv;
     ErtsIOQBinary*  b;
@@ -283,11 +282,11 @@ int erts_ioq_enqv(ErtsIOQueue *q, ErtsIOVec *eiov, Uint skipbytes)
 }
 
 /* Put elements from vec at q head */
-int erts_ioq_pushqv(ErtsIOQueue *q, ErtsIOVec* vec, Uint skipbytes)
+int erts_ioq_pushqv(ErtsIOQueue *q, ErtsIOVec* vec, size_t skipbytes)
 {
     int n;
-    Uint len;
-    Uint size = vec->common.size - skipbytes;
+    size_t len;
+    size_t size = vec->common.size - skipbytes;
     SysIOVec* iov;
     ErtsIOQBinary** binv;
     ErtsIOQBinary* b;
@@ -344,9 +343,9 @@ int erts_ioq_pushqv(ErtsIOQueue *q, ErtsIOVec* vec, Uint skipbytes)
 ** Remove size bytes from queue head
 ** Return number of bytes that remain in queue
 */
-int erts_ioq_deq(ErtsIOQueue *q, Uint size)
+int erts_ioq_deq(ErtsIOQueue *q, size_t size)
 {
-    Uint len;
+    size_t len;
 
     if ((q == NULL) || (q->size < size))
 	return -1;
@@ -376,11 +375,11 @@ int erts_ioq_deq(ErtsIOQueue *q, Uint size)
     return 0;
 }
 
-Uint erts_ioq_peekqv(const ErtsIOQueue *q, ErtsIOVec *ev) {
+size_t erts_ioq_peekqv(const ErtsIOQueue *q, ErtsIOVec *ev) {
     ASSERT(ev);
 
     if (! q) {
-	return (Uint) -1;
+        return (size_t ) -1;
     } else {
 	if ((ev->common.vsize = q->v_tail - q->v_head) == 0) {
 	    ev->common.size = 0;
@@ -417,7 +416,7 @@ SysIOVec* erts_ioq_peekq(const ErtsIOQueue *q, int* vlenp) /* length of io-vecto
 
 static ERTS_INLINE void
 io_list_to_vec_set_vec(SysIOVec **iov, ErtsIOQBinary ***binv,
-                       ErtsIOQBinary *bin, byte *ptr, Uint len,
+                       ErtsIOQBinary *bin, byte *ptr, size_t len,
                        int *vlen)
 {
     while (len > MAX_SYSIOVEC_IOVLEN) {
@@ -441,14 +440,14 @@ erts_ioq_iolist_to_vec(Eterm obj,	  /* io-list */
                        SysIOVec* iov,	  /* io vector */
                        ErtsIOQBinary** binv,       /* binary reference vector */
                        ErtsIOQBinary* cbin,        /* binary to store characters */
-                       Uint bin_limit,  /* small binaries limit */
+                       size_t bin_limit,  /* small binaries limit */
                        int driver)
 {
     DECLARE_ESTACK(s);
     Eterm* objp;
     byte *buf  = NULL;
-    Uint len = 0;
-    Uint csize  = 0;
+    size_t len = 0;
+    size_t csize  = 0;
     int vlen   = 0;
     byte* cptr;
 
@@ -497,8 +496,8 @@ erts_ioq_iolist_to_vec(Eterm obj,	  /* io-list */
 	    }
 	} else if (is_bitstring(obj)) {
             ERTS_DECLARE_DUMMY(Eterm br_flags);
-            Uint size_in_bytes;
-            Uint offset, size;
+            size_t size_in_bytes;
+            size_t offset, size;
             byte *base;
             BinRef *br;
 
@@ -563,14 +562,14 @@ erts_ioq_iolist_to_vec(Eterm obj,	  /* io-list */
 }
 
 static ERTS_INLINE int
-io_list_vec_count(Eterm obj, Uint *v_size,
-                  Uint *c_size, Uint *b_size, Uint *in_clist,
-                  Uint *p_v_size, Uint *p_c_size, Uint *p_in_clist,
-                  Uint blimit)
+io_list_vec_count(Eterm obj, size_t *v_size,
+                  size_t *c_size, size_t *b_size, size_t *in_clist,
+                  size_t *p_v_size, size_t *p_c_size, size_t *p_in_clist,
+                  size_t blimit)
 {
     ERTS_DECLARE_DUMMY(Eterm br_flags);
     ERTS_DECLARE_DUMMY(byte *base);
-    Uint offset, size;
+    size_t offset, size;
     BinRef *br;
 
     ERTS_GET_BITSTRING_REF(obj, br_flags, br, base, offset, size);
@@ -585,7 +584,7 @@ io_list_vec_count(Eterm obj, Uint *v_size,
         if (*b_size < size) return 2;
 	*in_clist = 0;
         ++*v_size;
-        /* If iov_len is smaller then Uint we split the binary into*/
+        /* If iov_len is smaller then size_t we split the binary into*/
         /* multiple smaller (2GB) elements in the iolist.*/
 	*v_size += size / MAX_SYSIOVEC_IOVLEN;
         if (size >= blimit) {
@@ -638,19 +637,19 @@ io_list_vec_count(Eterm obj, Uint *v_size,
  *    *total_size - Total size of iolist in bytes
  */
 int
-erts_ioq_iolist_vec_len(Eterm obj, int* vsize, Uint* csize,
-                        Uint* pvsize, Uint* pcsize,
-                        size_t* total_size, Uint blimit)
+erts_ioq_iolist_vec_len(Eterm obj, int* vsize, size_t * csize,
+                        size_t * pvsize, size_t * pcsize,
+                        size_t* total_size, size_t blimit)
 {
     DECLARE_ESTACK(s);
     Eterm* objp;
-    Uint v_size = 0;
-    Uint c_size = 0;
-    Uint b_size = 0;
-    Uint in_clist = 0;
-    Uint p_v_size = 0;
-    Uint p_c_size = 0;
-    Uint p_in_clist = 0;
+    size_t v_size = 0;
+    size_t c_size = 0;
+    size_t b_size = 0;
+    size_t in_clist = 0;
+    size_t p_v_size = 0;
+    size_t p_c_size = 0;
+    size_t p_in_clist = 0;
     size_t total;
 
     goto L_jump_start;  /* avoid a push */
