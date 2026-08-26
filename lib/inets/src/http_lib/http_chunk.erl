@@ -117,6 +117,7 @@ handle_headers(RequestHeaderRecord = #http_request_h{}, ChunkedHeaders) ->
 
 handle_headers(ResponseHeaderRecord = #http_response_h{},  ChunkedHeaders) ->
     NewHeaders = http_response:headers(ChunkedHeaders, ResponseHeaderRecord),
+
     TransferEncoding = 
 	case NewHeaders#http_response_h.'transfer-encoding' -- "chunked" of
 	    ""  ->
