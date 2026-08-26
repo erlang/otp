@@ -28,7 +28,7 @@ Expect 0.
 
 Nonterminals
 
-module_definition init module_export module_attribute module_defs
+module_definition module_export module_attribute module_defs
 exported_names exported_name
 attribute_list attribute
 function_definition function_definitions
@@ -92,18 +92,14 @@ Rootsymbol module_definition.
 %% Grammar
 
 module_definition ->
-    init 'module' atom module_export module_attribute module_defs 'end' :
-        #c_module{name=#c_literal{val=tok_val('$3')},exports='$4',
-                  attrs='$5',defs='$6'}.
+    'module' atom module_export module_attribute module_defs 'end' :
+        #c_module{name=#c_literal{val=tok_val('$2')},exports='$3',
+                  attrs='$4',defs='$5'}.
 module_definition ->
-    init '(' 'module' atom module_export module_attribute module_defs 'end'
+    '(' 'module' atom module_export module_attribute module_defs 'end'
         '-|' annotation ')' :
-        #c_module{anno='$10',name=#c_literal{val=tok_val('$4')},exports='$5',
-                  attrs='$6',defs='$7'}.
-
-%% We must ensure that `v3_core` is loaded before we attempt to
-%% create any native records belonging to it.
-init -> '$empty' : v3_core:module_info(module).
+        #c_module{anno='$9',name=#c_literal{val=tok_val('$3')},exports='$4',
+                  attrs='$5',defs='$6'}.
 
 module_export -> '[' ']' : [].
 module_export -> '[' exported_names ']' : '$2'.
