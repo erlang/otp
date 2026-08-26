@@ -1126,21 +1126,31 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
                                        binary_to_list(SigName)});
 
 handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
-				    request_type = "subsystem",
-				    want_reply = WantReply,
-				    data = Data},
-	   #connection{channel_cache = Cache} = Connection, server, _SSH) ->
+                                    request_type = "subsystem",
+                                    want_reply = WantReply,
+                                    data = Data},
+           #connection{channel_cache = Cache} = Connection, server, _SSH) ->
     <<?DEC_BIN(SsName,_SsLen)>> = Data,
-    #channel{remote_id=RemoteId} = Channel = 
-	ssh_client_channel:cache_lookup(Cache, ChannelId), 
+    #channel{remote_id=RemoteId,user=User} = Channel =
+        ssh_client_channel:cache_lookup(Cache, ChannelId),
     Reply =
-        case start_subsystem(SsName, Connection, Channel,
-                             {subsystem, ChannelId, WantReply, binary_to_list(SsName)}) of
-            {ok, Pid} ->
-                erlang:monitor(process, Pid),
-                ssh_client_channel:cache_update(Cache, Channel#channel{user=Pid}),
-                channel_success_msg(RemoteId);
-            {error,_Error} ->
+        case User of
+            undefined ->
+                case start_subsystem(SsName, Connection, Channel,
+                                     {subsystem, ChannelId, WantReply, binary_to_list(SsName)}) of
+                    {ok, Pid} ->
+                        erlang:monitor(process, Pid),
+                        ssh_client_channel:cache_update(Cache, Channel#channel{user=Pid}),
+                        channel_success_msg(RemoteId);
+                    {error,_Error} ->
+                        channel_failure_msg(RemoteId)
+                end;
+            _ ->
+                %% If shell, exec or any subsystem is active on the channel, starting another
+                %% subsystem must fail. See RFC 4254 6.5
+                %% In our case 'env' (RFC 4254 6.6) and 'pty-req' (RFC 4254 6.2)
+                %% (even if any of them failed) also start cli handler, so if any of them are
+                %% started, trying to start any subsystem will also fail here.
                 channel_failure_msg(RemoteId)
         end,
     {[{connection_reply,Reply}], Connection};
