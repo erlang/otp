@@ -53,6 +53,7 @@
           form_vars/1,
 	  quoted_atom_types/1,
           native_records/1,
+          unicode_binary_attributes/1,
 
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
@@ -85,7 +86,10 @@ groups() ->
        messages, maps_syntax, quoted_atom_types,
        format_options, form_vars, native_records
     ]},
-     {attributes, [], [misc_attrs, import_export, dialyzer_attrs]},
+     {attributes, [], [misc_attrs,
+                       import_export,
+                       dialyzer_attrs,
+                       unicode_binary_attributes]},
      {tickets, [],
       [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
        otp_8473, otp_8522, otp_8567, otp_8664, otp_9147,
@@ -1434,6 +1438,22 @@ eep58(_Config) ->
 
     ok.
 
+unicode_binary_attributes(_) ->
+
+    assert_same(~s'-doc(<<"">>).\n'),
+    assert_same(~s'-doc(<<"abc">>).\n'),
+    assert_same(~s'-doc(<<255>>).\n'),
+    assert_same(~s'-doc(<<"åäö"/utf8>>).\n', [{encoding,unicode}]),
+    assert_same(~s'-doc(<<"😀"/utf8>>).\n', [{encoding,unicode}]),
+    assert_same(~s'-doc(<<255>>).\n', [{encoding,unicode}]),
+
+    %% åäö in latin1 is not valid unicode, so it is printed as bytes.
+    assert_same(~s'-doc(<<229,228,246>>).\n', [{encoding,latin1}]),
+    assert_same(~s'-doc(<<240,159,152,128>>).\n', [{encoding,latin1}]),
+
+
+    ok.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 compile(Config, Tests) ->
@@ -1623,8 +1643,11 @@ filename(Name, Config) ->
 fail() ->
     ct:fail(failed).
 
-assert_same(Expected) when is_list(Expected) ->
-    Actual = binary_to_list(iolist_to_binary(parse_and_pp_forms(Expected, []))),
+assert_same(Expected) ->
+    assert_same(Expected, []).
+
+assert_same(Expected, Options) when is_list(Expected) ->
+    Actual = unicode:characters_to_list(unicode:characters_to_binary(parse_and_pp_forms(Expected, Options))),
     case Expected == Actual of
       true -> ok;
       false -> error({Expected, Actual})
