@@ -2752,6 +2752,7 @@ ERL_NIF_TERM esock_atom_esock_name; // This has a "special" name ('$esock_name')
     LOCAL_ATOM_DECL(assoc_id);         \
     LOCAL_ATOM_DECL(atmark);           \
     LOCAL_ATOM_DECL(authentication);   \
+    LOCAL_ATOM_DECL(auto);             \
     LOCAL_ATOM_DECL(boolean);          \
     LOCAL_ATOM_DECL(bound);	       \
     LOCAL_ATOM_DECL(bufsz);            \
@@ -8142,10 +8143,13 @@ ERL_NIF_TERM esock_setopt_otp_ctrl_proc(ErlNifEnv*       env,
 /* esock_setopt_otp_rcvbuf - Handle the OTP (level) rcvbuf option
  * The (otp) rcvbuf option is provided as:
  *
- *       BufSz :: default | pos_integer() |
+ *       BufSz :: auto | default | pos_integer() |
  *           {N :: pos_integer(), Sz :: default | pos_integer()}
  *
  * Where N is the max number of reads.
+ * 'auto' is the initial state: the default size, adapted to the traffic
+ * by recv (on stream sockets, not on Windows). Any other value pins the
+ * size and turns adaptation off.
  * Note that on Windows the tuple variant is not allowed!
  */
 
@@ -8158,6 +8162,7 @@ ERL_NIF_TERM esock_setopt_otp_rcvbuf(ErlNifEnv*       env,
     int                 tsz; // The size of the tuple - should be 2
 #ifndef __WIN32__    
     unsigned int        n;
+    BOOLEAN_T           adapt = FALSE;
 #endif
     size_t              bufSz;
     ssize_t             z;
@@ -8174,6 +8179,12 @@ ERL_NIF_TERM esock_setopt_otp_rcvbuf(ErlNifEnv*       env,
         return esock_make_error_closed(env);
     }
 
+    if (COMPARE(eVal, atom_auto) == 0) {
+#ifndef __WIN32__
+        adapt = TRUE;
+#endif
+        eVal  = esock_atom_default;
+    }
 
 #ifdef __WIN32__
 
@@ -8224,6 +8235,11 @@ ERL_NIF_TERM esock_setopt_otp_rcvbuf(ErlNifEnv*       env,
         descP->rBufSz = ESOCK_RECV_BUFFER_SIZE_MIN;
     else
         descP->rBufSz = bufSz;
+#ifndef __WIN32__
+    descP->rBufAdapt   = adapt;
+    descP->rBufSzAdapt = descP->rBufSz;
+    descP->rBufSzAvg   = descP->rBufSz;
+#endif
 
     SSDBG( descP,
            ("SOCKET", "esock_setopt_otp_rcvbuf {%d} -> ok"
@@ -17062,6 +17078,9 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
 #ifndef __WIN32__
     descP->rNum             = ESOCK_RECV_BUFFER_COUNT_DEFAULT;
     descP->rNumCnt          = 0;
+    descP->rBufAdapt        = TRUE;
+    descP->rBufSzAdapt      = ESOCK_RECV_BUFFER_SIZE_DEFAULT;
+    descP->rBufSzAvg        = ESOCK_RECV_BUFFER_SIZE_DEFAULT;
 #endif
     descP->rCtrlSz          = ESOCK_RECV_CTRL_BUFFER_SIZE_DEFAULT;
     descP->wCtrlSz          = ESOCK_SEND_CTRL_BUFFER_SIZE_DEFAULT;

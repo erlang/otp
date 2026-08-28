@@ -209,6 +209,13 @@
     if (ctrl.sctp.bindx == NULL)                             \
         return enif_raise_exception((e), MKA((e), "notsup"));
 #define sock_close(s)                   close((s))
+
+/* Adaptive read buffer: double on a filled buffer, halve back towards
+ * the configured size once an EWMA of the read sizes falls below a
+ * quarter of it.
+ */
+#define ESSIO_RECV_ADAPT_BUFFER_MAX     (1 << 18)
+#define ESSIO_RECV_ADAPT_EWMA_SHIFT     3
 // #define sock_close_event(e)             /* do nothing */
 #define sock_connect(s, addr, len)      connect((s), (addr), (len))
 #define sock_connectx(s, addrs, acnt, aidp) \
@@ -535,6 +542,8 @@ static ERL_NIF_TERM essio_sendfile_ok(ErlNifEnv*       env,
 
 static BOOLEAN_T recv_alloc_buf(size_t          size,
                                 ErlNifBinary   *bufP);
+static void recv_release_buf(size_t          size,
+                             ErlNifBinary   *bufP);
 static BOOLEAN_T recv_create_bin(ErlNifBinary *bufP,
                                  size_t        size,
                                  ErlNifBinary *binP);
@@ -2841,6 +2850,9 @@ BOOLEAN_T essio_accept_accepted(ErlNifEnv*       env,
     MLOCK(descP->writeMtx);
 
     accDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
+    accDescP->rBufAdapt = descP->rBufAdapt;
+    accDescP->rBufSzAdapt = descP->rBufSz;
+    accDescP->rBufSzAvg = descP->rBufSz;
     accDescP->rNum     = descP->rNum;    // Inherit buffer uses
     accDescP->rNumCnt  = 0;
     accDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer size
@@ -2944,6 +2956,9 @@ ERL_NIF_TERM essio_peeloff(ErlNifEnv*       env,
             __FUNCTION__, descP->sock, sock) );
 
     poDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
+    poDescP->rBufAdapt = descP->rBufAdapt;
+    poDescP->rBufSzAdapt = descP->rBufSz;
+    poDescP->rBufSzAvg = descP->rBufSz;
     poDescP->rNum     = descP->rNum;    // Inherit buffer uses
     poDescP->rNumCnt  = 0;
     poDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer size
@@ -3803,7 +3818,9 @@ ERL_NIF_TERM essio_recv(ErlNifEnv*       env,
     int          saveErrno;
     ErlNifBinary bin, *bufP;
     ssize_t      readResult;
-    size_t       bufSz = (len != 0 ? len : descP->rBufSz); // 0 means default
+    size_t       bufSz = (len != 0 ? (size_t) len : // 0 means default
+                          (descP->type == SOCK_STREAM ?
+                           descP->rBufSzAdapt : descP->rBufSz));
     ERL_NIF_TERM ret;
 
     SSDBG( descP, ("UNIX-ESSIO", "essio_recv {%d} -> entry with"
@@ -3842,10 +3859,26 @@ ERL_NIF_TERM essio_recv(ErlNifEnv*       env,
     /* Check for errors and end of stream */
     if (! recv_check_result(env, descP, sockRef, recvRef,
                             readResult, saveErrno, &ret) ) {
-        /* Keep the buffer */
+        /* Keep the buffer, but not an oversized one: we are about to
+         * report an error or wait for more data. */
+        recv_release_buf(descP->rBufSz, bufP);
         return ret;
     }
     /* readResult >= 0 */
+
+    if ((len == 0) && descP->rBufAdapt && (descP->type == SOCK_STREAM)) {
+        descP->rBufSzAvg -= descP->rBufSzAvg >> ESSIO_RECV_ADAPT_EWMA_SHIFT;
+        descP->rBufSzAvg += ((size_t) readResult) >> ESSIO_RECV_ADAPT_EWMA_SHIFT;
+        if ((size_t) readResult == bufP->size) {
+            if (descP->rBufSzAdapt < ESSIO_RECV_ADAPT_BUFFER_MAX)
+                descP->rBufSzAdapt <<= 1;
+        } else if ((descP->rBufSzAdapt > descP->rBufSz) &&
+                   (descP->rBufSzAvg < (descP->rBufSzAdapt >> 2))) {
+            descP->rBufSzAdapt >>= 1;
+            if (descP->rBufSzAdapt < descP->rBufSz)
+                descP->rBufSzAdapt = descP->rBufSz;
+        }
+    }
 
     ESOCK_ASSERT( recv_create_bin(bufP, readResult, &bin) );
 
@@ -3930,7 +3963,8 @@ ERL_NIF_TERM essio_recvfrom(ErlNifEnv*       env,
     /* Check for errors and end of stream */
     if (! recv_check_result(env, descP, sockRef, recvRef,
                             readResult, saveErrno, &ret) ) {
-        /* Keep the buffer */
+        /* Keep the buffer, but not an oversized one */
+        recv_release_buf(descP->rBufSz, bufP);
         return ret;
     }
     /* readResult >= 0 */
@@ -4051,7 +4085,8 @@ ERL_NIF_TERM essio_recvmsg(ErlNifEnv*       env,
     /* Check for errors and end of stream */
     if (! recv_check_result(env, descP, sockRef, recvRef,
                             readResult, saveErrno, &ret) ) {
-        /* Keep the data buffer */
+        /* Keep the data buffer, but not an oversized one */
+        recv_release_buf(descP->rBufSz, bufP);
         FREE_BIN(&ctrl);
         return ret;
     }
@@ -9574,6 +9609,13 @@ extern
 void essio_stop(ErlNifEnv*       env,
                 ESockDescriptor* descP)
 {
+    /* No more reads will be done, so drop the read buffer now instead of
+     * leaving it to essio_dtor().  Both socket locks are held here. */
+    if (descP->buf.data != NULL) {
+        FREE_BIN(&descP->buf);
+        descP->buf.data = NULL;
+    }
+
 #ifdef HAVE_SENDFILE
     if (descP->sendfileCountersP != NULL) {
         ESockSendfileCounters* cntP = descP->sendfileCountersP;
@@ -9828,6 +9870,23 @@ BOOLEAN_T recv_alloc_buf(size_t           size,
             return REALLOC_BIN(bufP, size);
         else
             return TRUE;
+    }
+}
+
+/* Drop a read buffer larger than 'size' (the configured rBufSz) instead of
+ * keeping it while waiting for data; an idle connection would otherwise pin
+ * an adapted buffer until essio_dtor() runs.  The buffer is scratch here,
+ * already handed over or copied out, and a recv that needs one this large
+ * allocates a fresh one anyway.  A buffer at or below 'size' is kept, which
+ * is the small message case.
+ */
+static
+void recv_release_buf(size_t           size,
+                      ErlNifBinary    *bufP)
+{
+    if ((bufP->data != NULL) && (bufP->size > size)) {
+        FREE_BIN(bufP);
+        bufP->data = NULL;
     }
 }
 
