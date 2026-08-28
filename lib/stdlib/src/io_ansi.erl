@@ -2096,9 +2096,9 @@ URL.
 Example:
 ```erlang
 1> io_ansi:hyperlink_start("https://erlang.org").
-<<"\e]8;https://erlang.org;\e\\">>
+<<"\e]8;;https://erlang.org\e\\">>
 2> io_ansi:format([{hyperlink_start, "file://tmp/debug.log"},"debug log",hyperlink_reset]).
-~"\e]8;file://tmp/debug.log;\e\\debug log\e]8;;\e\\\e(B\e[m"
+~"\e]8;;file://tmp/debug.log\e\\debug log\e]8;;\e\\\e(B\e[m"
 ```
 
 See [Hyperlinks (a.k.a. HTML-like anchors) in terminal emulators](https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda)
@@ -2787,7 +2787,7 @@ default_mappings() ->
 
 hyperlink(URL, Params) ->
     StringParams = lists:join($:, [[K, "=", V] || {K, V} <- Params]),
-    io_lib:format("\e]8;~s;~s\e\\",[URL, StringParams]).
+    io_lib:format("\e]8;~s;~s\e\\",[StringParams, URL]).
 
 s(Int) when is_integer(Int) ->
     integer_to_list(Int).
