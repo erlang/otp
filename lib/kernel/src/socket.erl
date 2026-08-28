@@ -1080,10 +1080,10 @@ hence above all OS protocol levels.
   controlling process can set this option.
 
 - **`rcvbuf`** -
-  `BufSize :: (default | integer()>0) | {N :: integer()>0, BufSize :: (default | integer()>0)} `\-
+  `BufSize :: (auto | default | integer()>0) | {N :: integer()>0, BufSize :: (default | integer()>0)} `\-
   Receive buffer size.
 
-  The value `default` is only valid to _set_.
+  The values `auto` and `default` are only valid to _set_.
 
   `N` specifies the number of read attempts to do in a tight loop before
   assuming no more data is pending.
@@ -1093,6 +1093,15 @@ hence above all OS protocol levels.
   When the receive function returns the receive buffer is reallocated to the
   actually received size. If the data is copied or shrunk in place is up to
   the allocator, and can to some extent be configured in the Erlang VM.
+
+  The initial value is `auto`: the default size, which on a
+  [`stream`](`t:type/0`) socket is then adapted to the traffic. The buffer
+  grows when it is filled and shrinks back towards the default size when the
+  received amounts fall, so the sizes of the returned chunks vary. Setting a
+  size, or `default`, pins the buffer at that size and turns the adaptation
+  off, and `auto` turns it on again. `getopt` reports the configured size;
+  the adapted size is reported by `info/1` as the `rbuf` value.
+  Adaptation is not done on Windows.
 
   The similar socket option; `{socket,rcvbuf}` is a related option for the OS'
   protocol stack that on Unix corresponds to `SOL_SOCKET,SO_RCVBUF`.
