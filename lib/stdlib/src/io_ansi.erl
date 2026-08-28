@@ -2777,6 +2777,10 @@ default_mappings() ->
        alternate_character_set_mode => {"smacs", "\e(0" },
        alternate_character_set_mode_off => {"rmacs", "\e(B" },
 
+       hyperlink =>
+            [{undefined, fun(Url, Text) -> [hyperlink(Url, []), Text, hyperlink_reset()] end},
+             {undefined, fun(Url, Params, Text) -> [hyperlink(Url, Params), Text, hyperlink_reset()] end}],
+
        hyperlink_start =>
             [{undefined, fun(Url) -> hyperlink(Url, []) end},
              {undefined, fun(Url, Params) -> hyperlink(Url, Params) end}],
