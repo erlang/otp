@@ -1016,7 +1016,7 @@ to get the next chunk of matching objects. This is a space-efficient way to work
 on objects in a table, which is faster than traversing the table object by
 object using `first/1` and `next/2`.
 
-If the table is empty, `'$end_of_table'` is returned.
+If there is no match or the table is empty, `'$end_of_table'` is returned.
 
 Use `safe_fixtable/2` to guarantee [safe traversal](`m:ets#traversal`) for
 subsequent calls to `match/1`.
@@ -1027,8 +1027,15 @@ subsequent calls to `match/1`.
 1> T = ets:new(t, []).
 2> ets:insert(T, [{a,1},{b,2}]).
 true
-3> ets:match(T, '$1', 1).
+3> {_, Cont1} = ets:match(T, '$1', 1).
 {[[{a,1}]],_}
+4> {_, Cont2} = ets:match(Cont1).
+{[[{b,2}]],_}
+5> ets:match(Cont2).
+'$end_of_table'
+%% No match so returns '$end_of_table'
+6> ets:match(T, {'_',cow,'$1'}, 1).
+'$end_of_table'
 ```
 """.
 -spec match(Table, Pattern, Limit) -> {[Match], Continuation} |
@@ -1531,7 +1538,10 @@ prev_lookup(_, _) ->
 %% Shadowed by erl_bif_types: ets:rename/2
 -doc """
 Renames the named table `Table` to the new name `Name`. Afterwards, the old name
-cannot be used to access the table. Renaming an unnamed table has no effect.
+cannot be used to access the table.
+
+Renaming an unnamed table only changes the name returned by `ets:info/2` with the `name` argument.
+It does not make the table accessible by the new name.
 
 ## Examples
 
