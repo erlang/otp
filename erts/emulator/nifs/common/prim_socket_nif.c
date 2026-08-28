@@ -2046,6 +2046,8 @@ static ERL_NIF_TERM esock_socket_info_state(ErlNifEnv*   env,
 					    unsigned int state);
 static ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
                                                ESockDescriptor* descP);
+static ERL_NIF_TERM esock_socket_info_rbuf(ErlNifEnv*       env,
+                                           ESockDescriptor* descP);
 
 static ERL_NIF_TERM mk_close_msg(ErlNifEnv*   env,
                                  ERL_NIF_TERM sockRef,
@@ -2743,6 +2745,7 @@ ERL_NIF_TERM esock_atom_esock_name; // This has a "special" name ('$esock_name')
     LOCAL_ATOM_DECL(accepting);	       \
     LOCAL_ATOM_DECL(active);	       \
     LOCAL_ATOM_DECL(adaptation_layer); \
+    LOCAL_ATOM_DECL(adapted);          \
     LOCAL_ATOM_DECL(add);              \
     LOCAL_ATOM_DECL(address);          \
     LOCAL_ATOM_DECL(addr_over);        \
@@ -2759,6 +2762,7 @@ ERL_NIF_TERM esock_atom_esock_name; // This has a "special" name ('$esock_name')
     LOCAL_ATOM_DECL(close);            \
     LOCAL_ATOM_DECL(closing);          \
     LOCAL_ATOM_DECL(code);             \
+    LOCAL_ATOM_DECL(configured);       \
     LOCAL_ATOM_DECL(cookie_life);      \
     LOCAL_ATOM_DECL(counter_wrap);     \
     LOCAL_ATOM_DECL(ctype);            \
@@ -2798,6 +2802,7 @@ ERL_NIF_TERM esock_atom_esock_name; // This has a "special" name ('$esock_name')
     LOCAL_ATOM_DECL(gifnetmask);       \
     LOCAL_ATOM_DECL(giftxqlen);        \
     LOCAL_ATOM_DECL(heartbeat_interval);  \
+    LOCAL_ATOM_DECL(held);             \
     LOCAL_ATOM_DECL(host_unknown);     \
     LOCAL_ATOM_DECL(host_unreach);     \
     LOCAL_ATOM_DECL(how);              \
@@ -2896,6 +2901,7 @@ ERL_NIF_TERM esock_atom_esock_name; // This has a "special" name ('$esock_name')
     LOCAL_ATOM_DECL(primary);          \
     LOCAL_ATOM_DECL(probe);            \
     LOCAL_ATOM_DECL(protocols);        \
+    LOCAL_ATOM_DECL(rbuf);             \
     LOCAL_ATOM_DECL(rcvall);           \
     LOCAL_ATOM_DECL(rcvall_igmpmcast); \
     LOCAL_ATOM_DECL(rcvall_mcast);     \
@@ -4698,6 +4704,7 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
     ERL_NIF_TERM wstates   = esock_socket_info_state(env, descP->writeState);
     ERL_NIF_TERM ctype     = esock_socket_info_ctype(env, descP);
     ERL_NIF_TERM counters  = esock_socket_info_counters(env, descP);
+    ERL_NIF_TERM rbuf      = esock_socket_info_rbuf(env, descP);
     ERL_NIF_TERM readers   = esock_socket_info_readers(env, descP);
     ERL_NIF_TERM writers   = esock_socket_info_writers(env, descP);
     ERL_NIF_TERM acceptors = esock_socket_info_acceptors(env, descP);
@@ -4712,6 +4719,7 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
                atom_wstates,
                atom_ctype,
                esock_atom_counters,
+               atom_rbuf,
                atom_num_readers,
                atom_num_writers,
                atom_num_acceptors};
@@ -4724,6 +4732,7 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
                wstates,
                ctype,
                counters,
+               rbuf,
                readers,
                writers,
                acceptors};
@@ -4995,6 +5004,48 @@ ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
                    "\r\n", cnts) );
 
     return cnts;
+}
+
+
+/*
+ * Encode the read buffer info:
+ *
+ *     #{configured := non_neg_integer(),
+ *       adapted    := non_neg_integer(),
+ *       held       := non_neg_integer()}
+ *
+ * 'configured' is the rcvbuf size set with setopt(otp, rcvbuf) (or the
+ * default), which is what getopt(otp, rcvbuf) reports.  'adapted' is the
+ * size a length 0 recv on a stream socket currently asks for; it grows
+ * with the traffic and falls back towards 'configured', and equals
+ * 'configured' when adaptation has been turned off by an explicit
+ * rcvbuf.  'held' is how much buffer the socket is holding right now,
+ * which for a socket that is waiting for data is never more than
+ * 'configured'.
+ */
+static
+ERL_NIF_TERM esock_socket_info_rbuf(ErlNifEnv*       env,
+                                    ESockDescriptor* descP)
+{
+    ERL_NIF_TERM info;
+    ERL_NIF_TERM keys[] = {atom_configured, atom_adapted, atom_held};
+#ifdef __WIN32__
+    ERL_NIF_TERM vals[] = {MKUL(env, (unsigned long) descP->rBufSz),
+                           MKUL(env, (unsigned long) descP->rBufSz),
+                           MKUL(env, 0UL)};
+#else
+    ERL_NIF_TERM vals[] =
+        {MKUL(env, (unsigned long) descP->rBufSz),
+         MKUL(env, (unsigned long) descP->rBufSzAdapt),
+         MKUL(env, (unsigned long)
+              ((descP->buf.data == NULL) ? 0 : descP->buf.size))};
+#endif
+    unsigned int numKeys = NUM(keys);
+
+    ESOCK_ASSERT( numKeys == NUM(vals) );
+    ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &info) );
+
+    return info;
 }
 
 

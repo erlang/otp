@@ -336,6 +336,7 @@ server(Addr, Port) ->
               eei/0,
 
               socket_counters/0,
+              socket_rbuf/0,
               socket_info/0,
 
               domain/0,
@@ -489,12 +490,25 @@ and the `t:otp_socket_option/0` with the same name.
                              acc_tries        := non_neg_integer(),
                              acc_waits        := non_neg_integer()}.
 
+-doc """
+Receive buffer sizes for a socket, in bytes.
+
+`configured` is the `rcvbuf` value of the `t:otp_socket_option/0`,
+`adapted` is the size the socket currently reads with, which for a
+stream socket follows the traffic up to an internal limit, and `held`
+is the size of the buffer the socket keeps allocated between reads.
+""".
+-type socket_rbuf() :: #{configured := non_neg_integer(),
+                         adapted    := non_neg_integer(),
+                         held       := non_neg_integer()}.
+
 -type socket_info() :: #{domain        := domain() | integer(),
                          type          := type() | integer(),
                          protocol      := protocol() | integer(),
                          owner         := pid(),
                          ctype         := normal | fromfd | {fromfd, integer()},
                          counters      := socket_counters(),
+                         rbuf          := socket_rbuf(),
                          num_readers   := non_neg_integer(),
                          num_writers   := non_neg_integer(),
                          num_acceptors := non_neg_integer(),
