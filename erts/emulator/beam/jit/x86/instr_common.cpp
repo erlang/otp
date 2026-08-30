@@ -651,7 +651,7 @@ void BeamModuleAssembler::emit_i_trim(const ArgWord &Words) {
     trim_preserve_cache(Words);
 }
 
-void BeamModuleAssembler::emit_i_move(const ArgSource &Src,
+void BeamModuleAssembler::emit_i_move(const ArgVal &Src,
                                       const ArgRegister &Dst) {
     x86::Gp spill = alloc_temp_reg();
 
@@ -1898,12 +1898,7 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
             return;
         } else if (is_map(literal) && erts_map_size(literal) == 0) {
             comment("optimized equality test with empty map", literal);
-            mov_arg(ARG1, X);
-            emit_is_boxed(resolve_beam_label(Fail), X, ARG1);
-            (void)emit_ptr_val(ARG1, ARG1);
-            a.cmp(emit_boxed_val(ARG1, 0, sizeof(Uint32)), MAP_HEADER_FLATMAP);
-            a.jne(resolve_beam_label(Fail));
-            a.cmp(emit_boxed_val(ARG1, sizeof(Eterm), sizeof(Uint32)), imm(0));
+            cmp_arg(getArgRef(X), ArgWord(ERTS_GLOBAL_LIT_EMPTY_MAP));
             a.jne(resolve_beam_label(Fail));
 
             return;
@@ -2058,18 +2053,10 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
 
             return;
         } else if (is_map(literal) && erts_map_size(literal) == 0) {
-            Label next = a.new_label();
-
             comment("optimized non-equality test with empty map", literal);
-            mov_arg(ARG1, X);
-            emit_is_boxed(next, X, ARG1, dShort);
-            (void)emit_ptr_val(ARG1, ARG1);
-            a.cmp(emit_boxed_val(ARG1, 0, sizeof(Uint32)), MAP_HEADER_FLATMAP);
-            a.short_().jne(next);
-            a.cmp(emit_boxed_val(ARG1, sizeof(Eterm), sizeof(Uint32)), imm(0));
+            cmp_arg(getArgRef(X), ArgWord(ERTS_GLOBAL_LIT_EMPTY_MAP));
             a.je(resolve_beam_label(Fail));
 
-            a.bind(next);
             return;
         }
     }
