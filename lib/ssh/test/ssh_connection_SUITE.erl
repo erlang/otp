@@ -127,11 +127,9 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
-%% suite() ->
-%%     [{ct_hooks,[ts_install_cth]}].
-
 suite() ->
     [{ct_hooks,[ts_install_cth,
+                cth_fips,
                 {cth_events,
                  [{verify_fun, fun verify_events/2}]}]},
      {timetrap,{seconds,40}}].

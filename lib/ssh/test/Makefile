@@ -29,6 +29,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 MODULES= \
 	cth_events \
+	cth_fips \
 	ssh_cth \
 	ssh_algorithms_SUITE \
 	ssh_options_SUITE \
