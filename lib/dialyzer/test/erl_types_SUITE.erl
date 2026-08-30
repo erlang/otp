@@ -1,5 +1,11 @@
 %% -*- erlang-indent-level: 4 -*-
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2025-2026. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -12,10 +18,13 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% %CopyrightEnd%
+%%
 -module(erl_types_SUITE).
 
 -export([all/0,groups/0,init_per_group/2,end_per_group/2,
          consistency_and_to_string/1,misc/1,map_multiple_representations/1,
+         bin_type_modules_mentioned/1,bin_type_operations/1,
          absorption/1,associativity/1,commutativity/1,idempotence/1,
          identity/1,limit/1
         ]).
@@ -29,6 +38,8 @@ all() ->
     [consistency_and_to_string,
      misc,
      map_multiple_representations,
+     bin_type_modules_mentioned,
+     bin_type_operations,
      {group,property_tests}
     ].
 
@@ -355,6 +366,85 @@ map_multiple_representations(_Config) ->
             T = erl_types:t_map(Ps, DefK, DefV),
             "#{'a'=>atom(), 'b'=>atom()}" = erl_types:t_to_string(T)
     end(),
+    ok.
+
+bin_type_modules_mentioned(_Config) ->
+    %% A standalone bin_type form has no module dependencies.
+    [] = ?M:type_form_to_remote_modules({bin_type, 0, <<"foo">>}),
+
+    %% A union of bin_type forms has no module dependencies.
+    [] = ?M:type_form_to_remote_modules(
+           {type, 0, union, [{bin_type, 0, <<"a">>},
+                             {bin_type, 0, <<"b">>}]}),
+
+    %% A union of bin_type and remote_type extracts the remote module.
+    [some_mod] = ?M:type_form_to_remote_modules(
+                   {type, 0, union,
+                    [{bin_type, 0, <<"foo">>},
+                     {remote_type, 0, [{atom, 0, some_mod},
+                                       {atom, 0, some_type},
+                                       []]}]}),
+
+    %% bin_type inside a list type has no module dependencies.
+    [] = ?M:type_form_to_remote_modules(
+           {type, 0, list, [{bin_type, 0, <<"x">>}]}),
+
+    ok.
+
+bin_type_operations(_Config) ->
+    %% Construction and t_to_string.
+    Foo = ?M:t_binary_val(<<"foo">>),
+    Bar = ?M:t_binary_val(<<"bar">>),
+    Baz = ?M:t_binary_val(<<"baz">>),
+    Empty = ?M:t_binary_val(<<"">>),
+    "<<\"foo\">>" = ?M:t_to_string(Foo),
+    "<<\"bar\">>" = ?M:t_to_string(Bar),
+    "<<\"\">>" = ?M:t_to_string(Empty),
+
+    %% t_is_binary / t_is_bitstr.
+    true = ?M:t_is_binary(Foo),
+    true = ?M:t_is_bitstr(Foo),
+
+    %% t_from_term for binaries.
+    Foo = ?M:t_from_term(<<"foo">>),
+    Empty = ?M:t_from_term(<<"">>),
+
+    %% t_sup — same-size vals merge into a multi-val type.
+    FooBar = ?M:t_sup(Foo, Bar),
+    "<<\"bar\">> | <<\"foo\">>" = ?M:t_to_string(FooBar),
+    %% t_sup — different-size vals fall back to generic binary.
+    Hi = ?M:t_binary_val(<<"hi">>),
+    FooHi = ?M:t_sup(Foo, Hi),
+    true = ?M:t_is_binary(FooHi),
+
+    %% t_inf — val∩val.
+    None = ?M:t_none(),
+    Foo = ?M:t_inf(Foo, Foo),
+    None = ?M:t_inf(Foo, Bar),
+    %% t_inf — val∩binary().
+    Foo = ?M:t_inf(Foo, ?M:t_binary()),
+    %% t_inf — val∩incompatible.
+    None = ?M:t_inf(Foo, ?M:t_atom()),
+
+    %% t_subtract.
+    FooBarBaz = ?M:t_sup([Foo, Bar, Baz]),
+    FooBaz = ?M:t_subtract(FooBarBaz, Bar),
+    "<<\"baz\">> | <<\"foo\">>" = ?M:t_to_string(FooBaz),
+
+    %% t_elements — decompose into individual vals.
+    [Foo] = ?M:t_elements(Foo),
+    2 = length(?M:t_elements(FooBar)),
+
+    %% is_singleton_type — single vs multiple vals.
+    %% (is_singleton_type is not exported, test indirectly via t_elements)
+    [_] = ?M:t_elements(Foo),
+    [_, _] = ?M:t_elements(FooBar),
+
+    %% UTF-8 encoded binary literal types produce the same type as raw bytes.
+    %% <<"é"/utf8>> encodes to <<195,169>> — same as the raw binary.
+    Utf8Bin = ?M:t_binary_val(<<195,169>>),
+    Utf8Bin = ?M:t_binary_val(unicode:characters_to_binary([233], unicode, utf8)),
+
     ok.
 
 absorption(Config) ->
