@@ -111,6 +111,17 @@ $(filter-out opt, $(TYPES)):
 
 opt: $(TARGET_FILES)
 
+ASN1_FILES = snmp_pdus_basic.asn1db
+
+prebuild: prebuild.skip
+
+prebuild.skip:
+	echo "Building prebuild.skip\c"
+	@touch prebuild.skip
+	@for a in $(ASN1_FILES); do \
+		echo $$a >> prebuild.skip; \
+	done
+
 
 clean:
 	rm -f $(TARGET_FILES)
