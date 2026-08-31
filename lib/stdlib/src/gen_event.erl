@@ -1058,7 +1058,8 @@ while [`wait_response/2`](`wait_response/2`) does not.
       ReqId :: request_id(),
       WaitTime :: response_timeout(),
       Response :: {reply, Reply::term()}
-                | {error, {Reason::term(), emgr_ref()}},
+                | {error, {Reason::term(), emgr_ref()}}
+                | {error, bad_module | {'EXIT', Reason::term()}},
       Result :: Response | 'timeout'.
 
 wait_response(ReqId, WaitTime) ->
@@ -1129,7 +1130,8 @@ and then return `timeout`.
       WaitTime :: response_timeout(),
       Delete :: boolean(),
       Response :: {reply, Reply::term()} |
-                  {error, {Reason::term(), emgr_ref()}},
+                  {error, {Reason::term(), emgr_ref()}}
+                | {error, bad_module | {'EXIT', Reason::term()}},
       Result :: {Response,
                  Label::term(),
                  NewReqIdCollection::request_id_collection()} |
@@ -1182,7 +1184,8 @@ while [`wait_response/2`](`wait_response/2`) does not.
       ReqId :: request_id(),
       Timeout :: response_timeout(),
       Response :: {reply, Reply::term()} |
-                  {error, {Reason::term(), emgr_ref()}},
+                  {error, {Reason::term(), emgr_ref()}}
+                | {error, bad_module | {'EXIT', Reason::term()}},
       Result :: Response | 'timeout'.
 
 receive_response(ReqId, Timeout) ->
@@ -1255,7 +1258,8 @@ and then return `timeout`.
       Timeout :: response_timeout(),
       Delete :: boolean(),
       Response :: {reply, Reply::term()} |
-                  {error, {Reason::term(), emgr_ref()}},
+                  {error, {Reason::term(), emgr_ref()}}
+                | {error, bad_module | {'EXIT', Reason::term()}},
       Result :: {Response,
                  Label::term(),
                  NewReqIdCollection::request_id_collection()} |
