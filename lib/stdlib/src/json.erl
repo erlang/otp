@@ -871,9 +871,9 @@ Supports basic data mapping:
 
 ## Errors
 
-* `error(unexpected_end)` if `Binary` contains incomplete JSON value
-* `error({invalid_byte, Byte})` if `Binary` contains unexpected byte or invalid UTF-8 byte
-* `error({unexpected_sequence, Bytes})` if `Binary` contains invalid UTF-8 escape
+* `error(unexpected_end)` if `Binary` contains an incomplete JSON value.
+* `error({invalid_byte, Byte})` if `Binary` contains an unexpected byte or an invalid UTF-8 byte.
+* `error({unexpected_sequence, Bytes})` if `Binary` contains an invalid UTF-8 escape or an invalid IEEE 754 float.
 
 ## Example
 
