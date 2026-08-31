@@ -753,9 +753,10 @@ keylog_hs_secret_order(Config) when is_list(Config) ->
     NewClientCertFile = filename:join(PrivDir, "client_invalid_cert_order.pem"),
     create_bad_client_certfile(NewClientCertFile, ClientOpts0),
 
-    Me = self(),
-    ServerHsFun = fun(Info) -> Me ! {server_hs_keylog, Info} end,
-    ClientHsFun = fun(Info) -> Me ! {client_hs_keylog, Info} end,
+    register(test_case, self()),
+
+    ServerHsFun = fun(Info) -> test_case ! {server_hs_keylog, Info} end,
+    ClientHsFun = fun(Info) -> test_case ! {client_hs_keylog, Info} end,
 
     ServerOpts = [{versions, ['tlsv1.3']},
                   {verify, verify_peer},
@@ -765,7 +766,7 @@ keylog_hs_secret_order(Config) when is_list(Config) ->
     ClientOpts = [{versions, ['tlsv1.3']},
                   {active, false},
                   {certfile, NewClientCertFile},
-                  {keep_secrets, {keylog_hs, ClientHsFun}}
+                  {keep_secrets, {keylog, ClientHsFun}}
                   | proplists:delete(certfile, ClientOpts0)],
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -774,18 +775,23 @@ keylog_hs_secret_order(Config) when is_list(Config) ->
                                         {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
 
-    spawn_link(fun() ->
-                       ssl:connect(Hostname, Port, ClientOpts)
-               end),
+    spawn(fun() ->
+                  ssl:connect(Hostname, Port, ClientOpts)
+          end),
+
 
     %% Both sides fire keylog_hs on the alert. Collect both.
     ServerKeyLog = receive
                        {server_hs_keylog, #{items := S}} -> S
-                   after 5000 -> ct:fail(server_keylog_timeout)
+                   after 5000 ->
+                           ct:fail(server_keylog_timeout)
                    end,
+
+    ssl_test_lib:check_server_alert(Server, unknown_ca),
     ClientKeyLog = receive
                        {client_hs_keylog, #{items := C}} -> C
-                   after 5000 -> ct:fail(client_keylog_timeout)
+                   after 5000 ->
+                           ct:fail(server_keylog_timeout)
                    end,
 
     %% Extract the secret value from each label on each side.
