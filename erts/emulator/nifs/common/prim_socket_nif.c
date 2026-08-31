@@ -7644,34 +7644,13 @@ ERL_NIF_TERM nif_finalize_close_dirty(ErlNifEnv*         env,
 }
 
 
-/* Only a lingering close - SO_LINGER {onoff = true, linger > 0} -
- * can block in close(), so only then do we need the dirty scheduler.
- * The check reads descP->sock without the socket locks; a racing
- * close/down makes the getsockopt fail and we fall back to the dirty
- * path, where the proper state checks run under the locks as before.
+/* Only a lingering close - SO_LINGER {onoff = true, linger > 0} - can
+ * block in close(), so only then do we need the dirty scheduler.  The
+ * answer is already on the descriptor: closeMayBlock is maintained where
+ * the option is set and starts out TRUE, so a socket whose linger state
+ * was never established still takes the dirty path, where the proper
+ * state checks run under the locks as before.
  */
-static
-BOOLEAN_T finalize_close_may_block(ESockDescriptor* descP)
-{
-#if defined(SO_LINGER)
-    struct linger lval;
-    SOCKOPTLEN_T  lsz = sizeof(lval);
-
-    if (descP->sock == INVALID_SOCKET)
-        return FALSE;
-
-    if (sock_getopt(descP->sock, SOL_SOCKET, SO_LINGER,
-                    (void*) &lval, &lsz) != 0)
-        return TRUE;
-
-    return (lval.l_onoff != 0) && (lval.l_linger > 0);
-#else
-    /* Without SO_LINGER a close cannot linger, so it cannot block */
-    return FALSE;
-#endif
-}
-
-
 static
 ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
                                 int                argc,
@@ -7685,14 +7664,11 @@ ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
 
-    if (finalize_close_may_block(descP)) {
-        descP->closeMayBlock = TRUE;
+    if (descP->closeMayBlock)
         return enif_schedule_nif(env, "nif_finalize_close",
                                  ERL_NIF_DIRTY_JOB_IO_BOUND,
                                  nif_finalize_close_dirty, argc, argv);
-    }
 
-    descP->closeMayBlock = FALSE;
     return nif_finalize_close_dirty(env, argc, argv);
 }
 
@@ -11443,8 +11419,27 @@ static ERL_NIF_TERM esock_setopt_level_opt(ErlNifEnv*       env,
 {
     if (socket_setopt(descP->sock, level, opt, optVal, optLen))
         return esock_make_error_errno(env, sock_errno());
-    else
-        return esock_atom_ok;
+
+#if defined(SO_LINGER)
+    /* Every setsockopt passes through here, so this is the one place that
+     * sees SO_LINGER whether it arrived as the 'linger' option or as a
+     * setopt_native.  Caching it keeps the close path from having to ask
+     * the kernel. */
+    if ((level == SOL_SOCKET) && (opt == SO_LINGER)) {
+        if (optLen == sizeof(struct linger)) {
+            struct linger* lp = (struct linger*) optVal;
+
+            descP->closeMayBlock =
+                ((lp->l_onoff != 0) && (lp->l_linger > 0)) ? TRUE : FALSE;
+        } else {
+            /* The kernel took a shape we do not parse; assume the close
+             * can block rather than cache a guess. */
+            descP->closeMayBlock = TRUE;
+        }
+    }
+#endif
+
+    return esock_atom_ok;
 }
 
 
@@ -13112,6 +13107,33 @@ ERL_NIF_TERM esock_getopt_uint_opt(ErlNifEnv*       env,
     return esock_make_ok2(env, MKUI(env, val));
 }
 #endif
+
+
+
+/* esock_close_may_block - can a close() on this socket block?
+ *
+ * Only a lingering close, SO_LINGER {onoff = true, linger > 0}, can.
+ * Fail-safe: an option we cannot read answers TRUE.
+ */
+extern
+BOOLEAN_T esock_close_may_block(SOCKET sock)
+{
+#if defined(SO_LINGER)
+    struct linger val;
+    SOCKOPTLEN_T  valSz = sizeof(val);
+
+#ifdef __WIN32__
+    if (sock_getopt(sock, SOL_SOCKET, SO_LINGER, (char*) &val, &valSz) != 0)
+#else
+    if (sock_getopt(sock, SOL_SOCKET, SO_LINGER, &val, &valSz) != 0)
+#endif
+        return TRUE;
+
+    return ((val.l_onoff != 0) && (val.l_linger > 0)) ? TRUE : FALSE;
+#else
+    return FALSE;
+#endif
+}
 
 
 
@@ -17063,7 +17085,7 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     esock_requestor_init(&descP->currentReader);
     descP->currentReaderP = NULL; // currentReader not used
     descP->buf.data = NULL;
-    descP->closeMayBlock = TRUE; /* until the close path decides otherwise */
+    descP->closeMayBlock = TRUE; /* narrowed once the linger state is known */
 #endif
     descP->readersQ.first = NULL;
     descP->readersQ.last  = NULL;
