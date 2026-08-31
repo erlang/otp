@@ -76,7 +76,8 @@ and data.
 - `REG_SZ`, which is a string
 - `REG_BINARY`, which is a binary
 
-Other types can be read, and are returned as binaries.
+Other types can be read, and are returned as binaries except `REG_EXPAND_SZ` which
+is returned as a string.
 
 There is also a "default" value, which has the empty string as name. It is read
 and written with the atom `default` instead of the name.
@@ -249,9 +250,10 @@ sub_keys({win32reg, Reg}) when is_port(Reg) ->
 
 -doc """
 Deletes the current key, if it is valid. Calls the Win32 API function
-`RegDeleteKey()`. Notice that this call does not change the current key (unlike
-`change_key_create/2`). This means that after the call, the current key is
-invalid.
+`RegDeleteKey()`.
+
+After the call, the current key is changed to the parent key. If the current
+key is a root key, it cannot be deleted, and an error is returned.
 """.
 -spec delete_key(RegHandle) -> ReturnValue when
       RegHandle :: reg_handle(),
@@ -305,8 +307,8 @@ set_value({win32reg, Reg}, Name0, Value) when is_port(Reg) ->
 
 -doc """
 Retrieves the named value (or default) on the current key. Registry values of
-type `REG_SZ` are returned as strings. Type `REG_DWORD` values are returned as
-integers. All other types are returned as binaries.
+type `REG_SZ` and `REG_EXPAND_SZ` are returned as strings. Type `REG_DWORD` values
+are returned as integers. All other types are returned as binaries.
 """.
 -spec value(RegHandle, Name) -> ReturnValue when
       RegHandle :: reg_handle(),
@@ -371,7 +373,7 @@ Expands a string containing environment variables between percent characters.
 Anything between two `%` is taken for an environment variable, and is replaced
 by the value. Two consecutive `%` are replaced by one `%`.
 
-A variable name that is not in the environment results in an error.
+A variable name that is not in the environment is replaced by the empty string.
 """.
 -spec expand(String) -> ExpandedString when
       String :: string(),
