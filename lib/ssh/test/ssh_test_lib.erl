@@ -395,8 +395,9 @@ start_shell(Port, IOServer, ExtraOptions) ->
 
 %%%----------------------------------------------------------------
 alive_interval() ->
-    case os:type() of
-        {win32, _} -> 500;
+    case {os:type(), erlang:system_info(system_architecture)} of
+        {{win32, _}, _} -> 500;
+        {_, "x86_64-unknown-netbsd9.0"} -> 500; %% saradas is slow
         _ -> 100
     end.
 
