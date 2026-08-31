@@ -1570,6 +1570,9 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
     descP->protocol     = protocol;
     descP->closeOnClose = closeOnClose;
     descP->origFD       = fd;
+    /* An adopted fd is the one case where the linger state is not ours to
+     * know, so ask once here instead of on every close. */
+    descP->closeMayBlock = esock_close_may_block(sock);
 
     /* Check if we are already connected, if so change state */
     {
@@ -1790,6 +1793,8 @@ ERL_NIF_TERM essio_open_plain(ErlNifEnv*       env,
     descP->domain   = domain;
     descP->type     = type;
     descP->protocol = proto;
+    /* A socket we just created cannot have SO_LINGER set */
+    descP->closeMayBlock = FALSE;
 
     sockRef = enif_make_resource(env, descP);
     enif_release_resource(descP);
@@ -2852,6 +2857,10 @@ BOOLEAN_T essio_accept_accepted(ErlNifEnv*       env,
 
     MLOCK(descP->writeMtx);
 
+    /* SO_LINGER is inherited by the accepted socket, and inheriting the
+     * cached value is safe even where it is not: the parent's TRUE only
+     * costs the child the blocking path it would have taken anyway. */
+    accDescP->closeMayBlock = descP->closeMayBlock;
     accDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
     accDescP->rNum     = descP->rNum;    // Inherit buffer uses
     accDescP->rNumCnt  = 0;
@@ -2957,6 +2966,7 @@ ERL_NIF_TERM essio_peeloff(ErlNifEnv*       env,
             "%s(%d) -> inherit various options\r\n",
             __FUNCTION__, descP->sock, sock) );
 
+    poDescP->closeMayBlock = descP->closeMayBlock;
     poDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
     poDescP->rNum     = descP->rNum;    // Inherit buffer uses
     poDescP->rNumCnt  = 0;
