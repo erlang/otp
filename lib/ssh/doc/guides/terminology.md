@@ -162,3 +162,41 @@ does not influence the rights.
 
 So after an authentication, the user name is not used anymore and has no
 influence.
+
+## Connection, Channel, and Session
+
+The SSH protocol uses a layered architecture where the terms
+*connection*, *channel*, and *session* have distinct meanings.
+Erlang/OTP SSH options that reference these terms may behave
+differently from similarly named OpenSSH options.
+
+### Connection
+
+A *connection* is an SSH-level association between an SSH client and an
+SSH daemon, established over a single TCP connection. One connection
+carries all channels between those two endpoints, and it is
+*unauthenticated* until user authentication has succeeded. In Erlang/OTP
+SSH, the [`max_sessions`](`t:ssh:hardening_daemon_options/0`) option
+limits the total number of **TCP connections** accepted by the daemon,
+counted before the SSH handshake starts and therefore regardless of
+whether the client authenticates. Compare with OpenSSH `MaxStartups`,
+which limits only unauthenticated connections.
+
+### Channel
+
+A *channel* is a logical data path multiplexed inside a single SSH
+connection. Multiple channels can share one connection. Channel types
+include *session*, *direct-tcpip* (local forwarding), and
+*forwarded-tcpip* (remote forwarding). In Erlang/OTP SSH, the
+`max_channels` option limits all channel types per connection.
+Compare with OpenSSH `MaxSessions`, which limits only session
+channels.
+
+### Session
+
+A *session* is one specific type of channel used for interactive
+shells, command execution, or subsystems (such as SFTP). In OpenSSH
+terminology, `MaxSessions` counts only these session channels. In
+Erlang/OTP SSH, the term "session" in `max_sessions` refers to TCP
+connections, not session channels — a naming difference that can
+cause confusion.
