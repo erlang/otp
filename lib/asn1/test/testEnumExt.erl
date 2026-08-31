@@ -86,20 +86,40 @@ common(Erule) ->
     roundtrip('SubExt1', orange),
     roundtrip('SubExt1', black),
 
+    v_roundtrip(Erule, 'SpecialAtoms', 'null'),
+    v_roundtrip(Erule, 'SpecialAtoms', 'true'),
+    v_roundtrip(Erule, 'SpecialAtoms', 'false'),
+
     ok.
 
 roundtrip(Type, Value) ->
     asn1_test_lib:roundtrip_enc('EnumExt', Type, Value).
 
-v_roundtrip(jer, _Type, _Value) -> ok;
-v_roundtrip(Erule, Type, Value) ->
+v_roundtrip(Erule, Type, Value) when Erule =/= jer; Type =:= 'SpecialAtoms' ->
     Encoded = roundtrip(Type, Value),
-    Encoded = asn1_test_lib:hex_to_bin(v(Erule, Type, Value)).
+    Encoded = asn1_test_lib:hex_to_bin(v(Erule, Type, Value));
+v_roundtrip(jer, _Type, _Value) ->
+    ok.
 
+v(Erule, 'SpecialAtoms', Value) ->
+    v_special(Erule, Value);
 v(Erule, 'SeqBig', Value) ->
     v_seq_big(Erule, Value);
 v(Erule, 'EnumSkip', Value) ->
     v_enum_skip(Erule, Value).
+
+v_special(jer, null) -> "226E756C6C22";
+v_special(jer, true) -> "227472756522";
+v_special(jer, false) -> "2266616C736522";
+v_special(ber, null) -> "0A0101";
+v_special(ber, true) -> "0A0102";
+v_special(ber, false) -> "0A0103";
+v_special(per, null) -> "00";
+v_special(per, true) -> "40";
+v_special(per, false) -> "80";
+v_special(uper, null) -> "00";
+v_special(uper, true) -> "40";
+v_special(uper, false) -> "80".
 
 v_seq_big(ber, {'SeqBig',true,e40,9357}) -> "300A8001 FF810141 8202248D";
 v_seq_big(ber, {'SeqBig',true,e80,9357}) -> "300B8001 FF810200 81820224 8D";
