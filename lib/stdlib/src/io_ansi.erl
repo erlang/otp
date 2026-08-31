@@ -1798,13 +1798,13 @@ Example:
 ?FUNCTION(cursor_vertical_absolute, X).
 
 -doc """
-Move the cursor to line `X` and column `Y`. Position 1,1 is at the top left of the
+Move the cursor to line `X` and column `Y`. Position 0,0 is at the top left of the
 terminal.
 
 Example:
 ```erlang
 1> io_ansi:cursor_horizontal_vertical(10, 20).
-<<"\e[10;20f">>
+<<"\e[11;21f">>
 ```
 """.
 ?SPEC(cursor_horizontal_vertical, X, Y).
@@ -1824,26 +1824,36 @@ Examples:
 ## Enter noshell-raw mode and request cursor location and then print
 ## the reply to stdout.
 $ erl -noshell -eval 'shell:start_interactive({noshell,raw}),
+    io_ansi:fwrite([{cursor_horizontal_vertical, 57, 0}]),
     io_ansi:fwrite([cursor_report_position]),
     io:format("~p",[io:get_chars("",20)])' -s init stop
 "\e[58;1R"
 ```
-The reported cursor position in the example is row 58 and column 1 both are 1 index based.
+
+The reported cursor position in the example is row 58 and column 1.
+Contrary to all other examples, both are 1 index based instead of 0.
 """.
 ?SPEC(cursor_report_position).
 ?FUNCTION(cursor_report_position).
 
 
 -doc """
-Get the current cursor position as {Row, Column}.
+Get the current cursor position as {Row, Column} where position 0,0 is at the top left of the terminal.
+
 Example:
 ```bash
 ## Enter noshell-raw mode and request cursor location and then print
 ## the reply to stdout.
 $ erl -noshell -eval 'shell:start_interactive({noshell,raw}),
+    io_ansi:fwrite([{cursor_horizontal_vertical, 0, 0}]),
     {Row,Col} = io_ansi:cursor_get_position(),
     io:format("~p",[{Row,Col}])' -s init stop
-{58,1}
+{0,0}
+$ erl -noshell -eval 'shell:start_interactive({noshell,raw}),
+    io_ansi:fwrite([{cursor_horizontal_vertical, 20, 20}]),
+    {Row,Col} = io_ansi:cursor_get_position(),
+    io:format("~p",[{Row,Col}])' -s init stop
+{20,20}
 ```
 """.
 -spec cursor_get_position() -> {Row :: non_neg_integer(), Column :: non_neg_integer()} | {error, string()}.
@@ -1859,8 +1869,8 @@ parse_cursor_position("\e[" ++ Rest) ->
     case string:split(Rest, ";") of
         [RowBin, ColBinWithR] ->
             ColBin = string:substr(ColBinWithR, 1, string:len(ColBinWithR) - 1),
-            Row = list_to_integer(RowBin),
-            Col = list_to_integer(ColBin),
+            Row = list_to_integer(RowBin) - 1,
+            Col = list_to_integer(ColBin) - 1,
             {Row, Col};
         _ ->
             {error, "Not a cursor position response"}
@@ -2636,9 +2646,9 @@ default_mappings() ->
 
        cursor_next_line => { "nel", "\e[E" },
        cursor_previous_line => { undefined, "\e[F" },
-       cursor_horizontal_absolute => { "hpa", fun(X) -> concat(["\e[", X, "G"]) end},
-       cursor_vertical_absolute => { "vpa", fun(Y) -> ["\e[", Y, "d"] end},
-       cursor_horizontal_vertical => { undefined, fun(X, Y) -> concat(["\e[", X, ";", Y, "f"]) end},
+       cursor_horizontal_absolute => { "hpa", fun(X) -> concat(["\e[", X+1, "G"]) end},
+       cursor_vertical_absolute => { "vpa", fun(Y) -> concat(["\e[", Y+1, "d"]) end},
+       cursor_horizontal_vertical => { undefined, fun(X, Y) -> concat(["\e[", X+1, ";", Y+1, "f"]) end},
 
        alternate_screen => { "smcup", "\e[?1049h" },
        alternate_screen_off => { "rmcup", "\e[?1049l" },
