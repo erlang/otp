@@ -51,20 +51,19 @@ The following applies to daemons (servers).
 DoS (Denial of Service) attacks are hard to fight at the node level. Here are
 firewalls and other means needed, but that is out of scope for this guide.
 However, some measures could be taken in the configuration of the SSH server to
-increase the resilence. The options to use are:
+increase the resilience. The options to use are:
 
 ### Counters and Parallelism
 
 - **[max_sessions](`m:ssh#hardening_daemon_options-max_sessions`)** - The
   maximum number of simultaneous sessions that are accepted at any time for this
-  daemon. This includes sessions that are being authenticated. The default is that
-  an unlimited number of simultaneous sessions are allowed. It is a good
-  candidate to set if the capacity of the server is low or a capacity margin is
-  needed.
+  daemon. This includes sessions that are being authenticated. The default is 1024.
+  It is a good candidate to lower if the capacity of the server is low or a capacity
+  margin is needed.
 
 - **[max_channels](`m:ssh#hardening_daemon_options-max_channels`)** - The
   maximum number of channels that are accepted for each connection. The default
-  is unlimited.
+  is 256.
 
 - **[parallel_login](`m:ssh#hardening_daemon_options-parallel_login`)** - If set
   to false (the default value), only one login is handled at a time. If set to
@@ -260,7 +259,7 @@ ssh:daemon(Port, [
             {max_files, 1000}
         ])
     ]},
-    {max_sessions, 10}
+    {max_sessions, 1024}
 ]).
 ```
 
