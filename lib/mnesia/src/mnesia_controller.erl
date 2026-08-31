@@ -1077,7 +1077,7 @@ handle_cast({force_load_updated, Tab}, State) ->
 handle_cast({master_nodes_updated, Tab, Masters}, State) ->
     Active = val({Tab, active_replicas}),
     Valid =
-	case val({Tab, load_by_force}) of
+        case ?catch_val({Tab, load_by_force}) of
 	    true ->
 		Active;
 	    false ->
@@ -1086,7 +1086,9 @@ handle_cast({master_nodes_updated, Tab, Masters}, State) ->
 			Active;
 		    true ->
 			mnesia_lib:intersect(Masters, Active)
-		end
+                end;
+            _ ->
+                []
 	end,
     case Valid of
 	[] ->
