@@ -552,14 +552,14 @@ default(server) ->
            },
 
       max_sessions =>
-          #{default => infinity,
-            chk => fun(V) -> check_pos_integer(V) end,
+          #{default => 1024,
+            chk => fun(V) -> check_max_sessions(V) end,
             class => user_option
            },
 
       max_channels =>
-          #{default => infinity,
-            chk => fun(V) -> check_pos_integer(V) end,
+          #{default => 256,
+            chk => fun(V) -> check_max_channels(V) end,
             class => user_option
            },
 
@@ -913,6 +913,14 @@ error_in_check(BadValue, Extra) -> error({check,{BadValue,Extra}}).
 %%%----------------------------------------------------------------
 check_timeout(infinity) -> true;
 check_timeout(I) -> check_pos_integer(I).
+
+%%%----------------------------------------------------------------
+check_max_sessions(infinity) -> true;
+check_max_sessions(I) -> check_pos_integer(I).
+
+%%%----------------------------------------------------------------
+check_max_channels(infinity) -> true;
+check_max_channels(I) -> check_pos_integer(I).
 
 %%%----------------------------------------------------------------
 check_pos_integer(I) -> is_integer(I) andalso I>0.

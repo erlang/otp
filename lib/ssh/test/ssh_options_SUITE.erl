@@ -54,6 +54,8 @@
 	 max_sessions_ssh_connect_sequential/1, 
          max_sessions_drops_tcp_connects/1,
          max_sessions_drops_tcp_connects/0,
+         max_sessions_option/1,
+         max_channels_option/1,
 	 server_password_option/1, 
 	 server_userpassword_option/1, 
 	 server_pwdfun_option/1,
@@ -174,7 +176,9 @@ groups() ->
 			    max_sessions_ssh_connect_sequential,
 			    max_sessions_sftp_start_channel_parallel,
 			    max_sessions_sftp_start_channel_sequential,
-                            max_sessions_drops_tcp_connects
+                            max_sessions_drops_tcp_connects,
+                            max_sessions_option,
+                            max_channels_option
 			   ]},
      {dir_options, [], [user_dir_option,
                         user_dir_fun_option,
@@ -1647,7 +1651,26 @@ try_ssh_connect(_N, _NegTimeOut, _F) ->
 oks(L) -> lists:filter(fun({ok,_}) -> true;
                           (_) -> false
                        end, L).
-    
+
+%%--------------------------------------------------------------------
+max_sessions_option(_Config) ->
+    #{max_sessions := 1024} = ssh_options:handle_options(server, []),
+    #{max_sessions := 1024} = ssh_options:handle_options(server, [{max_sessions, 1024}]),
+    #{max_sessions := 1} = ssh_options:handle_options(server, [{max_sessions, 1}]),
+    #{max_sessions := infinity} = ssh_options:handle_options(server, [{max_sessions, infinity}]),
+    {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_sessions, 0}]),
+    {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_sessions, -1}]),
+    {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_sessions, foo}]).
+
+max_channels_option(_Config) ->
+    #{max_channels := 256} = ssh_options:handle_options(server, []),
+    #{max_channels := 1024} = ssh_options:handle_options(server, [{max_channels, 1024}]),
+    #{max_channels := 1} = ssh_options:handle_options(server, [{max_channels, 1}]),
+    #{max_channels := infinity} = ssh_options:handle_options(server, [{max_channels, infinity}]),
+    {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_channels, 0}]),
+    {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_channels, -1}]),
+    {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_channels, foo}]).
+
 %%--------------------------------------------------------------------
 save_accepted_host_option(Config) ->
     UserDir = proplists:get_value(user_dir, Config),
