@@ -44,6 +44,7 @@ start_child(Sup, LSock, ListenAddr, ConnectToAddr, ChanType, ChanCB, ConnPid) ->
     Args = [LSock, ListenAddr, ConnectToAddr, ChanType, ChanCB, ConnPid],
     supervisor:start_child(Sup, 
                            #{id     => {ListenAddr,ConnectToAddr},
+                             restart => transient,
                              start  => {ssh_tcpip_forward_acceptor, start_link, Args}
                             }).
     
