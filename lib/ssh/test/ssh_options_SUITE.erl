@@ -29,6 +29,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 -include("ssh_test_lib.hrl").
+-include("ssh_connect.hrl").
 
 %%% Test cases
 -export([
@@ -1254,7 +1255,7 @@ ssh_daemon_minimal_remote_max_packet_size_option(Config) ->
 
     %% Try the limits of the minimal_remote_max_packet_size:
     {ok, _ChannelId} = ssh_connection:session_channel(Conn, 100, 14, infinity),
-    {open_error,_,"Maximum packet size below 14 not supported",_} = 
+    {open_error, ?SSH_OPEN_ADMINISTRATIVELY_PROHIBITED, "Maximum packet size below 14 not supported", <<"en">>} =
 	ssh_connection:session_channel(Conn, 100, 13, infinity),
 
     ssh:close(Conn),

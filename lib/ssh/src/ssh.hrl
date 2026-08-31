@@ -1257,8 +1257,9 @@ in the User's Guide chapter.
   By default, this option is not set. This means that the number is not limited.
 
 - **`max_channels`{: #hardening_daemon_options-max_channels }** - The maximum
-  number of channels with active remote subsystem that are accepted for each
-  connection to this daemon
+  number of channels that are accepted for each connection to this daemon. This
+  includes channels that are automatically opened when a port forwarding request
+  is serviced by the server.
 
   By default, this option is not set. This means that the number is not limited.
 
