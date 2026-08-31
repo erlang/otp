@@ -611,8 +611,8 @@ recompose(Map) ->
 %%-------------------------------------------------------------------------
 -doc """
 Convert a `RefURI` reference that might be relative to a given base URI into the
-parsed components of the reference's target, which can then be recomposed to
-form the target URI.
+parsed components of the reference's target and return the resulting `TargetURI`
+as a percent-encoded URI string.
 
 _Example:_
 
@@ -910,7 +910,7 @@ _Example:_
 > unexpected results.
 """.
 -doc(#{since => <<"OTP 25.0">>}).
--spec unquote(QuotedData) -> Data when
+-spec unquote(QuotedData) -> Data | error() when
       QuotedData :: unicode:chardata(),
       Data :: unicode:chardata().
 unquote(D) ->
