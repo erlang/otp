@@ -298,7 +298,7 @@ Decodes a base64 string encoded using the standard alphabet according to
 [RFC 4648 Section 4](https://datatracker.ietf.org/doc/html/rfc4648#section-4) to
 plain ASCII.
 
-The function will strip away any whitespace characters and check for the
+The function will strip away space, tab, carriage-return and line-feed characters and check for the
 the correct number of `=` padding characters at the end of the encoded string.
 
 See `t:decode_options/0` for details on which options can be passed.
