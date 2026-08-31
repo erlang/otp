@@ -35,7 +35,7 @@ gen.call_fun2(Tag, Arity, Func) {
 
     /* Move the fun in place when needed. We don't generate this at the moment,
      * but a future version of the compiler might keep Func in a Y register. */
-    if (Func.type != TAG_x || Arity.val != Func.val) {
+    if (Func.type != TAG_x || Arity.val != (Func.val & REG_MASK)) {
         BeamOp *move;
 
         $NewBeamOp(S, move);
