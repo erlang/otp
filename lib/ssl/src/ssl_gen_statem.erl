@@ -2289,7 +2289,7 @@ keylog_hs_alert(negotiated, #state{static_env = #static_env{role = server},
                                                   prf_algorithm = Prf
                                                  }
      } = Read,
-    {keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ServerHSSecret, ClientHSSecret),
+    {keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ClientHSSecret, ServerHSSecret),
      ClientRandomBin};
 keylog_hs_alert(wait_eoed, #state{static_env = #static_env{role = server},
                                   connection_env =
@@ -2372,7 +2372,7 @@ keylog_1_3_client_finished(Read, Write) ->
       security_parameters :=
           #security_parameters{client_early_data_secret = EarlySecret}
      } = Read,
-    {keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ServerHSSecret, ClientHSSecret) ++
+    {keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ClientHSSecret, ServerHSSecret) ++
          ssl_logger:keylog_traffic_1_3(server, ClientRandomBin, Prf, TrafficSecret, 0),
      ClientRandomBin}.
 
