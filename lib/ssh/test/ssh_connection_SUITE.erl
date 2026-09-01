@@ -108,6 +108,11 @@
          start_shell_sock_daemon_exec_multi/1,
          start_shell_sock_exec_fun/1,
          start_subsystem_on_closed_channel/1,
+         start_subsystem_on_channel_with_subsystem/1,
+         start_subsystem_on_channel_with_pty_req/1,
+         start_subsystem_on_channel_with_shell/1,
+         start_subsystem_on_channel_with_exec/1,
+         start_subsystem_on_channel_with_env/1,
          stop_listener/1,
          trap_exit_connect/1,
          trap_exit_daemon/1,
@@ -187,6 +192,11 @@ all() ->
      stop_listener,
      no_sensitive_leak,
      start_subsystem_on_closed_channel,
+     start_subsystem_on_channel_with_subsystem,
+     start_subsystem_on_channel_with_pty_req,
+     start_subsystem_on_channel_with_shell,
+     start_subsystem_on_channel_with_exec,
+     start_subsystem_on_channel_with_env,
      max_channels_option,
      handler_down_before_open,
      replace_options_enable_services
@@ -1730,23 +1740,29 @@ no_sensitive_leak(Config) ->
         {_, _,   0} -> ok;
         {_, _, Nt0} -> ct:fail("Leak in ~p cases!", [Nt0])
     end.
-    
-start_subsystem_on_closed_channel(Config) ->
+
+start_server_and_connect_client(Config) ->
+    start_server_and_connect_client(Config, []).
+start_server_and_connect_client(Config, DaemonOpts) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
     SysDir = proplists:get_value(data_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
-					     {user_dir, UserDir},
-					     {password, "morot"},
-					     {subsystems, [{"echo_n", {ssh_echo_server, [4000000]}}]}]),
+                                             {user_dir, UserDir},
+                                             {password, "morot"},
+                                             {subsystems, [{"echo_n", {ssh_echo_server, [4000000]}}]}] ++ DaemonOpts),
 
     ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-						      {user, "foo"},
-						      {password, "morot"},
-						      {user_interaction, false},
-						      {user_dir, UserDir}]),
+                                                      {user, "foo"},
+                                                      {password, "morot"},
+                                                      {user_interaction, false},
+                                                      {user_dir, UserDir}]),
 
+    {ConnectionRef, Pid}.
+
+start_subsystem_on_closed_channel(Config) ->
+    {ConnectionRef, Pid} = start_server_and_connect_client(Config),
 
     {ok, ChannelId1} = ssh_connection:session_channel(ConnectionRef, infinity),
     ok = ssh_connection:close(ConnectionRef, ChannelId1),
@@ -1763,6 +1779,67 @@ start_subsystem_on_closed_channel(Config) ->
     {error, closed} = ssh_connection:subsystem(ConnectionRef, ChannelId2, "echo_n", 5000),
     {error, closed} = ssh_connection:exec(ConnectionRef, ChannelId2, "testing1.\n", 5000),
     {error, closed} = ssh_connection:send(ConnectionRef, ChannelId2, "exit().\n", 5000),
+
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
+start_server_connect_client_and_get_channel(Config) ->
+    start_server_connect_client_and_get_channel(Config, []).
+start_server_connect_client_and_get_channel(Config, DaemonOpts) ->
+    {ConnectionRef, Pid} = start_server_and_connect_client(Config, DaemonOpts),
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    {ConnectionRef, ChannelId, Pid}.
+
+start_subsystem_on_channel_with_subsystem(Config) ->
+    {ConnectionRef, ChannelId, Pid} = start_server_connect_client_and_get_channel(Config),
+    success = ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", 5000),
+    check_subsystem_start_failure(ConnectionRef, ChannelId, Pid).
+
+start_subsystem_on_channel_with_pty_req(Config) ->
+    DaemonOpts = [{shell, fun(_U, _P) -> spawn(fun() -> timer:sleep(infinity) end) end}],
+    {ConnectionRef, ChannelId, Pid} = start_server_connect_client_and_get_channel(Config, DaemonOpts),
+    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, []),
+    check_subsystem_start_failure(ConnectionRef, ChannelId, Pid).
+
+start_subsystem_on_channel_with_shell(Config) ->
+    DaemonOpts = [{shell, fun(_U, _P) -> spawn(fun() -> timer:sleep(infinity) end) end}],
+    {ConnectionRef, ChannelId, Pid} = start_server_connect_client_and_get_channel(Config, DaemonOpts),
+    ok = ssh_connection:shell(ConnectionRef, ChannelId),
+    check_subsystem_start_failure(ConnectionRef, ChannelId, Pid).
+
+start_subsystem_on_channel_with_exec(Config) ->
+    Parent = self(),
+    Ref = make_ref(),
+    Fun =
+        fun(Cmd) ->
+                spawn(fun() ->
+                              %% Keep subsystem alive until parent says it's ok
+                              %% otherwise the channel could be closed before we tried to start "echo_n"
+                              Parent ! {self(), Ref},
+                              io:format("echo ~s\n", [Cmd]),
+                              receive {Parent, Ref} -> ok end
+                      end)
+        end,
+    DaemonOpts = [{exec, Fun}],
+    {ConnectionRef, ChannelId, Pid} = start_server_connect_client_and_get_channel(Config, DaemonOpts),
+    success = ssh_connection:exec(ConnectionRef, ChannelId, "testing1.\n", 5000),
+    receive
+        {ExecPid, Ref} ->
+            failure = ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", 5000),
+            ExecPid ! {self(), Ref},
+            ssh:close(ConnectionRef),
+            ssh:stop_daemon(Pid)
+    end.
+
+start_subsystem_on_channel_with_env(Config) ->
+    DaemonOpts = [{shell, fun(_U, _P) -> spawn(fun() -> timer:sleep(infinity) end) end}],
+    {ConnectionRef, ChannelId, Pid} = start_server_connect_client_and_get_channel(Config, DaemonOpts),
+    %% setenv is not implemented, and will return a failure, but cli handler will be started anyway
+    failure = ssh_connection:setenv(ConnectionRef, ChannelId, "ENV_TEST", "VALUE", infinity),
+    check_subsystem_start_failure(ConnectionRef, ChannelId, Pid).
+
+check_subsystem_start_failure(ConnectionRef, ChannelId, Pid) ->
+    failure = ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", 5000),
 
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
