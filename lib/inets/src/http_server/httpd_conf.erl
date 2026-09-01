@@ -197,6 +197,12 @@ validate_config_params([{max_content_length, Value} | Rest])
 validate_config_params([{max_content_length, Value} | _]) -> 
     throw({max_content_length, Value});
 
+validate_config_params([{max_uri_size, Value} | Rest]) 
+  when is_integer(Value) andalso (Value > 0) ->
+    validate_config_params(Rest);
+validate_config_params([{max_uri_size, Value} | _]) -> 
+    throw({max_uri_size, Value});
+
 validate_config_params([{server_name, Value} | Rest])  
   when is_list(Value) ->
     validate_config_params(Rest);

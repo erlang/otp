@@ -26,12 +26,12 @@
 
 -include_lib("inets/src/inets_app/inets_internal.hrl").
 
--define(HTTP_MAX_BODY_SIZE,   nolimit).
+-define(HTTP_MAX_BODY_SIZE,   ?HTTP_MAX_CONTENT_LENGTH). %% 100 MB, same as max-content length
 -define(HTTP_MAX_HEADER_SIZE, 10240).
--define(HTTP_MAX_URI_SIZE,    nolimit).
+-define(HTTP_MAX_URI_SIZE,    8192).
 -define(HTTP_MAX_VERSION_STRING, 8).
 -define(HTTP_MAX_METHOD_STRING, 20).
--define(HTTP_MAX_CONTENT_LENGTH, 100000000).
+-define(HTTP_MAX_CONTENT_LENGTH, 100000000). %% 100 MB
 
 -define(DATA_20MB, <<0:16#A000000>>).
 
