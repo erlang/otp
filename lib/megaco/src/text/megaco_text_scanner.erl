@@ -44,11 +44,20 @@
 %% This is used when we _know_ it to be upper case
 -define(LOWER2(Char), Char - ($A - $a)).
 
+%% Max accepted message size for text decoding (defense-in-depth).
+%% H.248 TPKT framing limits PDUs to 65535 bytes; we use a slightly
+%% higher value to allow for transport-layer overhead variations.
+-define(MAX_SCAN_SIZE, 100000).
+
+scan(Bin) when is_binary(Bin), byte_size(Bin) > ?MAX_SCAN_SIZE ->
+    {error, {message_too_large, byte_size(Bin)}, 0};
 scan(Bin) when is_binary(Bin) ->
     Chars = erlang:binary_to_list(Bin),
     tokens1(Chars, 1, []);
+scan(Chars) when is_list(Chars), length(Chars) =< ?MAX_SCAN_SIZE ->
+    tokens1(Chars, 1, []);
 scan(Chars) when is_list(Chars) ->
-    tokens1(Chars, 1, []).
+    {error, {message_too_large, length(Chars)}, 0}.
 
 %% As long as we dont know the version, we will loop in this function
 tokens1(Chars, Line, Acc) ->
@@ -136,13 +145,15 @@ tokens3(Chars, Line, Acc, Version) ->
 
 guess_version([C]) when (48 =< C) and (C =< 57) ->
     {ok, C-48};
-guess_version(Str) when is_list(Str) ->
+guess_version(Str) when is_list(Str), length(Str) =< 2 ->
     case (catch list_to_integer(Str)) of
 	I when is_integer(I) ->
 	    {ok, I};
 	_ ->
 	    {error, {invalid_version, Str}}
-    end.
+    end;
+guess_version(Str) when is_list(Str) ->
+    {error, {invalid_version, Str}}.
 
 
 %% Returns {token,     Token, Rest, LatestLine}
@@ -482,10 +493,10 @@ digit_map_value(Chars, DMV) ->
 digit_map_timer(All, Chars, TimerPos, DMV) ->
     {Rest, Digits} = collect_safe_chars(Chars, []),
     {Rest2, _} = skip_sep_chars(Rest, 0),
-   case {Rest2, catch list_to_integer(Digits)} of
-       {[?CommaToken | Rest3], Int} when is_integer(Int) andalso 
-                                         (Int >= 0) andalso 
-					 (element(TimerPos, DMV) =:= asn1_NOVALUE) ->
+   case {length(Digits) =< 2, Rest2, catch list_to_integer(Digits)} of
+       {true, [?CommaToken | Rest3], Int} when is_integer(Int) andalso
+                                               (Int >= 0) andalso
+                                               (element(TimerPos, DMV) =:= asn1_NOVALUE) ->
 	   {Rest4, _} = skip_sep_chars(Rest3, 0),
 	   DMV2 = setelement(TimerPos, DMV, Int),
 	   digit_map_value(Rest4, DMV2);

@@ -32,6 +32,11 @@
 
 -define(d(F,A), io:format("DBG:"++F++"~n",A)).
 
+%% 20 digits is a safe upper bound for any Megaco integer (UINT32
+%% needs at most 10).  The real defense against oversized input is the
+%% 100 KB scanner gate; this limit just avoids needless bignum work.
+-define(MAX_DIGITS, 20).
+
 make_safe_token({_TokenTag, Line, Text}) ->
     {safeToken, Line, Text}.
 
@@ -1185,12 +1190,17 @@ ensure_uint({_TokenTag, Line, Val}, Min, Max) when is_integer(Val) ->
             return_error(Line, {too_small_integer, Val, Min})
     end;
 ensure_uint({TokenTag, Line, Text}, Min, Max) ->
-    case catch list_to_integer(Text) of
-        {'EXIT', _} ->
-            return_error(Line, {not_an_integer, Text});
-        Val when is_integer(Val) ->
-            ensure_uint({TokenTag, Line, Val}, Min, Max)
-   end;
+    case length(Text) > ?MAX_DIGITS of
+        true ->
+            return_error(Line, {too_large_integer, Text, Max});
+        false ->
+            case catch list_to_integer(Text) of
+                {'EXIT', _} ->
+                    return_error(Line, {not_an_integer, Text});
+                Val when is_integer(Val) ->
+                    ensure_uint({TokenTag, Line, Val}, Min, Max)
+            end
+    end;
 ensure_uint(Val, Min, Max) ->
     ensure_uint({uint, 0, Val}, Min, Max).
 
