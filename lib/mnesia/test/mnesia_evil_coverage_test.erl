@@ -39,7 +39,8 @@
          replica_location/1, user_properties/1, unsupp_user_props/1,
          sorted_ets/1, index_cleanup/1,
          change_table_access_mode/1, change_table_load_order/1,
-         set_master_nodes/1, offline_set_master_nodes/1,
+         set_master_nodes/1, set_master_nodes_and_delete_table/1,
+         offline_set_master_nodes/1,
          dump_tables/1, dump_log/1, wait_for_tables/1, force_load_table/1,
          snmp_open_table/1, snmp_close_table/1, snmp_get_next_index/1,
          snmp_get_row/1, snmp_get_mnesia_key/1, snmp_update_counter/1,
@@ -90,7 +91,8 @@ all() ->
 groups() -> 
     [{table_access_modifications, [],
       [change_table_access_mode, change_table_load_order,
-       set_master_nodes, offline_set_master_nodes]},
+       set_master_nodes, set_master_nodes_and_delete_table,
+       offline_set_master_nodes]},
      {table_sync, [],
       [dump_tables, dump_log, wait_for_tables,
        force_load_table]},
@@ -1326,6 +1328,22 @@ set_master_nodes(Config) when is_list(Config) ->
     ?match([Node1, Node2], mnesia:table_info(Tab1, master_nodes)),
     ?match([Node2], mnesia:table_info(Tab2, master_nodes)),
     ?match([Node1], mnesia:table_info(Tab3, master_nodes)),
+
+    ?verify_mnesia(Nodes, []).
+
+set_master_nodes_and_delete_table(suite) -> [];
+set_master_nodes_and_delete_table(Config) when is_list(Config) ->
+    [Node1] = Nodes = ?acquire_nodes(1, Config),
+    Tab = ?FUNCTION_NAME,
+    ?match({atomic, ok}, mnesia:create_table(Tab, [{disc_copies, [Node1]}])),
+
+    %% Set master nodes and immediately delete the table,
+    %% if lucky it could crash the mnesia_controller
+    spawn_link(fun() ->
+                       timer:sleep(1),
+                       mnesia:set_master_nodes(Tab, [Node1])
+               end),
+    ?match({atomic, ok}, mnesia:delete_table(Tab)),
 
     ?verify_mnesia(Nodes, []).
 
