@@ -200,7 +200,7 @@ Note that this concern only applies to the server role. A client
 setting `verify_peer` to verify the server is not affected.
 
 The default value for `reuse_sessions` in above described configuration
-is false since OTP @OTP-20289@
+is false since OTP 29.0.6
 
 
 ### Key Exchange Groups

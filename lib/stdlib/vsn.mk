@@ -1,4 +1,4 @@
-STDLIB_VSN = 8.0.3
+STDLIB_VSN = 8.0.4
 
 # %CopyrightBegin%
 #

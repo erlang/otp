@@ -23,6 +23,27 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 8.0.4
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug in `unicode_util:gc/1` where the grapheme cluster   segmentation of `$\r` (not followed by `$\n`) would decompose binary continuations into mixed chardata. This caused `string:trim/3` (and `string:chomp/1`) to return incorrect results or crash when trimming strings containing binaries followed by another list element.
+
+  Own Id: OTP-20296 Aux Id: [GH-11380], [PR-11464]
+
+- `record_info/2` will now mark tuple records as used.
+
+  Own Id: OTP-20301 Aux Id: ERIERL-1345, [PR-11470]
+
+- `uri_string:parse/1` now rejects URIs with an unreasonably long port component (more than 5 digits) instead of attempting to convert an arbitrarily large digit string to an integer.
+
+  Own Id: OTP-20344 Aux Id: [PR-11538]
+
+[GH-11380]: https://github.com/erlang/otp/issues/11380
+[PR-11464]: https://github.com/erlang/otp/pull/11464
+[PR-11470]: https://github.com/erlang/otp/pull/11470
+[PR-11538]: https://github.com/erlang/otp/pull/11538
+
 ## STDLIB 8.0.3
 
 ### Fixed Bugs and Malfunctions
