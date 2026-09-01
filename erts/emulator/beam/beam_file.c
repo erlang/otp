@@ -37,13 +37,13 @@
 #define LoadError(Expr)      \
     do {                     \
         (void)(Expr);        \
-        return 0;            \
+        goto load_error;     \
     } while(0)
 
 #define LoadAssert(Expr)     \
     do {                     \
         if (!(Expr)) {       \
-            return 0;        \
+            goto load_error;  \
         }                    \
     } while(0)
 
@@ -129,6 +129,9 @@ static int beamreader_read_i16(BeamReader *reader, Sint16 *val) {
     reader->head += sizeof(Sint16);
 
     return 1;
+
+load_error:
+    return 0;
 }
 
 static int beamreader_read_i32(BeamReader *reader, Sint32 *val) {
@@ -142,6 +145,9 @@ static int beamreader_read_i32(BeamReader *reader, Sint32 *val) {
     reader->head += sizeof(Sint32);
 
     return 1;
+
+load_error:
+    return 0;
 }
 
 /* Internal helper function for reading U-tagged values and similar.
@@ -237,6 +243,9 @@ static int beamreader_read_tagged(BeamReader *reader, TaggedNumber *val) {
     }
 
     return 1;
+
+load_error:
+    return 0;
 }
 
 static int parse_atom_chunk(BeamFile *beam,
@@ -297,6 +306,9 @@ static int parse_atom_chunk(BeamFile *beam,
     beam->module = atoms->entries[1];
 
     return 1;
+
+load_error:
+    return 0;
 }
 
 static int parse_import_chunk(BeamFile *beam, IFF_Chunk *chunk) {
@@ -340,6 +352,9 @@ static int parse_import_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     }
 
     return 1;
+
+load_error:
+    return 0;
 }
 
 static int parse_export_table(BeamFile_ExportTable *dest,
@@ -379,6 +394,9 @@ static int parse_export_table(BeamFile_ExportTable *dest,
     }
 
     return 1;
+
+load_error:
+    return 0;
 }
 
 static int parse_export_chunk(BeamFile *beam, IFF_Chunk *chunk) {
@@ -438,6 +456,9 @@ static int parse_lambda_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     }
 
     return 1;
+
+load_error:
+    return 0;
 }
 
 static int parse_line_chunk(BeamFile *beam, IFF_Chunk *chunk) {
@@ -599,6 +620,9 @@ static int parse_line_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     }
 
     return 1;
+
+load_error:
+    return 0;
 }
 
 /* We assume the presence of a type table to simplify loading, so we'll need to
@@ -691,6 +715,9 @@ static int parse_type_chunk_data(BeamFile *beam, BeamReader *p_reader, Uint vers
     LoadAssert(types->entries[0].min > types->entries[0].max);
 
     return 1;
+
+load_error:
+    return 0;
 }
 
 static int parse_type_chunk(BeamFile *beam, IFF_Chunk *chunk) {
@@ -708,6 +735,9 @@ static int parse_type_chunk(BeamFile *beam, IFF_Chunk *chunk) {
         init_fallback_type_table(beam);
         return 1;
     }
+
+load_error:
+    return 0;
 }
 
 static void init_debug_item(BeamFile_DebugItem *item, Eterm *tp) {
@@ -1037,6 +1067,7 @@ static int parse_debug_chunk_data(BeamFile *beam, BeamReader *p_reader) {
         debug->is_literal = NULL;
     }
 
+load_error:
     return 0;
 }
 
@@ -1054,6 +1085,9 @@ static int parse_debug_chunk(BeamFile *beam, IFF_Chunk *chunk) {
         /* Silently ignore chunk of wrong version. */
         return 1;
     }
+
+load_error:
+    return 0;
 }
 
 struct erl_record_field {
@@ -1329,6 +1363,7 @@ static int parse_record_chunk_data(BeamFile *beam, BeamReader *p_reader) {
         rec->records = NULL;
     }
 
+load_error:
     return 0;
 }
 
@@ -1342,9 +1377,9 @@ static int parse_record_chunk(BeamFile *beam, IFF_Chunk *chunk) {
 
     if (version == 0) {
         return parse_record_chunk_data(beam, &reader);
-    } else {
-        return 0;
     }
+load_error:
+    return 0;
 }
 
 static ErlHeapFragment *new_literal_fragment(Uint size)
@@ -1466,6 +1501,9 @@ static int parse_decompressed_literals(BeamFile *beam,
     literals->heap_size = heap_size;
 
     return 1;
+
+load_error:
+    return 0;
 }
 
 static int parse_literal_chunk(BeamFile *beam, IFF_Chunk *chunk) {
@@ -1506,6 +1544,9 @@ static int parse_literal_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     }
 
     return success;
+
+load_error:
+    return 0;
 }
 
 static int parse_code_chunk(BeamFile *beam, IFF_Chunk *chunk) {
@@ -1531,6 +1572,9 @@ static int parse_code_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     LoadAssert(beamreader_read_i32(&reader, &beam->code.function_count));
 
     return 1;
+
+load_error:
+    return 0;
 }
 
 static int read_beam_chunks(const IFF_File *file,
@@ -1581,6 +1625,9 @@ static int read_beam_chunks(const IFF_File *file,
     }
 
     return 1;
+
+load_error:
+    return 0;
 }
 
 enum beamfile_read_result
@@ -2055,6 +2102,9 @@ int iff_init(const byte *data, size_t size, IFF_File *iff) {
     iff->size = form_size;
 
     return 1;
+
+load_error:
+    return 0;
 }
 
 int iff_read_chunk(IFF_File *iff, Uint id, IFF_Chunk *chunk)
@@ -2277,6 +2327,9 @@ static int marshal_allocation_list(BeamReader *reader, Sint *res) {
     *res = sum;
 
     return 1;
+
+load_error:
+    return 0;
 }
 
 static int beamcodereader_read_next(BeamCodeReader *code_reader, BeamOp **out) {
@@ -2456,6 +2509,9 @@ static int beamcodereader_read_next(BeamCodeReader *code_reader, BeamOp **out) {
     *out = op;
 
     return 1;
+
+load_error:
+    return 0;
 }
 
 static void synthesize_func_end(BeamCodeReader *code_reader) {
@@ -2602,6 +2658,9 @@ int beamcodereader_next(BeamCodeReader *code_reader, BeamOp **out) {
         *out = op;
         return 1;
     }
+
+load_error:
+    return 0;
 }
 
 void beamcodereader_close(BeamCodeReader *reader) {
