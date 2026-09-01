@@ -3,8 +3,8 @@
 %%
 %% SPDX-License-Identifier: MIT
 %%
+%% Copyright Ericsson AB 2012-2026. All Rights Reserved.
 %% Copyright (c) 2010, Torbjörn Törnkvist
-%% Copyright Ericsson AB 2012-2025. All Rights Reserved.
 %%
 %% Permission is hereby granted, free of charge, to any person obtaining a copy
 %% of this software and associated documentation files (the "Software"), to deal
