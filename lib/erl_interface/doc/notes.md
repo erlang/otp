@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the Erl_interface application.
 
+## Erl_Interface 5.5.2.2
+
+### Fixed Bugs and Malfunctions
+
+- erl_interface: Fix buffer leak and state corruption on `ei_x_buff` realloc failure
+
+  Own Id: OTP-20324 Aux Id: [PR-11492]
+
+[PR-11492]: https://github.com/erlang/otp/pull/11492
+
 ## Erl_Interface 5.5.2.1
 
 ### Fixed Bugs and Malfunctions

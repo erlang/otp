@@ -21,6 +21,30 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.2.12.12
+
+### Improvements and New Features
+
+- Hardening improvements of the ssl application.
+  
+  TLS distribution now defaults to TLS-1.3 instead of TLS-1.2 (TLS-1.2 is kept as fallback for rolling upgrades).
+  
+  TLS-1.2 server with {verify, verify_peer} now defaults reuse_sessions to false to mitigate the Triple Handshake attack (RFC 7627). Set {reuse_sessions, true} explicitly to restore previous behavior.
+  
+  Various missing or faulty sanity checks added and TLS alerts adjusted to comply with RFC MUST requirements, including: signature algorithm validation for intermediate certificates, TLS-1.3 session_id echo, pre_shared_key extension ordering, and renegotiation_info enforcement.
+  
+  Hardened and improved CRL support. Introduces new option allowed_hosts for the optional CRL HTTP fetching feature to restrict which hosts may be contacted. Internal/loopback IPs are now blocked by default (SSRF protection).
+  
+  TLS-1.3 client ticket handling is more robust (locked tickets are released on client crash). Server TLS-1.3 ticket handling and anti-replay Bloom filter performance are optimized.
+  
+  DTLS duplicate ChangeCipherSpec handling simplified, fixing potential state machine confusion (GH-11075).
+  
+  Process state formatting no longer leaks secrets in crash logs.
+
+  Own Id: OTP-20289 Aux Id: [PR-11478]
+
+[PR-11478]: https://github.com/erlang/otp/pull/11478
+
 ## SSL 11.2.12.11
 
 ### Fixed Bugs and Malfunctions

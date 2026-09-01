@@ -21,6 +21,17 @@ limitations under the License.
 
 This document describes the changes made to the Crypto application.
 
+## Crypto 5.5.3.5
+
+### Fixed Bugs and Malfunctions
+
+- Fixed type mismatch between `ErlNifUInt64` and `uint64_t` in crypto NIF that caused incompatible-pointer warnings on macOS arm64 when passing DH parameters to OpenSSL.
+
+  Own Id: OTP-20333 Aux Id: [GH-11511], [PR-11513]
+
+[GH-11511]: https://github.com/erlang/otp/issues/11511
+[PR-11513]: https://github.com/erlang/otp/pull/11513
+
 ## Crypto 5.5.3.4
 
 ### Fixed Bugs and Malfunctions
