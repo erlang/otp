@@ -6051,8 +6051,18 @@ handle_altact_msg(Process *c_p, ErtsSigRecvTracing *tracing,
             mon->flags &= ~ERTS_ML_STATE_ALIAS_MASK;
 
             erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), mon);
-            if (flags & ERTS_ML_FLG_PRIO_ALIAS)
+            if (flags & ERTS_ML_FLG_PRIO_ALIAS) {
+                mon->flags &= ~ERTS_ML_FLG_PRIO_ALIAS;
+                /*
+                 * See comment at end of function why we don't delete alias
+                 * reference now...
+                 */
                 prio_alias_deactivated = !0;
+            }
+            if (flags & ERTS_ML_FLG_PRIO_ML) {
+                mon->flags &= ~ERTS_ML_FLG_PRIO_ML;
+                erts_proc_sig_prio_item_deleted(c_p, ERTS_PRIO_ITEM_TYPE_MONITOR);
+            }
 
             switch (ERTS_ML_GET_TYPE(mon)) {
             case ERTS_MON_TYPE_DIST_PORT:
@@ -6673,6 +6683,11 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                     ErtsELink *elnk;
                     ErtsLink *dlnk = erts_link_to_other(llnk, &elnk);
                     if (!elnk->unlinking) {
+                        if (llnk->flags & ERTS_ML_FLG_PRIO_ML) {
+                            llnk->flags &= ~ERTS_ML_FLG_PRIO_ML;
+                            erts_proc_sig_prio_item_deleted(
+                                c_p, ERTS_PRIO_ITEM_TYPE_LINK);
+                        }
                         erts_link_tree_delete(&ERTS_P_LINKS(c_p), llnk);
                         if (erts_link_dist_delete(dlnk))
                             erts_link_release_both(&elnk->ld);
@@ -6691,6 +6706,11 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                 llnk = erts_link_tree_lookup(ERTS_P_LINKS(c_p),
                                              sulnk->from);
                 if (llnk && !((ErtsILink *) llnk)->unlinking) {
+                    if (llnk->flags & ERTS_ML_FLG_PRIO_ML) {
+                        llnk->flags &= ~ERTS_ML_FLG_PRIO_ML;
+                        erts_proc_sig_prio_item_deleted(
+                            c_p, ERTS_PRIO_ITEM_TYPE_LINK);
+                    }
                     if (tracing.procs)
                         getting_unlinked(c_p, sulnk->from);
                     erts_link_tree_delete(&ERTS_P_LINKS(c_p), llnk);
