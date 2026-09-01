@@ -36,7 +36,9 @@
          gh_8268/1,
          moduledoc_include/1,
          stringify/1,
-         fun_type_arg/1
+         fun_type_arg/1,
+         include_path_open/1,
+         doctests/1
         ]).
 
 -export([epp_parse_erl_form/2]).
@@ -84,7 +86,9 @@ all() ->
      gh_8268,
      moduledoc_include,
      stringify,
-     fun_type_arg].
+     fun_type_arg,
+     include_path_open,
+     doctests].
 
 groups() ->
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -2333,6 +2337,128 @@ run_test(Config, Test0, Opts0) ->
             peer:stop(Peer),
             Reply
     end.
+
+%% Test the include_path_open option for epp using ram files.
+include_path_open(_Config) ->
+    %% Test 1: Basic ram file preprocessing with macros
+    Code1 = <<"-module(ram_test).\n"
+              "-export([f/0]).\n"
+              "-define(HELLO, hello).\n"
+              "f() -> {?MODULE, ?HELLO}.\n">>,
+    Forms1 = epp_open_ram(Code1, []),
+    {attribute,_,module,ram_test} = lists:keyfind(module, 3, Forms1),
+    {ok, ram_test, Bin1} = compile:forms(Forms1),
+    {module, ram_test} = code:load_binary(ram_test, "ram_test.erl", Bin1),
+    {ram_test, hello} = ram_test:f(),
+    true = code:delete(ram_test),
+    code:purge(ram_test),
+
+    %% Test 2: Ram file with -include resolved via include_path_open
+    HrlContent = <<"-record(point, {x, y}).\n"
+                   "-define(ORIGIN, #point{x=0, y=0}).\n">>,
+    Code2 = <<"-module(ram_inc).\n"
+              "-include(\"my_header.hrl\").\n"
+              "-export([origin/0]).\n"
+              "origin() -> ?ORIGIN.\n">>,
+    Files2 = #{"my_header.hrl" => HrlContent},
+    PathOpen2 = ram_include_path_open(Files2),
+    Forms2 = epp_open_ram(Code2, [{include_path_open, PathOpen2}]),
+    {attribute,_,module,ram_inc} = lists:keyfind(module, 3, Forms2),
+    {ok, ram_inc, Bin2} = compile:forms(Forms2),
+    {module, ram_inc} = code:load_binary(ram_inc, "ram_inc.erl", Bin2),
+    {point, 0, 0} = ram_inc:origin(),
+    true = code:delete(ram_inc),
+    code:purge(ram_inc),
+
+    %% Test 3: Nested includes via ram files
+    Hrl3a = <<"-define(A, a_value).\n">>,
+    Hrl3b = <<"-include(\"a.hrl\").\n"
+              "-define(B, {?A, b_value}).\n">>,
+    Code3 = <<"-module(ram_nested).\n"
+              "-include(\"b.hrl\").\n"
+              "-export([t/0]).\n"
+              "t() -> ?B.\n">>,
+    Files3 = #{"a.hrl" => Hrl3a, "b.hrl" => Hrl3b},
+    PathOpen3 = ram_include_path_open(Files3),
+    Forms3 = epp_open_ram(Code3, [{include_path_open, PathOpen3}]),
+    {ok, ram_nested, Bin3} = compile:forms(Forms3),
+    {module, ram_nested} = code:load_binary(ram_nested, "ram_nested.erl", Bin3),
+    {a_value, b_value} = ram_nested:t(),
+    true = code:delete(ram_nested),
+    code:purge(ram_nested),
+
+    %% Test 4: include_lib resolved via include_path_open
+    HrlLib = <<"-define(LIB_VAL, from_lib).\n">>,
+    Code4 = <<"-module(ram_lib).\n"
+              "-include_lib(\"myapp/include/lib.hrl\").\n"
+              "-export([t/0]).\n"
+              "t() -> ?LIB_VAL.\n">>,
+    Files4 = #{"myapp/include/lib.hrl" => HrlLib},
+    PathOpen4 = ram_include_path_open(Files4),
+    Forms4 = epp_open_ram(Code4, [{include_path_open, PathOpen4}]),
+    {ok, ram_lib, Bin4} = compile:forms(Forms4),
+    {module, ram_lib} = code:load_binary(ram_lib, "ram_lib.erl", Bin4),
+    from_lib = ram_lib:t(),
+    true = code:delete(ram_lib),
+    code:purge(ram_lib),
+
+    %% Test 5: Missing include via include_path_open gives proper error
+    Code5 = <<"-module(ram_missing).\n"
+              "-include(\"missing.hrl\").\n"
+              "-export([t/0]).\n"
+              "t() -> ok.\n">>,
+    PathOpen5 = ram_include_path_open(#{}),
+    Forms5 = epp_open_ram(Code5, [{include_path_open, PathOpen5}]),
+    {error, {2, epp, {include, file, "missing.hrl"}}} =
+        lists:keyfind(error, 1, Forms5),
+
+    ok.
+
+%% open a binary as a cooked ram file and preprocess with epp.
+epp_open_ram(Bin, ExtraOpts) ->
+    {ok, Fd} = file:open(Bin, [ram, read, binary, cooked]),
+    try
+        {ok, Epp} = epp:open([{fd, Fd}, {name, "ram_file.erl"},
+                               {location, 1} | ExtraOpts]),
+        try
+            collect_epp_forms(Epp)
+        after
+            epp:close(Epp)
+        end
+    after
+        file:close(Fd)
+    end.
+
+%% create a include_path_open function backed by in-memory files.
+ram_include_path_open(Files) ->
+    fun(Path, Name, Modes) ->
+        %% Try Name directly (for absolute paths and include_lib),
+        %% then try each path prefix.
+        Candidates = [Name | [filename:join(Dir, Name) || Dir <- Path]],
+        ram_include_path_open_try(Candidates, Files, Modes)
+    end.
+
+ram_include_path_open_try([], _Files, _Modes) ->
+    {error, enoent};
+ram_include_path_open_try([Candidate | Rest], Files, Modes) ->
+    case maps:find(Candidate, Files) of
+        {ok, Content} ->
+            {ok, Fd} = file:open(Content, [ram, read, binary, cooked]),
+            {ok, Fd, Candidate};
+        error ->
+            ram_include_path_open_try(Rest, Files, Modes)
+    end.
+
+doctests(_Config) ->
+    file:write_file("example.erl",
+        ~"""
+         -module(example).
+
+         -export([foo/0]).
+
+         foo() -> ?MODULE.
+         """),
+    ct_doctest:module(epp, [{skipped_blocks, 5}]).
 
 fail() ->
     ct:fail(failed).
