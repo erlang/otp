@@ -31,7 +31,7 @@
 -moduledoc false.
 
 -export([await_port_send_result/3]).
--export([cmp_term/2]).
+-export([cmp_term/2, cmp_term/4]).
 -export([map_to_tuple_keys/1, term_type/1, map_hashmap_children/1,
          map_next/3]).
 -export([mc_iterator/1, mc_refill/1]).
@@ -403,7 +403,16 @@ gather_system_check_result(Ref, N) ->
     B :: term(),
     Result :: -1 | 0 | 1.
 
-cmp_term(_A,_B) ->
+cmp_term(A,B) ->
+    cmp_term(A,B,true,false).
+
+-spec cmp_term(A,B,Exact,EqOnly) -> Result when
+    A :: term(),
+    B :: term(),
+    Exact :: boolean(),
+    EqOnly :: boolean(),
+    Result :: -1 | 0 | 1.
+cmp_term(_A,_B,_Exact,_EqOnly) ->
     erlang:nif_error(undefined).
 
 %% return the internal key tuple for map keys
