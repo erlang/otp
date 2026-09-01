@@ -133,10 +133,11 @@ safe_any(N, 0) ->
 
 safe_any(N, Size) ->
     eqc_gen:frequency(
-      [{25, eqc_gen:bind(eqc_gen:choose(0, Size), make_tuple(N, Size))},
-       {25, eqc_gen:bind(eqc_gen:choose(0, Size), make_list(N, Size))},
+      [{17, eqc_gen:bind(eqc_gen:choose(0, Size), make_tuple(N, Size))},
+       {17, eqc_gen:bind(eqc_gen:choose(0, Size), make_list(N, Size))},
+       {17, eqc_gen:bind(eqc_gen:choose(0, Size div 2), make_map(N, Size))},
        {12, eqc_gen:resize(Size, eqc_gen:bitstring())},
-       {38, safe_any(N,0)}]).
+       {37, safe_any(N,0)}]).
 
 make_list(N, Size) ->
     fun(X) ->
@@ -161,6 +162,20 @@ make_tuple(N, Size) ->
                 _ ->
                     Content = eqc_gen:lazy(fun() -> safe_any(N, Size div X) end),
                     list_to_tuple(lists:duplicate(X, Content))
+            end
+    end.
+
+make_map(N, Size) ->
+    fun(X) ->
+            case X of
+                0 ->
+                    #{};
+                _ ->
+                    Content = eqc_gen:lazy(fun() ->
+                                              safe_any(N, Size div (2 * X))
+                                          end),
+                    eqc_gen:bind(eqc_gen:vector(X, {Content, Content}),
+                                 fun maps:from_list/1)
             end
     end.
 
