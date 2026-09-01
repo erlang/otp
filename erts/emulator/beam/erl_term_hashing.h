@@ -61,8 +61,8 @@ typedef struct {
     SysIOVec* iov;
     Uint vlen;
     Uint tot_len;
-    int vix;
-    int ix;
+    Uint vix;
+    Uint ix;
 } ErtsIovBlockHashState;
 
 Uint32 make_hash2(Eterm);
