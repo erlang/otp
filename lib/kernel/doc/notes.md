@@ -207,6 +207,17 @@ This document describes the changes made to the Kernel application.
 [PR-10929]: https://github.com/erlang/otp/pull/10929
 [PR-11031]: https://github.com/erlang/otp/pull/11031
 
+## Kernel 10.6.3.4
+
+### Fixed Bugs and Malfunctions
+
+- A field in `net_kernel`'s internal state was not cleaned up in some cases for failed connections could cause the state to grow indefinitely over time.  This has now been fixed.
+
+  Own Id: OTP-20265 Aux Id: [GH-11308], [PR-11388]
+
+[GH-11308]: https://github.com/erlang/otp/issues/11308
+[PR-11388]: https://github.com/erlang/otp/pull/11388
+
 ## Kernel 10.6.3.3
 
 ### Fixed Bugs and Malfunctions

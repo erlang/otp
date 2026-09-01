@@ -305,6 +305,17 @@ This document describes the changes made to the Compiler application.
 [PR-9814]: https://github.com/erlang/otp/pull/9814
 [PR-10839]: https://github.com/erlang/otp/pull/10839
 
+## Compiler 9.0.6.2
+
+### Fixed Bugs and Malfunctions
+
+- compiler: Fix bug in `beam_types:subtract/2` for bitstrings
+
+  Own Id: OTP-20312 Aux Id: [GH-11494], [PR-11503]
+
+[GH-11494]: https://github.com/erlang/otp/issues/11494
+[PR-11503]: https://github.com/erlang/otp/pull/11503
+
 ## Compiler 9.0.6.1
 
 ### Fixed Bugs and Malfunctions
