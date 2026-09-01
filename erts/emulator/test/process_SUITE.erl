@@ -102,6 +102,7 @@
          spawn_monitor_alias/1,
          demonitor_aliasmonitor/1,
          down_aliasmonitor/1,
+         monitor_time_offset_alias/1,
          monitor_tag/1,
          no_pid_wrap/1]).
 
@@ -196,6 +197,7 @@ groups() ->
      {alias, [],
       [alias_bif, monitor_alias, spawn_monitor_alias,
        demonitor_aliasmonitor, down_aliasmonitor,
+       monitor_time_offset_alias,
        dist_frag_alias, dist_frag_unaliased]}].
 
 init_per_suite(Config) ->
@@ -5424,6 +5426,84 @@ down_aliasmonitor(Config) when is_list(Config) ->
     %% remote use of the alias to stop working...
     RPid ! {alias, AliasMonitor},
     receive {alias_reply, AliasMonitor, RPid} -> ok end,
+    peer:stop(Peer),
+    ok.
+
+monitor_time_offset_alias(Config) when is_list(Config) ->
+    monitor_time_offset_alias_test(explicit_unalias),
+    monitor_time_offset_alias_test(demonitor),
+    monitor_time_offset_alias_test(reply_demonitor).
+
+monitor_time_offset_alias_test(Deactivate) ->
+    Me = self(),
+    {ok, Peer, Node} = ?CT_PEER(#{args => ["+C", "single_time_warp"]}),
+    TrySelfAlias = fun (Alias) ->
+                           Ref = make_ref(),
+                           Alias ! Ref,
+                           receive Ref -> active
+                           after 0 -> inactive
+                           end
+                   end,
+    Tester = spawn_link(Node,
+                        fun () ->
+                                MonAlias = monitor(time_offset, clock_service,
+                                                   [{alias, Deactivate}]),
+                                Me ! {self(), mon_alias, MonAlias},
+                                receive
+                                    {Me, finalize_time_offset} ->
+                                        ok
+                                end,
+                                preliminary = erlang:system_flag(time_offset, finalize),
+                                receive
+                                    {'CHANGE', MonAlias, time_offset, clock_service, _} ->
+                                        ok
+                                after
+                                    1000 ->
+                                        exit(missing_time_offset_change_message)
+                                end,
+                                Me ! {self(), finalized_time_offset},
+                                receive
+                                    {Me, alias_message} ->
+                                        Me ! {self(), alias_message}
+                                end,
+                                case Deactivate of
+                                    explicit_unalias ->
+                                        active = TrySelfAlias(MonAlias),
+                                        unalias(MonAlias);
+                                    demonitor ->
+                                        active = TrySelfAlias(MonAlias),
+                                        demonitor(MonAlias);
+                                    reply_demonitor ->
+                                        ok
+                                end,
+                                inactive = TrySelfAlias(MonAlias),
+                                receive
+                                    {Me, pid_message} ->
+                                        Me ! {self(), pid_message}
+                                end
+                        end),
+    Alias = receive
+                {Tester, mon_alias, MonAlias} ->
+                    MonAlias
+            end,
+    Tester ! {self(), finalize_time_offset},
+    receive
+        {Tester, finalized_time_offset} ->
+            ok
+    end,
+    Alias ! {self(), alias_message},
+    Tester ! {self(), pid_message},
+    receive
+        {Tester, alias_message} ->
+            ok;
+        {Tester, pid_message} ->
+            ct:fail(alias_did_not_work)
+    end,
+    receive
+        {Tester, pid_message} ->
+            ok
+    end,
+    unlink(Tester),
     peer:stop(Peer),
     ok.
 

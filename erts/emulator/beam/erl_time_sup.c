@@ -1999,7 +1999,7 @@ erts_demonitor_time_offset(ErtsMonitor *mon)
 typedef struct {
     Eterm pid;
     Eterm ref;
-    Eterm heap[ERTS_REF_THING_SIZE];
+    Eterm heap[ERTS_PID_REF_THING_SIZE];
 } ErtsTimeOffsetMonitorInfo;
 
 typedef struct {
@@ -2013,7 +2013,7 @@ save_time_offset_monitor(ErtsMonitor *mon, void *vcntxt, Sint reds)
     ErtsTimeOffsetMonitorContext *cntxt;
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
     Eterm *from_hp, *to_hp;
-    Uint mix;
+    Uint mix, sz;
     int hix;
 
     cntxt = (ErtsTimeOffsetMonitorContext *) vcntxt;
@@ -2022,11 +2022,13 @@ save_time_offset_monitor(ErtsMonitor *mon, void *vcntxt, Sint reds)
     cntxt->to_mon_info[mix].pid = mon->other.item;
     to_hp = &cntxt->to_mon_info[mix].heap[0];
 
-    ASSERT(is_internal_ordinary_ref(mdp->ref));
+    ASSERT(is_internal_ordinary_ref(mdp->ref)
+           || is_internal_pid_ref(mdp->ref));
     from_hp = internal_ref_val(mdp->ref);
-    ASSERT(thing_arityval(*from_hp) + 1 == ERTS_REF_THING_SIZE);
+    sz = thing_arityval(*from_hp) + 1;
+    ASSERT(sz <= ERTS_PID_REF_THING_SIZE);
 
-    for (hix = 0; hix < ERTS_REF_THING_SIZE; hix++)
+    for (hix = 0; hix < sz; hix++)
 	to_hp[hix] = from_hp[hix];
 
     cntxt->to_mon_info[mix].ref
@@ -2079,15 +2081,14 @@ send_time_offset_changed_notifications(void *new_offsetp)
 
     if (no_monitors) {
 	Eterm *hp, *patch_refp, new_offset_term, message_template;
-	Uint mix, hsz;
+        Uint mix, same_hsz;
 
 	/* Make message template */
 
 	hp = (Eterm *) (tmp + no_monitors*sizeof(ErtsTimeOffsetMonitorInfo));
 
-	hsz = 6; /* 5-tuple */
-	hsz += ERTS_REF_THING_SIZE;
-	hsz += ERTS_SINT64_HEAP_SIZE(new_offset);
+        same_hsz = 6; /* 5-tuple */
+        same_hsz += ERTS_SINT64_HEAP_SIZE(new_offset);
 
 	if (IS_SSMALL(new_offset))
 	    new_offset_term = make_small(new_offset);
@@ -2104,6 +2105,10 @@ send_time_offset_changed_notifications(void *new_offsetp)
 	ASSERT(*patch_refp == THE_NON_VALUE);
 
 	for (mix = 0; mix < no_monitors; mix++) {
+            Uint hsz = same_hsz;
+            Eterm *ref_hp = internal_ref_val(to_mon_info[mix].ref);
+            hsz += thing_arityval(*ref_hp) + 1;
+
             *patch_refp = to_mon_info[mix].ref;
             erts_proc_sig_send_monitor_time_offset_msg(*patch_refp,
                                                        to_mon_info[mix].pid,
