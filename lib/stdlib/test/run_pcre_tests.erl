@@ -1193,7 +1193,9 @@ dumponesplit(F,{run,RE,Line,O,TS}) ->
 	 {NO,_} = pick_exec_options(O++Op),
 	 SSS = opt_to_string(NO),
 	 LLL = unicode:characters_to_list(RE),
-	 case (catch iolist_to_binary(LLL)) of
+         try
+             iolist_to_binary(LLL)
+         of
 	     X when is_binary(X) ->
 		 io:format(F, ScriptFormat,
 			   [zsafe(safe(RE)),
@@ -1220,6 +1222,8 @@ dumponesplit(F,{run,RE,Line,O,TS}) ->
 			    dsafe2(safe(RE)),
 			    NO]);
 	     _ -> io:format("Found fishy character at line ~w~n",[Line])
+         catch
+             _:_ -> io:format("Found fishy character at line ~w~n",[Line])
 	 end
      end ||
 	{Str,_,Op,_} <- TS].
@@ -1296,7 +1300,9 @@ dumpone(F,{run,RE,Line,O,TS}) ->
 	 SSS = opt_to_string(NO),
 	 RS = ranstring(),
 	 LLL = unicode:characters_to_list(RE),
-	 case (catch iolist_to_binary(LLL)) of
+         try
+             iolist_to_binary(LLL)
+         of
 	     X when is_binary(X) ->
                  io:format(F, ScriptFormat, [ysafe(safe(Str)),
                                              zsafe(safe(RE)),
@@ -1315,7 +1321,9 @@ dumpone(F,{run,RE,Line,O,TS}) ->
                                              dsafe(safe(RE)),
                                              xsafe(RS),
                                              NO++[global]]);
-	     _ -> io:format("Found fishy character at line ~w~n",[Line])
+             _ -> io:format("Found fishy character at line ~w~n",[Line])
+         catch
+             _:_ -> io:format("Found fishy character at line ~w~n",[Line])
 	 end
      end ||
 	{Str,_,Op,_} <- TS].

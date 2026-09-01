@@ -24,6 +24,8 @@
 
 -define(is_hex_char(X), (X >= $0 andalso X =< $9 orelse X >= $A andalso X =< $F orelse X >= $a andalso X =< $f)).
 
+-define(CATCH(T), try T catch throw:__Thrown -> __Thrown; exit:__Exit -> {'EXIT', __Exit}; error:__Error:__ST -> {'EXIT', {__Error, __ST}} end).
+
 test(RootDir) ->
     put(verbose,false),
     erts_debug:set_internal_state(available_internal_state,true),
@@ -97,7 +99,7 @@ test([{RE0,Line,Options0,Tests}|T],PreCompile,XMode,REAsList) ->
            end,
     case Cres of
 	{ok,P} ->
-	    case (catch testrun(RE,P,Tests,ExecOptions,PreCompile,CompOpts,XMode)) of
+            case ?CATCH(testrun(RE,P,Tests,ExecOptions,PreCompile,CompOpts,XMode)) of
 		N when is_integer(N) ->
 		    N + test(T,PreCompile,XMode,REAsList);
 		limit ->
@@ -581,7 +583,7 @@ backslash_end(<<_,R/binary>>) ->
 
 stru2([{Line,<<$ ,Rest/binary>>} | T],U) ->
     %% A challenge
-    case  (catch responses(T,U)) of
+    case ?CATCH(responses(T,U)) of
 	{NewT,Rlist} ->
 	    {NewNewT,StrList} = stru2(NewT,U),
 	    %% Hack...
@@ -971,7 +973,9 @@ dumponesplit(F,{RE,Line,O,TS}) ->
 	 {NO,_} = pick_exec_options(O++Op),
 	 SSS = opt_to_string(NO),
 	 LLL = unicode:characters_to_list(RE),
-	 case (catch iolist_to_binary(LLL)) of
+         try
+             iolist_to_binary(LLL)
+         of
 	     X when is_binary(X) -> 
 		 io:format(F,"perl -e '$x = join(\":\",split(/~s/~s,\"~s\")); "
 			   "$x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; "
@@ -1007,6 +1011,8 @@ dumponesplit(F,{RE,Line,O,TS}) ->
 			    dsafe2(safe(RE)),
 			    NO]);
 	     _ -> io:format("Found fishy character at line ~w~n",[Line])
+         catch
+             _:_ -> io:format("Found fishy character at line ~w~n",[Line])
 	 end
      end ||
 	{Str,_,Op,_} <- TS].
@@ -1058,10 +1064,14 @@ dumpone(F,{RE,Line,O,TS}) ->
 	 SSS = opt_to_string(NO),
 	 RS = ranstring(),
 	 LLL = unicode:characters_to_list(RE),
-	 case (catch iolist_to_binary(LLL)) of
+         try
+             iolist_to_binary(LLL)
+         of
 	     X when is_binary(X) -> io:format(F,"perl -e '$x = \"~s\"; $x =~~ s/~s/~s/~s; $x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; print \"    <<\\\"$x\\\">> = iolist_to_binary(re:replace(\\\"~s\\\",\\\"~s\\\",\\\"~s\\\",~p)), \\n\";'~n",[ysafe(safe(Str)),zsafe(safe(RE)),perlify(binary_to_list(RS)),SSS,dsafe(safe(Str)),dsafe(safe(RE)),xsafe(RS),NO]),
 	 io:format(F,"perl -e '$x = \"~s\"; $x =~~ s/~s/~s/g~s; $x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; print \"    <<\\\"$x\\\">> = iolist_to_binary(re:replace(\\\"~s\\\",\\\"~s\\\",\\\"~s\\\",~p)), \\n\";'~n",[ysafe(safe(Str)),zsafe(safe(RE)),perlify(binary_to_list(RS)),SSS,dsafe(safe(Str)),dsafe(safe(RE)),xsafe(RS),NO++[global]]);
 	     _ -> io:format("Found fishy character at line ~w~n",[Line])
+         catch
+             _:_ -> io:format("Found fishy character at line ~w~n",[Line])
 	 end
      end ||
 	{Str,_,Op,_} <- TS].
