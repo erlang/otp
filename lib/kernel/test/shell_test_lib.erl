@@ -204,7 +204,7 @@ setup_tty(Config) ->
     end.
 
 stop_tty(Term) ->
-    catch peer:stop(Term#tmux.peer),
+    _ = try peer:stop(Term#tmux.peer) catch _:_ -> ok end,
     ct:log("~ts",[get_content(Term, "-e")]),
     [ct:log("~ts",[get_content(Term#tmux{ name = Term#tmux.ssh_server_name }, "-e")])
         || Term#tmux.ssh_server_name =/= undefined],

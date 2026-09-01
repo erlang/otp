@@ -8,9 +8,9 @@
 
 reset() ->
     P = whereis(?MODULE),
-    catch unlink(P),
+    _ = try unlink(P) catch _:_ -> ok end,
     Ref = erlang:monitor(process, P),
-    catch exit(P, kill),
+    _ = try exit(P, kill) catch _:_ -> ok end,
     receive {'DOWN',Ref,_,_,_} -> ok end,
     Me = self(),
     Pid = spawn_link(fun() ->
@@ -87,7 +87,7 @@ handle_request({whereis_name, Name}, Reg) ->
 handle_request({unregister_name, Name}, Reg) ->
     case lists:keyfind(Name, 1, Reg) of
 	{_, _, Ref} ->
-	    catch erlang:demonitor(Ref);
+            _ = try erlang:demonitor(Ref) catch _:_ -> ok end;
 	_ ->
 	    ok
     end,
