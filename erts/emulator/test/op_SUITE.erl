@@ -28,7 +28,7 @@
          bsl_bsr/1,logical/1,t_not/1,relop_simple/1,relop/1,
          complex_relop/1,unsafe_fusing/1,
          range_tests/1,combined_relops/1,typed_relop/1,
-         term_equivalence/1]).
+         term_equivalence/1,is_in_range/1]).
 
 -import(lists, [foldl/3,flatmap/2]).
 
@@ -39,7 +39,8 @@ suite() ->
 all() ->
     [bsl_bsr, logical, t_not, relop_simple, relop,
      complex_relop, unsafe_fusing, range_tests,
-     combined_relops, typed_relop, term_equivalence].
+     combined_relops, typed_relop, term_equivalence,
+     is_in_range].
 
 %% Test the bsl and bsr operators.
 bsl_bsr(Config) when is_list(Config) ->
@@ -1200,6 +1201,28 @@ cmp_float(A0, B0) ->
         A < B -> -1;
         A > B -> +1;
         A =:= B -> 0
+    end.
+
+is_in_range(_Config) ->
+    10.0 = is_in_range_1(id(10)),
+    0.0 = is_in_range_1(id(0)),
+    100.0 = is_in_range_1(id(100)),
+    101 = is_in_range_2(id(100)),
+    0 = is_in_range_2(id(0)),
+    ok.
+
+is_in_range_1(X) ->
+    D = X band 16#FFFFFFFF,
+    case D > 0 andalso D < 16#80000000 of
+        true  -> D / 1;
+        false -> 0.0
+    end.
+
+is_in_range_2(X) ->
+    D = X band 16#FFFFFFFF,
+    case D > 0 andalso D < 16#80000000 of
+        true  -> D + 1;
+        false -> 0
     end.
 
 %% Converts a float to a number which, when compared with other such converted
