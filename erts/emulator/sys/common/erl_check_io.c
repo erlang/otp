@@ -653,7 +653,7 @@ static ERTS_INLINE void
 abort_task(Eterm id, ErtsPortTaskHandle *pthp, EventStateType type)
 {
     if (is_not_nil(id) && erts_port_task_is_scheduled(pthp)) {
-	erts_port_task_abort(pthp);
+        erts_port_task_abort(NULL, pthp);
 	ASSERT(erts_is_port_alive(id));
     }
 }

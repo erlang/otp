@@ -57,6 +57,7 @@ typedef erts_atomic_t ErtsPortTaskHandle;
 #define ERTS_PT_FLG_NOSUSPEND		(1 << 2)
 #define ERTS_PT_FLG_REF			(1 << 3)
 #define ERTS_PT_FLG_BAD_OUTPUT		(1 << 4)
+#define ERTS_PT_FLG_ASYNC_NOSUSPEND     (1 << 5)
 
 typedef enum {
     ERTS_PORT_TASK_INPUT = 0,
@@ -256,7 +257,7 @@ void erts_port_task_init(void);
 void erts_port_task_pre_alloc_init_thread(void);
 
 void erts_port_task_tmp_handle_detach(ErtsPortTaskHandle *);
-int erts_port_task_abort(ErtsPortTaskHandle *);
+int erts_port_task_abort(Port *, ErtsPortTaskHandle *);
 
 void erts_port_task_abort_nosuspend_tasks(Port *);
 
