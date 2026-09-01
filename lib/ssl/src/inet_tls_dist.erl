@@ -35,7 +35,7 @@
 -export([fam_select/2, fam_address/1, fam_listen/3, fam_accept/2,
          fam_accept_connection/6, fam_setup/6]).
 
--export([verify_client/3, cert_nodes/1,
+-export([verify_client/3, cert_nodes/1, allowed_hosts/1,
          get_ssl_client_options/0, get_ssl_server_options/1]).
 
 %% kTLS helpers
@@ -861,7 +861,7 @@ get_ssl_options(Type) ->
 dist_defaults(Opts) ->
     case proplists:get_value(versions, Opts, undefined) of
         undefined ->
-            [{versions, ['tlsv1.2']} | Opts];
+            [{versions, ['tlsv1.3', 'tlsv1.2']} | Opts];
         _ ->
             Opts
     end.

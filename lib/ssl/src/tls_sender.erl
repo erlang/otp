@@ -54,6 +54,10 @@
          async_wait/3,
          handshake/3,
          death_row/3]).
+
+%% Log handling
+-export([format_status/1]).
+
 %% Tracing
 -export([handle_trace/3]).
 
@@ -366,8 +370,7 @@ connection(info, tick, #data{buff = Buff} = StateData) ->
     case Buff of
         undefined ->
             Data = [<<0:32>>], % encode_packet(4, <<>>)
-            From = {self(), undefined},
-            send_application_data(Data, From, connection, StateData);
+            send_application_data(Data, dist_data, connection, StateData);
         _ -> %% No need to send tick, have outgoing data in buffer
             {keep_state_and_data, []}
     end;
@@ -475,6 +478,18 @@ death_row_shutdown(Reason, StateData) ->
 %%--------------------------------------------------------------------
 terminate(_Reason, _State, _Data) ->
     void.
+%%====================================================================
+%% Log handling
+%%====================================================================
+-spec format_status(map()) -> map().
+format_status(Status) ->
+    maps:map(
+      fun(data, StateData) ->
+              StateData#data{connection_states = ?SECRET_PRINTOUT,
+                             buff = ?SECRET_PRINTOUT};
+         (_,Value) ->
+              Value
+      end, Status).
 
 %%--------------------------------------------------------------------
 -spec code_change(

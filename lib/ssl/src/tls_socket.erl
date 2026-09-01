@@ -59,6 +59,7 @@
          handle_call/3,
          handle_cast/2,
 	 handle_info/2,
+         format_status/1,
          code_change/3]).
 
 -export([update_active_n/2]).
@@ -430,6 +431,16 @@ handle_info({'DOWN', Monitor, _, _, _}, #state{listen_monitor = Monitor} = State
 %%--------------------------------------------------------------------
 terminate(_Reason, _State) ->
     ok.
+
+-spec format_status(map()) -> map().
+format_status(Status) ->
+    maps:map(
+      fun(state, #state{ssl_opts  = TLSOptions} = State) ->
+              State#state{ssl_opts =
+                              ssl_gen_statem:format_options(TLSOptions)};
+         (_,Value) ->
+              Value
+      end, Status).
 
 %%--------------------------------------------------------------------
 -spec code_change(term(), #state{}, list()) -> {ok, #state{}}.

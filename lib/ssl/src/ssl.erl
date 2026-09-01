@@ -1242,6 +1242,17 @@ There are two implementations available:
     extensions](`e:public_key:public_key_records.md`). Requires the
     [Inets](`e:inets:introduction.md`) application.
 
+- **`{allowed_hosts, [string()]}`**
+
+    If http fetching is allowed, a list of allowed hosts can be
+    specified as a hardening option. The entries should be
+    "Host:Port". If ":Port" is left out the default port is 80. If the
+    allowed_hosts is not specified only an external hosts using port
+    80 or 8080 will be allowed.
+
+   > #### Note {: .info }
+   Putting the local host on the allow list will of course make the local host allowed.
+
 - **`ssl_crl_hash_dir`** - Implementation 2
 
   This module makes use of a directory where CRLs are
@@ -2063,9 +2074,17 @@ Options only relevant for TLS-1.3.
 
   Configures if the server accepts (`enabled`) or rejects (`disabled`) early data
   sent by a client. The default value is `disabled`.
+
+ > #### Warning {: .warning }
+ >  0-RTT data is inherently replay-vulnerable by TLS 1.3 design. The
+ > mitigation is application-level idempotency or server-side anti-replay.
+ > The server side mechanisms for anti-replay are stateful tickets or stateless
+ > tickets with a configured Bloom filter.
+
 """.
 -type server_option_tls13() :: {session_tickets, SessionTickets:: disabled | stateful | stateless |
-                                                                  stateful_with_cert | stateless_with_cert} |
+                                                                  stateful_with_cert |
+                                                                  stateless_with_cert} |
                                {stateless_tickets_seed, TicketSeed::binary()} |
                                {anti_replay, '10k' | '100k' |
                                 {BloomFilterWindowSize::pos_integer(),
