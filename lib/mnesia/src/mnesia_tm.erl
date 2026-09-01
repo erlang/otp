@@ -657,6 +657,7 @@ recover_coordinator(Tid, Etabs) ->
 	    Protocol = asym_trans,
 	    tell_outcome(Tid, Protocol, node(), CheckNodes, TellNodes)
     end,
+    clear_fixtable(Etabs),
     erase_ets_tabs(Etabs),
     transaction_terminated(Tid),
     mnesia_locker:release_tid(Tid).
