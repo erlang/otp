@@ -1701,7 +1701,9 @@ ignore_invalid_header(Config) when is_list(Config) ->
                 {"https://"  ++ Host ++  ":" ++ integer_to_list(Port) ++ "/cgi-bin/erl/httpd_example:ignore_invalid_header",
                  [{"Host", "localhost"},{"Te", ""}, {"Content-Length ", "0"}], [{ssl, [{verify, verify_none} | Conf]}]}
         end,
-    {ok,{{_,204,_}, _, _}}
+    %% RFC 7230 Section 3.2.4: No whitespace allowed between header
+    %% field-name and colon. Server MUST reject with 400.
+    {ok,{{_,400,_}, _, _}}
         = httpc:request(get, {Url, Header}, [{timeout, 45000} | Opts], [{headers_as_is, true}]).
 
 %%-------------------------------------------------------------------------
