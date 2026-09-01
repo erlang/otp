@@ -103,6 +103,9 @@ listen({ssl, SSLConfig}, Addr, Port, Fd, IpFamily) ->
 listen(ip_comm, Addr, Port, IpFamily) ->
     listen_ip_comm(Addr, Port, [], undefined, IpFamily);
 
+listen({ip_comm, SockOpts}, Addr, Port, IpFamily) ->
+    listen_ip_comm(Addr, Port, SockOpts, undefined, IpFamily);
+
 listen({ssl, SSLConfig}, Addr, Port, IpFamily) ->
     {SSLConfig2, ExtraOpts} = case proplists:get_value(log_alert, SSLConfig, undefined) of
 		    undefined ->
