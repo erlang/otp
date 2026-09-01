@@ -29,41 +29,82 @@ An implementation of an HTTP 1.1 compliant web server, as defined in
 [RFC 2616](http://www.ietf.org/rfc/rfc2616.txt). Provides web server start
 options, administrative functions, and an Erlang callback API.
 
-## Data types
-
-Type definitions that are used more than once in this module:
-
-`boolean() = true | false`
-
-`t:string/0` = list of ASCII characters
-
-`path() = string()` representing a file or a directory path
-
-`ip_address() = {N1,N2,N3,N4} % IPv4 | {K1,K2,K3,K4,K5,K6,K7,K8} % IPv6`
-
-`hostname() = string()` representing a host, for example, "foo.bar.com"
-
-`property() = atom()`
-
 ## HTTP server service start & stop
 
 A web server can be configured to start when starting the `Inets` application,
 or dynamically in runtime by calling the `Inets` application API
 `inets:start(httpd, ServiceConfig)` or `inets:start(httpd, ServiceConfig, How)`,
-see `m:inets`. The configuration options, also called properties, are as
+see `m:inets`.
+
+When the web server is started at application start time, the properties are to be part of the [inets applications sys config](`e:kernel:config.md`). If the web server is started dynamically at runtime, a file can still be specified but also the complete property list.
+
+The configuration options, also called properties, are as
 follows:
 
-[](){: #props_file }
+* [File Properties](`t:file_option/0`)
+* [Mandatory Properties](`t:mandatory_option/0`)
+* [Communication Properties](`t:communication_option/0`)
+* [Module Properties](`t:mod_option/0`)
+* [Limit Properties](`t:limit_option/0`)
+* [Admin Properties](`t:admin_option/0`)
 
-### File Properties
+Properties for specific modules:
 
-When the web server is started at application start time, the properties are to
-be fetched from a configuration file that can consist of a regular Erlang
-property list, that is, `[{Option, Value}]`, where `Option = property() `and
-`Value = term()`, followed by a full stop. If the web server is started
-dynamically at runtime, a file can still be specified but also the complete
-property list.
+* [URL Aliasing Properties](`t:mod_alias:url_alias_option/0`) - Requires `m:mod_alias`
+* [ESI Properties](`t:mod_esi:esi_option/0`) - Requires `m:mod_esi`
+* [Log Properties](`t:mod_log:log_option/0`) - Requires `m:mod_log`
+* [Disk Log Properties](`t:mod_disk_log:disk_log_option/0`) - Requires `m:mod_disk_log`
+* [Authentication Properties](`t:mod_auth:auth_option/0`) - Requires `m:mod_auth`
+* [Security Properties](`t:mod_security:security_option/0`) - Requires `m:mod_security`
 
+> #### Note {: .info }
+>
+> In OTP 30, `mod_cgi` and `mod_actions` were removed.
+
+### See also
+
+[RFC 2616](http://www.ietf.org/rfc/rfc2616.txt), `m:inets`, `m:ssl`
+""".
+
+-compile([{nowarn_possibly_unsafe_function, {file, consult, 1}}]).
+
+-behaviour(inets_service).
+
+-include("httpd_internal.hrl").
+-include("../../include/httpd.hrl").
+
+%% Behavior callbacks
+-export([
+         start_standalone/1, 
+         start_service/1, 
+         stop_service/1, 
+         services/0, 
+         service_info/1
+        ]).
+
+%% API
+-export([
+         parse_query/1,
+         reload_config/2,
+         info/1,
+         info/2,
+         info/3,
+         info/4
+        ]).
+-export_type([socket_type/0, config_db/0, file_option/0]).
+
+%% Command line interface
+-export([start/1, serve/1]).
+
+-deprecated({parse_query, 1,
+            "use uri_string:dissect_query/1 instead"}).
+
+%%%========================================================================
+%%% Types
+%%%========================================================================
+-type property() :: atom().
+-type socket_type() :: ip_comm | ssl.
+-doc """
 - [](){: #prop_proplist_file } **`{proplist_file, path()}`**  
   If this property is defined, `Inets` expects to find all other properties
   defined in this file. The file must include all properties listed under
@@ -71,13 +112,13 @@ property list.
 
 > #### Note {: .info }
 >
-> Note support for legacy configuration file with Apache syntax is dropped in
+> Note support for legacy configuration file with Apache syntax was dropped in
 > OTP-23.
 
-[](){: #props_mand }
+""".
+-type file_option() :: {proplist_file, Path :: file:name_all()}.
 
-### Mandatory Properties
-
+-doc """
 - [](){: #prop_port } **`{port, integer()}`**  
   The port that the HTTP server listen to. If zero is specified as port, an
   arbitrary available port is picked and function `httpd:info/2` can be used to
@@ -90,70 +131,12 @@ property list.
 - [](){: #prop_doc_root } **`{document_root, path()}`**  
   Defines the top directory for the documents that are available on the HTTP
   server.
+""".
+-type mandatory_option() :: {port, non_neg_integer()}
+                | {server_root, Path :: file:name_all()}
+                | {document_root, Path :: file:name_all()}.
 
-[](){: #props_comm }
-
-### Communication Properties
-
-- [](){: #prop_bind_address } **`{bind_address, ip_address() | hostname() |
-  any}`**  
-  Default is `any`
-
-- [](){: #prop_server_name } **`{server_name, string()}`**  
-  The name of your server, normally a fully qualified domain name.
-
-  If not given, this defaults to `net_adm:localhost()`.
-
-- [](){: #profile } **`{profile, atom()}`**  
-  Used together with [`bind_address`](`m:httpd#prop_bind_address`) and
-  [`port`](`m:httpd#prop_port`) to uniquely identify a HTTP server. This can be
-  useful in a virtualized environment, where there can be more that one server
-  that has the same bind_address and port. If this property is not explicitly
-  set, it is assumed that the [`bind_address`](`m:httpd#prop_bind_address`) and
-  [`port`](`m:httpd#prop_port`) uniquely identifies the HTTP server.
-
-- [](){: #prop_socket_type } **`{socket_type, ip_comm | {ip_comm, Config::proplist()} | {ssl, Config::proplist()}}`**  
-  For `ip_comm` configuration options, see `gen_tcp:listen/2`, some options that
-  are used internally by httpd cannot be set.
-
-  For `SSL` configuration options, see `ssl:listen/2`.
-
-  Default is `ip_comm`.
-
-  > #### Note {: .info }
-  >
-  > OTP-25 deprecates the communication properties
-  > `{socket_type, ip_comm | {ip_comm, Config::proplist()} | {essl, Config::proplist()}}`
-  > replacing it by
-  > `{socket_type, ip_comm | {ip_comm, Config::proplist()} | {ssl, Config::proplist()}}`.
-
-- [](){: #prop_ipfamily } **`{ipfamily, inet | inet6}`**  
-  Default is `inet`, legacy option `inet6fb4` no longer makes sense and will be
-  translated to inet.
-
-- [](){: #prop_minimum_bytes_per_second } **`{minimum_bytes_per_second,
-  integer()}`**  
-  If given, sets a minimum of bytes per second value for connections.
-
-  If the value is unreached, the socket closes for that connection.
-
-  The option is good for reducing the risk of "slow DoS" attacks.
-
-[](){: #props_api_modules }
-
-### Erlang Web Server API Modules
-
-- [](){: #prop_modules } **`{modules, [atom()]}`**  
-  Defines which modules the HTTP server uses when handling requests. Default is
-  `[mod_alias, mod_auth, mod_esi, mod_dir, mod_get, mod_head, mod_log, mod_disk_log]`.
-  Notice that some `mod`\-modules are dependent on others, so the order cannot
-  be entirely arbitrary. See the [Inets Web Server Modules](http_server.md) in
-  the User's Guide for details.
-
-[](){: #props_limit }
-
-### Limit properties
-
+-doc """
 - [](){: #prop_customize } **`{customize, atom()}`**  
   A callback module to customize the inets HTTP servers behaviour see
   `m:httpd_custom_api`
@@ -200,11 +183,19 @@ property list.
   mod_esi callback. Note this is not supported for mod_cgi. Default is no limit
   e.i the whole body is delivered as one entity, which could be very memory
   consuming. `m:mod_esi`.
-
-[](){: #props_admin }
-
-### Administrative Properties
-
+""".
+-type limit_option() :: {customize, atom()}
+                   | {disable_chunked_transfer_encoding_send, boolean()}
+                   | {keep_alive, boolean()}
+                   | {keep_alive_timeout, integer()}
+                   | {max_body_size, integer()}
+                   | {max_clients, integer()}
+                   | {max_header_size, integer()}
+                   | {max_content_length, integer()}
+                   | {max_uri_size, integer()}
+                   | {max_keep_alive_request, integer()}
+                   | {max_client_body_chunk, integer()}.
+-doc """
 - [](){: #prop_mime_types } **`{mime_types, [{MimeType, Extension}] | path()}`**  
   `MimeType = string()` and `Extension = string()`. Files delivered to the
   client are MIME typed according to RFC 1590. File suffixes are mapped to MIME
@@ -375,391 +366,78 @@ property list.
   ```
 
   This affects the error logs written by `mod_log` and `mod_disk_log`.
+""".
+-type admin_option() :: {mime_types, [{MimeType :: string(), Extension :: string()}] | Path :: file:name_all()}
+                   | {mime_type, string()}
+                   | {server_admin, string()}
+                   | {server_tokens, none|prod|major|minor|minimal|os|full|{private, string()}}
+                   | {logger, Options::list()}
+                   | {log_format, common | combined}
+                   | {error_log_format, pretty | compact}.
+-doc """
+- [](){: #prop_bind_address } **`{bind_address, ip_address() | hostname() |
+  any}`**  
+  Default is `any`
 
-[](){: #props_alias }
+- [](){: #prop_server_name } **`{server_name, string()}`**  
+  The name of your server, normally a fully qualified domain name.
 
-### URL Aliasing Properties - Requires mod_alias
+  If not given, this defaults to `net_adm:localhost()`.
 
-- [](){: #prop_alias } **`{alias, {Alias, RealName}}`**  
-  `Alias = string()` and `RealName = string()`. `alias` allows documents to be
-  stored in the local file system instead of the `document_root` location. URLs
-  with a path beginning with url-path is mapped to local files beginning with
-  directory-filename, for example:
+- [](){: #profile } **`{profile, atom()}`**  
+  Used together with [`bind_address`](`m:httpd#prop_bind_address`) and
+  [`port`](`m:httpd#prop_port`) to uniquely identify a HTTP server. This can be
+  useful in a virtualized environment, where there can be more that one server
+  that has the same bind_address and port. If this property is not explicitly
+  set, it is assumed that the [`bind_address`](`m:httpd#prop_bind_address`) and
+  [`port`](`m:httpd#prop_port`) uniquely identifies the HTTP server.
 
-  ```erlang
-  {alias, {"/image", "/ftp/pub/image"}}
-  ```
+- [](){: #prop_socket_type } **`{socket_type, ip_comm | {ip_comm, Config::proplist()} | {ssl, Config::proplist()}}`**  
+  For `ip_comm` configuration options, see `gen_tcp:listen/2`, some options that
+  are used internally by httpd cannot be set.
 
-  Access to http://your.server.org/image/foo.gif would refer to the file
-  /ftp/pub/image/foo.gif.
+  For `SSL` configuration options, see `ssl:listen/2`.
 
-- [](){: #prop_re_write } **`{re_write, {Re, Replacement}}`**  
-  `Re = string()` and `Replacement = string()`. `re_write` allows documents to
-  be stored in the local file system instead of the `document_root` location.
-  URLs are rewritten by `re:replace/3` to produce a path in the local
-  file-system, for example:
-
-  ```erlang
-  {re_write, {"^/[~]([^/]+)(.*)$", "/home/\\1/public\\2"}}
-  ```
-
-  Access to http://your.server.org/~bob/foo.gif would refer to the file
-  /home/bob/public/foo.gif.
-
-- [](){: #prop_dir_idx } **`{directory_index, [string()]}`**  
-  `directory_index` specifies a list of resources to look for if a client
-  requests a directory using a `/` at the end of the directory name. `file`
-  depicts the name of a file in the directory. Several files can be given, in
-  which case the server returns the first it finds, for example:
-
-  ```erlang
-  {directory_index, ["index.html", "welcome.html"]}
-  ```
-
-  Access to http://your.server.org/docs/ would return
-  http://your.server.org/docs/index.html or
-  http://your.server.org/docs/welcome.html if index.html does not exist.
-
-[](){: #props_cgi }
-
-### CGI Properties - Requires mod_cgi
-
-> #### Note {: .info }
-> `mod_cgi` and `mod_actions` are deprecated since OTP 29 and will be removed in OTP 30.
-> Use `mod_esi` instead for dynamic page generation.
->
-
-- [](){: #prop_script_alias } **`{script_alias, {Alias, RealName}}`**  
-  `Alias = string()` and `RealName = string()`. Have the same behavior as
-  property `alias`, except that they also mark the target directory as
-  containing CGI scripts. URLs with a path beginning with url-path are mapped to
-  scripts beginning with directory-filename, for example:
-
-  ```text
-  {script_alias, {"/cgi-bin/", "/web/cgi-bin/"}}
-  ```
-
-  Access to http://your.server.org/cgi-bin/foo would cause the server to run the
-  script /web/cgi-bin/foo.
+  Default is `ip_comm`.
 
   > #### Note {: .info }
   >
-  > When using `script_alias` with directory-based authentication
-  > (see [`directory`](`m:httpd#prop_dri`)), ensure that authentication
-  > rules reference the actual filesystem path (RealName), not the URL path (Alias).
-  > The server correctly resolves script_alias paths for authentication checks.
-  >
-
-- [](){: #prop_script_re_write } **`{script_re_write, {Re, Replacement}}`**  
-  `Re = string()` and `Replacement = string()`. Have the same behavior as
-  property `re_write`, except that they also mark the target directory as
-  containing CGI scripts. URLs with a path beginning with url-path are mapped to
-  scripts beginning with directory-filename, for example:
-
-  ```text
-  {script_re_write, {"^/cgi-bin/(\\d+)/", "/web/\\1/cgi-bin/"}}
-  ```
-
-  Access to http://your.server.org/cgi-bin/17/foo would cause the server to run
-  the script /web/17/cgi-bin/foo.
-
-- [](){: #prop_script_nocache } **`{script_nocache, boolean()}`**  
-  If `script_nocache` is set to `true`, the HTTP server by default adds the
-  header fields necessary to prevent proxies from caching the page. Generally
-  this is preferred. Default to `false`.
-
-- [](){: #prop_script_timeout } **`{script_timeout, integer()}`**  
-  The time in seconds the web server waits between each chunk of data from the
-  script. If the CGI script does not deliver any data before the timeout, the
-  connection to the client is closed. Default is `15`.
-
-- [](){: #prop_action } **`{action, {MimeType, CgiScript}}`** - requires `mod_actions`  
-  `MimeType = string()` and `CgiScript = string()`. `action` adds an action
-  activating a CGI script whenever a file of a certain MIME type is requested.
-  It propagates the URL and file path of the requested document using the
-  standard CGI PATH_INFO and PATH_TRANSLATED environment variables.
-
-  Example:
-
-  ```text
-  {action, {"text/plain", "/cgi-bin/log_and_deliver_text"}}
-  ```
-
-> #### Note {: .info }
-> `mod_cgi` and `mod_actions` are deprecated since OTP 29 and will be removed in OTP 30.
-> Use `mod_esi` instead for dynamic page generation.
->
-
-- [](){: #prop_script } **`{script, {Method, CgiScript}}`** - requires `mod_actions`  
-  `Method = string()` and `CgiScript = string()`. `script` adds an action
-  activating a CGI script whenever a file is requested using a certain HTTP
-  method. The method is either GET or POST, as defined in
-  [RFC 1945](http://www.ietf.org/rfc/rfc1945.txt). It propagates the URL and
-  file path of the requested document using the standard CGI PATH_INFO and
-  PATH_TRANSLATED environment variables.
-
-  Example:
-
-  ```erlang
-  {script, {"PUT", "/cgi-bin/put"}}
-  ```
-
-> #### Note {: .info }
-> `mod_cgi` and `mod_actions` are deprecated since OTP 29 and will be removed in OTP 30.
-> Use `mod_esi` instead for dynamic page generation.
->
-
-[](){: #props_esi }
-
-### ESI Properties - Requires mod_esi
-
-- [](){: #prop_esi_alias } **`{erl_script_alias, {URLPath, [AllowedModule]}}`**  
-  `URLPath = string()` and `AllowedModule = atom()`. `erl_script_alias` marks
-  all URLs matching url-path as erl scheme scripts. A matching URL is mapped
-  into a specific module and function, for example:
-
-  ```erlang
-  {erl_script_alias, {"/cgi-bin/example", [httpd_example]}}
-  ```
-
-  A request to http://your.server.org/cgi-bin/example/httpd_example:yahoo would
-  refer to httpd_example:yahoo/3 or, if that does not exist,
-  httpd_example:yahoo/2 and http://your.server.org/cgi-bin/example/other:yahoo
-  would not be allowed to execute.
-
-- [](){: #prop_esi_nocache } **`{erl_script_nocache, boolean()}`**  
-  If `erl_script_nocache` is set to `true`, the server adds HTTP header fields
-  preventing proxies from caching the page. This is generally a good idea for
-  dynamic content, as the content often varies between each request. Default is
-  `false`.
-
-- [](){: #prop_esi_timeout } **`{erl_script_timeout, integer()}`**  
-  If `erl_script_timeout` sets the time in seconds the server waits between each
-  chunk of data to be delivered through `mod_esi:deliver/2`. Default is `15`.
-  This is only relevant for scripts that use the erl scheme.
-
-[](){: #props_log }
-
-### Log Properties - Requires mod_log
-
-- [](){: #prop_elog } **`{error_log, path()}`**  
-  Defines the filename of the error log file to be used to log server errors. If
-  the filename does not begin with a slash (/), it is assumed to be relative to
-  the `server_root`.
-
-- [](){: #prop_slog } **`{security_log, path()}`**  
-  Defines the filename of the access log file to be used to log security events.
-  If the filename does not begin with a slash (/), it is assumed to be relative
-  to the `server_root`.
-
-- [](){: #prop_tlog } **`{transfer_log, path()}`**  
-  Defines the filename of the access log file to be used to log incoming
-  requests. If the filename does not begin with a slash (/), it is assumed to be
-  relative to the `server_root`.
-
-[](){: #props_dlog }
-
-### Disk Log Properties - Requires mod_disk_log
-
-- [](){: #prop_dlog_format } **`{disk_log_format, internal | external}`**  
-  Defines the file format of the log files. See `disk_log` for details. If the
-  internal file format is used, the log file is repaired after a crash. When a
-  log file is repaired, data can disappear. When the external file format is
-  used, `httpd` does not start if the log file is broken. Default is `external`.
-
-- [](){: #prop_edlog } **`{error_disk_log, path()}`**  
-  Defines the filename of the (`m:disk_log`) error log file to be used to log
-  server errors. If the filename does not begin with a slash (/), it is assumed
-  to be relative to the `server_root`.
-
-- [](){: #prop_edlog_size } **`{error_disk_log_size, {MaxBytes, MaxFiles}}`**  
-  `MaxBytes = integer()` and `MaxFiles = integer()`. Defines the properties of
-  the (`m:disk_log`) error log file. This file is of type wrap log and max bytes
-  is written to each file and max files is used before the first file is
-  truncated and reused.
-
-- [](){: #prop_sdlog } **`{security_disk_log, path()}`**  
-  Defines the filename of the (`m:disk_log`) access log file logging incoming
-  security events, that is, authenticated requests. If the filename does not
-  begin with a slash (/), it is assumed to be relative to the `server_root`.
-
-- [](){: #prop_sdlog_size } **`{security_disk_log_size, {MaxBytes, MaxFiles}}`**  
-  `MaxBytes = integer()` and `MaxFiles = integer()`. Defines the properties of
-  the `m:disk_log` access log file. This file is of type wrap log and max bytes
-  is written to each file and max files is used before the first file is
-  truncated and reused.
-
-- [](){: #prop_tdlog } **`{transfer_disk_log, path()}`**  
-  Defines the filename of the (`m:disk_log`) access log file logging incoming
-  requests. If the filename does not begin with a slash (/), it is assumed to be
-  relative to the `server_root`.
-
-- [](){: #prop_tdlog_size } **`{transfer_disk_log_size, {MaxBytes, MaxFiles}}`**  
-  `MaxBytes = integer()` and `MaxFiles = integer()`. Defines the properties of
-  the `m:disk_log` access log file. This file is of type wrap log and max bytes
-  is written to each file and max files is used before the first file is
-  truncated and reused.
-
-[](){: #props_auth }
-
-### Authentication Properties - Requires mod_auth
-
-[](){: #prop_dri }
-
-```erlang
-{directory, {path(), [{property(), term()}]}}
-```
-
-[](){: #props_dir }
-
-The properties for directories are as follows:
-
-- [](){: #prop_allow_from } **`{allow_from, all | [RegxpHostString]}`**  
-  Defines a set of hosts to be granted access to a given directory, for example:
-
-  ```erlang
-  {allow_from, ["123.34.56.11", "150.100.23"]}
-  ```
-
-  The host `123.34.56.11` and all machines on the `150.100.23` subnet are
-  allowed access.
-
-- [](){: #prop_deny_from } **`{deny_from, all | [RegxpHostString]}`**  
-  Defines a set of hosts to be denied access to a given directory, for example:
-
-  ```text
-  {deny_from, ["123.34.56.11", "150.100.23"]}
-  ```
-
-  The host `123.34.56.11` and all machines on the `150.100.23` subnet are not
-  allowed access.
-
-- [](){: #prop_auth_type } **`{auth_type, plain | dets | mnesia}`**  
-  Sets the type of authentication database that is used for the directory. The
-  key difference between the different methods is that dynamic data can be saved
-  when Mnesia and Dets are used.
-
-- [](){: #prop_auth_user_file } **`{auth_user_file, path()}`**  
-  Sets the name of a file containing the list of users and passwords for user
-  authentication. The filename can be either absolute or relative to the
-  `server_root`. If using the plain storage method, this file is a plain text
-  file where each line contains a username followed by a colon, followed by the
-  non-encrypted password. If usernames are duplicated, the behavior is
-  undefined.
-
-  Example:
-
-  ```text
-  ragnar:s7Xxv7
-  edward:wwjau8
-  ```
-
-  If the Dets storage method is used, the user database is maintained by Dets
-  and must not be edited by hand. Use the API functions in module `mod_auth` to
-  create/edit the user database. This directive is ignored if the Mnesia storage
-  method is used. For security reasons, ensure that `auth_user_file` is stored
-  outside the document tree of the web server. If it is placed in the directory
-  that it protects, clients can download it.
-
-- [](){: #prop_auth_group_file } **`{auth_group_file, path()}`**  
-  Sets the name of a file containing the list of user groups for user
-  authentication. The filename can be either absolute or relative to the
-  `server_root`. If the plain storage method is used, the group file is a plain
-  text file, where each line contains a group name followed by a colon, followed
-  by the members usernames separated by spaces.
-
-  Example:
-
-  ```text
-  group1: bob joe ante
-  ```
-
-  If the Dets storage method is used, the group database is maintained by Dets
-  and must not be edited by hand. Use the API for module `mod_auth` to
-  create/edit the group database. This directive is ignored if the Mnesia
-  storage method is used. For security reasons, ensure that the
-  `auth_group_file` is stored outside the document tree of the web server. If it
-  is placed in the directory that it protects, clients can download it.
-
-- [](){: #prop_auth_name } **`{auth_name, string()}`**  
-  Sets the name of the authorization realm (auth-domain) for a directory. This
-  string informs the client about which username and password to use.
-
-- [](){: #prop_auth_access_passwd } **`{auth_access_password, string()}`**  
-  If set to other than `"NoPassword"`, the password is required for all API calls.
-  If the password is set to `"DummyPassword"`, the password must be changed before
-  any other API calls. To secure the authenticating data, the password must be
-  changed after the web server is started. Otherwise it is written in clear text
-  in the configuration file.
-
-- [](){: #prop_req_user } **`{require_user, [string()]}`**  
-  Defines users to grant access to a given directory using a secret password.
-
-- [](){: #prop_req_grp } **`{require_group, [string()]}`**  
-  Defines users to grant access to a given directory using a secret password.
-
-[](){: #props_sec }
-
-### Security Properties - Requires mod_security
-
-[](){: #prop_sec_dir }
-
-```erlang
-{security_directory, {path(), [{property(), term()}]}}
-```
-
-[](){: #props_sdir }
-
-The properties for the security directories are as follows:
-
-- [](){: #prop_data_file } **`{data_file, path()}`**  
-  Name of the security data file. The filename can either be absolute or
-  relative to the `server_root`. This file is used to store persistent data for
-  module `mod_security`.
-
-- [](){: #prop_max_retries } **`{max_retries, integer()}`**  
-  Specifies the maximum number of attempts to authenticate a user before the
-  user is blocked out. If a user successfully authenticates while blocked, the
-  user receives a 403 (Forbidden) response from the server. If the user makes a
-  failed attempt while blocked, the server returns 401 (Unauthorized), for
-  security reasons. Default is `3`. Can be set to infinity.
-
-- [](){: #prop_block_time } **`{block_time, integer()}`**  
-  Specifies the number of minutes a user is blocked. After this time has passed,
-  the user automatically regains access. Default is `60`.
-
-- [](){: #prop_fail_exp_time } **`{fail_expire_time, integer()}`**  
-  Specifies the number of minutes a failed user authentication is remembered. If
-  a user authenticates after this time has passed, the previous failed
-  authentications are forgotten. Default is `30`.
-
-- [](){: #prop_auth_timeout } **`{auth_timeout, integer()}`**  
-  Specifies the number of seconds a successful user authentication is
-  remembered. After this time has passed, the authentication is no longer
-  reported. Default is `30`.
-
-## Web server API data types
-
-The Erlang web server API data types are as follows:
-
-```erlang
-ModData = #mod{}
-
--record(mod, {
-    data = [],
-    socket_type = ip_comm,
-    socket,
-    config_db,
-    method,
-    absolute_uri,
-    request_uri,
-    http_version,
-    request_line,
-    parsed_header = [],
-    entity_body,
-    connection
-}).
-```
+  > OTP-25 deprecates the communication properties
+  > `{socket_type, ip_comm | {ip_comm, Config::proplist()} | {essl, Config::proplist()}}`
+  > replacing it by
+  > `{socket_type, ip_comm | {ip_comm, Config::proplist()} | {ssl, Config::proplist()}}`.
+
+- [](){: #prop_ipfamily } **`{ipfamily, inet | inet6}`**  
+  Default is `inet`, legacy option `inet6fb4` no longer makes sense and will be
+  translated to inet.
+
+- [](){: #prop_minimum_bytes_per_second } **`{minimum_bytes_per_second,
+  integer()}`**  
+  If given, sets a minimum of bytes per second value for connections.
+
+  If the value is unreached, the socket closes for that connection.
+
+  The option is good for reducing the risk of "slow DoS" attacks.
+""".
+-type communication_option() :: {bind_address, inet:ip_address() | inet:hostname() | any}
+        | {server_name, string()}
+        | {profile, atom()}
+        | { socket_type,
+            ip_comm | {ip_comm, ssl:tls_option() | gen_tcp:option()} | {ssl, ssl:tls_option() | gen_tcp:option()}}
+        | {ipfamily, inet | inet6}
+        | {minimum_bytes_per_second, integer()}.
+-doc """
+- [](){: #prop_modules } **`{modules, [atom()]}`**  
+  Defines which modules the HTTP server uses when handling requests. Default is
+  `[mod_alias, mod_auth, mod_esi, mod_dir, mod_get, mod_head, mod_log, mod_disk_log]`.
+  Notice that some `mod`\-modules are dependent on others, so the order cannot
+  be entirely arbitrary. See the [Inets Web Server Modules](http_server.md) in
+  the User's Guide for details.
+""".
+-type mod_option() :: {modules, atom()}.
+
+-doc """
+The Erlang web server API data type `t:mod_data/0` is a record of type `mod` that is used to propagate data between modules.
 
 To access the record in your callback-module use:
 
@@ -783,7 +461,7 @@ The fields of record `mod` have the following meaning:
   ETS table. Depicted `config_db()` in function type declarations.
 
 - **`method`** - Type `"GET" | "POST" | "HEAD" | "TRACE"`, that is, the HTTP
-  method.
+  method as a string.
 
 - **`absolute_uri`** - If the request is an HTTP/1.1 request, the URI can be in
   the absolute URI format. In that case, `httpd` saves the absolute URI in this
@@ -817,55 +495,42 @@ The fields of record `mod` have the following meaning:
   client is a persistent connection and is not closed when the request is
   served.
 
-### See also
-
-[RFC 2616](http://www.ietf.org/rfc/rfc2616.txt), `m:inets`, `m:ssl`
 """.
+-type mod_data() ::
+    #mod{ data :: interaction_data(),
+          socket_type :: socket_type(),
+          socket :: gen_tcp:socket() | ssl:sslsocket(),
+          config_db :: config_db(),
+          method :: string(),
+          absolute_uri :: string() | undefined,
+          request_uri :: string(),
+          http_version :: string(),
+          request_line :: string(),
+          parsed_header :: [{HeaderKey :: string(), HeaderValue :: string()}],
+          entity_body :: iolist() | undefined,
+          connection :: boolean()
+}.
 
--compile([{nowarn_possibly_unsafe_function, {file, consult, 1}}]).
+-doc """
+The config file directives stored as key-value tuples in an ETS table, as
+described in the [Inets User's Guide](http_server.md). This is the value held in
+the `config_db` field of `t:mod_data/0`.
+""".
+-type config_db() :: ets:table().
 
--behaviour(inets_service).
-
--include("httpd_internal.hrl").
-
-%% Behavior callbacks
--export([
-	 start_standalone/1, 
-	 start_service/1, 
-	 stop_service/1, 
-	 services/0, 
-	 service_info/1
-	]).
-
-%% API
--export([
-         parse_query/1,
-         reload_config/2,
-         info/1,
-         info/2,
-         info/3,
-         info/4
-        ]).
--export_type([socket_type/0]).
-
-%% Command line interface
--export([start/1, serve/1]).
-
--deprecated({parse_query, 1,
-            "use uri_string:dissect_query/1 instead"}).
-
-%%%========================================================================
-%%% Types
-%%%========================================================================
--type property() :: atom().
--type socket_type() :: ip_comm | ssl.
+-doc """
+Data used to propagate information between callback modules while a single
+request is processed. This is the value held in the `data` field of
+`t:mod_data/0`.
+""".
+-type interaction_data() :: [{InteractionKey :: term(), InteractionValue :: term()}].
 
 %%%========================================================================
 %%% Callbacks
 %%%========================================================================
 -doc """
 When a valid request reaches `httpd`, it calls [`do/1`](`c:do/1`) in each
-module, defined by the configuration option of `Module`. The function can
+module, defined by the configuration option of `t:mod_option/0`. The function can
 generate data for other modules or a response that can be sent back to the
 client.
 
@@ -898,9 +563,7 @@ the client by closing the connection.
 >
 
 """.
--doc(#{group => <<"ERLANG WEB SERVER API CALLBACK FUNCTIONS">>}).
--callback do(ModData) -> {proceed, OldData} | {proceed, NewData} | {break, NewData} | done when
-      ModData :: [{data,NewData} | {'Body', Body} | {'Head',Head}],
+-callback do(ModData :: mod_data()) -> {proceed, OldData} | {proceed, NewData} | {break, NewData} | done when
       OldData :: list(),
       NewData :: [{response, NewDataCompatFormat}] | [{response, NewDataFormat}],
       NewDataCompatFormat :: {StatusCode, Body},
@@ -908,10 +571,16 @@ the client by closing the connection.
       StatusCode :: integer(),
       Size :: non_neg_integer(),
       Body :: iolist() | nobody | {Fun, FunArg},
-      Head :: [HeaderOption] | {Key, Value},
+      Head :: [HeaderOption],
       HeaderOption :: {Option, Value} | {code, StatusCode},
-      Option :: accept_ranges | allow,
-      Key :: atom() | string(),
+      Option :: accept_ranges | allow
+              | cache_control | content_MD5
+              | content_encoding | content_language
+              | content_length | content_location
+              | content_range | content_type | date
+              | etag | expires | last_modified
+              | location | pragma | retry_after
+              | server | trailer | transfer_encoding,
       Value :: string(),
       FunArg :: [term()],
       Fun :: fun((FunArg) -> sent | close | Body).
@@ -921,9 +590,8 @@ When `httpd` is shut down, it tries to execute [`remove/1`](`c:remove/1`) in
 each Erlang web server callback module. The programmer can use this function to
 clean up resources created in the store function.
 """.
--doc(#{group => <<"ERLANG WEB SERVER API CALLBACK FUNCTIONS">>}).
 -callback remove(ConfigDB) -> ok | {error, Reason} when
-      ConfigDB :: ets:tid(), Reason :: term().
+      ConfigDB :: config_db(), Reason :: term().
 
 -doc """
 Checks the validity of the configuration options before saving them in the
@@ -933,7 +601,6 @@ resolve possible dependencies among configuration options by changing the value
 of the option. This function only needs clauses for the options implemented by
 this particular callback module.
 """.
--doc(#{group => <<"ERLANG WEB SERVER API CALLBACK FUNCTIONS">>}).
 -callback store({Option, Value}, Config) ->
     {ok, {Option, NewValue}} | {error, Reason} when
       Option :: property(),
@@ -995,41 +662,16 @@ reload_config(ConfigFile, Mode) ->
 -doc(#{equiv => info/2}).
 -spec info(Pid) -> HttpInformation when
       Pid :: pid(),
-      Path :: file:name_all(),
-      HttpInformation :: [CommonOption]
+      HttpInformation :: [MandatoryOption]
                        | [CommunicationOption]
                        | [ModOption]
                        | [LimitOption]
                        | [AdminOption],
-      CommonOption :: {port, non_neg_integer()}
-                | {server_name, string()}
-                | {server_root, Path}
-                | {document_root, Path},
-      CommunicationOption :: {bind_address, inet:ip_address() | inet:hostname() | any}
-        | {profile, atom()}
-        | { socket_type,
-            ip_comm | {ip_comm, ssl:tls_option() | gen_tcp:option()} | {ssl, ssl:tls_option() | gen_tcp:option()}}
-        | {ipfamily, inet | inet6}
-        | {minimum_bytes_per_second, integer()},
-      ModOption :: {modules, atom()},
-      LimitOption :: {customize, atom()}
-                   | {disable_chunked_transfer_encoding_send, boolean()}
-                   | {keep_alive, boolean()}
-                   | {keep_alive_timeout, integer()}
-                   | {max_body_size, integer()}
-                   | {max_clients, integer()}
-                   | {max_header_size, integer()}
-                   | {max_content_length, integer()}
-                   | {max_uri_size, integer()}
-                   | {max_keep_alive_request, integer()}
-                   | {max_client_body_chunk, integer()},
-      AdminOption :: {mime_types, [{MimeType :: string(), Extension :: string()}] | Path}
-                   | {mime_type, string()}
-                   | {server_admin, string()}
-                   | {server_tokens, none|prod|major|minor|minimal|os|full|{private, string()}}
-                   | {logger, Options::list()}
-                   | {log_format, common | combined}
-                   | {error_log_format, pretty | compact}.
+      MandatoryOption :: mandatory_option(),
+      CommunicationOption :: communication_option(),
+      ModOption :: mod_option(),
+      LimitOption :: limit_option(),
+      AdminOption :: admin_option().
 info(Pid) when is_pid(Pid) ->
     info(Pid, []).
 
@@ -1048,78 +690,29 @@ server.
 -spec info(Pid, Properties) -> HttpInformation  when
       Pid     :: pid(),
       Properties :: [atom()],
-      HttpInformation :: [CommonOption]
+      HttpInformation :: [MandatoryOption]
                        | [CommunicationOption]
                        | [ModOption]
                        | [LimitOption]
                        | [AdminOption],
-      CommonOption :: {port, non_neg_integer()}
-                | {server_name, string()}
-                | {server_root, Path}
-                | {document_root, Path},
-      CommunicationOption :: {bind_address, inet:ip_address() | inet:hostname() | any}
-        | {profile, atom()}
-        | { socket_type,
-            ip_comm | {ip_comm, ssl:tls_option() | gen_tcp:option()} | {ssl, ssl:tls_option() | gen_tcp:option()}}
-        | {ipfamily, inet | inet6}
-        | {minimum_bytes_per_second, integer()},
+      MandatoryOption :: mandatory_option(),
+      CommunicationOption :: communication_option(),
       ModOption :: {modules, atom()},
-      LimitOption :: {customize, atom()}
-                   | {disable_chunked_transfer_encoding_send, boolean()}
-                   | {keep_alive, boolean()}
-                   | {keep_alive_timeout, integer()}
-                   | {max_body_size, integer()}
-                   | {max_clients, integer()}
-                   | {max_header_size, integer()}
-                   | {max_content_length, integer()}
-                   | {max_uri_size, integer()}
-                   | {max_keep_alive_request, integer()}
-                   | {max_client_body_chunk, integer()},
-      AdminOption :: {mime_types, [{MimeType :: string(), Extension :: string()}] | Path}
-                   | {mime_type, string()}
-                   | {server_admin, string()}
-                   | {server_tokens, none|prod|major|minor|minimal|os|full|{private, string()}}
-                   | {logger, Options::list()}
-                   | {log_format, common | combined}
-                   | {error_log_format, pretty | compact};
+      LimitOption :: limit_option(),
+      AdminOption :: admin_option();
           (Address, Port) -> HttpInformation when
       Address :: inet:ip_address(),
-      Port    :: integer(),
-      Path :: file:name_all(),
-      HttpInformation :: [CommonOption]
+      Port :: non_neg_integer(),
+      HttpInformation :: [MandatoryOption]
                        | [CommunicationOption]
                        | [ModOption]
                        | [LimitOption]
                        | [AdminOption],
-      CommonOption :: {port, non_neg_integer()}
-                | {server_name, string()}
-                | {server_root, Path}
-                | {document_root, Path},
-      CommunicationOption :: {bind_address, inet:ip_address() | inet:hostname() | any}
-        | {profile, atom()}
-        | { socket_type,
-            ip_comm | {ip_comm, ssl:tls_option() | gen_tcp:option()} | {ssl, ssl:tls_option() | gen_tcp:option()}}
-        | {ipfamily, inet | inet6}
-        | {minimum_bytes_per_second, integer()},
-      ModOption :: {modules, atom()},
-      LimitOption :: {customize, atom()}
-                   | {disable_chunked_transfer_encoding_send, boolean()}
-                   | {keep_alive, boolean()}
-                   | {keep_alive_timeout, integer()}
-                   | {max_body_size, integer()}
-                   | {max_clients, integer()}
-                   | {max_header_size, integer()}
-                   | {max_content_length, integer()}
-                   | {max_uri_size, integer()}
-                   | {max_keep_alive_request, integer()}
-                   | {max_client_body_chunk, integer()},
-      AdminOption :: {mime_types, [{MimeType :: string(), Extension :: string()}] | Path}
-                   | {mime_type, string()}
-                   | {server_admin, string()}
-                   | {server_tokens, none|prod|major|minor|minimal|os|full|{private, string()}}
-                   | {logger, Options::list()}
-                   | {log_format, common | combined}
-                   | {error_log_format, pretty | compact}.
+      MandatoryOption :: mandatory_option(),
+      CommunicationOption :: communication_option(),
+      ModOption :: mod_option(),
+      LimitOption :: limit_option(),
+      AdminOption :: admin_option().
 info(Pid, Properties) when is_pid(Pid) andalso is_list(Properties) ->
     {ok, ServiceInfo} = service_info(Pid), 
     Address = proplists:get_value(bind_address, ServiceInfo),
@@ -1140,80 +733,30 @@ info(Address, Port) when is_integer(Port) ->
       Address :: inet:ip_address() | any,
       Port    :: integer(),
       Profile :: atom(),
-      Path :: file:name_all(),
-      HttpInformation :: [CommonOption]
+      HttpInformation :: [MandatoryOption]
                        | [CommunicationOption]
                        | [ModOption]
                        | [LimitOption]
                        | [AdminOption],
-      CommonOption :: {port, non_neg_integer()}
-                | {server_name, string()}
-                | {server_root, Path}
-                | {document_root, Path},
-      CommunicationOption :: {bind_address, inet:ip_address() | inet:hostname() | any}
-        | {profile, atom()}
-        | { socket_type,
-            ip_comm | {ip_comm, ssl:tls_option() | gen_tcp:option()} | {ssl, ssl:tls_option() | gen_tcp:option()}}
-        | {ipfamily, inet | inet6}
-        | {minimum_bytes_per_second, integer()},
-      ModOption :: {modules, atom()},
-      LimitOption :: {customize, atom()}
-                   | {disable_chunked_transfer_encoding_send, boolean()}
-                   | {keep_alive, boolean()}
-                   | {keep_alive_timeout, integer()}
-                   | {max_body_size, integer()}
-                   | {max_clients, integer()}
-                   | {max_header_size, integer()}
-                   | {max_content_length, integer()}
-                   | {max_uri_size, integer()}
-                   | {max_keep_alive_request, integer()}
-                   | {max_client_body_chunk, integer()},
-      AdminOption :: {mime_types, [{MimeType :: string(), Extension :: string()}] | Path}
-                   | {mime_type, string()}
-                   | {server_admin, string()}
-                   | {server_tokens, none|prod|major|minor|minimal|os|full|{private, string()}}
-                   | {logger, Options::list()}
-                   | {log_format, common | combined}
-                   | {error_log_format, pretty | compact};
+      MandatoryOption :: mandatory_option(),
+      CommunicationOption :: communication_option(),
+      ModOption :: mod_option(),
+      LimitOption :: limit_option(),
+      AdminOption :: admin_option();
           (Address, Port, Properties) -> HttpInformation when
       Address :: inet:ip_address() | any,
       Port    :: integer(),
       Properties :: [atom()],
-      Path :: file:name_all(),
-      HttpInformation :: [CommonOption]
+      HttpInformation :: [MandatoryOption]
                        | [CommunicationOption]
                        | [ModOption]
                        | [LimitOption]
                        | [AdminOption],
-      CommonOption :: {port, non_neg_integer()}
-                | {server_name, string()}
-                | {server_root, Path}
-                | {document_root, Path},
-      CommunicationOption :: {bind_address, inet:ip_address() | inet:hostname() | any}
-        | {profile, atom()}
-        | { socket_type,
-            ip_comm | {ip_comm, ssl:tls_option() | gen_tcp:option()} | {ssl, ssl:tls_option() | gen_tcp:option()}}
-        | {ipfamily, inet | inet6}
-        | {minimum_bytes_per_second, integer()},
-      ModOption :: {modules, atom()},
-      LimitOption :: {customize, atom()}
-                   | {disable_chunked_transfer_encoding_send, boolean()}
-                   | {keep_alive, boolean()}
-                   | {keep_alive_timeout, integer()}
-                   | {max_body_size, integer()}
-                   | {max_clients, integer()}
-                   | {max_header_size, integer()}
-                   | {max_content_length, integer()}
-                   | {max_uri_size, integer()}
-                   | {max_keep_alive_request, integer()}
-                   | {max_client_body_chunk, integer()},
-      AdminOption :: {mime_types, [{MimeType :: string(), Extension :: string()}] | Path}
-                   | {mime_type, string()}
-                   | {server_admin, string()}
-                   | {server_tokens, none|prod|major|minor|minimal|os|full|{private, string()}}
-                   | {logger, Options::list()}
-                   | {log_format, common | combined}
-                   | {error_log_format, pretty | compact}.
+      MandatoryOption :: mandatory_option(),
+      CommunicationOption :: communication_option(),
+      ModOption :: mod_option(),
+      LimitOption :: limit_option(),
+      AdminOption :: admin_option().
 info(Address, Port, Profile) when is_integer(Port), is_atom(Profile) ->
     httpd_conf:get_config(Address, Port, Profile);
 
@@ -1237,41 +780,16 @@ options of the server.
       Port    :: integer(),
       Profile :: atom(),
       Properties :: [atom()],
-      Path :: file:name_all(),
-      HttpInformation :: [CommonOption]
+      HttpInformation :: [MandatoryOption]
                        | [CommunicationOption]
                        | [ModOption]
                        | [LimitOption]
                        | [AdminOption],
-      CommonOption :: {port, non_neg_integer()}
-                | {server_name, string()}
-                | {server_root, Path}
-                | {document_root, Path},
-      CommunicationOption :: {bind_address, inet:ip_address() | inet:hostname() | any}
-        | {profile, atom()}
-        | { socket_type,
-            ip_comm | {ip_comm, ssl:tls_option() | gen_tcp:option()} | {ssl, ssl:tls_option() | gen_tcp:option()}}
-        | {ipfamily, inet | inet6}
-        | {minimum_bytes_per_second, integer()},
-      ModOption :: {modules, atom()},
-      LimitOption :: {customize, atom()}
-                   | {disable_chunked_transfer_encoding_send, boolean()}
-                   | {keep_alive, boolean()}
-                   | {keep_alive_timeout, integer()}
-                   | {max_body_size, integer()}
-                   | {max_clients, integer()}
-                   | {max_header_size, integer()}
-                   | {max_content_length, integer()}
-                   | {max_uri_size, integer()}
-                   | {max_keep_alive_request, integer()}
-                   | {max_client_body_chunk, integer()},
-      AdminOption :: {mime_types, [{MimeType :: string(), Extension :: string()}] | Path}
-                   | {mime_type, string()}
-                   | {server_admin, string()}
-                   | {server_tokens, none|prod|major|minor|minimal|os|full|{private, string()}}
-                   | {logger, Options::list()}
-                   | {log_format, common | combined}
-                   | {error_log_format, pretty | compact}.
+      MandatoryOption :: mandatory_option(),
+      CommunicationOption :: communication_option(),
+      ModOption :: mod_option(),
+      LimitOption :: limit_option(),
+      AdminOption :: admin_option().
 info(Address, Port, Profile, Properties) when is_integer(Port) andalso
 					      is_atom(Profile) andalso is_list(Properties) ->    
     httpd_conf:get_config(Address, Port, Profile, Properties).

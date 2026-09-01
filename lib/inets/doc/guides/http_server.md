@@ -34,7 +34,6 @@ The server implements numerous features, such as:
 
 - Secure Sockets Layer (SSL)
 - Erlang Scripting Interface (ESI)
-- Common Gateway Interface (CGI)
 - User Authentication (using Mnesia, Dets or plain text database)
 - Common Logfile Format (with or without disk_log(3) support)
 - URL Aliasing
@@ -43,10 +42,10 @@ The server implements numerous features, such as:
 
 The configuration of the server is provided as an Erlang property list.
 
-As of `Inets` 5\.0 the HTTP server is an easy to start/stop and customize web
+The HTTP server is an easy to start/stop and customize web
 server providing the most basic web server functionality. Inets is designed for
 embedded systems and if you want a full-fledged web server there are other
-erlang open source alternatives.
+Erlang open source alternatives.
 
 Almost all server functionality has been implemented using an especially crafted
 server API, which is described in the Erlang Web Server API. This API can be
@@ -165,12 +164,6 @@ and cannot be the hostname that is allowed when putting in `bind_address`.
 `Inets` HTTP server provides two ways of creating dynamic web pages, each with
 its own advantages and disadvantages:
 
-- **_CGI scripts (deprecated)_** - Common Gateway Interface (CGI) scripts can be written in
-  any programming language. CGI scripts are standardized and supported by most
-  web servers. The drawback with CGI scripts is that they are resource-intensive
-  because of their design. CGI requires the server to fork a new OS process for
-  each executable it needs to start.
-
 - **_ESI-functions_** - Erlang Server Interface (ESI) functions provide a tight
   and efficient interface to the execution of Erlang functions. This interface,
   on the other hand, is `Inets` specific.
@@ -178,32 +171,7 @@ its own advantages and disadvantages:
 ### CGI Version 1.1, RFC 3875
 
 > #### Note {: .info }
-> `mod_cgi` and `mod_actions` are deprecated since OTP 29 and will be removed in OTP 30.
-> Use `mod_esi` instead for dynamic page generation.
->
-
-The module `mod_cgi` enables execution of
-[CGI scripts](http://www.ietf.org/rfc/rfc3875.txt) on the server. A file
-matching the definition of a ScriptAlias config directive is treated as a CGI
-script. A CGI script is executed by the server and its output is returned to the
-client.
-
-The CGI script response comprises a message header and a message body, separated
-by a blank line. The message header contains one or more header fields. The body
-can be empty.
-
-Example:
-
-```text
-"Content-Type:text/plain\nAccept-Ranges:none\n\nsome very
-	plain text"
-```
-
-The server interprets the message headers and most of them are transformed into
-HTTP headers and sent back to the client together with the message-body.
-
-Support for CGI-1.1 is implemented in accordance with
-[RFC 3875](http://www.ietf.org/rfc/rfc3875.txt).
+> `mod_cgi` and `mod_actions` are removed since OTP 39.
 
 ### ESI
 
@@ -318,26 +286,8 @@ of these modules is to be present in the module directive. Notice that there are
 some interaction dependencies to take into account, so the order of the modules
 cannot be random.
 
-### mod_actions - Filetype/Method-Based Script Execution
-
-> #### Note {: .info }
-> `mod_cgi` and `mod_actions` are deprecated since OTP 29 and will be removed in OTP 30.
-> Use `mod_esi` instead for dynamic page generation.
->
-
-This module runs CGI scripts whenever a file of a certain type or HTTP method
-(see [RFC 1945](http://tools.ietf.org/html/rfc1945)) is requested.
-
-Uses the following Erlang Web Server API interaction data:
-
-- `real_name` \- from `m:mod_alias`.
-
-Exports the following Erlang Web Server API interaction data, if possible:
-
-- **`{new_request_uri, RequestURI}`** - An alternative `RequestURI` has been
-  generated.
-
 ### mod_alias - URL Aliasing
+{: #mod_alias }
 
 The `m:mod_alias` module makes it possible to map different parts of the host
 file system into the document tree, that is, creates aliases and redirections.
@@ -348,6 +298,7 @@ Exports the following Erlang Web Server API interaction data, if possible:
   `mod_alias:path/3`.
 
 ### mod_auth - User Authentication
+{: #mod_auth }
 
 The `m:mod_auth` module provides for basic user authentication using textual
 files, Dets databases as well as Mnesia databases.
@@ -411,16 +362,8 @@ the HTTP server. If they are placed in the directory which it protects, clients
 can download the tables. Only the Dets and Mnesia storage methods allow writing
 of dynamic user data to disk. `plain` is a read only method.
 
-### mod_cgi - CGI Scripts
-
-> #### Note {: .info }
-> `mod_cgi` and `mod_actions` are deprecated since OTP 29 and will be removed in OTP 30.
-> Use `mod_esi` instead for dynamic page generation.
->
-
-This module handles invoking of CGI scripts.
-
 ### mod_dir - Directories
+{: #mod_dir }
 
 This module generates an HTML directory listing (Apache-style) if a client sends
 a request for a directory instead of a file. This module must be removed from
@@ -436,6 +379,7 @@ Exports the following Erlang Web Server API interaction data:
   a `MimeType`.
 
 ### mod_disk_log - Logging Using Disk_Log.
+{: #mod_disk_log }
 
 Standard logging using the "Common Logfile Format" and `m:disk_log`.
 
@@ -444,6 +388,7 @@ Uses the following Erlang Web Server API interaction data:
 - `remote_user` \- from `mod_auth`
 
 ### mod_esi - Erlang Server Interface
+{: #mod_esi }
 
 The `m:mod_esi` module implements the Erlang Server Interface (ESI) providing a
 tight and efficient interface to the execution of Erlang functions.
@@ -458,6 +403,7 @@ Exports the following Erlang web server API interaction data:
   a `MimeType`
 
 ### mod_get - Regular GET Requests
+{: #mod_get }
 
 This module is responsible for handling GET requests to regular files. GET
 requests for parts of files is handled by `mod_range`.
@@ -467,6 +413,7 @@ Uses the following Erlang web server API interaction data:
 - `real_name` \- from `m:mod_alias`
 
 ### mod_head - Regular HEAD Requests
+{: #mod_head }
 
 This module is responsible for handling HEAD requests to regular files. HEAD
 requests for dynamic content is handled by each module responsible for dynamic
@@ -477,6 +424,7 @@ Uses the following Erlang Web Server API interaction data:
 - `real_name` \- from `m:mod_alias`
 
 ### mod_log - Logging Using Text Files.
+{: #mod_log }
 
 Standard logging using the "Common Logfile Format" and text files.
 
@@ -485,6 +433,7 @@ Uses the following Erlang Web Server API interaction data:
 - `remote_user` \- from `mod_auth`
 
 ### mod_range - Requests with Range Headers
+{: #mod_range }
 
 This module responses to requests for one or many ranges of a file. This is
 especially useful when downloading large files, as a broken download can be
@@ -498,6 +447,7 @@ Uses the following Erlang Web Server API interaction data:
 - `real_name` \- from `m:mod_alias`
 
 ### mod_responsecontrol - Requests with If\* Headers
+{: #mod_responsecontrol }
 
 This module controls that the conditions in the requests are fulfilled. For
 example, a request can specify that the answer only is of interest if the
@@ -529,6 +479,7 @@ Exports the following Erlang Web Server API interaction data:
   must be treated as an ordinary get request.
 
 ### mod_security - Security Filter
+{: #mod_security }
 
 The `m:mod_security` module serves as a filter for authenticated requests
 handled in `m:mod_auth`. It provides a possibility to restrict users from access
@@ -541,6 +492,7 @@ blocked users or users who have been authenticated within a configurable amount
 of time.
 
 ### mod_trace - TRACE Request
+{: #mod_trace }
 
 `mod_trace` is responsible for handling of TRACE requests. Trace is a new
 request method in HTTP/1.1. The intended use of trace requests is for testing.

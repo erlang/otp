@@ -2627,7 +2627,7 @@ limitations under the License.
 
   `ossl` will work for as long as the ssl application supports it.
 
-  See the httpd [socket_type](`m:httpd#props_comm`) communication property or
+  See the httpd [socket_type](`m:httpd#prop_socket_type`) communication property or
   the httpc [request/4,5](`httpc:request/4`) function for more info.
 
   Own Id: OTP-9230
@@ -2636,7 +2636,7 @@ limitations under the License.
 
 ### Fixed Bugs and Malfunctions
 
-- \[httpd] Wrong [security property](`m:httpd#props_sec`) names used in
+- \[httpd] Wrong [security property](`t:mod_security:security_option/0`) names used in
   documentation.
 
   `security_data_file` used instead of `data_file`.
@@ -2762,7 +2762,7 @@ limitations under the License.
   instead.
 
   See the `http_option` option in the [request/4,5](`httpc:request/4`) or the
-  [socket-type](`m:httpd#props_comm`) section of the Communication properties
+  [socket_type](`m:httpd#prop_socket_type`) section of the Communication properties
   chapter for more info,
 
   Own Id: OTP-7907
@@ -2777,8 +2777,8 @@ limitations under the License.
 
 - \[httpd] - Improved mod_alias. Now able to do better URL rewrites.
 
-  See [URL aliasing properties](`m:httpd#props_alias`) and the
-  [CGI properties](`m:httpd#props_cgi`) section(s) for more info,
+  See [URL aliasing properties](`t:mod_alias:url_alias_option/0`) and the
+  CGI properties section(s) for more info,
 
   Own Id: OTP-8573
 
@@ -3103,8 +3103,7 @@ limitations under the License.
 
   Default is `inet6fb4` which emulates the behaviour of the previous version.
 
-  See the [Communication properties](`m:httpd#props_comm`) section for more
-  info.
+  See the [Communication properties](`t:httpd:communication_option/0`) section for more info.
 
   Own Id: OTP-8069
 

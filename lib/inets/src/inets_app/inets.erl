@@ -31,19 +31,6 @@ The Inets services API.
 This module provides the most basic API to the clients and servers that are part
 of the `Inets` application, such as start and stop.
 
-[](){: #common_data_types }
-
-### Data types
-
-Type definitions that are used more than once in this module:
-
-`service() = httpc | httpd`
-
-`property() = atom()`
-
-### See also
-
-`m:httpc`, `m:httpd`
 """.
 
 -compile([{nowarn_possibly_unsafe_function, {file, consult, 1}}]).
@@ -73,7 +60,7 @@ Type definitions that are used more than once in this module:
 %% Description: Starts the inets application. Default type
 %% is temporary. see application(3)
 %%--------------------------------------------------------------------
--doc(#{equiv => start/1}).
+-doc(#{equiv => start(temporary)}).
 -spec start() -> ok | {error, Reason} when Reason :: term().
 start() ->
     application:start(inets, temporary).
@@ -115,14 +102,10 @@ start(Type) ->
 %% in place and in some sense the calling process has now become the
 %% top supervisor.
 %% --------------------------------------------------------------------
--doc(#{equiv => start/3}).
+-doc(#{equiv => start(Service, ServiceConfig, inets)}).
 -spec start(Service, ServiceConfig) -> Result when
       Service :: inets_service(),
-      ServiceConfig :: ConfPropList | ConfFile,
-      ConfPropList :: [{Property, Value}],
-      ConfFile :: string(),
-      Property :: term(),
-      Value :: term(),
+      ServiceConfig :: proplists:proplist(),
       Result :: {ok, pid()} | {error, term()}.
 start(Service, ServiceConfig) ->
     start_service(Service, ServiceConfig, inets).
@@ -130,6 +113,8 @@ start(Service, ServiceConfig) ->
 -doc """
 Dynamically starts an `Inets` service after the `Inets` application has been
 started.
+
+See `m:httpd` and `m:httpc` for details on the service configuration.
 
 > #### Note {: .info }
 >
@@ -149,15 +134,7 @@ started.
 > The stand_alone option is considered deprecated.
 >
 """.
--spec start(Service, ServiceConfig, How) -> Result when
-      Service :: inets_service(),
-      ServiceConfig :: ConfPropList | ConfFile,
-      How :: inets | stand_alone,
-      ConfPropList :: [{Property, Value}],
-      ConfFile :: string(),
-      Property :: term(),
-      Value :: term(),
-      Result :: {ok, pid()} | {error, term()}.
+-spec start(Service :: inets_service(), ServiceConfig :: proplists:proplist(), How :: inets | stand_alone) -> {ok, pid()} | {error, term()}.
 start(Service, ServiceConfig, How) ->
     start_service(Service, ServiceConfig, How).
 
