@@ -1826,6 +1826,7 @@ priority_messages_order_test(Node) ->
     {priority_messages, true} = proc_info(Rcvr, priority_messages),
 
     {priority_alias, PrioAlias} = receive {priority_alias, _} = PA -> PA end,
+    Large = binary:copy(<<0>>, 1 bsl 20),
 
     {priority_messages, true} = proc_info(Rcvr, priority_messages),
 
@@ -1850,7 +1851,7 @@ priority_messages_order_test(Node) ->
     PrioAlias ! {msg, 6},
     erlang:send(PrioAlias, {prio_msg, 1}, [priority]),
     erlang:send(PrioAlias, {msg, 7}, []),
-    erlang:send(PrioAlias, prio_msg_2, [priority]),
+    erlang:send(PrioAlias, {prio_msg, Large}, [priority]),
     erlang:send(Rcvr, {msg, 8}, [priority]),
     wait_until(fun () -> msg_received(Rcvr, {msg, 8}) end),
     exit(LinkProc4, {link_exit, 2}),
@@ -1868,7 +1869,7 @@ priority_messages_order_test(Node) ->
               {'DOWN', Mon1, process, MonProc1, prio_down_1},
               {'EXIT', Parent, prio_func_exit_1},
               {prio_msg, 1},
-              prio_msg_2,
+              {prio_msg, Large},
               {'EXIT', LinkProc3, {prio_link_exit, 2}},
               {'DOWN', Mon3, process, MonProc3, {prio_down, 2}},
 
