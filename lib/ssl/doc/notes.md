@@ -23,6 +23,38 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.7.5
+
+### Fixed Bugs and Malfunctions
+
+- Debugging keylog_hs callback used for logging handshake secrets on failed connections swapped the argument order in logging function confusing server and client side. The bug was introduced in OTP 28.5
+
+  Own Id: OTP-20350 Aux Id: [PR-11553], ERIERL-1354
+
+[PR-11553]: https://github.com/erlang/otp/pull/11553
+
+### Improvements and New Features
+
+- Hardening improvements of the ssl application.
+  
+  TLS distribution now defaults to TLS-1.3 instead of TLS-1.2 (TLS-1.2 is kept as fallback for rolling upgrades).
+  
+  TLS-1.2 server with {verify, verify_peer} now defaults reuse_sessions to false to mitigate the Triple Handshake attack (RFC 7627). Set {reuse_sessions, true} explicitly to restore previous behavior.
+  
+  Various missing or faulty sanity checks added and TLS alerts adjusted to comply with RFC MUST requirements, including: signature algorithm validation for intermediate certificates, TLS-1.3 session_id echo, pre_shared_key extension ordering, and renegotiation_info enforcement.
+  
+  Hardened and improved CRL support. Introduces new option allowed_hosts for the optional CRL HTTP fetching feature to restrict which hosts may be contacted. Internal/loopback IPs are now blocked by default (SSRF protection).
+  
+  TLS-1.3 client ticket handling is more robust (locked tickets are released on client crash). Server TLS-1.3 ticket handling and anti-replay Bloom filter performance are optimized.
+  
+  DTLS duplicate ChangeCipherSpec handling simplified, fixing potential state machine confusion (GH-11075).
+  
+  Process state formatting no longer leaks secrets in crash logs.
+
+  Own Id: OTP-20289 Aux Id: [PR-11478]
+
+[PR-11478]: https://github.com/erlang/otp/pull/11478
+
 ## SSL 11.7.4
 
 ### Fixed Bugs and Malfunctions

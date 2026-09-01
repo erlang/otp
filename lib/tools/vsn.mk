@@ -6,4 +6,4 @@
 #
 # %CopyrightEnd%
 
-TOOLS_VSN = 4.2.1
+TOOLS_VSN = 4.2.2

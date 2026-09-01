@@ -23,6 +23,17 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 10.0.4
+
+### Fixed Bugs and Malfunctions
+
+- compiler: Fix bug in `beam_types:subtract/2` for bitstrings
+
+  Own Id: OTP-20312 Aux Id: [GH-11494], [PR-11503]
+
+[GH-11494]: https://github.com/erlang/otp/issues/11494
+[PR-11503]: https://github.com/erlang/otp/pull/11503
+
 ## Compiler 10.0.3
 
 ### Fixed Bugs and Malfunctions

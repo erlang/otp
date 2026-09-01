@@ -21,6 +21,17 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.21.5
+
+### Fixed Bugs and Malfunctions
+
+- Retain lost CommonName length relaxation.
+
+  Own Id: OTP-20321 Aux Id: [PR-11358], [GH-11240]
+
+[PR-11358]: https://github.com/erlang/otp/pull/11358
+[GH-11240]: https://github.com/erlang/otp/issues/11240
+
 ## Public_Key 1.21.4
 
 ### Fixed Bugs and Malfunctions
