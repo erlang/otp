@@ -1607,7 +1607,7 @@ monitor_long_gc_session(Process *p, Uint time, ErtsTraceSession* session)
     ErlOffHeap *off_heap;
     Uint hsz;
     Eterm *hp, list, msg;
-    Eterm tags[] = {
+    static const Eterm tags[] = {
 	am_timeout,
 	am_old_heap_block_size,
 	am_heap_block_size,
@@ -1616,7 +1616,7 @@ monitor_long_gc_session(Process *p, Uint time, ErtsTraceSession* session)
 	am_old_heap_size,
 	am_heap_size
     };
-    UWord values[] = {
+    const UWord values[] = {
 	time,
 	OLD_HEAP(p) ? OLD_HEND(p) - OLD_HEAP(p) : 0,
 	HEAP_SIZE(p),
@@ -1679,7 +1679,7 @@ monitor_large_heap_session(Process *p, ErtsTraceSession *session)
     ErlOffHeap *off_heap;
     Uint hsz;
     Eterm *hp, list, msg;
-    Eterm tags[] = {
+    static const Eterm tags[] = {
 	am_old_heap_block_size,
 	am_heap_block_size,
 	am_mbuf_size,

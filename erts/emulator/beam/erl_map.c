@@ -670,7 +670,8 @@ Eterm erts_hashmap_from_array(ErtsHeapFactory* factory, Eterm *leafs, Uint n,
 
 /* Returns THE_NON_VALUE if duplicate keys found. */
 Eterm
-erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs, Uint n)
+erts_map_from_ks_and_vs(ErtsHeapFactory *factory,
+                        const Eterm *ks, const Eterm *vs, Uint n)
 {
     if (n <= MAP_SMALL_MAP_LIMIT) {
         Eterm *hp;
@@ -714,7 +715,8 @@ erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs, Uint n)
 }
 
 Eterm erts_hashmap_from_ks_and_vs_extra(ErtsHeapFactory *factory,
-                                        Eterm *ks, Eterm *vs, Uint n,
+                                        const Eterm *ks, const Eterm *vs,
+                                        Uint n,
                                         Eterm key, Eterm value,
                                         int reject_dupkeys) {
     erts_ihash_t sw, hx;

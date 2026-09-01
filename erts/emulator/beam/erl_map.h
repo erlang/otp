@@ -122,9 +122,10 @@ Eterm  erts_hashmap_from_array(ErtsHeapFactory*, Eterm *leafs, Uint n, int rejec
 #define erts_hashmap_from_ks_and_vs(F, KS, VS, N) \
     erts_hashmap_from_ks_and_vs_extra((F), (KS), (VS), (N), THE_NON_VALUE, THE_NON_VALUE, 0);
 
-Eterm erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs, Uint n);
+Eterm erts_map_from_ks_and_vs(ErtsHeapFactory *factory,
+                              const Eterm *ks, const Eterm *vs, Uint n);
 Eterm  erts_hashmap_from_ks_and_vs_extra(ErtsHeapFactory *factory,
-                                         Eterm *ks, Eterm *vs, Uint n,
+                                         const Eterm *ks, const Eterm *vs, Uint n,
                                          Eterm k, Eterm v,
                                          int reject_dupkeys);
 

@@ -209,12 +209,12 @@
 /*
  * The table translating an exception code to an atom.
  */
-extern Eterm error_atom[NUMBER_EXIT_CODES];
+extern const Eterm error_atom[NUMBER_EXIT_CODES];
 
 /*
  * The exception tag table.
  */
-extern Eterm exception_tag[NUMBER_EXC_TAGS];
+extern const Eterm exception_tag[NUMBER_EXC_TAGS];
 
 /* 
  * The quick-saved stack trace structure
