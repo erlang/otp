@@ -293,7 +293,7 @@ chunk_max_bodysize(Config) when is_list(Config) ->
 			  ?HTTP_MAX_BODY_SIZE, ?HTTP_MAX_HEADER_SIZE),
     
     %% Too long body
-    {error,{body_too_big, {max, 10}}} = 
+    {error,{body_too_long, {max, 10}}} =
 	 (catch http_chunk:decode(list_to_binary(ChunkedBody),
 				  10, ?HTTP_MAX_HEADER_SIZE)).
 

@@ -47,6 +47,7 @@ groups() ->
                                 script_nocache,
                                 escaped_url_in_error_body,
                                 script_timeout,
+                                chunked_body_size_unbounded,
                                 slowdose,
                                 keep_alive_timeout,
                                 invalid_rfc1123_date,
@@ -435,6 +436,54 @@ ip_comm_options_fixed_port(Config) when is_list(Config) ->
 				       [{statuscode, 200},
 					{version, "HTTP/1.1"}]),
     inets:stop(httpd, Pid).
+
+%%-------------------------------------------------------------------------
+
+chunked_body_size_unbounded() ->
+    [{doc, "check that never-completing and malformed chunks don't bypass max_body_size"}].
+chunked_body_size_unbounded(Config) when is_list(Config) ->
+    MaxBody   = 1024,
+    HttpdConf = proplists:get_value(httpd_conf, Config),
+    {ok, Pid} = inets:start(httpd, [{port, 0}, {max_body_size, MaxBody} | HttpdConf]),
+    Port      = proplists:get_value(port, httpd:info(Pid)),
+    try
+        %% Control: completed chunk > max_body_size -> hits ?CR?LF -> body_too_big.
+        chunk_probe(Port, [io_lib:format("~.16b\r\n", [4 * MaxBody]),
+                                      payload(4 * MaxBody), "\r\n0\r\n\r\n"]),
+        %% (a) huge declared size, stream 64x the limit, never terminate.
+        chunk_probe(Port, ["FFFFFFFF\r\n", payload(64 * MaxBody)]),
+        %% (b) correct size, non-CRLF where the terminator belongs, keep streaming.
+        chunk_probe(Port, ["5\r\nAAAAA", "X", payload(64 * MaxBody)]),
+        %% (c) many small chunks that together exceed the limit, never terminate.
+        chunk_probe(Port, lists:flatten([iolist_to_binary([io_lib:format("~.16b\r\n", [MaxBody div 10]),
+                                        payload(MaxBody div 10), "\r\n"]) || _ <- lists:seq(1, 11)]))
+
+    after
+        inets:stop(httpd, Pid)
+    end.
+
+%% Open a chunked POST, send Body
+chunk_probe(Port, Body) ->
+    {ok, S} = inets_test_lib:connect_bin(ip_comm, "localhost", Port, []),
+    Req = ["POST / HTTP/1.1\r\n",
+           "Host: localhost\r\n",
+           "Transfer-Encoding: chunked\r\n\r\n"],
+    ok = inets_test_lib:send(ip_comm, S, iolist_to_binary(Req)),
+    [inets_test_lib:send(ip_comm, S, iolist_to_binary(B)) || B <- Body, is_atom(timer:sleep(50))],
+    Verdict =
+        receive
+            {tcp, S, Data}  ->
+                case binary:match(Data, <<"413">>) of
+                    {_, _} -> bounded; %% limit hit, server replied
+                    nomatch -> ct:fail({"Server replied but did not indicate body too large", Data})
+                end
+        after 5000 ->
+            ct:fail("Server did not reply within timeout, likely still buffering the body (bug)")
+        end,
+    inets_test_lib:close(ip_comm, S),
+    Verdict.
+
+payload(N) -> binary:copy(<<$A>>, N).
 
 %%-------------------------------------------------------------------------
 %% Internal functions
