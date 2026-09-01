@@ -2275,8 +2275,8 @@ setup(Node, CheckPid, CheckTimer, CheckRes, State) ->
                                                          address = Addr,
                                                          type = normal}),
                     State2 = delete_owner(CheckPid, State),
-                    Owners = State#state.conn_owners,
-                    State2#state{conn_owners = Owners#{SetupPid => Node}};
+                    Owners2 = State2#state.conn_owners,
+                    State2#state{conn_owners = Owners2#{SetupPid => Node}};
                 CheckError ->
                     Failure = {setup_check_failed, Node, CheckError},
                     verbose(Failure, 2, State),
@@ -2285,7 +2285,7 @@ setup(Node, CheckPid, CheckTimer, CheckRes, State) ->
                                      Conn#connection.type, State)
             end;
         _ ->
-            State
+            delete_owner(CheckPid, State)
     end.
 
 setup_check_timeout(Node, CheckPid, State) ->
