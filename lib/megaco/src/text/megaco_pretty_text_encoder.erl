@@ -263,13 +263,15 @@ parse_error(Reason, Tokens, Chars) ->
     end.
 
 
-l2i(L) when is_list(L) ->
+l2i(L) when is_list(L), length(L) =< 10 ->
     case (catch list_to_integer(L)) of
 	I when is_integer(I) ->
 	    I;
 	_ ->
 	    L
-    end.
+    end;
+l2i(L) when is_list(L) ->
+    L.
 
 
 %%----------------------------------------------------------------------
