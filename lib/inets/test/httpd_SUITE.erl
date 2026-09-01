@@ -183,6 +183,7 @@ http_get() ->
      max_header,
      max_content_length,
      ignore_invalid_header,
+     reject_obs_fold,
      ipv6,
      same_file_name_dir_name
     ].
@@ -1702,6 +1703,32 @@ ignore_invalid_header(Config) when is_list(Config) ->
         end,
     {ok,{{_,204,_}, _, _}}
         = httpc:request(get, {Url, Header}, [{timeout, 45000} | Opts], [{headers_as_is, true}]).
+
+%%-------------------------------------------------------------------------
+reject_obs_fold() ->
+    [{doc, "RFC 9112 Section 5.2 - obs-fold MUST be rejected with 400"}].
+reject_obs_fold(Config) when is_list(Config) ->
+    Version = proplists:get_value(http_version, Config),
+    Host = proplists:get_value(host, Config),
+    Port = proplists:get_value(port, Config),
+    Type = proplists:get_value(type, Config),
+    Node = proplists:get_value(node, Config),
+    %% SP obs-fold: line starting with space after CRLF
+    ok = httpd_test_lib:verify_request(
+           Type, Host, Port, Node,
+           "GET /index.html " ++ Version ++ "\r\n" ++
+               "Host:" ++ Host ++ "\r\n" ++
+               "X-Foo: bar\r\n" ++
+               " Transfer-Encoding: chunked\r\n\r\n",
+           [{statuscode, 400}, {version, Version}]),
+    %% HTAB obs-fold: line starting with tab after CRLF
+    ok = httpd_test_lib:verify_request(
+           Type, Host, Port, Node,
+           "GET /index.html " ++ Version ++ "\r\n" ++
+               "Host:" ++ Host ++ "\r\n" ++
+               "X-Foo: bar\r\n" ++
+               "\tX-Injected: evil\r\n\r\n",
+           [{statuscode, 400}, {version, Version}]).
 
 %%-------------------------------------------------------------------------
 security_1_1(Config) when is_list(Config) -> 
