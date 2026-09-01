@@ -1001,6 +1001,8 @@ enqueue_task(Port *pp,
 	if (ns_pthlp) {
 	    ns_pthlp->u.next = pp->sched.taskq.local.busy.nosuspend;
 	    pp->sched.taskq.local.busy.nosuspend = ns_pthlp;
+            erts_atomic32_read_bor_nob(&pp->sched.flags,
+                                       ERTS_PTS_FLG_HAVE_NS_TASKS);
 	}
 	if (pp->sched.taskq.in.last) {
 	    ASSERT(pp->sched.taskq.in.first);
@@ -1298,7 +1300,7 @@ erts_port_task_tmp_handle_detach(ErtsPortTaskHandle *pthp)
  */
 
 int
-erts_port_task_abort(ErtsPortTaskHandle *pthp)
+erts_port_task_abort(Port *pp, ErtsPortTaskHandle *pthp)
 {
     int res;
     ErtsPortTask *ptp;
@@ -1326,22 +1328,33 @@ erts_port_task_abort(ErtsPortTaskHandle *pthp)
 	    res = - 1; /* Task already aborted, executing, or executed */
 	else {
 	    reset_port_task_handle(pthp);
+            switch (ptp->type) {
+            case ERTS_PORT_TASK_PROC_SIG: {
+                int abort_type = ((ptp->u.alive.flags
+                                   & (ERTS_PT_FLG_NOSUSPEND
+                                      | ERTS_PT_FLG_ASYNC_NOSUSPEND))
+                                  ? ERTS_PROC2PORT_SIG_ABORT_NOSUSPEND
+                                  : ERTS_PROC2PORT_SIG_ABORT);
+                ASSERT(pp);
+                abort_signal_task(pp, abort_type, ptp->type, &ptp->u.alive.td,
+                                  pp->sched.taskq.bpq != NULL);
+                break;
+            }
+            case ERTS_PORT_TASK_INPUT:
+            case ERTS_PORT_TASK_OUTPUT:
 #if ERTS_POLL_USE_SCHEDULER_POLLING
-            if (erts_sched_poll_enabled()) {
-                switch (ptp->type) {
-                case ERTS_PORT_TASK_INPUT:
-                case ERTS_PORT_TASK_OUTPUT:
+                if (erts_sched_poll_enabled()) {
                     if (ptp->u.alive.td.io.is_scheduler_event) {
                         ASSERT(erts_atomic_read_nob(
                                    &erts_port_task_outstanding_io_tasks) > 0);
                         erts_atomic_dec_relb(&erts_port_task_outstanding_io_tasks);
                     }
-                    break;
-                default:
-                    break;
                 }
-            }
 #endif
+                break;
+            default:
+                break;
+            }
 	    res = 0;
 	}
     }
@@ -1369,7 +1382,6 @@ erts_port_task_abort_nosuspend_tasks(Port *pp)
 	ErtsPortTaskHandle *saved_pthp;
 #endif
 	ErtsPortTaskType type;
-	ErtsPortTaskTypeData td;
 	ErtsPortTaskHandle *pthp;
 	ErtsPortTask *ptp;
 	ErtsPortTaskHandleList *pthlp;
@@ -1413,13 +1425,14 @@ erts_port_task_abort_nosuspend_tasks(Port *pp)
 	reset_port_task_handle(pthp);
 
 	type = ptp->type;
-	td = ptp->u.alive.td;
+
+        abort_nosuspend_task(pp, type, &ptp->u.alive.td,
+                             pp->sched.taskq.bpq != NULL);
 
 	if (dhndl != ERTS_THR_PRGR_DHANDLE_MANAGED)
 	    erts_thr_progress_unmanaged_continue(dhndl);
 	schedule_port_task_handle_list_free(pthlp);
 
-	abort_nosuspend_task(pp, type, &td, pp->sched.taskq.bpq != NULL);
     }
 }
 
@@ -1520,8 +1533,6 @@ erts_port_task_schedule(Eterm id,
     }
 
     add_flags = ERTS_PTS_FLG_HAVE_TASKS;
-    if (ns_pthlp)
-	add_flags |= ERTS_PTS_FLG_HAVE_NS_TASKS;
 
     prof_runnable_ports = erts_system_profile_flags.runnable_ports;
     if (prof_runnable_ports)

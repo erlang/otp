@@ -28,7 +28,11 @@
          scheduling_delay_busy/1,
          scheduling_delay_busy_nosuspend/1,
          scheduling_busy_link/1,
-         busy_with_signals/1]).
+         busy_with_signals/1,
+         async_par_nosuspend_abort_cleanup/1,
+         async_nopar_nosuspend_abort_cleanup/1,
+         sync_par_nosuspend_abort_cleanup/1,
+         sync_nopar_nosuspend_abort_cleanup/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -44,7 +48,11 @@ all() ->
      no_trap_exit, no_trap_exit_unlinked, trap_exit,
      multiple_writers, hard_busy_driver, soft_busy_driver,
      scheduling_delay_busy,scheduling_delay_busy_nosuspend,
-     scheduling_busy_link, busy_with_signals].
+     scheduling_busy_link, busy_with_signals,
+     async_par_nosuspend_abort_cleanup,
+     async_nopar_nosuspend_abort_cleanup,
+     sync_par_nosuspend_abort_cleanup,
+     sync_nopar_nosuspend_abort_cleanup].
 
 init_per_testcase(_Case, Config) when is_list(Config) ->
     Killer = spawn(fun() -> killer_loop([]) end),
@@ -843,6 +851,69 @@ flood_with_exit_signals(_Pid, 0) ->
 flood_with_exit_signals(Pid, N) ->
     exit(Pid, pling),
     flood_with_exit_signals(Pid, N-1).
+
+async_par_nosuspend_abort_cleanup(Config) when is_list(Config) ->
+    nosuspend_abort_cleanup_tests(Config, false, true).
+
+async_nopar_nosuspend_abort_cleanup(Config) when is_list(Config) ->
+    nosuspend_abort_cleanup_tests(Config, false, false).
+
+sync_par_nosuspend_abort_cleanup(Config) when is_list(Config) ->
+    nosuspend_abort_cleanup_tests(Config, true, true).
+
+sync_nopar_nosuspend_abort_cleanup(Config) when is_list(Config) ->
+    nosuspend_abort_cleanup_tests(Config, true, false).
+
+nosuspend_abort_cleanup_tests(Config, Sync, Parallelism) ->
+    Master = self(),
+    process_flag(priority,high),
+    Drv = "nosuspend_test_drv",
+    DataDir = proplists:get_value(data_dir, Config),
+    erl_ddll:start(),
+    case erl_ddll:load_driver(DataDir, Drv) of
+        ok ->
+            ok;
+        {error, Error} ->
+            ct:fail(erl_ddll:format_error(Error))
+    end,
+    Port = open_port({spawn_driver, Drv},
+                     [{busy_limits_msgq, {1024, 2048}},
+                      {parallelism, Parallelism}]),
+    NoSuspFun = if Sync ->
+                        fun () ->
+                                port_command(Port, <<0:(16*8*1024)>>, [nosuspend])
+                        end;
+                   true ->
+                        fun () ->
+                                erlang:send(Port,
+                                            {Master, {command, <<0:(16*8*1024)>>}},
+                                            [nosuspend])
+                        end
+                end,
+    NoSuspers = lists:map(fun (_) -> spawn_link(NoSuspFun) end,
+                          lists:seq(1, 10000)),
+    _= port_control(Port, $B, <<>>),
+    receive after 1000 -> ok end,
+    _= port_control(Port, $N, <<>>),
+    SyncCmd = spawn_link(fun () ->
+                                 port_command(Port, <<"should not block for long">>),
+                                 Master ! {self(), done}
+                         end),
+    receive
+        {SyncCmd, done} -> ok
+    after
+        10000 -> ct:fail(port_command_blocked)
+    end,
+    lists:foreach(fun (P) ->
+                          unlink(P),
+                          exit(P,kill),
+                          false = is_process_alive(P)
+                  end,
+                  [SyncCmd | NoSuspers]),
+    true = erlang:port_close(Port),
+    ok = erl_ddll:unload_driver(Drv),
+    ok = erl_ddll:stop(),
+    ok.
 
 %%% Utilities.
 
