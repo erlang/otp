@@ -5530,6 +5530,49 @@ spawn_monitor_alias(Config) when is_list(Config) ->
     spawn_monitor_alias_test(Peer3, Node3, spawn_request, normal),
     {ok, Peer4, Node4} = ?CT_PEER(),
     spawn_monitor_alias_test(Peer4, Node4, spawn_request, make_ref()),
+
+    %% Make sure we don't get a monitor alias if a spawn_request fails on noconnect...
+
+    {ok, Peer5, Node5} = ?CT_PEER(#{args => ["-kernel", "connect_all", "false"]}),
+    {ok, Peer6, Node6} = ?CT_PEER(#{args => ["-kernel", "connect_all", "false"]}),
+
+    ThisNode = node(),
+    ok = erpc:call(Node5, net_kernel, allow, [[ThisNode]]),
+    {ok, [ThisNode]} = erpc:call(Node5, net_kernel, allowed, []),
+    ok = erpc:call(Node6, net_kernel, allow, [[ThisNode]]),
+    {ok, [ThisNode]} = erpc:call(Node6, net_kernel, allowed, []),
+
+    wait_until(fun () ->
+                       _ = erpc:call(Node5, erlang, disconnect_node, [Node6]),
+                       _ = erpc:call(Node6, erlang, disconnect_node, [Node5]),
+                       Res5 = erpc:call(Node5, erlang, nodes, []),
+                       Res6 = erpc:call(Node6, erlang, nodes, []),
+                       Res5 == [ThisNode] andalso Res6 == [ThisNode]
+               end),
+
+    MonAliasFun =
+        fun (UnaliasOpt) ->
+                fun () ->
+                        erlang:yield(),
+                        MAF = spawn_request(Node6, fun () -> ok end,
+                                            [{monitor, [{alias, UnaliasOpt}]}]),
+                        MAF ! should_not_be_delivered_1,
+                        [{spawn_reply, MAF, ResType, Result}] = recv_msgs(1),
+                        error = ResType,
+                        noconnection = Result,
+                        MAF ! should_not_be_delivered_2,
+                        self() ! should_be_delivered,
+                        [should_be_delivered] = recv_msgs(1),
+                        ok
+                end
+        end,
+
+    ok = erpc:call(Node5, MonAliasFun(explicit_unalias)),
+    ok = erpc:call(Node5, MonAliasFun(reply_demonitor)),
+    ok = erpc:call(Node5, MonAliasFun(demonitor)),
+
+    peer:stop(Peer5),
+    peer:stop(Peer6),
     ok.
 
 spawn_monitor_alias_test(Peer, Node, SpawnType, ExitReason) ->
@@ -5647,6 +5690,29 @@ spawn_monitor_alias_test(Peer, Node, SpawnType, ExitReason) ->
     M_5 = monitor(process, P5),
     P5 ! {alias, MA5},
     [{MA5,1},{'DOWN', M_5, _, _, ExitReason}] = recv_msgs(2),
+
+    if SpawnType == spawn_request ->
+            %% Make sure we don't get a monitor alias if a spawn_request fails on badopt...
+            MonAliasFun =
+                fun (UnaliasOpt) ->
+                        erlang:yield(),
+                        MAF = spawn_request(Node, fun () -> ok end,
+                                            [{monitor, [{alias, UnaliasOpt}]}, invalid_opt]),
+                        MAF ! should_not_be_delivered_1,
+                        [{spawn_reply, MAF, ResType, Result}] = recv_msgs(1),
+                        error = ResType,
+                        badopt = Result,
+                        MAF ! should_not_be_delivered_2,
+                        self() ! should_be_delivered,
+                        [should_be_delivered] = recv_msgs(1),
+                        ok
+                end,
+            MonAliasFun(explicit_unalias),
+            MonAliasFun(reply_demonitor),
+            MonAliasFun(demonitor);
+       true ->
+            ok
+    end,
 
     case Node == node() of
         true ->

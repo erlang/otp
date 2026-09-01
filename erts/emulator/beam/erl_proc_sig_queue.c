@@ -4903,10 +4903,6 @@ convert_to_down_message(Process *c_p,
          */
 
         tag = save_heap_frag_eterm(c_p, mp, &mdep->u.name);
-        
-        /* Restore to normal monitor */
-        ASSERT(mdep->u.name == NIL);
-        mdp->origin.flags &= ~ERTS_ML_FLGS_SPAWN;
 
         ref = STORE_NC(&hp, ohp, mdp->ref);
         
@@ -6467,7 +6463,8 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                     erts_monitor_release(tmon);
             }
             else {
-                switch (omon->flags & ERTS_ML_STATE_ALIAS_MASK) {
+                switch (omon->flags & (ERTS_ML_STATE_ALIAS_MASK
+                                       | ERTS_ML_FLG_SPAWN_PENDING)) {
                 case ERTS_ML_STATE_ALIAS_UNALIAS: {
                     Uint32 add_flags;
                     ErtsMonitorData *amdp;
