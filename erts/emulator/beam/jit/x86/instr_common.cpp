@@ -2717,14 +2717,17 @@ void BeamModuleAssembler::emit_is_in_range(ArgLabel const &Small,
                         RET);
                     a.ja(resolve_beam_label(Small));
                 },
-                ARG1);
+                ARG1,
+                RET);
     } else {
-        preserve_cache([&]() {
-            cmp(ARG1, Min.as<ArgImmed>().get(), RET);
-            a.jl(resolve_beam_label(Small));
-            cmp(ARG1, Max.as<ArgImmed>().get(), RET);
-            a.jg(resolve_beam_label(Large));
-        });
+        preserve_cache(
+                [&]() {
+                    cmp(ARG1, Min.as<ArgImmed>().get(), RET);
+                    a.jl(resolve_beam_label(Small));
+                    cmp(ARG1, Max.as<ArgImmed>().get(), RET);
+                    a.jg(resolve_beam_label(Large));
+                },
+                RET);
     }
 
 test_done:
