@@ -21,6 +21,109 @@ limitations under the License.
 -->
 # Inets Release Notes
 
+## Inets 9.6.2.3
+
+### Fixed Bugs and Malfunctions
+
+- The `dets` and `mnesia` `mod_auth` backends used a key that did not include
+    the directory path, so all `require_user`/`require_group` records collapsed
+    into one per-listener namespace. A user authorized for one protected
+    directory could authenticate against any other protected directory served
+    by the same listener. `{path, Directory}` is now included in the auth
+    backend key, scoping records per directory as documented.
+
+  Own Id: OTP-20264 Aux Id: [PR-11546]
+
+- Requests specifying both `Transfer-Encoding` and `Content-Length` headers
+    are now rejected with `400 Bad Request`, per RFC 9112 Section 6.3.
+    Previously such requests could be used for CL.TE request-smuggling/desync
+    attacks against reverse proxies in front of `httpd`.
+
+  Own Id: OTP-20268 Aux Id: [PR-11547]
+
+- `httpd` accepted the obsolete header line-folding syntax (RFC 9112
+    Section 5.2, a continuation line beginning with space/tab), silently
+    treating the folded continuation as a separate header. This allowed
+    CL.TE-style request smuggling when `httpd` was placed behind a
+    folding-aware proxy. Such requests are now rejected with `400 Bad Request`.
+
+  Own Id: OTP-20269 Aux Id: [PR-11544]
+
+- A header such as `Content-Length : 6` (whitespace before the colon) was
+    previously silently dropped, causing the content length to default to 0
+    and the body bytes to be misinterpreted as a pipelined request (CL.0
+    smuggling). Per RFC 7230 Section 3.2.4, such headers are now rejected with
+    `400 Bad Request`.
+
+  Own Id: OTP-20270 Aux Id: [PR-11545]
+
+- A new httpd option `request_timeout` (default 60 seconds, renamed from the
+    interim `max_body_read_timeout`) bounds the idle time between reads of a
+    request body/message. The server now also sends `408 Request Timeout` when
+    the `min_bytes_per_second` floor is hit, and `keep_alive_timeout`
+    measurement was corrected so the timer is cancelled as soon as new data
+    arrives rather than only after full header parsing; `keep_alive_timeout`
+    and `request_timeout` now also accept `infinity` to disable the timeout.
+
+  Own Id: OTP-20271 Aux Id: [PR-11543]
+
+- `mod_auth`, `mod_security`, and `mod_get` compared resolved filesystem
+    paths against configured protected-directory patterns without normalizing
+    repeated slashes or filesystem case. On case-insensitive filesystems
+    (macOS, Windows) or with repeated slashes, a request could resolve to a
+    protected resource while evading the directory match. Paths are now
+    canonicalized (slash-collapsed, and case-normalized when the filesystem is
+    case-insensitive) before the authorization decision.
+
+  Own Id: OTP-20279 Aux Id: [PR-11542]
+
+- A request with an invalid chunked transfer-encoding chunk size previously
+    caused the httpd connection handler to hang indefinitely without
+    requiring further input from the client. This leaked a process per
+    request and could be used to exhaust server resources (denial of
+    service). Invalid chunk sizes are now rejected immediately with an error
+    response, and the connection is closed.
+
+  Own Id: OTP-20306 Aux Id: [PR-11539]
+
+- `max_body_size` was previously enforced only after a complete chunk had
+    been received, allowing a single oversized chunk to be buffered in full
+    before the limit was checked — undermining the memory-exhaustion
+    protection the option is meant to provide. The limit is now enforced
+    incrementally as chunk data arrives, rejecting the request as soon as the
+    configured size is exceeded.
+
+  Own Id: OTP-20307 Aux Id: [PR-11540]
+
+- The documented default of 150 for the `max_clients` option was not
+    applied by the implementation, allowing an unbounded number of concurrent
+    clients to connect regardless of configuration. The default is now
+    correctly enforced.
+
+  Own Id: OTP-20308 Aux Id: [PR-11541]
+
+- Fixed a bug where httpd failed to start when configured with
+    {socket_type, {ip_comm, SockOpts}} and a fixed (non-zero) port.
+
+  Own Id: OTP-20342 Aux Id: [PR-11548]
+
+- `httpc` now enforces a limit on the total size of response headers and response body, preventing unbounded memory allocation when connecting to a malicious or malfunctioning server. The new max_header_size and max_body_size request options can be used
+    to override the default limit (10240 bytes for headers). Additionally, httpc now validates that the Content-Length header contains only digits before use, avoiding a crash on malformed responses.
+
+  Own Id: OTP-20343 Aux Id: [PR-11538]
+
+[PR-11546]: https://github.com/erlang/otp/pull/11546
+[PR-11547]: https://github.com/erlang/otp/pull/11547
+[PR-11544]: https://github.com/erlang/otp/pull/11544
+[PR-11545]: https://github.com/erlang/otp/pull/11545
+[PR-11543]: https://github.com/erlang/otp/pull/11543
+[PR-11542]: https://github.com/erlang/otp/pull/11542
+[PR-11539]: https://github.com/erlang/otp/pull/11539
+[PR-11540]: https://github.com/erlang/otp/pull/11540
+[PR-11541]: https://github.com/erlang/otp/pull/11541
+[PR-11548]: https://github.com/erlang/otp/pull/11548
+[PR-11538]: https://github.com/erlang/otp/pull/11538
+
 ## Inets 9.6.2.2
 
 ### Fixed Bugs and Malfunctions

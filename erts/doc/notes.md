@@ -23,6 +23,73 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 16.4.0.6
+
+### Fixed Bugs and Malfunctions
+
+- No-suspend port command signals (i.e. port command signals sent using the `erlang:port_command/3` BIF or the `erlang:send/3` BIF with the `nosuspend` option) were not aborted properly in all scenarios which could leave the port queue in a busy state indefinitely. Also asynchronously sent no-suspend command signals (i.e, port command signals sent using the `erlang:send/3` BIF with the `nosuspend` option) could sometimes be delivered even though the port was busy.
+
+  Own Id: OTP-20135 Aux Id: [GH-11052], [PR-11463]
+
+- erts: Fix missing exit_status caused by SIGCHLD race
+
+  Own Id: OTP-20274 Aux Id: [GH-11278], [PR-11298]
+
+- erts: Fix bug in `is_in_range` instruction for x86 JIT
+
+  Own Id: OTP-20278 Aux Id: [GH-11419], [PR-11429]
+
+- Fixed bug in `binary_to_term` that could cause emulator crash for specific terms in specific process states (reductions left).
+
+  Own Id: OTP-20281 Aux Id: [GH-11404], [PR-11425]
+
+- erts: Fix crash with `term_to_iovec/2` for large binary
+
+  Own Id: OTP-20282 Aux Id: [PR-11428]
+
+- A distributed `priority` send larger than 32 KiB to a process alias caused the receiving  runtime system to crash.
+
+  Own Id: OTP-20286 Aux Id: [GH-11416], [PR-11417]
+
+- Priority message queue markers were sometimes installed in the message queue even when no priority messages could be received. As a result, the two markers had to be traversed unnecessarily when scanning the message queue, introducing a small but avoidable overhead.
+
+  Own Id: OTP-20300 Aux Id: [PR-11485]
+
+- A monitor of `time_offset` co-created with a process alias (`monitor(time_offset, clock_service, [{alias, UnaliasOpt}])`) either crashed the runtime system or did not work. This bug was introduced in OTP 25.0.
+
+  Own Id: OTP-20319 Aux Id: [PR-11509]
+
+- A process alias was erroneously created when a remote `spawn_request()` operation with a `{monitor, [{alias, explicit_unalias}]}` option failed with `noconnection` reason.
+
+  Own Id: OTP-20330 Aux Id: [PR-11521]
+
+- A `gen_tcp` socket using the inet driver and `{packet,4}` had a bug if receiving a packet with size just below INT_MAX.
+  
+  That packet size wrapped in size calculations and made the received data overwrite its allocation and trash allocator metadata and subsequent block(s), causing the VM to crash.
+  
+  This made it possible for anyone to remotely crash an Erlang node that used `{packet,4}` on a reachable socket.
+  
+  This bug has been corrected.
+
+  Own Id: OTP-20334 Aux Id: [CVE-2026-75538], [PR-11533]
+
+[GH-11052]: https://github.com/erlang/otp/issues/11052
+[PR-11463]: https://github.com/erlang/otp/pull/11463
+[GH-11278]: https://github.com/erlang/otp/issues/11278
+[PR-11298]: https://github.com/erlang/otp/pull/11298
+[GH-11419]: https://github.com/erlang/otp/issues/11419
+[PR-11429]: https://github.com/erlang/otp/pull/11429
+[GH-11404]: https://github.com/erlang/otp/issues/11404
+[PR-11425]: https://github.com/erlang/otp/pull/11425
+[PR-11428]: https://github.com/erlang/otp/pull/11428
+[GH-11416]: https://github.com/erlang/otp/issues/11416
+[PR-11417]: https://github.com/erlang/otp/pull/11417
+[PR-11485]: https://github.com/erlang/otp/pull/11485
+[PR-11509]: https://github.com/erlang/otp/pull/11509
+[PR-11521]: https://github.com/erlang/otp/pull/11521
+[CVE-2026-75538]: https://nvd.nist.gov/vuln/detail/2026-75538
+[PR-11533]: https://github.com/erlang/otp/pull/11533
+
 ## Erts 16.4.0.5
 
 ### Fixed Bugs and Malfunctions
