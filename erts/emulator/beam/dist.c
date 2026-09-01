@@ -1033,7 +1033,8 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
             ERTS_LC_ASSERT(erts_lc_is_port_locked(erts_port_lookup_raw(dep->cid)));
 
             if (erts_port_task_is_scheduled(&dep->dist_cmd))
-                erts_port_task_abort(&dep->dist_cmd);
+                erts_port_task_abort(erts_port_lookup_raw(dep->cid),
+                                     &dep->dist_cmd);
         }
         else {
             ASSERT(is_internal_pid(dep->cid));
