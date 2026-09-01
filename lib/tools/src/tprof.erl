@@ -753,8 +753,8 @@ disable_trace(Server, Spec, Options) ->
 disable_session_trace(Session, Procs) ->
     disable_session_trace(Session, Procs, default_trace_options()).
 disable_session_trace(Session, Procs, Options) when Procs =:= all;
-                                                    Procs =:= new_processes;
-                                                    Procs =:= existing_processes ->
+                                                    Procs =:= new;
+                                                    Procs =:= existing ->
     trace:process(Session,  Procs, false, trace_options(Options));
 disable_session_trace(Session, {Children, PidOrName}, Options) when Children =:= children;
                                                                     Children =:= all_children ->
