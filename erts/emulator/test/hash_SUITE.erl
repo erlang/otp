@@ -56,7 +56,8 @@
          test_phash2_with_small_unaligned_sub_binary/1,
          test_phash2_with_large_bin/1,
          test_phash2_with_large_unaligned_sub_binary/1,
-         test_phash2_with_super_large_unaligned_sub_binary/1]).
+         test_phash2_with_super_large_unaligned_sub_binary/1,
+         test_iovblockhash/1]).
 
 %%
 %% Define to run outside of test server
@@ -115,6 +116,7 @@ all() ->
      test_phash2_10MB_plus_bin,
      test_native_record,
      md5_large,
+     test_iovblockhash,
      {group, phash2_benchmark_tests},
      {group, phash2_benchmark}].
 
@@ -640,6 +642,22 @@ duplicate_iolist(IOList, 0) ->
 duplicate_iolist(IOList, NrOfTimes) ->
     duplicate_iolist([IOList, IOList], NrOfTimes - 1).
 
+%% This testcase needs >3 GB of free memory.
+test_iovblockhash(Config) when is_list(Config) ->
+    run_when_enough_resources(
+      fun() ->
+              {ok, Peer, N} = ?CT_PEER(),
+              erpc:call(N,
+                        fun() ->
+                                test_iovblockhash_1()
+                        end),
+              peer:stop(Peer)
+      end).
+
+test_iovblockhash_1() ->
+    BigBin = binary:copy(<<0>>, 3 bsl 30),
+    _ = term_to_iovec(BigBin, [local]),
+    ok.
 
 %% This functions is written very carefully so that the binaries
 %% created are released as quickly as possible. If they are not released
