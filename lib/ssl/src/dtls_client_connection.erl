@@ -147,7 +147,7 @@
 -export([callback_mode/0,
          terminate/3,
          code_change/4,
-         format_status/2]).
+         format_status/1]).
 
 %% Tracing
 -export([handle_trace/3]).
@@ -573,8 +573,8 @@ terminate(Reason, StateName, State) ->
 code_change(_OldVsn, StateName, State, _Extra) ->
     {ok, StateName, State}.
 
-format_status(Type, Data) ->
-    ssl_gen_statem:format_status(Type, Data).
+format_status(Data) ->
+    ssl_gen_statem:format_status(Data).
 
 gen_state(StateName, Type, Event, State) ->
     try tls_dtls_client_connection:StateName(Type, Event, State)

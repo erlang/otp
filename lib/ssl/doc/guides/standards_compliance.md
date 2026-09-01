@@ -98,28 +98,27 @@ Not yet supported
 
 ## TLS 1.3
 
-OTP-22 introduces support for TLS 1.3. The current implementation supports a
-selective set of cryptographic algorithms:
+TLS 1.3 support was first introduced in OTP 22. The "Since" column in the
+table below indicates in which OTP release a feature was first implemented.
+We always recommend running the latest patch level of any given release, as
+compliance bugs may have been fixed in subsequent patch releases.
 
-- Key Exchange: ECDHE groups supported by default
-- Groups: all standard groups supported for the Diffie-Hellman key exchange
-- Groups: Support brainpool groups from RFC 8734
-- Ciphers: all mandatory cipher suites are supported
-- Signature Algorithms: All algorithms form RFC 8446
-- Certificates: RSA, ECDSA and EDDSA keys
+The following features from [RFC 8446](https://tools.ietf.org/html/rfc8446)
+(or mentioned by it) are **not yet implemented**:
 
-Other notable features:
-
-- PSK and session resumption is supported (stateful and stateless tickets)
-- Anti-replay protection using Bloom-filters with stateless tickets
-- Early data and 0-RTT is supported
-- Key and Initialization Vector Update is supported
+- PSK-only key exchange (without (EC)DHE)
+- Post-Handshake Client Authentication (Section 4.6.2)
+- OID Filters extension (Section 4.2.5)
+- Record padding (sending, Section 5.4)
+- Server-side OCSP stapling (status_request in Certificate, Section 4.4.2)
+- Supported groups in Encrypted Extensions (Section 4.3.1)
+- Heartbeat extension (RFC 6520)
+- Signed Certificate Timestamp extension (RFC 6962)
+- Raw Public Keys / client_certificate_type and server_certificate_type (RFC 7250)
+- Padding extension (RFC 7685)
 
 For more detailed information see the
-[Standards Compliance](standards_compliance.md#soc_table) below.
-
-The following table describes the current state of standards compliance for TLS
-1.3.
+[Standards Compliance](standards_compliance.md#soc_table) table below.
 
 (_C_ = Compliant, _NC_ = Non-Compliant, _PC_ = Partially-Compliant, _NA_ = Not
 Applicable)
@@ -430,8 +429,64 @@ Applicable)
 | [C.5. Unauthenticated Operation](https://tools.ietf.org/html/rfc8446#section-C.5)                               |                                                                                                                                                                                                                                                                                                           | C     | 22    |
 | [D.1. Negotiating with an Older Server](https://tools.ietf.org/html/rfc8446#section-D.1)                        |                                                                                                                                                                                                                                                                                                           | C     | 22\.2 |
 | [D.2. Negotiating with an Older Client](https://tools.ietf.org/html/rfc8446#section-D.2)                        |                                                                                                                                                                                                                                                                                                           | C     | 22    |
-| [D.3. 0-RTT Backward Compatibility](https://tools.ietf.org/html/rfc8446#section-D.3)                            |                                                                                                                                                                                                                                                                                                           | NC    |       |
+| [D.3. 0-RTT Backward Compatibility](https://tools.ietf.org/html/rfc8446#section-D.3)                            |                                                                                                                                                                                                                                                                                                           | NA    |       |
 | [D.4. Middlebox Compatibility Mode](https://tools.ietf.org/html/rfc8446#section-D.4)                            |                                                                                                                                                                                                                                                                                                           | C     | 23    |
 | [D.5. Security Restrictions Related to Backward Compatibility](https://tools.ietf.org/html/rfc8446#section-D.5) |                                                                                                                                                                                                                                                                                                           | C     | 22    |
 
 _Table: Standards Compliance_
+
+## Post-Quantum Cryptography (PQC)
+
+Post-quantum cryptography support was first introduced in OTP 28. PQC
+algorithms are only available with TLS 1.3.
+
+### Key Exchange (ML-KEM)
+
+Hybrid key exchange groups combining ML-KEM (FIPS 203) with classical
+ECDHE, as specified in [RFC 10024](https://www.rfc-editor.org/rfc/rfc10024.txt):
+
+| Group | Status | Since |
+|-------|--------|-------|
+| x25519mlkem768 | Default | 28.3 (default since 29.0) |
+| secp256r1mlkem768 | Supported | 28.3 |
+| secp384r1mlkem1024 | Supported | 28.3 |
+
+Plain ML-KEM groups (without classical hybrid):
+
+| Group | Status | Since |
+|-------|--------|-------|
+| mlkem768 | Supported | 28.0 |
+| mlkem1024 | Supported | 28.0 |
+| mlkem512 | Supported | 28.0 |
+
+### Signature Algorithms
+
+ML-DSA (FIPS 204) as specified in
+[draft-ietf-tls-mldsa](https://www.ietf.org/archive/id/draft-ietf-tls-mldsa-01.html):
+
+| Algorithm | Status | Since |
+|-----------|--------|-------|
+| mldsa44 | Supported | 28.0 |
+| mldsa65 | Supported | 28.0 |
+| mldsa87 | Supported | 28.0 |
+
+SLH-DSA (FIPS 205):
+
+| Algorithm | Status | Since |
+|-----------|--------|-------|
+| slh_dsa_sha2_128s | Supported | 28.3 |
+| slh_dsa_sha2_128f | Supported | 28.3 |
+| slh_dsa_sha2_192s | Supported | 28.3 |
+| slh_dsa_sha2_192f | Supported | 28.3 |
+| slh_dsa_sha2_256s | Supported | 28.3 |
+| slh_dsa_sha2_256f | Supported | 28.3 |
+| slh_dsa_shake_128s | Supported | 28.3 |
+| slh_dsa_shake_128f | Supported | 28.3 |
+| slh_dsa_shake_192s | Supported | 28.3 |
+| slh_dsa_shake_192f | Supported | 28.3 |
+| slh_dsa_shake_256s | Supported | 28.3 |
+| slh_dsa_shake_256f | Supported | 28.3 |
+
+### Not Yet Implemented
+
+- Composite ML-DSA signatures (ML-DSA + RSA/ECDSA in a single certificate)

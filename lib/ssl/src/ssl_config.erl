@@ -32,6 +32,7 @@
 -define(DEFAULT_MAX_SESSION_CACHE, 1000).
 -define(TWO_HOURS, 7200).
 -define(SEVEN_DAYS, 604800).
+-define(DEFAULT_MAX_CRL_CACHE_SIZE, 100000).
 
 %% Connection parameter configuration
 -export([init/2,
@@ -44,6 +45,7 @@
 %% Application configuration
 -export([pre_1_3_session_opts/1,
          get_max_early_data_size/0,
+         get_max_crl_cache_size/0,
          get_ticket_lifetime/0,
          get_ticket_store_size/0,
          get_internal_active_n/0,
@@ -143,6 +145,9 @@ get_internal_active_n(true) ->
     erlang:system_time() rem ?INTERNAL_ACTIVE_N + 1;
 get_internal_active_n(false) ->
     application_int(internal_active_n, ?INTERNAL_ACTIVE_N).
+
+get_max_crl_cache_size() ->
+    application_int(crl_cache_max_size, ?DEFAULT_MAX_CRL_CACHE_SIZE).
 
 %%====================================================================
 %% Certificate and  Key configuration
@@ -1018,6 +1023,13 @@ opt_tickets(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
     option_incompatible(STS =/= undefined andalso not Stateless,
                         [stateless_tickets_seed, {session_tickets, SessionTickets}]),
 
+    case EarlyData =:= enabled andalso Stateless andalso AntiReplay =:= undefined of
+        true ->
+            ?LOG_WARNING("early_data enabled without anti_replay; "
+                         "0-RTT data is replayable");
+        false ->
+            ok
+    end,
     assert_client_only(use_ticket, UserOpts),
     Opts#{session_tickets => SessionTickets, early_data => EarlyData,
           anti_replay => AntiReplay, stateless_tickets_seed => STS}.
@@ -1372,7 +1384,16 @@ opt_reuse_sessions(UserOpts, #{versions := Versions} = Opts, #{role := client}) 
     assert_version_dep(Where2 =:= new, reuse_session, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
     Opts#{reuse_sessions => RUSS, reuse_session => RS};
 opt_reuse_sessions(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
-    {Where1, RUSS} = get_opt_bool(reuse_sessions, true, UserOpts, Opts),
+    %% Disable reuse_sessions when client cert verify_peer
+    %% verification is required, until Extended Master Secret is implemented.
+    ReuseDefault = case maps:get(verify, Opts) of
+                       verify_peer ->
+                           false;
+                       verify_none ->
+                           true
+                   end,
+
+    {Where1, RUSS} = get_opt_bool(reuse_sessions, ReuseDefault, UserOpts, Opts),
 
     DefRS = fun(_, _, _, _) -> true end,
     {Where2, RS} = get_opt_fun(reuse_session, 4, DefRS, UserOpts, Opts),
@@ -1484,9 +1505,22 @@ opt_psk_groups(#supported_groups{supported_groups = SupportedGroups},  UserOpts,
     end.
 
 opt_crl(UserOpts, Opts, _Env) ->
+    ManagerType = case maps:get(erl_dist, Opts, false) of
+                      false ->
+                          normal;
+                      true ->
+                          dist
+                  end,
     {_, Check} = get_opt_of(crl_check, [best_effort, peer, true, false], false, UserOpts, Opts),
-    Cache = case get_opt(crl_cache, {ssl_crl_cache, {internal, []}}, UserOpts, Opts) of
-                {_, {Cb, {_Handle, Options}} = Value} when is_atom(Cb), is_list(Options) ->
+    Cache = case get_opt(crl_cache, {ssl_crl_cache, {internal, [{owner, ManagerType}]}},
+                         UserOpts, Opts) of
+                {default, {ssl_crl_cache, {_Handle, _Options}} = Value} ->
+                    Value;
+                {old, {ssl_crl_cache, {_Handle, _Options}} = Value} ->
+                    Value;
+                {new, {ssl_crl_cache, {Handle, Options}}} when is_list(Options) ->
+                    {ssl_crl_cache, {Handle, [{owner, ManagerType} | Options]}};
+                {_, {Cb, {_Handle, Options}} = Value}  when is_atom(Cb), is_list(Options) ->
                     Value;
                 {_, Err} ->
                     option_error(crl_cache, Err)

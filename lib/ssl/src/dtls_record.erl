@@ -128,7 +128,11 @@ get_connection_state_by_epoch(Epoch, #{current_read := #{epoch := Epoch} = Curre
     Current;
 get_connection_state_by_epoch(Epoch, #{saved_read := #{epoch := Epoch} = Saved},
 			      read) ->
-    Saved.
+    Saved;
+%% This can be an attack on read side so return undefined so we can trigger alert
+%% on write side this would be a programming error, so let it crash.
+get_connection_state_by_epoch(_, _, read) ->
+    undefined.
 
 set_connection_state_by_epoch(WriteState, Epoch, #{current_write := #{epoch := Epoch}} = States,
 			      write) ->
@@ -253,10 +257,13 @@ encode_plain_text(Type, Version, Epoch, Data, ConnectionStates) ->
 %% Decoding 
 %%====================================================================
 
-decode_cipher_text(#ssl_tls{epoch = Epoch} = CipherText, ConnnectionStates0) ->
-    ReadState = get_connection_state_by_epoch(Epoch, ConnnectionStates0, read),
-    decode_cipher_text(CipherText, ReadState, ConnnectionStates0).
-
+decode_cipher_text(#ssl_tls{epoch = Epoch} = CipherText, ConnectionStates0) ->
+    case get_connection_state_by_epoch(Epoch, ConnectionStates0, read) of
+        undefined ->
+            ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC);
+        ReadState ->
+            decode_cipher_text(CipherText, ReadState, ConnectionStates0)
+    end.
 
 %%====================================================================
 %% Protocol version handling

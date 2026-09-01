@@ -144,9 +144,9 @@ valid_session(#session{time_stamp = TimeStamp}, LifeTime) ->
 do_client_select_session({_, _, #{reuse_session := {SessionId, SessionData}}},
                          _, _, NewSession, _) when is_binary(SessionId) andalso
                                                    is_binary(SessionData) ->
-    try binary_to_term(SessionData, [safe]) of
-        Session ->
-            Session#session{is_resumable = true}
+    try
+        Session = binary_to_term(SessionData, [safe]),
+        Session#session{is_resumable = true}
     catch
         _:_ ->
             NewSession#session{session_id = ?EMPTY_ID}
