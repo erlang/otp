@@ -538,6 +538,16 @@ limitations under the License.
 [PR-9214]: https://github.com/erlang/otp/pull/9214
 [PR-9298]: https://github.com/erlang/otp/pull/9298
 
+## Ssh 5.2.11.12
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug where multiple subsystem requests could succeed on same ssh channel which is forbidden by RFC 4254 §6.5
+
+  Own Id: OTP-20284 Aux Id: [PR-11437]
+
+[PR-11437]: https://github.com/erlang/otp/pull/11437
+
 ## Ssh 5.2.11.11
 
 ### Fixed Bugs and Malfunctions
