@@ -89,7 +89,7 @@ prop_filter() ->
 subprop_filter(Mod) ->
     ?FORALL(
         {{S0, M0}, Fun},
-        {gen_set(Mod), function1(bool())},
+        {gen_set(Mod), ?CT_FUNCTION1(bool())},
         is_equal(Mod:filter(Fun, S0),
                  model_filter(Fun, M0))
     ).
@@ -103,7 +103,7 @@ subprop_filtermap(Mod) ->
     ?FORALL(
         {{S0, M0}, Fun},
         {gen_set(Mod),
-         function1(oneof([true, false, {true, ?CT_SAFE_ANY()}]))},
+         ?CT_FUNCTION1(oneof([true, false, {true, ?CT_SAFE_ANY()}]))},
         is_equal(Mod:filtermap(wrap(Fun), S0),
                  model_filtermap(wrap(Fun), M0))
     ).
@@ -350,7 +350,7 @@ prop_map() ->
 subprop_map(Mod) ->
     ?FORALL(
         {{S0, M0}, Fun},
-        {gen_set(Mod), function1(?CT_SAFE_ANY())},
+        {gen_set(Mod), ?CT_FUNCTION1(?CT_SAFE_ANY())},
         is_equal(Mod:map(wrap(Fun), S0),
                  model_map(wrap(Fun), M0))
     ).
@@ -449,12 +449,12 @@ subprop_operations(Mod) ->
         {gen_set(Mod),
          list(oneof([{add_element, ?CT_SAFE_ANY()},
                      {del_element, ?CT_SAFE_ANY()},
-                     {filter, function1(bool())},
-                     {filtermap, function1(oneof([true,
+                     {filter, ?CT_FUNCTION1(bool())},
+                     {filtermap, ?CT_FUNCTION1(oneof([true,
                                                   false,
                                                   {true, ?CT_SAFE_ANY()}]))},
                      {intersection, gen_set(Mod)},
-                     {map, function1(?CT_SAFE_ANY())},
+                     {map, ?CT_FUNCTION1(?CT_SAFE_ANY())},
                      {subtract, gen_set(Mod)},
                      {union, gen_set(Mod)}]))},
         begin

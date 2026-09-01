@@ -248,7 +248,7 @@ common_decode_malformed(DataGen, ModeGen, Fn) ->
                             [b64_char(Mode), b64_char(Mode), b64_char(Mode)]
                         ]
                     ),
-                    function1(bool())
+                    ?CT_FUNCTION1(bool())
                 },
                 {{NormalizedB64, insert_noise(NoisyB64, Malformings, InsertFn)}, Mode}
             )
@@ -310,7 +310,7 @@ b64(Mode) ->
 wsped_b64(Mode) ->
     ?LET(
         {B64, Wsps, InsertFn},
-        {b64(Mode), list(oneof([$\t, $\r, $\n, $\s])), function1(bool())},
+        {b64(Mode), list(oneof([$\t, $\r, $\n, $\s])), ?CT_FUNCTION1(bool())},
         {B64, insert_noise(B64, Wsps, InsertFn)}
     ).
 
@@ -327,7 +327,7 @@ non_b64_char(Mode) ->
 noisy_b64(Mode) ->
     ?LET(
         {{B64, WspedB64}, Noise, InsertFn},
-        {wsped_b64(Mode), non_empty(list(non_b64_char(Mode))), function1(bool())},
+        {wsped_b64(Mode), non_empty(list(non_b64_char(Mode))), ?CT_FUNCTION1(bool())},
         {B64, insert_noise(WspedB64, Noise, InsertFn)}
     ).
 
