@@ -41,6 +41,16 @@ This document describes the changes made to the Eldap application.
 
   Own Id: OTP-19964
 
+## Eldap 1.2.16.1
+
+### Fixed Bugs and Malfunctions
+
+- eldap referral URL parsing now rejects a port component longer than 5 digits instead of attempting to convert an arbitrarily large digit string to an integer.
+
+  Own Id: OTP-20345 Aux Id: [PR-11538]
+
+[PR-11538]: https://github.com/erlang/otp/pull/11538
+
 ## Eldap 1.2.16
 
 ### Fixed Bugs and Malfunctions

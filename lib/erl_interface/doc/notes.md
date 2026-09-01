@@ -66,6 +66,16 @@ This document describes the changes made to the Erl_interface application.
 
   Own Id: OTP-16607 Aux Id: OTP-16608
 
+## Erl_Interface 5.7.0.2
+
+### Fixed Bugs and Malfunctions
+
+- erl_interface: Fix buffer leak and state corruption on `ei_x_buff` realloc failure
+
+  Own Id: OTP-20324 Aux Id: [PR-11492]
+
+[PR-11492]: https://github.com/erlang/otp/pull/11492
+
 ## Erl_Interface 5.7.0.1
 
 ### Fixed Bugs and Malfunctions

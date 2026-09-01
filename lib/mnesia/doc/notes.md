@@ -84,6 +84,25 @@ is the version number of Mnesia.
 [PR-7315]: https://github.com/erlang/otp/pull/7315
 [PR-10839]: https://github.com/erlang/otp/pull/10839
 
+## Mnesia 4.25.3.2
+
+### Fixed Bugs and Malfunctions
+
+- A transaction iterating a table (first/1, last/1, next/2, prev/2,
+  select, select_reverse on non-ordered_set) leaked a safe_fixtable
+  hold when the coordinator was killed by an external signal. The
+  table remained fixed for the lifetime of the node, preventing
+  space reclamation of deleted objects.
+
+  Own Id: OTP-20347 Aux Id: [PR-11517]
+
+- Fixed a race condition where mnesia_controller could crash if a table was deleted while `mnesia:set_master_nodes/2` was being processed.
+
+  Own Id: OTP-20351 Aux Id: [PR-11554]
+
+[PR-11517]: https://github.com/erlang/otp/pull/11517
+[PR-11554]: https://github.com/erlang/otp/pull/11554
+
 ## Mnesia 4.25.3.1
 
 ### Fixed Bugs and Malfunctions
