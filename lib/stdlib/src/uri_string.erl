@@ -1819,12 +1819,14 @@ calculate_parsed_query_fragment(Input, Unparsed) ->
 
 get_port(<<>>) ->
     undefined;
-get_port(B) ->
+get_port(B) when byte_size(B) =< 5 ->
     try binary_to_integer(B)
     catch
         error:badarg ->
             throw({error, invalid_uri, B})
-    end.
+    end;
+get_port(B) ->
+    throw({error, invalid_uri, B}).
 
 
 %% Strip last char if it is in list

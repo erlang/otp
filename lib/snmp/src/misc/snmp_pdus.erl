@@ -51,6 +51,7 @@ process.
 
 %% See RFC1155, RFC1157, RFC1901, RFC1902, RFC1905, RFC2272
 
+-dialyzer({nowarn_function, dec_Counter64/1}).
 
 %% API
 -export([enc_message/1, enc_message_only/1, enc_pdu/1,
@@ -388,7 +389,7 @@ dec_value([5,0 | T]) ->
 %%     {Value, Rest} = dec_INTEGER(Bytes),
 %%     {{'INTEGER', Value}, Rest};
 dec_value([2 | Bytes]) ->
-    {Value, Rest} = dec_integer_notag(Bytes),
+    {Value, Rest} = dec_integer_notag(Bytes, 4), %% SMI INTEGER is 32-bit
     {{'INTEGER', Value}, Rest};
 
 %% OCTET STRING
@@ -418,7 +419,7 @@ dec_value([64 | Bytes]) ->
 dec_value([65 | Bytes]) ->
     %% Counter32 is an unsigned 32 but is actually encoded as 
     %% a signed integer 32 (INTEGER).
-    {Value, Rest} = dec_integer_notag(Bytes),
+    {Value, Rest} = dec_integer_notag(Bytes, 5),
     Value2 = 
     	if
     	    (Value >= 0) andalso (Value =< 16#ffffffff) ->
@@ -441,7 +442,7 @@ dec_value([65 | Bytes]) ->
 %%             exit({error, {bad_unsigned32, BadValue}})	
 %%     end;
 dec_value([66 | Bytes]) ->
-    {Value, Rest} = dec_integer_notag(Bytes),
+    {Value, Rest} = dec_integer_notag(Bytes, 5),
     Value2 = 
 	if 
 	    (Value >= 0) andalso (Value =< 16#ffffffff) ->
@@ -462,7 +463,7 @@ dec_value([66 | Bytes]) ->
 %%             exit({error, {bad_timeticks, BadValue}})	
 %%     end;
 dec_value([67 | Bytes]) ->
-    {Value, Rest} = dec_integer_notag(Bytes),
+    {Value, Rest} = dec_integer_notag(Bytes, 5),
     Value2 = 
 	if
 	    (Value >= 0) andalso (Value =< 16#ffffffff) ->
@@ -492,7 +493,7 @@ dec_value([68 | Bytes]) ->
 %%             exit({error, {bad_counter64, BadValue}})	
 %%     end;
 dec_value([70 | Bytes]) ->
-    case dec_Counter64(Bytes) of
+    case dec_Counter64(Bytes, 9) of
         {Value, Rest} when (Value >= 0) andalso
                            (Value =< 18446744073709551615) ->
             {{'Counter64', Value}, Rest};
@@ -528,6 +529,13 @@ dec_value([130,0|T]) ->
 %% INTEGER: 70 instead of 2. The tag has already been removed by the
 %% caller.
 %%
+dec_Counter64(Bytes, SizeLimit) ->
+    case dec_len(Bytes) of
+        {Size, Rest} when (is_integer(SizeLimit) andalso
+                            (Size =< SizeLimit)) ->
+            dec_Counter64([Size | Rest]);
+        {BadSize, _} -> throw({exit, {bad_counter64_length, BadSize}})
+    end.
 dec_Counter64([CounterLen | Rest0]) ->
     %% This crappola is because we currently uses lists (instead of binary)
     {CounterList, Rest1} = lists:split(CounterLen, Rest0),
