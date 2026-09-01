@@ -141,8 +141,8 @@ groups() ->
                       double_slash_auth_bypass, case_insensitive_auth_bypass,
                       auth_path_canonicalization]},
      {auth_api, [], [auth_api_1_1, auth_api_1_0]},
-     {auth_api_dets, [], [auth_api_1_1, auth_api_1_0]},
-     {auth_api_mnesia, [], [auth_api_1_1, auth_api_1_0]},
+     {auth_api_dets, [], [auth_api_1_1, auth_api_1_0, auth_directory_isolation]},
+     {auth_api_mnesia, [], [auth_api_1_1, auth_api_1_0, auth_directory_isolation]},
      {security, [], [security_1_1, security_1_0]},
      {logging, [], [disk_log_internal, disk_log_exists,
              disk_log_bad_size, disk_log_bad_file]},
@@ -909,6 +909,76 @@ ipv6(Config) when is_list(Config) ->
 	 false ->
 	     {skip, "Host does not support IPv6"}
      end.
+
+%%-------------------------------------------------------------------------
+auth_directory_isolation() ->
+    [{doc, "Verify that per-directory auth namespaces are isolated (GH-1052). "
+      "A user added to /dirA must NOT be able to authenticate against /dirB."}].
+
+auth_directory_isolation(Config) when is_list(Config) ->
+    Version = proplists:get_value(http_version, Config, "HTTP/1.1"),
+    Host = proplists:get_value(host, Config),
+    Port = proplists:get_value(port, Config),
+    Node = proplists:get_value(node, Config),
+    ServerRoot = proplists:get_value(server_root, Config),
+    Prefix = proplists:get_value(auth_prefix, Config),
+
+    %% Directories: <prefix>open requires user "one" or "Aladdin"
+    %%              <prefix>secret requires group "group1" or "group2"
+    OpenDir = Prefix ++ "open",
+    SecretDir = Prefix ++ "secret",
+
+    %% Clean slate
+    remove_users(Node, ServerRoot, Host, Port, Prefix, "open"),
+    remove_users(Node, ServerRoot, Host, Port, Prefix, "secret"),
+
+    %% Add user "one" to the "open" directory
+    true = add_user(Node, ServerRoot, Port, Prefix, "open",
+                  "one", "onePassword", []),
+
+    %% Add user "two" to the "secret" directory and add to group1
+    true = add_user(Node, ServerRoot, Port, Prefix, "secret",
+                  "two", "twoPassword", []),
+    true = add_group_member(Node, ServerRoot, Port, Prefix, "secret",
+                          "two", "group1"),
+
+    %% Test 1: "one" can access /open (require_user includes "one")
+    ok = auth_status(auth_request("/" ++ OpenDir ++ "/",
+                                  "one", "onePassword", Version, Host),
+                     Config, [{statuscode, 200}]),
+
+    %% Test 2: "two" can access /secret (in group1)
+    ok = auth_status(auth_request("/" ++ SecretDir ++ "/",
+                                  "two", "twoPassword", Version, Host),
+                     Config, [{statuscode, 200}]),
+
+    %% Test 3: KEY TEST — "one" must NOT access /secret
+    %% Before fix: 200 (namespace collapsed). After fix: 401.
+    ok = auth_status(auth_request("/" ++ SecretDir ++ "/",
+                                  "one", "onePassword", Version, Host),
+                     Config, [{statuscode, 401}]),
+
+    %% Test 4: "two" must NOT access /open
+    ok = auth_status(auth_request("/" ++ OpenDir ++ "/",
+                                  "two", "twoPassword", Version, Host),
+                     Config, [{statuscode, 401}]),
+
+    %% Test 5: get_user for "one" in /secret returns not found
+    SecretDirectory = filename:join([ServerRoot, "htdocs", SecretDir]),
+    {error, no_such_user} =
+        rpc:call(Node, mod_auth, get_user,
+                 ["one", undefined, Port, SecretDirectory]),
+
+    %% Test 6: get_user for "two" in /open returns not found
+    OpenDirectory = filename:join([ServerRoot, "htdocs", OpenDir]),
+    {error, no_such_user} =
+        rpc:call(Node, mod_auth, get_user,
+                 ["two", undefined, Port, OpenDirectory]),
+
+    %% Cleanup
+    remove_users(Node, ServerRoot, Host, Port, Prefix, "open"),
+    remove_users(Node, ServerRoot, Host, Port, Prefix, "secret"),
+    ok.
 
 %%-------------------------------------------------------------------------
 same_file_name_dir_name() ->
