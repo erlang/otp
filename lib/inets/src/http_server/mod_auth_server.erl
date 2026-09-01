@@ -261,7 +261,8 @@ api_call(Addr, Port, Profile, Dir, Func, Args,Password,State) ->
 	    case ets:match_object(ConfigName, {directory, {Dir, '$1'}}) of
 		[{directory, {Dir, DirData}}] ->
 		    AuthMod = auth_mod_name(DirData),
-		    (catch apply(AuthMod, Func, [DirData|Args]));
+                    DirDataWithPath = [{path, Dir} | DirData],
+		    (catch apply(AuthMod, Func, [DirDataWithPath|Args]));
 		_ ->
 		    {error, no_such_directory}
 	    end;

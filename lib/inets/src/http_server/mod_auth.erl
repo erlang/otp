@@ -729,8 +729,9 @@ group_accepted(Info, User, [Group|Rest], Dir, DirData) ->
 	    false
     end.
 
-check_password(User, Password, _Dir, DirData) ->
-    case int_get_user(DirData, User) of
+check_password(User, Password, Dir, DirData) ->
+    DirDataWithPath = [{path, Dir} | DirData],
+    case int_get_user(DirDataWithPath, User) of
 	{ok, UStruct} ->
 	    case UStruct#httpd_user.password of
 		Password ->
@@ -764,9 +765,10 @@ secretp(Path,ConfigDB) ->
     Directories = ets:match(ConfigDB,{directory, {'$1','_'}}),
     case secret_path(Path, Directories) of
 	{yes,Directory} ->
-	    {yes, {Directory,
-		   lists:flatten(
-		     ets:match(ConfigDB,{directory, {Directory,'$1'}}))}};
+            DirData = lists:flatten(
+                          ets:match(ConfigDB, {directory, {Directory, '$1'}})),
+              DirDataWithPath = [{path, Directory} | DirData],
+              {yes, {Directory, DirDataWithPath}};
 	no ->
 	    no
     end.
@@ -779,7 +781,7 @@ secret_path(_Path, [], to_be_found) ->
 secret_path(_Path, [], Directory) ->
     {yes, Directory};
 secret_path(Path, [[NewDirectory] | Rest], Directory) ->
-    case re:run(Path, NewDirectory, [{capture, first}]) of
+    case re:run(Path, NewDirectory, [{capture, first}, caseless]) of
 	{match, _} when Directory =:= to_be_found ->
 	    secret_path(Path, Rest, NewDirectory);
 	{match, [{_, Length}]} when Length > length(Directory)->

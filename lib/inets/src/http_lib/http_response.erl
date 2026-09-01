@@ -128,7 +128,10 @@ headers("content-encoding", Value, Headers) ->
 headers("content-language", Value, Headers) ->
     Headers#http_response_h{'content-language' = Value};
 headers("content-length", Value, Headers) ->
-    Headers#http_response_h{'content-length' = Value};
+    case is_valid_content_length(Value) of
+        true -> Headers#http_response_h{'content-length' = Value};
+        false -> throw({error, {invalid_content_length, Value}})
+    end;
 headers("content-location", Value, Headers) ->
     Headers#http_response_h{'content-location' = Value};
 headers("content-md5", Value, Headers) ->
@@ -224,3 +227,8 @@ key_value_tuple(_, undefined) ->
     undefined;
 key_value_tuple(Key, Value) ->
     {Key, Value}.
+
+is_valid_content_length("") ->
+    false;
+is_valid_content_length(Value) ->
+    lists:all(fun(C) -> C >= $0 andalso C =< $9 end, Value).

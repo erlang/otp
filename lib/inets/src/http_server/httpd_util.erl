@@ -77,7 +77,8 @@ miscellaneous utility functions.
          mime_type_validate/1,
 	 mime_types_validate/1,
          custom_date/0,
-         error_log/2]).
+         error_log/2,
+         collapse_slashes/1]).
 
 -removed({flatlength, 1, "use erlang:iolist_size/1 instead"}).
 -removed({hexlist_to_integer, 1, "use erlang:list_to_integer/2 with base 16 instead"}).
@@ -931,3 +932,23 @@ mod_error_logging(Mod, ConfigDB, Report) ->
 	_ ->
 	    ok
     end.
+
+%%----------------------------------------------------------------------
+%% collapse_slashes(Path) -> Path
+%%
+%% Collapse consecutive slash characters into a single slash.
+%% This ensures the authorization decision (mod_auth, mod_security)
+%% and the file-serving layer (mod_get) see the same canonical path.
+%% Without this, "//secret/file" bypasses mod_auth's re:run directory
+%% check while the OS still serves the file (treating // as /).
+%%----------------------------------------------------------------------
+-doc false.
+collapse_slashes(Path) ->
+    collapse_slashes(Path, []).
+
+collapse_slashes([], Acc) ->
+    lists:reverse(Acc);
+collapse_slashes([$/,$/ | Rest], Acc) ->
+    collapse_slashes([$/ | Rest], Acc);
+collapse_slashes([C | Rest], Acc) ->
+    collapse_slashes(Rest, [C | Acc]).

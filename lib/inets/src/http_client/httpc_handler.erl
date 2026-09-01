@@ -229,17 +229,23 @@ init([Parent, Request, Options, ProfileName]) ->
     handle_verbose(Options#options.verbose),
     ProxyOptions = handle_proxy_options(Request#request.scheme, Options),
     Address = handle_proxy(Request#request.address, ProxyOptions),
+    MaxHeaderSize = proplists:get_value(max_header_size, Request#request.request_options),
+    MaxBodySize = proplists:get_value(max_body_size, Request#request.request_options),
     {ok, State} =
         %% #state.once should initially be 'inactive' because we
         %% activate the socket at first regardless of the state.
         case {Address /= Request#request.address, Request#request.scheme} of
             {true, https} ->
                 connect_and_send_upgrade_request(Address, Request,
-                                                 #state{options = Options,
+                                                 #state{max_header_size = MaxHeaderSize,
+                                                        max_body_size = MaxBodySize,
+                                                        options = Options,
                                                         profile_name = ProfileName});
             {_, _} ->
                 connect_and_send_first_request(Address, Request,
-                                   #state{options = Options,
+                                   #state{max_header_size = MaxHeaderSize,
+                                          max_body_size = MaxBodySize,
+                                          options = Options,
                                           profile_name = ProfileName})
         end,
     gen_server:enter_loop(?MODULE, [], State).
@@ -253,6 +259,20 @@ init([Parent, Request, Options, ProfileName]) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
+handle_call(Request, From, State0) when
+      is_record(Request, request) ->
+    MaxHeaderSize = proplists:get_value(max_header_size, Request#request.request_options),
+    MaxBodySize = proplists:get_value(max_body_size, Request#request.request_options),
+    State = State0#state{max_header_size = MaxHeaderSize,
+                         max_body_size = MaxBodySize},
+    try do_handle_call(Request, From, State) of
+        Result ->
+            Result
+    catch
+        Class:Reason:ST ->
+            {stop, {shutdown, {{Class, Reason}, ST}}, State}
+    end;
+
 handle_call(Request, From, State) ->
     try do_handle_call(Request, From, State) of 
 	Result ->
@@ -543,6 +563,10 @@ do_handle_info({Proto, _Socket, Data},
 	    activate_once(Session),
 	    {noreply, State#state{mfa = NewMFA}}
     catch
+        throw:{error, Err}:_ ->
+            ClientErrMsg = httpc_response:error(Request, Err),
+            NewState = answer_request(Request, ClientErrMsg, State),
+            {stop, normal, NewState};
 	Class:Reason:ST ->
 	    ClientReason = {could_not_parse_as_http, Data}, 
 	    ClientErrMsg = httpc_response:error(Request, ClientReason),
