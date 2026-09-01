@@ -2119,15 +2119,16 @@ path_validation_options(Opts, ValidationFunAndState) ->
      {verify_fun, ValidationFunAndState} | PolicyOpts].
 
 apply_user_fun(Fun, OtpCert, DerCert, VerifyResult0, UserState0, SslState, CertPath, LogLevel) when
-      (VerifyResult0 == valid) or (VerifyResult0 == valid_peer) ->
-    VerifyResult = maybe_check_hostname(OtpCert, VerifyResult0, SslState, LogLevel),
+      VerifyResult0 == valid; VerifyResult0 == valid_peer ->
+    VerifyResult = tls_verify_fun(OtpCert, VerifyResult0, SslState, LogLevel),
     case apply_fun(Fun, OtpCert, DerCert, VerifyResult, UserState0) of
 	{Valid, UserState} when (Valid == valid) orelse (Valid == valid_peer) ->
 	    case cert_status_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel) of
 		valid ->
 		    {Valid, {SslState, UserState}};
 		Result ->
-		    apply_user_fun(Fun, OtpCert, DerCert, Result, UserState, SslState, CertPath, LogLevel)
+                    apply_user_fun(Fun, OtpCert, DerCert, Result, UserState,
+                                   SslState, CertPath, LogLevel)
 	    end;
 	{fail, _} = Fail ->
 	    Fail
@@ -2149,15 +2150,20 @@ apply_fun(Fun, OtpCert, DerCert, ExtensionOrError, UserState) ->
             Fun(OtpCert, ExtensionOrError, UserState)
     end.
 
-maybe_check_hostname(OtpCert, valid_peer, SslState, LogLevel) ->
+tls_verify_fun(OtpCert, valid_peer, SslState, LogLevel) ->
     case ssl_certificate:validate(OtpCert, valid_peer, SslState, LogLevel) of
         {valid, _} ->
             valid_peer;
         {fail, Reason} ->
             Reason
     end;
-maybe_check_hostname(_, valid, _, _) ->
-    valid.
+tls_verify_fun(OtpCert, valid, SslState, LogLevel) ->
+    case ssl_certificate:validate(OtpCert, valid, SslState, LogLevel) of
+        {valid, _} ->
+            valid;
+        {fail, Reason} ->
+            Reason
+    end.
 
 path_validation_alert({bad_cert, cert_expired}, _, _) ->
     ?ALERT_REC(?FATAL, ?CERTIFICATE_EXPIRED);
@@ -3090,12 +3096,15 @@ decode_extensions(<<?UINT16(?SUPPORTED_VERSIONS_EXT), ?UINT16(Len),
                                   versions = decode_versions(Versions)}});
 
 decode_extensions(<<?UINT16(?SUPPORTED_VERSIONS_EXT), ?UINT16(Len),
-                       ?UINT16(SelectedVersion), Rest/binary>>, Version, MessageType, Acc)
-  when Len =:= 2, SelectedVersion =:= 16#0304 ->
+                       ?BYTE(Major), ?BYTE(Minor), Rest/binary>>, Version, MessageType, Acc)
+  when Len =:= 2 ->
     assert_unique_extension(server_hello_selected_version, Acc),
+    %% Decode any version — RFC 8446 §4.2.1 requires the client to
+    %% abort with illegal_parameter if this is not TLS 1.3; that check
+    %% is performed downstream in validate_server_version/1.
     decode_extensions(Rest, Version, MessageType,
                       Acc#{server_hello_selected_version =>
-                               #server_hello_selected_version{selected_version = ?TLS_1_3}});
+                               #server_hello_selected_version{selected_version = {Major, Minor}}});
 
 decode_extensions(<<?UINT16(?KEY_SHARE_EXT), ?UINT16(Len),
                        ExtData:Len/binary, Rest/binary>>,
@@ -3124,6 +3133,7 @@ decode_extensions(<<?UINT16(?KEY_SHARE_EXT), ?UINT16(Len),
                     ExtData:Len/binary, Rest/binary>>,
                   Version, MessageType = hello_retry_request, Acc) ->
     <<?UINT16(Group)>> = ExtData,
+    assert_unique_extension(key_share, Acc),
     decode_extensions(Rest, Version, MessageType,
                       Acc#{key_share =>
                                #key_share_hello_retry_request{
@@ -3143,6 +3153,15 @@ decode_extensions(<<?UINT16(?PRE_SHARED_KEY_EXT), ?UINT16(Len),
                   Version, MessageType = client_hello, Acc) ->
     <<?UINT16(IdLen),Identities:IdLen/binary,?UINT16(BLen),Binders:BLen/binary>> = ExtData,
     assert_unique_extension(pre_shared_key, Acc),
+    %% RFC 8446 §4.2.11: pre_shared_key MUST be the last extension in
+    %% the ClientHello.  Abort if trailing data follows.
+    case Rest of
+        <<>> ->
+            ok;
+        _ ->
+            throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
+                             pre_shared_key_not_last_extension))
+    end,
     decode_extensions(Rest, Version, MessageType,
                       Acc#{pre_shared_key =>
                                #pre_shared_key_client_hello{
@@ -3825,7 +3844,8 @@ handle_renegotiation_info(_, _RecordCB, _, #renegotiation_info{renegotiated_conn
 			  ConnectionStates, false, _, _) ->
     {ok, ssl_record:set_renegotiation_flag(true, ConnectionStates)};
 
-handle_renegotiation_info(_, _RecordCB, server, undefined, ConnectionStates, _, _, CipherSuites) ->
+
+handle_renegotiation_info(_, _RecordCB, server, undefined, ConnectionStates, false, _,CipherSuites) ->
     case is_member(?TLS_EMPTY_RENEGOTIATION_INFO_SCSV, CipherSuites) of
 	true ->
 	    {ok, ssl_record:set_renegotiation_flag(true, ConnectionStates)};

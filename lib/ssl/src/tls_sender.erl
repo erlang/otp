@@ -55,6 +55,10 @@
          connection/3,
          handshake/3,
          death_row/3]).
+
+%% Log handling
+-export([format_status/1]).
+
 %% Tracing
 -export([handle_trace/3]).
 
@@ -360,15 +364,13 @@ connection(info, dist_data,
           [] ->
               hibernate_after(connection, StateData, []);
           Data ->
-              {keep_state_and_data,
-               [{next_event, internal,
-                 {application_packets, {self(),undefined}, Data}}]}
+              send_application_data(Data, dist_data, connection, StateData)
       end;
 connection(info, tick, StateData) ->  
     consume_ticks(),
     Data = [<<0:32>>], % encode_packet(4, <<>>)
-    From = {self(), undefined},
-    send_application_data(Data, From, connection, StateData);
+    send_application_data(Data, dist_data, connection, StateData);
+
 connection(info, {send, From, Ref, Data}, _StateData) -> 
     %% This is for testing only!
     %%
@@ -453,6 +455,17 @@ death_row_shutdown(Reason, StateData) ->
 %%--------------------------------------------------------------------
 terminate(_Reason, _State, _Data) ->
     void.
+%%====================================================================
+%% Log handling
+%%====================================================================
+-spec format_status(map()) -> map().
+format_status(Status) ->
+    maps:map(
+      fun(data, StateData) ->
+              StateData#data{connection_states = ?SECRET_PRINTOUT};
+         (_,Value) ->
+              Value
+      end, Status).
 
 %%--------------------------------------------------------------------
 -spec code_change(

@@ -96,28 +96,28 @@ Not yet supported
 
 ## TLS 1.3
 
-OTP-22 introduces support for TLS 1.3. The current implementation supports a
-selective set of cryptographic algorithms:
 
-- Key Exchange: ECDHE groups supported by default
-- Groups: all standard groups supported for the Diffie-Hellman key exchange
-- Groups: Support brainpool groups from RFC 8734
-- Ciphers: all mandatory cipher suites are supported
-- Signature Algorithms: All algorithms form RFC 8446
-- Certificates: RSA, ECDSA and EDDSA keys
+TLS 1.3 support was first introduced in OTP 22. The "Since" column in the
+table below indicates in which OTP release a feature was first implemented.
+We always recommend running the latest patch level of any given release, as
+compliance bugs may have been fixed in subsequent patch releases.
 
-Other notable features:
+The following features from [RFC 8446](https://tools.ietf.org/html/rfc8446)
+(or mentioned by it) are **not yet implemented**:
 
-- PSK and session resumption is supported (stateful and stateless tickets)
-- Anti-replay protection using Bloom-filters with stateless tickets
-- Early data and 0-RTT is supported
-- Key and Initialization Vector Update is supported
+- PSK-only key exchange (without (EC)DHE)
+- Post-Handshake Client Authentication (Section 4.6.2)
+- OID Filters extension (Section 4.2.5)
+- Record padding (sending, Section 5.4)
+- Server-side OCSP stapling (status_request in Certificate, Section 4.4.2)
+- Supported groups in Encrypted Extensions (Section 4.3.1)
+- Heartbeat extension (RFC 6520)
+- Signed Certificate Timestamp extension (RFC 6962)
+- Raw Public Keys / client_certificate_type and server_certificate_type (RFC 7250)
+- Padding extension (RFC 7685)
 
 For more detailed information see the
 [Standards Compliance](standards_compliance.md#soc_table) below.
-
-The following table describes the current state of standards compliance for TLS
-1.3.
 
 (_C_ = Compliant, _NC_ = Non-Compliant, _PC_ = Partially-Compliant, _NA_ = Not
 Applicable)

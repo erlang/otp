@@ -31,7 +31,7 @@
 -export([fam_select/2, fam_address/1, fam_listen/3, fam_accept/2,
          fam_accept_connection/6, fam_setup/6]).
 
--export([verify_client/3, cert_nodes/1]).
+-export([verify_client/3, cert_nodes/1, allowed_hosts/1]).
 
 %% kTLS helpers
 -export([inet_ktls_setopt/3, inet_ktls_getopt/3,
@@ -52,7 +52,6 @@
 -include_lib("kernel/include/logger.hrl").
 
 -define(FAMILY, inet).
--define(DRIVER, inet_tcp). % Implies ?FAMILY = inet through inet_drv.c
 -define(PROTOCOL, tls).
 
 %% -------------------------------------------------------------------------
@@ -849,7 +848,7 @@ get_ssl_options(Type) ->
 dist_defaults(Opts) ->
     case proplists:get_value(versions, Opts, undefined) of
         undefined ->
-            [{versions, ['tlsv1.2']} | Opts];
+            [{versions, ['tlsv1.3', 'tlsv1.2']} | Opts];
         _ ->
             Opts
     end.

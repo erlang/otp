@@ -1240,6 +1240,17 @@ There are two implementations available:
     extensions](`e:public_key:public_key_records.md`). Requires the
     [Inets](`e:inets:introduction.md`) application.
 
+- **`{allowed_hosts, [string()]}`**
+
+    If http fetching is allowed, a list of allowed hosts can be
+    specified as a hardening option. The entries should be
+    "Host:Port". If ":Port" is left out the default port is 80. If the
+    allowed_hosts is not specified only an external hosts using port
+    80 or 8080 will be allowed.
+
+   > #### Note {: .info }
+   Putting the local host on the allow list will of course make the local host allowed.
+
 - **`ssl_crl_hash_dir`** - Implementation 2
 
   This module makes use of a directory where CRLs are
@@ -2052,6 +2063,13 @@ Options only relevant for TLS-1.3.
 
   Configures if the server accepts (`enabled`) or rejects (`disabled`) early data
   sent by a client. The default value is `disabled`.
+
+ > #### Warning {: .warning }
+ >  0-RTT data is inherently replay-vulnerable by TLS 1.3 design. The
+ > mitigation is application-level idempotency or server-side anti-replay.
+ > The server side mechanisms for anti-replay are stateful tickets or stateless
+ > tickets with a configured Bloom filter.
+
 """.
 -type server_option_tls13() :: {session_tickets, SessionTickets:: disabled | stateful | stateless |
                                                                   stateful_with_cert | stateless_with_cert} |
@@ -4299,7 +4317,6 @@ opt_tickets(UserOpts, #{versions := Versions} = Opts, #{role := client}) ->
                         [early_data, {session_tickets, disabled}]),
     option_incompatible(is_binary(EarlyData) andalso SessionTickets =:= manual andalso UseTicket =:= undefined,
                         [early_data, {session_tickets, manual}, {use_ticket, undefined}]),
-
     assert_server_only(anti_replay, UserOpts),
     assert_server_only(stateless_tickets_seed, UserOpts),
     Opts#{session_tickets => SessionTickets, use_ticket => UseTicket, early_data => EarlyData};
@@ -4328,6 +4345,15 @@ opt_tickets(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
             {_, {_,_,_} = AR} -> AR;
             {_, AR} -> option_error(anti_replay, AR)
         end,
+
+    case EarlyData =:= enabled andalso Stateless andalso
+         AntiReplay =:= undefined of
+        true ->
+            ?LOG_WARNING("early_data enabled without anti_replay; "
+                         "0-RTT data is replayable");
+        false ->
+            ok
+    end,
 
     {_, STS} = get_opt_bin(stateless_tickets_seed, undefined, UserOpts, Opts),
     option_incompatible(STS =/= undefined andalso not Stateless,
@@ -4633,7 +4659,16 @@ opt_reuse_sessions(UserOpts, #{versions := Versions} = Opts, #{role := client}) 
     assert_version_dep(Where2 =:= new, reuse_session, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
     Opts#{reuse_sessions => RUSS, reuse_session => RS};
 opt_reuse_sessions(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
-    {Where1, RUSS} = get_opt_bool(reuse_sessions, true, UserOpts, Opts),
+    %% Disable reuse_sessions when client cert verify_peer
+    %% verification is required, until Extended Master Secret is implemented.
+    ReuseDefault = case maps:get(verify, Opts) of
+                       verify_peer ->
+                           false;
+                       verify_none ->
+                           true
+                   end,
+
+    {Where1, RUSS} = get_opt_bool(reuse_sessions, ReuseDefault, UserOpts, Opts),
 
     DefRS = fun(_, _, _, _) -> true end,
     {Where2, RS} = get_opt_fun(reuse_session, 4, DefRS, UserOpts, Opts),
@@ -4711,9 +4746,22 @@ opt_supported_groups(UserOpts, #{versions := TlsVsns} = Opts, _Env) ->
     Opts#{ciphers => CPHS, eccs => ECCS, supported_groups => SG}.
 
 opt_crl(UserOpts, Opts, _Env) ->
+    ManagerType = case maps:get(erl_dist, Opts, false) of
+                      false ->
+                          normal;
+                      true ->
+                          dist
+                  end,
     {_, Check} = get_opt_of(crl_check, [best_effort, peer, true, false], false, UserOpts, Opts),
-    Cache = case get_opt(crl_cache, {ssl_crl_cache, {internal, []}}, UserOpts, Opts) of
-                {_, {Cb, {_Handle, Options}} = Value} when is_atom(Cb), is_list(Options) ->
+    Cache = case get_opt(crl_cache, {ssl_crl_cache, {internal, [{owner, ManagerType}]}},
+                        UserOpts, Opts) of
+                {default, {ssl_crl_cache, {_Handle, _Options}} = Value} ->
+                    Value;
+                {old, {ssl_crl_cache, {_Handle, _Options}} = Value} ->
+                    Value;
+                {new, {ssl_crl_cache, {Handle, Options}}} when is_list(Options) ->
+                    {ssl_crl_cache, {Handle, [{owner, ManagerType} | Options]}};
+                {_, {Cb, {_Handle, Options}} = Value}  when is_atom(Cb), is_list(Options) ->
                     Value;
                 {_, Err} ->
                     option_error(crl_cache, Err)

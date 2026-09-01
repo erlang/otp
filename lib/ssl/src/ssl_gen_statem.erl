@@ -98,7 +98,8 @@
          terminate/3]).
 
 %% Log handling
--export([format_status/2]).
+-export([format_status/1,
+         format_options/1]).
 
 %% Tracing
 -export([handle_trace/3]).
@@ -748,6 +749,11 @@ downgrade(Type, Event, State) ->
 %%====================================================================
 %%  Event/Msg handling
 %%====================================================================
+handle_common_event(internal, {handshake, {#hello_request{}, _Raw}}, StateName,
+                    #state{static_env = #static_env{role = client}})
+  when StateName =/= connection ->
+    %%  %% RFC 5246 §7.4.1.1: Ignore this message client is already in negotiation
+    keep_state_and_data;
 handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName,
 		    #state{handshake_env = #handshake_env{tls_handshake_history = Hist0} = HsEnv,
                            connection_env = #connection_env{negotiated_version = _Version}} = State0) ->
@@ -1283,24 +1289,29 @@ terminate(Reason, _StateName, #state{static_env = #static_env{transport_cb = Tra
 %%====================================================================
 %% Log handling
 %%====================================================================
-format_status(normal, [_, StateName, State]) ->
-    [{data, [{"State", {StateName, State}}]}];
-format_status(terminate, [_, StateName, State]) ->
-    SslOptions = (State#state.ssl_options),
-    NewOptions = SslOptions#{
-                             certs_keys => ?SECRET_PRINTOUT,
-                             cacerts => ?SECRET_PRINTOUT,
-                             dh => ?SECRET_PRINTOUT,
-                             psk_identity => ?SECRET_PRINTOUT,
-                             srp_identity => ?SECRET_PRINTOUT},
-    [{data, [{"State", {StateName, State#state{connection_states = ?SECRET_PRINTOUT,
-					       protocol_buffers =  ?SECRET_PRINTOUT,
-					       user_data_buffer = ?SECRET_PRINTOUT,
-					       handshake_env =  ?SECRET_PRINTOUT,
-                                               connection_env = ?SECRET_PRINTOUT,
-					       session =  ?SECRET_PRINTOUT,
-					       ssl_options = NewOptions}
-		       }}]}].
+-spec format_status(map()) -> map().
+format_status(Status) ->
+    maps:map(
+      fun(data, State) ->
+              TLSOptions = (State#state.ssl_options),
+              NewOptions = format_options(TLSOptions),
+              State#state{connection_states = ?SECRET_PRINTOUT,
+                          protocol_buffers =  ?SECRET_PRINTOUT,
+                          user_data_buffer = ?SECRET_PRINTOUT,
+                          handshake_env =  ?SECRET_PRINTOUT,
+                          connection_env = ?SECRET_PRINTOUT,
+                          session =  ?SECRET_PRINTOUT,
+                          ssl_options = NewOptions};
+         (_,Value) ->
+              Value
+      end, Status).
+
+format_options(TLSOptions) ->
+    TLSOptions#{certs_keys => ?SECRET_PRINTOUT,
+                cacerts => ?SECRET_PRINTOUT,
+                dh => ?SECRET_PRINTOUT,
+                psk_identity => ?SECRET_PRINTOUT,
+                srp_identity => ?SECRET_PRINTOUT}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions

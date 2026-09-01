@@ -56,9 +56,7 @@ Backwards compatibility, replaced by lookup/3
 """.
 -callback lookup(DistPoint::dist_point(), CacheRef::crl_cache_ref()) ->
     not_available | [public_key:der_encoded()] |
-    {{logger, logger_info()}, [public_key:der_encoded()]}.
-
-
+    {logger, logger_info(), [public_key:der_encoded()]}.
 -doc(#{since => <<"OTP 19.0">>}).
 -doc """
 Lookup the CRLs belonging to the distribution point `Distributionpoint`. This
@@ -80,8 +78,7 @@ produce log events.
 """.
 -callback lookup(Distpoint::dist_point(), Issuer::public_key:issuer_name(), CacheRef::crl_cache_ref()) ->
     not_available | [public_key:der_encoded()] |
-    {{logger, logger_info()}, [public_key:der_encoded()]}.
-
+    {logger, logger_info(), [public_key:der_encoded()]}.
 
 -doc(#{since => <<"OTP 18.0">>}).
 -doc """

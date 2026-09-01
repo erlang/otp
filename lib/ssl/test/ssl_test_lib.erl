@@ -3972,7 +3972,7 @@ reuse_session(ClientOpts, ServerOpts, Config) ->
                       {from, self()},
                       {mfa, {ssl_test_lib, no_result, []}},
                       {tcp_options, [{active, false}]},
-                      {options, ServerOpts}]),
+                      {options, [{reuse_sessions, true} | ServerOpts]}]),
     Port0 = inet_port(Server0),
 
     Client0 = start_client([{node, ClientNode},

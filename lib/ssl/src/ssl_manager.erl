@@ -35,14 +35,20 @@
 	 clean_cert_db/2,
          refresh_trusted_db/1, refresh_trusted_db/2,
 	 register_session/4, invalidate_session/2,
-	 insert_crls/2, insert_crls/3, delete_crls/1, delete_crls/2, 
+         insert_crls/2, insert_crls/3, async_insert_crls/3,
+         delete_crls/1, delete_crls/2,
 	 invalidate_session/3, name/1]).
 
 -export([init_session_validator/1]).
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+-export([init/1,
+         handle_call/3,
+         handle_cast/2,
+         handle_info/2,
+         terminate/2,
+         format_status/1,
+         code_change/3]).
 
 -include("ssl_handshake.hrl").
 -include("ssl_internal.hrl").
@@ -58,16 +64,17 @@
 -type serialnumber()      :: pos_integer().
 
 -record(state, {
-	  session_cache_client    :: db_handle(),
-	  session_cache_client_cb :: atom(),
-	  session_lifetime        :: integer(),
-	  certificate_db          :: db_handle(),
-	  session_validation_timer :: reference(),
-	  session_cache_client_max   :: integer(),
-          session_client_invalidator :: undefined | pid(),
-          options                    :: list(),
-          client_session_order       :: gb_trees:tree()
-	 }).
+                session_cache_client,
+                session_cache_client_cb,
+                session_lifetime,
+                certificate_db,
+                session_validation_timer,
+                session_cache_client_max,
+                session_client_invalidator,
+                options,
+                client_session_order,
+                max_crl_cache_size
+               }).
 
 -define(GEN_UNIQUE_ID_MAX_TRIES, 10).
 -define(SESSION_VALIDATION_INTERVAL, 60000).
@@ -218,6 +225,10 @@ insert_crls(Path, CRLs, ManagerType)->
     put(ssl_manager, name(ManagerType)),
     call({insert_crls, Path, CRLs}).
 
+async_insert_crls(Path, CRLs, ManagerType)->
+    put(ssl_manager, name(ManagerType)),
+    cast({insert_crls, Path, CRLs}).
+
 delete_crls(Path)->
     delete_crls(Path, normal).
 delete_crls(?NO_DIST_POINT_PATH = Path, ManagerType)->
@@ -266,7 +277,8 @@ init([ManagerName, PemCacheName, Opts]) ->
 		session_cache_client_max = ClientSessMax,
 		session_client_invalidator = undefined,
                 options = Opts,
-                client_session_order = gb_trees:empty()
+                client_session_order = gb_trees:empty(),
+                max_crl_cache_size = ssl_config:get_max_crl_cache_size()
 	       }}.
 
 %%--------------------------------------------------------------------
@@ -342,12 +354,12 @@ handle_cast({invalidate_session, Host, Port,
 	    #state{session_cache_client = Cache,
 		   session_cache_client_cb = CacheCb} = State) ->
     invalidate_session(Cache, CacheCb, {{Host, Port}, ID}, Session, State);
-handle_cast({insert_crls, Path, CRLs},   
-	    #state{certificate_db = Db} = State) ->
-    ssl_pkix_db:add_crls(Db, Path, CRLs),
+handle_cast({insert_crls, Path, CRLs},
+            #state{certificate_db = Db,
+                   max_crl_cache_size = Max} = State) ->
+    do_insert_crls(Path, CRLs, Db, Max),
     {noreply, State};
-
-handle_cast({delete_crls, CRLsOrPath},   
+handle_cast({delete_crls, CRLsOrPath},
 	    #state{certificate_db = Db} = State) ->
     ssl_pkix_db:remove_crls(Db, CRLsOrPath),
     {noreply, State}.
@@ -403,8 +415,17 @@ terminate(_Reason, #state{certificate_db = Db,
     catch CacheCb:terminate(ClientSessionCache),
     ok.
 
+-spec format_status(map()) -> map().
+format_status(Status) ->
+    maps:map(
+      fun(state, State) ->
+              State#state{client_session_order = ?SECRET_PRINTOUT};
+         (_,Value) ->
+              Value
+      end, Status).
+
 %%--------------------------------------------------------------------
--spec code_change(term(), #state{}, list()) -> {ok, #state{}}.			 
+-spec code_change(term(), #state{}, list()) -> {ok, #state{}}.
 %%
 %% Description: Convert process state when code is changed
 %%--------------------------------------------------------------------
@@ -603,3 +624,14 @@ load_mitigation() ->
 	MSec ->
 	    continue
     end.
+
+do_insert_crls(Path, CRLs, [_,_,_, {Cache, Mapping}|_] = Db, Max) ->
+    CRLSize = lists:foldl(fun(CRL, Sum) -> byte_size(CRL) + Sum end, 0, CRLs),
+    case CRLSize + ssl_pkix_db:db_size(Cache) of
+        Size when Size >= Max ->
+            ssl_pkix_db:clear(Mapping),
+            ssl_pkix_db:clear(Cache);
+        _ ->
+            ok
+    end,
+    ssl_pkix_db:add_crls(Db, Path, CRLs).

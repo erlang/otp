@@ -204,12 +204,19 @@ the node name you are connecting to. This only works if the the server
 certificate is issued to the name
 [`atom_to_list(TargetNode)`](`atom_to_list/1`).
 
-For the server it is also possible to use the option `{verify, verify_peer}` and
+For the server it is also possible, and recommended, to use the option `{verify, verify_peer}` and
 the server will only accept client connections with certificates that are
 trusted by a root certificate that the server knows. A client that presents an
 untrusted certificate will be rejected. This option is preferably combined with
 `{fail_if_no_peer_cert, true}` or a client will still be accepted if it does not
 present any certificate.
+
+> #### Note {: .note }
+net_kernel:allow/1 node restrictions rely on verifying the peer
+certificate. To enforce them, the server must set `{verify,
+verify_peer}` and `{fail_if_no_peer_cert, true}` (default when
+verify_peer is set). Without these options, any node can connect
+regardless of the allowed list.
 
 A node started in this way is fully functional, using TLS as the distribution
 protocol.

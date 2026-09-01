@@ -56,6 +56,7 @@
 -define(DEFAULT_TIMEOUT, 5000).
 -define(NO_DIST_POINT, "http://dummy/no_distribution_point").
 -define(NO_DIST_POINT_PATH, "dummy/no_distribution_point").
+-define(MAX_CRL_SIZE, 10485760). %% 10 * 1024 * 1024 ~ 10 MB
 
 %% Common enumerate values in for SSL-protocols 
 -define(NULL, 0).
