@@ -743,11 +743,14 @@ static ErlDrvSSizeT spawn_control(ErlDrvData e, unsigned int cmd, char *buf,
     dd->status = proto->u.sigchld.error_number;
     dd->alive = -1;
 
-    if (dd->ifd)
-        driver_select(dd->port_num, abs(dd->ifd->fd), ERL_DRV_READ | ERL_DRV_USE, 1);
-
     if (dd->ofd)
         driver_select(dd->port_num, abs(dd->ofd->fd), ERL_DRV_WRITE | ERL_DRV_USE, 1);
+
+    /* We call ready_input directly as not all OSs trigger an input event on an
+       fd that already triggered EOF. For example ONESHOT poll on Linux and FreeBSD will not. */
+    if (dd->ifd) {
+        ready_input(e, abs(dd->ifd->fd));
+    }
 
     return 0;
 }
@@ -1230,9 +1233,9 @@ static int port_inp_failure(ErtsSysDriverData *dd, int res)
         if (dd->alive == 1) {
             /*
              * We have eof and want to report exit status, but the process
-             * hasn't exited yet. When it does ready_input will
-             * driver_select() this fd which will make sure that we get
-             * back here with dd->alive == -1 and dd->status set.
+             * hasn't exited yet. When it does spawn_control will call ready_input
+             * which will make sure that we get back here with dd->alive == -1 and
+             * dd->status set.
              */
             return 0;
         }
@@ -1284,7 +1287,6 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
                 return;
             /* hmm, child setup seems to have closed the pipe too early...
                we close the port as there is not much else we can do */
-            driver_select(port_num, ready_fd, ERL_DRV_READ, 0);
             if (res == 0)
                 errno = EPIPE;
             port_inp_failure(dd, -1);
