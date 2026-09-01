@@ -32,7 +32,7 @@ typedef struct proc_dict {
     unsigned int arraySize;
     unsigned int splitPosition;
     Uint numElements;
-    Eterm data[1]; /* The beginning of an array of erlang terms */
+    Eterm data[]; /* The beginning of an array of erlang terms */
 } ProcDict;
 
 #define ERTS_PD_START(PD) ((PD)->data)

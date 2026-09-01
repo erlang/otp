@@ -177,7 +177,7 @@ typedef struct {
     Eterm reply_to;
     Eterm ref;
     ErlOffHeap oh;
-    Eterm heap[1];
+    Eterm heap[];
 } ErtsSigGroupLeader;
 
 typedef struct {
@@ -442,7 +442,7 @@ restore_delayed_nm_signals(Process *c_p, ErtsSavedNMSignals *saved_sigs)
 typedef struct {
     ErtsNonMsgSignal common;
     Eterm ref;
-    Eterm heap[1];
+    Eterm heap[];
 } ErtsSigDistProcDemonitor;
 
 static void
@@ -2907,7 +2907,7 @@ erts_proc_sig_send_dist_demonitor(Eterm from, Eterm to, Eterm ref)
     ASSERT(is_external_pid(from));
     ASSERT(is_internal_pid(to));
 
-    size = sizeof(ErtsSigDistProcDemonitor) - sizeof(Eterm);
+    size = sizeof(ErtsSigDistProcDemonitor);
     ASSERT(is_ref(ref));
     size += NC_HEAP_SIZE(ref)*sizeof(Eterm);
 
@@ -2984,7 +2984,7 @@ erts_proc_sig_send_group_leader(Process *c_p, Eterm to, Eterm gl, Eterm ref)
     
     size = sizeof(ErtsSigGroupLeader);
 
-    size += (gl_sz + ref_sz - 1) * sizeof(Eterm);
+    size += (gl_sz + ref_sz) * sizeof(Eterm);
 
     sgl = erts_alloc(ERTS_ALC_T_SIG_DATA, size);
 
@@ -7648,7 +7648,6 @@ erts_proc_sig_signal_size(ErtsSignal *sig)
     case ERTS_SIG_Q_OP_DEMONITOR:
         if (type == ERTS_SIG_Q_TYPE_DIST_PROC_DEMONITOR) {
             size = NC_HEAP_SIZE(((ErtsSigDistProcDemonitor *) sig)->ref);
-            size--;
             size *= sizeof(Eterm);
             size += sizeof(ErtsSigDistProcDemonitor);
             break;
@@ -7679,7 +7678,7 @@ erts_proc_sig_signal_size(ErtsSignal *sig)
         size = size_object(sgl->group_leader);
         size += size_object(sgl->ref);
         size *= sizeof(Eterm);
-        size += sizeof(ErtsSigGroupLeader) - sizeof(Eterm);
+        size += sizeof(ErtsSigGroupLeader);
         break;
     }
 
