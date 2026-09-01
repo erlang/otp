@@ -29,6 +29,7 @@
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v1.hrl").
 -define(encoder_pre_version_3,true). % version 1 or 2
+-define(MAX_DIGITS, 20). % Safe upper bound; real defense is the 100 KB scanner gate.
 -include("megaco_text_tokens.hrl").
 
 -ifdef(megaco_parser_inline).
@@ -1316,24 +1317,27 @@ ensure_prop_groups(Token) ->
 -endif.
 ensure_uint(Token, Min, Max) ->
     case Token of
-	{_TokenTag, Line, Val} when is_integer(Val) ->
-	    ensure_uint(Val, Min, Max, Line);
-	{_TokenTag, Line, Text} ->
-	    case (catch list_to_integer(Text)) of
-		{'EXIT', _} ->
-		    return_error(Line, {not_an_integer, Text});
-		Val when is_integer(Val) ->
-		    ensure_uint(Val, Min, Max, Line)
-	    end;
-	Val when is_integer(Val) ->
-	    ensure_uint(Val, Min, Max, 0);
-	Text ->
-	    case (catch list_to_integer(Text)) of
-		{'EXIT', _} ->
-		    return_error(0, {not_an_integer, Text});
-		Val when is_integer(Val) ->
-		    ensure_uint(Val, Min, Max, 0)
-	    end
+        {_TokenTag, Line, Val} when is_integer(Val) ->
+            ensure_uint(Val, Min, Max, Line);
+        {_TokenTag, Line, Text} ->
+            validate_uint_text(Text, Min, Max, Line);
+        Val when is_integer(Val) ->
+            ensure_uint(Val, Min, Max, 0);
+        Text ->
+            validate_uint_text(Text, Min, Max, 0)
+    end.
+
+validate_uint_text(Text, Min, Max, Line) ->
+    case length(Text) > ?MAX_DIGITS of
+        true ->
+            return_error(Line, {too_large_integer, Text, Max});
+        false ->
+            case (catch list_to_integer(Text)) of
+                {'EXIT', _} ->
+                    return_error(Line, {not_an_integer, Text});
+                Val when is_integer(Val) ->
+                    ensure_uint(Val, Min, Max, Line)
+            end
     end.
 
 -ifdef(megaco_parser_inline).
