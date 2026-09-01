@@ -58,8 +58,7 @@
 %%-------------------------------------------------------------------------
 decode(ChunkedBody, MaxBodySize, MaxHeaderSize) ->
      %% Note decode_size will call decode_data.
-    decode_size([ChunkedBody, <<>>, [], 0,
-                 {MaxBodySize, <<>>, 0, MaxHeaderSize}]).
+    decode_size([ChunkedBody, <<>>, [], 0, {MaxBodySize, <<>>, 0, MaxHeaderSize}]).
 
 %%-------------------------------------------------------------------------
 %% encode(Chunk) -> EncodedChunk
@@ -135,6 +134,7 @@ ignore_extensions([Bin, Rest, RemainingSize, TotalMaxHeaderSize, NextFunction]) 
 decode_data([Bin, ChunkSize, TotalChunk, Info]) ->
     decode_data(ChunkSize, <<TotalChunk/binary, Bin/binary>>, Info).
 
+
 decode_trailer([Bin, Rest, Header, Headers, Body, 
 		BodyLength, RemainingSize, TotalMaxHeaderSize]) ->
     decode_trailer(<<Rest/binary, Bin/binary>>, 
@@ -145,8 +145,7 @@ decode_trailer([Bin, Rest, Header, Headers, Body,
 %%%========================================================================
 decode_size(_, _, AccHeaderSize, {_,_,_, MaxHeaderSize}) when
       AccHeaderSize > MaxHeaderSize ->
-    throw({error, {header_too_long, {max, MaxHeaderSize}}});
-
+    throw_error(header_too_long, MaxHeaderSize);
 decode_size(<<>>, HexList, AccHeaderSize, Info) ->
     {?MODULE, decode_size, [<<>>, HexList, AccHeaderSize, Info]};
 decode_size(Data = <<?CR, ?LF, ChunkRest/binary>>, HexList, AccHeaderSize, 
@@ -160,6 +159,8 @@ decode_size(Data = <<?CR, ?LF, ChunkRest/binary>>, HexList, AccHeaderSize,
 			       [<<>>, [],[],
 				Body,
 				integer_to_list(AccLength)]});  
+        ChunkSize when AccLength + ChunkSize > MaxBodySize ->
+            throw_error(body_too_long, MaxBodySize);
 	ChunkSize ->
 	    %% Note decode_data may call decode_size again if there
 	    %% is more than one chunk, hence here is where the last parameter
@@ -169,7 +170,7 @@ decode_size(Data = <<?CR, ?LF, ChunkRest/binary>>, HexList, AccHeaderSize,
 					       MaxHeaderSize})
     catch
 	_:_ ->
-	    throw({error, {chunk_size, lists:reverse(HexList)}})
+            throw_error(chunk_size, lists:reverse(HexList))
     end;
 decode_size(<<";", Rest/binary>>, HexList, AccHeaderSize, {_,_,_, MaxHeaderSize} = Info) ->
     %% Note ignore_extensions will call decode_size/1 again when
@@ -185,7 +186,7 @@ decode_size(<<Octet, Rest/binary>>, HexList, AccHeaderSize, Info) ->
 %% do not understand.", see RFC 2616 Section 3.6.1 We don't
 %% understand any extension...
 ignore_extensions(_, 0, TotalMaxHeaderSize, _) ->
-    throw({error, {header_too_long, {max, TotalMaxHeaderSize}}});
+    throw_error(header_too_long, TotalMaxHeaderSize);
 ignore_extensions(<<>>, RemainingSize, TotalMaxHeaderSize, NextFunction) ->
     {?MODULE, ignore_extensions, [<<>>, RemainingSize, TotalMaxHeaderSize, NextFunction]};
 ignore_extensions(Data = <<?CR, ?LF, _ChunkRest/binary>>, RemainingSize, TotalMaxHeaderSize,
@@ -201,9 +202,8 @@ ignore_extensions(<<?CR>> = Data, RemainingSize, TotalMaxHeaderSize, NextFunctio
 ignore_extensions(<<_Octet, Rest/binary>>, RemainingSize, TotalMaxHeaderSize, NextFunction) ->
     ignore_extensions(Rest, remaing_size(RemainingSize, 1), TotalMaxHeaderSize, NextFunction).
 
-decode_data(ChunkSize, TotalChunk,
-	    Info = {MaxBodySize, BodySoFar, AccLength, MaxHeaderSize}) 
-  when is_binary(TotalChunk), ChunkSize =< byte_size(TotalChunk) ->
+decode_data(ChunkSize, TotalChunk, Info = {MaxBodySize, BodySoFar, AccLength, MaxHeaderSize})
+        when is_binary(TotalChunk), ChunkSize =< byte_size(TotalChunk) ->
     case TotalChunk of
 	%% Last chunk
 	<<Data:ChunkSize/binary, ?CR, ?LF, "0", ";">> ->
@@ -231,24 +231,22 @@ decode_data(ChunkSize, TotalChunk,
 			   <<BodySoFar/binary, Data/binary>>,
 			   integer_to_list(AccLength), MaxHeaderSize, MaxHeaderSize);
 	%% There are more chunks, so here we go again...
-	<<Data:ChunkSize/binary, ?CR, ?LF>> ->
-	    NewBody = <<BodySoFar/binary, Data/binary>>,
-	    {?MODULE, decode_size, [<<>>, [], 0, {MaxBodySize, NewBody, AccLength, MaxHeaderSize}]};
-	<<Data:ChunkSize/binary, ?CR, ?LF, Rest/binary>> 
-	when (AccLength < MaxBodySize) or (MaxBodySize == nolimit)  ->
+        <<Data:ChunkSize/binary, ?CR, ?LF, Rest/binary>>  ->
 	    decode_size(Rest, [], 0,
 			{MaxBodySize, <<BodySoFar/binary, Data/binary>>,
 			 AccLength, MaxHeaderSize});
-	<<_:ChunkSize/binary, ?CR, ?LF, _/binary>> ->
-	    throw({error, {body_too_big, {max, MaxBodySize}}});
+        <<_:(ChunkSize)/binary, Rest/binary>>
+            when MaxBodySize =/= nolimit, byte_size(Rest) + ChunkSize + byte_size(BodySoFar) > MaxBodySize ->
+            throw_error(body_too_long, MaxBodySize);
 	_ ->
+            %% Need more data
 	    {?MODULE, decode_data, [ChunkSize, TotalChunk, Info]}
-    end;	
+    end;
 decode_data(ChunkSize, TotalChunk, Info) ->
     {?MODULE, decode_data, [ChunkSize, TotalChunk, Info]}.
 
 decode_trailer(_,_,_,_,_, 0, TotalMaxHeaderSize) ->
-    throw({error, {header_too_long, {max, TotalMaxHeaderSize}}});
+    throw_error(header_too_long, TotalMaxHeaderSize);
 decode_trailer(<<>>, Header, Headers, Body, BodyLength, RemainingSize, TotalMaxHeaderSize) ->
     {?MODULE, decode_trailer, [<<>>, Header, Headers, Body, 
 			       BodyLength, RemainingSize, TotalMaxHeaderSize]};
@@ -297,3 +295,8 @@ encode_trailers([], Acc) ->
     Acc ++ ?CRLF ++ ?CRLF;
 encode_trailers([{Header, Value} | Rest], Acc) ->
     encode_trailers(Rest, Header ++ ":" ++ Value ++ ?CRLF ++ Acc).
+
+throw_error(What, MaxSize) when What =:= header_too_long; What =:= body_too_long ->
+    throw({error, {What, {max, MaxSize}}});
+throw_error(What, ChunkSize) when What =:= chunk_size ->
+    throw({error, {chunk_size, ChunkSize}}).

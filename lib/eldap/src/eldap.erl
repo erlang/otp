@@ -1882,10 +1882,12 @@ parse_hostport(Str) ->
 		   parse_port(Rest,Sport)}}
     end.
 
-parse_port(Rest,Sport) ->
+parse_port(Rest,Sport) when length(Sport) =< 5 ->
     try	list_to_integer(Sport)
     catch _:_ -> parse_error(parsing_port,Rest)
-    end.
+    end;
+parse_port(Rest, _) ->
+    parse_error(parsing_port, Rest).
 
 parse_host(Rest,Shost) ->
     case catch validate_host(Shost) of

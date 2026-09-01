@@ -23,6 +23,7 @@
 -moduledoc false.
 
 -include("httpd.hrl").
+-include("../http_lib/http_internal.hrl").
 
 -behaviour(gen_server).
 
@@ -225,8 +226,8 @@ handle_call({unblock, Blocker}, _, #state{blocker_ref = {Blocker, Monitor},
 handle_call({unblock, _}, _, State) ->
     {reply, {error, only_blocker_may_unblock}, State};
 
-handle_call({new_connection, Pid}, _From, State) ->
-    {Status, NewState} = handle_new_connection(State, Pid),
+handle_call({new_connection, _Pid}, _From, State) ->
+    {Status, NewState} = handle_new_connection(State),
     {reply, Status, NewState};
 
 handle_call(Request, From, State) ->
@@ -320,22 +321,16 @@ code_change(_FromVsn, State, _Extra) ->
 %%%--------------------------------------------------------------------
 %%% Internal functions
 %%%--------------------------------------------------------------------
-handle_new_connection(#state{admin_state = AdminState} = State, Handler) ->
-    UsageState = get_ustate(State),
-    handle_new_connection(UsageState, AdminState, State, Handler).
-
-handle_new_connection(_UsageState, unblocked, 
-		      #state{config_db = Db, connection_sup = CSup} = 
-			  State, _) ->
-    Max = httpd_util:lookup(Db, max_clients),
-    case count_children(CSup) of
-	Count when Count =< Max ->
-	    {{ok, accept}, State};
+handle_new_connection(#state{admin_state = unblocked, config_db = Db} = State) ->
+    Children = count_children(State#state.connection_sup),
+    case httpd_util:lookup(Db, max_clients, ?HTTP_MAX_CLIENTS) of
+        MaxClients when MaxClients < Children ->
+           {{reject, busy}, State};
 	_ ->
-	    {{reject, busy}, State}
+           {{ok, accept}, State}
     end;
 
-handle_new_connection(_UsageState, _AdminState, State, _Handler) ->
+handle_new_connection(State) ->
     {{reject, blocked}, State}.
 
 handle_block(disturbing, infinity, 
@@ -424,28 +419,6 @@ check_constant_values(Db, Config) ->
 	    throw({error,{sock_type_changed,SockType,OtherSockType}})
     end,
     ok.
-
-
-%% get_ustate(State) -> idle | active | busy
-%%
-%% Retrieve the usage state of the HTTP server:
-%%   0 active connection            -> idle
-%%   max_clients active connections -> busy
-%%   Otherwise                      -> active
-%%
-get_ustate(State) ->
-    get_ustate(count_children(State#state.connection_sup),State).
-
-get_ustate(0,_State) ->
-    idle;
-get_ustate(ConnectionCnt,State) ->
-    ConfigDB = State#state.config_db,
-    case httpd_util:lookup(ConfigDB, max_clients, 150) of
-	ConnectionCnt ->
-	    busy;
-	_ ->
-	    active
-    end.
 
 make_name(Addr, Port, Profile) ->
     httpd_util:make_name("httpd", Addr, Port, Profile).

@@ -57,9 +57,9 @@ parse_reason_phrase([Bin, Rest, Phrase, MaxHeaderSize, Result, Relaxed]) ->
     parse_reason_phrase(<<Rest/binary, Bin/binary>>, Phrase, 
 			MaxHeaderSize, Result, Relaxed).
 
-parse_headers([Bin, Rest,Header, Headers, MaxHeaderSize, Result, Relaxed]) ->
+parse_headers([Bin, Rest,Header, Headers, MaxHeaderSize, CurrentSize, Result, Relaxed]) ->
     parse_headers(<<Rest/binary, Bin/binary>>, Header, Headers, 
-		  MaxHeaderSize, Result, Relaxed).
+		  MaxHeaderSize, CurrentSize, Result, Relaxed).
     
 whole_body(Body, Length) when is_binary(Body)->
     case byte_size(Body) of
@@ -196,7 +196,7 @@ parse_status_code(<<?LF>>, StatusCodeStr,
 
 parse_status_code(<<?CR, ?LF, Rest/binary>>, StatusCodeStr, 
 		  MaxHeaderSize, Result, true) ->
-    parse_headers(Rest, [], [], MaxHeaderSize,
+    parse_headers(Rest, [], [], MaxHeaderSize, 0,
  		  [" ", list_to_integer(lists:reverse(
                                           string:trim(StatusCodeStr)))
 		   | Result], true); 
@@ -246,7 +246,7 @@ parse_reason_phrase(<<?LF, Rest/binary>>, Phrase,
 			MaxHeaderSize, Result, Relaxed);
 parse_reason_phrase(<<?CR, ?LF, Rest/binary>>, Phrase, 
  		    MaxHeaderSize, Result, Relaxed) ->
-    parse_headers(Rest, [], [], MaxHeaderSize,
+    parse_headers(Rest, [], [], MaxHeaderSize, 0,
  		  [lists:reverse(Phrase) | Result], Relaxed); 
 parse_reason_phrase(<<?LF>>, Phrase, MaxHeaderSize, Result, Relaxed) ->
     %% If ?CR is is missing RFC2616 section-19.3 
@@ -260,100 +260,96 @@ parse_reason_phrase(<<Octet, Rest/binary>>, Phrase, MaxHeaderSize, Result,
     parse_reason_phrase(Rest, [Octet | Phrase], MaxHeaderSize, 
 			Result, Relaxed).
 
-parse_headers(<<>>, Header, Headers, MaxHeaderSize, Result, Relaxed) -> 
-    {?MODULE, parse_headers, [<<>>, Header, Headers, MaxHeaderSize, Result,
+parse_headers(<<>>, Header, Headers, MaxHeaderSize, CurrentSize, Result, Relaxed) ->
+    {?MODULE, parse_headers, [<<>>, Header, Headers, MaxHeaderSize, CurrentSize, Result,
 			      Relaxed]};
 
 parse_headers(<<?CR,?LF,?LF,Body/binary>>, Header, Headers,
-	      MaxHeaderSize, Result, Relaxed) ->
-    %% If ?CR is is missing RFC2616 section-19.3 
+              MaxHeaderSize, CurrentSize, Result, Relaxed) ->
+    %% If ?CR is is missing RFC2616 section-19.3
     parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers,
-		  MaxHeaderSize, Result, Relaxed);
+                  MaxHeaderSize, CurrentSize, Result, Relaxed);
 
 parse_headers(<<?LF,?LF,Body/binary>>, Header, Headers,
-	      MaxHeaderSize, Result, Relaxed) ->
-    %% If ?CR is is missing RFC2616 section-19.3 
+              MaxHeaderSize, CurrentSize, Result, Relaxed) ->
+    %% If ?CR is is missing RFC2616 section-19.3
     parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers,
-		  MaxHeaderSize, Result, Relaxed);
+                  MaxHeaderSize, CurrentSize, Result, Relaxed);
 
 parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers,
-	      MaxHeaderSize, Result, Relaxed) ->
+	      _MaxHeaderSize, _CurrentSize, Result, Relaxed) ->
     HTTPHeaders = [lists:reverse(Header) | Headers],
-    Length = lists:foldl(fun(H, Acc) -> length(H) + Acc end,
-			   0, HTTPHeaders),
-    case ((Length =< MaxHeaderSize) or (MaxHeaderSize == nolimit)) of
- 	true ->   
-	    ResponseHeaderRcord = 
-		http_response:headers(HTTPHeaders, #http_response_h{}),
+    ResponseHeaderRcord =
+        http_response:headers(HTTPHeaders, #http_response_h{}),
 
-            %% RFC7230, Section 3.3.3
-            %% If a message is received with both a Transfer-Encoding and a
-            %% Content-Length header field, the Transfer-Encoding overrides the
-            %% Content-Length. Such a message might indicate an attempt to
-            %% perform request smuggling (Section 9.5) or response splitting
-            %% (Section 9.4) and ought to be handled as an error. A sender MUST
-            %% remove the received Content-Length field prior to forwarding such
-            %% a message downstream.
-            case ResponseHeaderRcord#http_response_h.'transfer-encoding' of
-                undefined ->
+    %% RFC7230, Section 3.3.3
+    %% If a message is received with both a Transfer-Encoding and a
+    %% Content-Length header field, the Transfer-Encoding overrides the
+    %% Content-Length. Such a message might indicate an attempt to
+    %% perform request smuggling (Section 9.5) or response splitting
+    %% (Section 9.4) and ought to be handled as an error. A sender MUST
+    %% remove the received Content-Length field prior to forwarding such
+    %% a message downstream.
+    case ResponseHeaderRcord#http_response_h.'transfer-encoding' of
+        undefined ->
+            {ok, list_to_tuple(
+                   lists:reverse([Body, ResponseHeaderRcord | Result]))};
+        Value ->
+            TransferEncoding = string:lowercase(Value),
+            ContentLength = ResponseHeaderRcord#http_response_h.'content-length',
+            if
+                %% Respond without error but remove Content-Length field in relaxed mode
+                (Relaxed =:= true)
+                andalso (TransferEncoding =:= "chunked")
+                andalso (ContentLength =/= "-1") ->
+                    ResponseHeaderRcordFixed =
+                        ResponseHeaderRcord#http_response_h{'content-length' = "-1"},
                     {ok, list_to_tuple(
-                           lists:reverse([Body, ResponseHeaderRcord | Result]))};
-                Value ->
-                    TransferEncoding = string:lowercase(Value),
-                    ContentLength = ResponseHeaderRcord#http_response_h.'content-length',
-                    if
-                        %% Respond without error but remove Content-Length field in relaxed mode
-                        (Relaxed =:= true)
-                        andalso (TransferEncoding =:= "chunked")
-                        andalso (ContentLength =/= "-1") ->
-                            ResponseHeaderRcordFixed =
-                                ResponseHeaderRcord#http_response_h{'content-length' = "-1"},
-                            {ok, list_to_tuple(
-                                   lists:reverse([Body, ResponseHeaderRcordFixed | Result]))};
-                        %% Respond with error in default (not relaxed) mode
-                        (Relaxed =:= false)
-                        andalso (TransferEncoding =:= "chunked")
-                        andalso (ContentLength =/= "-1") ->
-                            throw({error, {headers_conflict, {'content-length',
-                                                              'transfer-encoding'}}});
-                        true  ->
-                            {ok, list_to_tuple(
-                                   lists:reverse([Body, ResponseHeaderRcord | Result]))}
-                    end
-            end;
- 	false ->
-	    throw({error, {header_too_long, MaxHeaderSize, 
-			   MaxHeaderSize-Length}})
+                           lists:reverse([Body, ResponseHeaderRcordFixed | Result]))};
+                %% Respond with error in default (not relaxed) mode
+                (Relaxed =:= false)
+                andalso (TransferEncoding =:= "chunked")
+                andalso (ContentLength =/= "-1") ->
+                    throw({error, {headers_conflict, {'content-length',
+                                                      'transfer-encoding'}}});
+                true  ->
+                    {ok, list_to_tuple(
+                           lists:reverse([Body, ResponseHeaderRcord | Result]))}
+            end
     end;
-parse_headers(<<?CR,?LF,?CR>> = Data, Header, Headers, 
-	      MaxHeaderSize, Result, Relaxed) ->
-    {?MODULE, parse_headers, [Data, Header, Headers, 
-			      MaxHeaderSize, Result, Relaxed]};
-parse_headers(<<?CR,?LF>> = Data, Header, Headers, 
-	      MaxHeaderSize, Result, Relaxed) ->
-    {?MODULE, parse_headers, [Data, Header, Headers, MaxHeaderSize, 
-			      Result, Relaxed]};
+parse_headers(<<?CR,?LF,?CR>> = Data, Header, Headers,
+              MaxHeaderSize, CurrentSize, Result, Relaxed) ->
+    {?MODULE, parse_headers, [Data, Header, Headers,
+                              MaxHeaderSize, CurrentSize, Result, Relaxed]};
+parse_headers(<<?CR,?LF>> = Data, Header, Headers,
+              MaxHeaderSize, CurrentSize, Result, Relaxed) ->
+    {?MODULE, parse_headers, [Data, Header, Headers, MaxHeaderSize, CurrentSize,
+                              Result, Relaxed]};
 parse_headers(<<?CR,?LF, Octet, Rest/binary>>, Header, Headers,
-	      MaxHeaderSize, Result, Relaxed) ->
-    parse_headers(Rest, [Octet], 
-		  [lists:reverse(Header) | Headers], MaxHeaderSize, 
-		  Result, Relaxed);
-parse_headers(<<?CR>> = Data, Header, Headers, 
-	      MaxHeaderSize, Result, Relaxed) ->
-    {?MODULE, parse_headers, [Data, Header, Headers, MaxHeaderSize, 
-			      Result, Relaxed]};
+              MaxHeaderSize, CurrentSize, Result, Relaxed) ->
+    parse_headers(Rest, [Octet],
+                  [lists:reverse(Header) | Headers], MaxHeaderSize, CurrentSize + 3,
+                  Result, Relaxed);
+parse_headers(<<?CR>> = Data, Header, Headers,
+              MaxHeaderSize, CurrentSize, Result, Relaxed) ->
+    {?MODULE, parse_headers, [Data, Header, Headers, MaxHeaderSize, CurrentSize,
+                              Result, Relaxed]};
 
-parse_headers(<<?LF>>, Header, Headers, 
-	      MaxHeaderSize, Result, Relaxed) ->
-    %% If ?CR is is missing RFC2616 section-19.3 
-    parse_headers(<<?CR, ?LF>>, Header, Headers, 
-		  MaxHeaderSize, Result, Relaxed);
+parse_headers(<<?LF>>, Header, Headers,
+              MaxHeaderSize, CurrentSize, Result, Relaxed) ->
+    %% If ?CR is is missing RFC2616 section-19.3
+    parse_headers(<<?CR, ?LF>>, Header, Headers,
+                  MaxHeaderSize, CurrentSize, Result, Relaxed);
 
 parse_headers(<<Octet, Rest/binary>>, Header, Headers,
-	      MaxHeaderSize, Result, Relaxed) ->
-    parse_headers(Rest, [Octet | Header], Headers, MaxHeaderSize, 
-		  Result, Relaxed).
-
+              MaxHeaderSize, CurrentSize, Result, Relaxed)
+  when (is_integer(MaxHeaderSize) andalso CurrentSize < MaxHeaderSize);
+       MaxHeaderSize =:= nolimit ->
+    parse_headers(Rest, [Octet | Header], Headers, MaxHeaderSize,
+                  CurrentSize + 1, Result, Relaxed);
+parse_headers(<<_Octet, _Rest/binary>>, _UnfinalizedHeader, _Headers,
+              MaxHeaderSize, _CurrentSize, _Result, _Relaxed) ->
+    throw({error, {header_too_long, {max, MaxHeaderSize}}}).
 
 %% RFC2616, Section 10.1.1
 %% Note:

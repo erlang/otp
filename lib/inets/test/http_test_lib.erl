@@ -151,7 +151,8 @@ dummy_request_handler_init(MFA, Socket0, ContentCb, Conf) ->
 dummy_request_handler_loop({Module, Function, Args}, SockType, Socket, ContentCb, Conf) ->
     receive 
 	{Proto, _, Data} when (Proto =:= tcp) orelse (Proto =:= ssl) ->
-	    case handle_request(Module, Function, [Data | Args], Socket, ContentCb, Conf) of
+	    case handle_request(Module, Function, [Data | Args], SockType,
+				Socket, ContentCb, Conf) of
 		stop when Proto =:= tcp ->
 		    gen_tcp:close(Socket);
 		stop when Proto =:= ssl ->
@@ -165,7 +166,7 @@ dummy_request_handler_loop({Module, Function, Args}, SockType, Socket, ContentCb
 	    ssl:close(Socket)
     end.
 
-handle_request(Module, Function, Args, Socket, ContentCb, Conf) ->
+handle_request(Module, Function, Args, SockType, Socket, ContentCb, Conf) ->
     case Module:Function(Args) of
 	{ok, Result} ->
 	    case ContentCb:handle_http_msg(Result, Socket, Conf) of
@@ -187,11 +188,47 @@ handle_request(Module, Function, Args, Socket, ContentCb, Conf) ->
 					   {max_method, ?HTTP_MAX_METHOD_STRING},
 					   {max_content_length, ?HTTP_MAX_CONTENT_LENGTH},
 					   {customize, httpd_custom}
-					  ]], Socket, ContentCb, Conf)
+					  ]], SockType, Socket, ContentCb, Conf)
 	    end;
+
+	%% The request was rejected by the parser. Mirror what
+	%% httpd_request_handler does and send a status response, then
+	%% close. Without this the error tuple is indistinguishable from
+	%% an {M, F, A} continuation, so the handler would silently wait
+	%% for more data and the client would hang until its timetrap
+	%% expires instead of failing on the unexpected response.
+	{error, {size_error, _MaxSize, StatusCode, Description}, Version} ->
+	    send_status(SockType, Socket, Version, StatusCode, Description),
+	    stop;
+	{error, {version_error, StatusCode, Description}, Version} ->
+	    send_status(SockType, Socket, Version, StatusCode, Description),
+	    stop;
+	{error, {bad_request, StatusCode, Description}, Version}
+	  when is_integer(StatusCode) ->
+	    send_status(SockType, Socket, Version, StatusCode, Description),
+	    stop;
+	{error, Reason, Version} ->
+	    ct:log("Dummy server rejected request: ~p", [Reason]),
+	    send_status(SockType, Socket, Version, 400, "Bad Request"),
+	    stop;
+	{error, Reason} ->
+	    ct:log("Dummy server rejected request: ~p", [Reason]),
+	    send_status(SockType, Socket, "HTTP/1.1", 400, "Bad Request"),
+	    stop;
+
 	NewMFA ->
 	    NewMFA
     end.
+
+send_status(SockType, Socket, Version, StatusCode, Description) ->
+    Phrase = httpd_util:reason_phrase(StatusCode),
+    Body = "<HTML><BODY><H1>" ++ integer_to_list(StatusCode) ++ " " ++ Phrase
+	++ "</H1>" ++ Description ++ "</BODY></HTML>",
+    Response = Version ++ " " ++ integer_to_list(StatusCode) ++ " " ++ Phrase
+	++ "\r\nContent-Type: text/html"
+	++ "\r\nContent-Length: " ++ integer_to_list(length(Body))
+	++ "\r\nConnection: close\r\n\r\n" ++ Body,
+    inets_test_lib:send(SockType, Socket, Response).
 
 %% Perform a synchronous stop
 dummy_server_stop(Pid) ->
