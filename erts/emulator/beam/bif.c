@@ -5121,8 +5121,18 @@ BIF_RETTYPE bump_reductions_1(BIF_ALIST_1)
     BIF_RET2(am_true, reds);
 }
 
-BIF_RETTYPE erts_internal_cmp_term_2(BIF_ALIST_2) {
-    Sint res = CMP_TERM(BIF_ARG_1,BIF_ARG_2);
+BIF_RETTYPE erts_internal_cmp_term_4(BIF_ALIST_4) {
+    Sint res, exact, eq_only;
+
+    if ((BIF_ARG_3 != am_true && BIF_ARG_3 != am_false) ||
+        (BIF_ARG_4 != am_true && BIF_ARG_4 != am_false)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    exact = (BIF_ARG_3 == am_true) ? 1 : 0;
+    eq_only = (BIF_ARG_4 == am_true) ? 1 : 0;
+    
+    res = erts_cmp(BIF_ARG_1, BIF_ARG_2, exact, eq_only);
 
     /* ensure -1, 0, 1 result */
     if (res < 0) {
