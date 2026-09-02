@@ -80,7 +80,7 @@ keep_logs(Config) ->
     [ok = ct_test_support:run(Opts1, Config) || _ <- lists:seq(1,3)],
 
     %% Verify the number of directories
-    WC = filename:join(KeepLogsDir,"ct_run.ct@*"),
+    WC = filename:join(KeepLogsDir, log_directory_glob(Config)),
     L1 = filelib:wildcard(WC),
     6 = length(L1),
 
@@ -143,7 +143,7 @@ refresh_logs(Config) ->
     [ok = ct_test_support:run(SuiteOpts, Config) || _ <- lists:seq(1,3)],
 
     %% Verify the number of directories
-    WC = filename:join(KeepLogsDir,"ct_run.ct@*"),
+    WC = filename:join(KeepLogsDir, log_directory_glob(Config)),
     L1 = filelib:wildcard(WC),
     6 = length(L1),
 
@@ -199,3 +199,8 @@ create_dir(Prefix) ->
             ok = file:make_dir(Dir),
             Dir
     end.
+
+log_directory_glob(Config) ->
+    Node = proplists:get_value(ct_node, Config),
+    [Name, _Host] = binary:split(atom_to_binary(Node), ~"@"),
+    "ct_run." ++ binary_to_list(Name) ++ "@*".
