@@ -32,8 +32,10 @@
 
 -export([write/1, read/1, wread/1, delete/1,
          delete_object_bag/1, delete_object_set/1,
-         match_object/1, select/1, select14/1, select_reverse/1,
-         select_reverse14/1, select_reverse_index/1, all_keys/1,
+         match_object/1, select/1, select14/1,
+         select_trans_order/1, select_reverse/1,
+         select_reverse14/1, select_reverse_index/1,
+         select_reverse_trans_order/1, all_keys/1,
          transaction/1, transaction_counters/1,
          basic_nested/1, mix_of_nested_activities/1,
          nested_trans_both_ok/1, nested_trans_child_dies/1,
@@ -71,9 +73,9 @@ end_per_testcase(Func, Conf) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 all() ->
     [write, read, wread, delete, delete_object_bag, delete_object_set,
-     match_object, select, select14, select_reverse, select_reverse14,
-     select_reverse_index, all_keys,
-     transaction, transaction_counters,
+     match_object, select, select14, select_trans_order, select_reverse,
+     select_reverse14, select_reverse_index, select_reverse_trans_order,
+     all_keys, transaction, transaction_counters,
      {group, nested_activities}, {group, index_tabs},
      {group, index_lifecycle}, stacktrace_return].
 
@@ -478,6 +480,134 @@ select14(Config) when is_list(Config) ->
 
     ?verify_mnesia(Nodes, []).
 
+select_trans_order(suite) -> [];
+select_trans_order(Config) ->
+    Nodes = ?acquire_nodes(1, Config),
+    Tab1 = ram,
+    Tab2 = disc,
+    Tab3 = ext_ram,
+    Schema1 = [{name, Tab1}, {attributes, [k, v, x]}, {record_name, test},
+               {type, ordered_set}, {ram_copies, Nodes}],
+    Schema2 = [{name, Tab2}, {attributes, [k, v, x]}, {record_name, test},
+               {type, ordered_set}, {disc_copies, Nodes}],
+    Schema3 = [{name, Tab3}, {attributes, [k, v, x]}, {record_name, test},
+               {type, ordered_set}, {ext_ram_copies, Nodes}],
+    ?match({atomic, ok}, mnesia:create_table(Schema1)),
+    ?match({atomic, ok}, mnesia:create_table(Schema2)),
+    ?match({atomic, ok}, mnesia:create_table(Schema3)),
+
+    One = {test, 1, 2, 3},
+    Two = {test, 2, 3, 4},
+    Three = {test, 3, 4, 5},
+    Four = {test, 4, 5, 6},
+    Five = {test, 5, 6, 7},
+    Populate = fun(Tab) ->
+                       mnesia:write(Tab, Three, write),
+                       mnesia:write(Tab, Two, write),
+                       mnesia:write(Tab, One, write)
+               end,
+    ?match({atomic, ok}, mnesia:transaction(fun() ->
+                                                    Populate(Tab1),
+                                                    Populate(Tab2),
+                                                    Populate(Tab3)
+                                            end)),
+
+    AllPat = [{'_', [], ['$_']}],
+    DirtyCheck =
+        fun(Expected) ->
+                Expected = mnesia:dirty_select(Tab1, AllPat),
+                Expected = mnesia:dirty_select(Tab2, AllPat),
+                Expected = mnesia:dirty_select(Tab3, AllPat)
+        end,
+    TransCheck =
+        fun(Expected) ->
+                Expected = mnesia:select(Tab1, AllPat),
+                Expected = mnesia:select(Tab2, AllPat),
+                Expected = mnesia:select(Tab3, AllPat)
+        end,
+    TransCheckLimit =
+        fun(Tab, Expected, Limit) ->
+                Loop = fun(Self, Cont1, Actual) ->
+                               case mnesia:select(Cont1) of
+                                   '$end_of_table' ->
+                                       Expected = Actual;
+                                   {More, Cont} ->
+                                       Self(Self, Cont, Actual ++ More)
+                               end
+                       end,
+                {Initial, Cont0} = mnesia:select(Tab, AllPat, Limit, read),
+                Loop(Loop, Cont0, Initial)
+        end,
+
+    Expected = [One, Two, Three],
+    DirtyCheck(Expected),
+    Initial = fun() ->
+                      DirtyCheck(Expected),
+                      TransCheck(Expected),
+                      TransCheckLimit(Tab1, Expected, 1),
+                      TransCheckLimit(Tab2, Expected, 3),
+                      TransCheckLimit(Tab3, Expected, 5),
+                      ok
+              end,
+    ?match({atomic, ok}, mnesia:transaction(Initial)),
+
+    Write =
+        fun(Rec) ->
+                mnesia:write(Tab1, Rec, write),
+                mnesia:write(Tab2, Rec, write),
+                mnesia:write(Tab3, Rec, write)
+        end,
+    Delete =
+        fun(Key) ->
+                mnesia:delete({Tab1, Key}),
+                mnesia:delete({Tab2, Key}),
+                mnesia:delete({Tab3, Key})
+        end,
+    TwoUpdated = {test, 2, 3, 8},
+    ExpectedUpdated = [One, TwoUpdated, Four, Five],
+    Updated = fun() ->
+                      Write(Four),
+                      Delete(3),
+                      Write(TwoUpdated),
+                      Write(Five),
+                      TransCheck(ExpectedUpdated),
+                      TransCheckLimit(Tab1, ExpectedUpdated, 1),
+                      TransCheckLimit(Tab2, ExpectedUpdated, 3),
+                      TransCheckLimit(Tab3, ExpectedUpdated, 5),
+                      ok
+              end,
+    ?match({atomic, ok}, mnesia:transaction(Updated)),
+
+    Zero = {test, 0, 1, 2},
+    ExpectedBottomWrite = [Zero, One, TwoUpdated, Four, Five],
+    BottomWrite = fun() ->
+                          Write(Zero),
+                          TransCheck(ExpectedBottomWrite),
+                          TransCheckLimit(Tab1, ExpectedBottomWrite, 1),
+                          TransCheckLimit(Tab2, ExpectedBottomWrite, 3),
+                          TransCheckLimit(Tab3, ExpectedBottomWrite, 5),
+                          ok
+                  end,
+    ?match({atomic, ok}, mnesia:transaction(BottomWrite)),
+
+    DeleteObject =
+        fun(Rec) ->
+                mnesia:delete_object(Tab1, Rec, write),
+                mnesia:delete_object(Tab2, Rec, write),
+                mnesia:delete_object(Tab3, Rec, write)
+        end,
+    ExpectedBottomDelete = [One, TwoUpdated, Four, Five],
+    BottomDelete = fun() ->
+                           DeleteObject(Zero),
+                           TransCheck(ExpectedBottomDelete),
+                           TransCheckLimit(Tab1, ExpectedBottomDelete, 1),
+                           TransCheckLimit(Tab2, ExpectedBottomDelete, 3),
+                           TransCheckLimit(Tab3, ExpectedBottomDelete, 5),
+                           ok
+                   end,
+    ?match({atomic, ok}, mnesia:transaction(BottomDelete)),
+    ?verify_mnesia(Nodes, []).
+
 %% select_reverse
 select_reverse(suite) -> [];
 select_reverse(Config) when is_list(Config) ->
@@ -652,6 +782,134 @@ select_reverse_index(Config) when is_list(Config) ->
     Test(Tab1),
     Test(Tab2),
 
+    ?verify_mnesia(Nodes, []).
+
+select_reverse_trans_order(suite) -> [];
+select_reverse_trans_order(Config) ->
+    Nodes = ?acquire_nodes(1, Config),
+    Tab1 = ram,
+    Tab2 = disc,
+    Tab3 = ext_ram,
+    Schema1 = [{name, Tab1}, {attributes, [k, v, x]}, {record_name, test},
+               {type, ordered_set}, {ram_copies, Nodes}],
+    Schema2 = [{name, Tab2}, {attributes, [k, v, x]}, {record_name, test},
+               {type, ordered_set}, {disc_copies, Nodes}],
+    Schema3 = [{name, Tab3}, {attributes, [k, v, x]}, {record_name, test},
+               {type, ordered_set}, {ext_ram_copies, Nodes}],
+    ?match({atomic, ok}, mnesia:create_table(Schema1)),
+    ?match({atomic, ok}, mnesia:create_table(Schema2)),
+    ?match({atomic, ok}, mnesia:create_table(Schema3)),
+
+    One = {test, 1, 2, 3},
+    Two = {test, 2, 3, 4},
+    Three = {test, 3, 4, 5},
+    Four = {test, 4, 5, 6},
+    Five = {test, 5, 6, 7},
+    Populate = fun(Tab) ->
+                       mnesia:write(Tab, One, write),
+                       mnesia:write(Tab, Two, write),
+                       mnesia:write(Tab, Three, write)
+               end,
+    ?match({atomic, ok}, mnesia:transaction(fun() ->
+                                                    Populate(Tab1),
+                                                    Populate(Tab2),
+                                                    Populate(Tab3)
+                                            end)),
+
+    AllPat = [{'_', [], ['$_']}],
+    DirtyCheck =
+        fun(Expected) ->
+                Expected = mnesia:dirty_select_reverse(Tab1, AllPat),
+                Expected = mnesia:dirty_select_reverse(Tab2, AllPat),
+                Expected = mnesia:dirty_select_reverse(Tab3, AllPat)
+        end,
+    TransCheck =
+        fun(Expected) ->
+                Expected = mnesia:select_reverse(Tab1, AllPat),
+                Expected = mnesia:select_reverse(Tab2, AllPat),
+                Expected = mnesia:select_reverse(Tab3, AllPat)
+        end,
+    TransCheckLimit =
+        fun(Tab, Expected, Limit) ->
+                Loop = fun(Self, Cont1, Actual) ->
+                               case mnesia:select_reverse(Cont1) of
+                                   '$end_of_table' ->
+                                       Expected = Actual;
+                                   {More, Cont} ->
+                                       Self(Self, Cont, Actual ++ More)
+                               end
+                       end,
+                {Initial, Cont0} = mnesia:select_reverse(Tab, AllPat, Limit, read),
+                Loop(Loop, Cont0, Initial)
+        end,
+
+    Expected = [Three, Two, One],
+    DirtyCheck(Expected),
+    Initial = fun() ->
+                      DirtyCheck(Expected),
+                      TransCheck(Expected),
+                      TransCheckLimit(Tab1, Expected, 1),
+                      TransCheckLimit(Tab2, Expected, 3),
+                      TransCheckLimit(Tab3, Expected, 5),
+                      ok
+              end,
+    ?match({atomic, ok}, mnesia:transaction(Initial)),
+
+    Write =
+        fun(Rec) ->
+                mnesia:write(Tab1, Rec, write),
+                mnesia:write(Tab2, Rec, write),
+                mnesia:write(Tab3, Rec, write)
+        end,
+    Delete =
+        fun(Key) ->
+                mnesia:delete({Tab1, Key}),
+                mnesia:delete({Tab2, Key}),
+                mnesia:delete({Tab3, Key})
+        end,
+    TwoUpdated = {test, 2, 3, 8},
+    ExpectedUpdated = [Five, Four, TwoUpdated, One],
+    Updated = fun() ->
+                      Write(Four),
+                      Delete(3),
+                      Write(TwoUpdated),
+                      Write(Five),
+                      TransCheck(ExpectedUpdated),
+                      TransCheckLimit(Tab1, ExpectedUpdated, 1),
+                      TransCheckLimit(Tab2, ExpectedUpdated, 3),
+                      TransCheckLimit(Tab3, ExpectedUpdated, 5),
+                      ok
+              end,
+    ?match({atomic, ok}, mnesia:transaction(Updated)),
+
+    Six = {test, 6, 7, 8},
+    ExpectedTopWrite = [Six, Five, Four, TwoUpdated, One],
+    TopWrite = fun() ->
+                       Write(Six),
+                       TransCheck(ExpectedTopWrite),
+                       TransCheckLimit(Tab1, ExpectedTopWrite, 1),
+                       TransCheckLimit(Tab2, ExpectedTopWrite, 3),
+                       TransCheckLimit(Tab3, ExpectedTopWrite, 5),
+                       ok
+               end,
+    ?match({atomic, ok}, mnesia:transaction(TopWrite)),
+
+    DeleteObject =
+        fun(Rec) ->
+                mnesia:delete_object(Tab1, Rec, write),
+                mnesia:delete_object(Tab2, Rec, write),
+                mnesia:delete_object(Tab3, Rec, write)
+        end,
+    ExpectedTopDelete = [Five, Four, TwoUpdated, One],
+    TopDelete = fun() ->
+                        DeleteObject(Six),
+                        TransCheck(ExpectedTopDelete),
+                        TransCheckLimit(Tab1, ExpectedTopDelete, 1),
+                        TransCheckLimit(Tab2, ExpectedTopDelete, 3),
+                        TransCheckLimit(Tab3, ExpectedTopDelete, 5),
+                        ok
+                end,
+    ?match({atomic, ok}, mnesia:transaction(TopDelete)),
     ?verify_mnesia(Nodes, []).
 
 %% Pick all keys from table
