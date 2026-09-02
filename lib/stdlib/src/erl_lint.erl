@@ -273,6 +273,8 @@ format_error_1(non_latin1_module_unsupported) ->
     ~"module names with non-latin1 characters are not supported";
 format_error_1(empty_module_name) ->
     ~"the module name must not be empty";
+format_error_1(bad_module_name) ->
+    ~"the module name must be an atom";
 format_error_1(blank_module_name) ->
     ~"the module name must contain at least one visible character";
 format_error_1(ctrl_chars_in_module_name) ->
@@ -4385,7 +4387,7 @@ is_fa({FuncName, Arity})
   when is_atom(FuncName), is_integer(Arity), Arity >= 0 -> true;
 is_fa(_) -> false.
 
-check_module_name(M, Anno, St0) ->
+check_module_name(M, Anno, St0) when is_atom(M) ->
     AllChars = atom_to_list(M),
     VisibleChars = remove_non_visible(AllChars),
     case {AllChars, VisibleChars} of
@@ -4408,7 +4410,9 @@ check_module_name(M, Anno, St0) ->
                 false ->
                     St1
             end
-    end.
+    end;
+check_module_name(_M, Anno, St) ->
+    add_error(Anno, bad_module_name, St).
 
 remove_non_visible(Cs) ->
     SP = $\s,                                   %Plain space.

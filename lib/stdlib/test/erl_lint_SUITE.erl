@@ -3829,7 +3829,17 @@ otp_11861(Conf) when is_list(Conf) ->
               good(_) -> ok.
              ">>,
            [],
-           {warnings,[{{3,16},erl_lint,{ill_defined_optional_callbacks,bad_behaviour3}}]}}
+           {warnings,[{{3,16},erl_lint,{ill_defined_optional_callbacks,bad_behaviour3}}]}},
+
+           {bad_module_name,
+           <<"
+              -export([good/1]).
+              -behaviour(bad_behaviour/2).
+              good(_) -> ok.
+             ">>,
+           [],
+           {error,[{{3,16},erl_lint,bad_module_name}],
+            [{{3,16},erl_lint,{undefined_behaviour,{bad_behaviour,2}}}]}}
 	 ],
     [] = run(Conf, Ts),
 
