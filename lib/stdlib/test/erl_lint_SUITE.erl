@@ -75,6 +75,7 @@
          otp_14285/1, otp_14378/1,
          external_funs/1,otp_15456/1,otp_15563/1,
          types/1,
+         type_error_messages/1,
          removed/1, otp_16516/1,
          inline_nifs/1,
          undefined_nifs/1,
@@ -122,6 +123,7 @@ all() ->
      stacktrace_syntax, otp_14285, otp_14378, external_funs,
      otp_15456, otp_15563,
      types,
+     type_error_messages,
      removed, otp_16516,
      undefined_nifs,
      no_load_nif,
@@ -1312,6 +1314,35 @@ types(Config) ->
          ],
 
     [] = run(Config, Ts),
+    ok.
+
+%% GH-9851. Type-related messages use the name/arity format.
+type_error_messages(Config) when is_list(Config) ->
+    "type foo/0 undefined" =
+        format_error({undefined_type,{foo,0}}),
+    "type foo/2 is unused" =
+        format_error({unused_type,{foo,2}}),
+    "local redefinition of built-in type: map/1" =
+        format_error({redefine_builtin_type,{map,1}}),
+    "type foo/2 already defined" =
+        format_error({redefine_type,{foo,2}}),
+    "opaque type foo/1 is not exported" =
+        format_error({not_exported_opaque,{foo,1}}),
+    "the type m:t/2 is deprecated; use m:u/2 instead" =
+        format_error({deprecated_type,{m,t,2},"use m:u/2 instead"}),
+    "the type m:t/2 is deprecated and will be removed in OTP 42; "
+        "use m:u/2 instead" =
+        format_error({deprecated_type,{m,t,2},"use m:u/2 instead","OTP 42"}),
+    "the callback m:cb/1 is deprecated; use m:cb/2 instead" =
+        format_error({deprecated_callback,{m,cb,1},"use m:cb/2 instead"}),
+    "the callback m:cb/1 is deprecated and will be removed in OTP 42; "
+        "use m:cb/2 instead" =
+        format_error({deprecated_callback,{m,cb,1},"use m:cb/2 instead",
+                      "OTP 42"}),
+    "the type m:t/0 is removed; it was never used" =
+        format_error({removed_type,{m,t,0},"it was never used"}),
+    "the callback m:cb/2 is removed; it was never used" =
+        format_error({removed_callback,{m,cb,2},"it was never used"}),
     ok.
 
 %% OTP-4671. Errors for unsafe variables.

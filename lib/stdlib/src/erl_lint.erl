@@ -410,28 +410,28 @@ format_error_1({unsafe, MFA, Info, Rel}) ->
 format_error_1({unsafe, MFA, Info}) ->
     {~"~s is unsafe; ~s", [format_mfa(MFA), format_obsolete(Info)]};
 format_error_1({deprecated_type, {M1, F1, A1}, Info, Rel}) ->
-    {~"the type ~p:~p~s is deprecated and will be removed in ~s; ~s",
-                  [M1, F1, gen_type_paren(A1), Rel, format_obsolete(Info)]};
+    {~"the type ~p:~p/~w is deprecated and will be removed in ~s; ~s",
+     [M1, F1, A1, Rel, format_obsolete(Info)]};
 format_error_1({deprecated_type, {M1, F1, A1}, Info}) ->
-    {~"the type ~p:~p~s is deprecated; ~s",
-                  [M1, F1, gen_type_paren(A1), format_obsolete(Info)]};
+    {~"the type ~p:~p/~w is deprecated; ~s",
+     [M1, F1, A1, format_obsolete(Info)]};
 format_error_1({deprecated_callback, {M1, F1, A1}, Info, Rel}) ->
-    {~"the callback ~p:~p~s is deprecated and will be removed in ~s; ~s",
-                  [M1, F1, gen_type_paren(A1), Rel, format_obsolete(Info)]};
+    {~"the callback ~p:~p/~w is deprecated and will be removed in ~s; ~s",
+     [M1, F1, A1, Rel, format_obsolete(Info)]};
 format_error_1({deprecated_callback, {M1, F1, A1}, Info}) ->
-    {~"the callback ~p:~p~s is deprecated; ~s",
-                  [M1, F1, gen_type_paren(A1), format_obsolete(Info)]};
+    {~"the callback ~p:~p/~w is deprecated; ~s",
+     [M1, F1, A1, format_obsolete(Info)]};
 format_error_1({removed, MFA, ReplacementMFA, Rel}) ->
     {~"call to ~s will fail, since it was removed in ~s; use ~s",
      [format_mfa(MFA), Rel, format_mfa(ReplacementMFA)]};
 format_error_1({removed, MFA, Info}) ->
     {~"~s is removed; ~s", [format_mfa(MFA), format_obsolete(Info)]};
-format_error_1({removed_type, MNA, Info}) ->
+format_error_1({removed_type, MFA, Info}) ->
     {~"the type ~s is removed; ~s",
-     [format_mna(MNA), format_obsolete(Info)]};
-format_error_1({removed_callback, MNA, Info}) ->
+     [format_mfa(MFA), format_obsolete(Info)]};
+format_error_1({removed_callback, MFA, Info}) ->
     {~"the callback ~s is removed; ~s",
-     [format_mna(MNA), format_obsolete(Info)]};
+     [format_mfa(MFA), format_obsolete(Info)]};
 format_error_1({too_many_arguments,Arity}) ->
     {~"too many arguments (~w) -- maximum allowed is ~w", [Arity,?MAX_ARGUMENTS]};
 format_error_1(update_literal) ->
@@ -666,18 +666,16 @@ format_error_1({bad_export_type, _ETs}) ->
 format_error_1({duplicated_export_type, {T, A}}) ->
     {~"type ~tw/~w already exported", [T, A]};
 format_error_1({undefined_type, {TypeName, Arity}}) ->
-    {~"type ~tw~s undefined", [TypeName, gen_type_paren(Arity)]};
+    {~"type ~tw/~w undefined", [TypeName, Arity]};
 format_error_1({unused_type, {TypeName, Arity}}) ->
-    {~"type ~tw~s is unused", [TypeName, gen_type_paren(Arity)]};
+    {~"type ~tw/~w is unused", [TypeName, Arity]};
 format_error_1({redefine_builtin_type, {TypeName, Arity}}) ->
-    {~"local redefinition of built-in type: ~w~s",
-		  [TypeName, gen_type_paren(Arity)]};
+    {~"local redefinition of built-in type: ~w/~w", [TypeName, Arity]};
 format_error_1({renamed_type, OldName, NewName}) ->
     {~"type ~w() is now called ~w(); please use the new name instead",
      [OldName, NewName]};
 format_error_1({redefine_type, {TypeName, Arity}}) ->
-    {~"type ~tw~s already defined",
-     [TypeName, gen_type_paren(Arity)]};
+    {~"type ~tw/~w already defined", [TypeName, Arity]};
 format_error_1({type_syntax, Constr}) ->
     {~"bad ~tw type", [Constr]};
 format_error_1(old_abstract_code) ->
@@ -722,9 +720,8 @@ format_error_1(deprecated_catch) ->
      Compile directive 'nowarn_deprecated_catch' can be used to suppress
      warnings in selected modules.
      """;
- format_error_1({not_exported_opaque, {TypeName, Arity}}) ->
-    {~"opaque type ~tw~s is not exported",
-                  [TypeName, gen_type_paren(Arity)]};
+format_error_1({not_exported_opaque, {TypeName, Arity}}) ->
+    {~"opaque type ~tw/~w is not exported", [TypeName, Arity]};
 format_error_1({bad_dialyzer_attribute,Term}) ->
     {~"badly formed dialyzer attribute: ~tw", [Term]};
 format_error_1({bad_dialyzer_option,Term}) ->
@@ -732,13 +729,6 @@ format_error_1({bad_dialyzer_option,Term}) ->
 %% --- obsolete? unused? ---
 format_error_1({format_error, {Fmt, Args}}) ->
     {Fmt, Args}.
-
-gen_type_paren(Arity) when is_integer(Arity), Arity >= 0 ->
-    gen_type_paren_1(Arity, ")").
-
-gen_type_paren_1(0, Acc) -> "(" ++ Acc;
-gen_type_paren_1(1, Acc) -> "(_" ++ Acc;
-gen_type_paren_1(N, Acc) -> gen_type_paren_1(N - 1, ",_" ++ Acc).
 
 format_mfa({M, F, [_|_]=As}) ->
     ","++ArityString = lists:append([[$,|integer_to_list(A)] || A <- As]),
@@ -752,9 +742,6 @@ format_fa({F, [_|_]=As}) ->
 
 format_mf(M, F, ArityString) when is_atom(M), is_atom(F) ->
     atom_to_list(M) ++ ":" ++ atom_to_list(F) ++ "/" ++ ArityString.
-
-format_mna({M, N, A}) when is_integer(A) ->
-    atom_to_list(M) ++ ":" ++ atom_to_list(N) ++ gen_type_paren(A).
 
 format_where(L) when is_integer(L) ->
     io_lib:format("(line ~p)", [L]);
