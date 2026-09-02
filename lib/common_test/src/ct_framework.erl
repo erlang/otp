@@ -966,7 +966,12 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 			 Result -> Result
 		     end;
 		 Other ->
-		     io_lib:format("~tP", [Other,5])
+                       case io_lib:printable_unicode_list(Other) of
+                           true ->
+                               Other;
+                           false ->
+                               io_lib:format("~tP", [Other, 5])
+                       end
 	     end,
     ErrorHtml =
 	"<font color=\"brown\">" ++ ct_logs:escape_chars(ErrorStr) ++ "</font>",
