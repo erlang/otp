@@ -66,24 +66,30 @@ Consumed by:
 - [`maps:map/2`](`map/2`)
 - [`maps:to_list/1`](`to_list/1`)
 """.
+-doc(#{since => <<"OTP 21.0">>}).
 -opaque iterator(Key, Value) :: {Key, Value, iterator(Key, Value)} | none
                               | nonempty_improper_list(integer(), #{Key => Value})
                               | nonempty_improper_list(list(Key), #{Key => Value}).
 
+-doc(#{since => <<"OTP 21.0">>}).
 -type iterator() :: iterator(term(), term()).
 
 -doc """
-Key-based iterator order option that can be one of `undefined` (default for
-[`maps:iterator/1`](`iterator/1`)), `ordered` (sorted in map-key order),
-`reversed` (sorted in reverse map-key order), or a custom sorting function.
+Iterator order option for [`maps:iterator/2`](`iterator/2`).
 
-Used by [`maps:iterator/2`](`iterator/2`).
+- **`undefined`** - iteration in undefined order
+- **`ordered`** - iteration in map-key order
+- **`reversed`** - iteration in reverse map-key order
+- **custom sorting function** - iteration in the order the sorting function implements
 
 The [Expressions section](`e:system:expressions.md#term-comparisons`) contains
 descriptions of how terms are ordered.
 """.
+-doc(#{since => <<"OTP 26.0">>}).
 -type iterator_order(Key) :: undefined | ordered | reversed
                            | fun((A :: Key, B :: Key) -> boolean()).
+
+-doc(#{since => <<"OTP 26.0">>}).
 -type iterator_order() :: iterator_order(term()).
 
 -export_type([iterator/2, iterator/0, iterator_order/1, iterator_order/0]).
@@ -496,8 +502,8 @@ Returns a list of pairs representing the key-value associations of
 `MapOrIterator`.
 
 Unless `MapOrIter` is an ordered iterator returned by `iterator/2`,
-the order of the `{Key, Value}` tuples in the resulting list is not
-defined.
+the order of the `{Key, Value}` tuples in the resulting list is
+undefined.
 
 The call fails with a `{badmap,Map}` exception if `MapOrIterator` is not a map
 or an iterator obtained by a call to `iterator/1` or `iterator/2`.
@@ -968,31 +974,8 @@ size(Map) ->
             error_with_info({badmap,Map}, [Map])
     end.
 
--doc """
-Returns a map iterator `Iterator` that can be used by [`maps:next/1`](`next/1`)
-to traverse the key-value associations in a map.
-
-The order of iteration is undefined. When iterating over a map, the
-memory usage is guaranteed to be bounded no matter the size of the
-map.
-
-The call fails with a `{badmap,Map}` exception if `Map` is not a map.
-
-## Examples
-
-```erlang
-1> M = #{ "foo" => 1, "bar" => 2 }.
-#{"foo" => 1,"bar" => 2}
-2> I = maps:iterator(M).
-3> {K1, V1, I2} = maps:next(I), {K1, V1}.
-{"bar",2}
-4> {K2, V2, I3} = maps:next(I2),{K2, V2}.
-{"foo",1}
-5> maps:next(I3).
-none
-```
-""".
 -doc(#{since => <<"OTP 21.0">>}).
+-doc(#{equiv => iterator(Map, undefined)}).
 -spec iterator(Map) -> Iterator when
       Map :: #{Key => Value},
       Iterator :: iterator(Key, Value).
@@ -1002,8 +985,16 @@ iterator(M) -> error_with_info({badmap, M}, [M]).
 
 -doc """
 Returns a map iterator `Iterator` that can be used by [`maps:next/1`](`next/1`)
-to traverse the key-value associations in a map sorted by key using the given
+to traverse the key-value associations in a map according to the given
 `Order`.
+
+When iterating over a map using an iterator with `undefined` order, memory usage is
+guaranteed to be bounded no matter the size of the map. The order of iteration is
+not guaranteed to be stable however, meaning that repeated iterations over the same
+map may happen in different order.
+
+When iterating over a map using an iterator with a custom ordering function, the
+order of iteration is stable except between keys which compare equal.
 
 The call fails with a `{badmap,Map}` exception if `Map` is not a map, or
 with a `badarg` exception if `Order` is invalid.
@@ -1017,7 +1008,7 @@ Ordered iterator:
 2> OrdI = maps:iterator(M, ordered).
 3> {K1, V1, OrdI2} = maps:next(OrdI), {K1, V1}.
 {a,1}
-4> {K2, V2, OrdI3} = maps:next(OrdI2),{K2, V2}.
+4> {K2, V2, OrdI3} = maps:next(OrdI2), {K2, V2}.
 {b,2}
 5> maps:next(OrdI3).
 none
@@ -1030,7 +1021,7 @@ Iterator ordered in reverse:
 2> RevI = maps:iterator(M, reversed).
 3> {K2, V2, RevI2} = maps:next(RevI), {K2, V2}.
 {b,2}
-4> {K1, V1, RevI3} = maps:next(RevI2),{K1, V1}.
+4> {K1, V1, RevI3} = maps:next(RevI2), {K1, V1}.
 {a,1}
 5> maps:next(RevI3).
 none
