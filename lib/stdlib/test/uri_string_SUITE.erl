@@ -59,6 +59,7 @@
          recompose_host_relative_path/1,
          recompose_host_absolute_path/1,
          doctests/1,
+         doctest/1,
          quote/1
         ]).
 
@@ -156,6 +157,7 @@ all() ->
      recompose_host_relative_path,
      recompose_host_absolute_path,
      doctests,
+     doctest,
      quote
     ].
 
@@ -1491,3 +1493,7 @@ get_quote_data() ->
      #{unquoted => "_", quoted => "_", unquoted_b =><<"_">>, quoted_b=> <<"_">>},
      #{unquoted => "~", quoted => "~", unquoted_b =><<"~">>, quoted_b=> <<"~">>}
     ].
+
+
+doctest(_Config) ->
+    ct_doctest:module(uri_string, [{skipped_blocks, 0}, {missing_tests, []}]).

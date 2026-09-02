@@ -38,7 +38,7 @@
          import/1,
          kill_yielding/1,
 
-         last_test/1]).
+         last_test/1,  doctests/1]).
 
 -export([id/1]).
 
@@ -65,7 +65,7 @@ all() ->
      import,
      kill_yielding,
 
-     last_test].
+     last_test, doctests].
 
 groups() -> 
     [].
@@ -1312,3 +1312,10 @@ check_yield_coverage([Tuple | Tail], YieldAcc, Err0) ->
     check_yield_coverage(Tail, YieldAcc + Yields, Err1).
 
 id(X) -> X.
+
+doctests(_Config) ->
+    %% 30 pre-existing illustrative ```erlang blocks (in run/3's and
+    %% split/3's docs) show call/result pairs without a runnable "1>"
+    %% shell prompt; they're prose, not doctests, and are intentionally
+    %% left as-is alongside the real "## Examples" sections.
+    ct_doctest:module(re, [{skipped_blocks, 30}, {missing_tests, []}]).

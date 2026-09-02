@@ -222,7 +222,7 @@ split_string(Cs, Acc) ->
 -doc """
 Returns `true` if `String` is the empty string, otherwise `false`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:is_empty("foo").
@@ -242,7 +242,7 @@ is_empty(_) -> false.
 -doc """
 Returns the number of grapheme clusters in `String`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:length("ß↑e̊").
@@ -262,7 +262,7 @@ length(CD) ->
 -doc """
 Converts `String` to a list of grapheme clusters.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:to_graphemes("ß↑e̊").
@@ -321,7 +321,7 @@ equality test. There are four available normalization forms:
 [`nfkc`](`unicode:characters_to_nfkc_list/1`), and
 [`nfkd`](`unicode:characters_to_nfkd_list/1`).
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:equal("åäö", <<"åäö"/utf8>>).
@@ -349,13 +349,13 @@ equal(A, B, true, Norm) ->
 -doc """
 Returns the reverse list of the grapheme clusters in `String`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> Reverse = string:reverse(unicode:characters_to_nfd_binary("ÅÄÖ")).
 [[79,776],[65,776],[65,778]]
-2> io:format("~ts~n",[Reverse]).
-ÖÄÅ
+2> unicode:characters_to_list(Reverse).
+[79,776,65,776,65,778]
 ```
 """.
 -doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
@@ -383,7 +383,7 @@ slice(CD, N) when is_integer(N), N >= 0 ->
 Returns a substring of `String` of at most `Length` grapheme clusters, starting
 at position `Start`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:slice(<<"He̊llö Wörld"/utf8>>, 4).
@@ -439,15 +439,15 @@ pad(CD, Length, Dir) ->
 Pads `String` to `Length` with grapheme cluster `Char`. `Dir`, which can be
 `leading`, `trailing`, or `both`, indicates where the padding should be added.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:pad(<<"He̊llö"/utf8>>, 8).
 [<<72,101,204,138,108,108,195,182>>,32,32,32]
-2> io:format("'~ts'~n",[string:pad("He̊llö", 8, leading)]).
-'   He̊llö'
-3> io:format("'~ts'~n",[string:pad("He̊llö", 8, both)]).
-' He̊llö  '
+2> unicode:characters_to_list(string:pad("He̊llö", 8, leading)).
+[32,32,32,72,101,778,108,108,246]
+3> unicode:characters_to_list(string:pad("He̊llö", 8, both)).
+[32,72,101,778,108,108,246,32,32]
 ```
 """.
 -doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
@@ -481,10 +481,17 @@ trim(Str) ->
     trim(Str, both, unicode_util:pattern_whitespace()).
 
 -doc """
-Equivalent to [`trim(String, Dir, Whitespace})`](`trim/3`) where 
+Equivalent to [`trim(String, Dir, Whitespace})`](`trim/3`) where
 `Whitespace` is the set of nonbreakable whitespace codepoints, defined
 as Pattern_White_Space in
 [Unicode Standard Annex #31](http://unicode.org/reports/tr31/).
+
+## Examples
+
+```erlang
+1> string:trim("\t  Hello  \n", leading).
+"Hello  \n"
+```
 """.
 -doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec trim(String, Dir) -> unicode:chardata() when
@@ -503,7 +510,7 @@ which direction characters are to be removed.
 Note that `[$\r,$\n]` is one grapheme cluster according to the Unicode
 Standard.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:trim("\t  Hello  \n").
@@ -539,12 +546,12 @@ trim(Str, both, Sep) when is_list(Sep) ->
 Returns a string where any trailing `\n` or `\r\n` have been removed from
 `String`.
 
-_Example:_
+## Examples
 
 ```erlang
-182> string:chomp(<<"\nHello\n\n">>).
+1> string:chomp(<<"\nHello\n\n">>).
 <<"\nHello">>
-183> string:chomp("\nHello\r\r\n").
+2> string:chomp("\nHello\r\r\n").
 "\nHello\r"
 ```
 """.
@@ -579,16 +586,16 @@ Takes characters from `String` as long as the characters are members of set
 `leading` or `trailing`, indicates from which direction characters are to be
 taken.
 
-_Example:_
+## Examples
 
 ```erlang
-5> string:take("abc0z123", lists:seq($a,$z)).
+1> string:take("abc0z123", lists:seq($a,$z)).
 {"abc","0z123"}
-6> string:take(<<"abc0z123">>, lists:seq($0,$9), true, leading).
+2> string:take(<<"abc0z123">>, lists:seq($0,$9), true, leading).
 {<<"abc">>,<<"0z123">>}
-7> string:take("abc0z123", lists:seq($0,$9), false, trailing).
+3> string:take("abc0z123", lists:seq($0,$9), false, trailing).
 {"abc0z","123"}
-8> string:take(<<"abc0z123">>, lists:seq($a,$z), true, trailing).
+4> string:take(<<"abc0z123">>, lists:seq($a,$z), true, trailing).
 {<<"abc0z">>,<<"123">>}
 ```
 """.
@@ -626,7 +633,7 @@ Converts `String` to uppercase.
 
 See also `titlecase/1`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:uppercase("Michał").
@@ -657,10 +664,10 @@ Converts `String` to lowercase.
 Notice that function `casefold/1` should be used when converting a string to be
 tested for equality.
 
-_Example:_
+## Examples
 
 ```erlang
-2> string:lowercase(string:uppercase("Michał")).
+1> string:lowercase(string:uppercase("Michał")).
 "michał"
 ```
 """.
@@ -685,7 +692,7 @@ lowercase(Bin) ->
 -doc """
 Converts `String` to titlecase.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:titlecase("ß is a SHARP s").
@@ -713,7 +720,7 @@ Converts `String` to a case-agnostic comparable string. Function
 [`casefold/1`](`casefold/1`) is preferred over [`lowercase/1`](`lowercase/1`)
 when two strings are to be compared for equality. See also `equal/4`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:casefold("Ω and ẞ SHARP S").
@@ -741,12 +748,12 @@ Argument `String` is expected to start with a valid text represented integer
 (the digits are ASCII values). Remaining characters in the string after the
 integer are returned in `Rest`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> {I1,Is} = string:to_integer("33+22"),
-1> {I2,[]} = string:to_integer(Is),
-1> I1-I2.
+   {I2,[]} = string:to_integer(Is),
+   I1-I2.
 11
 2> string:to_integer("0.5").
 {0,".5"}
@@ -782,12 +789,12 @@ Argument `String` is expected to start with a valid text represented float (the
 digits are ASCII values). Remaining characters in the string after the float are
 returned in `Rest`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> {F1,Fs} = string:to_float("1.0-1.0e-1"),
-1> {F2,[]} = string:to_float(Fs),
-1> F1+F2.
+   {F2,[]} = string:to_float(Fs),
+   F1+F2.
 0.9
 2> string:to_float("3/2=1.5").
 {error,no_float}
@@ -830,7 +837,7 @@ to_number(_, Number, Rest, _, Tail) ->
 If `Prefix` is the prefix of `String`, removes it and returns the remainder of
 `String`, otherwise returns `nomatch`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:prefix(<<"prefix of string">>, "pre").
@@ -867,14 +874,14 @@ Splits `String` where `SearchPattern` is encountered and return the remaining
 parts. `Where`, default `leading`, indicates whether the `leading`, the
 `trailing` or `all` encounters of `SearchPattern` will split `String`.
 
-_Example:_
+## Examples
 
 ```erlang
-0> string:split("ab..bc..cd", "..").
+1> string:split("ab..bc..cd", "..").
 ["ab","bc..cd"]
-1> string:split(<<"ab..bc..cd">>, "..", trailing).
+2> string:split(<<"ab..bc..cd">>, "..", trailing).
 [<<"ab..bc">>,<<"cd">>]
-2> string:split(<<"ab..bc....cd">>, "..", all).
+3> string:split(<<"ab..bc....cd">>, "..", all).
 [<<"ab">>,<<"bc">>,<<>>,<<"cd">>]
 ```
 """.
@@ -918,7 +925,7 @@ Can be implemented as:
 lists:join(Replacement, split(String, SearchPattern, Where)).
 ```
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:replace(<<"ab..cd..ef">>, "..", "*").
@@ -949,7 +956,7 @@ the resulting list of lexemes. See also `split/3` which returns empty strings.
 
 Notice that `[$\r,$\n]` is one grapheme cluster.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:lexemes("abc de̊fxxghix jkl\r\nfoo", "x e" ++ [[$\r,$\n]]).
@@ -972,7 +979,7 @@ lexemes(Str, Seps0) when is_list(Seps0) ->
 Returns lexeme number `N` in `String`, where lexemes are separated by the
 grapheme clusters in `SeparatorList`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:nth_lexeme("abc.de̊f.ghiejkl", 3, ".e").
@@ -1006,7 +1013,7 @@ the string or `nomatch` if `SearchPattern` is not found. `Dir`, which can be
 `leading` or `trailing`, indicates from which direction characters are to be
 searched.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:find("ab..cd..ef", ".").
@@ -1037,7 +1044,7 @@ Returns a float between `+0.0` and `1.0` representing the
 between the given strings. Strings with a higher similarity will score closer
 to `1.0`, with `+0.0` meaning no similarity and `1.0` meaning an exact match.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:jaro_similarity("ditto", "ditto").
@@ -1106,7 +1113,7 @@ Returns the first grapheme cluster in `String` and the rest of `String` in the
 tail. Returns an empty list if `String` is empty or an `{error, String}` tuple
 if the next byte is invalid.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:next_grapheme(unicode:characters_to_binary("e̊fg")).
@@ -1125,7 +1132,7 @@ Returns the first codepoint in `String` and the rest of `String` in the tail.
 Returns an empty list if `String` is empty or an `{error, String}` tuple if the
 next byte is invalid.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:next_codepoint(unicode:characters_to_binary("e̊fg")).
@@ -2416,6 +2423,13 @@ add_rsorted(A, []) ->
 Returns the number of characters in `String`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `length/1`.
+
+## Examples
+
+```erlang
+1> string:len("hello").
+5
+```
 """.
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec len(String) -> Length when
@@ -2444,6 +2458,13 @@ returned.
 This function is [obsolete](`m:string#obsolete-api-functions`). Use
 `[String1, String2]` as `Data` argument, and call `unicode:characters_to_list/2`
 or `unicode:characters_to_binary/2` to flatten the output.
+
+## Examples
+
+```erlang
+1> string:concat("hello ", "world").
+"hello world"
+```
 """.
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec concat(String1, String2) -> String3 when
@@ -2462,6 +2483,13 @@ Returns the index of the first occurrence of `Character` in `String`. Returns
 `0` if `Character` does not occur.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `find/2`.
+
+## Examples
+
+```erlang
+1> string:chr("hello", $l).
+3
+```
 """.
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec chr(String, Character) -> Index when
@@ -2480,6 +2508,13 @@ Returns the index of the last occurrence of `Character` in `String`. Returns `0`
 if `Character` does not occur.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `find/3`.
+
+## Examples
+
+```erlang
+1> string:rchr("hello", $l).
+4
+```
 """.
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec rchr(String, Character) -> Index when
@@ -2647,7 +2682,7 @@ This function is [obsolete](`m:string#obsolete-api-functions`). Use `slice/3`.
 _Example:_
 
 ```erlang
-1> substr("Hello World", 4, 5).
+1> string:substr("Hello World", 4, 5).
 "lo Wo"
 ```
 """.
@@ -2677,7 +2712,7 @@ Returns a list of tokens in `String`, separated by the characters in
 _Example:_
 
 ```erlang
-1> tokens("abc defxxghix jkl", "x ").
+1> string:tokens("abc defxxghix jkl", "x ").
 ["abc", "def", "ghi", "jkl"]
 ```
 
@@ -2751,6 +2786,13 @@ string can end with string `Tail`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use
 `lists:duplicate/2`.
+
+## Examples
+
+```erlang
+1> string:chars($a, 3, "!").
+"aaa!"
+```
 """.
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec chars(Character, Number, Tail) -> String when
@@ -2773,6 +2815,13 @@ Returns a string containing `String` repeated `Number` times.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use
 `lists:duplicate/2`.
+
+## Examples
+
+```erlang
+1> string:copies("ab", 3).
+"ababab"
+```
 """.
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec copies(String, Number) -> Copies when
@@ -2806,7 +2855,7 @@ This function is [obsolete](`m:string#obsolete-api-functions`). Use `lexemes/2`.
 _Example:_
 
 ```erlang
-1> words(" Hello old boy!", $o).
+1> string:words(" Hello old boy!", $o).
 4
 ```
 """.
@@ -3036,6 +3085,13 @@ Returns a string, where `String` is centered in the string and surrounded by
 blanks or `Character`. The resulting string has length `Number`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `pad/3`.
+
+## Examples
+
+```erlang
+1> string:centre("Hello", 9, $*).
+"**Hello**"
+```
 """.
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec centre(String, Number, Character) -> Centered when
@@ -3076,7 +3132,7 @@ This function is [obsolete](`m:string#obsolete-api-functions`). Use `slice/3`.
 _Example:_
 
 ```erlang
-1> sub_string("Hello World", 4, 8).
+1> string:sub_string("Hello World", 4, 8).
 "lo Wo"
 ```
 """.
@@ -3118,6 +3174,13 @@ set are unchanged.
 
 This function is [obsolete](`m:string#obsolete-api-functions`) use
 `lowercase/1`, `titlecase/1` or `casefold/1`.
+
+## Examples
+
+```erlang
+1> string:to_lower("HELLO").
+"hello"
+```
 """.
 
 -doc(#{group => <<"Obsolete API functions">>}).
@@ -3140,6 +3203,13 @@ set are unchanged.
 
 This function is [obsolete](`m:string#obsolete-api-functions`) use
 `uppercase/1`, `titlecase/1` or `casefold/1`.
+
+## Examples
+
+```erlang
+1> string:to_upper("hello").
+"HELLO"
+```
 """.
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec to_upper(String) -> Result when
@@ -3164,7 +3234,7 @@ This function is [obsolete](`m:string#obsolete-api-functions`). Use
 _Example:_
 
 ```erlang
-1> join(["one", "two", "three"], ", ").
+1> string:join(["one", "two", "three"], ", ").
 "one, two, three"
 ```
 """.

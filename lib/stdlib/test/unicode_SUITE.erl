@@ -44,7 +44,8 @@
          is_whitespace/1,
          category/1,
          is_id/1,
-         incomplete_utf32_to_latin1/1
+         incomplete_utf32_to_latin1/1,
+         doctests/1
         ]).
 
 suite() ->
@@ -62,7 +63,8 @@ all() ->
      bin_is_7bit,
      {group, classify},
      error_info,
-     incomplete_utf32_to_latin1].
+     incomplete_utf32_to_latin1,
+     doctests].
 
 groups() -> 
     [{binaries_errors,[parallel],
@@ -1637,3 +1639,12 @@ tokens_2([C|S], Sep, Toks, Tok) ->
     tokens_2(S, Sep, Toks, [C|Tok]);
 tokens_2([], _Sep, Toks, Tok) ->
     [Tok|Toks].
+
+
+doctests(_Config) ->
+    %% 1 pre-existing illustrative ```erlang block (in characters_to_list/2's
+    %% doc) is a full function definition (decode_data/1, demonstrating how
+    %% to loop on {incomplete, ...} results) rather than a runnable "1>"
+    %% shell prompt; it's prose, not a doctest, and is intentionally left
+    %% as-is alongside the real "## Examples" section.
+    ct_doctest:module(unicode, [{skipped_blocks, 1}, {missing_tests, []}]).

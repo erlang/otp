@@ -426,28 +426,7 @@ of the error.
 %%-------------------------------------------------------------------------
 %% Normalize URIs
 %%-------------------------------------------------------------------------
--doc """
-Transforms an `URI` into a normalized form using Syntax-Based Normalization as
-defined by [RFC 3986](https://www.ietf.org/rfc/rfc3986.txt).
-
-This function implements case normalization, percent-encoding normalization,
-path segment normalization and scheme based normalization for HTTP(S) with basic
-support for FTP, SSH, SFTP and TFTP.
-
-_Example:_
-
-```erlang
-1> uri_string:normalize("/a/b/c/./../../g").
-"/a/g"
-2> uri_string:normalize(<<"mid/content=5/../6">>).
-<<"mid/6">>
-3> uri_string:normalize("http://localhost:80").
-"http://localhost/"
-4> uri_string:normalize(#{scheme => "http",port => 80,path => "/a/b/c/./../../g",
-4> host => "localhost-örebro"}).
-"http://localhost-%C3%B6rebro/a/g"
-```
-""".
+-doc(#{equiv => normalize(URI, [])}).
 -doc(#{since => <<"OTP 21.0">>}).
 -spec normalize(URI) -> NormalizedURI when
       URI :: uri_string() | uri_map(),
@@ -458,23 +437,29 @@ normalize(URIMap) ->
 
 
 -doc """
-Same as [`normalize/1`](`normalize/1`) but with an additional `Options`
-parameter, that controls whether the normalized URI shall be returned as an
-uri_map().
+Transforms an `URI` into a normalized form using Syntax-Based Normalization as
+defined by [RFC 3986](https://www.ietf.org/rfc/rfc3986.txt).
 
-There is one supported option: `return_map`.
+This function implements case normalization, percent-encoding normalization,
+path segment normalization and scheme based normalization for HTTP(S) with basic
+support for FTP, SSH, SFTP and TFTP.
 
-_Example:_
+`Options` controls whether the normalized URI shall be returned as an
+`t:uri_map/0`. There is one supported option: `return_map`.
+
+## Examples
 
 ```erlang
-1> uri_string:normalize("/a/b/c/./../../g", [return_map]).
+1> uri_string:normalize("/a/b/c/./../../g").
+"/a/g"
+2> uri_string:normalize(<<"mid/content=5/../6">>).
+<<"mid/6">>
+3> uri_string:normalize("http://localhost:80").
+"http://localhost/"
+4> uri_string:normalize("/a/b/c/./../../g", [return_map]).
 #{path => "/a/g"}
-2> uri_string:normalize(<<"mid/content=5/../6">>, [return_map]).
-#{path => <<"mid/6">>}
-3> uri_string:normalize("http://localhost:80", [return_map]).
-#{scheme => "http",path => "/",host => "localhost"}
-4> uri_string:normalize(#{scheme => "http",port => 80,path => "/a/b/c/./../../g",
-4> host => "localhost-örebro"}, [return_map]).
+5> uri_string:normalize(#{scheme => "http",port => 80,path => "/a/b/c/./../../g",
+   host => "localhost-örebro"}, [return_map]).
 #{scheme => "http",path => "/a/g",host => "localhost-örebro"}
 ```
 """.
@@ -526,17 +511,15 @@ Parses an [RFC 3986](https://www.ietf.org/rfc/rfc3986.txt) compliant
 
 See also the opposite operation `recompose/1`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> uri_string:parse("foo://user@example.com:8042/over/there?name=ferret#nose").
-#{fragment => "nose",host => "example.com",
-  path => "/over/there",port => 8042,query => "name=ferret",
-  scheme => foo,userinfo => "user"}
+#{port => 8042,scheme => "foo",path => "/over/there",host => "example.com",
+  fragment => "nose",query => "name=ferret",userinfo => "user"}
 2> uri_string:parse(<<"foo://user@example.com:8042/over/there?name=ferret">>).
-#{host => <<"example.com">>,path => <<"/over/there">>,
-  port => 8042,query => <<"name=ferret">>,scheme => <<"foo">>,
-  userinfo => <<"user">>}
+#{port => 8042,scheme => <<"foo">>,path => <<"/over/there">>,
+  host => <<"example.com">>,query => <<"name=ferret">>,userinfo => <<"user">>}
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
@@ -569,17 +552,15 @@ Creates an [RFC 3986](https://www.ietf.org/rfc/rfc3986.txt) compliant
 
 See also the opposite operation `parse/1`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> URIMap = #{fragment => "nose", host => "example.com", path => "/over/there",
-1> port => 8042, query => "name=ferret", scheme => "foo", userinfo => "user"}.
-#{fragment => "nose",host => "example.com",
-  path => "/over/there",port => 8042,query => "name=ferret",
-  scheme => "foo",userinfo => "user"}
-
+   port => 8042, query => "name=ferret", scheme => "foo", userinfo => "user"}.
+#{port => 8042,scheme => "foo",path => "/over/there",host => "example.com",
+  fragment => "nose",query => "name=ferret",userinfo => "user"}
 2> uri_string:recompose(URIMap).
-"foo://example.com:8042/over/there?name=ferret#nose"
+"foo://user@example.com:8042/over/there?name=ferret#nose"
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
@@ -609,24 +590,7 @@ recompose(Map) ->
 %%-------------------------------------------------------------------------
 %% Resolve URIs
 %%-------------------------------------------------------------------------
--doc """
-Convert a `RefURI` reference that might be relative to a given base URI into the
-parsed components of the reference's target, which can then be recomposed to
-form the target URI.
-
-_Example:_
-
-```erlang
-1> uri_string:resolve("/abs/ol/ute", "http://localhost/a/b/c?q").
-"http://localhost/abs/ol/ute"
-2> uri_string:resolve("../relative", "http://localhost/a/b/c?q").
-"http://localhost/a/relative"
-3> uri_string:resolve("http://localhost/full", "http://localhost/a/b/c?q").
-"http://localhost/full"
-4> uri_string:resolve(#{path => "path", query => "xyz"}, "http://localhost/a/b/c?q").
-"http://localhost/a/b/path?xyz"
-```
-""".
+-doc(#{equiv => resolve(RefURI, BaseURI, [])}).
 -doc(#{since => <<"OTP 22.3">>}).
 -spec resolve(RefURI, BaseURI) -> TargetURI when
       RefURI :: uri_string() | uri_map(),
@@ -638,18 +602,24 @@ resolve(URIMap, BaseURIMap) ->
 
 
 -doc """
-Same as [`resolve/2`](`resolve/2`) but with an additional `Options` parameter,
-that controls whether the target URI shall be returned as an uri_map(). There is
-one supported option: `return_map`.
+Convert a `RefURI` reference that might be relative to a given base URI into the
+parsed components of the reference's target, which can then be recomposed to
+form the target URI.
 
-_Example:_
+`Options` controls whether the target URI shall be returned as an
+`t:uri_map/0`. There is one supported option: `return_map`.
+
+## Examples
 
 ```erlang
-1> uri_string:resolve("/abs/ol/ute", "http://localhost/a/b/c?q", [return_map]).
-#{host => "localhost",path => "/abs/ol/ute",scheme => "http"}
-2> uri_string:resolve(#{path => "/abs/ol/ute"}, #{scheme => "http",
-2> host => "localhost", path => "/a/b/c?q"}, [return_map]).
-#{host => "localhost",path => "/abs/ol/ute",scheme => "http"}
+1> uri_string:resolve("/abs/ol/ute", "http://localhost/a/b/c?q").
+"http://localhost/abs/ol/ute"
+2> uri_string:resolve("../relative", "http://localhost/a/b/c?q").
+"http://localhost/a/relative"
+3> uri_string:resolve("http://localhost/full", "http://localhost/a/b/c?q").
+"http://localhost/full"
+4> uri_string:resolve("/abs/ol/ute", "http://localhost/a/b/c?q", [return_map]).
+#{scheme => "http",path => "/abs/ol/ute",host => "localhost"}
 ```
 """.
 -doc(#{since => <<"OTP 22.3">>}).
@@ -693,14 +663,14 @@ for the input and output data. Mixed encoding, where binary encoding is not the 
 percent-encoding, is not supported. If an argument is invalid, an error tuple is
 returned.
 
-_Example:_
+## Examples
 
 ```erlang
 1> uri_string:transcode(<<"foo%00%00%00%F6bar"/utf32>>,
-1> [{in_encoding, utf32},{out_encoding, utf8}]).
-<<"foo%C3%B6bar"/utf8>>
+   [{in_encoding, utf32},{out_encoding, utf8}]).
+<<"foo%C3%B6bar">>
 2> uri_string:transcode("foo%F6bar", [{in_encoding, latin1},
-2> {out_encoding, utf8}]).
+   {out_encoding, utf8}]).
 "foo%C3%B6bar"
 ```
 """.
@@ -743,6 +713,15 @@ these character sets are derived directly from those aformentioned rules. For mo
 information see the
 [Uniform Resource Identifiers](uri_string_usage.md#percent_encoding) chapter in
 stdlib's Users Guide.
+
+## Examples
+
+```erlang
+1> Allowed = uri_string:allowed_characters(), is_list(Allowed).
+true
+2> proplists:get_value(scheme, Allowed).
+"+-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+```
 """.
 -doc(#{since => <<"OTP 23.2">>}).
 -spec allowed_characters() -> [{atom(), list()}].
@@ -781,12 +760,12 @@ effectively change it.
 
 If the input encoding is not UTF-8, an error tuple is returned.
 
-_Example:_
+## Examples
 
 ```erlang
 1> uri_string:percent_decode(#{host => "localhost-%C3%B6rebro",path => [],
-1> scheme => "http"}).
-#{host => "localhost-örebro",path => [],scheme => "http"}
+   scheme => "http"}).
+#{scheme => "http",path => [],host => "localhost-örebro"}
 2> uri_string:percent_decode(<<"%C3%B6rebro">>).
 <<"örebro"/utf8>>
 ```
@@ -798,9 +777,9 @@ _Example:_
 > resulting URI will be changed. None of these URIs refer to the same resource.
 >
 > ```erlang
-> 3> uri_string:percent_decode(<<"http://local%252Fhost/path">>).
+> 1> uri_string:percent_decode(<<"http://local%252Fhost/path">>).
 > <<"http://local%2Fhost/path">>
-> 4> uri_string:percent_decode(<<"http://local%2Fhost/path">>).
+> 2> uri_string:percent_decode(<<"http://local%2Fhost/path">>).
 > <<"http://local/host/path">>
 > ```
 """.
@@ -831,28 +810,7 @@ percent_decode(URI) when is_list(URI) orelse
                          is_binary(URI) ->
     raw_decode(URI).
 
--doc """
-Replaces characters out of unreserved set with their percent encoded
-equivalents.
-
-Unreserved characters defined in
-[RFC 3986](https://www.ietf.org/rfc/rfc3986.txt) are not quoted.
-
-_Example:_
-
-```erlang
-1> uri_string:quote("SomeId/04").
-"SomeId%2F04"
-2> uri_string:quote(<<"SomeId/04">>).
-<<"SomeId%2F04">>
-```
-
-> #### Warning {: .warning }
->
-> Function is not aware about any URI component context and should not be used
-> on whole URI. If applied more than once on the same data, might produce
-> unexpected results.
-""".
+-doc(#{equiv => quote(Data, "")}).
 -doc(#{since => <<"OTP 25.0">>}).
 -spec quote(Data) -> QuotedData when
       Data :: unicode:chardata(),
@@ -861,15 +819,24 @@ quote(D) ->
     encode(D, fun is_unreserved/1).
 
 -doc """
-Same as [`quote/1`](`quote/1`), but `Safe` allows user to provide a list of
-characters to be protected from encoding.
+Replaces characters out of unreserved set with their percent encoded
+equivalents.
 
-_Example:_
+Unreserved characters defined in
+[RFC 3986](https://www.ietf.org/rfc/rfc3986.txt) are not quoted. `Safe`
+allows the user to provide a list of additional characters to be protected
+from encoding.
+
+## Examples
 
 ```erlang
-1> uri_string:quote("SomeId/04", "/").
+1> uri_string:quote("SomeId/04").
+"SomeId%2F04"
+2> uri_string:quote(<<"SomeId/04">>).
+<<"SomeId%2F04">>
+3> uri_string:quote("SomeId/04", "/").
 "SomeId/04"
-2> uri_string:quote(<<"SomeId/04">>, "/").
+4> uri_string:quote(<<"SomeId/04">>, "/").
 <<"SomeId/04">>
 ```
 
@@ -894,7 +861,7 @@ quote(D, Safe) ->
 -doc """
 Percent decode characters.
 
-_Example:_
+## Examples
 
 ```erlang
 1> uri_string:unquote("SomeId%2F04").
@@ -936,17 +903,8 @@ specification and in section 4.10.22.6 of the [HTML 5.0](https://www.w3.org/TR/h
 specification for non-UTF-8 encodings.
 
 See also the opposite operation `dissect_query/1`.
-
-_Example:_
-
-```erlang
-1> uri_string:compose_query([{"foo bar","1"},{"city","örebro"}]).
-"foo+bar=1&city=%C3%B6rebro"
-2> uri_string:compose_query([{<<"foo bar">>,<<"1">>},
-2> {<<"city">>,<<"örebro"/utf8>>}]).
-<<"foo+bar=1&city=%C3%B6rebro">>
-```
 """.
+-doc(#{equiv => compose_query(QueryList, [{encoding, utf8}])}).
 -doc(#{since => <<"OTP 21.0">>}).
 -spec compose_query(QueryList) -> QueryString when
       QueryList :: [{unicode:chardata(), unicode:chardata() | true}],
@@ -957,10 +915,14 @@ compose_query(List) ->
 
 
 -doc """
-Same as [`compose_query/1`](`compose_query/1`) but with an additional `Options`
-parameter, that controls the encoding ("charset") used by the encoding
-algorithm.
+Composes a form-urlencoded `QueryString` based on a `QueryList`, a list of
+non-percent-encoded key-value pairs.
 
+Form-urlencoding is defined in section 4.10.21.6 of the [HTML 5.2](https://www.w3.org/TR/html52/)
+specification and in section 4.10.22.6 of the [HTML 5.0](https://www.w3.org/TR/html50/)
+specification for non-UTF-8 encodings.
+
+`Options` controls the encoding ("charset") used by the encoding algorithm.
 There are two supported encodings: `utf8` (or `unicode`) and `latin1`.
 
 Each character in the entry's name and value that cannot be expressed using the
@@ -976,14 +938,16 @@ byte).
 
 See also the opposite operation `dissect_query/1`.
 
-_Example:_
+## Examples
 
 ```erlang
-1> uri_string:compose_query([{"foo bar","1"},{"city","örebro"}],
-1> [{encoding, latin1}]).
+1> uri_string:compose_query([{"foo bar","1"},{"city","örebro"}]).
+"foo+bar=1&city=%C3%B6rebro"
+2> uri_string:compose_query([{"foo bar","1"},{"city","örebro"}],
+   [{encoding, latin1}]).
 "foo+bar=1&city=%F6rebro"
-2> uri_string:compose_query([{<<"foo bar">>,<<"1">>},
-2> {<<"city">>,<<"東京"/utf8>>}], [{encoding, latin1}]).
+3> uri_string:compose_query([{<<"foo bar">>,<<"1">>},
+   {<<"city">>,<<"東京"/utf8>>}], [{encoding, latin1}]).
 <<"foo+bar=1&city=%26%2326481%3B%26%2320140%3B">>
 ```
 """.
@@ -1033,7 +997,7 @@ specification for non-UTF-8 encodings.
 
 See also the opposite operation `compose_query/1`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> uri_string:dissect_query("foo+bar=1&city=%C3%B6rebro").

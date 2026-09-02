@@ -264,6 +264,15 @@ A `badarg` exception is thrown for the following cases:
 - Any parameters are of the wrong type.
 - The list structure is invalid (a number as tail).
 - The binaries do not contain whole bytes (bit strings).
+
+## Examples
+
+```erlang
+1> unicode:characters_to_list(<<"abc"/utf8>>, unicode).
+"abc"
+2> unicode:characters_to_list([$a, $b, 16#110000], unicode).
+{error,"ab",[1114112]}
+```
 """.
 -spec characters_to_list(Data,  InEncoding) -> Result when
       Data :: latin1_chardata() | chardata() | external_chardata(),
@@ -332,6 +341,15 @@ The atoms `big` and `little` denote big- or little-endian encoding.
 
 Errors and exceptions occur as in `characters_to_list/2`, but the second element
 in tuple `error` or `incomplete` is a `t:binary/0` and not a `t:list/0`.
+
+## Examples
+
+```erlang
+1> unicode:characters_to_binary("abc", unicode, latin1).
+<<"abc">>
+2> unicode:characters_to_binary([$a, $b, 16#110000], unicode, unicode).
+{error,<<"ab">>,[1114112]}
+```
 """.
 -spec characters_to_binary(Data, InEncoding, OutEncoding) -> Result when
       Data :: latin1_chardata() | chardata() | external_chardata(),
@@ -375,6 +393,15 @@ UTF-32, the function returns the encoding identified along with the BOM length
 in bytes.
 
 If no BOM is found, the function returns `{latin1,0}`.
+
+## Examples
+
+```erlang
+1> unicode:bom_to_encoding(<<239,187,191,"hello">>).
+{utf8,3}
+2> unicode:bom_to_encoding(<<"hello">>).
+{latin1,0}
+```
 """.
 -spec bom_to_encoding(Bin) -> {Encoding, Length} when
       Bin :: binary(),
@@ -408,6 +435,15 @@ Latin-1.
 Notice that the BOM for UTF-8 is seldom used, and it is really not a _byte
 order_ mark. There are obviously no byte order issues with UTF-8, so the BOM is
 only there to differentiate UTF-8 encoding from other UTF formats.
+
+## Examples
+
+```erlang
+1> unicode:encoding_to_bom(utf8) =:= <<239,187,191>>.
+true
+2> unicode:encoding_to_bom(latin1).
+<<>>
+```
 """.
 -spec encoding_to_bom(InEncoding) -> Bin when
       Bin :: binary(),
@@ -443,6 +479,8 @@ Any binaries in the input must be encoded with utf8 encoding.
 
 The result is a list of characters.
 
+## Examples
+
 ```erlang
 1> unicode:characters_to_nfd_list("abc..åäö").
 [97,98,99,46,46,97,778,97,776,111,776]
@@ -474,8 +512,10 @@ Any binaries in the input must be encoded with utf8 encoding.
 
 The result is an utf8 encoded binary.
 
+## Examples
+
 ```erlang
-2> unicode:characters_to_nfd_binary("abc..åäö").
+1> unicode:characters_to_nfd_binary("abc..åäö").
 <<97,98,99,46,46,97,204,138,97,204,136,111,204,136>>
 ```
 """.
@@ -507,6 +547,8 @@ standard.
 Any binaries in the input must be encoded with utf8 encoding.
 
 The result is a list of characters.
+
+## Examples
 
 ```erlang
 1> unicode:characters_to_nfkd_list(["abc..åäö",[65299,65298]]).
@@ -540,8 +582,10 @@ Any binaries in the input must be encoded with utf8 encoding.
 
 The result is an utf8 encoded binary.
 
+## Examples
+
 ```erlang
-2> unicode:characters_to_nfkd_binary(["abc..åäö",[65299,65298]]).
+1> unicode:characters_to_nfkd_binary(["abc..åäö",[65299,65298]]).
 <<97,98,99,46,46,97,204,138,97,204,136,111,204,136,51,50>>
 ```
 """.
@@ -574,8 +618,10 @@ Any binaries in the input must be encoded with utf8 encoding.
 
 The result is a list of characters.
 
+## Examples
+
 ```erlang
-3> unicode:characters_to_nfc_list([<<"abc..a">>,[778],$a,[776],$o,[776]]).
+1> unicode:characters_to_nfc_list([<<"abc..a">>,[778],$a,[776],$o,[776]]).
 "abc..åäö"
 ```
 """.
@@ -605,8 +651,10 @@ Any binaries in the input must be encoded with utf8 encoding.
 
 The result is an utf8 encoded binary.
 
+## Examples
+
 ```erlang
-4> unicode:characters_to_nfc_binary([<<"abc..a">>,[778],$a,[776],$o,[776]]).
+1> unicode:characters_to_nfc_binary([<<"abc..a">>,[778],$a,[776],$o,[776]]).
 <<"abc..åäö"/utf8>>
 ```
 """.
@@ -638,8 +686,10 @@ Any binaries in the input must be encoded with utf8 encoding.
 
 The result is a list of characters.
 
+## Examples
+
 ```erlang
-3> unicode:characters_to_nfkc_list([<<"abc..a">>,[778],$a,[776],$o,[776],[65299,65298]]).
+1> unicode:characters_to_nfkc_list([<<"abc..a">>,[778],$a,[776],$o,[776],[65299,65298]]).
 "abc..åäö32"
 ```
 """.
@@ -669,8 +719,10 @@ Any binaries in the input must be encoded with utf8 encoding.
 
 The result is an utf8 encoded binary.
 
+## Examples
+
 ```erlang
-4> unicode:characters_to_nfkc_binary([<<"abc..a">>,[778],$a,[776],$o,[776],[65299,65298]]).
+1> unicode:characters_to_nfkc_binary([<<"abc..a">>,[778],$a,[776],$o,[776],[65299,65298]]).
 <<"abc..åäö32"/utf8>>
 ```
 """.
@@ -699,6 +751,8 @@ Returns true if `Char` is a whitespace.
 Whitespace is defined in
 [Unicode Standard Annex #44](http://unicode.org/reports/tr44/).
 
+## Examples
+
 ```erlang
 1> unicode:is_whitespace($\s).
 true
@@ -725,6 +779,8 @@ Returns true if `Char` is an identifier start.
 
 Identifier start is defined by the ID_Start property in
 [Unicode Standard Annex #31](https://unicode.org/reports/tr31/#D1).
+
+## Examples
 
 ```erlang
 1> unicode:is_id_start($a).
@@ -765,6 +821,8 @@ Returns true if `Char` is an identifier continuation.
 
 Identifier continuation is defined by the ID_Continue property in
 [Unicode Standard Annex #31](https://unicode.org/reports/tr31/#D1).
+
+## Examples
 
 ```erlang
 1> unicode:is_id_continue($a).
@@ -808,6 +866,8 @@ is_id_continue(Term) ->
 
 -doc """
 Returns the `Char` category.
+
+## Examples
 
 ```erlang
 1> unicode:category($a).

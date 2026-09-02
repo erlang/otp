@@ -99,6 +99,14 @@ importing is cheap if the importing node is compatible enough to the exporting
 node. If incompatible, as a fallback the `import/1` function will re-compile the regular
 expression from its string format, which is included in
 [`exported()`](`t:exported/0`).
+
+## Examples
+
+```erlang
+1> {ok, Exported} = re:compile("[0-9]+", [export]).
+2> MP = re:import(Exported), re:run("abc123", MP).
+{match,[{3,3}]}
+```
 """.
 -doc(#{since => <<"OTP 28.1">>}).
 -spec import(Exported :: exported()) -> mp().
@@ -109,6 +117,13 @@ import(_) ->
 -doc """
 The return of this function is a string with the PCRE version of the system that
 was used in the Erlang/OTP compilation.
+
+## Examples
+
+```erlang
+1> is_binary(re:version()).
+true
+```
 """.
 -doc(#{since => <<"OTP 20.0">>}).
 -spec version() -> binary().
@@ -120,7 +135,7 @@ was used in the Erlang/OTP compilation.
 version() ->
     erlang:nif_error(undef).
 
--doc "The same as [`compile(Regexp,[])`](`compile/2`)".
+-doc(#{equiv => compile(Regexp, [])}).
 -spec compile(Regexp) -> {ok, mp()} | {error, ErrSpec} when
       Regexp :: iodata(),
       ErrSpec :: {ErrString :: string(), Position :: non_neg_integer()}.
@@ -278,6 +293,17 @@ Options:
   `import/1` to get a compiled regular expression executable on that local node.
 
   Option `export` and function `import/1` are supported since OTP 28.1.
+
+## Examples
+
+```erlang
+1> {ok, MP} = re:compile("[a-z]+", [caseless]), element(1, MP) =:= re_pattern.
+true
+2> re:run("ABC", MP).
+{match,[{0,3}]}
+3> re:compile("[a-z", []).
+{error,{"missing terminating ] for character class",4}}
+```
 """.
 -spec compile(Regexp, Options) -> {ok, mp() | exported()} | {error, ErrSpec} when
       Regexp :: iodata() | unicode:charlist(),
@@ -795,6 +821,17 @@ The following options are relevant for execution:
 
 For a descriptions of options only affecting the compilation step, see
 `compile/2`.
+
+## Examples
+
+```erlang
+1> re:run("cat", "(|at)", [global]).
+{match,[[{0,0},{0,0}],[{1,0},{1,0}],[{1,2},{1,2}],[{3,0},{3,0}]]}
+2> re:run("abc", "a(b)c", [{capture, all, list}]).
+{match,["abc","b"]}
+3> re:run("abc", "x").
+nomatch
+```
 """.
 -spec run(Subject, RE, Options) -> {match, Captured} |
                                    match |
@@ -857,40 +894,23 @@ from the regular expression.
 The only supported item is `namelist`, which returns the tuple `{namelist, [binary()]}`,
 containing the names of all (unique) named subpatterns in the regular expression.
 
-For example:
+For example, the duplicate name in a regular expression compiled with option
+`dupnames` only occurs once in the returned list, and the list is in
+alphabetical order regardless of where the names are positioned in the
+regular expression. The order of the names is the same as the order of
+captured subexpressions if `{capture, all_names}` is specified as an option
+to `run/3`. You can therefore create a name-to-value mapping from the result
+of [`run/3`](`run/3`) like this:
+
+## Examples
 
 ```erlang
-1> {ok,MP} = re:compile("(?<A>A)|(?<B>B)|(?<C>C)").
-{ok,{re_pattern,3,0,0,
-                <<69,82,67,80,119,0,0,0,0,0,0,0,1,0,0,0,255,255,255,255,
-                  255,255,...>>}}
-2> re:inspect(MP,namelist).
+1> {ok, MP} = re:compile("(?<A>A)|(?<B>B)|(?<C>C)").
+2> re:inspect(MP, namelist).
 {namelist,[<<"A">>,<<"B">>,<<"C">>]}
-3> {ok,MPD} = re:compile("(?<C>A)|(?<B>B)|(?<C>C)",[dupnames]).
-{ok,{re_pattern,3,0,0,
-                <<69,82,67,80,119,0,0,0,0,0,8,0,1,0,0,0,255,255,255,255,
-                  255,255,...>>}}
-4> re:inspect(MPD,namelist).
+3> {ok, MPD} = re:compile("(?<C>A)|(?<B>B)|(?<C>C)", [dupnames]), re:inspect(MPD, namelist).
 {namelist,[<<"B">>,<<"C">>]}
-```
-
-Notice in the second example that the duplicate name only occurs once in the
-returned list, and that the list is in alphabetical order regardless of where
-the names are positioned in the regular expression. The order of the names is
-the same as the order of captured subexpressions if `{capture, all_names}` is
-specified as an option to `run/3`. You can therefore create a name-to-value
-mapping from the result of [`run/3`](`run/3`) like this:
-
-```erlang
-1> {ok,MP} = re:compile("(?<A>A)|(?<B>B)|(?<C>C)").
-{ok,{re_pattern,3,0,0,
-                <<69,82,67,80,119,0,0,0,0,0,0,0,1,0,0,0,255,255,255,255,
-                  255,255,...>>}}
-2> {namelist, N} = re:inspect(MP,namelist).
-{namelist,[<<"A">>,<<"B">>,<<"C">>]}
-3> {match,L} = re:run("AA",MP,[{capture,all_names,binary}]).
-{match,[<<"A">>,<<>>,<<>>]}
-4> NameMap = lists:zip(N,L).
+4> {namelist, N} = re:inspect(MP, namelist), {match, L} = re:run("AA", MP, [{capture, all_names, binary}]), lists:zip(N, L).
 [{<<"A">>,<<"A">>},{<<"B">>,<<>>},{<<"C">>,<<>>}]
 ```
 """.
@@ -1087,6 +1107,17 @@ Summary of options not previously described for function [`run/3`](`run/3`):
 - **`trim`** - Specifies that empty parts at the end of the result list are to
   be disregarded. The same as specifying `{parts,0}`. This corresponds to the
   default behavior of the `split` built-in function in Perl.
+
+## Examples
+
+```erlang
+1> re:split("Erlang", "[ln]", [{return,list}]).
+["Er","a","g"]
+2> re:split("Erlang", "([ln])", [{return,list},group]).
+[["Er","l"],["a","n"],["g"]]
+3> re:split("Erlang", "[lg]", [{return,list},trim]).
+["Er","an"]
+```
 """.
 -spec split(Subject, RE, Options) -> SplitList when
       Subject :: iodata() | unicode:charlist(),
@@ -1317,28 +1348,18 @@ To insert an & or a \\ in the result, precede it with a \\. Notice that Erlang
 already gives a special meaning to \\ in literal strings, so a single \\ must be
 written as `"\\"` and therefore a double \\ as `"\\\\"`.
 
-_Example:_
-
-```erlang
-1> re:replace("abcd","c","[&]",[{return,list}]).
-"ab[c]d"
-```
-
-while
-
-```erlang
-2> re:replace("abcd","c","[\\&]",[{return,list}]).
-"ab[&]d"
-```
-
 If the replacement is given as a fun, it will be called with the whole matching
 expression as the first argument and a list of subexpression matches in the
 order in which they appear in the regular expression. The returned value will be
 inserted in the result.
 
-_Example:_
+## Examples
 
 ```erlang
+1> re:replace("abcd", "c", "[&]", [{return, list}]).
+"ab[c]d"
+2> re:replace("abcd", "c", "[\\&]", [{return, list}]).
+"ab[&]d"
 3> re:replace("abcd", ".(.)",
     fun(Whole, [<<C>>]) ->
          <<$#, Whole/binary, $-, (C - $a + $A), $#>>
