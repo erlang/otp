@@ -68,7 +68,7 @@ suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 
 all() ->
     [app, appup, doctests, {group, light}, {group, medium}, {group, heavy},
-     clean_up_suite, {group, external}].
+     {group, external}, clean_up_suite].
 
 doctests(_Config) ->
     ct_doctest:module(
