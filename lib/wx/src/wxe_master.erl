@@ -177,6 +177,9 @@ handle_info({wxe_driver, error, Msg}, State) ->
 handle_info({wxe_driver, internal_error, Msg}, State) ->
     logger:log(error, "wx: ~s", [Msg], #{domain => [wx]}),
     {noreply, State};
+handle_info({wxe_driver, warning, Msg}, State) ->
+    logger:log(warning, "wx: ~s", [Msg], #{domain => [wx]}),
+    {noreply, State};
 handle_info({wxe_driver, debug, Msg}, State) ->
     logger:log(notice, "wx: ~s", [Msg], #{domain => [wx]}),
     {noreply, State};

@@ -44,6 +44,25 @@
 #include "wxe_return.h"
 #include "wxe_gl.h"
 
+// Non-fatal X error handler (GLX/X11 backend only).
+// GDK installs an X error handler that escalates asynchronous X protocol
+// errors to a fatal g_log() -> G_BREAKPOINT() -> SIGTRAP, killing the whole
+// process. Some GL stacks (e.g. Mesa GLX with wxGLCanvas on wx 3.0) emit a
+// benign asynchronous GLX BadMatch on SwapBuffers during GL window teardown;
+// that must not abort the emulator. Install our own handler that logs the
+// error and returns 0 (non-fatal), matching how robust GTK GL apps behave.
+//
+// This only applies to the GLX/X11 GL canvas backend. wxWidgets 3.2+ has an
+// EGL GL canvas backend (Wayland) that does not use Xlib; there is no X error
+// path to guard there. wxUSE_GLCANVAS_EGL is defined (to 0/1) on wx builds
+// that know about EGL and is absent on older (GLX-only) wx, so treat "absent
+// or 0" as the GLX/X11 case. Include Xlib explicitly rather than relying on
+// the GL canvas header to pull it in transitively.
+#if defined(__WXGTK__) && (!defined(wxUSE_GLCANVAS_EGL) || !wxUSE_GLCANVAS_EGL)
+#define WXE_INSTALL_X_ERROR_HANDLER 1
+#include <X11/Xlib.h>
+#endif
+
 IMPLEMENT_APP_NO_MAIN(WxeApp)
 
 DECLARE_APP(WxeApp)
@@ -177,6 +196,31 @@ static GLogWriterOutput wxe_log_glib(GLogLevelFlags log_level,
 }
 #endif
 
+#if defined(WXE_INSTALL_X_ERROR_HANDLER)
+// Non-fatal X error handler; see the comment at the top of this file where
+// WXE_INSTALL_X_ERROR_HANDLER is defined. Reports the error to Erlang (like
+// wxe_log_glib does for GTK messages) and returns 0 so an asynchronous GLX/X
+// protocol error cannot abort the emulator.
+static int wxe_x_error_handler(Display *dpy, XErrorEvent *ev)
+{
+  (void) dpy;
+  // Report the first few occurrences only, to avoid flooding if it repeats.
+  static int wxe_x_error_count = 0;
+  if(wxe_x_error_count < 10) {
+    wxe_x_error_count++;
+    wxString msg;
+    msg.Printf(wxT("non-fatal X error ignored: "
+                   "error_code=%u request_code=%u minor_code=%u "
+                   "resource=0x%lx serial=%lu"),
+               (unsigned) ev->error_code, (unsigned) ev->request_code,
+               (unsigned) ev->minor_code, (unsigned long) ev->resourceid,
+               (unsigned long) ev->serial);
+    send_msg("warning", &msg);
+  }
+  return 0; // non-fatal: do not let the error abort the process
+}
+#endif
+
 bool WxeApp::OnInit()
 {
 
@@ -211,6 +255,16 @@ bool WxeApp::OnInit()
 
 #ifdef HAVE_GLIB
   g_log_set_writer_func(wxe_log_glib, NULL, NULL);
+#endif
+
+#if defined(WXE_INSTALL_X_ERROR_HANDLER)
+  // Only meaningful under X11/XWayland. wxGetDisplay() returns the X Display*
+  // on the GTK/X11 backend and NULL on a native Wayland backend (where this
+  // class of asynchronous X protocol error cannot occur), so use it as a
+  // runtime gate.
+  if(wxGetDisplay() != NULL) {
+    XSetErrorHandler(wxe_x_error_handler);
+  }
 #endif
 
   SetExitOnFrameDelete(false);
