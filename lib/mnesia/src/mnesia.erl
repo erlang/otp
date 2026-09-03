@@ -2444,7 +2444,7 @@ add_written_index(Store, Pos, Tab, Key, Objs) when is_tuple(Pos) ->
 
 add_written_match(S, Pat, Tab, Objs) ->
     Ops = find_ops(S, Tab, Pat),
-    FixedRes = add_match(Ops, Objs, val({Tab, setorbag})),
+    FixedRes = add_match(Ops, Objs, val({Tab, setorbag}), forward),
     MS = ets:match_spec_compile([{Pat, [], ['$_']}]),
     ets:match_spec_run(FixedRes, MS).
 
@@ -2454,25 +2454,25 @@ find_ops(S, Tab, Pat) ->
 		  {{{Tab, '_'}, Pat, delete_object}, [], ['$_']}],
     ets:select(S, GetWritten).
 
-add_match([], Objs, _Type) ->
+add_match([], Objs, _Type, _Dir) ->
     Objs;
-add_match(Written, Objs, ordered_set) ->
+add_match(Written, Objs, ordered_set, Dir) ->
     %% Must use keysort which is stable
-    add_ordered_match(lists:keysort(1,Written), Objs, []);
-add_match([{Oid, _, delete}|R], Objs, Type) ->
-    add_match(R, deloid(Oid, Objs), Type);
-add_match([{_Oid, Val, delete_object}|R], Objs, Type) ->
-    add_match(R, lists:delete(Val, Objs), Type);
-add_match([{_Oid, Val, write}|R], Objs, bag) ->
-    add_match(R, [Val | lists:delete(Val, Objs)], bag);
-add_match([{Oid, Val, write}|R], Objs, set) ->
-    add_match(R, [Val | deloid(Oid,Objs)],set).
+    add_ordered_match(sort_ops(Written, Dir), Objs, [], Dir);
+add_match([{Oid, _, delete}|R], Objs, Type, Dir) ->
+    add_match(R, deloid(Oid, Objs), Type, Dir);
+add_match([{_Oid, Val, delete_object}|R], Objs, Type, Dir) ->
+    add_match(R, lists:delete(Val, Objs), Type, Dir);
+add_match([{_Oid, Val, write}|R], Objs, bag, Dir) ->
+    add_match(R, [Val | lists:delete(Val, Objs)], bag, Dir);
+add_match([{Oid, Val, write}|R], Objs, set, Dir) ->
+    add_match(R, [Val | deloid(Oid,Objs)], set, Dir).
 
 add_ix_match([], Objs, _IxF, _Key, _Type) ->
     Objs;
 add_ix_match(Written, Objs, IxF, Key, ordered_set) ->
     %% Must use keysort which is stable
-    add_ordered_match(lists:keysort(1, ix_filter_ops(IxF, Key, Written)), Objs, []);
+    add_ordered_match(sort_ops(ix_filter_ops(IxF, Key, Written), forward), Objs, [], forward);
 add_ix_match([{Oid, _, delete}|R], Objs, IxF, Key, Type) ->
     add_ix_match(R, deloid(Oid, Objs), IxF, Key, Type);
 add_ix_match([{_Oid, Val, delete_object}|R], Objs, IxF, Key, Type) ->
@@ -2509,98 +2509,104 @@ ix_filter_ops(IxF, Key, Ops) ->
       end, Ops).
 
 %% For ordered_set only !!
-add_ordered_match(Written = [{{_, Key}, _, _}|_], [Obj|Objs], Acc)
-  when Key > element(2, Obj) ->
-    add_ordered_match(Written, Objs, [Obj|Acc]);
-add_ordered_match([{{_, Key}, Val, write}|Rest], Objs =[Obj|_], Acc)
-  when Key < element(2, Obj) ->
-    add_ordered_match(Rest, [Val|Objs],Acc);
-add_ordered_match([{{_, Key}, _, _DelOP}|Rest], Objs =[Obj|_], Acc)
-  when Key < element(2, Obj) ->
-    add_ordered_match(Rest,Objs,Acc);
+add_ordered_match(Written = [{{_, Key}, _, _}|_], [Obj|Objs], Acc, Dir)
+  when (Key > element(2, Obj) andalso Dir == forward) orelse
+       (Key < element(2, Obj) andalso Dir == reverse) ->
+    add_ordered_match(Written, Objs, [Obj|Acc], Dir);
+add_ordered_match([{{_, Key}, Val, write}|Rest], Objs =[Obj|_], Acc, Dir)
+  when (Key < element(2, Obj) andalso Dir == forward) orelse
+       (Key > element(2, Obj) andalso Dir == reverse) ->
+    add_ordered_match(Rest, [Val|Objs], Acc, Dir);
+add_ordered_match([{{_, Key}, _, _DelOP}|Rest], Objs =[Obj|_], Acc, Dir)
+  when (Key < element(2, Obj) andalso Dir == forward) orelse
+       (Key > element(2, Obj) andalso Dir == reverse) ->
+    add_ordered_match(Rest, Objs, Acc, Dir);
 %% Greater than last object
-add_ordered_match([{_, Val, write}|Rest], [], Acc) ->
-    add_ordered_match(Rest, [Val], Acc);
-add_ordered_match([_|Rest], [], Acc) ->
-    add_ordered_match(Rest, [], Acc);
+add_ordered_match([{_, Val, write}|Rest], [], Acc, Dir) ->
+    add_ordered_match(Rest, [Val], Acc, Dir);
+add_ordered_match([_|Rest], [], Acc, Dir) ->
+    add_ordered_match(Rest, [], Acc, Dir);
 %% Keys are equal from here
-add_ordered_match([{_, Val, write}|Rest], [_Obj|Objs], Acc) ->
-    add_ordered_match(Rest, [Val|Objs], Acc);
-add_ordered_match([{_, _Val, delete}|Rest], [_Obj|Objs], Acc) ->
-    add_ordered_match(Rest, Objs, Acc);
-add_ordered_match([{_, Val, delete_object}|Rest], [Val|Objs], Acc) ->
-    add_ordered_match(Rest, Objs, Acc);
-add_ordered_match([{_, _, delete_object}|Rest], Objs, Acc) ->
-    add_ordered_match(Rest, Objs, Acc);
-add_ordered_match([], Objs, Acc) ->
+add_ordered_match([{_, Val, write}|Rest], [_Obj|Objs], Acc, Dir) ->
+    add_ordered_match(Rest, [Val|Objs], Acc, Dir);
+add_ordered_match([{_, _Val, delete}|Rest], [_Obj|Objs], Acc, Dir) ->
+    add_ordered_match(Rest, Objs, Acc, Dir);
+add_ordered_match([{_, Val, delete_object}|Rest], [Val|Objs], Acc, Dir) ->
+    add_ordered_match(Rest, Objs, Acc, Dir);
+add_ordered_match([{_, _, delete_object}|Rest], Objs, Acc, Dir) ->
+    add_ordered_match(Rest, Objs, Acc, Dir);
+add_ordered_match([], Objs, Acc, _Dir) ->
     lists:reverse(Acc, Objs).
 
 %% For select chunk
-add_sel_match(Sorted, Objs, ordered_set) ->
-    add_sel_ordered_match(Sorted, Objs, []);
-add_sel_match(Written, Objs, Type) ->
-    add_sel_match(Written, Objs, Type, []).
+add_sel_match(Sorted, Objs, ordered_set, Dir) ->
+    add_sel_ordered_match(Sorted, Objs, [], Dir);
+add_sel_match(Written, Objs, Type, _Dir) ->
+    add_sel_match1(Written, Objs, Type, []).
 
-add_sel_match([], Objs, _Type, Acc) ->
+add_sel_match1([], Objs, _Type, Acc) ->
     {Objs,lists:reverse(Acc)};
-add_sel_match([Op={Oid, _, delete}|R], Objs, Type, Acc) ->
+add_sel_match1([Op={Oid, _, delete}|R], Objs, Type, Acc) ->
     case deloid(Oid, Objs) of
-	Objs ->
-	    add_sel_match(R, Objs, Type, [Op|Acc]);
-	NewObjs when Type == set ->
-	    add_sel_match(R, NewObjs, Type, Acc);
-	NewObjs ->  %% If bag we may get more in next chunk
-	    add_sel_match(R, NewObjs, Type, [Op|Acc])
+        Objs ->
+            add_sel_match1(R, Objs, Type, [Op|Acc]);
+        NewObjs when Type == set ->
+            add_sel_match1(R, NewObjs, Type, Acc);
+        NewObjs ->  %% If bag we may get more in next chunk
+            add_sel_match1(R, NewObjs, Type, [Op|Acc])
     end;
-add_sel_match([Op = {_Oid, Val, delete_object}|R], Objs, Type, Acc) ->
+add_sel_match1([Op = {_Oid, Val, delete_object}|R], Objs, Type, Acc) ->
     case lists:delete(Val, Objs) of
-	Objs ->
-	    add_sel_match(R, Objs, Type, [Op|Acc]);
-	NewObjs when Type == set ->
-	    add_sel_match(R, NewObjs, Type, Acc);
-	NewObjs ->
-	    add_sel_match(R, NewObjs, Type, [Op|Acc])
+        Objs ->
+            add_sel_match1(R, Objs, Type, [Op|Acc]);
+        NewObjs when Type == set ->
+            add_sel_match1(R, NewObjs, Type, Acc);
+        NewObjs ->
+            add_sel_match1(R, NewObjs, Type, [Op|Acc])
     end;
-add_sel_match([Op={Oid={_,Key}, Val, write}|R], Objs, bag, Acc) ->
+add_sel_match1([Op={Oid={_,Key}, Val, write}|R], Objs, bag, Acc) ->
     case lists:keymember(Key, 2, Objs) of
-	true ->
-	    add_sel_match(R,[Val|lists:delete(Val,Objs)],bag,
-			  [{Oid,Val,delete_object}|Acc]);
-	false ->
-	    add_sel_match(R,Objs,bag,[Op|Acc])
+        true ->
+            add_sel_match1(R,[Val|lists:delete(Val,Objs)],bag,
+                           [{Oid,Val,delete_object}|Acc]);
+        false ->
+            add_sel_match1(R,Objs,bag,[Op|Acc])
     end;
-add_sel_match([Op={Oid, Val, write}|R], Objs, set, Acc) ->
+add_sel_match1([Op={Oid, Val, write}|R], Objs, set, Acc) ->
     case deloid(Oid,Objs) of
-	Objs ->
-	    add_sel_match(R, Objs,set, [Op|Acc]);
-	NewObjs ->
-	    add_sel_match(R, [Val | NewObjs],set, Acc)
+        Objs ->
+            add_sel_match1(R, Objs,set, [Op|Acc]);
+        NewObjs ->
+            add_sel_match1(R, [Val | NewObjs],set, Acc)
     end.
 
 %% For ordered_set only !!
-add_sel_ordered_match(Written = [{{_, Key}, _, _}|_], [Obj|Objs],Acc)
-  when Key > element(2, Obj) ->
-    add_sel_ordered_match(Written, Objs, [Obj|Acc]);
-add_sel_ordered_match([{{_, Key}, Val, write}|Rest], Objs =[Obj|_],Acc)
-  when Key < element(2, Obj) ->
-    add_sel_ordered_match(Rest,[Val|Objs],Acc);
-add_sel_ordered_match([{{_, Key}, _, _DelOP}|Rest], Objs =[Obj|_], Acc)
-  when Key < element(2, Obj) ->
-    add_sel_ordered_match(Rest,Objs,Acc);
+add_sel_ordered_match(Written = [{{_, Key}, _, _}|_], [Obj|Objs], Acc, Dir)
+  when (Key > element(2, Obj) andalso Dir == forward) orelse
+       (Key < element(2, Obj) andalso Dir == reverse) ->
+    add_sel_ordered_match(Written, Objs, [Obj|Acc], Dir);
+add_sel_ordered_match([{{_, Key}, Val, write}|Rest], Objs =[Obj|_], Acc, Dir)
+  when (Key < element(2, Obj) andalso Dir == forward) orelse
+       (Key > element(2, Obj) andalso Dir == reverse) ->
+    add_sel_ordered_match(Rest, [Val|Objs], Acc, Dir);
+add_sel_ordered_match([{{_, Key}, _, _DelOP}|Rest], Objs =[Obj|_], Acc, Dir)
+  when (Key < element(2, Obj) andalso Dir == forward) orelse
+       (Key > element(2, Obj) andalso Dir == reverse) ->
+    add_sel_ordered_match(Rest, Objs, Acc, Dir);
 %% Greater than last object
-add_sel_ordered_match(Ops1, [], Acc) ->
+add_sel_ordered_match(Ops1, [], Acc, _Dir) ->
     {lists:reverse(Acc), Ops1};
 %% Keys are equal from here
-add_sel_ordered_match([{_, Val, write}|Rest], [_Obj|Objs], Acc) ->
-    add_sel_ordered_match(Rest, [Val|Objs], Acc);
-add_sel_ordered_match([{_, _Val, delete}|Rest], [_Obj|Objs], Acc) ->
-    add_sel_ordered_match(Rest, Objs, Acc);
-add_sel_ordered_match([{_, Val, delete_object}|Rest], [Val|Objs], Acc) ->
-    add_sel_ordered_match(Rest, Objs, Acc);
-add_sel_ordered_match([{_, _, delete_object}|Rest], Objs, Acc) ->
-    add_sel_ordered_match(Rest, Objs, Acc);
-add_sel_ordered_match([], Objs, Acc) ->
-    {lists:reverse(Acc, Objs),[]}.
+add_sel_ordered_match([{_, Val, write}|Rest], [_Obj|Objs], Acc, Dir) ->
+    add_sel_ordered_match(Rest, [Val|Objs], Acc, Dir);
+add_sel_ordered_match([{_, _Val, delete}|Rest], [_Obj|Objs], Acc, Dir) ->
+    add_sel_ordered_match(Rest, Objs, Acc, Dir);
+add_sel_ordered_match([{_, Val, delete_object}|Rest], [Val|Objs], Acc, Dir) ->
+    add_sel_ordered_match(Rest, Objs, Acc, Dir);
+add_sel_ordered_match([{_, _, delete_object}|Rest], Objs, Acc, Dir) ->
+    add_sel_ordered_match(Rest, Objs, Acc, Dir);
+add_sel_ordered_match([], Objs, Acc, _Dir) ->
+    {lists:reverse(Acc, Objs), []}.
 
 
 deloid(_Oid, []) ->
@@ -2689,7 +2695,7 @@ fun_select(Tid, Ts, Tab, Spec, LockKind, TabPat, SelectFun) ->
 		    Type = val({Tab, setorbag}),
 		    FixedSpec = get_record_pattern(Spec),
 		    TabRecs = SelectFun(FixedSpec),
-		    FixedRes = add_match(Written, TabRecs, Type),
+                    FixedRes = add_match(Written, TabRecs, Type, forward),
 		    CMS = ets:match_spec_compile(Spec),
 		    ets:match_spec_run(FixedRes, CMS)
 	    end;
@@ -2751,11 +2757,11 @@ select(Tid, Ts, Tab, Spec, NObjects, LockKind) ->
     InitFun = fun(FixedSpec) -> dirty_sel_init(Where,Tab,FixedSpec,NObjects,Type) end,
     fun_select(Tid,Ts,Tab,Spec,LockKind,Tab,InitFun,NObjects,Where,Type).
 
--record(mnesia_select, {tab,tid,node,storage,cont,written=[],spec,type,orig}).
+-record(mnesia_select, {tab,tid,node,storage,cont,written=[],spec,type,orig,dir}).
 
 -doc false.
 fun_select(Tid, Ts, Tab, Spec, LockKind, TabPat, Init, NObjects, Node, Storage) ->
-    Def = #mnesia_select{tid=Tid,node=Node,storage=Storage,tab=Tab,orig=Spec},
+    Def = #mnesia_select{tid=Tid,node=Node,storage=Storage,tab=Tab,orig=Spec,dir=forward},
     case element(1, Tid) of
 	ets ->
 	    select_state(mnesia_lib:db_select_init(ram_copies,Tab,Spec,NObjects),Def);
@@ -2776,7 +2782,7 @@ fun_select(Tid, Ts, Tab, Spec, LockKind, TabPat, Init, NObjects, Node, Storage) 
 		    Type = val({Tab, setorbag}),
 		    Written =
 			if Type == ordered_set -> %% Sort stable
-				lists:keysort(1,Written0);
+                                sort_ops(Written0, forward);
 			   true ->
 				Written0
 			end,
@@ -2868,7 +2874,7 @@ fun_select_reverse(Tid, Ts, Tab, Spec, LockKind, TabPat, SelectFun) ->
 		    Type = val({Tab, setorbag}),
 		    FixedSpec = get_record_pattern(Spec),
 		    TabRecs = SelectFun(FixedSpec),
-		    FixedRes = add_match(Written, TabRecs, Type),
+                    FixedRes = add_match(Written, TabRecs, Type, reverse),
 		    CMS = ets:match_spec_compile(Spec),
 		    ets:match_spec_run(FixedRes, CMS)
 	    end;
@@ -2920,7 +2926,7 @@ select_reverse(Tid, Ts, Tab, Spec, NObjects, LockKind) ->
 
 -doc false.
 fun_select_reverse(Tid, Ts, Tab, Spec, LockKind, TabPat, Init, NObjects, Node, Storage) ->
-    Def = #mnesia_select{tid=Tid,node=Node,storage=Storage,tab=Tab,orig=Spec},
+    Def = #mnesia_select{tid=Tid,node=Node,storage=Storage,tab=Tab,orig=Spec,dir=reverse},
     case element(1, Tid) of
 	ets ->
 	    select_state(mnesia_lib:db_select_rev_init(ram_copies,Tab,Spec,NObjects),Def);
@@ -2941,7 +2947,7 @@ fun_select_reverse(Tid, Ts, Tab, Spec, LockKind, TabPat, Init, NObjects, Node, S
 		    Type = val({Tab, setorbag}),
 		    Written =
 			if Type == ordered_set -> %% Sort stable, in descending order
-				lists:sort(fun(A, B) -> element(1, A) > element(1, B) end, Written0);
+                                sort_ops(Written0, reverse);
 			   true ->
 				Written0
 			end,
@@ -2974,6 +2980,10 @@ select_reverse(Cont) ->
 -doc false.
 select_cont(_Tid,_Ts,'$end_of_table') ->
     '$end_of_table';
+select_cont(Tid1, Ts, {mnesia_select, Tab, Tid2, Node, Storage, Cont, Written, Spec, Type, Orig}) ->
+    State = #mnesia_select{tab = Tab, tid = Tid2, node = Node, storage = Storage, cont = Cont,
+                           written = Written, spec = Spec, type = Type, orig = Orig, dir = forward},
+    select_cont(Tid1, Ts, State);
 select_cont(Tid,_Ts,State=#mnesia_select{tid=Tid,cont=Cont, orig=Ms})
   when element(1,Tid) == ets ->
     case Cont of
@@ -2997,11 +3007,16 @@ select_cont(Tid,Ts,State=#mnesia_select{}) ->
 select_cont(_,_,Cont) ->
     abort({badarg, Cont}).
 
-trans_select('$end_of_table', #mnesia_select{written=Written0,spec=CMS,type=Type}) ->
-    Written = add_match(Written0, [], Type),
+trans_select('$end_of_table', #mnesia_select{written=Written0,spec=CMS,type=ordered_set,dir=Dir}) ->
+    %% We're continuing selection, skip sort_ops in add_match because they were already
+    %% sorted previously in fun_select/10 or fun_select_reverse/10
+    Written = add_ordered_match(Written0, [], [], Dir),
     {ets:match_spec_run(Written, CMS), '$end_of_table'};
-trans_select({TabRecs,Cont}, State = #mnesia_select{written=Written0,spec=CMS,type=Type}) ->
-    {FixedRes,Written} = add_sel_match(Written0, TabRecs, Type),
+trans_select('$end_of_table', #mnesia_select{written=Written0,spec=CMS,type=Type,dir=Dir}) ->
+    Written = add_match(Written0, [], Type, Dir),
+    {ets:match_spec_run(Written, CMS), '$end_of_table'};
+trans_select({TabRecs,Cont}, State = #mnesia_select{written=Written0,spec=CMS,type=Type,dir=Dir}) ->
+    {FixedRes,Written} = add_sel_match(Written0, TabRecs, Type, Dir),
     select_state({ets:match_spec_run(FixedRes, CMS),Cont},
 		 State#mnesia_select{written=Written}).
 
@@ -6269,3 +6284,10 @@ put_activity_id(Activity,Fun) ->
 regular_indexes(Tab) ->
     PosList = val({Tab, index}),
     [P || P <- PosList, is_integer(P)].
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+sort_ops(Ops, forward) ->
+    lists:keysort(1, Ops);
+sort_ops(Ops, reverse) ->
+    lists:sort(fun(A, B) -> element(1, A) > element(1, B) end, Ops).
