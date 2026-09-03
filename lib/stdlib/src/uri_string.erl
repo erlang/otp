@@ -452,15 +452,13 @@ support for FTP, SSH, SFTP and TFTP.
 ```erlang
 1> uri_string:normalize("/a/b/c/./../../g").
 "/a/g"
-2> uri_string:normalize(<<"mid/content=5/../6">>).
-<<"mid/6">>
-3> uri_string:normalize("http://localhost:80").
+2> uri_string:normalize("http://localhost:80").
 "http://localhost/"
-4> uri_string:normalize("/a/b/c/./../../g", [return_map]).
-#{path => "/a/g"}
-5> uri_string:normalize(#{scheme => "http",port => 80,path => "/a/b/c/./../../g",
+3> uri_string:normalize(#{scheme => "http",port => 80,path => "/a/b/c/./../../g",
    host => "localhost-örebro"}, [return_map]).
 #{scheme => "http",path => "/a/g",host => "localhost-örebro"}
+4> uri_string:normalize("http://a b").
+{error,invalid_uri,":"}
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
@@ -520,6 +518,8 @@ See also the opposite operation `recompose/1`.
 2> uri_string:parse(<<"foo://user@example.com:8042/over/there?name=ferret">>).
 #{port => 8042,scheme => <<"foo">>,path => <<"/over/there">>,
   host => <<"example.com">>,query => <<"name=ferret">>,userinfo => <<"user">>}
+3> uri_string:parse("http://a b").
+{error,invalid_uri,":"}
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
@@ -561,6 +561,8 @@ See also the opposite operation `parse/1`.
   fragment => "nose",query => "name=ferret",userinfo => "user"}
 2> uri_string:recompose(URIMap).
 "foo://user@example.com:8042/over/there?name=ferret#nose"
+3> uri_string:recompose(#{}).
+{error,invalid_map,#{}}
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
@@ -616,10 +618,10 @@ form the target URI.
 "http://localhost/abs/ol/ute"
 2> uri_string:resolve("../relative", "http://localhost/a/b/c?q").
 "http://localhost/a/relative"
-3> uri_string:resolve("http://localhost/full", "http://localhost/a/b/c?q").
-"http://localhost/full"
-4> uri_string:resolve("/abs/ol/ute", "http://localhost/a/b/c?q", [return_map]).
+3> uri_string:resolve("/abs/ol/ute", "http://localhost/a/b/c?q", [return_map]).
 #{scheme => "http",path => "/abs/ol/ute",host => "localhost"}
+4> uri_string:resolve("http://a b", "http://localhost/a/b/c?q").
+{error,invalid_uri,":"}
 ```
 """.
 -doc(#{since => <<"OTP 22.3">>}).
@@ -669,9 +671,8 @@ returned.
 1> uri_string:transcode(<<"foo%00%00%00%F6bar"/utf32>>,
    [{in_encoding, utf32},{out_encoding, utf8}]).
 <<"foo%C3%B6bar">>
-2> uri_string:transcode("foo%F6bar", [{in_encoding, latin1},
-   {out_encoding, utf8}]).
-"foo%C3%B6bar"
+2> uri_string:transcode(<<255,255>>, [{in_encoding, utf8},{out_encoding, utf8}]).
+{error,invalid_input,<<255,255>>}
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
@@ -717,9 +718,10 @@ stdlib's Users Guide.
 ## Examples
 
 ```erlang
-1> Allowed = uri_string:allowed_characters(), is_list(Allowed).
+1> Allowed = uri_string:allowed_characters().
+2> is_list(Allowed).
 true
-2> proplists:get_value(scheme, Allowed).
+3> proplists:get_value(scheme, Allowed).
 "+-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 ```
 """.
@@ -766,8 +768,8 @@ If the input encoding is not UTF-8, an error tuple is returned.
 1> uri_string:percent_decode(#{host => "localhost-%C3%B6rebro",path => [],
    scheme => "http"}).
 #{scheme => "http",path => [],host => "localhost-örebro"}
-2> uri_string:percent_decode(<<"%C3%B6rebro">>).
-<<"örebro"/utf8>>
+2> uri_string:percent_decode(#{host => "%zz"}).
+{error,{invalid,{host,{invalid_percent_encoding,<<"%zz">>}}}}
 ```
 
 > #### Warning {: .warning }
@@ -946,9 +948,8 @@ See also the opposite operation `dissect_query/1`.
 2> uri_string:compose_query([{"foo bar","1"},{"city","örebro"}],
    [{encoding, latin1}]).
 "foo+bar=1&city=%F6rebro"
-3> uri_string:compose_query([{<<"foo bar">>,<<"1">>},
-   {<<"city">>,<<"東京"/utf8>>}], [{encoding, latin1}]).
-<<"foo+bar=1&city=%26%2326481%3B%26%2320140%3B">>
+3> uri_string:compose_query([{"foo", 123}]).
+{error,invalid_input,123}
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
@@ -1002,9 +1003,8 @@ See also the opposite operation `compose_query/1`.
 ```erlang
 1> uri_string:dissect_query("foo+bar=1&city=%C3%B6rebro").
 [{"foo bar","1"},{"city","örebro"}]
-2> uri_string:dissect_query(<<"foo+bar=1&city=%26%2326481%3B%26%2320140%3B">>).
-[{<<"foo bar">>,<<"1">>},
- {<<"city">>,<<230,157,177,228,186,172>>}]
+2> uri_string:dissect_query(<<"a=%zz">>).
+{error,invalid_percent_encoding,"%zz"}
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).

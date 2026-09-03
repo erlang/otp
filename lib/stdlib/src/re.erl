@@ -104,7 +104,8 @@ expression from its string format, which is included in
 
 ```erlang
 1> {ok, Exported} = re:compile("[0-9]+", [export]).
-2> MP = re:import(Exported), re:run("abc123", MP).
+2> MP = re:import(Exported).
+3> re:run("abc123", MP).
 {match,[{3,3}]}
 ```
 """.
@@ -297,11 +298,8 @@ Options:
 ## Examples
 
 ```erlang
-1> {ok, MP} = re:compile("[a-z]+", [caseless]), element(1, MP) =:= re_pattern.
-true
-2> re:run("ABC", MP).
-{match,[{0,3}]}
-3> re:compile("[a-z", []).
+1> {ok, {re_pattern, _, _, _, _}} = re:compile("[a-z]+", [caseless]).
+2> re:compile("[a-z", []).
 {error,{"missing terminating ] for character class",4}}
 ```
 """.
@@ -908,10 +906,9 @@ of [`run/3`](`run/3`) like this:
 1> {ok, MP} = re:compile("(?<A>A)|(?<B>B)|(?<C>C)").
 2> re:inspect(MP, namelist).
 {namelist,[<<"A">>,<<"B">>,<<"C">>]}
-3> {ok, MPD} = re:compile("(?<C>A)|(?<B>B)|(?<C>C)", [dupnames]), re:inspect(MPD, namelist).
+3> {ok, MPD} = re:compile("(?<C>A)|(?<B>B)|(?<C>C)", [dupnames]).
+4> re:inspect(MPD, namelist).
 {namelist,[<<"B">>,<<"C">>]}
-4> {namelist, N} = re:inspect(MP, namelist), {match, L} = re:run("AA", MP, [{capture, all_names, binary}]), lists:zip(N, L).
-[{<<"A">>,<<"A">>},{<<"B">>,<<>>},{<<"C">>,<<>>}]
 ```
 """.
 -doc(#{since => <<"OTP 17.0">>}).

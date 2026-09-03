@@ -751,10 +751,8 @@ integer are returned in `Rest`.
 ## Examples
 
 ```erlang
-1> {I1,Is} = string:to_integer("33+22"),
-   {I2,[]} = string:to_integer(Is),
-   I1-I2.
-11
+1> string:to_integer("33+22").
+{33,"+22"} 
 2> string:to_integer("0.5").
 {0,".5"}
 3> string:to_integer("x=2").
@@ -792,10 +790,8 @@ returned in `Rest`.
 ## Examples
 
 ```erlang
-1> {F1,Fs} = string:to_float("1.0-1.0e-1"),
-   {F2,[]} = string:to_float(Fs),
-   F1+F2.
-0.9
+1> string:to_float("1.0-1.0e-1").
+{1.0,"-1.0e-1"}
 2> string:to_float("3/2=1.5").
 {error,no_float}
 3> string:to_float("-1.5eX").
@@ -1020,9 +1016,7 @@ searched.
 "..cd..ef"
 2> string:find(<<"ab..cd..ef">>, "..", trailing).
 <<"..ef">>
-3> string:find(<<"ab..cd..ef">>, "x", leading).
-nomatch
-4> string:find("ab..cd..ef", "x", trailing).
+3> string:find("ab..cd..ef", "x", trailing).
 nomatch
 ```
 """.
@@ -2542,7 +2536,7 @@ Returns the position where the first occurrence of `SubString` begins in
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `find/2`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:str(" Hello Hello World World ", "Hello World").
@@ -2571,7 +2565,7 @@ Returns the position where the last occurrence of `SubString` begins in
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `find/3`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:rstr(" Hello Hello World World ", "Hello World").
@@ -2607,7 +2601,7 @@ entirely of characters from `Chars`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `take/2`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:span("\t    abcdef", " \t").
@@ -2635,7 +2629,7 @@ entirely of characters not from `Chars`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `take/3`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:cspan("\t    abcdef", " \t").
@@ -2679,7 +2673,7 @@ end of the string or at length `Length`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `slice/3`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:substr("Hello World", 4, 5).
@@ -2709,7 +2703,7 @@ substr2([_|String], S) -> substr2(String, S-1).
 Returns a list of tokens in `String`, separated by the characters in
 `SeparatorList`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:tokens("abc defxxghix jkl", "x ").
@@ -2890,7 +2884,7 @@ or `Character`s.
 This function is [obsolete](`m:string#obsolete-api-functions`). Use
 `nth_lexeme/3`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:sub_word(" Hello old boy !",3,$o).
@@ -2950,7 +2944,7 @@ Returns a string, where leading or trailing, or both, blanks or a number of
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `trim/3`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:strip("...Hello.....", both, $.).
@@ -3003,7 +2997,7 @@ padded with blanks or `Character`s.
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `pad/2` or
 `pad/3`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:left("Hello",10,$.).
@@ -3045,7 +3039,7 @@ with blanks or `Character`s.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `pad/3`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:right("Hello", 10, $.).
@@ -3129,7 +3123,7 @@ string, or to and including position `Stop`.
 
 This function is [obsolete](`m:string#obsolete-api-functions`). Use `slice/3`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:sub_string("Hello World", 4, 8).
@@ -3231,7 +3225,7 @@ Returns a string with the elements of `StringList` separated by the string in
 This function is [obsolete](`m:string#obsolete-api-functions`). Use
 `lists:join/2`.
 
-_Example:_
+## Examples
 
 ```erlang
 1> string:join(["one", "two", "three"], ", ").

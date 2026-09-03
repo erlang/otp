@@ -484,6 +484,8 @@ The result is a list of characters.
 ```erlang
 1> unicode:characters_to_nfd_list("abc..åäö").
 [97,98,99,46,46,97,778,97,776,111,776]
+2> unicode:characters_to_nfd_list(<<"ab", 255>>).
+{error,"ab",<<255>>}
 ```
 """.
 -doc(#{since => <<"OTP 20.0">>}).
@@ -517,6 +519,8 @@ The result is an utf8 encoded binary.
 ```erlang
 1> unicode:characters_to_nfd_binary("abc..åäö").
 <<97,98,99,46,46,97,204,138,97,204,136,111,204,136>>
+2> unicode:characters_to_nfd_binary(<<"ab", 255>>).
+{error,<<"ab">>,<<255>>}
 ```
 """.
 -doc(#{since => <<"OTP 20.0">>}).
@@ -553,6 +557,8 @@ The result is a list of characters.
 ```erlang
 1> unicode:characters_to_nfkd_list(["abc..åäö",[65299,65298]]).
 [97,98,99,46,46,97,778,97,776,111,776,51,50]
+2> unicode:characters_to_nfkd_list(<<"ab", 255>>).
+{error,"ab",<<255>>}
 ```
 """.
 -doc(#{since => <<"OTP 20.0">>}).
@@ -587,6 +593,8 @@ The result is an utf8 encoded binary.
 ```erlang
 1> unicode:characters_to_nfkd_binary(["abc..åäö",[65299,65298]]).
 <<97,98,99,46,46,97,204,138,97,204,136,111,204,136,51,50>>
+2> unicode:characters_to_nfkd_binary(<<"ab", 255>>).
+{error,<<"ab">>,<<255>>}
 ```
 """.
 -doc(#{since => <<"OTP 20.0">>}).
@@ -623,6 +631,8 @@ The result is a list of characters.
 ```erlang
 1> unicode:characters_to_nfc_list([<<"abc..a">>,[778],$a,[776],$o,[776]]).
 "abc..åäö"
+2> unicode:characters_to_nfc_list(<<"ab", 255>>).
+{error,"ab",<<255>>}
 ```
 """.
 -doc(#{since => <<"OTP 20.0">>}).
@@ -656,6 +666,8 @@ The result is an utf8 encoded binary.
 ```erlang
 1> unicode:characters_to_nfc_binary([<<"abc..a">>,[778],$a,[776],$o,[776]]).
 <<"abc..åäö"/utf8>>
+2> unicode:characters_to_nfc_binary(<<"ab", 255>>).
+{error,<<"ab">>,<<255>>}
 ```
 """.
 -doc(#{since => <<"OTP 20.0">>}).
@@ -691,6 +703,8 @@ The result is a list of characters.
 ```erlang
 1> unicode:characters_to_nfkc_list([<<"abc..a">>,[778],$a,[776],$o,[776],[65299,65298]]).
 "abc..åäö32"
+2> unicode:characters_to_nfkc_list(<<"ab", 255>>).
+{error,"ab",<<255>>}
 ```
 """.
 -doc(#{since => <<"OTP 20.0">>}).
@@ -724,6 +738,8 @@ The result is an utf8 encoded binary.
 ```erlang
 1> unicode:characters_to_nfkc_binary([<<"abc..a">>,[778],$a,[776],$o,[776],[65299,65298]]).
 <<"abc..åäö32"/utf8>>
+2> unicode:characters_to_nfkc_binary(<<"ab", 255>>).
+{error,<<"ab">>,<<255>>}
 ```
 """.
 -doc(#{since => <<"OTP 20.0">>}).
