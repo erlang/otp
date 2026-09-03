@@ -911,11 +911,9 @@ do_create(TarFile, [Name|Rest], Opts) ->
 
 %% Adds a file to a tape archive.
 -doc """
-Equivalent to `add/4`.
+Equivalent to [`add(TarDescriptor, Name, Name, Options)`](`add/4`) if `Name` is `t:name_in_archive/0`.
 
-If `Name` is `t:name_in_archive/0`, then [`add(TarDescriptor, Name, Name, Options)`](`add/4`) is called.
-
-If `Name` is a two tuple then [`add(TarDescriptor, NameInArchive, Name, Options)`](`add/4`) is called.
+If `Name` is a two tuple `{NameInArchive, Name}`, then [`add(TarDescriptor, Name, NameInArchive, Options)`](`add/4`) is called.
 """.
 -spec add(TarDescriptor, Name, Options) -> ok | {error, term()} when
     TarDescriptor :: tar_descriptor(),
