@@ -251,7 +251,7 @@ associated with the `TERM` environment variable when the Erlang VM is started.
 It is not possible to change after startup.
 
 If the given capability is not defined in the terminfo database an `enotsup`
-error is generated, if the given capability is invalid a `badarg` error is 
+error is generated, if the given capability is invalid a `einval` error is 
 generated.
 
 This function does not work on Windows and will always generate a `badarg`
@@ -364,8 +364,9 @@ Example:
 ```
 """.
 -doc #{ group => ~"Functions: terminfo" }.
--spec tinfo() -> #{ bool := [#{ code := string(), name := string(), full_name := string()}]}.
-tinfo() -> 
+-spec tinfo() -> #{ bool := [Cap], str := [Cap], num := [Cap]} when
+        Cap :: #{ code := string(), name := string(), full_name := string()}.
+tinfo() ->
     prim_tty:tinfo().
 
 -define(FUNCTION(NAME),
@@ -1453,7 +1454,8 @@ Example:
 ?FUNCTION(delete_character, Chars).
 
 -doc """
-Erase `Chars` characters at cursor by making `Chars` characters before the cursor blank.
+Erase `Chars` characters at cursor by making `Chars` characters at and
+to the right of the cursor blank.
 
 Example:
 ```erlang
