@@ -241,8 +241,8 @@ year 0.
 ## Examples
 
 ```erlang
-1> calendar:date_to_gregorian_days(2024, 1, 1).
-739251
+1> calendar:date_to_gregorian_days(2026, 1, 1).
+739982
 2> calendar:date_to_gregorian_days(0, 1, 1).
 0
 ```
