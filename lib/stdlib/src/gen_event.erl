@@ -893,7 +893,7 @@ event handler to handle the event.
 `Event` is any term that is passed as one of the arguments to
 [`Module:handle_event/2`](`c:handle_event/2`).
 
-`notify/1` does not fail even if the specified event manager
+`notify/2` does not fail even if the specified event manager
 does not exist, unless it is specified as `Name`.
 """.
 
