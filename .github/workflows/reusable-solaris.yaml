@@ -44,7 +44,7 @@ jobs:
         with:
           name: otp_prebuilt
       - name: Build on Solaris
-        uses: vmactions/solaris-vm@a5f280f06289e0d16f882b06a22c922517baa857 # v1.3.0
+        uses: vmactions/solaris-vm@96d8d976f9e67d82ec6c7e8ce9c1060731f9e21c # v1.3.9
         with:
             usesh: true
             copyback: false
