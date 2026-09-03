@@ -63,7 +63,8 @@
          infinite_loop/0,infinite_loop/1,
          native_record/1,
          use_nifs/1,gh_11352/1,gh_11367/1,
-         gh_11414/1]).
+         gh_11414/1,
+         gh_11534/0,gh_11534/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
@@ -93,7 +94,8 @@ groups() ->
        otp_7202,on_load,on_load_inline,
        string_table,otp_8949_a,split_cases,
        infinite_loop, native_record,
-       use_nifs,gh_11352,gh_11367,gh_11414]}].
+       use_nifs,gh_11352,gh_11367,gh_11414,
+       gh_11534]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -153,6 +155,9 @@ end_per_group(_GroupName, Config) ->
 
 infinite_loop() -> [{timetrap,{minutes,1}}].
 ?comp(infinite_loop).
+
+gh_11534() -> [{timetrap,{minutes,1}}].
+?comp(gh_11534).
 
 %% Code snippet submitted from Ulf Wiger which fails in R3 Beam.
 beam_compiler_7(Config) when is_list(Config) ->
