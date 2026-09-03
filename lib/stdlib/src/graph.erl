@@ -968,8 +968,7 @@ is_acyclic(G) ->
     cyclic_strong_components(G) =:= [].
 
 -doc """
-Returns a minimal list of vertices of `G` from which all vertices of `G` can
-be reached.
+Returns a list of vertices of `G` from which all vertices of `G` can be reached.
 """.
 -doc(#{ since => ~"OTP 29.0"}).
 -spec roots(graph()) -> [vertex()].
