@@ -28,7 +28,7 @@ representations of abstract forms, which are suitable for printing. All
 functions return (possibly deep) lists of characters and generate an error if
 the form is wrong.
 
-All functions can have an optional argument, which specifies a hook that is
+Most functions can have an optional argument, which specifies a hook that is
 called if an attempt is made to print an unknown form.
 
 Note that if the functions in this module are used to convert abstract code back
