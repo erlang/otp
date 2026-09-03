@@ -23,14 +23,14 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
--export([basic/1, link_race/1, echo/1]).
+-export([basic/1, link_race/1, echo/1, doctests/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames, 1}]}]}].
 
 all() ->
-    [basic, link_race].
+    [basic, link_race, doctests].
 
 groups() ->
     [].
@@ -82,6 +82,23 @@ echo(Parent) ->
             Parent ! Msg
     end.
 
+
+doctests(Config) ->
+    %% pool:start/1,2's doctests need a .hosts.erlang file naming a host to
+    %% start pool nodes on, and the cwd set to find it. Rather than mutating
+    %% this suite's own test-runner node (file:set_cwd/1 affects the whole
+    %% OS process, not just this Erlang process, which could race with
+    %% anything else running concurrently in the same VM), run the doctests
+    %% on an isolated ?CT_PEER node instead, the same way basic/1 and
+    %% link_race/1 above do.
+    PrivDir = proplists:get_value(priv_dir, Config),
+    {ok, Peer, Node} = ?CT_PEER(#{name => ?FUNCTION_NAME}),
+    {ok, Hostname} = inet:gethostname(),
+    ok = file:write_file(filename:join(PrivDir, ".hosts.erlang"), "'"++Hostname++"'.\n"),
+    ok = rpc:call(Node, file, set_cwd, [PrivDir]),
+    Result = rpc:call(Node, ct_doctest, module, [pool, []]),
+    peer:stop(Peer),
+    Result.
 
 init_pool(Case, Name, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),

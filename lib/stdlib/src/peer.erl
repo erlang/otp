@@ -343,7 +343,8 @@ prefix, a unique number, and the current OS process ID.
 ## Examples
 
 ```erlang
-1> Name = peer:random_name(mynode), string:prefix(Name, \"mynode-\") =/= nomatch.
+1> Name = peer:random_name(mynode).
+2> string:prefix(Name, \"mynode-\") =/= nomatch.
 true
 ```
 ".
@@ -359,7 +360,7 @@ random_name(Prefix) ->
 %%      and waits for that node to boot. Returns full node name,
 %%      registers local process with the same name as peer node.
 -ifndef(NO_DOCS).
--doc "The same as [`start_link(#{name => random_name()})`](`start_link/1`).".
+-doc(#{equiv => start_link(#{name => random_name()})}).
 -doc(#{since => <<"OTP 25.0">>}).
 -endif.
 -spec start_link() -> {ok, pid(), node()} | {error, Reason :: term()}.
@@ -386,12 +387,9 @@ the `{boot_failed, {exit_status, ExitCode}}` reason.
 ## Examples
 
 ```erlang
-1> {ok, Pid, Node} = peer:start_link(#{name => peer:random_name(), connection => 0}), is_pid(Pid) andalso is_atom(Node).
+1> {ok, Pid, Node} = peer:start_link(#{name => peer:random_name(), connection => 0}).
+2> is_pid(Pid) andalso is_atom(Node).
 true
-2> peer:get_state(Pid).
-running
-3> ok = peer:stop(Pid).
-ok
 ```
 ".
 -doc(#{since => <<"OTP 25.0">>}).
@@ -411,10 +409,9 @@ requested and the host name is not known in advance.
 ## Examples
 
 ```erlang
-1> {ok, Pid, Node} = peer:start(#{name => peer:random_name(), connection => 0}), is_pid(Pid) andalso is_atom(Node).
+1> {ok, Pid, Node} = peer:start(#{name => peer:random_name(), connection => 0}).
+2> is_pid(Pid) andalso is_atom(Node).
 true
-2> ok = peer:stop(Pid).
-ok
 ```
 ".
 -doc(#{since => <<"OTP 25.0">>}).
@@ -474,9 +471,10 @@ Currently the following `shutdown` options are supported:
 ## Examples
 
 ```erlang
-1> {ok, Pid, _Node} = peer:start_link(#{name => peer:random_name(), connection => 0}), is_pid(Pid).
+1> {ok, Pid, _Node} = peer:start_link(#{name => peer:random_name(), connection => 0}).
+2> is_pid(Pid).
 true
-2> ok = peer:stop(Pid).
+3> peer:stop(Pid).
 ok
 ```
 ".
@@ -498,12 +496,9 @@ script is complete, and then the node progresses to `running`. If the node stops
 ## Examples
 
 ```erlang
-1> {ok, Pid, _Node} = peer:start_link(#{name => peer:random_name(), connection => 0}), ok.
-ok
+1> {ok, Pid, _Node} = peer:start_link(#{name => peer:random_name(), connection => 0}).
 2> peer:get_state(Pid).
 running
-3> ok = peer:stop(Pid).
-ok
 ```
 ".
 -doc(#{since => <<"OTP 25.0">>}).
@@ -539,12 +534,9 @@ Erlang distribution.
 ## Examples
 
 ```erlang
-1> {ok, Pid, Node} = peer:start_link(#{name => peer:random_name(), connection => 0}), ok.
-ok
+1> {ok, Pid, Node} = peer:start_link(#{name => peer:random_name(), connection => 0}).
 2> peer:call(Pid, erlang, node, [], 5000) =:= Node.
 true
-3> ok = peer:stop(Pid).
-ok
 ```
 ".
 -doc(#{since => <<"OTP 25.0">>}).
@@ -574,11 +566,8 @@ Use `m:erpc` module to communicate over Erlang distribution.
 ## Examples
 
 ```erlang
-1> {ok, Pid, _Node} = peer:start_link(#{name => peer:random_name(), connection => 0}), ok.
-ok
+1> {ok, Pid, _Node} = peer:start_link(#{name => peer:random_name(), connection => 0}).
 2> peer:cast(Pid, erlang, display, [hello_from_peer]).
-ok
-3> ok = peer:stop(Pid).
 ok
 ```
 ".
@@ -603,8 +592,6 @@ be referenced by process ID or registered name.
 1> {ok, Pid, _Node} = peer:start_link(#{name => peer:random_name(), connection => 0}), ok.
 ok
 2> peer:send(Pid, init, {hello}).
-ok
-3> ok = peer:stop(Pid).
 ok
 ```
 ".

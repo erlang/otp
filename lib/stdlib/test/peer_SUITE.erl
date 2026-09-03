@@ -75,7 +75,8 @@
     attached/0, attached/1,
     attached_cntrl_channel_handler_crash/0, attached_cntrl_channel_handler_crash/1,
     cntrl_channel_handler_crash/0, cntrl_channel_handler_crash/1,
-    cntrl_channel_handler_crash_old_release/0, cntrl_channel_handler_crash_old_release/1
+    cntrl_channel_handler_crash_old_release/0, cntrl_channel_handler_crash_old_release/1,
+    doctests/1
 ]).
 
 suite() ->
@@ -115,7 +116,7 @@ groups() ->
 
 all() ->
     [{group, dist}, {group, dist_seq}, {group, tcp}, {group, standard_io},
-     {group, compatibility}, {group, remote}].
+     {group, compatibility}, {group, remote}, doctests].
 
 init_per_group(remote, Config) ->
     %% check that SSH can connect to localhost, skip the test if not
@@ -763,3 +764,14 @@ cntrl_channel_handler_crash_test(Node) ->
         5000 ->
             ct:fail(peer_did_not_halt)
     end.
+
+doctests(_Config) ->
+    %% moduledoc (peer.md) is skipped: its example uses the ?CT_PEER and
+    %% ?CT_PEER_NAME macros from common_test/include/ct.hrl, which aren't
+    %% available in ct_doctest's bare evaluation context.
+    %%
+    %% 1 pre-existing illustrative ```erlang block (in the start_options()
+    %% type doc) shows a post_process_args fun definition rather than a
+    %% runnable "1>" shell prompt; it's prose, not a doctest, and is
+    %% intentionally left as-is alongside the real "## Examples" sections.
+    ct_doctest:module(peer, [{skip_tests, [moduledoc]}, {skipped_blocks, 1}]).
