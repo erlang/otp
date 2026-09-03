@@ -32,6 +32,7 @@ MODULES =  \
 	scheduler_SUITE \
 	msacc_SUITE \
 	observer_backend_SUITE \
+	versions_SUITE \
 	zzz_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
@@ -88,5 +89,6 @@ release_tests_spec: make_emakefile
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 	$(INSTALL_DATA) $(ERL_TOP)/make/otp_version_tickets "$(RELSYSDIR)/system_information_SUITE_data"
+	$(INSTALL_DATA) $(ERL_TOP)/otp_versions.table "$(RELSYSDIR)/versions_SUITE_data/otp_versions.table"
 
 release_docs_spec:
