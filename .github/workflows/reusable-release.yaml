@@ -54,7 +54,7 @@ jobs:
       actions:      write   # actions/download-artifact (otp_prebuilt, otp_doc_html, otp_doc_man, ort-results-*)
                             # actions/upload-artifact (Attestations)
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -103,7 +103,7 @@ jobs:
       - name: Attest Distribution Assets with SBoM
         id: attest-sbom
         if: inputs.otp_sbom_version != '' # needed to not account for OTP-26 and 27
-        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # ratchet:actions/attest-sbom@v3
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4
         with:
           subject-path: |
             artifacts/*.tar.gz
