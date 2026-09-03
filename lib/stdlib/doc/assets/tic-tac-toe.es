@@ -29,7 +29,7 @@ main(_Args) ->
         draw_board(),
         loop({0, "X", list_to_tuple(lists:duplicate(9, ""))}),
         timer:sleep(5000)
-    after ->
+    after
         io_ansi:fwrite([alternate_screen_off, cursor_show, keypad_transmit_mode_off])
     end.
 
