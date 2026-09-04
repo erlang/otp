@@ -22,8 +22,7 @@
 -module(inet_parse).
 -moduledoc false.
 
--compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
-          nowarn_deprecated_catch]).
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 %% Parser for all kinds of ineternet configuration files
 
@@ -308,19 +307,18 @@ parse_fd(Fname,Fd, Line, Fun, Ls) ->
 	    case split_line(Cs) of
 		[] -> parse_fd(Fname, Fd, Line+1, Fun, Ls);
 		Toks ->
-		    case catch Fun(Toks) of
-			{'EXIT',_} ->
-			    error("~p:~p: erroneous line, SKIPPED~n",[Fname,Line]),
-			    parse_fd(Fname, Fd,Line+1,Fun,Ls);
-			{warning,Wlist,Val} ->
-			    warning("~p:~p: warning! strange domain name(s) ~p ~n",[Fname,Line,Wlist]),
-			    parse_fd(Fname, Fd,Line+1,Fun,[Val|Ls]);
-
-			skip -> 
-			    parse_fd(Fname, Fd, Line+1, Fun, Ls);
-			Val -> parse_fd(Fname, Fd, Line+1, Fun, [Val|Ls])
-		    end
-	    end
+                    try Fun(Toks) of
+                        {warning,Wlist,Val} ->
+                            warning("~p:~p: warning! strange domain name(s) ~p ~n",[Fname,Line,Wlist]),
+                            parse_fd(Fname, Fd,Line+1,Fun,[Val|Ls]);
+                        skip ->
+                            parse_fd(Fname, Fd, Line+1, Fun, Ls);
+                        Val -> parse_fd(Fname, Fd, Line+1, Fun, [Val|Ls])
+                    catch error : _ ->
+                            error("~p:~p: erroneous line, SKIPPED~n",[Fname,Line]),
+                            parse_fd(Fname, Fd,Line+1,Fun,Ls)
+                    end
+            end
     end.
 
 parse_cs(Fname, Chars, Line, Fun, Ls) ->
@@ -330,18 +328,18 @@ parse_cs(Fname, Chars, Line, Fun, Ls) ->
 	    case split_line(Cs) of
 		[] -> parse_cs(Fname, Chars1, Line+1, Fun, Ls);
 		Toks ->
-		    case catch Fun(Toks) of
-			{'EXIT',_} -> 
-			    error("~p:~p: erroneous line, SKIPPED~n",[Fname,Line]),
- 			    parse_cs(Fname, Chars1, Line+1, Fun, Ls);
-			{warning,Wlist,Val} ->
-			    warning("~p:~p: warning! strange domain name(s) ~p ~n",[Fname,Line,Wlist]),
-			    parse_cs(Fname, Chars1, Line+1, Fun, [Val|Ls]);
+                    try Fun(Toks) of
+                        {warning,Wlist,Val} ->
+                            warning("~p:~p: warning! strange domain name(s) ~p ~n",[Fname,Line,Wlist]),
+                            parse_cs(Fname, Chars1, Line+1, Fun, [Val|Ls]);
 
-			skip -> parse_cs(Fname, Chars1, Line+1, Fun, Ls);
-			Val -> parse_cs(Fname, Chars1, Line+1, Fun, [Val|Ls])
-		    end
-	    end
+                        skip -> parse_cs(Fname, Chars1, Line+1, Fun, Ls);
+                        Val -> parse_cs(Fname, Chars1, Line+1, Fun, [Val|Ls])
+                    catch error : _ ->
+                            error("~p:~p: erroneous line, SKIPPED~n",[Fname,Line]),
+                            parse_cs(Fname, Chars1, Line+1, Fun, Ls)
+                    end
+            end
     end.
 
 get_line([]) -> eof;
@@ -400,78 +398,83 @@ visible_string(_) -> false.
 %% Check if a String is a domain name according to RFC XXX.
 %% domain(String) -> Bool
 %%
-domain([H|T]) ->
-    is_dom1([H|T]);
-domain(_) ->
-    false.
+domain(Cs) when is_list(Cs) ->
+    is_dom1(Cs) andalso
+    %%
+    %% Also check that we don't get a IP-address as a domain name
+    %% (A valid domain name cannot be an IPv6 address
+    %%  since the latter has to contain a `:`)
+        try ipv4_addr(Cs) of
+            _Addr               -> false
+        catch throw : error     -> true
+        end.
 
-is_dom1([C | Cs]) when C >= $a, C =< $z -> is_dom_ldh(Cs);
-is_dom1([C | Cs]) when C >= $A, C =< $Z -> is_dom_ldh(Cs);
-is_dom1([C | Cs]) when C >= $0, C =< $9 -> 
-    case is_dom_ldh(Cs) of
-	true  -> is_dom2(string:lexemes([C | Cs],"."));
-	false -> false
+%% Each DNS label starts with letter or number and cannot be empty
+is_dom1([C | Cs]) ->
+    if
+        C >= $a, C =< $z;
+        C >= $A, C =< $Z;
+        C >= $0, C =< $9        -> is_dom_ldh(Cs);
+        true                    -> false
     end;
-is_dom1(_) -> false.
+is_dom1([])                     -> false.
 
-is_dom_ldh([C | Cs]) when C >= $a, C =< $z -> is_dom_ldh(Cs);
-is_dom_ldh([C | Cs]) when C >= $A, C =< $Z -> is_dom_ldh(Cs);
-is_dom_ldh([C | Cs]) when C >= $0, C =< $9 -> is_dom_ldh(Cs);
-is_dom_ldh([$-,$. | _]) -> false;
-is_dom_ldh([$_,$. | _]) -> false;
-is_dom_ldh([$_ | Cs]) -> is_dom_ldh(Cs);
-is_dom_ldh([$- | Cs]) -> is_dom_ldh(Cs);
-is_dom_ldh([$. | Cs]) -> is_dom1(Cs);
-is_dom_ldh([]) -> true;
-is_dom_ldh(_) -> false.
-
-%%% Check that we don't get a IP-address as a domain name.
-
--define(L2I(L), (catch list_to_integer(L))).
-
-is_dom2([A,B,C,D]) ->
-    case ?L2I(D) of
-	Di when is_integer(Di) ->
-	    case {?L2I(A),?L2I(B),?L2I(C)} of
-		{Ai,Bi,Ci} when is_integer(Ai),
-                                is_integer(Bi),
-                                is_integer(Ci) -> false;
-		_ -> true
-	    end;
-	_ -> true
+%% Within a DNS label, but not at the end, `-` and `_` are also allowed.
+%% A `.` ends the label.
+is_dom_ldh([$_])                -> false;
+is_dom_ldh([$-])                -> false;
+is_dom_ldh([$_,$. | _])         -> false;
+is_dom_ldh([$-,$. | _])         -> false;
+is_dom_ldh([$. | Cs])           -> is_dom1(Cs);
+is_dom_ldh([$_ | Cs])           -> is_dom_ldh(Cs);
+is_dom_ldh([$- | Cs])           -> is_dom_ldh(Cs);
+is_dom_ldh([C | Cs]) ->
+    if
+        C >= $a, C =< $z;
+        C >= $A, C =< $Z;
+        C >= $0, C =< $9        -> is_dom_ldh(Cs);
+        true                    -> false
     end;
-is_dom2(_) ->
-    true.
-
+is_dom_ldh([])                  -> true.
 
 
 %%
 %% Parse ipv4 address or ipv6 address
 %% Return {ok, Address} | {error, Reason}
 %%
+address(Bin) when is_binary(Bin) ->
+    try ipv4s_c1b(Bin) of
+        IP ->
+            {ok, IP}
+    catch throw : error ->
+            case ipv6strict_address(Bin) of
+                {ok, _} = Ok -> Ok;
+                {error, _} -> address(binary_to_list(Bin))
+            end
+    end;
 address(Cs) when is_list(Cs) ->
     case ipv4_address(Cs) of
-	{ok,IP} ->
-	    {ok,IP};
-	_ ->
-	    ipv6strict_address(Cs)
+        {ok, IP} ->
+            {ok, IP};
+        _ ->
+            ipv6strict_address(Cs)
     end;
 address(_) -> 
     {error, einval}.
 
 %%Parse ipv4 strict address or ipv6 strict address
-strict_address(Cs) when is_list(Cs) ->
-    case ipv4strict_address(Cs) of
-	{ok,IP} ->
-	    {ok,IP};
-	_ ->
-	    ipv6strict_address(Cs)
+strict_address(Addr) when is_list(Addr); is_binary(Addr) ->
+    case ipv4strict_address(Addr) of
+        {ok, IP} ->
+            {ok, IP};
+        _ ->
+            ipv6strict_address(Addr)
     end;
 strict_address(_) ->
     {error, einval}.
 
 %%
-%% Parse IPv4 address: 
+%% Parse IPv4 address:
 %%    d1.d2.d3.d4
 %%    d1.d2.d4
 %%    d1.d4
@@ -483,41 +486,60 @@ strict_address(_) ->
 %%
 %% Return {ok, IP} | {error, einval}
 %%
+ipv4_address(Bin) when is_binary(Bin) ->
+    ipv4_address(binary_to_list(Bin));
 ipv4_address(Cs) ->
     try ipv4_addr(Cs) of
 	Addr ->
 	    {ok,Addr}
-    catch
-	error:badarg ->
+    catch throw : error ->
 	    {error,einval}
     end.
 
 ipv4_addr(Cs) ->
     case ipv4_addr(Cs, []) of
-	[D] when D < (1 bsl 32) ->
-	    <<D1,D2,D3,D4>> = <<D:32>>,
-	    {D1,D2,D3,D4};
-	[D,D1] when D < (1 bsl 24), D1 < 256 ->
-	    <<D2,D3,D4>> = <<D:24>>,
-	    {D1,D2,D3,D4};
-	[D,D2,D1] when D < (1 bsl 16), (D2 bor D1) < 256 ->
-	    <<D3,D4>> = <<D:16>>,
-	    {D1,D2,D3,D4};
-	[D4,D3,D2,D1] when (D4 bor D3 bor D2 bor D1) < 256 ->
-	    {D1,D2,D3,D4};
-	_ ->
-	    erlang:error(badarg)
+        [D] when is_integer(D, 0, 16#ffff_ffff) ->
+            D4 = D band 255,
+            Da = D bsr 8,
+            D3 = Da band 255,
+            Db = Da bsr 8,
+            D2 = Db band 255,
+            D1 = Db bsr 8,
+            {D1,D2,D3,D4};
+        [D,D1] when is_integer(D, 0, 16#ff_ffff), is_integer(D1, 0, 255) ->
+            D4 = D band 255,
+            Da = D bsr 8,
+            D3 = Da band 255,
+            D2 = Da bsr 8,
+            {D1,D2,D3,D4};
+        [D,D2,D1] when
+              is_integer(D, 0, 16#ffff),
+              is_integer(D2, 0, 255),
+              is_integer(D1, 0, 255) ->
+            D4 = D band 255,
+            D3 = D bsr 8,
+            {D1,D2,D3,D4};
+        [D4,D3,D2,D1] when
+              is_integer(D4, 0, 255),
+              is_integer(D3, 0, 255),
+              is_integer(D2, 0, 255),
+              is_integer(D1, 0, 255) ->
+            {D1,D2,D3,D4};
+        _ ->
+            throw(error)
     end.
 
 ipv4_addr([_|_], [_,_,_,_]) ->
     %% Early bailout for extra characters
-    erlang:error(badarg);
+    throw(error);
+%% 8 hex, 11 octal, or 10 decimal chars is maximum
+%% needed to represent 16#ffff_ffff
 ipv4_addr("0x"++Cs, Ds) ->
-    ipv4_addr(strip0(Cs), Ds, [], 16, 8);
+    ipv4_addr(Cs, Ds, [], 16, 8);
 ipv4_addr("0X"++Cs, Ds) ->
-    ipv4_addr(strip0(Cs), Ds, [], 16, 8);
+    ipv4_addr(Cs, Ds, [], 16, 8);
 ipv4_addr("0"++Cs, Ds) ->
-    ipv4_addr(strip0(Cs), Ds, [$0], 8, 11);
+    ipv4_addr(Cs, Ds, [$0], 8, 11);
 ipv4_addr(Cs, Ds) when is_list(Cs) ->
     ipv4_addr(Cs, Ds, [], 10, 10).
 
@@ -528,13 +550,37 @@ ipv4_addr(Cs0, Ds, Rs, Base, N) ->
 	{D,[$.|[_|_]=Cs]} ->
 	    ipv4_addr(Cs, [D|Ds]);
 	{_,_} ->
-	    erlang:error(badarg)
+            throw(error)
     end.
 
-strip0("0"++Cs) ->
-    strip0(Cs);
-strip0(Cs) when is_list(Cs) ->
-    Cs.
+ipv4_field("", _, Rs, Base) ->
+    {ipv4_field(Rs, Base),""};
+ipv4_field("."++_=Cs, _, Rs, Base) ->
+    {ipv4_field(Rs, Base),Cs};
+ipv4_field([C|Cs], N, Rs, Base) when N > 0 ->
+    ipv4_field(Cs, N-1, [C|Rs], Base);
+ipv4_field(Cs, _, _, _) when is_list(Cs) ->
+    throw(error).
+
+ipv4_field(Rs, Base) when
+      Base =:= 8;
+      Base =:= 10;
+      Base =:= 16 ->
+    case lists:reverse(Rs) of
+        [C | _] when
+              C =:= $+;
+              C =:= $- ->
+            throw(error);
+        Cs when is_list(Cs) ->
+            try erlang:list_to_integer(Cs, Base) of
+                V when is_integer(V, 0, 16#ffff_ffff) ->
+                    V;
+                _ ->
+                    throw(error)
+            catch error : badarg ->
+                    throw(error)
+            end
+    end.
 
 
 %%
@@ -543,61 +589,124 @@ strip0(Cs) when is_list(Cs) ->
 %%
 %% Return {ok, IP} | {error, einval}
 %%
-ipv4strict_address(Cs) ->
-    try ipv4strict_addr(Cs) of
-	Addr ->
-	    {ok,Addr}
-    catch
-	error:badarg ->
-	    {error,einval}
-    end.
-
-ipv4strict_addr(Cs) ->
-    case ipv4strict_addr(Cs, []) of
-	[D4,D3,D2,D1] when (D4 bor D3 bor D2 bor D1) < 256 ->
-	    {D1,D2,D3,D4};
-	_ ->
-	    erlang:error(badarg)
-    end.
-
-ipv4strict_addr([_|_], [_,_,_,_]) ->
-    %% Early bailout for extra characters
-    erlang:error(badarg);
-ipv4strict_addr("0", Ds) ->
-    [0|Ds];
-ipv4strict_addr("0."++Cs, Ds) ->
-    ipv4strict_addr(Cs, [0|Ds]);
-ipv4strict_addr(Cs0, Ds) when is_list(Cs0) ->
-    case ipv4_field(Cs0, 3, [], 10) of
-	{D,""} ->
-	    [D|Ds];
-	{D,[$.|[_|_]=Cs]} ->
-	    ipv4strict_addr(Cs, [D|Ds]);
-	{_,_} ->
-	    erlang:error(badarg)
+ipv4strict_address(Bin) when is_binary(Bin) ->
+    try ipv4s_c1b(Bin) of
+        IP ->
+            {ok, IP}
+    catch throw : error ->
+            {error, einval}
+    end;
+ipv4strict_address(Cs) when is_list(Cs) ->
+    try ipv4s_c1(Cs) of
+        IP ->
+            {ok, IP}
+    catch throw : error ->
+            {error, einval}
     end.
 
 
+%% Validate and create an octet from 1, 2 or 3 decimal characters
+%% "0".."9", "10".."99", "100..255"
+-compile({inline, [ipv4s_octet/1,ipv4s_octet/2,ipv4s_octet/3]}).
+%%
+%% 0..9
+ipv4s_octet(C1) when is_integer((C1), $0, $9) ->
+    C1 - $0;
+ipv4s_octet(_) ->
+    throw(error).
+%%
+%% 10..99
+ipv4s_octet(C1, C2) when is_integer(C1, $1, $9), is_integer(C2, $0, $9) ->
+    C1*10 + C2 - $0*11;
+ipv4s_octet(_, _) ->
+    throw(error).
+%%
+%% 100..199
+ipv4s_octet($1, C2, C3) when is_integer(C2, $0, $9), is_integer(C3, $0, $9) ->
+    (100 - $0*11) + C2*10 + C3;
+%% 200..249
+ipv4s_octet($2, C2, C3) when is_integer(C2, $0, $4), is_integer(C3, $0, $9) ->
+    (200 - $0*11) + C2*10 + C3;
+%% 250..255
+ipv4s_octet($2, $5, C3) when is_integer(C3, $0, $5) ->
+    (250 - $0) + C3;
+ipv4s_octet(_, _, _) ->
+    throw(error).
 
-ipv4_field("", _, Rs, Base) ->
-    {ipv4_field(Rs, Base),""};
-ipv4_field("."++_=Cs, _, Rs, Base) ->
-    {ipv4_field(Rs, Base),Cs};
-ipv4_field("0"++_, _, [], _) ->
-    erlang:error(badarg);
-ipv4_field([C|Cs], N, Rs, Base) when N > 0 ->
-    ipv4_field(Cs, N-1, [C|Rs], Base);
-ipv4_field(Cs, _, _, _) when is_list(Cs) ->
-    erlang:error(badarg).
+%% Single-pass charlist parser for strict IPv4 addresses.
+%% Four functions, one per octet — no packed accumulator, no dot
+%% counter, no bit unpacking.
 
-ipv4_field(Rs, Base) ->
-    V = erlang:list_to_integer(lists:reverse(Rs), Base),
-    if  V < 0 ->
-	    erlang:error(badarg);
-	true ->
-	    V
+ipv4s_c1(Cs) ->
+    case Cs of
+        [C1, $. | T]            -> ipv4s_c2(T, ipv4s_octet(C1));
+        [C1, C2, $. | T]        -> ipv4s_c2(T, ipv4s_octet(C1, C2));
+        [C1, C2, C3, $. | T]    -> ipv4s_c2(T, ipv4s_octet(C1, C2, C3));
+        _                       -> throw(error)
     end.
 
+ipv4s_c2(Cs, A) ->
+    case Cs of
+        [C1, $. | T]            -> ipv4s_c3(T, A, ipv4s_octet(C1));
+        [C1, C2, $. | T]        -> ipv4s_c3(T, A, ipv4s_octet(C1, C2));
+        [C1, C2, C3, $. | T]    -> ipv4s_c3(T, A, ipv4s_octet(C1, C2, C3));
+        _                       -> throw(error)
+    end.
+
+ipv4s_c3(Cs, A, B) ->
+    case Cs of
+        [C1, $. | T]            -> ipv4s_c4(T, A, B, ipv4s_octet(C1));
+        [C1, C2, $. | T]        -> ipv4s_c4(T, A, B, ipv4s_octet(C1, C2));
+        [C1, C2, C3, $. | T]    -> ipv4s_c4(T, A, B, ipv4s_octet(C1, C2, C3));
+        _                       -> throw(error)
+    end.
+
+ipv4s_c4(Cs, A, B, C) ->
+    case Cs of
+        [C1]                    -> {A, B, C, ipv4s_octet(C1)};
+        [C1, C2]                -> {A, B, C, ipv4s_octet(C1, C2)};
+        [C1, C2, C3]            -> {A, B, C, ipv4s_octet(C1, C2, C3)};
+        _                       -> throw(error)
+    end.
+
+
+%% Single-pass binary parser for strict IPv4 addresses.
+%% Four functions, one per octet.  Each matches 1-3 digits and
+%% passes the parsed value forward as a plain parameter — no
+%% packed-integer accumulator, no dot counter, no bit unpacking.
+%% BEAM reuses the match context throughout.
+
+ipv4s_c1b(Bin) ->
+    case Bin of
+        <<C1,$.,R/binary>>       -> ipv4s_c2b(R, ipv4s_octet(C1));
+        <<C1,C2,$.,R/binary>>    -> ipv4s_c2b(R, ipv4s_octet(C1, C2));
+        <<C1,C2,C3,$.,R/binary>> -> ipv4s_c2b(R, ipv4s_octet(C1, C2, C3));
+        <<_/binary>>             -> throw(error)
+    end.
+
+ipv4s_c2b(Bin, A) ->
+    case Bin of
+        <<C1,$.,R/binary>>       -> ipv4s_c3b(R, A, ipv4s_octet(C1));
+        <<C1,C2,$.,R/binary>>    -> ipv4s_c3b(R, A, ipv4s_octet(C1, C2));
+        <<C1,C2,C3,$.,R/binary>> -> ipv4s_c3b(R, A, ipv4s_octet(C1, C2, C3));
+        <<_/binary>>             -> throw(error)
+    end.
+
+ipv4s_c3b(Bin, A, B) ->
+    case Bin of
+        <<C,$.,R/binary>>        -> ipv4s_c4b(R, A, B, ipv4s_octet(C));
+        <<C1,C2,$.,R/binary>>    -> ipv4s_c4b(R, A, B, ipv4s_octet(C1, C2));
+        <<C1,C2,C3,$.,R/binary>> -> ipv4s_c4b(R, A, B, ipv4s_octet(C1, C2, C3));
+        <<_/binary>>             -> throw(error)
+    end.
+
+ipv4s_c4b(Bin, A, B, C) ->
+    case Bin of
+        <<C1>>          -> {A,B,C,ipv4s_octet(C1)};
+        <<C1, C2>>      -> {A,B,C,ipv4s_octet(C1, C2)};
+        <<C1, C2, C3>>  -> {A,B,C,ipv4s_octet(C1, C2, C3)};
+        <<_/binary>>             -> throw(error)
+    end.
 
 
 %%
@@ -605,12 +714,23 @@ ipv4_field(Rs, Base) ->
 %%
 %% Accepts IPv4 address and returns it as a IPv4 compatible IPv6 address
 %%
+ipv6_address(Bin) when is_binary(Bin) ->
+    try ipv4s_c1b(Bin) of
+        {D1, D2, D3, D4} ->
+            {ok, {0, 0, 0, 0, 0, 16#ffff,
+                  (D1 bsl 8) bor D2, (D3 bsl 8) bor D4}}
+    catch throw : error ->
+            case ipv6strict_address(Bin) of
+                {ok, _} = Ok -> Ok;
+                {error, _} -> ipv6_address(binary_to_list(Bin))
+            end
+    end;
 ipv6_address(Cs) ->
     case ipv4_address(Cs) of
-	{ok,{D1,D2,D3,D4}} ->
-	    {ok,{0,0,0,0,0,16#ffff,(D1 bsl 8) bor D2,(D3 bsl 8) bor D4}};
-	_ ->
-	    ipv6strict_address(Cs)
+        {ok, {D1, D2, D3, D4}} ->
+            {ok, {0, 0, 0, 0, 0, 16#ffff, (D1 bsl 8) bor D2, (D3 bsl 8) bor D4}};
+        _ ->
+            ipv6strict_address(Cs)
     end.
 
 %%
@@ -629,51 +749,65 @@ ipv6_address(Cs) ->
 %%
 %% Return {ok, IP} | {error, einval}
 %%
-ipv6strict_address(Cs) ->
+ipv6strict_address(Bin) when is_binary(Bin) ->
+    ipv6strict_address(binary_to_list(Bin));
+ipv6strict_address(Cs) when is_list(Cs) ->
     try ipv6_addr(Cs) of
-	Addr ->
-	    {ok,Addr}
-    catch
-	error:badarg ->
-	    {error,einval}
-    end.
+        Addr ->
+            {ok, Addr}
+    catch throw : error ->
+            {error, einval}
+    end;
+ipv6strict_address(_) ->
+    {error, einval}.
 
 ipv6_addr("::") ->
     ipv6_addr_done([], [], 0);
 ipv6_addr("::"++Cs) ->
-    ipv6_addr(hex(Cs), [], [], 0);
+    ipv6_addr(ipv6_hex(Cs), [], [], 0);
 ipv6_addr(Cs) ->
-    ipv6_addr(hex(Cs), [], 0).
+    ipv6_addr(ipv6_hex(Cs), [], 0).
 
 %% Before "::"
-ipv6_addr({Cs0,"%"++Cs1}, A, N) when N == 7 ->
-    ipv6_addr_scope(Cs1, [hex_to_int(Cs0)|A], [], N+1, []);
-ipv6_addr({Cs0,[]}, A, N) when N == 7 ->
-    ipv6_addr_done([hex_to_int(Cs0)|A]);
-ipv6_addr({Cs0,"::%"++Cs1}, A, N) when N =< 6 ->
-    ipv6_addr_scope(Cs1, [hex_to_int(Cs0)|A], [], N+1, []);
-ipv6_addr({Cs0,"::"}, A, N) when N =< 6 ->
-    ipv6_addr_done([hex_to_int(Cs0)|A], [], N+1);
-ipv6_addr({Cs0,"::"++Cs1}, A, N) when N =< 5 ->
-    ipv6_addr(hex(Cs1), [hex_to_int(Cs0)|A], [], N+1);
-ipv6_addr({Cs0,":"++Cs1}, A, N) when N =< 6 ->
-    ipv6_addr(hex(Cs1), [hex_to_int(Cs0)|A], N+1);
-ipv6_addr({Cs0,"."++_=Cs1}, A, N) when N == 6 ->
-    ipv6_addr_done(A, [], N, ipv4strict_addr(Cs0++Cs1));
+ipv6_addr({V, _, _, "%"++Cs1}, A, N) when N == 7 ->
+    ipv6_addr_scope(Cs1, [V|A], [], N+1, []);
+ipv6_addr({V, _, _, []}, A, N) when N == 7 ->
+    ipv6_addr_done([V|A]);
+ipv6_addr({V, _, _, "::%"++Cs1}, A, N) when N =< 6 ->
+    ipv6_addr_scope(Cs1, [V|A], [], N+1, []);
+ipv6_addr({V, _, _, "::"}, A, N) when N =< 6 ->
+    ipv6_addr_done([V|A], [], N+1);
+ipv6_addr({V, _, _, "::"++Cs1}, A, N) when N =< 5 ->
+    ipv6_addr(ipv6_hex(Cs1), [V|A], [], N+1);
+ipv6_addr({V, _, _, ":"++Cs1}, A, N) when N =< 6 ->
+    ipv6_addr(ipv6_hex(Cs1), [V|A], N+1);
+ipv6_addr({_, D, Dn, "."++Cs1}, A, N) when N == 6, D >= 0, D =< 255 ->
+    ipv6_ipv4_c(D, Dn, Cs1, A, [], N);
 ipv6_addr(_, _, _) ->
-    erlang:error(badarg).
+    throw(error).
 
 %% After "::"
-ipv6_addr({Cs0,"%"++Cs1}, A, B, N) when N =< 6 ->
-    ipv6_addr_scope(Cs1, A, [hex_to_int(Cs0)|B], N+1, []);
-ipv6_addr({Cs0,[]}, A, B, N) when N =< 6 ->
-    ipv6_addr_done(A, [hex_to_int(Cs0)|B], N+1);
-ipv6_addr({Cs0,":"++Cs1}, A, B, N) when N =< 5 ->
-    ipv6_addr(hex(Cs1), A, [hex_to_int(Cs0)|B], N+1);
-ipv6_addr({Cs0,"."++_=Cs1}, A, B, N) when N =< 5 ->
-    ipv6_addr_done(A, B, N, ipv4strict_addr(Cs0++Cs1));
+ipv6_addr({V, _, _, "%"++Cs1}, A, B, N) when N =< 6 ->
+    ipv6_addr_scope(Cs1, A, [V|B], N+1, []);
+ipv6_addr({V, _, _, []}, A, B, N) when N =< 6 ->
+    ipv6_addr_done(A, [V|B], N+1);
+ipv6_addr({V, _, _, ":"++Cs1}, A, B, N) when N =< 5 ->
+    ipv6_addr(ipv6_hex(Cs1), A, [V|B], N+1);
+ipv6_addr({_, D, Dn, "."++Cs1}, A, B, N) when N =< 5, D >= 0, D =< 255 ->
+    ipv6_ipv4_c(D, Dn, Cs1, A, B, N);
 ipv6_addr(_, _, _, _) ->
-    erlang:error(badarg).
+    throw(error).
+
+%% Parse remaining 3 IPv4 octets for IPv6 embedded IPv4 (charlist).
+%% D: decimal value of first octet, Dn: digit count (leading zero check).
+ipv6_ipv4_c(D, 1, Cs, A, B, N) ->
+    ipv6_addr_done(A, B, N, ipv4s_c2(Cs, D));
+ipv6_ipv4_c(D, 2, Cs, A, B, N) when D >= 10 ->
+    ipv6_addr_done(A, B, N, ipv4s_c2(Cs, D));
+ipv6_ipv4_c(D, 3, Cs, A, B, N) when D >= 100 ->
+    ipv6_addr_done(A, B, N, ipv4s_c2(Cs, D));
+ipv6_ipv4_c(_, _, _, _, _, _) ->
+    throw(error).
 
 %% After "%"
 ipv6_addr_scope([], Ar, Br, N, Sr) ->
@@ -709,7 +843,7 @@ ipv6_addr_scope(ScopeId, Ar, Br, N) ->
         [P,0|Xs] when P =:= 16#fe80; P =:= 16#ff02 ->
             list_to_tuple([P,ScopeId|Xs]);
         _ ->
-            erlang:error(badarg)
+            throw(error)
     end.
 
 ipv6_addr_done(Ar, Br, N, {D1,D2,D3,D4}) ->
@@ -721,19 +855,23 @@ ipv6_addr_done(Ar, Br, N) ->
 ipv6_addr_done(Ar) ->
     list_to_tuple(lists:reverse(Ar)).
 
-%% Collect 1-4 Hex digits
-hex(Cs) -> hex(Cs, [], 4).
-%%
-hex([C|Cs], R, N) when C >= $0, C =< $9, N > 0 ->
-    hex(Cs, [C|R], N-1);
-hex([C|Cs], R, N) when C >= $a, C =< $f, N > 0 ->
-    hex(Cs, [C|R], N-1);
-hex([C|Cs], R, N) when C >= $A, C =< $F, N > 0 ->
-    hex(Cs, [C|R], N-1);
-hex(Cs, [_|_]=R, _) when is_list(Cs) ->
-    {lists:reverse(R),Cs};
-hex(_, _, _) ->
-    erlang:error(badarg).
+%% Collect 1-4 hex digits, return {HexValue, DecValue, DigitCount, Rest}.
+%% HexValue: integer (hex interpretation).
+%% DecValue: integer (decimal interpretation) or -1 if any a-f/A-F seen.
+ipv6_hex(Cs) -> ipv6_hex(Cs, 0, 0, 0).
+
+ipv6_hex([C | Cs], V, D, N) when C >= $0, C =< $9, N < 4 ->
+    ipv6_hex(Cs, (V bsl 4) bor (C - $0),
+             if D >= 0 -> D * 10 + (C - $0); true -> D end,
+             N + 1);
+ipv6_hex([C | Cs], V, _, N) when C >= $a, C =< $f, N < 4 ->
+    ipv6_hex(Cs, (V bsl 4) bor (C - $a + 10), -1, N + 1);
+ipv6_hex([C | Cs], V, _, N) when C >= $A, C =< $F, N < 4 ->
+    ipv6_hex(Cs, (V bsl 4) bor (C - $A + 10), -1, N + 1);
+ipv6_hex(Cs, V, D, N) when N > 0 ->
+    {V, D, N, Cs};
+ipv6_hex(_, _, _, _) ->
+    throw(error).
 
 %% Parse a reverse decimal integer string, empty is 0
 dec16(Cs) -> dec16(Cs, 0).
@@ -742,14 +880,11 @@ dec16([], I) -> I;
 dec16([C|Cs], I) when C >= $0, C =< $9 ->
     case 10*I + (C - $0) of
         J when 16#ffff < J ->
-            erlang:error(badarg);
+            throw(error);
         J ->
             dec16(Cs, J)
     end;
-dec16(_, _) -> erlang:error(badarg).
-
-%% Hex string to integer
-hex_to_int(Cs) -> erlang:list_to_integer(Cs, 16).
+dec16(_, _) -> throw(error).
 
 %% Dup onto head of existing list
 dup(0, _, L) ->
