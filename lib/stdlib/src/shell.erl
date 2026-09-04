@@ -89,21 +89,30 @@ or when [`erl`](`e:erts:erl_cmd.md`) is started with the
 [`-noshell`](`e:erts:erl_cmd.md#noshell`) flags. The following options are
 allowed:
 
-- **noshell | {noshell, Mode}**{: #noshell_raw } - Starts the interactive shell
-  as if [`-noshell`](`e:erts:erl_cmd.md#noshell`) was given to
+- **noshell | {noshell, Mode}**{: #noshell_raw } - Starts the interactive
+  shell as if [`-noshell`](`e:erts:erl_cmd.md#noshell`) was given to
   [`erl`](`e:erts:erl_cmd.md`).
 
-  It is possible to give a `Mode` indicating if the input should be set
-  in `cooked` or `raw` mode. `Mode` only has en effect if `t:io:user/0` is a tty.
-  If no `Mode` is given, it defaults is `cooked`.
+  `Mode` is either the atom `cooked` or `raw`, or a map with the
+  following keys:
 
-  When in `raw` mode all key presses are passed to `t:io:user/0` as they are
-  typed when they are typed and the characters are not echoed to the terminal.
-  It is possible to set the `echo` to `true` using `io:setopts/2` to enabling
-  echoing again.
+  - **mode** - `cooked` or `raw`. `mode` only has an effect if
+    `t:io:user/0` is a tty. If no `mode` is given, it defaults to
+    `cooked`.
 
-  When in `cooked` mode the OS will handle the line editing and all data is
-  passed to `t:io:user/0` when a newline is entered.
+    When in `raw` mode all key presses are passed to `t:io:user/0` as
+    they are typed when they are typed and the characters are not echoed
+    to the terminal. It is possible to set the `echo` to `true` using
+    `io:setopts/2` to enabling echoing again.
+
+    When in `cooked` mode the OS will handle the line editing and all
+    data is passed to `t:io:user/0` when a newline is entered.
+
+  - **signals** - Whether the terminal driver should handle signals and
+    flow control. When `false`, control bytes such as `ctrl+c`, `ctrl+o`
+    and `ctrl+s`/`ctrl+q` are passed to `t:io:user/0` as data instead of
+    being intercepted by the terminal driver. Defaults to `true`. Only
+    has an effect in `raw` mode.
 
 - **[mfa()](`t:erlang:mfa/0`)** - Starts the interactive shell using
   [`mfa()`](`t:erlang:mfa/0`) as the default shell. The `t:mfa/0` should
@@ -136,7 +145,9 @@ On error this function will return:
   description of the error reasons.
 """.
 -doc(#{since => <<"OTP 26.0">>}).
--spec start_interactive(noshell | {noshell, raw | cooked} | {module(), atom(), [term()]}) ->
+-spec start_interactive(noshell | {noshell, raw | cooked |
+                                  #{mode => raw | cooked, signals => boolean()}} |
+                        {module(), atom(), [term()]}) ->
           ok | {error, already_started};
                        ({remote, string()}) ->
           ok | {error, already_started | noconnection};
@@ -148,6 +159,16 @@ start_interactive(noshell) ->
     start_interactive({noshell, cooked});
 start_interactive({noshell, Type}) when Type =:= raw; Type =:= cooked ->
     user_drv:start_shell(#{ initial_shell => noshell, input => Type });
+start_interactive({noshell, #{mode := Mode} = Options}) when Mode =:= raw; Mode =:= cooked ->
+    case maps:get(signals, Options, true) of
+        Signals when is_boolean(Signals) ->
+            user_drv:start_shell(#{ initial_shell => noshell, input => Mode,
+                                    signals => Signals });
+        _ ->
+            erlang:error(function_clause, [{noshell, Options}])
+    end;
+start_interactive({noshell, Arg}) ->
+    erlang:error(function_clause, [{noshell, Arg}]);
 start_interactive(InitialShell) ->
     user_drv:start_shell(#{ initial_shell => InitialShell }).
 
