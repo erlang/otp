@@ -200,6 +200,10 @@
          api_opt_simple_otp_options/1,
          api_opt_simple_otp_meta_option/1,
          api_opt_simple_otp_rcvbuf_option/1,
+         api_opt_adaptive_otp_rcvbuf_option/1,
+         api_opt_adaptive_otp_rcvbuf_shrink/1,
+         api_opt_adaptive_otp_rcvbuf_idle/1,
+         api_opt_adaptive_otp_rcvbuf_idle_mem/1,
          api_opt_simple_otp_controlling_process/1,
          api_opt_sock_acceptconn_udp/1,
          api_opt_sock_acceptconn_tcp/1,
@@ -510,6 +514,10 @@ api_options_otp_cases() ->
      api_opt_simple_otp_options,
      api_opt_simple_otp_meta_option,
      api_opt_simple_otp_rcvbuf_option,
+     api_opt_adaptive_otp_rcvbuf_option,
+     api_opt_adaptive_otp_rcvbuf_shrink,
+     api_opt_adaptive_otp_rcvbuf_idle,
+     api_opt_adaptive_otp_rcvbuf_idle_mem,
      api_opt_simple_otp_controlling_process
     ].
 
@@ -12021,6 +12029,531 @@ api_opt_simple_otp_rcvbuf_option() ->
 
     i("await evaluator(s)"),
     ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% The buffer used by a recv with Length = 0 on a stream socket adapts
+%% to the traffic while the (otp) rcvbuf option is 'auto', which is the
+%% initial value. Setting a size, or 'default', pins the buffer at that
+%% size (which bounds the returned chunks) as before, and 'auto' turns
+%% the adaptation back on. Dgram sockets read into the configured size
+%% as before. Adaptation is not implemented on Windows.
+api_opt_adaptive_otp_rcvbuf_option(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ipv4(),
+                   is_not_windows()
+           end,
+           fun() ->
+                   api_opt_adaptive_otp_rcvbuf_option()
+           end).
+
+api_opt_adaptive_otp_rcvbuf_option() ->
+    LSA = which_local_socket_addr(inet),
+
+    {ok, L} = socket:open(inet, stream, tcp),
+    ok = socket:bind(L, LSA#{port => 0}),
+    ok = socket:listen(L),
+    {ok, SSA}     = socket:sockname(L),
+    {ok, Default} = socket:getopt(L, otp, rcvbuf),
+
+    i("verify the buffer adapts to bulk traffic (default rcvbuf ~w)",
+      [Default]),
+    Bulk    = 64 * 1024 * 1024,
+    Client1 = aor_stream_client(SSA, Bulk),
+    {ok, S1} = socket:accept(L),
+    MaxChunk1 = aor_drain(S1, Bulk, 0),
+    i("max chunk: ~w", [MaxChunk1]),
+    if
+        MaxChunk1 > Default ->
+            ok;
+        true ->
+            exit({no_adaptation, MaxChunk1, Default})
+    end,
+    %% The adapted size is internal; getopt reports the configured size
+    {ok, Default} = socket:getopt(S1, otp, rcvbuf),
+    aor_stop_client(Client1),
+    _ = socket:close(S1),
+
+    i("verify an explicitly set rcvbuf bounds the chunks"),
+    Pinned  = 2048,
+    Bulk2   = 8 * 1024 * 1024,
+    Client2 = aori_client(SSA),
+    {ok, S2} = socket:accept(L),
+    ok = socket:setopt(S2, otp, rcvbuf, Pinned),
+    {ok, Pinned} = socket:getopt(S2, otp, rcvbuf),
+    aori_ask(Client2, {send, Bulk2}),
+    {Off1, MaxChunk2} = aori_drain(S2, Bulk2, 0, 0),
+    i("max chunk: ~w", [MaxChunk2]),
+    if
+        MaxChunk2 =< Pinned ->
+            ok;
+        true ->
+            exit({not_pinned, MaxChunk2, Pinned})
+    end,
+
+    i("verify 'default' pins the default size"),
+    ok = socket:setopt(S2, otp, rcvbuf, default),
+    {ok, Default} = socket:getopt(S2, otp, rcvbuf),
+    aori_ask(Client2, {send, Bulk2}),
+    {Off2, MaxChunk3} = aori_drain(S2, Bulk2, Off1, 0),
+    i("max chunk: ~w", [MaxChunk3]),
+    if
+        MaxChunk3 =< Default ->
+            ok;
+        true ->
+            exit({not_pinned, MaxChunk3, Default})
+    end,
+
+    i("verify 'auto' turns the adaptation back on"),
+    ok = socket:setopt(S2, otp, rcvbuf, auto),
+    {ok, Default} = socket:getopt(S2, otp, rcvbuf),
+    #{configured := Default, adapted := Default} = aori_rbuf(S2),
+    aori_ask(Client2, {send, Bulk2}),
+    {_Off3, MaxChunk4} = aori_drain(S2, Bulk2, Off2, 0),
+    i("max chunk: ~w", [MaxChunk4]),
+    if
+        MaxChunk4 > Default ->
+            ok;
+        true ->
+            exit({no_readaptation, MaxChunk4, Default})
+    end,
+    %% 'auto' only stands on its own
+    {error, _} = socket:setopt(S2, otp, rcvbuf, {2, auto}),
+    aor_stop_client(Client2),
+    _ = socket:close(S2),
+    _ = socket:close(L),
+
+    i("verify a dgram socket does not adapt"),
+    {ok, U} = socket:open(inet, dgram, udp),
+    ok = socket:bind(U, LSA#{port => 0}),
+    {ok, USA} = socket:sockname(U),
+    {ok, C}   = socket:open(inet, dgram, udp),
+    ok = socket:setopt(C, socket, sndbuf, 64 * 1024),
+    %% Datagrams that exactly fill the buffer would grow it if
+    %% adaptation was (wrongly) applied to dgram sockets
+    Fill = binary:copy(<<$x>>, Default),
+    Send = fun(Data) ->
+                   case socket:sendto(C, Data, USA) of
+                       ok                -> ok;
+                       {error, emsgsize} -> skip("dgram size not supported")
+                   end
+           end,
+    [begin
+         ok = Send(Fill),
+         {ok, D} = socket:recv(U, 0, ?SECS(5)),
+         Default = byte_size(D)
+     end || _ <- lists:seq(1, 8)],
+    %% An oversized datagram is still truncated at the configured size
+    ok = Send(binary:copy(<<$y>>, Default + 4096)),
+    {ok, T} = socket:recv(U, 0, ?SECS(5)),
+    i("oversized dgram read back as ~w bytes", [byte_size(T)]),
+    Default = byte_size(T),
+    _ = socket:close(C),
+    _ = socket:close(U),
+    ok.
+
+aor_stream_client(SSA, Bytes) ->
+    Self = self(),
+    spawn_monitor(
+      fun() ->
+              {ok, S} = socket:open(inet, stream, tcp),
+              ok = socket:connect(S, SSA),
+              Chunk = binary:copy(<<$x>>, 1024 * 1024),
+              aor_send(S, Chunk, Bytes),
+              receive
+                  {Self, stop} ->
+                      _ = socket:close(S),
+                      exit(normal)
+              end
+      end).
+
+aor_send(_S, _Chunk, Bytes) when Bytes =< 0 ->
+    ok;
+aor_send(S, Chunk, Bytes) ->
+    ok = socket:send(S, Chunk),
+    aor_send(S, Chunk, Bytes - byte_size(Chunk)).
+
+aor_drain(_S, Bytes, MaxChunk) when Bytes =< 0 ->
+    MaxChunk;
+aor_drain(S, Bytes, MaxChunk) ->
+    {ok, Data} = socket:recv(S, 0, ?SECS(10)),
+    Sz = byte_size(Data),
+    aor_drain(S, Bytes - Sz, max(Sz, MaxChunk)).
+
+aor_stop_client({Pid, MRef}) ->
+    Pid ! {self(), stop},
+    receive
+        {'DOWN', MRef, process, Pid, normal} ->
+            ok;
+        {'DOWN', MRef, process, Pid, Reason} ->
+            exit({client, Reason})
+    end.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% A stream socket that has been driven up to the adaptation ceiling
+%% and then only sees small messages shrinks its buffer back to the
+%% configured size, so a burst does not leave the socket reading into
+%% a large buffer for the rest of its life. The shrink follows an
+%% average of the read sizes, so it takes a run of small reads rather
+%% than one, and it must not get in the way of growing again.
+%% Adaptation is not implemented on Windows.
+api_opt_adaptive_otp_rcvbuf_shrink(_Config) when is_list(_Config) ->
+    ?TT(?SECS(60)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ipv4(),
+                   is_not_windows()
+           end,
+           fun() ->
+                   api_opt_adaptive_otp_rcvbuf_shrink()
+           end).
+
+api_opt_adaptive_otp_rcvbuf_shrink() ->
+    Bulk  = 8 * 1024 * 1024,
+    Small = 512,
+    Msgs  = 128,
+    LSA   = which_local_socket_addr(inet),
+
+    {ok, L} = socket:open(inet, stream, tcp),
+    ok = socket:bind(L, LSA#{port => 0}),
+    ok = socket:listen(L),
+    {ok, SSA}     = socket:sockname(L),
+    {ok, Default} = socket:getopt(L, otp, rcvbuf),
+
+    Client = aori_client(SSA),
+    {ok, S} = socket:accept(L),
+
+    i("drive the socket up to the adaptation ceiling "
+      "(configured rcvbuf ~w)", [Default]),
+    aori_ask(Client, {send, Bulk}),
+    {Off1, MaxChunk1} = aori_drain(S, Bulk, 0, 0),
+    #{configured := Default, adapted := Adapted} = aori_rbuf(S),
+    i("max chunk ~w, adapted ~w", [MaxChunk1, Adapted]),
+    if
+        (MaxChunk1 > Default) andalso (Adapted > Default) ->
+            ok;
+        true ->
+            exit({no_adaptation, MaxChunk1, Adapted, Default})
+    end,
+
+    i("trickle ~w messages of ~w bytes, one at a time", [Msgs, Small]),
+    Off2 = aors_trickle(Client, S, Off1, Small, Msgs),
+    #{configured := Default,
+      adapted    := AdaptedAfter,
+      held       := HeldAfter} = aori_rbuf(S),
+    i("after trickle: adapted ~w, held ~w", [AdaptedAfter, HeldAfter]),
+    if
+        AdaptedAfter =:= Default ->
+            ok;
+        true ->
+            exit({no_shrink, AdaptedAfter, Default, Adapted})
+    end,
+    if
+        HeldAfter =< Default ->
+            ok;
+        true ->
+            exit({buffer_not_released, HeldAfter, Default})
+    end,
+
+    i("resume bulk traffic and verify the buffer grows again"),
+    aori_ask(Client, {send, Bulk}),
+    {_Off3, MaxChunk2} = aori_drain(S, Bulk, Off2, 0),
+    i("max chunk after shrink: ~w", [MaxChunk2]),
+    if
+        MaxChunk2 > Default ->
+            ok;
+        true ->
+            exit({no_regrowth, MaxChunk2, Default})
+    end,
+
+    %% The adapted size stays internal
+    {ok, Default} = socket:getopt(S, otp, rcvbuf),
+
+    aor_stop_client(Client),
+    _ = socket:close(S),
+    _ = socket:close(L),
+    ok.
+
+%% Each message is sent and read back before the next is sent, so that
+%% every read is a small one.
+aors_trickle(_Client, _S, Off, _Small, 0) ->
+    Off;
+aors_trickle(Client, S, Off, Small, N) ->
+    aori_ask(Client, {send, Small}),
+    {Off1, _MaxChunk} = aori_drain(S, Small, Off, 0),
+    aors_trickle(Client, S, Off1, Small, N - 1).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% The buffer that a recv with Length = 0 on a stream socket adapts to
+%% the traffic is kept on the socket between calls, so that a socket
+%% which is waiting for data does not have to allocate one when the data
+%% finally arrives. A socket that has been driven up to the adaptation
+%% ceiling and then goes quiet must not keep that (large) buffer: an
+%% idle socket may hold no more than the configured rcvbuf.
+%%
+%% What it must *not* do is reclaim the memory by giving up the
+%% adaptation - the adapted size has to survive the idle period, or the
+%% next burst starts over from the configured size. So both are checked:
+%% 'held' falls back to the configured size, 'adapted' does not move,
+%% and traffic that resumes is still read in adapted-size chunks with
+%% the bytes intact across the buffer change.
+%%
+%% Adaptation is not implemented on Windows.
+api_opt_adaptive_otp_rcvbuf_idle(_Config) when is_list(_Config) ->
+    ?TT(?SECS(60)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ipv4(),
+                   is_not_windows()
+           end,
+           fun() ->
+                   api_opt_adaptive_otp_rcvbuf_idle()
+           end).
+
+api_opt_adaptive_otp_rcvbuf_idle() ->
+    Bulk = 8 * 1024 * 1024,
+    Wake = 256 * 1024,
+    LSA  = which_local_socket_addr(inet),
+
+    {ok, L} = socket:open(inet, stream, tcp),
+    ok = socket:bind(L, LSA#{port => 0}),
+    ok = socket:listen(L),
+    {ok, SSA}     = socket:sockname(L),
+    {ok, Default} = socket:getopt(L, otp, rcvbuf),
+
+    Client = aori_client(SSA),
+    {ok, S} = socket:accept(L),
+
+    i("drive the socket up to the adaptation ceiling "
+      "(configured rcvbuf ~w)", [Default]),
+    aori_ask(Client, {send, Bulk}),
+    {Off1, MaxChunk1} = aori_drain(S, Bulk, 0, 0),
+    #{configured := Default, adapted := Adapted} = aori_rbuf(S),
+    i("max chunk ~w, adapted ~w", [MaxChunk1, Adapted]),
+    if
+        (MaxChunk1 > Default) andalso (Adapted > Default) ->
+            ok;
+        true ->
+            exit({no_adaptation, MaxChunk1, Adapted, Default})
+    end,
+
+    i("let the socket go idle: a recv that finds nothing"),
+    {error, timeout} = socket:recv(S, 0, ?SECS(1)),
+    #{configured := Default,
+      adapted    := AdaptedIdle,
+      held       := HeldIdle} = aori_rbuf(S),
+    i("idle: adapted ~w, held ~w", [AdaptedIdle, HeldIdle]),
+    if
+        HeldIdle =< Default ->
+            ok;
+        true ->
+            exit({buffer_not_released, HeldIdle, Default, AdaptedIdle})
+    end,
+    %% The memory is what should have been reclaimed, not the adaptation
+    if
+        AdaptedIdle =:= Adapted ->
+            ok;
+        true ->
+            exit({adaptation_lost, AdaptedIdle, Adapted})
+    end,
+
+    i("resume traffic and verify the bytes across the buffer change"),
+    aori_ask(Client, {send, Wake}),
+    {_Off2, MaxChunk2} = aori_drain(S, Wake, Off1, 0),
+    i("max chunk after idle: ~w", [MaxChunk2]),
+    if
+        MaxChunk2 > Default ->
+            ok;
+        true ->
+            exit({no_readaptation, MaxChunk2, Default})
+    end,
+
+    %% The adapted size stays internal, shrink or no shrink
+    {ok, Default} = socket:getopt(S, otp, rcvbuf),
+
+    aor_stop_client(Client),
+    _ = socket:close(S),
+    _ = socket:close(L),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% The same property as api_opt_adaptive_otp_rcvbuf_idle, but measured
+%% as memory over many sockets rather than read off one socket, since
+%% that is the shape the problem actually has: a lot of connections that
+%% saw a burst and went quiet.
+%%
+%% Every process is collected before sampling. Without that the sample
+%% is dominated by drained data that has not been collected yet, which
+%% is several times larger than the effect being measured.
+api_opt_adaptive_otp_rcvbuf_idle_mem(_Config) when is_list(_Config) ->
+    ?TT(?SECS(120)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ipv4(),
+                   is_not_windows()
+           end,
+           fun() ->
+                   api_opt_adaptive_otp_rcvbuf_idle_mem()
+           end).
+
+api_opt_adaptive_otp_rcvbuf_idle_mem() ->
+    N    = 32,
+    Bulk = 2 * 1024 * 1024,
+    LSA  = which_local_socket_addr(inet),
+
+    {ok, L} = socket:open(inet, stream, tcp),
+    ok = socket:bind(L, LSA#{port => 0}),
+    ok = socket:listen(L, N),
+    {ok, SSA}     = socket:sockname(L),
+    {ok, Default} = socket:getopt(L, otp, rcvbuf),
+
+    i("establish ~w connections", [N]),
+    Conns = [begin
+                 C = aori_client(SSA),
+                 {ok, S} = socket:accept(L, ?SECS(10)),
+                 %% One recv on an empty socket, so the baseline below
+                 %% already includes a configured-size buffer per socket
+                 %% and the delta is only what adaptation added
+                 {error, timeout} = socket:recv(S, 0, 0),
+                 {C, S}
+             end || _ <- lists:seq(1, N)],
+
+    Base = aori_binary_memory(),
+    i("baseline binary memory with ~w idle sockets: ~w bytes", [N, Base]),
+
+    i("drive every connection up to the adaptation ceiling"),
+    Adapted =
+        [begin
+             aori_ask(C, {send, Bulk}),
+             {_Off, _Max} = aori_drain(S, Bulk, 0, 0),
+             %% Leave it the way an idle server connection is left:
+             %% a recv that found nothing
+             {error, timeout} = socket:recv(S, 0, ?SECS(1)),
+             maps:get(adapted, aori_rbuf(S))
+         end || {C, S} <- Conns],
+
+    Ceiling = lists:sum(Adapted),
+    Allowed = N * Default * 4,
+    i("adapted: min ~w max ~w sum ~w (allowed after idle: ~w)",
+      [lists:min(Adapted), lists:max(Adapted), Ceiling, Allowed]),
+    if
+        %% Only assert when the ramp is large enough for the assertion
+        %% to mean anything. A machine too loaded to adapt skips rather
+        %% than fails.
+        Ceiling >= 4 * Allowed ->
+            ok;
+        true ->
+            skip({no_adaptation, Ceiling, Allowed, Default})
+    end,
+
+    After = aori_binary_memory(),
+    Delta = After - Base,
+    i("binary memory when idle: ~w (baseline ~w, delta ~w, allowed ~w; "
+      "sockets keeping their adapted buffers would hold ~w)",
+      [After, Base, Delta, Allowed, Ceiling]),
+    if
+        Delta =< Allowed ->
+            ok;
+        true ->
+            exit({buffer_not_released, Delta, Allowed, Ceiling})
+    end,
+
+    [begin aor_stop_client(C), _ = socket:close(S) end || {C, S} <- Conns],
+    _ = socket:close(L),
+    ok.
+
+
+aori_ask({Pid, _MRef}, Msg) ->
+    Pid ! {self(), Msg},
+    ok.
+
+aori_rbuf(S) ->
+    #{rbuf := RBuf} = socket:info(S),
+    RBuf.
+
+%% Collect every process before sampling, so that what is left is memory
+%% the runtime is holding rather than received binaries that simply have
+%% not been collected yet.
+aori_binary_memory() ->
+    ok = aori_gc_all(),
+    ok = aori_gc_all(),
+    erlang:memory(binary).
+
+aori_gc_all() ->
+    Ref = make_ref(),
+    Cnt = length([P || P <- erlang:processes(),
+                       async =:= erlang:garbage_collect(P, [{async, Ref}])]),
+    aori_await_gc(Ref, Cnt).
+
+aori_await_gc(_Ref, 0) ->
+    ok;
+aori_await_gc(Ref, Cnt) ->
+    receive
+        {garbage_collect, Ref, _} ->
+            aori_await_gc(Ref, Cnt - 1)
+    after ?SECS(10) ->
+            ok
+    end.
+
+%% A client that sends on command, so that a connection can be driven,
+%% left idle, and then driven again. It keeps its own stream offset so
+%% that both sides stay in step across the idle period.
+aori_client(SSA) ->
+    Self = self(),
+    spawn_monitor(
+      fun() ->
+              {ok, S} = socket:open(inet, stream, tcp),
+              ok = socket:connect(S, SSA),
+              aori_client_loop(Self, S, 0)
+      end).
+
+aori_client_loop(Owner, S, Off) ->
+    receive
+        {Owner, {send, Bytes}} ->
+            aori_client_loop(Owner, S, aori_client_send(S, Off, Bytes));
+        {Owner, stop} ->
+            _ = socket:close(S),
+            exit(normal)
+    end.
+
+aori_client_send(_S, Off, Bytes) when Bytes =< 0 ->
+    Off;
+aori_client_send(S, Off, Bytes) ->
+    Sz = min(64 * 1024, Bytes),
+    ok = socket:send(S, aori_data(Off, Sz)),
+    aori_client_send(S, Off + Sz, Bytes - Sz).
+
+%% Sz bytes of the stream, starting at offset Off. The stream is a
+%% repeating 0..255 ramp, so a chunk that has lost, duplicated or
+%% reordered bytes fails to match rather than merely being the wrong
+%% length.
+aori_data(Off, Sz) ->
+    Unit  = list_to_binary(lists:seq(0, 255)),
+    Start = Off rem 256,
+    binary:part(binary:copy(Unit, (Start + Sz) div 256 + 1), Start, Sz).
+
+aori_drain(_S, Bytes, Off, MaxChunk) when Bytes =< 0 ->
+    {Off, MaxChunk};
+aori_drain(S, Bytes, Off, MaxChunk) ->
+    {ok, Data} = socket:recv(S, 0, ?SECS(10)),
+    Sz = byte_size(Data),
+    case aori_data(Off, Sz) of
+        Data ->
+            aori_drain(S, Bytes - Sz, Off + Sz, max(Sz, MaxChunk));
+        _ ->
+            exit({corrupt_stream, Off, Sz})
+    end.
 
 
 
