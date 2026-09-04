@@ -49,7 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
             persist-credentials: false
       - name: Download release artifacts
@@ -116,7 +116,7 @@ jobs:
           fi
 
       - name: Checkout PR branch
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           repository: "${{ github.event.pull_request.head.repo.full_name }}"
           ref: "${{ github.event.pull_request.head.ref }}"
@@ -145,7 +145,7 @@ jobs:
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # ratchet:actions/attest@v4.10
         with:
           subject-path: '*.openvex.json'
-      - uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+      - uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
         if: steps.changed.outputs.found == 'true'
         id: app-token
         with:
