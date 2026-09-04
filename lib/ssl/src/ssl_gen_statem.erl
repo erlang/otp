@@ -2325,12 +2325,11 @@ keylog_hs_alert(connection, #state{static_env = #static_env{role = client},
   when ?TLS_GTE(TlsVersion, ?TLS_1_3) ->
     #{server_handshake_traffic_secret := ServerHSSecret,
       security_parameters :=
-          #security_parameters{master_secret = {master_secret, STrafficSecret}
-                              }}
+          #security_parameters{application_traffic_secret = STrafficSecret}}
         = Read,
     #{client_handshake_traffic_secret := ClientHSSecret,
        security_parameters :=
-          #security_parameters{master_secret = {master_secret, CTrafficSecret},
+          #security_parameters{application_traffic_secret = CTrafficSecret,
                                client_random = ClientRandomBin,
                                client_early_data_secret = EarlySecret,
                                prf_algorithm = Prf
@@ -2374,7 +2373,7 @@ keylog_1_3_client_finished(Read, Write) ->
     #{server_handshake_traffic_secret := ServerHSSecret,
       security_parameters := #security_parameters{client_random = ClientRandomBin,
                                                   prf_algorithm = Prf,
-                                                  master_secret = {master_secret, TrafficSecret}
+                                                  application_traffic_secret = TrafficSecret
                                                  }}
         = Write,
     #{client_handshake_traffic_secret := ClientHSSecret,
