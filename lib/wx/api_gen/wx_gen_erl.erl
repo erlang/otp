@@ -753,7 +753,7 @@ write_spec([], [], {simple, Res}, _Eol) ->
 write_spec([], [], {complex, Res}, Eol) ->
     w("() -> Resultwhen~s\tResult ::~s", [Eol,Res]);
 write_spec(Args, [], {simple, Res}, Eol) ->
-    w("(~s) -> ~s when~s\t~s",
+    w("(~s) -> ~s when~s        ~s",
       [erl_arg_names(Args), Res, Eol, doc_arg_types(Args)]);
 write_spec(Args, [], {complex, Res}, Eol) ->
     w("(~s) -> Result when~s\tResult ::~s,~s\t~s",

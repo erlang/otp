@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ new() ->
 
 -doc "Copy Constructor.".
 -spec new(Data) -> wxFontData() when
-	Data::wxFontData().
+        Data::wxFontData().
 new(#wx_ref{type=DataT}=Data) ->
   ?CLASS(DataT,wxFontData),
   wxe_util:queue_cmd(Data,?get_env(),?wxFontData_new_1),
@@ -108,7 +108,7 @@ This refers to the controls for manipulating colour, strikeout and underline pro
 The default value is true.
 """.
 -spec enableEffects(This, Enable) -> 'ok' when
-	This::wxFontData(), Enable::boolean().
+        This::wxFontData(), Enable::boolean().
 enableEffects(#wx_ref{type=ThisT}=This,Enable)
  when is_boolean(Enable) ->
   ?CLASS(ThisT,wxFontData),
@@ -122,7 +122,7 @@ Has no effect on other platforms.
 The default value is true.
 """.
 -spec getAllowSymbols(This) -> boolean() when
-	This::wxFontData().
+        This::wxFontData().
 getAllowSymbols(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFontData),
   wxe_util:queue_cmd(This,?get_env(),?wxFontData_GetAllowSymbols),
@@ -134,7 +134,7 @@ Gets the colour associated with the font dialog.
 The default value is black.
 """.
 -spec getColour(This) -> wx:wx_colour4() when
-	This::wxFontData().
+        This::wxFontData().
 getColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFontData),
   wxe_util:queue_cmd(This,?get_env(),?wxFontData_GetColour),
@@ -145,7 +145,7 @@ Gets the font chosen by the user if the user pressed OK (`wxFontDialog::ShowModa
 implemented in wx) returned wxID\_OK).
 """.
 -spec getChosenFont(This) -> wxFont:wxFont() when
-	This::wxFontData().
+        This::wxFontData().
 getChosenFont(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFontData),
   wxe_util:queue_cmd(This,?get_env(),?wxFontData_GetChosenFont),
@@ -159,7 +159,7 @@ This refers to the controls for manipulating colour, strikeout and underline pro
 The default value is true.
 """.
 -spec getEnableEffects(This) -> boolean() when
-	This::wxFontData().
+        This::wxFontData().
 getEnableEffects(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFontData),
   wxe_util:queue_cmd(This,?get_env(),?wxFontData_GetEnableEffects),
@@ -171,7 +171,7 @@ Gets the font that will be initially used by the font dialog.
 This should have previously been set by the application.
 """.
 -spec getInitialFont(This) -> wxFont:wxFont() when
-	This::wxFontData().
+        This::wxFontData().
 getInitialFont(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFontData),
   wxe_util:queue_cmd(This,?get_env(),?wxFontData_GetInitialFont),
@@ -183,7 +183,7 @@ Returns true if the Help button will be shown (Windows only).
 The default value is false.
 """.
 -spec getShowHelp(This) -> boolean() when
-	This::wxFontData().
+        This::wxFontData().
 getShowHelp(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFontData),
   wxe_util:queue_cmd(This,?get_env(),?wxFontData_GetShowHelp),
@@ -197,7 +197,7 @@ Has no effect on other platforms.
 The default value is true.
 """.
 -spec setAllowSymbols(This, AllowSymbols) -> 'ok' when
-	This::wxFontData(), AllowSymbols::boolean().
+        This::wxFontData(), AllowSymbols::boolean().
 setAllowSymbols(#wx_ref{type=ThisT}=This,AllowSymbols)
  when is_boolean(AllowSymbols) ->
   ?CLASS(ThisT,wxFontData),
@@ -205,7 +205,7 @@ setAllowSymbols(#wx_ref{type=ThisT}=This,AllowSymbols)
 
 -doc "Sets the font that will be returned to the user (for internal use only).".
 -spec setChosenFont(This, Font) -> 'ok' when
-	This::wxFontData(), Font::wxFont:wxFont().
+        This::wxFontData(), Font::wxFont:wxFont().
 setChosenFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   ?CLASS(ThisT,wxFontData),
   ?CLASS(FontT,wxFont),
@@ -217,7 +217,7 @@ Sets the colour that will be used for the font foreground colour.
 The default colour is black.
 """.
 -spec setColour(This, Colour) -> 'ok' when
-	This::wxFontData(), Colour::wx:wx_colour().
+        This::wxFontData(), Colour::wx:wx_colour().
 setColour(#wx_ref{type=ThisT}=This,Colour)
  when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxFontData),
@@ -225,7 +225,7 @@ setColour(#wx_ref{type=ThisT}=This,Colour)
 
 -doc "Sets the font that will be initially used by the font dialog.".
 -spec setInitialFont(This, Font) -> 'ok' when
-	This::wxFontData(), Font::wxFont:wxFont().
+        This::wxFontData(), Font::wxFont:wxFont().
 setInitialFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   ?CLASS(ThisT,wxFontData),
   ?CLASS(FontT,wxFont),
@@ -237,7 +237,7 @@ Sets the valid range for the font point size (Windows only).
 The default is 0, 0 (unrestricted range).
 """.
 -spec setRange(This, Min, Max) -> 'ok' when
-	This::wxFontData(), Min::integer(), Max::integer().
+        This::wxFontData(), Min::integer(), Max::integer().
 setRange(#wx_ref{type=ThisT}=This,Min,Max)
  when is_integer(Min),is_integer(Max) ->
   ?CLASS(ThisT,wxFontData),
@@ -249,7 +249,7 @@ Determines whether the Help button will be displayed in the font dialog (Windows
 The default value is false.
 """.
 -spec setShowHelp(This, ShowHelp) -> 'ok' when
-	This::wxFontData(), ShowHelp::boolean().
+        This::wxFontData(), ShowHelp::boolean().
 setShowHelp(#wx_ref{type=ThisT}=This,ShowHelp)
  when is_boolean(ShowHelp) ->
   ?CLASS(ThisT,wxFontData),

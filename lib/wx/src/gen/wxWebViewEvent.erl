@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ item. If some items have been selected and others deselected at the same time, i
 return the index of the first selected item.
 """.
 -spec getString(This) -> unicode:charlist() when
-	This::wxWebViewEvent().
+        This::wxWebViewEvent().
 getString(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebViewEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxWebViewEvent_GetString),
@@ -115,7 +115,7 @@ For a menu item, this method returns -1 if the item is not checkable or a boolea
 (true or false) for checkable items indicating the new state of the item.
 """.
 -spec getInt(This) -> integer() when
-	This::wxWebViewEvent().
+        This::wxWebViewEvent().
 getInt(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebViewEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxWebViewEvent_GetInt),
@@ -128,7 +128,7 @@ into.
 This may return an empty string if the frame is not available.
 """.
 -spec getTarget(This) -> unicode:charlist() when
-	This::wxWebViewEvent().
+        This::wxWebViewEvent().
 getTarget(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebViewEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxWebViewEvent_GetTarget),
@@ -136,7 +136,7 @@ getTarget(#wx_ref{type=ThisT}=This) ->
 
 -doc "Get the URL being visited.".
 -spec getURL(This) -> unicode:charlist() when
-	This::wxWebViewEvent().
+        This::wxWebViewEvent().
 getURL(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebViewEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxWebViewEvent_GetURL),

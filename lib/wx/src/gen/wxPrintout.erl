@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -132,7 +132,7 @@ Notice: The callbacks may not call other processes.
                {onEndPrinting,     fun((wxPrintout()) -> ok)} |
                {onBeginDocument,   fun((wxPrintout(), StartPage::integer(), EndPage::integer()) -> boolean())} |
                {onEndDocument,     fun((wxPrintout()) -> ok)} |
-               {hasPage,           fun((wxPrintout(), Page::integer()) -> ok)} |
+               {hasPage,           fun((wxPrintout(), Page::integer()) -> boolean())} |
                {getPageInfo,       fun((wxPrintout()) ->
                                               {MinPage::integer(), MaxPage::integer(),
                                                PageFrom::integer(), PageTo::integer()})}.
@@ -170,7 +170,7 @@ This will be a `wxPrinterDC` (not implemented in wx) if printing under Windows o
 if printing on other platforms, and a `m:wxMemoryDC` if previewing.
 """.
 -spec getDC(This) -> wxDC:wxDC() when
-	This::wxPrintout().
+        This::wxPrintout().
 getDC(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintout),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintout_GetDC),
@@ -178,7 +178,7 @@ getDC(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the size of the printer page in millimetres.".
 -spec getPageSizeMM(This) -> {W::integer(), H::integer()} when
-	This::wxPrintout().
+        This::wxPrintout().
 getPageSizeMM(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintout),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintout_GetPageSizeMM),
@@ -194,7 +194,7 @@ the current preview zoom. The application must take this discrepancy into accoun
 previewing is to be supported.
 """.
 -spec getPageSizePixels(This) -> {W::integer(), H::integer()} when
-	This::wxPrintout().
+        This::wxPrintout().
 getPageSizePixels(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintout),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintout_GetPageSizePixels),
@@ -219,7 +219,7 @@ area were printable, so this function will return the same rectangle as the page
 rectangle.
 """.
 -spec getPaperRectPixels(This) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
-	This::wxPrintout().
+        This::wxPrintout().
 getPaperRectPixels(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintout),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintout_GetPaperRectPixels),
@@ -236,7 +236,7 @@ Or you can just use the FitThisSizeToXXX() and MapScreenSizeToXXX routines below
 most of the scaling calculations for you.
 """.
 -spec getPPIPrinter(This) -> {W::integer(), H::integer()} when
-	This::wxPrintout().
+        This::wxPrintout().
 getPPIPrinter(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintout),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintout_GetPPIPrinter),
@@ -252,7 +252,7 @@ If you are doing your own scaling, remember to multiply this by a scaling factor
 the preview DC size into account.
 """.
 -spec getPPIScreen(This) -> {W::integer(), H::integer()} when
-	This::wxPrintout().
+        This::wxPrintout().
 getPPIScreen(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintout),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintout_GetPPIScreen),
@@ -260,7 +260,7 @@ getPPIScreen(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the title of the printout.".
 -spec getTitle(This) -> unicode:charlist() when
-	This::wxPrintout().
+        This::wxPrintout().
 getTitle(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintout),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintout_GetTitle),
@@ -268,7 +268,7 @@ getTitle(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the printout is currently being used for previewing.".
 -spec isPreview(This) -> boolean() when
-	This::wxPrintout().
+        This::wxPrintout().
 isPreview(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintout),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintout_IsPreview),
@@ -285,7 +285,7 @@ Note: With most printers, the region around the edges of the paper are not print
 that the edges of the image could be cut off.
 """.
 -spec fitThisSizeToPaper(This, ImageSize) -> 'ok' when
-	This::wxPrintout(), ImageSize::{W::integer(), H::integer()}.
+        This::wxPrintout(), ImageSize::{W::integer(), H::integer()}.
 fitThisSizeToPaper(#wx_ref{type=ThisT}=This,{ImageSizeW,ImageSizeH} = ImageSize)
  when is_integer(ImageSizeW),is_integer(ImageSizeH) ->
   ?CLASS(ThisT,wxPrintout),
@@ -303,7 +303,7 @@ Use this if you want your printed image as large as possible, but with the cavea
 some platforms, portions of the image might be cut off at the edges.
 """.
 -spec fitThisSizeToPage(This, ImageSize) -> 'ok' when
-	This::wxPrintout(), ImageSize::{W::integer(), H::integer()}.
+        This::wxPrintout(), ImageSize::{W::integer(), H::integer()}.
 fitThisSizeToPage(#wx_ref{type=ThisT}=This,{ImageSizeW,ImageSizeH} = ImageSize)
  when is_integer(ImageSizeW),is_integer(ImageSizeH) ->
   ?CLASS(ThisT,wxPrintout),
@@ -322,7 +322,7 @@ you'll have to provide your own mechanism, or you can use the Mac-only class
 wxMacPageMarginsDialog.
 """.
 -spec fitThisSizeToPageMargins(This, ImageSize, PageSetupData) -> 'ok' when
-	This::wxPrintout(), ImageSize::{W::integer(), H::integer()}, PageSetupData::wxPageSetupDialogData:wxPageSetupDialogData().
+        This::wxPrintout(), ImageSize::{W::integer(), H::integer()}, PageSetupData::wxPageSetupDialogData:wxPageSetupDialogData().
 fitThisSizeToPageMargins(#wx_ref{type=ThisT}=This,{ImageSizeW,ImageSizeH} = ImageSize,#wx_ref{type=PageSetupDataT}=PageSetupData)
  when is_integer(ImageSizeW),is_integer(ImageSizeH) ->
   ?CLASS(ThisT,wxPrintout),
@@ -340,7 +340,7 @@ That is, a 100-pixel object on screen should appear at the same size on the prin
 Use this if you want WYSIWYG behaviour, e.g., in a text editor.
 """.
 -spec mapScreenSizeToPaper(This) -> 'ok' when
-	This::wxPrintout().
+        This::wxPrintout().
 mapScreenSizeToPaper(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintout),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintout_MapScreenSizeToPaper).
@@ -351,7 +351,7 @@ scale as `mapScreenSizeToPaper/1` but sets the logical origin to the top left co
 the page rectangle.
 """.
 -spec mapScreenSizeToPage(This) -> 'ok' when
-	This::wxPrintout().
+        This::wxPrintout().
 mapScreenSizeToPage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintout),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintout_MapScreenSizeToPage).
@@ -362,7 +362,7 @@ scale as `mapScreenSizeToPageMargins/2` but sets the logical origin to the top l
 of the page margins specified by the given `m:wxPageSetupDialogData` object.
 """.
 -spec mapScreenSizeToPageMargins(This, PageSetupData) -> 'ok' when
-	This::wxPrintout(), PageSetupData::wxPageSetupDialogData:wxPageSetupDialogData().
+        This::wxPrintout(), PageSetupData::wxPageSetupDialogData:wxPageSetupDialogData().
 mapScreenSizeToPageMargins(#wx_ref{type=ThisT}=This,#wx_ref{type=PageSetupDataT}=PageSetupData) ->
   ?CLASS(ThisT,wxPrintout),
   ?CLASS(PageSetupDataT,wxPageSetupDialogData),
@@ -385,7 +385,7 @@ Note: While the underlying drawing model of macOS is floating-point, wxWidgets's
 model scales from integer coordinates.
 """.
 -spec mapScreenSizeToDevice(This) -> 'ok' when
-	This::wxPrintout().
+        This::wxPrintout().
 mapScreenSizeToDevice(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintout),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintout_MapScreenSizeToDevice).
@@ -395,7 +395,7 @@ Return the rectangle corresponding to the paper in the associated `m:wxDC` 's lo
 coordinates for the current user scale and device origin.
 """.
 -spec getLogicalPaperRect(This) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
-	This::wxPrintout().
+        This::wxPrintout().
 getLogicalPaperRect(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintout),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintout_GetLogicalPaperRect),
@@ -409,7 +409,7 @@ On MSW and Mac, this will be the printable area of the paper. On other platforms
 PostScript printing, this will be the full paper rectangle.
 """.
 -spec getLogicalPageRect(This) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
-	This::wxPrintout().
+        This::wxPrintout().
 getLogicalPageRect(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintout),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintout_GetLogicalPageRect),
@@ -423,7 +423,7 @@ device origin.
 The page margins are specified with respect to the edges of the paper on all platforms.
 """.
 -spec getLogicalPageMarginsRect(This, PageSetupData) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
-	This::wxPrintout(), PageSetupData::wxPageSetupDialogData:wxPageSetupDialogData().
+        This::wxPrintout(), PageSetupData::wxPageSetupDialogData:wxPageSetupDialogData().
 getLogicalPageMarginsRect(#wx_ref{type=ThisT}=This,#wx_ref{type=PageSetupDataT}=PageSetupData) ->
   ?CLASS(ThisT,wxPrintout),
   ?CLASS(PageSetupDataT,wxPageSetupDialogData),
@@ -435,7 +435,7 @@ Set the device origin of the associated `m:wxDC` so that the current logical poi
 becomes the new logical origin.
 """.
 -spec setLogicalOrigin(This, X, Y) -> 'ok' when
-	This::wxPrintout(), X::integer(), Y::integer().
+        This::wxPrintout(), X::integer(), Y::integer().
 setLogicalOrigin(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxPrintout),
@@ -443,7 +443,7 @@ setLogicalOrigin(#wx_ref{type=ThisT}=This,X,Y)
 
 -doc "Shift the device origin by an amount specified in logical coordinates.".
 -spec offsetLogicalOrigin(This, Xoff, Yoff) -> 'ok' when
-	This::wxPrintout(), Xoff::integer(), Yoff::integer().
+        This::wxPrintout(), Xoff::integer(), Yoff::integer().
 offsetLogicalOrigin(#wx_ref{type=ThisT}=This,Xoff,Yoff)
  when is_integer(Xoff),is_integer(Yoff) ->
   ?CLASS(ThisT,wxPrintout),

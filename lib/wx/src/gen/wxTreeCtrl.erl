@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -241,7 +241,7 @@ Event types emitted from this class:
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,screenToClient/3,
   scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -272,7 +272,7 @@ new() ->
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxTreeCtrl() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -305,7 +305,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
 
 -doc(#{equiv => addRoot(This,Text, [])}).
 -spec addRoot(This, Text) -> integer() when
-	This::wxTreeCtrl(), Text::unicode:chardata().
+        This::wxTreeCtrl(), Text::unicode:chardata().
 
 addRoot(This,Text)
  when is_record(This, wx_ref),?is_chardata(Text) ->
@@ -337,7 +337,7 @@ addRoot(#wx_ref{type=ThisT}=This,Text, Options)
 
 -doc(#{equiv => appendItem(This,Parent,Text, [])}).
 -spec appendItem(This, Parent, Text) -> integer() when
-	This::wxTreeCtrl(), Parent::integer(), Text::unicode:chardata().
+        This::wxTreeCtrl(), Parent::integer(), Text::unicode:chardata().
 
 appendItem(This,Parent,Text)
  when is_record(This, wx_ref),is_integer(Parent),?is_chardata(Text) ->
@@ -376,7 +376,7 @@ as appropriate (i.e. it takes ownership of the list).
 See: `setImageList/2`
 """.
 -spec assignImageList(This, ImageList) -> 'ok' when
-	This::wxTreeCtrl(), ImageList::wxImageList:wxImageList().
+        This::wxTreeCtrl(), ImageList::wxImageList:wxImageList().
 assignImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
   ?CLASS(ThisT,wxTreeCtrl),
   ?CLASS(ImageListT,wxImageList),
@@ -391,7 +391,7 @@ appropriate (i.e. it takes ownership of the list).
 See: `setStateImageList/2`
 """.
 -spec assignStateImageList(This, ImageList) -> 'ok' when
-	This::wxTreeCtrl(), ImageList::wxImageList:wxImageList().
+        This::wxTreeCtrl(), ImageList::wxImageList:wxImageList().
 assignStateImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
   ?CLASS(ThisT,wxTreeCtrl),
   ?CLASS(ImageListT,wxImageList),
@@ -399,7 +399,7 @@ assignStateImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList
 
 -doc "Collapses the given item.".
 -spec collapse(This, Item) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 collapse(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -407,7 +407,7 @@ collapse(#wx_ref{type=ThisT}=This,Item)
 
 -doc "Collapses the given item and removes all children.".
 -spec collapseAndReset(This, Item) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 collapseAndReset(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -415,7 +415,7 @@ collapseAndReset(#wx_ref{type=ThisT}=This,Item)
 
 -doc(#{equiv => create(This,Parent, [])}).
 -spec create(This, Parent) -> boolean() when
-	This::wxTreeCtrl(), Parent::wxWindow:wxWindow().
+        This::wxTreeCtrl(), Parent::wxWindow:wxWindow().
 
 create(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
@@ -455,7 +455,7 @@ A `EVT_TREE_DELETE_ITEM` event will be generated.
 This function may cause a subsequent call to `getNextChild/3` to fail.
 """.
 -spec delete(This, Item) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 delete(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -468,7 +468,7 @@ This function generates `wxEVT_TREE_DELETE_ITEM` events for each item being dele
 including the root one if it is shown, i.e. unless wxTR_HIDE_ROOT style is used.
 """.
 -spec deleteAllItems(This) -> 'ok' when
-	This::wxTreeCtrl().
+        This::wxTreeCtrl().
 deleteAllItems(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTreeCtrl_DeleteAllItems).
@@ -482,7 +482,7 @@ If you have called `setItemHasChildren/3`, you may need to call it again since `
 the setting.
 """.
 -spec deleteChildren(This, Item) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 deleteChildren(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -500,7 +500,7 @@ without changes, a `EVT_TREE_END_LABEL_EDIT` event will be sent which can be vet
 See: `m:wxTreeEvent`
 """.
 -spec editLabel(This, Item) -> wxTextCtrl:wxTextCtrl() when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 editLabel(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -513,7 +513,7 @@ Scrolls and/or expands items to ensure that the given item is visible.
 This method can be used, and will work, even while the window is frozen (see `wxWindow:freeze/1`).
 """.
 -spec ensureVisible(This, Item) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 ensureVisible(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -521,7 +521,7 @@ ensureVisible(#wx_ref{type=ThisT}=This,Item)
 
 -doc "Expands the given item.".
 -spec expand(This, Item) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 expand(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -564,7 +564,7 @@ getBoundingRect(#wx_ref{type=ThisT}=This,Item, Options)
 
 -doc(#{equiv => getChildrenCount(This,Item, [])}).
 -spec getChildrenCount(This, Item) -> integer() when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 
 getChildrenCount(This,Item)
  when is_record(This, wx_ref),is_integer(Item) ->
@@ -590,7 +590,7 @@ getChildrenCount(#wx_ref{type=ThisT}=This,Item, Options)
 
 -doc "Returns the number of items in the control.".
 -spec getCount(This) -> integer() when
-	This::wxTreeCtrl().
+        This::wxTreeCtrl().
 getCount(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTreeCtrl_GetCount),
@@ -604,7 +604,7 @@ Returns NULL if no label is being edited.
 Note: This is currently only implemented for wxMSW.
 """.
 -spec getEditControl(This) -> wxTextCtrl:wxTextCtrl() when
-	This::wxTreeCtrl().
+        This::wxTreeCtrl().
 getEditControl(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTreeCtrl_GetEditControl),
@@ -658,7 +658,7 @@ getNextChild(#wx_ref{type=ThisT}=This,Item,Cookie)
 
 -doc "Returns the first visible item.".
 -spec getFirstVisibleItem(This) -> integer() when
-	This::wxTreeCtrl().
+        This::wxTreeCtrl().
 getFirstVisibleItem(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTreeCtrl_GetFirstVisibleItem),
@@ -666,7 +666,7 @@ getFirstVisibleItem(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the normal image list.".
 -spec getImageList(This) -> wxImageList:wxImageList() when
-	This::wxTreeCtrl().
+        This::wxTreeCtrl().
 getImageList(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTreeCtrl_GetImageList),
@@ -674,7 +674,7 @@ getImageList(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the current tree control indentation.".
 -spec getIndent(This) -> integer() when
-	This::wxTreeCtrl().
+        This::wxTreeCtrl().
 getIndent(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTreeCtrl_GetIndent),
@@ -682,7 +682,7 @@ getIndent(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the background colour of the item.".
 -spec getItemBackgroundColour(This, Item) -> wx:wx_colour4() when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 getItemBackgroundColour(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -691,7 +691,7 @@ getItemBackgroundColour(#wx_ref{type=ThisT}=This,Item)
 
 -doc "Returns the tree item data associated with the item.".
 -spec getItemData(This, Item) -> term() when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 getItemData(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -706,7 +706,7 @@ If the font hadn't been explicitly set for the specified `item` with `setItemFon
 without any specific font.
 """.
 -spec getItemFont(This, Item) -> wxFont:wxFont() when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 getItemFont(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -715,7 +715,7 @@ getItemFont(#wx_ref{type=ThisT}=This,Item)
 
 -doc(#{equiv => getItemImage(This,Item, [])}).
 -spec getItemImage(This, Item) -> integer() when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 
 getItemImage(This,Item)
  when is_record(This, wx_ref),is_integer(Item) ->
@@ -753,7 +753,7 @@ getItemImage(#wx_ref{type=ThisT}=This,Item, Options)
 
 -doc "Returns the item label.".
 -spec getItemText(This, Item) -> unicode:charlist() when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 getItemText(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -762,7 +762,7 @@ getItemText(#wx_ref{type=ThisT}=This,Item)
 
 -doc "Returns the colour of the item label.".
 -spec getItemTextColour(This, Item) -> wx:wx_colour4() when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 getItemTextColour(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -781,7 +781,7 @@ See:
 * `getLastChild/2`
 """.
 -spec getLastChild(This, Item) -> integer() when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 getLastChild(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -797,7 +797,7 @@ Returns an invalid tree item if there are no further siblings.
 See: `getPrevSibling/2`
 """.
 -spec getNextSibling(This, Item) -> integer() when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 getNextSibling(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -810,7 +810,7 @@ Returns the next visible item or an invalid item if this item is the last visibl
 Note: The `item` itself must be visible.
 """.
 -spec getNextVisible(This, Item) -> integer() when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 getNextVisible(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -819,7 +819,7 @@ getNextVisible(#wx_ref{type=ThisT}=This,Item)
 
 -doc "Returns the item's parent.".
 -spec getItemParent(This, Item) -> integer() when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 getItemParent(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -835,7 +835,7 @@ Returns an invalid tree item if there are no further children.
 See: `getNextSibling/2`
 """.
 -spec getPrevSibling(This, Item) -> integer() when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 getPrevSibling(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -849,7 +849,7 @@ one.
 Note: The `item` itself must be visible.
 """.
 -spec getPrevVisible(This, Item) -> integer() when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 getPrevVisible(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -858,7 +858,7 @@ getPrevVisible(#wx_ref{type=ThisT}=This,Item)
 
 -doc "Returns the root item for the tree control.".
 -spec getRootItem(This) -> integer() when
-	This::wxTreeCtrl().
+        This::wxTreeCtrl().
 getRootItem(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTreeCtrl_GetRootItem),
@@ -872,7 +872,7 @@ controls which do have this style or, if a single item is wanted, use `GetFocuse
 (not implemented in wx).
 """.
 -spec getSelection(This) -> integer() when
-	This::wxTreeCtrl().
+        This::wxTreeCtrl().
 getSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTreeCtrl_GetSelection),
@@ -895,7 +895,7 @@ getSelections(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the state image list (from which application-defined state images are taken).".
 -spec getStateImageList(This) -> wxImageList:wxImageList() when
-	This::wxTreeCtrl().
+        This::wxTreeCtrl().
 getStateImageList(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTreeCtrl_GetStateImageList),
@@ -941,7 +941,7 @@ hitTest(#wx_ref{type=ThisT}=This,{PointX,PointY} = Point)
 
 -doc(#{equiv => insertItem(This,Parent,Previous,Text, [])}).
 -spec insertItem(This, Parent, Previous, Text) -> integer() when
-	This::wxTreeCtrl(), Parent::integer(), Previous::integer(), Text::unicode:chardata().
+        This::wxTreeCtrl(), Parent::integer(), Previous::integer(), Text::unicode:chardata().
 
 insertItem(This,Parent,Previous,Text)
  when is_record(This, wx_ref),is_integer(Parent),is_integer(Previous),?is_chardata(Text) ->
@@ -977,7 +977,7 @@ Returns true if the given item is in bold state.
 See: `setItemBold/3`
 """.
 -spec isBold(This, Item) -> boolean() when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 isBold(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -986,7 +986,7 @@ isBold(#wx_ref{type=ThisT}=This,Item)
 
 -doc "Returns true if the item is expanded (only makes sense if it has children).".
 -spec isExpanded(This, Item) -> boolean() when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 isExpanded(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -995,7 +995,7 @@ isExpanded(#wx_ref{type=ThisT}=This,Item)
 
 -doc "Returns true if the item is selected.".
 -spec isSelected(This, Item) -> boolean() when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 isSelected(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -1004,7 +1004,7 @@ isSelected(#wx_ref{type=ThisT}=This,Item)
 
 -doc "Returns true if the item is visible on the screen.".
 -spec isVisible(This, Item) -> boolean() when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 isVisible(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -1013,7 +1013,7 @@ isVisible(#wx_ref{type=ThisT}=This,Item)
 
 -doc "Returns true if the item has children.".
 -spec itemHasChildren(This, Item) -> boolean() when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 itemHasChildren(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -1022,7 +1022,7 @@ itemHasChildren(#wx_ref{type=ThisT}=This,Item)
 
 -doc "Returns true if the item is valid.".
 -spec isTreeItemIdOk(Item) -> boolean() when
-	Item::integer().
+        Item::integer().
 isTreeItemIdOk(Item)
  when is_integer(Item) ->
   wxe_util:queue_cmd(Item,?get_env(),?wxTreeCtrl_IsTreeItemIdOk),
@@ -1030,7 +1030,7 @@ isTreeItemIdOk(Item)
 
 -doc(#{equiv => prependItem(This,Parent,Text, [])}).
 -spec prependItem(This, Parent, Text) -> integer() when
-	This::wxTreeCtrl(), Parent::integer(), Text::unicode:chardata().
+        This::wxTreeCtrl(), Parent::integer(), Text::unicode:chardata().
 
 prependItem(This,Parent,Text)
  when is_record(This, wx_ref),is_integer(Parent),?is_chardata(Text) ->
@@ -1068,7 +1068,7 @@ Note that this method doesn't work while the window is frozen (See `wxWindow:fre
 See: `ensureVisible/2`
 """.
 -spec scrollTo(This, Item) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 scrollTo(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -1076,7 +1076,7 @@ scrollTo(#wx_ref{type=ThisT}=This,Item)
 
 -doc(#{equiv => selectItem(This,Item, [])}).
 -spec selectItem(This, Item) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 
 selectItem(This,Item)
  when is_record(This, wx_ref),is_integer(Item) ->
@@ -1104,7 +1104,7 @@ selectItem(#wx_ref{type=ThisT}=This,Item, Options)
 
 -doc "Sets the indentation for the tree control.".
 -spec setIndent(This, Indent) -> 'ok' when
-	This::wxTreeCtrl(), Indent::integer().
+        This::wxTreeCtrl(), Indent::integer().
 setIndent(#wx_ref{type=ThisT}=This,Indent)
  when is_integer(Indent) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -1119,7 +1119,7 @@ destructor, you must delete it yourself.
 See: `assignImageList/2`
 """.
 -spec setImageList(This, ImageList) -> 'ok' when
-	This::wxTreeCtrl(), ImageList::wxImageList:wxImageList().
+        This::wxTreeCtrl(), ImageList::wxImageList:wxImageList().
 setImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
   ?CLASS(ThisT,wxTreeCtrl),
   ?CLASS(ImageListT,wxImageList),
@@ -1127,7 +1127,7 @@ setImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
 
 -doc "Sets the colour of the item's background.".
 -spec setItemBackgroundColour(This, Item, Col) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer(), Col::wx:wx_colour().
+        This::wxTreeCtrl(), Item::integer(), Col::wx:wx_colour().
 setItemBackgroundColour(#wx_ref{type=ThisT}=This,Item,Col)
  when is_integer(Item),?is_colordata(Col) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -1135,7 +1135,7 @@ setItemBackgroundColour(#wx_ref{type=ThisT}=This,Item,Col)
 
 -doc(#{equiv => setItemBold(This,Item, [])}).
 -spec setItemBold(This, Item) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 
 setItemBold(This,Item)
  when is_record(This, wx_ref),is_integer(Item) ->
@@ -1166,7 +1166,7 @@ by this function and so calling this function multiple times for the same item w
 in memory leaks unless you delete the old item data pointer yourself.
 """.
 -spec setItemData(This, Item, Data) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer(), Data::term().
+        This::wxTreeCtrl(), Item::integer(), Data::term().
 setItemData(#wx_ref{type=ThisT}=This,Item,Data)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -1174,7 +1174,7 @@ setItemData(#wx_ref{type=ThisT}=This,Item,Data)
 
 -doc(#{equiv => setItemDropHighlight(This,Item, [])}).
 -spec setItemDropHighlight(This, Item) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 
 setItemDropHighlight(This,Item)
  when is_record(This, wx_ref),is_integer(Item) ->
@@ -1205,7 +1205,7 @@ height should be the same for all of them, although font attributes may vary.
 See: `setItemBold/3`
 """.
 -spec setItemFont(This, Item, Font) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer(), Font::wxFont:wxFont().
+        This::wxTreeCtrl(), Item::integer(), Font::wxFont:wxFont().
 setItemFont(#wx_ref{type=ThisT}=This,Item,#wx_ref{type=FontT}=Font)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -1214,7 +1214,7 @@ setItemFont(#wx_ref{type=ThisT}=This,Item,#wx_ref{type=FontT}=Font)
 
 -doc(#{equiv => setItemHasChildren(This,Item, [])}).
 -spec setItemHasChildren(This, Item) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 
 setItemHasChildren(This,Item)
  when is_record(This, wx_ref),is_integer(Item) ->
@@ -1239,7 +1239,7 @@ setItemHasChildren(#wx_ref{type=ThisT}=This,Item, Options)
 
 -doc(#{equiv => setItemImage(This,Item,Image, [])}).
 -spec setItemImage(This, Item, Image) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer(), Image::integer().
+        This::wxTreeCtrl(), Item::integer(), Image::integer().
 
 setItemImage(This,Item,Image)
  when is_record(This, wx_ref),is_integer(Item),is_integer(Image) ->
@@ -1264,7 +1264,7 @@ setItemImage(#wx_ref{type=ThisT}=This,Item,Image, Options)
 
 -doc "Sets the item label.".
 -spec setItemText(This, Item, Text) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer(), Text::unicode:chardata().
+        This::wxTreeCtrl(), Item::integer(), Text::unicode:chardata().
 setItemText(#wx_ref{type=ThisT}=This,Item,Text)
  when is_integer(Item),?is_chardata(Text) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -1273,7 +1273,7 @@ setItemText(#wx_ref{type=ThisT}=This,Item,Text)
 
 -doc "Sets the colour of the item's text.".
 -spec setItemTextColour(This, Item, Col) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer(), Col::wx:wx_colour().
+        This::wxTreeCtrl(), Item::integer(), Col::wx:wx_colour().
 setItemTextColour(#wx_ref{type=ThisT}=This,Item,Col)
  when is_integer(Item),?is_colordata(Col) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -1288,7 +1288,7 @@ destructor, you must delete it yourself.
 See: `assignStateImageList/2`
 """.
 -spec setStateImageList(This, ImageList) -> 'ok' when
-	This::wxTreeCtrl(), ImageList::wxImageList:wxImageList().
+        This::wxTreeCtrl(), ImageList::wxImageList:wxImageList().
 setStateImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
   ?CLASS(ThisT,wxTreeCtrl),
   ?CLASS(ImageListT,wxImageList),
@@ -1302,7 +1302,7 @@ The new mode takes effect immediately.
 Note: Generic only; MSW ignores changes.
 """.
 -spec setWindowStyle(This, Styles) -> 'ok' when
-	This::wxTreeCtrl(), Styles::integer().
+        This::wxTreeCtrl(), Styles::integer().
 setWindowStyle(#wx_ref{type=ThisT}=This,Styles)
  when is_integer(Styles) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -1315,7 +1315,7 @@ You should override that method to change the sort order (the default is ascendi
 case-sensitive alphabetical order).
 """.
 -spec sortChildren(This, Item) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 sortChildren(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -1323,7 +1323,7 @@ sortChildren(#wx_ref{type=ThisT}=This,Item)
 
 -doc "Toggles the given item between collapsed and expanded states.".
 -spec toggle(This, Item) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 toggle(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -1335,7 +1335,7 @@ Toggles the given item between selected and unselected states.
 For multiselection controls only.
 """.
 -spec toggleItemSelection(This, Item) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 toggleItemSelection(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -1343,7 +1343,7 @@ toggleItemSelection(#wx_ref{type=ThisT}=This,Item)
 
 -doc "Removes the selection from the currently selected item (if any).".
 -spec unselect(This) -> 'ok' when
-	This::wxTreeCtrl().
+        This::wxTreeCtrl().
 unselect(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTreeCtrl_Unselect).
@@ -1353,7 +1353,7 @@ This function either behaves the same as `unselect/1` if the control doesn't hav
 style, or removes the selection from all items if it does have this style.
 """.
 -spec unselectAll(This) -> 'ok' when
-	This::wxTreeCtrl().
+        This::wxTreeCtrl().
 unselectAll(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTreeCtrl_UnselectAll).
@@ -1364,7 +1364,7 @@ Unselects the given item.
 This works in multiselection controls only.
 """.
 -spec unselectItem(This, Item) -> 'ok' when
-	This::wxTreeCtrl(), Item::integer().
+        This::wxTreeCtrl(), Item::integer().
 unselectItem(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -1515,9 +1515,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

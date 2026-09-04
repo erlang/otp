@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -119,7 +119,7 @@ Event types emitted from this class:
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,screenToClient/3,
   scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -150,7 +150,7 @@ The icon will be invalid if it hadn't been previously set by `setIcon/2`.
 See: `getIcons/1`
 """.
 -spec getIcon(This) -> wxIcon:wxIcon() when
-	This::wxTopLevelWindow().
+        This::wxTopLevelWindow().
 getIcon(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTopLevelWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxTopLevelWindow_GetIcon),
@@ -165,7 +165,7 @@ Use `getIcon/1` to get the main icon of the window.
 See: `m:wxIconBundle`
 """.
 -spec getIcons(This) -> wxIconBundle:wxIconBundle() when
-	This::wxTopLevelWindow().
+        This::wxTopLevelWindow().
 getIcons(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTopLevelWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxTopLevelWindow_GetIcons),
@@ -177,7 +177,7 @@ Gets a string containing the window title.
 See: `setTitle/2`
 """.
 -spec getTitle(This) -> unicode:charlist() when
-	This::wxTopLevelWindow().
+        This::wxTopLevelWindow().
 getTitle(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTopLevelWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxTopLevelWindow_GetTitle),
@@ -188,7 +188,7 @@ Returns true if this window is currently active, i.e. if the user is currently w
 with it.
 """.
 -spec isActive(This) -> boolean() when
-	This::wxTopLevelWindow().
+        This::wxTopLevelWindow().
 isActive(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTopLevelWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxTopLevelWindow_IsActive),
@@ -196,7 +196,7 @@ isActive(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => iconize(This, [])}).
 -spec iconize(This) -> 'ok' when
-	This::wxTopLevelWindow().
+        This::wxTopLevelWindow().
 
 iconize(This)
  when is_record(This, wx_ref) ->
@@ -232,7 +232,7 @@ Returns true if the window is in fullscreen mode.
 See: `showFullScreen/3`
 """.
 -spec isFullScreen(This) -> boolean() when
-	This::wxTopLevelWindow().
+        This::wxTopLevelWindow().
 isFullScreen(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTopLevelWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxTopLevelWindow_IsFullScreen),
@@ -240,7 +240,7 @@ isFullScreen(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the window is iconized.".
 -spec isIconized(This) -> boolean() when
-	This::wxTopLevelWindow().
+        This::wxTopLevelWindow().
 isIconized(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTopLevelWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxTopLevelWindow_IsIconized),
@@ -248,7 +248,7 @@ isIconized(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the window is maximized.".
 -spec isMaximized(This) -> boolean() when
-	This::wxTopLevelWindow().
+        This::wxTopLevelWindow().
 isMaximized(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTopLevelWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxTopLevelWindow_IsMaximized),
@@ -256,7 +256,7 @@ isMaximized(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => maximize(This, [])}).
 -spec maximize(This) -> 'ok' when
-	This::wxTopLevelWindow().
+        This::wxTopLevelWindow().
 
 maximize(This)
  when is_record(This, wx_ref) ->
@@ -283,7 +283,7 @@ maximize(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => requestUserAttention(This, [])}).
 -spec requestUserAttention(This) -> 'ok' when
-	This::wxTopLevelWindow().
+        This::wxTopLevelWindow().
 
 requestUserAttention(This)
  when is_record(This, wx_ref) ->
@@ -326,7 +326,7 @@ See:
 * `setIcons/2`
 """.
 -spec setIcon(This, Icon) -> 'ok' when
-	This::wxTopLevelWindow(), Icon::wxIcon:wxIcon().
+        This::wxTopLevelWindow(), Icon::wxIcon:wxIcon().
 setIcon(#wx_ref{type=ThisT}=This,#wx_ref{type=IconT}=Icon) ->
   ?CLASS(ThisT,wxTopLevelWindow),
   ?CLASS(IconT,wxIcon),
@@ -344,7 +344,7 @@ Note: In wxMSW, `icons` must contain a 16x16 or 32x32 icon, preferably both.
 See: `m:wxIconBundle`
 """.
 -spec setIcons(This, Icons) -> 'ok' when
-	This::wxTopLevelWindow(), Icons::wxIconBundle:wxIconBundle().
+        This::wxTopLevelWindow(), Icons::wxIconBundle:wxIconBundle().
 setIcons(#wx_ref{type=ThisT}=This,#wx_ref{type=IconsT}=Icons) ->
   ?CLASS(ThisT,wxTopLevelWindow),
   ?CLASS(IconsT,wxIconBundle),
@@ -352,7 +352,7 @@ setIcons(#wx_ref{type=ThisT}=This,#wx_ref{type=IconsT}=Icons) ->
 
 -doc(#{equiv => centerOnScreen(This, [])}).
 -spec centerOnScreen(This) -> 'ok' when
-	This::wxTopLevelWindow().
+        This::wxTopLevelWindow().
 
 centerOnScreen(This)
  when is_record(This, wx_ref) ->
@@ -360,7 +360,7 @@ centerOnScreen(This)
 
 -doc(#{equiv => centreOnScreen(This, [])}).
 -spec centreOnScreen(This) -> 'ok' when
-	This::wxTopLevelWindow().
+        This::wxTopLevelWindow().
 
 centreOnScreen(This)
  when is_record(This, wx_ref) ->
@@ -404,7 +404,7 @@ provided it in `m:wxTopLevelWindow`.
 Note that windows with non default shape have a fixed size and can't be resized using `wxWindow:setSize/6`.
 """.
 -spec setShape(This, Region) -> boolean() when
-	This::wxTopLevelWindow(), Region::wxRegion:wxRegion() | wxGraphicsPath:wxGraphicsPath().
+        This::wxTopLevelWindow(), Region::wxRegion:wxRegion() | wxGraphicsPath:wxGraphicsPath().
 setShape(#wx_ref{type=ThisT}=This,#wx_ref{type=RegionT}=Region) ->
   ?CLASS(ThisT,wxTopLevelWindow),
   IswxRegion = ?CLASS_T(RegionT,wxRegion),
@@ -423,7 +423,7 @@ Sets the window title.
 See: `getTitle/1`
 """.
 -spec setTitle(This, Title) -> 'ok' when
-	This::wxTopLevelWindow(), Title::unicode:chardata().
+        This::wxTopLevelWindow(), Title::unicode:chardata().
 setTitle(#wx_ref{type=ThisT}=This,Title)
  when ?is_chardata(Title) ->
   ?CLASS(ThisT,wxTopLevelWindow),
@@ -432,7 +432,7 @@ setTitle(#wx_ref{type=ThisT}=This,Title)
 
 -doc(#{equiv => showFullScreen(This,Show, [])}).
 -spec showFullScreen(This, Show) -> boolean() when
-	This::wxTopLevelWindow(), Show::boolean().
+        This::wxTopLevelWindow(), Show::boolean().
 
 showFullScreen(This,Show)
  when is_record(This, wx_ref),is_boolean(Show) ->
@@ -613,9 +613,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

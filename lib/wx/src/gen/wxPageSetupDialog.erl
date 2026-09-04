@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxPageSetupDialog() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -119,7 +119,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
 
 -doc "Returns the `m:wxPageSetupDialogData` object associated with the dialog.".
 -spec getPageSetupData(This) -> wxPageSetupDialogData:wxPageSetupDialogData() when
-	This::wxPageSetupDialog().
+        This::wxPageSetupDialog().
 getPageSetupData(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPageSetupDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxPageSetupDialog_GetPageSetupData),
@@ -130,7 +130,7 @@ Shows the dialog, returning `wxID\_OK` if the user pressed OK, and `wxID\_CANCEL
 otherwise.
 """.
 -spec showModal(This) -> integer() when
-	This::wxPageSetupDialog().
+        This::wxPageSetupDialog().
 showModal(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPageSetupDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxPageSetupDialog_ShowModal),

@@ -27,6 +27,7 @@
 
 void setActiveGL(wxeMemEnv *memenv, ErlNifPid caller, wxGLCanvas *canvas, wxGLContext *context);
 void deleteActiveGL(wxGLCanvas *canvas);
+void deleteActiveGLContext(wxGLContext *context);
 void gl_dispatch(wxeCommand *);
 extern "C" {
     void wxe_initOpenGL(void * fptr, void *name_fptr);

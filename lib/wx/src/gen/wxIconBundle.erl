@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -85,9 +85,9 @@ new() ->
 
 -doc "Initializes the bundle with the icon(s) found in the file.".
 -spec new(Ic) -> wxIconBundle() when
-	Ic::wxIconBundle:wxIconBundle() | wxIcon:wxIcon();
+        Ic::wxIconBundle:wxIconBundle() | wxIcon:wxIcon();
       (File) -> wxIconBundle() when
-	File::unicode:chardata().
+        File::unicode:chardata().
 new(#wx_ref{type=IcT}=Ic) ->
   IswxIconBundle = ?CLASS_T(IcT,wxIconBundle),
   IswxIcon = ?CLASS_T(IcT,wxIcon),
@@ -107,7 +107,7 @@ new(File)
 -doc "".
 %%  Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIFF | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIFF_RESOURCE | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
 -spec new(File, Type) -> wxIconBundle() when
-	File::unicode:chardata(), Type::wx:wx_enum().
+        File::unicode:chardata(), Type::wx:wx_enum().
 new(File,Type)
  when ?is_chardata(File),is_integer(Type) ->
   File_UC = unicode:characters_to_binary(File),
@@ -119,9 +119,9 @@ Adds the icon to the collection; if the collection already contains an icon with
 width and height, it is replaced by the new one.
 """.
 -spec addIcon(This, File) -> 'ok' when
-	This::wxIconBundle(), File::unicode:chardata();
+        This::wxIconBundle(), File::unicode:chardata();
       (This, Icon) -> 'ok' when
-	This::wxIconBundle(), Icon::wxIcon:wxIcon().
+        This::wxIconBundle(), Icon::wxIcon:wxIcon().
 addIcon(#wx_ref{type=ThisT}=This,File)
  when ?is_chardata(File) ->
   ?CLASS(ThisT,wxIconBundle),
@@ -135,7 +135,7 @@ addIcon(#wx_ref{type=ThisT}=This,#wx_ref{type=IconT}=Icon) ->
 -doc "".
 %%  Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIFF | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIFF_RESOURCE | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
 -spec addIcon(This, File, Type) -> 'ok' when
-	This::wxIconBundle(), File::unicode:chardata(), Type::wx:wx_enum().
+        This::wxIconBundle(), File::unicode:chardata(), Type::wx:wx_enum().
 addIcon(#wx_ref{type=ThisT}=This,File,Type)
  when ?is_chardata(File),is_integer(Type) ->
   ?CLASS(ThisT,wxIconBundle),
@@ -144,7 +144,7 @@ addIcon(#wx_ref{type=ThisT}=This,File,Type)
 
 -doc(#{equiv => getIcon(This, [])}).
 -spec getIcon(This) -> wxIcon:wxIcon() when
-	This::wxIconBundle().
+        This::wxIconBundle().
 
 getIcon(This)
  when is_record(This, wx_ref) ->
@@ -156,7 +156,7 @@ Same as.
 .
 """.
 -spec getIcon(This, Size) -> wxIcon:wxIcon() when
-	This::wxIconBundle(), Size::{W::integer(), H::integer()};
+        This::wxIconBundle(), Size::{W::integer(), H::integer()};
       (This, [Option]) -> wxIcon:wxIcon() when
 	This::wxIconBundle(),
 	Option :: {'size', integer()}

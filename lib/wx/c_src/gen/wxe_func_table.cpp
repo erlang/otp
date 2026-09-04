@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 2008-2025. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -4277,7 +4277,7 @@ wxe_fns_t wxe_fns[] =
   {wxWindow_ReleaseMouse, "wxWindow", "releaseMouse", 1}, // 215
   {wxWindow_RemoveChild, "wxWindow", "removeChild", 2}, // 216
   {wxWindow_Reparent, "wxWindow", "reparent", 2}, // 217
-  {wxWindow_ScreenToClient_2, "wxWindow", "screenToClient", 1}, // 218
+  {wxWindow_ScreenToClient_2, "wxWindow", "screenToClient", 3}, // 218
   {wxWindow_ScreenToClient_1, "wxWindow", "screenToClient", 2}, // 219
   {wxWindow_ScrollLines, "wxWindow", "scrollLines", 2}, // 220
   {wxWindow_ScrollPages, "wxWindow", "scrollPages", 2}, // 221

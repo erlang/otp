@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ For `EVT\_LIST\_CACHE\_HINT` event only: return the first item which the list co
 advises us to cache.
 """.
 -spec getCacheFrom(This) -> integer() when
-	This::wxListEvent().
+        This::wxListEvent().
 getCacheFrom(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetCacheFrom),
@@ -111,7 +111,7 @@ For `EVT\_LIST\_CACHE\_HINT` event only: return the last item (inclusive) which 
 control advises us to cache.
 """.
 -spec getCacheTo(This) -> integer() when
-	This::wxListEvent().
+        This::wxListEvent().
 getCacheTo(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetCacheTo),
@@ -119,7 +119,7 @@ getCacheTo(#wx_ref{type=ThisT}=This) ->
 
 -doc "Key code if the event is a keypress event.".
 -spec getKeyCode(This) -> integer() when
-	This::wxListEvent().
+        This::wxListEvent().
 getKeyCode(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetKeyCode),
@@ -127,7 +127,7 @@ getKeyCode(#wx_ref{type=ThisT}=This) ->
 
 -doc "The item index.".
 -spec getIndex(This) -> integer() when
-	This::wxListEvent().
+        This::wxListEvent().
 getIndex(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetIndex),
@@ -141,7 +141,7 @@ dragged, for the column click events it may be -1 if the user clicked in the lis
 header outside any column.
 """.
 -spec getColumn(This) -> integer() when
-	This::wxListEvent().
+        This::wxListEvent().
 getColumn(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetColumn),
@@ -149,7 +149,7 @@ getColumn(#wx_ref{type=ThisT}=This) ->
 
 -doc "The position of the mouse pointer if the event is a drag event.".
 -spec getPoint(This) -> {X::integer(), Y::integer()} when
-	This::wxListEvent().
+        This::wxListEvent().
 getPoint(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetPoint),
@@ -157,7 +157,7 @@ getPoint(#wx_ref{type=ThisT}=This) ->
 
 -doc "The (new) item label for `EVT\_LIST\_END\_LABEL\_EDIT` event.".
 -spec getLabel(This) -> unicode:charlist() when
-	This::wxListEvent().
+        This::wxListEvent().
 getLabel(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetLabel),
@@ -165,7 +165,7 @@ getLabel(#wx_ref{type=ThisT}=This) ->
 
 -doc "The text.".
 -spec getText(This) -> unicode:charlist() when
-	This::wxListEvent().
+        This::wxListEvent().
 getText(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetText),
@@ -173,7 +173,7 @@ getText(#wx_ref{type=ThisT}=This) ->
 
 -doc "The image.".
 -spec getImage(This) -> integer() when
-	This::wxListEvent().
+        This::wxListEvent().
 getImage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetImage),
@@ -181,7 +181,7 @@ getImage(#wx_ref{type=ThisT}=This) ->
 
 -doc "The data.".
 -spec getData(This) -> integer() when
-	This::wxListEvent().
+        This::wxListEvent().
 getData(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetData),
@@ -189,7 +189,7 @@ getData(#wx_ref{type=ThisT}=This) ->
 
 -doc "The mask.".
 -spec getMask(This) -> integer() when
-	This::wxListEvent().
+        This::wxListEvent().
 getMask(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetMask),
@@ -201,7 +201,7 @@ An item object, used by some events.
 See also `wxListCtrl:setItem/5`.
 """.
 -spec getItem(This) -> wxListItem:wxListItem() when
-	This::wxListEvent().
+        This::wxListEvent().
 getItem(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetItem),
@@ -215,7 +215,7 @@ cancelling the edit and the admittedly rare case when the user wants to rename i
 empty string).
 """.
 -spec isEditCancelled(This) -> boolean() when
-	This::wxListEvent().
+        This::wxListEvent().
 isEditCancelled(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxListEvent_IsEditCancelled),

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -110,7 +110,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 -doc """
 Returns the position in screen coordinates at which the menu should be shown.
 
-Use `wxWindow:screenToClient/2` to convert to client coordinates.
+Use `wxWindow:screenToClient/3` to convert to client coordinates.
 
 You can also omit a position from `wxWindow:popupMenu/4` in order to use the current mouse pointer position.
 
@@ -118,7 +118,7 @@ If the event originated from a keyboard event, the value returned from this func
 be wxDefaultPosition.
 """.
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
-	This::wxContextMenuEvent().
+        This::wxContextMenuEvent().
 getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxContextMenuEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxContextMenuEvent_GetPosition),
@@ -126,7 +126,7 @@ getPosition(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the position at which the menu should be shown.".
 -spec setPosition(This, Point) -> 'ok' when
-	This::wxContextMenuEvent(), Point::{X::integer(), Y::integer()}.
+        This::wxContextMenuEvent(), Point::{X::integer(), Y::integer()}.
 setPosition(#wx_ref{type=ThisT}=This,{PointX,PointY} = Point)
  when is_integer(PointX),is_integer(PointY) ->
   ?CLASS(ThisT,wxContextMenuEvent),

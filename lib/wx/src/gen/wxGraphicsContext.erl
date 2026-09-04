@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -114,7 +114,7 @@ Creates a `m:wxGraphicsContext` from a `m:wxWindowDC`.
 See: `wxGraphicsRenderer:createContext/2`
 """.
 -spec create(WindowDC) -> wxGraphicsContext() when
-	WindowDC::wxWindowDC:wxWindowDC() | wxWindow:wxWindow() | wxMemoryDC:wxMemoryDC() | wxImage:wxImage().
+        WindowDC::wxWindowDC:wxWindowDC() | wxWindow:wxWindow() | wxMemoryDC:wxMemoryDC() | wxImage:wxImage().
 create(#wx_ref{type=WindowDCT}=WindowDC) ->
   IswxWindowDC = ?CLASS_T(WindowDCT,wxWindowDC),
   IswxWindow = ?CLASS_T(WindowDCT,wxWindow),
@@ -137,7 +137,7 @@ Prefer to use the overload taking `wxGraphicsPenInfo` (not implemented in wx) un
 already have a `m:wxPen` as constructing one only to pass it to this method is wasteful.
 """.
 -spec createPen(This, Pen) -> wxGraphicsPen:wxGraphicsPen() when
-	This::wxGraphicsContext(), Pen::wxPen:wxPen().
+        This::wxGraphicsContext(), Pen::wxPen:wxPen().
 createPen(#wx_ref{type=ThisT}=This,#wx_ref{type=PenT}=Pen) ->
   ?CLASS(ThisT,wxGraphicsContext),
   ?CLASS(PenT,wxPen),
@@ -146,7 +146,7 @@ createPen(#wx_ref{type=ThisT}=This,#wx_ref{type=PenT}=Pen) ->
 
 -doc "Creates a native brush from a `m:wxBrush`.".
 -spec createBrush(This, Brush) -> wxGraphicsBrush:wxGraphicsBrush() when
-	This::wxGraphicsContext(), Brush::wxBrush:wxBrush().
+        This::wxGraphicsContext(), Brush::wxBrush:wxBrush().
 createBrush(#wx_ref{type=ThisT}=This,#wx_ref{type=BrushT}=Brush) ->
   ?CLASS(ThisT,wxGraphicsContext),
   ?CLASS(BrushT,wxBrush),
@@ -158,7 +158,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec createRadialGradientBrush(This, StartX, StartY, EndX, EndY, Radius, Stops) -> wxGraphicsBrush:wxGraphicsBrush() when
-	This::wxGraphicsContext(), StartX::number(), StartY::number(), EndX::number(), EndY::number(), Radius::number(), Stops::wxGraphicsGradientStops:wxGraphicsGradientStops().
+        This::wxGraphicsContext(), StartX::number(), StartY::number(), EndX::number(), EndY::number(), Radius::number(), Stops::wxGraphicsGradientStops:wxGraphicsGradientStops().
 createRadialGradientBrush(#wx_ref{type=ThisT}=This,StartX,StartY,EndX,EndY,Radius,#wx_ref{type=StopsT}=Stops)
  when is_number(StartX),is_number(StartY),is_number(EndX),is_number(EndY),is_number(Radius) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -175,7 +175,7 @@ wxWidgets 2.9.1. `
 The ability to apply a transformation matrix to the gradient was added in 3.1.3
 """.
 -spec createRadialGradientBrush(This, StartX, StartY, EndX, EndY, Radius, OColor, CColor) -> wxGraphicsBrush:wxGraphicsBrush() when
-	This::wxGraphicsContext(), StartX::number(), StartY::number(), EndX::number(), EndY::number(), Radius::number(), OColor::wx:wx_colour(), CColor::wx:wx_colour().
+        This::wxGraphicsContext(), StartX::number(), StartY::number(), EndX::number(), EndY::number(), Radius::number(), OColor::wx:wx_colour(), CColor::wx:wx_colour().
 createRadialGradientBrush(#wx_ref{type=ThisT}=This,StartX,StartY,EndX,EndY,Radius,OColor,CColor)
  when is_number(StartX),is_number(StartY),is_number(EndX),is_number(EndY),is_number(Radius),?is_colordata(OColor),?is_colordata(CColor) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -187,7 +187,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec createLinearGradientBrush(This, X1, Y1, X2, Y2, Stops) -> wxGraphicsBrush:wxGraphicsBrush() when
-	This::wxGraphicsContext(), X1::number(), Y1::number(), X2::number(), Y2::number(), Stops::wxGraphicsGradientStops:wxGraphicsGradientStops().
+        This::wxGraphicsContext(), X1::number(), Y1::number(), X2::number(), Y2::number(), Stops::wxGraphicsGradientStops:wxGraphicsGradientStops().
 createLinearGradientBrush(#wx_ref{type=ThisT}=This,X1,Y1,X2,Y2,#wx_ref{type=StopsT}=Stops)
  when is_number(X1),is_number(Y1),is_number(X2),is_number(Y2) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -203,7 +203,7 @@ wxGraphicsGradientStops is new in wxWidgets 2.9.1. `
 The `matrix` parameter was added in wxWidgets 3.1.3
 """.
 -spec createLinearGradientBrush(This, X1, Y1, X2, Y2, C1, C2) -> wxGraphicsBrush:wxGraphicsBrush() when
-	This::wxGraphicsContext(), X1::number(), Y1::number(), X2::number(), Y2::number(), C1::wx:wx_colour(), C2::wx:wx_colour().
+        This::wxGraphicsContext(), X1::number(), Y1::number(), X2::number(), Y2::number(), C1::wx:wx_colour(), C2::wx:wx_colour().
 createLinearGradientBrush(#wx_ref{type=ThisT}=This,X1,Y1,X2,Y2,C1,C2)
  when is_number(X1),is_number(Y1),is_number(X2),is_number(Y2),?is_colordata(C1),?is_colordata(C2) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -212,7 +212,7 @@ createLinearGradientBrush(#wx_ref{type=ThisT}=This,X1,Y1,X2,Y2,C1,C2)
 
 -doc(#{equiv => createFont(This,Font, [])}).
 -spec createFont(This, Font) -> wxGraphicsFont:wxGraphicsFont() when
-	This::wxGraphicsContext(), Font::wxFont:wxFont().
+        This::wxGraphicsContext(), Font::wxFont:wxFont().
 
 createFont(This,Font)
  when is_record(This, wx_ref),is_record(Font, wx_ref) ->
@@ -224,7 +224,7 @@ Creates a native graphics font from a `m:wxFont` and a text colour.
 Remark: For Direct2D graphics fonts can be created from TrueType fonts only.
 """.
 -spec createFont(This, SizeInPixels, Facename) -> wxGraphicsFont:wxGraphicsFont() when
-	This::wxGraphicsContext(), SizeInPixels::number(), Facename::unicode:chardata();
+        This::wxGraphicsContext(), SizeInPixels::number(), Facename::unicode:chardata();
       (This, Font, [Option]) -> wxGraphicsFont:wxGraphicsFont() when
 	This::wxGraphicsContext(), Font::wxFont:wxFont(),
 	Option :: {'col', wx:wx_colour()}.
@@ -268,7 +268,7 @@ createFont(#wx_ref{type=ThisT}=This,SizeInPixels,Facename, Options)
 
 -doc(#{equiv => createMatrix(This, [])}).
 -spec createMatrix(This) -> wxGraphicsMatrix:wxGraphicsMatrix() when
-	This::wxGraphicsContext().
+        This::wxGraphicsContext().
 
 createMatrix(This)
  when is_record(This, wx_ref) ->
@@ -303,7 +303,7 @@ createMatrix(#wx_ref{type=ThisT}=This, Options)
 
 -doc "Creates a native graphics path which is initially empty.".
 -spec createPath(This) -> wxGraphicsPath:wxGraphicsPath() when
-	This::wxGraphicsContext().
+        This::wxGraphicsContext().
 createPath(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGraphicsContext),
   wxe_util:queue_cmd(This,?get_env(),?wxGraphicsContext_CreatePath),
@@ -327,7 +327,7 @@ Remark:
 (all changes made by drawing operations are masked out).
 """.
 -spec clip(This, Region) -> 'ok' when
-	This::wxGraphicsContext(), Region::wxRegion:wxRegion().
+        This::wxGraphicsContext(), Region::wxRegion:wxRegion().
 clip(#wx_ref{type=ThisT}=This,#wx_ref{type=RegionT}=Region) ->
   ?CLASS(ThisT,wxGraphicsContext),
   ?CLASS(RegionT,wxRegion),
@@ -338,7 +338,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec clip(This, X, Y, W, H) -> 'ok' when
-	This::wxGraphicsContext(), X::number(), Y::number(), W::number(), H::number().
+        This::wxGraphicsContext(), X::number(), Y::number(), W::number(), H::number().
 clip(#wx_ref{type=ThisT}=This,X,Y,W,H)
  when is_number(X),is_number(Y),is_number(W),is_number(H) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -346,7 +346,7 @@ clip(#wx_ref{type=ThisT}=This,X,Y,W,H)
 
 -doc "Resets the clipping to original shape.".
 -spec resetClip(This) -> 'ok' when
-	This::wxGraphicsContext().
+        This::wxGraphicsContext().
 resetClip(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGraphicsContext),
   wxe_util:queue_cmd(This,?get_env(),?wxGraphicsContext_ResetClip).
@@ -358,7 +358,7 @@ In case of a mono bitmap, this is treated as a mask and the current brushed is u
 filling.
 """.
 -spec drawBitmap(This, Bmp, X, Y, W, H) -> 'ok' when
-	This::wxGraphicsContext(), Bmp::wxBitmap:wxBitmap(), X::number(), Y::number(), W::number(), H::number().
+        This::wxGraphicsContext(), Bmp::wxBitmap:wxBitmap(), X::number(), Y::number(), W::number(), H::number().
 drawBitmap(#wx_ref{type=ThisT}=This,#wx_ref{type=BmpT}=Bmp,X,Y,W,H)
  when is_number(X),is_number(Y),is_number(W),is_number(H) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -367,7 +367,7 @@ drawBitmap(#wx_ref{type=ThisT}=This,#wx_ref{type=BmpT}=Bmp,X,Y,W,H)
 
 -doc "Draws an ellipse.".
 -spec drawEllipse(This, X, Y, W, H) -> 'ok' when
-	This::wxGraphicsContext(), X::number(), Y::number(), W::number(), H::number().
+        This::wxGraphicsContext(), X::number(), Y::number(), W::number(), H::number().
 drawEllipse(#wx_ref{type=ThisT}=This,X,Y,W,H)
  when is_number(X),is_number(Y),is_number(W),is_number(H) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -375,7 +375,7 @@ drawEllipse(#wx_ref{type=ThisT}=This,X,Y,W,H)
 
 -doc "Draws the icon.".
 -spec drawIcon(This, Icon, X, Y, W, H) -> 'ok' when
-	This::wxGraphicsContext(), Icon::wxIcon:wxIcon(), X::number(), Y::number(), W::number(), H::number().
+        This::wxGraphicsContext(), Icon::wxIcon:wxIcon(), X::number(), Y::number(), W::number(), H::number().
 drawIcon(#wx_ref{type=ThisT}=This,#wx_ref{type=IconT}=Icon,X,Y,W,H)
  when is_number(X),is_number(Y),is_number(W),is_number(H) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -384,7 +384,7 @@ drawIcon(#wx_ref{type=ThisT}=This,#wx_ref{type=IconT}=Icon,X,Y,W,H)
 
 -doc(#{equiv => drawLines(This,Points, [])}).
 -spec drawLines(This, Points) -> 'ok' when
-	This::wxGraphicsContext(), Points::[{X::float(), Y::float()}].
+        This::wxGraphicsContext(), Points::[{X::float(), Y::float()}].
 
 drawLines(This,Points)
  when is_record(This, wx_ref),is_list(Points) ->
@@ -405,7 +405,7 @@ drawLines(#wx_ref{type=ThisT}=This,Points, Options)
 
 -doc(#{equiv => drawPath(This,Path, [])}).
 -spec drawPath(This, Path) -> 'ok' when
-	This::wxGraphicsContext(), Path::wxGraphicsPath:wxGraphicsPath().
+        This::wxGraphicsContext(), Path::wxGraphicsPath:wxGraphicsPath().
 
 drawPath(This,Path)
  when is_record(This, wx_ref),is_record(Path, wx_ref) ->
@@ -427,7 +427,7 @@ drawPath(#wx_ref{type=ThisT}=This,#wx_ref{type=PathT}=Path, Options)
 
 -doc "Draws a rectangle.".
 -spec drawRectangle(This, X, Y, W, H) -> 'ok' when
-	This::wxGraphicsContext(), X::number(), Y::number(), W::number(), H::number().
+        This::wxGraphicsContext(), X::number(), Y::number(), W::number(), H::number().
 drawRectangle(#wx_ref{type=ThisT}=This,X,Y,W,H)
  when is_number(X),is_number(Y),is_number(W),is_number(H) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -435,7 +435,7 @@ drawRectangle(#wx_ref{type=ThisT}=This,X,Y,W,H)
 
 -doc "Draws a rounded rectangle.".
 -spec drawRoundedRectangle(This, X, Y, W, H, Radius) -> 'ok' when
-	This::wxGraphicsContext(), X::number(), Y::number(), W::number(), H::number(), Radius::number().
+        This::wxGraphicsContext(), X::number(), Y::number(), W::number(), H::number(), Radius::number().
 drawRoundedRectangle(#wx_ref{type=ThisT}=This,X,Y,W,H,Radius)
  when is_number(X),is_number(Y),is_number(W),is_number(H),is_number(Radius) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -443,7 +443,7 @@ drawRoundedRectangle(#wx_ref{type=ThisT}=This,X,Y,W,H,Radius)
 
 -doc "Draws text at the defined position.".
 -spec drawText(This, Str, X, Y) -> 'ok' when
-	This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number().
+        This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number().
 drawText(#wx_ref{type=ThisT}=This,Str,X,Y)
  when ?is_chardata(Str),is_number(X),is_number(Y) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -452,9 +452,9 @@ drawText(#wx_ref{type=ThisT}=This,Str,X,Y)
 
 -doc "Draws text at the defined position.".
 -spec drawText(This, Str, X, Y, Angle) -> 'ok' when
-	This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number(), Angle::number();
+        This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number(), Angle::number();
       (This, Str, X, Y, BackgroundBrush) -> 'ok' when
-	This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number(), BackgroundBrush::wxGraphicsBrush:wxGraphicsBrush().
+        This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number(), BackgroundBrush::wxGraphicsBrush:wxGraphicsBrush().
 drawText(#wx_ref{type=ThisT}=This,Str,X,Y,Angle)
  when ?is_chardata(Str),is_number(X),is_number(Y),is_number(Angle) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -469,7 +469,7 @@ drawText(#wx_ref{type=ThisT}=This,Str,X,Y,#wx_ref{type=BackgroundBrushT}=Backgro
 
 -doc "Draws text at the defined position.".
 -spec drawText(This, Str, X, Y, Angle, BackgroundBrush) -> 'ok' when
-	This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number(), Angle::number(), BackgroundBrush::wxGraphicsBrush:wxGraphicsBrush().
+        This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number(), Angle::number(), BackgroundBrush::wxGraphicsBrush:wxGraphicsBrush().
 drawText(#wx_ref{type=ThisT}=This,Str,X,Y,Angle,#wx_ref{type=BackgroundBrushT}=BackgroundBrush)
  when ?is_chardata(Str),is_number(X),is_number(Y),is_number(Angle) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -479,7 +479,7 @@ drawText(#wx_ref{type=ThisT}=This,Str,X,Y,Angle,#wx_ref{type=BackgroundBrushT}=B
 
 -doc(#{equiv => fillPath(This,Path, [])}).
 -spec fillPath(This, Path) -> 'ok' when
-	This::wxGraphicsContext(), Path::wxGraphicsPath:wxGraphicsPath().
+        This::wxGraphicsContext(), Path::wxGraphicsPath:wxGraphicsPath().
 
 fillPath(This,Path)
  when is_record(This, wx_ref),is_record(Path, wx_ref) ->
@@ -501,7 +501,7 @@ fillPath(#wx_ref{type=ThisT}=This,#wx_ref{type=PathT}=Path, Options)
 
 -doc "Strokes along a path with the current pen.".
 -spec strokePath(This, Path) -> 'ok' when
-	This::wxGraphicsContext(), Path::wxGraphicsPath:wxGraphicsPath().
+        This::wxGraphicsContext(), Path::wxGraphicsPath:wxGraphicsPath().
 strokePath(#wx_ref{type=ThisT}=This,#wx_ref{type=PathT}=Path) ->
   ?CLASS(ThisT,wxGraphicsContext),
   ?CLASS(PathT,wxGraphicsPath),
@@ -512,7 +512,7 @@ Fills the `widths` array with the widths from the beginning of `text` to the
 corresponding character of `text`.
 """.
 -spec getPartialTextExtents(This, Text) -> [number()] when
-	This::wxGraphicsContext(), Text::unicode:chardata().
+        This::wxGraphicsContext(), Text::unicode:chardata().
 getPartialTextExtents(#wx_ref{type=ThisT}=This,Text)
  when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -533,7 +533,7 @@ getTextExtent(#wx_ref{type=ThisT}=This,Text)
 
 -doc "Rotates the current transformation matrix (in radians).".
 -spec rotate(This, Angle) -> 'ok' when
-	This::wxGraphicsContext(), Angle::number().
+        This::wxGraphicsContext(), Angle::number().
 rotate(#wx_ref{type=ThisT}=This,Angle)
  when is_number(Angle) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -541,7 +541,7 @@ rotate(#wx_ref{type=ThisT}=This,Angle)
 
 -doc "Scales the current transformation matrix.".
 -spec scale(This, XScale, YScale) -> 'ok' when
-	This::wxGraphicsContext(), XScale::number(), YScale::number().
+        This::wxGraphicsContext(), XScale::number(), YScale::number().
 scale(#wx_ref{type=ThisT}=This,XScale,YScale)
  when is_number(XScale),is_number(YScale) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -549,7 +549,7 @@ scale(#wx_ref{type=ThisT}=This,XScale,YScale)
 
 -doc "Translates the current transformation matrix.".
 -spec translate(This, Dx, Dy) -> 'ok' when
-	This::wxGraphicsContext(), Dx::number(), Dy::number().
+        This::wxGraphicsContext(), Dx::number(), Dy::number().
 translate(#wx_ref{type=ThisT}=This,Dx,Dy)
  when is_number(Dx),is_number(Dy) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -557,7 +557,7 @@ translate(#wx_ref{type=ThisT}=This,Dx,Dy)
 
 -doc "Gets the current transformation matrix of this context.".
 -spec getTransform(This) -> wxGraphicsMatrix:wxGraphicsMatrix() when
-	This::wxGraphicsContext().
+        This::wxGraphicsContext().
 getTransform(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGraphicsContext),
   wxe_util:queue_cmd(This,?get_env(),?wxGraphicsContext_GetTransform),
@@ -565,7 +565,7 @@ getTransform(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the current transformation matrix of this context.".
 -spec setTransform(This, Matrix) -> 'ok' when
-	This::wxGraphicsContext(), Matrix::wxGraphicsMatrix:wxGraphicsMatrix().
+        This::wxGraphicsContext(), Matrix::wxGraphicsMatrix:wxGraphicsMatrix().
 setTransform(#wx_ref{type=ThisT}=This,#wx_ref{type=MatrixT}=Matrix) ->
   ?CLASS(ThisT,wxGraphicsContext),
   ?CLASS(MatrixT,wxGraphicsMatrix),
@@ -573,7 +573,7 @@ setTransform(#wx_ref{type=ThisT}=This,#wx_ref{type=MatrixT}=Matrix) ->
 
 -doc "Concatenates the passed in transform with the current transform of this context.".
 -spec concatTransform(This, Matrix) -> 'ok' when
-	This::wxGraphicsContext(), Matrix::wxGraphicsMatrix:wxGraphicsMatrix().
+        This::wxGraphicsContext(), Matrix::wxGraphicsMatrix:wxGraphicsMatrix().
 concatTransform(#wx_ref{type=ThisT}=This,#wx_ref{type=MatrixT}=Matrix) ->
   ?CLASS(ThisT,wxGraphicsContext),
   ?CLASS(MatrixT,wxGraphicsMatrix),
@@ -581,7 +581,7 @@ concatTransform(#wx_ref{type=ThisT}=This,#wx_ref{type=MatrixT}=Matrix) ->
 
 -doc "Sets the brush for filling paths.".
 -spec setBrush(This, Brush) -> 'ok' when
-	This::wxGraphicsContext(), Brush::wxGraphicsBrush:wxGraphicsBrush() | wxBrush:wxBrush().
+        This::wxGraphicsContext(), Brush::wxGraphicsBrush:wxGraphicsBrush() | wxBrush:wxBrush().
 setBrush(#wx_ref{type=ThisT}=This,#wx_ref{type=BrushT}=Brush) ->
   ?CLASS(ThisT,wxGraphicsContext),
   IswxGraphicsBrush = ?CLASS_T(BrushT,wxGraphicsBrush),
@@ -595,7 +595,7 @@ setBrush(#wx_ref{type=ThisT}=This,#wx_ref{type=BrushT}=Brush) ->
 
 -doc "Sets the font for drawing text.".
 -spec setFont(This, Font) -> 'ok' when
-	This::wxGraphicsContext(), Font::wxGraphicsFont:wxGraphicsFont().
+        This::wxGraphicsContext(), Font::wxGraphicsFont:wxGraphicsFont().
 setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   ?CLASS(ThisT,wxGraphicsContext),
   ?CLASS(FontT,wxGraphicsFont),
@@ -607,7 +607,7 @@ Sets the font for drawing text.
 Remark: For Direct2D only TrueType fonts can be used.
 """.
 -spec setFont(This, Font, Colour) -> 'ok' when
-	This::wxGraphicsContext(), Font::wxFont:wxFont(), Colour::wx:wx_colour().
+        This::wxGraphicsContext(), Font::wxFont:wxFont(), Colour::wx:wx_colour().
 setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font,Colour)
  when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -616,7 +616,7 @@ setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font,Colour)
 
 -doc "Sets the pen used for stroking.".
 -spec setPen(This, Pen) -> 'ok' when
-	This::wxGraphicsContext(), Pen::wxPen:wxPen() | wxGraphicsPen:wxGraphicsPen().
+        This::wxGraphicsContext(), Pen::wxPen:wxPen() | wxGraphicsPen:wxGraphicsPen().
 setPen(#wx_ref{type=ThisT}=This,#wx_ref{type=PenT}=Pen) ->
   ?CLASS(ThisT,wxGraphicsContext),
   IswxPen = ?CLASS_T(PenT,wxPen),
@@ -630,7 +630,7 @@ setPen(#wx_ref{type=ThisT}=This,#wx_ref{type=PenT}=Pen) ->
 
 -doc "Strokes a single line.".
 -spec strokeLine(This, X1, Y1, X2, Y2) -> 'ok' when
-	This::wxGraphicsContext(), X1::number(), Y1::number(), X2::number(), Y2::number().
+        This::wxGraphicsContext(), X1::number(), Y1::number(), X2::number(), Y2::number().
 strokeLine(#wx_ref{type=ThisT}=This,X1,Y1,X2,Y2)
  when is_number(X1),is_number(Y1),is_number(X2),is_number(Y2) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -643,7 +643,7 @@ Unlike the other overload of this function, this method draws a single polyline 
 number of disconnected lines.
 """.
 -spec strokeLines(This, Points) -> 'ok' when
-	This::wxGraphicsContext(), Points::[{X::float(), Y::float()}].
+        This::wxGraphicsContext(), Points::[{X::float(), Y::float()}].
 strokeLines(#wx_ref{type=ThisT}=This,Points)
  when is_list(Points) ->
   ?CLASS(ThisT,wxGraphicsContext),

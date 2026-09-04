@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -182,7 +182,7 @@ Event types emitted from this class:
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,screenToClient/3,
   scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -208,7 +208,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => addControl(This,Control, [])}).
 -spec addControl(This, Control) -> wx:wx_object() when
-	This::wxToolBar(), Control::wxControl:wxControl().
+        This::wxToolBar(), Control::wxControl:wxControl().
 
 addControl(This,Control)
  when is_record(This, wx_ref),is_record(Control, wx_ref) ->
@@ -247,7 +247,7 @@ See:
 * `addStretchableSpace/1`
 """.
 -spec addSeparator(This) -> wx:wx_object() when
-	This::wxToolBar().
+        This::wxToolBar().
 addSeparator(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxToolBar),
   wxe_util:queue_cmd(This,?get_env(),?wxToolBar_AddSeparator),
@@ -273,7 +273,7 @@ See:
 * `realize/1`
 """.
 -spec addTool(This, Tool) -> wx:wx_object() when
-	This::wxToolBar(), Tool::wx:wx_object().
+        This::wxToolBar(), Tool::wx:wx_object().
 addTool(#wx_ref{type=ThisT}=This,#wx_ref{type=ToolT}=Tool) ->
   ?CLASS(ThisT,wxToolBar),
   ?CLASS(ToolT,wx),
@@ -282,7 +282,7 @@ addTool(#wx_ref{type=ThisT}=This,#wx_ref{type=ToolT}=Tool) ->
 
 -doc(#{equiv => addTool(This,ToolId,Label,Bitmap, [])}).
 -spec addTool(This, ToolId, Label, Bitmap) -> wx:wx_object() when
-	This::wxToolBar(), ToolId::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap().
+        This::wxToolBar(), ToolId::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap().
 
 addTool(This,ToolId,Label,Bitmap)
  when is_record(This, wx_ref),is_integer(ToolId),?is_chardata(Label),is_record(Bitmap, wx_ref) ->
@@ -312,7 +312,7 @@ See:
 """.
 %%  Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_DROPDOWN | ?wxITEM_MAX
 -spec addTool(This, ToolId, Label, Bitmap, BmpDisabled) -> wx:wx_object() when
-	This::wxToolBar(), ToolId::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap(), BmpDisabled::wxBitmap:wxBitmap();
+        This::wxToolBar(), ToolId::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap(), BmpDisabled::wxBitmap:wxBitmap();
       (This, ToolId, Label, Bitmap, [Option]) -> wx:wx_object() when
 	This::wxToolBar(), ToolId::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap(),
 	Option :: {'shortHelp', unicode:chardata()}
@@ -376,7 +376,7 @@ addTool(#wx_ref{type=ThisT}=This,ToolId,Label,#wx_ref{type=BitmapT}=Bitmap,#wx_r
 
 -doc(#{equiv => addCheckTool(This,ToolId,Label,Bitmap1, [])}).
 -spec addCheckTool(This, ToolId, Label, Bitmap1) -> wx:wx_object() when
-	This::wxToolBar(), ToolId::integer(), Label::unicode:chardata(), Bitmap1::wxBitmap:wxBitmap().
+        This::wxToolBar(), ToolId::integer(), Label::unicode:chardata(), Bitmap1::wxBitmap:wxBitmap().
 
 addCheckTool(This,ToolId,Label,Bitmap1)
  when is_record(This, wx_ref),is_integer(ToolId),?is_chardata(Label),is_record(Bitmap1, wx_ref) ->
@@ -411,7 +411,7 @@ addCheckTool(#wx_ref{type=ThisT}=This,ToolId,Label,#wx_ref{type=Bitmap1T}=Bitmap
 
 -doc(#{equiv => addRadioTool(This,ToolId,Label,Bitmap1, [])}).
 -spec addRadioTool(This, ToolId, Label, Bitmap1) -> wx:wx_object() when
-	This::wxToolBar(), ToolId::integer(), Label::unicode:chardata(), Bitmap1::wxBitmap:wxBitmap().
+        This::wxToolBar(), ToolId::integer(), Label::unicode:chardata(), Bitmap1::wxBitmap:wxBitmap().
 
 addRadioTool(This,ToolId,Label,Bitmap1)
  when is_record(This, wx_ref),is_integer(ToolId),?is_chardata(Label),is_record(Bitmap1, wx_ref) ->
@@ -469,7 +469,7 @@ See:
 Since: 2.9.1
 """.
 -spec addStretchableSpace(This) -> wx:wx_object() when
-	This::wxToolBar().
+        This::wxToolBar().
 addStretchableSpace(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxToolBar),
   wxe_util:queue_cmd(This,?get_env(),?wxToolBar_AddStretchableSpace),
@@ -488,7 +488,7 @@ See:
 Since: 2.9.1
 """.
 -spec insertStretchableSpace(This, Pos) -> wx:wx_object() when
-	This::wxToolBar(), Pos::integer().
+        This::wxToolBar(), Pos::integer().
 insertStretchableSpace(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxToolBar),
@@ -508,7 +508,7 @@ Return: true if the tool was deleted, false otherwise.
 See: `deleteToolByPos/2`
 """.
 -spec deleteTool(This, ToolId) -> boolean() when
-	This::wxToolBar(), ToolId::integer().
+        This::wxToolBar(), ToolId::integer().
 deleteTool(#wx_ref{type=ThisT}=This,ToolId)
  when is_integer(ToolId) ->
   ?CLASS(ThisT,wxToolBar),
@@ -520,7 +520,7 @@ This function behaves like `deleteTool/2` but it deletes the tool at the specifi
 position and not the one with the given id.
 """.
 -spec deleteToolByPos(This, Pos) -> boolean() when
-	This::wxToolBar(), Pos::integer().
+        This::wxToolBar(), Pos::integer().
 deleteToolByPos(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxToolBar),
@@ -539,7 +539,7 @@ See:
 * `toggleTool/3`
 """.
 -spec enableTool(This, ToolId, Enable) -> 'ok' when
-	This::wxToolBar(), ToolId::integer(), Enable::boolean().
+        This::wxToolBar(), ToolId::integer(), Enable::boolean().
 enableTool(#wx_ref{type=ThisT}=This,ToolId,Enable)
  when is_integer(ToolId),is_boolean(Enable) ->
   ?CLASS(ThisT,wxToolBar),
@@ -550,7 +550,7 @@ Returns a pointer to the tool identified by `id` or NULL if no corresponding too
 found.
 """.
 -spec findById(This, Id) -> wx:wx_object() when
-	This::wxToolBar(), Id::integer().
+        This::wxToolBar(), Id::integer().
 findById(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxToolBar),
@@ -562,7 +562,7 @@ Returns a pointer to the control identified by `id` or NULL if no corresponding 
 is found.
 """.
 -spec findControl(This, Id) -> wxControl:wxControl() when
-	This::wxToolBar(), Id::integer().
+        This::wxToolBar(), Id::integer().
 findControl(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxToolBar),
@@ -577,7 +577,7 @@ Return: A pointer to a tool if a tool is found, or NULL otherwise.
 Remark: Currently not implemented in wxGTK (always returns NULL there).
 """.
 -spec findToolForPosition(This, X, Y) -> wx:wx_object() when
-	This::wxToolBar(), X::integer(), Y::integer().
+        This::wxToolBar(), X::integer(), Y::integer().
 findToolForPosition(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxToolBar),
@@ -594,7 +594,7 @@ See:
 * `getToolBitmapSize/1`
 """.
 -spec getToolSize(This) -> {W::integer(), H::integer()} when
-	This::wxToolBar().
+        This::wxToolBar().
 getToolSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxToolBar),
   wxe_util:queue_cmd(This,?get_env(),?wxToolBar_GetToolSize),
@@ -618,7 +618,7 @@ See:
 * `getToolSize/1`
 """.
 -spec getToolBitmapSize(This) -> {W::integer(), H::integer()} when
-	This::wxToolBar().
+        This::wxToolBar().
 getToolBitmapSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxToolBar),
   wxe_util:queue_cmd(This,?get_env(),?wxToolBar_GetToolBitmapSize),
@@ -630,7 +630,7 @@ Returns the left/right and top/bottom margins, which are also used for inter-too
 See: `setMargins/3`
 """.
 -spec getMargins(This) -> {W::integer(), H::integer()} when
-	This::wxToolBar().
+        This::wxToolBar().
 getMargins(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxToolBar),
   wxe_util:queue_cmd(This,?get_env(),?wxToolBar_GetMargins),
@@ -644,7 +644,7 @@ Return: true if the tool is enabled, false otherwise.
 See: `enableTool/3`
 """.
 -spec getToolEnabled(This, ToolId) -> boolean() when
-	This::wxToolBar(), ToolId::integer().
+        This::wxToolBar(), ToolId::integer().
 getToolEnabled(#wx_ref{type=ThisT}=This,ToolId)
  when is_integer(ToolId) ->
   ?CLASS(ThisT,wxToolBar),
@@ -660,7 +660,7 @@ See:
 * `setToolShortHelp/3`
 """.
 -spec getToolLongHelp(This, ToolId) -> unicode:charlist() when
-	This::wxToolBar(), ToolId::integer().
+        This::wxToolBar(), ToolId::integer().
 getToolLongHelp(#wx_ref{type=ThisT}=This,ToolId)
  when is_integer(ToolId) ->
   ?CLASS(ThisT,wxToolBar),
@@ -673,7 +673,7 @@ Returns the value used for packing tools.
 See: `setToolPacking/2`
 """.
 -spec getToolPacking(This) -> integer() when
-	This::wxToolBar().
+        This::wxToolBar().
 getToolPacking(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxToolBar),
   wxe_util:queue_cmd(This,?get_env(),?wxToolBar_GetToolPacking),
@@ -681,7 +681,7 @@ getToolPacking(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the tool position in the toolbar, or `wxNOT\_FOUND` if the tool is not found.".
 -spec getToolPos(This, ToolId) -> integer() when
-	This::wxToolBar(), ToolId::integer().
+        This::wxToolBar(), ToolId::integer().
 getToolPos(#wx_ref{type=ThisT}=This,ToolId)
  when is_integer(ToolId) ->
   ?CLASS(ThisT,wxToolBar),
@@ -694,7 +694,7 @@ Returns the default separator size.
 See: `setToolSeparation/2`
 """.
 -spec getToolSeparation(This) -> integer() when
-	This::wxToolBar().
+        This::wxToolBar().
 getToolSeparation(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxToolBar),
   wxe_util:queue_cmd(This,?get_env(),?wxToolBar_GetToolSeparation),
@@ -709,7 +709,7 @@ See:
 * `setToolShortHelp/3`
 """.
 -spec getToolShortHelp(This, ToolId) -> unicode:charlist() when
-	This::wxToolBar(), ToolId::integer().
+        This::wxToolBar(), ToolId::integer().
 getToolShortHelp(#wx_ref{type=ThisT}=This,ToolId)
  when is_integer(ToolId) ->
   ?CLASS(ThisT,wxToolBar),
@@ -724,7 +724,7 @@ Return: true if the tool is toggled on, false otherwise.
 See: `toggleTool/3`
 """.
 -spec getToolState(This, ToolId) -> boolean() when
-	This::wxToolBar(), ToolId::integer().
+        This::wxToolBar(), ToolId::integer().
 getToolState(#wx_ref{type=ThisT}=This,ToolId)
  when is_integer(ToolId) ->
   ?CLASS(ThisT,wxToolBar),
@@ -733,7 +733,7 @@ getToolState(#wx_ref{type=ThisT}=This,ToolId)
 
 -doc(#{equiv => insertControl(This,Pos,Control, [])}).
 -spec insertControl(This, Pos, Control) -> wx:wx_object() when
-	This::wxToolBar(), Pos::integer(), Control::wxControl:wxControl().
+        This::wxToolBar(), Pos::integer(), Control::wxControl:wxControl().
 
 insertControl(This,Pos,Control)
  when is_record(This, wx_ref),is_integer(Pos),is_record(Control, wx_ref) ->
@@ -773,7 +773,7 @@ See:
 * `insertTool/6`
 """.
 -spec insertSeparator(This, Pos) -> wx:wx_object() when
-	This::wxToolBar(), Pos::integer().
+        This::wxToolBar(), Pos::integer().
 insertSeparator(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxToolBar),
@@ -782,7 +782,7 @@ insertSeparator(#wx_ref{type=ThisT}=This,Pos)
 
 -doc "".
 -spec insertTool(This, Pos, Tool) -> wx:wx_object() when
-	This::wxToolBar(), Pos::integer(), Tool::wx:wx_object().
+        This::wxToolBar(), Pos::integer(), Tool::wx:wx_object().
 insertTool(#wx_ref{type=ThisT}=This,Pos,#wx_ref{type=ToolT}=Tool)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxToolBar),
@@ -792,7 +792,7 @@ insertTool(#wx_ref{type=ThisT}=This,Pos,#wx_ref{type=ToolT}=Tool)
 
 -doc(#{equiv => insertTool(This,Pos,ToolId,Label,Bitmap, [])}).
 -spec insertTool(This, Pos, ToolId, Label, Bitmap) -> wx:wx_object() when
-	This::wxToolBar(), Pos::integer(), ToolId::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap().
+        This::wxToolBar(), Pos::integer(), ToolId::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap().
 
 insertTool(This,Pos,ToolId,Label,Bitmap)
  when is_record(This, wx_ref),is_integer(Pos),is_integer(ToolId),?is_chardata(Label),is_record(Bitmap, wx_ref) ->
@@ -838,7 +838,7 @@ insertTool(#wx_ref{type=ThisT}=This,Pos,ToolId,Label,#wx_ref{type=BitmapT}=Bitma
 
 -doc "This function should be called after you have added tools.".
 -spec realize(This) -> boolean() when
-	This::wxToolBar().
+        This::wxToolBar().
 realize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxToolBar),
   wxe_util:queue_cmd(This,?get_env(),?wxToolBar_Realize),
@@ -854,7 +854,7 @@ Note: It is unnecessary to call `realize/1` for the change to take place, it wil
 See: `deleteTool/2`
 """.
 -spec removeTool(This, Id) -> wx:wx_object() when
-	This::wxToolBar(), Id::integer().
+        This::wxToolBar(), Id::integer().
 removeTool(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxToolBar),
@@ -870,7 +870,7 @@ used, and the default (zero-size) margins are to be overridden.
 See: `getMargins/1`
 """.
 -spec setMargins(This, X, Y) -> 'ok' when
-	This::wxToolBar(), X::integer(), Y::integer().
+        This::wxToolBar(), X::integer(), Y::integer().
 setMargins(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxToolBar),
@@ -890,7 +890,7 @@ See:
 * `getToolSize/1`
 """.
 -spec setToolBitmapSize(This, Size) -> 'ok' when
-	This::wxToolBar(), Size::{W::integer(), H::integer()}.
+        This::wxToolBar(), Size::{W::integer(), H::integer()}.
 setToolBitmapSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxToolBar),
@@ -907,7 +907,7 @@ See:
 * `setToolShortHelp/3`
 """.
 -spec setToolLongHelp(This, ToolId, HelpString) -> 'ok' when
-	This::wxToolBar(), ToolId::integer(), HelpString::unicode:chardata().
+        This::wxToolBar(), ToolId::integer(), HelpString::unicode:chardata().
 setToolLongHelp(#wx_ref{type=ThisT}=This,ToolId,HelpString)
  when is_integer(ToolId),?is_chardata(HelpString) ->
   ?CLASS(ThisT,wxToolBar),
@@ -925,7 +925,7 @@ horizontal, and for spacing in the horizontal direction if the toolbar is vertic
 See: `getToolPacking/1`
 """.
 -spec setToolPacking(This, Packing) -> 'ok' when
-	This::wxToolBar(), Packing::integer().
+        This::wxToolBar(), Packing::integer().
 setToolPacking(#wx_ref{type=ThisT}=This,Packing)
  when is_integer(Packing) ->
   ?CLASS(ThisT,wxToolBar),
@@ -942,7 +942,7 @@ See:
 * `setToolLongHelp/3`
 """.
 -spec setToolShortHelp(This, ToolId, HelpString) -> 'ok' when
-	This::wxToolBar(), ToolId::integer(), HelpString::unicode:chardata().
+        This::wxToolBar(), ToolId::integer(), HelpString::unicode:chardata().
 setToolShortHelp(#wx_ref{type=ThisT}=This,ToolId,HelpString)
  when is_integer(ToolId),?is_chardata(HelpString) ->
   ?CLASS(ThisT,wxToolBar),
@@ -957,7 +957,7 @@ The default value is 5.
 See: `addSeparator/1`
 """.
 -spec setToolSeparation(This, Separation) -> 'ok' when
-	This::wxToolBar(), Separation::integer().
+        This::wxToolBar(), Separation::integer().
 setToolSeparation(#wx_ref{type=ThisT}=This,Separation)
  when is_integer(Separation) ->
   ?CLASS(ThisT,wxToolBar),
@@ -971,7 +971,7 @@ This does not cause any event to get emitted.
 Remark: Only applies to a tool that has been specified as a toggle tool.
 """.
 -spec toggleTool(This, ToolId, Toggle) -> 'ok' when
-	This::wxToolBar(), ToolId::integer(), Toggle::boolean().
+        This::wxToolBar(), ToolId::integer(), Toggle::boolean().
 toggleTool(#wx_ref{type=ThisT}=This,ToolId,Toggle)
  when is_integer(ToolId),is_boolean(Toggle) ->
   ?CLASS(ThisT,wxToolBar),
@@ -1118,9 +1118,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -122,7 +122,7 @@ Vetoing a window close event is not possible if the calling code wishes to force
 application to exit, and so this function must be called to check this.
 """.
 -spec canVeto(This) -> boolean() when
-	This::wxCloseEvent().
+        This::wxCloseEvent().
 canVeto(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCloseEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxCloseEvent_CanVeto),
@@ -135,7 +135,7 @@ This method can only be called for end session and query end session events, it 
 make sense for close window event.
 """.
 -spec getLoggingOff(This) -> boolean() when
-	This::wxCloseEvent().
+        This::wxCloseEvent().
 getLoggingOff(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCloseEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxCloseEvent_GetLoggingOff),
@@ -143,7 +143,7 @@ getLoggingOff(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the 'can veto' flag.".
 -spec setCanVeto(This, CanVeto) -> 'ok' when
-	This::wxCloseEvent(), CanVeto::boolean().
+        This::wxCloseEvent(), CanVeto::boolean().
 setCanVeto(#wx_ref{type=ThisT}=This,CanVeto)
  when is_boolean(CanVeto) ->
   ?CLASS(ThisT,wxCloseEvent),
@@ -151,7 +151,7 @@ setCanVeto(#wx_ref{type=ThisT}=This,CanVeto)
 
 -doc "Sets the 'logging off' flag.".
 -spec setLoggingOff(This, LoggingOff) -> 'ok' when
-	This::wxCloseEvent(), LoggingOff::boolean().
+        This::wxCloseEvent(), LoggingOff::boolean().
 setLoggingOff(#wx_ref{type=ThisT}=This,LoggingOff)
  when is_boolean(LoggingOff) ->
   ?CLASS(ThisT,wxCloseEvent),
@@ -159,7 +159,7 @@ setLoggingOff(#wx_ref{type=ThisT}=This,LoggingOff)
 
 -doc(#{equiv => veto(This, [])}).
 -spec veto(This) -> 'ok' when
-	This::wxCloseEvent().
+        This::wxCloseEvent().
 
 veto(This)
  when is_record(This, wx_ref) ->

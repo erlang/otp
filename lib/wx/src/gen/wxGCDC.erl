@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -128,7 +128,7 @@ new() ->
 
 -doc "Constructs a `m:wxGCDC` from a `m:wxWindowDC`.".
 -spec new(WindowDC) -> wxGCDC() when
-	WindowDC::wxWindowDC:wxWindowDC() | wxMemoryDC:wxMemoryDC() | wxGraphicsContext:wxGraphicsContext().
+        WindowDC::wxWindowDC:wxWindowDC() | wxMemoryDC:wxMemoryDC() | wxGraphicsContext:wxGraphicsContext().
 new(#wx_ref{type=WindowDCT}=WindowDC) ->
   IswxWindowDC = ?CLASS_T(WindowDCT,wxWindowDC),
   IswxMemoryDC = ?CLASS_T(WindowDCT,wxMemoryDC),
@@ -144,7 +144,7 @@ new(#wx_ref{type=WindowDCT}=WindowDC) ->
 
 -doc "Retrieves associated `m:wxGraphicsContext`.".
 -spec getGraphicsContext(This) -> wxGraphicsContext:wxGraphicsContext() when
-	This::wxGCDC().
+        This::wxGCDC().
 getGraphicsContext(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGCDC),
   wxe_util:queue_cmd(This,?get_env(),?wxGCDC_GetGraphicsContext),
@@ -161,7 +161,7 @@ current font, pen and brush, so that this object continues to use them, if they 
 changed before (which is never the case when constructing `m:wxGCDC` directly from `m:wxGraphicsContext`).
 """.
 -spec setGraphicsContext(This, Context) -> 'ok' when
-	This::wxGCDC(), Context::wxGraphicsContext:wxGraphicsContext().
+        This::wxGCDC(), Context::wxGraphicsContext:wxGraphicsContext().
 setGraphicsContext(#wx_ref{type=ThisT}=This,#wx_ref{type=ContextT}=Context) ->
   ?CLASS(ThisT,wxGCDC),
   ?CLASS(ContextT,wxGraphicsContext),

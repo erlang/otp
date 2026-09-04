@@ -82,6 +82,7 @@ void setActiveGL(wxeMemEnv *memenv, ErlNifPid caller, wxGLCanvas *canvas, wxGLCo
   if(!entry) {
     if(canvas && context) {
       entry = (wxe_glc *) malloc(sizeof(wxe_glc));
+      if(!entry) return;
       entry->canvas = NULL;
       entry->context = NULL;
     }
@@ -116,6 +117,22 @@ void deleteActiveGL(wxGLCanvas *canvas)
       it->second = NULL;
       free(temp);
     }
+  }
+}
+
+void deleteActiveGLContext(wxGLContext *context)
+{
+  wxeGLC::iterator it;
+  for(it = glc.begin(); it != glc.end(); ++it) {
+    wxe_glc * temp = it->second;
+    if(temp && temp->context == context) {
+      it->second = NULL;
+      free(temp);
+    }
+  }
+  if(gl_active_index && glc[gl_active_index] == NULL) {
+    gl_active_index = 0;
+    enif_set_pid_undefined(&gl_active_pid);
   }
 }
 

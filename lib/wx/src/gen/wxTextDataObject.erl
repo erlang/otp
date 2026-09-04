@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -126,7 +126,7 @@ be overridden to provide text size data on-demand. It is recommended to return t
 length plus 1 for a trailing zero, but this is not strictly required.
 """.
 -spec getTextLength(This) -> integer() when
-	This::wxTextDataObject().
+        This::wxTextDataObject().
 getTextLength(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextDataObject),
   wxe_util:queue_cmd(This,?get_env(),?wxTextDataObject_GetTextLength),
@@ -139,7 +139,7 @@ You may wish to override this method when offering data on-demand, but this is n
 required by wxWidgets' internals. Use this method to get data in text form from the `m:wxClipboard`.
 """.
 -spec getText(This) -> unicode:charlist() when
-	This::wxTextDataObject().
+        This::wxTextDataObject().
 getText(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextDataObject),
   wxe_util:queue_cmd(This,?get_env(),?wxTextDataObject_GetText),
@@ -153,7 +153,7 @@ text into the member variable. If you want to process the text on the fly you ma
 override this function.
 """.
 -spec setText(This, StrText) -> 'ok' when
-	This::wxTextDataObject(), StrText::unicode:chardata().
+        This::wxTextDataObject(), StrText::unicode:chardata().
 setText(#wx_ref{type=ThisT}=This,StrText)
  when ?is_chardata(StrText) ->
   ?CLASS(ThisT,wxTextDataObject),

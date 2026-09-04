@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,6 +57,7 @@
 
 %% This module is actually handwritten see ../api_gen/wx_extra/wxEvtHandler.erl
 %%
+
 -module(wxEvtHandler).
 -moduledoc """
 The Event handler
@@ -117,7 +118,7 @@ lastid:`{lastId,integer()} `The second part of the identifier range. If used
 'id' must be set as the starting identifier range. Default is ?wxID_ANY
 
 skip:`{skip,boolean()} `If skip is true further event_handlers will be called.
-This is not used if the 'callback' option is used. Default is `false`.
+Cannot be combined with the 'callback' option. Default is `false`.
 
 callback:`{callback,function()} `Use a
 callback`fun(EventRecord::wx(),EventObject::wxObject()) `to process the event.
@@ -134,9 +135,11 @@ connect(This=#wx_ref{type=ThisT}, EventType, Options) ->
     EvH = parse_opts(Options, #evh{et=EventType}),
     ?CLASS(ThisT,wxEvtHandler),
     case wxe_util:connect_cb(This, EvH) of
-	ok -> ok;
-	{badarg, event_type} ->
-	    erlang:error({badarg,EventType})
+        ok -> ok;
+        {badarg, event_type} ->
+            erlang:error({badarg,EventType});
+        Reason ->
+            erlang:error({Reason, EventType})
     end.
 
 parse_opts([{callback,Fun}|R], Opts) when is_function(Fun) ->

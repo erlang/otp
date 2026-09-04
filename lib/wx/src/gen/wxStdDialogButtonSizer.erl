@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -142,7 +142,7 @@ The `button` must have one of the following identifiers:
 * wxID_CONTEXT_HELP
 """.
 -spec addButton(This, Button) -> 'ok' when
-	This::wxStdDialogButtonSizer(), Button::wxButton:wxButton().
+        This::wxStdDialogButtonSizer(), Button::wxButton:wxButton().
 addButton(#wx_ref{type=ThisT}=This,#wx_ref{type=ButtonT}=Button) ->
   ?CLASS(ThisT,wxStdDialogButtonSizer),
   ?CLASS(ButtonT,wxButton),
@@ -153,7 +153,7 @@ Rearranges the buttons and applies proper spacing between buttons to make them m
 platform or toolkit's interface guidelines.
 """.
 -spec realize(This) -> 'ok' when
-	This::wxStdDialogButtonSizer().
+        This::wxStdDialogButtonSizer().
 realize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStdDialogButtonSizer),
   wxe_util:queue_cmd(This,?get_env(),?wxStdDialogButtonSizer_Realize).
@@ -164,7 +164,7 @@ Sets the affirmative button for the sizer.
 This allows you to use identifiers other than the standard identifiers outlined above.
 """.
 -spec setAffirmativeButton(This, Button) -> 'ok' when
-	This::wxStdDialogButtonSizer(), Button::wxButton:wxButton().
+        This::wxStdDialogButtonSizer(), Button::wxButton:wxButton().
 setAffirmativeButton(#wx_ref{type=ThisT}=This,#wx_ref{type=ButtonT}=Button) ->
   ?CLASS(ThisT,wxStdDialogButtonSizer),
   ?CLASS(ButtonT,wxButton),
@@ -176,7 +176,7 @@ Sets the cancel button for the sizer.
 This allows you to use identifiers other than the standard identifiers outlined above.
 """.
 -spec setCancelButton(This, Button) -> 'ok' when
-	This::wxStdDialogButtonSizer(), Button::wxButton:wxButton().
+        This::wxStdDialogButtonSizer(), Button::wxButton:wxButton().
 setCancelButton(#wx_ref{type=ThisT}=This,#wx_ref{type=ButtonT}=Button) ->
   ?CLASS(ThisT,wxStdDialogButtonSizer),
   ?CLASS(ButtonT,wxButton),
@@ -188,7 +188,7 @@ Sets the negative button for the sizer.
 This allows you to use identifiers other than the standard identifiers outlined above.
 """.
 -spec setNegativeButton(This, Button) -> 'ok' when
-	This::wxStdDialogButtonSizer(), Button::wxButton:wxButton().
+        This::wxStdDialogButtonSizer(), Button::wxButton:wxButton().
 setNegativeButton(#wx_ref{type=ThisT}=This,#wx_ref{type=ButtonT}=Button) ->
   ?CLASS(ThisT,wxStdDialogButtonSizer),
   ?CLASS(ButtonT,wxButton),

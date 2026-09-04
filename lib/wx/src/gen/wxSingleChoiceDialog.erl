@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -120,7 +120,7 @@ wxWidgets docs: [wxSingleChoiceDialog](https://docs.wxwidgets.org/3.2/classwx_si
   moveBeforeInTabOrder/2,navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,
   popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,
   refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,requestUserAttention/1,
-  requestUserAttention/2,screenToClient/1,screenToClient/2,scrollLines/2,
+  requestUserAttention/2,screenToClient/2,screenToClient/3,scrollLines/2,
   scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAffirmativeId/2,setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,
   setCaret/2,setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -148,7 +148,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Parent,Message,Caption,Choices, [])}).
 -spec new(Parent, Message, Caption, Choices) -> wxSingleChoiceDialog() when
-	Parent::wxWindow:wxWindow(), Message::unicode:chardata(), Caption::unicode:chardata(), Choices::[unicode:chardata()].
+        Parent::wxWindow:wxWindow(), Message::unicode:chardata(), Caption::unicode:chardata(), Choices::[unicode:chardata()].
 
 new(Parent,Message,Caption,Choices)
  when is_record(Parent, wx_ref),?is_chardata(Message),?is_chardata(Caption),is_list(Choices) ->
@@ -180,7 +180,7 @@ new(#wx_ref{type=ParentT}=Parent,Message,Caption,Choices, Options)
 
 -doc "Returns the index of selected item.".
 -spec getSelection(This) -> integer() when
-	This::wxSingleChoiceDialog().
+        This::wxSingleChoiceDialog().
 getSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSingleChoiceDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxSingleChoiceDialog_GetSelection),
@@ -188,7 +188,7 @@ getSelection(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the selected string.".
 -spec getStringSelection(This) -> unicode:charlist() when
-	This::wxSingleChoiceDialog().
+        This::wxSingleChoiceDialog().
 getStringSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSingleChoiceDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxSingleChoiceDialog_GetStringSelection),
@@ -196,7 +196,7 @@ getStringSelection(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the index of the initially selected item.".
 -spec setSelection(This, Selection) -> 'ok' when
-	This::wxSingleChoiceDialog(), Selection::integer().
+        This::wxSingleChoiceDialog(), Selection::integer().
 setSelection(#wx_ref{type=ThisT}=This,Selection)
  when is_integer(Selection) ->
   ?CLASS(ThisT,wxSingleChoiceDialog),
@@ -412,9 +412,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

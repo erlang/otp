@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -131,7 +131,7 @@ wxWidgets docs: [wxGLCanvas](https://docs.wxwidgets.org/3.2/classwx_g_l_canvas.h
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,screenToClient/3,
   scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -156,7 +156,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxGLCanvas() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -209,7 +209,7 @@ it can't usually be called from the constructor as the window isn't yet shown at
 Return: false if an error occurred.
 """.
 -spec setCurrent(This, Context) -> boolean() when
-	This::wxGLCanvas(), Context::wxGLContext:wxGLContext().
+        This::wxGLCanvas(), Context::wxGLContext:wxGLContext().
 setCurrent(#wx_ref{type=ThisT}=This,#wx_ref{type=ContextT}=Context) ->
   ?CLASS(ThisT,wxGLCanvas),
   ?CLASS(ContextT,wxGLContext),
@@ -218,7 +218,7 @@ setCurrent(#wx_ref{type=ThisT}=This,#wx_ref{type=ContextT}=Context) ->
 
 -doc "".
 -spec createSurface(This) -> boolean() when
-	This::wxGLCanvas().
+        This::wxGLCanvas().
 createSurface(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGLCanvas),
   wxe_util:queue_cmd(This,?get_env(),?wxGLCanvas_CreateSurface),
@@ -233,7 +233,7 @@ the new form of this method, using `wxGLAttributes` (not implemented in wx).
 Return: true if attributes are supported.
 """.
 -spec isDisplaySupported(AttribList) -> boolean() when
-	AttribList::[integer()].
+        AttribList::[integer()].
 isDisplaySupported(AttribList)
  when is_list(AttribList) ->
   wxe_util:queue_cmd(AttribList,?get_env(),?wxGLCanvas_IsDisplaySupported),
@@ -246,7 +246,7 @@ versa, so that the output of the previous OpenGL commands is displayed on the wi
 Return: false if an error occurred.
 """.
 -spec swapBuffers(This) -> boolean() when
-	This::wxGLCanvas().
+        This::wxGLCanvas().
 swapBuffers(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGLCanvas),
   wxe_util:queue_cmd(This,?get_env(),?wxGLCanvas_SwapBuffers),
@@ -396,9 +396,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

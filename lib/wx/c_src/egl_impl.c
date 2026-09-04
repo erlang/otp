@@ -22,6 +22,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -172,6 +173,7 @@ ERL_NIF_TERM egl_lookup_func_func(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 #define OPENGLU_LIB L"glu32.dll"
 typedef HMODULE DL_LIB_P;
 typedef WCHAR DL_CHAR;
+#define DL_FMT "%ls"
 void * dlsym(HMODULE Lib, const char *func) {
   void * p;
   p = (void *) wglGetProcAddress(func);
@@ -193,6 +195,7 @@ void dlclose(HMODULE Lib) {
 #else
 typedef void * DL_LIB_P;
 typedef char DL_CHAR;
+#define DL_FMT "%s"
 # ifdef _MACOSX
 #  define OPENGL_LIB "/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib"
 #  define OPENGLU_LIB "/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLU.dylib"
@@ -245,10 +248,10 @@ int egl_load_functions() {
         // dlclose(LIBhandle);
         // fprintf(stderr, "GLU library is loaded\r\n");
     } else {
-        for(i=0; i < GLE_GL_FUNC_START; i++) {
+        for(i=0; i < (GLE_GL_FUNC_START-GLE_LIB_START); i++) {
             gl_fns[i].nif_cb = NULL;
         }
-        fprintf(stderr, "Could NOT load OpenGL GLU library: %s\r\n", (char *) DLName);
+        fprintf(stderr, "Could NOT load OpenGL GLU library: " DL_FMT "\r\n", DLName);
     };
 
     /* Load GL functions */
@@ -287,7 +290,7 @@ int egl_load_functions() {
         for(i=0; i <= (GLE_GL_FUNC_LAST-GLE_LIB_START); i++) {
             gl_fns[i].nif_cb = NULL;
         }
-        fprintf(stderr, "Could NOT load OpenGL library: %s\r\n", (char *) DLName);
+        fprintf(stderr, "Could NOT load OpenGL library: " DL_FMT "\r\n", DLName);
     };
 
     return 0;
@@ -401,28 +404,37 @@ void erl_tess_impl(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
     int a_max = 2;
     int i_max = 6;
 
-    if(!enif_get_tuple(env, argv[0], &a, &tuple) && a != 3) Badarg(5009, "Normal");
+    if(!enif_get_tuple(env, argv[0], &a, &tuple) || a != 3) Badarg(5009, "Normal");
     if(!enif_get_double(env, tuple[0], &n[0])) Badarg(5009,"Normal");
     if(!enif_get_double(env, tuple[1], &n[1])) Badarg(5009,"Normal");
     if(!enif_get_double(env, tuple[2], &n[2])) Badarg(5009,"Normal");
 
     if(!enif_get_list_length(env, argv[1], &num_vertices)) Badarg(5009,"Vs");
+
+    /* AP-30: Guard against int overflow in size arithmetic.
+     * alloc_max = a_max*num_vertices*3 must fit in a positive int.
+     * With a_max=2: max safe num_vertices = INT_MAX/(2*3) ≈ 357 million.
+     */
+    if(num_vertices > (unsigned int)(INT_MAX / (a_max * 3))) Badarg(5009,"Vs");
+
     egl_tess.alloc_max = a_max*num_vertices*3;
     egl_tess.error = 0;
-    enif_alloc_binary(egl_tess.alloc_max*sizeof(GLdouble), &bin);
+    egl_tess.tess_index_list = NULL;
+    if(!enif_alloc_binary(egl_tess.alloc_max*sizeof(GLdouble), &bin)) Badarg(5009,"Vs");
     vs = (GLdouble *) bin.data;
     egl_tess.tess_coords = vs;
 
     vs_l = argv[1];
     while(enif_get_list_cell(env,  vs_l, &vs_h, &vs_t)) {
-        if(!enif_get_tuple(env, vs_h, &a, &tuple) && a != 3) Badarg(5009,"Vs");
-        if(!enif_get_double(env, tuple[0], vs++)) Badarg(5009,"Normal");
-        if(!enif_get_double(env, tuple[1], vs++)) Badarg(5009,"Normal");
-        if(!enif_get_double(env, tuple[2], vs++)) Badarg(5009,"Normal");
+        if(!enif_get_tuple(env, vs_h, &a, &tuple) || a != 3) goto tess_error;
+        if(!enif_get_double(env, tuple[0], vs++)) goto tess_error;
+        if(!enif_get_double(env, tuple[1], vs++)) goto tess_error;
+        if(!enif_get_double(env, tuple[2], vs++)) goto tess_error;
         vs_l = vs_t;
     }
     egl_tess.index_max = i_max*3*num_vertices;
     egl_tess.tess_index_list = (int *) enif_alloc(sizeof(int) * egl_tess.index_max);
+    if(!egl_tess.tess_index_list) goto tess_error;
 
     egl_tess.index_n = 0;
     egl_tess.alloc_n = num_vertices*3;
@@ -435,6 +447,8 @@ void erl_tess_impl(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
     }
     gluTessEndContour(tess);
     gluTessEndPolygon(tess);
+
+    if(egl_tess.error) goto tess_alloc_error;
 
     vs_t = enif_make_list(env, 0);
     i=egl_tess.index_n;
@@ -452,4 +466,16 @@ void erl_tess_impl(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
     /* 	  (tess_alloc_vertex-new_vertices)*sizeof(GLdouble),  */
     /* 	  num_vertices*6*sizeof(GLdouble)); */
     enif_free(egl_tess.tess_index_list);
+    return;
+
+ tess_error:
+    egl_badarg(env, self, 5009, "Vs");
+    enif_release_binary(&bin);
+    if(egl_tess.tess_index_list) enif_free(egl_tess.tess_index_list);
+    return;
+
+ tess_alloc_error:
+    enif_release_binary(&bin);
+    enif_free(egl_tess.tess_index_list);
+    egl_badarg(env, self, 5009, "polygon too complex");
 }

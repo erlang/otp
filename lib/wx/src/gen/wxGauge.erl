@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -133,7 +133,7 @@ wxWidgets docs: [wxGauge](https://docs.wxwidgets.org/3.2/classwx_gauge.html)
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,screenToClient/3,
   scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -165,7 +165,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id,Range, [])}).
 -spec new(Parent, Id, Range) -> wxGauge() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Range::integer().
+        Parent::wxWindow:wxWindow(), Id::integer(), Range::integer().
 
 new(Parent,Id,Range)
  when is_record(Parent, wx_ref),is_integer(Id),is_integer(Range) ->
@@ -196,7 +196,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Range, Options)
 
 -doc(#{equiv => create(This,Parent,Id,Range, [])}).
 -spec create(This, Parent, Id, Range) -> boolean() when
-	This::wxGauge(), Parent::wxWindow:wxWindow(), Id::integer(), Range::integer().
+        This::wxGauge(), Parent::wxWindow:wxWindow(), Id::integer(), Range::integer().
 
 create(This,Parent,Id,Range)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_integer(Range) ->
@@ -232,7 +232,7 @@ Returns the maximum position of the gauge.
 See: `setRange/2`
 """.
 -spec getRange(This) -> integer() when
-	This::wxGauge().
+        This::wxGauge().
 getRange(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGauge),
   wxe_util:queue_cmd(This,?get_env(),?wxGauge_GetRange),
@@ -244,7 +244,7 @@ Returns the current position of the gauge.
 See: `setValue/2`
 """.
 -spec getValue(This) -> integer() when
-	This::wxGauge().
+        This::wxGauge().
 getValue(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGauge),
   wxe_util:queue_cmd(This,?get_env(),?wxGauge_GetValue),
@@ -252,7 +252,7 @@ getValue(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the gauge is vertical (has `wxGA\_VERTICAL` style) and false otherwise.".
 -spec isVertical(This) -> boolean() when
-	This::wxGauge().
+        This::wxGauge().
 isVertical(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGauge),
   wxe_util:queue_cmd(This,?get_env(),?wxGauge_IsVertical),
@@ -269,7 +269,7 @@ to `range` and back; under other ports when in indeterminate mode, the `range` s
 See: `getRange/1`
 """.
 -spec setRange(This, Range) -> 'ok' when
-	This::wxGauge(), Range::integer().
+        This::wxGauge(), Range::integer().
 setRange(#wx_ref{type=ThisT}=This,Range)
  when is_integer(Range) ->
   ?CLASS(ThisT,wxGauge),
@@ -285,7 +285,7 @@ This function makes the gauge switch to determinate mode, if it was in indetermi
 See: `getValue/1`
 """.
 -spec setValue(This, Pos) -> 'ok' when
-	This::wxGauge(), Pos::integer().
+        This::wxGauge(), Pos::integer().
 setValue(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxGauge),
@@ -299,7 +299,7 @@ Note: After calling this function the value returned by `getValue/1` is undefine
 to explicitly call `setValue/2` if you want to restore the determinate mode.
 """.
 -spec pulse(This) -> 'ok' when
-	This::wxGauge().
+        This::wxGauge().
 pulse(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGauge),
   wxe_util:queue_cmd(This,?get_env(),?wxGauge_Pulse).
@@ -451,9 +451,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

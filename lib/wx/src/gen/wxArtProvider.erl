@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -140,7 +140,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => getBitmap(Id, [])}).
 -spec getBitmap(Id) -> wxBitmap:wxBitmap() when
-	Id::unicode:chardata().
+        Id::unicode:chardata().
 
 getBitmap(Id)
  when ?is_chardata(Id) ->
@@ -168,7 +168,7 @@ getBitmap(Id, Options)
 
 -doc(#{equiv => getIcon(Id, [])}).
 -spec getIcon(Id) -> wxIcon:wxIcon() when
-	Id::unicode:chardata().
+        Id::unicode:chardata().
 
 getIcon(Id)
  when ?is_chardata(Id) ->

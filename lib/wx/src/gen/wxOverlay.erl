@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ Clears the overlay without restoring the former state.
 To be done, for example, when the window content has been changed and repainted.
 """.
 -spec reset(This) -> 'ok' when
-	This::wxOverlay().
+        This::wxOverlay().
 reset(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxOverlay),
   wxe_util:queue_cmd(This,?get_env(),?wxOverlay_Reset).

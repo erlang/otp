@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -95,7 +95,7 @@ the given attribute: it will draw the rectangle with the background colour from 
 set the text colour and font.
 """.
 -spec draw(This, Grid, Attr, Dc, Rect, Row, Col, IsSelected) -> 'ok' when
-	This::wxGridCellRenderer(), Grid::wxGrid:wxGrid(), Attr::wxGridCellAttr:wxGridCellAttr(), Dc::wxDC:wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, Row::integer(), Col::integer(), IsSelected::boolean().
+        This::wxGridCellRenderer(), Grid::wxGrid:wxGrid(), Attr::wxGridCellAttr:wxGridCellAttr(), Dc::wxDC:wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, Row::integer(), Col::integer(), IsSelected::boolean().
 draw(#wx_ref{type=ThisT}=This,#wx_ref{type=GridT}=Grid,#wx_ref{type=AttrT}=Attr,#wx_ref{type=DcT}=Dc,{RectX,RectY,RectW,RectH} = Rect,Row,Col,IsSelected)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),is_integer(Row),is_integer(Col),is_boolean(IsSelected) ->
   ?CLASS(ThisT,wxGridCellRenderer),
@@ -111,7 +111,7 @@ This method must be overridden in the derived classes to return the minimal fitt
 for displaying the content of the given grid cell.
 """.
 -spec getBestSize(This, Grid, Attr, Dc, Row, Col) -> {W::integer(), H::integer()} when
-	This::wxGridCellRenderer(), Grid::wxGrid:wxGrid(), Attr::wxGridCellAttr:wxGridCellAttr(), Dc::wxDC:wxDC(), Row::integer(), Col::integer().
+        This::wxGridCellRenderer(), Grid::wxGrid:wxGrid(), Attr::wxGridCellAttr:wxGridCellAttr(), Dc::wxDC:wxDC(), Row::integer(), Col::integer().
 getBestSize(#wx_ref{type=ThisT}=This,#wx_ref{type=GridT}=Grid,#wx_ref{type=AttrT}=Attr,#wx_ref{type=DcT}=Dc,Row,Col)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGridCellRenderer),

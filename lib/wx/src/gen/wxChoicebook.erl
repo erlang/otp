@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -140,8 +140,8 @@ Event types emitted from this class:
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,removePage/2,reparent/2,screenToClient/1,
-  screenToClient/2,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
+  releaseMouse/1,removeChild/2,removePage/2,reparent/2,screenToClient/2,
+  screenToClient/3,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
   setAcceleratorTable/2,setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,
   setCaret/2,setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
   setDoubleBuffered/2,setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,
@@ -173,7 +173,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxChoicebook() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -198,7 +198,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc(#{equiv => addPage(This,Page,Text, [])}).
 -spec addPage(This, Page, Text) -> boolean() when
-	This::wxChoicebook(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
+        This::wxChoicebook(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
 addPage(This,Page,Text)
  when is_record(This, wx_ref),is_record(Page, wx_ref),?is_chardata(Text) ->
@@ -238,7 +238,7 @@ addPage(#wx_ref{type=ThisT}=This,#wx_ref{type=PageT}=Page,Text, Options)
 
 -doc(#{equiv => advanceSelection(This, [])}).
 -spec advanceSelection(This) -> 'ok' when
-	This::wxChoicebook().
+        This::wxChoicebook().
 
 advanceSelection(This)
  when is_record(This, wx_ref) ->
@@ -269,7 +269,7 @@ See:
 * `setImageList/2`
 """.
 -spec assignImageList(This, ImageList) -> 'ok' when
-	This::wxChoicebook(), ImageList::wxImageList:wxImageList().
+        This::wxChoicebook(), ImageList::wxImageList:wxImageList().
 assignImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
   ?CLASS(ThisT,wxChoicebook),
   ?CLASS(ImageListT,wxImageList),
@@ -277,7 +277,7 @@ assignImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
 
 -doc(#{equiv => create(This,Parent,Id, [])}).
 -spec create(This, Parent, Id) -> boolean() when
-	This::wxChoicebook(), Parent::wxWindow:wxWindow(), Id::integer().
+        This::wxChoicebook(), Parent::wxWindow:wxWindow(), Id::integer().
 
 create(This,Parent,Id)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
@@ -306,7 +306,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc "Deletes all pages.".
 -spec deleteAllPages(This) -> boolean() when
-	This::wxChoicebook().
+        This::wxChoicebook().
 deleteAllPages(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxChoicebook),
   wxe_util:queue_cmd(This,?get_env(),?wxChoicebook_DeleteAllPages),
@@ -314,7 +314,7 @@ deleteAllPages(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the currently selected page or NULL.".
 -spec getCurrentPage(This) -> wxWindow:wxWindow() when
-	This::wxChoicebook().
+        This::wxChoicebook().
 getCurrentPage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxChoicebook),
   wxe_util:queue_cmd(This,?get_env(),?wxChoicebook_GetCurrentPage),
@@ -329,7 +329,7 @@ See:
 * `setImageList/2`
 """.
 -spec getImageList(This) -> wxImageList:wxImageList() when
-	This::wxChoicebook().
+        This::wxChoicebook().
 getImageList(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxChoicebook),
   wxe_util:queue_cmd(This,?get_env(),?wxChoicebook_GetImageList),
@@ -337,7 +337,7 @@ getImageList(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the window at the given page position.".
 -spec getPage(This, Page) -> wxWindow:wxWindow() when
-	This::wxChoicebook(), Page::integer().
+        This::wxChoicebook(), Page::integer().
 getPage(#wx_ref{type=ThisT}=This,Page)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxChoicebook),
@@ -346,7 +346,7 @@ getPage(#wx_ref{type=ThisT}=This,Page)
 
 -doc "Returns the number of pages in the control.".
 -spec getPageCount(This) -> integer() when
-	This::wxChoicebook().
+        This::wxChoicebook().
 getPageCount(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxChoicebook),
   wxe_util:queue_cmd(This,?get_env(),?wxChoicebook_GetPageCount),
@@ -354,7 +354,7 @@ getPageCount(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the image index for the given page.".
 -spec getPageImage(This, NPage) -> integer() when
-	This::wxChoicebook(), NPage::integer().
+        This::wxChoicebook(), NPage::integer().
 getPageImage(#wx_ref{type=ThisT}=This,NPage)
  when is_integer(NPage) ->
   ?CLASS(ThisT,wxChoicebook),
@@ -363,7 +363,7 @@ getPageImage(#wx_ref{type=ThisT}=This,NPage)
 
 -doc "Returns the string for the given page.".
 -spec getPageText(This, NPage) -> unicode:charlist() when
-	This::wxChoicebook(), NPage::integer().
+        This::wxChoicebook(), NPage::integer().
 getPageText(#wx_ref{type=ThisT}=This,NPage)
  when is_integer(NPage) ->
   ?CLASS(ThisT,wxChoicebook),
@@ -378,7 +378,7 @@ from the `EVT_BOOKCTRL_PAGE_CHANGED` handler depending on the platform and so `w
 used instead in this case.
 """.
 -spec getSelection(This) -> integer() when
-	This::wxChoicebook().
+        This::wxChoicebook().
 getSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxChoicebook),
   wxe_util:queue_cmd(This,?get_env(),?wxChoicebook_GetSelection),
@@ -403,7 +403,7 @@ hitTest(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
 
 -doc(#{equiv => insertPage(This,Index,Page,Text, [])}).
 -spec insertPage(This, Index, Page, Text) -> boolean() when
-	This::wxChoicebook(), Index::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
+        This::wxChoicebook(), Index::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
 insertPage(This,Index,Page,Text)
  when is_record(This, wx_ref),is_integer(Index),is_record(Page, wx_ref),?is_chardata(Text) ->
@@ -445,7 +445,7 @@ See:
 * `assignImageList/2`
 """.
 -spec setImageList(This, ImageList) -> 'ok' when
-	This::wxChoicebook(), ImageList::wxImageList:wxImageList().
+        This::wxChoicebook(), ImageList::wxImageList:wxImageList().
 setImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
   ?CLASS(ThisT,wxChoicebook),
   ?CLASS(ImageListT,wxImageList),
@@ -457,7 +457,7 @@ Sets the width and height of the pages.
 Note: This method is currently not implemented for wxGTK.
 """.
 -spec setPageSize(This, Size) -> 'ok' when
-	This::wxChoicebook(), Size::{W::integer(), H::integer()}.
+        This::wxChoicebook(), Size::{W::integer(), H::integer()}.
 setPageSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxChoicebook),
@@ -469,7 +469,7 @@ Sets the image index for the given page.
 `image` is an index into the image list which was set with `setImageList/2`.
 """.
 -spec setPageImage(This, Page, Image) -> boolean() when
-	This::wxChoicebook(), Page::integer(), Image::integer().
+        This::wxChoicebook(), Page::integer(), Image::integer().
 setPageImage(#wx_ref{type=ThisT}=This,Page,Image)
  when is_integer(Page),is_integer(Image) ->
   ?CLASS(ThisT,wxChoicebook),
@@ -478,7 +478,7 @@ setPageImage(#wx_ref{type=ThisT}=This,Page,Image)
 
 -doc "Sets the text for the given page.".
 -spec setPageText(This, Page, Text) -> boolean() when
-	This::wxChoicebook(), Page::integer(), Text::unicode:chardata().
+        This::wxChoicebook(), Page::integer(), Text::unicode:chardata().
 setPageText(#wx_ref{type=ThisT}=This,Page,Text)
  when is_integer(Page),?is_chardata(Text) ->
   ?CLASS(ThisT,wxChoicebook),
@@ -495,7 +495,7 @@ function if you don't want these events to be generated.
 See: `getSelection/1`
 """.
 -spec setSelection(This, Page) -> integer() when
-	This::wxChoicebook(), Page::integer().
+        This::wxChoicebook(), Page::integer().
 setSelection(#wx_ref{type=ThisT}=This,Page)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxChoicebook),
@@ -510,7 +510,7 @@ This function behaves as `setSelection/2` but does `not` generate the page chang
 See overview_events_prog for more information.
 """.
 -spec changeSelection(This, Page) -> integer() when
-	This::wxChoicebook(), Page::integer().
+        This::wxChoicebook(), Page::integer().
 changeSelection(#wx_ref{type=ThisT}=This,Page)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxChoicebook),
@@ -669,9 +669,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

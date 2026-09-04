@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -98,7 +98,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc "Set whether the windows was shown or hidden.".
 -spec setShow(This, Show) -> 'ok' when
-	This::wxShowEvent(), Show::boolean().
+        This::wxShowEvent(), Show::boolean().
 setShow(#wx_ref{type=ThisT}=This,Show)
  when is_boolean(Show) ->
   ?CLASS(ThisT,wxShowEvent),
@@ -106,7 +106,7 @@ setShow(#wx_ref{type=ThisT}=This,Show)
 
 -doc "Return true if the window has been shown, false if it has been hidden.".
 -spec isShown(This) -> boolean() when
-	This::wxShowEvent().
+        This::wxShowEvent().
 isShown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxShowEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxShowEvent_IsShown),

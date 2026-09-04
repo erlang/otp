@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -146,8 +146,8 @@ wxWidgets docs: [wxMDIParentFrame](https://docs.wxwidgets.org/3.2/classwx_m_d_i_
   moveBeforeInTabOrder/2,navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,
   popupMenu/2,popupMenu/3,popupMenu/4,processCommand/2,raise/1,refresh/1,
   refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,removeChild/2,
-  reparent/2,requestUserAttention/1,requestUserAttention/2,screenToClient/1,
-  screenToClient/2,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
+  reparent/2,requestUserAttention/1,requestUserAttention/2,screenToClient/2,
+  screenToClient/3,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
   sendSizeEvent/1,sendSizeEvent/2,setAcceleratorTable/2,setAutoLayout/2,
   setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,setClientSize/2,
   setClientSize/3,setContainingSizer/2,setCursor/2,setDoubleBuffered/2,
@@ -186,7 +186,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id,Title, [])}).
 -spec new(Parent, Id, Title) -> wxMDIParentFrame() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
+        Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
 new(Parent,Id,Title)
  when is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Title) ->
@@ -232,7 +232,7 @@ last one.
 See: `activatePrevious/1`
 """.
 -spec activateNext(This) -> 'ok' when
-	This::wxMDIParentFrame().
+        This::wxMDIParentFrame().
 activateNext(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMDIParentFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxMDIParentFrame_ActivateNext).
@@ -243,7 +243,7 @@ Activates the MDI child preceding the currently active one.
 See: `activateNext/1`
 """.
 -spec activatePrevious(This) -> 'ok' when
-	This::wxMDIParentFrame().
+        This::wxMDIParentFrame().
 activatePrevious(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMDIParentFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxMDIParentFrame_ActivatePrevious).
@@ -260,7 +260,7 @@ See:
 * `tile/2`
 """.
 -spec arrangeIcons(This) -> 'ok' when
-	This::wxMDIParentFrame().
+        This::wxMDIParentFrame().
 arrangeIcons(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMDIParentFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxMDIParentFrame_ArrangeIcons).
@@ -277,14 +277,14 @@ See:
 * `arrangeIcons/1`
 """.
 -spec cascade(This) -> 'ok' when
-	This::wxMDIParentFrame().
+        This::wxMDIParentFrame().
 cascade(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMDIParentFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxMDIParentFrame_Cascade).
 
 -doc(#{equiv => create(This,Parent,Id,Title, [])}).
 -spec create(This, Parent, Id, Title) -> boolean() when
-	This::wxMDIParentFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
+        This::wxMDIParentFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
 create(This,Parent,Id,Title)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Title) ->
@@ -319,7 +319,7 @@ Returns a pointer to the active MDI child, if there is one.
 If there are any children at all this function returns a non-NULL pointer.
 """.
 -spec getActiveChild(This) -> wxMDIChildFrame:wxMDIChildFrame() when
-	This::wxMDIParentFrame().
+        This::wxMDIParentFrame().
 getActiveChild(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMDIParentFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxMDIParentFrame_GetActiveChild),
@@ -327,7 +327,7 @@ getActiveChild(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns a pointer to the client window.".
 -spec getClientWindow(This) -> wxMDIClientWindow:wxMDIClientWindow() when
-	This::wxMDIParentFrame().
+        This::wxMDIParentFrame().
 getClientWindow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMDIParentFrame),
   wxe_util:queue_cmd(This,?get_env(),?wxMDIParentFrame_GetClientWindow),
@@ -335,7 +335,7 @@ getClientWindow(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => tile(This, [])}).
 -spec tile(This) -> 'ok' when
-	This::wxMDIParentFrame().
+        This::wxMDIParentFrame().
 
 tile(This)
  when is_record(This, wx_ref) ->
@@ -590,9 +590,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -115,8 +115,8 @@ Event types emitted from this class:
   layout/1,lineDown/1,lineUp/1,lower/1,move/2,move/3,move/4,moveAfterInTabOrder/2,
   moveBeforeInTabOrder/2,navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,
   popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,
-  refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,
-  screenToClient/2,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
+  refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,
+  screenToClient/3,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
   setAcceleratorTable/2,setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,
   setCaret/2,setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
   setDoubleBuffered/2,setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,
@@ -146,7 +146,7 @@ new() ->
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxPanel() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -177,7 +177,7 @@ Sends a `m:wxInitDialogEvent`, which in turn transfers data to the dialog via va
 See: `m:wxInitDialogEvent`
 """.
 -spec initDialog(This) -> 'ok' when
-	This::wxPanel().
+        This::wxPanel().
 initDialog(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPanel),
   wxe_util:queue_cmd(This,?get_env(),?wxPanel_InitDialog).
@@ -189,7 +189,7 @@ even if there are child windows in the panel.
 This is only rarely needed.
 """.
 -spec setFocusIgnoringChildren(This) -> 'ok' when
-	This::wxPanel().
+        This::wxPanel().
 setFocusIgnoringChildren(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPanel),
   wxe_util:queue_cmd(This,?get_env(),?wxPanel_SetFocusIgnoringChildren).
@@ -338,9 +338,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

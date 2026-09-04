@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -117,9 +117,9 @@ new() ->
 
 -doc "Copy constructor, uses reference counting.".
 -spec new(NativeInfoString) -> wxFont() when
-	NativeInfoString::unicode:chardata();
+        NativeInfoString::unicode:chardata();
       (Font) -> wxFont() when
-	Font::wxFont().
+        Font::wxFont().
 new(NativeInfoString)
  when ?is_chardata(NativeInfoString) ->
   NativeInfoString_UC = unicode:characters_to_binary(NativeInfoString),
@@ -136,9 +136,9 @@ new(#wx_ref{type=FontT}=Font) ->
 %%  Style = ?wxFONTSTYLE_NORMAL | ?wxFONTSTYLE_ITALIC | ?wxFONTSTYLE_SLANT | ?wxFONTSTYLE_MAX
 %%  Weight = ?wxFONTWEIGHT_INVALID | ?wxFONTWEIGHT_THIN | ?wxFONTWEIGHT_EXTRALIGHT | ?wxFONTWEIGHT_LIGHT | ?wxFONTWEIGHT_NORMAL | ?wxFONTWEIGHT_MEDIUM | ?wxFONTWEIGHT_SEMIBOLD | ?wxFONTWEIGHT_BOLD | ?wxFONTWEIGHT_EXTRABOLD | ?wxFONTWEIGHT_HEAVY | ?wxFONTWEIGHT_EXTRAHEAVY | ?wxFONTWEIGHT_MAX
 -spec new(PointSize, Family, Style, Weight) -> wxFont() when
-	PointSize::integer(), Family::wx:wx_enum(), Style::wx:wx_enum(), Weight::wx:wx_enum();
+        PointSize::integer(), Family::wx:wx_enum(), Style::wx:wx_enum(), Weight::wx:wx_enum();
       (PixelSize, Family, Style, Weight) -> wxFont() when
-	PixelSize::{W::integer(), H::integer()}, Family::wx:wx_enum(), Style::wx:wx_enum(), Weight::wx:wx_enum().
+        PixelSize::{W::integer(), H::integer()}, Family::wx:wx_enum(), Style::wx:wx_enum(), Weight::wx:wx_enum().
 
 new(PointSize,Family,Style,Weight)
  when is_integer(PointSize),is_integer(Family),is_integer(Style),is_integer(Weight) ->
@@ -200,7 +200,7 @@ family being equal to `wxFONTFAMILY_TELETYPE` because native platform-specific f
 are used for the check (resulting in a more accurate return value).
 """.
 -spec isFixedWidth(This) -> boolean() when
-	This::wxFont().
+        This::wxFont().
 isFixedWidth(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFont),
   wxe_util:queue_cmd(This,?get_env(),?wxFont_IsFixedWidth),
@@ -227,7 +227,7 @@ information.
 See: `setFaceName/2`
 """.
 -spec getFaceName(This) -> unicode:charlist() when
-	This::wxFont().
+        This::wxFont().
 getFaceName(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFont),
   wxe_util:queue_cmd(This,?get_env(),?wxFont_GetFaceName),
@@ -249,7 +249,7 @@ See: `setFamily/2`
 """.
 %%  Res = ?wxFONTFAMILY_DEFAULT | ?wxFONTFAMILY_DECORATIVE | ?wxFONTFAMILY_ROMAN | ?wxFONTFAMILY_SCRIPT | ?wxFONTFAMILY_SWISS | ?wxFONTFAMILY_MODERN | ?wxFONTFAMILY_TELETYPE | ?wxFONTFAMILY_MAX | ?wxFONTFAMILY_UNKNOWN
 -spec getFamily(This) -> wx:wx_enum() when
-	This::wxFont().
+        This::wxFont().
 getFamily(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFont),
   wxe_util:queue_cmd(This,?get_env(),?wxFont_GetFamily),
@@ -267,7 +267,7 @@ use of this function is for serializing in string-form a `m:wxFont` object.
 See: `getNativeFontInfoUserDesc/1`
 """.
 -spec getNativeFontInfoDesc(This) -> unicode:charlist() when
-	This::wxFont().
+        This::wxFont().
 getNativeFontInfoDesc(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFont),
   wxe_util:queue_cmd(This,?get_env(),?wxFont_GetNativeFontInfoDesc),
@@ -288,7 +288,7 @@ Some examples of the formats of returned strings (which are platform-dependent) 
 See: `getNativeFontInfoDesc/1`
 """.
 -spec getNativeFontInfoUserDesc(This) -> unicode:charlist() when
-	This::wxFont().
+        This::wxFont().
 getNativeFontInfoUserDesc(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFont),
   wxe_util:queue_cmd(This,?get_env(),?wxFont_GetNativeFontInfoUserDesc),
@@ -303,7 +303,7 @@ This function is kept for compatibility reasons. New code should use `GetFractio
 See: `setPointSize/2`
 """.
 -spec getPointSize(This) -> integer() when
-	This::wxFont().
+        This::wxFont().
 getPointSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFont),
   wxe_util:queue_cmd(This,?get_env(),?wxFont_GetPointSize),
@@ -318,7 +318,7 @@ See: `setStyle/2`
 """.
 %%  Res = ?wxFONTSTYLE_NORMAL | ?wxFONTSTYLE_ITALIC | ?wxFONTSTYLE_SLANT | ?wxFONTSTYLE_MAX
 -spec getStyle(This) -> wx:wx_enum() when
-	This::wxFont().
+        This::wxFont().
 getStyle(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFont),
   wxe_util:queue_cmd(This,?get_env(),?wxFont_GetStyle),
@@ -330,7 +330,7 @@ Returns true if the font is underlined, false otherwise.
 See: `setUnderlined/2`
 """.
 -spec getUnderlined(This) -> boolean() when
-	This::wxFont().
+        This::wxFont().
 getUnderlined(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFont),
   wxe_util:queue_cmd(This,?get_env(),?wxFont_GetUnderlined),
@@ -345,7 +345,7 @@ See: `setWeight/2`
 """.
 %%  Res = ?wxFONTWEIGHT_INVALID | ?wxFONTWEIGHT_THIN | ?wxFONTWEIGHT_EXTRALIGHT | ?wxFONTWEIGHT_LIGHT | ?wxFONTWEIGHT_NORMAL | ?wxFONTWEIGHT_MEDIUM | ?wxFONTWEIGHT_SEMIBOLD | ?wxFONTWEIGHT_BOLD | ?wxFONTWEIGHT_EXTRABOLD | ?wxFONTWEIGHT_HEAVY | ?wxFONTWEIGHT_EXTRAHEAVY | ?wxFONTWEIGHT_MAX
 -spec getWeight(This) -> wx:wx_enum() when
-	This::wxFont().
+        This::wxFont().
 getWeight(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFont),
   wxe_util:queue_cmd(This,?get_env(),?wxFont_GetWeight),
@@ -353,7 +353,7 @@ getWeight(#wx_ref{type=ThisT}=This) ->
 
 -doc "Equivalent to: `isOk/1`".
 -spec ok(This) -> boolean() when
-	This::wxFont().
+        This::wxFont().
 
 ok(This)
  when is_record(This, wx_ref) ->
@@ -361,7 +361,7 @@ ok(This)
 
 -doc "Returns true if this object is a valid font, false otherwise.".
 -spec isOk(This) -> boolean() when
-	This::wxFont().
+        This::wxFont().
 isOk(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFont),
   wxe_util:queue_cmd(This,?get_env(),?wxFont_IsOk),
@@ -377,7 +377,7 @@ See:
 """.
 %%  Encoding = ?wxFONTENCODING_SYSTEM | ?wxFONTENCODING_DEFAULT | ?wxFONTENCODING_ISO8859_1 | ?wxFONTENCODING_ISO8859_2 | ?wxFONTENCODING_ISO8859_3 | ?wxFONTENCODING_ISO8859_4 | ?wxFONTENCODING_ISO8859_5 | ?wxFONTENCODING_ISO8859_6 | ?wxFONTENCODING_ISO8859_7 | ?wxFONTENCODING_ISO8859_8 | ?wxFONTENCODING_ISO8859_9 | ?wxFONTENCODING_ISO8859_10 | ?wxFONTENCODING_ISO8859_11 | ?wxFONTENCODING_ISO8859_12 | ?wxFONTENCODING_ISO8859_13 | ?wxFONTENCODING_ISO8859_14 | ?wxFONTENCODING_ISO8859_15 | ?wxFONTENCODING_ISO8859_MAX | ?wxFONTENCODING_KOI8 | ?wxFONTENCODING_KOI8_U | ?wxFONTENCODING_ALTERNATIVE | ?wxFONTENCODING_BULGARIAN | ?wxFONTENCODING_CP437 | ?wxFONTENCODING_CP850 | ?wxFONTENCODING_CP852 | ?wxFONTENCODING_CP855 | ?wxFONTENCODING_CP866 | ?wxFONTENCODING_CP874 | ?wxFONTENCODING_CP932 | ?wxFONTENCODING_CP936 | ?wxFONTENCODING_CP949 | ?wxFONTENCODING_CP950 | ?wxFONTENCODING_CP1250 | ?wxFONTENCODING_CP1251 | ?wxFONTENCODING_CP1252 | ?wxFONTENCODING_CP1253 | ?wxFONTENCODING_CP1254 | ?wxFONTENCODING_CP1255 | ?wxFONTENCODING_CP1256 | ?wxFONTENCODING_CP1257 | ?wxFONTENCODING_CP1258 | ?wxFONTENCODING_CP1361 | ?wxFONTENCODING_CP12_MAX | ?wxFONTENCODING_UTF7 | ?wxFONTENCODING_UTF8 | ?wxFONTENCODING_EUC_JP | ?wxFONTENCODING_UTF16BE | ?wxFONTENCODING_UTF16LE | ?wxFONTENCODING_UTF32BE | ?wxFONTENCODING_UTF32LE | ?wxFONTENCODING_MACROMAN | ?wxFONTENCODING_MACJAPANESE | ?wxFONTENCODING_MACCHINESETRAD | ?wxFONTENCODING_MACKOREAN | ?wxFONTENCODING_MACARABIC | ?wxFONTENCODING_MACHEBREW | ?wxFONTENCODING_MACGREEK | ?wxFONTENCODING_MACCYRILLIC | ?wxFONTENCODING_MACDEVANAGARI | ?wxFONTENCODING_MACGURMUKHI | ?wxFONTENCODING_MACGUJARATI | ?wxFONTENCODING_MACORIYA | ?wxFONTENCODING_MACBENGALI | ?wxFONTENCODING_MACTAMIL | ?wxFONTENCODING_MACTELUGU | ?wxFONTENCODING_MACKANNADA | ?wxFONTENCODING_MACMALAJALAM | ?wxFONTENCODING_MACSINHALESE | ?wxFONTENCODING_MACBURMESE | ?wxFONTENCODING_MACKHMER | ?wxFONTENCODING_MACTHAI | ?wxFONTENCODING_MACLAOTIAN | ?wxFONTENCODING_MACGEORGIAN | ?wxFONTENCODING_MACARMENIAN | ?wxFONTENCODING_MACCHINESESIMP | ?wxFONTENCODING_MACTIBETAN | ?wxFONTENCODING_MACMONGOLIAN | ?wxFONTENCODING_MACETHIOPIC | ?wxFONTENCODING_MACCENTRALEUR | ?wxFONTENCODING_MACVIATNAMESE | ?wxFONTENCODING_MACARABICEXT | ?wxFONTENCODING_MACSYMBOL | ?wxFONTENCODING_MACDINGBATS | ?wxFONTENCODING_MACTURKISH | ?wxFONTENCODING_MACCROATIAN | ?wxFONTENCODING_MACICELANDIC | ?wxFONTENCODING_MACROMANIAN | ?wxFONTENCODING_MACCELTIC | ?wxFONTENCODING_MACGAELIC | ?wxFONTENCODING_MACKEYBOARD | ?wxFONTENCODING_ISO2022_JP | ?wxFONTENCODING_MAX | ?wxFONTENCODING_MACMIN | ?wxFONTENCODING_MACMAX | ?wxFONTENCODING_UTF16 | ?wxFONTENCODING_UTF32 | ?wxFONTENCODING_UNICODE | ?wxFONTENCODING_GB2312 | ?wxFONTENCODING_BIG5 | ?wxFONTENCODING_SHIFT_JIS | ?wxFONTENCODING_EUC_KR | ?wxFONTENCODING_JOHAB | ?wxFONTENCODING_VIETNAMESE
 -spec setDefaultEncoding(Encoding) -> 'ok' when
-	Encoding::wx:wx_enum().
+        Encoding::wx:wx_enum().
 setDefaultEncoding(Encoding)
  when is_integer(Encoding) ->
   wxe_util:queue_cmd(Encoding,?get_env(),?wxFont_SetDefaultEncoding).
@@ -397,7 +397,7 @@ See:
 * `setFamily/2`
 """.
 -spec setFaceName(This, FaceName) -> boolean() when
-	This::wxFont(), FaceName::unicode:chardata().
+        This::wxFont(), FaceName::unicode:chardata().
 setFaceName(#wx_ref{type=ThisT}=This,FaceName)
  when ?is_chardata(FaceName) ->
   ?CLASS(ThisT,wxFont),
@@ -420,7 +420,7 @@ See:
 """.
 %%  Family = ?wxFONTFAMILY_DEFAULT | ?wxFONTFAMILY_DECORATIVE | ?wxFONTFAMILY_ROMAN | ?wxFONTFAMILY_SCRIPT | ?wxFONTFAMILY_SWISS | ?wxFONTFAMILY_MODERN | ?wxFONTFAMILY_TELETYPE | ?wxFONTFAMILY_MAX | ?wxFONTFAMILY_UNKNOWN
 -spec setFamily(This, Family) -> 'ok' when
-	This::wxFont(), Family::wx:wx_enum().
+        This::wxFont(), Family::wx:wx_enum().
 setFamily(#wx_ref{type=ThisT}=This,Family)
  when is_integer(Family) ->
   ?CLASS(ThisT,wxFont),
@@ -435,7 +435,7 @@ values, consider using the new (added in wxWidgets 3.1.2) `SetFractionalPointSiz
 implemented in wx) function instead.
 """.
 -spec setPointSize(This, PointSize) -> 'ok' when
-	This::wxFont(), PointSize::integer().
+        This::wxFont(), PointSize::integer().
 setPointSize(#wx_ref{type=ThisT}=This,PointSize)
  when is_integer(PointSize) ->
   ?CLASS(ThisT,wxFont),
@@ -448,7 +448,7 @@ See: `getStyle/1`
 """.
 %%  Style = ?wxFONTSTYLE_NORMAL | ?wxFONTSTYLE_ITALIC | ?wxFONTSTYLE_SLANT | ?wxFONTSTYLE_MAX
 -spec setStyle(This, Style) -> 'ok' when
-	This::wxFont(), Style::wx:wx_enum().
+        This::wxFont(), Style::wx:wx_enum().
 setStyle(#wx_ref{type=ThisT}=This,Style)
  when is_integer(Style) ->
   ?CLASS(ThisT,wxFont),
@@ -460,7 +460,7 @@ Sets underlining.
 See: `getUnderlined/1`
 """.
 -spec setUnderlined(This, Underlined) -> 'ok' when
-	This::wxFont(), Underlined::boolean().
+        This::wxFont(), Underlined::boolean().
 setUnderlined(#wx_ref{type=ThisT}=This,Underlined)
  when is_boolean(Underlined) ->
   ?CLASS(ThisT,wxFont),
@@ -473,7 +473,7 @@ See: `getWeight/1`
 """.
 %%  Weight = ?wxFONTWEIGHT_INVALID | ?wxFONTWEIGHT_THIN | ?wxFONTWEIGHT_EXTRALIGHT | ?wxFONTWEIGHT_LIGHT | ?wxFONTWEIGHT_NORMAL | ?wxFONTWEIGHT_MEDIUM | ?wxFONTWEIGHT_SEMIBOLD | ?wxFONTWEIGHT_BOLD | ?wxFONTWEIGHT_EXTRABOLD | ?wxFONTWEIGHT_HEAVY | ?wxFONTWEIGHT_EXTRAHEAVY | ?wxFONTWEIGHT_MAX
 -spec setWeight(This, Weight) -> 'ok' when
-	This::wxFont(), Weight::wx:wx_enum().
+        This::wxFont(), Weight::wx:wx_enum().
 setWeight(#wx_ref{type=ThisT}=This,Weight)
  when is_integer(Weight) ->
   ?CLASS(ThisT,wxFont),

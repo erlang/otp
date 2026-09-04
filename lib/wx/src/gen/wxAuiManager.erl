@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -205,7 +205,7 @@ new(Options)
 
 -doc(#{equiv => addPane(This,Window, [])}).
 -spec addPane(This, Window) -> boolean() when
-	This::wxAuiManager(), Window::wxWindow:wxWindow().
+        This::wxAuiManager(), Window::wxWindow:wxWindow().
 
 addPane(This,Window)
  when is_record(This, wx_ref),is_record(Window, wx_ref) ->
@@ -224,7 +224,7 @@ specified, which will determine where the pane will be added.
 	Option :: {'direction', integer()}
 		 | {'caption', unicode:chardata()};
       (This, Window, Pane_info) -> boolean() when
-	This::wxAuiManager(), Window::wxWindow:wxWindow(), Pane_info::wxAuiPaneInfo:wxAuiPaneInfo().
+        This::wxAuiManager(), Window::wxWindow:wxWindow(), Pane_info::wxAuiPaneInfo:wxAuiPaneInfo().
 addPane(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiManager),
@@ -244,7 +244,7 @@ addPane(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window,#wx_ref{type=Pane_
 
 -doc "".
 -spec addPane(This, Window, Pane_info, Drop_pos) -> boolean() when
-	This::wxAuiManager(), Window::wxWindow:wxWindow(), Pane_info::wxAuiPaneInfo:wxAuiPaneInfo(), Drop_pos::{X::integer(), Y::integer()}.
+        This::wxAuiManager(), Window::wxWindow:wxWindow(), Pane_info::wxAuiPaneInfo:wxAuiPaneInfo(), Drop_pos::{X::integer(), Y::integer()}.
 addPane(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window,#wx_ref{type=Pane_infoT}=Pane_info,{Drop_posX,Drop_posY} = Drop_pos)
  when is_integer(Drop_posX),is_integer(Drop_posY) ->
   ?CLASS(ThisT,wxAuiManager),
@@ -259,7 +259,7 @@ Tells the `m:wxAuiManager` to stop managing the pane specified by window.
 The window, if in a floated frame, is reparented to the frame managed by `m:wxAuiManager`.
 """.
 -spec detachPane(This, Window) -> boolean() when
-	This::wxAuiManager(), Window::wxWindow:wxWindow().
+        This::wxAuiManager(), Window::wxWindow:wxWindow().
 detachPane(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
   ?CLASS(ThisT,wxAuiManager),
   ?CLASS(WindowT,wxWindow),
@@ -268,7 +268,7 @@ detachPane(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
 
 -doc "Returns an array of all panes managed by the frame manager.".
 -spec getAllPanes(This) -> [wxAuiPaneInfo:wxAuiPaneInfo()] when
-	This::wxAuiManager().
+        This::wxAuiManager().
 getAllPanes(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiManager),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManager_GetAllPanes),
@@ -280,7 +280,7 @@ Returns the current art provider being used.
 See: `m:wxAuiDockArt`
 """.
 -spec getArtProvider(This) -> wxAuiDockArt:wxAuiDockArt() when
-	This::wxAuiManager().
+        This::wxAuiManager().
 getArtProvider(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiManager),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManager_GetArtProvider),
@@ -292,7 +292,7 @@ Returns the current dock constraint values.
 See `setDockSizeConstraint/3` for more information.
 """.
 -spec getDockSizeConstraint(This) -> {Widthpct::number(), Heightpct::number()} when
-	This::wxAuiManager().
+        This::wxAuiManager().
 getDockSizeConstraint(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiManager),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManager_GetDockSizeConstraint),
@@ -300,7 +300,7 @@ getDockSizeConstraint(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the current ?wxAuiManagerOption's flags.".
 -spec getFlags(This) -> integer() when
-	This::wxAuiManager().
+        This::wxAuiManager().
 getFlags(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiManager),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManager_GetFlags),
@@ -308,7 +308,7 @@ getFlags(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the frame currently being managed by `m:wxAuiManager`.".
 -spec getManagedWindow(This) -> wxWindow:wxWindow() when
-	This::wxAuiManager().
+        This::wxAuiManager().
 getManagedWindow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiManager),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManager_GetManagedWindow),
@@ -325,7 +325,7 @@ to be a child or sub-child of a managed window. It must however be inside the wi
 hierarchy underneath the managed window.
 """.
 -spec getManager(Window) -> wxAuiManager() when
-	Window::wxWindow:wxWindow().
+        Window::wxWindow:wxWindow().
 getManager(#wx_ref{type=WindowT}=Window) ->
   ?CLASS(WindowT,wxWindow),
   wxe_util:queue_cmd(Window,?get_env(),?wxAuiManager_GetManager),
@@ -342,9 +342,9 @@ be found in the manager), a call to the returned `m:wxAuiPaneInfo`'s IsOk() meth
 return false.
 """.
 -spec getPane(This, Name) -> wxAuiPaneInfo:wxAuiPaneInfo() when
-	This::wxAuiManager(), Name::unicode:chardata();
+        This::wxAuiManager(), Name::unicode:chardata();
       (This, Window) -> wxAuiPaneInfo:wxAuiPaneInfo() when
-	This::wxAuiManager(), Window::wxWindow:wxWindow().
+        This::wxAuiManager(), Window::wxWindow:wxWindow().
 getPane(#wx_ref{type=ThisT}=This,Name)
  when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxAuiManager),
@@ -359,14 +359,14 @@ getPane(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
 
 -doc "`hideHint/1` hides any docking hint that may be visible.".
 -spec hideHint(This) -> 'ok' when
-	This::wxAuiManager().
+        This::wxAuiManager().
 hideHint(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiManager),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManager_HideHint).
 
 -doc(#{equiv => insertPane(This,Window,Insert_location, [])}).
 -spec insertPane(This, Window, Insert_location) -> boolean() when
-	This::wxAuiManager(), Window::wxWindow:wxWindow(), Insert_location::wxAuiPaneInfo:wxAuiPaneInfo().
+        This::wxAuiManager(), Window::wxWindow:wxWindow(), Insert_location::wxAuiPaneInfo:wxAuiPaneInfo().
 
 insertPane(This,Window,Insert_location)
  when is_record(This, wx_ref),is_record(Window, wx_ref),is_record(Insert_location, wx_ref) ->
@@ -413,7 +413,7 @@ See: `savePaneInfo/2`
 See: `savePerspective/1`
 """.
 -spec loadPaneInfo(This, Pane_part, Pane) -> 'ok' when
-	This::wxAuiManager(), Pane_part::unicode:chardata(), Pane::wxAuiPaneInfo:wxAuiPaneInfo().
+        This::wxAuiManager(), Pane_part::unicode:chardata(), Pane::wxAuiPaneInfo:wxAuiPaneInfo().
 loadPaneInfo(#wx_ref{type=ThisT}=This,Pane_part,#wx_ref{type=PaneT}=Pane)
  when ?is_chardata(Pane_part) ->
   ?CLASS(ThisT,wxAuiManager),
@@ -423,7 +423,7 @@ loadPaneInfo(#wx_ref{type=ThisT}=This,Pane_part,#wx_ref{type=PaneT}=Pane)
 
 -doc(#{equiv => loadPerspective(This,Perspective, [])}).
 -spec loadPerspective(This, Perspective) -> boolean() when
-	This::wxAuiManager(), Perspective::unicode:chardata().
+        This::wxAuiManager(), Perspective::unicode:chardata().
 
 loadPerspective(This,Perspective)
  when is_record(This, wx_ref),?is_chardata(Perspective) ->
@@ -472,7 +472,7 @@ See: `loadPerspective/3`
 See: `savePerspective/1`
 """.
 -spec savePaneInfo(This, Pane) -> unicode:charlist() when
-	This::wxAuiManager(), Pane::wxAuiPaneInfo:wxAuiPaneInfo().
+        This::wxAuiManager(), Pane::wxAuiPaneInfo:wxAuiPaneInfo().
 savePaneInfo(#wx_ref{type=ThisT}=This,#wx_ref{type=PaneT}=Pane) ->
   ?CLASS(ThisT,wxAuiManager),
   ?CLASS(PaneT,wxAuiPaneInfo),
@@ -490,7 +490,7 @@ See: `loadPaneInfo/3`
 See: `savePaneInfo/2`
 """.
 -spec savePerspective(This) -> unicode:charlist() when
-	This::wxAuiManager().
+        This::wxAuiManager().
 savePerspective(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiManager),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManager_SavePerspective),
@@ -506,7 +506,7 @@ will be deleted by `m:wxAuiManager`.
 See: `m:wxAuiDockArt`
 """.
 -spec setArtProvider(This, Art_provider) -> 'ok' when
-	This::wxAuiManager(), Art_provider::wxAuiDockArt:wxAuiDockArt().
+        This::wxAuiManager(), Art_provider::wxAuiDockArt:wxAuiDockArt().
 setArtProvider(#wx_ref{type=ThisT}=This,#wx_ref{type=Art_providerT}=Art_provider) ->
   ?CLASS(ThisT,wxAuiManager),
   ?CLASS(Art_providerT,wxAuiDockArt),
@@ -525,7 +525,7 @@ and 1.0. For instance, calling SetDockSizeContraint with 0.5, 0.5 will cause new
 be limited to half of the size of the entire managed window.
 """.
 -spec setDockSizeConstraint(This, Widthpct, Heightpct) -> 'ok' when
-	This::wxAuiManager(), Widthpct::number(), Heightpct::number().
+        This::wxAuiManager(), Widthpct::number(), Heightpct::number().
 setDockSizeConstraint(#wx_ref{type=ThisT}=This,Widthpct,Heightpct)
  when is_number(Widthpct),is_number(Heightpct) ->
   ?CLASS(ThisT,wxAuiManager),
@@ -537,7 +537,7 @@ This method is used to specify ?wxAuiManagerOption's flags.
 `flags` specifies options which allow the frame management behaviour to be modified.
 """.
 -spec setFlags(This, Flags) -> 'ok' when
-	This::wxAuiManager(), Flags::integer().
+        This::wxAuiManager(), Flags::integer().
 setFlags(#wx_ref{type=ThisT}=This,Flags)
  when is_integer(Flags) ->
   ?CLASS(ThisT,wxAuiManager),
@@ -550,7 +550,7 @@ Frame management is not restricted to just frames. Child windows or custom contr
 also allowed.
 """.
 -spec setManagedWindow(This, Managed_wnd) -> 'ok' when
-	This::wxAuiManager(), Managed_wnd::wxWindow:wxWindow().
+        This::wxAuiManager(), Managed_wnd::wxWindow:wxWindow().
 setManagedWindow(#wx_ref{type=ThisT}=This,#wx_ref{type=Managed_wndT}=Managed_wnd) ->
   ?CLASS(ThisT,wxAuiManager),
   ?CLASS(Managed_wndT,wxWindow),
@@ -564,7 +564,7 @@ It is rarely called, and is mostly used by controls implementing custom pane dra
 behaviour. The specified rectangle should be in screen coordinates.
 """.
 -spec showHint(This, Rect) -> 'ok' when
-	This::wxAuiManager(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
+        This::wxAuiManager(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
 showHint(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
   ?CLASS(ThisT,wxAuiManager),
@@ -578,7 +578,7 @@ wxWidgets 3.1.4, it's unnecessary to call it explicitly, as it will be called
 automatically when this window is destroyed, as well as when the manager itself is.
 """.
 -spec unInit(This) -> 'ok' when
-	This::wxAuiManager().
+        This::wxAuiManager().
 unInit(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiManager),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManager_UnInit).
@@ -592,7 +592,7 @@ with `getPane/2`), but to realize the changes, `update/1` must be called. This c
 to be avoided by updating the whole layout at one time.
 """.
 -spec update(This) -> 'ok' when
-	This::wxAuiManager().
+        This::wxAuiManager().
 update(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiManager),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManager_Update).

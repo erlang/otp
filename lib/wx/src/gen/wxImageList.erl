@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ new() ->
 
 -doc(#{equiv => new(Width,Height, [])}).
 -spec new(Width, Height) -> wxImageList() when
-	Width::integer(), Height::integer().
+        Width::integer(), Height::integer().
 
 new(Width,Height)
  when is_integer(Width),is_integer(Height) ->
@@ -130,7 +130,7 @@ list. This does not apply when adding icons.
 Only for:wxmsw,wxosx
 """.
 -spec add(This, Icon) -> integer() when
-	This::wxImageList(), Icon::wxIcon:wxIcon() | wxBitmap:wxBitmap().
+        This::wxImageList(), Icon::wxIcon:wxIcon() | wxBitmap:wxBitmap().
 add(#wx_ref{type=ThisT}=This,#wx_ref{type=IconT}=Icon) ->
   ?CLASS(ThisT,wxImageList),
   IswxIcon = ?CLASS_T(IconT,wxIcon),
@@ -154,9 +154,9 @@ automatically be split into smaller images, each matching the dimensions of the 
 list. This does not apply when adding icons.
 """.
 -spec add(This, Bitmap, Mask) -> integer() when
-	This::wxImageList(), Bitmap::wxBitmap:wxBitmap(), Mask::wxBitmap:wxBitmap();
+        This::wxImageList(), Bitmap::wxBitmap:wxBitmap(), Mask::wxBitmap:wxBitmap();
       (This, Bitmap, MaskColour) -> integer() when
-	This::wxImageList(), Bitmap::wxBitmap:wxBitmap(), MaskColour::wx:wx_colour().
+        This::wxImageList(), Bitmap::wxBitmap:wxBitmap(), MaskColour::wx:wx_colour().
 add(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap,#wx_ref{type=MaskT}=Mask) ->
   ?CLASS(ThisT,wxImageList),
   ?CLASS(BitmapT,wxBitmap),
@@ -172,7 +172,7 @@ add(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap,MaskColour)
 
 -doc(#{equiv => create(This,Width,Height, [])}).
 -spec create(This, Width, Height) -> boolean() when
-	This::wxImageList(), Width::integer(), Height::integer().
+        This::wxImageList(), Width::integer(), Height::integer().
 
 create(This,Width,Height)
  when is_record(This, wx_ref),is_integer(Width),is_integer(Height) ->
@@ -199,7 +199,7 @@ create(#wx_ref{type=ThisT}=This,Width,Height, Options)
 
 -doc(#{equiv => draw(This,Index,Dc,X,Y, [])}).
 -spec draw(This, Index, Dc, X, Y) -> boolean() when
-	This::wxImageList(), Index::integer(), Dc::wxDC:wxDC(), X::integer(), Y::integer().
+        This::wxImageList(), Index::integer(), Dc::wxDC:wxDC(), X::integer(), Y::integer().
 
 draw(This,Index,Dc,X,Y)
  when is_record(This, wx_ref),is_integer(Index),is_record(Dc, wx_ref),is_integer(X),is_integer(Y) ->
@@ -223,7 +223,7 @@ draw(#wx_ref{type=ThisT}=This,Index,#wx_ref{type=DcT}=Dc,X,Y, Options)
 
 -doc "Returns the bitmap corresponding to the given index.".
 -spec getBitmap(This, Index) -> wxBitmap:wxBitmap() when
-	This::wxImageList(), Index::integer().
+        This::wxImageList(), Index::integer().
 getBitmap(#wx_ref{type=ThisT}=This,Index)
  when is_integer(Index) ->
   ?CLASS(ThisT,wxImageList),
@@ -232,7 +232,7 @@ getBitmap(#wx_ref{type=ThisT}=This,Index)
 
 -doc "Returns the icon corresponding to the given index.".
 -spec getIcon(This, Index) -> wxIcon:wxIcon() when
-	This::wxImageList(), Index::integer().
+        This::wxImageList(), Index::integer().
 getIcon(#wx_ref{type=ThisT}=This,Index)
  when is_integer(Index) ->
   ?CLASS(ThisT,wxImageList),
@@ -241,7 +241,7 @@ getIcon(#wx_ref{type=ThisT}=This,Index)
 
 -doc "Returns the number of images in the list.".
 -spec getImageCount(This) -> integer() when
-	This::wxImageList().
+        This::wxImageList().
 getImageCount(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxImageList),
   wxe_util:queue_cmd(This,?get_env(),?wxImageList_GetImageCount),
@@ -266,7 +266,7 @@ getSize(#wx_ref{type=ThisT}=This,Index)
 
 -doc "Removes the image at the given position.".
 -spec remove(This, Index) -> boolean() when
-	This::wxImageList(), Index::integer().
+        This::wxImageList(), Index::integer().
 remove(#wx_ref{type=ThisT}=This,Index)
  when is_integer(Index) ->
   ?CLASS(ThisT,wxImageList),
@@ -275,7 +275,7 @@ remove(#wx_ref{type=ThisT}=This,Index)
 
 -doc "Removes all the images in the list.".
 -spec removeAll(This) -> boolean() when
-	This::wxImageList().
+        This::wxImageList().
 removeAll(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxImageList),
   wxe_util:queue_cmd(This,?get_env(),?wxImageList_RemoveAll),
@@ -291,7 +291,7 @@ Remark: The original bitmap or icon is not affected by the `replace/4` operation
 Only for:wxmsw,wxosx
 """.
 -spec replace(This, Index, Icon) -> boolean() when
-	This::wxImageList(), Index::integer(), Icon::wxIcon:wxIcon() | wxBitmap:wxBitmap().
+        This::wxImageList(), Index::integer(), Icon::wxIcon:wxIcon() | wxBitmap:wxBitmap().
 replace(#wx_ref{type=ThisT}=This,Index,#wx_ref{type=IconT}=Icon)
  when is_integer(Index) ->
   ?CLASS(ThisT,wxImageList),
@@ -316,7 +316,7 @@ Remark: The original bitmap or icon is not affected by the `replace/4` operation
 afterwards.
 """.
 -spec replace(This, Index, Bitmap, Mask) -> boolean() when
-	This::wxImageList(), Index::integer(), Bitmap::wxBitmap:wxBitmap(), Mask::wxBitmap:wxBitmap().
+        This::wxImageList(), Index::integer(), Bitmap::wxBitmap:wxBitmap(), Mask::wxBitmap:wxBitmap().
 replace(#wx_ref{type=ThisT}=This,Index,#wx_ref{type=BitmapT}=Bitmap,#wx_ref{type=MaskT}=Mask)
  when is_integer(Index) ->
   ?CLASS(ThisT,wxImageList),

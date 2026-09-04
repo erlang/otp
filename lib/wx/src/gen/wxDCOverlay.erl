@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc "Convenience wrapper that behaves the same using the entire area of the dc.".
 -spec new(Overlay, Dc) -> wxDCOverlay() when
-	Overlay::wxOverlay:wxOverlay(), Dc::wxDC:wxDC().
+        Overlay::wxOverlay:wxOverlay(), Dc::wxDC:wxDC().
 new(#wx_ref{type=OverlayT}=Overlay,#wx_ref{type=DcT}=Dc) ->
   ?CLASS(OverlayT,wxOverlay),
   ?CLASS(DcT,wxDC),
@@ -91,7 +91,7 @@ Connects this overlay to the corresponding drawing dc, if the overlay is not ini
 yet this call will do so.
 """.
 -spec new(Overlay, Dc, X, Y, Width, Height) -> wxDCOverlay() when
-	Overlay::wxOverlay:wxOverlay(), Dc::wxDC:wxDC(), X::integer(), Y::integer(), Width::integer(), Height::integer().
+        Overlay::wxOverlay:wxOverlay(), Dc::wxDC:wxDC(), X::integer(), Y::integer(), Width::integer(), Height::integer().
 new(#wx_ref{type=OverlayT}=Overlay,#wx_ref{type=DcT}=Dc,X,Y,Width,Height)
  when is_integer(X),is_integer(Y),is_integer(Width),is_integer(Height) ->
   ?CLASS(OverlayT,wxOverlay),
@@ -101,7 +101,7 @@ new(#wx_ref{type=OverlayT}=Overlay,#wx_ref{type=DcT}=Dc,X,Y,Width,Height)
 
 -doc "Clears the layer, restoring the state at the last init.".
 -spec clear(This) -> 'ok' when
-	This::wxDCOverlay().
+        This::wxDCOverlay().
 clear(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDCOverlay),
   wxe_util:queue_cmd(This,?get_env(),?wxDCOverlay_Clear).

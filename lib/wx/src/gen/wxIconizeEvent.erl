@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc "Returns true if the frame has been iconized, false if it has been restored.".
 -spec isIconized(This) -> boolean() when
-	This::wxIconizeEvent().
+        This::wxIconizeEvent().
 isIconized(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxIconizeEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxIconizeEvent_IsIconized),

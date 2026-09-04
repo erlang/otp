@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -110,7 +110,7 @@ May only be called while processing `wxEVT_SPLITTER_SASH_POS_CHANGING` and `wxEV
 events.
 """.
 -spec getSashPosition(This) -> integer() when
-	This::wxSplitterEvent().
+        This::wxSplitterEvent().
 getSashPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSplitterEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxSplitterEvent_GetSashPosition),
@@ -122,7 +122,7 @@ Returns the x coordinate of the double-click point.
 May only be called while processing `wxEVT_SPLITTER_DOUBLECLICKED` events.
 """.
 -spec getX(This) -> integer() when
-	This::wxSplitterEvent().
+        This::wxSplitterEvent().
 getX(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSplitterEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxSplitterEvent_GetX),
@@ -134,7 +134,7 @@ Returns the y coordinate of the double-click point.
 May only be called while processing `wxEVT_SPLITTER_DOUBLECLICKED` events.
 """.
 -spec getY(This) -> integer() when
-	This::wxSplitterEvent().
+        This::wxSplitterEvent().
 getY(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSplitterEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxSplitterEvent_GetY),
@@ -146,7 +146,7 @@ Returns a pointer to the window being removed when a splitter window is unsplit.
 May only be called while processing `wxEVT_SPLITTER_UNSPLIT` events.
 """.
 -spec getWindowBeingRemoved(This) -> wxWindow:wxWindow() when
-	This::wxSplitterEvent().
+        This::wxSplitterEvent().
 getWindowBeingRemoved(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSplitterEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxSplitterEvent_GetWindowBeingRemoved),
@@ -163,7 +163,7 @@ May only be called while processing `wxEVT_SPLITTER_SASH_POS_CHANGING` and `wxEV
 events.
 """.
 -spec setSashPosition(This, Pos) -> 'ok' when
-	This::wxSplitterEvent(), Pos::integer().
+        This::wxSplitterEvent(), Pos::integer().
 setSashPosition(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxSplitterEvent),
