@@ -482,7 +482,7 @@ strict_address(_) ->
     {error, einval}.
 
 %%
-%% Parse IPv4 address: 
+%% Parse IPv4 address:
 %%    d1.d2.d3.d4
 %%    d1.d2.d4
 %%    d1.d4
@@ -507,16 +507,32 @@ ipv4_address(Cs) ->
 
 ipv4_addr(Cs) ->
     case ipv4_addr(Cs, []) of
-	[D] when D < (1 bsl 32) ->
-	    <<D1,D2,D3,D4>> = <<D:32>>,
+	[D] when is_integer(D, 0, 16#ffff_ffff) ->
+            D4 = D band 255,
+            Da = D bsr 8,
+            D3 = Da band 255,
+            Db = Da bsr 8,
+            D2 = Db band 255,
+            D1 = Db bsr 8,
 	    {D1,D2,D3,D4};
-	[D,D1] when D < (1 bsl 24), D1 < 256 ->
-	    <<D2,D3,D4>> = <<D:24>>,
+	[D,D1] when is_integer(D, 0, 16#ff_ffff), is_integer(D1, 0, 255) ->
+            D4 = D band 255,
+            Da = D bsr 8,
+            D3 = Da band 255,
+            D2 = Da bsr 8,
 	    {D1,D2,D3,D4};
-	[D,D2,D1] when D < (1 bsl 16), (D2 bor D1) < 256 ->
-	    <<D3,D4>> = <<D:16>>,
+	[D,D2,D1] when
+              is_integer(D, 0, 16#ffff),
+              is_integer(D2, 0, 255),
+              is_integer(D1, 0, 255) ->
+            D4 = D band 255,
+            D3 = D bsr 8,
 	    {D1,D2,D3,D4};
-	[D4,D3,D2,D1] when (D4 bor D3 bor D2 bor D1) < 256 ->
+	[D4,D3,D2,D1] when
+              is_integer(D4, 0, 255),
+              is_integer(D3, 0, 255),
+              is_integer(D2, 0, 255),
+              is_integer(D1, 0, 255) ->
 	    {D1,D2,D3,D4};
 	_ ->
 	    erlang:error(badarg)
