@@ -22,8 +22,7 @@
 -module(inet_parse).
 -moduledoc false.
 
--compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
-          nowarn_deprecated_catch]).
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 %% Parser for all kinds of ineternet configuration files
 
@@ -308,19 +307,18 @@ parse_fd(Fname,Fd, Line, Fun, Ls) ->
 	    case split_line(Cs) of
 		[] -> parse_fd(Fname, Fd, Line+1, Fun, Ls);
 		Toks ->
-		    case catch Fun(Toks) of
-			{'EXIT',_} ->
-			    error("~p:~p: erroneous line, SKIPPED~n",[Fname,Line]),
-			    parse_fd(Fname, Fd,Line+1,Fun,Ls);
-			{warning,Wlist,Val} ->
-			    warning("~p:~p: warning! strange domain name(s) ~p ~n",[Fname,Line,Wlist]),
-			    parse_fd(Fname, Fd,Line+1,Fun,[Val|Ls]);
-
-			skip -> 
-			    parse_fd(Fname, Fd, Line+1, Fun, Ls);
-			Val -> parse_fd(Fname, Fd, Line+1, Fun, [Val|Ls])
-		    end
-	    end
+                    try Fun(Toks) of
+                        {warning,Wlist,Val} ->
+                            warning("~p:~p: warning! strange domain name(s) ~p ~n",[Fname,Line,Wlist]),
+                            parse_fd(Fname, Fd,Line+1,Fun,[Val|Ls]);
+                        skip ->
+                            parse_fd(Fname, Fd, Line+1, Fun, Ls);
+                        Val -> parse_fd(Fname, Fd, Line+1, Fun, [Val|Ls])
+                    catch error : _ ->
+                            error("~p:~p: erroneous line, SKIPPED~n",[Fname,Line]),
+                            parse_fd(Fname, Fd,Line+1,Fun,Ls)
+                    end
+            end
     end.
 
 parse_cs(Fname, Chars, Line, Fun, Ls) ->
@@ -330,18 +328,18 @@ parse_cs(Fname, Chars, Line, Fun, Ls) ->
 	    case split_line(Cs) of
 		[] -> parse_cs(Fname, Chars1, Line+1, Fun, Ls);
 		Toks ->
-		    case catch Fun(Toks) of
-			{'EXIT',_} -> 
-			    error("~p:~p: erroneous line, SKIPPED~n",[Fname,Line]),
- 			    parse_cs(Fname, Chars1, Line+1, Fun, Ls);
-			{warning,Wlist,Val} ->
-			    warning("~p:~p: warning! strange domain name(s) ~p ~n",[Fname,Line,Wlist]),
-			    parse_cs(Fname, Chars1, Line+1, Fun, [Val|Ls]);
+                    try Fun(Toks) of
+                        {warning,Wlist,Val} ->
+                            warning("~p:~p: warning! strange domain name(s) ~p ~n",[Fname,Line,Wlist]),
+                            parse_cs(Fname, Chars1, Line+1, Fun, [Val|Ls]);
 
-			skip -> parse_cs(Fname, Chars1, Line+1, Fun, Ls);
-			Val -> parse_cs(Fname, Chars1, Line+1, Fun, [Val|Ls])
-		    end
-	    end
+                        skip -> parse_cs(Fname, Chars1, Line+1, Fun, Ls);
+                        Val -> parse_cs(Fname, Chars1, Line+1, Fun, [Val|Ls])
+                    catch error : _ ->
+                            error("~p:~p: erroneous line, SKIPPED~n",[Fname,Line]),
+                            parse_cs(Fname, Chars1, Line+1, Fun, Ls)
+                    end
+            end
     end.
 
 get_line([]) -> eof;
@@ -400,49 +398,44 @@ visible_string(_) -> false.
 %% Check if a String is a domain name according to RFC XXX.
 %% domain(String) -> Bool
 %%
-domain([H|T]) ->
-    is_dom1([H|T]);
-domain(_) ->
-    false.
+domain(Cs) when is_list(Cs) ->
+    is_dom1(Cs) andalso
+    %%
+    %% Also check that we don't get a IP-address as a domain name
+    %% (A valid domain name cannot be an IPv6 address
+    %%  since the latter has to contain a `:`)
+        try ipv4_addr(Cs) of
+            _Addr               -> false
+        catch throw : error     -> true
+        end.
 
-is_dom1([C | Cs]) when C >= $a, C =< $z -> is_dom_ldh(Cs);
-is_dom1([C | Cs]) when C >= $A, C =< $Z -> is_dom_ldh(Cs);
-is_dom1([C | Cs]) when C >= $0, C =< $9 -> 
-    case is_dom_ldh(Cs) of
-	true  -> is_dom2(string:lexemes([C | Cs],"."));
-	false -> false
+%% Each DNS label starts with letter or number and cannot be empty
+is_dom1([C | Cs]) ->
+    if
+        C >= $a, C =< $z;
+        C >= $A, C =< $Z;
+        C >= $0, C =< $9        -> is_dom_ldh(Cs);
+        true                    -> false
     end;
-is_dom1(_) -> false.
+is_dom1([])                     -> false.
 
-is_dom_ldh([C | Cs]) when C >= $a, C =< $z -> is_dom_ldh(Cs);
-is_dom_ldh([C | Cs]) when C >= $A, C =< $Z -> is_dom_ldh(Cs);
-is_dom_ldh([C | Cs]) when C >= $0, C =< $9 -> is_dom_ldh(Cs);
-is_dom_ldh([$-,$. | _]) -> false;
-is_dom_ldh([$_,$. | _]) -> false;
-is_dom_ldh([$_ | Cs]) -> is_dom_ldh(Cs);
-is_dom_ldh([$- | Cs]) -> is_dom_ldh(Cs);
-is_dom_ldh([$. | Cs]) -> is_dom1(Cs);
-is_dom_ldh([]) -> true;
-is_dom_ldh(_) -> false.
-
-%%% Check that we don't get a IP-address as a domain name.
-
--define(L2I(L), (catch list_to_integer(L))).
-
-is_dom2([A,B,C,D]) ->
-    case ?L2I(D) of
-	Di when is_integer(Di) ->
-	    case {?L2I(A),?L2I(B),?L2I(C)} of
-		{Ai,Bi,Ci} when is_integer(Ai),
-                                is_integer(Bi),
-                                is_integer(Ci) -> false;
-		_ -> true
-	    end;
-	_ -> true
+%% Within a DNS label, but not at the end, `-` and `_` are also allowed.
+%% A `.` ends the label.
+is_dom_ldh([$_])                -> false;
+is_dom_ldh([$-])                -> false;
+is_dom_ldh([$_,$. | _])         -> false;
+is_dom_ldh([$-,$. | _])         -> false;
+is_dom_ldh([$. | Cs])           -> is_dom1(Cs);
+is_dom_ldh([$_ | Cs])           -> is_dom_ldh(Cs);
+is_dom_ldh([$- | Cs])           -> is_dom_ldh(Cs);
+is_dom_ldh([C | Cs]) ->
+    if
+        C >= $a, C =< $z;
+        C >= $A, C =< $Z;
+        C >= $0, C =< $9        -> is_dom_ldh(Cs);
+        true                    -> false
     end;
-is_dom2(_) ->
-    true.
-
+is_dom_ldh([])                  -> true.
 
 
 %%
