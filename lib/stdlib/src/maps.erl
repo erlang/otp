@@ -78,9 +78,9 @@ Consumed by:
 Iterator order option for [`maps:iterator/2`](`iterator/2`).
 
 - **`undefined`** - iteration in undefined order
-- **`ordered`** - iteration in map-key order
-- **`reversed`** - iteration in reverse map-key order
-- **custom sorting function** - iteration in the order the sorting function implements
+- **`ordered`** - iteration in map key order
+- **`reversed`** - iteration in reverse map key order
+- **custom ordering function** - iteration in the order the ordering function implements
 
 The [Expressions section](`e:system:expressions.md#term-comparisons`) contains
 descriptions of how terms are ordered.
@@ -988,10 +988,11 @@ Returns a map iterator `Iterator` that can be used by [`maps:next/1`](`next/1`)
 to traverse the key-value associations in a map according to the given
 `Order`.
 
-When iterating over a map using an iterator with `undefined` order, memory usage is
-guaranteed to be bounded no matter the size of the map. The order of iteration is
-not guaranteed to be stable however, meaning that repeated iterations over the same
-map may happen in different order.
+When iterating over a map using an iterator with `undefined` order the order of
+iteration is completely undefined, meaning that calling `next/1` on the same
+`t:iterator/0` is not guaranteed to yield the same key-value pair.
+`undefined` iterators are however guaranteed to use a bounded amount of memory
+no matter the size of the map.
 
 When iterating over a map using an iterator with a custom ordering function, the
 order of iteration is stable except between keys which compare equal.
@@ -1001,45 +1002,55 @@ with a `badarg` exception if `Order` is invalid.
 
 ## Examples
 
-Ordered iterator:
+### Iterator with `ordered` order:
 
 ```erlang
-1> M = #{a => 1, b => 2}.
-2> OrdI = maps:iterator(M, ordered).
-3> {K1, V1, OrdI2} = maps:next(OrdI), {K1, V1}.
+1> M = #{a => 1, b => 2, c => 3}.
+2> I0 = maps:iterator(M, ordered).
+3> {K1, V1, I1} = maps:next(I0), {K1, V1}.
 {a,1}
-4> {K2, V2, OrdI3} = maps:next(OrdI2), {K2, V2}.
+4> {K2, V2, I2} = maps:next(I1), {K2, V2}.
 {b,2}
-5> maps:next(OrdI3).
+5> {K3, V3, I3} = maps:next(I2), {K3, V3}.
+{c,3}
+6> maps:next(I3).
 none
 ```
 
-Iterator ordered in reverse:
+### Iterator with `reversed` order:
 
 ```erlang
-1> M = #{a => 1, b => 2}.
-2> RevI = maps:iterator(M, reversed).
-3> {K2, V2, RevI2} = maps:next(RevI), {K2, V2}.
+1> M = #{a => 1, b => 2, c => 3}.
+2> I0 = maps:iterator(M, reversed).
+3> {K1, V1, I1} = maps:next(I0), {K1, V1}.
+{c,3}
+4> {K2, V2, I2} = maps:next(I1), {K2, V2}.
 {b,2}
-4> {K1, V1, RevI3} = maps:next(RevI2), {K1, V1}.
+5> {K3, V3, I3} = maps:next(I2), {K3, V3}.
 {a,1}
-5> maps:next(RevI3).
+6> maps:next(I3).
 none
-6> maps:to_list(RevI).
-[{b,2},{a,1}]
 ```
 
-Using a custom ordering function that orders binaries by size:
+### Iterator using a custom ordering function which orders binaries by size:
 
 ```erlang
-1> M = #{<<"abcde">> => d, <<"y">> => b, <<"x">> => a, <<"pqr">> => c}.
-2> SizeI = fun(A, B) when byte_size(A) < byte_size(B) -> true;
-              (A, B) when byte_size(A) > byte_size(B) -> false;
-              (A, B) -> A =< B
-           end.
-3> SizeOrdI = maps:iterator(M, SizeI).
-4> maps:to_list(SizeOrdI).
-[{<<"x">>,a},{<<"y">>,b},{<<"pqr">>,c},{<<"abcde">>,d}]
+1> M = #{<<"abcde">> => 1, <<"y">> => 2, <<"x">> => 3, <<"pqr">> => 4}.
+2> OrdFun = fun(A, B) when byte_size(A) < byte_size(B) -> true;
+               (A, B) when byte_size(A) > byte_size(B) -> false;
+               (A, B) -> A =< B
+            end.
+3> I0 = maps:iterator(M, OrdFun).
+4> {K1, V1, I1} = maps:next(I0), {K1, V1}.
+{<<"x">>,3}
+5> {K2, V2, I2} = maps:next(I1), {K2, V2}.
+{<<"y">>,2}
+6> {K3, V3, I3} = maps:next(I2), {K3, V3}.
+{<<"pqr">>,4}
+7> {K4, V4, I4} = maps:next(I3), {K4, V4}.
+{<<"abcde">>,1}
+8> maps:next(I4).
+none
 ```
 """.
 -doc(#{since => <<"OTP 26.0">>}).

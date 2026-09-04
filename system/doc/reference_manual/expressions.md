@@ -846,17 +846,17 @@ with the same size are compared element by element.
 Bit strings are compared bit by bit. If one bit string is a prefix of the other,
 the shorter bit string is considered smaller.
 
-Maps are ordered by size; two maps with the same size are compared by keys in
-ascending term order and then by values in key order. In map key order, integer
+Maps are compared by size; two maps with the same size are compared by keys in
+ascending map key order and then by values in term order. In map key order, integer
 types are considered less than float types.
 
 Atoms are compared using their string value, codepoint by codepoint.
 
 When comparing an integer to a float, the term with the lesser precision is
 converted into the type of the other term, unless the operator is one of `=:=`
-or `=/=`. A float is more precise than an integer until all significant figures
-of the float are to the left of the decimal point. This happens when the float
-is larger/smaller than +/-9007199254740992.0. The conversion strategy is changed
+or `=/=`. A float is more precise than an integer unless all significant digits
+of the float are on the left of the decimal point. This happens when the float
+is larger/smaller than `+/-9007199254740992.0`. The conversion strategy is changed
 depending on the size of the float because otherwise comparison of large floats
 and integers would lose their transitivity.
 
@@ -885,7 +885,7 @@ Term comparison operators return the Boolean value of the expression, `true` or
 
 _Examples:_
 
-```
+```erlang
 1> 1 == 1.0.
 true
 2> 1 =:= 1.0.
