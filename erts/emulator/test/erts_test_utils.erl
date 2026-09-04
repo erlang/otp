@@ -36,6 +36,7 @@
          ept_check_leaked_nodes/1]).
 
 
+-define(CATCH(T), try T catch throw:__Thrown -> __Thrown; exit:__Exit -> {'EXIT', __Exit}; error:__Error:__ST -> {'EXIT', {__Error, __ST}} end).
 
 -define(VERSION_MAGIC,       131).
 
@@ -118,14 +119,14 @@ enc_creation(_Num, _Ser, Creation) ->
 mk_ext_pid({NodeName, Creation}, Number, Serial) when is_atom(NodeName) ->
     mk_ext_pid({atom_to_list(NodeName), Creation}, Number, Serial);
 mk_ext_pid({NodeName, Creation}, Number, Serial) ->
-    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-					      pid_tag(Number, Serial, Creation),
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
-					      uint32_be(Number),
-					      uint32_be(Serial),
-					      enc_creation(Number, Serial, Creation)])) of
+    case ?CATCH(binary_to_term(list_to_binary([?VERSION_MAGIC,
+                                               pid_tag(Number, Serial, Creation),
+                                               ?ATOM_EXT,
+                                               uint16_be(length(NodeName)),
+                                               NodeName,
+                                               uint32_be(Number),
+                                               uint32_be(Serial),
+                                               enc_creation(Number, Serial, Creation)]))) of
 	Pid when is_pid(Pid) ->
 	    Pid;
 	{'EXIT', {badarg, uint32_be, _}} ->
@@ -148,16 +149,16 @@ port_tag(_Num, _Creation) ->
 mk_ext_port({NodeName, Creation}, Number) when is_atom(NodeName) ->
     mk_ext_port({atom_to_list(NodeName), Creation}, Number);
 mk_ext_port({NodeName, Creation}, Number) ->
-    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-					      port_tag(Number, Creation),
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
-					      case Number > ?OLD_MAX_PIDS_PORTS of
-						  true -> uint64_be(Number);
-						  false -> uint32_be(Number)
-					      end,
-					      enc_creation(Number, Creation)])) of
+    case ?CATCH(binary_to_term(list_to_binary([?VERSION_MAGIC,
+                                               port_tag(Number, Creation),
+                                               ?ATOM_EXT,
+                                               uint16_be(length(NodeName)),
+                                               NodeName,
+                                               case Number > ?OLD_MAX_PIDS_PORTS of
+                                                   true -> uint64_be(Number);
+                                                   false -> uint32_be(Number)
+                                               end,
+                                               enc_creation(Number, Creation)]))) of
 	Port when is_port(Port) ->
 	    Port;
 	{'EXIT', {badarg, Uint, _}} when Uint == uint64_be; Uint == uint32_be ->
@@ -178,13 +179,13 @@ mk_ext_ref({NodeName, Creation}, Numbers) when is_atom(NodeName),
 mk_ext_ref({NodeName, Creation}, [Number]) when is_list(NodeName),
                                                 Creation =< 3,
                                                 is_integer(Number) ->
-    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-                                              ?REFERENCE_EXT,
-                                              ?ATOM_EXT,
-                                              uint16_be(length(NodeName)),
-                                              NodeName,
-                                              uint32_be(Number),
-                                              uint8(Creation)])) of
+    case ?CATCH(binary_to_term(list_to_binary([?VERSION_MAGIC,
+                                               ?REFERENCE_EXT,
+                                               ?ATOM_EXT,
+                                               uint16_be(length(NodeName)),
+                                               NodeName,
+                                               uint32_be(Number),
+                                               uint8(Creation)]))) of
         Ref when is_reference(Ref) ->
             Ref;
         {'EXIT', {badarg, _}} ->
@@ -194,17 +195,17 @@ mk_ext_ref({NodeName, Creation}, [Number]) when is_list(NodeName),
     end;
 mk_ext_ref({NodeName, Creation}, Numbers) when is_list(NodeName),
                                                is_list(Numbers) ->
-    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-					      ref_tag(Numbers, Creation),
-					      uint16_be(length(Numbers)),
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
-					      enc_creation(Numbers, Creation),
-					      lists:map(fun (N) ->
-								uint32_be(N)
-							end,
-							Numbers)])) of
+    case ?CATCH(binary_to_term(list_to_binary([?VERSION_MAGIC,
+                                               ref_tag(Numbers, Creation),
+                                               uint16_be(length(Numbers)),
+                                               ?ATOM_EXT,
+                                               uint16_be(length(NodeName)),
+                                               NodeName,
+                                               enc_creation(Numbers, Creation),
+                                               lists:map(fun(N) ->
+                                                             uint32_be(N)
+                                                         end,
+                                                         Numbers)]))) of
 	Ref when is_reference(Ref) ->
 	    Ref;
 	{'EXIT', {badarg, _}} ->
@@ -216,7 +217,7 @@ mk_ext_ref({NodeName, Creation}, Numbers) when is_list(NodeName),
 
 available_internal_state(Bool) when Bool == true; Bool == false ->
     case {Bool,
-          (catch erts_debug:get_internal_state(available_internal_state))} of
+          ?CATCH(erts_debug:get_internal_state(available_internal_state))} of
         {true, true} ->
             true;
         {false, true} ->
@@ -258,11 +259,11 @@ check_node_dist(Fail, NodeRefs, DistRefs) ->
 
 
 check_nd_refc({ThisNodeName, ThisCreation}, NodeRefs, DistRefs, Fail) ->
-    case catch begin
-                   check_refc(ThisNodeName,ThisCreation,"node table",NodeRefs),
-                   check_refc(ThisNodeName,ThisCreation,"dist table",DistRefs),
-                   ok
-               end of
+    case ?CATCH(begin
+                    check_refc(ThisNodeName,ThisCreation,"node table",NodeRefs),
+                    check_refc(ThisNodeName,ThisCreation,"dist table",DistRefs),
+                    ok
+                end) of
         ok ->
             ok;
         {'EXIT', Reason} ->
