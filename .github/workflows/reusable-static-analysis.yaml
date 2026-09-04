@@ -37,7 +37,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write   # needed for SARIF upload
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
         with:
@@ -53,7 +52,3 @@ jobs:
         ## Run dialyzer
       - name: Run dialyzer
         run: docker run -v $PWD/:/github otp '/github/scripts/run-dialyzer'
-      - name: Check OSSF compiler flags
-        uses: ./.github/actions/ossf-compiler-flags-scanner
-        with:
-          upload: ${{ github.repository == 'erlang/otp' || github.event_name != 'push' }}

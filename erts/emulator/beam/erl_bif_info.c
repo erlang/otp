@@ -3487,9 +3487,10 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     else if (ERTS_IS_ATOM_STR("compile_info",BIF_ARG_1)) {
 	Uint  sz;
 	Eterm res = NIL, tup, text;
-	Eterm *hp = HAlloc(BIF_P, 3*(2 + 3) + /* three 2-tuples and three cons */
+        Eterm *hp = HAlloc(BIF_P, 4*(2 + 3) + /* four 2-tuples and four cons */
 		2*(sys_strlen(erts_build_flags_CONFIG_H) +
 		   sys_strlen(erts_build_flags_CFLAGS) +
+                   sys_strlen(erts_build_flags_CXXFLAGS) +
 		   sys_strlen(erts_build_flags_LDFLAGS)));
 
 	sz   = sys_strlen(erts_build_flags_CONFIG_H);
@@ -3501,6 +3502,11 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	text = buf_to_intlist(&hp, erts_build_flags_CFLAGS, sz, NIL);
 	tup  = TUPLE2(hp, am_cflags, text); hp += 3;
 	res  = CONS(hp, tup, res); hp += 2;
+
+        sz   = sys_strlen(erts_build_flags_CXXFLAGS);
+        text = buf_to_intlist(&hp, erts_build_flags_CXXFLAGS, sz, NIL);
+        tup  = TUPLE2(hp, am_cxxflags, text); hp += 3;
+        res  = CONS(hp, tup, res); hp += 2;
 
 	sz   = sys_strlen(erts_build_flags_LDFLAGS);
 	text = buf_to_intlist(&hp, erts_build_flags_LDFLAGS, sz, NIL);
