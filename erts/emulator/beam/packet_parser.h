@@ -30,12 +30,11 @@
 #include "sys.h"
 
 
-/* INET_LOPT_PACKET options */
 enum PacketParseType {
     TCP_PB_RAW      = 0,
     TCP_PB_1        = 1,
-    TCP_PB_2        = 2,
-    TCP_PB_4        = 3,
+    TCP_PB_2_BIG    = 2,
+    TCP_PB_4_BIG    = 3,
     TCP_PB_ASN1     = 4,
     TCP_PB_RM       = 5,
     TCP_PB_CDR      = 6,
@@ -46,7 +45,11 @@ enum PacketParseType {
     TCP_PB_HTTPH    = 11,
     TCP_PB_SSL_TLS  = 12,
     TCP_PB_HTTP_BIN = 13,
-    TCP_PB_HTTPH_BIN = 14
+    TCP_PB_HTTPH_BIN = 14,
+    TCP_PB_2_LITTLE = 15,
+    TCP_PB_3_BIG    = 16,
+    TCP_PB_3_LITTLE = 17,
+    TCP_PB_4_LITTLE = 18
 };
 
 typedef struct http_atom {
@@ -153,8 +156,12 @@ void packet_get_body(enum PacketParseType htype, const char** bufp, int* lenp)
 {
     switch (htype) {
     case TCP_PB_1:  *bufp += 1; *lenp -= 1; break;
-    case TCP_PB_2:  *bufp += 2; *lenp -= 2; break;
-    case TCP_PB_4:  *bufp += 4; *lenp -= 4; break;
+    case TCP_PB_2_BIG:    *bufp += 2; *lenp -= 2; break;
+    case TCP_PB_2_LITTLE: *bufp += 2; *lenp -= 2; break;
+    case TCP_PB_3_BIG:    *bufp += 3; *lenp -= 3; break;
+    case TCP_PB_3_LITTLE: *bufp += 3; *lenp -= 3; break;
+    case TCP_PB_4_BIG:    *bufp += 4; *lenp -= 4; break;
+    case TCP_PB_4_LITTLE: *bufp += 4; *lenp -= 4; break;
     case TCP_PB_FCGI:
 	*lenp -= ((struct fcgi_head*)*bufp)->paddingLength;
         break;
@@ -184,4 +191,3 @@ int packet_parse(enum PacketParseType htype, const char* buf, int len,
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 #endif /* !__PACKET_PARSER_H__ */
-

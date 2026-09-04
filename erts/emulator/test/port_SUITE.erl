@@ -39,12 +39,15 @@
 %%	       [Spawn of external program is tested.]
 %%
 %%       {fd, In, Out}
-%%         Open file descriptors In and Out. [Not tested]
+%%         Open file descriptors In and Out. Packet framing is tested.
 %%
 %%   PortSettings can be
 %%
 %%       {packet, N}
-%%         N is 1, 2 or 4.
+%%         N is 1, 2, 3 or 4.
+%%
+%%       {packet, {N, Endian}}
+%%         N is 2, 3 or 4. Endian is big, little, or native.
 %%
 %%       stream (default)
 %%         Without packet length.
@@ -92,6 +95,7 @@
     eof/1,
     exit_status/1,
     exit_status_multi_scheduling_block/1,
+    fd_packet_endian/1,
     huge_env/1,
     pipe_limit_env/1,
     input_only/1,
@@ -119,6 +123,10 @@
     otp_5119/1,
     otp_6224/1,
     output_only/1,
+    packet_options/1,
+    packet_endian_spawn/1,
+    packet_option_replacement/1,
+    packet_stream_replacement/1,
     parallelism_option/1,
     parallell/1,
     port_program_with_path/1,
@@ -159,7 +167,8 @@
 %% Internal exports.
 -export([tps/3]).
 -export([otp_3906_forker/5, otp_3906_start_forker_starter/4]).
--export([env_slave_main/1]).
+-export([env_slave_main/1, fd_packet_endian_child/0,
+         fd_stream_replacement_child/0]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -170,7 +179,10 @@ suite() ->
      {timetrap, {minutes, 1}}].
 
 all() ->
-    [otp_6224, {group, stream}, basic_ping, slow_writes,
+    [otp_6224, {group, stream}, basic_ping, packet_options,
+     packet_option_replacement,
+     packet_endian_spawn, packet_stream_replacement,
+     fd_packet_endian, slow_writes,
      bad_packet, bad_port_messages, {group, options},
      {group, multiple_packets}, parallell, dying_port, dropped_commands,
      port_program_with_path, name1, env, huge_env, bad_env, cd,
@@ -305,15 +317,163 @@ stream_big(Config) when is_list(Config) ->
     stream_ping(Config, 77777, " -s40000", []),
     ok.
 
-%% Sends packet with header size of 1, 2, and 4, with packets of various
+%% Sends packet with header size of 1, 2, 3, and 4, with packets of various
 %% sizes.
 
 basic_ping(Config) when is_list(Config) ->
     ct:timetrap({minutes, 2}),
     ping(Config, sizes(1), 1, "", []),
     ping(Config, sizes(2), 2, "", []),
+    ping(Config, sizes(3), 3, "", []),
     ping(Config, sizes(4), 4, "", []),
     ok.
+
+%% Check the public open_port/2 packet-option parser without relying on a
+%% system driver's framing implementation.
+packet_options(Config) when is_list(Config) ->
+    PortTest = port_test(Config),
+    lists:foreach(
+      fun(Packet) ->
+              Port = open_port({spawn, PortTest ++ " -n"},
+                               [exit_status, {packet, Packet}]),
+              receive
+                  {Port, {exit_status, 0}} -> ok
+              after 5000 ->
+                      ct:fail({packet_option_start_timeout, Packet})
+              end
+      end,
+      [2, 3, 4,
+       {2, big}, {2, little}, {2, native},
+       {3, big}, {3, little}, {3, native},
+       {4, big}, {4, little}, {4, native}]),
+    lists:foreach(
+      fun(Packet) -> bad_argument(Config, [{packet, Packet}]) end,
+      [{1, big}, {5, big}, {2, middle}, {2},
+       {2, little, extra}, {2.0, big}]),
+    ok.
+
+%% Test explicit packet byte order against an independent external program in
+%% both wire directions.
+packet_endian_spawn(Config) when is_list(Config) ->
+    packet_endian_spawn_test(Config).
+
+packet_endian_spawn_test(Config) ->
+    ct:timetrap({minutes, 3}),
+    lists:foreach(
+      fun(Endian) ->
+              ping(Config, sizes(2), {2, Endian}, "", []),
+              ping(Config, sizes(3), {3, Endian}, "", []),
+              ping(Config, sizes(4), {4, Endian}, "", [])
+      end,
+      [big, little, native]),
+
+    expect_input(Config, [258], {2, little}, "", []),
+    expect_input(Config, [258], {2, native}, "", []),
+    ok.
+
+%% A later packet setting must replace both the width and byte order used by
+%% the system driver, not merely the parser's stored option.
+packet_option_replacement(Config) when is_list(Config) ->
+    ping(Config, [258], {2, big}, "",
+         [{packet, {4, little}}, {packet, {2, big}}]),
+    HostEndian = erlang:system_info(endian),
+    OppositeEndian = case HostEndian of
+                         big -> little;
+                         little -> big
+                     end,
+    ping(Config, [258], {2, native}, "",
+         [{packet, {4, OppositeEndian}}, {packet, {2, native}}]),
+    ok.
+
+%% `stream` must replace an earlier endian-aware packet option without making
+%% the retained byte-order field observable in a port-driver callback.
+packet_stream_replacement(Config) when is_list(Config) ->
+    packet_stream_replacement_test(Config).
+
+packet_stream_replacement_test(Config) ->
+    PortTest = port_test(Config),
+    StreamOptions = [binary, {packet, {3, little}}, stream],
+    Spawn = open_port({spawn, PortTest ++ " -h0"}, StreamOptions),
+    try
+        true = port_command(Spawn, <<"spawn">>),
+        stream_receive_all1(Spawn, <<"spawn">>)
+    after
+        true = port_close(Spawn)
+    end,
+
+    Fd = open_fd_child(fd_stream_replacement_child, []),
+    try
+        stream_receive_all1(Fd, <<"fd">>),
+        true = port_command(Fd, <<"peer">>),
+        fd_packet_result(Fd, <<"peer">>, false)
+    after
+        try port_close(Fd) of
+            true -> ok
+        catch
+            error:badarg -> ok
+        end
+    end.
+%% Test endian-aware framing through the Unix fd driver's outputv callback.
+fd_packet_endian(Config) when is_list(Config) ->
+    Port = open_fd_child(fd_packet_endian_child, []),
+    try
+        stream_receive_all1(Port, <<1, 0, 0, $A>>),
+        true = port_command(Port, <<1, 0, 0, $B>>),
+        fd_packet_result(Port, <<1, 0, 0, $B>>, false)
+    after
+        try port_close(Port) of
+            true -> ok
+        catch
+            error:badarg -> ok
+        end
+    end.
+
+fd_packet_endian_child() ->
+    Port = open_port({fd, 0, 1}, [binary, {packet, {3, little}}]),
+    true = port_command(Port, <<$A>>),
+    receive
+        {Port, {data, <<$B>>}} ->
+            true = port_command(Port, <<$B>>)
+    after 5000 ->
+            halt(1)
+    end,
+    true = port_close(Port).
+
+fd_stream_replacement_child() ->
+    Port = open_port({fd, 0, 1},
+                     [binary, {packet, {3, little}}, stream]),
+    true = port_command(Port, <<"fd">>),
+    receive
+        {Port, {data, <<"peer">>}} ->
+            true = port_command(Port, <<"peer">>)
+    after 5000 ->
+            halt(1)
+    end,
+    true = port_close(Port).
+
+open_fd_child(Function, Args0) ->
+    [Exec0 | ExecArgs] = string:split(ct:get_progname(), " ", all),
+    Exec = os:find_executable(Exec0),
+    TestDir = filename:dirname(code:which(?MODULE)),
+    RunArgs = [atom_to_list(Function) | Args0],
+    Args = ExecArgs ++ ["-pa", TestDir, "-nouser",
+                        "-run", ?MODULE_STRING] ++ RunArgs ++
+        ["-run", "erlang", "halt"],
+    open_port({spawn_executable, Exec},
+              [binary, exit_status, hide, {args, Args},
+               {env, [{"ERL_CRASH_DUMP_SECONDS", "0"}]}]).
+
+fd_packet_result(_Port, <<>>, true) ->
+    ok;
+fd_packet_result(Port, Remaining, ExitStatus) ->
+    receive
+        {Port, {data, Data}} ->
+            fd_packet_result(Port, compare(Data, Remaining), ExitStatus);
+        {Port, {exit_status, 0}} ->
+            fd_packet_result(Port, Remaining, true);
+        Other ->
+            ct:fail({unexpected_child_result, Other})
+    end.
 
 %% Let the port program insert delays between characters sent back to
 %% Erlang, to test that the Erlang emulator can handle a packet coming in
@@ -322,6 +482,7 @@ basic_ping(Config) when is_list(Config) ->
 slow_writes(Config) when is_list(Config) ->
     ping(Config, [8], 4, "-s1", []),
     ping(Config, [10], 2, "-s2", []),
+    ping(Config, [8], {3, little}, "-s1", []),
     ok.
 
 %% Test that we get {'EXIT', Port, einval} if we try to send a bigger
@@ -330,10 +491,12 @@ bad_packet(Config) when is_list(Config) ->
     PortTest = port_test(Config),
     process_flag(trap_exit, true),
 
+    ping(Config, [16#ffffff], 3, "", []),
     bad_packet(PortTest, 1, 256),
     bad_packet(PortTest, 1, 257),
     bad_packet(PortTest, 2, 65536),
     bad_packet(PortTest, 2, 65537),
+    bad_packet(PortTest, 3, 16#1000000),
     ok.
 
 bad_packet(PortTest, HeaderSize, PacketSize) ->
@@ -2171,7 +2334,7 @@ ping(Config, Sizes, HSize, CmdLine, Options) ->
 %% expect_input(Sizes, HSize, CmdLine, Options)
 %%
 %% Sizes = Size of packets to generated.
-%% HSize = Header size: 1, 2, or 4
+%% HSize = Header size: 1, 2, 3, or 4.
 %% CmdLine = Additional command line options.
 %% Options = Additional port options.
 
@@ -2199,10 +2362,11 @@ build_cmd_line(FixedCmdLine, [], Result) ->
 %% port_expect(Actions, HSize, CmdLine, Options)
 %%
 %% Actions = [{Send, ExpectList}|Rest]
-%% HSize = 0 (stream), or 1, 2, 4   (header size aka "packet bytes")
+%% HSize = 0 (stream), 1, 2, 3, 4, or {2 | 3 | 4, Endian}
 %% CmdLine = Command line for port_test.  Don't include -h<digit>.
-%% Options = Options for open_port/2.  Don't include {packet, Number} or
-%%           or stream.
+%% Options = Options for open_port/2.  If it contains a packet setting,
+%%           HSize configures only port_test's framing.  Otherwise, HSize
+%%           also supplies the packet setting.  Don't include stream.
 %%
 %% Send = false | list()
 %% ExpectList = List of lists or binaries.
@@ -2213,13 +2377,31 @@ port_expect(Config, Actions, HSize, CmdLine, Options0) ->
     %    io:format("port_expect(~p, ~p, ~p, ~p)",
     %		[Actions, HSize, CmdLine, Options0]),
     PortTest = port_test(Config),
-    Cmd = lists:concat([PortTest, " -h", HSize, " ", CmdLine]),
-    PortType =
-    case HSize of
-        0 -> stream;
-        _ -> {packet, HSize}
-    end,
-    Options = [PortType|Options0],
+    {HeaderSize, PortType, EndianArg} =
+        case HSize of
+            0 ->
+                {0, stream, ""};
+            HeaderSize0 when is_integer(HeaderSize0) ->
+                {HeaderSize0, {packet, HeaderSize0}, ""};
+            {HeaderSize0, Endian} = PacketSetting ->
+                EndianArg0 =
+                    case Endian of
+                        big -> "";
+                        little -> " -L";
+                        native ->
+                            case erlang:system_info(endian) of
+                                big -> "";
+                                little -> " -L"
+                            end
+                    end,
+                {HeaderSize0, {packet, PacketSetting}, EndianArg0}
+        end,
+    Cmd = lists:concat([PortTest, " -h", HeaderSize, EndianArg,
+                        " ", CmdLine]),
+    Options = case lists:keyfind(packet, 1, Options0) of
+                  false -> [PortType|Options0];
+                  _ -> Options0
+              end,
     ct:log("open_port({spawn, ~p}, ~p)", [Cmd, Options]),
     Port = open_port({spawn, Cmd}, Options),
     port_expect(Port, Actions, Options),
@@ -2386,6 +2568,8 @@ sizes(1, [Packet_Size|Rest], Result) when Packet_Size < 256 ->
     sizes(1, Rest, [Packet_Size|Result]);
 sizes(2, [Packet_Size|Rest], Result) when Packet_Size < 65536 ->
     sizes(2, Rest, [Packet_Size|Result]);
+sizes(3, [Packet_Size|Rest], Result) when Packet_Size < 16#1000000 ->
+    sizes(3, Rest, [Packet_Size|Result]);
 sizes(4, [Packet_Size|Rest], Result) ->
     sizes(4, Rest, [Packet_Size|Result]);
 sizes(_, _, Result) ->

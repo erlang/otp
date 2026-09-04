@@ -110,6 +110,7 @@ typedef struct driver_data {
     ErtsSysFdData *ofd;
     ErtsSysFdData *ifd;
     int packet_bytes;
+    ErtsSysDriverPacketHeaderEndianness packet_header_endianness;
     int pid;
     int alive;
     int status;
@@ -366,6 +367,8 @@ create_driver_data(ErlDrvPort port_num,
 	prt->os_pid = pid;
 
     driver_data->packet_bytes = packet_bytes;
+    driver_data->packet_header_endianness =
+        opts->packet_header_endianness;
     driver_data->port_num = port_num;
     driver_data->pid = pid;
     driver_data->alive = exit_status ? 1 : 0;
@@ -1069,13 +1072,33 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
 
     /* (len > ((unsigned long)-1 >> (4-pb)*8)) */
     /*    if (pb >= 0 && (len & (((ErlDrvSizeT)1 << (pb*8))) - 1) != len) {*/
-    if (((pb == 2) && (len > 0xffff)) || (pb == 1 && len > 0xff)) {
+    if (((pb == 4) && (len > (ErlDrvSizeT) ERTS_UINT32_MAX))
+        || ((pb == 3) && (len > 0xffffff))
+        || ((pb == 2) && (len > 0xffff))
+        || (pb == 1 && len > 0xff)) {
 	driver_failure_posix(ix, EINVAL);
 	return; /* -1; */
     }
-    /* Handles 0 <= pb <= 4 only */
-    put_int32((Uint32) len, lb);
-    lbp = lb + (4-pb);
+    if (pb != 0 && dd->packet_header_endianness ==
+        ERTS_SYS_DRIVER_PACKET_HEADER_ENDIAN_LITTLE) {
+        lbp = lb;
+        switch (pb) {
+        case 2:
+            put_little_int16(len, lbp);
+            break;
+        case 3:
+            put_little_int24(len, lbp);
+            break;
+        case 4:
+            put_little_int32((Uint32) len, lbp);
+            break;
+        default:
+            ERTS_UNREACHABLE;
+        }
+    } else {
+        put_int32((Uint32) len, lb);
+        lbp = lb + (4 - pb);
+    }
 
     ev->iov[0].iov_base = lbp;
     ev->iov[0].iov_len = pb;
@@ -1150,14 +1173,34 @@ static void output(ErlDrvData e, char* buf, ErlDrvSizeT len)
     struct iovec iv[2];
 
     /* (len > ((unsigned long)-1 >> (4-pb)*8)) */
-    if (((pb == 2) && (len > 0xffff))
+    if (((pb == 4) && (len > (ErlDrvSizeT) ERTS_UINT32_MAX))
+        || ((pb == 3) && (len > 0xffffff))
+        || ((pb == 2) && (len > 0xffff))
         || (pb == 1 && len > 0xff)
         || dd->pid == 0 /* Attempt at output before port is ready */) {
 	driver_failure_posix(ix, EINVAL);
 	return; /* -1; */
     }
-    put_int32(len, lb);
-    lbp = lb + (4-pb);
+    if (pb != 0 && dd->packet_header_endianness ==
+        ERTS_SYS_DRIVER_PACKET_HEADER_ENDIAN_LITTLE) {
+        lbp = lb;
+        switch (pb) {
+        case 2:
+            put_little_int16(len, lbp);
+            break;
+        case 3:
+            put_little_int24(len, lbp);
+            break;
+        case 4:
+            put_little_int32((Uint32) len, lbp);
+            break;
+        default:
+            ERTS_UNREACHABLE;
+        }
+    } else {
+        put_int32(len, lb);
+        lbp = lb + (4 - pb);
+    }
 
     qsz = driver_sizeq(ix);
     if (qsz) {
@@ -1405,12 +1448,37 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
 		}
 		dd->ifd->psz = 0;
 
-		switch (packet_bytes) {
-		case 1: h = get_int8(dd->ifd->pbuf);  break;
-		case 2: h = get_int16(dd->ifd->pbuf); break;
-		case 4: h = get_uint32(dd->ifd->pbuf); break;
-		default: ASSERT(0); return; /* -1; */
-		}
+                switch (packet_bytes) {
+                case 1:
+                    h = get_int8(dd->ifd->pbuf);
+                    break;
+                case 2:
+                    if (dd->packet_header_endianness ==
+                        ERTS_SYS_DRIVER_PACKET_HEADER_ENDIAN_LITTLE) {
+                        h = get_little_int16(dd->ifd->pbuf);
+                    } else {
+                        h = get_int16(dd->ifd->pbuf);
+                    }
+                    break;
+                case 3:
+                    if (dd->packet_header_endianness ==
+                        ERTS_SYS_DRIVER_PACKET_HEADER_ENDIAN_LITTLE) {
+                        h = get_little_int24(dd->ifd->pbuf);
+                    } else {
+                        h = get_int24(dd->ifd->pbuf);
+                    }
+                    break;
+                case 4:
+                    if (dd->packet_header_endianness ==
+                        ERTS_SYS_DRIVER_PACKET_HEADER_ENDIAN_LITTLE) {
+                        h = get_little_uint32(dd->ifd->pbuf);
+                    } else {
+                        h = get_uint32(dd->ifd->pbuf);
+                    }
+                    break;
+                default:
+                    ERTS_UNREACHABLE;
+                }
 
 		if (h <= (bytes_left)) {
 		    driver_output(port_num, (char*) cpos, h);
