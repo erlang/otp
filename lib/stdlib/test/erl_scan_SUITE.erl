@@ -1280,7 +1280,10 @@ otp_10302(Config) when is_list(Config) ->
              erl_parse_abstract([{a} | b], Opts2),
          {string,Line,"str"} = erl_parse_abstract("str", Opts2),
          {string,Line,[97,1024,99]} =
-             erl_parse_abstract("a"++[1024]++"c", Opts2)
+             erl_parse_abstract("a"++[1024]++"c", Opts2),
+         {bin,Line,
+          [{bin_element,Line,{string,Line,[97,1024,99]},default,[utf8]}]} =
+             erl_parse_abstract(unicode:characters_to_binary("a"++[1024]++"c"), Opts2)
      end || Opts2 <- [[{encoding,unicode},{line,Line}],
                       [{encoding,utf8},{line,Line}]]],
 
@@ -1288,6 +1291,22 @@ otp_10302(Config) when is_list(Config) ->
      {integer,0,97},
      {cons,0,{integer,0,1024},{string,0,"c"}}} =
         erl_parse_abstract("a"++[1024]++"c", [{encoding,latin1}]),
+    {bin,0,
+     [{bin_element,0,{integer,0,97},default,default},
+      {bin_element,0,{integer,0,208},default,default},
+      {bin_element,0,{integer,0,128},default,default},
+      {bin_element,0,{integer,0,99},default,default}]} =
+        erl_parse_abstract(unicode:characters_to_binary("a"++[1024]++"c"), [{encoding,latin1}]),
+    {bin,0,
+     [{bin_element,0,{integer,0,255},default,default}]} =
+        erl_parse_abstract(<<255>>, [{encoding,utf8}]),
+    {bin,0,
+     [{bin_element,0,{integer,0,0},default,default}]} =
+        erl_parse_abstract(<<0>>, [{encoding,utf8}]),
+    {bin,0,
+     [{bin_element,0,{string,0,[128512]},default,[utf8]}]} =
+        erl_parse_abstract(<<"😀"/utf8>>, [{encoding,utf8}]),
+
     ok.
 
 %% OTP-10990. Floating point number in input string.
