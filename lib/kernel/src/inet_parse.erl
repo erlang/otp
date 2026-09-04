@@ -453,8 +453,7 @@ address(Bin) when is_binary(Bin) ->
     try ipv4s_c1b(Bin) of
         IP ->
             {ok, IP}
-    catch
-        error:badarg ->
+    catch throw : error ->
             case ipv6strict_address(Bin) of
                 {ok, _} = Ok -> Ok;
                 {error, _} -> address(binary_to_list(Bin))
@@ -500,8 +499,7 @@ ipv4_address(Cs) ->
     try ipv4_addr(Cs) of
 	Addr ->
 	    {ok,Addr}
-    catch
-	error:badarg ->
+    catch throw : error ->
 	    {error,einval}
     end.
 
@@ -535,12 +533,12 @@ ipv4_addr(Cs) ->
               is_integer(D1, 0, 255) ->
             {D1,D2,D3,D4};
         _ ->
-            erlang:error(badarg)
+            throw(error)
     end.
 
 ipv4_addr([_|_], [_,_,_,_]) ->
     %% Early bailout for extra characters
-    erlang:error(badarg);
+    throw(error);
 ipv4_addr("0x"++Cs, Ds) ->
     ipv4_addr(strip0(Cs), Ds, [], 16, 8);
 ipv4_addr("0X"++Cs, Ds) ->
@@ -557,7 +555,7 @@ ipv4_addr(Cs0, Ds, Rs, Base, N) ->
 	{D,[$.|[_|_]=Cs]} ->
 	    ipv4_addr(Cs, [D|Ds]);
 	{_,_} ->
-	    erlang:error(badarg)
+            throw(error)
     end.
 
 strip0("0"++Cs) ->
@@ -576,16 +574,14 @@ ipv4strict_address(Bin) when is_binary(Bin) ->
     try ipv4s_c1b(Bin) of
         IP ->
             {ok, IP}
-    catch
-        error:badarg ->
+    catch throw : error ->
             {error, einval}
     end;
 ipv4strict_address(Cs) when is_list(Cs) ->
     try ipv4s_c1(Cs) of
         IP ->
             {ok, IP}
-    catch
-        error:badarg ->
+    catch throw : error ->
             {error, einval}
     end.
 
@@ -595,18 +591,21 @@ ipv4_field("", _, Rs, Base) ->
 ipv4_field("."++_=Cs, _, Rs, Base) ->
     {ipv4_field(Rs, Base),Cs};
 ipv4_field("0"++_, _, [], _) ->
-    erlang:error(badarg);
+    throw(error);
 ipv4_field([C|Cs], N, Rs, Base) when N > 0 ->
     ipv4_field(Cs, N-1, [C|Rs], Base);
 ipv4_field(Cs, _, _, _) when is_list(Cs) ->
-    erlang:error(badarg).
+    throw(error).
 
 ipv4_field(Rs, Base) ->
-    V = erlang:list_to_integer(lists:reverse(Rs), Base),
-    if  V < 0 ->
-	    erlang:error(badarg);
-	true ->
+    Cs = lists:reverse(Rs),
+    try erlang:list_to_integer(Cs, Base) of
+        V when V < 0 ->
+	    throw(error);
+        V ->
 	    V
+    catch error : badarg ->
+            throw(error)
     end.
 
 
@@ -618,13 +617,13 @@ ipv4_field(Rs, Base) ->
 ipv4s_octet(C1) when is_integer((C1), $0, $9) ->
     C1 - $0;
 ipv4s_octet(_) ->
-    erlang:error(badarg).
+    throw(error).
 %%
 %% 10..99
 ipv4s_octet(C1, C2) when is_integer(C1, $1, $9), is_integer(C2, $0, $9) ->
     C1*10 + C2 - $0*11;
 ipv4s_octet(_, _) ->
-    erlang:error(badarg).
+    throw(error).
 %%
 %% 100..199
 ipv4s_octet($1, C2, C3) when is_integer(C2, $0, $9), is_integer(C3, $0, $9) ->
@@ -636,7 +635,7 @@ ipv4s_octet($2, C2, C3) when is_integer(C2, $0, $4), is_integer(C3, $0, $9) ->
 ipv4s_octet($2, $5, C3) when is_integer(C3, $0, $5) ->
     (250 - $0) + C3;
 ipv4s_octet(_, _, _) ->
-    erlang:error(badarg).
+    throw(error).
 
 %% Single-pass charlist parser for strict IPv4 addresses.
 %% Four functions, one per octet — no packed accumulator, no dot
@@ -647,7 +646,7 @@ ipv4s_c1(Cs) ->
         [C1, $. | T]            -> ipv4s_c2(T, ipv4s_octet(C1));
         [C1, C2, $. | T]        -> ipv4s_c2(T, ipv4s_octet(C1, C2));
         [C1, C2, C3, $. | T]    -> ipv4s_c2(T, ipv4s_octet(C1, C2, C3));
-        _                       -> erlang:error(badarg)
+        _                       -> throw(error)
     end.
 
 ipv4s_c2(Cs, A) ->
@@ -655,7 +654,7 @@ ipv4s_c2(Cs, A) ->
         [C1, $. | T]            -> ipv4s_c3(T, A, ipv4s_octet(C1));
         [C1, C2, $. | T]        -> ipv4s_c3(T, A, ipv4s_octet(C1, C2));
         [C1, C2, C3, $. | T]    -> ipv4s_c3(T, A, ipv4s_octet(C1, C2, C3));
-        _                       -> erlang:error(badarg)
+        _                       -> throw(error)
     end.
 
 ipv4s_c3(Cs, A, B) ->
@@ -663,7 +662,7 @@ ipv4s_c3(Cs, A, B) ->
         [C1, $. | T]            -> ipv4s_c4(T, A, B, ipv4s_octet(C1));
         [C1, C2, $. | T]        -> ipv4s_c4(T, A, B, ipv4s_octet(C1, C2));
         [C1, C2, C3, $. | T]    -> ipv4s_c4(T, A, B, ipv4s_octet(C1, C2, C3));
-        _                       -> erlang:error(badarg)
+        _                       -> throw(error)
     end.
 
 ipv4s_c4(Cs, A, B, C) ->
@@ -671,7 +670,7 @@ ipv4s_c4(Cs, A, B, C) ->
         [C1]                    -> {A, B, C, ipv4s_octet(C1)};
         [C1, C2]                -> {A, B, C, ipv4s_octet(C1, C2)};
         [C1, C2, C3]            -> {A, B, C, ipv4s_octet(C1, C2, C3)};
-        _                       -> erlang:error(badarg)
+        _                       -> throw(error)
     end.
 
 
@@ -686,7 +685,7 @@ ipv4s_c1b(Bin) ->
         <<C1,$.,R/binary>>       -> ipv4s_c2b(R, ipv4s_octet(C1));
         <<C1,C2,$.,R/binary>>    -> ipv4s_c2b(R, ipv4s_octet(C1, C2));
         <<C1,C2,C3,$.,R/binary>> -> ipv4s_c2b(R, ipv4s_octet(C1, C2, C3));
-        <<_/binary>>             -> erlang:error(badarg)
+        <<_/binary>>             -> throw(error)
     end.
 
 ipv4s_c2b(Bin, A) ->
@@ -694,7 +693,7 @@ ipv4s_c2b(Bin, A) ->
         <<C1,$.,R/binary>>       -> ipv4s_c3b(R, A, ipv4s_octet(C1));
         <<C1,C2,$.,R/binary>>    -> ipv4s_c3b(R, A, ipv4s_octet(C1, C2));
         <<C1,C2,C3,$.,R/binary>> -> ipv4s_c3b(R, A, ipv4s_octet(C1, C2, C3));
-        <<_/binary>>             -> erlang:error(badarg)
+        <<_/binary>>             -> throw(error)
     end.
 
 ipv4s_c3b(Bin, A, B) ->
@@ -702,7 +701,7 @@ ipv4s_c3b(Bin, A, B) ->
         <<C,$.,R/binary>>        -> ipv4s_c4b(R, A, B, ipv4s_octet(C));
         <<C1,C2,$.,R/binary>>    -> ipv4s_c4b(R, A, B, ipv4s_octet(C1, C2));
         <<C1,C2,C3,$.,R/binary>> -> ipv4s_c4b(R, A, B, ipv4s_octet(C1, C2, C3));
-        <<_/binary>>             -> erlang:error(badarg)
+        <<_/binary>>             -> throw(error)
     end.
 
 ipv4s_c4b(Bin, A, B, C) ->
@@ -710,7 +709,7 @@ ipv4s_c4b(Bin, A, B, C) ->
         <<C1>>          -> {A,B,C,ipv4s_octet(C1)};
         <<C1, C2>>      -> {A,B,C,ipv4s_octet(C1, C2)};
         <<C1, C2, C3>>  -> {A,B,C,ipv4s_octet(C1, C2, C3)};
-        <<_/binary>>             -> erlang:error(badarg)
+        <<_/binary>>             -> throw(error)
     end.
 
 
@@ -724,8 +723,7 @@ ipv6_address(Bin) when is_binary(Bin) ->
         {D1, D2, D3, D4} ->
             {ok, {0, 0, 0, 0, 0, 16#ffff,
                   (D1 bsl 8) bor D2, (D3 bsl 8) bor D4}}
-    catch
-        error:badarg ->
+    catch throw : error ->
             case ipv6strict_address(Bin) of
                 {ok, _} = Ok -> Ok;
                 {error, _} -> ipv6_address(binary_to_list(Bin))
@@ -761,8 +759,7 @@ ipv6strict_address(Cs) when is_list(Cs) ->
     try ipv6_addr(Cs) of
         Addr ->
             {ok, Addr}
-    catch
-        error:badarg ->
+    catch throw : error ->
             {error, einval}
     end;
 ipv6strict_address(_) ->
@@ -791,7 +788,7 @@ ipv6_addr({V, _, _, ":"++Cs1}, A, N) when N =< 6 ->
 ipv6_addr({_, D, Dn, "."++Cs1}, A, N) when N == 6, D >= 0, D =< 255 ->
     ipv6_ipv4_c(D, Dn, Cs1, A, [], N);
 ipv6_addr(_, _, _) ->
-    erlang:error(badarg).
+    throw(error).
 
 %% After "::"
 ipv6_addr({V, _, _, "%"++Cs1}, A, B, N) when N =< 6 ->
@@ -803,7 +800,7 @@ ipv6_addr({V, _, _, ":"++Cs1}, A, B, N) when N =< 5 ->
 ipv6_addr({_, D, Dn, "."++Cs1}, A, B, N) when N =< 5, D >= 0, D =< 255 ->
     ipv6_ipv4_c(D, Dn, Cs1, A, B, N);
 ipv6_addr(_, _, _, _) ->
-    erlang:error(badarg).
+    throw(error).
 
 %% Parse remaining 3 IPv4 octets for IPv6 embedded IPv4 (charlist).
 %% D: decimal value of first octet, Dn: digit count (leading zero check).
@@ -814,7 +811,7 @@ ipv6_ipv4_c(D, 2, Cs, A, B, N) when D >= 10 ->
 ipv6_ipv4_c(D, 3, Cs, A, B, N) when D >= 100 ->
     ipv6_addr_done(A, B, N, ipv4s_c2(Cs, D));
 ipv6_ipv4_c(_, _, _, _, _, _) ->
-    erlang:error(badarg).
+    throw(error).
 
 %% After "%"
 ipv6_addr_scope([], Ar, Br, N, Sr) ->
@@ -850,7 +847,7 @@ ipv6_addr_scope(ScopeId, Ar, Br, N) ->
         [P,0|Xs] when P =:= 16#fe80; P =:= 16#ff02 ->
             list_to_tuple([P,ScopeId|Xs]);
         _ ->
-            erlang:error(badarg)
+            throw(error)
     end.
 
 ipv6_addr_done(Ar, Br, N, {D1,D2,D3,D4}) ->
@@ -878,7 +875,7 @@ ipv6_hex([C | Cs], V, _, N) when C >= $A, C =< $F, N < 4 ->
 ipv6_hex(Cs, V, D, N) when N > 0 ->
     {V, D, N, Cs};
 ipv6_hex(_, _, _, _) ->
-    erlang:error(badarg).
+    throw(error).
 
 %% Parse a reverse decimal integer string, empty is 0
 dec16(Cs) -> dec16(Cs, 0).
@@ -887,11 +884,11 @@ dec16([], I) -> I;
 dec16([C|Cs], I) when C >= $0, C =< $9 ->
     case 10*I + (C - $0) of
         J when 16#ffff < J ->
-            erlang:error(badarg);
+            throw(error);
         J ->
             dec16(Cs, J)
     end;
-dec16(_, _) -> erlang:error(badarg).
+dec16(_, _) -> throw(error).
 
 %% Dup onto head of existing list
 dup(0, _, L) ->
