@@ -2183,7 +2183,11 @@ fd_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
 	    return ERL_DRV_ERROR_GENERAL;
 	}
 	
-	dp->in.flags = DF_XLAT_CR;
+        /* If input is a terminal, we translate \r\n to \n */
+        if (GetFileType((HANDLE)opts->ifd) == FILE_TYPE_CHAR) {
+            dp->in.flags = DF_XLAT_CR;
+        }
+        
 	if (is_std_error) {
 	    dp->out.flags |= DF_DROP_IF_INVH; /* Just drop messages if stderror
 						 is an invalid handle */
