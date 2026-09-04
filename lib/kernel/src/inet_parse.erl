@@ -539,12 +539,14 @@ ipv4_addr(Cs) ->
 ipv4_addr([_|_], [_,_,_,_]) ->
     %% Early bailout for extra characters
     throw(error);
+%% 8 hex, 11 octal, or 10 decimal chars is maximum
+%% needed to represent 16#ffff_ffff
 ipv4_addr("0x"++Cs, Ds) ->
-    ipv4_addr(strip0(Cs), Ds, [], 16, 8);
+    ipv4_addr(Cs, Ds, [], 16, 8);
 ipv4_addr("0X"++Cs, Ds) ->
-    ipv4_addr(strip0(Cs), Ds, [], 16, 8);
+    ipv4_addr(Cs, Ds, [], 16, 8);
 ipv4_addr("0"++Cs, Ds) ->
-    ipv4_addr(strip0(Cs), Ds, [$0], 8, 11);
+    ipv4_addr(Cs, Ds, [$0], 8, 11);
 ipv4_addr(Cs, Ds) when is_list(Cs) ->
     ipv4_addr(Cs, Ds, [], 10, 10).
 
@@ -558,10 +560,34 @@ ipv4_addr(Cs0, Ds, Rs, Base, N) ->
             throw(error)
     end.
 
-strip0("0"++Cs) ->
-    strip0(Cs);
-strip0(Cs) when is_list(Cs) ->
-    Cs.
+ipv4_field("", _, Rs, Base) ->
+    {ipv4_field(Rs, Base),""};
+ipv4_field("."++_=Cs, _, Rs, Base) ->
+    {ipv4_field(Rs, Base),Cs};
+ipv4_field([C|Cs], N, Rs, Base) when N > 0 ->
+    ipv4_field(Cs, N-1, [C|Rs], Base);
+ipv4_field(Cs, _, _, _) when is_list(Cs) ->
+    throw(error).
+
+ipv4_field(Rs, Base) when
+      Base =:= 8;
+      Base =:= 10;
+      Base =:= 16 ->
+    case lists:reverse(Rs) of
+        [C | _] when
+              C =:= $+;
+              C =:= $- ->
+            throw(error);
+        Cs when is_list(Cs) ->
+            try erlang:list_to_integer(Cs, Base) of
+                V when is_integer(V, 0, 16#ffff_ffff) ->
+                    V;
+                _ ->
+                    throw(error)
+            catch error : badarg ->
+                    throw(error)
+            end
+    end.
 
 
 %%
@@ -583,29 +609,6 @@ ipv4strict_address(Cs) when is_list(Cs) ->
             {ok, IP}
     catch throw : error ->
             {error, einval}
-    end.
-
-
-ipv4_field("", _, Rs, Base) ->
-    {ipv4_field(Rs, Base),""};
-ipv4_field("."++_=Cs, _, Rs, Base) ->
-    {ipv4_field(Rs, Base),Cs};
-ipv4_field("0"++_, _, [], _) ->
-    throw(error);
-ipv4_field([C|Cs], N, Rs, Base) when N > 0 ->
-    ipv4_field(Cs, N-1, [C|Rs], Base);
-ipv4_field(Cs, _, _, _) when is_list(Cs) ->
-    throw(error).
-
-ipv4_field(Rs, Base) ->
-    Cs = lists:reverse(Rs),
-    try erlang:list_to_integer(Cs, Base) of
-        V when V < 0 ->
-	    throw(error);
-        V ->
-	    V
-    catch error : badarg ->
-            throw(error)
     end.
 
 
