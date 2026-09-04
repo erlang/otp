@@ -47,7 +47,7 @@ runs:
         run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
       - name: Cache BASE image
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # ratchet:actions/cache@v5.0.3
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         if: inputs.TYPE == '64-bit' || inputs.TYPE == 'clang'
         with:
             path: otp_docker_base.tar
@@ -70,7 +70,7 @@ runs:
       - name: Cache pre-built src
         id: cache-src
         if: inputs.BUILD_IMAGE == 'true'
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # ratchet:actions/cache@v5.0.3
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
             path: otp_src.tar.gz
             key: prebuilt-src-${{ github.ref_name }}-${{ github.sha }}
@@ -84,7 +84,7 @@ runs:
       - name: Cache pre-built binaries
         id: cache-binary
         if: inputs.BUILD_IMAGE == 'true' && steps.cache-src.outputs.cache-hit == 'true'
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # ratchet:actions/cache@v5.0.3
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
             path: otp_cache.tar.gz
             key: prebuilt-cache-${{ inputs.TYPE }}-${{ github.ref_name }}-${{ github.sha }}
