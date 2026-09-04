@@ -96,7 +96,8 @@
          record_info_0/1,
          coverage/1,
          native_records/1,
-         invalid_attribute/1]).
+         invalid_attribute/1,
+         block_compr_assign/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -139,7 +140,8 @@ all() ->
      record_info_0,
      coverage,
      native_records,
-     invalid_attribute].
+     invalid_attribute,
+     block_compr_assign].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -6088,6 +6090,18 @@ invalid_attribute(Config) ->
             ">>,
            {[]},
            {errors,[{{1,22},erl_lint,{invalid_fa_attribute,{{a,0},{b,0},0}}}],[]}}
+           ],
+    [] = run(Config,Ts),
+
+    ok.
+
+block_compr_assign(Config) ->
+    Ts = [{block_compr_assign,
+           <<"-feature(compr_assign, enable).
+              f() -> [ok || _ = begin V = ok end, V].
+            ">>,
+           {[nowarn_unused_function]},
+           {errors,[{{2,51},erl_lint,{unbound_var,'V'}}],[]}}
            ],
     [] = run(Config,Ts),
 
