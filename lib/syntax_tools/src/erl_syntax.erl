@@ -503,7 +503,9 @@ reason `badarg`. Node types currently defined by this module are:
 * `atom`
 * `attribute`
 * `binary`
+* `binary_comp`
 * `binary_field`
+* `binary_generator`
 * `bitstring_type`
 * `block_expr`
 * `case_expr`
@@ -534,9 +536,11 @@ reason `badarg`. Node types currently defined by this module are:
 * `list`
 * `list_comp`
 * `macro`
+* `map_comp`
 * `map_expr`
 * `map_field_assoc`
 * `map_field_exact`
+* `map_generator`
 * `map_type`
 * `map_type_assoc`
 * `map_type_exact`
@@ -557,6 +561,9 @@ reason `badarg`. Node types currently defined by this module are:
 * `record_type`
 * `record_type_field`
 * `size_qualifier`
+* `strict_binary_generator`
+* `strict_generator`
+* `strict_map_generator`
 * `string`
 * `text`
 * `try_expr`
@@ -578,23 +585,26 @@ Note: The primary constructor functions for a node type should always have the
 same name as the node type itself.
 
 _See also: _`annotated_type/2`, `application/3`, `arity_qualifier/2`, `atom/1`,
-`attribute/2`, `binary/1`, `binary_field/2`, `bitstring_type/2`, `block_expr/1`,
-`case_expr/2`, `catch_expr/1`, `char/1`, `class_qualifier/2`, `clause/3`,
-`comment/2`, `conjunction/1`, `constrained_function_type/2`, `constraint/2`,
+`attribute/2`, `binary/1`, `binary_comp/2`, `binary_field/2`,
+`binary_generator/2`, `bitstring_type/2`, `block_expr/1`, `case_expr/2`,
+`catch_expr/1`, `char/1`, `class_qualifier/2`, `clause/3`, `comment/2`,
+`conjunction/1`, `constrained_function_type/2`, `constraint/2`,
 `disjunction/1`, `else_expr/1`, `eof_marker/0`, `error_marker/1`, `float/1`,
 `form_list/1`, `fun_expr/1`, `fun_type/0`, `function/2`, `function_type/1`,
 `function_type/2`, `generator/2`, `if_expr/1`, `implicit_fun/2`, `infix_expr/3`,
 `integer/1`, `integer_range_type/2`, `list/2`, `list_comp/2`, `macro/2`,
-`map_expr/2`, `map_field_assoc/2`, `map_field_exact/2`, `map_type/0`,
-`map_type/1`, `map_type_assoc/2`, `map_type_exact/2`, `match_expr/2`,
-`maybe_expr/1`, `maybe_expr/2`, `maybe_match_expr/2`, `module_qualifier/2`,
-`named_fun_expr/2`, `nil/0`, `operator/1`, `parentheses/1`, `prefix_expr/2`,
-`receive_expr/3`, `record_access/3`, `record_expr/2`, `record_field/2`,
-`record_index_expr/2`, `record_type/2`, `record_type_field/2`,
-`size_qualifier/2`, `string/1`, `text/1`, `tree/2`, `try_expr/3`, `tuple/1`,
-`tuple_type/0`, `tuple_type/1`, `type_application/2`, `type_union/1`,
-`typed_record_field/2`, `underscore/0`, `user_type_application/2`, `variable/1`,
-`warning_marker/1`,`zip_generator/1`.
+`map_comp/2`, `map_expr/2`, `map_field_assoc/2`, `map_field_exact/2`,
+`map_generator/2`, `map_type/0`, `map_type/1`, `map_type_assoc/2`,
+`map_type_exact/2`, `match_expr/2`, `maybe_expr/1`, `maybe_expr/2`,
+`maybe_match_expr/2`, `module_qualifier/2`, `named_fun_expr/2`, `nil/0`,
+`operator/1`, `parentheses/1`, `prefix_expr/2`, `receive_expr/3`,
+`record_access/3`, `record_expr/2`, `record_field/2`, `record_index_expr/2`,
+`record_type/2`, `record_type_field/2`, `size_qualifier/2`,
+`strict_binary_generator/2`, `strict_generator/2`, `strict_map_generator/2`,
+`string/1`, `text/1`, `tree/2`, `try_expr/3`, `tuple/1`, `tuple_type/0`,
+`tuple_type/1`, `type_application/2`, `type_union/1`, `typed_record_field/2`,
+`underscore/0`, `user_type_application/2`, `variable/1`, `warning_marker/1`,
+`zip_generator/1`.
 """.
 -spec type(syntaxTree()) -> atom().
 
@@ -3986,7 +3996,7 @@ revert_maybe_match_expr(Node) ->
     {maybe_match, Pos, Pattern, Body}.
 
 -doc """
-Returns the pattern subtree of a `maybe_expr` node.
+Returns the pattern subtree of a `maybe_match_expr` node.
 
 _See also: _`maybe_match_expr/2`.
 """.
@@ -4002,7 +4012,7 @@ maybe_match_expr_pattern(Node) ->
 
 
 -doc """
-Returns the body subtree of a `maybe_expr` node.
+Returns the body subtree of a `maybe_match_expr` node.
 
 _See also: _`maybe_match_expr/2`.
 """.
@@ -5988,7 +5998,7 @@ revert_strict_generator(Node) ->
 
 
 -doc """
-Returns the pattern subtree of a `generator` node.
+Returns the pattern subtree of a `strict_generator` node.
 
 _See also: _`strict_generator/2`.
 """.
@@ -6004,7 +6014,7 @@ strict_generator_pattern(Node) ->
 
 
 -doc """
-Returns the body subtree of a `generator` node.
+Returns the body subtree of a `strict_generator` node.
 
 _See also: _`strict_generator/2`.
 """.
@@ -6050,7 +6060,7 @@ revert_binary_generator(Node) ->
 
 
 -doc """
-Returns the pattern subtree of a `generator` node.
+Returns the pattern subtree of a `binary_generator` node.
 
 _See also: _`binary_generator/2`.
 """.
@@ -6066,7 +6076,7 @@ binary_generator_pattern(Node) ->
 
 
 -doc """
-Returns the body subtree of a `generator` node.
+Returns the body subtree of a `binary_generator` node.
 
 _See also: _`binary_generator/2`.
 """.
@@ -6088,7 +6098,7 @@ binary_generator_body(Node) ->
 -doc """
 Creates an abstract strict binary_generator.
 
-The result represents "`*Pattern*<:- *Body*`".
+The result represents "`*Pattern*<:= *Body*`".
 
 _See also: _`binary_comp/2`, `strict_binary_generator_body/1`,
 `strict_binary_generator_pattern/1`, `list_comp/2`.
@@ -6112,7 +6122,7 @@ revert_strict_binary_generator(Node) ->
 
 
 -doc """
-Returns the pattern subtree of a `generator` node.
+Returns the pattern subtree of a `strict_binary_generator` node.
 
 _See also: _`strict_binary_generator/2`.
 """.
@@ -6128,7 +6138,7 @@ strict_binary_generator_pattern(Node) ->
 
 
 -doc """
-Returns the body subtree of a `generator` node.
+Returns the body subtree of a `strict_binary_generator` node.
 
 _See also: _`strict_binary_generator/2`.
 """.
@@ -6211,7 +6221,7 @@ map_generator_body(Node) ->
 
 -doc """
 Creates an abstract strict map_generator. The result represents
-"`*Pattern*<- *Body*`".
+"`*Pattern*<:- *Body*`".
 
 _See also: _`list_comp/2`, `map_comp/2`,
 `strict_map_generator_body/1`,
@@ -6236,7 +6246,7 @@ revert_strict_map_generator(Node) ->
 
 
 -doc """
-Returns the pattern subtree of a `generator` node.
+Returns the pattern subtree of a `strict_map_generator` node.
 
 _See also: _`strict_map_generator/2`.
 """.
@@ -6252,7 +6262,7 @@ strict_map_generator_pattern(Node) ->
 
 
 -doc """
-Returns the body subtree of a `generator` node.
+Returns the body subtree of a `strict_map_generator` node.
 
 _See also: _`strict_map_generator/2`.
 """.

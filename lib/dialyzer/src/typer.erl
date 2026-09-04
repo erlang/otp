@@ -225,7 +225,7 @@ help_message() ->
        (this is the default behaviour; this option is not really needed)
    --show-exported (or --show_exported)
        Same as --show, but prints specifications for exported functions only
-       Specs are displayed sorted alphabetically on the function's name
+       Specs are displayed in the module's export order
    --annotate
        Annotates the specified files with type specifications and writes
        the resulting files into a new typer_ann folder.

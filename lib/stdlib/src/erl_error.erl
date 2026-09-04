@@ -165,7 +165,7 @@ Example:
 
 ```erlang
 try
-  erlang:raise(badarg,[],[{error_info,#{}}])
+  erlang:error(badarg,[],[{error_info,#{}}])
 catch
     C:R:Stk ->
         Message = erl_error:format_exception(C, R, Stk),

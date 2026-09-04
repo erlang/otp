@@ -197,7 +197,8 @@ The call can fail in the following ways:
 
 - With a `{badrecord,Record}` exception if `Module` or `RecordName` are not atoms.
 - With a `{badmap, OptionsMap}` exception if `OptionsMap` is not a map.
-- With a `{badfield, Field}` exception if a field name in `Fields` is not an atom.
+- With a `{badfield, {{Module,RecordName}, Field}}` exception if a field name
+in `Fields` is not an atom.
 - With a `badarg` exception if `Options` does not have the `is_exported` key.
 - With a `badarg` exception for other invalid arguments, such as a field name
 being repeated in `Fields`.
