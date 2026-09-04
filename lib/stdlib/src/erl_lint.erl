@@ -4831,23 +4831,33 @@ lc_quals([{m_generate,_Anno,P,E} | Qs], Vt0, Uvt0, St0) ->
 lc_quals([{m_generate_strict,_Anno,P,E} | Qs], Vt0, Uvt0, St0) ->
     {Vt,Uvt,St} = handle_generator(P,E,Vt0,Uvt0,St0),
     lc_quals(Qs, Vt, Uvt, St);
+lc_quals([{match,Anno,P0,E0}=F|Qs], Vt0, Uvt0, St0) ->
+    %% A top-level match is never a guard test.
+    case is_feature_enabled(compr_assign, St0) of
+        true ->
+            {P,E} = rewrite_compr_assign(P0, E0),
+            {Vt,Uvt,St} = handle_generator(P, E, Vt0, Uvt0, false, St0),
+            lc_quals(Qs, Vt, Uvt, St);
+        false ->
+            St1 = add_error(Anno, compr_assign, St0),
+            {Fvt,St2} = expr(F, Vt0, St1),
+            lc_quals(Qs, vtupdate(Fvt, Vt0), Uvt0, St2)
+    end;
 lc_quals([F|Qs], Vt, Uvt, St0) ->
     Info = is_guard_test2_info(St0),
     {Fvt,St1} = case is_guard_test2(F, Info) of
 		    true -> guard_test(F, Vt, St0);
-		    false -> expr(F, Vt, check_compr_assign(F, St0))
+                    false -> expr(F, Vt, St0)
 		end,
     lc_quals(Qs, vtupdate(Fvt, Vt), Uvt, St1);
 lc_quals([], Vt, Uvt, St) ->
     {Vt, Uvt, St}.
 
-check_compr_assign({match,Anno,_,_}, St) ->
-    case is_feature_enabled(compr_assign, St) of
-        true -> St;
-        false -> add_error(Anno, compr_assign, St)
-    end;
-check_compr_assign(_, St) ->
-    St.
+%% Same as v3_core:rewrite_compr_assign/2. Expansion here is for scoping.
+rewrite_compr_assign(P1, {match,L2,P2,E}) ->
+    rewrite_compr_assign({match,L2,P1,P2}, E);
+rewrite_compr_assign(P, E) ->
+    {P, E}.
 
 is_feature_enabled(Name, St) ->
     lists:member(Name, St#lint.features).
@@ -4897,10 +4907,19 @@ handle_generators(Gens,Vt,Uvt,St0) ->
     {Vt3,NUvt,St5}.
 
 handle_generator(P,E,Vt,Uvt,St0) ->
+    handle_generator(P,E,Vt,Uvt,true,St0).
+
+handle_generator(P,E,Vt,Uvt,CheckUnusedE,St0) ->
     {Evt,St1} = expr(E, Vt, St0),
     %% Forget variables local to E immediately.
     Vt1 = vtupdate(vtold(Evt, Vt), Vt),
-    {_, St2} = check_unused_vars(Evt, Vt, St1),
+    St2 = case CheckUnusedE of
+              true ->
+                  {_, St} = check_unused_vars(Evt, Vt, St1),
+                  St;
+              false ->
+                  St1
+          end,
     {Pvt,Pnew,St3} = comprehension_pattern(P, Vt1, St2),
     %% Have to keep fresh variables separated from used variables somehow
     %% in order to handle for example X = foo(), [X || <<X:X>> <- bar()].
