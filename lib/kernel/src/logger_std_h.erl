@@ -191,6 +191,8 @@ startup is found in the `m:logger_disk_log_h` manual.
 -export([log/2, adding_handler/1, removing_handler/1, changing_config/3,
          filter_config/1]).
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -define(DEFAULT_CALL_TIMEOUT, 5000).
 
 %%%===================================================================

@@ -37,6 +37,12 @@
 #
 
 #
+# Added in OTP 30.
+#
+erlang:exit/2 since=30
+erlang:exit/3 since=30
+
+#
 # Added in OTP 29.
 #
 crypto:private_decrypt/4 unsafe=29
