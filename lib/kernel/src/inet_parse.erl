@@ -507,35 +507,35 @@ ipv4_address(Cs) ->
 
 ipv4_addr(Cs) ->
     case ipv4_addr(Cs, []) of
-	[D] when is_integer(D, 0, 16#ffff_ffff) ->
+        [D] when is_integer(D, 0, 16#ffff_ffff) ->
             D4 = D band 255,
             Da = D bsr 8,
             D3 = Da band 255,
             Db = Da bsr 8,
             D2 = Db band 255,
             D1 = Db bsr 8,
-	    {D1,D2,D3,D4};
-	[D,D1] when is_integer(D, 0, 16#ff_ffff), is_integer(D1, 0, 255) ->
+            {D1,D2,D3,D4};
+        [D,D1] when is_integer(D, 0, 16#ff_ffff), is_integer(D1, 0, 255) ->
             D4 = D band 255,
             Da = D bsr 8,
             D3 = Da band 255,
             D2 = Da bsr 8,
-	    {D1,D2,D3,D4};
-	[D,D2,D1] when
+            {D1,D2,D3,D4};
+        [D,D2,D1] when
               is_integer(D, 0, 16#ffff),
               is_integer(D2, 0, 255),
               is_integer(D1, 0, 255) ->
             D4 = D band 255,
             D3 = D bsr 8,
-	    {D1,D2,D3,D4};
-	[D4,D3,D2,D1] when
+            {D1,D2,D3,D4};
+        [D4,D3,D2,D1] when
               is_integer(D4, 0, 255),
               is_integer(D3, 0, 255),
               is_integer(D2, 0, 255),
               is_integer(D1, 0, 255) ->
-	    {D1,D2,D3,D4};
-	_ ->
-	    erlang:error(badarg)
+            {D1,D2,D3,D4};
+        _ ->
+            erlang:error(badarg)
     end.
 
 ipv4_addr([_|_], [_,_,_,_]) ->
