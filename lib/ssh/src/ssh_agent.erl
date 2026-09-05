@@ -204,9 +204,17 @@ user_key(Algorithm, Opts) ->
 
 sign(PubKeyBlob, SigData, Opts) ->
     KeyCbOpts = proplists:get_value(key_cb_private, Opts, []),
-    % OpenSSH does not seem to care when these flags are set for
-    % signature algorithms other than RSA, so we always send them.
-    SignFlags = ?SSH_AGENT_RSA_SHA2_256 bor ?SSH_AGENT_RSA_SHA2_512,
+    <<?DEC_BIN(KeyType, _KeyTypeLen), _/binary>> = PubKeyBlob,
+    SignFlags = case KeyType of
+                    <<"ssh-mldsa-44">> -> 0;
+                    <<"ssh-mldsa-65">> -> 0;
+                    <<"ssh-mldsa-87">> -> 0;
+                    _ ->
+                        %% Preserve the flags historically sent for the
+                        %% other key types. OpenSSH ignores them unless the
+                        %% key is RSA.
+                        ?SSH_AGENT_RSA_SHA2_256 bor ?SSH_AGENT_RSA_SHA2_512
+                end,
     SignRequest = #ssh_agent_sign_request{key_blob = PubKeyBlob, data = SigData, flags = SignFlags},
     SignResponse = ssh_agent:send(SignRequest, KeyCbOpts),
     #ssh_agent_sign_response{signature = #ssh_agent_signature{blob = Blob}} = SignResponse,
