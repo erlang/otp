@@ -238,6 +238,10 @@ supported_algorithms(public_key) ->
        {'ecdsa-sha2-nistp256',  [{public_keys,ecdsa}, {hashs,sha256}, {curves,secp256r1}]},
        {'rsa-sha2-512',         [{public_keys,rsa},   {hashs,sha512}                      ]},
        {'rsa-sha2-256',         [{public_keys,rsa},   {hashs,sha256}                      ]},
+       %% Prefer established, smaller signatures while ML-DSA is a draft.
+       {'ssh-mldsa-87',         [{public_keys,mldsa87}                                      ]},
+       {'ssh-mldsa-65',         [{public_keys,mldsa65}                                      ]},
+       {'ssh-mldsa-44',         [{public_keys,mldsa44}                                      ]},
        {'ssh-rsa',              [{public_keys,rsa},   {hashs,sha}                         ]},
        {'ssh-dss',              [{public_keys,dss},   {hashs,sha}                         ]} % Gone in OpenSSH 7.3.p1
       ]);
@@ -1127,8 +1131,9 @@ call_KeyCb(F, Args, Opts) ->
 
 
 verify_host_key(#ssh{algorithms=Alg}=SSH, PublicKey, Digest, {AlgStr,Signature}) ->
-    case atom_to_list(Alg#alg.hkey) of
-        AlgStr ->
+    case {atom_to_list(Alg#alg.hkey),
+          valid_key_sha_alg(public, PublicKey, Alg#alg.hkey)} of
+        {AlgStr, true} ->
             case verify(Digest, Alg#alg.hkey, Signature, PublicKey, SSH) of
                 false ->
                     {error, bad_signature};
@@ -1197,6 +1202,9 @@ yes_no(#ssh{opts=Opts}, Prompt)  ->
 
 fmt_hostkey('ssh-rsa') -> "RSA";
 fmt_hostkey('ssh-dss') -> "DSA";
+fmt_hostkey('ssh-mldsa-44') -> "ML-DSA-44";
+fmt_hostkey('ssh-mldsa-65') -> "ML-DSA-65";
+fmt_hostkey('ssh-mldsa-87') -> "ML-DSA-87";
 fmt_hostkey('ssh-ed25519') -> "ED25519";
 fmt_hostkey('ssh-ed448') -> "ED448";
 fmt_hostkey(A) when is_atom(A) -> fmt_hostkey(atom_to_list(A));
@@ -1793,8 +1801,26 @@ mk_dss_sig(DerSignature) ->
     <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>>.
 
 %%%----------------------------------------------------------------
+verify(PlainText, Alg, Sig, #'ML-DSAPublicKey'{} = Key, Ssh) ->
+    case valid_key_sha_alg(public, Key, Alg) andalso
+        valid_mldsa_signature_size(Alg, Sig) of
+        true ->
+            do_verify(PlainText, none, Sig, Key, Ssh);
+        false ->
+            false
+    end;
 verify(PlainText, Alg, Sig, Key, Ssh) ->
     do_verify(PlainText, sha(Alg), Sig, Key, Ssh).
+
+
+valid_mldsa_signature_size('ssh-mldsa-44', Sig) ->
+    is_binary(Sig) andalso byte_size(Sig) == 2420;
+valid_mldsa_signature_size('ssh-mldsa-65', Sig) ->
+    is_binary(Sig) andalso byte_size(Sig) == 3309;
+valid_mldsa_signature_size('ssh-mldsa-87', Sig) ->
+    is_binary(Sig) andalso byte_size(Sig) == 4627;
+valid_mldsa_signature_size(_, _) ->
+    false.
 
 
 do_verify(PlainText, HashAlg, Sig, {_,  #'Dss-Parms'{}} = Key, _) ->
@@ -2358,6 +2384,11 @@ valid_key_sha_alg(private, #'RSAPrivateKey'{}, 'rsa-sha2-384') -> true;
 valid_key_sha_alg(private, #'RSAPrivateKey'{}, 'rsa-sha2-256') -> true;
 valid_key_sha_alg(private, #'RSAPrivateKey'{}, 'ssh-rsa'     ) -> true;
 
+valid_key_sha_alg(public, #'ML-DSAPublicKey'{algorithm = MLDSA}, Alg) ->
+    mldsa_ssh_alg(MLDSA) == Alg;
+valid_key_sha_alg(private, #'ML-DSAPrivateKey'{algorithm = MLDSA}, Alg) ->
+    mldsa_ssh_alg(MLDSA) == Alg;
+
 valid_key_sha_alg(public, {_, #'Dss-Parms'{}}, 'ssh-dss') -> true;
 valid_key_sha_alg(private, #'DSAPrivateKey'{},  'ssh-dss') -> true;
 
@@ -2372,17 +2403,26 @@ valid_key_sha_alg_ec(OID, Alg) when is_tuple(OID) ->
     Alg == ssh_message:oid2ssh_curve_algo(OID);
 valid_key_sha_alg_ec(_, _) -> false.
 
+
+mldsa_ssh_alg(mldsa44) -> 'ssh-mldsa-44';
+mldsa_ssh_alg(mldsa65) -> 'ssh-mldsa-65';
+mldsa_ssh_alg(mldsa87) -> 'ssh-mldsa-87'.
+
     
 
 -dialyzer({no_match, public_algo/1}).
 
 public_algo(#'RSAPublicKey'{}) ->   'ssh-rsa';  % FIXME: Not right with draft-curdle-rsa-sha2
+public_algo(#'ML-DSAPublicKey'{algorithm = MLDSA}) -> mldsa_ssh_alg(MLDSA);
 public_algo({_, #'Dss-Parms'{}}) -> 'ssh-dss';
 public_algo({#'ECPoint'{},{namedCurve,OID}}) when is_tuple(OID) ->
     ssh_message:oid2ssh_curve_algo(OID).
 
 
 sha('ssh-rsa') -> sha;
+sha('ssh-mldsa-44') -> none;
+sha('ssh-mldsa-65') -> none;
+sha('ssh-mldsa-87') -> none;
 sha('rsa-sha2-256') -> sha256;
 sha('rsa-sha2-384') -> sha384;
 sha('rsa-sha2-512') -> sha512;

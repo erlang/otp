@@ -87,13 +87,13 @@
 
 %% Cryptographic limits
 
-%% Accommodates RSA-8192 keys (~1046 bytes, largest supported key type)
-%% and post-quantum algorithms (Dilithium5: 2592 bytes). Other key
+%% Accommodates RSA-8192 keys (~1046 bytes) and post-quantum
+%% algorithms (ML-DSA-87: 2592 bytes). Other key
 %% types are much smaller: DSA-1024 (~431 bytes), ECDSA P-521 (~172
 %% bytes), Ed25519 (~51 bytes)
 -define(MAX_HOST_KEY_SIZE, 4096).
 %% Accommodates RSA-8192 signatures (~1039 bytes) and post-quantum
-%% algorithms (Dilithium5: 4595 bytes). Provides consistent PQ
+%% algorithms (ML-DSA-87: 4627 bytes). Provides consistent PQ
 %% readiness with MAX_HOST_KEY_SIZE.
 -define(MAX_SIGNATURE_SIZE, 5120).
 
@@ -256,6 +256,9 @@ ssh:daemon(Port, [{subsystems, [ssh_sftpd:subsystem_spec([])]} | Options])
 
 -doc(#{group => <<"Common Options">>}).
 -type pubkey_alg()  ::
+        'ssh-mldsa-87' |
+        'ssh-mldsa-65' |
+        'ssh-mldsa-44' |
         'ecdsa-sha2-nistp256' |
         'ecdsa-sha2-nistp384' |
         'ecdsa-sha2-nistp521' |
