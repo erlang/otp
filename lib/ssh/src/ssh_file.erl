@@ -91,8 +91,14 @@ Clients uses all files stored in the [USERDIR](`m:ssh_file#USERDIR`) directory.
     key for curve 25519 (optional)
   - `ssh_host_ed448_key`{: #FILE-ssh_host_ed448_key } \- private eddsa host key
     for curve 448 (optional)
+  - `ssh_host_mldsa44_key`, `ssh_host_mldsa65_key`, and
+    `ssh_host_mldsa87_key` \- private ML-DSA host keys in PKCS#8 PEM format
+    (optional)
 
-  The key files could be generated with OpenSSH's ssh-keygen command.
+  The classical key files can be generated with OpenSSH's `ssh-keygen`
+  command. ML-DSA keys use unencrypted PKCS#8 PEM; for example, OpenSSL 3.5
+  or later can generate an ML-DSA-65 key with
+  `openssl genpkey -algorithm ML-DSA-65 -out ssh_host_mldsa65_key`.
 
   At least one host key must be defined. The default value of SYSDIR is
   `/etc/ssh`{: ##/etc/ssh }.
@@ -124,6 +130,9 @@ Clients uses all files stored in the [USERDIR](`m:ssh_file#USERDIR`) directory.
     option :: % All options are skipped
     keytype :: 'ssh-dsa'
              | 'ssh-rsa'
+             | 'ssh-mldsa-44'
+             | 'ssh-mldsa-65'
+             | 'ssh-mldsa-87'
              | 'ssh-ecdsa-nistp256'
     	 | 'ssh-ecdsa-nistp384'
              | 'ssh-ecdsa-nistp521'
@@ -152,6 +161,9 @@ Clients uses all files stored in the [USERDIR](`m:ssh_file#USERDIR`) directory.
     port :: portnumber | '*'
     keytype :: 'ssh-dsa'
              | 'ssh-rsa'
+             | 'ssh-mldsa-44'
+             | 'ssh-mldsa-65'
+             | 'ssh-mldsa-87'
              | 'ssh-ecdsa-nistp256'
     	 | 'ssh-ecdsa-nistp384'
              | 'ssh-ecdsa-nistp521'
@@ -168,8 +180,13 @@ Clients uses all files stored in the [USERDIR](`m:ssh_file#USERDIR`) directory.
     (optional)
   - `id_ed448`{: #FILE-id_ed448 } \- private eddsa user key for curve 448
     (optional)
+  - `id_mldsa44`, `id_mldsa65`, and `id_mldsa87` \- private ML-DSA user keys
+    in PKCS#8 PEM format (optional)
 
-  The key files could be generated with OpenSSH's ssh-keygen command.
+  The classical key files can be generated with OpenSSH's `ssh-keygen`
+  command. ML-DSA keys use unencrypted PKCS#8 PEM; for example, OpenSSL 3.5
+  or later can generate an ML-DSA-65 key with
+  `openssl genpkey -algorithm ML-DSA-65 -out id_mldsa65`.
 
   The default value of USERDIR is
   `/home/`[`LOCALUSER`](`m:ssh_file#LOCALUSER`)`/.ssh`.
@@ -282,6 +299,9 @@ Implements `c:ssh_server_key_api:host_key/2`.
 - [`SYSDIR/ssh_host_ecdsa_key`](`m:ssh_file#FILE-ssh_host_ecdsa_key`)
 - [`SYSDIR/ssh_host_ed25519_key`](`m:ssh_file#FILE-ssh_host_ed25519_key`)
 - [`SYSDIR/ssh_host_ed448_key`](`m:ssh_file#FILE-ssh_host_ed448_key`)
+- `SYSDIR/ssh_host_mldsa44_key`
+- `SYSDIR/ssh_host_mldsa65_key`
+- `SYSDIR/ssh_host_mldsa87_key`
 """.
 -doc(#{since => <<"OTP 21.2">>, group => <<"Callback Implementations">>}).
 -spec host_key(Algorithm, Options) -> Result when
@@ -345,6 +365,9 @@ Note that EdDSA passhrases (Curves 25519 and 448) are not implemented.
 - [`USERDIR/id_ecdsa`](`m:ssh_file#FILE-id_ecdsa`)
 - [`USERDIR/id_ed25519`](`m:ssh_file#FILE-id_ed25519`)
 - [`USERDIR/id_ed448`](`m:ssh_file#FILE-id_ed448`)
+- `USERDIR/id_mldsa44`
+- `USERDIR/id_mldsa65`
+- `USERDIR/id_mldsa87`
 """.
 -doc(#{since => <<"OTP 21.2">>, group => <<"Callback Implementations">>}).
 -spec user_key(Algorithm, Options) -> Result when
@@ -571,6 +594,7 @@ decode(Bin, auth_keys) when is_binary(Bin) ->
         [Options,_KeyType,KeyBin|Comment] <-
             case binary:match(L, [<<"ssh-rsa">>,
                                   <<"rsa-sha2-">>,
+                                  <<"ssh-mldsa-">>,
                                   <<"ssh-dss">>,
                                   <<"ecdsa-sha2-nistp">>,
                                   <<"ssh-ed">>
@@ -692,6 +716,15 @@ extract_public_key(#'RSAPrivateKey'{modulus = N, publicExponent = E}) ->
     #'RSAPublicKey'{modulus = N, publicExponent = E};
 extract_public_key(#'DSAPrivateKey'{y = Y, p = P, q = Q, g = G}) ->
     {Y,  #'Dss-Parms'{p=P, q=Q, g=G}};
+extract_public_key(#'ML-DSAPrivateKey'{algorithm = Algorithm, seed = Seed})
+  when is_binary(Seed), byte_size(Seed) > 0 ->
+    {Public, _} = crypto:generate_key(Algorithm, [], {seed, Seed}),
+    #'ML-DSAPublicKey'{algorithm = Algorithm, key = Public};
+extract_public_key(#'ML-DSAPrivateKey'{algorithm = Algorithm,
+                                       expandedkey = ExpandedKey})
+  when is_binary(ExpandedKey), byte_size(ExpandedKey) > 0 ->
+    {Public, _} = crypto:generate_key(Algorithm, [], ExpandedKey),
+    #'ML-DSAPublicKey'{algorithm = Algorithm, key = Public};
 extract_public_key(#'ECPrivateKey'{parameters = {namedCurve,OID},
 				   publicKey = Pub0, privateKey = Priv}) when
       OID == ?'id-Ed25519' orelse
@@ -1236,6 +1269,9 @@ file_base_name(user,   'rsa-sha2-256'       ) -> "id_rsa";
 file_base_name(user,   'rsa-sha2-384'       ) -> "id_rsa";
 file_base_name(user,   'rsa-sha2-512'       ) -> "id_rsa";
 file_base_name(user,   'ssh-dss'            ) -> "id_dsa";
+file_base_name(user,   'ssh-mldsa-44'       ) -> "id_mldsa44";
+file_base_name(user,   'ssh-mldsa-65'       ) -> "id_mldsa65";
+file_base_name(user,   'ssh-mldsa-87'       ) -> "id_mldsa87";
 file_base_name(user,   'ssh-ed25519'        ) -> "id_ed25519";
 file_base_name(user,   'ssh-ed448'          ) -> "id_ed448";
 file_base_name(user,   'ssh-rsa'            ) -> "id_rsa";
@@ -1246,6 +1282,9 @@ file_base_name(system, 'rsa-sha2-256'       ) -> "ssh_host_rsa_key";
 file_base_name(system, 'rsa-sha2-384'       ) -> "ssh_host_rsa_key";
 file_base_name(system, 'rsa-sha2-512'       ) -> "ssh_host_rsa_key";
 file_base_name(system, 'ssh-dss'            ) -> "ssh_host_dsa_key";
+file_base_name(system, 'ssh-mldsa-44'       ) -> "ssh_host_mldsa44_key";
+file_base_name(system, 'ssh-mldsa-65'       ) -> "ssh_host_mldsa65_key";
+file_base_name(system, 'ssh-mldsa-87'       ) -> "ssh_host_mldsa87_key";
 file_base_name(system, 'ssh-ed25519'        ) -> "ssh_host_ed25519_key";
 file_base_name(system, 'ssh-ed448'          ) -> "ssh_host_ed448_key";
 file_base_name(system, 'ssh-rsa'            ) -> "ssh_host_rsa_key";

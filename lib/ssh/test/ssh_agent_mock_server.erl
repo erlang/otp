@@ -93,7 +93,7 @@ handle_request(<<11>>, #state{pub_key=PubKey}) ->
     >>;
 
 handle_request(<<13, Rest/binary>>, #state{priv_key=PrivKey, pub_key=PubKey, sig_alg=SigAlg}) ->
-    Flags = ?SSH_AGENT_RSA_SHA2_256 bor ?SSH_AGENT_RSA_SHA2_512,
+    Flags = sign_flags(SigAlg),
     <<?DEC_BIN(PubKey, _KeyBlobLen), ?DEC_BIN(Data, _DataLen), ?Euint32(Flags)>> = Rest,
 
     Hash = ssh_transport:sha(SigAlg),
@@ -154,7 +154,11 @@ extract_pubkey(PrivKey) ->
     PubKey = ssh_file:extract_public_key(PrivKey),
     ssh_message:ssh2_pubkey_encode(PubKey).
 
+sign_flags('ssh-mldsa-65') -> 0;
+sign_flags(_) -> ?SSH_AGENT_RSA_SHA2_256 bor ?SSH_AGENT_RSA_SHA2_512.
+
 sig_format('ssh-rsa') -> <<"ssh-rsa">>;
 sig_format('rsa-sha2-256') -> <<"ssh-rsa">>;
 sig_format('rsa-sha2-384') -> <<"ssh-rsa">>;
-sig_format('rsa-sha2-512') -> <<"ssh-rsa">>.
+sig_format('rsa-sha2-512') -> <<"ssh-rsa">>;
+sig_format('ssh-mldsa-65') -> <<"ssh-mldsa-65">>.

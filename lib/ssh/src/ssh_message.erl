@@ -650,6 +650,16 @@ decode(<<?BYTE(?SSH_MSG_DEBUG), ?BYTE(_), ?DEC_BIN(_, MLen), ?DEC_BIN(_, LLen)>>
 ssh2_pubkey_encode(#'RSAPublicKey'{modulus = N, publicExponent = E}) ->
     <<?STRING(<<"ssh-rsa">>), ?Empint(E), ?Empint(N)>>;
 
+ssh2_pubkey_encode(#'ML-DSAPublicKey'{algorithm = mldsa44, key = Key})
+  when byte_size(Key) == 1312 ->
+    <<?STRING(<<"ssh-mldsa-44">>), ?Ebinary(Key)>>;
+ssh2_pubkey_encode(#'ML-DSAPublicKey'{algorithm = mldsa65, key = Key})
+  when byte_size(Key) == 1952 ->
+    <<?STRING(<<"ssh-mldsa-65">>), ?Ebinary(Key)>>;
+ssh2_pubkey_encode(#'ML-DSAPublicKey'{algorithm = mldsa87, key = Key})
+  when byte_size(Key) == 2592 ->
+    <<?STRING(<<"ssh-mldsa-87">>), ?Ebinary(Key)>>;
+
 ssh2_pubkey_encode({Y,  #'Dss-Parms'{p = P, q = Q, g = G}}) ->
     <<?STRING(<<"ssh-dss">>), ?Empint(P), ?Empint(Q), ?Empint(G), ?Empint(Y)>>;
 
@@ -675,7 +685,7 @@ ssh2_pubkey_encode({#'ECPoint'{point = Q}, {namedCurve,OID}}) ->
 
 %%%--------
 ssh2_pubkey_decode(KeyBlob) ->
-    {Key,_RestBlob} = ssh2_pubkey_decode2(KeyBlob),
+    {Key, <<>>} = ssh2_pubkey_decode2(KeyBlob),
     Key.
     
 ssh2_pubkey_decode2(<<?UINT32(7), "ssh-rsa",
@@ -685,6 +695,18 @@ ssh2_pubkey_decode2(<<?UINT32(7), "ssh-rsa",
     {#'RSAPublicKey'{modulus = N,
                      publicExponent = E
                     }, Rest};
+ssh2_pubkey_decode2(<<?UINT32(12), "ssh-mldsa-44",
+                      ?UINT32(1312), Key:1312/binary,
+                      Rest/binary>>) ->
+    {#'ML-DSAPublicKey'{algorithm = mldsa44, key = Key}, Rest};
+ssh2_pubkey_decode2(<<?UINT32(12), "ssh-mldsa-65",
+                      ?UINT32(1952), Key:1952/binary,
+                      Rest/binary>>) ->
+    {#'ML-DSAPublicKey'{algorithm = mldsa65, key = Key}, Rest};
+ssh2_pubkey_decode2(<<?UINT32(12), "ssh-mldsa-87",
+                      ?UINT32(2592), Key:2592/binary,
+                      Rest/binary>>) ->
+    {#'ML-DSAPublicKey'{algorithm = mldsa87, key = Key}, Rest};
 ssh2_pubkey_decode2(<<?UINT32(7), "ssh-dss",
                       ?DEC_INT(P, _PL),
                       ?DEC_INT(Q, _QL),
@@ -939,13 +961,22 @@ decode_kex_init(<<?DEC_BIN(Data,__0), _Rest/binary>>, _Acc, N) ->
 %%% Signature decode/encode
 %%%
 
-decode_signature(<<?DEC_BIN(Alg,__0), ?UINT32(_), Signature/binary>>) ->
+decode_signature(<<?DEC_BIN(Alg, __0), ?DEC_BIN(Signature, _SignatureLen)>>) ->
     {binary_to_list(Alg), Signature}.
 
 
 encode_signature(#'RSAPublicKey'{}, SigAlg, Signature) ->
     SignName = list_to_binary(atom_to_list(SigAlg)),
     <<?Ebinary(SignName), ?Ebinary(Signature)>>;
+encode_signature(#'ML-DSAPublicKey'{algorithm = mldsa44}, 'ssh-mldsa-44', Signature)
+  when byte_size(Signature) == 2420 ->
+    <<?Ebinary(<<"ssh-mldsa-44">>), ?Ebinary(Signature)>>;
+encode_signature(#'ML-DSAPublicKey'{algorithm = mldsa65}, 'ssh-mldsa-65', Signature)
+  when byte_size(Signature) == 3309 ->
+    <<?Ebinary(<<"ssh-mldsa-65">>), ?Ebinary(Signature)>>;
+encode_signature(#'ML-DSAPublicKey'{algorithm = mldsa87}, 'ssh-mldsa-87', Signature)
+  when byte_size(Signature) == 4627 ->
+    <<?Ebinary(<<"ssh-mldsa-87">>), ?Ebinary(Signature)>>;
 encode_signature({_, #'Dss-Parms'{}}, _SigAlg, Signature) ->
     <<?Ebinary(<<"ssh-dss">>), ?Ebinary(Signature)>>;
 encode_signature({#'ECPoint'{}, {namedCurve,OID}}, _SigAlg, Signature) ->
