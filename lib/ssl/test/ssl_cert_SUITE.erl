@@ -160,7 +160,9 @@
          legacy_server_certificate_authorities_disabled/0,
          legacy_server_certificate_authorities_disabled/1,
          cert_auth_in_first_ca/0,
-         cert_auth_in_first_ca/1
+         cert_auth_in_first_ca/1,
+         mldsa_expanded_keyfile/0,
+         mldsa_expanded_keyfile/1
         ]).
 
 %%--------------------------------------------------------------------
@@ -202,7 +204,8 @@ groups() ->
            signature_algorithms_bad_curve_secp384r1,
            signature_algorithms_bad_curve_secp521r1]},
      {eddsa, [parallel], all_version_tests() ++ tls_1_3_tests()},
-     {mldsa, [parallel], all_version_tests() ++ tls_1_3_tests()},
+     {mldsa, [parallel], all_version_tests() ++ tls_1_3_tests() ++
+          [mldsa_expanded_keyfile]},
      {slhdsa_sha2, [parallel], all_version_tests() ++ tls_1_3_tests()},
      {slhdsa_shake, [parallel], all_version_tests() ++ tls_1_3_tests()}
     ].
@@ -425,6 +428,41 @@ auth() ->
     ssl_cert_tests:auth().
 auth(Config) ->
     ssl_cert_tests:auth(Config).
+%%--------------------------------------------------------------------
+mldsa_expanded_keyfile() ->
+    [{doc, "Load an expanded-only ML-DSA PKCS#8 server key and sign a TLS 1.3 handshake"}].
+
+mldsa_expanded_keyfile(Config) when is_list(Config) ->
+    lists:foreach(
+      fun(Alg) ->
+              ct:log("Testing expanded-only ~p server keyfile", [Alg]),
+              {Public, ExpandedKey} = crypto:generate_key(Alg, []),
+              true = byte_size(ExpandedKey) > 0,
+              PublicKey = #'ML-DSAPublicKey'{algorithm = Alg, key = Public},
+              %% Construct the expanded-only record explicitly, independently
+              %% of public_key:generate_key/1's private-key representation.
+              PrivateKey = #'ML-DSAPrivateKey'{algorithm = Alg,
+                                                 seed = <<>>,
+                                                 expandedkey = ExpandedKey},
+              CertData = ssl_test_lib:make_cert_chains_der(
+                           proplists:get_value(cert_key_alg, Config),
+                           [{server_chain,
+                             [[], [], [{key, {both, PublicKey, PrivateKey}}]]}]),
+              Base = filename:join(proplists:get_value(priv_dir, Config),
+                                   atom_to_list(Alg) ++ "_expanded_keyfile"),
+              [{server_config, ServerConf}, {client_config, ClientConf}] =
+                  x509_test:gen_pem_config_files(CertData, Base, Base),
+              KeyFile = proplists:get_value(keyfile, ServerConf),
+              [{'PrivateKeyInfo', _, not_encrypted}] = ssl_test_lib:pem_to_der(KeyFile),
+              %% Pass the filename to SSL: it must decode the private key and
+              %% use the expanded key for CertificateVerify, without a seed.
+              ClientOpts = ssl_test_lib:ssl_options(
+                             extra_client, [{verify, verify_peer} | ClientConf], Config),
+              ServerOpts = ssl_test_lib:ssl_options(
+                             extra_server, [{verify, verify_none} | ServerConf], Config),
+              ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config)
+      end, [mldsa44, mldsa65, mldsa87]).
+
 %%--------------------------------------------------------------------
 client_auth_custom_key() ->
     ssl_cert_tests:client_auth_custom_key().
