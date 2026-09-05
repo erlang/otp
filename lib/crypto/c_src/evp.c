@@ -221,7 +221,7 @@ ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 /* (Curve) */
 {
-#ifdef HAVE_EDDH
+#if defined(HAVE_EDDH) || defined(HAVE_ML_DSA)
     int type;
     EVP_PKEY_CTX *ctx = NULL;
     EVP_PKEY *pkey = NULL;
@@ -230,18 +230,23 @@ ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     size_t key_len;
     unsigned char *out_pub = NULL, *out_priv = NULL;
     struct pkey_type_t *pkey_type = get_pkey_type(argv[0]);
+    int private_is_seed = 0;
 
     if (pkey_type) {
         type = pkey_type->evp_pkey_id;
     }
+#ifdef HAVE_X25519
     else if (argv[0] == atom_x25519)
         type = EVP_PKEY_X25519;
+#endif
 #ifdef HAVE_X448
     else if (argv[0] == atom_x448)
         type = EVP_PKEY_X448;
 #endif
+#ifdef HAVE_ED25519
     else if (argv[0] == atom_ed25519)
         type = EVP_PKEY_ED25519;
+#endif
 #ifdef HAVE_ED448
     else if (argv[0] == atom_ed448)
         type = EVP_PKEY_ED448;
@@ -266,7 +271,32 @@ ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
             assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_keygen_init"));
         if (EVP_PKEY_keygen(ctx, &pkey) != 1)
             assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_keygen"));
-    } else {
+    }
+#ifdef HAS_3_0_API
+    else if (pkey_type && pkey_type->allow_seed &&
+             enif_is_tuple(env, argv[1])) {
+        const ERL_NIF_TERM* tpl_array;
+        int tpl_arity;
+        ErlNifBinary seed;
+
+        if (!enif_get_tuple(env, argv[1], &tpl_arity, &tpl_array) ||
+            tpl_arity != 2 || tpl_array[0] != atom_seed) {
+            assign_goto(ret, err,
+                        EXCP_BADARG_N(env, 1, "Expected {seed, Seed}"));
+        }
+        if (!enif_inspect_binary(env, tpl_array[1], &seed)) {
+            assign_goto(ret, err,
+                        EXCP_BADARG_N(env, 1, "Seed must be a binary"));
+        }
+        if (!get_pkey_from_octet_string(env, argv[0], tpl_array[1],
+                                        PKEY_PRIV_SEED, pkey_type, &pkey, &ret)) {
+            goto err;
+        }
+        ret_prv = argv[1];
+        private_is_seed = 1;
+    }
+#endif
+    else {
         if (!enif_inspect_binary(env, argv[1], &prv_key))
             assign_goto(ret, err, EXCP_ERROR_N(env, 1, "Can't get max size"));
         if ((pkey = EVP_PKEY_new_raw_private_key(type, NULL, prv_key.data, prv_key.size)) == NULL)
@@ -280,12 +310,14 @@ ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     if (EVP_PKEY_get_raw_public_key(pkey, out_pub, &key_len) != 1)
         assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_get_raw_public_key"));
 
-    if (EVP_PKEY_get_raw_private_key(pkey, NULL, &key_len) != 1)
-        assign_goto(ret, err, EXCP_ERROR_N(env, 1, "Can't get max size"));
-    if ((out_priv = enif_make_new_binary(env, key_len, &ret_prv)) == NULL)
-        assign_goto(ret, err, EXCP_ERROR(env, "Can't allocate"));
-    if (EVP_PKEY_get_raw_private_key(pkey, out_priv, &key_len) != 1)
-        assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_get_raw_private_key"));
+    if (!private_is_seed) {
+        if (EVP_PKEY_get_raw_private_key(pkey, NULL, &key_len) != 1)
+            assign_goto(ret, err, EXCP_ERROR_N(env, 1, "Can't get max size"));
+        if ((out_priv = enif_make_new_binary(env, key_len, &ret_prv)) == NULL)
+            assign_goto(ret, err, EXCP_ERROR(env, "Can't allocate"));
+        if (EVP_PKEY_get_raw_private_key(pkey, out_priv, &key_len) != 1)
+            assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_get_raw_private_key"));
+    }
 
     ret = enif_make_tuple2(env, ret_pub, ret_prv);
     goto done;
@@ -299,7 +331,7 @@ ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     return ret;
 
 #else
-    return EXCP_NOTSUP(env, "EDDH not supported");
+    return EXCP_NOTSUP(env, "EVP key generation not supported");
 #endif
 }
 
