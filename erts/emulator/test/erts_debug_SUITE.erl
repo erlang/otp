@@ -71,7 +71,7 @@ test_size(Config) when is_list(Config) ->
     3 = do_test_size({a,b}),
     7 = do_test_size({a,[b,c]}),
     8 = do_test_size(#{b => 2,c => 3}),
-    3 = do_test_size(#{}),
+    0 = do_test_size(#{}),
     32 = do_test_size(#{b => 2,c => 3,txt => "hello world"}),
 
     true = do_test_size(maps:from_list([{I,I}||I<-lists:seq(1,256)])) >= map_size_lower_bound(256),

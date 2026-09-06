@@ -476,8 +476,7 @@ erl_debugger_breakpoints_1(BIF_ALIST_1) {
         goto error;
     }
 
-    hp = HAlloc(BIF_P, MAP0_SZ);
-    result = MAP0(hp);
+    result = ERTS_GLOBAL_LIT_EMPTY_MAP;
 
     for(int fun_idx = 0; fun_idx < code_hdr->num_functions; fun_idx++) {
         Eterm fun_lines = build_breakpoints_info_for_fun(BIF_P,
@@ -568,8 +567,7 @@ erl_debugger_breakpoints_3(BIF_ALIST_3) {
 }
 
 static Eterm build_breakpoints_info_for_fun(Process *c_p, const BeamCodeLineTab *lt, int fun_idx) {
-    Eterm *hp = HAlloc(c_p, MAP0_SZ);
-    Eterm fun_lines = MAP0(hp);
+    Eterm fun_lines = ERTS_GLOBAL_LIT_EMPTY_MAP;
 
     if (lt) {
         const void **fun_line_starts = lt->func_tab[fun_idx];
