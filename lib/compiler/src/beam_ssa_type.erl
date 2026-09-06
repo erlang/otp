@@ -417,11 +417,30 @@ sig_commit_args(Id, #sig_st{updates=Us,committed=Committed0}=State0) ->
     Types = map_get(Id, Us),
     Committed = Committed0#{ Id => Types },
     State = State0#sig_st{committed=Committed},
+
+    %% During the signature pass, argument types for each function
+    %% must only become monotonically wider, never narrower. It is
+    %% tempting to add an assertion for this here, but it would never
+    %% fire because the only way the argument types are updated is via
+    %% `sig_update_args/3`, which updates the argument types by joining
+    %% them with the previous argument types.
+
     {Types, State}.
 
 sig_update_args(Callee, Types, #sig_st{committed=Committed}=State) ->
     case Committed of
         #{ Callee := Current } ->
+            %% The arguments for each individual call site must never
+            %% get narrower. Currently, we cannot add an assertion for
+            %% this here because we don’t keep track of the arguments
+            %% for each call site (only the join of each argument from
+            %% all call sites).  Keeping track of each individual call
+            %% site (as we do in the optimizing type analysis pass)
+            %% could potentially allow us to abort as soon as a
+            %% narrower argument is seen. It is probably not worth it
+            %% because such bugs seem to be noticed anyway by the
+            %% `beam_validator` pass.
+
             case parallel_join(Current, Types) of
                 Current ->
                     %% We've already processed this function with these
@@ -791,6 +810,14 @@ opt_local_return(I, _Callee, _ArgTyps, _Fdb) ->
     I.
 
 update_arg_types([ArgType | ArgTypes], [TypeMap0 | TypeMaps], CallId) ->
+    %% Theoretically, each argument at each individual call site
+    %% should never get wider. In practice, we have optimizations (for
+    %% example, `combine_eqs/1` in `beam_ssa_dead`) that combine two
+    %% call sites into one, keeping the ID of one of the original call
+    %% sites and effectively widening the argument types of that call
+    %% site. If we were to add assertions that no argument is widened,
+    %% we would have to update those optimizations to invent a new
+    %% call ID (that is, create a new variable name).
     TypeMap = TypeMap0#{ CallId => ArgType },
     [TypeMap | update_arg_types(ArgTypes, TypeMaps, CallId)];
 update_arg_types([], [], _CallId) ->

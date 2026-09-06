@@ -3514,8 +3514,9 @@ bif_types(Op, Ss, Vst) ->
             {Ret0, ArgTypes, SubSafe} = Res0,
 
             %% Match the non-converging range analysis done in
-            %% `beam_ssa_type:opt_ranges/1`. This is safe since the validator
-            %% doesn't have to worry about convergence.
+            %% `beam_ssa_type:update_arith_types/4`. This is safe
+            %% since the validator doesn't have to worry about
+            %% convergence.
             case beam_call_types:arith_type({bif, Op}, Args) of
                 any -> Res0;
                 Ret0 -> Res0;
