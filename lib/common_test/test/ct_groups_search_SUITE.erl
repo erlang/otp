@@ -1014,7 +1014,7 @@ run_groups_with_options(Config) ->
 				({Path,_,_}) -> [Path]
 			     end, M1All),
 
-    %% ct:pal("NOW RUNNING M1 TEST: ~p", [M1All]),
+    %% ct:log("NOW RUNNING M1 TEST: ~p", [M1All]),
 
     {OptsM11,ERPidM11} = setup([{dir,DataDir},{suite,?M1},
 				{group,M1AllGrs},{label,m1_all_cases}], Config),
@@ -1024,7 +1024,7 @@ run_groups_with_options(Config) ->
     lists:foldl(
       fun({GrPath,TCs,Found}, N) ->
     	      TestName = list_to_atom("m1_spec_cases_" ++ integer_to_list(N)),
-	      %% ct:pal("NOW RUNNING M1 TEST ~p: ~p + ~p",
+	      %% ct:log("NOW RUNNING M1 TEST ~p: ~p + ~p",
 		%%     [TestName,GrPath,TCs]),
     	      {OptsM12,ERPidM12} = setup([{dir,DataDir},{suite,?M1},
     					  {group,GrPath},{testcase,TCs},
@@ -1034,7 +1034,7 @@ run_groups_with_options(Config) ->
     	      N+1
       end, 1, M1Rest),
     
-    %% ct:pal("NOW RUNNING M2 TEST: ~p", [M2All]),
+    %% ct:log("NOW RUNNING M2 TEST: ~p", [M2All]),
 
     M2AllGrs = lists:flatmap(fun({Path,_,_}) when is_atom(hd(Path)) -> Path;
 				({Path,_,_}) when is_list(hd(Path)) -> Path;
@@ -1051,7 +1051,7 @@ run_groups_with_options(Config) ->
     lists:foldl(
       fun({GrPath,TCs,Found}, N) ->
     	      TestName = list_to_atom("m2_spec_cases_" ++ integer_to_list(N)),
-           %% ct:pal("NOW RUNNING M2 TEST ~p: ~p + ~p", [TestName,GrPath,TCs]),
+           %% ct:log("NOW RUNNING M2 TEST ~p: ~p + ~p", [TestName,GrPath,TCs]),
     	      {OptsM22,ERPidM22} = setup([{dir,DataDir},{suite,?M2},
     					  {group,GrPath},{testcase,TCs},
     					  {label,TestName}], Config),
@@ -1101,7 +1101,7 @@ run_groups_with_testspec(Config) ->
     TestSpec = [{merge_tests,false},
 		{label,Name}] ++ GroupTerms,
 
-    ct:pal("Here's the test spec:~n~p", [TestSpec]),
+    ct:log("Here's the test spec:~n~p", [TestSpec]),
 
     TestSpecName = ct_test_support:write_testspec(TestSpec, PrivDir,
 						  "groups_search_spec"),
@@ -1139,7 +1139,7 @@ get_all_groups_and_cases(Config) ->
 
     MGTFs = [apply(?MODULE, TC, [Config]) || TC <- FindGrTCs],
 
-    ct:pal("Extracted data from ~p test cases", [length(MGTFs)]),
+    ct:log("Extracted data from ~p test cases", [length(MGTFs)]),
 
     lists:foldr(fun({M,Gs,TCs,F},
 		    {M11,M12,M21,M22}) ->
@@ -1200,7 +1200,7 @@ test_events(TestName, {GrPath,TCs,Found}, Events)
 	ok -> ok
     catch
 	throw:Reason ->
-	    ct:pal("Test failed for ~p with group path ~p and cases ~p"
+	    ct:log("Test failed for ~p with group path ~p and cases ~p"
 		   "~nReason: ~p", [TestName,GrPath,TCs,Reason]),
 	    throw(failed)
     end;
@@ -1222,7 +1222,7 @@ test_events(run_groups_with_testspec, Params, Events) ->
 	ok -> ok
     catch
 	throw:Reason ->
-	    ct:pal("Test failed for run_groups_with_testspec."
+	    ct:log("Test failed for run_groups_with_testspec."
 		   "~nReason: ~p", [Reason]),
 	    throw(failed)
     end.
@@ -1244,12 +1244,12 @@ check_events([{_,tc_start,{Mod,TC}} | Evs],
 	     [{Mod,TC} | Check]) when is_atom(TC) ->
     check_events(Evs, Check);
 check_events([{_,tc_start,{Mod,{init_per_group,G,_}}} | _Evs], Check) ->
-    ct:pal("CHECK FAILED!~nGroup ~p in ~p not found in ~p.",
+    ct:log("CHECK FAILED!~nGroup ~p in ~p not found in ~p.",
 	   [G,Mod,Check]),
     throw({test_not_found,{Mod,G}});
 check_events([{_,tc_start,{Mod,TC}} | _Evs], Check)
   when is_atom(TC), TC /= init_per_suite, TC /= end_per_suite ->
-    ct:pal("CHECK FAILED!~nCase ~p in ~p not found in ~p.",
+    ct:log("CHECK FAILED!~nCase ~p in ~p not found in ~p.",
 	   [TC,Mod,Check]),
     throw({test_not_found,{Mod,TC}});
 check_events([Group | Evs], Check) when is_list(Group) ->
@@ -1260,7 +1260,7 @@ check_events(_, []) ->
 check_events([Elem | Evs], Check) when is_tuple(Elem) ->
     check_events(Evs, Check);
 check_events([], Check = [_|_]) ->
-    ct:pal("CHECK FAILED!~nTests remain: ~p", [Check]),
+    ct:log("CHECK FAILED!~nTests remain: ~p", [Check]),
     throw({tests_remain,Check});
 check_events([Wut | _],_) ->
     throw({unexpected,Wut}).

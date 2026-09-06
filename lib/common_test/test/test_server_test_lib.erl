@@ -24,8 +24,8 @@
 -export([parse_suite/1]).
 -export([init/2, pre_init_per_testcase/3, post_end_per_testcase/4]).
 
-%% for test_server_SUITE when node cannot be started as slave
--export([prepare_tester_node/2]).
+%% for test_server_SUITE when node cannot be started as peer
+-export([prepare_tester_node/2, prepare_tester_node/3]).
 
 -include("test_server_test_lib.hrl").
 
@@ -49,10 +49,15 @@ start_slave(Config,_Level) ->
     
     ct:log("Trying to start ~s~n", 
 	   ["test_server_tester@"++Host]),
-    case slave:start(Host, test_server_tester, []) of
+    PeerStartOpts = #{
+      host => Host,
+      name => test_server_tester,
+      wait_boot => timer:seconds(5)
+    },
+    case peer:start(PeerStartOpts) of
 	{error,Reason} ->
 	    test_server:fail(Reason);
-	{ok,Node} ->
+	{ok, ControllingProcess, Node} ->
 	    ct:log("Node ~p started~n", [Node]),
 	    IsCover = test_server:is_cover(),
 	    if IsCover ->
@@ -60,10 +65,10 @@ start_slave(Config,_Level) ->
 	       true->
 		    ok
 	    end,
-	    prepare_tester_node(Node,Config)
+	    prepare_tester_node(Node, ControllingProcess, Config)
     end.
 
-prepare_tester_node(Node,Config) ->
+prepare_tester_node(Node, Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     %% We would normally use priv_dir for temporary data,
     %% but the pathnames gets too long on Windows.
@@ -89,7 +94,10 @@ prepare_tester_node(Node,Config) ->
 		    ["TEST_SERVER_FRAMEWORK", "undefined"]),
 
     ok = rpc:call(Node, file, set_cwd, [WorkDir]),
-    [{node,Node}, {work_dir,WorkDir} | Config].
+    [{node, Node}, {work_dir, WorkDir} | Config].
+
+prepare_tester_node(Node, ControllingProcess, Config) ->
+    [{node_controlling_process, ControllingProcess} | prepare_tester_node(Node, Config)].
 
 post_end_per_testcase(_TC, Config, Return, State) ->
     Node = proplists:get_value(node, Config),
@@ -98,7 +106,8 @@ post_end_per_testcase(_TC, Config, Return, State) ->
        true -> ok
     end,
     erlang:monitor_node(Node, true),
-    slave:stop(Node),
+    NodeController = proplists:get_value(node_controlling_process, Config),
+    peer:stop(NodeController),
     receive
 	{nodedown, Node} ->
 	    if Cover -> cover:stop(Node);
