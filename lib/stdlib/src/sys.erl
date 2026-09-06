@@ -746,7 +746,7 @@ remove(Name, FuncOrFuncId, Timeout) ->
 %% The receiving side should send Msg to handle_system_msg/5.
 %%-----------------------------------------------------------------
 send_system_msg(Name, Request) ->
-    try gen:call(Name, system, Request) of
+    try gen_gen:call(Name, system, Request) of
         {ok, Res} ->
             Res
     catch exit : Reason ->
@@ -754,7 +754,7 @@ send_system_msg(Name, Request) ->
     end.
 
 send_system_msg(Name, Request, Timeout) ->
-    try gen:call(Name, system, Request, Timeout) of
+    try gen_gen:call(Name, system, Request, Timeout) of
         {ok, Res} ->
             Res
     catch exit : Reason ->
@@ -830,13 +830,13 @@ handle_system_msg(Msg, From, Parent, Mod, Debug, Misc, Hib) ->
 handle_system_msg(SysState, Msg, From, Parent, Mod, Debug, Misc, Hib) ->
     case do_cmd(SysState, Msg, Parent, Mod, Debug, Misc) of
 	{suspended, Reply, NDebug, NMisc} ->
-	    _ = gen:reply(From, Reply),
+            _ = gen_gen:reply(From, Reply),
 	    suspend_loop(suspended, Parent, Mod, NDebug, NMisc, Hib);
 	{running, Reply, NDebug, NMisc} ->
-	    _ = gen:reply(From, Reply),
+            _ = gen_gen:reply(From, Reply),
             Mod:system_continue(Parent, NDebug, NMisc);
 	{{terminating, Reason}, Reply, NDebug, NMisc} ->
-	    _ = gen:reply(From, Reply),
+            _ = gen_gen:reply(From, Reply),
 	    Mod:system_terminate(Reason, Parent, NDebug, NMisc)
     end.
 
